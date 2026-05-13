@@ -952,22 +952,89 @@ document.addEventListener('mouseup', function(e){
     showDndToast((L?'❌ 그 시간엔 이미 다른 수업이 있어요':'❌ Slot already taken'),'bad');
     dnd.sourceEl=null;dnd.sourceData=null;dnd.lastTarget=null;return;
   }
-  // 슬롯 이동: 옛 위치 삭제 + 새 위치 추가
-  delete SLOTS[srcTeacher.id+'__'+srcCoords.dateISO+'__'+srcCoords.hour];
-  addSlot(dstTeacher.id,dstCoords.dateISO,dstCoords.hour,srcData.slot);
-  // 토스트 메시지
+  // 슬롯 이동 *전*에 확인 모달 띄우기
   var srcNm=(currentLang==='en'&&srcTeacher.name_en)?srcTeacher.name_en:srcTeacher.name;
   var dstNm=(currentLang==='en'&&dstTeacher.name_en)?dstTeacher.name_en:dstTeacher.name;
   var movedTeacher=(srcTeacher.id!==dstTeacher.id);
-  var msg=L
-    ? ('✅ '+ (movedTeacher?'<b>'+escapeHtml(srcNm)+'</b> → <b>'+escapeHtml(dstNm)+'</b><br>':'')+ '시간이 ' + dstCoords.dateISO + ' ' + String(dstCoords.hour).padStart(2,'0') + ':00 으로 이동됨')
-    : ('✅ '+ (movedTeacher?'<b>'+escapeHtml(srcNm)+'</b> → <b>'+escapeHtml(dstNm)+'</b><br>':'')+ 'Moved to ' + dstCoords.dateISO + ' ' + String(dstCoords.hour).padStart(2,'0') + ':00');
-  showDndToast(msg,'ok');
-  // 다시 렌더 (slight delay so user sees toast)
+  showMoveConfirm({
+    srcTeacher:srcTeacher, dstTeacher:dstTeacher,
+    srcCoords:srcCoords, dstCoords:dstCoords,
+    srcNm:srcNm, dstNm:dstNm, movedTeacher:movedTeacher,
+    srcData:srcData
+  });
   dnd.sourceEl=null;dnd.sourceData=null;dnd.lastTarget=null;
   dnd.active=false;
-  render();
 }, true);
+
+// ═══ 드래그 이동 확인 모달 ═══
+function showMoveConfirm(ctx){
+  var L=currentLang==='ko';
+  var typeLabel={
+    'blocked':L?'🚫 수업 불가':'🚫 Blocked',
+    '1on1':L?'🟣 1대1 수업':'🟣 1-on-1',
+    'group':L?'💗 그룹 수업':'💗 Group',
+    'temp':L?'🔵 임시 수업':'🔵 Temporary'
+  }[ctx.srcData.slot.type]||ctx.srcData.slot.type;
+  var students=ctx.srcData.slot.students||[];
+  var stuLine=students.length>0
+    ? (students.length===1
+        ? '👤 '+escapeHtml(students[0].name)+' <span style="color:#94a3b8;font-size:11px">('+escapeHtml(students[0].uid)+')</span>'
+        : (L?'👥 그룹 ':'👥 Group ')+students.length+(L?'명':''))
+    : (ctx.srcData.slot.note?'📝 '+escapeHtml(ctx.srcData.slot.note):'');
+  var srcTime=ctx.srcCoords.dateISO+' '+String(ctx.srcCoords.hour).padStart(2,'0')+':00';
+  var dstTime=ctx.dstCoords.dateISO+' '+String(ctx.dstCoords.hour).padStart(2,'0')+':00';
+
+  var html='<div class="modal" style="max-width:480px;width:calc(100% - 32px)">'+
+    '<div class="modal-head"><div class="modal-title">'+
+    '<span style="font-size:24px">⚠️</span> <span>'+(L?'정말 수업을 변경하실건가요?':'Really move this class?')+'</span>'+
+    '</div></div>'+
+    '<div class="modal-body">'+
+      '<div style="text-align:center;font-size:13.5px;color:var(--tx2);margin-bottom:16px">'+
+      typeLabel+'<br>'+stuLine+'</div>'+
+      '<div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center">'+
+        '<div class="modal-date" style="border-left:4px solid #ef4444">'+
+          '<div class="dlbl" style="color:#fca5a5">'+(L?'기존':'From')+'</div>'+
+          '<div class="dval" style="font-size:13px">'+srcTime+'</div>'+
+          (ctx.movedTeacher?'<div style="font-size:11px;color:#94a3b8;margin-top:3px">'+escapeHtml(ctx.srcNm)+'</div>':'')+
+        '</div>'+
+        '<div style="font-size:30px;color:#fbbf24;text-align:center">→</div>'+
+        '<div class="modal-date" style="border-left:4px solid #10b981">'+
+          '<div class="dlbl" style="color:#6ee7b7">'+(L?'새 시간':'New')+'</div>'+
+          '<div class="dval" style="font-size:13px">'+dstTime+'</div>'+
+          (ctx.movedTeacher?'<div style="font-size:11px;color:#fde68a;margin-top:3px">'+escapeHtml(ctx.dstNm)+'</div>':'')+
+        '</div>'+
+      '</div>'+
+      (ctx.movedTeacher?'<div style="margin-top:12px;padding:8px 12px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);border-radius:8px;color:#fde68a;font-size:12.5px;text-align:center">⚡ '+(L?'담당 교사도 함께 변경됩니다':'Teacher will also change')+'</div>':'')+
+    '</div>'+
+    '<div class="modal-actions" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
+      '<button class="modal-btn ghost" onclick="cancelMove()" style="font-size:15px;padding:14px">❌ '+(L?'아니요':'No')+'</button>'+
+      '<button class="modal-btn primary" onclick="confirmMoveDo()" style="font-size:15px;padding:14px;background:#10b981;border-color:#10b981;color:#fff">✅ '+(L?'예, 변경':'Yes, Move')+'</button>'+
+    '</div></div>';
+  window.__moveCtx=ctx;
+  openModal(html);
+}
+window.cancelMove=function(){
+  closeModal();
+  var L=currentLang==='ko';
+  showDndToast((L?'↩️ 변경 취소됨':'↩️ Move cancelled'),'');
+  window.__moveCtx=null;
+};
+window.confirmMoveDo=function(){
+  var L=currentLang==='ko';
+  var ctx=window.__moveCtx;
+  if(!ctx){closeModal();return;}
+  // 실제 이동
+  delete SLOTS[ctx.srcTeacher.id+'__'+ctx.srcCoords.dateISO+'__'+ctx.srcCoords.hour];
+  addSlot(ctx.dstTeacher.id,ctx.dstCoords.dateISO,ctx.dstCoords.hour,ctx.srcData.slot);
+  closeModal();
+  var msg=L
+    ? ('✅ '+(ctx.movedTeacher?'<b>'+escapeHtml(ctx.srcNm)+'</b> → <b>'+escapeHtml(ctx.dstNm)+'</b><br>':'')+'시간이 '+ctx.dstCoords.dateISO+' '+String(ctx.dstCoords.hour).padStart(2,'0')+':00 으로 이동됨')
+    : ('✅ '+(ctx.movedTeacher?'<b>'+escapeHtml(ctx.srcNm)+'</b> → <b>'+escapeHtml(ctx.dstNm)+'</b><br>':'')+'Moved to '+ctx.dstCoords.dateISO+' '+String(ctx.dstCoords.hour).padStart(2,'0')+':00');
+  showDndToast(msg,'ok');
+  window.__moveCtx=null;
+  render();
+};
+window.showMoveConfirm=showMoveConfirm;
 
 // Click 이벤트에서 드래그 직후는 무시 (모달 안 열리도록)
 document.addEventListener('click', function(e){
