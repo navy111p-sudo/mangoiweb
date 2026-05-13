@@ -230,7 +230,7 @@ const ENDPOINTS = [
     desc: '수업에 첨부된 PDF 자료 목록. KV(PDF_STORE) 에 저장된 키들을 나열.' },
   { path: '/api/kakao-id/teachers',       method: 'GET',  expect: '2xx',        label: 'KakaoID Teachers',  body: null,
     desc: '비상 알림 시 메시지를 받을 교사 카카오 ID 목록. 비상 이벤트가 트리거되면 이 목록을 사용.' },
-  { path: '/api/admin/student/__probe__', method: 'GET',  expect: '2xx-or-4xx', label: 'Student Drilldown', body: null,
+  { path: '/api/admin/student/__probe__', method: 'GET',  expect: '2xx-or-4xx', label: 'Student Details', body: null,
     desc: '학생 한 명의 세션 히스토리·시선/발화 점수 시계열·일자별 집계 (Phase 2). __probe__ 는 더미 user_id 라 404 가 정상.' },
   // Phase 4: 관리자 개입 API (실제 수업은 건드리지 않도록 빈 body POST → 400 기대)
   { path: '/api/admin/room/__probe__/force-end', method: 'POST',  expect: '2xx-or-4xx', label: 'Force-End Room', body: '{}',

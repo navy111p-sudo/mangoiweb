@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🎓 학생 드릴다운 — 망고아이</title>
+<title>🎓 학생 상세보기 — 망고아이</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
   :root {
@@ -194,7 +194,7 @@
   <a href="https://webrtc-unified-platform.navy111p.workers.dev/" target="_blank" rel="noopener"
      class="brand" style="cursor:pointer;text-decoration:none;color:inherit"
      title="학생 홈페이지로 이동">🥭 <span data-ko="망고아이" data-en="Mangoi">망고아이</span></a>
-  <span class="crumb" data-ko="관리자 › 학생 드릴다운" data-en="Admin › Student Drilldown">관리자 &rsaquo; 학생 드릴다운</span>
+  <span class="crumb" data-ko="관리자 › 학생 상세보기" data-en="Admin › Student Details">관리자 &rsaquo; 학생 상세보기</span>
   <div class="right">
     <select id="period">
       <option value="7"   data-ko="최근 7일"   data-en="Last 7 days">최근 7일</option>
@@ -2060,7 +2060,7 @@ $('langBtn').addEventListener('click', toggleLang);
 // 시작 — 저장된 언어 즉시 적용 후 데이터 로드
 applyLangAttrs();
 
-// 🥭 Phase 39 — 학생 드릴다운 스케줄 탭 (주간/월간 캘린더)
+// 🥭 Phase 39 — 학생 상세보기 스케줄 탭 (주간/월간 캘린더)
 const _dSchedState = { view: 'week', weekStart: null, year: 0, month: 0, enrollments: [] };
 
 (function initSchedTab() {

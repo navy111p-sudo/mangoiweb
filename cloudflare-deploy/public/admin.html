@@ -423,7 +423,7 @@
   #sm-students-table th:nth-child(3), #sm-students-table td:nth-child(3) { width: 9%;  text-align: right; font-variant-numeric: tabular-nums; }   /* 세션 수 */
   #sm-students-table th:nth-child(4), #sm-students-table td:nth-child(4) { width: 18%; font-variant-numeric: tabular-nums; }   /* 최초 방문 */
   #sm-students-table th:nth-child(5), #sm-students-table td:nth-child(5) { width: 18%; font-variant-numeric: tabular-nums; }   /* 최근 방문 */
-  #sm-students-table th:nth-child(6), #sm-students-table td:nth-child(6) { width: 15%; text-align: center; }   /* 드릴다운 */
+  #sm-students-table th:nth-child(6), #sm-students-table td:nth-child(6) { width: 15%; text-align: center; }   /* 상세보기 */
 
   /* 헤더 강조 */
   #sm-students-table thead th {
@@ -467,7 +467,7 @@
   }
   #sm-students-table td .date-line .date-d { color: #44403c; font-weight: 500; }
   #sm-students-table td .date-line .date-t { color: #a8a29e; font-size: 10px; }
-  /* 드릴다운 버튼 */
+  /* 상세보기 버튼 */
   #sm-students-table td:nth-child(6) a {
     display: inline-flex; align-items: center; gap: 3px;
     padding: 5px 12px; font-size: 11px; font-weight: 700;
@@ -1820,17 +1820,17 @@
               <th class="sortable" data-sort-key="session_count" data-sort-default-dir="desc" data-ko="세션 수" data-en="Sessions">세션 수<span class="sort-indicator"></span></th>
               <th class="sortable" data-sort-key="first_seen"  data-ko="최초 방문" data-en="First Seen">최초 방문<span class="sort-indicator"></span></th>
               <th class="sortable" data-sort-key="last_seen"   data-sort-default-dir="desc" data-ko="최근 방문" data-en="Last Seen">최근 방문<span class="sort-indicator"></span></th>
-              <th data-ko="드릴다운" data-en="Drilldown">드릴다운</th>
+              <th data-ko="상세보기" data-en="Details">상세보기</th>
             </tr></thead>
             <tbody id="sm-students-tbody"><tr><td colspan="6" class="empty">—</td></tr></tbody>
           </table>
         </div>
       </details>
 
-      <!-- 💡 안내 — 단일 학생 상세는 모두 드릴다운으로 일원화 -->
+      <!-- 💡 안내 — 단일 학생 상세는 모두 상세보기로 일원화 -->
       <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:10px 14px;margin:8px 0;font-size:12px;color:#92400e;line-height:1.6">
         💡 <strong data-ko="설계 안내" data-en="Design Note">설계 안내</strong> ·
-        <span data-ko="이 메뉴는 모든 학생을 가로로 보는 집계 뷰입니다. 한 학생의 상세 처리(연장·평가·상담·메시지 등)는 각 행의 🔍 버튼으로 드릴다운에 들어가 16개 탭에서 진행하세요." data-en="This menu shows aggregate views across all students. For deep work on one student (extension, evaluation, counseling, messaging) click 🔍 to open the drilldown's 16 tabs.">이 메뉴는 모든 학생을 가로로 보는 집계 뷰입니다. 한 학생의 상세 처리(연장·평가·상담·메시지 등)는 각 행의 🔍 버튼으로 드릴다운에 들어가 16개 탭에서 진행하세요.</span>
+        <span data-ko="이 메뉴는 모든 학생을 가로로 보는 집계 뷰입니다. 한 학생의 상세 처리(연장·평가·상담·메시지 등)는 각 행의 🔍 버튼으로 상세보기에 들어가 16개 탭에서 진행하세요." data-en="This menu shows aggregate views across all students. For deep work on one student (extension, evaluation, counseling, messaging) click 🔍 to open the details view's 16 tabs.">이 메뉴는 모든 학생을 가로로 보는 집계 뷰입니다. 한 학생의 상세 처리(연장·평가·상담·메시지 등)는 각 행의 🔍 버튼으로 상세보기에 들어가 16개 탭에서 진행하세요.</span>
       </div>
 
       <!-- ⏰ 만료 임박 학생 — 종료일 D-30 이내 -->
@@ -1925,7 +1925,7 @@
         <summary data-ko="💭 단체 톡짹톡 (벌크 메시지)" data-en="💭 Bulk TalkChat">💭 단체 톡짹톡 (벌크 메시지)</summary>
         <div class="sub-body">
           <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px;color:#1e40af;line-height:1.5">
-            💡 <span data-ko="개별 학생에게 보낼 때는 드릴다운 → 톡짹톡 탭이 더 편합니다. 여기서는 다수 학생에게 동시 전송 (예: 휴원 공지·이벤트 안내)." data-en="For individual messaging, use drilldown → TalkChat tab. Use this for bulk sends (e.g., closure notices, events).">개별 학생에게 보낼 때는 드릴다운 → 톡짹톡 탭이 더 편합니다. 여기서는 다수 학생에게 동시 전송 (예: 휴원 공지·이벤트 안내).</span>
+            💡 <span data-ko="개별 학생에게 보낼 때는 상세보기 → 톡짹톡 탭이 더 편합니다. 여기서는 다수 학생에게 동시 전송 (예: 휴원 공지·이벤트 안내)." data-en="For individual messaging, use Details → TalkChat tab. Use this for bulk sends (e.g., closure notices, events).">개별 학생에게 보낼 때는 상세보기 → 톡짹톡 탭이 더 편합니다. 여기서는 다수 학생에게 동시 전송 (예: 휴원 공지·이벤트 안내).</span>
           </div>
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
             <button id="sm-bulk-load" class="primary" style="padding:5px 12px;font-size:12px;" data-ko="📋 학생 목록 불러오기" data-en="📋 Load Students">📋 학생 목록 불러오기</button>
@@ -2115,7 +2115,7 @@
               <option data-ko="회원 포인트" data-en="Member points">회원 포인트</option>
               <option data-ko="추천인 보상" data-en="Referral rewards">추천인 보상</option>
             </select>
-            <button class="primary" onclick="alert('쿠폰 발급은 별도 화면에서 처리됩니다. (수강신청 관리 메뉴 또는 학생 드릴다운에서)')" style="padding:5px 12px;font-size:12px;" data-ko="＋ 새 쿠폰" data-en="＋ New">＋ 새 쿠폰</button>
+            <button class="primary" onclick="alert('쿠폰 발급은 별도 화면에서 처리됩니다. (수강신청 관리 메뉴 또는 학생 상세보기에서)')" style="padding:5px 12px;font-size:12px;" data-ko="＋ 새 쿠폰" data-en="＋ New">＋ 새 쿠폰</button>
             <button onclick="alert('쿠폰 사용 통계는 추후 별도 페이지에서 제공됩니다.')" style="padding:5px 12px;font-size:12px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer" data-ko="📊 사용 통계" data-en="📊 Usage stats">📊 사용 통계</button>
           </div>
           <table>
@@ -4943,7 +4943,7 @@ async function load() {
         const displayName = (s.username || s.user_id || '').toString();
         const safeName = displayName.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
         const uidEnc = encodeURIComponent(s.user_id || '');
-        const nameCell = `<a href="/admin/student?uid=${uidEnc}" title="학생 드릴다운 열기" style="color:#0984e3;text-decoration:none;border-bottom:1px dotted #0984e3;">${safeName}</a>`;
+        const nameCell = `<a href="/admin/student?uid=${uidEnc}" title="학생 상세보기 열기" style="color:#0984e3;text-decoration:none;border-bottom:1px dotted #0984e3;">${safeName}</a>`;
         return `<tr><td>${nameCell}</td><td>${fmtMs(s.active_ms)}</td><td>${fmtMs(s.session_ms)}</td><td><span class="badge ${pct>=30?'ok':'warn'}">${pct}%</span></td></tr>`;
       }).join('');
 
@@ -8828,7 +8828,7 @@ function renderStudentTable() {
       <td><span class="sess-count">${(s.session_count||0).toLocaleString()}</span></td>
       <td>${splitDt(s.first_seen)}</td>
       <td>${splitDt(s.last_seen)}</td>
-      <td><a href="/admin/student?uid=${uidEnc}" target="_blank">🎓 ${_L?'Drill':'드릴다운'}</a></td>
+      <td><a href="/admin/student?uid=${uidEnc}" target="_blank">🎓 ${_L?'Details':'상세보기'}</a></td>
     </tr>`;
   }).join('');
 }
@@ -11241,7 +11241,7 @@ window.rebuildGlobalSearchIndex = function() {
       { id: 'realtime_class', name_ko: '실시간 수업 현황',  name_en: 'Live Class Status',       def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'👁️', parent:'❌', student:'❌' } },
     ]},
     { group_ko: '👨‍🎓 학생 관리', group_en: '👨‍🎓 Student Management', items: [
-      { id: 'students_list',   name_ko: '학생 목록·드릴다운', name_en: 'Student List · Drilldown',  def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'👁️', parent:'❌', student:'❌' } },
+      { id: 'students_list',   name_ko: '학생 목록·상세보기', name_en: 'Student List · Details',  def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'👁️', parent:'❌', student:'❌' } },
       { id: 'students_self',   name_ko: '내 학습 정보 조회',  name_en: 'My Learning Info',          def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'❌', parent:'✅', student:'✅' } },
       { id: 'students_eval',   name_ko: '평가서 작성·수정',   name_en: 'Evaluation Create · Edit',  def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'❌', parent:'❌', student:'❌' } },
       { id: 'enrollment',      name_ko: '수강신청 관리',      name_en: 'Enrollment Management',     def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'✅', agency:'✅', parent:'👁️', student:'👁️' } },
@@ -12132,7 +12132,7 @@ window.rebuildGlobalSearchIndex = function() {
         <td><span class="sess-count">${(s.classes_used||0)}</span></td>
         <td><div class="date-line"><span class="date-d">${_se(s.grade||'-')}</span><span class="date-t">${_se(s.level||'-')} 레벨</span></div></td>
         <td><div class="date-line"><span class="date-d">${_se(s.teacher||'-')}</span><span class="date-t">잔여 ${(s.classes_total - s.classes_used)||0}회</span></div></td>
-        <td><a href="/admin/student?uid=${encodeURIComponent(s.user_id)}" target="_blank" style="color:#0984e3">🎓 드릴다운</a></td>`;
+        <td><a href="/admin/student?uid=${encodeURIComponent(s.user_id)}" target="_blank" style="color:#0984e3">🎓 상세보기</a></td>`;
       tbody.appendChild(tr);
     });
   }
@@ -12498,7 +12498,7 @@ window.rebuildGlobalSearchIndex = function() {
           <td><span class="sess-count">${s.classes_used||0}</span></td>
           <td><div class="date-line"><span class="date-d">${_esc(s.grade||'-')}</span><span class="date-t">${_esc(s.franchise||'')}</span></div></td>
           <td><div class="date-line"><span class="date-d">${_esc(s.teacher||'-')}</span><span class="date-t">잔여 ${(s.classes_total - s.classes_used)||0}회</span></div></td>
-          <td><a href="/admin/student?uid=${encodeURIComponent(s.user_id)}" target="_blank">🎓 드릴다운</a></td>`;
+          <td><a href="/admin/student?uid=${encodeURIComponent(s.user_id)}" target="_blank">🎓 상세보기</a></td>`;
         tbody.appendChild(tr);
       });
     }
