@@ -748,12 +748,20 @@ function aiSuggestSlot(){
   var nm=function(t){return(currentLang==='en'&&t.name_en)?t.name_en:t.name;};
   var html='<div class="modal-head"><div class="modal-title">✨ '+(L?'AI 추천 슬롯':'AI Suggested Slots')+'</div><button class="modal-close" onclick="closeModal()">✕</button></div>'+
     '<div class="modal-body"><div class="modal-section"><p style="color:var(--tx2);font-size:12.5px;margin:0 0 10px">'+(L?'아래는 효율적인 시간 배치를 위해 AI가 추천한 빈 슬롯입니다. 클릭하면 해당 위치로 이동합니다.':'AI-suggested empty slots for efficient scheduling. Click to navigate.')+'</p>';
-  picks.forEach(function(p){
-    html+='<div class="modal-student" onclick="closeModal();setTimeout(function(){alert(\''+nm(p.t)+' '+p.date+' '+p.hour+':00'+(L?\' 슬롯이 추천되었습니다\':\' was suggested\')+'\')},200)">'+
-      '<div class="stu-info"><div class="stu-ava">'+(nm(p.t).match(/[A-Za-z가-힣]/)||['?'])[0]+'</div>'+
+  window.__aiPicks=picks;
+  picks.forEach(function(p,i){
+    var ini=(nm(p.t).match(/[A-Za-z가-힣]/)||['?'])[0];
+    html+='<div class="modal-student" onclick="window.__aiAssign('+i+')">'+
+      '<div class="stu-info"><div class="stu-ava">'+ini+'</div>'+
       '<div><div class="stu-name">'+escapeHtml(nm(p.t))+' <span class="cat-badge '+p.t.category+'" style="font-size:9px;padding:1px 6px">'+p.t.category+'</span></div><div class="stu-uid">'+p.date+' · '+String(p.hour).padStart(2,'0')+':00</div></div></div>'+
       '<span class="stu-link">'+(L?'배정 →':'Assign →')+'</span></div>';
   });
+  window.__aiAssign=function(i){
+    var p=window.__aiPicks[i];if(!p)return;
+    closeModal();
+    var msg=nm(p.t)+' '+p.date+' '+String(p.hour).padStart(2,'0')+':00'+(L?' 슬롯이 추천되었습니다':' was suggested');
+    setTimeout(function(){alert(msg);},200);
+  };
   html+='</div></div><div class="modal-actions"><button class="modal-btn ghost" onclick="closeModal()">'+(L?'닫기':'Close')+'</button></div>';
   openModal(html);
 }
