@@ -127,6 +127,31 @@ h1 .sub{font-size:13px;color:var(--tx2);font-weight:500;margin-left:4px}
 
 
 
+
+/* ═══ 드래그 앤 드롭 (Google Calendar 스타일) ═══ */
+.mini-cal td.slot.dragging-source{opacity:.35;outline:2px dashed var(--ac);outline-offset:-2px}
+.mini-cal td.slot.drop-target-ok{outline:3px solid #10b981;outline-offset:-3px;background:rgba(16,185,129,.35)!important;box-shadow:inset 0 0 12px rgba(16,185,129,.5);animation:dropPulse .6s infinite}
+.mini-cal td.slot.drop-target-bad{outline:3px solid #ef4444;outline-offset:-3px;background:rgba(239,68,68,.35)!important;cursor:not-allowed!important}
+@keyframes dropPulse{0%,100%{box-shadow:inset 0 0 12px rgba(16,185,129,.5)}50%{box-shadow:inset 0 0 24px rgba(16,185,129,.85)}}
+body.cell-dragging{cursor:grabbing!important;user-select:none}
+body.cell-dragging *{cursor:grabbing!important}
+.mini-cal td.slot[data-slot]{cursor:grab}
+.mini-cal td.slot[data-slot]:active{cursor:grabbing}
+
+/* Drag ghost */
+.drag-ghost{position:fixed;pointer-events:none;z-index:9800;background:linear-gradient(135deg,var(--ac),#f59e0b);color:#1a1a1a;padding:8px 14px;border-radius:10px;font-weight:800;font-size:13px;box-shadow:0 12px 28px rgba(245,158,11,.6),0 0 0 3px rgba(251,191,36,.3);display:flex;align-items:center;gap:8px;transform:translate(-50%,-50%);min-width:180px}
+.drag-ghost .gh-ico{font-size:18px}
+.drag-ghost .gh-info{flex:1;line-height:1.3}
+.drag-ghost .gh-title{font-size:11.5px;font-weight:700;color:#1a1a1a;opacity:.85}
+.drag-ghost .gh-sub{font-size:10px;font-weight:600;color:#1a1a1a;opacity:.7}
+
+/* Drop hint toast */
+.dnd-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0f172a;border:2px solid var(--ac);border-radius:99px;padding:10px 22px;color:#fff;font-weight:700;font-size:13.5px;box-shadow:var(--shL);z-index:9900;display:flex;align-items:center;gap:10px;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none}
+.dnd-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.dnd-toast.hide-anim{transform:translateX(-50%) translateY(10px)}
+.dnd-toast.ok{border-color:#10b981}
+.dnd-toast.bad{border-color:#ef4444}
+
 /* ═══ FAB / 위저드 / 클릭형 UI ═══ */
 .fab{position:fixed;bottom:24px;right:24px;width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#fbbf24,#f59e0b);border:none;color:#1a1a1a;font-size:30px;font-weight:800;cursor:pointer;box-shadow:0 8px 24px rgba(245,158,11,.5),0 0 0 0 rgba(251,191,36,.6);z-index:300;transition:transform .15s,box-shadow .15s;display:flex;align-items:center;justify-content:center;animation:fabPulse 2.5s infinite}
 .fab:hover{transform:scale(1.08) translateY(-2px);box-shadow:0 14px 36px rgba(245,158,11,.65)}
@@ -711,6 +736,205 @@ document.getElementById('search-input').addEventListener('input',function(e){
   searchTimer=setTimeout(function(){searchQuery=e.target.value;render();},180);
 });
 
+
+
+// ═══════════════════════════════════════════════════════════════════
+// 셀 드래그 앤 드롭 이동 (Google Calendar 스타일)
+//  - 색칠 셀을 mousedown으로 잡고 다른 셀에 drop
+//  - 빈 셀 → 이동 (옛 위치 삭제 + 새 위치 추가)
+//  - 점유 셀 → 거부 (빨간 표시)
+//  - 다른 교사 카드로 drop 가능 (교사 변경)
+//  - 8px 이내 움직임이면 click 으로 간주 (모달 열기)
+// ═══════════════════════════════════════════════════════════════════
+var dnd = {
+  active: false,
+  sourceEl: null,
+  sourceData: null,
+  startX: 0, startY: 0,
+  moved: false,
+  ghost: null,
+  lastTarget: null
+};
+
+function getCellTeacher(td){
+  var card=td.closest('.teacher-card');if(!card)return null;
+  var nameEl=card.querySelector('.teacher-name');
+  if(!nameEl)return null;
+  var name=nameEl.textContent;
+  return TEACHERS.find(function(t){var nm=(currentLang==='en'&&t.name_en)?t.name_en:t.name;return nm===name;}) || null;
+}
+function getCellCoords(td){
+  var tr=td.parentElement;
+  var cells=Array.prototype.slice.call(tr.children);
+  var colIdx=cells.indexOf(td);
+  if(colIdx<1)return null;
+  var hour=parseInt(tr.children[0].textContent,10);
+  if(isNaN(hour))return null;
+  var d=new Date(currentWeekStart);d.setDate(d.getDate()+(colIdx-1));
+  return {dateISO:fmtISO(d),hour:hour,dow:colIdx-1};
+}
+
+function showDndToast(msg,kind){
+  var t=document.createElement('div');
+  t.className='dnd-toast '+(kind||'');
+  t.innerHTML=msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(function(){ t.classList.add('show'); });
+  setTimeout(function(){
+    t.classList.remove('show');
+    t.classList.add('hide-anim');
+    setTimeout(function(){ if(t.parentNode)t.remove(); },350);
+  },2200);
+}
+
+// Capture phase에서 mousedown 가로채기 (다른 핸들러보다 먼저)
+document.addEventListener('mousedown', function(e){
+  if(e.button!==0)return;
+  var td=e.target.closest('.slot');
+  if(!td||!td.dataset.slot)return; // 색칠 셀만
+  // 점유된 셀 -> drag 후보로 등록 (아직 active 아님)
+  dnd.sourceEl=td;
+  dnd.sourceData=JSON.parse(decodeURIComponent(td.dataset.slot));
+  dnd.startX=e.clientX; dnd.startY=e.clientY;
+  dnd.moved=false;
+  dnd.active=false;
+  // 이벤트는 막지 않음 (click 이벤트도 동작해야 함)
+}, true);
+
+document.addEventListener('mousemove', function(e){
+  if(!dnd.sourceEl)return;
+  var dx=e.clientX-dnd.startX, dy=e.clientY-dnd.startY;
+  if(!dnd.active && (dx*dx+dy*dy) > 64){ // > 8px
+    // 진짜 드래그 시작
+    dnd.active=true;
+    dnd.moved=true;
+    dnd.sourceEl.classList.add('dragging-source');
+    document.body.classList.add('cell-dragging');
+    // Ghost 생성
+    dnd.ghost=document.createElement('div');
+    dnd.ghost.className='drag-ghost';
+    var slot=dnd.sourceData.slot;
+    var icon={blocked:'🚫','1on1':'🟣',group:'💗',temp:'🔵'}[slot.type]||'📌';
+    var L=currentLang==='ko';
+    var title=L?({blocked:'수업 불가','1on1':'1대1 수업',group:'그룹 수업',temp:'임시 수업'}[slot.type]):({blocked:'Blocked','1on1':'1-on-1',group:'Group',temp:'Temporary'}[slot.type]);
+    var sub=(slot.students&&slot.students.length>0)?(slot.students.length===1?slot.students[0].name:(L?'그룹 ':'G ')+slot.students.length):(slot.note||'');
+    dnd.ghost.innerHTML='<div class="gh-ico">'+icon+'</div><div class="gh-info"><div class="gh-title">'+title+'</div><div class="gh-sub">'+escapeHtml(sub)+' • '+(L?'끌어서 놓기':'Drop to move')+'</div></div>';
+    document.body.appendChild(dnd.ghost);
+  }
+  if(!dnd.active)return;
+  // Ghost 위치 업데이트
+  if(dnd.ghost){
+    dnd.ghost.style.left=e.clientX+'px';
+    dnd.ghost.style.top=(e.clientY-10)+'px';
+  }
+  // Drop target 강조
+  var over=document.elementFromPoint(e.clientX,e.clientY);
+  var dropCell=over?over.closest('.slot'):null;
+  if(dnd.lastTarget && dnd.lastTarget!==dropCell){
+    dnd.lastTarget.classList.remove('drop-target-ok','drop-target-bad');
+    dnd.lastTarget=null;
+  }
+  if(dropCell && dropCell!==dnd.sourceEl){
+    var occupied = !!dropCell.dataset.slot;
+    dropCell.classList.add(occupied?'drop-target-bad':'drop-target-ok');
+    dnd.lastTarget=dropCell;
+  }
+  e.preventDefault();
+}, true);
+
+document.addEventListener('mouseup', function(e){
+  if(!dnd.sourceEl)return;
+  var wasActive=dnd.active;
+  // 정리
+  if(dnd.sourceEl)dnd.sourceEl.classList.remove('dragging-source');
+  if(dnd.lastTarget)dnd.lastTarget.classList.remove('drop-target-ok','drop-target-bad');
+  document.body.classList.remove('cell-dragging');
+  if(dnd.ghost){ dnd.ghost.remove(); dnd.ghost=null; }
+  
+  if(!wasActive){
+    // 단순 click - 기존 click 핸들러가 처리할 것
+    dnd.sourceEl=null;dnd.sourceData=null;dnd.lastTarget=null;
+    return;
+  }
+  // 실제 drop 처리
+  var L=currentLang==='ko';
+  var over=document.elementFromPoint(e.clientX,e.clientY);
+  var dropCell=over?over.closest('.slot'):null;
+  if(!dropCell || dropCell===dnd.sourceEl){
+    dnd.sourceEl=null;dnd.sourceData=null;dnd.lastTarget=null;return;
+  }
+  // Source 정보
+  var srcData=dnd.sourceData;
+  var srcCoords=getCellCoords(dnd.sourceEl);
+  var srcTeacher=getCellTeacher(dnd.sourceEl);
+  // Target 정보
+  var dstCoords=getCellCoords(dropCell);
+  var dstTeacher=getCellTeacher(dropCell);
+  if(!srcCoords||!dstCoords||!srcTeacher||!dstTeacher){
+    showDndToast((L?'⚠️ 이동 불가':'⚠️ Cannot move'),'bad');
+    dnd.sourceEl=null;dnd.sourceData=null;dnd.lastTarget=null;return;
+  }
+  // 점유된 셀이면 거부
+  if(dropCell.dataset.slot){
+    showDndToast((L?'❌ 그 시간엔 이미 다른 수업이 있어요':'❌ Slot already taken'),'bad');
+    dnd.sourceEl=null;dnd.sourceData=null;dnd.lastTarget=null;return;
+  }
+  // 슬롯 이동: 옛 위치 삭제 + 새 위치 추가
+  delete SLOTS[srcTeacher.id+'__'+srcCoords.dateISO+'__'+srcCoords.hour];
+  addSlot(dstTeacher.id,dstCoords.dateISO,dstCoords.hour,srcData.slot);
+  // 토스트 메시지
+  var srcNm=(currentLang==='en'&&srcTeacher.name_en)?srcTeacher.name_en:srcTeacher.name;
+  var dstNm=(currentLang==='en'&&dstTeacher.name_en)?dstTeacher.name_en:dstTeacher.name;
+  var movedTeacher=(srcTeacher.id!==dstTeacher.id);
+  var msg=L
+    ? ('✅ '+ (movedTeacher?'<b>'+escapeHtml(srcNm)+'</b> → <b>'+escapeHtml(dstNm)+'</b><br>':'')+ '시간이 ' + dstCoords.dateISO + ' ' + String(dstCoords.hour).padStart(2,'0') + ':00 으로 이동됨')
+    : ('✅ '+ (movedTeacher?'<b>'+escapeHtml(srcNm)+'</b> → <b>'+escapeHtml(dstNm)+'</b><br>':'')+ 'Moved to ' + dstCoords.dateISO + ' ' + String(dstCoords.hour).padStart(2,'0') + ':00');
+  showDndToast(msg,'ok');
+  // 다시 렌더 (slight delay so user sees toast)
+  dnd.sourceEl=null;dnd.sourceData=null;dnd.lastTarget=null;
+  dnd.active=false;
+  render();
+}, true);
+
+// Click 이벤트에서 드래그 직후는 무시 (모달 안 열리도록)
+document.addEventListener('click', function(e){
+  if(dnd.moved){
+    // 직전 드래그였음 - click 차단
+    e.stopPropagation();
+    e.preventDefault();
+    dnd.moved=false;
+  }
+}, true);
+
+// ESC로 드래그 취소
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape' && dnd.active){
+    if(dnd.sourceEl)dnd.sourceEl.classList.remove('dragging-source');
+    if(dnd.lastTarget)dnd.lastTarget.classList.remove('drop-target-ok','drop-target-bad');
+    if(dnd.ghost){dnd.ghost.remove();dnd.ghost=null;}
+    document.body.classList.remove('cell-dragging');
+    dnd.sourceEl=null;dnd.sourceData=null;dnd.lastTarget=null;
+    dnd.active=false;dnd.moved=false;
+    showDndToast((currentLang==='ko'?'드래그 취소됨':'Drag cancelled'),'');
+  }
+});
+
+// 가이드 토스트에 안내 추가
+(function(){
+  var orig=document.getElementById('guide-toast');
+  if(!orig)return;
+  var div=orig.querySelector('[data-ko-html]');
+  if(div){
+    var addKo='<br><b style="color:#fff">📌 색칠 셀 드래그</b> → 다른 시간/요일로 끌어 놓기 (자동 이동)';
+    var addEn='<br><b style="color:#fff">📌 Drag colored cell</b> → drop on another slot to move';
+    var ko=div.getAttribute('data-ko-html');
+    var en=div.getAttribute('data-en-html');
+    if(ko && ko.indexOf('드래그')>0 && ko.indexOf('색칠 셀 드래그')<0){
+      div.setAttribute('data-ko-html', ko.replace('<br><br>','<br>'+addKo+'<br><br>'));
+      div.setAttribute('data-en-html', en.replace('<br><br>','<br>'+addEn+'<br><br>'));
+    }
+  }
+})();
 
 // ═══════════════════════════════════════════════════════════════════
 // 신규 학생 등록 위저드 + 수업 변경 기능 (클릭/드래그 위주 UX)
