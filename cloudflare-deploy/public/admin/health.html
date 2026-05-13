@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🩺 Mangoi · 셀프 진단 (Self-Health)</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-card: #1e293b;
+      --bg-card-hover: #263449;
+      --fg: #e2e8f0;
+      --fg-muted: #94a3b8;
+      --fg-dim: #64748b;
+      --border: #334155;
+      --accent: #f59e0b;
+      --green: #10b981;
+      --green-bg: rgba(16, 185, 129, 0.12);
+      --yellow: #f59e0b;
+      --yellow-bg: rgba(245, 158, 11, 0.12);
+      --red: #ef4444;
+      --red-bg: rgba(239, 68, 68, 0.12);
+      --gray: #64748b;
+      --gray-bg: rgba(100, 116, 139, 0.12);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; background: var(--bg); color: var(--fg);
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+      font-size: 14px;
+    }
+    header {
+      padding: 16px 24px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    }
+    header h1 { margin: 0; font-size: 20px; font-weight: 700; }
+    header .spacer { flex: 1; }
+    header .muted { color: var(--fg-muted); font-size: 13px; }
+    header a, header a:visited {
+      color: var(--accent); text-decoration: none; font-size: 13px;
+      padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px;
+    }
+    header a:hover { background: var(--bg-card); }
+    .controls { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+    .controls button {
+      padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px;
+      background: var(--bg-card); color: var(--fg); cursor: pointer; font-size: 13px;
+    }
+    .controls button:hover { background: var(--bg-card-hover); }
+    .controls label { display: flex; align-items: center; gap: 6px; color: var(--fg-muted); cursor: pointer; }
+    main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+    .section-title {
+      font-size: 12px; font-weight: 700; color: var(--fg-muted);
+      text-transform: uppercase; letter-spacing: 1px;
+      margin: 24px 0 12px 0;
+    }
+    .section-title:first-child { margin-top: 0; }
+    .grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+    }
+    .tile {
+      padding: 14px 16px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--bg-card); display: flex; flex-direction: column; gap: 6px;
+      transition: background 0.15s;
+    }
+    .tile:hover { background: var(--bg-card-hover); }
+    .tile .head {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .tile .name { font-weight: 600; font-size: 14px; }
+    .tile .badge {
+      font-size: 18px; line-height: 1;
+    }
+    .tile .sub { color: var(--fg-muted); font-size: 12px; font-family: 'SF Mono', Monaco, Consolas, monospace; }
+    .tile .meta { color: var(--fg-dim); font-size: 11px; }
+    .tile.green { border-color: var(--green); background: var(--green-bg); }
+    .tile.yellow { border-color: var(--yellow); background: var(--yellow-bg); }
+    .tile.red { border-color: var(--red); background: var(--red-bg); }
+    .tile.gray { border-color: var(--gray); background: var(--gray-bg); }
+    .summary {
+      padding: 14px 20px; border-radius: 8px; background: var(--bg-card);
+      border: 1px solid var(--border); margin-bottom: 20px;
+      display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+    }
+    .summary .big { font-size: 28px; font-weight: 700; }
+    .summary .big.green { color: var(--green); }
+    .summary .big.yellow { color: var(--yellow); }
+    .summary .big.red { color: var(--red); }
+    .summary .label { color: var(--fg-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; }
+    .summary .stat { display: flex; flex-direction: column; gap: 2px; }
+    .note {
+      padding: 10px 14px; border-radius: 6px;
+      background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3);
+      color: var(--fg-muted); font-size: 12px; margin-bottom: 16px;
+    }
+    .error-detail {
+      color: var(--red); font-family: 'SF Mono', Monaco, Consolas, monospace; font-size: 11px;
+      word-break: break-all;
+    }
+    .spin {
+      display: inline-block; width: 12px; height: 12px; border: 2px solid var(--fg-muted);
+      border-top-color: transparent; border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* 🛈 hover 툴팁 — 각 타일에 data-description 있으면 마우스 올렸을 때 부드럽게 표시 */
+    .tile { position: relative; }
+    .tile[data-description]::before,
+    .tile[data-description]::after {
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease-out;
+      z-index: 100;
+    }
+    .tile[data-description]::after {
+      content: attr(data-description);
+      position: absolute;
+      bottom: calc(100% + 10px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0b1424;
+      color: #e2e8f0;
+      border: 1px solid var(--border);
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 12.5px;
+      line-height: 1.55;
+      width: max-content;
+      max-width: 340px;
+      white-space: normal;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+      font-weight: 400;
+    }
+    /* 작은 화살표 */
+    .tile[data-description]::before {
+      content: '';
+      position: absolute;
+      bottom: calc(100% + 4px);
+      left: 50%;
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-top-color: var(--border);
+    }
+    .tile[data-description]:hover::before,
+    .tile[data-description]:hover::after {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <img src="/img/Mangoi_Character.jpg" alt="Mangoi" style="width:42px;height:42px;border-radius:50%;object-fit:cover;background:#fff;border:2px solid var(--accent);box-shadow:0 2px 8px rgba(245,158,11,0.35);" />
+  <h1>🩺 Mangoi · 셀프 진단</h1>
+  <span class="muted" id="last-update">최초 로딩 중…</span>
+  <div class="spacer"></div>
+  <div class="controls">
+    <label><input type="checkbox" id="auto-refresh" checked /> 10초마다 자동 새로고침</label>
+    <button id="refresh-btn">지금 새로고침</button>
+    <a href="/admin.html">← 대시보드</a>
+  </div>
+</header>
+
+<main>
+  <!-- 전체 요약 -->
+  <div class="summary" id="summary">
+    <div class="stat">
+      <div class="big gray" id="summary-icon">⏳</div>
+      <div class="label">전체 상태</div>
+    </div>
+    <div class="stat">
+      <div class="big" id="summary-green">—</div>
+      <div class="label">🟢 녹색</div>
+    </div>
+    <div class="stat">
+      <div class="big" id="summary-yellow">—</div>
+      <div class="label">🟡 노랑</div>
+    </div>
+    <div class="stat">
+      <div class="big" id="summary-red">—</div>
+      <div class="label">🔴 빨강</div>
+    </div>
+    <div class="stat">
+      <div class="big" style="font-size:16px; color: var(--fg-muted);" id="build-stamp">—</div>
+      <div class="label">마지막 배포</div>
+    </div>
+  </div>
+
+  <div class="note">
+    ⚠ <strong>이 페이지의 목적:</strong> <code>/api/gaze-score</code> 가 10초마다 405 를 뱉고 있어도 아무도 몰랐던
+    사고의 재발 방지. 신규 엔드포인트 추가 시 반드시 아래 <em>자가 ping</em> 목록에 경로를 등록하세요.
+  </div>
+
+  <!-- 서버 측 바인딩 -->
+  <div class="section-title">🔧 서버 바인딩 (실제 호출 검증)</div>
+  <div class="grid" id="bindings"></div>
+
+  <!-- 엔드포인트 자가 ping -->
+  <div class="section-title">📡 엔드포인트 자가 ping (브라우저 → Worker)</div>
+  <div class="grid" id="endpoints"></div>
+</main>
+
+<script>
+// ---------- 자가 ping 대상 ----------
+// 신규 엔드포인트 추가 시 여기에 반드시 등록.
+//   - method: 라우트가 기대하는 HTTP 메서드 (라우트 존재 검증)
+//   - expect:
+//       "2xx"      : 200~299 정상
+//       "2xx-or-4xx": 4xx 도 OK (인증 필요 / 빈 body 검증 거절 등 — 라우트는 살아있음)
+//       "4xx"      : 반드시 4xx 기대 (빈 POST → 400 정상)
+//   - label: 사람이 읽는 표시명
+//   - body:  POST 시 보낼 body (JSON 문자열). 없으면 빈 문자열.
+const ENDPOINTS = [
+  // --- GET 엔드포인트 (200 기대) ---
+  { path: '/api/health',                  method: 'GET',  expect: '2xx',        label: 'Health',            body: null,
+    desc: 'Worker 자체 헬스체크. 서버가 살아있는지 가장 먼저 확인하는 가장 가벼운 엔드포인트.' },
+  { path: '/api/dashboard',               method: 'GET',  expect: '2xx',        label: 'Dashboard',         body: null,
+    desc: '관리 대시보드 KPI API. 출석 합계 · 일자별 사용자 수 · 비상 이벤트 · 보상 발급 · 발화 TOP 10 등 모든 집계가 한 번에 옴.' },
+  { path: '/api/active-rooms',            method: 'GET',  expect: '2xx',        label: 'Active Rooms',      body: null,
+    desc: '현재 진행 중인 화상수업 방 목록(실시간). VideoCallRoom DO 의 /status 를 모아서 반환.' },
+  { path: '/api/recordings',              method: 'GET',  expect: '2xx',        label: 'Recordings List',   body: null,
+    desc: '녹화 메타데이터 목록 (D1). 검색·페이지네이션·기간·상태 필터 지원. 각 행에 시선·말하기 점수 서브쿼리 포함.' },
+  { path: '/api/recordings/test-r2',      method: 'GET',  expect: '2xx',        label: 'R2 Test',           body: null,
+    desc: 'R2 버킷 read/write 가능 여부 종합 테스트. 테스트 객체를 put → get → delete 해서 권한·연결 검증.' },
+  { path: '/api/turn-config',             method: 'GET',  expect: '2xx',        label: 'TURN Config',       body: null,
+    desc: '클라이언트가 NAT/방화벽 우회 시 사용할 TURN 서버 자격증명 동적 발급. Cloudflare TURN 서비스 연동.' },
+  { path: '/api/video-call/pdf-list',     method: 'GET',  expect: '2xx',        label: 'PDF List',          body: null,
+    desc: '수업에 첨부된 PDF 자료 목록. KV(PDF_STORE) 에 저장된 키들을 나열.' },
+  { path: '/api/kakao-id/teachers',       method: 'GET',  expect: '2xx',        label: 'KakaoID Teachers',  body: null,
+    desc: '비상 알림 시 메시지를 받을 교사 카카오 ID 목록. 비상 이벤트가 트리거되면 이 목록을 사용.' },
+  { path: '/api/admin/student/__probe__', method: 'GET',  expect: '2xx-or-4xx', label: 'Student Drilldown', body: null,
+    desc: '학생 한 명의 세션 히스토리·시선/발화 점수 시계열·일자별 집계 (Phase 2). __probe__ 는 더미 user_id 라 404 가 정상.' },
+  // Phase 4: 관리자 개입 API (실제 수업은 건드리지 않도록 빈 body POST → 400 기대)
+  { path: '/api/admin/room/__probe__/force-end', method: 'POST',  expect: '2xx-or-4xx', label: 'Force-End Room', body: '{}',
+    desc: '진행 중인 수업을 관리자가 강제 종료 (Phase 4). VideoCallRoom DO 가 force_end 를 모든 참가자에게 브로드캐스트 후 close.' },
+  { path: '/api/recordings/0/status',            method: 'PATCH', expect: '2xx-or-4xx', label: 'Rec Status PATCH', body: '{}',
+    desc: '녹화 상태 변경 (삭제·복원 공용, Phase 4). status: ended/deleted/aborted 중 하나로 PATCH.' },
+  // Phase 5: 알림 큐
+  { path: '/api/admin/notifications?status=pending&limit=1', method: 'GET',  expect: '2xx',        label: 'Notif Queue (GET)', body: null,
+    desc: '알림 큐 조회 (Phase 5). 외부 도구가 pending 항목을 가져가 카카오톡 발송 후 sent 로 표시.' },
+  { path: '/api/admin/notifications/0',           method: 'PATCH', expect: '2xx-or-4xx', label: 'Notif PATCH', body: '{}',
+    desc: '알림 발송 결과 표시 (Phase 5). status: sent/failed/discarded/pending 으로 변경.' },
+  // Phase 6: CSV 내보내기
+  { path: '/api/admin/export/recordings.csv?date_to=1970-01-02', method: 'GET', expect: '2xx', label: 'Export Recordings CSV', body: null,
+    desc: '녹화 목록 CSV 다운로드 (Phase 6). 검색바와 동일한 필터 적용. UTF-8 BOM 포함이라 Excel 한글 OK.' },
+  { path: '/api/admin/export/attendance.csv?date_to=1970-01-02', method: 'GET', expect: '2xx', label: 'Export Attendance CSV', body: null,
+    desc: '출석 데이터 CSV 다운로드 (Phase 6). 기간·user_id·room_id 필터. 활성 비율·시선 점수 컬럼 포함.' },
+  // Phase 7: 저장소·비용 통계
+  { path: '/api/admin/stats/storage', method: 'GET', expect: '2xx', label: 'Storage Stats', body: null,
+    desc: '저장소 사용량 실시간 측정 (Phase 7). D1 row 수·R2 객체 수와 총 byte. KV 는 list 한도 이슈로 측정 제외.' },
+  // Phase 8 v2: 강사 급여·평가 (10분 단가 모델)
+  { path: '/api/admin/payroll/rates', method: 'GET', expect: '2xx', label: 'Payroll Settings', body: null,
+    desc: '시스템 설정 (환율 PHP↔KRW, 5개 카테고리 가중치, 4등급 임계값). UI 가 참조.' },
+  { path: '/api/admin/teachers',      method: 'GET', expect: '2xx', label: 'Teachers',      body: null,
+    desc: '강사 목록. status(office|home), years, rate_per_10min_php 포함.' },
+  { path: '/api/admin/payroll/all?year=2026&month=4', method: 'GET', expect: '2xx', label: 'Payroll Calc All', body: null,
+    desc: '활성 강사 전원의 월 급여+평가 통합 (수업수×2×10분단가 + 가중점수 + 등급). KRW 환산 포함.' },
+  // Phase 9: 메뉴 6종
+  { path: '/api/admin/franchises',       method: 'GET', expect: '2xx', label: 'Franchises',     body: null, desc: '가맹점 목록 (Phase 9).' },
+  { path: '/api/admin/centers',          method: 'GET', expect: '2xx', label: 'Centers',        body: null, desc: '교육센터 목록 (가맹점 종속, Phase 9).' },
+  { path: '/api/admin/level-tests',      method: 'GET', expect: '2xx', label: 'Level Tests',    body: null, desc: '학생 레벨테스트 결과 목록 (Phase 9).' },
+  { path: '/api/admin/enrollments',      method: 'GET', expect: '2xx', label: 'Enrollments',    body: null, desc: '수강신청 목록 (status 필터 가능, Phase 9).' },
+  { path: '/api/admin/community-posts',  method: 'GET', expect: '2xx', label: 'Community',      body: null, desc: '공지·게시판 목록 (Phase 9).' },
+  { path: '/api/admin/textbooks',        method: 'GET', expect: '2xx', label: 'Textbooks',      body: null, desc: '교재 콘텐츠 목록 (Phase 9).' },
+  { path: '/api/admin/students/list',    method: 'GET', expect: '2xx', label: 'Student List',   body: null, desc: '학생 목록 (attendance distinct user_id 집계, Phase 9 학생관리).' },
+  { path: '/api/admin/teacher-classes', method: 'PUT',  expect: '2xx-or-4xx', label: 'Teacher Classes PUT', body: '{}',
+    desc: '월별 수업 수(20분 단위) upsert. 빈 body 면 400 (route alive 검증용).' },
+  { path: '/api/admin/teacher-evaluation', method: 'PUT', expect: '2xx-or-4xx', label: 'Teacher Eval PUT', body: '{}',
+    desc: '월별 평가 5점수 + 코멘트 upsert. weighted_total / grade 자동 산출.' },
+  // --- POST 엔드포인트 — 빈 body 로 라우트 존재만 검증 (400 기대, 405 면 🔴) ---
+  //   ⚠ 실제 라우트 경로 그대로. /api/attendance 플레인은 라우트가 없고, /join·/leave·/heartbeat 이 실체.
+  { path: '/api/attendance/join',         method: 'POST', expect: '2xx-or-4xx', label: 'Attendance · join',      body: '{}',
+    desc: '학생 입장 기록. 첫 입장(오늘 첫 user)이면 카카오 알림 큐에 "수업 시작" 자동 적재.' },
+  { path: '/api/attendance/leave',        method: 'POST', expect: '2xx-or-4xx', label: 'Attendance · leave',     body: '{}',
+    desc: '학생 퇴장 기록. 발화 시간·연결 끊김 횟수를 누적 저장.' },
+  { path: '/api/attendance/heartbeat',    method: 'POST', expect: '2xx-or-4xx', label: 'Attendance · heartbeat', body: '{}',
+    desc: '60초마다 학생 살아있음 신호. KV(SESSION_STATE) 에 60초 TTL 로 적재.' },
+  { path: '/api/speaking-time',           method: 'POST', expect: '2xx-or-4xx', label: 'Speaking Time',          body: '{}',
+    desc: '발화 시간 누적 업데이트. 클라이언트의 VAD(음성 감지) 기반 active_ms / session_ms 를 보고.' },
+  { path: '/api/gaze-score',              method: 'POST', expect: '2xx-or-4xx', label: 'Gaze Score',             body: '{}',
+    desc: '시선 추적 점수 누적. MediaPipe FaceLandmarker 가 10초마다 보낸 정면 응시 비율(0~100%) 을 attendance 에 누적.' },
+  { path: '/api/kakao-id',                method: 'POST', expect: '2xx-or-4xx', label: 'KakaoID Register',       body: '{}',
+    desc: '비상 알림용 카카오 ID 등록 (교사용). user_id 단위로 upsert.' },
+  { path: '/api/reward',                  method: 'POST', expect: '2xx-or-4xx', label: 'Reward',                 body: '{}',
+    desc: '학생 보상(스티커·쿠폰) 발급. 교사당 일일 30개 상한 (rate limit). 만료일 90일 기본.' },
+  { path: '/api/emergency',               method: 'POST', expect: '2xx-or-4xx', label: 'Emergency',              body: '{}',
+    desc: '비상 이벤트 기록 (수업 중 카카오 버튼 등). 자동으로 알림 큐에 "🚨 비상" 적재.' },
+  { path: '/api/consents',                method: 'POST', expect: '2xx-or-4xx', label: 'Consents',               body: '{}',
+    desc: '녹화·발화 분석·출석·보상·카카오 동의 기록. IP/UA 와 함께 영구 저장 (개인정보보호법 대응).' }
+];
+
+// ---------- classification ----------
+function classify(status, expect, errored) {
+  if (errored) return { color: 'red', badge: '🔴', note: 'network error' };
+  // 405 = 라우트 존재 안 함 — 최우선 레드 (gaze-score 사고 재현 탐지)
+  if (status === 405) return { color: 'red', badge: '🔴', note: 'Method Not Allowed (라우트 누락?)' };
+  if (status >= 500)  return { color: 'red', badge: '🔴', note: 'server error' };
+  // expect 기반 분류를 404 단정보다 먼저 처리 — "2xx-or-4xx" 는 4xx(404 포함) 도 OK.
+  if (expect === '2xx-or-4xx') {
+    if (status >= 200 && status < 500) return { color: 'green', badge: '🟢', note: 'route alive (' + status + ')' };
+    return { color: 'yellow', badge: '🟡', note: 'unexpected ' + status };
+  }
+  if (expect === '4xx') {
+    if (status >= 400 && status < 500) return { color: 'green', badge: '🟢', note: 'validation ok' };
+    return { color: 'yellow', badge: '🟡', note: 'unexpected ' + status };
+  }
+  // expect === '2xx' 는 404 를 진짜 문제로 봐야 함 → 이쪽 분기에서 404 yellow 로.
+  if (status === 404) return { color: 'yellow', badge: '🟡', note: 'Not Found (경로 확인)' };
+  if (expect === '2xx') {
+    if (status >= 200 && status < 300) return { color: 'green', badge: '🟢', note: 'ok' };
+    return { color: 'yellow', badge: '🟡', note: 'unexpected ' + status };
+  }
+  return { color: 'yellow', badge: '🟡', note: 'status ' + status };
+}
+
+function classifyBinding(b) {
+  if (!b) return { color: 'gray', badge: '⚪' };
+  if (b.status === 'ok')    return { color: 'green',  badge: '🟢' };
+  if (b.status === 'warn')  return { color: 'yellow', badge: '🟡' };
+  if (b.status === 'error') return { color: 'red',    badge: '🔴' };
+  return { color: 'gray', badge: '⚪' };
+}
+
+// ---------- rendering ----------
+function tile(container, opts) {
+  const el = document.createElement('div');
+  el.className = 'tile ' + (opts.color || 'gray');
+  if (opts.description) el.setAttribute('data-description', opts.description);
+  el.innerHTML = `
+    <div class="head">
+      <div class="name">${opts.name}</div>
+      <div class="badge">${opts.badge}</div>
+    </div>
+    ${opts.sub ? `<div class="sub">${opts.sub}</div>` : ''}
+    ${opts.meta ? `<div class="meta">${opts.meta}</div>` : ''}
+    ${opts.error ? `<div class="error-detail">${opts.error}</div>` : ''}
+  `;
+  container.appendChild(el);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ---------- fetchers ----------
+async function fetchHealthCheck() {
+  const t0 = performance.now();
+  try {
+    const r = await fetch('/api/admin/health-check', { cache: 'no-store', credentials: 'include' });
+    const ms = Math.round(performance.now() - t0);
+    if (!r.ok) return { ok: false, latencyMs: ms, status: r.status, error: 'HTTP ' + r.status };
+    const data = await r.json();
+    return { ok: true, latencyMs: ms, data };
+  } catch (e) {
+    return { ok: false, latencyMs: Math.round(performance.now() - t0), error: e.message };
+  }
+}
+
+async function pingOne(ep) {
+  const t0 = performance.now();
+  try {
+    const opts = { method: ep.method, cache: 'no-store', credentials: 'include' };
+    if (ep.body !== null) {
+      opts.headers = { 'Content-Type': 'application/json' };
+      opts.body = ep.body;
+    }
+    const r = await fetch(ep.path, opts);
+    return { ...ep, status: r.status, latencyMs: Math.round(performance.now() - t0), errored: false };
+  } catch (e) {
+    return { ...ep, status: 0, latencyMs: Math.round(performance.now() - t0), errored: true, error: e.message };
+  }
+}
+
+// ---------- main ----------
+let inFlight = false;
+
+async function refresh() {
+  if (inFlight) return;
+  inFlight = true;
+  document.getElementById('last-update').innerHTML = '<span class="spin"></span> 갱신 중…';
+
+  try {
+    // 병렬 실행
+    const [hc, pings] = await Promise.all([
+      fetchHealthCheck(),
+      Promise.all(ENDPOINTS.map(pingOne))
+    ]);
+
+    // 카운터
+    let green = 0, yellow = 0, red = 0;
+
+    // --- 서버 바인딩 ---
+    const bindingsEl = document.getElementById('bindings');
+    bindingsEl.innerHTML = '';
+
+    if (!hc.ok) {
+      tile(bindingsEl, {
+        name: '/api/admin/health-check',
+        badge: '🔴',
+        color: 'red',
+        sub: 'API 호출 자체 실패',
+        error: escapeHtml(hc.error || 'unknown')
+      });
+      red++;
+    } else {
+      const b = hc.data.bindings || {};
+      const list = [
+        ['D1 (mango-db)',        b.d1,           'Cloudflare D1 (SQLite). 출석·녹화 메타·점수·동의·알림 큐 등 모든 비즈니스 데이터의 메인 DB. SELECT 1 로 연결 검증.'],
+        ['R2 (recordings)',      b.r2,           'Cloudflare R2 객체 저장소 — 학생 녹화 영상 .webm 파일을 저장. head() 호출로 버킷 연결 검증.'],
+        ['KV (PDF_STORE)',       b.kv_pdf,       'Cloudflare KV — 수업에 첨부되는 PDF 자료 임시 저장소. get() 호출로 바인딩 검증 (list 는 한도 소비라 회피).'],
+        ['KV (SESSION_STATE)',   b.kv_session,   'Cloudflare KV — 출석 heartbeat·세션 상태 임시 저장 (60초 TTL). get() 호출로 검증.'],
+        ['DO (SignalingRoom)',   b.do_signaling, 'Durable Object — WebRTC 시그널링(SDP/ICE 교환) 방. 각 수업 방마다 인스턴스. presence 만 검증 (실 호출은 안 함).'],
+        ['DO (VideoCallRoom)',   b.do_video_call,'Durable Object — 화상수업 방 상태 관리(참가자·녹화·강제 종료 등). presence 만 검증.'],
+        ['Secret · ADMIN_PW',    b.admin_password,'관리자 페이지 Basic Auth 비밀번호. 미설정이면 fail-open(경고 로그만) 으로 페이지 잠금 해제. wrangler secret put ADMIN_PASSWORD 로 설정.'],
+        ['Secret · TURN_KEY',    b.turn_key,     'Cloudflare TURN 서비스 토큰. 학생 클라이언트가 NAT/방화벽 뒤에 있을 때 우회용 자격증명 발급에 사용.'],
+        ['Secret · LIVEKIT',     b.livekit,      'LiveKit 화상통화 서비스 (선택사항). 미설정이어도 기본 WebRTC 는 정상 동작 — 그래서 노랑(경고)이지 에러는 아님.']
+      ];
+      list.forEach(([name, item, desc]) => {
+        const c = classifyBinding(item);
+        if (c.color === 'green') green++;
+        else if (c.color === 'yellow') yellow++;
+        else if (c.color === 'red') red++;
+        let sub = '';
+        let meta = '';
+        if (item) {
+          if ('latencyMs' in item) sub = item.latencyMs + ' ms';
+          if (item.configured !== undefined) meta += 'configured=' + item.configured;
+          if (item.length !== undefined && item.length > 0) meta += (meta ? ' · ' : '') + 'length=' + item.length;
+          if (item.detail) meta += (meta ? ' · ' : '') + item.detail;
+        }
+        tile(bindingsEl, {
+          name: name,
+          badge: c.badge,
+          color: c.color,
+          sub: sub,
+          meta: meta,
+          error: item && item.error ? escapeHtml(item.error) : null,
+          description: desc
+        });
+      });
+
+      // 빌드 스탬프
+      const stamp = (hc.data.buildInfo && hc.data.buildInfo.stamp) || '(unknown)';
+      document.getElementById('build-stamp').textContent = stamp;
+    }
+
+    // --- 엔드포인트 자가 ping ---
+    const endpointsEl = document.getElementById('endpoints');
+    endpointsEl.innerHTML = '';
+    pings.forEach(p => {
+      const c = classify(p.status, p.expect, p.errored);
+      if (c.color === 'green') green++;
+      else if (c.color === 'yellow') yellow++;
+      else if (c.color === 'red') red++;
+      tile(endpointsEl, {
+        name: p.label,
+        badge: c.badge,
+        color: c.color,
+        sub: `${p.method} ${p.path}`,
+        meta: `status=${p.status || 'ERR'} · ${p.latencyMs}ms · ${c.note}`,
+        error: p.error ? escapeHtml(p.error) : null,
+        description: p.desc || null
+      });
+    });
+
+    // --- 요약 ---
+    document.getElementById('summary-green').textContent = green;
+    document.getElementById('summary-yellow').textContent = yellow;
+    document.getElementById('summary-red').textContent = red;
+    const summaryGreen = document.getElementById('summary-green');
+    const summaryYellow = document.getElementById('summary-yellow');
+    const summaryRed = document.getElementById('summary-red');
+    summaryGreen.className = 'big green';
+    summaryYellow.className = 'big yellow';
+    summaryRed.className = 'big red';
+
+    const icon = document.getElementById('summary-icon');
+    if (red > 0) {
+      icon.textContent = '🔴';
+      icon.className = 'big red';
+    } else if (yellow > 0) {
+      icon.textContent = '🟡';
+      icon.className = 'big yellow';
+    } else {
+      icon.textContent = '🟢';
+      icon.className = 'big green';
+    }
+
+    const now = new Date();
+    document.getElementById('last-update').textContent =
+      '마지막 갱신: ' + now.toLocaleTimeString('ko-KR') + ' (total ' + (hc.ok ? hc.data.totalLatencyMs : '?') + 'ms)';
+
+  } catch (e) {
+    document.getElementById('last-update').textContent = '에러: ' + e.message;
+    console.error(e);
+  } finally {
+    inFlight = false;
+  }
+}
+
+// ---------- auto refresh ----------
+let timer = null;
+function startTimer() {
+  stopTimer();
+  timer = setInterval(() => {
+    if (document.getElementById('auto-refresh').checked && !document.hidden) {
+      refresh();
+    }
+  }, 10000);
+}
+function stopTimer() { if (timer) { clearInterval(timer); timer = null; } }
+
+document.getElementById('refresh-btn').addEventListener('click', refresh);
+document.getElementById('auto-refresh').addEventListener('change', (e) => {
+  if (e.target.checked) startTimer(); else stopTimer();
+});
+
+// 첫 호출 + 타이머 시작
+refresh();
+startTimer();
+</script>
+
+</body>
+</html>

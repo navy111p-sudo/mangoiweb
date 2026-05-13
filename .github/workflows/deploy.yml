@@ -1,0 +1,123 @@
+name: Deploy WebRTC Unified Platform (Cloudflare Workers)
+
+# main 브랜치에 push 될 때마다 자동 배포.
+# 수동 실행도 가능 (Actions 탭 → Run workflow).
+on:
+  push:
+    branches: [main]
+    paths:
+      # cloudflare-deploy 하위만 배포 트리거 (불필요한 배포 방지)
+      - 'cloudflare-deploy/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+    inputs:
+      skip_base:
+        description: 'base Worker 배포 건너뜀'
+        required: false
+        default: 'false'
+      skip_prod:
+        description: 'production Worker 배포 건너뜀'
+        required: false
+        default: 'false'
+
+# 동시 실행 방지 (중복 배포로 인한 바인딩 경쟁 방지)
+concurrency:
+  group: cloudflare-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Cloudflare Workers
+    runs-on: ubuntu-latest
+    # 작업 디렉터리를 cloudflare-deploy/ 로 고정 (package.json / wrangler.toml 위치)
+    defaults:
+      run:
+        working-directory: cloudflare-deploy
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'cloudflare-deploy/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check (src/*.ts)
+        run: npx tsc --noEmit
+        continue-on-error: true
+
+      - name: Sanity check — required secrets
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN 시크릿이 설정되지 않았습니다. Settings → Secrets → Actions 에서 추가하세요."
+            exit 1
+          fi
+          echo "✓ CLOUDFLARE_API_TOKEN 존재"
+
+      # ─── 1) base Worker 배포 (webrtc-unified-platform) ───
+      - name: Deploy base Worker
+        if: github.event.inputs.skip_base != 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: 'cloudflare-deploy'
+          wranglerVersion: '4'
+          # wrangler deploy — top-level 바인딩 사용 (Durable Objects/KV/D1/R2)
+          command: deploy
+
+      # ─── 2) production Worker 배포 (webrtc-unified-platform-prod) ───
+      # Wrangler 4부터 [env.production] 은 top-level 바인딩을 자동 상속하지 않으므로
+      # wrangler.toml 에 production 블록이 재선언되어 있어야 함 (이미 되어 있음).
+      - name: Deploy production Worker
+        if: github.event.inputs.skip_prod != 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: 'cloudflare-deploy'
+          wranglerVersion: '4'
+          command: deploy --env production
+
+      # ─── 3) 배포 후 헬스체크 ───
+      - name: Health check — base
+        if: github.event.inputs.skip_base != 'true'
+        run: |
+          URL="https://webrtc-unified-platform.navy111p.workers.dev/video-call/"
+          CODE=$(curl -sS -o /dev/null -w "%{http_code}" -L --max-time 20 "$URL" || echo "000")
+          echo "base   → $URL → HTTP $CODE"
+          if [ "$CODE" != "200" ]; then
+            echo "::warning::base Worker 헬스체크 실패 (HTTP $CODE)"
+          fi
+
+      - name: Health check — production
+        if: github.event.inputs.skip_prod != 'true'
+        run: |
+          URL="https://webrtc-unified-platform-prod.navy111p.workers.dev/video-call/"
+          CODE=$(curl -sS -o /dev/null -w "%{http_code}" -L --max-time 20 "$URL" || echo "000")
+          echo "prod   → $URL → HTTP $CODE"
+          if [ "$CODE" != "200" ]; then
+            echo "::warning::production Worker 헬스체크 실패 (HTTP $CODE)"
+          fi
+
+      - name: Deploy summary
+        if: always()
+        run: |
+          {
+            echo "### 🚀 Cloudflare Workers 배포 요약"
+            echo ""
+            echo "| Worker | URL |"
+            echo "|---|---|"
+            echo "| base | https://webrtc-unified-platform.navy111p.workers.dev/video-call/ |"
+            echo "| production | https://webrtc-unified-platform-prod.navy111p.workers.dev/video-call/ |"
+            echo ""
+            echo "커밋: \`${{ github.sha }}\`"
+          } >> $GITHUB_STEP_SUMMARY

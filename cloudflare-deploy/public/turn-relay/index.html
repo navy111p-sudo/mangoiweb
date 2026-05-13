@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TURN/STUN 설정</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    .container { max-width: 800px; margin: 0 auto; }
+    h1 { font-size: 2rem; color: #38bdf8; margin-bottom: 12px; text-align: center; }
+    .subtitle { text-align: center; color: #94a3b8; margin-bottom: 32px; }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .card h2 {
+      font-size: 1.2rem;
+      color: #38bdf8;
+      margin-bottom: 16px;
+    }
+    .config-item {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9rem;
+      word-break: break-all;
+      color: #cbd5e1;
+    }
+    .back-link { text-align: center; margin-top: 32px; }
+    .back-link a {
+      color: #94a3b8;
+      text-decoration: none;
+      font-size: 0.95rem;
+    }
+    .back-link a:hover { color: #38bdf8; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>TURN/STUN 설정</h1>
+    <p class="subtitle">NAT 통과 및 ICE 서버 정보</p>
+
+    <div class="card">
+      <h2>STUN 서버 (대칭 NAT 통과용)</h2>
+      <div class="config-item">stun:stun.l.google.com:19302</div>
+      <div class="config-item">stun:stun1.l.google.com:19302</div>
+      <div class="config-item">stun:stun2.l.google.com:19302</div>
+      <div class="config-item">stun:stun3.l.google.com:19302</div>
+      <div class="config-item">stun:stun4.l.google.com:19302</div>
+    </div>
+
+    <div class="card">
+      <h2>API 엔드포인트</h2>
+      <div class="config-item">GET /api/turn-config</div>
+      <p style="margin-top: 12px; color: #94a3b8; font-size: 0.9rem;">
+        이 엔드포인트에서 JSON 형식의 ICE 서버 설정을 다운로드할 수 있습니다.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>클라이언트 통합</h2>
+      <pre style="background: #0f172a; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.85rem; color: #cbd5e1;"><code>const pc = new RTCPeerConnection({
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    // 추가 서버...
+  ]
+});</code></pre>
+    </div>
+
+    <div class="back-link">
+      <a href="/">← 메인 대시보드로</a>
+    </div>
+  </div>
+
+  <script>
+    (async () => {
+      try {
+        const res = await fetch('/api/turn-config');
+        const data = await res.json();
+        console.log('ICE Servers loaded:', data);
+      } catch (err) {
+        console.error('Failed to load TURN config:', err);
+      }
+    })();
+  </script>
+</body>
+</html>

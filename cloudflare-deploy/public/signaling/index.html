@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>시그널링 서버 테스트</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+    .container { max-width: 900px; margin: 0 auto; padding: 24px; }
+    h1 { text-align: center; margin-bottom: 8px; font-size: 1.5rem; color: #38bdf8; }
+    .back-link { text-align: center; margin-bottom: 24px; }
+    .back-link a { color: #94a3b8; text-decoration: none; font-size: 0.85rem; }
+    .back-link a:hover { color: #38bdf8; }
+    .controls { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+    input { flex: 1; min-width: 180px; padding: 10px 14px; border-radius: 8px; border: 1px solid #334155;
+            background: #1e293b; color: #e2e8f0; font-size: 0.95rem; }
+    button { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600;
+             font-size: 0.95rem; transition: background 0.2s; }
+    .btn-join { background: #2563eb; color: #fff; }
+    .btn-join:hover { background: #1d4ed8; }
+    .btn-call { background: #16a34a; color: #fff; }
+    .btn-call:hover { background: #15803d; }
+    .btn-hangup { background: #dc2626; color: #fff; }
+    .btn-hangup:hover { background: #b91c1c; }
+    .videos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .video-wrap { position: relative; background: #1e293b; border-radius: 12px; overflow: hidden; aspect-ratio: 4/3; }
+    .video-wrap video { width: 100%; height: 100%; object-fit: cover; }
+    .video-label { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.6);
+                   padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; }
+    .status { padding: 10px 14px; background: #1e293b; border-radius: 8px; margin-bottom: 16px;
+              font-size: 0.85rem; color: #94a3b8; }
+    .status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+    .dot-red { background: #ef4444; } .dot-green { background: #22c55e; } .dot-yellow { background: #eab308; }
+    .log { background: #1e293b; border-radius: 8px; padding: 14px; max-height: 220px;
+           overflow-y: auto; font-family: 'Fira Code', monospace; font-size: 0.8rem; line-height: 1.6; }
+    .log p { margin: 0; }
+    .log .info { color: #38bdf8; } .log .warn { color: #eab308; }
+    .log .err  { color: #f87171; } .log .ok   { color: #4ade80; }
+    @media (max-width: 600px) { .videos { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>WebRTC 시그널링 테스트</h1>
+    <div class="back-link"><a href="/">← 메인 대시보드로</a></div>
+    <div class="status" id="status"><span class="dot dot-red"></span> 서버 미연결</div>
+    <div class="controls">
+      <input id="roomInput" placeholder="방 이름 입력 (예: test-room)" />
+      <button class="btn-join" id="joinBtn">방 참가</button>
+      <button class="btn-call" id="callBtn" disabled>통화 시작</button>
+      <button class="btn-hangup" id="hangupBtn" disabled>통화 종료</button>
+    </div>
+    <div class="videos">
+      <div class="video-wrap">
+        <video id="localVideo" autoplay muted playsinline></video>
+        <div class="video-label">내 화면</div>
+      </div>
+      <div class="video-wrap">
+        <video id="remoteVideo" autoplay playsinline></video>
+        <div class="video-label">상대방</div>
+      </div>
+    </div>
+    <div class="log" id="log"></div>
+  </div>
+
+<script>
+// Native WebSocket 기반 시그널링 클라이언트 (Socket.IO 대체)
+const localVideo  = document.getElementById('localVideo');
+const remoteVideo = document.getElementById('remoteVideo');
+const roomInput   = document.getElementById('roomInput');
+const joinBtn     = document.getElementById('joinBtn');
+const callBtn     = document.getElementById('callBtn');
+const hangupBtn   = document.getElementById('hangupBtn');
+const statusEl    = document.getElementById('status');
+const logEl       = document.getElementById('log');
+
+let ws = null, localStream = null, peerConnection = null;
+let currentRoom = null, remotePeerId = null;
+let socketId = null;
+
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+  ],
+};
+
+function log(msg, type = 'info') {
+  const p = document.createElement('p');
+  p.className = type;
+  p.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+  logEl.appendChild(p);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function setStatus(text, color) {
+  statusEl.innerHTML = '<span class="dot dot-' + color + '"></span> ' + text;
+}
+
+function connectSocket() {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = window.location.host;
+  const roomId = roomInput.value.trim() || 'signaling-test';
+
+  ws = new WebSocket(`${protocol}//${host}/ws/signaling?roomId=${encodeURIComponent(roomId)}`);
+
+  ws.onopen = () => {
+    log('서버 연결 완료 (WebSocket)', 'ok');
+    setStatus('서버 연결됨', 'green');
+  };
+
+  ws.onmessage = (event) => {
+    try {
+      const msg = JSON.parse(event.data);
+      handleWebSocketMessage(msg);
+    } catch (err) {
+      console.error('Message parse error:', err);
+    }
+  };
+
+  ws.onerror = () => {
+    log('서버 연결 오류', 'err');
+    setStatus('서버 연결 오류', 'red');
+  };
+
+  ws.onclose = () => {
+    log('서버 연결 끊김', 'err');
+    setStatus('서버 연결 끊김', 'red');
+  };
+}
+
+function handleWebSocketMessage(msg) {
+  const { type, data } = msg;
+
+  switch (type) {
+    case 'room-joined':
+      handleRoomJoined(data);
+      break;
+    case 'peer-joined':
+      handlePeerJoined(data);
+      break;
+    case 'peer-left':
+      handlePeerLeft(data);
+      break;
+    case 'room-full':
+      handleRoomFull(data);
+      break;
+    case 'offer':
+      handleOffer(data);
+      break;
+    case 'answer':
+      handleAnswer(data);
+      break;
+    case 'ice-candidate':
+      handleIceCandidate(data);
+      break;
+    case 'error-msg':
+      log('서버 오류: ' + data.message, 'err');
+      break;
+  }
+}
+
+function handleRoomJoined({ roomId, peers, isInitiator }) {
+  currentRoom = roomId;
+  log('방 "' + roomId + '" 참가 완료 (현재 피어: ' + peers.length + '명)', 'ok');
+  setStatus('방: ' + roomId, 'green');
+  joinBtn.textContent = '방 나가기';
+  if (peers.length > 0) {
+    remotePeerId = peers[0];
+    callBtn.disabled = false;
+    log('상대방이 이미 있습니다. "통화 시작"을 눌러주세요.', 'info');
+  }
+}
+
+function handlePeerJoined({ peerId }) {
+  log('새 피어 입장: ' + peerId, 'info');
+  remotePeerId = peerId;
+  callBtn.disabled = false;
+}
+
+function handlePeerLeft({ peerId }) {
+  log('피어 퇴장: ' + peerId, 'warn');
+  if (peerId === remotePeerId) {
+    closePeerConnection();
+    remotePeerId = null;
+    callBtn.disabled = true;
+  }
+}
+
+function handleRoomFull({ roomId }) {
+  log('방 "' + roomId + '"이 꽉 찼습니다.', 'err');
+}
+
+async function handleOffer({ senderId, sdp }) {
+  log('Offer 수신', 'info');
+  remotePeerId = senderId;
+  await createPeerConnection();
+  await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
+  const answer = await peerConnection.createAnswer();
+  await peerConnection.setLocalDescription(answer);
+  sendMessage({ type: 'answer', data: { targetId: senderId, sdp: answer } });
+  log('Answer 전송 완료', 'ok');
+  hangupBtn.disabled = false;
+}
+
+async function handleAnswer({ senderId, sdp }) {
+  log('Answer 수신', 'info');
+  await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
+}
+
+async function handleIceCandidate({ senderId, candidate }) {
+  log('ICE candidate 수신', 'info');
+  if (peerConnection) {
+    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+  }
+}
+
+async function getLocalStream() {
+  if (localStream) return localStream;
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    localVideo.srcObject = localStream;
+    log('카메라/마이크 획득 완료', 'ok');
+    return localStream;
+  } catch (err) {
+    log('미디어 접근 실패: ' + err.message, 'err');
+    throw err;
+  }
+}
+
+async function createPeerConnection() {
+  if (peerConnection) return;
+  await getLocalStream();
+  peerConnection = new RTCPeerConnection(ICE_SERVERS);
+  localStream.getTracks().forEach((track) => {
+    peerConnection.addTrack(track, localStream);
+  });
+  peerConnection.ontrack = (event) => {
+    log('원격 미디어 스트림 수신', 'ok');
+    remoteVideo.srcObject = event.streams[0];
+  };
+  peerConnection.onicecandidate = (event) => {
+    if (event.candidate) {
+      sendMessage({ type: 'ice-candidate', data: { targetId: remotePeerId, candidate: event.candidate } });
+    }
+  };
+  peerConnection.onconnectionstatechange = () => {
+    const state = peerConnection.connectionState;
+    log('PeerConnection 상태: ' + state, state === 'connected' ? 'ok' : 'warn');
+    if (state === 'connected') setStatus('통화 중', 'green');
+    if (state === 'disconnected' || state === 'failed') {
+      setStatus('연결 끊김', 'yellow');
+      closePeerConnection();
+    }
+  };
+  log('PeerConnection 생성 완료', 'ok');
+}
+
+function closePeerConnection() {
+  if (peerConnection) { peerConnection.close(); peerConnection = null; }
+  remoteVideo.srcObject = null;
+  hangupBtn.disabled = true;
+  log('PeerConnection 종료', 'warn');
+}
+
+function sendMessage(msg) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(msg));
+  }
+}
+
+joinBtn.addEventListener('click', () => {
+  if (currentRoom) {
+    sendMessage({ type: 'leave' });
+    closePeerConnection();
+    currentRoom = null; remotePeerId = null;
+    joinBtn.textContent = '방 참가';
+    callBtn.disabled = true;
+    setStatus('서버 연결됨', 'green');
+    log('방에서 나갔습니다.', 'warn');
+    if (ws) ws.close();
+    return;
+  }
+  const room = roomInput.value.trim();
+  if (!room) { log('방 이름을 입력하세요.', 'warn'); return; }
+  connectSocket();
+  setTimeout(() => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      sendMessage({ type: 'join' });
+    }
+  }, 100);
+});
+
+callBtn.addEventListener('click', async () => {
+  if (!remotePeerId) { log('상대방이 없습니다.', 'warn'); return; }
+  await createPeerConnection();
+  const offer = await peerConnection.createOffer();
+  await peerConnection.setLocalDescription(offer);
+  sendMessage({ type: 'offer', data: { targetId: remotePeerId, sdp: offer } });
+  log('Offer 전송 완료', 'ok');
+  hangupBtn.disabled = false;
+  callBtn.disabled = true;
+});
+
+hangupBtn.addEventListener('click', () => {
+  closePeerConnection();
+  callBtn.disabled = false;
+  setStatus('방: ' + currentRoom, 'green');
+});
+</script>
+</body>
+</html>

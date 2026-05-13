@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CloudPlayer TURN 중계 서버 - 테스트</title>
+  <style>
+    :root {
+      --bg: #0f1117; --surface: #1a1d27; --border: #2a2d3a;
+      --primary: #6c5ce7; --primary-light: #a29bfe;
+      --success: #00cec9; --danger: #ff7675;
+      --text: #dfe6e9; --text-muted: #636e72;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 2rem 1rem; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+    .subtitle { color: var(--text-muted); font-size: 0.875rem; margin-bottom: 2rem; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+    @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; }
+    .card h2 { font-size: 0.875rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; }
+    label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+    input, select { width: 100%; padding: 0.5rem 0.75rem; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 0.875rem; margin-bottom: 0.75rem; }
+    input:focus, select:focus { outline: none; border-color: var(--primary); }
+    .btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    button { padding: 0.5rem 1rem; border: none; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+    button:hover { opacity: 0.85; } button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-success { background: var(--success); color: #000; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+    .status-dot.connected { background: var(--success); } .status-dot.disconnected { background: var(--danger); }
+    .peers { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+    .peer-badge { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.25rem 0.6rem; font-size: 0.75rem; font-family: monospace; }
+    .peer-badge.me { border-color: var(--primary); color: var(--primary-light); }
+    #log { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; height: 320px; overflow-y: auto; font-family: 'Fira Code', monospace; font-size: 0.75rem; line-height: 1.6; }
+    .log-entry { padding: 1px 0; } .log-time { color: var(--text-muted); }
+    .log-info { color: var(--primary-light); } .log-success { color: var(--success); }
+    .log-error { color: var(--danger); } .log-relay { color: #fdcb6e; }
+    .send-row { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+    .send-row input { margin-bottom: 0; flex: 1; }
+    .video-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.75rem; }
+    video { width: 100%; border-radius: 8px; background: #000; aspect-ratio: 16/9; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>CloudPlayer TURN 중계 서버</h1>
+    <p class="subtitle">Cloudflare Workers + Durable Objects 기반 WebRTC 시그널링 &amp; 데이터 중계</p>
+    <p style="margin-bottom: 1.5rem;"><a href="/" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem;">← 메인 대시보드로</a></p>
+    <div class="grid">
+      <div class="card">
+        <h2>연결 설정</h2>
+        <label for="roomId">방 ID</label>
+        <input type="text" id="roomId" value="test-room" placeholder="방 이름 입력" />
+        <label for="peerId">피어 ID</label>
+        <input type="text" id="peerId" placeholder="자동 생성" />
+        <div class="btn-row">
+          <button class="btn-primary" id="btnConnect">연결</button>
+          <button class="btn-danger" id="btnDisconnect" disabled>연결 해제</button>
+          <button class="btn-outline" id="btnRoomInfo">방 정보</button>
+        </div>
+        <div style="margin-top: 1rem;">
+          <span class="status-dot disconnected" id="statusDot"></span>
+          <span id="statusText" style="font-size: 0.8rem;">미연결</span>
+        </div>
+        <div class="peers" id="peerList"></div>
+      </div>
+      <div class="card">
+        <h2>WebRTC 미디어</h2>
+        <div class="btn-row" style="margin-bottom: 0.5rem;">
+          <button class="btn-success" id="btnStartMedia" disabled>카메라 시작</button>
+          <button class="btn-primary" id="btnCall" disabled>통화 시작</button>
+          <button class="btn-danger" id="btnHangup" disabled>통화 종료</button>
+        </div>
+        <div class="video-grid">
+          <div><label>로컬</label><video id="localVideo" autoplay playsinline muted></video></div>
+          <div><label>원격</label><video id="remoteVideo" autoplay playsinline></video></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>이벤트 로그</h2>
+      <div id="log"></div>
+      <div class="send-row">
+        <input type="text" id="relayInput" placeholder="중계 메시지 입력 (relay-data 테스트)" />
+        <select id="relayTarget" style="width: auto; min-width: 120px;"><option value="">대상 선택</option></select>
+        <button class="btn-outline" id="btnRelay" disabled>중계 전송</button>
+      </div>
+    </div>
+  </div>
+<script>
+const $ = (s) => document.querySelector(s);
+let ws = null, myPeerId = '', peers = new Map(), localStream = null, peerConnections = new Map();
+const ICE_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
+
+function log(msg, type = 'info') {
+  const el = $('#log');
+  const time = new Date().toLocaleTimeString('ko-KR', { hour12: false });
+  el.innerHTML += `<div class="log-entry"><span class="log-time">[${time}]</span> <span class="log-${type}">${msg}</span></div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+$('#btnConnect').onclick = () => {
+  const roomId = $('#roomId').value.trim() || 'default';
+  myPeerId = $('#peerId').value.trim() || `peer-${crypto.randomUUID().slice(0, 8)}`;
+  $('#peerId').value = myPeerId;
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${proto}//${location.host}/ws?roomId=${encodeURIComponent(roomId)}`;
+  log(`연결 중... ${wsUrl}`, 'info');
+  ws = new WebSocket(wsUrl);
+  ws.onopen = () => {
+    log('WebSocket 연결됨', 'success'); setStatus(true);
+    ws.send(JSON.stringify({ type: 'join', peerId: myPeerId, metadata: { userAgent: navigator.userAgent.slice(0, 50) } }));
+  };
+  ws.onmessage = (e) => handleMessage(JSON.parse(e.data));
+  ws.onclose = (e) => { log(`연결 종료 (code: ${e.code})`, 'error'); setStatus(false); cleanup(); };
+  ws.onerror = () => log('WebSocket 오류 발생', 'error');
+};
+$('#btnDisconnect').onclick = () => { if (ws) { ws.send(JSON.stringify({ type: 'leave' })); ws.close(); } };
+
+function handleMessage(msg) {
+  switch (msg.type) {
+    case 'welcome':
+      log(`입장 완료! 방: ${msg.roomId}, 중계모드: ${msg.relayMode}`, 'success');
+      msg.peers.forEach(p => { peers.set(p.peerId, p); log(`  기존 피어: ${p.peerId}`, 'info'); });
+      updatePeerUI(); break;
+    case 'peer-joined':
+      peers.set(msg.peerId, { peerId: msg.peerId, joinedAt: Date.now() });
+      log(`→ ${msg.peerId} 입장`, 'success'); updatePeerUI(); break;
+    case 'peer-left':
+      peers.delete(msg.peerId); log(`← ${msg.peerId} 퇴장 (${msg.reason})`, 'error');
+      closePeerConnection(msg.peerId); updatePeerUI(); break;
+    case 'offer': log(`📥 Offer from ${msg.fromPeerId}`, 'info'); handleOffer(msg.fromPeerId, msg.sdp); break;
+    case 'answer': log(`📥 Answer from ${msg.fromPeerId}`, 'info'); handleAnswer(msg.fromPeerId, msg.sdp); break;
+    case 'ice-candidate': handleIceCandidate(msg.fromPeerId, msg.candidate); break;
+    case 'relay-data': log(`📦 중계 from ${msg.fromPeerId} [${msg.channel}]: ${msg.payload.slice(0,80)}`, 'relay'); break;
+    case 'pong': log(`Pong: ${Date.now() - msg.timestamp}ms`, 'info'); break;
+    case 'error': log(`⚠ [${msg.code}]: ${msg.message}`, 'error'); break;
+  }
+}
+
+$('#btnStartMedia').onclick = async () => {
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    $('#localVideo').srcObject = localStream;
+    log('로컬 미디어 시작됨', 'success'); $('#btnCall').disabled = false;
+  } catch (e) { log(`미디어 오류: ${e.message}`, 'error'); }
+};
+$('#btnCall').onclick = () => { peers.forEach((_, peerId) => createOffer(peerId)); };
+$('#btnHangup').onclick = () => { peerConnections.forEach((pc, peerId) => closePeerConnection(peerId)); log('통화 종료', 'error'); };
+
+function createPeerConnection(peerId) {
+  if (peerConnections.has(peerId)) return peerConnections.get(peerId);
+  const pc = new RTCPeerConnection(ICE_CONFIG);
+  pc.onicecandidate = (e) => { if (e.candidate) ws.send(JSON.stringify({ type: 'ice-candidate', targetPeerId: peerId, candidate: e.candidate.toJSON() })); };
+  pc.oniceconnectionstatechange = () => {
+    log(`ICE [${peerId}]: ${pc.iceConnectionState}`, pc.iceConnectionState === 'connected' ? 'success' : 'info');
+    if (pc.iceConnectionState === 'failed') log(`⚠ P2P 실패 → relay-data로 전환 가능`, 'relay');
+  };
+  pc.ontrack = (e) => { log(`원격 트랙 수신 from ${peerId}`, 'success'); $('#remoteVideo').srcObject = e.streams[0]; };
+  if (localStream) localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+  peerConnections.set(peerId, pc); return pc;
+}
+
+async function createOffer(peerId) {
+  const pc = createPeerConnection(peerId);
+  const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
+  ws.send(JSON.stringify({ type: 'offer', targetPeerId: peerId, sdp: offer.sdp }));
+  log(`📤 Offer → ${peerId}`, 'info');
+}
+async function handleOffer(from, sdp) {
+  const pc = createPeerConnection(from);
+  await pc.setRemoteDescription({ type: 'offer', sdp });
+  const answer = await pc.createAnswer(); await pc.setLocalDescription(answer);
+  ws.send(JSON.stringify({ type: 'answer', targetPeerId: from, sdp: answer.sdp }));
+  log(`📤 Answer → ${from}`, 'info'); $('#btnHangup').disabled = false;
+}
+async function handleAnswer(from, sdp) {
+  const pc = peerConnections.get(from);
+  if (pc) { await pc.setRemoteDescription({ type: 'answer', sdp }); $('#btnHangup').disabled = false; }
+}
+async function handleIceCandidate(from, candidate) {
+  const pc = peerConnections.get(from);
+  if (pc) await pc.addIceCandidate(candidate);
+}
+function closePeerConnection(peerId) {
+  const pc = peerConnections.get(peerId); if (pc) { pc.close(); peerConnections.delete(peerId); }
+}
+
+$('#btnRelay').onclick = () => {
+  const target = $('#relayTarget').value, payload = $('#relayInput').value;
+  if (!target || !payload) return;
+  ws.send(JSON.stringify({ type: 'relay-data', targetPeerId: target, channel: 'test', payload }));
+  log(`📤 중계 → ${target}: ${payload}`, 'relay'); $('#relayInput').value = '';
+};
+$('#btnRoomInfo').onclick = async () => {
+  const roomId = $('#roomId').value.trim() || 'default';
+  try { const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/info`); const data = await res.json(); log(`방 정보: ${JSON.stringify(data, null, 2)}`, 'info'); }
+  catch (e) { log(`방 정보 조회 실패: ${e.message}`, 'error'); }
+};
+
+function setStatus(c) {
+  $('#statusDot').className = `status-dot ${c ? 'connected' : 'disconnected'}`;
+  $('#statusText').textContent = c ? '연결됨' : '미연결';
+  $('#btnConnect').disabled = c; $('#btnDisconnect').disabled = !c;
+  $('#btnStartMedia').disabled = !c; $('#btnRelay').disabled = !c;
+}
+function updatePeerUI() {
+  const list = $('#peerList');
+  list.innerHTML = `<span class="peer-badge me">${myPeerId} (나)</span>`;
+  peers.forEach((p) => { list.innerHTML += `<span class="peer-badge">${p.peerId}</span>`; });
+  const sel = $('#relayTarget');
+  sel.innerHTML = '<option value="">대상 선택</option>';
+  peers.forEach((p) => { sel.innerHTML += `<option value="${p.peerId}">${p.peerId}</option>`; });
+}
+function cleanup() {
+  peers.clear(); peerConnections.forEach(pc => pc.close()); peerConnections.clear(); updatePeerUI(); ws = null;
+}
+setInterval(() => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() })); }, 30000);
+</script>
+</body>
+</html>

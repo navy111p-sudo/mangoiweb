@@ -1,0 +1,27 @@
+{
+  "name": "webrtc-unified-platform",
+  "version": "1.0.0",
+  "description": "WebRTC 화상통화 통합 플랫폼 - 시그널링, 화상통화+, TURN 중계를 하나의 서비스로",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "setup": "npm install && mkdir -p uploads && echo '설치 완료!'",
+    "turn:dev": "cd modules/turn-relay && npx wrangler dev",
+    "turn:deploy": "cd modules/turn-relay && npx wrangler deploy"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "socket.io": "^4.8.3",
+    "multer": "^1.4.5-lts.1",
+    "uuid": "^9.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  },
+  "keywords": ["webrtc", "video-call", "signaling", "turn-relay", "whiteboard", "chat", "pdf-sharing"],
+  "author": "navy111p-sudo",
+  "license": "MIT"
+}

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>마이페이지 — 망고아이 관리자</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #f4f5f7;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    color: #222;
+    min-height: 100vh;
+  }
+  header.top {
+    height: 56px;
+    background: #fff;
+    border-bottom: 1px solid #e6e6e6;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 14px;
+  }
+  header.top .brand { font-weight: 800; font-size: 16px; color: #d39000; }
+  header.top .crumb { color: #666; font-size: 13px; }
+  header.top .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  header.top a.btn {
+    text-decoration: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: #ffb800;
+    color: #1a1a1a;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  header.top a.ghost {
+    text-decoration: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    color: #444;
+    font-size: 12px;
+  }
+
+  main { max-width: 980px; margin: 22px auto; padding: 0 20px; }
+
+  .page-title { font-size: 22px; margin: 0 0 4px; }
+  .page-sub { color: #777; font-size: 13px; margin: 0 0 18px; }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid #e6e6e6;
+    margin-bottom: 18px;
+  }
+  .tab {
+    padding: 10px 16px;
+    cursor: pointer;
+    border: 0;
+    background: transparent;
+    font-size: 14px;
+    color: #666;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tab:hover { color: #222; }
+  .tab.active { color: #d39000; border-bottom-color: #ffb800; font-weight: 700; }
+
+  .panel { display: none; background: #fff; border: 1px solid #e9e9e9; border-radius: 10px; padding: 22px; }
+  .panel.active { display: block; }
+
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: #666; margin-bottom: 6px; font-weight: 600; }
+  .field input[type="text"], .field input[type="email"], .field input[type="tel"], .field input[type="password"] {
+    width: 100%; max-width: 420px;
+    padding: 9px 11px; border: 1px solid #d6d6d6; border-radius: 6px; font-size: 14px;
+  }
+  .field input:focus { outline: none; border-color: #ffb800; box-shadow: 0 0 0 3px rgba(255,184,0,.15); }
+  .field .hint { font-size: 11px; color: #999; margin-top: 4px; }
+
+  .btn-primary {
+    padding: 9px 18px; background: #1a1a1a; color: #ffb800; border: 0; border-radius: 6px;
+    font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  .btn-primary:disabled { opacity: 0.5; cursor: progress; }
+  .btn-danger {
+    padding: 6px 12px; background: #fff; color: #c33; border: 1px solid #f0bcbc; border-radius: 6px;
+    font-size: 12px; cursor: pointer;
+  }
+  .btn-danger:hover:not(:disabled) { background: #ffefef; }
+
+  .toast { position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%) translateY(20px); opacity: 0;
+           background: #222; color: #fff; padding: 10px 18px; border-radius: 6px; font-size: 13px;
+           transition: opacity .2s, transform .2s; z-index: 9999; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.err { background: #c33; }
+
+  table.list { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.list th, table.list td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; text-align: left; }
+  table.list th { background: #fafafa; color: #666; font-weight: 600; font-size: 12px; }
+  table.list tr:hover td { background: #fcfcfc; }
+  .ok-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+  .ok-badge.s { background: #e6f7e6; color: #1a7a1a; }
+  .ok-badge.f { background: #ffe6e6; color: #c33; }
+  .ua { color: #888; font-size: 11px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: middle; }
+  .current-tag { background: #fff3cf; color: #8a5b00; padding: 2px 7px; border-radius: 9px; font-size: 11px; margin-left: 6px; }
+
+  .empty { text-align: center; padding: 30px 10px; color: #999; font-size: 13px; }
+</style>
+</head>
+<body>
+  <header class="top">
+    <a href="https://webrtc-unified-platform.navy111p.workers.dev/" target="_blank" rel="noopener"
+       class="brand" style="cursor:pointer;text-decoration:none;color:inherit"
+       title="학생 홈페이지로 이동">🥭 망고아이</a>
+    <span class="crumb">관리자 &rsaquo; 마이페이지</span>
+    <div class="right">
+      <a class="ghost" href="/admin.html">← 대시보드</a>
+      <a class="btn" id="logoutBtn" href="#">로그아웃</a>
+    </div>
+  </header>
+
+  <main>
+    <h1 class="page-title">마이페이지</h1>
+    <p class="page-sub" id="welcomeLine">로딩 중…</p>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="profile">프로필</button>
+      <button class="tab" data-tab="password">비밀번호 변경</button>
+      <button class="tab" data-tab="history">로그인 이력</button>
+      <button class="tab" data-tab="sessions">세션 관리</button>
+    </nav>
+
+    <!-- ───── 프로필 ───── -->
+    <section class="panel active" data-panel="profile">
+      <div class="field">
+        <label>아이디</label>
+        <input id="profUsername" type="text" disabled>
+        <div class="hint">현재 단일 admin 계정 — 아이디는 변경 불가.</div>
+      </div>
+      <div class="field">
+        <label>이름</label>
+        <input id="profName" type="text" placeholder="예: 정우영">
+      </div>
+      <div class="field">
+        <label>이메일</label>
+        <input id="profEmail" type="email" placeholder="example@mangoi.co.kr">
+      </div>
+      <div class="field">
+        <label>연락처</label>
+        <input id="profPhone" type="tel" placeholder="010-1234-5678">
+      </div>
+      <button class="btn-primary" id="profSaveBtn">저장</button>
+    </section>
+
+    <!-- ───── 비밀번호 변경 ───── -->
+    <section class="panel" data-panel="password">
+      <div class="field">
+        <label>현재 비밀번호</label>
+        <input id="pwCur" type="password" autocomplete="current-password">
+      </div>
+      <div class="field">
+        <label>새 비밀번호 (6자 이상)</label>
+        <input id="pwNew" type="password" autocomplete="new-password" minlength="6">
+      </div>
+      <div class="field">
+        <label>새 비밀번호 확인</label>
+        <input id="pwNew2" type="password" autocomplete="new-password" minlength="6">
+        <div class="hint">변경 후 다른 모든 기기는 자동으로 로그아웃됩니다.</div>
+      </div>
+      <button class="btn-primary" id="pwSaveBtn">비밀번호 변경</button>
+    </section>
+
+    <!-- ───── 로그인 이력 ───── -->
+    <section class="panel" data-panel="history">
+      <div id="historyBox">
+        <div class="empty">로딩 중…</div>
+      </div>
+    </section>
+
+    <!-- ───── 세션 관리 ───── -->
+    <section class="panel" data-panel="sessions">
+      <div id="sessionsBox">
+        <div class="empty">로딩 중…</div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  // ───── 공통 ─────
+  const $ = (id) => document.getElementById(id);
+  const toastEl = $('toast');
+  function toast(msg, isErr){
+    toastEl.textContent = msg;
+    toastEl.classList.toggle('err', !!isErr);
+    toastEl.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => toastEl.classList.remove('show'), 2200);
+  }
+  function fmtTs(ts){
+    if (!ts) return '—';
+    const d = new Date(ts);
+    const pad = (n) => String(n).padStart(2,'0');
+    return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '
+         + pad(d.getHours())+':'+pad(d.getMinutes());
+  }
+  function shortUA(ua){
+    if (!ua) return '—';
+    if (/Edg\//.test(ua)) return 'Edge';
+    if (/Chrome\//.test(ua) && !/Chromium\//.test(ua)) return 'Chrome';
+    if (/Safari\//.test(ua) && !/Chrome\//.test(ua)) return 'Safari';
+    if (/Firefox\//.test(ua)) return 'Firefox';
+    return (ua.split(' ')[0] || ua).slice(0, 24);
+  }
+
+  // ───── 탭 전환 ─────
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const name = btn.dataset.tab;
+      document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.dataset.panel === name));
+      // 처음 들어갈 때 데이터 로드
+      if (name === 'history') loadHistory();
+      if (name === 'sessions') loadSessions();
+    });
+  });
+
+  // ───── /me 로드 ─────
+  async function loadMe(){
+    try {
+      const r = await fetch('/api/admin/me', { credentials: 'include' });
+      const j = await r.json();
+      if (!r.ok || !j.ok || !j.user) {
+        location.replace('/admin/login?next=' + encodeURIComponent('/admin/mypage'));
+        return;
+      }
+      const u = j.user;
+      $('welcomeLine').textContent = (u.name || u.username) + ' 님 (@' + u.username + ')';
+      $('profUsername').value = u.username || '';
+      $('profName').value = u.name || '';
+      $('profEmail').value = u.email || '';
+      $('profPhone').value = u.phone || '';
+    } catch (e) {
+      toast('내 정보를 불러오지 못했습니다.', true);
+    }
+  }
+
+  // ───── 프로필 저장 ─────
+  $('profSaveBtn').addEventListener('click', async () => {
+    const btn = $('profSaveBtn');
+    btn.disabled = true;
+    try {
+      const r = await fetch('/api/admin/profile', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({
+          name: $('profName').value.trim(),
+          email: $('profEmail').value.trim(),
+          phone: $('profPhone').value.trim()
+        })
+      });
+      const j = await r.json();
+      if (r.ok && j.ok) toast('프로필이 저장되었습니다.');
+      else toast('저장 실패 — ' + (j.error || r.status), true);
+    } catch (e) {
+      toast('네트워크 오류', true);
+    } finally { btn.disabled = false; }
+  });
+
+  // ───── 비번 변경 ─────
+  $('pwSaveBtn').addEventListener('click', async () => {
+    const cur = $('pwCur').value;
+    const next = $('pwNew').value;
+    const next2 = $('pwNew2').value;
+    if (!cur || !next) { toast('현재·새 비밀번호를 모두 입력하세요.', true); return; }
+    if (next.length < 6) { toast('새 비밀번호는 6자 이상이어야 합니다.', true); return; }
+    if (next !== next2) { toast('새 비밀번호가 일치하지 않습니다.', true); return; }
+
+    const btn = $('pwSaveBtn');
+    btn.disabled = true;
+    try {
+      const r = await fetch('/api/admin/change-password', {
+        method:'POST', credentials:'include',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ current_password: cur, new_password: next })
+      });
+      const j = await r.json();
+      if (r.ok && j.ok) {
+        toast('비밀번호가 변경되었습니다. (다른 기기 자동 로그아웃)');
+        $('pwCur').value = ''; $('pwNew').value = ''; $('pwNew2').value = '';
+      } else if (j.error === 'wrong_current_password') {
+        toast('현재 비밀번호가 일치하지 않습니다.', true);
+      } else if (j.error === 'too_short') {
+        toast('새 비밀번호는 6자 이상이어야 합니다.', true);
+      } else {
+        toast('변경 실패 — ' + (j.error || r.status), true);
+      }
+    } catch (e) {
+      toast('네트워크 오류', true);
+    } finally { btn.disabled = false; }
+  });
+
+  // ───── 로그인 이력 ─────
+  async function loadHistory(){
+    const box = $('historyBox');
+    box.innerHTML = '<div class="empty">로딩 중…</div>';
+    try {
+      const r = await fetch('/api/admin/login-history', { credentials: 'include' });
+      const j = await r.json();
+      if (!r.ok || !j.ok) throw new Error(j.error || r.status);
+      const items = j.items || [];
+      if (items.length === 0) {
+        box.innerHTML = '<div class="empty">아직 기록된 로그인이 없습니다.</div>';
+        return;
+      }
+      const rows = items.map(it => `
+        <tr>
+          <td>${fmtTs(it.login_at)}</td>
+          <td>${it.ip || '—'}</td>
+          <td><span class="ua" title="${(it.user_agent||'').replace(/"/g,'&quot;')}">${shortUA(it.user_agent)}</span></td>
+          <td>${it.success ? '<span class="ok-badge s">성공</span>' : '<span class="ok-badge f">실패</span>'}</td>
+          <td>${it.success ? '' : (it.reason||'')}</td>
+        </tr>
+      `).join('');
+      box.innerHTML = `
+        <table class="list">
+          <thead><tr><th>시각</th><th>IP</th><th>브라우저</th><th>결과</th><th>비고</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    } catch (e) {
+      box.innerHTML = '<div class="empty">불러오기 실패: ' + (e.message||e) + '</div>';
+    }
+  }
+
+  // ───── 세션 목록 ─────
+  async function loadSessions(){
+    const box = $('sessionsBox');
+    box.innerHTML = '<div class="empty">로딩 중…</div>';
+    try {
+      const r = await fetch('/api/admin/sessions', { credentials: 'include' });
+      const j = await r.json();
+      if (!r.ok || !j.ok) throw new Error(j.error || r.status);
+      const items = j.items || [];
+      if (items.length === 0) {
+        box.innerHTML = '<div class="empty">활성 세션이 없습니다.</div>';
+        return;
+      }
+      const rows = items.map(it => `
+        <tr data-token="${it.token_full}">
+          <td>${fmtTs(it.last_seen_at)}</td>
+          <td>${it.ip || '—'}</td>
+          <td><span class="ua" title="${(it.user_agent||'').replace(/"/g,'&quot;')}">${shortUA(it.user_agent)}</span></td>
+          <td>${fmtTs(it.expires_at)}</td>
+          <td>
+            ${it.is_current
+                ? '<span class="current-tag">현재 세션</span>'
+                : '<button class="btn-danger js-revoke">강제 종료</button>'}
+          </td>
+        </tr>
+      `).join('');
+      box.innerHTML = `
+        <table class="list">
+          <thead><tr><th>마지막 활동</th><th>IP</th><th>브라우저</th><th>만료</th><th>액션</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+      box.querySelectorAll('.js-revoke').forEach(btn => {
+        btn.addEventListener('click', async (ev) => {
+          const tr = ev.target.closest('tr');
+          const token = tr.dataset.token;
+          if (!confirm('이 세션을 강제 종료할까요?')) return;
+          btn.disabled = true;
+          try {
+            const r2 = await fetch('/api/admin/sessions/revoke', {
+              method:'POST', credentials:'include',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ token })
+            });
+            const j2 = await r2.json();
+            if (r2.ok && j2.ok) { toast('세션을 종료했습니다.'); loadSessions(); }
+            else toast('실패 — ' + (j2.error || r2.status), true);
+          } catch (e) { toast('네트워크 오류', true); }
+          finally { btn.disabled = false; }
+        });
+      });
+    } catch (e) {
+      box.innerHTML = '<div class="empty">불러오기 실패: ' + (e.message||e) + '</div>';
+    }
+  }
+
+  // ───── 로그아웃 ─────
+  $('logoutBtn').addEventListener('click', async (ev) => {
+    ev.preventDefault();
+    try {
+      await fetch('/api/admin/logout', { method:'POST', credentials:'include' });
+    } catch {}
+    location.replace('/admin/login');
+  });
+
+  // 초기 로드
+  loadMe();
+})();
+</script>
+</body>
+</html>

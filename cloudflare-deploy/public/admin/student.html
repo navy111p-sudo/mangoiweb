@@ -1,0 +1,2284 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🎓 학생 드릴다운 — 망고아이</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:#0f172a; --panel:#1e293b; --panel2:#263449;
+    --fg:#e2e8f0; --mut:#94a3b8; --dim:#64748b; --bd:#334155;
+    --y:#f59e0b; --g:#10b981; --r:#ef4444; --b:#3b82f6; --p:#a855f7;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo",sans-serif;font-size:14px}
+  a{color:#fde68a;text-decoration:none}
+
+  header.top{height:56px;display:flex;align-items:center;gap:12px;padding:0 20px;border-bottom:1px solid var(--bd);background:#0b1220;position:sticky;top:0;z-index:50}
+  header.top .brand{font-weight:800;color:#fbbf24}
+  header.top .crumb{color:var(--mut);font-size:13px}
+  header.top .right{margin-left:auto;display:flex;align-items:center;gap:8px}
+  header.top a.btn,header.top button.btn{
+    padding:6px 12px;border-radius:6px;border:1px solid var(--bd);background:var(--panel);color:var(--fg);
+    font-size:12px;cursor:pointer
+  }
+  header.top a.btn:hover,header.top button.btn:hover{background:var(--panel2)}
+  header.top select{padding:5px 10px;border-radius:6px;border:1px solid var(--bd);background:var(--panel);color:var(--fg);font-size:12px}
+
+  main{display:grid;grid-template-columns:300px 1fr;gap:20px;padding:20px;max-width:1500px;margin:0 auto}
+
+  /* ── 좌측 학생 카드 ── */
+  aside.student-card{position:sticky;top:76px;align-self:flex-start;background:var(--panel);border:1px solid var(--bd);border-radius:10px;padding:18px}
+  .avatar{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--y),#d97706);color:#1e293b;font-size:30px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 12px}
+  .name{font-size:18px;font-weight:700;text-align:center;margin:0}
+  .name-sub{font-size:12px;color:var(--mut);text-align:center;margin-top:2px}
+  .status-pill{display:inline-block;margin:8px auto 0;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600}
+  .status-pill.ok{background:rgba(16,185,129,.18);color:#6ee7b7;border:1px solid #065f46}
+  .status-pill.warn{background:rgba(245,158,11,.18);color:#fcd34d;border:1px solid #92400e}
+  .status-pill.danger{background:rgba(239,68,68,.18);color:#fca5a5;border:1px solid #991b1b}
+  .pill-wrap{text-align:center}
+  .quick{margin-top:14px;border-top:1px solid var(--bd);padding-top:12px;font-size:12px;color:var(--mut);line-height:1.7}
+  .quick b{color:var(--fg);font-weight:600}
+  .quick-row{display:flex;justify-content:space-between;gap:8px;padding:2px 0}
+  .quick-row .v{color:var(--fg);text-align:right;font-weight:500}
+
+  /* ── 탭 ── */
+  .tabs{display:flex;flex-wrap:wrap;gap:2px;border-bottom:1px solid var(--bd);background:var(--panel);border-radius:10px 10px 0 0;padding:6px 6px 0}
+  .tab{padding:9px 14px;font-size:13px;color:var(--mut);background:transparent;border:0;cursor:pointer;border-radius:6px 6px 0 0;font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tab:hover{color:var(--fg);background:var(--panel2)}
+  .tab.active{color:#fcd34d;border-bottom-color:var(--y);background:#0b1220;font-weight:700}
+
+  .tab-body{background:var(--panel);border:1px solid var(--bd);border-top:0;border-radius:0 0 10px 10px;padding:18px;min-height:400px}
+  .panel{display:none}
+  .panel.active{display:block}
+
+  /* ── KPI / 카드 ── */
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px}
+  .kpi{background:var(--panel2);border:1px solid var(--bd);border-radius:8px;padding:13px 16px}
+  .kpi .lab{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px}
+  .kpi .val{font-size:22px;font-weight:700;margin-top:3px}
+  .kpi .sub{font-size:11px;color:var(--dim);margin-top:2px}
+  .kpi.green .val{color:var(--g)} .kpi.yellow .val{color:var(--y)}
+  .kpi.red .val{color:var(--r)}   .kpi.blue .val{color:var(--b)}
+  .kpi.purple .val{color:var(--p)}
+
+  /* ── 차트 ── */
+  .chart-wrap{background:var(--panel2);border:1px solid var(--bd);border-radius:8px;padding:14px;margin-bottom:14px}
+  .chart-wrap h3{margin:0 0 10px;font-size:13px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.6px}
+  /* 🩹 Chart.js 무한 확대 방지 — canvas 부모에 명시적 높이 + position:relative 필수.
+     responsive:true + maintainAspectRatio:false 사용 시 부모 박스 크기를 매 프레임 측정하기 때문에
+     높이가 고정 안 되면 자기 자신을 다시 키우는 피드백 루프가 돈다. */
+  .chart-box{position:relative;height:280px;width:100%}
+  .chart-box.short{height:220px}
+
+  /* ── 테이블 ── */
+  table.list{width:100%;border-collapse:collapse;font-size:13px}
+  table.list th,table.list td{padding:9px 12px;border-bottom:1px solid var(--bd);text-align:left;vertical-align:top}
+  table.list th{background:var(--panel2);color:var(--mut);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;position:sticky;top:0}
+  table.list tr:hover td{background:rgba(245,158,11,.06)}
+  .empty{text-align:center;padding:40px 10px;color:var(--mut);font-size:13px}
+  .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+  .badge.green{background:rgba(16,185,129,.18);color:#6ee7b7}
+  .badge.yellow{background:rgba(245,158,11,.18);color:#fcd34d}
+  .badge.red{background:rgba(239,68,68,.18);color:#fca5a5}
+  .badge.blue{background:rgba(59,130,246,.18);color:#93c5fd}
+  .badge.gray{background:rgba(100,116,139,.2);color:#94a3b8}
+
+  /* ── 폼 ── */
+  .form-row{display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:center;margin-bottom:8px}
+  .form-row label{font-size:12px;color:var(--mut)}
+  .form-row input, .form-row select, .form-row textarea{
+    width:100%;padding:8px 10px;background:var(--panel2);color:var(--fg);
+    border:1px solid var(--bd);border-radius:6px;font-size:13px;font-family:inherit
+  }
+  .form-row textarea{min-height:70px;resize:vertical}
+  .form-actions{margin-top:12px;display:flex;gap:8px;justify-content:flex-end}
+  .btn-add{padding:8px 18px;border:0;background:var(--y);color:#1e293b;font-weight:700;border-radius:6px;cursor:pointer;font-size:13px}
+  .btn-add:hover{background:#fbbf24}
+  .btn-add:disabled{opacity:.55;cursor:progress}
+  .btn-mini{padding:4px 10px;font-size:11px;border:1px solid var(--bd);background:var(--panel2);color:var(--fg);border-radius:5px;cursor:pointer}
+  .btn-mini:hover{background:#3a4a64}
+
+  .add-form-card{background:var(--panel2);border:1px solid var(--bd);border-radius:8px;padding:16px;margin-bottom:14px}
+  .add-form-card h4{margin:0 0 12px;font-size:13px;color:#fcd34d;font-weight:700}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);opacity:0;background:#1e293b;color:var(--fg);border:1px solid var(--bd);padding:9px 18px;border-radius:6px;font-size:13px;z-index:9999;transition:opacity .2s,transform .2s}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.err{border-color:#7f1d1d;background:#3b1818}
+
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:900px){
+    main{grid-template-columns:1fr}
+    aside.student-card{position:static}
+    .grid-2{grid-template-columns:1fr}
+  }
+
+  /* ───── 📋 평가서 보기 모달 (리포트 카드) ───── */
+  .modal-backdrop{
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,.6);
+    backdrop-filter:blur(4px); z-index:1000; align-items:flex-start; justify-content:center;
+    overflow-y:auto; padding:30px 20px;
+  }
+  .modal-backdrop.show{display:flex}
+  .report-modal{
+    width:100%; max-width:1000px; background:linear-gradient(180deg,#fff 0%,#fafafa 100%);
+    color:#222; border-radius:14px; overflow:hidden; box-shadow:0 30px 80px rgba(0,0,0,.5);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo",sans-serif;
+  }
+  .report-head{
+    background:linear-gradient(135deg,#ffb800 0%,#ff8c00 100%);
+    color:#1a1a1a; padding:24px 32px; display:flex; align-items:center; gap:18px;
+  }
+  .report-head .mango{font-size:36px}
+  .report-head h2{margin:0; font-size:22px; font-weight:800}
+  .report-head .meta{margin-top:4px; font-size:13px; color:#5a3d00}
+  .report-head .right{margin-left:auto; display:flex; gap:8px}
+  .report-head button{
+    background:#1a1a1a; color:#ffb800; border:0; padding:8px 14px; border-radius:6px;
+    font-size:12px; font-weight:700; cursor:pointer;
+  }
+  .report-head button.ghost{background:rgba(255,255,255,.2); color:#1a1a1a}
+  .report-head button:hover{opacity:.85}
+
+  .report-body{padding:24px 32px; background:#fff; color:#222}
+  .report-body h3{margin:18px 0 10px; font-size:13px; color:#666; font-weight:700; text-transform:uppercase; letter-spacing:.6px; border-bottom:1px solid #eee; padding-bottom:6px}
+  .report-body h3:first-child{margin-top:0}
+
+  .stat-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-bottom:14px}
+  .stat-card{background:#f8f8f8; border:1px solid #eee; border-radius:8px; padding:12px 14px}
+  .stat-card .lab{font-size:10px; color:#888; text-transform:uppercase; letter-spacing:.5px; font-weight:600}
+  .stat-card .val{font-size:22px; font-weight:800; margin-top:2px; color:#1a1a1a}
+  .stat-card .sub{font-size:11px; color:#aaa; margin-top:1px}
+  .stat-card.green .val{color:#16a34a}
+  .stat-card.blue .val{color:#0284c7}
+  .stat-card.yellow .val{color:#ca8a04}
+  .stat-card.red .val{color:#dc2626}
+  .stat-card.purple .val{color:#9333ea}
+
+  .grid-charts{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:8px}
+  @media (max-width:760px){.grid-charts{grid-template-columns:1fr}}
+
+  .report-chartbox{
+    background:#fff; border:1px solid #eee; border-radius:8px; padding:14px;
+    position:relative; height:300px;
+  }
+  .report-chartbox.tall{height:340px}
+
+  .comment-box{
+    background:#fffbe9; border:1px solid #fce5a3; border-radius:8px; padding:14px 16px;
+    margin-top:6px; white-space:pre-wrap; font-size:13px; line-height:1.6; color:#222
+  }
+  .comment-box.empty{color:#aaa; font-style:italic; background:#fafafa; border-color:#eee}
+  .comment-label{font-size:11px; font-weight:700; color:#a87a00; text-transform:uppercase; letter-spacing:.5px; margin-bottom:5px; display:block}
+
+  .report-foot{
+    padding:16px 32px; background:#f8f8f8; border-top:1px solid #eee;
+    font-size:11px; color:#888; text-align:center
+  }
+
+  /* 인쇄용 — A4 한 장에 들어가게 */
+  @media print{
+    body > *{display:none !important}
+    .modal-backdrop{display:block !important; position:static; padding:0; background:#fff; backdrop-filter:none}
+    .modal-backdrop > *{display:block !important}
+    .report-modal{max-width:none; box-shadow:none; border-radius:0}
+    .report-head .right{display:none}
+    .report-foot{background:#fff}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <a href="https://webrtc-unified-platform.navy111p.workers.dev/" target="_blank" rel="noopener"
+     class="brand" style="cursor:pointer;text-decoration:none;color:inherit"
+     title="학생 홈페이지로 이동">🥭 <span data-ko="망고아이" data-en="Mangoi">망고아이</span></a>
+  <span class="crumb" data-ko="관리자 › 학생 드릴다운" data-en="Admin › Student Drilldown">관리자 &rsaquo; 학생 드릴다운</span>
+  <div class="right">
+    <select id="period">
+      <option value="7"   data-ko="최근 7일"   data-en="Last 7 days">최근 7일</option>
+      <option value="30" selected data-ko="최근 30일" data-en="Last 30 days">최근 30일</option>
+      <option value="90"  data-ko="최근 90일"  data-en="Last 90 days">최근 90일</option>
+      <option value="365" data-ko="최근 1년"   data-en="Last 1 year">최근 1년</option>
+    </select>
+    <button class="btn" id="refreshBtn" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+    <a class="btn" href="/admin/students" data-ko="👨‍🎓 학생 목록" data-en="👨‍🎓 Students">👨‍🎓 학생 목록</a>
+    <a class="btn" href="/admin.html" data-ko="📊 대시보드" data-en="📊 Dashboard">📊 대시보드</a>
+    <button class="btn" id="langBtn" title="Toggle language"
+            style="display:flex;align-items:center;gap:4px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      <span id="langLabel">EN</span>
+    </button>
+  </div>
+</header>
+
+<main>
+  <!-- 좌측 학생 카드 -->
+  <aside class="student-card" id="studentCard">
+    <div class="avatar" id="avatarText">?</div>
+    <p class="name" id="cardName">로딩 중…</p>
+    <p class="name-sub" id="cardSub">—</p>
+    <div class="pill-wrap"><span class="status-pill ok" id="cardStatus">정상</span></div>
+    <div class="quick" id="cardQuick"></div>
+  </aside>
+
+  <!-- 우측 탭 영역 -->
+  <section>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="overview" data-ko="📊 개요"            data-en="📊 Overview">📊 개요</button>
+      <button class="tab" data-tab="enrollment"      data-ko="📝 등록·수강"        data-en="📝 Enrollment">📝 등록·수강</button>
+      <button class="tab" data-tab="schedule"        data-ko="📅 스케줄"           data-en="📅 Schedule">📅 스케줄</button>
+      <button class="tab" data-tab="extension"       data-ko="🗓️ 종료·연장"        data-en="🗓️ End/Extend">🗓️ 종료·연장</button>
+      <button class="tab" data-tab="payment"         data-ko="💰 수업료"           data-en="💰 Tuition">💰 수업료</button>
+      <button class="tab" data-tab="classes"         data-ko="📅 수업 현황"        data-en="📅 Classes">📅 수업 현황</button>
+      <button class="tab" data-tab="attend"          data-ko="🗂️ 출결 현황"        data-en="🗂️ Attendance">🗂️ 출결 현황</button>
+      <button class="tab" data-tab="streak"          data-ko="⚡ 연속 출석"         data-en="⚡ Streak">⚡ 연속 출석</button>
+      <button class="tab" data-tab="daily"           data-ko="📰 일별 보고서"      data-en="📰 Daily Report">📰 일별 보고서</button>
+      <button class="tab" data-tab="engagement"      data-ko="🎯 참여도·점수"      data-en="🎯 Engagement">🎯 참여도·점수</button>
+      <button class="tab" data-tab="evaluation"      data-ko="📋 평가서"           data-en="📋 Evaluations">📋 평가서</button>
+      <button class="tab" data-tab="feedback"        data-ko="💬 교사 피드백"      data-en="💬 Feedback">💬 교사 피드백</button>
+      <button class="tab" data-tab="consult"         data-ko="📞 상담 내역"        data-en="📞 Counseling">📞 상담 내역</button>
+      <button class="tab" data-tab="contact"         data-ko="👨‍👩‍👧 연락처·정보"  data-en="👨‍👩‍👧 Contact">👨‍👩‍👧 연락처·정보</button>
+      <button class="tab" data-tab="textbook"        data-ko="📚 교재"             data-en="📚 Textbook">📚 교재</button>
+      <button class="tab" data-tab="recording"       data-ko="🎬 수업 녹화"        data-en="🎬 Recording">🎬 수업 녹화</button>
+      <button class="tab" data-tab="talk"            data-ko="💭 톡짹톡"            data-en="💭 TalkChat">💭 톡짹톡</button>
+    </nav>
+
+    <div class="tab-body">
+      <!-- 1. 개요 -->
+      <div class="panel active" data-panel="overview">
+        <div class="kpi-grid" id="overviewKpis"></div>
+        <div class="chart-wrap">
+          <h3>일자별 활동 (출석·세션·집중도)</h3>
+          <div class="chart-box"><canvas id="dayChart"></canvas></div>
+        </div>
+        <div class="grid-2">
+          <div class="chart-wrap">
+            <h3>최근 보상</h3>
+            <div id="overviewRewards"></div>
+          </div>
+          <div class="chart-wrap">
+            <h3>동의 현황</h3>
+            <div id="overviewConsent"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. 등록·수강 -->
+      <div class="panel" data-panel="enrollment">
+        <div id="enrollmentBox"><div class="empty">로딩 중…</div></div>
+      </div>
+
+      <!-- 🥭 Phase 39 — 2a. 📅 스케줄 (주간 타임 그리드) -->
+      <div class="panel" data-panel="schedule">
+        <!-- 컨트롤 -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;background:rgba(15,23,42,0.5);padding:10px 14px;border-radius:10px;border:1px solid rgba(148,163,184,0.2)">
+          <button id="d-sched-prev" type="button" style="padding:6px 14px;border:1px solid #475569;background:rgba(30,41,59,0.6);color:#cbd5e1;border-radius:6px;cursor:pointer;font-size:14px">◀</button>
+          <h3 id="d-sched-label" style="margin:0;flex:1;text-align:center;font-size:18px;color:#f1f5f9;font-weight:700">2026년 5월</h3>
+          <button id="d-sched-next" type="button" style="padding:6px 14px;border:1px solid #475569;background:rgba(30,41,59,0.6);color:#cbd5e1;border-radius:6px;cursor:pointer;font-size:14px">▶</button>
+          <button id="d-sched-today" type="button" style="padding:6px 14px;border:1px solid #f59e0b;background:rgba(254,243,199,0.15);color:#fbbf24;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">오늘</button>
+          <div style="display:inline-flex;border:1px solid #475569;border-radius:6px;overflow:hidden;margin-left:8px">
+            <button id="d-sched-view-week" type="button" style="padding:6px 14px;background:#3b82f6;color:#fff;border:0;cursor:pointer;font-size:12px;font-weight:600">📅 주간</button>
+            <button id="d-sched-view-month" type="button" style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🗓 월간</button>
+          </div>
+        </div>
+        <div style="font-size:11px;color:#94a3b8;text-align:right;margin-bottom:6px">※ 종료일자는 정규 종료일자 입니다. 연기/보강/변경 등은 종료일자 이후로도 수업이 진행됩니다.</div>
+        <div id="d-sched-calendar" style="background:#fff;border-radius:10px;border:1px solid #475569;overflow:auto;max-height:65vh"></div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font-size:11px;color:#94a3b8">
+          <span><span style="display:inline-block;width:14px;height:14px;background:#dbeafe;border:1px solid #3b82f6;border-radius:3px;vertical-align:middle"></span> 레벨테스트</span>
+          <span><span style="display:inline-block;width:14px;height:14px;background:#dcfce7;border:1px solid #10b981;border-radius:3px;vertical-align:middle"></span> 체험수업</span>
+          <span><span style="display:inline-block;width:14px;height:14px;background:#fef3c7;border:1px solid #f59e0b;border-radius:3px;vertical-align:middle"></span> 정규수업</span>
+          <span style="margin-left:auto">학생 ID: <code id="d-sched-uid" style="background:rgba(148,163,184,0.2);padding:1px 6px;border-radius:3px">—</code></span>
+        </div>
+      </div>
+
+      <!-- 2b. 종료·수강연장 -->
+      <div class="panel" data-panel="extension">
+        <div class="kpi-grid" id="extKpis"></div>
+        <div class="add-form-card">
+          <h4 data-ko="🗓️ 수강 연장" data-en="🗓️ Extend Course">🗓️ 수강 연장</h4>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+            <button class="btn-add" onclick="extendBy(1)"  data-ko="+ 1개월"  data-en="+ 1 mo">+ 1개월</button>
+            <button class="btn-add" onclick="extendBy(3)"  data-ko="+ 3개월"  data-en="+ 3 mo">+ 3개월</button>
+            <button class="btn-add" onclick="extendBy(6)"  data-ko="+ 6개월"  data-en="+ 6 mo">+ 6개월</button>
+            <button class="btn-add" onclick="extendBy(12)" data-ko="+ 12개월" data-en="+ 12 mo">+ 12개월</button>
+          </div>
+          <div class="grid-2">
+            <div class="form-row"><label data-ko="직접 입력 종료일" data-en="Custom End Date">직접 입력 종료일</label><input id="extCustomDate" type="date"></div>
+            <div class="form-row"><label data-ko="연장 사유" data-en="Reason">연장 사유</label><input id="extReason" type="text" placeholder="결제 완료·서비스 보상 등"></div>
+          </div>
+          <div class="form-actions"><button class="btn-add" onclick="extendCustom()" data-ko="🗓️ 종료일 직접 변경" data-en="🗓️ Set Custom Date">🗓️ 종료일 직접 변경</button></div>
+        </div>
+        <h3 style="font-size:13px;color:var(--mut);margin:18px 0 8px;text-transform:uppercase;letter-spacing:.5px" data-ko="연장 이력" data-en="Extension History">연장 이력</h3>
+        <div id="extHistoryBox"><div class="empty" data-ko="연장 이력이 없습니다." data-en="No extension history.">연장 이력이 없습니다.</div></div>
+      </div>
+
+      <!-- 3. 수업료 -->
+      <div class="panel" data-panel="payment">
+        <div class="add-form-card">
+          <h4 data-ko="💰 수업료 결제 추가" data-en="💰 Add Tuition Payment">💰 수업료 결제 추가</h4>
+          <div class="grid-2">
+            <div class="form-row"><label data-ko="결제일" data-en="Paid Date">결제일</label><input id="payDate" type="date"></div>
+            <div class="form-row"><label data-ko="금액 (원)" data-en="Amount (KRW)">금액 (원)</label><input id="payAmount" type="number" placeholder="120000"></div>
+            <div class="form-row"><label data-ko="기간 시작" data-en="Period Start">기간 시작</label><input id="payPeriodStart" type="date"></div>
+            <div class="form-row"><label data-ko="기간 종료" data-en="Period End">기간 종료</label><input id="payPeriodEnd" type="date"></div>
+            <div class="form-row"><label data-ko="방식" data-en="Method">방식</label>
+              <select id="payMethod">
+                <option value="card"     data-ko="카드"      data-en="Card">카드</option>
+                <option value="transfer" data-ko="계좌이체"  data-en="Bank">계좌이체</option>
+                <option value="cash"     data-ko="현금"      data-en="Cash">현금</option>
+                <option value="kakao"    data-ko="카카오페이" data-en="KakaoPay">카카오페이</option>
+              </select>
+            </div>
+            <div class="form-row"><label data-ko="메모" data-en="Memo">메모</label><input id="payMemo" type="text" placeholder="2026년 5월 수강료"></div>
+          </div>
+          <div class="form-actions"><button class="btn-add" id="payAddBtn" data-ko="+ 결제 추가" data-en="+ Add Payment">+ 결제 추가</button></div>
+        </div>
+        <div id="paymentBox"><div class="empty" data-ko="로딩 중…" data-en="Loading…">로딩 중…</div></div>
+      </div>
+
+      <!-- 4. 수업 현황 -->
+      <div class="panel" data-panel="classes">
+        <div class="kpi-grid" id="classKpis"></div>
+        <div id="classBox"><div class="empty">로딩 중…</div></div>
+      </div>
+
+      <!-- 4b. 출결 현황 (캘린더) -->
+      <div class="panel" data-panel="attend">
+        <div class="kpi-grid" id="attendKpis"></div>
+        <div class="chart-wrap">
+          <h3 data-ko="📅 월별 출석 캘린더 (최근 90일)" data-en="📅 Monthly Attendance Calendar (90d)">📅 월별 출석 캘린더 (최근 90일)</h3>
+          <div id="attendCalendar" style="font-size:13px"></div>
+        </div>
+        <div class="chart-wrap">
+          <h3 data-ko="결석 일자" data-en="Absent Days">결석 일자</h3>
+          <div id="absentList"></div>
+        </div>
+      </div>
+
+      <!-- 4c. 연속 출석 (Streak) -->
+      <div class="panel" data-panel="streak">
+        <div class="kpi-grid" id="streakKpis"></div>
+        <div class="chart-wrap">
+          <h3 data-ko="📊 연속 출석 추이" data-en="📊 Streak Timeline">📊 연속 출석 추이</h3>
+          <div class="chart-box short"><canvas id="streakChart"></canvas></div>
+        </div>
+        <div class="chart-wrap">
+          <h3 data-ko="중단된 날짜 (Gap 기록)" data-en="Streak Breaks">중단된 날짜 (Gap 기록)</h3>
+          <div id="streakGaps"></div>
+        </div>
+      </div>
+
+      <!-- 4d. 일별 보고서 -->
+      <div class="panel" data-panel="daily">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+          <label style="font-size:12px;color:var(--mut)" data-ko="날짜 선택" data-en="Date">날짜 선택</label>
+          <input id="dailyDate" type="date" style="padding:8px 10px;background:var(--panel2);color:var(--fg);border:1px solid var(--bd);border-radius:6px;font-size:13px">
+          <button class="btn-mini" onclick="dailyShift(-1)" data-ko="◀ 어제" data-en="◀ Prev">◀ 어제</button>
+          <button class="btn-mini" onclick="dailyShift(1)" data-ko="다음 ▶" data-en="Next ▶">다음 ▶</button>
+          <button class="btn-mini" onclick="window.print()" data-ko="🖨 인쇄" data-en="🖨 Print">🖨 인쇄</button>
+        </div>
+        <div id="dailyBox"><div class="empty" data-ko="날짜를 선택하면 그날의 활동 요약이 표시됩니다." data-en="Pick a date to see that day's report.">날짜를 선택하면 그날의 활동 요약이 표시됩니다.</div></div>
+      </div>
+
+      <!-- 5. 참여도·점수 -->
+      <div class="panel" data-panel="engagement">
+        <div class="kpi-grid" id="engKpis"></div>
+        <div class="chart-wrap"><h3>일자별 평균 집중도(시선 점수)</h3><div class="chart-box short"><canvas id="gazeChart"></canvas></div></div>
+        <div class="chart-wrap"><h3>세션별 점수 (최근 30건)</h3><div class="chart-box"><canvas id="sessionScoreChart"></canvas></div></div>
+      </div>
+
+      <!-- 6. 평가서 -->
+      <div class="panel" data-panel="evaluation">
+        <div class="add-form-card">
+          <h4 data-ko="📋 평가서 작성" data-en="📋 Add Evaluation">📋 평가서 작성</h4>
+          <div class="grid-2">
+            <div class="form-row"><label data-ko="평가일" data-en="Eval Date">평가일</label><input id="evDate" type="date"></div>
+            <div class="form-row"><label data-ko="평가 유형" data-en="Eval Type">평가 유형</label>
+              <select id="evType">
+                <option value="monthly"      data-ko="월간 평가"     data-en="Monthly">월간 평가</option>
+                <option value="quarterly"    data-ko="분기 평가"     data-en="Quarterly">분기 평가</option>
+                <option value="level"        data-ko="레벨 테스트"   data-en="Level Test">레벨 테스트</option>
+                <option value="pronunciation" data-ko="🎯 발음연습"  data-en="🎯 Pronunciation">🎯 발음연습</option>
+                <option value="final"        data-ko="최종 평가"     data-en="Final">최종 평가</option>
+              </select>
+            </div>
+            <div class="form-row"><label data-ko="레벨" data-en="Level">레벨</label><input id="evLevel" type="text" placeholder="A1·B1·B2…"></div>
+            <div class="form-row"><label data-ko="평가자" data-en="Evaluator">평가자</label><input id="evEvaluator" type="text" placeholder="이름"></div>
+            <div class="form-row"><label data-ko="스피킹 점수" data-en="Speaking">스피킹 점수</label><input id="evSpeak" type="number" min="0" max="100" step="0.1"></div>
+            <div class="form-row"><label data-ko="리스닝 점수" data-en="Listening">리스닝 점수</label><input id="evList" type="number" min="0" max="100" step="0.1"></div>
+            <div class="form-row"><label data-ko="문법 점수" data-en="Grammar">문법 점수</label><input id="evRead" type="number" min="0" max="100" step="0.1"></div>
+            <div class="form-row"><label data-ko="집중도 점수" data-en="Focus">집중도 점수</label><input id="evWrite" type="number" min="0" max="100" step="0.1"></div>
+            <div class="form-row"><label data-ko="총점" data-en="Total">총점</label><input id="evTotal" type="number" min="0" max="100" step="0.1"></div>
+            <div class="form-row"><label data-ko="다음 목표" data-en="Next Goal">다음 목표</label><input id="evGoal" type="text"></div>
+          </div>
+          <div class="form-row"><label data-ko="코멘트" data-en="Comment">코멘트</label><textarea id="evComment" placeholder="평가 종합 의견"></textarea></div>
+          <div class="form-actions"><button class="btn-add" id="evAddBtn" data-ko="+ 평가서 저장" data-en="+ Save Evaluation">+ 평가서 저장</button></div>
+        </div>
+        <div id="evalBox"><div class="empty" data-ko="로딩 중…" data-en="Loading…">로딩 중…</div></div>
+      </div>
+
+      <!-- 7. 교사 피드백 -->
+      <div class="panel" data-panel="feedback">
+        <div class="add-form-card">
+          <h4 data-ko="💬 교사 피드백 추가" data-en="💬 Add Teacher Feedback">💬 교사 피드백 추가</h4>
+          <div class="grid-2">
+            <div class="form-row"><label data-ko="수업일" data-en="Class Date">수업일</label><input id="fbDate" type="date"></div>
+            <div class="form-row"><label data-ko="교사" data-en="Teacher">교사</label><input id="fbTeacher" type="text"></div>
+            <div class="form-row"><label data-ko="방 ID" data-en="Room ID">방 ID</label><input id="fbRoom" type="text"></div>
+            <div class="form-row"><label data-ko="평점 (1~5)" data-en="Rating (1~5)">평점 (1~5)</label><input id="fbRating" type="number" min="1" max="5"></div>
+          </div>
+          <div class="form-row"><label data-ko="요약" data-en="Summary">요약</label><input id="fbSummary" type="text" placeholder="한 줄 요약"></div>
+          <div class="form-row"><label data-ko="상세" data-en="Detail">상세</label><textarea id="fbContent"></textarea></div>
+          <div class="form-row"><label data-ko="액션 아이템" data-en="Action Items">액션 아이템</label><textarea id="fbActions" placeholder="다음 수업 전까지 할 것"></textarea></div>
+          <div class="form-actions"><button class="btn-add" id="fbAddBtn" data-ko="+ 피드백 저장" data-en="+ Save Feedback">+ 피드백 저장</button></div>
+        </div>
+        <div id="feedbackBox"><div class="empty" data-ko="로딩 중…" data-en="Loading…">로딩 중…</div></div>
+      </div>
+
+      <!-- 8. 상담 내역 -->
+      <div class="panel" data-panel="consult">
+        <div class="add-form-card">
+          <h4 data-ko="📞 상담 기록 추가" data-en="📞 Add Counseling Record">📞 상담 기록 추가</h4>
+          <div class="grid-2">
+            <div class="form-row"><label data-ko="상담 일시" data-en="Date / Time">상담 일시</label><input id="csDate" type="datetime-local"></div>
+            <div class="form-row"><label data-ko="채널" data-en="Channel">채널</label>
+              <select id="csChannel">
+                <option value="phone"  data-ko="전화"        data-en="Phone">전화</option>
+                <option value="kakao"  data-ko="카카오톡"    data-en="KakaoTalk">카카오톡</option>
+                <option value="visit"  data-ko="방문"        data-en="Visit">방문</option>
+                <option value="email"  data-ko="이메일"      data-en="Email">이메일</option>
+                <option value="online" data-ko="온라인 미팅" data-en="Online">온라인 미팅</option>
+              </select>
+            </div>
+            <div class="form-row"><label data-ko="상담자" data-en="Counselor">상담자</label><input id="csCounselor" type="text"></div>
+            <div class="form-row"><label data-ko="주제" data-en="Topic">주제</label><input id="csTopic" type="text" placeholder="진도·결제·불만 등"></div>
+            <div class="form-row"><label data-ko="후속 일정" data-en="Follow-up">후속 일정</label><input id="csFollow" type="datetime-local"></div>
+            <div class="form-row"><label data-ko="상태" data-en="Status">상태</label>
+              <select id="csStatus">
+                <option value="open"       data-ko="진행"           data-en="Open">진행</option>
+                <option value="resolved"   data-ko="완료"           data-en="Resolved">완료</option>
+                <option value="escalated"  data-ko="에스컬레이션"   data-en="Escalated">에스컬레이션</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row"><label data-ko="상담 내용" data-en="Content">상담 내용</label><textarea id="csContent"></textarea></div>
+          <div class="form-actions"><button class="btn-add" id="csAddBtn" data-ko="+ 상담 저장" data-en="+ Save Record">+ 상담 저장</button></div>
+        </div>
+        <div id="consultBox"><div class="empty" data-ko="로딩 중…" data-en="Loading…">로딩 중…</div></div>
+      </div>
+
+      <!-- 9. 연락처·정보 -->
+      <div class="panel" data-panel="contact">
+        <div class="add-form-card">
+          <h4 data-ko="👨‍👩‍👧 학생 정보 편집" data-en="👨‍👩‍👧 Edit Student Info">👨‍👩‍👧 학생 정보 편집</h4>
+          <div class="grid-2">
+            <div class="form-row"><label data-ko="학생 전화"      data-en="Student Phone">학생 전화</label><input id="cStudentPhone" type="tel"></div>
+            <div class="form-row"><label data-ko="부모님 전화"    data-en="Parent Phone">부모님 전화</label><input id="cParentPhone" type="tel"></div>
+            <div class="form-row"><label data-ko="담임 교사 전화" data-en="Teacher Phone">담임 교사 전화</label><input id="cTeacherPhone" type="tel"></div>
+            <div class="form-row"><label data-ko="학생 카톡 ID"   data-en="Student Kakao">학생 카톡 ID</label><input id="cKakao" type="text"></div>
+            <div class="form-row"><label data-ko="부모님 카톡 ID" data-en="Parent Kakao">부모님 카톡 ID</label><input id="cParentKakao" type="text"></div>
+            <div class="form-row"><label data-ko="학교"           data-en="School">학교</label><input id="cSchool" type="text"></div>
+            <div class="form-row"><label data-ko="학년"           data-en="Grade">학년</label><input id="cGrade" type="text" placeholder="초3·중1·고2…"></div>
+            <div class="form-row"><label data-ko="생년월일"       data-en="Birth Date">생년월일</label><input id="cBirth" type="date"></div>
+            <div class="form-row"><label data-ko="가맹점"         data-en="Franchise">가맹점</label><input id="cFranchise" type="text"></div>
+            <div class="form-row"><label data-ko="지점"           data-en="Branch">지점</label><input id="cShop" type="text"></div>
+          </div>
+          <div class="form-row"><label data-ko="주소"     data-en="Address">주소</label><input id="cAddress" type="text"></div>
+          <div class="form-row"><label data-ko="특이사항" data-en="Notes">특이사항</label><textarea id="cNotes" placeholder="알레르기·관심사·학습 성향 등"></textarea></div>
+          <div class="form-actions"><button class="btn-add" id="cSaveBtn" data-ko="💾 저장" data-en="💾 Save">💾 저장</button></div>
+        </div>
+      </div>
+
+      <!-- 10. 교재 -->
+      <div class="panel" data-panel="textbook">
+        <div id="textbookBox"><div class="empty" data-ko="로딩 중…" data-en="Loading…">로딩 중…</div></div>
+      </div>
+
+      <!-- 11. 녹화 영상 -->
+      <div class="panel" data-panel="recording">
+        <div id="recordingBox"><div class="empty" data-ko="로딩 중…" data-en="Loading…">로딩 중…</div></div>
+      </div>
+
+      <!-- 12. 톡짹톡 (메시지·카톡 빠른 액션) -->
+      <div class="panel" data-panel="talk">
+        <div class="kpi-grid" id="talkKpis"></div>
+        <div class="add-form-card">
+          <h4 data-ko="💭 톡짹톡 — 학생/부모님에게 메시지" data-en="💭 TalkChat — Send to Student/Parent">💭 톡짹톡 — 학생/부모님에게 메시지</h4>
+          <div class="grid-2">
+            <div class="form-row"><label data-ko="수신자" data-en="To">수신자</label>
+              <select id="talkTo">
+                <option value="student" data-ko="학생 (카카오톡)" data-en="Student (KakaoTalk)">학생 (카카오톡)</option>
+                <option value="parent" data-ko="부모님 (카카오톡)" data-en="Parent (KakaoTalk)">부모님 (카카오톡)</option>
+                <option value="phone_student" data-ko="학생 (SMS)" data-en="Student (SMS)">학생 (SMS)</option>
+                <option value="phone_parent" data-ko="부모님 (SMS)" data-en="Parent (SMS)">부모님 (SMS)</option>
+              </select>
+            </div>
+            <div class="form-row"><label data-ko="템플릿" data-en="Template">템플릿</label>
+              <select id="talkTpl" onchange="applyTalkTemplate()">
+                <option value="" data-ko="(직접 입력)" data-en="(Custom)">(직접 입력)</option>
+                <option value="reminder" data-ko="수업 알림" data-en="Class Reminder">수업 알림</option>
+                <option value="absent" data-ko="결석 확인" data-en="Absence Check">결석 확인</option>
+                <option value="report" data-ko="평가서 안내" data-en="Report Ready">평가서 안내</option>
+                <option value="payment" data-ko="결제 알림" data-en="Payment Reminder">결제 알림</option>
+                <option value="extension" data-ko="수강 만료 안내" data-en="Course Ending">수강 만료 안내</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row"><label data-ko="메시지" data-en="Message">메시지</label><textarea id="talkMsg" style="min-height:120px"></textarea></div>
+          <div class="form-actions">
+            <button class="btn-mini" onclick="copyTalkMsg()" data-ko="📋 복사" data-en="📋 Copy">📋 복사</button>
+            <button class="btn-add" onclick="sendTalk()" data-ko="🚀 보내기 (앱 열기)" data-en="🚀 Send (Open App)">🚀 보내기 (앱 열기)</button>
+          </div>
+        </div>
+        <div class="chart-wrap" style="margin-top:14px">
+          <h3 data-ko="💡 안내" data-en="💡 Notes">💡 안내</h3>
+          <ul style="font-size:13px;color:var(--mut);line-height:1.8;padding-left:18px;margin:0">
+            <li data-ko="카카오톡: 학생/부모 카카오 ID 가 등록된 경우 카카오톡 친구 검색 → 직접 전송" data-en="KakaoTalk: opens friend search if Kakao ID is set">카카오톡: 학생/부모 카카오 ID 가 등록된 경우 카카오톡 친구 검색 → 직접 전송</li>
+            <li data-ko="SMS: 휴대폰의 메시지 앱이 자동으로 열리며 본문이 미리 채워짐" data-en="SMS: opens phone's message app with prefilled body">SMS: 휴대폰의 메시지 앱이 자동으로 열리며 본문이 미리 채워짐</li>
+            <li data-ko="모든 발송 행위는 운영자 디바이스에서 직접 실행됨 (서버 자동 발송 아님)" data-en="All sending happens on operator's device (not server-automated)">모든 발송 행위는 운영자 디바이스에서 직접 실행됨 (서버 자동 발송 아님)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<!-- ════════════════ 📋 평가서 보기 모달 (리포트 카드) ════════════════ -->
+<div class="modal-backdrop" id="reportBackdrop" onclick="if(event.target===this) closeReport()">
+  <div class="report-modal" id="reportModal">
+    <header class="report-head">
+      <div class="mango">🥭</div>
+      <div>
+        <h2 id="rpName">학생 리포트</h2>
+        <div class="meta" id="rpMeta">—</div>
+      </div>
+      <div class="right">
+        <button class="ghost" onclick="window.print()" data-ko="🖨 인쇄 / PDF" data-en="🖨 Print / PDF">🖨 인쇄 / PDF</button>
+        <button onclick="closeReport()" data-ko="✕ 닫기" data-en="✕ Close">✕ 닫기</button>
+      </div>
+    </header>
+
+    <div class="report-body">
+      <h3 data-ko="📊 핵심 지표" data-en="📊 Key Metrics">📊 핵심 지표</h3>
+      <div class="stat-grid" id="rpStats"></div>
+
+      <h3 data-ko="🎯 영역별 점수 (방사형)" data-en="🎯 Skill Map (Radar)">🎯 영역별 점수 (방사형)</h3>
+      <div class="grid-charts">
+        <div class="report-chartbox tall"><canvas id="rpRadar"></canvas></div>
+        <div class="report-chartbox tall"><canvas id="rpEngage"></canvas></div>
+      </div>
+
+      <h3 data-ko="🎙 발음연습 추이" data-en="🎙 Pronunciation Trend">🎙 발음연습 추이</h3>
+      <div class="grid-charts">
+        <div class="report-chartbox tall"><canvas id="rpPron"></canvas></div>
+        <div class="report-chartbox tall" style="overflow-y:auto" id="rpPronList"></div>
+      </div>
+
+      <h3 data-ko="📝 평가 코멘트" data-en="📝 Comments">📝 평가 코멘트</h3>
+      <span class="comment-label" data-ko="평가자 의견" data-en="Evaluator Comment">평가자 의견</span>
+      <div class="comment-box" id="rpComment">—</div>
+
+      <span class="comment-label" style="margin-top:12px" data-ko="다음 학습 목표" data-en="Next Learning Goal">다음 학습 목표</span>
+      <div class="comment-box" id="rpGoal">—</div>
+
+      <h3 data-ko="📅 출석 — 최근 30일" data-en="📅 Attendance — Last 30 days">📅 출석 — 최근 30일</h3>
+      <div id="rpAttendCal" style="font-size:13px; color:#444; line-height:1.7"></div>
+    </div>
+
+    <div class="report-foot">
+      <span data-ko="🥭 망고아이 영어 학습 리포트 · 출력일" data-en="🥭 Mangoi English Learning Report · Printed">🥭 망고아이 영어 학습 리포트 · 출력일</span>
+      <span id="rpPrintDate"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════ 공통 ═══════════════════════
+const $ = id => document.getElementById(id);
+const uid = new URLSearchParams(location.search).get('uid') || '';
+let _state = { full: null, days: 30 };
+let _charts = {};
+
+// ═══════════════════════ 🌐 i18n (한국어 / English) ═══════════════════════
+let _lang = (function(){ try { return localStorage.getItem('mangoi_admin_lang') || 'ko'; } catch { return 'ko'; } })();
+const T = {
+  // 좌측 학생 카드 (quick rows)
+  qStudentId:{ko:'🏷️ 학생 ID', en:'🏷️ Student ID'},
+  qSignup:   {ko:'📅 가입일', en:'📅 Signup'},
+  qEnd:      {ko:'📅 수강 종료', en:'📅 End Date'},
+  qClassesPW:{ko:'📚 주당 수업', en:'📚 Classes / wk'},
+  qPayType:  {ko:'💰 결제 유형', en:'💰 Payment'},
+  qFranchise:{ko:'🏢 가맹점', en:'🏢 Franchise'},
+  qSessions: {ko:'📊 출석 세션', en:'📊 Sessions'},
+  qGaze:     {ko:'🎯 평균 집중도', en:'🎯 Avg. Focus'},
+  qRewards:  {ko:'🎁 보상 보유', en:'🎁 Rewards'},
+  unitTimes: {ko:'회', en: ''},
+  unitSessions:{ko:'회 (기간 내)', en:'sess. (period)'},
+  unitItems: {ko:'개', en:''},
+  // 개요 KPI
+  kpiSession:{ko:'출석 세션', en:'Sessions'},
+  kpiActive: {ko:'총 활동 시간', en:'Total Active'},
+  kpiTotal:  {ko:'전체', en:'Total'},
+  kpiAvgGaze:{ko:'평균 집중도', en:'Avg. Focus'},
+  kpiActiveDays:{ko:'활동 일수', en:'Active Days'},
+  kpiDisconnect:{ko:'끊김', en:'Disconnects'},
+  kpiOverdue:{ko:'미납', en:'Overdue'},
+  kpiPaymentCount:{ko:'회 결제', en:' payments'},
+  kpiPeriodNDays:{ko:'일 기준', en:'-day window'},
+  kpiSamples:{ko:'세션', en:'samples'},
+  kpiSum:    {ko:'기간 합계', en:'period sum'},
+  kpiOf:     {ko:'/', en:' / '},
+  // 차트 제목
+  chartDailyActivity:{ko:'일자별 활동 (출석·세션·집중도)', en:'Daily Activity (Sessions · Focus)'},
+  chartLegendSess:{ko:'세션 수', en:'Sessions'},
+  chartLegendFocus:{ko:'집중도', en:'Focus'},
+  chartGazeDaily:{ko:'일자별 평균 집중도(시선 점수)', en:'Daily Avg. Focus (Gaze)'},
+  chartSessionScore:{ko:'세션별 점수 (최근 30건)', en:'Session Scores (last 30)'},
+  chartActivityRatio:{ko:'활동 비율 (%)', en:'Active Ratio (%)'},
+  // 빈 상태 메시지
+  emptyEnroll:{ko:'등록·수강 이력이 없습니다.', en:'No enrollment records.'},
+  emptyPayment:{ko:'결제 내역이 없습니다. 위 폼으로 추가하세요.', en:'No payment records. Add via the form above.'},
+  emptyClass:{ko:'기간 내 수업 기록이 없습니다.', en:'No class records in this period.'},
+  emptyEval:{ko:'평가서가 없습니다. 위 폼으로 작성하세요.', en:'No evaluations yet. Write one above.'},
+  emptyFeedback:{ko:'피드백이 없습니다.', en:'No feedback yet.'},
+  emptyConsult:{ko:'상담 내역이 없습니다.', en:'No counseling records.'},
+  emptyTextbook:{ko:'배정된 교재가 없습니다.', en:'No textbook assigned.'},
+  emptyRecording:{ko:'녹화 영상이 없습니다.', en:'No recordings.'},
+  emptyConsent:{ko:'동의 기록이 없습니다.', en:'No consent record.'},
+  emptyRewards:{ko:'아직 보상 내역이 없습니다.', en:'No reward history yet.'},
+  // 표 헤더
+  thDate:{ko:'평가일', en:'Date'},      thType:{ko:'유형', en:'Type'},        thLevel:{ko:'레벨', en:'Level'},
+  thTotal:{ko:'총점', en:'Total'},      thSpeak:{ko:'스피킹', en:'Speak'},    thList:{ko:'리스닝', en:'Listen'},
+  thGrammar:{ko:'문법', en:'Grammar'},  thFocus:{ko:'집중도', en:'Focus'},
+  thEvaluator:{ko:'평가자', en:'Evaluator'}, thNextGoal:{ko:'다음 목표', en:'Next Goal'},
+  thComment:{ko:'코멘트', en:'Comment'}, thReport:{ko:'리포트', en:'Report'},
+  thPaidDate:{ko:'결제일', en:'Paid'},  thPeriod:{ko:'기간', en:'Period'},
+  thAmount:{ko:'금액', en:'Amount'},    thMethod:{ko:'방식', en:'Method'},
+  thStatus:{ko:'상태', en:'Status'},    thMemo:{ko:'메모', en:'Memo'},
+  thPackage:{ko:'패키지', en:'Package'}, thStart:{ko:'시작', en:'Start'},
+  thEnd:{ko:'종료', en:'End'},          thMonthly:{ko:'월 수강료', en:'Monthly Fee'},
+  thNotes:{ko:'비고', en:'Notes'},
+  thDay:{ko:'일자', en:'Day'},          thRoom:{ko:'방 ID', en:'Room ID'},
+  thIn:{ko:'입장', en:'In'},            thOut:{ko:'퇴장', en:'Out'},
+  thDuration:{ko:'전체 시간', en:'Duration'}, thActive:{ko:'활동', en:'Active'},
+  thRatio:{ko:'활동 비율', en:'Active%'}, thDC:{ko:'끊김', en:'DC'},
+  thFocusCol:{ko:'집중도', en:'Focus'},
+  thClassDate:{ko:'수업일', en:'Class Date'}, thTeacher:{ko:'교사', en:'Teacher'},
+  thRating:{ko:'평점', en:'Rating'},    thSummary:{ko:'요약', en:'Summary'},
+  thDetail:{ko:'상세', en:'Detail'},    thAction:{ko:'액션', en:'Action'},
+  thChannel:{ko:'채널', en:'Channel'},  thCounselor:{ko:'상담자', en:'Counselor'},
+  thTopic:{ko:'주제', en:'Topic'},      thContent:{ko:'내용', en:'Content'},
+  thFollow:{ko:'후속', en:'Follow-up'},
+  thTextbook:{ko:'교재', en:'Textbook'}, thProgress:{ko:'진도', en:'Progress'},
+  thFile:{ko:'파일', en:'File'},        thSize:{ko:'크기', en:'Size'},
+  thLength:{ko:'길이', en:'Length'},    thPlay:{ko:'▶ 재생', en:'▶ Play'},
+  thReportBtn:{ko:'📋 평가서 보기', en:'📋 View Report'},
+  // KPI 수업현황
+  classCount:{ko:'수업 횟수 (기간)', en:'Class Count'},
+  goalPW:{ko:'주당 목표', en:'Weekly Goal'},
+  totalClasses:{ko:'전체 누적', en:'All-time'},
+  // 평가 KPI
+  avgRatio:{ko:'활동 비율 평균', en:'Avg. Active %'},
+  avgDC:{ko:'끊김 평균', en:'Avg. DC'},
+  // 결제 KPI
+  totalPaid:{ko:'총 납부', en:'Total Paid'},
+  paymentTimes:{ko:'결제 횟수', en:'Payments'},
+  // 보상 표
+  rwIssued:{ko:'발급', en:'Issued'}, rwType:{ko:'유형', en:'Type'},
+  rwValue:{ko:'값', en:'Value'},     rwMessage:{ko:'메시지', en:'Message'},
+  // 동의
+  consentRec:{ko:'📹 녹화', en:'📹 Recording'},
+  consentVoice:{ko:'🎤 음성 분석', en:'🎤 Voice Analysis'},
+  consentAttend:{ko:'📊 출석', en:'📊 Attendance'},
+  consentReward:{ko:'🎁 보상', en:'🎁 Reward'},
+  consentKakao:{ko:'💬 카카오', en:'💬 KakaoTalk'},
+  consentYes:{ko:'동의', en:'Agreed'},
+  consentNo:{ko:'미동의', en:'Declined'},
+  consentDate:{ko:'동의일', en:'Consented'},
+  // 보상 카드
+  ovRewards:{ko:'최근 보상', en:'Recent Rewards'},
+  ovConsent:{ko:'동의 현황', en:'Consent Status'},
+  // 토스트 / 알림
+  saved:{ko:'저장 완료', en:'Saved'},
+  saveFailed:{ko:'저장 실패', en:'Save failed'},
+  netError:{ko:'네트워크 오류', en:'Network error'},
+  payAmountReq:{ko:'금액을 입력하세요', en:'Enter amount'},
+  fbSummaryReq:{ko:'요약을 입력하세요', en:'Enter summary'},
+  csContentReq:{ko:'주제 또는 내용을 입력하세요', en:'Enter topic or content'},
+  notFound:{ko:'학생을 찾을 수 없습니다', en:'Student not found'},
+  loadFailed:{ko:'로딩 실패', en:'Load failed'},
+  contactSaved:{ko:'학생 정보가 저장되었습니다', en:'Student info saved'},
+  contactFields:{ko:'개 필드', en:' fields'},
+  // 리포트 카드
+  rpReport:{ko:'학습 리포트', en:'Learning Report'},
+  rpScore:{ko:'/100점', en:'/100'},
+  rpEval:{ko:'평가', en:'eval'},
+  rpAttended:{ko:'출석 일수', en:'Attended Days'},
+  rpAbsent:{ko:'결석 일수', en:'Absent Days'},
+  rpExpect:{ko:'예상', en:'expected'},
+  rpRewards:{ko:'보상 점수', en:'Reward Pts'},
+  rpStudyTime:{ko:'총 학습 시간', en:'Total Study'},
+  rpStudyMs:{ko:'활동 시간', en:'Active time'},
+  rpPaid:{ko:'납부 완료', en:'Paid'},
+  rpMeasured:{ko:'회 측정', en:' measured'},
+  rpPartake:{ko:'발화·참여', en:'Voice·Attend'},
+  rpRadarTitle:{ko:'4 영역 학습 능력', en:'4 Skill Map'},
+  rpEngageTitle:{ko:'시선 집중도 + 발화 활동 추이', en:'Focus + Voice Trend'},
+  rpScale:{ko:'점수 / %', en:'Score / %'},
+  rpEvalEmpty:{ko:'평가자 코멘트가 입력되지 않았습니다.', en:'No evaluator comment.'},
+  rpGoalEmpty:{ko:'다음 학습 목표가 입력되지 않았습니다.', en:'No next goal entered.'},
+  rpExcellent:{ko:'우수(70+)', en:'Excellent(70+)'},
+  rpAvg:{ko:'보통(40~70)', en:'Average(40~70)'},
+  rpLow:{ko:'저조(40-)', en:'Low(40-)'},
+  rpAbsentLgd:{ko:'결석', en:'Absent'},
+  rpEvalSession:{ko:'회 측정', en:' samples'},
+  // 시간 표시
+  hours:{ko:'시간', en:'h'},
+  minutes:{ko:'분', en:'m'},
+  seconds:{ko:'초', en:'s'},
+};
+const t = (key) => (T[key] && T[key][_lang]) ? T[key][_lang] : (T[key]?T[key].ko:key);
+
+function applyLangAttrs(){
+  document.querySelectorAll('[data-ko][data-en]').forEach(el => {
+    const v = el.getAttribute('data-' + _lang);
+    if (v != null) {
+      // option 은 textContent 만 바꿈, button/a/span/div/h4/label/th 도 textContent
+      el.textContent = v;
+    }
+  });
+  // langLabel 은 반대 언어 표시 (현재 KO → 토글하면 EN 으로 바뀜을 안내)
+  const lbl = $('langLabel');
+  if (lbl) lbl.textContent = (_lang === 'ko' ? 'EN' : 'KR');
+  document.documentElement.lang = (_lang === 'ko' ? 'ko' : 'en');
+}
+
+function toggleLang(){
+  _lang = (_lang === 'ko' ? 'en' : 'ko');
+  try { localStorage.setItem('mangoi_admin_lang', _lang); } catch {}
+  applyLangAttrs();
+  if (_state.full) renderAll();   // 동적 텍스트 다시 렌더
+}
+
+function toast(msg, isErr){
+  const el = $('toast');
+  el.textContent = msg; el.classList.toggle('err', !!isErr); el.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(()=>el.classList.remove('show'), 2500);
+}
+function fmtMs(ms){
+  if (!ms || ms<0) return '0' + t('seconds');
+  const s = Math.floor(ms/1000), h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  const sp = (_lang === 'en' ? '' : ' ');
+  if (h>0) return h + t('hours') + sp + m + t('minutes');
+  if (m>0) return m + t('minutes') + sp + sec + t('seconds');
+  return sec + t('seconds');
+}
+function fmtDate(ts){
+  if (!ts) return '—';
+  const d = new Date(ts);
+  return d.toLocaleString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+function fmtDay(ts){
+  if (!ts) return '—';
+  const d = new Date(ts);
+  return d.toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'});
+}
+function fmtKrw(n){
+  const v = (Number(n)||0).toLocaleString('ko-KR');
+  return _lang === 'en' ? '₩' + v : v + '원';
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function scoreBadge(v){
+  if (v == null || isNaN(v)) return '<span class="badge gray">—</span>';
+  const n = Math.round(v*10)/10;
+  const cls = n>=70?'green':(n>=40?'yellow':'red');
+  return '<span class="badge '+cls+'">'+n+'</span>';
+}
+function pctBadge(active, session){
+  if (!session) return '<span class="badge gray">—</span>';
+  const p = (active/session*100), n = Math.round(p*10)/10;
+  return '<span class="badge '+(n>=30?'green':n>=10?'yellow':'red')+'">'+n+'%</span>';
+}
+function statusBadge(s){
+  if (!s) return '<span class="badge gray">—</span>';
+  const map = { paid:'green', overdue:'red', pending:'yellow', open:'yellow', resolved:'green', escalated:'red', active:'green', ended:'gray', cancelled:'red', confirmed:'green' };
+  return '<span class="badge '+(map[s]||'blue')+'">'+esc(s)+'</span>';
+}
+
+// ═══════════════════════ 탭 전환 ═══════════════════════
+document.querySelectorAll('.tab').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === b));
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.dataset.panel === b.dataset.tab));
+  });
+});
+
+// ═══════════════════════ 데이터 로드 ═══════════════════════
+async function loadFull() {
+  if (!uid) {
+    const msg = _lang==='en'
+      ? '⚠ ?uid=&lt;studentID&gt; parameter required. Click a student from the list.'
+      : '⚠ ?uid=&lt;학생ID&gt; 파라미터가 필요합니다. 학생 목록에서 클릭해 주세요.';
+    document.querySelector('main').innerHTML = '<div class="empty">'+msg+'</div>';
+    return;
+  }
+  _state.days = parseInt($('period').value, 10) || 30;
+  try {
+    const r = await fetch('/api/admin/student/'+encodeURIComponent(uid)+'/full?days='+_state.days, { credentials:'include' });
+    if (r.status === 404) {
+      const j = await r.json().catch(()=>({}));
+      document.querySelector('main').innerHTML = '<div class="empty">'+t('notFound')+' — '+(j.user_id||uid)+'</div>';
+      return;
+    }
+    if (r.status === 401) { location.replace('/admin/login?next='+encodeURIComponent(location.pathname+location.search)); return; }
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error||r.status);
+    _state.full = j;
+    renderAll();
+  } catch (e) {
+    toast(t('loadFailed') + ': ' + (e.message||e), true);
+    console.error(e);
+  }
+}
+
+function renderAll(){
+  renderCard();
+  renderOverview();
+  renderEnrollment();
+  renderExtension();
+  renderPayment();
+  renderClasses();
+  renderAttendance();
+  renderStreak();
+  renderDailyInit();
+  renderEngagement();
+  renderEvaluation();
+  renderFeedback();
+  renderConsult();
+  renderContact();
+  renderTextbook();
+  renderRecording();
+  renderTalkInit();
+}
+
+// ═══════════════════════ 좌측 카드 ═══════════════════════
+function renderCard(){
+  const f = _state.full || {};
+  const erp = f.erp || {};
+  const p = f.profile || {};
+  const sm = f.summary || {};
+
+  const name = erp.username || p.username || uid;
+  const initial = (name || '?').charAt(0);
+  $('avatarText').textContent = initial;
+  $('cardName').textContent = name;
+  $('cardSub').textContent = '@' + (erp.login_id || erp.student_id || uid);
+
+  const st = (erp.status || '정상');
+  const cls = st === '정상' ? 'ok' : (st === '미입력'||st==='보류'?'warn':'danger');
+  $('cardStatus').textContent = st;
+  $('cardStatus').className = 'status-pill ' + cls;
+
+  // 🎯 발음연습 횟수 + 평균 (eval_type='pronunciation' 필터)
+  const pronEvals = (f.evaluations || []).filter(x => x.eval_type === 'pronunciation' && x.score_total != null);
+  const pronCount = pronEvals.length;
+  const pronAvgVal = pronCount > 0
+    ? Math.round(pronEvals.reduce((s, x) => s + Number(x.score_total||0), 0) / pronCount * 10) / 10
+    : null;
+  const pronCellVal = pronCount === 0
+    ? '—'
+    : pronCount + (_lang==='en'?' tries':'회') + (pronAvgVal!=null ? ' · ' + (_lang==='en'?'avg ':'평균 ') + pronAvgVal : '');
+
+  const rows = [
+    [t('qStudentId'), erp.student_id || uid],
+    [t('qSignup'), erp.signup_date || '—'],
+    [t('qEnd'), erp.end_date || '—'],
+    [t('qClassesPW'), (erp.classes_per_week||'—') + (_lang==='en'?'':'회')],
+    [t('qPayType'), erp.payment_type || '—'],
+    [t('qFranchise'), erp.franchise || erp.shop_name || '—'],
+    [t('qSessions'), (sm.session_count||0) + (_lang==='en'?' (period)':'회 (기간 내)')],
+    [t('qGaze'), sm.avg_gaze_score != null ? Math.round(sm.avg_gaze_score*10)/10 : '—'],
+    [t('qRewards'), (f.rewards||[]).length + (_lang==='en'?'':'개')],
+    ['🎯 ' + (_lang==='en'?'Pronunciation (result)':'발음연습 (결과)'), pronCellVal],
+  ];
+  $('cardQuick').innerHTML = rows.map(([k,v]) =>
+    '<div class="quick-row"><b>'+esc(k)+'</b><span class="v">'+esc(v)+'</span></div>'
+  ).join('');
+}
+
+// ═══════════════════════ 1. 개요 ═══════════════════════
+function renderOverview(){
+  const sm = _state.full.summary || {};
+  const erp = _state.full.erp || {};
+  $('overviewKpis').innerHTML = `
+    <div class="kpi green"><div class="lab">${t('kpiSession')}</div><div class="val">${sm.session_count||0}</div><div class="sub">${_state.days}${_lang==='en'?'-day':'일 기준'}</div></div>
+    <div class="kpi blue"><div class="lab">${t('kpiActive')}</div><div class="val">${fmtMs(sm.total_active_ms)}</div><div class="sub">${t('kpiTotal')} ${fmtMs(sm.total_session_ms)}</div></div>
+    <div class="kpi yellow"><div class="lab">${t('kpiAvgGaze')}</div><div class="val">${sm.avg_gaze_score!=null?(Math.round(sm.avg_gaze_score*10)/10):'—'}</div><div class="sub">${sm.gaze_score_count||0} ${t('kpiSamples')}</div></div>
+    <div class="kpi purple"><div class="lab">${t('kpiActiveDays')}</div><div class="val">${sm.active_days||0}</div><div class="sub">/${_state.days}${_lang==='en'?'d':'일'}</div></div>
+    <div class="kpi red"><div class="lab">${t('kpiDisconnect')}</div><div class="val">${sm.disconnect_sum||0}</div><div class="sub">${t('kpiSum')}</div></div>
+    <div class="kpi"><div class="lab">${t('kpiOverdue')}</div><div class="val">${(_state.full.payments||[]).filter(p=>p.status==='overdue').length}</div><div class="sub">${(_state.full.payments||[]).length}${t('kpiPaymentCount')}</div></div>
+  `;
+
+  // 일자별 차트
+  const byDay = _state.full.by_day || [];
+  const labels = byDay.map(d => d.date);
+  const sessions = byDay.map(d => d.session_count);
+  const gaze = byDay.map(d => d.avg_gaze_score);
+  if (_charts.day) _charts.day.destroy();
+  _charts.day = new Chart($('dayChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label:t('chartLegendSess'), data:sessions, borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,.18)', yAxisID:'y', tension:.3 },
+        { label:t('chartLegendFocus'), data:gaze, borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,.18)', yAxisID:'y1', tension:.3 },
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      scales: {
+        y:{ position:'left', beginAtZero:true, ticks:{color:'#94a3b8'}, grid:{color:'#334155'}, title:{display:true,text:t('chartLegendSess'),color:'#94a3b8'}},
+        y1:{ position:'right', beginAtZero:true, max:100, ticks:{color:'#94a3b8'}, grid:{drawOnChartArea:false}, title:{display:true,text:t('chartLegendFocus'),color:'#94a3b8'}},
+        x: { ticks:{color:'#94a3b8'}, grid:{color:'#334155'}}
+      },
+      plugins: { legend:{labels:{color:'#e2e8f0'}}}
+    }
+  });
+
+  // 보상
+  const rewards = _state.full.rewards || [];
+  $('overviewRewards').innerHTML = rewards.length===0
+    ? '<div class="empty">'+t('emptyRewards')+'</div>'
+    : '<table class="list"><thead><tr><th>'+t('rwIssued')+'</th><th>'+t('rwType')+'</th><th>'+t('rwValue')+'</th><th>'+t('rwMessage')+'</th></tr></thead><tbody>' +
+      rewards.slice(0,5).map(r=>`<tr><td>${fmtDate(r.issued_at)}</td><td>${esc(r.type)}</td><td>${esc(r.value)}</td><td>${esc(r.message)||'—'}</td></tr>`).join('')+
+      '</tbody></table>';
+
+  // 동의
+  const c = _state.full.consent;
+  const yes = '<span class="badge green">'+t('consentYes')+'</span>';
+  const no  = '<span class="badge red">'+t('consentNo')+'</span>';
+  $('overviewConsent').innerHTML = !c
+    ? '<div class="empty">'+t('emptyConsent')+'</div>'
+    : '<div style="font-size:13px;line-height:1.7">'+
+      `<div>${t('consentRec')}: ${c.recording_consent?yes:no}</div>`+
+      `<div>${t('consentVoice')}: ${c.voice_analysis_consent?yes:no}</div>`+
+      `<div>${t('consentAttend')}: ${c.attendance_consent?yes:no}</div>`+
+      `<div>${t('consentReward')}: ${c.reward_consent?yes:no}</div>`+
+      `<div>${t('consentKakao')}: ${c.kakao_consent?yes:no}</div>`+
+      `<div style="margin-top:6px;color:var(--mut);font-size:11px">${t('consentDate')}: ${fmtDate(c.consented_at)} (v${esc(c.consent_version)})</div>`+
+      '</div>';
+}
+
+// ═══════════════════════ 2. 등록·수강 ═══════════════════════
+function renderEnrollment(){
+  const items = _state.full.enrollments || [];
+  if (items.length === 0) { $('enrollmentBox').innerHTML = '<div class="empty">'+t('emptyEnroll')+'</div>'; return; }
+  $('enrollmentBox').innerHTML = '<table class="list"><thead><tr><th>'+t('thPackage')+'</th><th>'+t('thStart')+'</th><th>'+t('thEnd')+'</th><th>'+t('thMonthly')+'</th><th>'+t('thStatus')+'</th><th>'+t('thNotes')+'</th></tr></thead><tbody>'+
+    items.map(e=>`<tr>
+      <td>${esc(e.package)||'—'}</td>
+      <td>${fmtDay(e.started_at)}</td>
+      <td>${fmtDay(e.ended_at)}</td>
+      <td>${fmtKrw(e.monthly_fee_krw)}</td>
+      <td>${statusBadge(e.status)}</td>
+      <td>${esc(e.notes)||'—'}</td>
+    </tr>`).join('')+'</tbody></table>';
+}
+
+// ═══════════════════════ 3. 수업료 ═══════════════════════
+function renderPayment(){
+  const items = _state.full.payments || [];
+  if (items.length === 0) { $('paymentBox').innerHTML = '<div class="empty">'+t('emptyPayment')+'</div>'; return; }
+  const total = items.filter(p=>p.status==='paid').reduce((s,p)=>s+(p.amount_krw||0), 0);
+  const overdue = items.filter(p=>p.status==='overdue').reduce((s,p)=>s+(p.amount_krw||0), 0);
+  $('paymentBox').innerHTML =
+    `<div class="kpi-grid">
+      <div class="kpi green"><div class="lab">${t('totalPaid')}</div><div class="val">${fmtKrw(total)}</div></div>
+      <div class="kpi red"><div class="lab">${t('kpiOverdue')}</div><div class="val">${fmtKrw(overdue)}</div></div>
+      <div class="kpi blue"><div class="lab">${t('paymentTimes')}</div><div class="val">${items.length}${_lang==='en'?'':'회'}</div></div>
+    </div>`+
+    '<table class="list"><thead><tr><th>'+t('thPaidDate')+'</th><th>'+t('thPeriod')+'</th><th>'+t('thAmount')+'</th><th>'+t('thMethod')+'</th><th>'+t('thStatus')+'</th><th>'+t('thMemo')+'</th></tr></thead><tbody>'+
+    items.map(p=>`<tr>
+      <td>${fmtDay(p.paid_at)}</td>
+      <td>${esc(p.period_start)||'—'} ~ ${esc(p.period_end)||'—'}</td>
+      <td>${fmtKrw(p.amount_krw)}</td>
+      <td>${esc(p.method)||'—'}</td>
+      <td>${statusBadge(p.status)}</td>
+      <td>${esc(p.memo)||'—'}</td>
+    </tr>`).join('')+'</tbody></table>';
+}
+
+$('payAddBtn').addEventListener('click', async () => {
+  const amount = parseInt($('payAmount').value, 10);
+  if (!amount) { toast(t('payAmountReq'), true); return; }
+  const body = {
+    paid_at: $('payDate').value ? new Date($('payDate').value).getTime() : Date.now(),
+    period_start: $('payPeriodStart').value || null,
+    period_end: $('payPeriodEnd').value || null,
+    amount_krw: amount,
+    method: $('payMethod').value,
+    memo: $('payMemo').value || null
+  };
+  await postSave('/api/admin/student/'+encodeURIComponent(uid)+'/payments', body, _lang==='en'?'Payment':'결제');
+  ['payAmount','payMemo','payPeriodStart','payPeriodEnd','payDate'].forEach(id=>$(id).value='');
+});
+
+// ═══════════════════════ 4. 수업 현황 ═══════════════════════
+function renderClasses(){
+  const sessions = _state.full.sessions || [];
+  const sm = _state.full.summary || {};
+  const erp = _state.full.erp || {};
+
+  $('classKpis').innerHTML = `
+    <div class="kpi blue"><div class="lab">${t('classCount')}</div><div class="val">${sessions.length}</div></div>
+    <div class="kpi green"><div class="lab">${t('kpiActiveDays')}</div><div class="val">${sm.active_days||0}</div></div>
+    <div class="kpi yellow"><div class="lab">${t('goalPW')}</div><div class="val">${erp.classes_per_week||'—'}</div></div>
+    <div class="kpi purple"><div class="lab">${t('totalClasses')}</div><div class="val">${(_state.full.profile||{}).total_sessions_all_time||0}</div></div>
+  `;
+
+  if (sessions.length === 0) {
+    $('classBox').innerHTML += '<div class="empty">'+t('emptyClass')+'</div>'; return;
+  }
+  $('classBox').innerHTML = '<table class="list"><thead><tr><th>'+t('thDay')+'</th><th>'+t('thRoom')+'</th><th>'+t('thIn')+'</th><th>'+t('thOut')+'</th><th>'+t('thDuration')+'</th><th>'+t('thActive')+'</th><th>'+t('thRatio')+'</th><th>'+t('thDC')+'</th><th>'+t('thFocusCol')+'</th><th>'+t('thStatus')+'</th></tr></thead><tbody>'+
+    sessions.slice(0,100).map(s=>`<tr>
+      <td>${esc(s.date)}</td>
+      <td><a href="javascript:void(0)" onclick="showRoom('${esc(s.room_id)}')">${esc(s.room_id)}</a></td>
+      <td>${fmtDate(s.joined_at)}</td>
+      <td>${s.left_at?fmtDate(s.left_at):'—'}</td>
+      <td>${fmtMs(s.total_session_ms)}</td>
+      <td>${fmtMs(s.total_active_ms)}</td>
+      <td>${pctBadge(s.total_active_ms, s.total_session_ms)}</td>
+      <td>${s.disconnect_count||0}</td>
+      <td>${scoreBadge(s.gaze_score)}</td>
+      <td>${statusBadge(s.status)}</td>
+    </tr>`).join('')+'</tbody></table>';
+}
+window.showRoom = (rid) => alert('방 ID: '+rid);
+
+// ═══════════════════════ 5. 참여도·점수 ═══════════════════════
+function renderEngagement(){
+  const sm = _state.full.summary || {};
+  const sessions = _state.full.sessions || [];
+  $('engKpis').innerHTML = `
+    <div class="kpi yellow"><div class="lab">${t('kpiAvgGaze')}</div><div class="val">${sm.avg_gaze_score!=null?Math.round(sm.avg_gaze_score*10)/10:'—'}</div><div class="sub">${sm.gaze_score_count||0} ${t('kpiSamples')}</div></div>
+    <div class="kpi green"><div class="lab">${t('kpiActive')}</div><div class="val">${fmtMs(sm.total_active_ms)}</div></div>
+    <div class="kpi blue"><div class="lab">${t('avgRatio')}</div><div class="val">${sm.total_session_ms?Math.round(sm.total_active_ms/sm.total_session_ms*100):0}%</div></div>
+    <div class="kpi red"><div class="lab">${t('avgDC')}</div><div class="val">${sm.session_count?Math.round(sm.disconnect_sum/sm.session_count*10)/10:0}</div></div>
+  `;
+
+  // gaze chart
+  const byDay = _state.full.by_day || [];
+  if (_charts.gaze) _charts.gaze.destroy();
+  _charts.gaze = new Chart($('gazeChart').getContext('2d'), {
+    type:'bar',
+    data:{ labels: byDay.map(d=>d.date), datasets:[{ label:'집중도', data:byDay.map(d=>d.avg_gaze_score), backgroundColor:'rgba(245,158,11,.6)', borderColor:'#f59e0b', borderWidth:1 }]},
+    options:{ responsive:true, maintainAspectRatio:false, scales:{y:{beginAtZero:true,max:100,ticks:{color:'#94a3b8'},grid:{color:'#334155'}},x:{ticks:{color:'#94a3b8'},grid:{color:'#334155'}}}, plugins:{legend:{labels:{color:'#e2e8f0'}}}}
+  });
+
+  // session-level chart (recent 30)
+  const recent = sessions.slice(0,30).reverse();
+  if (_charts.sess) _charts.sess.destroy();
+  _charts.sess = new Chart($('sessionScoreChart').getContext('2d'), {
+    type:'line',
+    data:{
+      labels: recent.map(s=>fmtDay(s.joined_at)),
+      datasets:[
+        { label:'집중도', data: recent.map(s=>s.gaze_score), borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,.2)', tension:.3 },
+        { label:'활동 비율(%)', data: recent.map(s => s.total_session_ms?Math.round(s.total_active_ms/s.total_session_ms*100):null), borderColor:'#10b981', backgroundColor:'rgba(16,185,129,.18)', tension:.3 },
+      ]
+    },
+    options:{ responsive:true, maintainAspectRatio:false, scales:{y:{beginAtZero:true,max:100,ticks:{color:'#94a3b8'},grid:{color:'#334155'}},x:{ticks:{color:'#94a3b8',maxRotation:60},grid:{color:'#334155'}}}, plugins:{legend:{labels:{color:'#e2e8f0'}}}}
+  });
+}
+
+// ═══════════════════════ 6. 평가서 ═══════════════════════
+function renderEvaluation(){
+  const items = _state.full.evaluations || [];
+  if (items.length === 0) { $('evalBox').innerHTML = '<div class="empty">'+t('emptyEval')+'</div>'; return; }
+
+  // 🎯 발음연습 카운트 — eval_type='pronunciation' 인 행에 시간순 번호 매김
+  //   - 표 헤더 위에 "총 N회" 배지 표시
+  //   - 각 행에 "🎯 N번째" 표기 (시간순)
+  const pronSorted = items
+    .map((e, i) => ({ e, i }))
+    .filter(x => x.e.eval_type === 'pronunciation')
+    .sort((a, b) => a.e.eval_at - b.e.eval_at);
+  const pronIndex = new Map();
+  pronSorted.forEach((x, idx) => pronIndex.set(x.e.id, idx + 1));   // id → 1, 2, 3, ...
+  const totalPron = pronSorted.length;
+  const pronAvg = totalPron > 0
+    ? Math.round(pronSorted.reduce((s, x) => s + (Number(x.e.score_total)||0), 0) / totalPron * 10) / 10
+    : null;
+
+  $('evalBox').innerHTML = '<table class="list"><thead><tr><th>'+t('thDate')+'</th><th>'+t('thType')+'</th><th>'+t('thLevel')+'</th><th>'+t('thTotal')+'</th><th>'+t('thSpeak')+'</th><th>'+t('thList')+'</th><th>'+t('thGrammar')+'</th><th>'+t('thFocus')+'</th><th>🎯 '+(_lang==='en'?'Pron.':'발음연습')+'</th><th>'+t('thEvaluator')+'</th><th>'+t('thNextGoal')+'</th><th>'+t('thComment')+'</th><th>'+t('thReport')+'</th></tr></thead><tbody>'+
+    items.map(e=>{
+      const isPron = e.eval_type === 'pronunciation';
+      const pronCell = isPron
+        ? `<span style="display:inline-block;padding:3px 10px;background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;border-radius:12px;font-size:11px;font-weight:700">🎯 ${pronIndex.get(e.id)}${_lang==='en'?'th':'번째'}</span>`
+        : '<span style="color:#cbd5e1;font-size:11px">—</span>';
+      return `<tr${isPron?' style="background:rgba(254,215,170,0.18)"':''}>
+        <td>${fmtDay(e.eval_at)}</td>
+        <td>${esc(e.eval_type)||'—'}</td>
+        <td>${esc(e.level)||'—'}</td>
+        <td>${scoreBadge(e.score_total)}</td>
+        <td>${scoreBadge(e.score_speaking)}</td>
+        <td>${scoreBadge(e.score_listening)}</td>
+        <td>${scoreBadge(e.score_reading)}</td>
+        <td>${scoreBadge(e.score_writing)}</td>
+        <td>${pronCell}</td>
+        <td>${esc(e.evaluator)||'—'}</td>
+        <td>${esc(e.next_goal)||'—'}</td>
+        <td style="white-space:pre-wrap;max-width:300px">${esc(e.comment)||'—'}</td>
+        <td><button class="btn-mini" onclick="openReport(${e.id})" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#1e293b;border:0;font-weight:700">${t('thReportBtn')}</button></td>
+      </tr>`;
+    }).join('')+'</tbody></table>';
+}
+
+$('evAddBtn').addEventListener('click', async () => {
+  const body = {
+    eval_at: $('evDate').value ? new Date($('evDate').value).getTime() : Date.now(),
+    eval_type: $('evType').value,
+    level: $('evLevel').value || null,
+    score_speaking: parseFloat($('evSpeak').value)||null,
+    score_listening: parseFloat($('evList').value)||null,
+    score_reading: parseFloat($('evRead').value)||null,
+    score_writing: parseFloat($('evWrite').value)||null,
+    score_total: parseFloat($('evTotal').value)||null,
+    evaluator: $('evEvaluator').value || null,
+    comment: $('evComment').value || null,
+    next_goal: $('evGoal').value || null
+  };
+  await postSave('/api/admin/student/'+encodeURIComponent(uid)+'/evaluations', body, _lang==='en'?'Evaluation':'평가서');
+  ['evLevel','evSpeak','evList','evRead','evWrite','evTotal','evComment','evGoal'].forEach(id=>$(id).value='');
+});
+
+// ═══════════════════════ 🎯 발음연습 → 평가서 자동 기록 ═══════════════════════
+//   - 새 창으로 mangoi-speech.pages.dev/practice 열기
+//   - 학생 정보 (uid, username) + 콜백 origin 을 URL 파라미터로 전달
+//   - 발음연습 페이지가 window.opener.postMessage 로 결과 송신 → 자동 평가서 INSERT
+//   - 발음연습 페이지가 아직 postMessage 미지원이면 수동 입력 fallback 안내
+let _pronPopup = null;
+window.openPronPractice = function() {
+  const f = _state.full || {};
+  const erp = f.erp || {};
+  const studentName = erp.username || (f.profile||{}).username || uid;
+  // 학생 정보 + 콜백 출처를 URL 파라미터로 전달 (발음연습 페이지가 식별 후 결과 송신)
+  const params = new URLSearchParams({
+    uid: uid,
+    name: studentName,
+    callback_origin: location.origin,
+    return: '1'
+  });
+  const url = 'https://mangoi-speech.pages.dev/practice?' + params;
+  // 팝업 윈도우 (postMessage 양방향 통신 가능, 마이크 권한 정상)
+  _pronPopup = window.open(url, 'mangoi-pron-practice',
+    'width=900,height=720,toolbar=0,location=0,menubar=0,resizable=1,scrollbars=1');
+  if (!_pronPopup) {
+    toast(_lang==='en'?'Popup blocked. Allow popups for this site.':'팝업이 차단됐습니다. 팝업을 허용해주세요.', true);
+    return;
+  }
+
+  toast(_lang==='en'
+    ? '🎯 Practice opened. Results will auto-save when you finish.'
+    : '🎯 발음연습 창이 열렸습니다. 끝나면 결과가 자동 저장됩니다.');
+};
+
+// postMessage 수신 — 발음연습 페이지가 보낸 결과를 자동으로 평가서로 저장
+window.addEventListener('message', async (ev) => {
+  // 보안: mangoi-speech.pages.dev 출처만 허용
+  const allowedOrigins = ['https://mangoi-speech.pages.dev', 'https://mangoi-speech.workers.dev'];
+  if (!allowedOrigins.some(o => ev.origin === o || ev.origin.endsWith('mangoi-speech.pages.dev'))) {
+    return;   // 다른 origin 메시지는 무시
+  }
+  const data = ev.data;
+  if (!data || typeof data !== 'object') return;
+  if (data.type !== 'pronunciation_result') return;
+
+  // 결과 검증 + 평가서 INSERT
+  //   기대 포맷: { type:'pronunciation_result', score: 0~100, pass_rate, comment, words?, level? }
+  const score = Number(data.score ?? data.score_total);
+  if (isNaN(score)) return;
+
+  const body = {
+    eval_at: Date.now(),
+    eval_type: 'pronunciation',
+    level: data.level || null,
+    score_speaking: Number(data.score_speaking) || score,   // 발음은 발화 영역
+    score_listening: Number(data.score_listening) || null,
+    score_reading: Number(data.score_reading) || null,
+    score_writing: Number(data.score_writing) || null,      // 집중도 (구 라이팅 라벨)
+    score_total: score,
+    evaluator: data.evaluator || 'mangoi-speech',
+    comment: data.comment || ('🎯 발음연습 자동 기록 — 정확도 ' + score + '점' +
+              (data.words ? ' (' + data.words + ')' : '')),
+    next_goal: data.next_goal || null
+  };
+
+  try {
+    const r = await fetch('/api/admin/student/'+encodeURIComponent(uid)+'/evaluations', {
+      method:'POST', credentials:'include',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    const j = await r.json();
+    if (r.ok && j.ok) {
+      toast(_lang==='en'
+        ? '✅ Pronunciation result saved (score: ' + score + ')'
+        : '✅ 발음연습 결과 저장 완료 (점수: ' + score + ')');
+      await loadFull();   // 평가서 표 즉시 갱신
+      // 팝업 응답 ack
+      if (ev.source && typeof ev.source.postMessage === 'function') {
+        ev.source.postMessage({ type: 'pronunciation_saved', ok: true, score }, ev.origin);
+      }
+    } else {
+      toast((_lang==='en'?'Save failed: ':'저장 실패: ') + (j.error||r.status), true);
+    }
+  } catch (e) {
+    toast(t('netError'), true);
+  }
+});
+
+// ═══════════════════════ 7. 교사 피드백 ═══════════════════════
+function renderFeedback(){
+  const items = _state.full.feedbacks || [];
+  if (items.length === 0) { $('feedbackBox').innerHTML = '<div class="empty">'+t('emptyFeedback')+'</div>'; return; }
+  $('feedbackBox').innerHTML = '<table class="list"><thead><tr><th>'+t('thClassDate')+'</th><th>'+t('thTeacher')+'</th><th>'+t('thRoom')+'</th><th>'+t('thRating')+'</th><th>'+t('thSummary')+'</th><th>'+t('thDetail')+'</th><th>'+t('thAction')+'</th></tr></thead><tbody>'+
+    items.map(f=>`<tr>
+      <td>${fmtDay(f.class_at)}</td>
+      <td>${esc(f.teacher_name)||'—'}</td>
+      <td>${esc(f.room_id)||'—'}</td>
+      <td>${f.rating ? '⭐'.repeat(f.rating) : '—'}</td>
+      <td>${esc(f.summary)||'—'}</td>
+      <td style="white-space:pre-wrap;max-width:280px">${esc(f.content)||'—'}</td>
+      <td style="white-space:pre-wrap;max-width:200px">${esc(f.action_items)||'—'}</td>
+    </tr>`).join('')+'</tbody></table>';
+}
+
+$('fbAddBtn').addEventListener('click', async () => {
+  const body = {
+    class_at: $('fbDate').value ? new Date($('fbDate').value).getTime() : Date.now(),
+    teacher_name: $('fbTeacher').value || null,
+    room_id: $('fbRoom').value || null,
+    rating: parseInt($('fbRating').value)||null,
+    summary: $('fbSummary').value || '',
+    content: $('fbContent').value || null,
+    action_items: $('fbActions').value || null
+  };
+  if (!body.summary) { toast(t('fbSummaryReq'), true); return; }
+  await postSave('/api/admin/student/'+encodeURIComponent(uid)+'/feedbacks', body, _lang==='en'?'Feedback':'피드백');
+  ['fbTeacher','fbRoom','fbRating','fbSummary','fbContent','fbActions'].forEach(id=>$(id).value='');
+});
+
+// ═══════════════════════ 8. 상담 내역 ═══════════════════════
+function renderConsult(){
+  const items = _state.full.consultations || [];
+  if (items.length === 0) { $('consultBox').innerHTML = '<div class="empty">'+t('emptyConsult')+'</div>'; return; }
+  $('consultBox').innerHTML = '<table class="list"><thead><tr><th>'+t('thDay')+'</th><th>'+t('thChannel')+'</th><th>'+t('thCounselor')+'</th><th>'+t('thTopic')+'</th><th>'+t('thContent')+'</th><th>'+t('thFollow')+'</th><th>'+t('thStatus')+'</th></tr></thead><tbody>'+
+    items.map(c=>`<tr>
+      <td>${fmtDate(c.consult_at)}</td>
+      <td>${esc(c.channel)||'—'}</td>
+      <td>${esc(c.counselor)||'—'}</td>
+      <td>${esc(c.topic)||'—'}</td>
+      <td style="white-space:pre-wrap;max-width:320px">${esc(c.content)||'—'}</td>
+      <td>${c.follow_up_at?fmtDate(c.follow_up_at):'—'}</td>
+      <td>${statusBadge(c.status)}</td>
+    </tr>`).join('')+'</tbody></table>';
+}
+
+$('csAddBtn').addEventListener('click', async () => {
+  const body = {
+    consult_at: $('csDate').value ? new Date($('csDate').value).getTime() : Date.now(),
+    channel: $('csChannel').value,
+    counselor: $('csCounselor').value || null,
+    topic: $('csTopic').value || null,
+    content: $('csContent').value || '',
+    follow_up_at: $('csFollow').value ? new Date($('csFollow').value).getTime() : null,
+    status: $('csStatus').value
+  };
+  if (!body.content && !body.topic) { toast(t('csContentReq'), true); return; }
+  await postSave('/api/admin/student/'+encodeURIComponent(uid)+'/consultations', body, _lang==='en'?'Consultation':'상담');
+  ['csCounselor','csTopic','csContent','csFollow'].forEach(id=>$(id).value='');
+});
+
+// ═══════════════════════ 9. 연락처·정보 ═══════════════════════
+function renderContact(){
+  const erp = _state.full.erp || {};
+  const map = {
+    cStudentPhone: erp.student_phone, cParentPhone: erp.parent_phone, cTeacherPhone: erp.teacher_phone,
+    cKakao: erp.kakao_id, cParentKakao: erp.parent_kakao_id,
+    cSchool: erp.school, cGrade: erp.grade, cBirth: erp.birth_date,
+    cFranchise: erp.franchise, cShop: erp.shop_name,
+    cAddress: erp.address, cNotes: erp.notes
+  };
+  Object.entries(map).forEach(([id, v]) => { if ($(id)) $(id).value = v||''; });
+}
+
+$('cSaveBtn').addEventListener('click', async () => {
+  const body = {
+    student_phone: $('cStudentPhone').value || null,
+    parent_phone: $('cParentPhone').value || null,
+    teacher_phone: $('cTeacherPhone').value || null,
+    kakao_id: $('cKakao').value || null,
+    parent_kakao_id: $('cParentKakao').value || null,
+    school: $('cSchool').value || null,
+    grade: $('cGrade').value || null,
+    birth_date: $('cBirth').value || null,
+    franchise: $('cFranchise').value || null,
+    shop_name: $('cShop').value || null,
+    address: $('cAddress').value || null,
+    notes: $('cNotes').value || null
+  };
+  const btn = $('cSaveBtn'); btn.disabled = true;
+  try {
+    const r = await fetch('/api/admin/student/'+encodeURIComponent(uid)+'/contact', {
+      method: 'PATCH', credentials:'include',
+      headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    const j = await r.json();
+    if (r.ok && j.ok) toast(t('contactSaved') + ' (' + (j.updated_fields||0) + t('contactFields') + ')');
+    else toast(t('saveFailed') + ': ' + (j.error||r.status), true);
+  } catch (e) { toast(t('netError'), true); }
+  finally { btn.disabled = false; }
+});
+
+// ═══════════════════════ 10. 교재 ═══════════════════════
+function renderTextbook(){
+  const items = _state.full.textbooks || [];
+  if (items.length === 0) { $('textbookBox').innerHTML = '<div class="empty">'+t('emptyTextbook')+'</div>'; return; }
+  $('textbookBox').innerHTML = '<table class="list"><thead><tr><th>'+t('thTextbook')+'</th><th>'+t('thLevel')+'</th><th>'+t('thStart')+'</th><th>'+t('thEnd')+'</th><th>'+t('thProgress')+'</th><th>'+t('thStatus')+'</th></tr></thead><tbody>'+
+    items.map(t=>`<tr>
+      <td>${esc(t.textbook_name)||'—'}</td>
+      <td>${esc(t.level)||'—'}</td>
+      <td>${fmtDay(t.started_at)}</td>
+      <td>${fmtDay(t.ended_at)}</td>
+      <td>
+        <div style="background:#334155;border-radius:4px;height:8px;width:120px;overflow:hidden">
+          <div style="height:100%;background:var(--g);width:${Math.min(100,t.progress_pct||0)}%"></div>
+        </div>
+        <div style="font-size:11px;color:var(--mut);margin-top:2px">${t.progress_pct||0}%</div>
+      </td>
+      <td>${statusBadge(t.status)}</td>
+    </tr>`).join('')+'</tbody></table>';
+}
+
+// ═══════════════════════ 11. 녹화 영상 ═══════════════════════
+function renderRecording(){
+  const items = _state.full.recordings || [];
+  if (items.length === 0) { $('recordingBox').innerHTML = '<div class="empty">'+t('emptyRecording')+'</div>'; return; }
+  $('recordingBox').innerHTML = '<table class="list"><thead><tr><th>'+t('thDay')+'</th><th>'+t('thRoom')+'</th><th>'+t('thTeacher')+'</th><th>'+t('thFile')+'</th><th>'+t('thLength')+'</th><th>'+t('thSize')+'</th><th>'+t('thStatus')+'</th><th>'+t('thAction')+'</th></tr></thead><tbody>'+
+    items.map(r=>`<tr>
+      <td>${fmtDate(r.started_at)}</td>
+      <td>${esc(r.room_id)}</td>
+      <td>${esc(r.teacher_name)||'—'}</td>
+      <td style="font-family:monospace;font-size:11px">${esc(r.filename)}</td>
+      <td>${fmtMs(r.duration_ms)}</td>
+      <td>${r.size_bytes?(Math.round(r.size_bytes/1024/1024*10)/10)+' MB':'—'}</td>
+      <td>${statusBadge(r.status)}</td>
+      <td>
+        <button class="btn-mini" onclick="window.open('/api/recordings/blob/'+${r.id}+'?stream=1','_blank')">${t('thPlay')}</button>
+      </td>
+    </tr>`).join('')+'</tbody></table>';
+}
+
+// ═══════════════════════ 공통 저장 ═══════════════════════
+async function postSave(url, body, label){
+  try {
+    const r = await fetch(url, {
+      method:'POST', credentials:'include',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    const j = await r.json();
+    if (r.ok && j.ok) {
+      toast(label + ' ' + t('saved'));
+      await loadFull();
+    } else {
+      toast(label + ' ' + t('saveFailed') + ': ' + (j.error||r.status), true);
+    }
+  } catch (e) { toast(t('netError'), true); }
+}
+
+// ═══════════════════════ 🗓️ 종료·연장 ═══════════════════════
+function renderExtension(){
+  const erp = _state.full.erp || {};
+  const enrolls = _state.full.enrollments || [];
+  const today = new Date(); today.setHours(0,0,0,0);
+  const endStr = erp.end_date || '';
+  let dDay = '—', endStatus = 'gray', endStatusLabel = '—';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(endStr)) {
+    const endDt = new Date(endStr+'T23:59:59');
+    const diff = Math.ceil((endDt - today) / 86400000);
+    if (diff < 0) { dDay = 'D+' + Math.abs(diff); endStatus = 'red'; endStatusLabel = (_lang==='en'?'Expired':'만료'); }
+    else if (diff === 0) { dDay = 'D-DAY'; endStatus = 'red'; endStatusLabel = (_lang==='en'?'Today':'오늘'); }
+    else if (diff <= 7) { dDay = 'D-' + diff; endStatus = 'red'; endStatusLabel = (_lang==='en'?'Urgent':'임박'); }
+    else if (diff <= 30) { dDay = 'D-' + diff; endStatus = 'yellow'; endStatusLabel = (_lang==='en'?'Soon':'주의'); }
+    else { dDay = 'D-' + diff; endStatus = 'green'; endStatusLabel = (_lang==='en'?'OK':'여유'); }
+  }
+  const activeEnroll = enrolls.find(e => e.status === 'confirmed' || e.status === 'pending') || enrolls[0];
+
+  $('extKpis').innerHTML = `
+    <div class="kpi ${endStatus==='red'?'red':endStatus==='yellow'?'yellow':endStatus==='green'?'green':''}"><div class="lab">${_lang==='en'?'End Date':'수강 종료일'}</div><div class="val">${endStr || '—'}</div><div class="sub">${endStatusLabel}</div></div>
+    <div class="kpi blue"><div class="lab">${_lang==='en'?'Days Left':'남은 일수'}</div><div class="val">${dDay}</div></div>
+    <div class="kpi yellow"><div class="lab">${_lang==='en'?'Active Package':'활성 패키지'}</div><div class="val" style="font-size:16px">${esc(activeEnroll?.package)||'—'}</div><div class="sub">${activeEnroll?.monthly_fee_krw?fmtKrw(activeEnroll.monthly_fee_krw)+(_lang==='en'?'/mo':'/월'):'—'}</div></div>
+    <div class="kpi purple"><div class="lab">${_lang==='en'?'Sign-up':'가입일'}</div><div class="val" style="font-size:16px">${esc(erp.signup_date)||'—'}</div></div>
+  `;
+
+  // 연장 이력 fetch
+  fetch('/api/admin/student/'+encodeURIComponent(uid)+'/extensions', { credentials:'include' })
+    .then(r => r.json())
+    .then(j => {
+      const items = (j && j.ok && j.items) || [];
+      const box = $('extHistoryBox');
+      if (items.length === 0) { box.innerHTML = '<div class="empty">'+(_lang==='en'?'No extensions yet.':'연장 이력이 없습니다.')+'</div>'; return; }
+      box.innerHTML = '<table class="list"><thead><tr><th>'+(_lang==='en'?'When':'일시')+'</th><th>'+(_lang==='en'?'Prev':'이전')+'</th><th>'+(_lang==='en'?'New':'신규')+'</th><th>'+(_lang==='en'?'Months':'개월')+'</th><th>'+(_lang==='en'?'Reason':'사유')+'</th><th>'+(_lang==='en'?'By':'처리자')+'</th></tr></thead><tbody>'+
+        items.map(e => `<tr>
+          <td>${fmtDate(e.created_at)}</td>
+          <td>${esc(e.prev_end_date)||'—'}</td>
+          <td>${esc(e.new_end_date)}</td>
+          <td>${e.months_added||'—'}</td>
+          <td>${esc(e.reason)||'—'}</td>
+          <td>${esc(e.created_by)||'—'}</td>
+        </tr>`).join('')+'</tbody></table>';
+    })
+    .catch(()=>{});
+}
+
+window.extendBy = async function(months) {
+  if (!confirm((_lang==='en'?'Extend course by ':'수강을 ')+months+(_lang==='en'?' month(s)?':'개월 연장할까요?'))) return;
+  const reason = $('extReason').value || ((_lang==='en'?'+':'+')+months+(_lang==='en'?'mo':'개월'));
+  try {
+    const r = await fetch('/api/admin/student/'+encodeURIComponent(uid)+'/extend', {
+      method:'POST', credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ months, reason })
+    });
+    const j = await r.json();
+    if (r.ok && j.ok) {
+      toast((_lang==='en'?'Extended to ':'연장 완료 → ') + j.new_end_date);
+      await loadFull();
+    } else toast(t('saveFailed') + ': ' + (j.error||r.status), true);
+  } catch (e) { toast(t('netError'), true); }
+};
+
+window.extendCustom = async function() {
+  const newDate = $('extCustomDate').value;
+  if (!newDate) { toast(_lang==='en'?'Pick a date first':'종료일을 선택하세요', true); return; }
+  if (!confirm((_lang==='en'?'Set end date to ':'종료일을 ')+newDate+(_lang==='en'?'?':' 으로 변경할까요?'))) return;
+  const reason = $('extReason').value || (_lang==='en'?'Manual':'직접 변경');
+  try {
+    const r = await fetch('/api/admin/student/'+encodeURIComponent(uid)+'/extend', {
+      method:'POST', credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ new_end_date: newDate, reason })
+    });
+    const j = await r.json();
+    if (r.ok && j.ok) {
+      toast((_lang==='en'?'Updated to ':'종료일 변경 완료 → ') + j.new_end_date);
+      await loadFull();
+    } else toast(t('saveFailed') + ': ' + (j.error||r.status), true);
+  } catch (e) { toast(t('netError'), true); }
+};
+
+// ═══════════════════════ 🗂️ 출결 현황 (캘린더) ═══════════════════════
+function renderAttendance(){
+  const sessions = _state.full.sessions || [];
+  const erp = _state.full.erp || {};
+  const dateMap = new Map();   // date → { count, gaze }
+  sessions.forEach(s => {
+    if (!s.date) return;
+    const cur = dateMap.get(s.date) || { count:0, gaze:0, gazeN:0 };
+    cur.count++;
+    if (s.gaze_score != null) { cur.gaze += s.gaze_score; cur.gazeN++; }
+    dateMap.set(s.date, cur);
+  });
+
+  const cpw = parseInt(erp.classes_per_week, 10) || 0;
+  const periodWeeks = (_state.days||30)/7;
+  const expected = Math.round(cpw * periodWeeks);
+  const attended = dateMap.size;
+  const absent = Math.max(0, expected - attended);
+  const rate = expected > 0 ? Math.round(attended / expected * 100) : 0;
+
+  $('attendKpis').innerHTML = `
+    <div class="kpi green"><div class="lab">${_lang==='en'?'Attended':'출석'}</div><div class="val">${attended}</div><div class="sub">${_lang==='en'?'days':'일'}</div></div>
+    <div class="kpi red"><div class="lab">${_lang==='en'?'Absent':'결석'}</div><div class="val">${absent}</div><div class="sub">${_lang==='en'?'expected':'예상'} ${expected}</div></div>
+    <div class="kpi blue"><div class="lab">${_lang==='en'?'Attendance Rate':'출석률'}</div><div class="val">${rate}%</div></div>
+    <div class="kpi yellow"><div class="lab">${_lang==='en'?'Period':'기간'}</div><div class="val" style="font-size:18px">${_state.days}${_lang==='en'?'d':'일'}</div></div>
+  `;
+
+  // 90일 캘린더 (일자별 그리드, 7열)
+  const days = 90;
+  const todayKst = new Date();
+  const cells = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(todayKst.getTime() - i * 86400000);
+    const ds = d.toISOString().slice(0,10);
+    const data = dateMap.get(ds);
+    const c = !data ? '#1e293b'
+      : data.gazeN === 0 ? '#3b82f6'   // 출석은 했지만 시선 점수 없음 (파랑)
+      : (data.gaze/data.gazeN) >= 70 ? '#10b981'
+      : (data.gaze/data.gazeN) >= 40 ? '#f59e0b'
+      : '#ef4444';
+    const tip = `${ds}: ${data ? (data.count + (_lang==='en'?' classes, focus ':'회 수업, 집중 ') + (data.gazeN ? Math.round(data.gaze/data.gazeN) : '—')) : (_lang==='en'?'absent':'결석')}`;
+    cells.push(`<div title="${tip}" style="aspect-ratio:1;background:${c};border-radius:3px"></div>`);
+  }
+  $('attendCalendar').innerHTML =
+    '<div style="display:grid;grid-template-columns:repeat(15,1fr);gap:3px;margin:8px 0">' + cells.join('') + '</div>' +
+    `<div style="margin-top:8px;font-size:11px;color:var(--mut)">
+      <span style="display:inline-block;width:10px;height:10px;background:#10b981;border-radius:2px;vertical-align:middle"></span> ${_lang==='en'?'Excellent (70+)':'우수(70+)'}
+      <span style="display:inline-block;width:10px;height:10px;background:#f59e0b;border-radius:2px;margin-left:8px;vertical-align:middle"></span> ${_lang==='en'?'OK (40~70)':'보통(40~70)'}
+      <span style="display:inline-block;width:10px;height:10px;background:#ef4444;border-radius:2px;margin-left:8px;vertical-align:middle"></span> ${_lang==='en'?'Low (40-)':'저조(40-)'}
+      <span style="display:inline-block;width:10px;height:10px;background:#3b82f6;border-radius:2px;margin-left:8px;vertical-align:middle"></span> ${_lang==='en'?'Attended':'출석'}
+      <span style="display:inline-block;width:10px;height:10px;background:#1e293b;border-radius:2px;margin-left:8px;vertical-align:middle;border:1px solid var(--bd)"></span> ${_lang==='en'?'No class':'미수업'}
+    </div>`;
+
+  // 결석 일자 list — 기간 내 평일 중 출석 안 한 날
+  const absentDates = [];
+  for (let i = (_state.days||30) - 1; i >= 0; i--) {
+    const d = new Date(todayKst.getTime() - i*86400000);
+    const ds = d.toISOString().slice(0,10);
+    const wkd = d.getDay();
+    if (wkd === 0 || wkd === 6) continue;   // 주말 제외
+    if (!dateMap.has(ds)) absentDates.push(ds);
+  }
+  $('absentList').innerHTML = absentDates.length === 0
+    ? '<div class="empty">'+(_lang==='en'?'No absences in period (weekdays).':'기간 내 평일 결석 없음.')+'</div>'
+    : '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
+      absentDates.map(d => `<span class="badge red">${d}</span>`).join('') +
+      '</div>';
+}
+
+// ═══════════════════════ ⚡ 연속 출석 (Streak) ═══════════════════════
+function renderStreak(){
+  const sessions = _state.full.sessions || [];
+  const dateSet = new Set(sessions.map(s => s.date).filter(Boolean));
+  const dates = Array.from(dateSet).sort();   // ASC
+
+  // 연속 streak 계산: 평일 기준 (주말 제외)
+  function nextWeekday(dStr) {
+    const d = new Date(dStr+'T00:00:00');
+    do { d.setDate(d.getDate()+1); } while (d.getDay()===0 || d.getDay()===6);
+    return d.toISOString().slice(0,10);
+  }
+  let streaks = []; let cur = null;
+  dates.forEach(d => {
+    if (!cur) { cur = { start: d, end: d, len: 1 }; return; }
+    if (nextWeekday(cur.end) === d) {
+      cur.end = d; cur.len++;
+    } else {
+      streaks.push(cur);
+      cur = { start: d, end: d, len: 1 };
+    }
+  });
+  if (cur) streaks.push(cur);
+
+  const longest = streaks.reduce((m, s) => s.len > m.len ? s : m, { len: 0, start: '', end: '' });
+  // 현재 streak: 가장 마지막 streak 가 어제/오늘까지 이어지는지 체크
+  const todayStr = new Date().toISOString().slice(0,10);
+  let currentStreak = 0;
+  if (streaks.length > 0) {
+    const last = streaks[streaks.length - 1];
+    // 마지막 출석일이 오늘 또는 어제(평일이면)면 진행 중
+    const dayDiff = Math.floor((new Date(todayStr) - new Date(last.end)) / 86400000);
+    if (dayDiff <= 3) currentStreak = last.len;
+  }
+
+  $('streakKpis').innerHTML = `
+    <div class="kpi yellow"><div class="lab">⚡ ${_lang==='en'?'Current Streak':'현재 연속'}</div><div class="val">${currentStreak}</div><div class="sub">${_lang==='en'?'days':'일'}</div></div>
+    <div class="kpi green"><div class="lab">🏆 ${_lang==='en'?'Longest':'최장 기록'}</div><div class="val">${longest.len}</div><div class="sub">${longest.start ? longest.start+'~'+longest.end : '—'}</div></div>
+    <div class="kpi blue"><div class="lab">${_lang==='en'?'Total Spans':'전체 구간'}</div><div class="val">${streaks.length}</div></div>
+    <div class="kpi purple"><div class="lab">${_lang==='en'?'Avg Length':'평균 길이'}</div><div class="val">${streaks.length ? Math.round(streaks.reduce((s,x)=>s+x.len,0)/streaks.length) : 0}</div></div>
+  `;
+
+  // streak chart
+  const labels = streaks.map(s => s.start);
+  const data = streaks.map(s => s.len);
+  if (_charts.streak) _charts.streak.destroy();
+  if (labels.length > 0) {
+    _charts.streak = new Chart($('streakChart').getContext('2d'), {
+      type: 'bar',
+      data: { labels, datasets: [{ label: _lang==='en'?'Streak length':'연속 일수', data, backgroundColor:'rgba(245,158,11,.6)', borderColor:'#f59e0b' }]},
+      options: { responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true,ticks:{color:'#94a3b8'},grid:{color:'#334155'}}, x:{ticks:{color:'#94a3b8',maxRotation:60},grid:{color:'#334155'}}}, plugins:{ legend:{labels:{color:'#e2e8f0'}}}}
+    });
+  }
+
+  // gaps (구간 사이 비어있는 평일)
+  const gaps = [];
+  for (let i = 1; i < streaks.length; i++) {
+    const prev = new Date(streaks[i-1].end);
+    const next = new Date(streaks[i].start);
+    const dayDiff = Math.floor((next - prev) / 86400000);
+    if (dayDiff > 1) {
+      gaps.push({ from: streaks[i-1].end, to: streaks[i].start, days: dayDiff - 1 });
+    }
+  }
+  $('streakGaps').innerHTML = gaps.length === 0
+    ? '<div class="empty">'+(_lang==='en'?'No streak breaks recorded.':'중단 기록 없음.')+'</div>'
+    : '<table class="list"><thead><tr><th>'+(_lang==='en'?'After':'이전 출석')+'</th><th>'+(_lang==='en'?'Resumed':'재출석')+'</th><th>'+(_lang==='en'?'Days off':'중단 일수')+'</th></tr></thead><tbody>'+
+      gaps.map(g => `<tr><td>${g.from}</td><td>${g.to}</td><td><span class="badge red">${g.days}${_lang==='en'?'d':'일'}</span></td></tr>`).join('')+'</tbody></table>';
+}
+
+// ═══════════════════════ 📰 일별 보고서 ═══════════════════════
+function renderDailyInit(){
+  const today = new Date().toISOString().slice(0,10);
+  if (!$('dailyDate').value) $('dailyDate').value = today;
+  $('dailyDate').addEventListener('change', renderDaily);
+  renderDaily();
+}
+function renderDaily(){
+  const day = $('dailyDate').value;
+  if (!day) { $('dailyBox').innerHTML = '<div class="empty">'+(_lang==='en'?'Pick a date':'날짜 선택')+'</div>'; return; }
+  const f = _state.full || {};
+  const sessions = (f.sessions||[]).filter(s => s.date === day);
+  const dayMs = new Date(day+'T00:00:00').getTime();
+  const dayEnd = dayMs + 86400000;
+  const fbs = (f.feedbacks||[]).filter(x => x.class_at >= dayMs && x.class_at < dayEnd);
+  const evs = (f.evaluations||[]).filter(x => x.eval_at >= dayMs && x.eval_at < dayEnd);
+  const cs  = (f.consultations||[]).filter(x => x.consult_at >= dayMs && x.consult_at < dayEnd);
+  const pys = (f.payments||[]).filter(x => x.paid_at && x.paid_at >= dayMs && x.paid_at < dayEnd);
+  const recs= (f.recordings||[]).filter(x => x.started_at && x.started_at >= dayMs && x.started_at < dayEnd);
+
+  const totalActive = sessions.reduce((s,x)=>s+(x.total_active_ms||0), 0);
+  const totalSession = sessions.reduce((s,x)=>s+(x.total_session_ms||0), 0);
+  const gazeArr = sessions.map(s=>s.gaze_score).filter(g=>g!=null);
+  const avgGaze = gazeArr.length ? gazeArr.reduce((a,b)=>a+b,0)/gazeArr.length : null;
+
+  if (sessions.length===0 && fbs.length===0 && evs.length===0 && cs.length===0 && pys.length===0) {
+    $('dailyBox').innerHTML = '<div class="empty">'+(_lang==='en'?'No activity on ':'활동 기록 없음 — ')+day+'</div>';
+    return;
+  }
+
+  const sec = (title, content) => `<div class="chart-wrap" style="margin-bottom:10px"><h3>${title}</h3>${content}</div>`;
+
+  let html = `<h2 style="margin:0 0 14px;font-size:18px;color:#fcd34d">📰 ${day} ${_lang==='en'?'Daily Report':'일별 보고서'}</h2>`;
+  html += `<div class="kpi-grid">
+    <div class="kpi blue"><div class="lab">${_lang==='en'?'Classes':'수업'}</div><div class="val">${sessions.length}</div></div>
+    <div class="kpi green"><div class="lab">${_lang==='en'?'Active':'활동'}</div><div class="val">${fmtMs(totalActive)}</div></div>
+    <div class="kpi yellow"><div class="lab">${_lang==='en'?'Avg Focus':'평균 집중'}</div><div class="val">${avgGaze!=null?Math.round(avgGaze*10)/10:'—'}</div></div>
+    <div class="kpi purple"><div class="lab">${_lang==='en'?'Activity %':'활동 비율'}</div><div class="val">${totalSession?Math.round(totalActive/totalSession*100):0}%</div></div>
+  </div>`;
+
+  if (sessions.length > 0) html += sec(_lang==='en'?'📅 Classes':'📅 수업', '<table class="list"><thead><tr><th>'+t('thIn')+'</th><th>'+t('thOut')+'</th><th>'+t('thRoom')+'</th><th>'+t('thFocusCol')+'</th><th>'+t('thRatio')+'</th></tr></thead><tbody>'+
+    sessions.map(s=>`<tr><td>${fmtDate(s.joined_at)}</td><td>${s.left_at?fmtDate(s.left_at):'—'}</td><td>${esc(s.room_id)}</td><td>${scoreBadge(s.gaze_score)}</td><td>${pctBadge(s.total_active_ms,s.total_session_ms)}</td></tr>`).join('')+'</tbody></table>');
+
+  if (fbs.length > 0) html += sec(_lang==='en'?'💬 Teacher Feedback':'💬 교사 피드백', '<table class="list"><thead><tr><th>'+t('thTeacher')+'</th><th>'+t('thRating')+'</th><th>'+t('thSummary')+'</th><th>'+t('thAction')+'</th></tr></thead><tbody>'+
+    fbs.map(f=>`<tr><td>${esc(f.teacher_name)||'—'}</td><td>${f.rating?'⭐'.repeat(f.rating):'—'}</td><td>${esc(f.summary)}</td><td>${esc(f.action_items)||'—'}</td></tr>`).join('')+'</tbody></table>');
+
+  if (evs.length > 0) html += sec(_lang==='en'?'📋 Evaluations':'📋 평가서', '<table class="list"><thead><tr><th>'+t('thType')+'</th><th>'+t('thTotal')+'</th><th>'+t('thLevel')+'</th><th>'+t('thComment')+'</th></tr></thead><tbody>'+
+    evs.map(e=>`<tr><td>${esc(e.eval_type)||'—'}</td><td>${scoreBadge(e.score_total)}</td><td>${esc(e.level)||'—'}</td><td style="white-space:pre-wrap">${esc(e.comment)||'—'}</td></tr>`).join('')+'</tbody></table>');
+
+  if (cs.length > 0) html += sec(_lang==='en'?'📞 Counseling':'📞 상담', '<table class="list"><thead><tr><th>'+t('thChannel')+'</th><th>'+t('thTopic')+'</th><th>'+t('thContent')+'</th></tr></thead><tbody>'+
+    cs.map(c=>`<tr><td>${esc(c.channel)}</td><td>${esc(c.topic)||'—'}</td><td style="white-space:pre-wrap">${esc(c.content)||'—'}</td></tr>`).join('')+'</tbody></table>');
+
+  if (pys.length > 0) html += sec(_lang==='en'?'💰 Payments':'💰 결제', '<table class="list"><thead><tr><th>'+t('thAmount')+'</th><th>'+t('thMethod')+'</th><th>'+t('thMemo')+'</th></tr></thead><tbody>'+
+    pys.map(p=>`<tr><td>${fmtKrw(p.amount_krw)}</td><td>${esc(p.method)||'—'}</td><td>${esc(p.memo)||'—'}</td></tr>`).join('')+'</tbody></table>');
+
+  if (recs.length > 0) html += sec(_lang==='en'?'🎬 Recordings':'🎬 녹화', '<ul style="font-size:13px;line-height:1.7">' +
+    recs.map(r=>`<li><a href="javascript:void(0)" onclick="window.open('/api/recordings/blob/${r.id}?stream=1','_blank')">${esc(r.filename)}</a> · ${fmtMs(r.duration_ms)}</li>`).join('') + '</ul>');
+
+  $('dailyBox').innerHTML = html;
+}
+window.dailyShift = function(delta){
+  const cur = $('dailyDate').value || new Date().toISOString().slice(0,10);
+  const d = new Date(cur+'T00:00:00');
+  d.setDate(d.getDate() + delta);
+  $('dailyDate').value = d.toISOString().slice(0,10);
+  renderDaily();
+};
+
+// ═══════════════════════ 💭 톡짹톡 (메시지 빠른 액션) ═══════════════════════
+function renderTalkInit(){
+  const erp = _state.full.erp || {};
+  $('talkKpis').innerHTML = `
+    <div class="kpi blue"><div class="lab">${_lang==='en'?'Student Phone':'학생 전화'}</div><div class="val" style="font-size:15px">${esc(erp.student_phone)||'—'}</div></div>
+    <div class="kpi green"><div class="lab">${_lang==='en'?'Parent Phone':'부모님 전화'}</div><div class="val" style="font-size:15px">${esc(erp.parent_phone)||'—'}</div></div>
+    <div class="kpi yellow"><div class="lab">${_lang==='en'?'Student Kakao':'학생 카톡'}</div><div class="val" style="font-size:15px">${esc(erp.kakao_id)||'—'}</div></div>
+    <div class="kpi purple"><div class="lab">${_lang==='en'?'Parent Kakao':'부모 카톡'}</div><div class="val" style="font-size:15px">${esc(erp.parent_kakao_id)||'—'}</div></div>
+  `;
+  // initialize message empty
+}
+
+window.applyTalkTemplate = function(){
+  const erp = _state.full.erp || {};
+  const name = erp.username || (_lang==='en'?'student':'학생');
+  const tpl = $('talkTpl').value;
+  const map = {
+    reminder: _lang==='en'
+      ? `Hello! ${name}'s class is starting soon. Please be ready 5 mins before.`
+      : `안녕하세요! ${name} 학생의 수업이 곧 시작됩니다. 5분 전까지 준비해주세요. 🥭`,
+    absent:   _lang==='en'
+      ? `Hi! ${name} was absent today. Please let us know if everything is ok.`
+      : `안녕하세요! ${name} 학생이 오늘 결석했습니다. 혹시 무슨 일이 있을까요? 연락 부탁드립니다.`,
+    report:   _lang==='en'
+      ? `Hello! ${name}'s monthly evaluation report is ready. Please check the link in the parent app.`
+      : `안녕하세요! ${name} 학생의 월간 평가서가 준비되었습니다. 학부모 앱에서 확인해주세요. 📋`,
+    payment:  _lang==='en'
+      ? `Hi! ${name}'s next month tuition is due. Please process payment within 3 days.`
+      : `안녕하세요! ${name} 학생의 다음 달 수강료가 결제 예정입니다. 3일 내 처리 부탁드립니다. 💰`,
+    extension:_lang==='en'
+      ? `Hi! ${name}'s course will end on ${erp.end_date||'(date)'}. Would you like to extend?`
+      : `안녕하세요! ${name} 학생의 수강이 ${erp.end_date||'(날짜)'} 에 만료됩니다. 연장하시겠어요? 🗓️`,
+  };
+  if (map[tpl]) $('talkMsg').value = map[tpl];
+};
+
+window.copyTalkMsg = function(){
+  const txt = $('talkMsg').value;
+  if (!txt) { toast(_lang==='en'?'Empty message':'메시지가 비어있습니다', true); return; }
+  navigator.clipboard.writeText(txt).then(() => toast(_lang==='en'?'Copied!':'복사 완료')).catch(() => toast(_lang==='en'?'Copy failed':'복사 실패', true));
+};
+
+window.sendTalk = function(){
+  const erp = _state.full.erp || {};
+  const to = $('talkTo').value;
+  const msg = $('talkMsg').value;
+  if (!msg) { toast(_lang==='en'?'Enter message first':'먼저 메시지를 입력하세요', true); return; }
+  const enc = encodeURIComponent(msg);
+  let target = '';
+  if (to === 'student') {
+    const k = erp.kakao_id;
+    if (!k) { toast(_lang==='en'?'No student Kakao ID':'학생 카톡 ID 없음', true); return; }
+    // 카카오톡 ID 검색 — kakao://는 카톡 친구 추가 화면을 못 띄우므로 클립보드 복사 + 카카오 열기
+    navigator.clipboard.writeText(msg).then(()=>{});
+    target = 'https://accounts.kakao.com/login?continue=https://talk.kakao.com';
+    alert((_lang==='en'?'Message copied. Search Kakao ID: ':'메시지를 복사했습니다. 카카오톡에서 ID 검색: ') + k);
+  } else if (to === 'parent') {
+    const k = erp.parent_kakao_id;
+    if (!k) { toast(_lang==='en'?'No parent Kakao ID':'부모 카톡 ID 없음', true); return; }
+    navigator.clipboard.writeText(msg).then(()=>{});
+    alert((_lang==='en'?'Message copied. Search Kakao ID: ':'메시지를 복사했습니다. 카카오톡에서 ID 검색: ') + k);
+    return;
+  } else if (to === 'phone_student') {
+    const p = (erp.student_phone||'').replace(/[^0-9]/g, '');
+    if (!p) { toast(_lang==='en'?'No student phone':'학생 전화번호 없음', true); return; }
+    target = `sms:${p}?body=${enc}`;
+  } else if (to === 'phone_parent') {
+    const p = (erp.parent_phone||'').replace(/[^0-9]/g, '');
+    if (!p) { toast(_lang==='en'?'No parent phone':'부모 전화번호 없음', true); return; }
+    target = `sms:${p}?body=${enc}`;
+  }
+  if (target) location.href = target;
+};
+
+// ═══════════════════════ 📋 평가서 보기 — 종합 리포트 카드 ═══════════════════════
+let _rpCharts = {};
+
+window.openReport = function(evalId){
+  const f = _state.full || {};
+  const ev = (f.evaluations || []).find(x => x.id === evalId);
+  if (!ev) { toast(t('notFound'), true); return; }
+
+  const erp = f.erp || {};
+  const sm  = f.summary || {};
+  const sessions = f.sessions || [];
+  const rewards  = f.rewards  || [];
+  const enrolls  = f.enrollments || [];
+  const feedbacks= f.feedbacks|| [];
+  const payments = f.payments || [];
+  const consults = f.consultations || [];
+
+  // ── 헤더 ──
+  const studentName = erp.username || (f.profile||{}).username || uid;
+  $('rpName').textContent = '🎓 ' + studentName + ' — ' + t('rpReport');
+  $('rpMeta').textContent =
+    fmtDay(ev.eval_at) + ' · ' + (ev.eval_type || t('rpEval')) +
+    (ev.level ? ' · ' + ev.level + (_lang==='en'?' Level':' 레벨') : '') +
+    (ev.evaluator ? ' · ' + (_lang==='en'?'Evaluator: ':'평가자: ') + ev.evaluator : '');
+  $('rpPrintDate').textContent = new Date().toLocaleString(_lang==='en'?'en-US':'ko-KR');
+
+  // ── 결석일수 계산: enrollment 시작~오늘 사이의 expected vs actual ──
+  // 1) 현재까지 진행된 일수 (시그업일 ~ 오늘) 중 평일 기준으로 expected
+  // 2) attendance 일수와의 차이 = 결석 (대략치)
+  const activeSet = new Set();
+  sessions.forEach(s => { if (s.date) activeSet.add(s.date); });
+  const totalAttendDays = activeSet.size;
+  const cpw = parseInt(erp.classes_per_week, 10) || 0;
+  // 기간 내 expected (주당 cpw 회 × 주 수)
+  const periodWeeks = (_state.days || 30) / 7;
+  const expected = Math.round(cpw * periodWeeks);
+  const absent = Math.max(0, expected - totalAttendDays);
+
+  const totalRewards = rewards.length;
+  const totalRewardValue = rewards.reduce((s,r)=> s + (parseInt(r.value,10)||0), 0);
+  const totalPaid = payments.filter(p=>p.status==='paid').reduce((s,p)=>s+(p.amount_krw||0), 0);
+  const totalActive = sm.total_active_ms || 0;
+  const avgGaze = sm.avg_gaze_score!=null ? Math.round(sm.avg_gaze_score*10)/10 : '—';
+  const totalSession = sm.total_session_ms || 0;
+  const activePct = totalSession ? Math.round(totalActive/totalSession*100) : 0;
+
+  // ── 발음연습 평가 통계 (eval_type='pronunciation' 필터링) ──
+  const pronEvals = (f.evaluations || [])
+    .filter(e => e.eval_type === 'pronunciation' && e.score_total != null)
+    .sort((a, b) => a.eval_at - b.eval_at);
+  const pronCount = pronEvals.length;
+  const pronAvg = pronCount > 0
+    ? Math.round(pronEvals.reduce((s, e) => s + Number(e.score_total||0), 0) / pronCount * 10) / 10
+    : null;
+  const pronBest = pronCount > 0 ? Math.max(...pronEvals.map(e => Number(e.score_total||0))) : null;
+  const pronLatest = pronCount > 0 ? pronEvals[pronEvals.length - 1].score_total : null;
+
+  // ── 핵심 지표 10개 (발음 평균 추가) ──
+  $('rpStats').innerHTML = `
+    <div class="stat-card green"><div class="lab">${t('thTotal')}</div><div class="val">${ev.score_total!=null?ev.score_total:'—'}</div><div class="sub">${t('rpScore')}</div></div>
+    <div class="stat-card blue"><div class="lab">${t('thLevel')}</div><div class="val">${esc(ev.level)||'—'}</div><div class="sub">${esc(ev.eval_type)||t('rpEval')}</div></div>
+    <div class="stat-card yellow"><div class="lab">${t('kpiAvgGaze')}</div><div class="val">${avgGaze}</div><div class="sub">${sm.gaze_score_count||0}${t('rpMeasured')}</div></div>
+    <div class="stat-card purple"><div class="lab">${t('avgRatio')}</div><div class="val">${activePct}%</div><div class="sub">${t('rpPartake')}</div></div>
+    <div class="stat-card yellow"><div class="lab">🎙 ${_lang==='en'?'Pron. Avg':'발음 평균'}</div><div class="val" style="color:#ea580c">${pronAvg!=null?pronAvg:'—'}</div><div class="sub">${pronCount}${_lang==='en'?' tries':'회 연습'}${pronLatest!=null?' · '+(_lang==='en'?'last ':'최근 ')+pronLatest:''}</div></div>
+    <div class="stat-card green"><div class="lab">${t('rpAttended')}</div><div class="val">${totalAttendDays}</div><div class="sub">${_state.days}${_lang==='en'?'-day':'일 기준'}</div></div>
+    <div class="stat-card red"><div class="lab">${t('rpAbsent')}</div><div class="val">${absent}</div><div class="sub">${t('rpExpect')} ${expected}${_lang==='en'?'':'회 중'}</div></div>
+    <div class="stat-card yellow"><div class="lab">${t('rpRewards')}</div><div class="val">${totalRewards}${_lang==='en'?'':'개'}</div><div class="sub">${totalRewardValue>0?(totalRewardValue+(_lang==='en'?' pts':'점')):'—'}</div></div>
+    <div class="stat-card blue"><div class="lab">${t('rpStudyTime')}</div><div class="val">${fmtMs(totalActive)}</div><div class="sub">${t('rpStudyMs')}</div></div>
+    <div class="stat-card purple"><div class="lab">${t('rpPaid')}</div><div class="val">${fmtKrw(totalPaid)}</div><div class="sub">${payments.length}${t('kpiPaymentCount')}</div></div>
+  `;
+
+  // ── 방사형 차트 (4영역) ──
+  if (_rpCharts.radar) _rpCharts.radar.destroy();
+  _rpCharts.radar = new Chart($('rpRadar').getContext('2d'), {
+    type: 'radar',
+    data: {
+      labels: [t('thSpeak'), t('thList'), t('thGrammar'), t('thFocus')],
+      datasets: [{
+        label: studentName + ' (' + fmtDay(ev.eval_at) + ')',
+        data: [
+          ev.score_speaking||0, ev.score_listening||0,
+          ev.score_reading||0, ev.score_writing||0
+        ],
+        backgroundColor: 'rgba(245,158,11,0.25)',
+        borderColor: '#f59e0b',
+        borderWidth: 2,
+        pointBackgroundColor: '#f59e0b',
+        pointRadius: 5,
+        pointHoverRadius: 7
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        r: {
+          beginAtZero: true, max: 100,
+          pointLabels: { font: { size: 13, weight: '700' }, color: '#222' },
+          ticks: { backdropColor: 'transparent', color: '#888', stepSize: 20 },
+          grid: { color: '#e0e0e0' },
+          angleLines: { color: '#e0e0e0' }
+        }
+      },
+      plugins: {
+        legend: { labels: { color: '#222', font: { size: 12 } } },
+        title: { display: true, text: t('rpRadarTitle'), color: '#666', font: { size: 12, weight: '700' } }
+      }
+    }
+  });
+
+  // ── 시선·집중도 라인차트 (최근 세션 30건) ──
+  const recentSess = sessions.slice(0, 30).reverse();
+  if (_rpCharts.engage) _rpCharts.engage.destroy();
+  _rpCharts.engage = new Chart($('rpEngage').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: recentSess.map(s => fmtDay(s.joined_at)),
+      datasets: [
+        {
+          label: t('chartLegendFocus'),
+          data: recentSess.map(s => s.gaze_score),
+          borderColor: '#f59e0b',
+          backgroundColor: 'rgba(245,158,11,0.18)',
+          tension: 0.3, fill: true, yAxisID: 'y'
+        },
+        {
+          label: t('chartActivityRatio'),
+          data: recentSess.map(s => s.total_session_ms ? Math.round(s.total_active_ms/s.total_session_ms*100) : null),
+          borderColor: '#16a34a',
+          backgroundColor: 'rgba(22,163,74,0.15)',
+          tension: 0.3, yAxisID: 'y'
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        y: { beginAtZero: true, max: 100, ticks: { color: '#666' }, grid: { color: '#e0e0e0' }, title: { display: true, text: t('rpScale'), color: '#666' } },
+        x: { ticks: { color: '#666', maxRotation: 60, minRotation: 30, font: { size: 10 } }, grid: { color: '#e0e0e0' } }
+      },
+      plugins: {
+        legend: { labels: { color: '#222' } },
+        title: { display: true, text: t('rpEngageTitle'), color: '#666', font: { size: 12, weight: '700' } }
+      }
+    }
+  });
+
+  // ── 발음연습 막대차트 + 리스트 (눈높이별 색상) ──
+  if (_rpCharts.pron) _rpCharts.pron.destroy();
+  if (pronEvals.length > 0) {
+    const labels = pronEvals.map(e => fmtDay(e.eval_at));
+    const data = pronEvals.map(e => Number(e.score_total||0));
+    // 점수 구간별 색상 (90+ 우수 / 70+ 양호 / 50+ 보통 / 그 미만 미흡)
+    const colors = data.map(v =>
+      v >= 90 ? '#10b981' : v >= 70 ? '#84cc16' : v >= 50 ? '#f59e0b' : '#ef4444'
+    );
+    _rpCharts.pron = new Chart($('rpPron').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: _lang==='en'?'Pronunciation Score':'발음 점수',
+          data,
+          backgroundColor: colors,
+          borderRadius: 8,
+          maxBarThickness: 60
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          title: {
+            display: true,
+            text: (_lang==='en'?'Pronunciation Score by Date':'날짜별 발음 점수'),
+            color: '#666', font: { size: 12, weight: '700' }
+          },
+          tooltip: {
+            callbacks: {
+              afterLabel: (ctx) => {
+                const e = pronEvals[ctx.dataIndex];
+                const lines = [];
+                if (e.level) lines.push((_lang==='en'?'Level: ':'레벨: ') + e.level);
+                if (e.evaluator) lines.push((_lang==='en'?'By: ':'평가자: ') + e.evaluator);
+                if (e.comment) lines.push(e.comment.slice(0, 60));
+                return lines;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true, max: 100,
+            ticks: { color: '#666' }, grid: { color: '#e0e0e0' },
+            title: { display: true, text: (_lang==='en'?'Score (0~100)':'점수 (0~100)'), color: '#666' }
+          },
+          x: {
+            ticks: { color: '#666', maxRotation: 60, minRotation: 30, font: { size: 10 } },
+            grid: { color: '#e0e0e0' }
+          }
+        }
+      }
+    });
+    // 발음 연습 최근 10건 리스트 (최신순)
+    const recent = pronEvals.slice().reverse().slice(0, 10);
+    const dot = (v) => v >= 90 ? '🟢' : v >= 70 ? '🟡' : v >= 50 ? '🟠' : '🔴';
+    $('rpPronList').innerHTML = `
+      <h3 style="margin:0 0 10px;font-size:13px;color:#666;font-weight:700;text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid #eee;padding-bottom:6px">
+        ${_lang==='en'?'🎙 Recent Pronunciation Records':'🎙 최근 발음연습 기록'}
+      </h3>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="background:#fafafa">
+            <th style="padding:6px 8px;text-align:left;color:#888;font-weight:600;font-size:11px">${_lang==='en'?'Date':'일자'}</th>
+            <th style="padding:6px 8px;text-align:right;color:#888;font-weight:600;font-size:11px">${_lang==='en'?'Score':'점수'}</th>
+            <th style="padding:6px 8px;text-align:left;color:#888;font-weight:600;font-size:11px">${_lang==='en'?'Comment':'코멘트'}</th>
+          </tr>
+        </thead>
+        <tbody>${
+          recent.map(e => `<tr style="border-bottom:1px solid #f0f0f0">
+            <td style="padding:6px 8px">${fmtDay(e.eval_at)}</td>
+            <td style="padding:6px 8px;text-align:right;font-weight:700">${dot(e.score_total)} ${e.score_total}</td>
+            <td style="padding:6px 8px;color:#666;font-size:11px">${esc(e.comment||'').slice(0,40) || '—'}</td>
+          </tr>`).join('')
+        }</tbody>
+      </table>`;
+  } else {
+    $('rpPron').parentElement.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#aaa;font-size:13px;text-align:center;padding:20px">
+        <div>
+          <div style="font-size:40px;margin-bottom:10px">🎙</div>
+          <div>${_lang==='en'?'No pronunciation practice yet':'아직 발음연습 기록이 없습니다'}</div>
+          <div style="font-size:11px;color:#bbb;margin-top:6px">${_lang==='en'?'Use the practice button on the Evaluation tab':'평가서 탭의 발음연습 버튼으로 시작'}</div>
+        </div>
+      </div>`;
+    $('rpPronList').innerHTML = '';
+  }
+
+  // ── 코멘트 ──
+  const cm = $('rpComment');
+  if (ev.comment) { cm.textContent = ev.comment; cm.classList.remove('empty'); }
+  else { cm.textContent = t('rpEvalEmpty'); cm.classList.add('empty'); }
+
+  const gl = $('rpGoal');
+  if (ev.next_goal) { gl.textContent = ev.next_goal; gl.classList.remove('empty'); }
+  else { gl.textContent = t('rpGoalEmpty'); gl.classList.add('empty'); }
+
+  // ── 출석 캘린더 (최근 30일 점) ──
+  const cal = $('rpAttendCal');
+  const days = [];
+  const todayKst = new Date();
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(todayKst.getTime() - i * 86400000);
+    const ds = d.toISOString().slice(0,10);
+    const sess = sessions.filter(s => s.date === ds);
+    days.push({ date: ds, count: sess.length, gaze: sess.length ? sess.reduce((a,s)=>a+(s.gaze_score||0),0)/sess.length : null });
+  }
+  cal.innerHTML =
+    '<div style="display:grid;grid-template-columns:repeat(15,1fr);gap:3px">' +
+    days.map(d => {
+      const c = d.count === 0 ? '#f0f0f0'
+              : d.gaze == null ? '#cbd5e1'
+              : d.gaze >= 70 ? '#16a34a'
+              : d.gaze >= 40 ? '#fbbf24' : '#dc2626';
+      return `<div title="${d.date}: ${d.count}회 (집중도 ${d.gaze!=null?Math.round(d.gaze):'—'})"
+                   style="aspect-ratio:1;background:${c};border-radius:3px"></div>`;
+    }).join('') +
+    '</div>' +
+    '<div style="margin-top:8px;font-size:11px;color:#888">' +
+    '<span style="display:inline-block;width:10px;height:10px;background:#16a34a;border-radius:2px;vertical-align:middle"></span> '+t('rpExcellent')+' ' +
+    '<span style="display:inline-block;width:10px;height:10px;background:#fbbf24;border-radius:2px;margin-left:8px;vertical-align:middle"></span> '+t('rpAvg')+' ' +
+    '<span style="display:inline-block;width:10px;height:10px;background:#dc2626;border-radius:2px;margin-left:8px;vertical-align:middle"></span> '+t('rpLow')+' ' +
+    '<span style="display:inline-block;width:10px;height:10px;background:#f0f0f0;border-radius:2px;margin-left:8px;vertical-align:middle"></span> '+t('rpAbsentLgd')+
+    '</div>';
+
+  // ── 모달 열기 ──
+  $('reportBackdrop').classList.add('show');
+  document.body.style.overflow = 'hidden';
+};
+
+window.closeReport = function(){
+  $('reportBackdrop').classList.remove('show');
+  document.body.style.overflow = '';
+  if (_rpCharts.radar) { _rpCharts.radar.destroy(); _rpCharts.radar = null; }
+  if (_rpCharts.engage){ _rpCharts.engage.destroy(); _rpCharts.engage = null; }
+  if (_rpCharts.pron)  { _rpCharts.pron.destroy();   _rpCharts.pron = null; }
+};
+
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape' && $('reportBackdrop').classList.contains('show')) closeReport();
+});
+
+// ═══════════════════════ 컨트롤 ═══════════════════════
+$('refreshBtn').addEventListener('click', loadFull);
+$('period').addEventListener('change', loadFull);
+$('langBtn').addEventListener('click', toggleLang);
+
+// 시작 — 저장된 언어 즉시 적용 후 데이터 로드
+applyLangAttrs();
+
+// 🥭 Phase 39 — 학생 드릴다운 스케줄 탭 (주간/월간 캘린더)
+const _dSchedState = { view: 'week', weekStart: null, year: 0, month: 0, enrollments: [] };
+
+(function initSchedTab() {
+  const now = new Date();
+  _dSchedState.year = now.getFullYear();
+  _dSchedState.month = now.getMonth();
+  const ws = new Date(now); ws.setDate(now.getDate() - now.getDay()); ws.setHours(0,0,0,0);
+  _dSchedState.weekStart = ws;
+})();
+
+async function loadDStudentSchedule() {
+  // 학생의 enrollments fetch
+  const uidEl = document.getElementById('d-sched-uid');
+  const uid = (typeof DRILL_UID !== 'undefined' && DRILL_UID) ||
+              new URLSearchParams(location.search).get('uid') || '';
+  if (uidEl) uidEl.textContent = uid || '—';
+  if (!uid) { _dSchedState.enrollments = []; renderDSchedule(); return; }
+  try {
+    const r = await fetch('/api/admin/enrollments?user_id=' + encodeURIComponent(uid), { credentials: 'include' });
+    const d = await r.json().catch(() => ({}));
+    _dSchedState.enrollments = (d.ok && d.items) ? d.items : [];
+  } catch (e) { _dSchedState.enrollments = []; }
+  renderDSchedule();
+}
+
+function renderDSchedule() {
+  if (_dSchedState.view === 'week') return renderDSchedWeek();
+  return renderDSchedMonth();
+}
+
+function renderDSchedWeek() {
+  const ws = _dSchedState.weekStart;
+  const we = new Date(ws); we.setDate(ws.getDate() + 6);
+  document.getElementById('d-sched-label').textContent =
+    ws.getFullYear() + '년 ' + (ws.getMonth()+1) + '월 ' + ws.getDate() + '일 ~ ' +
+    (we.getMonth()+1) + '월 ' + we.getDate() + '일';
+  const HOUR_START = 9, HOUR_END = 24;
+  const ROW_H = 12;
+  const slots = [];
+  for (let h = HOUR_START; h < HOUR_END; h++)
+    for (let m = 0; m < 60; m += 10) slots.push({ h, m });
+  const days = [];
+  for (let i = 0; i < 7; i++) { const d = new Date(ws); d.setDate(ws.getDate()+i); days.push(d); }
+  const dayNames = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+
+  let html = '<div style="display:grid;grid-template-columns:60px repeat(7, 1fr);background:#f8fafc;border-bottom:2px solid #cbd5e1;position:sticky;top:0;z-index:5">';
+  html += '<div style="padding:8px 4px;font-size:10px;color:#94a3b8;text-align:center;border-right:1px solid #e2e8f0">시간</div>';
+  days.forEach((d, i) => {
+    const isToday = d.toDateString() === new Date().toDateString();
+    const wColor = i === 0 ? '#dc2626' : (i === 6 ? '#2563eb' : '#334155');
+    html += '<div style="padding:6px 4px;text-align:center;font-size:11px;font-weight:600;color:' + wColor + ';border-right:1px solid #e2e8f0;background:' + (isToday?'#fef3c7':'transparent') + '">' + dayNames[i] + '<br><span style="font-size:14px">' + d.getDate() + '</span></div>';
+  });
+  html += '</div>';
+  html += '<div style="display:grid;grid-template-columns:60px repeat(7, 1fr);grid-auto-rows:' + ROW_H + 'px;position:relative">';
+  slots.forEach(s => {
+    const isHour = s.m === 0; const isHalf = s.m === 30;
+    html += '<div style="grid-column:1;font-size:10px;color:#64748b;text-align:right;padding:0 6px;line-height:' + ROW_H + 'px;' + (isHour?'border-top:1px solid #cbd5e1;font-weight:700':'') + '">' + (isHour?String(s.h).padStart(2,'0')+':00':'') + '</div>';
+    for (let i = 0; i < 7; i++) {
+      const bt = isHour ? '1px solid #cbd5e1' : (isHalf ? '1px dashed #e2e8f0' : 'none');
+      html += '<div style="grid-column:' + (i+2) + ';border-right:1px solid #f1f5f9;border-top:' + bt + '"></div>';
+    }
+  });
+
+  // 클래스 블록
+  const dayCodes = ['sun','mon','tue','wed','thu','fri','sat'];
+  const dayKoMap = ['일','월','화','수','목','금','토'];
+  const typeColors = {
+    '레벨테스트': { bg:'#dbeafe', border:'#3b82f6', text:'#1e40af' },
+    '체험수업':   { bg:'#dcfce7', border:'#10b981', text:'#166534' },
+    '정규수업':   { bg:'#fef3c7', border:'#f59e0b', text:'#92400e' }
+  };
+  for (const enr of (_dSchedState.enrollments || [])) {
+    const sd = enr.started_at ? new Date(typeof enr.started_at === 'number' ? enr.started_at : enr.started_at) : null;
+    if (sd && we < sd) continue;
+    if (enr.end_date) { const ed = new Date(enr.end_date); if (ed < ws) continue; }
+    const daysField = String(enr.days_of_week || enr.package || '');
+    const timeField = String(enr.time || '');
+    for (let i = 0; i < 7; i++) {
+      const ko = dayKoMap[i], cd = dayCodes[i];
+      if (!daysField.includes(ko) && !daysField.toLowerCase().includes(cd)) continue;
+      let timeStr = timeField;
+      const m1 = timeField.match(new RegExp(ko + '\\s*(\\d{1,2}:\\d{2})'));
+      if (m1) timeStr = m1[1];
+      const tm = timeStr.match(/(\d{1,2}):(\d{2})/);
+      if (!tm) continue;
+      const hh = parseInt(tm[1],10), mm = parseInt(tm[2],10);
+      if (hh < HOUR_START || hh >= HOUR_END) continue;
+      const dayDate = days[i];
+      if (sd && dayDate < sd) continue;
+      if (enr.end_date) { const ed = new Date(enr.end_date); if (dayDate > ed) continue; }
+      const slotIdx = (hh - HOUR_START)*6 + Math.floor(mm/10);
+      const colors = typeColors[enr.type || '정규수업'] || typeColors['정규수업'];
+      const top = slotIdx * ROW_H;
+      const height = 2 * ROW_H - 2;
+      const leftCalc = 'calc(60px + (100% - 60px) * ' + i + ' / 7 + 2px)';
+      const widthCalc = 'calc((100% - 60px) / 7 - 6px)';
+      html += '<div style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';top:' + top + 'px;height:' + height + 'px;background:' + colors.bg + ';border-left:3px solid ' + colors.border + ';border-radius:3px;padding:2px 5px;font-size:10px;color:' + colors.text + ';line-height:1.2;overflow:hidden;cursor:pointer;z-index:2;box-shadow:0 1px 3px rgba(0,0,0,0.1)" title="' + (enr.teacher_name||'Teacher') + ' / ' + (enr.type||'정규수업') + ' / ' + timeStr + '">' +
+        '<div style="font-weight:700;font-size:9px">' + (enr.type||'정규수업').substring(0,4) + '</div>' +
+        '<div style="font-weight:600">' + (enr.teacher_name||'TBD') + '</div>' +
+        '<div style="font-size:9px">' + timeStr + ' (' + (enr.class_size||'1:1') + ')</div></div>';
+    }
+  }
+  html += '</div>';
+  document.getElementById('d-sched-calendar').innerHTML = html;
+}
+
+function renderDSchedMonth() {
+  const y = _dSchedState.year, m = _dSchedState.month;
+  document.getElementById('d-sched-label').textContent = y + '년 ' + (m+1) + '월';
+  const first = new Date(y, m, 1);
+  const startWday = first.getDay();
+  const lastDay = new Date(y, m+1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < startWday; i++) cells.push({ blank: true });
+  for (let d = 1; d <= lastDay; d++) cells.push({ blank: false, day: d, date: new Date(y, m, d) });
+  while (cells.length < 42) cells.push({ blank: true });
+  const dayNames = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  let html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);background:#f1f5f9">';
+  dayNames.forEach((dn, i) => {
+    const color = i === 0 ? '#dc2626' : (i === 6 ? '#2563eb' : '#475569');
+    html += '<div style="text-align:center;padding:10px 0;font-weight:700;font-size:13px;color:' + color + ';border-bottom:1px solid #cbd5e1">' + dn + '</div>';
+  });
+  html += '</div><div style="display:grid;grid-template-columns:repeat(7,1fr)">';
+  const dayCodes = ['sun','mon','tue','wed','thu','fri','sat'];
+  const dayKoMap = ['일','월','화','수','목','금','토'];
+  cells.forEach((c, idx) => {
+    const wday = idx % 7;
+    const numColor = c.blank ? '#cbd5e1' : (wday === 0 ? '#dc2626' : (wday === 6 ? '#2563eb' : '#1e293b'));
+    const today = !c.blank && c.date.toDateString() === new Date().toDateString();
+    html += '<div style="min-height:120px;padding:6px 8px;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;background:' + (today?'#fef3c7':'#fff') + '">';
+    if (!c.blank) {
+      html += '<div style="font-size:13px;font-weight:600;color:' + numColor + ';margin-bottom:4px">' + c.day + '</div>';
+      // 클래스 카드
+      const ko = dayKoMap[c.date.getDay()];
+      const cd = dayCodes[c.date.getDay()];
+      for (const enr of (_dSchedState.enrollments || [])) {
+        const sd = enr.started_at ? new Date(typeof enr.started_at === 'number' ? enr.started_at : enr.started_at) : null;
+        if (sd && c.date < sd) continue;
+        if (enr.end_date) { const ed = new Date(enr.end_date); if (c.date > ed) continue; }
+        const daysField = String(enr.days_of_week || enr.package || '');
+        if (!daysField.includes(ko) && !daysField.toLowerCase().includes(cd)) continue;
+        let timeStr = enr.time || '';
+        const m1 = String(enr.time||'').match(new RegExp(ko + '\\s*(\\d{1,2}:\\d{2})'));
+        if (m1) timeStr = m1[1];
+        const tc = { '레벨테스트':{bg:'#dbeafe',b:'#3b82f6'}, '체험수업':{bg:'#dcfce7',b:'#10b981'}, '정규수업':{bg:'#fef3c7',b:'#f59e0b'} };
+        const cl = tc[enr.type||'정규수업'] || tc['정규수업'];
+        html += '<div style="background:' + cl.bg + ';border-left:3px solid ' + cl.b + ';border-radius:3px;padding:3px 5px;margin-bottom:3px;font-size:10px;color:#0f172a"><b>' + (enr.type||'정규수업').substring(0,4) + '</b><br>' + (enr.teacher_name||'TBD') + '<br>' + timeStr + ' (' + (enr.class_size||'1:1') + ')</div>';
+      }
+    }
+    html += '</div>';
+  });
+  html += '</div>';
+  document.getElementById('d-sched-calendar').innerHTML = html;
+}
+
+// 탭 활성화 시 자동 로드
+document.addEventListener('click', (ev) => {
+  const tab = ev.target.closest('.tab[data-tab="schedule"]');
+  if (!tab) return;
+  setTimeout(loadDStudentSchedule, 100);
+});
+
+// 컨트롤 바인딩
+document.addEventListener('DOMContentLoaded', () => {
+  const bind = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
+  bind('d-sched-prev', () => {
+    if (_dSchedState.view === 'week') {
+      _dSchedState.weekStart = new Date(_dSchedState.weekStart.getTime() - 7 * 86400000);
+    } else {
+      _dSchedState.month--; if (_dSchedState.month < 0) { _dSchedState.month = 11; _dSchedState.year--; }
+    }
+    renderDSchedule();
+  });
+  bind('d-sched-next', () => {
+    if (_dSchedState.view === 'week') {
+      _dSchedState.weekStart = new Date(_dSchedState.weekStart.getTime() + 7 * 86400000);
+    } else {
+      _dSchedState.month++; if (_dSchedState.month > 11) { _dSchedState.month = 0; _dSchedState.year++; }
+    }
+    renderDSchedule();
+  });
+  bind('d-sched-today', () => {
+    const now = new Date();
+    _dSchedState.year = now.getFullYear(); _dSchedState.month = now.getMonth();
+    const ws = new Date(now); ws.setDate(now.getDate() - now.getDay()); ws.setHours(0,0,0,0);
+    _dSchedState.weekStart = ws;
+    renderDSchedule();
+  });
+  bind('d-sched-view-week', () => {
+    _dSchedState.view = 'week';
+    document.getElementById('d-sched-view-week').style.background = '#3b82f6';
+    document.getElementById('d-sched-view-week').style.color = '#fff';
+    document.getElementById('d-sched-view-month').style.background = 'transparent';
+    document.getElementById('d-sched-view-month').style.color = '#94a3b8';
+    renderDSchedule();
+  });
+  bind('d-sched-view-month', () => {
+    _dSchedState.view = 'month';
+    document.getElementById('d-sched-view-month').style.background = '#3b82f6';
+    document.getElementById('d-sched-view-month').style.color = '#fff';
+    document.getElementById('d-sched-view-week').style.background = 'transparent';
+    document.getElementById('d-sched-view-week').style.color = '#94a3b8';
+    renderDSchedule();
+  });
+});
+
+// ?tab= 파라미터로 특정 탭 자동 오픈 (admin.html 집계 뷰에서 딥링크 진입)
+//   예: /admin/student?uid=KES001&tab=extension → 종료·연장 탭 활성화
+const _initTab = new URLSearchParams(location.search).get('tab');
+if (_initTab) {
+  setTimeout(() => {
+    const btn = document.querySelector('.tab[data-tab="' + _initTab + '"]');
+    if (btn) btn.click();
+  }, 100);
+}
+
+loadFull();
+</script>
+
+</body>
+</html>

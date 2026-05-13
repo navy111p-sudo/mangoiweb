@@ -1,0 +1,142 @@
+WebRTC 통합 플랫폼 - Cloudflare Workers 배포
+==============================================
+
+완전한 파일 구조:
+
+cloudflare-deploy/
+├── 설정 파일
+│   ├── wrangler.toml           # Cloudflare Workers 설정
+│   ├── tsconfig.json           # TypeScript 설정
+│   ├── package.json            # NPM 패키지 설정
+│   └── .gitignore              # Git 제외 목록
+│
+├── 문서
+│   ├── README.md               # 프로젝트 개요 및 API 문서
+│   ├── DEPLOYMENT.md           # 배포 가이드
+│   └── FILE_STRUCTURE.txt      # 이 파일
+│
+├── 백엔드 (src/)
+│   ├── index.ts                # 메인 Worker 진입점
+│   │   └── 역할: 라우팅, API 엔드포인트, WebSocket 업그레이드
+│   │
+│   ├── types.ts                # TypeScript 타입 정의
+│   │   └── WebSocketMessage, 모든 Durable Object 인터페이스
+│   │
+│   ├── signaling-room.ts       # SignalingRoom Durable Object
+│   │   └── 역할: 1:1 WebRTC 시그널링 (최대 2명)
+│   │       - join, offer, answer, ice-candidate, leave 이벤트 처리
+│   │
+│   └── video-call-room.ts      # VideoCallRoom Durable Object
+│       └── 역할: 멀티유저 비디오 콜 (최대 10명)
+│           - join-room, leave-room, chat, whiteboard, PDF 공유
+│
+└── 프론트엔드 (public/)
+    ├── index.html              # 메인 대시보드
+    │   └── 시그널링, 화상통화+, TURN/STUN 설정 링크
+    │
+    ├── signaling/
+    │   └── index.html          # 1:1 시그널링 테스트 UI
+    │       └── 순수 WebSocket 기반 (Socket.IO 제거)
+    │
+    ├── video-call/
+    │   ├── index.html          # 메인 화상통화 UI
+    │   ├── css/
+    │   │   └── style.css       # 반응형 스타일시트
+    │   └── js/
+    │       ├── app.js          # 메인 로직, WebSocket 연결
+    │       ├── chat.js         # 실시간 채팅 모듈
+    │       ├── webrtc.js       # WebRTC 피어 관리
+    │       ├── whiteboard.js   # Canvas 칠판 (펜, 지우개, 도형)
+    │       └── pdf-viewer.js   # PDF 업로드/표시 (PDF.js 사용)
+    │
+    └── turn-relay/
+        └── index.html          # TURN/STUN 서버 정보 페이지
+
+
+주요 기술 스택
+==============
+
+백엔드:
+- TypeScript
+- Cloudflare Workers
+- Durable Objects (상태 관리)
+- KV 저장소 (PDF 파일 저장)
+
+프론트엔드:
+- HTML5
+- CSS3 (반응형)
+- Vanilla JavaScript (WebSocket API)
+- WebRTC API
+- PDF.js (PDF 렌더링)
+
+통신:
+- Native WebSocket (Socket.IO 제거)
+- JSON 메시지 프로토콜
+- 자동 재연결 로직
+
+
+배포 준비 체크리스트
+===================
+
+필수:
+- [ ] Node.js 18+ 설치
+- [ ] npm install
+- [ ] wrangler login
+- [ ] KV 네임스페이스 생성
+- [ ] Durable Objects 마이그레이션
+- [ ] npm run deploy
+
+선택:
+- [ ] 도메인 설정 (wrangler.toml)
+- [ ] TURN 서버 설정 (src/index.ts)
+- [ ] 환경별 설정 (production/staging)
+
+
+주요 엔드포인트
+===============
+
+WebSocket:
+- ws://host/ws/signaling?roomId=xxx
+- ws://host/ws/video-call?roomId=xxx
+
+REST API:
+- GET /api/health
+- GET /api/turn-config
+- POST /api/video-call/upload-pdf
+- GET /api/video-call/pdf-list
+
+정적 자산:
+- /index.html
+- /signaling/index.html
+- /video-call/index.html
+- /video-call/css/style.css
+- /video-call/js/*.js
+- /turn-relay/index.html
+
+
+성능 특성
+=========
+
+메모리: Durable Objects의 효율적 관리
+처리량: HTTP/3 기반 CDN 에지 처리
+레이턴시: 전 세계 ~100ms 이하
+확장성: 방별 자동 분산
+제한: 시그널링 2명, 비디오콜 10명/방
+
+
+Socket.IO → WebSocket 마이그레이션 포인트
+==========================================
+
+변경 사항:
+1. socket.emit() → sendWsMessage({type:"...", data:{...}})
+2. socket.on() → ws.onmessage 핸들러
+3. 자동 재연결 로직 수동 구현
+4. 네임스페이스 → 경로 파라미터 (roomId)
+5. 파일시스템 → KV 저장소 (PDF)
+
+이점:
+- 더 가벼운 클라이언트 (소스 맵 제거)
+- 더 빠른 연결 (3-way handshake만 필요)
+- 더 간단한 디버깅 (표준 WebSocket API)
+- 비용 절감 (Socket.IO 라이브러리 불필요)
+

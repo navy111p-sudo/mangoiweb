@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>망고아이 관리자 로그인</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    background: linear-gradient(135deg, #ffd34a 0%, #ffb000 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    width: 100%;
+    max-width: 420px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 20px 50px rgba(0,0,0,.18), 0 4px 12px rgba(0,0,0,.08);
+    overflow: hidden;
+  }
+  .head {
+    background: #ffb800;
+    color: #1a1a1a;
+    padding: 28px 28px 20px;
+    text-align: center;
+  }
+  .logo {
+    font-size: 36px;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .head h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .head .sub {
+    margin-top: 4px;
+    font-size: 13px;
+    color: #5a3d00;
+    opacity: 0.9;
+  }
+  form { padding: 24px 28px 8px; }
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 6px;
+  }
+  .field input[type="text"],
+  .field input[type="password"] {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid #d6d6d6;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: border-color .15s, box-shadow .15s;
+    background: #fafafa;
+  }
+  .field input:focus {
+    outline: none;
+    border-color: #ffb800;
+    box-shadow: 0 0 0 3px rgba(255, 184, 0, 0.18);
+    background: #fff;
+  }
+  .row { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 14px; }
+  .row .remember { font-size: 13px; color: #444; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .row .help { font-size: 12px; color: #888; }
+  .btn {
+    width: 100%;
+    padding: 12px;
+    background: #1a1a1a;
+    color: #ffb800;
+    border: 0;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity .12s;
+  }
+  .btn:hover:not(:disabled) { opacity: 0.92; }
+  .btn:disabled { opacity: 0.55; cursor: progress; }
+  .err {
+    margin: 0 28px 14px;
+    padding: 10px 12px;
+    background: #ffe8e8;
+    color: #b40606;
+    border: 1px solid #f3b6b6;
+    border-radius: 8px;
+    font-size: 13px;
+    display: none;
+  }
+  .err.show { display: block; }
+  .foot {
+    padding: 14px 28px 22px;
+    text-align: center;
+    font-size: 12px;
+    color: #888;
+    border-top: 1px solid #f0f0f0;
+  }
+  .foot a { color: #555; text-decoration: none; }
+  .spin {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,184,0,.4);
+    border-top-color: #ffb800;
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+    vertical-align: -2px;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+  <main class="card" role="main">
+    <header class="head">
+      <div class="logo">🥭</div>
+      <h1>망고아이 관리자</h1>
+      <div class="sub">화상수업 운영 시스템</div>
+    </header>
+
+    <div id="err" class="err" role="alert" aria-live="polite"></div>
+
+    <form id="form" autocomplete="on" novalidate>
+      <div class="field">
+        <label for="username">아이디</label>
+        <input id="username" name="username" type="text" autocomplete="username"
+               value="admin" required spellcheck="false" autocapitalize="off">
+      </div>
+      <div class="field">
+        <label for="password">비밀번호</label>
+        <input id="password" name="password" type="password" autocomplete="current-password"
+               required minlength="4">
+      </div>
+      <div class="row">
+        <label class="remember">
+          <input id="remember" type="checkbox"> 30일 동안 로그인 유지
+        </label>
+        <span class="help">v1</span>
+      </div>
+      <button id="btn" class="btn" type="submit">로그인</button>
+    </form>
+
+    <div class="foot">
+      비밀번호를 잊으셨나요? 운영자(<a href="mailto:navy111p@gmail.com">navy111p@gmail.com</a>)에게 문의하세요.
+    </div>
+  </main>
+
+<script>
+(function(){
+  const form = document.getElementById('form');
+  const btn  = document.getElementById('btn');
+  const err  = document.getElementById('err');
+  const usernameEl = document.getElementById('username');
+  const passwordEl = document.getElementById('password');
+  const rememberEl = document.getElementById('remember');
+
+  // ?next=... 파라미터로 전달된 원래 경로 복원
+  const params = new URLSearchParams(location.search);
+  const nextPath = params.get('next') || '/admin.html';
+
+  function showErr(msg){
+    err.textContent = msg;
+    err.classList.add('show');
+  }
+  function clearErr(){
+    err.textContent = '';
+    err.classList.remove('show');
+  }
+
+  // 이미 로그인 돼 있으면 바로 next 로 이동
+  fetch('/api/admin/me', { credentials: 'include' })
+    .then(r => r.ok ? r.json() : null)
+    .then(j => { if (j && j.ok && j.user) location.replace(nextPath); })
+    .catch(() => {});
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    clearErr();
+    const username = usernameEl.value.trim();
+    const password = passwordEl.value;
+    if (!username || !password) {
+      showErr('아이디와 비밀번호를 입력하세요.');
+      return;
+    }
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span>로그인 중…';
+    try {
+      const r = await fetch('/api/admin/login', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, remember: rememberEl.checked })
+      });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j.ok) {
+        location.replace(nextPath);
+        return;
+      }
+      const reason = j.error || ('http_' + r.status);
+      const msgMap = {
+        invalid_credentials: '아이디 또는 비밀번호가 잘못되었습니다.',
+        missing_credentials: '아이디와 비밀번호를 모두 입력하세요.'
+      };
+      showErr(msgMap[reason] || ('로그인 실패 — ' + reason));
+    } catch (e) {
+      showErr('네트워크 오류 — ' + (e && e.message || e));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '로그인';
+    }
+  });
+})();
+</script>
+</body>
+</html>

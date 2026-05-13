@@ -1,0 +1,1595 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>👨‍🎓 학생 목록 — Mangoi 관리</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin:0; padding:0; height:100%; background:#f1f5f9; font-family:'Pretendard',-apple-system,'Segoe UI','Apple SD Gothic Neo',sans-serif; font-size:13px; color:#1e293b; }
+    a { color:inherit; text-decoration:none; }
+
+    /* === 상단 헤더 === */
+    .top-header {
+      height:48px; background:#fff; border-bottom:1px solid #e2e8f0;
+      display:flex; align-items:center; gap:18px; padding:0 18px;
+      position:sticky; top:0; z-index:100;
+    }
+    .top-clock { font-size:11px; color:#64748b; line-height:1.4; }
+    .top-clock div { white-space:nowrap; }
+    .top-search {
+      flex:1; max-width:380px; margin-left:auto;
+    }
+    .top-search input {
+      width:100%; padding:6px 12px; font-size:12px;
+      border:1px solid #cbd5e1; border-radius:6px; background:#f8fafc;
+    }
+    .top-icons { display:flex; gap:8px; align-items:center; color:#64748b; }
+    .top-icons span { padding:6px; cursor:pointer; }
+    .top-user {
+      display:flex; align-items:center; gap:8px;
+      background:#f59e0b; color:#fff; padding:6px 12px; border-radius:20px;
+      font-weight:700; font-size:12px; cursor:pointer; user-select:none;
+      position:relative;
+    }
+    .top-user:hover { background:#d97706; }
+    .top-icons span { padding:6px; cursor:pointer; position:relative; transition:color 0.15s; }
+    .top-icons span:hover { color:#0ea5e9; }
+
+    /* 헤더 검색 드롭다운 */
+    .top-search { position:relative; }
+    .top-search-dropdown {
+      position:absolute; top:100%; left:0; right:0; margin-top:6px;
+      background:#fff; border:1px solid #e2e8f0; border-radius:8px;
+      box-shadow:0 8px 24px rgba(0,0,0,0.12); z-index:200;
+      max-height:380px; overflow-y:auto; display:none;
+    }
+    .top-search-dropdown.show { display:block; }
+    .top-sd-item {
+      padding:8px 12px; cursor:pointer; font-size:12px; color:#334155;
+      display:flex; align-items:center; gap:6px; border-bottom:1px solid #f1f5f9;
+    }
+    .top-sd-item:last-child { border-bottom:none; }
+    .top-sd-item:hover, .top-sd-item.active { background:#eff6ff; color:#1e40af; }
+    .top-sd-item mark { background:#e5e7eb; color:#0f172a; padding:0 3px; border-radius:3px; font-weight:700; }
+    .top-sd-empty { padding:14px; color:#94a3b8; font-size:12px; text-align:center; }
+    .top-sd-kind {
+      display:inline-block; min-width:74px; font-size:9px; font-weight:700; color:#64748b;
+      background:#f1f5f9; padding:2px 6px; border-radius:9px; text-align:center;
+    }
+
+    /* 우측 상단 드롭다운 (알림·설정·사용자 공용) */
+    .top-popup {
+      position:absolute; top:42px; right:0; min-width:200px;
+      background:#fff; border:1px solid #e2e8f0; border-radius:8px;
+      box-shadow:0 8px 24px rgba(0,0,0,0.15); z-index:200;
+      display:none; padding:6px 0;
+    }
+    .top-popup.show { display:block; }
+    .top-popup a, .top-popup button {
+      display:flex; align-items:center; gap:8px; padding:9px 14px;
+      width:100%; border:none; background:transparent; color:#334155;
+      font-size:12px; cursor:pointer; text-align:left; text-decoration:none;
+    }
+    .top-popup a:hover, .top-popup button:hover { background:#f8fafc; color:#0f172a; }
+    .top-popup .divider { height:1px; background:#e2e8f0; margin:4px 0; }
+    .top-popup .header {
+      padding:10px 14px; font-size:11px; font-weight:700; color:#9ca3af;
+      text-transform:uppercase; letter-spacing:0.6px;
+    }
+
+    /* === 레이아웃 === */
+    .erp-layout { display:grid; grid-template-columns: 220px 1fr; min-height: calc(100vh - 48px); }
+
+    /* === 사이드바 === */
+    .erp-sidebar { background:#fff; border-right:1px solid #e2e8f0; padding:8px 0; }
+    .erp-sidebar a, .erp-sidebar .erp-group {
+      display:flex; align-items:center; gap:8px;
+      padding:9px 16px; font-size:13px; color:#475569; cursor:pointer;
+      border-left:3px solid transparent;
+    }
+    .erp-sidebar a:hover { background:#f8fafc; color:#0f172a; }
+    .erp-sidebar a.active {
+      background:#fef3c7; color:#92400e; font-weight:700;
+      border-left-color:#f59e0b;
+    }
+    .erp-sidebar .erp-group {
+      font-weight:700; color:#0f172a; cursor:default;
+      border-bottom:1px solid #f1f5f9;
+    }
+    .erp-sidebar .erp-sub a { padding-left:32px; font-size:12px; }
+    .erp-sidebar .erp-sub a.active { background:#fef9c3; color:#713f12; }
+
+    /* === 메인 === */
+    .erp-main { padding:20px 24px; overflow-x:auto; }
+    .erp-main h1 { margin:0 0 14px; font-size:20px; font-weight:700; color:#0f172a; }
+
+    /* 필터 */
+    .erp-filter-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:12px; }
+    @media (max-width:1280px) { .erp-filter-grid { grid-template-columns:repeat(3,1fr); } }
+    .erp-filter-grid select, .erp-filter-grid input {
+      width:100%; padding:8px 10px; font-size:12px;
+      border:1px solid #cbd5e1; border-radius:6px; background:#fff;
+    }
+    .erp-filter-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+    .erp-radio-group { display:flex; gap:6px; }
+    .erp-radio-group label {
+      padding:6px 14px; font-size:12px; cursor:pointer;
+      border:1px solid #cbd5e1; border-radius:4px; background:#fff;
+    }
+    .erp-radio-group input[type=radio] { display:none; }
+    .erp-radio-group input[type=radio]:checked + span {}
+    .erp-radio-group label:has(input:checked) { background:#3b82f6; color:#fff; border-color:#3b82f6; font-weight:600; }
+    .erp-btn-search {
+      padding:8px 22px; background:#3b82f6; color:#fff; border:none; border-radius:6px;
+      font-size:12px; font-weight:700; cursor:pointer;
+    }
+    .erp-btn-search:hover { background:#2563eb; }
+
+    /* 테이블 */
+    .erp-table-wrap {
+      background:#fff; border:1px solid #e2e8f0; border-radius:8px;
+      overflow-x:auto;
+    }
+    .erp-table { width:100%; border-collapse:collapse; font-size:11px; min-width:1800px; }
+    .erp-table th, .erp-table td {
+      padding:8px 10px; border-bottom:1px solid #f1f5f9;
+      white-space:nowrap; vertical-align:middle;
+    }
+    .erp-table th {
+      background:#f8fafc; color:#475569; font-weight:600; font-size:11px;
+      position:sticky; top:0;
+    }
+    .erp-table tbody tr:hover { background:#fef2f2; }
+    .erp-table tbody tr:hover td { color:#dc2626 !important; }
+    .erp-table tbody tr:hover .student-name { color:#dc2626; }
+    .erp-table tbody tr:hover .login-id { color:#dc2626; }
+    .erp-table tbody tr:hover .pay-type { color:#7f1d1d !important; }
+    .erp-table tbody tr:hover .point-cell { color:#dc2626 !important; }
+    .erp-table .center { text-align:center; }
+    .erp-table .right  { text-align:right; }
+    .erp-table .student-name { color:#0f172a; font-weight:700; }
+    .erp-table .login-id {
+      color:#0ea5e9; font-weight:600; cursor:pointer;
+      display:inline-flex; align-items:center; gap:3px;
+    }
+    .erp-table .login-id:hover { text-decoration:underline; }
+    .erp-table .login-id .dollar { color:#10b981; font-size:10px; }
+    .erp-table .login-id .grip { color:#cbd5e1; font-size:10px; cursor:grab; }
+    .erp-table .pay-type {
+      color:#dc2626; font-weight:700; cursor:pointer;
+    }
+    .erp-table .icon-btn {
+      display:inline-block; width:20px; height:20px; line-height:20px;
+      text-align:center; color:#64748b; cursor:pointer; font-size:14px;
+    }
+    .erp-table .icon-btn:hover { color:#0ea5e9; }
+    .erp-table .point-cell {
+      color:#3b82f6; font-weight:700; cursor:pointer;
+      display:inline-flex; align-items:center; gap:3px;
+    }
+    .erp-table .point-cell .dollar { color:#10b981; font-size:10px; }
+    .erp-table .msg-flag { color:#dc2626; font-size:13px; cursor:pointer; }
+    .erp-table .status-ok { color:#16a34a; font-weight:600; }
+    .erp-table .pdi-mark { color:#ec4899; font-weight:700; }
+    .empty-row td { text-align:center; padding:40px; color:#94a3b8; font-size:13px; }
+
+    /* 페이지네이션 */
+    .erp-pagination {
+      display:flex; gap:6px; align-items:center; justify-content:center;
+      padding:14px 0; font-size:12px; color:#64748b;
+    }
+    .erp-pagination button {
+      padding:5px 10px; border:1px solid #cbd5e1; border-radius:4px;
+      background:#fff; cursor:pointer; font-size:11px;
+    }
+    .erp-pagination button:disabled { opacity:0.4; cursor:not-allowed; }
+    .erp-pagination .page-num {
+      padding:5px 10px; border:1px solid transparent; border-radius:4px;
+      cursor:pointer; font-size:11px; min-width:26px;
+    }
+    .erp-pagination .page-num:hover { background:#f1f5f9; }
+    .erp-pagination .page-num.active {
+      background:#3b82f6; color:#fff; font-weight:700; border-color:#3b82f6;
+    }
+
+    /* === 하단 액션 버튼 영역 === */
+    .erp-actions {
+      display:flex; gap:8px; flex-wrap:wrap; margin:14px 0; align-items:center;
+    }
+    .erp-actions .btn {
+      padding:7px 14px; font-size:11.5px; border:1px solid #cbd5e1;
+      border-radius:6px; background:#fff; cursor:pointer; color:#334155;
+    }
+    .erp-actions .btn:hover { background:#f8fafc; }
+    .erp-actions .btn.primary { background:#3b82f6; color:#fff; border-color:#3b82f6; font-weight:600; }
+    .erp-actions .btn.primary:hover { background:#2563eb; }
+    .erp-actions .btn.green { background:#10b981; color:#fff; border-color:#10b981; font-weight:600; }
+    .erp-actions .btn.green:hover { background:#059669; }
+    .erp-actions .btn.add { background:#facc15; color:#713f12; border-color:#eab308; font-weight:700; }
+    .erp-actions .btn.add:hover { background:#fde047; }
+    .erp-footer-note {
+      font-size:11px; color:#64748b; margin:8px 0; line-height:1.6;
+      background:#fffbeb; border:1px solid #fde68a; border-radius:6px; padding:10px 14px;
+    }
+
+    /* === 모달 공용 === */
+    .stu-modal-bg {
+      position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999;
+      display:none; align-items:center; justify-content:center; padding:20px;
+    }
+    .stu-modal-bg.show { display:flex; }
+    .stu-modal {
+      background:#fff; border-radius:14px; max-width:600px; width:100%;
+      max-height:90vh; overflow:hidden; display:flex; flex-direction:column;
+      box-shadow:0 12px 40px rgba(0,0,0,0.3);
+    }
+    .stu-modal .modal-header {
+      padding:18px 24px; font-size:18px; font-weight:700; color:#0f172a;
+      display:flex; justify-content:space-between; align-items:center;
+    }
+    .stu-modal .modal-header.yellow { background:#facc15; color:#422006; }
+    .stu-modal .modal-header.blue   { background:#3b82f6; color:#fff; }
+    .stu-modal .modal-close { cursor:pointer; font-size:18px; opacity:0.7; }
+    .stu-modal .modal-close:hover { opacity:1; }
+    .stu-modal .modal-body { padding:18px 24px; overflow-y:auto; }
+
+    /* 요약정보 모달 */
+    .summary-card {
+      border:2px solid #facc15; border-radius:10px; padding:14px 18px;
+      display:flex; gap:14px; align-items:center; margin-bottom:14px;
+    }
+    .summary-card .avatar {
+      width:60px; height:60px; border-radius:50%;
+      background:#f59e0b; display:flex; align-items:center; justify-content:center;
+      font-size:32px; flex-shrink:0;
+    }
+    .summary-card .info { font-size:13px; color:#334155; line-height:1.7; }
+    .summary-card .info b { color:#0f172a; }
+    .summary-table {
+      width:100%; border-collapse:collapse; margin-bottom:14px;
+    }
+    .summary-table th, .summary-table td {
+      padding:10px; border:1px solid #e2e8f0; text-align:center; font-size:12px;
+    }
+    .summary-table th { background:#f8fafc; color:#475569; font-weight:600; }
+    .summary-section-title { font-size:13px; font-weight:700; color:#0f172a; margin:14px 0 8px; }
+
+    /* 메시지 전송 모달 */
+    .msg-form { display:flex; flex-direction:column; gap:12px; }
+    .msg-form label { font-size:12px; color:#475569; font-weight:600; }
+    .msg-form input[type=text],
+    .msg-form input[type=datetime-local],
+    .msg-form textarea {
+      width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;
+    }
+    .msg-form textarea { min-height:100px; resize:vertical; font-family:inherit; }
+    .msg-form .toggle-row {
+      display:flex; align-items:center; gap:8px; padding:8px 12px;
+      background:#f0f9ff; border:1px solid #bae6fd; border-radius:6px; font-size:13px;
+    }
+    .msg-form .toggle-row input { width:18px; height:18px; cursor:pointer; }
+    .msg-send-btn {
+      align-self:center; padding:10px 30px; background:#3b82f6; color:#fff;
+      border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;
+    }
+    .msg-send-btn:hover { background:#2563eb; }
+  </style>
+</head>
+<body>
+
+<div class="top-header">
+  <a href="/admin.html" title="대시보드로 돌아가기" style="font-size:18px;">←</a>
+  <a href="/admin.html" style="display:flex;align-items:center;gap:8px;">
+    <img src="/img/Mangoi_Character.jpg" alt="Mangoi" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid #f59e0b;" />
+    <span style="font-weight:700;color:#0f172a;font-size:14px;">Mangoi 관리</span>
+  </a>
+  <div class="top-clock">
+    <div>🇰🇷 KR TIME : <span id="kr-time">--:--:--</span></div>
+    <div>🇵🇭 PH TIME : <span id="ph-time">--:--:--</span></div>
+  </div>
+  <div class="top-search">
+    <input id="top-search-input" type="search" autocomplete="off"
+           placeholder="🔍 학생·교사·메뉴·교재 무엇이든 검색" />
+    <div id="top-search-dropdown" class="top-search-dropdown"></div>
+  </div>
+  <div class="top-icons">
+    <span title="알림" id="bell-btn">🔔
+      <div class="top-popup" id="bell-popup">
+        <div class="header">📣 알림</div>
+        <a href="/admin.html" target="_blank">📥 알림 큐 (전체 보기)</a>
+        <a href="/admin/health" target="_blank">🩺 셀프 진단 (시스템 상태)</a>
+        <div class="divider"></div>
+        <a href="/admin.html" target="_blank">↩ 대시보드로 돌아가기</a>
+      </div>
+    </span>
+    <span title="설정" id="gear-btn">⚙️
+      <div class="top-popup" id="gear-popup">
+        <div class="header">⚙️ 설정</div>
+        <a href="/admin/health" target="_blank">🩺 셀프 진단</a>
+        <a href="/admin.html" target="_blank">📊 메인 대시보드</a>
+        <div class="divider"></div>
+        <button onclick="downloadAllStudentsCSV()">📥 학생 전체 CSV</button>
+      </div>
+    </span>
+  </div>
+  <div class="top-user" id="user-btn">
+    <span id="topUserLabel">👤 관리자</span>
+    <div class="top-popup" id="user-popup">
+      <div class="header" id="topUserHeader">👤 관리자</div>
+      <a href="/admin.html">📊 메인 대시보드</a>
+      <a href="/admin/health" target="_blank">🩺 셀프 진단</a>
+      <div class="divider"></div>
+      <a href="/admin/mypage">🪪 마이페이지</a>
+      <button id="topLogoutBtn" type="button">🚪 로그아웃</button>
+    </div>
+  </div>
+</div>
+
+<div class="erp-layout">
+
+  <!-- 좌측 사이드바 -->
+  <aside class="erp-sidebar">
+    <a href="/admin.html">📊 Dashboard</a>
+    <a href="/admin.html#menu-가맹점">🏬 가맹점 관리</a>
+    <a href="/admin.html#menu-교육센터">🏫 교육센터</a>
+    <div class="erp-group">👨‍🎓 학생관리 ▼</div>
+    <div class="erp-sub">
+      <a href="/admin/students" class="active">학생 목록</a>
+      <a href="#expiry">종료일자확인</a>
+      <a href="#extension-detail">수강 연장(상세보기)</a>
+      <a href="#extension">수강 연장</a>
+      <a href="#class-status">수업현황</a>
+      <a href="#daily-report">일별평가서</a>
+      <a href="#attendance">출결 현황</a>
+      <a href="#streak">연속결석</a>
+      <a href="#consultation">상담 내역</a>
+      <a href="#chat">톡짹톡</a>
+    </div>
+    <a href="/admin.html#menu-레벨">📝 레벨테스트</a>
+    <a href="/admin.html#menu-수강신청">📚 수강신청관리</a>
+    <a href="/admin.html#menu-녹화">🎥 수업 관리</a>
+    <a href="/admin.html#menu-커뮤니티">📢 커뮤니티</a>
+    <a href="/admin.html#menu-자료실">📁 자료실</a>
+    <a href="/admin.html#menu-교재">📖 교재콘텐츠관리</a>
+    <a href="/admin.html#menu-정산">💹 정산통계관리</a>
+    <a href="#groupware">🧰 그룹웨어/마이몰</a>
+    <a href="/admin.html#menu-성과평가">🏆 성과평가 시스템</a>
+    <a href="/admin.html#menu-Mangoi">💰 회계/급여 관리</a>
+    <a href="#ops">⚙️ 운영관리</a>
+    <a href="#schedule">📅 스케줄 관리</a>
+  </aside>
+
+  <!-- 메인 -->
+  <main class="erp-main">
+    <h1>학생관리</h1>
+
+    <!-- 5개 select 필터 -->
+    <div class="erp-filter-grid">
+      <select id="f-hq"><option value="">본사 선택</option></select>
+      <select id="f-branch1"><option value="">대표지사선택</option></select>
+      <select id="f-branch2"><option value="">지사선택</option></select>
+      <select id="f-shop"><option value="">대리점 선택</option></select>
+      <input id="f-keyword" type="search" placeholder="학생명 또는 아이디 (Enter 눌러서 검색)" />
+    </div>
+
+    <!-- 라디오 + 추천인아이디 + 검색 + 전화번호 -->
+    <div class="erp-filter-row">
+      <div class="erp-radio-group">
+        <label><input type="radio" name="f-status" value="active" checked /><span>정상</span></label>
+        <label><input type="radio" name="f-status" value="all" /><span>전체</span></label>
+      </div>
+      <input id="f-referral" type="text" placeholder="추천인아이디" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;width:160px;" />
+      <button class="erp-btn-search" onclick="loadStudents()">검색</button>
+      <input id="f-phone" type="tel" placeholder="학생/부모님 전화번호" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;width:200px;" />
+    </div>
+
+    <!-- 22 컬럼 테이블 -->
+    <div class="erp-table-wrap">
+      <table class="erp-table">
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="check-all" /></th>
+            <th>No</th>
+            <th>학생명</th>
+            <th>아이디</th>
+            <th>결제타입</th>
+            <th>수강 종료일</th>
+            <th>요약</th>
+            <th>스케줄</th>
+            <th>가입일</th>
+            <th>수업회수(주)</th>
+            <th>상담</th>
+            <th>포인트</th>
+            <th>메시지</th>
+            <th>수강신청<br>(스케줄요청)</th>
+            <th>학생 번호</th>
+            <th>부모님 번호</th>
+            <th>관리교사번호</th>
+            <th>대리점명</th>
+            <th>본사명</th>
+            <th>대표지사명</th>
+            <th>지사명</th>
+            <th>프랜차이즈</th>
+            <th>상태</th>
+          </tr>
+        </thead>
+        <tbody id="students-tbody">
+          <tr class="empty-row"><td colspan="23">검색 버튼을 눌러 학생 목록을 불러오세요</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 하단 액션 버튼 줄 -->
+    <div class="erp-actions">
+      <button class="btn primary" onclick="bulkSendMessage()">📨 메시지 전송</button>
+      <button class="btn green" onclick="downloadAllStudentsCSV()">📥 전체회원 다운로드</button>
+      <button class="btn" onclick="bulkReview()">📝 학생회원 일괄 검토</button>
+      <button class="btn" onclick="downloadByResultCSV()">📊 학생회원 결과별 다운로드</button>
+      <span style="flex:1;"></span>
+      <button class="btn add" onclick="openNewStudentForm()">＋ 신규등록</button>
+    </div>
+
+    <!-- 페이지네이션 (숫자 페이지) -->
+    <div class="erp-pagination">
+      <button id="page-prev" onclick="goPage(-1)">‹</button>
+      <span id="page-numbers" style="display:flex;gap:2px;"></span>
+      <button id="page-next" onclick="goPage(1)">›</button>
+      <span id="page-info" style="margin-left:14px;color:#94a3b8;">— / —</span>
+    </div>
+
+    <div class="erp-footer-note">
+      ※ 다운로드는 CSV 파일로 받습니다. 학생을 선택하면 선택한 회원만, 전체를 다운로드 받으면 전체 학생들이 다운로드 됩니다.<br>
+      ※ 선택 시 일괄 검토를 사용하여 등록과 변경처리도 일괄로 가능합니다. 이때 결과별 학생들이 다운로드 됩니다.
+    </div>
+
+  </main>
+</div>
+
+<!-- 학생 요약정보 모달 (학생명 클릭 시) -->
+<div class="stu-modal-bg" id="summary-modal-bg">
+  <div class="stu-modal">
+    <div class="modal-header yellow">
+      <span id="summary-title">— 요약정보</span>
+      <span class="modal-close" onclick="closeSummary()">✕</span>
+    </div>
+    <div class="modal-body">
+      <div style="text-align:right;margin-bottom:10px;">
+        <select id="summary-year" style="padding:5px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;">
+          <option>2026</option><option>2025</option><option>2024</option>
+        </select>
+      </div>
+      <div class="summary-card">
+        <div class="avatar">🐥</div>
+        <div class="info">
+          <b>한글</b> : <span id="summary-ko">-</span><br>
+          <b>영문</b> : <span id="summary-en">-</span><br>
+          <b>가입일</b> : <span id="summary-signup">-</span> &nbsp;/&nbsp;
+          <b>학습종료일</b> : <span id="summary-end">-</span>
+        </div>
+      </div>
+
+      <div class="summary-section-title">학습정보</div>
+      <table class="summary-table">
+        <thead><tr><th>현재레벨</th><th>사용교재</th><th>출석률</th><th>평균점수</th></tr></thead>
+        <tbody><tr><td>-</td><td>-</td><td>0%</td><td>0점 / 100점</td></tr></tbody>
+      </table>
+
+      <div class="summary-section-title">최근학습결과</div>
+      <table class="summary-table">
+        <thead>
+          <tr>
+            <th>날짜</th><th>강사</th><th>출석</th>
+            <th>레슨비디오시청</th><th>키즈올임수<br>(1회차)</th>
+            <th>셀프체크점수</th><th>강사채점점수</th>
+          </tr>
+        </thead>
+        <tbody><tr><td colspan="7" style="color:#94a3b8;padding:20px;">학습 기록이 없습니다.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- 신규등록 모달 -->
+<div class="stu-modal-bg" id="new-modal-bg">
+  <div class="stu-modal" style="max-width:760px;">
+    <div class="modal-header" style="background:#facc15;color:#422006;">
+      <span>＋ 신규 학생 등록</span>
+      <span class="modal-close" onclick="closeNew()">✕</span>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:#6b7280;background:#fef9c3;border:1px dashed #fde047;border-radius:6px;padding:10px 14px;margin-bottom:14px;">
+        💡 한글 이름·아이디·결제타입은 필수. 나머지는 선택 — 비워두면 추후 수정 가능.
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">
+        <div>
+          <label style="font-size:11px;color:#475569;font-weight:600;">한글 이름 <span style="color:#dc2626;">*</span></label>
+          <input id="new-name" type="text" placeholder="예: 홍길동" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-top:4px;" />
+        </div>
+        <div>
+          <label style="font-size:11px;color:#475569;font-weight:600;">아이디 (로그인 ID) <span style="color:#dc2626;">*</span></label>
+          <input id="new-login" type="text" placeholder="예: SLPSSO_홍길동" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-top:4px;" />
+        </div>
+        <div>
+          <label style="font-size:11px;color:#475569;font-weight:600;">학생번호 (선택, 비우면 자동)</label>
+          <input id="new-sid" type="text" placeholder="예: 28221" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-top:4px;" />
+        </div>
+        <div>
+          <label style="font-size:11px;color:#475569;font-weight:600;">결제타입 <span style="color:#dc2626;">*</span></label>
+          <select id="new-pay" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-top:4px;">
+            <option>B2C 결제</option>
+            <option>B2B 결제</option>
+            <option>미결제</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:#475569;font-weight:600;">가입일</label>
+          <input id="new-signup" type="date" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-top:4px;" />
+        </div>
+        <div>
+          <label style="font-size:11px;color:#475569;font-weight:600;">수강 종료일</label>
+          <input id="new-end" type="text" placeholder="YYYY-MM-DD 또는 미설정" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-top:4px;" />
+        </div>
+        <div>
+          <label style="font-size:11px;color:#475569;font-weight:600;">학생 전화</label>
+          <input id="new-stuph" type="tel" placeholder="010-0000-0000" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-top:4px;" />
+        </div>
+        <div>
+          <label style="font-size:11px;color:#475569;font-weight:600;">부모 전화</label>
+          <input id="new-parph" type="tel" placeholder="010-0000-0000" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-top:4px;" />
+        </div>
+        <div>
+          <label style="font-size:11px;color:#475569;font-weight:600;">수업 회수(주)</label>
+          <input id="new-cw" type="number" min="0" placeholder="예: 2" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-top:4px;" />
+        </div>
+        <div>
+          <label style="font-size:11px;color:#475569;font-weight:600;">상태</label>
+          <select id="new-status" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-top:4px;">
+            <option>정상</option>
+            <option>휴학</option>
+            <option>퇴학</option>
+          </select>
+        </div>
+        <div style="grid-column:1/-1;">
+          <label style="font-size:11px;color:#475569;font-weight:600;">매장명 (대리점)</label>
+          <input id="new-shop" type="text" placeholder="예: 청주SLP" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-top:4px;" />
+        </div>
+        <div>
+          <label style="font-size:11px;color:#475569;font-weight:600;">본사명</label>
+          <input id="new-hq" type="text" placeholder="예: 에듀비전 본사" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-top:4px;" />
+        </div>
+        <div>
+          <label style="font-size:11px;color:#475569;font-weight:600;">대표지사명</label>
+          <input id="new-b1" type="text" placeholder="예: slpmangoi" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-top:4px;" />
+        </div>
+        <div>
+          <label style="font-size:11px;color:#475569;font-weight:600;">지사명</label>
+          <input id="new-b2" type="text" placeholder="예: SLP" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-top:4px;" />
+        </div>
+        <div style="grid-column:1/-1;">
+          <label style="font-size:11px;color:#475569;font-weight:600;">프랜차이즈</label>
+          <input id="new-fr" type="text" placeholder="예: 에듀비전" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-top:4px;" />
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;">
+        <button onclick="closeNew()" style="padding:9px 18px;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-size:13px;">취소</button>
+        <button onclick="submitNewStudent()" style="padding:9px 22px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;">💾 저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 메시지 전송 모달 (메시지 아이콘 클릭 시) -->
+<div class="stu-modal-bg" id="msg-modal-bg">
+  <div class="stu-modal">
+    <div class="modal-header blue">
+      <span><span id="msg-title-name">—</span> 메시지 전송 관리</span>
+      <span class="modal-close" onclick="closeMsg()">✕</span>
+    </div>
+    <div class="modal-body">
+      <div class="msg-form">
+        <div>
+          <label>메시지 제목</label>
+          <input id="msg-subject" type="datetime-local" />
+        </div>
+        <div class="toggle-row">
+          <input type="checkbox" id="msg-push" checked />
+          <span>PUSH 전송 (<span id="msg-push-id">-</span>)</span>
+        </div>
+        <div class="toggle-row">
+          <input type="checkbox" id="msg-sms" checked />
+          <span>SMS 전송 (<span id="msg-sms-phone">-</span>)</span>
+        </div>
+        <div>
+          <label>메시지 내용</label>
+          <textarea id="msg-body" placeholder="전송할 메시지를 입력하세요"></textarea>
+        </div>
+        <button class="msg-send-btn" onclick="doSendMessage()">전송하기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 🥭 Phase 35 — 학생 스케줄 배치표 (월간 캘린더 모달) -->
+<div class="stu-modal-bg" id="schedule-modal-bg">
+  <div class="stu-modal" style="max-width:1100px;width:95vw">
+    <div class="modal-header" style="background:linear-gradient(135deg,#3b82f6,#10b981);color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:17px;font-weight:700">📅 <span id="sched-title-name">—</span> 스케줄 배치표</span>
+      <span class="modal-close" onclick="closeScheduleCalendar()" style="cursor:pointer;font-size:22px">✕</span>
+    </div>
+    <div class="modal-body" style="padding:18px 20px;background:#f8fafc;max-height:78vh;overflow-y:auto">
+      <!-- 상단 컨트롤 — 월/주 이동 + 뷰 토글 -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;background:#fff;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0">
+        <button id="sched-prev" type="button" style="padding:6px 14px;border:1px solid #cbd5e1;background:#fff;border-radius:6px;cursor:pointer;font-size:14px">◀</button>
+        <h3 id="sched-month-label" style="margin:0;flex:1;text-align:center;font-size:18px;color:#0f172a;font-weight:700">2026년 5월</h3>
+        <button id="sched-next" type="button" style="padding:6px 14px;border:1px solid #cbd5e1;background:#fff;border-radius:6px;cursor:pointer;font-size:14px">▶</button>
+        <button id="sched-today" type="button" style="padding:6px 14px;border:1px solid #f59e0b;background:#fef3c7;color:#92400e;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">오늘</button>
+        <!-- 🥭 Phase 37 — 뷰 토글 -->
+        <div style="display:inline-flex;border:1px solid #cbd5e1;border-radius:6px;overflow:hidden;margin-left:8px">
+          <button id="sched-view-week" type="button" style="padding:6px 14px;background:#3b82f6;color:#fff;border:0;cursor:pointer;font-size:12px;font-weight:600">📅 주간</button>
+          <button id="sched-view-month" type="button" style="padding:6px 14px;background:#fff;color:#475569;border:0;border-left:1px solid #cbd5e1;cursor:pointer;font-size:12px;font-weight:600">🗓 월간</button>
+        </div>
+      </div>
+      <!-- 안내 문구 -->
+      <div style="font-size:11px;color:#64748b;text-align:right;margin-bottom:6px">※ 종료일자는 정규 종료일자 입니다. 연기/보강/변경 등은 종료일자 이후로도 수업이 진행됩니다.</div>
+      <!-- 캘린더 -->
+      <div id="sched-calendar" style="background:#fff;border-radius:10px;border:1px solid #cbd5e1;overflow:hidden">
+        <!-- JS 가 동적 생성: 7열 헤더 (SUN~SAT) + 6주 그리드 -->
+      </div>
+      <!-- 범례 -->
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font-size:11px;color:#475569">
+        <span><span style="display:inline-block;width:14px;height:14px;background:#dbeafe;border:1px solid #93c5fd;border-radius:3px;vertical-align:middle"></span> 레벨테스트</span>
+        <span><span style="display:inline-block;width:14px;height:14px;background:#dcfce7;border:1px solid #86efac;border-radius:3px;vertical-align:middle"></span> 체험수업</span>
+        <span><span style="display:inline-block;width:14px;height:14px;background:#fef3c7;border:1px solid #fde68a;border-radius:3px;vertical-align:middle"></span> 정규수업</span>
+        <span style="margin-left:auto;color:#94a3b8">학생 ID: <code id="sched-student-uid">—</code></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// === 시계 (KST + PHT) ===
+function tickClocks() {
+  const now = new Date();
+  const fmt = (d) => d.toTimeString().slice(0, 8);
+  const kst = new Date(now.getTime() + (9 * 60 - now.getTimezoneOffset()) * 60000);
+  const pht = new Date(now.getTime() + (8 * 60 - now.getTimezoneOffset()) * 60000);
+  document.getElementById('kr-time').textContent = fmt(kst);
+  document.getElementById('ph-time').textContent = fmt(pht);
+}
+tickClocks(); setInterval(tickClocks, 1000);
+
+// === 상태 ===
+let _students = [];
+let _filtered = [];
+let _page = 0;
+const PAGE_SIZE = 50;
+
+function escHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function fmtDate(ts) {
+  if (!ts) return '-';
+  const d = new Date(Number(ts));
+  if (isNaN(d)) return '-';
+  return d.toISOString().slice(0, 10);
+}
+
+// === 데이터 fetch (Phase 10-②: students_erp 테이블 사용) ===
+async function loadStudents() {
+  const tb = document.getElementById('students-tbody');
+  tb.innerHTML = '<tr class="empty-row"><td colspan="23">불러오는 중...</td></tr>';
+  try {
+    const r = await fetch('/api/admin/students/erp-list?limit=2000', {credentials:'include'});
+    const d = await r.json();
+    if (!d.ok) {
+      tb.innerHTML = '<tr class="empty-row"><td colspan="23">로딩 실패</td></tr>';
+      return;
+    }
+    _students = (d.items || []).map(s => ({
+      id: s.id,
+      student_id: s.student_id,
+      username: s.username,
+      login_id: s.login_id,
+      payment_type: s.payment_type || '-',
+      end_date: s.end_date,
+      signup_date: s.signup_date,
+      classes_per_week: s.classes_per_week,
+      points: s.points || 0,
+      student_phone: s.student_phone,
+      parent_phone: s.parent_phone,
+      teacher_phone: s.teacher_phone,
+      shop_name: s.shop_name,
+      hq_name: s.hq_name,
+      branch1_name: s.branch1_name,
+      branch2_name: s.branch2_name,
+      franchise: s.franchise,
+      status: s.status || '정상'
+    }));
+    if (_students.length === 0) {
+      // 🥭 Phase 36 — 자동 시드: 학생 데이터가 없으면 자동으로 가짜 20명 생성
+      tb.innerHTML = '<tr class="empty-row"><td colspan="23">📦 가짜 학생 20명을 자동 생성 중…</td></tr>';
+      try {
+        const sr = await fetch('/api/admin/students/erp-seed', { method:'POST', credentials:'include' });
+        const sd = await sr.json();
+        if (sd.ok && sd.created > 0) {
+          // 시드 성공 → 다시 로드
+          setTimeout(() => loadStudents(), 300);
+        } else {
+          tb.innerHTML = '<tr class="empty-row"><td colspan="23">자동 시드 실패. 새로고침 해보세요.</td></tr>';
+        }
+      } catch (e) {
+        tb.innerHTML = '<tr class="empty-row"><td colspan="23">자동 시드 에러: ' + e.message + '</td></tr>';
+      }
+      return;
+    }
+    applyFilters();
+  } catch (e) {
+    tb.innerHTML = '<tr class="empty-row"><td colspan="23">에러: ' + e.message + '</td></tr>';
+  }
+}
+
+async function seedDemoStudents() {
+  if (!confirm('스크린샷 기반 22명 학생을 일괄 시드할까요?\n이미 같은 student_id 가 있으면 skip 됩니다.')) return;
+  try {
+    const r = await fetch('/api/admin/students/erp-seed', {method:'POST', credentials:'include'});
+    const d = await r.json();
+    if (!r.ok || !d.ok) { alert('시드 실패: ' + (d.error || ('HTTP ' + r.status))); return; }
+    alert(`시드 완료!\n신규 ${d.created}명 · skip ${d.skipped}명 (총 ${d.total})`);
+    loadStudents();
+  } catch (e) { alert('네트워크 에러: ' + e.message); }
+}
+
+function applyFilters() {
+  const kw = (document.getElementById('f-keyword').value || '').toLowerCase().trim();
+  const phone = (document.getElementById('f-phone').value || '').trim();
+  const statusF = document.querySelector('input[name="f-status"]:checked').value;
+
+  _filtered = _students.filter(s => {
+    if (kw) {
+      const blob = ((s.username || '') + ' ' + (s.login_id || '') + ' ' + (s.student_id || '')).toLowerCase();
+      if (!blob.includes(kw)) return false;
+    }
+    if (phone && !((s.student_phone || '').includes(phone) || (s.parent_phone || '').includes(phone))) return false;
+    if (statusF === 'active' && s.status !== '정상') return false;
+    return true;
+  });
+  _page = 0;
+  renderPage();
+}
+
+function renderPage() {
+  const tb = document.getElementById('students-tbody');
+  const total = _filtered.length;
+  const start = _page * PAGE_SIZE;
+  const end = Math.min(start + PAGE_SIZE, total);
+
+  document.getElementById('page-info').textContent = total === 0 ? '0 / 0' : `${start + 1}-${end} / ${total}`;
+  document.getElementById('page-prev').disabled = _page === 0;
+  document.getElementById('page-next').disabled = end >= total;
+
+  if (total === 0) {
+    tb.innerHTML = '<tr class="empty-row"><td colspan="23">결과 없음</td></tr>';
+    renderPageNumbers();
+    return;
+  }
+
+  renderPageNumbers();
+  const rows = _filtered.slice(start, end);
+  tb.innerHTML = rows.map((s) => {
+    const no = s.student_id || '';
+    const linkLid = encodeURIComponent(s.login_id || '');
+    const drillUid = encodeURIComponent(s.student_id || s.login_id || '');
+    const isPdi = (s.shop_name || '').includes('PDI') || (s.shop_name || '').startsWith('N PDI');
+    const shopHtml = isPdi ? `<span class="pdi-mark">N</span> ${escHtml((s.shop_name || '').replace(/^N\s/, ''))}` : escHtml(s.shop_name || '-');
+    return `<tr>
+      <td class="center"><input type="checkbox" /></td>
+      <td class="center" style="color:#64748b;">${escHtml(no)}</td>
+      <td><span class="student-name" onclick="openSummary(${s.id})" style="cursor:pointer;">${escHtml(s.username || '-')}</span></td>
+      <td><span class="login-id" onclick="window.open('/admin/student?uid=${drillUid}', '_blank')">${escHtml(s.login_id || '-')}<span class="dollar">$</span><span class="grip">⫶</span></span></td>
+      <td><span class="pay-type">${escHtml(s.payment_type || '-')}</span></td>
+      <td class="center" style="color:${s.end_date === '미설정' ? '#dc2626' : '#475569'};">${escHtml(s.end_date || '-')}</td>
+      <td class="center"><span class="icon-btn" title="요약" onclick="openSummary(${s.id})">👤</span></td>
+      <td class="center"><span class="icon-btn" title="스케줄 배치표 보기" onclick="openScheduleCalendar(${s.id}, '${escHtml(s.username || '')}', '${drillUid}')" style="cursor:pointer">📅</span></td>
+      <td class="center">${escHtml(s.signup_date || '-')}</td>
+      <td class="right">${s.classes_per_week != null ? s.classes_per_week : '-'}</td>
+      <td class="center"><span class="icon-btn" title="상담">👤</span></td>
+      <td class="right"><span class="point-cell">${s.points || 0} P<span class="dollar">$</span></span></td>
+      <td class="center"><span class="msg-flag" title="메시지" onclick="openMsg(${s.id})">🚩</span></td>
+      <td class="center"><span class="icon-btn" title="수강신청·스케줄요청">📋</span></td>
+      <td>${escHtml(s.student_phone || '-')}</td>
+      <td>${escHtml(s.parent_phone || '-')}</td>
+      <td>${escHtml(s.teacher_phone || '-')}</td>
+      <td>${shopHtml}</td>
+      <td>${escHtml(s.hq_name || '-')}</td>
+      <td>${escHtml(s.branch1_name || '-')}</td>
+      <td>${escHtml(s.branch2_name || '-')}</td>
+      <td>${escHtml(s.franchise || '-')}</td>
+      <td class="center status-ok">${escHtml(s.status || '정상')}</td>
+    </tr>`;
+  }).join('');
+}
+
+function goPage(delta) {
+  const total = _filtered.length;
+  const maxPage = Math.max(0, Math.ceil(total / PAGE_SIZE) - 1);
+  _page = Math.max(0, Math.min(maxPage, _page + delta));
+  renderPage();
+  renderPageNumbers();
+}
+function renderPageNumbers() {
+  const wrap = document.getElementById('page-numbers');
+  if (!wrap) return;
+  const total = _filtered.length;
+  const maxPage = Math.max(0, Math.ceil(total / PAGE_SIZE) - 1);
+  if (maxPage <= 0) { wrap.innerHTML = ''; return; }
+  // 최대 10개 페이지 번호 표시 (현재 페이지 중심)
+  const PAGES_VISIBLE = 10;
+  let start = Math.max(0, _page - Math.floor(PAGES_VISIBLE / 2));
+  let end = Math.min(maxPage, start + PAGES_VISIBLE - 1);
+  start = Math.max(0, end - PAGES_VISIBLE + 1);
+  let html = '';
+  for (let i = start; i <= end; i++) {
+    html += `<span class="page-num${i === _page ? ' active' : ''}" onclick="setPage(${i})">${i + 1}</span>`;
+  }
+  wrap.innerHTML = html;
+}
+function setPage(n) {
+  const total = _filtered.length;
+  const maxPage = Math.max(0, Math.ceil(total / PAGE_SIZE) - 1);
+  _page = Math.max(0, Math.min(maxPage, n));
+  renderPage();
+  renderPageNumbers();
+}
+
+// === 학생 요약정보 모달 ===
+function openSummary(id) {
+  const s = _students.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('summary-title').textContent = (s.username || '-') + ' 요약정보';
+  document.getElementById('summary-ko').textContent = s.username || '-';
+  document.getElementById('summary-en').textContent = s.login_id || '-';
+  document.getElementById('summary-signup').textContent = s.signup_date || '-';
+  document.getElementById('summary-end').textContent = s.end_date || '-';
+  document.getElementById('summary-modal-bg').classList.add('show');
+}
+function closeSummary() {
+  document.getElementById('summary-modal-bg').classList.remove('show');
+}
+
+// === 메시지 전송 모달 ===
+let _msgTargetId = null;
+function openMsg(id) {
+  const s = _students.find(x => x.id === id);
+  if (!s) return;
+  _msgTargetId = id;
+  document.getElementById('msg-title-name').textContent = s.username || '-';
+  document.getElementById('msg-push-id').textContent = s.login_id || '-';
+  document.getElementById('msg-sms-phone').textContent = s.student_phone || '-';
+  // 현재 시각으로 datetime-local 기본값
+  const now = new Date();
+  const tzOffset = now.getTimezoneOffset() * 60000;
+  document.getElementById('msg-subject').value = new Date(now - tzOffset).toISOString().slice(0, 16);
+  document.getElementById('msg-body').value = '';
+  document.getElementById('msg-modal-bg').classList.add('show');
+}
+function closeMsg() {
+  document.getElementById('msg-modal-bg').classList.remove('show');
+}
+// 🥭 Phase 35/37 — 학생 스케줄 배치표 (월간/주간 캘린더 모달)
+let _schedState = { studentId: null, studentName: '', uid: '', year: 0, month: 0,
+                    weekStart: null, view: 'week', enrollments: [] };
+
+function openScheduleCalendar(studentId, studentName, uid) {
+  _schedState.studentId = studentId;
+  _schedState.studentName = studentName || '학생';
+  _schedState.uid = uid || '';
+  const now = new Date();
+  _schedState.year = now.getFullYear();
+  _schedState.month = now.getMonth();
+  // 주간 뷰 — 이번 주의 일요일을 weekStart 로
+  const ws = new Date(now);
+  ws.setDate(now.getDate() - now.getDay()); // 일요일로 이동
+  ws.setHours(0,0,0,0);
+  _schedState.weekStart = ws;
+  _schedState.view = 'week'; // 기본은 주간 뷰
+  document.getElementById('sched-title-name').textContent = _schedState.studentName;
+  document.getElementById('sched-student-uid').textContent = _schedState.uid || '—';
+  document.getElementById('schedule-modal-bg').classList.add('show');
+  loadStudentEnrollments(uid).then(() => renderScheduleCalendar());
+}
+
+function closeScheduleCalendar() {
+  document.getElementById('schedule-modal-bg').classList.remove('show');
+}
+
+async function loadStudentEnrollments(uid) {
+  _schedState.enrollments = [];
+  if (!uid) return;
+  try {
+    const r = await fetch('/api/admin/enrollments?user_id=' + encodeURIComponent(uid), { credentials: 'include' });
+    const d = await r.json().catch(() => ({}));
+    if (d.ok && d.items) _schedState.enrollments = d.items;
+  } catch (e) { console.warn('[sched] enrollments fetch failed:', e); }
+}
+
+function renderScheduleCalendar() {
+  if (_schedState.view === 'week') return renderWeekView();
+  return renderMonthView();
+}
+
+function renderMonthView() {
+  const y = _schedState.year, m = _schedState.month;
+  document.getElementById('sched-month-label').textContent = y + '년 ' + (m + 1) + '월';
+  // 해당 월 1일의 요일 (0=Sun) + 마지막 날짜
+  const first = new Date(y, m, 1);
+  const startWday = first.getDay();
+  const lastDay = new Date(y, m + 1, 0).getDate();
+  // 6주 × 7일 그리드
+  const cells = [];
+  for (let i = 0; i < startWday; i++) cells.push({ blank: true });
+  for (let d = 1; d <= lastDay; d++) cells.push({ blank: false, day: d, date: new Date(y, m, d) });
+  while (cells.length < 42) cells.push({ blank: true });
+
+  // 요일 헤더 + 셀 렌더링
+  const dayNames = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  let html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);background:#f1f5f9">';
+  dayNames.forEach((dn, i) => {
+    const color = i === 0 ? '#dc2626' : (i === 6 ? '#2563eb' : '#475569');
+    html += '<div style="text-align:center;padding:10px 0;font-weight:700;font-size:13px;color:' + color + ';border-bottom:1px solid #cbd5e1">' + dn + '</div>';
+  });
+  html += '</div>';
+  // 6주 셀
+  html += '<div style="display:grid;grid-template-columns:repeat(7,1fr)">';
+  cells.forEach((c, idx) => {
+    const wday = idx % 7;
+    const numColor = c.blank ? '#cbd5e1' : (wday === 0 ? '#dc2626' : (wday === 6 ? '#2563eb' : '#1e293b'));
+    const today = !c.blank && c.date.toDateString() === new Date().toDateString();
+    const bg = today ? '#fef3c7' : '#fff';
+    html += '<div style="min-height:120px;padding:6px 8px;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;background:' + bg + '">';
+    if (!c.blank) {
+      html += '<div style="font-size:13px;font-weight:600;color:' + numColor + ';margin-bottom:4px">' + c.day + '</div>';
+      // 이 날짜에 수업 있는지 enrollments 에서 조회
+      html += _renderDayClasses(c.date);
+    }
+    html += '</div>';
+  });
+  html += '</div>';
+  document.getElementById('sched-calendar').innerHTML = html;
+}
+
+// 🥭 Phase 37 — 주간 타임 그리드 뷰 (좌측 시간 09:00~24:00, 10분 단위)
+function renderWeekView() {
+  const ws = _schedState.weekStart;
+  // 주간 라벨: "2026년 5월 3일~9일"
+  const we = new Date(ws); we.setDate(ws.getDate() + 6);
+  const label = ws.getFullYear() + '년 ' + (ws.getMonth()+1) + '월 ' + ws.getDate() + '일 ~ ' +
+                (we.getMonth()+1) + '월 ' + we.getDate() + '일';
+  document.getElementById('sched-month-label').textContent = label;
+
+  // 시간 슬롯: 09:00 ~ 24:00 (15시간 × 6 = 90슬롯)
+  const HOUR_START = 9, HOUR_END = 24;
+  const slots = [];
+  for (let h = HOUR_START; h < HOUR_END; h++) {
+    for (let m = 0; m < 60; m += 10) slots.push({ h, m });
+  }
+  // CSS grid 행 높이 = 12px → 총 ~1080px 스크롤 영역
+  const ROW_H = 12;
+
+  const dayNames = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(ws); d.setDate(ws.getDate() + i);
+    days.push(d);
+  }
+
+  // 헤더 (요일·날짜)
+  let html = '<div style="display:grid;grid-template-columns:60px repeat(7, 1fr);background:#f8fafc;border-bottom:2px solid #cbd5e1;position:sticky;top:0;z-index:5">';
+  html += '<div style="padding:8px 4px;border-right:1px solid #e2e8f0;font-size:10px;color:#94a3b8;text-align:center">시간</div>';
+  days.forEach((d, i) => {
+    const isToday = d.toDateString() === new Date().toDateString();
+    const wColor = i === 0 ? '#dc2626' : (i === 6 ? '#2563eb' : '#334155');
+    const bg = isToday ? '#fef3c7' : 'transparent';
+    html += '<div style="padding:6px 4px;text-align:center;font-size:11px;font-weight:600;color:' + wColor + ';border-right:1px solid #e2e8f0;background:' + bg + '">' +
+      dayNames[i] + '<br><span style="font-size:14px">' + d.getDate() + '</span></div>';
+  });
+  html += '</div>';
+
+  // 그리드 본체 — 90행 × 8컬럼
+  html += '<div style="display:grid;grid-template-columns:60px repeat(7, 1fr);grid-auto-rows:' + ROW_H + 'px;position:relative">';
+  // 시간 라벨 + 빈 셀
+  slots.forEach((s, idx) => {
+    const isHourMark = s.m === 0;
+    const isHalfMark = s.m === 30;
+    // 시간 라벨 (정시에만 표시)
+    html += '<div style="grid-column:1;font-size:10px;color:#64748b;text-align:right;padding:0 6px;line-height:' + ROW_H + 'px;' +
+      (isHourMark ? 'border-top:1px solid #cbd5e1;font-weight:700' : '') + '">' +
+      (isHourMark ? String(s.h).padStart(2,'0') + ':00' : '') + '</div>';
+    // 7개 요일 빈 셀
+    for (let i = 0; i < 7; i++) {
+      const borderTop = isHourMark ? '1px solid #cbd5e1' : (isHalfMark ? '1px dashed #e2e8f0' : 'none');
+      html += '<div style="grid-column:' + (i + 2) + ';border-right:1px solid #f1f5f9;border-top:' + borderTop + '"></div>';
+    }
+  });
+
+  // 클래스 블록 — enrollment 데이터에서 추출
+  const dayCodes = ['sun','mon','tue','wed','thu','fri','sat'];
+  const dayKoMap = ['일','월','화','수','목','금','토'];
+  const enrolls = _schedState.enrollments;
+
+  for (const enr of enrolls) {
+    const startMs = enr.started_at;
+    const startDate = startMs ? new Date(typeof startMs === 'number' ? startMs : startMs) : null;
+    if (startDate && we < startDate) continue;
+    if (enr.end_date) {
+      const endDate = new Date(enr.end_date);
+      if (endDate < ws) continue;
+    }
+    const daysField = String(enr.days_of_week || enr.package || '');
+    const timeField = String(enr.time || '');
+    // 각 요일 검사
+    for (let i = 0; i < 7; i++) {
+      const ko = dayKoMap[i];
+      const cd = dayCodes[i];
+      if (!daysField.includes(ko) && !daysField.toLowerCase().includes(cd)) continue;
+      // 해당 요일의 시간 추출
+      let timeStr = timeField;
+      const perDay = timeField.match(new RegExp(ko + '\\s*(\\d{1,2}:\\d{2})'));
+      if (perDay) timeStr = perDay[1];
+      const tm = timeStr.match(/(\d{1,2}):(\d{2})/);
+      if (!tm) continue;
+      const hh = parseInt(tm[1], 10), mm = parseInt(tm[2], 10);
+      if (hh < HOUR_START || hh >= HOUR_END) continue;
+      // 슬롯 인덱스 (0 ~ 89)
+      const slotIdx = (hh - HOUR_START) * 6 + Math.floor(mm / 10);
+      // 20분 길이 = 2슬롯
+      const durSlots = 2;
+      // 이 날짜의 클래스 블록 렌더
+      const dayDate = days[i];
+      // 시작/종료 검증
+      if (startDate && dayDate < startDate) continue;
+      if (enr.end_date) {
+        const endDate = new Date(enr.end_date);
+        if (dayDate > endDate) continue;
+      }
+      const colors = _typeColors(enr.type || '정규수업');
+      const top = slotIdx * ROW_H;
+      const height = durSlots * ROW_H - 2;
+      // 🥭 Phase 37b — 정확한 컬럼 위치 계산
+      // 각 요일 컬럼 폭 = (parent_width - 60px) / 7
+      // 컬럼 i 시작 = 60px + i × ((100% - 60px) / 7)
+      const leftCalc = 'calc(60px + (100% - 60px) * ' + i + ' / 7 + 2px)';
+      const widthCalc = 'calc((100% - 60px) / 7 - 6px)';
+      html += '<div style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';' +
+        'top:' + top + 'px;height:' + height + 'px;' +
+        'background:' + colors.bg + ';border-left:3px solid ' + colors.border + ';border-radius:3px;padding:2px 5px;' +
+        'font-size:10px;color:' + colors.text + ';line-height:1.2;overflow:hidden;cursor:pointer;z-index:2;box-shadow:0 1px 3px rgba(0,0,0,0.1)" ' +
+        'title="' + (enr.teacher_name || 'Teacher') + ' / ' + (enr.type || '정규수업') + ' / ' + timeStr + ' / 20분">' +
+        '<div style="font-weight:700;font-size:9px">' + (enr.type || '정규수업').substring(0,4) + '</div>' +
+        '<div style="font-weight:600">' + (enr.teacher_name || 'TBD') + '</div>' +
+        '<div style="font-size:9px">' + timeStr + ' (' + (enr.class_size || '1:1') + ')</div>' +
+        '</div>';
+    }
+  }
+  html += '</div>';
+  document.getElementById('sched-calendar').innerHTML = html;
+}
+
+function _typeColors(type) {
+  const map = {
+    '레벨테스트': { bg:'#dbeafe', border:'#3b82f6', text:'#1e40af' },
+    '체험수업':   { bg:'#dcfce7', border:'#10b981', text:'#166534' },
+    '정규수업':   { bg:'#fef3c7', border:'#f59e0b', text:'#92400e' }
+  };
+  return map[type] || map['정규수업'];
+}
+
+function _renderDayClasses(date) {
+  // 수강신청 데이터에서 이 날짜에 해당하는 수업 카드들 생성
+  const dayCodes = ['sun','mon','tue','wed','thu','fri','sat'];
+  const dayCode = dayCodes[date.getDay()];
+  const dayKo   = ['일','월','화','수','목','금','토'][date.getDay()];
+  const dateStr = date.toISOString().slice(0,10);
+  const enrolls = _schedState.enrollments;
+  const cards = [];
+  // 등록된 수강신청 데이터가 있으면 사용
+  for (const enr of enrolls) {
+    if (!enr.started_at) continue;
+    const startDate = new Date(typeof enr.started_at === 'number' ? enr.started_at : enr.started_at);
+    if (date < startDate) continue;
+    if (enr.end_date) {
+      const endDate = new Date(enr.end_date);
+      if (date > endDate) continue;
+    }
+    // package 필드에서 요일·시간 추출 (Phase 25/32 형식)
+    const pkg = String(enr.package || '');
+    const time = enr.time || '';
+    // 요일 매칭 — pkg 또는 days_of_week 필드에서
+    const daysField = String(enr.days_of_week || enr.package || '');
+    if (!daysField.includes(dayKo) && !daysField.toLowerCase().includes(dayCode)) continue;
+    // 시간 — 단일 또는 요일별
+    let cardTime = time;
+    const perDayMatch = String(time).match(new RegExp(dayKo + '\\s*(\\d{1,2}:\\d{2})'));
+    if (perDayMatch) cardTime = perDayMatch[1];
+    cards.push({
+      type: enr.type || '정규수업',
+      teacher: enr.teacher_name || 'Teacher TBD',
+      size: enr.class_size || '1:1',
+      time: cardTime || '미정',
+      duration: 20
+    });
+  }
+  // 데모: 데이터 없을 때 예시 카드 (월/수/금 첫 주에만)
+  if (cards.length === 0 && _schedState.enrollments.length === 0) {
+    const day = date.getDate();
+    if ((dayCode === 'thu' && (day === 7 || day === 14))) {
+      cards.push({
+        type: day === 7 ? '레벨테스트' : '체험수업',
+        teacher: 'Teacher Belle',
+        size: '1:1', time: 'pm 07:10', duration: 20
+      });
+    }
+  }
+  return cards.map(c => _renderClassCard(c)).join('');
+}
+
+function _renderClassCard(c) {
+  const typeColors = {
+    '레벨테스트': { bg:'#dbeafe', border:'#93c5fd', text:'#1e40af' },
+    '체험수업':   { bg:'#dcfce7', border:'#86efac', text:'#166534' },
+    '정규수업':   { bg:'#fef3c7', border:'#fde68a', text:'#92400e' }
+  };
+  const colors = typeColors[c.type] || typeColors['정규수업'];
+  return '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:6px;margin-bottom:4px;font-size:11px;line-height:1.4">' +
+    '<div style="display:inline-block;background:' + colors.bg + ';border:1px solid ' + colors.border + ';color:' + colors.text + ';padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;margin-bottom:3px">' + c.type + '</div>' +
+    '<div style="color:#3b82f6;font-weight:700">' + c.teacher + ' <span style="font-size:9px">📋</span></div>' +
+    '<div style="color:#64748b;font-size:10px">(' + c.size + ')</div>' +
+    '<div style="color:#1e293b;font-weight:600;font-size:11px">' + c.time + '</div>' +
+    '<div style="color:#64748b;font-size:10px">' + c.duration + ' min</div>' +
+    '<div style="display:flex;gap:3px;margin-top:4px">' +
+      '<button style="flex:1;background:#3b82f6;color:#fff;border:0;border-radius:3px;padding:2px 0;font-size:10px;cursor:pointer;font-weight:600">예정</button>' +
+      '<button style="flex:1;background:#10b981;color:#fff;border:0;border-radius:3px;padding:2px 0;font-size:10px;cursor:pointer;font-weight:600" onclick="alert(\'일정 변경 기능은 준비 중\')">일정변경</button>' +
+    '</div>' +
+  '</div>';
+}
+
+// 월 이동 / 오늘 버튼 핸들러 — 모달이 열린 후 한 번만 바인딩
+(function bindScheduleNav() {
+  const tryBind = () => {
+    const prev = document.getElementById('sched-prev');
+    if (!prev) { setTimeout(tryBind, 200); return; }
+    if (prev.dataset.bound) return;
+    prev.dataset.bound = '1';
+    prev.addEventListener('click', () => {
+      if (_schedState.view === 'week') {
+        // 일주일 이전
+        _schedState.weekStart = new Date(_schedState.weekStart.getTime() - 7 * 86400000);
+      } else {
+        _schedState.month--;
+        if (_schedState.month < 0) { _schedState.month = 11; _schedState.year--; }
+      }
+      renderScheduleCalendar();
+    });
+    document.getElementById('sched-next').addEventListener('click', () => {
+      if (_schedState.view === 'week') {
+        _schedState.weekStart = new Date(_schedState.weekStart.getTime() + 7 * 86400000);
+      } else {
+        _schedState.month++;
+        if (_schedState.month > 11) { _schedState.month = 0; _schedState.year++; }
+      }
+      renderScheduleCalendar();
+    });
+    document.getElementById('sched-today').addEventListener('click', () => {
+      const now = new Date();
+      _schedState.year = now.getFullYear();
+      _schedState.month = now.getMonth();
+      const ws = new Date(now); ws.setDate(now.getDate() - now.getDay()); ws.setHours(0,0,0,0);
+      _schedState.weekStart = ws;
+      renderScheduleCalendar();
+    });
+    // 🥭 Phase 37 — 뷰 토글
+    document.getElementById('sched-view-week').addEventListener('click', () => {
+      _schedState.view = 'week';
+      document.getElementById('sched-view-week').style.background = '#3b82f6';
+      document.getElementById('sched-view-week').style.color = '#fff';
+      document.getElementById('sched-view-month').style.background = '#fff';
+      document.getElementById('sched-view-month').style.color = '#475569';
+      renderScheduleCalendar();
+    });
+    document.getElementById('sched-view-month').addEventListener('click', () => {
+      _schedState.view = 'month';
+      document.getElementById('sched-view-month').style.background = '#3b82f6';
+      document.getElementById('sched-view-month').style.color = '#fff';
+      document.getElementById('sched-view-week').style.background = '#fff';
+      document.getElementById('sched-view-week').style.color = '#475569';
+      renderScheduleCalendar();
+    });
+  };
+  tryBind();
+})();
+
+async function doSendMessage() {
+  const s = _students.find(x => x.id === _msgTargetId);
+  if (!s) return;
+  const subject = document.getElementById('msg-subject').value;
+  const body = document.getElementById('msg-body').value.trim();
+  const usePush = document.getElementById('msg-push').checked;
+  const useSms  = document.getElementById('msg-sms').checked;
+  if (!body) { alert('메시지 내용을 입력하세요.'); return; }
+  if (!usePush && !useSms) { alert('전송 방식(PUSH/SMS) 중 하나는 선택해야 합니다.'); return; }
+  // 알림 큐에 적재 (실제 발송은 외부 도구가 처리)
+  try {
+    const channels = [];
+    if (usePush) channels.push('push');
+    if (useSms) channels.push('sms');
+    await fetch('/api/admin/notifications/test', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: `📨 ${s.username} (${s.login_id})`,
+        body: body + ` · 채널: ${channels.join('+')} · 예약: ${subject}`
+      })
+    });
+    alert(`메시지 전송 큐 적재 완료\n대상: ${s.username}\n채널: ${channels.join(', ')}\n예약: ${subject}`);
+    closeMsg();
+  } catch (e) { alert('네트워크 에러: ' + e.message); }
+}
+
+// === 하단 액션 버튼 ===
+function bulkSendMessage() {
+  const checked = Array.from(document.querySelectorAll('#students-tbody input[type=checkbox]:checked'));
+  if (checked.length === 0) { alert('학생을 한 명 이상 선택하세요.'); return; }
+  alert(`${checked.length}명에게 메시지 전송 (구현 예정)`);
+}
+function downloadAllStudentsCSV() {
+  if (_students.length === 0) { alert('학생 데이터가 없습니다.'); return; }
+  // 클라이언트 CSV 생성
+  const headers = ['No','학생명','아이디','결제타입','수강 종료일','가입일','수업회수(주)','포인트','학생 번호','부모님 번호','매장','본사','대표지사명','지사명','프랜차이즈','상태'];
+  const rows = _students.map(s => [
+    s.student_id || '', s.username || '', s.login_id || '', s.payment_type || '',
+    s.end_date || '', s.signup_date || '', s.classes_per_week || '', s.points || 0,
+    s.student_phone || '', s.parent_phone || '', s.shop_name || '',
+    s.hq_name || '', s.branch1_name || '', s.branch2_name || '', s.franchise || '', s.status || ''
+  ]);
+  const escape = v => /[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g,'""') + '"' : String(v);
+  const csv = '﻿' + headers.join(',') + '\n' + rows.map(r => r.map(escape).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `mangoi_students_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function bulkReview() {
+  const checked = Array.from(document.querySelectorAll('#students-tbody input[type=checkbox]:checked'));
+  if (checked.length === 0) { alert('학생을 한 명 이상 선택하세요.'); return; }
+  alert(`${checked.length}명 일괄 검토 (구현 예정)`);
+}
+function downloadByResultCSV() {
+  alert('결과별 다운로드 — 일괄 검토 후 사용 가능 (구현 예정)');
+}
+// 신규등록 모달 — prompt 가 아닌 풀 폼
+function openNewStudentForm() {
+  // 가입일 default 오늘
+  document.getElementById('new-signup').value = new Date().toISOString().slice(0,10);
+  // 다른 필드는 비움
+  ['new-name','new-login','new-sid','new-end','new-stuph','new-parph','new-cw','new-shop','new-hq','new-b1','new-b2','new-fr'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('new-pay').value = 'B2C 결제';
+  document.getElementById('new-status').value = '정상';
+  document.getElementById('new-modal-bg').classList.add('show');
+  setTimeout(() => document.getElementById('new-name')?.focus(), 100);
+}
+function closeNew() {
+  document.getElementById('new-modal-bg').classList.remove('show');
+}
+async function submitNewStudent() {
+  const e = id => document.getElementById(id);
+  const name = (e('new-name').value || '').trim();
+  const login = (e('new-login').value || '').trim();
+  if (!name) { alert('한글 이름은 필수입니다.'); e('new-name').focus(); return; }
+  if (!login) { alert('아이디(로그인 ID)는 필수입니다.'); e('new-login').focus(); return; }
+
+  const body = {
+    username:        name,
+    login_id:        login,
+    student_id:      e('new-sid').value || null,
+    payment_type:    e('new-pay').value || 'B2C 결제',
+    signup_date:     e('new-signup').value || null,
+    end_date:        e('new-end').value || null,
+    student_phone:   e('new-stuph').value || null,
+    parent_phone:    e('new-parph').value || null,
+    classes_per_week: e('new-cw').value ? parseInt(e('new-cw').value, 10) : null,
+    shop_name:       e('new-shop').value || null,
+    hq_name:         e('new-hq').value || null,
+    branch1_name:    e('new-b1').value || null,
+    branch2_name:    e('new-b2').value || null,
+    franchise:       e('new-fr').value || null,
+    status:          e('new-status').value || '정상',
+  };
+
+  try {
+    const r = await fetch('/api/admin/students/erp', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || !d.ok) {
+      alert('등록 실패: ' + (d.error || ('HTTP ' + r.status)));
+      return;
+    }
+    alert(`✓ "${name}" 등록 완료 (id: ${d.id})`);
+    closeNew();
+    loadStudents();
+  } catch (err) {
+    alert('네트워크 에러: ' + err.message);
+  }
+}
+// 신규등록 모달 외부 클릭으로 닫기
+(function bindNewModalClose() {
+  const bg = document.getElementById('new-modal-bg');
+  if (bg) bg.addEventListener('click', e => { if (e.target.id === 'new-modal-bg') closeNew(); });
+})();
+
+// === 모달 바깥 클릭 닫기 ===
+['summary-modal-bg','msg-modal-bg','new-modal-bg'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('click', (e) => { if (e.target.id === id) el.classList.remove('show'); });
+});
+
+// ============================================================================
+// 🔍 상단 통합 검색 — 학생·교사·가맹점·센터·교재·공지·메뉴·녹화 모두
+// ============================================================================
+const STUDENTS_PAGE_MENUS = [
+  // 학생관리 sub-items
+  { ko:'학생 목록',           en:'Student List',     hint:'/admin/students' },
+  { ko:'종료일자 확인',        en:'Expiry Check',     hint:'/admin.html#menu-학생관리' },
+  { ko:'수강 연장(상세보기)',   en:'Extension Detail', hint:'/admin.html#menu-학생관리' },
+  { ko:'수강 연장',           en:'Extension',        hint:'/admin.html#menu-학생관리' },
+  { ko:'수업 현황',           en:'Class Status',     hint:'/admin.html#menu-학생관리' },
+  { ko:'일별 보고서',          en:'Daily Report',     hint:'/admin.html#menu-학생관리' },
+  { ko:'출결 현황',           en:'Attendance',       hint:'/admin.html#menu-학생관리' },
+  { ko:'연속 출석',           en:'Streak',           hint:'/admin.html#menu-학생관리' },
+  { ko:'상담 내역',           en:'Consultation',     hint:'/admin.html#menu-학생관리' },
+  { ko:'톡짹톡',              en:'Parent Chat',      hint:'/admin.html#menu-학생관리' },
+  // 메인 메뉴
+  { ko:'일자별 차트',          en:'Daily Charts',     hint:'/admin.html' },
+  { ko:'발화시간 TOP 10',      en:'Speaking TOP 10',  hint:'/admin.html' },
+  { ko:'보관기간 자동 파기',     en:'Retention',        hint:'/admin.html' },
+  { ko:'실시간 수업 현황',       en:'Live Classes',     hint:'/admin.html' },
+  { ko:'저장소·비용 통계',      en:'Storage Stats',    hint:'/admin.html' },
+  { ko:'Mangoi 강사 급여·평가', en:'Teacher Payroll',  hint:'/admin.html' },
+  { ko:'데이터 내보내기 (CSV)', en:'Data Export',      hint:'/admin.html' },
+  { ko:'알림 큐',              en:'Notification Queue', hint:'/admin.html' },
+  { ko:'녹화 목록',            en:'Recordings',       hint:'/admin.html' },
+  { ko:'가맹점 관리',          en:'Franchises',       hint:'/admin.html' },
+  { ko:'교육센터',             en:'Centers',          hint:'/admin.html' },
+  { ko:'레벨 테스트',          en:'Level Tests',      hint:'/admin.html' },
+  { ko:'수강신청 관리',         en:'Enrollments',      hint:'/admin.html' },
+  { ko:'커뮤니티',             en:'Community',        hint:'/admin.html' },
+  { ko:'교재 콘텐츠 관리',      en:'Textbooks',        hint:'/admin.html' },
+  { ko:'셀프 진단',            en:'Self-Health',      hint:'/admin/health' },
+  { ko:'대시보드',             en:'Dashboard',        hint:'/admin.html' },
+];
+
+let _topIndex = []; // [{kind, kindKo, kindEn, label, sub, action}]
+let _topActiveIdx = -1;
+let _topHits = [];
+
+function buildTopIndex() {
+  _topIndex = [];
+  // 1. 메뉴
+  STUDENTS_PAGE_MENUS.forEach(m => {
+    _topIndex.push({
+      kindKo:'📋 메뉴', kindEn:'📋 Menu',
+      label: m.ko, labelEn: m.en, sub: m.hint,
+      action: () => window.open(m.hint, '_blank')
+    });
+  });
+  // 2. 현재 페이지에 로드된 학생들 (이미 _students 에 있음)
+  (_students || []).forEach(s => {
+    _topIndex.push({
+      kindKo:'👨‍🎓 학생', kindEn:'👨‍🎓 Student',
+      label: s.username || s.login_id || '',
+      labelEn: s.login_id || s.username || '',
+      sub: (s.student_phone || s.student_id || ''),
+      action: () => openSummary(s.id)
+    });
+  });
+  // 3. 다른 카테고리 비동기 fetch
+  Promise.allSettled([
+    fetch('/api/admin/teachers',     {credentials:'include'}).then(r => r.json()).catch(()=>null),
+    fetch('/api/admin/franchises',   {credentials:'include'}).then(r => r.json()).catch(()=>null),
+    fetch('/api/admin/centers',      {credentials:'include'}).then(r => r.json()).catch(()=>null),
+    fetch('/api/admin/textbooks',    {credentials:'include'}).then(r => r.json()).catch(()=>null),
+    fetch('/api/admin/community-posts', {credentials:'include'}).then(r => r.json()).catch(()=>null),
+    fetch('/api/admin/level-tests?limit=500',  {credentials:'include'}).then(r => r.json()).catch(()=>null),
+    fetch('/api/admin/enrollments?limit=500',  {credentials:'include'}).then(r => r.json()).catch(()=>null),
+  ]).then(([t,f,c,tb,p,l,en]) => {
+    if (t.value && t.value.ok) t.value.items.forEach(x => _topIndex.push({
+      kindKo:'🧑‍🏫 교사', kindEn:'🧑‍🏫 Teacher', label:x.name, labelEn:x.name,
+      sub:`${x.status||'-'} · ${x.years||'-'}y · rate ${x.rate_per_10min_php||'-'}`,
+      action:() => window.open('/admin.html', '_blank')
+    }));
+    if (f.value && f.value.ok) f.value.items.forEach(x => _topIndex.push({
+      kindKo:'🏬 가맹점', kindEn:'🏬 Franchise', label:x.name, labelEn:x.name,
+      sub:x.owner_name||'', action:() => window.open('/admin.html', '_blank')
+    }));
+    if (c.value && c.value.ok) c.value.items.forEach(x => _topIndex.push({
+      kindKo:'🏫 교육센터', kindEn:'🏫 Center', label:x.name, labelEn:x.name,
+      sub:x.country||'', action:() => window.open('/admin.html', '_blank')
+    }));
+    if (tb.value && tb.value.ok) tb.value.items.forEach(x => _topIndex.push({
+      kindKo:'📖 교재', kindEn:'📖 Textbook', label:x.title, labelEn:x.title,
+      sub:`${x.level||'-'} · ${x.publisher||''}`, action:() => window.open('/admin.html', '_blank')
+    }));
+    if (p.value && p.value.ok) p.value.items.forEach(x => _topIndex.push({
+      kindKo:'📢 공지', kindEn:'📢 Post', label:x.title, labelEn:x.title,
+      sub:x.author||'', action:() => window.open('/admin.html', '_blank')
+    }));
+    if (l.value && l.value.ok) l.value.items.forEach(x => _topIndex.push({
+      kindKo:'📝 레벨테스트', kindEn:'📝 Level Test', label:x.student_name, labelEn:x.student_name,
+      sub:`${x.level||'-'} · ${x.score!=null?x.score:'-'}`, action:() => window.open('/admin.html', '_blank')
+    }));
+    if (en.value && en.value.ok) en.value.items.forEach(x => _topIndex.push({
+      kindKo:'📚 수강신청', kindEn:'📚 Enrollment', label:x.student_name, labelEn:x.student_name,
+      sub:`${x.package} · ${x.status}`, action:() => window.open('/admin.html', '_blank')
+    }));
+  });
+}
+
+function _topHl(text, q) {
+  if (!q) return escHtml(text);
+  const lower = (text||'').toLowerCase();
+  const pos = lower.indexOf(q.toLowerCase());
+  if (pos < 0) return escHtml(text);
+  return escHtml(text.slice(0, pos)) + '<mark>' + escHtml(text.slice(pos, pos+q.length)) + '</mark>' + escHtml(text.slice(pos+q.length));
+}
+
+function searchTopFor(q) {
+  const ql = q.toLowerCase().trim();
+  if (!ql) return [];
+  const hits = _topIndex.filter(it =>
+    (it.label||'').toLowerCase().includes(ql) ||
+    (it.labelEn||'').toLowerCase().includes(ql) ||
+    (it.sub||'').toLowerCase().includes(ql)
+  );
+  return hits.sort((a,b) => {
+    if (a.kindKo === '📋 메뉴' && b.kindKo !== '📋 메뉴') return -1;
+    if (a.kindKo !== '📋 메뉴' && b.kindKo === '📋 메뉴') return 1;
+    const ai = (a.label.toLowerCase().indexOf(ql) + 1) || 999;
+    const bi = (b.label.toLowerCase().indexOf(ql) + 1) || 999;
+    return ai - bi;
+  }).slice(0, 30);
+}
+
+function renderTopDropdown(q) {
+  const dd = document.getElementById('top-search-dropdown');
+  if (!dd) return;
+  if (!q) { dd.classList.remove('show'); dd.innerHTML = ''; _topHits = []; _topActiveIdx = -1; return; }
+  const hits = searchTopFor(q);
+  _topHits = hits;
+  if (hits.length === 0) {
+    dd.innerHTML = '<div class="top-sd-empty">일치 결과 없음</div>';
+    dd.classList.add('show'); _topActiveIdx = -1; return;
+  }
+  dd.innerHTML = hits.map((h, i) => `
+    <div class="top-sd-item${i===0?' active':''}" data-idx="${i}">
+      <span class="top-sd-kind">${escHtml(h.kindKo)}</span>
+      <span style="flex:1;">${_topHl(h.label, q)}</span>
+      ${h.sub?`<span style="font-size:10px;color:#94a3b8;">${escHtml(h.sub)}</span>`:''}
+    </div>`).join('');
+  dd.classList.add('show'); _topActiveIdx = 0;
+}
+
+(function bindTopSearch(){
+  const input = document.getElementById('top-search-input');
+  const dd = document.getElementById('top-search-dropdown');
+  if (!input || !dd) return;
+  let timer;
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => renderTopDropdown(input.value), 80);
+  });
+  input.addEventListener('focus', () => { if (input.value) renderTopDropdown(input.value); });
+  input.addEventListener('keydown', e => {
+    const items = dd.querySelectorAll('.top-sd-item');
+    if (e.key === 'ArrowDown') { e.preventDefault(); _topActiveIdx = Math.min(items.length-1, _topActiveIdx+1); items.forEach((el,i)=>el.classList.toggle('active', i===_topActiveIdx)); items[_topActiveIdx]?.scrollIntoView({block:'nearest'}); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); _topActiveIdx = Math.max(0, _topActiveIdx-1); items.forEach((el,i)=>el.classList.toggle('active', i===_topActiveIdx)); items[_topActiveIdx]?.scrollIntoView({block:'nearest'}); }
+    else if (e.key === 'Enter') { e.preventDefault(); const h = _topHits[_topActiveIdx>=0?_topActiveIdx:0]; if (h && h.action) { h.action(); dd.classList.remove('show'); input.blur(); } }
+    else if (e.key === 'Escape') { dd.classList.remove('show'); input.blur(); }
+  });
+  dd.addEventListener('click', e => {
+    const it = e.target.closest('.top-sd-item');
+    if (!it) return;
+    const h = _topHits[parseInt(it.dataset.idx,10)];
+    if (h && h.action) { h.action(); dd.classList.remove('show'); input.value = ''; }
+  });
+  document.addEventListener('click', e => {
+    if (!input.contains(e.target) && !dd.contains(e.target)) dd.classList.remove('show');
+  });
+})();
+
+// ============================================================================
+// 🔔 ⚙️ 👤 우측 상단 드롭다운 토글
+// ============================================================================
+(function bindTopPopups(){
+  const popups = [
+    { btn:'bell-btn', popup:'bell-popup' },
+    { btn:'gear-btn', popup:'gear-popup' },
+    { btn:'user-btn', popup:'user-popup' },
+  ];
+  popups.forEach(({btn, popup}) => {
+    const b = document.getElementById(btn);
+    const p = document.getElementById(popup);
+    if (!b || !p) return;
+    b.addEventListener('click', e => {
+      // 자식(<a>, <button>) 클릭은 그대로 작동하게 — popup 자체 클릭은 토글 안 함
+      if (e.target !== b && b.contains(e.target) && e.target.tagName !== 'SPAN') return;
+      e.stopPropagation();
+      // 다른 popup 닫기
+      popups.forEach(({popup: o}) => { if (o !== popup) document.getElementById(o)?.classList.remove('show'); });
+      p.classList.toggle('show');
+    });
+  });
+  // 외부 클릭 시 모든 popup 닫음
+  document.addEventListener('click', e => {
+    popups.forEach(({btn, popup}) => {
+      const b = document.getElementById(btn);
+      const p = document.getElementById(popup);
+      if (b && p && !b.contains(e.target)) p.classList.remove('show');
+    });
+  });
+})();
+
+// 페이지 로드 후 색인 빌드 (학생 데이터 받은 뒤)
+setTimeout(buildTopIndex, 1500);
+// 학생 새로고침 후 색인 재빌드
+const _origLoadStudents = loadStudents;
+loadStudents = async function() {
+  await _origLoadStudents();
+  buildTopIndex();
+};
+
+// 키워드 Enter
+document.getElementById('f-keyword').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); loadStudents(); }
+});
+// 라디오 변경
+document.querySelectorAll('input[name="f-status"]').forEach(r => r.addEventListener('change', applyFilters));
+
+// 모두 선택 체크박스
+document.getElementById('check-all').addEventListener('change', e => {
+  document.querySelectorAll('#students-tbody input[type=checkbox]').forEach(cb => cb.checked = e.target.checked);
+});
+
+// 첫 로드
+loadStudents();
+
+// ───── Phase 11 — 우상단 사용자 메뉴: /me 로 라벨 갱신 + 로그아웃 처리 ─────
+(function initTopUser(){
+  fetch('/api/admin/me', { credentials: 'include' })
+    .then(r => r.ok ? r.json() : null)
+    .then(j => {
+      if (!j || !j.ok || !j.user) return;
+      const u = j.user;
+      const display = (u.name || u.username || '관리자') + (u.username ? ' (@' + u.username + ')' : '');
+      const label = document.getElementById('topUserLabel');
+      const head  = document.getElementById('topUserHeader');
+      if (label) label.textContent = '👤 ' + (u.name || u.username || '관리자');
+      if (head)  head.textContent  = '👤 ' + display;
+    })
+    .catch(()=>{});
+
+  const lo = document.getElementById('topLogoutBtn');
+  if (lo) lo.addEventListener('click', async () => {
+    if (!confirm('정말 로그아웃 하시겠습니까?')) return;
+    try { await fetch('/api/admin/logout', { method: 'POST', credentials: 'include' }); } catch {}
+    location.replace('/admin/login');
+  });
+})();
+</script>
+
+</body>
+</html>

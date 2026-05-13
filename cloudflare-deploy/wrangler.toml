@@ -1,0 +1,99 @@
+name = "webrtc-unified-platform"
+main = "src/index.ts"
+compatibility_date = "2026-04-07"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SignalingRoom", "VideoCallRoom"]
+
+[[durable_objects.bindings]]
+name = "SIGNALING_ROOM"
+class_name = "SignalingRoom"
+
+[[durable_objects.bindings]]
+name = "VIDEO_CALL_ROOM"
+class_name = "VideoCallRoom"
+
+[[kv_namespaces]]
+binding = "PDF_STORE"
+id = "f2df070b6e6d4b29adceb1dc96be6a67"
+
+[[kv_namespaces]]
+binding = "SESSION_STATE"
+id = "7fc5f228dbd4490eb775637a8f8ba219"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mango-db"
+database_id = "80a12a77-4d79-4abd-aa9e-f5e39a7b5cf5"
+
+[[r2_buckets]]
+binding = "RECORDINGS"
+bucket_name = "webrtc-class-recordings"
+
+# 🥭 Phase 21 — Workers AI 바인딩 (검색창 AI 명령 기능)
+[ai]
+binding = "AI"
+
+[vars]
+MAX_RECORDING_MB = "500"
+ALLOWED_RECORDING_MIME = "video/webm,video/mp4,audio/webm,audio/mp4"
+# 🩺 /admin/health 의 "마지막 배포" 타일에 표시되는 식별자.
+#    fix-and-deploy.ps1 이 커밋 직전 자동으로 현재 시각+단축해시로 갱신.
+BUILD_STAMP = "2026-05-03T09:59:04Z"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+# ★ 모든 요청을 Worker 가 먼저 받도록 강제 (boolean — Wrangler 4 구버전 호환)
+#   이게 없으면 CF Assets 가 /api/* 같은 매칭 안 되는 경로에 대해 SPA fallback 으로
+#   index.html 을 대신 반환해버려서 Worker 의 /api/dashboard 핸들러가 실행되지 못함.
+#   Worker 가 먼저 받으면 src/index.ts 에서 API/WS 라우팅 후, 나머지는 env.ASSETS.fetch 로 위임.
+run_worker_first = true
+not_found_handling = "none"
+html_handling = "none" 
+
+# ===== Production 환경 (Wrangler 4: 바인딩 상속 안 됨 → 전부 재명시) =====
+[env.production]
+name = "webrtc-unified-platform-prod"
+
+[[env.production.durable_objects.bindings]]
+name = "SIGNALING_ROOM"
+class_name = "SignalingRoom"
+
+[[env.production.durable_objects.bindings]]
+name = "VIDEO_CALL_ROOM"
+class_name = "VideoCallRoom"
+
+[[env.production.kv_namespaces]]
+binding = "PDF_STORE"
+id = "f2df070b6e6d4b29adceb1dc96be6a67"
+
+[[env.production.kv_namespaces]]
+binding = "SESSION_STATE"
+id = "7fc5f228dbd4490eb775637a8f8ba219"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "mango-db"
+database_id = "80a12a77-4d79-4abd-aa9e-f5e39a7b5cf5"
+
+[[env.production.r2_buckets]]
+binding = "RECORDINGS"
+bucket_name = "webrtc-class-recordings"
+
+# 🥭 Phase 21 — Workers AI 바인딩 (production)
+[env.production.ai]
+binding = "AI"
+
+[env.production.vars]
+MAX_RECORDING_MB = "500"
+ALLOWED_RECORDING_MIME = "video/webm,video/mp4,audio/webm,audio/mp4"
+BUILD_STAMP = "2026-05-03T09:59:04Z"
+
+[env.production.assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
+not_found_handling = "none"
+html_handling = "none" 

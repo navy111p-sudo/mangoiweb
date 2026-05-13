@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>화상통화 +</title>
+  <link rel="stylesheet" href="/video-call/css/style.css">
+  <!-- PDF.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  </script>
+</head>
+<body>
+  <!-- ===== 입장 화면 ===== -->
+  <div id="lobby" class="lobby">
+    <div class="lobby-card">
+      <h1>화상통화 +</h1>
+      <p class="lobby-subtitle">칠판 · 채팅 · 교재 공유 (PDF/JPEG/PNG)</p>
+      <div class="lobby-form">
+        <input type="text" id="username-input" placeholder="이름 입력" maxlength="20" autofocus>
+        <input type="text" id="room-input" placeholder="방 코드 (비우면 자동 생성)">
+        <button id="join-btn" class="btn-primary">입장하기</button>
+        <a href="/" style="text-align:center; color:#8b8fa3; font-size:13px; margin-top:8px; text-decoration:none;">← 메인으로</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 메인 화면 ===== -->
+  <div id="app" class="app hidden">
+    <!-- 상단 툴바 -->
+    <header class="toolbar">
+      <div class="toolbar-left">
+        <span class="room-badge" id="room-badge"></span>
+        <span class="user-count" id="user-count">1명</span>
+      </div>
+      <div class="toolbar-center">
+        <button class="tab-btn active" data-tab="video">영상</button>
+        <button class="tab-btn" data-tab="materials">교재</button>
+        <button class="tab-btn" data-tab="whiteboard">칠판</button>
+      </div>
+      <div class="toolbar-right">
+        <button id="toggle-mic" class="icon-btn" title="마이크">🎤</button>
+        <button id="toggle-cam" class="icon-btn" title="카메라">📷</button>
+        <button id="toggle-chat" class="icon-btn chat-toggle" title="채팅">💬</button>
+        <button id="leave-btn" class="icon-btn danger" title="나가기">🚪</button>
+      </div>
+    </header>
+
+    <div class="main-content">
+      <!-- ===== 영상 탭 ===== -->
+      <section id="tab-video" class="tab-panel active">
+        <div class="video-grid" id="video-grid" data-count="1">
+          <div class="video-item local">
+            <video id="local-video" autoplay muted playsinline></video>
+            <span class="video-label" id="local-label">나</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 교재 탭 (PDF / JPEG / PNG) ===== -->
+      <section id="tab-materials" class="tab-panel">
+        <div class="pdf-toolbar">
+          <div class="tool-group material-upload-group">
+            <span class="upload-label-text">교재 업로드:</span>
+            <label class="btn-upload" title="PDF 파일 업로드">
+              📄 PDF
+              <input type="file" id="material-upload-pdf" accept="application/pdf,.pdf" hidden>
+            </label>
+            <label class="btn-upload btn-upload-alt" title="JPEG 파일 업로드">
+              🖼️ JPEG
+              <input type="file" id="material-upload-jpeg" accept="image/jpeg,image/jpg,.jpg,.jpeg" hidden>
+            </label>
+            <label class="btn-upload btn-upload-alt" title="PNG 파일 업로드">
+              🎨 PNG
+              <input type="file" id="material-upload-png" accept="image/png,.png" hidden>
+            </label>
+            <button id="material-stop" class="wb-action hidden">⏹ 공유 중지</button>
+          </div>
+          <div class="tool-group pdf-nav hidden" id="pdf-nav">
+            <button id="pdf-prev" class="wb-action">◀ 이전</button>
+            <span id="pdf-page-info">1 / 1</span>
+            <button id="pdf-next" class="wb-action">다음 ▶</button>
+            <button id="pdf-fit" class="wb-action" title="화면 맞춤">🔲</button>
+          </div>
+        </div>
+        <div class="pdf-container" id="pdf-container">
+          <div class="pdf-placeholder" id="pdf-placeholder">
+            <p style="font-size:3rem;">📚</p>
+            <p><strong>교재를 업로드하세요</strong></p>
+            <p style="font-size:0.95rem;">PDF · JPEG · PNG 파일을 업로드하면 모든 참가자와 공유됩니다.</p>
+          </div>
+          <canvas id="pdf-canvas" class="hidden"></canvas>
+          <img id="material-image" class="hidden material-image" alt="공유 이미지">
+        </div>
+      </section>
+
+      <!-- ===== 칠판 탭 ===== -->
+      <section id="tab-whiteboard" class="tab-panel">
+        <div class="whiteboard-toolbar">
+          <div class="tool-group">
+            <button class="wb-tool active" data-tool="pen" title="펜">✏️</button>
+            <button class="wb-tool" data-tool="eraser" title="지우개">🧹</button>
+            <button class="wb-tool" data-tool="line" title="직선">📏</button>
+            <button class="wb-tool" data-tool="rect" title="사각형">⬜</button>
+            <button class="wb-tool" data-tool="circle" title="원">⭕</button>
+          </div>
+          <div class="tool-group">
+            <input type="color" id="wb-color" value="#000000" title="색상">
+            <input type="range" id="wb-size" min="1" max="30" value="3" title="굵기">
+            <span id="wb-size-label">3px</span>
+          </div>
+          <div class="tool-group">
+            <button id="wb-clear" class="wb-action" title="전체 지우기">🗑️ 지우기</button>
+            <button id="wb-save" class="wb-action" title="이미지 저장">💾 저장</button>
+          </div>
+        </div>
+        <div class="whiteboard-container">
+          <canvas id="whiteboard-canvas"></canvas>
+        </div>
+      </section>
+
+      <!-- ===== 채팅 사이드바 ===== -->
+      <aside id="chat-panel" class="chat-panel">
+        <div class="chat-header">
+          <h3>채팅</h3>
+          <button id="close-chat" class="icon-btn">✕</button>
+        </div>
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-input-area">
+          <input type="text" id="chat-input" placeholder="메시지를 입력하세요..." maxlength="500">
+          <button id="chat-send" class="btn-primary">전송</button>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- 플로팅 원격 비디오 (다른 탭에서도 상대방 영상 표시) -->
+  <div id="floating-remote-videos" class="floating-remote-videos"></div>
+
+  <!-- 앱 모듈 (native WebSocket 사용) -->
+  <script src="/video-call/js/app.js"></script>
+  <script src="/video-call/js/webrtc.js"></script>
+  <script src="/video-call/js/whiteboard.js"></script>
+  <script src="/video-call/js/chat.js"></script>
+  <script src="/video-call/js/pdf-viewer.js"></script>
+  <script src="/video-call/js/recorder.js"></script>
+</body>
+</html>
