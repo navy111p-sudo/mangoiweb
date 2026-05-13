@@ -126,6 +126,93 @@ h1 .sub{font-size:13px;color:var(--tx2);font-weight:500;margin-left:4px}
 @media (max-width:768px){.top-bar,.stats,.controls,.legend-bar,.main{padding-left:14px;padding-right:14px}.teacher-grid{grid-template-columns:1fr}.search-wrap{flex:1 0 100%}.week-label{min-width:0;flex:1}h1{font-size:18px}}
 
 
+
+/* ═══ FAB / 위저드 / 클릭형 UI ═══ */
+.fab{position:fixed;bottom:24px;right:24px;width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#fbbf24,#f59e0b);border:none;color:#1a1a1a;font-size:30px;font-weight:800;cursor:pointer;box-shadow:0 8px 24px rgba(245,158,11,.5),0 0 0 0 rgba(251,191,36,.6);z-index:300;transition:transform .15s,box-shadow .15s;display:flex;align-items:center;justify-content:center;animation:fabPulse 2.5s infinite}
+.fab:hover{transform:scale(1.08) translateY(-2px);box-shadow:0 14px 36px rgba(245,158,11,.65)}
+@keyframes fabPulse{0%,100%{box-shadow:0 8px 24px rgba(245,158,11,.5),0 0 0 0 rgba(251,191,36,.4)}50%{box-shadow:0 8px 24px rgba(245,158,11,.5),0 0 0 12px rgba(251,191,36,0)}}
+.fab-label{position:absolute;right:78px;top:50%;transform:translateY(-50%);background:#0f172a;border:1px solid var(--bd);color:#fff;padding:6px 12px;border-radius:8px;font-size:12.5px;font-weight:700;white-space:nowrap;opacity:0;transition:opacity .15s;pointer-events:none}
+.fab:hover .fab-label{opacity:1}
+
+/* 위저드 */
+.wiz-modal{max-width:680px;width:calc(100% - 32px)}
+.wiz-progress{display:flex;gap:6px;padding:14px 22px 0}
+.wiz-step-bar{flex:1;height:6px;background:var(--bd);border-radius:99px;overflow:hidden}
+.wiz-step-bar.done{background:linear-gradient(90deg,var(--ac),#fbbf24)}
+.wiz-step-bar.active{background:linear-gradient(90deg,var(--ac),#fbbf24);box-shadow:0 0 12px rgba(251,191,36,.6)}
+.wiz-step-label{font-size:11px;color:var(--tx2);font-weight:700;letter-spacing:.4px;text-transform:uppercase;text-align:center;padding:8px 22px 0}
+.wiz-body{padding:18px 22px;min-height:340px}
+.wiz-h2{font-size:18px;color:#fff;font-weight:800;margin:0 0 4px}
+.wiz-desc{font-size:13px;color:var(--tx2);margin-bottom:18px}
+
+/* 큰 클릭형 옵션 카드 */
+.opt-grid{display:grid;gap:8px;margin-top:8px}
+.opt-grid.cols-2{grid-template-columns:repeat(2,1fr)}
+.opt-grid.cols-3{grid-template-columns:repeat(3,1fr)}
+.opt-grid.cols-4{grid-template-columns:repeat(4,1fr)}
+.opt-card{padding:14px 12px;border:2px solid var(--bd);border-radius:12px;background:var(--bg2);cursor:pointer;transition:all .15s;text-align:center;user-select:none;-webkit-user-select:none}
+.opt-card:hover{transform:translateY(-2px);border-color:var(--ac)}
+.opt-card.selected{border-color:var(--ac);background:rgba(251,191,36,.12);box-shadow:0 6px 16px rgba(245,158,11,.25)}
+.opt-card .oc-ico{font-size:22px;line-height:1;margin-bottom:6px}
+.opt-card .oc-name{font-size:13px;font-weight:700;color:#fff}
+.opt-card .oc-sub{font-size:10.5px;color:var(--tx2);margin-top:3px}
+
+/* 요일 칩 */
+.dow-chips{display:flex;gap:6px;justify-content:center;margin:8px 0 12px}
+.dow-chip{flex:1;padding:10px 0;background:var(--bg2);border:2px solid var(--bd);border-radius:10px;cursor:pointer;color:var(--tx2);font-weight:800;font-size:13px;transition:all .15s;text-align:center;user-select:none}
+.dow-chip:hover{border-color:var(--tx2);color:var(--tx)}
+.dow-chip.selected{background:linear-gradient(135deg,var(--ac),#f59e0b);color:#1a1a1a;border-color:var(--ac);transform:scale(1.05)}
+
+/* 시간 그리드 (위저드 안) */
+.time-pref{display:grid;grid-template-columns:40px repeat(7,1fr);gap:1px;background:var(--bd);border:1px solid var(--bd);border-radius:8px;overflow:hidden;font-size:10.5px;user-select:none;-webkit-user-select:none}
+.time-pref .tp-th{background:var(--bg2);color:var(--tx2);padding:4px 0;text-align:center;font-weight:700}
+.time-pref .tp-cell{background:var(--bg2);padding:0;height:22px;cursor:pointer;transition:background .1s;text-align:center;color:var(--tx2);font-size:10px}
+.time-pref .tp-cell.tp-hour{background:var(--bg);color:var(--tx3);font-weight:600;cursor:default}
+.time-pref .tp-cell:not(.tp-hour):hover{background:rgba(251,191,36,.25)}
+.time-pref .tp-cell.tp-on{background:linear-gradient(135deg,var(--ac),#f59e0b);color:#1a1a1a}
+.time-pref .tp-cell.tp-on:hover{background:linear-gradient(135deg,#f59e0b,#d97706)}
+
+/* 결과 카드 (AI 매칭) */
+.match-card{padding:14px;background:var(--bg2);border:2px solid var(--bd);border-radius:12px;margin-bottom:10px;cursor:pointer;transition:all .15s}
+.match-card:hover{border-color:var(--ac);transform:translateY(-2px);box-shadow:var(--shL)}
+.match-card .mc-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.match-card .mc-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px;flex-shrink:0}
+.match-card .mc-info{flex:1;min-width:0}
+.match-card .mc-name{font-size:14px;font-weight:700;color:#fff}
+.match-card .mc-score{padding:3px 9px;background:rgba(16,185,129,.18);border:1px solid rgba(16,185,129,.4);border-radius:99px;color:#6ee7b7;font-size:11px;font-weight:800}
+.match-card .mc-slots{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.match-slot-chip{padding:3px 8px;background:rgba(139,92,246,.18);border:1px solid rgba(139,92,246,.4);border-radius:6px;color:#c4b5fd;font-size:11px;font-weight:700;font-family:'Inter',monospace}
+
+/* 완료 화면 */
+.done-screen{text-align:center;padding:30px 20px}
+.done-screen .big-check{font-size:80px;margin-bottom:14px;animation:pop .4s ease-out}
+@keyframes pop{0%{transform:scale(0)}70%{transform:scale(1.1)}100%{transform:scale(1)}}
+.done-screen h3{font-size:22px;color:#10b981;font-weight:800;margin:0 0 6px}
+.done-screen .ds-sub{color:var(--tx2);font-size:13.5px;margin-bottom:18px}
+.done-summary{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3);border-radius:12px;padding:14px;text-align:left;font-size:13px;line-height:1.7}
+.done-summary .ds-row{display:flex;justify-content:space-between;padding:3px 0}
+.done-summary .ds-row .k{color:var(--tx2)}
+.done-summary .ds-row .v{color:#fff;font-weight:700}
+
+/* 빠른 이름 추천 칩 */
+.name-suggest{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.name-chip{padding:5px 10px;background:var(--bg);border:1px solid var(--bd);border-radius:99px;color:var(--tx2);font-size:11.5px;cursor:pointer;transition:all .15s}
+.name-chip:hover{background:var(--ac);color:#1a1a1a;border-color:var(--ac)}
+
+/* 큰 입력 */
+.big-input{width:100%;padding:14px 16px;background:var(--bg2);border:2px solid var(--bd);border-radius:12px;color:#fff;font-size:16px;font-weight:600;text-align:center;transition:all .15s}
+.big-input:focus{outline:none;border-color:var(--ac);background:rgba(251,191,36,.05)}
+.big-input::placeholder{color:var(--tx3);font-weight:400}
+
+/* 셀 우클릭 컨텍스트 메뉴 */
+.ctx-menu{position:fixed;background:var(--bg3);border:1px solid var(--bd);border-radius:10px;padding:6px;z-index:9500;min-width:180px;box-shadow:var(--shL);display:none}
+.ctx-menu.show{display:block;animation:fadeIn .15s}
+.ctx-item{padding:9px 12px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--tx);display:flex;align-items:center;gap:8px;transition:background .12s}
+.ctx-item:hover{background:var(--bg)}
+.ctx-item.danger{color:#ef4444}
+.ctx-item.danger:hover{background:rgba(239,68,68,.1)}
+.ctx-divider{height:1px;background:var(--bd);margin:4px 0}
+
 /* ═══ 듀얼 타임존 / 뷰 토글 / 사이드 패널 ═══ */
 .timezone-bar{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--tx2)}
 .timezone-bar select{background:var(--bg3);border:1px solid var(--bd);color:var(--tx);border-radius:8px;padding:5px 8px;font-size:12px;font-weight:600;cursor:pointer}
@@ -284,7 +371,15 @@ body.dragging{cursor:crosshair}
   <span class="legend-item"><span class="legend-chip" style="background:repeating-linear-gradient(135deg,#3b82f6,#3b82f6 3px,#2563eb 3px,#2563eb 6px)"></span><span data-ko="🔵 임시 수업" data-en="🔵 Temporary">🔵 임시 수업</span></span>
   <span style="margin-left:auto;color:var(--tx3);font-size:11px" data-ko="💡 셀에 마우스를 올리면 자세히 보입니다" data-en="💡 Hover a cell for details">💡 셀에 마우스를 올리면 자세히 보입니다</span>
 </div>
-<main class="main" id="main"><div class="teacher-grid"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div></main><button class="side-toggle-btn" onclick="toggleSidePanel()" data-ko="교사 빠른 탐색" data-en="Quick Find">교사 빠른 탐색</button><aside class="side-panel" id="side-panel"><div class="side-head"><h3 data-ko="🔎 교사 빠른 탐색" data-en="🔎 Quick Find">🔎 교사 빠른 탐색</h3><button class="modal-close" onclick="toggleSidePanel()">✕</button></div><div class="side-search"><input type="search" id="side-search" placeholder="이름 검색…" data-ko-placeholder="이름 검색…" data-en-placeholder="Search name…"></div><div class="side-list" id="side-list"></div></aside>
+<main class="main" id="main"><div class="teacher-grid"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div></main>
+<!-- ═══ FAB + 컨텍스트 메뉴 ═══ -->
+<button class="fab" id="fab-enroll" onclick="openEnrollWizard()" title="신규 학생 등록">
+  ➕
+  <span class="fab-label" data-ko="신규 학생 등록" data-en="Enroll Student">신규 학생 등록</span>
+</button>
+<div class="ctx-menu" id="ctx-menu"></div>
+
+<button class="side-toggle-btn" onclick="toggleSidePanel()" data-ko="교사 빠른 탐색" data-en="Quick Find">교사 빠른 탐색</button><aside class="side-panel" id="side-panel"><div class="side-head"><h3 data-ko="🔎 교사 빠른 탐색" data-en="🔎 Quick Find">🔎 교사 빠른 탐색</h3><button class="modal-close" onclick="toggleSidePanel()">✕</button></div><div class="side-search"><input type="search" id="side-search" placeholder="이름 검색…" data-ko-placeholder="이름 검색…" data-en-placeholder="Search name…"></div><div class="side-list" id="side-list"></div></aside>
 <div class="tooltip" id="tooltip"></div>
 
 <!-- ═══ 사용 가이드 토스트 ═══ -->
@@ -615,6 +710,409 @@ document.getElementById('search-input').addEventListener('input',function(e){
   clearTimeout(searchTimer);
   searchTimer=setTimeout(function(){searchQuery=e.target.value;render();},180);
 });
+
+
+// ═══════════════════════════════════════════════════════════════════
+// 신규 학생 등록 위저드 + 수업 변경 기능 (클릭/드래그 위주 UX)
+// 경쟁사 패턴: Calendly(시간 그리드) + Preply(매칭) + Cambly(즉시 추천)
+// ═══════════════════════════════════════════════════════════════════
+var wizState=null;
+function openEnrollWizard(prefill){
+  wizState={
+    step:1,
+    student:{name:'',uid:'',level:''},
+    teacherPrefs:[], // ['home','office','native']
+    dows:[],         // [0..6] (월=0)
+    hours:{},        // {dow_hour: true}
+    chosenMatch:null,
+    isEdit:false
+  };
+  if(prefill){ Object.assign(wizState,prefill); }
+  renderWizard();
+}
+window.openEnrollWizard=openEnrollWizard;
+
+function renderWizard(){
+  var L=currentLang==='ko';
+  var s=wizState;
+  var prog='';
+  for(var i=1;i<=4;i++){
+    var c=i<s.step?'done':(i===s.step?'active':'');
+    prog+='<div class="wiz-step-bar '+c+'"></div>';
+  }
+  var stepLabels=[
+    L?'1️⃣ 학생 정보':'1. Student',
+    L?'2️⃣ 원하는 교사':'2. Preference',
+    L?'3️⃣ 요일 · 시간':'3. Time',
+    L?'4️⃣ 매칭 확정':'4. Confirm'
+  ];
+  var html='<div class="modal wiz-modal">'+
+    '<div class="modal-head">'+
+      '<div class="modal-title">'+(s.isEdit?'✏️ '+(L?'수업 변경':'Edit Class'):'➕ '+(L?'신규 학생 등록':'Enroll Student'))+'</div>'+
+      '<button class="modal-close" onclick="closeModal()">✕</button>'+
+    '</div>'+
+    '<div class="wiz-progress">'+prog+'</div>'+
+    '<div class="wiz-step-label">'+stepLabels[s.step-1]+'</div>'+
+    '<div class="wiz-body" id="wiz-body"></div>'+
+    '<div class="modal-actions">'+
+      (s.step>1?'<button class="modal-btn ghost" onclick="wizPrev()">← '+(L?'이전':'Back')+'</button>':'<button class="modal-btn ghost" onclick="closeModal()">'+(L?'취소':'Cancel')+'</button>')+
+      (s.step<4?'<button class="modal-btn primary" id="wiz-next" onclick="wizNext()">'+(L?'다음':'Next')+' →</button>':'<button class="modal-btn primary" onclick="wizFinalize()">💾 '+(L?'등록 완료':'Confirm')+'</button>')+
+    '</div>'+
+  '</div>';
+  modalBox.innerHTML=html;
+  modalOverlay.classList.add('show');
+  document.body.style.overflow='hidden';
+  renderWizStep();
+}
+
+function renderWizStep(){
+  var L=currentLang==='ko';
+  var body=document.getElementById('wiz-body');
+  var s=wizState;
+  if(s.step===1){
+    // 학생 정보 (이름 + 레벨)
+    var suggestNames=['홍길동','김민수','이지민','박서연','최우진','강지원','윤하린','오은서','신예린'];
+    var nameChips=suggestNames.map(function(n){return '<span class="name-chip" onclick="document.getElementById(\'wiz-name\').value=\''+n+'\';wizUpdateName()">'+n+'</span>';}).join('');
+    var levels=['A1','A2','B1','B2','C1','C2'];
+    var lvlCards=levels.map(function(lv){
+      return '<div class="opt-card '+(s.student.level===lv?'selected':'')+'" onclick="wizSelectLevel(\''+lv+'\')">'+
+        '<div class="oc-ico">🎓</div><div class="oc-name">'+lv+'</div><div class="oc-sub">'+({'A1':L?'입문':'Beginner','A2':L?'초급':'Elementary','B1':L?'중급':'Intermediate','B2':L?'중상급':'Upper','C1':L?'고급':'Advanced','C2':L?'최고급':'Proficient'}[lv])+'</div></div>';
+    }).join('');
+    body.innerHTML=
+      '<h2 class="wiz-h2">👤 '+(L?'학생 정보':'Student Info')+'</h2>'+
+      '<div class="wiz-desc">'+(L?'이름과 레벨만 클릭으로 선택하세요':'Just click name and level')+'</div>'+
+      '<input class="big-input" id="wiz-name" placeholder="'+(L?'학생 이름':'Student name')+'" value="'+escapeHtml(s.student.name)+'" oninput="wizUpdateName()">'+
+      '<div class="name-suggest">'+nameChips+'</div>'+
+      '<div style="margin-top:18px;font-size:11.5px;color:var(--tx2);font-weight:700;text-transform:uppercase;letter-spacing:.4px">'+(L?'레벨':'Level')+'</div>'+
+      '<div class="opt-grid cols-3" style="margin-top:6px">'+lvlCards+'</div>';
+  } else if(s.step===2){
+    // 교사 카테고리 선호 (다중 선택)
+    var cats=[
+      {id:'home',ico:'🏠',ko:'홈 교사',en:'Home',descK:'재택 1대1',descE:'Remote 1-on-1'},
+      {id:'office',ico:'🏢',ko:'오피스',en:'Office',descK:'스튜디오 수업',descE:'In studio'},
+      {id:'native',ico:'🌍',ko:'원어민',en:'Native',descK:'영어권 출신',descE:'Native speaker'},
+      {id:'manager',ico:'👔',ko:'매니저',en:'Manager',descK:'반편성/상담',descE:'Counsel'}
+    ];
+    var cards=cats.map(function(c){
+      return '<div class="opt-card '+(s.teacherPrefs.indexOf(c.id)>=0?'selected':'')+'" onclick="wizToggleTeacherPref(\''+c.id+'\')">'+
+        '<div class="oc-ico">'+c.ico+'</div><div class="oc-name">'+(L?c.ko:c.en)+'</div><div class="oc-sub">'+(L?c.descK:c.descE)+'</div></div>';
+    }).join('');
+    body.innerHTML=
+      '<h2 class="wiz-h2">👥 '+(L?'원하는 교사 종류':'Teacher Type')+'</h2>'+
+      '<div class="wiz-desc">'+(L?'여러 개 선택 가능 (탭하여 토글)':'Tap to toggle multiple')+'</div>'+
+      '<div class="opt-grid cols-2">'+cards+'</div>';
+  } else if(s.step===3){
+    // 요일 + 시간 그리드
+    var dowNames=L?['월','화','수','목','금','토','일']:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    var chips=dowNames.map(function(d,i){
+      return '<div class="dow-chip '+(s.dows.indexOf(i)>=0?'selected':'')+'" onclick="wizToggleDow('+i+')">'+d+'</div>';
+    }).join('');
+    var gridHtml='<div class="time-pref" id="time-pref-grid"><div class="tp-th"></div>';
+    for(var di=0;di<7;di++) gridHtml+='<div class="tp-th">'+dowNames[di]+'</div>';
+    for(var h=8;h<=22;h++){
+      gridHtml+='<div class="tp-cell tp-hour">'+String(h).padStart(2,'0')+'</div>';
+      for(var di=0;di<7;di++){
+        var k=di+'_'+h;
+        gridHtml+='<div class="tp-cell '+(s.hours[k]?'tp-on':'')+'" data-dow="'+di+'" data-hour="'+h+'"></div>';
+      }
+    }
+    gridHtml+='</div>';
+    body.innerHTML=
+      '<h2 class="wiz-h2">🗓 '+(L?'요일 · 시간 선호':'Preferred Days & Times')+'</h2>'+
+      '<div class="wiz-desc">'+(L?'요일 칩과 시간 그리드 (드래그로 범위 선택)':'Click days, drag time grid')+'</div>'+
+      '<div class="dow-chips">'+chips+'</div>'+
+      gridHtml;
+    setupTimeGridDrag();
+  } else if(s.step===4){
+    // AI 매칭 결과
+    body.innerHTML='<h2 class="wiz-h2">✨ '+(L?'AI 매칭 결과':'AI Match Results')+'</h2>'+
+      '<div class="wiz-desc">'+(L?'학생 선호도와 교사 빈 시간을 매칭했습니다. 카드를 클릭하면 즉시 등록됩니다.':'Click a card to assign instantly.')+'</div>'+
+      '<div id="match-results">'+computeMatches()+'</div>';
+  }
+}
+
+function wizUpdateName(){
+  wizState.student.name=document.getElementById('wiz-name').value.trim();
+  if(!wizState.student.uid && wizState.student.name){
+    wizState.student.uid='st_'+Date.now().toString(36);
+  }
+}
+function wizSelectLevel(lv){
+  wizState.student.level=lv;
+  renderWizStep();
+}
+function wizToggleTeacherPref(cat){
+  var idx=wizState.teacherPrefs.indexOf(cat);
+  if(idx>=0)wizState.teacherPrefs.splice(idx,1);
+  else wizState.teacherPrefs.push(cat);
+  renderWizStep();
+}
+function wizToggleDow(d){
+  var idx=wizState.dows.indexOf(d);
+  if(idx>=0)wizState.dows.splice(idx,1);
+  else wizState.dows.push(d);
+  renderWizStep();
+}
+function wizPrev(){ if(wizState.step>1){wizState.step--;renderWizard();} }
+function wizNext(){
+  var L=currentLang==='ko';
+  var s=wizState;
+  if(s.step===1){
+    if(!s.student.name){alert(L?'이름을 입력하세요':'Enter name');return;}
+    if(!s.student.level){alert(L?'레벨을 선택하세요':'Select level');return;}
+  } else if(s.step===2){
+    if(s.teacherPrefs.length===0){alert(L?'교사 종류 1개 이상 선택':'Pick at least 1 type');return;}
+  } else if(s.step===3){
+    if(s.dows.length===0 && Object.keys(s.hours).length===0){alert(L?'요일/시간을 선택하세요':'Pick days/times');return;}
+  }
+  s.step++;
+  renderWizard();
+}
+window.wizPrev=wizPrev;window.wizNext=wizNext;
+window.wizUpdateName=wizUpdateName;window.wizSelectLevel=wizSelectLevel;
+window.wizToggleTeacherPref=wizToggleTeacherPref;window.wizToggleDow=wizToggleDow;
+
+// 시간 그리드 드래그 선택
+function setupTimeGridDrag(){
+  var grid=document.getElementById('time-pref-grid');
+  if(!grid)return;
+  var dragging=false,toggleTo=true;
+  grid.addEventListener('mousedown',function(e){
+    var c=e.target.closest('.tp-cell');
+    if(!c||c.classList.contains('tp-hour'))return;
+    dragging=true;
+    var k=c.dataset.dow+'_'+c.dataset.hour;
+    toggleTo=!wizState.hours[k];
+    if(toggleTo)wizState.hours[k]=true;else delete wizState.hours[k];
+    c.classList.toggle('tp-on',toggleTo);
+    e.preventDefault();
+  });
+  grid.addEventListener('mousemove',function(e){
+    if(!dragging)return;
+    var c=e.target.closest('.tp-cell');
+    if(!c||c.classList.contains('tp-hour'))return;
+    var k=c.dataset.dow+'_'+c.dataset.hour;
+    if(toggleTo)wizState.hours[k]=true;else delete wizState.hours[k];
+    c.classList.toggle('tp-on',toggleTo);
+  });
+  document.addEventListener('mouseup',function(){dragging=false;},{once:true});
+  // 터치 지원
+  grid.addEventListener('touchstart',function(e){
+    var t=e.touches[0];
+    var c=document.elementFromPoint(t.clientX,t.clientY);
+    if(!c||!c.classList.contains('tp-cell')||c.classList.contains('tp-hour'))return;
+    var k=c.dataset.dow+'_'+c.dataset.hour;
+    toggleTo=!wizState.hours[k];
+    if(toggleTo)wizState.hours[k]=true;else delete wizState.hours[k];
+    c.classList.toggle('tp-on',toggleTo);
+    dragging=true;e.preventDefault();
+  },{passive:false});
+  grid.addEventListener('touchmove',function(e){
+    if(!dragging)return;
+    var t=e.touches[0];
+    var c=document.elementFromPoint(t.clientX,t.clientY);
+    if(!c||!c.classList.contains('tp-cell')||c.classList.contains('tp-hour'))return;
+    var k=c.dataset.dow+'_'+c.dataset.hour;
+    if(toggleTo)wizState.hours[k]=true;else delete wizState.hours[k];
+    c.classList.toggle('tp-on',toggleTo);
+    e.preventDefault();
+  },{passive:false});
+  grid.addEventListener('touchend',function(){dragging=false;});
+}
+
+// AI 매칭 계산: 선호 교사 카테고리 × 선호 시간 × 빈 슬롯
+function computeMatches(){
+  var L=currentLang==='ko';
+  var s=wizState;
+  var prefHours={}; // {dow: [hours]}
+  Object.keys(s.hours).forEach(function(k){
+    var p=k.split('_'); var dow=parseInt(p[0],10), h=parseInt(p[1],10);
+    prefHours[dow]=prefHours[dow]||[];
+    prefHours[dow].push(h);
+  });
+  // 요일 칩만 선택된 경우 → 그 요일의 09-20시 전체
+  s.dows.forEach(function(d){
+    if(!prefHours[d]){
+      prefHours[d]=[];
+      for(var h=9;h<=20;h++)prefHours[d].push(h);
+    }
+  });
+  // 매칭: 선호 교사 × prefHours에서 빈 슬롯
+  var matches=[];
+  TEACHERS.forEach(function(t){
+    if(s.teacherPrefs.length && s.teacherPrefs.indexOf(t.category)<0)return;
+    var openSlots=[];
+    Object.keys(prefHours).forEach(function(dow){
+      var d=new Date(currentWeekStart);d.setDate(d.getDate()+parseInt(dow,10));
+      var dateISO=fmtISO(d);
+      prefHours[dow].forEach(function(h){
+        if(!getSlot(t.id,dateISO,h))openSlots.push({dow:parseInt(dow,10),hour:h,date:dateISO});
+      });
+    });
+    if(openSlots.length>0){
+      var score=Math.min(100,Math.round(openSlots.length*100/Math.max(1,Object.keys(prefHours).length*2)));
+      matches.push({teacher:t,slots:openSlots,score:score});
+    }
+  });
+  matches.sort(function(a,b){return b.score-a.score;});
+  if(matches.length===0){
+    return '<div class="empty-msg">'+(L?'조건에 맞는 교사가 없습니다. 이전 단계로 돌아가 선호도를 조정하세요.':'No teachers match. Go back and adjust preferences.')+'</div>';
+  }
+  return matches.slice(0,6).map(function(m,i){
+    var nm=(currentLang==='en'&&m.teacher.name_en)?m.teacher.name_en:m.teacher.name;
+    var ini=(nm.match(/[A-Za-z가-힣]/)||['?'])[0];
+    var slotChips=m.slots.slice(0,8).map(function(sl){
+      var dn=(L?['월','화','수','목','금','토','일']:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'])[sl.dow];
+      return '<span class="match-slot-chip">'+dn+' '+String(sl.hour).padStart(2,'0')+':00</span>';
+    }).join('');
+    return '<div class="match-card" data-mi="'+i+'" onclick="wizPickMatch('+i+')">'+
+      '<div class="mc-head"><div class="mc-avatar avatar '+m.teacher.category+'">'+ini+'</div>'+
+      '<div class="mc-info"><div class="mc-name">'+escapeHtml(nm)+' <span class="cat-badge '+m.teacher.category+'" style="font-size:9px">'+m.teacher.category+'</span></div></div>'+
+      '<div class="mc-score">⭐ '+m.score+'%</div></div>'+
+      '<div class="mc-slots">'+slotChips+(m.slots.length>8?'<span class="match-slot-chip">+'+(m.slots.length-8)+'</span>':'')+'</div></div>';
+  }).join('');
+}
+window.__wizMatches=null;
+function wizPickMatch(i){
+  // computeMatches가 매번 다시 계산하므로 캐시
+  var s=wizState;
+  var prefHours={};
+  Object.keys(s.hours).forEach(function(k){var p=k.split('_');prefHours[parseInt(p[0],10)]=prefHours[parseInt(p[0],10)]||[];prefHours[parseInt(p[0],10)].push(parseInt(p[1],10));});
+  s.dows.forEach(function(d){if(!prefHours[d]){prefHours[d]=[];for(var h=9;h<=20;h++)prefHours[d].push(h);}});
+  var matches=[];
+  TEACHERS.forEach(function(t){
+    if(s.teacherPrefs.length && s.teacherPrefs.indexOf(t.category)<0)return;
+    var openSlots=[];
+    Object.keys(prefHours).forEach(function(dow){
+      var d=new Date(currentWeekStart);d.setDate(d.getDate()+parseInt(dow,10));
+      var dateISO=fmtISO(d);
+      prefHours[dow].forEach(function(h){if(!getSlot(t.id,dateISO,h))openSlots.push({dow:parseInt(dow,10),hour:h,date:dateISO});});
+    });
+    if(openSlots.length>0){matches.push({teacher:t,slots:openSlots,score:Math.min(100,Math.round(openSlots.length*100/Math.max(1,Object.keys(prefHours).length*2)))});}
+  });
+  matches.sort(function(a,b){return b.score-a.score;});
+  s.chosenMatch=matches[i];
+  document.querySelectorAll('.match-card').forEach(function(el){el.style.borderColor='var(--bd)';});
+  var el=document.querySelector('.match-card[data-mi="'+i+'"]');
+  if(el){el.style.borderColor='var(--ac)';el.style.background='rgba(251,191,36,.12)';}
+}
+window.wizPickMatch=wizPickMatch;
+
+function wizFinalize(){
+  var L=currentLang==='ko';
+  var s=wizState;
+  if(!s.chosenMatch){alert(L?'추천 카드 하나를 클릭하여 선택하세요':'Click one recommended card');return;}
+  var m=s.chosenMatch;
+  // 슬롯 등록 - 첫 몇 개만 자동 배정 (또는 전체)
+  var assigned=0;
+  m.slots.slice(0,3).forEach(function(sl){
+    addSlot(m.teacher.id,sl.date,sl.hour,{
+      type:'1on1',
+      students:[{name:s.student.name,uid:s.student.uid}],
+      start_date:sl.date,
+      end_date:(function(){var d=new Date(sl.date);d.setMonth(d.getMonth()+3);return fmtISO(d);})(),
+      note:(L?'레벨 ':'Level ')+s.student.level
+    });
+    assigned++;
+  });
+  // 완료 화면
+  var nm=(currentLang==='en'&&m.teacher.name_en)?m.teacher.name_en:m.teacher.name;
+  modalBox.innerHTML='<div class="modal wiz-modal">'+
+    '<div class="modal-head"><div class="modal-title">🎉 '+(L?'등록 완료':'Enrolled')+'</div>'+
+    '<button class="modal-close" onclick="closeModal();render()">✕</button></div>'+
+    '<div class="modal-body"><div class="done-screen"><div class="big-check">✅</div>'+
+    '<h3>'+(L?'성공적으로 등록되었습니다!':'Successfully enrolled!')+'</h3>'+
+    '<div class="ds-sub">'+(L?assigned+'개 슬롯이 자동으로 배정되었습니다':assigned+' slots assigned')+'</div>'+
+    '<div class="done-summary">'+
+      '<div class="ds-row"><span class="k">'+(L?'학생':'Student')+'</span><span class="v">'+escapeHtml(s.student.name)+' ('+s.student.uid+')</span></div>'+
+      '<div class="ds-row"><span class="k">'+(L?'레벨':'Level')+'</span><span class="v">'+s.student.level+'</span></div>'+
+      '<div class="ds-row"><span class="k">'+(L?'담당 교사':'Teacher')+'</span><span class="v">'+escapeHtml(nm)+'</span></div>'+
+      '<div class="ds-row"><span class="k">'+(L?'배정 슬롯':'Slots')+'</span><span class="v">'+assigned+(L?'개':'')+'</span></div>'+
+    '</div></div></div>'+
+    '<div class="modal-actions"><button class="modal-btn primary" onclick="closeModal();render()">'+(L?'확인':'OK')+'</button></div></div>';
+  // 스케줄 다시 그리기 (백그라운드에서)
+}
+window.wizFinalize=wizFinalize;
+
+// ═══ 셀 우클릭 컨텍스트 메뉴 (수업 변경/삭제) ═══
+var ctxMenu=document.getElementById('ctx-menu');
+document.addEventListener('contextmenu',function(e){
+  var t=e.target.closest('.slot');
+  if(!t||!t.dataset.slot)return;
+  e.preventDefault();
+  var data=JSON.parse(decodeURIComponent(t.dataset.slot));
+  var L=currentLang==='ko';
+  ctxMenu.innerHTML=
+    '<div class="ctx-item" onclick="openSlotDetail(\''+data.teacher+'\',\''+data.date+'\','+data.hour+',JSON.parse(decodeURIComponent(\''+encodeURIComponent(JSON.stringify(data.slot))+'\')));hideCtx()">📋 '+(L?'상세보기':'Details')+'</div>'+
+    '<div class="ctx-item" onclick="moveSlotStart(\''+data.teacher+'\',\''+data.date+'\','+data.hour+');hideCtx()">🔄 '+(L?'시간 변경':'Move')+'</div>'+
+    '<div class="ctx-divider"></div>'+
+    '<div class="ctx-item danger" onclick="deleteSlotConfirm(\''+data.teacher+'\',\''+data.date+'\','+data.hour+');hideCtx()">🗑 '+(L?'삭제':'Delete')+'</div>';
+  ctxMenu.style.left=Math.min(e.clientX,window.innerWidth-200)+'px';
+  ctxMenu.style.top=Math.min(e.clientY,window.innerHeight-160)+'px';
+  ctxMenu.classList.add('show');
+});
+document.addEventListener('click',function(e){ if(!e.target.closest('.ctx-menu'))hideCtx(); });
+function hideCtx(){ ctxMenu.classList.remove('show'); }
+window.hideCtx=hideCtx;
+
+// ═══ 수업 변경 (간단 모드): 클릭으로 새 시간 선택 ═══
+var movingSlot=null;
+function moveSlotStart(teacherName,dateISO,hour){
+  var L=currentLang==='ko';
+  var t=TEACHERS.find(function(t){var nm=(currentLang==='en'&&t.name_en)?t.name_en:t.name;return nm===teacherName;});
+  if(!t)return;
+  var slot=getSlot(t.id,dateISO,hour);if(!slot)return;
+  movingSlot={teacher:t,oldDate:dateISO,oldHour:hour,slot:slot};
+  // 위저드처럼 시간 그리드로 새 시간 선택
+  var html='<div class="modal wiz-modal">'+
+    '<div class="modal-head"><div class="modal-title">🔄 '+(L?'시간 변경':'Move Class')+'</div>'+
+    '<button class="modal-close" onclick="closeModal();movingSlot=null">✕</button></div>'+
+    '<div class="wiz-body">'+
+      '<div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);border-radius:10px;padding:10px;margin-bottom:14px;font-size:13px">'+
+        '<b style="color:#fde68a">'+(L?'기존':'From')+':</b> '+escapeHtml(teacherName)+' · '+dateISO+' '+String(hour).padStart(2,'0')+':00'+
+      '</div>'+
+      '<div style="font-size:11.5px;color:var(--tx2);font-weight:700;margin-bottom:8px">'+(L?'새 시간을 클릭하세요 (회색 빈 칸만)':'Click a new empty slot below')+'</div>'+
+      '<div id="move-grid">'+renderMoveGrid(t)+'</div>'+
+    '</div>'+
+    '<div class="modal-actions">'+
+      '<button class="modal-btn ghost" onclick="closeModal();movingSlot=null">'+(L?'취소':'Cancel')+'</button>'+
+    '</div></div>';
+  modalBox.innerHTML=html;
+  modalOverlay.classList.add('show');
+}
+window.moveSlotStart=moveSlotStart;
+
+function renderMoveGrid(t){
+  var L=currentLang==='ko';
+  var dn=L?['월','화','수','목','금','토','일']:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  var html='<div class="time-pref" id="move-grid-inner"><div class="tp-th"></div>';
+  for(var i=0;i<7;i++)html+='<div class="tp-th">'+dn[i]+'</div>';
+  for(var h=8;h<=22;h++){
+    html+='<div class="tp-cell tp-hour">'+String(h).padStart(2,'0')+'</div>';
+    for(var di=0;di<7;di++){
+      var d=new Date(currentWeekStart);d.setDate(d.getDate()+di);
+      var dateISO=fmtISO(d);
+      var s=getSlot(t.id,dateISO,h);
+      var cls=s?'tp-cell':'tp-cell';
+      var inline=s?'background:rgba(239,68,68,.15);cursor:not-allowed':'cursor:pointer;background:rgba(16,185,129,.08)';
+      var click=s?'':'onclick="confirmMove(\''+dateISO+'\','+h+')"';
+      html+='<div class="'+cls+'" style="'+inline+'" '+click+'></div>';
+    }
+  }
+  html+='</div>';
+  return html;
+}
+window.confirmMove=function(newDate,newHour){
+  if(!movingSlot)return;
+  var L=currentLang==='ko';
+  // 기존 위치에서 제거, 새 위치에 추가
+  delete SLOTS[movingSlot.teacher.id+'__'+movingSlot.oldDate+'__'+movingSlot.oldHour];
+  addSlot(movingSlot.teacher.id,newDate,newHour,movingSlot.slot);
+  movingSlot=null;
+  closeModal();
+  render();
+  setTimeout(function(){alert(L?'시간이 변경되었습니다':'Class moved');},150);
+};
 
 // ═══ 듀얼 타임존 ═══
 var currentTZ='Asia/Seoul';
