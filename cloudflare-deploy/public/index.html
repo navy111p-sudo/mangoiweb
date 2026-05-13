@@ -1700,7 +1700,7 @@
 
 <div id="view-home" class="view active">
     <!-- 언어 전환 버튼 -->
-    <button id="lang-toggle" onclick="toggleLang()" style="position:absolute;top:1.2rem;right:1.2rem;z-index:10;background:rgba(30,41,59,0.5);backdrop-filter:blur(6px);border:1px solid rgba(148,163,184,0.2);border-radius:12px;padding:0.45rem 0.7rem;color:#cbd5e1;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;gap:0.4rem;transition:all 0.3s;">
+    <button id="lang-toggle" onclick="toggleLang()" style="position:absolute;top:1.2rem;right:1.2rem;z-index:10;background:linear-gradient(135deg,rgba(251,191,36,0.95),rgba(245,158,11,0.95));backdrop-filter:blur(6px);border:2px solid rgba(251,191,36,0.85);border-radius:14px;padding:0.6rem 0.95rem;color:#0f172a;font-size:0.95rem;font-weight:800;box-shadow:0 6px 20px rgba(245,158,11,0.45);cursor:pointer;display:flex;align-items:center;gap:0.4rem;transition:all 0.3s;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
         <span id="lang-label">EN</span>
     </button>
@@ -2366,11 +2366,28 @@
         var txt = el.getAttribute('data-' + currentLang);
         if(txt !== null) el.textContent = txt;
       });
-      // placeholder 번역
+      // placeholder 번역 (구버전 호환)
       document.querySelectorAll('[data-ko-ph]').forEach(function(el){
         var ph = el.getAttribute('data-' + currentLang + '-ph');
         if(ph) el.placeholder = ph;
       });
+      // placeholder 번역 (확장)
+      document.querySelectorAll('[data-ko-placeholder]').forEach(function(el){
+        var ph = el.getAttribute('data-' + currentLang + '-placeholder');
+        if(ph) el.placeholder = ph;
+      });
+      // title 속성 번역
+      document.querySelectorAll('[data-ko-title]').forEach(function(el){
+        var t = el.getAttribute('data-' + currentLang + '-title');
+        if(t) el.title = t;
+      });
+      // aria-label 속성 번역
+      document.querySelectorAll('[data-ko-aria]').forEach(function(el){
+        var a = el.getAttribute('data-' + currentLang + '-aria');
+        if(a) el.setAttribute('aria-label', a);
+      });
+      // 선호도 저장
+      try { localStorage.setItem('mangoi_lang', currentLang); } catch(e){}
       // 모든 lang-label 동기화
       document.querySelectorAll('.lang-label-sync').forEach(function(el){ el.textContent = newLabel; });
       var homeLabel = document.getElementById('lang-label');
@@ -2382,6 +2399,20 @@
         btn.style.color = (currentLang === 'ko') ? '#cbd5e1' : '#38bdf8';
       }
     }
+    // 페이지 로드 시 저장된 언어 복원
+    (function(){
+      function restore(){
+        try {
+          var saved = localStorage.getItem('mangoi_lang');
+          if (saved === 'en') toggleLang();
+        } catch(e){}
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', restore);
+      else setTimeout(restore, 0);
+    })();
+    // 외부에서 언어 직접 지정용
+    window.setLang = function(l){ if((l==='ko' && currentLang==='en') || (l==='en' && currentLang==='ko')) toggleLang(); };
+    window.getLang = function(){ return currentLang; };
 
     // ═══════ 🚀 우주선 워프 비행 (60초 간격 자동 발사 + 첫 8초 후 시범 비행) ═══════
     function launchStarship() {
@@ -2425,7 +2456,7 @@
                placeholder="🤖 AI에게 물어보기 - 원하시는 것을 알려주세요."
                data-ko-placeholder="🤖 AI에게 물어보기 - 원하시는 것을 알려주세요."
                data-en-placeholder="🤖 Ask AI - tell me what you need." value="" />
-        <button class="ai-search-mic" id="ai-home-mic" type="button" title="음성 검색 — 클릭 후 말하세요" aria-label="Voice search">
+        <button class="ai-search-mic" id="ai-home-mic" type="button" title="음성 검색 — 클릭 후 말하세요" data-ko-title="음성 검색 — 클릭 후 말하세요" data-en-title="Voice search — click then speak" aria-label="Voice search">
           <span class="mic-ring mic-ring-1"></span>
           <span class="mic-ring mic-ring-2"></span>
           <span class="mic-ring mic-ring-3"></span>
@@ -2436,25 +2467,28 @@
             <line x1="8" y1="22" x2="16" y2="22"></line>
           </svg>
         </button>
-        <button class="ai-search-go" id="ai-home-go" type="button" title="이동">
+        <button class="ai-search-go" id="ai-home-go" type="button" title="이동" data-ko-title="이동" data-en-title="Go">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
             <line x1="5" y1="12" x2="19" y2="12"></line>
             <polyline points="12 5 19 12 12 19"></polyline>
           </svg>
         </button>
       </div>
-      <div id="ai-home-listening" class="ai-listening" style="display:none">
+      <div id="ai-home-listening" class="ai-listening" style="display:none"
+           data-ko="🎙 듣고 있습니다… 말씀해주세요"
+           data-en="🎙 Listening… please speak">
         🎙 듣고 있습니다… 말씀해주세요
       </div>
       <div id="ai-home-suggest" class="ai-suggest" style="display:none"></div>
       <div class="ai-quick">
         <!-- 🔤 가나다 순 (관 → 마 → 발 → 수 → 신 → 홈) -->
-        <button class="ai-quick-btn" data-go="admin">📊 관리자</button>
-        <button class="ai-quick-btn" data-go="mypage">👤 마이페이지</button>
-        <button class="ai-quick-btn" data-go="speech">🎤 발음연습</button>
-        <button class="ai-quick-btn" data-go="enter-class">🎥 수업입장</button>
-        <button class="ai-quick-btn" data-go="inquiry">💬 신규상담</button>
-        <button class="ai-quick-btn" data-go="homepage">🏠 홈페이지</button>
+        <button class="ai-quick-btn" data-go="admin" data-ko="📊 관리자" data-en="📊 Admin">📊 관리자</button>
+        <button class="ai-quick-btn" data-go="mypage" data-ko="👤 마이페이지" data-en="👤 My Page">👤 마이페이지</button>
+        <button class="ai-quick-btn" data-go="speech" data-ko="🎤 발음연습" data-en="🎤 Pronunciation">🎤 발음연습</button>
+        <button class="ai-quick-btn" data-go="enter-class" data-ko="🎥 수업입장" data-en="🎥 Enter Class">🎥 수업입장</button>
+        <button class="ai-quick-btn" data-go="inquiry" data-ko="💬 신규상담" data-en="💬 New Inquiry">💬 신규상담</button>
+        <button class="ai-quick-btn" data-go="homepage" data-ko="🏠 홈페이지" data-en="🏠 Homepage">🏠 홈페이지</button>
+        <button class="ai-quick-btn" type="button" onclick="toggleLang()" id="lang-toggle-inline" style="border-color:rgba(251,191,36,0.55);background:rgba(251,191,36,0.12);color:#fde68a;font-weight:800;">🌐 <span class="lang-label-sync">EN</span></button>
       </div>
     </div>
 
@@ -2467,7 +2501,7 @@
         <span id="gm-sort-badge" style="margin-left:8px;padding:3px 9px;background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.35);border-radius:6px;color:#fde68a;font-size:10.5px;font-weight:700;letter-spacing:0.3px" data-ko="🔤 가나다순 · A→Z" data-en="🔤 A → Z">🔤 가나다순 · A→Z</span>
         <button id="gm-lang-toggle" type="button" style="margin-left:8px;padding:4px 10px;background:rgba(78,201,255,0.12);border:1px solid rgba(78,201,255,0.35);border-radius:6px;color:#9ee5ff;font-size:10.5px;font-weight:800;cursor:pointer">🌐 EN</button>
       </span>
-      <button class="grid-menu-close" id="grid-menu-close" aria-label="닫기">✕</button>
+      <button class="grid-menu-close" id="grid-menu-close" aria-label="닫기" data-ko-aria="닫기" data-en-aria="Close">✕</button>
     </div>
     <div class="grid-menu-cards" id="gm-cards">
       <button class="gm-card" data-go="franchise" data-en-key="franchise inquiry">
