@@ -128,6 +128,32 @@ h1 .sub{font-size:13px;color:var(--tx2);font-weight:500;margin-left:4px}
 
 
 
+
+/* ═══ 10분 단위 그리드 ═══ */
+.mini-cal td.slot.row10{height:6px;border-top:none;border-bottom:1px solid rgba(255,255,255,.02)}
+.mini-cal td.slot.row10.boundary{border-top:1px solid var(--bd2)}
+.mini-cal td.slot.row10.hour-mark{border-top:1.5px solid var(--bd)}
+.mini-cal td.col-time.row10{height:6px;padding:0;border-bottom:1px solid rgba(255,255,255,.02);font-size:8.5px}
+.mini-cal td.col-time.row10.hour-mark{border-top:1.5px solid var(--bd);padding-top:2px;font-weight:700;color:var(--tx2)}
+.mini-cal td.col-time.row10:not(.hour-mark){color:var(--tx3);font-weight:400;opacity:.6;font-size:7.5px}
+.mini-cal td.slot.row10.slot-start{position:relative;border-top:2px solid rgba(0,0,0,.3)!important}
+.mini-cal td.slot.row10 .slot-text10{position:absolute;left:0;right:0;top:0;text-align:center;font-size:9px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5);line-height:1.1;padding:1px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;z-index:1}
+.mini-cal td.slot.row10.slot-cont{border-top-color:transparent!important}
+
+/* Compact 모드 더 작게 */
+body.compact .mini-cal td.slot.row10{height:4px}
+body.compact .mini-cal td.col-time.row10{height:4px}
+body.compact .mini-cal td.slot.row10 .slot-text10{font-size:8px}
+
+/* Duration 옵션 카드 */
+.dur-choices{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
+.dur-choice{padding:14px 10px;border:2px solid var(--bd);border-radius:12px;background:var(--bg2);cursor:pointer;transition:all .15s;text-align:center;user-select:none}
+.dur-choice:hover{transform:translateY(-2px);border-color:var(--ac)}
+.dur-choice.selected{border-color:var(--ac);background:rgba(251,191,36,.12);box-shadow:0 6px 16px rgba(245,158,11,.25)}
+.dur-choice .dc-num{font-size:24px;font-weight:900;color:#fbbf24;line-height:1}
+.dur-choice .dc-unit{font-size:11px;font-weight:700;color:var(--tx);margin-top:2px;text-transform:uppercase;letter-spacing:.4px}
+.dur-choice .dc-tag{font-size:10px;color:var(--tx2);margin-top:4px}
+
 /* ═══ 드래그 앤 드롭 (Google Calendar 스타일) ═══ */
 .mini-cal td.slot.dragging-source{opacity:.35;outline:2px dashed var(--ac);outline-offset:-2px}
 .mini-cal td.slot.drop-target-ok{outline:3px solid #10b981;outline-offset:-3px;background:rgba(16,185,129,.35)!important;box-shadow:inset 0 0 12px rgba(16,185,129,.5);animation:dropPulse .6s infinite}
@@ -386,7 +412,7 @@ body.dragging{cursor:crosshair}
     <button class="cat-btn" data-cat="office"><span data-ko="🏢 오피스" data-en="🏢 Office">🏢 오피스</span><span class="count" id="cnt-office"></span></button>
     <button class="cat-btn" data-cat="native"><span data-ko="🌍 원어민" data-en="🌍 Native">🌍 원어민</span><span class="count" id="cnt-native"></span></button>
     <button class="cat-btn" data-cat="manager"><span data-ko="👔 매니저" data-en="👔 Manager">👔 매니저</span><span class="count" id="cnt-manager"></span></button>
-  </div><div class="view-toggle"><button class="active" data-mode="normal" data-ko="기본" data-en="Normal">기본</button><button data-mode="compact" data-ko="컴팩트" data-en="Compact">컴팩트</button></div><div class="view-toggle"><button class="active" data-unit="60" data-ko="1시간" data-en="1H">1시간</button><button data-unit="30" data-ko="30분" data-en="30M">30분</button></div>
+  </div><div class="view-toggle"><button class="active" data-mode="normal" data-ko="기본" data-en="Normal">기본</button><button data-mode="compact" data-ko="컴팩트" data-en="Compact">컴팩트</button></div><div class="view-toggle"><button class="active" data-dur="60" data-ko="60분" data-en="60m">60분</button><button data-dur="40" data-ko="40분" data-en="40m">40분</button><button data-dur="20" data-ko="20분" data-en="20m">20분</button></div>
 </section>
 <div class="legend-bar">
   <span class="legend-label" data-ko="셀 색상:" data-en="Cell color:">셀 색상:</span>
@@ -488,13 +514,15 @@ function loadDemoData(){
         var r=(seed%100)/100;
         if(r<0.35){
           var stu=(ti+di+h)%demoNames.length;
-          addSlot(t.id,dateISO,h,{type:'1on1',students:[{name:demoNames[stu],uid:'test_st_'+stu}],start_date:'2026-04-01',end_date:'2026-07-31'});
+          var dur=[60,40,20][(ti+di+h)%3];
+          addSlot(t.id,dateISO,h,{type:'1on1',students:[{name:demoNames[stu],uid:'test_st_'+stu}],start_date:'2026-04-01',end_date:'2026-07-31',duration_min:dur});
         }else if(r<0.50){
           var s1=(ti+di+h)%demoNames.length,s2=(s1+4)%demoNames.length,s3=(s1+8)%demoNames.length;
-          addSlot(t.id,dateISO,h,{type:'group',students:[{name:demoNames[s1],uid:'test_st_'+s1},{name:demoNames[s2],uid:'test_st_'+s2},{name:demoNames[s3],uid:'test_st_'+s3}],start_date:'2026-04-01',end_date:'2026-08-31'});
+          var durG=[60,40][(ti+di+h)%2];
+          addSlot(t.id,dateISO,h,{type:'group',students:[{name:demoNames[s1],uid:'test_st_'+s1},{name:demoNames[s2],uid:'test_st_'+s2},{name:demoNames[s3],uid:'test_st_'+s3}],start_date:'2026-04-01',end_date:'2026-08-31',duration_min:durG});
         }else if(r<0.56){
           var stt=(ti+di+h)%demoNames.length;
-          addSlot(t.id,dateISO,h,{type:'temp',students:[{name:demoNames[stt],uid:'test_st_'+stt}],start_date:dateISO,end_date:dateISO,note:currentLang==='ko'?'대체 수업':'Substitute'});
+          addSlot(t.id,dateISO,h,{type:'temp',students:[{name:demoNames[stt],uid:'test_st_'+stt}],start_date:dateISO,end_date:dateISO,note:currentLang==='ko'?'대체 수업':'Substitute',duration_min:20});
         }
       }
     });
@@ -550,10 +578,12 @@ function generateDemoSlots(){
         var r=((ti*7+di*13+h*3)%100)/100;
         if(r<0.35){
           var stu=(ti+di+h)%demoNames.length;
-          addSlot(t.id,dateISO,h,{type:'1on1',students:[{name:demoNames[stu],uid:'test_st_'+stu}],start_date:'2026-04-01',end_date:'2026-07-31'});
+          var dur=[60,40,20][(ti+di+h)%3];
+          addSlot(t.id,dateISO,h,{type:'1on1',students:[{name:demoNames[stu],uid:'test_st_'+stu}],start_date:'2026-04-01',end_date:'2026-07-31',duration_min:dur});
         } else if(r<0.50){
           var s1=(ti+di+h)%demoNames.length,s2=(s1+4)%demoNames.length,s3=(s1+8)%demoNames.length;
-          addSlot(t.id,dateISO,h,{type:'group',students:[{name:demoNames[s1],uid:'test_st_'+s1},{name:demoNames[s2],uid:'test_st_'+s2},{name:demoNames[s3],uid:'test_st_'+s3}],start_date:'2026-04-01',end_date:'2026-08-31'});
+          var durG=[60,40][(ti+di+h)%2];
+          addSlot(t.id,dateISO,h,{type:'group',students:[{name:demoNames[s1],uid:'test_st_'+s1},{name:demoNames[s2],uid:'test_st_'+s2},{name:demoNames[s3],uid:'test_st_'+s3}],start_date:'2026-04-01',end_date:'2026-08-31',duration_min:durG});
         }
       }
     });
@@ -649,31 +679,74 @@ function renderTeacher(t){
     html+='<th class="day-th'+(isToday?' today':'')+'"><div class="dn">'+dn[i]+'</div><div class="dd">'+d.getDate()+'</div></th>';
   }
   html+='</tr></thead><tbody>';
-  var nowH=today.getHours();
-  for(var hour=8;hour<=22;hour++){
-    html+='<tr><td class="col-time">'+String(hour).padStart(2,'0')+'</td>';
-    for(var di=0;di<7;di++){
-      var d=new Date(currentWeekStart);d.setDate(d.getDate()+di);
-      var dateISO=fmtISO(d);var slot=getSlot(t.id,dateISO,hour);
-      var isWk=(di>=5),isTd=isSameDate(d,today);
-      var nowCls=(isTd&&hour===nowH)?' now':'';
-      if(!slot){html+='<td class="slot '+(isWk?'slot-weekend':'slot-empty')+nowCls+'"></td>';}
-      else{
-        var cls='slot-'+slot.type,txt='';
-        if(slot.students&&slot.students.length>0){
-          if(slot.students.length===1)txt=slot.students[0].name.substring(0,currentLang==='ko'?2:6);
-          else txt=(currentLang==='ko'?'그룹 ':'G·')+slot.students.length;
+  var nowH=today.getHours();var nowM=today.getMinutes();
+  // 9시 ~ 23시, 10분 단위
+  var START_H=9,END_H=23;
+  // 각 (날짜, 시작분) 셀에 해당하는 슬롯 찾기. 슬롯 시작 셀과 연속 셀 구분.
+  // 슬롯 데이터 모델: getSlot(t.id, dateISO, hour) - 시작 시간은 hour 단위(:00)로 가정.
+  // duration_min: 슬롯 길이 (60/40/20)
+  for(var hour=START_H;hour<=END_H;hour++){
+    for(var m=0;m<60;m+=10){
+      if(hour===END_H && m>0)continue; // 23:00 까지만
+      var isHourMark=(m===0);
+      var rowHM=String(hour).padStart(2,'0')+(m===0?':00':(':'+String(m).padStart(2,'0')));
+      var timeLabel=(m===0)?String(hour).padStart(2,'0'):(':'+String(m).padStart(2,'0'));
+      html+='<tr>';
+      html+='<td class="col-time row10'+(isHourMark?' hour-mark':'')+'">'+timeLabel+'</td>';
+      for(var di=0;di<7;di++){
+        var d=new Date(currentWeekStart);d.setDate(d.getDate()+di);
+        var dateISO=fmtISO(d);
+        var isWk=(di>=5),isTd=isSameDate(d,today);
+        var nowCls=(isTd&&hour===nowH&&m<=nowM&&nowM<m+10)?' now':'';
+        // 이 셀이 어떤 슬롯에 속하는지 찾기
+        var slotInfo=findSlotForCell(t.id,dateISO,hour,m);
+        if(!slotInfo){
+          html+='<td class="slot row10'+(isHourMark?' hour-mark':' boundary')+' '+(isWk?'slot-weekend':'slot-empty')+nowCls+'" data-hour="'+hour+'" data-min="'+m+'"></td>';
+        } else {
+          var slot=slotInfo.slot, isStart=slotInfo.isStart;
+          var cls='slot row10 slot-'+slot.type+(isHourMark?' hour-mark':'')+(isStart?' slot-start':' slot-cont')+nowCls;
+          var attrs='';
+          if(isStart){
+            var payload=encodeURIComponent(JSON.stringify({teacher:name,date:dateISO,hour:hour,slot:slot,minute:m}));
+            attrs=' data-slot="'+payload+'" data-hour="'+hour+'" data-min="'+m+'"';
+          } else {
+            attrs=' data-hour="'+hour+'" data-min="'+m+'" data-cont="1"';
+          }
+          html+='<td class="'+cls+'"'+attrs+'>';
+          if(isStart){
+            var txt='';
+            if(slot.students&&slot.students.length>0){
+              if(slot.students.length===1)txt=slot.students[0].name.substring(0,currentLang==='ko'?2:6);
+              else txt=(currentLang==='ko'?'그룹':'G')+'·'+slot.students.length;
+            } else if(slot.type==='blocked'){ txt=''; }
+            var durBadge=slot.duration_min?'<span style="opacity:.7;font-size:7px;margin-left:2px">'+slot.duration_min+'m</span>':'';
+            if(txt)html+='<div class="slot-text10">'+escapeHtml(txt)+durBadge+'</div>';
+          }
+          html+='</td>';
         }
-        var payload=encodeURIComponent(JSON.stringify({teacher:name,date:dateISO,hour:hour,slot:slot}));
-        html+='<td class="slot '+cls+nowCls+'" data-slot="'+payload+'">';
-        if(txt)html+='<div class="slot-text">'+escapeHtml(txt)+'</div>';
-        html+='</td>';
       }
+      html+='</tr>';
     }
-    html+='</tr>';
   }
   html+='</tbody></table></div></div>';
   return html;
+}
+
+// 셀(hour,minute)이 어떤 슬롯에 속하는지 + 그 슬롯의 시작 셀인지 반환
+function findSlotForCell(teacherId,dateISO,hour,minute){
+  var cellMin=hour*60+minute;
+  // 슬롯 시작 시간은 hour 단위. 그 슬롯이 cellMin 을 포함하면 매치.
+  for(var startHour=Math.max(0,hour-1);startHour<=hour;startHour++){
+    var s=getSlot(teacherId,dateISO,startHour);
+    if(!s)continue;
+    var startMin=startHour*60;
+    var dur=s.duration_min||60;
+    var endMin=startMin+dur;
+    if(cellMin>=startMin && cellMin<endMin){
+      return {slot:s,isStart:(cellMin===startMin)};
+    }
+  }
+  return null;
 }
 
 var tooltip=document.getElementById('tooltip');
@@ -1229,13 +1302,15 @@ function wizFinalize(){
   var m=s.chosenMatch;
   // 슬롯 등록 - 첫 몇 개만 자동 배정 (또는 전체)
   var assigned=0;
+  var dur=(typeof defaultDuration!=='undefined')?defaultDuration:60;
   m.slots.slice(0,3).forEach(function(sl){
     addSlot(m.teacher.id,sl.date,sl.hour,{
       type:'1on1',
       students:[{name:s.student.name,uid:s.student.uid}],
       start_date:sl.date,
       end_date:(function(){var d=new Date(sl.date);d.setMonth(d.getMonth()+3);return fmtISO(d);})(),
-      note:(L?'레벨 ':'Level ')+s.student.level
+      note:(L?'레벨 ':'Level ')+s.student.level,
+      duration_min:dur
     });
     assigned++;
   });
@@ -1364,17 +1439,18 @@ document.querySelectorAll('.view-toggle button[data-mode]').forEach(function(btn
     document.body.classList.toggle('compact',btn.dataset.mode==='compact');
   });
 });
-// ═══ 시간 단위 토글 ═══
-var slotUnit=60;
-document.querySelectorAll('.view-toggle button[data-unit]').forEach(function(btn){
+// ═══ 기본 수업 길이 토글 (60/40/20분) ═══
+var defaultDuration=60;
+document.querySelectorAll('.view-toggle button[data-dur]').forEach(function(btn){
   btn.addEventListener('click',function(){
-    document.querySelectorAll('.view-toggle button[data-unit]').forEach(function(b){b.classList.remove('active');});
+    document.querySelectorAll('.view-toggle button[data-dur]').forEach(function(b){b.classList.remove('active');});
     btn.classList.add('active');
-    slotUnit=parseInt(btn.dataset.unit,10);
-    document.body.classList.toggle('half-hour',slotUnit===30);
-    render();
+    defaultDuration=parseInt(btn.dataset.dur,10);
+    // 토스트 표시
+    if(typeof showDndToast==='function')showDndToast((currentLang==='ko'?'기본 수업 길이: ':'Default duration: ')+defaultDuration+(currentLang==='ko'?'분':'min'),'ok');
   });
 });
+window.getDefaultDuration=function(){return defaultDuration;};
 
 // ═══ D-day 배지 계산 ═══
 function ddayBadge(endDate){
@@ -1698,12 +1774,24 @@ window.clearDragSel=clearDragSel;
 function renderNewSlotFields(type){
   var L=currentLang==='ko';
   var box=document.getElementById('new-slot-fields');
+  var dd=(typeof defaultDuration!=='undefined')?defaultDuration:60;
+  var durCards='<label>'+(L?'수업 길이':'Class Duration')+'</label><div class="dur-choices" id="ns-dur-choices">'+
+    [60,40,20].map(function(d){
+      return '<div class="dur-choice '+(d===dd?'selected':'')+'" data-dur="'+d+'" onclick="window.__pickDur('+d+')"><div class="dc-num">'+d+'</div><div class="dc-unit">'+(L?'분':'min')+'</div><div class="dc-tag">'+(d===60?(L?'기본':'Default'):(d===40?(L?'중':'Mid'):(L?'짧음':'Short')))+'</div></div>';
+    }).join('')+'</div>';
+  window.__currentDur=dd;
+  window.__pickDur=function(d){
+    window.__currentDur=d;
+    document.querySelectorAll('#ns-dur-choices .dur-choice').forEach(function(el){el.classList.toggle('selected',parseInt(el.dataset.dur,10)===d);});
+  };
   if(type==='blocked'){
-    box.innerHTML='<div class="modal-section"><label>'+(L?'사유 (선택)':'Reason (optional)')+'</label><input type="text" id="ns-note" placeholder="'+(L?'예: 연차, 회의':'e.g. PTO, meeting')+'"></div>';
+    box.innerHTML='<div class="modal-section"><label>'+(L?'사유 (선택)':'Reason (optional)')+'</label><input type="text" id="ns-note" placeholder="'+(L?'예: 연차, 회의':'e.g. PTO, meeting')+'"></div>'+
+      '<div class="modal-section">'+durCards+'</div>';
   } else {
     box.innerHTML='<div class="modal-section">'+
       '<label>'+(L?'학생 이름:아이디 (한 줄에 한 명)':'Student name:ID (one per line)')+'</label>'+
       '<textarea id="ns-students" rows="3" placeholder="'+(L?'홍길동:test_st_0\n김민수:test_st_1':'John Doe:test_st_0')+'"></textarea>'+
+      durCards+
       '<label>'+(L?'코스 시작일':'Start Date')+'</label>'+
       '<input type="date" id="ns-start">'+
       '<label>'+(L?'코스 종료일':'End Date')+'</label>'+
@@ -1734,10 +1822,12 @@ function saveNewSlot(){
   var start=document.getElementById('ns-start')?.value||infos[0].dateISO;
   var end=document.getElementById('ns-end')?.value||infos[infos.length-1].dateISO;
   // 슬롯 생성
+  var dur=window.__currentDur||(typeof defaultDuration!=='undefined'?defaultDuration:60);
   infos.forEach(function(info){
     addSlot(info.teacher.id,info.dateISO,info.hour,{
       type:type,students:students,
-      start_date:start,end_date:end,note:note
+      start_date:start,end_date:end,note:note,
+      duration_min:dur
     });
   });
   closeModal();clearDragSel();
