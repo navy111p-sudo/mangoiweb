@@ -249,7 +249,7 @@ body.dragging{cursor:crosshair}
   <div class="top-bar-row">
     <div>
       <div class="breadcrumb"><a href="/admin.html" data-ko="← 관리자 대시보드" data-en="← Admin Dashboard">← 관리자 대시보드</a></div>
-      <h1><span class="icon">📅</span><span data-ko="주간 전체 스케줄" data-en="Weekly Schedule Overview">주간 전체 스케줄</span><span class="sub" data-ko="모든 교사 한눈에" data-en="All teachers at a glance">모든 교사 한눈에</span></h1>
+      <h1><span class="icon">📅</span><span data-ko="주간 전체 스케줄" data-en="Weekly Schedule Overview">주간 전체 스케줄</span><span class="sub" data-ko="모든 교사 한눈에" data-en="All teachers at a glance">모든 교사 한눈에</span><span id="demo-badge" style="display:none;margin-left:10px;padding:3px 10px;background:rgba(251,191,36,.18);border:1.5px solid var(--ac);border-radius:999px;color:#fde68a;font-size:11px;font-weight:800">DEMO MODE</span></h1>
     </div>
     <div class="timezone-bar"><span data-ko="시간대:" data-en="Time zone:">시간대:</span><select id="tz-select"><option value="Asia/Seoul">🇰🇷 KST (한국)</option><option value="America/New_York">🇺🇸 EST (뉴욕)</option><option value="America/Los_Angeles">🇺🇸 PST (LA)</option><option value="America/Chicago">🇺🇸 CST (시카고)</option><option value="Asia/Manila">🇵🇭 PHT (마닐라)</option></select><span class="tz-chip" id="tz-now">--:--</span></div><button class="ai-suggest-btn" onclick="aiSuggestSlot()">✨ <span data-ko="AI 매칭" data-en="AI Match">AI 매칭</span></button><button class="icon-btn lang-toggle" id="lang-toggle" onclick="toggleLang()">🌐 <span id="lang-label">EN</span></button>
   </div>
@@ -286,6 +286,23 @@ body.dragging{cursor:crosshair}
 </div>
 <main class="main" id="main"><div class="teacher-grid"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div></main><button class="side-toggle-btn" onclick="toggleSidePanel()" data-ko="교사 빠른 탐색" data-en="Quick Find">교사 빠른 탐색</button><aside class="side-panel" id="side-panel"><div class="side-head"><h3 data-ko="🔎 교사 빠른 탐색" data-en="🔎 Quick Find">🔎 교사 빠른 탐색</h3><button class="modal-close" onclick="toggleSidePanel()">✕</button></div><div class="side-search"><input type="search" id="side-search" placeholder="이름 검색…" data-ko-placeholder="이름 검색…" data-en-placeholder="Search name…"></div><div class="side-list" id="side-list"></div></aside>
 <div class="tooltip" id="tooltip"></div>
+
+<!-- ═══ 사용 가이드 토스트 ═══ -->
+<div id="guide-toast" style="position:fixed;bottom:20px;right:20px;width:340px;background:linear-gradient(180deg,#1a2032 0%,#131826 100%);border:2px solid var(--ac);border-radius:14px;padding:16px 18px;z-index:7000;box-shadow:0 12px 40px rgba(0,0,0,.6);animation:slideUp .3s ease-out;font-size:12.5px">
+  <div style="display:flex;justify-content:space-between;align-items:start;gap:8px;margin-bottom:8px">
+    <div style="font-weight:800;color:#fbbf24;font-size:14px">💡 <span data-ko="사용 가이드" data-en="How to use">사용 가이드</span></div>
+    <button onclick="document.getElementById('guide-toast').remove()" style="background:transparent;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:0 4px">✕</button>
+  </div>
+  <div style="color:#cbd5e1;line-height:1.65;font-size:12px" data-ko-html="<b style='color:#fff'>📌 셀 클릭</b> → 풀 상세 모달 (학생 카드, 시작/종료일, 편집/삭제)<br><b style='color:#fff'>📌 빈 칸 드래그</b> → 사각형 영역 선택 → 새 슬롯 추가 모달<br><b style='color:#fff'>📌 우측 노란 띠 버튼</b> → 교사 빠른 탐색 사이드 패널<br><b style='color:#fff'>📌 ✨ AI 매칭</b> → 빈 슬롯 자동 추천<br><br><span style='color:#fde68a'>🎯 URL에 <code>?demo=1</code> 추가하면 항상 테스트 데이터로 보입니다.</span>"
+       data-en-html="<b style='color:#fff'>📌 Click cell</b> → Full detail modal (students, dates, edit/delete)<br><b style='color:#fff'>📌 Drag empty cells</b> → Select rectangle → New slot modal<br><b style='color:#fff'>📌 Yellow side button</b> → Quick teacher finder panel<br><b style='color:#fff'>📌 ✨ AI Match</b> → Auto-suggest empty slots<br><br><span style='color:#fde68a'>🎯 Add <code>?demo=1</code> to URL for test data.</span>">
+    <b style="color:#fff">📌 셀 클릭</b> → 풀 상세 모달 (학생 카드, 시작/종료일, 편집/삭제)<br>
+    <b style="color:#fff">📌 빈 칸 드래그</b> → 사각형 영역 선택 → 새 슬롯 추가 모달<br>
+    <b style="color:#fff">📌 우측 노란 띠 버튼</b> → 교사 빠른 탐색 사이드 패널<br>
+    <b style="color:#fff">📌 ✨ AI 매칭</b> → 빈 슬롯 자동 추천<br><br>
+    <span style="color:#fde68a">🎯 URL에 <code>?demo=1</code> 추가하면 항상 테스트 데이터로 보입니다.</span>
+  </div>
+</div>
+
 
 <!-- ═══ 풀 상세 모달 ═══ -->
 <div class="modal-overlay" id="modal-overlay">
@@ -365,6 +382,9 @@ function loadDemoData(){
 }
 
 async function loadData(){
+  // URL ?demo=1 -> 무조건 데모 모드 (실 API 시도 안 함)
+  var forceDemo=new URLSearchParams(location.search).get('demo')==='1';
+  if(forceDemo){ loadDemoData(); return; }
   try{
     var tRes=await fetch('/api/admin/teachers',{credentials:'include'});
     if(tRes.ok){
@@ -382,13 +402,42 @@ async function loadData(){
               var hh=(s.hour!==undefined)?s.hour:new Date(s.start_time).getHours();
               addSlot(s.teacher_id,s.date,hh,{type:s.type||'1on1',students:s.students||[],start_date:s.start_date,end_date:s.end_date,note:s.note});
             });
-            return;
+            // 슬롯도 정상이고 teachers도 있으면 실 데이터 사용
+            if(Object.keys(SLOTS).length>0)return;
           }
         }catch(e){}
+        // TEACHERS는 있는데 SLOTS 비어있으면 -> 데모 슬롯 채우기
+        if(Object.keys(SLOTS).length===0){ generateDemoSlots(); return; }
+        return;
       }
     }
   }catch(e){}
+  // 모든 경로 실패 시 -> 무조건 데모
   loadDemoData();
+}
+
+// TEACHERS는 실제, SLOTS만 데모로 채울 때
+function generateDemoSlots(){
+  SLOTS={};
+  for(var di=0;di<7;di++){
+    var d=new Date(currentWeekStart);d.setDate(d.getDate()+di);
+    var dateISO=fmtISO(d);
+    TEACHERS.forEach(function(t,ti){
+      addSlot(t.id,dateISO,12,{type:'blocked',note:currentLang==='ko'?'점심':'Lunch',start_date:dateISO,end_date:dateISO});
+      if(di>=5){return;}
+      for(var h=9;h<22;h++){
+        if(h===12)continue;
+        var r=((ti*7+di*13+h*3)%100)/100;
+        if(r<0.35){
+          var stu=(ti+di+h)%demoNames.length;
+          addSlot(t.id,dateISO,h,{type:'1on1',students:[{name:demoNames[stu],uid:'test_st_'+stu}],start_date:'2026-04-01',end_date:'2026-07-31'});
+        } else if(r<0.50){
+          var s1=(ti+di+h)%demoNames.length,s2=(s1+4)%demoNames.length,s3=(s1+8)%demoNames.length;
+          addSlot(t.id,dateISO,h,{type:'group',students:[{name:demoNames[s1],uid:'test_st_'+s1},{name:demoNames[s2],uid:'test_st_'+s2},{name:demoNames[s3],uid:'test_st_'+s3}],start_date:'2026-04-01',end_date:'2026-08-31'});
+        }
+      }
+    });
+  }
 }
 
 function computeStats(){
@@ -536,7 +585,24 @@ document.addEventListener('mousemove',function(e){
 document.addEventListener('scroll',function(){tooltip.style.display='none';},true);
 document.addEventListener('mouseleave',function(){tooltip.style.display='none';});
 
-document.getElementById('prev-week').onclick=function(){currentWeekStart.setDate(currentWeekStart.getDate()-7);reloadAndRender();};
+document.getElementById('prev-week').onclick=function(){currentWeekStart.setDate(currentWeekStart.getDate()-7);reloadAndRender();
+
+// DEMO 배지 표시
+(function(){
+  var isDemo=new URLSearchParams(location.search).get('demo')==='1';
+  if(isDemo){
+    var b=document.getElementById('demo-badge');
+    if(b)b.style.display='inline-block';
+  }
+})();
+// 9초 후 도움말 자동 숨김
+setTimeout(function(){
+  var t=document.getElementById('guide-toast');
+  if(t)t.style.transition='opacity .5s';
+  if(t)t.style.opacity='0';
+  setTimeout(function(){ if(t&&t.parentNode)t.remove(); },550);
+},9000);
+};
 document.getElementById('next-week').onclick=function(){currentWeekStart.setDate(currentWeekStart.getDate()+7);reloadAndRender();};
 document.getElementById('today-btn').onclick=function(){currentWeekStart=startOfWeek(new Date());reloadAndRender();};
 document.getElementById('cat-filter').addEventListener('click',function(e){
