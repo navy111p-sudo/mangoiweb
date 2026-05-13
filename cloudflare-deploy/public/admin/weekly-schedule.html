@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>📅 주간 전체 스케줄 — 망고아이</title>
+<style>
+  *,*::before,*::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    min-height: 100vh;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  /* ─── 상단 헤더 ─── */
+  .top-bar {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-bottom: 1px solid #334155;
+    padding: 16px 24px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .top-bar-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .breadcrumb {
+    font-size: 13px;
+    color: #94a3b8;
+  }
+  .breadcrumb a { color: #38bdf8; text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+  h1 {
+    font-size: 20px;
+    margin: 6px 0 0;
+    color: #fbbf24;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+  }
+  .lang-toggle {
+    background: linear-gradient(135deg, rgba(251,191,36,0.95), rgba(245,158,11,0.95));
+    border: 2px solid rgba(251,191,36,0.85);
+    border-radius: 14px;
+    padding: 8px 14px;
+    color: #0f172a;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(245,158,11,0.45);
+    transition: transform 0.15s;
+  }
+  .lang-toggle:hover { transform: translateY(-1px); }
+
+  /* ─── 컨트롤 바 (주간 네비 + 필터) ─── */
+  .controls {
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .week-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .week-nav button {
+    background: #334155;
+    border: 1px solid #475569;
+    color: #e2e8f0;
+    border-radius: 8px;
+    padding: 7px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: background 0.15s;
+  }
+  .week-nav button:hover { background: #475569; }
+  .week-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: #fbbf24;
+    padding: 0 8px;
+    min-width: 220px;
+    text-align: center;
+  }
+  .category-filter {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .cat-btn {
+    border: 1.5px solid transparent;
+    background: #334155;
+    color: #cbd5e1;
+    border-radius: 999px;
+    padding: 6px 14px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    transition: all 0.15s;
+  }
+  .cat-btn.active { color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+  .cat-btn[data-cat="all"].active { background: #64748b; border-color: #94a3b8; }
+  .cat-btn[data-cat="home"].active { background: #10b981; border-color: #34d399; }
+  .cat-btn[data-cat="office"].active { background: #3b82f6; border-color: #60a5fa; }
+  .cat-btn[data-cat="native"].active { background: #8b5cf6; border-color: #a78bfa; }
+  .cat-btn[data-cat="manager"].active { background: #f97316; border-color: #fb923c; }
+
+  /* ─── 색상 범례 ─── */
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-left: auto;
+    font-size: 11.5px;
+    color: #94a3b8;
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+
+  /* ─── 메인 그리드: 교사 카드 ─── */
+  .main {
+    padding: 18px 24px 80px;
+  }
+  .category-section {
+    margin-bottom: 22px;
+  }
+  .category-section h2 {
+    font-size: 14px;
+    color: #e2e8f0;
+    margin: 0 0 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .cat-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    color: #fff;
+  }
+  .cat-badge.home { background: #10b981; }
+  .cat-badge.office { background: #3b82f6; }
+  .cat-badge.native { background: #8b5cf6; }
+  .cat-badge.manager { background: #f97316; }
+  .cat-count { color: #94a3b8; font-weight: 500; font-size: 12px; }
+
+  .teacher-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 14px;
+  }
+  .teacher-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .teacher-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+  .teacher-head {
+    padding: 10px 12px;
+    background: rgba(0,0,0,0.2);
+    border-bottom: 1px solid #334155;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .teacher-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .teacher-head .cat-badge { font-size: 9.5px; padding: 1px 7px; }
+
+  /* ─── 미니 캘린더 ─── */
+  .mini-cal {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5px;
+    table-layout: fixed;
+  }
+  .mini-cal th, .mini-cal td {
+    border: 1px solid #283549;
+    text-align: center;
+    padding: 0;
+    height: 18px;
+    overflow: hidden;
+  }
+  .mini-cal th {
+    background: #0f172a;
+    color: #94a3b8;
+    font-weight: 700;
+    font-size: 10px;
+    padding: 4px 0;
+    height: auto;
+  }
+  .mini-cal th.col-time {
+    width: 28px;
+    background: #0f172a;
+  }
+  .mini-cal td.col-time {
+    background: #0f172a;
+    color: #64748b;
+    font-size: 9px;
+    width: 28px;
+  }
+  /* 셀 색상 */
+  .slot { cursor: help; transition: filter 0.1s; }
+  .slot:hover { filter: brightness(1.25); outline: 2px solid #fbbf24; outline-offset: -2px; z-index: 5; position: relative; }
+  .slot-empty { background: #1e293b; }
+  .slot-blocked { background: #ef4444; }   /* 빨강 — 수업 안 함 */
+  .slot-1on1    { background: #8b5cf6; }   /* 보라 — 1대1 */
+  .slot-group   { background: #ec4899; }   /* 핑크 — 그룹 */
+  .slot-temp    { background: #3b82f6; }   /* 파랑 — 임시 */
+  .slot-weekend { background: #1e293b; opacity: 0.7; }
+
+  /* ─── 툴팁 ─── */
+  .tooltip {
+    position: fixed;
+    background: #0f172a;
+    border: 1.5px solid #fbbf24;
+    border-radius: 10px;
+    padding: 10px 12px;
+    color: #e2e8f0;
+    font-size: 12px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.6);
+    pointer-events: none;
+    z-index: 9999;
+    max-width: 280px;
+    min-width: 200px;
+    display: none;
+    line-height: 1.55;
+  }
+  .tooltip-title {
+    font-weight: 800;
+    color: #fbbf24;
+    font-size: 12.5px;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .tooltip-row { display: flex; justify-content: space-between; gap: 8px; margin-top: 2px; }
+  .tooltip-row .k { color: #94a3b8; font-size: 11px; }
+  .tooltip-row .v { color: #fff; font-weight: 600; font-size: 11.5px; text-align: right; }
+  .tooltip-students {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid #334155;
+  }
+  .tooltip-student {
+    background: rgba(251,191,36,0.1);
+    border: 1px solid rgba(251,191,36,0.3);
+    border-radius: 5px;
+    padding: 3px 7px;
+    margin: 3px 0;
+    font-size: 11.5px;
+    color: #fde68a;
+  }
+  .tooltip-dates {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid #334155;
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #94a3b8;
+  }
+
+  /* ─── 빈 메시지 ─── */
+  .empty-msg {
+    text-align: center;
+    padding: 40px 20px;
+    color: #64748b;
+    font-size: 14px;
+    background: #1e293b;
+    border: 1px dashed #334155;
+    border-radius: 12px;
+  }
+
+  /* 반응형 */
+  @media (max-width: 768px) {
+    .controls { padding: 12px; }
+    .main { padding: 14px; }
+    .teacher-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══ 상단 헤더 ═══ -->
+<div class="top-bar">
+  <div class="top-bar-row">
+    <div>
+      <div class="breadcrumb">
+        <a href="/admin.html" data-ko="← 관리자 대시보드" data-en="← Admin Dashboard">← 관리자 대시보드</a>
+      </div>
+      <h1>📅 <span data-ko="주간 전체 스케줄" data-en="Weekly Full Schedule">주간 전체 스케줄</span></h1>
+    </div>
+    <button class="lang-toggle" id="lang-toggle" onclick="toggleLang()">🌐 <span id="lang-label">EN</span></button>
+  </div>
+</div>
+
+<!-- ═══ 컨트롤 바 ═══ -->
+<div class="controls">
+  <div class="week-nav">
+    <button id="prev-week" data-ko="◀ 이전 주" data-en="◀ Prev">◀ 이전 주</button>
+    <button id="today-btn" data-ko="오늘" data-en="Today">오늘</button>
+    <button id="next-week" data-ko="다음 주 ▶" data-en="Next ▶">다음 주 ▶</button>
+  </div>
+  <div class="week-label" id="week-label">2026.05.11 (월) ~ 2026.05.17 (일)</div>
+
+  <div class="category-filter" id="cat-filter">
+    <button class="cat-btn active" data-cat="all" data-ko="전체" data-en="All">전체</button>
+    <button class="cat-btn" data-cat="home" data-ko="🏠 홈" data-en="🏠 Home">🏠 홈</button>
+    <button class="cat-btn" data-cat="office" data-ko="🏢 오피스" data-en="🏢 Office">🏢 오피스</button>
+    <button class="cat-btn" data-cat="native" data-ko="🌍 원어민" data-en="🌍 Native">🌍 원어민</button>
+    <button class="cat-btn" data-cat="manager" data-ko="👔 매니저" data-en="👔 Manager">👔 매니저</button>
+  </div>
+
+  <div class="legend">
+    <span class="legend-item"><span class="legend-dot" style="background:#ef4444"></span><span data-ko="수업불가" data-en="Blocked">수업불가</span></span>
+    <span class="legend-item"><span class="legend-dot" style="background:#8b5cf6"></span><span data-ko="1대1" data-en="1-on-1">1대1</span></span>
+    <span class="legend-item"><span class="legend-dot" style="background:#ec4899"></span><span data-ko="그룹" data-en="Group">그룹</span></span>
+    <span class="legend-item"><span class="legend-dot" style="background:#3b82f6"></span><span data-ko="임시" data-en="Temp">임시</span></span>
+  </div>
+</div>
+
+<!-- ═══ 메인 그리드 ═══ -->
+<div class="main" id="main"></div>
+
+<!-- ═══ 툴팁 ═══ -->
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+/* ──────────────────────────────────────────────
+ * 📅 주간 전체 스케줄 페이지
+ * 데이터: /api/admin/teachers + /api/admin/schedules?week=YYYY-MM-DD
+ * 실패 시 데모 데이터로 폴백 — 화면 비교 가능
+ * ────────────────────────────────────────────── */
+
+// ──── 다국어 ────
+var currentLang = 'ko';
+function applyLang(lang){
+  currentLang = (lang === 'en') ? 'en' : 'ko';
+  document.documentElement.lang = currentLang;
+  document.querySelectorAll('[data-ko]').forEach(function(el){
+    var v = el.getAttribute('data-' + currentLang);
+    if(v !== null) el.textContent = v;
+  });
+  var label = document.getElementById('lang-label');
+  if(label) label.textContent = (currentLang === 'ko') ? 'EN' : 'KO';
+  try { localStorage.setItem('mangoi_lang', currentLang); } catch(e){}
+  render();
+}
+function toggleLang(){ applyLang(currentLang === 'ko' ? 'en' : 'ko'); }
+window.setLang = applyLang;
+(function(){
+  try {
+    var saved = localStorage.getItem('mangoi_lang');
+    if (saved === 'en') applyLang('en');
+  } catch(e){}
+})();
+
+// ──── 주간 상태 ────
+var currentWeekStart = startOfWeek(new Date()); // 월요일 기준
+function startOfWeek(d){
+  var x = new Date(d);
+  x.setHours(0,0,0,0);
+  var day = x.getDay();           // 0=일, 1=월, ...
+  var diff = (day === 0 ? -6 : 1 - day);
+  x.setDate(x.getDate() + diff);
+  return x;
+}
+function fmtDate(d){
+  return d.getFullYear() + '.' +
+    String(d.getMonth()+1).padStart(2,'0') + '.' +
+    String(d.getDate()).padStart(2,'0');
+}
+function fmtISO(d){
+  return d.getFullYear() + '-' +
+    String(d.getMonth()+1).padStart(2,'0') + '-' +
+    String(d.getDate()).padStart(2,'0');
+}
+function dayNames(){
+  return currentLang === 'ko'
+    ? ['월','화','수','목','금','토','일']
+    : ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+}
+
+// ──── 데이터 ────
+var TEACHERS = []; // {id, name, name_en, category}
+var SLOTS = {};    // key = teacherId__YYYY-MM-DD__HH → slot object
+                   // slot: { type:'blocked'|'1on1'|'group'|'temp', students:[{name,uid}], start_date, end_date, note }
+
+// 데모 데이터 (API 실패 시)
+function loadDemoData(){
+  TEACHERS = [
+    { id:'t01', name:'박지윤',     name_en:'Jiyun Park',  category:'home' },
+    { id:'t02', name:'김민서',     name_en:'Minseo Kim',  category:'home' },
+    { id:'t03', name:'이서연',     name_en:'Seoyeon Lee', category:'home' },
+    { id:'t04', name:'정수아',     name_en:'Sua Jeong',   category:'office' },
+    { id:'t05', name:'강하은',     name_en:'Haeun Kang',  category:'office' },
+    { id:'t06', name:'최도현',     name_en:'Dohyun Choi', category:'office' },
+    { id:'t07', name:'Maria Santos', name_en:'Maria Santos', category:'native' },
+    { id:'t08', name:'James Cruz', name_en:'James Cruz', category:'native' },
+    { id:'t09', name:'Anna Reyes', name_en:'Anna Reyes', category:'native' },
+    { id:'t10', name:'홍팀장',     name_en:'Manager Hong', category:'manager' },
+    { id:'t11', name:'장본부장',   name_en:'Director Jang', category:'manager' },
+  ];
+  // 데모 슬롯 생성
+  SLOTS = {};
+  var weekStart = currentWeekStart;
+  for (var di = 0; di < 7; di++) {
+    var d = new Date(weekStart);
+    d.setDate(d.getDate() + di);
+    var dateISO = fmtISO(d);
+    TEACHERS.forEach(function(t, ti){
+      // 점심시간(12-13) 블록
+      addSlot(t.id, dateISO, 12, { type:'blocked', note:'점심', start_date:dateISO, end_date:dateISO });
+      // 주말 일부 차단
+      if (di >= 5) {
+        for (var h = 9; h < 18; h++) {
+          if (Math.random() < 0.6) addSlot(t.id, dateISO, h, { type:'blocked', note: currentLang==='ko'?'주말 휴무':'Weekend off', start_date:dateISO, end_date:dateISO });
+        }
+      }
+      // 평일 수업 일정 (랜덤)
+      if (di < 5) {
+        for (var h = 9; h < 22; h++) {
+          if (h === 12) continue;
+          var r = Math.random();
+          if (r < 0.35) {
+            var stu = (ti+di+h) % 10;
+            addSlot(t.id, dateISO, h, {
+              type: '1on1',
+              students: [{ name: ['홍길동','김민수','이지민','박서연','최우진','정수아','강지원','윤하린','오은서','신예린'][stu], uid:'test_st_'+stu }],
+              start_date:'2026-04-01', end_date:'2026-07-31'
+            });
+          } else if (r < 0.45) {
+            var s1 = (ti+di+h) % 10; var s2 = (s1+3)%10;
+            addSlot(t.id, dateISO, h, {
+              type:'group',
+              students:[
+                { name:['홍길동','김민수','이지민','박서연','최우진','정수아','강지원','윤하린','오은서','신예린'][s1], uid:'test_st_'+s1 },
+                { name:['홍길동','김민수','이지민','박서연','최우진','정수아','강지원','윤하린','오은서','신예린'][s2], uid:'test_st_'+s2 }
+              ],
+              start_date:'2026-04-01', end_date:'2026-08-31'
+            });
+          } else if (r < 0.50) {
+            var stt = (ti+di+h) % 10;
+            addSlot(t.id, dateISO, h, {
+              type:'temp',
+              students:[{ name:['홍길동','김민수','이지민','박서연','최우진','정수아','강지원','윤하린','오은서','신예린'][stt], uid:'test_st_'+stt }],
+              start_date:dateISO, end_date:dateISO,
+              note: currentLang==='ko'?'임시 수업':'Temporary'
+            });
+          }
+        }
+      }
+    });
+  }
+}
+
+function addSlot(teacherId, dateISO, hour, slot){
+  SLOTS[teacherId + '__' + dateISO + '__' + hour] = slot;
+}
+function getSlot(teacherId, dateISO, hour){
+  return SLOTS[teacherId + '__' + dateISO + '__' + hour];
+}
+
+// ──── 데이터 fetch ────
+async function loadData(){
+  try {
+    var tRes = await fetch('/api/admin/teachers', { credentials:'include' });
+    if (tRes.ok) {
+      var data = await tRes.json();
+      // 다양한 응답 구조 처리
+      var list = Array.isArray(data) ? data : (data.teachers || data.data || []);
+      if (list && list.length > 0) {
+        TEACHERS = list.map(function(t){
+          return {
+            id: t.id || t.teacher_id || t.uid,
+            name: t.name || t.name_ko || t.full_name || '?',
+            name_en: t.name_en || t.english_name || t.name,
+            category: (t.category || t.type || 'office').toLowerCase()
+          };
+        });
+        // 실제 데이터에서 슬롯도 가져오기 시도
+        try {
+          var sRes = await fetch('/api/admin/schedules?week=' + fmtISO(currentWeekStart), { credentials:'include' });
+          if (sRes.ok) {
+            var sd = await sRes.json();
+            var slots = Array.isArray(sd) ? sd : (sd.schedules || sd.data || []);
+            SLOTS = {};
+            slots.forEach(function(s){
+              var hh = (s.hour !== undefined) ? s.hour : new Date(s.start_time).getHours();
+              addSlot(s.teacher_id, s.date, hh, {
+                type: s.type || '1on1',
+                students: s.students || [],
+                start_date: s.start_date, end_date: s.end_date,
+                note: s.note
+              });
+            });
+            return; // 실제 데이터 성공
+          }
+        } catch(e){}
+      }
+    }
+  } catch(e){ /* fall through */ }
+  // 폴백: 데모 데이터
+  loadDemoData();
+}
+
+// ──── 렌더 ────
+var activeCategory = 'all';
+function render(){
+  // 주간 라벨
+  var end = new Date(currentWeekStart); end.setDate(end.getDate() + 6);
+  document.getElementById('week-label').textContent =
+    fmtDate(currentWeekStart) + ' (' + dayNames()[0] + ') ~ ' + fmtDate(end) + ' (' + dayNames()[6] + ')';
+
+  var main = document.getElementById('main');
+  var cats = activeCategory === 'all'
+    ? ['home','office','native','manager']
+    : [activeCategory];
+
+  var html = '';
+  cats.forEach(function(cat){
+    var ts = TEACHERS.filter(function(t){ return t.category === cat; });
+    if (ts.length === 0) return;
+    var catLabel = {
+      home:    currentLang==='ko' ? '🏠 홈 교사'      : '🏠 Home Teachers',
+      office:  currentLang==='ko' ? '🏢 오피스 교사'   : '🏢 Office Teachers',
+      native:  currentLang==='ko' ? '🌍 원어민 교사'   : '🌍 Native Teachers',
+      manager: currentLang==='ko' ? '👔 매니저'        : '👔 Managers',
+    }[cat];
+    html += '<section class="category-section">';
+    html += '<h2><span class="cat-badge ' + cat + '">' + cat.toUpperCase() + '</span> ' + catLabel + ' <span class="cat-count">(' + ts.length + (currentLang==='ko'?'명':'')+ ')</span></h2>';
+    html += '<div class="teacher-grid">';
+    ts.forEach(function(t){ html += renderTeacher(t); });
+    html += '</div></section>';
+  });
+
+  if (!html) html = '<div class="empty-msg" data-ko="이 카테고리에 등록된 교사가 없습니다." data-en="No teachers in this category.">이 카테고리에 등록된 교사가 없습니다.</div>';
+  main.innerHTML = html;
+}
+
+function renderTeacher(t){
+  var name = (currentLang === 'en' && t.name_en) ? t.name_en : t.name;
+  var html = '<div class="teacher-card">';
+  html += '<div class="teacher-head"><span class="teacher-name">' + escapeHtml(name) + '</span><span class="cat-badge ' + t.category + '">' + t.category + '</span></div>';
+  html += '<table class="mini-cal"><thead><tr><th class="col-time"></th>';
+  var dn = dayNames();
+  for (var i = 0; i < 7; i++) html += '<th>' + dn[i] + '</th>';
+  html += '</tr></thead><tbody>';
+  for (var hour = 7; hour <= 22; hour++) {
+    html += '<tr><td class="col-time">' + String(hour).padStart(2,'0') + '</td>';
+    for (var di = 0; di < 7; di++) {
+      var d = new Date(currentWeekStart); d.setDate(d.getDate() + di);
+      var dateISO = fmtISO(d);
+      var slot = getSlot(t.id, dateISO, hour);
+      var cls = 'slot ';
+      var dataAttr = '';
+      if (!slot) {
+        cls += (di >= 5 ? 'slot-weekend' : 'slot-empty');
+      } else {
+        cls += 'slot-' + (slot.type === '1on1' ? '1on1' : slot.type);
+        var payload = encodeURIComponent(JSON.stringify({
+          teacher: name, date: dateISO, hour: hour, slot: slot
+        }));
+        dataAttr = ' data-slot="' + payload + '"';
+      }
+      html += '<td class="' + cls + '"' + dataAttr + '></td>';
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table></div>';
+  return html;
+}
+
+function escapeHtml(s){
+  return String(s || '').replace(/[&<>"']/g, function(c){
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+  });
+}
+
+// ──── 툴팁 ────
+var tooltip = document.getElementById('tooltip');
+document.addEventListener('mousemove', function(e){
+  var t = e.target.closest('.slot');
+  if (!t || !t.dataset.slot) { tooltip.style.display = 'none'; return; }
+  var data = JSON.parse(decodeURIComponent(t.dataset.slot));
+  var s = data.slot;
+  var typeLabel = {
+    'blocked': currentLang==='ko' ? '🚫 수업 불가' : '🚫 Blocked',
+    '1on1':    currentLang==='ko' ? '🟣 1대1 수업' : '🟣 1-on-1',
+    'group':   currentLang==='ko' ? '💗 그룹 수업' : '💗 Group',
+    'temp':    currentLang==='ko' ? '🔵 임시 수업' : '🔵 Temporary',
+  }[s.type] || s.type;
+
+  var html = '<div class="tooltip-title">' + typeLabel + '</div>';
+  html += '<div class="tooltip-row"><span class="k">' + (currentLang==='ko'?'교사':'Teacher') + '</span><span class="v">' + escapeHtml(data.teacher) + '</span></div>';
+  html += '<div class="tooltip-row"><span class="k">' + (currentLang==='ko'?'일시':'When') + '</span><span class="v">' + data.date + ' ' + String(data.hour).padStart(2,'0') + ':00</span></div>';
+  if (s.note) html += '<div class="tooltip-row"><span class="k">' + (currentLang==='ko'?'메모':'Note') + '</span><span class="v">' + escapeHtml(s.note) + '</span></div>';
+  if (s.students && s.students.length > 0) {
+    html += '<div class="tooltip-students">';
+    html += '<div class="k" style="font-size:11px;color:#94a3b8;margin-bottom:3px">' + (currentLang==='ko'?'학생':'Students') + ' (' + s.students.length + (currentLang==='ko'?'명':'')+ ')</div>';
+    s.students.forEach(function(stu){
+      html += '<div class="tooltip-student">👤 ' + escapeHtml(stu.name) + ' <span style="color:#94a3b8;font-size:10.5px">(' + escapeHtml(stu.uid) + ')</span></div>';
+    });
+    html += '</div>';
+  }
+  if (s.start_date || s.end_date) {
+    html += '<div class="tooltip-dates"><span>📅 ' + (currentLang==='ko'?'시작':'Start') + ': <b style="color:#a7f3d0">' + (s.start_date||'-') + '</b></span><span>~ ' + (currentLang==='ko'?'종료':'End') + ': <b style="color:#fca5a5">' + (s.end_date||'-') + '</b></span></div>';
+  }
+  tooltip.innerHTML = html;
+  tooltip.style.display = 'block';
+  // 위치 계산 (마우스 옆)
+  var tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
+  var x = e.clientX + 16, y = e.clientY + 12;
+  if (x + tw > window.innerWidth - 8) x = e.clientX - tw - 16;
+  if (y + th > window.innerHeight - 8) y = e.clientY - th - 12;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top = y + 'px';
+});
+document.addEventListener('mouseleave', function(){ tooltip.style.display = 'none'; });
+
+// ──── 컨트롤 이벤트 ────
+document.getElementById('prev-week').onclick = function(){
+  currentWeekStart.setDate(currentWeekStart.getDate() - 7);
+  reloadAndRender();
+};
+document.getElementById('next-week').onclick = function(){
+  currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+  reloadAndRender();
+};
+document.getElementById('today-btn').onclick = function(){
+  currentWeekStart = startOfWeek(new Date());
+  reloadAndRender();
+};
+document.getElementById('cat-filter').addEventListener('click', function(e){
+  var btn = e.target.closest('.cat-btn');
+  if (!btn) return;
+  document.querySelectorAll('.cat-btn').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  activeCategory = btn.dataset.cat;
+  render();
+});
+
+async function reloadAndRender(){
+  await loadData();
+  render();
+}
+
+// ──── 초기 로드 ────
+reloadAndRender();
+</script>
+</body>
+</html>
