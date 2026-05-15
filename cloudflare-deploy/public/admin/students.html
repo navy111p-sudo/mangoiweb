@@ -990,15 +990,18 @@ async function loadStudentEnrollments(uid) {
   ]);
   if (enrR.ok && enrR.items) _schedState.enrollments = enrR.items;
   if (aiR.ok && aiR.items) _schedState.aiSchedules = aiR.items;
+  _schedState.mergeInfo = aiR.merge_info || null;
   // 진단 카운터 업데이트 - 0건이어도 표시 (사용자가 데이터 없음을 즉시 인지)
   const counter = document.getElementById('sched-ai-counter');
   if (counter) {
     const activeCount = (_schedState.aiSchedules || []).filter(s => s.status !== 'cancelled').length;
+    const mi = _schedState.mergeInfo;
+    const mergeMsg = (mi && mi.merged_count > 1) ? ' <span style="font-size:10px;color:#a78bfa">(' + mi.merged_count + '명 동명 통합)</span>' : '';
     counter.style.display = '';
-    counter.innerHTML = '⭐ AI 스케줄: <b>' + activeCount + '</b>건';
+    counter.innerHTML = '⭐ AI 스케줄: <b>' + activeCount + '</b>건' + mergeMsg;
     counter.style.background = activeCount > 0 ? 'rgba(251,191,36,0.15)' : 'rgba(239,68,68,0.15)';
     counter.style.color = activeCount > 0 ? '#fbbf24' : '#ef4444';
-    if (activeCount === 0) counter.title = '이 학생에 등록된 AI 스케줄이 없습니다. AI 명령에 학생 이름이 정확히 일치하는지 확인하세요.';
+    if (activeCount === 0) counter.title = '이 학생에 등록된 AI 스케줄이 없습니다.';
   }
 }
 

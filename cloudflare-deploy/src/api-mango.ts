@@ -1145,32 +1145,36 @@ export async function handleMangoApi(
       const where: string[] = [`status != 'cancelled'`];
       const binds: any[] = [];
 
-      // ★ Phase 6f: user_id 가 주어지면 같은 학생 이름의 모든 user_id 도 함께 조회 (중복 정리 자동)
+      // ★ Phase 7b: user_id 또는 student_name 둘 다로 동명 학생 통합 조회 (강화)
+      let mergeInfo: any = null;
       if (userId) {
-        // 1) 이 user_id 의 학생 이름 찾기
+        // 1) 다양한 키로 학생 이름 찾기 (user_id / login_id / id 중 어떤 것이든)
         let nameForUid: string | null = null;
         try {
           const r = await env.DB.prepare(
-            `SELECT COALESCE(korean_name, username) AS name FROM students_erp WHERE COALESCE(user_id, login_id, ('stu_' || id)) = ? LIMIT 1`
-          ).bind(userId).first<any>();
+            `SELECT COALESCE(korean_name, username) AS name FROM students_erp WHERE user_id = ? OR login_id = ? OR ('stu_' || id) = ? OR ('stu_id_' || id) = ? LIMIT 1`
+          ).bind(userId, userId, userId, userId).first<any>();
           if (r?.name) nameForUid = r.name;
         } catch {}
-        // 2) 같은 이름의 모든 user_id 수집
+        // 2) studentName 파라미터가 있으면 그것도 우선 사용 (프론트가 알고 있는 이름)
+        const effectiveName = studentName || nameForUid;
+        // 3) 같은 이름의 모든 user_id 수집 (status 무관 - 병합된 row 도 포함하여 schedule 가져오기)
         let allUids: string[] = [userId];
-        if (nameForUid) {
+        if (effectiveName) {
           try {
             const rs = await env.DB.prepare(
               `SELECT COALESCE(user_id, login_id, ('stu_' || id)) AS uid FROM students_erp WHERE korean_name = ? OR username = ?`
-            ).bind(nameForUid, nameForUid).all<any>();
+            ).bind(effectiveName, effectiveName).all<any>();
             const ids = (rs.results || []).map((r: any) => r.uid).filter(Boolean);
-            if (ids.length) allUids = [...new Set([userId, ...ids])];
+            allUids = [...new Set([userId, ...ids])];
           } catch {}
+          mergeInfo = { name: effectiveName, user_ids: allUids, merged_count: allUids.length };
         }
-        // 3) WHERE: user_id IN (...) OR student_name = name (이름 기반 매칭도 포함)
+        // 4) WHERE: user_id IN (...) OR student_name = name (양쪽 매칭)
         const placeholders = allUids.map(() => '?').join(',');
-        if (nameForUid) {
+        if (effectiveName) {
           where.push('(user_id IN (' + placeholders + ') OR student_name = ?)');
-          binds.push(...allUids, nameForUid);
+          binds.push(...allUids, effectiveName);
         } else {
           where.push('user_id IN (' + placeholders + ')');
           binds.push(...allUids);
@@ -1211,11 +1215,10 @@ export async function handleMangoApi(
           console.warn('[class-schedules] JOIN failed, fallback no-JOIN:', joinErr?.message);
           rows = await env.DB.prepare(sqlNoJoin).bind(...binds).all<any>();
         }
-        return json({ ok: true, count: (rows.results || []).length, items: rows.results || [] });
+        return json({ ok: true, count: (rows.results || []).length, items: rows.results || [], merge_info: mergeInfo });
       } catch (e: any) {
-        // 최후 fallback - 빈 결과로 graceful (UI 가 깨지지 않게)
         console.warn('[class-schedules] both queries failed:', e?.message);
-        return json({ ok: true, count: 0, items: [], warning: String(e?.message || e) });
+        return json({ ok: true, count: 0, items: [], warning: String(e?.message || e), merge_info: mergeInfo });
       }
     }
 
