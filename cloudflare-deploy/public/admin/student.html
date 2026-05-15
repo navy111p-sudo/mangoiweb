@@ -272,6 +272,17 @@
 
       <!-- 🥭 Phase 39 — 2a. 📅 스케줄 (주간 타임 그리드) -->
       <div class="panel" data-panel="schedule">
+        <!-- 🥭 Phase 22 — AI 검색창에서 등록된 class_schedules (D1) -->
+        <div id="aiSchedulesSection" style="margin-bottom:16px;background:linear-gradient(135deg,rgba(251,191,36,0.08),rgba(245,158,11,0.05));border:1px solid rgba(251,191,36,0.3);border-radius:12px;padding:14px 16px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <span style="font-size:14px;font-weight:700;color:#fbbf24">🤖 AI 등록 수업 스케줄</span>
+            <span id="aiSchedulesCount" style="font-size:11px;color:#94a3b8">로딩 중…</span>
+            <button id="aiSchedulesRefresh" type="button" style="margin-left:auto;padding:4px 10px;border:1px solid #475569;background:transparent;color:#cbd5e1;border-radius:6px;cursor:pointer;font-size:11px">🔄 새로고침</button>
+          </div>
+          <div id="aiSchedulesList" style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#cbd5e1">
+            <div style="text-align:center;padding:14px;color:#94a3b8;font-size:12px">로딩 중…</div>
+          </div>
+        </div>
         <!-- 컨트롤 -->
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;background:rgba(15,23,42,0.5);padding:10px 14px;border-radius:10px;border:1px solid rgba(148,163,184,0.2)">
           <button id="d-sched-prev" type="button" style="padding:6px 14px;border:1px solid #475569;background:rgba(30,41,59,0.6);color:#cbd5e1;border-radius:6px;cursor:pointer;font-size:14px">◀</button>
@@ -2276,6 +2287,63 @@ if (_initTab) {
     if (btn) btn.click();
   }, 100);
 }
+
+
+// 🥭 Phase 22 — AI 등록 수업 스케줄 로드 + 렌더링
+async function loadAiSchedules() {
+  const uid = (typeof STUDENT_UID !== 'undefined' ? STUDENT_UID : null)
+           || new URLSearchParams(location.search).get('uid');
+  const listEl = document.getElementById('aiSchedulesList');
+  const countEl = document.getElementById('aiSchedulesCount');
+  if (!listEl || !uid) return;
+  listEl.innerHTML = '<div style="text-align:center;padding:14px;color:#94a3b8;font-size:12px">로딩 중…</div>';
+  try {
+    const r = await fetch('/api/admin/class-schedules?user_id=' + encodeURIComponent(uid), { credentials:'include' });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'load_failed');
+    const items = j.items || [];
+    if (countEl) countEl.textContent = '총 ' + items.length + '건';
+    if (items.length === 0) {
+      listEl.innerHTML = '<div style="text-align:center;padding:14px;color:#64748b;font-size:12px">아직 AI로 등록된 스케줄이 없습니다.<br>관리자 검색창에서 자연어로 등록해 보세요.</div>';
+      return;
+    }
+    const dayNames = { mon:'월', tue:'화', wed:'수', thu:'목', fri:'금', sat:'토', sun:'일' };
+    const typeColor = { regular:'#3b82f6', level_test:'#f59e0b', trial:'#10b981' };
+    const typeName = { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
+    const statusName = { active:'활성', postponed:'연기', cancelled:'취소' };
+    listEl.innerHTML = items.map(it => {
+      const days = (it.day_of_week || '').split(',').filter(Boolean).map(d => dayNames[d] || d).join('·');
+      const tColor = typeColor[it.class_type] || '#6b7280';
+      const dateLabel = it.scheduled_date ? '📅 ' + it.scheduled_date : (days ? '🔁 매주 ' + days + '요일' : '');
+      return '<div style="background:rgba(30,41,59,0.6);border:1px solid #334155;border-left:4px solid ' + tColor + ';border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+        + '<span style="background:' + tColor + ';color:#fff;font-size:10px;padding:3px 9px;border-radius:8px;font-weight:700">' + (typeName[it.class_type] || it.class_type) + '</span>'
+        + '<span style="font-weight:600;color:#f1f5f9">' + (dateLabel || '') + '</span>'
+        + '<span style="color:#fbbf24;font-weight:700">' + (it.start_time || '') + '</span>'
+        + '<span style="color:#94a3b8;font-size:11px">' + (statusName[it.status] || it.status) + '</span>'
+        + '<button onclick="cancelAiSchedule(' + it.id + ')" style="margin-left:auto;padding:3px 10px;border:1px solid #ef4444;background:transparent;color:#ef4444;border-radius:6px;cursor:pointer;font-size:11px">🗑 취소</button>'
+        + '</div>';
+    }).join('');
+  } catch (e) {
+    listEl.innerHTML = '<div style="text-align:center;padding:14px;color:#ef4444;font-size:12px">조회 실패: ' + (e.message || e) + '</div>';
+    if (countEl) countEl.textContent = '오류';
+  }
+}
+async function cancelAiSchedule(id) {
+  if (!confirm('이 스케줄을 취소(soft delete)하시겠습니까?')) return;
+  try {
+    const r = await fetch('/api/admin/class-schedules/' + id, { method:'DELETE', credentials:'include' });
+    const j = await r.json();
+    if (j.ok) { loadAiSchedules(); }
+    else alert('취소 실패: ' + (j.error || '알 수 없음'));
+  } catch (e) { alert('취소 오류: ' + (e.message || e)); }
+}
+document.getElementById('aiSchedulesRefresh')?.addEventListener('click', loadAiSchedules);
+// 페이지 진입 + 스케줄 탭 클릭 시 자동 로드
+window.addEventListener('DOMContentLoaded', () => setTimeout(loadAiSchedules, 500));
+document.addEventListener('click', (ev) => {
+  const tab = ev.target.closest('.tab[data-tab="schedule"]');
+  if (tab) setTimeout(loadAiSchedules, 100);
+});
 
 loadFull();
 </script>

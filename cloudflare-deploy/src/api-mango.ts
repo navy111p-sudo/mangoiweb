@@ -1122,6 +1122,57 @@ export async function handleMangoApi(
       return json(result, result.ok === false ? 400 : 200);
     }
 
+    // ────────────────────────────────────────────────
+    // 🥭 Phase 22 — GET /api/admin/class-schedules
+    //   학생별/기간별 수업 스케줄 조회 (학생 상세 페이지에서 호출)
+    //   query: ?user_id=X&from_date=YYYY-MM-DD&to_date=YYYY-MM-DD&kind=recurring|one_off|all
+    // ────────────────────────────────────────────────
+    if (method === 'GET' && path === '/api/admin/class-schedules') {
+      // 테이블 없으면 자동 생성 (첫 GET 호출 대응)
+      try {
+        await env.DB.exec(
+          `CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`
+        );
+      } catch {}
+      const url = new URL(request.url);
+      const userId = url.searchParams.get('user_id');
+      const fromDate = url.searchParams.get('from_date');
+      const toDate = url.searchParams.get('to_date');
+      const kind = url.searchParams.get('kind') || 'all';
+      const limit = Math.min(parseInt(url.searchParams.get('limit') || '100', 10), 500);
+
+      const where: string[] = [`status != 'cancelled'`];
+      const binds: any[] = [];
+      if (userId) { where.push('user_id = ?'); binds.push(userId); }
+      if (fromDate) { where.push('(scheduled_date IS NULL OR scheduled_date >= ?)'); binds.push(fromDate); }
+      if (toDate) { where.push('(scheduled_date IS NULL OR scheduled_date <= ?)'); binds.push(toDate); }
+      if (kind === 'recurring') where.push(`schedule_kind = 'recurring'`);
+      else if (kind === 'one_off') where.push(`schedule_kind = 'one_off'`);
+
+      const sql = `SELECT id, user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, status, source, created_at FROM class_schedules WHERE ${where.join(' AND ')} ORDER BY schedule_kind ASC, scheduled_date ASC, start_time ASC LIMIT ?`;
+      binds.push(limit);
+      try {
+        const rows = await env.DB.prepare(sql).bind(...binds).all<any>();
+        return json({ ok: true, count: (rows.results || []).length, items: rows.results || [] });
+      } catch (e: any) {
+        return json({ ok: false, error: 'query_failed', detail: String(e?.message || e) }, 500);
+      }
+    }
+
+    // 🥭 Phase 22 — DELETE /api/admin/class-schedules/:id (스케줄 삭제 또는 취소)
+    if (method === 'DELETE' && /^\/api\/admin\/class-schedules\/\d+$/.test(path)) {
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      if (!id) return json({ ok: false, error: 'invalid_id' }, 400);
+      try {
+        await env.DB.prepare(
+          `UPDATE class_schedules SET status='cancelled', updated_at=? WHERE id=?`
+        ).bind(Date.now(), id).run();
+        return json({ ok: true, id, status: 'cancelled' });
+      } catch (e: any) {
+        return json({ ok: false, error: 'delete_failed', detail: String(e?.message || e) }, 500);
+      }
+    }
+
     if (method === 'GET' && path === '/api/admin/stats/revenue') {
       // 신규 환경에서 student_payments 가 없을 수 있으니 자동 생성
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, period_start TEXT, period_end TEXT, amount_krw INTEGER NOT NULL, method TEXT, memo TEXT, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`);

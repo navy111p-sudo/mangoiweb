@@ -528,9 +528,19 @@ export async function executeAction(
     }
 
     if (name === 'schedule_batch') {
-      // Phase 1: KV 에 스케줄 plan 을 저장 (영구 D1 schema 는 Phase 2)
+      // Phase 2: D1 class_schedules 영구 저장 + KV 백업 (24시간)
       const items = Array.isArray(args?.items) ? args.items : [];
       if (items.length === 0) return { ok: false, error: 'no_items' };
+
+      // 스키마 자동 생성 (없으면)
+      await env.DB.exec(
+        `CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`
+      );
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_class_schedules_user ON class_schedules(user_id)`); } catch {}
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_class_schedules_date ON class_schedules(scheduled_date)`); } catch {}
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_class_schedules_status ON class_schedules(status)`); } catch {}
+
+      const now = Date.now();
       const results: any[] = [];
       for (const it of items) {
         const studentName = String(it?.student_name || '').trim();
@@ -547,29 +557,72 @@ export async function executeAction(
             if (like?.user_id) userId = like.user_id;
           }
         } catch {}
+
+        let insertedId: number | null = null;
+        let insertError: string | null = null;
+
+        if (userId) {
+          // D1 INSERT
+          const action = String(it?.action || 'register_recurring');
+          const scheduleKind = (action === 'schedule_one_off' || action === 'postpone_class') ? 'one_off' : 'recurring';
+          const classType = String(it?.type || 'regular');
+          const dayOfWeek = Array.isArray(it?.days) && it.days.length ? it.days.join(',') : null;
+          const scheduledDate = it?.date || null;
+          const startTime = it?.time || null;
+          const status = action === 'postpone_class' ? 'postponed' : 'active';
+
+          if (!startTime) {
+            insertError = 'time_required';
+          } else {
+            try {
+              const ins = await env.DB.prepare(
+                `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, status, source, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ai_command', ?, ?)`
+              ).bind(
+                userId,
+                studentName,
+                scheduleKind,
+                classType,
+                dayOfWeek,
+                scheduledDate,
+                startTime,
+                status,
+                adminUserId || 'ai',
+                now
+              ).run();
+              insertedId = (ins?.meta?.last_row_id as number) || null;
+            } catch (e: any) {
+              insertError = String(e?.message || e).slice(0, 200);
+            }
+          }
+        }
+
         results.push({
           ...it,
           resolved_user_id: userId,
-          status: userId ? 'queued' : 'student_not_found_in_db'
+          schedule_id: insertedId,
+          status: insertedId ? 'inserted' : (userId ? 'insert_failed' : 'student_not_found_in_db'),
+          error: insertError
         });
       }
-      const planId = 'plan_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-      await env.SESSION_STATE.put(
-        `schedule_plan:${planId}`,
-        JSON.stringify({
-          plan_id: planId,
-          created_at: Date.now(),
-          created_by: adminUserId || 'unknown',
-          items: results
-        }),
-        { expirationTtl: 86400 }
-      );
+
+      // KV 백업 (감사 로그)
+      const planId = 'plan_' + now + '_' + Math.random().toString(36).slice(2, 8);
+      try {
+        await env.SESSION_STATE.put(
+          `schedule_plan:${planId}`,
+          JSON.stringify({ plan_id: planId, created_at: now, created_by: adminUserId || 'unknown', items: results }),
+          { expirationTtl: 86400 * 7 }
+        );
+      } catch {}
+
+      const inserted = results.filter(r => r.status === 'inserted').length;
       return {
         ok: true,
         action: name,
         plan_id: planId,
-        items: results,
-        note: 'Phase 1: KV 에 24시간 보관. 영구 D1 저장은 Phase 2 (스키마 마이그레이션 후).'
+        inserted_count: inserted,
+        total_count: results.length,
+        items: results
       };
     }
 
