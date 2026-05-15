@@ -1324,7 +1324,8 @@ function _renderDayClasses(date) {
   const dayCodes = ['sun','mon','tue','wed','thu','fri','sat'];
   const dayCode = dayCodes[date.getDay()];
   const dayKo   = ['일','월','화','수','목','금','토'][date.getDay()];
-  const dateStr = date.toISOString().slice(0,10);
+  // Phase 7h: KST timezone bug fix - use local date instead of toISOString (which uses UTC)
+  const dateStr = date.getFullYear() + '-' + String(date.getMonth()+1).padStart(2,'0') + '-' + String(date.getDate()).padStart(2,'0');
   const enrolls = _schedState.enrollments || [];
   const aiList  = (_schedState.aiSchedules || []).filter(s => s.status !== 'cancelled');
   const aiTypeName = { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
