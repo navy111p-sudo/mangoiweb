@@ -5077,6 +5077,7 @@ const vcBg = {
   processedStream: null,
   originalVideoTrack: null,
   isProcessing: false,
+  hiddenVideo: null,     // segmenter 입력 전용 숨겨진 비디오 (원본 카메라)
 };
 
 // --- 1) 테마별 배경 이미지 생성 (단일 캔버스, 1280x720, 자체 렌더) ---
@@ -5252,14 +5253,47 @@ function vcOnSegResults(results){
   ctx.restore();
 }
 
-// --- 5) 처리 루프 (사용자 비디오 → segmenter) ---
+// --- 5) 처리 루프 (숨겨진 카메라 비디오 → segmenter) ---
+//     ⚠ 중요: 보이는 vc-local-video 는 캔버스 출력으로 바뀌므로
+//     segmenter 입력은 반드시 별도 hiddenVideo (원본 카메라) 를 사용해야 함.
+//     이 분리를 안 하면 segmenter 가 자기 출력을 다시 입력으로 받아 검정 루프 발생.
 async function vcBgRenderLoop(){
   if (!vcBg.isProcessing) return;
-  const v = document.getElementById('vc-local-video');
+  const v = vcBg.hiddenVideo;
   if (v && v.readyState >= 2 && vcBg.segmenter && v.videoWidth > 0) {
     try { await vcBg.segmenter.send({ image: v }); } catch(e){ console.warn('[vc-bg] send 실패:', e); }
   }
   vcBg.rafId = requestAnimationFrame(vcBgRenderLoop);
+}
+
+// --- 5-b) 숨겨진 카메라 비디오 준비 (원본 스트림 → segmenter 입력) ---
+async function vcEnsureHiddenVideo(){
+  if (!vcBg.hiddenVideo) {
+    const hv = document.createElement('video');
+    hv.autoplay = true; hv.muted = true; hv.playsInline = true;
+    hv.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px;top:-9999px';
+    document.body.appendChild(hv);
+    vcBg.hiddenVideo = hv;
+  }
+  // 항상 최신 vcLocalStream 으로 갱신 (카메라 토글 후에도 안전)
+  if (vcBg.hiddenVideo.srcObject !== vcLocalStream) {
+    vcBg.hiddenVideo.srcObject = vcLocalStream;
+  }
+  try { await vcBg.hiddenVideo.play(); } catch(e) {}
+  // 비디오 메타데이터 로딩 대기 (videoWidth>0)
+  if (vcBg.hiddenVideo.videoWidth === 0) {
+    await new Promise((resolve) => {
+      const handler = () => { vcBg.hiddenVideo.removeEventListener('loadedmetadata', handler); resolve(); };
+      vcBg.hiddenVideo.addEventListener('loadedmetadata', handler);
+      // 안전 타임아웃 (1.5초)
+      setTimeout(resolve, 1500);
+    });
+  }
+  // 캔버스 사이즈를 카메라 해상도에 맞춤 (있는 경우)
+  if (vcBg.canvas && vcBg.hiddenVideo.videoWidth > 0) {
+    vcBg.canvas.width = vcBg.hiddenVideo.videoWidth;
+    vcBg.canvas.height = vcBg.hiddenVideo.videoHeight;
+  }
 }
 
 // --- 6) 캔버스 → MediaStreamTrack → 모든 peer 의 sender 에 replaceTrack ---
@@ -5301,11 +5335,12 @@ window.vcSetBackground = async function(mode){
   if (mode === 'off') {
     vcBg.isProcessing = false;
     if (vcBg.rafId) { cancelAnimationFrame(vcBg.rafId); vcBg.rafId = null; }
-    if (vcBg.originalVideoTrack) {
-      vcSwapVideoTrack(vcBg.originalVideoTrack);
-      const v = document.getElementById('vc-local-video');
-      if (v) v.srcObject = vcLocalStream;
-    }
+    // 보이는 비디오를 원본 카메라 스트림으로 복귀
+    const v = document.getElementById('vc-local-video');
+    if (v) v.srcObject = vcLocalStream;
+    // peer 들에게도 원본 트랙 다시 보내기
+    const camTrk = vcLocalStream && vcLocalStream.getVideoTracks()[0];
+    if (camTrk) vcSwapVideoTrack(camTrk);
     if (status) status.textContent = '원본 카메라 사용 중';
     return;
   }
@@ -5316,6 +5351,8 @@ window.vcSetBackground = async function(mode){
     await vcLoadMediaPipe();
     if (status) status.textContent = '⏳ Segmenter 초기화 중…';
     await vcInitBgEngine();
+    if (status) status.textContent = '⏳ 카메라 연결 중…';
+    await vcEnsureHiddenVideo();   // 숨겨진 카메라 비디오 준비 (segmenter 입력 전용)
   } catch(e) {
     if (status) status.textContent = '❌ 로드 실패: ' + (e && e.message || e);
     console.error('[vc-bg]', e);
@@ -5328,6 +5365,11 @@ window.vcSetBackground = async function(mode){
   // 처리 시작
   vcBg.isProcessing = true;
   if (!vcBg.rafId) vcBgRenderLoop();
+
+  // 첫 프레임 즉시 한 번 그려서 검정 화면 방지 (RAF 첫 콜백 전 대기 시간 동안)
+  try {
+    await vcBg.segmenter.send({ image: vcBg.hiddenVideo });
+  } catch(e) { console.warn('[vc-bg] 초기 프레임 송신 실패:', e); }
 
   // 캔버스 스트림 생성 → 로컬 비디오에 연결 + sender 교체
   if (!vcBg.processedStream) {
