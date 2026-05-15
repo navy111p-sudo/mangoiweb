@@ -12297,8 +12297,17 @@ window.closeRulesModal = function() {
       pickedHour: null,
       pickedTeacher: null,
       shiftPreview: null,
-      weekOffset: 0  // 0=이번주(내일부터+7일), 1=다음주, 2=다다음주, 3=4주차
+      weekOffset: 0,
+      zoom: 1.0  // 0.6 ~ 1.6 까지 (스텝 0.2)
     };
+    renderLessonPicker();
+  };
+  window.lcZoom = function(dir){
+    if(!lcPicker)return;
+    var z = lcPicker.zoom || 1.0;
+    z = Math.round((z + dir*0.2)*10)/10;
+    z = Math.max(0.6, Math.min(1.6, z));
+    lcPicker.zoom = z;
     renderLessonPicker();
   };
   window.lcPickWeek = function(offset){
@@ -12688,8 +12697,9 @@ window.closeRulesModal = function() {
       if(iso===curISO) curDayCol = di;
     });
 
-    // CSS: 한 row = 10분 = 18px (가독성 향상)
-    var rowPx = 18;
+    // CSS: 한 row = 10분 = 18px (가독성 향상) — zoom 배율 적용
+    var zoomLevel = p.zoom || 1.0;
+    var rowPx = Math.round(18 * zoomLevel);
     var totalRows = (23-9)*6 + 1; // 09:00 ~ 23:00 = 85 rows
     // ─── 주간 네비게이션 탭 (상단) ───
     var weekTabs = [
@@ -12711,7 +12721,15 @@ window.closeRulesModal = function() {
       '</button>';
     });
     weekTabsHtml += '</div>';
-    var html = weekTabsHtml + '<div id="cal-grid-wrap" style="background:#131826;border-radius:12px;overflow:hidden;border:1px solid #232b40;position:relative">';
+    // 줌 버튼 (확대/축소)
+    var zoomPct = Math.round(zoomLevel*100);
+    var zoomBtnsHtml = '<div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-bottom:8px;font-size:11.5px;color:#94a3b8">'+
+      '<span>🔍 '+(L?'캘린더 확대/축소':'Zoom')+':</span>'+
+      '<button onclick="lcZoom(-1)" '+(zoomLevel<=0.6?'disabled':'')+' style="background:#1a2032;border:1px solid #232b40;color:'+(zoomLevel<=0.6?'#475569':'#fbbf24')+';width:32px;height:32px;border-radius:8px;font-weight:800;font-size:18px;cursor:'+(zoomLevel<=0.6?'not-allowed':'pointer')+';line-height:1">−</button>'+
+      '<span style="min-width:48px;text-align:center;color:#fde68a;font-weight:800;font-size:12.5px">'+zoomPct+'%</span>'+
+      '<button onclick="lcZoom(1)" '+(zoomLevel>=1.6?'disabled':'')+' style="background:#1a2032;border:1px solid #232b40;color:'+(zoomLevel>=1.6?'#475569':'#fbbf24')+';width:32px;height:32px;border-radius:8px;font-weight:800;font-size:18px;cursor:'+(zoomLevel>=1.6?'not-allowed':'pointer')+';line-height:1">+</button>'+
+    '</div>';
+    var html = weekTabsHtml + zoomBtnsHtml + '<div id="cal-grid-wrap" style="background:#131826;border-radius:12px;overflow:hidden;border:1px solid #232b40;position:relative">';
     // 헤더
     html += '<div style="display:grid;grid-template-columns:48px repeat(7,1fr);background:#1a2032;border-bottom:1px solid #232b40;position:sticky;top:0;z-index:5">';
     html += '<div style="padding:8px 0;text-align:center;color:#94a3b8;font-size:11px;font-weight:700"></div>';
@@ -12749,16 +12767,26 @@ window.closeRulesModal = function() {
             cellStyle = 'background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;'+borderTop+' '+(isCurStart?'border-top:3px solid #fbbf24;':'')+(isCurLast?'border-bottom:3px solid #fbbf24;position:relative;':'position:relative;overflow:visible;')+'cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none';
             dataAttr = ' data-cal-current="1" data-cal-iso="'+iso+'" data-cal-hour="'+hh+'" data-cal-min="'+mm+'"';
             if(isCurStart){
-              // NOW 라벨: 박스 높이에 따라 폰트 자동 조절 + 깔끔한 세로 배열
+              // NOW 라벨: 박스 높이 + 모바일 너비에 따라 폰트 자동 조절
               var nowBoxHeight = (durMin/10)*rowPx;
-              // 폰트 사이즈: 박스가 작으면 작게, 크면 크게
+              var isMobile = window.innerWidth < 640;
               var f1, f2, gap;
-              if(nowBoxHeight < 50){ f1=11; f2=10; gap=0; }
-              else if(nowBoxHeight < 80){ f1=14; f2=12; gap=2; }
-              else { f1=18; f2=14; gap=4; }
-              cellContent = '<div style="position:absolute;left:-3px;right:-3px;top:0;height:'+nowBoxHeight+'px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:'+gap+'px;padding:3px;background:rgba(0,0,0,.45);border-radius:7px;z-index:6;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.9);overflow:hidden;box-sizing:border-box">'+
-                '<div style="font-size:'+f1+'px;line-height:1;font-weight:900;color:#fff;white-space:nowrap;letter-spacing:-.2px">🟣 '+(L?'내 수업':'My Class')+'</div>'+
-                '<div style="font-size:'+f2+'px;line-height:1;font-weight:800;color:#fde68a;white-space:nowrap;letter-spacing:.2px">⏱ '+durMin+(L?'분':' min')+'</div>'+
+              if(nowBoxHeight < 40){
+                // 매우 작은 박스 (20분 줌아웃 등) - 한 줄만
+                f1 = isMobile ? 8.5 : 9.5; f2 = 0; gap = 0;
+              } else if(nowBoxHeight < 60){
+                f1 = isMobile ? 9.5 : 11; f2 = isMobile ? 8 : 9.5; gap = 0;
+              } else if(nowBoxHeight < 90){
+                f1 = isMobile ? 11 : 14; f2 = isMobile ? 9.5 : 12; gap = 1;
+              } else if(nowBoxHeight < 130){
+                f1 = isMobile ? 13 : 17; f2 = isMobile ? 11 : 13; gap = 2;
+              } else {
+                f1 = isMobile ? 15 : 20; f2 = isMobile ? 12 : 15; gap = 4;
+              }
+              var secondLine = (f2>0) ? '<div style="font-size:'+f2+'px;line-height:1;font-weight:800;color:#fde68a;white-space:nowrap">'+durMin+(L?'분':'m')+'</div>' : '';
+              cellContent = '<div style="position:absolute;left:-3px;right:-3px;top:0;height:'+nowBoxHeight+'px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:'+gap+'px;padding:2px;background:rgba(0,0,0,.5);border-radius:6px;z-index:6;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.95);overflow:hidden;box-sizing:border-box">'+
+                '<div style="font-size:'+f1+'px;line-height:1;font-weight:900;color:#fff;white-space:nowrap;letter-spacing:-.3px">🟣'+(L?'현재':'NOW')+'</div>'+
+                secondLine+
               '</div>';
               dataAttr += ' data-cal-start="1"';
             }
