@@ -630,18 +630,34 @@ export async function executeAction(
           }
         } catch {}
 
-        // Phase 3-3: 학생이 없고 auto_create_students=true 면 students_erp 에 자동 등록
+        // Phase 5: 학생이 없고 auto_create_students=true 면 students_erp 에 자동 등록
+        // student_meta 가 있으면 그 정보를 사용 (영문명, 연락처, 학부모, 학년 등)
         if (!userId && autoCreateStudents && studentName) {
           try {
+            // 확장 컬럼들 자동 추가 (ALTER TABLE - 이미 있으면 catch 해서 무시)
+            const cols = ['english_name','phone','parent_phone','grade','center','notes'];
+            for (const col of cols) {
+              try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN ${col} TEXT`); } catch {}
+            }
+            const meta = (args?.student_meta && args.student_meta[studentName]) || {};
             const newId = 'stu_ai_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
             const todayKst = new Date(now + 9*3600*1000).toISOString().slice(0,10);
             await env.DB.prepare(
-              `INSERT INTO students_erp (user_id, korean_name, status, signup_date) VALUES (?, ?, 'active', ?)`
-            ).bind(newId, studentName, todayKst).run();
+              `INSERT INTO students_erp (user_id, korean_name, english_name, status, signup_date, phone, parent_phone, grade, center, notes) VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)`
+            ).bind(
+              newId,
+              studentName,
+              String(meta.english_name||''),
+              todayKst,
+              String(meta.phone||''),
+              String(meta.parent_phone||''),
+              String(meta.grade||''),
+              String(meta.center||''),
+              String(meta.notes||'AI 명령으로 자동 등록')
+            ).run();
             userId = newId;
             autoCreated = true;
           } catch (e: any) {
-            // 자동 생성 실패 (스키마 다름 등) — 로그만 남기고 계속
             console.log('[schedule_batch] auto-create student failed:', e?.message);
           }
         }
