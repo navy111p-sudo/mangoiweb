@@ -13034,7 +13034,10 @@ window.closeRulesModal = function() {
       }
       // 통과 → 4-method 위저드 (기존)
       if(typeof openLessonPickerModal==='function'){
-        openLessonPickerModal({teacher:c.teacher, hour:c.hour, dateOffset:c.dateOffset, hourOffset:c.hourOffset, durationMin:c.durationMin, type:c.type, students:[{name:student.name,uid:student.uid}]}, mode);
+        // ★ 학생 데이터의 같은 객체 c 를 그대로 전달 (참조 유지)
+        // → lcConfirmPicker 에서 c.lessonDate/lessonHour 를 직접 수정하면 학생 데이터도 자동 동기화
+        if(!c.students) c.students = [{name:student.name, uid:student.uid}];
+        openLessonPickerModal(c, mode);
       }
     };
   }
