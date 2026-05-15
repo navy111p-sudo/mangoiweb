@@ -3328,30 +3328,28 @@
             <span style="margin-left:auto;font-size:11px;color:#64748b" data-ko="첫 적용 시 모델 로드(약 3MB)가 필요합니다" data-en="First use downloads ~3MB model">첫 적용 시 모델 로드(약 3MB)가 필요합니다</span>
           </div>
           <div style="flex:1;min-height:0;overflow-y:auto;padding:18px;">
-            <div id="vc-bg-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px">
+            <div id="vc-bg-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px">
               <button class="vc-bg-tile vc-bg-active" data-bg="off" onclick="vcSetBackground('off')" style="aspect-ratio:16/10;border:2px solid #fbbf24;border-radius:12px;background:linear-gradient(135deg,#1e293b,#0f172a);color:#e2e8f0;cursor:pointer;font-size:13px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px">
                 <span style="font-size:32px">🚫</span><span data-ko="배경 끄기" data-en="None">배경 끄기</span>
               </button>
               <button class="vc-bg-tile" data-bg="blur" onclick="vcSetBackground('blur')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:linear-gradient(135deg,#475569,#1e293b);color:#e2e8f0;cursor:pointer;font-size:13px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px;backdrop-filter:blur(8px)">
                 <span style="font-size:32px">💨</span><span data-ko="흐림" data-en="Blur">흐림</span>
               </button>
-              <button class="vc-bg-tile" data-bg="space" onclick="vcSetBackground('space')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:radial-gradient(ellipse at 30% 40%,#1e1b4b,#0a0512 70%),radial-gradient(circle at 70% 60%,#581c87,transparent 50%);color:#fff;cursor:pointer;font-size:13px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px;text-shadow:0 1px 4px rgba(0,0,0,.8)">
-                <span style="font-size:32px">🌌</span><span data-ko="우주" data-en="Space">우주</span>
+              <button class="vc-bg-tile" data-bg="galaxy" onclick="vcSetBackground('galaxy')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/galaxy.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+                <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
+                <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🌌 우주" data-en="🌌 Space">🌌 우주</span>
               </button>
-              <button class="vc-bg-tile" data-bg="forest" onclick="vcSetBackground('forest')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:linear-gradient(180deg,#14532d,#052e16);color:#fff;cursor:pointer;font-size:13px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px;text-shadow:0 1px 4px rgba(0,0,0,.8)">
-                <span style="font-size:32px">🌲</span><span data-ko="숲속" data-en="Forest">숲속</span>
+              <button class="vc-bg-tile" data-bg="desert" onclick="vcSetBackground('desert')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/desert.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+                <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
+                <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🐪 사막" data-en="🐪 Desert">🐪 사막</span>
               </button>
-              <button class="vc-bg-tile" data-bg="classroom" onclick="vcSetBackground('classroom')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:linear-gradient(135deg,#fef3c7,#fde68a 60%,#92400e);color:#1f2937;cursor:pointer;font-size:13px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px">
-                <span style="font-size:32px">🏫</span><span data-ko="교실" data-en="Classroom">교실</span>
+              <button class="vc-bg-tile" data-bg="underwater" onclick="vcSetBackground('underwater')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/underwater.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+                <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
+                <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🐠 바닷속" data-en="🐠 Underwater">🐠 바닷속</span>
               </button>
-              <button class="vc-bg-tile" data-bg="cafe" onclick="vcSetBackground('cafe')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:radial-gradient(circle at 25% 35%,#fbbf24aa,transparent 35%),linear-gradient(135deg,#7c2d12,#451a03);color:#fff;cursor:pointer;font-size:13px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px;text-shadow:0 1px 4px rgba(0,0,0,.8)">
-                <span style="font-size:32px">☕</span><span data-ko="카페" data-en="Cafe">카페</span>
-              </button>
-              <button class="vc-bg-tile" data-bg="beach" onclick="vcSetBackground('beach')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:linear-gradient(180deg,#bae6fd 0%,#38bdf8 50%,#fef3c7 50%,#fbbf24 100%);color:#0c4a6e;cursor:pointer;font-size:13px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px">
-                <span style="font-size:32px">🏖️</span><span data-ko="바닷가" data-en="Beach">바닷가</span>
-              </button>
-              <button class="vc-bg-tile" data-bg="library" onclick="vcSetBackground('library')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:repeating-linear-gradient(90deg,#5b3a1c 0,#5b3a1c 10px,#3e2511 10px,#3e2511 20px,#7c4520 20px,#7c4520 30px,#3e2511 30px,#3e2511 40px);color:#fef3c7;cursor:pointer;font-size:13px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px;text-shadow:0 1px 4px rgba(0,0,0,.8)">
-                <span style="font-size:32px">📚</span><span data-ko="서재" data-en="Library">서재</span>
+              <button class="vc-bg-tile" data-bg="beach" onclick="vcSetBackground('beach')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/beach.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+                <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
+                <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🏖️ 바닷가" data-en="🏖️ Beach">🏖️ 바닷가</span>
               </button>
             </div>
             <div style="margin-top:18px;padding:12px 14px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:10px;font-size:12px;color:#fde68a;line-height:1.6">
@@ -5085,120 +5083,34 @@ const vcBg = {
   lastVideoTime: -1,     // 동일 프레임 중복 송신 방지
 };
 
-// --- 1) 테마별 배경 이미지 생성 (단일 캔버스, 1280x720, 자체 렌더) ---
-function vcMakeBgCanvas(theme){
-  if (vcBg.bgImgKey === theme && vcBg.bgImg) return vcBg.bgImg;
-  const w=1280, h=720;
-  const c=document.createElement('canvas');
-  c.width=w; c.height=h;
-  const g=c.getContext('2d');
-  if (theme==='space') {
-    const grad=g.createRadialGradient(w*0.4,h*0.45,0,w*0.4,h*0.45,w*0.7);
-    grad.addColorStop(0,'#312e81'); grad.addColorStop(0.5,'#1e1b4b'); grad.addColorStop(1,'#020617');
-    g.fillStyle=grad; g.fillRect(0,0,w,h);
-    // 별
-    for(let i=0;i<260;i++){
-      const x=Math.random()*w, y=Math.random()*h, r=Math.random()*1.6+0.3;
-      g.fillStyle='rgba(255,255,255,'+(0.4+Math.random()*0.6)+')';
-      g.beginPath(); g.arc(x,y,r,0,Math.PI*2); g.fill();
-    }
-    // 행성
-    const pg=g.createRadialGradient(w*0.78,h*0.30,8,w*0.78,h*0.30,90);
-    pg.addColorStop(0,'#fbbf24'); pg.addColorStop(1,'#7c2d12');
-    g.fillStyle=pg; g.beginPath(); g.arc(w*0.78,h*0.30,90,0,Math.PI*2); g.fill();
-  } else if (theme==='forest') {
-    const grad=g.createLinearGradient(0,0,0,h);
-    grad.addColorStop(0,'#022c22'); grad.addColorStop(0.4,'#14532d'); grad.addColorStop(1,'#052e16');
-    g.fillStyle=grad; g.fillRect(0,0,w,h);
-    // 햇살
-    const sun=g.createRadialGradient(w*0.7,h*0.15,5,w*0.7,h*0.15,400);
-    sun.addColorStop(0,'rgba(254,240,138,0.5)'); sun.addColorStop(1,'rgba(254,240,138,0)');
-    g.fillStyle=sun; g.fillRect(0,0,w,h);
-    // 나무 실루엣
-    for(let i=0;i<14;i++){
-      const x=i*100+Math.random()*60, base=h-Math.random()*40;
-      const tw=40+Math.random()*30, th=200+Math.random()*180;
-      g.fillStyle='rgba(2,44,34,0.85)';
-      g.beginPath();
-      g.moveTo(x,base); g.lineTo(x+tw/2,base-th); g.lineTo(x+tw,base); g.closePath(); g.fill();
-    }
-  } else if (theme==='classroom') {
-    g.fillStyle='#fef3c7'; g.fillRect(0,0,w,h);
-    // 칠판
-    g.fillStyle='#14532d'; g.fillRect(w*0.12,h*0.18,w*0.55,h*0.45);
-    g.strokeStyle='#92400e'; g.lineWidth=14; g.strokeRect(w*0.12,h*0.18,w*0.55,h*0.45);
-    // 칠판 분필 글씨
-    g.fillStyle='rgba(255,255,255,0.85)'; g.font='42px serif';
-    g.fillText('Today: Verbs', w*0.16, h*0.30);
-    g.fillText('I  You  We  They', w*0.16, h*0.42);
-    // 책상
-    g.fillStyle='#92400e'; g.fillRect(0,h*0.78,w,h*0.22);
-    // 창문
-    g.fillStyle='#bae6fd'; g.fillRect(w*0.74,h*0.20,w*0.20,h*0.30);
-    g.strokeStyle='#fff'; g.lineWidth=6; g.strokeRect(w*0.74,h*0.20,w*0.20,h*0.30);
-    g.beginPath(); g.moveTo(w*0.84,h*0.20); g.lineTo(w*0.84,h*0.50); g.moveTo(w*0.74,h*0.35); g.lineTo(w*0.94,h*0.35); g.stroke();
-  } else if (theme==='cafe') {
-    const grad=g.createLinearGradient(0,0,0,h);
-    grad.addColorStop(0,'#451a03'); grad.addColorStop(1,'#7c2d12');
-    g.fillStyle=grad; g.fillRect(0,0,w,h);
-    // 따뜻한 조명 글로우들
-    const lights=[[0.2,0.25,180],[0.55,0.18,140],[0.85,0.32,200]];
-    for(const [x,y,r] of lights){
-      const lg=g.createRadialGradient(w*x,h*y,2,w*x,h*y,r);
-      lg.addColorStop(0,'rgba(251,191,36,0.85)'); lg.addColorStop(0.4,'rgba(251,191,36,0.25)'); lg.addColorStop(1,'rgba(251,191,36,0)');
-      g.fillStyle=lg; g.beginPath(); g.arc(w*x,h*y,r,0,Math.PI*2); g.fill();
-    }
-    // 하단 카운터
-    g.fillStyle='#1f1306'; g.fillRect(0,h*0.78,w,h*0.22);
-  } else if (theme==='beach') {
-    // 하늘
-    const sky=g.createLinearGradient(0,0,0,h*0.55);
-    sky.addColorStop(0,'#bae6fd'); sky.addColorStop(1,'#fde68a');
-    g.fillStyle=sky; g.fillRect(0,0,w,h*0.55);
-    // 태양
-    const sun=g.createRadialGradient(w*0.78,h*0.22,10,w*0.78,h*0.22,150);
-    sun.addColorStop(0,'#fff7c0'); sun.addColorStop(1,'rgba(254,240,138,0)');
-    g.fillStyle=sun; g.fillRect(0,0,w,h*0.55);
-    // 바다
-    const sea=g.createLinearGradient(0,h*0.55,0,h*0.78);
-    sea.addColorStop(0,'#0ea5e9'); sea.addColorStop(1,'#0369a1');
-    g.fillStyle=sea; g.fillRect(0,h*0.55,w,h*0.23);
-    // 모래
-    const sand=g.createLinearGradient(0,h*0.78,0,h);
-    sand.addColorStop(0,'#fcd34d'); sand.addColorStop(1,'#d97706');
-    g.fillStyle=sand; g.fillRect(0,h*0.78,w,h*0.22);
-    // 야자수 잎
-    g.strokeStyle='#14532d'; g.lineWidth=6;
-    for(let i=0;i<3;i++){
-      const x=80+i*40, y=h*0.78;
-      g.beginPath(); g.moveTo(x,y); g.lineTo(x+10,y-180); g.stroke();
-      for(let j=0;j<5;j++){
-        g.beginPath(); g.moveTo(x+10,y-180); g.lineTo(x-50+j*20,y-220-j*5); g.stroke();
-      }
-    }
-  } else if (theme==='library') {
-    g.fillStyle='#3e2511'; g.fillRect(0,0,w,h);
-    // 책장 6단
-    for(let row=0;row<5;row++){
-      const sy=row*h/5;
-      g.fillStyle='#5b3a1c'; g.fillRect(0,sy,w,h/5-8);
-      g.fillStyle='#1f1306'; g.fillRect(0,sy+h/5-12,w,4);
-      // 책들
-      let x=10;
-      while(x<w-10){
-        const bw=24+Math.random()*40, bh=h/5-30-Math.random()*30;
-        const colors=['#7f1d1d','#1e3a8a','#14532d','#78350f','#581c87','#0f766e','#7c2d12'];
-        g.fillStyle=colors[Math.floor(Math.random()*colors.length)];
-        g.fillRect(x,sy+(h/5-12)-bh,bw,bh);
-        g.strokeStyle='rgba(0,0,0,0.4)'; g.lineWidth=1; g.strokeRect(x,sy+(h/5-12)-bh,bw,bh);
-        x+=bw+2;
-      }
-    }
-  } else {
-    g.fillStyle='#0f172a'; g.fillRect(0,0,w,h);
+// --- 1) 테마별 배경 이미지 (실제 사진 파일 → 한 번 로드 후 캐시) ---
+const VC_BG_IMAGES = {
+  galaxy:     '/img/bg/galaxy.jpg',     // 우주 - 안드로메다 은하
+  desert:     '/img/bg/desert.jpg',     // 사막 - 낙타와 석양
+  underwater: '/img/bg/underwater.jpg', // 바닷속 - 산호초 + 거북이
+  beach:      '/img/bg/beach.jpg',      // 바닷가 - 석양과 조개
+};
+const _vcBgCache = {}; // theme → HTMLImageElement (loaded)
+
+function vcLoadBgImage(theme){
+  // 이미 로드된 캐시 반환
+  if (_vcBgCache[theme] && _vcBgCache[theme].complete && _vcBgCache[theme].naturalWidth > 0) {
+    return Promise.resolve(_vcBgCache[theme]);
   }
-  vcBg.bgImg=c; vcBg.bgImgKey=theme;
-  return c;
+  const url = VC_BG_IMAGES[theme];
+  if (!url) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous'; // canvas 사용을 위해 (동일 origin이라 사실상 무관)
+    img.onload = () => { _vcBgCache[theme] = img; resolve(img); };
+    img.onerror = (e) => { console.warn('[vc-bg] 이미지 로드 실패:', url, e); resolve(null); };
+    img.src = url;
+  });
+}
+
+// 합성에서 동기적으로 가져갈 수 있도록 미리 로드된 캐시만 리턴
+function vcGetBgImageSync(theme){
+  return _vcBgCache[theme] || null;
 }
 
 // --- 2) MediaPipe 스크립트 lazy 로드 ---
@@ -5252,8 +5164,27 @@ function vcOnSegResults(results){
     ctx.drawImage(results.image, 0, 0, w, h);
     ctx.filter = 'none';
   } else if (vcBg.mode !== 'off') {
-    const bg = vcMakeBgCanvas(vcBg.mode);
-    ctx.drawImage(bg, 0, 0, w, h);
+    const img = vcGetBgImageSync(vcBg.mode);
+    if (img && img.complete && img.naturalWidth > 0) {
+      // cover 방식으로 그리기 (캔버스 비율과 이미지 비율이 다를 수 있음)
+      const ir = img.naturalWidth / img.naturalHeight;
+      const cr = w / h;
+      let sx, sy, sw, sh;
+      if (ir > cr) {
+        // 이미지가 더 가로로 김 → 좌우 자름
+        sh = img.naturalHeight; sw = sh * cr;
+        sx = (img.naturalWidth - sw) / 2; sy = 0;
+      } else {
+        // 이미지가 더 세로로 김 → 상하 자름
+        sw = img.naturalWidth; sh = sw / cr;
+        sx = 0; sy = (img.naturalHeight - sh) / 2;
+      }
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+    } else {
+      // 이미지 아직 로드 안됨 → 임시 배경색
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, w, h);
+    }
   }
   ctx.restore();
 }
@@ -5369,7 +5300,7 @@ window.vcSetBackground = async function(mode){
     return;
   }
 
-  // 첫 적용: MediaPipe 로드 + 엔진 init + 원본 트랙 보관
+  // 첫 적용: MediaPipe 로드 + 엔진 init + 배경 이미지 + 원본 트랙 보관
   try {
     if (status) status.textContent = '⏳ MediaPipe 모델 로드 중… (최초 1회, 약 3MB)';
     await vcLoadMediaPipe();
@@ -5377,6 +5308,11 @@ window.vcSetBackground = async function(mode){
     await vcInitBgEngine();
     if (status) status.textContent = '⏳ 카메라 연결 중…';
     await vcEnsureHiddenVideo();   // 숨겨진 카메라 비디오 준비 (segmenter 입력 전용)
+    // 배경 이미지 미리 로드 (blur 모드는 이미지 불필요)
+    if (mode !== 'blur' && VC_BG_IMAGES[mode]) {
+      if (status) status.textContent = '⏳ 배경 이미지 로드 중…';
+      await vcLoadBgImage(mode);
+    }
   } catch(e) {
     if (status) status.textContent = '❌ 로드 실패: ' + (e && e.message || e);
     console.error('[vc-bg]', e);
@@ -5408,7 +5344,7 @@ window.vcSetBackground = async function(mode){
   if (newVideoTrack) vcSwapVideoTrack(newVideoTrack);
 
   if (status) {
-    const names = { blur:'흐림', space:'우주', forest:'숲속', classroom:'교실', cafe:'카페', beach:'바닷가', library:'서재' };
+    const names = { blur:'흐림', galaxy:'우주', desert:'사막', underwater:'바닷속', beach:'바닷가' };
     status.textContent = '✅ ' + (names[mode]||mode) + ' 배경 적용 중 — 모든 참가자에게 보입니다';
   }
 };
