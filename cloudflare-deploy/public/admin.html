@@ -10409,8 +10409,11 @@ async function executeAiAction(name, args) {
     // 🥭 schedule_batch 결과는 사람 친화적 카드로 표시 (JSON 원본 X)
     if (name === 'schedule_batch' && Array.isArray(j.items)) {
       const items = j.items;
-      const ok = items.filter(x => x.status === 'queued');
+      // Phase 3: status 종류 확장 - inserted, inserted_auto_created, inserted_with_conflict, insert_failed, student_not_found_in_db
+      const ok = items.filter(x => x.status && x.status.startsWith('inserted'));
       const notFound = items.filter(x => x.status === 'student_not_found_in_db');
+      const conflicts = items.filter(x => x.conflict_with);
+      const autoCreatedItems = items.filter(x => x.auto_created);
       const dayNames = { mon:'월', tue:'화', wed:'수', thu:'목', fri:'금', sat:'토', sun:'일' };
       const actionNames = {
         register_recurring: '🆕 정규수업 등록',
@@ -10423,6 +10426,8 @@ async function executeAiAction(name, args) {
       let html = '<div class="ai-answer" style="font-size:15px">' +
         '✅ <b>' + items.length + '건</b> 처리 완료 ' +
         '<span style="color:#10b981">(등록 ' + ok.length + ')</span>' +
+        (autoCreatedItems.length ? ' <span style="color:#8b5cf6">(🤖 학생 자동등록 ' + autoCreatedItems.length + ')</span>' : '') +
+        (conflicts.length ? ' <span style="color:#f59e0b">(⚠️ 시간 충돌 ' + conflicts.length + ')</span>' : '') +
         (notFound.length ? ' <span style="color:#ef4444">(미등록 학생 ' + notFound.length + ')</span>' : '') +
       '</div>';
 
@@ -10433,8 +10438,10 @@ async function executeAiAction(name, args) {
           const dayList = Array.isArray(it.days) ? it.days.map(d => dayNames[d] || d).join('·') : '';
           const tColor = typeColor[it.type] || '#6b7280';
           html += '<div style="border:1px solid #d1fae5;border-left:4px solid #10b981;border-radius:8px;padding:10px 14px;background:#f0fdf4">' +
-            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">' +
               '<span style="font-size:13px;font-weight:700;color:#111827">' + _aiEsc(actionNames[it.action] || it.action) + '</span>' +
+              (it.auto_created ? '<span style="background:#8b5cf6;color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">🤖 자동등록</span>' : '') +
+              (it.conflict_with ? '<span style="background:#f59e0b;color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700" title="기존 schedule_id=' + it.conflict_with.id + ' 와 시간 겹침">⚠️ 충돌</span>' : '') +
               '<span style="margin-left:auto;background:' + tColor + ';color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">' + _aiEsc(typeNames[it.type] || it.type) + '</span>' +
             '</div>' +
             '<div style="font-size:14px;color:#374151">' +
@@ -10472,13 +10479,17 @@ async function executeAiAction(name, args) {
         html += '</div></div>';
       }
 
-      // 액션 버튼들
+      // 액션 버튼들 (Phase 3: 미등록 학생 자동등록 + 재시도)
       html += '<div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">' +
-        '<a href="/admin/students.html" class="ai-action-confirm-btn" style="flex:1;min-width:140px;text-align:center;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px">👥 학생관리 열기</a>' +
-        (notFound.length ?
-          '<a href="/admin/students.html?action=create" class="ai-action-confirm-btn" style="flex:1;min-width:140px;text-align:center;text-decoration:none;background:linear-gradient(135deg,#ef4444,#dc2626);display:inline-flex;align-items:center;justify-content:center;gap:6px">➕ 신규 학생 등록</a>'
-          : '') +
-        '<button class="ai-action-cancel-btn" onclick="_aiPanelClose()" style="flex:1;min-width:100px">닫기</button>' +
+        '<a href="/admin/students.html" class="ai-action-confirm-btn" style="flex:1;min-width:140px;text-align:center;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px">👥 학생관리 열기</a>';
+      // 미등록 학생이 있으면 자동등록 + 재시도 버튼 (Phase 3-3)
+      if (notFound.length) {
+        const retryItems = notFound.map(x => ({ action: x.action, student_name: x.student_name, days: x.days, date: x.date, time: x.time, type: x.type, label: x.label }));
+        const retryArgsJson = JSON.stringify({ items: retryItems, auto_create_students: true });
+        html += '<button class="ai-action-confirm-btn" onclick="executeAiAction(\'schedule_batch\',' + _aiEsc(retryArgsJson).replace(/\'/g, "&#39;") + ')" style="flex:1;min-width:180px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);display:inline-flex;align-items:center;justify-content:center;gap:6px">🤖 ' + notFound.length + '명 자동등록 + 재시도</button>' +
+          '<a href="/admin/students.html?action=create" class="ai-action-cancel-btn" style="flex:1;min-width:140px;text-align:center;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px">➕ 수동 등록</a>';
+      }
+      html += '<button class="ai-action-cancel-btn" onclick="_aiPanelClose()" style="flex:0 0 80px">닫기</button>' +
       '</div>';
 
       // Phase 1 안내 (작게)

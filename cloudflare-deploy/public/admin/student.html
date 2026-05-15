@@ -300,6 +300,7 @@
           <span><span style="display:inline-block;width:14px;height:14px;background:#dbeafe;border:1px solid #3b82f6;border-radius:3px;vertical-align:middle"></span> 레벨테스트</span>
           <span><span style="display:inline-block;width:14px;height:14px;background:#dcfce7;border:1px solid #10b981;border-radius:3px;vertical-align:middle"></span> 체험수업</span>
           <span><span style="display:inline-block;width:14px;height:14px;background:#fef3c7;border:1px solid #f59e0b;border-radius:3px;vertical-align:middle"></span> 정규수업</span>
+          <span><span style="display:inline-block;width:14px;height:14px;background:#fbbf24;border:2px dashed #b45309;border-radius:3px;vertical-align:middle"></span> ⭐ AI 등록 (점선)</span>
           <span style="margin-left:auto">학생 ID: <code id="d-sched-uid" style="background:rgba(148,163,184,0.2);padding:1px 6px;border-radius:3px">—</code></span>
         </div>
       </div>
@@ -2078,22 +2079,25 @@ const _dSchedState = { view: 'week', weekStart: null, year: 0, month: 0, enrollm
   const now = new Date();
   _dSchedState.year = now.getFullYear();
   _dSchedState.month = now.getMonth();
+  _dSchedState.aiSchedules = [];
   const ws = new Date(now); ws.setDate(now.getDate() - now.getDay()); ws.setHours(0,0,0,0);
   _dSchedState.weekStart = ws;
 })();
 
 async function loadDStudentSchedule() {
-  // 학생의 enrollments fetch
+  // 학생의 enrollments + AI 등록 class_schedules 동시 fetch
   const uidEl = document.getElementById('d-sched-uid');
   const uid = (typeof DRILL_UID !== 'undefined' && DRILL_UID) ||
               new URLSearchParams(location.search).get('uid') || '';
   if (uidEl) uidEl.textContent = uid || '—';
-  if (!uid) { _dSchedState.enrollments = []; renderDSchedule(); return; }
-  try {
-    const r = await fetch('/api/admin/enrollments?user_id=' + encodeURIComponent(uid), { credentials: 'include' });
-    const d = await r.json().catch(() => ({}));
-    _dSchedState.enrollments = (d.ok && d.items) ? d.items : [];
-  } catch (e) { _dSchedState.enrollments = []; }
+  if (!uid) { _dSchedState.enrollments = []; _dSchedState.aiSchedules = []; renderDSchedule(); return; }
+  // 병렬 로드
+  const [enrR, aiR] = await Promise.all([
+    fetch('/api/admin/enrollments?user_id=' + encodeURIComponent(uid), { credentials:'include' }).then(r=>r.json()).catch(()=>({})),
+    fetch('/api/admin/class-schedules?user_id=' + encodeURIComponent(uid), { credentials:'include' }).then(r=>r.json()).catch(()=>({}))
+  ]);
+  _dSchedState.enrollments = (enrR.ok && enrR.items) ? enrR.items : [];
+  _dSchedState.aiSchedules = (aiR.ok && aiR.items) ? aiR.items : [];
   renderDSchedule();
 }
 
@@ -2172,6 +2176,53 @@ function renderDSchedWeek() {
         '<div style="font-weight:700;font-size:9px">' + (enr.type||'정규수업').substring(0,4) + '</div>' +
         '<div style="font-weight:600">' + (enr.teacher_name||'TBD') + '</div>' +
         '<div style="font-size:9px">' + timeStr + ' (' + (enr.class_size||'1:1') + ')</div></div>';
+    }
+  }
+  // 🥭 Phase 3-1: AI 등록 class_schedules 오버레이 (별 ⭐ 마크로 구분)
+  const aiTypeColors = {
+    level_test: { bg:'#dbeafe', border:'#1d4ed8', text:'#1e3a8a', name:'레벨테스트' },
+    trial:      { bg:'#dcfce7', border:'#047857', text:'#064e3b', name:'체험수업' },
+    regular:    { bg:'#fef3c7', border:'#b45309', text:'#78350f', name:'정규수업' }
+  };
+  const dowToIdx = { sun:0, mon:1, tue:2, wed:3, thu:4, fri:5, sat:6 };
+  for (const sch of (_dSchedState.aiSchedules || [])) {
+    if (sch.status === 'cancelled') continue;
+    const tm = String(sch.start_time||'').match(/^(\d{1,2}):(\d{2})$/);
+    if (!tm) continue;
+    const hh = parseInt(tm[1],10), mm = parseInt(tm[2],10);
+    if (hh < HOUR_START || hh >= HOUR_END) continue;
+    const colors = aiTypeColors[sch.class_type] || aiTypeColors.regular;
+    if (sch.schedule_kind === 'recurring' && sch.day_of_week) {
+      const dows = sch.day_of_week.split(',');
+      for (const dCode of dows) {
+        const i = dowToIdx[dCode];
+        if (i === undefined) continue;
+        const slotIdx = (hh - HOUR_START)*6 + Math.floor(mm/10);
+        const top = slotIdx * ROW_H;
+        const height = 2 * ROW_H - 2;
+        const leftCalc = 'calc(60px + (100% - 60px) * ' + i + ' / 7 + 2px)';
+        const widthCalc = 'calc((100% - 60px) / 7 - 6px)';
+        html += '<div style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';top:' + top + 'px;height:' + height + 'px;background:' + colors.bg + ';border:2px dashed ' + colors.border + ';border-radius:5px;padding:2px 5px;font-size:10px;color:' + colors.text + ';line-height:1.2;overflow:hidden;cursor:pointer;z-index:3;box-shadow:0 2px 6px rgba(0,0,0,0.15)" title="🤖 AI 등록 / ' + colors.name + ' / ' + sch.start_time + (sch.status==='postponed'?' / 연기':'') + '">' +
+          '<div style="font-weight:700;font-size:9px">⭐ ' + colors.name.substring(0,4) + '</div>' +
+          '<div style="font-weight:600">🤖 AI</div>' +
+          '<div style="font-size:9px">' + sch.start_time + '</div></div>';
+      }
+    } else if (sch.scheduled_date) {
+      // one_off: 해당 날짜만
+      const sdate = new Date(sch.scheduled_date + 'T00:00:00');
+      for (let i = 0; i < 7; i++) {
+        if (days[i].toDateString() !== sdate.toDateString()) continue;
+        const slotIdx = (hh - HOUR_START)*6 + Math.floor(mm/10);
+        const top = slotIdx * ROW_H;
+        const height = 2 * ROW_H - 2;
+        const leftCalc = 'calc(60px + (100% - 60px) * ' + i + ' / 7 + 2px)';
+        const widthCalc = 'calc((100% - 60px) / 7 - 6px)';
+        html += '<div style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';top:' + top + 'px;height:' + height + 'px;background:' + colors.bg + ';border:2px dashed ' + colors.border + ';border-radius:5px;padding:2px 5px;font-size:10px;color:' + colors.text + ';line-height:1.2;overflow:hidden;cursor:pointer;z-index:3;box-shadow:0 2px 6px rgba(0,0,0,0.15)" title="🤖 AI 등록 / ' + colors.name + ' / ' + sch.scheduled_date + ' ' + sch.start_time + '">' +
+          '<div style="font-weight:700;font-size:9px">⭐ ' + colors.name.substring(0,4) + '</div>' +
+          '<div style="font-weight:600">🤖 AI</div>' +
+          '<div style="font-size:9px">' + sch.start_time + '</div></div>';
+        break;
+      }
     }
   }
   html += '</div>';
@@ -2256,6 +2307,7 @@ document.addEventListener('DOMContentLoaded', () => {
   bind('d-sched-today', () => {
     const now = new Date();
     _dSchedState.year = now.getFullYear(); _dSchedState.month = now.getMonth();
+  _dSchedState.aiSchedules = [];
     const ws = new Date(now); ws.setDate(now.getDate() - now.getDay()); ws.setHours(0,0,0,0);
     _dSchedState.weekStart = ws;
     renderDSchedule();

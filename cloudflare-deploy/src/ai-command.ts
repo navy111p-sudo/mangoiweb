@@ -529,7 +529,9 @@ export async function executeAction(
 
     if (name === 'schedule_batch') {
       // Phase 2: D1 class_schedules 영구 저장 + KV 백업 (24시간)
+      // Phase 3: 시간 충돌 감지 + auto_create_students 옵션
       const items = Array.isArray(args?.items) ? args.items : [];
+      const autoCreateStudents = args?.auto_create_students === true;
       if (items.length === 0) return { ok: false, error: 'no_items' };
 
       // 스키마 자동 생성 (없으면)
@@ -545,6 +547,7 @@ export async function executeAction(
       for (const it of items) {
         const studentName = String(it?.student_name || '').trim();
         let userId: string | null = null;
+        let autoCreated = false;
         try {
           const exact = await env.DB.prepare(
             `SELECT user_id, korean_name FROM students_erp WHERE korean_name = ? LIMIT 1`
@@ -558,11 +561,27 @@ export async function executeAction(
           }
         } catch {}
 
+        // Phase 3-3: 학생이 없고 auto_create_students=true 면 students_erp 에 자동 등록
+        if (!userId && autoCreateStudents && studentName) {
+          try {
+            const newId = 'stu_ai_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+            const todayKst = new Date(now + 9*3600*1000).toISOString().slice(0,10);
+            await env.DB.prepare(
+              `INSERT INTO students_erp (user_id, korean_name, status, signup_date) VALUES (?, ?, 'active', ?)`
+            ).bind(newId, studentName, todayKst).run();
+            userId = newId;
+            autoCreated = true;
+          } catch (e: any) {
+            // 자동 생성 실패 (스키마 다름 등) — 로그만 남기고 계속
+            console.log('[schedule_batch] auto-create student failed:', e?.message);
+          }
+        }
+
         let insertedId: number | null = null;
         let insertError: string | null = null;
+        let conflict: any = null;
 
         if (userId) {
-          // D1 INSERT
           const action = String(it?.action || 'register_recurring');
           const scheduleKind = (action === 'schedule_one_off' || action === 'postpone_class') ? 'one_off' : 'recurring';
           const classType = String(it?.type || 'regular');
@@ -574,21 +593,31 @@ export async function executeAction(
           if (!startTime) {
             insertError = 'time_required';
           } else {
+            // Phase 3-2: 충돌 감지 - 같은 user_id + 같은 시간 + 같은 요일/날짜 활성 스케줄
+            try {
+              let conflictRow: any = null;
+              if (scheduleKind === 'recurring' && dayOfWeek) {
+                // 같은 시간에 같은 요일 중 하나라도 겹치는 활성 스케줄
+                const dows = dayOfWeek.split(',');
+                for (const d of dows) {
+                  const r = await env.DB.prepare(
+                    `SELECT id, day_of_week, start_time, class_type FROM class_schedules WHERE user_id=? AND status='active' AND start_time=? AND schedule_kind='recurring' AND day_of_week LIKE ? LIMIT 1`
+                  ).bind(userId, startTime, '%'+d+'%').first<any>();
+                  if (r?.id) { conflictRow = r; break; }
+                }
+              } else if (scheduledDate) {
+                conflictRow = await env.DB.prepare(
+                  `SELECT id, scheduled_date, start_time, class_type FROM class_schedules WHERE user_id=? AND status='active' AND start_time=? AND scheduled_date=? LIMIT 1`
+                ).bind(userId, startTime, scheduledDate).first<any>();
+              }
+              if (conflictRow?.id) conflict = conflictRow;
+            } catch {}
+
+            // INSERT (충돌 있어도 일단 등록 - 사용자가 결정)
             try {
               const ins = await env.DB.prepare(
                 `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, status, source, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ai_command', ?, ?)`
-              ).bind(
-                userId,
-                studentName,
-                scheduleKind,
-                classType,
-                dayOfWeek,
-                scheduledDate,
-                startTime,
-                status,
-                adminUserId || 'ai',
-                now
-              ).run();
+              ).bind(userId, studentName, scheduleKind, classType, dayOfWeek, scheduledDate, startTime, status, adminUserId || 'ai', now).run();
               insertedId = (ins?.meta?.last_row_id as number) || null;
             } catch (e: any) {
               insertError = String(e?.message || e).slice(0, 200);
@@ -596,11 +625,19 @@ export async function executeAction(
           }
         }
 
+        let resultStatus: string;
+        if (insertedId && conflict) resultStatus = 'inserted_with_conflict';
+        else if (insertedId) resultStatus = autoCreated ? 'inserted_auto_created' : 'inserted';
+        else if (userId) resultStatus = 'insert_failed';
+        else resultStatus = 'student_not_found_in_db';
+
         results.push({
           ...it,
           resolved_user_id: userId,
           schedule_id: insertedId,
-          status: insertedId ? 'inserted' : (userId ? 'insert_failed' : 'student_not_found_in_db'),
+          auto_created: autoCreated,
+          conflict_with: conflict ? { id: conflict.id, time: conflict.start_time, type: conflict.class_type } : null,
+          status: resultStatus,
           error: insertError
         });
       }
@@ -615,12 +652,18 @@ export async function executeAction(
         );
       } catch {}
 
-      const inserted = results.filter(r => r.status === 'inserted').length;
+      const inserted = results.filter(r => r.status === 'inserted' || r.status === 'inserted_auto_created' || r.status === 'inserted_with_conflict').length;
+      const autoCreatedCount = results.filter(r => r.auto_created).length;
+      const conflictCount = results.filter(r => r.conflict_with).length;
+      const notFoundCount = results.filter(r => r.status === 'student_not_found_in_db').length;
       return {
         ok: true,
         action: name,
         plan_id: planId,
         inserted_count: inserted,
+        auto_created_count: autoCreatedCount,
+        conflict_count: conflictCount,
+        not_found_count: notFoundCount,
         total_count: results.length,
         items: results
       };
