@@ -12317,9 +12317,46 @@ window.closeRulesModal = function() {
     lcPicker.pickedHour = null;
     renderLessonPicker(); // 다시 스케줄 표 표시
   };
-  // 격려 다이얼로그 - 예 (실제 연기 실행)
+  // 격려 다이얼로그 - 예 (실제 연기 실행 후 캘린더 다시 표시)
   window.confirmPostponeYes = function(){
-    lcConfirmPicker();
+    if(!lcPicker) return;
+    var L = (window.getLang?window.getLang():'ko')==='ko';
+    var p = lcPicker;
+    if(!p.pickedDate || p.pickedHour==null){ return; }
+    var newDate = p.pickedDate, newHour = p.pickedHour;
+
+    // 1) 학생 데이터 업데이트 (cls.id 매칭)
+    try {
+      var u = (typeof getCurrentUser==='function') ? getCurrentUser() : null;
+      var students = window.__demoStudents || {};
+      var stu = (u && students[u.uid]) ? students[u.uid] : null;
+      if(stu && Array.isArray(stu.classes) && p.cls && p.cls.id){
+        var c = stu.classes.find(function(x){ return x.id === p.cls.id; });
+        if(c){
+          c.lessonDate = newDate;
+          c.lessonHour = newHour;
+          delete c.hourOffset;
+        }
+      }
+    } catch(e){}
+
+    // 2) lcPicker.cls 도 업데이트 (캘린더가 이 값을 보고 그림)
+    p.cls.lessonDate = newDate;
+    p.cls.lessonHour = newHour;
+    delete p.cls.hourOffset;
+
+    // 3) pickedDate/Hour 초기화 (다음 드래그 준비)
+    p.pickedDate = null;
+    p.pickedHour = null;
+
+    // 4) step 강제로 'date' 로 → 캘린더 다시 그림
+    p.step = 'date';
+    renderLessonPicker();
+
+    // 5) 성공 토스트
+    showLcToast('✅ '+(L?'수업 시간 변경 완료 — 새 시간: ':'Time changed — new: ')+
+      '<b>'+newDate+' '+String(newHour).padStart(2,'0')+':00</b><br>'+
+      '<span style="font-size:11px;color:#94a3b8">'+(L?'캘린더에 새 위치가 표시됩니다':'New position shown on calendar')+'</span>');
   };
   window.lcPickTeacher = function(tid){
     if(!lcPicker)return;
@@ -12506,7 +12543,7 @@ window.closeRulesModal = function() {
     document.body.style.overflow = 'hidden';
   }
 
-  // 캘린더 그리드 (7일 × 시간) - 현재 수업 박스를 드래그해서 빈 칸으로 이동
+  // 캘린더 그리드 (10분 단위, 09-23시) - 현재 수업 박스 드래그/리사이즈
   function buildAvailableSlotList(teacherName){
     var L=(window.getLang?window.getLang():'ko')==='ko';
     var p = lcPicker;
@@ -12514,23 +12551,41 @@ window.closeRulesModal = function() {
     var todayMid = new Date(); todayMid.setHours(0,0,0,0);
     var dates = [];
     for(var i=0;i<7;i++){ var d=new Date(todayMid); d.setDate(d.getDate()+i+1); dates.push(d); }
-    // 강사의 점유 슬롯 (데모 시드 기반)
-    var busy = {};
+    // 강사의 점유 시간 (분 단위로 데모 생성)
+    var busyMin = {}; // 'di_hhmm' -> true
     var seed = (teacherName||'').length;
     dates.forEach(function(d,di){
-      for(var h=9;h<=21;h++){
-        var v = ((seed*31 + di*13 + h*7)%100)/100;
-        if (v < 0.30) busy[di+'_'+h] = true;
+      for(var hh=9;hh<=22;hh++){
+        var v = ((seed*31 + di*13 + hh*7)%100)/100;
+        if (v < 0.18){
+          // 60분 점유
+          for(var off=0;off<60;off+=10){
+            busyMin[di+'_'+(hh*60+off)] = true;
+          }
+        }
       }
     });
-    // 현재 수업 위치 (drag source) — 학생 클래스의 시간
+    // 현재 수업
     var curDt = getClassDateTime(p.cls);
-    var curDateISO = curDt.getFullYear()+'-'+pad(curDt.getMonth()+1)+'-'+pad(curDt.getDate());
+    var curISO = curDt.getFullYear()+'-'+pad(curDt.getMonth()+1)+'-'+pad(curDt.getDate());
     var curHour = curDt.getHours();
-    // 그리드 HTML
-    var html = '<div id="cal-grid-wrap" style="background:#131826;border-radius:12px;overflow:hidden;border:1px solid #232b40">';
+    var curMin  = curDt.getMinutes();
+    var durMin = p.cls.durationMin || p.cls.duration_min || 60;
+    var curStartMin = curHour*60 + curMin;
+    var curEndMin = curStartMin + durMin;
+    // 현재 수업이 있는 요일 column
+    var curDayCol = -1;
+    dates.forEach(function(d,di){
+      var iso=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+      if(iso===curISO) curDayCol = di;
+    });
+
+    // CSS: 한 row = 10분 = 14px (정시는 굵은 border)
+    var rowPx = 14;
+    var totalRows = (23-9)*6 + 1; // 09:00 ~ 23:00 = 85 rows
+    var html = '<div id="cal-grid-wrap" style="background:#131826;border-radius:12px;overflow:hidden;border:1px solid #232b40;position:relative">';
     // 헤더
-    html += '<div style="display:grid;grid-template-columns:48px repeat(7,1fr);background:#1a2032;border-bottom:1px solid #232b40">';
+    html += '<div style="display:grid;grid-template-columns:48px repeat(7,1fr);background:#1a2032;border-bottom:1px solid #232b40;position:sticky;top:0;z-index:5">';
     html += '<div style="padding:8px 0;text-align:center;color:#94a3b8;font-size:11px;font-weight:700"></div>';
     dates.forEach(function(d){
       var isToday = (d.toDateString()===new Date().toDateString());
@@ -12540,48 +12595,124 @@ window.closeRulesModal = function() {
       '</div>';
     });
     html += '</div>';
-    // 시간 row 들
-    for(var h=9;h<=21;h++){
-      html += '<div style="display:grid;grid-template-columns:48px repeat(7,1fr);border-bottom:1px solid rgba(255,255,255,.04)">';
-      html += '<div style="padding:0;height:38px;line-height:38px;text-align:center;color:#64748b;font-size:10.5px;font-weight:600;background:#0f172a">'+pad(h)+':00</div>';
-      for(var di=0;di<7;di++){
-        var d=dates[di];
-        var iso=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
-        var cellTime=new Date(d); cellTime.setHours(h);
-        var diffMin=(cellTime-new Date())/60000;
-        var tooSoon = diffMin < 30; // 연기는 30분 이상
-        var isCurrent = (iso===curDateISO && h===curHour);
-        var isBusy = !!busy[di+'_'+h];
-        var cellStyle, cellContent='', dataAttr='';
-        if(isCurrent){
-          // 현재 수업 (드래그 소스)
-          cellStyle = 'background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;cursor:grab;font-weight:800;font-size:10.5px;display:flex;align-items:center;justify-content:center;text-align:center;border:2px solid #a78bfa;box-shadow:0 4px 12px rgba(139,92,246,.5);user-select:none;-webkit-user-select:none';
-          cellContent = '🟣 '+(L?'현재':'NOW');
-          dataAttr = ' data-cal-current="1" data-cal-iso="'+iso+'" data-cal-hour="'+h+'"';
-        } else if(tooSoon){
-          cellStyle = 'background:#131826;opacity:.25;cursor:not-allowed';
-        } else if(isBusy){
-          cellStyle = 'background:rgba(239,68,68,.12);cursor:not-allowed;color:#fca5a5;font-size:10px;text-align:center;display:flex;align-items:center;justify-content:center';
-          cellContent = '✕';
-        } else {
-          cellStyle = 'background:rgba(16,185,129,.12);cursor:default;transition:all .12s';
-          dataAttr = ' data-cal-drop="1" data-cal-iso="'+iso+'" data-cal-hour="'+h+'"';
+    // 시간 그리드 (10분 단위)
+    html += '<div style="position:relative;overflow:auto;max-height:520px"><div id="cal-grid-body" style="display:grid;grid-template-columns:48px repeat(7,1fr);grid-auto-rows:'+rowPx+'px;background:#131826">';
+    for(var hh=9;hh<=22;hh++){
+      for(var mm=0;mm<60;mm+=10){
+        var isHourMark = (mm===0);
+        var cellMin = hh*60+mm;
+        // 좌측 시간 라벨 (정시만 굵게)
+        var timeLabelStyle = 'background:#0f172a;color:'+(isHourMark?'#cbd5e1':'#475569')+';font-size:'+(isHourMark?'11px':'9px')+';font-weight:'+(isHourMark?'700':'400')+';text-align:center;line-height:'+rowPx+'px;'+(isHourMark?'border-top:1px solid #232b40;':'border-top:1px solid rgba(255,255,255,.02);');
+        html += '<div style="'+timeLabelStyle+'">'+(isHourMark?pad(hh):':'+pad(mm))+'</div>';
+        for(var di=0;di<7;di++){
+          var d=dates[di];
+          var iso=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+          var cellTime=new Date(d); cellTime.setHours(hh,mm,0,0);
+          var diffMin=(cellTime-new Date())/60000;
+          var tooSoon = diffMin < 30;
+          var isCurrent = (iso===curISO && cellMin>=curStartMin && cellMin<curEndMin);
+          var isCurStart = (iso===curISO && cellMin===curStartMin);
+          var isCurLast = (iso===curISO && cellMin===curEndMin-10);
+          var isBusy = !!busyMin[di+'_'+cellMin];
+          var borderTop = isHourMark?'border-top:1px solid #232b40;':'';
+          var cellStyle, cellContent='', dataAttr='';
+          if(isCurrent){
+            cellStyle = 'background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;'+borderTop+' '+(isCurStart?'border-top:2px solid #a78bfa;':'')+(isCurLast?'border-bottom:2px solid #a78bfa;position:relative;':'')+'font-weight:800;font-size:10px;display:flex;align-items:center;justify-content:center;cursor:'+(isCurStart?'grab':'default')+';user-select:none;-webkit-user-select:none';
+            if(isCurStart){
+              cellContent = '🟣 '+(L?'현재':'NOW')+' · '+durMin+(L?'분':'m');
+              dataAttr = ' data-cal-current="1" data-cal-iso="'+iso+'" data-cal-hour="'+hh+'" data-cal-min="'+mm+'"';
+            }
+            // 마지막 셀에 리사이즈 핸들
+            if(isCurLast){
+              cellContent += '<div data-resize-handle="1" style="position:absolute;left:50%;bottom:-3px;transform:translateX(-50%);width:36px;height:7px;background:#fde68a;border:1.5px solid #fbbf24;border-radius:99px;cursor:ns-resize;z-index:10;box-shadow:0 2px 6px rgba(245,158,11,.6)" title="'+(L?'끌어서 수업 시간 조절':'Drag to resize')+'"></div>';
+            }
+          } else if(tooSoon){
+            cellStyle = 'background:#131826;opacity:.2;'+borderTop;
+          } else if(isBusy){
+            cellStyle = 'background:rgba(239,68,68,.10);'+borderTop;
+          } else {
+            cellStyle = 'background:rgba(16,185,129,.08);'+borderTop+'transition:background .12s';
+            dataAttr = ' data-cal-drop="1" data-cal-iso="'+iso+'" data-cal-hour="'+hh+'" data-cal-min="'+mm+'"';
+          }
+          html += '<div style="'+cellStyle+'"'+dataAttr+'>'+cellContent+'</div>';
         }
-        html += '<div style="height:38px;'+cellStyle+'"'+dataAttr+'>'+cellContent+'</div>';
       }
-      html += '</div>';
     }
-    html += '</div>';
-    // 색상 범례
-    html += '<div style="display:flex;justify-content:center;gap:14px;margin-top:10px;font-size:11px;color:#94a3b8;flex-wrap:wrap">'+
-      '<span><span style="display:inline-block;width:12px;height:12px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);border-radius:3px;vertical-align:middle"></span> '+(L?'현재 수업 (끌어서 이동)':'Current (drag)')+'</span>'+
-      '<span><span style="display:inline-block;width:12px;height:12px;background:rgba(16,185,129,.4);border-radius:3px;vertical-align:middle"></span> '+(L?'가능':'Open')+'</span>'+
-      '<span><span style="display:inline-block;width:12px;height:12px;background:rgba(239,68,68,.4);border-radius:3px;vertical-align:middle"></span> '+(L?'점유':'Taken')+'</span>'+
-      '<span><span style="display:inline-block;width:12px;height:12px;background:#131826;opacity:.5;border-radius:3px;vertical-align:middle"></span> '+(L?'시간 부족':'Too soon')+'</span>'+
+    // 23:00 마지막 row
+    html += '<div style="background:#0f172a;color:#cbd5e1;font-size:11px;font-weight:700;text-align:center;line-height:'+rowPx+'px;border-top:1px solid #232b40">23</div>';
+    for(var di=0;di<7;di++) html += '<div style="background:#131826;border-top:1px solid #232b40"></div>';
+    html += '</div></div></div>';
+    // 범례 + 안내
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:11px;color:#94a3b8;flex-wrap:wrap;gap:10px">'+
+      '<div style="display:flex;gap:10px;flex-wrap:wrap">'+
+        '<span><span style="display:inline-block;width:12px;height:12px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);border-radius:3px;vertical-align:middle"></span> '+(L?'현재 수업':'Current')+'</span>'+
+        '<span><span style="display:inline-block;width:12px;height:12px;background:rgba(16,185,129,.4);border-radius:3px;vertical-align:middle"></span> '+(L?'가능':'Open')+'</span>'+
+        '<span><span style="display:inline-block;width:12px;height:12px;background:rgba(239,68,68,.4);border-radius:3px;vertical-align:middle"></span> '+(L?'점유':'Taken')+'</span>'+
+      '</div>'+
+      '<div style="font-size:11px;color:#fde68a;font-weight:700">📏 '+(L?'노란 손잡이를 끌어 수업 시간 조절':'Drag yellow handle to resize')+'</div>'+
     '</div>';
-    // 드래그 핸들러 setup (defer 까지)
+    // 드래그 + 리사이즈 핸들러
     setTimeout(setupCalendarDrag, 50);
+    setTimeout(setupResizeHandle, 50);
     return html;
+  }
+
+  // 리사이즈 핸들 (수업 길이 조절)
+  function setupResizeHandle(){
+    var handle = document.querySelector('[data-resize-handle="1"]');
+    if(!handle) return;
+    var gridBody = document.getElementById('cal-grid-body'); if(!gridBody) return;
+    var rowPx = 14;
+    var dragging = false, startY = 0, startDur = 0;
+    var L=(window.getLang?window.getLang():'ko')==='ko';
+
+    function onMove(clientY){
+      if(!dragging) return;
+      var deltaY = clientY - startY;
+      var deltaSteps = Math.round(deltaY / rowPx); // 10분 단위
+      var newDur = Math.max(10, Math.min(180, startDur + deltaSteps*10));
+      // 임시 표시 (실제 적용은 mouseup)
+      handle.dataset.previewDur = newDur;
+      handle.innerHTML = '<div style="position:absolute;top:-22px;left:50%;transform:translateX(-50%);background:#fbbf24;color:#1a1a1a;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:800;white-space:nowrap">'+newDur+(L?'분':'m')+'</div>';
+    }
+    function onEnd(clientY){
+      if(!dragging) return;
+      dragging = false;
+      document.body.style.userSelect='';
+      var newDur = parseInt(handle.dataset.previewDur||startDur, 10);
+      if(newDur !== startDur){
+        // 길이 변경 적용
+        lcPicker.cls.durationMin = newDur;
+        lcPicker.cls.duration_min = newDur;
+        showLcToast('📏 '+(L?'수업 시간 변경: ':'Duration: ')+newDur+(L?'분':' min'));
+        renderLessonPicker(); // 새 길이로 다시 그림
+      } else {
+        handle.innerHTML = '';
+      }
+    }
+
+    handle.addEventListener('mousedown', function(e){
+      dragging = true;
+      startY = e.clientY;
+      startDur = lcPicker.cls.durationMin || lcPicker.cls.duration_min || 60;
+      document.body.style.userSelect='none';
+      e.preventDefault(); e.stopPropagation();
+    });
+    document.addEventListener('mousemove', function(e){ if(dragging) onMove(e.clientY); });
+    document.addEventListener('mouseup', function(e){ if(dragging) onEnd(e.clientY); });
+    // 터치
+    handle.addEventListener('touchstart', function(e){
+      var t = e.touches[0];
+      dragging = true; startY = t.clientY;
+      startDur = lcPicker.cls.durationMin || lcPicker.cls.duration_min || 60;
+      e.preventDefault();
+    }, {passive:false});
+    document.addEventListener('touchmove', function(e){
+      if(!dragging) return; var t = e.touches[0]; onMove(t.clientY); e.preventDefault();
+    }, {passive:false});
+    document.addEventListener('touchend', function(e){
+      if(!dragging) return; var t = e.changedTouches[0]; onEnd(t.clientY);
+    });
   }
 
   // 캘린더 드래그 앤 드롭
