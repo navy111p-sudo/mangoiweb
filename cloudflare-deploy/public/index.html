@@ -12324,8 +12324,18 @@ window.closeRulesModal = function() {
   };
   window.lcPickWeek = function(offset){
     if(!lcPicker)return;
-    lcPicker.weekOffset = Math.max(0, offset);
-    renderLessonPicker();
+    var newOff = Math.max(0, offset);
+    lcPicker.weekOffset = newOff;
+    // 캘린더 가로 스크롤로 해당 주로 점프
+    var area = document.getElementById('cal-scroll-area');
+    if(area){
+      var colPx = parseInt((document.querySelector('#cal-grid-body')||{}).style.gridAutoRows) || 18;
+      // 더 정확히 grid-template-columns에서 colPx 추출
+      var gtcMatch = (document.querySelector('#cal-grid-body')||{}).style.gridTemplateColumns || '';
+      var m = gtcMatch.match(/repeat\(\d+,\s*(\d+)px\)/);
+      var actualColPx = m ? parseInt(m[1]) : 60;
+      area.scrollTo({left: newOff * 7 * actualColPx, behavior:'smooth'});
+    }
   };
   // 방식 선택
   window.lcPickMethod = function(method){
@@ -12676,11 +12686,10 @@ window.closeRulesModal = function() {
     var dn = L?['일','월','화','수','목','금','토']:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     var todayMid = new Date(); todayMid.setHours(0,0,0,0);
     var weekOffset = p.weekOffset || 0;
-    // 7일(한 주)만 표시 — 한 화면에 다 보이게
-    var TOTAL_DAYS = 7;
+    // 28일 (4주) 가로 스크롤
+    var TOTAL_DAYS = 28;
     var dates = [];
-    var startOffset = 1 + weekOffset * 7;
-    for(var i=0;i<TOTAL_DAYS;i++){ var d=new Date(todayMid); d.setDate(d.getDate()+startOffset+i); dates.push(d); }
+    for(var i=0;i<TOTAL_DAYS;i++){ var d=new Date(todayMid); d.setDate(d.getDate()+1+i); dates.push(d); }
     // 강사의 점유 시간 (분 단위로 데모 생성)
     var busyMin = {}; // 'di_hhmm' -> true
     var seed = (teacherName||'').length;
@@ -12710,13 +12719,15 @@ window.closeRulesModal = function() {
       if(iso===curISO) curDayCol = di;
     });
 
-    // CSS: row 18px / col은 7일이 모달 폭에 맞게 자동 (1fr) — zoom 적용 시 고정 폭
+    // CSS: row 18px / col 폭 고정 (가로 스크롤 기반) — zoom 적용
     var zoomLevel = p.zoom || 1.0;
     var rowPx = Math.round(18 * zoomLevel);
-    var fitMode = (zoomLevel >= 0.95 && zoomLevel <= 1.05);
-    var colPx = Math.round(60 * zoomLevel);
-    // fit 모드일 때는 1fr (자동 채움), 그 외는 고정 폭으로 가로 스크롤
-    var colsTpl = fitMode ? '48px repeat('+TOTAL_DAYS+',1fr)' : ('48px repeat('+TOTAL_DAYS+','+colPx+'px)');
+    // 모달 폭에 7일이 들어가도록 colPx 기본 계산
+    var modalEl = document.querySelector('.lc-modal');
+    var baseColW = modalEl ? Math.max(50, Math.floor((modalEl.clientWidth - 48 - 36) / 7)) : 60;
+    var colPx = Math.round(baseColW * zoomLevel);
+    var fitMode = false;
+    var colsTpl = '48px repeat('+TOTAL_DAYS+','+colPx+'px)';
     var totalRows = (23-9)*6 + 1; // 09:00 ~ 23:00 = 85 rows
     // ─── 주간 네비게이션 (◀/▶ + 현재 주 라벨) ───
     var ws = new Date(todayMid); ws.setDate(ws.getDate() + 1 + weekOffset*7);
@@ -12741,7 +12752,7 @@ window.closeRulesModal = function() {
     '</div>';
     var html = weekTabsHtml + zoomBtnsHtml + '<div id="cal-grid-wrap" style="background:#131826;border-radius:12px;overflow:hidden;border:1px solid #232b40;position:relative">';
     // 헤더
-    html += '<div style="display:grid;grid-template-columns:'+colsTpl+';background:#1a2032;border-bottom:1px solid #232b40;position:sticky;top:0;z-index:5'+(fitMode?'':';min-width:'+(48+TOTAL_DAYS*colPx)+'px')+'">';
+    html += '<div style="display:grid;grid-template-columns:'+colsTpl+';background:#1a2032;border-bottom:1px solid #232b40;position:sticky;top:0;z-index:5;min-width:'+(48+TOTAL_DAYS*colPx)+'px">';
     html += '<div style="padding:8px 0;text-align:center;color:#94a3b8;font-size:11px;font-weight:700"></div>';
     dates.forEach(function(d){
       var isToday = (d.toDateString()===new Date().toDateString());
@@ -12752,7 +12763,7 @@ window.closeRulesModal = function() {
     });
     html += '</div>';
     // 시간 그리드 (10분 단위)
-    html += '<div id="cal-scroll-area" style="position:relative;overflow:'+(fitMode?'auto':'auto')+';max-height:520px"><div id="cal-grid-body" style="display:grid;grid-template-columns:'+colsTpl+';grid-auto-rows:'+rowPx+'px;background:#131826'+(fitMode?'':';min-width:'+(48+TOTAL_DAYS*colPx)+'px')+'">';
+    html += '<div id="cal-scroll-area" style="position:relative;overflow-x:auto;overflow-y:auto;max-height:65vh"><div id="cal-grid-body" style="display:grid;grid-template-columns:'+colsTpl+';grid-auto-rows:'+rowPx+'px;background:#131826;min-width:'+(48+TOTAL_DAYS*colPx)+'px">';
     for(var hh=9;hh<=22;hh++){
       for(var mm=0;mm<60;mm+=10){
         var isHourMark = (mm===0);
