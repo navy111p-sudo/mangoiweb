@@ -637,6 +637,7 @@
         <div style="display:inline-flex;border:1px solid #cbd5e1;border-radius:6px;overflow:hidden;margin-left:8px">
           <button id="sched-view-week" type="button" style="padding:6px 14px;background:#3b82f6;color:#fff;border:0;cursor:pointer;font-size:12px;font-weight:600">📅 주간</button>
           <button id="sched-view-month" type="button" style="padding:6px 14px;background:#fff;color:#475569;border:0;border-left:1px solid #cbd5e1;cursor:pointer;font-size:12px;font-weight:600">🗓 월간</button>
+          <button id="sched-seed-demo" type="button" style="padding:6px 14px;background:#10b981;color:#fff;border:0;border-left:1px solid #059669;cursor:pointer;font-size:12px;font-weight:700" title="이 학생에 정규+체험+레벨 3건을 즉시 등록 (테스트용)">🌱 데모 3건 시드</button>
         </div>
       </div>
       <!-- 안내 문구 -->
@@ -1340,6 +1341,37 @@ function _renderClassCard(c) {
       document.getElementById('sched-view-week').style.color = '#475569';
       renderScheduleCalendar();
     });
+    // Phase 6e — 데모 시드 버튼: 이 학생에 정규+체험+레벨 3건 즉시 등록
+    const seedBtn = document.getElementById('sched-seed-demo');
+    if (seedBtn && !seedBtn.dataset.bound) {
+      seedBtn.dataset.bound = '1';
+      seedBtn.addEventListener('click', async () => {
+        const uid = _schedState.uid;
+        if (!uid) { alert('학생 ID가 없습니다.'); return; }
+        if (!confirm('이 학생(' + (_schedState.studentName || uid) + ')에 정규+체험+레벨 3건 데모 스케줄을 등록할까요?\n\n(테스트용 - 캘린더 동작 즉시 검증)')) return;
+        seedBtn.disabled = true;
+        seedBtn.textContent = '⏳ 시드 중…';
+        try {
+          const r = await fetch('/api/admin/class-schedules/seed-demo?user_id=' + encodeURIComponent(uid), {
+            method: 'POST', credentials: 'include'
+          });
+          const j = await r.json();
+          if (j.ok) {
+            // 즉시 데이터 다시 로드 + 렌더
+            await loadStudentEnrollments(uid);
+            renderScheduleCalendar();
+            alert('✅ ' + j.count + '건 시드 완료!\n\n주간/월간 뷰 모두에서 3가지 색상 박스를 확인하세요.\n(주간: 점선 + ⭐ AI 마크 / 월간: 색상 카드)');
+          } else {
+            alert('❌ 시드 실패: ' + (j.error || '알 수 없음'));
+          }
+        } catch (e) {
+          alert('오류: ' + (e.message || e));
+        } finally {
+          seedBtn.disabled = false;
+          seedBtn.textContent = '🌱 데모 3건 시드';
+        }
+      });
+    }
   };
   tryBind();
 })();
