@@ -2596,6 +2596,7 @@
         <button class="ai-quick-btn" data-go="lesson-change" data-ko="📅 수업연기/변경" data-en="📅 Postpone/Change">📅 수업연기/변경</button>
         <button class="ai-quick-btn" data-go="inquiry" data-ko="💬 신규상담" data-en="💬 New Inquiry">💬 신규상담</button>
         <button class="ai-quick-btn" data-go="homepage" data-ko="🏠 홈페이지" data-en="🏠 Homepage">🏠 홈페이지</button>
+        <button class="ai-quick-btn ai-quick-pay" data-go="payment" data-ko="💳 결제하기" data-en="💳 Payment">💳 결제하기</button>
       </div>
       <!-- 🎥 수업입장 큰 버튼 -->
       <div class="lesson-action-row" style="margin-top:18px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;">
@@ -2975,7 +2976,9 @@
       }
       @keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1} }
       @keyframes slideDown { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:translateY(0)} }
-      .ai-quick { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top: 16px; }
+      .ai-quick { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:16px; max-width:520px; margin-left:auto; margin-right:auto; }
+      .ai-quick .ai-quick-pay { grid-column: span 3; background:linear-gradient(135deg,rgba(251,191,36,0.18),rgba(245,158,11,0.18))!important; border:1px solid rgba(251,191,36,0.5)!important; color:#fde68a!important; font-weight:700; }
+      .ai-quick .ai-quick-pay:hover { background:linear-gradient(135deg,rgba(251,191,36,0.28),rgba(245,158,11,0.28))!important; }
       .ai-quick-btn {
         background: rgba(255,255,255,0.06);
         border: 1px solid rgba(255,255,255,0.12);
@@ -6871,6 +6874,7 @@ window.addEventListener('DOMContentLoaded', () => {
     'speech':        () => window.open('https://mangoi-speech.pages.dev/practice', '_blank'),
     'mypage':        () => location.href = '/admin/mypage.html',
     'admin':         () => location.href = '/admin.html',
+    'payment':       () => { if (window.gridActions && typeof window.gridActions.payment === 'function') window.gridActions.payment(); else alert('결제 기능을 불러올 수 없습니다.'); },
   };
 
   function findRule(text) {
