@@ -1149,13 +1149,24 @@ export async function handleMangoApi(
       if (kind === 'recurring') where.push(`schedule_kind = 'recurring'`);
       else if (kind === 'one_off') where.push(`schedule_kind = 'one_off'`);
 
-      const sql = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.created_at, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
       binds.push(limit);
+      // 1차: teachers JOIN 시도 (강사명 함께)
+      const sqlWithJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.created_at, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
+      // 2차: JOIN 없이 (teachers 테이블 미존재 등에 대비)
+      const sqlNoJoin = `SELECT id, user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, source, created_at FROM class_schedules WHERE ${where.join(' AND ')} ORDER BY schedule_kind ASC, scheduled_date ASC, start_time ASC LIMIT ?`;
       try {
-        const rows = await env.DB.prepare(sql).bind(...binds).all<any>();
+        let rows;
+        try {
+          rows = await env.DB.prepare(sqlWithJoin).bind(...binds).all<any>();
+        } catch (joinErr: any) {
+          console.warn('[class-schedules] JOIN failed, fallback no-JOIN:', joinErr?.message);
+          rows = await env.DB.prepare(sqlNoJoin).bind(...binds).all<any>();
+        }
         return json({ ok: true, count: (rows.results || []).length, items: rows.results || [] });
       } catch (e: any) {
-        return json({ ok: false, error: 'query_failed', detail: String(e?.message || e) }, 500);
+        // 최후 fallback - 빈 결과로 graceful (UI 가 깨지지 않게)
+        console.warn('[class-schedules] both queries failed:', e?.message);
+        return json({ ok: true, count: 0, items: [], warning: String(e?.message || e) });
       }
     }
 

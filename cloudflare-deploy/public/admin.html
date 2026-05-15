@@ -10505,6 +10505,19 @@ async function executeAiAction(name, args) {
         html += '</div></div>';
       }
 
+      // INSERT 실패한 항목 (학생은 있는데 class_schedules INSERT 실패)
+      const insertFailed = items.filter(x => x.status === 'insert_failed');
+      if (insertFailed.length) {
+        html += '<div style="margin-top:14px"><div style="font-size:12px;color:#dc2626;font-weight:700;margin-bottom:6px">❌ 스케줄 등록 실패</div><div style="display:flex;flex-direction:column;gap:8px">';
+        insertFailed.forEach(it => {
+          html += '<div style="border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:8px;padding:10px 14px;background:#fef2f2;font-size:13px">' +
+            '<b style="color:#991b1b">' + _aiEsc(it.student_name) + '</b> 학생 (ID: ' + _aiEsc(it.resolved_user_id||'?') + ')' +
+            '<div style="font-size:11.5px;color:#7f1d1d;margin-top:4px">' + _aiEsc(it.error || '알 수 없는 INSERT 오류') + '</div>' +
+          '</div>';
+        });
+        html += '</div></div>';
+      }
+
       // 미등록 학생 안내
       if (notFound.length) {
         html += '<div style="margin-top:14px"><div style="font-size:12px;color:#ef4444;font-weight:700;margin-bottom:6px">⚠️ 학생 DB 등록 필요</div><div style="display:flex;flex-direction:column;gap:8px">';
