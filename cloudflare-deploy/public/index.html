@@ -3155,6 +3155,7 @@
                 <button class="tab-btn" onclick="vcSwitchTab('video')" data-ko="📹 동영상" data-en="📹 Video">📹 동영상</button>
                 <button class="tab-btn" onclick="vcSwitchTab('pron')" data-ko="🎯 발음연습" data-en="🎯 Pronunciation">🎯 발음연습</button>
                 <button class="tab-btn" onclick="vcSwitchTab('game')" data-ko="🎮 학생게임" data-en="🎮 Game">🎮 학생게임</button>
+                <button class="tab-btn" onclick="vcSwitchTab('bg')" data-ko="🎨 배경화면" data-en="🎨 Background">🎨 배경화면</button>
             </div>
 
             <!-- 탭 콘텐츠 -->
@@ -3313,6 +3314,46 @@
             <span>✅ <span data-ko="정답" data-en="Correct">정답</span>: <b id="game-correct" style="color:#10b981">0</b></span>
             <span>❌ <span data-ko="오답" data-en="Wrong">오답</span>: <b id="game-wrong" style="color:#ef4444">0</b></span>
             <span id="game-feedback" style="margin-left:auto;font-weight:600">&nbsp;</span>
+          </div>
+        </div>
+
+        <!-- 🎨 가상 배경 탭 (MediaPipe Selfie Segmentation) -->
+        <div class="tab-panel" id="tab-bg" style="flex-direction:column;background:#0f172a;color:#e2e8f0">
+          <div style="padding:12px 16px;border-bottom:1px solid rgba(148,163,184,0.15);display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex-shrink:0">
+            <span style="font-size:14px;font-weight:700;color:#fbbf24">🎨 <span data-ko="가상 배경" data-en="Virtual Background">가상 배경</span></span>
+            <span id="vc-bg-status" style="font-size:11.5px;color:#94a3b8" data-ko="원하는 배경을 클릭하세요" data-en="Click any background to apply">원하는 배경을 클릭하세요</span>
+            <span style="margin-left:auto;font-size:11px;color:#64748b" data-ko="첫 적용 시 모델 로드(약 3MB)가 필요합니다" data-en="First use downloads ~3MB model">첫 적용 시 모델 로드(약 3MB)가 필요합니다</span>
+          </div>
+          <div style="flex:1;min-height:0;overflow-y:auto;padding:18px;">
+            <div id="vc-bg-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px">
+              <button class="vc-bg-tile vc-bg-active" data-bg="off" onclick="vcSetBackground('off')" style="aspect-ratio:16/10;border:2px solid #fbbf24;border-radius:12px;background:linear-gradient(135deg,#1e293b,#0f172a);color:#e2e8f0;cursor:pointer;font-size:13px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px">
+                <span style="font-size:32px">🚫</span><span data-ko="배경 끄기" data-en="None">배경 끄기</span>
+              </button>
+              <button class="vc-bg-tile" data-bg="blur" onclick="vcSetBackground('blur')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:linear-gradient(135deg,#475569,#1e293b);color:#e2e8f0;cursor:pointer;font-size:13px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px;backdrop-filter:blur(8px)">
+                <span style="font-size:32px">💨</span><span data-ko="흐림" data-en="Blur">흐림</span>
+              </button>
+              <button class="vc-bg-tile" data-bg="space" onclick="vcSetBackground('space')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:radial-gradient(ellipse at 30% 40%,#1e1b4b,#0a0512 70%),radial-gradient(circle at 70% 60%,#581c87,transparent 50%);color:#fff;cursor:pointer;font-size:13px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px;text-shadow:0 1px 4px rgba(0,0,0,.8)">
+                <span style="font-size:32px">🌌</span><span data-ko="우주" data-en="Space">우주</span>
+              </button>
+              <button class="vc-bg-tile" data-bg="forest" onclick="vcSetBackground('forest')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:linear-gradient(180deg,#14532d,#052e16);color:#fff;cursor:pointer;font-size:13px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px;text-shadow:0 1px 4px rgba(0,0,0,.8)">
+                <span style="font-size:32px">🌲</span><span data-ko="숲속" data-en="Forest">숲속</span>
+              </button>
+              <button class="vc-bg-tile" data-bg="classroom" onclick="vcSetBackground('classroom')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:linear-gradient(135deg,#fef3c7,#fde68a 60%,#92400e);color:#1f2937;cursor:pointer;font-size:13px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px">
+                <span style="font-size:32px">🏫</span><span data-ko="교실" data-en="Classroom">교실</span>
+              </button>
+              <button class="vc-bg-tile" data-bg="cafe" onclick="vcSetBackground('cafe')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:radial-gradient(circle at 25% 35%,#fbbf24aa,transparent 35%),linear-gradient(135deg,#7c2d12,#451a03);color:#fff;cursor:pointer;font-size:13px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px;text-shadow:0 1px 4px rgba(0,0,0,.8)">
+                <span style="font-size:32px">☕</span><span data-ko="카페" data-en="Cafe">카페</span>
+              </button>
+              <button class="vc-bg-tile" data-bg="beach" onclick="vcSetBackground('beach')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:linear-gradient(180deg,#bae6fd 0%,#38bdf8 50%,#fef3c7 50%,#fbbf24 100%);color:#0c4a6e;cursor:pointer;font-size:13px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px">
+                <span style="font-size:32px">🏖️</span><span data-ko="바닷가" data-en="Beach">바닷가</span>
+              </button>
+              <button class="vc-bg-tile" data-bg="library" onclick="vcSetBackground('library')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:repeating-linear-gradient(90deg,#5b3a1c 0,#5b3a1c 10px,#3e2511 10px,#3e2511 20px,#7c4520 20px,#7c4520 30px,#3e2511 30px,#3e2511 40px);color:#fef3c7;cursor:pointer;font-size:13px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px;text-shadow:0 1px 4px rgba(0,0,0,.8)">
+                <span style="font-size:32px">📚</span><span data-ko="서재" data-en="Library">서재</span>
+              </button>
+            </div>
+            <div style="margin-top:18px;padding:12px 14px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:10px;font-size:12px;color:#fde68a;line-height:1.6">
+              💡 <span data-ko="가상 배경은 모든 참가자에게 적용된 모습으로 보입니다. 카메라가 켜져 있어야 작동합니다." data-en="Virtual background is visible to all participants. Camera must be on.">가상 배경은 모든 참가자에게 적용된 모습으로 보입니다. 카메라가 켜져 있어야 작동합니다.</span>
+            </div>
           </div>
         </div>
             </div><!-- /.tab-content -->
@@ -5015,6 +5056,296 @@ function vcSwitchTab(tabName, evt) {
       if (!_gameState.started) gameInit();
     }
 }
+
+/* ============================================================
+ * 🎨 가상 배경 엔진 (MediaPipe Selfie Segmentation)
+ * - lazy-load MediaPipe (3MB 모델 첫 클릭 시점에)
+ * - getUserMedia 카메라 → segmentation → canvas 합성
+ * - canvas.captureStream() → WebRTC sender.replaceTrack
+ *   → 모든 참가자에게 가상 배경 적용된 영상 전달
+ * ============================================================ */
+const vcBg = {
+  mode: 'off',           // 'off' | 'blur' | 'space' | 'forest' | ...
+  mpLoaded: false,
+  mpLoading: false,
+  segmenter: null,
+  canvas: null,
+  ctx: null,
+  bgImg: null,           // 현재 배경 이미지 (HTMLCanvasElement)
+  bgImgKey: null,
+  rafId: null,
+  processedStream: null,
+  originalVideoTrack: null,
+  isProcessing: false,
+};
+
+// --- 1) 테마별 배경 이미지 생성 (단일 캔버스, 1280x720, 자체 렌더) ---
+function vcMakeBgCanvas(theme){
+  if (vcBg.bgImgKey === theme && vcBg.bgImg) return vcBg.bgImg;
+  const w=1280, h=720;
+  const c=document.createElement('canvas');
+  c.width=w; c.height=h;
+  const g=c.getContext('2d');
+  if (theme==='space') {
+    const grad=g.createRadialGradient(w*0.4,h*0.45,0,w*0.4,h*0.45,w*0.7);
+    grad.addColorStop(0,'#312e81'); grad.addColorStop(0.5,'#1e1b4b'); grad.addColorStop(1,'#020617');
+    g.fillStyle=grad; g.fillRect(0,0,w,h);
+    // 별
+    for(let i=0;i<260;i++){
+      const x=Math.random()*w, y=Math.random()*h, r=Math.random()*1.6+0.3;
+      g.fillStyle='rgba(255,255,255,'+(0.4+Math.random()*0.6)+')';
+      g.beginPath(); g.arc(x,y,r,0,Math.PI*2); g.fill();
+    }
+    // 행성
+    const pg=g.createRadialGradient(w*0.78,h*0.30,8,w*0.78,h*0.30,90);
+    pg.addColorStop(0,'#fbbf24'); pg.addColorStop(1,'#7c2d12');
+    g.fillStyle=pg; g.beginPath(); g.arc(w*0.78,h*0.30,90,0,Math.PI*2); g.fill();
+  } else if (theme==='forest') {
+    const grad=g.createLinearGradient(0,0,0,h);
+    grad.addColorStop(0,'#022c22'); grad.addColorStop(0.4,'#14532d'); grad.addColorStop(1,'#052e16');
+    g.fillStyle=grad; g.fillRect(0,0,w,h);
+    // 햇살
+    const sun=g.createRadialGradient(w*0.7,h*0.15,5,w*0.7,h*0.15,400);
+    sun.addColorStop(0,'rgba(254,240,138,0.5)'); sun.addColorStop(1,'rgba(254,240,138,0)');
+    g.fillStyle=sun; g.fillRect(0,0,w,h);
+    // 나무 실루엣
+    for(let i=0;i<14;i++){
+      const x=i*100+Math.random()*60, base=h-Math.random()*40;
+      const tw=40+Math.random()*30, th=200+Math.random()*180;
+      g.fillStyle='rgba(2,44,34,0.85)';
+      g.beginPath();
+      g.moveTo(x,base); g.lineTo(x+tw/2,base-th); g.lineTo(x+tw,base); g.closePath(); g.fill();
+    }
+  } else if (theme==='classroom') {
+    g.fillStyle='#fef3c7'; g.fillRect(0,0,w,h);
+    // 칠판
+    g.fillStyle='#14532d'; g.fillRect(w*0.12,h*0.18,w*0.55,h*0.45);
+    g.strokeStyle='#92400e'; g.lineWidth=14; g.strokeRect(w*0.12,h*0.18,w*0.55,h*0.45);
+    // 칠판 분필 글씨
+    g.fillStyle='rgba(255,255,255,0.85)'; g.font='42px serif';
+    g.fillText('Today: Verbs', w*0.16, h*0.30);
+    g.fillText('I  You  We  They', w*0.16, h*0.42);
+    // 책상
+    g.fillStyle='#92400e'; g.fillRect(0,h*0.78,w,h*0.22);
+    // 창문
+    g.fillStyle='#bae6fd'; g.fillRect(w*0.74,h*0.20,w*0.20,h*0.30);
+    g.strokeStyle='#fff'; g.lineWidth=6; g.strokeRect(w*0.74,h*0.20,w*0.20,h*0.30);
+    g.beginPath(); g.moveTo(w*0.84,h*0.20); g.lineTo(w*0.84,h*0.50); g.moveTo(w*0.74,h*0.35); g.lineTo(w*0.94,h*0.35); g.stroke();
+  } else if (theme==='cafe') {
+    const grad=g.createLinearGradient(0,0,0,h);
+    grad.addColorStop(0,'#451a03'); grad.addColorStop(1,'#7c2d12');
+    g.fillStyle=grad; g.fillRect(0,0,w,h);
+    // 따뜻한 조명 글로우들
+    const lights=[[0.2,0.25,180],[0.55,0.18,140],[0.85,0.32,200]];
+    for(const [x,y,r] of lights){
+      const lg=g.createRadialGradient(w*x,h*y,2,w*x,h*y,r);
+      lg.addColorStop(0,'rgba(251,191,36,0.85)'); lg.addColorStop(0.4,'rgba(251,191,36,0.25)'); lg.addColorStop(1,'rgba(251,191,36,0)');
+      g.fillStyle=lg; g.beginPath(); g.arc(w*x,h*y,r,0,Math.PI*2); g.fill();
+    }
+    // 하단 카운터
+    g.fillStyle='#1f1306'; g.fillRect(0,h*0.78,w,h*0.22);
+  } else if (theme==='beach') {
+    // 하늘
+    const sky=g.createLinearGradient(0,0,0,h*0.55);
+    sky.addColorStop(0,'#bae6fd'); sky.addColorStop(1,'#fde68a');
+    g.fillStyle=sky; g.fillRect(0,0,w,h*0.55);
+    // 태양
+    const sun=g.createRadialGradient(w*0.78,h*0.22,10,w*0.78,h*0.22,150);
+    sun.addColorStop(0,'#fff7c0'); sun.addColorStop(1,'rgba(254,240,138,0)');
+    g.fillStyle=sun; g.fillRect(0,0,w,h*0.55);
+    // 바다
+    const sea=g.createLinearGradient(0,h*0.55,0,h*0.78);
+    sea.addColorStop(0,'#0ea5e9'); sea.addColorStop(1,'#0369a1');
+    g.fillStyle=sea; g.fillRect(0,h*0.55,w,h*0.23);
+    // 모래
+    const sand=g.createLinearGradient(0,h*0.78,0,h);
+    sand.addColorStop(0,'#fcd34d'); sand.addColorStop(1,'#d97706');
+    g.fillStyle=sand; g.fillRect(0,h*0.78,w,h*0.22);
+    // 야자수 잎
+    g.strokeStyle='#14532d'; g.lineWidth=6;
+    for(let i=0;i<3;i++){
+      const x=80+i*40, y=h*0.78;
+      g.beginPath(); g.moveTo(x,y); g.lineTo(x+10,y-180); g.stroke();
+      for(let j=0;j<5;j++){
+        g.beginPath(); g.moveTo(x+10,y-180); g.lineTo(x-50+j*20,y-220-j*5); g.stroke();
+      }
+    }
+  } else if (theme==='library') {
+    g.fillStyle='#3e2511'; g.fillRect(0,0,w,h);
+    // 책장 6단
+    for(let row=0;row<5;row++){
+      const sy=row*h/5;
+      g.fillStyle='#5b3a1c'; g.fillRect(0,sy,w,h/5-8);
+      g.fillStyle='#1f1306'; g.fillRect(0,sy+h/5-12,w,4);
+      // 책들
+      let x=10;
+      while(x<w-10){
+        const bw=24+Math.random()*40, bh=h/5-30-Math.random()*30;
+        const colors=['#7f1d1d','#1e3a8a','#14532d','#78350f','#581c87','#0f766e','#7c2d12'];
+        g.fillStyle=colors[Math.floor(Math.random()*colors.length)];
+        g.fillRect(x,sy+(h/5-12)-bh,bw,bh);
+        g.strokeStyle='rgba(0,0,0,0.4)'; g.lineWidth=1; g.strokeRect(x,sy+(h/5-12)-bh,bw,bh);
+        x+=bw+2;
+      }
+    }
+  } else {
+    g.fillStyle='#0f172a'; g.fillRect(0,0,w,h);
+  }
+  vcBg.bgImg=c; vcBg.bgImgKey=theme;
+  return c;
+}
+
+// --- 2) MediaPipe 스크립트 lazy 로드 ---
+function vcLoadMediaPipe(){
+  if (vcBg.mpLoaded) return Promise.resolve();
+  if (vcBg.mpLoading) return vcBg.mpLoading;
+  vcBg.mpLoading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/selfie_segmentation.js';
+    s.crossOrigin = 'anonymous';
+    s.onload = () => { vcBg.mpLoaded = true; resolve(); };
+    s.onerror = (e) => reject(new Error('MediaPipe 로드 실패. 네트워크 확인 후 다시 시도해 주세요.'));
+    document.head.appendChild(s);
+  });
+  return vcBg.mpLoading;
+}
+
+// --- 3) Segmenter 초기화 ---
+async function vcInitBgEngine(){
+  if (vcBg.segmenter) return;
+  if (typeof SelfieSegmentation === 'undefined') throw new Error('MediaPipe 로드 안됨');
+  vcBg.segmenter = new SelfieSegmentation({
+    locateFile: (f) => 'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/' + f
+  });
+  vcBg.segmenter.setOptions({ modelSelection: 1, selfieMode: false });
+  vcBg.segmenter.onResults(vcOnSegResults);
+  await vcBg.segmenter.initialize();
+  // 합성 캔버스
+  if (!vcBg.canvas) {
+    vcBg.canvas = document.createElement('canvas');
+    vcBg.canvas.width = 1280; vcBg.canvas.height = 720;
+    vcBg.ctx = vcBg.canvas.getContext('2d');
+  }
+}
+
+// --- 4) Segmentation 결과 합성 콜백 ---
+function vcOnSegResults(results){
+  const ctx = vcBg.ctx;
+  const w = vcBg.canvas.width, h = vcBg.canvas.height;
+  ctx.save();
+  ctx.clearRect(0,0,w,h);
+  // 1) 마스크(사람 영역) 그리기
+  ctx.drawImage(results.segmentationMask, 0, 0, w, h);
+  // 2) 마스크된 부분만 사람 영상으로 채움 (source-in)
+  ctx.globalCompositeOperation = 'source-in';
+  ctx.drawImage(results.image, 0, 0, w, h);
+  // 3) 사람 뒤쪽(destination-over)으로 배경 깔기
+  ctx.globalCompositeOperation = 'destination-over';
+  if (vcBg.mode === 'blur') {
+    ctx.filter = 'blur(14px)';
+    ctx.drawImage(results.image, 0, 0, w, h);
+    ctx.filter = 'none';
+  } else if (vcBg.mode !== 'off') {
+    const bg = vcMakeBgCanvas(vcBg.mode);
+    ctx.drawImage(bg, 0, 0, w, h);
+  }
+  ctx.restore();
+}
+
+// --- 5) 처리 루프 (사용자 비디오 → segmenter) ---
+async function vcBgRenderLoop(){
+  if (!vcBg.isProcessing) return;
+  const v = document.getElementById('vc-local-video');
+  if (v && v.readyState >= 2 && vcBg.segmenter && v.videoWidth > 0) {
+    try { await vcBg.segmenter.send({ image: v }); } catch(e){ console.warn('[vc-bg] send 실패:', e); }
+  }
+  vcBg.rafId = requestAnimationFrame(vcBgRenderLoop);
+}
+
+// --- 6) 캔버스 → MediaStreamTrack → 모든 peer 의 sender 에 replaceTrack ---
+function vcSwapVideoTrack(newTrack){
+  // 모든 PeerConnection 의 video sender 교체
+  if (typeof vcPeerConnections === 'object' && vcPeerConnections) {
+    Object.values(vcPeerConnections).forEach(pc => {
+      try {
+        const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+        if (sender) sender.replaceTrack(newTrack);
+      } catch(e){ console.warn('[vc-bg] replaceTrack 실패:', e); }
+    });
+  }
+}
+
+// --- 7) 메인 진입점 ---
+window.vcSetBackground = async function(mode){
+  // 활성 타일 표시
+  document.querySelectorAll('.vc-bg-tile').forEach(t => {
+    if (t.getAttribute('data-bg') === mode) {
+      t.classList.add('vc-bg-active');
+      t.style.borderColor = '#fbbf24';
+    } else {
+      t.classList.remove('vc-bg-active');
+      t.style.borderColor = '#334155';
+    }
+  });
+  const status = document.getElementById('vc-bg-status');
+  vcBg.mode = mode;
+
+  // 카메라 트랙 확보
+  const camTrack = vcLocalStream && vcLocalStream.getVideoTracks()[0];
+  if (!camTrack) {
+    if (status) status.textContent = '⚠ 카메라가 꺼져 있어 가상 배경을 적용할 수 없습니다.';
+    return;
+  }
+
+  // OFF: 원본 카메라로 복귀
+  if (mode === 'off') {
+    vcBg.isProcessing = false;
+    if (vcBg.rafId) { cancelAnimationFrame(vcBg.rafId); vcBg.rafId = null; }
+    if (vcBg.originalVideoTrack) {
+      vcSwapVideoTrack(vcBg.originalVideoTrack);
+      const v = document.getElementById('vc-local-video');
+      if (v) v.srcObject = vcLocalStream;
+    }
+    if (status) status.textContent = '원본 카메라 사용 중';
+    return;
+  }
+
+  // 첫 적용: MediaPipe 로드 + 엔진 init + 원본 트랙 보관
+  try {
+    if (status) status.textContent = '⏳ MediaPipe 모델 로드 중… (최초 1회, 약 3MB)';
+    await vcLoadMediaPipe();
+    if (status) status.textContent = '⏳ Segmenter 초기화 중…';
+    await vcInitBgEngine();
+  } catch(e) {
+    if (status) status.textContent = '❌ 로드 실패: ' + (e && e.message || e);
+    console.error('[vc-bg]', e);
+    return;
+  }
+
+  // 원본 트랙 보관 (Off 시 복귀용)
+  if (!vcBg.originalVideoTrack) vcBg.originalVideoTrack = camTrack;
+
+  // 처리 시작
+  vcBg.isProcessing = true;
+  if (!vcBg.rafId) vcBgRenderLoop();
+
+  // 캔버스 스트림 생성 → 로컬 비디오에 연결 + sender 교체
+  if (!vcBg.processedStream) {
+    vcBg.processedStream = vcBg.canvas.captureStream(30);
+    // 오디오 트랙도 합쳐서 보내야 함 (영상만 바꿈, 오디오는 원본 유지)
+    const audioTrack = vcLocalStream.getAudioTracks()[0];
+    if (audioTrack) vcBg.processedStream.addTrack(audioTrack);
+  }
+  const v = document.getElementById('vc-local-video');
+  if (v) v.srcObject = vcBg.processedStream;
+  const newVideoTrack = vcBg.processedStream.getVideoTracks()[0];
+  if (newVideoTrack) vcSwapVideoTrack(newVideoTrack);
+
+  if (status) {
+    const names = { blur:'흐림', space:'우주', forest:'숲속', classroom:'교실', cafe:'카페', beach:'바닷가', library:'서재' };
+    status.textContent = '✅ ' + (names[mode]||mode) + ' 배경 적용 중 — 모든 참가자에게 보입니다';
+  }
+};
 
 // 🥭 Phase 41 — 학생게임 (오늘의 교재 vocab 기반 두 가지 미니게임)
 const _GAME_VOCAB = [
