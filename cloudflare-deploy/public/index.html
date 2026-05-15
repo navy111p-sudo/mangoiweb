@@ -1725,7 +1725,7 @@
         .lc-modal{max-width:none!important;width:100vw!important;margin:0!important;border-radius:0!important;height:100vh!important;max-height:100vh!important;overflow:hidden!important}
         .lc-head{padding:14px 16px!important}
         .lc-head h2{font-size:16px!important}
-        .lc-body{padding:14px 16px!important;max-height:70vh!important;overflow-y:auto}
+        .lc-body{padding:14px 16px!important;flex:1!important;overflow-y:auto;-webkit-overflow-scrolling:touch}
         .lc-info{font-size:11.5px!important;padding:9px 11px!important;line-height:1.45!important}
         .lc-item{padding:11px!important}
         .lc-item-title{font-size:13px!important}
@@ -12678,8 +12678,8 @@ window.closeRulesModal = function() {
 
     var html = '<div class="lc-modal" onclick="event.stopPropagation()">'+
       headerHtml+
-      '<div class="lc-body" style="max-height:65vh;overflow-y:auto">'+bodyHtml+'</div>'+
-      '<div style="padding:14px 24px;border-top:1px solid #232b40;background:#131826;border-radius:0 0 18px 18px">'+footerHtml+'</div>'+
+      '<div class="lc-body">'+bodyHtml+'</div>'+
+      '<div style="padding:14px 24px;border-top:1px solid #232b40;background:#131826;flex-shrink:0">'+footerHtml+'</div>'+
     '</div>';
     var overlay = document.getElementById('lc-overlay');
     overlay.innerHTML = html;
@@ -13277,13 +13277,16 @@ window.closeRulesModal = function() {
     if(!u){
       // 로그인 필요 안내
       var ov = document.getElementById('lc-overlay');
-      ov.innerHTML = '<div class="lc-modal" onclick="event.stopPropagation()" style="align-items:center;justify-content:center"><div style="max-width:440px;width:100%;margin:auto;background:#131826;border:2px solid #ef4444;border-radius:18px;padding:24px;text-align:center">'+
+      ov.innerHTML = '<div class="lc-modal" onclick="event.stopPropagation()">'+
         '<div class="lc-head"><h2>🔑 '+(L?'로그인이 필요합니다':'Login Required')+'</h2><button class="lc-close" onclick="closeLessonChangeModal()">✕</button></div>'+
-        '<div class="lc-body" style="text-align:center;padding:30px 24px">'+
-          '<div style="font-size:64px;line-height:1;margin-bottom:14px">👤</div>'+
-          '<p style="color:#cbd5e1;font-size:14.5px;line-height:1.6;margin:0 0 18px">'+(L?'내 수업을 확인하려면<br>먼저 로그인해주세요.':'Please sign in first<br>to view your classes.')+'</p>'+
-          '<button onclick="closeLessonChangeModal();setTimeout(openLoginModal,150)" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-size:15px;font-weight:800;padding:14px 32px;border-radius:12px;border:none;cursor:pointer;box-shadow:0 6px 16px rgba(245,158,11,.4)">🔑 '+(L?'로그인 하기':'Sign In')+'</button>'+
-        '</div></div>';
+        '<div class="lc-body" style="display:flex;align-items:center;justify-content:center">'+
+          '<div style="max-width:440px;width:100%;background:#131826;border:2px solid #ef4444;border-radius:18px;padding:32px 24px;text-align:center">'+
+            '<div style="font-size:64px;line-height:1;margin-bottom:14px">👤</div>'+
+            '<p style="color:#cbd5e1;font-size:14.5px;line-height:1.6;margin:0 0 22px">'+(L?'내 수업을 확인하려면<br>먼저 로그인해주세요.':'Please sign in first<br>to view your classes.')+'</p>'+
+            '<button onclick="closeLessonChangeModal();setTimeout(openLoginModal,150)" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-size:15px;font-weight:800;padding:14px 32px;border-radius:12px;border:none;cursor:pointer;box-shadow:0 6px 16px rgba(245,158,11,.4)">🔑 '+(L?'로그인 하기':'Sign In')+'</button>'+
+          '</div>'+
+        '</div>'+
+      '</div>';
       ov.classList.add('show');
       document.body.style.overflow='hidden';
       return;
