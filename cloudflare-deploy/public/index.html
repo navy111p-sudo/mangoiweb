@@ -2489,6 +2489,65 @@
         <button class="ai-quick-btn" data-go="inquiry" data-ko="💬 신규상담" data-en="💬 New Inquiry">💬 신규상담</button>
         <button class="ai-quick-btn" data-go="homepage" data-ko="🏠 홈페이지" data-en="🏠 Homepage">🏠 홈페이지</button>
       </div>
+      <!-- 📅 수업 연기/변경 큰 버튼 -->
+      <div class="lesson-action-row" style="margin-top:18px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;">
+        <button id="btn-lesson-change" onclick="openLessonChangeModal()"
+                style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-size:16px;font-weight:800;padding:14px 28px;border-radius:14px;border:none;cursor:pointer;box-shadow:0 8px 24px rgba(245,158,11,.45),0 0 0 0 rgba(251,191,36,.6);display:inline-flex;align-items:center;gap:10px;transition:transform .15s,box-shadow .15s;animation:lessonPulse 2.6s infinite;">
+          <span style="font-size:22px">📅</span>
+          <span data-ko="수업 연기 / 변경" data-en="Postpone / Change Class">수업 연기 / 변경</span>
+        </button>
+        <div style="font-size:11.5px;color:#94a3b8;display:flex;gap:12px">
+          <span data-ko="📌 연기: 수업 30분 전까지" data-en="📌 Postpone: 30 min before">📌 연기: 수업 30분 전까지</span>
+          <span style="opacity:.5">|</span>
+          <span data-ko="🔄 변경: 수업 24시간 전까지" data-en="🔄 Change: 24h before">🔄 변경: 수업 24시간 전까지</span>
+        </div>
+      </div>
+      <style>
+      @keyframes lessonPulse{0%,100%{box-shadow:0 8px 24px rgba(245,158,11,.45),0 0 0 0 rgba(251,191,36,.4)}50%{box-shadow:0 8px 24px rgba(245,158,11,.45),0 0 0 14px rgba(251,191,36,0)}}
+      #btn-lesson-change:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 12px 30px rgba(245,158,11,.6)!important}
+      /* 수업 연기/변경 모달 */
+      .lc-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);display:none;align-items:flex-start;justify-content:center;z-index:10000;padding:40px 16px;overflow-y:auto;animation:lcFade .2s}
+      .lc-overlay.show{display:flex}
+      @keyframes lcFade{from{opacity:0}to{opacity:1}}
+      @keyframes lcSlide{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+      .lc-modal{background:linear-gradient(180deg,#1a2032 0%,#131826 100%);border:1px solid #232b40;border-radius:18px;max-width:560px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.6);animation:lcSlide .25s ease-out;color:#e2e8f0;font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;margin-top:20px}
+      .lc-head{padding:20px 24px;border-bottom:1px solid #232b40;display:flex;justify-content:space-between;align-items:center}
+      .lc-head h2{margin:0;font-size:20px;font-weight:800;color:#fff;display:flex;align-items:center;gap:10px}
+      .lc-close{background:transparent;border:none;color:#94a3b8;font-size:24px;cursor:pointer;padding:4px 10px;border-radius:8px;line-height:1}
+      .lc-close:hover{background:#232b40;color:#fff}
+      .lc-body{padding:18px 24px}
+      .lc-info{padding:11px 14px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:10px;font-size:12.5px;color:#fde68a;margin-bottom:16px;line-height:1.55}
+      .lc-list{display:flex;flex-direction:column;gap:10px}
+      .lc-item{background:#131826;border:1px solid #232b40;border-radius:12px;padding:14px;transition:all .15s}
+      .lc-item:hover{border-color:#fbbf24;transform:translateY(-2px)}
+      .lc-item-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+      .lc-item-title{font-size:14.5px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px}
+      .lc-item-type{padding:2px 9px;border-radius:99px;font-size:10px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:.4px}
+      .lc-item-type.t1on1{background:#8b5cf6}
+      .lc-item-type.group{background:#ec4899}
+      .lc-item-meta{font-size:12.5px;color:#94a3b8;line-height:1.5;margin-bottom:10px}
+      .lc-item-meta b{color:#cbd5e1;font-weight:600}
+      .lc-actions{display:flex;gap:8px}
+      .lc-btn{flex:1;padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;border:1.5px solid transparent;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px}
+      .lc-btn.postpone{background:rgba(59,130,246,.18);color:#93c5fd;border-color:rgba(59,130,246,.4)}
+      .lc-btn.postpone:hover{background:#3b82f6;color:#fff;transform:translateY(-1px)}
+      .lc-btn.change{background:rgba(167,139,250,.18);color:#c4b5fd;border-color:rgba(167,139,250,.4)}
+      .lc-btn.change:hover{background:#8b5cf6;color:#fff;transform:translateY(-1px)}
+      .lc-empty{padding:40px 20px;text-align:center;color:#64748b;font-size:13px}
+      /* 거부 팝업 */
+      .lc-reject{background:#131826;border:2px solid #ef4444;border-radius:18px;max-width:440px;width:100%;text-align:center;padding:24px;margin-top:60px;animation:lcSlide .25s}
+      .lc-reject .lc-rej-ico{font-size:64px;animation:lcShake .5s}
+      @keyframes lcShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+      .lc-reject h3{color:#ef4444;font-size:18px;font-weight:800;margin:12px 0 8px}
+      .lc-reject p{color:#e2e8f0;font-size:14px;line-height:1.55;margin:0 0 14px}
+      .lc-reject .lc-rej-detail{padding:12px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:10px;font-size:12px;color:#fca5a5;line-height:1.5;margin-bottom:16px}
+      .lc-reject button{background:#fbbf24;color:#1a1a1a;border:none;padding:12px 32px;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer}
+      .lc-reject button:hover{background:#f59e0b}
+      /* 성공 토스트 */
+      .lc-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#131826;border:2px solid #10b981;border-radius:99px;padding:12px 24px;color:#fff;font-weight:700;font-size:13.5px;box-shadow:0 12px 32px rgba(0,0,0,.5);z-index:10100;display:none;align-items:center;gap:10px}
+      .lc-toast.show{display:flex;animation:lcFade .3s}
+      .lc-toast.bad{border-color:#ef4444}
+      </style>
     </div>
 
 <!-- 🥭 히트맵 메뉴 그리드 (2026-05-03 추가) — 검색창 화살표 클릭 시 등장 -->
@@ -11988,6 +12047,129 @@ window.closeRulesModal = function() {
   const bg = document.getElementById('rules-modal-bg');
   if (bg) bg.style.display = 'none';
 };
+</script>
+
+
+<!-- 📅 수업 연기/변경 모달 -->
+<div class="lc-overlay" id="lc-overlay" onclick="if(event.target===this)closeLessonChangeModal()"></div>
+<div class="lc-toast" id="lc-toast"></div>
+<script>
+// 메인 페이지 - 수업 연기/변경 (학생/학부모 본인 수업)
+(function(){
+  var demoClasses = [
+    { id:'cls01', type:'1on1', teacher:'박지윤', students:[{name:'정우영',uid:'navy111p'}], dateOffset:1, hour:14, durationMin:60 },
+    { id:'cls02', type:'group', teacher:'이서연', students:[{name:'정우영',uid:'navy111p'},{name:'김민수',uid:'st02'}], dateOffset:2, hour:16, durationMin:40 },
+    { id:'cls03', type:'1on1', teacher:'Maria Santos', students:[{name:'정우영',uid:'navy111p'}], hourOffset:0.5, durationMin:60 }
+  ];
+  function pad(n){return String(n).padStart(2,'0');}
+  function getClassDateTime(c){
+    if(c.hourOffset!=null){
+      var now=new Date();
+      return new Date(now.getTime() + c.hourOffset*3600*1000);
+    }
+    var d=new Date(); d.setHours(0,0,0,0);
+    d.setDate(d.getDate() + (c.dateOffset||0));
+    d.setHours(c.hour);
+    return d;
+  }
+  function fmtDateTime(d){
+    var L=(window.getLang?window.getLang():'ko')==='ko';
+    var dow=L?['일','월','화','수','목','금','토']:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    return d.getFullYear()+'.'+pad(d.getMonth()+1)+'.'+pad(d.getDate())+
+      ' ('+dow[d.getDay()]+') '+pad(d.getHours())+':'+pad(d.getMinutes());
+  }
+  function minutesUntil(d){return (d - new Date())/60000;}
+  function escHtml(s){return String(s||'').replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});}
+
+  window.openLessonChangeModal = function(){
+    var L = (window.getLang?window.getLang():'ko')==='ko';
+    var overlay = document.getElementById('lc-overlay');
+    var items = demoClasses.map(function(c){
+      var dt = getClassDateTime(c);
+      var diffMin = minutesUntil(dt);
+      var typeLbl = c.type==='1on1' ? (L?'1대1':'1-on-1') : (L?'그룹':'Group');
+      var typeCls = c.type==='1on1' ? 't1on1' : 'group';
+      var students = c.students.map(function(s){return s.name;}).join(', ');
+      var timeLeft;
+      if(diffMin<0) timeLeft = L?'이미 시작/종료':'Past';
+      else if(diffMin<60) timeLeft = Math.round(diffMin)+(L?'분 남음':' min');
+      else if(diffMin<1440) timeLeft = Math.round(diffMin/60)+(L?'시간 남음':' h');
+      else timeLeft = Math.round(diffMin/1440)+(L?'일 남음':' d');
+      return '<div class="lc-item">'+
+        '<div class="lc-item-head">'+
+          '<div class="lc-item-title">'+(c.type==='1on1'?'🟣':'💗')+' '+escHtml(c.teacher)+'</div>'+
+          '<span class="lc-item-type '+typeCls+'">'+typeLbl+'</span>'+
+        '</div>'+
+        '<div class="lc-item-meta">'+
+          '📅 <b>'+fmtDateTime(dt)+'</b><br>'+
+          '⏰ '+timeLeft+' · '+c.durationMin+(L?'분':'min')+' / 👤 '+escHtml(students)+
+        '</div>'+
+        '<div class="lc-actions">'+
+          '<button class="lc-btn postpone" onclick="tryLessonAction(&quot;'+c.id+'&quot;,&quot;postpone&quot;)">📅 '+(L?'연기':'Postpone')+'</button>'+
+          '<button class="lc-btn change" onclick="tryLessonAction(&quot;'+c.id+'&quot;,&quot;change&quot;)">🔄 '+(L?'변경':'Change')+'</button>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+    var html = '<div class="lc-modal" onclick="event.stopPropagation()">'+
+      '<div class="lc-head"><h2>📅 '+(L?'수업 연기 / 변경':'Postpone / Change')+'</h2>'+
+      '<button class="lc-close" onclick="closeLessonChangeModal()">✕</button></div>'+
+      '<div class="lc-body">'+
+        '<div class="lc-info">💡 <b>'+(L?'규정 안내':'Policy')+'</b><br>'+
+          '· '+(L?'<b>연기</b>: 수업 시작 <b>30분 전</b>까지 가능':'<b>Postpone</b>: up to 30 min before')+'<br>'+
+          '· '+(L?'<b>변경</b>: 수업 시작 <b>24시간 전</b>까지 가능':'<b>Change</b>: up to 24 h before')+
+        '</div>'+
+        '<div class="lc-list">'+(items||'<div class="lc-empty">'+(L?'예정된 수업이 없습니다.':'No upcoming classes.')+'</div>')+'</div>'+
+      '</div></div>';
+    overlay.innerHTML = html;
+    overlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
+  };
+  window.closeLessonChangeModal = function(){
+    var o=document.getElementById('lc-overlay');
+    o.classList.remove('show');
+    document.body.style.overflow = '';
+  };
+
+  window.tryLessonAction = function(clsId, mode){
+    var L = (window.getLang?window.getLang():'ko')==='ko';
+    var c = demoClasses.find(function(x){return x.id===clsId;});
+    if(!c) return;
+    var dt = getClassDateTime(c);
+    var diffMin = minutesUntil(dt);
+    var minRequired = mode==='postpone' ? 30 : 1440;
+    if(diffMin < minRequired){
+      var title = mode==='postpone' ? (L?'연기할 수 없습니다':'Cannot Postpone') : (L?'변경할 수 없습니다':'Cannot Change');
+      var msg = mode==='postpone'
+        ? (L?'죄송합니다. 수업전 30분이 지나 연기할 수 없습니다.':'Sorry. Postponing is only allowed up to 30 minutes before class.')
+        : (L?'죄송합니다. 수업 전 24시간이 지나 변경하실 수 없습니다.':'Sorry. Changes are only allowed up to 24 hours before class.');
+      var detail = '📅 <b>'+fmtDateTime(dt)+'</b><br>'+
+        '⏰ '+(diffMin<0?(L?'이미 시작/종료된 수업':'Already started'):(Math.round(diffMin)+(L?'분 남음':' min left')))+'<br>'+
+        (L?'급한 경우 학원에 직접 연락 부탁드립니다.':'Please contact the center directly.');
+      var html = '<div class="lc-reject" onclick="event.stopPropagation()">'+
+        '<div class="lc-rej-ico">😔</div>'+
+        '<h3>'+title+'</h3>'+
+        '<p>'+msg+'</p>'+
+        '<div class="lc-rej-detail">'+detail+'</div>'+
+        '<button onclick="closeLessonChangeModal()">'+(L?'확인':'OK')+'</button>'+
+      '</div>';
+      document.getElementById('lc-overlay').innerHTML = html;
+      return;
+    }
+    closeLessonChangeModal();
+    var msg = '✅ '+(mode==='postpone'
+      ? (L?'수업 연기 요청을 접수했습니다.':'Postpone request received.')
+      : (L?'수업 변경 요청을 접수했습니다.':'Change request received.'))+
+      ' '+(L?'담당자가 곧 연락드립니다.':'Staff will contact you soon.');
+    showLcToast(msg);
+  };
+
+  function showLcToast(msg){
+    var t = document.getElementById('lc-toast');
+    t.innerHTML = msg;
+    t.classList.add('show');
+    setTimeout(function(){ t.classList.remove('show'); }, 3500);
+  }
+})();
 </script>
 
 </body>
