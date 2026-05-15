@@ -5135,7 +5135,8 @@ async function vcInitBgEngine(){
   vcBg.segmenter = new SelfieSegmentation({
     locateFile: (f) => 'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1632777926/' + f
   });
-  vcBg.segmenter.setOptions({ modelSelection: 1, selfieMode: false });
+  // modelSelection 0 = general (256x256 정사각, 높은 정확도) — 1 = landscape (256x144, 빠름) 보다 가장자리 정밀도 우수
+  vcBg.segmenter.setOptions({ modelSelection: 0, selfieMode: false });
   vcBg.segmenter.onResults(vcOnSegResults);
   await vcBg.segmenter.initialize();
   // 합성 캔버스
@@ -5147,17 +5148,28 @@ async function vcInitBgEngine(){
 }
 
 // --- 4) Segmentation 결과 합성 콜백 ---
+//     ⚙ 가장자리 품질 개선:
+//     ① 마스크에 contrast(1.5) + blur(0.8px) 필터 → soft alpha 의 회색 전이 구간을 sharp 하게 (halo 제거)
+//     ② 살짝의 blur(0.8px) 로 픽셀 계단 현상 부드럽게 (자연스러운 안티에일리어싱)
+//     ③ 사람 그릴 때도 살짝 채도/대비 보정으로 배경과 어우러지게
 function vcOnSegResults(results){
   const ctx = vcBg.ctx;
   const w = vcBg.canvas.width, h = vcBg.canvas.height;
   ctx.save();
   ctx.clearRect(0,0,w,h);
-  // 1) 마스크(사람 영역) 그리기
+
+  // 1) 마스크 그리기 + 가장자리 sharpening (halo 제거)
+  //    contrast 가 회색 픽셀을 검정/흰색으로 밀어붙여 마스크가 더 binary 해짐
+  //    blur 는 얼리어싱 톱니를 살짝 부드럽게
+  ctx.filter = 'contrast(1.5) blur(0.8px)';
   ctx.drawImage(results.segmentationMask, 0, 0, w, h);
-  // 2) 마스크된 부분만 사람 영상으로 채움 (source-in)
+  ctx.filter = 'none';
+
+  // 2) 마스크된 영역에 사람 영상 채움 (source-in)
   ctx.globalCompositeOperation = 'source-in';
   ctx.drawImage(results.image, 0, 0, w, h);
-  // 3) 사람 뒤쪽(destination-over)으로 배경 깔기
+
+  // 3) 배경 깔기 (destination-over)
   ctx.globalCompositeOperation = 'destination-over';
   if (vcBg.mode === 'blur') {
     ctx.filter = 'blur(14px)';
@@ -5166,24 +5178,14 @@ function vcOnSegResults(results){
   } else if (vcBg.mode !== 'off') {
     const img = vcGetBgImageSync(vcBg.mode);
     if (img && img.complete && img.naturalWidth > 0) {
-      // cover 방식으로 그리기 (캔버스 비율과 이미지 비율이 다를 수 있음)
       const ir = img.naturalWidth / img.naturalHeight;
       const cr = w / h;
       let sx, sy, sw, sh;
-      if (ir > cr) {
-        // 이미지가 더 가로로 김 → 좌우 자름
-        sh = img.naturalHeight; sw = sh * cr;
-        sx = (img.naturalWidth - sw) / 2; sy = 0;
-      } else {
-        // 이미지가 더 세로로 김 → 상하 자름
-        sw = img.naturalWidth; sh = sw / cr;
-        sx = 0; sy = (img.naturalHeight - sh) / 2;
-      }
+      if (ir > cr) { sh = img.naturalHeight; sw = sh * cr; sx = (img.naturalWidth - sw) / 2; sy = 0; }
+      else { sw = img.naturalWidth; sh = sw / cr; sx = 0; sy = (img.naturalHeight - sh) / 2; }
       ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
     } else {
-      // 이미지 아직 로드 안됨 → 임시 배경색
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, w, h);
     }
   }
   ctx.restore();
