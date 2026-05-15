@@ -12676,7 +12676,7 @@ window.closeRulesModal = function() {
         '<button onclick="lcConfirmPicker()" '+(ready?'':'disabled')+' style="flex:2;padding:12px;border-radius:10px;background:'+(ready?'linear-gradient(135deg,#10b981,#059669)':'#374151')+';border:none;color:#fff;font-size:14px;font-weight:800;cursor:'+(ready?'pointer':'not-allowed')+';opacity:'+(ready?'1':'.4')+'">✅ '+(L?'확인':'Confirm')+'</button></div>';
     }
 
-    var html = '<div class="lc-modal" onclick="event.stopPropagation()" style="max-width:680px">'+
+    var html = '<div class="lc-modal" onclick="event.stopPropagation()">'+
       headerHtml+
       '<div class="lc-body" style="max-height:65vh;overflow-y:auto">'+bodyHtml+'</div>'+
       '<div style="padding:14px 24px;border-top:1px solid #232b40;background:#131826;border-radius:0 0 18px 18px">'+footerHtml+'</div>'+
@@ -13277,7 +13277,7 @@ window.closeRulesModal = function() {
     if(!u){
       // 로그인 필요 안내
       var ov = document.getElementById('lc-overlay');
-      ov.innerHTML = '<div class="lc-modal" onclick="event.stopPropagation()" style="max-width:440px">'+
+      ov.innerHTML = '<div class="lc-modal" onclick="event.stopPropagation()" style="align-items:center;justify-content:center"><div style="max-width:440px;width:100%;margin:auto;background:#131826;border:2px solid #ef4444;border-radius:18px;padding:24px;text-align:center">'+
         '<div class="lc-head"><h2>🔑 '+(L?'로그인이 필요합니다':'Login Required')+'</h2><button class="lc-close" onclick="closeLessonChangeModal()">✕</button></div>'+
         '<div class="lc-body" style="text-align:center;padding:30px 24px">'+
           '<div style="font-size:64px;line-height:1;margin-bottom:14px">👤</div>'+
