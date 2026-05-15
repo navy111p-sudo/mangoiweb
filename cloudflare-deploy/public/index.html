@@ -1721,8 +1721,8 @@
         .lesson-action-row > div span[style*="opacity"]{display:none}
 
         /* ─── 수업 연기/변경 모달 (lc-modal) ─── */
-        .lc-overlay{padding:12px 8px!important;align-items:flex-start!important}
-        .lc-modal{max-width:100%!important;width:calc(100vw - 16px)!important;margin-top:8px!important;border-radius:14px!important}
+        .lc-overlay{padding:0!important;align-items:stretch!important}
+        .lc-modal{max-width:none!important;width:100vw!important;margin:0!important;border-radius:0!important;min-height:100vh!important}
         .lc-head{padding:14px 16px!important}
         .lc-head h2{font-size:16px!important}
         .lc-body{padding:14px 16px!important;max-height:70vh!important;overflow-y:auto}
@@ -2614,16 +2614,16 @@
       @keyframes lessonPulse{0%,100%{box-shadow:0 8px 24px rgba(245,158,11,.45),0 0 0 0 rgba(251,191,36,.4)}50%{box-shadow:0 8px 24px rgba(245,158,11,.45),0 0 0 14px rgba(251,191,36,0)}}
       #btn-lesson-change:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 12px 30px rgba(245,158,11,.6)!important}
       /* 수업 연기/변경 모달 */
-      .lc-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);display:none;align-items:flex-start;justify-content:center;z-index:10000;padding:40px 16px;overflow-y:auto;animation:lcFade .2s}
+      .lc-overlay{position:fixed;inset:0;background:#0a0e1a;backdrop-filter:none;display:none;align-items:stretch;justify-content:stretch;z-index:10000;padding:0;overflow-y:auto;animation:lcFade .2s}
       .lc-overlay.show{display:flex}
       @keyframes lcFade{from{opacity:0}to{opacity:1}}
       @keyframes lcSlide{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-      .lc-modal{background:linear-gradient(180deg,#1a2032 0%,#131826 100%);border:1px solid #232b40;border-radius:18px;max-width:560px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.6);animation:lcSlide .25s ease-out;color:#e2e8f0;font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;margin-top:20px}
-      .lc-head{padding:20px 24px;border-bottom:1px solid #232b40;display:flex;justify-content:space-between;align-items:center}
+      .lc-modal{background:linear-gradient(180deg,#1a2032 0%,#131826 100%);border:none;border-radius:0;max-width:none;width:100%;min-height:100vh;box-shadow:none;animation:lcSlide .25s ease-out;color:#e2e8f0;font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;margin:0;display:flex;flex-direction:column}
+      .lc-head{padding:18px 24px;border-bottom:1px solid #232b40;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:linear-gradient(180deg,#1a2032 0%,rgba(26,32,50,.95) 100%);backdrop-filter:blur(8px);z-index:50}
       .lc-head h2{margin:0;font-size:20px;font-weight:800;color:#fff;display:flex;align-items:center;gap:10px}
       .lc-close{background:transparent;border:none;color:#94a3b8;font-size:24px;cursor:pointer;padding:4px 10px;border-radius:8px;line-height:1}
       .lc-close:hover{background:#232b40;color:#fff}
-      .lc-body{padding:18px 24px}
+      .lc-body{padding:18px 24px;flex:1;max-width:1100px;margin:0 auto;width:100%;box-sizing:border-box}
       .lc-info{padding:11px 14px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:10px;font-size:12.5px;color:#fde68a;margin-bottom:16px;line-height:1.55}
       .lc-list{display:flex;flex-direction:column;gap:10px}
       .lc-item{background:#131826;border:1px solid #232b40;border-radius:12px;padding:14px;transition:all .15s}
@@ -12763,7 +12763,7 @@ window.closeRulesModal = function() {
     });
     html += '</div>';
     // 시간 그리드 (10분 단위)
-    html += '<div id="cal-scroll-area" style="position:relative;overflow-x:auto;overflow-y:auto;max-height:65vh"><div id="cal-grid-body" style="display:grid;grid-template-columns:'+colsTpl+';grid-auto-rows:'+rowPx+'px;background:#131826;min-width:'+(48+TOTAL_DAYS*colPx)+'px">';
+    html += '<div id="cal-scroll-area" style="position:relative;overflow-x:auto;overflow-y:auto;max-height:75vh"><div id="cal-grid-body" style="display:grid;grid-template-columns:'+colsTpl+';grid-auto-rows:'+rowPx+'px;background:#131826;min-width:'+(48+TOTAL_DAYS*colPx)+'px">';
     for(var hh=9;hh<=22;hh++){
       for(var mm=0;mm<60;mm+=10){
         var isHourMark = (mm===0);
