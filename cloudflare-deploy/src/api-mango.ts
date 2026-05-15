@@ -1317,10 +1317,13 @@ export async function handleMangoApi(
       const now = Date.now();
       const todayKst = new Date(now + 9*3600*1000).toISOString().slice(0,10);
       // 3가지 type 데모: 월/수 정규 / 화 체험 / 다음주 월 레벨
+      // ★ Phase 7 비즈니스 규칙: trial/level_test = one_off, regular = recurring
+      const tomorrow = new Date(now + 86400000 + 9*3600000).toISOString().slice(0,10);
+      const nextWeek = new Date(now + 7*86400000 + 9*3600000).toISOString().slice(0,10);
       const seeds = [
-        { kind:'recurring', type:'regular',    day:'mon,wed', date:null, time:'15:00', label:'데모 - 정규수업' },
-        { kind:'recurring', type:'trial',      day:'tue',     date:null, time:'16:00', label:'데모 - 체험수업' },
-        { kind:'one_off',   type:'level_test', day:null,      date: (() => { const d=new Date(now+7*86400000+9*3600000); return d.toISOString().slice(0,10); })(), time:'17:00', label:'데모 - 레벨테스트' }
+        { kind:'recurring', type:'regular',    day:'mon,wed', date:null,     time:'15:00', label:'데모 - 매주 월·수 정규수업' },
+        { kind:'one_off',   type:'trial',      day:null,      date:tomorrow, time:'16:00', label:'데모 - 체험수업 (1회)' },
+        { kind:'one_off',   type:'level_test', day:null,      date:nextWeek, time:'17:00', label:'데모 - 레벨테스트 (1회)' }
       ];
       const inserted: any[] = [];
       for (const s of seeds) {

@@ -470,13 +470,21 @@ export async function processAiCommand(
     const allowedTypes = new Set(['regular', 'level_test', 'trial']);
     const validDays = new Set(['mon','tue','wed','thu','fri','sat','sun']);
     const cleanItems = items.slice(0, 20).map((it: any) => {
-      const action = allowedActions.has(it?.action) ? it.action : 'register_recurring';
+      let action = allowedActions.has(it?.action) ? it.action : 'register_recurring';
       // 한국어 키워드 폴백: AI 가 type 을 regular 로 잘못 분류해도 label 에서 체험/레벨 키워드 있으면 자동 보정
       let type = allowedTypes.has(it?.type) ? it.type : 'regular';
       const labelStr = String(it?.label || '');
       if (type === 'regular') {
         if (/체험\s*수업|체험\s*레슨|trial/i.test(labelStr)) type = 'trial';
         else if (/레벨\s*테스트|레벨\s*테스트|level\s*test/i.test(labelStr)) type = 'level_test';
+      }
+      // ★ Phase 7: 비즈니스 규칙 강제
+      //   trial/level_test = 1회성 (one_off, 특정 날짜 1번)
+      //   regular = 매주 반복 (recurring, 요일 반복)
+      if (type === 'trial' || type === 'level_test') {
+        action = 'schedule_one_off';
+      } else if (type === 'regular') {
+        action = 'register_recurring';
       }
       const days = Array.isArray(it?.days) ? it.days.filter((d: any) => validDays.has(String(d))) : null;
       const date = (it?.date && /^\d{4}-\d{2}-\d{2}$/.test(String(it.date))) ? it.date : null;
@@ -702,9 +710,17 @@ export async function executeAction(
         let conflict: any = null;
 
         if (userId) {
-          const action = String(it?.action || 'register_recurring');
-          const scheduleKind = (action === 'schedule_one_off' || action === 'postpone_class') ? 'one_off' : 'recurring';
+          let action = String(it?.action || 'register_recurring');
           const classType = String(it?.type || 'regular');
+          // ★ Phase 7: type → kind 강제
+          //   trial/level_test → 무조건 one_off
+          //   regular → 무조건 recurring
+          if (classType === 'trial' || classType === 'level_test') {
+            action = 'schedule_one_off';
+          } else if (classType === 'regular' && action === 'register_recurring') {
+            // regular 인데 days 비어있으면 그래도 recurring (아래 dayOfWeek null 처리됨)
+          }
+          const scheduleKind = (action === 'schedule_one_off' || action === 'postpone_class') ? 'one_off' : 'recurring';
           const dayOfWeek = Array.isArray(it?.days) && it.days.length ? it.days.join(',') : null;
           const scheduledDate = it?.date || null;
           const startTime = it?.time || null;
