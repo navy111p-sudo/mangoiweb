@@ -1708,7 +1708,77 @@
     <style>
       #login-btn:hover{background:rgba(251,191,36,.15)!important;border-color:rgba(251,191,36,.7)!important;color:#fde68a!important;transform:translateY(-1px)}
       @media (max-width:640px){
-        #login-btn{right:6.5rem!important;padding:0.45rem 0.7rem!important;font-size:0.8rem!important}
+        /* ─── 헤더 ─── */
+        #login-btn{right:5.8rem!important;padding:0.4rem 0.65rem!important;font-size:0.78rem!important;border-radius:11px!important;top:0.9rem!important;max-width:140px}
+        #login-btn-label{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block}
+        #lang-toggle{top:0.9rem!important;right:1rem!important;padding:0.4rem 0.65rem!important;font-size:0.78rem!important;border-radius:11px!important}
+        #user-menu{right:1rem!important;top:3.5rem!important;min-width:200px!important;max-width:calc(100vw - 24px)}
+
+        /* ─── 메인 - 노란 큰 수업연기 버튼 ─── */
+        #btn-lesson-change{font-size:14px!important;padding:13px 22px!important;border-radius:13px!important}
+        #btn-lesson-change span:first-child{font-size:20px!important}
+        .lesson-action-row > div{font-size:10.5px!important;flex-direction:column;gap:2px!important}
+        .lesson-action-row > div span[style*="opacity"]{display:none}
+
+        /* ─── 수업 연기/변경 모달 (lc-modal) ─── */
+        .lc-overlay{padding:12px 8px!important;align-items:flex-start!important}
+        .lc-modal{max-width:100%!important;width:calc(100vw - 16px)!important;margin-top:8px!important;border-radius:14px!important}
+        .lc-head{padding:14px 16px!important}
+        .lc-head h2{font-size:16px!important}
+        .lc-body{padding:14px 16px!important;max-height:70vh!important;overflow-y:auto}
+        .lc-info{font-size:11.5px!important;padding:9px 11px!important;line-height:1.45!important}
+        .lc-item{padding:11px!important}
+        .lc-item-title{font-size:13px!important}
+        .lc-item-meta{font-size:11.5px!important;line-height:1.4!important}
+        .lc-item-type{font-size:9.5px!important;padding:1px 7px!important}
+        .lc-actions{flex-direction:column;gap:6px!important}
+        .lc-btn{padding:11px 10px!important;font-size:13px!important}
+
+        /* ─── 학생 로그인 카드 ─── */
+        .login-modal{margin-top:30px!important;max-width:100%!important;width:calc(100vw - 16px)!important;border-radius:14px!important}
+        .login-modal h2{font-size:18px!important;padding:18px 18px 4px!important}
+        .login-modal .lm-sub{font-size:12px!important;padding:0 18px 14px!important}
+        .login-modal .lm-body{padding:0 18px 14px!important}
+        .student-cards{grid-template-columns:repeat(2,1fr)!important;gap:8px!important}
+        .student-card{padding:11px 8px!important}
+        .student-card .sc-avatar{width:38px!important;height:38px!important;font-size:15px!important;margin-bottom:6px!important}
+        .student-card .sc-name{font-size:13px!important}
+        .student-card .sc-uid{font-size:10px!important}
+
+        /* ─── 캘린더 그리드 — 가로 스크롤 ─── */
+        #cal-grid-wrap{font-size:9px!important}
+        #cal-grid-wrap > div:first-child{min-width:560px}
+        #cal-grid-wrap > div:nth-child(2){min-width:560px;overflow-x:auto!important;max-height:60vh!important}
+        #cal-grid-body{min-width:540px}
+
+        /* ─── 강사 선택 카드 (3열 → 2열) ─── */
+        .modal-body [style*="repeat(auto-fill,minmax(140px"],
+        .modal-body [style*="repeat(auto-fill,minmax(160px"],
+        .modal-body [style*="repeat(auto-fill,minmax(130px"]{
+          grid-template-columns:repeat(2,1fr)!important;
+        }
+        .teacher-pick-card{min-height:120px!important;padding:10px 8px!important}
+        .teacher-pick-card .tpc-name{font-size:11.5px!important}
+
+        /* ─── 격려 다이얼로그 / 거부 팝업 ─── */
+        .lc-reject{max-width:100%!important;width:calc(100vw - 16px)!important;margin-top:30px!important;padding:20px 14px!important}
+        .lc-reject h3{font-size:16px!important}
+        .lc-reject p{font-size:13px!important}
+        .lc-reject .lc-rej-ico{font-size:48px!important}
+
+        /* ─── 토스트 ─── */
+        .lc-toast{max-width:calc(100vw - 24px)!important;font-size:12px!important;padding:10px 16px!important;text-align:center;left:12px!important;right:12px!important;transform:none!important;width:auto!important}
+      }
+
+      /* ─── 매우 작은 화면 (≤380px) ─── */
+      @media (max-width:380px){
+        #login-btn{right:5rem!important;padding:0.35rem 0.55rem!important;font-size:0.72rem!important;max-width:120px}
+        #login-btn-label{max-width:62px}
+        #lang-toggle{padding:0.35rem 0.55rem!important;font-size:0.72rem!important}
+        #cal-grid-wrap > div:first-child,
+        #cal-grid-wrap > div:nth-child(2),
+        #cal-grid-body{min-width:480px}
+        .student-card .sc-avatar{width:34px!important;height:34px!important}
       }
       /* 로그인 모달 */
       .login-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(10px);display:none;align-items:flex-start;justify-content:center;z-index:11000;padding:60px 16px;overflow-y:auto;animation:lcFade .2s}
