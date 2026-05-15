@@ -361,7 +361,82 @@
     background: transparent; padding: 0 10px; position: relative; z-index: 1;
   }
 
-  /* === 하위(nested) 메뉴 토글 — 학생관리 같은 상위 카드 안의 sub-item === */
+
+/* ═══ 7-카테고리 사이드바 (hover 카스케이드) ═══ */
+.sb-cat-wrap{display:flex;flex-direction:column;gap:4px;margin-top:8px}
+.sb-cat{position:relative;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(245,158,11,.15);transition:all .15s;overflow:visible}
+.sb-cat:hover{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.5);box-shadow:0 4px 12px rgba(245,158,11,.2)}
+.sb-cat-head{padding:11px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:700;color:#374151;font-size:13.5px;user-select:none}
+.sb-cat:hover .sb-cat-head{color:#92400e}
+.sb-cat-ico{font-size:18px;line-height:1;flex-shrink:0;width:24px;text-align:center}
+.sb-cat-label{flex:1;font-weight:800;letter-spacing:-.2px}
+.sb-cat-count{font-size:10.5px;color:#9ca3af;font-weight:600;padding:1px 7px;background:rgba(0,0,0,.05);border-radius:99px}
+.sb-cat:hover .sb-cat-count{background:rgba(245,158,11,.25);color:#78350f}
+.sb-cat-arrow{font-size:11px;color:#9ca3af;transition:transform .15s}
+.sb-cat:hover .sb-cat-arrow{transform:translateX(3px);color:#f59e0b}
+
+/* hover로 펼치는 submenu 패널 */
+.sb-cat .sb-sub-panel{
+  position:absolute;left:calc(100% + 4px);top:0;
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-left:3px solid #f59e0b;
+  border-radius:12px;
+  box-shadow:0 16px 40px rgba(0,0,0,.15);
+  padding:8px;
+  min-width:260px;max-width:340px;
+  max-height:80vh;overflow-y:auto;
+  display:none;z-index:1000;
+  animation:sbFadeIn .12s ease-out;
+}
+@keyframes sbFadeIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+.sb-cat:hover > .sb-sub-panel{display:block}
+/* 마우스가 사이로 잠시 이동할 때 안 사라지게 안전 영역 */
+.sb-cat:hover > .sb-sub-panel::before{
+  content:'';position:absolute;left:-8px;top:0;bottom:0;width:8px;background:transparent;
+}
+.sb-sub-item{
+  padding:8px 12px;
+  border-radius:8px;
+  cursor:pointer;
+  font-size:12.5px;
+  color:#374151;
+  font-weight:500;
+  display:flex;align-items:center;gap:8px;
+  transition:background .12s,color .12s;
+  text-decoration:none;
+  position:relative;
+}
+.sb-sub-item:hover{background:#fef3c7;color:#92400e;font-weight:700}
+.sb-sub-item .sb-sub-ico{flex-shrink:0;font-size:14px;width:18px;text-align:center}
+.sb-sub-item .sb-sub-text{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-sub-item .sb-sub-more{font-size:10px;color:#9ca3af;flex-shrink:0;transition:transform .12s}
+.sb-sub-item:hover .sb-sub-more{transform:translateX(2px);color:#f59e0b}
+
+/* 3단계 (sub-sub) — submenu 아이템 hover 시 우측 펼침 */
+.sb-sub-item.has-sub > .sb-subsub-panel{
+  position:absolute;left:calc(100% + 4px);top:-8px;
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-left:3px solid #6366f1;
+  border-radius:10px;
+  box-shadow:0 12px 32px rgba(0,0,0,.15);
+  padding:6px;
+  min-width:220px;
+  display:none;z-index:1001;
+  animation:sbFadeIn .12s ease-out;
+}
+.sb-sub-item.has-sub:hover > .sb-subsub-panel{display:block}
+.sb-subsub-item{
+  padding:7px 10px;border-radius:6px;font-size:12px;color:#475569;
+  cursor:pointer;display:block;text-decoration:none;font-weight:500;
+}
+.sb-subsub-item:hover{background:#eef2ff;color:#3730a3;font-weight:700}
+
+/* 펼침 모드 (모바일/접근성 — 클릭으로 열림) */
+.sb-cat.expanded > .sb-sub-panel{display:block;position:static;box-shadow:none;border:none;border-top:1px dashed #e5e7eb;border-radius:0;padding:6px 4px;animation:none}
+
+    /* === 하위(nested) 메뉴 토글 — 학생관리 같은 상위 카드 안의 sub-item === */
   .sub-menu { display:flex; flex-direction:column; gap:0; padding-left:8px; border-left:3px solid #e5e7eb; margin:8px 0; }
   details.sub-item {
     border-bottom: 1px solid #f3f4f6;
@@ -9615,22 +9690,107 @@ function _menuSortKey(label) {
   return 'z' + cleaned.toLowerCase();
 }
 
+// ═══ 7-카테고리 메뉴 분류 정의 ═══
+const SB_CATEGORIES = [
+  { id:'hq',       ico:'🏢', ko:'본사',   en:'HQ',
+    keywords:['본사','경영','대시보드','일별차트','활성','권한','임직원','회의록','dashboard','executive','board'] },
+  { id:'fr',       ico:'🏬', ico2:'🏪', ko:'가맹점', en:'Franchise',
+    keywords:['가맹점','지사','대리점','프랜차이즈','매장','센터','franchise','branch','center'] },
+  { id:'student',  ico:'👨‍🎓', ko:'학생',  en:'Student',
+    keywords:['학생','출결','학부모','톡짹톡','만료','출석','수강','상담','student','attendance','parent'] },
+  { id:'teacher',  ico:'👨‍🏫', ko:'강사',  en:'Teacher',
+    keywords:['강사','교사','급여','평가','강사료','보험','teacher','payroll','salary'] },
+  { id:'acc',      ico:'💰', ko:'회계',   en:'Accounting',
+    keywords:['회계','정산','세금','매출','비용','송금','환전','쿠폰','결제','거래','전표','수익','accounting','revenue','settlement','tax'] },
+  { id:'book',     ico:'📚', ko:'교재',   en:'Materials',
+    keywords:['교재','자료','도서','학습자료','pdf','book','material'] },
+  { id:'content',  ico:'🎬', ko:'컨텐츠', en:'Content',
+    keywords:['녹화','영상','비디오','ai','발음','통계','리포트','랭킹','리텐션','recording','video','report','stats'] }
+];
+
+// 메뉴 하나를 카테고리에 매핑 (가장 점수 높은 카테고리)
+function _classifyMenu(m) {
+  const text = ((m.ko || '') + ' ' + (m.en || '')).toLowerCase();
+  let best = null, bestScore = 0;
+  for (const cat of SB_CATEGORIES) {
+    let score = 0;
+    for (const kw of cat.keywords) {
+      if (text.includes(kw.toLowerCase())) score += kw.length; // 긴 키워드 우선
+    }
+    if (score > bestScore) { bestScore = score; best = cat; }
+  }
+  return best || SB_CATEGORIES[0]; // fallback = 본사
+}
+
 function renderSidebar() {
   const list = document.getElementById('admin-sidebar-list');
   if (!list) return;
   const useEn = (typeof adminLang !== 'undefined' && adminLang === 'en');
-  // 가나다 순 정렬된 사본 (원본 _menuIndex DOM 순서는 보존)
-  const sorted = _menuIndex.slice().sort((a, b) => {
-    const ka = _menuSortKey(useEn ? a.en : a.ko);
-    const kb = _menuSortKey(useEn ? b.en : b.ko);
-    return ka.localeCompare(kb, useEn ? 'en' : 'ko-KR');
+
+  // 1) 메뉴들을 카테고리별로 그룹핑
+  const groups = {};
+  SB_CATEGORIES.forEach(c => groups[c.id] = []);
+  _menuIndex.forEach(m => {
+    const cat = _classifyMenu(m);
+    groups[cat.id].push(m);
   });
-  list.innerHTML = sorted.map(m => {
-    const label = useEn ? m.en : m.ko;
-    const both = (m.ko || '') + ' ' + (m.en || '');
-    return `<a href="#${m.id}" class="sidebar-item" data-menu-id="${m.id}" data-search="${_escSb(both.toLowerCase())}">${_escSb(label)}</a>`;
-  }).join('');
-  // 검색창에 값이 있으면 다시 필터 적용
+  // 각 그룹 안 가나다순 정렬
+  Object.keys(groups).forEach(k => {
+    groups[k].sort((a, b) => {
+      const ka = _menuSortKey(useEn ? a.en : a.ko);
+      const kb = _menuSortKey(useEn ? b.en : b.ko);
+      return ka.localeCompare(kb, useEn ? 'en' : 'ko-KR');
+    });
+  });
+
+  // 2) HTML 렌더
+  const html = '<div class="sb-cat-wrap">' + SB_CATEGORIES.map(c => {
+    const items = groups[c.id];
+    const label = useEn ? c.en : c.ko;
+    let subHtml = '';
+    if (items.length === 0) {
+      subHtml = '<div style="padding:14px;color:#9ca3af;font-size:12px;text-align:center">' + (useEn?'No menus':'메뉴 없음') + '</div>';
+    } else {
+      // 하위가 5개 이상이면 sub-sub로 묶기 (앞 글자별 또는 키워드별)
+      if (items.length > 12) {
+        // 한국어 첫 글자별로 그룹
+        const sub = {};
+        items.forEach(it => {
+          const lbl = (useEn ? it.en : it.ko) || '';
+          const cleaned = lbl.replace(/^[^a-zA-Z0-9가-힣ㄱ-ㅎ]+/u, '').trim();
+          const k = cleaned.charAt(0).toUpperCase() || '#';
+          if (!sub[k]) sub[k] = [];
+          sub[k].push(it);
+        });
+        const keys = Object.keys(sub).sort((a,b)=>a.localeCompare(b, useEn?'en':'ko-KR'));
+        subHtml = keys.map(k => {
+          const innerItems = sub[k].map(it => {
+            const lbl = useEn ? it.en : it.ko;
+            return '<a href="#' + it.id + '" class="sb-subsub-item" data-menu-id="' + it.id + '" onclick="jumpToMenu(\'' + it.id + '\')">' + _escSb(lbl) + '</a>';
+          }).join('');
+          return '<div class="sb-sub-item has-sub"><span class="sb-sub-ico">📂</span><span class="sb-sub-text">' + _escSb(k) + ' (' + sub[k].length + ')</span><span class="sb-sub-more">▶</span>'
+            + '<div class="sb-subsub-panel">' + innerItems + '</div></div>';
+        }).join('');
+      } else {
+        // 12개 이하면 평면 리스트
+        subHtml = items.map(it => {
+          const lbl = useEn ? it.en : it.ko;
+          return '<a href="#' + it.id + '" class="sb-sub-item" data-menu-id="' + it.id + '" onclick="jumpToMenu(\'' + it.id + '\')"><span class="sb-sub-ico">·</span><span class="sb-sub-text">' + _escSb(lbl) + '</span></a>';
+        }).join('');
+      }
+    }
+    return '<div class="sb-cat" data-cat="' + c.id + '">' +
+      '<div class="sb-cat-head" onclick="this.parentElement.classList.toggle(\'expanded\')">' +
+        '<span class="sb-cat-ico">' + c.ico + '</span>' +
+        '<span class="sb-cat-label">' + _escSb(label) + '</span>' +
+        '<span class="sb-cat-count">' + items.length + '</span>' +
+        '<span class="sb-cat-arrow">▶</span>' +
+      '</div>' +
+      '<div class="sb-sub-panel">' + subHtml + '</div>' +
+    '</div>';
+  }).join('') + '</div>';
+
+  list.innerHTML = html;
   const sv = document.getElementById('sidebar-search');
   if (sv && sv.value) window.filterSidebar && window.filterSidebar(sv.value);
 }
@@ -9638,7 +9798,7 @@ function renderSidebar() {
 // ━━━━━━━━━━ 사이드바 메뉴 검색 (실시간 필터) ━━━━━━━━━━
 window.filterSidebar = function(q) {
   const query = (q || '').trim().toLowerCase();
-  const items = document.querySelectorAll('#admin-sidebar-list .sidebar-item');
+  const items = document.querySelectorAll('#admin-sidebar-list .sidebar-item, #admin-sidebar-list .sb-sub-item, #admin-sidebar-list .sb-subsub-item');
   const empty = document.getElementById('sidebar-search-empty');
   let matchCount = 0;
   items.forEach(a => {
