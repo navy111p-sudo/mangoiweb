@@ -12718,15 +12718,20 @@ window.closeRulesModal = function() {
           var cellStyle, cellContent='', dataAttr='';
           if(isCurrent){
             // 모든 보라셀이 드래그 소스 (cursor:grab)
-            cellStyle = 'background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;'+borderTop+' '+(isCurStart?'border-top:3px solid #fbbf24;':'')+(isCurLast?'border-bottom:3px solid #fbbf24;position:relative;':'position:relative;')+'font-weight:800;font-size:11.5px;display:flex;align-items:center;justify-content:center;cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none;text-shadow:0 1px 2px rgba(0,0,0,.6);letter-spacing:.3px';
+            cellStyle = 'background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;'+borderTop+' '+(isCurStart?'border-top:3px solid #fbbf24;':'')+(isCurLast?'border-bottom:3px solid #fbbf24;position:relative;':'position:relative;overflow:visible;')+'cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none';
             dataAttr = ' data-cal-current="1" data-cal-iso="'+iso+'" data-cal-hour="'+hh+'" data-cal-min="'+mm+'"';
             if(isCurStart){
-              cellContent = '🟣 '+(L?'현재':'NOW')+' · '+durMin+(L?'분':'m');
+              // NOW 라벨을 absolute 로 박스 전체(시작셀 위)에 띄움 → 텍스트 잘림 없음
+              var nowBoxHeight = (durMin/10)*rowPx;
+              cellContent = '<div style="position:absolute;left:2px;right:2px;top:0;height:'+nowBoxHeight+'px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px;background:rgba(0,0,0,.35);border-radius:6px;z-index:6;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.8)">'+
+                '<div style="font-size:16px;line-height:1;font-weight:800;color:#fff">🟣 '+(L?'현재':'NOW')+'</div>'+
+                '<div style="font-size:12px;line-height:1;font-weight:700;color:#fde68a">'+durMin+(L?'분 수업':' min')+'</div>'+
+              '</div>';
               dataAttr += ' data-cal-start="1"';
             }
             // 마지막 셀에 리사이즈 핸들
             if(isCurLast){
-              cellContent += '<div data-resize-handle="1" style="position:absolute;left:50%;bottom:-3px;transform:translateX(-50%);width:36px;height:7px;background:#fde68a;border:1.5px solid #fbbf24;border-radius:99px;cursor:ns-resize;z-index:10;box-shadow:0 2px 6px rgba(245,158,11,.6)" title="'+(L?'끌어서 수업 시간 조절':'Drag to resize')+'"></div>';
+              cellContent += '<div data-resize-handle="1" style="position:absolute;left:50%;bottom:-4px;transform:translateX(-50%);width:44px;height:9px;background:#fde68a;border:2px solid #fbbf24;border-radius:99px;cursor:ns-resize;z-index:11;box-shadow:0 3px 8px rgba(245,158,11,.7)" title="'+(L?'끌어서 수업 시간 조절':'Drag to resize')+'"></div>';
             }
           } else if(tooSoon){
             cellStyle = 'background:#131826;opacity:.2;'+borderTop;
