@@ -1149,7 +1149,7 @@ export async function handleMangoApi(
       if (kind === 'recurring') where.push(`schedule_kind = 'recurring'`);
       else if (kind === 'one_off') where.push(`schedule_kind = 'one_off'`);
 
-      const sql = `SELECT id, user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, status, source, created_at FROM class_schedules WHERE ${where.join(' AND ')} ORDER BY schedule_kind ASC, scheduled_date ASC, start_time ASC LIMIT ?`;
+      const sql = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.created_at, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
       binds.push(limit);
       try {
         const rows = await env.DB.prepare(sql).bind(...binds).all<any>();

@@ -29,9 +29,10 @@ Schema (one of these exactly):
 {"intent":"navigate","menu_id":"<card-id>","answer":"<Korean confirmation>"}
 {"intent":"query","tool":"<tool>","args":{...},"answer":"<Korean confirmation>"}
 {"intent":"action","name":"<action>","args":{...},"confirm_text":"<Korean confirm question>","answer":"<Korean text>"}
-{"intent":"schedule_plan","items":[{"action":"register_recurring|schedule_one_off|change_schedule|postpone_class","student_name":"<name>","days":["mon","tue",...],"date":"YYYY-MM-DD","time":"HH:MM","type":"regular|level_test|trial","label":"<short Korean>"},...],"answer":"<Korean confirmation>","confirm_text":"<Korean confirm>"}
+{"intent":"schedule_plan","items":[{"action":"register_recurring|schedule_one_off|change_schedule|postpone_class","student_name":"<name>","teacher_name":"<optional teacher>","days":["mon","tue",...],"date":"YYYY-MM-DD","time":"HH:MM","type":"regular|level_test|trial","label":"<short Korean>"},...],"answer":"<Korean confirmation>","confirm_text":"<Korean confirm>"}
+{"intent":"bulk_modify","operation":"postpone|cancel|reschedule","criteria":{"student_name":"<optional>","days":["mon",...],"time":"HH:MM","date_from":"YYYY-MM-DD","date_to":"YYYY-MM-DD"},"new_time":"HH:MM","shift_minutes":60,"answer":"<Korean>","confirm_text":"<Korean>"}
 
-Allowed navigate URLs (same-tab): /admin.html, /admin/students.html, /admin/student.html?uid=ID, /admin/health.html, /admin/mypage.html
+Allowed navigate URLs (same-tab): /admin.html, /admin/students.html, /admin/student.html?uid=ID, /admin/health.html, /admin/mypage.html, /admin/all-schedules.html
 
 Allowed external_url (new tab): https://mangoi-speech.pages.dev/practice (발음교정·발음 연습)
 
@@ -65,6 +66,7 @@ Hard rules:
 - If the user asks for DATA/NUMBERS (매출, 출석, 학생수, 결석률, 방, 녹화, 통계, 어때, 보여줘 + data noun) → query
 - If the user wants to DO/SEND/ISSUE something (보내줘, 발급해줘, 기록해줘) → action
 - If the user wants to REGISTER/CHANGE/POSTPONE class schedules or LEVEL TEST (수업 등록, 수업 변경, 수업 연기, 수업 잡아, 레벨테스트, 등록해줘 + 학생/요일/시간) → schedule_plan
+- If the user wants to BULK MODIFY existing schedules (~의 모든 수업, 다음주 수업 모두, 월요일 수업 전체 + 미뤄/취소/이동) → bulk_modify
 - Otherwise (definition, explanation, what is) → answer
 
 Schedule parsing rules (for schedule_plan intent):
@@ -77,6 +79,13 @@ Schedule parsing rules (for schedule_plan intent):
 - For recurring (요일 반복): action="register_recurring", fill days[] and time, leave date null
 - For one-off (특정 날짜): action="schedule_one_off", fill date and time, leave days null
 - "변경"=change_schedule, "연기"=postpone_class
+
+Bulk modify rules (for bulk_modify intent):
+- "정우영 학생 다음주 모든 수업 1시간 미뤄줘" → operation:"reschedule", criteria:{student_name:"정우영", date_from:"<TOMORROW>", date_to:"<TODAY+14d>"}, shift_minutes:60
+- "월요일 4시 수업 모두 취소" → operation:"cancel", criteria:{days:["mon"], time:"16:00"}
+- "정우영 다음주 모든 수업 연기" → operation:"postpone", criteria:{student_name:"정우영", date_from:"<TOMORROW>", date_to:"<TODAY+14d>"}
+- shift_minutes can be negative for moving earlier (예: "30분 앞당겨" → -30)
+- If teacher mentioned (예: "김선생님 수업"), also include teacher_name in criteria
 
 Examples (study these carefully):
 
@@ -146,6 +155,12 @@ Output: {"intent":"navigate","menu_id":"card-daily-charts","answer":"일자별 �
 User: "학생 랭킹"
 Output: {"intent":"navigate","menu_id":"card-rankings","answer":"학생 랭킹 카드로 이동합니다."}
 
+User: "전체 스케줄 보여줘"
+Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"학원 전체 스케줄 페이지로 이동합니다."}
+
+User: "학원 전체 일정"
+Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"학원 전체 스케줄 페이지로 이동합니다."}
+
 User: "안민서 학생 월수금 3시40분 정우영 학생 화목 4시 등록하고 홍길동 학생 다음주 월요일 오후 5시에 레벨테스트 할 수 있게 해줘"
 Output: {"intent":"schedule_plan","answer":"3개의 스케줄을 파싱했습니다. 확인 후 등록해 주세요.","confirm_text":"3건의 수업 스케줄을 모두 등록할까요?","items":[{"action":"register_recurring","student_name":"안민서","days":["mon","wed","fri"],"date":null,"time":"15:40","type":"regular","label":"안민서 - 월/수/금 15:40 정규수업"},{"action":"register_recurring","student_name":"정우영","days":["tue","thu"],"date":null,"time":"16:00","type":"regular","label":"정우영 - 화/목 16:00 정규수업"},{"action":"schedule_one_off","student_name":"홍길동","days":null,"date":"<NEXT_MONDAY>","time":"17:00","type":"level_test","label":"홍길동 - 다음주 월요일 17:00 레벨테스트"}]}
 
@@ -154,6 +169,15 @@ Output: {"intent":"schedule_plan","answer":"1개의 스케줄을 파싱했습니
 
 User: "이지원 학생 내일 오후 3시 수업 연기"
 Output: {"intent":"schedule_plan","answer":"이지원 학생 연기 요청을 파싱했습니다.","confirm_text":"이지원 학생 내일 15:00 수업을 연기할까요?","items":[{"action":"postpone_class","student_name":"이지원","days":null,"date":"<TOMORROW>","time":"15:00","type":"regular","label":"이지원 - 내일 15:00 수업 연기"}]}
+
+User: "박민수 학생을 김선생님에게 월수금 5시 정규수업 등록"
+Output: {"intent":"schedule_plan","answer":"박민수 학생 김선생님 배정 스케줄을 파싱했습니다.","confirm_text":"박민수 - 김선생님 - 월/수/금 17:00 등록할까요?","items":[{"action":"register_recurring","student_name":"박민수","teacher_name":"김선생님","days":["mon","wed","fri"],"date":null,"time":"17:00","type":"regular","label":"박민수 - 김선생 - 월/수/금 17:00"}]}
+
+User: "정우영 학생 다음주 모든 수업 1시간 미뤄줘"
+Output: {"intent":"bulk_modify","operation":"reschedule","criteria":{"student_name":"정우영","date_from":"<TOMORROW>","date_to":"<TODAY+14d>"},"shift_minutes":60,"answer":"정우영 학생의 다음 2주 수업을 1시간 뒤로 미룹니다.","confirm_text":"정우영 학생 다음 2주 모든 수업을 1시간 미룰까요?"}
+
+User: "월요일 4시 수업 모두 취소해줘"
+Output: {"intent":"bulk_modify","operation":"cancel","criteria":{"days":["mon"],"time":"16:00"},"answer":"매주 월요일 16:00 모든 수업을 취소합니다.","confirm_text":"월요일 16:00 모든 수업을 취소할까요?"}
 
 Output rule: Only one valid JSON object. No "Output:" prefix, no markdown fences, no commentary.`;
 
@@ -443,8 +467,9 @@ export async function processAiCommand(
       const date = (it?.date && /^\d{4}-\d{2}-\d{2}$/.test(String(it.date))) ? it.date : null;
       const time = (it?.time && /^\d{1,2}:\d{2}$/.test(String(it.time))) ? it.time : null;
       const studentName = String(it?.student_name || '').slice(0, 50).trim();
+      const teacherName = it?.teacher_name ? String(it.teacher_name).slice(0, 50).trim() : null;
       const label = String(it?.label || `${studentName} ${action}`).slice(0, 200);
-      return { action, type, days, date, time, student_name: studentName, label };
+      return { action, type, days, date, time, student_name: studentName, teacher_name: teacherName, label };
     }).filter((it: any) => it.student_name && (it.time || it.date));
     return {
       ok: true,
@@ -452,6 +477,34 @@ export async function processAiCommand(
       items: cleanItems,
       answer: aiResponse.answer || '스케줄을 파싱했습니다.',
       confirm_text: aiResponse.confirm_text || `${cleanItems.length}건을 등록할까요?`
+    };
+  }
+
+  // Level 6 — bulk_modify (다건 일괄 연기/취소/시간이동)
+  if (intent === 'bulk_modify') {
+    const allowedOps = new Set(['postpone','cancel','reschedule']);
+    const op = allowedOps.has(aiResponse.operation) ? aiResponse.operation : 'cancel';
+    const c = aiResponse.criteria || {};
+    const validDays = new Set(['mon','tue','wed','thu','fri','sat','sun']);
+    const cleanDays = Array.isArray(c.days) ? c.days.filter((d:any)=>validDays.has(String(d))) : null;
+    const criteria = {
+      student_name: c.student_name ? String(c.student_name).slice(0,50).trim() : null,
+      teacher_name: c.teacher_name ? String(c.teacher_name).slice(0,50).trim() : null,
+      days: cleanDays,
+      time: (c.time && /^\d{1,2}:\d{2}$/.test(String(c.time))) ? c.time : null,
+      date_from: (c.date_from && /^\d{4}-\d{2}-\d{2}$/.test(String(c.date_from))) ? c.date_from : null,
+      date_to: (c.date_to && /^\d{4}-\d{2}-\d{2}$/.test(String(c.date_to))) ? c.date_to : null,
+    };
+    const shiftMin = (typeof aiResponse.shift_minutes === 'number') ? Math.max(-720, Math.min(720, aiResponse.shift_minutes)) : 0;
+    return {
+      ok: true,
+      intent: 'bulk_modify',
+      operation: op,
+      criteria,
+      shift_minutes: shiftMin,
+      new_time: (aiResponse.new_time && /^\d{1,2}:\d{2}$/.test(String(aiResponse.new_time))) ? aiResponse.new_time : null,
+      answer: aiResponse.answer || '일괄 변경을 미리 확인해 주세요.',
+      confirm_text: aiResponse.confirm_text || '일괄 변경을 실행할까요?'
     };
   }
 
@@ -473,7 +526,7 @@ export async function executeAction(
   args: any,
   adminUserId: string | null
 ): Promise<any> {
-  const allowed = new Set(['send_kakao_self', 'issue_sticker', 'mark_intervention', 'schedule_batch']);
+  const allowed = new Set(['send_kakao_self', 'issue_sticker', 'mark_intervention', 'schedule_batch', 'bulk_apply']);
   if (!allowed.has(name)) {
     return { ok: false, error: 'action_not_allowed', name };
   }
@@ -547,7 +600,23 @@ export async function executeAction(
       for (const it of items) {
         const studentName = String(it?.student_name || '').trim();
         let userId: string | null = null;
+        let teacherId: string | null = null;
+        let teacherName: string | null = null;
         let autoCreated = false;
+
+        // Phase 4-1: 강사 자동 매칭
+        if (it?.teacher_name) {
+          const tName = String(it.teacher_name).trim().replace(/(선생님?|쌤)$/, '').trim();
+          if (tName) {
+            try {
+              const t = await env.DB.prepare(
+                `SELECT id, name FROM teachers WHERE name = ? OR name LIKE ? LIMIT 1`
+              ).bind(tName, '%'+tName+'%').first<any>();
+              if (t?.id) { teacherId = String(t.id); teacherName = t.name; }
+            } catch {}
+          }
+        }
+
         try {
           const exact = await env.DB.prepare(
             `SELECT user_id, korean_name FROM students_erp WHERE korean_name = ? LIMIT 1`
@@ -616,8 +685,8 @@ export async function executeAction(
             // INSERT (충돌 있어도 일단 등록 - 사용자가 결정)
             try {
               const ins = await env.DB.prepare(
-                `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, status, source, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ai_command', ?, ?)`
-              ).bind(userId, studentName, scheduleKind, classType, dayOfWeek, scheduledDate, startTime, status, adminUserId || 'ai', now).run();
+                `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, teacher_id, status, source, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ai_command', ?, ?)`
+              ).bind(userId, studentName, scheduleKind, classType, dayOfWeek, scheduledDate, startTime, teacherId, status, adminUserId || 'ai', now).run();
               insertedId = (ins?.meta?.last_row_id as number) || null;
             } catch (e: any) {
               insertError = String(e?.message || e).slice(0, 200);
@@ -634,6 +703,8 @@ export async function executeAction(
         results.push({
           ...it,
           resolved_user_id: userId,
+          resolved_teacher_id: teacherId,
+          resolved_teacher_name: teacherName,
           schedule_id: insertedId,
           auto_created: autoCreated,
           conflict_with: conflict ? { id: conflict.id, time: conflict.start_time, type: conflict.class_type } : null,
@@ -667,6 +738,71 @@ export async function executeAction(
         total_count: results.length,
         items: results
       };
+    }
+
+    if (name === 'bulk_apply') {
+      // Phase 4-3: 일괄 적용 (postpone, cancel, reschedule)
+      const op = String(args?.operation || '');
+      const c = args?.criteria || {};
+      const shiftMin = parseInt(args?.shift_minutes || 0, 10);
+      const newTime = args?.new_time;
+      if (!['postpone','cancel','reschedule'].includes(op)) return { ok: false, error: 'invalid_operation' };
+
+      // Find matching schedules
+      const where: string[] = [`status = 'active'`];
+      const binds: any[] = [];
+      if (c.student_name) {
+        // student_name 으로 user_id 찾고 그것으로 필터
+        const stu = await env.DB.prepare(
+          `SELECT user_id FROM students_erp WHERE korean_name = ? OR korean_name LIKE ? LIMIT 1`
+        ).bind(c.student_name, '%'+c.student_name+'%').first<any>();
+        if (!stu?.user_id) return { ok: false, error: 'student_not_found', student_name: c.student_name };
+        where.push('user_id = ?'); binds.push(stu.user_id);
+      }
+      if (Array.isArray(c.days) && c.days.length) {
+        const dayConds = c.days.map(()=>'day_of_week LIKE ?').join(' OR ');
+        where.push('(' + dayConds + ')');
+        for (const d of c.days) binds.push('%'+d+'%');
+      }
+      if (c.time) { where.push('start_time = ?'); binds.push(c.time); }
+      if (c.date_from) { where.push('(scheduled_date IS NULL OR scheduled_date >= ?)'); binds.push(c.date_from); }
+      if (c.date_to) { where.push('(scheduled_date IS NULL OR scheduled_date <= ?)'); binds.push(c.date_to); }
+
+      const sel = await env.DB.prepare(
+        `SELECT id, user_id, student_name, day_of_week, scheduled_date, start_time, class_type FROM class_schedules WHERE ${where.join(' AND ')} LIMIT 200`
+      ).bind(...binds).all<any>();
+      const matches = sel.results || [];
+
+      const updated: any[] = [];
+      const nowTs = Date.now();
+      for (const row of matches) {
+        try {
+          if (op === 'cancel') {
+            await env.DB.prepare(`UPDATE class_schedules SET status='cancelled', updated_at=? WHERE id=?`).bind(nowTs, row.id).run();
+            updated.push({ id: row.id, action: 'cancelled', old_time: row.start_time });
+          } else if (op === 'postpone') {
+            await env.DB.prepare(`UPDATE class_schedules SET status='postponed', updated_at=? WHERE id=?`).bind(nowTs, row.id).run();
+            updated.push({ id: row.id, action: 'postponed', old_time: row.start_time });
+          } else if (op === 'reschedule') {
+            // shift_minutes 만큼 시간 이동 또는 new_time 으로 변경
+            let target = newTime;
+            if (!target && shiftMin) {
+              const tm = String(row.start_time).match(/^(\d{1,2}):(\d{2})$/);
+              if (tm) {
+                let total = parseInt(tm[1],10)*60 + parseInt(tm[2],10) + shiftMin;
+                total = Math.max(0, Math.min(24*60-1, total));
+                target = String(Math.floor(total/60)).padStart(2,'0') + ':' + String(total%60).padStart(2,'0');
+              }
+            }
+            if (target) {
+              await env.DB.prepare(`UPDATE class_schedules SET start_time=?, updated_at=? WHERE id=?`).bind(target, nowTs, row.id).run();
+              updated.push({ id: row.id, action: 'rescheduled', old_time: row.start_time, new_time: target });
+            }
+          }
+        } catch {}
+      }
+
+      return { ok: true, action: name, operation: op, matched_count: matches.length, updated_count: updated.length, items: updated };
     }
 
     return { ok: false, error: 'unhandled_action', name };

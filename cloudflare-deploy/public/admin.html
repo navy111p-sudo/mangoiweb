@@ -10382,6 +10382,43 @@ async function askAI(command) {
     return;
   }
 
+  // 🥭 Phase 4-3 — bulk_modify: 일괄 변경/취소/연기 미리보기 → 확인 → bulk_apply 실행
+  if (res.intent === 'bulk_modify') {
+    const opNames = { postpone:'⏸ 일괄 연기', cancel:'🗑 일괄 취소', reschedule:'🔄 일괄 시간 이동' };
+    const dayNames = { mon:'월', tue:'화', wed:'수', thu:'목', fri:'금', sat:'토', sun:'일' };
+    const c = res.criteria || {};
+    let html = '<div class="ai-answer" style="font-size:15px">' + _aiEsc(res.answer || '') + '</div>';
+    html += '<div style="margin-top:12px;border:1px solid #e5e7eb;border-radius:10px;padding:14px;background:#fff">';
+    html += '<div style="font-size:14px;font-weight:700;color:#111827;margin-bottom:10px">' + _aiEsc(opNames[res.operation] || res.operation) + '</div>';
+    html += '<div style="font-size:13px;color:#374151;line-height:1.8">';
+    if (c.student_name) html += '👤 학생: <b>' + _aiEsc(c.student_name) + '</b><br>';
+    if (c.teacher_name) html += '🧑‍🏫 강사: <b>' + _aiEsc(c.teacher_name) + '</b><br>';
+    if (Array.isArray(c.days) && c.days.length) html += '🔁 요일: <b>' + c.days.map(d => dayNames[d]||d).join('·') + '</b><br>';
+    if (c.time) html += '🕐 시간: <b>' + _aiEsc(c.time) + '</b><br>';
+    if (c.date_from || c.date_to) html += '📅 기간: <b>' + (c.date_from||'~') + ' ~ ' + (c.date_to||'~') + '</b><br>';
+    if (res.operation === 'reschedule') {
+      if (res.shift_minutes) html += '⏩ 이동: <b>' + (res.shift_minutes>0?'+':'') + res.shift_minutes + '분</b> (' + (res.shift_minutes>0?'뒤로':'앞으로') + ')<br>';
+      if (res.new_time) html += '🆕 새 시간: <b>' + _aiEsc(res.new_time) + '</b><br>';
+    }
+    html += '</div></div>';
+    const argsJson = JSON.stringify({
+      operation: res.operation,
+      criteria: c,
+      shift_minutes: res.shift_minutes || 0,
+      new_time: res.new_time || null
+    });
+    html += '<div class="ai-action-confirm" style="margin-top:14px">' +
+      '<div class="label">⚠️ ' + _aiEsc(res.confirm_text || '실행할까요?') + '</div>' +
+      '<div style="font-size:11px;color:#6b7280;margin-top:4px">조건에 맞는 활성 스케줄 모두 한 번에 처리됩니다 (취소는 soft-delete, 복구 가능)</div>' +
+      '<div class="ai-action-buttons">' +
+        '<button class="ai-action-confirm-btn" onclick="executeAiAction(\'bulk_apply\',' + _aiEsc(argsJson).replace(/\'/g, "&#39;") + ')">실행</button>' +
+        '<button class="ai-action-cancel-btn" onclick="_aiPanelClose()">취소</button>' +
+      '</div>' +
+    '</div>';
+    ct.innerHTML = html;
+    return;
+  }
+
   ct.innerHTML = '<div class="ai-error">알 수 없는 intent: ' + _aiEsc(res.intent) + '</div>';
 }
 
@@ -10447,6 +10484,7 @@ async function executeAiAction(name, args) {
             '<div style="font-size:14px;color:#374151">' +
               '<a href="/admin/student.html?uid=' + encodeURIComponent(it.resolved_user_id) + '" style="color:#1d4ed8;font-weight:700;text-decoration:none">' +
               _aiEsc(it.student_name) + '</a> 학생' +
+              (it.resolved_teacher_name ? ' · 강사 <b>' + _aiEsc(it.resolved_teacher_name) + '</b>' : '') +
               (dayList ? ' · 매주 <b>' + _aiEsc(dayList) + '</b>요일' : '') +
               (it.date ? ' · <b>' + _aiEsc(it.date) + '</b>' : '') +
               (it.time ? ' · <b>' + _aiEsc(it.time) + '</b>' : '') +
@@ -10501,6 +10539,30 @@ async function executeAiAction(name, args) {
         '</details>';
       }
 
+      ct.innerHTML = html;
+      return;
+    }
+
+    // 🥭 Phase 4-3 — bulk_apply 결과를 사람 친화적 카드로
+    if (name === 'bulk_apply' && Array.isArray(j.items)) {
+      const opVerb = { cancelled:'취소됨', postponed:'연기됨', rescheduled:'시간 변경됨' };
+      let html = '<div class="ai-answer" style="font-size:15px">' +
+        '✅ <b>' + (j.matched_count||0) + '건</b> 매칭 / <b style="color:#10b981">' + (j.updated_count||0) + '건</b> 처리 완료' +
+      '</div>';
+      if (j.items.length) {
+        html += '<div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">';
+        j.items.forEach(it => {
+          html += '<div style="border:1px solid #d1fae5;border-left:4px solid #10b981;border-radius:8px;padding:8px 12px;background:#f0fdf4;font-size:13px">' +
+            'ID #' + it.id + ' · <b>' + _aiEsc(opVerb[it.action] || it.action) + '</b>' +
+            (it.old_time ? ' · ' + it.old_time + (it.new_time ? ' → <b>' + it.new_time + '</b>' : '') : '') +
+          '</div>';
+        });
+        html += '</div>';
+      }
+      html += '<div style="margin-top:14px;display:flex;gap:10px">' +
+        '<a href="/admin/all-schedules.html" class="ai-action-confirm-btn" style="flex:1;text-align:center;text-decoration:none">📅 전체 스케줄 보기</a>' +
+        '<button class="ai-action-cancel-btn" onclick="_aiPanelClose()">닫기</button>' +
+      '</div>';
       ct.innerHTML = html;
       return;
     }
