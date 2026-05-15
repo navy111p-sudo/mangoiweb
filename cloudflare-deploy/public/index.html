@@ -12305,15 +12305,35 @@ window.closeRulesModal = function() {
   window.lcZoom = function(dir){
     if(!lcPicker)return;
     var z = lcPicker.zoom || 1.0;
-    z = Math.round((z + dir*0.2)*10)/10;
-    z = Math.max(0.6, Math.min(1.6, z));
+    z = Math.round((z + dir*0.15)*100)/100;
+    z = Math.max(0.5, Math.min(2.0, z));
     lcPicker.zoom = z;
+    renderLessonPicker();
+  };
+  window.lcZoomFit = function(){
+    if(!lcPicker)return;
+    // 전체 한 주 보기 (화면 너비에 맞춤)
+    var modal = document.querySelector('.lc-modal');
+    if(!modal)return;
+    var modalW = modal.clientWidth - 48; // padding 고려
+    // 한 주 = 7일 = 7*60 = 420px (zoom 1.0)
+    // 현재 폭 / 420 = 필요한 zoom
+    var fitZoom = Math.max(0.5, Math.min(2.0, modalW / 420));
+    lcPicker.zoom = Math.round(fitZoom*100)/100;
     renderLessonPicker();
   };
   window.lcPickWeek = function(offset){
     if(!lcPicker)return;
     lcPicker.weekOffset = offset;
     renderLessonPicker();
+    // 그리드 다시 그려진 후 스크롤
+    setTimeout(function(){
+      var area = document.getElementById('cal-scroll-area');
+      if(area){
+        var colPx = Math.round(60 * (lcPicker.zoom||1));
+        area.scrollLeft = offset * 7 * colPx;
+      }
+    }, 80);
   };
   // 방식 선택
   window.lcPickMethod = function(method){
@@ -12664,10 +12684,10 @@ window.closeRulesModal = function() {
     var dn = L?['일','월','화','수','목','금','토']:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     var todayMid = new Date(); todayMid.setHours(0,0,0,0);
     var weekOffset = p.weekOffset || 0;
+    // 4주(28일) 모두 한 번에 그리고 가로 스크롤로 이동
+    var TOTAL_DAYS = 28;
     var dates = [];
-    // weekOffset=0 → 내일부터 7일, =1 → 8일째부터 7일, ...
-    var startDayOffset = 1 + weekOffset * 7;
-    for(var i=0;i<7;i++){ var d=new Date(todayMid); d.setDate(d.getDate()+startDayOffset+i); dates.push(d); }
+    for(var i=0;i<TOTAL_DAYS;i++){ var d=new Date(todayMid); d.setDate(d.getDate()+1+i); dates.push(d); }
     // 강사의 점유 시간 (분 단위로 데모 생성)
     var busyMin = {}; // 'di_hhmm' -> true
     var seed = (teacherName||'').length;
@@ -12697,9 +12717,10 @@ window.closeRulesModal = function() {
       if(iso===curISO) curDayCol = di;
     });
 
-    // CSS: 한 row = 10분 = 18px (가독성 향상) — zoom 배율 적용
+    // CSS: row 높이 18px / col 폭 60px — zoom 적용
     var zoomLevel = p.zoom || 1.0;
     var rowPx = Math.round(18 * zoomLevel);
+    var colPx = Math.round(60 * zoomLevel);
     var totalRows = (23-9)*6 + 1; // 09:00 ~ 23:00 = 85 rows
     // ─── 주간 네비게이션 탭 (상단) ───
     var weekTabs = [
@@ -12723,15 +12744,16 @@ window.closeRulesModal = function() {
     weekTabsHtml += '</div>';
     // 줌 버튼 (확대/축소)
     var zoomPct = Math.round(zoomLevel*100);
-    var zoomBtnsHtml = '<div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-bottom:8px;font-size:11.5px;color:#94a3b8">'+
+    var zoomBtnsHtml = '<div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-bottom:8px;font-size:11.5px;color:#94a3b8;flex-wrap:wrap">'+
       '<span>🔍 '+(L?'캘린더 확대/축소':'Zoom')+':</span>'+
-      '<button onclick="lcZoom(-1)" '+(zoomLevel<=0.6?'disabled':'')+' style="background:#1a2032;border:1px solid #232b40;color:'+(zoomLevel<=0.6?'#475569':'#fbbf24')+';width:32px;height:32px;border-radius:8px;font-weight:800;font-size:18px;cursor:'+(zoomLevel<=0.6?'not-allowed':'pointer')+';line-height:1">−</button>'+
+      '<button onclick="lcZoom(-1)" '+(zoomLevel<=0.5?'disabled':'')+' style="background:#1a2032;border:1px solid #232b40;color:'+(zoomLevel<=0.5?'#475569':'#fbbf24')+';width:32px;height:32px;border-radius:8px;font-weight:800;font-size:18px;cursor:'+(zoomLevel<=0.5?'not-allowed':'pointer')+';line-height:1">−</button>'+
       '<span style="min-width:48px;text-align:center;color:#fde68a;font-weight:800;font-size:12.5px">'+zoomPct+'%</span>'+
-      '<button onclick="lcZoom(1)" '+(zoomLevel>=1.6?'disabled':'')+' style="background:#1a2032;border:1px solid #232b40;color:'+(zoomLevel>=1.6?'#475569':'#fbbf24')+';width:32px;height:32px;border-radius:8px;font-weight:800;font-size:18px;cursor:'+(zoomLevel>=1.6?'not-allowed':'pointer')+';line-height:1">+</button>'+
+      '<button onclick="lcZoom(1)" '+(zoomLevel>=2.0?'disabled':'')+' style="background:#1a2032;border:1px solid #232b40;color:'+(zoomLevel>=2.0?'#475569':'#fbbf24')+';width:32px;height:32px;border-radius:8px;font-weight:800;font-size:18px;cursor:'+(zoomLevel>=2.0?'not-allowed':'pointer')+';line-height:1">+</button>'+
+      '<button onclick="lcZoomFit()" style="background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.4);color:#93c5fd;padding:6px 11px;border-radius:8px;font-weight:700;font-size:11px;cursor:pointer">📐 '+(L?'한 주 맞춤':'Fit Week')+'</button>'+
     '</div>';
     var html = weekTabsHtml + zoomBtnsHtml + '<div id="cal-grid-wrap" style="background:#131826;border-radius:12px;overflow:hidden;border:1px solid #232b40;position:relative">';
     // 헤더
-    html += '<div style="display:grid;grid-template-columns:48px repeat(7,1fr);background:#1a2032;border-bottom:1px solid #232b40;position:sticky;top:0;z-index:5">';
+    html += '<div style="display:grid;grid-template-columns:48px repeat('+TOTAL_DAYS+','+colPx+'px);background:#1a2032;border-bottom:1px solid #232b40;position:sticky;top:0;z-index:5;min-width:'+(48+TOTAL_DAYS*colPx)+'px">';
     html += '<div style="padding:8px 0;text-align:center;color:#94a3b8;font-size:11px;font-weight:700"></div>';
     dates.forEach(function(d){
       var isToday = (d.toDateString()===new Date().toDateString());
@@ -12742,7 +12764,7 @@ window.closeRulesModal = function() {
     });
     html += '</div>';
     // 시간 그리드 (10분 단위)
-    html += '<div style="position:relative;overflow:auto;max-height:520px"><div id="cal-grid-body" style="display:grid;grid-template-columns:48px repeat(7,1fr);grid-auto-rows:'+rowPx+'px;background:#131826">';
+    html += '<div id="cal-scroll-area" style="position:relative;overflow:auto;max-height:520px"><div id="cal-grid-body" style="display:grid;grid-template-columns:48px repeat('+TOTAL_DAYS+','+colPx+'px);grid-auto-rows:'+rowPx+'px;background:#131826;min-width:'+(48+TOTAL_DAYS*colPx)+'px">';
     for(var hh=9;hh<=22;hh++){
       for(var mm=0;mm<60;mm+=10){
         var isHourMark = (mm===0);
@@ -12809,7 +12831,7 @@ window.closeRulesModal = function() {
     }
     // 23:00 마지막 row
     html += '<div style="background:#0f172a;color:#fbbf24;font-size:13px;font-weight:800;text-align:center;line-height:'+rowPx+'px;border-top:2px solid #fbbf24">23:00</div>';
-    for(var di=0;di<7;di++) html += '<div style="background:#131826;border-top:1px solid #232b40"></div>';
+    for(var di=0;di<TOTAL_DAYS;di++) html += '<div style="background:#131826;border-top:1px solid #232b40"></div>';
     html += '</div></div></div>';
     // 범례 + 안내
     html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:11px;color:#94a3b8;flex-wrap:wrap;gap:10px">'+
