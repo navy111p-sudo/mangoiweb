@@ -623,7 +623,7 @@
 <div class="stu-modal-bg" id="schedule-modal-bg">
   <div class="stu-modal" style="max-width:1100px;width:95vw">
     <div class="modal-header" style="background:linear-gradient(135deg,#3b82f6,#10b981);color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:17px;font-weight:700">📅 <span id="sched-title-name">—</span> 스케줄 배치표</span>
+      <span style="font-size:17px;font-weight:700">📅 <span id="sched-title-name">—</span> 스케줄 배치표</span><span id="sched-ai-counter" style="font-size:12px;color:#fbbf24;background:rgba(251,191,36,0.15);padding:4px 10px;border-radius:12px;margin-left:10px;display:none">⭐ AI 스케줄: <b>0</b>건</span>
       <span class="modal-close" onclick="closeScheduleCalendar()" style="cursor:pointer;font-size:22px">✕</span>
     </div>
     <div class="modal-body" style="padding:18px 20px;background:#f8fafc;max-height:78vh;overflow-y:auto">
@@ -942,6 +942,8 @@ function openScheduleCalendar(studentId, studentName, uid) {
   _schedState.view = 'week'; // 기본은 주간 뷰
   document.getElementById('sched-title-name').textContent = _schedState.studentName;
   document.getElementById('sched-student-uid').textContent = _schedState.uid || '—';
+  const counter = document.getElementById('sched-ai-counter');
+  if (counter) { counter.innerHTML = '⏳ 로딩 중…'; counter.style.display = ''; counter.style.background = 'rgba(148,163,184,0.2)'; counter.style.color = '#94a3b8'; }
   document.getElementById('schedule-modal-bg').classList.add('show');
   loadStudentEnrollments(uid).then(() => renderScheduleCalendar());
 }
@@ -961,6 +963,16 @@ async function loadStudentEnrollments(uid) {
   ]);
   if (enrR.ok && enrR.items) _schedState.enrollments = enrR.items;
   if (aiR.ok && aiR.items) _schedState.aiSchedules = aiR.items;
+  // 진단 카운터 업데이트 - 0건이어도 표시 (사용자가 데이터 없음을 즉시 인지)
+  const counter = document.getElementById('sched-ai-counter');
+  if (counter) {
+    const activeCount = (_schedState.aiSchedules || []).filter(s => s.status !== 'cancelled').length;
+    counter.style.display = '';
+    counter.innerHTML = '⭐ AI 스케줄: <b>' + activeCount + '</b>건';
+    counter.style.background = activeCount > 0 ? 'rgba(251,191,36,0.15)' : 'rgba(239,68,68,0.15)';
+    counter.style.color = activeCount > 0 ? '#fbbf24' : '#ef4444';
+    if (activeCount === 0) counter.title = '이 학생에 등록된 AI 스케줄이 없습니다. AI 명령에 학생 이름이 정확히 일치하는지 확인하세요.';
+  }
 }
 
 function renderScheduleCalendar() {

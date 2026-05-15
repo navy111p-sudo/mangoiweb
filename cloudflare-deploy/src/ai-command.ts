@@ -619,46 +619,56 @@ export async function executeAction(
 
         try {
           const exact = await env.DB.prepare(
-            `SELECT user_id, korean_name FROM students_erp WHERE korean_name = ? LIMIT 1`
-          ).bind(studentName).first<any>();
-          if (exact?.user_id) userId = exact.user_id;
+            `SELECT id, COALESCE(user_id, login_id) AS user_id, korean_name, username FROM students_erp WHERE korean_name = ? OR username = ? LIMIT 1`
+          ).bind(studentName, studentName).first<any>();
+          if (exact?.id) userId = exact.user_id || ('stu_id_' + exact.id);
           else {
             const like = await env.DB.prepare(
-              `SELECT user_id, korean_name FROM students_erp WHERE korean_name LIKE ? LIMIT 1`
-            ).bind('%' + studentName + '%').first<any>();
-            if (like?.user_id) userId = like.user_id;
+              `SELECT id, COALESCE(user_id, login_id) AS user_id, korean_name, username FROM students_erp WHERE korean_name LIKE ? OR username LIKE ? LIMIT 1`
+            ).bind('%' + studentName + '%', '%' + studentName + '%').first<any>();
+            if (like?.id) userId = like.user_id || ('stu_id_' + like.id);
           }
         } catch {}
 
-        // Phase 5: 학생이 없고 auto_create_students=true 면 students_erp 에 자동 등록
-        // student_meta 가 있으면 그 정보를 사용 (영문명, 연락처, 학부모, 학년 등)
         if (!userId && autoCreateStudents && studentName) {
+          const ensureCols: Array<[string,string]> = [
+            ['username','TEXT'], ['login_id','TEXT'], ['korean_name','TEXT'], ['english_name','TEXT'],
+            ['user_id','TEXT'], ['student_phone','TEXT'], ['parent_phone','TEXT'],
+            ['shop_name','TEXT'], ['payment_type','TEXT'], ['classes_per_week','INTEGER'],
+            ['points','INTEGER DEFAULT 0'], ['signup_date','TEXT'], ['status','TEXT'], ['created_at','INTEGER']
+          ];
+          for (const [c,t] of ensureCols) {
+            try { await env.DB.exec('ALTER TABLE students_erp ADD COLUMN ' + c + ' ' + t); } catch {}
+          }
+          const meta = (args?.student_meta && args.student_meta[studentName]) || {};
+          const newId = 'stu_ai_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+          const todayKst = new Date(now + 9*3600*1000).toISOString().slice(0,10);
+          let inserted = false;
           try {
-            // 확장 컬럼들 자동 추가 (ALTER TABLE - 이미 있으면 catch 해서 무시)
-            const cols = ['english_name','phone','parent_phone','grade','center','notes'];
-            for (const col of cols) {
-              try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN ${col} TEXT`); } catch {}
-            }
-            const meta = (args?.student_meta && args.student_meta[studentName]) || {};
-            const newId = 'stu_ai_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-            const todayKst = new Date(now + 9*3600*1000).toISOString().slice(0,10);
             await env.DB.prepare(
-              `INSERT INTO students_erp (user_id, korean_name, english_name, status, signup_date, phone, parent_phone, grade, center, notes) VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)`
+              "INSERT INTO students_erp (username, login_id, user_id, korean_name, english_name, student_phone, parent_phone, shop_name, status, signup_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             ).bind(
-              newId,
-              studentName,
+              studentName, newId, newId, studentName,
               String(meta.english_name||''),
-              todayKst,
               String(meta.phone||''),
               String(meta.parent_phone||''),
-              String(meta.grade||''),
               String(meta.center||''),
-              String(meta.notes||'AI 명령으로 자동 등록')
+              "정상",
+              todayKst, now
             ).run();
-            userId = newId;
-            autoCreated = true;
+            inserted = true; userId = newId; autoCreated = true;
           } catch (e: any) {
-            console.log('[schedule_batch] auto-create student failed:', e?.message);
+            console.log('[schedule_batch] full INSERT failed, fallback:', e?.message);
+          }
+          if (!inserted) {
+            try {
+              await env.DB.prepare(
+                "INSERT INTO students_erp (user_id, korean_name, status, signup_date) VALUES (?, ?, ?, ?)"
+              ).bind(newId, studentName, "정상", todayKst).run();
+              userId = newId; autoCreated = true;
+            } catch (e2: any) {
+              console.log('[schedule_batch] minimal INSERT failed:', e2?.message);
+            }
           }
         }
 
