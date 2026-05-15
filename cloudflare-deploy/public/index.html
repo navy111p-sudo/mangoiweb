@@ -12324,16 +12324,8 @@ window.closeRulesModal = function() {
   };
   window.lcPickWeek = function(offset){
     if(!lcPicker)return;
-    lcPicker.weekOffset = offset;
+    lcPicker.weekOffset = Math.max(0, offset);
     renderLessonPicker();
-    // 그리드 다시 그려진 후 스크롤
-    setTimeout(function(){
-      var area = document.getElementById('cal-scroll-area');
-      if(area){
-        var colPx = Math.round(60 * (lcPicker.zoom||1));
-        area.scrollLeft = offset * 7 * colPx;
-      }
-    }, 80);
   };
   // 방식 선택
   window.lcPickMethod = function(method){
@@ -12684,10 +12676,11 @@ window.closeRulesModal = function() {
     var dn = L?['일','월','화','수','목','금','토']:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     var todayMid = new Date(); todayMid.setHours(0,0,0,0);
     var weekOffset = p.weekOffset || 0;
-    // 4주(28일) 모두 한 번에 그리고 가로 스크롤로 이동
-    var TOTAL_DAYS = 28;
+    // 7일(한 주)만 표시 — 한 화면에 다 보이게
+    var TOTAL_DAYS = 7;
     var dates = [];
-    for(var i=0;i<TOTAL_DAYS;i++){ var d=new Date(todayMid); d.setDate(d.getDate()+1+i); dates.push(d); }
+    var startOffset = 1 + weekOffset * 7;
+    for(var i=0;i<TOTAL_DAYS;i++){ var d=new Date(todayMid); d.setDate(d.getDate()+startOffset+i); dates.push(d); }
     // 강사의 점유 시간 (분 단위로 데모 생성)
     var busyMin = {}; // 'di_hhmm' -> true
     var seed = (teacherName||'').length;
@@ -12717,31 +12710,26 @@ window.closeRulesModal = function() {
       if(iso===curISO) curDayCol = di;
     });
 
-    // CSS: row 높이 18px / col 폭 60px — zoom 적용
+    // CSS: row 18px / col은 7일이 모달 폭에 맞게 자동 (1fr) — zoom 적용 시 고정 폭
     var zoomLevel = p.zoom || 1.0;
     var rowPx = Math.round(18 * zoomLevel);
+    var fitMode = (zoomLevel >= 0.95 && zoomLevel <= 1.05);
     var colPx = Math.round(60 * zoomLevel);
+    // fit 모드일 때는 1fr (자동 채움), 그 외는 고정 폭으로 가로 스크롤
+    var colsTpl = fitMode ? '48px repeat('+TOTAL_DAYS+',1fr)' : ('48px repeat('+TOTAL_DAYS+','+colPx+'px)');
     var totalRows = (23-9)*6 + 1; // 09:00 ~ 23:00 = 85 rows
-    // ─── 주간 네비게이션 탭 (상단) ───
-    var weekTabs = [
-      {off:0, ko:'이번 주',  en:'This Week'},
-      {off:1, ko:'다음 주',  en:'Next Week'},
-      {off:2, ko:'다다음 주', en:'In 2 weeks'},
-      {off:3, ko:'4주 차',   en:'In 3 weeks'}
-    ];
-    var weekTabsHtml = '<div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;background:#0f172a;padding:6px;border-radius:10px;border:1px solid #232b40">';
-    weekTabs.forEach(function(w){
-      var isActive = (w.off===weekOffset);
-      // 해당 주의 날짜 범위 표시 (시작일 ~ 종료일)
-      var ws = new Date(todayMid); ws.setDate(ws.getDate() + 1 + w.off*7);
-      var we = new Date(ws); we.setDate(we.getDate() + 6);
-      var rangeLabel = pad(ws.getMonth()+1)+'.'+pad(ws.getDate())+'~'+pad(we.getMonth()+1)+'.'+pad(we.getDate());
-      weekTabsHtml += '<button onclick="lcPickWeek('+w.off+')" style="flex:1;min-width:0;padding:8px 4px;border-radius:7px;border:none;background:'+(isActive?'linear-gradient(135deg,#fbbf24,#f59e0b)':'transparent')+';color:'+(isActive?'#1a1a1a':'#94a3b8')+';font-size:11.5px;font-weight:'+(isActive?'800':'600')+';cursor:pointer;transition:all .15s;text-align:center;line-height:1.3">'+
-        '<div>'+(L?w.ko:w.en)+'</div>'+
-        '<div style="font-size:9.5px;opacity:.85;margin-top:1px">'+rangeLabel+'</div>'+
-      '</button>';
-    });
-    weekTabsHtml += '</div>';
+    // ─── 주간 네비게이션 (◀/▶ + 현재 주 라벨) ───
+    var ws = new Date(todayMid); ws.setDate(ws.getDate() + 1 + weekOffset*7);
+    var we = new Date(ws); we.setDate(we.getDate() + 6);
+    var dnShort = L?['일','월','화','수','목','금','토']:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    var weekLabel = ws.getFullYear()+'.'+pad(ws.getMonth()+1)+'.'+pad(ws.getDate())+' ('+dnShort[ws.getDay()]+') ~ '+pad(we.getMonth()+1)+'.'+pad(we.getDate())+' ('+dnShort[we.getDay()]+')';
+    // (lblTxt label은 ws~we 한 줄)
+    var prevDisabled = (weekOffset<=0);
+    var weekTabsHtml = '<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;background:#0f172a;padding:7px 10px;border-radius:10px;border:1px solid #232b40">'+
+      '<button onclick="lcPickWeek('+Math.max(0,weekOffset-1)+')" '+(prevDisabled?'disabled':'')+' style="background:'+(prevDisabled?'#1a2032':'#1e2538')+';border:1px solid #232b40;color:'+(prevDisabled?'#475569':'#fbbf24')+';width:38px;height:34px;border-radius:8px;font-weight:800;font-size:18px;cursor:'+(prevDisabled?'not-allowed':'pointer')+';line-height:1">◀</button>'+
+      '<div style="flex:1;text-align:center;color:#fde68a;font-weight:800;font-size:13px;letter-spacing:.2px">'+weekLabel+'</div>'+
+      '<button onclick="lcPickWeek('+(weekOffset+1)+')" style="background:#1e2538;border:1px solid #232b40;color:#fbbf24;width:38px;height:34px;border-radius:8px;font-weight:800;font-size:18px;cursor:pointer;line-height:1">▶</button>'+
+    '</div>';
     // 줌 버튼 (확대/축소)
     var zoomPct = Math.round(zoomLevel*100);
     var zoomBtnsHtml = '<div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-bottom:8px;font-size:11.5px;color:#94a3b8;flex-wrap:wrap">'+
@@ -12753,7 +12741,7 @@ window.closeRulesModal = function() {
     '</div>';
     var html = weekTabsHtml + zoomBtnsHtml + '<div id="cal-grid-wrap" style="background:#131826;border-radius:12px;overflow:hidden;border:1px solid #232b40;position:relative">';
     // 헤더
-    html += '<div style="display:grid;grid-template-columns:48px repeat('+TOTAL_DAYS+','+colPx+'px);background:#1a2032;border-bottom:1px solid #232b40;position:sticky;top:0;z-index:5;min-width:'+(48+TOTAL_DAYS*colPx)+'px">';
+    html += '<div style="display:grid;grid-template-columns:'+colsTpl+';background:#1a2032;border-bottom:1px solid #232b40;position:sticky;top:0;z-index:5'+(fitMode?'':';min-width:'+(48+TOTAL_DAYS*colPx)+'px')+'">';
     html += '<div style="padding:8px 0;text-align:center;color:#94a3b8;font-size:11px;font-weight:700"></div>';
     dates.forEach(function(d){
       var isToday = (d.toDateString()===new Date().toDateString());
@@ -12764,7 +12752,7 @@ window.closeRulesModal = function() {
     });
     html += '</div>';
     // 시간 그리드 (10분 단위)
-    html += '<div id="cal-scroll-area" style="position:relative;overflow:auto;max-height:520px"><div id="cal-grid-body" style="display:grid;grid-template-columns:48px repeat('+TOTAL_DAYS+','+colPx+'px);grid-auto-rows:'+rowPx+'px;background:#131826;min-width:'+(48+TOTAL_DAYS*colPx)+'px">';
+    html += '<div id="cal-scroll-area" style="position:relative;overflow:'+(fitMode?'auto':'auto')+';max-height:520px"><div id="cal-grid-body" style="display:grid;grid-template-columns:'+colsTpl+';grid-auto-rows:'+rowPx+'px;background:#131826'+(fitMode?'':';min-width:'+(48+TOTAL_DAYS*colPx)+'px')+'">';
     for(var hh=9;hh<=22;hh++){
       for(var mm=0;mm<60;mm+=10){
         var isHourMark = (mm===0);
