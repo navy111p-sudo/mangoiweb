@@ -991,6 +991,30 @@ async function loadStudentEnrollments(uid) {
   if (enrR.ok && enrR.items) _schedState.enrollments = enrR.items;
   if (aiR.ok && aiR.items) _schedState.aiSchedules = aiR.items;
   _schedState.mergeInfo = aiR.merge_info || null;
+
+  // ★ Phase 7e: 모달 열 때 스케줄이 보이는 주로 자동 점프
+  //   - 가장 빠른 scheduled_date 가 있으면 그 주의 일요일을 weekStart 로
+  //   - scheduled_date 가 없고 day_of_week 만 있으면 (recurring) 이번 주 그대로
+  try {
+    const aiList = (_schedState.aiSchedules || []).filter(s => s.status !== 'cancelled');
+    const dates = aiList
+      .filter(s => s.scheduled_date)
+      .map(s => new Date(s.scheduled_date + 'T00:00:00'))
+      .filter(d => !isNaN(d.getTime()));
+    if (dates.length > 0) {
+      // 오늘 이후의 가장 빠른 날짜 우선
+      const todayMid = new Date(); todayMid.setHours(0,0,0,0);
+      const future = dates.filter(d => d >= todayMid);
+      const target = future.length ? future.sort((a,b)=>a-b)[0] : dates.sort((a,b)=>a-b)[0];
+      // 그 주의 일요일을 weekStart 로
+      const ws = new Date(target);
+      ws.setDate(target.getDate() - target.getDay());
+      ws.setHours(0,0,0,0);
+      _schedState.weekStart = ws;
+      _schedState.year = target.getFullYear();
+      _schedState.month = target.getMonth();
+    }
+  } catch(e) { console.warn('[sched auto-jump]', e); }
   // 진단 카운터 업데이트 - 0건이어도 표시 (사용자가 데이터 없음을 즉시 인지)
   const counter = document.getElementById('sched-ai-counter');
   if (counter) {
