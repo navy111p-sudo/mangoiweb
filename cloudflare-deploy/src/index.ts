@@ -351,6 +351,7 @@ export default {
         path === '/api/admin/ai-action' ||
         path === '/api/admin/class-schedules' ||
         path === '/api/admin/class-schedules/seed-demo' ||
+        path === '/api/admin/students/merge-duplicates' ||
         /^\/api\/admin\/class-schedules\/\d+$/.test(path) ||
         path === '/api/admin/teacher-profiles' ||
         /^\/api\/admin\/teacher-profiles\/\d+$/.test(path) ||
@@ -1128,6 +1129,7 @@ function isAdminPath(path: string, method: string): boolean {
   // 🥭 Phase 21 — AI 명령 / 액션 (Workers AI)
   if (path === '/api/admin/ai-command' || path === '/api/admin/ai-action') return true;
   if (path === '/api/admin/class-schedules' || path === '/api/admin/class-schedules/seed-demo' || /^\/api\/admin\/class-schedules\/\d+$/.test(path)) return true;
+  if (path === '/api/admin/students/merge-duplicates') return true;
   // 💼 강사 급여·평가 (Phase 8) — 관리자 전용
   if (path === '/api/admin/teachers' || /^\/api\/admin\/teachers\/\d+$/.test(path)) return true;
   // 🥭 Phase 34 — 강사 정보 (Teacher Profiles)

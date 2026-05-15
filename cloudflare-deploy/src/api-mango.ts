@@ -1219,6 +1219,78 @@ export async function handleMangoApi(
       }
     }
 
+    // 🥭 Phase 6g — POST /api/admin/students/merge-duplicates
+    //   동명 학생들을 자동 통합 (가장 오래된 row 가 canonical, 나머지의 schedule 이전 후 비활성화)
+    if (method === 'POST' && path === '/api/admin/students/merge-duplicates') {
+      const merged: any[] = [];
+      try {
+        // 1) 같은 이름으로 그룹화 (korean_name 또는 username)
+        const groups = await env.DB.prepare(
+          `SELECT COALESCE(korean_name, username) AS name, COUNT(*) AS cnt
+           FROM students_erp
+           WHERE COALESCE(korean_name, username) IS NOT NULL
+             AND COALESCE(korean_name, username) != ''
+             AND COALESCE(status, '정상') = '정상'
+           GROUP BY COALESCE(korean_name, username)
+           HAVING cnt > 1`
+        ).all<any>();
+
+        for (const g of (groups.results || [])) {
+          const name = g.name;
+          // 2) 같은 이름의 모든 학생 - id 오름차순 (가장 오래된이 canonical)
+          const dups = await env.DB.prepare(
+            `SELECT id, COALESCE(user_id, login_id, ('stu_' || id)) AS uid, korean_name, username, signup_date
+             FROM students_erp
+             WHERE (korean_name = ? OR username = ?)
+               AND COALESCE(status, '정상') = '정상'
+             ORDER BY id ASC`
+          ).bind(name, name).all<any>();
+          const rows = dups.results || [];
+          if (rows.length < 2) continue;
+
+          const canonical = rows[0];
+          const canonicalUid = canonical.uid;
+          const dupUids = rows.slice(1).map((r: any) => r.uid);
+
+          // 3) class_schedules 의 user_id 를 canonical 로 일괄 변경
+          let scheduleMoved = 0;
+          for (const dupUid of dupUids) {
+            try {
+              const upd = await env.DB.prepare(
+                `UPDATE class_schedules SET user_id = ?, updated_at = ? WHERE user_id = ?`
+              ).bind(canonicalUid, Date.now(), dupUid).run();
+              scheduleMoved += (upd?.meta?.changes as number) || 0;
+            } catch {}
+          }
+          // 4) 중복 학생 row 비활성화 (status='병합됨')
+          for (const dup of rows.slice(1)) {
+            try {
+              await env.DB.prepare(
+                `UPDATE students_erp SET status = '병합됨' WHERE id = ?`
+              ).bind(dup.id).run();
+            } catch {}
+          }
+          merged.push({
+            name,
+            canonical_user_id: canonicalUid,
+            canonical_id: canonical.id,
+            duplicates_merged: rows.length - 1,
+            duplicate_user_ids: dupUids,
+            schedules_moved: scheduleMoved
+          });
+        }
+        return json({
+          ok: true,
+          groups_merged: merged.length,
+          total_duplicates_removed: merged.reduce((sum, m) => sum + m.duplicates_merged, 0),
+          total_schedules_moved: merged.reduce((sum, m) => sum + m.schedules_moved, 0),
+          details: merged
+        });
+      } catch (e: any) {
+        return json({ ok: false, error: 'merge_failed', detail: String(e?.message || e) }, 500);
+      }
+    }
+
     // 🥭 Phase 6d — POST /api/admin/class-schedules/seed-demo
     //   클릭 한 번에 정규+체험+레벨 3개 데모 스케줄 생성 (시스템 동작 즉시 확인용)
     if (method === 'POST' && path === '/api/admin/class-schedules/seed-demo') {

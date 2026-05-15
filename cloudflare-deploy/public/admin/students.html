@@ -391,6 +391,7 @@
       </div>
       <input id="f-referral" type="text" placeholder="추천인아이디" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;width:160px;" />
       <button class="erp-btn-search" onclick="loadStudents()">검색</button>
+          <button onclick="mergeDupStudents()" style="margin-left:8px;padding:6px 12px;border-radius:6px;border:1px solid #a855f7;background:rgba(168,85,247,0.15);color:#c4b5fd;cursor:pointer;font-size:12px;font-weight:700" title="동일 이름 학생들을 가장 오래된 1명으로 통합 (스케줄도 이전)">🔗 중복 학생 통합</button>
       <input id="f-phone" type="tel" placeholder="학생/부모님 전화번호" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;width:200px;" />
     </div>
 
@@ -684,6 +685,31 @@ function fmtDate(ts) {
 }
 
 // === 데이터 fetch (Phase 10-②: students_erp 테이블 사용) ===
+
+async function mergeDupStudents() {
+  if (!confirm('같은 이름의 중복 학생들을 자동 통합합니다.\n\n각 그룹에서 가장 오래된 학생만 남기고, 나머지의 스케줄은 모두 이전됩니다.\n진행할까요?')) return;
+  try {
+    const r = await fetch('/api/admin/students/merge-duplicates', { method: 'POST', credentials: 'include' });
+    const j = await r.json();
+    if (j.ok) {
+      let msg = '✅ 통합 완료!\n\n';
+      msg += '· 통합된 그룹: ' + j.groups_merged + '개\n';
+      msg += '· 제거된 중복 학생: ' + j.total_duplicates_removed + '명\n';
+      msg += '· 이전된 스케줄: ' + j.total_schedules_moved + '건\n\n';
+      if (j.details && j.details.length) {
+        msg += '상세:\n';
+        j.details.slice(0, 5).forEach(d => {
+          msg += '  - ' + d.name + ': ' + d.duplicates_merged + '명 통합, ' + d.schedules_moved + '건 이전\n';
+        });
+      }
+      alert(msg);
+      loadStudents();
+    } else {
+      alert('❌ 실패: ' + (j.error || '') + '\n' + (j.detail || ''));
+    }
+  } catch (e) { alert('오류: ' + (e.message || e)); }
+}
+
 async function loadStudents() {
   const tb = document.getElementById('students-tbody');
   tb.innerHTML = '<tr class="empty-row"><td colspan="23">불러오는 중...</td></tr>';
