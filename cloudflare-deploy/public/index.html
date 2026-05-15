@@ -12214,8 +12214,10 @@ window.closeRulesModal = function() {
     lcPicker = {
       cls: cls,
       mode: mode,                // 'postpone' or 'change'
-      step: 'method',            // 'method' -> 'date'/'shift'/'teacher'/'time-match' -> 'confirm'
-      method: null,              // chosen method id
+      // 연기 모드는 방식 선택 생략 → 바로 'date' (스케줄표)
+      // 변경 모드는 그대로 'method' (강사/시간 선택 카드)
+      step: (mode==='postpone' ? 'date' : 'method'),
+      method: (mode==='postpone' ? 'date' : null),
       pickedDate: null,
       pickedHour: null,
       pickedTeacher: null,
@@ -12267,7 +12269,50 @@ window.closeRulesModal = function() {
     if(!lcPicker)return;
     lcPicker.pickedDate = dateISO;
     lcPicker.pickedHour = hour;
+    // 연기 모드의 'date' 단계에서 슬롯 터치 → 즉시 격려 다이얼로그
+    if(lcPicker.mode==='postpone' && lcPicker.step==='date'){
+      showPostponeEncourage();
+      return;
+    }
     renderLessonPicker();
+  };
+
+  // 격려 다이얼로그 (연기 확정 전 호출)
+  function showPostponeEncourage(){
+    var L = (window.getLang?window.getLang():'ko')==='ko';
+    var p = lcPicker;
+    var dateISO = p.pickedDate, hour = p.pickedHour;
+    var msg = L
+      ? '실력 향상을 위해선 꾸준한 수업이 가장 중요합니다!<br><br>그래도 연기하시겠습니까?'
+      : 'Consistent practice is the key to improvement!<br><br>Are you sure you want to postpone?';
+    var html = '<div style="background:linear-gradient(180deg,#1a2032 0%,#131826 100%);border:2px solid #fbbf24;border-radius:18px;max-width:440px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.6);animation:lcSlide .25s;text-align:center;margin-top:60px" onclick="event.stopPropagation()">'+
+      '<div style="padding:24px 20px 4px"><div style="font-size:54px;line-height:1;margin-bottom:8px;animation:pop .35s ease-out">💪</div></div>'+
+      '<div style="padding:0 22px;font-size:16px;font-weight:700;color:#fff;line-height:1.55;margin-bottom:6px">'+(L?'잠깐만요!':'Wait!')+'</div>'+
+      '<div style="padding:0 22px 12px;font-size:13.5px;color:#cbd5e1;line-height:1.65">'+msg+'</div>'+
+      '<div style="margin:0 22px 16px;padding:10px 14px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:10px;font-size:12.5px;color:#fde68a">'+
+        '📅 '+(L?'새 시간: ':'New time: ')+'<b style="color:#fff">'+dateISO+' '+String(hour).padStart(2,"0")+':00</b>'+
+      '</div>'+
+      '<div style="display:flex;gap:8px;padding:14px 20px;border-top:1px solid #232b40">'+
+        '<button onclick="closeEncourage()" style="flex:1;padding:13px;border-radius:11px;background:transparent;border:1.5px solid #475569;color:#cbd5e1;font-size:15px;font-weight:800;cursor:pointer">❌ '+(L?'아니요':'No')+'</button>'+
+        '<button onclick="confirmPostponeYes()" style="flex:1;padding:13px;border-radius:11px;background:linear-gradient(135deg,#10b981,#059669);border:none;color:#fff;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 6px 16px rgba(16,185,129,.4)">✅ '+(L?'예':'Yes')+'</button>'+
+      '</div></div>'+
+      '<style>@keyframes pop{0%{transform:scale(0)}70%{transform:scale(1.1)}100%{transform:scale(1)}}</style>';
+    var ov = document.getElementById('lc-overlay');
+    ov.innerHTML = html;
+    ov.classList.add('show');
+    document.body.style.overflow='hidden';
+  }
+
+  // 격려 다이얼로그 - 아니요 (취소, 스케줄로 돌아감)
+  window.closeEncourage = function(){
+    if(!lcPicker)return;
+    lcPicker.pickedDate = null;
+    lcPicker.pickedHour = null;
+    renderLessonPicker(); // 다시 스케줄 표 표시
+  };
+  // 격려 다이얼로그 - 예 (실제 연기 실행)
+  window.confirmPostponeYes = function(){
+    lcConfirmPicker();
   };
   window.lcPickTeacher = function(tid){
     if(!lcPicker)return;
@@ -12340,12 +12385,14 @@ window.closeRulesModal = function() {
       footerHtml = '<button onclick="lcCancelPicker()" style="width:100%;padding:14px;border-radius:10px;background:transparent;border:1px solid #232b40;color:#94a3b8;font-size:14px;font-weight:700;cursor:pointer">'+(L?'취소':'Cancel')+'</button>';
     }
     else if(p.step==='date'){
-      // ─── (연기) 날짜 선택: 현재 강사의 가능한 시간 ───
-      bodyHtml = '<div style="font-size:11.5px;color:#94a3b8;font-weight:700;margin-bottom:10px;text-transform:uppercase;letter-spacing:.4px">'+(L?'담당 강사 '+p.cls.teacher+'의 가능한 시간':p.cls.teacher+'\'s open slots')+'</div>'+
-        buildAvailableSlotList(p.cls.teacher);
-      var ready=(p.pickedDate && p.pickedHour!=null);
-      footerHtml = '<div style="display:flex;gap:8px"><button onclick="lcBack()" style="flex:1;padding:12px;border-radius:10px;background:transparent;border:1px solid #232b40;color:#94a3b8;font-size:14px;font-weight:700;cursor:pointer">← '+(L?'뒤로':'Back')+'</button>'+
-        '<button onclick="lcConfirmPicker()" '+(ready?'':'disabled')+' style="flex:2;padding:12px;border-radius:10px;background:'+(ready?'linear-gradient(135deg,#10b981,#059669)':'#374151')+';border:none;color:#fff;font-size:14px;font-weight:800;cursor:'+(ready?'pointer':'not-allowed')+';opacity:'+(ready?'1':'.4')+'">✅ '+(L?'확인':'Confirm')+'</button></div>';
+      // ─── (연기) 날짜 선택: 박스를 터치하면 즉시 격려 다이얼로그 ───
+      var topHint = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">'+
+        '<div style="font-size:11.5px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.4px">'+(L?'담당 강사 '+p.cls.teacher+'의 가능한 시간':p.cls.teacher+'\'s open slots')+'</div>'+
+        '<button onclick="lcPickMethod(&quot;shift&quot;)" style="background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.4);color:#93c5fd;padding:5px 10px;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer">⏭ '+(L?'전체 1주 뒤로 밀기':'Push all +1w')+'</button>'+
+      '</div>'+
+      '<div style="background:rgba(251,191,36,.08);border:1px dashed rgba(251,191,36,.35);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12.5px;color:#fde68a;text-align:center">👆 '+(L?'원하는 시간 상자를 한 번 터치하면 즉시 확인 창이 나타납니다':'Tap a time slot once to confirm')+'</div>';
+      bodyHtml = topHint + buildAvailableSlotList(p.cls.teacher);
+      footerHtml = '<button onclick="lcCancelPicker()" style="width:100%;padding:14px;border-radius:10px;background:transparent;border:1px solid #232b40;color:#94a3b8;font-size:14px;font-weight:700;cursor:pointer">'+(L?'취소':'Cancel')+'</button>';
     }
     else if(p.step==='shift'){
       // ─── (연기) 뒤로 밀기 미리보기 ───
