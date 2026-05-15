@@ -10330,6 +10330,58 @@ async function askAI(command) {
     return;
   }
 
+  // 🥭 Phase 22 — schedule_plan: AI 가 자연어에서 다건 스케줄 파싱한 결과를 카드로 표시
+  if (res.intent === 'schedule_plan') {
+    const items = Array.isArray(res.items) ? res.items : [];
+    const dayNames = { mon:'월', tue:'화', wed:'수', thu:'목', fri:'금', sat:'토', sun:'일' };
+    const actionNames = {
+      register_recurring: '🆕 정규수업 등록',
+      schedule_one_off:   '📅 단일 일정 등록',
+      change_schedule:    '🔄 스케줄 변경',
+      postpone_class:     '⏸ 수업 연기',
+    };
+    const typeNames = { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
+    const typeColor = { regular:'#3b82f6', level_test:'#f59e0b', trial:'#10b981' };
+    let html = '<div class="ai-answer">' + _aiEsc(res.answer || 'AI가 스케줄을 파싱했습니다') + '</div>';
+    if (items.length === 0) {
+      html += '<div class="ai-error" style="margin-top:10px">⚠️ 파싱된 스케줄이 없습니다. 학생명·요일·시간을 명확히 다시 입력해 주세요.</div>';
+      ct.innerHTML = html;
+      return;
+    }
+    html += '<div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">';
+    items.forEach((it, idx) => {
+      const dayList = Array.isArray(it.days) ? it.days.map(d => dayNames[d] || d).join('·') : '';
+      const tColor = typeColor[it.type] || '#6b7280';
+      html += '<div style="border:1px solid #e5e7eb;border-radius:10px;padding:12px 14px;background:#fff">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+          '<span style="font-size:11px;color:#6b7280;font-weight:600">#' + (idx+1) + '</span>' +
+          '<span style="font-size:13px;font-weight:700;color:#111827">' + _aiEsc(actionNames[it.action] || it.action) + '</span>' +
+          '<span style="margin-left:auto;background:' + tColor + ';color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">' +
+            _aiEsc(typeNames[it.type] || it.type) + '</span>' +
+        '</div>' +
+        '<div style="font-size:14px;color:#374151;line-height:1.6">' +
+          '<b style="color:#111827">' + _aiEsc(it.student_name) + '</b> 학생' +
+          (dayList ? ' · 매주 <b>' + _aiEsc(dayList) + '</b>요일' : '') +
+          (it.date ? ' · <b>' + _aiEsc(it.date) + '</b>' : '') +
+          (it.time ? ' · <b>' + _aiEsc(it.time) + '</b>' : '') +
+        '</div>' +
+        '<div style="font-size:11px;color:#9ca3af;margin-top:4px">' + _aiEsc(it.label || '') + '</div>' +
+      '</div>';
+    });
+    html += '</div>';
+    const argsJson = JSON.stringify({ items: items });
+    html += '<div class="ai-action-confirm" style="margin-top:14px">' +
+      '<div class="label">⚠️ ' + _aiEsc(res.confirm_text || items.length + '건을 등록할까요?') + '</div>' +
+      '<div style="font-size:11px;color:#6b7280;margin-top:4px">학생 이름이 DB에 등록되어 있어야 합니다. 미등록 학생은 결과에 따로 표시됩니다.</div>' +
+      '<div class="ai-action-buttons">' +
+        '<button class="ai-action-confirm-btn" onclick="executeAiAction(\'schedule_batch\',' + _aiEsc(argsJson).replace(/'/g, "&#39;") + ')">' + items.length + '건 모두 등록</button>' +
+        '<button class="ai-action-cancel-btn" onclick="_aiPanelClose()">취소</button>' +
+      '</div>' +
+    '</div>';
+    ct.innerHTML = html;
+    return;
+  }
+
   ct.innerHTML = '<div class="ai-error">알 수 없는 intent: ' + _aiEsc(res.intent) + '</div>';
 }
 
