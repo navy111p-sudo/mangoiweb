@@ -12101,6 +12101,13 @@ window.closeRulesModal = function() {
   ];
   function pad(n){return String(n).padStart(2,'0');}
   function getClassDateTime(c){
+    // 1순위: 연기 후 저장된 절대 lessonDate + lessonHour
+    if(c.lessonDate && c.lessonHour!=null){
+      var parts = c.lessonDate.split('-');
+      var d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+      d.setHours(c.lessonHour, 0, 0, 0);
+      return d;
+    }
     if(c.hourOffset!=null){
       var now=new Date();
       return new Date(now.getTime() + c.hourOffset*3600*1000);
@@ -12330,15 +12337,66 @@ window.closeRulesModal = function() {
     var p = lcPicker;
     var modeKr = p.mode==='postpone'?(L?'연기':'Postponed'):(L?'변경':'Changed');
     var summary;
+    var didChange = false;
+
+    // ── 학생 데이터 실제 업데이트 ──
+    function applyToStudent(){
+      if(!p.cls || !p.cls.id) return false;
+      var students = window.__demoStudents || {};
+      var u = (typeof getCurrentUser==='function') ? getCurrentUser() : null;
+      var stu = u ? students[u.uid] : null;
+      if(!stu || !Array.isArray(stu.classes)) return false;
+      var c = stu.classes.find(function(x){ return x.id === p.cls.id; });
+      if(!c) return false;
+      // 시간/날짜 업데이트
+      if((p.tab==='time' || p.step==='date') && p.pickedDate && p.pickedHour!=null){
+        c.lessonDate = p.pickedDate;
+        c.lessonHour = p.pickedHour;
+        // dateOffset / hourOffset 무효화 (lessonDate가 우선되도록 그대로 둬도 됨)
+        // lcPicker.cls 도 같이 업데이트 (캘린더 재렌더링에 사용)
+        p.cls.lessonDate = p.pickedDate;
+        p.cls.lessonHour = p.pickedHour;
+        delete p.cls.hourOffset; // 더 이상 상대 오프셋 아님
+      }
+      // 강사 변경
+      if(p.tab==='teacher' && p.pickedTeacher){
+        c.teacher = p.pickedTeacher.name;
+        p.cls.teacher = p.pickedTeacher.name;
+      }
+      return true;
+    }
+
     if(p.tab==='time' && p.pickedDate && p.pickedHour!=null){
       summary = '📅 '+p.pickedDate+' '+String(p.pickedHour).padStart(2,'0')+':00';
+      didChange = applyToStudent();
+    } else if(p.step==='date' && p.pickedDate && p.pickedHour!=null){
+      summary = '📅 '+p.pickedDate+' '+String(p.pickedHour).padStart(2,'0')+':00';
+      didChange = applyToStudent();
     } else if(p.tab==='teacher' && p.pickedTeacher){
       summary = '👨‍🏫 '+p.pickedTeacher.name;
+      didChange = applyToStudent();
     } else {
       return;
     }
+
+    // 토스트 띄움
+    showLcToast('✅ '+(L?'수업 ':'Class ')+modeKr+(L?' 완료 — ':' done — ')+summary+'<br><span style="font-size:11px;color:#94a3b8">'+(L?'담당자가 확인 후 연락드립니다':'Staff will confirm shortly')+'</span>');
+
+    // 연기(postpone) 모드 + 캘린더 'date' 단계인 경우 → 모달 안에서 캘린더 다시 그려서 새 위치에 🟣 NOW 박스 표시
+    if(didChange && p.mode==='postpone' && p.step==='date'){
+      // pickedDate/Hour 는 유지하지만, 캘린더에서 cls의 lessonDate/lessonHour 가 새 위치이므로
+      // 그대로 renderLessonPicker() 호출하면 새 위치가 🟣 NOW 로 보임
+      p.pickedDate = null; p.pickedHour = null;
+      renderLessonPicker();
+      return; // 모달 유지
+    }
+
+    // 그 외 경우 (변경, 뒤로 밀기 등) → 모달 닫고 학생 수업 목록 다시 열기
     lcCancelPicker();
-    showLcToast('✅ '+(L?'수업 ':'Class ')+modeKr+(L?' 요청 접수 완료 — ':' request received — ')+summary+'<br><span style="font-size:11px;color:#94a3b8">'+(L?'담당자가 확인 후 연락드립니다':'Staff will confirm shortly')+'</span>');
+    setTimeout(function(){
+      // 학생 수업 목록 다시 열어서 변경 반영
+      if(typeof openLessonChangeModal === 'function') openLessonChangeModal();
+    }, 600);
   };
 
   function fmtISOLocal(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
@@ -12903,6 +12961,12 @@ window.closeRulesModal = function() {
     var ov = document.getElementById('lc-overlay');
     function pad(n){return String(n).padStart(2,'0');}
     function getClsDt(c){
+      if(c.lessonDate && c.lessonHour!=null){
+        var parts = c.lessonDate.split('-');
+        var d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+        d.setHours(c.lessonHour, 0, 0, 0);
+        return d;
+      }
       if(c.hourOffset!=null){ var now=new Date(); return new Date(now.getTime()+c.hourOffset*3600*1000); }
       var d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()+(c.dateOffset||0)); d.setHours(c.hour); return d;
     }
