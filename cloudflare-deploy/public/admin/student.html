@@ -2094,7 +2094,7 @@ async function loadDStudentSchedule() {
   // 병렬 로드
   const [enrR, aiR] = await Promise.all([
     fetch('/api/admin/enrollments?user_id=' + encodeURIComponent(uid), { credentials:'include' }).then(r=>r.json()).catch(()=>({})),
-    fetch('/api/admin/class-schedules?user_id=' + encodeURIComponent(uid), { credentials:'include' }).then(r=>r.json()).catch(()=>({}))
+    fetch('/api/admin/class-schedules?user_id=' + encodeURIComponent(uid) + '&student_name=' + encodeURIComponent(typeof STUDENT_NAME !== 'undefined' ? STUDENT_NAME : ''), { credentials:'include' }).then(r=>r.json()).catch(()=>({}))
   ]);
   _dSchedState.enrollments = (enrR.ok && enrR.items) ? enrR.items : [];
   _dSchedState.aiSchedules = (aiR.ok && aiR.items) ? aiR.items : [];

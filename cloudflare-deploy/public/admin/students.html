@@ -960,7 +960,7 @@ async function loadStudentEnrollments(uid) {
   // 병렬 로드: enrollments + AI 등록 class_schedules
   const [enrR, aiR] = await Promise.all([
     fetch('/api/admin/enrollments?user_id=' + encodeURIComponent(uid), { credentials: 'include' }).then(r=>r.json()).catch(()=>({})),
-    fetch('/api/admin/class-schedules?user_id=' + encodeURIComponent(uid), { credentials: 'include' }).then(r=>r.json()).catch(()=>({}))
+    fetch('/api/admin/class-schedules?user_id=' + encodeURIComponent(uid) + '&student_name=' + encodeURIComponent(_schedState.studentName || ''), { credentials: 'include' }).then(r=>r.json()).catch(()=>({}))
   ]);
   if (enrR.ok && enrR.items) _schedState.enrollments = enrR.items;
   if (aiR.ok && aiR.items) _schedState.aiSchedules = aiR.items;

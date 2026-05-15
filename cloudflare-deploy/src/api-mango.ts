@@ -1136,6 +1136,7 @@ export async function handleMangoApi(
       } catch {}
       const url = new URL(request.url);
       const userId = url.searchParams.get('user_id');
+      const studentName = url.searchParams.get('student_name'); // ★ Phase 6f: 동명 학생 통합
       const fromDate = url.searchParams.get('from_date');
       const toDate = url.searchParams.get('to_date');
       const kind = url.searchParams.get('kind') || 'all';
@@ -1143,7 +1144,55 @@ export async function handleMangoApi(
 
       const where: string[] = [`status != 'cancelled'`];
       const binds: any[] = [];
-      if (userId) { where.push('user_id = ?'); binds.push(userId); }
+
+      // ★ Phase 6f: user_id 가 주어지면 같은 학생 이름의 모든 user_id 도 함께 조회 (중복 정리 자동)
+      if (userId) {
+        // 1) 이 user_id 의 학생 이름 찾기
+        let nameForUid: string | null = null;
+        try {
+          const r = await env.DB.prepare(
+            `SELECT COALESCE(korean_name, username) AS name FROM students_erp WHERE COALESCE(user_id, login_id, ('stu_' || id)) = ? LIMIT 1`
+          ).bind(userId).first<any>();
+          if (r?.name) nameForUid = r.name;
+        } catch {}
+        // 2) 같은 이름의 모든 user_id 수집
+        let allUids: string[] = [userId];
+        if (nameForUid) {
+          try {
+            const rs = await env.DB.prepare(
+              `SELECT COALESCE(user_id, login_id, ('stu_' || id)) AS uid FROM students_erp WHERE korean_name = ? OR username = ?`
+            ).bind(nameForUid, nameForUid).all<any>();
+            const ids = (rs.results || []).map((r: any) => r.uid).filter(Boolean);
+            if (ids.length) allUids = [...new Set([userId, ...ids])];
+          } catch {}
+        }
+        // 3) WHERE: user_id IN (...) OR student_name = name (이름 기반 매칭도 포함)
+        const placeholders = allUids.map(() => '?').join(',');
+        if (nameForUid) {
+          where.push('(user_id IN (' + placeholders + ') OR student_name = ?)');
+          binds.push(...allUids, nameForUid);
+        } else {
+          where.push('user_id IN (' + placeholders + ')');
+          binds.push(...allUids);
+        }
+      } else if (studentName) {
+        // 학생 이름으로 직접 조회 (모든 동명 학생 통합)
+        let allUids: string[] = [];
+        try {
+          const rs = await env.DB.prepare(
+            `SELECT COALESCE(user_id, login_id, ('stu_' || id)) AS uid FROM students_erp WHERE korean_name = ? OR username = ?`
+          ).bind(studentName, studentName).all<any>();
+          allUids = (rs.results || []).map((r: any) => r.uid).filter(Boolean);
+        } catch {}
+        if (allUids.length) {
+          const placeholders = allUids.map(() => '?').join(',');
+          where.push('(user_id IN (' + placeholders + ') OR student_name = ?)');
+          binds.push(...allUids, studentName);
+        } else {
+          where.push('student_name = ?');
+          binds.push(studentName);
+        }
+      }
       if (fromDate) { where.push('(scheduled_date IS NULL OR scheduled_date >= ?)'); binds.push(fromDate); }
       if (toDate) { where.push('(scheduled_date IS NULL OR scheduled_date <= ?)'); binds.push(toDate); }
       if (kind === 'recurring') where.push(`schedule_kind = 'recurring'`);
