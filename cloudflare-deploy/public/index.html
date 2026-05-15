@@ -12617,10 +12617,12 @@ window.closeRulesModal = function() {
           var borderTop = isHourMark?'border-top:1px solid #232b40;':'';
           var cellStyle, cellContent='', dataAttr='';
           if(isCurrent){
-            cellStyle = 'background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;'+borderTop+' '+(isCurStart?'border-top:2px solid #a78bfa;':'')+(isCurLast?'border-bottom:2px solid #a78bfa;position:relative;':'')+'font-weight:800;font-size:10px;display:flex;align-items:center;justify-content:center;cursor:'+(isCurStart?'grab':'default')+';user-select:none;-webkit-user-select:none';
+            // 모든 보라셀이 드래그 소스 (cursor:grab)
+            cellStyle = 'background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;'+borderTop+' '+(isCurStart?'border-top:2px solid #a78bfa;':'')+(isCurLast?'border-bottom:2px solid #a78bfa;position:relative;':'position:relative;')+'font-weight:800;font-size:10px;display:flex;align-items:center;justify-content:center;cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none';
+            dataAttr = ' data-cal-current="1" data-cal-iso="'+iso+'" data-cal-hour="'+hh+'" data-cal-min="'+mm+'"';
             if(isCurStart){
               cellContent = '🟣 '+(L?'현재':'NOW')+' · '+durMin+(L?'분':'m');
-              dataAttr = ' data-cal-current="1" data-cal-iso="'+iso+'" data-cal-hour="'+hh+'" data-cal-min="'+mm+'"';
+              dataAttr += ' data-cal-start="1"';
             }
             // 마지막 셀에 리사이즈 핸들
             if(isCurLast){
@@ -12718,7 +12720,9 @@ window.closeRulesModal = function() {
   // 캘린더 드래그 앤 드롭
   function setupCalendarDrag(){
     var wrap = document.getElementById('cal-grid-wrap'); if(!wrap) return;
-    var source = wrap.querySelector('[data-cal-current="1"]'); if(!source) return;
+    var sources = wrap.querySelectorAll('[data-cal-current="1"]');
+    if(!sources || sources.length===0) return;
+    var startCell = wrap.querySelector('[data-cal-start="1"]') || sources[0];
     var dragging = false, ghost = null, lastTarget = null, startX=0, startY=0;
 
     function findDropAt(x, y){
@@ -12749,7 +12753,8 @@ window.closeRulesModal = function() {
       ghost.style.cssText = 'position:fixed;left:'+clientX+'px;top:'+clientY+'px;pointer-events:none;z-index:99999;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;padding:8px 14px;border-radius:10px;font-weight:800;font-size:13px;box-shadow:0 12px 28px rgba(245,158,11,.6);transform:translate(-50%,-50%)';
       ghost.innerHTML = '📅 '+((window.getLang?window.getLang():'ko')==='ko'?'드롭하면 연기':'Drop to postpone');
       document.body.appendChild(ghost);
-      source.style.opacity = '0.35';
+      // 모든 보라색 source 셀 흐리게
+      sources.forEach(function(s){ s.style.opacity = '0.35'; });
       document.body.style.userSelect = 'none';
       if(e && e.preventDefault) e.preventDefault();
     }
@@ -12763,7 +12768,7 @@ window.closeRulesModal = function() {
       dragging = false;
       var dropCell = findDropAt(clientX, clientY);
       if(ghost){ ghost.remove(); ghost = null; }
-      source.style.opacity = '';
+      sources.forEach(function(s){ s.style.opacity = ''; });
       document.body.style.userSelect = '';
       var captured = lastTarget;
       clearTarget();
@@ -12774,14 +12779,25 @@ window.closeRulesModal = function() {
       }
     }
 
-    // 마우스 이벤트
-    source.addEventListener('mousedown', function(e){ if(e.button===0) startDrag(e.clientX, e.clientY, e); });
+    // 마우스 이벤트 - 모든 보라색 셀이 드래그 시작점 (리사이즈 핸들 제외)
+    sources.forEach(function(src){
+      src.addEventListener('mousedown', function(e){
+        if(e.button!==0) return;
+        if(e.target.dataset && e.target.dataset.resizeHandle==='1') return; // 핸들은 별도
+        startDrag(e.clientX, e.clientY, e);
+      });
+      src.addEventListener('touchstart', function(e){
+        if(e.target.dataset && e.target.dataset.resizeHandle==='1') return;
+        var t = e.touches[0]; startDrag(t.clientX, t.clientY, e);
+      }, {passive:false});
+    });
     document.addEventListener('mousemove', function(e){ if(dragging) moveDrag(e.clientX, e.clientY); });
     document.addEventListener('mouseup', function(e){ if(dragging) endDrag(e.clientX, e.clientY); });
-    // 터치 이벤트
-    source.addEventListener('touchstart', function(e){
+    // 듀얼 핸들러 호환 (옛 코드 호환)
+    var source = startCell;
+    if(false){source.addEventListener('touchstart', function(e){
       var t = e.touches[0]; startDrag(t.clientX, t.clientY, e);
-    }, {passive:false});
+    }, {passive:false});}
     document.addEventListener('touchmove', function(e){
       if(!dragging) return;
       var t = e.touches[0]; moveDrag(t.clientX, t.clientY);
@@ -12793,7 +12809,7 @@ window.closeRulesModal = function() {
     });
     // ESC 취소
     document.addEventListener('keydown', function(e){
-      if(e.key==='Escape' && dragging){ dragging=false; if(ghost){ghost.remove();ghost=null;} source.style.opacity=''; clearTarget(); document.body.style.userSelect=''; }
+      if(e.key==='Escape' && dragging){ dragging=false; if(ghost){ghost.remove();ghost=null;} sources.forEach(function(s){s.style.opacity='';}); clearTarget(); document.body.style.userSelect=''; }
     });
   }
 
