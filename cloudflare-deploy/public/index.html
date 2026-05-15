@@ -12390,7 +12390,7 @@ window.closeRulesModal = function() {
         '<div style="font-size:11.5px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.4px">'+(L?'담당 강사 '+p.cls.teacher+'의 가능한 시간':p.cls.teacher+'\'s open slots')+'</div>'+
         '<button onclick="lcPickMethod(&quot;shift&quot;)" style="background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.4);color:#93c5fd;padding:5px 10px;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer">⏭ '+(L?'전체 1주 뒤로 밀기':'Push all +1w')+'</button>'+
       '</div>'+
-      '<div style="background:rgba(251,191,36,.08);border:1px dashed rgba(251,191,36,.35);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12.5px;color:#fde68a;text-align:center">👆 '+(L?'원하는 시간 상자를 한 번 터치하면 즉시 확인 창이 나타납니다':'Tap a time slot once to confirm')+'</div>';
+      '<div style="background:rgba(251,191,36,.08);border:1px dashed rgba(251,191,36,.35);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12.5px;color:#fde68a;text-align:center">🖐 '+(L?'<b style=\"color:#fff\">보라색 박스</b>를 끌어서 <b style=\"color:#a7f3d0\">초록색 빈 시간</b>에 놓으세요':'Drag the <b style=\"color:#fff\">purple box</b> onto a <b style=\"color:#a7f3d0\">green slot</b>')+'</div>';
       bodyHtml = topHint + buildAvailableSlotList(p.cls.teacher);
       footerHtml = '<button onclick="lcCancelPicker()" style="width:100%;padding:14px;border-radius:10px;background:transparent;border:1px solid #232b40;color:#94a3b8;font-size:14px;font-weight:700;cursor:pointer">'+(L?'취소':'Cancel')+'</button>';
     }
@@ -12448,34 +12448,164 @@ window.closeRulesModal = function() {
     document.body.style.overflow = 'hidden';
   }
 
-  // 강사의 가용 슬롯 리스트 (데모): 다음 14일 중 9-21시 사이 무작위 가능
+  // 캘린더 그리드 (7일 × 시간) - 현재 수업 박스를 드래그해서 빈 칸으로 이동
   function buildAvailableSlotList(teacherName){
     var L=(window.getLang?window.getLang():'ko')==='ko';
     var p = lcPicker;
+    var dn = L?['일','월','화','수','목','금','토']:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     var todayMid = new Date(); todayMid.setHours(0,0,0,0);
-    var slots = [];
+    var dates = [];
+    for(var i=0;i<7;i++){ var d=new Date(todayMid); d.setDate(d.getDate()+i+1); dates.push(d); }
+    // 강사의 점유 슬롯 (데모 시드 기반)
+    var busy = {};
     var seed = (teacherName||'').length;
-    for(var d=1;d<=14;d++){
-      var date=new Date(todayMid); date.setDate(date.getDate()+d);
+    dates.forEach(function(d,di){
       for(var h=9;h<=21;h++){
-        var v=((seed*31 + d*13 + h*7)%100)/100;
-        if(v<0.20){
-          var sd=new Date(date); sd.setHours(h);
-          slots.push({date:date, hour:h, dt:sd});
+        var v = ((seed*31 + di*13 + h*7)%100)/100;
+        if (v < 0.30) busy[di+'_'+h] = true;
+      }
+    });
+    // 현재 수업 위치 (drag source) — 학생 클래스의 시간
+    var curDt = getClassDateTime(p.cls);
+    var curDateISO = curDt.getFullYear()+'-'+pad(curDt.getMonth()+1)+'-'+pad(curDt.getDate());
+    var curHour = curDt.getHours();
+    // 그리드 HTML
+    var html = '<div id="cal-grid-wrap" style="background:#131826;border-radius:12px;overflow:hidden;border:1px solid #232b40">';
+    // 헤더
+    html += '<div style="display:grid;grid-template-columns:48px repeat(7,1fr);background:#1a2032;border-bottom:1px solid #232b40">';
+    html += '<div style="padding:8px 0;text-align:center;color:#94a3b8;font-size:11px;font-weight:700"></div>';
+    dates.forEach(function(d){
+      var isToday = (d.toDateString()===new Date().toDateString());
+      html += '<div style="padding:8px 0;text-align:center;color:'+(isToday?'#fbbf24':'#fff')+';font-weight:700;line-height:1.3">'+
+        '<div style="font-size:10.5px;color:'+(isToday?'#fbbf24':'#94a3b8')+'">'+dn[d.getDay()]+'</div>'+
+        '<div style="font-size:14px">'+d.getDate()+'</div>'+
+      '</div>';
+    });
+    html += '</div>';
+    // 시간 row 들
+    for(var h=9;h<=21;h++){
+      html += '<div style="display:grid;grid-template-columns:48px repeat(7,1fr);border-bottom:1px solid rgba(255,255,255,.04)">';
+      html += '<div style="padding:0;height:38px;line-height:38px;text-align:center;color:#64748b;font-size:10.5px;font-weight:600;background:#0f172a">'+pad(h)+':00</div>';
+      for(var di=0;di<7;di++){
+        var d=dates[di];
+        var iso=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+        var cellTime=new Date(d); cellTime.setHours(h);
+        var diffMin=(cellTime-new Date())/60000;
+        var tooSoon = diffMin < 30; // 연기는 30분 이상
+        var isCurrent = (iso===curDateISO && h===curHour);
+        var isBusy = !!busy[di+'_'+h];
+        var cellStyle, cellContent='', dataAttr='';
+        if(isCurrent){
+          // 현재 수업 (드래그 소스)
+          cellStyle = 'background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;cursor:grab;font-weight:800;font-size:10.5px;display:flex;align-items:center;justify-content:center;text-align:center;border:2px solid #a78bfa;box-shadow:0 4px 12px rgba(139,92,246,.5);user-select:none;-webkit-user-select:none';
+          cellContent = '🟣 '+(L?'현재':'NOW');
+          dataAttr = ' data-cal-current="1" data-cal-iso="'+iso+'" data-cal-hour="'+h+'"';
+        } else if(tooSoon){
+          cellStyle = 'background:#131826;opacity:.25;cursor:not-allowed';
+        } else if(isBusy){
+          cellStyle = 'background:rgba(239,68,68,.12);cursor:not-allowed;color:#fca5a5;font-size:10px;text-align:center;display:flex;align-items:center;justify-content:center';
+          cellContent = '✕';
+        } else {
+          cellStyle = 'background:rgba(16,185,129,.12);cursor:default;transition:all .12s';
+          dataAttr = ' data-cal-drop="1" data-cal-iso="'+iso+'" data-cal-hour="'+h+'"';
         }
+        html += '<div style="height:38px;'+cellStyle+'"'+dataAttr+'>'+cellContent+'</div>';
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+    // 색상 범례
+    html += '<div style="display:flex;justify-content:center;gap:14px;margin-top:10px;font-size:11px;color:#94a3b8;flex-wrap:wrap">'+
+      '<span><span style="display:inline-block;width:12px;height:12px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);border-radius:3px;vertical-align:middle"></span> '+(L?'현재 수업 (끌어서 이동)':'Current (drag)')+'</span>'+
+      '<span><span style="display:inline-block;width:12px;height:12px;background:rgba(16,185,129,.4);border-radius:3px;vertical-align:middle"></span> '+(L?'가능':'Open')+'</span>'+
+      '<span><span style="display:inline-block;width:12px;height:12px;background:rgba(239,68,68,.4);border-radius:3px;vertical-align:middle"></span> '+(L?'점유':'Taken')+'</span>'+
+      '<span><span style="display:inline-block;width:12px;height:12px;background:#131826;opacity:.5;border-radius:3px;vertical-align:middle"></span> '+(L?'시간 부족':'Too soon')+'</span>'+
+    '</div>';
+    // 드래그 핸들러 setup (defer 까지)
+    setTimeout(setupCalendarDrag, 50);
+    return html;
+  }
+
+  // 캘린더 드래그 앤 드롭
+  function setupCalendarDrag(){
+    var wrap = document.getElementById('cal-grid-wrap'); if(!wrap) return;
+    var source = wrap.querySelector('[data-cal-current="1"]'); if(!source) return;
+    var dragging = false, ghost = null, lastTarget = null, startX=0, startY=0;
+
+    function findDropAt(x, y){
+      var el = document.elementFromPoint(x, y);
+      if(!el) return null;
+      return el.closest('[data-cal-drop="1"]');
+    }
+    function clearTarget(){
+      if(lastTarget){
+        lastTarget.style.outline = '';
+        lastTarget.style.boxShadow = '';
+        lastTarget.style.background = 'rgba(16,185,129,.12)';
+        lastTarget = null;
       }
     }
-    if(slots.length===0) return '<div style="padding:24px;text-align:center;color:#64748b">'+(L?'가능한 시간이 없습니다.':'No open slots.')+'</div>';
-    var dn = L?['일','월','화','수','목','금','토']:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    return slots.slice(0,16).map(function(s){
-      var iso=s.date.getFullYear()+'-'+pad(s.date.getMonth()+1)+'-'+pad(s.date.getDate());
-      var picked=(p.pickedDate===iso && p.pickedHour===s.hour);
-      return '<div onclick="lcPickTime(&quot;'+iso+'&quot;,'+s.hour+')" style="padding:14px;background:'+(picked?'rgba(251,191,36,.18)':'#131826')+';border:2px solid '+(picked?'#fbbf24':'#232b40')+';border-radius:12px;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;gap:12px;transition:all .12s">'+
-        '<div style="font-size:24px;flex-shrink:0">📅</div>'+
-        '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#fff">'+iso+' ('+dn[s.date.getDay()]+')</div><div style="font-size:13px;color:#94a3b8">'+pad(s.hour)+':00 ~ '+pad(s.hour+1)+':00</div></div>'+
-        (picked?'<div style="color:#fbbf24;font-size:18px;font-weight:800">✓</div>':'<div style="color:#64748b;font-size:18px">›</div>')+
-      '</div>';
-    }).join('');
+    function setTarget(td){
+      if(lastTarget===td) return;
+      clearTarget();
+      if(!td) return;
+      td.style.outline = '3px solid #10b981';
+      td.style.boxShadow = 'inset 0 0 14px rgba(16,185,129,.45)';
+      td.style.background = 'rgba(16,185,129,.45)';
+      lastTarget = td;
+    }
+    function startDrag(clientX, clientY, e){
+      dragging = true; startX=clientX; startY=clientY;
+      ghost = document.createElement('div');
+      ghost.style.cssText = 'position:fixed;left:'+clientX+'px;top:'+clientY+'px;pointer-events:none;z-index:99999;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;padding:8px 14px;border-radius:10px;font-weight:800;font-size:13px;box-shadow:0 12px 28px rgba(245,158,11,.6);transform:translate(-50%,-50%)';
+      ghost.innerHTML = '📅 '+((window.getLang?window.getLang():'ko')==='ko'?'드롭하면 연기':'Drop to postpone');
+      document.body.appendChild(ghost);
+      source.style.opacity = '0.35';
+      document.body.style.userSelect = 'none';
+      if(e && e.preventDefault) e.preventDefault();
+    }
+    function moveDrag(clientX, clientY){
+      if(!dragging) return;
+      if(ghost){ ghost.style.left=clientX+'px'; ghost.style.top=clientY+'px'; }
+      setTarget(findDropAt(clientX, clientY));
+    }
+    function endDrag(clientX, clientY){
+      if(!dragging) return;
+      dragging = false;
+      var dropCell = findDropAt(clientX, clientY);
+      if(ghost){ ghost.remove(); ghost = null; }
+      source.style.opacity = '';
+      document.body.style.userSelect = '';
+      var captured = lastTarget;
+      clearTarget();
+      if(dropCell && dropCell.dataset.calIso){
+        lcPicker.pickedDate = dropCell.dataset.calIso;
+        lcPicker.pickedHour = parseInt(dropCell.dataset.calHour, 10);
+        showPostponeEncourage();
+      }
+    }
+
+    // 마우스 이벤트
+    source.addEventListener('mousedown', function(e){ if(e.button===0) startDrag(e.clientX, e.clientY, e); });
+    document.addEventListener('mousemove', function(e){ if(dragging) moveDrag(e.clientX, e.clientY); });
+    document.addEventListener('mouseup', function(e){ if(dragging) endDrag(e.clientX, e.clientY); });
+    // 터치 이벤트
+    source.addEventListener('touchstart', function(e){
+      var t = e.touches[0]; startDrag(t.clientX, t.clientY, e);
+    }, {passive:false});
+    document.addEventListener('touchmove', function(e){
+      if(!dragging) return;
+      var t = e.touches[0]; moveDrag(t.clientX, t.clientY);
+      e.preventDefault();
+    }, {passive:false});
+    document.addEventListener('touchend', function(e){
+      if(!dragging) return;
+      var t = e.changedTouches[0]; endDrag(t.clientX, t.clientY);
+    });
+    // ESC 취소
+    document.addEventListener('keydown', function(e){
+      if(e.key==='Escape' && dragging){ dragging=false; if(ghost){ghost.remove();ghost=null;} source.style.opacity=''; clearTarget(); document.body.style.userSelect=''; }
+    });
   }
 
   // 요일/시간 picker (변경 → time-match 모드)
