@@ -12405,18 +12405,33 @@ window.closeRulesModal = function() {
     var msg = L
       ? '실력 향상을 위해선 꾸준한 수업이 가장 중요합니다!<br><br>그래도 연기하시겠습니까?'
       : 'Consistent practice is the key to improvement!<br><br>Are you sure you want to postpone?';
-    var html = '<div style="background:linear-gradient(180deg,#1a2032 0%,#131826 100%);border:2px solid #fbbf24;border-radius:18px;max-width:440px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.6);animation:lcSlide .25s;text-align:center;margin-top:60px" onclick="event.stopPropagation()">'+
-      '<div style="padding:24px 20px 4px"><div style="font-size:54px;line-height:1;margin-bottom:8px;animation:pop .35s ease-out">💪</div></div>'+
-      '<div style="padding:0 22px;font-size:16px;font-weight:700;color:#fff;line-height:1.55;margin-bottom:6px">'+(L?'잠깐만요!':'Wait!')+'</div>'+
-      '<div style="padding:0 22px 12px;font-size:13.5px;color:#cbd5e1;line-height:1.65">'+msg+'</div>'+
-      '<div style="margin:0 22px 16px;padding:10px 14px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:10px;font-size:12.5px;color:#fde68a">'+
-        '📅 '+(L?'새 시간: ':'New time: ')+'<b style="color:#fff">'+dateISO+' '+String(hour).padStart(2,"0")+':00</b>'+
+    var html = '<div class="encourage-wrap" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;overflow-y:auto" onclick="if(event.target===this)closeEncourage()">'+
+      '<div class="encourage-card" style="background:linear-gradient(180deg,#1a2032 0%,#131826 100%);border:2px solid #fbbf24;border-radius:24px;max-width:600px;width:100%;box-shadow:0 30px 80px rgba(0,0,0,.7);animation:lcSlide .25s;text-align:center" onclick="event.stopPropagation()">'+
+        '<div style="padding:44px 32px 8px"><div class="encourage-emoji" style="font-size:96px;line-height:1;margin-bottom:14px;animation:pop .35s ease-out">💪</div></div>'+
+        '<div class="encourage-title" style="padding:0 36px;font-size:30px;font-weight:800;color:#fff;line-height:1.35;margin-bottom:14px">'+(L?'잠깐만요!':'Wait!')+'</div>'+
+        '<div class="encourage-msg" style="padding:0 36px 22px;font-size:18px;color:#cbd5e1;line-height:1.7">'+msg+'</div>'+
+        '<div class="encourage-info" style="margin:0 32px 26px;padding:18px 22px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:14px;font-size:17px;color:#fde68a">'+
+          '📅 '+(L?'새 시간: ':'New time: ')+'<b style="color:#fff">'+dateISO+' '+String(hour).padStart(2,"0")+':00</b>'+
+        '</div>'+
+        '<div class="encourage-actions" style="display:flex;gap:14px;padding:22px 32px 28px;border-top:1px solid #232b40">'+
+          '<button onclick="closeEncourage()" style="flex:1;padding:18px;border-radius:14px;background:transparent;border:1.5px solid #475569;color:#cbd5e1;font-size:18px;font-weight:800;cursor:pointer">❌ '+(L?'아니요':'No')+'</button>'+
+          '<button onclick="confirmPostponeYes()" style="flex:1;padding:18px;border-radius:14px;background:linear-gradient(135deg,#10b981,#059669);border:none;color:#fff;font-size:18px;font-weight:800;cursor:pointer;box-shadow:0 8px 20px rgba(16,185,129,.4)">✅ '+(L?'예':'Yes')+'</button>'+
+        '</div>'+
       '</div>'+
-      '<div style="display:flex;gap:8px;padding:14px 20px;border-top:1px solid #232b40">'+
-        '<button onclick="closeEncourage()" style="flex:1;padding:13px;border-radius:11px;background:transparent;border:1.5px solid #475569;color:#cbd5e1;font-size:15px;font-weight:800;cursor:pointer">❌ '+(L?'아니요':'No')+'</button>'+
-        '<button onclick="confirmPostponeYes()" style="flex:1;padding:13px;border-radius:11px;background:linear-gradient(135deg,#10b981,#059669);border:none;color:#fff;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 6px 16px rgba(16,185,129,.4)">✅ '+(L?'예':'Yes')+'</button>'+
-      '</div></div>'+
-      '<style>@keyframes pop{0%{transform:scale(0)}70%{transform:scale(1.1)}100%{transform:scale(1)}}</style>';
+    '</div>'+
+    '<style>'+
+      '@keyframes pop{0%{transform:scale(0)}70%{transform:scale(1.1)}100%{transform:scale(1)}}'+
+      '@media(max-width:600px){'+
+        '.encourage-wrap{padding:16px!important;align-items:flex-start!important;padding-top:40px!important}'+
+        '.encourage-card{max-width:100%!important;border-radius:20px!important}'+
+        '.encourage-emoji{font-size:72px!important}'+
+        '.encourage-title{font-size:24px!important;padding:0 24px!important}'+
+        '.encourage-msg{font-size:15.5px!important;padding:0 24px 18px!important}'+
+        '.encourage-info{font-size:14.5px!important;margin:0 22px 22px!important;padding:14px 18px!important}'+
+        '.encourage-actions{padding:18px 22px 22px!important;gap:10px!important}'+
+        '.encourage-actions button{padding:15px!important;font-size:16px!important}'+
+      '}'+
+    '</style>';
     var ov = document.getElementById('lc-overlay');
     ov.innerHTML = html;
     ov.classList.add('show');
