@@ -1022,165 +1022,151 @@ function renderMonthView() {
 
 // 🥭 Phase 37 — 주간 타임 그리드 뷰 (좌측 시간 09:00~24:00, 10분 단위)
 function renderWeekView() {
+  // 🥭 Phase 6 — 홈페이지 수업연기/변경 스타일과 통일된 다크 테마 캘린더
   const ws = _schedState.weekStart;
-  // 주간 라벨: "2026년 5월 3일~9일"
   const we = new Date(ws); we.setDate(ws.getDate() + 6);
   const label = ws.getFullYear() + '년 ' + (ws.getMonth()+1) + '월 ' + ws.getDate() + '일 ~ ' +
                 (we.getMonth()+1) + '월 ' + we.getDate() + '일';
   document.getElementById('sched-month-label').textContent = label;
 
-  // 시간 슬롯: 09:00 ~ 24:00 (15시간 × 6 = 90슬롯)
-  const HOUR_START = 9, HOUR_END = 24;
-  const slots = [];
-  for (let h = HOUR_START; h < HOUR_END; h++) {
-    for (let m = 0; m < 60; m += 10) slots.push({ h, m });
-  }
-  // CSS grid 행 높이 = 12px → 총 ~1080px 스크롤 영역
-  const ROW_H = 12;
-
-  const dayNames = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
-  const days = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(ws); d.setDate(ws.getDate() + i);
-    days.push(d);
-  }
-
-  // 헤더 (요일·날짜)
-  let html = '<div style="display:grid;grid-template-columns:60px repeat(7, 1fr);background:#f8fafc;border-bottom:2px solid #cbd5e1;position:sticky;top:0;z-index:5">';
-  html += '<div style="padding:8px 4px;border-right:1px solid #e2e8f0;font-size:10px;color:#94a3b8;text-align:center">시간</div>';
-  days.forEach((d, i) => {
-    const isToday = d.toDateString() === new Date().toDateString();
-    const wColor = i === 0 ? '#dc2626' : (i === 6 ? '#2563eb' : '#334155');
-    const bg = isToday ? '#fef3c7' : 'transparent';
-    html += '<div style="padding:6px 4px;text-align:center;font-size:11px;font-weight:600;color:' + wColor + ';border-right:1px solid #e2e8f0;background:' + bg + '">' +
-      dayNames[i] + '<br><span style="font-size:14px">' + d.getDate() + '</span></div>';
-  });
-  html += '</div>';
-
-  // 그리드 본체 — 90행 × 8컬럼
-  html += '<div style="display:grid;grid-template-columns:60px repeat(7, 1fr);grid-auto-rows:' + ROW_H + 'px;position:relative">';
-  // 시간 라벨 + 빈 셀
-  slots.forEach((s, idx) => {
-    const isHourMark = s.m === 0;
-    const isHalfMark = s.m === 30;
-    // 시간 라벨 (정시에만 표시)
-    html += '<div style="grid-column:1;font-size:10px;color:#64748b;text-align:right;padding:0 6px;line-height:' + ROW_H + 'px;' +
-      (isHourMark ? 'border-top:1px solid #cbd5e1;font-weight:700' : '') + '">' +
-      (isHourMark ? String(s.h).padStart(2,'0') + ':00' : '') + '</div>';
-    // 7개 요일 빈 셀
-    for (let i = 0; i < 7; i++) {
-      const borderTop = isHourMark ? '1px solid #cbd5e1' : (isHalfMark ? '1px dashed #e2e8f0' : 'none');
-      html += '<div style="grid-column:' + (i + 2) + ';border-right:1px solid #f1f5f9;border-top:' + borderTop + '"></div>';
-    }
-  });
-
-  // 클래스 블록 — enrollment 데이터에서 추출
+  const HOUR_START = 9, HOUR_END = 22; // 09:00 ~ 22:00
+  const ROW_H = 14; // 10분 슬롯 높이
+  const dayNames = ['일','월','화','수','목','금','토'];
   const dayCodes = ['sun','mon','tue','wed','thu','fri','sat'];
-  const dayKoMap = ['일','월','화','수','목','금','토'];
-  const enrolls = _schedState.enrollments;
+  const dowToIdx = { sun:0, mon:1, tue:2, wed:3, thu:4, fri:5, sat:6 };
+  const days = [];
+  for (let i = 0; i < 7; i++) { const d = new Date(ws); d.setDate(ws.getDate()+i); days.push(d); }
+  const todayDateStr = new Date().toDateString();
 
-  for (const enr of enrolls) {
+  // ────────────── 점유 시간 계산 (모든 등록 + AI 스케줄을 합쳐서) ──────────────
+  // busy[colIdx][slotIdx] = { kind:'enrollment'|'ai', meta:{...} }
+  const busy = {};
+  const setBusy = (colIdx, slotIdx, info) => {
+    if (!busy[colIdx]) busy[colIdx] = {};
+    if (!busy[colIdx][slotIdx]) busy[colIdx][slotIdx] = info;
+  };
+  // 1) 기존 enrollments
+  for (const enr of (_schedState.enrollments || [])) {
     const startMs = enr.started_at;
-    const startDate = startMs ? new Date(typeof startMs === 'number' ? startMs : startMs) : null;
-    if (startDate && we < startDate) continue;
-    if (enr.end_date) {
-      const endDate = new Date(enr.end_date);
-      if (endDate < ws) continue;
-    }
+    const sd = startMs ? new Date(typeof startMs === 'number' ? startMs : startMs) : null;
+    if (sd && we < sd) continue;
+    if (enr.end_date) { const ed = new Date(enr.end_date); if (ed < ws) continue; }
     const daysField = String(enr.days_of_week || enr.package || '');
     const timeField = String(enr.time || '');
-    // 각 요일 검사
     for (let i = 0; i < 7; i++) {
-      const ko = dayKoMap[i];
-      const cd = dayCodes[i];
+      const ko = dayNames[i], cd = dayCodes[i];
       if (!daysField.includes(ko) && !daysField.toLowerCase().includes(cd)) continue;
-      // 해당 요일의 시간 추출
       let timeStr = timeField;
       const perDay = timeField.match(new RegExp(ko + '\\s*(\\d{1,2}:\\d{2})'));
       if (perDay) timeStr = perDay[1];
       const tm = timeStr.match(/(\d{1,2}):(\d{2})/);
       if (!tm) continue;
-      const hh = parseInt(tm[1], 10), mm = parseInt(tm[2], 10);
+      const hh = parseInt(tm[1],10), mm = parseInt(tm[2],10);
       if (hh < HOUR_START || hh >= HOUR_END) continue;
-      // 슬롯 인덱스 (0 ~ 89)
-      const slotIdx = (hh - HOUR_START) * 6 + Math.floor(mm / 10);
-      // 20분 길이 = 2슬롯
-      const durSlots = 2;
-      // 이 날짜의 클래스 블록 렌더
       const dayDate = days[i];
-      // 시작/종료 검증
-      if (startDate && dayDate < startDate) continue;
-      if (enr.end_date) {
-        const endDate = new Date(enr.end_date);
-        if (dayDate > endDate) continue;
-      }
-      const colors = _typeColors(enr.type || '정규수업');
-      const top = slotIdx * ROW_H;
-      const height = durSlots * ROW_H - 2;
-      // 🥭 Phase 37b — 정확한 컬럼 위치 계산
-      // 각 요일 컬럼 폭 = (parent_width - 60px) / 7
-      // 컬럼 i 시작 = 60px + i × ((100% - 60px) / 7)
-      const leftCalc = 'calc(60px + (100% - 60px) * ' + i + ' / 7 + 2px)';
-      const widthCalc = 'calc((100% - 60px) / 7 - 6px)';
-      html += '<div style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';' +
-        'top:' + top + 'px;height:' + height + 'px;' +
-        'background:' + colors.bg + ';border-left:3px solid ' + colors.border + ';border-radius:3px;padding:2px 5px;' +
-        'font-size:10px;color:' + colors.text + ';line-height:1.2;overflow:hidden;cursor:pointer;z-index:2;box-shadow:0 1px 3px rgba(0,0,0,0.1)" ' +
-        'title="' + (enr.teacher_name || 'Teacher') + ' / ' + (enr.type || '정규수업') + ' / ' + timeStr + ' / 20분">' +
-        '<div style="font-weight:700;font-size:9px">' + (enr.type || '정규수업').substring(0,4) + '</div>' +
-        '<div style="font-weight:600">' + (enr.teacher_name || 'TBD') + '</div>' +
-        '<div style="font-size:9px">' + timeStr + ' (' + (enr.class_size || '1:1') + ')</div>' +
-        '</div>';
+      if (sd && dayDate < sd) continue;
+      if (enr.end_date) { const ed = new Date(enr.end_date); if (dayDate > ed) continue; }
+      const slotIdx = (hh - HOUR_START)*6 + Math.floor(mm/10);
+      // 60분 점유 (6슬롯)
+      for (let s = 0; s < 6; s++) setBusy(i, slotIdx + s, {
+        kind: 'enrollment', type: enr.type || '정규수업', teacher: enr.teacher_name || 'TBD',
+        time: timeStr, head: (s === 0)
+      });
     }
   }
-
-  // 🥭 Phase 3-1 (수정): AI 등록 class_schedules 오버레이 (점선 + ⭐)
-  const aiTypeColors = {
-    level_test: { bg:'#dbeafe', border:'#1d4ed8', text:'#1e3a8a', name:'레벨테스트' },
-    trial:      { bg:'#dcfce7', border:'#047857', text:'#064e3b', name:'체험수업' },
-    regular:    { bg:'#fef3c7', border:'#b45309', text:'#78350f', name:'정규수업' }
-  };
-  const dowToIdx = { sun:0, mon:1, tue:2, wed:3, thu:4, fri:5, sat:6 };
+  // 2) AI 스케줄
+  const aiTypeName = { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
   for (const sch of (_schedState.aiSchedules || [])) {
     if (sch.status === 'cancelled') continue;
     const tm = String(sch.start_time||'').match(/^(\d{1,2}):(\d{2})$/);
     if (!tm) continue;
     const hh = parseInt(tm[1],10), mm = parseInt(tm[2],10);
     if (hh < HOUR_START || hh >= HOUR_END) continue;
-    const colors = aiTypeColors[sch.class_type] || aiTypeColors.regular;
+    const slotIdx = (hh - HOUR_START)*6 + Math.floor(mm/10);
     if (sch.schedule_kind === 'recurring' && sch.day_of_week) {
-      const dows = String(sch.day_of_week).split(',');
-      for (const dCode of dows) {
-        const i = dowToIdx[dCode];
-        if (i === undefined) continue;
-        const slotIdx = (hh - HOUR_START)*6 + Math.floor(mm/10);
-        const top = slotIdx * ROW_H;
-        const height = 2 * ROW_H - 2;
-        const leftCalc = 'calc(60px + (100% - 60px) * ' + i + ' / 7 + 2px)';
-        const widthCalc = 'calc((100% - 60px) / 7 - 6px)';
-        html += '<div style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';top:' + top + 'px;height:' + height + 'px;background:' + colors.bg + ';border:2px dashed ' + colors.border + ';border-radius:5px;padding:2px 5px;font-size:10px;color:' + colors.text + ';line-height:1.2;overflow:hidden;cursor:pointer;z-index:3;box-shadow:0 2px 6px rgba(0,0,0,0.15)" title="🤖 AI 등록 / ' + colors.name + ' / ' + sch.start_time + '">' +
-          '<div style="font-weight:700;font-size:9px">⭐ ' + colors.name.substring(0,4) + '</div>' +
-          '<div style="font-weight:600">🤖 ' + (sch.teacher_name || 'AI') + '</div>' +
-          '<div style="font-size:9px">' + sch.start_time + '</div></div>';
-      }
+      String(sch.day_of_week).split(',').forEach(dCode => {
+        const i = dowToIdx[dCode]; if (i === undefined) return;
+        for (let s = 0; s < 6; s++) setBusy(i, slotIdx + s, {
+          kind: 'ai', type: aiTypeName[sch.class_type] || '정규수업',
+          teacher: sch.teacher_name || 'AI', time: sch.start_time, head: (s === 0)
+        });
+      });
     } else if (sch.scheduled_date) {
       const sdate = new Date(sch.scheduled_date + 'T00:00:00');
       for (let i = 0; i < 7; i++) {
         if (days[i].toDateString() !== sdate.toDateString()) continue;
-        const slotIdx = (hh - HOUR_START)*6 + Math.floor(mm/10);
-        const top = slotIdx * ROW_H;
-        const height = 2 * ROW_H - 2;
-        const leftCalc = 'calc(60px + (100% - 60px) * ' + i + ' / 7 + 2px)';
-        const widthCalc = 'calc((100% - 60px) / 7 - 6px)';
-        html += '<div style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';top:' + top + 'px;height:' + height + 'px;background:' + colors.bg + ';border:2px dashed ' + colors.border + ';border-radius:5px;padding:2px 5px;font-size:10px;color:' + colors.text + ';line-height:1.2;overflow:hidden;cursor:pointer;z-index:3;box-shadow:0 2px 6px rgba(0,0,0,0.15)" title="🤖 AI 등록 / ' + colors.name + ' / ' + sch.scheduled_date + ' ' + sch.start_time + '">' +
-          '<div style="font-weight:700;font-size:9px">⭐ ' + colors.name.substring(0,4) + '</div>' +
-          '<div style="font-weight:600">🤖 ' + (sch.teacher_name || 'AI') + '</div>' +
-          '<div style="font-size:9px">' + sch.start_time + '</div></div>';
+        for (let s = 0; s < 6; s++) setBusy(i, slotIdx + s, {
+          kind: 'ai', type: aiTypeName[sch.class_type] || '정규수업',
+          teacher: sch.teacher_name || 'AI', time: sch.start_time, head: (s === 0)
+        });
         break;
       }
     }
   }
+
+  // ────────────── HTML 렌더 (다크 테마) ──────────────
+  let html = '<div style="background:#131826;border-radius:12px;overflow:hidden;border:1px solid #232b40">';
+  // 헤더 (요일·날짜)
+  html += '<div style="display:grid;grid-template-columns:50px repeat(7,1fr);background:#1a2032;border-bottom:1px solid #232b40;position:sticky;top:0;z-index:5">';
+  html += '<div style="padding:10px 0;text-align:center;color:#94a3b8;font-size:11px;font-weight:700"></div>';
+  days.forEach((d,i) => {
+    const isToday = d.toDateString() === todayDateStr;
+    const wColor = i === 0 ? '#f87171' : (i === 6 ? '#60a5fa' : (isToday ? '#fbbf24' : '#cbd5e1'));
+    html += '<div style="padding:8px 0;text-align:center;color:' + wColor + ';font-weight:700;line-height:1.3">' +
+      '<div style="font-size:11.5px">' + dayNames[i] + '</div>' +
+      '<div style="font-size:18px;font-weight:800;margin-top:2px;color:' + (isToday?'#fbbf24':'#fff') + '">' + d.getDate() + '</div>' +
+    '</div>';
+  });
   html += '</div>';
+  // 시간 그리드 본체 (스크롤)
+  html += '<div style="position:relative;overflow-y:auto;max-height:62vh"><div style="display:grid;grid-template-columns:50px repeat(7,1fr);grid-auto-rows:' + ROW_H + 'px;background:#131826">';
+
+  // 한 시간(60분) = 6 슬롯, 09~22까지 14시간 = 84 슬롯
+  for (let hh = HOUR_START; hh < HOUR_END; hh++) {
+    for (let mm = 0; mm < 60; mm += 10) {
+      const isHour = (mm === 0);
+      const slotIdx = (hh - HOUR_START)*6 + (mm/10);
+      // 시간 라벨 컬럼
+      html += '<div style="grid-column:1;padding:0 4px;text-align:right;font-size:' + (isHour?'11':'9') + 'px;color:' + (isHour?'#fbbf24':'#475569') + ';font-weight:' + (isHour?'800':'600') + ';line-height:' + ROW_H + 'px;border-top:' + (isHour?'1px solid #232b40':'1px dashed rgba(35,43,64,0.5)') + ';background:' + (isHour?'#0f172a':'transparent') + '">' +
+        (isHour ? String(hh).padStart(2,'0')+':00' : ':' + String(mm).padStart(2,'0')) +
+      '</div>';
+      // 7개 요일 컬럼
+      for (let i = 0; i < 7; i++) {
+        const slot = busy[i] && busy[i][slotIdx];
+        const isToday = days[i].toDateString() === todayDateStr;
+        const baseTopBorder = isHour ? '1px solid #232b40' : (mm === 30 ? '1px dashed rgba(35,43,64,0.5)' : 'none');
+        if (!slot) {
+          // 빈 시간 = 초록 틴트 (가용)
+          html += '<div style="grid-column:' + (i+2) + ';border-right:1px solid rgba(35,43,64,0.5);border-top:' + baseTopBorder + ';background:' + (isToday?'rgba(251,191,36,0.04)':'rgba(16,185,129,0.04)') + '"></div>';
+        } else if (slot.head) {
+          // 점유 첫 슬롯 = 큰 색상 블록 (60분 차지)
+          const isAi = slot.kind === 'ai';
+          const colorMap = {
+            '레벨테스트': { bg:'rgba(59,130,246,0.7)', border:'#3b82f6', text:'#fff' },
+            '체험수업':   { bg:'rgba(16,185,129,0.7)', border:'#10b981', text:'#fff' },
+            '정규수업':   { bg:'rgba(245,158,11,0.7)', border:'#f59e0b', text:'#fff' }
+          };
+          const c = colorMap[slot.type] || colorMap['정규수업'];
+          html += '<div style="grid-column:' + (i+2) + ';grid-row:span 6;background:' + c.bg + ';border:' + (isAi?'2px dashed':'2px solid') + ' ' + c.border + ';border-radius:6px;margin:1px;padding:3px 6px;color:' + c.text + ';font-size:10px;line-height:1.25;overflow:hidden;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.4);position:relative;z-index:2" title="' + (isAi?'🤖 AI 등록 / ':'') + slot.type + ' / ' + slot.teacher + ' / ' + slot.time + '">' +
+            '<div style="font-weight:800;font-size:9.5px">' + (isAi?'⭐ ':'') + slot.type.substring(0,4) + '</div>' +
+            '<div style="font-weight:700;font-size:10.5px">' + (isAi?'🤖 ':'') + slot.teacher + '</div>' +
+            '<div style="font-size:10px;margin-top:1px">' + slot.time + '</div>' +
+          '</div>';
+        }
+        // slot.head 가 false 인 슬롯은 위 grid-row:span 6 가 차지하므로 별도 cell 안 그림
+      }
+    }
+  }
+  html += '</div></div>';
+  // 범례 (legend) - 하단
+  html += '<div style="background:#1a2032;border-top:1px solid #232b40;padding:8px 12px;display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:#94a3b8">' +
+    '<span><span style="display:inline-block;width:14px;height:14px;background:rgba(59,130,246,0.7);border:2px solid #3b82f6;border-radius:3px;vertical-align:middle"></span> 레벨테스트</span>' +
+    '<span><span style="display:inline-block;width:14px;height:14px;background:rgba(16,185,129,0.7);border:2px solid #10b981;border-radius:3px;vertical-align:middle"></span> 체험수업</span>' +
+    '<span><span style="display:inline-block;width:14px;height:14px;background:rgba(245,158,11,0.7);border:2px solid #f59e0b;border-radius:3px;vertical-align:middle"></span> 정규수업</span>' +
+    '<span style="margin-left:auto"><span style="display:inline-block;width:14px;height:14px;background:rgba(245,158,11,0.7);border:2px dashed #f59e0b;border-radius:3px;vertical-align:middle"></span> ⭐ AI 등록 (점선)</span>' +
+  '</div>';
+  html += '</div>';
+
   document.getElementById('sched-calendar').innerHTML = html;
 }
 
