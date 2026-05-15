@@ -31,31 +31,36 @@ database_id = "80a12a77-4d79-4abd-aa9e-f5e39a7b5cf5"
 binding = "RECORDINGS"
 bucket_name = "webrtc-class-recordings"
 
-# 🥭 Phase 21 — Workers AI 바인딩 (검색창 AI 명령 기능)
+# Phase 21 - Workers AI binding (search bar AI command feature)
 [ai]
 binding = "AI"
 
 [vars]
 MAX_RECORDING_MB = "500"
 ALLOWED_RECORDING_MIME = "video/webm,video/mp4,audio/webm,audio/mp4"
-# 🩺 /admin/health 의 "마지막 배포" 타일에 표시되는 식별자.
-#    fix-and-deploy.ps1 이 커밋 직전 자동으로 현재 시각+단축해시로 갱신.
-BUILD_STAMP = "2026-05-03T09:59:04Z"
+# /admin/health "Last Deploy" tile identifier - auto-updated by fix-and-deploy.ps1
+BUILD_STAMP = "2026-05-15T00:00:00Z"
 
 [assets]
 directory = "./public"
 binding = "ASSETS"
-# ★ 모든 요청을 Worker 가 먼저 받도록 강제 (boolean — Wrangler 4 구버전 호환)
-#   이게 없으면 CF Assets 가 /api/* 같은 매칭 안 되는 경로에 대해 SPA fallback 으로
-#   index.html 을 대신 반환해버려서 Worker 의 /api/dashboard 핸들러가 실행되지 못함.
-#   Worker 가 먼저 받으면 src/index.ts 에서 API/WS 라우팅 후, 나머지는 env.ASSETS.fetch 로 위임.
+# Force all requests to hit Worker first (boolean - Wrangler 4 backwards-compat)
+# Without this, CF Assets returns index.html via SPA fallback for unmatched routes
+# like /api/*, blocking the Worker's /api/dashboard handler.
+# Worker-first lets src/index.ts route API/WS, then env.ASSETS.fetch handles the rest.
 run_worker_first = true
 not_found_handling = "none"
-html_handling = "none" 
+html_handling = "none"
 
-# ===== Production 환경 (Wrangler 4: 바인딩 상속 안 됨 → 전부 재명시) =====
+# ===== Production environment (Wrangler 4: bindings NOT inherited - must redeclare) =====
 [env.production]
 name = "webrtc-unified-platform-prod"
+
+# Wrangler 4 also requires [[migrations]] to be redeclared per env.
+# Missing this causes prod deploy error code 10097 (Free plan + DO + sqlite_classes).
+[[env.production.migrations]]
+tag = "v1"
+new_sqlite_classes = ["SignalingRoom", "VideoCallRoom"]
 
 [[env.production.durable_objects.bindings]]
 name = "SIGNALING_ROOM"
@@ -82,18 +87,18 @@ database_id = "80a12a77-4d79-4abd-aa9e-f5e39a7b5cf5"
 binding = "RECORDINGS"
 bucket_name = "webrtc-class-recordings"
 
-# 🥭 Phase 21 — Workers AI 바인딩 (production)
+# Phase 21 - Workers AI binding (production)
 [env.production.ai]
 binding = "AI"
 
 [env.production.vars]
 MAX_RECORDING_MB = "500"
 ALLOWED_RECORDING_MIME = "video/webm,video/mp4,audio/webm,audio/mp4"
-BUILD_STAMP = "2026-05-03T09:59:04Z"
+BUILD_STAMP = "2026-05-15T00:00:00Z"
 
 [env.production.assets]
 directory = "./public"
 binding = "ASSETS"
 run_worker_first = true
 not_found_handling = "none"
-html_handling = "none" 
+html_handling = "none"
