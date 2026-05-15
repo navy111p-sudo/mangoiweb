@@ -13646,13 +13646,70 @@ window.closeRulesModal = function() {
     // 로그인된 학생의 수업으로 demoClasses 교체 후 원래 모달 호출
     var s = window.__demoStudents[u.uid];
     if(s && Array.isArray(s.classes)){
-      // 기존 closure 내 demoClasses 를 직접 못 만지므로,
-      // 새 모달을 직접 그림 (원래와 같은 구조)
-      renderMyClassList(s);
+      // 🥭 Phase 5: AI 등록 class_schedules 도 fetch 해서 머지 (실시간 반영)
+      mergeAiSchedulesAndRender(u.uid, s);
     } else {
       origOpen.call(window);
     }
   };
+
+  // 🥭 Phase 5: D1 class_schedules 를 fetch → student.classes 와 머지 → 모달 렌더
+  async function mergeAiSchedulesAndRender(uid, student){
+    var merged = Object.assign({}, student, { classes: (student.classes||[]).slice() });
+    try {
+      var r = await fetch('/api/admin/class-schedules?user_id=' + encodeURIComponent(uid), { credentials:'include' });
+      var j = await r.json();
+      if (j && j.ok && Array.isArray(j.items)) {
+        var dowIdx = { sun:0, mon:1, tue:2, wed:3, thu:4, fri:5, sat:6 };
+        var typeNames = { level_test:'레벨테스트', trial:'체험수업', regular:'정규수업' };
+        var todayMid = new Date(); todayMid.setHours(0,0,0,0);
+        for (var ai of j.items) {
+          if (ai.status === 'cancelled') continue;
+          var tm = String(ai.start_time||'').match(/^(\d{1,2}):(\d{2})$/);
+          if (!tm) continue;
+          var hh = parseInt(tm[1],10), mm = parseInt(tm[2],10);
+          if (ai.schedule_kind === 'recurring' && ai.day_of_week) {
+            // 향후 4주의 매주 occurrences 만들어 머지
+            var dows = String(ai.day_of_week).split(',').map(function(d){return dowIdx[d];}).filter(function(x){return x!==undefined;});
+            for (var w = 0; w < 4; w++) {
+              for (var di of dows) {
+                var d = new Date(todayMid);
+                var add = ((di - d.getDay() + 7) % 7) + (w * 7);
+                if (add === 0 && w === 0) continue; // 오늘은 이미 지났을 가능성 → 건너뜀
+                d.setDate(d.getDate() + add);
+                merged.classes.push({
+                  id: 'ai_' + ai.id + '_w' + w + '_d' + di,
+                  type: ai.class_type === 'trial' ? 'temp' : '1on1',
+                  teacher: '🤖 AI: ' + (ai.teacher_name || (typeNames[ai.class_type]||'정규')),
+                  lessonDate: d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'),
+                  lessonHour: hh,
+                  durationMin: 30,
+                  __aiSchedule: true
+                });
+              }
+            }
+          } else if (ai.scheduled_date) {
+            merged.classes.push({
+              id: 'ai_' + ai.id,
+              type: ai.class_type === 'trial' ? 'temp' : '1on1',
+              teacher: '🤖 AI: ' + (ai.teacher_name || (typeNames[ai.class_type]||'정규')),
+              lessonDate: ai.scheduled_date,
+              lessonHour: hh,
+              durationMin: 30,
+              __aiSchedule: true
+            });
+          }
+        }
+        // 시간순 정렬
+        merged.classes.sort(function(a,b){
+          var da = (a.lessonDate||'') + (String(a.lessonHour||0).padStart(2,'0'));
+          var db = (b.lessonDate||'') + (String(b.lessonHour||0).padStart(2,'0'));
+          return da.localeCompare(db);
+        });
+      }
+    } catch(e) { console.warn('[lc] AI schedules fetch failed:', e); }
+    renderMyClassList(merged);
+  }
 
   function renderMyClassList(student){
     var L = (window.getLang?window.getLang():'ko')==='ko';

@@ -925,7 +925,7 @@ function closeMsg() {
 }
 // 🥭 Phase 35/37 — 학생 스케줄 배치표 (월간/주간 캘린더 모달)
 let _schedState = { studentId: null, studentName: '', uid: '', year: 0, month: 0,
-                    weekStart: null, view: 'week', enrollments: [] };
+                    weekStart: null, view: 'week', enrollments: [], aiSchedules: [] };
 
 function openScheduleCalendar(studentId, studentName, uid) {
   _schedState.studentId = studentId;
@@ -952,12 +952,15 @@ function closeScheduleCalendar() {
 
 async function loadStudentEnrollments(uid) {
   _schedState.enrollments = [];
+  _schedState.aiSchedules = [];
   if (!uid) return;
-  try {
-    const r = await fetch('/api/admin/enrollments?user_id=' + encodeURIComponent(uid), { credentials: 'include' });
-    const d = await r.json().catch(() => ({}));
-    if (d.ok && d.items) _schedState.enrollments = d.items;
-  } catch (e) { console.warn('[sched] enrollments fetch failed:', e); }
+  // 병렬 로드: enrollments + AI 등록 class_schedules
+  const [enrR, aiR] = await Promise.all([
+    fetch('/api/admin/enrollments?user_id=' + encodeURIComponent(uid), { credentials: 'include' }).then(r=>r.json()).catch(()=>({})),
+    fetch('/api/admin/class-schedules?user_id=' + encodeURIComponent(uid), { credentials: 'include' }).then(r=>r.json()).catch(()=>({}))
+  ]);
+  if (enrR.ok && enrR.items) _schedState.enrollments = enrR.items;
+  if (aiR.ok && aiR.items) _schedState.aiSchedules = aiR.items;
 }
 
 function renderScheduleCalendar() {
@@ -1116,6 +1119,53 @@ function renderWeekView() {
         '<div style="font-weight:600">' + (enr.teacher_name || 'TBD') + '</div>' +
         '<div style="font-size:9px">' + timeStr + ' (' + (enr.class_size || '1:1') + ')</div>' +
         '</div>';
+    }
+  }
+
+  // 🥭 Phase 3-1 (수정): AI 등록 class_schedules 오버레이 (점선 + ⭐)
+  const aiTypeColors = {
+    level_test: { bg:'#dbeafe', border:'#1d4ed8', text:'#1e3a8a', name:'레벨테스트' },
+    trial:      { bg:'#dcfce7', border:'#047857', text:'#064e3b', name:'체험수업' },
+    regular:    { bg:'#fef3c7', border:'#b45309', text:'#78350f', name:'정규수업' }
+  };
+  const dowToIdx = { sun:0, mon:1, tue:2, wed:3, thu:4, fri:5, sat:6 };
+  for (const sch of (_schedState.aiSchedules || [])) {
+    if (sch.status === 'cancelled') continue;
+    const tm = String(sch.start_time||'').match(/^(\d{1,2}):(\d{2})$/);
+    if (!tm) continue;
+    const hh = parseInt(tm[1],10), mm = parseInt(tm[2],10);
+    if (hh < HOUR_START || hh >= HOUR_END) continue;
+    const colors = aiTypeColors[sch.class_type] || aiTypeColors.regular;
+    if (sch.schedule_kind === 'recurring' && sch.day_of_week) {
+      const dows = String(sch.day_of_week).split(',');
+      for (const dCode of dows) {
+        const i = dowToIdx[dCode];
+        if (i === undefined) continue;
+        const slotIdx = (hh - HOUR_START)*6 + Math.floor(mm/10);
+        const top = slotIdx * ROW_H;
+        const height = 2 * ROW_H - 2;
+        const leftCalc = 'calc(60px + (100% - 60px) * ' + i + ' / 7 + 2px)';
+        const widthCalc = 'calc((100% - 60px) / 7 - 6px)';
+        html += '<div style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';top:' + top + 'px;height:' + height + 'px;background:' + colors.bg + ';border:2px dashed ' + colors.border + ';border-radius:5px;padding:2px 5px;font-size:10px;color:' + colors.text + ';line-height:1.2;overflow:hidden;cursor:pointer;z-index:3;box-shadow:0 2px 6px rgba(0,0,0,0.15)" title="🤖 AI 등록 / ' + colors.name + ' / ' + sch.start_time + '">' +
+          '<div style="font-weight:700;font-size:9px">⭐ ' + colors.name.substring(0,4) + '</div>' +
+          '<div style="font-weight:600">🤖 ' + (sch.teacher_name || 'AI') + '</div>' +
+          '<div style="font-size:9px">' + sch.start_time + '</div></div>';
+      }
+    } else if (sch.scheduled_date) {
+      const sdate = new Date(sch.scheduled_date + 'T00:00:00');
+      for (let i = 0; i < 7; i++) {
+        if (days[i].toDateString() !== sdate.toDateString()) continue;
+        const slotIdx = (hh - HOUR_START)*6 + Math.floor(mm/10);
+        const top = slotIdx * ROW_H;
+        const height = 2 * ROW_H - 2;
+        const leftCalc = 'calc(60px + (100% - 60px) * ' + i + ' / 7 + 2px)';
+        const widthCalc = 'calc((100% - 60px) / 7 - 6px)';
+        html += '<div style="position:absolute;left:' + leftCalc + ';width:' + widthCalc + ';top:' + top + 'px;height:' + height + 'px;background:' + colors.bg + ';border:2px dashed ' + colors.border + ';border-radius:5px;padding:2px 5px;font-size:10px;color:' + colors.text + ';line-height:1.2;overflow:hidden;cursor:pointer;z-index:3;box-shadow:0 2px 6px rgba(0,0,0,0.15)" title="🤖 AI 등록 / ' + colors.name + ' / ' + sch.scheduled_date + ' ' + sch.start_time + '">' +
+          '<div style="font-weight:700;font-size:9px">⭐ ' + colors.name.substring(0,4) + '</div>' +
+          '<div style="font-weight:600">🤖 ' + (sch.teacher_name || 'AI') + '</div>' +
+          '<div style="font-size:9px">' + sch.start_time + '</div></div>';
+        break;
+      }
     }
   }
   html += '</div>';
