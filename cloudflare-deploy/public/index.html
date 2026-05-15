@@ -5078,6 +5078,8 @@ const vcBg = {
   originalVideoTrack: null,
   isProcessing: false,
   hiddenVideo: null,     // segmenter 입력 전용 숨겨진 비디오 (원본 카메라)
+  sending: false,        // 동시 send() 방지 플래그
+  lastVideoTime: -1,     // 동일 프레임 중복 송신 방지
 };
 
 // --- 1) 테마별 배경 이미지 생성 (단일 캔버스, 1280x720, 자체 렌더) ---
@@ -5202,7 +5204,7 @@ function vcLoadMediaPipe(){
   if (vcBg.mpLoading) return vcBg.mpLoading;
   vcBg.mpLoading = new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/selfie_segmentation.js';
+    s.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1632777926/selfie_segmentation.js';
     s.crossOrigin = 'anonymous';
     s.onload = () => { vcBg.mpLoaded = true; resolve(); };
     s.onerror = (e) => reject(new Error('MediaPipe 로드 실패. 네트워크 확인 후 다시 시도해 주세요.'));
@@ -5216,7 +5218,7 @@ async function vcInitBgEngine(){
   if (vcBg.segmenter) return;
   if (typeof SelfieSegmentation === 'undefined') throw new Error('MediaPipe 로드 안됨');
   vcBg.segmenter = new SelfieSegmentation({
-    locateFile: (f) => 'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/' + f
+    locateFile: (f) => 'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1632777926/' + f
   });
   vcBg.segmenter.setOptions({ modelSelection: 1, selfieMode: false });
   vcBg.segmenter.onResults(vcOnSegResults);
@@ -5254,24 +5256,37 @@ function vcOnSegResults(results){
 }
 
 // --- 5) 처리 루프 (숨겨진 카메라 비디오 → segmenter) ---
-//     ⚠ 중요: 보이는 vc-local-video 는 캔버스 출력으로 바뀌므로
-//     segmenter 입력은 반드시 별도 hiddenVideo (원본 카메라) 를 사용해야 함.
-//     이 분리를 안 하면 segmenter 가 자기 출력을 다시 입력으로 받아 검정 루프 발생.
+//     ⚠ segmenter 입력은 반드시 별도 hiddenVideo (원본 카메라) - 자기참조 루프 방지
+//     ⚠ busy 플래그 + currentTime 체크 - WASM "memory access out of bounds" 방지
 async function vcBgRenderLoop(){
   if (!vcBg.isProcessing) return;
   const v = vcBg.hiddenVideo;
-  if (v && v.readyState >= 2 && vcBg.segmenter && v.videoWidth > 0) {
-    try { await vcBg.segmenter.send({ image: v }); } catch(e){ console.warn('[vc-bg] send 실패:', e); }
+  // 까다로운 가드: ready, 사이즈 OK, segmenter 준비, 이전 송신 완료, 새 프레임
+  if (v && v.readyState >= 3 && v.videoWidth > 0 && v.videoHeight > 0
+      && vcBg.segmenter && !vcBg.sending
+      && v.currentTime !== vcBg.lastVideoTime) {
+    vcBg.sending = true;
+    vcBg.lastVideoTime = v.currentTime;
+    try {
+      await vcBg.segmenter.send({ image: v });
+    } catch(e) {
+      console.warn('[vc-bg] send 실패 (계속 진행):', e && e.message || e);
+    } finally {
+      vcBg.sending = false;
+    }
   }
   vcBg.rafId = requestAnimationFrame(vcBgRenderLoop);
 }
 
 // --- 5-b) 숨겨진 카메라 비디오 준비 (원본 스트림 → segmenter 입력) ---
+//     ⚠ 너무 작은 사이즈(1x1)면 브라우저가 렌더링 최적화로 빈 프레임 → WASM 에러
+//     실 사이즈 (320x240) 로 두고 left:-9999px 로 화면 밖에 배치
 async function vcEnsureHiddenVideo(){
   if (!vcBg.hiddenVideo) {
     const hv = document.createElement('video');
     hv.autoplay = true; hv.muted = true; hv.playsInline = true;
-    hv.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px;top:-9999px';
+    hv.setAttribute('playsinline', '');
+    hv.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:320px;height:240px;visibility:hidden;pointer-events:none';
     document.body.appendChild(hv);
     vcBg.hiddenVideo = hv;
   }
@@ -5280,16 +5295,22 @@ async function vcEnsureHiddenVideo(){
     vcBg.hiddenVideo.srcObject = vcLocalStream;
   }
   try { await vcBg.hiddenVideo.play(); } catch(e) {}
-  // 비디오 메타데이터 로딩 대기 (videoWidth>0)
-  if (vcBg.hiddenVideo.videoWidth === 0) {
+  // 비디오 메타데이터 + 첫 프레임 로딩 대기
+  if (vcBg.hiddenVideo.videoWidth === 0 || vcBg.hiddenVideo.readyState < 2) {
     await new Promise((resolve) => {
-      const handler = () => { vcBg.hiddenVideo.removeEventListener('loadedmetadata', handler); resolve(); };
-      vcBg.hiddenVideo.addEventListener('loadedmetadata', handler);
-      // 안전 타임아웃 (1.5초)
-      setTimeout(resolve, 1500);
+      const ok = () => {
+        if (vcBg.hiddenVideo.videoWidth > 0 && vcBg.hiddenVideo.readyState >= 2) {
+          vcBg.hiddenVideo.removeEventListener('loadeddata', ok);
+          vcBg.hiddenVideo.removeEventListener('canplay', ok);
+          resolve();
+        }
+      };
+      vcBg.hiddenVideo.addEventListener('loadeddata', ok);
+      vcBg.hiddenVideo.addEventListener('canplay', ok);
+      setTimeout(resolve, 2500); // 안전 타임아웃 2.5초
     });
   }
-  // 캔버스 사이즈를 카메라 해상도에 맞춤 (있는 경우)
+  // 캔버스 사이즈를 카메라 해상도에 맞춤
   if (vcBg.canvas && vcBg.hiddenVideo.videoWidth > 0) {
     vcBg.canvas.width = vcBg.hiddenVideo.videoWidth;
     vcBg.canvas.height = vcBg.hiddenVideo.videoHeight;
