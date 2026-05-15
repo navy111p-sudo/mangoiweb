@@ -2192,8 +2192,9 @@ function renderDSchedWeek() {
     const hh = parseInt(tm[1],10), mm = parseInt(tm[2],10);
     if (hh < HOUR_START || hh >= HOUR_END) continue;
     const colors = aiTypeColors[sch.class_type] || aiTypeColors.regular;
-    if (sch.schedule_kind === 'recurring' && sch.day_of_week) {
-      const dows = sch.day_of_week.split(',');
+    // Phase 7c: data-driven matching
+    if (sch.day_of_week) {
+      const dows = String(sch.day_of_week).split(',').map(s => s.trim()).filter(Boolean);
       for (const dCode of dows) {
         const i = dowToIdx[dCode];
         if (i === undefined) continue;

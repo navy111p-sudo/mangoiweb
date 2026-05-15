@@ -1076,7 +1076,14 @@ function renderWeekView() {
     aiSummary = '<div style="background:linear-gradient(135deg,rgba(251,191,36,0.12),rgba(245,158,11,0.08));border:1px solid rgba(251,191,36,0.4);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:12.5px;color:#fde68a">';
     aiSummary += '<span style="font-weight:700">⭐ AI 등록 스케줄 (' + aiList.length + '건):</span>';
     aiList.forEach(s => {
-      const days_label = s.day_of_week ? '매주 ' + s.day_of_week.split(',').map(d => dayKo[dowToIdx[d]] || d).join('·') + '요일' : (s.scheduled_date || '');
+      let days_label;
+      if (s.day_of_week) {
+        days_label = '매주 ' + String(s.day_of_week).split(',').filter(Boolean).map(d => dayKo[dowToIdx[d.trim()]] || d).join('·') + '요일';
+      } else if (s.scheduled_date) {
+        days_label = '📅 ' + s.scheduled_date;
+      } else {
+        days_label = '(시간만)';
+      }
       const tName = aiTypeName[s.class_type] || s.class_type;
       aiSummary += '<span style="background:rgba(0,0,0,0.3);padding:3px 10px;border-radius:8px;color:#fff;font-weight:600">' +
         days_label + ' · <b style="color:#fbbf24">' + s.start_time + '</b> · ' + tName +
@@ -1186,12 +1193,14 @@ function renderWeekView() {
       '</div>';
     };
 
-    if (sch.schedule_kind === 'recurring' && sch.day_of_week) {
-      String(sch.day_of_week).split(',').forEach(dCode => {
-        const i = dowToIdx[dCode]; if (i === undefined) return;
+    // ★ Phase 7c: schedule_kind 값 무시, 데이터로 판단 (day_of_week 우선)
+    if (sch.day_of_week) {
+      String(sch.day_of_week).split(',').filter(Boolean).forEach(dCode => {
+        const i = dowToIdx[dCode.trim()]; if (i === undefined) return;
         html += renderBlock(i);
       });
-    } else if (sch.scheduled_date) {
+    }
+    if (sch.scheduled_date) {
       const sdate = new Date(sch.scheduled_date + 'T00:00:00');
       for (let i = 0; i < 7; i++) {
         if (days[i].toDateString() === sdate.toDateString()) { html += renderBlock(i); break; }
@@ -1274,11 +1283,13 @@ function _renderDayClasses(date) {
 
   // 2) AI 등록 class_schedules
   for (const sch of aiList) {
+    // ★ Phase 7c: schedule_kind 무시, 데이터로 판단
     let matches = false;
-    if (sch.schedule_kind === 'recurring' && sch.day_of_week) {
-      const dows = String(sch.day_of_week).split(',');
+    if (sch.day_of_week) {
+      const dows = String(sch.day_of_week).split(',').map(s => s.trim()).filter(Boolean);
       if (dows.includes(dayCode)) matches = true;
-    } else if (sch.scheduled_date) {
+    }
+    if (!matches && sch.scheduled_date) {
       if (sch.scheduled_date === dateStr) matches = true;
     }
     if (!matches) continue;
