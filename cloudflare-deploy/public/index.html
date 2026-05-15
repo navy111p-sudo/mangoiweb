@@ -12316,7 +12316,30 @@ window.closeRulesModal = function() {
     lcPicker.pickedHour = null;
     renderLessonPicker(); // 다시 스케줄 표 표시
   };
-  // 격려 다이얼로그 - 예 (실제 연기 실행 후 캘린더 다시 표시)
+  // 강사 선택 후 → 그 강사의 캘린더로 진행
+  window.lcGoCalendarWithTeacher = function(){
+    if(!lcPicker || !lcPicker.pickedTeacher) return;
+    var L = (window.getLang?window.getLang():'ko')==='ko';
+    var newTeacher = lcPicker.pickedTeacher;
+    // cls 의 teacher 를 새 강사로 변경 (학생 데이터 + lcPicker.cls 둘 다)
+    try {
+      var u = (typeof getCurrentUser==='function') ? getCurrentUser() : null;
+      var students = window.__demoStudents || {};
+      var stu = (u && students[u.uid]) ? students[u.uid] : null;
+      if(stu && Array.isArray(stu.classes) && lcPicker.cls && lcPicker.cls.id){
+        var c = stu.classes.find(function(x){ return x.id === lcPicker.cls.id; });
+        if(c) c.teacher = newTeacher.name;
+      }
+    } catch(e){}
+    lcPicker.cls.teacher = newTeacher.name;
+    // 캘린더 단계로 이동
+    lcPicker.step = 'date';
+    lcPicker.pickedTeacher = null;
+    renderLessonPicker();
+    showLcToast('👨‍🏫 '+(L?newTeacher.name+' 강사 선택됨 — 이제 새 시간을 골라주세요':newTeacher.name+' selected — now pick a time'));
+  };
+
+    // 격려 다이얼로그 - 예 (실제 연기 실행 후 캘린더 다시 표시)
   window.confirmPostponeYes = function(){
     if(!lcPicker) return;
     var L = (window.getLang?window.getLang():'ko')==='ko';
@@ -12525,8 +12548,9 @@ window.closeRulesModal = function() {
       bodyHtml = '<div style="font-size:11.5px;color:#94a3b8;font-weight:700;margin-bottom:10px;text-transform:uppercase;letter-spacing:.4px">'+(L?'원하는 강사를 선택하세요 (큰 카드 터치)':'Tap a teacher card')+'</div>'+
         '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px">'+cards+'</div>';
       var ready = !!p.pickedTeacher;
+      var modeLbl = p.mode==='postpone' ? (L?'수업 연기':'Postpone') : (L?'수업 변경':'Change');
       footerHtml = '<div style="display:flex;gap:8px"><button onclick="lcBack()" style="flex:1;padding:12px;border-radius:10px;background:transparent;border:1px solid #232b40;color:#94a3b8;font-size:14px;font-weight:700;cursor:pointer">← '+(L?'뒤로':'Back')+'</button>'+
-        '<button onclick="lcConfirmPicker()" '+(ready?'':'disabled')+' style="flex:2;padding:12px;border-radius:10px;background:'+(ready?'linear-gradient(135deg,#10b981,#059669)':'#374151')+';border:none;color:#fff;font-size:14px;font-weight:800;cursor:'+(ready?'pointer':'not-allowed')+';opacity:'+(ready?'1':'.4')+'">✅ '+(L?'이 강사로 변경':'Change Teacher')+'</button></div>';
+        '<button onclick="lcGoCalendarWithTeacher()" '+(ready?'':'disabled')+' style="flex:2;padding:12px;border-radius:10px;background:'+(ready?'linear-gradient(135deg,#10b981,#059669)':'#374151')+';border:none;color:#fff;font-size:14px;font-weight:800;cursor:'+(ready?'pointer':'not-allowed')+';opacity:'+(ready?'1':'.4')+'">✅ '+(L?'이 강사로 '+modeLbl:'Use this teacher for '+modeLbl)+' →</button></div>';
     }
     else if(p.step==='time-match'){
       // ─── (변경) 요일/시간 선택 → 매칭 강사 ───
