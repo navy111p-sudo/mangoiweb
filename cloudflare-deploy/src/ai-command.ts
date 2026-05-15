@@ -170,6 +170,15 @@ Output: {"intent":"schedule_plan","answer":"1개의 스케줄을 파싱했습니
 User: "이지원 학생 내일 오후 3시 수업 연기"
 Output: {"intent":"schedule_plan","answer":"이지원 학생 연기 요청을 파싱했습니다.","confirm_text":"이지원 학생 내일 15:00 수업을 연기할까요?","items":[{"action":"postpone_class","student_name":"이지원","days":null,"date":"<TOMORROW>","time":"15:00","type":"regular","label":"이지원 - 내일 15:00 수업 연기"}]}
 
+User: "정우영 학생 신규인데 월요일 체험수업 오후 4시, 금요일 정규수업 오후 8시"
+Output: {"intent":"schedule_plan","answer":"정우영 학생의 체험수업과 정규수업을 파싱했습니다.","confirm_text":"체험수업 1건 + 정규수업 1건 등록할까요?","items":[{"action":"register_recurring","student_name":"정우영","days":["mon"],"date":null,"time":"16:00","type":"trial","label":"정우영 - 매주 월 16:00 체험수업"},{"action":"register_recurring","student_name":"정우영","days":["fri"],"date":null,"time":"20:00","type":"regular","label":"정우영 - 매주 금 20:00 정규수업"}]}
+
+User: "최수아 학생 토요일 오전 11시 체험수업 한번 잡아줘"
+Output: {"intent":"schedule_plan","answer":"최수아 학생 체험수업 1건을 파싱했습니다.","confirm_text":"최수아 학생 매주 토 11:00 체험수업 등록할까요?","items":[{"action":"register_recurring","student_name":"최수아","days":["sat"],"date":null,"time":"11:00","type":"trial","label":"최수아 - 매주 토 11:00 체험수업"}]}
+
+User: "박지민 학생 다음주 화요일 오후 3시 레벨테스트"
+Output: {"intent":"schedule_plan","answer":"박지민 학생 레벨테스트 일정을 파싱했습니다.","confirm_text":"박지민 학생 다음주 화 15:00 레벨테스트 등록할까요?","items":[{"action":"schedule_one_off","student_name":"박지민","days":null,"date":"<NEXT_TUE>","time":"15:00","type":"level_test","label":"박지민 - 다음주 화 15:00 레벨테스트"}]}
+
 User: "박민수 학생을 김선생님에게 월수금 5시 정규수업 등록"
 Output: {"intent":"schedule_plan","answer":"박민수 학생 김선생님 배정 스케줄을 파싱했습니다.","confirm_text":"박민수 - 김선생님 - 월/수/금 17:00 등록할까요?","items":[{"action":"register_recurring","student_name":"박민수","teacher_name":"김선생님","days":["mon","wed","fri"],"date":null,"time":"17:00","type":"regular","label":"박민수 - 김선생 - 월/수/금 17:00"}]}
 
@@ -462,7 +471,13 @@ export async function processAiCommand(
     const validDays = new Set(['mon','tue','wed','thu','fri','sat','sun']);
     const cleanItems = items.slice(0, 20).map((it: any) => {
       const action = allowedActions.has(it?.action) ? it.action : 'register_recurring';
-      const type = allowedTypes.has(it?.type) ? it.type : 'regular';
+      // 한국어 키워드 폴백: AI 가 type 을 regular 로 잘못 분류해도 label 에서 체험/레벨 키워드 있으면 자동 보정
+      let type = allowedTypes.has(it?.type) ? it.type : 'regular';
+      const labelStr = String(it?.label || '');
+      if (type === 'regular') {
+        if (/체험\s*수업|체험\s*레슨|trial/i.test(labelStr)) type = 'trial';
+        else if (/레벨\s*테스트|레벨\s*테스트|level\s*test/i.test(labelStr)) type = 'level_test';
+      }
       const days = Array.isArray(it?.days) ? it.days.filter((d: any) => validDays.has(String(d))) : null;
       const date = (it?.date && /^\d{4}-\d{2}-\d{2}$/.test(String(it.date))) ? it.date : null;
       const time = (it?.time && /^\d{1,2}:\d{2}$/.test(String(it.time))) ? it.time : null;

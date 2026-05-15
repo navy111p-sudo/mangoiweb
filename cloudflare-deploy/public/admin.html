@@ -10460,6 +10460,9 @@ async function executeAiAction(name, args) {
       };
       const typeNames = { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
       const typeColor = { regular:'#3b82f6', level_test:'#f59e0b', trial:'#10b981' };
+      // type 별 등록 카운트 (체험/레벨 누락 진단용)
+      const typeCount = { regular: 0, trial: 0, level_test: 0 };
+      ok.forEach(x => { if (typeCount[x.type] !== undefined) typeCount[x.type]++; });
       let html = '<div class="ai-answer" style="font-size:15px">' +
         '✅ <b>' + items.length + '건</b> 처리 완료 ' +
         '<span style="color:#10b981">(등록 ' + ok.length + ')</span>' +
@@ -10467,6 +10470,14 @@ async function executeAiAction(name, args) {
         (conflicts.length ? ' <span style="color:#f59e0b">(⚠️ 시간 충돌 ' + conflicts.length + ')</span>' : '') +
         (notFound.length ? ' <span style="color:#ef4444">(미등록 학생 ' + notFound.length + ')</span>' : '') +
       '</div>';
+      // 유형별 카운트 (정규/체험/레벨)
+      if (ok.length > 0) {
+        html += '<div style="margin-top:6px;font-size:12px;color:#6b7280">📊 유형별: ' +
+          '<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:6px;font-weight:700">정규 ' + typeCount.regular + '</span> ' +
+          '<span style="background:#10b981;color:#fff;padding:2px 8px;border-radius:6px;font-weight:700;margin-left:4px">체험 ' + typeCount.trial + '</span> ' +
+          '<span style="background:#3b82f6;color:#fff;padding:2px 8px;border-radius:6px;font-weight:700;margin-left:4px">레벨 ' + typeCount.level_test + '</span>' +
+        '</div>';
+      }
       // 등록된 게 1건 이상이면 즉시 캘린더 확인 안내 + 전체 스케줄 페이지 링크
       if (ok.length > 0) {
         html += '<div style="margin-top:8px;padding:10px 14px;background:linear-gradient(135deg,rgba(14,165,233,0.1),rgba(3,105,161,0.1));border:1px solid rgba(14,165,233,0.3);border-radius:10px;display:flex;align-items:center;gap:10px;font-size:13px;color:#0c4a6e">' +
