@@ -12221,10 +12221,9 @@ window.closeRulesModal = function() {
     lcPicker = {
       cls: cls,
       mode: mode,                // 'postpone' or 'change'
-      // 연기 모드는 방식 선택 생략 → 바로 'date' (스케줄표)
-      // 변경 모드는 그대로 'method' (강사/시간 선택 카드)
-      step: (mode==='postpone' ? 'date' : 'method'),
-      method: (mode==='postpone' ? 'date' : null),
+      // 연기/변경 모두 '강사 선택 / 날짜 선택' 카드부터 시작
+      step: 'method',
+      method: null,
       pickedDate: null,
       pickedHour: null,
       pickedTeacher: null,
@@ -12455,14 +12454,21 @@ window.closeRulesModal = function() {
     var footerHtml = '';
 
     if(p.step==='method'){
-      // ─── 방식 선택 카드 (큰, 모바일 친화) ───
-      var methods = p.mode==='postpone' ? [
-        { id:'date',  ico:'📅', ko:'날짜 선택',  en:'Pick a Date',     descKo:'현재 강사의 가능한 새 시간 중 하나로 옮기기', descEn:'Move to one of your teacher\'s open slots' },
-        { id:'shift', ico:'⏭',  ko:'뒤로 밀기', en:'Push All Back',   descKo:'이번 수업과 이후 모든 수업을 다음 세션 일자로 한 번에 이동', descEn:'Shift this and all future lessons by one session' }
-      ] : [
-        { id:'teacher',    ico:'👨‍🏫', ko:'강사 선택',     en:'Choose Teacher', descKo:'전체 강사 중에서 골라 같은 시간 그대로 변경',     descEn:'Pick a teacher; same time' },
-        { id:'time-match', ico:'⏰', ko:'요일/시간 선택', en:'Day & Time',     descKo:'원하는 요일·시간을 정하면 가능한 강사를 자동 매칭', descEn:'Pick day/time; we match available teachers' }
+      // ─── 연기/변경 둘 다 동일한 2개 카드: 강사 선택 / 날짜 선택 ───
+      var modeKo = p.mode==='postpone' ? '연기' : '변경';
+      var modeEn = p.mode==='postpone' ? 'Postpone' : 'Change';
+      var methods = [
+        { id:'date',    ico:'📅',   ko:'날짜 선택',  en:'Pick a Date',
+          descKo:'캘린더에서 새 날짜/시간을 선택해 '+modeKo, descEn:'Pick a new date/time on the calendar' },
+        { id:'teacher', ico:'👨‍🏫', ko:'강사 선택',  en:'Choose Teacher',
+          descKo:'다른 강사를 선택해 '+modeKo+' (같은 시간 유지)', descEn:'Pick another teacher (same time)' }
       ];
+      // 연기 전용: 뒤로 밀기 추가 옵션
+      if(p.mode==='postpone'){
+        methods.push({ id:'shift', ico:'⏭', ko:'뒤로 밀기', en:'Push All Back',
+          descKo:'이번 수업과 이후 모든 수업을 1주씩 뒤로 이동',
+          descEn:'Shift this and all future lessons by one week' });
+      }
       bodyHtml = '<div style="font-size:13px;color:#94a3b8;font-weight:600;margin-bottom:14px">'+
         (L?'어떤 방식으로 진행할까요?':'How would you like to proceed?')+'</div>'+
         '<div style="display:flex;flex-direction:column;gap:12px">'+
