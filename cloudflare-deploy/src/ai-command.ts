@@ -606,6 +606,16 @@ export async function executeAction(
       await env.DB.exec(
         `CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`
       );
+      // 누락 컬럼 보강 (옛 버전에서 만들어진 테이블 대비)
+      const csCols: Array<[string,string]> = [
+        ['student_name','TEXT'], ['schedule_kind','TEXT'], ['class_type','TEXT'],
+        ['day_of_week','TEXT'], ['scheduled_date','TEXT'], ['duration_min','INTEGER'],
+        ['teacher_id','TEXT'], ['status','TEXT'], ['source','TEXT'],
+        ['created_by','TEXT'], ['updated_at','INTEGER'], ['notes','TEXT']
+      ];
+      for (const [c,t] of csCols) {
+        try { await env.DB.exec('ALTER TABLE class_schedules ADD COLUMN ' + c + ' ' + t); } catch {}
+      }
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_class_schedules_user ON class_schedules(user_id)`); } catch {}
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_class_schedules_date ON class_schedules(scheduled_date)`); } catch {}
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_class_schedules_status ON class_schedules(status)`); } catch {}
@@ -729,8 +739,10 @@ export async function executeAction(
                 `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, teacher_id, status, source, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ai_command', ?, ?)`
               ).bind(userId, studentName, scheduleKind, classType, dayOfWeek, scheduledDate, startTime, teacherId, status, adminUserId || 'ai', now).run();
               insertedId = (ins?.meta?.last_row_id as number) || null;
+              console.log('[schedule_batch] INSERT OK id=' + insertedId + ' user=' + userId + ' type=' + classType + ' day=' + dayOfWeek + ' time=' + startTime);
             } catch (e: any) {
               insertError = String(e?.message || e).slice(0, 200);
+              console.log('[schedule_batch] INSERT FAIL type=' + classType + ' err=' + insertError);
             }
           }
         }

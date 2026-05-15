@@ -1170,6 +1170,51 @@ export async function handleMangoApi(
       }
     }
 
+    // 🥭 Phase 6d — POST /api/admin/class-schedules/seed-demo
+    //   클릭 한 번에 정규+체험+레벨 3개 데모 스케줄 생성 (시스템 동작 즉시 확인용)
+    if (method === 'POST' && path === '/api/admin/class-schedules/seed-demo') {
+      const url = new URL(request.url);
+      let userId = url.searchParams.get('user_id') || '';
+      // user_id 안 주면 students_erp 첫 학생 사용
+      if (!userId) {
+        try {
+          const r = await env.DB.prepare(`SELECT COALESCE(user_id, login_id, 'stu_' || id) AS uid, COALESCE(korean_name, username) AS name FROM students_erp WHERE COALESCE(status,'정상')='정상' ORDER BY rowid DESC LIMIT 1`).first<any>();
+          if (r?.uid) userId = r.uid;
+        } catch {}
+        if (!userId) return json({ ok: false, error: 'no_student' }, 400);
+      }
+      // 학생 이름 조회
+      let studentName = '데모학생';
+      try {
+        const s = await env.DB.prepare(`SELECT COALESCE(korean_name, username) AS name FROM students_erp WHERE COALESCE(user_id, login_id) = ? OR ('stu_' || id) = ? LIMIT 1`).bind(userId, userId).first<any>();
+        if (s?.name) studentName = s.name;
+      } catch {}
+      // 테이블 보강
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`); } catch {}
+      const csCols: Array<[string,string]> = [['student_name','TEXT'],['schedule_kind','TEXT'],['class_type','TEXT'],['day_of_week','TEXT'],['scheduled_date','TEXT'],['duration_min','INTEGER'],['teacher_id','TEXT'],['status','TEXT'],['source','TEXT'],['created_by','TEXT'],['updated_at','INTEGER'],['notes','TEXT']];
+      for (const [c,t] of csCols) { try { await env.DB.exec('ALTER TABLE class_schedules ADD COLUMN ' + c + ' ' + t); } catch {} }
+      const now = Date.now();
+      const todayKst = new Date(now + 9*3600*1000).toISOString().slice(0,10);
+      // 3가지 type 데모: 월/수 정규 / 화 체험 / 다음주 월 레벨
+      const seeds = [
+        { kind:'recurring', type:'regular',    day:'mon,wed', date:null, time:'15:00', label:'데모 - 정규수업' },
+        { kind:'recurring', type:'trial',      day:'tue',     date:null, time:'16:00', label:'데모 - 체험수업' },
+        { kind:'one_off',   type:'level_test', day:null,      date: (() => { const d=new Date(now+7*86400000+9*3600000); return d.toISOString().slice(0,10); })(), time:'17:00', label:'데모 - 레벨테스트' }
+      ];
+      const inserted: any[] = [];
+      for (const s of seeds) {
+        try {
+          const ins = await env.DB.prepare(
+            `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, status, source, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 'demo_seed', ?, ?)`
+          ).bind(userId, studentName, s.kind, s.type, s.day, s.date, s.time, 'admin', now).run();
+          inserted.push({ id: ins?.meta?.last_row_id, ...s });
+        } catch (e: any) {
+          inserted.push({ error: String(e?.message||e), ...s });
+        }
+      }
+      return json({ ok: true, user_id: userId, student_name: studentName, count: inserted.length, items: inserted });
+    }
+
     // 🥭 Phase 22 — DELETE /api/admin/class-schedules/:id (스케줄 삭제 또는 취소)
     if (method === 'DELETE' && /^\/api\/admin\/class-schedules\/\d+$/.test(path)) {
       const id = parseInt(path.split('/').pop() || '0', 10);

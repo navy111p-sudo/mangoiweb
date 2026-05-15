@@ -1207,14 +1207,17 @@ function _typeColors(type) {
 }
 
 function _renderDayClasses(date) {
-  // 수강신청 데이터에서 이 날짜에 해당하는 수업 카드들 생성
+  // Phase 6c — 수강신청 + AI 등록 class_schedules 모두 표시 (데모 fake 카드 제거)
   const dayCodes = ['sun','mon','tue','wed','thu','fri','sat'];
   const dayCode = dayCodes[date.getDay()];
   const dayKo   = ['일','월','화','수','목','금','토'][date.getDay()];
   const dateStr = date.toISOString().slice(0,10);
-  const enrolls = _schedState.enrollments;
+  const enrolls = _schedState.enrollments || [];
+  const aiList  = (_schedState.aiSchedules || []).filter(s => s.status !== 'cancelled');
+  const aiTypeName = { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
   const cards = [];
-  // 등록된 수강신청 데이터가 있으면 사용
+
+  // 1) 기존 enrollments
   for (const enr of enrolls) {
     if (!enr.started_at) continue;
     const startDate = new Date(typeof enr.started_at === 'number' ? enr.started_at : enr.started_at);
@@ -1223,13 +1226,9 @@ function _renderDayClasses(date) {
       const endDate = new Date(enr.end_date);
       if (date > endDate) continue;
     }
-    // package 필드에서 요일·시간 추출 (Phase 25/32 형식)
-    const pkg = String(enr.package || '');
     const time = enr.time || '';
-    // 요일 매칭 — pkg 또는 days_of_week 필드에서
     const daysField = String(enr.days_of_week || enr.package || '');
     if (!daysField.includes(dayKo) && !daysField.toLowerCase().includes(dayCode)) continue;
-    // 시간 — 단일 또는 요일별
     let cardTime = time;
     const perDayMatch = String(time).match(new RegExp(dayKo + '\\s*(\\d{1,2}:\\d{2})'));
     if (perDayMatch) cardTime = perDayMatch[1];
@@ -1238,33 +1237,48 @@ function _renderDayClasses(date) {
       teacher: enr.teacher_name || 'Teacher TBD',
       size: enr.class_size || '1:1',
       time: cardTime || '미정',
-      duration: 20
+      duration: 20,
+      isAi: false
     });
   }
-  // 데모: 데이터 없을 때 예시 카드 (월/수/금 첫 주에만)
-  if (cards.length === 0 && _schedState.enrollments.length === 0) {
-    const day = date.getDate();
-    if ((dayCode === 'thu' && (day === 7 || day === 14))) {
-      cards.push({
-        type: day === 7 ? '레벨테스트' : '체험수업',
-        teacher: 'Teacher Belle',
-        size: '1:1', time: 'pm 07:10', duration: 20
-      });
+
+  // 2) AI 등록 class_schedules
+  for (const sch of aiList) {
+    let matches = false;
+    if (sch.schedule_kind === 'recurring' && sch.day_of_week) {
+      const dows = String(sch.day_of_week).split(',');
+      if (dows.includes(dayCode)) matches = true;
+    } else if (sch.scheduled_date) {
+      if (sch.scheduled_date === dateStr) matches = true;
     }
+    if (!matches) continue;
+    cards.push({
+      type: aiTypeName[sch.class_type] || '정규수업',
+      teacher: sch.teacher_name || 'AI 강사',
+      size: '1:1',
+      time: sch.start_time || '미정',
+      duration: 30,
+      isAi: true
+    });
   }
+
   return cards.map(c => _renderClassCard(c)).join('');
 }
 
 function _renderClassCard(c) {
   const typeColors = {
-    '레벨테스트': { bg:'#dbeafe', border:'#93c5fd', text:'#1e40af' },
-    '체험수업':   { bg:'#dcfce7', border:'#86efac', text:'#166534' },
-    '정규수업':   { bg:'#fef3c7', border:'#fde68a', text:'#92400e' }
+    '레벨테스트': { bg:'#dbeafe', border:'#3b82f6', text:'#1e40af' },
+    '체험수업':   { bg:'#dcfce7', border:'#10b981', text:'#166534' },
+    '정규수업':   { bg:'#fef3c7', border:'#f59e0b', text:'#92400e' }
   };
   const colors = typeColors[c.type] || typeColors['정규수업'];
-  return '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:6px;margin-bottom:4px;font-size:11px;line-height:1.4">' +
-    '<div style="display:inline-block;background:' + colors.bg + ';border:1px solid ' + colors.border + ';color:' + colors.text + ';padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;margin-bottom:3px">' + c.type + '</div>' +
-    '<div style="color:#3b82f6;font-weight:700">' + c.teacher + ' <span style="font-size:9px">📋</span></div>' +
+  // AI 등록은 점선 + ⭐ 마크로 구분
+  const borderStyle = c.isAi ? ('2px dashed ' + colors.border) : ('1px solid ' + colors.border);
+  const aiMark = c.isAi ? '⭐ ' : '';
+  const teacherPrefix = c.isAi ? '🤖 ' : '';
+  return '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:6px;margin-bottom:4px;font-size:11px;line-height:1.4' + (c.isAi?';box-shadow:0 2px 6px rgba(245,158,11,0.25)':'') + '">' +
+    '<div style="display:inline-block;background:' + colors.bg + ';border:' + borderStyle + ';color:' + colors.text + ';padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-bottom:3px">' + aiMark + c.type + '</div>' +
+    '<div style="color:#3b82f6;font-weight:700">' + teacherPrefix + c.teacher + ' <span style="font-size:9px">📋</span></div>' +
     '<div style="color:#64748b;font-size:10px">(' + c.size + ')</div>' +
     '<div style="color:#1e293b;font-weight:600;font-size:11px">' + c.time + '</div>' +
     '<div style="color:#64748b;font-size:10px">' + c.duration + ' min</div>' +

@@ -81,6 +81,7 @@
     <label style="font-size:12px;color:#94a3b8">강사명</label>
     <input id="filterTeacher" placeholder="강사 이름 일부" style="min-width:160px">
     <button id="btnRefresh">🔄 새로고침</button>
+    <button id="btnSeedDemo" style="padding:6px 14px;border-radius:6px;border:1px solid #10b981;background:rgba(16,185,129,0.15);color:#86efac;cursor:pointer;font-size:12px;font-weight:600">🌱 데모 3건 시드</button>
     <span id="filterCount" style="margin-left:auto;font-size:12px;color:#94a3b8"></span>
   </div>
 
@@ -274,6 +275,19 @@ document.getElementById('viewWeek').addEventListener('click', () => {
   document.getElementById(id).addEventListener('change', applyFilters);
 });
 document.getElementById('btnRefresh').addEventListener('click', loadAll);
+document.getElementById('btnSeedDemo')?.addEventListener('click', async () => {
+  if (!confirm('가장 최근 등록된 학생에 정규+체험+레벨 데모 3건을 시드합니다. 진행할까요?')) return;
+  try {
+    const r = await fetch('/api/admin/class-schedules/seed-demo', { method:'POST', credentials:'include' });
+    const j = await r.json();
+    if (j.ok) {
+      alert('✅ ' + j.count + '건 시드 완료!\n학생: ' + j.student_name + '\nID: ' + j.user_id);
+      loadAll();
+    } else {
+      alert('❌ 시드 실패: ' + (j.error || '알 수 없음'));
+    }
+  } catch (e) { alert('오류: ' + e.message); }
+});
 
 loadAll();
 </script>
