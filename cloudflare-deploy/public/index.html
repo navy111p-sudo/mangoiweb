@@ -1714,9 +1714,9 @@
         #lang-toggle{top:0.9rem!important;right:1rem!important;padding:0.4rem 0.65rem!important;font-size:0.78rem!important;border-radius:11px!important}
         #user-menu{right:1rem!important;top:3.5rem!important;min-width:200px!important;max-width:calc(100vw - 24px)}
 
-        /* ─── 메인 - 노란 큰 수업연기 버튼 ─── */
-        #btn-lesson-change{font-size:14px!important;padding:13px 22px!important;border-radius:13px!important}
-        #btn-lesson-change span:first-child{font-size:20px!important}
+        /* ─── 메인 - 노란 큰 수업입장 버튼 ─── */
+        #btn-enter-class{font-size:14px!important;padding:13px 22px!important;border-radius:13px!important}
+        #btn-enter-class .btn-enter-icon{width:22px!important;height:22px!important}
         .lesson-action-row > div{font-size:10.5px!important;flex-direction:column;gap:2px!important}
         .lesson-action-row > div span[style*="opacity"]{display:none}
 
@@ -2593,26 +2593,26 @@
         <button class="ai-quick-btn" data-go="admin" data-ko="📊 관리자" data-en="📊 Admin">📊 관리자</button>
         <button class="ai-quick-btn" data-go="mypage" data-ko="👤 마이페이지" data-en="👤 My Page">👤 마이페이지</button>
         <button class="ai-quick-btn" data-go="speech" data-ko="🎤 발음연습" data-en="🎤 Pronunciation">🎤 발음연습</button>
-        <button class="ai-quick-btn" data-go="enter-class" data-ko="🎥 수업입장" data-en="🎥 Enter Class">🎥 수업입장</button>
+        <button class="ai-quick-btn" data-go="lesson-change" data-ko="📅 수업연기/변경" data-en="📅 Postpone/Change">📅 수업연기/변경</button>
         <button class="ai-quick-btn" data-go="inquiry" data-ko="💬 신규상담" data-en="💬 New Inquiry">💬 신규상담</button>
         <button class="ai-quick-btn" data-go="homepage" data-ko="🏠 홈페이지" data-en="🏠 Homepage">🏠 홈페이지</button>
       </div>
-      <!-- 📅 수업 연기/변경 큰 버튼 -->
+      <!-- 🎥 수업입장 큰 버튼 -->
       <div class="lesson-action-row" style="margin-top:18px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;">
-        <button id="btn-lesson-change" onclick="openLessonChangeModal()"
+        <button id="btn-enter-class" onclick="showView('view-videocall-lobby')"
                 style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-size:16px;font-weight:800;padding:14px 28px;border-radius:14px;border:none;cursor:pointer;box-shadow:0 8px 24px rgba(245,158,11,.45),0 0 0 0 rgba(251,191,36,.6);display:inline-flex;align-items:center;gap:10px;transition:transform .15s,box-shadow .15s;animation:lessonPulse 2.6s infinite;">
-          <span style="font-size:22px">📅</span>
-          <span data-ko="수업 연기 / 변경" data-en="Postpone / Change Class">수업 연기 / 변경</span>
+          <svg class="btn-enter-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><circle cx="12" cy="9" r="2.5" fill="#1a1a1a"/><path d="M7 14c.5-2 2.5-3 5-3s4.5 1 5 3"/></svg>
+          <span data-ko="수업 입장" data-en="Enter Class">수업 입장</span>
         </button>
         <div style="font-size:11.5px;color:#94a3b8;display:flex;gap:12px">
-          <span data-ko="📌 연기: 수업 30분 전까지" data-en="📌 Postpone: 30 min before">📌 연기: 수업 30분 전까지</span>
+          <span data-ko="🎥 화상수업 로비로 입장" data-en="🎥 Enter video class lobby">🎥 화상수업 로비로 입장</span>
           <span style="opacity:.5">|</span>
-          <span data-ko="🔄 변경: 수업 24시간 전까지" data-en="🔄 Change: 24h before">🔄 변경: 수업 24시간 전까지</span>
+          <span data-ko="📹 마이크 / 카메라 사용" data-en="📹 Mic / Camera required">📹 마이크 / 카메라 사용</span>
         </div>
       </div>
       <style>
       @keyframes lessonPulse{0%,100%{box-shadow:0 8px 24px rgba(245,158,11,.45),0 0 0 0 rgba(251,191,36,.4)}50%{box-shadow:0 8px 24px rgba(245,158,11,.45),0 0 0 14px rgba(251,191,36,0)}}
-      #btn-lesson-change:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 12px 30px rgba(245,158,11,.6)!important}
+      #btn-enter-class:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 12px 30px rgba(245,158,11,.6)!important}
       /* 수업 연기/변경 모달 */
       .lc-overlay{position:fixed;inset:0;background:#0a0e1a;backdrop-filter:none;display:none;z-index:10000;padding:0;overflow:hidden;animation:lcFade .2s}
       .lc-overlay.show{display:block}
@@ -6470,12 +6470,13 @@ window.addEventListener('DOMContentLoaded', () => {
   ];
 
   const QUICK_MAP = {
-    'enter-class': () => showView('view-videocall-lobby'),
-    'homepage':    () => { const gm = document.getElementById('grid-menu'); if (gm) gm.style.display = 'block'; },
-    'inquiry':     () => window.openInquiryModal(),
-    'speech':      () => window.open('https://mangoi-speech.pages.dev/practice', '_blank'),
-    'mypage':      () => location.href = '/admin/mypage.html',
-    'admin':       () => location.href = '/admin.html',
+    'enter-class':   () => showView('view-videocall-lobby'),
+    'lesson-change': () => { if (typeof window.openLessonChangeModal === 'function') window.openLessonChangeModal(); },
+    'homepage':      () => { const gm = document.getElementById('grid-menu'); if (gm) gm.style.display = 'block'; },
+    'inquiry':       () => window.openInquiryModal(),
+    'speech':        () => window.open('https://mangoi-speech.pages.dev/practice', '_blank'),
+    'mypage':        () => location.href = '/admin/mypage.html',
+    'admin':         () => location.href = '/admin.html',
   };
 
   function findRule(text) {
