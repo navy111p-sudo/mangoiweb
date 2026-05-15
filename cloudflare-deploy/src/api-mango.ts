@@ -1215,32 +1215,8 @@ export async function handleMangoApi(
           console.warn('[class-schedules] JOIN failed, fallback no-JOIN:', joinErr?.message);
           rows = await env.DB.prepare(sqlNoJoin).bind(...binds).all<any>();
         }
-        // ★ Phase 7d: 비즈니스 규칙 자동 변환
-        //   trial/level_test 가 day_of_week 로 저장돼있으면 → 1회성으로 변환 (다음 해당 요일 날짜로)
-        //   regular 는 그대로 매주 반복 유지
-        const dowToIdx = { sun:0, mon:1, tue:2, wed:3, thu:4, fri:5, sat:6 } as any;
-        const todayMid = new Date(); todayMid.setHours(0,0,0,0);
-        const items = (rows.results || []).map((r: any) => {
-          if ((r.class_type === 'trial' || r.class_type === 'level_test') && r.day_of_week && !r.scheduled_date) {
-            // 다음 해당 요일 계산 (오늘 또는 미래)
-            const dows = String(r.day_of_week).split(',').map((d: string) => dowToIdx[d.trim()]).filter((x: any) => x !== undefined);
-            if (dows.length) {
-              const today = todayMid.getDay();
-              let minDays = 8;
-              for (const di of dows) {
-                let diff = (di - today + 7) % 7;
-                if (diff === 0) diff = 7; // 오늘은 지나가므로 다음 주
-                if (diff < minDays) minDays = diff;
-              }
-              const target = new Date(todayMid.getTime() + minDays * 86400000);
-              r.scheduled_date = target.toISOString().slice(0,10);
-              r.day_of_week = null; // 1회성으로 변환
-              r.schedule_kind = 'one_off';
-            }
-          }
-          return r;
-        });
-        return json({ ok: true, count: items.length, items, merge_info: mergeInfo });
+        // Phase 7g: server-side 변환 제거 - client 가 visible week/month 기준으로 1회성 위치 계산
+        return json({ ok: true, count: (rows.results || []).length, items: rows.results || [], merge_info: mergeInfo });
       } catch (e: any) {
         console.warn('[class-schedules] both queries failed:', e?.message);
         return json({ ok: true, count: 0, items: [], warning: String(e?.message || e), merge_info: mergeInfo });

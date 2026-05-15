@@ -1035,46 +1035,106 @@ function renderScheduleCalendar() {
 }
 
 function renderMonthView() {
+  // Phase 7f - 다크 테마 통일 (주간 캘린더와 동일한 색상 시스템)
   const y = _schedState.year, m = _schedState.month;
   document.getElementById('sched-month-label').textContent = y + '년 ' + (m + 1) + '월';
-  // 해당 월 1일의 요일 (0=Sun) + 마지막 날짜
   const first = new Date(y, m, 1);
   const startWday = first.getDay();
   const lastDay = new Date(y, m + 1, 0).getDate();
-  // 6주 × 7일 그리드
   const cells = [];
   for (let i = 0; i < startWday; i++) cells.push({ blank: true });
   for (let d = 1; d <= lastDay; d++) cells.push({ blank: false, day: d, date: new Date(y, m, d) });
   while (cells.length < 42) cells.push({ blank: true });
 
-  // 요일 헤더 + 셀 렌더링
+  // AI 스케줄 요약 바 (주간과 동일)
+  const dayKo = ['일','월','화','수','목','금','토'];
+  const dowToIdx = { sun:0, mon:1, tue:2, wed:3, thu:4, fri:5, sat:6 };
+  const aiTypeName = { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
+  const aiList = (_schedState.aiSchedules || []).filter(s => s.status !== 'cancelled');
+  let aiSummary = '';
+  if (aiList.length) {
+    aiSummary = '<div style="background:linear-gradient(135deg,rgba(251,191,36,0.12),rgba(245,158,11,0.08));border:1px solid rgba(251,191,36,0.4);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:12.5px;color:#fde68a">';
+    aiSummary += '<span style="font-weight:700">⭐ AI 등록 스케줄 (' + aiList.length + '건):</span>';
+    aiList.forEach(s => {
+      let lbl;
+      if (s.day_of_week) {
+        lbl = '매주 ' + String(s.day_of_week).split(',').filter(Boolean).map(d => dayKo[dowToIdx[d.trim()]] || d).join('·') + '요일';
+      } else if (s.scheduled_date) {
+        lbl = '📅 ' + s.scheduled_date;
+      } else { lbl = ''; }
+      const tName = aiTypeName[s.class_type] || s.class_type;
+      aiSummary += '<span style="background:rgba(0,0,0,0.3);padding:3px 10px;border-radius:8px;color:#fff;font-weight:600">' +
+        lbl + ' · <b style="color:#fbbf24">' + s.start_time + '</b> · ' + tName + '</span>';
+    });
+    aiSummary += '</div>';
+  }
+
   const dayNames = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
-  let html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);background:#f1f5f9">';
+  let html = aiSummary;
+  html += '<div style="background:#131826;border-radius:12px;overflow:hidden;border:1px solid #232b40">';
+  // 요일 헤더 (다크)
+  html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);background:#1a2032;border-bottom:1px solid #232b40">';
   dayNames.forEach((dn, i) => {
-    const color = i === 0 ? '#dc2626' : (i === 6 ? '#2563eb' : '#475569');
-    html += '<div style="text-align:center;padding:10px 0;font-weight:700;font-size:13px;color:' + color + ';border-bottom:1px solid #cbd5e1">' + dn + '</div>';
+    const color = i === 0 ? '#f87171' : (i === 6 ? '#60a5fa' : '#cbd5e1');
+    html += '<div style="text-align:center;padding:10px 0;font-weight:700;font-size:13px;color:' + color + '">' + dn + '</div>';
   });
   html += '</div>';
-  // 6주 셀
+  // 6주 셀 (다크)
   html += '<div style="display:grid;grid-template-columns:repeat(7,1fr)">';
   cells.forEach((c, idx) => {
     const wday = idx % 7;
-    const numColor = c.blank ? '#cbd5e1' : (wday === 0 ? '#dc2626' : (wday === 6 ? '#2563eb' : '#1e293b'));
     const today = !c.blank && c.date.toDateString() === new Date().toDateString();
-    const bg = today ? '#fef3c7' : '#fff';
-    html += '<div style="min-height:120px;padding:6px 8px;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;background:' + bg + '">';
+    const bg = c.blank ? '#0b1220' : (today ? 'rgba(251,191,36,0.08)' : '#131826');
+    const numColor = c.blank ? '#475569' : (today ? '#fbbf24' : (wday === 0 ? '#f87171' : (wday === 6 ? '#60a5fa' : '#cbd5e1')));
+    html += '<div style="min-height:110px;padding:6px 8px;border-right:1px solid #232b40;border-bottom:1px solid #232b40;background:' + bg + '">';
     if (!c.blank) {
-      html += '<div style="font-size:13px;font-weight:600;color:' + numColor + ';margin-bottom:4px">' + c.day + '</div>';
-      // 이 날짜에 수업 있는지 enrollments 에서 조회
+      html += '<div style="font-size:13px;font-weight:700;color:' + numColor + ';margin-bottom:4px">' + c.day + '</div>';
       html += _renderDayClasses(c.date);
     }
     html += '</div>';
   });
-  html += '</div>';
+  html += '</div></div>';
+  // 범례 (주간과 동일)
+  html += '<div style="background:#1a2032;border:1px solid #232b40;border-radius:10px;padding:8px 12px;margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:#94a3b8">' +
+    '<span><span style="display:inline-block;width:14px;height:14px;background:rgba(59,130,246,0.85);border:2px solid #3b82f6;border-radius:3px;vertical-align:middle"></span> 레벨테스트</span>' +
+    '<span><span style="display:inline-block;width:14px;height:14px;background:rgba(16,185,129,0.85);border:2px solid #10b981;border-radius:3px;vertical-align:middle"></span> 체험수업</span>' +
+    '<span><span style="display:inline-block;width:14px;height:14px;background:rgba(245,158,11,0.85);border:2px solid #f59e0b;border-radius:3px;vertical-align:middle"></span> 정규수업</span>' +
+    '<span style="margin-left:auto"><span style="display:inline-block;width:14px;height:14px;background:rgba(245,158,11,0.85);border:2px dashed #f59e0b;border-radius:3px;vertical-align:middle"></span> ⭐ AI 등록 (점선)</span>' +
+  '</div>';
   document.getElementById('sched-calendar').innerHTML = html;
 }
 
 // 🥭 Phase 37 — 주간 타임 그리드 뷰 (좌측 시간 09:00~24:00, 10분 단위)
+// Phase 7g: 통합 헬퍼 - schedule 의 type 별 적용 정책
+//   regular: day_of_week 매주 반복
+//   trial/level_test: day_of_week 가 있으면 visible 범위(week or month)의 첫 매칭 요일 1회만
+//   scheduled_date 가 명시돼있으면 그 날짜만
+function _vcSchedHits(sch, daysArr) {
+  // daysArr: 화면에 보이는 Date[] (주간:7일, 월간:최대 42일)
+  // returns: index 배열 (daysArr 안에서 hit 위치)
+  const dowToIdx = { sun:0, mon:1, tue:2, wed:3, thu:4, fri:5, sat:6 };
+  const hits = [];
+  if (sch.scheduled_date) {
+    const sd = new Date(sch.scheduled_date + 'T00:00:00');
+    daysArr.forEach((d, i) => {
+      if (d.toDateString() === sd.toDateString()) hits.push(i);
+    });
+    return hits;
+  }
+  if (!sch.day_of_week) return hits;
+  const dows = String(sch.day_of_week).split(',').map(s => dowToIdx[s.trim()]).filter(x => x !== undefined);
+  if (sch.class_type === 'regular') {
+    // 매주 반복: 모든 매칭 요일에 hit
+    daysArr.forEach((d, i) => { if (dows.includes(d.getDay())) hits.push(i); });
+  } else {
+    // trial/level_test: 1회만 - visible 범위의 첫 매칭 요일
+    for (let i = 0; i < daysArr.length; i++) {
+      if (dows.includes(daysArr[i].getDay())) { hits.push(i); break; }
+    }
+  }
+  return hits;
+}
+
 function renderWeekView() {
   // Phase 6b - position:absolute 기반 안정화 + 다크 테마 + AI 스케줄 안내
   const ws = _schedState.weekStart;
@@ -1217,19 +1277,9 @@ function renderWeekView() {
       '</div>';
     };
 
-    // ★ Phase 7c: schedule_kind 값 무시, 데이터로 판단 (day_of_week 우선)
-    if (sch.day_of_week) {
-      String(sch.day_of_week).split(',').filter(Boolean).forEach(dCode => {
-        const i = dowToIdx[dCode.trim()]; if (i === undefined) return;
-        html += renderBlock(i);
-      });
-    }
-    if (sch.scheduled_date) {
-      const sdate = new Date(sch.scheduled_date + 'T00:00:00');
-      for (let i = 0; i < 7; i++) {
-        if (days[i].toDateString() === sdate.toDateString()) { html += renderBlock(i); break; }
-      }
-    }
+    // Phase 7g: 통합 헬퍼로 type 별 정책 적용
+    const hits = _vcSchedHits(sch, days);
+    hits.forEach(i => { html += renderBlock(i); });
   }
   html += '</div></div>';
 
@@ -1307,14 +1357,28 @@ function _renderDayClasses(date) {
 
   // 2) AI 등록 class_schedules
   for (const sch of aiList) {
-    // ★ Phase 7c: schedule_kind 무시, 데이터로 판단
+    // Phase 7g: 직접 계산 - trial/level_test 는 월의 첫 매칭 요일에만 1회
     let matches = false;
-    if (sch.day_of_week) {
+    if (sch.scheduled_date && sch.scheduled_date === dateStr) {
+      matches = true;
+    } else if (sch.day_of_week) {
       const dows = String(sch.day_of_week).split(',').map(s => s.trim()).filter(Boolean);
-      if (dows.includes(dayCode)) matches = true;
-    }
-    if (!matches && sch.scheduled_date) {
-      if (sch.scheduled_date === dateStr) matches = true;
+      if (dows.includes(dayCode)) {
+        if (sch.class_type === 'regular') {
+          matches = true; // 매주 반복
+        } else {
+          // trial/level_test: 이 날짜가 월의 "첫 매칭 요일" 인지 확인
+          const myMonth = date.getMonth(), myYear = date.getFullYear();
+          let firstMatchDay = 32;
+          for (let d = 1; d < date.getDate(); d++) {
+            const test = new Date(myYear, myMonth, d);
+            if (dows.includes(['sun','mon','tue','wed','thu','fri','sat'][test.getDay()])) {
+              firstMatchDay = d; break;
+            }
+          }
+          if (firstMatchDay === 32) matches = true; // 이 날이 첫 매칭
+        }
+      }
     }
     if (!matches) continue;
     cards.push({
@@ -1331,26 +1395,20 @@ function _renderDayClasses(date) {
 }
 
 function _renderClassCard(c) {
+  // Phase 7f - 다크 테마 카드 (주간 박스와 동일한 색상)
   const typeColors = {
-    '레벨테스트': { bg:'#dbeafe', border:'#3b82f6', text:'#1e40af' },
-    '체험수업':   { bg:'#dcfce7', border:'#10b981', text:'#166534' },
-    '정규수업':   { bg:'#fef3c7', border:'#f59e0b', text:'#92400e' }
+    '레벨테스트': { bg:'rgba(59,130,246,0.85)', border:'#3b82f6' },
+    '체험수업':   { bg:'rgba(16,185,129,0.85)', border:'#10b981' },
+    '정규수업':   { bg:'rgba(245,158,11,0.85)', border:'#f59e0b' }
   };
   const colors = typeColors[c.type] || typeColors['정규수업'];
-  // AI 등록은 점선 + ⭐ 마크로 구분
-  const borderStyle = c.isAi ? ('2px dashed ' + colors.border) : ('1px solid ' + colors.border);
+  const borderStyle = c.isAi ? ('2px dashed ' + colors.border) : ('2px solid ' + colors.border);
   const aiMark = c.isAi ? '⭐ ' : '';
   const teacherPrefix = c.isAi ? '🤖 ' : '';
-  return '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:6px;margin-bottom:4px;font-size:11px;line-height:1.4' + (c.isAi?';box-shadow:0 2px 6px rgba(245,158,11,0.25)':'') + '">' +
-    '<div style="display:inline-block;background:' + colors.bg + ';border:' + borderStyle + ';color:' + colors.text + ';padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-bottom:3px">' + aiMark + c.type + '</div>' +
-    '<div style="color:#3b82f6;font-weight:700">' + teacherPrefix + c.teacher + ' <span style="font-size:9px">📋</span></div>' +
-    '<div style="color:#64748b;font-size:10px">(' + c.size + ')</div>' +
-    '<div style="color:#1e293b;font-weight:600;font-size:11px">' + c.time + '</div>' +
-    '<div style="color:#64748b;font-size:10px">' + c.duration + ' min</div>' +
-    '<div style="display:flex;gap:3px;margin-top:4px">' +
-      '<button style="flex:1;background:#3b82f6;color:#fff;border:0;border-radius:3px;padding:2px 0;font-size:10px;cursor:pointer;font-weight:600">예정</button>' +
-      '<button style="flex:1;background:#10b981;color:#fff;border:0;border-radius:3px;padding:2px 0;font-size:10px;cursor:pointer;font-weight:600" onclick="alert(\'일정 변경 기능은 준비 중\')">일정변경</button>' +
-    '</div>' +
+  return '<div style="background:' + colors.bg + ';border:' + borderStyle + ';border-radius:5px;padding:3px 6px;margin-bottom:3px;font-size:10px;line-height:1.25;color:#fff;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.3)' + (c.isAi?';box-shadow:0 2px 8px rgba(245,158,11,0.4)':'') + '" title="' + c.type + ' / ' + c.teacher + ' / ' + c.time + '">' +
+    '<div style="font-weight:800;font-size:9.5px">' + aiMark + c.type.substring(0,4) + '</div>' +
+    '<div style="font-weight:700;font-size:10.5px">' + teacherPrefix + c.teacher + '</div>' +
+    '<div style="font-size:10px;margin-top:1px">' + c.time + ' · ' + c.duration + 'min</div>' +
   '</div>';
 }
 
