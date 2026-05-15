@@ -10401,13 +10401,103 @@ async function executeAiAction(name, args) {
     const j = await r.json();
     _aiSetLoading(false, '✅ 완료');
     const ct = document.getElementById('ai-content');
-    if (j.ok) {
-      ct.innerHTML = '<div class="ai-answer">✅ <b>' + _aiEsc(name) + '</b> 실행 완료.</div>' +
-        '<pre style="font-size:11px;background:#f0fdf4;padding:10px;border-radius:6px;margin-top:8px">' +
-        _aiEsc(JSON.stringify(j, null, 2)) + '</pre>';
-    } else {
+    if (!j.ok) {
       ct.innerHTML = '<div class="ai-error">실행 실패: ' + _aiEsc(j.error || '알 수 없는 오류') + '</div>';
+      return;
     }
+
+    // 🥭 schedule_batch 결과는 사람 친화적 카드로 표시 (JSON 원본 X)
+    if (name === 'schedule_batch' && Array.isArray(j.items)) {
+      const items = j.items;
+      const ok = items.filter(x => x.status === 'queued');
+      const notFound = items.filter(x => x.status === 'student_not_found_in_db');
+      const dayNames = { mon:'월', tue:'화', wed:'수', thu:'목', fri:'금', sat:'토', sun:'일' };
+      const actionNames = {
+        register_recurring: '🆕 정규수업 등록',
+        schedule_one_off:   '📅 단일 일정 등록',
+        change_schedule:    '🔄 스케줄 변경',
+        postpone_class:     '⏸ 수업 연기',
+      };
+      const typeNames = { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
+      const typeColor = { regular:'#3b82f6', level_test:'#f59e0b', trial:'#10b981' };
+      let html = '<div class="ai-answer" style="font-size:15px">' +
+        '✅ <b>' + items.length + '건</b> 처리 완료 ' +
+        '<span style="color:#10b981">(등록 ' + ok.length + ')</span>' +
+        (notFound.length ? ' <span style="color:#ef4444">(미등록 학생 ' + notFound.length + ')</span>' : '') +
+      '</div>';
+
+      // 등록 성공 카드들
+      if (ok.length) {
+        html += '<div style="margin-top:12px"><div style="font-size:12px;color:#10b981;font-weight:700;margin-bottom:6px">✅ 등록 완료</div><div style="display:flex;flex-direction:column;gap:8px">';
+        ok.forEach(it => {
+          const dayList = Array.isArray(it.days) ? it.days.map(d => dayNames[d] || d).join('·') : '';
+          const tColor = typeColor[it.type] || '#6b7280';
+          html += '<div style="border:1px solid #d1fae5;border-left:4px solid #10b981;border-radius:8px;padding:10px 14px;background:#f0fdf4">' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
+              '<span style="font-size:13px;font-weight:700;color:#111827">' + _aiEsc(actionNames[it.action] || it.action) + '</span>' +
+              '<span style="margin-left:auto;background:' + tColor + ';color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700">' + _aiEsc(typeNames[it.type] || it.type) + '</span>' +
+            '</div>' +
+            '<div style="font-size:14px;color:#374151">' +
+              '<a href="/admin/student.html?uid=' + encodeURIComponent(it.resolved_user_id) + '" style="color:#1d4ed8;font-weight:700;text-decoration:none">' +
+              _aiEsc(it.student_name) + '</a> 학생' +
+              (dayList ? ' · 매주 <b>' + _aiEsc(dayList) + '</b>요일' : '') +
+              (it.date ? ' · <b>' + _aiEsc(it.date) + '</b>' : '') +
+              (it.time ? ' · <b>' + _aiEsc(it.time) + '</b>' : '') +
+            '</div>' +
+            '<div style="font-size:11px;color:#6b7280;margin-top:3px">학생ID: ' + _aiEsc(it.resolved_user_id) + '</div>' +
+          '</div>';
+        });
+        html += '</div></div>';
+      }
+
+      // 미등록 학생 안내
+      if (notFound.length) {
+        html += '<div style="margin-top:14px"><div style="font-size:12px;color:#ef4444;font-weight:700;margin-bottom:6px">⚠️ 학생 DB 등록 필요</div><div style="display:flex;flex-direction:column;gap:8px">';
+        notFound.forEach(it => {
+          const dayList = Array.isArray(it.days) ? it.days.map(d => dayNames[d] || d).join('·') : '';
+          html += '<div style="border:1px solid #fecaca;border-left:4px solid #ef4444;border-radius:8px;padding:10px 14px;background:#fef2f2">' +
+            '<div style="font-size:14px;color:#991b1b">' +
+              '<b>' + _aiEsc(it.student_name) + '</b> 학생을 DB에서 찾을 수 없습니다.' +
+            '</div>' +
+            '<div style="font-size:12px;color:#7f1d1d;margin-top:3px">' +
+              '요청: ' +
+              (dayList ? '매주 ' + _aiEsc(dayList) + '요일 ' : '') +
+              (it.date ? _aiEsc(it.date) + ' ' : '') +
+              (it.time ? _aiEsc(it.time) + ' ' : '') +
+              _aiEsc(typeNames[it.type] || it.type) +
+            '</div>' +
+            '<div style="font-size:11px;color:#9ca3af;margin-top:6px">→ 학생관리에서 먼저 학생을 등록한 뒤 다시 시도해 주세요.</div>' +
+          '</div>';
+        });
+        html += '</div></div>';
+      }
+
+      // 액션 버튼들
+      html += '<div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">' +
+        '<a href="/admin/students.html" class="ai-action-confirm-btn" style="flex:1;min-width:140px;text-align:center;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px">👥 학생관리 열기</a>' +
+        (notFound.length ?
+          '<a href="/admin/students.html?action=create" class="ai-action-confirm-btn" style="flex:1;min-width:140px;text-align:center;text-decoration:none;background:linear-gradient(135deg,#ef4444,#dc2626);display:inline-flex;align-items:center;justify-content:center;gap:6px">➕ 신규 학생 등록</a>'
+          : '') +
+        '<button class="ai-action-cancel-btn" onclick="_aiPanelClose()" style="flex:1;min-width:100px">닫기</button>' +
+      '</div>';
+
+      // Phase 1 안내 (작게)
+      if (j.note) {
+        html += '<details style="margin-top:14px"><summary style="cursor:pointer;font-size:11px;color:#9ca3af">📌 Phase 1 안내 + 원본 응답</summary>' +
+          '<div style="font-size:11px;color:#6b7280;margin-top:6px">' + _aiEsc(j.note) + '</div>' +
+          '<pre style="font-size:10px;background:#f9fafb;padding:8px;border-radius:6px;margin-top:6px;overflow:auto">' +
+          _aiEsc(JSON.stringify(j, null, 2)) + '</pre>' +
+        '</details>';
+      }
+
+      ct.innerHTML = html;
+      return;
+    }
+
+    // 일반 액션 결과 (기존)
+    ct.innerHTML = '<div class="ai-answer">✅ <b>' + _aiEsc(name) + '</b> 실행 완료.</div>' +
+      '<pre style="font-size:11px;background:#f0fdf4;padding:10px;border-radius:6px;margin-top:8px">' +
+      _aiEsc(JSON.stringify(j, null, 2)) + '</pre>';
   } catch (e) {
     _aiSetLoading(false, '⚠️ 오류');
     document.getElementById('ai-content').innerHTML =
