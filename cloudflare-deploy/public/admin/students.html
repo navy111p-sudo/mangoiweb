@@ -255,6 +255,16 @@
     .summary-table th { background:#f8fafc; color:#475569; font-weight:600; }
     .summary-section-title { font-size:13px; font-weight:700; color:#0f172a; margin:14px 0 8px; }
 
+    
+  /* 정렬 가능한 헤더 */
+  th.sortable { cursor: pointer; user-select: none; transition: background 0.15s; position: relative; }
+  th.sortable:hover { background: rgba(245,158,11,0.15); }
+  th.sortable .sort-arrow { display: inline-block; margin-left: 4px; opacity: 0.4; font-size: 10px; }
+  th.sortable.sort-asc .sort-arrow::after { content: '▲'; opacity: 1; color: #f59e0b; }
+  th.sortable.sort-desc .sort-arrow::after { content: '▼'; opacity: 1; color: #f59e0b; }
+  th.sortable:hover .sort-arrow::after { opacity: 0.7; }
+  th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow::after { content: '⇅'; opacity: 0.3; }
+
     /* 메시지 전송 모달 */
     .msg-form { display:flex; flex-direction:column; gap:12px; }
     .msg-form label { font-size:12px; color:#475569; font-weight:600; }
@@ -390,28 +400,27 @@
         <thead>
           <tr>
             <th><input type="checkbox" id="check-all" /></th>
-            <th>No</th>
-            <th>학생명</th>
-            <th>아이디</th>
-            <th>결제타입</th>
-            <th>수강 종료일</th>
+            <th class="sortable" data-sort="student_id">No <span class="sort-arrow"></span></th>
+            <th class="sortable" data-sort="username">학생명 <span class="sort-arrow"></span></th>
+            <th class="sortable" data-sort="login_id">아이디 <span class="sort-arrow"></span></th>
+            <th class="sortable" data-sort="payment_type">결제타입 <span class="sort-arrow"></span></th>
+            <th class="sortable" data-sort="start_date">수강 시작일 <span class="sort-arrow"></span></th>
+            <th class="sortable" data-sort="end_date">수강 종료일 <span class="sort-arrow"></span></th>
             <th>요약</th>
             <th>스케줄</th>
-            <th>가입일</th>
-            <th>수업회수(주)</th>
-            <th>상담</th>
-            <th>포인트</th>
-            <th>메시지</th>
+            <th class="sortable" data-sort="signup_date">가입일 <span class="sort-arrow"></span></th>
+            <th class="sortable" data-sort="classes_per_week">수업회수(주) <span class="sort-arrow"></span></th>
+            <th class="sortable" data-sort="points">포인트 <span class="sort-arrow"></span></th>
             <th>수강신청<br>(스케줄요청)</th>
-            <th>학생 번호</th>
-            <th>부모님 번호</th>
-            <th>관리교사번호</th>
-            <th>대리점명</th>
-            <th>본사명</th>
-            <th>대표지사명</th>
-            <th>지사명</th>
-            <th>프랜차이즈</th>
-            <th>상태</th>
+            <th class="sortable" data-sort="student_phone">학생 번호 <span class="sort-arrow"></span></th>
+            <th class="sortable" data-sort="parent_phone">부모님 번호 <span class="sort-arrow"></span></th>
+            <th class="sortable" data-sort="agency_phone">대리점 연락처 <span class="sort-arrow"></span></th>
+            <th class="sortable" data-sort="shop_name">대리점명 <span class="sort-arrow"></span></th>
+            <th class="sortable" data-sort="hq_name">본사명 <span class="sort-arrow"></span></th>
+            <th class="sortable" data-sort="branch1_name">대표지사명 <span class="sort-arrow"></span></th>
+            <th class="sortable" data-sort="branch2_name">지사명 <span class="sort-arrow"></span></th>
+            <th class="sortable" data-sort="franchise">프랜차이즈 <span class="sort-arrow"></span></th>
+            <th class="sortable" data-sort="status">상태 <span class="sort-arrow"></span></th>
           </tr>
         </thead>
         <tbody id="students-tbody">
@@ -756,6 +765,47 @@ function applyFilters() {
   renderPage();
 }
 
+// === 정렬 (모든 컬럼 클릭으로 오름차순/내림차순) ===
+var _sortKey = null;
+var _sortDir = 'asc';
+function applySort(key) {
+  if (_sortKey === key) {
+    _sortDir = (_sortDir === 'asc') ? 'desc' : 'asc';
+  } else {
+    _sortKey = key;
+    _sortDir = 'asc';
+  }
+  _filtered.sort(function(a, b) {
+    var av = a[key]; var bv = b[key];
+    if (av == null) av = '';
+    if (bv == null) bv = '';
+    // 숫자처럼 보이면 숫자 비교
+    var na = parseFloat(av), nb = parseFloat(bv);
+    var cmp;
+    if (!isNaN(na) && !isNaN(nb) && (''+av).match(/^-?\d+(\.\d+)?$/) && (''+bv).match(/^-?\d+(\.\d+)?$/)) {
+      cmp = na - nb;
+    } else {
+      cmp = String(av).localeCompare(String(bv), 'ko-KR');
+    }
+    return _sortDir === 'asc' ? cmp : -cmp;
+  });
+  _page = 0;
+  renderPage();
+  // 헤더 indicator 업데이트
+  document.querySelectorAll('th.sortable').forEach(function(th) {
+    th.classList.remove('sort-asc', 'sort-desc');
+    if (th.dataset.sort === key) {
+      th.classList.add(_sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+    }
+  });
+}
+// 헤더 클릭 이벤트 바인딩
+document.addEventListener('click', function(e) {
+  var th = e.target.closest('th.sortable');
+  if (!th || !th.dataset.sort) return;
+  applySort(th.dataset.sort);
+});
+
 function renderPage() {
   const tb = document.getElementById('students-tbody');
   const total = _filtered.length;
@@ -783,21 +833,20 @@ function renderPage() {
     return `<tr>
       <td class="center"><input type="checkbox" /></td>
       <td class="center" style="color:#64748b;">${escHtml(no)}</td>
-      <td><span class="student-name" onclick="openSummary(${s.id})" style="cursor:pointer;">${escHtml(s.username || '-')}</span></td>
+      <td><span class="student-name" onclick="window.open('/admin/student?uid=${drillUid}', '_blank')" style="cursor:pointer;color:#0984e3;text-decoration:underline;font-weight:700">${escHtml(s.username || '-')}</span></td>
       <td><span class="login-id" onclick="window.open('/admin/student?uid=${drillUid}', '_blank')">${escHtml(s.login_id || '-')}<span class="dollar">$</span><span class="grip">⫶</span></span></td>
       <td><span class="pay-type">${escHtml(s.payment_type || '-')}</span></td>
+      <td class="center" style="color:${s.start_date === '미설정' ? '#dc2626' : '#475569'};">${escHtml(s.start_date || '-')}</td>
       <td class="center" style="color:${s.end_date === '미설정' ? '#dc2626' : '#475569'};">${escHtml(s.end_date || '-')}</td>
       <td class="center"><span class="icon-btn" title="요약" onclick="openSummary(${s.id})">👤</span></td>
       <td class="center"><span class="icon-btn" title="스케줄 배치표 보기" onclick="openScheduleCalendar(${s.id}, '${escHtml(s.username || '')}', '${drillUid}')" style="cursor:pointer">📅</span></td>
       <td class="center">${escHtml(s.signup_date || '-')}</td>
       <td class="right">${s.classes_per_week != null ? s.classes_per_week : '-'}</td>
-      <td class="center"><span class="icon-btn" title="상담">👤</span></td>
       <td class="right"><span class="point-cell">${s.points || 0} P<span class="dollar">$</span></span></td>
-      <td class="center"><span class="msg-flag" title="메시지" onclick="openMsg(${s.id})">🚩</span></td>
       <td class="center"><span class="icon-btn" title="수강신청·스케줄요청">📋</span></td>
       <td>${escHtml(s.student_phone || '-')}</td>
       <td>${escHtml(s.parent_phone || '-')}</td>
-      <td>${escHtml(s.teacher_phone || '-')}</td>
+      <td>${escHtml(s.agency_phone || s.shop_phone || s.teacher_phone || '-')}</td>
       <td>${shopHtml}</td>
       <td>${escHtml(s.hq_name || '-')}</td>
       <td>${escHtml(s.branch1_name || '-')}</td>
