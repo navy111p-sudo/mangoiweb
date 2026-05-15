@@ -12771,7 +12771,7 @@ window.closeRulesModal = function() {
         // 좌측 시간 라벨 (정시만 굵게)
         var timeLabelStyle = 'background:#0f172a;color:'+(isHourMark?'#fbbf24':'#94a3b8')+';font-size:'+(isHourMark?'13px':'10.5px')+';font-weight:'+(isHourMark?'800':'500')+';text-align:center;line-height:'+rowPx+'px;'+(isHourMark?'border-top:2px solid #fbbf24;':'border-top:1px solid rgba(255,255,255,.06);');
         html += '<div style="'+timeLabelStyle+'">'+(isHourMark?(pad(hh)+':00'):(':'+pad(mm)))+'</div>';
-        for(var di=0;di<7;di++){
+        for(var di=0;di<TOTAL_DAYS;di++){
           var d=dates[di];
           var iso=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
           var cellTime=new Date(d); cellTime.setHours(hh,mm,0,0);
