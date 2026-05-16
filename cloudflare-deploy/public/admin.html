@@ -10619,7 +10619,17 @@ window.openNewStudentForm = function(items) {
   if (!Array.isArray(items) || items.length === 0) return;
   const dayNames = { mon:'월', tue:'화', wed:'수', thu:'목', fri:'금', sat:'토', sun:'일' };
   const typeNames = { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
-  // 모달 컨테이너
+  function escAttr(s){ return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+  // Phase 7i: 동일 student_name 으로 그룹화 → 1명당 1개 fieldset, 스케줄은 리스트로
+  const groups = {};
+  items.forEach(it => {
+    const key = String(it.student_name || '').trim();
+    if (!key) return;
+    if (!groups[key]) groups[key] = { name: key, items: [] };
+    groups[key].items.push(it);
+  });
+  const groupNames = Object.keys(groups);
+
   const existing = document.getElementById('newStudentFormBg');
   if (existing) existing.remove();
   const bg = document.createElement('div');
@@ -10628,37 +10638,46 @@ window.openNewStudentForm = function(items) {
   let html = '<div style="background:#fff;border-radius:14px;max-width:760px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.4)">';
   html += '<div style="padding:18px 22px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;border-radius:14px 14px 0 0">';
   html += '<span style="font-size:18px;font-weight:700">📝 신규학생 등록 + 스케줄 배정</span>';
-  html += '<span style="margin-left:auto;font-size:12px;opacity:.85">' + items.length + '명 입력 후 한 번에 등록됩니다</span>';
+  html += '<span style="margin-left:auto;font-size:12px;opacity:.85">' + groupNames.length + '명 학생 · 총 ' + items.length + '건 스케줄</span>';
   html += '<button onclick="closeNewStudentForm()" style="background:transparent;border:none;color:#fff;font-size:22px;cursor:pointer;padding:0 6px">✕</button>';
   html += '</div>';
   html += '<div style="padding:18px 22px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:12.5px;color:#374151;line-height:1.55">';
-  html += '⚡ 학생 이름은 AI 명령에서 자동 입력됨 · <b>학년·연락처·학부모 연락처</b> 만 채워주세요 (선택입력) · 모두 비워도 등록 가능';
+  html += '⚡ <b>아이디</b> · 학년 · 연락처 · 학부모 연락처 만 채우면 됩니다 (모두 선택입력 - 비워도 OK) · 동명 학생은 자동으로 한 신청서에 묶임';
   html += '</div>';
   html += '<form id="newStudentFormBody" onsubmit="return submitNewStudentForm(event)" style="padding:18px 22px">';
-  items.forEach((it, idx) => {
-    const dayList = Array.isArray(it.days) ? it.days.map(d => dayNames[d]||d).join('·') : '';
-    const sched = (dayList ? '매주 ' + dayList + '요일 ' : '') + (it.date ? it.date + ' ' : '') + (it.time||'') + ' · ' + (typeNames[it.type]||it.type);
+
+  groupNames.forEach((name, gIdx) => {
+    const grp = groups[name];
     html += '<fieldset style="border:1px solid #d1d5db;border-radius:10px;padding:14px 16px;margin-bottom:14px;background:#fff">';
-    html += '<legend style="font-weight:700;font-size:14px;color:#0369a1;padding:0 8px">학생 #' + (idx+1) + ': ' + it.student_name + '</legend>';
-    html += '<div style="font-size:11.5px;color:#6b7280;margin-bottom:10px;background:#f0f9ff;padding:6px 10px;border-radius:6px">📅 예정 스케줄: <b style="color:#0369a1">' + sched + '</b></div>';
+    html += '<legend style="font-weight:700;font-size:14px;color:#0369a1;padding:0 8px">학생 #' + (gIdx+1) + ': ' + escAttr(name) + ' <span style="font-weight:500;color:#6b7280;font-size:12px">(스케줄 ' + grp.items.length + '건)</span></legend>';
+    // 스케줄 리스트
+    html += '<div style="margin-bottom:12px">';
+    grp.items.forEach(it => {
+      const dayList = Array.isArray(it.days) ? it.days.map(d => dayNames[d]||d).join('·') : '';
+      const sched = (dayList ? '매주 ' + dayList + '요일 ' : '') + (it.date ? it.date + ' ' : '') + (it.time||'') + ' · ' + (typeNames[it.type]||it.type);
+      html += '<div style="font-size:11.5px;color:#6b7280;background:#f0f9ff;padding:6px 10px;border-radius:6px;margin-bottom:4px">📅 ' + escAttr(sched) + '</div>';
+    });
+    html += '</div>';
+    // 학생 정보 입력
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">';
-    html += '<label>학생명 (한글)<input type="text" name="korean_name_' + idx + '" value="' + escAttr(it.student_name) + '" readonly style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;background:#f3f4f6;margin-top:4px"></label>';
-    html += '<label>학생명 (영문)<input type="text" name="english_name_' + idx + '" placeholder="예: Jung Wooyoung" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px"></label>';
-    html += '<label>학년·생년<input type="text" name="grade_' + idx + '" placeholder="예: 초등 3학년" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px"></label>';
-    html += '<label>학원/센터<input type="text" name="center_' + idx + '" placeholder="예: 강남센터" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px"></label>';
-    html += '<label>학생 연락처<input type="tel" name="phone_' + idx + '" placeholder="010-0000-0000" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px"></label>';
-    html += '<label>학부모 연락처<input type="tel" name="parent_phone_' + idx + '" placeholder="010-0000-0000" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px"></label>';
-    html += '<label style="grid-column:1 / -1">메모<textarea name="notes_' + idx + '" rows="2" placeholder="알레르기, 학습목표 등" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;resize:vertical"></textarea></label>';
+    html += '<label>학생명 (한글)<input type="text" name="korean_name_' + gIdx + '" value="' + escAttr(name) + '" readonly style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;background:#f3f4f6;margin-top:4px"></label>';
+    html += '<label><b style="color:#0369a1">🆔 아이디 (login_id)</b><input type="text" name="login_id_' + gIdx + '" placeholder="예: mango_001 (비우면 자동 생성)" style="width:100%;padding:8px;border:1.5px solid #0ea5e9;border-radius:6px;margin-top:4px;background:#f0f9ff"></label>';
+    html += '<label>학생명 (영문)<input type="text" name="english_name_' + gIdx + '" placeholder="예: Jung Wooyoung" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px"></label>';
+    html += '<label>학년·생년<input type="text" name="grade_' + gIdx + '" placeholder="예: 초등 3학년" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px"></label>';
+    html += '<label>학원/센터<input type="text" name="center_' + gIdx + '" placeholder="예: 강남센터" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px"></label>';
+    html += '<label>학생 연락처<input type="tel" name="phone_' + gIdx + '" placeholder="010-0000-0000" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px"></label>';
+    html += '<label>학부모 연락처<input type="tel" name="parent_phone_' + gIdx + '" placeholder="010-0000-0000" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px"></label>';
+    html += '<label style="grid-column:1 / -1">메모<textarea name="notes_' + gIdx + '" rows="2" placeholder="알레르기, 학습목표 등" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;resize:vertical"></textarea></label>';
     html += '</div></fieldset>';
   });
   html += '<input type="hidden" name="__items" value="' + escAttr(JSON.stringify(items)) + '">';
+  html += '<input type="hidden" name="__groups" value="' + escAttr(JSON.stringify(groupNames)) + '">';
   html += '<div style="display:flex;gap:10px;margin-top:8px">';
-  html += '<button type="submit" style="flex:1;padding:13px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer">✅ ' + items.length + '명 등록 + 스케줄 배정 실행</button>';
+  html += '<button type="submit" style="flex:1;padding:13px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer">✅ ' + groupNames.length + '명 등록 + ' + items.length + '건 스케줄 배정 실행</button>';
   html += '<button type="button" onclick="closeNewStudentForm()" style="padding:13px 22px;background:#fff;color:#6b7280;border:1px solid #d1d5db;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer">취소</button>';
   html += '</div></form></div>';
   bg.innerHTML = html;
   document.body.appendChild(bg);
-  function escAttr(s){ return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 };
 
 window.closeNewStudentForm = function(){
@@ -10670,20 +10689,21 @@ window.submitNewStudentForm = async function(ev) {
   ev.preventDefault();
   const form = ev.target;
   const items = JSON.parse(form.__items.value);
-  // 폼 데이터 → student_meta { 학생명: {...} }
+  const groupNames = JSON.parse(form.__groups?.value || '[]');
+  // 폼 데이터 → student_meta { 학생명: {...} } (그룹 기준)
   const meta = {};
-  items.forEach((it, idx) => {
-    meta[it.student_name] = {
-      english_name: form['english_name_'+idx]?.value.trim() || '',
-      grade:         form['grade_'+idx]?.value.trim() || '',
-      center:        form['center_'+idx]?.value.trim() || '',
-      phone:         form['phone_'+idx]?.value.trim() || '',
-      parent_phone:  form['parent_phone_'+idx]?.value.trim() || '',
-      notes:         form['notes_'+idx]?.value.trim() || ''
+  groupNames.forEach((name, gIdx) => {
+    meta[name] = {
+      login_id:      form['login_id_'+gIdx]?.value.trim() || '',
+      english_name:  form['english_name_'+gIdx]?.value.trim() || '',
+      grade:         form['grade_'+gIdx]?.value.trim() || '',
+      center:        form['center_'+gIdx]?.value.trim() || '',
+      phone:         form['phone_'+gIdx]?.value.trim() || '',
+      parent_phone:  form['parent_phone_'+gIdx]?.value.trim() || '',
+      notes:         form['notes_'+gIdx]?.value.trim() || ''
     };
   });
   closeNewStudentForm();
-  // 폼 정보를 schedule_batch 에 함께 보내기
   const args = { items: items, auto_create_students: true, student_meta: meta };
   await executeAiAction('schedule_batch', args);
   return false;

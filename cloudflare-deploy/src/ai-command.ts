@@ -674,7 +674,8 @@ export async function executeAction(
             try { await env.DB.exec('ALTER TABLE students_erp ADD COLUMN ' + c + ' ' + t); } catch {}
           }
           const meta = (args?.student_meta && args.student_meta[studentName]) || {};
-          const newId = 'stu_ai_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+          // Phase 7i: 사용자가 login_id 를 직접 입력하면 그것을 ID 로 사용
+          const newId = (meta.login_id && String(meta.login_id).trim()) || ('stu_ai_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
           const todayKst = new Date(now + 9*3600*1000).toISOString().slice(0,10);
           let inserted = false;
           try {
