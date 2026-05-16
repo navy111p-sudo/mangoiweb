@@ -3247,6 +3247,73 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   </div>
 </details>
 
+<!-- 📢 Phase POP — 공지/팝업 관리 (포인트 카드 다음) -->
+<details class="table-card menu-card" id="card-popups-mgmt">
+  <summary><span data-ko="📢 공지/팝업 관리" data-en="📢 Announcements &amp; Popups">📢 공지/팝업 관리</span></summary>
+  <div class="menu-body">
+    <div class="sub-menu">
+
+      <!-- 1. 활성 팝업 목록 + 통계 -->
+      <details class="sub-item" id="sub-popup-list" open>
+        <summary data-ko="📋 팝업 목록 (활성+만료)" data-en="📋 Popup List">📋 팝업 목록</summary>
+        <div class="sub-body">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+            <button class="primary" onclick="popLoadList()" style="padding:7px 14px;font-size:12.5px;font-weight:700">🔄 새로고침</button>
+            <button onclick="popOpenEditor()" style="padding:7px 14px;font-size:12.5px;font-weight:700;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer">＋ 새 팝업 만들기</button>
+            <div id="pop-stats-line" style="font-size:11.5px;color:#6b7280;margin-left:auto"></div>
+          </div>
+          <div id="pop-list-table" style="overflow-x:auto"></div>
+        </div>
+      </details>
+
+      <!-- 2. 가이드 -->
+      <details class="sub-item" id="sub-popup-guide">
+        <summary data-ko="📖 사용법 가이드" data-en="📖 Usage Guide">📖 사용법 가이드</summary>
+        <div class="sub-body">
+          <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;font-size:12.5px;line-height:1.7;color:#374151">
+            <h4 style="margin:0 0 8px;color:#1f2937;font-size:14px">📢 팝업 활용 사례</h4>
+            <ul style="margin:0 0 12px 18px;padding:0">
+              <li><b>공지사항</b> — 학원 휴원, 일정 변경, 시험 안내</li>
+              <li><b>이벤트 홍보</b> — 신규 강좌, 할인 이벤트 (이미지 + 링크)</li>
+              <li><b>동영상 안내</b> — 사용법 영상, 강사 소개 (YouTube/직접 업로드)</li>
+              <li><b>외부 사이트 안내</b> — 카카오톡 채널, 블로그, 인스타 링크</li>
+            </ul>
+            <h4 style="margin:14px 0 6px;color:#1f2937;font-size:14px">⚙ 핵심 기능</h4>
+            <ul style="margin:0 0 12px 18px;padding:0">
+              <li><b>다중 팝업</b> — 동시에 여러 팝업 노출, 우선순위로 정렬</li>
+              <li><b>가로/세로 크기 조절</b> — 학생이 모서리 드래그로도 추가 조절 가능</li>
+              <li><b>위치 선택</b> — 중앙/상단/하단/네 모서리</li>
+              <li><b>노출 기간</b> — 시작·종료 시각 자동 적용</li>
+              <li><b>오늘/7일 안보기</b> — 학생이 닫으면 그 학생에게만 해당 기간 안 보임</li>
+              <li><b>이미지+동영상+링크+HTML 본문</b> 모두 한 팝업에 함께 가능</li>
+              <li><b>YouTube 자동 임베드</b> — URL 만 넣으면 자동으로 iframe 변환</li>
+              <li><b>통계</b> — 노출수, 클릭수, CTR 자동 집계</li>
+              <li><b>모바일 별도 크기</b> — 데스크톱과 다른 사이즈 가능 (선택)</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+
+    </div>
+  </div>
+</details>
+
+<!-- 📢 팝업 에디터 모달 -->
+<div id="pop-editor-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:11500;padding:20px;overflow-y:auto" onclick="if(event.target===this)popCloseEditor()">
+  <div id="pop-editor-modal" style="max-width:780px;margin:20px auto;background:#fff;border-radius:14px;box-shadow:0 30px 80px -10px rgba(0,0,0,0.6);overflow:hidden">
+    <div style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1f2937;padding:16px 22px;display:flex;align-items:center;gap:10px">
+      <h2 style="margin:0;flex:1;font-size:18px;font-weight:800" id="pop-editor-title">📢 새 팝업 만들기</h2>
+      <button onclick="popCloseEditor()" style="background:rgba(0,0,0,0.18);border:0;color:#fff;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer">✕</button>
+    </div>
+    <div style="padding:20px 22px;max-height:75vh;overflow-y:auto" id="pop-editor-body"></div>
+    <div style="padding:14px 22px;border-top:1px solid #e5e7eb;background:#f9fafb;display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="popCloseEditor()" style="padding:9px 18px;font-size:13px;background:#e5e7eb;color:#374151;border:0;border-radius:8px;cursor:pointer;font-weight:700">취소</button>
+      <button onclick="popPreview()" style="padding:9px 18px;font-size:13px;background:#6366f1;color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:700">👁 미리보기</button>
+      <button onclick="popSave()" style="padding:9px 18px;font-size:13px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:800" id="pop-save-btn">💾 저장</button>
+    </div>
+  </div>
+</div>
+
 <details class="table-card menu-card" id="card-payroll">
   <summary style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
     <span data-ko="💼 Mangoi 강사 급여·평가 대시보드" data-en="💼 Mangoi Teacher Payroll & Evaluation">💼 Mangoi 강사 급여·평가 대시보드</span>
@@ -14761,6 +14828,314 @@ button.chip:hover,
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ptAttachOnOpen);
   else ptAttachOnOpen();
+})();
+</script>
+
+
+<!-- 📢 Phase POP — 팝업 관리 모듈 -->
+<script>
+(function(){
+  const fmt = (n) => (Number(n)||0).toLocaleString('ko-KR');
+  const fmtDate = (ms) => ms ? new Date(ms).toLocaleString('ko-KR', { dateStyle:'short', timeStyle:'short' }) : '-';
+  const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+  const toLocalDT = (ms) => { if (!ms) return ''; const d=new Date(ms); const off=d.getTimezoneOffset(); return new Date(ms - off*60000).toISOString().slice(0,16); };
+  const fromLocalDT = (s) => s ? new Date(s).getTime() : null;
+
+  let _popList = [];
+
+  window.popLoadList = async function(){
+    const el = document.getElementById('pop-list-table');
+    if (!el) return;
+    el.innerHTML = '<div style="padding:20px;color:#6b7280;text-align:center">불러오는 중…</div>';
+    try {
+      const r = await fetch('/api/admin/popups');
+      const d = await r.json();
+      _popList = d.rows || [];
+      const now = Date.now();
+      const active = _popList.filter(p => p.enabled && (!p.end_at || p.end_at > now) && (!p.start_at || p.start_at <= now));
+      const scheduled = _popList.filter(p => p.enabled && p.start_at && p.start_at > now);
+      const expired = _popList.filter(p => p.enabled && p.end_at && p.end_at < now);
+      const disabled = _popList.filter(p => !p.enabled);
+      document.getElementById('pop-stats-line').innerHTML =
+        `전체 ${_popList.length} · <b style="color:#10b981">활성 ${active.length}</b> · 예정 ${scheduled.length} · 만료 ${expired.length} · 비활성 ${disabled.length}`;
+      if (!_popList.length) {
+        el.innerHTML = '<div style="padding:30px;text-align:center;color:#6b7280;background:#f9fafb;border-radius:10px">아직 만든 팝업이 없습니다.<br><span style="font-size:11.5px">위 「＋ 새 팝업 만들기」 를 눌러 첫 팝업을 등록해보세요.</span></div>';
+        return;
+      }
+      const STATUS = (p) => {
+        if (!p.enabled) return { color:'#9ca3af', text:'⏸ 비활성' };
+        if (p.start_at && p.start_at > now) return { color:'#3b82f6', text:'⏳ 예정' };
+        if (p.end_at && p.end_at < now) return { color:'#9ca3af', text:'⌛ 만료' };
+        return { color:'#10b981', text:'✅ 활성' };
+      };
+      const rowsHtml = _popList.map(p => {
+        const st = STATUS(p);
+        const ctr = (p.view_count > 0) ? Math.round((p.click_count||0)/p.view_count*1000)/10 : 0;
+        const types = [];
+        if (p.image_url) types.push('🖼');
+        if (p.video_url) types.push('🎬');
+        if (p.link_url) types.push('🔗');
+        if (p.body_html) types.push('📝');
+        return `<tr style="border-bottom:1px solid #e5e7eb">
+          <td style="padding:9px 12px"><span style="color:${st.color};font-weight:700;font-size:11.5px">${st.text}</span></td>
+          <td style="padding:9px 12px"><b style="color:#374151">${esc(p.title)}</b><br><span style="font-size:11px;color:#9ca3af">${types.join(' ')||'(빈 본문)'}</span></td>
+          <td style="padding:9px 12px;text-align:center;font-size:11px;color:#6b7280">${p.width}×${p.height}<br>${esc(p.position||'center')}</td>
+          <td style="padding:9px 12px;text-align:center;font-size:11px;color:#6b7280">${p.priority||0}</td>
+          <td style="padding:9px 12px;font-size:11px;color:#6b7280">${p.start_at?fmtDate(p.start_at):'-'}<br>~ ${p.end_at?fmtDate(p.end_at):'-'}</td>
+          <td style="padding:9px 12px;text-align:right;font-size:11.5px"><b>${fmt(p.view_count||0)}</b> 노출<br><span style="color:#3b82f6">${fmt(p.click_count||0)} 클릭 (${ctr}%)</span></td>
+          <td style="padding:8px 10px;text-align:center;white-space:nowrap">
+            <button onclick='popOpenEditor(${p.id})' style="padding:5px 10px;font-size:11px;background:#6366f1;color:#fff;border:0;border-radius:5px;cursor:pointer;margin-right:2px">편집</button>
+            <button onclick="popToggleEnabled(${p.id},${p.enabled?0:1})" style="padding:5px 10px;font-size:11px;background:${p.enabled?'#9ca3af':'#10b981'};color:#fff;border:0;border-radius:5px;cursor:pointer;margin-right:2px">${p.enabled?'끄기':'켜기'}</button>
+            <button onclick="popShowStats(${p.id})" style="padding:5px 8px;font-size:11px;background:#0ea5e9;color:#fff;border:0;border-radius:5px;cursor:pointer;margin-right:2px">📊</button>
+            <button onclick="popDelete(${p.id})" style="padding:5px 8px;font-size:11px;background:#ef4444;color:#fff;border:0;border-radius:5px;cursor:pointer">🗑</button>
+          </td>
+        </tr>`;
+      }).join('');
+      el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border-radius:8px;overflow:hidden">
+        <thead style="background:#f3f4f6"><tr>
+          <th style="text-align:left;padding:9px 12px">상태</th>
+          <th style="text-align:left;padding:9px 12px">제목·구성</th>
+          <th style="text-align:center;padding:9px 12px">크기·위치</th>
+          <th style="text-align:center;padding:9px 12px">우선</th>
+          <th style="text-align:left;padding:9px 12px">노출 기간</th>
+          <th style="text-align:right;padding:9px 12px">통계</th>
+          <th style="text-align:center;padding:9px 12px">조작</th>
+        </tr></thead><tbody>${rowsHtml}</tbody></table>`;
+    } catch(e) {
+      el.innerHTML = '<div style="padding:20px;color:#ef4444">로드 실패: '+esc(e.message)+'</div>';
+    }
+  };
+
+  window.popOpenEditor = function(id){
+    const ov = document.getElementById('pop-editor-overlay');
+    const body = document.getElementById('pop-editor-body');
+    const titleEl = document.getElementById('pop-editor-title');
+    const existing = id ? _popList.find(x => x.id === id) : null;
+    titleEl.textContent = existing ? `📝 팝업 편집 (#${id})` : '📢 새 팝업 만들기';
+    const p = existing || { title:'', content_type:'mixed', body_html:'', image_url:'', video_url:'', link_url:'', link_text:'자세히 보기', width:480, height:360, width_mobile:'', height_mobile:'', position:'center', priority:0, start_at:'', end_at:'', enabled:1, dismiss_options:'today,7days' };
+    body.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div style="grid-column:1/-1">
+          <label style="display:block;font-size:11.5px;font-weight:700;color:#374151;margin-bottom:4px">📌 제목 *</label>
+          <input id="pop-f-title" type="text" value="${esc(p.title)}" placeholder="예: 5월 휴원 안내" style="width:100%;padding:8px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px" />
+        </div>
+        <div style="grid-column:1/-1">
+          <label style="display:block;font-size:11.5px;font-weight:700;color:#374151;margin-bottom:4px">🖼 이미지 (URL 또는 업로드)</label>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input id="pop-f-image" type="text" value="${esc(p.image_url||'')}" placeholder="https://... 또는 업로드 클릭" style="flex:1;padding:8px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px" />
+            <input type="file" id="pop-f-image-file" accept="image/*" style="display:none" onchange="popUploadMedia(this,'pop-f-image')" />
+            <button onclick="document.getElementById('pop-f-image-file').click()" style="padding:7px 14px;font-size:12px;background:#6366f1;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700;white-space:nowrap">📁 업로드</button>
+          </div>
+        </div>
+        <div style="grid-column:1/-1">
+          <label style="display:block;font-size:11.5px;font-weight:700;color:#374151;margin-bottom:4px">🎬 동영상 (URL/YouTube/업로드)</label>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input id="pop-f-video" type="text" value="${esc(p.video_url||'')}" placeholder="https://youtube.com/watch?v=... 또는 mp4 URL" style="flex:1;padding:8px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px" />
+            <input type="file" id="pop-f-video-file" accept="video/*" style="display:none" onchange="popUploadMedia(this,'pop-f-video')" />
+            <button onclick="document.getElementById('pop-f-video-file').click()" style="padding:7px 14px;font-size:12px;background:#6366f1;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700;white-space:nowrap">📁 업로드</button>
+          </div>
+          <div style="font-size:10.5px;color:#9ca3af;margin-top:3px">YouTube URL은 자동 임베드. 직접 업로드는 최대 30MB</div>
+        </div>
+        <div>
+          <label style="display:block;font-size:11.5px;font-weight:700;color:#374151;margin-bottom:4px">🔗 링크 URL</label>
+          <input id="pop-f-link" type="text" value="${esc(p.link_url||'')}" placeholder="https://..." style="width:100%;padding:8px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px" />
+        </div>
+        <div>
+          <label style="display:block;font-size:11.5px;font-weight:700;color:#374151;margin-bottom:4px">🏷 링크 버튼 텍스트</label>
+          <input id="pop-f-linktext" type="text" value="${esc(p.link_text||'자세히 보기')}" placeholder="자세히 보기" style="width:100%;padding:8px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px" />
+        </div>
+        <div style="grid-column:1/-1">
+          <label style="display:block;font-size:11.5px;font-weight:700;color:#374151;margin-bottom:4px">📝 본문 HTML (옵션) <span style="font-weight:400;color:#9ca3af">— &lt;b&gt;, &lt;br&gt;, &lt;p&gt; 등 사용 가능</span></label>
+          <textarea id="pop-f-body" rows="3" placeholder="<b>안녕하세요</b><br>5월 1일부터 휴원합니다." style="width:100%;padding:8px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px;font-family:monospace">${esc(p.body_html||'')}</textarea>
+        </div>
+        <div>
+          <label style="display:block;font-size:11.5px;font-weight:700;color:#374151;margin-bottom:4px">📐 가로 (px)</label>
+          <input id="pop-f-width" type="number" value="${p.width||480}" min="280" max="1200" style="width:100%;padding:8px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px" />
+        </div>
+        <div>
+          <label style="display:block;font-size:11.5px;font-weight:700;color:#374151;margin-bottom:4px">📏 세로 (px)</label>
+          <input id="pop-f-height" type="number" value="${p.height||360}" min="200" max="900" style="width:100%;padding:8px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px" />
+        </div>
+        <div>
+          <label style="display:block;font-size:11.5px;font-weight:700;color:#374151;margin-bottom:4px">📱 모바일 가로 (옵션)</label>
+          <input id="pop-f-width-mobile" type="number" value="${p.width_mobile||''}" placeholder="비우면 자동" style="width:100%;padding:8px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px" />
+        </div>
+        <div>
+          <label style="display:block;font-size:11.5px;font-weight:700;color:#374151;margin-bottom:4px">📱 모바일 세로 (옵션)</label>
+          <input id="pop-f-height-mobile" type="number" value="${p.height_mobile||''}" placeholder="비우면 자동" style="width:100%;padding:8px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px" />
+        </div>
+        <div>
+          <label style="display:block;font-size:11.5px;font-weight:700;color:#374151;margin-bottom:4px">📍 화면 위치</label>
+          <select id="pop-f-position" style="width:100%;padding:8px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px;background:#fff">
+            <option value="center" ${p.position==='center'?'selected':''}>중앙</option>
+            <option value="top" ${p.position==='top'?'selected':''}>상단 중앙</option>
+            <option value="bottom" ${p.position==='bottom'?'selected':''}>하단 중앙</option>
+            <option value="tl" ${p.position==='tl'?'selected':''}>좌상단</option>
+            <option value="tr" ${p.position==='tr'?'selected':''}>우상단</option>
+            <option value="bl" ${p.position==='bl'?'selected':''}>좌하단</option>
+            <option value="br" ${p.position==='br'?'selected':''}>우하단</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block;font-size:11.5px;font-weight:700;color:#374151;margin-bottom:4px">🔝 우선순위 (높을수록 위)</label>
+          <input id="pop-f-priority" type="number" value="${p.priority||0}" style="width:100%;padding:8px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px" />
+        </div>
+        <div>
+          <label style="display:block;font-size:11.5px;font-weight:700;color:#374151;margin-bottom:4px">📅 노출 시작</label>
+          <input id="pop-f-start" type="datetime-local" value="${toLocalDT(p.start_at)}" style="width:100%;padding:8px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px" />
+        </div>
+        <div>
+          <label style="display:block;font-size:11.5px;font-weight:700;color:#374151;margin-bottom:4px">📅 노출 종료</label>
+          <input id="pop-f-end" type="datetime-local" value="${toLocalDT(p.end_at)}" style="width:100%;padding:8px 12px;font-size:13px;border:1px solid #d1d5db;border-radius:6px" />
+        </div>
+        <div style="grid-column:1/-1">
+          <label style="display:block;font-size:11.5px;font-weight:700;color:#374151;margin-bottom:4px">⏰ "안보기" 옵션 학생에게 제공</label>
+          <div style="display:flex;gap:14px;font-size:12.5px">
+            <label><input type="checkbox" id="pop-f-dismiss-today" ${(p.dismiss_options||'').includes('today')?'checked':''}> 오늘 하루</label>
+            <label><input type="checkbox" id="pop-f-dismiss-7" ${(p.dismiss_options||'').includes('7days')?'checked':''}> 7일간</label>
+            <label><input type="checkbox" id="pop-f-dismiss-30" ${(p.dismiss_options||'').includes('30days')?'checked':''}> 30일간</label>
+          </div>
+        </div>
+        <div style="grid-column:1/-1">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:700;color:#10b981">
+            <input type="checkbox" id="pop-f-enabled" ${p.enabled?'checked':''} style="width:18px;height:18px"> 즉시 활성화 (학생에게 노출)
+          </label>
+        </div>
+        <input type="hidden" id="pop-f-id" value="${id||''}" />
+      </div>`;
+    ov.style.display = 'block';
+  };
+  window.popCloseEditor = function(){
+    document.getElementById('pop-editor-overlay').style.display = 'none';
+  };
+  function popCollectForm(){
+    const dismissOpts = [];
+    if (document.getElementById('pop-f-dismiss-today').checked) dismissOpts.push('today');
+    if (document.getElementById('pop-f-dismiss-7').checked) dismissOpts.push('7days');
+    if (document.getElementById('pop-f-dismiss-30').checked) dismissOpts.push('30days');
+    return {
+      title: document.getElementById('pop-f-title').value.trim(),
+      image_url: document.getElementById('pop-f-image').value.trim() || null,
+      video_url: document.getElementById('pop-f-video').value.trim() || null,
+      link_url: document.getElementById('pop-f-link').value.trim() || null,
+      link_text: document.getElementById('pop-f-linktext').value.trim() || null,
+      body_html: document.getElementById('pop-f-body').value || null,
+      width: parseInt(document.getElementById('pop-f-width').value, 10) || 480,
+      height: parseInt(document.getElementById('pop-f-height').value, 10) || 360,
+      width_mobile: parseInt(document.getElementById('pop-f-width-mobile').value, 10) || null,
+      height_mobile: parseInt(document.getElementById('pop-f-height-mobile').value, 10) || null,
+      position: document.getElementById('pop-f-position').value || 'center',
+      priority: parseInt(document.getElementById('pop-f-priority').value, 10) || 0,
+      start_at: fromLocalDT(document.getElementById('pop-f-start').value),
+      end_at: fromLocalDT(document.getElementById('pop-f-end').value),
+      enabled: document.getElementById('pop-f-enabled').checked,
+      dismiss_options: dismissOpts.join(','),
+    };
+  }
+  window.popSave = async function(){
+    const id = document.getElementById('pop-f-id').value;
+    const data = popCollectForm();
+    if (!data.title) { alert('제목은 필수입니다.'); return; }
+    if (!data.image_url && !data.video_url && !data.body_html) {
+      if (!confirm('이미지/동영상/본문이 모두 비어있습니다. 그래도 저장하시겠습니까?')) return;
+    }
+    const btn = document.getElementById('pop-save-btn');
+    btn.disabled = true; btn.textContent = '저장 중…';
+    try {
+      const url = id ? '/api/admin/popups/' + id : '/api/admin/popups';
+      const method = id ? 'PUT' : 'POST';
+      const r = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+      const d = await r.json();
+      if (!d.ok) { alert('❌ ' + (d.error||'실패')); return; }
+      alert(id ? '✅ 수정 완료' : '✅ 새 팝업 추가 완료');
+      popCloseEditor();
+      popLoadList();
+    } catch(e) { alert('❌ ' + e.message); }
+    finally { btn.disabled = false; btn.textContent = '💾 저장'; }
+  };
+  window.popPreview = function(){
+    const data = popCollectForm();
+    if (!data.title) { alert('제목은 필수입니다.'); return; }
+    // 새 창에서 학생용 팝업 미리보기
+    const w = window.open('', 'popPreview', `width=${data.width+40},height=${data.height+100}`);
+    if (!w) { alert('팝업 차단 해제 후 다시 시도하세요.'); return; }
+    let bodyHtml = '';
+    if (data.image_url) bodyHtml += `<img src="${data.image_url}" style="max-width:100%;border-radius:8px;display:block;margin:6px auto" />`;
+    if (data.video_url) {
+      const yt = data.video_url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+      if (yt) bodyHtml += `<iframe src="https://www.youtube.com/embed/${yt[1]}" style="width:100%;aspect-ratio:16/9;border:0;border-radius:8px" allowfullscreen></iframe>`;
+      else bodyHtml += `<video src="${data.video_url}" controls style="width:100%;border-radius:8px"></video>`;
+    }
+    if (data.body_html) bodyHtml += '<div style="margin-top:10px">' + data.body_html + '</div>';
+    if (data.link_url) bodyHtml += `<div style="text-align:center;margin-top:14px"><a href="${data.link_url}" target="_blank" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;text-decoration:none;padding:10px 22px;border-radius:99px;font-weight:800">${data.link_text||'자세히 보기'} →</a></div>`;
+    w.document.write(`<!DOCTYPE html><html><head><title>미리보기: ${data.title}</title><style>body{margin:0;font-family:'Noto Sans KR',sans-serif;background:#1f2937;padding:30px;display:flex;align-items:center;justify-content:center;min-height:100vh}.m{background:#fff;width:${data.width}px;height:${data.height}px;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.5)}.h{background:linear-gradient(135deg,#fbbf24,#f59e0b);padding:12px 16px;font-weight:800}.b{flex:1;overflow:auto;padding:16px}</style></head><body><div class="m"><div class="h">📢 ${data.title}</div><div class="b">${bodyHtml}</div></div></body></html>`);
+    w.document.close();
+  };
+  window.popUploadMedia = async function(fileInput, targetInputId){
+    const f = fileInput.files && fileInput.files[0];
+    if (!f) return;
+    const target = document.getElementById(targetInputId);
+    target.value = '업로드 중…';
+    const form = new FormData();
+    form.append('file', f);
+    try {
+      const r = await fetch('/api/admin/popups/upload-media', { method:'POST', body: form });
+      const d = await r.json();
+      if (!d.ok) { alert('❌ 업로드 실패: '+(d.error||'')); target.value=''; return; }
+      target.value = d.url;
+    } catch(e) { alert('❌ ' + e.message); target.value = ''; }
+  };
+  window.popToggleEnabled = async function(id, enabled){
+    try {
+      const r = await fetch('/api/admin/popups/' + id, {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ enabled: !!enabled })
+      });
+      await r.json();
+      popLoadList();
+    } catch(e) { alert('❌ ' + e.message); }
+  };
+  window.popDelete = async function(id){
+    if (!confirm('이 팝업과 모든 통계를 삭제하시겠습니까? (복구 불가)')) return;
+    try {
+      const r = await fetch('/api/admin/popups/' + id, { method:'DELETE' });
+      await r.json();
+      popLoadList();
+    } catch(e) { alert('❌ ' + e.message); }
+  };
+  window.popShowStats = async function(id){
+    try {
+      const r = await fetch('/api/admin/popups/' + id + '/stats');
+      const d = await r.json();
+      if (!d.ok) { alert('❌ ' + (d.error||'실패')); return; }
+      const s = d.stats;
+      const msg = `📊 「${d.popup.title}」 통계\n\n` +
+        `🔍 총 노출: ${fmt(s.total_views)}회\n` +
+        `👤 순 방문자: ${fmt(s.unique_viewers)}명\n` +
+        `🖱 총 클릭: ${fmt(s.total_clicks)}회\n` +
+        `📈 CTR (클릭률): ${s.ctr}%\n` +
+        `⏰ "안보기" 처리: ${fmt(s.dismissals)}명\n\n` +
+        `최근 노출 ${d.recent_views.length}건:\n` +
+        d.recent_views.slice(0,5).map(v => `  • ${new Date(v.viewed_at).toLocaleString('ko-KR')} ${v.user_id||'(비로그인)'} ${v.clicked?'🖱클릭':''}`).join('\n');
+      alert(msg);
+    } catch(e) { alert('❌ ' + e.message); }
+  };
+
+  // 카드 열림 자동 로드
+  function popAttachOnOpen(){
+    const list = document.getElementById('sub-popup-list');
+    if (list && !list.__popBound) {
+      list.__popBound = true;
+      list.addEventListener('toggle', () => { if (list.open && window.popLoadList) window.popLoadList(); });
+    }
+    const parent = document.getElementById('card-popups-mgmt');
+    if (parent && !parent.__popBound) {
+      parent.__popBound = true;
+      parent.addEventListener('toggle', () => { if (parent.open && window.popLoadList) window.popLoadList(); });
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', popAttachOnOpen);
+  else popAttachOnOpen();
 })();
 </script>
 

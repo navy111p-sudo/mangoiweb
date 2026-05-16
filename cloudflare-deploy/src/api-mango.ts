@@ -381,6 +381,10 @@ export async function handleMangoApi(
         ['gift_catalog', `CREATE TABLE IF NOT EXISTS gift_catalog (id INTEGER PRIMARY KEY AUTOINCREMENT, external_id TEXT, brand TEXT, name TEXT NOT NULL, category TEXT, face_value INTEGER NOT NULL, point_price INTEGER NOT NULL, thumbnail_url TEXT, stock INTEGER, enabled INTEGER DEFAULT 1, sort_order INTEGER DEFAULT 0, description TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`],
         ['gift_redemptions', `CREATE TABLE IF NOT EXISTS gift_redemptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, catalog_id INTEGER NOT NULL, gift_name TEXT, gift_brand TEXT, face_value INTEGER NOT NULL, point_price INTEGER NOT NULL, recipient_phone TEXT, recipient_name TEXT, status TEXT NOT NULL DEFAULT 'pending', external_order_id TEXT, external_coupon_code TEXT, error_message TEXT, requested_at INTEGER NOT NULL, sent_at INTEGER, delivered_at INTEGER, failed_at INTEGER, refunded_at INTEGER, txn_spend_id INTEGER, txn_refund_id INTEGER, meta TEXT);`],
         ['point_rule_log', `CREATE TABLE IF NOT EXISTS point_rule_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, rule_code TEXT NOT NULL, amount INTEGER NOT NULL, triggered_at INTEGER NOT NULL, txn_id INTEGER, meta TEXT);`],
+        // ═══ Phase POP: 팝업/공지 시스템 ═══
+        ['popup_announcements', `CREATE TABLE IF NOT EXISTS popup_announcements (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, content_type TEXT NOT NULL DEFAULT 'mixed', body_html TEXT, image_url TEXT, video_url TEXT, link_url TEXT, link_text TEXT, width INTEGER DEFAULT 480, height INTEGER DEFAULT 360, width_mobile INTEGER, height_mobile INTEGER, position TEXT DEFAULT 'center', priority INTEGER DEFAULT 0, start_at INTEGER, end_at INTEGER, enabled INTEGER DEFAULT 1, dismiss_options TEXT DEFAULT 'today,7days', target_filter TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, view_count INTEGER DEFAULT 0, click_count INTEGER DEFAULT 0);`],
+        ['popup_views', `CREATE TABLE IF NOT EXISTS popup_views (id INTEGER PRIMARY KEY AUTOINCREMENT, popup_id INTEGER NOT NULL, user_id TEXT, viewed_at INTEGER NOT NULL, clicked INTEGER DEFAULT 0, click_target TEXT, user_agent TEXT);`],
+        ['popup_dismissals', `CREATE TABLE IF NOT EXISTS popup_dismissals (popup_id INTEGER NOT NULL, user_id TEXT NOT NULL, dismissed_at INTEGER NOT NULL, dismissed_until INTEGER NOT NULL, PRIMARY KEY (popup_id, user_id));`],
       ];
       for (const [name, sql] of tables) {
         try {
@@ -1888,6 +1892,240 @@ export async function handleMangoApi(
 
     // ═══════════════════════════════════════════════════════════════
     // 🎁 Phase P1+P4 끝
+    // ═══════════════════════════════════════════════════════════════
+
+    // ═══════════════════════════════════════════════════════════════
+    // 📢 Phase POP — 팝업/공지 관리 시스템
+    // ═══════════════════════════════════════════════════════════════
+
+    const ensurePopupTables = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS popup_announcements (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, content_type TEXT NOT NULL DEFAULT 'mixed', body_html TEXT, image_url TEXT, video_url TEXT, link_url TEXT, link_text TEXT, width INTEGER DEFAULT 480, height INTEGER DEFAULT 360, width_mobile INTEGER, height_mobile INTEGER, position TEXT DEFAULT 'center', priority INTEGER DEFAULT 0, start_at INTEGER, end_at INTEGER, enabled INTEGER DEFAULT 1, dismiss_options TEXT DEFAULT 'today,7days', target_filter TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, view_count INTEGER DEFAULT 0, click_count INTEGER DEFAULT 0);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS popup_views (id INTEGER PRIMARY KEY AUTOINCREMENT, popup_id INTEGER NOT NULL, user_id TEXT, viewed_at INTEGER NOT NULL, clicked INTEGER DEFAULT 0, click_target TEXT, user_agent TEXT);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS popup_dismissals (popup_id INTEGER NOT NULL, user_id TEXT NOT NULL, dismissed_at INTEGER NOT NULL, dismissed_until INTEGER NOT NULL, PRIMARY KEY (popup_id, user_id));`);
+    };
+
+    // ── GET /api/popups?uid=xxx — 학생 페이지용 활성 팝업 목록 ──
+    //   조건: enabled=1 + (start_at <= now or null) + (end_at >= now or null)
+    //   + 해당 user_id 가 이 팝업을 "안보기" 처리하지 않음
+    if (method === 'GET' && path === '/api/popups') {
+      await ensurePopupTables();
+      const uid = (url.searchParams.get('uid') || '').trim();
+      const now = Date.now();
+      // 활성 팝업
+      const rs = await env.DB.prepare(
+        `SELECT * FROM popup_announcements
+          WHERE enabled = 1
+            AND (start_at IS NULL OR start_at <= ?)
+            AND (end_at IS NULL OR end_at >= ?)
+          ORDER BY priority DESC, id DESC
+          LIMIT 20`
+      ).bind(now, now).all();
+      let popups = rs.results || [];
+      // 사용자별 dismiss 필터
+      if (uid && popups.length) {
+        const dismissed: any = await env.DB.prepare(
+          `SELECT popup_id FROM popup_dismissals WHERE user_id=? AND dismissed_until>?`
+        ).bind(uid, now).all();
+        const blockedIds = new Set((dismissed.results || []).map((d: any) => d.popup_id));
+        popups = popups.filter((p: any) => !blockedIds.has(p.id));
+      }
+      return json({ ok: true, count: popups.length, rows: popups });
+    }
+
+    // ── POST /api/popups/:id/view — 노출 기록 ──
+    if (method === 'POST' && /^\/api\/popups\/\d+\/view$/.test(path)) {
+      await ensurePopupTables();
+      const id = parseInt(path.split('/')[3] || '0', 10);
+      const body: any = await request.json().catch(() => ({}));
+      const uid = (body.uid || '').trim() || null;
+      const ua = request.headers.get('User-Agent') || '';
+      await env.DB.prepare(`INSERT INTO popup_views (popup_id, user_id, viewed_at, user_agent) VALUES (?,?,?,?)`)
+        .bind(id, uid, Date.now(), ua.slice(0, 200)).run();
+      await env.DB.prepare(`UPDATE popup_announcements SET view_count = view_count + 1 WHERE id=?`).bind(id).run();
+      return json({ ok: true });
+    }
+
+    // ── POST /api/popups/:id/click — 클릭 기록 (링크 클릭) ──
+    if (method === 'POST' && /^\/api\/popups\/\d+\/click$/.test(path)) {
+      await ensurePopupTables();
+      const id = parseInt(path.split('/')[3] || '0', 10);
+      const body: any = await request.json().catch(() => ({}));
+      const uid = (body.uid || '').trim() || null;
+      const target = (body.target || '').slice(0, 500);
+      await env.DB.prepare(`INSERT INTO popup_views (popup_id, user_id, viewed_at, clicked, click_target) VALUES (?,?,?,1,?)`)
+        .bind(id, uid, Date.now(), target).run();
+      await env.DB.prepare(`UPDATE popup_announcements SET click_count = click_count + 1 WHERE id=?`).bind(id).run();
+      return json({ ok: true });
+    }
+
+    // ── POST /api/popups/:id/dismiss — "오늘/7일 안보기" 처리 ──
+    //   body: { uid, period: 'today' | '7days' | '30days' }
+    if (method === 'POST' && /^\/api\/popups\/\d+\/dismiss$/.test(path)) {
+      await ensurePopupTables();
+      const id = parseInt(path.split('/')[3] || '0', 10);
+      const body: any = await request.json().catch(() => ({}));
+      const uid = (body.uid || '').trim();
+      const period = body.period || 'today';
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      const now = Date.now();
+      let until = now;
+      if (period === 'today') {
+        const d = new Date(); d.setHours(23, 59, 59, 999);
+        until = d.getTime();
+      } else if (period === '7days') until = now + 7 * 86400 * 1000;
+      else if (period === '30days') until = now + 30 * 86400 * 1000;
+      await env.DB.prepare(`INSERT INTO popup_dismissals (popup_id, user_id, dismissed_at, dismissed_until) VALUES (?,?,?,?) ON CONFLICT(popup_id, user_id) DO UPDATE SET dismissed_at=excluded.dismissed_at, dismissed_until=excluded.dismissed_until`)
+        .bind(id, uid, now, until).run();
+      return json({ ok: true, until });
+    }
+
+    // ── GET /api/admin/popups — 관리자: 전체 팝업 목록 (활성+비활성+만료) ──
+    if (method === 'GET' && path === '/api/admin/popups') {
+      await ensurePopupTables();
+      const rs = await env.DB.prepare(`SELECT * FROM popup_announcements ORDER BY enabled DESC, priority DESC, id DESC LIMIT 500`).all();
+      return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [] });
+    }
+
+    // ── POST /api/admin/popups — 신규 팝업 생성 ──
+    if (method === 'POST' && path === '/api/admin/popups') {
+      await ensurePopupTables();
+      const body: any = await request.json().catch(() => ({}));
+      if (!body.title) return json({ ok: false, error: 'title_required' }, 400);
+      const now = Date.now();
+      const ins = await env.DB.prepare(`INSERT INTO popup_announcements (
+        title, content_type, body_html, image_url, video_url, link_url, link_text,
+        width, height, width_mobile, height_mobile, position, priority,
+        start_at, end_at, enabled, dismiss_options, target_filter, created_at, updated_at
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
+        body.title, body.content_type || 'mixed',
+        body.body_html || null, body.image_url || null, body.video_url || null,
+        body.link_url || null, body.link_text || null,
+        parseInt(body.width, 10) || 480, parseInt(body.height, 10) || 360,
+        body.width_mobile ? parseInt(body.width_mobile, 10) : null,
+        body.height_mobile ? parseInt(body.height_mobile, 10) : null,
+        body.position || 'center', parseInt(body.priority, 10) || 0,
+        body.start_at ? parseInt(body.start_at, 10) : null,
+        body.end_at ? parseInt(body.end_at, 10) : null,
+        body.enabled === false ? 0 : 1,
+        body.dismiss_options || 'today,7days',
+        body.target_filter || null, now, now
+      ).run();
+      return json({ ok: true, id: ins?.meta?.last_row_id, created: true });
+    }
+
+    // ── PUT /api/admin/popups/:id — 팝업 수정 ──
+    if (method === 'PUT' && /^\/api\/admin\/popups\/\d+$/.test(path)) {
+      await ensurePopupTables();
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      const body: any = await request.json().catch(() => ({}));
+      const now = Date.now();
+      await env.DB.prepare(`UPDATE popup_announcements SET
+        title=COALESCE(?,title), content_type=COALESCE(?,content_type),
+        body_html=?, image_url=?, video_url=?, link_url=?, link_text=?,
+        width=COALESCE(?,width), height=COALESCE(?,height),
+        width_mobile=?, height_mobile=?, position=COALESCE(?,position),
+        priority=COALESCE(?,priority), start_at=?, end_at=?,
+        enabled=COALESCE(?,enabled), dismiss_options=COALESCE(?,dismiss_options),
+        target_filter=?, updated_at=?
+        WHERE id=?`).bind(
+        body.title ?? null, body.content_type ?? null,
+        body.body_html ?? null, body.image_url ?? null, body.video_url ?? null,
+        body.link_url ?? null, body.link_text ?? null,
+        body.width != null ? parseInt(body.width, 10) : null,
+        body.height != null ? parseInt(body.height, 10) : null,
+        body.width_mobile != null ? parseInt(body.width_mobile, 10) : null,
+        body.height_mobile != null ? parseInt(body.height_mobile, 10) : null,
+        body.position ?? null,
+        body.priority != null ? parseInt(body.priority, 10) : null,
+        body.start_at != null ? parseInt(body.start_at, 10) : null,
+        body.end_at != null ? parseInt(body.end_at, 10) : null,
+        body.enabled === undefined ? null : (body.enabled ? 1 : 0),
+        body.dismiss_options ?? null,
+        body.target_filter ?? null,
+        now, id
+      ).run();
+      return json({ ok: true, id, updated: true });
+    }
+
+    // ── DELETE /api/admin/popups/:id — 팝업 삭제 ──
+    if (method === 'DELETE' && /^\/api\/admin\/popups\/\d+$/.test(path)) {
+      await ensurePopupTables();
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      await env.DB.prepare(`DELETE FROM popup_announcements WHERE id=?`).bind(id).run();
+      await env.DB.prepare(`DELETE FROM popup_views WHERE popup_id=?`).bind(id).run();
+      await env.DB.prepare(`DELETE FROM popup_dismissals WHERE popup_id=?`).bind(id).run();
+      return json({ ok: true, id, deleted: true });
+    }
+
+    // ── GET /api/admin/popups/:id/stats — 팝업 통계 ──
+    if (method === 'GET' && /^\/api\/admin\/popups\/\d+\/stats$/.test(path)) {
+      await ensurePopupTables();
+      const id = parseInt(path.split('/')[4] || '0', 10);
+      const pop: any = await env.DB.prepare(`SELECT * FROM popup_announcements WHERE id=?`).bind(id).first();
+      if (!pop) return json({ ok: false, error: 'not_found' }, 404);
+      const uniqueViewers: any = await env.DB.prepare(`SELECT COUNT(DISTINCT user_id) AS c FROM popup_views WHERE popup_id=? AND user_id IS NOT NULL`).bind(id).first();
+      const clickCount: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM popup_views WHERE popup_id=? AND clicked=1`).bind(id).first();
+      const dismissCount: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM popup_dismissals WHERE popup_id=?`).bind(id).first();
+      const recent: any = await env.DB.prepare(`SELECT viewed_at, user_id, clicked, click_target FROM popup_views WHERE popup_id=? ORDER BY viewed_at DESC LIMIT 30`).bind(id).all();
+      return json({
+        ok: true,
+        popup: pop,
+        stats: {
+          total_views: pop.view_count || 0,
+          unique_viewers: uniqueViewers?.c || 0,
+          total_clicks: clickCount?.c || 0,
+          ctr: (pop.view_count > 0) ? Math.round((clickCount?.c || 0) / pop.view_count * 1000) / 10 : 0,
+          dismissals: dismissCount?.c || 0,
+        },
+        recent_views: recent?.results || [],
+      });
+    }
+
+    // ── POST /api/admin/popups/upload-media — 이미지/동영상 R2 업로드 ──
+    //   multipart/form-data: file=...
+    //   응답: { ok, url }
+    if (method === 'POST' && path === '/api/admin/popups/upload-media') {
+      try {
+        const form = await request.formData();
+        const file = form.get('file') as File | null;
+        if (!file) return json({ ok: false, error: 'file_required' }, 400);
+        const MAX_SIZE = 30 * 1024 * 1024; // 30MB
+        if (file.size > MAX_SIZE) return json({ ok: false, error: 'file_too_large', max: MAX_SIZE }, 413);
+        const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
+        const validExt = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'mp4', 'webm', 'mov'];
+        if (!validExt.includes(ext)) return json({ ok: false, error: 'invalid_type', allowed: validExt }, 400);
+        const key = `popup-media/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        // R2 bucket - RECORDINGS 재사용 (이미 wrangler.toml 에 있음)
+        const r2 = (env as any).RECORDINGS;
+        if (!r2) return json({ ok: false, error: 'r2_not_configured' }, 500);
+        const buf = await file.arrayBuffer();
+        await r2.put(key, buf, {
+          httpMetadata: { contentType: file.type || 'application/octet-stream' },
+        });
+        // 공개 URL — R2 public bucket 안 쓰면 우리 worker 로 프록시
+        const publicUrl = `/api/popups/media/${encodeURIComponent(key)}`;
+        return json({ ok: true, url: publicUrl, key, size: file.size, type: file.type });
+      } catch (e: any) {
+        return json({ ok: false, error: 'upload_failed', detail: String(e?.message || e) }, 500);
+      }
+    }
+
+    // ── GET /api/popups/media/:key — 업로드된 미디어 프록시 ──
+    if (method === 'GET' && path.startsWith('/api/popups/media/')) {
+      const key = decodeURIComponent(path.replace('/api/popups/media/', ''));
+      const r2 = (env as any).RECORDINGS;
+      if (!r2) return json({ ok: false, error: 'r2_not_configured' }, 500);
+      const obj = await r2.get(key);
+      if (!obj) return new Response('Not Found', { status: 404 });
+      const headers = new Headers();
+      obj.writeHttpMetadata(headers);
+      headers.set('Cache-Control', 'public, max-age=86400');
+      headers.set('Access-Control-Allow-Origin', '*');
+      return new Response(obj.body, { headers });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 📢 Phase POP 끝
     // ═══════════════════════════════════════════════════════════════
 
     if (method === 'GET' && path === '/api/admin/stats/revenue') {

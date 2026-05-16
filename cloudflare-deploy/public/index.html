@@ -14811,5 +14811,280 @@ window.closeRulesModal = function() {
 })();
 </script>
 
+<!-- 📢 Phase POP — 학생 페이지 팝업/공지 시스템 -->
+<style>
+  /* 팝업 컨테이너 영역 */
+  .pa-stack {
+    position: fixed; inset: 0;
+    z-index: 9500;
+    pointer-events: none;
+  }
+  .pa-modal {
+    position: absolute;
+    background: #fff;
+    color: #1f2937;
+    border-radius: 14px;
+    box-shadow: 0 24px 80px -10px rgba(0,0,0,0.65),
+                0 0 0 1px rgba(255,255,255,0.08),
+                0 0 60px rgba(251,191,36,0.15);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    pointer-events: auto;
+    animation: paAppear 0.3s cubic-bezier(.34,1.56,.64,1);
+    resize: both;
+    min-width: 280px; min-height: 200px;
+    max-width: 92vw; max-height: 90vh;
+  }
+  @keyframes paAppear {
+    from { opacity: 0; transform: scale(0.92) translateY(20px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .pa-pos-center { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+  .pa-pos-top    { top: 6%; left: 50%; transform: translateX(-50%); }
+  .pa-pos-bottom { bottom: 6%; left: 50%; transform: translateX(-50%); }
+  .pa-pos-tl     { top: 5%; left: 3%; }
+  .pa-pos-tr     { top: 5%; right: 3%; }
+  .pa-pos-bl     { bottom: 5%; left: 3%; }
+  .pa-pos-br     { bottom: 5%; right: 3%; }
+  .pa-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: #1f2937; cursor: move;
+    flex-shrink: 0;
+  }
+  .pa-head .pa-title {
+    flex: 1; font-size: 15px; font-weight: 800;
+    text-overflow: ellipsis; overflow: hidden; white-space: nowrap;
+  }
+  .pa-head .pa-close {
+    background: rgba(0,0,0,0.18); border: 0; color: #fff;
+    width: 28px; height: 28px; border-radius: 50%;
+    font-size: 14px; cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pa-head .pa-close:hover { background: rgba(0,0,0,0.35); }
+  .pa-body {
+    flex: 1; overflow: auto;
+    padding: 16px;
+    line-height: 1.6;
+    font-size: 14px;
+  }
+  .pa-body img, .pa-body video, .pa-body iframe {
+    max-width: 100%; height: auto; border-radius: 8px;
+    margin: 6px 0; display: block;
+  }
+  .pa-body video, .pa-body iframe {
+    width: 100%; aspect-ratio: 16/9; height: auto;
+  }
+  .pa-link-btn {
+    display: inline-block; margin-top: 10px;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: #1a1a1a; text-decoration: none;
+    padding: 10px 22px; border-radius: 99px;
+    font-weight: 800; font-size: 14px;
+    box-shadow: 0 6px 16px rgba(245,158,11,0.4);
+  }
+  .pa-link-btn:hover { transform: translateY(-1px); }
+  .pa-foot {
+    border-top: 1px solid #e5e7eb;
+    padding: 9px 14px;
+    display: flex; align-items: center; gap: 14px;
+    font-size: 12px; color: #6b7280;
+    background: #f9fafb;
+    flex-shrink: 0;
+  }
+  .pa-foot label { cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+  .pa-foot input[type=checkbox] { cursor: pointer; }
+  .pa-foot .pa-spacer { flex: 1; }
+  .pa-foot button {
+    background: #e5e7eb; border: 0;
+    padding: 5px 12px; border-radius: 6px; cursor: pointer;
+    font-size: 11.5px; font-weight: 700; color: #374151;
+  }
+  .pa-foot button:hover { background: #d1d5db; }
+  /* 모바일 — 위치 강제 중앙 + 폭 92vw */
+  @media (max-width: 640px) {
+    .pa-modal {
+      position: absolute !important;
+      top: 50% !important; left: 50% !important;
+      right: auto !important; bottom: auto !important;
+      transform: translate(-50%, -50%) !important;
+      width: 92vw !important; max-width: 92vw !important;
+      resize: vertical;
+    }
+    .pa-head .pa-title { font-size: 14px; }
+    .pa-body { padding: 12px; font-size: 13px; }
+  }
+</style>
+<script>
+(function(){
+  // 페이지 로드 + 학생 로그인 변화 시 팝업 가져오기
+  async function paLoadAndShow() {
+    try {
+      const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+      const uid = u && u.uid ? u.uid : '';
+      const r = await fetch('/api/popups' + (uid ? '?uid=' + encodeURIComponent(uid) : ''));
+      const d = await r.json();
+      if (!d.ok || !d.rows || !d.rows.length) return;
+      // 이미 표시 중인 팝업은 제거
+      const old = document.getElementById('pa-stack');
+      if (old) old.remove();
+      const stack = document.createElement('div');
+      stack.id = 'pa-stack';
+      stack.className = 'pa-stack';
+      document.body.appendChild(stack);
+      // 우선순위 정렬 + 같은 위치 충돌 시 위치 어긋나게
+      const positionCount = {};
+      d.rows.forEach((p, idx) => {
+        const pos = p.position || 'center';
+        positionCount[pos] = (positionCount[pos] || 0) + 1;
+        paRender(p, stack, uid, positionCount[pos] - 1);
+        // 노출 기록
+        fetch('/api/popups/' + p.id + '/view', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ uid })
+        }).catch(()=>{});
+      });
+    } catch(e) {
+      console.warn('[popup] 로드 실패:', e);
+    }
+  }
+  function paRender(p, stack, uid, offsetIndex) {
+    const isMobile = window.innerWidth <= 640;
+    const w = isMobile && p.width_mobile ? p.width_mobile : (p.width || 480);
+    const h = isMobile && p.height_mobile ? p.height_mobile : (p.height || 360);
+    const m = document.createElement('div');
+    m.className = 'pa-modal pa-pos-' + (p.position || 'center');
+    m.style.width = w + 'px';
+    m.style.height = h + 'px';
+    m.dataset.popupId = p.id;
+    // 같은 위치에 여러 개면 어긋나게
+    if (offsetIndex > 0) {
+      const dx = offsetIndex * 24, dy = offsetIndex * 24;
+      if (m.classList.contains('pa-pos-center')) {
+        m.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+      } else if (m.classList.contains('pa-pos-top')) {
+        m.style.transform = `translate(calc(-50% + ${dx}px), ${dy}px)`;
+      } else if (m.classList.contains('pa-pos-bottom')) {
+        m.style.transform = `translate(calc(-50% + ${dx}px), -${dy}px)`;
+      } else {
+        m.style.marginTop = (offsetIndex * 24) + 'px';
+        m.style.marginLeft = (offsetIndex * 24) + 'px';
+      }
+    }
+    // 본문 HTML 구성
+    let bodyHtml = '';
+    if (p.image_url) bodyHtml += `<img src="${escAttr(p.image_url)}" alt="${escAttr(p.title)}" />`;
+    if (p.video_url) {
+      const isExternal = /^https?:\/\//.test(p.video_url) && !/\.(mp4|webm|mov)(\?|$)/i.test(p.video_url);
+      if (isExternal) {
+        // YouTube/Vimeo 등은 iframe 으로
+        const yt = p.video_url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+        const embedUrl = yt ? 'https://www.youtube.com/embed/' + yt[1] : p.video_url;
+        bodyHtml += `<iframe src="${escAttr(embedUrl)}" frameborder="0" allowfullscreen></iframe>`;
+      } else {
+        bodyHtml += `<video src="${escAttr(p.video_url)}" controls preload="metadata"></video>`;
+      }
+    }
+    if (p.body_html) bodyHtml += '<div style="margin-top:10px">' + p.body_html + '</div>';
+    if (p.link_url) {
+      const txt = p.link_text || '자세히 보기 →';
+      bodyHtml += `<div style="text-align:center;margin-top:14px"><a class="pa-link-btn" href="${escAttr(p.link_url)}" target="_blank" rel="noopener" onclick="paTrackClick(${p.id}, this.href)">${escapeText(txt)}</a></div>`;
+    }
+    // dismissal 옵션
+    const dOpts = (p.dismiss_options || 'today,7days').split(',').map(s=>s.trim()).filter(Boolean);
+    const dButtons = dOpts.map(opt => {
+      const label = opt === 'today' ? '오늘 하루 안보기' :
+                    opt === '7days' ? '7일간 안보기' :
+                    opt === '30days' ? '30일간 안보기' : opt;
+      return `<button onclick="paDismiss(${p.id},'${opt}','${escAttr(uid)}')">${label}</button>`;
+    }).join('');
+    m.innerHTML = `
+      <div class="pa-head">
+        <div class="pa-title">📢 ${escapeText(p.title)}</div>
+        <button class="pa-close" onclick="this.closest('.pa-modal').remove()" title="닫기">✕</button>
+      </div>
+      <div class="pa-body">${bodyHtml}</div>
+      <div class="pa-foot">
+        ${dButtons}<div class="pa-spacer"></div>
+        <button onclick="this.closest('.pa-modal').remove()">닫기</button>
+      </div>`;
+    // 드래그 (헤더 잡고 이동)
+    const head = m.querySelector('.pa-head');
+    let drag = null;
+    head.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.pa-close')) return;
+      const rect = m.getBoundingClientRect();
+      drag = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+      m.style.transform = 'none';
+      m.style.top = rect.top + 'px';
+      m.style.left = rect.left + 'px';
+      m.style.right = 'auto'; m.style.bottom = 'auto';
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (!drag) return;
+      m.style.left = (e.clientX - drag.dx) + 'px';
+      m.style.top = (e.clientY - drag.dy) + 'px';
+    });
+    document.addEventListener('mouseup', () => { drag = null; });
+    stack.appendChild(m);
+  }
+  window.paDismiss = async function(popupId, period, uid) {
+    if (!uid) {
+      // 비로그인은 localStorage 로만 처리
+      try {
+        const key = 'mangoi_popup_dismiss_' + popupId;
+        const until = period === 'today' ? new Date(new Date().setHours(23,59,59,999)).getTime()
+                    : period === '7days' ? Date.now() + 7*86400*1000
+                    : Date.now() + 30*86400*1000;
+        localStorage.setItem(key, String(until));
+      } catch {}
+    } else {
+      try {
+        await fetch('/api/popups/' + popupId + '/dismiss', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ uid, period })
+        });
+      } catch {}
+    }
+    const el = document.querySelector(`.pa-modal[data-popup-id="${popupId}"]`);
+    if (el) el.remove();
+  };
+  window.paTrackClick = function(popupId, target) {
+    const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+    const uid = u && u.uid ? u.uid : '';
+    fetch('/api/popups/' + popupId + '/click', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ uid, target })
+    }).catch(()=>{});
+  };
+  function escapeText(s) { return String(s||'').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'})[c]); }
+  function escAttr(s) { return escapeText(s); }
+
+  // 로컬 dismiss 필터링 (비로그인 케이스)
+  function paFilterLocalDismissed(rows) {
+    const now = Date.now();
+    return rows.filter(p => {
+      try {
+        const v = localStorage.getItem('mangoi_popup_dismiss_' + p.id);
+        return !v || Number(v) < now;
+      } catch { return true; }
+    });
+  }
+
+  // 페이지 로드 1.5초 후 팝업 표시 (메인 콘텐츠 로드 우선)
+  function paInit() {
+    setTimeout(paLoadAndShow, 1500);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', paInit);
+  else paInit();
+
+  // 로그인 변화 시 다시 로드 (학생 로그인 → 본인용 dismiss 반영)
+  document.addEventListener('mangoi:user-change', paLoadAndShow);
+})();
+</script>
+
 </body>
 </html>
