@@ -3385,6 +3385,10 @@
                 <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
                 <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🌴 정글" data-en="🌴 Jungle">🌴 정글</span>
               </button>
+              <button class="vc-bg-tile" data-bg="fireplace" onclick="vcSetBackground('fireplace')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/fireplace.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+                <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
+                <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🔥 벽난로" data-en="🔥 Fireplace">🔥 벽난로</span>
+              </button>
             </div>
             <div style="margin-top:18px;padding:12px 14px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:10px;font-size:12px;color:#fde68a;line-height:1.6">
               💡 <span data-ko="가상 배경은 모든 참가자에게 적용된 모습으로 보입니다. 카메라가 켜져 있어야 작동합니다." data-en="Virtual background is visible to all participants. Camera must be on.">가상 배경은 모든 참가자에게 적용된 모습으로 보입니다. 카메라가 켜져 있어야 작동합니다.</span>
@@ -5124,6 +5128,7 @@ const VC_BG_IMAGES = {
   underwater: '/img/bg/underwater.jpg', // 바닷속 - 산호초 + 거북이
   beach:      '/img/bg/beach.jpg',      // 바닷가 - 석양과 조개
   jungle:     '/img/bg/jungle.jpg',     // 정글 - 열대우림 + 새 + 원숭이
+  fireplace:  '/img/bg/fireplace.jpg',  // 벽난로 - 따뜻한 거실
 };
 const _vcBgCache = {}; // theme → HTMLImageElement (loaded)
 
@@ -5369,7 +5374,7 @@ window.vcSetBackground = async function(mode){
     if (innerV) innerV.style.filter = 'blur(0)';
   }
   if (status) {
-    const names = { blur:'흐림', galaxy:'우주', desert:'사막', underwater:'바닷속', beach:'바닷가', jungle:'정글' };
+    const names = { blur:'흐림', galaxy:'우주', desert:'사막', underwater:'바닷속', beach:'바닷가', jungle:'정글', fireplace:'벽난로' };
     status.textContent = '✅ ' + (names[mode]||mode) + ' 배경 프레임 적용됨 (AI 처리 시도 중…)';
   }
 
@@ -5412,7 +5417,7 @@ window.vcSetBackground = async function(mode){
   if (newVideoTrack) vcSwapVideoTrack(newVideoTrack);
 
   if (status) {
-    const names = { blur:'흐림', galaxy:'우주', desert:'사막', underwater:'바닷속', beach:'바닷가', jungle:'정글' };
+    const names = { blur:'흐림', galaxy:'우주', desert:'사막', underwater:'바닷속', beach:'바닷가', jungle:'정글', fireplace:'벽난로' };
     status.textContent = '✅ ' + (names[mode]||mode) + ' 배경 적용 중 — 모든 참가자에게 보입니다';
   }
 
