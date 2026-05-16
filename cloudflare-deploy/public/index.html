@@ -34,7 +34,7 @@
         .view { display: none; }
         .view.active { display: flex; }
 
-        /* ── [화면1] 메인 대시보드 ── */
+        /* ── [화면1] 메인 대시보드 - Phase 8: 우주 배경 ── */
         #view-home {
             flex-direction: column;
             align-items: center;
@@ -43,6 +43,98 @@
             padding: 2rem;
             position: relative;
             overflow: hidden;
+            /* 우주 배경: 어두운 비네팅 + space.jpg */
+            background:
+              radial-gradient(ellipse at center, rgba(11,15,30,0.35) 0%, rgba(8,11,24,0.85) 100%),
+              url('/img/bg/space.jpg') center center / cover no-repeat,
+              #050714;
+            background-attachment: scroll, fixed, scroll;
+        }
+        /* 우주 데코 - 떠다니는 행성/은하 (홈 화면 전용, 클릭 차단 없음) */
+        .deco-galaxy, .deco-saturn, .deco-mini-galaxies {
+            position: absolute;
+            pointer-events: none;
+            z-index: 1;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+        /* 좌상단 보라/핑크 나선은하 */
+        .deco-galaxy {
+            top: -40px; left: -60px;
+            width: clamp(280px, 32vw, 480px);
+            opacity: 0.95;
+            filter: drop-shadow(0 0 40px rgba(180,100,220,0.45));
+            animation: decoGalaxySpin 90s linear infinite, decoFloatA 18s ease-in-out infinite;
+        }
+        @keyframes decoGalaxySpin {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(360deg); }
+        }
+        @keyframes decoFloatA {
+            0%, 100% { translate: 0 0; }
+            50%      { translate: 8px -12px; }
+        }
+        /* 우상단 토성 */
+        .deco-saturn {
+            top: 5%; right: 12%;
+            width: clamp(180px, 22vw, 320px);
+            opacity: 0.98;
+            filter: drop-shadow(0 18px 36px rgba(0,0,0,0.55)) drop-shadow(0 0 30px rgba(220,170,110,0.35));
+            animation: decoFloatB 12s ease-in-out infinite;
+        }
+        @keyframes decoFloatB {
+            0%, 100% { translate: 0 0; rotate: -2deg; }
+            50%      { translate: -10px 14px; rotate: 1deg; }
+        }
+        /* 우하단 작은 은하들 (CSS 만으로 그라데이션 원 4개) */
+        .deco-mini-galaxies {
+            bottom: 6%; right: 4%;
+            width: clamp(140px, 18vw, 240px);
+            height: clamp(110px, 14vw, 180px);
+            opacity: 0.85;
+        }
+        .deco-mini-galaxies .mg {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(0.6px);
+            animation: decoTwinkle 5s ease-in-out infinite;
+        }
+        .deco-mini-galaxies .mg-1 {
+            width: 55%; height: 55%; top: 8%; left: 15%;
+            background: radial-gradient(ellipse at 35% 35%,
+                rgba(255,235,180,0.95) 0%, rgba(245,180,90,0.6) 18%,
+                rgba(200,80,140,0.45) 42%, rgba(60,30,80,0.18) 70%, transparent 100%);
+        }
+        .deco-mini-galaxies .mg-2 {
+            width: 40%; height: 40%; top: 38%; left: 58%;
+            background: radial-gradient(ellipse at 40% 40%,
+                rgba(220,220,255,0.85) 0%, rgba(150,170,240,0.55) 25%,
+                rgba(90,80,200,0.3) 55%, transparent 100%);
+            animation-delay: 1.5s;
+        }
+        .deco-mini-galaxies .mg-3 {
+            width: 22%; height: 22%; top: 12%; left: 65%;
+            background: radial-gradient(ellipse at center, rgba(255,255,255,0.95), rgba(180,200,255,0.4) 40%, transparent 80%);
+            animation-delay: 3s;
+        }
+        .deco-mini-galaxies .mg-4 {
+            width: 18%; height: 18%; top: 60%; left: 22%;
+            background: radial-gradient(ellipse at center, rgba(255,240,200,0.9), rgba(250,180,120,0.4) 40%, transparent 80%);
+            animation-delay: 0.8s;
+        }
+        @keyframes decoTwinkle {
+            0%, 100% { opacity: 0.55; transform: scale(1); }
+            50%      { opacity: 1;    transform: scale(1.08); }
+        }
+        /* 모바일에서는 데코 축소/이동 */
+        @media (max-width: 640px) {
+            .deco-galaxy   { top: -30px; left: -80px; width: 220px; opacity: 0.7; }
+            .deco-saturn   { top: 2%; right: 4%; width: 130px; opacity: 0.85; }
+            .deco-mini-galaxies { bottom: 4%; right: 2%; width: 100px; height: 80px; opacity: 0.7; }
+        }
+        @media (max-width: 380px) {
+            .deco-galaxy { width: 180px; }
+            .deco-saturn { width: 100px; }
         }
         /* 별/행성 컨테이너 — 배경 전체에 고정, 클릭 절대 가로채지 않음 */
         #starfield {
@@ -1699,10 +1791,10 @@
 </script>
 
 <div id="view-home" class="view active">
-    <!-- 언어 전환 버튼 -->
-    <!-- 🔑 학생 로그인 버튼 (lang-toggle 왼쪽) -->
-    <button id="login-btn" onclick="openLoginModal()" style="position:absolute;top:1.2rem;right:7.5rem;z-index:10;background:rgba(30,41,59,0.85);backdrop-filter:blur(6px);border:1.5px solid rgba(148,163,184,0.35);border-radius:14px;padding:0.55rem 0.9rem;color:#e2e8f0;font-size:0.88rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:0.45rem;transition:all 0.2s;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
-      <span id="login-btn-ico">🔑</span>
+    <!-- 우상단 칩 (글래스모피즘) - 로그인 + 언어 -->
+    <button id="login-btn" onclick="openLoginModal()" class="hero-chip" title="로그인">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.85"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.5 3.5-7 8-7s8 2.5 8 7"/></svg>
+      <span id="login-btn-ico" style="display:none">🔑</span>
       <span id="login-btn-label" data-ko="로그인" data-en="Login">로그인</span>
     </button>
     <style>
@@ -1808,11 +1900,59 @@
       .um-header{padding:10px 12px;font-size:12.5px;color:#94a3b8;border-bottom:1px solid #232b40;margin-bottom:4px}
       .um-header b{color:#fbbf24;font-size:14px;font-weight:800}
     </style>
-    <button id="lang-toggle" onclick="toggleLang()" style="position:absolute;top:1.2rem;right:1.2rem;z-index:10;background:linear-gradient(135deg,rgba(251,191,36,0.95),rgba(245,158,11,0.95));backdrop-filter:blur(6px);border:2px solid rgba(251,191,36,0.85);border-radius:14px;padding:0.6rem 0.95rem;color:#0f172a;font-size:0.95rem;font-weight:800;box-shadow:0 6px 20px rgba(245,158,11,0.45);cursor:pointer;display:flex;align-items:center;gap:0.4rem;transition:all 0.3s;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+    <button id="lang-toggle" onclick="toggleLang()" class="hero-chip hero-chip-lang" title="Language">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.9"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
         <span id="lang-label">EN</span>
     </button>
+    <style>
+      /* 우상단 글래스 칩 (홈 화면 헤더용) */
+      .hero-chip{
+        position:absolute; top:1.1rem; z-index:10;
+        display:inline-flex; align-items:center; gap:6px;
+        padding:7px 14px;
+        background: rgba(20,28,48,0.55);
+        backdrop-filter: blur(14px) saturate(140%);
+        -webkit-backdrop-filter: blur(14px) saturate(140%);
+        border: 1px solid rgba(255,255,255,0.16);
+        border-radius: 999px;
+        color: #f1f5ff;
+        font-size: 0.84rem;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.35),
+                    inset 0 1px 0 rgba(255,255,255,0.10);
+        transition: all .18s ease;
+        cursor: pointer;
+      }
+      .hero-chip:hover{
+        background: rgba(30,42,72,0.7);
+        border-color: rgba(255,255,255,0.28);
+        transform: translateY(-1px);
+        box-shadow: 0 10px 28px rgba(0,0,0,0.45),
+                    inset 0 1px 0 rgba(255,255,255,0.18);
+      }
+      #login-btn.hero-chip{ right: 5.5rem; }
+      #lang-toggle.hero-chip-lang{ right: 1.1rem; }
+      .hero-chip-lang #lang-label{ color:#fde68a; font-weight:800; }
+      @media (max-width:640px){
+        .hero-chip{ padding:6px 11px; font-size:.78rem; top:0.85rem; }
+        #login-btn.hero-chip{ right:4.4rem; }
+        #lang-toggle.hero-chip-lang{ right:0.85rem; }
+      }
+    </style>
     <div id="starfield"></div>
+
+    <!-- 🌌 Phase 8: 우주 데코 (좌상단 나선은하 + 우상단 토성 + 우하단 작은 은하들) -->
+    <img class="deco-galaxy" src="/img/spiral-galaxy.png" alt="" aria-hidden="true"
+         onerror="this.style.display='none'" />
+    <img class="deco-saturn" src="/img/saturn.png" alt="" aria-hidden="true"
+         onerror="this.style.display='none'" />
+    <div class="deco-mini-galaxies" aria-hidden="true">
+      <div class="mg mg-1"></div>
+      <div class="mg mg-2"></div>
+      <div class="mg mg-3"></div>
+      <div class="mg mg-4"></div>
+    </div>
 
     <!-- 🚀 USS 망고아이 NCC-2026 — 영화 수준 vivid 우주선 -->
     <div id="starship" class="starship-wrap" aria-hidden="true">
@@ -2538,22 +2678,122 @@
     // 사용자가 우주선 직접 부르기 (콘솔에서 launchStarship() 가능)
     window.launchStarship = launchStarship;
     </script>
-    <!-- 🥭 Phase 43 — 제목 위 망고아이 캐릭터 이미지 -->
-    <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:1.5rem;position:relative;z-index:1;">
-      <img src="/img/Mangoi_Character.jpg" alt="Mangoi"
-           onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#fbbf24,#f59e0b)';this.style.padding='40px';this.style.fontSize='120px';this.alt='🥭';"
-           style="width:160px;height:160px;border-radius:50%;object-fit:cover;border:4px solid rgba(251,191,36,0.6);box-shadow:0 12px 40px -8px rgba(245,158,11,0.6),0 0 0 8px rgba(255,255,255,0.05);margin-bottom:1.2rem;animation:mangoiFloat 3s ease-in-out infinite alternate" />
-      <h1 id="home-subtitle" class="home-title" style="font-family:'Noto Sans KR',-apple-system,sans-serif;letter-spacing:-1.5px;margin:0;font-weight:900;font-size:clamp(36px, 6vw, 56px);line-height:1.1;text-align:center;">
-        <span style="display:inline-block;background:linear-gradient(135deg,#60a5fa 0%,#93c5fd 40%,#fbbf24 75%,#f59e0b 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 4px 24px rgba(96,165,250,0.35)) drop-shadow(0 2px 12px rgba(251,191,36,0.25));">Mangoi</span>
-        <span style="display:inline-block;color:#fff;margin-left:10px;font-weight:700;letter-spacing:-2px;text-shadow:0 2px 16px rgba(255,255,255,0.15);">화상솔루션</span>
+    <!-- 🥭 Phase 8 — 우주 버블 안의 망고아이 마스코트 + 골드 세리프 타이틀 -->
+    <div class="home-hero-stack" style="display:flex;flex-direction:column;align-items:center;margin-bottom:1.4rem;position:relative;z-index:2;">
+      <div class="mascot-bubble" aria-hidden="false">
+        <img src="/img/Mangoi_Character.jpg" alt="Mangoi"
+             onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#fbbf24,#f59e0b)';this.style.padding='40px';this.style.fontSize='120px';this.alt='🥭';"
+             class="mascot-img" />
+        <span class="mascot-shine"></span>
+        <span class="mascot-rim"></span>
+      </div>
+      <h1 id="home-subtitle" class="home-title">
+        <span class="ht-mangoi">Mangoi</span>
+        <span class="ht-sub" data-ko="화상솔루션" data-en="Video Solution">화상솔루션</span>
       </h1>
     </div>
     <style>
+      /* 마스코트 버블 - 우주 헬멧 느낌 */
+      .mascot-bubble {
+        position: relative;
+        width: clamp(120px, 14vw, 168px);
+        height: clamp(120px, 14vw, 168px);
+        margin-bottom: 1rem;
+        border-radius: 50%;
+        background: radial-gradient(circle at 30% 30%,
+                    rgba(255,255,255,0.18) 0%,
+                    rgba(180,200,255,0.08) 35%,
+                    rgba(60,80,140,0.10) 70%,
+                    rgba(20,30,60,0.15) 100%);
+        box-shadow:
+          0 0 0 2px rgba(255,255,255,0.10),
+          inset 0 0 30px rgba(120,180,255,0.18),
+          inset 0 0 60px rgba(80,120,200,0.12),
+          0 20px 60px -10px rgba(0,0,0,0.6),
+          0 0 50px rgba(160,200,255,0.25);
+        backdrop-filter: blur(4px);
+        animation: mangoiFloat 4s ease-in-out infinite alternate;
+        overflow: hidden;
+      }
+      .mascot-img {
+        width: 78%; height: 78%;
+        position: absolute; top: 11%; left: 11%;
+        border-radius: 50%;
+        object-fit: cover;
+        filter: drop-shadow(0 8px 20px rgba(245,158,11,0.4));
+      }
+      /* 헬멧 광택 (좌상단 하이라이트) */
+      .mascot-shine {
+        position: absolute;
+        top: 8%; left: 14%;
+        width: 38%; height: 28%;
+        background: radial-gradient(ellipse at center,
+                    rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.15) 50%, transparent 80%);
+        border-radius: 50%;
+        filter: blur(6px);
+        pointer-events: none;
+        z-index: 3;
+      }
+      /* 헬멧 림(테두리 반사) */
+      .mascot-rim {
+        position: absolute; inset: 0;
+        border-radius: 50%;
+        border: 1.5px solid rgba(255,255,255,0.18);
+        box-shadow: inset 0 -8px 24px rgba(200,160,255,0.12);
+        pointer-events: none;
+        z-index: 4;
+      }
       @keyframes mangoiFloat {
         from { transform: translateY(0) scale(1); }
-        to   { transform: translateY(-8px) scale(1.02); }
+        to   { transform: translateY(-10px) scale(1.025); }
+      }
+
+      /* 타이틀 - 우아한 골드 세리프 (레퍼런스 디자인 매칭) */
+      .home-title {
+        margin: 0;
+        font-family: 'Cormorant Garamond', 'Playfair Display', 'Noto Serif KR', Georgia, serif;
+        font-weight: 700;
+        font-size: clamp(34px, 5.5vw, 54px);
+        line-height: 1.05;
+        letter-spacing: 0.5px;
+        text-align: center;
+        display: flex;
+        align-items: baseline;
+        justify-content: center;
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+      .ht-mangoi {
+        font-style: italic;
+        background: linear-gradient(180deg,
+                    #fff4cc 0%,
+                    #ffe199 25%,
+                    #f4c75a 55%,
+                    #b8801e 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        filter: drop-shadow(0 2px 12px rgba(245,200,90,0.35))
+                drop-shadow(0 0 24px rgba(255,220,140,0.20));
+        letter-spacing: 1px;
+      }
+      .ht-sub {
+        font-family: 'Noto Sans KR', -apple-system, sans-serif;
+        font-weight: 700;
+        font-style: normal;
+        color: #fff;
+        letter-spacing: -1px;
+        text-shadow: 0 2px 18px rgba(180,200,255,0.18),
+                     0 0 30px rgba(255,255,255,0.08);
+      }
+      @media (max-width:640px){
+        .home-title{ gap:8px; font-size:32px; }
+        .mascot-bubble{ width:110px; height:110px; }
       }
     </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,500;1,600;1,700&family=Noto+Serif+KR:wght@500;700&display=swap" rel="stylesheet">
     <!-- 🏠 홈페이지 바로 가기 (구 AI 검색창) -->
     <div class="ai-search-wrap" style="position:relative;z-index:1;width:100%;max-width:680px;margin:0 auto">
       <div class="ai-search-box">
@@ -2926,14 +3166,27 @@
 
 
     <style>
+      /* Phase 8: 검색카드를 묶는 글래스 컨테이너 */
+      .ai-search-wrap{
+        padding: 22px 22px 20px;
+        background: rgba(14,20,40,0.55);
+        backdrop-filter: blur(18px) saturate(140%);
+        -webkit-backdrop-filter: blur(18px) saturate(140%);
+        border: 1px solid rgba(255,255,255,0.10);
+        border-radius: 26px;
+        box-shadow:
+          0 30px 80px -20px rgba(0,0,0,0.75),
+          0 0 0 1px rgba(255,255,255,0.05),
+          inset 0 1px 0 rgba(255,255,255,0.06);
+      }
       .ai-search-box {
         display:flex; align-items:center; gap:8px;
-        background: rgba(255,255,255,0.08);
-        border: 1px solid rgba(251,191,36,0.4);
+        background: rgba(10,16,32,0.55);
+        border: 1px solid rgba(255,255,255,0.12);
         border-radius: 18px;
         padding: 6px 8px 6px 18px;
         backdrop-filter: blur(12px);
-        box-shadow: 0 8px 32px -8px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
         transition: all 0.25s;
       }
       .ai-search-box:focus-within {
@@ -2982,24 +3235,38 @@
       }
       @keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1} }
       @keyframes slideDown { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:translateY(0)} }
-      /* === Mango Bloom v2: 6 quick buttons in ONE ROW === */
-      .ai-quick { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin:20px auto 0; max-width:920px; }
+      /* === Phase 8: 6 quick buttons in ONE ROW (작은 알약 칩) === */
+      .ai-quick {
+        display:flex; flex-wrap:wrap; gap:8px;
+        margin:14px 0 0;
+        justify-content:center;
+      }
       .ai-quick-btn {
-        background: rgba(255,255,255,0.05);
-        border: 1px solid rgba(255,255,255,0.10);
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.14);
         border-radius: 99px;
-        padding: 12px 10px; color: #cbd5e1; font-size: 12.5px; font-weight: 600;
-        letter-spacing: -0.3px;
-        cursor: pointer; transition: all 0.2s ease;
-        min-height: 46px; display:inline-flex; align-items:center; justify-content:center; gap:4px;
+        padding: 9px 14px;
+        color: #e2e8f0;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: -0.2px;
+        cursor: pointer;
+        transition: all 0.18s ease;
+        min-height: 38px;
+        display:inline-flex; align-items:center; justify-content:center; gap:4px;
         font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
         white-space: nowrap;
+        backdrop-filter: blur(8px);
       }
       .ai-quick-btn:hover {
-        background: rgba(251,191,36,0.16);
-        border-color: rgba(251,191,36,0.45);
+        background: rgba(251,191,36,0.18);
+        border-color: rgba(251,191,36,0.55);
         color: #fff; transform: translateY(-2px);
-        box-shadow: 0 6px 18px -8px rgba(251,191,36,0.45);
+        box-shadow: 0 6px 18px -6px rgba(251,191,36,0.45);
+      }
+      @media (max-width: 640px) {
+        .ai-quick-btn{ font-size: 11px; padding: 7px 11px; min-height: 34px; }
+        .ai-search-wrap{ padding: 16px 14px; border-radius: 22px; }
       }
       /* 결제하기는 이 그리드에서 제외하고 별도 라인으로 빼기 */
       .ai-quick .ai-quick-pay { display: none !important; }
@@ -5200,8 +5467,9 @@ async function vcInitBgEngine(){
   vcBg.segmenter = new SelfieSegmentation({
     locateFile: (f) => 'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1632777926/' + f
   });
-  // Phase 7l: 성능 우선 - modelSelection 1 (landscape, 가벼움) + 가장자리는 contrast/blur 로 보정
-  vcBg.segmenter.setOptions({ modelSelection: 1, selfieMode: false });
+  // Phase 7m: 가장자리 품질 우선 - modelSelection 0 (general, 256x256, 정밀한 edge)
+  //   ↳ 멈춤 방지는 vcBgRenderLoop 의 프레임 throttle (skipNext) 로 해결
+  vcBg.segmenter.setOptions({ modelSelection: 0, selfieMode: false });
   vcBg.segmenter.onResults(vcOnSegResults);
   await vcBg.segmenter.initialize();
   // 합성 캔버스
@@ -5210,29 +5478,60 @@ async function vcInitBgEngine(){
     vcBg.canvas.width = 1280; vcBg.canvas.height = 720;
     vcBg.ctx = vcBg.canvas.getContext('2d');
   }
+  // Phase 7m: 마스크 전용 오프스크린 캔버스 (erosion + feather 처리용)
+  if (!vcBg.maskCanvas) {
+    vcBg.maskCanvas = document.createElement('canvas');
+    vcBg.maskCanvas.width = 1280; vcBg.maskCanvas.height = 720;
+    vcBg.maskCtx = vcBg.maskCanvas.getContext('2d');
+  }
 }
 
 // --- 4) Segmentation 결과 합성 콜백 ---
-//     ⚙ 가장자리 품질 개선:
-//     ① 마스크에 contrast(1.5) + blur(0.8px) 필터 → soft alpha 의 회색 전이 구간을 sharp 하게 (halo 제거)
-//     ② 살짝의 blur(0.8px) 로 픽셀 계단 현상 부드럽게 (자연스러운 안티에일리어싱)
-//     ③ 사람 그릴 때도 살짝 채도/대비 보정으로 배경과 어우러지게
+//     Phase 7m: 번짐 제거를 위한 정밀 마스크 후처리
+//     ① 오프스크린 마스크 캔버스에서 강한 contrast(2.4) 로 회색 전이 구간 제거 → binary 마스크
+//     ② erosion 효과: 마스크를 destination-in 으로 1~2px 축소하여 머리/어깨 주위 halo 제거
+//     ③ 가벼운 blur(0.6px) 로 마지막 anti-aliasing → 자연스러운 경계
+//     ④ 사람 영상에 미세한 saturate/brightness 보정으로 배경과 톤 매칭
 function vcOnSegResults(results){
   const ctx = vcBg.ctx;
   const w = vcBg.canvas.width, h = vcBg.canvas.height;
-  ctx.save();
-  ctx.clearRect(0,0,w,h);
+  const mctx = vcBg.maskCtx;
 
-  // 1) 마스크 그리기 + 가장자리 sharpening (halo 제거)
-  //    contrast 가 회색 픽셀을 검정/흰색으로 밀어붙여 마스크가 더 binary 해짐
-  //    blur 는 얼리어싱 톱니를 살짝 부드럽게
-  ctx.filter = 'contrast(1.5) blur(0.8px)';
-  ctx.drawImage(results.segmentationMask, 0, 0, w, h);
+  // === Step A: 오프스크린에서 마스크 정제 ===
+  mctx.save();
+  mctx.clearRect(0, 0, w, h);
+  // 1) 마스크 원본을 강한 contrast 로 그려서 회색 전이 → 거의 binary
+  //    contrast(2.4) 가 alpha 0.3~0.7 의 halo 영역을 0 또는 1 로 강제
+  mctx.filter = 'contrast(2.4) brightness(1.08)';
+  mctx.drawImage(results.segmentationMask, 0, 0, w, h);
+  mctx.filter = 'none';
+  // 2) Erosion (마스크 축소) - 같은 마스크를 1px 씩 4방향 shift 한 후 destination-in
+  //    겹치는 부분만 살아남아 가장자리가 안쪽으로 1px 잠식됨 → halo 제거
+  mctx.globalCompositeOperation = 'destination-in';
+  mctx.filter = 'contrast(2.4) brightness(1.08)';
+  mctx.drawImage(results.segmentationMask, -1, 0, w, h);
+  mctx.drawImage(results.segmentationMask, 1, 0, w, h);
+  mctx.drawImage(results.segmentationMask, 0, -1, w, h);
+  mctx.drawImage(results.segmentationMask, 0, 1, w, h);
+  mctx.filter = 'none';
+  mctx.globalCompositeOperation = 'source-over';
+  mctx.restore();
+
+  // === Step B: 본 캔버스 합성 ===
+  ctx.save();
+  ctx.clearRect(0, 0, w, h);
+
+  // 1) 정제된 마스크를 약간의 feather 와 함께 그리기 (자연스러운 anti-alias)
+  ctx.filter = 'blur(0.6px)';
+  ctx.drawImage(vcBg.maskCanvas, 0, 0, w, h);
   ctx.filter = 'none';
 
   // 2) 마스크된 영역에 사람 영상 채움 (source-in)
+  //    saturate/brightness 미세 보정으로 배경과 톤 조화
   ctx.globalCompositeOperation = 'source-in';
+  ctx.filter = 'saturate(1.04) brightness(1.0)';
   ctx.drawImage(results.image, 0, 0, w, h);
+  ctx.filter = 'none';
 
   // 3) 배경 깔기 (destination-over)
   ctx.globalCompositeOperation = 'destination-over';
@@ -5262,9 +5561,11 @@ function vcOnSegResults(results){
 async function vcBgRenderLoop(){
   if (!vcBg.isProcessing) return;
   const v = vcBg.hiddenVideo;
-  // Phase 7l: 프레임 throttle - 2 프레임마다 1번만 처리 (CPU 50% 절약 → 멈춤 제거)
-  vcBg.skipNext = !vcBg.skipNext;
-  if (!vcBg.skipNext && v && v.readyState >= 2 && v.videoWidth > 0 && v.videoHeight > 0
+  // Phase 7m: 모델이 무거워진 만큼 3 프레임마다 1번 처리 (CPU 66% 절약 → 멈춤 방지)
+  //   ↳ 화상통화에선 20fps 정도면 충분히 자연스러움
+  vcBg.frameTick = (vcBg.frameTick || 0) + 1;
+  const shouldProcess = (vcBg.frameTick % 3 === 0);
+  if (shouldProcess && v && v.readyState >= 2 && v.videoWidth > 0 && v.videoHeight > 0
       && vcBg.segmenter && !vcBg.sending) {
     vcBg.sending = true;
     try {
