@@ -3126,6 +3126,75 @@
   </div>
 </details>
 
+<!-- 🎁 Phase P2 — 포인트 & 기프티콘 관리 (학생/강사 관리 다음) -->
+<details class="table-card menu-card" id="card-points-mgmt">
+  <summary><span data-ko="🎁 포인트 & 기프티콘" data-en="🎁 Points &amp; Gifts">🎁 포인트 &amp; 기프티콘</span></summary>
+  <div class="menu-body">
+    <div class="sub-menu">
+
+      <!-- 1. 학생 포인트 잔액 + 수동 충전/차감 -->
+      <details class="sub-item" id="sub-points-balances" open>
+        <summary data-ko="💰 학생 포인트 잔액" data-en="💰 Student Balances">💰 학생 포인트 잔액</summary>
+        <div class="sub-body">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+            <button class="primary" onclick="ptLoadBalances()" style="padding:7px 14px;font-size:12.5px;font-weight:700">🔄 새로고침</button>
+            <button onclick="ptSeedRules()" style="padding:7px 14px;font-size:12.5px;font-weight:700;background:#e0e7ff;color:#3730a3;border:1px solid #6366f1;border-radius:6px;cursor:pointer">⚙ 기본 규칙 시드</button>
+            <input id="pt-search" type="text" placeholder="이름/uid 검색" style="padding:6px 12px;font-size:12.5px;border-radius:6px;border:1px solid #d1d5db;flex:1;min-width:160px" oninput="ptFilterBalances(this.value)" />
+            <div id="pt-stats" style="font-size:11.5px;color:#6b7280"></div>
+          </div>
+          <div id="pt-balances-table" style="overflow-x:auto"></div>
+        </div>
+      </details>
+
+      <!-- 2. 카탈로그 관리 -->
+      <details class="sub-item" id="sub-points-catalog">
+        <summary data-ko="🛍️ 기프티콘 카탈로그" data-en="🛍️ Gift Catalog">🛍️ 기프티콘 카탈로그</summary>
+        <div class="sub-body">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+            <button class="primary" onclick="ptLoadCatalog()" style="padding:7px 14px;font-size:12.5px;font-weight:700">🔄 새로고침</button>
+            <button onclick="ptOpenCatalogModal()" style="padding:7px 14px;font-size:12.5px;font-weight:700;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer">＋ 새 상품 추가</button>
+            <button onclick="ptSeedCatalog()" style="padding:7px 14px;font-size:12.5px;font-weight:700;background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:6px;cursor:pointer">🌱 기본 6개 시드</button>
+          </div>
+          <div id="pt-catalog-table" style="overflow-x:auto"></div>
+        </div>
+      </details>
+
+      <!-- 3. 교환 내역 -->
+      <details class="sub-item" id="sub-points-redemptions">
+        <summary data-ko="📦 교환 신청 내역" data-en="📦 Redemptions">📦 교환 신청 내역</summary>
+        <div class="sub-body">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+            <select id="pt-red-filter" onchange="ptLoadRedemptions()" style="padding:7px 12px;font-size:12.5px;border-radius:6px;border:1px solid #d1d5db">
+              <option value="">전체</option>
+              <option value="pending">⏳ 발송대기</option>
+              <option value="sent">📤 발송됨</option>
+              <option value="delivered">✅ 수령완료</option>
+              <option value="failed">❌ 실패</option>
+              <option value="refunded">↩️ 환불</option>
+            </select>
+            <button class="primary" onclick="ptLoadRedemptions()" style="padding:7px 14px;font-size:12.5px;font-weight:700">🔄 새로고침</button>
+            <div id="pt-red-stats" style="font-size:11.5px;color:#6b7280;margin-left:auto"></div>
+          </div>
+          <div id="pt-red-table" style="overflow-x:auto"></div>
+        </div>
+      </details>
+
+      <!-- 4. 적립 규칙 -->
+      <details class="sub-item" id="sub-points-rules">
+        <summary data-ko="⚙ 자동 적립 규칙" data-en="⚙ Auto-earn Rules">⚙ 자동 적립 규칙</summary>
+        <div class="sub-body">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+            <button class="primary" onclick="ptLoadRules()" style="padding:7px 14px;font-size:12.5px;font-weight:700">🔄 새로고침</button>
+            <span style="font-size:11.5px;color:#6b7280">출석·숙제 등 자동 적립 규칙. 학원 운영 정책에 맞게 조정하세요.</span>
+          </div>
+          <div id="pt-rules-table" style="overflow-x:auto"></div>
+        </div>
+      </details>
+
+    </div>
+  </div>
+</details>
+
 <details class="table-card menu-card" id="card-payroll">
   <summary style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
     <span data-ko="💼 Mangoi 강사 급여·평가 대시보드" data-en="💼 Mangoi Teacher Payroll & Evaluation">💼 Mangoi 강사 급여·평가 대시보드</span>
@@ -14080,6 +14149,423 @@ button.chip:hover,
 })();
 </script>
 
+
+<!-- 🎁 Phase P2 — 포인트 & 기프티콘 관리 모듈 -->
+<script>
+(function(){
+  const fmt = (n) => (Number(n)||0).toLocaleString('ko-KR');
+  const fmtDate = (ms) => ms ? new Date(ms).toLocaleString('ko-KR', { dateStyle:'short', timeStyle:'short' }) : '-';
+  const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+
+  // ━━━━━━━━ 학생 잔액 ━━━━━━━━
+  let _ptBalances = [];
+  window.ptLoadBalances = async function(){
+    const el = document.getElementById('pt-balances-table');
+    if (!el) return;
+    el.innerHTML = '<div style="padding:20px;color:#6b7280;text-align:center">불러오는 중…</div>';
+    try {
+      const r = await fetch('/api/admin/points/list');
+      const d = await r.json();
+      _ptBalances = d.rows || [];
+      ptRenderBalances(_ptBalances);
+      // 통계
+      const totalBal = _ptBalances.reduce((s,x)=>s+(x.balance||0),0);
+      const totalEarned = _ptBalances.reduce((s,x)=>s+(x.lifetime_earned||0),0);
+      const totalSpent = _ptBalances.reduce((s,x)=>s+(x.lifetime_spent||0),0);
+      document.getElementById('pt-stats').innerHTML =
+        `학생 ${_ptBalances.length}명 · 잔액합 <b style="color:#d97706">${fmt(totalBal)}P</b> · 누적적립 ${fmt(totalEarned)}P · 누적사용 ${fmt(totalSpent)}P`;
+    } catch(e) {
+      el.innerHTML = '<div style="padding:20px;color:#ef4444">로드 실패: '+esc(e.message)+'</div>';
+    }
+  };
+  function ptRenderBalances(rows) {
+    const el = document.getElementById('pt-balances-table');
+    if (!rows.length) {
+      el.innerHTML = '<div style="padding:24px;text-align:center;color:#6b7280;background:#f9fafb;border-radius:10px">아직 포인트가 적립된 학생이 없습니다.<br><span style="font-size:11.5px;margin-top:6px;display:inline-block">아래에서 학생 ID를 입력해 첫 포인트를 지급해보세요.</span><div style="margin-top:14px">'+ptQuickGrantHtml()+'</div></div>';
+      return;
+    }
+    const rowsHtml = rows.map(x => `
+      <tr style="border-bottom:1px solid #e5e7eb">
+        <td style="padding:10px 12px;font-weight:700;color:#374151">${esc(x.student_name||'-')}</td>
+        <td style="padding:10px 12px;color:#6b7280;font-family:monospace;font-size:11.5px">${esc(x.user_id)}</td>
+        <td style="padding:10px 12px;text-align:right;font-weight:800;color:#d97706;font-size:14px">${fmt(x.balance)} P</td>
+        <td style="padding:10px 12px;text-align:right;color:#10b981;font-size:11.5px">+${fmt(x.lifetime_earned)}</td>
+        <td style="padding:10px 12px;text-align:right;color:#ef4444;font-size:11.5px">-${fmt(x.lifetime_spent)}</td>
+        <td style="padding:10px 12px;color:#9ca3af;font-size:11px">${fmtDate(x.updated_at)}</td>
+        <td style="padding:8px 10px;text-align:center;white-space:nowrap">
+          <button onclick="ptOpenAdjustModal('${esc(x.user_id)}','${esc(x.student_name||'')}','grant')" style="padding:5px 10px;font-size:11px;background:#10b981;color:#fff;border:0;border-radius:5px;cursor:pointer;margin-right:3px">+ 충전</button>
+          <button onclick="ptOpenAdjustModal('${esc(x.user_id)}','${esc(x.student_name||'')}','deduct')" style="padding:5px 10px;font-size:11px;background:#ef4444;color:#fff;border:0;border-radius:5px;cursor:pointer">− 차감</button>
+        </td>
+      </tr>`).join('');
+    el.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05)">
+        <thead style="background:#f3f4f6">
+          <tr>
+            <th style="text-align:left;padding:10px 12px;font-weight:700;color:#374151">학생</th>
+            <th style="text-align:left;padding:10px 12px;font-weight:700;color:#374151">ID</th>
+            <th style="text-align:right;padding:10px 12px;font-weight:700;color:#374151">잔액</th>
+            <th style="text-align:right;padding:10px 12px;font-weight:700;color:#374151">누적적립</th>
+            <th style="text-align:right;padding:10px 12px;font-weight:700;color:#374151">누적사용</th>
+            <th style="text-align:left;padding:10px 12px;font-weight:700;color:#374151">최근업데이트</th>
+            <th style="text-align:center;padding:10px 12px;font-weight:700;color:#374151">조작</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div style="margin-top:12px">${ptQuickGrantHtml()}</div>`;
+  }
+  function ptQuickGrantHtml(){
+    return `<div style="background:#fff;border:1px dashed #d1d5db;border-radius:8px;padding:12px 14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:12px;font-weight:700;color:#374151">🆕 빠른 지급:</span>
+      <input id="pt-quick-uid" type="text" placeholder="학생 user_id (예: hong_gd)" style="padding:6px 10px;font-size:12px;border-radius:5px;border:1px solid #d1d5db;flex:1;min-width:140px" />
+      <input id="pt-quick-name" type="text" placeholder="이름 (옵션)" style="padding:6px 10px;font-size:12px;border-radius:5px;border:1px solid #d1d5db;width:120px" />
+      <input id="pt-quick-amount" type="number" placeholder="포인트" style="padding:6px 10px;font-size:12px;border-radius:5px;border:1px solid #d1d5db;width:100px" />
+      <input id="pt-quick-reason" type="text" placeholder="사유 (예: 첫 가입 보너스)" style="padding:6px 10px;font-size:12px;border-radius:5px;border:1px solid #d1d5db;flex:1;min-width:140px" />
+      <button onclick="ptQuickGrant()" style="padding:6px 16px;font-size:12px;background:#10b981;color:#fff;border:0;border-radius:5px;cursor:pointer;font-weight:700">지급</button>
+    </div>`;
+  }
+  window.ptQuickGrant = async function(){
+    const uid = document.getElementById('pt-quick-uid').value.trim();
+    const name = document.getElementById('pt-quick-name').value.trim();
+    const amt = parseInt(document.getElementById('pt-quick-amount').value, 10);
+    const reason = document.getElementById('pt-quick-reason').value.trim() || '관리자 지급';
+    if (!uid || !amt) { alert('user_id와 포인트는 필수입니다.'); return; }
+    try {
+      const r = await fetch('/api/admin/points/adjust', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ user_id: uid, student_name: name, amount: amt, type:'admin_grant', reason })
+      });
+      const d = await r.json();
+      if (!d.ok) { alert('❌ ' + (d.error || '실패')); return; }
+      alert(`✅ ${name||uid}에게 ${fmt(amt)}P 지급 완료\n새 잔액: ${fmt(d.newBalance)} P`);
+      document.getElementById('pt-quick-uid').value = '';
+      document.getElementById('pt-quick-name').value = '';
+      document.getElementById('pt-quick-amount').value = '';
+      document.getElementById('pt-quick-reason').value = '';
+      ptLoadBalances();
+    } catch(e) { alert('❌ ' + e.message); }
+  };
+  window.ptOpenAdjustModal = async function(uid, name, type){
+    const isGrant = type === 'grant';
+    const verb = isGrant ? '지급' : '차감';
+    const apiType = isGrant ? 'admin_grant' : 'admin_deduct';
+    const amount = prompt(`${name||uid} 에게 ${verb}할 포인트를 입력하세요`, '100');
+    if (!amount) return;
+    const amt = parseInt(amount, 10);
+    if (!amt || amt <= 0) { alert('올바른 숫자를 입력하세요'); return; }
+    const reason = prompt(`사유 (옵션):`, isGrant?'관리자 지급':'관리자 차감') || (isGrant?'관리자 지급':'관리자 차감');
+    try {
+      const r = await fetch('/api/admin/points/adjust', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ user_id: uid, student_name: name, amount: amt, type: apiType, reason })
+      });
+      const d = await r.json();
+      if (!d.ok) { alert('❌ ' + (d.error || '실패')); return; }
+      alert(`✅ ${verb} 완료\n새 잔액: ${fmt(d.newBalance)} P`);
+      ptLoadBalances();
+    } catch(e) { alert('❌ ' + e.message); }
+  };
+  window.ptFilterBalances = function(q){
+    q = (q||'').toLowerCase().trim();
+    if (!q) { ptRenderBalances(_ptBalances); return; }
+    const filtered = _ptBalances.filter(x =>
+      (x.student_name||'').toLowerCase().includes(q) ||
+      (x.user_id||'').toLowerCase().includes(q)
+    );
+    ptRenderBalances(filtered);
+  };
+  window.ptSeedRules = async function(){
+    if (!confirm('기본 적립 규칙 6개(출석/숙제/제시간/레벨업/월간우수/생일)를 시드하시겠습니까?\n이미 있으면 건너뜁니다.')) return;
+    try {
+      const r = await fetch('/api/admin/points/seed-rules', { method:'POST' });
+      const d = await r.json();
+      alert(`✅ 시드 완료: ${d.items?.length||0}개\n` + (d.items||[]).map(x=>`• ${x.label} (+${x.amount}P)`).join('\n'));
+      ptLoadRules();
+    } catch(e) { alert('❌ ' + e.message); }
+  };
+
+  // ━━━━━━━━ 카탈로그 ━━━━━━━━
+  let _ptCatalog = [];
+  window.ptLoadCatalog = async function(){
+    const el = document.getElementById('pt-catalog-table');
+    if (!el) return;
+    el.innerHTML = '<div style="padding:20px;color:#6b7280;text-align:center">불러오는 중…</div>';
+    try {
+      const r = await fetch('/api/admin/gifts/catalog');
+      const d = await r.json();
+      _ptCatalog = d.rows || [];
+      if (!_ptCatalog.length) {
+        el.innerHTML = '<div style="padding:24px;text-align:center;color:#6b7280;background:#f9fafb;border-radius:10px">카탈로그가 비어있습니다.<br><span style="font-size:11.5px">위 「🌱 기본 6개 시드」 버튼을 누르거나 새 상품을 추가하세요.</span></div>';
+        return;
+      }
+      const rowsHtml = _ptCatalog.map(g => `
+        <tr style="border-bottom:1px solid #e5e7eb;${g.enabled?'':'opacity:.45'}">
+          <td style="padding:9px 12px;font-size:12.5px"><b style="color:#374151">${esc(g.brand||'-')}</b></td>
+          <td style="padding:9px 12px;font-size:12.5px">${esc(g.name)}</td>
+          <td style="padding:9px 12px;font-size:11.5px;color:#6b7280">${esc(g.category||'-')}</td>
+          <td style="padding:9px 12px;text-align:right;color:#6b7280">${fmt(g.face_value)}원</td>
+          <td style="padding:9px 12px;text-align:right;font-weight:800;color:#d97706">${fmt(g.point_price)} P</td>
+          <td style="padding:9px 12px;text-align:right;font-size:11.5px;color:${g.stock!=null && g.stock<5?'#ef4444':'#6b7280'}">${g.stock==null?'무제한':g.stock}</td>
+          <td style="padding:9px 12px;text-align:center">
+            <span style="padding:2px 8px;border-radius:99px;font-size:10.5px;font-weight:700;background:${g.enabled?'#dcfce7':'#fee2e2'};color:${g.enabled?'#166534':'#991b1b'}">${g.enabled?'활성':'비활성'}</span>
+          </td>
+          <td style="padding:8px 10px;text-align:center;white-space:nowrap">
+            <button onclick='ptOpenCatalogModal(${JSON.stringify(g)})' style="padding:5px 10px;font-size:11px;background:#6366f1;color:#fff;border:0;border-radius:5px;cursor:pointer;margin-right:3px">편집</button>
+            <button onclick="ptToggleCatalog(${g.id},${g.enabled?0:1})" style="padding:5px 10px;font-size:11px;background:${g.enabled?'#9ca3af':'#10b981'};color:#fff;border:0;border-radius:5px;cursor:pointer">${g.enabled?'끄기':'켜기'}</button>
+          </td>
+        </tr>`).join('');
+      el.innerHTML = `
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border-radius:8px;overflow:hidden">
+          <thead style="background:#f3f4f6">
+            <tr>
+              <th style="text-align:left;padding:9px 12px">브랜드</th>
+              <th style="text-align:left;padding:9px 12px">상품명</th>
+              <th style="text-align:left;padding:9px 12px">카테고리</th>
+              <th style="text-align:right;padding:9px 12px">정가</th>
+              <th style="text-align:right;padding:9px 12px">포인트</th>
+              <th style="text-align:right;padding:9px 12px">재고</th>
+              <th style="text-align:center;padding:9px 12px">상태</th>
+              <th style="text-align:center;padding:9px 12px">조작</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>`;
+    } catch(e) {
+      el.innerHTML = '<div style="padding:20px;color:#ef4444">로드 실패: '+esc(e.message)+'</div>';
+    }
+  };
+  window.ptSeedCatalog = async function(){
+    if (!confirm('기본 6개 상품(스타벅스/배스킨/교촌/CGV/교보/GS25)을 시드하시겠습니까?')) return;
+    try {
+      const r = await fetch('/api/admin/gifts/seed-catalog', { method:'POST' });
+      const d = await r.json();
+      alert(`✅ 시드 완료: ${d.seeded||0}개`);
+      ptLoadCatalog();
+    } catch(e) { alert('❌ ' + e.message); }
+  };
+  window.ptOpenCatalogModal = function(existing){
+    const g = (typeof existing === 'object' && existing) ? existing : {};
+    const isEdit = !!g.id;
+    const data = {
+      id: g.id || null,
+      brand: g.brand || '',
+      name: g.name || '',
+      category: g.category || 'cafe',
+      face_value: g.face_value || 0,
+      point_price: g.point_price || 0,
+      stock: g.stock != null ? g.stock : '',
+      thumbnail_url: g.thumbnail_url || '',
+      description: g.description || '',
+      external_id: g.external_id || '',
+      sort_order: g.sort_order || 0,
+      enabled: g.enabled !== 0,
+    };
+    const brand = prompt('브랜드 (예: 스타벅스)', data.brand); if (brand === null) return;
+    const name = prompt('상품명 (예: 아이스 아메리카노 Tall)', data.name); if (name === null) return;
+    const fv = parseInt(prompt('정가 (원)', String(data.face_value)), 10); if (!fv) return;
+    const pp = parseInt(prompt('포인트 가격', String(data.point_price || fv)), 10); if (!pp) return;
+    const cat = prompt('카테고리 (cafe/food/movie/book/voucher/etc)', data.category) || 'cafe';
+    const stockStr = prompt('재고 (비워두면 무제한)', String(data.stock));
+    const stock = stockStr === '' || stockStr === null ? null : parseInt(stockStr, 10);
+    const desc = prompt('설명 (옵션)', data.description) || '';
+    const extId = prompt('기프티쇼 비즈 상품 코드 (있을 때만)', data.external_id) || '';
+    const body = {
+      id: data.id, brand, name, category: cat,
+      face_value: fv, point_price: pp,
+      stock, thumbnail_url: data.thumbnail_url, description: desc,
+      external_id: extId, sort_order: data.sort_order, enabled: data.enabled,
+    };
+    fetch('/api/admin/gifts/catalog', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+    }).then(r=>r.json()).then(d => {
+      if (d.ok) { alert(`✅ ${isEdit?'수정':'추가'} 완료`); ptLoadCatalog(); }
+      else alert('❌ ' + (d.error||'실패'));
+    });
+  };
+  window.ptToggleCatalog = async function(id, enabled){
+    const g = _ptCatalog.find(x=>x.id===id);
+    if (!g) return;
+    try {
+      const r = await fetch('/api/admin/gifts/catalog', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ ...g, enabled: !!enabled })
+      });
+      await r.json();
+      ptLoadCatalog();
+    } catch(e) { alert('❌ ' + e.message); }
+  };
+
+  // ━━━━━━━━ 교환내역 ━━━━━━━━
+  window.ptLoadRedemptions = async function(){
+    const el = document.getElementById('pt-red-table');
+    if (!el) return;
+    el.innerHTML = '<div style="padding:20px;color:#6b7280;text-align:center">불러오는 중…</div>';
+    const status = document.getElementById('pt-red-filter').value;
+    try {
+      const r = await fetch('/api/admin/gifts/redemptions' + (status?`?status=${status}`:''));
+      const d = await r.json();
+      const rows = d.rows || [];
+      document.getElementById('pt-red-stats').textContent = `총 ${rows.length}건`;
+      if (!rows.length) { el.innerHTML = '<div style="padding:24px;text-align:center;color:#6b7280;background:#f9fafb;border-radius:10px">조건에 맞는 교환 내역이 없습니다.</div>'; return; }
+      const COLOR = { pending:'#fbbf24', sent:'#60a5fa', delivered:'#10b981', failed:'#ef4444', refunded:'#94a3b8' };
+      const LABEL = { pending:'⏳ 발송대기', sent:'📤 발송됨', delivered:'✅ 수령완료', failed:'❌ 실패', refunded:'↩️ 환불' };
+      const rowsHtml = rows.map(x => `
+        <tr style="border-bottom:1px solid #e5e7eb">
+          <td style="padding:9px 12px;font-size:11.5px;color:#9ca3af">#${x.id}</td>
+          <td style="padding:9px 12px"><b>${esc(x.student_name||'-')}</b><br><span style="font-size:11px;color:#9ca3af">${esc(x.user_id)}</span></td>
+          <td style="padding:9px 12px;font-size:12px">${esc(x.gift_brand||'')} · ${esc(x.gift_name||'')}</td>
+          <td style="padding:9px 12px;font-size:12px;color:#6b7280">${esc(x.recipient_phone||'-')}</td>
+          <td style="padding:9px 12px;text-align:right;font-weight:700;color:#d97706">${fmt(x.point_price)} P</td>
+          <td style="padding:9px 12px;text-align:center"><span style="color:${COLOR[x.status]||'#6b7280'};font-weight:700;font-size:11.5px">${LABEL[x.status]||x.status}</span></td>
+          <td style="padding:9px 12px;font-size:11px;color:#9ca3af">${fmtDate(x.requested_at)}</td>
+          <td style="padding:8px 10px;text-align:center;white-space:nowrap">
+            ${x.status==='pending'?`<button onclick="ptMarkRedemption(${x.id},'sent')" style="padding:4px 8px;font-size:10.5px;background:#60a5fa;color:#fff;border:0;border-radius:4px;cursor:pointer;margin-right:2px">발송완료</button>`:''}
+            ${(x.status==='pending'||x.status==='sent')?`<button onclick="ptMarkRedemption(${x.id},'delivered')" style="padding:4px 8px;font-size:10.5px;background:#10b981;color:#fff;border:0;border-radius:4px;cursor:pointer;margin-right:2px">수령확인</button>`:''}
+            ${(x.status!=='delivered'&&x.status!=='refunded')?`<button onclick="ptMarkRedemption(${x.id},'failed')" style="padding:4px 8px;font-size:10.5px;background:#ef4444;color:#fff;border:0;border-radius:4px;cursor:pointer;margin-right:2px">실패</button>`:''}
+            ${x.status!=='refunded'?`<button onclick="ptMarkRedemption(${x.id},'refunded')" style="padding:4px 8px;font-size:10.5px;background:#94a3b8;color:#fff;border:0;border-radius:4px;cursor:pointer">환불</button>`:''}
+          </td>
+        </tr>`).join('');
+      el.innerHTML = `
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border-radius:8px;overflow:hidden">
+          <thead style="background:#f3f4f6">
+            <tr>
+              <th style="text-align:left;padding:9px 12px">ID</th>
+              <th style="text-align:left;padding:9px 12px">학생</th>
+              <th style="text-align:left;padding:9px 12px">상품</th>
+              <th style="text-align:left;padding:9px 12px">받는번호</th>
+              <th style="text-align:right;padding:9px 12px">차감 P</th>
+              <th style="text-align:center;padding:9px 12px">상태</th>
+              <th style="text-align:left;padding:9px 12px">신청시각</th>
+              <th style="text-align:center;padding:9px 12px">조작</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>`;
+    } catch(e) {
+      el.innerHTML = '<div style="padding:20px;color:#ef4444">로드 실패: '+esc(e.message)+'</div>';
+    }
+  };
+  window.ptMarkRedemption = async function(id, status){
+    let body = { status };
+    if (status === 'sent') {
+      const code = prompt('발송한 기프티콘 쿠폰 번호를 입력하세요 (옵션, 학생 교환내역에 표시됨)', '');
+      if (code) body.coupon_code = code;
+    }
+    if (status === 'failed') {
+      const msg = prompt('실패 사유 (학생이 볼 메시지)', '발송 실패');
+      body.error_message = msg || '발송 실패';
+    }
+    if (status === 'refunded') {
+      if (!confirm('환불하시겠습니까? 학생에게 포인트가 자동 환불됩니다.')) return;
+    }
+    try {
+      const r = await fetch(`/api/admin/gifts/redemptions/${id}/mark`, {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+      });
+      const d = await r.json();
+      if (!d.ok) { alert('❌ ' + (d.error||'실패')); return; }
+      alert(`✅ ${status} 처리 완료` + (d.refund?`\n포인트 환불: +${fmt(d.refund.signed)}P`:''));
+      ptLoadRedemptions();
+    } catch(e) { alert('❌ ' + e.message); }
+  };
+
+  // ━━━━━━━━ 적립 규칙 ━━━━━━━━
+  window.ptLoadRules = async function(){
+    const el = document.getElementById('pt-rules-table');
+    if (!el) return;
+    el.innerHTML = '<div style="padding:20px;color:#6b7280;text-align:center">불러오는 중…</div>';
+    try {
+      const r = await fetch('/api/admin/points/rules');
+      const d = await r.json();
+      const rules = d.rows || [];
+      if (!rules.length) {
+        el.innerHTML = '<div style="padding:24px;text-align:center;color:#6b7280;background:#f9fafb;border-radius:10px">적립 규칙이 없습니다.<br>위 「⚙ 기본 규칙 시드」 버튼을 누르세요.</div>';
+        return;
+      }
+      const rowsHtml = rules.map(x => `
+        <tr style="border-bottom:1px solid #e5e7eb;${x.enabled?'':'opacity:.5'}">
+          <td style="padding:10px 12px"><b>${esc(x.label)}</b><br><span style="font-size:11px;color:#9ca3af;font-family:monospace">${esc(x.code)}</span></td>
+          <td style="padding:10px 12px;text-align:right;font-weight:800;color:#d97706">+${fmt(x.amount)} P</td>
+          <td style="padding:10px 12px;text-align:center;font-size:11.5px;color:#6b7280">${x.cooldown_sec?Math.round(x.cooldown_sec/60)+'분':'-'}</td>
+          <td style="padding:10px 12px;text-align:center;font-size:11.5px;color:#6b7280">${x.daily_cap?x.daily_cap+'회':'무제한'}</td>
+          <td style="padding:10px 12px;font-size:11.5px;color:#6b7280">${esc(x.description||'-')}</td>
+          <td style="padding:10px 12px;text-align:center">
+            <span style="padding:2px 8px;border-radius:99px;font-size:10.5px;font-weight:700;background:${x.enabled?'#dcfce7':'#fee2e2'};color:${x.enabled?'#166534':'#991b1b'}">${x.enabled?'활성':'비활성'}</span>
+          </td>
+          <td style="padding:8px 10px;text-align:center;white-space:nowrap">
+            <button onclick='ptEditRule(${JSON.stringify(x)})' style="padding:5px 10px;font-size:11px;background:#6366f1;color:#fff;border:0;border-radius:5px;cursor:pointer;margin-right:3px">편집</button>
+            <button onclick="ptToggleRule('${esc(x.code)}',${x.enabled?0:1})" style="padding:5px 10px;font-size:11px;background:${x.enabled?'#9ca3af':'#10b981'};color:#fff;border:0;border-radius:5px;cursor:pointer">${x.enabled?'끄기':'켜기'}</button>
+          </td>
+        </tr>`).join('');
+      el.innerHTML = `
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border-radius:8px;overflow:hidden">
+          <thead style="background:#f3f4f6">
+            <tr>
+              <th style="text-align:left;padding:10px 12px">규칙</th>
+              <th style="text-align:right;padding:10px 12px">포인트</th>
+              <th style="text-align:center;padding:10px 12px">쿨다운</th>
+              <th style="text-align:center;padding:10px 12px">일일 한도</th>
+              <th style="text-align:left;padding:10px 12px">설명</th>
+              <th style="text-align:center;padding:10px 12px">상태</th>
+              <th style="text-align:center;padding:10px 12px">조작</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>`;
+    } catch(e) {
+      el.innerHTML = '<div style="padding:20px;color:#ef4444">로드 실패: '+esc(e.message)+'</div>';
+    }
+  };
+  window.ptEditRule = function(r){
+    const label = prompt('규칙 표시명', r.label); if (label === null) return;
+    const amount = parseInt(prompt('적립 포인트', String(r.amount)), 10); if (!amount) return;
+    const cd = parseInt(prompt('쿨다운 (초, 0=없음)', String(r.cooldown_sec||0)), 10) || 0;
+    const capStr = prompt('일일 한도 (비워두면 무제한)', r.daily_cap?String(r.daily_cap):'');
+    const cap = capStr === '' || capStr === null ? null : parseInt(capStr, 10);
+    const desc = prompt('설명', r.description||'') || '';
+    fetch('/api/admin/points/rules', {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ code: r.code, label, amount, cooldown_sec: cd, daily_cap: cap, enabled: !!r.enabled, description: desc })
+    }).then(r=>r.json()).then(d=>{
+      if (d.ok) { alert('✅ 저장 완료'); ptLoadRules(); }
+      else alert('❌ ' + (d.error||'실패'));
+    });
+  };
+  window.ptToggleRule = async function(code, enabled){
+    const rule = (await (await fetch('/api/admin/points/rules')).json()).rows.find(r=>r.code===code);
+    if (!rule) return;
+    await fetch('/api/admin/points/rules', {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ ...rule, enabled: !!enabled })
+    });
+    ptLoadRules();
+  };
+
+  // ━━━━━━━━ 카드 열림 감지 → 자동 로드 ━━━━━━━━
+  function ptAttachOnOpen() {
+    const map = {
+      'sub-points-balances':    'ptLoadBalances',
+      'sub-points-catalog':     'ptLoadCatalog',
+      'sub-points-redemptions': 'ptLoadRedemptions',
+      'sub-points-rules':       'ptLoadRules',
+    };
+    Object.entries(map).forEach(([id, fn]) => {
+      const el = document.getElementById(id);
+      if (!el || el.__ptBound) return;
+      el.__ptBound = true;
+      el.addEventListener('toggle', () => { if (el.open && window[fn]) window[fn](); });
+    });
+    // 부모 카드 열림에도 첫 sub-item 자동 로드
+    const parent = document.getElementById('card-points-mgmt');
+    if (parent && !parent.__ptBound) {
+      parent.__ptBound = true;
+      parent.addEventListener('toggle', () => { if (parent.open && window.ptLoadBalances) window.ptLoadBalances(); });
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ptAttachOnOpen);
+  else ptAttachOnOpen();
+})();
+</script>
 
 
 <!-- 📊 정산통계관리 — 11탭 데이터·렌더링·엑셀 -->

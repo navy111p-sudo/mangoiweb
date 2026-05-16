@@ -106,15 +106,21 @@ foreach ($ch in $Token.ToCharArray()) {
 $env:CLOUDFLARE_API_TOKEN = $Token
 W-Ok ("token loaded, " + $Token.Length + " chars, ASCII verified")
 
+# IMPORTANT: explicitly point to our wrangler.toml to avoid picking up
+# the rogue wrangler.jsonc in C:\Users\Admin\Desktop\mangoi_develop2-main\
+$cfgPath = Join-Path $PSScriptRoot "wrangler.toml"
+if (-not (Test-Path $cfgPath)) { throw "wrangler.toml not found at $cfgPath" }
+W-Ok ("using config: " + $cfgPath)
+
 # 1) base
 W-Step "1/2 deploy: base worker"
-& npx --yes wrangler@4 deploy
+& npx --yes wrangler@4 deploy --config $cfgPath
 if ($LASTEXITCODE -ne 0) { throw ("base deploy failed exit=" + $LASTEXITCODE) }
 W-Ok "base worker deployed"
 
 # 2) production
 W-Step "2/2 deploy: production worker"
-& npx --yes wrangler@4 deploy --env production
+& npx --yes wrangler@4 deploy --env production --config $cfgPath
 if ($LASTEXITCODE -ne 0) { throw ("production deploy failed exit=" + $LASTEXITCODE) }
 W-Ok "production worker deployed"
 
