@@ -8,12 +8,15 @@
  */
 
 import { processAiCommand, executeAction } from './ai-command';
+import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook, type GiftishowEnv } from './giftishow-client';
 
-export interface MangoEnv {
+export interface MangoEnv extends GiftishowEnv {
   DB: D1Database;
   SESSION_STATE: KVNamespace;
   // 🥭 Phase 21 — Workers AI 바인딩 (검색창 AI 명령)
   AI?: any;
+  // 🎁 Phase P4 — 기프티쇼 비즈 환경변수 (giftishow-client.ts)
+  //   GIFTISHOW_API_KEY, GIFTISHOW_USER_ID, GIFTISHOW_API_BASE, GIFTISHOW_CALLBACK_URL, GIFTISHOW_TEST_MODE
 }
 
 const json = (data: any, status = 200): Response =>
@@ -1588,18 +1591,77 @@ export async function handleMangoApi(
       if (item.stock != null) {
         await env.DB.prepare(`UPDATE gift_catalog SET stock=MAX(0,stock-1), updated_at=? WHERE id=?`).bind(now, catalogId).run();
       }
-      // 4) 실제 발송 (Phase P4 에서 기프티쇼 비즈 API 호출 - 여기서는 pending 상태로만 표시)
-      //    GIFTISHOW_API_KEY 환경변수가 있으면 실제 발송, 없으면 관리자 수동 처리 대기
-      const hasApiKey = !!(env as any).GIFTISHOW_API_KEY;
-      const responseMessage = hasApiKey
-        ? '발송 진행 중 (자동 발송)'
-        : '신청 접수됨 - 관리자 수동 발송 대기 (API 키 미설정)';
+      // 4) 🎁 Phase P4: 기프티쇼 비즈 API 자동 발송
+      //    API 키 + 상품에 external_id 모두 있으면 즉시 자동발송 시도
+      //    실패 시 자동 환불 + status='failed' 기록 → 학생에게 즉시 안내
+      const mode = getGiftishowMode(env);
+      let sendResult: any = null;
+      let finalStatus = 'pending';
+      let responseMessage = '';
+
+      if (mode === 'disabled') {
+        // API 키 미설정 → pending 유지, 관리자 수동 발송 대기
+        responseMessage = '신청 접수됨 - 관리자가 곧 발송해 드립니다 (API 키 미설정)';
+      } else if (!item.external_id) {
+        // 상품에 외부 코드 없음 → pending 유지
+        responseMessage = '신청 접수됨 - 상품에 기프티쇼 코드가 없어 관리자 수동 발송 대기';
+      } else {
+        // 자동 발송 시도
+        try {
+          sendResult = await sendCoupon(env, {
+            externalProductCode: item.external_id,
+            recipientPhone: phone,
+            recipientName: body.recipient_name || body.student_name,
+            internalOrderId: redemptionId,
+            msgTitle: `[망고아이] ${item.brand || ''} 선물이 도착했어요! 🎁`,
+            msgBody: `망고아이 포인트로 교환한 ${item.name} 입니다. 카카오톡 선물함에서 확인해주세요.`,
+          });
+        } catch (e: any) {
+          sendResult = { ok: false, status: 'failed', message: '발송 호출 오류: ' + String(e?.message||e) };
+        }
+        if (sendResult.ok && sendResult.status === 'sent') {
+          finalStatus = 'sent';
+          await env.DB.prepare(`UPDATE gift_redemptions SET status='sent', sent_at=?, external_order_id=?, external_coupon_code=?, meta=? WHERE id=?`)
+            .bind(now, sendResult.externalOrderId || null, sendResult.externalCouponCode || null, sendResult.raw ? JSON.stringify({mode:sendResult.mode, raw:sendResult.raw}) : null, redemptionId).run();
+          responseMessage = (mode === 'mock')
+            ? `[TEST MODE] 발송 완료 (실제 카톡은 가지 않음 - 테스트 모드 OFF 후 재시도)`
+            : `🎁 카카오톡으로 발송 완료! 잠시 후 선물함에 도착합니다.`;
+        } else {
+          // 발송 실패 → 자동 환불
+          finalStatus = 'failed';
+          const errMsg = sendResult.message || sendResult.error || '발송 실패';
+          await env.DB.prepare(`UPDATE gift_redemptions SET status='failed', failed_at=?, error_message=?, meta=? WHERE id=?`)
+            .bind(now, errMsg, sendResult.raw ? JSON.stringify(sendResult.raw) : null, redemptionId).run();
+          // 포인트 자동 환불
+          try {
+            const refundTxn = await applyPointTransaction({
+              userId, studentName: body.student_name, type: 'refund',
+              amount: item.point_price, reason: `[자동 환불] 발송 실패: ${errMsg.slice(0, 80)}`,
+              redemptionId, actorId: 'system', actorName: '시스템',
+            });
+            await env.DB.prepare(`UPDATE gift_redemptions SET status='refunded', refunded_at=?, txn_refund_id=? WHERE id=?`)
+              .bind(now, refundTxn.txnId, redemptionId).run();
+            // 재고 복구
+            if (item.stock != null) {
+              await env.DB.prepare(`UPDATE gift_catalog SET stock=stock+1, updated_at=? WHERE id=?`).bind(now, catalogId).run();
+            }
+            finalStatus = 'refunded';
+            responseMessage = `❌ 발송 실패 — 포인트 자동 환불 완료. 사유: ${errMsg}`;
+            // 환불된 잔액으로 갱신
+            spendTxn.newBalance = refundTxn.newBalance;
+          } catch (refundErr: any) {
+            responseMessage = `❌ 발송 실패: ${errMsg}. 환불도 실패 - 관리자에게 문의: ${String(refundErr?.message||refundErr)}`;
+          }
+        }
+      }
+
       return json({
         ok: true,
         redemption_id: redemptionId,
-        status: 'pending',
+        status: finalStatus,
         balance_after: spendTxn.newBalance,
         message: responseMessage,
+        send_mode: mode,
         gift: { brand: item.brand, name: item.name, face_value: item.face_value, point_price: item.point_price },
       });
     }
@@ -1708,7 +1770,124 @@ export async function handleMangoApi(
       return json({ ok: true, seeded: n });
     }
     // ═══════════════════════════════════════════════════════════════
-    // 🎁 Phase P1 끝
+    // 🎁 Phase P4 - 기프티쇼 비즈 외부 API 연동
+    // ═══════════════════════════════════════════════════════════════
+
+    // ── GET /api/admin/gifts/status — API 키 설정 + 가맹점 잔액 조회 ──
+    if (method === 'GET' && path === '/api/admin/gifts/status') {
+      const mode = getGiftishowMode(env);
+      const result: any = {
+        ok: true,
+        mode,                                                 // 'disabled' | 'mock' | 'real'
+        api_key_set: !!(env as any).GIFTISHOW_API_KEY,
+        user_id_set: !!(env as any).GIFTISHOW_USER_ID,
+        api_base: (env as any).GIFTISHOW_API_BASE || 'https://bizapi.giftishow.com/bizApi (기본값)',
+        callback_url_set: !!(env as any).GIFTISHOW_CALLBACK_URL,
+        test_mode: (env as any).GIFTISHOW_TEST_MODE === 'true',
+      };
+      // 실제 모드면 가맹점 잔액 조회 시도
+      if (mode === 'real' || mode === 'mock') {
+        try {
+          const bal = await checkBalance(env);
+          result.balance = bal.ok ? bal.balance : null;
+          result.balance_message = bal.message;
+        } catch (e: any) {
+          result.balance_error = String(e?.message || e);
+        }
+      }
+      // 카탈로그 중 external_id 가 등록된 상품 수
+      try {
+        const catCount: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM gift_catalog WHERE external_id IS NOT NULL AND external_id <> '' AND enabled=1`).first();
+        result.catalog_with_external_id = catCount?.c || 0;
+        const totalCat: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM gift_catalog WHERE enabled=1`).first();
+        result.catalog_total = totalCat?.c || 0;
+      } catch {}
+      return json(result);
+    }
+
+    // ── POST /api/gifts/webhook/giftishow — KT alpha 콜백 (발송 결과 알림) ──
+    //   KT alpha 서버가 발송 → 수령 → 사용 단계마다 우리 콜백 URL 로 알림 보냄
+    //   ▶ wrangler.toml [vars] GIFTISHOW_CALLBACK_URL 에 이 URL 을 등록해두면 자동 호출됨:
+    //     "https://webrtc-unified-platform-prod.navy111p.workers.dev/api/gifts/webhook/giftishow"
+    if (method === 'POST' && path === '/api/gifts/webhook/giftishow') {
+      await ensurePointTables();
+      const body: any = await request.json().catch(() => ({}));
+      const ev = parseWebhook(body);
+      const now = Date.now();
+      // bizTrId 가 우리 gift_redemptions.id 임 (sendCoupon 시 보냈음)
+      const redId = parseInt(String(ev.internalOrderId || ''), 10);
+      if (!redId) {
+        // 콜백은 받았지만 매칭 안 됨 → 로그만 남기고 200 응답 (KT alpha 재전송 방지)
+        try {
+          await env.DB.prepare(`INSERT INTO gift_redemptions (user_id, student_name, catalog_id, gift_name, face_value, point_price, status, requested_at, meta) VALUES ('webhook_orphan','-',0,'(매칭없음)',0,0,'failed',?,?)`)
+            .bind(now, JSON.stringify(body)).run();
+        } catch {}
+        return json({ ok: false, error: 'no_matching_redemption', received: ev });
+      }
+      const red: any = await env.DB.prepare(`SELECT * FROM gift_redemptions WHERE id=?`).bind(redId).first();
+      if (!red) return json({ ok: false, error: 'redemption_not_found', id: redId }, 404);
+
+      // 상태 업데이트
+      const updates: string[] = [];
+      const binds: any[] = [];
+      if (ev.status) {
+        updates.push('status=?'); binds.push(ev.status);
+        if (ev.status === 'sent' && !red.sent_at)         { updates.push('sent_at=?');      binds.push(now); }
+        if (ev.status === 'delivered' && !red.delivered_at){ updates.push('delivered_at=?'); binds.push(now); }
+        if (ev.status === 'failed' && !red.failed_at)     { updates.push('failed_at=?');    binds.push(now); }
+      }
+      if (ev.externalOrderId && !red.external_order_id) { updates.push('external_order_id=?'); binds.push(ev.externalOrderId); }
+      if (ev.couponCode && !red.external_coupon_code)   { updates.push('external_coupon_code=?'); binds.push(ev.couponCode); }
+      if (ev.message) { updates.push('error_message=?'); binds.push(ev.message); }
+      // 항상 meta 에 raw 누적
+      const prevMeta = red.meta ? (() => { try { return JSON.parse(red.meta); } catch { return {}; } })() : {};
+      const newMeta = { ...prevMeta, last_webhook: ev.raw, last_webhook_at: now };
+      updates.push('meta=?'); binds.push(JSON.stringify(newMeta));
+      if (updates.length > 0) {
+        await env.DB.prepare(`UPDATE gift_redemptions SET ${updates.join(',')} WHERE id=?`).bind(...binds, redId).run();
+      }
+
+      // 발송 실패 콜백이면 자동 환불
+      if (ev.status === 'failed' && !red.txn_refund_id) {
+        try {
+          const refundTxn = await applyPointTransaction({
+            userId: red.user_id, studentName: red.student_name, type: 'refund',
+            amount: red.point_price, reason: `[자동환불] 발송 실패 (webhook): ${(ev.message||'').slice(0,80)}`,
+            redemptionId: redId, actorId: 'webhook', actorName: 'KT alpha webhook',
+          });
+          await env.DB.prepare(`UPDATE gift_redemptions SET txn_refund_id=?, status='refunded', refunded_at=? WHERE id=?`).bind(refundTxn.txnId, now, redId).run();
+          if (red.catalog_id) {
+            await env.DB.prepare(`UPDATE gift_catalog SET stock=stock+1, updated_at=? WHERE id=? AND stock IS NOT NULL`).bind(now, red.catalog_id).run();
+          }
+        } catch {}
+      }
+
+      return json({ ok: true, processed: ev, redemption_id: redId });
+    }
+
+    // ── POST /api/admin/gifts/redemptions/:id/poll — 관리자 수동 상태 폴링 ──
+    //   KT alpha 콜백이 안 왔거나 오래된 pending 건의 진행상황을 즉시 조회
+    if (method === 'POST' && /^\/api\/admin\/gifts\/redemptions\/\d+\/poll$/.test(path)) {
+      await ensurePointTables();
+      const id = parseInt(path.split('/')[5] || '0', 10);
+      const red: any = await env.DB.prepare(`SELECT * FROM gift_redemptions WHERE id=?`).bind(id).first();
+      if (!red) return json({ ok: false, error: 'not_found' }, 404);
+      if (!red.external_order_id) return json({ ok: false, error: 'no_external_order_id' });
+      const { checkOrderStatus } = await import('./giftishow-client');
+      const status = await checkOrderStatus(env, red.external_order_id);
+      if (status.ok && status.status && status.status !== 'unknown') {
+        const now = Date.now();
+        const updates = ['status=?']; const binds: any[] = [status.status];
+        if (status.status === 'sent' && !red.sent_at) { updates.push('sent_at=?'); binds.push(now); }
+        if (status.status === 'delivered' && !red.delivered_at) { updates.push('delivered_at=?'); binds.push(now); }
+        if (status.status === 'failed' && !red.failed_at) { updates.push('failed_at=?'); binds.push(now); }
+        await env.DB.prepare(`UPDATE gift_redemptions SET ${updates.join(',')} WHERE id=?`).bind(...binds, id).run();
+      }
+      return json({ ok: true, id, status, prev_status: red.status });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🎁 Phase P1+P4 끝
     // ═══════════════════════════════════════════════════════════════
 
     if (method === 'GET' && path === '/api/admin/stats/revenue') {
