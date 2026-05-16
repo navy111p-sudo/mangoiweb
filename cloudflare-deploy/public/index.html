@@ -2693,55 +2693,70 @@
       </h1>
     </div>
     <style>
-      /* 마스코트 버블 - 우주 헬멧 느낌 */
+      /* 마스코트 버블 - 거의 투명한 비누거품 + 작은 라이트닝 액센트 */
       .mascot-bubble {
         position: relative;
-        width: clamp(120px, 14vw, 168px);
-        height: clamp(120px, 14vw, 168px);
+        width: clamp(120px, 13vw, 160px);
+        height: clamp(120px, 13vw, 160px);
         margin-bottom: 1rem;
         border-radius: 50%;
-        background: radial-gradient(circle at 30% 30%,
-                    rgba(255,255,255,0.18) 0%,
-                    rgba(180,200,255,0.08) 35%,
-                    rgba(60,80,140,0.10) 70%,
-                    rgba(20,30,60,0.15) 100%);
+        background: radial-gradient(circle at 32% 28%,
+                    rgba(255,255,255,0.22) 0%,
+                    rgba(200,220,255,0.10) 28%,
+                    rgba(100,140,210,0.06) 60%,
+                    rgba(40,60,110,0.04) 100%);
         box-shadow:
-          0 0 0 2px rgba(255,255,255,0.10),
-          inset 0 0 30px rgba(120,180,255,0.18),
-          inset 0 0 60px rgba(80,120,200,0.12),
-          0 20px 60px -10px rgba(0,0,0,0.6),
-          0 0 50px rgba(160,200,255,0.25);
-        backdrop-filter: blur(4px);
+          inset 0 0 25px rgba(180,210,255,0.20),
+          inset 0 0 70px rgba(100,160,240,0.10),
+          0 18px 50px -8px rgba(0,0,0,0.55),
+          0 0 40px rgba(180,220,255,0.15);
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+        border: 1.5px solid rgba(255,255,255,0.22);
         animation: mangoiFloat 4s ease-in-out infinite alternate;
-        overflow: hidden;
+        overflow: visible;
       }
       .mascot-img {
-        width: 78%; height: 78%;
-        position: absolute; top: 11%; left: 11%;
+        width: 84%; height: 84%;
+        position: absolute; top: 8%; left: 8%;
         border-radius: 50%;
         object-fit: cover;
-        filter: drop-shadow(0 8px 20px rgba(245,158,11,0.4));
+        filter: drop-shadow(0 6px 16px rgba(245,158,11,0.35))
+                drop-shadow(0 0 12px rgba(255,200,120,0.18));
       }
-      /* 헬멧 광택 (좌상단 하이라이트) */
+      /* 비누거품 광택 - 좌상단 큰 하이라이트 */
       .mascot-shine {
         position: absolute;
-        top: 8%; left: 14%;
-        width: 38%; height: 28%;
-        background: radial-gradient(ellipse at center,
-                    rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.15) 50%, transparent 80%);
+        top: 6%; left: 14%;
+        width: 42%; height: 32%;
+        background: radial-gradient(ellipse at 35% 30%,
+                    rgba(255,255,255,0.75) 0%,
+                    rgba(255,255,255,0.30) 40%,
+                    transparent 80%);
         border-radius: 50%;
-        filter: blur(6px);
+        filter: blur(4px);
         pointer-events: none;
         z-index: 3;
       }
-      /* 헬멧 림(테두리 반사) */
+      /* 비누거품 림 - 위/아래 반사 */
       .mascot-rim {
-        position: absolute; inset: 0;
+        position: absolute; inset: -2px;
         border-radius: 50%;
-        border: 1.5px solid rgba(255,255,255,0.18);
-        box-shadow: inset 0 -8px 24px rgba(200,160,255,0.12);
+        border: 1px solid rgba(255,255,255,0.25);
+        box-shadow:
+          inset 0 6px 18px rgba(255,255,255,0.10),
+          inset 0 -10px 24px rgba(180,200,255,0.12);
         pointer-events: none;
         z-index: 4;
+      }
+      /* 작은 우측 하단 광점 (비누거품 굴절) */
+      .mascot-rim::after {
+        content: '';
+        position: absolute;
+        bottom: 16%; right: 18%;
+        width: 12%; height: 6%;
+        background: radial-gradient(ellipse, rgba(255,255,255,0.45), transparent 80%);
+        filter: blur(2px);
       }
       @keyframes mangoiFloat {
         from { transform: translateY(0) scale(1); }
@@ -2751,44 +2766,56 @@
       /* 타이틀 - 우아한 골드 세리프 (레퍼런스 디자인 매칭) */
       .home-title {
         margin: 0;
-        font-family: 'Cormorant Garamond', 'Playfair Display', 'Noto Serif KR', Georgia, serif;
-        font-weight: 700;
-        font-size: clamp(34px, 5.5vw, 54px);
+        font-family: 'Cormorant Garamond', 'Noto Serif KR', 'Playfair Display', Georgia, serif;
+        font-weight: 600;
+        font-size: clamp(36px, 6vw, 58px);
         line-height: 1.05;
         letter-spacing: 0.5px;
         text-align: center;
         display: flex;
         align-items: baseline;
         justify-content: center;
-        gap: 14px;
-        flex-wrap: wrap;
+        gap: 16px;
+        flex-wrap: nowrap;
       }
+      /* "Mangoi" - 이탤릭 골드 세리프 */
       .ht-mangoi {
         font-style: italic;
+        font-weight: 600;
         background: linear-gradient(180deg,
-                    #fff4cc 0%,
-                    #ffe199 25%,
-                    #f4c75a 55%,
-                    #b8801e 100%);
+                    #fff8d8 0%,
+                    #ffe9a8 22%,
+                    #f4c75a 52%,
+                    #c08820 88%,
+                    #8a5e10 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
-        filter: drop-shadow(0 2px 12px rgba(245,200,90,0.35))
-                drop-shadow(0 0 24px rgba(255,220,140,0.20));
-        letter-spacing: 1px;
+        filter: drop-shadow(0 2px 10px rgba(245,200,90,0.35))
+                drop-shadow(0 0 22px rgba(255,220,140,0.20));
+        letter-spacing: 1.5px;
       }
+      /* "화상솔루션" - 같은 골드 세리프 (Noto Serif KR), Mangoi 와 통일된 느낌 */
       .ht-sub {
-        font-family: 'Noto Sans KR', -apple-system, sans-serif;
+        font-family: 'Noto Serif KR', 'Cormorant Garamond', Georgia, serif;
         font-weight: 700;
         font-style: normal;
-        color: #fff;
-        letter-spacing: -1px;
-        text-shadow: 0 2px 18px rgba(180,200,255,0.18),
-                     0 0 30px rgba(255,255,255,0.08);
+        background: linear-gradient(180deg,
+                    #fff8d8 0%,
+                    #ffe9a8 22%,
+                    #f4c75a 52%,
+                    #c08820 88%,
+                    #8a5e10 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        filter: drop-shadow(0 2px 10px rgba(245,200,90,0.30))
+                drop-shadow(0 0 18px rgba(255,220,140,0.18));
+        letter-spacing: -0.5px;
       }
       @media (max-width:640px){
-        .home-title{ gap:8px; font-size:32px; }
-        .mascot-bubble{ width:110px; height:110px; }
+        .home-title{ gap:10px; font-size:30px; }
+        .mascot-bubble{ width:108px; height:108px; }
       }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
