@@ -2543,7 +2543,10 @@
       <img src="/img/Mangoi_Character.jpg" alt="Mangoi"
            onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#fbbf24,#f59e0b)';this.style.padding='40px';this.style.fontSize='120px';this.alt='🥭';"
            style="width:160px;height:160px;border-radius:50%;object-fit:cover;border:4px solid rgba(251,191,36,0.6);box-shadow:0 12px 40px -8px rgba(245,158,11,0.6),0 0 0 8px rgba(255,255,255,0.05);margin-bottom:1.2rem;animation:mangoiFloat 3s ease-in-out infinite alternate" />
-      <h1 id="home-subtitle" class="home-title" style="font-family:'Noto Sans KR',-apple-system,sans-serif;letter-spacing:-1px;margin:0;font-weight:800;font-size:clamp(28px, 5vw, 44px);background:linear-gradient(135deg,#60a5fa 0%,#93c5fd 50%,#fbbf24 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Mangoi 화상솔루션</h1>
+      <h1 id="home-subtitle" class="home-title" style="font-family:'Noto Sans KR',-apple-system,sans-serif;letter-spacing:-1.5px;margin:0;font-weight:900;font-size:clamp(36px, 6vw, 56px);line-height:1.1;text-align:center;">
+        <span style="display:inline-block;background:linear-gradient(135deg,#60a5fa 0%,#93c5fd 40%,#fbbf24 75%,#f59e0b 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 4px 24px rgba(96,165,250,0.35)) drop-shadow(0 2px 12px rgba(251,191,36,0.25));">Mangoi</span>
+        <span style="display:inline-block;color:#fff;margin-left:10px;font-weight:700;letter-spacing:-2px;text-shadow:0 2px 16px rgba(255,255,255,0.15);">화상솔루션</span>
+      </h1>
     </div>
     <style>
       @keyframes mangoiFloat {
@@ -2596,20 +2599,23 @@
         <button class="ai-quick-btn" data-go="lesson-change" data-ko="📅 수업연기/변경" data-en="📅 Postpone/Change">📅 수업연기/변경</button>
         <button class="ai-quick-btn" data-go="inquiry" data-ko="💬 신규상담" data-en="💬 New Inquiry">💬 신규상담</button>
         <button class="ai-quick-btn" data-go="homepage" data-ko="🏠 홈페이지" data-en="🏠 Homepage">🏠 홈페이지</button>
-        <button class="ai-quick-btn ai-quick-pay" data-go="payment" data-ko="💳 결제하기" data-en="💳 Payment">💳 결제하기</button>
       </div>
-      <!-- 🎥 수업입장 큰 버튼 -->
-      <div class="lesson-action-row" style="margin-top:18px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;">
-        <button id="btn-enter-class" onclick="showView('view-videocall-lobby')"
-                style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-size:16px;font-weight:800;padding:14px 28px;border-radius:14px;border:none;cursor:pointer;box-shadow:0 8px 24px rgba(245,158,11,.45),0 0 0 0 rgba(251,191,36,.6);display:inline-flex;align-items:center;gap:10px;transition:transform .15s,box-shadow .15s;animation:lessonPulse 2.6s infinite;">
+      <!-- 결제하기 + 수업입장 한 줄 (같은 골드 스타일) -->
+      <div class="ai-cta-row">
+        <button class="cta-pay" data-go="payment" onclick="if(window.gridActions&&window.gridActions.payment)window.gridActions.payment();">
+          <span style="font-size:22px">💳</span>
+          <span data-ko="결제하기" data-en="Payment">결제하기</span>
+        </button>
+        <button class="cta-enter" onclick="showView('view-videocall-lobby')">
           <svg class="btn-enter-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><circle cx="12" cy="9" r="2.5" fill="#1a1a1a"/><path d="M7 14c.5-2 2.5-3 5-3s4.5 1 5 3"/></svg>
           <span data-ko="수업 입장" data-en="Enter Class">수업 입장</span>
         </button>
-        <div style="font-size:11.5px;color:#94a3b8;display:flex;gap:12px">
-          <span data-ko="🎥 화상수업 로비로 입장" data-en="🎥 Enter video class lobby">🎥 화상수업 로비로 입장</span>
-          <span style="opacity:.5">|</span>
-          <span data-ko="📹 마이크 / 카메라 사용" data-en="📹 Mic / Camera required">📹 마이크 / 카메라 사용</span>
-        </div>
+      </div>
+      <!-- 안내문구 (수업입장 정보) -->
+      <div style="text-align:center;margin-top:14px;font-size:11.5px;color:#94a3b8;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+        <span data-ko="🎥 화상수업 로비로 입장" data-en="🎥 Enter video class lobby">🎥 화상수업 로비로 입장</span>
+        <span style="opacity:.5">|</span>
+        <span data-ko="📹 마이크 / 카메라 사용" data-en="📹 Mic / Camera required">📹 마이크 / 카메라 사용</span>
       </div>
       <style>
       @keyframes lessonPulse{0%,100%{box-shadow:0 8px 24px rgba(245,158,11,.45),0 0 0 0 rgba(251,191,36,.4)}50%{box-shadow:0 8px 24px rgba(245,158,11,.45),0 0 0 14px rgba(251,191,36,0)}}
@@ -2976,17 +2982,18 @@
       }
       @keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1} }
       @keyframes slideDown { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:translateY(0)} }
-      /* === Mango Bloom: Quick buttons (3 cols, generous spacing, pill shape) === */
-      .ai-quick { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:20px auto 0; max-width:600px; }
+      /* === Mango Bloom v2: 6 quick buttons in ONE ROW === */
+      .ai-quick { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin:20px auto 0; max-width:920px; }
       .ai-quick-btn {
         background: rgba(255,255,255,0.05);
         border: 1px solid rgba(255,255,255,0.10);
         border-radius: 99px;
-        padding: 14px 18px; color: #cbd5e1; font-size: 14.5px; font-weight: 600;
-        letter-spacing: -0.2px;
+        padding: 12px 10px; color: #cbd5e1; font-size: 12.5px; font-weight: 600;
+        letter-spacing: -0.3px;
         cursor: pointer; transition: all 0.2s ease;
-        min-height: 50px; display:inline-flex; align-items:center; justify-content:center; gap:6px;
+        min-height: 46px; display:inline-flex; align-items:center; justify-content:center; gap:4px;
         font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+        white-space: nowrap;
       }
       .ai-quick-btn:hover {
         background: rgba(251,191,36,0.16);
@@ -2994,20 +3001,37 @@
         color: #fff; transform: translateY(-2px);
         box-shadow: 0 6px 18px -8px rgba(251,191,36,0.45);
       }
-      .ai-quick .ai-quick-pay {
-        grid-column: span 3;
-        background:linear-gradient(135deg,rgba(251,191,36,0.20),rgba(245,158,11,0.16))!important;
-        border:1.5px solid rgba(251,191,36,0.55)!important;
-        color:#fde68a!important; font-weight:700; font-size:15px;
-        letter-spacing:-0.2px;
-        min-height: 56px;
-        box-shadow: 0 4px 16px -8px rgba(251,191,36,0.4);
+      /* 결제하기는 이 그리드에서 제외하고 별도 라인으로 빼기 */
+      .ai-quick .ai-quick-pay { display: none !important; }
+      /* === Mango Bloom v2: 결제하기 + 수업입장 한 줄 === */
+      .ai-cta-row {
+        display: grid; grid-template-columns: 1fr 1.4fr; gap: 12px;
+        max-width: 720px; margin: 20px auto 0;
+        align-items: stretch;
       }
-      .ai-quick .ai-quick-pay:hover {
-        background:linear-gradient(135deg,rgba(251,191,36,0.32),rgba(245,158,11,0.28))!important;
-        color:#fff!important;
-        box-shadow: 0 8px 24px -8px rgba(251,191,36,0.6);
+      .ai-cta-row > * {
+        background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
+        color: #1a1a1a !important;
+        font-weight: 800 !important;
+        border: none !important;
+        border-radius: 16px !important;
+        padding: 18px 24px !important;
+        font-size: 17px !important;
+        letter-spacing: -0.3px;
+        display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+        cursor: pointer;
+        box-shadow: 0 8px 24px rgba(245,158,11,0.45), 0 0 0 0 rgba(251,191,36,0.6);
+        transition: transform .15s, box-shadow .15s;
+        font-family: 'Noto Sans KR', -apple-system, sans-serif;
+        text-decoration: none;
+        animation: lessonPulse 2.6s infinite;
+        min-height: 58px;
       }
+      .ai-cta-row > *:hover {
+        transform: translateY(-2px) scale(1.02);
+        box-shadow: 0 12px 32px rgba(245,158,11,0.6) !important;
+      }
+      .ai-cta-row .cta-pay { animation-delay: 0.3s; }
       /* === Mango Bloom: Title typography === */
       .home-title {
         font-weight: 800!important;
