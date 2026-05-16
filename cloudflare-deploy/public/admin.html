@@ -2883,6 +2883,23 @@
         <summary data-ko="📋 강사 정보 (등록·수정·제거)" data-en="📋 Teacher Profile (Add · Edit · Remove)">📋 강사 정보 (등록·수정·제거)</summary>
         <div class="sub-body">
 
+          <!-- 🆕 학생 페이지 자동 반영 안내 -->
+          <div style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);border:1px solid #3b82f6;border-left:5px solid #3b82f6;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;line-height:1.7;color:#1e40af">
+            <b style="font-size:14px;color:#1e3a8a" data-ko="🎓 자동 연동 활성화됨" data-en="🎓 Auto-sync Enabled">🎓 자동 연동 활성화됨</b>
+            <p style="margin:6px 0 4px"
+               data-ko="여기에 강사를 등록·수정하면 <b>학생 홈페이지 → 강사 소개</b> 페이지에 즉시 사진/소개영상/경력이 표시됩니다. 별도 작업 없음."
+               data-en="When you add or edit a teacher here, photo · intro video · career instantly appear on <b>Student Homepage → Teacher Profiles</b>. No extra steps.">
+              여기에 강사를 등록·수정하면 <b>학생 홈페이지 → 강사 소개</b> 페이지에 즉시 사진/소개영상/경력이 표시됩니다. 별도 작업 없음.
+            </p>
+            <div style="display:flex;gap:14px;font-size:11px;color:#1e3a8a;margin-top:6px;flex-wrap:wrap">
+              <span data-ko="✔ 상태=활동중 만 노출" data-en="✔ Only Active teachers shown">✔ 상태=활동중 만 노출</span>
+              <span data-ko="✔ 한글이름 가나다 순" data-en="✔ Sorted by Korean name">✔ 한글이름 가나다 순</span>
+              <span data-ko="✔ 사진/영상 R2 자동 저장" data-en="✔ Photo/video auto-saved to R2">✔ 사진/영상 R2 자동 저장</span>
+              <a href="/" target="_blank" style="color:#1e3a8a;font-weight:700;text-decoration:underline"
+                 data-ko="👀 학생 페이지 새창에서 보기" data-en="👀 Open student page in new tab">👀 학생 페이지 새창에서 보기</a>
+            </div>
+          </div>
+
           <!-- 신규 등록 폼 — 🥭 Phase 40: 영문 번역 추가 -->
           <details>
             <summary style="cursor:pointer;font-size:13px;color:#10b981;font-weight:600"
@@ -2952,8 +2969,22 @@
                   </details>
                   <span style="display:block;font-size:10.5px;color:#9aa3b8;margin-top:4px">JPEG · PNG · WebP · PDF 지원 · 최대 5MB</span>
                 </div>
-                <div style="grid-column:1/-1"><label style="font-size:11px;color:#374151;font-weight:600" data-ko="소개 비디오 URL" data-en="Intro Video URL">소개 비디오 URL</label>
-                  <input id="tp-video-url" type="url" placeholder="https://youtube.com/... or https://..." style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
+                <div style="grid-column:1/-1">
+                  <label style="font-size:11px;color:#374151;font-weight:600" data-ko="🎬 소개 비디오 (URL 또는 파일 업로드)" data-en="🎬 Intro Video (URL or file upload)">🎬 소개 비디오 (URL 또는 파일 업로드)</label>
+                  <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
+                    <input id="tp-video-url" type="url" placeholder="https://youtube.com/watch?v=... 또는 mp4 URL" oninput="refreshTeacherVideoPreview()"
+                           style="flex:1;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" />
+                    <input id="tp-video-file" type="file" accept="video/*" style="display:none" onchange="handleTeacherVideoUpload(this)" />
+                    <button type="button" onclick="document.getElementById('tp-video-file').click()"
+                            style="padding:6px 14px;font-size:12px;background:#6366f1;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700;white-space:nowrap"
+                            data-ko="📁 파일 업로드" data-en="📁 Upload File">📁 파일 업로드</button>
+                  </div>
+                  <div id="tp-video-info" style="font-size:11px;color:#6b7280;margin-top:4px"></div>
+                  <div id="tp-video-preview" style="display:none;margin-top:8px;max-width:320px"></div>
+                  <span style="display:block;font-size:10.5px;color:#9aa3b8;margin-top:4px"
+                        data-ko="YouTube/MP4 URL 자동 임베드 · 파일은 최대 30MB · 학생 페이지 강사소개에 자동 표시"
+                        data-en="YouTube/MP4 URL auto-embed · Max 30MB · Auto-shows in student Teacher Intro page">YouTube/MP4 URL 자동 임베드 · 파일은 최대 30MB · 학생 페이지 강사소개에 자동 표시</span>
+                </div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="학력" data-en="Education">학력</label>
                   <input id="tp-education" type="text" placeholder="예: 서울대 영문과 졸업" data-ko-placeholder="예: 서울대 영문과 졸업" data-en-placeholder="e.g., SNU English Lit BA" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="경력" data-en="Career">경력</label>
@@ -6102,15 +6133,14 @@ async function loadTeacherProfiles() {
     '</tr>';
   }).join('');
 }
-// 프로필 이미지 파일 업로드 → base64 data URL 로 변환해 hidden input 에 저장
-window.handleProfileImageUpload = function(input) {
+// 프로필 이미지 파일 업로드 — R2 우선, 실패시 base64 fallback
+window.handleProfileImageUpload = async function(input) {
   const file = input.files && input.files[0];
   const hidden = document.getElementById('tp-image-url');
   const preview = document.getElementById('tp-image-preview');
   const info = document.getElementById('tp-image-info');
   if (!file) return;
   const sizeMB = file.size / 1024 / 1024;
-  // 파일 종류 검사
   const isImage = file.type.startsWith('image/');
   const isPDF = file.type === 'application/pdf';
   if (!isImage && !isPDF) {
@@ -6118,36 +6148,104 @@ window.handleProfileImageUpload = function(input) {
     input.value = '';
     return;
   }
-  if (sizeMB > 5) {
-    alert('파일이 너무 큽니다 (' + sizeMB.toFixed(2) + 'MB).\n5MB 이하 파일을 업로드해주세요.');
+  if (sizeMB > 10) {
+    alert('파일이 너무 큽니다 (' + sizeMB.toFixed(2) + 'MB).\n10MB 이하 파일을 업로드해주세요.');
     input.value = '';
     return;
   }
-  const reader = new FileReader();
-  reader.onload = function() {
-    const dataUrl = reader.result;
-    if (hidden) hidden.value = dataUrl;
-    if (isImage) {
-      // 이미지: 미리보기에 바로 표시
-      if (preview) {
-        preview.src = dataUrl;
-        preview.style.display = 'block';
-      }
-      if (info) info.textContent = '📷 ' + file.name + ' (' + sizeMB.toFixed(2) + 'MB) — 저장됩니다';
-    } else {
-      // PDF
-      if (preview) preview.style.display = 'none';
-      if (info) info.textContent = '📄 ' + file.name + ' (' + sizeMB.toFixed(2) + 'MB) — PDF 저장됩니다';
+  // R2 업로드 우선 시도
+  if (info) info.textContent = '☁️ R2 업로드 중… (' + sizeMB.toFixed(2) + 'MB)';
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    const r = await fetch('/api/admin/popups/upload-media', { method:'POST', body: form });
+    const d = await r.json();
+    if (d.ok && d.url) {
+      if (hidden) hidden.value = d.url;
+      if (isImage && preview) { preview.src = d.url; preview.style.display = 'block'; }
+      if (info) info.textContent = '✅ R2 업로드 완료: ' + file.name + ' (' + sizeMB.toFixed(2) + 'MB) — 학생 페이지에 즉시 반영됩니다';
+      const urlText = document.getElementById('tp-image-url-text');
+      if (urlText) urlText.value = '';
+      return;
     }
-    // URL 텍스트 입력은 비움 (파일 업로드 우선)
-    const urlText = document.getElementById('tp-image-url-text');
-    if (urlText) urlText.value = '';
-  };
-  reader.onerror = function() {
-    alert('파일을 읽을 수 없습니다. 다시 시도해주세요.');
+    // R2 실패 시 base64 fallback (작은 파일만)
+    throw new Error(d.error || 'R2 업로드 실패');
+  } catch (e) {
+    console.warn('[tp] R2 업로드 실패 → base64 fallback:', e);
+    if (sizeMB > 3) {
+      alert('R2 업로드 실패: ' + e.message + '\n3MB 이하 파일로 다시 시도하거나 URL 직접 입력을 사용하세요.');
+      input.value = '';
+      if (info) info.textContent = '';
+      return;
+    }
+    // base64 fallback
+    const reader = new FileReader();
+    reader.onload = function() {
+      const dataUrl = reader.result;
+      if (hidden) hidden.value = dataUrl;
+      if (isImage && preview) { preview.src = dataUrl; preview.style.display = 'block'; }
+      if (info) info.textContent = '📷 ' + file.name + ' (' + sizeMB.toFixed(2) + 'MB) — base64 저장 (DB 부담 큼, R2 권장)';
+      const urlText = document.getElementById('tp-image-url-text');
+      if (urlText) urlText.value = '';
+    };
+    reader.onerror = function() {
+      alert('파일을 읽을 수 없습니다.');
+      input.value = '';
+    };
+    reader.readAsDataURL(file);
+  }
+};
+
+// 🎬 강사 소개 비디오 R2 업로드 + 미리보기
+window.handleTeacherVideoUpload = async function(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const sizeMB = file.size / 1024 / 1024;
+  if (sizeMB > 30) {
+    alert('비디오 파일은 30MB 이하여야 합니다. (현재 ' + sizeMB.toFixed(2) + 'MB)\nYouTube 업로드 후 URL 입력을 권장합니다.');
     input.value = '';
-  };
-  reader.readAsDataURL(file);
+    return;
+  }
+  if (!file.type.startsWith('video/')) {
+    alert('비디오 파일(mp4/webm/mov)만 업로드 가능합니다.');
+    input.value = '';
+    return;
+  }
+  const urlInput = document.getElementById('tp-video-url');
+  const info = document.getElementById('tp-video-info');
+  if (info) info.textContent = '☁️ R2 업로드 중… (' + sizeMB.toFixed(2) + 'MB, 시간이 좀 걸립니다)';
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    const r = await fetch('/api/admin/popups/upload-media', { method:'POST', body: form });
+    const d = await r.json();
+    if (!d.ok || !d.url) throw new Error(d.error || 'R2 업로드 실패');
+    if (urlInput) urlInput.value = d.url;
+    if (info) info.textContent = '✅ R2 업로드 완료: ' + file.name + ' (' + sizeMB.toFixed(2) + 'MB) — 학생 페이지에 즉시 반영됩니다';
+    if (typeof refreshTeacherVideoPreview === 'function') refreshTeacherVideoPreview();
+  } catch (e) {
+    if (info) info.textContent = '❌ 업로드 실패: ' + e.message;
+    alert('비디오 업로드 실패: ' + e.message);
+  } finally {
+    input.value = '';
+  }
+};
+
+// 비디오 URL → 즉시 미리보기 (YouTube 자동 임베드 또는 video 태그)
+window.refreshTeacherVideoPreview = function() {
+  const url = (document.getElementById('tp-video-url')?.value || '').trim();
+  const box = document.getElementById('tp-video-preview');
+  if (!box) return;
+  if (!url) { box.innerHTML = ''; box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+  if (yt) {
+    box.innerHTML = '<iframe src="https://www.youtube.com/embed/' + yt[1] + '" style="width:100%;aspect-ratio:16/9;border:0;border-radius:8px" allowfullscreen></iframe>';
+  } else if (/\.(mp4|webm|mov)(\?|$)/i.test(url) || url.startsWith('/api/popups/media/')) {
+    box.innerHTML = '<video src="' + url + '" controls preload="metadata" style="width:100%;max-width:320px;border-radius:8px;display:block"></video>';
+  } else {
+    box.innerHTML = '<div style="font-size:11px;color:#9ca3af;padding:8px;background:#f9fafb;border-radius:6px">미리보기 불가 URL — 학생 페이지에서 새 창으로 열림</div>';
+  }
 };
 
 async function addTeacherProfile() {
