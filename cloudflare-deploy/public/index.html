@@ -3193,6 +3193,7 @@
                 <button onclick="vcSetVideoSize('threequarter', this)" title="화면의 3/4">3/4</button>
                 <button onclick="vcSetVideoSize('full', this)" title="전체화면" data-ko="전체" data-en="Full">전체</button>
                 <button onclick="vcTogglePip(this)" id="vc-pip-btn" title="참가자 비디오 띄우기 (콘텐츠 위에 오버레이)" data-ko="📌 PIP" data-en="📌 PIP" style="background:rgba(245,158,11,.25);color:#fcd34d">📌 PIP</button>
+                <button onclick="vcToggleSolo(this)" id="vc-solo-btn" title="내 화면만 보기 (다른 참가자 숨김)" data-ko="👤 솔로" data-en="👤 Solo" style="background:rgba(168,85,247,.25);color:#d8b4fe">👤 솔로</button>
             </div>
             <div class="video-strip" id="vc-video-grid">
                 <div class="video-box" id="vc-local-box">
@@ -5199,8 +5200,8 @@ async function vcInitBgEngine(){
   vcBg.segmenter = new SelfieSegmentation({
     locateFile: (f) => 'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1632777926/' + f
   });
-  // modelSelection 0 = general (256x256 정사각, 높은 정확도) — 1 = landscape (256x144, 빠름) 보다 가장자리 정밀도 우수
-  vcBg.segmenter.setOptions({ modelSelection: 0, selfieMode: false });
+  // Phase 7l: 성능 우선 - modelSelection 1 (landscape, 가벼움) + 가장자리는 contrast/blur 로 보정
+  vcBg.segmenter.setOptions({ modelSelection: 1, selfieMode: false });
   vcBg.segmenter.onResults(vcOnSegResults);
   await vcBg.segmenter.initialize();
   // 합성 캔버스
@@ -5261,9 +5262,9 @@ function vcOnSegResults(results){
 async function vcBgRenderLoop(){
   if (!vcBg.isProcessing) return;
   const v = vcBg.hiddenVideo;
-  // Phase 7j fix: currentTime 체크 제거 (MediaStream srcObject 는 currentTime 이 0으로 고정될 수 있음)
-  // busy 플래그만으로 동시 호출 방지 → segmenter 가 안전하게 매 frame 처리
-  if (v && v.readyState >= 2 && v.videoWidth > 0 && v.videoHeight > 0
+  // Phase 7l: 프레임 throttle - 2 프레임마다 1번만 처리 (CPU 50% 절약 → 멈춤 제거)
+  vcBg.skipNext = !vcBg.skipNext;
+  if (!vcBg.skipNext && v && v.readyState >= 2 && v.videoWidth > 0 && v.videoHeight > 0
       && vcBg.segmenter && !vcBg.sending) {
     vcBg.sending = true;
     try {
@@ -5861,6 +5862,34 @@ function vcSetVideoSize(size, btn) {
    - localStorage 위치·크기 저장 → 다음 입장 시 복원 */
 let _vcPipActive = false;
 let _vcPipSyncTimer = null;
+// Phase 7l: 솔로 모드 - 본인 영상만 보이게 (다른 참가자 숨김)
+window.vcSoloMode = false;
+window.vcToggleSolo = function(btn){
+  window.vcSoloMode = !window.vcSoloMode;
+  const grid = document.getElementById('vc-video-grid');
+  const localBox = document.getElementById('vc-local-box');
+  if (window.vcSoloMode) {
+    // 다른 모든 참가자 비디오 숨김 (본인 box 외)
+    if (grid) {
+      grid.querySelectorAll('.video-box').forEach(box => {
+        if (box.id !== 'vc-local-box') box.style.display = 'none';
+      });
+    }
+    // 본인 박스 풀사이즈
+    if (localBox) {
+      localBox.style.gridColumn = '1 / -1';
+      localBox.style.gridRow = '1 / -1';
+    }
+    if (btn) { btn.style.background = 'rgba(168,85,247,.6)'; btn.style.color = '#fff'; }
+  } else {
+    if (grid) {
+      grid.querySelectorAll('.video-box').forEach(box => { box.style.display = ''; });
+    }
+    if (localBox) { localBox.style.gridColumn = ''; localBox.style.gridRow = ''; }
+    if (btn) { btn.style.background = 'rgba(168,85,247,.25)'; btn.style.color = '#d8b4fe'; }
+  }
+};
+
 function vcTogglePip(btn) {
   const overlay = document.getElementById('vc-pip-overlay');
   if (!overlay) return;
