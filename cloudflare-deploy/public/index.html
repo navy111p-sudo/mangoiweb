@@ -14811,6 +14811,62 @@ window.closeRulesModal = function() {
 })();
 </script>
 
+<!-- 🤖 AI 검색창 placeholder 강제 보장 — 새로고침/언어전환/탭복귀에도 무조건 표시 -->
+<script>
+(function(){
+  const KO_PH = '🤖 AI에게 물어보기 - 원하시는 것을 알려주세요.';
+  const EN_PH = '🤖 Ask AI - tell me what you need.';
+
+  function enforceAiSearchPlaceholder(opts){
+    const input = document.getElementById('ai-home-input');
+    if (!input) return;
+    // 이전 검색어/자동완성 잔류 방지 (페이지 리셋 시)
+    if (opts && opts.clearValue) input.value = '';
+    // 언어에 맞는 placeholder 강제 (다른 스크립트가 덮어쓰면 복구)
+    const lang = (window.getLang ? window.getLang() : 'ko');
+    const target = (lang === 'en') ? EN_PH : KO_PH;
+    if (input.placeholder !== target) input.placeholder = target;
+    // data-* 도 항상 최신값으로 (다국어 토글 안전)
+    input.setAttribute('data-ko-placeholder', KO_PH);
+    input.setAttribute('data-en-placeholder', EN_PH);
+  }
+
+  // 1) 페이지 로드 시 강제 (clearValue: true)
+  function initEnforce(){ enforceAiSearchPlaceholder({ clearValue: true }); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initEnforce);
+  else initEnforce();
+
+  // 2) 페이지 완전 로드 후 한 번 더 (다른 스크립트 초기화 후 덮어씀 방지)
+  window.addEventListener('load', () => enforceAiSearchPlaceholder({ clearValue: true }));
+
+  // 3) bfcache (뒤로가기) 복원 시 — value 보존된 채 다시 보일 때 비움
+  window.addEventListener('pageshow', (e) => enforceAiSearchPlaceholder({ clearValue: !!e.persisted }));
+
+  // 4) 탭 전환 후 돌아왔을 때
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) enforceAiSearchPlaceholder(); });
+
+  // 5) 언어 토글 시 즉시 적용
+  document.addEventListener('mangoi:lang-change', enforceAiSearchPlaceholder);
+
+  // 6) 안전망 — placeholder 가 외부 스크립트로 변경되면 자동 복구 (MutationObserver)
+  function observePlaceholder(){
+    const input = document.getElementById('ai-home-input');
+    if (!input) { setTimeout(observePlaceholder, 500); return; }
+    new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.attributeName === 'placeholder') {
+          const lang = (window.getLang ? window.getLang() : 'ko');
+          const target = (lang === 'en') ? EN_PH : KO_PH;
+          // 다른 값으로 바뀌면 즉시 되돌림 (무한루프 방지: 같은 값으로 set 하면 mutation 안 발생)
+          if (input.placeholder !== target) input.placeholder = target;
+        }
+      }
+    }).observe(input, { attributes: true, attributeFilter: ['placeholder'] });
+  }
+  observePlaceholder();
+})();
+</script>
+
 <!-- 📢 Phase POP — 학생 페이지 팝업/공지 시스템 -->
 <style>
   /* 팝업 컨테이너 영역 */
