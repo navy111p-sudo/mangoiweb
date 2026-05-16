@@ -5202,16 +5202,17 @@ function vcOnSegResults(results){
 async function vcBgRenderLoop(){
   if (!vcBg.isProcessing) return;
   const v = vcBg.hiddenVideo;
-  // 까다로운 가드: ready, 사이즈 OK, segmenter 준비, 이전 송신 완료, 새 프레임
-  if (v && v.readyState >= 3 && v.videoWidth > 0 && v.videoHeight > 0
-      && vcBg.segmenter && !vcBg.sending
-      && v.currentTime !== vcBg.lastVideoTime) {
+  // Phase 7j fix: currentTime 체크 제거 (MediaStream srcObject 는 currentTime 이 0으로 고정될 수 있음)
+  // busy 플래그만으로 동시 호출 방지 → segmenter 가 안전하게 매 frame 처리
+  if (v && v.readyState >= 2 && v.videoWidth > 0 && v.videoHeight > 0
+      && vcBg.segmenter && !vcBg.sending) {
     vcBg.sending = true;
-    vcBg.lastVideoTime = v.currentTime;
     try {
       await vcBg.segmenter.send({ image: v });
+      vcBg.frameCount = (vcBg.frameCount || 0) + 1;
     } catch(e) {
-      console.warn('[vc-bg] send 실패 (계속 진행):', e && e.message || e);
+      vcBg.errorCount = (vcBg.errorCount || 0) + 1;
+      if (vcBg.errorCount < 5) console.warn('[vc-bg] send 실패 (계속 진행):', e && e.message || e);
     } finally {
       vcBg.sending = false;
     }
@@ -5354,6 +5355,26 @@ window.vcSetBackground = async function(mode){
     const names = { blur:'흐림', galaxy:'우주', desert:'사막', underwater:'바닷속', beach:'바닷가', jungle:'정글' };
     status.textContent = '✅ ' + (names[mode]||mode) + ' 배경 적용 중 — 모든 참가자에게 보입니다';
   }
+
+  // Phase 7j: 2초 후 canvas 그려졌는지 확인 - 안 그려졌으면 원본 카메라 폴백
+  vcBg.frameCount = 0;
+  vcBg.errorCount = 0;
+  setTimeout(() => {
+    if (vcBg.mode === mode && (vcBg.frameCount || 0) === 0) {
+      console.warn('[vc-bg] 2초간 frame 처리 0건 → 원본 카메라 폴백');
+      if (status) status.textContent = '⚠ 가상배경 처리 실패 — 원본 카메라로 복귀';
+      vcBg.isProcessing = false;
+      if (vcBg.rafId) { cancelAnimationFrame(vcBg.rafId); vcBg.rafId = null; }
+      const v2 = document.getElementById('vc-local-video');
+      if (v2) v2.srcObject = vcLocalStream;
+      const camTrk = vcLocalStream && vcLocalStream.getVideoTracks()[0];
+      if (camTrk) vcSwapVideoTrack(camTrk);
+      vcBg.mode = 'off';
+    } else if (vcBg.frameCount > 0 && status) {
+      // 정상 동작 중 - 추가 정보 표시
+      status.textContent = '✅ ' + (({blur:'흐림',galaxy:'우주',desert:'사막',underwater:'바닷속',beach:'바닷가',jungle:'정글'})[mode]||mode) + ' 배경 적용 중 (' + vcBg.frameCount + ' 프레임 처리됨)';
+    }
+  }, 2000);
 };
 
 // 🥭 Phase 41 — 학생게임 (오늘의 교재 vocab 기반 두 가지 미니게임)
