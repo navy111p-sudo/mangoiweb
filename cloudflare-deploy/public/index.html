@@ -1791,7 +1791,11 @@
 </script>
 
 <div id="view-home" class="view active">
-    <!-- 우상단 칩 (글래스모피즘) - 로그인 + 언어 -->
+    <!-- 우상단 칩 (글래스모피즘) - 포인트 + 로그인 + 언어 -->
+    <button id="points-chip" onclick="showPointsShop()" class="hero-chip hero-chip-points" title="포인트 상점" style="display:none">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><text x="12" y="16" text-anchor="middle" font-size="11" font-weight="bold" fill="currentColor" stroke="none">P</text></svg>
+      <span id="points-chip-label">0 P</span>
+    </button>
     <button id="login-btn" onclick="openLoginModal()" class="hero-chip" title="로그인">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.85"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.5 3.5-7 8-7s8 2.5 8 7"/></svg>
       <span id="login-btn-ico" style="display:none">🔑</span>
@@ -1931,13 +1935,199 @@
         box-shadow: 0 10px 28px rgba(0,0,0,0.45),
                     inset 0 1px 0 rgba(255,255,255,0.18);
       }
+      /* 포인트 칩 - 골드 강조 */
+      #points-chip.hero-chip-points{
+        right: 10.5rem;
+        background: linear-gradient(135deg, rgba(251,191,36,0.25), rgba(245,158,11,0.22));
+        border-color: rgba(251,191,36,0.55);
+        color: #ffe082;
+      }
+      #points-chip.hero-chip-points:hover{
+        background: linear-gradient(135deg, rgba(251,191,36,0.4), rgba(245,158,11,0.35));
+        border-color: rgba(251,191,36,0.85);
+        color: #fff8d6;
+      }
       #login-btn.hero-chip{ right: 5.5rem; }
       #lang-toggle.hero-chip-lang{ right: 1.1rem; }
       .hero-chip-lang #lang-label{ color:#fde68a; font-weight:800; }
       @media (max-width:640px){
         .hero-chip{ padding:6px 11px; font-size:.78rem; top:0.85rem; }
+        #points-chip.hero-chip-points{ right: 8.5rem; padding:5px 9px; }
         #login-btn.hero-chip{ right:4.4rem; }
         #lang-toggle.hero-chip-lang{ right:0.85rem; }
+      }
+      @media (max-width:520px){
+        /* 매우 좁은 화면 - 포인트 칩은 잔액만 (P 글자) */
+        #points-chip.hero-chip-points{ right: 7.5rem; }
+      }
+
+      /* 🎁 Phase P3: 포인트 상점 모달 */
+      .ps-overlay{
+        position: fixed; inset: 0;
+        background: rgba(5,7,18,0.86);
+        backdrop-filter: blur(14px);
+        display: none;
+        z-index: 11000;
+        padding: 28px 16px;
+        overflow-y: auto;
+        animation: psFade .2s ease;
+      }
+      .ps-overlay.show{ display: block; }
+      @keyframes psFade { from { opacity: 0; } to { opacity: 1; } }
+      .ps-modal{
+        max-width: 980px; margin: 0 auto;
+        background: linear-gradient(180deg, #1a2032 0%, #131826 100%);
+        border: 1px solid rgba(251,191,36,0.32);
+        border-radius: 24px;
+        box-shadow: 0 30px 80px -10px rgba(0,0,0,0.7),
+                    0 0 60px rgba(251,191,36,0.10);
+        animation: psSlide .25s cubic-bezier(.34,1.56,.64,1);
+        color: #e2e8f0;
+        font-family: 'Noto Sans KR', -apple-system, sans-serif;
+        overflow: hidden;
+      }
+      @keyframes psSlide { from { opacity: 0; transform: translateY(20px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+      .ps-head{
+        padding: 22px 28px;
+        display: flex; align-items: center; gap: 16px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        background: linear-gradient(135deg, rgba(251,191,36,0.10), rgba(245,158,11,0.05));
+      }
+      .ps-head h2{
+        margin: 0; flex: 1;
+        font-size: 22px; font-weight: 800; color: #fff;
+        display: flex; align-items: center; gap: 10px;
+      }
+      .ps-bal{
+        background: rgba(0,0,0,0.3);
+        padding: 8px 14px;
+        border-radius: 99px;
+        font-size: 13px; color: #fde68a; font-weight: 700;
+        border: 1px solid rgba(251,191,36,0.35);
+      }
+      .ps-bal-label{ color: #94a3b8; font-weight:600; margin-right:6px; font-size:12px; }
+      .ps-bal-amt{ color: #fde68a; font-size: 15px; font-weight: 800; }
+      .ps-close{
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.12);
+        color: #cbd5e1; font-size: 18px;
+        width: 36px; height: 36px;
+        border-radius: 50%; cursor: pointer;
+        display:flex; align-items:center; justify-content:center;
+      }
+      .ps-close:hover{ background: rgba(239,68,68,0.18); color: #fff; }
+      .ps-body{ padding: 18px 22px 26px; max-height: 80vh; overflow-y: auto; }
+      .ps-tabs{ display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+      .ps-tab{
+        background: transparent; border: 0;
+        padding: 11px 18px;
+        color: #94a3b8; font-weight: 700; font-size: 14px;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+        cursor: pointer;
+      }
+      .ps-tab.active{ color: #fbbf24; border-bottom-color: #fbbf24; }
+      .ps-pane{ display: none; }
+      .ps-pane.active{ display: block; }
+      .ps-loading, .ps-empty{
+        padding: 40px 20px; text-align: center;
+        color: #94a3b8; font-size: 14px;
+      }
+      .ps-grid{
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 14px;
+      }
+      .ps-card{
+        background: linear-gradient(180deg, #1f2942 0%, #161c2d 100%);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+        overflow: hidden;
+        display: flex; flex-direction: column;
+        transition: all .2s ease;
+      }
+      .ps-card:hover{
+        border-color: rgba(251,191,36,0.5);
+        transform: translateY(-2px);
+        box-shadow: 0 12px 28px -10px rgba(245,158,11,0.4);
+      }
+      .ps-thumb{
+        width: 100%; height: 120px;
+        object-fit: cover;
+        background: rgba(0,0,0,0.3);
+      }
+      .ps-thumb-fallback{
+        display:flex; align-items:center; justify-content:center;
+        font-size: 56px;
+        background: linear-gradient(135deg, rgba(251,191,36,0.15), rgba(245,158,11,0.08));
+        color: rgba(251,191,36,0.5);
+      }
+      .ps-card-body{ padding: 12px 14px; flex: 1; }
+      .ps-brand{
+        display: inline-block;
+        background: rgba(251,191,36,0.15);
+        color: #fde68a;
+        font-size: 10.5px; font-weight: 700;
+        padding: 2px 8px; border-radius: 8px;
+        margin-bottom: 6px;
+        letter-spacing: 0.3px;
+      }
+      .ps-name{ font-size: 14px; font-weight: 700; color: #fff; line-height: 1.35; margin-bottom: 4px; }
+      .ps-desc{ font-size: 11.5px; color: #94a3b8; line-height: 1.45; }
+      .ps-stock{ font-size: 11px; color: #fb7185; margin-top: 6px; font-weight:600; }
+      .ps-card-foot{
+        padding: 10px 14px 12px;
+        border-top: 1px solid rgba(255,255,255,0.06);
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 8px;
+      }
+      .ps-price{ font-size: 16px; font-weight: 800; color: #fde68a; }
+      .ps-redeem-btn{
+        background: linear-gradient(135deg, #fbbf24, #f59e0b);
+        color: #1a1a1a;
+        font-size: 13px; font-weight: 800;
+        padding: 9px 14px;
+        border: none; border-radius: 10px;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(245,158,11,0.35);
+      }
+      .ps-redeem-btn:hover{ transform: scale(1.04); }
+      /* 교환내역 */
+      .ps-hist-item{
+        display: flex; gap: 14px; align-items: center;
+        padding: 14px 16px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 12px;
+        margin-bottom: 8px;
+      }
+      .ps-hist-main{ flex: 1; min-width: 0; }
+      .ps-hist-name{ font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 3px; }
+      .ps-hist-meta{ font-size: 11.5px; color: #94a3b8; }
+      .ps-hist-side{ text-align: right; }
+      .ps-hist-status{ font-size: 12px; font-weight: 700; margin-bottom: 3px; }
+      .ps-hist-points{ font-size: 13px; color: #fb7185; font-weight: 700; }
+      .ps-hist-code{
+        margin-top: 6px;
+        background: rgba(251,191,36,0.1);
+        color: #fde68a;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-family: monospace;
+      }
+      @media (max-width:640px){
+        .ps-overlay{ padding: 12px 8px; }
+        .ps-head{ padding: 16px 18px; flex-wrap: wrap; }
+        .ps-head h2{ font-size: 18px; width: 100%; order: 0; }
+        .ps-bal{ order: 1; }
+        .ps-close{ order: 2; margin-left: auto; }
+        .ps-body{ padding: 14px 14px 20px; max-height: 85vh; }
+        .ps-grid{ grid-template-columns: 1fr 1fr; gap: 10px; }
+        .ps-thumb{ height: 90px; }
+        .ps-name{ font-size: 12.5px; }
+        .ps-price{ font-size: 14px; }
+        .ps-redeem-btn{ font-size: 12px; padding: 7px 10px; }
       }
     </style>
     <div id="starfield"></div>
@@ -2862,6 +3052,7 @@
         <!-- 🔤 가나다 순 (관 → 마 → 발 → 수 → 신 → 홈) -->
         <button class="ai-quick-btn" data-go="admin" data-ko="📊 관리자" data-en="📊 Admin">📊 관리자</button>
         <button class="ai-quick-btn" data-go="mypage" data-ko="👤 마이페이지" data-en="👤 My Page">👤 마이페이지</button>
+        <button class="ai-quick-btn" data-go="points-shop" data-ko="🎁 포인트상점" data-en="🎁 Point Shop" onclick="event.preventDefault();showPointsShop();">🎁 포인트상점</button>
         <button class="ai-quick-btn" data-go="speech" data-ko="🎤 발음연습" data-en="🎤 Pronunciation">🎤 발음연습</button>
         <button class="ai-quick-btn" data-go="lesson-change" data-ko="📅 수업연기/변경" data-en="📅 Postpone/Change">📅 수업연기/변경</button>
         <button class="ai-quick-btn" data-go="inquiry" data-ko="💬 신규상담" data-en="💬 New Inquiry">💬 신규상담</button>
@@ -14007,8 +14198,228 @@ window.closeRulesModal = function() {
       btn.style.borderColor = 'rgba(148,163,184,0.35)';
       btn.style.color = '#e2e8f0';
     }
+    // 🎁 Phase P3: 포인트 칩 동기화 (로그인 시 표시 + 잔액 fetch)
+    if (typeof refreshPointsChip === 'function') refreshPointsChip();
   }
   window.updateLoginUI = updateLoginUI;
+
+  // 🎁 Phase P3 — 포인트 칩 + 상점 ───────────────────────────────────
+  window.refreshPointsChip = async function(){
+    var chip = document.getElementById('points-chip');
+    var lbl = document.getElementById('points-chip-label');
+    if (!chip || !lbl) return;
+    var u = getCurrentUser();
+    if (!u) { chip.style.display='none'; return; }
+    chip.style.display='inline-flex';
+    try {
+      var r = await fetch('/api/points/balance?uid=' + encodeURIComponent(u.uid));
+      var d = await r.json();
+      var bal = (d && d.ok) ? (d.balance || 0) : 0;
+      lbl.textContent = bal.toLocaleString('ko-KR') + ' P';
+      chip.setAttribute('data-balance', String(bal));
+    } catch(e) {
+      lbl.textContent = '0 P';
+    }
+  };
+
+  // 포인트 상점 모달 ─────────────────────────────────────────────────
+  window.showPointsShop = async function(){
+    var L = (window.getLang?window.getLang():'ko')==='ko';
+    var u = getCurrentUser();
+    if (!u) {
+      // 로그인 필요
+      if (typeof openLoginModal === 'function') { openLoginModal(); }
+      else alert(L?'로그인이 필요합니다.':'Login required.');
+      return;
+    }
+    var ov = document.getElementById('points-shop-overlay') || (function(){
+      var d = document.createElement('div');
+      d.id = 'points-shop-overlay';
+      d.className = 'ps-overlay';
+      d.onclick = function(e){ if (e.target===d) closePointsShop(); };
+      document.body.appendChild(d);
+      return d;
+    })();
+    ov.innerHTML = '<div class="ps-modal"><div class="ps-head">'+
+        '<h2>🎁 '+(L?'포인트 상점':'Point Shop')+'</h2>'+
+        '<div class="ps-bal" id="ps-balance">'+(L?'잔액 불러오는 중…':'Loading…')+'</div>'+
+        '<button class="ps-close" onclick="closePointsShop()">✕</button>'+
+      '</div>'+
+      '<div class="ps-body">'+
+        '<div class="ps-tabs">'+
+          '<button class="ps-tab active" onclick="psSwitchTab(\'catalog\',this)">'+(L?'🎁 상품 둘러보기':'🎁 Browse Gifts')+'</button>'+
+          '<button class="ps-tab" onclick="psSwitchTab(\'history\',this)">'+(L?'🧾 내 교환내역':'🧾 My Redemptions')+'</button>'+
+        '</div>'+
+        '<div id="ps-pane-catalog" class="ps-pane active"><div class="ps-loading">'+(L?'상품 불러오는 중…':'Loading gifts…')+'</div></div>'+
+        '<div id="ps-pane-history" class="ps-pane"><div class="ps-loading">'+(L?'내역 불러오는 중…':'Loading history…')+'</div></div>'+
+      '</div></div>';
+    ov.classList.add('show');
+    document.body.style.overflow='hidden';
+    // 잔액 & 카탈로그 로드
+    psRefreshBalance();
+    psLoadCatalog();
+  };
+  window.closePointsShop = function(){
+    var ov = document.getElementById('points-shop-overlay');
+    if (ov) ov.classList.remove('show');
+    document.body.style.overflow='';
+  };
+  window.psSwitchTab = function(tab, btn){
+    document.querySelectorAll('.ps-tab').forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+    document.querySelectorAll('.ps-pane').forEach(function(p){ p.classList.remove('active'); });
+    document.getElementById('ps-pane-'+tab).classList.add('active');
+    if (tab==='history') psLoadHistory();
+    else psLoadCatalog();
+  };
+  window.psRefreshBalance = async function(){
+    var u = getCurrentUser(); if (!u) return;
+    var el = document.getElementById('ps-balance'); if (!el) return;
+    try {
+      var r = await fetch('/api/points/balance?uid='+encodeURIComponent(u.uid));
+      var d = await r.json();
+      var bal = (d&&d.ok)?(d.balance||0):0;
+      var L = (window.getLang?window.getLang():'ko')==='ko';
+      el.innerHTML = '<span class="ps-bal-label">'+(L?'내 포인트':'My Points')+'</span> '+
+        '<span class="ps-bal-amt">'+bal.toLocaleString('ko-KR')+' P</span>';
+      refreshPointsChip();
+    } catch(e) {}
+  };
+  window.psLoadCatalog = async function(){
+    var pane = document.getElementById('ps-pane-catalog'); if (!pane) return;
+    var L = (window.getLang?window.getLang():'ko')==='ko';
+    try {
+      var r = await fetch('/api/gifts/catalog');
+      var d = await r.json();
+      if (!d.ok || !d.rows || !d.rows.length) {
+        // 카탈로그 비어있으면 자동 시드 시도
+        await fetch('/api/admin/gifts/seed-catalog', { method:'POST' });
+        r = await fetch('/api/gifts/catalog');
+        d = await r.json();
+      }
+      var rows = d.rows || [];
+      if (!rows.length) { pane.innerHTML = '<div class="ps-empty">'+(L?'상품이 없습니다.':'No gifts available.')+'</div>'; return; }
+      var cards = rows.map(function(g){
+        var brandTag = g.brand ? '<div class="ps-brand">'+escapeLT(g.brand)+'</div>' : '';
+        var stockTag = (g.stock != null) ? ('<div class="ps-stock">'+(L?'남은 수량':'Stock')+' '+g.stock+'</div>') : '';
+        var thumb = g.thumbnail_url ? '<img class="ps-thumb" src="'+escapeLT(g.thumbnail_url)+'" alt="">' :
+          '<div class="ps-thumb ps-thumb-fallback">🎁</div>';
+        return '<div class="ps-card">'+
+          thumb +
+          '<div class="ps-card-body">'+
+            brandTag +
+            '<div class="ps-name">'+escapeLT(g.name)+'</div>'+
+            (g.description?'<div class="ps-desc">'+escapeLT(g.description)+'</div>':'')+
+            stockTag +
+          '</div>'+
+          '<div class="ps-card-foot">'+
+            '<div class="ps-price">'+g.point_price.toLocaleString('ko-KR')+' P</div>'+
+            '<button class="ps-redeem-btn" onclick="psStartRedeem('+g.id+',&quot;'+escapeLT(g.name).replace(/&quot;/g,'\\&quot;')+'&quot;,&quot;'+escapeLT(g.brand||'').replace(/&quot;/g,'\\&quot;')+'&quot;,'+g.point_price+')">'+(L?'교환하기':'Redeem')+'</button>'+
+          '</div>'+
+        '</div>';
+      }).join('');
+      pane.innerHTML = '<div class="ps-grid">'+cards+'</div>';
+    } catch(e) {
+      pane.innerHTML = '<div class="ps-empty">'+(L?'로드 실패':'Load failed')+': '+e.message+'</div>';
+    }
+  };
+  window.psLoadHistory = async function(){
+    var pane = document.getElementById('ps-pane-history'); if (!pane) return;
+    var L = (window.getLang?window.getLang():'ko')==='ko';
+    var u = getCurrentUser(); if (!u) return;
+    try {
+      var r = await fetch('/api/gifts/redemptions?uid='+encodeURIComponent(u.uid));
+      var d = await r.json();
+      var rows = (d&&d.rows)||[];
+      if (!rows.length) { pane.innerHTML = '<div class="ps-empty">'+(L?'교환 내역이 없습니다.':'No redemptions yet.')+'</div>'; return; }
+      var STATUS_LABEL = { pending:'⏳ 발송대기', sent:'📤 발송됨', delivered:'✅ 수령완료', failed:'❌ 실패', refunded:'↩️ 환불됨' };
+      var STATUS_COLOR = { pending:'#fbbf24', sent:'#60a5fa', delivered:'#10b981', failed:'#ef4444', refunded:'#94a3b8' };
+      var items = rows.map(function(x){
+        var dt = new Date(x.requested_at).toLocaleString('ko-KR');
+        return '<div class="ps-hist-item">'+
+          '<div class="ps-hist-main">'+
+            '<div class="ps-hist-name">'+(x.gift_brand?escapeLT(x.gift_brand)+' · ':'')+escapeLT(x.gift_name||'-')+'</div>'+
+            '<div class="ps-hist-meta">'+dt+' · '+(x.recipient_phone||'-')+'</div>'+
+          '</div>'+
+          '<div class="ps-hist-side">'+
+            '<div class="ps-hist-status" style="color:'+(STATUS_COLOR[x.status]||'#94a3b8')+'">'+(STATUS_LABEL[x.status]||x.status)+'</div>'+
+            '<div class="ps-hist-points">-'+x.point_price.toLocaleString('ko-KR')+' P</div>'+
+            (x.external_coupon_code?'<div class="ps-hist-code">🎫 '+escapeLT(x.external_coupon_code)+'</div>':'')+
+          '</div>'+
+        '</div>';
+      }).join('');
+      pane.innerHTML = items;
+    } catch(e) {
+      pane.innerHTML = '<div class="ps-empty">'+(L?'로드 실패':'Load failed')+'</div>';
+    }
+  };
+  window.psStartRedeem = function(catalogId, name, brand, price){
+    var L = (window.getLang?window.getLang():'ko')==='ko';
+    var u = getCurrentUser(); if (!u) return;
+    var phone = prompt(
+      (L?'기프티콘을 받을 카카오톡 휴대폰 번호를 입력해주세요\n(' + name + ' / -' + price.toLocaleString('ko-KR') + ' P)':
+       'Enter the phone number to receive the gift\n(' + name + ' / -' + price.toLocaleString('en') + ' P)'),
+      ''
+    );
+    if (!phone) return;
+    phone = phone.replace(/[^0-9]/g, '');
+    if (phone.length < 10) { alert(L?'올바른 휴대폰 번호를 입력해주세요.':'Invalid phone number.'); return; }
+    var confirmMsg = L?
+      '🎁 '+ (brand?brand+' · ':'') + name + '\n' +
+      '받는 번호: ' + phone + '\n' +
+      '차감 포인트: -' + price.toLocaleString('ko-KR') + ' P\n\n' +
+      '정말 교환하시겠습니까?'
+      :
+      '🎁 '+ (brand?brand+' · ':'') + name + '\n' +
+      'To: ' + phone + '\n' +
+      'Cost: -' + price.toLocaleString('en') + ' P\n\n' +
+      'Confirm redemption?';
+    if (!confirm(confirmMsg)) return;
+    psSubmitRedeem(catalogId, phone, u);
+  };
+  window.psSubmitRedeem = async function(catalogId, phone, u){
+    var L = (window.getLang?window.getLang():'ko')==='ko';
+    try {
+      var r = await fetch('/api/gifts/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({
+          user_id: u.uid,
+          student_name: u.name,
+          catalog_id: catalogId,
+          recipient_phone: phone,
+          recipient_name: u.name,
+        })
+      });
+      var d = await r.json();
+      if (!d.ok) {
+        var emap = {
+          insufficient_points: (L?'포인트가 부족합니다. (잔액 '+(d.balance||0)+' P / 필요 '+(d.need||0)+' P)':'Insufficient points'),
+          out_of_stock: (L?'재고가 없습니다.':'Out of stock'),
+          gift_not_found_or_disabled: (L?'상품을 찾을 수 없습니다.':'Gift unavailable'),
+          invalid_phone: (L?'전화번호 형식이 잘못되었습니다.':'Invalid phone'),
+        };
+        alert('❌ ' + (emap[d.error] || d.error || (L?'알 수 없는 오류':'Unknown error')));
+        return;
+      }
+      var L2 = (window.getLang?window.getLang():'ko')==='ko';
+      alert('✅ '+(L2?'교환 신청 완료!\n':'Redemption submitted!\n') +
+        (d.message || '') +
+        '\n\n'+(L2?'잔액: ':'Balance: ') + (d.balance_after||0).toLocaleString('ko-KR') + ' P'
+      );
+      psRefreshBalance();
+      psLoadCatalog();
+    } catch(e) {
+      alert('❌ ' + e.message);
+    }
+  };
+
+  // escapeLT 가 없으면 간단 정의
+  if (typeof window.escapeLT !== 'function') {
+    window.escapeLT = function(s){ return String(s||'').replace(/[&<>"']/g, function(c){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+    }); };
+  }
 
   // 사용자 메뉴 토글
   window.toggleUserMenu = function(){
