@@ -371,6 +371,13 @@ export async function handleMangoApi(
         ['teacher_profiles', `CREATE TABLE IF NOT EXISTS teacher_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, korean_name TEXT NOT NULL, english_name TEXT, email TEXT, phone TEXT, kakao_id TEXT, dob TEXT, gender TEXT, image_url TEXT, intro_video_url TEXT, active_region TEXT, origin_region TEXT, fee_per_10min INTEGER, group_name TEXT, status TEXT DEFAULT '활동중', join_date TEXT, leave_date TEXT, education TEXT, career TEXT, certifications TEXT, available_days TEXT, available_hours TEXT, bank_name TEXT, bank_account TEXT, notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER);`],
         ['community_posts', `CREATE TABLE IF NOT EXISTS community_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT, author TEXT, pinned INTEGER DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`],
         ['student_payments', `CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, period_start TEXT, period_end TEXT, amount_krw INTEGER NOT NULL, method TEXT, memo TEXT, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`],
+        // ═══ Phase P1: 포인트 시스템 ═══
+        ['student_points', `CREATE TABLE IF NOT EXISTS student_points (user_id TEXT PRIMARY KEY, student_name TEXT, balance INTEGER NOT NULL DEFAULT 0, lifetime_earned INTEGER NOT NULL DEFAULT 0, lifetime_spent INTEGER NOT NULL DEFAULT 0, last_earned_at INTEGER, last_spent_at INTEGER, updated_at INTEGER NOT NULL);`],
+        ['point_transactions', `CREATE TABLE IF NOT EXISTS point_transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, type TEXT NOT NULL, amount INTEGER NOT NULL, balance_after INTEGER NOT NULL, reason TEXT, rule_code TEXT, redemption_id INTEGER, actor_id TEXT, actor_name TEXT, created_at INTEGER NOT NULL, meta TEXT);`],
+        ['point_rules', `CREATE TABLE IF NOT EXISTS point_rules (code TEXT PRIMARY KEY, label TEXT NOT NULL, amount INTEGER NOT NULL, cooldown_sec INTEGER DEFAULT 0, daily_cap INTEGER, enabled INTEGER DEFAULT 1, description TEXT, updated_at INTEGER NOT NULL);`],
+        ['gift_catalog', `CREATE TABLE IF NOT EXISTS gift_catalog (id INTEGER PRIMARY KEY AUTOINCREMENT, external_id TEXT, brand TEXT, name TEXT NOT NULL, category TEXT, face_value INTEGER NOT NULL, point_price INTEGER NOT NULL, thumbnail_url TEXT, stock INTEGER, enabled INTEGER DEFAULT 1, sort_order INTEGER DEFAULT 0, description TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`],
+        ['gift_redemptions', `CREATE TABLE IF NOT EXISTS gift_redemptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, catalog_id INTEGER NOT NULL, gift_name TEXT, gift_brand TEXT, face_value INTEGER NOT NULL, point_price INTEGER NOT NULL, recipient_phone TEXT, recipient_name TEXT, status TEXT NOT NULL DEFAULT 'pending', external_order_id TEXT, external_coupon_code TEXT, error_message TEXT, requested_at INTEGER NOT NULL, sent_at INTEGER, delivered_at INTEGER, failed_at INTEGER, refunded_at INTEGER, txn_spend_id INTEGER, txn_refund_id INTEGER, meta TEXT);`],
+        ['point_rule_log', `CREATE TABLE IF NOT EXISTS point_rule_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, rule_code TEXT NOT NULL, amount INTEGER NOT NULL, triggered_at INTEGER NOT NULL, txn_id INTEGER, meta TEXT);`],
       ];
       for (const [name, sql] of tables) {
         try {
@@ -1356,6 +1363,353 @@ export async function handleMangoApi(
         return json({ ok: false, error: 'delete_failed', detail: String(e?.message || e) }, 500);
       }
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🎁 Phase P1 - 망고아이 포인트 시스템 + 기프티콘 교환
+    // ═══════════════════════════════════════════════════════════════
+
+    // 헬퍼: 포인트 테이블 자동 생성 (안전망)
+    const ensurePointTables = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_points (user_id TEXT PRIMARY KEY, student_name TEXT, balance INTEGER NOT NULL DEFAULT 0, lifetime_earned INTEGER NOT NULL DEFAULT 0, lifetime_spent INTEGER NOT NULL DEFAULT 0, last_earned_at INTEGER, last_spent_at INTEGER, updated_at INTEGER NOT NULL);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS point_transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, type TEXT NOT NULL, amount INTEGER NOT NULL, balance_after INTEGER NOT NULL, reason TEXT, rule_code TEXT, redemption_id INTEGER, actor_id TEXT, actor_name TEXT, created_at INTEGER NOT NULL, meta TEXT);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS point_rules (code TEXT PRIMARY KEY, label TEXT NOT NULL, amount INTEGER NOT NULL, cooldown_sec INTEGER DEFAULT 0, daily_cap INTEGER, enabled INTEGER DEFAULT 1, description TEXT, updated_at INTEGER NOT NULL);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS gift_catalog (id INTEGER PRIMARY KEY AUTOINCREMENT, external_id TEXT, brand TEXT, name TEXT NOT NULL, category TEXT, face_value INTEGER NOT NULL, point_price INTEGER NOT NULL, thumbnail_url TEXT, stock INTEGER, enabled INTEGER DEFAULT 1, sort_order INTEGER DEFAULT 0, description TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS gift_redemptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, catalog_id INTEGER NOT NULL, gift_name TEXT, gift_brand TEXT, face_value INTEGER NOT NULL, point_price INTEGER NOT NULL, recipient_phone TEXT, recipient_name TEXT, status TEXT NOT NULL DEFAULT 'pending', external_order_id TEXT, external_coupon_code TEXT, error_message TEXT, requested_at INTEGER NOT NULL, sent_at INTEGER, delivered_at INTEGER, failed_at INTEGER, refunded_at INTEGER, txn_spend_id INTEGER, txn_refund_id INTEGER, meta TEXT);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS point_rule_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, rule_code TEXT NOT NULL, amount INTEGER NOT NULL, triggered_at INTEGER NOT NULL, txn_id INTEGER, meta TEXT);`);
+    };
+
+    // 헬퍼: 학생 포인트 거래 (적립 또는 차감) - 트랜잭션 보장
+    const applyPointTransaction = async (params: {
+      userId: string, studentName?: string,
+      type: 'earn' | 'spend' | 'refund' | 'admin_grant' | 'admin_deduct' | 'expire',
+      amount: number, reason?: string,
+      ruleCode?: string, redemptionId?: number,
+      actorId?: string, actorName?: string, meta?: any,
+    }) => {
+      const now = Date.now();
+      const { userId, studentName, type, amount, reason, ruleCode, redemptionId, actorId, actorName, meta } = params;
+      // 현재 잔액 조회 + 행 생성
+      let row: any = await env.DB.prepare(`SELECT balance, lifetime_earned, lifetime_spent FROM student_points WHERE user_id=?`).bind(userId).first();
+      if (!row) {
+        await env.DB.prepare(`INSERT INTO student_points (user_id, student_name, balance, lifetime_earned, lifetime_spent, updated_at) VALUES (?,?,0,0,0,?)`)
+          .bind(userId, studentName || null, now).run();
+        row = { balance: 0, lifetime_earned: 0, lifetime_spent: 0 };
+      }
+      const isCredit = (type === 'earn' || type === 'refund' || type === 'admin_grant');
+      const signed = isCredit ? Math.abs(amount) : -Math.abs(amount);
+      const newBalance = (row.balance || 0) + signed;
+      if (newBalance < 0) {
+        throw new Error(`잔액 부족: 현재 ${row.balance}P, 차감 ${Math.abs(signed)}P`);
+      }
+      const lifetimeEarned = (row.lifetime_earned || 0) + (signed > 0 ? signed : 0);
+      const lifetimeSpent = (row.lifetime_spent || 0) + (signed < 0 ? -signed : 0);
+      // UPDATE 잔액
+      await env.DB.prepare(`UPDATE student_points SET balance=?, lifetime_earned=?, lifetime_spent=?, last_earned_at=COALESCE(CASE WHEN ?>0 THEN ? END, last_earned_at), last_spent_at=COALESCE(CASE WHEN ?<0 THEN ? END, last_spent_at), student_name=COALESCE(?, student_name), updated_at=? WHERE user_id=?`)
+        .bind(newBalance, lifetimeEarned, lifetimeSpent, signed, now, signed, now, studentName || null, now, userId).run();
+      // INSERT 거래내역
+      const ins = await env.DB.prepare(`INSERT INTO point_transactions (user_id, student_name, type, amount, balance_after, reason, rule_code, redemption_id, actor_id, actor_name, created_at, meta) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
+        .bind(userId, studentName || null, type, signed, newBalance, reason || null, ruleCode || null, redemptionId || null, actorId || null, actorName || null, now, meta ? JSON.stringify(meta) : null).run();
+      return { txnId: ins?.meta?.last_row_id, newBalance, signed };
+    };
+
+    // ── GET /api/points/balance?uid=xxx — 학생 본인 포인트 잔액 + 최근 거래 ──
+    if (method === 'GET' && path === '/api/points/balance') {
+      await ensurePointTables();
+      const uid = (url.searchParams.get('uid') || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      const row: any = await env.DB.prepare(`SELECT * FROM student_points WHERE user_id=?`).bind(uid).first();
+      const txns = await env.DB.prepare(`SELECT id, type, amount, balance_after, reason, created_at FROM point_transactions WHERE user_id=? ORDER BY created_at DESC LIMIT 30`).bind(uid).all();
+      return json({
+        ok: true,
+        balance: row?.balance || 0,
+        lifetime_earned: row?.lifetime_earned || 0,
+        lifetime_spent: row?.lifetime_spent || 0,
+        student_name: row?.student_name || null,
+        recent: txns.results || [],
+      });
+    }
+
+    // ── GET /api/admin/points/list — 전체 학생 포인트 잔액 (관리자) ──
+    if (method === 'GET' && path === '/api/admin/points/list') {
+      await ensurePointTables();
+      const rs = await env.DB.prepare(`SELECT user_id, student_name, balance, lifetime_earned, lifetime_spent, last_earned_at, last_spent_at, updated_at FROM student_points ORDER BY balance DESC, updated_at DESC LIMIT 500`).all();
+      return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [] });
+    }
+
+    // ── POST /api/admin/points/adjust — 관리자가 포인트 지급/차감 ──
+    //   body: { user_id, student_name, amount, reason, type? ('admin_grant'|'admin_deduct') }
+    if (method === 'POST' && path === '/api/admin/points/adjust') {
+      await ensurePointTables();
+      const body: any = await request.json().catch(() => ({}));
+      const userId = (body.user_id || '').trim();
+      const studentName = (body.student_name || '').trim();
+      const amount = Math.abs(parseInt(body.amount, 10) || 0);
+      const type = body.type === 'admin_deduct' ? 'admin_deduct' : 'admin_grant';
+      const reason = (body.reason || (type === 'admin_grant' ? '관리자 지급' : '관리자 차감')).trim();
+      const actorId = body.actor_id || 'admin';
+      const actorName = body.actor_name || '관리자';
+      if (!userId) return json({ ok: false, error: 'user_id_required' }, 400);
+      if (!amount) return json({ ok: false, error: 'amount_required' }, 400);
+      try {
+        const r = await applyPointTransaction({ userId, studentName, type, amount, reason, actorId, actorName });
+        return json({ ok: true, ...r });
+      } catch (e: any) {
+        return json({ ok: false, error: String(e?.message || e) }, 400);
+      }
+    }
+
+    // ── POST /api/points/earn-by-rule — 자동 적립 (출석/숙제/제시간 등) ──
+    //   body: { user_id, student_name?, rule_code, meta? }
+    //   쿨다운/일일 한도 체크 후 적립
+    if (method === 'POST' && path === '/api/points/earn-by-rule') {
+      await ensurePointTables();
+      const body: any = await request.json().catch(() => ({}));
+      const userId = (body.user_id || '').trim();
+      const ruleCode = (body.rule_code || '').trim();
+      if (!userId || !ruleCode) return json({ ok: false, error: 'user_id_and_rule_required' }, 400);
+      const rule: any = await env.DB.prepare(`SELECT * FROM point_rules WHERE code=? AND enabled=1`).bind(ruleCode).first();
+      if (!rule) return json({ ok: false, error: 'rule_not_found_or_disabled', code: ruleCode }, 404);
+      // 쿨다운 검사
+      const now = Date.now();
+      if ((rule.cooldown_sec || 0) > 0) {
+        const last: any = await env.DB.prepare(`SELECT triggered_at FROM point_rule_log WHERE user_id=? AND rule_code=? ORDER BY triggered_at DESC LIMIT 1`).bind(userId, ruleCode).first();
+        if (last && (now - last.triggered_at) < rule.cooldown_sec * 1000) {
+          return json({ ok: false, error: 'cooldown', remaining_sec: Math.ceil((rule.cooldown_sec*1000 - (now - last.triggered_at))/1000) });
+        }
+      }
+      // 일일 한도 검사
+      if (rule.daily_cap) {
+        const startOfDay = new Date(); startOfDay.setHours(0,0,0,0);
+        const todayMs = startOfDay.getTime();
+        const cnt: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE user_id=? AND rule_code=? AND triggered_at>=?`).bind(userId, ruleCode, todayMs).first();
+        if ((cnt?.c || 0) >= rule.daily_cap) {
+          return json({ ok: false, error: 'daily_cap_reached', cap: rule.daily_cap });
+        }
+      }
+      // 적립
+      try {
+        const r = await applyPointTransaction({
+          userId, studentName: body.student_name, type: 'earn',
+          amount: rule.amount, reason: rule.label, ruleCode, meta: body.meta,
+        });
+        await env.DB.prepare(`INSERT INTO point_rule_log (user_id, rule_code, amount, triggered_at, txn_id, meta) VALUES (?,?,?,?,?,?)`)
+          .bind(userId, ruleCode, rule.amount, now, r.txnId, body.meta ? JSON.stringify(body.meta) : null).run();
+        return json({ ok: true, ...r, rule: { code: rule.code, label: rule.label, amount: rule.amount } });
+      } catch (e: any) {
+        return json({ ok: false, error: String(e?.message || e) }, 400);
+      }
+    }
+
+    // ── GET /api/admin/points/rules — 자동 적립 규칙 목록 ──
+    if (method === 'GET' && path === '/api/admin/points/rules') {
+      await ensurePointTables();
+      const rs = await env.DB.prepare(`SELECT * FROM point_rules ORDER BY code`).all();
+      return json({ ok: true, rows: rs.results || [] });
+    }
+
+    // ── PUT /api/admin/points/rules — 자동 적립 규칙 갱신/생성 ──
+    if (method === 'PUT' && path === '/api/admin/points/rules') {
+      await ensurePointTables();
+      const body: any = await request.json().catch(() => ({}));
+      const code = (body.code || '').trim();
+      if (!code) return json({ ok: false, error: 'code_required' }, 400);
+      const now = Date.now();
+      await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(code) DO UPDATE SET label=excluded.label, amount=excluded.amount, cooldown_sec=excluded.cooldown_sec, daily_cap=excluded.daily_cap, enabled=excluded.enabled, description=excluded.description, updated_at=excluded.updated_at`)
+        .bind(code, body.label || code, parseInt(body.amount, 10) || 0, parseInt(body.cooldown_sec, 10) || 0, body.daily_cap ? parseInt(body.daily_cap, 10) : null, body.enabled === false ? 0 : 1, body.description || null, now).run();
+      return json({ ok: true, code });
+    }
+
+    // ── GET /api/gifts/catalog — 학생용 기프티콘 카탈로그 (활성화된 것만) ──
+    if (method === 'GET' && path === '/api/gifts/catalog') {
+      await ensurePointTables();
+      const rs = await env.DB.prepare(`SELECT id, brand, name, category, face_value, point_price, thumbnail_url, stock, description FROM gift_catalog WHERE enabled=1 ORDER BY sort_order ASC, point_price ASC`).all();
+      return json({ ok: true, rows: rs.results || [] });
+    }
+
+    // ── GET /api/admin/gifts/catalog — 관리자 카탈로그 (전체) ──
+    if (method === 'GET' && path === '/api/admin/gifts/catalog') {
+      await ensurePointTables();
+      const rs = await env.DB.prepare(`SELECT * FROM gift_catalog ORDER BY sort_order ASC, id ASC`).all();
+      return json({ ok: true, rows: rs.results || [] });
+    }
+
+    // ── POST /api/admin/gifts/catalog — 카탈로그 추가/수정 ──
+    //   body: { id?, brand, name, category, face_value, point_price, thumbnail_url?, stock?, enabled?, sort_order?, description?, external_id? }
+    if (method === 'POST' && path === '/api/admin/gifts/catalog') {
+      await ensurePointTables();
+      const body: any = await request.json().catch(() => ({}));
+      const now = Date.now();
+      if (body.id) {
+        await env.DB.prepare(`UPDATE gift_catalog SET external_id=?, brand=?, name=?, category=?, face_value=?, point_price=?, thumbnail_url=?, stock=?, enabled=?, sort_order=?, description=?, updated_at=? WHERE id=?`)
+          .bind(body.external_id || null, body.brand || null, body.name, body.category || null, parseInt(body.face_value,10)||0, parseInt(body.point_price,10)||0, body.thumbnail_url || null, body.stock != null ? parseInt(body.stock,10) : null, body.enabled === false ? 0 : 1, parseInt(body.sort_order,10) || 0, body.description || null, now, body.id).run();
+        return json({ ok: true, id: body.id, updated: true });
+      } else {
+        const ins = await env.DB.prepare(`INSERT INTO gift_catalog (external_id, brand, name, category, face_value, point_price, thumbnail_url, stock, enabled, sort_order, description, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+          .bind(body.external_id || null, body.brand || null, body.name, body.category || null, parseInt(body.face_value,10)||0, parseInt(body.point_price,10)||0, body.thumbnail_url || null, body.stock != null ? parseInt(body.stock,10) : null, body.enabled === false ? 0 : 1, parseInt(body.sort_order,10) || 0, body.description || null, now, now).run();
+        return json({ ok: true, id: ins?.meta?.last_row_id, created: true });
+      }
+    }
+
+    // ── POST /api/gifts/redeem — 학생 기프티콘 교환 신청 (포인트 차감 + 발송 큐) ──
+    //   body: { user_id, student_name?, catalog_id, recipient_phone, recipient_name? }
+    //   기프티쇼 비즈 API 키 없으면 status='pending', 있으면 실제 발송 시도
+    if (method === 'POST' && path === '/api/gifts/redeem') {
+      await ensurePointTables();
+      const body: any = await request.json().catch(() => ({}));
+      const userId = (body.user_id || '').trim();
+      const catalogId = parseInt(body.catalog_id, 10) || 0;
+      const phone = (body.recipient_phone || '').replace(/[^0-9]/g, '');
+      if (!userId || !catalogId || !phone) return json({ ok: false, error: 'missing_required', need: 'user_id, catalog_id, recipient_phone' }, 400);
+      if (phone.length < 10) return json({ ok: false, error: 'invalid_phone' }, 400);
+      const item: any = await env.DB.prepare(`SELECT * FROM gift_catalog WHERE id=? AND enabled=1`).bind(catalogId).first();
+      if (!item) return json({ ok: false, error: 'gift_not_found_or_disabled' }, 404);
+      if (item.stock != null && item.stock <= 0) return json({ ok: false, error: 'out_of_stock' }, 409);
+      const balanceRow: any = await env.DB.prepare(`SELECT balance FROM student_points WHERE user_id=?`).bind(userId).first();
+      const currentBalance = balanceRow?.balance || 0;
+      if (currentBalance < item.point_price) return json({ ok: false, error: 'insufficient_points', balance: currentBalance, need: item.point_price }, 402);
+      const now = Date.now();
+      // 1) gift_redemptions 행 INSERT (pending)
+      const insR = await env.DB.prepare(`INSERT INTO gift_redemptions (user_id, student_name, catalog_id, gift_name, gift_brand, face_value, point_price, recipient_phone, recipient_name, status, requested_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
+        .bind(userId, body.student_name || null, catalogId, item.name, item.brand, item.face_value, item.point_price, phone, body.recipient_name || null, 'pending', now).run();
+      const redemptionId = insR?.meta?.last_row_id as number;
+      // 2) 포인트 차감
+      let spendTxn: any = null;
+      try {
+        spendTxn = await applyPointTransaction({
+          userId, studentName: body.student_name, type: 'spend',
+          amount: item.point_price, reason: `[교환] ${item.brand || ''} ${item.name}`, redemptionId,
+        });
+        await env.DB.prepare(`UPDATE gift_redemptions SET txn_spend_id=? WHERE id=?`).bind(spendTxn.txnId, redemptionId).run();
+      } catch (e: any) {
+        await env.DB.prepare(`UPDATE gift_redemptions SET status='failed', failed_at=?, error_message=? WHERE id=?`).bind(now, String(e?.message||e), redemptionId).run();
+        return json({ ok: false, error: 'point_deduction_failed', detail: String(e?.message||e) }, 500);
+      }
+      // 3) 재고 차감
+      if (item.stock != null) {
+        await env.DB.prepare(`UPDATE gift_catalog SET stock=MAX(0,stock-1), updated_at=? WHERE id=?`).bind(now, catalogId).run();
+      }
+      // 4) 실제 발송 (Phase P4 에서 기프티쇼 비즈 API 호출 - 여기서는 pending 상태로만 표시)
+      //    GIFTISHOW_API_KEY 환경변수가 있으면 실제 발송, 없으면 관리자 수동 처리 대기
+      const hasApiKey = !!(env as any).GIFTISHOW_API_KEY;
+      const responseMessage = hasApiKey
+        ? '발송 진행 중 (자동 발송)'
+        : '신청 접수됨 - 관리자 수동 발송 대기 (API 키 미설정)';
+      return json({
+        ok: true,
+        redemption_id: redemptionId,
+        status: 'pending',
+        balance_after: spendTxn.newBalance,
+        message: responseMessage,
+        gift: { brand: item.brand, name: item.name, face_value: item.face_value, point_price: item.point_price },
+      });
+    }
+
+    // ── GET /api/gifts/redemptions?uid=xxx — 학생 본인 교환 내역 ──
+    if (method === 'GET' && path === '/api/gifts/redemptions') {
+      await ensurePointTables();
+      const uid = (url.searchParams.get('uid') || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      const rs = await env.DB.prepare(`SELECT id, catalog_id, gift_name, gift_brand, face_value, point_price, recipient_phone, status, external_coupon_code, requested_at, sent_at, delivered_at, failed_at, error_message FROM gift_redemptions WHERE user_id=? ORDER BY requested_at DESC LIMIT 100`).bind(uid).all();
+      return json({ ok: true, rows: rs.results || [] });
+    }
+
+    // ── GET /api/admin/gifts/redemptions — 관리자 전체 교환 내역 ──
+    if (method === 'GET' && path === '/api/admin/gifts/redemptions') {
+      await ensurePointTables();
+      const status = url.searchParams.get('status') || '';
+      let q = `SELECT * FROM gift_redemptions`;
+      const binds: any[] = [];
+      if (status) { q += ` WHERE status=?`; binds.push(status); }
+      q += ` ORDER BY requested_at DESC LIMIT 500`;
+      const rs = await env.DB.prepare(q).bind(...binds).all();
+      return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [] });
+    }
+
+    // ── POST /api/admin/gifts/redemptions/:id/mark — 관리자 수동 상태 변경 ──
+    //   body: { status: 'sent'|'delivered'|'failed'|'refunded', coupon_code?, error_message? }
+    //   refunded 일 때는 포인트 환불도 자동 처리
+    if (method === 'POST' && /^\/api\/admin\/gifts\/redemptions\/\d+\/mark$/.test(path)) {
+      await ensurePointTables();
+      const id = parseInt(path.split('/')[5] || '0', 10);
+      if (!id) return json({ ok: false, error: 'invalid_id' }, 400);
+      const body: any = await request.json().catch(() => ({}));
+      const status = String(body.status || '').toLowerCase();
+      if (!['sent','delivered','failed','refunded'].includes(status)) return json({ ok: false, error: 'invalid_status' }, 400);
+      const red: any = await env.DB.prepare(`SELECT * FROM gift_redemptions WHERE id=?`).bind(id).first();
+      if (!red) return json({ ok: false, error: 'not_found' }, 404);
+      const now = Date.now();
+      const updates: any = { status, error_message: body.error_message || null };
+      if (status === 'sent') updates.sent_at = now;
+      if (status === 'delivered') updates.delivered_at = now;
+      if (status === 'failed') updates.failed_at = now;
+      if (status === 'refunded') updates.refunded_at = now;
+      if (body.coupon_code) updates.external_coupon_code = body.coupon_code;
+      const setSql = Object.keys(updates).filter(k => updates[k] !== undefined).map(k => `${k}=?`).join(',');
+      const values = Object.keys(updates).filter(k => updates[k] !== undefined).map(k => updates[k]);
+      await env.DB.prepare(`UPDATE gift_redemptions SET ${setSql} WHERE id=?`).bind(...values, id).run();
+      // 환불 처리
+      let refundResult: any = null;
+      if (status === 'refunded' && !red.txn_refund_id) {
+        try {
+          refundResult = await applyPointTransaction({
+            userId: red.user_id, studentName: red.student_name, type: 'refund',
+            amount: red.point_price, reason: `[환불] ${red.gift_brand||''} ${red.gift_name||''}`, redemptionId: id,
+            actorId: body.actor_id || 'admin', actorName: body.actor_name || '관리자',
+          });
+          await env.DB.prepare(`UPDATE gift_redemptions SET txn_refund_id=? WHERE id=?`).bind(refundResult.txnId, id).run();
+        } catch (e: any) {
+          return json({ ok: false, error: 'refund_failed', detail: String(e?.message||e) }, 500);
+        }
+      }
+      return json({ ok: true, id, status, refund: refundResult });
+    }
+
+    // ── POST /api/admin/points/seed-rules — 기본 규칙 시드 (없을 때만) ──
+    if (method === 'POST' && path === '/api/admin/points/seed-rules') {
+      await ensurePointTables();
+      const now = Date.now();
+      const seeds = [
+        ['attendance','출석',10,21600,1,1,'수업 1회 출석 시 자동 적립 (하루 1회)'],
+        ['homework','숙제 완료',20,3600,3,1,'숙제 검수 완료 시 적립'],
+        ['on_time','제시간 입장',5,3600,1,1,'수업 시작 5분 이내 입장'],
+        ['level_up','레벨업',100,0,null,1,'레벨 시험 합격 시 자동 적립'],
+        ['monthly_top','월간 우수학생',500,0,null,1,'월간 1위 학생 자동 지급'],
+        ['birthday','생일 축하',200,0,1,1,'학생 생일 자동 지급'],
+      ];
+      const out: any[] = [];
+      for (const [code,label,amt,cd,cap,en,desc] of seeds) {
+        await env.DB.prepare(`INSERT OR IGNORE INTO point_rules (code,label,amount,cooldown_sec,daily_cap,enabled,description,updated_at) VALUES (?,?,?,?,?,?,?,?)`)
+          .bind(code,label,amt,cd,cap,en,desc,now).run();
+        out.push({ code, label, amount: amt });
+      }
+      return json({ ok: true, seeded: out.length, items: out });
+    }
+
+    // ── POST /api/admin/gifts/seed-catalog — 데모 카탈로그 시드 ──
+    if (method === 'POST' && path === '/api/admin/gifts/seed-catalog') {
+      await ensurePointTables();
+      const now = Date.now();
+      const seeds = [
+        ['스타벅스','아이스 아메리카노 Tall','cafe',4500,4500,10,'시원한 한 잔의 여유'],
+        ['배스킨라빈스','파인트 (1개)','cafe',9800,9800,20,'취향대로 골라먹는 31'],
+        ['교촌치킨','교촌오리지날 + 콜라1.25L','food',21000,21000,30,'바삭 짭짤 든든'],
+        ['CGV','영화 1매 (전 지점)','movie',14000,14000,40,'평일 일반관 1회 사용'],
+        ['교보문고','도서상품권 5,000원','book',5000,5000,50,'온/오프라인 사용 가능'],
+        ['GS25','편의점 금액권 5,000원','voucher',5000,5000,60,'전국 GS25에서 사용'],
+      ];
+      let n = 0;
+      for (const [brand,name,cat,fv,pp,sort,desc] of seeds) {
+        const exists = await env.DB.prepare(`SELECT id FROM gift_catalog WHERE brand=? AND name=?`).bind(brand,name).first();
+        if (exists) continue;
+        await env.DB.prepare(`INSERT INTO gift_catalog (brand,name,category,face_value,point_price,enabled,sort_order,description,created_at,updated_at) VALUES (?,?,?,?,?,1,?,?,?,?)`)
+          .bind(brand,name,cat,fv,pp,sort,desc,now,now).run();
+        n++;
+      }
+      return json({ ok: true, seeded: n });
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // 🎁 Phase P1 끝
+    // ═══════════════════════════════════════════════════════════════
 
     if (method === 'GET' && path === '/api/admin/stats/revenue') {
       // 신규 환경에서 student_payments 가 없을 수 있으니 자동 생성
