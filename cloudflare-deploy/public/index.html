@@ -4821,6 +4821,120 @@ async function vcJoinRoom(skipUI) {
     // mango-rec.js 내부 폴링(2초 간격)이 vc-in-call 클래스를 감지해
     // 3초 지연 후 startRecording({auto:true})을 자동 호출함.
     // 여기서 중복 호출하면 R2 multipart 세션이 두 번 열리므로 트리거하지 않음.
+
+    // 🎁 Phase P5 — 출석 + 제시간 입장 자동 적립 (학생 본인 로그인 + 화상수업 입장 직후)
+    //   ▶ attendance: 무조건 호출 (쿨다운 6h + 일일 1회는 서버에서 자동 차단)
+    //   ▶ on_time: 가장 가까운 예정 수업과 현재시각 비교 → 5분 이내면 추가 적립
+    setTimeout(() => { try { vcAutoEarnAttendance(); } catch(e) { console.warn('[vc-p5] attendance earn skip:', e); } }, 2500);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 🎁 Phase P5 — 화상수업 입장 → 자동 적립 (attendance + on_time)
+// ═══════════════════════════════════════════════════════════════
+async function vcAutoEarnAttendance() {
+    // 학생 로그인 상태에서만 동작 (강사/관찰자/익명 제외)
+    const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+    if (!u || !u.uid) { console.log('[vc-p5] 비로그인 → 적립 건너뜀'); return; }
+    // 관찰자 모드는 vcIsObserver=true 이므로 건너뜀
+    if (typeof vcIsObserver !== 'undefined' && vcIsObserver) return;
+
+    // 1) attendance 적립
+    let attResult = null;
+    try {
+        const r = await fetch('/api/points/earn-by-rule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: u.uid, student_name: u.name, rule_code: 'attendance',
+                meta: { room_id: vcRoomId, source: 'vc_entry' }
+            })
+        });
+        attResult = await r.json();
+        if (attResult.ok) {
+            vcShowEarnToast(`📍 출석 체크 +${attResult.rule?.amount || 10}P`);
+        } else if (attResult.error === 'cooldown' || attResult.error === 'daily_cap_reached') {
+            // 이미 오늘 출석함 → 조용히 무시
+            console.log('[vc-p5] attendance:', attResult.error);
+        } else {
+            console.warn('[vc-p5] attendance 실패:', attResult);
+        }
+    } catch (e) {
+        console.warn('[vc-p5] attendance fetch err:', e);
+    }
+
+    // 2) on_time 검사 — 현재 시각과 가장 가까운 예정 수업 비교
+    try {
+        const now = Date.now();
+        const r = await fetch('/api/admin/class-schedules?user_id=' + encodeURIComponent(u.uid), { credentials: 'include' });
+        const d = await r.json();
+        const rows = (d && d.rows) || [];
+        // 오늘 날짜
+        const today = new Date(now);
+        const todayY = today.getFullYear(), todayM = today.getMonth(), todayD = today.getDate();
+        const todayDow = today.getDay(); // 0=일 ~ 6=토
+        let nearestMinDiff = Infinity;
+        for (const s of rows) {
+            if (s.status === 'cancelled') continue;
+            // 시작 시각 후보 결정
+            let target = null;
+            if (s.scheduled_date) {
+                // YYYY-MM-DD
+                const [y, m, day] = s.scheduled_date.split('-').map(Number);
+                if (y === todayY && (m - 1) === todayM && day === todayD) {
+                    const [h, mi] = (s.start_time || '00:00').split(':').map(Number);
+                    target = new Date(y, m - 1, day, h, mi, 0).getTime();
+                }
+            } else if (s.day_of_week != null) {
+                // 반복 수업: 오늘이 그 요일이면
+                if (Number(s.day_of_week) === todayDow) {
+                    const [h, mi] = (s.start_time || '00:00').split(':').map(Number);
+                    target = new Date(todayY, todayM, todayD, h, mi, 0).getTime();
+                }
+            }
+            if (target == null) continue;
+            const diff = Math.abs(now - target);
+            if (diff < nearestMinDiff) nearestMinDiff = diff;
+        }
+        const FIVE_MIN = 5 * 60 * 1000;
+        if (nearestMinDiff <= FIVE_MIN) {
+            const r2 = await fetch('/api/points/earn-by-rule', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: u.uid, student_name: u.name, rule_code: 'on_time',
+                    meta: { diff_ms: nearestMinDiff, room_id: vcRoomId }
+                })
+            });
+            const ot = await r2.json();
+            if (ot.ok) vcShowEarnToast(`⏱ 제시간 입장 +${ot.rule?.amount || 5}P`);
+        }
+    } catch (e) {
+        console.warn('[vc-p5] on_time check err:', e);
+    }
+
+    // 잔액 칩 갱신
+    if (typeof refreshPointsChip === 'function') refreshPointsChip();
+}
+
+// 적립 토스트 (화면 상단 중앙에 잠시 표시)
+function vcShowEarnToast(msg) {
+    let t = document.getElementById('vc-earn-toast');
+    if (!t) {
+        t = document.createElement('div');
+        t.id = 'vc-earn-toast';
+        t.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-80px);z-index:10500;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;padding:12px 22px;border-radius:99px;font-size:14px;font-weight:800;box-shadow:0 12px 40px -8px rgba(245,158,11,.6),0 0 0 4px rgba(255,255,255,.1);transition:transform .35s cubic-bezier(.34,1.56,.64,1);pointer-events:none;font-family:"Noto Sans KR",sans-serif;letter-spacing:-.3px;display:flex;align-items:center;gap:8px';
+        document.body.appendChild(t);
+    } else {
+        t.style.transitionDuration = '0s';
+        t.style.transform = 'translateX(-50%) translateY(-80px)';
+    }
+    t.textContent = msg;
+    void t.offsetWidth; // reflow
+    t.style.transitionDuration = '.35s';
+    t.style.transform = 'translateX(-50%) translateY(0)';
+    clearTimeout(t.__hideT);
+    t.__hideT = setTimeout(() => {
+        t.style.transform = 'translateX(-50%) translateY(-80px)';
+    }, 3000);
 }
 
 /** 관찰자 모드로 입장 (관리자 전용 — 미디어 없이 수신만) */

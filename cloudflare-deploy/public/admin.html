@@ -3185,9 +3185,14 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
         <div class="sub-body">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
             <button class="primary" onclick="ptLoadBalances()" style="padding:7px 14px;font-size:12.5px;font-weight:700">🔄 새로고침</button>
+            <button onclick="ptComputeMonthlyTop()" title="이번 달 적립 활동 기준 TOP 3 산정 → monthly_top 일괄 지급" style="padding:7px 14px;font-size:12.5px;font-weight:700;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;border:0;border-radius:6px;cursor:pointer">🏆 월간 우수 산정</button>
             <button onclick="ptSeedRules()" style="padding:7px 14px;font-size:12.5px;font-weight:700;background:#e0e7ff;color:#3730a3;border:1px solid #6366f1;border-radius:6px;cursor:pointer">⚙ 기본 규칙 시드</button>
             <input id="pt-search" type="text" placeholder="이름/uid 검색" style="padding:6px 12px;font-size:12.5px;border-radius:6px;border:1px solid #d1d5db;flex:1;min-width:160px" oninput="ptFilterBalances(this.value)" />
             <div id="pt-stats" style="font-size:11.5px;color:#6b7280"></div>
+          </div>
+          <div style="background:#fffbeb;border:1px dashed #fbbf24;border-radius:8px;padding:9px 14px;margin-bottom:10px;font-size:11.5px;color:#78350f;line-height:1.6">
+            <b>⚡ 빠른 적립</b> — 각 학생 행의 <span style="background:#3b82f6;color:#fff;padding:1px 6px;border-radius:4px">📝</span> <span style="background:#a855f7;color:#fff;padding:1px 6px;border-radius:4px">🎖</span> <span style="background:#ec4899;color:#fff;padding:1px 6px;border-radius:4px">🎂</span> 버튼은 자동 적립 규칙(숙제/레벨업/생일)을 트리거합니다. 쿨다운·일일한도는 자동 검사됩니다.<br>
+            🎥 <b>출석</b>과 ⏱ <b>제시간 입장</b>은 학생이 화상수업 입장할 때 <b>자동</b>으로 적립됩니다 (수동 처리 불필요).
           </div>
           <div id="pt-balances-table" style="overflow-x:auto"></div>
         </div>
@@ -14240,6 +14245,9 @@ button.chip:hover,
         <td style="padding:10px 12px;text-align:right;color:#ef4444;font-size:11.5px">-${fmt(x.lifetime_spent)}</td>
         <td style="padding:10px 12px;color:#9ca3af;font-size:11px">${fmtDate(x.updated_at)}</td>
         <td style="padding:8px 10px;text-align:center;white-space:nowrap">
+          <button onclick="ptQuickEarn('${esc(x.user_id)}','${esc(x.student_name||'')}','homework')" title="📝 숙제 완료 자동 적립" style="padding:5px 7px;font-size:11px;background:#3b82f6;color:#fff;border:0;border-radius:5px;cursor:pointer;margin-right:2px">📝</button>
+          <button onclick="ptQuickEarn('${esc(x.user_id)}','${esc(x.student_name||'')}','level_up')" title="🎖 레벨업 자동 적립" style="padding:5px 7px;font-size:11px;background:#a855f7;color:#fff;border:0;border-radius:5px;cursor:pointer;margin-right:2px">🎖</button>
+          <button onclick="ptQuickEarn('${esc(x.user_id)}','${esc(x.student_name||'')}','birthday')" title="🎂 생일 보너스" style="padding:5px 7px;font-size:11px;background:#ec4899;color:#fff;border:0;border-radius:5px;cursor:pointer;margin-right:6px">🎂</button>
           <button onclick="ptOpenAdjustModal('${esc(x.user_id)}','${esc(x.student_name||'')}','grant')" style="padding:5px 10px;font-size:11px;background:#10b981;color:#fff;border:0;border-radius:5px;cursor:pointer;margin-right:3px">+ 충전</button>
           <button onclick="ptOpenAdjustModal('${esc(x.user_id)}','${esc(x.student_name||'')}','deduct')" style="padding:5px 10px;font-size:11px;background:#ef4444;color:#fff;border:0;border-radius:5px;cursor:pointer">− 차감</button>
         </td>
@@ -14586,6 +14594,99 @@ button.chip:hover,
       body: JSON.stringify({ ...rule, enabled: !!enabled })
     });
     ptLoadRules();
+  };
+
+  // ━━━━━━━━ 🎁 Phase P5: 빠른 적립 (자동 규칙 트리거) ━━━━━━━━
+  // 관리자가 학생 행에서 📝/🎖/🎂 누르면 해당 규칙으로 자동 적립
+  // (쿨다운/일일한도는 서버가 자동 차단)
+  const PT_QUICK_LABELS = {
+    homework: '📝 숙제 완료',
+    level_up: '🎖 레벨업',
+    birthday: '🎂 생일 보너스',
+    on_time:  '⏱ 제시간 입장',
+    attendance: '📍 출석',
+  };
+  window.ptQuickEarn = async function(uid, name, ruleCode){
+    if (!uid || !ruleCode) return;
+    const label = PT_QUICK_LABELS[ruleCode] || ruleCode;
+    if (!confirm(`${name||uid} 에게 「${label}」 규칙 적립을 트리거하시겠습니까?\n(쿨다운/일일 한도는 자동 체크됩니다)`)) return;
+    try {
+      const r = await fetch('/api/points/earn-by-rule', {
+        method: 'POST', headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({ user_id: uid, student_name: name, rule_code: ruleCode, meta: { source: 'admin_quick' } })
+      });
+      const d = await r.json();
+      if (d.ok) {
+        alert(`✅ ${label} +${d.rule?.amount || 0}P 적립 완료\n새 잔액: ${fmt(d.newBalance)} P`);
+        ptLoadBalances();
+      } else if (d.error === 'cooldown') {
+        alert(`⏳ 쿨다운 중 — ${d.remaining_sec}초 후 다시 시도 가능`);
+      } else if (d.error === 'daily_cap_reached') {
+        alert(`📅 일일 한도(${d.cap}회) 도달 — 내일 다시 시도하세요`);
+      } else if (d.error === 'rule_not_found_or_disabled') {
+        if (confirm(`「${ruleCode}」 규칙이 등록되어 있지 않습니다.\n기본 규칙 6개를 시드하시겠습니까?`)) {
+          await ptSeedRules();
+        }
+      } else {
+        alert('❌ ' + (d.error || '실패'));
+      }
+    } catch(e) { alert('❌ ' + e.message); }
+  };
+
+  // ━━━━━━━━ 🎁 Phase P5: 월간 우수학생 자동 산정 + 일괄 지급 ━━━━━━━━
+  window.ptComputeMonthlyTop = async function(){
+    // 이번 달 1일~말일 사이의 적립 횟수 + 누적금액 기준 TOP N
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    const start = new Date(y, m, 1).getTime();
+    const end = new Date(y, m+1, 1).getTime();
+    if (!confirm(`이번 달(${y}년 ${m+1}월) 학생 활동 통계를 산정합니다.\n• 적립 횟수 + 누적금액 기준 TOP 3\n• 산정 후 일괄 지급 여부를 선택할 수 있습니다.`)) return;
+    try {
+      // 모든 학생 잔액 조회
+      const r = await fetch('/api/admin/points/list');
+      const d = await r.json();
+      const students = d.rows || [];
+      if (!students.length) { alert('학생 데이터가 없습니다.'); return; }
+      // 각 학생의 이번 달 적립 거래 조회 → 통계 산정
+      const stats = [];
+      for (const s of students) {
+        const tr = await fetch('/api/points/balance?uid=' + encodeURIComponent(s.user_id));
+        const td = await tr.json();
+        const monthEarns = (td.recent || []).filter(x =>
+          x.type === 'earn' && x.created_at >= start && x.created_at < end
+        );
+        const earnCount = monthEarns.length;
+        const earnSum = monthEarns.reduce((sum, x) => sum + x.amount, 0);
+        stats.push({ uid: s.user_id, name: s.student_name || s.user_id, count: earnCount, sum: earnSum });
+      }
+      // 정렬 (적립횟수 우선, 동률시 누적합)
+      stats.sort((a, b) => (b.count - a.count) || (b.sum - a.sum));
+      const top3 = stats.slice(0, 3).filter(x => x.count > 0);
+      if (!top3.length) {
+        alert('이번 달 적립 활동이 있는 학생이 없습니다.');
+        return;
+      }
+      const rankLabels = ['🥇 1위', '🥈 2위', '🥉 3위'];
+      const summary = top3.map((s,i) => `${rankLabels[i]} ${s.name}: ${s.count}회 적립, ${fmt(s.sum)}P`).join('\n');
+      if (!confirm(`📊 이번 달 우수 학생 (${y}년 ${m+1}월)\n\n${summary}\n\n위 3명에게 monthly_top 규칙(+500P)을 일괄 지급하시겠습니까?`)) return;
+      // 일괄 지급
+      const results = [];
+      for (const s of top3) {
+        try {
+          const r2 = await fetch('/api/points/earn-by-rule', {
+            method: 'POST', headers: { 'Content-Type':'application/json' },
+            body: JSON.stringify({ user_id: s.uid, student_name: s.name, rule_code: 'monthly_top', meta: { month: `${y}-${String(m+1).padStart(2,'0')}`, rank: results.length+1, source: 'admin_monthly_top' } })
+          });
+          const rd = await r2.json();
+          results.push({ ...s, ok: rd.ok, msg: rd.ok ? `+${rd.rule?.amount || 500}P` : (rd.error || '실패') });
+        } catch(e) {
+          results.push({ ...s, ok: false, msg: e.message });
+        }
+      }
+      const resultMsg = results.map((r,i) => `${rankLabels[i]} ${r.name}: ${r.ok ? '✅ ' : '❌ '}${r.msg}`).join('\n');
+      alert(`📊 월간 우수학생 일괄 지급 완료\n\n${resultMsg}`);
+      ptLoadBalances();
+    } catch(e) { alert('❌ ' + e.message); }
   };
 
   // ━━━━━━━━ 🎁 Phase P4: API 상태 표시 ━━━━━━━━
