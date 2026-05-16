@@ -2543,7 +2543,7 @@
       <img src="/img/Mangoi_Character.jpg" alt="Mangoi"
            onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#fbbf24,#f59e0b)';this.style.padding='40px';this.style.fontSize='120px';this.alt='🥭';"
            style="width:160px;height:160px;border-radius:50%;object-fit:cover;border:4px solid rgba(251,191,36,0.6);box-shadow:0 12px 40px -8px rgba(245,158,11,0.6),0 0 0 8px rgba(255,255,255,0.05);margin-bottom:1.2rem;animation:mangoiFloat 3s ease-in-out infinite alternate" />
-      <h1 id="home-subtitle" class="home-title" style="font-family:'Noto Sans KR',sans-serif;letter-spacing:-0.5px;margin:0;">Mangoi 화상솔루션</h1>
+      <h1 id="home-subtitle" class="home-title" style="font-family:'Noto Sans KR',-apple-system,sans-serif;letter-spacing:-1px;margin:0;font-weight:800;font-size:clamp(28px, 5vw, 44px);background:linear-gradient(135deg,#60a5fa 0%,#93c5fd 50%,#fbbf24 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Mangoi 화상솔루션</h1>
     </div>
     <style>
       @keyframes mangoiFloat {
@@ -2976,21 +2976,51 @@
       }
       @keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1} }
       @keyframes slideDown { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:translateY(0)} }
-      .ai-quick { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:16px; max-width:520px; margin-left:auto; margin-right:auto; }
-      .ai-quick .ai-quick-pay { grid-column: span 3; background:linear-gradient(135deg,rgba(251,191,36,0.18),rgba(245,158,11,0.18))!important; border:1px solid rgba(251,191,36,0.5)!important; color:#fde68a!important; font-weight:700; }
-      .ai-quick .ai-quick-pay:hover { background:linear-gradient(135deg,rgba(251,191,36,0.28),rgba(245,158,11,0.28))!important; }
+      /* === Mango Bloom: Quick buttons (3 cols, generous spacing, pill shape) === */
+      .ai-quick { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:20px auto 0; max-width:600px; }
       .ai-quick-btn {
-        background: rgba(255,255,255,0.06);
-        border: 1px solid rgba(255,255,255,0.12);
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.10);
         border-radius: 99px;
-        padding: 8px 16px; color: #cbd5e1; font-size: 13px;
-        cursor: pointer; transition: all 0.2s;
+        padding: 14px 18px; color: #cbd5e1; font-size: 14.5px; font-weight: 600;
+        letter-spacing: -0.2px;
+        cursor: pointer; transition: all 0.2s ease;
+        min-height: 50px; display:inline-flex; align-items:center; justify-content:center; gap:6px;
+        font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
       }
       .ai-quick-btn:hover {
-        background: rgba(251,191,36,0.18);
-        border-color: rgba(251,191,36,0.5);
-        color: #fff; transform: translateY(-1px);
+        background: rgba(251,191,36,0.16);
+        border-color: rgba(251,191,36,0.45);
+        color: #fff; transform: translateY(-2px);
+        box-shadow: 0 6px 18px -8px rgba(251,191,36,0.45);
       }
+      .ai-quick .ai-quick-pay {
+        grid-column: span 3;
+        background:linear-gradient(135deg,rgba(251,191,36,0.20),rgba(245,158,11,0.16))!important;
+        border:1.5px solid rgba(251,191,36,0.55)!important;
+        color:#fde68a!important; font-weight:700; font-size:15px;
+        letter-spacing:-0.2px;
+        min-height: 56px;
+        box-shadow: 0 4px 16px -8px rgba(251,191,36,0.4);
+      }
+      .ai-quick .ai-quick-pay:hover {
+        background:linear-gradient(135deg,rgba(251,191,36,0.32),rgba(245,158,11,0.28))!important;
+        color:#fff!important;
+        box-shadow: 0 8px 24px -8px rgba(251,191,36,0.6);
+      }
+      /* === Mango Bloom: Title typography === */
+      .home-title {
+        font-weight: 800!important;
+        letter-spacing: -1px!important;
+        text-shadow: 0 2px 24px rgba(96,165,250,0.25);
+      }
+      /* === Mango Bloom: Big yellow CTA pulse refinement === */
+      #btn-enter-class {
+        letter-spacing: -0.3px;
+        font-family: 'Noto Sans KR', -apple-system, sans-serif;
+      }
+      /* === Mango Bloom: Search bar polish === */
+      .lobby .lobby-box, .ai-home-bar, #ai-home-bar { font-family: 'Noto Sans KR', -apple-system, sans-serif; }
     </style>
 
 </div>

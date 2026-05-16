@@ -1,0 +1,18 @@
+# MANGO BLOOM
+## A Design Philosophy for the Mangoi Video Solution Dashboard
+
+---
+
+### THE MANIFESTO
+
+Mango Bloom is the visual language of warmth without weight, joy without noise, and confidence without bravado. It rejects the sterile minimalism of corporate dashboards and the chaotic candy-shop aesthetic of children's apps. Instead, it occupies a rarer territory: a meticulously crafted space where ripe fruit-orange meets midnight navy, where generous negative space honors each interactive element as if it were a single perfect specimen displayed under museum lighting. The work must appear as though it were composed by a master who has spent decades refining the geometry of human attention, knowing exactly when to whisper and when to glow.
+
+Every gesture in this aesthetic comes from a place of expert restraint. The composition breathes — not because empty space is fashionable, but because each element has earned its territory through painstaking refinement of hierarchy. The primary call-to-action does not shout; it pulses with the slow confidence of a heartbeat. Secondary actions float in a deliberate constellation, none clamoring for attention because each has been placed with the precision of a Japanese rock garden where every stone holds the entire composition in tension.
+
+Color in Mango Bloom is a chromatic narrative, not a palette. The deep navy base (`#0f1117`, `#131826`) is the night sky over a tropical orchard, holding everything in cool stillness. Mango amber (`#fbbf24`, `#f59e0b`) is the single source of warmth — used sparingly, like sunlight breaking through leaves, never spread thin. Cool slate text (`#cbd5e1`, `#94a3b8`) provides legibility without competing with the amber. When color appears, it is the product of countless hours of calibration, every hex value chosen as if by a colorist mixing pigments by hand.
+
+Typography is the quiet architecture beneath the composition. Letterforms are confident but never aggressive — weight 700-800 for primary elements, weight 500-600 for secondary, weight 400 for body. Sizes follow a tight rhythm (32px → 22px → 16px → 13px → 11px) with no random middle steps. Korean and English coexist in mutual respect, each set in its optimal weight and tracking. The mark of master-level execution is that the eye never has to work — type is large where it must lead, small where it must support, and always exactly the right size for its function.
+
+Form and rhythm are governed by a single radius system (12px for cards, 18px for primary CTAs, 99px for pills) and a single shadow language (soft amber glow for CTAs, deep navy depth for cards). Nothing is rounded for the sake of being friendly; every curve is the result of careful study of how the eye traces an interface at first glance. Interactive elements have generous touch targets (minimum 44px tall) not as an accessibility checkbox, but because a master craftsman knows that human fingers and human attention deserve room to breathe. The pulse animation on the primary CTA — 2.6 seconds, soft amber halo — is the metronome of the entire composition.
+
+Above all, this is design that rewards sustained viewing. A glance reveals a clear path forward. A longer look reveals the orchestration: how the amber CTA anchors the eye, how the secondary buttons form a balanced triangle, how the search bar bridges title and action, how the entire composition reads top-to-bottom like a haiku. The result must feel inevitable — as though every pixel had to be where it is, as though no other arrangement was ever possible. This is the work of someone at the top of their field, exercising painstaking attention to invisible details, producing a dashboard that proves a serious educational platform can also be a place of quiet beauty.
