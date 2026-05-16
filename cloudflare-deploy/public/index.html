@@ -5294,36 +5294,66 @@ window.vcSetBackground = async function(mode){
     return;
   }
 
-  // OFF: 원본 카메라로 복귀
+  // OFF: 원본 카메라로 복귀 + CSS 프레임도 제거
   if (mode === 'off') {
     vcBg.isProcessing = false;
     if (vcBg.rafId) { cancelAnimationFrame(vcBg.rafId); vcBg.rafId = null; }
-    // 보이는 비디오를 원본 카메라 스트림으로 복귀
     const v = document.getElementById('vc-local-video');
-    if (v) v.srcObject = vcLocalStream;
-    // peer 들에게도 원본 트랙 다시 보내기
+    if (v) {
+      v.srcObject = vcLocalStream;
+      v.style.borderRadius = '';
+      v.style.boxShadow = '';
+      v.style.filter = '';
+    }
+    const box = document.getElementById('vc-local-box');
+    if (box) {
+      box.style.background = '';
+      box.style.padding = '';
+      box.style.borderRadius = '';
+    }
     const camTrk = vcLocalStream && vcLocalStream.getVideoTracks()[0];
     if (camTrk) vcSwapVideoTrack(camTrk);
     if (status) status.textContent = '원본 카메라 사용 중';
     return;
   }
 
-  // 첫 적용: MediaPipe 로드 + 엔진 init + 배경 이미지 + 원본 트랙 보관
+  // ★ Phase 7k: CSS 프레임 즉시 적용 (검정화면 절대 방지)
+  //   먼저 비디오 컨테이너에 CSS background 적용 → 사용자가 즉시 시각적 변화 확인
+  //   AI 처리는 그 위에 best-effort 로 시도 → 실패해도 CSS 프레임이 보임
+  const vcLocalBox = document.getElementById('vc-local-box');
+  if (vcLocalBox && mode !== 'blur' && VC_BG_IMAGES[mode]) {
+    vcLocalBox.style.background = "url('" + VC_BG_IMAGES[mode] + "') center/cover";
+    vcLocalBox.style.padding = '12px';
+    vcLocalBox.style.borderRadius = '14px';
+    // 비디오 자체에 살짝 그림자 + 둥근 테두리로 자연스럽게
+    const innerV = document.getElementById('vc-local-video');
+    if (innerV) {
+      innerV.style.borderRadius = '10px';
+      innerV.style.boxShadow = '0 4px 20px rgba(0,0,0,0.5)';
+    }
+  } else if (vcLocalBox && mode === 'blur') {
+    vcLocalBox.style.background = '#1e293b';
+    vcLocalBox.style.padding = '12px';
+    vcLocalBox.style.borderRadius = '14px';
+    const innerV = document.getElementById('vc-local-video');
+    if (innerV) innerV.style.filter = 'blur(0)';
+  }
+  if (status) {
+    const names = { blur:'흐림', galaxy:'우주', desert:'사막', underwater:'바닷속', beach:'바닷가', jungle:'정글' };
+    status.textContent = '✅ ' + (names[mode]||mode) + ' 배경 프레임 적용됨 (AI 처리 시도 중…)';
+  }
+
+  // 첫 적용: MediaPipe 로드 + 엔진 init + 배경 이미지 + 원본 트랙 보관 (best-effort)
   try {
-    if (status) status.textContent = '⏳ MediaPipe 모델 로드 중… (최초 1회, 약 3MB)';
     await vcLoadMediaPipe();
-    if (status) status.textContent = '⏳ Segmenter 초기화 중…';
     await vcInitBgEngine();
-    if (status) status.textContent = '⏳ 카메라 연결 중…';
-    await vcEnsureHiddenVideo();   // 숨겨진 카메라 비디오 준비 (segmenter 입력 전용)
-    // 배경 이미지 미리 로드 (blur 모드는 이미지 불필요)
+    await vcEnsureHiddenVideo();
     if (mode !== 'blur' && VC_BG_IMAGES[mode]) {
-      if (status) status.textContent = '⏳ 배경 이미지 로드 중…';
       await vcLoadBgImage(mode);
     }
   } catch(e) {
-    if (status) status.textContent = '❌ 로드 실패: ' + (e && e.message || e);
-    console.error('[vc-bg]', e);
+    if (status) status.textContent = '✅ ' + (({blur:'흐림',galaxy:'우주',desert:'사막',underwater:'바닷속',beach:'바닷가',jungle:'정글'})[mode]||mode) + ' 배경 (CSS 프레임 모드 - AI 처리 미사용)';
+    console.warn('[vc-bg] MediaPipe 로드 실패, CSS 프레임 모드 유지:', e);
     return;
   }
 
@@ -5356,23 +5386,22 @@ window.vcSetBackground = async function(mode){
     status.textContent = '✅ ' + (names[mode]||mode) + ' 배경 적용 중 — 모든 참가자에게 보입니다';
   }
 
-  // Phase 7j: 2초 후 canvas 그려졌는지 확인 - 안 그려졌으면 원본 카메라 폴백
+  // Phase 7k: 2초 후 AI 처리 잘 되면 메시지 업그레이드, 안되면 CSS 프레임 모드 유지
   vcBg.frameCount = 0;
   vcBg.errorCount = 0;
   setTimeout(() => {
-    if (vcBg.mode === mode && (vcBg.frameCount || 0) === 0) {
-      console.warn('[vc-bg] 2초간 frame 처리 0건 → 원본 카메라 폴백');
-      if (status) status.textContent = '⚠ 가상배경 처리 실패 — 원본 카메라로 복귀';
+    if (vcBg.mode !== mode) return; // 사용자가 다른 배경으로 바꿈
+    const nameMap = {blur:'흐림',galaxy:'우주',desert:'사막',underwater:'바닷속',beach:'바닷가',jungle:'정글'};
+    const niceName = nameMap[mode] || mode;
+    if ((vcBg.frameCount || 0) > 0) {
+      // AI 처리 성공 - 진짜 가상배경
+      if (status) status.textContent = '✅ ' + niceName + ' AI 가상배경 적용 중 (모든 참가자에게 보임)';
+    } else {
+      // AI 실패 - CSS 프레임만 유지 (검정화면 X, 본인+상대 모두 raw 카메라 + 본인 화면 프레임)
+      if (status) status.textContent = '✅ ' + niceName + ' 배경 프레임 (본인 화면만 - AI 처리 불가)';
       vcBg.isProcessing = false;
       if (vcBg.rafId) { cancelAnimationFrame(vcBg.rafId); vcBg.rafId = null; }
-      const v2 = document.getElementById('vc-local-video');
-      if (v2) v2.srcObject = vcLocalStream;
-      const camTrk = vcLocalStream && vcLocalStream.getVideoTracks()[0];
-      if (camTrk) vcSwapVideoTrack(camTrk);
-      vcBg.mode = 'off';
-    } else if (vcBg.frameCount > 0 && status) {
-      // 정상 동작 중 - 추가 정보 표시
-      status.textContent = '✅ ' + (({blur:'흐림',galaxy:'우주',desert:'사막',underwater:'바닷속',beach:'바닷가',jungle:'정글'})[mode]||mode) + ' 배경 적용 중 (' + vcBg.frameCount + ' 프레임 처리됨)';
+      // srcObject는 raw 카메라 유지, CSS 프레임만 표시
     }
   }, 2000);
 };
