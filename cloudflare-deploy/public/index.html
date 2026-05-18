@@ -1943,7 +1943,7 @@
       }
       /* 포인트 칩 - 골드 강조 */
       #points-chip.hero-chip-points{
-        right: 10.5rem;
+        right: 11.5rem;
         background: linear-gradient(135deg, rgba(251,191,36,0.25), rgba(245,158,11,0.22));
         border-color: rgba(251,191,36,0.55);
         color: #ffe082;
@@ -1956,15 +1956,36 @@
       #login-btn.hero-chip{ right: 5.5rem; }
       #lang-toggle.hero-chip-lang{ right: 1.1rem; }
       .hero-chip-lang #lang-label{ color:#fde68a; font-weight:800; }
+      /* 🆕 모바일에서는 우상단 칩들이 좁아 겹치므로 두 줄로 분리:
+         1줄: 포인트 (작게)
+         2줄: 로그인 + EN (가로 배치 with right padding) */
       @media (max-width:640px){
-        .hero-chip{ padding:6px 11px; font-size:.78rem; top:0.85rem; }
-        #points-chip.hero-chip-points{ right: 8.5rem; padding:5px 9px; }
-        #login-btn.hero-chip{ right:4.4rem; }
-        #lang-toggle.hero-chip-lang{ right:0.85rem; }
+        .hero-chip{ padding:5px 10px; font-size:.74rem; top:0.7rem; gap:4px; }
+        /* 포인트 칩을 한 줄 위로 (별도 줄) */
+        #points-chip.hero-chip-points{
+          right: 1rem !important;
+          top: 0.7rem !important;
+          padding: 4px 10px;
+          font-size: 0.72rem;
+        }
+        /* 로그인은 EN 옆에 한 줄 아래 배치 */
+        #login-btn.hero-chip{
+          right: 5rem !important;
+          top: 3rem !important;
+          padding: 5px 9px;
+          font-size: 0.74rem;
+        }
+        #lang-toggle.hero-chip-lang{
+          right: 1rem !important;
+          top: 3rem !important;
+          padding: 5px 9px;
+          font-size: 0.74rem;
+        }
       }
-      @media (max-width:520px){
-        /* 매우 좁은 화면 - 포인트 칩은 잔액만 (P 글자) */
-        #points-chip.hero-chip-points{ right: 7.5rem; }
+      @media (max-width:380px){
+        #login-btn.hero-chip{ right: 4.4rem !important; padding: 4px 8px; font-size: 0.7rem; }
+        #lang-toggle.hero-chip-lang{ right: 0.8rem !important; padding: 4px 8px; }
+        #points-chip.hero-chip-points{ right: 0.8rem !important; font-size: 0.68rem; padding: 3px 8px; }
       }
 
       /* 🎁 Phase P3: 포인트 상점 모달 */
@@ -3548,35 +3569,87 @@
       }
       /* 결제하기는 이 그리드에서 제외하고 별도 라인으로 빼기 */
       .ai-quick .ai-quick-pay { display: none !important; }
-      /* === Mango Bloom v2: 결제하기 + 수업입장 한 줄 === */
+      /* === Phase 8c: 결제하기 + 수업입장 한 줄 (세련된 디자인) === */
       .ai-cta-row {
-        display: grid; grid-template-columns: 1fr 1.4fr; gap: 12px;
+        display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
         max-width: 720px; margin: 20px auto 0;
         align-items: stretch;
       }
       .ai-cta-row > * {
-        background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(135deg, #fde68a 0%, #fbbf24 35%, #f59e0b 100%) !important;
         color: #1a1a1a !important;
         font-weight: 800 !important;
         border: none !important;
-        border-radius: 16px !important;
-        padding: 18px 24px !important;
-        font-size: 17px !important;
-        letter-spacing: -0.3px;
-        display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+        border-radius: 18px !important;
+        padding: 16px 18px !important;
+        font-size: 15px !important;
+        letter-spacing: -0.4px;
+        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
         cursor: pointer;
-        box-shadow: 0 8px 24px rgba(245,158,11,0.45), 0 0 0 0 rgba(251,191,36,0.6);
-        transition: transform .15s, box-shadow .15s;
+        box-shadow:
+          0 10px 26px -6px rgba(245,158,11,0.55),
+          inset 0 1px 0 rgba(255,255,255,0.45),
+          inset 0 -3px 0 rgba(180,90,10,0.18);
+        transition: transform .18s, box-shadow .18s;
         font-family: 'Noto Sans KR', -apple-system, sans-serif;
         text-decoration: none;
         animation: lessonPulse 2.6s infinite;
-        min-height: 58px;
+        min-height: 60px;
+        white-space: nowrap;            /* 글자 한 줄 강제 */
+      }
+      .ai-cta-row > *::before {
+        /* 위쪽 반사 광택 */
+        content: ''; position: absolute; top: 0; left: 0; right: 0; height: 40%;
+        background: linear-gradient(180deg, rgba(255,255,255,0.32), transparent);
+        pointer-events: none;
+        border-radius: 18px 18px 0 0;
+      }
+      .ai-cta-row > * > svg, .ai-cta-row > * > span:first-child {
+        position: relative; z-index: 1;
+        font-size: 22px !important;
+      }
+      .ai-cta-row > * > span:last-child {
+        position: relative; z-index: 1;
+        font-size: 16px;
+        letter-spacing: -0.5px;
       }
       .ai-cta-row > *:hover {
-        transform: translateY(-2px) scale(1.02);
-        box-shadow: 0 12px 32px rgba(245,158,11,0.6) !important;
+        transform: translateY(-3px) scale(1.02);
+        box-shadow:
+          0 16px 36px -6px rgba(245,158,11,0.65),
+          inset 0 1px 0 rgba(255,255,255,0.5),
+          inset 0 -3px 0 rgba(180,90,10,0.18) !important;
+      }
+      .ai-cta-row > *:active {
+        transform: translateY(0) scale(0.99);
       }
       .ai-cta-row .cta-pay { animation-delay: 0.3s; }
+      /* 모바일에서 더 적절한 사이즈 */
+      @media (max-width: 640px) {
+        .ai-cta-row {
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+          margin-top: 16px;
+        }
+        .ai-cta-row > * {
+          padding: 14px 10px !important;
+          min-height: 56px;
+          font-size: 14px !important;
+          border-radius: 14px !important;
+          gap: 6px;
+        }
+        .ai-cta-row > * > svg, .ai-cta-row > * > span:first-child { font-size: 20px !important; }
+        .ai-cta-row > * > span:last-child { font-size: 14.5px; }
+      }
+      @media (max-width: 380px) {
+        .ai-cta-row > * {
+          padding: 12px 6px !important;
+          font-size: 13px !important;
+        }
+        .ai-cta-row > * > span:last-child { font-size: 13.5px; }
+      }
       /* === Mango Bloom: Title typography === */
       .home-title {
         font-weight: 800!important;
