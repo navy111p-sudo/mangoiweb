@@ -1614,15 +1614,32 @@
     font:500 12px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
     letter-spacing:.04em;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.6);
   }
-  /* 🆕 모바일 — 인트로 동영상 화면 꽉차게 (검은 여백 제거)
-     contain → cover 로 바꿔 비율 유지하며 풀스크린. 좌우 일부 잘리지만 캐릭터는 중앙. */
+  /* 🆕 모바일 — 인트로 동영상 풀스크린 + 우주 부유 애니메이션
+     - cover 로 검은 여백 제거
+     - 천천히 회전 + zoom in/out → "우주에 떠 있는" 신비로운 느낌
+     - 16초 사이클 (어지럽지 않을 정도) */
   @media (max-width:640px){
     #mango-intro-overlay video {
       object-fit: cover !important;
       width: 100vw !important;
       height: 100vh !important;
       height: 100dvh !important;     /* iOS 주소창 보정 */
+      transform-origin: center center;
+      animation: introOrbit 16s ease-in-out infinite;
+      will-change: transform;
     }
+  }
+  @keyframes introOrbit {
+    0%   { transform: scale(1.00) rotate(0deg)   translate(0, 0); }
+    20%  { transform: scale(1.06) rotate(2.5deg) translate(-1.5%, 1%); }
+    40%  { transform: scale(1.12) rotate(0deg)   translate(0, -1.5%); }
+    60%  { transform: scale(1.08) rotate(-2.5deg) translate(1.5%, 0.5%); }
+    80%  { transform: scale(1.04) rotate(-1deg)  translate(0.5%, -1%); }
+    100% { transform: scale(1.00) rotate(0deg)   translate(0, 0); }
+  }
+  /* 어지럼증을 선호하는 사용자 보호 */
+  @media (max-width:640px) and (prefers-reduced-motion: reduce) {
+    #mango-intro-overlay video { animation: none !important; }
   }
   @media (max-width:480px){
     #mango-intro-skip{top:12px;right:12px;padding:7px 12px;font-size:12px}
