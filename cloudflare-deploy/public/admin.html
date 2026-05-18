@@ -15847,7 +15847,8 @@ button.chip:hover,
           <button onclick="ptQuickEarn('${esc(x.user_id)}','${esc(x.student_name||'')}','level_up')" title="🎖 레벨업 자동 적립" style="padding:5px 7px;font-size:11px;background:#a855f7;color:#fff;border:0;border-radius:5px;cursor:pointer;margin-right:2px">🎖</button>
           <button onclick="ptQuickEarn('${esc(x.user_id)}','${esc(x.student_name||'')}','birthday')" title="🎂 생일 보너스" style="padding:5px 7px;font-size:11px;background:#ec4899;color:#fff;border:0;border-radius:5px;cursor:pointer;margin-right:6px">🎂</button>
           <button onclick="ptOpenAdjustModal('${esc(x.user_id)}','${esc(x.student_name||'')}','grant')" style="padding:5px 10px;font-size:11px;background:#10b981;color:#fff;border:0;border-radius:5px;cursor:pointer;margin-right:3px">+ 충전</button>
-          <button onclick="ptOpenAdjustModal('${esc(x.user_id)}','${esc(x.student_name||'')}','deduct')" style="padding:5px 10px;font-size:11px;background:#ef4444;color:#fff;border:0;border-radius:5px;cursor:pointer">− 차감</button>
+          <button onclick="ptOpenAdjustModal('${esc(x.user_id)}','${esc(x.student_name||'')}','deduct')" style="padding:5px 10px;font-size:11px;background:#ef4444;color:#fff;border:0;border-radius:5px;cursor:pointer;margin-right:3px">− 차감</button>
+          <button onclick="aiOpenAnalysis('${esc(x.user_id)}','${esc(x.student_name||'')}')" title="🤖 AI 학습 분석 (Llama 3.3 70B)" style="padding:5px 10px;font-size:11px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:0;border-radius:5px;cursor:pointer;font-weight:700">🤖 AI</button>
         </td>
       </tr>`).join('');
     el.innerHTML = `
@@ -15860,7 +15861,7 @@ button.chip:hover,
             <th style="text-align:right;padding:10px 12px;font-weight:700;color:#374151">누적적립</th>
             <th style="text-align:right;padding:10px 12px;font-weight:700;color:#374151">누적사용</th>
             <th style="text-align:left;padding:10px 12px;font-weight:700;color:#374151">최근업데이트</th>
-            <th style="text-align:center;padding:10px 12px;font-weight:700;color:#374151">조작</th>
+            <th style="text-align:center;padding:10px 12px;font-weight:700;color:#374151">조작 / 🤖 AI</th>
           </tr>
         </thead>
         <tbody>${rowsHtml}</tbody>
@@ -17329,6 +17330,224 @@ button.chip:hover,
       renderTable();
     }
   });
+})();
+</script>
+
+
+<!-- 🤖 Phase A2 — AI 학습 분석 모달 (Workers AI / Llama 3.3 70B) -->
+<div id="ai-analysis-modal" style="display:none;position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto">
+  <div style="background:linear-gradient(180deg,#1a1f3a,#0f1426);color:#e6e9f5;width:100%;max-width:780px;border-radius:18px;box-shadow:0 25px 60px -10px rgba(99,102,241,.4),0 0 0 1px rgba(139,92,246,.3);overflow:hidden;font-family:'Noto Sans KR',-apple-system,sans-serif">
+    <!-- 헤더 -->
+    <div style="padding:18px 24px;background:linear-gradient(135deg,#4f46e5,#7c3aed);display:flex;justify-content:space-between;align-items:center">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:24px">🤖</span>
+        <div>
+          <div style="font-weight:800;font-size:16px;color:#fff">AI 학습 분석</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:1px">Llama 3.3 70B · Cloudflare Workers AI</div>
+        </div>
+      </div>
+      <button onclick="aiCloseAnalysis()" style="background:transparent;color:#fff;border:0;font-size:24px;cursor:pointer;padding:0 6px;line-height:1">×</button>
+    </div>
+
+    <!-- 본문 -->
+    <div id="ai-modal-body" style="padding:22px 24px;max-height:calc(100vh - 200px);overflow-y:auto">
+      <div id="ai-loading" style="display:none;text-align:center;padding:60px 20px">
+        <div style="display:inline-block;width:60px;height:60px;border:4px solid rgba(139,92,246,.2);border-top-color:#a78bfa;border-radius:50%;animation:aiSpin 1s linear infinite"></div>
+        <div style="margin-top:18px;font-size:14px;color:#a78bfa;font-weight:700">AI가 학생 데이터를 분석하는 중…</div>
+        <div style="margin-top:6px;font-size:11.5px;color:#6b7280">평가서, 채팅, 출석, 포인트 흐름을 종합해서 12~20초 정도 걸려요</div>
+      </div>
+      <div id="ai-content" style="display:none"></div>
+      <div id="ai-error" style="display:none;background:#dc2626;color:#fff;padding:14px 18px;border-radius:10px;font-size:13px"></div>
+    </div>
+
+    <!-- 푸터 -->
+    <div style="padding:14px 24px;border-top:1px solid rgba(139,92,246,.2);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <button id="ai-history-toggle" onclick="aiLoadHistory()" style="background:transparent;color:#a78bfa;border:1px solid rgba(139,92,246,.4);padding:8px 14px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700">📜 과거 분석 이력</button>
+      <div style="display:flex;gap:8px">
+        <button id="ai-refresh-btn" onclick="aiRefreshAnalysis()" style="background:rgba(99,102,241,.2);color:#a5b4fc;border:1px solid rgba(99,102,241,.4);padding:8px 14px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700">🔄 다시 분석</button>
+        <button onclick="aiCloseAnalysis()" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border:0;padding:8px 18px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:800">닫기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  @keyframes aiSpin { to { transform: rotate(360deg); } }
+  @keyframes aiFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .ai-section { background: rgba(99,102,241,.08); border:1px solid rgba(139,92,246,.18); border-radius:12px; padding:14px 16px; margin-bottom:12px; animation: aiFadeIn .3s ease; }
+  .ai-section h4 { margin:0 0 10px; font-size:13px; font-weight:800; display:flex; align-items:center; gap:6px; }
+  .ai-section ul { margin:0; padding-left:18px; }
+  .ai-section li { padding:4px 0; font-size:13px; line-height:1.55; }
+  .ai-badge-risk { display:inline-block; padding:4px 12px; border-radius:99px; font-size:11px; font-weight:800; letter-spacing:.5px; }
+  .ai-badge-low { background:rgba(16,185,129,.2); color:#34d399; border:1px solid rgba(16,185,129,.4); }
+  .ai-badge-medium { background:rgba(245,158,11,.2); color:#fbbf24; border:1px solid rgba(245,158,11,.4); }
+  .ai-badge-high { background:rgba(239,68,68,.2); color:#f87171; border:1px solid rgba(239,68,68,.4); }
+</style>
+
+<script>
+(function(){
+  const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+  const fmtDate = (ms) => ms ? new Date(ms).toLocaleString('ko-KR', { dateStyle:'short', timeStyle:'short' }) : '-';
+  let _aiCurrentUid = null;
+  let _aiCurrentName = null;
+
+  window.aiOpenAnalysis = function(uid, name){
+    _aiCurrentUid = uid;
+    _aiCurrentName = name || uid;
+    const modal = document.getElementById('ai-analysis-modal');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    aiRun(false);
+  };
+  window.aiCloseAnalysis = function(){
+    document.getElementById('ai-analysis-modal').style.display = 'none';
+    document.body.style.overflow = '';
+  };
+  window.aiRefreshAnalysis = function(){ aiRun(true); };
+
+  // 모달 바깥 클릭 시 닫기
+  document.getElementById('ai-analysis-modal').addEventListener('click', function(e){
+    if (e.target === this) aiCloseAnalysis();
+  });
+
+  async function aiRun(force){
+    const loading = document.getElementById('ai-loading');
+    const content = document.getElementById('ai-content');
+    const errBox = document.getElementById('ai-error');
+    loading.style.display = 'block';
+    content.style.display = 'none';
+    errBox.style.display = 'none';
+
+    try {
+      const r = await fetch('/api/admin/ai-analyze/student', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ student_uid: _aiCurrentUid, student_name: _aiCurrentName, force: !!force })
+      });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'AI 분석 실패');
+      aiRender(d);
+    } catch(e) {
+      loading.style.display = 'none';
+      errBox.style.display = 'block';
+      errBox.textContent = '❌ ' + e.message;
+    }
+  }
+
+  function aiRender(d){
+    const loading = document.getElementById('ai-loading');
+    const content = document.getElementById('ai-content');
+    loading.style.display = 'none';
+    content.style.display = 'block';
+
+    const a = d.analysis || {};
+    const ds = d.data_sources || {};
+    const cached = d.cached;
+    const generatedAt = d.generated_at;
+
+    const risk = (a.risk_level || 'medium').toLowerCase();
+    const riskLabel = risk === 'low' ? '낮음' : risk === 'high' ? '높음' : '중간';
+    const riskEmoji = risk === 'low' ? '🟢' : risk === 'high' ? '🔴' : '🟡';
+
+    const strengths = Array.isArray(a.strengths) ? a.strengths : [];
+    const weaknesses = Array.isArray(a.weaknesses) ? a.weaknesses : [];
+    const recommendations = Array.isArray(a.recommendations) ? a.recommendations : [];
+
+    content.innerHTML = `
+      <!-- 학생 헤더 -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid rgba(139,92,246,.2)">
+        <div>
+          <div style="font-size:11px;color:#a78bfa;font-weight:700;letter-spacing:1px">STUDENT</div>
+          <div style="font-size:20px;font-weight:800;color:#fff;margin-top:3px">${esc(_aiCurrentName)} <span style="font-size:12px;color:#9ca3af;font-weight:400;margin-left:6px">${esc(_aiCurrentUid)}</span></div>
+        </div>
+        <span class="ai-badge-risk ai-badge-${risk}">${riskEmoji} 위험도 ${riskLabel}</span>
+      </div>
+
+      <!-- 캐시 안내 -->
+      ${cached ? `<div style="background:rgba(245,158,11,.15);color:#fbbf24;padding:8px 12px;border-radius:8px;font-size:11.5px;margin-bottom:14px;border:1px solid rgba(245,158,11,.3)">⏱️ 캐시된 결과 (생성: ${fmtDate(generatedAt)}) — 우측 하단 <b>🔄 다시 분석</b> 버튼으로 새로 분석할 수 있습니다.</div>` : `<div style="background:rgba(16,185,129,.15);color:#34d399;padding:8px 12px;border-radius:8px;font-size:11.5px;margin-bottom:14px;border:1px solid rgba(16,185,129,.3)">✨ 방금 새로 생성됨 (${fmtDate(generatedAt)})</div>`}
+
+      <!-- 요약 -->
+      <div class="ai-section" style="background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(139,92,246,.1));border-color:rgba(139,92,246,.35)">
+        <h4 style="color:#c4b5fd">📝 AI 종합 진단</h4>
+        <div style="font-size:13.5px;line-height:1.7;color:#e6e9f5">${esc(a.summary || '분석 결과가 없습니다.')}</div>
+      </div>
+
+      <!-- 강점 -->
+      <div class="ai-section" style="border-color:rgba(16,185,129,.3);background:rgba(16,185,129,.06)">
+        <h4 style="color:#34d399">💪 강점 (Strengths)</h4>
+        ${strengths.length ? `<ul style="color:#a7f3d0">${strengths.map(s => `<li>${esc(s)}</li>`).join('')}</ul>` : `<div style="color:#6b7280;font-size:12px;font-style:italic">데이터가 부족합니다.</div>`}
+      </div>
+
+      <!-- 약점 -->
+      <div class="ai-section" style="border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.06)">
+        <h4 style="color:#fbbf24">⚠️ 보완할 점 (Weaknesses)</h4>
+        ${weaknesses.length ? `<ul style="color:#fcd34d">${weaknesses.map(s => `<li>${esc(s)}</li>`).join('')}</ul>` : `<div style="color:#6b7280;font-size:12px;font-style:italic">특별히 보완할 점이 발견되지 않았습니다.</div>`}
+      </div>
+
+      <!-- 추천 액션 -->
+      <div class="ai-section" style="border-color:rgba(59,130,246,.3);background:rgba(59,130,246,.06)">
+        <h4 style="color:#60a5fa">🎯 강사 추천 액션 (Recommendations)</h4>
+        ${recommendations.length ? `<ul style="color:#93c5fd">${recommendations.map(s => `<li>${esc(s)}</li>`).join('')}</ul>` : `<div style="color:#6b7280;font-size:12px;font-style:italic">추가 권장사항이 없습니다.</div>`}
+      </div>
+
+      <!-- Next Action 강조 박스 -->
+      ${a.next_action ? `
+      <div style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1f2937;padding:14px 18px;border-radius:12px;margin-top:6px;box-shadow:0 6px 16px -4px rgba(245,158,11,.4)">
+        <div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase">⚡ 다음 액션</div>
+        <div style="font-size:14px;font-weight:700;margin-top:4px;line-height:1.5">${esc(a.next_action)}</div>
+      </div>` : ''}
+
+      <!-- 데이터 출처 -->
+      <details style="margin-top:16px;background:rgba(255,255,255,.03);border-radius:8px;border:1px solid rgba(139,92,246,.15)">
+        <summary style="padding:10px 14px;cursor:pointer;font-size:11.5px;color:#9ca3af;font-weight:700">📊 분석 데이터 출처 ${cached ? '(캐시)' : '(실시간)'}</summary>
+        <div style="padding:8px 14px 12px;font-size:11.5px;color:#9ca3af;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px">
+          <div>평가서: <b style="color:#c4b5fd">${ds.evaluations||0}건</b></div>
+          <div>채팅 메시지: <b style="color:#c4b5fd">${ds.chat_messages||0}건</b></div>
+          <div>출석 적립: <b style="color:#c4b5fd">${ds.attendance_logs||0}건</b></div>
+          <div>포인트 거래: <b style="color:#c4b5fd">${ds.point_transactions||0}건</b></div>
+        </div>
+      </details>
+
+      <!-- 이력 컨테이너 -->
+      <div id="ai-history-list" style="margin-top:14px;display:none"></div>
+    `;
+  }
+
+  window.aiLoadHistory = async function(){
+    const list = document.getElementById('ai-history-list');
+    if (!list) return;
+    if (list.style.display === 'block') { list.style.display='none'; return; }
+    list.style.display = 'block';
+    list.innerHTML = '<div style="padding:12px;color:#9ca3af;font-size:12px;text-align:center">이력 로딩 중…</div>';
+    try {
+      const r = await fetch('/api/admin/ai-analyze/history?uid=' + encodeURIComponent(_aiCurrentUid));
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || '이력 로드 실패');
+      const rows = d.rows || [];
+      if (!rows.length) {
+        list.innerHTML = '<div style="padding:12px;color:#9ca3af;font-size:12px;text-align:center;background:rgba(255,255,255,.03);border-radius:8px">아직 분석 이력이 없습니다.</div>';
+        return;
+      }
+      list.innerHTML = `
+        <div style="background:rgba(255,255,255,.03);border-radius:8px;border:1px solid rgba(139,92,246,.18);overflow:hidden">
+          <div style="padding:10px 14px;background:rgba(99,102,241,.1);font-size:11.5px;font-weight:800;color:#a78bfa;letter-spacing:.5px">📜 과거 분석 이력 (최근 20건)</div>
+          ${rows.map(row => {
+            const r2 = (row.risk_level||'medium').toLowerCase();
+            const re = r2 === 'low' ? '🟢' : r2 === 'high' ? '🔴' : '🟡';
+            return `
+              <div style="padding:10px 14px;border-top:1px solid rgba(139,92,246,.1);display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:12.5px;color:#e6e9f5;line-height:1.5">${esc(row.summary || '(요약 없음)').slice(0,140)}${(row.summary||'').length>140?'…':''}</div>
+                  <div style="font-size:10.5px;color:#6b7280;margin-top:4px">${fmtDate(row.generated_at)}</div>
+                </div>
+                <span class="ai-badge-risk ai-badge-${r2}" style="font-size:10px;padding:3px 8px">${re}</span>
+              </div>`;
+          }).join('')}
+        </div>`;
+    } catch(e) {
+      list.innerHTML = '<div style="padding:12px;color:#f87171;font-size:12px;text-align:center">❌ ' + esc(e.message) + '</div>';
+    }
+  };
 })();
 </script>
 
