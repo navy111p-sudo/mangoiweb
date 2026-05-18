@@ -1614,25 +1614,30 @@
     font:500 12px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
     letter-spacing:.04em;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.6);
   }
-  /* 🆕 모바일 — 인트로 동영상 풀스크린 + 우주 줌인/줌아웃
-     - 멀리(scale 1.0) → 가까이(scale 1.4) → 다시 멀리
-     - 18초 사이클, 부드러운 카메라 이동 효과 */
+  /* 🆕 모바일 — 인트로 동영상: 우주인 4명 모두 보이게 (contain) + 우주 배경
+     - contain 으로 좌우 잘림 방지 → 양옆 우주인 2명도 보임
+     - 위아래 여백은 우주 그라데이션으로 자연스럽게
+     - 약한 zoom 사이클 (1.0 → 1.12 → 1.0) 으로 부유 느낌 유지 */
   @media (max-width:640px){
+    #mango-intro-overlay {
+      background:
+        radial-gradient(ellipse at center, #0f1a3a 0%, #050714 60%, #000 100%) !important;
+    }
     #mango-intro-overlay video {
-      object-fit: cover !important;
+      object-fit: contain !important;          /* cover → contain : 4명 다 보임 */
       width: 100vw !important;
       height: 100vh !important;
       height: 100dvh !important;
-      transform-origin: center 45%;     /* 얼굴 쪽으로 줌 */
+      transform-origin: center center;
       animation: introZoomOrbit 18s ease-in-out infinite;
       will-change: transform;
+      background: transparent !important;
     }
   }
+  /* 약한 줌 사이클 (contain일 때 너무 키우면 가장자리 잘림) */
   @keyframes introZoomOrbit {
-    0%   { transform: scale(1.00) rotate(0deg); }       /* 멀리서 시작 */
-    25%  { transform: scale(1.18) rotate(1deg); }       /* 다가오는 중 */
-    50%  { transform: scale(1.40) rotate(0deg); }       /* 가까이 클로즈업 */
-    75%  { transform: scale(1.18) rotate(-1deg); }      /* 다시 멀어지는 중 */
+    0%   { transform: scale(1.00) rotate(0deg); }       /* 멀리 — 우주인 4명 잘 보임 */
+    50%  { transform: scale(1.12) rotate(0deg); }       /* 살짝 가까이 (망고아이 강조) */
     100% { transform: scale(1.00) rotate(0deg); }       /* 다시 멀리 */
   }
   /* 어지럼증 보호 */
