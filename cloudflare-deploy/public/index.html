@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mangoi 화상솔루션</title>
+    <!-- 📱 PWA 메타 (홈화면 추가 + 앱 모드) -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#fbbf24">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Mangoi">
+    <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/img/icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/img/icon-512.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800;900&display=swap" rel="stylesheet">
@@ -16449,6 +16458,121 @@ window.closeRulesModal = function() {
 
   function escapeText(s) { return String(s||'').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'})[c]); }
   function escapeAttr(s) { return escapeText(s); }
+})();
+</script>
+
+<!-- 📱 PWA — Service Worker 등록 + 홈화면 추가 안내 -->
+<script>
+(function(){
+  // 1) Service Worker 등록 (오프라인 캐시 + 빠른 로딩)
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('[pwa] SW 등록:', reg.scope))
+        .catch(err => console.warn('[pwa] SW 등록 실패:', err));
+    });
+  }
+
+  // 2) 홈화면 추가 안내 — Android (beforeinstallprompt) + iOS Safari 별도
+  const DISMISS_KEY = 'mangoi_pwa_dismissed_at';
+  const SHOW_AFTER_MS = 30 * 86400 * 1000;  // 30일 1회
+
+  function canShow() {
+    try {
+      const last = parseInt(localStorage.getItem(DISMISS_KEY) || '0', 10);
+      return (Date.now() - last) > SHOW_AFTER_MS;
+    } catch { return true; }
+  }
+  function dismiss(daysOffset) {
+    try {
+      const offsetMs = (daysOffset || 0) * 86400 * 1000;
+      localStorage.setItem(DISMISS_KEY, String(Date.now() - SHOW_AFTER_MS + offsetMs));
+    } catch {}
+    const el = document.getElementById('pwa-install-bar');
+    if (el) el.remove();
+  }
+
+  // Android Chrome / Edge: beforeinstallprompt 이벤트 capture
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (canShow() && !isStandalone()) setTimeout(() => showAndroidInstall(), 3000);
+  });
+
+  // iOS Safari: beforeinstallprompt 없음 → 직접 안내
+  function isIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  }
+  function isStandalone() {
+    return window.matchMedia('(display-mode: standalone)').matches ||
+           navigator.standalone === true;
+  }
+
+  function showAndroidInstall() {
+    if (document.getElementById('pwa-install-bar')) return;
+    const isKo = (window.getLang ? window.getLang() : 'ko') === 'ko';
+    const bar = document.createElement('div');
+    bar.id = 'pwa-install-bar';
+    bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:14px;z-index:9800;background:linear-gradient(135deg,rgba(20,28,48,0.95),rgba(15,21,37,0.95));border:1px solid rgba(251,191,36,0.45);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;color:#f1f5f9;box-shadow:0 12px 36px -8px rgba(0,0,0,0.7),0 0 0 1px rgba(255,255,255,0.05);backdrop-filter:blur(14px);font-family:"Noto Sans KR",sans-serif;animation:pwaSlide .3s cubic-bezier(.34,1.56,.64,1)';
+    bar.innerHTML = `
+      <img src="/img/icon-192.png" alt="" style="width:44px;height:44px;border-radius:10px;flex-shrink:0">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13.5px;font-weight:800;color:#fff;line-height:1.3">${isKo?'Mangoi 앱 추가':'Install Mangoi App'}</div>
+        <div style="font-size:11.5px;color:#cbd5e1;margin-top:2px">${isKo?'홈화면에 추가해 빠르게 접속':'Add to home screen for faster access'}</div>
+      </div>
+      <button onclick="pwaInstall()" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;border:0;padding:8px 14px;border-radius:99px;font-size:12.5px;font-weight:800;cursor:pointer;flex-shrink:0">${isKo?'설치':'Install'}</button>
+      <button onclick="pwaDismiss()" style="background:transparent;border:0;color:#94a3b8;font-size:18px;cursor:pointer;flex-shrink:0;padding:4px 6px">✕</button>`;
+    document.body.appendChild(bar);
+  }
+
+  function showIosInstall() {
+    if (document.getElementById('pwa-install-bar')) return;
+    const isKo = (window.getLang ? window.getLang() : 'ko') === 'ko';
+    const bar = document.createElement('div');
+    bar.id = 'pwa-install-bar';
+    bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:14px;z-index:9800;background:linear-gradient(135deg,rgba(20,28,48,0.95),rgba(15,21,37,0.95));border:1px solid rgba(251,191,36,0.45);border-radius:14px;padding:14px 16px;color:#f1f5f9;box-shadow:0 12px 36px -8px rgba(0,0,0,0.7);backdrop-filter:blur(14px);font-family:"Noto Sans KR",sans-serif;animation:pwaSlide .3s cubic-bezier(.34,1.56,.64,1)';
+    bar.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+        <img src="/img/icon-192.png" alt="" style="width:44px;height:44px;border-radius:10px">
+        <div style="flex:1">
+          <div style="font-size:13.5px;font-weight:800;color:#fff">${isKo?'Mangoi 앱 추가 — iPhone/iPad':'Add Mangoi to iPhone/iPad'}</div>
+          <div style="font-size:11.5px;color:#cbd5e1;margin-top:2px">${isKo?'홈화면에 추가하면 앱처럼 사용 가능':'Add to home screen to use like an app'}</div>
+        </div>
+        <button onclick="pwaDismiss()" style="background:transparent;border:0;color:#94a3b8;font-size:18px;cursor:pointer">✕</button>
+      </div>
+      <div style="background:rgba(251,191,36,0.10);border:1px solid rgba(251,191,36,0.30);border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.7;color:#fde68a">
+        ${isKo
+          ? '① 하단 <b>공유 버튼 <span style="font-family:apple-system,sans-serif">⬆</span></b> 누르기<br>② <b>"홈 화면에 추가"</b> 선택<br>③ <b>"추가"</b> 탭'
+          : '① Tap <b>Share button</b> at bottom<br>② Tap <b>"Add to Home Screen"</b><br>③ Tap <b>"Add"</b>'}
+      </div>`;
+    document.body.appendChild(bar);
+  }
+
+  window.pwaInstall = async function(){
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const choice = await deferredPrompt.userChoice;
+    if (choice.outcome === 'accepted') {
+      console.log('[pwa] 사용자가 설치 수락');
+    }
+    deferredPrompt = null;
+    dismiss(0);
+  };
+  window.pwaDismiss = function(){ dismiss(0); };
+
+  // 페이지 로드 후 iOS 안내 (Android는 이벤트 기다림)
+  window.addEventListener('load', () => {
+    if (isStandalone()) return;  // 이미 PWA 모드면 안 보임
+    if (isIOS() && canShow()) {
+      setTimeout(() => showIosInstall(), 4000);
+    }
+  });
+
+  // 애니메이션 keyframe 동적 주입
+  const style = document.createElement('style');
+  style.textContent = '@keyframes pwaSlide{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}';
+  document.head.appendChild(style);
 })();
 </script>
 

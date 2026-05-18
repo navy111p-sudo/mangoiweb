@@ -1,0 +1,68 @@
+{
+  "name": "Mangoi 화상솔루션",
+  "short_name": "Mangoi",
+  "description": "AI 영어 회화 학원 — 화상수업 · 포인트 · 평가서 · 학원관리 통합 플랫폼",
+  "lang": "ko",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#050714",
+  "theme_color": "#fbbf24",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/img/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/img/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/img/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "수업 입장",
+      "short_name": "수업 입장",
+      "description": "지금 바로 화상수업 로비",
+      "url": "/?go=videocall",
+      "icons": [{ "src": "/img/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "포인트 상점",
+      "short_name": "포인트",
+      "description": "내 포인트와 기프티콘 교환",
+      "url": "/?go=mypoints",
+      "icons": [{ "src": "/img/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "수업 연기·변경",
+      "short_name": "수업변경",
+      "description": "수업 일정 조정",
+      "url": "/?go=lesson-change",
+      "icons": [{ "src": "/img/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

@@ -2803,6 +2803,294 @@ export async function handleMangoApi(
     // 📊 Phase D1~D2 끝
     // ═══════════════════════════════════════════════════════════════
 
+    // ═══════════════════════════════════════════════════════════════
+    // 💌 Phase I1~I2 — 신규상담 → 등록 전환률
+    // ═══════════════════════════════════════════════════════════════
+
+    const ensureInquiryColumns = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS inquiries (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, phone TEXT, message TEXT, created_at INTEGER);`);
+      // 점진적 ALTER (이미 있으면 무시)
+      const cols = ['status TEXT DEFAULT "new"','level TEXT','region TEXT','source TEXT','assigned_to TEXT','notes TEXT','contacted_at INTEGER','registered_at INTEGER','registered_uid TEXT','rejected_reason TEXT','updated_at INTEGER'];
+      for (const colDef of cols) {
+        try { await env.DB.exec(`ALTER TABLE inquiries ADD COLUMN ${colDef}`); } catch {}
+      }
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_inq_status ON inquiries(status, created_at DESC)`); } catch {}
+    };
+
+    // ── GET /api/admin/inquiry/list?status=&limit= — 상담 목록 ──
+    if (method === 'GET' && path === '/api/admin/inquiry/list') {
+      await ensureInquiryColumns();
+      const status = (url.searchParams.get('status') || '').trim();
+      const limit = Math.min(500, Math.max(1, parseInt(url.searchParams.get('limit') || '200', 10)));
+      let sql = `SELECT * FROM inquiries`;
+      const binds: any[] = [];
+      if (status) { sql += ` WHERE status = ?`; binds.push(status); }
+      sql += ` ORDER BY COALESCE(updated_at, created_at) DESC LIMIT ?`;
+      binds.push(limit);
+      const rs = await env.DB.prepare(sql).bind(...binds).all();
+      return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [] });
+    }
+
+    // ── GET /api/admin/inquiry/stats — 전환률 통계 ──
+    if (method === 'GET' && path === '/api/admin/inquiry/stats') {
+      await ensureInquiryColumns();
+      const d = new Date();
+      const thisMonthStart = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+      const lastMonthStart = new Date(d.getFullYear(), d.getMonth()-1, 1).getTime();
+      const last30Start = Date.now() - 30*86400*1000;
+      const fetch1 = async (sql: string, ...binds: any[]): Promise<any> => {
+        try { return await env.DB.prepare(sql).bind(...binds).first(); }
+        catch { return {}; }
+      };
+      const totalThisMonth: any = await fetch1(`SELECT COUNT(*) AS n FROM inquiries WHERE created_at >= ?`, thisMonthStart);
+      const totalLastMonth: any = await fetch1(`SELECT COUNT(*) AS n FROM inquiries WHERE created_at >= ? AND created_at < ?`, lastMonthStart, thisMonthStart);
+      const registeredThisMonth: any = await fetch1(`SELECT COUNT(*) AS n FROM inquiries WHERE status='registered' AND COALESCE(registered_at, updated_at, created_at) >= ?`, thisMonthStart);
+      const byStatus: any = await env.DB.prepare(`SELECT status, COUNT(*) AS n FROM inquiries GROUP BY status`).all().catch(()=>({results:[]}));
+      const statusMap: any = {};
+      (byStatus?.results || []).forEach((r:any) => { statusMap[r.status || 'new'] = r.n; });
+      // 평균 등록까지 소요 시간
+      const avgDays: any = await fetch1(`SELECT AVG((COALESCE(registered_at, updated_at, created_at) - created_at) / 86400000.0) AS avg_days FROM inquiries WHERE status='registered'`);
+      // 전환률 = registered / (registered + rejected) (대기중 제외)
+      const closed: any = await fetch1(`SELECT COUNT(*) AS n FROM inquiries WHERE status IN ('registered','rejected')`);
+      const registered: any = await fetch1(`SELECT COUNT(*) AS n FROM inquiries WHERE status='registered'`);
+      const closedN = closed?.n || 0;
+      const registeredN = registered?.n || 0;
+      const conversionRate = closedN > 0 ? Math.round((registeredN / closedN) * 1000) / 10 : 0;
+      const trend = (cur: number, prev: number) => prev === 0 ? (cur > 0 ? 100 : 0) : Math.round(((cur-prev)/prev)*1000)/10;
+      return json({
+        ok: true,
+        total_this_month: totalThisMonth?.n || 0,
+        total_last_month: totalLastMonth?.n || 0,
+        total_trend: trend(totalThisMonth?.n || 0, totalLastMonth?.n || 0),
+        registered_this_month: registeredThisMonth?.n || 0,
+        by_status: statusMap,
+        conversion_rate: conversionRate,
+        avg_days_to_register: Math.round((avgDays?.avg_days || 0) * 10) / 10,
+      });
+    }
+
+    // ── PATCH /api/admin/inquiry/:id — 상담 상태/메모 변경 ──
+    //   body: { status?, notes?, assigned_to?, registered_uid?, rejected_reason?, level?, region? }
+    if (method === 'PATCH' && /^\/api\/admin\/inquiry\/\d+$/.test(path)) {
+      await ensureInquiryColumns();
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      const body: any = await request.json().catch(() => ({}));
+      const now = Date.now();
+      const sets: string[] = ['updated_at = ?'];
+      const binds: any[] = [now];
+      const fields = ['status','notes','assigned_to','registered_uid','rejected_reason','level','region','source','phone','name','message'];
+      for (const f of fields) {
+        if (body[f] !== undefined) { sets.push(`${f} = ?`); binds.push(body[f]); }
+      }
+      // 자동 타임스탬프
+      if (body.status === 'contacted') { sets.push('contacted_at = ?'); binds.push(now); }
+      if (body.status === 'registered') { sets.push('registered_at = ?'); binds.push(now); }
+      binds.push(id);
+      await env.DB.prepare(`UPDATE inquiries SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+      const updated: any = await env.DB.prepare(`SELECT * FROM inquiries WHERE id = ?`).bind(id).first();
+      return json({ ok: true, id, row: updated });
+    }
+
+    // ── DELETE /api/admin/inquiry/:id ──
+    if (method === 'DELETE' && /^\/api\/admin\/inquiry\/\d+$/.test(path)) {
+      await ensureInquiryColumns();
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      await env.DB.prepare(`DELETE FROM inquiries WHERE id = ?`).bind(id).run();
+      return json({ ok: true, id, deleted: true });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 💌 Phase I1 끝
+    // ═══════════════════════════════════════════════════════════════
+
+    // ═══════════════════════════════════════════════════════════════
+    // 💼 Phase G1~G2 — 강사 급여 자동 정산
+    // ═══════════════════════════════════════════════════════════════
+
+    const ensurePayrollTable = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_payroll (id INTEGER PRIMARY KEY AUTOINCREMENT, teacher_id INTEGER NOT NULL, teacher_name TEXT, year INTEGER NOT NULL, month INTEGER NOT NULL, lesson_count INTEGER DEFAULT 0, total_minutes INTEGER DEFAULT 0, fee_per_10min INTEGER DEFAULT 0, calculated_amount INTEGER DEFAULT 0, adjusted_amount INTEGER, paid_amount INTEGER, status TEXT DEFAULT 'pending', paid_at INTEGER, memo TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, UNIQUE(teacher_id, year, month));`);
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_payroll_period ON teacher_payroll(year, month)`); } catch {}
+    };
+
+    // ── GET /api/admin/payroll/calculate?year=&month= — 월별 강사 급여 자동 계산 ──
+    //   class_schedules 에서 강사별 완료 수업 수 집계 → teacher_profiles.fee_per_10min 곱하여 계산
+    //   결과는 메모리에서만 반환 (DB 저장은 별도 POST /save)
+    if (method === 'GET' && path === '/api/admin/payroll/calculate') {
+      await ensurePayrollTable();
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, korean_name TEXT NOT NULL, english_name TEXT, fee_per_10min INTEGER, status TEXT DEFAULT '활동중', email TEXT, phone TEXT);`); } catch {}
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, teacher_id INTEGER, teacher_name TEXT, scheduled_date TEXT, day_of_week INTEGER, start_time TEXT, duration_minutes INTEGER, status TEXT);`); } catch {}
+
+      const now = new Date();
+      const year = parseInt(url.searchParams.get('year') || String(now.getFullYear()), 10);
+      const month = parseInt(url.searchParams.get('month') || String(now.getMonth() + 1), 10);
+      const defaultMinutes = parseInt(url.searchParams.get('default_minutes') || '30', 10);  // 수업 1회 기본 30분
+
+      // 강사 목록 + 단가
+      const teachers: any = await env.DB.prepare(
+        `SELECT id, korean_name, english_name, fee_per_10min FROM teacher_profiles WHERE status = '활동중' OR status IS NULL ORDER BY korean_name`
+      ).all().catch(() => ({ results: [] }));
+
+      // 해당 월에 완료된 수업 (status: 'active' 또는 'completed', 'attended' 등 — 'cancelled' 제외)
+      const ymPrefix = `${year}-${String(month).padStart(2,'0')}`;
+      const lessons: any = await env.DB.prepare(
+        `SELECT teacher_id, teacher_name, COUNT(*) AS lesson_count, SUM(COALESCE(duration_minutes, ${defaultMinutes})) AS total_min
+           FROM class_schedules
+          WHERE (scheduled_date LIKE ? OR scheduled_date LIKE ?)
+            AND COALESCE(status,'active') != 'cancelled'
+            AND teacher_id IS NOT NULL
+          GROUP BY teacher_id`
+      ).bind(ymPrefix + '%', ymPrefix + '/%').all().catch(() => ({ results: [] }));
+
+      const lessonMap: any = {};
+      (lessons.results || []).forEach((l: any) => { lessonMap[l.teacher_id] = l; });
+
+      // 기존 저장된 정산 (지급 상태 확인용)
+      const saved: any = await env.DB.prepare(
+        `SELECT * FROM teacher_payroll WHERE year = ? AND month = ?`
+      ).bind(year, month).all().catch(() => ({ results: [] }));
+      const savedMap: any = {};
+      (saved.results || []).forEach((s: any) => { savedMap[s.teacher_id] = s; });
+
+      const rows: any[] = [];
+      let totalAmount = 0, totalLessons = 0, paidCount = 0;
+      for (const t of (teachers.results || [])) {
+        const l = lessonMap[t.id] || { lesson_count: 0, total_min: 0 };
+        const fee = t.fee_per_10min || 0;
+        const calculated = Math.round((l.total_min / 10) * fee);
+        const s = savedMap[t.id];
+        totalAmount += calculated;
+        totalLessons += l.lesson_count || 0;
+        if (s && s.status === 'paid') paidCount++;
+        rows.push({
+          teacher_id: t.id,
+          korean_name: t.korean_name,
+          english_name: t.english_name,
+          fee_per_10min: fee,
+          lesson_count: l.lesson_count || 0,
+          total_minutes: l.total_min || 0,
+          calculated_amount: calculated,
+          // 저장된 정산이 있으면 그 값 우선
+          adjusted_amount: s?.adjusted_amount ?? null,
+          paid_amount: s?.paid_amount ?? null,
+          status: s?.status || 'pending',
+          paid_at: s?.paid_at || null,
+          memo: s?.memo || null,
+          payroll_id: s?.id || null,
+        });
+      }
+      return json({
+        ok: true, year, month,
+        summary: {
+          teacher_count: rows.length,
+          total_lessons: totalLessons,
+          total_amount: totalAmount,
+          paid_count: paidCount,
+          unpaid_count: rows.length - paidCount,
+        },
+        rows,
+      });
+    }
+
+    // ── POST /api/admin/payroll/save — 정산 결과 D1에 저장/업데이트 ──
+    //   body: { year, month, rows: [{ teacher_id, lesson_count, total_minutes, fee_per_10min, calculated_amount, adjusted_amount?, memo? }] }
+    if (method === 'POST' && path === '/api/admin/payroll/save') {
+      await ensurePayrollTable();
+      const body: any = await request.json().catch(() => ({}));
+      const year = parseInt(body.year, 10);
+      const month = parseInt(body.month, 10);
+      if (!year || !month || !Array.isArray(body.rows)) return json({ ok: false, error: 'year_month_rows_required' }, 400);
+      const now = Date.now();
+      let saved = 0;
+      for (const r of body.rows) {
+        try {
+          await env.DB.prepare(
+            `INSERT INTO teacher_payroll (teacher_id, teacher_name, year, month, lesson_count, total_minutes, fee_per_10min, calculated_amount, adjusted_amount, memo, status, created_at, updated_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+             ON CONFLICT(teacher_id, year, month) DO UPDATE SET
+               teacher_name = excluded.teacher_name,
+               lesson_count = excluded.lesson_count,
+               total_minutes = excluded.total_minutes,
+               fee_per_10min = excluded.fee_per_10min,
+               calculated_amount = excluded.calculated_amount,
+               adjusted_amount = excluded.adjusted_amount,
+               memo = excluded.memo,
+               updated_at = excluded.updated_at`
+          ).bind(
+            r.teacher_id, r.teacher_name || null, year, month,
+            r.lesson_count || 0, r.total_minutes || 0, r.fee_per_10min || 0,
+            r.calculated_amount || 0, r.adjusted_amount ?? null,
+            r.memo || null, 'pending', now, now
+          ).run();
+          saved++;
+        } catch (e: any) {
+          console.warn('[payroll] save err:', e?.message);
+        }
+      }
+      return json({ ok: true, year, month, saved });
+    }
+
+    // ── POST /api/admin/payroll/mark-paid — 지급 완료 처리 ──
+    //   body: { payroll_id?, teacher_id?, year?, month?, paid_amount?, memo? }
+    if (method === 'POST' && path === '/api/admin/payroll/mark-paid') {
+      await ensurePayrollTable();
+      const body: any = await request.json().catch(() => ({}));
+      const now = Date.now();
+      if (body.payroll_id) {
+        await env.DB.prepare(
+          `UPDATE teacher_payroll SET status='paid', paid_at=?, paid_amount=?, memo=COALESCE(?, memo), updated_at=? WHERE id=?`
+        ).bind(now, body.paid_amount || null, body.memo || null, now, body.payroll_id).run();
+        return json({ ok: true, payroll_id: body.payroll_id, status: 'paid' });
+      }
+      if (body.teacher_id && body.year && body.month) {
+        await env.DB.prepare(
+          `UPDATE teacher_payroll SET status='paid', paid_at=?, paid_amount=?, memo=COALESCE(?, memo), updated_at=? WHERE teacher_id=? AND year=? AND month=?`
+        ).bind(now, body.paid_amount || null, body.memo || null, now, body.teacher_id, body.year, body.month).run();
+        return json({ ok: true, teacher_id: body.teacher_id, year: body.year, month: body.month, status: 'paid' });
+      }
+      return json({ ok: false, error: 'payroll_id_or_teacher_year_month_required' }, 400);
+    }
+
+    // ── GET /api/admin/payroll/csv?year=&month= — 정산 CSV 다운로드 ──
+    if (method === 'GET' && path === '/api/admin/payroll/csv') {
+      await ensurePayrollTable();
+      const year = parseInt(url.searchParams.get('year') || String(new Date().getFullYear()), 10);
+      const month = parseInt(url.searchParams.get('month') || String(new Date().getMonth() + 1), 10);
+      const rs: any = await env.DB.prepare(
+        `SELECT * FROM teacher_payroll WHERE year = ? AND month = ? ORDER BY teacher_name`
+      ).bind(year, month).all().catch(() => ({ results: [] }));
+      const rows = rs.results || [];
+      const header = '강사ID,강사명,년월,수업횟수,총수업분,단가(10분),계산금액,조정금액,지급금액,상태,지급일,메모';
+      const csv = [header].concat(
+        rows.map((r: any) => [
+          r.teacher_id,
+          (r.teacher_name||'').replace(/,/g,' '),
+          `${r.year}-${String(r.month).padStart(2,'0')}`,
+          r.lesson_count || 0,
+          r.total_minutes || 0,
+          r.fee_per_10min || 0,
+          r.calculated_amount || 0,
+          r.adjusted_amount ?? '',
+          r.paid_amount ?? '',
+          r.status || 'pending',
+          r.paid_at ? new Date(r.paid_at).toISOString().slice(0,10) : '',
+          (r.memo||'').replace(/,/g,' ').replace(/\n/g,' '),
+        ].join(','))
+      ).join('\n');
+      // UTF-8 BOM 추가 (Excel 한글 깨짐 방지)
+      const bom = '﻿';
+      return new Response(bom + csv, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': `attachment; filename="payroll_${year}_${String(month).padStart(2,'0')}.csv"`,
+        }
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 💼 Phase G1 끝
+    // ═══════════════════════════════════════════════════════════════
+
     if (method === 'GET' && path === '/api/admin/stats/revenue') {
       // 신규 환경에서 student_payments 가 없을 수 있으니 자동 생성
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, period_start TEXT, period_end TEXT, amount_krw INTEGER NOT NULL, method TEXT, memo TEXT, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`);
