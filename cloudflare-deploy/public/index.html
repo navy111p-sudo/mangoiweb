@@ -8261,6 +8261,7 @@ window.addEventListener('DOMContentLoaded', () => {
         inquiryAudio.addEventListener('pause', updateAudioBtn);
         inquiryAudio.addEventListener('play', updateAudioBtn);
       }
+      inquiryAudio.volume = 0.5;     // 🆕 음성 볼륨을 50% (중간 정도 작게)
       inquiryAudio.currentTime = 0;
       var p = inquiryAudio.play();
       if (p && p.catch) p.catch(function(e){ console.warn('[inquiry] 음성 자동재생 차단:', e); updateAudioBtn(); });
