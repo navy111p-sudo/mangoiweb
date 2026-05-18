@@ -2641,6 +2641,168 @@ export async function handleMangoApi(
     // 💰 Phase F1~F2 끝
     // ═══════════════════════════════════════════════════════════════
 
+    // ═══════════════════════════════════════════════════════════════
+    // 📊 Phase D1~D2 — 운영 KPI 통합 대시보드
+    // ═══════════════════════════════════════════════════════════════
+
+    // ── GET /api/admin/kpi/dashboard — 학원 핵심 KPI 한 번에 ──
+    if (method === 'GET' && path === '/api/admin/kpi/dashboard') {
+      // 안전망 - 필요 테이블 모두 ensure
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, username TEXT, name TEXT, phone TEXT, parent_phone TEXT, status TEXT, created_at INTEGER);`); } catch {}
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, amount_krw INTEGER NOT NULL, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`); } catch {}
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, scheduled_date TEXT, status TEXT, created_at INTEGER);`); } catch {}
+
+      const now = Date.now();
+      // 이번 달 / 지난 달 기간
+      const d = new Date();
+      const thisMonthStart = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+      const thisMonthEnd = new Date(d.getFullYear(), d.getMonth()+1, 1).getTime();
+      const lastMonthStart = new Date(d.getFullYear(), d.getMonth()-1, 1).getTime();
+      const lastMonthEnd = thisMonthStart;
+      // 30일/7일
+      const last30Start = now - 30*86400*1000;
+      const last7Start = now - 7*86400*1000;
+
+      const fetch1 = async (sql: string, ...binds: any[]): Promise<any> => {
+        try { return await env.DB.prepare(sql).bind(...binds).first(); }
+        catch (e) { return {}; }
+      };
+      const fetchAll = async (sql: string, ...binds: any[]): Promise<any[]> => {
+        try { const rs = await env.DB.prepare(sql).bind(...binds).all(); return rs.results || []; }
+        catch (e) { return []; }
+      };
+
+      // 1. 학생 수
+      const studentTotal: any = await fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE (status = '정상' OR status = '활동' OR status IS NULL OR status = '')`);
+      const studentNewThisMonth: any = await fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ?`, thisMonthStart);
+      const studentNewLastMonth: any = await fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ? AND created_at < ?`, lastMonthStart, lastMonthEnd);
+
+      // 2. 매출
+      const revThisMonth: any = await fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND paid_at >= ? AND paid_at < ?`, thisMonthStart, thisMonthEnd);
+      const revLastMonth: any = await fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND paid_at >= ? AND paid_at < ?`, lastMonthStart, lastMonthEnd);
+
+      // 3. 출석 (point_rule_log attendance)
+      let attendanceThisMonth = 0, attendanceLastMonth = 0;
+      try {
+        const a1: any = await fetch1(`SELECT COUNT(*) AS n FROM point_rule_log WHERE rule_code='attendance' AND triggered_at >= ? AND triggered_at < ?`, thisMonthStart, thisMonthEnd);
+        attendanceThisMonth = a1?.n || 0;
+        const a2: any = await fetch1(`SELECT COUNT(*) AS n FROM point_rule_log WHERE rule_code='attendance' AND triggered_at >= ? AND triggered_at < ?`, lastMonthStart, lastMonthEnd);
+        attendanceLastMonth = a2?.n || 0;
+      } catch {}
+
+      // 4. 평가서
+      let evalAvgThisMonth = 0, evalCountThisMonth = 0, evalNotifiedThisMonth = 0;
+      try {
+        const e1: any = await fetch1(`SELECT IFNULL(AVG(score_overall),0) AS avg, COUNT(*) AS n, IFNULL(SUM(parent_notified),0) AS notified FROM student_evaluations WHERE created_at >= ? AND created_at < ?`, thisMonthStart, thisMonthEnd);
+        evalAvgThisMonth = Math.round((e1?.avg || 0) * 10) / 10;
+        evalCountThisMonth = e1?.n || 0;
+        evalNotifiedThisMonth = e1?.notified || 0;
+      } catch {}
+
+      // 5. 카톡 알림 발송 (미납)
+      let overdueNotifyThisMonth = 0;
+      try {
+        const o1: any = await fetch1(`SELECT COUNT(*) AS n FROM payment_overdue_log WHERE status='sent' AND sent_at >= ? AND sent_at < ?`, thisMonthStart, thisMonthEnd);
+        overdueNotifyThisMonth = o1?.n || 0;
+      } catch {}
+
+      // 6. 포인트 적립 합계 (이번 달)
+      let pointsEarnedThisMonth = 0, pointsSpentThisMonth = 0;
+      try {
+        const p1: any = await fetch1(`SELECT IFNULL(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END),0) AS earned, IFNULL(SUM(CASE WHEN amount < 0 THEN -amount ELSE 0 END),0) AS spent FROM point_transactions WHERE created_at >= ? AND created_at < ?`, thisMonthStart, thisMonthEnd);
+        pointsEarnedThisMonth = p1?.earned || 0;
+        pointsSpentThisMonth = p1?.spent || 0;
+      } catch {}
+
+      // 7. 채팅 메시지 수 (이번 달)
+      let chatMessagesThisMonth = 0;
+      try {
+        const c1: any = await fetch1(`SELECT COUNT(*) AS n FROM chat_messages WHERE sent_at >= ? AND sent_at < ?`, thisMonthStart, thisMonthEnd);
+        chatMessagesThisMonth = c1?.n || 0;
+      } catch {}
+
+      // 8. 미납 학생 수 (35일 기준)
+      let overdueCount = 0;
+      try {
+        const cutoff = now - 35 * 86400 * 1000;
+        const oc: any = await fetch1(`SELECT COUNT(DISTINCT s.user_id) AS n FROM students_erp s
+                                       WHERE (s.status = '정상' OR s.status = '활동' OR s.status IS NULL OR s.status = '')
+                                         AND s.user_id NOT IN (SELECT user_id FROM student_payments WHERE status='paid' AND paid_at >= ?)`, cutoff);
+        overdueCount = oc?.n || 0;
+      } catch {}
+
+      // 9. 신규 상담 (지난 30일)
+      let inquiryLast30 = 0;
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS inquiries (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, phone TEXT, message TEXT, created_at INTEGER);`);
+        const i1: any = await fetch1(`SELECT COUNT(*) AS n FROM inquiries WHERE created_at >= ?`, last30Start);
+        inquiryLast30 = i1?.n || 0;
+      } catch {}
+
+      // 10. 최근 7일 일별 매출 추세
+      const dailyRev: any[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const dayStart = new Date(); dayStart.setDate(dayStart.getDate() - i); dayStart.setHours(0,0,0,0);
+        const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);
+        const r: any = await fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum FROM student_payments WHERE status='paid' AND paid_at >= ? AND paid_at < ?`, dayStart.getTime(), dayEnd.getTime());
+        dailyRev.push({ date: dayStart.toISOString().slice(5,10), revenue: r?.sum || 0 });
+      }
+
+      // 비율 계산
+      const trend = (cur: number, prev: number) => {
+        if (prev === 0) return cur > 0 ? 100 : 0;
+        return Math.round(((cur - prev) / prev) * 1000) / 10;  // 소수 1자리
+      };
+
+      return json({
+        ok: true,
+        ts: now,
+        period: { this_month_start: thisMonthStart, this_month_end: thisMonthEnd, last_month_start: lastMonthStart },
+        kpi: {
+          students: {
+            total: studentTotal?.n || 0,
+            new_this_month: studentNewThisMonth?.n || 0,
+            new_last_month: studentNewLastMonth?.n || 0,
+            trend: trend(studentNewThisMonth?.n || 0, studentNewLastMonth?.n || 0),
+          },
+          revenue: {
+            this_month: revThisMonth?.sum || 0,
+            last_month: revLastMonth?.sum || 0,
+            this_month_count: revThisMonth?.n || 0,
+            trend: trend(revThisMonth?.sum || 0, revLastMonth?.sum || 0),
+          },
+          attendance: {
+            this_month: attendanceThisMonth,
+            last_month: attendanceLastMonth,
+            trend: trend(attendanceThisMonth, attendanceLastMonth),
+          },
+          evaluation: {
+            avg_score: evalAvgThisMonth,
+            count: evalCountThisMonth,
+            notified: evalNotifiedThisMonth,
+          },
+          overdue: {
+            count: overdueCount,
+            notified_this_month: overdueNotifyThisMonth,
+          },
+          points: {
+            earned_this_month: pointsEarnedThisMonth,
+            spent_this_month: pointsSpentThisMonth,
+          },
+          chat: {
+            messages_this_month: chatMessagesThisMonth,
+          },
+          inquiry: {
+            last_30_days: inquiryLast30,
+          },
+        },
+        daily_revenue: dailyRev,
+      });
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // 📊 Phase D1~D2 끝
+    // ═══════════════════════════════════════════════════════════════
+
     if (method === 'GET' && path === '/api/admin/stats/revenue') {
       // 신규 환경에서 student_payments 가 없을 수 있으니 자동 생성
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, period_start TEXT, period_end TEXT, amount_krw INTEGER NOT NULL, method TEXT, memo TEXT, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`);
