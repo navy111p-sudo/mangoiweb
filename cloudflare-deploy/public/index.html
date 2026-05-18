@@ -5515,6 +5515,8 @@ async function vcJoinRoom(skipUI) {
         const vCount = vcLocalStream.getVideoTracks().length;
         const aCount = vcLocalStream.getAudioTracks().length;
         console.log('[vc] 미디어 접근 성공: video:', vCount, 'audio:', aCount);
+        // 트랙별 누락 표시
+        if (vCount === 0) vcShowLocalPlaceholder('camera-off', '카메라 트랙 없음 — 카메라가 꺼져 있거나 권한이 거부됨');
         if (aCount === 0) {
             alert('⚠️ 마이크가 감지되지 않았습니다.\n\n• 우측 하단 [🛠] 진단 버튼을 눌러 자동 복구를 시도해 주세요.\n• 브라우저 주소창의 🎤 아이콘을 확인하세요.\n• OS 사운드 설정 → 입력 장치를 확인하세요.\n• 다른 앱(Zoom, Teams 등)이 마이크를 점유 중이면 종료하세요.');
         } else {
@@ -5527,12 +5529,17 @@ async function vcJoinRoom(skipUI) {
         // 카메라/마이크 없이도 계속 진행 (오디오만 or 빈 스트림)
         try {
             vcLocalStream = await acquireLocalMedia({ video: false, audio: true });
+            document.getElementById('vc-local-video').srcObject = vcLocalStream;
+            document.getElementById('vc-local-label').textContent = vcUsername + (currentLang==='ko'?' (나)':' (Me)');
+            attachStreamMonitor(document.getElementById('vc-local-box'), vcLocalStream);
+            vcAddDetachButton(document.getElementById('vc-local-box'));
+            vcUpdateGridCount();
             console.log('[vc] 오디오만 접근 성공');
-            alert('카메라 접근 실패 — 오디오만 사용합니다.\n\n' + msg);
+            vcShowLocalPlaceholder('camera-fail', msg);
         } catch(e2) {
             vcLocalStream = new MediaStream();
             console.warn('[vc] 미디어 완전 실패, 빈 스트림 사용');
-            alert('카메라/마이크 접근 실패\n\n' + describeMediaError(e2));
+            vcShowLocalPlaceholder('all-fail', describeMediaError(e2));
         }
     }
 
@@ -6178,6 +6185,82 @@ function vcMakeDraggable(box) {
     box.addEventListener('pointerup',   () => { dragging = false; });
     box.addEventListener('pointercancel', () => { dragging = false; });
 }
+
+/* ============================================================
+ * 🚨 본인 비디오 박스 — 카메라 오류 안내 placeholder
+ *   getUserMedia 실패 또는 비디오 트랙 0개일 때 검은 화면 대신
+ *   명확한 오류 안내 + [🔄 카메라 다시 시도] 버튼 표시
+ * ============================================================ */
+window.vcShowLocalPlaceholder = function(kind, errMsg) {
+    const box = document.getElementById('vc-local-box');
+    if (!box) return;
+    const old = box.querySelector('.vc-local-placeholder');
+    if (old) old.remove();
+    const ph = document.createElement('div');
+    ph.className = 'vc-local-placeholder';
+    ph.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e293b,#0f172a);color:#fff;padding:14px;text-align:center;z-index:4;border-radius:inherit;gap:8px;font-size:12px;line-height:1.5;';
+    const isEn = (typeof currentLang !== 'undefined' && currentLang === 'en');
+    const heads = {
+        'camera-off':  isEn ? '📷 Camera is off'           : '📷 카메라가 꺼져 있어요',
+        'camera-fail': isEn ? '⚠️ Camera access failed'    : '⚠️ 카메라를 사용할 수 없어요',
+        'all-fail':    isEn ? '🚫 No camera or microphone' : '🚫 카메라·마이크 모두 사용 불가'
+    };
+    const hints = {
+        'camera-off':  isEn ? 'Click below to try starting the camera again'                                 : '아래 버튼을 눌러 카메라를 다시 켜보세요',
+        'camera-fail': isEn ? 'Check browser permission OR another app (Zoom, Teams) using the camera'       : '브라우저 주소창의 🔒/📷 아이콘에서 권한을 허용하거나, 다른 앱(줌·팀즈)이 카메라를 점유 중인지 확인하세요',
+        'all-fail':    isEn ? 'Check device permissions in your OS settings'                                  : '브라우저 권한 또는 OS 설정에서 카메라·마이크 접근 권한을 확인해 주세요'
+    };
+    const icon = kind === 'camera-off' ? '📷' : kind === 'camera-fail' ? '⚠️' : '🚫';
+    ph.innerHTML =
+        '<div style="font-size:34px;line-height:1">' + icon + '</div>' +
+        '<div style="font-weight:700;font-size:13.5px;color:#fbbf24">' + (heads[kind]||'') + '</div>' +
+        '<div style="color:#cbd5e1;max-width:240px">' + (hints[kind]||'') + '</div>' +
+        (errMsg ? '<div style="font-size:10.5px;color:#94a3b8;max-width:240px;opacity:0.85">' + errMsg + '</div>' : '') +
+        '<button type="button" class="vc-local-retry-btn" style="margin-top:6px;padding:8px 18px;border:0;border-radius:99px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;box-shadow:0 8px 18px -8px rgba(124,58,237,0.55)">🔄 ' + (isEn?'Retry camera':'카메라 다시 시도') + '</button>';
+    box.appendChild(ph);
+    const btn = ph.querySelector('.vc-local-retry-btn');
+    if (btn) btn.onclick = () => vcRetryCamera();
+};
+window.vcHideLocalPlaceholder = function() {
+    const box = document.getElementById('vc-local-box');
+    if (!box) return;
+    const ph = box.querySelector('.vc-local-placeholder');
+    if (ph) ph.remove();
+};
+window.vcRetryCamera = async function() {
+    const box = document.getElementById('vc-local-box');
+    const btn = box && box.querySelector('.vc-local-retry-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ 시도 중…'; btn.style.opacity = '0.7'; }
+    try {
+        // 기존 트랙 정리 (다음 시도에서 권한이 잡히도록)
+        if (typeof vcLocalStream !== 'undefined' && vcLocalStream && vcLocalStream.getVideoTracks) {
+            vcLocalStream.getVideoTracks().forEach(t => { try { t.stop(); } catch(e){} });
+        }
+        const newStream = await acquireLocalMedia({ video: true, audio: true });
+        const v = document.getElementById('vc-local-video');
+        if (v) v.srcObject = newStream;
+        vcLocalStream = newStream;
+        // 모든 PC sender 의 비디오 트랙 교체 (참가자가 재시도된 영상을 보게)
+        const newVid = newStream.getVideoTracks()[0];
+        if (newVid && typeof vcPeerConnections === 'object' && vcPeerConnections) {
+            Object.values(vcPeerConnections).forEach(pc => {
+                try {
+                    const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                    if (sender) sender.replaceTrack(newVid);
+                } catch(e){}
+            });
+        }
+        if (newStream.getVideoTracks().length > 0) {
+            vcHideLocalPlaceholder();
+            console.log('[vc] 카메라 재시도 성공');
+        } else {
+            vcShowLocalPlaceholder('camera-off', '카메라 트랙이 여전히 없음');
+        }
+    } catch(e) {
+        console.warn('[vc] 카메라 재시도 실패:', e);
+        vcShowLocalPlaceholder('camera-fail', (typeof describeMediaError === 'function') ? describeMediaError(e) : (e && e.message || String(e)));
+    }
+};
 
 /** 비디오 박스에 소리·화면 상태 아이콘 + 음량 미터 부착 */
 function attachStreamMonitor(box, stream) {
