@@ -4982,7 +4982,70 @@ async function vcJoinRoom(skipUI) {
     //   ▶ attendance: 무조건 호출 (쿨다운 6h + 일일 1회는 서버에서 자동 차단)
     //   ▶ on_time: 가장 가까운 예정 수업과 현재시각 비교 → 5분 이내면 추가 적립
     setTimeout(() => { try { vcAutoEarnAttendance(); } catch(e) { console.warn('[vc-p5] attendance earn skip:', e); } }, 2500);
+    // 💬 Phase K1 — 채팅 영속화: 입장 직후 이전 채팅 로드
+    setTimeout(() => { try { vcLoadChatHistory(); } catch(e) { console.warn('[vc-k1] chat load:', e); } }, 1500);
+    // 📲 Phase K2 — 수업 시작 알림톡 (학생 본인 + 학부모 + 강사에게)
+    setTimeout(() => { try { vcNotifyLessonStarted(); } catch(e) { console.warn('[vc-k2] start notify:', e); } }, 3000);
 }
+
+// ═══════════════════════════════════════════════════════════════
+// 📲 Phase K2~K3 — 수업 시작/종료/요약 자동 알림톡 트리거
+// ═══════════════════════════════════════════════════════════════
+function vcNotifyLessonStarted() {
+    if (typeof vcIsObserver !== 'undefined' && vcIsObserver) return;  // 관찰자 제외
+    const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+    if (!u || !u.uid) return;
+    // 학생 본인 전화 (데모는 demoStudents 에서)
+    const s = (typeof demoStudents !== 'undefined') ? demoStudents[u.uid] : null;
+    if (!s || !s.phone) { console.log('[k2] phone 없음 → 알림 건너뜀'); return; }
+    fetch('/api/notify/lesson-started', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            room_id: vcRoomId, student_name: u.name, student_phone: s.phone,
+            parent_phone: s.parent_phone, lesson_title: s.lesson_title || '영어 수업',
+            teacher_name: s.teacher || '강사', room_url: location.origin + '/?room=' + vcRoomId,
+        })
+    }).then(r=>r.json()).then(d => {
+        if (d.ok) console.log('[k2] 수업 시작 알림 발송:', d.mode);
+        else console.log('[k2] 알림 건너뜀:', d.message || d.error);
+    }).catch(()=>{});
+    // 입장 시각 기록 (종료 시 duration 계산)
+    window.__vcStartedAt = Date.now();
+    window.__vcInitialChatCount = 0;
+}
+
+// 수업 종료 시 호출 (closeVideoCall 등에서 트리거)
+window.vcNotifyLessonEnded = function() {
+    if (!vcRoomId) return;
+    if (typeof vcIsObserver !== 'undefined' && vcIsObserver) return;
+    const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+    if (!u || !u.uid) return;
+    const s = (typeof demoStudents !== 'undefined') ? demoStudents[u.uid] : null;
+    if (!s) return;
+    const durationMin = window.__vcStartedAt ? Math.round((Date.now() - window.__vcStartedAt) / 60000) : 0;
+    const msgCount = document.querySelectorAll('#vc-chat-messages .chat-msg').length;
+    // 1) 수업 종료 알림 (학생/학부모/강사)
+    fetch('/api/notify/lesson-ended', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            room_id: vcRoomId, student_name: u.name,
+            student_phone: s.phone, parent_phone: s.parent_phone, teacher_phone: s.teacher_phone,
+            lesson_title: s.lesson_title || '영어 수업',
+            duration_minutes: durationMin, message_count: msgCount,
+        })
+    }).catch(()=>{});
+    // 2) 채팅 요약 알림 (학생/학부모)
+    setTimeout(() => {
+        fetch('/api/notify/chat-summary', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                room_id: vcRoomId, student_name: u.name,
+                student_phone: s.phone, parent_phone: s.parent_phone,
+                lesson_title: s.lesson_title || '영어 수업',
+            })
+        }).catch(()=>{});
+    }, 1500);
+};
 
 // ═══════════════════════════════════════════════════════════════
 // 🎁 Phase P5 — 화상수업 입장 → 자동 적립 (attendance + on_time)
@@ -7318,29 +7381,130 @@ function vpExtractYouTubeId(url) {
     return m ? m[1] : null;
 }
 
-// 🆕 빨간 YouTube 버튼 — URL 입력값에 따라 YouTube 새 탭 자동 열기
-//   - URL 비어있음 → youtube.com 메인
-//   - youtube/youtu.be URL → 그 영상 새 탭
-//   - 다른 URL (http://...) → 그 URL 새 탭
-//   - 검색어 (mango cat 같은) → YouTube 검색 결과 새 탭
+// 🆕 빨간 YouTube 버튼 — 칠판화면에 미니 YouTube(검색 + 자동 재생) UI 표시
+//   1) 주소창(vp-url) 에 'www.youtube.com' 자동 입력
+//   2) 칠판(vp-stage) 에 즉시 YouTube 패널을 그리고 인기/추천 영상을 자동 재생
+//   3) 패널 안 검색칸에 영상 URL 또는 ID를 붙여넣으면 즉시 임베드 재생
+//   * youtube.com 메인 페이지는 X-Frame-Options 정책으로 iframe 직접 임베드가 불가능하므로
+//     "사용 가능한 YouTube 영상"을 칠판에 자동으로 띄우는 형태로 구현
 function vpOpenYouTube() {
-    let raw = (document.getElementById('vp-url').value || '').trim();
+    const urlInput = document.getElementById('vp-url');
+    let raw = (urlInput?.value || '').trim();
+
+    // 1) URL 입력칸이 비어있으면 www.youtube.com 자동 입력 (주소창에 표시)
     if (!raw) {
-        window.open('https://www.youtube.com', '_blank', 'noopener');
-        return;
+        if (urlInput) urlInput.value = 'www.youtube.com';
+        raw = 'www.youtube.com';
     }
-    // 이미 완전한 URL이면 새 탭에 그대로
-    if (/^https?:\/\//i.test(raw)) {
-        window.open(raw, '_blank', 'noopener');
-        return;
-    }
-    // www. 로 시작하거나 .com/.net/.org 포함이면 https:// 붙여 새 탭
-    if (/^www\./i.test(raw) || /\.[a-z]{2,}(\/|$)/i.test(raw)) {
-        window.open('https://' + raw, '_blank', 'noopener');
-        return;
-    }
-    // 검색어로 보면 YouTube 검색
-    window.open('https://www.youtube.com/results?search_query=' + encodeURIComponent(raw), '_blank', 'noopener');
+
+    // 입력에 YouTube 영상 ID/URL 이 들어있으면 → 기존 vpLoadUrl 로 위임 (그 영상을 바로 재생)
+    const directId = (typeof vpExtractYouTubeId === 'function') ? vpExtractYouTubeId(raw) : null;
+    if (directId) { vpLoadUrl(); return; }
+
+    // 2) 칠판화면(vp-stage)에 YouTube 미니 브라우저 패널 렌더
+    const stage = (typeof vpIsFloating !== 'undefined' && vpIsFloating)
+        ? document.getElementById('vp-floating-body')
+        : document.getElementById('vp-stage');
+    if (!stage) return;
+
+    const isEn = (typeof currentLang !== 'undefined' && currentLang === 'en');
+
+    // 추천 영상 (embed 친화적 · 영어교육/동요/명강연 위주, 평생 안정된 인기 영상으로 선정)
+    const featured = [
+        { id: 'XqZsoesa55w', ko: '🦈 Baby Shark',          en: '🦈 Baby Shark' },
+        { id: '_UR-l3QI2nE', ko: '🎵 Super Simple Songs',  en: '🎵 Super Simple Songs' },
+        { id: 'iG9CE55wbtY', ko: '🎓 TED · 켄 로빈슨',     en: '🎓 TED · Ken Robinson' },
+        { id: 'arj7oStGLkU', ko: '✨ TED-Ed 추천',         en: '✨ TED-Ed Pick' },
+        { id: 'kJQP7kiw5Fk', ko: '🎶 Despacito',           en: '🎶 Despacito' },
+        { id: '9bZkp7q19f0', ko: '🕺 Gangnam Style',       en: '🕺 Gangnam Style' },
+        { id: 'JGwWNGJdvx8', ko: '🎤 Shape of You',        en: '🎤 Shape of You' },
+        { id: 'OPf0YbXqDm0', ko: '🎷 Uptown Funk',         en: '🎷 Uptown Funk' }
+    ];
+
+    stage.innerHTML = `
+        <div style="display:flex;flex-direction:column;height:100%;width:100%;background:#0f0f0f;color:#fff;overflow:hidden">
+          <div style="padding:10px 12px;background:#212121;display:flex;gap:8px;align-items:center;border-bottom:1px solid #303030;flex-wrap:wrap;flex-shrink:0">
+            <svg width="36" height="25" viewBox="0 0 159 110" style="flex-shrink:0">
+              <path d="M154 17.5c-1.82-6.73-7.07-12-13.8-13.8C128.2 0 79.5 0 79.5 0S30.8 0 18.7 3.7C12 5.5 6.7 10.8 4.9 17.5 1.2 29.6 1.2 55 1.2 55s0 25.4 3.7 37.5c1.82 6.73 7.07 12 13.8 13.8C30.8 110 79.5 110 79.5 110s48.7 0 60.8-3.7c6.73-1.82 12-7.07 13.8-13.8 3.7-12.1 3.7-37.5 3.7-37.5s0-25.4-3.7-37.5z" fill="#ff0000"/>
+              <path d="M64 78V32l40 23z" fill="#fff"/>
+            </svg>
+            <input id="vp-yt-search" type="text" placeholder="${isEn?'Paste YouTube URL or search query':'YouTube 주소 또는 검색어 입력'}"
+                   style="flex:1;min-width:160px;padding:9px 14px;border-radius:99px;border:1px solid #404040;background:#121212;color:#fff;font-size:13.5px;outline:none" />
+            <button id="vp-yt-go" style="padding:9px 16px;border:0;border-radius:99px;background:linear-gradient(135deg,#ff0000,#cc0000);color:#fff;font-weight:700;cursor:pointer;font-size:12.5px;white-space:nowrap;box-shadow:0 4px 12px rgba(255,0,0,.35)">🔍 ${isEn?'Play / Search':'재생 / 검색'}</button>
+            <button id="vp-yt-open" style="padding:9px 14px;border:1px solid #404040;border-radius:99px;background:transparent;color:#fff;font-weight:600;cursor:pointer;font-size:12px;white-space:nowrap">🔗 ${isEn?'New tab':'새 탭'}</button>
+          </div>
+          <div id="vp-yt-player" style="flex:1;min-height:0;position:relative;background:#000"></div>
+          <div id="vp-yt-rail" style="background:#181818;border-top:1px solid #303030;padding:8px 10px;display:flex;gap:8px;overflow-x:auto;flex-shrink:0">
+            ${featured.map(v => `
+              <button class="vp-yt-tile" data-vid="${v.id}" style="flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:6px;background:transparent;border:1px solid #303030;border-radius:8px;cursor:pointer;color:#fff;width:128px;transition:all .15s">
+                <img src="https://i.ytimg.com/vi/${v.id}/mqdefault.jpg" alt="" style="width:116px;height:65px;object-fit:cover;border-radius:5px;background:#000;display:block" loading="lazy" onerror="this.style.background='#222';this.style.height='65px'" />
+                <span style="font-size:10.5px;color:#ddd;font-weight:600;width:116px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left">${isEn?v.en:v.ko}</span>
+              </button>
+            `).join('')}
+          </div>
+        </div>`;
+
+    const searchInput = document.getElementById('vp-yt-search');
+    const playerBox   = document.getElementById('vp-yt-player');
+    const goBtn       = document.getElementById('vp-yt-go');
+    const openBtn     = document.getElementById('vp-yt-open');
+
+    // 🎯 패널 안에서 영상 재생 — ID/URL 이면 embed, 검색어면 새 탭 + 안내
+    const playInPlayer = (queryOrUrl) => {
+        const q = (queryOrUrl || '').trim();
+        if (!q) return;
+        playerBox.innerHTML = '';
+        const ytId = (typeof vpExtractYouTubeId === 'function' ? vpExtractYouTubeId(q) : null)
+                  || (/^[a-zA-Z0-9_-]{11}$/.test(q) ? q : null);
+
+        if (ytId) {
+            const iframe = document.createElement('iframe');
+            iframe.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0;background:#000';
+            iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+            iframe.allowFullscreen = true;
+            iframe.setAttribute('playsinline', '');
+            iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&playsinline=1`;
+            playerBox.appendChild(iframe);
+            // 다른 참가자에게도 자동 공유
+            if (typeof vcConn !== 'undefined' && vcConn) {
+                try { vcConn.send({ type: 'video-share', data: { url: `https://www.youtube.com/watch?v=${ytId}`, type: 'youtube' } }); } catch(e){}
+            }
+        } else {
+            // 검색어 → YouTube 검색 결과는 iframe 차단되므로 안내 + 새 탭 자동 열기
+            playerBox.innerHTML = `
+              <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;color:#fff;background:linear-gradient(180deg,#0a0a0a,#1a0000)">
+                <div style="font-size:48px;margin-bottom:14px">🔎</div>
+                <div style="font-size:15px;font-weight:700;margin-bottom:6px">${isEn?'Searching YouTube for':'YouTube 검색'}: "${q}"</div>
+                <div style="font-size:12px;color:#aaa;max-width:380px;line-height:1.55;margin-bottom:18px">${isEn?'YouTube blocks search inside iframes. The search has been opened in a new tab — copy a video URL and paste it above to play here.':'YouTube 검색은 보안 정책상 칠판 안에 직접 표시되지 않습니다. 새 탭에서 검색이 자동으로 열렸어요 — 원하는 영상의 주소를 복사해 위 입력칸에 붙여 넣으면 칠판에서 바로 재생됩니다.'}</div>
+                <button onclick="window.open('https://www.youtube.com/results?search_query=${encodeURIComponent(q)}','_blank','noopener')" style="padding:12px 26px;background:#ff0000;color:#fff;border:0;border-radius:99px;cursor:pointer;font-size:14px;font-weight:700;box-shadow:0 8px 22px rgba(255,0,0,.4)">🔗 ${isEn?'Open search again':'새 탭에서 다시 열기'}</button>
+              </div>`;
+            try { window.open('https://www.youtube.com/results?search_query=' + encodeURIComponent(q), '_blank', 'noopener'); } catch(e){}
+        }
+    };
+
+    goBtn.onclick = () => {
+        const v = (searchInput.value || '').trim();
+        if (!v) { window.open('https://www.youtube.com','_blank','noopener'); return; }
+        const u = document.getElementById('vp-url'); if (u) u.value = v;
+        playInPlayer(v);
+    };
+    searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') goBtn.click(); });
+    openBtn.onclick = () => window.open('https://www.youtube.com','_blank','noopener');
+
+    // 추천 영상 타일 → 즉시 재생
+    document.querySelectorAll('.vp-yt-tile').forEach(t => {
+        t.onclick = () => {
+            const vid = t.getAttribute('data-vid');
+            const u = document.getElementById('vp-url');
+            if (u) u.value = `https://www.youtube.com/watch?v=${vid}`;
+            playInPlayer(vid);
+        };
+        t.onmouseenter = () => { t.style.background = '#272727'; t.style.borderColor = '#555'; };
+        t.onmouseleave = () => { t.style.background = 'transparent'; t.style.borderColor = '#303030'; };
+    });
+
+    // 🎬 자동 재생: 첫 번째 추천 영상을 칠판에 바로 표시 → "YouTube 가 자동으로 칠판에 나오게" 충족
+    playInPlayer(featured[0].id);
 }
 
 function vpLoadUrl() {
@@ -7619,6 +7783,20 @@ function vcSendChat() {
     const text = input.value.trim();
     if (!text || !vcConn) return;
     vcConn.send({ type: 'chat-message', data: { message: text } });
+    // 🆕 Phase K1: D1에 영속 저장 (실시간 표시는 vcReceiveChat 에코로)
+    try {
+        fetch('/api/chat/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                room_id: vcRoomId,
+                sender_uid: vcUserId,
+                sender_name: vcUsername,
+                sender_role: (typeof vcIsObserver !== 'undefined' && vcIsObserver) ? 'observer' : 'student',
+                message: text,
+            })
+        }).catch(() => {});
+    } catch {}
     input.value = '';
 }
 
@@ -7627,7 +7805,7 @@ function vcReceiveChat(data) {
     const isMine = data.userId === vcUserId;
     const isSystem = data.type === 'system';
     const cls = isSystem ? 'system' : (isMine ? 'mine' : 'other');
-    const time = new Date().toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit'});
+    const time = new Date(data._loadedAt || Date.now()).toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit'});
 
     let html = `<div class="chat-msg ${cls}">`;
     if (!isSystem && !isMine) html += `<div class="msg-sender">${escHtml(data.username)}</div>`;
@@ -7636,12 +7814,38 @@ function vcReceiveChat(data) {
     container.innerHTML += html;
     container.scrollTop = container.scrollHeight;
 
-    if (!isMine && !document.getElementById('vc-chat-panel').classList.contains('open')) {
+    if (!isMine && !data._loadedAt && !document.getElementById('vc-chat-panel').classList.contains('open')) {
         chatUnread++;
         const badge = document.getElementById('vc-chat-badge');
         badge.textContent = chatUnread;
         badge.classList.remove('hidden');
     }
+}
+
+// 🆕 Phase K1: 방 입장 시 이전 채팅 200개 로드
+async function vcLoadChatHistory() {
+    if (!vcRoomId) return;
+    try {
+        const r = await fetch('/api/chat/messages?room_id=' + encodeURIComponent(vcRoomId) + '&limit=200');
+        const d = await r.json();
+        if (!d.ok || !d.rows || !d.rows.length) return;
+        const container = document.getElementById('vc-chat-messages');
+        if (!container) return;
+        // 시스템 로딩 표시
+        const banner = document.createElement('div');
+        banner.style.cssText = 'text-align:center;font-size:11px;color:#94a3b8;padding:6px;border-bottom:1px dashed rgba(255,255,255,.08);margin-bottom:6px';
+        banner.textContent = '─ 이전 채팅 ' + d.rows.length + '개 불러옴 ─';
+        container.appendChild(banner);
+        for (const m of d.rows) {
+            vcReceiveChat({
+                userId: m.sender_uid,
+                username: m.sender_name || '익명',
+                message: m.message,
+                type: (m.sender_role === 'system') ? 'system' : 'user',
+                _loadedAt: m.sent_at,        // 로드된 메시지 표시
+            });
+        }
+    } catch (e) { console.warn('[vc-chat] history load:', e); }
 }
 
 function vcAddChatSystem(message) {
@@ -14890,975 +15094,4 @@ window.closeRulesModal = function() {
 
   window.logout = function(){
     setUser(null);
-    document.getElementById('user-menu').classList.remove('show');
-    showLcToast2('👋 '+(((window.getLang?window.getLang():'ko')==='ko')?'로그아웃되었습니다.':'Signed out.'));
-  };
-
-  function showLcToast2(msg){
-    var t = document.getElementById('lc-toast');
-    if(!t) { alert(msg.replace(/<[^>]+>/g,'')); return; }
-    t.innerHTML = msg;
-    t.classList.add('show');
-    setTimeout(function(){ t.classList.remove('show'); }, 2500);
-  }
-
-  // 로그인 모달
-  window.openLoginModal = function(){
-    var L = (window.getLang?window.getLang():'ko')==='ko';
-    var ov = document.getElementById('login-overlay');
-    var cards = Object.values(demoStudents).map(function(s){
-      var ini = s.name.charAt(0);
-      return '<div class="student-card" onclick="doLogin(&quot;'+s.uid+'&quot;)">'+
-        '<div class="sc-avatar">'+ini+'</div>'+
-        '<div class="sc-name">'+s.name+'</div>'+
-        '<div class="sc-uid">'+s.uid+'</div>'+
-      '</div>';
-    }).join('');
-    var html = '<div class="login-modal" onclick="event.stopPropagation()">'+
-      '<h2>🔑 '+(L?'학생 로그인':'Student Login')+'</h2>'+
-      '<div class="lm-sub">'+(L?'본인 이름의 카드를 터치하면 로그인됩니다. (데모용)':'Tap your card to sign in (demo).')+'</div>'+
-      '<div class="lm-body">'+
-        '<div class="lm-label">'+(L?'학생 선택':'Pick Student')+'</div>'+
-        '<div class="student-cards">'+cards+'</div>'+
-      '</div>'+
-      '<div class="lm-actions"><button class="lm-btn" onclick="closeLoginModal()">'+(L?'취소':'Cancel')+'</button></div>'+
-    '</div>';
-    ov.innerHTML = html;
-    ov.classList.add('show');
-    document.body.style.overflow='hidden';
-  };
-  window.closeLoginModal = function(){
-    document.getElementById('login-overlay').classList.remove('show');
-    document.body.style.overflow='';
-  };
-  window.doLogin = function(uid){
-    var s = demoStudents[uid]; if(!s) return;
-    setUser({ uid:s.uid, name:s.name });
-    closeLoginModal();
-    showLcToast2('✅ '+(((window.getLang?window.getLang():'ko')==='ko')?(s.name+'님으로 로그인되었습니다.'):'Signed in as '+s.name+'.'));
-  };
-
-  // 페이지 로드 시 UI 갱신
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', updateLoginUI);
-  else setTimeout(updateLoginUI, 0);
-
-  // 언어 토글 시에도 라벨 갱신
-  document.addEventListener('mangoi:lang-change', updateLoginUI);
-})();
-
-// openLessonChangeModal 을 로그인 체크 + 본인 수업만 표시하도록 재정의
-(function(){
-  var origOpen = window.openLessonChangeModal;
-  window.openLessonChangeModal = function(){
-    var L = (window.getLang?window.getLang():'ko')==='ko';
-    var u = (typeof getCurrentUser==='function') ? getCurrentUser() : null;
-    if(!u){
-      // 로그인 필요 안내
-      var ov = document.getElementById('lc-overlay');
-      ov.innerHTML = '<div class="lc-modal" onclick="event.stopPropagation()">'+
-        '<div class="lc-head"><h2>🔑 '+(L?'로그인이 필요합니다':'Login Required')+'</h2><button class="lc-close" onclick="closeLessonChangeModal()">✕</button></div>'+
-        '<div class="lc-body" style="display:flex;align-items:center;justify-content:center">'+
-          '<div style="max-width:440px;width:100%;background:#131826;border:2px solid #ef4444;border-radius:18px;padding:32px 24px;text-align:center">'+
-            '<div style="font-size:64px;line-height:1;margin-bottom:14px">👤</div>'+
-            '<p style="color:#cbd5e1;font-size:14.5px;line-height:1.6;margin:0 0 22px">'+(L?'내 수업을 확인하려면<br>먼저 로그인해주세요.':'Please sign in first<br>to view your classes.')+'</p>'+
-            '<button onclick="closeLessonChangeModal();setTimeout(openLoginModal,150)" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-size:15px;font-weight:800;padding:14px 32px;border-radius:12px;border:none;cursor:pointer;box-shadow:0 6px 16px rgba(245,158,11,.4)">🔑 '+(L?'로그인 하기':'Sign In')+'</button>'+
-          '</div>'+
-        '</div>'+
-      '</div>';
-      ov.classList.add('show');
-      document.body.style.overflow='hidden';
-      return;
-    }
-    // 로그인된 학생의 수업으로 demoClasses 교체 후 원래 모달 호출
-    var s = window.__demoStudents[u.uid];
-    if(s && Array.isArray(s.classes)){
-      // 🥭 Phase 5: AI 등록 class_schedules 도 fetch 해서 머지 (실시간 반영)
-      mergeAiSchedulesAndRender(u.uid, s);
-    } else {
-      origOpen.call(window);
-    }
-  };
-
-  // 🥭 Phase 5: D1 class_schedules 를 fetch → student.classes 와 머지 → 모달 렌더
-  async function mergeAiSchedulesAndRender(uid, student){
-    var merged = Object.assign({}, student, { classes: (student.classes||[]).slice() });
-    try {
-      var r = await fetch('/api/admin/class-schedules?user_id=' + encodeURIComponent(uid), { credentials:'include' });
-      var j = await r.json();
-      if (j && j.ok && Array.isArray(j.items)) {
-        var dowIdx = { sun:0, mon:1, tue:2, wed:3, thu:4, fri:5, sat:6 };
-        var typeNames = { level_test:'레벨테스트', trial:'체험수업', regular:'정규수업' };
-        var todayMid = new Date(); todayMid.setHours(0,0,0,0);
-        for (var ai of j.items) {
-          if (ai.status === 'cancelled') continue;
-          var tm = String(ai.start_time||'').match(/^(\d{1,2}):(\d{2})$/);
-          if (!tm) continue;
-          var hh = parseInt(tm[1],10), mm = parseInt(tm[2],10);
-          if (ai.schedule_kind === 'recurring' && ai.day_of_week) {
-            // 향후 4주의 매주 occurrences 만들어 머지
-            var dows = String(ai.day_of_week).split(',').map(function(d){return dowIdx[d];}).filter(function(x){return x!==undefined;});
-            for (var w = 0; w < 4; w++) {
-              for (var di of dows) {
-                var d = new Date(todayMid);
-                var add = ((di - d.getDay() + 7) % 7) + (w * 7);
-                if (add === 0 && w === 0) continue; // 오늘은 이미 지났을 가능성 → 건너뜀
-                d.setDate(d.getDate() + add);
-                merged.classes.push({
-                  id: 'ai_' + ai.id + '_w' + w + '_d' + di,
-                  type: ai.class_type === 'trial' ? 'temp' : '1on1',
-                  teacher: '🤖 AI: ' + (ai.teacher_name || (typeNames[ai.class_type]||'정규')),
-                  lessonDate: d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'),
-                  lessonHour: hh,
-                  durationMin: 30,
-                  __aiSchedule: true
-                });
-              }
-            }
-          } else if (ai.scheduled_date) {
-            merged.classes.push({
-              id: 'ai_' + ai.id,
-              type: ai.class_type === 'trial' ? 'temp' : '1on1',
-              teacher: '🤖 AI: ' + (ai.teacher_name || (typeNames[ai.class_type]||'정규')),
-              lessonDate: ai.scheduled_date,
-              lessonHour: hh,
-              durationMin: 30,
-              __aiSchedule: true
-            });
-          }
-        }
-        // 시간순 정렬
-        merged.classes.sort(function(a,b){
-          var da = (a.lessonDate||'') + (String(a.lessonHour||0).padStart(2,'0'));
-          var db = (b.lessonDate||'') + (String(b.lessonHour||0).padStart(2,'0'));
-          return da.localeCompare(db);
-        });
-      }
-    } catch(e) { console.warn('[lc] AI schedules fetch failed:', e); }
-    renderMyClassList(merged);
-  }
-
-  function renderMyClassList(student){
-    var L = (window.getLang?window.getLang():'ko')==='ko';
-    var ov = document.getElementById('lc-overlay');
-    function pad(n){return String(n).padStart(2,'0');}
-    function getClsDt(c){
-      if(c.lessonDate && c.lessonHour!=null){
-        var parts = c.lessonDate.split('-');
-        var d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
-        d.setHours(c.lessonHour, 0, 0, 0);
-        return d;
-      }
-      if(c.hourOffset!=null){ var now=new Date(); return new Date(now.getTime()+c.hourOffset*3600*1000); }
-      var d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()+(c.dateOffset||0)); d.setHours(c.hour); return d;
-    }
-    function fmt(d){ var dn=L?['일','월','화','수','목','금','토']:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-      return d.getFullYear()+'.'+pad(d.getMonth()+1)+'.'+pad(d.getDate())+' ('+dn[d.getDay()]+') '+pad(d.getHours())+':'+pad(d.getMinutes()); }
-    function diffMin(d){ return (d-new Date())/60000; }
-
-    var items = student.classes.map(function(c){
-      var dt = getClsDt(c);
-      var diff = diffMin(dt);
-      var typeLbl = c.type==='1on1'?(L?'1대1':'1-on-1'):(c.type==='group'?(L?'그룹':'Group'):(L?'임시':'Temp'));
-      var typeCls = c.type==='1on1'?'t1on1':(c.type==='group'?'group':'t1on1');
-      var left;
-      if(diff<0) left = L?'이미 시작/종료':'Past';
-      else if(diff<60) left = Math.round(diff)+(L?'분 남음':'min');
-      else if(diff<1440) left = Math.round(diff/60)+(L?'시간 남음':'h');
-      else left = Math.round(diff/1440)+(L?'일 남음':'d');
-      return '<div class="lc-item">'+
-        '<div class="lc-item-head">'+
-          '<div class="lc-item-title">'+(c.type==='1on1'?'🟣':(c.type==='group'?'💗':'🔵'))+' '+c.teacher+'</div>'+
-          '<span class="lc-item-type '+typeCls+'">'+typeLbl+'</span>'+
-        '</div>'+
-        '<div class="lc-item-meta">'+
-          '📅 <b>'+fmt(dt)+'</b><br>'+
-          '⏰ '+left+' · '+c.durationMin+(L?'분':'min')+
-        '</div>'+
-        '<div class="lc-actions">'+
-          '<button class="lc-btn postpone" onclick="tryMyAction(&quot;'+c.id+'&quot;,&quot;postpone&quot;)">📅 '+(L?'연기':'Postpone')+'</button>'+
-          '<button class="lc-btn change" onclick="tryMyAction(&quot;'+c.id+'&quot;,&quot;change&quot;)">🔄 '+(L?'변경':'Change')+'</button>'+
-        '</div>'+
-      '</div>';
-    }).join('');
-
-    var html = '<div class="lc-modal" onclick="event.stopPropagation()">'+
-      '<div class="lc-head"><h2>📅 '+(L?student.name+' 님의 수업':student.name+'\'s Classes')+'</h2>'+
-      '<button class="lc-close" onclick="closeLessonChangeModal()">✕</button></div>'+
-      '<div class="lc-body">'+
-        '<div class="lc-info">💡 <b>'+(L?'규정 안내':'Policy')+'</b><br>'+
-          '· '+(L?'<b>연기</b>: 수업 시작 <b>30분 전</b>까지 가능':'<b>Postpone</b>: 30 min before')+'<br>'+
-          '· '+(L?'<b>변경</b>: 수업 시작 <b>24시간 전</b>까지 가능':'<b>Change</b>: 24 h before')+
-        '</div>'+
-        '<div class="lc-list">'+(items||'<div class="lc-empty">'+(L?'예정된 수업이 없습니다.':'No upcoming classes.')+'</div>')+'</div>'+
-      '</div></div>';
-    ov.innerHTML = html;
-    ov.classList.add('show');
-    document.body.style.overflow='hidden';
-
-    // 본인 수업 액션 처리
-    window.tryMyAction = function(clsId, mode){
-      var c = student.classes.find(function(x){return x.id===clsId;});
-      if(!c) return;
-      var dt = getClsDt(c);
-      var diff = diffMin(dt);
-      var minReq = mode==='postpone'?30:1440;
-      if(diff < minReq){
-        var L=(window.getLang?window.getLang():'ko')==='ko';
-        var title = mode==='postpone'?(L?'연기할 수 없습니다':'Cannot Postpone'):(L?'변경할 수 없습니다':'Cannot Change');
-        var msg = mode==='postpone'
-          ? (L?'죄송합니다. 수업전 30분이 지나 연기할 수 없습니다.':'Sorry. Postponing is only allowed up to 30 minutes before class.')
-          : (L?'죄송합니다. 수업 전 24시간이 지나 변경하실 수 없습니다.':'Sorry. Changes are only allowed up to 24 hours before class.');
-        var detail = '📅 <b>'+fmt(dt)+'</b><br>⏰ '+(diff<0?(L?'이미 시작/종료':'Past'):(Math.round(diff)+(L?'분 남음':' min')))+'<br>'+(L?'급한 경우 학원에 직접 연락 부탁드립니다.':'Please contact the center directly.');
-        var rejHtml = '<div class="lc-reject" onclick="event.stopPropagation()"><div class="lc-rej-ico">😔</div><h3>'+title+'</h3><p>'+msg+'</p><div class="lc-rej-detail">'+detail+'</div><button onclick="closeLessonChangeModal()">'+(L?'확인':'OK')+'</button></div>';
-        document.getElementById('lc-overlay').innerHTML = rejHtml;
-        return;
-      }
-      // 통과 → 4-method 위저드 (기존)
-      if(typeof openLessonPickerModal==='function'){
-        // ★ 학생 데이터의 같은 객체 c 를 그대로 전달 (참조 유지)
-        // → lcConfirmPicker 에서 c.lessonDate/lessonHour 를 직접 수정하면 학생 데이터도 자동 동기화
-        if(!c.students) c.students = [{name:student.name, uid:student.uid}];
-        openLessonPickerModal(c, mode);
-      }
-    };
-  }
-})();
-</script>
-
-<!-- 💻 PC 원격지원 — 3옵션 모달 (Quick Assist / Chrome Remote / AnyDesk) -->
-<script>
-(function(){
-  var L = function(){ return (window.getLang ? window.getLang() : 'ko') === 'ko'; };
-
-  // 🆕 원격지원 안내 음성 (중간 볼륨 자동재생 + 우상단 🔇 토글)
-  var rsAudio = null;
-  function playRsGreeting(){
-    try {
-      if (!rsAudio) {
-        rsAudio = new Audio('/audio/원격조정.wav');
-        rsAudio.preload = 'auto';
-        rsAudio.addEventListener('ended', updateRsAudioBtn);
-        rsAudio.addEventListener('pause', updateRsAudioBtn);
-        rsAudio.addEventListener('play', updateRsAudioBtn);
-      }
-      rsAudio.volume = 0.5;
-      rsAudio.currentTime = 0;
-      var p = rsAudio.play();
-      if (p && p.catch) p.catch(function(e){ console.warn('[rs] 음성 차단:', e); updateRsAudioBtn(); });
-      updateRsAudioBtn();
-    } catch(e) { console.warn('[rs] audio err:', e); }
-  }
-  function stopRsGreeting(){
-    if (rsAudio) { try { rsAudio.pause(); rsAudio.currentTime = 0; } catch(e){} }
-    updateRsAudioBtn();
-  }
-  function updateRsAudioBtn(){
-    var btn = document.getElementById('rs-audio-btn');
-    if (!btn) return;
-    var playing = rsAudio && !rsAudio.paused && !rsAudio.ended;
-    btn.innerHTML = playing ? '🔇' : '🔊';
-    btn.style.borderColor = playing ? 'rgba(251,191,36,.7)' : 'rgba(251,191,36,.45)';
-  }
-  window.rsToggleAudio = function(){
-    if (rsAudio && !rsAudio.paused) stopRsGreeting();
-    else playRsGreeting();
-  };
-
-  window.openRemoteSupportModal = function(){
-    var ov = document.getElementById('rs-overlay');
-    if (!ov) {
-      ov = document.createElement('div');
-      ov.id = 'rs-overlay';
-      ov.style.cssText = 'position:fixed;inset:0;background:rgba(5,7,18,.86);backdrop-filter:blur(14px);display:none;z-index:11500;padding:24px 16px;overflow-y:auto;animation:lcFade .2s';
-      ov.addEventListener('click', function(e){ if (e.target===ov) closeRemoteSupportModal(); });
-      document.body.appendChild(ov);
-    }
-    var isKo = L();
-    var options = [
-      {
-        rank: '🥇 '+(isKo?'가장 추천':'TOP PICK'),
-        title: 'Microsoft Quick Assist',
-        sub: isKo ? 'Windows 내장 · 설치 불필요' : 'Built into Windows · No install',
-        icon: '🪟',
-        accent: '#10b981',
-        secure: 5, easy: 5,
-        steps: isKo
-          ? ['<b>Win 키</b> 누르고 "<b>빠른 지원</b>" 또는 "<b>Quick Assist</b>" 검색','강사가 알려준 <b>6자리 코드</b> 입력','연결 → 도움 완료 후 자동 종료']
-          : ['Press <b>Win key</b>, search "<b>Quick Assist</b>"','Enter the <b>6-digit code</b> from your teacher','Connect → auto-close when done'],
-        note: isKo ? '✓ Windows 10/11 기본 내장 · ✓ MS 보안 인프라 · ✓ 세션 종료 시 권한 즉시 회수' : '✓ Built-in Win 10/11 · ✓ MS infra · ✓ Auto-revoke on close',
-        action: function(){ window.open('ms-quick-assist:', '_self'); setTimeout(function(){ alert(isKo?'Quick Assist가 안 열리면 Win 키 → "빠른 지원" 검색해 주세요.':'If not opened, press Win → search "Quick Assist".'); }, 800); },
-        actionLabel: isKo?'⚡ Quick Assist 열기':'⚡ Open Quick Assist'
-      },
-      {
-        rank: '🥈 '+(isKo?'무료 · 브라우저':'Free · Browser'),
-        title: 'Chrome Remote Desktop',
-        sub: isKo ? 'Chrome 브라우저만 있으면 OK' : 'Just need Chrome browser',
-        icon: '🌐',
-        accent: '#60a5fa',
-        secure: 5, easy: 4,
-        steps: isKo
-          ? ['Chrome 브라우저에서 페이지 열기 (자동으로 새 탭)','Google 계정 로그인 → "원격 지원" 탭','강사가 보낸 <b>액세스 코드</b> 입력']
-          : ['Open the page in Chrome (auto new tab)','Sign in with Google → "Remote Support" tab','Enter the <b>access code</b> from teacher'],
-        note: isKo ? '✓ Google 보안 인프라 · ✓ 설치 0 · ✓ 모바일 지원' : '✓ Google infra · ✓ Zero install · ✓ Mobile OK',
-        action: function(){ window.open('https://remotedesktop.google.com/support', '_blank'); },
-        actionLabel: isKo?'🌐 Chrome Remote 열기':'🌐 Open Chrome Remote'
-      },
-      {
-        rank: '🥉 '+(isKo?'고급 사용자':'For Advanced'),
-        title: 'AnyDesk',
-        sub: isKo ? '한 번 설치 후 빠른 P2P 연결' : 'Install once, fast P2P',
-        icon: '⚡',
-        accent: '#f59e0b',
-        secure: 3, easy: 3,
-        steps: isKo
-          ? ['8MB 무료 다운로드 (새 탭에서 열림)','설치 → <b>9자리 ID</b>가 화면에 표시됨','ID를 카카오톡 상담으로 전송 → 강사 연결']
-          : ['Download 8MB free (new tab)','Install → <b>9-digit ID</b> appears','Send ID via KakaoTalk → teacher connects'],
-        note: isKo ? '⚠ 2024년 보안사고 이력 · 빠른 속도가 장점 · 한국 학원 표준' : '⚠ 2024 security incident · Fast · Common in Korean schools',
-        action: function(){ window.open('https://anydesk.com/ko/downloads', '_blank'); },
-        actionLabel: isKo?'⬇ AnyDesk 다운로드':'⬇ Download AnyDesk'
-      }
-    ];
-    var cards = options.map(function(o, i){
-      var dots = function(n){ return '<span style="color:#fde68a">'+'★'.repeat(n)+'</span><span style="color:#475569">'+'★'.repeat(5-n)+'</span>'; };
-      var stepsHtml = '<ol style="margin:10px 0 0;padding-left:20px;font-size:12.5px;color:#cbd5e1;line-height:1.7">'+o.steps.map(function(s){return '<li>'+s+'</li>';}).join('')+'</ol>';
-      return '<div style="background:linear-gradient(180deg,#1a2032,#131826);border:1px solid '+o.accent+';border-left:5px solid '+o.accent+';border-radius:14px;padding:14px 16px;margin-bottom:12px">'+
-        // 1) 상단 rank 알약 (한 줄 강제, 카드 폭 안에서 자연스럽게)
-        '<div style="display:inline-block;font-size:11px;color:'+o.accent+';font-weight:800;text-transform:uppercase;letter-spacing:.5px;background:rgba(255,255,255,.05);padding:4px 10px;border-radius:99px;margin-bottom:10px;white-space:nowrap">'+o.rank+'</div>'+
-        // 2) 헤더: 아이콘 + 제목 + 부제 (전폭 사용)
-        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">'+
-          '<div style="font-size:28px;width:48px;height:48px;background:rgba(255,255,255,.06);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+o.icon+'</div>'+
-          '<div style="flex:1;min-width:0">'+
-            '<div style="font-size:17px;font-weight:800;color:#fff;line-height:1.25;word-break:keep-all;letter-spacing:-.3px">'+o.title+'</div>'+
-            '<div style="font-size:12px;color:#94a3b8;margin-top:3px;word-break:keep-all;line-height:1.4">'+o.sub+'</div>'+
-          '</div>'+
-        '</div>'+
-        // 3) 보안 / 편의 등급 한 줄
-        '<div style="font-size:11px;color:#94a3b8;display:flex;gap:16px;padding:8px 10px;background:rgba(0,0,0,.2);border-radius:8px;white-space:nowrap;flex-wrap:wrap">'+
-          '<span>'+(isKo?'보안':'Security')+' '+dots(o.secure)+'</span>'+
-          '<span>'+(isKo?'편의':'Ease')+' '+dots(o.easy)+'</span>'+
-        '</div>'+
-        stepsHtml +
-        '<div style="font-size:11px;color:#94a3b8;margin-top:10px;padding:8px 10px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.6">'+o.note+'</div>'+
-        '<button onclick="rsRun('+i+')" style="margin-top:12px;width:100%;padding:11px;background:linear-gradient(135deg,'+o.accent+',rgba(0,0,0,.2));color:#fff;border:0;border-radius:10px;font-size:13.5px;font-weight:800;cursor:pointer;letter-spacing:-.2px">'+o.actionLabel+'</button>'+
-      '</div>';
-    }).join('');
-    window._rsOptions = options;
-    ov.innerHTML = '<div style="max-width:640px;margin:0 auto;background:linear-gradient(180deg,#1a2032,#131826);border:1px solid rgba(251,191,36,.32);border-radius:22px;box-shadow:0 30px 80px -10px rgba(0,0,0,.7);overflow:hidden;color:#e2e8f0;font-family:\'Noto Sans KR\',sans-serif">'+
-      '<div style="padding:18px 22px;background:linear-gradient(135deg,rgba(251,191,36,.18),rgba(245,158,11,.08));border-bottom:1px solid rgba(251,191,36,.3);display:flex;align-items:center;gap:8px">'+
-        '<span style="font-size:24px">💻</span>'+
-        '<h2 style="margin:0;flex:1;font-size:18px;font-weight:800;color:#fff">'+(isKo?'PC 원격지원 — 안전한 방법 선택':'Remote Support — Pick safest option')+'</h2>'+
-        '<button id="rs-audio-btn" type="button" title="안내 음성 끄기/켜기" onclick="rsToggleAudio()" style="background:rgba(20,28,48,.65);border:1px solid rgba(251,191,36,.45);color:#fde68a;width:32px;height:32px;border-radius:50%;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);padding:0;line-height:1">🔊</button>'+
-        '<button onclick="closeRemoteSupportModal()" style="background:rgba(255,255,255,.08);border:0;color:#cbd5e1;width:32px;height:32px;border-radius:50%;font-size:14px;cursor:pointer">✕</button>'+
-      '</div>'+
-      '<div style="padding:16px 18px;max-height:75vh;overflow-y:auto">'+
-        '<div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);border-left:4px solid #60a5fa;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#bfdbfe;line-height:1.6">'+
-          (isKo?'💡 <b>Windows 사용자는 Quick Assist 가장 권장</b> — 설치도 필요 없고 가장 안전합니다. AnyDesk는 한 번 써본 학생만 추천.':'💡 <b>Windows users: Quick Assist recommended</b> — no install needed, safest.')+
-        '</div>'+
-        cards +
-        '<div style="margin-top:14px;text-align:center;font-size:11.5px;color:#94a3b8">'+
-          (isKo?'어떤 방법이든 연결 후엔 카카오상담 또는 1:1 채팅으로 강사와 연락하세요':'After connecting, message your teacher via KakaoTalk or 1:1 chat')+
-        '</div>'+
-      '</div>'+
-    '</div>';
-    ov.style.display = 'block';
-    document.body.style.overflow = 'hidden';
-    // 🆕 안내 음성 자동 재생 (모달 그려진 후 0.2초 뒤)
-    setTimeout(playRsGreeting, 200);
-  };
-  window.closeRemoteSupportModal = function(){
-    var ov = document.getElementById('rs-overlay');
-    if (ov) ov.style.display = 'none';
-    document.body.style.overflow = '';
-    stopRsGreeting();    // 모달 닫으면 음성 즉시 정지
-  };
-  window.rsRun = function(idx){
-    var o = (window._rsOptions||[])[idx];
-    if (o && o.action) o.action();
-  };
-})();
-</script>
-
-<!-- 🆕 출석체크 + 학원 랭킹 + 학습목표 — 3개 신규 카드 핸들러 -->
-<style>
-  .feat-overlay{position:fixed;inset:0;background:rgba(5,7,18,.85);backdrop-filter:blur(12px);display:none;z-index:11000;padding:30px 16px;overflow-y:auto;animation:lcFade .2s}
-  .feat-overlay.show{display:block}
-  .feat-modal{max-width:640px;margin:0 auto;background:linear-gradient(180deg,#1a2032 0%,#131826 100%);border:1px solid rgba(251,191,36,.32);border-radius:22px;box-shadow:0 30px 80px -10px rgba(0,0,0,.7);overflow:hidden;color:#e2e8f0;font-family:'Noto Sans KR',-apple-system,sans-serif;animation:lcSlide .25s ease-out}
-  .feat-head{padding:20px 24px;background:linear-gradient(135deg,rgba(251,191,36,.18),rgba(245,158,11,.08));border-bottom:1px solid rgba(251,191,36,.3);display:flex;align-items:center;gap:14px}
-  .feat-head h2{margin:0;flex:1;font-size:20px;font-weight:800;color:#fff}
-  .feat-close{background:rgba(255,255,255,.08);border:0;color:#cbd5e1;width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer}
-  .feat-close:hover{background:rgba(239,68,68,.2);color:#fff}
-  .feat-body{padding:22px 24px;max-height:75vh;overflow-y:auto}
-  /* 출석 캘린더 */
-  .cal-streak-row{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:8px}
-  .cal-streak-day{aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#94a3b8;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);position:relative}
-  .cal-streak-day.done{background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;font-weight:800;box-shadow:0 4px 12px -2px rgba(245,158,11,.4)}
-  .cal-streak-day.today{border:2px solid #fbbf24;box-shadow:0 0 0 3px rgba(251,191,36,.18)}
-  .cal-streak-day.future{opacity:.4}
-  /* 랭킹 */
-  .lb-row{display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:12px;margin-bottom:8px;transition:all .15s}
-  .lb-row:hover{background:rgba(251,191,36,.08);transform:translateX(2px)}
-  .lb-row.me{background:linear-gradient(90deg,rgba(251,191,36,.20),rgba(245,158,11,.10));border-color:rgba(251,191,36,.55)}
-  .lb-rank{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;background:rgba(255,255,255,.08);color:#cbd5e1;flex-shrink:0}
-  .lb-rank.g1{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a}
-  .lb-rank.g2{background:linear-gradient(135deg,#cbd5e1,#94a3b8);color:#1a1a1a}
-  .lb-rank.g3{background:linear-gradient(135deg,#fb923c,#c2410c);color:#fff}
-  .lb-name{flex:1;font-weight:700;color:#fff;font-size:14px}
-  .lb-pts{font-weight:800;color:#fde68a;font-family:'Inter',monospace;font-size:14px}
-  /* 챌린지 */
-  .gl-card{padding:14px 16px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);border-radius:12px;margin-bottom:10px}
-  .gl-title{font-size:14.5px;font-weight:800;color:#fff;margin-bottom:4px;display:flex;align-items:center;gap:6px}
-  .gl-progress-wrap{height:10px;background:rgba(0,0,0,.3);border-radius:99px;overflow:hidden;margin-top:8px}
-  .gl-progress-bar{height:100%;background:linear-gradient(90deg,#10b981,#34d399);transition:width .5s ease}
-  .gl-meta{font-size:11.5px;color:#94a3b8;margin-top:6px;display:flex;justify-content:space-between}
-</style>
-<script>
-(function(){
-  const L = () => (window.getLang ? window.getLang() : 'ko') === 'ko';
-  function getModal(){
-    let ov = document.getElementById('feat-overlay');
-    if (!ov) {
-      ov = document.createElement('div');
-      ov.id = 'feat-overlay'; ov.className = 'feat-overlay';
-      ov.onclick = (e) => { if (e.target === ov) closeFeat(); };
-      document.body.appendChild(ov);
-    }
-    return ov;
-  }
-  window.closeFeat = function(){
-    const ov = document.getElementById('feat-overlay');
-    if (ov) ov.classList.remove('show');
-    document.body.style.overflow = '';
-  };
-
-  // ════════════════ 🔥 출석 체크 ════════════════
-  window.openDailyCheckin = async function(){
-    const ov = getModal();
-    const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
-    const isKo = L();
-    if (!u) {
-      if (typeof openLoginModal === 'function') { openLoginModal(); return; }
-      alert(isKo?'로그인이 필요합니다':'Login required'); return;
-    }
-    // 최근 30일 출석 기록 — localStorage 기반 (서버 attendance와 별개로 표시용)
-    const todayStr = new Date().toISOString().slice(0,10);
-    const key = 'mangoi_checkin_' + u.uid;
-    let log = {};
-    try { log = JSON.parse(localStorage.getItem(key) || '{}'); } catch {}
-    const alreadyToday = !!log[todayStr];
-    // 연속 출석 일수 계산
-    let streak = 0;
-    const d = new Date();
-    for (let i = 0; i < 365; i++) {
-      const s = d.toISOString().slice(0,10);
-      if (log[s]) { streak++; d.setDate(d.getDate() - 1); }
-      else { if (i === 0 && !alreadyToday) { d.setDate(d.getDate() - 1); continue; } break; }
-    }
-    // 7주 캘린더 (오늘 기준 -6주 ~ 이번주)
-    const today = new Date(); today.setHours(0,0,0,0);
-    const startDay = new Date(today); startDay.setDate(today.getDate() - today.getDay() - 42); // 7주 전 일요일
-    let calHtml = '';
-    const dn = ['일','월','화','수','목','금','토'];
-    calHtml += '<div class="cal-streak-row">'+dn.map(d=>`<div style="text-align:center;font-size:11px;color:#94a3b8;font-weight:700">${d}</div>`).join('')+'</div>';
-    for (let w = 0; w < 7; w++) {
-      calHtml += '<div class="cal-streak-row">';
-      for (let i = 0; i < 7; i++) {
-        const cur = new Date(startDay); cur.setDate(startDay.getDate() + w*7 + i);
-        const sStr = cur.toISOString().slice(0,10);
-        const isFuture = cur.getTime() > today.getTime();
-        const isToday = sStr === todayStr;
-        const done = !!log[sStr];
-        const cls = ['cal-streak-day', done?'done':'', isToday?'today':'', isFuture?'future':''].filter(Boolean).join(' ');
-        const lbl = done ? '🔥' : String(cur.getDate());
-        calHtml += `<div class="${cls}" title="${sStr}">${lbl}</div>`;
-      }
-      calHtml += '</div>';
-    }
-    const monthDone = Object.keys(log).filter(k => k.startsWith(new Date().toISOString().slice(0,7))).length;
-    ov.innerHTML = `<div class="feat-modal">
-      <div class="feat-head">
-        <span style="font-size:28px">🔥</span>
-        <h2>${isKo?'출석 체크':'Daily Check-in'}</h2>
-        <button class="feat-close" onclick="closeFeat()">✕</button>
-      </div>
-      <div class="feat-body">
-        <div style="display:flex;gap:10px;margin-bottom:18px">
-          <div style="flex:1;background:linear-gradient(135deg,#f59e0b,#ef4444);padding:14px 16px;border-radius:12px;text-align:center">
-            <div style="font-size:11px;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.5px">${isKo?'연속':'Streak'}</div>
-            <div style="font-size:28px;font-weight:900;color:#fff">🔥 ${streak}${isKo?'일':' days'}</div>
-          </div>
-          <div style="flex:1;background:rgba(255,255,255,.05);padding:14px 16px;border-radius:12px;text-align:center;border:1px solid rgba(255,255,255,.08)">
-            <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px">${isKo?'이번 달':'This Month'}</div>
-            <div style="font-size:28px;font-weight:900;color:#fde68a">${monthDone}${isKo?'일':' days'}</div>
-          </div>
-        </div>
-        <div style="margin-bottom:14px">${calHtml}</div>
-        <button id="checkin-btn" ${alreadyToday?'disabled':''} onclick="doDailyCheckin('${u.uid}','${escapeAttr(u.name||'')}','${todayStr}')"
-                style="width:100%;padding:14px;background:${alreadyToday?'rgba(255,255,255,.08)':'linear-gradient(135deg,#fbbf24,#f59e0b)'};color:${alreadyToday?'#94a3b8':'#1a1a1a'};border:0;border-radius:12px;font-size:15px;font-weight:800;cursor:${alreadyToday?'default':'pointer'};box-shadow:${alreadyToday?'none':'0 6px 20px -4px rgba(245,158,11,.5)'}">
-          ${alreadyToday ? (isKo?'✅ 오늘 출석 완료':'✅ Checked in today') : (isKo?'🔥 오늘 출석하기 +10P':'🔥 Check in +10P')}
-        </button>
-        <div style="margin-top:12px;font-size:11.5px;color:#94a3b8;text-align:center;line-height:1.6">
-          ${isKo?'7일 연속 +20P · 30일 연속 +100P 보너스':'7-day streak +20P · 30-day streak +100P bonus'}
-        </div>
-      </div>
-    </div>`;
-    ov.classList.add('show');
-    document.body.style.overflow = 'hidden';
-  };
-  window.doDailyCheckin = async function(uid, name, todayStr){
-    // 1) localStorage 기록
-    const key = 'mangoi_checkin_' + uid;
-    let log = {};
-    try { log = JSON.parse(localStorage.getItem(key) || '{}'); } catch {}
-    log[todayStr] = Date.now();
-    localStorage.setItem(key, JSON.stringify(log));
-    // 2) 서버 적립
-    try {
-      const r = await fetch('/api/points/earn-by-rule', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ user_id: uid, student_name: name, rule_code: 'attendance', meta:{source:'daily_checkin'}})
-      });
-      const d = await r.json();
-      if (d.ok) {
-        alert((L()?'🔥 출석 +':'🔥 Check-in +') + (d.rule?.amount||10) + 'P');
-        if (typeof refreshPointsChip === 'function') refreshPointsChip();
-      } else if (d.error === 'cooldown' || d.error === 'daily_cap_reached') {
-        alert(L()?'✅ 이미 오늘 출석했어요':'✅ Already checked in today');
-      }
-    } catch(e) {}
-    openDailyCheckin(); // 다시 그리기
-  };
-
-  // ════════════════ 🏆 학원 랭킹 ════════════════
-  window.openLeaderboard = async function(){
-    const ov = getModal();
-    const isKo = L();
-    const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
-    ov.innerHTML = `<div class="feat-modal">
-      <div class="feat-head">
-        <span style="font-size:28px">🏆</span>
-        <h2>${isKo?'학원 랭킹 — 이번 달':'Leaderboard — This Month'}</h2>
-        <button class="feat-close" onclick="closeFeat()">✕</button>
-      </div>
-      <div class="feat-body" id="lb-body">${isKo?'불러오는 중…':'Loading…'}</div>
-    </div>`;
-    ov.classList.add('show');
-    document.body.style.overflow = 'hidden';
-    // 학생 잔액 목록 fetch (관리자 API 재사용 - 공개되어 있음)
-    try {
-      const r = await fetch('/api/admin/points/list');
-      const d = await r.json();
-      const all = (d.rows || []).slice().sort((a,b) => (b.lifetime_earned||0) - (a.lifetime_earned||0)).slice(0, 10);
-      const meIdx = u ? all.findIndex(x => x.user_id === u.uid) : -1;
-      const rowsHtml = all.length === 0
-        ? `<div style="padding:40px;text-align:center;color:#94a3b8">${isKo?'아직 활동 데이터가 없습니다.':'No activity yet.'}</div>`
-        : all.map((s, i) => {
-            const rankCls = i===0?'g1':(i===1?'g2':(i===2?'g3':''));
-            const rankIcon = i===0?'🥇':(i===1?'🥈':(i===2?'🥉':(i+1)));
-            const isMe = u && s.user_id === u.uid;
-            const name = s.student_name || s.user_id;
-            return `<div class="lb-row ${isMe?'me':''}">
-              <div class="lb-rank ${rankCls}">${rankIcon}</div>
-              <div class="lb-name">${escapeText(name)}${isMe?(isKo?' <span style="font-size:11px;color:#fde68a;font-weight:600">(나)</span>':' <span style="font-size:11px;color:#fde68a;font-weight:600">(me)</span>'):''}</div>
-              <div class="lb-pts">${(s.lifetime_earned||0).toLocaleString('ko-KR')} P</div>
-            </div>`;
-          }).join('');
-      const myStat = (u && meIdx < 0)
-        ? `<div style="margin-top:16px;padding:14px;background:rgba(251,191,36,.08);border:1px dashed rgba(251,191,36,.35);border-radius:12px;text-align:center;font-size:13px;color:#fde68a">${isKo?'TOP 10 진입까지 분발하세요! 🔥':'Keep going to enter TOP 10! 🔥'}</div>`
-        : '';
-      document.getElementById('lb-body').innerHTML = rowsHtml + myStat;
-    } catch(e) {
-      document.getElementById('lb-body').innerHTML = `<div style="padding:30px;text-align:center;color:#ef4444">${isKo?'로드 실패':'Load failed'}</div>`;
-    }
-  };
-
-  // ════════════════ 🎯 학습 목표 / 30일 챌린지 ════════════════
-  window.openLearningGoals = function(){
-    const ov = getModal();
-    const isKo = L();
-    const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
-    if (!u) {
-      if (typeof openLoginModal === 'function') { openLoginModal(); return; }
-    }
-    const uid = u ? u.uid : 'guest';
-    // 챌린지 진행 — localStorage
-    const key = 'mangoi_goals_' + uid;
-    let goals = [];
-    try { goals = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
-    if (!goals.length) {
-      // 기본 챌린지 4개
-      const now = Date.now();
-      goals = [
-        { id:'attend30', label:isKo?'30일 출석':'30-day Attendance', target:30, current:0, reward:500, created:now },
-        { id:'study50', label:isKo?'수업 50회 듣기':'50 Classes', target:50, current:0, reward:1000, created:now },
-        { id:'words100', label:isKo?'단어 100개 학습':'100 Words Learned', target:100, current:0, reward:300, created:now },
-        { id:'speak10', label:isKo?'발음연습 10회':'Speech Practice ×10', target:10, current:0, reward:200, created:now },
-      ];
-      localStorage.setItem(key, JSON.stringify(goals));
-    }
-    const cards = goals.map(g => {
-      const pct = Math.min(100, Math.round((g.current/g.target)*100));
-      const done = g.current >= g.target;
-      return `<div class="gl-card" style="${done?'border-color:#fbbf24;background:rgba(251,191,36,.10)':''}">
-        <div class="gl-title">${done?'🏆':'🎯'} ${escapeText(g.label)}</div>
-        <div class="gl-progress-wrap"><div class="gl-progress-bar" style="width:${pct}%"></div></div>
-        <div class="gl-meta">
-          <span>${g.current} / ${g.target} (${pct}%)</span>
-          <span style="color:#fde68a">${done?(isKo?'✅ 보상 수령 가능':'✅ Claim reward'):''} 🎁 ${g.reward}P</span>
-        </div>
-      </div>`;
-    }).join('');
-    ov.innerHTML = `<div class="feat-modal">
-      <div class="feat-head">
-        <span style="font-size:28px">🎯</span>
-        <h2>${isKo?'학습 목표 · 30일 챌린지':'Learning Goals · 30-day Challenge'}</h2>
-        <button class="feat-close" onclick="closeFeat()">✕</button>
-      </div>
-      <div class="feat-body">
-        <div style="background:rgba(96,165,250,.07);border:1px solid rgba(96,165,250,.25);border-left:4px solid #60a5fa;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;line-height:1.6;color:#bfdbfe">
-          🎯 ${isKo?'목표를 달성하면 자동으로 포인트가 적립됩니다. 매일 조금씩 꾸준히!':'Complete goals to earn points automatically. Small daily steps!'}
-        </div>
-        ${cards}
-      </div>
-    </div>`;
-    ov.classList.add('show');
-    document.body.style.overflow = 'hidden';
-  };
-
-  function escapeText(s) { return String(s||'').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'})[c]); }
-  function escapeAttr(s) { return escapeText(s); }
-})();
-</script>
-
-<!-- 🤖 AI 검색창 placeholder 강제 보장 — 새로고침/언어전환/탭복귀에도 무조건 표시 -->
-<script>
-(function(){
-  const KO_PH = '🤖 AI에게 물어보기 - 원하시는 것을 알려주세요.';
-  const EN_PH = '🤖 Ask AI - tell me what you need.';
-
-  function enforceAiSearchPlaceholder(opts){
-    const input = document.getElementById('ai-home-input');
-    if (!input) return;
-    // 이전 검색어/자동완성 잔류 방지 (페이지 리셋 시)
-    if (opts && opts.clearValue) input.value = '';
-    // 언어에 맞는 placeholder 강제 (다른 스크립트가 덮어쓰면 복구)
-    const lang = (window.getLang ? window.getLang() : 'ko');
-    const target = (lang === 'en') ? EN_PH : KO_PH;
-    if (input.placeholder !== target) input.placeholder = target;
-    // data-* 도 항상 최신값으로 (다국어 토글 안전)
-    input.setAttribute('data-ko-placeholder', KO_PH);
-    input.setAttribute('data-en-placeholder', EN_PH);
-  }
-
-  // 1) 페이지 로드 시 강제 (clearValue: true)
-  function initEnforce(){ enforceAiSearchPlaceholder({ clearValue: true }); }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initEnforce);
-  else initEnforce();
-
-  // 2) 페이지 완전 로드 후 한 번 더 (다른 스크립트 초기화 후 덮어씀 방지)
-  window.addEventListener('load', () => enforceAiSearchPlaceholder({ clearValue: true }));
-
-  // 3) bfcache (뒤로가기) 복원 시 — value 보존된 채 다시 보일 때 비움
-  window.addEventListener('pageshow', (e) => enforceAiSearchPlaceholder({ clearValue: !!e.persisted }));
-
-  // 4) 탭 전환 후 돌아왔을 때
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) enforceAiSearchPlaceholder(); });
-
-  // 5) 언어 토글 시 즉시 적용
-  document.addEventListener('mangoi:lang-change', enforceAiSearchPlaceholder);
-
-  // 6) 안전망 — placeholder 가 외부 스크립트로 변경되면 자동 복구 (MutationObserver)
-  function observePlaceholder(){
-    const input = document.getElementById('ai-home-input');
-    if (!input) { setTimeout(observePlaceholder, 500); return; }
-    new MutationObserver((mutations) => {
-      for (const m of mutations) {
-        if (m.attributeName === 'placeholder') {
-          const lang = (window.getLang ? window.getLang() : 'ko');
-          const target = (lang === 'en') ? EN_PH : KO_PH;
-          // 다른 값으로 바뀌면 즉시 되돌림 (무한루프 방지: 같은 값으로 set 하면 mutation 안 발생)
-          if (input.placeholder !== target) input.placeholder = target;
-        }
-      }
-    }).observe(input, { attributes: true, attributeFilter: ['placeholder'] });
-  }
-  observePlaceholder();
-})();
-</script>
-
-<!-- 📢 Phase POP — 학생 페이지 팝업/공지 시스템 -->
-<style>
-  /* 팝업 컨테이너 영역 */
-  .pa-stack {
-    position: fixed; inset: 0;
-    z-index: 9500;
-    pointer-events: none;
-  }
-  .pa-modal {
-    position: absolute;
-    background: #fff;
-    color: #1f2937;
-    border-radius: 14px;
-    box-shadow: 0 24px 80px -10px rgba(0,0,0,0.65),
-                0 0 0 1px rgba(255,255,255,0.08),
-                0 0 60px rgba(251,191,36,0.15);
-    overflow: hidden;
-    display: flex; flex-direction: column;
-    pointer-events: auto;
-    animation: paAppear 0.3s cubic-bezier(.34,1.56,.64,1);
-    resize: both;
-    min-width: 280px; min-height: 200px;
-    max-width: 92vw; max-height: 90vh;
-  }
-  @keyframes paAppear {
-    from { opacity: 0; transform: scale(0.92) translateY(20px); }
-    to   { opacity: 1; transform: scale(1) translateY(0); }
-  }
-  .pa-pos-center { top: 50%; left: 50%; transform: translate(-50%, -50%); }
-  .pa-pos-top    { top: 6%; left: 50%; transform: translateX(-50%); }
-  .pa-pos-bottom { bottom: 6%; left: 50%; transform: translateX(-50%); }
-  .pa-pos-tl     { top: 5%; left: 3%; }
-  .pa-pos-tr     { top: 5%; right: 3%; }
-  .pa-pos-bl     { bottom: 5%; left: 3%; }
-  .pa-pos-br     { bottom: 5%; right: 3%; }
-  .pa-head {
-    display: flex; align-items: center; gap: 10px;
-    padding: 12px 16px;
-    background: linear-gradient(135deg, #fbbf24, #f59e0b);
-    color: #1f2937; cursor: move;
-    flex-shrink: 0;
-  }
-  .pa-head .pa-title {
-    flex: 1; font-size: 15px; font-weight: 800;
-    text-overflow: ellipsis; overflow: hidden; white-space: nowrap;
-  }
-  .pa-head .pa-close {
-    background: rgba(0,0,0,0.18); border: 0; color: #fff;
-    width: 28px; height: 28px; border-radius: 50%;
-    font-size: 14px; cursor: pointer; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .pa-head .pa-close:hover { background: rgba(0,0,0,0.35); }
-  .pa-body {
-    flex: 1; overflow: auto;
-    padding: 16px;
-    line-height: 1.6;
-    font-size: 14px;
-  }
-  .pa-body img, .pa-body video, .pa-body iframe {
-    max-width: 100%; height: auto; border-radius: 8px;
-    margin: 6px 0; display: block;
-  }
-  .pa-body video, .pa-body iframe {
-    width: 100%; aspect-ratio: 16/9; height: auto;
-  }
-  .pa-link-btn {
-    display: inline-block; margin-top: 10px;
-    background: linear-gradient(135deg, #fbbf24, #f59e0b);
-    color: #1a1a1a; text-decoration: none;
-    padding: 10px 22px; border-radius: 99px;
-    font-weight: 800; font-size: 14px;
-    box-shadow: 0 6px 16px rgba(245,158,11,0.4);
-  }
-  .pa-link-btn:hover { transform: translateY(-1px); }
-  .pa-foot {
-    border-top: 1px solid #e5e7eb;
-    padding: 9px 14px;
-    display: flex; align-items: center; gap: 14px;
-    font-size: 12px; color: #6b7280;
-    background: #f9fafb;
-    flex-shrink: 0;
-  }
-  .pa-foot label { cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
-  .pa-foot input[type=checkbox] { cursor: pointer; }
-  .pa-foot .pa-spacer { flex: 1; }
-  .pa-foot button {
-    background: #e5e7eb; border: 0;
-    padding: 5px 12px; border-radius: 6px; cursor: pointer;
-    font-size: 11.5px; font-weight: 700; color: #374151;
-  }
-  .pa-foot button:hover { background: #d1d5db; }
-  /* 모바일 — 위치 강제 중앙 + 폭 92vw */
-  @media (max-width: 640px) {
-    .pa-modal {
-      position: absolute !important;
-      top: 50% !important; left: 50% !important;
-      right: auto !important; bottom: auto !important;
-      transform: translate(-50%, -50%) !important;
-      width: 92vw !important; max-width: 92vw !important;
-      resize: vertical;
-    }
-    .pa-head .pa-title { font-size: 14px; }
-    .pa-body { padding: 12px; font-size: 13px; }
-  }
-</style>
-<script>
-(function(){
-  // 페이지 로드 + 학생 로그인 변화 시 팝업 가져오기
-  async function paLoadAndShow() {
-    try {
-      const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
-      const uid = u && u.uid ? u.uid : '';
-      const r = await fetch('/api/popups' + (uid ? '?uid=' + encodeURIComponent(uid) : ''));
-      const d = await r.json();
-      if (!d.ok || !d.rows || !d.rows.length) return;
-      // 이미 표시 중인 팝업은 제거
-      const old = document.getElementById('pa-stack');
-      if (old) old.remove();
-      const stack = document.createElement('div');
-      stack.id = 'pa-stack';
-      stack.className = 'pa-stack';
-      document.body.appendChild(stack);
-      // 우선순위 정렬 + 같은 위치 충돌 시 위치 어긋나게
-      const positionCount = {};
-      d.rows.forEach((p, idx) => {
-        const pos = p.position || 'center';
-        positionCount[pos] = (positionCount[pos] || 0) + 1;
-        paRender(p, stack, uid, positionCount[pos] - 1);
-        // 노출 기록
-        fetch('/api/popups/' + p.id + '/view', {
-          method: 'POST', headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ uid })
-        }).catch(()=>{});
-      });
-    } catch(e) {
-      console.warn('[popup] 로드 실패:', e);
-    }
-  }
-  function paRender(p, stack, uid, offsetIndex) {
-    const isMobile = window.innerWidth <= 640;
-    const w = isMobile && p.width_mobile ? p.width_mobile : (p.width || 480);
-    const h = isMobile && p.height_mobile ? p.height_mobile : (p.height || 360);
-    const m = document.createElement('div');
-    m.className = 'pa-modal pa-pos-' + (p.position || 'center');
-    m.style.width = w + 'px';
-    m.style.height = h + 'px';
-    m.dataset.popupId = p.id;
-    // 같은 위치에 여러 개면 어긋나게
-    if (offsetIndex > 0) {
-      const dx = offsetIndex * 24, dy = offsetIndex * 24;
-      if (m.classList.contains('pa-pos-center')) {
-        m.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-      } else if (m.classList.contains('pa-pos-top')) {
-        m.style.transform = `translate(calc(-50% + ${dx}px), ${dy}px)`;
-      } else if (m.classList.contains('pa-pos-bottom')) {
-        m.style.transform = `translate(calc(-50% + ${dx}px), -${dy}px)`;
-      } else {
-        m.style.marginTop = (offsetIndex * 24) + 'px';
-        m.style.marginLeft = (offsetIndex * 24) + 'px';
-      }
-    }
-    // 본문 HTML 구성
-    let bodyHtml = '';
-    if (p.image_url) bodyHtml += `<img src="${escAttr(p.image_url)}" alt="${escAttr(p.title)}" />`;
-    if (p.video_url) {
-      const isExternal = /^https?:\/\//.test(p.video_url) && !/\.(mp4|webm|mov)(\?|$)/i.test(p.video_url);
-      if (isExternal) {
-        // YouTube/Vimeo 등은 iframe 으로
-        const yt = p.video_url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
-        const embedUrl = yt ? 'https://www.youtube.com/embed/' + yt[1] : p.video_url;
-        bodyHtml += `<iframe src="${escAttr(embedUrl)}" frameborder="0" allowfullscreen></iframe>`;
-      } else {
-        bodyHtml += `<video src="${escAttr(p.video_url)}" controls preload="metadata"></video>`;
-      }
-    }
-    if (p.body_html) bodyHtml += '<div style="margin-top:10px">' + p.body_html + '</div>';
-    if (p.link_url) {
-      const txt = p.link_text || '자세히 보기 →';
-      bodyHtml += `<div style="text-align:center;margin-top:14px"><a class="pa-link-btn" href="${escAttr(p.link_url)}" target="_blank" rel="noopener" onclick="paTrackClick(${p.id}, this.href)">${escapeText(txt)}</a></div>`;
-    }
-    // dismissal 옵션
-    const dOpts = (p.dismiss_options || 'today,7days').split(',').map(s=>s.trim()).filter(Boolean);
-    const dButtons = dOpts.map(opt => {
-      const label = opt === 'today' ? '오늘 하루 안보기' :
-                    opt === '7days' ? '7일간 안보기' :
-                    opt === '30days' ? '30일간 안보기' : opt;
-      return `<button onclick="paDismiss(${p.id},'${opt}','${escAttr(uid)}')">${label}</button>`;
-    }).join('');
-    m.innerHTML = `
-      <div class="pa-head">
-        <div class="pa-title">📢 ${escapeText(p.title)}</div>
-        <button class="pa-close" onclick="this.closest('.pa-modal').remove()" title="닫기">✕</button>
-      </div>
-      <div class="pa-body">${bodyHtml}</div>
-      <div class="pa-foot">
-        ${dButtons}<div class="pa-spacer"></div>
-        <button onclick="this.closest('.pa-modal').remove()">닫기</button>
-      </div>`;
-    // 드래그 (헤더 잡고 이동)
-    const head = m.querySelector('.pa-head');
-    let drag = null;
-    head.addEventListener('mousedown', (e) => {
-      if (e.target.closest('.pa-close')) return;
-      const rect = m.getBoundingClientRect();
-      drag = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
-      m.style.transform = 'none';
-      m.style.top = rect.top + 'px';
-      m.style.left = rect.left + 'px';
-      m.style.right = 'auto'; m.style.bottom = 'auto';
-      e.preventDefault();
-    });
-    document.addEventListener('mousemove', (e) => {
-      if (!drag) return;
-      m.style.left = (e.clientX - drag.dx) + 'px';
-      m.style.top = (e.clientY - drag.dy) + 'px';
-    });
-    document.addEventListener('mouseup', () => { drag = null; });
-    stack.appendChild(m);
-  }
-  window.paDismiss = async function(popupId, period, uid) {
-    if (!uid) {
-      // 비로그인은 localStorage 로만 처리
-      try {
-        const key = 'mangoi_popup_dismiss_' + popupId;
-        const until = period === 'today' ? new Date(new Date().setHours(23,59,59,999)).getTime()
-                    : period === '7days' ? Date.now() + 7*86400*1000
-                    : Date.now() + 30*86400*1000;
-        localStorage.setItem(key, String(until));
-      } catch {}
-    } else {
-      try {
-        await fetch('/api/popups/' + popupId + '/dismiss', {
-          method: 'POST', headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ uid, period })
-        });
-      } catch {}
-    }
-    const el = document.querySelector(`.pa-modal[data-popup-id="${popupId}"]`);
-    if (el) el.remove();
-  };
-  window.paTrackClick = function(popupId, target) {
-    const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
-    const uid = u && u.uid ? u.uid : '';
-    fetch('/api/popups/' + popupId + '/click', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ uid, target })
-    }).catch(()=>{});
-  };
-  function escapeText(s) { return String(s||'').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'})[c]); }
-  function escAttr(s) { return escapeText(s); }
-
-  // 로컬 dismiss 필터링 (비로그인 케이스)
-  function paFilterLocalDismissed(rows) {
-    const now = Date.now();
-    return rows.filter(p => {
-      try {
-        const v = localStorage.getItem('mangoi_popup_dismiss_' + p.id);
-        return !v || Number(v) < now;
-      } catch { return true; }
-    });
-  }
-
-  // 페이지 로드 1.5초 후 팝업 표시 (메인 콘텐츠 로드 우선)
-  function paInit() {
-    setTimeout(paLoadAndShow, 1500);
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', paInit);
-  else paInit();
-
-  // 로그인 변화 시 다시 로드 (학생 로그인 → 본인용 dismiss 반영)
-  document.addEventListener('mangoi:user-change', paLoadAndShow);
-})();
-</script>
-
-</body>
-</html>
+    document.getElementById('user-menu').classL
