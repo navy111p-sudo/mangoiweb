@@ -15192,18 +15192,22 @@ window.closeRulesModal = function() {
     ];
     var cards = options.map(function(o, i){
       var dots = function(n){ return '<span style="color:#fde68a">'+'★'.repeat(n)+'</span><span style="color:#475569">'+'★'.repeat(5-n)+'</span>'; };
-      var stepsHtml = '<ol style="margin:8px 0 0;padding-left:20px;font-size:12.5px;color:#cbd5e1;line-height:1.7">'+o.steps.map(function(s){return '<li>'+s+'</li>';}).join('')+'</ol>';
-      return '<div style="background:linear-gradient(180deg,#1a2032,#131826);border:1px solid '+o.accent+';border-left:5px solid '+o.accent+';border-radius:14px;padding:16px 18px;margin-bottom:12px">'+
-        '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+
+      var stepsHtml = '<ol style="margin:10px 0 0;padding-left:20px;font-size:12.5px;color:#cbd5e1;line-height:1.7">'+o.steps.map(function(s){return '<li>'+s+'</li>';}).join('')+'</ol>';
+      return '<div style="background:linear-gradient(180deg,#1a2032,#131826);border:1px solid '+o.accent+';border-left:5px solid '+o.accent+';border-radius:14px;padding:14px 16px;margin-bottom:12px">'+
+        // 1) 상단 rank 알약 (한 줄 강제, 카드 폭 안에서 자연스럽게)
+        '<div style="display:inline-block;font-size:11px;color:'+o.accent+';font-weight:800;text-transform:uppercase;letter-spacing:.5px;background:rgba(255,255,255,.05);padding:4px 10px;border-radius:99px;margin-bottom:10px;white-space:nowrap">'+o.rank+'</div>'+
+        // 2) 헤더: 아이콘 + 제목 + 부제 (전폭 사용)
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">'+
           '<div style="font-size:28px;width:48px;height:48px;background:rgba(255,255,255,.06);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+o.icon+'</div>'+
           '<div style="flex:1;min-width:0">'+
-            '<div style="font-size:11px;color:'+o.accent+';font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">'+o.rank+'</div>'+
-            '<div style="font-size:16.5px;font-weight:800;color:#fff">'+o.title+'</div>'+
-            '<div style="font-size:12px;color:#94a3b8;margin-top:1px">'+o.sub+'</div>'+
+            '<div style="font-size:17px;font-weight:800;color:#fff;line-height:1.25;word-break:keep-all;letter-spacing:-.3px">'+o.title+'</div>'+
+            '<div style="font-size:12px;color:#94a3b8;margin-top:3px;word-break:keep-all;line-height:1.4">'+o.sub+'</div>'+
           '</div>'+
-          '<div style="text-align:right;font-size:10.5px;color:#94a3b8;line-height:1.5">'+
-            (isKo?'보안':'Security')+' '+dots(o.secure)+'<br>'+(isKo?'편의':'Ease')+' '+dots(o.easy)+
-          '</div>'+
+        '</div>'+
+        // 3) 보안 / 편의 등급 한 줄
+        '<div style="font-size:11px;color:#94a3b8;display:flex;gap:16px;padding:8px 10px;background:rgba(0,0,0,.2);border-radius:8px;white-space:nowrap;flex-wrap:wrap">'+
+          '<span>'+(isKo?'보안':'Security')+' '+dots(o.secure)+'</span>'+
+          '<span>'+(isKo?'편의':'Ease')+' '+dots(o.easy)+'</span>'+
         '</div>'+
         stepsHtml +
         '<div style="font-size:11px;color:#94a3b8;margin-top:10px;padding:8px 10px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.6">'+o.note+'</div>'+
