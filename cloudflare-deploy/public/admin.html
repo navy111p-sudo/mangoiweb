@@ -4513,6 +4513,114 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         </div>
       </details>
 
+      <!-- 🥭 Phase 39 — 1-3) 교재 파일 라이브러리 (PDF / JPG / PNG) -->
+      <!--   경쟁사 참고: ClassIn(칠판 PDF), Tutoring(레벨별 자료), Khan Academy -->
+      <details class="sub-item" id="sub-textbook-files">
+        <summary data-ko="📂 교재 파일 라이브러리 (PDF/JPG/PNG)" data-en="📂 Textbook File Library (PDF/JPG/PNG)">📂 교재 파일 라이브러리 (PDF/JPG/PNG)</summary>
+        <div class="sub-body">
+          <!-- 업로드 드롭존 -->
+          <div id="tbf-dropzone" style="border:2px dashed #93c5fd;border-radius:10px;padding:20px;text-align:center;background:linear-gradient(135deg,#eff6ff,#f0f9ff);cursor:pointer;transition:all .2s;margin-bottom:10px;">
+            <div style="font-size:32px;line-height:1;margin-bottom:6px;">📤</div>
+            <div style="font-weight:700;color:#1e40af;font-size:14px;" data-ko="파일을 끌어다 놓거나 클릭해서 선택" data-en="Drag &amp; drop or click to select">파일을 끌어다 놓거나 클릭해서 선택</div>
+            <div style="color:#64748b;font-size:11px;margin-top:4px;" data-ko="PDF / JPG / PNG / WEBP · 최대 80MB" data-en="PDF / JPG / PNG / WEBP · up to 80MB">PDF / JPG / PNG / WEBP · 최대 80MB</div>
+            <input id="tbf-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" style="display:none;" multiple />
+          </div>
+
+          <!-- 메타데이터 (업로드 시 자동 적용) -->
+          <div class="menu-form" style="background:#f8fafc;padding:8px 10px;border-radius:8px;margin-bottom:10px;">
+            <span style="font-size:11px;color:#475569;font-weight:700;" data-ko="기본값" data-en="Defaults">기본값</span>
+            <select id="tbf-level" style="width:90px;">
+              <option value="" data-ko="레벨 미지정" data-en="No level">레벨 미지정</option>
+              <option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option>
+            </select>
+            <input id="tbf-unit" type="number" placeholder="단원 번호" data-ko-placeholder="단원 번호" data-en-placeholder="Unit no." style="width:90px;" />
+            <select id="tbf-textbook" style="width:160px;">
+              <option value="" data-ko="교재 미지정" data-en="No textbook">교재 미지정</option>
+            </select>
+            <input id="tbf-desc" placeholder="설명 (선택)" data-ko-placeholder="설명 (선택)" data-en-placeholder="Description" style="flex:1;min-width:160px;" />
+          </div>
+
+          <!-- 필터 -->
+          <div class="menu-form" style="padding:4px 0;">
+            <span style="font-size:11px;color:#475569;font-weight:700;" data-ko="필터" data-en="Filter">필터</span>
+            <select id="tbf-filter-level" style="width:110px;" onchange="loadTextbookFiles()">
+              <option value="" data-ko="전체 레벨" data-en="All levels">전체 레벨</option>
+              <option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option>
+            </select>
+            <select id="tbf-filter-kind" style="width:100px;" onchange="loadTextbookFiles()">
+              <option value="" data-ko="전체 종류" data-en="All types">전체 종류</option>
+              <option value="pdf">PDF</option>
+              <option value="image" data-ko="이미지" data-en="Image">이미지</option>
+            </select>
+            <input id="tbf-filter-q" placeholder="이름 검색" data-ko-placeholder="이름 검색" data-en-placeholder="Search name" style="width:160px;" oninput="if(window._tbfDeb)clearTimeout(window._tbfDeb); window._tbfDeb=setTimeout(loadTextbookFiles,250)" />
+            <button class="primary" style="padding:5px 12px;font-size:13px;" onclick="loadTextbookFiles()" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+          </div>
+
+          <!-- 진행 상태 -->
+          <div id="tbf-progress" style="display:none;margin:6px 0;padding:8px 10px;background:#fef3c7;border-radius:6px;font-size:12px;color:#92400e;"></div>
+
+          <!-- 라이브러리 그리드 -->
+          <div id="tbf-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:8px;">
+            <div class="empty" style="grid-column:1/-1;text-align:center;padding:24px;color:#94a3b8;" data-ko="아직 업로드된 파일이 없습니다." data-en="No files uploaded yet.">아직 업로드된 파일이 없습니다.</div>
+          </div>
+        </div>
+      </details>
+
+      <!-- 🥭 Phase 39 — 1-4) 망고아이 비디오 관리 (자체 제작 YouTube) -->
+      <!--   경쟁사 참고: Tutoring(레벨별 영상), Khan Academy(단원 트리), 야나두 -->
+      <details class="sub-item" id="sub-mango-videos">
+        <summary data-ko="🎬 망고아이 비디오 관리 (YouTube)" data-en="🎬 Mango-i Videos (YouTube)">🎬 망고아이 비디오 관리 (YouTube)</summary>
+        <div class="sub-body">
+          <div style="background:linear-gradient(135deg,#fff7ed,#fef3c7);padding:10px 12px;border-radius:8px;border-left:3px solid #f59e0b;margin-bottom:10px;font-size:12px;color:#78350f;line-height:1.55;">
+            <strong data-ko="💡 자동화 안내" data-en="💡 How it works">💡 자동화 안내</strong><br>
+            <span data-ko="YouTube URL만 입력하면 썸네일이 자동 추출되고, 학생 홈페이지에 레벨/단원별로 자동 노출됩니다. (2~3분 분량 권장)" data-en="Paste a YouTube URL — the thumbnail is auto-extracted and the video appears on the student home, grouped by level / lesson. (2-3 min recommended)">YouTube URL만 입력하면 썸네일이 자동 추출되고, 학생 홈페이지에 레벨/단원별로 자동 노출됩니다. (2~3분 분량 권장)</span>
+          </div>
+
+          <details open>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 비디오 등록" data-en="＋ Add Video">＋ 비디오 등록</summary>
+            <div class="menu-form" style="margin-top:8px;flex-wrap:wrap;">
+              <input id="mv-title"      placeholder="제목 (한글)"  data-ko-placeholder="제목 (한글)"  data-en-placeholder="Title (Korean)"  style="width:220px;" />
+              <input id="mv-title-en"   placeholder="Title (EN)"   data-ko-placeholder="제목 (영문)"  data-en-placeholder="Title (English)" style="width:220px;" />
+              <input id="mv-url"        placeholder="YouTube URL (필수)" data-ko-placeholder="YouTube URL (필수)" data-en-placeholder="YouTube URL (required)" style="width:320px;" />
+              <select id="mv-level" style="width:90px;">
+                <option value="" data-ko="레벨…" data-en="Level…">레벨…</option>
+                <option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option>
+              </select>
+              <input id="mv-lesson" type="number" placeholder="레슨 번호" data-ko-placeholder="레슨 번호" data-en-placeholder="Lesson no." style="width:100px;" />
+              <select id="mv-category" style="width:130px;">
+                <option value="" data-ko="카테고리…" data-en="Category…">카테고리…</option>
+                <option value="phonics" data-ko="파닉스" data-en="Phonics">파닉스</option>
+                <option value="vocab" data-ko="단어" data-en="Vocabulary">단어</option>
+                <option value="grammar" data-ko="문법" data-en="Grammar">문법</option>
+                <option value="speaking" data-ko="회화" data-en="Speaking">회화</option>
+                <option value="reading" data-ko="읽기" data-en="Reading">읽기</option>
+                <option value="listening" data-ko="듣기" data-en="Listening">듣기</option>
+                <option value="culture" data-ko="문화" data-en="Culture">문화</option>
+              </select>
+              <input id="mv-duration" type="number" placeholder="길이(초)" data-ko-placeholder="길이(초)" data-en-placeholder="Duration (sec)" style="width:100px;" />
+              <input id="mv-sort" type="number" placeholder="정렬 순서" data-ko-placeholder="정렬 순서" data-en-placeholder="Sort order" style="width:100px;" value="0" />
+              <textarea id="mv-desc" placeholder="설명 (선택)" data-ko-placeholder="설명 (선택)" data-en-placeholder="Description (optional)" style="width:100%;min-height:48px;resize:vertical;"></textarea>
+              <button id="mv-add-btn" class="primary" style="padding:6px 14px;font-size:13px;" data-ko="＋ 등록" data-en="＋ Register">＋ 등록</button>
+              <div id="mv-preview" style="display:none;margin-top:8px;padding:8px;background:#f1f5f9;border-radius:8px;font-size:12px;color:#475569;"></div>
+            </div>
+          </details>
+
+          <div class="menu-form" style="padding:6px 0;margin-top:8px;">
+            <span style="font-size:11px;color:#475569;font-weight:700;" data-ko="필터" data-en="Filter">필터</span>
+            <select id="mv-filter-level" style="width:110px;" onchange="loadMangoVideos()">
+              <option value="" data-ko="전체 레벨" data-en="All levels">전체 레벨</option>
+              <option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option>
+            </select>
+            <button class="primary" style="padding:5px 12px;font-size:13px;" onclick="loadMangoVideos()" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+          </div>
+
+          <div id="mv-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:8px;">
+            <div class="empty" style="grid-column:1/-1;text-align:center;padding:24px;color:#94a3b8;" data-ko="아직 등록된 비디오가 없습니다." data-en="No videos registered yet.">아직 등록된 비디오가 없습니다.</div>
+          </div>
+        </div>
+      </details>
+
+
     </div>
 
     <!-- ━━ 그룹 2 — 판매 교재 관리 ━━ -->
@@ -8561,7 +8669,312 @@ async function addTextbook() {
     units: e('tb-units').value ? parseInt(e('tb-units').value,10) : null,
     publisher: e('tb-publisher').value||null, isbn: e('tb-isbn').value||null
   });
-  if (d) { ['tb-title','tb-units','tb-publisher','tb-isbn'].forEach(id=>e(id).value=''); e('tb-level').value=''; loadTextbooks(); }
+  if (d) { ['tb-title','tb-units','tb-publisher','tb-isbn'].forEach(id=>e(id).value=''); e('tb-level').value=''; loadTextbooks(); if(typeof refreshTextbookSelectInTbf==='function')refreshTextbookSelectInTbf(); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 🥭 Phase 39 — 교재 파일 라이브러리 (PDF/JPG/PNG)
+// ═══════════════════════════════════════════════════════════════════════
+function _humanSize(n) {
+  if (!n && n !== 0) return '—';
+  if (n < 1024) return n + 'B';
+  if (n < 1024*1024) return (n/1024).toFixed(1) + 'KB';
+  return (n/1024/1024).toFixed(1) + 'MB';
+}
+
+async function refreshTextbookSelectInTbf() {
+  try {
+    const r = await fetch('/api/admin/textbooks', { credentials:'include', cache:'no-store' });
+    const d = await r.json().catch(()=>({}));
+    const sel = document.getElementById('tbf-textbook');
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="" data-ko="교재 미지정" data-en="No textbook">' + (adminLang==='en'?'No textbook':'교재 미지정') + '</option>' +
+      (d.items||[]).map(t => '<option value="'+t.id+'">'+_esc(t.title)+(t.level?' ['+t.level+']':'')+'</option>').join('');
+    if (cur) sel.value = cur;
+  } catch (e) { console.warn('refreshTextbookSelectInTbf failed', e); }
+}
+
+async function loadTextbookFiles() {
+  const grid = document.getElementById('tbf-grid');
+  if (!grid) return;
+  const lv = document.getElementById('tbf-filter-level').value;
+  const kd = document.getElementById('tbf-filter-kind').value;
+  const q  = (document.getElementById('tbf-filter-q').value||'').trim();
+  const qs = new URLSearchParams();
+  if (lv) qs.set('level', lv);
+  if (kd) qs.set('kind', kd);
+  if (q)  qs.set('q', q);
+  try {
+    const r = await fetch('/api/admin/textbook-files?' + qs.toString(), { credentials:'include', cache:'no-store' });
+    const d = await r.json().catch(()=>({}));
+    if (!d.ok || !d.items || d.items.length === 0) {
+      grid.innerHTML = '<div class="empty" style="grid-column:1/-1;text-align:center;padding:24px;color:#94a3b8;">' +
+        (adminLang==='en'?'No files yet.':'아직 업로드된 파일이 없습니다.') + '</div>';
+      return;
+    }
+    grid.innerHTML = d.items.map(f => {
+      const thumb = f.kind === 'pdf'
+        ? '<div style="height:120px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#fee2e2,#fef3c7);color:#b91c1c;font-size:40px;">📕</div>'
+        : '<img src="'+f.url+'" loading="lazy" style="height:120px;width:100%;object-fit:cover;background:#f1f5f9;" />';
+      const lvl = f.level ? '<span style="display:inline-block;padding:1px 6px;background:#dbeafe;color:#1e40af;border-radius:99px;font-size:10px;font-weight:700;">'+f.level+'</span>' : '';
+      const unit = f.unit_no ? '<span style="font-size:10px;color:#64748b;">U' + f.unit_no + '</span>' : '';
+      return '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;">'
+        + thumb
+        + '<div style="padding:8px;flex:1;display:flex;flex-direction:column;gap:4px;">'
+        +   '<div style="font-size:12px;font-weight:700;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+_esc(f.name)+'">'+_esc(f.name)+'</div>'
+        +   '<div style="display:flex;gap:4px;align-items:center;">'+lvl+unit+'</div>'
+        +   '<div style="font-size:10px;color:#94a3b8;">'+(f.kind==='pdf'?'PDF':'IMG')+' · '+_humanSize(f.size_bytes)+'</div>'
+        + '</div>'
+        + '<div style="display:flex;border-top:1px solid #f1f5f9;">'
+        +   '<button class="tbf-preview" data-id="'+f.id+'" data-url="'+f.url+'" data-kind="'+f.kind+'" data-name="'+_esc(f.name)+'" style="flex:1;padding:6px;border:none;background:#f8fafc;cursor:pointer;font-size:11px;" title="미리보기">👁</button>'
+        +   '<button class="tbf-edit"    data-id="'+f.id+'" style="flex:1;padding:6px;border:none;border-left:1px solid #f1f5f9;background:#f8fafc;cursor:pointer;font-size:11px;" title="편집">✏️</button>'
+        +   '<button class="tbf-delete"  data-id="'+f.id+'" data-name="'+_esc(f.name)+'" style="flex:1;padding:6px;border:none;border-left:1px solid #f1f5f9;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:11px;" title="삭제">🗑</button>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+    grid.querySelectorAll('.tbf-preview').forEach(b => b.addEventListener('click', () => {
+      tbfOpenPreview(b.getAttribute('data-url'), b.getAttribute('data-kind'), b.getAttribute('data-name'));
+    }));
+    grid.querySelectorAll('.tbf-edit').forEach(b => b.addEventListener('click', () => tbfEditFile(parseInt(b.getAttribute('data-id'),10))));
+    grid.querySelectorAll('.tbf-delete').forEach(b => b.addEventListener('click', () => tbfDeleteFile(parseInt(b.getAttribute('data-id'),10), b.getAttribute('data-name'))));
+  } catch (e) {
+    console.error('loadTextbookFiles', e);
+    grid.innerHTML = '<div class="empty" style="grid-column:1/-1;color:#dc2626;">' + (adminLang==='en'?'Failed to load.':'불러오기 실패') + '</div>';
+  }
+}
+
+function tbfOpenPreview(url, kind, name) {
+  const win = window.open('', '_blank');
+  if (!win) { alert(adminLang==='en'?'Allow popup to preview':'팝업 허용 필요'); return; }
+  if (kind === 'pdf') {
+    win.location.href = url;
+  } else {
+    win.document.write('<!doctype html><html><head><title>'+_esc(name)+'</title><style>body{margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh;}img{max-width:100%;max-height:100vh;}</style></head><body><img src="'+url+'" /></body></html>');
+    win.document.close();
+  }
+}
+
+async function tbfEditFile(id) {
+  const newName = prompt(adminLang==='en'?'New display name (blank = skip):':'새 이름 (빈칸이면 건너뜀):');
+  const newLevel = prompt(adminLang==='en'?'Level (A1/A2/B1/B2/C1/C2/blank):':'레벨 (A1~C2 또는 빈칸):');
+  const newUnit = prompt(adminLang==='en'?'Unit number (blank = skip):':'단원 번호 (빈칸이면 건너뜀):');
+  const body = {};
+  if (newName && newName.trim())  body.name = newName.trim();
+  if (newLevel !== null && newLevel !== '') body.level = newLevel.trim();
+  if (newUnit !== null && newUnit !== '')   body.unit_no = parseInt(newUnit,10) || null;
+  if (Object.keys(body).length === 0) return;
+  const r = await fetch('/api/admin/textbook-files/'+id, {
+    method:'PATCH', credentials:'include',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  if (r.ok) loadTextbookFiles();
+  else alert(adminLang==='en'?'Update failed':'수정 실패');
+}
+
+async function tbfDeleteFile(id, name) {
+  if (!confirm((adminLang==='en'?'Delete "':'삭제할까요? "')+name+'"?')) return;
+  const r = await fetch('/api/admin/textbook-files/'+id, { method:'DELETE', credentials:'include' });
+  if (r.ok) loadTextbookFiles();
+  else alert(adminLang==='en'?'Delete failed':'삭제 실패');
+}
+
+async function tbfUploadFiles(files) {
+  if (!files || files.length === 0) return;
+  const prog = document.getElementById('tbf-progress');
+  const lv  = document.getElementById('tbf-level').value || '';
+  const un  = document.getElementById('tbf-unit').value || '';
+  const tbid= document.getElementById('tbf-textbook').value || '';
+  const desc= document.getElementById('tbf-desc').value || '';
+  let ok = 0, fail = 0;
+  prog.style.display = 'block';
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    prog.textContent = (adminLang==='en'?'Uploading ':'업로드 중 ') + (i+1) + '/' + files.length + ' — ' + f.name;
+    const form = new FormData();
+    form.append('file', f);
+    form.append('name', f.name);
+    if (lv)   form.append('level', lv);
+    if (un)   form.append('unit_no', un);
+    if (tbid) form.append('textbook_id', tbid);
+    if (desc) form.append('description', desc);
+    try {
+      const r = await fetch('/api/admin/textbook-files', { method:'POST', credentials:'include', body: form });
+      const j = await r.json().catch(()=>({}));
+      if (r.ok && j.ok) ok++; else { fail++; console.warn('upload fail', f.name, j); }
+    } catch (e) { fail++; console.error(e); }
+  }
+  prog.innerHTML = (adminLang==='en'?'Done — ':'완료 — ') + '<b style="color:#059669">'+ok+' OK</b>' + (fail?' / <b style="color:#dc2626">'+fail+' FAIL</b>':'');
+  setTimeout(()=>{ prog.style.display='none'; }, 4000);
+  document.getElementById('tbf-desc').value = '';
+  loadTextbookFiles();
+}
+
+function _initTbfDropzone() {
+  const dz = document.getElementById('tbf-dropzone');
+  const inp = document.getElementById('tbf-file-input');
+  if (!dz || !inp || dz._inited) return;
+  dz._inited = true;
+  dz.addEventListener('click', () => inp.click());
+  inp.addEventListener('change', () => { tbfUploadFiles(inp.files); inp.value = ''; });
+  ['dragenter','dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.style.background='linear-gradient(135deg,#dbeafe,#e0f2fe)'; }));
+  ['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.style.background='linear-gradient(135deg,#eff6ff,#f0f9ff)'; }));
+  dz.addEventListener('drop', e => { tbfUploadFiles(e.dataTransfer.files); });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const sub = document.getElementById('sub-textbook-files');
+  if (sub) {
+    sub.addEventListener('toggle', () => {
+      if (sub.open) { _initTbfDropzone(); refreshTextbookSelectInTbf(); loadTextbookFiles(); }
+    });
+  }
+  const sub2 = document.getElementById('sub-mango-videos');
+  if (sub2) {
+    sub2.addEventListener('toggle', () => {
+      if (sub2.open) { loadMangoVideos(); _initMvHandlers(); }
+    });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// 🥭 Phase 39 — 망고아이 비디오 관리
+// ═══════════════════════════════════════════════════════════════════════
+function _extractYoutubeId(raw) {
+  if (!raw) return null;
+  try {
+    const u = new URL(raw.trim());
+    if (u.hostname.includes('youtu.be')) {
+      const id = u.pathname.split('/').filter(Boolean)[0];
+      return id || null;
+    }
+    if (u.hostname.includes('youtube.com') || u.hostname.includes('youtube-nocookie.com')) {
+      const v = u.searchParams.get('v');
+      if (v) return v;
+      const parts = u.pathname.split('/').filter(Boolean);
+      if (parts.length >= 2 && (parts[0] === 'shorts' || parts[0] === 'embed' || parts[0] === 'v')) {
+        return parts[1];
+      }
+    }
+  } catch (e) {}
+  if (/^[a-zA-Z0-9_-]{11}$/.test((raw||'').trim())) return raw.trim();
+  return null;
+}
+
+function _initMvHandlers() {
+  const urlIn = document.getElementById('mv-url');
+  const prev = document.getElementById('mv-preview');
+  const btn  = document.getElementById('mv-add-btn');
+  if (!urlIn || urlIn._inited) return;
+  urlIn._inited = true;
+  urlIn.addEventListener('input', () => {
+    const yid = _extractYoutubeId(urlIn.value);
+    if (yid) {
+      prev.style.display = 'block';
+      prev.innerHTML = '<div style="display:flex;gap:10px;align-items:center;"><img src="https://img.youtube.com/vi/'+yid+'/default.jpg" style="width:80px;height:60px;object-fit:cover;border-radius:4px;" /><div><div style="font-weight:700;color:#0f172a;">YouTube ID: <code>'+yid+'</code></div><div style="font-size:11px;color:#64748b;">' + (adminLang==='en'?'Thumbnail auto-extracted':'썸네일 자동 추출됨') + '</div></div></div>';
+    } else {
+      prev.style.display = 'none';
+    }
+  });
+  btn.addEventListener('click', addMangoVideo);
+}
+
+async function addMangoVideo() {
+  const e = id => document.getElementById(id);
+  const title = (e('mv-title').value||'').trim();
+  const url   = (e('mv-url').value||'').trim();
+  if (!title) { alert(adminLang==='en'?'Title required':'제목 필수'); return; }
+  if (!url)   { alert(adminLang==='en'?'YouTube URL required':'YouTube URL 필수'); return; }
+  if (!_extractYoutubeId(url)) { alert(adminLang==='en'?'Invalid YouTube URL':'올바른 YouTube URL 아님'); return; }
+  const body = {
+    title,
+    title_en: e('mv-title-en').value || null,
+    youtube_url: url,
+    level: e('mv-level').value || null,
+    lesson_no: e('mv-lesson').value ? parseInt(e('mv-lesson').value,10) : null,
+    category: e('mv-category').value || null,
+    duration_sec: e('mv-duration').value ? parseInt(e('mv-duration').value,10) : null,
+    sort_order: e('mv-sort').value ? parseInt(e('mv-sort').value,10) : 0,
+    description: e('mv-desc').value || null,
+  };
+  const r = await fetch('/api/admin/mango-videos', {
+    method:'POST', credentials:'include',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  const j = await r.json().catch(()=>({}));
+  if (r.ok && j.ok) {
+    ['mv-title','mv-title-en','mv-url','mv-lesson','mv-duration','mv-desc'].forEach(id => e(id).value='');
+    e('mv-level').value=''; e('mv-category').value=''; e('mv-sort').value='0';
+    document.getElementById('mv-preview').style.display='none';
+    loadMangoVideos();
+  } else {
+    alert((adminLang==='en'?'Failed: ':'실패: ') + (j.error || ('HTTP '+r.status)));
+  }
+}
+
+async function loadMangoVideos() {
+  const grid = document.getElementById('mv-grid');
+  if (!grid) return;
+  const lv = document.getElementById('mv-filter-level').value;
+  const qs = lv ? '?level='+encodeURIComponent(lv) : '';
+  try {
+    const r = await fetch('/api/admin/mango-videos' + qs, { credentials:'include', cache:'no-store' });
+    const d = await r.json().catch(()=>({}));
+    if (!d.ok || !d.items || d.items.length === 0) {
+      grid.innerHTML = '<div class="empty" style="grid-column:1/-1;text-align:center;padding:24px;color:#94a3b8;">' +
+        (adminLang==='en'?'No videos yet.':'아직 등록된 비디오가 없습니다.') + '</div>';
+      return;
+    }
+    grid.innerHTML = d.items.map(v => {
+      const inactive = v.active ? '' : 'opacity:0.5;';
+      const lvl = v.level ? '<span style="display:inline-block;padding:1px 7px;background:#dbeafe;color:#1e40af;border-radius:99px;font-size:10px;font-weight:700;">'+v.level+'</span>' : '';
+      const cat = v.category ? '<span style="display:inline-block;padding:1px 7px;background:#fef3c7;color:#92400e;border-radius:99px;font-size:10px;">'+_esc(v.category)+'</span>' : '';
+      const lesson = v.lesson_no ? '<span style="font-size:10px;color:#64748b;">L' + v.lesson_no + '</span>' : '';
+      const dur = v.duration_sec ? '<span style="font-size:10px;color:#64748b;">' + Math.floor(v.duration_sec/60) + ':' + String(v.duration_sec%60).padStart(2,'0') + '</span>' : '';
+      return '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;'+inactive+'">'
+        + '<div style="position:relative;">'
+        +   '<img src="'+_esc(v.thumbnail_url||('https://img.youtube.com/vi/'+v.youtube_id+'/hqdefault.jpg'))+'" loading="lazy" style="width:100%;height:130px;object-fit:cover;" />'
+        +   '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.25);opacity:0;transition:opacity .2s;" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0"><span style="font-size:40px;">▶️</span></div>'
+        + '</div>'
+        + '<div style="padding:8px;display:flex;flex-direction:column;gap:4px;">'
+        +   '<div style="font-size:13px;font-weight:700;color:#0f172a;line-height:1.3;">'+_esc(v.title)+'</div>'
+        +   (v.title_en ? '<div style="font-size:11px;color:#475569;">'+_esc(v.title_en)+'</div>' : '')
+        +   '<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">'+lvl+cat+lesson+dur+'</div>'
+        + '</div>'
+        + '<div style="display:flex;border-top:1px solid #f1f5f9;">'
+        +   '<button class="mv-play"   data-id="'+v.id+'" data-yid="'+v.youtube_id+'" style="flex:1;padding:6px;border:none;background:#f8fafc;cursor:pointer;font-size:11px;">▶ '+(adminLang==='en'?'Play':'재생')+'</button>'
+        +   '<button class="mv-toggle" data-id="'+v.id+'" data-active="'+v.active+'" style="flex:1;padding:6px;border:none;border-left:1px solid #f1f5f9;background:#f8fafc;cursor:pointer;font-size:11px;">'+(v.active?(adminLang==='en'?'Disable':'비활성'):(adminLang==='en'?'Enable':'활성'))+'</button>'
+        +   '<button class="mv-delete" data-id="'+v.id+'" data-title="'+_esc(v.title)+'" style="flex:1;padding:6px;border:none;border-left:1px solid #f1f5f9;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:11px;">🗑</button>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+    grid.querySelectorAll('.mv-play').forEach(b => b.addEventListener('click', () => mvPreview(b.getAttribute('data-yid'))));
+    grid.querySelectorAll('.mv-toggle').forEach(b => b.addEventListener('click', () => mvToggleActive(parseInt(b.getAttribute('data-id'),10), b.getAttribute('data-active')==='1')));
+    grid.querySelectorAll('.mv-delete').forEach(b => b.addEventListener('click', () => mvDelete(parseInt(b.getAttribute('data-id'),10), b.getAttribute('data-title'))));
+  } catch (e) {
+    console.error('loadMangoVideos', e);
+    grid.innerHTML = '<div class="empty" style="grid-column:1/-1;color:#dc2626;">' + (adminLang==='en'?'Failed to load.':'불러오기 실패') + '</div>';
+  }
+}
+
+function mvPreview(youtubeId) {
+  const w = window.open('https://www.youtube.com/watch?v=' + encodeURIComponent(youtubeId), '_blank');
+  if (!w) alert(adminLang==='en'?'Allow popup':'팝업 허용 필요');
+}
+
+async function mvToggleActive(id, currActive) {
+  await fetch('/api/admin/mango-videos/' + id, {
+    method:'PATCH', credentials:'include',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ active: !currActive })
+  });
+  loadMangoVideos();
+}
+
+async function mvDelete(id, title) {
+  if (!confirm((adminLang==='en'?'Delete "':'삭제할까요? "')+title+'"?')) return;
+  await fetch('/api/admin/mango-videos/' + id, { method:'DELETE', credentials:'include' });
+  loadMangoVideos();
 }
 
 // 🎯 발음교정 iframe 미리보기 토글

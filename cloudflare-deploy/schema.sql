@@ -85,3 +85,54 @@ CREATE INDEX IF NOT EXISTS idx_recordings_room ON recordings(room_id);
 CREATE INDEX IF NOT EXISTS idx_recordings_teacher ON recordings(teacher_id);
 CREATE INDEX IF NOT EXISTS idx_recordings_teacher_started ON recordings(teacher_id, started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_recordings_status_storage ON recordings(status, storage);
+
+-- =====================================================================
+-- Phase 39 - 교재 파일 라이브러리 (PDF / JPG / PNG)
+-- 관리자가 업로드한 교재를 모든 강의실에서 선택해 칠판/뷰어에 띄움
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS textbook_files (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  mime TEXT,
+  ext  TEXT,
+  size_bytes INTEGER,
+  r2_key TEXT NOT NULL,
+  textbook_id INTEGER,
+  level TEXT,
+  unit_no INTEGER,
+  description TEXT,
+  uploaded_by TEXT,
+  active INTEGER DEFAULT 1,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_textbook_files_level    ON textbook_files(level, active);
+CREATE INDEX IF NOT EXISTS idx_textbook_files_textbook ON textbook_files(textbook_id);
+CREATE INDEX IF NOT EXISTS idx_textbook_files_created  ON textbook_files(created_at DESC);
+
+-- =====================================================================
+-- Phase 39 - 망고아이 비디오 (자체 제작 YouTube)
+-- 관리자가 등록하면 학생 홈에서 레벨/레슨별로 자동 노출
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS mango_videos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  title_en TEXT,
+  youtube_url TEXT NOT NULL,
+  youtube_id  TEXT NOT NULL,
+  thumbnail_url TEXT,
+  level TEXT,
+  lesson_no INTEGER,
+  category TEXT,
+  description TEXT,
+  description_en TEXT,
+  duration_sec INTEGER,
+  sort_order INTEGER DEFAULT 0,
+  active INTEGER DEFAULT 1,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_mango_videos_level   ON mango_videos(level, active, sort_order);
+CREATE INDEX IF NOT EXISTS idx_mango_videos_active  ON mango_videos(active, sort_order);
+CREATE INDEX IF NOT EXISTS idx_mango_videos_lesson  ON mango_videos(level, lesson_no);

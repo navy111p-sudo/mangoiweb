@@ -1145,6 +1145,10 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/enrollments' || /^\/api\/admin\/enrollments\/\d+$/.test(path)) return true;
   if (path === '/api/admin/community-posts' || /^\/api\/admin\/community-posts\/\d+$/.test(path)) return true;
   if (path === '/api/admin/textbooks') return true;
+  // 📚 Phase 39 — 교재 파일 라이브러리 (관리자 전용 업로드/관리)
+  if (path === '/api/admin/textbook-files' || /^\/api\/admin\/textbook-files\/\d+$/.test(path)) return true;
+  // 🎬 Phase 39 — 망고아이 비디오 관리 (관리자 전용)
+  if (path === '/api/admin/mango-videos' || /^\/api\/admin\/mango-videos\/\d+$/.test(path)) return true;
   if (path === '/api/admin/students/list') return true;
   if (path === '/api/admin/students/erp-list' || path === '/api/admin/students/erp' || path === '/api/admin/students/erp-seed') return true;
   // 대시보드·활성 방·방 상태 — 모두 관리자 전용
