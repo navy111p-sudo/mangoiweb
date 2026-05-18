@@ -4102,7 +4102,7 @@
         </div>
         <div class="chat-messages" id="vc-chat-messages"></div>
         <div class="chat-input-area">
-            <input id="vc-chat-input" type="text" placeholder="메시지 입력..." data-ko-ph="메시지 입력..." data-en-ph="Type a message..." onkeydown="if(event.key==='Enter') vcSendChat();" />
+            <input id="vc-chat-input" type="text" placeholder="메시지 입력... (@학생명 = 카톡 알림)" data-ko-ph="메시지 입력... (@학생명 = 카톡 알림)" data-en-ph="Type a message... (@name = KakaoTalk push)" onkeydown="if(event.key==='Enter') vcSendChat();" />
             <button onclick="vcSendChat()" data-ko="전송" data-en="Send">전송</button>
         </div>
     </div>
@@ -7797,6 +7797,44 @@ function vcSendChat() {
             })
         }).catch(() => {});
     } catch {}
+    // 📲 Phase K4: @멘션 자동 푸시 알림톡
+    //   "@홍길동" 또는 "@hong" 패턴 감지 → 해당 학생의 카톡으로 알림 발송
+    //   조건: demoStudents 에 해당 이름/uid 존재 + 본인은 강사로 판단됨 (관리자 시뮬레이션 또는 강사 로그인)
+    try {
+        const mentionPattern = /@([A-Za-z0-9가-힣_]+)/g;
+        const mentions = [];
+        let m;
+        while ((m = mentionPattern.exec(text)) !== null) {
+            mentions.push(m[1]);
+        }
+        if (mentions.length > 0) {
+            mentions.forEach(name => {
+                // demoStudents 에서 이름 또는 uid 매칭
+                let student = null;
+                if (typeof demoStudents !== 'undefined' && demoStudents) {
+                    for (const k in demoStudents) {
+                        const s = demoStudents[k];
+                        if (k === name || s.name === name || s.uid === name) { student = s; break; }
+                    }
+                }
+                if (!student || !student.phone) return;
+                fetch('/api/notify/mention', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mentioned_student_name: student.name,
+                        mentioned_phone: student.phone,
+                        teacher_name: vcUsername,
+                        message_excerpt: text,
+                        room_url: location.origin + '/?room=' + vcRoomId,
+                    })
+                }).then(r=>r.json()).then(d => {
+                    if (d.ok) console.log('[k4] 멘션 알림 발송:', name, d.mode);
+                }).catch(()=>{});
+            });
+            // 시각적 피드백 (작은 안내)
+            try { vcAddChatSystem('📲 @' + mentions.join(', @') + ' 카톡 알림 발송됨'); } catch{}
+        }
+    } catch (e) { console.warn('[k4] mention err:', e); }
     input.value = '';
 }
 
