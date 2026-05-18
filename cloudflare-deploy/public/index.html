@@ -3280,6 +3280,19 @@
         <span class="gm-label" data-ko="PC원격지원" data-en="PC Remote Support">PC원격지원</span>
         <span class="gm-sub" data-ko="설치·접속 도움" data-en="Setup Help">설치·접속 도움</span>
       </button>
+      <!-- 🆕 내 포인트 — 골드 강조 (다른 카드와 차별화) -->
+      <button class="gm-card" data-go="mypoints" data-en-key="my points" onclick="if(window.showPointsShop)showPointsShop();else alert('로그인 후 이용하세요')"
+              style="background:linear-gradient(135deg,rgba(251,191,36,.18),rgba(245,158,11,.10));border-color:rgba(251,191,36,.45)">
+        <span class="gm-icon">🎁</span>
+        <span class="gm-label" data-ko="내 포인트" data-en="My Points" style="color:#fde68a">내 포인트</span>
+        <span class="gm-sub" data-ko="잔액·기프티콘 교환" data-en="Balance · Redeem">잔액·기프티콘 교환</span>
+      </button>
+      <!-- 🆕 녹화 확인 -->
+      <button class="gm-card" data-go="recordings" data-en-key="my recordings" onclick="window.gridActions&&window.gridActions.recordings&&window.gridActions.recordings()">
+        <span class="gm-icon">🎥</span>
+        <span class="gm-label" data-ko="녹화확인" data-en="My Recordings">녹화확인</span>
+        <span class="gm-sub" data-ko="지난 수업 다시보기" data-en="Past Class Replay">지난 수업 다시보기</span>
+      </button>
     </div>
   </div>
 </div>
