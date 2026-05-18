@@ -9,14 +9,20 @@
 
 import { processAiCommand, executeAction } from './ai-command';
 import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook, type GiftishowEnv } from './giftishow-client';
+import {
+  sendLessonStartAlert, sendLessonEndAlert, sendChatSummaryAlert, sendMentionAlert,
+  checkSolapiBalance, getSolapiMode, type SolapiEnv,
+} from './solapi-client';
 
-export interface MangoEnv extends GiftishowEnv {
+export interface MangoEnv extends GiftishowEnv, SolapiEnv {
   DB: D1Database;
   SESSION_STATE: KVNamespace;
   // 🥭 Phase 21 — Workers AI 바인딩 (검색창 AI 명령)
   AI?: any;
   // 🎁 Phase P4 — 기프티쇼 비즈 환경변수 (giftishow-client.ts)
   //   GIFTISHOW_API_KEY, GIFTISHOW_USER_ID, GIFTISHOW_API_BASE, GIFTISHOW_CALLBACK_URL, GIFTISHOW_TEST_MODE
+  // 💬 Phase K2~K4 — 카카오 알림톡 환경변수 (solapi-client.ts)
+  //   SOLAPI_API_KEY, SOLAPI_API_SECRET, SOLAPI_PFID, SOLAPI_TEMPLATE_*, SOLAPI_TEST_MODE
 }
 
 const json = (data: any, status = 200): Response =>
@@ -381,6 +387,8 @@ export async function handleMangoApi(
         ['gift_catalog', `CREATE TABLE IF NOT EXISTS gift_catalog (id INTEGER PRIMARY KEY AUTOINCREMENT, external_id TEXT, brand TEXT, name TEXT NOT NULL, category TEXT, face_value INTEGER NOT NULL, point_price INTEGER NOT NULL, thumbnail_url TEXT, stock INTEGER, enabled INTEGER DEFAULT 1, sort_order INTEGER DEFAULT 0, description TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`],
         ['gift_redemptions', `CREATE TABLE IF NOT EXISTS gift_redemptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, catalog_id INTEGER NOT NULL, gift_name TEXT, gift_brand TEXT, face_value INTEGER NOT NULL, point_price INTEGER NOT NULL, recipient_phone TEXT, recipient_name TEXT, status TEXT NOT NULL DEFAULT 'pending', external_order_id TEXT, external_coupon_code TEXT, error_message TEXT, requested_at INTEGER NOT NULL, sent_at INTEGER, delivered_at INTEGER, failed_at INTEGER, refunded_at INTEGER, txn_spend_id INTEGER, txn_refund_id INTEGER, meta TEXT);`],
         ['point_rule_log', `CREATE TABLE IF NOT EXISTS point_rule_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, rule_code TEXT NOT NULL, amount INTEGER NOT NULL, triggered_at INTEGER NOT NULL, txn_id INTEGER, meta TEXT);`],
+        // ═══ Phase K1: 화상수업 채팅 영속화 ═══
+        ['chat_messages', `CREATE TABLE IF NOT EXISTS chat_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT NOT NULL, sender_uid TEXT, sender_name TEXT, sender_role TEXT, message TEXT NOT NULL, sent_at INTEGER NOT NULL, meta TEXT);`],
         // ═══ Phase POP: 팝업/공지 시스템 ═══
         ['popup_announcements', `CREATE TABLE IF NOT EXISTS popup_announcements (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, content_type TEXT NOT NULL DEFAULT 'mixed', body_html TEXT, image_url TEXT, video_url TEXT, link_url TEXT, link_text TEXT, width INTEGER DEFAULT 480, height INTEGER DEFAULT 360, width_mobile INTEGER, height_mobile INTEGER, position TEXT DEFAULT 'center', priority INTEGER DEFAULT 0, start_at INTEGER, end_at INTEGER, enabled INTEGER DEFAULT 1, dismiss_options TEXT DEFAULT 'today,7days', target_filter TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, view_count INTEGER DEFAULT 0, click_count INTEGER DEFAULT 0);`],
         ['popup_views', `CREATE TABLE IF NOT EXISTS popup_views (id INTEGER PRIMARY KEY AUTOINCREMENT, popup_id INTEGER NOT NULL, user_id TEXT, viewed_at INTEGER NOT NULL, clicked INTEGER DEFAULT 0, click_target TEXT, user_agent TEXT);`],
@@ -2126,6 +2134,191 @@ export async function handleMangoApi(
 
     // ═══════════════════════════════════════════════════════════════
     // 📢 Phase POP 끝
+    // ═══════════════════════════════════════════════════════════════
+
+    // ═══════════════════════════════════════════════════════════════
+    // 💬 Phase K1 — 화상수업 채팅 영속화
+    // ═══════════════════════════════════════════════════════════════
+    const ensureChatTable = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS chat_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT NOT NULL, sender_uid TEXT, sender_name TEXT, sender_role TEXT, message TEXT NOT NULL, sent_at INTEGER NOT NULL, meta TEXT);`);
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_chat_room_time ON chat_messages(room_id, sent_at DESC);`); } catch {}
+    };
+
+    // ── GET /api/chat/messages?room_id=xxx&limit=200 — 방의 최근 채팅 ──
+    if (method === 'GET' && path === '/api/chat/messages') {
+      await ensureChatTable();
+      const roomId = (url.searchParams.get('room_id') || '').trim();
+      const limit = Math.min(500, Math.max(1, parseInt(url.searchParams.get('limit') || '200', 10)));
+      if (!roomId) return json({ ok: false, error: 'room_id_required' }, 400);
+      const rs = await env.DB.prepare(
+        `SELECT id, sender_uid, sender_name, sender_role, message, sent_at
+           FROM chat_messages
+          WHERE room_id = ?
+          ORDER BY sent_at DESC
+          LIMIT ?`
+      ).bind(roomId, limit).all();
+      // 오래된 → 최근 순으로 reverse (클라이언트 렌더 편의)
+      const rows = (rs.results || []).reverse();
+      return json({ ok: true, count: rows.length, rows });
+    }
+
+    // ── POST /api/chat/messages — 채팅 메시지 영속화 ──
+    //   body: { room_id, sender_uid, sender_name, sender_role?, message, meta? }
+    if (method === 'POST' && path === '/api/chat/messages') {
+      await ensureChatTable();
+      const body: any = await request.json().catch(() => ({}));
+      const roomId = (body.room_id || '').trim();
+      const message = String(body.message || '').slice(0, 2000);
+      if (!roomId || !message) return json({ ok: false, error: 'room_id_and_message_required' }, 400);
+      const now = Date.now();
+      const ins = await env.DB.prepare(
+        `INSERT INTO chat_messages (room_id, sender_uid, sender_name, sender_role, message, sent_at, meta)
+         VALUES (?,?,?,?,?,?,?)`
+      ).bind(
+        roomId,
+        body.sender_uid || null,
+        body.sender_name || null,
+        body.sender_role || null,
+        message,
+        now,
+        body.meta ? JSON.stringify(body.meta) : null
+      ).run();
+      return json({ ok: true, id: ins?.meta?.last_row_id, sent_at: now });
+    }
+
+    // ── GET /api/admin/chat/stats — 채팅 활동 통계 (관리자) ──
+    if (method === 'GET' && path === '/api/admin/chat/stats') {
+      await ensureChatTable();
+      const since = Date.now() - 30 * 86400 * 1000;
+      const stats: any = await env.DB.prepare(
+        `SELECT COUNT(*) AS total, COUNT(DISTINCT room_id) AS rooms, COUNT(DISTINCT sender_uid) AS users
+           FROM chat_messages WHERE sent_at >= ?`
+      ).bind(since).first();
+      return json({ ok: true, stats: stats || {} });
+    }
+
+    // ── DELETE /api/admin/chat/cleanup — 30일 이전 메시지 정리 ──
+    if (method === 'POST' && path === '/api/admin/chat/cleanup') {
+      await ensureChatTable();
+      const cutoff = Date.now() - 30 * 86400 * 1000;
+      const r = await env.DB.prepare(`DELETE FROM chat_messages WHERE sent_at < ?`).bind(cutoff).run();
+      return json({ ok: true, deleted: r?.meta?.changes || 0 });
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // 💬 Phase K1 끝
+    // ═══════════════════════════════════════════════════════════════
+
+    // ═══════════════════════════════════════════════════════════════
+    // 📲 Phase K2~K4 — 카카오 알림톡 (SOLAPI)
+    // ═══════════════════════════════════════════════════════════════
+
+    // ── GET /api/admin/kakao/status — 알림톡 API 상태 + 잔액 ──
+    if (method === 'GET' && path === '/api/admin/kakao/status') {
+      const mode = getSolapiMode(env);
+      const result: any = {
+        ok: true,
+        mode,
+        api_key_set: !!(env as any).SOLAPI_API_KEY,
+        api_secret_set: !!(env as any).SOLAPI_API_SECRET,
+        pfid_set: !!(env as any).SOLAPI_PFID,
+        templates: {
+          lesson_start: !!(env as any).SOLAPI_TEMPLATE_LESSON_START,
+          lesson_end:   !!(env as any).SOLAPI_TEMPLATE_LESSON_END,
+          chat_summary: !!(env as any).SOLAPI_TEMPLATE_CHAT_SUMMARY,
+          mention:      !!(env as any).SOLAPI_TEMPLATE_MENTION,
+        },
+        test_mode: (env as any).SOLAPI_TEST_MODE === 'true',
+      };
+      if (mode !== 'disabled') {
+        try {
+          const bal = await checkSolapiBalance(env);
+          result.balance = bal.balance;
+          result.point = bal.point;
+          result.balance_message = bal.message;
+        } catch (e: any) { result.balance_error = String(e?.message || e); }
+      }
+      return json(result);
+    }
+
+    // ── POST /api/notify/lesson-started — 수업 시작 알림 ──
+    //   body: { room_id, student_name, student_phone, lesson_title, teacher_name, parent_phone? }
+    if (method === 'POST' && path === '/api/notify/lesson-started') {
+      const body: any = await request.json().catch(() => ({}));
+      const phone = body.student_phone || body.parent_phone;
+      if (!phone) return json({ ok: false, error: 'phone_required' }, 400);
+      const r = await sendLessonStartAlert(env, phone, {
+        studentName: body.student_name || '학생',
+        lessonTitle: body.lesson_title || '영어 수업',
+        teacherName: body.teacher_name || '강사',
+        roomUrl: body.room_url,
+      });
+      return json(r);
+    }
+
+    // ── POST /api/notify/lesson-ended — 수업 종료 알림 (학생/학부모/강사 일괄) ──
+    //   body: { room_id, student_name, student_phone?, parent_phone?, teacher_phone?, lesson_title, duration_minutes, message_count? }
+    if (method === 'POST' && path === '/api/notify/lesson-ended') {
+      const body: any = await request.json().catch(() => ({}));
+      const lessonTitle = body.lesson_title || '영어 수업';
+      const studentName = body.student_name || '학생';
+      const duration = (body.duration_minutes || 0) + '분';
+      const msgCount = body.message_count || 0;
+      const targets: any[] = [];
+      if (body.student_phone) targets.push({ role: 'student', phone: body.student_phone });
+      if (body.parent_phone)  targets.push({ role: 'parent',  phone: body.parent_phone });
+      if (body.teacher_phone) targets.push({ role: 'teacher', phone: body.teacher_phone });
+      const results: any[] = [];
+      for (const t of targets) {
+        const r = await sendLessonEndAlert(env, t.phone, { studentName, lessonTitle, duration, messagesCount: msgCount });
+        results.push({ role: t.role, phone: t.phone, ...r });
+      }
+      return json({ ok: true, count: results.length, results });
+    }
+
+    // ── POST /api/notify/chat-summary — 채팅 요약 알림 ──
+    //   body: { room_id, student_name, student_phone?, parent_phone?, lesson_title }
+    //   채팅 메시지 수를 D1 에서 자동 집계 → 알림톡 1건 발송
+    if (method === 'POST' && path === '/api/notify/chat-summary') {
+      const body: any = await request.json().catch(() => ({}));
+      const roomId = (body.room_id || '').trim();
+      if (!roomId) return json({ ok: false, error: 'room_id_required' }, 400);
+      await ensureChatTable();
+      // 최근 24시간 메시지 수 집계
+      const since = Date.now() - 86400 * 1000;
+      const cnt: any = await env.DB.prepare(
+        `SELECT COUNT(*) AS c FROM chat_messages WHERE room_id = ? AND sent_at >= ?`
+      ).bind(roomId, since).first();
+      const messageCount = cnt?.c || 0;
+      const summaryUrl = `https://webrtc-unified-platform-prod.navy111p.workers.dev/admin/chat-summary.html?room=${encodeURIComponent(roomId)}`;
+      const studentName = body.student_name || '학생';
+      const lessonTitle = body.lesson_title || '영어 수업';
+      const targets: string[] = [];
+      if (body.student_phone) targets.push(body.student_phone);
+      if (body.parent_phone)  targets.push(body.parent_phone);
+      const results: any[] = [];
+      for (const phone of targets) {
+        const r = await sendChatSummaryAlert(env, phone, { studentName, lessonTitle, messageCount, summaryUrl });
+        results.push({ phone, ...r });
+      }
+      return json({ ok: true, room_id: roomId, message_count: messageCount, results });
+    }
+
+    // ── POST /api/notify/mention — @멘션 즉시 푸시 알림 ──
+    //   body: { mentioned_student_name, mentioned_phone, teacher_name, message_excerpt, room_url? }
+    if (method === 'POST' && path === '/api/notify/mention') {
+      const body: any = await request.json().catch(() => ({}));
+      if (!body.mentioned_phone) return json({ ok: false, error: 'phone_required' }, 400);
+      const r = await sendMentionAlert(env, body.mentioned_phone, {
+        studentName: body.mentioned_student_name || '학생',
+        teacherName: body.teacher_name || '강사',
+        messageExcerpt: body.message_excerpt || '',
+        roomUrl: body.room_url,
+      });
+      return json(r);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 📲 Phase K2~K4 끝
     // ═══════════════════════════════════════════════════════════════
 
     if (method === 'GET' && path === '/api/admin/stats/revenue') {

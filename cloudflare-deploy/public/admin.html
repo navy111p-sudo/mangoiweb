@@ -3319,6 +3319,129 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   </div>
 </details>
 
+<!-- 📲 Phase K2~K4 — 카카오 알림톡 관리 (포인트 카드 다음) -->
+<details class="table-card menu-card" id="card-kakao-mgmt">
+  <summary><span data-ko="📲 카카오 알림톡" data-en="📲 Kakao AlimTalk">📲 카카오 알림톡</span></summary>
+  <div class="menu-body">
+    <div class="sub-menu">
+
+      <!-- 1. API 연동 상태 -->
+      <details class="sub-item" id="sub-kakao-status" open>
+        <summary data-ko="🔌 API 연동 상태" data-en="🔌 API Status">🔌 API 연동 상태</summary>
+        <div class="sub-body">
+          <div id="kakao-status-panel" style="margin-bottom:14px"><div style="padding:20px;text-align:center;color:#6b7280">상태 확인 중…</div></div>
+          <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;font-size:12.5px;line-height:1.7;color:#374151">
+            <h4 style="margin:0 0 8px;color:#1f2937;font-size:14px">📌 자동 발송 시나리오</h4>
+            <ul style="margin:0;padding-left:18px">
+              <li><b>수업 시작 알림</b> — 학생/학부모/강사 (입장 직후 자동)</li>
+              <li><b>수업 종료 알림</b> — 학생/학부모/강사 (출석 + 시간)</li>
+              <li><b>채팅 요약 알림</b> — 학생/학부모 (오늘 N개 메시지)</li>
+              <li><b>@멘션 푸시 알림</b> — 강사가 @학생명 멘션 시 즉시</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+
+      <!-- 2. SOLAPI 가입 가이드 -->
+      <details class="sub-item" id="sub-kakao-guide">
+        <summary data-ko="📖 SOLAPI 가입 가이드" data-en="📖 SOLAPI Setup Guide">📖 SOLAPI 가입 가이드</summary>
+        <div class="sub-body">
+          <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;font-size:12.5px;line-height:1.7;color:#374151">
+            <h4 style="margin:0 0 6px;color:#1f2937;font-size:13.5px">1단계 — SOLAPI 회원가입</h4>
+            <ul style="margin:0 0 12px 18px">
+              <li><a href="https://solapi.com" target="_blank" style="color:#2563eb">solapi.com</a> 회원가입 (사업자 인증 필수)</li>
+              <li>본인인증 + 사업자등록증 업로드 → 평일 1일 내 승인</li>
+              <li>승인 후 <b>API Key</b> + <b>API Secret</b> 발급 (마이페이지 → API 설정)</li>
+            </ul>
+            <h4 style="margin:14px 0 6px;color:#1f2937;font-size:13.5px">2단계 — 카카오 비즈 채널 + 발신프로필</h4>
+            <ul style="margin:0 0 12px 18px">
+              <li><a href="https://business.kakao.com" target="_blank" style="color:#2563eb">business.kakao.com</a> 채널 생성 (학원 이름)</li>
+              <li>SOLAPI 콘솔에 채널 등록 → <b>PFID</b> 발급</li>
+            </ul>
+            <h4 style="margin:14px 0 6px;color:#1f2937;font-size:13.5px">3단계 — 알림톡 템플릿 4개 등록 (카카오 검수 1~2일)</h4>
+            <ul style="margin:0 0 12px 18px;font-size:12px;line-height:1.6">
+              <li><b>수업 시작</b>: "[#{학생명}] #{수업명} 수업이 시작됐어요. 강사: #{강사명}. #{입장URL}"</li>
+              <li><b>수업 종료</b>: "[#{학생명}] #{수업명} 수업 종료. 수업시간 #{수업시간}. 메시지 #{메시지수}개"</li>
+              <li><b>채팅 요약</b>: "[#{학생명}] #{수업명} 채팅 #{메시지수}개 → #{요약URL}"</li>
+              <li><b>@멘션</b>: "#{강사명} 강사가 #{학생명}님을 호출: #{메시지}. 입장 → #{입장URL}"</li>
+            </ul>
+            <h4 style="margin:14px 0 6px;color:#1f2937;font-size:13.5px">4단계 — 시크릿 등록 (PowerShell)</h4>
+            <pre style="background:#1f2937;color:#e5e7eb;padding:12px 14px;border-radius:8px;font-size:11px;overflow-x:auto;margin:0 0 8px">cd "C:\Users\Admin\Desktop\mangoi_develop2-main\mangoiweb(last)\cloudflare-deploy"
+npx wrangler@4 secret put SOLAPI_API_KEY --env production --config wrangler.toml
+npx wrangler@4 secret put SOLAPI_API_SECRET --env production --config wrangler.toml
+npx wrangler@4 secret put SOLAPI_PFID --env production --config wrangler.toml
+npx wrangler@4 secret put SOLAPI_FROM_PHONE --env production --config wrangler.toml
+npx wrangler@4 secret put SOLAPI_TEMPLATE_LESSON_START --env production --config wrangler.toml
+npx wrangler@4 secret put SOLAPI_TEMPLATE_LESSON_END   --env production --config wrangler.toml
+npx wrangler@4 secret put SOLAPI_TEMPLATE_CHAT_SUMMARY --env production --config wrangler.toml
+npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config wrangler.toml</pre>
+            <h4 style="margin:14px 0 6px;color:#1f2937;font-size:13.5px">5단계 — Mock 테스트</h4>
+            <p style="margin:0 0 8px">실제 발송 전 mock 모드로 검증:</p>
+            <pre style="background:#1f2937;color:#e5e7eb;padding:10px 14px;border-radius:8px;font-size:11px;margin:0 0 10px">npx wrangler@4 secret put SOLAPI_TEST_MODE --env production --config wrangler.toml
+# → "true" 입력</pre>
+            <p style="margin:0;color:#6b7280;font-size:11.5px">실 발송 켜기: <code>npx wrangler@4 secret delete SOLAPI_TEST_MODE</code></p>
+          </div>
+        </div>
+      </details>
+
+    </div>
+  </div>
+</details>
+<script>
+(function(){
+  window.loadKakaoStatus = async function(){
+    const el = document.getElementById('kakao-status-panel');
+    if (!el) return;
+    el.innerHTML = '<div style="padding:14px;text-align:center;color:#6b7280">상태 확인 중…</div>';
+    try {
+      const r = await fetch('/api/admin/kakao/status');
+      const d = await r.json();
+      const m = d.mode;
+      const INFO = {
+        disabled: { color:'#9ca3af', bg:'#f3f4f6', icon:'⏸', label:'미연동', desc:'API 키 없음 — 학생 입장/종료/채팅 시 알림톡 안 보냄' },
+        mock:     { color:'#a855f7', bg:'#faf5ff', icon:'🧪', label:'테스트 모드', desc:'mock 응답 — 콘솔에만 로그, 실제 카톡 안 감' },
+        real:     { color:'#10b981', bg:'#ecfdf5', icon:'✅', label:'실제 발송 중', desc:'학생 입장/종료/채팅 시 자동 알림톡' },
+      };
+      const info = INFO[m] || INFO.disabled;
+      const balLine = d.balance != null
+        ? `<div style="font-size:13px;color:#374151;margin-top:8px"><b>SOLAPI 잔액:</b> <span style="font-weight:800;color:#d97706">${(d.balance||0).toLocaleString('ko-KR')} 원</span> · 포인트 ${(d.point||0).toLocaleString('ko-KR')}</div>`
+        : (d.balance_error ? `<div style="font-size:11.5px;color:#ef4444;margin-top:8px">잔액 조회 실패: ${d.balance_error}</div>` : '');
+      const t = d.templates || {};
+      const tCount = (t.lesson_start?1:0)+(t.lesson_end?1:0)+(t.chat_summary?1:0)+(t.mention?1:0);
+      const tLine = `<div style="font-size:11.5px;color:#6b7280;margin-top:6px">템플릿 <b>${tCount}/4</b> 등록됨${tCount<4?' <span style="color:#f59e0b">⚠ 부족 - 미등록 시 해당 알림 건너뜀</span>':''}</div>`;
+      el.innerHTML = `
+        <div style="background:${info.bg};border:1px solid ${info.color};border-left:5px solid ${info.color};border-radius:10px;padding:14px 16px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="font-size:24px">${info.icon}</div>
+            <div style="flex:1">
+              <div style="font-size:14.5px;font-weight:800;color:${info.color}">${info.label}</div>
+              <div style="font-size:12px;color:#4b5563;margin-top:2px">${info.desc}</div>
+            </div>
+            <button onclick="loadKakaoStatus()" style="padding:6px 12px;font-size:11.5px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer">🔄</button>
+          </div>
+          ${balLine}
+          ${tLine}
+          <div style="margin-top:10px;padding-top:10px;border-top:1px dashed ${info.color};font-size:11px;color:#6b7280;font-family:monospace">
+            api_key=${d.api_key_set?'✓':'✗'} · secret=${d.api_secret_set?'✓':'✗'} · pfid=${d.pfid_set?'✓':'✗'} · test_mode=${d.test_mode?'on':'off'}<br>
+            templates: start=${t.lesson_start?'✓':'✗'} end=${t.lesson_end?'✓':'✗'} summary=${t.chat_summary?'✓':'✗'} mention=${t.mention?'✓':'✗'}
+          </div>
+        </div>`;
+    } catch(e) {
+      el.innerHTML = '<div style="padding:14px;color:#ef4444">상태 로드 실패: '+e.message+'</div>';
+    }
+  };
+  function bindKakaoOpen(){
+    const card = document.getElementById('card-kakao-mgmt');
+    if (card && !card.__kakaoBound) {
+      card.__kakaoBound = true;
+      card.addEventListener('toggle', () => { if (card.open && window.loadKakaoStatus) window.loadKakaoStatus(); });
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindKakaoOpen);
+  else bindKakaoOpen();
+})();
+</script>
+
 <!-- 📢 Phase POP — 공지/팝업 관리 (포인트 카드 다음) -->
 <details class="table-card menu-card" id="card-popups-mgmt">
   <summary><span data-ko="📢 공지/팝업 관리" data-en="📢 Announcements &amp; Popups">📢 공지/팝업 관리</span></summary>
