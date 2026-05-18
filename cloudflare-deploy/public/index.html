@@ -10310,7 +10310,7 @@ window.addEventListener('DOMContentLoaded', () => {
     reviews:     () => { closeGrid(); showModal(REVIEWS); },
     diagnosis:   () => { closeGrid(); runDiagnosis(); },
     kakao:       () => { closeGrid(); window.open('https://pf.kakao.com/_mangoi', '_blank'); },
-    remote:      () => { closeGrid(); window.open('https://anydesk.com/ko/downloads', '_blank'); alert('📞 PC 원격지원 안내\n\n1. AnyDesk 무료 다운로드 (이미 새 탭에서 열렸어요)\n2. 설치 후 9자리 ID 알려주세요\n3. 1:1 카톡상담 또는 1588-0000으로 연결'); },
+    remote:      () => { closeGrid(); openRemoteSupportModal(); },
     installguide:() => { closeGrid(); showModal(INSTALLGUIDE); },
     library:     () => { closeGrid(); showModal(LIBRARY); },
     learnguide:  () => { closeGrid(); showModal(LEARNGUIDE); },
@@ -15035,6 +15035,116 @@ window.closeRulesModal = function() {
       }
     };
   }
+})();
+</script>
+
+<!-- 💻 PC 원격지원 — 3옵션 모달 (Quick Assist / Chrome Remote / AnyDesk) -->
+<script>
+(function(){
+  var L = function(){ return (window.getLang ? window.getLang() : 'ko') === 'ko'; };
+  window.openRemoteSupportModal = function(){
+    var ov = document.getElementById('rs-overlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'rs-overlay';
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(5,7,18,.86);backdrop-filter:blur(14px);display:none;z-index:11500;padding:24px 16px;overflow-y:auto;animation:lcFade .2s';
+      ov.addEventListener('click', function(e){ if (e.target===ov) closeRemoteSupportModal(); });
+      document.body.appendChild(ov);
+    }
+    var isKo = L();
+    var options = [
+      {
+        rank: '🥇 '+(isKo?'가장 추천':'TOP PICK'),
+        title: 'Microsoft Quick Assist',
+        sub: isKo ? 'Windows 내장 · 설치 불필요' : 'Built into Windows · No install',
+        icon: '🪟',
+        accent: '#10b981',
+        secure: 5, easy: 5,
+        steps: isKo
+          ? ['<b>Win 키</b> 누르고 "<b>빠른 지원</b>" 또는 "<b>Quick Assist</b>" 검색','강사가 알려준 <b>6자리 코드</b> 입력','연결 → 도움 완료 후 자동 종료']
+          : ['Press <b>Win key</b>, search "<b>Quick Assist</b>"','Enter the <b>6-digit code</b> from your teacher','Connect → auto-close when done'],
+        note: isKo ? '✓ Windows 10/11 기본 내장 · ✓ MS 보안 인프라 · ✓ 세션 종료 시 권한 즉시 회수' : '✓ Built-in Win 10/11 · ✓ MS infra · ✓ Auto-revoke on close',
+        action: function(){ window.open('ms-quick-assist:', '_self'); setTimeout(function(){ alert(isKo?'Quick Assist가 안 열리면 Win 키 → "빠른 지원" 검색해 주세요.':'If not opened, press Win → search "Quick Assist".'); }, 800); },
+        actionLabel: isKo?'⚡ Quick Assist 열기':'⚡ Open Quick Assist'
+      },
+      {
+        rank: '🥈 '+(isKo?'무료 · 브라우저':'Free · Browser'),
+        title: 'Chrome Remote Desktop',
+        sub: isKo ? 'Chrome 브라우저만 있으면 OK' : 'Just need Chrome browser',
+        icon: '🌐',
+        accent: '#60a5fa',
+        secure: 5, easy: 4,
+        steps: isKo
+          ? ['Chrome 브라우저에서 페이지 열기 (자동으로 새 탭)','Google 계정 로그인 → "원격 지원" 탭','강사가 보낸 <b>액세스 코드</b> 입력']
+          : ['Open the page in Chrome (auto new tab)','Sign in with Google → "Remote Support" tab','Enter the <b>access code</b> from teacher'],
+        note: isKo ? '✓ Google 보안 인프라 · ✓ 설치 0 · ✓ 모바일 지원' : '✓ Google infra · ✓ Zero install · ✓ Mobile OK',
+        action: function(){ window.open('https://remotedesktop.google.com/support', '_blank'); },
+        actionLabel: isKo?'🌐 Chrome Remote 열기':'🌐 Open Chrome Remote'
+      },
+      {
+        rank: '🥉 '+(isKo?'고급 사용자':'For Advanced'),
+        title: 'AnyDesk',
+        sub: isKo ? '한 번 설치 후 빠른 P2P 연결' : 'Install once, fast P2P',
+        icon: '⚡',
+        accent: '#f59e0b',
+        secure: 3, easy: 3,
+        steps: isKo
+          ? ['8MB 무료 다운로드 (새 탭에서 열림)','설치 → <b>9자리 ID</b>가 화면에 표시됨','ID를 카카오톡 상담으로 전송 → 강사 연결']
+          : ['Download 8MB free (new tab)','Install → <b>9-digit ID</b> appears','Send ID via KakaoTalk → teacher connects'],
+        note: isKo ? '⚠ 2024년 보안사고 이력 · 빠른 속도가 장점 · 한국 학원 표준' : '⚠ 2024 security incident · Fast · Common in Korean schools',
+        action: function(){ window.open('https://anydesk.com/ko/downloads', '_blank'); },
+        actionLabel: isKo?'⬇ AnyDesk 다운로드':'⬇ Download AnyDesk'
+      }
+    ];
+    var cards = options.map(function(o, i){
+      var dots = function(n){ return '<span style="color:#fde68a">'+'★'.repeat(n)+'</span><span style="color:#475569">'+'★'.repeat(5-n)+'</span>'; };
+      var stepsHtml = '<ol style="margin:8px 0 0;padding-left:20px;font-size:12.5px;color:#cbd5e1;line-height:1.7">'+o.steps.map(function(s){return '<li>'+s+'</li>';}).join('')+'</ol>';
+      return '<div style="background:linear-gradient(180deg,#1a2032,#131826);border:1px solid '+o.accent+';border-left:5px solid '+o.accent+';border-radius:14px;padding:16px 18px;margin-bottom:12px">'+
+        '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+
+          '<div style="font-size:28px;width:48px;height:48px;background:rgba(255,255,255,.06);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+o.icon+'</div>'+
+          '<div style="flex:1;min-width:0">'+
+            '<div style="font-size:11px;color:'+o.accent+';font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">'+o.rank+'</div>'+
+            '<div style="font-size:16.5px;font-weight:800;color:#fff">'+o.title+'</div>'+
+            '<div style="font-size:12px;color:#94a3b8;margin-top:1px">'+o.sub+'</div>'+
+          '</div>'+
+          '<div style="text-align:right;font-size:10.5px;color:#94a3b8;line-height:1.5">'+
+            (isKo?'보안':'Security')+' '+dots(o.secure)+'<br>'+(isKo?'편의':'Ease')+' '+dots(o.easy)+
+          '</div>'+
+        '</div>'+
+        stepsHtml +
+        '<div style="font-size:11px;color:#94a3b8;margin-top:10px;padding:8px 10px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.6">'+o.note+'</div>'+
+        '<button onclick="rsRun('+i+')" style="margin-top:12px;width:100%;padding:11px;background:linear-gradient(135deg,'+o.accent+',rgba(0,0,0,.2));color:#fff;border:0;border-radius:10px;font-size:13.5px;font-weight:800;cursor:pointer;letter-spacing:-.2px">'+o.actionLabel+'</button>'+
+      '</div>';
+    }).join('');
+    window._rsOptions = options;
+    ov.innerHTML = '<div style="max-width:640px;margin:0 auto;background:linear-gradient(180deg,#1a2032,#131826);border:1px solid rgba(251,191,36,.32);border-radius:22px;box-shadow:0 30px 80px -10px rgba(0,0,0,.7);overflow:hidden;color:#e2e8f0;font-family:\'Noto Sans KR\',sans-serif">'+
+      '<div style="padding:18px 22px;background:linear-gradient(135deg,rgba(251,191,36,.18),rgba(245,158,11,.08));border-bottom:1px solid rgba(251,191,36,.3);display:flex;align-items:center;gap:12px">'+
+        '<span style="font-size:24px">💻</span>'+
+        '<h2 style="margin:0;flex:1;font-size:18px;font-weight:800;color:#fff">'+(isKo?'PC 원격지원 — 안전한 방법 선택':'Remote Support — Pick safest option')+'</h2>'+
+        '<button onclick="closeRemoteSupportModal()" style="background:rgba(255,255,255,.08);border:0;color:#cbd5e1;width:32px;height:32px;border-radius:50%;font-size:14px;cursor:pointer">✕</button>'+
+      '</div>'+
+      '<div style="padding:16px 18px;max-height:75vh;overflow-y:auto">'+
+        '<div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);border-left:4px solid #60a5fa;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#bfdbfe;line-height:1.6">'+
+          (isKo?'💡 <b>Windows 사용자는 Quick Assist 가장 권장</b> — 설치도 필요 없고 가장 안전합니다. AnyDesk는 한 번 써본 학생만 추천.':'💡 <b>Windows users: Quick Assist recommended</b> — no install needed, safest.')+
+        '</div>'+
+        cards +
+        '<div style="margin-top:14px;text-align:center;font-size:11.5px;color:#94a3b8">'+
+          (isKo?'어떤 방법이든 연결 후엔 카카오상담 또는 1:1 채팅으로 강사와 연락하세요':'After connecting, message your teacher via KakaoTalk or 1:1 chat')+
+        '</div>'+
+      '</div>'+
+    '</div>';
+    ov.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+  };
+  window.closeRemoteSupportModal = function(){
+    var ov = document.getElementById('rs-overlay');
+    if (ov) ov.style.display = 'none';
+    document.body.style.overflow = '';
+  };
+  window.rsRun = function(idx){
+    var o = (window._rsOptions||[])[idx];
+    if (o && o.action) o.action();
+  };
 })();
 </script>
 
