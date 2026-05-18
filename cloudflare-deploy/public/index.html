@@ -3280,32 +3280,28 @@
         <span class="gm-label" data-ko="PC원격지원" data-en="PC Remote Support">PC원격지원</span>
         <span class="gm-sub" data-ko="설치·접속 도움" data-en="Setup Help">설치·접속 도움</span>
       </button>
-      <!-- 🆕 내 포인트 — 골드 강조 (다른 카드와 차별화) -->
-      <button class="gm-card" data-go="mypoints" data-en-key="my points" onclick="if(window.showPointsShop)showPointsShop();else alert('로그인 후 이용하세요')"
-              style="background:linear-gradient(135deg,rgba(251,191,36,.18),rgba(245,158,11,.10));border-color:rgba(251,191,36,.45)">
+      <!-- 내 포인트 -->
+      <button class="gm-card" data-go="mypoints" data-en-key="my points" onclick="if(window.showPointsShop)showPointsShop();else alert('로그인 후 이용하세요')">
         <span class="gm-icon">🎁</span>
-        <span class="gm-label" data-ko="내 포인트" data-en="My Points" style="color:#fde68a">내 포인트</span>
+        <span class="gm-label" data-ko="내 포인트" data-en="My Points">내 포인트</span>
         <span class="gm-sub" data-ko="잔액·기프티콘 교환" data-en="Balance · Redeem">잔액·기프티콘 교환</span>
       </button>
-      <!-- 🆕 출석 체크 — Duolingo streak 패턴 -->
-      <button class="gm-card" data-go="checkin" data-en-key="daily checkin" onclick="window.openDailyCheckin&&window.openDailyCheckin()"
-              style="background:linear-gradient(135deg,rgba(239,68,68,.12),rgba(249,115,22,.08));border-color:rgba(249,115,22,.40)">
+      <!-- 출석 체크 -->
+      <button class="gm-card" data-go="checkin" data-en-key="daily checkin" onclick="window.openDailyCheckin&&window.openDailyCheckin()">
         <span class="gm-icon">🔥</span>
-        <span class="gm-label" data-ko="출석체크" data-en="Daily Check-in" style="color:#fed7aa">출석체크</span>
+        <span class="gm-label" data-ko="출석체크" data-en="Daily Check-in">출석체크</span>
         <span class="gm-sub" data-ko="매일 +10P · 연속 보너스" data-en="+10P daily · Streak bonus">매일 +10P · 연속 보너스</span>
       </button>
-      <!-- 🆕 학원 랭킹 -->
-      <button class="gm-card" data-go="leaderboard" data-en-key="leaderboard" onclick="window.openLeaderboard&&window.openLeaderboard()"
-              style="background:linear-gradient(135deg,rgba(168,85,247,.14),rgba(139,92,246,.08));border-color:rgba(168,85,247,.40)">
+      <!-- 학원 랭킹 -->
+      <button class="gm-card" data-go="leaderboard" data-en-key="leaderboard" onclick="window.openLeaderboard&&window.openLeaderboard()">
         <span class="gm-icon">🏆</span>
-        <span class="gm-label" data-ko="학원 랭킹" data-en="Leaderboard" style="color:#e9d5ff">학원 랭킹</span>
+        <span class="gm-label" data-ko="학원 랭킹" data-en="Leaderboard">학원 랭킹</span>
         <span class="gm-sub" data-ko="이번 달 TOP 10" data-en="This Month TOP 10">이번 달 TOP 10</span>
       </button>
-      <!-- 🆕 학습목표 (30일 챌린지) -->
-      <button class="gm-card" data-go="goals" data-en-key="learning goals" onclick="window.openLearningGoals&&window.openLearningGoals()"
-              style="background:linear-gradient(135deg,rgba(16,185,129,.14),rgba(5,150,105,.08));border-color:rgba(16,185,129,.40)">
-        <span class="gm-icon">🎯</span>
-        <span class="gm-label" data-ko="학습목표" data-en="Goals" style="color:#a7f3d0">학습목표</span>
+      <!-- 학습목표 (30일 챌린지) — 🚀 이모지 (집중도 측정 🎯 과 구분) -->
+      <button class="gm-card" data-go="goals" data-en-key="learning goals" onclick="window.openLearningGoals&&window.openLearningGoals()">
+        <span class="gm-icon">🚀</span>
+        <span class="gm-label" data-ko="학습목표" data-en="Goals">학습목표</span>
         <span class="gm-sub" data-ko="30일 챌린지" data-en="30-day Challenge">30일 챌린지</span>
       </button>
     </div>
@@ -3390,6 +3386,20 @@
       0 2px 0 rgba(0,0,0,0.3),
       0 4px 8px -2px rgba(0,0,0,0.4);
   }
+  /* 🆕 클릭 후 포커스 잔류 효과 제거 — 매번 처음처럼 보이도록
+     마우스로 클릭한 후 그 카드만 강조되는 :focus 외곽선/색 변경을 막음.
+     키보드 Tab 사용 시는 보임(접근성 유지) */
+  .gm-card:focus { outline: none; }
+  .gm-card:focus:not(:focus-visible) {
+    border-color: rgba(255,255,255,0.10) !important;
+    color: #e2e8f0 !important;
+    transform: none !important;
+    box-shadow:
+      0 3px 0 rgba(0,0,0,0.3),
+      0 6px 16px -4px rgba(0,0,0,0.5),
+      inset 0 1px 0 rgba(255,255,255,0.06) !important;
+  }
+  .gm-card:focus:not(:focus-visible)::before { opacity: 0 !important; }
   /* .primary는 호환을 위해 유지하되 active와 동일 효과 */
   .gm-card.primary,
   .gm-card.active {
