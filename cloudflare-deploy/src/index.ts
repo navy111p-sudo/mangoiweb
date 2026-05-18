@@ -419,7 +419,7 @@ export default {
 
     // WebSocket upgrade for video-call
     if (path.startsWith('/ws/video-call')) {
-      return await handleVideoCallWebSocket(request, url, env);
+      return await handleVideoCallWebSocket(request, url, env, ctx);
     }
 
     // 관리 대시보드 경로
@@ -737,7 +737,7 @@ async function handleSignalingWebSocket(request: Request, url: URL, env: Env): P
   }
 }
 
-async function handleVideoCallWebSocket(request: Request, url: URL, env: Env): Promise<Response> {
+async function handleVideoCallWebSocket(request: Request, url: URL, env: Env, ctx?: ExecutionContext): Promise<Response> {
   const roomId = url.searchParams.get('roomId') || 'default';
 
   try {
@@ -746,11 +746,15 @@ async function handleVideoCallWebSocket(request: Request, url: URL, env: Env): P
 
     const response = await durableObject.fetch(request);
 
-    // 활성 방 목록에 등록 (fire-and-forget — WebSocket 연결을 차단하지 않음)
-    env.SESSION_STATE.put(`active-room:${roomId}`, JSON.stringify({
+    // 활성 방 목록에 등록 — fire-and-forget 이지만 worker 가 응답 후
+    // 종료되어 KV put 이 드롭되지 않도록 ctx.waitUntil 로 보존
+    const kvPut = env.SESSION_STATE.put(`active-room:${roomId}`, JSON.stringify({
       roomId,
       lastActivity: Date.now()
     }), { expirationTtl: 600 }).catch(() => {});
+    if (ctx && typeof ctx.waitUntil === 'function') {
+      ctx.waitUntil(kvPut);
+    }
 
     return response;
   } catch (err) {

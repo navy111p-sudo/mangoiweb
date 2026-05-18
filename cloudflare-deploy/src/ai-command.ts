@@ -575,8 +575,9 @@ export async function executeAction(
       const userId = String(args?.user_id || '').trim();
       const reason = String(args?.reason || 'AI 명령으로 발급').slice(0, 200);
       if (!userId) return { ok: false, error: 'user_id_required' };
+      // rewards 테이블은 student_id/message 컬럼을 사용 (다른 INSERT/SELECT와 통일)
       await env.DB.prepare(
-        `INSERT INTO rewards (user_id, type, reason, issued_at) VALUES (?, 'sticker', ?, ?)`
+        `INSERT INTO rewards (student_id, type, message, issued_at) VALUES (?, 'sticker', ?, ?)`
       ).bind(userId, reason, Date.now()).run();
       return { ok: true, action: name, user_id: userId, reason };
     }

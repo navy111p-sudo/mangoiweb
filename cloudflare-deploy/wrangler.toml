@@ -52,6 +52,11 @@ run_worker_first = true
 not_found_handling = "none"
 html_handling = "none"
 
+# Cron trigger — index.ts 의 scheduled() 핸들러 (retention purge 등) 가
+# triggers 미설정 시 영원히 호출되지 않던 버그 수정. KST 03:00 = UTC 18:00
+[triggers]
+crons = ["0 18 * * *"]
+
 # ===== Production environment (Wrangler 4: bindings NOT inherited - must redeclare) =====
 [env.production]
 name = "webrtc-unified-platform-prod"
@@ -102,3 +107,7 @@ binding = "ASSETS"
 run_worker_first = true
 not_found_handling = "none"
 html_handling = "none"
+
+# Production 환경도 동일하게 cron 등록 필요
+[env.production.triggers]
+crons = ["0 18 * * *"]
