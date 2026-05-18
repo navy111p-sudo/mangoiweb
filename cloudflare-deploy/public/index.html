@@ -14604,7 +14604,7 @@ window.closeRulesModal = function() {
   function playPointsGreeting(){
     try {
       if (!pointsAudio) {
-        pointsAudio = new Audio('/audio/포인트안내.wav');
+        pointsAudio = new Audio('/audio/포인트사용.wav');
         pointsAudio.preload = 'auto';
         pointsAudio.addEventListener('ended', updatePointsAudioBtn);
         pointsAudio.addEventListener('pause', updatePointsAudioBtn);
