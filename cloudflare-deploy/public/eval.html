@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<title>오늘의 학습 평가서 — 망고아이</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&family=Cormorant+Garamond:ital,wght@1,600;1,700&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  body{
+    margin:0;
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse at center top, rgba(251,191,36,0.10), transparent 60%),
+      radial-gradient(ellipse at center, rgba(11,15,30,0.45), rgba(8,11,24,0.92)),
+      url('/img/bg/space.jpg') center/cover no-repeat fixed,
+      #0a0e1a;
+    color:#f1f5f9;
+    font-family:'Noto Sans KR',sans-serif;
+    letter-spacing:-0.2px;
+  }
+  .wrap{max-width:680px;margin:0 auto;padding:32px 18px 80px}
+  .brand{text-align:center;margin-bottom:24px}
+  .brand-logo{
+    font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:700;
+    background:linear-gradient(180deg,#fff4cc,#fbbf24,#8a5e10);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+    font-size:36px;letter-spacing:1px;display:block;line-height:1
+  }
+  .brand-sub{font-size:13px;color:#94a3b8;margin-top:4px}
+  /* 평가서 카드 */
+  .eval-card{
+    background:linear-gradient(180deg,rgba(26,32,50,0.95),rgba(19,24,38,0.95));
+    border:1px solid rgba(251,191,36,0.32);
+    border-radius:22px;
+    box-shadow:0 30px 80px -10px rgba(0,0,0,0.7),0 0 0 1px rgba(255,255,255,0.04);
+    overflow:hidden;
+    backdrop-filter:blur(14px)
+  }
+  .eval-head{
+    background:linear-gradient(135deg,rgba(251,191,36,0.20),rgba(245,158,11,0.08));
+    border-bottom:1px solid rgba(251,191,36,0.30);
+    padding:24px 24px 20px
+  }
+  .eval-title{font-size:22px;font-weight:800;color:#fff;margin:0 0 6px}
+  .eval-meta{font-size:13px;color:#fde68a;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .eval-meta b{color:#fff;font-weight:700}
+  .overall-row{
+    display:flex;align-items:center;gap:16px;
+    padding:18px 24px;
+    background:rgba(0,0,0,0.25);
+    border-bottom:1px solid rgba(255,255,255,0.06)
+  }
+  .overall-big{
+    font-size:48px;font-weight:900;
+    background:linear-gradient(180deg,#fff8d8,#fbbf24,#c08820);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+    line-height:1;font-family:'Inter',sans-serif
+  }
+  .overall-of{font-size:14px;color:#94a3b8;margin-top:6px}
+  .overall-stars{font-size:20px;letter-spacing:2px;margin-top:4px}
+  /* 점수 그리드 */
+  .scores{padding:18px 24px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .score-row{
+    background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.06);
+    border-radius:12px;
+    padding:12px 14px
+  }
+  .score-label{font-size:11.5px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+  .score-bar-wrap{height:8px;background:rgba(0,0,0,0.3);border-radius:99px;overflow:hidden;margin-top:6px}
+  .score-bar{height:100%;background:linear-gradient(90deg,#fbbf24,#f59e0b);transition:width .8s ease}
+  .score-num{font-size:16px;font-weight:800;color:#fde68a;font-family:'Inter',sans-serif}
+  /* 코멘트 섹션 */
+  .section{padding:18px 24px;border-top:1px solid rgba(255,255,255,0.06)}
+  .section h3{font-size:14px;font-weight:800;color:#fde68a;margin:0 0 10px;display:flex;align-items:center;gap:8px;text-transform:uppercase;letter-spacing:.5px}
+  .section p{font-size:14px;color:#e2e8f0;line-height:1.7;margin:0;white-space:pre-wrap;word-break:keep-all}
+  .empty{color:#64748b;font-style:italic;font-size:13px}
+  /* 푸터 */
+  .eval-foot{
+    padding:18px 24px;
+    background:rgba(0,0,0,0.3);
+    border-top:1px solid rgba(255,255,255,0.06);
+    text-align:center;
+    font-size:12px;
+    color:#94a3b8
+  }
+  .eval-foot a{color:#fde68a;font-weight:700;text-decoration:none}
+  .home-btn{
+    display:inline-flex;align-items:center;gap:6px;
+    margin-top:14px;
+    padding:10px 22px;
+    background:linear-gradient(135deg,#fbbf24,#f59e0b);
+    color:#1a1a1a;text-decoration:none;border-radius:99px;
+    font-size:13.5px;font-weight:800;
+    box-shadow:0 6px 18px -4px rgba(245,158,11,0.5)
+  }
+  /* 로딩/에러 */
+  .state{padding:60px 20px;text-align:center;color:#94a3b8;font-size:14.5px;line-height:1.7}
+  /* 우상단 글로벌 홈 버튼 */
+  .global-home{position:fixed;top:14px;right:14px;z-index:99;background:rgba(20,28,48,0.65);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.16);color:#f1f5ff;padding:8px 14px;border-radius:99px;font-weight:700;font-size:12.5px;text-decoration:none}
+  @media (max-width:480px){
+    .wrap{padding:20px 12px 60px}
+    .brand-logo{font-size:28px}
+    .eval-title{font-size:18px}
+    .scores{grid-template-columns:1fr;gap:8px}
+    .overall-big{font-size:40px}
+  }
+</style>
+</head>
+<body>
+  <a class="global-home" href="/" title="망고아이 홈">🏠 홈</a>
+  <div class="wrap">
+    <div class="brand">
+      <span class="brand-logo">Mangoi</span>
+      <div class="brand-sub">오늘의 학습 평가서</div>
+    </div>
+    <div id="eval-root" class="state">📥 평가서를 불러오는 중…</div>
+  </div>
+<script>
+(function(){
+  const params = new URLSearchParams(location.search);
+  const id = params.get('id') || location.pathname.split('/').filter(Boolean).pop();
+  const root = document.getElementById('eval-root');
+
+  function stars(n){
+    n = Math.max(0, Math.min(5, Math.round(n||0)));
+    return '<span style="color:#fbbf24">'+'★'.repeat(n)+'</span><span style="color:#475569">'+'☆'.repeat(5-n)+'</span>';
+  }
+  function scoreBar(label, value){
+    if (value == null || value === '') return '';
+    const pct = Math.max(0, Math.min(100, (Number(value)/5)*100));
+    return `<div class="score-row">
+      <div class="score-label">${label}</div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between">
+        <span class="score-num">${value}</span>
+        <span style="font-size:12px;color:#94a3b8">/ 5</span>
+      </div>
+      <div class="score-bar-wrap"><div class="score-bar" style="width:${pct}%"></div></div>
+    </div>`;
+  }
+  function escapeText(s){ return String(s||'').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'})[c]); }
+
+  async function load(){
+    if (!id || !/^\d+$/.test(id)) {
+      root.innerHTML = '<div>❌ 잘못된 평가서 주소입니다.<br><br><a href="/" style="color:#fde68a">홈으로</a></div>';
+      return;
+    }
+    try {
+      const r = await fetch('/api/eval/' + id);
+      const d = await r.json();
+      if (!d.ok || !d.eval) {
+        root.innerHTML = '<div>❌ 평가서를 찾을 수 없습니다 (#'+id+').<br><br><a href="/" style="color:#fde68a">홈으로</a></div>';
+        return;
+      }
+      const e = d.eval;
+      const overall = e.score_overall;
+      const dt = e.lesson_date ? e.lesson_date : new Date(e.created_at).toISOString().slice(0,10);
+
+      const scoresHtml = [
+        scoreBar('🎯 참여도', e.score_participation),
+        scoreBar('💡 이해도', e.score_comprehension),
+        scoreBar('📝 숙제 완성', e.score_homework),
+        scoreBar('😊 수업 태도', e.score_attitude),
+        scoreBar('🗣 말하기', e.score_speaking),
+      ].filter(Boolean).join('');
+
+      root.className = '';
+      root.innerHTML = `
+        <div class="eval-card">
+          <div class="eval-head">
+            <h1 class="eval-title">${escapeText(e.student_name||'학생')} 학생 평가서</h1>
+            <div class="eval-meta">
+              <span>📅 <b>${escapeText(dt)}</b></span>
+              ${e.lesson_title?`<span>📚 <b>${escapeText(e.lesson_title)}</b></span>`:''}
+              ${e.teacher_name?`<span>👨‍🏫 <b>${escapeText(e.teacher_name)}</b> 강사</span>`:''}
+            </div>
+          </div>
+          ${overall != null ? `
+          <div class="overall-row">
+            <div>
+              <div class="overall-big">${overall}</div>
+              <div class="overall-of">종합 / 5점</div>
+            </div>
+            <div style="flex:1">
+              <div class="overall-stars">${stars(overall)}</div>
+              <div style="font-size:12.5px;color:#94a3b8;margin-top:6px">${
+                overall >= 4.5 ? '🏆 매우 우수' :
+                overall >= 4.0 ? '⭐ 우수' :
+                overall >= 3.5 ? '👍 양호' :
+                overall >= 3.0 ? '🙂 보통' : '💪 분발 필요'
+              }</div>
+            </div>
+          </div>` : ''}
+          ${scoresHtml ? `<div class="scores">${scoresHtml}</div>` : ''}
+          <div class="section">
+            <h3>✨ 잘한 점</h3>
+            <p${e.strengths?'':' class="empty"'}>${e.strengths ? escapeText(e.strengths) : '— 아직 입력되지 않았어요.'}</p>
+          </div>
+          <div class="section">
+            <h3>💪 보완할 점</h3>
+            <p${e.improvements?'':' class="empty"'}>${e.improvements ? escapeText(e.improvements) : '— 아직 입력되지 않았어요.'}</p>
+          </div>
+          <div class="section">
+            <h3>🎯 다음 수업 목표</h3>
+            <p${e.next_goals?'':' class="empty"'}>${e.next_goals ? escapeText(e.next_goals) : '— 아직 입력되지 않았어요.'}</p>
+          </div>
+          ${e.teacher_comment ? `
+          <div class="section">
+            <h3>📝 강사 코멘트</h3>
+            <p>${escapeText(e.teacher_comment)}</p>
+          </div>` : ''}
+          <div class="eval-foot">
+            <div>${escapeText(e.teacher_name||'담당 강사')} 드림</div>
+            <div style="margin-top:6px;font-size:11px">평가서 #${e.id} · ${new Date(e.created_at).toLocaleString('ko-KR')}</div>
+            <a class="home-btn" href="/">🏠 망고아이 홈페이지로</a>
+          </div>
+        </div>`;
+    } catch (err) {
+      root.innerHTML = '<div>❌ 로드 실패: ' + (err.message||err) + '</div>';
+    }
+  }
+  load();
+})();
+</script>
+</body>
+</html>

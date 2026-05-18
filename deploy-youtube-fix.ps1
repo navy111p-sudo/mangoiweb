@@ -40,6 +40,13 @@ Write-Host "확인 URL: https://webrtc-unified-platform-prod.navy111p.workers.de
 Write-Host "또는    : https://webrtc-unified-platform.navy111p.workers.dev"   -ForegroundColor Yellow
 Write-Host ""
 Write-Host "테스트:" -ForegroundColor Cyan
-Write-Host "  1) 위 URL 접속 -> 수업방 입장 -> 동영상 탭 클릭"
-Write-Host "  2) [▶ YouTube] 버튼 클릭"
-Write-Host "  3) 검색창에 'www.youtube.com' 자동 입력 + 칠판에 미니 YouTube 패널 자동 표시 + 추천 영상 자동 재생 확인"
+Write-Host "  [A] YouTube 자동 재생"
+Write-Host "    1) 위 URL 접속 -> 수업방 입장 -> 동영상 탭 클릭"
+Write-Host "    2) [▶ YouTube] 버튼 클릭"
+Write-Host "    3) 검색창에 'www.youtube.com' 자동 입력 + 칠판에 미니 YouTube 패널 자동 표시 + 추천 영상 자동 재생 확인"
+Write-Host ""
+Write-Host "  [B] 로그인 모달 우주 배경"
+Write-Host "    1) 메인 화면에서 '수업입장' 클릭 -> 로비 진입"
+Write-Host "    2) 우주 배경 + 별 + 별똥별 애니메이션 + 좌상단 은하 / 우상단 토성 / 좌하단 행성 확인"
+Write-Host "    3) 모달: 가장자리 무지개 그라데이션 보더, 입력칸 좌측 아이콘, 보라색 포커스 글로우"
+Write-Host "    4) 로그인 버튼: 호버 시 shimmer 라이트 + lift 효과"

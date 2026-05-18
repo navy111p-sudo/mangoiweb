@@ -389,6 +389,8 @@ export async function handleMangoApi(
         ['point_rule_log', `CREATE TABLE IF NOT EXISTS point_rule_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, rule_code TEXT NOT NULL, amount INTEGER NOT NULL, triggered_at INTEGER NOT NULL, txn_id INTEGER, meta TEXT);`],
         // ═══ Phase K1: 화상수업 채팅 영속화 ═══
         ['chat_messages', `CREATE TABLE IF NOT EXISTS chat_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT NOT NULL, sender_uid TEXT, sender_name TEXT, sender_role TEXT, message TEXT NOT NULL, sent_at INTEGER NOT NULL, meta TEXT);`],
+        // ═══ Phase E1: 학생 평가서 ═══
+        ['student_evaluations', `CREATE TABLE IF NOT EXISTS student_evaluations (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, student_name TEXT, teacher_uid TEXT, teacher_name TEXT, room_id TEXT, lesson_title TEXT, lesson_date TEXT, score_participation INTEGER, score_comprehension INTEGER, score_homework INTEGER, score_attitude INTEGER, score_speaking INTEGER, score_overall INTEGER, strengths TEXT, improvements TEXT, next_goals TEXT, teacher_comment TEXT, parent_notified INTEGER DEFAULT 0, parent_notified_at INTEGER, viewed_by_parent INTEGER DEFAULT 0, viewed_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`],
         // ═══ Phase POP: 팝업/공지 시스템 ═══
         ['popup_announcements', `CREATE TABLE IF NOT EXISTS popup_announcements (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, content_type TEXT NOT NULL DEFAULT 'mixed', body_html TEXT, image_url TEXT, video_url TEXT, link_url TEXT, link_text TEXT, width INTEGER DEFAULT 480, height INTEGER DEFAULT 360, width_mobile INTEGER, height_mobile INTEGER, position TEXT DEFAULT 'center', priority INTEGER DEFAULT 0, start_at INTEGER, end_at INTEGER, enabled INTEGER DEFAULT 1, dismiss_options TEXT DEFAULT 'today,7days', target_filter TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, view_count INTEGER DEFAULT 0, click_count INTEGER DEFAULT 0);`],
         ['popup_views', `CREATE TABLE IF NOT EXISTS popup_views (id INTEGER PRIMARY KEY AUTOINCREMENT, popup_id INTEGER NOT NULL, user_id TEXT, viewed_at INTEGER NOT NULL, clicked INTEGER DEFAULT 0, click_target TEXT, user_agent TEXT);`],
@@ -2319,6 +2321,144 @@ export async function handleMangoApi(
 
     // ═══════════════════════════════════════════════════════════════
     // 📲 Phase K2~K4 끝
+    // ═══════════════════════════════════════════════════════════════
+
+    // ═══════════════════════════════════════════════════════════════
+    // 📝 Phase E1~E4 — 학생 평가서
+    // ═══════════════════════════════════════════════════════════════
+
+    const ensureEvalTable = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_evaluations (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, student_name TEXT, teacher_uid TEXT, teacher_name TEXT, room_id TEXT, lesson_title TEXT, lesson_date TEXT, score_participation INTEGER, score_comprehension INTEGER, score_homework INTEGER, score_attitude INTEGER, score_speaking INTEGER, score_overall INTEGER, strengths TEXT, improvements TEXT, next_goals TEXT, teacher_comment TEXT, parent_notified INTEGER DEFAULT 0, parent_notified_at INTEGER, viewed_by_parent INTEGER DEFAULT 0, viewed_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_eval_student ON student_evaluations(student_uid, created_at DESC);`); } catch {}
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_eval_teacher ON student_evaluations(teacher_uid, created_at DESC);`); } catch {}
+    };
+
+    // ── POST /api/eval/create — 강사가 평가서 작성 ──
+    if (method === 'POST' && path === '/api/eval/create') {
+      await ensureEvalTable();
+      const body: any = await request.json().catch(() => ({}));
+      if (!body.student_uid) return json({ ok: false, error: 'student_uid_required' }, 400);
+      const now = Date.now();
+      // 평가 점수 평균으로 종합 점수 자동 계산
+      const scores = [body.score_participation, body.score_comprehension, body.score_homework, body.score_attitude, body.score_speaking]
+        .filter(v => v != null && !isNaN(v))
+        .map(v => Number(v));
+      const overall = scores.length > 0
+        ? Math.round((scores.reduce((a,b)=>a+b,0) / scores.length) * 10) / 10
+        : null;
+      const ins = await env.DB.prepare(
+        `INSERT INTO student_evaluations (student_uid, student_name, teacher_uid, teacher_name, room_id, lesson_title, lesson_date,
+          score_participation, score_comprehension, score_homework, score_attitude, score_speaking, score_overall,
+          strengths, improvements, next_goals, teacher_comment, created_at, updated_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      ).bind(
+        body.student_uid, body.student_name || null,
+        body.teacher_uid || null, body.teacher_name || null,
+        body.room_id || null, body.lesson_title || null,
+        body.lesson_date || new Date().toISOString().slice(0,10),
+        body.score_participation || null, body.score_comprehension || null,
+        body.score_homework || null, body.score_attitude || null,
+        body.score_speaking || null, overall,
+        body.strengths || null, body.improvements || null,
+        body.next_goals || null, body.teacher_comment || null,
+        now, now
+      ).run();
+      const evalId = ins?.meta?.last_row_id;
+
+      // 평가서 작성 완료 → 학부모/학생 카톡 알림 자동 발송 (옵션)
+      let notifyResult: any = null;
+      if (body.parent_phone || body.student_phone) {
+        try {
+          const evalUrl = `https://webrtc-unified-platform-prod.navy111p.workers.dev/eval/${evalId}`;
+          // 카카오 알림톡 시도 (mock/disabled 면 조용히 건너뜀)
+          const { sendKakaoAlimtalk } = await import('./solapi-client');
+          const phones = [body.parent_phone, body.student_phone].filter(Boolean);
+          notifyResult = { sent: [], failed: [] };
+          for (const phone of phones) {
+            // 임시: chat_summary 템플릿 재사용 (평가서 전용 템플릿 등록 전)
+            const r = await sendKakaoAlimtalk(env, {
+              templateCode: (env as any).SOLAPI_TEMPLATE_CHAT_SUMMARY || '',
+              recipientPhone: phone,
+              variables: {
+                '#{학생명}': body.student_name || '학생',
+                '#{수업명}': body.lesson_title || '오늘 수업',
+                '#{메시지수}': '평가서',
+                '#{요약URL}': evalUrl,
+              },
+              fallbackSmsText: `[망고아이] ${body.student_name||''} 학생 오늘 수업 평가서 도착. ${evalUrl}`,
+            });
+            if (r.ok) notifyResult.sent.push(phone);
+            else notifyResult.failed.push({ phone, error: r.error || r.message });
+          }
+          if (notifyResult.sent.length > 0) {
+            await env.DB.prepare(`UPDATE student_evaluations SET parent_notified=1, parent_notified_at=? WHERE id=?`).bind(now, evalId).run();
+          }
+        } catch (e: any) {
+          console.warn('[eval] notify err:', e?.message);
+        }
+      }
+      return json({ ok: true, id: evalId, overall, notify: notifyResult });
+    }
+
+    // ── GET /api/eval/list?uid=X&role=student|parent|teacher — 평가서 목록 ──
+    if (method === 'GET' && path === '/api/eval/list') {
+      await ensureEvalTable();
+      const uid = (url.searchParams.get('uid') || '').trim();
+      const role = (url.searchParams.get('role') || 'student').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      const col = role === 'teacher' ? 'teacher_uid' : 'student_uid';
+      const rs = await env.DB.prepare(
+        `SELECT id, student_name, teacher_name, lesson_title, lesson_date, score_overall, created_at, parent_notified, viewed_by_parent
+           FROM student_evaluations
+          WHERE ${col} = ?
+          ORDER BY created_at DESC
+          LIMIT 50`
+      ).bind(uid).all();
+      return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [] });
+    }
+
+    // ── GET /api/eval/:id — 평가서 단건 조회 (학부모/학생 페이지에서 사용) ──
+    if (method === 'GET' && /^\/api\/eval\/\d+$/.test(path)) {
+      await ensureEvalTable();
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      const row: any = await env.DB.prepare(`SELECT * FROM student_evaluations WHERE id=?`).bind(id).first();
+      if (!row) return json({ ok: false, error: 'not_found' }, 404);
+      // 학부모가 본 적 없으면 view 기록
+      if (!row.viewed_by_parent) {
+        await env.DB.prepare(`UPDATE student_evaluations SET viewed_by_parent=1, viewed_at=? WHERE id=?`).bind(Date.now(), id).run();
+      }
+      return json({ ok: true, eval: row });
+    }
+
+    // ── DELETE /api/eval/:id — 평가서 삭제 (강사/관리자) ──
+    if (method === 'DELETE' && /^\/api\/eval\/\d+$/.test(path)) {
+      await ensureEvalTable();
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      await env.DB.prepare(`DELETE FROM student_evaluations WHERE id=?`).bind(id).run();
+      return json({ ok: true, id, deleted: true });
+    }
+
+    // ── GET /api/admin/eval/list — 관리자: 전체 평가서 목록 + 통계 ──
+    if (method === 'GET' && path === '/api/admin/eval/list') {
+      await ensureEvalTable();
+      const limit = Math.min(500, Math.max(1, parseInt(url.searchParams.get('limit') || '100', 10)));
+      const rs = await env.DB.prepare(
+        `SELECT * FROM student_evaluations ORDER BY created_at DESC LIMIT ?`
+      ).bind(limit).all();
+      // 통계 계산
+      const month_start = new Date(); month_start.setDate(1); month_start.setHours(0,0,0,0);
+      const stats: any = await env.DB.prepare(
+        `SELECT COUNT(*) AS total, AVG(score_overall) AS avg_score,
+                SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS this_month,
+                SUM(parent_notified) AS notified,
+                SUM(viewed_by_parent) AS viewed
+           FROM student_evaluations`
+      ).bind(month_start.getTime()).first();
+      return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [], stats });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 📝 Phase E1 끝
     // ═══════════════════════════════════════════════════════════════
 
     if (method === 'GET' && path === '/api/admin/stats/revenue') {
