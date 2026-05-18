@@ -1,8 +1,8 @@
 // 🌐 Mangoi Service Worker — PWA 오프라인 캐시 + 빠른 로딩
 // 버전 갱신 시 CACHE_NAME 의 숫자만 바꾸면 모든 사용자에게 즉시 새 버전 전파
 
-const CACHE_NAME = 'mangoi-v1';
-const RUNTIME_CACHE = 'mangoi-runtime-v1';
+const CACHE_NAME = 'mangoi-v2';
+const RUNTIME_CACHE = 'mangoi-runtime-v2';
 
 // 첫 설치 때 미리 캐시할 핵심 자산 (필수 only — 너무 많으면 install 실패)
 const PRECACHE_URLS = [
@@ -91,7 +91,11 @@ async function networkFirst(request, cacheName, timeoutMs) {
   } catch (e) {
     const cached = await cache.match(request);
     if (cached) return cached;
-    throw e;
+    // 네트워크 실패 시 콘솔 에러 대신 503 + JSON 으로 응답
+    return new Response(JSON.stringify({ ok:false, error: 'network unavailable' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
@@ -102,13 +106,18 @@ async function cacheFirst(request, cacheName) {
   if (cached) {
     // 백그라운드로 최신 fetch (stale-while-revalidate)
     fetch(request).then(resp => {
-      if (resp.ok) cache.put(request, resp.clone()).catch(()=>{});
+      if (resp && resp.ok) cache.put(request, resp.clone()).catch(()=>{});
     }).catch(()=>{});
     return cached;
   }
-  const resp = await fetch(request);
-  if (resp.ok) cache.put(request, resp.clone()).catch(()=>{});
-  return resp;
+  try {
+    const resp = await fetch(request);
+    if (resp && resp.ok) cache.put(request, resp.clone()).catch(()=>{});
+    return resp;
+  } catch (e) {
+    // 네트워크 실패해도 콘솔 빨간 에러 안 띄우게 — 빈 503 응답 반환
+    return new Response('', { status: 503, statusText: 'Offline / SW' });
+  }
 }
 
 // === 메시지: 클라이언트가 새 버전으로 즉시 강제 갱신 요청 ===
