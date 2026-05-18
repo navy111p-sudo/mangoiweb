@@ -15102,7 +15102,7 @@ window.closeRulesModal = function() {
   function playRsGreeting(){
     try {
       if (!rsAudio) {
-        rsAudio = new Audio('/audio/원격지원안내.mp3');
+        rsAudio = new Audio('/audio/원격지원안내.wav');
         rsAudio.preload = 'auto';
         rsAudio.addEventListener('ended', updateRsAudioBtn);
         rsAudio.addEventListener('pause', updateRsAudioBtn);
