@@ -2577,6 +2577,47 @@
             }
           </style>
           <p style="margin:0 0 10px;font-size:12.5px;color:#374151">5개 역할 + 본사 3개 직급 — 각 메뉴/기능의 접근 권한을 설정합니다. 셀을 클릭하면 ✅ → 👁️ → ❌ 순환·즉시 저장됩니다.</p>
+          <!-- 🆕 내 역할 시뮬레이션 — 학생용 페이지에서 수업 연기/변경 시간 제한이 어떻게 적용되는지 테스트 -->
+          <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;line-height:1.6;color:#78350f">
+            <b>🎭 내 역할 시뮬레이션</b> — 학생용 홈페이지에서 사용할 역할을 선택. 「📅 수업 연기/변경」 시 위 권한 설정 따라 시간 제한이 자동 적용됩니다.
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px">
+              <select id="role-sim-select" onchange="setMyRoleSim(this.value)" style="padding:6px 10px;font-size:12.5px;border:1px solid #f59e0b;border-radius:6px;background:#fff;font-weight:600">
+                <option value="">— 역할 선택 —</option>
+                <option value="hq_exec">🏛 본사 임원 (hq_exec)</option>
+                <option value="hq_mgr">🏛 본사 매니저 (hq_mgr)</option>
+                <option value="hq_teacher">🧑‍🏫 강사 (hq_teacher)</option>
+                <option value="branch">🏢 지사 (branch)</option>
+                <option value="agency">🏪 대리점 (agency)</option>
+                <option value="parent">👪 학부모 (parent)</option>
+                <option value="student">🎓 학생 (student)</option>
+              </select>
+              <span id="role-sim-current" style="font-size:11.5px;color:#78350f"></span>
+              <button onclick="clearMyRoleSim()" style="padding:5px 12px;font-size:11.5px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer">초기화</button>
+            </div>
+          </div>
+          <script>
+            window.setMyRoleSim = function(role){
+              if (!role) { localStorage.removeItem('mangoi_user_role'); }
+              else { localStorage.setItem('mangoi_user_role', role); }
+              const el = document.getElementById('role-sim-current');
+              if (el) el.textContent = role ? ('현재 역할: ' + role + ' — 학생용 페이지에서 적용됨') : '역할 미설정 (기본 = student)';
+            };
+            window.clearMyRoleSim = function(){
+              localStorage.removeItem('mangoi_user_role');
+              const sel = document.getElementById('role-sim-select');
+              if (sel) sel.value = '';
+              const el = document.getElementById('role-sim-current');
+              if (el) el.textContent = '역할 미설정 (기본 = student)';
+            };
+            // 초기 로드 시 표시
+            setTimeout(() => {
+              const saved = localStorage.getItem('mangoi_user_role');
+              const sel = document.getElementById('role-sim-select');
+              if (sel && saved) sel.value = saved;
+              const el = document.getElementById('role-sim-current');
+              if (el) el.textContent = saved ? ('현재 역할: ' + saved + ' — 학생용 페이지에서 적용됨') : '역할 미설정 (기본 = student)';
+            }, 200);
+          </script>
           <!-- 범례 -->
           <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;padding:8px 12px;background:linear-gradient(90deg,#f9fafb,#fff);border:1px solid #e5e7eb;border-radius:8px;font-size:11.5px">
             <span style="color:#374151;font-weight:700"><span data-ko="범례" data-en="Legend">범례</span> :</span>
@@ -11320,6 +11361,15 @@ window.rebuildGlobalSearchIndex = function() {
       { id: 'community',       name_ko: '학원 게시판 (소식·FAQ) 작성', name_en: 'Notice Board (News·FAQ) — write',        def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'✅', agency:'❌', parent:'👁️', student:'👁️' } },
       { id: 'inquiries',       name_ko: '신규상담 처리',       name_en: 'New Inquiries',             def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'✅', agency:'✅', parent:'❌', student:'❌' } },
       { id: 'kakao_blast',     name_ko: '카톡 공지 발송',      name_en: 'KakaoTalk Broadcast',       def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'✅', agency:'❌', parent:'❌', student:'❌' } },
+    ]},
+    // 🆕 수업 연기/변경 시간 제한 우회 권한 — 본사/강사는 언제든지 가능, 지사/대리점/학생은 24h/30분 룰 준수
+    { group_ko: '📅 수업 변경 권한', group_en: '📅 Lesson Change Permissions', items: [
+      { id: 'lesson_postpone_anytime', name_ko: '수업 연기 시간 무제한 (30분룰 우회)',
+        name_en: 'Postpone Anytime (bypass 30-min rule)',
+        def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'lesson_change_anytime',   name_ko: '수업 변경 시간 무제한 (24시간룰 우회)',
+        name_en: 'Change Anytime (bypass 24-hour rule)',
+        def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
     ]},
     { group_ko: '🔐 시스템', group_en: '🔐 System', items: [
       { id: 'permissions',     name_ko: '권한 설정',           name_en: 'Permission Settings',       def: { hq_exec:'✅', hq_mgr:'❌', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },

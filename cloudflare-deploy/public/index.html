@@ -13362,6 +13362,19 @@ window.closeRulesModal = function() {
         '</div>'+
       '</div>';
     }).join('');
+    // 권한 우회 가능 여부 표시 (본사/강사 운영자 안내)
+    var bypassPostpone = (typeof hasUnlimitedLessonPermission==='function') && hasUnlimitedLessonPermission('postpone');
+    var bypassChange = (typeof hasUnlimitedLessonPermission==='function') && hasUnlimitedLessonPermission('change');
+    var roleNote = '';
+    if (bypassPostpone || bypassChange) {
+      var roleLbl = ((typeof getCurrentUser==='function')?(getCurrentUser()||{}):{}).role || localStorage.getItem('mangoi_user_role') || 'admin';
+      roleNote = '<div style="background:linear-gradient(135deg,rgba(16,185,129,.15),rgba(5,150,105,.10));border:1px solid rgba(16,185,129,.5);border-radius:8px;padding:8px 12px;margin-top:8px;font-size:11.5px;color:#a7f3d0">'+
+        '🔓 <b>'+(L?'관리자 권한 활성':'Admin Override Active')+'</b> ('+roleLbl+') — '+
+        (bypassPostpone&&bypassChange ? (L?'연기·변경 시간 제한 모두 우회':'Both rules bypassed')
+          : bypassPostpone ? (L?'연기 시간 제한 우회':'Postpone rule bypassed')
+          : (L?'변경 시간 제한 우회':'Change rule bypassed'))+
+      '</div>';
+    }
     var html = '<div class="lc-modal" onclick="event.stopPropagation()">'+
       '<div class="lc-head"><h2>📅 '+(L?'수업 연기 / 변경':'Postpone / Change')+'</h2>'+
       '<button class="lc-close" onclick="closeLessonChangeModal()">✕</button></div>'+
@@ -13369,6 +13382,7 @@ window.closeRulesModal = function() {
         '<div class="lc-info">💡 <b>'+(L?'규정 안내':'Policy')+'</b><br>'+
           '· '+(L?'<b>연기</b>: 수업 시작 <b>30분 전</b>까지 가능':'<b>Postpone</b>: up to 30 min before')+'<br>'+
           '· '+(L?'<b>변경</b>: 수업 시작 <b>24시간 전</b>까지 가능':'<b>Change</b>: up to 24 h before')+
+          roleNote+
         '</div>'+
         '<div class="lc-list">'+(items||'<div class="lc-empty">'+(L?'예정된 수업이 없습니다.':'No upcoming classes.')+'</div>')+'</div>'+
       '</div></div>';
@@ -13382,6 +13396,25 @@ window.closeRulesModal = function() {
     document.body.style.overflow = '';
   };
 
+  // 🆕 권한 기반 시간 제한 우회 — 본사/강사는 언제든 가능, 지사/대리점/학생은 24h/30분 룰
+  //    관리자 페이지 권한 매트릭스(mangoi_perm_matrix)에서 해당 권한이 '✅' 인지 확인
+  //    역할은 mangoi_logged_user.role 또는 mangoi_user_role 키에서 가져옴 (기본 'student')
+  window.hasUnlimitedLessonPermission = function(mode) {
+    try {
+      var matrixRaw = localStorage.getItem('mangoi_perm_matrix');
+      if (!matrixRaw) return false;
+      var matrix = JSON.parse(matrixRaw);
+      var permId = mode === 'postpone' ? 'lesson_postpone_anytime' : 'lesson_change_anytime';
+      var perm = matrix[permId];
+      if (!perm) return false;
+      // 사용자 역할 확인
+      var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+      var role = (u && u.role) || localStorage.getItem('mangoi_user_role') || 'student';
+      // hq_exec, hq_mgr, hq_teacher 에 대해 '✅' 면 우회
+      return perm[role] === '✅';
+    } catch(e) { console.warn('[perm] 권한 확인 실패:', e); return false; }
+  };
+
   window.tryLessonAction = function(clsId, mode){
     var L = (window.getLang?window.getLang():'ko')==='ko';
     var c = demoClasses.find(function(x){return x.id===clsId;});
@@ -13389,6 +13422,18 @@ window.closeRulesModal = function() {
     var dt = getClassDateTime(c);
     var diffMin = minutesUntil(dt);
     var minRequired = mode==='postpone' ? 30 : 1440;
+    // 🆕 본사/강사 등 권한 보유자는 시간 제한 우회 (단, 이미 시작된 수업은 제외)
+    var bypassByPerm = hasUnlimitedLessonPermission(mode);
+    if (bypassByPerm && diffMin > 0) {
+      // 권한 우회 — 시간 검사 건너뜀, 토스트로 안내
+      var roleLabel = ((typeof getCurrentUser==='function')?(getCurrentUser()||{}):{}).role || localStorage.getItem('mangoi_user_role') || 'admin';
+      console.log('[perm] 시간 제한 우회 — 역할:', roleLabel, '모드:', mode);
+      if (typeof showLcToast2 === 'function') {
+        showLcToast2('🔓 ' + (L?'관리자 권한 — 시간 제한 우회됨 ('+roleLabel+')':'Admin override — time limit bypassed ('+roleLabel+')'));
+      }
+      // 시간 검사 통과시켜 아래 정상 흐름 진행 (diffMin >= minRequired 처럼)
+      diffMin = minRequired;
+    }
     if(diffMin < minRequired){
       var title = mode==='postpone' ? (L?'연기할 수 없습니다':'Cannot Postpone') : (L?'변경할 수 없습니다':'Cannot Change');
       var msg = mode==='postpone'
