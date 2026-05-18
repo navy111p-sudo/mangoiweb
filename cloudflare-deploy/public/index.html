@@ -15098,6 +15098,41 @@ window.closeRulesModal = function() {
 <script>
 (function(){
   var L = function(){ return (window.getLang ? window.getLang() : 'ko') === 'ko'; };
+
+  // 🆕 원격지원 안내 음성 (중간 볼륨 자동재생 + 우상단 🔇 토글)
+  var rsAudio = null;
+  function playRsGreeting(){
+    try {
+      if (!rsAudio) {
+        rsAudio = new Audio('/audio/원격지원안내.mp3');
+        rsAudio.preload = 'auto';
+        rsAudio.addEventListener('ended', updateRsAudioBtn);
+        rsAudio.addEventListener('pause', updateRsAudioBtn);
+        rsAudio.addEventListener('play', updateRsAudioBtn);
+      }
+      rsAudio.volume = 0.5;
+      rsAudio.currentTime = 0;
+      var p = rsAudio.play();
+      if (p && p.catch) p.catch(function(e){ console.warn('[rs] 음성 차단:', e); updateRsAudioBtn(); });
+      updateRsAudioBtn();
+    } catch(e) { console.warn('[rs] audio err:', e); }
+  }
+  function stopRsGreeting(){
+    if (rsAudio) { try { rsAudio.pause(); rsAudio.currentTime = 0; } catch(e){} }
+    updateRsAudioBtn();
+  }
+  function updateRsAudioBtn(){
+    var btn = document.getElementById('rs-audio-btn');
+    if (!btn) return;
+    var playing = rsAudio && !rsAudio.paused && !rsAudio.ended;
+    btn.innerHTML = playing ? '🔇' : '🔊';
+    btn.style.borderColor = playing ? 'rgba(251,191,36,.7)' : 'rgba(251,191,36,.45)';
+  }
+  window.rsToggleAudio = function(){
+    if (rsAudio && !rsAudio.paused) stopRsGreeting();
+    else playRsGreeting();
+  };
+
   window.openRemoteSupportModal = function(){
     var ov = document.getElementById('rs-overlay');
     if (!ov) {
@@ -15174,9 +15209,10 @@ window.closeRulesModal = function() {
     }).join('');
     window._rsOptions = options;
     ov.innerHTML = '<div style="max-width:640px;margin:0 auto;background:linear-gradient(180deg,#1a2032,#131826);border:1px solid rgba(251,191,36,.32);border-radius:22px;box-shadow:0 30px 80px -10px rgba(0,0,0,.7);overflow:hidden;color:#e2e8f0;font-family:\'Noto Sans KR\',sans-serif">'+
-      '<div style="padding:18px 22px;background:linear-gradient(135deg,rgba(251,191,36,.18),rgba(245,158,11,.08));border-bottom:1px solid rgba(251,191,36,.3);display:flex;align-items:center;gap:12px">'+
+      '<div style="padding:18px 22px;background:linear-gradient(135deg,rgba(251,191,36,.18),rgba(245,158,11,.08));border-bottom:1px solid rgba(251,191,36,.3);display:flex;align-items:center;gap:8px">'+
         '<span style="font-size:24px">💻</span>'+
         '<h2 style="margin:0;flex:1;font-size:18px;font-weight:800;color:#fff">'+(isKo?'PC 원격지원 — 안전한 방법 선택':'Remote Support — Pick safest option')+'</h2>'+
+        '<button id="rs-audio-btn" type="button" title="안내 음성 끄기/켜기" onclick="rsToggleAudio()" style="background:rgba(20,28,48,.65);border:1px solid rgba(251,191,36,.45);color:#fde68a;width:32px;height:32px;border-radius:50%;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);padding:0;line-height:1">🔊</button>'+
         '<button onclick="closeRemoteSupportModal()" style="background:rgba(255,255,255,.08);border:0;color:#cbd5e1;width:32px;height:32px;border-radius:50%;font-size:14px;cursor:pointer">✕</button>'+
       '</div>'+
       '<div style="padding:16px 18px;max-height:75vh;overflow-y:auto">'+
@@ -15191,11 +15227,14 @@ window.closeRulesModal = function() {
     '</div>';
     ov.style.display = 'block';
     document.body.style.overflow = 'hidden';
+    // 🆕 안내 음성 자동 재생 (모달 그려진 후 0.2초 뒤)
+    setTimeout(playRsGreeting, 200);
   };
   window.closeRemoteSupportModal = function(){
     var ov = document.getElementById('rs-overlay');
     if (ov) ov.style.display = 'none';
     document.body.style.overflow = '';
+    stopRsGreeting();    // 모달 닫으면 음성 즉시 정지
   };
   window.rsRun = function(idx){
     var o = (window._rsOptions||[])[idx];
