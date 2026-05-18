@@ -8249,15 +8249,70 @@ window.addEventListener('DOMContentLoaded', () => {
   const closeBtn = document.getElementById('inquiry-close');
   const cancelBtn = document.getElementById('inquiry-cancel');
 
+  // 🆕 신규상담 안내 음성 (모달 열 때 자동 재생, 우상단 작은 버튼으로 끄기 가능)
+  var inquiryAudio = null;
+  var inquiryAudioBtn = null;
+  function playInquiryGreeting(){
+    try {
+      if (!inquiryAudio) {
+        inquiryAudio = new Audio('/audio/신규학생.wav');
+        inquiryAudio.preload = 'auto';
+        inquiryAudio.addEventListener('ended', updateAudioBtn);
+        inquiryAudio.addEventListener('pause', updateAudioBtn);
+        inquiryAudio.addEventListener('play', updateAudioBtn);
+      }
+      inquiryAudio.currentTime = 0;
+      var p = inquiryAudio.play();
+      if (p && p.catch) p.catch(function(e){ console.warn('[inquiry] 음성 자동재생 차단:', e); updateAudioBtn(); });
+      updateAudioBtn();
+    } catch(e) { console.warn('[inquiry] audio err:', e); }
+  }
+  function stopInquiryGreeting(){
+    if (inquiryAudio) { try { inquiryAudio.pause(); inquiryAudio.currentTime = 0; } catch(e){} }
+    updateAudioBtn();
+  }
+  function ensureAudioBtn(){
+    if (inquiryAudioBtn) return inquiryAudioBtn;
+    // 모달 컨테이너 찾기 → 우상단에 작은 끄기/켜기 버튼 삽입
+    var modalBox = modal.querySelector('div[style*="background"]') || modal.firstElementChild;
+    if (!modalBox) return null;
+    modalBox.style.position = modalBox.style.position || 'relative';
+    var btn = document.createElement('button');
+    btn.id = 'inquiry-audio-btn';
+    btn.type = 'button';
+    btn.title = '안내 음성 끄기/켜기';
+    btn.style.cssText = 'position:absolute;top:10px;right:48px;width:30px;height:30px;border-radius:50%;border:1px solid rgba(251,191,36,.45);background:rgba(20,28,48,.65);backdrop-filter:blur(8px);color:#fde68a;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;line-height:1;padding:0';
+    btn.addEventListener('click', function(){
+      if (inquiryAudio && !inquiryAudio.paused) stopInquiryGreeting();
+      else playInquiryGreeting();
+    });
+    modalBox.appendChild(btn);
+    inquiryAudioBtn = btn;
+    return btn;
+  }
+  function updateAudioBtn(){
+    if (!inquiryAudioBtn) return;
+    var playing = inquiryAudio && !inquiryAudio.paused && !inquiryAudio.ended;
+    inquiryAudioBtn.innerHTML = playing ? '🔇' : '🔊';
+    inquiryAudioBtn.style.borderColor = playing ? 'rgba(251,191,36,.7)' : 'rgba(251,191,36,.45)';
+  }
+
   window.openInquiryModal = function(){
     form.reset();
     result.style.display = 'none';
     form.style.display = 'block';
     modal.style.display = 'flex';
     setTimeout(() => document.getElementById('inq-name').focus(), 100);
+    // 안내 음성 자동 재생 + 끄기 버튼 설치
+    setTimeout(function(){
+      ensureAudioBtn();
+      playInquiryGreeting();
+    }, 200);
   };
   function closeModal(){
     modal.style.display = 'none';
+    // 모달 닫으면 음성도 즉시 정지
+    stopInquiryGreeting();
     // 신규상담 모달 닫으면 히트맵 그리드로 자동 복귀
     const gmEl = document.getElementById('grid-menu');
     if (gmEl) gmEl.style.display = 'block';
