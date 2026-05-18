@@ -3941,6 +3941,9 @@
             <div class="video-player-container">
                 <div class="vp-controls">
                     <input id="vp-url" type="text" placeholder="YouTube 주소 또는 동영상 URL을 붙여넣으세요" data-ko-ph="YouTube 주소 또는 동영상 URL을 붙여넣으세요" data-en-ph="Paste YouTube or video URL here" onkeydown="if(event.key==='Enter')vpLoadUrl()" />
+                    <button onclick="vpOpenYouTube()" title="YouTube에서 새 탭으로 열기"
+                            style="background:#ff0000;color:#fff;font-weight:800;border:0;display:inline-flex;align-items:center;gap:5px"
+                            data-ko="▶ YouTube" data-en="▶ YouTube">▶ YouTube</button>
                     <button onclick="vpLoadUrl()" data-ko="🔗 URL 재생" data-en="🔗 Play URL">🔗 URL 재생</button>
                     <label class="vp-file-btn" data-ko="📁 파일 업로드" data-en="📁 Upload File">
                         📁 파일 업로드
@@ -7313,6 +7316,31 @@ function vpExtractYouTubeId(url) {
     const re = /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([a-zA-Z0-9_-]{11})/;
     const m = url.match(re);
     return m ? m[1] : null;
+}
+
+// 🆕 빨간 YouTube 버튼 — URL 입력값에 따라 YouTube 새 탭 자동 열기
+//   - URL 비어있음 → youtube.com 메인
+//   - youtube/youtu.be URL → 그 영상 새 탭
+//   - 다른 URL (http://...) → 그 URL 새 탭
+//   - 검색어 (mango cat 같은) → YouTube 검색 결과 새 탭
+function vpOpenYouTube() {
+    let raw = (document.getElementById('vp-url').value || '').trim();
+    if (!raw) {
+        window.open('https://www.youtube.com', '_blank', 'noopener');
+        return;
+    }
+    // 이미 완전한 URL이면 새 탭에 그대로
+    if (/^https?:\/\//i.test(raw)) {
+        window.open(raw, '_blank', 'noopener');
+        return;
+    }
+    // www. 로 시작하거나 .com/.net/.org 포함이면 https:// 붙여 새 탭
+    if (/^www\./i.test(raw) || /\.[a-z]{2,}(\/|$)/i.test(raw)) {
+        window.open('https://' + raw, '_blank', 'noopener');
+        return;
+    }
+    // 검색어로 보면 YouTube 검색
+    window.open('https://www.youtube.com/results?search_query=' + encodeURIComponent(raw), '_blank', 'noopener');
 }
 
 function vpLoadUrl() {
