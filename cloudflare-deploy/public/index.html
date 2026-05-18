@@ -14579,6 +14579,36 @@ window.closeRulesModal = function() {
     }
   };
 
+  // 🆕 포인트 상점 안내 음성 (중간 볼륨 자동재생 + 우상단 🔇 토글)
+  var pointsAudio = null;
+  function playPointsGreeting(){
+    try {
+      if (!pointsAudio) {
+        pointsAudio = new Audio('/audio/포인트안내.wav');
+        pointsAudio.preload = 'auto';
+        pointsAudio.addEventListener('ended', updatePointsAudioBtn);
+        pointsAudio.addEventListener('pause', updatePointsAudioBtn);
+        pointsAudio.addEventListener('play', updatePointsAudioBtn);
+      }
+      pointsAudio.volume = 0.5;          // 중간 정도 크기
+      pointsAudio.currentTime = 0;
+      var p = pointsAudio.play();
+      if (p && p.catch) p.catch(function(e){ console.warn('[points] 음성 자동재생 차단:', e); updatePointsAudioBtn(); });
+      updatePointsAudioBtn();
+    } catch(e) { console.warn('[points] audio err:', e); }
+  }
+  function stopPointsGreeting(){
+    if (pointsAudio) { try { pointsAudio.pause(); pointsAudio.currentTime = 0; } catch(e){} }
+    updatePointsAudioBtn();
+  }
+  function updatePointsAudioBtn(){
+    var btn = document.getElementById('ps-audio-btn');
+    if (!btn) return;
+    var playing = pointsAudio && !pointsAudio.paused && !pointsAudio.ended;
+    btn.innerHTML = playing ? '🔇' : '🔊';
+    btn.style.borderColor = playing ? 'rgba(251,191,36,.7)' : 'rgba(251,191,36,.45)';
+  }
+
   // 포인트 상점 모달 ─────────────────────────────────────────────────
   window.showPointsShop = async function(){
     var L = (window.getLang?window.getLang():'ko')==='ko';
@@ -14600,6 +14630,7 @@ window.closeRulesModal = function() {
     ov.innerHTML = '<div class="ps-modal"><div class="ps-head">'+
         '<h2>🎁 '+(L?'포인트 상점':'Point Shop')+'</h2>'+
         '<div class="ps-bal" id="ps-balance">'+(L?'잔액 불러오는 중…':'Loading…')+'</div>'+
+        '<button id="ps-audio-btn" type="button" title="안내 음성 끄기/켜기" onclick="psToggleAudio()" style="background:rgba(20,28,48,.65);border:1px solid rgba(251,191,36,.45);color:#fde68a;width:32px;height:32px;border-radius:50%;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-right:6px;backdrop-filter:blur(8px);padding:0;line-height:1">🔊</button>'+
         '<button class="ps-close" onclick="closePointsShop()">✕</button>'+
       '</div>'+
       '<div class="ps-body">'+
@@ -14615,11 +14646,19 @@ window.closeRulesModal = function() {
     // 잔액 & 카탈로그 로드
     psRefreshBalance();
     psLoadCatalog();
+    // 🆕 안내 음성 자동 재생
+    setTimeout(playPointsGreeting, 200);
+  };
+  window.psToggleAudio = function(){
+    if (pointsAudio && !pointsAudio.paused) stopPointsGreeting();
+    else playPointsGreeting();
   };
   window.closePointsShop = function(){
     var ov = document.getElementById('points-shop-overlay');
     if (ov) ov.classList.remove('show');
     document.body.style.overflow='';
+    // 모달 닫으면 음성 즉시 정지
+    stopPointsGreeting();
   };
   window.psSwitchTab = function(tab, btn){
     document.querySelectorAll('.ps-tab').forEach(function(b){ b.classList.remove('active'); });
