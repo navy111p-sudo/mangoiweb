@@ -11,6 +11,7 @@ import { processAiCommand, executeAction } from './ai-command';
 import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook, type GiftishowEnv } from './giftishow-client';
 import {
   sendLessonStartAlert, sendLessonEndAlert, sendChatSummaryAlert, sendMentionAlert,
+  sendPaymentOverdueAlert,
   checkSolapiBalance, getSolapiMode, type SolapiEnv,
 } from './solapi-client';
 
@@ -2459,6 +2460,185 @@ export async function handleMangoApi(
 
     // ═══════════════════════════════════════════════════════════════
     // 📝 Phase E1 끝
+    // ═══════════════════════════════════════════════════════════════
+
+    // ═══════════════════════════════════════════════════════════════
+    // 💰 Phase F1~F2 — 수강료 미납 자동 알림
+    // ═══════════════════════════════════════════════════════════════
+
+    const ensurePaymentTables = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, period_start TEXT, period_end TEXT, amount_krw INTEGER NOT NULL, method TEXT, memo TEXT, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS payment_overdue_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, days_overdue INTEGER, amount_krw INTEGER, parent_phone TEXT, status TEXT, error_message TEXT, sent_at INTEGER NOT NULL);`);
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_overdue_user ON payment_overdue_log(user_id, sent_at DESC);`); } catch {}
+    };
+
+    // ── GET /api/admin/payments/overdue?grace_days=35&monthly_fee=200000 ──
+    //   학생별 마지막 결제일 조회 → grace_days 초과면 미납으로 분류
+    if (method === 'GET' && path === '/api/admin/payments/overdue') {
+      await ensurePaymentTables();
+      const graceDays = Math.max(1, parseInt(url.searchParams.get('grace_days') || '35', 10));
+      const defaultMonthlyFee = Math.max(0, parseInt(url.searchParams.get('monthly_fee') || '200000', 10));
+      const now = Date.now();
+      const cutoff = now - graceDays * 86400 * 1000;
+
+      // students_erp 테이블에서 활동중 학생만
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, username TEXT, name TEXT, phone TEXT, parent_phone TEXT, status TEXT);`); } catch {}
+
+      // 각 학생의 마지막 paid 결제 + 미납일수 계산
+      const rs = await env.DB.prepare(
+        `SELECT s.user_id, s.name AS student_name, s.parent_phone, s.phone AS student_phone,
+                (SELECT MAX(paid_at) FROM student_payments WHERE user_id = s.user_id AND status='paid') AS last_paid_at,
+                (SELECT amount_krw FROM student_payments WHERE user_id = s.user_id AND status='paid' ORDER BY paid_at DESC LIMIT 1) AS last_amount
+           FROM students_erp s
+          WHERE s.status = '정상' OR s.status = '활동' OR s.status IS NULL OR s.status = ''
+          ORDER BY s.name`
+      ).all().catch(() => ({ results: [] } as any));
+      const overdue: any[] = [];
+      const upToDate: any[] = [];
+      const neverPaid: any[] = [];
+      for (const r of (rs.results || [])) {
+        const row: any = r;
+        if (!row.last_paid_at) {
+          neverPaid.push({
+            ...row,
+            days_overdue: null,
+            amount_krw: defaultMonthlyFee,
+          });
+        } else if (row.last_paid_at < cutoff) {
+          const daysOverdue = Math.floor((now - row.last_paid_at) / (86400*1000)) - graceDays;
+          overdue.push({
+            ...row,
+            days_overdue: daysOverdue,
+            amount_krw: row.last_amount || defaultMonthlyFee,
+          });
+        } else {
+          upToDate.push({
+            ...row,
+            days_overdue: 0,
+          });
+        }
+      }
+      return json({
+        ok: true,
+        grace_days: graceDays,
+        default_fee: defaultMonthlyFee,
+        overdue, never_paid: neverPaid, up_to_date: upToDate,
+        summary: {
+          total_overdue: overdue.length,
+          total_never_paid: neverPaid.length,
+          total_up_to_date: upToDate.length,
+        }
+      });
+    }
+
+    // ── POST /api/admin/payments/notify-overdue — 1명 미납 알림 발송 ──
+    //   body: { user_id, student_name, parent_phone, days_overdue, amount_krw }
+    if (method === 'POST' && path === '/api/admin/payments/notify-overdue') {
+      await ensurePaymentTables();
+      const body: any = await request.json().catch(() => ({}));
+      const phone = body.parent_phone || body.student_phone;
+      if (!phone) return json({ ok: false, error: 'phone_required' }, 400);
+      const r = await sendPaymentOverdueAlert(env, phone, {
+        studentName: body.student_name || '학생',
+        daysOverdue: parseInt(body.days_overdue, 10) || 0,
+        amountKrw: parseInt(body.amount_krw, 10) || 0,
+        paymentUrl: body.payment_url,
+      });
+      // 발송 이력 기록
+      await env.DB.prepare(
+        `INSERT INTO payment_overdue_log (user_id, student_name, days_overdue, amount_krw, parent_phone, status, error_message, sent_at) VALUES (?,?,?,?,?,?,?,?)`
+      ).bind(
+        body.user_id || null,
+        body.student_name || null,
+        parseInt(body.days_overdue, 10) || 0,
+        parseInt(body.amount_krw, 10) || 0,
+        phone,
+        r.ok ? 'sent' : 'failed',
+        r.ok ? null : (r.message || r.error || '실패'),
+        Date.now()
+      ).run();
+      return json(r);
+    }
+
+    // ── POST /api/admin/payments/notify-all-overdue — 미납 전체 일괄 ──
+    //   body: { user_ids: ["uid1","uid2"], grace_days?, default_fee? }
+    //   user_ids 미지정 시 자동으로 모든 미납 학생 일괄 발송
+    if (method === 'POST' && path === '/api/admin/payments/notify-all-overdue') {
+      await ensurePaymentTables();
+      const body: any = await request.json().catch(() => ({}));
+      const graceDays = Math.max(1, parseInt(body.grace_days, 10) || 35);
+      const defaultFee = Math.max(0, parseInt(body.default_fee, 10) || 200000);
+      const onlyUids: string[] | null = Array.isArray(body.user_ids) && body.user_ids.length > 0 ? body.user_ids : null;
+      const now = Date.now();
+      const cutoff = now - graceDays * 86400 * 1000;
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, username TEXT, name TEXT, phone TEXT, parent_phone TEXT, status TEXT);`); } catch {}
+      const rs = await env.DB.prepare(
+        `SELECT s.user_id, s.name AS student_name, s.parent_phone, s.phone AS student_phone,
+                (SELECT MAX(paid_at) FROM student_payments WHERE user_id = s.user_id AND status='paid') AS last_paid_at,
+                (SELECT amount_krw FROM student_payments WHERE user_id = s.user_id AND status='paid' ORDER BY paid_at DESC LIMIT 1) AS last_amount
+           FROM students_erp s
+          WHERE (s.status = '정상' OR s.status = '활동' OR s.status IS NULL OR s.status = '')`
+      ).all().catch(() => ({ results: [] } as any));
+      const results: any[] = [];
+      let sent = 0, failed = 0, skipped = 0;
+      for (const r of (rs.results || [])) {
+        const row: any = r;
+        if (onlyUids && !onlyUids.includes(row.user_id)) continue;
+        // 미납 조건
+        const isOverdue = !row.last_paid_at || row.last_paid_at < cutoff;
+        if (!isOverdue) continue;
+        const phone = row.parent_phone || row.student_phone;
+        if (!phone) { skipped++; results.push({ user_id: row.user_id, status: 'skipped', reason: 'no_phone' }); continue; }
+        const daysOverdue = row.last_paid_at
+          ? (Math.floor((now - row.last_paid_at) / (86400*1000)) - graceDays)
+          : 999;
+        const amount = row.last_amount || defaultFee;
+        const r2 = await sendPaymentOverdueAlert(env, phone, {
+          studentName: row.student_name || '학생',
+          daysOverdue, amountKrw: amount,
+        });
+        if (r2.ok) sent++; else failed++;
+        await env.DB.prepare(
+          `INSERT INTO payment_overdue_log (user_id, student_name, days_overdue, amount_krw, parent_phone, status, error_message, sent_at) VALUES (?,?,?,?,?,?,?,?)`
+        ).bind(
+          row.user_id, row.student_name, daysOverdue, amount, phone,
+          r2.ok ? 'sent' : 'failed',
+          r2.ok ? null : (r2.message || r2.error || '실패'),
+          Date.now()
+        ).run();
+        results.push({ user_id: row.user_id, student_name: row.student_name, phone, days_overdue: daysOverdue, ...r2 });
+      }
+      return json({ ok: true, summary: { sent, failed, skipped, total: results.length }, results });
+    }
+
+    // ── GET /api/admin/payments/overdue-log — 최근 미납 알림 발송 이력 ──
+    if (method === 'GET' && path === '/api/admin/payments/overdue-log') {
+      await ensurePaymentTables();
+      const rs = await env.DB.prepare(
+        `SELECT * FROM payment_overdue_log ORDER BY sent_at DESC LIMIT 200`
+      ).all();
+      return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [] });
+    }
+
+    // ── POST /api/admin/payments/record — 수동으로 결제 기록 추가 (영수증 등) ──
+    if (method === 'POST' && path === '/api/admin/payments/record') {
+      await ensurePaymentTables();
+      const body: any = await request.json().catch(() => ({}));
+      if (!body.user_id || !body.amount_krw) return json({ ok: false, error: 'user_id_and_amount_required' }, 400);
+      const now = Date.now();
+      const paidAt = body.paid_at ? parseInt(body.paid_at, 10) : now;
+      const ins = await env.DB.prepare(
+        `INSERT INTO student_payments (user_id, paid_at, period_start, period_end, amount_krw, method, memo, status, created_at) VALUES (?,?,?,?,?,?,?,?,?)`
+      ).bind(
+        body.user_id, paidAt,
+        body.period_start || null, body.period_end || null,
+        parseInt(body.amount_krw, 10), body.method || '카드',
+        body.memo || null, body.status || 'paid', now
+      ).run();
+      return json({ ok: true, id: ins?.meta?.last_row_id, paid_at: paidAt });
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // 💰 Phase F1~F2 끝
     // ═══════════════════════════════════════════════════════════════
 
     if (method === 'GET' && path === '/api/admin/stats/revenue') {

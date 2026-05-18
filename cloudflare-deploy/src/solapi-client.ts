@@ -30,6 +30,7 @@ export interface SolapiEnv {
   SOLAPI_TEMPLATE_LESSON_END?: string;
   SOLAPI_TEMPLATE_CHAT_SUMMARY?: string;
   SOLAPI_TEMPLATE_MENTION?: string;
+  SOLAPI_TEMPLATE_PAYMENT_OVERDUE?: string;
   SOLAPI_TEST_MODE?: string;
 }
 
@@ -260,5 +261,24 @@ export async function sendMentionAlert(env: SolapiEnv, phone: string, vars: {
       '#{입장URL}': vars.roomUrl || 'https://webrtc-unified-platform-prod.navy111p.workers.dev/',
     },
     fallbackSmsText: `[망고아이] ${vars.teacherName} 강사가 호출: ${vars.messageExcerpt.slice(0, 50)}`,
+  });
+}
+
+export async function sendPaymentOverdueAlert(env: SolapiEnv, phone: string, vars: {
+  studentName: string;
+  daysOverdue: number;
+  amountKrw: number;
+  paymentUrl?: string;
+}): Promise<SendKakaoResult> {
+  return sendKakaoAlimtalk(env, {
+    templateCode: env.SOLAPI_TEMPLATE_PAYMENT_OVERDUE || '',
+    recipientPhone: phone,
+    variables: {
+      '#{학생명}': vars.studentName,
+      '#{미납일수}': String(vars.daysOverdue),
+      '#{금액}': vars.amountKrw.toLocaleString('ko-KR'),
+      '#{결제URL}': vars.paymentUrl || 'https://webrtc-unified-platform-prod.navy111p.workers.dev/?go=payment',
+    },
+    fallbackSmsText: `[망고아이] ${vars.studentName} 학생 수강료 ${vars.daysOverdue}일 미납 (${vars.amountKrw.toLocaleString('ko-KR')}원). 결제 → ${vars.paymentUrl || ''}`,
   });
 }
