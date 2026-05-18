@@ -373,6 +373,26 @@ export default {
         path === '/api/admin/community-posts' ||
         /^\/api\/admin\/community-posts\/\d+$/.test(path) ||
         path === '/api/admin/textbooks' ||
+        // 📚 Phase 39 — 교재 파일 라이브러리 + 망고아이 비디오
+        path === '/api/admin/textbook-files' ||
+        /^\/api\/admin\/textbook-files\/\d+$/.test(path) ||
+        path === '/api/textbook-files' ||
+        /^\/api\/textbook-files\/\d+(\/raw)?$/.test(path) ||
+        path === '/api/admin/mango-videos' ||
+        /^\/api\/admin\/mango-videos\/\d+$/.test(path) ||
+        path === '/api/mango-videos' ||
+        // 📲 카카오 알림톡 (SOLAPI) — 누락되어 있던 게이트 추가
+        path === '/api/admin/kakao/status' ||
+        path === '/api/admin/kakao/test-send' ||
+        path.startsWith('/api/notify/') ||
+        // 🪟 팝업/미디어 (관리자 + 공개)
+        path === '/api/admin/popups' ||
+        /^\/api\/admin\/popups\/\d+$/.test(path) ||
+        path === '/api/admin/popups/upload-media' ||
+        /^\/api\/admin\/popups\/\d+\/stats$/.test(path) ||
+        path.startsWith('/api/popups/media/') ||
+        path === '/api/popups/active' ||
+        /^\/api\/popups\/\d+\/(view|click|dismiss)$/.test(path) ||
         path === '/api/admin/students/list' ||
         path === '/api/admin/students/erp-list' ||
         path === '/api/admin/students/erp' ||
