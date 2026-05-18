@@ -126,15 +126,16 @@
             0%, 100% { opacity: 0.55; transform: scale(1); }
             50%      { opacity: 1;    transform: scale(1.08); }
         }
-        /* 모바일에서는 데코 축소/이동 */
+        /* 모바일 — 데코 모두 숨김 (사용자 요청: 최대한 심플하게)
+           - 나선은하(밀키웨이) 제거
+           - 작은 은하들 제거
+           - 토성도 너무 큼 → 작게 + 우상단 모서리로 (또는 숨김)
+           - 우주선도 숨김 (시각 노이즈) */
         @media (max-width: 640px) {
-            .deco-galaxy   { top: -30px; left: -80px; width: 220px; opacity: 0.7; }
-            .deco-saturn   { top: 2%; right: 4%; width: 130px; opacity: 0.85; }
-            .deco-mini-galaxies { bottom: 4%; right: 2%; width: 100px; height: 80px; opacity: 0.7; }
-        }
-        @media (max-width: 380px) {
-            .deco-galaxy { width: 180px; }
-            .deco-saturn { width: 100px; }
+            .deco-galaxy        { display: none !important; }
+            .deco-mini-galaxies { display: none !important; }
+            .starship-wrap      { display: none !important; }
+            .deco-saturn        { display: none !important; }
         }
         /* 별/행성 컨테이너 — 배경 전체에 고정, 클릭 절대 가로채지 않음 */
         #starfield {
@@ -238,14 +239,9 @@
         @media (max-width: 980px) and (min-width: 641px) {
             .astronaut-wrap { width: 150px; height: 200px; right: 6%; top: 30%; }
         }
-        /* 모바일 */
+        /* 모바일 — 강아지 우주비행사 완전 숨김 (사용자 요청: 모바일 너무 복잡) */
         @media (max-width: 640px) {
-            .astronaut-wrap {
-                top: 10%;
-                right: 5%;
-                width: 110px;
-                height: 145px;
-            }
+            .astronaut-wrap { display: none !important; }
         }
 
         /* ═══════ 🚀 우주선 (영화 수준 vivid) ═══════ */
