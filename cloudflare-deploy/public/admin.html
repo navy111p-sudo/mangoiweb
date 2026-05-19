@@ -7,6 +7,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="/img/icon-192.png">
 <link rel="shortcut icon" href="/img/icon-192.png">
 <link rel="icon" href="data:," /><!-- favicon.ico 404 방지 -->
+<script src="/js/mango-i18n.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800;900&family=Black+Han+Sans&family=Jua&display=swap" rel="stylesheet">
@@ -3986,6 +3987,172 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
 })();
 </script>
 
+<!-- 🔔 Phase WP1~WP2 — Web Push 푸시 알림 관리 -->
+<details class="table-card menu-card" id="card-webpush-mgmt">
+  <summary><span data-ko="🔔 Web Push 푸시 알림" data-en="🔔 Web Push Notifications">🔔 Web Push 푸시 알림</span></summary>
+  <div class="menu-body">
+    <div class="sub-menu">
+
+      <!-- 1. VAPID/구독 상태 -->
+      <details class="sub-item" open>
+        <summary data-ko="📡 푸시 상태 + VAPID" data-en="📡 Status + VAPID">📡 푸시 상태 + VAPID</summary>
+        <div class="sub-body">
+          <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;color:#1e40af">
+            💡 <b data-ko="Web Push 는 SOLAPI 비용이 0원!" data-en="Web Push is FREE (no SOLAPI cost)!">Web Push 는 SOLAPI 비용이 0원!</b>
+            <span data-ko=" — 브라우저 자체 푸시 시스템(W3C 표준)으로 학생/학부모/강사에게 무료로 알림 발송이 가능합니다. 단점: 학생이 한번 '알림 허용' 해야 함." data-en=" — uses W3C standard browser push (no telecom cost). Caveat: user must opt-in once via Allow Notifications.">— 브라우저 자체 푸시 시스템(W3C 표준)으로 학생/학부모/강사에게 무료로 알림 발송이 가능합니다. 단점: 학생이 한번 '알림 허용' 해야 함.</span>
+          </div>
+          <div id="wp-status-box" style="padding:14px;background:#f9fafb;border-radius:8px"></div>
+          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+            <button onclick="wpLoadStatus()" class="primary" style="padding:7px 14px;font-size:12.5px;font-weight:700" data-ko="🔄 상태 새로고침" data-en="🔄 Refresh Status">🔄 상태 새로고침</button>
+            <button onclick="wpGenerateVapid()" style="padding:7px 14px;font-size:12.5px;font-weight:700;background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:6px;cursor:pointer" data-ko="🔐 새 VAPID 키 생성" data-en="🔐 Generate New VAPID Keys">🔐 새 VAPID 키 생성</button>
+          </div>
+        </div>
+      </details>
+
+      <!-- 2. 구독자 목록 -->
+      <details class="sub-item">
+        <summary data-ko="👥 구독자 목록" data-en="👥 Subscribers">👥 구독자 목록</summary>
+        <div class="sub-body">
+          <button onclick="wpLoadSubs()" class="primary" style="padding:7px 14px;font-size:12.5px;font-weight:700;margin-bottom:10px" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+          <div id="wp-subs-table" style="overflow-x:auto"></div>
+        </div>
+      </details>
+
+      <!-- 3. 즉시 발송 -->
+      <details class="sub-item">
+        <summary data-ko="📤 푸시 발송" data-en="📤 Send Push">📤 푸시 발송</summary>
+        <div class="sub-body">
+          <div style="display:grid;gap:8px;max-width:600px">
+            <label style="font-size:12px;font-weight:700;color:#374151"><span data-ko="대상 user_id (비우면 전체)" data-en="Target user_id (blank = all)">대상 user_id (비우면 전체)</span>
+              <input id="wp-target-uid" type="text" placeholder="예: hong_gd 또는 비워두기" data-ko-placeholder="예: hong_gd 또는 비워두기" data-en-placeholder="e.g. hong_gd or leave empty" style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;margin-top:3px" />
+            </label>
+            <label style="font-size:12px;font-weight:700;color:#374151"><span data-ko="제목" data-en="Title">제목</span>
+              <input id="wp-title" type="text" value="망고아이 알림" data-ko-placeholder="망고아이 알림" data-en-placeholder="Mangoi Notification" style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;margin-top:3px" />
+            </label>
+            <label style="font-size:12px;font-weight:700;color:#374151"><span data-ko="본문" data-en="Body">본문</span>
+              <textarea id="wp-body" rows="3" placeholder="알림 내용" data-ko-placeholder="알림 내용" data-en-placeholder="Notification body" style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;margin-top:3px"></textarea>
+            </label>
+            <label style="font-size:12px;font-weight:700;color:#374151"><span data-ko="클릭 시 이동 URL" data-en="Click URL">클릭 시 이동 URL</span>
+              <input id="wp-url" type="text" value="/" data-ko-placeholder="/" data-en-placeholder="/" style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;margin-top:3px" />
+            </label>
+            <button onclick="wpSendNow()" style="padding:10px 18px;font-size:13px;font-weight:800;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;cursor:pointer;margin-top:6px" data-ko="📤 즉시 발송" data-en="📤 Send Now">📤 즉시 발송</button>
+          </div>
+          <div id="wp-send-result" style="margin-top:14px"></div>
+        </div>
+      </details>
+
+    </div>
+  </div>
+</details>
+
+<script>
+(function(){
+  const fmt = (n) => (Number(n)||0).toLocaleString('ko-KR');
+  const fmtDate = (ms) => ms ? new Date(ms).toLocaleString('ko-KR', { dateStyle:'short', timeStyle:'short' }) : '-';
+  const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+
+  window.wpLoadStatus = async function(){
+    const el = document.getElementById('wp-status-box');
+    if (!el) return;
+    el.innerHTML = '<div style="color:#6b7280">불러오는 중…</div>';
+    try {
+      const r = await fetch('/api/admin/push/status');
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      const m = d.mode;
+      const MODES = {
+        disabled: { icon:'⏸', label:'미연동', desc:'VAPID 키가 등록되지 않았습니다. 아래 "🔐 새 VAPID 키 생성" 버튼으로 발급 후, wrangler secret 으로 등록하세요.', color:'#9ca3af', bg:'#f3f4f6' },
+        mock:     { icon:'🧪', label:'테스트 모드', desc:'실제 푸시는 안 보내고 콘솔에만 로그를 남깁니다.', color:'#a855f7', bg:'#faf5ff' },
+        real:     { icon:'✅', label:'실제 발송', desc:'VAPID 인증된 푸시를 브라우저로 직접 발송합니다.', color:'#10b981', bg:'#ecfdf5' },
+      };
+      const info = MODES[m] || MODES.disabled;
+      el.innerHTML = `
+        <div style="background:${info.bg};border-left:4px solid ${info.color};padding:14px;border-radius:8px">
+          <div style="font-size:16px;font-weight:800;color:${info.color}">${info.icon} ${info.label}</div>
+          <div style="font-size:12.5px;color:#374151;margin-top:6px">${esc(info.desc)}</div>
+          <div style="font-size:12px;color:#6b7280;margin-top:8px">
+            <b>활성 구독자:</b> ${fmt(d.active_subs)} 명 · <b>최근 7일 발송:</b> ${fmt(d.queued_7d)} 건 · <b>VAPID 공개키:</b> ${d.has_pub_key?'✅':'❌'}
+          </div>
+        </div>`;
+    } catch(e) {
+      el.innerHTML = '<div style="color:#ef4444">로드 실패: '+esc(e.message)+'</div>';
+    }
+  };
+
+  window.wpGenerateVapid = async function(){
+    if (!confirm('새 VAPID 키 페어를 생성합니다. (기존 구독자는 만료되므로 한 번만 발급하세요)')) return;
+    try {
+      const r = await fetch('/api/admin/push/generate-vapid');
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      const msg = `✅ VAPID 키 페어 생성 완료\n\n=== PUBLIC KEY (공개) ===\n${d.publicKey}\n\n=== PRIVATE KEY (절대 노출 금지!) ===\n${d.privateKey}\n\n다음을 PowerShell에서 실행하세요:\n\nnpx wrangler secret put VAPID_PUBLIC_KEY --env production\n(붙여넣기: ${d.publicKey})\n\nnpx wrangler secret put VAPID_PRIVATE_KEY --env production\n(붙여넣기: ${d.privateKey})\n\nnpx wrangler secret put VAPID_SUBJECT --env production\n(붙여넣기: mailto:admin@mangoi.io)`;
+      prompt('아래 키를 안전한 곳에 복사해두세요. 한 번만 표시됩니다!', d.publicKey + '\n\nPRIVATE: ' + d.privateKey);
+      alert(msg);
+    } catch(e) { alert('❌ ' + e.message); }
+  };
+
+  window.wpLoadSubs = async function(){
+    const el = document.getElementById('wp-subs-table');
+    el.innerHTML = '<div style="color:#6b7280">불러오는 중…</div>';
+    try {
+      const r = await fetch('/api/admin/push/list');
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      const rows = d.rows || [];
+      if (!rows.length) {
+        el.innerHTML = '<div style="padding:20px;text-align:center;color:#6b7280;background:#f9fafb;border-radius:8px">아직 구독자가 없습니다.<br><span style="font-size:11px">학생/학부모가 메인 페이지에서 "🔔 알림 허용" 해야 등록됩니다.</span></div>';
+        return;
+      }
+      el.innerHTML = `
+        <div style="margin-bottom:8px;font-size:11.5px;color:#6b7280">전체 ${d.total} 명 · 활성 ${d.active} 명</div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff">
+          <thead style="background:#f3f4f6"><tr>
+            <th style="padding:8px;text-align:left">user_id</th>
+            <th style="padding:8px;text-align:left">상태</th>
+            <th style="padding:8px;text-align:left">브라우저</th>
+            <th style="padding:8px;text-align:left">등록일</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(r => `<tr style="border-bottom:1px solid #e5e7eb">
+              <td style="padding:8px;font-family:monospace">${esc(r.user_id||'-')}</td>
+              <td style="padding:8px">${r.enabled?'<span style="color:#10b981;font-weight:700">✓ 활성</span>':'<span style="color:#9ca3af">○ 비활성</span>'}</td>
+              <td style="padding:8px;color:#6b7280;font-size:10.5px">${esc((r.ua||'').slice(0,60))}</td>
+              <td style="padding:8px;color:#6b7280">${fmtDate(r.created_at)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>`;
+    } catch(e) {
+      el.innerHTML = '<div style="color:#ef4444">로드 실패: '+esc(e.message)+'</div>';
+    }
+  };
+
+  window.wpSendNow = async function(){
+    const uid = document.getElementById('wp-target-uid').value.trim();
+    const title = document.getElementById('wp-title').value.trim() || '망고아이 알림';
+    const body = document.getElementById('wp-body').value.trim();
+    const targetUrl = document.getElementById('wp-url').value.trim() || '/';
+    if (!body) { alert('본문을 입력하세요'); return; }
+    const out = document.getElementById('wp-send-result');
+    out.innerHTML = '<div style="color:#6b7280;font-size:12px">발송 중…</div>';
+    try {
+      const r = await fetch('/api/admin/push/send', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ user_id: uid || null, title, body, url: targetUrl })
+      });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      out.innerHTML = `<div style="padding:12px;background:#ecfdf5;border:1px solid #34d399;border-radius:8px;font-size:13px"><b style="color:#059669">✅ 발송 완료</b><br>총 ${d.total} 명 중 성공 <b>${d.sent}</b>, 실패 ${d.fail}${d.expired?', 만료 '+d.expired:''}건 · 모드: ${d.mode}</div>`;
+    } catch(e) {
+      out.innerHTML = '<div style="color:#ef4444;font-size:13px">❌ ' + esc(e.message) + '</div>';
+    }
+  };
+
+  document.getElementById('card-webpush-mgmt')?.addEventListener('toggle', function(){
+    if (this.open) wpLoadStatus();
+  });
+})();
+</script>
+
 <!-- 📲 Phase K2~K4 — 카카오 알림톡 관리 (포인트 카드 다음) -->
 <details class="table-card menu-card" id="card-kakao-mgmt">
   <summary><span data-ko="📲 카카오 알림톡" data-en="📲 Kakao AlimTalk">📲 카카오 알림톡</span></summary>
@@ -4006,6 +4173,20 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
               <li><b>@멘션 푸시 알림</b> — 강사가 @학생명 멘션 시 즉시</li>
             </ul>
           </div>
+        </div>
+      </details>
+
+      <!-- 🆕 K5: 양방향 채널 - 학부모 답장 수신 -->
+      <details class="sub-item" id="sub-kakao-inbound">
+        <summary data-ko="📨 K5: 학부모 답장 수신 (양방향)" data-en="📨 K5: Parent Replies (Bi-directional)">📨 K5: 학부모 답장 수신 (양방향)</summary>
+        <div class="sub-body">
+          <div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:12px;color:#3730a3;line-height:1.7">
+            💡 <b data-ko="학부모가 카카오에서 답장하면 자동으로 망고이 채팅창에 들어옵니다" data-en="Parent replies via Kakao automatically appear in Mangoi chat">학부모가 카카오에서 답장하면 자동으로 망고이 채팅창에 들어옵니다</b><br>
+            <span data-ko="필수 — 카카오 i 오픈빌더 또는 SOLAPI 양방향 채널 설정 후, 다음 URL 을 webhook 으로 등록:" data-en="Required — register the webhook URL in Kakao i Open Builder or SOLAPI bi-directional channel:">필수 — 카카오 i 오픈빌더 또는 SOLAPI 양방향 채널 설정 후, 다음 URL 을 webhook 으로 등록:</span>
+            <code style="display:block;background:#fff;padding:8px 10px;border-radius:5px;margin-top:6px;color:#1e40af;font-size:11px;word-break:break-all">https://webrtc-unified-platform-prod.navy111p.workers.dev/api/webhook/kakao-inbound</code>
+          </div>
+          <button onclick="kiLoadInbound()" class="primary" style="padding:7px 14px;font-size:12.5px;font-weight:700" data-ko="🔄 수신 로그 새로고침" data-en="🔄 Refresh Inbound Log">🔄 수신 로그 새로고침</button>
+          <div id="ki-inbound-table" style="margin-top:12px;overflow-x:auto"></div>
         </div>
       </details>
 
@@ -4106,6 +4287,43 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindKakaoOpen);
   else bindKakaoOpen();
+
+  // K5: 학부모 답장 inbound 로그
+  window.kiLoadInbound = async function(){
+    const el = document.getElementById('ki-inbound-table');
+    if (!el) return;
+    el.innerHTML = '<div style="color:#6b7280;padding:14px">불러오는 중…</div>';
+    try {
+      const r = await fetch('/api/admin/kakao/inbound?limit=50');
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      const rows = d.rows || [];
+      if (!rows.length) {
+        el.innerHTML = '<div style="padding:20px;text-align:center;color:#6b7280;background:#f9fafb;border-radius:8px">아직 학부모 답장이 없습니다.<br><span style="font-size:11px">카카오 i 오픈빌더에 webhook URL 등록 후 학부모가 답장하면 여기 표시됩니다.</span></div>';
+        return;
+      }
+      const fmtKDate = (ms) => ms ? new Date(ms).toLocaleString('ko-KR', { dateStyle:'short', timeStyle:'short' }) : '-';
+      const escFn = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+      el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border-radius:8px;overflow:hidden">
+        <thead style="background:#f3f4f6"><tr>
+          <th style="padding:8px;text-align:left">시각</th>
+          <th style="padding:8px;text-align:left">발신자</th>
+          <th style="padding:8px;text-align:left">매핑 학생</th>
+          <th style="padding:8px;text-align:left">메시지</th>
+        </tr></thead>
+        <tbody>${rows.map(r => `<tr style="border-bottom:1px solid #e5e7eb">
+          <td style="padding:8px;color:#6b7280;font-size:11px">${fmtKDate(r.received_at)}</td>
+          <td style="padding:8px"><b>${escFn(r.sender_name||'-')}</b><br><span style="color:#9ca3af;font-size:11px">${escFn(r.sender_phone||'')}</span></td>
+          <td style="padding:8px;font-family:monospace;color:#3b82f6">${escFn(r.mapped_user_id||'미매핑')}</td>
+          <td style="padding:8px;color:#1f2937">${escFn(r.message||'')}</td>
+        </tr>`).join('')}</tbody></table>`;
+    } catch(e) {
+      el.innerHTML = '<div style="color:#ef4444;padding:14px">로드 실패: '+e.message+'</div>';
+    }
+  };
+  document.getElementById('sub-kakao-inbound')?.addEventListener('toggle', function(){
+    if (this.open) window.kiLoadInbound();
+  });
 })();
 </script>
 
@@ -17345,19 +17563,19 @@ button.chip:hover,
       <div style="display:flex;align-items:center;gap:10px">
         <span style="font-size:24px">🤖</span>
         <div>
-          <div style="font-weight:800;font-size:16px;color:#fff">AI 학습 분석</div>
+          <div style="font-weight:800;font-size:16px;color:#fff" data-ko="AI 학습 분석" data-en="AI Learning Analysis">AI 학습 분석</div>
           <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:1px">Llama 3.3 70B · Cloudflare Workers AI</div>
         </div>
       </div>
-      <button onclick="aiCloseAnalysis()" style="background:transparent;color:#fff;border:0;font-size:24px;cursor:pointer;padding:0 6px;line-height:1">×</button>
+      <button onclick="aiCloseAnalysis()" style="background:transparent;color:#fff;border:0;font-size:24px;cursor:pointer;padding:0 6px;line-height:1" data-ko-aria="닫기" data-en-aria="Close">×</button>
     </div>
 
     <!-- 본문 -->
     <div id="ai-modal-body" style="padding:22px 24px;max-height:calc(100vh - 200px);overflow-y:auto">
       <div id="ai-loading" style="display:none;text-align:center;padding:60px 20px">
         <div style="display:inline-block;width:60px;height:60px;border:4px solid rgba(139,92,246,.2);border-top-color:#a78bfa;border-radius:50%;animation:aiSpin 1s linear infinite"></div>
-        <div style="margin-top:18px;font-size:14px;color:#a78bfa;font-weight:700">AI가 학생 데이터를 분석하는 중…</div>
-        <div style="margin-top:6px;font-size:11.5px;color:#6b7280">평가서, 채팅, 출석, 포인트 흐름을 종합해서 12~20초 정도 걸려요</div>
+        <div style="margin-top:18px;font-size:14px;color:#a78bfa;font-weight:700" data-ko="AI가 학생 데이터를 분석하는 중…" data-en="AI is analyzing student data…">AI가 학생 데이터를 분석하는 중…</div>
+        <div style="margin-top:6px;font-size:11.5px;color:#6b7280" data-ko="평가서, 채팅, 출석, 포인트 흐름을 종합해서 12~20초 정도 걸려요" data-en="Evaluating reports, chats, attendance, and points — takes 12–20 seconds">평가서, 채팅, 출석, 포인트 흐름을 종합해서 12~20초 정도 걸려요</div>
       </div>
       <div id="ai-content" style="display:none"></div>
       <div id="ai-error" style="display:none;background:#dc2626;color:#fff;padding:14px 18px;border-radius:10px;font-size:13px"></div>
@@ -17365,10 +17583,10 @@ button.chip:hover,
 
     <!-- 푸터 -->
     <div style="padding:14px 24px;border-top:1px solid rgba(139,92,246,.2);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-      <button id="ai-history-toggle" onclick="aiLoadHistory()" style="background:transparent;color:#a78bfa;border:1px solid rgba(139,92,246,.4);padding:8px 14px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700">📜 과거 분석 이력</button>
+      <button id="ai-history-toggle" onclick="aiLoadHistory()" style="background:transparent;color:#a78bfa;border:1px solid rgba(139,92,246,.4);padding:8px 14px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700" data-ko="📜 과거 분석 이력" data-en="📜 Past Analyses">📜 과거 분석 이력</button>
       <div style="display:flex;gap:8px">
-        <button id="ai-refresh-btn" onclick="aiRefreshAnalysis()" style="background:rgba(99,102,241,.2);color:#a5b4fc;border:1px solid rgba(99,102,241,.4);padding:8px 14px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700">🔄 다시 분석</button>
-        <button onclick="aiCloseAnalysis()" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border:0;padding:8px 18px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:800">닫기</button>
+        <button id="ai-refresh-btn" onclick="aiRefreshAnalysis()" style="background:rgba(99,102,241,.2);color:#a5b4fc;border:1px solid rgba(99,102,241,.4);padding:8px 14px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700" data-ko="🔄 다시 분석" data-en="🔄 Re-analyze">🔄 다시 분석</button>
+        <button onclick="aiCloseAnalysis()" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border:0;padding:8px 18px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:800" data-ko="닫기" data-en="Close">닫기</button>
       </div>
     </div>
   </div>
@@ -17555,12 +17773,18 @@ button.chip:hover,
 </script>
 
 
+<!-- 🌐 글로벌 언어 토글 (admin 페이지 공통) -->
+<button id="global-lang-toggle" onclick="toggleLang()" title="Toggle Language / 언어 전환"
+        style="position:fixed;top:14px;right:148px;z-index:99999;padding:9px 14px;background:rgba(255,255,255,0.9);color:#1a1a1a;font-weight:800;font-size:12px;letter-spacing:.5px;border:1px solid rgba(245,158,11,.4);border-radius:99px;box-shadow:0 4px 12px -2px rgba(0,0,0,.18);cursor:pointer;font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;display:inline-flex;align-items:center;gap:5px">
+  🌐 <span class="lang-label-sync">EN</span>
+</button>
+
 <!-- 🏠 글로벌 홈페이지 FAB (모든 admin 페이지 공통) -->
-<a id="global-home-fab" href="/" title="학생 홈페이지로 돌아가기"
+<a id="global-home-fab" href="/" title="학생 홈페이지로 돌아가기" data-ko-title="학생 홈페이지로 돌아가기" data-en-title="Back to Student Home"
    style="position:fixed;top:14px;right:14px;z-index:99999;display:inline-flex;align-items:center;gap:6px;padding:9px 18px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-weight:800;text-decoration:none;font-size:13px;border-radius:99px;box-shadow:0 6px 20px -4px rgba(245,158,11,.55),0 0 0 2px rgba(255,255,255,.08);transition:transform .15s,box-shadow .15s;font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif"
    onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 28px -4px rgba(245,158,11,.7),0 0 0 2px rgba(255,255,255,.15)'"
    onmouseout="this.style.transform='';this.style.boxShadow='0 6px 20px -4px rgba(245,158,11,.55),0 0 0 2px rgba(255,255,255,.08)'">
-  🏠 <span>홈페이지</span>
+  🏠 <span data-ko="홈페이지" data-en="Home">홈페이지</span>
 </a>
 
 </body>

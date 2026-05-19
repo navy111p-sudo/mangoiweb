@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<title>AI 음성 코칭 — 망고아이</title>
+<link rel="icon" type="image/png" href="/img/icon-192.png">
+<link rel="icon" href="data:," />
+<script src="/js/mango-i18n.js" defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&family=Cormorant+Garamond:ital,wght@1,600;1,700&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(ellipse at center top, rgba(167,139,250,0.12), transparent 60%),
+      radial-gradient(ellipse at center, rgba(11,15,30,0.55), rgba(8,11,24,0.95)),
+      url('/img/bg/space.jpg') center/cover no-repeat fixed,
+      #0a0e1a;
+    color: #f1f5f9; font-family: 'Noto Sans KR', sans-serif; padding-bottom: 80px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 28px 18px; }
+  .brand { text-align: center; margin-bottom: 24px; }
+  .brand-logo { font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 700; background: linear-gradient(180deg,#fff4cc,#fbbf24); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 32px; letter-spacing: 1px; display: block; }
+  .brand-sub { color: #94a3b8; font-size: 12px; margin-top: 4px; }
+
+  .target-box { background: linear-gradient(135deg, rgba(139,92,246,0.18), rgba(99,102,241,0.08)); border: 1px solid rgba(167,139,250,0.4); border-radius: 14px; padding: 24px; text-align: center; margin-bottom: 16px; }
+  .target-label { font-size: 11px; color: #c4b5fd; font-weight: 700; letter-spacing: 2px; }
+  .target-text { font-size: 22px; font-weight: 700; color: #fff; margin-top: 12px; line-height: 1.4; }
+  .target-input { width: 100%; padding: 10px 14px; font-size: 14px; background: rgba(20,26,43,0.8); color: #fff; border: 1px solid rgba(139,92,246,0.3); border-radius: 8px; margin-top: 12px; }
+
+  .recorder { background: rgba(20,26,43,0.7); border: 1px solid rgba(139,92,246,0.2); border-radius: 14px; padding: 22px; margin-bottom: 16px; text-align: center; }
+  .rec-btn { width: 100px; height: 100px; border-radius: 50%; border: 0; background: linear-gradient(135deg, #ef4444, #dc2626); color: #fff; font-size: 32px; cursor: pointer; box-shadow: 0 10px 30px -4px rgba(239,68,68,0.5); transition: transform 0.15s; }
+  .rec-btn:hover { transform: scale(1.05); }
+  .rec-btn.recording { background: linear-gradient(135deg, #fbbf24, #f59e0b); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+  .rec-status { font-size: 12px; color: #94a3b8; margin-top: 12px; }
+
+  .result { display: none; background: rgba(20,26,43,0.7); border: 1px solid rgba(139,92,246,0.2); border-radius: 14px; padding: 22px; }
+  .scores { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
+  .score-box { text-align: center; padding: 12px 6px; background: rgba(139,92,246,0.1); border-radius: 10px; }
+  .score-num { font-size: 24px; font-weight: 800; color: #fbbf24; }
+  .score-label { font-size: 10px; color: #94a3b8; margin-top: 2px; letter-spacing: 0.5px; }
+  .feedback { padding: 14px; background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(59,130,246,0.08)); border-left: 4px solid #34d399; border-radius: 8px; margin-bottom: 10px; font-size: 13.5px; line-height: 1.6; }
+  .suggestion { padding: 14px; background: linear-gradient(135deg, rgba(251,191,36,0.12), rgba(245,158,11,0.06)); border-left: 4px solid #fbbf24; border-radius: 8px; font-size: 13.5px; line-height: 1.6; }
+  .transcript { padding: 12px; background: rgba(255,255,255,0.04); border-radius: 8px; font-size: 13px; color: #cbd5e1; margin-bottom: 10px; }
+  .transcript b { color: #c4b5fd; }
+
+  .play-btn { padding: 10px 18px; background: rgba(139,92,246,0.2); color: #c4b5fd; border: 1px solid rgba(139,92,246,0.4); border-radius: 8px; cursor: pointer; font-weight: 700; }
+  .next-btn { padding: 10px 24px; background: linear-gradient(135deg, #34d399, #059669); color: #fff; border: 0; border-radius: 8px; font-weight: 800; cursor: pointer; margin-left: 8px; }
+
+  .home-btn { position: fixed; top: 14px; right: 14px; z-index: 999; padding: 9px 18px; background: linear-gradient(135deg,#fbbf24,#f59e0b); color: #1a1a1a; text-decoration: none; font-weight: 800; border-radius: 99px; font-size: 13px; }
+  .lang-btn { position: fixed; top: 14px; right: 148px; z-index: 999; padding: 9px 14px; background: rgba(255,255,255,0.9); color: #1a1a1a; border: 1px solid rgba(245,158,11,0.4); border-radius: 99px; font-size: 12px; font-weight: 800; cursor: pointer; }
+
+  .preset { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; justify-content: center; }
+  .preset button { padding: 6px 12px; background: rgba(139,92,246,0.1); color: #c4b5fd; border: 1px solid rgba(139,92,246,0.3); border-radius: 99px; font-size: 12px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<button class="lang-btn" onclick="toggleLang()">🌐 <span class="lang-label-sync">EN</span></button>
+<a class="home-btn" href="/">🏠 <span data-ko="홈" data-en="Home">홈</span></a>
+
+<div class="wrap">
+  <div class="brand">
+    <span class="brand-logo">Mangoi · AI Voice Coach</span>
+    <div class="brand-sub" data-ko="발음을 녹음하면 AI가 즉시 분석해줘요" data-en="Record your pronunciation, AI analyzes instantly">발음을 녹음하면 AI가 즉시 분석해줘요</div>
+  </div>
+
+  <!-- 모범 문장 -->
+  <div class="target-box">
+    <div class="target-label">📖 <span data-ko="이 문장을 따라 말해보세요" data-en="REPEAT THIS SENTENCE">이 문장을 따라 말해보세요</span></div>
+    <div class="target-text" id="target-display">Hello! Nice to meet you.</div>
+    <input id="target-input" class="target-input" type="text" value="Hello! Nice to meet you." placeholder="직접 입력하기 (영어 또는 한국어)" data-ko-placeholder="직접 입력하기 (영어 또는 한국어)" data-en-placeholder="Or type your own (English or Korean)" oninput="document.getElementById('target-display').textContent = this.value || '...'" />
+    <button onclick="speakTarget()" class="play-btn" style="margin-top:10px">🔊 <span data-ko="모범 음성 듣기" data-en="Listen to Sample">모범 음성 듣기</span></button>
+  </div>
+
+  <div class="preset">
+    <button onclick="setTarget('Hello! Nice to meet you.')">Hello!</button>
+    <button onclick="setTarget('What is your name?')">What is your name?</button>
+    <button onclick="setTarget('I love studying English with Mangoi.')">I love Mangoi</button>
+    <button onclick="setTarget('Can you say that again, please?')">Say that again</button>
+    <button onclick="setTarget('Thank you very much for your help.')">Thank you</button>
+  </div>
+
+  <!-- 녹음 -->
+  <div class="recorder">
+    <button id="rec-btn" class="rec-btn" onclick="toggleRec()">🎙</button>
+    <div class="rec-status" id="rec-status" data-ko="마이크 버튼을 눌러 녹음 시작" data-en="Tap mic to start recording">마이크 버튼을 눌러 녹음 시작</div>
+  </div>
+
+  <!-- 결과 -->
+  <div id="result" class="result">
+    <div class="scores">
+      <div class="score-box"><div class="score-num" id="sc-overall">0</div><div class="score-label" data-ko="종합" data-en="OVERALL">종합</div></div>
+      <div class="score-box"><div class="score-num" id="sc-accuracy">0</div><div class="score-label" data-ko="정확도" data-en="ACCURACY">정확도</div></div>
+      <div class="score-box"><div class="score-num" id="sc-pron">0</div><div class="score-label" data-ko="발음" data-en="PRONUNCIATION">발음</div></div>
+      <div class="score-box"><div class="score-num" id="sc-flue">0</div><div class="score-label" data-ko="유창성" data-en="FLUENCY">유창성</div></div>
+    </div>
+    <div class="transcript"><b data-ko="너의 발화:" data-en="You said:">너의 발화:</b> <span id="transcript-text">-</span></div>
+    <div class="feedback" id="feedback-text">-</div>
+    <div class="suggestion" id="suggestion-text">-</div>
+    <div style="text-align:center;margin-top:14px">
+      <button onclick="resetUI()" class="play-btn" data-ko="🔄 다시 녹음" data-en="🔄 Try Again">🔄 다시 녹음</button>
+      <button onclick="speakTarget()" class="next-btn" data-ko="🔊 모범 다시 듣기" data-en="🔊 Listen Again">🔊 모범 다시 듣기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let mediaRecorder = null;
+let chunks = [];
+let isRecording = false;
+
+function setTarget(t) {
+  document.getElementById('target-display').textContent = t;
+  document.getElementById('target-input').value = t;
+  resetUI();
+}
+
+function speakTarget() {
+  const t = document.getElementById('target-input').value || document.getElementById('target-display').textContent;
+  if (!t) return;
+  try {
+    const u = new SpeechSynthesisUtterance(t);
+    // 영어 우선, 없으면 시스템 기본
+    const voices = window.speechSynthesis.getVoices();
+    const enVoice = voices.find(v => v.lang.startsWith('en'));
+    if (enVoice) u.voice = enVoice;
+    u.rate = 0.9;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  } catch(e) { alert('음성 합성 실패: ' + e.message); }
+}
+
+function resetUI() {
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('rec-status').textContent = (window.getLang && window.getLang() === 'en' ? 'Tap mic to start recording' : '마이크 버튼을 눌러 녹음 시작');
+}
+
+async function toggleRec() {
+  if (isRecording) { stopRec(); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    chunks = [];
+    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(chunks, { type: chunks[0]?.type || 'audio/webm' });
+      await processAudio(blob);
+    };
+    mediaRecorder.start();
+    isRecording = true;
+    document.getElementById('rec-btn').classList.add('recording');
+    document.getElementById('rec-btn').textContent = '⏹';
+    document.getElementById('rec-status').textContent = '🔴 녹음 중… 다시 누르면 종료';
+  } catch (e) {
+    alert('마이크 권한이 필요합니다: ' + e.message);
+  }
+}
+
+function stopRec() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  isRecording = false;
+  document.getElementById('rec-btn').classList.remove('recording');
+  document.getElementById('rec-btn').textContent = '🎙';
+  document.getElementById('rec-status').textContent = '⏳ AI 분석 중…';
+}
+
+async function processAudio(blob) {
+  try {
+    // 1) Whisper 로 전사
+    const fd = new FormData();
+    fd.append('audio', blob, 'rec.webm');
+    const trResp = await fetch('/api/voice/transcribe', { method: 'POST', body: fd });
+    const trD = await trResp.json();
+    if (!trD.ok) throw new Error('전사 실패: ' + (trD.error || ''));
+    const spoken = (trD.text || '').trim();
+
+    // 2) 발음 평가 + AI 피드백
+    const target = document.getElementById('target-display').textContent;
+    let user = null; try { user = JSON.parse(localStorage.getItem('mango_user') || 'null'); } catch(e){}
+    const coachResp = await fetch('/api/voice/coach', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target, spoken, student_uid: user?.user_id || 'guest', student_name: user?.user_name || '' })
+    });
+    const cD = await coachResp.json();
+    if (!cD.ok) throw new Error('평가 실패: ' + (cD.error || ''));
+
+    // 3) 화면 표시
+    document.getElementById('transcript-text').textContent = spoken || '(음성을 인식하지 못했어요)';
+    document.getElementById('sc-overall').textContent = cD.scores.overall;
+    document.getElementById('sc-accuracy').textContent = cD.scores.accuracy;
+    document.getElementById('sc-pron').textContent = cD.scores.pronunciation;
+    document.getElementById('sc-flue').textContent = cD.scores.fluency;
+    document.getElementById('feedback-text').textContent = '💡 ' + cD.feedback;
+    document.getElementById('suggestion-text').textContent = '🎯 ' + cD.suggestion;
+    document.getElementById('result').style.display = 'block';
+    document.getElementById('rec-status').textContent = '✅ 완료! 다시 녹음하려면 마이크 누르세요';
+
+    // 결과 영역으로 스크롤
+    setTimeout(() => document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+  } catch (e) {
+    document.getElementById('rec-status').textContent = '❌ ' + e.message;
+  }
+}
+
+// 음성 합성 voice 로드
+if (typeof window.speechSynthesis !== 'undefined') {
+  window.speechSynthesis.onvoiceschanged = () => {};
+  setTimeout(() => window.speechSynthesis.getVoices(), 200);
+}
+</script>
+</body>
+</html>

@@ -16475,6 +16475,88 @@ window.closeRulesModal = function() {
     });
   }
 
+  // ━━━━━━ 🔔 Phase WP1 — Web Push 구독 관리 ━━━━━━
+  // base64url → Uint8Array (VAPID public key 변환)
+  function b64uToUint8(b64) {
+    const pad = '='.repeat((4 - b64.length % 4) % 4);
+    const base64 = (b64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(base64);
+    const out = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+
+  window.mangoiPushSubscribe = async function() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      alert('이 브라우저는 푸시 알림을 지원하지 않아요');
+      return false;
+    }
+    try {
+      // VAPID 공개키 가져오기
+      const keyResp = await fetch('/api/push/vapid-public-key');
+      const keyD = await keyResp.json();
+      if (!keyD.ok || !keyD.key) {
+        alert('푸시 알림이 아직 설정되지 않았어요 (관리자 문의)');
+        return false;
+      }
+      // 알림 권한 요청
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') {
+        alert('알림 권한이 거부됐어요. 설정 → 알림에서 허용해주세요.');
+        return false;
+      }
+      // SW 구독
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: b64uToUint8(keyD.key),
+      });
+      // 서버 등록
+      const user = (function(){ try { return JSON.parse(localStorage.getItem('mango_user')||'null'); } catch(e){ return null; } })();
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: sub.toJSON(), user_id: user?.user_id || null, ua: navigator.userAgent.slice(0, 200) })
+      });
+      try { localStorage.setItem('mangoi_push_subscribed', '1'); } catch(e){}
+      alert('🔔 푸시 알림 구독 완료!\n수업 알림, 결제 안내, 평가서 알림 등을 받을 수 있어요.');
+      return true;
+    } catch (e) {
+      console.warn('[push] subscribe fail:', e);
+      alert('푸시 구독 실패: ' + (e?.message || 'unknown'));
+      return false;
+    }
+  };
+
+  window.mangoiPushUnsubscribe = async function() {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await fetch('/api/push/unsubscribe', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: sub.endpoint })
+        });
+        await sub.unsubscribe();
+      }
+      try { localStorage.removeItem('mangoi_push_subscribed'); } catch(e){}
+      alert('🔕 푸시 알림 구독 해제됨');
+      return true;
+    } catch(e) {
+      console.warn('[push] unsubscribe fail:', e);
+      return false;
+    }
+  };
+
+  window.mangoiPushStatus = async function() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return 'unsupported';
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      return sub ? 'subscribed' : 'not_subscribed';
+    } catch(e) { return 'error'; }
+  };
+
   // 2) 홈화면 추가 안내 — Android (beforeinstallprompt) + iOS Safari 별도
   const DISMISS_KEY = 'mangoi_pwa_dismissed_at';
   const SHOW_AFTER_MS = 30 * 86400 * 1000;  // 30일 1회

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<title>학부모 대시보드 — 망고아이</title>
+<link rel="icon" type="image/png" href="/img/icon-192.png">
+<link rel="icon" href="data:," />
+<script src="/js/mango-i18n.js" defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&family=Cormorant+Garamond:ital,wght@1,600;1,700&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(ellipse at center top, rgba(251,191,36,0.10), transparent 60%),
+      radial-gradient(ellipse at center, rgba(11,15,30,0.45), rgba(8,11,24,0.92)),
+      url('/img/bg/space.jpg') center/cover no-repeat fixed,
+      #0a0e1a;
+    color: #f1f5f9;
+    font-family: 'Noto Sans KR', sans-serif;
+    letter-spacing: -0.2px;
+    padding-bottom: 80px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 18px; }
+  .brand { text-align: center; margin-bottom: 24px; }
+  .brand-logo {
+    font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 700;
+    background: linear-gradient(180deg,#fff4cc,#fbbf24,#8a5e10);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    font-size: 32px; letter-spacing: 1px; display: block; line-height: 1;
+  }
+  .brand-sub { color: #94a3b8; font-size: 12px; margin-top: 4px; }
+
+  .child-card {
+    background: linear-gradient(135deg, rgba(251,191,36,0.12), rgba(245,158,11,0.06));
+    border: 1px solid rgba(251,191,36,0.3);
+    border-radius: 16px; padding: 22px 24px; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  }
+  .child-avatar { width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg,#fbbf24,#f59e0b); display: flex; align-items: center; justify-content: center; font-size: 32px; box-shadow: 0 8px 16px -4px rgba(245,158,11,0.4); }
+  .child-info h1 { font-size: 22px; font-weight: 800; color: #fff; }
+  .child-info p { font-size: 13px; color: #cbd5e1; margin-top: 4px; }
+  .child-pts { margin-left: auto; text-align: right; }
+  .child-pts-num { font-size: 28px; font-weight: 900; background: linear-gradient(180deg,#fff4cc,#fbbf24); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .child-pts-label { font-size: 11px; color: #94a3b8; letter-spacing: 1px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .card {
+    background: rgba(20, 26, 43, 0.7);
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    border-radius: 14px;
+    padding: 18px 20px;
+    backdrop-filter: blur(8px);
+  }
+  .card h3 { font-size: 14px; font-weight: 800; color: #c4b5fd; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+  .stat { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(139,92,246,0.08); font-size: 13px; }
+  .stat:last-child { border-bottom: 0; }
+  .stat .v { font-weight: 700; color: #fff; }
+  .stat .v.gold { color: #fbbf24; }
+  .stat .v.green { color: #34d399; }
+  .stat .v.red { color: #f87171; }
+
+  .eval-item {
+    padding: 12px 14px;
+    background: rgba(139,92,246,0.08);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    border-left: 3px solid #a78bfa;
+  }
+  .eval-score { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 12px; font-weight: 800; background: linear-gradient(135deg,#fbbf24,#f59e0b); color: #1a1a1a; }
+  .eval-date { font-size: 11px; color: #94a3b8; margin-left: 6px; }
+  .eval-text { font-size: 12px; color: #e6e9f5; margin-top: 6px; line-height: 1.5; }
+
+  .home-btn {
+    position: fixed; top: 14px; right: 14px; z-index: 999;
+    padding: 9px 18px; background: linear-gradient(135deg,#fbbf24,#f59e0b);
+    color: #1a1a1a; text-decoration: none; font-weight: 800; border-radius: 99px;
+    font-size: 13px; box-shadow: 0 6px 18px -4px rgba(245,158,11,0.5);
+  }
+  .lang-btn {
+    position: fixed; top: 14px; right: 148px; z-index: 999;
+    padding: 9px 14px; background: rgba(255,255,255,0.9); color: #1a1a1a;
+    border: 1px solid rgba(245,158,11,0.4); border-radius: 99px;
+    font-size: 12px; font-weight: 800; cursor: pointer;
+  }
+
+  .uid-input {
+    width: 100%; max-width: 400px; padding: 10px 14px; font-size: 14px;
+    background: rgba(20,26,43,0.8); color: #fff;
+    border: 1px solid rgba(139,92,246,0.3); border-radius: 8px; margin-bottom: 10px;
+  }
+  .uid-go { padding: 10px 24px; background: linear-gradient(135deg,#a78bfa,#7c3aed); color: #fff; border: 0; border-radius: 8px; font-weight: 800; cursor: pointer; }
+
+  .empty { padding: 24px; text-align: center; color: #94a3b8; font-size: 13px; background: rgba(20,26,43,0.5); border-radius: 10px; }
+  .att-dot { display: inline-block; width: 14px; height: 14px; border-radius: 3px; margin: 1px; background: rgba(255,255,255,0.05); }
+  .att-dot.present { background: #34d399; }
+  .att-dot.on-time { background: linear-gradient(135deg,#fbbf24,#f59e0b); }
+
+  @media (max-width: 640px) {
+    .brand-logo { font-size: 26px; }
+    .child-card { flex-direction: column; text-align: center; }
+    .child-pts { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<button class="lang-btn" onclick="toggleLang()">🌐 <span class="lang-label-sync">EN</span></button>
+<a class="home-btn" href="/" data-ko-title="홈으로" data-en-title="Home">🏠 <span data-ko="홈" data-en="Home">홈</span></a>
+
+<div class="wrap">
+  <div class="brand">
+    <span class="brand-logo">Mangoi</span>
+    <div class="brand-sub" data-ko="학부모 대시보드 — 자녀의 학습 한눈에" data-en="Parent Dashboard — Track your child's progress">학부모 대시보드 — 자녀의 학습 한눈에</div>
+  </div>
+
+  <div id="entry" style="text-align:center;padding:30px 20px">
+    <p style="margin-bottom:12px;color:#cbd5e1" data-ko="자녀의 학생 ID 를 입력하세요" data-en="Enter your child's student ID">자녀의 학생 ID 를 입력하세요</p>
+    <input id="uid-input" class="uid-input" type="text" placeholder="예: hong_gd" data-ko-placeholder="예: hong_gd" data-en-placeholder="e.g. hong_gd" />
+    <br>
+    <button class="uid-go" onclick="pdGo()" data-ko="조회하기" data-en="View Dashboard">조회하기</button>
+  </div>
+
+  <div id="dashboard" style="display:none">
+    <!-- 자녀 헤더 카드 -->
+    <div class="child-card">
+      <div class="child-avatar">👧</div>
+      <div class="child-info">
+        <h1 id="pd-name">-</h1>
+        <p id="pd-meta">-</p>
+      </div>
+      <div class="child-pts">
+        <div class="child-pts-num" id="pd-balance">0</div>
+        <div class="child-pts-label" data-ko="포인트 잔액" data-en="POINTS BALANCE">포인트 잔액</div>
+      </div>
+    </div>
+
+    <div class="grid">
+
+      <!-- 출석 카드 -->
+      <div class="card">
+        <h3>📅 <span data-ko="최근 30일 출석" data-en="Last 30 Days Attendance">최근 30일 출석</span></h3>
+        <div class="stat"><span data-ko="출석 일수" data-en="Days attended">출석 일수</span><span class="v gold"><span id="pd-att-days">0</span> <span data-ko="일" data-en="days">일</span></span></div>
+        <div class="stat"><span data-ko="제시간 입장" data-en="On-time">제시간 입장</span><span class="v green"><span id="pd-on-time">0</span> <span data-ko="일" data-en="days">일</span></span></div>
+        <div class="stat"><span data-ko="제시간율" data-en="On-time rate">제시간율</span><span class="v gold" id="pd-on-time-rate">0%</span></div>
+        <div id="pd-att-grid" style="margin-top:10px"></div>
+      </div>
+
+      <!-- 포인트 카드 -->
+      <div class="card">
+        <h3>🏆 <span data-ko="포인트 흐름" data-en="Points Flow">포인트 흐름</span></h3>
+        <div class="stat"><span data-ko="누적 적립" data-en="Lifetime earned">누적 적립</span><span class="v green">+<span id="pd-earned">0</span> P</span></div>
+        <div class="stat"><span data-ko="누적 사용" data-en="Lifetime spent">누적 사용</span><span class="v red">-<span id="pd-spent">0</span> P</span></div>
+        <div class="stat"><span data-ko="현재 잔액" data-en="Current balance">현재 잔액</span><span class="v gold"><span id="pd-balance2">0</span> P</span></div>
+        <div id="pd-tx" style="margin-top:10px;font-size:11.5px;color:#94a3b8"></div>
+      </div>
+
+      <!-- 결제 카드 -->
+      <div class="card">
+        <h3>💳 <span data-ko="최근 결제" data-en="Recent Payments">최근 결제</span></h3>
+        <div id="pd-pays" style="font-size:12.5px"></div>
+      </div>
+
+    </div>
+
+    <!-- 평가서 섹션 -->
+    <div class="card" style="margin-top:16px">
+      <h3>📝 <span data-ko="최근 학습 평가서" data-en="Recent Evaluations">최근 학습 평가서</span></h3>
+      <div id="pd-evals"></div>
+    </div>
+
+    <div style="text-align:center;margin-top:24px">
+      <button onclick="pdRefresh()" style="padding:8px 20px;background:rgba(139,92,246,0.2);color:#c4b5fd;border:1px solid rgba(139,92,246,0.4);border-radius:8px;cursor:pointer;font-weight:700" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+      <button onclick="pdLogout()" style="padding:8px 20px;background:transparent;color:#94a3b8;border:1px solid rgba(148,163,184,0.3);border-radius:8px;cursor:pointer;margin-left:8px" data-ko="다른 자녀 조회" data-en="Other child">다른 자녀 조회</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+const fmt = (n) => (Number(n)||0).toLocaleString('ko-KR');
+const fmtDate = (ms) => ms ? new Date(ms).toLocaleDateString('ko-KR', { month:'short', day:'numeric' }) : '-';
+
+let _currentUid = null;
+
+function getQueryParam(k){ try { return new URLSearchParams(location.search).get(k); } catch(e){ return null; } }
+
+window.pdGo = async function(){
+  const uid = document.getElementById('uid-input').value.trim();
+  if (!uid) { alert('자녀의 user_id 를 입력하세요'); return; }
+  _currentUid = uid;
+  try { localStorage.setItem('mangoi_parent_uid', uid); } catch(e){}
+  await pdLoad();
+};
+
+window.pdLogout = function(){
+  _currentUid = null;
+  try { localStorage.removeItem('mangoi_parent_uid'); } catch(e){}
+  document.getElementById('entry').style.display = '';
+  document.getElementById('dashboard').style.display = 'none';
+};
+
+window.pdRefresh = function(){ if (_currentUid) pdLoad(); };
+
+async function pdLoad(){
+  document.getElementById('entry').style.display = 'none';
+  document.getElementById('dashboard').style.display = '';
+  try {
+    const r = await fetch('/api/parent/dashboard?child_uid=' + encodeURIComponent(_currentUid));
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'load_fail');
+    pdRender(d);
+  } catch(e) {
+    alert('❌ ' + e.message);
+  }
+}
+
+function pdRender(d){
+  const c = d.child || {};
+  document.getElementById('pd-name').textContent = c.student_name || _currentUid;
+  document.getElementById('pd-meta').textContent = (c.program||'-') + ' · ' + (c.parent_name||'-') + ' 학부모 · ID: ' + _currentUid;
+  const pts = d.points || {};
+  document.getElementById('pd-balance').textContent = fmt(pts.balance);
+  document.getElementById('pd-balance2').textContent = fmt(pts.balance);
+  document.getElementById('pd-earned').textContent = fmt(pts.lifetime_earned);
+  document.getElementById('pd-spent').textContent = fmt(pts.lifetime_spent);
+
+  // 포인트 거래 최근 5건
+  const tx = (pts.recent_tx || []).slice(0, 5);
+  document.getElementById('pd-tx').innerHTML = tx.length
+    ? '<div style="font-weight:700;color:#c4b5fd;margin-bottom:4px">최근 거래</div>' + tx.map(t => `<div style="padding:3px 0">${esc(t.reason||t.type)} <b style="color:${t.amount>0?'#34d399':'#f87171'}">${t.amount>0?'+':''}${fmt(t.amount)}P</b></div>`).join('')
+    : '<div style="color:#6b7280">거래 내역 없음</div>';
+
+  // 출석
+  const att = d.attendance || {};
+  document.getElementById('pd-att-days').textContent = fmt(att.last_30d_days);
+  document.getElementById('pd-on-time').textContent = fmt(att.on_time_days);
+  document.getElementById('pd-on-time-rate').textContent = (att.on_time_rate||0) + '%';
+  // 30일 그리드
+  const today = new Date();
+  let grid = '<div style="display:grid;grid-template-columns:repeat(15,14px);gap:2px;margin-top:6px">';
+  for (let i = 29; i >= 0; i--) {
+    const dt = new Date(today.getTime() - i * 86400000);
+    const k = dt.toISOString().slice(0,10);
+    const cls = (att.days||[]).includes(k) ? 'present' : '';
+    grid += `<span class="att-dot ${cls}" title="${k}"></span>`;
+  }
+  grid += '</div>';
+  document.getElementById('pd-att-grid').innerHTML = grid;
+
+  // 결제
+  const pays = (d.payments || []).slice(0, 4);
+  document.getElementById('pd-pays').innerHTML = pays.length
+    ? pays.map(p => `<div style="padding:8px 0;border-bottom:1px solid rgba(139,92,246,0.08);display:flex;justify-content:space-between"><span style="color:#cbd5e1">${esc(p.method||'결제')} <span style="font-size:11px;color:#94a3b8">${fmtDate(p.paid_at)}</span></span><b style="color:#fbbf24">${fmt(p.amount_krw)}원</b></div>`).join('')
+    : '<div class="empty">결제 내역 없음</div>';
+
+  // 평가서
+  const evals = d.evaluations || [];
+  document.getElementById('pd-evals').innerHTML = evals.length
+    ? evals.map(e => `<div class="eval-item">
+        <span class="eval-score">${e.score_overall||0}/10</span>
+        <span class="eval-date">${esc(e.lesson_date||'-')} · ${esc(e.teacher_name||'-')}</span>
+        <div class="eval-text"><b style="color:#34d399">강점:</b> ${esc((e.strengths||'').slice(0,80))}</div>
+        <div class="eval-text"><b style="color:#fbbf24">다음 목표:</b> ${esc((e.next_goal||'').slice(0,80))}</div>
+      </div>`).join('')
+    : '<div class="empty">아직 평가서가 없습니다. 다음 수업 후 등록됩니다.</div>';
+
+  // 새 i18n 적용 (동적 콘텐츠)
+  if (window.applyI18n) window.applyI18n();
+}
+
+// 초기화 — URL ?uid= 또는 저장된 ID 로 자동 로드
+(function(){
+  const fromUrl = getQueryParam('uid');
+  let saved = null;
+  try { saved = localStorage.getItem('mangoi_parent_uid'); } catch(e){}
+  const uid = fromUrl || saved;
+  if (uid) {
+    _currentUid = uid;
+    document.getElementById('uid-input').value = uid;
+    pdLoad();
+  }
+})();
+</script>
+</body>
+</html>

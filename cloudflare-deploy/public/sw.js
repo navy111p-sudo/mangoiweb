@@ -124,3 +124,70 @@ async function cacheFirst(request, cacheName) {
 self.addEventListener('message', (event) => {
   if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });
+
+// === 🔔 Phase WP1: Web Push 이벤트 (wakeup → /api/push/pending 에서 메시지 fetch) ===
+self.addEventListener('push', (event) => {
+  // 페이로드가 동봉된 경우 우선 사용 (현재 구현은 페이로드 없는 wakeup)
+  let payload = null;
+  if (event.data) {
+    try { payload = event.data.json(); } catch(e) {
+      try { payload = { title: '망고아이 알림', body: event.data.text() }; } catch(_) {}
+    }
+  }
+
+  event.waitUntil((async () => {
+    try {
+      // 페이로드가 없으면 서버에서 큐된 메시지 가져오기
+      if (!payload) {
+        const reg = await self.registration.pushManager.getSubscription();
+        if (reg && reg.endpoint) {
+          const resp = await fetch('/api/push/pending?endpoint=' + encodeURIComponent(reg.endpoint));
+          if (resp.ok) {
+            const d = await resp.json();
+            const messages = (d.messages || []);
+            // 가장 최신 메시지 표시 (여러 개면 첫 번째)
+            if (messages.length) payload = messages[0];
+          }
+        }
+      }
+      if (!payload || !payload.title) {
+        payload = { title: '망고아이', body: '새 알림이 도착했어요' };
+      }
+      await self.registration.showNotification(payload.title, {
+        body: payload.body || '',
+        icon: payload.icon || '/img/icon-192.png',
+        badge: payload.badge || '/img/icon-192.png',
+        tag: payload.tag || 'mangoi-' + Date.now(),
+        data: { url: payload.url || '/' },
+        renotify: true,
+        requireInteraction: false,
+      });
+    } catch(e) {
+      console.warn('[sw:push] error:', e);
+      await self.registration.showNotification('망고아이 알림', {
+        body: '새 메시지가 있어요',
+        icon: '/img/icon-192.png',
+      });
+    }
+  })());
+});
+
+// === 🔔 알림 클릭 시 해당 URL 열기 (이미 열려있으면 포커스) ===
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil((async () => {
+    const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of all) {
+      try {
+        const cUrl = new URL(c.url);
+        if (cUrl.origin === self.location.origin) {
+          c.focus();
+          if (cUrl.pathname + cUrl.search !== url) c.navigate(url);
+          return;
+        }
+      } catch(_) {}
+    }
+    await self.clients.openWindow(url);
+  })());
+});
