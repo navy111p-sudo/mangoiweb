@@ -2829,6 +2829,19 @@ export async function handleMangoApi(
         inquiryLast30 = i1?.n || 0;
       } catch {}
 
+      // 🆕 Phase 10 — Web Push KPI
+      const pushKpi: any = { active_subs: 0, queued_this_month: 0, fetched_this_month: 0, delivery_rate: 0 };
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS push_subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, endpoint TEXT NOT NULL UNIQUE, enabled INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS push_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT, queued_at INTEGER NOT NULL, fetched_at INTEGER);`);
+        const ps: any = await fetch1(`SELECT COUNT(*) AS n FROM push_subscriptions WHERE enabled = 1`);
+        const pq: any = await fetch1(`SELECT COUNT(*) AS sent, IFNULL(SUM(CASE WHEN fetched_at IS NOT NULL THEN 1 ELSE 0 END),0) AS fetched FROM push_queue WHERE queued_at >= ? AND queued_at < ?`, thisMonthStart, thisMonthEnd);
+        pushKpi.active_subs = ps?.n || 0;
+        pushKpi.queued_this_month = pq?.sent || 0;
+        pushKpi.fetched_this_month = pq?.fetched || 0;
+        pushKpi.delivery_rate = pushKpi.queued_this_month > 0 ? Math.round((pushKpi.fetched_this_month / pushKpi.queued_this_month) * 100) : 0;
+      } catch {}
+
       // 10. 최근 7일 일별 매출 추세
       const dailyRev: any[] = [];
       for (let i = 6; i >= 0; i--) {
@@ -2885,6 +2898,7 @@ export async function handleMangoApi(
           inquiry: {
             last_30_days: inquiryLast30,
           },
+          push: pushKpi,
         },
         daily_revenue: dailyRev,
       });
@@ -3771,6 +3785,58 @@ Respond in JSON ONLY:
         `SELECT id, target_text, transcribed_text, accuracy_score, pronunciation_score, fluency_score, ai_feedback, suggestion, created_at FROM voice_coaching WHERE student_uid = ? ORDER BY created_at DESC LIMIT 30`
       ).bind(uid).all();
       return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [] });
+    }
+
+    // ── GET /api/voice/stats?uid=X — 학생별 음성 코칭 통계 (그래프용)
+    //   반환: 일별 평균 점수 + 총 연습 횟수 + 최고/최근 점수
+    if (method === 'GET' && path === '/api/voice/stats') {
+      await ensureVoiceTable();
+      const uid = (url.searchParams.get('uid') || 'guest').trim();
+      const days = Math.min(parseInt(url.searchParams.get('days') || '30', 10), 90);
+      const sinceMs = Date.now() - days * 86400000;
+      const rs = await env.DB.prepare(
+        `SELECT accuracy_score, pronunciation_score, fluency_score, created_at FROM voice_coaching WHERE student_uid = ? AND created_at >= ? ORDER BY created_at ASC`
+      ).bind(uid, sinceMs).all();
+      const rows = (rs.results || []) as any[];
+      // 일별 집계
+      const byDay: Record<string, { acc: number[], pron: number[], flu: number[] }> = {};
+      for (const r of rows) {
+        const d = new Date(r.created_at).toISOString().slice(0, 10);
+        if (!byDay[d]) byDay[d] = { acc: [], pron: [], flu: [] };
+        byDay[d].acc.push(r.accuracy_score || 0);
+        byDay[d].pron.push(r.pronunciation_score || 0);
+        byDay[d].flu.push(r.fluency_score || 0);
+      }
+      const avg = (arr: number[]) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+      const daily = Object.keys(byDay).sort().map(d => ({
+        date: d,
+        accuracy: avg(byDay[d].acc),
+        pronunciation: avg(byDay[d].pron),
+        fluency: avg(byDay[d].flu),
+        overall: Math.round((avg(byDay[d].acc) * 0.5) + (avg(byDay[d].pron) * 0.3) + (avg(byDay[d].flu) * 0.2)),
+        count: byDay[d].acc.length,
+      }));
+      // 전체 통계
+      const allAcc = rows.map(r => r.accuracy_score || 0);
+      const allPron = rows.map(r => r.pronunciation_score || 0);
+      const allFlu = rows.map(r => r.fluency_score || 0);
+      const totalAvg = {
+        accuracy: avg(allAcc),
+        pronunciation: avg(allPron),
+        fluency: avg(allFlu),
+        overall: Math.round((avg(allAcc) * 0.5) + (avg(allPron) * 0.3) + (avg(allFlu) * 0.2)),
+      };
+      const best = rows.length ? Math.max(...rows.map(r => Math.round((r.accuracy_score || 0) * 0.5 + (r.pronunciation_score || 0) * 0.3 + (r.fluency_score || 0) * 0.2))) : 0;
+      const latest = rows.length ? Math.round((rows[rows.length - 1].accuracy_score || 0) * 0.5 + (rows[rows.length - 1].pronunciation_score || 0) * 0.3 + (rows[rows.length - 1].fluency_score || 0) * 0.2) : 0;
+      return json({
+        ok: true,
+        total_sessions: rows.length,
+        days_active: daily.length,
+        average: totalAvg,
+        best_score: best,
+        latest_score: latest,
+        daily,
+      });
     }
 
     // ═══════════════════════════════════════════════════════════════

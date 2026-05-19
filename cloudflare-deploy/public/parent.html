@@ -172,6 +172,12 @@
       <div id="pd-evals"></div>
     </div>
 
+    <!-- 🆕 AI 음성 코칭 진도 -->
+    <div class="card" style="margin-top:16px">
+      <h3>🎙 <span data-ko="AI 음성 코칭 진도" data-en="AI Voice Coach Progress">AI 음성 코칭 진도</span></h3>
+      <div id="pd-voice-stats"></div>
+    </div>
+
     <div style="text-align:center;margin-top:24px">
       <button onclick="pdRefresh()" style="padding:8px 20px;background:rgba(139,92,246,0.2);color:#c4b5fd;border:1px solid rgba(139,92,246,0.4);border-radius:8px;cursor:pointer;font-weight:700" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
       <button onclick="pdLogout()" style="padding:8px 20px;background:transparent;color:#94a3b8;border:1px solid rgba(148,163,184,0.3);border-radius:8px;cursor:pointer;margin-left:8px" data-ko="다른 자녀 조회" data-en="Other child">다른 자녀 조회</button>
@@ -267,6 +273,50 @@ function pdRender(d){
         <div class="eval-text"><b style="color:#fbbf24">다음 목표:</b> ${esc((e.next_goal||'').slice(0,80))}</div>
       </div>`).join('')
     : '<div class="empty">아직 평가서가 없습니다. 다음 수업 후 등록됩니다.</div>';
+
+  // 🆕 음성 코칭 통계 로드 (비동기)
+  fetch('/api/voice/stats?uid=' + encodeURIComponent(_currentUid) + '&days=30').then(r => r.json()).then(stats => {
+    const el = document.getElementById('pd-voice-stats');
+    if (!el) return;
+    if (!stats.ok || stats.total_sessions === 0) {
+      el.innerHTML = '<div class="empty">아직 음성 코칭 기록이 없습니다.<br><a href="/speech-coach.html" style="color:#fbbf24;font-weight:700;margin-top:8px;display:inline-block">🎙 지금 시작하기</a></div>';
+      return;
+    }
+    // 일별 점수 막대 차트
+    const maxScore = Math.max(...stats.daily.map(d => d.overall), 100);
+    const bars = stats.daily.slice(-14).map(d => {
+      const h = Math.max(8, (d.overall / maxScore) * 70);
+      const color = d.overall >= 80 ? '#34d399' : d.overall >= 60 ? '#fbbf24' : '#f87171';
+      return `<div title="${d.date}: ${d.overall}점 (${d.count}회)" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+        <div style="font-size:10px;color:#fbbf24;font-weight:700">${d.overall}</div>
+        <div style="width:100%;height:${h}px;background:${color};border-radius:3px 3px 0 0"></div>
+        <div style="font-size:9px;color:#94a3b8">${d.date.slice(5)}</div>
+      </div>`;
+    }).join('');
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+        <div style="text-align:center;padding:10px;background:rgba(139,92,246,0.1);border-radius:8px">
+          <div style="font-size:20px;font-weight:800;color:#a78bfa">${stats.total_sessions}</div>
+          <div style="font-size:10px;color:#94a3b8;letter-spacing:1px">TOTAL</div>
+        </div>
+        <div style="text-align:center;padding:10px;background:rgba(251,191,36,0.1);border-radius:8px">
+          <div style="font-size:20px;font-weight:800;color:#fbbf24">${stats.best_score}</div>
+          <div style="font-size:10px;color:#94a3b8;letter-spacing:1px">BEST</div>
+        </div>
+        <div style="text-align:center;padding:10px;background:rgba(52,211,153,0.1);border-radius:8px">
+          <div style="font-size:20px;font-weight:800;color:#34d399">${stats.latest_score}</div>
+          <div style="font-size:10px;color:#94a3b8;letter-spacing:1px">LATEST</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:3px;height:90px;padding:0 4px">${bars}</div>
+      <div style="text-align:center;margin-top:8px;font-size:11px;color:#94a3b8">최근 14일 일별 종합 점수</div>
+      <div style="text-align:center;margin-top:12px">
+        <a href="/speech-coach.html" style="display:inline-block;padding:8px 16px;background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:12.5px">🎙 더 연습하기</a>
+      </div>`;
+  }).catch(e => {
+    const el = document.getElementById('pd-voice-stats');
+    if (el) el.innerHTML = '<div class="empty">통계 로드 실패</div>';
+  });
 
   // 새 i18n 적용 (동적 콘텐츠)
   if (window.applyI18n) window.applyI18n();

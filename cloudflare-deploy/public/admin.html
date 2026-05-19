@@ -4002,6 +4002,31 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
             💡 <b data-ko="Web Push 는 SOLAPI 비용이 0원!" data-en="Web Push is FREE (no SOLAPI cost)!">Web Push 는 SOLAPI 비용이 0원!</b>
             <span data-ko=" — 브라우저 자체 푸시 시스템(W3C 표준)으로 학생/학부모/강사에게 무료로 알림 발송이 가능합니다. 단점: 학생이 한번 '알림 허용' 해야 함." data-en=" — uses W3C standard browser push (no telecom cost). Caveat: user must opt-in once via Allow Notifications.">— 브라우저 자체 푸시 시스템(W3C 표준)으로 학생/학부모/강사에게 무료로 알림 발송이 가능합니다. 단점: 학생이 한번 '알림 허용' 해야 함.</span>
           </div>
+          <!-- 📱 모바일/플랫폼별 푸시 가능 여부 안내 -->
+          <details style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:0;margin-bottom:12px">
+            <summary style="cursor:pointer;padding:10px 14px;font-size:12px;font-weight:700;color:#92400e">📱 <span data-ko="플랫폼별 푸시 지원 (펼치기)" data-en="Platform Support (expand)">플랫폼별 푸시 지원 (펼치기)</span></summary>
+            <div style="padding:10px 14px;border-top:1px solid #fbbf24;font-size:11.5px;color:#451a03;line-height:1.7">
+              <table style="width:100%;font-size:11.5px;border-collapse:collapse">
+                <thead style="background:rgba(0,0,0,.05)"><tr><th style="text-align:left;padding:4px 6px">플랫폼</th><th style="padding:4px 6px">지원</th><th style="text-align:left;padding:4px 6px">요구사항</th></tr></thead>
+                <tbody>
+                  <tr><td style="padding:4px 6px">데스크탑 Chrome/Edge</td><td style="text-align:center">✅</td><td style="padding:4px 6px">알림 허용 1회</td></tr>
+                  <tr><td style="padding:4px 6px">데스크탑 Firefox</td><td style="text-align:center">✅</td><td style="padding:4px 6px">알림 허용 1회</td></tr>
+                  <tr><td style="padding:4px 6px">데스크탑 Safari (macOS 13+)</td><td style="text-align:center">✅</td><td style="padding:4px 6px">알림 허용 1회</td></tr>
+                  <tr><td style="padding:4px 6px">안드로이드 Chrome</td><td style="text-align:center">✅</td><td style="padding:4px 6px">알림 허용 1회 (PWA 설치 권장)</td></tr>
+                  <tr style="background:rgba(220,38,38,.08)"><td style="padding:4px 6px"><b>iOS Safari</b></td><td style="text-align:center">⚠ 16.4+</td><td style="padding:4px 6px"><b>반드시 PWA 홈화면 추가 후</b>에 가능</td></tr>
+                  <tr><td style="padding:4px 6px">iOS Chrome/Edge</td><td style="text-align:center">❌</td><td style="padding:4px 6px">Safari WebKit 한계 (Apple 정책)</td></tr>
+                </tbody>
+              </table>
+              <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(0,0,0,.08)">
+                <b>🍏 iOS 학부모 안내 메시지 (복사용)</b><br>
+                <code style="display:block;background:#fff;padding:6px 8px;border-radius:4px;margin-top:4px;font-size:11px;line-height:1.5;white-space:pre-wrap;color:#1f2937">아이폰에서 알림 받으시려면:
+1) Safari 로 망고아이 홈페이지 열기
+2) 하단 공유 버튼 (↑) → "홈 화면에 추가"
+3) 홈 화면에서 망고아이 앱 열기
+4) "알림 허용" 선택 ← iOS 16.4 이상 필요</code>
+              </div>
+            </div>
+          </details>
           <div id="wp-status-box" style="padding:14px;background:#f9fafb;border-radius:8px"></div>
           <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
             <button onclick="wpLoadStatus()" class="primary" style="padding:7px 14px;font-size:12.5px;font-weight:700" data-ko="🔄 상태 새로고침" data-en="🔄 Refresh Status">🔄 상태 새로고침</button>
@@ -4288,8 +4313,54 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
           <div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:12px;color:#3730a3;line-height:1.7">
             💡 <b data-ko="학부모가 카카오에서 답장하면 자동으로 망고이 채팅창에 들어옵니다" data-en="Parent replies via Kakao automatically appear in Mangoi chat">학부모가 카카오에서 답장하면 자동으로 망고이 채팅창에 들어옵니다</b><br>
             <span data-ko="필수 — 카카오 i 오픈빌더 또는 SOLAPI 양방향 채널 설정 후, 다음 URL 을 webhook 으로 등록:" data-en="Required — register the webhook URL in Kakao i Open Builder or SOLAPI bi-directional channel:">필수 — 카카오 i 오픈빌더 또는 SOLAPI 양방향 채널 설정 후, 다음 URL 을 webhook 으로 등록:</span>
-            <code style="display:block;background:#fff;padding:8px 10px;border-radius:5px;margin-top:6px;color:#1e40af;font-size:11px;word-break:break-all">https://webrtc-unified-platform-prod.navy111p.workers.dev/api/webhook/kakao-inbound</code>
+            <code style="display:block;background:#fff;padding:8px 10px;border-radius:5px;margin-top:6px;color:#1e40af;font-size:11px;word-break:break-all" id="ki-webhook-url">https://webrtc-unified-platform-prod.navy111p.workers.dev/api/webhook/kakao-inbound</code>
+            <button onclick="navigator.clipboard.writeText(document.getElementById('ki-webhook-url').textContent);this.textContent='✅ 복사됨'" style="margin-top:6px;padding:5px 12px;font-size:11px;background:#3b82f6;color:#fff;border:0;border-radius:5px;cursor:pointer">📋 URL 복사</button>
           </div>
+
+          <!-- 단계별 가입 가이드 -->
+          <details style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:0;margin-bottom:12px">
+            <summary style="cursor:pointer;padding:12px 16px;font-weight:700;color:#1f2937;font-size:13.5px">📘 <span data-ko="카카오 i 오픈빌더 가입 + Webhook 등록 가이드 (펼치기)" data-en="Kakao i OpenBuilder Setup + Webhook Guide (expand)">카카오 i 오픈빌더 가입 + Webhook 등록 가이드 (펼치기)</span></summary>
+            <div style="padding:14px 18px;border-top:1px solid #e5e7eb;font-size:12.5px;line-height:1.75;color:#374151">
+
+              <h4 style="margin:0 0 8px;color:#1f2937;font-size:13.5px">1단계 — <a href="https://i.kakao.com" target="_blank" style="color:#2563eb">카카오 i 오픈빌더</a> 가입</h4>
+              <ul style="margin:0 0 14px 18px">
+                <li>카카오톡 채널 운영자(망고아이 채널) 자격으로 로그인</li>
+                <li>OpenBuilder → "내 봇" → "+ 봇 만들기" → 카카오톡 채널 봇 선택</li>
+                <li>망고아이 비즈채널 연결 (사업자 인증 완료된 채널)</li>
+              </ul>
+
+              <h4 style="margin:14px 0 8px;color:#1f2937;font-size:13.5px">2단계 — 스킬 만들기 (Webhook 연결)</h4>
+              <ul style="margin:0 0 14px 18px">
+                <li>"스킬" 탭 → "+ 생성" → 이름: <b>망고아이-학부모답장</b></li>
+                <li>URL: <code style="background:#fff;padding:1px 6px;border-radius:3px">/api/webhook/kakao-inbound</code> (위의 전체 URL 복사)</li>
+                <li>HTTP 메서드: <b>POST</b></li>
+                <li>(고급 설정) JSON 응답 형식 자동 — 그대로 두기</li>
+              </ul>
+
+              <h4 style="margin:14px 0 8px;color:#1f2937;font-size:13.5px">3단계 — 시나리오 + 폴백 블록</h4>
+              <ul style="margin:0 0 14px 18px">
+                <li>"시나리오" 탭 → "기본 시나리오" → "폴백 블록"</li>
+                <li>(폴백 블록은 봇이 알아듣지 못한 메시지를 받는 곳 — 학부모의 자유 답장이 모두 여기로 들어옴)</li>
+                <li>"+ 스킬 호출" 추가 → 2단계에서 만든 <b>망고아이-학부모답장</b> 선택</li>
+                <li>응답 메시지: "메시지를 받았습니다. 강사가 곧 답변드릴게요!" (이건 webhook 응답에서 자동 처리됨)</li>
+              </ul>
+
+              <h4 style="margin:14px 0 8px;color:#1f2937;font-size:13.5px">4단계 — 배포 + 테스트</h4>
+              <ul style="margin:0 0 14px 18px">
+                <li>"배포" 탭 → "운영 채널에 배포" 클릭</li>
+                <li>본인 카카오톡에서 망고아이 채널에 메시지 전송 → 위 "수신 로그 새로고침" 으로 확인</li>
+                <li>전화번호 매핑이 자동 — 학부모의 카카오 전화번호가 students_erp.parent_phone 과 일치하면 자녀 user_id 자동 매핑됨</li>
+              </ul>
+
+              <h4 style="margin:14px 0 8px;color:#1f2937;font-size:13.5px">⚠ 비용 + 주의사항</h4>
+              <ul style="margin:0;padding-left:18px;color:#dc2626">
+                <li><b>비용</b>: 카카오 i 오픈빌더 자체는 무료. 단, 알림톡 발송(outbound)은 SOLAPI 비용 발생</li>
+                <li><b>승인 기간</b>: 비즈채널 신청 후 1~3 영업일 소요</li>
+                <li><b>전화번호 정합성</b>: students_erp.parent_phone 이 정확히 등록돼야 자동 매핑됨. 학부모가 다른 번호로 답장하면 미매핑</li>
+              </ul>
+            </div>
+          </details>
+
           <button onclick="kiLoadInbound()" class="primary" style="padding:7px 14px;font-size:12.5px;font-weight:700" data-ko="🔄 수신 로그 새로고침" data-en="🔄 Refresh Inbound Log">🔄 수신 로그 새로고침</button>
           <div id="ki-inbound-table" style="margin-top:12px;overflow-x:auto"></div>
         </div>

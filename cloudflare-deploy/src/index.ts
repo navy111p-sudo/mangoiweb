@@ -447,6 +447,7 @@ export default {
         path === '/api/voice/transcribe' ||
         path === '/api/voice/coach' ||
         path === '/api/voice/history' ||
+        path === '/api/voice/stats' ||
         // 💬 Phase K5 카카오 양방향
         path === '/api/webhook/kakao-inbound' ||
         path === '/api/admin/kakao/inbound' ||
