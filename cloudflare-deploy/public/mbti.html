@@ -22,8 +22,12 @@
   .mbti-btn{padding:14px 8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);border-radius:10px;color:#cbd5e1;cursor:pointer;font-weight:800;font-size:14px;font-family:inherit;transition:all .15s}
   .mbti-btn:hover{background:rgba(79,124,255,0.18);border-color:rgba(79,124,255,0.5);color:#fff;transform:translateY(-2px)}
   .mbti-btn.selected{background:linear-gradient(135deg,#4f7cff,#3b82f6);color:#fff;border-color:#4f7cff;box-shadow:0 6px 18px -4px rgba(79,124,255,0.5)}
-  .teacher-card{background:rgba(255,255,255,0.04);border:1px solid rgba(99,102,241,0.20);border-radius:12px;padding:14px 16px;margin-bottom:8px;display:flex;gap:12px;align-items:center}
-  .teacher-card.top{background:linear-gradient(135deg,rgba(251,191,36,0.15),rgba(245,158,11,0.06));border-color:rgba(251,191,36,0.45)}
+  .teacher-card{background:rgba(255,255,255,0.04);border:1px solid rgba(99,102,241,0.20);border-radius:12px;padding:14px 16px;margin-bottom:10px;display:flex;gap:14px;align-items:center}
+  .teacher-card.top{background:linear-gradient(135deg,rgba(251,191,36,0.15),rgba(245,158,11,0.06));border-color:rgba(251,191,36,0.45);box-shadow:0 8px 24px -8px rgba(251,191,36,0.25)}
+  .teacher-photo{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#4f7cff,#3b82f6);overflow:hidden;flex-shrink:0;border:2px solid rgba(99,102,241,0.4);display:flex;align-items:center;justify-content:center}
+  .teacher-card.top .teacher-photo{border-color:#fbbf24;box-shadow:0 6px 16px -4px rgba(251,191,36,0.45)}
+  .teacher-photo img{width:100%;height:100%;object-fit:cover}
+  .teacher-photo-fallback{font-size:24px;font-weight:900;color:#fff}
   .match-score{font-size:28px;font-weight:900;min-width:56px;text-align:center}
   .match-score.high{color:#34d399}
   .match-score.mid{color:#fbbf24}
@@ -189,10 +193,13 @@ window.doMatch = async function() {
     out.innerHTML = d.top_matches.map((t, i) => {
       const tier = t.match_score >= 80 ? 'high' : t.match_score >= 60 ? 'mid' : 'low';
       const isTop = i === 0;
+      const fallback = `https://api.dicebear.com/7.x/lorelei/svg?seed=${encodeURIComponent(t.teacher_name||t.teacher_uid)}&backgroundColor=fbbf24,b6e3f4,c0aede,fcd0a1`;
+      const photoUrl = t.photo_url || fallback;
       return `<div class="teacher-card ${isTop?'top':''}">
+        <div class="teacher-photo"><img src="${esc(photoUrl)}" alt="${esc(t.teacher_name)}" onerror="this.parentElement.innerHTML='<div class=&quot;teacher-photo-fallback&quot;>${(t.teacher_name||'?').charAt(0).toUpperCase()}</div>'" /></div>
         <div class="match-score ${tier}">${t.match_score}<div style="font-size:9px;letter-spacing:1px;font-weight:700;color:#a3b3d1">SCORE</div></div>
         <div style="flex:1;min-width:0">
-          <div style="font-weight:800;color:#fff;font-size:14px">${esc(t.teacher_name)}${isTop?' 🥇':''} <span style="font-size:11px;color:#a3b3d1;font-weight:400">${esc(t.mbti)}</span></div>
+          <div style="font-weight:800;color:#fff;font-size:14px">${esc(t.teacher_name)}${isTop?' 🥇':''} <span style="display:inline-block;padding:1px 8px;background:rgba(79,124,255,0.25);color:#a5b4fc;border-radius:99px;font-size:10.5px;font-weight:800;margin-left:4px">${esc(t.mbti)}</span></div>
           ${t.teaching_style?`<div style="font-size:11.5px;color:#c4b5fd;margin-top:3px">🎓 ${esc(t.teaching_style)}</div>`:''}
           ${t.hobby?`<div style="font-size:11.5px;color:#a3b3d1;margin-top:2px">🎨 ${esc(t.hobby)}</div>`:''}
           ${t.intro?`<div style="font-size:11.5px;color:#cbd5e1;margin-top:4px;line-height:1.5">${esc(t.intro)}</div>`:''}
