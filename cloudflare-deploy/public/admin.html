@@ -3521,32 +3521,32 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
     </div>
     <div style="display:grid;gap:8px;max-width:800px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <label style="font-size:12px;font-weight:700;color:#374151">수업 제목
-          <input id="be-lesson-title" type="text" placeholder="예: BTS Lv3 - Day 12" style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;margin-top:3px" />
+        <label style="font-size:12px;font-weight:700;color:#374151"><span data-ko="수업 제목" data-en="Lesson Title">수업 제목</span>
+          <input id="be-lesson-title" type="text" placeholder="예: BTS Lv3 - Day 12" data-ko-placeholder="예: BTS Lv3 - Day 12" data-en-placeholder="e.g. BTS Lv3 - Day 12" style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;margin-top:3px" />
         </label>
-        <label style="font-size:12px;font-weight:700;color:#374151">수업 날짜
+        <label style="font-size:12px;font-weight:700;color:#374151"><span data-ko="수업 날짜" data-en="Lesson Date">수업 날짜</span>
           <input id="be-lesson-date" type="date" style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;margin-top:3px" />
         </label>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <label style="font-size:12px;font-weight:700;color:#374151">강사 이름
-          <input id="be-teacher-name" type="text" placeholder="예: Sarah" style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;margin-top:3px" />
+        <label style="font-size:12px;font-weight:700;color:#374151"><span data-ko="강사 이름" data-en="Teacher Name">강사 이름</span>
+          <input id="be-teacher-name" type="text" placeholder="예: Sarah" data-ko-placeholder="예: Sarah" data-en-placeholder="e.g. Sarah" style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;margin-top:3px" />
         </label>
-        <label style="font-size:12px;font-weight:700;color:#374151">강사 UID (옵션)
-          <input id="be-teacher-uid" type="text" placeholder="teacher_uid" style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;margin-top:3px" />
+        <label style="font-size:12px;font-weight:700;color:#374151"><span data-ko="강사 UID (옵션)" data-en="Teacher UID (optional)">강사 UID (옵션)</span>
+          <input id="be-teacher-uid" type="text" placeholder="teacher_uid" data-ko-placeholder="teacher_uid" data-en-placeholder="teacher_uid" style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;margin-top:3px" />
         </label>
       </div>
       <details open style="border:1px solid #e5e7eb;border-radius:8px;padding:0">
-        <summary style="cursor:pointer;padding:10px 14px;font-weight:700;background:#f9fafb">💬 공통 코멘트 (모든 학생에게 자동 적용)</summary>
+        <summary style="cursor:pointer;padding:10px 14px;font-weight:700;background:#f9fafb" data-ko="💬 공통 코멘트 (모든 학생에게 자동 적용)" data-en="💬 Common Comments (auto-applied to all students)">💬 공통 코멘트 (모든 학생에게 자동 적용)</summary>
         <div style="padding:10px 14px;display:grid;gap:6px">
-          <label style="font-size:12px"><span style="font-weight:700">잘한 점</span> <textarea id="be-common-strengths" rows="2" placeholder="공통 잘한 점" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;margin-top:3px"></textarea></label>
-          <label style="font-size:12px"><span style="font-weight:700">보완할 점</span> <textarea id="be-common-improvements" rows="2" placeholder="공통 보완점" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;margin-top:3px"></textarea></label>
-          <label style="font-size:12px"><span style="font-weight:700">다음 목표</span> <textarea id="be-common-goals" rows="2" placeholder="공통 다음 목표" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;margin-top:3px"></textarea></label>
+          <label style="font-size:12px"><span style="font-weight:700" data-ko="잘한 점" data-en="Strengths">잘한 점</span> <textarea id="be-common-strengths" rows="2" placeholder="공통 잘한 점" data-ko-placeholder="공통 잘한 점" data-en-placeholder="Common strengths" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;margin-top:3px"></textarea></label>
+          <label style="font-size:12px"><span style="font-weight:700" data-ko="보완할 점" data-en="Improvements">보완할 점</span> <textarea id="be-common-improvements" rows="2" placeholder="공통 보완점" data-ko-placeholder="공통 보완점" data-en-placeholder="Common improvements" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;margin-top:3px"></textarea></label>
+          <label style="font-size:12px"><span style="font-weight:700" data-ko="다음 목표" data-en="Next Goals">다음 목표</span> <textarea id="be-common-goals" rows="2" placeholder="공통 다음 목표" data-ko-placeholder="공통 다음 목표" data-en-placeholder="Common next goals" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;margin-top:3px"></textarea></label>
         </div>
       </details>
       <div>
-        <button onclick="beAddStudent()" style="padding:7px 14px;background:#10b981;color:#fff;border:0;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">＋ 학생 추가</button>
-        <button onclick="beBulkSubmit()" style="padding:7px 16px;background:linear-gradient(135deg,#3b82f6,#1e40af);color:#fff;border:0;border-radius:6px;font-weight:800;font-size:13px;cursor:pointer;margin-left:6px">📤 일괄 작성 완료</button>
+        <button onclick="beAddStudent()" style="padding:7px 14px;background:#10b981;color:#fff;border:0;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer" data-ko="＋ 학생 추가" data-en="＋ Add Student">＋ 학생 추가</button>
+        <button onclick="beBulkSubmit()" style="padding:7px 16px;background:linear-gradient(135deg,#3b82f6,#1e40af);color:#fff;border:0;border-radius:6px;font-weight:800;font-size:13px;cursor:pointer;margin-left:6px" data-ko="📤 일괄 작성 완료" data-en="📤 Submit All">📤 일괄 작성 완료</button>
       </div>
       <div id="be-students" style="display:grid;gap:8px;margin-top:8px"></div>
       <div id="be-result" style="margin-top:10px"></div>
@@ -3654,20 +3654,31 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   function beRender(){
     const el = document.getElementById('be-students');
     if (!el) return;
+    const isEn = (typeof adminLang !== 'undefined' && adminLang === 'en');
+    const L_NAME = isEn ? 'Name' : '이름';
+    const L_NAME_PH = isEn ? 'e.g. John Smith' : '홍길동';
+    const L_DEL = isEn ? 'Delete' : '삭제';
+    const L_SCORES = isEn
+      ? {participation:'Participation', comprehension:'Comprehension', homework:'Homework', attitude:'Attitude', speaking:'Speaking'}
+      : {participation:'참여', comprehension:'이해', homework:'숙제', attitude:'태도', speaking:'스피킹'};
     el.innerHTML = _beStudents.map((s, i) => `
       <div style="border:1px solid #d1d5db;border-radius:8px;padding:10px;background:#fff">
         <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end">
           <label style="font-size:11px;font-weight:700;color:#374151">user_id<input value="${esc(s.uid)}" oninput="_beUpd(${i},'uid',this.value)" placeholder="hong_gd" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;margin-top:2px" /></label>
-          <label style="font-size:11px;font-weight:700;color:#374151">이름<input value="${esc(s.name)}" oninput="_beUpd(${i},'name',this.value)" placeholder="홍길동" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;margin-top:2px" /></label>
-          <button onclick="_beDel(${i})" style="padding:6px 10px;background:#ef4444;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:11px">삭제</button>
+          <label style="font-size:11px;font-weight:700;color:#374151">${L_NAME}<input value="${esc(s.name)}" oninput="_beUpd(${i},'name',this.value)" placeholder="${L_NAME_PH}" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;margin-top:2px" /></label>
+          <button onclick="_beDel(${i})" style="padding:6px 10px;background:#ef4444;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:11px">${L_DEL}</button>
         </div>
         <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:8px">
           ${['participation','comprehension','homework','attitude','speaking'].map(k => {
-            const label = ({participation:'참여',comprehension:'이해',homework:'숙제',attitude:'태도',speaking:'스피킹'})[k];
+            const label = L_SCORES[k];
             return `<label style="font-size:10.5px;font-weight:700;color:#374151;text-align:center">${label}<input type="number" min="0" max="10" value="${s.scores[k]||''}" oninput="_beUpdScore(${i},'${k}',this.value)" style="width:100%;padding:4px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;margin-top:2px;text-align:center" /></label>`;
           }).join('')}
         </div>
       </div>`).join('');
+  }
+  // 언어 토글 시 학생 행도 다시 그리기
+  if (typeof window !== 'undefined') {
+    window.addEventListener('mangoi:lang-changed', () => { if (_beStudents.length) beRender(); });
   }
   window._beUpd = (i, k, v) => { _beStudents[i][k] = v; };
   window._beUpdScore = (i, k, v) => { _beStudents[i].scores[k] = v?Number(v):null; };
@@ -11332,6 +11343,12 @@ const SB_ID_MAP = {
   'card-centers':          'system',
   'card-data-export':      'system',
   'card-test-seed':        'system',
+
+  // 🆕 신규 카드들 명시 매핑
+  'card-badges-mgmt':      'student',   // 🎮 학생 배지 → 학생/학부모
+  'card-voice-stats':      'edu',       // 🎙 음성 코칭 진도 → 교육
+  'card-bulk-eval':        'student',   // 📚 일괄 평가서 → 학생/학부모
+  'card-webpush-mgmt':     'notify',    // 🔔 Web Push → 알림/소통
 };
 
 // 메뉴 하나를 카테고리에 매핑 — ID 우선, 키워드 점수, 마지막 fallback = system
