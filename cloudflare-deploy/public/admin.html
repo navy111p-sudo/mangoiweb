@@ -10864,36 +10864,84 @@ function _menuSortKey(label) {
   return 'z' + cleaned.toLowerCase();
 }
 
-// ═══ 7-카테고리 메뉴 분류 정의 ═══
+// ═══ 7-카테고리 메뉴 분류 정의 (균등 분산 v2) ═══
+//   각 메뉴가 한 카테고리에 1~5개씩 고르게 분포하도록 키워드 세분화
+//   id 기반 명시 매핑(idMap)이 키워드 매칭보다 우선
 const SB_CATEGORIES = [
-  { id:'hq',       ico:'🏢', ko:'본사',   en:'HQ',
-    keywords:['본사','경영','대시보드','일별차트','활성','권한','임직원','dashboard','executive','board'] },
-  { id:'fr',       ico:'🏬', ico2:'🏪', ko:'가맹점', en:'Franchise',
-    keywords:['가맹점','지사','대리점','프랜차이즈','매장','센터','franchise','branch','center'] },
-  { id:'student',  ico:'👨‍🎓', ko:'학생',  en:'Student',
-    keywords:['학생','출결','학부모','톡짹톡','만료','출석','수강','상담','student','attendance','parent'] },
-  { id:'teacher',  ico:'👨‍🏫', ko:'강사',  en:'Teacher',
-    keywords:['강사','교사','급여','평가','강사료','보험','teacher','payroll','salary'] },
-  { id:'acc',      ico:'💰', ko:'회계',   en:'Accounting',
-    keywords:['회계','정산','세금','매출','비용','송금','환전','쿠폰','결제','거래','전표','수익','accounting','revenue','settlement','tax'] },
-  { id:'book',     ico:'📚', ko:'교재',   en:'Materials',
-    keywords:['교재','자료','도서','학습자료','pdf','book','material'] },
-  { id:'content',  ico:'🎬', ko:'컨텐츠', en:'Content',
-    keywords:['녹화','영상','비디오','ai','발음','통계','리포트','랭킹','리텐션','recording','video','report','stats'] }
+  { id:'dash',     ico:'📊', ko:'대시보드/통계', en:'Dashboards',
+    keywords:['kpi','대시보드','dashboard','일별','차트','chart','랭킹','ranking','리텐션','retention','실시간','active','live','통계','stats','리포트','report'] },
+  { id:'student',  ico:'👥', ko:'학생/학부모', en:'Students',
+    keywords:['학생','학부모','평가서','평가서 작성','신규상담','상담','수강','등록','게시판','커뮤니티','출결','출석','만료','student','parent','enrollment','inquiry','evaluation','board','community','attendance'] },
+  { id:'teacher',  ico:'👨‍🏫', ko:'강사', en:'Teachers',
+    keywords:['강사','교사','강사료','보험','강사 평가','강사 급여','teacher','payroll','salary'] },
+  { id:'acc',      ico:'💰', ko:'회계', en:'Accounting',
+    keywords:['회계','정산','세금','매출','비용','송금','환전','쿠폰','결제','거래','전표','수익','포인트','기프티콘','accounting','revenue','settlement','tax','payment','points','gift'] },
+  { id:'notify',   ico:'📢', ko:'알림/소통', en:'Notifications',
+    keywords:['카카오','알림톡','알림','공지','팝업','push','웹푸시','web push','이벤트','발송','메시지','채팅','kakao','alimtalk','notification','announcement','popup','push','chat','event'] },
+  { id:'edu',      ico:'🎓', ko:'교육', en:'Education',
+    keywords:['교재','자료','도서','학습자료','pdf','book','material','레벨','level test','발음','pronunciation','녹화','recording','video','컨텐츠','content','수업'] },
+  { id:'system',   ico:'⚙', ko:'시스템', en:'System',
+    keywords:['권한','권한 설정','permission','가맹점','franchise','지사','대리점','센터','center','branch','데이터','export','csv','내보내기','테스트','test data','시드','seed','보관','삭제','정리','임직원'] }
 ];
 
-// 메뉴 하나를 카테고리에 매핑 (가장 점수 높은 카테고리)
+// 명시적 ID → category 매핑 (키워드보다 우선)
+const SB_ID_MAP = {
+  'card-kpi-dashboard':    'dash',
+  'card-daily-charts':     'dash',
+  'card-rankings':         'dash',
+  'card-retention':        'dash',
+  'card-active-rooms':     'dash',
+  'card-settlement-stats': 'dash',
+
+  'card-students-mgmt':    'student',
+  'card-eval-mgmt':        'student',
+  'card-inquiry-mgmt':     'student',
+  'card-enrollments':      'student',
+  'card-community':        'student',
+
+  'card-teacher-mgmt':     'teacher',
+  'card-payroll':          'teacher',
+  'card-payroll-auto':     'teacher',
+
+  'card-accounting-mgmt':  'acc',
+  'card-points-mgmt':      'acc',
+
+  'card-kakao-mgmt':       'notify',
+  'card-webpush-mgmt':     'notify',
+  'card-popups-mgmt':      'notify',
+  'card-notifications':    'notify',
+
+  'card-textbooks':        'edu',
+  'card-level-tests':      'edu',
+  'card-pronunciation':    'edu',
+  'card-recording-storage':'edu',
+
+  'card-permissions':      'system',
+  'card-franchises':       'system',
+  'card-centers':          'system',
+  'card-data-export':      'system',
+  'card-test-seed':        'system',
+};
+
+// 메뉴 하나를 카테고리에 매핑 — ID 우선, 키워드 점수, 마지막 fallback = system
 function _classifyMenu(m) {
+  // 1) ID 명시 매핑 (가장 신뢰)
+  if (m.id && SB_ID_MAP[m.id]) {
+    const found = SB_CATEGORIES.find(c => c.id === SB_ID_MAP[m.id]);
+    if (found) return found;
+  }
+  // 2) 키워드 점수 매칭
   const text = ((m.ko || '') + ' ' + (m.en || '')).toLowerCase();
   let best = null, bestScore = 0;
   for (const cat of SB_CATEGORIES) {
     let score = 0;
     for (const kw of cat.keywords) {
-      if (text.includes(kw.toLowerCase())) score += kw.length; // 긴 키워드 우선
+      if (text.includes(kw.toLowerCase())) score += kw.length;
     }
     if (score > bestScore) { bestScore = score; best = cat; }
   }
-  return best || SB_CATEGORIES[0]; // fallback = 본사
+  // 3) fallback = 시스템 (본사 X — 본사가 fallback 이 되면 또 몰림)
+  return best || SB_CATEGORIES[6];
 }
 
 function renderSidebar() {
