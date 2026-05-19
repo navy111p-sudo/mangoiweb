@@ -1687,6 +1687,129 @@
 </div>
 
 <!-- 📊 Phase D2 — 운영 KPI 대시보드 (페이지 최상단 강조) -->
+<!-- 🎯 빠른 도구 허브 — 중복 기능 통합 허브 (관리자 메인 진입점) -->
+<div id="admin-hub" style="background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(79,124,255,0.05));border:1px solid rgba(99,102,241,0.30);border-radius:16px;padding:18px 20px;margin-bottom:16px;backdrop-filter:blur(8px)">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <h2 style="margin:0;font-size:18px;font-weight:800;color:#fbbf24;display:flex;align-items:center;gap:8px">🎯 <span data-ko="빠른 도구 허브" data-en="Quick Tools Hub">빠른 도구 허브</span></h2>
+    <span style="font-size:11.5px;color:#a3b3d1" data-ko="아래 카드 그룹을 한번에 펼치고 점프합니다" data-en="Jump to grouped cards instantly">아래 카드 그룹을 한번에 펼치고 점프합니다</span>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
+    <!-- 📝 평가서 통합 -->
+    <button class="hub-btn" onclick="hubJump('eval', ['card-eval-mgmt','card-bulk-eval','card-ai-eval-draft','card-monthly-report'])" data-hub="eval">
+      <div class="hub-icon" style="background:linear-gradient(135deg,#10b981,#059669)">📝</div>
+      <div>
+        <div class="hub-title" data-ko="평가서 통합" data-en="Evaluations">평가서 통합</div>
+        <div class="hub-sub" data-ko="작성·일괄·AI초안·월별" data-en="Write·Bulk·AI·Monthly">작성·일괄·AI초안·월별</div>
+      </div>
+    </button>
+
+    <!-- 📢 알림 센터 -->
+    <button class="hub-btn" onclick="hubJump('notify', ['card-webpush-mgmt','card-kakao-mgmt','card-popups-mgmt','card-notifications'])" data-hub="notify">
+      <div class="hub-icon" style="background:linear-gradient(135deg,#ec4899,#be185d)">📢</div>
+      <div>
+        <div class="hub-title" data-ko="알림 센터" data-en="Notification Hub">알림 센터</div>
+        <div class="hub-sub" data-ko="푸시·카카오·팝업·이벤트" data-en="Push·Kakao·Popup">푸시·카카오·팝업·이벤트</div>
+      </div>
+    </button>
+
+    <!-- 👨‍🏫 강사 통합 -->
+    <button class="hub-btn" onclick="hubJump('teacher', ['card-teacher-mgmt','card-payroll-auto','card-payroll','card-mbti-mgmt','card-praise-stats'])" data-hub="teacher">
+      <div class="hub-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">👨‍🏫</div>
+      <div>
+        <div class="hub-title" data-ko="강사 통합" data-en="Teacher Hub">강사 통합</div>
+        <div class="hub-sub" data-ko="관리·급여·MBTI·칭찬" data-en="Manage·Payroll·MBTI·Praise">관리·급여·MBTI·칭찬</div>
+      </div>
+    </button>
+
+    <!-- 📊 통계/KPI -->
+    <button class="hub-btn" onclick="hubJump('stats', ['card-kpi-dashboard','card-daily-charts','card-rankings','card-retention','card-retention-risk','card-active-rooms','card-settlement-stats'])" data-hub="stats">
+      <div class="hub-icon" style="background:linear-gradient(135deg,#6366f1,#4338ca)">📊</div>
+      <div>
+        <div class="hub-title" data-ko="통계/KPI" data-en="Stats/KPI">통계/KPI</div>
+        <div class="hub-sub" data-ko="KPI·차트·랭킹·이탈위험" data-en="KPI·Chart·Ranking·Risk">KPI·차트·랭킹·이탈위험</div>
+      </div>
+    </button>
+
+    <!-- 💰 회계/포인트 -->
+    <button class="hub-btn" onclick="hubJump('acc', ['card-accounting-mgmt','card-points-mgmt'])" data-hub="acc">
+      <div class="hub-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706)">💰</div>
+      <div>
+        <div class="hub-title" data-ko="회계/포인트" data-en="Accounting">회계/포인트</div>
+        <div class="hub-sub" data-ko="결제·미납·포인트·기프티콘" data-en="Pay·Overdue·Points">결제·미납·포인트·기프티콘</div>
+      </div>
+    </button>
+
+    <!-- 👥 학생/학부모 -->
+    <button class="hub-btn" onclick="hubJump('student', ['card-students-mgmt','card-inquiry-mgmt','card-enrollments','card-badges-mgmt','card-community'])" data-hub="student">
+      <div class="hub-icon" style="background:linear-gradient(135deg,#10b981,#047857)">👥</div>
+      <div>
+        <div class="hub-title" data-ko="학생/학부모" data-en="Students">학생/학부모</div>
+        <div class="hub-sub" data-ko="목록·상담·수강·배지" data-en="List·Inquiry·Enroll·Badges">목록·상담·수강·배지</div>
+      </div>
+    </button>
+
+    <!-- 🎓 교육/콘텐츠 -->
+    <button class="hub-btn" onclick="hubJump('edu', ['card-textbooks','card-level-tests','card-pronunciation','card-recording-storage','card-voice-stats'])" data-hub="edu">
+      <div class="hub-icon" style="background:linear-gradient(135deg,#0ea5e9,#0369a1)">🎓</div>
+      <div>
+        <div class="hub-title" data-ko="교육/콘텐츠" data-en="Education">교육/콘텐츠</div>
+        <div class="hub-sub" data-ko="교재·레벨·발음·녹화·음성" data-en="Books·Level·Voice">교재·레벨·발음·녹화·음성</div>
+      </div>
+    </button>
+
+    <!-- ⚙ 시스템 -->
+    <button class="hub-btn" onclick="hubJump('system', ['card-permissions','card-franchises','card-centers','card-data-export','card-test-seed'])" data-hub="system">
+      <div class="hub-icon" style="background:linear-gradient(135deg,#64748b,#334155)">⚙</div>
+      <div>
+        <div class="hub-title" data-ko="시스템" data-en="System">시스템</div>
+        <div class="hub-sub" data-ko="권한·가맹점·센터·데이터" data-en="Perm·Franchise·Data">권한·가맹점·센터·데이터</div>
+      </div>
+    </button>
+  </div>
+</div>
+<style>
+  .hub-btn{
+    display:flex;align-items:center;gap:12px;padding:14px 16px;
+    background:rgba(255,255,255,0.04);border:1px solid rgba(99,102,241,0.18);
+    border-radius:12px;cursor:pointer;text-align:left;
+    transition:all 0.2s ease;font-family:inherit;
+  }
+  .hub-btn:hover{transform:translateY(-3px);background:rgba(99,102,241,0.15);border-color:rgba(99,102,241,0.5);box-shadow:0 12px 28px -8px rgba(0,0,0,0.5)}
+  .hub-btn.active{background:linear-gradient(135deg,rgba(251,191,36,0.18),rgba(245,158,11,0.06));border-color:rgba(251,191,36,0.5);box-shadow:0 8px 20px -4px rgba(251,191,36,0.3)}
+  .hub-icon{
+    width:44px;height:44px;border-radius:12px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:22px;flex-shrink:0;
+    box-shadow:0 4px 12px -2px rgba(0,0,0,0.4);
+  }
+  .hub-title{font-size:13.5px;font-weight:800;color:#e6ecff;line-height:1.3}
+  .hub-sub{font-size:11px;color:#a3b3d1;margin-top:2px;line-height:1.4}
+</style>
+<script>
+  // 🎯 허브 점프: 카드 그룹 한번에 펼치기 + 첫 카드로 스크롤
+  window.hubJump = function(hubId, cardIds) {
+    if (!Array.isArray(cardIds) || !cardIds.length) return;
+    // 다른 hub 활성 해제
+    document.querySelectorAll('.hub-btn').forEach(b => b.classList.remove('active'));
+    const me = document.querySelector('.hub-btn[data-hub="'+hubId+'"]');
+    if (me) me.classList.add('active');
+    // 모든 대상 카드 펼치기
+    let firstEl = null;
+    cardIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.tagName === 'DETAILS') {
+        el.open = true;
+        if (!firstEl) firstEl = el;
+      }
+    });
+    // 첫 카드로 스크롤
+    if (firstEl) {
+      setTimeout(() => firstEl.scrollIntoView({ behavior:'smooth', block:'start' }), 100);
+    }
+  };
+</script>
+
 <details class="table-card menu-card" open id="card-kpi-dashboard">
   <summary><span data-ko="📊 운영 대시보드 KPI" data-en="📊 Operations KPI Dashboard">📊 운영 대시보드 KPI</span></summary>
   <div class="menu-body">
