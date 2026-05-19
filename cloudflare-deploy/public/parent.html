@@ -111,6 +111,107 @@
 <button class="lang-btn" onclick="toggleLang()">🌐 <span class="lang-label-sync">EN</span></button>
 <a class="home-btn" href="/" data-ko-title="홈으로" data-en-title="Home">🏠 <span data-ko="홈" data-en="Home">홈</span></a>
 
+<!-- 🔊 항상 보이는 음성 안내 끄기/켜기 + 📲 카카오 공유 (좌상단) -->
+<div style="position:fixed;top:14px;left:14px;z-index:999;display:flex;gap:8px;flex-wrap:wrap">
+  <button id="parent-audio-toggle" onclick="toggleParentAudio()" style="padding:9px 14px;background:rgba(20,41,80,0.85);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);border-radius:99px;cursor:pointer;font-size:12px;font-weight:700;backdrop-filter:blur(8px);font-family:'Noto Sans KR',sans-serif">
+    <span id="parent-audio-icon">🔊</span> <span id="parent-audio-label" data-ko="음성 끄기" data-en="Mute Audio">음성 끄기</span>
+  </button>
+  <button onclick="shareToKakao()" style="padding:9px 14px;background:linear-gradient(135deg,#fee500,#f6cc00);color:#191919;border:0;border-radius:99px;cursor:pointer;font-size:12px;font-weight:800;backdrop-filter:blur(8px);font-family:'Noto Sans KR',sans-serif;box-shadow:0 4px 12px -2px rgba(254,229,0,0.35)">
+    💬 <span data-ko="카카오로 받기" data-en="Get via KakaoTalk">카카오로 받기</span>
+  </button>
+</div>
+<script>
+// 🔊 음성 토글 상태 초기화
+(function(){
+  function updateBtn() {
+    const muted = localStorage.getItem('mangoi_parent_audio_muted') === '1';
+    const icon = document.getElementById('parent-audio-icon');
+    const label = document.getElementById('parent-audio-label');
+    const btn = document.getElementById('parent-audio-toggle');
+    if (!icon || !label || !btn) return;
+    if (muted) {
+      icon.textContent = '🔇';
+      label.textContent = (window.getLang && window.getLang() === 'en') ? 'Unmute' : '음성 켜기';
+      label.setAttribute('data-ko', '음성 켜기');
+      label.setAttribute('data-en', 'Unmute');
+      btn.style.opacity = '0.7';
+    } else {
+      icon.textContent = '🔊';
+      label.textContent = (window.getLang && window.getLang() === 'en') ? 'Mute Audio' : '음성 끄기';
+      label.setAttribute('data-ko', '음성 끄기');
+      label.setAttribute('data-en', 'Mute Audio');
+      btn.style.opacity = '1';
+    }
+  }
+  document.addEventListener('DOMContentLoaded', updateBtn);
+  if (document.readyState !== 'loading') updateBtn();
+  window.addEventListener('mangoi:lang-changed', updateBtn);
+})();
+
+window.toggleParentAudio = function() {
+  const muted = localStorage.getItem('mangoi_parent_audio_muted') === '1';
+  if (muted) {
+    localStorage.removeItem('mangoi_parent_audio_muted');
+    alert(window.getLang && window.getLang() === 'en' ? '🔊 Audio guide enabled. Next visit will play the welcome message.' : '🔊 음성 안내가 켜졌어요. 다음 방문 시 안내 음성이 나옵니다.');
+  } else {
+    localStorage.setItem('mangoi_parent_audio_muted', '1');
+    // 현재 재생 중인 음성도 멈추기
+    document.querySelectorAll('audio').forEach(a => { try { a.pause(); } catch(e){} });
+    // 토스트 제거
+    const t = document.getElementById('mangoi-parent-audio-toast');
+    if (t) t.remove();
+    alert(window.getLang && window.getLang() === 'en' ? '🔇 Audio guide muted. Click 🔊 to re-enable.' : '🔇 음성 안내가 꺼졌어요. 🔊 버튼을 다시 누르면 켜져요.');
+  }
+  // 버튼 라벨 갱신
+  const event = new Event('mangoi:lang-changed');
+  window.dispatchEvent(event);
+};
+
+// 📲 카카오 공유 — Web Share API 우선, 안 되면 카카오톡 앱 호출 또는 URL 복사
+window.shareToKakao = async function() {
+  const url = location.href; // 현재 페이지 (uid 포함)
+  const title = '망고아이 학부모 대시보드';
+  const text = '자녀의 학습 진도를 한눈에 확인하세요. 출석·평가서·AI 음성 코칭·배지·AI 추천까지 모두!';
+
+  // 1) 모바일/지원 브라우저 — Web Share API (카카오톡 선택 가능)
+  if (navigator.share) {
+    try {
+      await navigator.share({ title, text, url });
+      return;
+    } catch(e) { /* 사용자가 취소 — fallback */ }
+  }
+
+  // 2) PC/미지원 — 카카오톡 PC 앱 또는 카카오 share URL 시도 후 클립보드 복사
+  // 카카오 PC 톡으로 직접 보내는 API 는 SDK 필요. 대신 URL 복사 + 안내
+  try {
+    await navigator.clipboard.writeText(url);
+    showKakaoShareDialog(url);
+  } catch(e) {
+    prompt(window.getLang && window.getLang() === 'en' ? 'Copy this URL to share:' : '이 주소를 복사해서 카카오톡에 붙여넣으세요:', url);
+  }
+};
+
+function showKakaoShareDialog(url) {
+  const isEn = window.getLang && window.getLang() === 'en';
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px);font-family:"Noto Sans KR",sans-serif';
+  modal.innerHTML = `
+    <div style="background:linear-gradient(135deg,#1a3266,#142950);border:1px solid rgba(251,191,36,0.35);border-radius:18px;padding:28px;max-width:440px;width:100%;color:#e6ecff;text-align:center;box-shadow:0 24px 60px -10px rgba(0,0,0,0.6)">
+      <div style="font-size:48px;margin-bottom:10px">💬</div>
+      <h2 style="font-size:20px;font-weight:800;color:#fbbf24;margin-bottom:8px">${isEn?'Share to KakaoTalk':'카카오톡으로 공유'}</h2>
+      <p style="font-size:13px;color:#a3b3d1;margin-bottom:18px;line-height:1.6">${isEn?'URL copied to clipboard! Open KakaoTalk and paste in any chat or share to a friend.':'주소가 복사됐어요! 카카오톡 → 친구/채팅방 → 붙여넣기 (Ctrl+V) 하면 학부모 대시보드 링크가 공유됩니다.'}</p>
+      <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 14px;font-family:monospace;font-size:11px;color:#a3b3d1;word-break:break-all;margin-bottom:18px">${url}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <a href="https://accounts.kakao.com/login?continue=https%3A%2F%2Faccounts.kakao.com%2Fweblogin%2Faccount" target="_blank" style="display:block;padding:11px;background:linear-gradient(135deg,#fee500,#f6cc00);color:#191919;text-decoration:none;border-radius:10px;font-weight:800;font-size:13px">💬 ${isEn?'Open KakaoTalk':'카카오톡 열기'}</a>
+        <button onclick="navigator.clipboard.writeText('${url}').then(()=>{this.textContent='✅ ${isEn?'Copied!':'복사됨!'}'})" style="padding:11px;background:rgba(99,102,241,0.25);color:#c4b5fd;border:1px solid rgba(99,102,241,0.4);border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">📋 ${isEn?'Copy Again':'다시 복사'}</button>
+      </div>
+      <button onclick="this.closest('div[style*=&quot;position:fixed&quot;]').remove()" style="margin-top:14px;background:transparent;color:#a3b3d1;border:0;padding:6px 12px;cursor:pointer;font-size:12px">${isEn?'Close':'닫기'}</button>
+    </div>`;
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+</script>
+
 <div class="wrap">
   <div class="brand">
     <span class="brand-logo">Mangoi</span>
@@ -127,7 +228,7 @@
 
     <!-- 📋 ID 입력 박스 -->
     <div style="background:rgba(20,41,80,0.6);border:1px solid rgba(99,102,241,0.3);border-radius:16px;padding:24px 20px;max-width:480px;margin:20px auto;text-align:center;backdrop-filter:blur(8px)">
-      <label style="display:block;font-size:13px;color:#fbbf24;font-weight:700;margin-bottom:10px" data-ko="🪪 자녀의 학생 ID" data-en="🪪 Your Child's Student ID">🪪 자녀의 학생 ID</label>
+      <label style="display:block;font-size:13px;color:#fbbf24;font-weight:700;margin-bottom:10px" data-ko="👤 자녀의 학생 ID" data-en="👤 Your Child's Student ID">👤 자녀의 학생 ID</label>
       <input id="uid-input" class="uid-input" type="text" placeholder="예: hong_gd" data-ko-placeholder="예: hong_gd" data-en-placeholder="e.g. hong_gd" onkeypress="if(event.key==='Enter')pdGo()" style="margin:0 auto 12px;display:block" />
       <button class="uid-go" onclick="pdGo()" data-ko="📊 조회하기" data-en="📊 View Dashboard">📊 조회하기</button>
       <div style="margin-top:14px;font-size:11.5px;color:#6b7a99;line-height:1.6" data-ko="💡 학생 ID 를 모르시면 강사 또는 학원에 문의해주세요. 한 번 조회하면 자동 저장됩니다." data-en="💡 Don't know the ID? Ask your teacher. The ID is saved after first lookup.">💡 학생 ID 를 모르시면 강사 또는 학원에 문의해주세요. 한 번 조회하면 자동 저장됩니다.</div>
