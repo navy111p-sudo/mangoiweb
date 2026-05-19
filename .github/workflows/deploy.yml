@@ -54,17 +54,21 @@ jobs:
         run: npx tsc --noEmit
         continue-on-error: true
 
-      - name: Sanity check — required secrets
+      # 시크릿 존재 여부 확인 — 없으면 워크플로우는 성공 처리하고 배포만 건너뜀
+      - name: Check required secrets
+        id: check_secrets
         run: |
-          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
-            echo "::error::CLOUDFLARE_API_TOKEN 시크릿이 설정되지 않았습니다. Settings → Secrets → Actions 에서 추가하세요."
-            exit 1
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::warning::CLOUDFLARE_API_TOKEN 또는 CLOUDFLARE_ACCOUNT_ID 시크릿이 설정되지 않아 Cloudflare 배포를 건너뜁니다. (Settings → Secrets and variables → Actions 에서 등록)"
+            echo "secrets_present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "✓ Cloudflare 시크릿 확인 완료"
+            echo "secrets_present=true" >> "$GITHUB_OUTPUT"
           fi
-          echo "✓ CLOUDFLARE_API_TOKEN 존재"
 
       # ─── 1) base Worker 배포 (webrtc-unified-platform) ───
       - name: Deploy base Worker
-        if: github.event.inputs.skip_base != 'true'
+        if: steps.check_secrets.outputs.secrets_present == 'true' && github.event.inputs.skip_base != 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -78,7 +82,7 @@ jobs:
       # Wrangler 4부터 [env.production] 은 top-level 바인딩을 자동 상속하지 않으므로
       # wrangler.toml 에 production 블록이 재선언되어 있어야 함 (이미 되어 있음).
       - name: Deploy production Worker
-        if: github.event.inputs.skip_prod != 'true'
+        if: steps.check_secrets.outputs.secrets_present == 'true' && github.event.inputs.skip_prod != 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -89,7 +93,7 @@ jobs:
 
       # ─── 3) 배포 후 헬스체크 ───
       - name: Health check — base
-        if: github.event.inputs.skip_base != 'true'
+        if: steps.check_secrets.outputs.secrets_present == 'true' && github.event.inputs.skip_base != 'true'
         run: |
           URL="https://webrtc-unified-platform.navy111p.workers.dev/video-call/"
           CODE=$(curl -sS -o /dev/null -w "%{http_code}" -L --max-time 20 "$URL" || echo "000")
@@ -99,7 +103,7 @@ jobs:
           fi
 
       - name: Health check — production
-        if: github.event.inputs.skip_prod != 'true'
+        if: steps.check_secrets.outputs.secrets_present == 'true' && github.event.inputs.skip_prod != 'true'
         run: |
           URL="https://webrtc-unified-platform-prod.navy111p.workers.dev/video-call/"
           CODE=$(curl -sS -o /dev/null -w "%{http_code}" -L --max-time 20 "$URL" || echo "000")
@@ -112,12 +116,22 @@ jobs:
         if: always()
         run: |
           {
-            echo "### 🚀 Cloudflare Workers 배포 요약"
-            echo ""
-            echo "| Worker | URL |"
-            echo "|---|---|"
-            echo "| base | https://webrtc-unified-platform.navy111p.workers.dev/video-call/ |"
-            echo "| production | https://webrtc-unified-platform-prod.navy111p.workers.dev/video-call/ |"
-            echo ""
-            echo "커밋: \`${{ github.sha }}\`"
+            if [ "${{ steps.check_secrets.outputs.secrets_present }}" = "true" ]; then
+              echo "### 🚀 Cloudflare Workers 배포 요약"
+              echo ""
+              echo "| Worker | URL |"
+              echo "|---|---|"
+              echo "| base | https://webrtc-unified-platform.navy111p.workers.dev/video-call/ |"
+              echo "| production | https://webrtc-unified-platform-prod.navy111p.workers.dev/video-call/ |"
+              echo ""
+              echo "커밋: \`${{ github.sha }}\`"
+            else
+              echo "### ⏭️ Cloudflare 배포 건너뜀"
+              echo ""
+              echo "**원인**: \`CLOUDFLARE_API_TOKEN\` 또는 \`CLOUDFLARE_ACCOUNT_ID\` 시크릿 미설정"
+              echo ""
+              echo "**해결**: Settings → Secrets and variables → Actions 에서 두 시크릿을 추가하세요."
+              echo ""
+              echo "커밋: \`${{ github.sha }}\`"
+            fi
           } >> $GITHUB_STEP_SUMMARY
