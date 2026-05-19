@@ -3338,7 +3338,12 @@ ${chatSampleText}
           ],
           max_tokens: 1500,
         });
-        aiResponse = aiResult?.response || String(aiResult);
+        // 응답을 안전하게 문자열로 정규화
+        if (typeof aiResult === 'string') aiResponse = aiResult;
+        else if (aiResult && typeof aiResult.response === 'string') aiResponse = aiResult.response;
+        else if (aiResult && aiResult.response) aiResponse = JSON.stringify(aiResult.response);
+        else aiResponse = JSON.stringify(aiResult || {});
+        aiResponse = String(aiResponse || '');
       } catch (e: any) {
         return json({ ok: false, error: 'ai_call_failed', detail: String(e?.message || e) }, 500);
       }
@@ -3737,7 +3742,12 @@ Respond in JSON ONLY:
             ],
             max_tokens: 300,
           });
-          const text = resp?.response || '';
+          // 응답을 안전하게 문자열로 정규화
+          let text = '';
+          if (typeof resp === 'string') text = resp;
+          else if (resp && typeof resp.response === 'string') text = resp.response;
+          else if (resp && resp.response) text = JSON.stringify(resp.response);
+          text = String(text || '');
           const m = text.match(/\{[\s\S]*\}/);
           if (m) {
             try {
@@ -4238,19 +4248,33 @@ Respond in JSON ONLY:
   "teacher_comment": "강사 종합 코멘트 (격려와 응원, 2~3 문장)"
 }`;
 
-        const resp = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+        const resp: any = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
           messages: [
             { role: 'system', content: 'You are a friendly Korean English-academy evaluation writer. Reply with JSON only.' },
             { role: 'user', content: prompt }
           ],
           max_tokens: 800,
         });
-        const text = resp?.response || '';
+        // Workers AI 응답은 { response: "..." } 또는 { response: {...} } 또는 stream 등 다양 — 모두 string 으로 정규화
+        let text = '';
+        if (typeof resp === 'string') text = resp;
+        else if (resp && typeof resp.response === 'string') text = resp.response;
+        else if (resp && resp.response && typeof resp.response === 'object') text = JSON.stringify(resp.response);
+        else if (resp && typeof resp === 'object') text = JSON.stringify(resp);
+        text = String(text || '');
+
         const m = text.match(/\{[\s\S]*\}/);
-        if (!m) return json({ ok: false, error: 'ai_parse_failed', raw: text.slice(0, 300) }, 500);
+        // 매칭 실패 시: resp 객체 자체가 { strengths, ... } 인지 시도
         let parsed: any = {};
-        try { parsed = JSON.parse(m[0]); } catch (e: any) {
-          return json({ ok: false, error: 'ai_json_invalid', raw: m[0].slice(0, 300) }, 500);
+        if (m) {
+          try { parsed = JSON.parse(m[0]); } catch (e: any) {
+            return json({ ok: false, error: 'ai_json_invalid', raw: m[0].slice(0, 300) }, 500);
+          }
+        } else if (resp && typeof resp === 'object' && (resp.strengths || resp.response?.strengths)) {
+          // 일부 모델은 이미 객체로 반환
+          parsed = resp.strengths ? resp : resp.response;
+        } else {
+          return json({ ok: false, error: 'ai_parse_failed', raw: text.slice(0, 300) }, 500);
         }
         return json({
           ok: true,
@@ -4382,7 +4406,11 @@ Respond in JSON ONLY:
             ],
             max_tokens: 200,
           });
-          const text = resp?.response || '';
+          let text = '';
+          if (typeof resp === 'string') text = resp;
+          else if (resp && typeof resp.response === 'string') text = resp.response;
+          else if (resp && resp.response) text = JSON.stringify(resp.response);
+          text = String(text || '');
           const m = text.match(/\{[\s\S]*\}/);
           if (m) { const j = JSON.parse(m[0]); korean = korean || j.korean || ''; example = example || j.example || ''; }
         } catch {}
