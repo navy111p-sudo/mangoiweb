@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<title>망고아이 학습 영상 — 레벨별 레슨</title>
+<link rel="icon" type="image/png" href="/img/icon-192.png">
+<link rel="icon" href="data:," />
+<script src="/js/mango-i18n.js" defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800;900&family=Cormorant+Garamond:ital,wght@1,700&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{min-height:100vh;background:radial-gradient(ellipse at top right,rgba(79,124,255,0.18),transparent 50%),radial-gradient(ellipse at bottom left,rgba(251,191,36,0.10),transparent 45%),linear-gradient(180deg,#0a1530,#0b1c44,#0f1d40);color:#e6ecff;font-family:'Noto Sans KR',sans-serif;padding-bottom:80px}
+  .wrap{max-width:1100px;margin:0 auto;padding:28px 18px}
+
+  .brand{text-align:center;margin-bottom:24px}
+  .brand-logo{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:700;background:linear-gradient(180deg,#fff4cc,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:32px;letter-spacing:1px;display:block}
+  .sub{color:#a3b3d1;font-size:13px;margin-top:6px;line-height:1.6}
+
+  /* 레벨 필터 */
+  .filter-bar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:20px;padding:14px;background:rgba(20,41,80,0.6);border:1px solid rgba(99,102,241,0.20);border-radius:14px;backdrop-filter:blur(8px)}
+  .filter-btn{padding:9px 18px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:99px;color:#cbd5e1;cursor:pointer;font-weight:700;font-size:13px;font-family:inherit;transition:all .15s}
+  .filter-btn:hover{background:rgba(79,124,255,0.18);color:#fff}
+  .filter-btn.active{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;border-color:#fbbf24;box-shadow:0 4px 12px -2px rgba(251,191,36,0.4)}
+  .filter-btn.lv-A1{--clv:#10b981}
+  .filter-btn.lv-A2{--clv:#3b82f6}
+  .filter-btn.lv-B1{--clv:#8b5cf6}
+  .filter-btn.lv-B2{--clv:#ec4899}
+  .filter-btn.lv-C1{--clv:#f59e0b}
+  .filter-btn.lv-C2{--clv:#ef4444}
+  .filter-btn.active:not(:first-child){background:linear-gradient(135deg,var(--clv,#fbbf24),var(--clv,#f59e0b));border-color:var(--clv,#fbbf24);color:#fff}
+
+  /* 레벨별 섹션 */
+  .level-section{margin-bottom:32px}
+  .level-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 16px;background:rgba(255,255,255,0.04);border-left:4px solid;border-radius:0 10px 10px 0}
+  .level-header.lv-A1{border-color:#10b981}
+  .level-header.lv-A2{border-color:#3b82f6}
+  .level-header.lv-B1{border-color:#8b5cf6}
+  .level-header.lv-B2{border-color:#ec4899}
+  .level-header.lv-C1{border-color:#f59e0b}
+  .level-header.lv-C2{border-color:#ef4444}
+  .level-tag{padding:3px 10px;border-radius:99px;font-size:11px;font-weight:800;color:#fff;letter-spacing:1px}
+  .level-tag.lv-A1{background:#10b981}.level-tag.lv-A2{background:#3b82f6}.level-tag.lv-B1{background:#8b5cf6}.level-tag.lv-B2{background:#ec4899}.level-tag.lv-C1{background:#f59e0b}.level-tag.lv-C2{background:#ef4444}
+  .level-title{font-size:16px;font-weight:800;color:#fff}
+  .level-desc{font-size:11.5px;color:#a3b3d1;margin-left:auto}
+
+  /* 비디오 그리드 */
+  .video-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+  .video-card{background:#142950;border:1px solid rgba(99,102,241,0.18);border-radius:12px;overflow:hidden;cursor:pointer;transition:all .15s;display:flex;flex-direction:column}
+  .video-card:hover{transform:translateY(-3px);border-color:rgba(251,191,36,0.4);box-shadow:0 12px 28px -8px rgba(0,0,0,0.5)}
+  .thumb{position:relative;width:100%;aspect-ratio:16/9;background:#0c1a3a;overflow:hidden}
+  .thumb img{width:100%;height:100%;object-fit:cover}
+  .thumb-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);opacity:0;transition:opacity .15s}
+  .video-card:hover .thumb-play{opacity:1}
+  .thumb-play svg{width:48px;height:48px;color:#fff;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.5))}
+  .thumb-dur{position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,0.8);color:#fff;font-size:10.5px;font-weight:700;padding:2px 6px;border-radius:4px}
+  .v-body{padding:10px 12px;flex:1}
+  .v-meta{display:flex;gap:6px;align-items:center;margin-bottom:5px}
+  .v-lesson{font-size:10px;color:#a3b3d1;font-weight:700}
+  .v-title{font-size:13px;font-weight:700;color:#e6ecff;line-height:1.4}
+  .v-desc{font-size:11px;color:#a3b3d1;margin-top:4px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+  .empty{text-align:center;padding:40px 20px;color:#a3b3d1;background:rgba(20,41,80,0.5);border-radius:12px}
+  .home-btn{position:fixed;top:14px;right:14px;z-index:999;padding:9px 18px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;text-decoration:none;font-weight:800;border-radius:99px;font-size:13px}
+
+  /* 비디오 플레이어 모달 */
+  .modal{display:none;position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px}
+  .modal.active{display:flex}
+  .modal-body{width:100%;max-width:900px;background:#142950;border-radius:16px;overflow:hidden;border:1px solid rgba(99,102,241,0.3);box-shadow:0 24px 60px -10px rgba(0,0,0,0.7)}
+  .modal-iframe{width:100%;aspect-ratio:16/9;background:#000;border:0}
+  .modal-info{padding:16px 20px}
+  .modal-title{font-size:18px;font-weight:800;color:#fff;margin-bottom:8px}
+  .modal-meta{font-size:12px;color:#a3b3d1;line-height:1.6}
+  .modal-close{position:absolute;top:24px;right:24px;background:rgba(255,255,255,0.2);color:#fff;border:0;border-radius:50%;width:42px;height:42px;font-size:22px;cursor:pointer;line-height:1}
+</style>
+</head>
+<body>
+<a class="home-btn" href="/">🏠 <span data-ko="홈" data-en="Home">홈</span></a>
+
+<div class="wrap">
+  <div class="brand">
+    <span class="brand-logo">🎬 Mangoi Lessons</span>
+    <div class="sub" data-ko="레벨별 · 강의별 2~3분 짧은 영상으로 영어 시작하기" data-en="Short 2-3min videos by level — start English easy">레벨별 · 강의별 2~3분 짧은 영상으로 영어 시작하기</div>
+  </div>
+
+  <!-- 레벨 필터 -->
+  <div class="filter-bar" id="filter-bar">
+    <button class="filter-btn active" data-level="">📚 <span data-ko="전체" data-en="All">전체</span></button>
+    <button class="filter-btn lv-A1" data-level="A1">A1 <span style="font-size:10px;opacity:0.7">초급 1</span></button>
+    <button class="filter-btn lv-A2" data-level="A2">A2 <span style="font-size:10px;opacity:0.7">초급 2</span></button>
+    <button class="filter-btn lv-B1" data-level="B1">B1 <span style="font-size:10px;opacity:0.7">중급 1</span></button>
+    <button class="filter-btn lv-B2" data-level="B2">B2 <span style="font-size:10px;opacity:0.7">중급 2</span></button>
+    <button class="filter-btn lv-C1" data-level="C1">C1 <span style="font-size:10px;opacity:0.7">고급 1</span></button>
+    <button class="filter-btn lv-C2" data-level="C2">C2 <span style="font-size:10px;opacity:0.7">고급 2</span></button>
+  </div>
+
+  <div id="content"><div class="empty">불러오는 중…</div></div>
+</div>
+
+<!-- 비디오 모달 -->
+<div id="vid-modal" class="modal" onclick="if(event.target===this)closeModal()">
+  <button class="modal-close" onclick="closeModal()">×</button>
+  <div class="modal-body">
+    <iframe id="vid-iframe" class="modal-iframe" allow="accelerometer;autoplay;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe>
+    <div class="modal-info">
+      <div class="modal-title" id="vid-title">-</div>
+      <div class="modal-meta" id="vid-meta">-</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+const LEVEL_NAMES = {
+  A1: { ko: '초급 1 (기초)', en: 'A1 — Beginner' },
+  A2: { ko: '초급 2 (간단 표현)', en: 'A2 — Elementary' },
+  B1: { ko: '중급 1 (일상 대화)', en: 'B1 — Intermediate' },
+  B2: { ko: '중급 2 (자유 표현)', en: 'B2 — Upper-Intermediate' },
+  C1: { ko: '고급 1 (능숙)', en: 'C1 — Advanced' },
+  C2: { ko: '고급 2 (원어민 수준)', en: 'C2 — Mastery' },
+};
+let _allVideos = [];
+let _activeLevel = '';
+
+async function loadVideos() {
+  const el = document.getElementById('content');
+  el.innerHTML = '<div class="empty">불러오는 중…</div>';
+  try {
+    const r = await fetch('/api/mango-videos');
+    const d = await r.json();
+    _allVideos = (d.items || d.videos || []).filter(v => v.youtube_id);
+    renderAll();
+  } catch(e) {
+    el.innerHTML = '<div class="empty"><b style="color:#f87171">로드 실패: ' + esc(e.message) + '</b><br><span style="font-size:11.5px;margin-top:6px;display:inline-block">잠시 후 다시 시도하세요</span></div>';
+  }
+}
+
+function renderAll() {
+  const el = document.getElementById('content');
+  let videos = _allVideos;
+  if (_activeLevel) videos = videos.filter(v => v.level === _activeLevel);
+
+  if (!videos.length) {
+    el.innerHTML = `<div class="empty">${_activeLevel? `<b style="color:#fbbf24">${_activeLevel}</b> 레벨 영상이 아직 없어요` : '<b style="color:#fbbf24">아직 등록된 학습 영상이 없어요</b>'}<br><span style="font-size:11.5px;margin-top:6px;display:inline-block">관리자에서 영상 등록 후 확인 가능합니다</span></div>`;
+    return;
+  }
+
+  if (_activeLevel) {
+    // 단일 레벨만 표시
+    el.innerHTML = renderLevelSection(_activeLevel, videos);
+  } else {
+    // 모든 레벨 섹션
+    const byLevel = {};
+    videos.forEach(v => {
+      const k = v.level || '미분류';
+      if (!byLevel[k]) byLevel[k] = [];
+      byLevel[k].push(v);
+    });
+    const ORDER = ['A1','A2','B1','B2','C1','C2','미분류'];
+    el.innerHTML = ORDER.filter(l => byLevel[l]).map(l => renderLevelSection(l, byLevel[l])).join('');
+  }
+}
+
+function renderLevelSection(level, videos) {
+  const meta = LEVEL_NAMES[level] || { ko: level, en: level };
+  const cls = `lv-${level}`;
+  return `
+    <div class="level-section">
+      <div class="level-header ${cls}">
+        <span class="level-tag ${cls}">${esc(level)}</span>
+        <span class="level-title">${esc(meta.ko)}</span>
+        <span class="level-desc">${videos.length}개 영상</span>
+      </div>
+      <div class="video-grid">
+        ${videos.sort((a,b) => (a.lesson_no||0) - (b.lesson_no||0) || (a.sort_order||0) - (b.sort_order||0)).map(v => {
+          const thumb = v.thumbnail_url || `https://img.youtube.com/vi/${esc(v.youtube_id)}/mqdefault.jpg`;
+          const dur = v.duration_sec ? `${Math.floor(v.duration_sec/60)}:${String(v.duration_sec%60).padStart(2,'0')}` : null;
+          return `<div class="video-card" onclick="openVideo('${esc(v.youtube_id)}', ${JSON.stringify(v).replace(/"/g,'&quot;')})">
+            <div class="thumb">
+              <img src="${esc(thumb)}" alt="${esc(v.title)}" loading="lazy" onerror="this.style.display='none'" />
+              <div class="thumb-play">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              </div>
+              ${dur ? `<div class="thumb-dur">${dur}</div>` : ''}
+            </div>
+            <div class="v-body">
+              <div class="v-meta">
+                ${v.lesson_no ? `<span class="v-lesson">Lesson ${v.lesson_no}</span>` : ''}
+                ${v.category ? `<span class="v-lesson">· ${esc(v.category)}</span>` : ''}
+              </div>
+              <div class="v-title">${esc(v.title)}</div>
+              ${v.description ? `<div class="v-desc">${esc(v.description)}</div>` : ''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
+window.openVideo = function(youtubeId, v) {
+  document.getElementById('vid-iframe').src = `https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0`;
+  document.getElementById('vid-title').textContent = v.title || '';
+  const meta = [
+    v.level ? `📊 ${v.level}` : '',
+    v.lesson_no ? `📚 Lesson ${v.lesson_no}` : '',
+    v.category ? `🏷 ${v.category}` : '',
+    v.duration_sec ? `⏱ ${Math.floor(v.duration_sec/60)}:${String(v.duration_sec%60).padStart(2,'0')}` : '',
+  ].filter(Boolean).join(' · ');
+  document.getElementById('vid-meta').innerHTML = meta + (v.description?`<br><br>${esc(v.description)}`:'');
+  document.getElementById('vid-modal').classList.add('active');
+};
+window.closeModal = function() {
+  document.getElementById('vid-modal').classList.remove('active');
+  document.getElementById('vid-iframe').src = '';
+};
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// 필터 클릭
+document.getElementById('filter-bar').addEventListener('click', e => {
+  const btn = e.target.closest('.filter-btn');
+  if (!btn) return;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _activeLevel = btn.getAttribute('data-level') || '';
+  renderAll();
+});
+
+// URL ?level=A1 자동 필터
+(function(){
+  try {
+    const lv = new URLSearchParams(location.search).get('level');
+    if (lv) {
+      const btn = document.querySelector(`.filter-btn[data-level="${lv}"]`);
+      if (btn) btn.click();
+    }
+  } catch(e){}
+})();
+
+loadVideos();
+</script>
+</body>
+</html>
