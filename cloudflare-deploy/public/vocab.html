@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<title>나의 단어장 — 망고아이</title>
+<link rel="icon" type="image/png" href="/img/icon-192.png">
+<link rel="icon" href="data:," />
+<script src="/js/mango-i18n.js" defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800;900&family=Cormorant+Garamond:ital,wght@1,700&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{min-height:100vh;background:radial-gradient(ellipse at top right,rgba(79,124,255,0.22),transparent 50%),radial-gradient(ellipse at bottom left,rgba(99,102,241,0.16),transparent 45%),linear-gradient(180deg,#0a1530,#0b1c44,#0f1d40);color:#e6ecff;font-family:'Noto Sans KR',sans-serif;padding-bottom:80px}
+  .wrap{max-width:780px;margin:0 auto;padding:28px 18px}
+  .brand{text-align:center;margin-bottom:24px}
+  .brand-logo{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:700;background:linear-gradient(180deg,#fff4cc,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:32px;letter-spacing:1px;display:block}
+  .sub{color:#a3b3d1;font-size:12px;margin-top:4px}
+  .tab{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+  .tab button{flex:1;min-width:130px;padding:10px 14px;background:rgba(255,255,255,0.05);color:#a3b3d1;border:1px solid rgba(255,255,255,0.08);border-radius:10px;cursor:pointer;font-weight:700;font-size:13px}
+  .tab button.active{background:linear-gradient(135deg,#4f7cff,#3b82f6);color:#fff;border:0}
+  .card{background:#142950;border:1px solid rgba(79,124,255,0.18);border-radius:14px;padding:18px;margin-bottom:14px}
+  .add-form{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:14px}
+  .add-form input{padding:10px 12px;background:#0c1a3a;border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#e6ecff;font-size:14px}
+  .add-form input::placeholder{color:#6b7a99}
+  .add-form button{padding:10px 18px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;font-weight:800;cursor:pointer}
+  .word{display:flex;gap:10px;align-items:center;padding:12px 14px;background:rgba(255,255,255,0.04);border-radius:10px;margin-bottom:6px}
+  .word-en{font-weight:800;font-size:16px;color:#fbbf24;min-width:120px}
+  .word-ko{flex:1;color:#cbd5e1;font-size:13.5px}
+  .word-lvl{padding:3px 8px;background:rgba(99,102,241,0.2);border-radius:99px;font-size:10px;color:#c4b5fd;font-weight:700}
+  .word-del{padding:5px 10px;background:rgba(239,68,68,0.15);color:#f87171;border:0;border-radius:6px;cursor:pointer;font-size:11px}
+
+  /* 플래시카드 */
+  .flash{background:linear-gradient(135deg,#1a3266,#142950);border:1px solid rgba(79,124,255,0.3);border-radius:18px;padding:40px 28px;text-align:center;min-height:240px;display:flex;flex-direction:column;justify-content:center;cursor:pointer;position:relative;box-shadow:0 12px 32px -10px rgba(0,0,0,0.4)}
+  .flash-front{font-size:36px;font-weight:800;color:#fbbf24;letter-spacing:0.5px}
+  .flash-back{margin-top:18px;font-size:18px;color:#e6ecff;display:none}
+  .flash-example{margin-top:10px;font-size:13px;color:#a3b3d1;font-style:italic;display:none}
+  .flash.flipped .flash-back,.flash.flipped .flash-example{display:block}
+  .flash.flipped .flash-front{font-size:24px;opacity:0.7}
+  .flash-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+  .flash-actions button{padding:14px;font-weight:800;border:0;border-radius:10px;cursor:pointer;font-size:14px}
+  .flash-wrong{background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff}
+  .flash-correct{background:linear-gradient(135deg,#10b981,#059669);color:#fff}
+  .progress{text-align:center;margin:10px 0;color:#a3b3d1;font-size:12px}
+
+  .home-btn{position:fixed;top:14px;right:14px;z-index:999;padding:9px 18px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;text-decoration:none;font-weight:800;border-radius:99px;font-size:13px}
+  .empty{padding:40px 20px;text-align:center;color:#a3b3d1}
+</style>
+</head>
+<body>
+<a class="home-btn" href="/">🏠 <span data-ko="홈" data-en="Home">홈</span></a>
+
+<div class="wrap">
+  <div class="brand">
+    <span class="brand-logo">📚 My Vocab</span>
+    <div class="sub" data-ko="단어 추가하면 AI 가 한국어/예문 자동 생성 — 망각곡선 기반 복습 알림" data-en="Add words, AI generates Korean/example — spaced repetition reminders">단어 추가하면 AI 가 한국어/예문 자동 생성 — 망각곡선 기반 복습 알림</div>
+  </div>
+
+  <div class="tab">
+    <button id="tab-add" class="active" onclick="switchTab('add')">＋ <span data-ko="단어 추가" data-en="Add Word">단어 추가</span></button>
+    <button id="tab-flash" onclick="switchTab('flash')">🎯 <span data-ko="오늘 복습" data-en="Today's Review">오늘 복습</span> <span id="due-badge" style="margin-left:4px;padding:2px 6px;background:#ef4444;color:#fff;border-radius:99px;font-size:10px;display:none"></span></button>
+    <button id="tab-list" onclick="switchTab('list')">📋 <span data-ko="전체 목록" data-en="All Words">전체 목록</span></button>
+  </div>
+
+  <!-- Add Tab -->
+  <div id="pane-add" class="card">
+    <div class="add-form">
+      <input id="word-input" type="text" placeholder="영어 단어 (예: gorgeous)" data-ko-placeholder="영어 단어 (예: gorgeous)" data-en-placeholder="English word (e.g. gorgeous)" />
+      <input id="ko-input" type="text" placeholder="한국어 뜻 (비우면 AI 자동)" data-ko-placeholder="한국어 뜻 (비우면 AI 자동)" data-en-placeholder="Korean (blank = AI auto)" />
+      <button onclick="addWord()" data-ko="추가" data-en="Add">추가</button>
+    </div>
+    <div id="add-feedback" style="font-size:12px;color:#a3b3d1;margin-top:6px"></div>
+    <div style="font-size:11.5px;color:#6b7a99;margin-top:12px">💡 빈 뜻으로 추가하면 Llama 3.3 70B 가 자동으로 한국어 + 예문을 생성합니다 (3~5초).</div>
+  </div>
+
+  <!-- Flash Card Tab -->
+  <div id="pane-flash" class="card" style="display:none">
+    <div id="flash-content"></div>
+  </div>
+
+  <!-- List Tab -->
+  <div id="pane-list" class="card" style="display:none">
+    <div id="list-content"></div>
+  </div>
+</div>
+
+<script>
+const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+function getUid(){ try { const u = JSON.parse(localStorage.getItem('mango_user')||'null'); return u?.user_id || 'guest'; } catch(e){ return 'guest'; } }
+const UID = getUid();
+
+let _flashList = [];
+let _flashIdx = 0;
+
+function switchTab(t) {
+  document.querySelectorAll('.tab button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+  document.getElementById('pane-add').style.display = t==='add'?'block':'none';
+  document.getElementById('pane-flash').style.display = t==='flash'?'block':'none';
+  document.getElementById('pane-list').style.display = t==='list'?'block':'none';
+  if (t==='flash') loadFlash();
+  if (t==='list') loadList();
+}
+
+async function loadDueCount() {
+  try {
+    const r = await fetch('/api/vocab/due?uid='+encodeURIComponent(UID));
+    const d = await r.json();
+    const badge = document.getElementById('due-badge');
+    if (d.ok && d.due_count > 0) { badge.textContent = d.due_count; badge.style.display='inline-block'; }
+    else badge.style.display='none';
+  } catch(e){}
+}
+loadDueCount();
+
+async function addWord() {
+  const word = document.getElementById('word-input').value.trim();
+  const ko = document.getElementById('ko-input').value.trim();
+  if (!word) return alert('영어 단어 입력');
+  const fb = document.getElementById('add-feedback');
+  fb.textContent = '추가 중… (AI 자동 생성 3~5초)';
+  try {
+    const r = await fetch('/api/vocab/add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: UID, word, korean: ko }) });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error);
+    fb.innerHTML = `✅ <b style="color:#34d399">${esc(d.word)}</b> 추가됨 — <span style="color:#fbbf24">${esc(d.korean)}</span><br><span style="color:#a3b3d1;font-style:italic">${esc(d.example)}</span>`;
+    document.getElementById('word-input').value=''; document.getElementById('ko-input').value='';
+    loadDueCount();
+  } catch(e) { fb.innerHTML = '<span style="color:#f87171">❌ '+esc(e.message)+'</span>'; }
+}
+
+async function loadFlash() {
+  const el = document.getElementById('flash-content');
+  el.innerHTML = '<div class="empty">불러오는 중…</div>';
+  try {
+    const r = await fetch('/api/vocab/due?uid='+encodeURIComponent(UID));
+    const d = await r.json();
+    _flashList = d.words || [];
+    _flashIdx = 0;
+    renderFlash();
+  } catch(e) { el.innerHTML = '<div class="empty">로드 실패</div>'; }
+}
+function renderFlash() {
+  const el = document.getElementById('flash-content');
+  if (!_flashList.length) {
+    el.innerHTML = '<div class="empty">🎉 오늘 복습할 단어가 없어요!<br><span style="font-size:11.5px">새 단어를 추가하거나 내일 다시 오세요.</span></div>';
+    return;
+  }
+  if (_flashIdx >= _flashList.length) {
+    el.innerHTML = '<div class="empty">✨ 오늘 복습 완료!<br><b style="color:#fbbf24">잘했어요! 다음 복습 일정이 자동 설정됐어요.</b></div>';
+    return;
+  }
+  const w = _flashList[_flashIdx];
+  el.innerHTML = `
+    <div class="progress">${_flashIdx+1} / ${_flashList.length}</div>
+    <div class="flash" id="card" onclick="document.getElementById('card').classList.toggle('flipped')">
+      <div class="flash-front">${esc(w.word)}</div>
+      <div class="flash-back">🇰🇷 ${esc(w.korean||'-')}</div>
+      <div class="flash-example">💬 ${esc(w.example||'')}</div>
+    </div>
+    <div style="text-align:center;font-size:11px;color:#6b7a99;margin-top:8px">카드 클릭하면 뜻 표시</div>
+    <div class="flash-actions">
+      <button class="flash-wrong" onclick="review(${w.id}, false)">❌ 몰랐어요</button>
+      <button class="flash-correct" onclick="review(${w.id}, true)">✅ 알았어요</button>
+    </div>`;
+}
+async function review(id, correct) {
+  await fetch('/api/vocab/review', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, correct }) }).catch(()=>{});
+  _flashIdx++;
+  renderFlash();
+  if (_flashIdx >= _flashList.length) loadDueCount();
+}
+
+async function loadList() {
+  const el = document.getElementById('list-content');
+  el.innerHTML = '<div class="empty">불러오는 중…</div>';
+  try {
+    const r = await fetch('/api/vocab/list?uid='+encodeURIComponent(UID));
+    const d = await r.json();
+    if (!d.words || !d.words.length) {
+      el.innerHTML = '<div class="empty">아직 단어가 없어요. + 단어 추가 탭에서 추가해보세요!</div>'; return;
+    }
+    el.innerHTML = d.words.map(w => `
+      <div class="word">
+        <span class="word-en">${esc(w.word)}</span>
+        <span class="word-ko">${esc(w.korean||'-')}</span>
+        <span class="word-lvl">Lv ${w.level}</span>
+        <button class="word-del" onclick="delWord(${w.id})">삭제</button>
+      </div>`).join('');
+  } catch(e) { el.innerHTML = '<div class="empty">로드 실패</div>'; }
+}
+async function delWord(id) {
+  if (!confirm('이 단어를 삭제할까요?')) return;
+  await fetch('/api/vocab/'+id, { method:'DELETE' });
+  loadList(); loadDueCount();
+}
+</script>
+</body>
+</html>

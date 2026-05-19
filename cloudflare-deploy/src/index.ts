@@ -451,6 +451,18 @@ export default {
         path === '/api/admin/voice/all-stats' ||
         // 📚 Phase BE 일괄 평가서
         path === '/api/eval/bulk-create' ||
+        // 🤖 Phase AEd AI 평가서 자동 작성
+        path === '/api/eval/ai-draft' ||
+        // 🚨 Phase ARR 이탈 위험 감지
+        path === '/api/admin/retention/risk' ||
+        // 📚 Phase VOC 단어장
+        path === '/api/vocab/add' ||
+        path === '/api/vocab/list' ||
+        path === '/api/vocab/due' ||
+        path === '/api/vocab/review' ||
+        /^\/api\/vocab\/\d+$/.test(path) ||
+        // 📄 Phase MR 월별 보고서 (HTML/PDF 페이지)
+        /^\/api\/report\/monthly\/[^\/]+\/\d{4}-\d{2}$/.test(path) ||
         // 🎙 Phase AV AI 음성 코칭
         path === '/api/voice/transcribe' ||
         path === '/api/voice/coach' ||

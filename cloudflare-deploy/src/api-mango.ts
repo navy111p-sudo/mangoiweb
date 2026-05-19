@@ -4194,6 +4194,311 @@ Respond in JSON ONLY:
     // ═══════════════════════════════════════════════════════════════
 
 
+    // ═══════════════════════════════════════════════════════════════
+    // 🤖 Phase AEd — AI 평가서 자동 작성 (강사 키워드 → 완성 텍스트)
+    // ═══════════════════════════════════════════════════════════════
+    // ── POST /api/eval/ai-draft — 키워드 → AI 가 4영역 텍스트 생성 ──
+    if (method === 'POST' && path === '/api/eval/ai-draft') {
+      try {
+        const b: any = await request.json().catch(() => ({}));
+        const studentName = String(b.student_name || '학생').slice(0, 40);
+        const teacherName = String(b.teacher_name || '강사').slice(0, 40);
+        const lessonTitle = String(b.lesson_title || '오늘 수업').slice(0, 80);
+        const keywords = Array.isArray(b.keywords) ? b.keywords.slice(0, 8).map((k: any) => String(k).slice(0, 50)) : [];
+        const scores = b.scores || {};
+        const scoresText = ['참여', '이해', '숙제', '태도', '스피킹']
+          .map((k, i) => {
+            const key = ['participation','comprehension','homework','attitude','speaking'][i];
+            return scores[key] != null ? `${k} ${scores[key]}점` : null;
+          })
+          .filter(Boolean).join(' / ');
+        const ai = (env as any).AI;
+        if (!ai) return json({ ok: false, error: 'workers_ai_not_bound' }, 503);
+
+        const prompt = `당신은 망고아이 영어학원의 친절한 한국어 평가서 작성 도우미입니다.
+강사가 입력한 키워드와 점수를 보고 학부모/학생용 평가서 4개 영역을 작성하세요.
+
+학생: ${studentName}
+강사: ${teacherName}
+수업: ${lessonTitle}
+점수: ${scoresText || '미입력'}
+강사 키워드: ${keywords.length ? keywords.join(', ') : '(없음)'}
+
+요구사항:
+- 한국어로만 작성 (영어 단어는 따옴표로 인용 가능)
+- 학부모/학생이 자랑스러워할 따뜻한 톤
+- 각 영역 2~3 문장
+- JSON 으로만 응답 (다른 설명 X)
+
+응답 형식 (정확히 이 JSON 구조로만):
+{
+  "strengths": "이번 수업에서 잘한 점 (구체적인 행동/성취 언급, 2~3 문장)",
+  "improvements": "보완하면 좋을 부분 (긍정적인 표현으로 부드럽게, 2~3 문장)",
+  "next_goals": "다음 수업에서 도전할 학습 목표 (구체적/실행가능한 1~2개, 2~3 문장)",
+  "teacher_comment": "강사 종합 코멘트 (격려와 응원, 2~3 문장)"
+}`;
+
+        const resp = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+          messages: [
+            { role: 'system', content: 'You are a friendly Korean English-academy evaluation writer. Reply with JSON only.' },
+            { role: 'user', content: prompt }
+          ],
+          max_tokens: 800,
+        });
+        const text = resp?.response || '';
+        const m = text.match(/\{[\s\S]*\}/);
+        if (!m) return json({ ok: false, error: 'ai_parse_failed', raw: text.slice(0, 300) }, 500);
+        let parsed: any = {};
+        try { parsed = JSON.parse(m[0]); } catch (e: any) {
+          return json({ ok: false, error: 'ai_json_invalid', raw: m[0].slice(0, 300) }, 500);
+        }
+        return json({
+          ok: true,
+          draft: {
+            strengths: String(parsed.strengths || '').slice(0, 600),
+            improvements: String(parsed.improvements || '').slice(0, 600),
+            next_goals: String(parsed.next_goals || '').slice(0, 600),
+            teacher_comment: String(parsed.teacher_comment || '').slice(0, 600),
+          },
+          model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+          tokens_estimate: Math.round(prompt.length / 3),
+        });
+      } catch (e: any) {
+        console.warn('[ai-draft] error:', e?.message);
+        return json({ ok: false, error: e?.message || 'draft_failed' }, 500);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🤖 Phase AEd 끝
+    // ═══════════════════════════════════════════════════════════════
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🚨 Phase ARR — 학생 이탈 위험 AI 감지
+    // ═══════════════════════════════════════════════════════════════
+    //   조건: 출석 하락, 점수 하락, 장기 결석, 평가점수 낮음
+    //   AI 가 종합 → 위험도 점수 (0~100) + 사유 + 권장 액션
+    if (method === 'GET' && path === '/api/admin/retention/risk') {
+      try {
+        // 모든 활성 학생 가져오기
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT, parent_user_id TEXT, program TEXT, status TEXT, created_at INTEGER);`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT, user_id TEXT, username TEXT, role TEXT, joined_at INTEGER, left_at INTEGER, status TEXT, date TEXT);`);
+
+        const now = Date.now();
+        const since30 = now - 30 * 86400000;
+        const since60 = now - 60 * 86400000;
+
+        const studentsRs = await env.DB.prepare(`SELECT user_id, student_name FROM students_erp WHERE status = '정상' OR status IS NULL OR status = '' LIMIT 500`).all();
+        const students = (studentsRs.results || []) as any[];
+        if (!students.length) return json({ ok: true, count: 0, at_risk: [] });
+
+        const atRisk: any[] = [];
+        for (const s of students) {
+          // 최근 30일 출석
+          const att30: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ?`).bind(s.user_id, since30).first();
+          // 30~60일 출석 (비교용)
+          const att60: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ? AND joined_at < ?`).bind(s.user_id, since60, since30).first();
+          // 마지막 입장
+          const lastJoin: any = await env.DB.prepare(`SELECT MAX(joined_at) AS j FROM attendance WHERE user_id = ?`).bind(s.user_id).first();
+          // 평가서 평균
+          let evalAvg = 0, evalCount = 0;
+          try {
+            const e: any = await env.DB.prepare(`SELECT AVG(score_overall) AS a, COUNT(*) AS n FROM student_evaluations WHERE student_uid = ? AND created_at >= ?`).bind(s.user_id, since60).first();
+            evalAvg = Math.round(e?.a || 0); evalCount = e?.n || 0;
+          } catch {}
+
+          const attRecent = att30?.d || 0;
+          const attPrev = att60?.d || 0;
+          const daysSinceLastJoin = lastJoin?.j ? Math.floor((now - lastJoin.j) / 86400000) : 999;
+
+          // 위험도 계산
+          let risk = 0;
+          const reasons: string[] = [];
+          if (daysSinceLastJoin >= 14) { risk += 40; reasons.push(`마지막 입장 ${daysSinceLastJoin}일 전`); }
+          else if (daysSinceLastJoin >= 7) { risk += 20; reasons.push(`최근 일주일 미출석`); }
+          if (attRecent === 0) { risk += 25; reasons.push('최근 30일 출석 0회'); }
+          else if (attPrev > 0 && attRecent < attPrev * 0.5) { risk += 25; reasons.push(`출석 ${attPrev}→${attRecent}회 급감`); }
+          if (evalCount > 0 && evalAvg < 5) { risk += 20; reasons.push(`평가 평균 ${evalAvg}점 저조`); }
+          if (evalCount === 0 && daysSinceLastJoin < 60) { risk += 10; reasons.push('평가서 미작성'); }
+
+          if (risk >= 30) {
+            atRisk.push({
+              user_id: s.user_id,
+              student_name: s.student_name || s.user_id,
+              risk_score: Math.min(risk, 100),
+              risk_level: risk >= 70 ? 'high' : risk >= 50 ? 'medium' : 'low',
+              reasons,
+              attendance_30d: attRecent,
+              attendance_30to60d: attPrev,
+              days_since_last_join: daysSinceLastJoin,
+              eval_avg: evalAvg,
+              eval_count_60d: evalCount,
+              recommended_action: risk >= 70
+                ? '🚨 학부모 직접 전화 + 무료 보강 수업 제안'
+                : risk >= 50
+                ? '📞 학부모에게 안부 전화 + 출석 동기부여'
+                : '📧 푸시 알림 + 격려 메시지 발송',
+            });
+          }
+        }
+        // 위험도 내림차순
+        atRisk.sort((a, b) => b.risk_score - a.risk_score);
+        return json({ ok: true, count: atRisk.length, at_risk: atRisk });
+      } catch (e: any) {
+        console.warn('[retention/risk] error:', e?.message);
+        return json({ ok: false, error: e?.message || 'risk_failed' }, 500);
+      }
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // 🚨 Phase ARR 끝
+    // ═══════════════════════════════════════════════════════════════
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // 📚 Phase VOC — 단어장 + 플래시카드 (간격 반복 학습)
+    // ═══════════════════════════════════════════════════════════════
+    const ensureVocab = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS vocabulary (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, word TEXT NOT NULL, korean TEXT, example TEXT, level INTEGER DEFAULT 0, next_review_at INTEGER NOT NULL, last_reviewed_at INTEGER, correct_count INTEGER DEFAULT 0, wrong_count INTEGER DEFAULT 0, created_at INTEGER NOT NULL);`);
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_vocab_user_review ON vocabulary(user_id, next_review_at ASC)`); } catch {}
+    };
+
+    // ── POST /api/vocab/add — 단어 추가 (AI 가 자동으로 한국어/예문 생성) ──
+    if (method === 'POST' && path === '/api/vocab/add') {
+      await ensureVocab();
+      const b: any = await request.json().catch(() => ({}));
+      const userId = String(b.user_id || '').trim();
+      const word = String(b.word || '').trim();
+      if (!userId || !word) return json({ ok: false, error: 'user_id_and_word_required' }, 400);
+      let korean = String(b.korean || '').trim();
+      let example = String(b.example || '').trim();
+      // AI 가 한국어/예문 자동 생성 (옵션)
+      if ((!korean || !example) && (env as any).AI) {
+        try {
+          const resp: any = await (env as any).AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+            messages: [
+              { role: 'system', content: 'You output Korean meaning and short English example. JSON only.' },
+              { role: 'user', content: `Word: "${word}"\n\nReturn JSON: { "korean": "<한국어 뜻 한줄>", "example": "<짧은 영어 예문 1개>" }` }
+            ],
+            max_tokens: 200,
+          });
+          const text = resp?.response || '';
+          const m = text.match(/\{[\s\S]*\}/);
+          if (m) { const j = JSON.parse(m[0]); korean = korean || j.korean || ''; example = example || j.example || ''; }
+        } catch {}
+      }
+      const now = Date.now();
+      await env.DB.prepare(`INSERT INTO vocabulary (user_id, word, korean, example, level, next_review_at, created_at) VALUES (?,?,?,?,?,?,?)`)
+        .bind(userId, word, korean, example, 0, now, now).run();
+      return json({ ok: true, word, korean, example });
+    }
+
+    // ── GET /api/vocab/list?uid=X — 학생 단어장 목록 ──
+    if (method === 'GET' && path === '/api/vocab/list') {
+      await ensureVocab();
+      const uid = (url.searchParams.get('uid') || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      const rs = await env.DB.prepare(`SELECT id, word, korean, example, level, next_review_at, correct_count, wrong_count, created_at FROM vocabulary WHERE user_id = ? ORDER BY created_at DESC LIMIT 500`).bind(uid).all();
+      return json({ ok: true, count: rs.results?.length || 0, words: rs.results || [] });
+    }
+
+    // ── GET /api/vocab/due?uid=X — 오늘 복습할 단어 ──
+    if (method === 'GET' && path === '/api/vocab/due') {
+      await ensureVocab();
+      const uid = (url.searchParams.get('uid') || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      const now = Date.now();
+      const rs = await env.DB.prepare(`SELECT id, word, korean, example, level FROM vocabulary WHERE user_id = ? AND next_review_at <= ? ORDER BY next_review_at ASC LIMIT 20`).bind(uid, now).all();
+      return json({ ok: true, due_count: rs.results?.length || 0, words: rs.results || [] });
+    }
+
+    // ── POST /api/vocab/review — 단어 복습 결과 (correct/wrong → 다음 복습 일정 자동 조정) ──
+    if (method === 'POST' && path === '/api/vocab/review') {
+      await ensureVocab();
+      const b: any = await request.json().catch(() => ({}));
+      const id = parseInt(b.id, 10);
+      const correct = !!b.correct;
+      if (!id) return json({ ok: false, error: 'id_required' }, 400);
+      const row: any = await env.DB.prepare(`SELECT level, correct_count, wrong_count FROM vocabulary WHERE id = ?`).bind(id).first();
+      if (!row) return json({ ok: false, error: 'not_found' }, 404);
+      // 간격 반복: 정답 시 level+1, 오답 시 level=0 으로 리셋
+      const newLevel = correct ? Math.min((row.level || 0) + 1, 7) : 0;
+      // 다음 복습 간격 (일): 0=1, 1=2, 2=4, 3=7, 4=14, 5=30, 6=60, 7=120 (망각곡선 기반)
+      const intervals = [1, 2, 4, 7, 14, 30, 60, 120];
+      const nextDays = intervals[newLevel] || 1;
+      const now = Date.now();
+      const next = now + nextDays * 86400000;
+      await env.DB.prepare(`UPDATE vocabulary SET level = ?, next_review_at = ?, last_reviewed_at = ?, correct_count = correct_count + ?, wrong_count = wrong_count + ? WHERE id = ?`)
+        .bind(newLevel, next, now, correct ? 1 : 0, correct ? 0 : 1, id).run();
+      return json({ ok: true, new_level: newLevel, next_review_in_days: nextDays });
+    }
+
+    // ── DELETE /api/vocab/:id — 단어 삭제 ──
+    if (method === 'DELETE' && /^\/api\/vocab\/\d+$/.test(path)) {
+      await ensureVocab();
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      await env.DB.prepare(`DELETE FROM vocabulary WHERE id = ?`).bind(id).run();
+      return json({ ok: true });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 📚 Phase VOC 끝
+    // ═══════════════════════════════════════════════════════════════
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // 📄 Phase MR — 월별 학습 보고서 (학생별 / 학부모용)
+    //   GET /api/report/monthly/:uid/:yyyy-mm — JSON 데이터 + URL 로 page 렌더
+    // ═══════════════════════════════════════════════════════════════
+    const monthlyMatch = path.match(/^\/api\/report\/monthly\/([^\/]+)\/(\d{4})-(\d{2})$/);
+    if (method === 'GET' && monthlyMatch) {
+      const uid = decodeURIComponent(monthlyMatch[1]);
+      const year = parseInt(monthlyMatch[2], 10);
+      const month = parseInt(monthlyMatch[3], 10) - 1;
+      const start = new Date(year, month, 1).getTime();
+      const end = new Date(year, month + 1, 1).getTime();
+
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT);`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, joined_at INTEGER, date TEXT);`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_evaluations (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, lesson_date TEXT, score_overall INTEGER, strengths TEXT, improvements TEXT, next_goals TEXT, teacher_comment TEXT, created_at INTEGER NOT NULL);`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS voice_coaching (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, accuracy_score INTEGER, pronunciation_score INTEGER, fluency_score INTEGER, created_at INTEGER NOT NULL);`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, paid_at INTEGER, amount_krw INTEGER);`);
+
+        const student: any = await env.DB.prepare(`SELECT user_id, student_name, parent_name FROM students_erp WHERE user_id = ?`).bind(uid).first();
+        const att: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ? AND joined_at < ?`).bind(uid, start, end).first();
+        const evals = await env.DB.prepare(`SELECT id, lesson_date, score_overall, strengths, improvements, next_goals, teacher_comment, created_at FROM student_evaluations WHERE student_uid = ? AND created_at >= ? AND created_at < ? ORDER BY created_at ASC`).bind(uid, start, end).all();
+        const voiceStats: any = await env.DB.prepare(`SELECT COUNT(*) AS n, AVG(accuracy_score) AS acc, AVG(pronunciation_score) AS pron, AVG(fluency_score) AS flu, MAX(accuracy_score) AS best FROM voice_coaching WHERE student_uid = ? AND created_at >= ? AND created_at < ?`).bind(uid, start, end).first();
+        const pays: any = await env.DB.prepare(`SELECT IFNULL(SUM(amount_krw),0) AS total FROM student_payments WHERE user_id = ? AND paid_at >= ? AND paid_at < ?`).bind(uid, start, end).first();
+
+        const evalRows = (evals.results || []) as any[];
+        const evalAvg = evalRows.length ? Math.round((evalRows.reduce((s, r) => s + (r.score_overall || 0), 0) / evalRows.length) * 10) / 10 : 0;
+
+        return json({
+          ok: true,
+          student: student || { user_id: uid, student_name: uid },
+          year_month: `${year}-${String(month + 1).padStart(2, '0')}`,
+          attendance: { days: att?.d || 0 },
+          evaluations: { count: evalRows.length, avg_score: evalAvg, items: evalRows },
+          voice: {
+            sessions: voiceStats?.n || 0,
+            avg_accuracy: Math.round(voiceStats?.acc || 0),
+            avg_pronunciation: Math.round(voiceStats?.pron || 0),
+            avg_fluency: Math.round(voiceStats?.flu || 0),
+            best: voiceStats?.best || 0,
+          },
+          payments: { total_krw: pays?.total || 0 },
+          generated_at: Date.now(),
+        });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message }, 500);
+      }
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // 📄 Phase MR 끝
+    // ═══════════════════════════════════════════════════════════════
+
+
     if (method === 'GET' && path === '/api/admin/stats/revenue') {
       // 신규 환경에서 student_payments 가 없을 수 있으니 자동 생성
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, period_start TEXT, period_end TEXT, amount_krw INTEGER NOT NULL, method TEXT, memo TEXT, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`);

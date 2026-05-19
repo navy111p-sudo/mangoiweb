@@ -3714,6 +3714,155 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
 })();
 </script>
 
+<!-- 🤖 Phase AEd — AI 평가서 자동 작성 -->
+<details class="table-card menu-card" id="card-ai-eval-draft">
+  <summary><span data-ko="🤖 AI 평가서 자동 작성 (강사 도우미)" data-en="🤖 AI Auto-Draft Evaluation">🤖 AI 평가서 자동 작성 (강사 도우미)</span></summary>
+  <div class="menu-body">
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;color:#1e40af">
+      💡 <b>키워드 3~5개만 입력</b> — Llama 3.3 70B 가 평가서 4영역(잘한점/보완점/다음목표/코멘트) 완성된 한국어 텍스트 자동 생성. 작성 시간 90% 단축.
+    </div>
+    <div style="display:grid;gap:8px;max-width:760px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label style="font-size:12px;font-weight:700">학생 이름 <input id="aed-student-name" type="text" placeholder="홍길동" style="width:100%;padding:8px;margin-top:3px"/></label>
+        <label style="font-size:12px;font-weight:700">강사 이름 <input id="aed-teacher-name" type="text" placeholder="Karen" style="width:100%;padding:8px;margin-top:3px"/></label>
+      </div>
+      <label style="font-size:12px;font-weight:700">수업 제목 <input id="aed-lesson-title" type="text" placeholder="BTS Lv3 - Day 12 단어 발음 연습" style="width:100%;padding:8px;margin-top:3px"/></label>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
+        ${['참여','이해','숙제','태도','스피킹'].map(()=>'').join('')}
+        <label style="font-size:10.5px;font-weight:700;text-align:center">참여<input id="aed-sc-part" type="number" min="0" max="10" placeholder="8" style="width:100%;padding:5px;text-align:center;margin-top:2px"/></label>
+        <label style="font-size:10.5px;font-weight:700;text-align:center">이해<input id="aed-sc-comp" type="number" min="0" max="10" placeholder="7" style="width:100%;padding:5px;text-align:center;margin-top:2px"/></label>
+        <label style="font-size:10.5px;font-weight:700;text-align:center">숙제<input id="aed-sc-hw" type="number" min="0" max="10" placeholder="9" style="width:100%;padding:5px;text-align:center;margin-top:2px"/></label>
+        <label style="font-size:10.5px;font-weight:700;text-align:center">태도<input id="aed-sc-att" type="number" min="0" max="10" placeholder="9" style="width:100%;padding:5px;text-align:center;margin-top:2px"/></label>
+        <label style="font-size:10.5px;font-weight:700;text-align:center">스피킹<input id="aed-sc-sp" type="number" min="0" max="10" placeholder="8" style="width:100%;padding:5px;text-align:center;margin-top:2px"/></label>
+      </div>
+      <label style="font-size:12px;font-weight:700">키워드 (쉼표로 구분, 3~5개 권장)
+        <input id="aed-keywords" type="text" placeholder="예: 발음 정확, 적극 참여, 시제 헷갈림, 단어 5개 잊음" style="width:100%;padding:8px;margin-top:3px"/>
+      </label>
+      <button onclick="aedGenerate()" style="padding:12px 20px;background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff;border:0;border-radius:8px;font-weight:800;font-size:14px;cursor:pointer">🤖 AI 초안 작성 (10~15초)</button>
+    </div>
+    <div id="aed-result" style="margin-top:14px"></div>
+  </div>
+</details>
+
+<!-- 🚨 Phase ARR — 학생 이탈 위험 AI 감지 -->
+<details class="table-card menu-card" id="card-retention-risk">
+  <summary><span data-ko="🚨 학생 이탈 위험 (AI 자동 감지)" data-en="🚨 Student Retention Risk (AI)">🚨 학생 이탈 위험 (AI 자동 감지)</span></summary>
+  <div class="menu-body">
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;color:#991b1b">
+      🚨 <b>이탈 가능성 자동 분석</b> — 출석 하락, 평가 점수 저조, 장기 결석 등을 종합 → 위험도(0~100) + 권장 조치 표시. <b>위험 발견 시 즉시 케어 액션</b>.
+    </div>
+    <button onclick="arrLoad()" class="primary" style="padding:9px 18px;font-weight:800">🔄 위험 학생 스캔</button>
+    <div id="arr-result" style="margin-top:14px"></div>
+  </div>
+</details>
+
+<!-- 📄 Phase MR — 월별 학습 보고서 (학부모용) -->
+<details class="table-card menu-card" id="card-monthly-report">
+  <summary><span data-ko="📄 월별 학습 보고서 (학부모 발송용)" data-en="📄 Monthly Report (for Parents)">📄 월별 학습 보고서 (학부모 발송용)</span></summary>
+  <div class="menu-body">
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;color:#166534">
+      📄 <b>학생별 월별 종합 보고서</b> — 출석/평가/음성코칭/결제 한 페이지. 학부모에게 카톡 링크로 보내거나 PDF로 인쇄.
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;max-width:600px">
+      <label style="font-size:12px;font-weight:700">학생 user_id <input id="mr-uid" type="text" placeholder="hong_gd" style="width:100%;padding:8px;margin-top:3px"/></label>
+      <label style="font-size:12px;font-weight:700">월 (YYYY-MM) <input id="mr-ym" type="text" placeholder="2026-05" style="width:100%;padding:8px;margin-top:3px"/></label>
+      <button onclick="mrOpen()" style="align-self:end;padding:10px 18px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;font-weight:800;cursor:pointer">📄 보고서 열기</button>
+    </div>
+    <div style="margin-top:10px;font-size:11.5px;color:#64748b">💡 보고서 URL: <code>/report.html?uid=학생ID&ym=YYYY-MM</code> — 학부모에게 카카오톡으로 링크 전달</div>
+  </div>
+</details>
+
+<script>
+(function(){
+  const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+  const fmtDate = (ms) => ms ? new Date(ms).toLocaleString('ko-KR', { dateStyle:'short', timeStyle:'short' }) : '-';
+
+  // 🤖 AI 평가서 자동 작성
+  window.aedGenerate = async function(){
+    const out = document.getElementById('aed-result');
+    out.innerHTML = '<div style="color:#a3b3d1">🤖 AI 가 작성 중… (10~15초)</div>';
+    const payload = {
+      student_name: document.getElementById('aed-student-name').value.trim(),
+      teacher_name: document.getElementById('aed-teacher-name').value.trim(),
+      lesson_title: document.getElementById('aed-lesson-title').value.trim(),
+      scores: {
+        participation: parseInt(document.getElementById('aed-sc-part').value) || null,
+        comprehension: parseInt(document.getElementById('aed-sc-comp').value) || null,
+        homework: parseInt(document.getElementById('aed-sc-hw').value) || null,
+        attitude: parseInt(document.getElementById('aed-sc-att').value) || null,
+        speaking: parseInt(document.getElementById('aed-sc-sp').value) || null,
+      },
+      keywords: document.getElementById('aed-keywords').value.split(',').map(s=>s.trim()).filter(Boolean),
+    };
+    try {
+      const r = await fetch('/api/eval/ai-draft', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      const draft = d.draft;
+      out.innerHTML = `
+        <div style="padding:18px;background:linear-gradient(135deg,rgba(99,102,241,0.1),rgba(139,92,246,0.05));border:1px solid rgba(99,102,241,0.3);border-radius:12px">
+          <div style="font-weight:800;color:#c4b5fd;margin-bottom:10px">✨ AI 초안 — 검토 후 수정 가능</div>
+          ${['strengths','improvements','next_goals','teacher_comment'].map((k,i)=>{
+            const label = ['💪 잘한 점','⚠️ 보완할 점','🎯 다음 목표','💬 강사 코멘트'][i];
+            return `<div style="margin-bottom:12px">
+              <label style="font-size:11.5px;font-weight:700;color:#a3b3d1;display:block;margin-bottom:4px">${label}</label>
+              <textarea id="aed-out-${k}" rows="3" style="width:100%;padding:8px;font-size:12.5px">${esc(draft[k]||'')}</textarea>
+            </div>`;
+          }).join('')}
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button onclick="navigator.clipboard.writeText(['💪 잘한 점:',document.getElementById('aed-out-strengths').value,'','⚠️ 보완할 점:',document.getElementById('aed-out-improvements').value,'','🎯 다음 목표:',document.getElementById('aed-out-next_goals').value,'','💬 강사 코멘트:',document.getElementById('aed-out-teacher_comment').value].join('\\n'));this.textContent='✅ 복사됨'" style="padding:8px 16px;background:#10b981;color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer">📋 모두 복사</button>
+            <button onclick="aedGenerate()" style="padding:8px 16px;background:rgba(99,102,241,0.2);color:#c4b5fd;border:1px solid rgba(99,102,241,0.4);border-radius:6px;font-weight:700;cursor:pointer">🔄 다시 생성</button>
+          </div>
+        </div>`;
+    } catch(e) { out.innerHTML = '<div style="color:#f87171">❌ '+esc(e.message)+'</div>'; }
+  };
+
+  // 🚨 이탈 위험 학생 스캔
+  window.arrLoad = async function(){
+    const out = document.getElementById('arr-result');
+    out.innerHTML = '<div style="color:#a3b3d1">스캔 중…</div>';
+    try {
+      const r = await fetch('/api/admin/retention/risk');
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      if (!d.count) {
+        out.innerHTML = '<div style="padding:24px;text-align:center;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px"><b style="color:#34d399">✅ 위험 학생이 없습니다!</b><br><span style="font-size:11.5px;color:#a3b3d1;margin-top:6px;display:inline-block">모든 학생이 정상 출석/학습 중입니다.</span></div>';
+        return;
+      }
+      out.innerHTML = `
+        <div style="margin-bottom:10px;font-size:12.5px;color:#a3b3d1">위험 학생 <b style="color:#f87171">${d.count}명</b></div>
+        ${d.at_risk.map(r => {
+          const color = r.risk_level === 'high' ? '#ef4444' : r.risk_level === 'medium' ? '#f59e0b' : '#94a3b8';
+          const bg = r.risk_level === 'high' ? 'rgba(239,68,68,0.1)' : r.risk_level === 'medium' ? 'rgba(245,158,11,0.1)' : 'rgba(148,163,184,0.08)';
+          return `<div style="background:${bg};border:1px solid ${color};border-radius:10px;padding:12px 14px;margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:800;font-size:14px">${esc(r.student_name)} <span style="font-family:monospace;font-size:11px;color:#a3b3d1">${esc(r.user_id)}</span></div>
+                <div style="margin-top:4px;font-size:11.5px;color:#cbd5e1">${r.reasons.map(x => esc(x)).join(' · ')}</div>
+                <div style="margin-top:6px;font-size:11.5px;color:#fbbf24"><b>💡 추천:</b> ${esc(r.recommended_action)}</div>
+              </div>
+              <div style="text-align:center">
+                <div style="font-size:24px;font-weight:900;color:${color}">${r.risk_score}</div>
+                <div style="font-size:10px;color:#a3b3d1;letter-spacing:1px">RISK</div>
+              </div>
+            </div>
+          </div>`;
+        }).join('')}`;
+    } catch(e) { out.innerHTML = '<div style="color:#f87171">❌ '+esc(e.message)+'</div>'; }
+  };
+
+  // 📄 월별 보고서 열기
+  window.mrOpen = function(){
+    const uid = document.getElementById('mr-uid').value.trim();
+    const ym = document.getElementById('mr-ym').value.trim() || (new Date()).toISOString().slice(0, 7);
+    if (!uid) return alert('학생 user_id 입력');
+    window.open(`/report.html?uid=${encodeURIComponent(uid)}&ym=${encodeURIComponent(ym)}`, '_blank');
+  };
+
+  document.getElementById('card-retention-risk')?.addEventListener('toggle', function(){ if (this.open) arrLoad(); });
+})();
+</script>
+
 <details class="table-card menu-card" id="card-eval-mgmt">
   <summary><span data-ko="📝 학생 평가서" data-en="📝 Student Evaluations">📝 학생 평가서</span></summary>
   <div class="menu-body">
@@ -5176,14 +5325,18 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   #card-kpi-dashboard, #card-daily-charts, #card-rankings,
   #card-retention, #card-active-rooms, #card-settlement-stats { --card-tint: rgba(99,102,241,0.08); }
 
-  /* 👥 학생/학부모 (학생/평가/상담/수강/게시판/배지/일괄평가) — 에메랄드 그린 */
+  /* 👥 학생/학부모 (학생/평가/상담/수강/게시판/배지/일괄평가/AI초안/월별보고서) — 에메랄드 그린 */
   #card-students-mgmt::before, #card-eval-mgmt::before,
   #card-inquiry-mgmt::before, #card-enrollments::before,
   #card-community::before, #card-badges-mgmt::before,
-  #card-bulk-eval::before { background: #10b981; }
+  #card-bulk-eval::before, #card-ai-eval-draft::before,
+  #card-monthly-report::before { background: #10b981; }
   #card-students-mgmt, #card-eval-mgmt, #card-inquiry-mgmt,
   #card-enrollments, #card-community, #card-badges-mgmt,
-  #card-bulk-eval { --card-tint: rgba(16,185,129,0.08); }
+  #card-bulk-eval, #card-ai-eval-draft, #card-monthly-report { --card-tint: rgba(16,185,129,0.08); }
+  /* 🚨 이탈 위험 → 대시보드 인디고 */
+  #card-retention-risk::before { background: #6366f1; }
+  #card-retention-risk { --card-tint: rgba(99,102,241,0.08); }
 
   /* 👨‍🏫 강사 — 바이올렛 */
   #card-teacher-mgmt::before, #card-payroll::before, #card-payroll-auto::before { background: #8b5cf6; }
@@ -11854,6 +12007,9 @@ const SB_ID_MAP = {
   'card-voice-stats':      'edu',       // 🎙 음성 코칭 진도 → 교육
   'card-bulk-eval':        'student',   // 📚 일괄 평가서 → 학생/학부모
   'card-webpush-mgmt':     'notify',    // 🔔 Web Push → 알림/소통
+  'card-ai-eval-draft':    'student',   // 🤖 AI 평가서 자동 작성 → 학생/학부모
+  'card-retention-risk':   'dash',      // 🚨 이탈 위험 → 대시보드
+  'card-monthly-report':   'student',   // 📄 월별 보고서 → 학생/학부모
 };
 
 // 메뉴 하나를 카테고리에 매핑 — ID 우선, 키워드 점수, 마지막 fallback = system
