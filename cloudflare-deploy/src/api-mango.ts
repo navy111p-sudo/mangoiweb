@@ -2259,19 +2259,27 @@ export async function handleMangoApi(
       return json(result);
     }
 
-    // ── POST /api/notify/lesson-started — 수업 시작 알림 ──
-    //   body: { room_id, student_name, student_phone, lesson_title, teacher_name, parent_phone? }
+    // ── POST /api/notify/lesson-started — 수업 시작 알림 (카카오 + Web Push) ──
+    //   body: { room_id, student_name, student_phone, lesson_title, teacher_name, parent_phone?, student_uid?, parent_uid? }
     if (method === 'POST' && path === '/api/notify/lesson-started') {
       const body: any = await request.json().catch(() => ({}));
       const phone = body.student_phone || body.parent_phone;
-      if (!phone) return json({ ok: false, error: 'phone_required' }, 400);
-      const r = await sendLessonStartAlert(env, phone, {
-        studentName: body.student_name || '학생',
-        lessonTitle: body.lesson_title || '영어 수업',
-        teacherName: body.teacher_name || '강사',
-        roomUrl: body.room_url,
-      });
-      return json(r);
+      const studentName = body.student_name || '학생';
+      const lessonTitle = body.lesson_title || '영어 수업';
+      const teacherName = body.teacher_name || '강사';
+      let kakaoResult: any = { skipped: true };
+      if (phone) {
+        kakaoResult = await sendLessonStartAlert(env, phone, { studentName, lessonTitle, teacherName, roomUrl: body.room_url });
+      }
+      // 🆕 Web Push 도 함께 발송
+      const pushTitle = `🎓 ${lessonTitle} 시작!`;
+      const pushBody = `${teacherName} 강사님이 수업을 시작했어요. 지금 입장하세요.`;
+      const pushUrl = body.room_url || '/?go=videocall';
+      const pushTag = `lesson-start-${body.room_id || Date.now()}`;
+      const pushResults: any[] = [];
+      if (body.student_uid) pushResults.push({ role: 'student', ...(await sendPushToUser(body.student_uid, pushTitle, pushBody, pushUrl, pushTag)) });
+      if (body.parent_uid) pushResults.push({ role: 'parent', ...(await sendPushToUser(body.parent_uid, pushTitle, pushBody, pushUrl, pushTag)) });
+      return json({ ok: true, kakao: kakaoResult, push: pushResults });
     }
 
     // ── POST /api/notify/lesson-ended — 수업 종료 알림 (학생/학부모/강사 일괄) ──
@@ -2322,18 +2330,29 @@ export async function handleMangoApi(
       return json({ ok: true, room_id: roomId, message_count: messageCount, results });
     }
 
-    // ── POST /api/notify/mention — @멘션 즉시 푸시 알림 ──
-    //   body: { mentioned_student_name, mentioned_phone, teacher_name, message_excerpt, room_url? }
+    // ── POST /api/notify/mention — @멘션 즉시 푸시 알림 (카카오 + Web Push) ──
+    //   body: { mentioned_student_name, mentioned_phone, teacher_name, message_excerpt, room_url?, mentioned_uid? }
     if (method === 'POST' && path === '/api/notify/mention') {
       const body: any = await request.json().catch(() => ({}));
-      if (!body.mentioned_phone) return json({ ok: false, error: 'phone_required' }, 400);
-      const r = await sendMentionAlert(env, body.mentioned_phone, {
-        studentName: body.mentioned_student_name || '학생',
-        teacherName: body.teacher_name || '강사',
-        messageExcerpt: body.message_excerpt || '',
-        roomUrl: body.room_url,
-      });
-      return json(r);
+      const studentName = body.mentioned_student_name || '학생';
+      const teacherName = body.teacher_name || '강사';
+      const messageExcerpt = body.message_excerpt || '';
+      let kakaoResult: any = { skipped: true };
+      if (body.mentioned_phone) {
+        kakaoResult = await sendMentionAlert(env, body.mentioned_phone, { studentName, teacherName, messageExcerpt, roomUrl: body.room_url });
+      }
+      // 🆕 Web Push 도 함께
+      let pushResult: any = { skipped: true };
+      if (body.mentioned_uid) {
+        pushResult = await sendPushToUser(
+          body.mentioned_uid,
+          `💬 ${teacherName} 강사님이 ${studentName}님을 부르셨어요`,
+          messageExcerpt.slice(0, 100) || '수업방에서 강사님이 호출했습니다.',
+          body.room_url || '/?go=videocall',
+          `mention-${Date.now()}`
+        );
+      }
+      return json({ ok: true, kakao: kakaoResult, push: pushResult });
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -2414,7 +2433,15 @@ export async function handleMangoApi(
           console.warn('[eval] notify err:', e?.message);
         }
       }
-      return json({ ok: true, id: evalId, overall, notify: notifyResult });
+      // 🆕 Web Push 도 함께 (학생/학부모 user_id 가 있으면)
+      const pushTitle = `📝 ${body.student_name || '학생'}님의 평가서 도착!`;
+      const pushBody = `종합 점수 ${overall}/10. 자세히 보기 클릭`;
+      const pushUrl = `/eval.html?id=${evalId}`;
+      const pushTag = `eval-${evalId}`;
+      const pushResults: any[] = [];
+      if (body.student_uid) pushResults.push({ role: 'student', ...(await sendPushToUser(body.student_uid, pushTitle, pushBody, pushUrl, pushTag)) });
+      if (body.parent_uid) pushResults.push({ role: 'parent', ...(await sendPushToUser(body.parent_uid, pushTitle, pushBody, pushUrl, pushTag)) });
+      return json({ ok: true, id: evalId, overall, notify: notifyResult, push: pushResults });
     }
 
     // ── GET /api/eval/list?uid=X&role=student|parent|teacher — 평가서 목록 ──
@@ -2573,7 +2600,19 @@ export async function handleMangoApi(
         r.ok ? null : (r.message || r.error || '실패'),
         Date.now()
       ).run();
-      return json(r);
+      // 🆕 Web Push 도 함께
+      let pushResult: any = { skipped: true };
+      if (body.user_id) {
+        const fee = parseInt(body.amount_krw, 10) || 200000;
+        pushResult = await sendPushToUser(
+          body.user_id,
+          `💸 ${body.student_name || '학생'}님 수강료 안내`,
+          `미납 ${body.days_overdue}일 / ${fee.toLocaleString('ko-KR')}원. 결제 부탁드립니다.`,
+          body.payment_url || '/?go=payment',
+          `overdue-${body.user_id}`
+        );
+      }
+      return json({ ...r, push: pushResult });
     }
 
     // ── POST /api/admin/payments/notify-all-overdue — 미납 전체 일괄 ──
@@ -3320,6 +3359,36 @@ ${chatSampleText}
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id, enabled)`); } catch {}
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS push_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT NOT NULL, title TEXT NOT NULL, body TEXT, url TEXT, icon TEXT, badge TEXT, tag TEXT, queued_at INTEGER NOT NULL, fetched_at INTEGER);`);
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_push_queue_ep ON push_queue(endpoint, fetched_at, queued_at DESC)`); } catch {}
+    };
+
+    // 🔔 푸시 발송 헬퍼 — 다른 알림 트리거에서 호출 가능
+    //   특정 user_id 의 모든 활성 구독에 push 메시지 큐잉 + wakeup 전송
+    //   리턴: { ok, sent, fail, total }  (실패해도 throw 안 함)
+    const sendPushToUser = async (userId: string, title: string, body: string, targetUrl: string = '/', tag?: string) => {
+      try {
+        await ensurePushTables();
+        if (!userId) return { ok: true, sent: 0, total: 0, msg: 'no_user_id' };
+        const rs = await env.DB.prepare(`SELECT endpoint FROM push_subscriptions WHERE user_id = ? AND enabled = 1`).bind(userId).all();
+        const subs = (rs.results || []) as any[];
+        if (!subs.length) return { ok: true, sent: 0, total: 0, msg: 'no_subscriptions' };
+        const now = Date.now();
+        const T = (title || '망고아이 알림').slice(0, 100);
+        const B = (body || '').slice(0, 300);
+        const U = targetUrl || '/';
+        const TAG = tag || ('mangoi-' + now);
+        for (const s of subs) {
+          await env.DB.prepare(`INSERT INTO push_queue (endpoint, title, body, url, icon, badge, tag, queued_at) VALUES (?,?,?,?,?,?,?,?)`)
+            .bind(s.endpoint, T, B, U, '/img/icon-192.png', '/img/icon-192.png', TAG, now).run();
+        }
+        const result = await broadcastWebPush(subs.map(s => s.endpoint), env as any);
+        for (const ep of result.expired) {
+          await env.DB.prepare(`UPDATE push_subscriptions SET enabled = 0, updated_at = ? WHERE endpoint = ?`).bind(Date.now(), ep).run();
+        }
+        return { ok: true, sent: result.sent, fail: result.failed, total: subs.length, mode: result.mode };
+      } catch (e: any) {
+        console.warn('[sendPushToUser] fail:', e?.message);
+        return { ok: false, error: e?.message };
+      }
     };
 
     // ── GET /api/push/vapid-public-key — 클라이언트가 구독 시 사용 ──
