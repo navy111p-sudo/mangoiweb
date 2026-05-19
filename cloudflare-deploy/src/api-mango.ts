@@ -198,6 +198,9 @@ async function ensurePayrollSchema(env: { DB: D1Database }): Promise<void> {
     `);`
   ].join(' '));
   // 기존 payslips 테이블에 새 컬럼 추가 (재배포 호환)
+  // 회계 보고서(accounting-reports.ts)가 SELECT 하는 컬럼 — period, payment_krw,
+  // payment_php, minutes_taught, evaluation_score, bonus_krw, deduction_krw, paid —
+  // 가 스키마에 없으면 보고서 값이 전부 0/null 로 나오므로 함께 추가.
   for (const ddl of [
     `ALTER TABLE payslips ADD COLUMN status TEXT;`,
     `ALTER TABLE payslips ADD COLUMN class_count INTEGER;`,
@@ -205,9 +208,18 @@ async function ensurePayrollSchema(env: { DB: D1Database }): Promise<void> {
     `ALTER TABLE payslips ADD COLUMN monthly_salary_php REAL;`,
     `ALTER TABLE payslips ADD COLUMN weighted_total REAL;`,
     `ALTER TABLE payslips ADD COLUMN grade TEXT;`,
+    `ALTER TABLE payslips ADD COLUMN period TEXT;`,
+    `ALTER TABLE payslips ADD COLUMN payment_krw INTEGER;`,
+    `ALTER TABLE payslips ADD COLUMN payment_php REAL;`,
+    `ALTER TABLE payslips ADD COLUMN minutes_taught INTEGER;`,
+    `ALTER TABLE payslips ADD COLUMN evaluation_score REAL;`,
+    `ALTER TABLE payslips ADD COLUMN bonus_krw INTEGER DEFAULT 0;`,
+    `ALTER TABLE payslips ADD COLUMN deduction_krw INTEGER DEFAULT 0;`,
+    `ALTER TABLE payslips ADD COLUMN paid INTEGER DEFAULT 0;`,
   ]) {
     try { await env.DB.exec(ddl); } catch { /* duplicate column — 정상 */ }
   }
+  try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_payslips_period ON payslips(period);`); } catch { /* noop */ }
 
   _payrollSchemaReady = true;
 }
@@ -3308,10 +3320,11 @@ ${chatSampleText}
       // 기본 기간: 최근 90일 (period 가 day) / 최근 1년 (그 외)
       const now = Date.now();
       let fromMs = 0, toMs = now + 86400000;
-      if (/^\d{4}-\d{2}-\d{2}$/.test(fromStr)) fromMs = new Date(fromStr + 'T00:00:00Z').getTime();
+      // 사용자 입력 YYYY-MM-DD 는 KST 기준으로 해석 (기존 UTC 해석은 KST 0~9시 데이터를 누락시킴)
+      if (/^\d{4}-\d{2}-\d{2}$/.test(fromStr)) fromMs = new Date(fromStr + 'T00:00:00+09:00').getTime();
       else if (period === 'day') fromMs = now - 90 * 86400000;
       else fromMs = now - 365 * 86400000;
-      if (/^\d{4}-\d{2}-\d{2}$/.test(toStr)) toMs = new Date(toStr + 'T23:59:59Z').getTime();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(toStr)) toMs = new Date(toStr + 'T23:59:59+09:00').getTime();
 
       // SQLite expression: KST 기준 date() 변환 (paid_at = ms → seconds → +9h shift)
       const kstDate = `date((paid_at + 32400000) / 1000, 'unixepoch')`;
@@ -3395,8 +3408,9 @@ ${chatSampleText}
       const now = Date.now();
       let fromMs = 0, toMs = now + 1;
       if (period === 'custom' && /^\d{4}-\d{2}-\d{2}$/.test(fromStr)) {
-        fromMs = new Date(fromStr + 'T00:00:00Z').getTime();
-        toMs = /^\d{4}-\d{2}-\d{2}$/.test(toStr) ? new Date(toStr + 'T23:59:59Z').getTime() : now + 1;
+        // KST 기준 해석 (다른 stats 엔드포인트와 통일)
+        fromMs = new Date(fromStr + 'T00:00:00+09:00').getTime();
+        toMs = /^\d{4}-\d{2}-\d{2}$/.test(toStr) ? new Date(toStr + 'T23:59:59+09:00').getTime() : now + 1;
       } else if (period === 'day') {
         fromMs = now - 1 * 86400000;
       } else if (period === 'week') {
@@ -3912,13 +3926,18 @@ ${chatSampleText}
         const r = await calcPayrollOne(env, t.id, b.year, b.month);
         if (!r.ok) continue;
         try {
+          // 회계 보고서가 SELECT 하는 period/payment_krw/payment_php/evaluation_score 도 함께 저장
+          const period = `${r.year}-${String(r.month).padStart(2, '0')}`;
+          const paymentKrw = Math.round((r.monthly_salary_php || 0) * PAYROLL_PHP_TO_KRW);
           await env.DB.prepare(
-            `INSERT INTO payslips (teacher_id, year, month, status, class_count, rate_per_10min_php,
-                                    monthly_salary_php, weighted_total, grade, finalized_at, finalized_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            `INSERT INTO payslips (teacher_id, year, month, period, status, class_count, rate_per_10min_php,
+                                    monthly_salary_php, payment_php, payment_krw, weighted_total, evaluation_score,
+                                    grade, finalized_at, finalized_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).bind(
-            r.teacher_id, r.year, r.month, r.status, r.class_count, r.rate_per_10min_php,
-            r.monthly_salary_php, r.weighted_total, r.grade, now, finalizedBy
+            r.teacher_id, r.year, r.month, period, r.status, r.class_count, r.rate_per_10min_php,
+            r.monthly_salary_php, r.monthly_salary_php, paymentKrw,
+            r.weighted_total, r.weighted_total, r.grade, now, finalizedBy
           ).run();
           saved++;
           totalPhp += r.monthly_salary_php || 0;
@@ -5239,8 +5258,8 @@ ${chatSampleText}
            WHERE student_id = ? OR login_id = ? OR username = ?`
         ).bind(newEnd, Date.now(), uid, uid, uid).run();
 
-        // enrollments 도 함께 연장 (활성 행 1개)
-        const newEndMs = new Date(newEnd + 'T23:59:59Z').getTime();
+        // enrollments 도 함께 연장 (활성 행 1개) — KST 기준 종료시각 ms
+        const newEndMs = new Date(newEnd + 'T23:59:59+09:00').getTime();
         await env.DB.prepare(
           `UPDATE enrollments SET ended_at = ?, status = 'confirmed', updated_at = ?
            WHERE student_user_id = ? AND (status = 'pending' OR status = 'confirmed' OR status IS NULL)`

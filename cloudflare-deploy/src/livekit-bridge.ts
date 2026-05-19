@@ -79,8 +79,14 @@ async function verifyJwt(token: string, secret: string): Promise<Record<string, 
     new TextEncoder().encode(`${head}.${body}`)
   );
   if (!ok) return null;
-  try { return JSON.parse(new TextDecoder().decode(b64urlDecodeToBytes(body))); }
+  let claims: Record<string, any>;
+  try { claims = JSON.parse(new TextDecoder().decode(b64urlDecodeToBytes(body))); }
   catch { return null; }
+  // 만료(exp) / 발효시점(nbf) 검증 — 서명만 검증하던 보안 구멍 차단
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (typeof claims.exp === 'number' && nowSec >= claims.exp) return null;
+  if (typeof claims.nbf === 'number' && nowSec + 5 < claims.nbf) return null;
+  return claims;
 }
 
 // ─────────────────────────────────────────────

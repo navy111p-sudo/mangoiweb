@@ -57,15 +57,16 @@ const safe = async <T>(fn: () => Promise<T>, fallback: T): Promise<T> => {
   try { return await fn(); } catch { return fallback; }
 };
 
-// 월(YYYY-MM)을 KST 기준 startMs / endMs (Unix seconds) 로 변환
-function monthRange(period: string): { startSec: number; endSec: number; label: string } {
+// 월(YYYY-MM)을 KST 기준 startMs / endMs (Unix milliseconds) 로 변환
+// 주의: student_payments.paid_at 은 Date.now() 기반의 ms 단위로 저장되므로 ms 반환
+function monthRange(period: string): { startMs: number; endMs: number; label: string } {
   const [y, m] = period.split('-').map(Number);
   if (!y || !m || m < 1 || m > 12) throw new Error('invalid period (YYYY-MM)');
   const start = new Date(Date.UTC(y, m - 1, 1) - 9 * 3600 * 1000);
   const end = new Date(Date.UTC(y, m, 1) - 9 * 3600 * 1000);
   return {
-    startSec: Math.floor(start.getTime() / 1000),
-    endSec: Math.floor(end.getTime() / 1000),
+    startMs: start.getTime(),
+    endMs: end.getTime(),
     label: `${y}년 ${m}월`,
   };
 }
@@ -108,7 +109,7 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
 // ────────────────────────────────────────────────────────────────────
 async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response> {
   const period = url.searchParams.get('period') || currentMonth();
-  const { startSec, endSec, label } = monthRange(period);
+  const { startMs, endMs, label } = monthRange(period);
 
   // 매출 + 결제 건수
   const rev = await safe(async () => {
@@ -119,7 +120,7 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
         COUNT(DISTINCT user_id) AS paying_users
       FROM student_payments
       WHERE status='paid' AND paid_at >= ? AND paid_at < ?
-    `).bind(startSec, endSec).first<{ revenue: number; pay_count: number; paying_users: number }>();
+    `).bind(startMs, endMs).first<{ revenue: number; pay_count: number; paying_users: number }>();
     return r || { revenue: 0, pay_count: 0, paying_users: 0 };
   }, { revenue: 0, pay_count: 0, paying_users: 0 });
 
@@ -132,7 +133,7 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
       FROM student_payments
       WHERE status='paid' AND paid_at >= ? AND paid_at < ?
       GROUP BY method ORDER BY total DESC
-    `).bind(startSec, endSec).all();
+    `).bind(startMs, endMs).all();
     return (r.results || []) as Array<{ method: string; cnt: number; total: number }>;
   }, []);
 
@@ -251,12 +252,12 @@ async function quarterlyReport(env: Env, url: URL, fmt: string): Promise<Respons
   const { months, label } = quarterRange(year, q);
 
   const monthlies = await Promise.all(months.map(async (period) => {
-    const { startSec, endSec } = monthRange(period);
+    const { startMs, endMs } = monthRange(period);
     const r = await safe(async () => {
       const x = await env.DB.prepare(`
         SELECT COALESCE(SUM(amount_krw),0) AS revenue, COUNT(*) AS pays
         FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<?
-      `).bind(startSec, endSec).first<{ revenue: number; pays: number }>();
+      `).bind(startMs, endMs).first<{ revenue: number; pays: number }>();
       return x || { revenue: 0, pays: 0 };
     }, { revenue: 0, pays: 0 });
     const payroll = await safe(async () => {
@@ -300,12 +301,12 @@ async function annualReport(env: Env, url: URL, fmt: string): Promise<Response> 
   const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
 
   const monthlies = await Promise.all(months.map(async (period) => {
-    const { startSec, endSec } = monthRange(period);
+    const { startMs, endMs } = monthRange(period);
     const r = await safe(async () => {
       const x = await env.DB.prepare(`
         SELECT COALESCE(SUM(amount_krw),0) AS revenue, COUNT(*) AS pays
         FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<?
-      `).bind(startSec, endSec).first<{ revenue: number; pays: number }>();
+      `).bind(startMs, endMs).first<{ revenue: number; pays: number }>();
       return x || { revenue: 0, pays: 0 };
     }, { revenue: 0, pays: 0 });
     const payroll = await safe(async () => {
@@ -345,7 +346,7 @@ async function annualReport(env: Env, url: URL, fmt: string): Promise<Response> 
 // ────────────────────────────────────────────────────────────────────
 async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Response> {
   const period = url.searchParams.get('period') || currentMonth();
-  const { startSec, endSec, label } = monthRange(period);
+  const { startMs, endMs, label } = monthRange(period);
   const hqFeeRate = Number(url.searchParams.get('hq_fee')) || 0.15; // 본사 수수료 15%
 
   // 가맹점 목록
@@ -360,7 +361,7 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
     const r = await env.DB.prepare(`
       SELECT COALESCE(SUM(amount_krw),0) AS revenue
       FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<?
-    `).bind(startSec, endSec).first<{ revenue: number }>();
+    `).bind(startMs, endMs).first<{ revenue: number }>();
     return r?.revenue || 0;
   }, 0);
 
@@ -467,7 +468,7 @@ async function payslipsReport(env: Env, url: URL, fmt: string): Promise<Response
 // ────────────────────────────────────────────────────────────────────
 async function kpiReport(env: Env, url: URL, fmt: string): Promise<Response> {
   const period = url.searchParams.get('period') || currentMonth();
-  const { startSec, endSec, label } = monthRange(period);
+  const { startMs, endMs, label } = monthRange(period);
 
   // 매출
   const rev = await safe(async () => {
@@ -475,7 +476,7 @@ async function kpiReport(env: Env, url: URL, fmt: string): Promise<Response> {
       SELECT COALESCE(SUM(amount_krw),0) AS revenue,
              COUNT(DISTINCT user_id) AS paying_users
       FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<?
-    `).bind(startSec, endSec).first<{ revenue: number; paying_users: number }>();
+    `).bind(startMs, endMs).first<{ revenue: number; paying_users: number }>();
     return r || { revenue: 0, paying_users: 0 };
   }, { revenue: 0, paying_users: 0 });
 
@@ -517,7 +518,7 @@ async function kpiReport(env: Env, url: URL, fmt: string): Promise<Response> {
         SUM(CASE WHEN status='paid' THEN 1 ELSE 0 END) AS ok_cnt,
         COUNT(*) AS all_cnt
       FROM student_payments WHERE paid_at>=? AND paid_at<?
-    `).bind(startSec, endSec).first<{ ok_cnt: number; all_cnt: number }>();
+    `).bind(startMs, endMs).first<{ ok_cnt: number; all_cnt: number }>();
     if (!r || !r.all_cnt) return 0;
     return Number(((r.ok_cnt / r.all_cnt) * 100).toFixed(1));
   }, 0);
@@ -576,7 +577,7 @@ async function kpiReport(env: Env, url: URL, fmt: string): Promise<Response> {
 async function statementReport(env: Env, url: URL, fmt: string): Promise<Response> {
   const type = (url.searchParams.get('type') || 'pl').toLowerCase();
   const period = url.searchParams.get('period') || currentMonth();
-  const { startSec, endSec, label } = monthRange(period);
+  const { startMs, endMs, label } = monthRange(period);
 
   // 공통: 매출, 강사급여 (모든 재무제표의 핵심 입력)
   const rev = await safe(async () => {
@@ -584,7 +585,7 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
       SELECT COALESCE(SUM(amount_krw),0) AS revenue,
              COUNT(*) AS pay_count
       FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<?
-    `).bind(startSec, endSec).first<{ revenue: number; pay_count: number }>();
+    `).bind(startMs, endMs).first<{ revenue: number; pay_count: number }>();
     return r || { revenue: 0, pay_count: 0 };
   }, { revenue: 0, pay_count: 0 });
 
@@ -772,13 +773,13 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
 async function taxReport(env: Env, url: URL, fmt: string): Promise<Response> {
   const period = url.searchParams.get('period') || currentMonth();
   const kind = (url.searchParams.get('kind') || 'vat').toLowerCase();
-  const { startSec, endSec, label } = monthRange(period);
+  const { startMs, endMs, label } = monthRange(period);
 
   const rev = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT COALESCE(SUM(amount_krw),0) AS total, COUNT(*) AS cnt
       FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<?
-    `).bind(startSec, endSec).first<{ total: number; cnt: number }>();
+    `).bind(startMs, endMs).first<{ total: number; cnt: number }>();
     return r || { total: 0, cnt: 0 };
   }, { total: 0, cnt: 0 });
 
@@ -829,17 +830,17 @@ async function journalReport(env: Env, url: URL, fmt: string): Promise<Response>
   const period = url.searchParams.get('period') || currentMonth();
 
   // student_payments 와 payslips 에서 자동 분개 (실제 journal_entries 테이블이 비어있을 가능성 높음)
-  const startSec = from ? Math.floor(new Date(from + 'T00:00:00+09:00').getTime() / 1000)
-                        : monthRange(period).startSec;
-  const endSec   = to   ? Math.floor(new Date(to   + 'T23:59:59+09:00').getTime() / 1000)
-                        : monthRange(period).endSec;
+  const startMs = from ? new Date(from + 'T00:00:00+09:00').getTime()
+                        : monthRange(period).startMs;
+  const endMs   = to   ? new Date(to   + 'T23:59:59+09:00').getTime()
+                        : monthRange(period).endMs;
 
   const pays = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT id, paid_at, user_id, amount_krw, method, memo
       FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<?
       ORDER BY paid_at DESC LIMIT 200
-    `).bind(startSec, endSec).all();
+    `).bind(startMs, endMs).all();
     return (r.results || []) as Array<any>;
   }, []);
 
@@ -858,7 +859,7 @@ async function journalReport(env: Env, url: URL, fmt: string): Promise<Response>
   const entries: any[] = [];
   let docNo = 1;
   for (const p of pays) {
-    const date = new Date((p.paid_at || 0) * 1000 + 9 * 3600 * 1000).toISOString().slice(0, 10);
+    const date = new Date((p.paid_at || 0) + 9 * 3600 * 1000).toISOString().slice(0, 10);
     entries.push({
       doc_no: 'J-' + String(docNo++).padStart(4, '0'),
       date,
@@ -994,8 +995,8 @@ async function paymentsList(env: Env, url: URL, fmt: string): Promise<Response> 
 
   const where: string[] = ['1=1'];
   const args: unknown[] = [];
-  if (from) { where.push('paid_at >= ?'); args.push(Math.floor(new Date(from + 'T00:00:00+09:00').getTime() / 1000)); }
-  if (to)   { where.push('paid_at < ?');  args.push(Math.floor(new Date(to   + 'T23:59:59+09:00').getTime() / 1000)); }
+  if (from) { where.push('paid_at >= ?'); args.push(new Date(from + 'T00:00:00+09:00').getTime()); }
+  if (to)   { where.push('paid_at < ?');  args.push(new Date(to   + 'T23:59:59+09:00').getTime()); }
   if (method) { where.push('method = ?'); args.push(method); }
   if (status) { where.push('status = ?'); args.push(status); }
 
@@ -1021,7 +1022,7 @@ async function paymentsList(env: Env, url: URL, fmt: string): Promise<Response> 
       [],
       ['시각(KST)', '주문ID', '학생ID', '금액', '결제수단', '메모', '상태'],
       ...rows.map(r => [
-        new Date((r.paid_at || 0) * 1000 + 9*3600*1000).toISOString().slice(0,19).replace('T',' '),
+        new Date((r.paid_at || 0) + 9*3600*1000).toISOString().slice(0,19).replace('T',' '),
         r.id, r.user_id, r.amount_krw, r.method || '', r.memo || '', r.status,
       ]),
       ['합계', '', '', totals.paid, '', '', `${totals.count}건`],
@@ -1056,7 +1057,7 @@ async function refundsList(env: Env, url: URL, fmt: string): Promise<Response> {
       [],
       ['시각', '주문ID', '학생ID', '금액', '상태', '메모'],
       ...rows.map(r => [
-        new Date((r.paid_at || 0) * 1000 + 9*3600*1000).toISOString().slice(0,19).replace('T',' '),
+        new Date((r.paid_at || 0) + 9*3600*1000).toISOString().slice(0,19).replace('T',' '),
         r.id, r.user_id, r.amount_krw, r.status, r.memo || '',
       ]),
     ]);

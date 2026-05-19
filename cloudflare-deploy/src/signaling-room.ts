@@ -155,7 +155,7 @@ export class SignalingRoom {
 
   private handleLeave(socketId: string): void {
     this.connections.delete(socketId);
-    this.broadcast('', { type: 'peer-left', data: { peerId: socketId } });
+    this.broadcast(socketId, { type: 'peer-left', data: { peerId: socketId } });
     console.log(`[Signaling] Peer ${socketId} left room ${this.roomId}`);
   }
 
