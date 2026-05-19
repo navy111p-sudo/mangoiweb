@@ -5222,6 +5222,169 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   /* 열린 카드: 우측 arrow 색상도 카테고리 컬러 일치 */
   .menu-card[open] > summary::after { color: inherit; opacity: 0.7; }
 
+
+  /* ════════════════════════════════════════════════════════════
+     🌙 Dark Admin Theme — Linear/Vercel/Cloudflare 풍 다크 대시보드
+     - 어두운 네이비 배경에 카테고리 컬러가 빛나도록
+     - 카드 / 표 / 입력은 약간 밝은 카드 톤
+     - 글씨는 고대비 (#e6e9f5)
+  ════════════════════════════════════════════════════════════ */
+  :root {
+    --da-bg: #0a0e1a;
+    --da-bg-2: #0f1426;
+    --da-card: #141a2b;
+    --da-card-2: #1a2138;
+    --da-border: rgba(255,255,255,0.08);
+    --da-border-strong: rgba(255,255,255,0.14);
+    --da-text: #e6e9f5;
+    --da-text-2: #94a3b8;
+    --da-text-3: #64748b;
+    --da-input: #0f1525;
+  }
+  body {
+    color: var(--da-text) !important;
+    background:
+      radial-gradient(ellipse at top right, rgba(99,102,241,0.18) 0%, transparent 45%),
+      radial-gradient(ellipse at bottom left, rgba(236,72,153,0.10) 0%, transparent 40%),
+      radial-gradient(ellipse at center, rgba(14,165,233,0.06) 0%, transparent 60%),
+      linear-gradient(180deg, var(--da-bg) 0%, var(--da-bg-2) 100%) !important;
+    background-attachment: fixed !important;
+  }
+
+  /* ── 상단 헤더 (글래스) ── */
+  .header { color: var(--da-text); }
+  h1, .th-subtitle { color: var(--da-text) !important; }
+  .th-btn { background: rgba(255,255,255,0.06) !important; border: 1px solid var(--da-border) !important; color: var(--da-text) !important; }
+  .th-btn:hover { background: rgba(255,255,255,0.10) !important; }
+  .th-btn-primary { background: linear-gradient(135deg,#3b82f6,#1e40af) !important; color: #fff !important; border: 0 !important; }
+  .th-btn-amber { background: linear-gradient(135deg,#fbbf24,#f59e0b) !important; color: #1a1a1a !important; border: 0 !important; }
+  .th-btn-ghost { background: transparent !important; }
+  .th-user { background: rgba(255,255,255,0.08) !important; border: 1px solid var(--da-border) !important; color: var(--da-text) !important; }
+  .th-user:hover { background: rgba(255,255,255,0.12) !important; }
+  .th-user-popup { background: var(--da-card) !important; border: 1px solid var(--da-border-strong) !important; color: var(--da-text) !important; box-shadow: 0 20px 40px -8px rgba(0,0,0,0.5) !important; }
+  .th-user-popup a { color: var(--da-text) !important; }
+  .th-user-popup a:hover { background: rgba(255,255,255,0.06) !important; }
+
+  /* ── 좌측 사이드바 다크 ── */
+  .admin-sidebar {
+    background: linear-gradient(180deg, var(--da-card) 0%, var(--da-card-2) 100%) !important;
+    border: 1px solid var(--da-border) !important;
+    box-shadow: 0 16px 40px -14px rgba(0,0,0,0.5), 0 4px 12px -4px rgba(0,0,0,0.3) !important;
+  }
+  .admin-sidebar::before { display: none; }
+  .admin-sidebar h4 { color: var(--da-text) !important; }
+  .admin-sidebar input { background: var(--da-input) !important; border: 1px solid var(--da-border) !important; color: var(--da-text) !important; }
+  .admin-sidebar input::placeholder { color: var(--da-text-3) !important; }
+  .sb-cat-wrap > details { background: rgba(255,255,255,0.03) !important; border: 1px solid var(--da-border) !important; }
+  .sb-cat-wrap > details > summary { color: var(--da-text) !important; }
+  .sb-cat-wrap > details > summary:hover { background: rgba(255,255,255,0.05) !important; }
+  .sb-cat-wrap > details[open] > summary { background: rgba(99,102,241,0.12) !important; color: #c4b5fd !important; }
+  .sb-sub-item, .sb-subsub-item { color: var(--da-text-2) !important; }
+  .sb-sub-item:hover, .sb-subsub-item:hover { background: rgba(99,102,241,0.10) !important; color: var(--da-text) !important; }
+
+  /* ── KPI / Chart / Table 카드 (메인 영역) ── */
+  .card, .chart-card, .table-card {
+    background: var(--da-card) !important;
+    backdrop-filter: blur(12px) !important;
+    border: 1px solid var(--da-border) !important;
+    box-shadow: 0 12px 32px -10px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.2) !important;
+  }
+  .card-label, .chart-title { color: var(--da-text-2) !important; }
+  .card-value { color: var(--da-text) !important; }
+  .card-sub { color: var(--da-text-3) !important; }
+
+  /* ── 메뉴 카드 다크 + 좌측 컬러 막대는 유지 ── */
+  .menu-card {
+    background: var(--da-card) !important;
+    border: 1px solid var(--da-border) !important;
+    box-shadow: 0 8px 24px -8px rgba(0,0,0,0.4) !important;
+  }
+  .menu-card > summary { color: var(--da-text) !important; }
+  .menu-card > summary::after { color: var(--da-text-2) !important; }
+  .menu-card[open] > summary { background: linear-gradient(90deg, var(--card-tint, rgba(148,163,184,0.12)) 0%, rgba(0,0,0,0) 60%) !important; border-bottom: 1px solid var(--da-border) !important; }
+  .menu-card:not([open]):hover > summary { background: var(--card-tint, rgba(255,255,255,0.04)) !important; }
+  .menu-card .menu-body { color: var(--da-text) !important; }
+  .menu-card .menu-form { background: rgba(255,255,255,0.04) !important; border: 1px solid var(--da-border) !important; }
+  .menu-card .menu-form input,
+  .menu-card .menu-form select,
+  .menu-card .menu-form textarea { background: var(--da-input) !important; border: 1px solid var(--da-border) !important; color: var(--da-text) !important; }
+
+  /* ── 일반 input/select/button 다크 톤 (인라인 white 스타일 일부는 안 잡힘) ── */
+  body > details select, body > details input[type="text"], body > details input[type="number"], body > details input[type="date"], body > details textarea,
+  .menu-card details select, .menu-card details input[type="text"], .menu-card details input[type="number"], .menu-card details input[type="date"], .menu-card details textarea {
+    background: var(--da-input) !important;
+    border: 1px solid var(--da-border) !important;
+    color: var(--da-text) !important;
+  }
+  body select::placeholder, body input::placeholder, body textarea::placeholder { color: var(--da-text-3) !important; }
+
+  /* ── 표 (table) 다크 + 줄무늬 ── */
+  table { color: var(--da-text) !important; }
+  table th { background: rgba(255,255,255,0.05) !important; color: var(--da-text-2) !important; border-bottom: 1px solid var(--da-border) !important; }
+  table td { border-bottom: 1px solid var(--da-border) !important; color: var(--da-text) !important; }
+  table tbody tr:hover { background: rgba(99,102,241,0.06) !important; }
+
+  /* ── 서브 카드 (details.sub-item) ── */
+  .sub-item { background: rgba(255,255,255,0.03) !important; border: 1px solid var(--da-border) !important; border-radius: 8px !important; }
+  .sub-item > summary { color: var(--da-text) !important; padding: 10px 14px !important; }
+  .sub-item > summary:hover { background: rgba(255,255,255,0.04) !important; }
+  .sub-item[open] > summary { background: rgba(99,102,241,0.08) !important; border-bottom: 1px solid var(--da-border) !important; }
+  .sub-body { color: var(--da-text) !important; padding: 12px 14px !important; }
+
+  /* ── 일부 inline white 배경의 정보 박스 → 다크 컨버트 (가이드/안내 박스들) ── */
+  .menu-card div[style*="background:#f9fafb"], .menu-card div[style*="background: #f9fafb"],
+  .sub-body div[style*="background:#f9fafb"], .sub-body div[style*="background: #f9fafb"] {
+    background: rgba(255,255,255,0.04) !important;
+    color: var(--da-text) !important;
+    border-color: var(--da-border) !important;
+  }
+  .menu-card div[style*="background:#eef2ff"], .sub-body div[style*="background:#eef2ff"],
+  .menu-card div[style*="background:#eff6ff"], .sub-body div[style*="background:#eff6ff"] {
+    background: rgba(59,130,246,0.10) !important;
+    color: #c7d2fe !important;
+    border-color: rgba(59,130,246,0.30) !important;
+  }
+  .menu-card div[style*="background:#fef3c7"], .sub-body div[style*="background:#fef3c7"] {
+    background: rgba(245,158,11,0.10) !important;
+    color: #fde68a !important;
+    border-color: rgba(245,158,11,0.30) !important;
+  }
+  .menu-card div[style*="background:#ecfdf5"], .sub-body div[style*="background:#ecfdf5"] {
+    background: rgba(16,185,129,0.10) !important;
+    color: #a7f3d0 !important;
+    border-color: rgba(16,185,129,0.30) !important;
+  }
+
+  /* ── label / small 텍스트 ── */
+  label { color: var(--da-text) !important; }
+  small { color: var(--da-text-2) !important; }
+  h2, h3, h4 { color: var(--da-text) !important; }
+
+  /* ── 배지 ── */
+  .badge.warn { background: rgba(245,158,11,0.2) !important; color: #fde68a !important; }
+  .badge.ok   { background: rgba(16,185,129,0.2) !important; color: #a7f3d0 !important; }
+
+  /* ── 스크롤바 다크 ── */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--da-bg-2); }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 5px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.20); }
+
+  /* ── 사용자가 만든 카드 내용 안의 흰 박스도 어둡게 (학생 행, 정보 안내 등) ── */
+  .menu-card div[style*="background:#fff"], .menu-card div[style*="background: #fff"],
+  .sub-body div[style*="background:#fff"], .sub-body div[style*="background: #fff"] {
+    background: var(--da-card-2) !important;
+    color: var(--da-text) !important;
+    border-color: var(--da-border) !important;
+  }
+  /* 표 안의 학생 정보 등 ── 너무 어두워서 가독성 떨어지는 경우 살짝 밝게 */
+  table th[style*="background:#f3f4f6"], table th[style*="background: #f3f4f6"] {
+    background: rgba(255,255,255,0.05) !important;
+    color: var(--da-text-2) !important;
+  }
+  /* code 블록 다크 */
+  code { background: rgba(99,102,241,0.12) !important; color: #c4b5fd !important; padding: 2px 6px; border-radius: 4px; }
+
   .menu-card .menu-form { display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:10px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px; }
   .menu-card .menu-form input,
   .menu-card .menu-form select,
