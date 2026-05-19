@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<title>간단 MBTI 테스트 — 망고아이</title>
+<link rel="icon" type="image/png" href="/img/icon-192.png">
+<link rel="icon" href="data:," />
+<script src="/js/mango-i18n.js" defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800;900&family=Cormorant+Garamond:ital,wght@1,700&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{min-height:100vh;background:radial-gradient(ellipse at top right,rgba(79,124,255,0.22),transparent 50%),radial-gradient(ellipse at bottom left,rgba(167,139,250,0.18),transparent 45%),linear-gradient(180deg,#0a1530,#0b1c44,#0f1d40);color:#e6ecff;font-family:'Noto Sans KR',sans-serif;padding-bottom:80px}
+  .wrap{max-width:680px;margin:0 auto;padding:28px 18px}
+  .brand{text-align:center;margin-bottom:18px}
+  .brand-logo{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:700;background:linear-gradient(180deg,#fff4cc,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:30px;letter-spacing:1px;display:block}
+  .sub{color:#a3b3d1;font-size:12.5px;margin-top:4px}
+
+  .progress-bar{height:8px;background:rgba(255,255,255,0.08);border-radius:99px;overflow:hidden;margin-bottom:18px}
+  .progress-fill{height:100%;background:linear-gradient(90deg,#4f7cff,#fbbf24);transition:width 0.3s}
+
+  .q-card{background:#142950;border:1px solid rgba(99,102,241,0.25);border-radius:16px;padding:28px 22px;margin-bottom:14px;box-shadow:0 12px 32px -10px rgba(0,0,0,0.4)}
+  .q-num{font-size:11px;color:#a3b3d1;letter-spacing:2px;font-weight:700;margin-bottom:8px}
+  .q-text{font-size:18px;font-weight:800;color:#fff;line-height:1.5;margin-bottom:20px}
+  .answer-btn{display:block;width:100%;padding:16px 20px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:12px;color:#e6ecff;cursor:pointer;font-family:inherit;font-size:14px;text-align:left;margin-bottom:10px;transition:all .15s;line-height:1.5}
+  .answer-btn:hover{background:rgba(79,124,255,0.15);border-color:rgba(79,124,255,0.5);transform:translateX(4px)}
+  .answer-btn b{color:#fbbf24;display:block;font-size:12.5px;margin-bottom:4px;letter-spacing:0.3px}
+
+  .result-card{display:none;background:#142950;border:2px solid #fbbf24;border-radius:16px;padding:32px 24px;text-align:center;box-shadow:0 16px 40px -8px rgba(251,191,36,0.3)}
+  .result-card.show{display:block;animation:slideUp .4s ease-out}
+  @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  .result-mbti{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:64px;font-weight:700;background:linear-gradient(180deg,#fff4cc,#fbbf24,#d97706);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:4px;margin:14px 0}
+  .result-name{font-size:16px;font-weight:800;color:#fbbf24;margin-bottom:6px}
+  .result-desc{font-size:13px;color:#cbd5e1;line-height:1.6;margin-bottom:18px}
+  .result-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .btn-primary{padding:12px 24px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;border:0;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;text-decoration:none;display:inline-block}
+  .btn-secondary{padding:12px 24px;background:rgba(99,102,241,0.2);color:#c4b5fd;border:1px solid rgba(99,102,241,0.4);border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;text-decoration:none;display:inline-block}
+
+  .home-btn{position:fixed;top:14px;right:14px;z-index:999;padding:9px 18px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;text-decoration:none;font-weight:800;border-radius:99px;font-size:13px}
+</style>
+</head>
+<body>
+<a class="home-btn" href="/">🏠 <span data-ko="홈" data-en="Home">홈</span></a>
+
+<div class="wrap">
+  <div class="brand">
+    <span class="brand-logo">🧠 Quick MBTI Test</span>
+    <div class="sub" data-ko="12문항 · 2~3분 · 자기 성향 빠르게 알아보기" data-en="12 questions · 2-3 min · find your type quickly">12문항 · 2~3분 · 자기 성향 빠르게 알아보기</div>
+  </div>
+
+  <div class="progress-bar"><div class="progress-fill" id="progress" style="width:0%"></div></div>
+  <div id="q-area"></div>
+  <div id="result-area" class="result-card"></div>
+</div>
+
+<script>
+const QUESTIONS = [
+  // I/E (외향/내향)
+  { dim:'IE', q:'사람 많은 파티에 가면 어떤가요?', a:{label:'에너지가 충전돼요', letter:'E'}, b:{label:'빨리 집에 가서 쉬고 싶어요', letter:'I'} },
+  { dim:'IE', q:'새로운 사람을 만났을 때?', a:{label:'먼저 다가가 인사함', letter:'E'}, b:{label:'상대가 먼저 말 걸기를 기다림', letter:'I'} },
+  { dim:'IE', q:'주말에 가장 좋은 건?', a:{label:'친구들과 모임/약속', letter:'E'}, b:{label:'혼자만의 시간', letter:'I'} },
+  // N/S (직관/감각)
+  { dim:'NS', q:'영화를 볼 때 더 흥미로운 건?', a:{label:'캐릭터의 미래 가능성·숨은 의미', letter:'N'}, b:{label:'장면의 디테일과 사실', letter:'S'} },
+  { dim:'NS', q:'새로운 것을 배울 때?', a:{label:'큰 그림과 개념 먼저 이해', letter:'N'}, b:{label:'단계별로 차근차근', letter:'S'} },
+  { dim:'NS', q:'휴가 계획은?', a:{label:'일단 가서 자유롭게', letter:'N'}, b:{label:'일정·예약 미리 꼼꼼하게', letter:'S'} },
+  // T/F (사고/감정)
+  { dim:'TF', q:'친구가 고민 상담하면?', a:{label:'논리적으로 해결책 분석', letter:'T'}, b:{label:'공감하고 위로 먼저', letter:'F'} },
+  { dim:'TF', q:'결정할 때 더 중요한 건?', a:{label:'논리·효율·결과', letter:'T'}, b:{label:'사람들의 감정·관계', letter:'F'} },
+  { dim:'TF', q:'비판을 받을 때?', a:{label:'객관적으로 받아들임', letter:'T'}, b:{label:'마음이 상함', letter:'F'} },
+  // J/P (판단/인식)
+  { dim:'JP', q:'약속 시간은?', a:{label:'항상 미리 도착', letter:'J'}, b:{label:'아슬아슬·가끔 늦음', letter:'P'} },
+  { dim:'JP', q:'책상/방은?', a:{label:'늘 정리정돈', letter:'J'}, b:{label:'좀 어수선해도 괜찮음', letter:'P'} },
+  { dim:'JP', q:'마감일 앞두고?', a:{label:'미리미리 끝냄', letter:'J'}, b:{label:'막판에 몰아서', letter:'P'} },
+];
+
+const MBTI_NAMES = {
+  INTJ: { name:'전략가', desc:'논리적·독립적·계획적 — 큰 그림을 그리며 체계적으로 목표 달성' },
+  INTP: { name:'논리술사', desc:'호기심 많고 분석적 — 새로운 아이디어와 이론을 사랑하는 사색가' },
+  ENTJ: { name:'통솔자', desc:'대담하고 결단력 — 타고난 리더, 도전을 두려워하지 않음' },
+  ENTP: { name:'변론가', desc:'재치 있고 활발 — 논쟁과 새로운 가능성을 즐기는 혁신가' },
+  INFJ: { name:'옹호자', desc:'고요하고 신비롭 — 깊은 통찰과 강한 신념을 가진 이상주의자' },
+  INFP: { name:'중재자', desc:'시적이고 친절 — 자신만의 가치를 가진 따뜻한 이상주의자' },
+  ENFJ: { name:'선도자', desc:'카리스마 있고 영감 — 사람을 끌어당기는 따뜻한 리더' },
+  ENFP: { name:'활동가', desc:'열정적·창의적 — 가능성을 즐기는 자유로운 영혼' },
+  ISTJ: { name:'현실주의자', desc:'책임감 있고 성실 — 사실과 전통을 중시하는 신뢰의 아이콘' },
+  ISFJ: { name:'수호자', desc:'따뜻하고 헌신적 — 소중한 사람을 보호하는 든든한 친구' },
+  ESTJ: { name:'경영자', desc:'우수한 관리자 — 사물·사람 관리에 탁월한 전통주의자' },
+  ESFJ: { name:'친선도모자', desc:'배려심 많고 사교적 — 항상 도움 줄 준비 된 따뜻한 사람' },
+  ISTP: { name:'장인', desc:'대담하고 실용적 — 도구를 다루는 능숙한 실험가' },
+  ISFP: { name:'모험가', desc:'유연하고 매력적 — 새로운 것을 항상 탐험하는 예술가' },
+  ESTP: { name:'사업가', desc:'영리하고 활기 — 위험 감수하며 즐기는 행동파' },
+  ESFP: { name:'연예인', desc:'자발적이고 열정 — 어디서나 분위기 메이커가 되는 자유로운 영혼' },
+};
+
+let answers = [];
+let currentIdx = 0;
+
+function render() {
+  if (currentIdx >= QUESTIONS.length) {
+    showResult();
+    return;
+  }
+  const q = QUESTIONS[currentIdx];
+  const progress = (currentIdx / QUESTIONS.length) * 100;
+  document.getElementById('progress').style.width = progress + '%';
+  document.getElementById('q-area').innerHTML = `
+    <div class="q-card">
+      <div class="q-num">QUESTION ${currentIdx + 1} / ${QUESTIONS.length}</div>
+      <div class="q-text">${q.q}</div>
+      <button class="answer-btn" onclick="pickAnswer('${q.a.letter}')"><b>A.</b> ${q.a.label}</button>
+      <button class="answer-btn" onclick="pickAnswer('${q.b.letter}')"><b>B.</b> ${q.b.label}</button>
+    </div>`;
+}
+
+window.pickAnswer = function(letter) {
+  answers.push(letter);
+  currentIdx++;
+  render();
+};
+
+function showResult() {
+  document.getElementById('progress').style.width = '100%';
+  document.getElementById('q-area').innerHTML = '';
+
+  // 차원별 카운트
+  const ie = answers.slice(0,3);
+  const ns = answers.slice(3,6);
+  const tf = answers.slice(6,9);
+  const jp = answers.slice(9,12);
+  const dom = (arr, a, b) => arr.filter(x => x === a).length >= 2 ? a : b;
+  const mbti = dom(ie,'I','E') + dom(ns,'N','S') + dom(tf,'T','F') + dom(jp,'J','P');
+  // I/E 차원은 ie 에서 I 또는 E 가 더 많은 쪽. 위 dom 은 a 가 2개 이상이면 a 그렇지 않으면 b
+  // ie[0],ie[1],ie[2] 는 각각 'E' 또는 'I'
+  const ieFinal = ie.filter(x=>x==='I').length >= 2 ? 'I' : 'E';
+  const nsFinal = ns.filter(x=>x==='N').length >= 2 ? 'N' : 'S';
+  const tfFinal = tf.filter(x=>x==='T').length >= 2 ? 'T' : 'F';
+  const jpFinal = jp.filter(x=>x==='J').length >= 2 ? 'J' : 'P';
+  const finalMbti = ieFinal + nsFinal + tfFinal + jpFinal;
+
+  const info = MBTI_NAMES[finalMbti] || { name:'미정', desc:'결과 분석 중...' };
+  const el = document.getElementById('result-area');
+  el.innerHTML = `
+    <div style="font-size:12px;color:#a3b3d1;letter-spacing:2px;font-weight:700">YOUR MBTI</div>
+    <div class="result-mbti">${finalMbti}</div>
+    <div class="result-name">${info.name}</div>
+    <div class="result-desc">${info.desc}</div>
+    <div class="result-actions">
+      <a href="/mbti.html?mbti=${finalMbti}" class="btn-primary">🌟 잘 맞는 강사 찾기</a>
+      <a href="javascript:location.reload()" class="btn-secondary">🔄 다시 테스트</a>
+    </div>
+    <div style="margin-top:18px;padding:12px;background:rgba(255,255,255,0.04);border-radius:10px;font-size:11.5px;color:#a3b3d1;line-height:1.6">
+      💡 정확한 결과를 원하면 <a href="https://www.16personalities.com/ko" target="_blank" style="color:#93c5fd">16personalities.com</a> 에서 정밀 검사도 추천드려요.
+    </div>
+  `;
+  el.classList.add('show');
+  el.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+render();
+</script>
+</body>
+</html>

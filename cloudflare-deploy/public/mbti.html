@@ -118,7 +118,12 @@
   <div class="card">
     <h2 data-ko="① 자신의 MBTI 를 선택하세요" data-en="① Pick Your MBTI">① 자신의 MBTI 를 선택하세요</h2>
     <div class="mbti-grid" id="mbti-grid"></div>
-    <div class="help" data-ko="💡 MBTI 를 모르시면? 16personalities.com 에서 무료 검사 → 4글자 (예: INTJ) 외워두기" data-en="💡 Not sure? Take a free test at 16personalities.com">💡 MBTI 를 모르시면? <a href="https://www.16personalities.com/ko" target="_blank" style="color:#93c5fd;text-decoration:underline">16personalities.com</a> 에서 무료 검사 → 4글자 (예: INTJ) 외워두기</div>
+    <div style="margin-top:14px;padding:14px 18px;background:linear-gradient(135deg,rgba(251,191,36,0.18),rgba(245,158,11,0.08));border:1px solid rgba(251,191,36,0.45);border-radius:12px;text-align:center">
+      <div style="font-weight:800;color:#fbbf24;font-size:14px;margin-bottom:6px" data-ko="🤔 자기 MBTI 모르시면" data-en="🤔 Don't know your MBTI?">🤔 자기 MBTI 모르시면</div>
+      <div style="font-size:12.5px;color:#cbd5e1;margin-bottom:10px" data-ko="지금 바로 테스트 해보세요! 12문항 · 2~3분 소요" data-en="Take the quick test now! 12 questions · 2-3 min">지금 바로 테스트 해보세요! 12문항 · 2~3분 소요</div>
+      <a href="/mbti-test.html" style="display:inline-block;padding:10px 22px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;text-decoration:none;font-weight:800;border-radius:99px;font-size:13.5px;box-shadow:0 6px 16px -4px rgba(251,191,36,0.4)">📝 <span data-ko="간단 MBTI 테스트 시작" data-en="Start Quick Test">간단 MBTI 테스트 시작</span></a>
+    </div>
+    <div class="help" style="margin-top:10px" data-ko="💡 또는 16personalities.com 에서 정밀 검사 가능" data-en="💡 Or do a detailed test at 16personalities.com">💡 또는 <a href="https://www.16personalities.com/ko" target="_blank" style="color:#93c5fd;text-decoration:underline">16personalities.com</a> 에서 정밀 검사 가능</div>
     <button id="match-btn" onclick="doMatch()" disabled style="display:block;width:100%;margin-top:14px;padding:13px;background:linear-gradient(135deg,#4f7cff,#3b82f6);color:#fff;border:0;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;opacity:0.5">🔍 <span data-ko="매칭 시작" data-en="Start Matching">매칭 시작</span></button>
   </div>
 
@@ -137,6 +142,27 @@ let selectedMbti = null;
 // MBTI 버튼 렌더
 const grid = document.getElementById('mbti-grid');
 grid.innerHTML = MBTI_TYPES.map(m => `<button class="mbti-btn" onclick="pickMbti('${m}')" id="mbti-${m}">${m}</button>`).join('');
+
+// URL 파라미터 ?mbti=XXXX 자동 선택 + 매칭 시작 (테스트 페이지에서 돌아온 경우)
+(function(){
+  try {
+    const urlMbti = new URLSearchParams(location.search).get('mbti');
+    if (urlMbti && /^[IE][NS][TF][JP]$/.test(urlMbti.toUpperCase())) {
+      const m = urlMbti.toUpperCase();
+      setTimeout(() => {
+        pickMbti(m);
+        // 테스트 완료 안내 토스트
+        const toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed;top:90px;left:50%;transform:translateX(-50%);z-index:99999;background:rgba(20,41,80,0.95);color:#fbbf24;border:1px solid rgba(251,191,36,0.45);border-radius:12px;padding:12px 20px;font-size:13.5px;font-weight:700;box-shadow:0 12px 32px -8px rgba(0,0,0,0.5);backdrop-filter:blur(8px)';
+        toast.innerHTML = `✅ 테스트 결과: <b style="font-size:16px;color:#fff;margin:0 4px">${m}</b> — 자동 선택됐어요!`;
+        document.body.appendChild(toast);
+        setTimeout(() => { try { toast.remove(); } catch(e){} }, 4000);
+        // 1초 후 자동 매칭 시작
+        setTimeout(() => doMatch(), 1000);
+      }, 200);
+    }
+  } catch(e){}
+})();
 
 window.pickMbti = function(m) {
   selectedMbti = m;
