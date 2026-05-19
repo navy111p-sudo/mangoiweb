@@ -3728,12 +3728,11 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       </div>
       <label style="font-size:12px;font-weight:700">수업 제목 <input id="aed-lesson-title" type="text" placeholder="BTS Lv3 - Day 12 단어 발음 연습" style="width:100%;padding:8px;margin-top:3px"/></label>
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
-        ${['참여','이해','숙제','태도','스피킹'].map(()=>'').join('')}
-        <label style="font-size:10.5px;font-weight:700;text-align:center">참여<input id="aed-sc-part" type="number" min="0" max="10" placeholder="8" style="width:100%;padding:5px;text-align:center;margin-top:2px"/></label>
-        <label style="font-size:10.5px;font-weight:700;text-align:center">이해<input id="aed-sc-comp" type="number" min="0" max="10" placeholder="7" style="width:100%;padding:5px;text-align:center;margin-top:2px"/></label>
-        <label style="font-size:10.5px;font-weight:700;text-align:center">숙제<input id="aed-sc-hw" type="number" min="0" max="10" placeholder="9" style="width:100%;padding:5px;text-align:center;margin-top:2px"/></label>
-        <label style="font-size:10.5px;font-weight:700;text-align:center">태도<input id="aed-sc-att" type="number" min="0" max="10" placeholder="9" style="width:100%;padding:5px;text-align:center;margin-top:2px"/></label>
-        <label style="font-size:10.5px;font-weight:700;text-align:center">스피킹<input id="aed-sc-sp" type="number" min="0" max="10" placeholder="8" style="width:100%;padding:5px;text-align:center;margin-top:2px"/></label>
+        <label style="font-size:11px;font-weight:700;text-align:center;color:#a3b3d1"><span data-ko="참여" data-en="Participation">참여</span><input id="aed-sc-part" type="number" min="0" max="10" placeholder="8" style="width:100%;padding:6px;text-align:center;margin-top:3px;font-size:13px;font-weight:700"/></label>
+        <label style="font-size:11px;font-weight:700;text-align:center;color:#a3b3d1"><span data-ko="이해" data-en="Comprehension">이해</span><input id="aed-sc-comp" type="number" min="0" max="10" placeholder="7" style="width:100%;padding:6px;text-align:center;margin-top:3px;font-size:13px;font-weight:700"/></label>
+        <label style="font-size:11px;font-weight:700;text-align:center;color:#a3b3d1"><span data-ko="숙제" data-en="Homework">숙제</span><input id="aed-sc-hw" type="number" min="0" max="10" placeholder="9" style="width:100%;padding:6px;text-align:center;margin-top:3px;font-size:13px;font-weight:700"/></label>
+        <label style="font-size:11px;font-weight:700;text-align:center;color:#a3b3d1"><span data-ko="태도" data-en="Attitude">태도</span><input id="aed-sc-att" type="number" min="0" max="10" placeholder="9" style="width:100%;padding:6px;text-align:center;margin-top:3px;font-size:13px;font-weight:700"/></label>
+        <label style="font-size:11px;font-weight:700;text-align:center;color:#a3b3d1"><span data-ko="스피킹" data-en="Speaking">스피킹</span><input id="aed-sc-sp" type="number" min="0" max="10" placeholder="8" style="width:100%;padding:6px;text-align:center;margin-top:3px;font-size:13px;font-weight:700"/></label>
       </div>
       <label style="font-size:12px;font-weight:700">키워드 (쉼표로 구분, 3~5개 권장)
         <input id="aed-keywords" type="text" placeholder="예: 발음 정확, 적극 참여, 시제 헷갈림, 단어 5개 잊음" style="width:100%;padding:8px;margin-top:3px"/>
