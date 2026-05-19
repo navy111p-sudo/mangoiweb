@@ -4685,6 +4685,84 @@ Respond in JSON ONLY:
     // ═══════════════════════════════════════════════════════════════
 
 
+    // ═══════════════════════════════════════════════════════════════
+    // 🔐 Phase LOGIN — 통합 학생/학부모 로그인
+    // ═══════════════════════════════════════════════════════════════
+    const ensureLoginTable = async () => {
+      // students_erp 에 password_hash 컬럼이 없으면 추가 (안전망)
+      try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN password_hash TEXT`); } catch {}
+      try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN last_login_at INTEGER`); } catch {}
+    };
+
+    // 간단 비밀번호 해시 (SHA-256 + salt)
+    const hashPwd = async (pwd: string): Promise<string> => {
+      const enc = new TextEncoder().encode(pwd + '|mangoi-salt-2026');
+      const buf = await crypto.subtle.digest('SHA-256', enc);
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    };
+
+    // ── POST /api/student/login — 학생/학부모 통합 로그인 ──
+    //   body: { user_id, password? }
+    //   비밀번호 미설정자는 user_id 만으로 로그인 가능 (개발 단계 편의)
+    if (method === 'POST' && path === '/api/student/login') {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT, parent_user_id TEXT, program TEXT, status TEXT, created_at INTEGER);`);
+      await ensureLoginTable();
+      const b: any = await request.json().catch(() => ({}));
+      const uid = String(b.user_id || '').trim();
+      const pwd = String(b.password || '').trim();
+      if (!uid) return json({ ok: false, error: 'user_id_required' }, 400);
+
+      const stu: any = await env.DB.prepare(`SELECT user_id, student_name, parent_name, parent_phone, parent_user_id, password_hash FROM students_erp WHERE user_id = ?`).bind(uid).first();
+      if (!stu) return json({ ok: false, error: 'user_not_found', message: '학생 ID 를 찾을 수 없습니다. 학원에 문의해주세요.' }, 404);
+
+      // 비밀번호 검증 — 설정된 경우만
+      if (stu.password_hash) {
+        if (!pwd) return json({ ok: false, error: 'password_required', message: '비밀번호를 입력해주세요.' }, 401);
+        const h = await hashPwd(pwd);
+        if (h !== stu.password_hash) return json({ ok: false, error: 'invalid_password', message: '비밀번호가 일치하지 않습니다.' }, 401);
+      }
+
+      // 마지막 로그인 시각 업데이트
+      try { await env.DB.prepare(`UPDATE students_erp SET last_login_at = ? WHERE user_id = ?`).bind(Date.now(), uid).run(); } catch {}
+
+      return json({
+        ok: true,
+        user: {
+          user_id: stu.user_id,
+          user_name: stu.student_name || stu.user_id,
+          role: stu.parent_user_id ? 'student' : 'student',  // 학생/학부모 구분은 추후
+          parent_name: stu.parent_name,
+          parent_user_id: stu.parent_user_id,
+          has_password: !!stu.password_hash,
+        },
+      });
+    }
+
+    // ── POST /api/student/set-password — 학생 비밀번호 설정/변경 ──
+    if (method === 'POST' && path === '/api/student/set-password') {
+      await ensureLoginTable();
+      const b: any = await request.json().catch(() => ({}));
+      const uid = String(b.user_id || '').trim();
+      const oldPwd = String(b.old_password || '').trim();
+      const newPwd = String(b.new_password || '').trim();
+      if (!uid || !newPwd || newPwd.length < 4) return json({ ok: false, error: 'invalid_input', message: '새 비밀번호는 4자 이상' }, 400);
+
+      const stu: any = await env.DB.prepare(`SELECT password_hash FROM students_erp WHERE user_id = ?`).bind(uid).first();
+      if (!stu) return json({ ok: false, error: 'user_not_found' }, 404);
+      // 기존 비밀번호 있으면 검증
+      if (stu.password_hash) {
+        const h = await hashPwd(oldPwd);
+        if (h !== stu.password_hash) return json({ ok: false, error: 'invalid_old_password' }, 401);
+      }
+      const newHash = await hashPwd(newPwd);
+      await env.DB.prepare(`UPDATE students_erp SET password_hash = ? WHERE user_id = ?`).bind(newHash, uid).run();
+      return json({ ok: true, message: '비밀번호가 변경됐습니다.' });
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // 🔐 Phase LOGIN 끝
+    // ═══════════════════════════════════════════════════════════════
+
+
     if (method === 'GET' && path === '/api/admin/stats/revenue') {
       // 신규 환경에서 student_payments 가 없을 수 있으니 자동 생성
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, period_start TEXT, period_end TEXT, amount_krw INTEGER NOT NULL, method TEXT, memo TEXT, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`);

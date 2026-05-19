@@ -472,6 +472,9 @@ export default {
         path === '/api/teacher/praise' ||
         path === '/api/admin/teacher/praise/list' ||
         path === '/api/admin/teacher/praise/stats' ||
+        // 🔐 Phase LOGIN 통합 로그인
+        path === '/api/student/login' ||
+        path === '/api/student/set-password' ||
         // 🎙 Phase AV AI 음성 코칭
         path === '/api/voice/transcribe' ||
         path === '/api/voice/coach' ||
