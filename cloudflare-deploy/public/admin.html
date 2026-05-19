@@ -10925,10 +10925,11 @@ function renderSidebar() {
     if (items.length === 0) {
       subHtml = '<div style="padding:14px;color:#9ca3af;font-size:12px;text-align:center">' + (useEn?'No menus':'메뉴 없음') + '</div>';
     } else {
-      // 하위가 5개 이상이면 sub-sub로 묶기 (앞 글자별 또는 키워드별)
-      if (items.length > 12) {
-        // 한국어 첫 글자별로 그룹
-        const sub = {};
+      // 하위가 25개 초과 + 평균 그룹 크기가 2 이상일 때만 sub-sub로 묶기
+      // (각 글자가 1개씩만 들어가는 의미없는 그룹화 방지)
+      let useSubSub = false;
+      let sub = {};
+      if (items.length > 25) {
         items.forEach(it => {
           const lbl = (useEn ? it.en : it.ko) || '';
           const cleaned = lbl.replace(/^[^a-zA-Z0-9가-힣ㄱ-ㅎ]+/u, '').trim();
@@ -10936,6 +10937,12 @@ function renderSidebar() {
           if (!sub[k]) sub[k] = [];
           sub[k].push(it);
         });
+        // 평균 그룹 크기 = items.length / 그룹 수. 2 이상이어야 그룹화가 의미 있음
+        const groupCount = Object.keys(sub).length;
+        const avgGroupSize = items.length / Math.max(groupCount, 1);
+        useSubSub = avgGroupSize >= 2.0;
+      }
+      if (useSubSub) {
         const keys = Object.keys(sub).sort((a,b)=>a.localeCompare(b, useEn?'en':'ko-KR'));
         subHtml = keys.map(k => {
           const innerItems = sub[k].map(it => {
@@ -10946,7 +10953,7 @@ function renderSidebar() {
             + '<div class="sb-subsub-panel">' + innerItems + '</div></div>';
         }).join('');
       } else {
-        // 12개 이하면 평면 리스트
+        // 평면 리스트 (대부분의 경우)
         subHtml = items.map(it => {
           const lbl = useEn ? it.en : it.ko;
           return '<a href="#' + it.id + '" class="sb-sub-item" data-menu-id="' + it.id + '" onclick="jumpToMenu(\'' + it.id + '\')"><span class="sb-sub-ico">·</span><span class="sb-sub-text">' + _escSb(lbl) + '</span></a>';
