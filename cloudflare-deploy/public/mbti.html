@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<title>MBTI 매칭 — 망고아이</title>
+<link rel="icon" type="image/png" href="/img/icon-192.png">
+<link rel="icon" href="data:," />
+<script src="/js/mango-i18n.js" defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800;900&family=Cormorant+Garamond:ital,wght@1,700&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{min-height:100vh;background:radial-gradient(ellipse at top right,rgba(79,124,255,0.22),transparent 50%),radial-gradient(ellipse at bottom left,rgba(167,139,250,0.16),transparent 45%),linear-gradient(180deg,#0a1530,#0b1c44,#0f1d40);color:#e6ecff;font-family:'Noto Sans KR',sans-serif;padding-bottom:80px}
+  .wrap{max-width:720px;margin:0 auto;padding:28px 18px}
+  .brand{text-align:center;margin-bottom:24px}
+  .brand-logo{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:700;background:linear-gradient(180deg,#fff4cc,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:32px;letter-spacing:1px;display:block}
+  .sub{color:#a3b3d1;font-size:12.5px;margin-top:6px;line-height:1.6}
+  .card{background:#142950;border:1px solid rgba(99,102,241,0.25);border-radius:14px;padding:22px;margin-bottom:14px}
+  h2{font-size:17px;font-weight:800;color:#fbbf24;margin-bottom:12px}
+  .mbti-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+  .mbti-btn{padding:14px 8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);border-radius:10px;color:#cbd5e1;cursor:pointer;font-weight:800;font-size:14px;font-family:inherit;transition:all .15s}
+  .mbti-btn:hover{background:rgba(79,124,255,0.18);border-color:rgba(79,124,255,0.5);color:#fff;transform:translateY(-2px)}
+  .mbti-btn.selected{background:linear-gradient(135deg,#4f7cff,#3b82f6);color:#fff;border-color:#4f7cff;box-shadow:0 6px 18px -4px rgba(79,124,255,0.5)}
+  .teacher-card{background:rgba(255,255,255,0.04);border:1px solid rgba(99,102,241,0.20);border-radius:12px;padding:14px 16px;margin-bottom:8px;display:flex;gap:12px;align-items:center}
+  .teacher-card.top{background:linear-gradient(135deg,rgba(251,191,36,0.15),rgba(245,158,11,0.06));border-color:rgba(251,191,36,0.45)}
+  .match-score{font-size:28px;font-weight:900;min-width:56px;text-align:center}
+  .match-score.high{color:#34d399}
+  .match-score.mid{color:#fbbf24}
+  .match-score.low{color:#a3b3d1}
+  .home-btn{position:fixed;top:14px;right:14px;z-index:999;padding:9px 18px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;text-decoration:none;font-weight:800;border-radius:99px;font-size:13px}
+  .help{font-size:11.5px;color:#6b7a99;margin-top:8px;line-height:1.6}
+</style>
+</head>
+<body>
+<a class="home-btn" href="/">🏠 <span data-ko="홈" data-en="Home">홈</span></a>
+
+<div class="wrap">
+  <div class="brand">
+    <span class="brand-logo">🧠 MBTI Matching</span>
+    <div class="sub" data-ko="자신의 MBTI 를 선택하면 잘 맞을 강사를 추천해드려요" data-en="Select your MBTI and we'll recommend compatible teachers">자신의 MBTI 를 선택하면 잘 맞을 강사를 추천해드려요</div>
+  </div>
+
+  <div class="card">
+    <h2 data-ko="① 자신의 MBTI 를 선택하세요" data-en="① Pick Your MBTI">① 자신의 MBTI 를 선택하세요</h2>
+    <div class="mbti-grid" id="mbti-grid"></div>
+    <div class="help" data-ko="💡 MBTI 를 모르시면? 16personalities.com 에서 무료 검사 → 4글자 (예: INTJ) 외워두기" data-en="💡 Not sure? Take a free test at 16personalities.com">💡 MBTI 를 모르시면? <a href="https://www.16personalities.com/ko" target="_blank" style="color:#93c5fd;text-decoration:underline">16personalities.com</a> 에서 무료 검사 → 4글자 (예: INTJ) 외워두기</div>
+    <button id="match-btn" onclick="doMatch()" disabled style="display:block;width:100%;margin-top:14px;padding:13px;background:linear-gradient(135deg,#4f7cff,#3b82f6);color:#fff;border:0;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;opacity:0.5">🔍 <span data-ko="매칭 시작" data-en="Start Matching">매칭 시작</span></button>
+  </div>
+
+  <div id="result-card" class="card" style="display:none">
+    <h2>🌟 <span data-ko="잘 맞는 강사 TOP 5" data-en="Top 5 Matched Teachers">잘 맞는 강사 TOP 5</span></h2>
+    <div id="result-list"></div>
+    <div class="help" style="margin-top:10px" data-ko="💡 매칭 점수는 단순 참고용입니다. 실제 수업 만족도는 강사와 학생의 노력에 달려있어요." data-en="💡 Score is just a guide. Real chemistry depends on effort.">💡 매칭 점수는 단순 참고용입니다. 실제 수업 만족도는 강사와 학생의 노력에 달려있어요.</div>
+  </div>
+</div>
+
+<script>
+const MBTI_TYPES = ['INTJ','INTP','ENTJ','ENTP','INFJ','INFP','ENFJ','ENFP','ISTJ','ISFJ','ESTJ','ESFJ','ISTP','ISFP','ESTP','ESFP'];
+const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+let selectedMbti = null;
+
+// MBTI 버튼 렌더
+const grid = document.getElementById('mbti-grid');
+grid.innerHTML = MBTI_TYPES.map(m => `<button class="mbti-btn" onclick="pickMbti('${m}')" id="mbti-${m}">${m}</button>`).join('');
+
+window.pickMbti = function(m) {
+  selectedMbti = m;
+  document.querySelectorAll('.mbti-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('mbti-'+m).classList.add('selected');
+  const btn = document.getElementById('match-btn');
+  btn.disabled = false; btn.style.opacity = '1';
+};
+
+window.doMatch = async function() {
+  if (!selectedMbti) return;
+  const out = document.getElementById('result-list');
+  const card = document.getElementById('result-card');
+  card.style.display = 'block';
+  out.innerHTML = '<div style="color:#a3b3d1;text-align:center;padding:20px">매칭 중…</div>';
+  try {
+    const r = await fetch('/api/mbti/match', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ mbti: selectedMbti }) });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error);
+    if (!d.top_matches || !d.top_matches.length) {
+      out.innerHTML = '<div style="text-align:center;color:#a3b3d1;padding:30px"><b style="color:#fbbf24">아직 등록된 강사 MBTI 가 없어요</b><br><span style="font-size:11.5px">관리자가 강사 MBTI 정보를 등록해야 매칭이 가능합니다</span></div>';
+      return;
+    }
+    out.innerHTML = d.top_matches.map((t, i) => {
+      const tier = t.match_score >= 80 ? 'high' : t.match_score >= 60 ? 'mid' : 'low';
+      const isTop = i === 0;
+      return `<div class="teacher-card ${isTop?'top':''}">
+        <div class="match-score ${tier}">${t.match_score}<div style="font-size:9px;letter-spacing:1px;font-weight:700;color:#a3b3d1">SCORE</div></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:800;color:#fff;font-size:14px">${esc(t.teacher_name)}${isTop?' 🥇':''} <span style="font-size:11px;color:#a3b3d1;font-weight:400">${esc(t.mbti)}</span></div>
+          ${t.teaching_style?`<div style="font-size:11.5px;color:#c4b5fd;margin-top:3px">🎓 ${esc(t.teaching_style)}</div>`:''}
+          ${t.hobby?`<div style="font-size:11.5px;color:#a3b3d1;margin-top:2px">🎨 ${esc(t.hobby)}</div>`:''}
+          ${t.intro?`<div style="font-size:11.5px;color:#cbd5e1;margin-top:4px;line-height:1.5">${esc(t.intro)}</div>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    out.innerHTML = '<div style="color:#f87171;padding:20px;text-align:center">❌ ' + esc(e.message) + '</div>';
+  }
+};
+</script>
+</body>
+</html>

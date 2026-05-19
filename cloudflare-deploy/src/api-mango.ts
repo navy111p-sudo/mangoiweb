@@ -4527,6 +4527,164 @@ Respond in JSON ONLY:
     // ═══════════════════════════════════════════════════════════════
 
 
+    // ═══════════════════════════════════════════════════════════════
+    // 🧠 Phase MBTI — 학생-강사 MBTI 매칭
+    // ═══════════════════════════════════════════════════════════════
+    const ensureMbtiTable = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_mbti (teacher_uid TEXT PRIMARY KEY, teacher_name TEXT, mbti TEXT, hobby TEXT, teaching_style TEXT, intro TEXT, updated_at INTEGER);`);
+    };
+
+    // ── GET /api/teachers/mbti-list — 강사 MBTI 목록 (공개) ──
+    if (method === 'GET' && path === '/api/teachers/mbti-list') {
+      await ensureMbtiTable();
+      const rs = await env.DB.prepare(`SELECT teacher_uid, teacher_name, mbti, hobby, teaching_style, intro FROM teacher_mbti ORDER BY teacher_name`).all();
+      return json({ ok: true, count: rs.results?.length || 0, teachers: rs.results || [] });
+    }
+
+    // ── POST /api/admin/teacher/mbti — 강사 MBTI 등록/수정 (관리자) ──
+    if (method === 'POST' && path === '/api/admin/teacher/mbti') {
+      await ensureMbtiTable();
+      const b: any = await request.json().catch(() => ({}));
+      const uid = String(b.teacher_uid || '').trim();
+      if (!uid) return json({ ok: false, error: 'teacher_uid_required' }, 400);
+      const now = Date.now();
+      await env.DB.prepare(
+        `INSERT INTO teacher_mbti (teacher_uid, teacher_name, mbti, hobby, teaching_style, intro, updated_at) VALUES (?,?,?,?,?,?,?) ON CONFLICT(teacher_uid) DO UPDATE SET teacher_name = excluded.teacher_name, mbti = excluded.mbti, hobby = excluded.hobby, teaching_style = excluded.teaching_style, intro = excluded.intro, updated_at = excluded.updated_at`
+      ).bind(uid, b.teacher_name || null, String(b.mbti || '').toUpperCase().slice(0,4), b.hobby || null, b.teaching_style || null, b.intro || null, now).run();
+      return json({ ok: true, teacher_uid: uid });
+    }
+
+    // ── POST /api/mbti/match — 학생 MBTI 로 강사 매칭 ──
+    if (method === 'POST' && path === '/api/mbti/match') {
+      await ensureMbtiTable();
+      const b: any = await request.json().catch(() => ({}));
+      const studentMbti = String(b.mbti || '').toUpperCase().trim().slice(0, 4);
+      if (!/^[IE][NS][TF][JP]$/.test(studentMbti)) return json({ ok: false, error: 'invalid_mbti', hint: 'INTJ, ENFP 같은 4자 형식' }, 400);
+
+      // 매칭 점수 (간단한 호환성 매트릭스)
+      const compatibilityScore = (a: string, b: string): number => {
+        if (!a || !b || a.length !== 4 || b.length !== 4) return 50;
+        // 같은 글자 수 (4개 중 일치)
+        let same = 0;
+        for (let i = 0; i < 4; i++) if (a[i] === b[i]) same++;
+        // 학습 추천 매트릭스: 일부 보색 조합이 잘 맞음
+        // 일반적으로 같은 N/S (정보 인식 방식) + 비슷한 J/P 가 좋음
+        let bonus = 0;
+        if (a[1] === b[1]) bonus += 15; // 같은 N/S
+        if (a[2] !== b[2]) bonus += 8;  // 다른 T/F (균형)
+        if (a[3] === b[3]) bonus += 7;  // 같은 J/P
+        // 같은 글자가 4개면 100점, 0개 + bonus 까지 계산
+        const score = Math.min(100, same * 18 + bonus + 15);
+        return score;
+      };
+
+      const rs = await env.DB.prepare(`SELECT teacher_uid, teacher_name, mbti, hobby, teaching_style, intro FROM teacher_mbti WHERE mbti IS NOT NULL AND mbti != ''`).all();
+      const teachers = ((rs.results || []) as any[]).map(t => ({
+        ...t,
+        match_score: compatibilityScore(studentMbti, t.mbti || ''),
+      })).sort((a, b) => b.match_score - a.match_score);
+
+      return json({
+        ok: true,
+        student_mbti: studentMbti,
+        total_teachers: teachers.length,
+        top_matches: teachers.slice(0, 5),
+        all_matches: teachers,
+      });
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // 🧠 Phase MBTI 끝
+    // ═══════════════════════════════════════════════════════════════
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🌟 Phase PR — 교사 칭찬하기 (익명, 7점 별점)
+    // ═══════════════════════════════════════════════════════════════
+    const ensurePraiseTable = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_praises (id INTEGER PRIMARY KEY AUTOINCREMENT, teacher_uid TEXT NOT NULL, teacher_name TEXT, star_rating INTEGER NOT NULL, praise_text TEXT, category TEXT, ip_hash TEXT, created_at INTEGER NOT NULL);`);
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_praise_teacher ON teacher_praises(teacher_uid, created_at DESC)`); } catch {}
+    };
+
+    // ── GET /api/teachers/list-public — 강사 목록 (이름만, 칭찬용) ──
+    if (method === 'GET' && path === '/api/teachers/list-public') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, teacher_uid TEXT UNIQUE, korean_name TEXT, english_name TEXT, status TEXT);`);
+      } catch {}
+      // 1) teacher_profiles 우선
+      let rs: any = await env.DB.prepare(`SELECT teacher_uid, korean_name AS name, english_name FROM teacher_profiles WHERE status = '재직' OR status IS NULL OR status = '' LIMIT 100`).all();
+      let teachers = (rs.results || []) as any[];
+      // 2) teacher_mbti 에서도 추가
+      if (!teachers.length) {
+        try {
+          await ensureMbtiTable();
+          rs = await env.DB.prepare(`SELECT teacher_uid, teacher_name AS name FROM teacher_mbti LIMIT 100`).all();
+          teachers = (rs.results || []) as any[];
+        } catch {}
+      }
+      return json({ ok: true, count: teachers.length, teachers: teachers.map(t => ({ teacher_uid: t.teacher_uid, name: t.name || t.korean_name || t.teacher_uid, english_name: t.english_name || null })) });
+    }
+
+    // ── POST /api/teacher/praise — 익명 칭찬 제출 ──
+    if (method === 'POST' && path === '/api/teacher/praise') {
+      await ensurePraiseTable();
+      const b: any = await request.json().catch(() => ({}));
+      const teacherUid = String(b.teacher_uid || '').trim();
+      const star = parseInt(b.star_rating, 10);
+      const praiseText = String(b.praise_text || '').slice(0, 1000);
+      if (!teacherUid) return json({ ok: false, error: 'teacher_uid_required' }, 400);
+      if (!star || star < 1 || star > 7) return json({ ok: false, error: 'star_must_be_1_to_7' }, 400);
+
+      // 스팸 방지: IP 해시 (학생/학부모 ID 는 절대 저장 안 함)
+      const ip = request.headers.get('CF-Connecting-IP') || request.headers.get('x-forwarded-for') || '';
+      // 간단 해시 (개인정보 X — 단지 스팸 방지용)
+      const enc = new TextEncoder().encode(ip + '|salt-praise');
+      const hashBuf = await crypto.subtle.digest('SHA-256', enc);
+      const ipHash = Array.from(new Uint8Array(hashBuf)).slice(0, 8).map(b => b.toString(16).padStart(2, '0')).join('');
+
+      // 같은 IP 가 5분 안에 같은 강사에게 다시 칭찬하면 차단 (스팸 방지)
+      const since = Date.now() - 5 * 60 * 1000;
+      const dup: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM teacher_praises WHERE teacher_uid = ? AND ip_hash = ? AND created_at >= ?`).bind(teacherUid, ipHash, since).first();
+      if ((dup?.n || 0) > 0) return json({ ok: false, error: 'duplicate_too_soon', message: '5분 안에 같은 강사에게 다시 칭찬할 수 없어요' }, 429);
+
+      await env.DB.prepare(
+        `INSERT INTO teacher_praises (teacher_uid, teacher_name, star_rating, praise_text, category, ip_hash, created_at) VALUES (?,?,?,?,?,?,?)`
+      ).bind(teacherUid, b.teacher_name || null, star, praiseText, b.category || null, ipHash, Date.now()).run();
+
+      return json({ ok: true, message: '칭찬이 등록됐어요! 강사님께 익명으로 전달됩니다.' });
+    }
+
+    // ── GET /api/admin/teacher/praise/list?teacher_uid=X — 강사별 받은 칭찬 (관리자) ──
+    if (method === 'GET' && path === '/api/admin/teacher/praise/list') {
+      await ensurePraiseTable();
+      const uid = (url.searchParams.get('teacher_uid') || '').trim();
+      let q = `SELECT id, teacher_uid, teacher_name, star_rating, praise_text, category, created_at FROM teacher_praises`;
+      const binds: any[] = [];
+      if (uid) { q += ` WHERE teacher_uid = ?`; binds.push(uid); }
+      q += ` ORDER BY created_at DESC LIMIT 100`;
+      const rs = await env.DB.prepare(q).bind(...binds).all();
+      return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [] });
+    }
+
+    // ── GET /api/admin/teacher/praise/stats — 전체 강사 칭찬 통계 ──
+    if (method === 'GET' && path === '/api/admin/teacher/praise/stats') {
+      await ensurePraiseTable();
+      const rs = await env.DB.prepare(
+        `SELECT teacher_uid, teacher_name, COUNT(*) AS count, AVG(star_rating) AS avg_star, MAX(created_at) AS last_at FROM teacher_praises GROUP BY teacher_uid ORDER BY avg_star DESC, count DESC LIMIT 100`
+      ).all();
+      const rows = ((rs.results || []) as any[]).map(r => ({
+        teacher_uid: r.teacher_uid,
+        teacher_name: r.teacher_name,
+        count: r.count,
+        avg_star: Math.round((r.avg_star || 0) * 10) / 10,
+        last_at: r.last_at,
+      }));
+      return json({ ok: true, count: rows.length, rows });
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // 🌟 Phase PR 끝
+    // ═══════════════════════════════════════════════════════════════
+
+
     if (method === 'GET' && path === '/api/admin/stats/revenue') {
       // 신규 환경에서 student_payments 가 없을 수 있으니 자동 생성
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, period_start TEXT, period_end TEXT, amount_krw INTEGER NOT NULL, method TEXT, memo TEXT, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`);

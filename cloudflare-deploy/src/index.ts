@@ -463,6 +463,15 @@ export default {
         /^\/api\/vocab\/\d+$/.test(path) ||
         // 📄 Phase MR 월별 보고서 (HTML/PDF 페이지)
         /^\/api\/report\/monthly\/[^\/]+\/\d{4}-\d{2}$/.test(path) ||
+        // 🧠 Phase MBTI 매칭
+        path === '/api/teachers/mbti-list' ||
+        path === '/api/admin/teacher/mbti' ||
+        path === '/api/mbti/match' ||
+        // 🌟 Phase PR 교사 칭찬하기
+        path === '/api/teachers/list-public' ||
+        path === '/api/teacher/praise' ||
+        path === '/api/admin/teacher/praise/list' ||
+        path === '/api/admin/teacher/praise/stats' ||
         // 🎙 Phase AV AI 음성 코칭
         path === '/api/voice/transcribe' ||
         path === '/api/voice/coach' ||

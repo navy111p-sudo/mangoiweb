@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<title>교사 칭찬하기 — 망고아이</title>
+<link rel="icon" type="image/png" href="/img/icon-192.png">
+<link rel="icon" href="data:," />
+<script src="/js/mango-i18n.js" defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800;900&family=Cormorant+Garamond:ital,wght@1,700&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{min-height:100vh;background:radial-gradient(ellipse at top right,rgba(251,191,36,0.20),transparent 50%),radial-gradient(ellipse at bottom left,rgba(236,72,153,0.12),transparent 45%),linear-gradient(180deg,#0a1530,#0b1c44,#0f1d40);color:#e6ecff;font-family:'Noto Sans KR',sans-serif;padding-bottom:80px}
+  .wrap{max-width:640px;margin:0 auto;padding:28px 18px}
+  .brand{text-align:center;margin-bottom:24px}
+  .brand-logo{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:700;background:linear-gradient(180deg,#fff4cc,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:32px;letter-spacing:1px;display:block}
+  .sub{color:#a3b3d1;font-size:12.5px;margin-top:6px;line-height:1.6}
+  .card{background:#142950;border:1px solid rgba(99,102,241,0.25);border-radius:14px;padding:22px;margin-bottom:14px}
+  h2{font-size:17px;font-weight:800;color:#fbbf24;margin-bottom:14px}
+
+  /* 강사 선택 */
+  .teacher-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+  .teacher-pick button{padding:14px 8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);border-radius:10px;color:#cbd5e1;cursor:pointer;font-weight:700;font-size:13px;font-family:inherit;transition:all .15s}
+  .teacher-pick button:hover{background:rgba(251,191,36,0.15);border-color:rgba(251,191,36,0.5);color:#fbbf24;transform:translateY(-2px)}
+  .teacher-pick button.selected{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;border-color:#fbbf24;box-shadow:0 6px 16px -4px rgba(251,191,36,0.55)}
+
+  /* 7점 별점 */
+  .star-row{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:8px}
+  .star-btn{padding:14px 4px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);border-radius:10px;cursor:pointer;font-family:inherit;transition:all .15s;text-align:center}
+  .star-btn:hover{background:rgba(251,191,36,0.18);border-color:rgba(251,191,36,0.5);transform:translateY(-2px)}
+  .star-btn.selected{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;border-color:#fbbf24;box-shadow:0 6px 16px -4px rgba(251,191,36,0.5)}
+  .star-icon{font-size:18px;display:block}
+  .star-label{font-size:10px;font-weight:700;margin-top:4px;color:inherit}
+  .star-num{font-size:11px;font-weight:800;display:block;margin-bottom:3px}
+
+  textarea{width:100%;padding:12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13.5px;font-family:inherit;resize:vertical;min-height:100px}
+  textarea::placeholder{color:#6b7a99}
+  textarea:focus{border-color:#fbbf24;outline:0;box-shadow:0 0 0 3px rgba(251,191,36,0.15)}
+
+  .submit-btn{display:block;width:100%;padding:14px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:10px;font-weight:800;font-size:14.5px;cursor:pointer;box-shadow:0 6px 20px -4px rgba(16,185,129,0.4);margin-top:12px}
+  .submit-btn:disabled{opacity:0.5;cursor:not-allowed}
+
+  .anon-badge{display:inline-block;padding:4px 12px;background:rgba(99,102,241,0.18);border:1px solid rgba(99,102,241,0.35);border-radius:99px;font-size:11px;color:#a5b4fc;font-weight:700;letter-spacing:0.5px;margin-bottom:8px}
+  .home-btn{position:fixed;top:14px;right:14px;z-index:999;padding:9px 18px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;text-decoration:none;font-weight:800;border-radius:99px;font-size:13px}
+  .help{font-size:11.5px;color:#6b7a99;margin-top:8px;line-height:1.6}
+</style>
+</head>
+<body>
+<a class="home-btn" href="/">🏠 <span data-ko="홈" data-en="Home">홈</span></a>
+
+<div class="wrap">
+  <div class="brand">
+    <span class="brand-logo">🌟 Teacher Praise</span>
+    <div class="sub" data-ko="좋아하는 강사님께 익명으로 감사 메시지를 남겨주세요. 강사님께 큰 힘이 됩니다!" data-en="Send anonymous praise to your favorite teacher. It means a lot!">좋아하는 강사님께 익명으로 감사 메시지를 남겨주세요. 강사님께 큰 힘이 됩니다!</div>
+  </div>
+
+  <div class="card">
+    <span class="anon-badge">🔒 <span data-ko="100% 익명" data-en="100% Anonymous">100% 익명</span></span>
+    <h2 data-ko="① 강사 선택" data-en="① Select Teacher">① 강사 선택</h2>
+    <div id="teacher-pick" class="teacher-pick"><div style="color:#a3b3d1">강사 목록 로딩 중…</div></div>
+  </div>
+
+  <div class="card">
+    <h2 data-ko="② 별점 (7개)" data-en="② Rating (7 stars)">② 별점 (7개)</h2>
+    <div class="star-row">
+      <button type="button" class="star-btn" data-star="1" onclick="pickStar(1)">
+        <span class="star-num">1</span><span class="star-icon">😣</span>
+        <span class="star-label" data-ko="매우 별로" data-en="Terrible">매우 별로</span>
+      </button>
+      <button type="button" class="star-btn" data-star="2" onclick="pickStar(2)">
+        <span class="star-num">2</span><span class="star-icon">😟</span>
+        <span class="star-label" data-ko="별로" data-en="Bad">별로</span>
+      </button>
+      <button type="button" class="star-btn" data-star="3" onclick="pickStar(3)">
+        <span class="star-num">3</span><span class="star-icon">😐</span>
+        <span class="star-label" data-ko="좀 별로" data-en="Not great">좀 별로</span>
+      </button>
+      <button type="button" class="star-btn" data-star="4" onclick="pickStar(4)">
+        <span class="star-num">4</span><span class="star-icon">🙂</span>
+        <span class="star-label" data-ko="보통" data-en="Average">보통</span>
+      </button>
+      <button type="button" class="star-btn" data-star="5" onclick="pickStar(5)">
+        <span class="star-num">5</span><span class="star-icon">😊</span>
+        <span class="star-label" data-ko="좋음" data-en="Good">좋음</span>
+      </button>
+      <button type="button" class="star-btn" data-star="6" onclick="pickStar(6)">
+        <span class="star-num">6</span><span class="star-icon">😄</span>
+        <span class="star-label" data-ko="아주 좋음" data-en="Great">아주 좋음</span>
+      </button>
+      <button type="button" class="star-btn" data-star="7" onclick="pickStar(7)">
+        <span class="star-num">7</span><span class="star-icon">🤩</span>
+        <span class="star-label" data-ko="매우 좋음" data-en="Amazing">매우 좋음</span>
+      </button>
+    </div>
+    <div class="help" data-ko="💡 점수를 솔직하게 매겨주세요 — 강사 성장에 큰 도움이 됩니다" data-en="💡 Be honest — your rating helps teachers grow">💡 점수를 솔직하게 매겨주세요 — 강사 성장에 큰 도움이 됩니다</div>
+  </div>
+
+  <div class="card">
+    <h2 data-ko="③ 칭찬 메시지" data-en="③ Praise Message">③ 칭찬 메시지</h2>
+    <textarea id="praise-text" rows="4" placeholder="예: 발음 교정해주실 때 정말 친절하셨어요. 다음 수업도 기대됩니다!" data-ko-placeholder="예: 발음 교정해주실 때 정말 친절하셨어요. 다음 수업도 기대됩니다!" data-en-placeholder="e.g. The teacher was so kind helping with pronunciation. Can't wait for next class!"></textarea>
+    <div class="help" data-ko="💡 칭찬은 강사님께 익명으로 전달됩니다 — 누가 보냈는지 알 수 없어요. 마음껏 솔직하게!" data-en="💡 100% anonymous — teacher won't know who sent it. Be honest!">💡 칭찬은 강사님께 익명으로 전달됩니다 — 누가 보냈는지 알 수 없어요. 마음껏 솔직하게!</div>
+    <button id="submit-btn" class="submit-btn" disabled onclick="submitPraise()">🌟 <span data-ko="익명으로 보내기" data-en="Send Anonymously">익명으로 보내기</span></button>
+    <div id="submit-result" style="margin-top:12px"></div>
+  </div>
+
+  <div style="text-align:center;font-size:11px;color:#6b7a99;padding:16px">🔒 <span data-ko="개인정보 비공개 — 어떤 학생/학부모가 보냈는지 시스템에 저장되지 않습니다 (IP 만 스팸방지용 해시 저장)" data-en="No personal info — system doesn't store who submitted (only hashed IP for spam prevention)">개인정보 비공개 — 어떤 학생/학부모가 보냈는지 시스템에 저장되지 않습니다 (IP 만 스팸방지용 해시 저장)</span></div>
+</div>
+
+<script>
+const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+let selectedTeacher = null;
+let selectedStar = null;
+
+// 강사 목록 로드
+fetch('/api/teachers/list-public').then(r=>r.json()).then(d => {
+  const el = document.getElementById('teacher-pick');
+  if (!d.ok || !d.teachers || !d.teachers.length) {
+    el.innerHTML = '<div style="color:#a3b3d1;grid-column:1/-1;text-align:center;padding:20px"><b style="color:#fbbf24">등록된 강사가 없어요</b><br><span style="font-size:11.5px">관리자에게 문의해주세요</span></div>';
+    return;
+  }
+  el.innerHTML = d.teachers.map(t => `<button onclick="pickTeacher('${esc(t.teacher_uid)}','${esc(t.name)}')" id="t-${esc(t.teacher_uid)}">${esc(t.name)}${t.english_name?`<div style="font-size:10px;color:#a3b3d1;margin-top:2px">${esc(t.english_name)}</div>`:''}</button>`).join('');
+}).catch(e => {
+  document.getElementById('teacher-pick').innerHTML = '<div style="color:#f87171;padding:20px">로드 실패</div>';
+});
+
+window.pickTeacher = function(uid, name) {
+  selectedTeacher = { uid, name };
+  document.querySelectorAll('#teacher-pick button').forEach(b => b.classList.remove('selected'));
+  const el = document.getElementById('t-' + uid);
+  if (el) el.classList.add('selected');
+  updateSubmitBtn();
+};
+window.pickStar = function(n) {
+  selectedStar = n;
+  document.querySelectorAll('.star-btn').forEach(b => b.classList.remove('selected'));
+  document.querySelector(`.star-btn[data-star="${n}"]`).classList.add('selected');
+  updateSubmitBtn();
+};
+function updateSubmitBtn() {
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = !(selectedTeacher && selectedStar);
+}
+window.submitPraise = async function() {
+  if (!selectedTeacher || !selectedStar) return;
+  const text = document.getElementById('praise-text').value.trim();
+  const out = document.getElementById('submit-result');
+  out.innerHTML = '<div style="color:#a3b3d1;text-align:center">보내는 중…</div>';
+  try {
+    const r = await fetch('/api/teacher/praise', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        teacher_uid: selectedTeacher.uid,
+        teacher_name: selectedTeacher.name,
+        star_rating: selectedStar,
+        praise_text: text,
+      })
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message || d.error);
+    out.innerHTML = `<div style="padding:16px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);border-radius:10px;text-align:center"><b style="color:#34d399;font-size:14px">🌟 ${esc(d.message)}</b><br><span style="color:#a3b3d1;font-size:11.5px;margin-top:6px;display:inline-block">감사합니다! 다른 강사도 칭찬해보시겠어요?</span></div>`;
+    // 폼 리셋
+    document.getElementById('praise-text').value = '';
+    selectedTeacher = null; selectedStar = null;
+    document.querySelectorAll('#teacher-pick button, .star-btn').forEach(b => b.classList.remove('selected'));
+    updateSubmitBtn();
+  } catch(e) {
+    out.innerHTML = '<div style="color:#f87171;padding:12px;text-align:center">❌ '+esc(e.message)+'</div>';
+  }
+};
+</script>
+</body>
+</html>
