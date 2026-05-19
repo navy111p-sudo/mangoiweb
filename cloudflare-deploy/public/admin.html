@@ -3536,12 +3536,12 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
           <input id="be-teacher-uid" type="text" placeholder="teacher_uid" data-ko-placeholder="teacher_uid" data-en-placeholder="teacher_uid" style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;margin-top:3px" />
         </label>
       </div>
-      <details open style="border:1px solid #e5e7eb;border-radius:8px;padding:0">
-        <summary style="cursor:pointer;padding:10px 14px;font-weight:700;background:#f9fafb" data-ko="💬 공통 코멘트 (모든 학생에게 자동 적용)" data-en="💬 Common Comments (auto-applied to all students)">💬 공통 코멘트 (모든 학생에게 자동 적용)</summary>
-        <div style="padding:10px 14px;display:grid;gap:6px">
-          <label style="font-size:12px"><span style="font-weight:700" data-ko="잘한 점" data-en="Strengths">잘한 점</span> <textarea id="be-common-strengths" rows="2" placeholder="공통 잘한 점" data-ko-placeholder="공통 잘한 점" data-en-placeholder="Common strengths" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;margin-top:3px"></textarea></label>
-          <label style="font-size:12px"><span style="font-weight:700" data-ko="보완할 점" data-en="Improvements">보완할 점</span> <textarea id="be-common-improvements" rows="2" placeholder="공통 보완점" data-ko-placeholder="공통 보완점" data-en-placeholder="Common improvements" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;margin-top:3px"></textarea></label>
-          <label style="font-size:12px"><span style="font-weight:700" data-ko="다음 목표" data-en="Next Goals">다음 목표</span> <textarea id="be-common-goals" rows="2" placeholder="공통 다음 목표" data-ko-placeholder="공통 다음 목표" data-en-placeholder="Common next goals" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;margin-top:3px"></textarea></label>
+      <details open style="border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:0;background:rgba(20,41,80,0.6)">
+        <summary style="cursor:pointer;padding:12px 16px;font-weight:800;background:linear-gradient(90deg,rgba(99,102,241,0.18),rgba(99,102,241,0.04));color:#e6ecff;border-radius:10px 10px 0 0" data-ko="💬 공통 코멘트 (모든 학생에게 자동 적용)" data-en="💬 Common Comments (auto-applied to all students)">💬 공통 코멘트 (모든 학생에게 자동 적용)</summary>
+        <div style="padding:12px 16px;display:grid;gap:10px;border-top:1px solid rgba(99,102,241,0.15)">
+          <label style="font-size:12px;color:#e6ecff"><span style="font-weight:700;color:#fbbf24" data-ko="잘한 점" data-en="Strengths">잘한 점</span> <textarea id="be-common-strengths" rows="2" placeholder="공통 잘한 점" data-ko-placeholder="공통 잘한 점" data-en-placeholder="Common strengths" style="width:100%;padding:8px;border:1px solid rgba(255,255,255,0.12);border-radius:6px;font-size:12.5px;margin-top:4px;background:#0c1a3a;color:#e6ecff"></textarea></label>
+          <label style="font-size:12px;color:#e6ecff"><span style="font-weight:700;color:#fbbf24" data-ko="보완할 점" data-en="Improvements">보완할 점</span> <textarea id="be-common-improvements" rows="2" placeholder="공통 보완점" data-ko-placeholder="공통 보완점" data-en-placeholder="Common improvements" style="width:100%;padding:8px;border:1px solid rgba(255,255,255,0.12);border-radius:6px;font-size:12.5px;margin-top:4px;background:#0c1a3a;color:#e6ecff"></textarea></label>
+          <label style="font-size:12px;color:#e6ecff"><span style="font-weight:700;color:#fbbf24" data-ko="다음 목표" data-en="Next Goals">다음 목표</span> <textarea id="be-common-goals" rows="2" placeholder="공통 다음 목표" data-ko-placeholder="공통 다음 목표" data-en-placeholder="Common next goals" style="width:100%;padding:8px;border:1px solid rgba(255,255,255,0.12);border-radius:6px;font-size:12.5px;margin-top:4px;background:#0c1a3a;color:#e6ecff"></textarea></label>
         </div>
       </details>
       <div>
@@ -5752,6 +5752,60 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   /* required 표시 */
   .menu-card label .req, .menu-card label *[style*="color:#dc2626"], .menu-card label *[style*="color: #dc2626"] {
     color: #f87171 !important;
+  }
+
+  /* ════════════════════════════════════════════════════════════
+     🌙 인라인 라이트 배경 강제 다크 (admin 전체 - menu-card 외부도 포함)
+  ════════════════════════════════════════════════════════════ */
+  /* 흔한 라이트 회색 배경들을 모두 어둡게 */
+  *[style*="background:#f9fafb"], *[style*="background: #f9fafb"],
+  *[style*="background:#f3f4f6"], *[style*="background: #f3f4f6"],
+  *[style*="background:#f8fafc"], *[style*="background: #f8fafc"] {
+    background: rgba(99,102,241,0.06) !important;
+    color: var(--da-text) !important;
+    border-color: var(--da-border) !important;
+  }
+  /* 흰색 배경 (사용자 폼 등) → 다크 카드 */
+  *[style*="background:#fff"]:not([style*="rgba"]):not(button),
+  *[style*="background: #fff"]:not([style*="rgba"]):not(button),
+  *[style*="background:white"]:not([style*="rgba"]):not(button) {
+    background: var(--da-card-2) !important;
+    color: var(--da-text) !important;
+  }
+  /* 라이트 보더 (#e5e7eb, #d1d5db) 도 다크 톤으로 */
+  *[style*="border:1px solid #e5e7eb"],
+  *[style*="border: 1px solid #e5e7eb"],
+  *[style*="border:1px solid #d1d5db"],
+  *[style*="border: 1px solid #d1d5db"] {
+    border-color: var(--da-border) !important;
+  }
+  /* details summary 인라인 배경 */
+  details summary[style*="background:#f9fafb"],
+  details summary[style*="background: #f9fafb"],
+  details summary[style*="background:#f3f4f6"],
+  details summary[style*="background: #f3f4f6"] {
+    background: linear-gradient(90deg, rgba(99,102,241,0.15), rgba(99,102,241,0.03)) !important;
+    color: var(--da-text) !important;
+  }
+  /* 살구·노랑·핑크 라이트 배경 (안내 박스) 다크 */
+  *[style*="background:#fff7ed"], *[style*="background: #fff7ed"],
+  *[style*="background:#fefce8"], *[style*="background: #fefce8"] {
+    background: rgba(245,158,11,0.08) !important;
+    color: #fde68a !important;
+    border-color: rgba(245,158,11,0.25) !important;
+  }
+  /* 그린 라이트 (#f0fdf4, #d1fae5) → 다크 */
+  *[style*="background:#f0fdf4"], *[style*="background: #f0fdf4"],
+  *[style*="background:#d1fae5"], *[style*="background: #d1fae5"] {
+    background: rgba(16,185,129,0.10) !important;
+    color: #a7f3d0 !important;
+    border-color: rgba(16,185,129,0.25) !important;
+  }
+  /* 빨강 라이트 (#fef2f2, #fee2e2) → 다크 */
+  *[style*="background:#fef2f2"], *[style*="background: #fef2f2"] {
+    background: rgba(239,68,68,0.10) !important;
+    color: #fca5a5 !important;
+    border-color: rgba(239,68,68,0.25) !important;
   }
 
   /* ════════════════════════════════════════════════════════════
