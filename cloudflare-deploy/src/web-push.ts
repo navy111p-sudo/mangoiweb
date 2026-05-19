@@ -135,17 +135,29 @@ export async function broadcastWebPush(endpoints: string[], env: WebPushEnv): Pr
 // ━━━━ VAPID 키 페어 생성 도우미 (dev/setup 용) ━━━━
 //   wrangler 콘솔에서 호출 가능: GET /api/admin/push/generate-vapid
 export async function generateVapidKeyPair(): Promise<{ publicKey: string; privateKey: string }> {
-  const kp = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
-  const jwkPub = await crypto.subtle.exportKey('jwk', kp.publicKey);
-  const jwkPriv = await crypto.subtle.exportKey('jwk', kp.privateKey);
-  const x = b64uDec(jwkPub.x!);
-  const y = b64uDec(jwkPub.y!);
+  // ECDSA P-256 키 페어 생성 — Cloudflare Workers 표준 WebCrypto API
+  const kp = (await crypto.subtle.generateKey(
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    true,
+    ['sign', 'verify']
+  )) as CryptoKeyPair;
+  if (!kp || !kp.publicKey || !kp.privateKey) {
+    throw new Error('generateKey returned invalid keypair');
+  }
+  const jwkPub: JsonWebKey = await crypto.subtle.exportKey('jwk', kp.publicKey);
+  const jwkPriv: JsonWebKey = await crypto.subtle.exportKey('jwk', kp.privateKey);
+  if (!jwkPub.x || !jwkPub.y || !jwkPriv.d) {
+    throw new Error('exportKey JWK missing fields (x/y/d)');
+  }
+  const x = b64uDec(jwkPub.x);
+  const y = b64uDec(jwkPub.y);
+  // P-256 uncompressed public key = 0x04 || X(32) || Y(32) = 65 bytes
   const pubRaw = new Uint8Array(65);
   pubRaw[0] = 0x04;
   pubRaw.set(x, 1);
   pubRaw.set(y, 33);
   return {
     publicKey: b64uEnc(pubRaw),
-    privateKey: jwkPriv.d!,
+    privateKey: jwkPriv.d,
   };
 }

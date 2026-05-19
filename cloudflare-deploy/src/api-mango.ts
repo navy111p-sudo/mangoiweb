@@ -3431,8 +3431,19 @@ ${chatSampleText}
 
     // ── GET /api/admin/push/generate-vapid — 새 VAPID 키 페어 생성 (개발/세팅용) ──
     if (method === 'GET' && path === '/api/admin/push/generate-vapid') {
-      const kp = await generateVapidKeyPair();
-      return json({ ok: true, publicKey: kp.publicKey, privateKey: kp.privateKey, instruction: 'wrangler secret put VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY 로 등록 후 wrangler deploy', warn: '⚠ 이 키는 한 번만 표시됩니다 — 안전한 곳에 저장하세요' });
+      try {
+        const kp = await generateVapidKeyPair();
+        return json({
+          ok: true,
+          publicKey: kp.publicKey,
+          privateKey: kp.privateKey,
+          instruction: 'wrangler secret put VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT 로 등록 후 deploy',
+          warn: '⚠ 이 키는 한 번만 표시됩니다 — 안전한 곳에 저장하세요',
+        });
+      } catch (e: any) {
+        console.warn('[generate-vapid] error:', e?.message, e?.stack);
+        return json({ ok: false, error: e?.message || 'generate_failed', stack: (e?.stack || '').slice(0, 500) }, 500);
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════
