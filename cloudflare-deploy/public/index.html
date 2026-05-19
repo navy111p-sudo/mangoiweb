@@ -3587,8 +3587,74 @@
         <span class="gm-label" data-ko="학습목표" data-en="Goals">학습목표</span>
         <span class="gm-sub" data-ko="30일 챌린지" data-en="30-day Challenge">30일 챌린지</span>
       </button>
+      <!-- 🆕 AI 음성 코칭 (Whisper + Llama 3.3 70B) -->
+      <button class="gm-card" data-go="speech-coach" data-en-key="ai voice coach" onclick="location.href='/speech-coach.html'">
+        <span class="gm-icon">🎙</span>
+        <span class="gm-label" data-ko="AI 음성 코칭" data-en="AI Voice Coach">AI 음성 코칭</span>
+        <span class="gm-sub" data-ko="발음 자동 평가·피드백" data-en="Auto Pronunciation Feedback">발음 자동 평가·피드백</span>
+      </button>
+      <!-- 🆕 부모 대시보드 (자녀 출석/포인트/평가서 한눈에) -->
+      <button class="gm-card" data-go="parent-dashboard" data-en-key="parent dashboard" onclick="openParentDashboard()">
+        <span class="gm-icon">👨‍👩‍👧</span>
+        <span class="gm-label" data-ko="자녀 보기" data-en="My Child">자녀 보기</span>
+        <span class="gm-sub" data-ko="학부모 대시보드" data-en="Parent Dashboard">학부모 대시보드</span>
+      </button>
+      <!-- 🆕 푸시 알림 구독 (Web Push) -->
+      <button class="gm-card" data-go="push-subscribe" data-en-key="push notifications" onclick="openPushSubscribe()">
+        <span class="gm-icon">🔔</span>
+        <span class="gm-label" data-ko="알림 받기" data-en="Get Alerts">알림 받기</span>
+        <span class="gm-sub" data-ko="수업·평가서·결제 푸시" data-en="Lesson · Eval · Payment">수업·평가서·결제 푸시</span>
+      </button>
     </div>
   </div>
+
+  <!-- 🆕 부모 대시보드 진입 헬퍼 (uid 자동 매핑 또는 입력 prompt) -->
+  <script>
+    window.openParentDashboard = function() {
+      // 1) 로그인 한 학부모이면 자녀 ID 자동 전달
+      try {
+        const u = JSON.parse(localStorage.getItem('mango_user') || 'null');
+        if (u && u.children && u.children.length === 1) {
+          location.href = '/parent.html?uid=' + encodeURIComponent(u.children[0]);
+          return;
+        }
+        if (u && u.role === 'student' && u.user_id) {
+          // 학생 본인이 클릭 → 본인 dashboard 도 같은 페이지로 표시
+          location.href = '/parent.html?uid=' + encodeURIComponent(u.user_id);
+          return;
+        }
+      } catch(e){}
+      // 2) 저장된 자녀 ID 있으면 사용
+      try {
+        const saved = localStorage.getItem('mangoi_parent_uid');
+        if (saved) { location.href = '/parent.html?uid=' + encodeURIComponent(saved); return; }
+      } catch(e){}
+      // 3) 그 외 — 입력 페이지로 이동
+      location.href = '/parent.html';
+    };
+
+    window.openPushSubscribe = async function() {
+      // 이미 구독 상태인지 확인
+      let status = 'unsupported';
+      try { if (window.mangoiPushStatus) status = await window.mangoiPushStatus(); } catch(e){}
+      if (status === 'unsupported') {
+        alert('❌ 이 브라우저는 푸시 알림을 지원하지 않습니다.\n\nChrome / Edge / Firefox 데스크탑 또는 안드로이드에서 이용 가능합니다.\n(iOS Safari 는 16.4 이상 + PWA 설치 후 가능)');
+        return;
+      }
+      if (status === 'subscribed') {
+        if (confirm('이미 푸시 알림을 받고 있어요.\n\n구독을 해제하시겠어요?')) {
+          if (window.mangoiPushUnsubscribe) await window.mangoiPushUnsubscribe();
+        }
+        return;
+      }
+      // 구독 진행
+      if (window.mangoiPushSubscribe) {
+        await window.mangoiPushSubscribe();
+      } else {
+        alert('잠시 후 다시 시도해주세요 (서비스 워커 로딩 중)');
+      }
+    };
+  </script>
 
   <!-- ════════════════════════════════════════════════════════════════ -->
   <!-- 🥭 Phase 39 — 망고아이 학습 영상 (자체 제작 YouTube)                -->
