@@ -4823,6 +4823,186 @@ Respond in JSON ONLY:
     // ═══════════════════════════════════════════════════════════════
 
 
+    // ═══════════════════════════════════════════════════════════════
+    // 🌐 Phase OAUTH — 카카오·네이버·구글 소셜 로그인
+    // ═══════════════════════════════════════════════════════════════
+    const ensureOAuthTable = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS oauth_users (id INTEGER PRIMARY KEY AUTOINCREMENT, provider TEXT NOT NULL, provider_uid TEXT NOT NULL, user_id TEXT NOT NULL, email TEXT, name TEXT, profile_image TEXT, last_login_at INTEGER, created_at INTEGER NOT NULL, UNIQUE(provider, provider_uid));`);
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_oauth_uid ON oauth_users(user_id)`); } catch {}
+    };
+
+    // ── GET /api/oauth/:provider/url — OAuth 인증 URL 반환 ──
+    const oauthUrlMatch = path.match(/^\/api\/oauth\/(kakao|naver|google)\/url$/);
+    if (method === 'GET' && oauthUrlMatch) {
+      const provider = oauthUrlMatch[1];
+      const e = env as any;
+      const baseUrl = url.origin;
+      const redirectUri = `${baseUrl}/api/oauth/${provider}/callback`;
+
+      let clientId = '', authUrl = '', scope = '';
+      if (provider === 'kakao') {
+        clientId = e.KAKAO_CLIENT_ID || '';
+        authUrl = 'https://kauth.kakao.com/oauth/authorize';
+        scope = 'profile_nickname,profile_image,account_email';
+      } else if (provider === 'naver') {
+        clientId = e.NAVER_CLIENT_ID || '';
+        authUrl = 'https://nid.naver.com/oauth2.0/authorize';
+        scope = 'name,email,profile_image';
+      } else if (provider === 'google') {
+        clientId = e.GOOGLE_CLIENT_ID || '';
+        authUrl = 'https://accounts.google.com/o/oauth2/v2/auth';
+        scope = 'openid email profile';
+      }
+
+      if (!clientId) {
+        return json({
+          ok: false,
+          configured: false,
+          error: `${provider}_not_configured`,
+          message: `관리자가 ${provider.toUpperCase()}_CLIENT_ID 시크릿을 등록해야 합니다.`,
+          setup_guide: provider === 'kakao'
+            ? 'developers.kakao.com → 내 애플리케이션 → REST API 키 → wrangler secret put KAKAO_CLIENT_ID + KAKAO_CLIENT_SECRET'
+            : provider === 'naver'
+            ? 'developers.naver.com → 애플리케이션 등록 → ID/Secret → wrangler secret put NAVER_CLIENT_ID + NAVER_CLIENT_SECRET'
+            : 'console.cloud.google.com → OAuth 2.0 클라이언트 ID → wrangler secret put GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET',
+        }, 503);
+      }
+
+      const state = Math.random().toString(36).slice(2, 18);
+      const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        scope,
+        state,
+      });
+      return json({ ok: true, configured: true, auth_url: `${authUrl}?${params.toString()}`, state });
+    }
+
+    // ── GET /api/oauth/:provider/callback — OAuth 콜백 ──
+    const oauthCbMatch = path.match(/^\/api\/oauth\/(kakao|naver|google)\/callback$/);
+    if (method === 'GET' && oauthCbMatch) {
+      const provider = oauthCbMatch[1];
+      const code = url.searchParams.get('code');
+      if (!code) {
+        return new Response('<html><body><script>alert("OAuth 인증 코드 없음");location.href="/";</script></body></html>', {
+          headers: { 'Content-Type': 'text/html' }
+        });
+      }
+      const e = env as any;
+      const baseUrl = url.origin;
+      const redirectUri = `${baseUrl}/api/oauth/${provider}/callback`;
+      let tokenUrl = '', userUrl = '', clientId = '', clientSecret = '';
+
+      if (provider === 'kakao') {
+        tokenUrl = 'https://kauth.kakao.com/oauth/token';
+        userUrl = 'https://kapi.kakao.com/v2/user/me';
+        clientId = e.KAKAO_CLIENT_ID || ''; clientSecret = e.KAKAO_CLIENT_SECRET || '';
+      } else if (provider === 'naver') {
+        tokenUrl = 'https://nid.naver.com/oauth2.0/token';
+        userUrl = 'https://openapi.naver.com/v1/nid/me';
+        clientId = e.NAVER_CLIENT_ID || ''; clientSecret = e.NAVER_CLIENT_SECRET || '';
+      } else {
+        tokenUrl = 'https://oauth2.googleapis.com/token';
+        userUrl = 'https://www.googleapis.com/oauth2/v2/userinfo';
+        clientId = e.GOOGLE_CLIENT_ID || ''; clientSecret = e.GOOGLE_CLIENT_SECRET || '';
+      }
+
+      if (!clientId || !clientSecret) {
+        return new Response(`<html><body><script>alert("${provider} OAuth 미설정 (시크릿 없음)");location.href="/";</script></body></html>`, { headers: { 'Content-Type': 'text/html' } });
+      }
+
+      try {
+        // Access token 교환
+        const body = new URLSearchParams({
+          grant_type: 'authorization_code',
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: redirectUri,
+          code,
+        });
+        const tokResp = await fetch(tokenUrl, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+        const tok: any = await tokResp.json();
+        if (!tok.access_token) throw new Error('no_access_token: ' + JSON.stringify(tok).slice(0, 200));
+
+        // 사용자 정보 조회
+        const userResp = await fetch(userUrl, { headers: { 'Authorization': `Bearer ${tok.access_token}` } });
+        const userInfo: any = await userResp.json();
+
+        // 프로바이더별 데이터 파싱
+        let providerUid = '', email = '', name = '', profileImage = '';
+        if (provider === 'kakao') {
+          providerUid = String(userInfo.id || '');
+          email = userInfo.kakao_account?.email || '';
+          name = userInfo.kakao_account?.profile?.nickname || userInfo.properties?.nickname || '';
+          profileImage = userInfo.kakao_account?.profile?.profile_image_url || userInfo.properties?.profile_image || '';
+        } else if (provider === 'naver') {
+          const r = userInfo.response || {};
+          providerUid = r.id || '';
+          email = r.email || '';
+          name = r.name || r.nickname || '';
+          profileImage = r.profile_image || '';
+        } else {
+          providerUid = userInfo.id || '';
+          email = userInfo.email || '';
+          name = userInfo.name || '';
+          profileImage = userInfo.picture || '';
+        }
+        if (!providerUid) throw new Error('no_provider_uid');
+
+        // DB 등록 또는 업데이트
+        await ensureOAuthTable();
+        const userId = `${provider}_${providerUid}`;
+        const now = Date.now();
+        await env.DB.prepare(
+          `INSERT INTO oauth_users (provider, provider_uid, user_id, email, name, profile_image, last_login_at, created_at) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(provider, provider_uid) DO UPDATE SET email = excluded.email, name = excluded.name, profile_image = excluded.profile_image, last_login_at = excluded.last_login_at`
+        ).bind(provider, providerUid, userId, email, name, profileImage, now, now).run();
+
+        // 학생/학부모로 자동 등록 (없을 때만)
+        try {
+          await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT, parent_user_id TEXT, program TEXT, status TEXT, created_at INTEGER);`);
+          await env.DB.prepare(`INSERT OR IGNORE INTO students_erp (user_id, student_name, status, created_at) VALUES (?,?,?,?)`)
+            .bind(userId, name || userId, '신규', now).run();
+        } catch {}
+
+        // 클라이언트로 결과 전달 + localStorage 자동 저장
+        const userPayload = JSON.stringify({ user_id: userId, user_name: name, role: 'student', email, profile_image: profileImage, provider });
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>로그인 완료</title></head><body style="margin:0;font-family:'Noto Sans KR',sans-serif;background:#0a1530;color:#e6ecff;display:flex;align-items:center;justify-content:center;min-height:100vh">
+          <div style="text-align:center;padding:32px">
+            <div style="font-size:48px;margin-bottom:12px">✅</div>
+            <h2 style="color:#fbbf24;margin-bottom:8px">${provider.toUpperCase()} 로그인 완료</h2>
+            <p style="color:#a3b3d1;margin-bottom:18px">${name ? name + '님 환영합니다!' : '잠시만 기다려주세요...'}</p>
+            <a href="/" style="color:#fbbf24">홈으로 이동</a>
+          </div>
+          <script>
+            try {
+              const u = ${userPayload};
+              localStorage.setItem('mango_user', JSON.stringify(u));
+            } catch(e){}
+            setTimeout(() => { location.href = '/'; }, 1500);
+          </script>
+          </body></html>`;
+        return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+      } catch (err: any) {
+        return new Response(`<html><body><script>alert("OAuth 실패: ${err?.message?.replace(/"/g,'')||'unknown'}");location.href="/";</script></body></html>`, { headers: { 'Content-Type': 'text/html' } });
+      }
+    }
+
+    // ── GET /api/oauth/status — 어떤 프로바이더가 설정됐는지 ──
+    if (method === 'GET' && path === '/api/oauth/status') {
+      const e = env as any;
+      return json({
+        ok: true,
+        kakao: !!e.KAKAO_CLIENT_ID,
+        naver: !!e.NAVER_CLIENT_ID,
+        google: !!e.GOOGLE_CLIENT_ID,
+      });
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // 🌐 Phase OAUTH 끝
+    // ═══════════════════════════════════════════════════════════════
+
+
     if (method === 'GET' && path === '/api/admin/stats/revenue') {
       // 신규 환경에서 student_payments 가 없을 수 있으니 자동 생성
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, period_start TEXT, period_end TEXT, amount_krw INTEGER NOT NULL, method TEXT, memo TEXT, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`);

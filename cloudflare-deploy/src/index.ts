@@ -476,6 +476,9 @@ export default {
         // 🔐 Phase LOGIN 통합 로그인
         path === '/api/student/login' ||
         path === '/api/student/set-password' ||
+        // 🌐 Phase OAUTH 소셜 로그인
+        path === '/api/oauth/status' ||
+        /^\/api\/oauth\/(kakao|naver|google)\/(url|callback)$/.test(path) ||
         // 🎙 Phase AV AI 음성 코칭
         path === '/api/voice/transcribe' ||
         path === '/api/voice/coach' ||

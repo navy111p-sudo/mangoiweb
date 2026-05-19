@@ -1488,6 +1488,31 @@
       <button onclick="window.adminLogin && window.adminLogin()" style="width:100%;padding:11px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:0;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px">
         <span data-ko="✅ 로그인" data-en="✅ Sign in">✅ 로그인</span>
       </button>
+
+      <!-- 🌐 OAuth 소셜 로그인 -->
+      <div style="text-align:center;color:#94a3b8;font-size:11.5px;margin:14px 0 8px;position:relative">
+        <span style="background:#fff;padding:0 12px;position:relative;z-index:1" data-ko="또는 소셜 계정으로 로그인" data-en="Or login with social account">또는 소셜 계정으로 로그인</span>
+        <span style="position:absolute;left:0;right:0;top:50%;height:1px;background:#e5e7eb;z-index:0"></span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+        <button type="button" onclick="oauthLogin('kakao')" style="padding:11px;background:#fee500;color:#191919;border:0;border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px">💬 카카오</button>
+        <button type="button" onclick="oauthLogin('naver')" style="padding:11px;background:#03c75a;color:#fff;border:0;border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px">N 네이버</button>
+        <button type="button" onclick="oauthLogin('google')" style="padding:11px;background:#fff;color:#3c4043;border:1px solid #dadce0;border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px">G 구글</button>
+      </div>
+      <script>
+      window.oauthLogin = async function(provider) {
+        try {
+          const r = await fetch('/api/oauth/' + provider + '/url');
+          const d = await r.json();
+          if (!d.configured) {
+            alert('⚠️ ' + provider.toUpperCase() + ' 로그인이 아직 설정되지 않았습니다.\n\n' + (d.message||'') + '\n\n' + (d.setup_guide||''));
+            return;
+          }
+          location.href = d.auth_url;
+        } catch(e) { alert('❌ ' + e.message); }
+      };
+      </script>
+
       <details style="margin-top:8px">
         <summary style="cursor:pointer;font-size:11.5px;color:#3b82f6;font-weight:600" data-ko="💡 시연용 데모 계정 보기" data-en="💡 Show demo accounts">💡 시연용 데모 계정 보기</summary>
         <div style="margin-top:8px;padding:10px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;font-size:11.5px;color:#374151;line-height:1.8;font-family:Consolas,monospace">

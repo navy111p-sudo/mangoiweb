@@ -16065,10 +16065,29 @@ window.closeRulesModal = function() {
       '</div>';
     }).join('');
     var html = '<div class="login-modal" onclick="event.stopPropagation()">'+
-      '<h2>🔑 '+(L?'학생 로그인':'Student Login')+'</h2>'+
-      '<div class="lm-sub">'+(L?'본인 이름의 카드를 터치하면 로그인됩니다. (데모용)':'Tap your card to sign in (demo).')+'</div>'+
+      '<h2>🔑 '+(L?'학생/학부모 로그인':'Login')+'</h2>'+
+      '<div class="lm-sub">'+(L?'학생 ID + 비밀번호 또는 소셜 계정으로 빠르게 로그인하세요.':'Login with student ID or social account.')+'</div>'+
       '<div class="lm-body">'+
-        '<div class="lm-label">'+(L?'학생 선택':'Pick Student')+'</div>'+
+        // ━━━━ 학생 ID / 비밀번호 로그인 ━━━━
+        '<div class="lm-label">'+(L?'👤 학생 ID / 비밀번호':'Student ID / Password')+'</div>'+
+        '<div style="display:grid;gap:8px;margin-bottom:14px">'+
+          '<input id="lm-uid" type="text" placeholder="'+(L?'예: hong_gd':'e.g. hong_gd')+'" style="width:100%;padding:11px 13px;background:#131826;color:#fff;border:1px solid #232b40;border-radius:9px;font-size:13px" />'+
+          '<input id="lm-pw" type="password" placeholder="'+(L?'비밀번호 (없으면 비워두기)':'Password (optional)')+'" style="width:100%;padding:11px 13px;background:#131826;color:#fff;border:1px solid #232b40;border-radius:9px;font-size:13px" />'+
+          '<button onclick="doStudentLogin()" style="padding:11px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;border:0;border-radius:9px;font-weight:800;font-size:13px;cursor:pointer">🔑 '+(L?'로그인':'Sign In')+'</button>'+
+          '<div id="lm-err" style="display:none;padding:8px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#fca5a5;font-size:11.5px"></div>'+
+        '</div>'+
+        // ━━━━ OAuth 소셜 로그인 ━━━━
+        '<div style="text-align:center;color:#94a3b8;font-size:11.5px;margin:10px 0;position:relative">'+
+          '<span style="background:#131826;padding:0 12px;position:relative;z-index:1">'+(L?'또는 소셜 계정으로':'Or social login')+'</span>'+
+          '<span style="position:absolute;left:0;right:0;top:50%;height:1px;background:#232b40;z-index:0"></span>'+
+        '</div>'+
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">'+
+          '<button type="button" onclick="lmOauth(\'kakao\')" style="padding:11px;background:#fee500;color:#191919;border:0;border-radius:9px;font-weight:700;font-size:12.5px;cursor:pointer">💬 '+(L?'카카오':'Kakao')+'</button>'+
+          '<button type="button" onclick="lmOauth(\'naver\')" style="padding:11px;background:#03c75a;color:#fff;border:0;border-radius:9px;font-weight:700;font-size:12.5px;cursor:pointer">N '+(L?'네이버':'Naver')+'</button>'+
+          '<button type="button" onclick="lmOauth(\'google\')" style="padding:11px;background:#fff;color:#3c4043;border:1px solid #dadce0;border-radius:9px;font-weight:700;font-size:12.5px;cursor:pointer">G '+(L?'구글':'Google')+'</button>'+
+        '</div>'+
+        // ━━━━ 데모 학생 카드 (기존, 빠른 로그인) ━━━━
+        '<div style="text-align:center;color:#94a3b8;font-size:11.5px;margin:10px 0">'+(L?'🎭 데모 빠른 로그인':'🎭 Demo Quick Login')+'</div>'+
         '<div class="student-cards">'+cards+'</div>'+
       '</div>'+
       '<div class="lm-actions"><button class="lm-btn" onclick="closeLoginModal()">'+(L?'취소':'Cancel')+'</button></div>'+
@@ -16086,6 +16105,52 @@ window.closeRulesModal = function() {
     setUser({ uid:s.uid, name:s.name });
     closeLoginModal();
     showLcToast2('✅ '+(((window.getLang?window.getLang():'ko')==='ko')?(s.name+'님으로 로그인되었습니다.'):'Signed in as '+s.name+'.'));
+  };
+
+  // 🔑 학생 ID + 비밀번호 로그인 (실제 API)
+  window.doStudentLogin = async function() {
+    var uid = (document.getElementById('lm-uid')||{}).value;
+    var pw = (document.getElementById('lm-pw')||{}).value;
+    var err = document.getElementById('lm-err');
+    if (!uid || !uid.trim()) { if (err){err.style.display='block';err.textContent='학생 ID를 입력하세요';} return; }
+    try {
+      var r = await fetch('/api/student/login', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ user_id: uid.trim(), password: (pw||'').trim() })
+      });
+      var d = await r.json();
+      if (!d.ok) {
+        if (err) { err.style.display='block'; err.textContent='❌ ' + (d.message || d.error || '로그인 실패'); }
+        return;
+      }
+      try {
+        localStorage.setItem('mango_user', JSON.stringify({
+          user_id: d.user.user_id,
+          uid: d.user.user_id,
+          name: d.user.user_name,
+          user_name: d.user.user_name,
+          role: d.user.role || 'student',
+        }));
+      } catch(e){}
+      closeLoginModal();
+      showLcToast2('✅ ' + d.user.user_name + '님 환영합니다!');
+      setTimeout(() => location.reload(), 800);
+    } catch(e) {
+      if (err) { err.style.display='block'; err.textContent='❌ ' + e.message; }
+    }
+  };
+
+  // 🌐 OAuth 로그인 (학생 모달)
+  window.lmOauth = async function(provider) {
+    try {
+      var r = await fetch('/api/oauth/' + provider + '/url');
+      var d = await r.json();
+      if (!d.configured) {
+        alert('⚠️ ' + provider.toUpperCase() + ' 로그인이 아직 설정되지 않았어요.\n\n' + (d.message || '') + '\n\n관리자에게 문의해주세요.');
+        return;
+      }
+      location.href = d.auth_url;
+    } catch(e) { alert('❌ ' + e.message); }
   };
 
   // 페이지 로드 시 UI 갱신

@@ -221,10 +221,23 @@ window.bookTeacher = function(teacherUid, teacherName, mbti, score, type) {
 
 window.doMatch = async function() {
   if (!selectedMbti) return;
-  const out = document.getElementById('result-list');
   const card = document.getElementById('result-card');
+  const btn = document.getElementById('match-btn');
+  const btnLabel = btn ? btn.querySelector('span[data-ko]') : null;
+  // 🔄 토글: 이미 열려있으면 닫기
+  if (card.style.display === 'block') {
+    card.style.display = 'none';
+    if (btnLabel) { btnLabel.setAttribute('data-ko','매칭 시작'); btnLabel.setAttribute('data-en','Start Matching'); btnLabel.textContent = (window.getLang && window.getLang() === 'en') ? 'Start Matching' : '매칭 시작'; }
+    if (btn) btn.innerHTML = '🔍 <span data-ko="매칭 시작" data-en="Start Matching">매칭 시작</span>';
+    return;
+  }
+  // 열기
+  const out = document.getElementById('result-list');
   card.style.display = 'block';
+  if (btn) btn.innerHTML = '🔽 <span data-ko="결과 닫기" data-en="Close Results">결과 닫기</span>';
   out.innerHTML = '<div style="color:#a3b3d1;text-align:center;padding:20px">매칭 중…</div>';
+  // 결과 영역으로 부드럽게 스크롤
+  setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
   try {
     const r = await fetch('/api/mbti/match', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ mbti: selectedMbti }) });
     const d = await r.json();
