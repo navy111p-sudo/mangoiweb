@@ -3738,6 +3738,13 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       <label style="font-size:12px;font-weight:700">키워드 (쉼표로 구분, 3~5개 권장)
         <input id="aed-keywords" type="text" placeholder="예: 발음 정확, 적극 참여, 시제 헷갈림, 단어 5개 잊음" style="width:100%;padding:8px;margin-top:3px"/>
       </label>
+      <details style="margin-top:6px;background:rgba(255,255,255,0.04);border:1px dashed rgba(255,255,255,0.15);border-radius:8px;padding:0">
+        <summary style="cursor:pointer;padding:8px 12px;font-size:11.5px;color:#a3b3d1">📤 <b>바로 저장하려면</b> — 학생 UID 입력 (옵션)</summary>
+        <div style="padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <label style="font-size:11.5px">학생 UID <input id="aed-student-uid" type="text" placeholder="hong_gd" style="width:100%;padding:6px;margin-top:2px"/></label>
+          <label style="font-size:11.5px">학부모 UID (옵션) <input id="aed-parent-uid" type="text" placeholder="parent_kim" style="width:100%;padding:6px;margin-top:2px"/></label>
+        </div>
+      </details>
       <button onclick="aedGenerate()" style="padding:12px 20px;background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff;border:0;border-radius:8px;font-weight:800;font-size:14px;cursor:pointer">🤖 AI 초안 작성 (10~15초)</button>
     </div>
     <div id="aed-result" style="margin-top:14px"></div>
@@ -3809,11 +3816,53 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
               <textarea id="aed-out-${k}" rows="3" style="width:100%;padding:8px;font-size:12.5px">${esc(draft[k]||'')}</textarea>
             </div>`;
           }).join('')}
-          <div style="display:flex;gap:8px;margin-top:8px">
-            <button onclick="navigator.clipboard.writeText(['💪 잘한 점:',document.getElementById('aed-out-strengths').value,'','⚠️ 보완할 점:',document.getElementById('aed-out-improvements').value,'','🎯 다음 목표:',document.getElementById('aed-out-next_goals').value,'','💬 강사 코멘트:',document.getElementById('aed-out-teacher_comment').value].join('\\n'));this.textContent='✅ 복사됨'" style="padding:8px 16px;background:#10b981;color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer">📋 모두 복사</button>
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+            <button onclick="aedSaveDirect()" style="padding:10px 20px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:6px;font-weight:800;cursor:pointer;font-size:13.5px">📤 이 텍스트로 바로 저장</button>
+            <button onclick="navigator.clipboard.writeText(['💪 잘한 점:',document.getElementById('aed-out-strengths').value,'','⚠️ 보완할 점:',document.getElementById('aed-out-improvements').value,'','🎯 다음 목표:',document.getElementById('aed-out-next_goals').value,'','💬 강사 코멘트:',document.getElementById('aed-out-teacher_comment').value].join('\\n'));this.textContent='✅ 복사됨'" style="padding:8px 16px;background:rgba(59,130,246,0.2);color:#93c5fd;border:1px solid rgba(59,130,246,0.4);border-radius:6px;font-weight:700;cursor:pointer">📋 텍스트만 복사</button>
             <button onclick="aedGenerate()" style="padding:8px 16px;background:rgba(99,102,241,0.2);color:#c4b5fd;border:1px solid rgba(99,102,241,0.4);border-radius:6px;font-weight:700;cursor:pointer">🔄 다시 생성</button>
           </div>
+          <div id="aed-save-result" style="margin-top:10px"></div>
         </div>`;
+    } catch(e) { out.innerHTML = '<div style="color:#f87171">❌ '+esc(e.message)+'</div>'; }
+  };
+
+  // 📤 AI 초안을 바로 평가서로 저장
+  window.aedSaveDirect = async function(){
+    const sUid = document.getElementById('aed-student-uid')?.value.trim();
+    if (!sUid) {
+      alert('"📤 바로 저장하려면" 영역을 펼치고 학생 UID 를 입력하세요');
+      return;
+    }
+    const out = document.getElementById('aed-save-result');
+    out.innerHTML = '<div style="color:#a3b3d1;font-size:12px">저장 중…</div>';
+    const payload = {
+      student_uid: sUid,
+      parent_uid: document.getElementById('aed-parent-uid')?.value.trim() || null,
+      student_name: document.getElementById('aed-student-name').value.trim(),
+      teacher_name: document.getElementById('aed-teacher-name').value.trim(),
+      lesson_title: document.getElementById('aed-lesson-title').value.trim(),
+      lesson_date: new Date().toISOString().slice(0,10),
+      score_participation: parseInt(document.getElementById('aed-sc-part').value) || null,
+      score_comprehension: parseInt(document.getElementById('aed-sc-comp').value) || null,
+      score_homework: parseInt(document.getElementById('aed-sc-hw').value) || null,
+      score_attitude: parseInt(document.getElementById('aed-sc-att').value) || null,
+      score_speaking: parseInt(document.getElementById('aed-sc-sp').value) || null,
+      strengths: document.getElementById('aed-out-strengths').value.trim(),
+      improvements: document.getElementById('aed-out-improvements').value.trim(),
+      next_goals: document.getElementById('aed-out-next_goals').value.trim(),
+      teacher_comment: document.getElementById('aed-out-teacher_comment').value.trim(),
+    };
+    try {
+      const r = await fetch('/api/eval/create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      let extra = '';
+      if (d.notify && d.notify.sent && d.notify.sent.length) extra += ` · 카톡 ${d.notify.sent.length}건`;
+      if (d.push && Array.isArray(d.push)) {
+        const sent = d.push.filter(p => p.sent > 0).length;
+        if (sent) extra += ` · 푸시 ${sent}건`;
+      }
+      out.innerHTML = `<div style="padding:12px 16px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);border-radius:8px;font-size:13px"><b style="color:#34d399">✅ 평가서 #${d.id} 저장 완료</b><br><span style="color:#a3b3d1;font-size:11.5px">종합 점수: <b style="color:#fbbf24">${d.overall}</b>점${extra}</span><br><a href="/eval.html?id=${d.id}" target="_blank" style="color:#93c5fd;font-size:12px;text-decoration:underline">📄 평가서 페이지 열기</a></div>`;
     } catch(e) { out.innerHTML = '<div style="color:#f87171">❌ '+esc(e.message)+'</div>'; }
   };
 
