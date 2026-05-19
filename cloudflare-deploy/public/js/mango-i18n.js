@@ -13,6 +13,17 @@
  */
 (function(){
   'use strict';
+  // admin.html 은 자체 toggleAdminLang() 시스템을 가지고 있어서 충돌 방지 — 비활성화
+  // (admin.html 헤더에 자체 토글 + adminLang 변수 + 사이드바 갱신 hook 이 있음)
+  if (typeof window.toggleAdminLang === 'function' || document.getElementById('admin-lang-label')) {
+    // toggleLang / setLang 등을 admin 의 것으로 위임
+    window.toggleLang = function(){ try { window.toggleAdminLang(); } catch(e){} };
+    window.setLang = function(){ try { window.toggleAdminLang(); } catch(e){} };
+    window.getLang = function(){ return (typeof window.adminLang !== 'undefined') ? window.adminLang : 'ko'; };
+    window.applyI18n = function(){};
+    return;
+  }
+
   var currentLang = 'ko';
   try {
     var saved = localStorage.getItem('mangoi_lang');
