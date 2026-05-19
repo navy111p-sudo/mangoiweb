@@ -5275,12 +5275,68 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   .admin-sidebar h4 { color: var(--da-text) !important; }
   .admin-sidebar input { background: var(--da-input) !important; border: 1px solid var(--da-border) !important; color: var(--da-text) !important; }
   .admin-sidebar input::placeholder { color: var(--da-text-3) !important; }
-  .sb-cat-wrap > details { background: rgba(255,255,255,0.03) !important; border: 1px solid var(--da-border) !important; }
-  .sb-cat-wrap > details > summary { color: var(--da-text) !important; }
-  .sb-cat-wrap > details > summary:hover { background: rgba(255,255,255,0.05) !important; }
-  .sb-cat-wrap > details[open] > summary { background: rgba(99,102,241,0.12) !important; color: #c4b5fd !important; }
+  /* ── 사이드바 카테고리 (sb-cat 실제 구조) ── */
+  .sb-cat {
+    background: rgba(255,255,255,0.04) !important;
+    border: 1px solid var(--da-border) !important;
+  }
+  .sb-cat:hover {
+    background: rgba(255,255,255,0.08) !important;
+    border-color: rgba(255,255,255,0.18) !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+  }
+  .sb-cat-head { color: var(--da-text) !important; }
+  .sb-cat:hover .sb-cat-head { color: #fbbf24 !important; }
+  .sb-cat-label { color: var(--da-text) !important; font-weight: 700 !important; }
+  .sb-cat:hover .sb-cat-label { color: #fbbf24 !important; }
+  .sb-cat-count {
+    color: var(--da-text-2) !important;
+    background: rgba(255,255,255,0.08) !important;
+  }
+  .sb-cat:hover .sb-cat-count {
+    background: rgba(251,191,36,0.25) !important;
+    color: #fbbf24 !important;
+  }
+  .sb-cat-arrow { color: var(--da-text-3) !important; }
+  .sb-cat:hover .sb-cat-arrow { color: #fbbf24 !important; }
+
+  /* 펼친 카테고리 — 카테고리별 컬러 글로우 */
+  .sb-cat.expanded { background: rgba(99,102,241,0.10) !important; border-color: rgba(99,102,241,0.30) !important; }
+  .sb-cat.expanded .sb-cat-head { color: #c4b5fd !important; }
+  .sb-cat.expanded .sb-cat-label { color: #c4b5fd !important; }
+
+  /* 서브 패널 (마우스 호버 + 펼침) */
+  .sb-cat .sb-sub-panel {
+    background: var(--da-card-2) !important;
+    border: 1px solid var(--da-border-strong) !important;
+    box-shadow: 0 20px 50px -10px rgba(0,0,0,0.6) !important;
+  }
   .sb-sub-item, .sb-subsub-item { color: var(--da-text-2) !important; }
-  .sb-sub-item:hover, .sb-subsub-item:hover { background: rgba(99,102,241,0.10) !important; color: var(--da-text) !important; }
+  .sb-sub-item:hover, .sb-subsub-item:hover {
+    background: rgba(99,102,241,0.12) !important;
+    color: var(--da-text) !important;
+  }
+  .sb-sub-ico { color: var(--da-text-2) !important; }
+  .sb-sub-item:hover .sb-sub-ico { color: #fbbf24 !important; }
+
+  /* 카테고리별 좌측 컬러 막대 (사이드바) */
+  .sb-cat { position: relative; overflow: visible; }
+  .sb-cat::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 8px; bottom: 8px;
+    width: 3px;
+    background: #6366f1;
+    border-radius: 0 2px 2px 0;
+    opacity: 0.7;
+  }
+  .sb-cat:nth-child(1)::before { background: #6366f1; } /* 대시보드 - 인디고 */
+  .sb-cat:nth-child(2)::before { background: #10b981; } /* 학생/학부모 - 그린 */
+  .sb-cat:nth-child(3)::before { background: #8b5cf6; } /* 강사 - 바이올렛 */
+  .sb-cat:nth-child(4)::before { background: #f59e0b; } /* 회계 - 앰버 */
+  .sb-cat:nth-child(5)::before { background: #ec4899; } /* 알림/소통 - 핑크 */
+  .sb-cat:nth-child(6)::before { background: #0ea5e9; } /* 교육 - 스카이 */
+  .sb-cat:nth-child(7)::before { background: #64748b; } /* 시스템 - 슬레이트 */
 
   /* ── KPI / Chart / Table 카드 (메인 영역) ── */
   .card, .chart-card, .table-card {
