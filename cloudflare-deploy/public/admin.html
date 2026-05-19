@@ -5546,6 +5546,94 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     color: #f87171 !important;
   }
 
+  /* ════════════════════════════════════════════════════════════
+     🌌 Hero 영역 다크 — 망고이 캐릭터 살리는 우주 톤
+  ════════════════════════════════════════════════════════════ */
+  .hero {
+    background:
+      radial-gradient(ellipse 90% 75% at 30% 25%, rgba(99,102,241,0.35) 0%, transparent 75%),
+      radial-gradient(ellipse 75% 70% at 75% 25%, rgba(251,191,36,0.18) 0%, transparent 75%),
+      radial-gradient(ellipse 110% 55% at 50% 55%, rgba(139,92,246,0.12) 0%, transparent 75%),
+      radial-gradient(circle at 10% 95%, rgba(236,72,153,0.10) 0%, transparent 60%),
+      radial-gradient(circle at 90% 90%, rgba(245,158,11,0.10) 0%, transparent 60%),
+      linear-gradient(160deg, #141a2b 0%, #1a2138 30%, #1e2645 60%, #1a2138 100%) !important;
+    border: 1px solid var(--da-border) !important;
+    box-shadow: 0 32px 64px -22px rgba(0,0,0,0.5), 0 8px 18px -8px rgba(99,102,241,0.20) !important;
+  }
+  .hero::before {
+    background: radial-gradient(circle, rgba(251,191,36,0.18) 0%, transparent 65%) !important;
+  }
+  .hero::after {
+    background: radial-gradient(circle, rgba(99,102,241,0.20) 0%, transparent 65%) !important;
+  }
+  .hero h1 {
+    background: linear-gradient(180deg, #fff4cc 0%, #fbbf24 60%, #d97706 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    text-shadow: 0 6px 24px rgba(251,191,36,0.35) !important;
+  }
+  .hero .hero-sub { color: var(--da-text) !important; opacity: 0.9; }
+  .hero .hero-search {
+    background: rgba(20,26,43,0.85) !important;
+    border: 1px solid rgba(251,191,36,0.30) !important;
+    backdrop-filter: blur(20px) !important;
+  }
+  .hero .hero-search:focus-within {
+    border-color: rgba(251,191,36,0.60) !important;
+    box-shadow: 0 0 0 4px rgba(251,191,36,0.15) !important;
+  }
+  .hero .hero-search input {
+    background: transparent !important;
+    color: var(--da-text) !important;
+  }
+  .hero .hero-search input::placeholder { color: var(--da-text-2) !important; }
+  /* 망고아이 캐릭터 박스 (오른쪽) 테두리/배경 */
+  .hero-banner-img { filter: drop-shadow(0 8px 24px rgba(251,191,36,0.30)) !important; }
+
+  /* 사용자 정보 pill (좌측 상단 본사·경영진) */
+  #topUserBtn.th-user {
+    background: linear-gradient(135deg, rgba(251,191,36,0.18), rgba(245,158,11,0.10)) !important;
+    border: 1px solid rgba(251,191,36,0.35) !important;
+    color: var(--da-text) !important;
+  }
+  #topUserBtn.th-user:hover {
+    background: linear-gradient(135deg, rgba(251,191,36,0.28), rgba(245,158,11,0.18)) !important;
+    border-color: rgba(251,191,36,0.55) !important;
+  }
+  /* 사이드바 상단 사용자 카드 (본사·경영진) */
+  .admin-sidebar #topUserBtn {
+    background: linear-gradient(135deg, rgba(251,191,36,0.20), rgba(245,158,11,0.12)) !important;
+    border: 1px solid rgba(251,191,36,0.35) !important;
+    color: var(--da-text) !important;
+    box-shadow: 0 4px 16px rgba(251,191,36,0.15) !important;
+  }
+  /* "메뉴 (가나다 순)" 헤더 */
+  .admin-sidebar h4 { color: var(--da-text) !important; }
+  .admin-sidebar h4 span { color: var(--da-text-2) !important; }
+
+  /* 인트로 안내 텍스트 */
+  .hero h1::before, .hero h1::after { opacity: 0.6; }
+
+  /* AI 빠른 행동 버튼 (홈에서) — 다크에 어울리게 */
+  .ai-quick-btn {
+    background: rgba(20,26,43,0.85) !important;
+    border: 1px solid rgba(251,191,36,0.30) !important;
+    color: var(--da-text) !important;
+  }
+  .ai-quick-btn:hover {
+    background: rgba(251,191,36,0.18) !important;
+    border-color: rgba(251,191,36,0.55) !important;
+    color: #fbbf24 !important;
+  }
+  /* AI 검색 결과 박스 */
+  #ai-result-box, #ai-result, .ai-result {
+    background: var(--da-card-2) !important;
+    border: 1px solid var(--da-border) !important;
+    color: var(--da-text) !important;
+  }
+  /* 페이지 하단 fixed 음성 힌트 */
+  #voice-hint { background: rgba(20,26,43,0.95) !important; color: #fbbf24 !important; border: 1px solid rgba(251,191,36,0.35) !important; }
+
   .menu-card .menu-form { display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:10px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px; }
   .menu-card .menu-form input,
   .menu-card .menu-form select,
