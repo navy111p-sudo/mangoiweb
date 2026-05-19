@@ -459,6 +459,48 @@ function pdRender(d){
   if (window.applyI18n) window.applyI18n();
 }
 
+// 🔊 안내 음성 자동 재생 (홈에서 자녀보기 클릭으로 진입 시)
+(function(){
+  let shouldPlay = false;
+  try { shouldPlay = sessionStorage.getItem('mangoi_play_parent_audio') === '1'; } catch(e){}
+  try { if (localStorage.getItem('mangoi_parent_audio_muted') === '1') shouldPlay = false; } catch(e){}
+  if (!shouldPlay) return;
+  try { sessionStorage.removeItem('mangoi_play_parent_audio'); } catch(e){}
+
+  const audio = new Audio('/audio/학부모대시보드.wav');
+  audio.volume = 0.5;
+  audio.play().catch(() => {});
+
+  // 우측 하단 끄기 토스트
+  const toast = document.createElement('div');
+  toast.id = 'mangoi-parent-audio-toast';
+  toast.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;background:rgba(20,41,80,0.95);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);border-radius:12px;padding:12px 16px;font-size:13px;font-family:"Noto Sans KR",sans-serif;display:flex;align-items:center;gap:12px;box-shadow:0 12px 32px -8px rgba(0,0,0,0.5);backdrop-filter:blur(8px);animation:mpt-slide 0.35s ease-out';
+  toast.innerHTML = `
+    <span style="display:inline-flex;align-items:center;gap:6px">🔊 <b>학부모 대시보드 안내</b></span>
+    <button id="mpt-stop" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#e6ecff;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:11.5px;font-weight:700">⏸ 멈춤</button>
+    <button id="mpt-mute" style="background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);color:#fca5a5;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:11.5px;font-weight:700">🔇 다음부터 끄기</button>
+  `;
+  const style = document.createElement('style');
+  style.textContent = '@keyframes mpt-slide{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}';
+  document.head.appendChild(style);
+  document.body.appendChild(toast);
+
+  document.getElementById('mpt-stop').onclick = function() { try { audio.pause(); } catch(e){} toast.remove(); };
+  document.getElementById('mpt-mute').onclick = function() {
+    try { audio.pause(); } catch(e){}
+    try { localStorage.setItem('mangoi_parent_audio_muted', '1'); } catch(e){}
+    toast.remove();
+    // 짧은 알림
+    const ack = document.createElement('div');
+    ack.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;background:rgba(239,68,68,0.95);color:#fff;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700';
+    ack.textContent = '🔇 다음부터 안내 음성이 안 나옵니다';
+    document.body.appendChild(ack);
+    setTimeout(() => { try { ack.remove(); } catch(e){} }, 2500);
+  };
+  // 음성 끝나면 토스트 자동 제거
+  audio.addEventListener('ended', () => { try { toast.remove(); } catch(e){} });
+})();
+
 // 초기화 — URL ?uid= 또는 저장된 ID 로 자동 로드
 (function(){
   const fromUrl = getQueryParam('uid');

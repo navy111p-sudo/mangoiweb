@@ -3617,7 +3617,15 @@
   <!-- 🆕 부모 대시보드 진입 헬퍼 (uid 자동 매핑 또는 입력 prompt) -->
   <script>
     window.openParentDashboard = function() {
-      // 1) 로그인 한 학부모이면 자녀 ID 자동 전달
+      // 🔊 다음 페이지에서 안내 음성 재생하도록 플래그 설정 (음소거 안된 경우만)
+      try {
+        const muted = localStorage.getItem('mangoi_parent_audio_muted') === '1';
+        if (!muted) {
+          sessionStorage.setItem('mangoi_play_parent_audio', '1');
+        }
+      } catch(e){}
+
+      // 자녀 ID 결정 후 이동
       try {
         const u = JSON.parse(localStorage.getItem('mango_user') || 'null');
         if (u && u.children && u.children.length === 1) {
@@ -3625,17 +3633,14 @@
           return;
         }
         if (u && u.role === 'student' && u.user_id) {
-          // 학생 본인이 클릭 → 본인 dashboard 도 같은 페이지로 표시
           location.href = '/parent.html?uid=' + encodeURIComponent(u.user_id);
           return;
         }
       } catch(e){}
-      // 2) 저장된 자녀 ID 있으면 사용
       try {
         const saved = localStorage.getItem('mangoi_parent_uid');
         if (saved) { location.href = '/parent.html?uid=' + encodeURIComponent(saved); return; }
       } catch(e){}
-      // 3) 그 외 — 입력 페이지로 이동
       location.href = '/parent.html';
     };
 
