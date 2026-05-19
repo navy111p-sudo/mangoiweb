@@ -3783,7 +3783,10 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
     <div id="mbti-result" style="margin-top:10px"></div>
     <hr style="border:0;border-top:1px solid rgba(99,102,241,0.18);margin:18px 0">
     <h4 style="font-size:13px;color:#c4b5fd;margin-bottom:8px">등록된 강사 MBTI 목록</h4>
-    <button onclick="mbtiLoadList()" style="padding:7px 14px;font-size:12px;font-weight:700;margin-bottom:10px">🔄 새로고침</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <button onclick="mbtiLoadList()" style="padding:7px 14px;font-size:12px;font-weight:700">🔄 새로고침</button>
+      <button onclick="mbtiSeedDemo()" style="padding:7px 14px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:6px;cursor:pointer">🌱 데모 강사 10명 시드 (테스트용)</button>
+    </div>
     <div id="mbti-list"></div>
   </div>
 </details>
@@ -3835,6 +3838,17 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       mbtiLoadList();
     } catch(e) { out.innerHTML = '<div style="color:#f87171">❌ '+esc(e.message)+'</div>'; }
   };
+  window.mbtiSeedDemo = async function() {
+    if (!confirm('테스트용 데모 강사 10명(Karen, James, Sophie, Maria, Alex, Emily, David, Anna, Daniel, Lisa) 을 일괄 등록할까요?\n\n이미 있는 강사는 업데이트됩니다.')) return;
+    try {
+      const r = await fetch('/api/admin/teacher/mbti/seed-demo', { method:'POST' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      alert(`✅ 데모 강사 ${d.total}명 처리 완료\n신규: ${d.inserted}, 업데이트: ${d.updated}\n\n학생 페이지 /mbti.html 에서 매칭 테스트 가능합니다!`);
+      mbtiLoadList();
+    } catch(e) { alert('❌ ' + (e.message || '시드 실패')); }
+  };
+
   window.mbtiLoadList = async function() {
     const el = document.getElementById('mbti-list');
     try {

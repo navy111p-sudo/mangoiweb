@@ -3675,11 +3675,17 @@
         <span class="gm-sub" data-ko="AI 자동 뜻·예문·복습" data-en="AI Korean & Examples">AI 자동 뜻·예문·복습</span>
       </button>
       <!-- 🆕 MBTI 매칭 (학생-강사 호환성) -->
-      <button class="gm-card" data-go="mbti" data-en-key="mbti matching" onclick="location.href='/mbti.html'">
+      <button class="gm-card" data-go="mbti" data-en-key="mbti matching" onclick="openMbtiPage()">
         <span class="gm-icon">🧠</span>
         <span class="gm-label" data-ko="MBTI 매칭" data-en="MBTI Matching">MBTI 매칭</span>
         <span class="gm-sub" data-ko="잘 맞는 강사 찾기" data-en="Find Best Teacher">잘 맞는 강사 찾기</span>
       </button>
+      <script>
+        window.openMbtiPage = function() {
+          try { if (localStorage.getItem('mangoi_mbti_audio_muted') !== '1') sessionStorage.setItem('mangoi_play_mbti_audio', '1'); } catch(e){}
+          location.href = '/mbti.html';
+        };
+      </script>
       <!-- 🆕 교사 칭찬하기 (익명, 7점 별점) -->
       <button class="gm-card" data-go="teacher-praise" data-en-key="teacher praise" onclick="location.href='/teacher-praise.html'">
         <span class="gm-icon">🌟</span>

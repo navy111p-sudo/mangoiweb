@@ -466,6 +466,7 @@ export default {
         // 🧠 Phase MBTI 매칭
         path === '/api/teachers/mbti-list' ||
         path === '/api/admin/teacher/mbti' ||
+        path === '/api/admin/teacher/mbti/seed-demo' ||
         path === '/api/mbti/match' ||
         // 🌟 Phase PR 교사 칭찬하기
         path === '/api/teachers/list-public' ||
