@@ -1352,18 +1352,18 @@
 
   .th-user {
     position: relative;
-    background: linear-gradient(135deg, rgba(254, 215, 170, 0.7), rgba(252, 211, 77, 0.65));
-    border: 1px solid rgba(245, 158, 11, 0.4);
-    border-radius: 999px;
-    padding: 8px 16px;
-    color: #7c2d12; font-size: 13px; font-weight: 700;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    border: 1px solid rgba(251, 191, 36, 0.6);
+    border-radius: 12px;
+    padding: 10px 16px;
+    color: #1a1a1a; font-size: 13px; font-weight: 800;
     cursor: pointer; user-select: none;
     box-shadow:
-      0 2px 8px -1px rgba(120, 53, 15, 0.12),
-      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+      0 4px 14px -2px rgba(245, 158, 11, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.4);
     transition: all 0.2s;
   }
-  .th-user:hover { transform: translateY(-1px); box-shadow: 0 6px 14px -2px rgba(245, 158, 11, 0.4), inset 0 1px 0 rgba(255, 255, 255, 1); }
+  .th-user:hover { transform: translateY(-1px); box-shadow: 0 8px 22px -4px rgba(245, 158, 11, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.5); filter: brightness(1.05); }
 
   .th-user-popup {
     display: none; position: absolute; right: 0; top: calc(100% + 8px);
@@ -6195,13 +6195,29 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     background: linear-gradient(135deg, rgba(251,191,36,0.28), rgba(245,158,11,0.18)) !important;
     border-color: rgba(251,191,36,0.55) !important;
   }
-  /* 사이드바 상단 사용자 카드 (본사·경영진) */
-  .admin-sidebar #topUserBtn {
-    background: linear-gradient(135deg, rgba(251,191,36,0.20), rgba(245,158,11,0.12)) !important;
-    border: 1px solid rgba(251,191,36,0.35) !important;
-    color: var(--da-text) !important;
-    box-shadow: 0 4px 16px rgba(251,191,36,0.15) !important;
+  /* 사이드바 상단 사용자 카드 (본사·경영진) — 진한 망고 골드 */
+  .admin-sidebar #topUserBtn,
+  .admin-sidebar .th-user {
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%) !important;
+    border: 1px solid rgba(251,191,36,0.7) !important;
+    color: #1a1a1a !important;
+    box-shadow: 0 8px 24px -4px rgba(245,158,11,0.5), inset 0 1px 0 rgba(255,255,255,0.4) !important;
+    border-radius: 14px !important;
+    padding: 12px 16px !important;
+    font-weight: 800 !important;
   }
+  .admin-sidebar #topUserBtn:hover,
+  .admin-sidebar .th-user:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 12px 30px -4px rgba(245,158,11,0.65), inset 0 1px 0 rgba(255,255,255,0.5) !important;
+    filter: brightness(1.05);
+  }
+  /* 사이드바 사용자 카드 내부 글씨 모두 진한 색 */
+  .admin-sidebar #topUserBtn *,
+  .admin-sidebar .th-user * { color: #1a1a1a !important; }
+  /* 로그아웃 텍스트는 진한 빨강 */
+  .admin-sidebar #topUserBtn .logout-link,
+  .admin-sidebar .th-user a[href*="logout"] { color: #991b1b !important; font-weight: 800 !important; }
   /* "메뉴 (가나다 순)" 헤더 */
   .admin-sidebar h4 { color: var(--da-text) !important; }
   .admin-sidebar h4 span { color: var(--da-text-2) !important; }
