@@ -1,8 +1,8 @@
 // 🌐 Mangoi Service Worker — PWA 오프라인 캐시 + 빠른 로딩
 // 버전 갱신 시 CACHE_NAME 의 숫자만 바꾸면 모든 사용자에게 즉시 새 버전 전파
 
-const CACHE_NAME = 'mangoi-v2';
-const RUNTIME_CACHE = 'mangoi-runtime-v2';
+const CACHE_NAME = 'mangoi-v3';
+const RUNTIME_CACHE = 'mangoi-runtime-v3';
 
 // 첫 설치 때 미리 캐시할 핵심 자산 (필수 only — 너무 많으면 install 실패)
 const PRECACHE_URLS = [
@@ -80,7 +80,13 @@ async function networkFirst(request, cacheName, timeoutMs) {
   try {
     const networkPromise = fetch(request).then(resp => {
       // 성공 응답만 캐시 (5xx 제외)
-      if (resp.ok) cache.put(request, resp.clone()).catch(()=>{});
+      // 추가 방어: /api/ 경로는 HTML 응답을 캐시 안 함 (워커 다운 시 어셋 fallback HTML 캐싱 방지)
+      const url = new URL(request.url);
+      const isApi = url.pathname.startsWith('/api/');
+      const ct = resp.headers.get('content-type') || '';
+      const isHtml = ct.includes('text/html');
+      const shouldCache = resp.ok && !(isApi && isHtml);
+      if (shouldCache) cache.put(request, resp.clone()).catch(()=>{});
       return resp;
     });
     if (!timeoutMs) return await networkPromise;
@@ -90,7 +96,16 @@ async function networkFirst(request, cacheName, timeoutMs) {
     ]);
   } catch (e) {
     const cached = await cache.match(request);
-    if (cached) return cached;
+    // 캐시된 HTML 이 /api/ 경로에 있으면 사용 안 함 (오염된 캐시 방어)
+    if (cached) {
+      const url = new URL(request.url);
+      const isApi = url.pathname.startsWith('/api/');
+      const ct = cached.headers.get('content-type') || '';
+      const isHtml = ct.includes('text/html');
+      if (!(isApi && isHtml)) return cached;
+      // 오염된 HTML 캐시는 삭제
+      cache.delete(request).catch(()=>{});
+    }
     // 네트워크 실패 시 콘솔 에러 대신 503 + JSON 으로 응답
     return new Response(JSON.stringify({ ok:false, error: 'network unavailable' }), {
       status: 503,

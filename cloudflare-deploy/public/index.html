@@ -16829,7 +16829,14 @@ window.closeRulesModal = function() {
     try {
       const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
       const uid = u && u.uid ? u.uid : '';
-      const r = await fetch('/api/popups' + (uid ? '?uid=' + encodeURIComponent(uid) : ''));
+      // SW 캐시 우회: cache:'no-store' + URL 에 timestamp
+      const r = await fetch('/api/popups' + (uid ? '?uid=' + encodeURIComponent(uid) : '') + (uid?'&':'?') + '_t=' + Date.now(), { cache: 'no-store' });
+      // 응답이 JSON 인지 검증 — HTML 받으면 silent skip
+      const ct = r.headers.get('content-type') || '';
+      if (!ct.includes('json')) {
+        // 워커가 다운됐거나 SW 가 fallback HTML 반환 — 팝업 표시 시도 안 함
+        return;
+      }
       const d = await r.json();
       if (!d.ok || !d.rows || !d.rows.length) return;
       // 이미 표시 중인 팝업은 제거
