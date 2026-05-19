@@ -3449,7 +3449,7 @@ ${chatSampleText}
     // ── POST /api/push/subscribe — 구독 등록 ──
     if (method === 'POST' && path === '/api/push/subscribe') {
       await ensurePushTables();
-      const b: any = await req.json().catch(() => ({}));
+      const b: any = await request.json().catch(() => ({}));
       const sub = b.subscription;
       if (!sub?.endpoint) return json({ ok: false, error: 'no_endpoint' }, 400);
       const now = Date.now();
@@ -3463,7 +3463,7 @@ ${chatSampleText}
     // ── POST /api/push/unsubscribe — 구독 해제 ──
     if (method === 'POST' && path === '/api/push/unsubscribe') {
       await ensurePushTables();
-      const b: any = await req.json().catch(() => ({}));
+      const b: any = await request.json().catch(() => ({}));
       if (!b.endpoint) return json({ ok: false, error: 'no_endpoint' }, 400);
       await env.DB.prepare(`UPDATE push_subscriptions SET enabled = 0, updated_at = ? WHERE endpoint = ?`).bind(Date.now(), b.endpoint).run();
       return json({ ok: true });
@@ -3492,7 +3492,7 @@ ${chatSampleText}
     // ── POST /api/admin/push/send — 특정 사용자(들)에게 푸시 ──
     if (method === 'POST' && path === '/api/admin/push/send') {
       await ensurePushTables();
-      const b: any = await req.json().catch(() => ({}));
+      const b: any = await request.json().catch(() => ({}));
       const userId = b.user_id;
       const title = (b.title || '망고아이 알림').toString().slice(0, 100);
       const body = (b.body || '').toString().slice(0, 300);
@@ -3664,15 +3664,15 @@ ${chatSampleText}
     // ── POST /api/voice/transcribe — 오디오 → 텍스트 (Whisper) ──
     if (method === 'POST' && path === '/api/voice/transcribe') {
       try {
-        const ct = req.headers.get('content-type') || '';
+        const ct = request.headers.get('content-type') || '';
         let audio: ArrayBuffer | null = null;
         if (ct.includes('multipart/form-data')) {
-          const fd = await req.formData();
+          const fd = await request.formData();
           const file = fd.get('audio') as File | null;
           if (!file) return json({ ok: false, error: 'no_audio_file' }, 400);
           audio = await file.arrayBuffer();
         } else {
-          audio = await req.arrayBuffer();
+          audio = await request.arrayBuffer();
         }
         if (!audio || audio.byteLength < 100) return json({ ok: false, error: 'audio_too_small' }, 400);
         if (audio.byteLength > 25 * 1024 * 1024) return json({ ok: false, error: 'audio_too_large', max: '25MB' }, 400);
@@ -3692,7 +3692,7 @@ ${chatSampleText}
     // ── POST /api/voice/coach — 발음/유창성 평가 + LLM 피드백 ──
     if (method === 'POST' && path === '/api/voice/coach') {
       await ensureVoiceTable();
-      const b: any = await req.json().catch(() => ({}));
+      const b: any = await request.json().catch(() => ({}));
       const target = String(b.target || '').trim();
       const spoken = String(b.spoken || '').trim();
       const studentUid = String(b.student_uid || '').trim() || 'guest';
@@ -3863,7 +3863,7 @@ Respond in JSON ONLY:
     //   { source: 'solapi'|'kakao_i', sender_phone: '010-xxxx', sender_name: '홍길동', message: '...', room_id?: '...' }
     if (method === 'POST' && path === '/api/webhook/kakao-inbound') {
       await ensureKakaoInboundTable();
-      const b: any = await req.json().catch(() => ({}));
+      const b: any = await request.json().catch(() => ({}));
 
       // 다양한 webhook 형식에서 핵심 필드 추출
       const phone = (b.sender_phone || b.from || b.userPhone || b.userKey || '').toString().trim();
