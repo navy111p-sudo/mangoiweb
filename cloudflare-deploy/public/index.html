@@ -4168,21 +4168,22 @@
         background: rgba(255,255,255,0.06);
         border: 1px solid rgba(255,255,255,0.14);
         border-radius: 99px;
-        padding: 8px 6px;
+        padding: 10px 10px 12px;
         color: #e2e8f0;
         font-size: 11px;
         font-weight: 600;
-        letter-spacing: -0.3px;
+        letter-spacing: -0.2px;
+        line-height: 1.45;
         cursor: pointer;
         transition: all 0.18s ease;
-        min-height: 36px;
-        display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+        min-height: 44px;
+        display: inline-flex; align-items: center; justify-content: center; gap: 4px;
         font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
         white-space: nowrap;
+        word-break: keep-all;
         backdrop-filter: blur(8px);
         min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        overflow: visible;
       }
       .ai-quick-btn:hover {
         background: rgba(251,191,36,0.18);
@@ -4193,18 +4194,18 @@
       /* 태블릿 — 살짝 더 빡빡 */
       @media (max-width: 900px) {
         .ai-quick { gap: 5px; }
-        .ai-quick-btn { font-size: 10.5px; padding: 7px 4px; }
+        .ai-quick-btn { font-size: 10.5px; padding: 9px 8px 11px; min-height: 42px; line-height: 1.45; }
       }
       /* 모바일 — 7개 한줄 어려우니 2줄 4+3 그리드로 */
       @media (max-width: 640px) {
         .ai-quick { grid-template-columns: repeat(4, 1fr); gap: 6px; }
-        .ai-quick-btn{ font-size: 11px; padding: 8px 6px; min-height: 36px; }
+        .ai-quick-btn{ font-size: 11px; padding: 10px 8px 12px; min-height: 44px; line-height: 1.45; }
         .ai-search-wrap{ padding: 16px 14px; border-radius: 22px; }
       }
       /* 매우 작은 화면 */
       @media (max-width: 380px) {
         .ai-quick { grid-template-columns: repeat(3, 1fr); }
-        .ai-quick-btn{ font-size: 10.5px; padding: 7px 4px; }
+        .ai-quick-btn{ font-size: 10.5px; padding: 9px 6px 11px; min-height: 42px; line-height: 1.45; }
       }
       /* 결제하기는 이 그리드에서 제외하고 별도 라인으로 빼기 */
       .ai-quick .ai-quick-pay { display: none !important; }
