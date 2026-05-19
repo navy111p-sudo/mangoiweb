@@ -22,9 +22,12 @@
   .mbti-btn{padding:14px 8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);border-radius:10px;color:#cbd5e1;cursor:pointer;font-weight:800;font-size:14px;font-family:inherit;transition:all .15s}
   .mbti-btn:hover{background:rgba(79,124,255,0.18);border-color:rgba(79,124,255,0.5);color:#fff;transform:translateY(-2px)}
   .mbti-btn.selected{background:linear-gradient(135deg,#4f7cff,#3b82f6);color:#fff;border-color:#4f7cff;box-shadow:0 6px 18px -4px rgba(79,124,255,0.5)}
-  .teacher-card{background:rgba(255,255,255,0.04);border:1px solid rgba(99,102,241,0.20);border-radius:12px;padding:14px 16px;margin-bottom:10px;display:flex;gap:14px;align-items:center}
+  .teacher-card{background:rgba(255,255,255,0.04);border:1px solid rgba(99,102,241,0.20);border-radius:14px;padding:14px 16px;margin-bottom:10px;display:flex;gap:14px;align-items:center;cursor:pointer;transition:all .2s ease;position:relative;overflow:hidden}
+  .teacher-card:hover{background:rgba(99,102,241,0.18);border-color:rgba(99,102,241,0.5);transform:translateY(-2px);box-shadow:0 14px 30px -10px rgba(0,0,0,0.5)}
   .teacher-card.top{background:linear-gradient(135deg,rgba(251,191,36,0.15),rgba(245,158,11,0.06));border-color:rgba(251,191,36,0.45);box-shadow:0 8px 24px -8px rgba(251,191,36,0.25)}
-  .teacher-photo{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#4f7cff,#3b82f6);overflow:hidden;flex-shrink:0;border:2px solid rgba(99,102,241,0.4);display:flex;align-items:center;justify-content:center}
+  .teacher-card.top:hover{background:linear-gradient(135deg,rgba(251,191,36,0.25),rgba(245,158,11,0.12));box-shadow:0 16px 36px -10px rgba(251,191,36,0.4)}
+  .teacher-photo{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#4f7cff,#3b82f6);overflow:hidden;flex-shrink:0;border:2px solid rgba(99,102,241,0.4);display:flex;align-items:center;justify-content:center;transition:all .2s ease}
+  .teacher-card:hover .teacher-photo{transform:scale(1.06);border-color:#fbbf24;box-shadow:0 6px 16px -4px rgba(251,191,36,0.4)}
   .teacher-card.top .teacher-photo{border-color:#fbbf24;box-shadow:0 6px 16px -4px rgba(251,191,36,0.45)}
   .teacher-photo img{width:100%;height:100%;object-fit:cover}
   .teacher-photo-fallback{font-size:24px;font-weight:900;color:#fff}
@@ -32,6 +35,18 @@
   .match-score.high{color:#34d399}
   .match-score.mid{color:#fbbf24}
   .match-score.low{color:#a3b3d1}
+  /* hover 시 확장 영역 */
+  .teacher-extra{max-height:0;overflow:hidden;transition:max-height .3s ease,opacity .2s ease;opacity:0}
+  .teacher-card:hover .teacher-extra{max-height:200px;opacity:1;margin-top:10px}
+  .teacher-extra-inner{padding:12px 14px;background:rgba(255,255,255,0.06);border:1px solid rgba(99,102,241,0.25);border-radius:10px;display:flex;gap:10px;flex-wrap:wrap}
+  .teacher-cta{flex:1;min-width:130px;padding:10px 14px;font-weight:800;border:0;border-radius:8px;cursor:pointer;font-size:12.5px;font-family:inherit;transition:transform .15s}
+  .teacher-cta:hover{transform:translateY(-2px)}
+  .cta-enroll{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a}
+  .cta-inquiry{background:linear-gradient(135deg,#10b981,#059669);color:#fff}
+  .cta-trial{background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff}
+  /* 카드 본문은 가로 — extra 는 아래로 떨어지도록 wrapper */
+  .teacher-card-row{display:flex;gap:14px;align-items:center;width:100%}
+  .teacher-card-content{flex:1;min-width:0}
   .home-btn{position:fixed;top:14px;right:14px;z-index:999;padding:9px 18px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;text-decoration:none;font-weight:800;border-radius:99px;font-size:13px}
   .help{font-size:11.5px;color:#6b7a99;margin-top:8px;line-height:1.6}
 </style>
@@ -176,6 +191,34 @@ window.pickMbti = function(m) {
   btn.disabled = false; btn.style.opacity = '1';
 };
 
+// 강사 클릭 → 신청 모달 또는 신규상담 페이지로
+//   type: 'inquiry'(기본) | 'trial' | 'enroll'
+window.bookTeacher = function(teacherUid, teacherName, mbti, score, type) {
+  type = type || 'inquiry';
+  // 선택된 강사 정보를 sessionStorage 에 저장 → 홈/신규상담 모달에서 prefill
+  const data = {
+    teacher_uid: teacherUid,
+    teacher_name: teacherName,
+    teacher_mbti: mbti,
+    match_score: score,
+    request_type: type,
+    selected_at: Date.now(),
+  };
+  try { sessionStorage.setItem('mangoi_selected_teacher', JSON.stringify(data)); } catch(e){}
+
+  // type 별 분기
+  if (type === 'trial') {
+    // 무료체험 → 신규상담 모달로 (메시지에 자동 prefill)
+    location.href = '/?go=trial&teacher=' + encodeURIComponent(teacherUid);
+  } else if (type === 'enroll') {
+    // 정규 수강 → 결제/수강신청
+    location.href = '/?go=enroll&teacher=' + encodeURIComponent(teacherUid);
+  } else {
+    // 기본: 신규상담 (강사 자동 선택된 상태)
+    location.href = '/?go=inquiry&teacher=' + encodeURIComponent(teacherUid);
+  }
+};
+
 window.doMatch = async function() {
   if (!selectedMbti) return;
   const out = document.getElementById('result-list');
@@ -195,14 +238,24 @@ window.doMatch = async function() {
       const isTop = i === 0;
       const fallback = `https://api.dicebear.com/7.x/lorelei/svg?seed=${encodeURIComponent(t.teacher_name||t.teacher_uid)}&backgroundColor=fbbf24,b6e3f4,c0aede,fcd0a1`;
       const photoUrl = t.photo_url || fallback;
-      return `<div class="teacher-card ${isTop?'top':''}">
-        <div class="teacher-photo"><img src="${esc(photoUrl)}" alt="${esc(t.teacher_name)}" onerror="this.parentElement.innerHTML='<div class=&quot;teacher-photo-fallback&quot;>${(t.teacher_name||'?').charAt(0).toUpperCase()}</div>'" /></div>
-        <div class="match-score ${tier}">${t.match_score}<div style="font-size:9px;letter-spacing:1px;font-weight:700;color:#a3b3d1">SCORE</div></div>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:800;color:#fff;font-size:14px">${esc(t.teacher_name)}${isTop?' 🥇':''} <span style="display:inline-block;padding:1px 8px;background:rgba(79,124,255,0.25);color:#a5b4fc;border-radius:99px;font-size:10.5px;font-weight:800;margin-left:4px">${esc(t.mbti)}</span></div>
-          ${t.teaching_style?`<div style="font-size:11.5px;color:#c4b5fd;margin-top:3px">🎓 ${esc(t.teaching_style)}</div>`:''}
-          ${t.hobby?`<div style="font-size:11.5px;color:#a3b3d1;margin-top:2px">🎨 ${esc(t.hobby)}</div>`:''}
-          ${t.intro?`<div style="font-size:11.5px;color:#cbd5e1;margin-top:4px;line-height:1.5">${esc(t.intro)}</div>`:''}
+      const tname = (t.teacher_name||t.teacher_uid).replace(/'/g,'&#39;');
+      return `<div class="teacher-card ${isTop?'top':''}" onclick="bookTeacher('${esc(t.teacher_uid)}','${esc(tname)}','${esc(t.mbti)}',${t.match_score})">
+        <div style="display:flex;gap:14px;align-items:center;width:100%">
+          <div class="teacher-photo"><img src="${esc(photoUrl)}" alt="${esc(t.teacher_name)}" onerror="this.parentElement.innerHTML='<div class=&quot;teacher-photo-fallback&quot;>${(t.teacher_name||'?').charAt(0).toUpperCase()}</div>'" /></div>
+          <div class="match-score ${tier}">${t.match_score}<div style="font-size:9px;letter-spacing:1px;font-weight:700;color:#a3b3d1">SCORE</div></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:800;color:#fff;font-size:14px">${esc(t.teacher_name)}${isTop?' 🥇':''} <span style="display:inline-block;padding:1px 8px;background:rgba(79,124,255,0.25);color:#a5b4fc;border-radius:99px;font-size:10.5px;font-weight:800;margin-left:4px">${esc(t.mbti)}</span></div>
+            ${t.teaching_style?`<div style="font-size:11.5px;color:#c4b5fd;margin-top:3px">🎓 ${esc(t.teaching_style)}</div>`:''}
+            ${t.hobby?`<div style="font-size:11.5px;color:#a3b3d1;margin-top:2px">🎨 ${esc(t.hobby)}</div>`:''}
+            ${t.intro?`<div style="font-size:11.5px;color:#cbd5e1;margin-top:4px;line-height:1.5">${esc(t.intro)}</div>`:''}
+          </div>
+        </div>
+        <!-- hover 자동 펼침: 큰 CTA 1개 + 무료체험 보조 -->
+        <div class="teacher-extra" style="width:100%">
+          <div class="teacher-extra-inner">
+            <button class="teacher-cta cta-trial" onclick="event.stopPropagation();bookTeacher('${esc(t.teacher_uid)}','${esc(tname)}','${esc(t.mbti)}',${t.match_score},'trial')" style="flex:0 0 auto">🎁 무료체험</button>
+            <button class="teacher-cta cta-enroll" onclick="event.stopPropagation();bookTeacher('${esc(t.teacher_uid)}','${esc(tname)}','${esc(t.mbti)}',${t.match_score},'inquiry')">📝 ${esc(t.teacher_name)} 선생님과 수업 신청하기 →</button>
+          </div>
         </div>
       </div>`;
     }).join('');

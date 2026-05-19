@@ -4003,7 +4003,8 @@
   /* 🌟 입체 카드 (3D 효과) */
   .gm-card {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 4px; padding: 18px 8px;
+    gap: 6px; padding: 20px 10px 22px;
+    min-height: 118px;
     background: linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 14px;
@@ -4017,6 +4018,7 @@
       inset 0 1px 0 rgba(255,255,255,0.08);
     position: relative;
     overflow: hidden;
+    word-break: keep-all;
   }
   .gm-card::before {
     content: ''; position: absolute; inset: 0;
@@ -4068,8 +4070,18 @@
   .gm-card.primary:hover,
   .gm-card.active:hover { color: #fff; box-shadow: 0 6px 0 rgba(146,64,14,0.4), 0 14px 32px -6px rgba(245,158,11,0.6), inset 0 1px 0 rgba(255,255,255,0.2); }
   .gm-icon { font-size: 28px; line-height: 1; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); }
-  .gm-label { font-size: 13px; font-weight: 700; line-height: 1.3; }
-  .gm-sub { font-size: 10px; color: rgba(226,232,240,0.55); font-weight: 400; }
+  .gm-label {
+    font-size: 13px; font-weight: 700; line-height: 1.45;
+    word-break: keep-all; overflow-wrap: anywhere;
+    padding: 2px 4px;
+    max-width: 100%;
+  }
+  .gm-sub {
+    font-size: 10px; color: rgba(226,232,240,0.55); font-weight: 400;
+    line-height: 1.4; word-break: keep-all;
+    padding: 0 4px 2px;
+    max-width: 100%;
+  }
   .gm-card.primary .gm-sub,
   .gm-card.active .gm-sub { color: rgba(254,243,199,0.7); }
 </style>
@@ -8864,6 +8876,8 @@ window.addEventListener('DOMContentLoaded', () => {
     'lesson-change': () => { if (typeof window.openLessonChangeModal === 'function') window.openLessonChangeModal(); },
     'homepage':      () => { const gm = document.getElementById('grid-menu'); if (gm) gm.style.display = 'block'; },
     'inquiry':       () => window.openInquiryModal(),
+    'trial':         () => window.openInquiryModal(),
+    'enroll':        () => window.openInquiryModal(),
     'speech':        () => window.open('https://mangoi-speech.pages.dev/practice', '_blank'),
     'mypage':        () => location.href = '/admin/mypage.html',
     'admin':         () => location.href = '/admin.html',
@@ -9328,6 +9342,26 @@ window.addEventListener('DOMContentLoaded', () => {
     <h2 style="color:#fbbf24;font-size:22px;margin:0 0 6px;font-weight:800">💬 신규상담 신청</h2>
     <p style="color:#cbd5e1;font-size:14px;line-height:1.6;margin-bottom:14px">관심 있는 과정·시간대·기타 궁금하신 점을 남겨 주세요.<br/>담당자가 영업일 1일 내로 연락드립니다.</p>
 
+    <!-- 🧠 MBTI 매칭으로 잘 맞는 강사 추천 받기 -->
+    <a href="/mbti.html?from=inquiry" style="display:flex;align-items:center;gap:12px;padding:14px 16px;margin-bottom:14px;background:linear-gradient(135deg,rgba(79,124,255,0.20),rgba(99,102,241,0.10));border:1px solid rgba(79,124,255,0.45);border-radius:12px;text-decoration:none;cursor:pointer;transition:all .15s">
+      <span style="font-size:28px;flex-shrink:0">🧠</span>
+      <div style="flex:1;min-width:0">
+        <div style="color:#a5b4fc;font-size:13.5px;font-weight:800;line-height:1.3">MBTI 매칭으로 강사 추천 받기 →</div>
+        <div style="color:#cbd5e1;font-size:11.5px;margin-top:3px;line-height:1.4">자녀에게 잘 맞을 강사를 AI 가 추천해드려요 (1분 소요)</div>
+      </div>
+    </a>
+
+    <!-- 선택된 강사 표시 (MBTI 매칭에서 돌아온 경우 자동 표시) -->
+    <div id="inq-selected-teacher" style="display:none;padding:14px 16px;margin-bottom:14px;background:linear-gradient(135deg,rgba(251,191,36,0.18),rgba(245,158,11,0.06));border:1px solid rgba(251,191,36,0.5);border-radius:12px;align-items:center;gap:12px">
+      <span style="font-size:24px">⭐</span>
+      <div style="flex:1;min-width:0">
+        <div style="color:#fbbf24;font-size:12.5px;font-weight:800">선택된 강사</div>
+        <div id="inq-selected-name" style="color:#fff;font-size:14px;font-weight:800;margin-top:2px"></div>
+        <div id="inq-selected-meta" style="color:#cbd5e1;font-size:11px;margin-top:2px"></div>
+      </div>
+      <button type="button" onclick="document.getElementById('inq-selected-teacher').style.display='none';try{sessionStorage.removeItem('mangoi_selected_teacher');}catch(e){}" style="background:transparent;color:#a3b3d1;border:0;cursor:pointer;font-size:18px;padding:4px 8px">✕</button>
+    </div>
+
     <!-- 카카오 즉시상담 (대안 진입) -->
     <button type="button" onclick="window.openKakao&&window.openKakao()" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:14px;margin-bottom:18px;background:#FEE500;border:0;border-radius:12px;color:#3C1E1E;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px -2px rgba(254,229,0,0.4);transition:transform 0.2s" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
       <svg width="22" height="20" viewBox="0 0 256 240" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -9444,11 +9478,29 @@ window.addEventListener('DOMContentLoaded', () => {
     inquiryAudioBtn.style.borderColor = playing ? 'rgba(251,191,36,.7)' : 'rgba(251,191,36,.45)';
   }
 
-  window.openInquiryModal = function(){
+  window.openInquiryModal = function(opts){
     form.reset();
     result.style.display = 'none';
     form.style.display = 'block';
     modal.style.display = 'flex';
+    // 🧠 MBTI 매칭에서 선택된 강사 prefill (sessionStorage)
+    try {
+      const sel = JSON.parse(sessionStorage.getItem('mangoi_selected_teacher') || 'null');
+      const box = document.getElementById('inq-selected-teacher');
+      if (sel && sel.teacher_uid && box) {
+        document.getElementById('inq-selected-name').textContent = sel.teacher_name + (sel.teacher_mbti ? ` (${sel.teacher_mbti})` : '');
+        document.getElementById('inq-selected-meta').textContent = '매칭 점수 ' + (sel.match_score || 0) + '점 · ' + (sel.request_type === 'trial' ? '🎁 무료체험 희망' : '💬 신규상담');
+        box.style.display = 'flex';
+        // 메시지 영역에도 자동 prefill
+        const msg = document.getElementById('inq-message');
+        if (msg && !msg.value) {
+          const reqLabel = sel.request_type === 'trial' ? '무료체험' : '수업 신청';
+          msg.value = `[MBTI 매칭으로 선정] ${sel.teacher_name} 선생님 (${sel.teacher_mbti}, 매칭점수 ${sel.match_score}점) ${reqLabel} 희망합니다.\n\n원하는 시간대·과정 등을 알려주세요:\n`;
+        }
+      } else if (box) {
+        box.style.display = 'none';
+      }
+    } catch(e){}
     setTimeout(() => document.getElementById('inq-name').focus(), 100);
     // 안내 음성 자동 재생 + 끄기 버튼 설치
     setTimeout(function(){
