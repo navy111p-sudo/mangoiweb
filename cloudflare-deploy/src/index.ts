@@ -391,6 +391,7 @@ export default {
         path === '/api/admin/popups/upload-media' ||
         /^\/api\/admin\/popups\/\d+\/stats$/.test(path) ||
         path.startsWith('/api/popups/media/') ||
+        path === '/api/popups' ||
         path === '/api/popups/active' ||
         /^\/api\/popups\/\d+\/(view|click|dismiss)$/.test(path) ||
         path === '/api/admin/students/list' ||
@@ -400,7 +401,64 @@ export default {
         path === '/api/community/posts' ||
         path === '/api/teacher-profiles' ||
         path === '/api/_bootstrap' ||
-        path === '/api/dashboard') {
+        path === '/api/dashboard' ||
+        // 📊 Phase D1-D2 KPI Dashboard
+        path === '/api/admin/kpi/dashboard' ||
+        // 💸 Phase F1-F2 미납 자동 알림
+        path === '/api/admin/payments/overdue' ||
+        path === '/api/admin/payments/notify-overdue' ||
+        path === '/api/admin/payments/notify-all-overdue' ||
+        path === '/api/admin/payments/overdue-log' ||
+        path === '/api/admin/payments/record' ||
+        // 💬 Phase I1-I2 신규상담
+        path.startsWith('/api/admin/inquiry/') ||
+        // 💰 Phase G1-G2 강사 급여 자동 정산
+        path === '/api/admin/payroll/calculate' ||
+        path === '/api/admin/payroll/save' ||
+        path === '/api/admin/payroll/mark-paid' ||
+        path === '/api/admin/payroll/csv' ||
+        // 💬 Phase K1 채팅
+        path === '/api/chat/messages' ||
+        path === '/api/chat/cleanup' ||
+        // 📝 Phase E1-E4 평가서
+        path === '/api/eval/create' ||
+        path === '/api/eval/list' ||
+        /^\/api\/eval\/\d+$/.test(path) ||
+        path === '/api/admin/eval/list' ||
+        // 🤖 Phase A1-A2 AI 학습 분석
+        path === '/api/admin/ai-analyze/student' ||
+        path === '/api/admin/ai-analyze/history' ||
+        // 🔔 Phase WP1-WP2 Web Push
+        path === '/api/push/vapid-public-key' ||
+        path === '/api/push/subscribe' ||
+        path === '/api/push/unsubscribe' ||
+        path === '/api/push/pending' ||
+        path === '/api/admin/push/send' ||
+        path === '/api/admin/push/list' ||
+        path === '/api/admin/push/status' ||
+        path === '/api/admin/push/generate-vapid' ||
+        // 👨‍👩‍👧 Phase PD 부모 대시보드
+        path === '/api/parent/dashboard' ||
+        // 🎙 Phase AV AI 음성 코칭
+        path === '/api/voice/transcribe' ||
+        path === '/api/voice/coach' ||
+        path === '/api/voice/history' ||
+        // 💬 Phase K5 카카오 양방향
+        path === '/api/webhook/kakao-inbound' ||
+        path === '/api/admin/kakao/inbound' ||
+        // 💰 카카오 알림톡 (확장)
+        path === '/api/admin/gifts/status' ||
+        path === '/api/admin/gifts/catalog' ||
+        /^\/api\/admin\/gifts\/catalog\/\d+$/.test(path) ||
+        path === '/api/admin/gifts/redemptions' ||
+        path === '/api/admin/gifts/test-send' ||
+        path === '/api/admin/points/list' ||
+        path === '/api/admin/points/adjust' ||
+        path === '/api/admin/points/rules' ||
+        path === '/api/admin/points/seed-rules' ||
+        path === '/api/admin/points/monthly-top' ||
+        path === '/api/student/points' ||
+        path === '/api/student/redeem-gift') {
       const res = await handleMangoApi(request, url, env);
       if (res) return res;
     }
