@@ -117,11 +117,85 @@
     <div class="brand-sub" data-ko="학부모 대시보드 — 자녀의 학습 한눈에" data-en="Parent Dashboard — Track your child's progress">학부모 대시보드 — 자녀의 학습 한눈에</div>
   </div>
 
-  <div id="entry" style="text-align:center;padding:30px 20px">
-    <p style="margin-bottom:12px;color:#cbd5e1" data-ko="자녀의 학생 ID 를 입력하세요" data-en="Enter your child's student ID">자녀의 학생 ID 를 입력하세요</p>
-    <input id="uid-input" class="uid-input" type="text" placeholder="예: hong_gd" data-ko-placeholder="예: hong_gd" data-en-placeholder="e.g. hong_gd" />
-    <br>
-    <button class="uid-go" onclick="pdGo()" data-ko="조회하기" data-en="View Dashboard">조회하기</button>
+  <div id="entry">
+    <!-- 🌟 환영 메시지 + 안내 -->
+    <div style="text-align:center;padding:24px 20px 12px">
+      <div style="display:inline-block;padding:6px 14px;background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.35);border-radius:99px;font-size:11.5px;color:#fbbf24;font-weight:700;letter-spacing:0.5px;margin-bottom:14px" data-ko="👨‍👩‍👧 학부모 전용 화면" data-en="👨‍👩‍👧 PARENT DASHBOARD">👨‍👩‍👧 학부모 전용 화면</div>
+      <h1 style="font-size:24px;font-weight:800;color:#fff;margin-bottom:8px;line-height:1.4" data-ko="자녀의 학습 한눈에 보기" data-en="See Your Child's Progress at a Glance">자녀의 학습 한눈에 보기</h1>
+      <p style="color:#a3b3d1;font-size:13.5px;line-height:1.6;max-width:520px;margin:0 auto" data-ko="자녀의 학생 ID 만 입력하면, 출석부터 평가서·AI 음성 코칭 결과·이번 주 AI 학습 권장사항까지 한 화면에 보입니다." data-en="Just enter your child's ID — attendance, evaluations, AI voice coaching, weekly AI recommendations all in one place.">자녀의 학생 ID 만 입력하면, 출석부터 평가서·AI 음성 코칭 결과·이번 주 AI 학습 권장사항까지 한 화면에 보입니다.</p>
+    </div>
+
+    <!-- 📋 ID 입력 박스 -->
+    <div style="background:rgba(20,41,80,0.6);border:1px solid rgba(99,102,241,0.3);border-radius:16px;padding:24px 20px;max-width:480px;margin:20px auto;text-align:center;backdrop-filter:blur(8px)">
+      <label style="display:block;font-size:13px;color:#fbbf24;font-weight:700;margin-bottom:10px" data-ko="🪪 자녀의 학생 ID" data-en="🪪 Your Child's Student ID">🪪 자녀의 학생 ID</label>
+      <input id="uid-input" class="uid-input" type="text" placeholder="예: hong_gd" data-ko-placeholder="예: hong_gd" data-en-placeholder="e.g. hong_gd" onkeypress="if(event.key==='Enter')pdGo()" style="margin:0 auto 12px;display:block" />
+      <button class="uid-go" onclick="pdGo()" data-ko="📊 조회하기" data-en="📊 View Dashboard">📊 조회하기</button>
+      <div style="margin-top:14px;font-size:11.5px;color:#6b7a99;line-height:1.6" data-ko="💡 학생 ID 를 모르시면 강사 또는 학원에 문의해주세요. 한 번 조회하면 자동 저장됩니다." data-en="💡 Don't know the ID? Ask your teacher. The ID is saved after first lookup.">💡 학생 ID 를 모르시면 강사 또는 학원에 문의해주세요. 한 번 조회하면 자동 저장됩니다.</div>
+    </div>
+
+    <!-- 🎯 보여드릴 기능 안내 (8개 카드) -->
+    <div style="max-width:680px;margin:24px auto 0">
+      <h3 style="text-align:center;color:#fbbf24;font-size:15px;font-weight:800;margin-bottom:16px" data-ko="✨ 어떤 정보를 볼 수 있나요?" data-en="✨ What can you see?">✨ 어떤 정보를 볼 수 있나요?</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px">
+        <div style="background:rgba(99,102,241,0.10);border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:14px 12px">
+          <div style="font-size:24px;margin-bottom:6px">📅</div>
+          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="출석 30일 그리드" data-en="30-Day Attendance">출석 30일 그리드</div>
+          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="언제 수업 들었는지 한눈에" data-en="When child attended">언제 수업 들었는지 한눈에</div>
+        </div>
+        <div style="background:rgba(251,191,36,0.10);border:1px solid rgba(251,191,36,0.25);border-radius:12px;padding:14px 12px">
+          <div style="font-size:24px;margin-bottom:6px">🏆</div>
+          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="포인트 흐름" data-en="Points Flow">포인트 흐름</div>
+          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="누적 적립·사용 + 잔액" data-en="Earned · Spent · Balance">누적 적립·사용 + 잔액</div>
+        </div>
+        <div style="background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.25);border-radius:12px;padding:14px 12px">
+          <div style="font-size:24px;margin-bottom:6px">💳</div>
+          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="결제 내역" data-en="Payment History">결제 내역</div>
+          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="최근 4건 + 금액" data-en="Recent 4 + amount">최근 4건 + 금액</div>
+        </div>
+        <div style="background:rgba(167,139,250,0.10);border:1px solid rgba(167,139,250,0.25);border-radius:12px;padding:14px 12px">
+          <div style="font-size:24px;margin-bottom:6px">📝</div>
+          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="학습 평가서" data-en="Evaluations">학습 평가서</div>
+          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="강사가 쓴 최근 4건" data-en="Teacher's recent 4">강사가 쓴 최근 4건</div>
+        </div>
+        <div style="background:rgba(56,189,248,0.10);border:1px solid rgba(56,189,248,0.25);border-radius:12px;padding:14px 12px">
+          <div style="font-size:24px;margin-bottom:6px">🎙</div>
+          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="AI 음성 코칭 진도" data-en="AI Voice Coach">AI 음성 코칭 진도</div>
+          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="14일 점수 그래프" data-en="14-day score chart">14일 점수 그래프</div>
+        </div>
+        <div style="background:rgba(236,72,153,0.10);border:1px solid rgba(236,72,153,0.25);border-radius:12px;padding:14px 12px">
+          <div style="font-size:24px;margin-bottom:6px">🎮</div>
+          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="배지 진열장" data-en="Badge Collection">배지 진열장</div>
+          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="10종 자동 부여 배지" data-en="10 auto badges">10종 자동 부여 배지</div>
+        </div>
+        <div style="background:rgba(139,92,246,0.12);border:1px solid rgba(139,92,246,0.30);border-radius:12px;padding:14px 12px">
+          <div style="font-size:24px;margin-bottom:6px">🎯</div>
+          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="AI 학습 추천" data-en="AI Recommendations">AI 학습 추천</div>
+          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="이번 주 맞춤 학습" data-en="Weekly plan">이번 주 맞춤 학습</div>
+        </div>
+        <div style="background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.25);border-radius:12px;padding:14px 12px">
+          <div style="font-size:24px;margin-bottom:6px">📄</div>
+          <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="월별 보고서" data-en="Monthly Report">월별 보고서</div>
+          <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="인쇄·PDF 저장 가능" data-en="Print / PDF">인쇄·PDF 저장 가능</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ❓ 자주 묻는 질문 -->
+    <details style="max-width:680px;margin:24px auto;background:rgba(20,41,80,0.5);border:1px solid rgba(99,102,241,0.20);border-radius:12px">
+      <summary style="cursor:pointer;padding:14px 18px;font-size:13px;font-weight:700;color:#fbbf24" data-ko="❓ 자주 묻는 질문 (펼치기)" data-en="❓ FAQ (expand)">❓ 자주 묻는 질문 (펼치기)</summary>
+      <div style="padding:0 18px 18px;font-size:12.5px;color:#cbd5e1;line-height:1.7">
+        <div style="margin-bottom:12px"><b style="color:#fbbf24" data-ko="Q1. 학생 ID 를 어디서 받나요?" data-en="Q1. Where do I get the student ID?">Q1. 학생 ID 를 어디서 받나요?</b><br><span data-ko="강사 또는 학원 사무실에 문의 → 보통 영문 + 숫자 조합 (예: hong_gd, kim_minsu)" data-en="Ask your teacher or academy office. Usually letters + digits (e.g. hong_gd).">강사 또는 학원 사무실에 문의 → 보통 영문 + 숫자 조합 (예: hong_gd, kim_minsu)</span></div>
+        <div style="margin-bottom:12px"><b style="color:#fbbf24" data-ko="Q2. 자녀가 여러 명이에요" data-en="Q2. I have multiple children">Q2. 자녀가 여러 명이에요</b><br><span data-ko="URL 에 자녀 ID 만 바꾸면 됩니다 — /parent.html?uid=다른자녀ID" data-en="Change ?uid= in URL to switch — /parent.html?uid=otherID">URL 에 자녀 ID 만 바꾸면 됩니다 — <code style="background:rgba(99,102,241,0.15);padding:2px 6px;border-radius:4px;color:#c4b5fd">/parent.html?uid=다른자녀ID</code></span></div>
+        <div style="margin-bottom:12px"><b style="color:#fbbf24" data-ko="Q3. 매번 입력하기 귀찮은데..." data-en="Q3. Tired of typing every time?">Q3. 매번 입력하기 귀찮은데...</b><br><span data-ko="한 번 입력하면 localStorage 에 저장돼서 다음부터 자동 로드" data-en="Saved to your browser — auto-loads next time">한 번 입력하면 브라우저에 저장돼서 다음부터 자동 로드</span></div>
+        <div style="margin-bottom:12px"><b style="color:#fbbf24" data-ko="Q4. 푸시 알림 받고 싶어요" data-en="Q4. Want push alerts?">Q4. 푸시 알림 받고 싶어요</b><br><span data-ko="망고아이 홈페이지 → 🔔 알림 받기 카드 클릭 → 알림 허용" data-en="Go to Mangoi home → 🔔 Get Alerts card → Allow">망고아이 홈페이지 → 🔔 알림 받기 카드 클릭 → 알림 허용</span></div>
+        <div><b style="color:#fbbf24" data-ko="Q5. 인쇄 가능한 월별 보고서는?" data-en="Q5. Printable monthly report?">Q5. 인쇄 가능한 월별 보고서는?</b><br><span data-ko="강사/관리자에게 요청하면 카톡으로 링크 보내드립니다" data-en="Ask teacher — they'll send a Kakao link">강사/관리자에게 요청하면 카톡으로 링크 보내드립니다</span></div>
+      </div>
+    </details>
+
+    <!-- 🔒 개인정보 보호 안내 -->
+    <div style="max-width:680px;margin:14px auto 0;padding:12px 18px;background:rgba(99,102,241,0.06);border-left:3px solid #6366f1;border-radius:8px;font-size:11.5px;color:#a3b3d1;line-height:1.6">
+      🔒 <b style="color:#c4b5fd" data-ko="개인정보 보호" data-en="Privacy">개인정보 보호</b> — <span data-ko="이 화면은 학생 ID 만 알면 누구나 볼 수 있어요. ID 를 비밀번호처럼 관리하세요. 정식 학부모 로그인은 곧 추가됩니다." data-en="Anyone with the student ID can view this page. Treat the ID like a password. Full parent login coming soon.">이 화면은 학생 ID 만 알면 누구나 볼 수 있어요. ID 를 비밀번호처럼 관리하세요. 정식 학부모 로그인은 곧 추가됩니다.</span>
+    </div>
   </div>
 
   <div id="dashboard" style="display:none">
