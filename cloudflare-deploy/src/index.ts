@@ -440,6 +440,9 @@ export default {
         path === '/api/admin/push/generate-vapid' ||
         // 👨‍👩‍👧 Phase PD 부모 대시보드
         path === '/api/parent/dashboard' ||
+        // 👪 Phase PC 부모-자녀 매핑
+        path === '/api/parent/link-child' ||
+        path === '/api/parent/my-children' ||
         // 🎙 Phase AV AI 음성 코칭
         path === '/api/voice/transcribe' ||
         path === '/api/voice/coach' ||
@@ -542,18 +545,94 @@ export default {
     return new Response(resp.body, { status: resp.status, headers });
   },
 
-  // Cron Trigger: 매일 KST 03:00 (UTC 18:00) 보관기간 만료 데이터 자동 파기
+  // Cron Trigger
+  //   - UTC 18:00 (KST 03:00) : 보관기간 만료 데이터 자동 파기
+  //   - UTC 10:00 (KST 19:00) : 학생 일일 streak/참여 푸시 알림
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    const hour = new Date(event.scheduledTime).getUTCHours();
+
     ctx.waitUntil((async () => {
-      try {
-        const result = await purgeExpired(env);
-        console.log('[retention] purged', JSON.stringify(result));
-      } catch (err) {
-        console.error('[retention] error', err);
+      // ── UTC 18:00 — retention purge
+      if (hour === 18) {
+        try {
+          const result = await purgeExpired(env);
+          console.log('[retention] purged', JSON.stringify(result));
+        } catch (err) {
+          console.error('[retention] error', err);
+        }
+      }
+
+      // ── UTC 10:00 (KST 19:00) — 일일 streak/참여 푸시
+      if (hour === 10) {
+        try {
+          await sendDailyStreakPush(env);
+        } catch (err) {
+          console.error('[daily-streak] error', err);
+        }
       }
     })());
   }
 };
+
+// 🔔 매일 KST 19:00 — 학생들에게 일일 참여 푸시
+//   조건: 활성 푸시 구독자 중 오늘 출석 안 한 사용자
+//   메시지: "오늘 영어 한 마디 어떠세요?" + 발음연습 페이지로 유도
+async function sendDailyStreakPush(env: any): Promise<void> {
+  // 푸시 테이블 안전망
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS push_subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, endpoint TEXT NOT NULL UNIQUE, p256dh TEXT, auth TEXT, ua TEXT, enabled INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS push_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT NOT NULL, title TEXT NOT NULL, body TEXT, url TEXT, icon TEXT, badge TEXT, tag TEXT, queued_at INTEGER NOT NULL, fetched_at INTEGER);`);
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT, user_id TEXT, username TEXT, role TEXT, joined_at INTEGER, left_at INTEGER, status TEXT, date TEXT);`);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const now = Date.now();
+
+  // 오늘 출석한 user_id 들
+  const attRs = await env.DB.prepare(`SELECT DISTINCT user_id FROM attendance WHERE date = ?`).bind(today).all();
+  const attendedSet = new Set((attRs.results || []).map((r: any) => r.user_id));
+
+  // 활성 푸시 구독자 중 오늘 출석 안 한 사람
+  const subRs = await env.DB.prepare(`SELECT DISTINCT user_id, endpoint FROM push_subscriptions WHERE enabled = 1 AND user_id IS NOT NULL`).all();
+  const targets = ((subRs.results || []) as any[]).filter(s => !attendedSet.has(s.user_id));
+
+  if (!targets.length) {
+    console.log('[daily-streak] no targets (everyone attended or no subscribers)');
+    return;
+  }
+
+  console.log('[daily-streak] sending to', targets.length, 'targets');
+
+  // 모티베이션 메시지 5개 중 무작위
+  const messages = [
+    { title: '🌟 오늘도 영어 한 마디!', body: '하루 3분 발음 연습으로 영어가 쉬워져요. 지금 시작하기!' },
+    { title: '🎯 망고아이가 기다리고 있어요', body: '오늘 학습 안 했어요. 5분만 투자해볼까요?' },
+    { title: '🚀 영어 실력 UP 챌린지', body: '연속 출석 보너스 포인트 +10P! 지금 화상수업 입장하세요.' },
+    { title: '🎙 AI 음성 코칭 무료', body: '발음 평가 + 모범 음성. 클릭 한번으로 영어가 들려요!' },
+    { title: '🏆 오늘의 미션', body: '오늘 한 줄 영어 연습하고 포인트 받기. Just say "Hello!"' },
+  ];
+  const msg = messages[Math.floor(Math.random() * messages.length)];
+  const url = '/speech-coach.html';
+
+  // 큐에 적재 후 wakeup push
+  const endpoints: string[] = [];
+  for (const t of targets) {
+    await env.DB.prepare(`INSERT INTO push_queue (endpoint, title, body, url, icon, badge, tag, queued_at) VALUES (?,?,?,?,?,?,?,?)`)
+      .bind(t.endpoint, msg.title, msg.body, url, '/img/icon-192.png', '/img/icon-192.png', `daily-${today}`, now).run();
+    endpoints.push(t.endpoint);
+  }
+
+  // 동적 import 로 web-push 모듈 가져오기 (scheduled context 에서)
+  try {
+    const wp = await import('./web-push');
+    const result = await wp.broadcastWebPush(endpoints, env);
+    // 만료된 구독 disable
+    for (const ep of result.expired) {
+      await env.DB.prepare(`UPDATE push_subscriptions SET enabled = 0, updated_at = ? WHERE endpoint = ?`).bind(Date.now(), ep).run();
+    }
+    console.log('[daily-streak] result', JSON.stringify({ sent: result.sent, failed: result.failed, expired: result.expired.length }));
+  } catch (e: any) {
+    console.warn('[daily-streak] push send fail:', e?.message);
+  }
+}
 
 async function handleHealth(): Promise<Response> {
   const response: HealthResponse = {

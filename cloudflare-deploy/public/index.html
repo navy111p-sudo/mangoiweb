@@ -16623,6 +16623,90 @@ window.closeRulesModal = function() {
     } catch(e) { return 'error'; }
   };
 
+  // ━━━━━━ 🔔 푸시 옵트인 안내 배너 (첫 방문 + 30일 쿨다운) ━━━━━━
+  (function pushOptInBanner(){
+    const KEY = 'mangoi_push_banner_dismissed_at';
+    const COOL_MS = 30 * 86400 * 1000; // 30일
+
+    function canShow() {
+      try {
+        const last = parseInt(localStorage.getItem(KEY) || '0', 10);
+        return (Date.now() - last) > COOL_MS;
+      } catch(e){ return true; }
+    }
+    function dismiss(days) {
+      try {
+        const offset = (days||0) * 86400 * 1000;
+        localStorage.setItem(KEY, String(Date.now() - COOL_MS + offset));
+      } catch(e){}
+    }
+    async function maybeShow() {
+      if (!canShow()) return;
+      // 이미 구독 중이면 표시 안 함
+      try {
+        const status = await window.mangoiPushStatus();
+        if (status === 'subscribed' || status === 'unsupported') return;
+      } catch(e){ return; }
+      // VAPID 키 확인 — 서버에서 발급 안 됐으면 표시 안 함
+      try {
+        const r = await fetch('/api/push/vapid-public-key');
+        const d = await r.json();
+        if (!d.ok || !d.key) return;
+      } catch(e){ return; }
+      // 페이지 로드 후 3초 정도 후 표시 (사용자가 페이지에 익숙해진 뒤)
+      setTimeout(showBanner, 3000);
+    }
+    function showBanner() {
+      if (document.getElementById('mangoi-push-banner')) return;
+      const isMobile = window.innerWidth <= 640;
+      const html = `
+        <div id="mangoi-push-banner" style="position:fixed;${isMobile?'bottom:16px;left:8px;right:8px':'bottom:20px;right:20px;max-width:380px'};z-index:9998;background:linear-gradient(135deg,#1e293b,#0f172a);color:#f1f5f9;border:1px solid rgba(251,191,36,0.35);border-radius:16px;padding:16px 18px;box-shadow:0 12px 32px -8px rgba(0,0,0,0.6),0 0 0 1px rgba(251,191,36,0.18);font-family:'Noto Sans KR',sans-serif;animation:mpb-slideUp 0.35s ease-out">
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <div style="font-size:28px;flex-shrink:0">🔔</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:800;font-size:14px;color:#fbbf24;margin-bottom:4px" data-ko="망고아이 알림 받기" data-en="Get Mangoi Alerts">망고아이 알림 받기</div>
+              <div style="font-size:12.5px;line-height:1.55;color:#cbd5e1" data-ko="수업 시작, 평가서 도착, 학원 공지를 휴대폰/PC 잠금화면에 바로 받아보세요. 무료!" data-en="Get instant lock-screen alerts for lesson start, evaluations, and announcements. Free!">수업 시작, 평가서 도착, 학원 공지를 휴대폰/PC 잠금화면에 바로 받아보세요. 무료!</div>
+              <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+                <button onclick="mpbAccept()" style="flex:1;min-width:90px;padding:8px 14px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-weight:800;border:0;border-radius:8px;cursor:pointer;font-size:12.5px" data-ko="✨ 알림 받기" data-en="✨ Get Alerts">✨ 알림 받기</button>
+                <button onclick="mpbLater()" style="padding:8px 12px;background:transparent;color:#94a3b8;border:1px solid rgba(148,163,184,0.3);border-radius:8px;cursor:pointer;font-size:12px" data-ko="나중에" data-en="Later">나중에</button>
+                <button onclick="mpbNever()" style="padding:8px 12px;background:transparent;color:#94a3b8;border:0;border-radius:8px;cursor:pointer;font-size:11.5px;text-decoration:underline" data-ko="안 보기" data-en="Don't ask">안 보기</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <style>@keyframes mpb-slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}</style>
+      `;
+      const div = document.createElement('div');
+      div.innerHTML = html;
+      document.body.appendChild(div.firstElementChild);
+      // 새로 추가한 노드에 i18n 적용
+      if (window.applyI18n) window.applyI18n(document.getElementById('mangoi-push-banner'));
+    }
+
+    window.mpbAccept = async function() {
+      const banner = document.getElementById('mangoi-push-banner');
+      if (banner) banner.remove();
+      if (window.mangoiPushSubscribe) await window.mangoiPushSubscribe();
+      dismiss(365); // 구독했으니 1년 다시 안 묻기 (사실상 영구)
+    };
+    window.mpbLater = function() {
+      const banner = document.getElementById('mangoi-push-banner');
+      if (banner) banner.remove();
+      dismiss(7); // 일주일 후 다시
+    };
+    window.mpbNever = function() {
+      const banner = document.getElementById('mangoi-push-banner');
+      if (banner) banner.remove();
+      dismiss(365); // 1년 다시 안 묻기
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', maybeShow);
+    } else {
+      maybeShow();
+    }
+  })();
+
   // 2) 홈화면 추가 안내 — Android (beforeinstallprompt) + iOS Safari 별도
   const DISMISS_KEY = 'mangoi_pwa_dismissed_at';
   const SHOW_AFTER_MS = 30 * 86400 * 1000;  // 30일 1회

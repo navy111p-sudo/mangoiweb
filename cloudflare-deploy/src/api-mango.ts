@@ -3866,6 +3866,51 @@ Respond in JSON ONLY:
     // ═══════════════════════════════════════════════════════════════
 
 
+    // ═══════════════════════════════════════════════════════════════
+    // 👪 Phase PC — 부모-자녀 매핑 (parent_user_id 컬럼 + 등록 API)
+    // ═══════════════════════════════════════════════════════════════
+    const ensureStudentsErpWithParent = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT, parent_user_id TEXT, program TEXT, status TEXT, created_at INTEGER);`);
+      // 기존 테이블에 parent_user_id 가 없으면 추가 (안전망)
+      try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN parent_user_id TEXT`); } catch {}
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_students_parent ON students_erp(parent_user_id)`); } catch {}
+    };
+
+    // ── POST /api/parent/link-child — 학부모가 자녀를 본인 user_id 에 연결 ──
+    //   body: { parent_user_id, child_user_id, parent_name? }
+    if (method === 'POST' && path === '/api/parent/link-child') {
+      await ensureStudentsErpWithParent();
+      const b: any = await request.json().catch(() => ({}));
+      const pUid = String(b.parent_user_id || '').trim();
+      const cUid = String(b.child_user_id || '').trim();
+      if (!pUid || !cUid) return json({ ok: false, error: 'parent_user_id_and_child_user_id_required' }, 400);
+
+      // 자녀가 students_erp 에 있는지 확인 — 없으면 생성
+      const exists = await env.DB.prepare(`SELECT user_id FROM students_erp WHERE user_id = ? LIMIT 1`).bind(cUid).first();
+      if (exists) {
+        await env.DB.prepare(`UPDATE students_erp SET parent_user_id = ?, parent_name = COALESCE(?, parent_name) WHERE user_id = ?`)
+          .bind(pUid, b.parent_name || null, cUid).run();
+      } else {
+        await env.DB.prepare(`INSERT INTO students_erp (user_id, student_name, parent_user_id, parent_name, status, created_at) VALUES (?,?,?,?,?,?)`)
+          .bind(cUid, b.child_name || cUid, pUid, b.parent_name || null, '신규', Date.now()).run();
+      }
+      return json({ ok: true, parent_user_id: pUid, child_user_id: cUid });
+    }
+
+    // ── GET /api/parent/my-children?uid=X — 학부모의 자녀 목록 ──
+    if (method === 'GET' && path === '/api/parent/my-children') {
+      await ensureStudentsErpWithParent();
+      const pUid = (url.searchParams.get('uid') || '').trim();
+      if (!pUid) return json({ ok: false, error: 'uid_required' }, 400);
+      const rs = await env.DB.prepare(`SELECT user_id, student_name, program, status FROM students_erp WHERE parent_user_id = ?`).bind(pUid).all();
+      return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [] });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 👪 Phase PC 끝
+    // ═══════════════════════════════════════════════════════════════
+
+
     if (method === 'GET' && path === '/api/admin/stats/revenue') {
       // 신규 환경에서 student_payments 가 없을 수 있으니 자동 생성
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, period_start TEXT, period_end TEXT, amount_krw INTEGER NOT NULL, method TEXT, memo TEXT, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`);
