@@ -14,6 +14,10 @@ import {
   sendPaymentOverdueAlert,
   checkSolapiBalance, getSolapiMode, type SolapiEnv,
 } from './solapi-client';
+import {
+  sendWebPushWakeup, broadcastWebPush, generateVapidKeyPair, getWebPushMode,
+  type WebPushEnv,
+} from './web-push';
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv {
   DB: D1Database;
@@ -3321,7 +3325,7 @@ ${chatSampleText}
     // ── GET /api/push/vapid-public-key — 클라이언트가 구독 시 사용 ──
     if (method === 'GET' && path === '/api/push/vapid-public-key') {
       const key = (env as any).VAPID_PUBLIC_KEY || '';
-      return json({ ok: true, key, mode: (await import('./web-push')).getWebPushMode(env as any) });
+      return json({ ok: true, key, mode: getWebPushMode(env as any) });
     }
 
     // ── POST /api/push/subscribe — 구독 등록 ──
@@ -3370,7 +3374,6 @@ ${chatSampleText}
     // ── POST /api/admin/push/send — 특정 사용자(들)에게 푸시 ──
     if (method === 'POST' && path === '/api/admin/push/send') {
       await ensurePushTables();
-      const wp = await import('./web-push');
       const b: any = await req.json().catch(() => ({}));
       const userId = b.user_id;
       const title = (b.title || '망고아이 알림').toString().slice(0, 100);
@@ -3387,7 +3390,7 @@ ${chatSampleText}
 
       if (!subs.length) return json({ ok: true, sent: 0, total: 0, fail: 0, msg: 'no_subscribers' });
 
-      const mode = wp.getWebPushMode(env as any);
+      const mode = getWebPushMode(env as any);
       const queuedAt = Date.now();
       // 모든 구독자에 대해 큐에 메시지 INSERT
       for (const s of subs) {
@@ -3397,7 +3400,7 @@ ${chatSampleText}
       }
 
       // wakeup push 발송
-      const result = await wp.broadcastWebPush(subs.map(s => s.endpoint), env as any);
+      const result = await broadcastWebPush(subs.map(s => s.endpoint), env as any);
       // 만료된 구독은 enabled = 0 처리
       for (const ep of result.expired) {
         await env.DB.prepare(`UPDATE push_subscriptions SET enabled = 0, updated_at = ? WHERE endpoint = ?`).bind(Date.now(), ep).run();
@@ -3420,8 +3423,7 @@ ${chatSampleText}
     // ── GET /api/admin/push/status — VAPID 모드/통계 ──
     if (method === 'GET' && path === '/api/admin/push/status') {
       await ensurePushTables();
-      const wp = await import('./web-push');
-      const mode = wp.getWebPushMode(env as any);
+      const mode = getWebPushMode(env as any);
       const c = await env.DB.prepare(`SELECT COUNT(*) AS n FROM push_subscriptions WHERE enabled = 1`).first<any>();
       const qc = await env.DB.prepare(`SELECT COUNT(*) AS n FROM push_queue WHERE queued_at >= ?`).bind(Date.now() - 86400000 * 7).first<any>();
       return json({ ok: true, mode, active_subs: c?.n || 0, queued_7d: qc?.n || 0, has_pub_key: !!(env as any).VAPID_PUBLIC_KEY });
@@ -3429,8 +3431,7 @@ ${chatSampleText}
 
     // ── GET /api/admin/push/generate-vapid — 새 VAPID 키 페어 생성 (개발/세팅용) ──
     if (method === 'GET' && path === '/api/admin/push/generate-vapid') {
-      const wp = await import('./web-push');
-      const kp = await wp.generateVapidKeyPair();
+      const kp = await generateVapidKeyPair();
       return json({ ok: true, publicKey: kp.publicKey, privateKey: kp.privateKey, instruction: 'wrangler secret put VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY 로 등록 후 wrangler deploy', warn: '⚠ 이 키는 한 번만 표시됩니다 — 안전한 곳에 저장하세요' });
     }
 
