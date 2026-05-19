@@ -547,6 +547,41 @@ export async function handleMangoApi(
           body: `${b.username || b.user_id} 님 입장 (${b.role || 'student'})`,
           meta: { room_id: b.room_id, user_id: b.user_id, role: b.role || 'student', joined_at: now }
         });
+        // 🆕 학생 본인 + 학부모에게 Web Push (학부모 user_id 매핑 시도)
+        try {
+          if ((b.role || 'student') === 'student') {
+            await env.DB.exec(`CREATE TABLE IF NOT EXISTS push_subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, endpoint TEXT NOT NULL UNIQUE, p256dh TEXT, auth TEXT, ua TEXT, enabled INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+            await env.DB.exec(`CREATE TABLE IF NOT EXISTS push_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT NOT NULL, title TEXT NOT NULL, body TEXT, url TEXT, icon TEXT, badge TEXT, tag TEXT, queued_at INTEGER NOT NULL, fetched_at INTEGER);`);
+            // 본인 푸시 (학습 동기부여)
+            const pushTitle = '🎓 수업 입장 완료!';
+            const pushBody = `${b.username || b.user_id} 님 수업 시작했어요. 화이팅!`;
+            const subRows = await env.DB.prepare(`SELECT endpoint FROM push_subscriptions WHERE user_id = ? AND enabled = 1`).bind(b.user_id).all();
+            const eps = (subRows.results || []).map((r:any)=>r.endpoint);
+            for (const ep of eps) {
+              await env.DB.prepare(`INSERT INTO push_queue (endpoint, title, body, url, icon, badge, tag, queued_at) VALUES (?,?,?,?,?,?,?,?)`)
+                .bind(ep, pushTitle, pushBody, '/?go=videocall', '/img/icon-192.png', '/img/icon-192.png', `lesson-join-${b.room_id}`, now).run();
+            }
+            if (eps.length) await broadcastWebPush(eps, env as any);
+
+            // 학부모 푸시 (parent_user_id 매핑) — students_erp.parent_user_id 컬럼 (없으면 무시)
+            try {
+              const stu = await env.DB.prepare(`SELECT parent_user_id, parent_name, student_name FROM students_erp WHERE user_id = ? LIMIT 1`).bind(b.user_id).first<any>();
+              if (stu?.parent_user_id) {
+                const parentTitle = `👨‍👩‍👧 ${stu.student_name || b.username || '자녀'}님 수업 시작`;
+                const parentBody = `방금 영어 수업에 입장했어요. 대시보드에서 진행 상황 확인 가능합니다.`;
+                const parentSubs = await env.DB.prepare(`SELECT endpoint FROM push_subscriptions WHERE user_id = ? AND enabled = 1`).bind(stu.parent_user_id).all();
+                const peps = (parentSubs.results || []).map((r:any)=>r.endpoint);
+                for (const ep of peps) {
+                  await env.DB.prepare(`INSERT INTO push_queue (endpoint, title, body, url, icon, badge, tag, queued_at) VALUES (?,?,?,?,?,?,?,?)`)
+                    .bind(ep, parentTitle, parentBody, '/parent.html?uid=' + encodeURIComponent(b.user_id), '/img/icon-192.png', '/img/icon-192.png', `lesson-join-parent-${b.room_id}`, now).run();
+                }
+                if (peps.length) await broadcastWebPush(peps, env as any);
+              }
+            } catch (e: any) { /* students_erp.parent_user_id 컬럼 없을 수 있음 — 무시 */ }
+          }
+        } catch (e: any) {
+          console.warn('[attendance/join push] error:', e?.message);
+        }
       }
       return json({ ok: true, attendance_id: res.meta.last_row_id, joined_at: now });
     }
@@ -3487,6 +3522,20 @@ ${chatSampleText}
       const total = rows.length;
       const active = rows.filter(r => r.enabled).length;
       return json({ ok: true, total, active, rows });
+    }
+
+    // ── GET /api/admin/push/history — 최근 발송 이력 (push_queue 기반) ──
+    if (method === 'GET' && path === '/api/admin/push/history') {
+      await ensurePushTables();
+      const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 200);
+      const rs = await env.DB.prepare(
+        `SELECT q.id, q.title, q.body, q.url, q.tag, q.queued_at, q.fetched_at, s.user_id, s.ua
+           FROM push_queue q
+           LEFT JOIN push_subscriptions s ON s.endpoint = q.endpoint
+           ORDER BY q.queued_at DESC
+           LIMIT ?`
+      ).bind(limit).all();
+      return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [] });
     }
 
     // ── GET /api/admin/push/status — VAPID 모드/통계 ──

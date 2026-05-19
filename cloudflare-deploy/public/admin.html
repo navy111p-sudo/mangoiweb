@@ -4036,9 +4036,22 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
             <label style="font-size:12px;font-weight:700;color:#374151"><span data-ko="클릭 시 이동 URL" data-en="Click URL">클릭 시 이동 URL</span>
               <input id="wp-url" type="text" value="/" data-ko-placeholder="/" data-en-placeholder="/" style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;margin-top:3px" />
             </label>
-            <button onclick="wpSendNow()" style="padding:10px 18px;font-size:13px;font-weight:800;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;cursor:pointer;margin-top:6px" data-ko="📤 즉시 발송" data-en="📤 Send Now">📤 즉시 발송</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+              <button onclick="wpSendNow()" style="padding:10px 18px;font-size:13px;font-weight:800;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;cursor:pointer" data-ko="📤 즉시 발송" data-en="📤 Send Now">📤 즉시 발송</button>
+              <button onclick="wpSendTestToSelf()" style="padding:10px 18px;font-size:13px;font-weight:800;background:linear-gradient(135deg,#3b82f6,#1e40af);color:#fff;border:0;border-radius:8px;cursor:pointer" data-ko="🧪 나에게 테스트" data-en="🧪 Test on Me">🧪 나에게 테스트</button>
+              <button onclick="wpSubscribeMe()" style="padding:10px 18px;font-size:13px;font-weight:800;background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:8px;cursor:pointer" data-ko="🔔 내 브라우저 구독" data-en="🔔 Subscribe Me">🔔 내 브라우저 구독</button>
+            </div>
           </div>
           <div id="wp-send-result" style="margin-top:14px"></div>
+        </div>
+      </details>
+
+      <!-- 4. 발송 이력 -->
+      <details class="sub-item">
+        <summary data-ko="📜 발송 이력" data-en="📜 Send History">📜 발송 이력</summary>
+        <div class="sub-body">
+          <button onclick="wpLoadHistory()" class="primary" style="padding:7px 14px;font-size:12.5px;font-weight:700;margin-bottom:10px" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+          <div id="wp-history-table" style="overflow-x:auto"></div>
         </div>
       </details>
 
@@ -4146,6 +4159,97 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
     } catch(e) {
       out.innerHTML = '<div style="color:#ef4444;font-size:13px">❌ ' + esc(e.message) + '</div>';
     }
+  };
+
+  // 🆕 admin 자신의 브라우저를 푸시 구독
+  window.wpSubscribeMe = async function(){
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      alert('이 브라우저는 푸시 알림 미지원');
+      return;
+    }
+    try {
+      const keyResp = await fetch('/api/push/vapid-public-key');
+      const keyD = await keyResp.json();
+      if (!keyD.ok || !keyD.key) {
+        alert('VAPID 공개키가 등록되지 않았습니다. 먼저 🔐 새 VAPID 키 생성 후 wrangler secret put 으로 등록하세요.');
+        return;
+      }
+      // base64url → Uint8Array
+      function b64uTo(b64){const pad='='.repeat((4-b64.length%4)%4);const base64=(b64+pad).replace(/-/g,'+').replace(/_/g,'/');const raw=atob(base64);const out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);return out;}
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { alert('알림 권한 거부됨'); return; }
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uTo(keyD.key) });
+      const user = (function(){try{return JSON.parse(localStorage.getItem('mango_user')||'null');}catch(e){return null;}})();
+      await fetch('/api/push/subscribe', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ subscription: sub.toJSON(), user_id: user?.user_id || 'admin', ua: navigator.userAgent.slice(0,200) })
+      });
+      alert('🔔 admin 브라우저 구독 완료!\n이제 🧪 나에게 테스트 버튼으로 알림 검증 가능합니다.');
+      window.wpLoadSubs && window.wpLoadSubs();
+    } catch(e) { alert('❌ ' + e.message); }
+  };
+
+  // 🆕 admin 본인에게 테스트 푸시 발송
+  window.wpSendTestToSelf = async function(){
+    const user = (function(){try{return JSON.parse(localStorage.getItem('mango_user')||'null');}catch(e){return null;}})();
+    const uid = user?.user_id || 'admin';
+    const out = document.getElementById('wp-send-result');
+    out.innerHTML = '<div style="color:#6b7280;font-size:12px">테스트 푸시 발송 중…</div>';
+    try {
+      const r = await fetch('/api/admin/push/send', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          user_id: uid,
+          title: '🧪 망고아이 테스트 푸시',
+          body: '관리자 본인 브라우저로 알림이 정상 도착했어요!',
+          url: '/admin.html'
+        })
+      });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      const isSubscribed = d.total > 0;
+      if (!isSubscribed) {
+        out.innerHTML = `<div style="padding:12px;background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;font-size:13px"><b style="color:#92400e">⚠ 먼저 "🔔 내 브라우저 구독" 을 눌러주세요</b><br>uid=${esc(uid)} 의 활성 구독이 없습니다.</div>`;
+      } else {
+        out.innerHTML = `<div style="padding:12px;background:#dbeafe;border:1px solid #3b82f6;border-radius:8px;font-size:13px"><b style="color:#1e40af">🧪 테스트 발송 완료</b><br>${d.sent}/${d.total} 성공. 잠시 후 브라우저 알림이 뜨면 정상!</div>`;
+      }
+    } catch(e) { out.innerHTML = '<div style="color:#ef4444">❌ '+esc(e.message)+'</div>'; }
+  };
+
+  // 🆕 발송 이력 로드
+  window.wpLoadHistory = async function(){
+    const el = document.getElementById('wp-history-table');
+    if (!el) return;
+    el.innerHTML = '<div style="color:#6b7280;padding:14px">불러오는 중…</div>';
+    try {
+      const r = await fetch('/api/admin/push/history?limit=50');
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      const rows = d.rows || [];
+      if (!rows.length) {
+        el.innerHTML = '<div style="padding:20px;text-align:center;color:#6b7280;background:#f9fafb;border-radius:8px">아직 발송 이력이 없습니다.</div>';
+        return;
+      }
+      el.innerHTML = `
+        <div style="margin-bottom:8px;font-size:11.5px;color:#6b7280">최근 ${rows.length} 건</div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border-radius:8px;overflow:hidden">
+          <thead style="background:#f3f4f6"><tr>
+            <th style="padding:8px;text-align:left">시각</th>
+            <th style="padding:8px;text-align:left">수신자</th>
+            <th style="padding:8px;text-align:left">제목</th>
+            <th style="padding:8px;text-align:left">본문</th>
+            <th style="padding:8px;text-align:center">전달</th>
+          </tr></thead>
+          <tbody>${rows.map(r => `<tr style="border-bottom:1px solid #e5e7eb">
+            <td style="padding:8px;color:#6b7280;font-size:11px;white-space:nowrap">${fmtDate(r.queued_at)}</td>
+            <td style="padding:8px;font-family:monospace">${esc(r.user_id||'-')}</td>
+            <td style="padding:8px;font-weight:700">${esc(r.title||'')}</td>
+            <td style="padding:8px;color:#374151;font-size:11.5px">${esc((r.body||'').slice(0,60))}</td>
+            <td style="padding:8px;text-align:center">${r.fetched_at?'<span style="color:#10b981">✓</span>':'<span style="color:#9ca3af">○</span>'}</td>
+          </tr>`).join('')}</tbody>
+        </table>`;
+    } catch(e) { el.innerHTML = '<div style="color:#ef4444;padding:14px">로드 실패: '+esc(e.message)+'</div>'; }
   };
 
   document.getElementById('card-webpush-mgmt')?.addEventListener('toggle', function(){

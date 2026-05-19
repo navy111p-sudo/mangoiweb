@@ -436,6 +436,7 @@ export default {
         path === '/api/admin/push/send' ||
         path === '/api/admin/push/list' ||
         path === '/api/admin/push/status' ||
+        path === '/api/admin/push/history' ||
         path === '/api/admin/push/generate-vapid' ||
         // 👨‍👩‍👧 Phase PD 부모 대시보드
         path === '/api/parent/dashboard' ||
