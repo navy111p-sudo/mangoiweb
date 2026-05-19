@@ -5141,6 +5141,87 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   }
   .menu-card[open] > summary::after { transform: translateY(-50%) rotate(90deg); color: #3b82f6; }
   .menu-card .menu-body { padding: 14px 18px; }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  /*   카테고리별 컬러 시스템 — 좌측 4px 컬러 스트라이프 + 톤 다운 배경 */
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .menu-card { position: relative; overflow: hidden; border-radius: 12px; background: #fff; border: 1px solid #e5e7eb; }
+  .menu-card > summary {
+    padding-left: 22px !important;
+    border-radius: 12px !important;
+    border: 0 !important;
+  }
+  /* 좌측 4px 컬러 막대 */
+  .menu-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    background: #94a3b8; /* 기본 회색 */
+    transition: width 0.15s, opacity 0.15s;
+  }
+  .menu-card[open]::before { width: 5px; opacity: 1; }
+  .menu-card[open] > summary {
+    background: linear-gradient(90deg, var(--card-tint, rgba(148,163,184,0.08)) 0%, rgba(255,255,255,0) 60%) !important;
+    border-bottom: 1px solid #f3f4f6 !important;
+    border-radius: 12px 12px 0 0 !important;
+  }
+  .menu-card:not([open]):hover { box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+  .menu-card:not([open]):hover > summary { background: var(--card-tint, #f9fafb) !important; }
+
+  /* 📊 대시보드/통계 (KPI/차트/랭킹/리텐션/실시간/정산통계) — 인디고 */
+  #card-kpi-dashboard::before, #card-daily-charts::before,
+  #card-rankings::before, #card-retention::before,
+  #card-active-rooms::before, #card-settlement-stats::before { background: #6366f1; }
+  #card-kpi-dashboard, #card-daily-charts, #card-rankings,
+  #card-retention, #card-active-rooms, #card-settlement-stats { --card-tint: rgba(99,102,241,0.08); }
+
+  /* 👥 학생/학부모 (학생/평가/상담/수강/게시판/배지/일괄평가) — 에메랄드 그린 */
+  #card-students-mgmt::before, #card-eval-mgmt::before,
+  #card-inquiry-mgmt::before, #card-enrollments::before,
+  #card-community::before, #card-badges-mgmt::before,
+  #card-bulk-eval::before { background: #10b981; }
+  #card-students-mgmt, #card-eval-mgmt, #card-inquiry-mgmt,
+  #card-enrollments, #card-community, #card-badges-mgmt,
+  #card-bulk-eval { --card-tint: rgba(16,185,129,0.08); }
+
+  /* 👨‍🏫 강사 — 바이올렛 */
+  #card-teacher-mgmt::before, #card-payroll::before, #card-payroll-auto::before { background: #8b5cf6; }
+  #card-teacher-mgmt, #card-payroll, #card-payroll-auto { --card-tint: rgba(139,92,246,0.08); }
+
+  /* 💰 회계 (포인트/회계) — 앰버 */
+  #card-accounting-mgmt::before, #card-points-mgmt::before { background: #f59e0b; }
+  #card-accounting-mgmt, #card-points-mgmt { --card-tint: rgba(245,158,11,0.1); }
+
+  /* 📢 알림/소통 (카카오/Web Push/팝업/알림 큐) — 핑크/로즈 */
+  #card-kakao-mgmt::before, #card-webpush-mgmt::before,
+  #card-popups-mgmt::before, #card-notifications::before { background: #ec4899; }
+  #card-kakao-mgmt, #card-webpush-mgmt, #card-popups-mgmt,
+  #card-notifications { --card-tint: rgba(236,72,153,0.08); }
+
+  /* 🎓 교육 (교재/레벨/발음/녹화/음성진도) — 스카이 블루 */
+  #card-textbooks::before, #card-level-tests::before,
+  #card-pronunciation::before, #card-recording-storage::before,
+  #card-voice-stats::before { background: #0ea5e9; }
+  #card-textbooks, #card-level-tests, #card-pronunciation,
+  #card-recording-storage, #card-voice-stats { --card-tint: rgba(14,165,233,0.08); }
+
+  /* ⚙ 시스템 (권한/가맹점/센터/데이터/테스트) — 슬레이트 */
+  #card-permissions::before, #card-franchises::before,
+  #card-centers::before, #card-data-export::before,
+  #card-test-seed::before { background: #64748b; }
+  #card-permissions, #card-franchises, #card-centers,
+  #card-data-export, #card-test-seed { --card-tint: rgba(100,116,139,0.08); }
+
+  /* 카드 아이콘 살짝 키우고 좌측 여백 추가 */
+  .menu-card > summary > span:first-child {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  /* 열린 카드: 우측 arrow 색상도 카테고리 컬러 일치 */
+  .menu-card[open] > summary::after { color: inherit; opacity: 0.7; }
+
   .menu-card .menu-form { display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:10px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px; }
   .menu-card .menu-form input,
   .menu-card .menu-form select,
