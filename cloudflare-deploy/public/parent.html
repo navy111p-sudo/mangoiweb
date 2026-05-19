@@ -178,6 +178,20 @@
       <div id="pd-voice-stats"></div>
     </div>
 
+    <!-- 🆕 Phase BG — 배지 진열장 -->
+    <div class="card" style="margin-top:16px">
+      <h3>🎮 <span data-ko="자녀의 배지" data-en="My Child's Badges">자녀의 배지</span></h3>
+      <div id="pd-badges"></div>
+    </div>
+
+    <!-- 🆕 Phase AR — AI 추천 학습 경로 -->
+    <div class="card" style="margin-top:16px">
+      <h3>🎯 <span data-ko="AI 추천 학습 경로 (이번 주)" data-en="AI Recommended Path (This Week)">AI 추천 학습 경로 (이번 주)</span></h3>
+      <div id="pd-recommend"><div class="empty">아래 버튼을 눌러 AI 학습 플랜을 받아보세요</div>
+        <div style="text-align:center;margin-top:10px"><button onclick="loadRecommendPath()" style="padding:8px 18px;background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff;border:0;border-radius:8px;font-weight:800;cursor:pointer" data-ko="🤖 AI 추천 받기" data-en="🤖 Get AI Recommendation">🤖 AI 추천 받기</button></div>
+      </div>
+    </div>
+
     <div style="text-align:center;margin-top:24px">
       <button onclick="pdRefresh()" style="padding:8px 20px;background:rgba(139,92,246,0.2);color:#c4b5fd;border:1px solid rgba(139,92,246,0.4);border-radius:8px;cursor:pointer;font-weight:700" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
       <button onclick="pdLogout()" style="padding:8px 20px;background:transparent;color:#94a3b8;border:1px solid rgba(148,163,184,0.3);border-radius:8px;cursor:pointer;margin-left:8px" data-ko="다른 자녀 조회" data-en="Other child">다른 자녀 조회</button>
@@ -273,6 +287,55 @@ function pdRender(d){
         <div class="eval-text"><b style="color:#fbbf24">다음 목표:</b> ${esc((e.next_goal||'').slice(0,80))}</div>
       </div>`).join('')
     : '<div class="empty">아직 평가서가 없습니다. 다음 수업 후 등록됩니다.</div>';
+
+  // 🆕 배지 자동 검사 + 진열장 로드
+  fetch('/api/badges/check', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uid: _currentUid }) })
+    .catch(()=>{})
+    .finally(() => fetch('/api/badges/list?uid=' + encodeURIComponent(_currentUid)).then(r => r.json()).then(bdata => {
+    const el = document.getElementById('pd-badges');
+    if (!el) return;
+    if (!bdata.ok) return;
+    const badges = bdata.badges || [];
+    el.innerHTML = `
+      <div style="margin-bottom:10px;font-size:12px;color:#94a3b8">획득 <b style="color:#fbbf24">${bdata.earned_count}</b> / ${bdata.total_count}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px">
+        ${badges.map(b => `
+          <div style="background:${b.earned?'linear-gradient(135deg,rgba(251,191,36,0.18),rgba(245,158,11,0.08))':'rgba(255,255,255,0.04)'};border:1px solid ${b.earned?'rgba(251,191,36,0.4)':'rgba(148,163,184,0.15)'};border-radius:10px;padding:10px;text-align:center;opacity:${b.earned?'1':'0.35'};transition:transform .15s" title="${esc(b.desc)}">
+            <div style="font-size:28px;line-height:1">${b.icon}</div>
+            <div style="font-weight:700;font-size:11px;color:${b.earned?'#fbbf24':'#94a3b8'};margin-top:6px">${esc(b.name)}</div>
+            ${b.earned?`<div style="font-size:9px;color:#94a3b8;margin-top:2px">${fmtDate(b.awarded_at)}</div>`:`<div style="font-size:9px;color:#6b7280;margin-top:2px">미획득</div>`}
+          </div>`).join('')}
+      </div>`;
+  }).catch(()=>{}));
+
+  // 🆕 AI 추천 학습 경로 (사용자가 버튼 누를 때 로드)
+  window.loadRecommendPath = async function() {
+    const el = document.getElementById('pd-recommend');
+    el.innerHTML = '<div class="empty">AI 분석 중… (10초 정도)</div>';
+    try {
+      const r = await fetch('/api/admin/ai-analyze/student', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ student_uid: _currentUid, student_name: _currentUid })
+      });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      const a = d.analysis || {};
+      const recs = Array.isArray(a.recommendations) ? a.recommendations : [];
+      el.innerHTML = `
+        <div style="padding:14px;background:rgba(167,139,250,0.1);border-left:4px solid #a78bfa;border-radius:8px;margin-bottom:10px">
+          <div style="font-weight:700;color:#c4b5fd;margin-bottom:4px">📝 AI 진단</div>
+          <div style="font-size:12.5px;color:#e6e9f5;line-height:1.6">${esc(a.summary||'데이터가 부족합니다')}</div>
+        </div>
+        ${recs.length ? `<div style="padding:14px;background:rgba(59,130,246,0.1);border-left:4px solid #3b82f6;border-radius:8px">
+          <div style="font-weight:700;color:#60a5fa;margin-bottom:6px">🎯 이번 주 학습 권장사항</div>
+          <ul style="margin:0;padding-left:20px;color:#93c5fd;font-size:12.5px;line-height:1.7">${recs.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+        </div>` : ''}
+        ${a.next_action ? `<div style="padding:12px 16px;margin-top:8px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1f2937;border-radius:10px"><b>⚡ 다음 액션:</b> ${esc(a.next_action)}</div>` : ''}
+      `;
+    } catch(e) {
+      el.innerHTML = '<div class="empty">AI 분석 실패: ' + e.message + '</div>';
+    }
+  };
 
   // 🆕 음성 코칭 통계 로드 (비동기)
   fetch('/api/voice/stats?uid=' + encodeURIComponent(_currentUid) + '&days=30').then(r => r.json()).then(stats => {

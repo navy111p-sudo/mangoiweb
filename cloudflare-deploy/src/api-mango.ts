@@ -2476,6 +2476,7 @@ export async function handleMangoApi(
       const pushResults: any[] = [];
       if (body.student_uid) pushResults.push({ role: 'student', ...(await sendPushToUser(body.student_uid, pushTitle, pushBody, pushUrl, pushTag)) });
       if (body.parent_uid) pushResults.push({ role: 'parent', ...(await sendPushToUser(body.parent_uid, pushTitle, pushBody, pushUrl, pushTag)) });
+      // 🎮 배지는 parent.html / mypage 에서 페이지 로드 시 /api/badges/check 호출로 자동 갱신
       return json({ ok: true, id: evalId, overall, notify: notifyResult, push: pushResults });
     }
 
@@ -3974,6 +3975,222 @@ Respond in JSON ONLY:
 
     // ═══════════════════════════════════════════════════════════════
     // 👪 Phase PC 끝
+    // ═══════════════════════════════════════════════════════════════
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🎮 Phase BG — 학생 게이미피케이션 (배지/레벨)
+    // ═══════════════════════════════════════════════════════════════
+    const BADGE_CATALOG = [
+      { code: 'first_login',       icon: '🎉', name: '첫 발걸음',         name_en: 'First Steps',          desc: '망고아이 첫 로그인',           rule: 'manual' },
+      { code: 'first_class',       icon: '🎓', name: '첫 수업 입장',       name_en: 'First Class',          desc: '첫 화상수업 참여',             rule: 'attendance_1' },
+      { code: 'streak_7',          icon: '📅', name: '7일 연속 출석',      name_en: '7-Day Streak',         desc: '일주일 매일 출석',             rule: 'streak_7' },
+      { code: 'streak_30',         icon: '🔥', name: '30일 연속 출석',     name_en: '30-Day Streak',        desc: '한달 매일 출석',               rule: 'streak_30' },
+      { code: 'eval_perfect',      icon: '⭐', name: '평가서 만점',        name_en: 'Perfect Score',        desc: '평가서 종합 10점',             rule: 'eval_10' },
+      { code: 'voice_practice_10', icon: '🎙', name: '음성 코칭 10회',     name_en: '10 Voice Sessions',    desc: 'AI 음성 코칭 10회 완료',       rule: 'voice_10' },
+      { code: 'voice_score_90',    icon: '🌟', name: '발음 마스터',        name_en: 'Pronunciation Master', desc: 'AI 음성 코칭 90점 이상',       rule: 'voice_90' },
+      { code: 'points_1000',       icon: '💎', name: '포인트 1,000',       name_en: '1K Points',            desc: '누적 1,000 포인트',            rule: 'points_1000' },
+      { code: 'points_5000',       icon: '👑', name: '포인트 5,000',       name_en: '5K Points',            desc: '누적 5,000 포인트',            rule: 'points_5000' },
+      { code: 'monthly_top',       icon: '🏆', name: '월간 TOP',           name_en: 'Monthly TOP',          desc: '월간 학원 랭킹 TOP 3 진입',    rule: 'monthly_top' },
+    ];
+
+    const ensureBadgeTables = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_badges (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, badge_code TEXT NOT NULL, awarded_at INTEGER NOT NULL, UNIQUE(user_id, badge_code));`);
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_badges_user ON student_badges(user_id, awarded_at DESC)`); } catch {}
+    };
+
+    // 배지 자동 검사 + 부여 (다른 액션에서도 호출 가능)
+    const checkAndAwardBadges = async (userId: string): Promise<string[]> => {
+      if (!userId) return [];
+      await ensureBadgeTables();
+      const earned: string[] = [];
+      const now = Date.now();
+
+      // 이미 가진 배지
+      const haveRs = await env.DB.prepare(`SELECT badge_code FROM student_badges WHERE user_id = ?`).bind(userId).all();
+      const have = new Set((haveRs.results || []).map((r: any) => r.badge_code));
+
+      const award = async (code: string) => {
+        if (have.has(code)) return;
+        try {
+          await env.DB.prepare(`INSERT OR IGNORE INTO student_badges (user_id, badge_code, awarded_at) VALUES (?, ?, ?)`).bind(userId, code, now).run();
+          earned.push(code);
+          have.add(code);
+        } catch {}
+      };
+
+      // 출석 카운트
+      try {
+        const att: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS days FROM attendance WHERE user_id = ?`).bind(userId).first();
+        if ((att?.days || 0) >= 1) await award('attendance_1');
+        if ((att?.days || 0) >= 1) await award('first_class');
+        // 연속 출석 (간단 추정: 최근 30일 중 출석 일수)
+        const since30 = Date.now() - 30 * 86400000;
+        const r30: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ?`).bind(userId, since30).first();
+        if ((r30?.d || 0) >= 7) await award('streak_7');
+        if ((r30?.d || 0) >= 30) await award('streak_30');
+      } catch {}
+
+      // 평가서 만점
+      try {
+        const e: any = await env.DB.prepare(`SELECT MAX(score_overall) AS m FROM student_evaluations WHERE student_uid = ?`).bind(userId).first();
+        if ((e?.m || 0) >= 10) await award('eval_perfect');
+      } catch {}
+
+      // 음성 코칭
+      try {
+        const v: any = await env.DB.prepare(`SELECT COUNT(*) AS n, MAX(accuracy_score) AS m FROM voice_coaching WHERE student_uid = ?`).bind(userId).first();
+        if ((v?.n || 0) >= 10) await award('voice_practice_10');
+        if ((v?.m || 0) >= 90) await award('voice_score_90');
+      } catch {}
+
+      // 포인트
+      try {
+        const p: any = await env.DB.prepare(`SELECT lifetime_earned FROM student_points WHERE user_id = ?`).bind(userId).first();
+        if ((p?.lifetime_earned || 0) >= 1000) await award('points_1000');
+        if ((p?.lifetime_earned || 0) >= 5000) await award('points_5000');
+      } catch {}
+
+      return earned;
+    };
+
+    // ── POST /api/badges/check?uid=X — 배지 자동 검사 + 부여 (학생 클릭으로 트리거 가능) ──
+    if (method === 'POST' && path === '/api/badges/check') {
+      const b: any = await request.json().catch(() => ({}));
+      const uid = String(b.uid || b.user_id || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      const earned = await checkAndAwardBadges(uid);
+      return json({ ok: true, earned_count: earned.length, earned, catalog: BADGE_CATALOG });
+    }
+
+    // ── GET /api/badges/list?uid=X — 학생 배지 목록 ──
+    if (method === 'GET' && path === '/api/badges/list') {
+      await ensureBadgeTables();
+      const uid = (url.searchParams.get('uid') || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      const rs = await env.DB.prepare(`SELECT badge_code, awarded_at FROM student_badges WHERE user_id = ? ORDER BY awarded_at DESC`).bind(uid).all();
+      const earned = (rs.results || []) as any[];
+      const earnedMap = new Map(earned.map(e => [e.badge_code, e.awarded_at]));
+      // 카탈로그와 머지
+      const badges = BADGE_CATALOG.map(c => ({
+        ...c,
+        earned: earnedMap.has(c.code),
+        awarded_at: earnedMap.get(c.code) || null,
+      }));
+      return json({ ok: true, earned_count: earned.length, total_count: BADGE_CATALOG.length, badges });
+    }
+
+    // ── GET /api/admin/badges/stats — 전체 배지 통계 ──
+    if (method === 'GET' && path === '/api/admin/badges/stats') {
+      await ensureBadgeTables();
+      const rs = await env.DB.prepare(`SELECT badge_code, COUNT(*) AS earned_by FROM student_badges GROUP BY badge_code ORDER BY earned_by DESC`).all();
+      const stats = (rs.results || []) as any[];
+      const statsMap = new Map(stats.map(s => [s.badge_code, s.earned_by]));
+      const result = BADGE_CATALOG.map(c => ({ ...c, earned_by: statsMap.get(c.code) || 0 }));
+      const totalAwards = stats.reduce((sum, s) => sum + (s.earned_by || 0), 0);
+      return json({ ok: true, total_awards: totalAwards, badges: result });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🎮 Phase BG 끝
+    // ═══════════════════════════════════════════════════════════════
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🎙 Phase TVS — 음성 코칭 관리자 대시보드
+    // ═══════════════════════════════════════════════════════════════
+
+    // ── GET /api/admin/voice/all-stats — 전체 학생 음성 코칭 통계 ──
+    if (method === 'GET' && path === '/api/admin/voice/all-stats') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS voice_coaching (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, student_name TEXT, target_text TEXT, transcribed_text TEXT, accuracy_score INTEGER, pronunciation_score INTEGER, fluency_score INTEGER, ai_feedback TEXT, suggestion TEXT, audio_url TEXT, created_at INTEGER NOT NULL);`);
+      } catch {}
+      const days = Math.min(parseInt(url.searchParams.get('days') || '30', 10), 90);
+      const sinceMs = Date.now() - days * 86400000;
+      const rs = await env.DB.prepare(
+        `SELECT student_uid, student_name,
+                COUNT(*) AS sessions,
+                AVG(accuracy_score) AS avg_accuracy,
+                AVG(pronunciation_score) AS avg_pronunciation,
+                AVG(fluency_score) AS avg_fluency,
+                MAX(accuracy_score) AS best_accuracy,
+                MAX(created_at) AS last_session_at
+         FROM voice_coaching
+         WHERE created_at >= ?
+         GROUP BY student_uid, student_name
+         ORDER BY sessions DESC
+         LIMIT 200`
+      ).bind(sinceMs).all();
+      const rows = ((rs.results || []) as any[]).map(r => ({
+        student_uid: r.student_uid,
+        student_name: r.student_name || r.student_uid,
+        sessions: r.sessions || 0,
+        avg_accuracy: Math.round(r.avg_accuracy || 0),
+        avg_pronunciation: Math.round(r.avg_pronunciation || 0),
+        avg_fluency: Math.round(r.avg_fluency || 0),
+        avg_overall: Math.round(((r.avg_accuracy || 0) * 0.5) + ((r.avg_pronunciation || 0) * 0.3) + ((r.avg_fluency || 0) * 0.2)),
+        best_accuracy: r.best_accuracy || 0,
+        last_session_at: r.last_session_at,
+      }));
+      const total_sessions = rows.reduce((s, r) => s + r.sessions, 0);
+      const total_students = rows.length;
+      const avg_overall = total_students ? Math.round(rows.reduce((s, r) => s + r.avg_overall, 0) / total_students) : 0;
+      return json({ ok: true, period_days: days, total_students, total_sessions, avg_overall, rows });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🎙 Phase TVS 끝
+    // ═══════════════════════════════════════════════════════════════
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // 📚 Phase BE — 강사 일괄 평가서 작성
+    // ═══════════════════════════════════════════════════════════════
+
+    // ── POST /api/eval/bulk-create — N명에게 한꺼번에 평가서 작성 ──
+    //   body: { teacher_uid, teacher_name, lesson_date, lesson_title, common: {...공통항목}, students: [{ student_uid, student_name, scores: {...}, comments }] }
+    if (method === 'POST' && path === '/api/eval/bulk-create') {
+      const ensureEval = async () => {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_evaluations (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, student_name TEXT, teacher_uid TEXT, teacher_name TEXT, room_id TEXT, lesson_title TEXT, lesson_date TEXT, score_participation INTEGER, score_comprehension INTEGER, score_homework INTEGER, score_attitude INTEGER, score_speaking INTEGER, score_overall INTEGER, strengths TEXT, improvements TEXT, next_goals TEXT, teacher_comment TEXT, parent_notified INTEGER DEFAULT 0, parent_notified_at INTEGER, viewed_by_parent INTEGER DEFAULT 0, viewed_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      };
+      await ensureEval();
+      const body: any = await request.json().catch(() => ({}));
+      const students = Array.isArray(body.students) ? body.students : [];
+      if (!students.length) return json({ ok: false, error: 'no_students' }, 400);
+      const common = body.common || {};
+      const now = Date.now();
+      const created: any[] = [];
+      const failed: any[] = [];
+      for (const s of students) {
+        try {
+          const sc = s.scores || {};
+          const scores = [sc.participation, sc.comprehension, sc.homework, sc.attitude, sc.speaking]
+            .filter(v => v != null && !isNaN(v)).map(Number);
+          const overall = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+          const ins = await env.DB.prepare(
+            `INSERT INTO student_evaluations (student_uid, student_name, teacher_uid, teacher_name, lesson_title, lesson_date, score_participation, score_comprehension, score_homework, score_attitude, score_speaking, score_overall, strengths, improvements, next_goals, teacher_comment, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+          ).bind(
+            s.student_uid, s.student_name || null,
+            body.teacher_uid || null, body.teacher_name || null,
+            body.lesson_title || null, body.lesson_date || null,
+            sc.participation ?? null, sc.comprehension ?? null, sc.homework ?? null, sc.attitude ?? null, sc.speaking ?? null,
+            overall,
+            s.strengths || common.strengths || null,
+            s.improvements || common.improvements || null,
+            s.next_goals || common.next_goals || null,
+            s.teacher_comment || common.teacher_comment || null,
+            now, now
+          ).run();
+          created.push({ student_uid: s.student_uid, id: ins?.meta?.last_row_id, overall });
+        } catch (e: any) {
+          failed.push({ student_uid: s.student_uid, error: e?.message });
+        }
+      }
+      return json({ ok: true, total: students.length, created: created.length, failed: failed.length, items: { created, failed } });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 📚 Phase BE 끝
     // ═══════════════════════════════════════════════════════════════
 
 

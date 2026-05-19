@@ -443,6 +443,14 @@ export default {
         // 👪 Phase PC 부모-자녀 매핑
         path === '/api/parent/link-child' ||
         path === '/api/parent/my-children' ||
+        // 🎮 Phase BG 배지/게이미피케이션
+        path === '/api/badges/check' ||
+        path === '/api/badges/list' ||
+        path === '/api/admin/badges/stats' ||
+        // 🎙 Phase TVS 음성 코칭 admin 통계
+        path === '/api/admin/voice/all-stats' ||
+        // 📚 Phase BE 일괄 평가서
+        path === '/api/eval/bulk-create' ||
         // 🎙 Phase AV AI 음성 코칭
         path === '/api/voice/transcribe' ||
         path === '/api/voice/coach' ||

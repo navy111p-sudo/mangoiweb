@@ -3468,6 +3468,241 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
 </details>
 
 <!-- 📝 Phase E1~E4 — 학생 평가서 (포인트 카드 다음, 카카오 카드 앞) -->
+<!-- 🎮 Phase BG — 학생 배지/게이미피케이션 -->
+<details class="table-card menu-card" id="card-badges-mgmt">
+  <summary><span data-ko="🎮 학생 배지 (게이미피케이션)" data-en="🎮 Student Badges">🎮 학생 배지 (게이미피케이션)</span></summary>
+  <div class="menu-body">
+    <div class="sub-menu">
+      <details class="sub-item" open>
+        <summary data-ko="🏆 배지 카탈로그 + 통계" data-en="🏆 Badge Catalog + Stats">🏆 배지 카탈로그 + 통계</summary>
+        <div class="sub-body">
+          <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:10px;margin-bottom:12px;font-size:12px;color:#92400e">
+            💡 <b data-ko="배지는 학생이 자동으로 받습니다" data-en="Badges are auto-awarded">배지는 학생이 자동으로 받습니다</b> — <span data-ko="평가서 작성, 음성 코칭, 출석 등 액션 발생 시 자동 부여. 학생 마이페이지에 진열장 표시." data-en="Awarded automatically on actions (eval, voice, attendance). Displayed in student page.">평가서 작성, 음성 코칭, 출석 등 액션 발생 시 자동 부여. 학생 마이페이지에 진열장 표시.</span>
+          </div>
+          <button onclick="bgLoadStats()" class="primary" style="padding:7px 14px;font-size:12.5px;font-weight:700;margin-bottom:10px" data-ko="🔄 통계 새로고침" data-en="🔄 Refresh Stats">🔄 통계 새로고침</button>
+          <div id="bg-stats-grid"></div>
+        </div>
+      </details>
+      <details class="sub-item">
+        <summary data-ko="🧪 학생 배지 자동 검사 (수동 실행)" data-en="🧪 Manual Award Check">🧪 학생 배지 자동 검사 (수동 실행)</summary>
+        <div class="sub-body">
+          <input id="bg-check-uid" type="text" placeholder="학생 user_id" style="padding:7px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;margin-right:6px" />
+          <button onclick="bgCheckUser()" style="padding:7px 16px;font-size:12.5px;background:#3b82f6;color:#fff;border:0;border-radius:5px;cursor:pointer;font-weight:700">자동 검사 + 부여</button>
+          <div id="bg-check-result" style="margin-top:10px"></div>
+        </div>
+      </details>
+    </div>
+  </div>
+</details>
+
+<!-- 🎙 Phase TVS — 음성 코칭 진도 (전체 학생) -->
+<details class="table-card menu-card" id="card-voice-stats">
+  <summary><span data-ko="🎙 음성 코칭 진도 (전체 학생)" data-en="🎙 Voice Coach Progress (All Students)">🎙 음성 코칭 진도 (전체 학생)</span></summary>
+  <div class="menu-body">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+      <button onclick="tvsLoad()" class="primary" style="padding:7px 14px;font-size:12.5px;font-weight:700" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+      <select id="tvs-days" onchange="tvsLoad()" style="padding:7px 12px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px">
+        <option value="7">최근 7일</option>
+        <option value="30" selected>최근 30일</option>
+        <option value="90">최근 90일</option>
+      </select>
+      <div id="tvs-summary" style="font-size:11.5px;color:#6b7280;margin-left:auto"></div>
+    </div>
+    <div id="tvs-table" style="overflow-x:auto"></div>
+  </div>
+</details>
+
+<!-- 📚 Phase BE — 강사 일괄 평가서 작성 -->
+<details class="table-card menu-card" id="card-bulk-eval">
+  <summary><span data-ko="📚 강사 일괄 평가서 작성 (BE)" data-en="📚 Bulk Evaluations">📚 강사 일괄 평가서 작성 (BE)</span></summary>
+  <div class="menu-body">
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;color:#1e40af">
+      💡 <b data-ko="공통 부분은 1번만 입력!" data-en="Type common parts once!">공통 부분은 1번만 입력!</b> — <span data-ko="수업 주제/잘한점/보완점/다음목표 공통 입력 → 학생별 점수만 다르게 → 한번에 N개 평가서 생성" data-en="Common topic/strengths/improvements/goals → individual scores → bulk create N evaluations at once">수업 주제/잘한점/보완점/다음목표 공통 입력 → 학생별 점수만 다르게 → 한번에 N개 평가서 생성</span>
+    </div>
+    <div style="display:grid;gap:8px;max-width:800px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label style="font-size:12px;font-weight:700;color:#374151">수업 제목
+          <input id="be-lesson-title" type="text" placeholder="예: BTS Lv3 - Day 12" style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;margin-top:3px" />
+        </label>
+        <label style="font-size:12px;font-weight:700;color:#374151">수업 날짜
+          <input id="be-lesson-date" type="date" style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;margin-top:3px" />
+        </label>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label style="font-size:12px;font-weight:700;color:#374151">강사 이름
+          <input id="be-teacher-name" type="text" placeholder="예: Sarah" style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;margin-top:3px" />
+        </label>
+        <label style="font-size:12px;font-weight:700;color:#374151">강사 UID (옵션)
+          <input id="be-teacher-uid" type="text" placeholder="teacher_uid" style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;margin-top:3px" />
+        </label>
+      </div>
+      <details open style="border:1px solid #e5e7eb;border-radius:8px;padding:0">
+        <summary style="cursor:pointer;padding:10px 14px;font-weight:700;background:#f9fafb">💬 공통 코멘트 (모든 학생에게 자동 적용)</summary>
+        <div style="padding:10px 14px;display:grid;gap:6px">
+          <label style="font-size:12px"><span style="font-weight:700">잘한 점</span> <textarea id="be-common-strengths" rows="2" placeholder="공통 잘한 점" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;margin-top:3px"></textarea></label>
+          <label style="font-size:12px"><span style="font-weight:700">보완할 점</span> <textarea id="be-common-improvements" rows="2" placeholder="공통 보완점" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;margin-top:3px"></textarea></label>
+          <label style="font-size:12px"><span style="font-weight:700">다음 목표</span> <textarea id="be-common-goals" rows="2" placeholder="공통 다음 목표" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;margin-top:3px"></textarea></label>
+        </div>
+      </details>
+      <div>
+        <button onclick="beAddStudent()" style="padding:7px 14px;background:#10b981;color:#fff;border:0;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">＋ 학생 추가</button>
+        <button onclick="beBulkSubmit()" style="padding:7px 16px;background:linear-gradient(135deg,#3b82f6,#1e40af);color:#fff;border:0;border-radius:6px;font-weight:800;font-size:13px;cursor:pointer;margin-left:6px">📤 일괄 작성 완료</button>
+      </div>
+      <div id="be-students" style="display:grid;gap:8px;margin-top:8px"></div>
+      <div id="be-result" style="margin-top:10px"></div>
+    </div>
+  </div>
+</details>
+
+<script>
+(function(){
+  const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+  const fmtDate = (ms) => ms ? new Date(ms).toLocaleString('ko-KR', { dateStyle:'short', timeStyle:'short' }) : '-';
+
+  // ━━━━ 🎮 BG: 배지 통계 ━━━━
+  window.bgLoadStats = async function(){
+    const el = document.getElementById('bg-stats-grid');
+    if (!el) return;
+    el.innerHTML = '<div style="padding:14px;color:#6b7280">불러오는 중…</div>';
+    try {
+      const r = await fetch('/api/admin/badges/stats');
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      el.innerHTML = `
+        <div style="margin-bottom:10px;font-size:12px;color:#6b7280">전체 부여 횟수: <b style="color:#1f2937">${d.total_awards.toLocaleString('ko-KR')}</b></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">
+          ${d.badges.map(b => `
+            <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:12px;text-align:center">
+              <div style="font-size:32px;line-height:1">${b.icon}</div>
+              <div style="font-weight:800;font-size:13px;color:#1f2937;margin-top:6px">${esc(b.name)}</div>
+              <div style="font-size:10px;color:#9ca3af;margin-top:2px">${esc(b.desc)}</div>
+              <div style="margin-top:8px;padding-top:8px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280">획득 <b style="color:#fbbf24;font-size:14px">${b.earned_by}</b> 명</div>
+            </div>`).join('')}
+        </div>`;
+    } catch(e) { el.innerHTML = '<div style="color:#ef4444">로드 실패: '+esc(e.message)+'</div>'; }
+  };
+  window.bgCheckUser = async function(){
+    const uid = document.getElementById('bg-check-uid').value.trim();
+    if (!uid) return alert('학생 user_id 입력');
+    const out = document.getElementById('bg-check-result');
+    out.innerHTML = '검사 중…';
+    try {
+      const r = await fetch('/api/badges/check', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uid }) });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      if (!d.earned_count) {
+        out.innerHTML = '<div style="padding:10px;background:#f9fafb;border-radius:6px;font-size:12px;color:#6b7280">새로 받은 배지 없음. (이미 받은 배지는 중복 부여 안 됨)</div>';
+      } else {
+        const newBadges = d.catalog.filter(c => d.earned.includes(c.code));
+        out.innerHTML = `<div style="padding:12px;background:#ecfdf5;border:1px solid #34d399;border-radius:8px"><b style="color:#059669">✅ ${d.earned_count}개 배지 부여!</b><div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">${newBadges.map(b => `<span style="padding:6px 10px;background:#fff;border:1px solid #d1d5db;border-radius:99px;font-size:12px">${b.icon} ${esc(b.name)}</span>`).join('')}</div></div>`;
+      }
+    } catch(e) { out.innerHTML = '<div style="color:#ef4444">❌ '+esc(e.message)+'</div>'; }
+  };
+  document.getElementById('card-badges-mgmt')?.addEventListener('toggle', function(){ if (this.open) bgLoadStats(); });
+
+  // ━━━━ 🎙 TVS: 음성 코칭 admin 통계 ━━━━
+  window.tvsLoad = async function(){
+    const el = document.getElementById('tvs-table');
+    const sum = document.getElementById('tvs-summary');
+    const days = document.getElementById('tvs-days').value || '30';
+    el.innerHTML = '<div style="padding:14px;color:#6b7280">불러오는 중…</div>';
+    try {
+      const r = await fetch('/api/admin/voice/all-stats?days=' + encodeURIComponent(days));
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      sum.textContent = `학생 ${d.total_students}명 · 세션 ${d.total_sessions}회 · 평균 ${d.avg_overall}점`;
+      if (!d.rows.length) {
+        el.innerHTML = '<div style="padding:20px;text-align:center;color:#6b7280;background:#f9fafb;border-radius:8px">최근 ' + days + '일 동안 음성 코칭 기록이 없습니다.</div>';
+        return;
+      }
+      el.innerHTML = `
+        <table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border-radius:8px;overflow:hidden">
+          <thead style="background:#f3f4f6"><tr>
+            <th style="padding:8px;text-align:left">학생</th>
+            <th style="padding:8px;text-align:right">연습</th>
+            <th style="padding:8px;text-align:right">종합</th>
+            <th style="padding:8px;text-align:right">정확도</th>
+            <th style="padding:8px;text-align:right">발음</th>
+            <th style="padding:8px;text-align:right">유창성</th>
+            <th style="padding:8px;text-align:right">최고</th>
+            <th style="padding:8px;text-align:left">마지막</th>
+          </tr></thead>
+          <tbody>${d.rows.map(r => {
+            const tier = r.avg_overall >= 80 ? '#34d399' : r.avg_overall >= 60 ? '#fbbf24' : '#f87171';
+            return `<tr style="border-bottom:1px solid #e5e7eb">
+              <td style="padding:8px"><b>${esc(r.student_name)}</b><br><span style="color:#9ca3af;font-size:10.5px;font-family:monospace">${esc(r.student_uid)}</span></td>
+              <td style="padding:8px;text-align:right;font-weight:700">${r.sessions}</td>
+              <td style="padding:8px;text-align:right;font-weight:800;color:${tier}">${r.avg_overall}</td>
+              <td style="padding:8px;text-align:right">${r.avg_accuracy}</td>
+              <td style="padding:8px;text-align:right">${r.avg_pronunciation}</td>
+              <td style="padding:8px;text-align:right">${r.avg_fluency}</td>
+              <td style="padding:8px;text-align:right;color:#fbbf24;font-weight:700">${r.best_accuracy}</td>
+              <td style="padding:8px;color:#6b7280;font-size:11px">${fmtDate(r.last_session_at)}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>`;
+    } catch(e) { el.innerHTML = '<div style="color:#ef4444">로드 실패: '+esc(e.message)+'</div>'; }
+  };
+  document.getElementById('card-voice-stats')?.addEventListener('toggle', function(){ if (this.open) tvsLoad(); });
+
+  // ━━━━ 📚 BE: 일괄 평가서 ━━━━
+  let _beStudents = [];
+  window.beAddStudent = function(){
+    _beStudents.push({ uid:'', name:'', scores:{} });
+    beRender();
+  };
+  function beRender(){
+    const el = document.getElementById('be-students');
+    if (!el) return;
+    el.innerHTML = _beStudents.map((s, i) => `
+      <div style="border:1px solid #d1d5db;border-radius:8px;padding:10px;background:#fff">
+        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end">
+          <label style="font-size:11px;font-weight:700;color:#374151">user_id<input value="${esc(s.uid)}" oninput="_beUpd(${i},'uid',this.value)" placeholder="hong_gd" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;margin-top:2px" /></label>
+          <label style="font-size:11px;font-weight:700;color:#374151">이름<input value="${esc(s.name)}" oninput="_beUpd(${i},'name',this.value)" placeholder="홍길동" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;margin-top:2px" /></label>
+          <button onclick="_beDel(${i})" style="padding:6px 10px;background:#ef4444;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:11px">삭제</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:8px">
+          ${['participation','comprehension','homework','attitude','speaking'].map(k => {
+            const label = ({participation:'참여',comprehension:'이해',homework:'숙제',attitude:'태도',speaking:'스피킹'})[k];
+            return `<label style="font-size:10.5px;font-weight:700;color:#374151;text-align:center">${label}<input type="number" min="0" max="10" value="${s.scores[k]||''}" oninput="_beUpdScore(${i},'${k}',this.value)" style="width:100%;padding:4px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;margin-top:2px;text-align:center" /></label>`;
+          }).join('')}
+        </div>
+      </div>`).join('');
+  }
+  window._beUpd = (i, k, v) => { _beStudents[i][k] = v; };
+  window._beUpdScore = (i, k, v) => { _beStudents[i].scores[k] = v?Number(v):null; };
+  window._beDel = (i) => { _beStudents.splice(i,1); beRender(); };
+  window.beBulkSubmit = async function(){
+    if (!_beStudents.length) return alert('학생을 추가하세요');
+    const valid = _beStudents.filter(s => s.uid);
+    if (!valid.length) return alert('user_id 없는 학생은 저장 안 됩니다');
+    const payload = {
+      teacher_uid: document.getElementById('be-teacher-uid').value.trim(),
+      teacher_name: document.getElementById('be-teacher-name').value.trim(),
+      lesson_title: document.getElementById('be-lesson-title').value.trim(),
+      lesson_date: document.getElementById('be-lesson-date').value.trim(),
+      common: {
+        strengths: document.getElementById('be-common-strengths').value.trim(),
+        improvements: document.getElementById('be-common-improvements').value.trim(),
+        next_goals: document.getElementById('be-common-goals').value.trim(),
+      },
+      students: valid.map(s => ({
+        student_uid: s.uid, student_name: s.name, scores: s.scores,
+      })),
+    };
+    const out = document.getElementById('be-result');
+    out.innerHTML = '<div style="color:#6b7280">저장 중…</div>';
+    try {
+      const r = await fetch('/api/eval/bulk-create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      out.innerHTML = `<div style="padding:12px;background:#ecfdf5;border:1px solid #34d399;border-radius:8px"><b style="color:#059669">✅ ${d.created}/${d.total} 평가서 생성 완료</b>${d.failed?`<br><span style="color:#ef4444">실패 ${d.failed}건</span>`:''}</div>`;
+      _beStudents = []; beRender();
+    } catch(e) { out.innerHTML = '<div style="color:#ef4444">❌ '+esc(e.message)+'</div>'; }
+  };
+})();
+</script>
+
 <details class="table-card menu-card" id="card-eval-mgmt">
   <summary><span data-ko="📝 학생 평가서" data-en="📝 Student Evaluations">📝 학생 평가서</span></summary>
   <div class="menu-body">
