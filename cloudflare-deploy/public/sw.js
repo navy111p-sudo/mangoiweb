@@ -1,8 +1,8 @@
 // 🌐 Mangoi Service Worker — PWA 오프라인 캐시 + 빠른 로딩
 // 버전 갱신 시 CACHE_NAME 의 숫자만 바꾸면 모든 사용자에게 즉시 새 버전 전파
 
-const CACHE_NAME = 'mangoi-v3';
-const RUNTIME_CACHE = 'mangoi-runtime-v3';
+const CACHE_NAME = 'mangoi-v4';
+const RUNTIME_CACHE = 'mangoi-runtime-v4';
 
 // 첫 설치 때 미리 캐시할 핵심 자산 (필수 only — 너무 많으면 install 실패)
 const PRECACHE_URLS = [
@@ -64,9 +64,22 @@ self.addEventListener('fetch', (event) => {
 
   // HTML 요청 (탐색)
   if (request.mode === 'navigate' || request.destination === 'document') {
-    event.respondWith(
-      fetch(request).catch(() => caches.match('/'))
-    );
+    event.respondWith((async () => {
+      try {
+        return await fetch(request);
+      } catch (e) {
+        const cached = await caches.match('/');
+        if (cached) return cached;
+        return new Response(
+          '<!doctype html><meta charset=utf-8><title>오프라인</title>' +
+          '<div style="padding:40px;font-family:sans-serif;text-align:center;color:#333">' +
+          '<h1>📡 네트워크 연결 안 됨</h1><p>잠시 후 다시 시도해주세요.</p>' +
+          '<button onclick=location.reload() style="padding:10px 20px;background:#fbbf24;color:#000;border:0;border-radius:8px;font-weight:700;cursor:pointer">새로고침</button>' +
+          '</div>',
+          { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+        );
+      }
+    })());
     return;
   }
 
@@ -130,8 +143,24 @@ async function cacheFirst(request, cacheName) {
     if (resp && resp.ok) cache.put(request, resp.clone()).catch(()=>{});
     return resp;
   } catch (e) {
-    // 네트워크 실패해도 콘솔 빨간 에러 안 띄우게 — 빈 503 응답 반환
-    return new Response('', { status: 503, statusText: 'Offline / SW' });
+    // 네트워크 실패 — destination 에 맞는 빈 응답 (콘솔 빨간 에러 방지)
+    const dest = request.destination;
+    if (dest === 'image') {
+      // 1x1 투명 PNG
+      const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='), c => c.charCodeAt(0));
+      return new Response(png, { status: 200, headers: { 'Content-Type': 'image/png', 'Cache-Control': 'no-store' } });
+    }
+    if (dest === 'style') {
+      return new Response('/* sw offline */', { status: 200, headers: { 'Content-Type': 'text/css', 'Cache-Control': 'no-store' } });
+    }
+    if (dest === 'script') {
+      return new Response('/* sw offline */', { status: 200, headers: { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-store' } });
+    }
+    if (dest === 'font') {
+      return new Response('', { status: 200, headers: { 'Content-Type': 'font/woff2', 'Cache-Control': 'no-store' } });
+    }
+    // 그 외 — 빈 200 (콘솔 깔끔)
+    return new Response('', { status: 200, headers: { 'Cache-Control': 'no-store' } });
   }
 }
 
