@@ -3917,62 +3917,91 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
     <div class="sub-menu">
 
       <!-- 1. 빠른 평가서 작성 -->
-      <details class="sub-item" id="sub-eval-create" open>
+      <details class="sub-item ev-form-dark" id="sub-eval-create" open>
         <summary data-ko="➕ 빠른 평가서 작성" data-en="➕ Quick Evaluation">➕ 빠른 평가서 작성</summary>
         <div class="sub-body">
-          <div style="background:#fffbeb;border:1px dashed #f59e0b;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;color:#78350f;line-height:1.6">
+          <div style="background:rgba(245,158,11,0.10);border:1px dashed rgba(245,158,11,0.4);border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;color:#fde68a;line-height:1.6">
             💡 <b>수업 종료 후 1분 작성</b> — 별점 5개 + 잘한 점·보완 점·다음 목표 한 줄씩만 입력하면 학부모/학생에게 자동 카톡 알림 (가입 시) 또는 평가서 URL 생성.
           </div>
-          <div class="menu-form" style="flex-direction:column;align-items:stretch;gap:10px">
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-              <div><label style="font-size:11px;font-weight:700;color:#374151">학생 UID *</label>
-                <input id="ev-student-uid" type="text" placeholder="hong_gd" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
-              <div><label style="font-size:11px;font-weight:700;color:#374151">학생 이름</label>
-                <input id="ev-student-name" type="text" placeholder="홍길동" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
-              <div><label style="font-size:11px;font-weight:700;color:#374151">강사 이름</label>
-                <input id="ev-teacher-name" type="text" placeholder="Karen" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
+          <div style="display:flex;flex-direction:column;gap:12px;padding:0">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+              <div><label class="ev-lbl">학생 UID <span style="color:#f87171">*</span></label>
+                <input id="ev-student-uid" type="text" placeholder="hong_gd" class="ev-inp" /></div>
+              <div><label class="ev-lbl">학생 이름</label>
+                <input id="ev-student-name" type="text" placeholder="홍길동" class="ev-inp" /></div>
+              <div><label class="ev-lbl">강사 이름</label>
+                <input id="ev-teacher-name" type="text" placeholder="Karen" class="ev-inp" /></div>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-              <div><label style="font-size:11px;font-weight:700;color:#374151">수업명 / 강의</label>
-                <input id="ev-lesson-title" type="text" placeholder="예: 영어회화 5강" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
-              <div><label style="font-size:11px;font-weight:700;color:#374151">수업 날짜</label>
-                <input id="ev-lesson-date" type="date" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div><label class="ev-lbl">수업명 / 강의</label>
+                <input id="ev-lesson-title" type="text" placeholder="예: 영어회화 5강" class="ev-inp" /></div>
+              <div><label class="ev-lbl">수업 날짜</label>
+                <input id="ev-lesson-date" type="date" class="ev-inp" /></div>
             </div>
-            <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:12px 14px">
-              <div style="font-size:12px;font-weight:800;color:#374151;margin-bottom:8px">⭐ 5개 항목 별점 (1~5)</div>
-              <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
-                <div><label style="font-size:11px;color:#6b7280">🎯 참여도</label>
-                  <input id="ev-s-part" type="number" min="1" max="5" placeholder="5" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;text-align:center" /></div>
-                <div><label style="font-size:11px;color:#6b7280">💡 이해도</label>
-                  <input id="ev-s-comp" type="number" min="1" max="5" placeholder="5" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;text-align:center" /></div>
-                <div><label style="font-size:11px;color:#6b7280">📝 숙제</label>
-                  <input id="ev-s-hw" type="number" min="1" max="5" placeholder="5" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;text-align:center" /></div>
-                <div><label style="font-size:11px;color:#6b7280">😊 태도</label>
-                  <input id="ev-s-att" type="number" min="1" max="5" placeholder="5" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;text-align:center" /></div>
-                <div><label style="font-size:11px;color:#6b7280">🗣 말하기</label>
-                  <input id="ev-s-spk" type="number" min="1" max="5" placeholder="5" style="width:100%;padding:6px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;text-align:center" /></div>
+            <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.22);border-radius:12px;padding:14px 16px">
+              <div style="font-size:13px;font-weight:800;color:#fbbf24;margin-bottom:10px">⭐ 5개 항목 별점 (1~5)</div>
+              <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
+                <div><label class="ev-lbl-sub">🎯 참여도</label>
+                  <input id="ev-s-part" type="number" min="1" max="5" placeholder="5" class="ev-inp ev-score" /></div>
+                <div><label class="ev-lbl-sub">💡 이해도</label>
+                  <input id="ev-s-comp" type="number" min="1" max="5" placeholder="5" class="ev-inp ev-score" /></div>
+                <div><label class="ev-lbl-sub">📝 숙제</label>
+                  <input id="ev-s-hw" type="number" min="1" max="5" placeholder="5" class="ev-inp ev-score" /></div>
+                <div><label class="ev-lbl-sub">😊 태도</label>
+                  <input id="ev-s-att" type="number" min="1" max="5" placeholder="5" class="ev-inp ev-score" /></div>
+                <div><label class="ev-lbl-sub">🗣 말하기</label>
+                  <input id="ev-s-spk" type="number" min="1" max="5" placeholder="5" class="ev-inp ev-score" /></div>
               </div>
             </div>
-            <div><label style="font-size:11px;font-weight:700;color:#374151">✨ 잘한 점 *</label>
-              <textarea id="ev-strengths" rows="2" placeholder="예: 새 단어 5개 정확하게 발음했어요" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical"></textarea></div>
-            <div><label style="font-size:11px;font-weight:700;color:#374151">💪 보완할 점</label>
-              <textarea id="ev-improvements" rows="2" placeholder="예: 과거형 시제 좀 더 연습 필요" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical"></textarea></div>
-            <div><label style="font-size:11px;font-weight:700;color:#374151">🎯 다음 수업 목표</label>
-              <textarea id="ev-goals" rows="2" placeholder="예: 자기소개 30초 외워 오기" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical"></textarea></div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-              <div><label style="font-size:11px;font-weight:700;color:#374151">📞 학부모 전화 (카톡 알림용)</label>
-                <input id="ev-parent-phone" type="tel" placeholder="010-1234-5678" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
-              <div><label style="font-size:11px;font-weight:700;color:#374151">📞 학생 전화 (선택)</label>
-                <input id="ev-student-phone" type="tel" placeholder="010-1234-5678" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
+            <div><label class="ev-lbl">✨ 잘한 점 <span style="color:#f87171">*</span></label>
+              <textarea id="ev-strengths" rows="2" placeholder="예: 새 단어 5개 정확하게 발음했어요" class="ev-inp"></textarea></div>
+            <div><label class="ev-lbl">💪 보완할 점</label>
+              <textarea id="ev-improvements" rows="2" placeholder="예: 과거형 시제 좀 더 연습 필요" class="ev-inp"></textarea></div>
+            <div><label class="ev-lbl">🎯 다음 수업 목표</label>
+              <textarea id="ev-goals" rows="2" placeholder="예: 자기소개 30초 외워 오기" class="ev-inp"></textarea></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div><label class="ev-lbl">📞 학부모 전화 (카톡 알림용)</label>
+                <input id="ev-parent-phone" type="tel" placeholder="010-1234-5678" class="ev-inp" /></div>
+              <div><label class="ev-lbl">📞 학생 전화 (선택)</label>
+                <input id="ev-student-phone" type="tel" placeholder="010-1234-5678" class="ev-inp" /></div>
             </div>
-            <div style="display:flex;gap:8px;align-items:center">
-              <button class="primary" onclick="evSubmit()" style="padding:9px 22px;font-size:13.5px;font-weight:800;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;cursor:pointer;box-shadow:0 4px 12px rgba(16,185,129,.35)">💾 평가서 저장 + 카톡 알림</button>
-              <button onclick="evClearForm()" style="padding:9px 14px;font-size:12.5px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer">초기화</button>
-              <span id="ev-feedback" style="font-size:12px;color:#6b7280;margin-left:auto"></span>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
+              <button class="primary" onclick="evSubmit()" style="padding:11px 24px;font-size:13.5px;font-weight:800;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;cursor:pointer;box-shadow:0 4px 16px rgba(16,185,129,.4)">💾 평가서 저장 + 카톡 알림</button>
+              <button onclick="evClearForm()" style="padding:10px 16px;font-size:12.5px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:8px;cursor:pointer;color:#e6ecff;font-weight:700">초기화</button>
+              <span id="ev-feedback" style="font-size:12px;color:#a3b3d1;margin-left:auto"></span>
             </div>
           </div>
         </div>
       </details>
+      <style>
+        .ev-form-dark .ev-lbl {
+          display:block; font-size:12px; font-weight:700; color:#fbbf24;
+          margin-bottom:5px; letter-spacing:-0.2px;
+        }
+        .ev-form-dark .ev-lbl-sub {
+          display:block; font-size:11.5px; font-weight:700;
+          color:#a3b3d1; margin-bottom:4px; text-align:center;
+        }
+        .ev-form-dark .ev-inp {
+          width:100%; padding:9px 12px;
+          background:#0c1a3a !important;
+          color:#e6ecff !important;
+          border:1px solid rgba(99,102,241,0.30) !important;
+          border-radius:8px; font-size:13px;
+          font-family:inherit; resize:vertical;
+          transition:border-color .15s, box-shadow .15s;
+        }
+        .ev-form-dark .ev-inp:focus {
+          border-color:#fbbf24 !important;
+          box-shadow:0 0 0 3px rgba(251,191,36,0.15) !important;
+          outline:0;
+        }
+        .ev-form-dark .ev-inp::placeholder { color:#6b7a99 !important; }
+        .ev-form-dark .ev-score { text-align:center; font-weight:700; font-size:16px; }
+        .ev-form-dark input[type="date"]::-webkit-calendar-picker-indicator {
+          filter:invert(0.7) brightness(1.4); cursor:pointer;
+        }
+      </style>
 
       <!-- 2. 평가서 목록 + 통계 -->
       <details class="sub-item" id="sub-eval-list">
