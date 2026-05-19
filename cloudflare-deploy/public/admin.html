@@ -5230,24 +5230,30 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      - 글씨는 고대비 (#e6e9f5)
   ════════════════════════════════════════════════════════════ */
   :root {
-    --da-bg: #0a0e1a;
-    --da-bg-2: #0f1426;
-    --da-card: #141a2b;
-    --da-card-2: #1a2138;
-    --da-border: rgba(255,255,255,0.08);
-    --da-border-strong: rgba(255,255,255,0.14);
-    --da-text: #e6e9f5;
-    --da-text-2: #94a3b8;
-    --da-text-3: #64748b;
-    --da-input: #0f1525;
+    /* 네이비 베이스 + 코발트 블루 액센트 (Linear/GitHub/Cloudflare 풍) */
+    --da-bg:        #0a1530;   /* 깊은 네이비 (메인 배경) */
+    --da-bg-2:      #0f1d40;   /* 약간 밝은 네이비 (그라데이션 끝점) */
+    --da-card:      #142950;   /* 코발트 네이비 카드 */
+    --da-card-2:    #1a3266;   /* 밝은 코발트 (펼친 카드/2차 표면) */
+    --da-input:     #0c1a3a;   /* 더 깊은 인풋 배경 */
+    --da-border:    rgba(99,102,241,0.18);   /* 인디고 톤 보더 */
+    --da-border-strong: rgba(99,102,241,0.30);
+    --da-text:      #e6ecff;   /* 약간 푸르스름한 흰색 */
+    --da-text-2:    #a3b3d1;   /* 옅은 코발트 그레이 */
+    --da-text-3:    #6b7a99;
+    --da-accent:    #4f7cff;   /* 코발트 블루 액센트 */
   }
   body {
     color: var(--da-text) !important;
     background:
-      radial-gradient(ellipse at top right, rgba(99,102,241,0.18) 0%, transparent 45%),
-      radial-gradient(ellipse at bottom left, rgba(236,72,153,0.10) 0%, transparent 40%),
-      radial-gradient(ellipse at center, rgba(14,165,233,0.06) 0%, transparent 60%),
-      linear-gradient(180deg, var(--da-bg) 0%, var(--da-bg-2) 100%) !important;
+      /* 우상단 코발트 글로우 */
+      radial-gradient(ellipse at top right, rgba(79,124,255,0.22) 0%, transparent 50%),
+      /* 좌하단 인디고/바이올렛 글로우 */
+      radial-gradient(ellipse at bottom left, rgba(99,102,241,0.16) 0%, transparent 45%),
+      /* 중앙 약한 시안 글로우 */
+      radial-gradient(ellipse at center, rgba(56,189,248,0.06) 0%, transparent 60%),
+      /* 네이비 → 코발트 그라데이션 */
+      linear-gradient(180deg, var(--da-bg) 0%, #0b1c44 50%, var(--da-bg-2) 100%) !important;
     background-attachment: fixed !important;
   }
 
@@ -5547,18 +5553,24 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   }
 
   /* ════════════════════════════════════════════════════════════
-     🌌 Hero 영역 다크 — 망고이 캐릭터 살리는 우주 톤
+     🌌 Hero 영역 다크 — 네이비/코발트 + 망고이 골드 액센트
   ════════════════════════════════════════════════════════════ */
   .hero {
     background:
-      radial-gradient(ellipse 90% 75% at 30% 25%, rgba(99,102,241,0.35) 0%, transparent 75%),
-      radial-gradient(ellipse 75% 70% at 75% 25%, rgba(251,191,36,0.18) 0%, transparent 75%),
-      radial-gradient(ellipse 110% 55% at 50% 55%, rgba(139,92,246,0.12) 0%, transparent 75%),
-      radial-gradient(circle at 10% 95%, rgba(236,72,153,0.10) 0%, transparent 60%),
-      radial-gradient(circle at 90% 90%, rgba(245,158,11,0.10) 0%, transparent 60%),
-      linear-gradient(160deg, #141a2b 0%, #1a2138 30%, #1e2645 60%, #1a2138 100%) !important;
-    border: 1px solid var(--da-border) !important;
-    box-shadow: 0 32px 64px -22px rgba(0,0,0,0.5), 0 8px 18px -8px rgba(99,102,241,0.20) !important;
+      /* 좌상 코발트 블루 글로우 (강) */
+      radial-gradient(ellipse 90% 75% at 30% 25%, rgba(79,124,255,0.45) 0%, transparent 75%),
+      /* 우상 망고이 골드 글로우 */
+      radial-gradient(ellipse 75% 70% at 75% 25%, rgba(251,191,36,0.22) 0%, transparent 75%),
+      /* 가운데 인디고 부드러운 톤 */
+      radial-gradient(ellipse 110% 55% at 50% 55%, rgba(99,102,241,0.15) 0%, transparent 75%),
+      /* 좌하 약한 시안 받침 */
+      radial-gradient(circle at 10% 95%, rgba(56,189,248,0.10) 0%, transparent 60%),
+      /* 우하 골드/앰버 받침 */
+      radial-gradient(circle at 90% 90%, rgba(245,158,11,0.12) 0%, transparent 60%),
+      /* 코발트 네이비 베이스 그라데이션 */
+      linear-gradient(160deg, #0a1a3e 0%, #112655 30%, #163066 60%, #0e2350 100%) !important;
+    border: 1px solid rgba(79,124,255,0.30) !important;
+    box-shadow: 0 32px 64px -22px rgba(0,0,0,0.55), 0 8px 18px -8px rgba(79,124,255,0.25), 0 0 0 1px rgba(79,124,255,0.10) inset !important;
   }
   .hero::before {
     background: radial-gradient(circle, rgba(251,191,36,0.18) 0%, transparent 65%) !important;
