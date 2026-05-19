@@ -5441,6 +5441,111 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   /* code 블록 다크 */
   code { background: rgba(99,102,241,0.12) !important; color: #c4b5fd !important; padding: 2px 6px; border-radius: 4px; }
 
+  /* ════════════════════════════════════════════════════════════
+     🌙 강제 가독성 — 인라인 어두운 글자색을 모두 밝게
+     인라인 style="color:#374151" / "#6b7280" / "#1f2937" 같은
+     라이트 테마용 어두운 글자색을 모두 덮어쓰기
+  ════════════════════════════════════════════════════════════ */
+  .menu-card label,
+  .menu-card .sub-body label,
+  .menu-card .sub-body h3,
+  .menu-card .sub-body h4,
+  .menu-card .sub-body strong,
+  .menu-card .sub-body b,
+  .menu-card .sub-body span,
+  .menu-card .sub-body div,
+  .menu-card .sub-body p,
+  .menu-card .menu-body > div,
+  .menu-card .menu-body label,
+  .menu-card .menu-body h3,
+  .menu-card .menu-body h4 {
+    color: var(--da-text) !important;
+  }
+  /* label 안의 보조 span (작은 부제) 도 보이게 */
+  .menu-card label span {
+    color: var(--da-text) !important;
+  }
+  /* 인라인 다크 회색 글자 강제 밝게 — attribute 선택자로 inline override */
+  .menu-card *[style*="color:#374151"],
+  .menu-card *[style*="color: #374151"],
+  .menu-card *[style*="color:#6b7280"],
+  .menu-card *[style*="color: #6b7280"],
+  .menu-card *[style*="color:#1f2937"],
+  .menu-card *[style*="color: #1f2937"],
+  .menu-card *[style*="color:#111827"],
+  .menu-card *[style*="color: #111827"],
+  .menu-card *[style*="color:#4b5563"],
+  .menu-card *[style*="color: #4b5563"] {
+    color: var(--da-text) !important;
+  }
+  .menu-card *[style*="color:#9ca3af"],
+  .menu-card *[style*="color: #9ca3af"] {
+    color: var(--da-text-2) !important;
+  }
+
+  /* 헤더/H3 강조 색상 (eval-mgmt 카드 등) */
+  .menu-card h2, .menu-card h3, .menu-card h4 { color: var(--da-text) !important; }
+  .menu-card details summary { color: var(--da-text) !important; }
+
+  /* input/textarea inline white 배경도 다크로 */
+  .menu-card input[style*="background:#fff"],
+  .menu-card input[style*="background: #fff"],
+  .menu-card textarea[style*="background:#fff"],
+  .menu-card textarea[style*="background: #fff"],
+  .menu-card select[style*="background:#fff"],
+  .menu-card select[style*="background: #fff"],
+  .menu-card input:not([type="checkbox"]):not([type="radio"]),
+  .menu-card textarea,
+  .menu-card select {
+    background: var(--da-input) !important;
+    border: 1px solid var(--da-border-strong) !important;
+    color: var(--da-text) !important;
+  }
+  .menu-card input::placeholder,
+  .menu-card textarea::placeholder { color: var(--da-text-3) !important; }
+
+  /* date input 의 캘린더 아이콘도 흰색에 가깝게 */
+  .menu-card input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.7) brightness(1.4);
+    cursor: pointer;
+  }
+
+  /* 컬러풀한 카드 안의 hint/안내 박스 (linear-gradient 인라인) — 가독성 보장 */
+  .menu-card [style*="linear-gradient(135deg,rgba(251,191,36"],
+  .menu-card [style*="linear-gradient(135deg, rgba(251,191,36"] {
+    color: #fde68a !important;
+  }
+  .menu-card [style*="background:#dbeafe"] { background: rgba(59,130,246,0.15) !important; color: #c7d2fe !important; border-color: rgba(59,130,246,0.30) !important; }
+  .menu-card [style*="background:#fee2e2"] { background: rgba(239,68,68,0.12) !important; color: #fca5a5 !important; border-color: rgba(239,68,68,0.30) !important; }
+
+  /* 작은 부제/도움말 텍스트 */
+  .menu-card div[style*="font-size:11"], .menu-card div[style*="font-size: 11"],
+  .menu-card span[style*="font-size:11"], .menu-card span[style*="font-size: 11"],
+  .menu-card div[style*="font-size:12"], .menu-card div[style*="font-size: 12"] {
+    color: var(--da-text-2) !important;
+  }
+  /* h3, h4 인라인 색은 살리되 가독성 보장 */
+  .menu-card h3 a, .menu-card h4 a { color: #93c5fd !important; }
+
+  /* 단일/스킵: 평가서 카드 (빠른 평가서 작성 헤더)의 그라데이션 박스 안 글자 */
+  .menu-card [style*="background:linear-gradient(135deg"][style*="rgba(251,191,36"] *,
+  .menu-card [style*="background:linear-gradient(135deg"][style*="rgba(245,158,11"] * {
+    color: #fde68a !important;
+  }
+
+  /* 회계 카드 내부 노란 배경 hint 박스 */
+  .menu-card [style*="background:#fef3c7"] *, .menu-card [style*="background: #fef3c7"] * {
+    color: #fde68a !important;
+  }
+
+  /* 폼 안의 작은 label "*" 표시 */
+  .menu-card label[style*="color"] { color: var(--da-text) !important; }
+  .menu-card label[style*="color"] > * { color: inherit !important; }
+  /* required 표시 */
+  .menu-card label .req, .menu-card label *[style*="color:#dc2626"], .menu-card label *[style*="color: #dc2626"] {
+    color: #f87171 !important;
+  }
+
   .menu-card .menu-form { display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:10px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px; }
   .menu-card .menu-form input,
   .menu-card .menu-form select,
