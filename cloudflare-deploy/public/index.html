@@ -19969,5 +19969,616 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
+<!-- Phase 49 (2026-05-22) — 7 fixes
+     1. Background face visibility (segmentation softer)
+     2. PIP/local box mobile touch drag
+     3. Whiteboard/PDF toolbar toggle
+     4. Local face video tap toggle
+     5. Single-row layout maximizing whiteboard
+     6. Mobile Kakao consultation always-on FAB
+     7. Mobile calendar maximize + weekly + nav buttons + manual change -->
+<style id="ph49-overrides">
+  body.vc-in-call #vc-local-box video,
+  #vc-local-box[style*="background"] video {
+    object-fit: cover !important;
+    object-position: center center !important;
+    background: transparent !important;
+  }
+
+  body.vc-in-call .wb-toolbar.ph49-collapsed > *:not(.ph49-tool-toggle),
+  body.vc-in-call .pdf-controls.ph49-collapsed > *:not(.ph49-tool-toggle),
+  body.vc-in-call .pdf-anno-bar.ph49-collapsed > *:not(.ph49-tool-toggle) {
+    display: none !important;
+  }
+  .ph49-tool-toggle {
+    background: linear-gradient(135deg,#fbbf24,#f59e0b);
+    color: #1a0f08;
+    border: 0;
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(245,158,11,0.3);
+    transition: transform .12s ease;
+  }
+  .ph49-tool-toggle:hover { transform: translateY(-1px); }
+  .ph49-tool-toggle.active { background: linear-gradient(135deg,#10b981,#059669); color: #fff; }
+
+  .ph49-face-toggle {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 50;
+    background: rgba(15,23,42,0.85);
+    color: #fbbf24;
+    border: 1px solid rgba(251,191,36,0.6);
+    border-radius: 999px;
+    padding: 4px 9px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ph49-face-toggle:active { transform: scale(0.93); }
+
+  body.vc-in-call .vc-main-row.ph49-face-hidden .video-pane {
+    width: 38px !important;
+    min-width: 38px !important;
+    max-width: 38px !important;
+    height: 38px !important;
+    top: 6px !important;
+    left: 6px !important;
+    overflow: hidden;
+    border-radius: 999px !important;
+    border: 2px solid rgba(251,191,36,0.7) !important;
+    position: absolute !important;
+    z-index: 60;
+  }
+  body.vc-in-call .vc-main-row.ph49-face-hidden .video-pane > *:not(.ph49-face-restore) {
+    display: none !important;
+  }
+  body.vc-in-call .vc-main-row.ph49-face-hidden .content-pane {
+    width: 100% !important;
+    max-width: none !important;
+  }
+  .ph49-face-restore {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: linear-gradient(135deg,#fbbf24,#f59e0b);
+    color: #1a0f08;
+    border: 0;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+  }
+
+  body.vc-in-call .wb-toolbar,
+  body.vc-in-call .pdf-controls,
+  body.vc-in-call .pdf-anno-bar {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+    padding: 4px 6px !important;
+    min-height: 36px;
+  }
+  body.vc-in-call .wb-toolbar::-webkit-scrollbar,
+  body.vc-in-call .pdf-controls::-webkit-scrollbar,
+  body.vc-in-call .pdf-anno-bar::-webkit-scrollbar { height: 4px; }
+  body.vc-in-call .wb-canvas-wrap,
+  body.vc-in-call .pdf-canvas-wrap,
+  body.vc-in-call .pdf-scroll-wrap {
+    flex: 1 !important;
+    min-height: 0 !important;
+  }
+
+  .ph49-kakao-fab {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    z-index: 9990;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #FEE500;
+    border: 0;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35), 0 0 0 1px rgba(60,30,30,0.1);
+    color: #3C1E1E;
+    font-size: 22px;
+    font-weight: 900;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .ph49-kakao-fab:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,0.4); }
+  .ph49-kakao-fab:active { transform: scale(0.95); }
+  .ph49-kakao-fab .ph49-kakao-label {
+    position: absolute;
+    right: 64px;
+    background: rgba(15,23,42,0.92);
+    color: #FEE500;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 11px;
+    border-radius: 999px;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateX(8px);
+    pointer-events: none;
+    transition: opacity .2s, transform .2s;
+  }
+  .ph49-kakao-fab:hover .ph49-kakao-label,
+  .ph49-kakao-fab.ph49-kakao-show-label .ph49-kakao-label {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  body.vc-in-call .ph49-kakao-fab {
+    width: 44px; height: 44px; font-size: 18px;
+    bottom: 8px; right: 8px;
+    opacity: 0.85;
+  }
+  body.vc-in-call .ph49-kakao-fab:hover { opacity: 1; }
+
+  @media (max-width: 900px) {
+    .lc-modal .lc-info.ph49-cal-collapsed,
+    .lc-modal .ph49-cal-collapsible.ph49-cal-collapsed {
+      max-height: 24px !important;
+      overflow: hidden;
+      position: relative;
+      padding: 4px 11px !important;
+      font-size: 10px !important;
+      opacity: 0.7;
+    }
+    .lc-modal .lc-info.ph49-cal-collapsed::after,
+    .lc-modal .ph49-cal-collapsible.ph49-cal-collapsed::after {
+      content: 'detail';
+      position: absolute;
+      right: 8px;
+      top: 4px;
+      background: rgba(251,191,36,0.2);
+      color: #fbbf24;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 9.5px;
+      font-weight: 700;
+    }
+    #cal-grid-wrap {
+      flex: 1 1 auto !important;
+      max-height: 80vh !important;
+      font-size: 11px !important;
+    }
+    #cal-grid-wrap > div:nth-child(2) {
+      max-height: 72vh !important;
+      min-height: 400px;
+      overflow: auto !important;
+      -webkit-overflow-scrolling: touch;
+    }
+    .ph49-cal-nav {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      display: flex;
+      gap: 6px;
+      padding: 6px 10px;
+      background: linear-gradient(180deg, rgba(15,23,42,0.96), rgba(15,23,42,0.85));
+      backdrop-filter: blur(6px);
+      border-bottom: 1px solid rgba(251,191,36,0.25);
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .ph49-cal-nav button {
+      flex: 1 1 auto;
+      min-width: 56px;
+      padding: 7px 8px;
+      background: linear-gradient(135deg,#fbbf24,#f59e0b);
+      color: #1a0f08;
+      border: 0;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(245,158,11,0.3);
+    }
+    .ph49-cal-nav button.ph49-secondary {
+      background: rgba(148,163,184,0.18);
+      color: #e2e8f0;
+      box-shadow: none;
+    }
+    .ph49-cal-nav .ph49-cal-week-label {
+      flex: 2 1 100%;
+      text-align: center;
+      color: #fbbf24;
+      font-size: 12px;
+      font-weight: 800;
+      padding: 4px 0 0;
+    }
+    .ph49-cal-manual {
+      display: flex;
+      gap: 6px;
+      padding: 8px 10px;
+      background: rgba(15,23,42,0.92);
+      border-top: 1px solid rgba(251,191,36,0.2);
+      flex-wrap: wrap;
+      position: sticky;
+      bottom: 0;
+      z-index: 30;
+    }
+    .ph49-cal-manual input[type="date"],
+    .ph49-cal-manual input[type="time"],
+    .ph49-cal-manual select {
+      flex: 1 1 110px;
+      padding: 8px;
+      background: rgba(30,41,59,0.9);
+      border: 1px solid rgba(148,163,184,0.3);
+      color: #fff;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    .ph49-cal-manual button.ph49-confirm {
+      padding: 9px 14px;
+      background: linear-gradient(135deg,#10b981,#059669);
+      color: #fff;
+      border: 0;
+      border-radius: 8px;
+      font-weight: 800;
+      cursor: pointer;
+      font-size: 13px;
+      flex: 1 1 110px;
+    }
+  }
+</style>
+
+<a class="ph49-kakao-fab" id="ph49-kakao-fab"
+   href="https://pf.kakao.com/_mangoi" target="_blank" rel="noopener"
+   onclick="try{if(window.openKakao){window.openKakao();return false;}}catch(e){}"
+   title="Kakao Chat" aria-label="Kakao">
+  <span style="font-size:22px">&#128172;</span><span class="ph49-kakao-label" data-ko="&#52852;&#52852;&#50724; &#49345;&#45924;" data-en="Kakao Chat">Kakao</span>
+</a>
+
+<script>
+(function(){
+  'use strict';
+
+  function ph49PatchSeg(){
+    try {
+      if (typeof window.vcOnSegResults !== 'function' && typeof vcOnSegResults !== 'function') return;
+      window.vcOnSegResults = function(results){
+        try {
+          if (typeof vcBg === 'undefined' || !vcBg.canvas) return;
+          var ctx = vcBg.ctx;
+          var w = vcBg.canvas.width, h = vcBg.canvas.height;
+          var mctx = vcBg.maskCtx;
+          mctx.save();
+          mctx.clearRect(0, 0, w, h);
+          mctx.filter = 'contrast(1.5) brightness(1.05)';
+          mctx.drawImage(results.segmentationMask, 0, 0, w, h);
+          mctx.filter = 'none';
+          mctx.restore();
+          ctx.save();
+          ctx.clearRect(0, 0, w, h);
+          ctx.filter = 'blur(1.4px)';
+          ctx.drawImage(vcBg.maskCanvas, 0, 0, w, h);
+          ctx.filter = 'none';
+          ctx.globalCompositeOperation = 'source-in';
+          ctx.drawImage(results.image, 0, 0, w, h);
+          ctx.globalCompositeOperation = 'destination-over';
+          if (vcBg.mode === 'blur') {
+            ctx.filter = 'blur(12px)';
+            ctx.drawImage(results.image, 0, 0, w, h);
+            ctx.filter = 'none';
+          } else if (vcBg.mode !== 'off') {
+            var img = (typeof vcGetBgImageSync === 'function') ? vcGetBgImageSync(vcBg.mode) : null;
+            if (img && img.complete && img.naturalWidth > 0) {
+              var ir = img.naturalWidth / img.naturalHeight;
+              var cr = w / h;
+              var sx, sy, sw, sh;
+              if (ir > cr) { sh = img.naturalHeight; sw = sh * cr; sx = (img.naturalWidth - sw) / 2; sy = 0; }
+              else { sw = img.naturalWidth; sh = sw / cr; sx = 0; sy = (img.naturalHeight - sh) / 2; }
+              ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+            } else {
+              ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, w, h);
+            }
+          }
+          ctx.restore();
+        } catch (e) { console.warn('[ph49-seg]', e); }
+      };
+      try {
+        if (typeof vcBg !== 'undefined' && vcBg.segmenter && typeof vcBg.segmenter.onResults === 'function') {
+          vcBg.segmenter.onResults(window.vcOnSegResults);
+        }
+      } catch(e){}
+      console.log('[ph49] segmentation softened');
+    } catch(e) { console.warn('[ph49] seg patch fail', e); }
+  }
+
+  function ph49AttachTouchDrag(handleEl, moveEl){
+    if (!handleEl || !moveEl || handleEl.dataset.ph49Touch === '1') return;
+    handleEl.dataset.ph49Touch = '1';
+    var dragging = false, sx = 0, sy = 0, ox = 0, oy = 0, moved = false;
+    function onStart(e){
+      if (e.target && (e.target.tagName === 'BUTTON' || e.target.closest('button'))) return;
+      var t = (e.touches && e.touches[0]) || e;
+      dragging = true; moved = false;
+      sx = t.clientX; sy = t.clientY;
+      var rect = moveEl.getBoundingClientRect();
+      ox = rect.left; oy = rect.top;
+      try { e.preventDefault(); } catch(_) {}
+    }
+    function onMove(e){
+      if (!dragging) return;
+      var t = (e.touches && e.touches[0]) || e;
+      var dx = t.clientX - sx, dy = t.clientY - sy;
+      if (!moved && (Math.abs(dx) + Math.abs(dy)) < 5) return;
+      moved = true;
+      moveEl.style.right = 'auto'; moveEl.style.bottom = 'auto';
+      moveEl.style.position = 'fixed';
+      var rect = moveEl.getBoundingClientRect();
+      var nx = Math.max(4, Math.min(window.innerWidth - rect.width - 4, ox + dx));
+      var ny = Math.max(4, Math.min(window.innerHeight - rect.height - 4, oy + dy));
+      moveEl.style.left = nx + 'px';
+      moveEl.style.top  = ny + 'px';
+      try { e.preventDefault(); } catch(_) {}
+    }
+    function onEnd(){
+      if (!dragging) return;
+      dragging = false;
+      if (!moved) return;
+      try {
+        localStorage.setItem('ph49_'+moveEl.id+'_pos', JSON.stringify({left:moveEl.style.left, top:moveEl.style.top}));
+      } catch(_){}
+    }
+    handleEl.addEventListener('touchstart', onStart, {passive:false});
+    document.addEventListener('touchmove', onMove, {passive:false});
+    document.addEventListener('touchend', onEnd);
+    handleEl.addEventListener('mousedown', onStart);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onEnd);
+  }
+
+  function ph49RestorePos(el){
+    if (!el || !el.id) return;
+    try {
+      var raw = localStorage.getItem('ph49_'+el.id+'_pos');
+      if (!raw) return;
+      var p = JSON.parse(raw);
+      if (p.left) el.style.left = p.left;
+      if (p.top)  el.style.top  = p.top;
+      if (p.left || p.top) {
+        el.style.right = 'auto'; el.style.bottom = 'auto';
+        el.style.position = 'fixed';
+      }
+    } catch(_){}
+  }
+
+  function ph49AddWhiteboardToggle(){
+    var bars = document.querySelectorAll('.wb-toolbar, .pdf-controls, .pdf-anno-bar');
+    bars.forEach(function(bar){
+      if (bar.querySelector('.ph49-tool-toggle')) return;
+      var btn = document.createElement('button');
+      btn.className = 'ph49-tool-toggle active';
+      btn.type = 'button';
+      btn.title = 'Toggle tools';
+      btn.textContent = 'TOOLS';
+      btn.addEventListener('click', function(e){
+        e.preventDefault(); e.stopPropagation();
+        bar.classList.toggle('ph49-collapsed');
+        btn.classList.toggle('active');
+        btn.textContent = bar.classList.contains('ph49-collapsed') ? 'TOOLS+' : 'TOOLS';
+      });
+      bar.insertBefore(btn, bar.firstChild);
+    });
+  }
+
+  function ph49AddFaceToggle(){
+    var localBox = document.getElementById('vc-local-box');
+    var videoPane = document.getElementById('vc-video-pane');
+    var mainRow = document.getElementById('vc-main-row');
+    if (!localBox || !videoPane || !mainRow) return;
+    if (videoPane.querySelector('.ph49-face-toggle')) return;
+    var toggle = document.createElement('button');
+    toggle.className = 'ph49-face-toggle';
+    toggle.type = 'button';
+    toggle.title = 'Toggle face';
+    toggle.innerHTML = 'FACE OFF';
+    toggle.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
+      mainRow.classList.toggle('ph49-face-hidden');
+      ph49UpdateFaceRestore();
+    });
+    videoPane.appendChild(toggle);
+    var restore = document.createElement('button');
+    restore.className = 'ph49-face-restore';
+    restore.type = 'button';
+    restore.title = 'Show face';
+    restore.textContent = 'F';
+    restore.style.display = 'none';
+    restore.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
+      mainRow.classList.remove('ph49-face-hidden');
+      ph49UpdateFaceRestore();
+    });
+    videoPane.appendChild(restore);
+    var firstVideo = localBox.querySelector('video');
+    if (firstVideo && !firstVideo.dataset.ph49Tap) {
+      firstVideo.dataset.ph49Tap = '1';
+      var lastTap = 0;
+      firstVideo.addEventListener('click', function(){
+        var now = Date.now();
+        if (now - lastTap < 400) {
+          mainRow.classList.toggle('ph49-face-hidden');
+          ph49UpdateFaceRestore();
+        }
+        lastTap = now;
+      });
+    }
+  }
+  function ph49UpdateFaceRestore(){
+    var restore = document.querySelector('.ph49-face-restore');
+    var mainRow = document.getElementById('vc-main-row');
+    if (!restore || !mainRow) return;
+    restore.style.display = mainRow.classList.contains('ph49-face-hidden') ? 'flex' : 'none';
+    var toggle = document.querySelector('.ph49-face-toggle');
+    if (toggle) toggle.style.display = mainRow.classList.contains('ph49-face-hidden') ? 'none' : '';
+  }
+
+  function ph49KakaoInit(){
+    var fab = document.getElementById('ph49-kakao-fab');
+    if (!fab) return;
+    fab.classList.add('ph49-kakao-show-label');
+    setTimeout(function(){ fab.classList.remove('ph49-kakao-show-label'); }, 2500);
+    if (window.matchMedia('(max-width: 720px)').matches) {
+      setTimeout(function(){
+        fab.classList.add('ph49-kakao-show-label');
+        setTimeout(function(){ fab.classList.remove('ph49-kakao-show-label'); }, 2000);
+      }, 8000);
+    }
+  }
+
+  function ph49EnhanceCalendar(){
+    var modal = document.querySelector('.lc-modal');
+    if (!modal || modal.dataset.ph49Cal === '1') return;
+    var grid = modal.querySelector('#cal-grid-wrap');
+    if (!grid) return;
+    modal.dataset.ph49Cal = '1';
+
+    if (window.matchMedia('(max-width: 900px)').matches) {
+      modal.querySelectorAll('.lc-info').forEach(function(info){
+        info.classList.add('ph49-cal-collapsed');
+        info.style.cursor = 'pointer';
+        info.addEventListener('click', function(){
+          info.classList.toggle('ph49-cal-collapsed');
+        });
+      });
+    }
+
+    if (!grid.querySelector('.ph49-cal-nav')) {
+      var nav = document.createElement('div');
+      nav.className = 'ph49-cal-nav';
+      nav.innerHTML =
+        '<button type="button" data-act="prev" data-ko="◀ 이전주" data-en="◀ Prev">◀ 이전주</button>' +
+        '<button type="button" data-act="today" class="ph49-secondary" data-ko="오늘" data-en="Today">오늘</button>' +
+        '<button type="button" data-act="next" data-ko="다음주 ▶" data-en="Next ▶">다음주 ▶</button>' +
+        '<button type="button" data-act="up" class="ph49-secondary" title="up">▲</button>' +
+        '<button type="button" data-act="down" class="ph49-secondary" title="down">▼</button>' +
+        '<span class="ph49-cal-week-label" data-ko="캘린더 - 버튼으로 이동" data-en="Calendar - Use buttons">캘린더 - 버튼으로 이동</span>';
+      grid.insertBefore(nav, grid.firstChild);
+      var scroller = grid.querySelector('div:nth-child(2)');
+      if (!scroller) {
+        var gridBody = grid.querySelector('[id$="grid-body"]');
+        scroller = gridBody && gridBody.parentElement ? gridBody.parentElement : null;
+      }
+      nav.addEventListener('click', function(e){
+        var b = e.target.closest('button'); if (!b) return;
+        var act = b.dataset.act;
+        if (!scroller) return;
+        var w = scroller.clientWidth || 320;
+        if (act === 'prev')       scroller.scrollBy({ left: -w * 0.9, behavior: 'smooth' });
+        else if (act === 'next')  scroller.scrollBy({ left:  w * 0.9, behavior: 'smooth' });
+        else if (act === 'today') scroller.scrollTo({ left: 0, top: 0, behavior: 'smooth' });
+        else if (act === 'up')    scroller.scrollBy({ top: -200, behavior: 'smooth' });
+        else if (act === 'down')  scroller.scrollBy({ top:  200, behavior: 'smooth' });
+      });
+    }
+
+    if (!modal.querySelector('.ph49-cal-manual')) {
+      var manual = document.createElement('div');
+      manual.className = 'ph49-cal-manual';
+      var today = new Date();
+      var ymd = today.toISOString().slice(0,10);
+      manual.innerHTML =
+        '<input type="date" id="ph49-cal-date" value="' + ymd + '" min="' + ymd + '">' +
+        '<input type="time" id="ph49-cal-time" value="14:00" step="600">' +
+        '<button type="button" class="ph49-confirm" id="ph49-cal-apply" data-ko="✓ 이 시간으로 변경" data-en="✓ Set this time">✓ 이 시간으로 변경</button>';
+      grid.parentNode.appendChild(manual);
+      manual.querySelector('#ph49-cal-apply').addEventListener('click', function(){
+        var d = manual.querySelector('#ph49-cal-date').value;
+        var t = manual.querySelector('#ph49-cal-time').value;
+        if (!d || !t) { alert('날짜와 시간을 모두 선택해주세요.'); return; }
+        try {
+          if (window.lcPicker) {
+            window.lcPicker.pickedDate = d;
+            window.lcPicker.pickedHour = t;
+          }
+          var confirmBtn = modal.querySelector('[onclick*="lcConfirm"], [onclick*="confirmChange"], .lc-confirm');
+          if (confirmBtn) { confirmBtn.click(); return; }
+          alert('새 시간: ' + d + ' ' + t + '\n캘린더의 ✅ 확정 버튼을 눌러주세요.');
+        } catch(e) {
+          console.warn('[ph49 cal manual]', e);
+          alert('새 시간: ' + d + ' ' + t);
+        }
+      });
+    }
+  }
+
+  function ph49Init(){
+    ph49PatchSeg();
+    setTimeout(ph49PatchSeg, 1500);
+    setTimeout(ph49PatchSeg, 4000);
+
+    function attachPipDrag(){
+      var pip = document.getElementById('vc-pip-overlay');
+      var pipHeader = document.getElementById('vc-pip-header');
+      if (pip && pipHeader) {
+        ph49AttachTouchDrag(pipHeader, pip);
+        ph49RestorePos(pip);
+      }
+    }
+    attachPipDrag();
+    setTimeout(attachPipDrag, 1500);
+
+    function rewireToolbars(){
+      ph49AddWhiteboardToggle();
+      ph49AddFaceToggle();
+    }
+    rewireToolbars();
+    setTimeout(rewireToolbars, 1500);
+    document.addEventListener('click', function(e){
+      var t = e.target.closest('.tab-btn');
+      if (t) setTimeout(rewireToolbars, 200);
+    });
+    var bodyObs = new MutationObserver(function(){
+      if (document.body.classList.contains('vc-in-call')) rewireToolbars();
+    });
+    bodyObs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
+    ph49KakaoInit();
+
+    var calObs = new MutationObserver(function(){
+      if (document.querySelector('.lc-modal:not([data-ph49-cal="1"])')) {
+        ph49EnhanceCalendar();
+      }
+    });
+    calObs.observe(document.body, { childList: true, subtree: true });
+    var origOpen = window.openLessonChangeModal;
+    if (typeof origOpen === 'function') {
+      window.openLessonChangeModal = function(){
+        var r = origOpen.apply(this, arguments);
+        setTimeout(ph49EnhanceCalendar, 250);
+        setTimeout(ph49EnhanceCalendar, 800);
+        return r;
+      };
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ph49Init);
+  } else {
+    ph49Init();
+  }
+})();
+</script>
+
 </body>
 </html>
