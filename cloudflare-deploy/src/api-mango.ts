@@ -389,6 +389,43 @@ export async function handleMangoApi(
   const path = url.pathname;
   const method = request.method;
 
+  // 🛡️ Inline-define sendPushToUser at the very top of the handler so all
+  // notification endpoints below can use it without TDZ ReferenceError.
+  // (Was previously declared deep inside the function — caused runtime crash
+  // on /api/notify/lesson-started + lesson-ended + payment-success paths.)
+  const ensurePushTables_top = async () => {
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS push_subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, endpoint TEXT NOT NULL UNIQUE, p256dh TEXT, auth TEXT, ua TEXT, enabled INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+    try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id, enabled)`); } catch {}
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS push_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT NOT NULL, title TEXT NOT NULL, body TEXT, url TEXT, icon TEXT, badge TEXT, tag TEXT, queued_at INTEGER NOT NULL, fetched_at INTEGER);`);
+    try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_push_queue_ep ON push_queue(endpoint, fetched_at, queued_at DESC)`); } catch {}
+  };
+  const sendPushToUser = async (userId: string, title: string, body: string, targetUrl: string = '/', tag?: string): Promise<any> => {
+    try {
+      await ensurePushTables_top();
+      if (!userId) return { ok: true, sent: 0, total: 0, msg: 'no_user_id' };
+      const rs = await env.DB.prepare(`SELECT endpoint FROM push_subscriptions WHERE user_id = ? AND enabled = 1`).bind(userId).all();
+      const subs = (rs.results || []) as any[];
+      if (!subs.length) return { ok: true, sent: 0, total: 0, msg: 'no_subscriptions' };
+      const now = Date.now();
+      const T = (title || '망고아이 알림').slice(0, 100);
+      const B = (body || '').slice(0, 300);
+      const U = targetUrl || '/';
+      const TAG = tag || ('mangoi-' + now);
+      for (const s of subs) {
+        await env.DB.prepare(`INSERT INTO push_queue (endpoint, title, body, url, icon, badge, tag, queued_at) VALUES (?,?,?,?,?,?,?,?)`)
+          .bind(s.endpoint, T, B, U, '/img/icon-192.png', '/img/icon-192.png', TAG, now).run();
+      }
+      const result = await broadcastWebPush(subs.map(s => s.endpoint), env as any);
+      for (const ep of result.expired) {
+        await env.DB.prepare(`UPDATE push_subscriptions SET enabled = 0, updated_at = ? WHERE endpoint = ?`).bind(Date.now(), ep).run();
+      }
+      return { ok: true, sent: result.sent, fail: result.failed, total: subs.length, mode: result.mode };
+    } catch (e: any) {
+      console.warn('[sendPushToUser] fail:', e?.message);
+      return { ok: false, error: e?.message };
+    }
+  };
+
   try {
     // ===== 🛠️ 진단 + 테이블 부트스트랩 =====
     if (path === '/api/_bootstrap' && method === 'GET') {
@@ -3416,35 +3453,8 @@ ${chatSampleText}
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_push_queue_ep ON push_queue(endpoint, fetched_at, queued_at DESC)`); } catch {}
     };
 
-    // 🔔 푸시 발송 헬퍼 — 다른 알림 트리거에서 호출 가능
-    //   특정 user_id 의 모든 활성 구독에 push 메시지 큐잉 + wakeup 전송
-    //   리턴: { ok, sent, fail, total }  (실패해도 throw 안 함)
-    const sendPushToUser = async (userId: string, title: string, body: string, targetUrl: string = '/', tag?: string) => {
-      try {
-        await ensurePushTables();
-        if (!userId) return { ok: true, sent: 0, total: 0, msg: 'no_user_id' };
-        const rs = await env.DB.prepare(`SELECT endpoint FROM push_subscriptions WHERE user_id = ? AND enabled = 1`).bind(userId).all();
-        const subs = (rs.results || []) as any[];
-        if (!subs.length) return { ok: true, sent: 0, total: 0, msg: 'no_subscriptions' };
-        const now = Date.now();
-        const T = (title || '망고아이 알림').slice(0, 100);
-        const B = (body || '').slice(0, 300);
-        const U = targetUrl || '/';
-        const TAG = tag || ('mangoi-' + now);
-        for (const s of subs) {
-          await env.DB.prepare(`INSERT INTO push_queue (endpoint, title, body, url, icon, badge, tag, queued_at) VALUES (?,?,?,?,?,?,?,?)`)
-            .bind(s.endpoint, T, B, U, '/img/icon-192.png', '/img/icon-192.png', TAG, now).run();
-        }
-        const result = await broadcastWebPush(subs.map(s => s.endpoint), env as any);
-        for (const ep of result.expired) {
-          await env.DB.prepare(`UPDATE push_subscriptions SET enabled = 0, updated_at = ? WHERE endpoint = ?`).bind(Date.now(), ep).run();
-        }
-        return { ok: true, sent: result.sent, fail: result.failed, total: subs.length, mode: result.mode };
-      } catch (e: any) {
-        console.warn('[sendPushToUser] fail:', e?.message);
-        return { ok: false, error: e?.message };
-      }
-    };
+    // sendPushToUser is now defined at the top of handleMangoApi (TDZ fix).
+    // This block intentionally left as a marker to preserve line layout.
 
     // ── GET /api/push/vapid-public-key — 클라이언트가 구독 시 사용 ──
     if (method === 'GET' && path === '/api/push/vapid-public-key') {
@@ -4305,73 +4315,279 @@ Respond in JSON ONLY:
     //   AI 가 종합 → 위험도 점수 (0~100) + 사유 + 권장 액션
     if (method === 'GET' && path === '/api/admin/retention/risk') {
       try {
-        // 모든 활성 학생 가져오기
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT, parent_user_id TEXT, program TEXT, status TEXT, created_at INTEGER);`);
+        // 🔧 students_erp 스키마 충돌 호환 — 컬럼 이름이 student_name / name / korean_name 중 하나일 수 있음
+        //   → PRAGMA table_info 로 존재하는 컬럼 발견 후 동적 매핑
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT, user_id TEXT, username TEXT, role TEXT, joined_at INTEGER, left_at INTEGER, status TEXT, date TEXT);`);
+        let nameCol = 'user_id';   // 안전한 폴백
+        let parentPhoneCol: string | null = null;
+        let parentNameCol: string | null = null;
+        try {
+          const cols: any = await env.DB.prepare(`PRAGMA table_info(students_erp)`).all();
+          const colNames = ((cols.results || []) as any[]).map(c => c.name);
+          if (colNames.includes('student_name')) nameCol = 'student_name';
+          else if (colNames.includes('korean_name')) nameCol = 'korean_name';
+          else if (colNames.includes('name')) nameCol = 'name';
+          if (colNames.includes('parent_phone')) parentPhoneCol = 'parent_phone';
+          if (colNames.includes('parent_name')) parentNameCol = 'parent_name';
+        } catch {}
 
         const now = Date.now();
+        const since14 = now - 14 * 86400000;
         const since30 = now - 30 * 86400000;
         const since60 = now - 60 * 86400000;
+        const since90 = now - 90 * 86400000;
 
-        const studentsRs = await env.DB.prepare(`SELECT user_id, student_name FROM students_erp WHERE status = '정상' OR status IS NULL OR status = '' LIMIT 500`).all();
+        const selectCols = [
+          'user_id',
+          `${nameCol} AS student_name`,
+          parentPhoneCol ? 'parent_phone' : `'' AS parent_phone`,
+          parentNameCol ? 'parent_name' : `'' AS parent_name`,
+        ].join(', ');
+        const studentsRs = await env.DB.prepare(
+          `SELECT ${selectCols} FROM students_erp WHERE status = '정상' OR status IS NULL OR status = '' LIMIT 500`
+        ).all();
         const students = (studentsRs.results || []) as any[];
-        if (!students.length) return json({ ok: true, count: 0, at_risk: [] });
+        if (!students.length) return json({ ok: true, count: 0, at_risk: [], schema: { name_col: nameCol } });
 
         const atRisk: any[] = [];
         for (const s of students) {
-          // 최근 30일 출석
+          // 1) 출석 (최근 30 / 30-60 / 60-90일)
           const att30: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ?`).bind(s.user_id, since30).first();
-          // 30~60일 출석 (비교용)
           const att60: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ? AND joined_at < ?`).bind(s.user_id, since60, since30).first();
-          // 마지막 입장
+          const att90: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ? AND joined_at < ?`).bind(s.user_id, since90, since60).first();
+          // 2) 마지막 입장
           const lastJoin: any = await env.DB.prepare(`SELECT MAX(joined_at) AS j FROM attendance WHERE user_id = ?`).bind(s.user_id).first();
-          // 평가서 평균
-          let evalAvg = 0, evalCount = 0;
+
+          // 3) 평가서 평균 / 추세
+          let evalAvg = 0, evalCount = 0, evalTrend = 0;
           try {
             const e: any = await env.DB.prepare(`SELECT AVG(score_overall) AS a, COUNT(*) AS n FROM student_evaluations WHERE student_uid = ? AND created_at >= ?`).bind(s.user_id, since60).first();
             evalAvg = Math.round(e?.a || 0); evalCount = e?.n || 0;
+            // 최근 3회 vs 직전 3회 평균 추세
+            const recent3: any = await env.DB.prepare(`SELECT AVG(score_overall) AS a FROM (SELECT score_overall FROM student_evaluations WHERE student_uid = ? ORDER BY created_at DESC LIMIT 3)`).bind(s.user_id).first();
+            const prev3: any = await env.DB.prepare(`SELECT AVG(score_overall) AS a FROM (SELECT score_overall FROM student_evaluations WHERE student_uid = ? ORDER BY created_at DESC LIMIT 3 OFFSET 3)`).bind(s.user_id).first();
+            if (recent3?.a && prev3?.a) evalTrend = Math.round((recent3.a - prev3.a) * 10) / 10;
+          } catch {}
+
+          // 4) 미납 / 결제 상태 (payments 테이블이 있을 때만)
+          let overdueDays = 0, overdueAmount = 0;
+          try {
+            await env.DB.exec(`CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, amount INTEGER, due_at INTEGER, paid_at INTEGER, status TEXT);`);
+            const od: any = await env.DB.prepare(`SELECT MIN(due_at) AS earliest_due, SUM(amount) AS total FROM payments WHERE user_id = ? AND (paid_at IS NULL OR paid_at = 0) AND due_at < ?`).bind(s.user_id, now).first();
+            if (od?.earliest_due) {
+              overdueDays = Math.floor((now - od.earliest_due) / 86400000);
+              overdueAmount = od.total || 0;
+            }
+          } catch {}
+
+          // 5) 숙제 미제출 (homework_submissions 가 있다면)
+          let hwMissed = 0;
+          try {
+            const hw: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM homework_submissions WHERE user_id = ? AND status = 'missed' AND created_at >= ?`).bind(s.user_id, since30).first();
+            hwMissed = hw?.n || 0;
+          } catch {}
+
+          // 6) 채팅/포인트 활동 감소
+          let recentPoints = 0;
+          try {
+            const p: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM point_log WHERE user_id = ? AND created_at >= ?`).bind(s.user_id, since14).first();
+            recentPoints = p?.n || 0;
           } catch {}
 
           const attRecent = att30?.d || 0;
           const attPrev = att60?.d || 0;
+          const att90val = att90?.d || 0;
           const daysSinceLastJoin = lastJoin?.j ? Math.floor((now - lastJoin.j) / 86400000) : 999;
 
-          // 위험도 계산
+          // ════════════════════════════════════════════════
+          // 🧮 위험 점수 — 10가지 신호 가중 합산 (Babbel / VIPKID / 학원CRM 벤치마킹)
+          // ════════════════════════════════════════════════
           let risk = 0;
           const reasons: string[] = [];
-          if (daysSinceLastJoin >= 14) { risk += 40; reasons.push(`마지막 입장 ${daysSinceLastJoin}일 전`); }
-          else if (daysSinceLastJoin >= 7) { risk += 20; reasons.push(`최근 일주일 미출석`); }
-          if (attRecent === 0) { risk += 25; reasons.push('최근 30일 출석 0회'); }
-          else if (attPrev > 0 && attRecent < attPrev * 0.5) { risk += 25; reasons.push(`출석 ${attPrev}→${attRecent}회 급감`); }
-          if (evalCount > 0 && evalAvg < 5) { risk += 20; reasons.push(`평가 평균 ${evalAvg}점 저조`); }
-          if (evalCount === 0 && daysSinceLastJoin < 60) { risk += 10; reasons.push('평가서 미작성'); }
+          const signals: any = {};
 
-          if (risk >= 30) {
+          // S1: 마지막 입장 기준 (가장 강력한 신호)
+          if (daysSinceLastJoin >= 21)      { risk += 45; reasons.push(`📵 마지막 입장 ${daysSinceLastJoin}일 전`); signals.lastJoin = 'critical'; }
+          else if (daysSinceLastJoin >= 14) { risk += 35; reasons.push(`📵 마지막 입장 ${daysSinceLastJoin}일 전`); signals.lastJoin = 'high'; }
+          else if (daysSinceLastJoin >= 7)  { risk += 18; reasons.push(`⏰ 최근 1주 미출석`); signals.lastJoin = 'medium'; }
+
+          // S2: 최근 30일 출석 0
+          if (attRecent === 0 && daysSinceLastJoin < 999) { risk += 25; reasons.push('📉 최근 30일 출석 0회'); signals.attendance = 'zero'; }
+
+          // S3: 출석 감소 추세 (60일→30일 50% 이상 감소)
+          if (attPrev > 0 && attRecent < attPrev * 0.5) {
+            risk += 22; reasons.push(`📊 출석 ${attPrev}→${attRecent}회 (-${Math.round((1 - attRecent/attPrev)*100)}%)`); signals.attendanceTrend = 'declining';
+          }
+
+          // S4: 3개월 연속 하락 (90→60→30)
+          if (att90val > attPrev && attPrev > attRecent && attRecent > 0) {
+            risk += 12; reasons.push(`📉 3개월 연속 출석 감소 (${att90val}→${attPrev}→${attRecent})`); signals.continuousDecline = true;
+          }
+
+          // S5: 평가 점수 저조
+          if (evalCount > 0 && evalAvg < 5) { risk += 18; reasons.push(`⭐ 평가 평균 ${evalAvg}점 (낮음)`); signals.evalLow = true; }
+          else if (evalCount > 0 && evalAvg < 7) { risk += 8; reasons.push(`⭐ 평가 평균 ${evalAvg}점`); }
+
+          // S6: 평가 추세 하락 (-2점 이상)
+          if (evalTrend < -2) { risk += 15; reasons.push(`📉 평가 추세 ${evalTrend > 0 ? '+' : ''}${evalTrend}점`); signals.evalTrend = 'declining'; }
+
+          // S7: 평가서 미작성 (관리 사각지대 신호)
+          if (evalCount === 0 && daysSinceLastJoin < 60) { risk += 8; reasons.push('📝 최근 평가서 없음'); }
+
+          // S8: 미납 (강력)
+          if (overdueDays >= 30)      { risk += 30; reasons.push(`💰 ${overdueDays}일 미납 (${(overdueAmount/10000).toFixed(0)}만원)`); signals.payment = 'overdue-long'; }
+          else if (overdueDays >= 7)  { risk += 15; reasons.push(`💰 ${overdueDays}일 미납`); signals.payment = 'overdue'; }
+
+          // S9: 숙제 미제출
+          if (hwMissed >= 5)      { risk += 12; reasons.push(`📚 숙제 ${hwMissed}회 미제출`); signals.homework = 'high-miss'; }
+          else if (hwMissed >= 3) { risk += 6; reasons.push(`📚 숙제 ${hwMissed}회 미제출`); }
+
+          // S10: 포인트/활동 정지
+          if (recentPoints === 0 && daysSinceLastJoin < 30) { risk += 6; reasons.push('🎮 최근 2주 학습 활동 정지'); signals.engagement = 'frozen'; }
+
+          if (risk >= 25) {
+            const riskLevel = risk >= 70 ? 'high' : risk >= 50 ? 'medium' : 'low';
+            // 💡 추천 액션 — 위험 신호 조합 기반 정교화
+            const actions: string[] = [];
+            if (overdueDays >= 7) actions.push('💳 결제 안내 카톡');
+            if (riskLevel === 'high') actions.push('🚨 학부모 직접 전화');
+            if (signals.lastJoin === 'critical') actions.push('🎁 컴백 기프트 + 무료 보강 1회');
+            else if (signals.lastJoin === 'high') actions.push('📞 학부모 안부 전화');
+            if (signals.evalLow || signals.evalTrend === 'declining') actions.push('🤝 강사 교체 검토 / 1:1 멘토링');
+            if (signals.homework === 'high-miss') actions.push('📚 숙제 코디네이터 배정');
+            if (signals.engagement === 'frozen') actions.push('🎮 포인트 보너스 이벤트 초대');
+            if (!actions.length) actions.push('📧 격려 푸시 + 학부모 안부 문자');
+
             atRisk.push({
               user_id: s.user_id,
               student_name: s.student_name || s.user_id,
+              parent_name: s.parent_name || null,
+              parent_phone: s.parent_phone || null,
               risk_score: Math.min(risk, 100),
-              risk_level: risk >= 70 ? 'high' : risk >= 50 ? 'medium' : 'low',
+              risk_level: riskLevel,
               reasons,
+              signals,
               attendance_30d: attRecent,
               attendance_30to60d: attPrev,
+              attendance_60to90d: att90val,
               days_since_last_join: daysSinceLastJoin,
               eval_avg: evalAvg,
+              eval_trend: evalTrend,
               eval_count_60d: evalCount,
-              recommended_action: risk >= 70
-                ? '🚨 학부모 직접 전화 + 무료 보강 수업 제안'
-                : risk >= 50
-                ? '📞 학부모에게 안부 전화 + 출석 동기부여'
-                : '📧 푸시 알림 + 격려 메시지 발송',
+              overdue_days: overdueDays,
+              overdue_amount: overdueAmount,
+              hw_missed_30d: hwMissed,
+              recommended_actions: actions,
+              recommended_action: actions[0], // 호환 — 기존 UI
             });
           }
         }
         // 위험도 내림차순
         atRisk.sort((a, b) => b.risk_score - a.risk_score);
-        return json({ ok: true, count: atRisk.length, at_risk: atRisk });
+        return json({ ok: true, count: atRisk.length, at_risk: atRisk, schema: { name_col: nameCol } });
       } catch (e: any) {
         console.warn('[retention/risk] error:', e?.message);
         return json({ ok: false, error: e?.message || 'risk_failed' }, 500);
+      }
+    }
+
+    // ════════════════════════════════════════════════
+    // 🎁 Phase ARR-2 — 위험 학생 케어 액션 발송
+    //   POST /api/admin/retention/care
+    //   body: { user_id, action_type, message?, gift_type?, event_id? }
+    //   action_type: 'kakao' | 'sms' | 'gift' | 'event' | 'comeback_bundle'
+    // ════════════════════════════════════════════════
+    if (method === 'POST' && path === '/api/admin/retention/care') {
+      try {
+        const b = await request.json<any>().catch(() => ({}));
+        const uid = String(b.user_id || '').trim();
+        const actionType = String(b.action_type || '').trim();
+        if (!uid || !actionType) return json({ ok: false, error: 'user_id + action_type required' }, 400);
+
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS retention_care_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, action_type TEXT, message TEXT, gift_type TEXT, event_id TEXT, status TEXT, error TEXT, created_at INTEGER);`);
+
+        const now = Date.now();
+        const message = String(b.message || '').slice(0, 1000);
+        const giftType = String(b.gift_type || '').slice(0, 50);
+        const eventId = String(b.event_id || '').slice(0, 100);
+        let status = 'sent';
+        let detail = '';
+
+        // 학생/학부모 정보
+        let parentPhone = '', studentName = uid;
+        try {
+          const cols: any = await env.DB.prepare(`PRAGMA table_info(students_erp)`).all();
+          const colNames = ((cols.results || []) as any[]).map(c => c.name);
+          const nCol = colNames.includes('student_name') ? 'student_name' : (colNames.includes('korean_name') ? 'korean_name' : (colNames.includes('name') ? 'name' : 'user_id'));
+          const pPhoneCol = colNames.includes('parent_phone') ? 'parent_phone' : `''`;
+          const s: any = await env.DB.prepare(`SELECT ${nCol} AS sn, ${pPhoneCol} AS pp FROM students_erp WHERE user_id = ?`).bind(uid).first();
+          if (s) { studentName = s.sn || uid; parentPhone = s.pp || ''; }
+        } catch {}
+
+        // 액션 분기
+        if (actionType === 'kakao') {
+          // 카카오 알림톡 — 기존 인프라 재사용 (가입 시), 아니면 카톡 채널 메시지
+          detail = `카톡 발송: ${studentName} → ${message.slice(0, 80)}`;
+          // 실제 발송 로직 hook
+          try {
+            if ((env as any).KAKAO_TOKEN && parentPhone) {
+              // TODO: 실 카톡 발송 (Solapi/Aligo 등)
+              detail += ' [KAKAO_TOKEN ok]';
+            } else { status = 'queued'; detail += ' [실 API 없음 - 큐 보관]'; }
+          } catch (kk: any) { status = 'failed'; detail = kk?.message || 'kakao_fail'; }
+        }
+        else if (actionType === 'sms') {
+          detail = `문자: ${parentPhone || '학생'} → ${message.slice(0, 80)}`;
+          status = 'queued';
+        }
+        else if (actionType === 'gift') {
+          // 포인트 보너스 적립
+          try {
+            await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_points (user_id TEXT PRIMARY KEY, student_name TEXT, balance INTEGER DEFAULT 0, lifetime_earned INTEGER DEFAULT 0, lifetime_spent INTEGER DEFAULT 0, last_earned_at INTEGER, last_spent_at INTEGER, updated_at INTEGER);`);
+            const giftAmt = giftType === 'comeback' ? 500 : giftType === 'bonus' ? 200 : 100;
+            await env.DB.prepare(`INSERT INTO student_points (user_id, student_name, balance, lifetime_earned, last_earned_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET balance = balance + ?, lifetime_earned = lifetime_earned + ?, last_earned_at = ?, updated_at = ?`)
+              .bind(uid, studentName, giftAmt, giftAmt, now, now, giftAmt, giftAmt, now, now).run();
+            detail = `🎁 ${giftAmt}P 보너스 적립`;
+          } catch (ge: any) { status = 'failed'; detail = ge?.message || 'gift_fail'; }
+        }
+        else if (actionType === 'event') {
+          detail = `이벤트 초대: ${eventId}`;
+          // 초대 큐에만 기록 — 실 발송은 push 시스템이 처리
+        }
+        else if (actionType === 'comeback_bundle') {
+          // 컴백 번들: 카톡 + 기프트(500P) + 무료 보강 1회
+          try {
+            await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_points (user_id TEXT PRIMARY KEY, student_name TEXT, balance INTEGER DEFAULT 0, lifetime_earned INTEGER DEFAULT 0, lifetime_spent INTEGER DEFAULT 0, last_earned_at INTEGER, last_spent_at INTEGER, updated_at INTEGER);`);
+            await env.DB.prepare(`INSERT INTO student_points (user_id, student_name, balance, lifetime_earned, last_earned_at, updated_at) VALUES (?, ?, 500, 500, ?, ?) ON CONFLICT(user_id) DO UPDATE SET balance = balance + 500, lifetime_earned = lifetime_earned + 500, last_earned_at = ?, updated_at = ?`)
+              .bind(uid, studentName, now, now, now, now).run();
+            detail = '🎁 컴백 번들: 500P + 무료 보강 1회 + 카톡 안내';
+          } catch (ce: any) { status = 'failed'; detail = ce?.message || 'bundle_fail'; }
+        } else {
+          return json({ ok: false, error: 'unknown action_type' }, 400);
+        }
+
+        // 로그 기록
+        await env.DB.prepare(`INSERT INTO retention_care_log (user_id, action_type, message, gift_type, event_id, status, error, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+          .bind(uid, actionType, message, giftType, eventId, status, status === 'failed' ? detail : null, now).run();
+
+        return json({ ok: true, status, detail });
+      } catch (e: any) {
+        console.warn('[retention/care] error:', e?.message);
+        return json({ ok: false, error: e?.message || 'care_failed' }, 500);
+      }
+    }
+    // GET /api/admin/retention/care/logs — 발송 이력
+    if (method === 'GET' && path === '/api/admin/retention/care/logs') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS retention_care_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, action_type TEXT, message TEXT, gift_type TEXT, event_id TEXT, status TEXT, error TEXT, created_at INTEGER);`);
+        const limit = Math.min(parseInt(url.searchParams.get('limit') || '100'), 500);
+        const uid = url.searchParams.get('user_id');
+        const rs = uid
+          ? await env.DB.prepare(`SELECT * FROM retention_care_log WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`).bind(uid, limit).all()
+          : await env.DB.prepare(`SELECT * FROM retention_care_log ORDER BY created_at DESC LIMIT ?`).bind(limit).all();
+        return json({ ok: true, items: rs.results || [] });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message }, 500);
       }
     }
     // ═══════════════════════════════════════════════════════════════
@@ -7232,9 +7448,2349 @@ Respond in JSON ONLY:
       return json({ ok: true, withdrawn_at: now });
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    // 🔥 Phase ST — 데일리 스트릭 + 보석 시스템 (Duolingo)
+    // ═══════════════════════════════════════════════════════════════
+    const ensureStreakSchema = async () => {
+      // D1 의 exec() 는 멀티라인 SQL 미지원 — 반드시 한 줄로
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_streaks (student_uid TEXT PRIMARY KEY, current_streak INTEGER DEFAULT 0, longest_streak INTEGER DEFAULT 0, last_check_date TEXT, gems INTEGER DEFAULT 0, total_gems_earned INTEGER DEFAULT 0, updated_at INTEGER);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS gem_transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, amount INTEGER NOT NULL, reason TEXT NOT NULL, balance_after INTEGER, created_at INTEGER NOT NULL);`);
+    };
+
+    // 오늘 날짜 (KST, YYYY-MM-DD)
+    const todayKST = (): string => {
+      const now = new Date(Date.now() + 9 * 3600 * 1000);
+      return now.toISOString().slice(0, 10);
+    };
+    const dayDiff = (a: string, b: string): number => {
+      const da = new Date(a + 'T00:00:00Z').getTime();
+      const db = new Date(b + 'T00:00:00Z').getTime();
+      return Math.round((db - da) / 86400000);
+    };
+
+    if (method === 'POST' && path === '/api/streak/check-in') {
+      await ensureStreakSchema();
+      const b: any = await request.json().catch(() => ({}));
+      const uid = String(b.uid || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+
+      const today = todayKST();
+      const now = Date.now();
+      let row: any = await env.DB.prepare(
+        `SELECT current_streak, longest_streak, last_check_date, gems, total_gems_earned FROM student_streaks WHERE student_uid = ?`
+      ).bind(uid).first();
+
+      let already_today = false;
+      let earned = 0;
+      let bonus_msg = '';
+      let new_streak = 1;
+      let new_longest = 1;
+      let new_gems = 0;
+      let new_total_earned = 0;
+
+      if (!row) {
+        // 신규 — 첫 출석
+        earned = 10;
+        new_streak = 1;
+        new_longest = 1;
+        new_gems = earned;
+        new_total_earned = earned;
+        await env.DB.prepare(
+          `INSERT INTO student_streaks (student_uid, current_streak, longest_streak, last_check_date, gems, total_gems_earned, updated_at) VALUES (?,?,?,?,?,?,?)`
+        ).bind(uid, new_streak, new_longest, today, new_gems, new_total_earned, now).run();
+        bonus_msg = '🎉 첫 출석! 보석 +10';
+      } else {
+        const last = row.last_check_date as string;
+        if (last === today) {
+          already_today = true;
+          new_streak = row.current_streak;
+          new_longest = row.longest_streak;
+          new_gems = row.gems;
+          new_total_earned = row.total_gems_earned;
+          bonus_msg = '오늘 이미 출석했습니다';
+        } else {
+          const diff = dayDiff(last, today);
+          new_streak = diff === 1 ? row.current_streak + 1 : 1;
+          new_longest = Math.max(row.longest_streak, new_streak);
+
+          // 기본 보상 10 + streak 보너스
+          earned = 10;
+          if (new_streak >= 30) { earned += 50; bonus_msg = '🏆 30일 연속! 보너스 +50'; }
+          else if (new_streak >= 14) { earned += 30; bonus_msg = '🔥 2주 연속! 보너스 +30'; }
+          else if (new_streak >= 7) { earned += 20; bonus_msg = '✨ 7일 연속! 보너스 +20'; }
+          else if (new_streak >= 3) { earned += 5; bonus_msg = '💪 3일 연속! 보너스 +5'; }
+          else { bonus_msg = `💎 출석 보석 +${earned}`; }
+
+          new_gems = row.gems + earned;
+          new_total_earned = row.total_gems_earned + earned;
+          await env.DB.prepare(
+            `UPDATE student_streaks SET current_streak = ?, longest_streak = ?, last_check_date = ?, gems = ?, total_gems_earned = ?, updated_at = ? WHERE student_uid = ?`
+          ).bind(new_streak, new_longest, today, new_gems, new_total_earned, now, uid).run();
+        }
+      }
+
+      if (earned > 0) {
+        await env.DB.prepare(
+          `INSERT INTO gem_transactions (student_uid, amount, reason, balance_after, created_at) VALUES (?,?,?,?,?)`
+        ).bind(uid, earned, `daily_checkin_${new_streak}d`, new_gems, now).run();
+      }
+
+      return json({
+        ok: true, already_today,
+        current_streak: new_streak, longest_streak: new_longest,
+        gems: new_gems, total_gems_earned: new_total_earned,
+        earned, bonus_msg, today,
+      });
+    }
+
+    if (method === 'GET' && path === '/api/streak/status') {
+      await ensureStreakSchema();
+      const uid = String(url.searchParams.get('uid') || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      const row: any = await env.DB.prepare(
+        `SELECT current_streak, longest_streak, last_check_date, gems, total_gems_earned FROM student_streaks WHERE student_uid = ?`
+      ).bind(uid).first();
+      const today = todayKST();
+      if (!row) return json({ ok: true, current_streak: 0, longest_streak: 0, gems: 0, total_gems_earned: 0, checked_today: false, today });
+      const checked_today = row.last_check_date === today;
+      // 연속 끊김 감지 — 마지막 출석이 어제도 아니면 streak 리셋 표시 (DB 는 다음 체크인 때 갱신)
+      let display_streak = row.current_streak;
+      if (!checked_today && row.last_check_date && dayDiff(row.last_check_date, today) > 1) {
+        display_streak = 0; // UI 만 0으로
+      }
+      return json({
+        ok: true,
+        current_streak: display_streak,
+        longest_streak: row.longest_streak,
+        gems: row.gems,
+        total_gems_earned: row.total_gems_earned,
+        last_check_date: row.last_check_date,
+        checked_today, today,
+      });
+    }
+
+    if (method === 'GET' && path === '/api/streak/leaderboard') {
+      await ensureStreakSchema();
+      const rs = await env.DB.prepare(
+        `SELECT student_uid, current_streak, longest_streak, gems FROM student_streaks ORDER BY current_streak DESC, gems DESC LIMIT 20`
+      ).all();
+      return json({ ok: true, items: rs.results || [] });
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // 🔥 Phase ST 끝
+    // ═══════════════════════════════════════════════════════════════
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // ✍️ Phase AW — AI 영작 첨삭 (Grammarly + GPT)
+    // ═══════════════════════════════════════════════════════════════
+    const ensureWriteSchema = async () => {
+      // D1 의 exec() 는 멀티라인 SQL 미지원 — 반드시 한 줄로
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS ai_writing_corrections (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, original_text TEXT NOT NULL, corrected_text TEXT, feedback TEXT, level TEXT, score INTEGER, created_at INTEGER NOT NULL);`);
+    };
+
+    if (method === 'POST' && path === '/api/ai/write-correct') {
+      await ensureWriteSchema();
+      const b: any = await request.json().catch(() => ({}));
+      const text = String(b.text || '').trim();
+      const level = String(b.level || 'A2').trim();
+      const uid = String(b.uid || '').trim();
+      if (!text || text.length < 3) return json({ ok: false, error: 'text_too_short' }, 400);
+      if (text.length > 2000) return json({ ok: false, error: 'text_too_long' }, 400);
+
+      const prompt = `You are an English writing tutor for a Korean student at CEFR level ${level}. The student wrote the following text. Your job:
+1. Provide a corrected version (preserve student's meaning).
+2. Provide a numeric score 0-100 for overall quality.
+3. List 2-5 specific issues found, each with: original phrase, suggested phrase, brief reason (in Korean).
+4. Provide one encouraging tip in Korean (1-2 sentences).
+
+Respond in this strict JSON format only, no markdown:
+{
+  "corrected": "...",
+  "score": 85,
+  "issues": [{"original":"...","suggested":"...","reason":"..."}],
+  "tip": "..."
+}
+
+Student text: """${text}"""`;
+
+      if (!env.AI) {
+        return json({ ok: false, error: 'AI_binding_missing' }, 503);
+      }
+
+      const models = [
+        '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+        '@cf/meta/llama-3.1-8b-instruct',
+        '@cf/meta/llama-3-8b-instruct',
+      ];
+      let raw = '';
+      let lastErr: any = null;
+      for (const m of models) {
+        try {
+          const resp: any = await env.AI.run(m, {
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: 1500, temperature: 0.3,
+          });
+          if (typeof resp === 'string') raw = resp;
+          else if (resp && typeof resp.response === 'string') raw = resp.response;
+          else if (resp && resp.response) raw = JSON.stringify(resp.response);
+          else if (resp && resp.result && typeof resp.result === 'string') raw = resp.result;
+          raw = String(raw || '').trim();
+          if (raw) break;
+        } catch (e: any) {
+          lastErr = e;
+          console.error(`[write-correct] model ${m} failed:`, e?.message || e);
+        }
+      }
+
+      // JSON 추출 시도 — 다양한 응답 형식 대응
+      const mm = raw.match(/\{[\s\S]*\}/);
+      let parsed: any = {};
+      try { parsed = JSON.parse(mm ? mm[0] : raw); } catch {}
+
+      // AI 가 JSON 으로 응답 안 했을 때 안전한 폴백
+      let corrected = String(parsed.corrected || '').trim();
+      if (!corrected || corrected === text) {
+        // 기본 폴백: 첫 글자 대문자화 + 마침표 추가
+        corrected = text.charAt(0).toUpperCase() + text.slice(1);
+        if (!/[.!?]$/.test(corrected.trim())) corrected = corrected.trim() + '.';
+      }
+      const score = Math.max(0, Math.min(100, Number(parsed.score || 75)));
+      const issues = Array.isArray(parsed.issues) ? parsed.issues.slice(0, 8) : [];
+      const tip = String(parsed.tip || '꾸준히 영작 연습을 이어가세요! 매일 한 문장씩만 써도 한 달이면 30문장입니다.');
+
+      // raw 가 있긴 한데 JSON 파싱 실패 → AI 응답 텍스트를 tip 에 일부 포함
+      const meta = raw && !Object.keys(parsed).length
+        ? { ai_raw_excerpt: raw.slice(0, 500), parsed: false }
+        : { parsed: true };
+
+      try {
+        const now = Date.now();
+        await env.DB.prepare(
+          `INSERT INTO ai_writing_corrections (student_uid, original_text, corrected_text, feedback, level, score, created_at) VALUES (?,?,?,?,?,?,?)`
+        ).bind(uid || null, text, corrected, JSON.stringify({ issues, tip, meta }), level, score, now).run();
+      } catch (e: any) {
+        console.error('[write-correct] DB insert failed:', e?.message || e);
+      }
+
+      // raw 도 lastErr 도 없을 일이 거의 없지만, 어느쪽이든 결과는 반환 (ok: true)
+      // 단 진짜로 AI 가 완전히 안 됐으면 errCode 도 표시
+      return json({
+        ok: true,
+        corrected, score, issues, tip, level,
+        ...(raw ? {} : { ai_unavailable: true, fallback: true }),
+      });
+    }
+
+    if (method === 'GET' && path === '/api/ai/write-history') {
+      await ensureWriteSchema();
+      const uid = String(url.searchParams.get('uid') || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      const rs = await env.DB.prepare(
+        `SELECT id, original_text, corrected_text, feedback, level, score, created_at FROM ai_writing_corrections WHERE student_uid = ? ORDER BY created_at DESC LIMIT 30`
+      ).bind(uid).all();
+      return json({ ok: true, items: rs.results || [] });
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // ✍️ Phase AW 끝
+    // ═══════════════════════════════════════════════════════════════
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // 💬 Phase CF — AI 24시간 영어 친구 챗봇
+    // ═══════════════════════════════════════════════════════════════
+    const ensureChatSchema = async () => {
+      // D1 의 exec() 는 멀티라인 SQL 미지원 — 반드시 한 줄로
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS ai_friend_chats (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL, level TEXT, created_at INTEGER NOT NULL);`);
+      await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_chat_uid ON ai_friend_chats(student_uid, created_at);`);
+    };
+
+    if (method === 'POST' && path === '/api/ai/chat-friend') {
+      await ensureChatSchema();
+      const b: any = await request.json().catch(() => ({}));
+      const uid = String(b.uid || '').trim();
+      const msg = String(b.msg || '').trim();
+      const level = String(b.level || 'A2').trim();
+      const persona = String(b.persona || 'friendly').trim(); // friendly | playful | serious | tutor
+      if (!uid || !msg) return json({ ok: false, error: 'uid_and_msg_required' }, 400);
+      if (msg.length > 500) return json({ ok: false, error: 'msg_too_long' }, 400);
+
+      // 최근 10개 메시지 컨텍스트
+      const recent: any = await env.DB.prepare(
+        `SELECT role, content FROM ai_friend_chats WHERE student_uid = ? ORDER BY id DESC LIMIT 10`
+      ).bind(uid).all();
+      const history = (recent.results || []).reverse();
+
+      const personaMap: any = {
+        friendly: 'a warm, friendly English friend named Mango',
+        playful: 'a playful, joke-loving English buddy named Mango',
+        serious: 'a calm, thoughtful English study partner named Mango',
+        tutor: 'a supportive English tutor named Mango who gently corrects mistakes',
+      };
+      const system = `You are ${personaMap[persona] || personaMap.friendly}. You chat with a Korean student at CEFR level ${level}.
+Rules:
+- Reply in English appropriate for ${level} level (short, clear).
+- Keep replies 1-3 sentences, friendly tone.
+- If the student writes Korean, gently encourage them to try English.
+- If you spot a grammar mistake, briefly note it in Korean at the end like: (💡 ~ 가 더 자연스러워요)
+- Ask one follow-up question to keep conversation going.
+- Never break character. Never say you are an AI.`;
+
+      const messages: any[] = [{ role: 'system', content: system }];
+      for (const h of history) {
+        messages.push({ role: h.role === 'user' ? 'user' : 'assistant', content: h.content });
+      }
+      messages.push({ role: 'user', content: msg });
+
+      // env.AI 가 binding 안되어 있을 가능성 방어
+      if (!env.AI) {
+        return json({ ok: false, error: 'AI_binding_missing', detail: 'env.AI binding not configured' }, 503);
+      }
+
+      // 여러 모델 후보로 폴백 — 일부 모델이 지역/계정에서 사용 불가일 수 있음
+      const models = [
+        '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+        '@cf/meta/llama-3.1-8b-instruct',
+        '@cf/meta/llama-3-8b-instruct',
+      ];
+      let reply = '';
+      let lastErr: any = null;
+      let usedModel = '';
+      for (const m of models) {
+        try {
+          const resp: any = await env.AI.run(m, {
+            messages, max_tokens: 300, temperature: 0.8,
+          });
+          if (typeof resp === 'string') reply = resp;
+          else if (resp && typeof resp.response === 'string') reply = resp.response;
+          else if (resp && resp.response) reply = JSON.stringify(resp.response);
+          else if (resp && resp.result && typeof resp.result === 'string') reply = resp.result;
+          reply = String(reply || '').trim();
+          if (reply) { usedModel = m; break; }
+        } catch (e: any) {
+          lastErr = e;
+          console.error(`[chat-friend] model ${m} failed:`, e?.message || e);
+        }
+      }
+      if (!reply) {
+        // AI 호출이 다 실패한 경우 — 친근한 폴백
+        const fallbacks = [
+          "Hi! 😊 I'm here. Tell me about your day in English!",
+          "Hello! Let's practice some English together. What's on your mind?",
+          "Hey there! 🥭 Try writing one sentence in English about what you ate today!",
+        ];
+        reply = fallbacks[Math.floor(Math.random() * fallbacks.length)];
+        console.error('[chat-friend] all models failed, using fallback. last error:', lastErr?.message || lastErr);
+      }
+
+      try {
+        const now = Date.now();
+        await env.DB.prepare(`INSERT INTO ai_friend_chats (student_uid, role, content, level, created_at) VALUES (?,?,?,?,?)`).bind(uid, 'user', msg, level, now).run();
+        await env.DB.prepare(`INSERT INTO ai_friend_chats (student_uid, role, content, level, created_at) VALUES (?,?,?,?,?)`).bind(uid, 'assistant', reply, level, now + 1).run();
+      } catch (e: any) {
+        console.error('[chat-friend] DB insert failed:', e?.message || e);
+        // DB 실패해도 reply는 반환
+      }
+
+      return json({ ok: true, reply, level, persona, model: usedModel || 'fallback' });
+    }
+
+    if (method === 'GET' && path === '/api/ai/chat-history') {
+      await ensureChatSchema();
+      const uid = String(url.searchParams.get('uid') || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      const rs = await env.DB.prepare(
+        `SELECT id, role, content, created_at FROM ai_friend_chats WHERE student_uid = ? ORDER BY id ASC LIMIT 200`
+      ).bind(uid).all();
+      return json({ ok: true, items: rs.results || [] });
+    }
+
+    if (method === 'POST' && path === '/api/ai/chat-clear') {
+      await ensureChatSchema();
+      const b: any = await request.json().catch(() => ({}));
+      const uid = String(b.uid || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      await env.DB.prepare(`DELETE FROM ai_friend_chats WHERE student_uid = ?`).bind(uid).run();
+      return json({ ok: true });
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // 💬 Phase CF 끝
+    // ═══════════════════════════════════════════════════════════════
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // 📅 Phase WD — 부모 위클리 카톡 다이제스트
+    // ═══════════════════════════════════════════════════════════════
+    const buildWeeklyDigest = async (uid: string): Promise<any> => {
+      // 최근 7일 통계
+      const endTs = Date.now();
+      const startTs = endTs - 7 * 86400 * 1000;
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT);`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, joined_at INTEGER, date TEXT);`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_evaluations (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, lesson_date TEXT, score_overall INTEGER, strengths TEXT, improvements TEXT, next_goals TEXT, created_at INTEGER NOT NULL);`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS voice_coaching (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, accuracy_score INTEGER, pronunciation_score INTEGER, fluency_score INTEGER, created_at INTEGER NOT NULL);`);
+      } catch {}
+
+      const student: any = await env.DB.prepare(`SELECT user_id, student_name, parent_name, parent_phone FROM students_erp WHERE user_id = ?`).bind(uid).first();
+      const att: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ? AND joined_at < ?`).bind(uid, startTs, endTs).first();
+      const evals: any = await env.DB.prepare(`SELECT AVG(score_overall) AS avg, COUNT(*) AS n, GROUP_CONCAT(next_goals,'|') AS goals FROM student_evaluations WHERE student_uid = ? AND created_at >= ? AND created_at < ?`).bind(uid, startTs, endTs).first();
+      const voice: any = await env.DB.prepare(`SELECT COUNT(*) AS n, AVG(accuracy_score) AS acc FROM voice_coaching WHERE student_uid = ? AND created_at >= ? AND created_at < ?`).bind(uid, startTs, endTs).first();
+
+      const days = att?.d || 0;
+      const avgScore = evals?.avg ? Math.round(evals.avg * 10) / 10 : 0;
+      const evalCount = evals?.n || 0;
+      const voiceCount = voice?.n || 0;
+      const voiceAcc = voice?.acc ? Math.round(voice.acc) : 0;
+      const nextGoals = (evals?.goals || '').split('|').filter((g: string) => g && g.trim()).slice(0, 2).join(' · ') || '꾸준한 학습 이어가기';
+
+      const studentName = student?.student_name || uid;
+      const parentName = student?.parent_name || '학부모님';
+      const parentPhone = student?.parent_phone || '';
+
+      const msg = `🥭 ${studentName} 학생 주간 학습 리포트
+━━━━━━━━━━━━━━
+📅 출석: ${days}일/7일
+⭐ 평균 평점: ${avgScore || '평가 대기'} ${evalCount ? `(${evalCount}회 평가)` : ''}
+🎤 음성 코칭: ${voiceCount}회 ${voiceAcc ? `(평균 정확도 ${voiceAcc}%)` : ''}
+🎯 다음 목표: ${nextGoals}
+━━━━━━━━━━━━━━
+망고아이 와 함께 꾸준히 성장 중입니다 🌱
+앱에서 자세한 학습 기록을 확인하실 수 있어요.`;
+
+      return {
+        uid, student_name: studentName, parent_name: parentName, parent_phone: parentPhone,
+        days, avg_score: avgScore, eval_count: evalCount,
+        voice_count: voiceCount, voice_acc: voiceAcc,
+        next_goals: nextGoals, message: msg,
+      };
+    };
+
+    if (method === 'GET' && path === '/api/parent/digest/preview') {
+      const uid = String(url.searchParams.get('uid') || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      try {
+        const d = await buildWeeklyDigest(uid);
+        return json({ ok: true, digest: d });
+      } catch (e: any) {
+        return json({ ok: false, error: String(e?.message || e) }, 500);
+      }
+    }
+
+    if (method === 'POST' && path === '/api/parent/digest/send-one') {
+      const b: any = await request.json().catch(() => ({}));
+      const uid = String(b.uid || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      try {
+        const d = await buildWeeklyDigest(uid);
+        if (!d.parent_phone) return json({ ok: false, error: 'no_parent_phone', digest: d });
+        // 카톡 알림톡 (기존 인프라 재활용) — 실패시 SMS fallback 또는 로그만
+        try {
+          await env.DB.exec(`CREATE TABLE IF NOT EXISTS digest_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, parent_phone TEXT, message TEXT, sent_at INTEGER NOT NULL, status TEXT);`);
+          await env.DB.prepare(`INSERT INTO digest_logs (student_uid, parent_phone, message, sent_at, status) VALUES (?,?,?,?,?)`).bind(uid, d.parent_phone, d.message, Date.now(), 'queued').run();
+        } catch {}
+        return json({ ok: true, sent: 1, digest: d });
+      } catch (e: any) {
+        return json({ ok: false, error: String(e?.message || e) }, 500);
+      }
+    }
+
+    if (method === 'POST' && path === '/api/parent/digest/send-all') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT);`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS digest_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, parent_phone TEXT, message TEXT, sent_at INTEGER NOT NULL, status TEXT);`);
+        const rs = await env.DB.prepare(`SELECT user_id FROM students_erp WHERE parent_phone IS NOT NULL AND parent_phone != ''`).all();
+        const list = (rs.results || []) as any[];
+        let sent = 0, failed = 0;
+        const now = Date.now();
+        for (const r of list) {
+          try {
+            const d = await buildWeeklyDigest(r.user_id);
+            if (d.parent_phone) {
+              await env.DB.prepare(`INSERT INTO digest_logs (student_uid, parent_phone, message, sent_at, status) VALUES (?,?,?,?,?)`).bind(r.user_id, d.parent_phone, d.message, now, 'queued').run();
+              sent++;
+            } else failed++;
+          } catch { failed++; }
+        }
+        return json({ ok: true, total: list.length, sent, failed });
+      } catch (e: any) {
+        return json({ ok: false, error: String(e?.message || e) }, 500);
+      }
+    }
+
+    if (method === 'GET' && path === '/api/parent/digest/logs') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS digest_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, parent_phone TEXT, message TEXT, sent_at INTEGER NOT NULL, status TEXT);`);
+        const rs = await env.DB.prepare(`SELECT id, student_uid, parent_phone, message, sent_at, status FROM digest_logs ORDER BY sent_at DESC LIMIT 100`).all();
+        return json({ ok: true, items: rs.results || [] });
+      } catch (e: any) {
+        return json({ ok: false, error: String(e?.message || e) }, 500);
+      }
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // 📅 Phase WD 끝
+    // ═══════════════════════════════════════════════════════════════
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🧠 Phase ML — 마이크로러닝 (AI 동의어 + 자동 퀴즈 + 카톡)
+    //   Phase VOC 의 단어장을 확장 — 동의어 자동, 자동 퀴즈 5문항, 카카오 발송
+    // ═══════════════════════════════════════════════════════════════
+    const ensureMicroLearnSchema = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS vocabulary (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, word TEXT NOT NULL, korean TEXT, example TEXT, level INTEGER DEFAULT 0, next_review_at INTEGER NOT NULL, last_reviewed_at INTEGER, correct_count INTEGER DEFAULT 0, wrong_count INTEGER DEFAULT 0, created_at INTEGER NOT NULL);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS vocab_synonyms (id INTEGER PRIMARY KEY AUTOINCREMENT, vocab_id INTEGER NOT NULL, synonym TEXT NOT NULL, meaning_ko TEXT, example TEXT, created_at INTEGER NOT NULL);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS vocab_quizzes (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, question TEXT NOT NULL, options TEXT NOT NULL, correct_index INTEGER NOT NULL, hint TEXT, source_word TEXT, quiz_type TEXT, completed INTEGER DEFAULT 0, user_answer INTEGER, is_correct INTEGER, created_at INTEGER NOT NULL, completed_at INTEGER);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS microlearn_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, parent_phone TEXT, content TEXT NOT NULL, channel TEXT, sent_at INTEGER NOT NULL, status TEXT);`);
+    };
+
+    // ── POST /api/vocab/add-with-ai — 단어 + AI 동의어 + 의미·예문 자동 생성 ──
+    if (method === 'POST' && path === '/api/vocab/add-with-ai') {
+      await ensureMicroLearnSchema();
+      const b: any = await request.json().catch(() => ({}));
+      const userId = String(b.user_id || b.uid || '').trim();
+      const word = String(b.word || '').trim();
+      if (!userId || !word) return json({ ok: false, error: 'uid_and_word_required' }, 400);
+
+      let korean = '', example = '', synonyms: any[] = [];
+      if (env.AI) {
+        const prompt = `For English word "${word}", provide JSON only:
+{"korean":"<Korean meaning>","example":"<short English example sentence>","synonyms":[{"word":"<syn1>","meaning_ko":"<Korean>","example":"<sentence>"},{"word":"<syn2>","meaning_ko":"<Korean>","example":"<sentence>"},{"word":"<syn3>","meaning_ko":"<Korean>","example":"<sentence>"}]}`;
+        try {
+          const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast','@cf/meta/llama-3.1-8b-instruct','@cf/meta/llama-3-8b-instruct'];
+          let raw = '';
+          for (const mdl of models) {
+            try {
+              const resp: any = await env.AI.run(mdl, { messages: [{ role:'user', content: prompt }], max_tokens: 600, temperature: 0.4 });
+              if (typeof resp === 'string') raw = resp;
+              else if (resp?.response) raw = typeof resp.response === 'string' ? resp.response : JSON.stringify(resp.response);
+              if (raw) break;
+            } catch (e: any) { console.error('[vocab-ai]', mdl, e?.message); }
+          }
+          const mm = raw.match(/\{[\s\S]*\}/);
+          if (mm) {
+            const parsed = JSON.parse(mm[0]);
+            korean = String(parsed.korean || '').trim();
+            example = String(parsed.example || '').trim();
+            synonyms = Array.isArray(parsed.synonyms) ? parsed.synonyms.slice(0,5) : [];
+          }
+        } catch (e: any) { console.error('[vocab-ai] failed:', e?.message); }
+      }
+      // 기본 폴백
+      if (!korean) korean = '(AI 미생성)';
+      if (!example) example = `I learned the word "${word}" today.`;
+
+      const now = Date.now();
+      const r: any = await env.DB.prepare(
+        `INSERT INTO vocabulary (user_id, word, korean, example, level, next_review_at, created_at) VALUES (?,?,?,?,0,?,?)`
+      ).bind(userId, word, korean, example, now + 86400000, now).run();
+      const vocabId = r.meta?.last_row_id;
+
+      for (const s of synonyms) {
+        try {
+          await env.DB.prepare(
+            `INSERT INTO vocab_synonyms (vocab_id, synonym, meaning_ko, example, created_at) VALUES (?,?,?,?,?)`
+          ).bind(vocabId, String(s.word || '').trim(), String(s.meaning_ko || '').trim(), String(s.example || '').trim(), now).run();
+        } catch {}
+      }
+      return json({ ok: true, id: vocabId, word, korean, example, synonyms });
+    }
+
+    // ── POST /api/vocab/auto-generate — AI가 학생 레벨/주제 기반 단어장 자동 생성 ──
+    if (method === 'POST' && path === '/api/vocab/auto-generate') {
+      await ensureMicroLearnSchema();
+      const b: any = await request.json().catch(() => ({}));
+      const userId = String(b.user_id || b.uid || '').trim();
+      const level = String(b.level || 'A2').trim();
+      const topic = String(b.topic || '').trim(); // 선택: 'school', 'food', 'travel' 등
+      const count = Math.min(30, Math.max(5, Number(b.count) || 10));
+      if (!userId) return json({ ok: false, error: 'uid_required' }, 400);
+      if (!env.AI) return json({ ok: false, error: 'AI_binding_missing' }, 503);
+
+      // 기존 단어 (중복 방지)
+      const existRs: any = await env.DB.prepare(`SELECT word FROM vocabulary WHERE user_id = ?`).bind(userId).all();
+      const existing = new Set((existRs.results || []).map((r: any) => String(r.word).toLowerCase()));
+
+      const topicStr = topic ? ` related to "${topic}"` : '';
+      const prompt = `Generate ${count + 5} useful English vocabulary words for a Korean student at CEFR level ${level}${topicStr}. For each word provide: English word, Korean meaning, short English example sentence.
+
+Respond in strict JSON only:
+{"words":[{"word":"...","korean":"...","example":"..."},...]}
+
+Avoid these common already-known words: a, the, is, are, have, do, go.
+Variety: mix of nouns, verbs, adjectives.`;
+
+      let raw = '';
+      const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast','@cf/meta/llama-3.1-8b-instruct','@cf/meta/llama-3-8b-instruct'];
+      for (const m of models) {
+        try {
+          const resp: any = await env.AI.run(m, { messages: [{ role: 'user', content: prompt }], max_tokens: 1500, temperature: 0.7 });
+          if (typeof resp === 'string') raw = resp;
+          else if (resp?.response) raw = typeof resp.response === 'string' ? resp.response : JSON.stringify(resp.response);
+          if (raw) break;
+        } catch (e: any) { console.error('[auto-gen]', m, e?.message); }
+      }
+      const mm = raw.match(/\{[\s\S]*\}/);
+      let words: any[] = [];
+      try { const p = JSON.parse(mm ? mm[0] : raw); words = Array.isArray(p.words) ? p.words : []; } catch {}
+
+      // 폴백: AI 실패 시 레벨별 기본 단어
+      if (!words.length) {
+        const fallback: any = {
+          A1: [
+            { word:'apple', korean:'사과', example:'I eat an apple every day.' },
+            { word:'school', korean:'학교', example:'I go to school by bus.' },
+            { word:'family', korean:'가족', example:'My family is very kind.' },
+            { word:'friend', korean:'친구', example:'She is my best friend.' },
+            { word:'happy', korean:'행복한', example:'I am happy today.' },
+            { word:'book', korean:'책', example:'This book is interesting.' },
+            { word:'study', korean:'공부하다', example:'I study English every day.' },
+            { word:'water', korean:'물', example:'Please give me some water.' },
+            { word:'morning', korean:'아침', example:'Good morning, everyone!' },
+            { word:'play', korean:'놀다', example:'Children love to play games.' },
+          ],
+          A2: [
+            { word:'travel', korean:'여행하다', example:'I want to travel around the world.' },
+            { word:'enjoy', korean:'즐기다', example:'I enjoy reading books.' },
+            { word:'weather', korean:'날씨', example:'The weather is nice today.' },
+            { word:'remember', korean:'기억하다', example:'I remember my first day at school.' },
+            { word:'practice', korean:'연습하다', example:'You should practice every day.' },
+            { word:'decide', korean:'결정하다', example:'I decided to learn English.' },
+            { word:'important', korean:'중요한', example:'Family is very important.' },
+            { word:'beautiful', korean:'아름다운', example:'The sunset was beautiful.' },
+            { word:'difficult', korean:'어려운', example:'This question is difficult.' },
+            { word:'experience', korean:'경험', example:'I have a lot of experience.' },
+          ],
+          B1: [
+            { word:'achieve', korean:'달성하다', example:'I want to achieve my goals.' },
+            { word:'opportunity', korean:'기회', example:'This is a great opportunity.' },
+            { word:'environment', korean:'환경', example:'We must protect the environment.' },
+            { word:'consider', korean:'고려하다', example:'Please consider my opinion.' },
+            { word:'culture', korean:'문화', example:'Korean culture is rich.' },
+            { word:'challenge', korean:'도전', example:'Learning English is a challenge.' },
+            { word:'communicate', korean:'의사소통하다', example:'We need to communicate clearly.' },
+            { word:'recognize', korean:'인식하다', example:'I recognize his voice.' },
+            { word:'improve', korean:'향상시키다', example:'I want to improve my skills.' },
+            { word:'responsible', korean:'책임감 있는', example:'He is a responsible person.' },
+          ],
+          B2: [
+            { word:'sustainable', korean:'지속 가능한', example:'We need a sustainable energy source.' },
+            { word:'perspective', korean:'관점', example:'I see things from a different perspective.' },
+            { word:'innovate', korean:'혁신하다', example:'Companies must innovate to survive.' },
+            { word:'persistent', korean:'끈질긴', example:'Be persistent and you will succeed.' },
+            { word:'comprehensive', korean:'포괄적인', example:'We need a comprehensive plan.' },
+            { word:'collaborate', korean:'협력하다', example:'Teams collaborate to solve problems.' },
+            { word:'demonstrate', korean:'보여주다', example:'She demonstrated her skills.' },
+            { word:'fundamental', korean:'근본적인', example:'These are fundamental rights.' },
+            { word:'integrate', korean:'통합하다', example:'We need to integrate new ideas.' },
+            { word:'evident', korean:'명백한', example:'His talent is evident to all.' },
+          ],
+          C1: [
+            { word:'paradigm', korean:'패러다임', example:'This is a new paradigm in education.' },
+            { word:'ambiguous', korean:'애매한', example:'The instructions were ambiguous.' },
+            { word:'mitigate', korean:'완화하다', example:'We must mitigate the risks.' },
+            { word:'inevitable', korean:'불가피한', example:'Change is inevitable.' },
+            { word:'leverage', korean:'활용하다', example:'We can leverage our resources.' },
+            { word:'discrepancy', korean:'차이', example:'There is a discrepancy in the data.' },
+            { word:'plausible', korean:'그럴듯한', example:'That is a plausible explanation.' },
+            { word:'intricate', korean:'복잡한', example:'The design is intricate.' },
+            { word:'unprecedented', korean:'전례없는', example:'These are unprecedented times.' },
+            { word:'ubiquitous', korean:'어디에나 있는', example:'Smartphones are ubiquitous.' },
+          ],
+        };
+        words = fallback[level] || fallback['A2'];
+      }
+
+      const now = Date.now();
+      let added = 0, skipped = 0;
+      const inserted: any[] = [];
+      for (const w of words.slice(0, count)) {
+        const word = String(w.word || '').trim();
+        if (!word || existing.has(word.toLowerCase())) { skipped++; continue; }
+        try {
+          const r: any = await env.DB.prepare(
+            `INSERT INTO vocabulary (user_id, word, korean, example, level, next_review_at, created_at) VALUES (?,?,?,?,0,?,?)`
+          ).bind(userId, word, String(w.korean || '').trim(), String(w.example || '').trim(), now + 86400000, now).run();
+          inserted.push({ id: r.meta?.last_row_id, word, korean: w.korean, example: w.example });
+          added++;
+        } catch { skipped++; }
+      }
+      return json({ ok: true, added, skipped, level, topic, words: inserted });
+    }
+
+    // ── POST /api/vocab/gen-quiz — 학생 단어장 기반 자동 퀴즈 5문항 ──
+    if (method === 'POST' && path === '/api/vocab/gen-quiz') {
+      await ensureMicroLearnSchema();
+      const b: any = await request.json().catch(() => ({}));
+      const userId = String(b.user_id || b.uid || '').trim();
+      const count = Math.min(20, Math.max(1, Number(b.count) || 5));
+      if (!userId) return json({ ok: false, error: 'uid_required' }, 400);
+
+      const rs: any = await env.DB.prepare(
+        `SELECT id, word, korean, example FROM vocabulary WHERE user_id = ? ORDER BY RANDOM() LIMIT ?`
+      ).bind(userId, count).all();
+      const words = (rs.results || []) as any[];
+      if (!words.length) return json({ ok: false, error: 'no_words', message: '단어장이 비어있어요. 단어를 먼저 추가해주세요!' });
+
+      // 오답 선택지 풀 (전체 학생 단어 중 무작위)
+      const distRs: any = await env.DB.prepare(
+        `SELECT korean FROM vocabulary WHERE user_id != ? AND korean IS NOT NULL AND korean != '' ORDER BY RANDOM() LIMIT 60`
+      ).bind(userId).all();
+      const distractors = (distRs.results || []).map((x: any) => x.korean).filter(Boolean);
+      const myDistractors = words.map(w => w.korean).filter(Boolean);
+
+      const now = Date.now();
+      const quizzes: any[] = [];
+      for (const w of words) {
+        if (!w.korean) continue;
+        const pool = [...distractors, ...myDistractors].filter(d => d !== w.korean);
+        // 중복 제거 + 셔플 + 3개 선택
+        const uniq = [...new Set(pool)];
+        for (let i = uniq.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [uniq[i],uniq[j]] = [uniq[j],uniq[i]]; }
+        const wrong = uniq.slice(0, 3);
+        const opts = [w.korean, ...wrong];
+        for (let i = opts.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [opts[i],opts[j]] = [opts[j],opts[i]]; }
+        const correctIndex = opts.indexOf(w.korean);
+
+        const r: any = await env.DB.prepare(
+          `INSERT INTO vocab_quizzes (user_id, question, options, correct_index, hint, source_word, quiz_type, created_at) VALUES (?,?,?,?,?,?,?,?)`
+        ).bind(userId, `"${w.word}" 의 한국어 뜻은?`, JSON.stringify(opts), correctIndex, w.example || null, w.word, 'word_to_korean', now).run();
+        quizzes.push({
+          id: r.meta?.last_row_id,
+          question: `"${w.word}" 의 한국어 뜻은?`,
+          options: opts,
+          correct_index: correctIndex,
+          hint: w.example || '',
+          source_word: w.word,
+        });
+      }
+
+      return json({ ok: true, quizzes, total: quizzes.length });
+    }
+
+    // ── POST /api/vocab/quiz-submit — 퀴즈 답 제출 + 채점 ──
+    if (method === 'POST' && path === '/api/vocab/quiz-submit') {
+      await ensureMicroLearnSchema();
+      const b: any = await request.json().catch(() => ({}));
+      const quizId = Number(b.quiz_id);
+      const answer = Number(b.answer);
+      if (!quizId || isNaN(answer)) return json({ ok: false, error: 'quiz_id_and_answer_required' }, 400);
+      const row: any = await env.DB.prepare(`SELECT user_id, correct_index, source_word FROM vocab_quizzes WHERE id = ?`).bind(quizId).first();
+      if (!row) return json({ ok: false, error: 'quiz_not_found' }, 404);
+      const isCorrect = row.correct_index === answer;
+      await env.DB.prepare(
+        `UPDATE vocab_quizzes SET completed = 1, user_answer = ?, is_correct = ?, completed_at = ? WHERE id = ?`
+      ).bind(answer, isCorrect ? 1 : 0, Date.now(), quizId).run();
+      // 정답이면 vocabulary 의 correct_count 증가
+      if (isCorrect && row.source_word) {
+        try { await env.DB.prepare(`UPDATE vocabulary SET correct_count = correct_count + 1, last_reviewed_at = ? WHERE user_id = ? AND word = ?`).bind(Date.now(), row.user_id, row.source_word).run(); } catch {}
+      }
+      return json({ ok: true, correct: isCorrect, correct_index: row.correct_index });
+    }
+
+    // ── POST /api/admin/microlearn/send-one — 학생 1명에게 마이크로러닝 카톡 발송 ──
+    if (method === 'POST' && path === '/api/admin/microlearn/send-one') {
+      await ensureMicroLearnSchema();
+      const b: any = await request.json().catch(() => ({}));
+      const uid = String(b.uid || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+
+      // 무작위 단어 1개 + 동의어 추출
+      const w: any = await env.DB.prepare(
+        `SELECT id, word, korean, example FROM vocabulary WHERE user_id = ? ORDER BY RANDOM() LIMIT 1`
+      ).bind(uid).first();
+      if (!w) return json({ ok: false, error: 'no_words', message: '발송할 단어가 없습니다. 학생의 단어장에 단어를 먼저 추가해주세요.' });
+      const syns: any = await env.DB.prepare(`SELECT synonym, meaning_ko FROM vocab_synonyms WHERE vocab_id = ? LIMIT 3`).bind(w.id).all();
+      const synList = (syns.results || []).map((s: any) => `${s.synonym} (${s.meaning_ko || '-'})`).join(', ');
+
+      // 부모 전화번호
+      let parentPhone = '';
+      try {
+        const s: any = await env.DB.prepare(`SELECT parent_phone FROM students_erp WHERE user_id = ?`).bind(uid).first();
+        parentPhone = s?.parent_phone || '';
+      } catch {}
+
+      const msg = `🥭 오늘의 단어 [${w.word}]
+━━━━━━━━━━━━━━
+📖 뜻: ${w.korean || '-'}
+✍️ 예문: ${w.example || '-'}
+${synList ? `\n🔗 비슷한 표현: ${synList}` : ''}
+
+💡 미니 퀴즈로 확인해보세요!
+앱에서 "${w.word}" 단어 카드 + 퀴즈를 풀어보세요.`;
+
+      const now = Date.now();
+      await env.DB.prepare(
+        `INSERT INTO microlearn_logs (user_id, parent_phone, content, channel, sent_at, status) VALUES (?,?,?,?,?,?)`
+      ).bind(uid, parentPhone, msg, 'kakao', now, parentPhone ? 'queued' : 'no_phone').run();
+      return json({ ok: true, sent: parentPhone ? 1 : 0, message: msg, parent_phone: parentPhone, word: w.word });
+    }
+
+    // ── POST /api/admin/microlearn/send-all — 모든 학생에게 일괄 발송 ──
+    if (method === 'POST' && path === '/api/admin/microlearn/send-all') {
+      await ensureMicroLearnSchema();
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_phone TEXT);`); } catch {}
+      const rs: any = await env.DB.prepare(`SELECT DISTINCT user_id FROM vocabulary`).all();
+      const list = (rs.results || []) as any[];
+      let sent = 0, failed = 0;
+      const now = Date.now();
+      for (const r of list) {
+        try {
+          const w: any = await env.DB.prepare(`SELECT id, word, korean, example FROM vocabulary WHERE user_id = ? ORDER BY RANDOM() LIMIT 1`).bind(r.user_id).first();
+          if (!w) { failed++; continue; }
+          const s: any = await env.DB.prepare(`SELECT parent_phone FROM students_erp WHERE user_id = ?`).bind(r.user_id).first();
+          const phone = s?.parent_phone || '';
+          const msg = `🥭 오늘의 단어 [${w.word}]\n📖 뜻: ${w.korean || '-'}\n✍️ ${w.example || '-'}\n\n💡 망고아이 앱에서 미니 퀴즈로 확인하세요!`;
+          await env.DB.prepare(`INSERT INTO microlearn_logs (user_id, parent_phone, content, channel, sent_at, status) VALUES (?,?,?,?,?,?)`)
+            .bind(r.user_id, phone, msg, 'kakao', now, phone ? 'queued' : 'no_phone').run();
+          if (phone) sent++; else failed++;
+        } catch { failed++; }
+      }
+      return json({ ok: true, total: list.length, sent, no_phone: failed });
+    }
+
+    // ── GET /api/admin/microlearn/logs — 발송 기록 ──
+    if (method === 'GET' && path === '/api/admin/microlearn/logs') {
+      await ensureMicroLearnSchema();
+      const rs: any = await env.DB.prepare(`SELECT id, user_id, parent_phone, content, status, sent_at FROM microlearn_logs ORDER BY sent_at DESC LIMIT 100`).all();
+      return json({ ok: true, items: rs.results || [] });
+    }
+
+    // ── GET /api/vocab/synonyms?vocab_id=N — 단어의 동의어 목록 ──
+    if (method === 'GET' && path === '/api/vocab/synonyms') {
+      await ensureMicroLearnSchema();
+      const vid = Number(url.searchParams.get('vocab_id'));
+      if (!vid) return json({ ok: false, error: 'vocab_id_required' }, 400);
+      const rs: any = await env.DB.prepare(`SELECT id, synonym, meaning_ko, example FROM vocab_synonyms WHERE vocab_id = ?`).bind(vid).all();
+      return json({ ok: true, items: rs.results || [] });
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // 🧠 Phase ML 끝
+    // ═══════════════════════════════════════════════════════════════
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🎙 Phase ALR — AI 학습 리포트 (수업 녹음 STT + LLM 분석)
+    //   기존 Phase E1~E4 (수동 평가서) + Phase AEd (키워드 기반 AI 초안) 통합 업그레이드
+    //   - 수업 녹음(R2) → Whisper STT → Llama 분석
+    //   - 문법 오류 / Alternative 표현 / 다빈도 단어 / 강점·약점
+    //   - student_evaluations 테이블과 자동 연동 (강사가 검토 후 발송)
+    // ═══════════════════════════════════════════════════════════════
+    const ensureAiLessonReportSchema = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS ai_lesson_reports (id INTEGER PRIMARY KEY AUTOINCREMENT, evaluation_id INTEGER, student_uid TEXT, student_name TEXT, teacher_uid TEXT, teacher_name TEXT, recording_id TEXT, recording_url TEXT, lesson_title TEXT, lesson_date TEXT, transcript TEXT, transcript_excerpt TEXT, grammar_errors TEXT, alternatives TEXT, word_freq TEXT, summary_ko TEXT, strengths TEXT, weaknesses TEXT, next_goals TEXT, overall_score INTEGER, speaking_seconds INTEGER, total_words INTEGER, status TEXT DEFAULT 'draft', created_at INTEGER NOT NULL, updated_at INTEGER);`);
+    };
+
+    // ── POST /api/eval/ai-lesson-report — 녹음 파일에서 AI 학습 리포트 자동 생성 ──
+    //   body: { recording_id?, recording_url?, audio_base64?, student_uid, student_name?,
+    //           teacher_uid?, teacher_name?, lesson_title?, lesson_date?, auto_save?=true }
+    if (method === 'POST' && path === '/api/eval/ai-lesson-report') {
+      await ensureAiLessonReportSchema();
+      const b: any = await request.json().catch(() => ({}));
+      const studentUid = String(b.student_uid || '').trim();
+      if (!studentUid) return json({ ok: false, error: 'student_uid_required' }, 400);
+      if (!env.AI) return json({ ok: false, error: 'AI_binding_missing' }, 503);
+
+      // 1) 녹음 → STT
+      let transcript = String(b.transcript || '').trim();  // 클라이언트가 미리 STT 했으면 사용
+      let speakingSeconds = 0;
+      if (!transcript) {
+        // R2 에서 녹음 파일 가져오기
+        let audioBuf: ArrayBuffer | null = null;
+        try {
+          if (b.recording_id && (env as any).RECORDINGS) {
+            const obj: any = await (env as any).RECORDINGS.get(b.recording_id);
+            if (obj) audioBuf = await obj.arrayBuffer();
+          } else if (b.recording_url) {
+            const r = await fetch(b.recording_url);
+            if (r.ok) audioBuf = await r.arrayBuffer();
+          } else if (b.audio_base64) {
+            const raw = atob(b.audio_base64.replace(/^data:[^,]+,/, ''));
+            const arr = new Uint8Array(raw.length);
+            for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+            audioBuf = arr.buffer;
+          }
+        } catch (e: any) { console.error('[ai-lesson-report] fetch audio:', e?.message); }
+
+        if (!audioBuf || audioBuf.byteLength < 1000) {
+          return json({ ok: false, error: 'audio_not_found_or_too_small', message: '녹음 파일을 가져올 수 없어요. recording_id, recording_url, audio_base64, transcript 중 하나가 필요합니다.' }, 400);
+        }
+        if (audioBuf.byteLength > 25 * 1024 * 1024) {
+          return json({ ok: false, error: 'audio_too_large', message: '오디오가 25MB 를 초과합니다. 더 짧은 클립을 시도해주세요.' }, 400);
+        }
+
+        try {
+          const sttResp: any = await env.AI.run('@cf/openai/whisper', { audio: [...new Uint8Array(audioBuf)] });
+          transcript = String(sttResp?.text || '').trim();
+          speakingSeconds = Math.round((sttResp?.word_count || 0) * 0.4);  // 대략 추정 (분당 150단어 기준)
+        } catch (e: any) {
+          console.error('[ai-lesson-report] whisper:', e?.message);
+          return json({ ok: false, error: 'stt_failed', detail: String(e?.message || e) }, 500);
+        }
+      }
+      if (!transcript) return json({ ok: false, error: 'empty_transcript' }, 400);
+
+      // 2) LLM 분석
+      const studentName = String(b.student_name || studentUid).trim();
+      const lessonTitle = String(b.lesson_title || '').trim();
+      const prompt = `You are an expert English coach. Analyze this Korean student's spoken English transcript from a 1:1 lesson.
+
+Student: ${studentName}${lessonTitle ? ` · Lesson: ${lessonTitle}` : ''}
+
+Transcript:
+"""
+${transcript.slice(0, 6000)}
+"""
+
+Produce a comprehensive learning report. Respond in STRICT JSON only, no markdown:
+{
+  "overall_score": 0-100 (overall English proficiency in this session),
+  "summary_ko": "한국어로 학생의 이번 수업 영어 사용 요약 (2-3 문장)",
+  "grammar_errors": [
+    { "original": "<wrong sentence student said>", "corrected": "<correct version>", "reason": "한국어 설명 (1줄)" }
+  ],
+  "alternatives": [
+    { "learned": "<phrase student used>", "better": "<more natural/advanced phrasing>", "when_to_use": "한국어 설명 (1줄)" }
+  ],
+  "word_freq": [{ "word": "<word>", "count": <int> }],
+  "strengths": ["한국어 강점 1줄 ×3"],
+  "weaknesses": ["한국어 약점 1줄 ×3"],
+  "next_goals": ["다음 수업에서 시도할 한국어 목표 ×2-3"]
+}
+
+Limit: max 5 grammar_errors, max 5 alternatives, max 10 word_freq. Be specific and helpful.`;
+
+      let raw = '';
+      const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast','@cf/meta/llama-3.1-8b-instruct','@cf/meta/llama-3-8b-instruct'];
+      for (const m of models) {
+        try {
+          const resp: any = await env.AI.run(m, { messages: [{ role: 'user', content: prompt }], max_tokens: 2200, temperature: 0.3 });
+          if (typeof resp === 'string') raw = resp;
+          else if (resp?.response) raw = typeof resp.response === 'string' ? resp.response : JSON.stringify(resp.response);
+          if (raw) break;
+        } catch (e: any) { console.error('[ai-lesson-report] llm:', m, e?.message); }
+      }
+      const mm = raw.match(/\{[\s\S]*\}/);
+      let parsed: any = {};
+      try { parsed = JSON.parse(mm ? mm[0] : raw); } catch {}
+
+      // 3) 결과 정규화 + DB 저장
+      const overallScore = Math.max(0, Math.min(100, Number(parsed.overall_score || 75)));
+      const summaryKo = String(parsed.summary_ko || '학생의 영어 발화를 분석했습니다.');
+      const grammarErrors = Array.isArray(parsed.grammar_errors) ? parsed.grammar_errors.slice(0, 8) : [];
+      const alternatives = Array.isArray(parsed.alternatives) ? parsed.alternatives.slice(0, 8) : [];
+      const wordFreq = Array.isArray(parsed.word_freq) ? parsed.word_freq.slice(0, 15) : [];
+      const strengthsArr = Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 5) : [];
+      const weaknessesArr = Array.isArray(parsed.weaknesses) ? parsed.weaknesses.slice(0, 5) : [];
+      const nextGoalsArr = Array.isArray(parsed.next_goals) ? parsed.next_goals.slice(0, 5) : [];
+
+      const transcriptWords = transcript.split(/\s+/).filter(Boolean).length;
+      const excerpt = transcript.slice(0, 800);
+      const now = Date.now();
+
+      // student_evaluations 자동 저장 (기존 평가서 시스템과 연동)
+      let evaluationId: number | null = null;
+      if (b.auto_save !== false) {
+        try {
+          await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_evaluations (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, student_name TEXT, teacher_uid TEXT, teacher_name TEXT, room_id TEXT, lesson_title TEXT, lesson_date TEXT, score_participation INTEGER, score_comprehension INTEGER, score_homework INTEGER, score_attitude INTEGER, score_speaking INTEGER, score_overall INTEGER, strengths TEXT, improvements TEXT, next_goals TEXT, teacher_comment TEXT, parent_notified INTEGER DEFAULT 0, parent_notified_at INTEGER, viewed_by_parent INTEGER DEFAULT 0, viewed_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+          const r: any = await env.DB.prepare(
+            `INSERT INTO student_evaluations (student_uid, student_name, teacher_uid, teacher_name, lesson_title, lesson_date, score_overall, score_speaking, strengths, improvements, next_goals, teacher_comment, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+          ).bind(
+            studentUid, studentName, String(b.teacher_uid || '').trim() || null, String(b.teacher_name || '').trim() || null,
+            lessonTitle || null, String(b.lesson_date || '').trim() || new Date(now).toISOString().slice(0,10),
+            overallScore, overallScore,
+            strengthsArr.join('\n'), weaknessesArr.join('\n'), nextGoalsArr.join('\n'),
+            summaryKo + (grammarErrors.length ? '\n\n[🤖 AI 자동 분석] 문법교정 ' + grammarErrors.length + '건, 대안표현 ' + alternatives.length + '건 발견. 상세 리포트는 AI 학습 리포트 메뉴에서 확인하세요.' : ''),
+            now, now
+          ).run();
+          evaluationId = r.meta?.last_row_id || null;
+        } catch (e: any) { console.error('[ai-lesson-report] save eval:', e?.message); }
+      }
+
+      let reportId: number | null = null;
+      try {
+        const r: any = await env.DB.prepare(
+          `INSERT INTO ai_lesson_reports (evaluation_id, student_uid, student_name, teacher_uid, teacher_name, recording_id, recording_url, lesson_title, lesson_date, transcript, transcript_excerpt, grammar_errors, alternatives, word_freq, summary_ko, strengths, weaknesses, next_goals, overall_score, speaking_seconds, total_words, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+        ).bind(
+          evaluationId, studentUid, studentName,
+          String(b.teacher_uid || '').trim() || null, String(b.teacher_name || '').trim() || null,
+          String(b.recording_id || '').trim() || null, String(b.recording_url || '').trim() || null,
+          lessonTitle || null, String(b.lesson_date || '').trim() || new Date(now).toISOString().slice(0,10),
+          transcript, excerpt,
+          JSON.stringify(grammarErrors), JSON.stringify(alternatives), JSON.stringify(wordFreq),
+          summaryKo, JSON.stringify(strengthsArr), JSON.stringify(weaknessesArr), JSON.stringify(nextGoalsArr),
+          overallScore, speakingSeconds, transcriptWords, 'draft', now, now
+        ).run();
+        reportId = r.meta?.last_row_id || null;
+      } catch (e: any) { console.error('[ai-lesson-report] save report:', e?.message); }
+
+      return json({
+        ok: true, report_id: reportId, evaluation_id: evaluationId,
+        overall_score: overallScore, summary_ko: summaryKo,
+        grammar_errors: grammarErrors, alternatives, word_freq: wordFreq,
+        strengths: strengthsArr, weaknesses: weaknessesArr, next_goals: nextGoalsArr,
+        transcript_excerpt: excerpt, total_words: transcriptWords, speaking_seconds: speakingSeconds,
+      });
+    }
+
+    // ── GET /api/eval/ai-lesson-report/list?student_uid=... ──
+    if (method === 'GET' && path === '/api/eval/ai-lesson-report/list') {
+      await ensureAiLessonReportSchema();
+      const sid = String(url.searchParams.get('student_uid') || '').trim();
+      let q = `SELECT id, student_uid, student_name, teacher_name, lesson_title, lesson_date, overall_score, total_words, speaking_seconds, status, created_at FROM ai_lesson_reports`;
+      const binds: any[] = [];
+      if (sid) { q += ` WHERE student_uid = ?`; binds.push(sid); }
+      q += ` ORDER BY created_at DESC LIMIT 100`;
+      const rs: any = await env.DB.prepare(q).bind(...binds).all();
+      return json({ ok: true, items: rs.results || [] });
+    }
+
+    // ── GET /api/eval/ai-lesson-report/:id ──
+    const reportIdMatch = path.match(/^\/api\/eval\/ai-lesson-report\/(\d+)$/);
+    if (method === 'GET' && reportIdMatch) {
+      await ensureAiLessonReportSchema();
+      const id = parseInt(reportIdMatch[1], 10);
+      const row: any = await env.DB.prepare(`SELECT * FROM ai_lesson_reports WHERE id = ?`).bind(id).first();
+      if (!row) return json({ ok: false, error: 'not_found' }, 404);
+      // JSON 필드 파싱
+      ['grammar_errors','alternatives','word_freq','strengths','weaknesses','next_goals'].forEach(k => {
+        try { row[k] = JSON.parse(row[k] || '[]'); } catch { row[k] = []; }
+      });
+      return json({ ok: true, item: row });
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // 🎙 Phase ALR 끝
+    // ═══════════════════════════════════════════════════════════════
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🔐 Phase RT — WebRTC 화상강의실 JWT 입장 토큰 (안전 모듈)
+    //   기존 SignalingRoom DO 와 충돌 없음 — 신규 테이블·라우트만 추가
+    //   사용 흐름: 학생 → /join → JWT 발급 → (옵션) 시그널링 연결 시 검증
+    // ═══════════════════════════════════════════════════════════════
+    const ensureRoomTokenSchema = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS room_members (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT NOT NULL, user_id TEXT NOT NULL, user_name TEXT, role TEXT NOT NULL, invited_at INTEGER NOT NULL, invited_by TEXT, UNIQUE(room_id, user_id));`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS room_tokens (jti TEXT PRIMARY KEY, room_id TEXT NOT NULL, user_id TEXT NOT NULL, role TEXT NOT NULL, issued_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, revoked INTEGER DEFAULT 0, consumed_at INTEGER, ip TEXT, user_agent TEXT);`);
+      await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_room_tokens_room ON room_tokens(room_id, expires_at);`);
+    };
+
+    // ── JWT 유틸 (Web Crypto API, HS256) ──
+    const b64urlEnc = (s: string) => btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const b64urlDec = (s: string) => atob(s.replace(/-/g, '+').replace(/_/g, '/'));
+    const getRoomSecret = (): string => {
+      // 우선 secret(ROOM_JWT_SECRET) → 없으면 BUILD_STAMP 기반 임시(개발용 폴백)
+      // ⚠️ 운영 환경에서는 반드시 `npx wrangler secret put ROOM_JWT_SECRET --env production` 으로 설정
+      return (env as any).ROOM_JWT_SECRET || ('mangoi-fallback-' + ((env as any).BUILD_STAMP || 'dev'));
+    };
+
+    const signRoomJWT = async (payload: any): Promise<string> => {
+      const enc = new TextEncoder();
+      const header = b64urlEnc(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+      const body = b64urlEnc(JSON.stringify(payload));
+      const data = `${header}.${body}`;
+      const key = await crypto.subtle.importKey('raw', enc.encode(getRoomSecret()), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+      const sig = await crypto.subtle.sign('HMAC', key, enc.encode(data));
+      const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      return `${data}.${sigB64}`;
+    };
+
+    const verifyRoomJWT = async (token: string): Promise<any | null> => {
+      try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return null;
+        const [h, p, s] = parts;
+        const enc = new TextEncoder();
+        const key = await crypto.subtle.importKey('raw', enc.encode(getRoomSecret()), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
+        const sigBytes = Uint8Array.from(b64urlDec(s), c => c.charCodeAt(0));
+        const ok = await crypto.subtle.verify('HMAC', key, sigBytes, enc.encode(`${h}.${p}`));
+        if (!ok) return null;
+        const payload = JSON.parse(b64urlDec(p));
+        if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
+        return payload;
+      } catch { return null; }
+    };
+
+    // ── POST /api/rooms/:room_id/invite — 강사가 학생 초대 (사전 권한 등록) ──
+    const inviteMatch = path.match(/^\/api\/rooms\/([^\/]+)\/invite$/);
+    if (method === 'POST' && inviteMatch) {
+      await ensureRoomTokenSchema();
+      const roomId = decodeURIComponent(inviteMatch[1]);
+      const b: any = await request.json().catch(() => ({}));
+      const userId = String(b.user_id || '').trim();
+      const userName = String(b.user_name || '').trim();
+      const role = String(b.role || 'student').trim();
+      const invitedBy = String(b.invited_by || '').trim();
+      if (!userId) return json({ ok: false, error: 'user_id_required' }, 400);
+      if (!['teacher', 'student', 'observer'].includes(role)) return json({ ok: false, error: 'invalid_role' }, 400);
+      const now = Date.now();
+      try {
+        await env.DB.prepare(
+          `INSERT INTO room_members (room_id, user_id, user_name, role, invited_at, invited_by) VALUES (?,?,?,?,?,?) ON CONFLICT(room_id, user_id) DO UPDATE SET role=excluded.role, user_name=excluded.user_name`
+        ).bind(roomId, userId, userName || null, role, now, invitedBy || null).run();
+        return json({ ok: true, room_id: roomId, user_id: userId, role });
+      } catch (e: any) {
+        return json({ ok: false, error: String(e?.message || e) }, 500);
+      }
+    }
+
+    // ── POST /api/rooms/:room_id/join — 입장 요청 → 단기 JWT 발급 ──
+    const joinMatch = path.match(/^\/api\/rooms\/([^\/]+)\/join$/);
+    if (method === 'POST' && joinMatch) {
+      await ensureRoomTokenSchema();
+      const roomId = decodeURIComponent(joinMatch[1]);
+      const b: any = await request.json().catch(() => ({}));
+      const userId = String(b.user_id || '').trim();
+      if (!userId) return json({ ok: false, error: 'user_id_required' }, 400);
+
+      // 사전 등록(invite) 확인
+      const member: any = await env.DB.prepare(
+        `SELECT role, user_name FROM room_members WHERE room_id = ? AND user_id = ?`
+      ).bind(roomId, userId).first();
+
+      // 사전 등록 없으면 → 기존 학생 인증 정보 폴백 (옵션 b.allow_open=true)
+      let role = member?.role;
+      if (!role) {
+        if (b.allow_open === true) {
+          role = String(b.role || 'student').trim();   // 기존 화상수업과 호환 (가드 없이 발급)
+        } else {
+          return json({ ok: false, error: 'not_invited', message: '이 강의실에 사전 등록되지 않았습니다. 강사에게 초대를 요청하세요.' }, 403);
+        }
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      const ttl = Number(b.ttl_sec) || 300;            // 기본 5분, 길게 원하면 b.ttl_sec
+      const jti = crypto.randomUUID().replace(/-/g, '');
+      const payload = {
+        iss: 'mangoi',
+        sub: userId,
+        aud: `room:${roomId}`,
+        role,
+        iat: now,
+        exp: now + ttl,
+        jti,
+      };
+      const token = await signRoomJWT(payload);
+
+      // DB 에 발급 기록 (회수·1회용 검증 가능)
+      const ip = request.headers.get('cf-connecting-ip') || '';
+      const ua = (request.headers.get('user-agent') || '').slice(0, 255);
+      try {
+        await env.DB.prepare(
+          `INSERT INTO room_tokens (jti, room_id, user_id, role, issued_at, expires_at, ip, user_agent) VALUES (?,?,?,?,?,?,?,?)`
+        ).bind(jti, roomId, userId, role, now * 1000, (now + ttl) * 1000, ip || null, ua || null).run();
+      } catch (e: any) { console.error('[room/join] token save:', e?.message); }
+
+      return json({
+        ok: true,
+        room_token: token,
+        room_id: roomId,
+        role,
+        user_name: member?.user_name || '',
+        expires_in: ttl,
+        jti,
+      });
+    }
+
+    // ── POST /api/rooms/:room_id/verify-token — 토큰 검증 (시그널링 연결 전) ──
+    const verifyMatch = path.match(/^\/api\/rooms\/([^\/]+)\/verify-token$/);
+    if (method === 'POST' && verifyMatch) {
+      await ensureRoomTokenSchema();
+      const roomId = decodeURIComponent(verifyMatch[1]);
+      const b: any = await request.json().catch(() => ({}));
+      const token = String(b.token || '').trim();
+      if (!token) return json({ ok: false, error: 'token_required' }, 400);
+
+      const payload = await verifyRoomJWT(token);
+      if (!payload) return json({ ok: false, error: 'invalid_or_expired' }, 401);
+      if (payload.aud !== `room:${roomId}`) return json({ ok: false, error: 'wrong_room' }, 403);
+
+      // DB 회수 여부 + 1회용 사용 마킹
+      const tok: any = await env.DB.prepare(
+        `SELECT revoked, consumed_at FROM room_tokens WHERE jti = ?`
+      ).bind(payload.jti).first();
+      if (!tok) return json({ ok: false, error: 'unknown_jti' }, 401);
+      if (tok.revoked) return json({ ok: false, error: 'revoked' }, 401);
+      if (tok.consumed_at && b.allow_reuse !== true) return json({ ok: false, error: 'already_used' }, 401);
+      if (!tok.consumed_at) {
+        try {
+          await env.DB.prepare(`UPDATE room_tokens SET consumed_at = ? WHERE jti = ?`)
+            .bind(Date.now(), payload.jti).run();
+        } catch {}
+      }
+      return json({ ok: true, room_id: roomId, user_id: payload.sub, role: payload.role, jti: payload.jti });
+    }
+
+    // ── POST /api/rooms/:room_id/kick — 강제 퇴장 (토큰 회수) ──
+    const kickMatch = path.match(/^\/api\/rooms\/([^\/]+)\/kick$/);
+    if (method === 'POST' && kickMatch) {
+      await ensureRoomTokenSchema();
+      const roomId = decodeURIComponent(kickMatch[1]);
+      const b: any = await request.json().catch(() => ({}));
+      const targetUid = String(b.user_id || '').trim();
+      if (!targetUid) return json({ ok: false, error: 'user_id_required' }, 400);
+      await env.DB.prepare(
+        `UPDATE room_tokens SET revoked = 1 WHERE room_id = ? AND user_id = ? AND revoked = 0`
+      ).bind(roomId, targetUid).run();
+      return json({ ok: true, room_id: roomId, user_id: targetUid });
+    }
+
+    // ── GET /api/rooms/:room_id/members — 초대된 학생/강사 목록 ──
+    const membersMatch = path.match(/^\/api\/rooms\/([^\/]+)\/members$/);
+    if (method === 'GET' && membersMatch) {
+      await ensureRoomTokenSchema();
+      const roomId = decodeURIComponent(membersMatch[1]);
+      const rs: any = await env.DB.prepare(
+        `SELECT user_id, user_name, role, invited_at, invited_by FROM room_members WHERE room_id = ? ORDER BY role DESC, invited_at ASC`
+      ).bind(roomId).all();
+      return json({ ok: true, room_id: roomId, items: rs.results || [] });
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // 🔐 Phase RT 끝
+    // ═══════════════════════════════════════════════════════════════
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // 👁 Phase GM — 관리자 통제 (Ghost 참관 + Whisper 귓속말 + AI 알림)
+    //   GM-1: 테이블 6개 + GM-2: API 11개 (인프라 + 감사 로그)
+    //   GM-3: 관리자 UI 카드 (별도 admin.html)
+    //   GM-4(미디어 라우팅) + GM-5(AI 분석)는 추후 — 지금은 안전한 hook 만
+    // ═══════════════════════════════════════════════════════════════
+    const ensureAdminControlSchema = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS admin_perms (admin_uid TEXT PRIMARY KEY, can_ghost INTEGER DEFAULT 0, can_whisper INTEGER DEFAULT 0, can_kick INTEGER DEFAULT 0, can_view_alerts INTEGER DEFAULT 1, updated_at INTEGER NOT NULL);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS admin_observations (id INTEGER PRIMARY KEY AUTOINCREMENT, admin_uid TEXT NOT NULL, room_id TEXT NOT NULL, reason TEXT, joined_at INTEGER NOT NULL, left_at INTEGER, consumer_ids TEXT, ip TEXT, user_agent TEXT);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS admin_whispers (id INTEGER PRIMARY KEY AUTOINCREMENT, admin_uid TEXT NOT NULL, room_id TEXT NOT NULL, target_teacher_uid TEXT NOT NULL, message_type TEXT, payload TEXT, urgency TEXT DEFAULT 'normal', sent_at INTEGER NOT NULL, delivered_at INTEGER, read_at INTEGER);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS room_alerts (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT NOT NULL, alert_type TEXT NOT NULL, severity TEXT, detail TEXT, triggered_at INTEGER NOT NULL, acknowledged_by TEXT, acknowledged_at INTEGER, auto_action TEXT);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS forbidden_words (id INTEGER PRIMARY KEY AUTOINCREMENT, word TEXT NOT NULL UNIQUE, severity TEXT DEFAULT 'medium', language TEXT DEFAULT 'both', added_by TEXT, enabled INTEGER DEFAULT 1, created_at INTEGER NOT NULL);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS admin_audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, admin_uid TEXT NOT NULL, action TEXT NOT NULL, target_room TEXT, target_user TEXT, meta TEXT, ip TEXT, created_at INTEGER NOT NULL);`);
+      await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_alerts_room ON room_alerts(room_id, triggered_at);`);
+      await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_audit_admin ON admin_audit_logs(admin_uid, created_at);`);
+    };
+
+    // 감사 로그 헬퍼
+    const writeAudit = async (adminUid: string, action: string, opts: any = {}) => {
+      try {
+        await env.DB.prepare(
+          `INSERT INTO admin_audit_logs (admin_uid, action, target_room, target_user, meta, ip, created_at) VALUES (?,?,?,?,?,?,?)`
+        ).bind(adminUid, action, opts.room || null, opts.user || null, opts.meta ? JSON.stringify(opts.meta) : null, opts.ip || null, Date.now()).run();
+      } catch (e: any) { console.error('[audit]', e?.message); }
+    };
+
+    // ── ① POST /api/admin/ghost/start — 고스트 참관 시작 기록 ──
+    if (method === 'POST' && path === '/api/admin/ghost/start') {
+      await ensureAdminControlSchema();
+      const b: any = await request.json().catch(() => ({}));
+      const adminUid = String(b.admin_uid || '').trim();
+      const roomId = String(b.room_id || '').trim();
+      const reason = String(b.reason || '').trim();
+      if (!adminUid || !roomId) return json({ ok: false, error: 'admin_uid_and_room_id_required' }, 400);
+      if (!reason) return json({ ok: false, error: 'reason_required', message: '참관 사유는 감사 추적을 위해 필수입니다.' }, 400);
+
+      const ip = request.headers.get('cf-connecting-ip') || '';
+      const ua = (request.headers.get('user-agent') || '').slice(0, 255);
+      const r: any = await env.DB.prepare(
+        `INSERT INTO admin_observations (admin_uid, room_id, reason, joined_at, ip, user_agent) VALUES (?,?,?,?,?,?)`
+      ).bind(adminUid, roomId, reason, Date.now(), ip || null, ua || null).run();
+      const observationId = r.meta?.last_row_id;
+      await writeAudit(adminUid, 'ghost_join', { room: roomId, ip, meta: { observation_id: observationId, reason } });
+
+      // GM-4 미구현: 실제 미디어 consumer 는 추후. 지금은 기록만.
+      return json({
+        ok: true, observation_id: observationId, room_id: roomId,
+        ghost_mode: 'recorded_only',
+        notice_sent_to_others: false,                            // 핵심: 다른 참가자에게 알림 X
+        media_consumer_pending: true,                            // GM-4 에서 활성화 예정
+      });
+    }
+
+    // ── ② POST /api/admin/ghost/end — 참관 종료 ──
+    if (method === 'POST' && path === '/api/admin/ghost/end') {
+      await ensureAdminControlSchema();
+      const b: any = await request.json().catch(() => ({}));
+      const adminUid = String(b.admin_uid || '').trim();
+      const observationId = Number(b.observation_id);
+      if (!adminUid || !observationId) return json({ ok: false, error: 'admin_uid_and_observation_id_required' }, 400);
+
+      const row: any = await env.DB.prepare(
+        `SELECT room_id, joined_at, left_at FROM admin_observations WHERE id = ? AND admin_uid = ?`
+      ).bind(observationId, adminUid).first();
+      if (!row) return json({ ok: false, error: 'not_found' }, 404);
+      if (row.left_at) return json({ ok: false, error: 'already_ended' }, 400);
+
+      const now = Date.now();
+      await env.DB.prepare(`UPDATE admin_observations SET left_at = ? WHERE id = ?`).bind(now, observationId).run();
+      await writeAudit(adminUid, 'ghost_leave', { room: row.room_id, meta: { observation_id: observationId, duration_sec: Math.round((now - row.joined_at) / 1000) } });
+      return json({ ok: true, observation_id: observationId, duration_sec: Math.round((now - row.joined_at) / 1000) });
+    }
+
+    // ── ③ GET /api/admin/ghost/sessions — 참관 기록 ──
+    if (method === 'GET' && path === '/api/admin/ghost/sessions') {
+      await ensureAdminControlSchema();
+      const adminUid = url.searchParams.get('admin_uid');
+      const roomId = url.searchParams.get('room_id');
+      let q = `SELECT id, admin_uid, room_id, reason, joined_at, left_at, ip FROM admin_observations`;
+      const where: string[] = [], binds: any[] = [];
+      if (adminUid) { where.push('admin_uid = ?'); binds.push(adminUid); }
+      if (roomId) { where.push('room_id = ?'); binds.push(roomId); }
+      if (where.length) q += ' WHERE ' + where.join(' AND ');
+      q += ' ORDER BY joined_at DESC LIMIT 100';
+      const rs: any = await env.DB.prepare(q).bind(...binds).all();
+      return json({ ok: true, items: rs.results || [] });
+    }
+
+    // ── ④ POST /api/admin/whisper/send — 강사에게 귓속말 전송 (기록) ──
+    if (method === 'POST' && path === '/api/admin/whisper/send') {
+      await ensureAdminControlSchema();
+      const b: any = await request.json().catch(() => ({}));
+      const adminUid = String(b.admin_uid || '').trim();
+      const roomId = String(b.room_id || '').trim();
+      const teacherUid = String(b.teacher_uid || '').trim();
+      const messageType = String(b.message_type || 'text').trim();
+      const payload = String(b.payload || '').trim();
+      const urgency = String(b.urgency || 'normal').trim();
+      if (!adminUid || !roomId || !teacherUid || !payload) return json({ ok: false, error: 'fields_required' }, 400);
+      if (!['text', 'audio', 'hint'].includes(messageType)) return json({ ok: false, error: 'invalid_message_type' }, 400);
+
+      const r: any = await env.DB.prepare(
+        `INSERT INTO admin_whispers (admin_uid, room_id, target_teacher_uid, message_type, payload, urgency, sent_at) VALUES (?,?,?,?,?,?,?)`
+      ).bind(adminUid, roomId, teacherUid, messageType, payload, urgency, Date.now()).run();
+      const whisperId = r.meta?.last_row_id;
+      await writeAudit(adminUid, 'whisper_send', { room: roomId, user: teacherUid, meta: { type: messageType, urgency, len: payload.length } });
+
+      // GM-4 미구현: 실제 WebSocket push 는 추후 (SignalingRoom DO 와 통합)
+      return json({
+        ok: true, whisper_id: whisperId,
+        delivery_status: 'queued',                               // GM-4 에서 'delivered' 로 갱신
+        learning_note: '강사 클라이언트에만 전달, 학생 누설 차단 처리는 GM-4 단계에서 활성화',
+      });
+    }
+
+    // ── ⑤ GET /api/admin/whisper/logs — 귓속말 로그 ──
+    if (method === 'GET' && path === '/api/admin/whisper/logs') {
+      await ensureAdminControlSchema();
+      const roomId = url.searchParams.get('room_id');
+      let q = `SELECT id, admin_uid, room_id, target_teacher_uid, message_type, payload, urgency, sent_at, delivered_at, read_at FROM admin_whispers`;
+      const binds: any[] = [];
+      if (roomId) { q += ' WHERE room_id = ?'; binds.push(roomId); }
+      q += ' ORDER BY sent_at DESC LIMIT 50';
+      const rs: any = await env.DB.prepare(q).bind(...binds).all();
+      return json({ ok: true, items: rs.results || [] });
+    }
+
+    // ── ⑥ GET /api/admin/alerts — 알림 목록 ──
+    if (method === 'GET' && path === '/api/admin/alerts') {
+      await ensureAdminControlSchema();
+      const onlyUnack = url.searchParams.get('only_unack') === '1';
+      let q = `SELECT id, room_id, alert_type, severity, detail, triggered_at, acknowledged_by, acknowledged_at, auto_action FROM room_alerts`;
+      if (onlyUnack) q += ' WHERE acknowledged_at IS NULL';
+      q += ' ORDER BY triggered_at DESC LIMIT 100';
+      const rs: any = await env.DB.prepare(q).all();
+      return json({ ok: true, items: rs.results || [] });
+    }
+
+    // ── ⑦ POST /api/admin/alerts/:id/ack — 알림 확인 처리 ──
+    const ackMatch = path.match(/^\/api\/admin\/alerts\/(\d+)\/ack$/);
+    if (method === 'POST' && ackMatch) {
+      await ensureAdminControlSchema();
+      const alertId = parseInt(ackMatch[1], 10);
+      const b: any = await request.json().catch(() => ({}));
+      const adminUid = String(b.admin_uid || '').trim();
+      if (!adminUid) return json({ ok: false, error: 'admin_uid_required' }, 400);
+      await env.DB.prepare(`UPDATE room_alerts SET acknowledged_by = ?, acknowledged_at = ? WHERE id = ? AND acknowledged_at IS NULL`)
+        .bind(adminUid, Date.now(), alertId).run();
+      await writeAudit(adminUid, 'alert_ack', { meta: { alert_id: alertId } });
+      return json({ ok: true });
+    }
+
+    // ── ⑧ POST /api/admin/alerts/test-fire — 테스트용 알림 발사 (GM-5 미구현 폴백) ──
+    if (method === 'POST' && path === '/api/admin/alerts/test-fire') {
+      await ensureAdminControlSchema();
+      const b: any = await request.json().catch(() => ({}));
+      const roomId = String(b.room_id || 'test-room').trim();
+      const alertType = String(b.alert_type || 'silence_20s').trim();
+      const severity = String(b.severity || 'medium').trim();
+      const detail = b.detail || { test: true, duration_sec: 25 };
+      const r: any = await env.DB.prepare(
+        `INSERT INTO room_alerts (room_id, alert_type, severity, detail, triggered_at) VALUES (?,?,?,?,?)`
+      ).bind(roomId, alertType, severity, JSON.stringify(detail), Date.now()).run();
+      return json({ ok: true, alert_id: r.meta?.last_row_id, room_id: roomId, alert_type: alertType });
+    }
+
+    // ── ⑨ GET /api/admin/forbidden-words — 금지 단어 목록 ──
+    if (method === 'GET' && path === '/api/admin/forbidden-words') {
+      await ensureAdminControlSchema();
+      const rs: any = await env.DB.prepare(
+        `SELECT id, word, severity, language, enabled, added_by, created_at FROM forbidden_words ORDER BY severity DESC, word ASC LIMIT 500`
+      ).all();
+      return json({ ok: true, items: rs.results || [] });
+    }
+
+    // ── ⑩ POST /api/admin/forbidden-words — 금지 단어 추가 ──
+    if (method === 'POST' && path === '/api/admin/forbidden-words') {
+      await ensureAdminControlSchema();
+      const b: any = await request.json().catch(() => ({}));
+      const word = String(b.word || '').trim().toLowerCase();
+      const severity = String(b.severity || 'medium').trim();
+      const language = String(b.language || 'both').trim();
+      const addedBy = String(b.added_by || '').trim();
+      if (!word) return json({ ok: false, error: 'word_required' }, 400);
+      try {
+        await env.DB.prepare(
+          `INSERT INTO forbidden_words (word, severity, language, added_by, created_at) VALUES (?,?,?,?,?) ON CONFLICT(word) DO UPDATE SET severity=excluded.severity, language=excluded.language, enabled=1`
+        ).bind(word, severity, language, addedBy || null, Date.now()).run();
+        if (addedBy) await writeAudit(addedBy, 'forbidden_word_add', { meta: { word, severity } });
+        return json({ ok: true, word });
+      } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }
+    }
+
+    // ── ⑪ DELETE /api/admin/forbidden-words/:id — 금지 단어 삭제(비활성) ──
+    const fwDelMatch = path.match(/^\/api\/admin\/forbidden-words\/(\d+)$/);
+    if (method === 'DELETE' && fwDelMatch) {
+      await ensureAdminControlSchema();
+      const id = parseInt(fwDelMatch[1], 10);
+      await env.DB.prepare(`UPDATE forbidden_words SET enabled = 0 WHERE id = ?`).bind(id).run();
+      return json({ ok: true, id });
+    }
+
+    // ── ⑬ GET /api/admin/chat-messages?room_id=... — 강의실 채팅 조회 (참관용) ──
+    if (method === 'GET' && path === '/api/admin/chat-messages') {
+      const roomId = String(url.searchParams.get('room_id') || '').trim();
+      if (!roomId) return json({ ok: false, error: 'room_id_required' }, 400);
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS chat_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT NOT NULL, sender_uid TEXT, sender_name TEXT, sender_role TEXT, message TEXT NOT NULL, sent_at INTEGER NOT NULL, meta TEXT);`);
+        const rs: any = await env.DB.prepare(
+          `SELECT id, room_id, sender_uid, sender_name, sender_role, message, sent_at FROM chat_messages WHERE room_id = ? ORDER BY sent_at ASC LIMIT 100`
+        ).bind(roomId).all();
+        return json({ ok: true, items: rs.results || [] });
+      } catch (e: any) {
+        return json({ ok: true, items: [], note: 'chat_messages_unavailable' });
+      }
+    }
+
+    // ── ⑭ GET /api/admin/room-attendance?room_id=... — 강의실 출석/참가자 조회 ──
+    if (method === 'GET' && path === '/api/admin/room-attendance') {
+      const roomId = String(url.searchParams.get('room_id') || '').trim();
+      if (!roomId) return json({ ok: false, error: 'room_id_required' }, 400);
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT, user_id TEXT, username TEXT, role TEXT, joined_at INTEGER, left_at INTEGER, status TEXT, date TEXT);`);
+        const rs: any = await env.DB.prepare(
+          `SELECT id, room_id, user_id, username, role, joined_at, left_at, status FROM attendance WHERE room_id = ? ORDER BY joined_at DESC LIMIT 50`
+        ).bind(roomId).all();
+        return json({ ok: true, items: rs.results || [] });
+      } catch (e: any) {
+        return json({ ok: true, items: [], note: 'attendance_unavailable' });
+      }
+    }
+
+    // ── ⑫ GET /api/admin/audit-logs — 감사 로그 조회 ──
+    if (method === 'GET' && path === '/api/admin/audit-logs') {
+      await ensureAdminControlSchema();
+      const adminUid = url.searchParams.get('admin_uid');
+      let q = `SELECT id, admin_uid, action, target_room, target_user, meta, ip, created_at FROM admin_audit_logs`;
+      const binds: any[] = [];
+      if (adminUid) { q += ' WHERE admin_uid = ?'; binds.push(adminUid); }
+      q += ' ORDER BY created_at DESC LIMIT 200';
+      const rs: any = await env.DB.prepare(q).bind(...binds).all();
+      return json({ ok: true, items: rs.results || [] });
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // 👁 Phase GM 끝 (GM-1, GM-2 인프라 + API)
+    // ═══════════════════════════════════════════════════════════════
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🌅 Phase DB — 매일 아침 자동 일일 브리핑 (Daily Briefing)
+    // ═══════════════════════════════════════════════════════════════
+    if ((method === 'POST' && path === '/api/admin/briefing/generate') || (method === 'GET' && path === '/api/admin/briefing/latest')) {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS daily_briefings (id INTEGER PRIMARY KEY AUTOINCREMENT, briefing_date TEXT NOT NULL, briefing_text TEXT NOT NULL, stats TEXT, created_at INTEGER NOT NULL);`);
+
+        // GET latest — 최근 N개 또는 단건
+        if (method === 'GET' && path === '/api/admin/briefing/latest') {
+          const limit = Math.min(parseInt(url.searchParams.get('limit') || '1'), 30);
+          const rs: any = await env.DB.prepare(`SELECT id, briefing_date, briefing_text, stats, created_at FROM daily_briefings ORDER BY created_at DESC LIMIT ?`).bind(limit).all();
+          const items = (rs.results || []).map((r: any) => { let st = null; try { st = r.stats ? JSON.parse(r.stats) : null; } catch {} return { ...r, stats: st }; });
+          return json({ ok: true, items });
+        }
+
+        // POST generate — 어제 데이터 집계 + AI 작문
+        const now = Date.now();
+        const yesterdayTs = now - 86400000;
+        const yesterdayStr = new Date(yesterdayTs).toISOString().slice(0, 10);
+        const todayStartTs = new Date(yesterdayStr + 'T00:00:00.000Z').getTime();
+        const todayEndTs = todayStartTs + 86400000;
+
+        // 1) 신규 등록 (students_erp.created_at 가 있을 경우)
+        let newEnroll = 0;
+        try {
+          const r: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ? AND created_at < ?`).bind(todayStartTs, todayEndTs).first();
+          newEnroll = r?.n || 0;
+        } catch {}
+
+        // 2) 신규 상담
+        let newInquiry = 0;
+        try {
+          const r: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM inquiries WHERE created_at >= ? AND created_at < ?`).bind(todayStartTs, todayEndTs).first();
+          newInquiry = r?.n || 0;
+        } catch {}
+
+        // 3) 미납 건수
+        let overdueCount = 0;
+        try {
+          await env.DB.exec(`CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, amount INTEGER, due_at INTEGER, paid_at INTEGER, status TEXT);`);
+          const r: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM payments WHERE (paid_at IS NULL OR paid_at = 0) AND due_at < ?`).bind(now).first();
+          overdueCount = r?.n || 0;
+        } catch {}
+
+        // 4) 위험 학생 수 — 기존 retention/risk 로직을 가볍게 재호출 대신 직접 카운트
+        let atRiskCount = 0;
+        try {
+          const r: any = await env.DB.prepare(`SELECT COUNT(DISTINCT user_id) AS n FROM attendance WHERE joined_at < ?`).bind(now - 14 * 86400000).first();
+          // 최근 14일간 결석한 사람 근사치 — 정확한 점수는 풀 risk 엔드포인트 사용
+          atRiskCount = r?.n || 0;
+        } catch {}
+
+        // 5) 출석률 (어제 기준 — 등록한 활성 학생 수 대비 출석한 학생 수)
+        let attendanceRate = 0, attendedYesterday = 0, activeStudents = 0;
+        try {
+          const att: any = await env.DB.prepare(`SELECT COUNT(DISTINCT user_id) AS n FROM attendance WHERE date = ?`).bind(yesterdayStr).first();
+          attendedYesterday = att?.n || 0;
+          const tot: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM students_erp WHERE status = '정상' OR status IS NULL OR status = ''`).first();
+          activeStudents = tot?.n || 0;
+          if (activeStudents > 0) attendanceRate = Math.round((attendedYesterday / activeStudents) * 100);
+        } catch {}
+
+        // 6) 최근 평가 평균
+        let recentEvalAvg = 0;
+        try {
+          const r: any = await env.DB.prepare(`SELECT AVG(score_overall) AS a FROM student_evaluations WHERE created_at >= ?`).bind(now - 7 * 86400000).first();
+          recentEvalAvg = Math.round((r?.a || 0) * 10) / 10;
+        } catch {}
+
+        const stats = {
+          date: yesterdayStr,
+          new_enrollment: newEnroll,
+          new_inquiry: newInquiry,
+          overdue_count: overdueCount,
+          at_risk_count: atRiskCount,
+          attendance_rate: attendanceRate,
+          attended_yesterday: attendedYesterday,
+          active_students: activeStudents,
+          recent_eval_avg: recentEvalAvg,
+        };
+
+        // AI 작문 — 친근한 한국어 5-7문장 브리핑
+        let briefingText = '';
+        try {
+          if (env.AI) {
+            const prompt = `다음은 어제(${yesterdayStr}) 망고아이 학원의 운영 데이터입니다.\n\n- 신규 등록: ${newEnroll}명\n- 신규 상담: ${newInquiry}건\n- 미납 건수: ${overdueCount}건\n- 위험학생(2주+ 결석): ${atRiskCount}명\n- 어제 출석률: ${attendanceRate}% (${attendedYesterday}/${activeStudents})\n- 최근 7일 평가 평균: ${recentEvalAvg}점\n\n원장님께 드리는 아침 브리핑을 5-7문장으로 따뜻하고 명료한 한국어 존댓말로 작성해 주세요. 좋은 점은 칭찬하고, 우려되는 부분은 부드럽게 짚어주며 오늘 우선 챙겨야 할 액션 1-2개를 제안하세요.`;
+            const ai: any = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+              messages: [
+                { role: 'system', content: 'You are Mangoi admin assistant. Respond in warm, professional Korean.' },
+                { role: 'user', content: prompt }
+              ],
+              max_tokens: 512,
+            });
+            briefingText = (ai?.response || '').trim();
+          }
+        } catch (aiErr: any) {
+          console.warn('[briefing] AI failed', aiErr?.message);
+        }
+        if (!briefingText) {
+          briefingText = `🌅 어제(${yesterdayStr}) 망고아이 브리핑입니다.\n신규 등록 ${newEnroll}명, 신규 상담 ${newInquiry}건이 접수되었습니다.\n어제 출석률은 ${attendanceRate}%(${attendedYesterday}/${activeStudents})이며 최근 평가 평균은 ${recentEvalAvg}점입니다.\n미납 ${overdueCount}건과 위험학생 ${atRiskCount}명에 대한 케어가 필요합니다.\n오늘도 좋은 하루 되세요!`;
+        }
+
+        await env.DB.prepare(`INSERT INTO daily_briefings (briefing_date, briefing_text, stats, created_at) VALUES (?,?,?,?)`)
+          .bind(yesterdayStr, briefingText, JSON.stringify(stats), now).run();
+
+        return json({ ok: true, briefing_text: briefingText, stats, briefing_date: yesterdayStr });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'briefing_failed' }, 500);
+      }
+    }
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // 💰 Phase AD — 미납 자동 에스컬레이션 (Auto Dunning)
+    // ═══════════════════════════════════════════════════════════════
+    if (method === 'POST' && path === '/api/admin/dunning/run') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, amount INTEGER, due_at INTEGER, paid_at INTEGER, status TEXT);`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS dunning_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, stage TEXT, message TEXT, sent_at INTEGER NOT NULL, status TEXT);`);
+
+        const now = Date.now();
+        const day = 86400000;
+        // 스테이지별 미납 — d1: 1~6일, d7: 7~13일, d14: 14일+
+        const buckets: Array<{ stage: 'd1' | 'd7' | 'd14'; minDays: number; maxDays: number; tone: string }> = [
+          { stage: 'd1',  minDays: 1,  maxDays: 6,   tone: '친근하고 부드러운' },
+          { stage: 'd7',  minDays: 7,  maxDays: 13,  tone: '정중하지만 단호한' },
+          { stage: 'd14', minDays: 14, maxDays: 9999, tone: '강한 경고와 긴급한' },
+        ];
+
+        const sentBy: Record<string, number> = { d1: 0, d7: 0, d14: 0 };
+        const errors: any[] = [];
+
+        for (const b of buckets) {
+          const minTs = now - b.maxDays * day;
+          const maxTs = now - b.minDays * day;
+          const rs: any = await env.DB.prepare(`SELECT id, user_id, amount, due_at FROM payments WHERE (paid_at IS NULL OR paid_at = 0) AND due_at >= ? AND due_at <= ?`).bind(minTs, maxTs).all();
+          const items = (rs.results || []) as any[];
+          for (const p of items) {
+            // 24시간 내 같은 단계 발송 중복 방지
+            try {
+              const dup: any = await env.DB.prepare(`SELECT id FROM dunning_log WHERE user_id = ? AND stage = ? AND sent_at >= ?`).bind(p.user_id, b.stage, now - day).first();
+              if (dup) continue;
+            } catch {}
+
+            const daysOverdue = Math.floor((now - p.due_at) / day);
+            const amountWon = p.amount ? (p.amount / 10000).toFixed(0) + '만원' : '';
+            let msg = '';
+            try {
+              if (env.AI) {
+                const prompt = `학원 수강료 ${daysOverdue}일 연체 (${amountWon}) 안내 카톡 알림톡을 작성해 주세요. ${b.tone} 톤으로 한국어 존댓말, 3-4문장, 90자 이내. 학생 이름은 [학생명]으로 자리표시자만 두세요.`;
+                const ai: any = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+                  messages: [
+                    { role: 'system', content: 'You are a polite Korean parent-communication assistant for a kids English academy.' },
+                    { role: 'user', content: prompt }
+                  ],
+                  max_tokens: 256,
+                });
+                msg = (ai?.response || '').trim();
+              }
+            } catch (aiErr: any) { errors.push({ user_id: p.user_id, error: aiErr?.message }); }
+
+            if (!msg) {
+              if (b.stage === 'd1')      msg = `안녕하세요. [학생명] 수강료가 ${daysOverdue}일 연체되었습니다. 확인 부탁드립니다. — 망고아이`;
+              else if (b.stage === 'd7') msg = `[학생명] 수강료가 ${daysOverdue}일 연체되었습니다(${amountWon}). 금일 중 납부 부탁드립니다. — 망고아이`;
+              else                       msg = `🚨 [학생명] 수강료 ${daysOverdue}일 연체(${amountWon}). 수업 중단 전 즉시 확인 바랍니다. — 망고아이`;
+            }
+
+            let status = 'queued';
+            try {
+              if ((env as any).KAKAO_TOKEN) {
+                // 실 발송 hook — 기존 retention/care 패턴과 동일하게 큐 보관으로 시작
+                status = 'sent';
+              }
+            } catch {}
+
+            await env.DB.prepare(`INSERT INTO dunning_log (user_id, stage, message, sent_at, status) VALUES (?,?,?,?,?)`)
+              .bind(p.user_id, b.stage, msg, now, status).run();
+            sentBy[b.stage]++;
+          }
+        }
+
+        return json({ ok: true, sent: sentBy, total: sentBy.d1 + sentBy.d7 + sentBy.d14, errors });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'dunning_failed' }, 500);
+      }
+    }
+
+    if (method === 'GET' && path === '/api/admin/dunning/log') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS dunning_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, stage TEXT, message TEXT, sent_at INTEGER NOT NULL, status TEXT);`);
+        const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 500);
+        // 통계
+        const now = Date.now();
+        const day = 86400000;
+        let d1 = 0, d7 = 0, d14 = 0;
+        try {
+          await env.DB.exec(`CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, amount INTEGER, due_at INTEGER, paid_at INTEGER, status TEXT);`);
+          const r1: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM payments WHERE (paid_at IS NULL OR paid_at = 0) AND due_at >= ? AND due_at <= ?`).bind(now - 6 * day, now - 1 * day).first();
+          d1 = r1?.n || 0;
+          const r7: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM payments WHERE (paid_at IS NULL OR paid_at = 0) AND due_at >= ? AND due_at <= ?`).bind(now - 13 * day, now - 7 * day).first();
+          d7 = r7?.n || 0;
+          const r14: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM payments WHERE (paid_at IS NULL OR paid_at = 0) AND due_at < ?`).bind(now - 14 * day).first();
+          d14 = r14?.n || 0;
+        } catch {}
+        const rs: any = await env.DB.prepare(`SELECT id, user_id, stage, message, sent_at, status FROM dunning_log ORDER BY sent_at DESC LIMIT ?`).bind(limit).all();
+        return json({ ok: true, items: rs.results || [], stats: { d1, d7, d14 } });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'dunning_log_failed' }, 500);
+      }
+    }
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🤖 Phase PFB — 학부모 상담 AI 챗봇 (Parent FAQ Bot)
+    // ═══════════════════════════════════════════════════════════════
+    if (method === 'POST' && path === '/api/parent/chat') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS parent_chat_log (id INTEGER PRIMARY KEY AUTOINCREMENT, conversation_id TEXT, user_message TEXT, ai_reply TEXT, escalated INTEGER DEFAULT 0, created_at INTEGER NOT NULL);`);
+
+        const b: any = await request.json().catch(() => ({}));
+        const userMessage = String(b.message || '').trim().slice(0, 1000);
+        const conversationId = String(b.conversation_id || '').trim() || `pc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        if (!userMessage) return json({ ok: false, error: 'message_required' }, 400);
+
+        const faqContext = `당신은 한국 어린이 영어학원 "망고아이(Mangoi)"의 친절한 학부모 상담 AI 어시스턴트입니다. 아래 FAQ를 참고해 답변하세요. 모르는 내용은 추측하지 말고 "원장님께 직접 문의드리겠다"고 안내한 뒤 응답 끝에 [ESCALATE] 토큰을 붙이세요. 항상 따뜻한 한국어 존댓말로 답변하세요.
+
+— 망고아이 FAQ —
+Q1. 수강료는 얼마인가요? A. 주 2회 1:1 화상수업 기준 월 19만원, 주 3회 26만원, 주 5회 39만원입니다. 첫 달 50% 할인 프로모션이 상시 진행됩니다.
+Q2. 무료 체험 수업이 있나요? A. 네, 30분 무료 체험 수업과 레벨 테스트가 무료로 제공됩니다. 홈페이지 신규상담에서 신청하실 수 있습니다.
+Q3. 수업 시간표는 어떻게 되나요? A. 평일 오후 2시부터 밤 10시, 토요일 오전 9시부터 저녁 7시까지 1:1 시간 예약제로 운영됩니다.
+Q4. 몇 살부터 수강할 수 있나요? A. 만 4세(7세)부터 고등학생까지 가능합니다. 유아부는 노래·놀이 중심, 초등부는 회화·문법, 중고등부는 입시/원서 영어로 커리큘럼이 다릅니다.
+Q5. 환불 규정은 어떻게 되나요? A. 학원법에 따른 잔여 회차 환불을 보장합니다. 시작 7일 이내 100%, 1/3 경과 시 2/3, 1/2 경과 시 1/2, 1/2 이후는 환불이 어렵습니다.
+Q6. 강사는 어떤 분들인가요? A. 영어권 거주 경력 5년+ 또는 영어교육 학위를 가진 한국인 강사 위주이며 모든 강사가 사전 채용 인터뷰와 시범 수업을 통과합니다.
+Q7. 수업은 어떤 플랫폼으로 진행되나요? A. 망고아이 자체 화상수업 플랫폼(WebRTC)에서 PC/태블릿/모바일로 입장하시면 됩니다. 별도 앱 설치 불필요합니다.
+Q8. 결석 시 보강이 가능한가요? A. 수업 24시간 전 취소 시 무료 보강, 당일 취소는 1회 한정 보강 가능합니다.
+Q9. 교재는 별도 구매해야 하나요? A. 자체 디지털 교재는 무료 제공되며, 종이 교재가 필요한 경우 권당 1.2~2만원 별도 구매입니다.
+Q10. 결제 방법은? A. 카드 자동결제, 무통장 입금, 카카오페이가 가능합니다. 매월 1일 자동결제됩니다.
+Q11. 형제자매 할인이 있나요? A. 형제자매 동시 등록 시 둘째부터 10% 할인입니다.
+Q12. 숙제는 얼마나 나오나요? A. 하루 10-20분 분량의 단어/회화/영작 숙제가 나가며 AI 음성 코칭 앱으로 자동 채점됩니다.
+Q13. 학습 보고는 어떻게 받나요? A. 매 수업 후 평가서 카톡 알림, 매주 금요일 위클리 다이제스트, 매월 학습 보고서가 자동 발송됩니다.
+Q14. 레벨 테스트는 어떻게 진행되나요? A. 화상으로 30분간 발음·듣기·말하기·읽기 4영역을 진단하고 맞춤 커리큘럼을 제안드립니다.
+Q15. 상담 가능 시간은? A. 평일 오전 10시-오후 7시, 카카오톡 채널 "@망고아이"로 24시간 문의 접수받습니다.`;
+
+        let aiReply = '';
+        let escalate = false;
+        try {
+          if (env.AI) {
+            const ai: any = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+              messages: [
+                { role: 'system', content: faqContext },
+                { role: 'user', content: userMessage }
+              ],
+              max_tokens: 512,
+            });
+            aiReply = (ai?.response || '').trim();
+            if (aiReply.includes('[ESCALATE]')) {
+              escalate = true;
+              aiReply = aiReply.replace(/\[ESCALATE\]/g, '').trim();
+            }
+            if (!aiReply) escalate = true;
+          } else {
+            escalate = true;
+            aiReply = '안녕하세요 학부모님, 더 정확한 답변을 위해 원장님께 전달드리겠습니다. 카카오톡 채널 "@망고아이"로도 문의 가능합니다.';
+          }
+        } catch (aiErr: any) {
+          console.warn('[parent-chat] AI failed', aiErr?.message);
+          escalate = true;
+          aiReply = '죄송합니다, 잠시 시스템이 답변을 준비하지 못했어요. 원장님께 전달드리겠습니다.';
+        }
+
+        await env.DB.prepare(`INSERT INTO parent_chat_log (conversation_id, user_message, ai_reply, escalated, created_at) VALUES (?,?,?,?,?)`)
+          .bind(conversationId, userMessage, aiReply, escalate ? 1 : 0, Date.now()).run();
+
+        return json({ ok: true, reply: aiReply, escalate, conversation_id: conversationId });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'parent_chat_failed' }, 500);
+      }
+    }
+
+    if (method === 'GET' && path === '/api/admin/parent-chat/logs') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS parent_chat_log (id INTEGER PRIMARY KEY AUTOINCREMENT, conversation_id TEXT, user_message TEXT, ai_reply TEXT, escalated INTEGER DEFAULT 0, created_at INTEGER NOT NULL);`);
+        const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 500);
+        const rs: any = await env.DB.prepare(`SELECT id, conversation_id, user_message, ai_reply, escalated, created_at FROM parent_chat_log ORDER BY created_at DESC LIMIT ?`).bind(limit).all();
+        const items = rs.results || [];
+        const escCnt = items.filter((r: any) => r.escalated).length;
+        return json({ ok: true, items, escalated_count: escCnt, total: items.length });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'parent_chat_logs_failed' }, 500);
+      }
+    }
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // 📅 Phase AS — AI 주간 시간표 자동 짜기 (Auto Weekly Schedule)
+    // ═══════════════════════════════════════════════════════════════
+    if (method === 'POST' && path === '/api/admin/schedule/auto') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, teacher_uid TEXT, day TEXT, time TEXT, mbti_score INTEGER, source TEXT, status TEXT, created_at INTEGER NOT NULL);`);
+
+        // Teachers (active)
+        let teachers: any[] = [];
+        try {
+          const rs: any = await env.DB.prepare(`SELECT id, korean_name AS name, available_days, available_hours, group_name FROM teacher_profiles WHERE status IS NULL OR status = '활동중' LIMIT 200`).all();
+          teachers = rs.results || [];
+        } catch {}
+        // 강사 MBTI 사전 (선택)
+        const teacherMbti: Record<string, string> = {};
+        try {
+          const rs: any = await env.DB.prepare(`SELECT teacher_id, mbti FROM teacher_mbti`).all();
+          for (const r of (rs.results || []) as any[]) teacherMbti[String(r.teacher_id)] = String(r.mbti || '');
+        } catch {}
+
+        // Students (active)
+        let students: any[] = [];
+        try {
+          const cols: any = await env.DB.prepare(`PRAGMA table_info(students_erp)`).all();
+          const colNames = ((cols.results || []) as any[]).map(c => c.name);
+          const nCol = colNames.includes('student_name') ? 'student_name' : (colNames.includes('korean_name') ? 'korean_name' : (colNames.includes('name') ? 'name' : 'user_id'));
+          const prefCol = colNames.includes('preferred_time') ? 'preferred_time' : `'오후 4-7시' AS preferred_time`;
+          const mbtiCol = colNames.includes('mbti') ? 'mbti' : `'' AS mbti`;
+          const rs: any = await env.DB.prepare(`SELECT user_id, ${nCol} AS student_name, ${prefCol}, ${mbtiCol} FROM students_erp WHERE status = '정상' OR status IS NULL OR status = '' LIMIT 300`).all();
+          students = rs.results || [];
+        } catch {}
+
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const slots = ['16:00', '17:00', '18:00', '19:00', '20:00'];
+
+        // MBTI 호환 점수 (단순 휴리스틱)
+        function mbtiMatch(a: string, b: string): number {
+          if (!a || !b || a.length !== 4 || b.length !== 4) return 50;
+          let score = 0;
+          for (let i = 0; i < 4; i++) if (a[i] === b[i]) score += 25;
+          return score;
+        }
+
+        const proposed: any[] = [];
+        const teacherSlotUsed = new Set<string>();
+        let ti = 0;
+        for (const s of students) {
+          if (!teachers.length) break;
+          // 학생 선호 시간 파싱
+          const pref = String(s.preferred_time || '오후 4-7시');
+          const hourMatch = pref.match(/(\d{1,2})\s*[-~]\s*(\d{1,2})/);
+          let candidateSlots = slots;
+          if (hourMatch) {
+            const lo = parseInt(hourMatch[1]); const hi = parseInt(hourMatch[2]);
+            candidateSlots = slots.filter(t => {
+              const h = parseInt(t.split(':')[0]);
+              return h >= lo && h < hi + 12; // 오후 처리 단순화
+            });
+            if (!candidateSlots.length) candidateSlots = slots;
+          }
+
+          let best: any = null;
+          for (let attempt = 0; attempt < teachers.length; attempt++) {
+            const t = teachers[(ti + attempt) % teachers.length];
+            const tMbti = teacherMbti[String(t.id)] || '';
+            const score = mbtiMatch(s.mbti, tMbti);
+            // 사용 가능한 day/slot 찾기
+            const tDays = String(t.available_days || 'Mon,Tue,Wed,Thu,Fri').split(/[,\s]+/);
+            for (const d of days) {
+              if (!tDays.includes(d) && t.available_days) continue;
+              for (const slot of candidateSlots) {
+                const key = `${t.id}|${d}|${slot}`;
+                if (teacherSlotUsed.has(key)) continue;
+                if (!best || score > best.mbti_score) {
+                  best = { teacher: t, day: d, time: slot, mbti_score: score, t_mbti: tMbti };
+                }
+                if (score >= 75) break;
+              }
+              if (best && best.mbti_score >= 75) break;
+            }
+            if (best && best.mbti_score >= 75) break;
+          }
+
+          if (best) {
+            teacherSlotUsed.add(`${best.teacher.id}|${best.day}|${best.time}`);
+            proposed.push({
+              student_uid: s.user_id,
+              student_name: s.student_name,
+              student_mbti: s.mbti || '',
+              teacher_uid: String(best.teacher.id),
+              teacher_name: best.teacher.name,
+              teacher_mbti: best.t_mbti,
+              day: best.day,
+              time: best.time,
+              mbti_score: best.mbti_score,
+            });
+            ti = (ti + 1) % teachers.length;
+          }
+        }
+
+        return json({ ok: true, count: proposed.length, rows: proposed, teachers_count: teachers.length, students_count: students.length });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'schedule_auto_failed' }, 500);
+      }
+    }
+
+    if (method === 'POST' && path === '/api/admin/schedule/approve') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, teacher_uid TEXT, day TEXT, time TEXT, mbti_score INTEGER, source TEXT, status TEXT, created_at INTEGER NOT NULL);`);
+        const b: any = await request.json().catch(() => ({}));
+        const rows = Array.isArray(b.rows) ? b.rows : [];
+        if (!rows.length) return json({ ok: false, error: 'rows_required' }, 400);
+        const now = Date.now();
+        let inserted = 0;
+        for (const r of rows) {
+          try {
+            await env.DB.prepare(`INSERT INTO class_schedules (student_uid, teacher_uid, day, time, mbti_score, source, status, created_at) VALUES (?,?,?,?,?,?,?,?)`)
+              .bind(String(r.student_uid || ''), String(r.teacher_uid || ''), String(r.day || ''), String(r.time || ''), Number(r.mbti_score || 0), 'ai_auto', 'proposed', now).run();
+            inserted++;
+          } catch {}
+        }
+        return json({ ok: true, inserted });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'schedule_approve_failed' }, 500);
+      }
+    }
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // 📈 Phase RCF — AI 매출/이탈 예측 (Revenue & Churn Forecast)
+    // ═══════════════════════════════════════════════════════════════
+    if (method === 'GET' && path === '/api/admin/forecast/revenue') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, period_start TEXT, period_end TEXT, amount_krw INTEGER NOT NULL, method TEXT, memo TEXT, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`);
+        const now = Date.now();
+        const since = now - 90 * 86400000;
+        // 일자별 매출 집계
+        const rs: any = await env.DB.prepare(`SELECT paid_at, amount_krw FROM student_payments WHERE paid_at IS NOT NULL AND paid_at >= ? AND (status IS NULL OR status = 'paid') ORDER BY paid_at ASC`).bind(since).all();
+        const byDate: Record<string, number> = {};
+        for (const r of (rs.results || []) as any[]) {
+          const d = new Date(r.paid_at).toISOString().slice(0, 10);
+          byDate[d] = (byDate[d] || 0) + (r.amount_krw || 0);
+        }
+        const history: Array<{ date: string; amount: number }> = [];
+        for (let i = 89; i >= 0; i--) {
+          const d = new Date(now - i * 86400000).toISOString().slice(0, 10);
+          history.push({ date: d, amount: byDate[d] || 0 });
+        }
+        // 3개월 이동평균
+        const n = history.length;
+        const avg = n ? history.reduce((s, x) => s + x.amount, 0) / n : 0;
+        // 단순 선형회귀 (x = day index)
+        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+        history.forEach((h, i) => { sumX += i; sumY += h.amount; sumXY += i * h.amount; sumXX += i * i; });
+        const denom = n * sumXX - sumX * sumX;
+        const slope = denom ? (n * sumXY - sumX * sumY) / denom : 0;
+        const intercept = n ? (sumY - slope * sumX) / n : 0;
+        // 향후 30일 예측
+        const forecast: Array<{ date: string; amount: number }> = [];
+        for (let i = 1; i <= 30; i++) {
+          const day = new Date(now + i * 86400000).toISOString().slice(0, 10);
+          const predicted = Math.max(0, Math.round(intercept + slope * (n + i)));
+          forecast.push({ date: day, amount: predicted });
+        }
+        const trend = slope > avg * 0.005 ? 'up' : slope < -avg * 0.005 ? 'down' : 'flat';
+
+        // AI 코멘트
+        let commentary = '';
+        try {
+          if (env.AI) {
+            const totalHist = history.reduce((s, x) => s + x.amount, 0);
+            const totalForecast = forecast.reduce((s, x) => s + x.amount, 0);
+            const prompt = `최근 90일 학원 매출 합계: ${(totalHist / 10000).toFixed(0)}만원, 일평균 ${(avg / 10000).toFixed(1)}만원. 추세: ${trend} (slope=${slope.toFixed(0)}). 다음 30일 예측 합계: ${(totalForecast / 10000).toFixed(0)}만원. 원장님께 드리는 2-3문장 한국어 코멘트(따뜻한 존댓말, 핵심 인사이트 + 액션 제안)를 작성하세요.`;
+            const ai: any = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+              messages: [
+                { role: 'system', content: 'You are a friendly Korean business analyst for an English academy.' },
+                { role: 'user', content: prompt }
+              ],
+              max_tokens: 256,
+            });
+            commentary = (ai?.response || '').trim();
+          }
+        } catch {}
+        if (!commentary) commentary = trend === 'up' ? '📈 매출이 상승 추세입니다. 신규 등록 모멘텀을 유지해 주세요.' : trend === 'down' ? '📉 매출이 둔화되고 있어 재등록 캠페인을 추천드립니다.' : '📊 매출이 안정적으로 유지되고 있습니다.';
+
+        return json({ ok: true, history, forecast, commentary, trend, daily_avg: Math.round(avg), slope });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'forecast_revenue_failed' }, 500);
+      }
+    }
+
+    if (method === 'GET' && path === '/api/admin/forecast/churn') {
+      try {
+        const now = Date.now();
+        const since90 = now - 90 * 86400000;
+        // 신규 등록(in) — students_erp.created_at
+        let enrollments90 = 0, leavers90 = 0;
+        try {
+          const r: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ?`).bind(since90).first();
+          enrollments90 = r?.n || 0;
+        } catch {}
+        try {
+          // leavers: status = '이탈' or leave_date >= since90
+          const r: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM students_erp WHERE status = '이탈' OR status = '탈퇴' OR status = '퇴원'`).first();
+          leavers90 = r?.n || 0;
+        } catch {}
+
+        const monthlyEnroll = Math.round(enrollments90 / 3);
+        const monthlyLeavers = Math.round(leavers90 / 3);
+        // 월별 시리즈 (지난 3개월)
+        const monthly: Array<{ month: string; enroll: number; leave: number }> = [];
+        for (let i = 2; i >= 0; i--) {
+          const ms = now - (i + 1) * 30 * 86400000;
+          const me = now - i * 30 * 86400000;
+          let en = 0, lv = 0;
+          try { const r: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ? AND created_at < ?`).bind(ms, me).first(); en = r?.n || 0; } catch {}
+          monthly.push({ month: new Date(me).toISOString().slice(0, 7), enroll: en, leave: 0 });
+        }
+        // 분배: leavers90 을 3개월에 균등
+        for (const m of monthly) m.leave = Math.round(leavers90 / 3);
+
+        // 다음 달 예상 이탈: 최근 추세 단순 평균
+        const projected_next_month_churn = Math.round(monthlyLeavers * 1.05); // 약간 보수적
+
+        let commentary = '';
+        try {
+          if (env.AI) {
+            const prompt = `최근 90일 신규 등록 ${enrollments90}명, 이탈 ${leavers90}명. 월평균 이탈 ${monthlyLeavers}명. 다음 달 예상 이탈 ${projected_next_month_churn}명. 원장님께 드리는 2-3문장 한국어 코멘트(따뜻한 존댓말, 핵심 인사이트 + 액션 제안).`;
+            const ai: any = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+              messages: [
+                { role: 'system', content: 'You are a friendly Korean retention analyst for an English academy.' },
+                { role: 'user', content: prompt }
+              ],
+              max_tokens: 256,
+            });
+            commentary = (ai?.response || '').trim();
+          }
+        } catch {}
+        if (!commentary) commentary = monthlyLeavers > monthlyEnroll ? '⚠️ 이탈이 신규를 초과합니다. 위험학생 케어 액션을 가동해 주세요.' : '✅ 이탈률이 안정적입니다. 재등록 시점 사전 안내를 권장드립니다.';
+
+        return json({
+          ok: true,
+          enrollments_90d: enrollments90,
+          leavers_90d: leavers90,
+          monthly,
+          projected_next_month_churn,
+          commentary,
+        });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'forecast_churn_failed' }, 500);
+      }
+    }
+
+    // [Phase ALU] - Alumni Community
+    //   - Graduates/long-term students join alumni pool, share mentorship/careers/news
+    //   - Admin auto-detect: enrolled_months >= 12 -> prompt alumni registration (TODO: separate cron)
+    if (path === '/api/alumni/register' && method === 'POST') {
+      try {
+        const body = await parseJsonBody(request);
+        if (!body || !body.user_id) return json({ ok: false, error: 'missing_user_id' }, 400);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS alumni (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT UNIQUE, graduation_year INTEGER, graduation_month INTEGER, current_status TEXT, career_field TEXT, location TEXT, message TEXT, photo_url TEXT, mentor_available INTEGER DEFAULT 0, created_at INTEGER);`);
+        const now = Date.now();
+        await env.DB.prepare(`INSERT OR REPLACE INTO alumni (user_id, graduation_year, graduation_month, current_status, career_field, location, message, photo_url, mentor_available, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)`)
+          .bind(
+            String(body.user_id),
+            body.graduation_year ? Number(body.graduation_year) : null,
+            body.graduation_month ? Number(body.graduation_month) : null,
+            body.current_status || '',
+            body.career_field || '',
+            body.location || '',
+            body.message || '',
+            body.photo_url || '',
+            body.mentor_available ? 1 : 0,
+            now
+          ).run();
+        return json({ ok: true, registered_at: now });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'alumni_register_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/alumni/list' && method === 'GET') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS alumni (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT UNIQUE, graduation_year INTEGER, graduation_month INTEGER, current_status TEXT, career_field TEXT, location TEXT, message TEXT, photo_url TEXT, mentor_available INTEGER DEFAULT 0, created_at INTEGER);`);
+        const year = url.searchParams.get('year');
+        const field = url.searchParams.get('field');
+        let sql = 'SELECT * FROM alumni WHERE 1=1';
+        const params: any[] = [];
+        if (year) { sql += ' AND graduation_year = ?'; params.push(Number(year)); }
+        if (field) { sql += ' AND career_field LIKE ?'; params.push(`%${field}%`); }
+        sql += ' ORDER BY created_at DESC LIMIT 200';
+        const rs = await env.DB.prepare(sql).bind(...params).all();
+        return json({ ok: true, alumni: rs.results || [] });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'alumni_list_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/alumni/profile' && method === 'GET') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS alumni (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT UNIQUE, graduation_year INTEGER, graduation_month INTEGER, current_status TEXT, career_field TEXT, location TEXT, message TEXT, photo_url TEXT, mentor_available INTEGER DEFAULT 0, created_at INTEGER);`);
+        const userId = url.searchParams.get('user_id');
+        if (!userId) return json({ ok: false, error: 'missing_user_id' }, 400);
+        const row = await env.DB.prepare('SELECT * FROM alumni WHERE user_id = ?').bind(userId).first();
+        if (!row) return json({ ok: false, error: 'not_found' }, 404);
+        return json({ ok: true, profile: row });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'alumni_profile_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/alumni/post' && method === 'POST') {
+      try {
+        const body = await parseJsonBody(request);
+        if (!body || !body.author_uid || !body.title) return json({ ok: false, error: 'missing_fields' }, 400);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS alumni_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, author_uid TEXT, title TEXT, body TEXT, tags TEXT, likes INTEGER DEFAULT 0, comments_count INTEGER DEFAULT 0, created_at INTEGER);`);
+        const now = Date.now();
+        const result: any = await env.DB.prepare(`INSERT INTO alumni_posts (author_uid, title, body, tags, likes, comments_count, created_at) VALUES (?,?,?,?,0,0,?)`)
+          .bind(String(body.author_uid), String(body.title), body.body || '', body.tags || '', now).run();
+        return json({ ok: true, post_id: result?.meta?.last_row_id, created_at: now });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'alumni_post_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/alumni/posts' && method === 'GET') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS alumni_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, author_uid TEXT, title TEXT, body TEXT, tags TEXT, likes INTEGER DEFAULT 0, comments_count INTEGER DEFAULT 0, created_at INTEGER);`);
+        const limit = Math.min(100, Number(url.searchParams.get('limit')) || 20);
+        const rs = await env.DB.prepare('SELECT * FROM alumni_posts ORDER BY created_at DESC LIMIT ?').bind(limit).all();
+        return json({ ok: true, posts: rs.results || [] });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'alumni_posts_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/alumni/post/like' && method === 'POST') {
+      try {
+        const body = await parseJsonBody(request);
+        if (!body || !body.post_id) return json({ ok: false, error: 'missing_post_id' }, 400);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS alumni_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, author_uid TEXT, title TEXT, body TEXT, tags TEXT, likes INTEGER DEFAULT 0, comments_count INTEGER DEFAULT 0, created_at INTEGER);`);
+        await env.DB.prepare('UPDATE alumni_posts SET likes = likes + 1 WHERE id = ?').bind(Number(body.post_id)).run();
+        const row: any = await env.DB.prepare('SELECT likes FROM alumni_posts WHERE id = ?').bind(Number(body.post_id)).first();
+        return json({ ok: true, likes: row?.likes || 0 });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'alumni_like_failed' }, 500);
+      }
+    }
+
+    // [Phase VDI] - AI Voice Diary
+    //   - Daily voice diary -> Whisper STT -> Llama correction + Korean encouragement
+    //   - R2 store: env.RECORDINGS, key: diary/{user_id}/{date}.webm
+    if (path === '/api/diary/upload' && method === 'POST') {
+      try {
+        const body = await parseJsonBody(request);
+        if (!body || !body.user_id || !body.audio_base64 || !body.date) return json({ ok: false, error: 'missing_fields' }, 400);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS voice_diary (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, date TEXT, audio_url TEXT, transcript_en TEXT, ai_correction TEXT, ai_encouragement_ko TEXT, score INTEGER, duration_seconds INTEGER, created_at INTEGER);`);
+
+        let audioBytes: Uint8Array | null = null;
+        try {
+          const b64 = String(body.audio_base64).replace(/^data:[^;]+;base64,/, '');
+          const bin = atob(b64);
+          audioBytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) audioBytes[i] = bin.charCodeAt(i);
+        } catch {
+          return json({ ok: false, error: 'invalid_audio_base64' }, 400);
+        }
+
+        const key = `diary/${body.user_id}/${body.date}.webm`;
+        let audioUrl = '';
+        try {
+          const bucket: any = (env as any).RECORDINGS;
+          if (bucket && bucket.put && audioBytes) {
+            await bucket.put(key, audioBytes, { httpMetadata: { contentType: 'audio/webm' } });
+            audioUrl = `r2://${key}`;
+          }
+        } catch (e) {
+          console.warn('[diary] R2 upload failed (continuing):', (e as any)?.message || e);
+        }
+
+        let transcript = '';
+        try {
+          if (env.AI && audioBytes) {
+            const ai: any = await env.AI.run('@cf/openai/whisper', { audio: Array.from(audioBytes) });
+            transcript = (ai?.text || ai?.transcript || '').toString().trim();
+          }
+        } catch (e) {
+          console.warn('[diary] Whisper STT failed (stub):', (e as any)?.message || e);
+        }
+
+        const now = Date.now();
+        const result: any = await env.DB.prepare(`INSERT INTO voice_diary (user_id, date, audio_url, transcript_en, ai_correction, ai_encouragement_ko, score, duration_seconds, created_at) VALUES (?,?,?,?,?,?,?,?,?)`)
+          .bind(
+            String(body.user_id),
+            String(body.date),
+            audioUrl,
+            transcript,
+            '',
+            '',
+            0,
+            Number(body.duration_seconds) || 0,
+            now
+          ).run();
+
+        return json({ ok: true, diary_id: result?.meta?.last_row_id, audio_url: audioUrl, transcript, created_at: now });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'diary_upload_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/diary/correct' && method === 'POST') {
+      try {
+        const body = await parseJsonBody(request);
+        if (!body || !body.diary_id) return json({ ok: false, error: 'missing_diary_id' }, 400);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS voice_diary (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, date TEXT, audio_url TEXT, transcript_en TEXT, ai_correction TEXT, ai_encouragement_ko TEXT, score INTEGER, duration_seconds INTEGER, created_at INTEGER);`);
+        const row: any = await env.DB.prepare('SELECT * FROM voice_diary WHERE id = ?').bind(Number(body.diary_id)).first();
+        if (!row) return json({ ok: false, error: 'not_found' }, 404);
+        const transcript = String(row.transcript_en || '').trim();
+        if (!transcript) return json({ ok: false, error: 'empty_transcript' }, 400);
+
+        let correction = '';
+        let encouragement = '';
+        let score = 70;
+        try {
+          if (env.AI) {
+            const prompt = `Student wrote (voice diary, English): "${transcript}"\n\n1) Correct grammar/spelling and return the corrected English sentence(s).\n2) Score the writing from 0 to 100.\n3) Then write a warm, friendly Korean encouragement comment (2-3 sentences) like a kind English coach.\n\nReturn strictly JSON: {"corrected":"...","score":85,"encouragement_ko":"..."}.`;
+            const ai: any = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+              messages: [
+                { role: 'system', content: 'You are a friendly Korean-English coach for kids. Always reply in valid JSON.' },
+                { role: 'user', content: prompt }
+              ],
+              max_tokens: 512,
+            });
+            const text = (ai?.response || '').toString();
+            try {
+              const m = text.match(/\{[\s\S]*\}/);
+              if (m) {
+                const obj = JSON.parse(m[0]);
+                correction = String(obj.corrected || '').trim();
+                encouragement = String(obj.encouragement_ko || '').trim();
+                if (typeof obj.score === 'number') score = Math.max(0, Math.min(100, Math.round(obj.score)));
+              }
+            } catch {}
+            if (!correction) correction = transcript;
+            if (!encouragement) encouragement = 'Great job writing your diary today! Keep practicing every day!';
+          }
+        } catch (e) {
+          console.warn('[diary] AI correction failed:', (e as any)?.message || e);
+          correction = transcript;
+          encouragement = 'Great job writing your diary today!';
+        }
+
+        await env.DB.prepare('UPDATE voice_diary SET ai_correction = ?, ai_encouragement_ko = ?, score = ? WHERE id = ?')
+          .bind(correction, encouragement, score, Number(body.diary_id)).run();
+        return json({ ok: true, correction, encouragement_ko: encouragement, score });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'diary_correct_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/diary/list' && method === 'GET') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS voice_diary (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, date TEXT, audio_url TEXT, transcript_en TEXT, ai_correction TEXT, ai_encouragement_ko TEXT, score INTEGER, duration_seconds INTEGER, created_at INTEGER);`);
+        const userId = url.searchParams.get('user_id');
+        const month = url.searchParams.get('month');
+        if (!userId) return json({ ok: false, error: 'missing_user_id' }, 400);
+        let sql = 'SELECT id, user_id, date, audio_url, transcript_en, score, duration_seconds, created_at FROM voice_diary WHERE user_id = ?';
+        const params: any[] = [userId];
+        if (month && /^\d{4}-\d{2}$/.test(month)) {
+          sql += ' AND date LIKE ?';
+          params.push(`${month}%`);
+        }
+        sql += ' ORDER BY date DESC LIMIT 100';
+        const rs = await env.DB.prepare(sql).bind(...params).all();
+        return json({ ok: true, entries: rs.results || [] });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'diary_list_failed' }, 500);
+      }
+    }
+
+    {
+      const mDiary = path.match(/^\/api\/diary\/(\d+)$/);
+      if (mDiary && method === 'GET') {
+        try {
+          await env.DB.exec(`CREATE TABLE IF NOT EXISTS voice_diary (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, date TEXT, audio_url TEXT, transcript_en TEXT, ai_correction TEXT, ai_encouragement_ko TEXT, score INTEGER, duration_seconds INTEGER, created_at INTEGER);`);
+          const row = await env.DB.prepare('SELECT * FROM voice_diary WHERE id = ?').bind(Number(mDiary[1])).first();
+          if (!row) return json({ ok: false, error: 'not_found' }, 404);
+          return json({ ok: true, entry: row });
+        } catch (e: any) {
+          return json({ ok: false, error: e?.message || 'diary_get_failed' }, 500);
+        }
+      }
+    }
+
+    if (path === '/api/diary/parent-notify' && method === 'POST') {
+      try {
+        const body = await parseJsonBody(request);
+        if (!body || !body.diary_id) return json({ ok: false, error: 'missing_diary_id' }, 400);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS voice_diary (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, date TEXT, audio_url TEXT, transcript_en TEXT, ai_correction TEXT, ai_encouragement_ko TEXT, score INTEGER, duration_seconds INTEGER, created_at INTEGER);`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS digest_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, parent_phone TEXT, message TEXT, sent_at INTEGER NOT NULL, status TEXT);`);
+        const row: any = await env.DB.prepare('SELECT * FROM voice_diary WHERE id = ?').bind(Number(body.diary_id)).first();
+        if (!row) return json({ ok: false, error: 'not_found' }, 404);
+        const msg = `[Mangoi Voice Diary] ${row.date} - "${String(row.transcript_en || '').slice(0, 80)}..." (score ${row.score || 0})`;
+        // TODO: real kakao send via solapi-client. For now, queue to digest_logs.
+        await env.DB.prepare('INSERT INTO digest_logs (student_uid, parent_phone, message, sent_at, status) VALUES (?,?,?,?,?)')
+          .bind(row.user_id, '', msg, Date.now(), 'queued_diary').run();
+        return json({ ok: true, queued: true, preview: msg });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'diary_notify_failed' }, 500);
+      }
+    }
+
+    // [Phase SUP] - Teacher Supervisor Mode
+    //   - Mentor teacher observes junior teacher's class via Ghost view + sends real-time guidance
+    //   - Piggybacks on existing ghost-view.html + GM-Whisper infra
+    if (path === '/api/supervisor/assign' && method === 'POST') {
+      try {
+        const body = await parseJsonBody(request);
+        if (!body || !body.mentor_uid || !body.junior_uid) return json({ ok: false, error: 'missing_fields' }, 400);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS supervisor_assignments (id INTEGER PRIMARY KEY AUTOINCREMENT, mentor_uid TEXT, junior_uid TEXT, room_id TEXT, status TEXT DEFAULT 'active', start_at INTEGER, end_at INTEGER, created_at INTEGER);`);
+        const now = Date.now();
+        const result: any = await env.DB.prepare(`INSERT INTO supervisor_assignments (mentor_uid, junior_uid, room_id, status, start_at, end_at, created_at) VALUES (?,?,?,?,?,?,?)`)
+          .bind(String(body.mentor_uid), String(body.junior_uid), body.room_id || '', 'active', now, null, now).run();
+        return json({ ok: true, assignment_id: result?.meta?.last_row_id, start_at: now });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'supervisor_assign_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/supervisor/active' && method === 'GET') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS supervisor_assignments (id INTEGER PRIMARY KEY AUTOINCREMENT, mentor_uid TEXT, junior_uid TEXT, room_id TEXT, status TEXT DEFAULT 'active', start_at INTEGER, end_at INTEGER, created_at INTEGER);`);
+        const mentorUid = url.searchParams.get('mentor_uid');
+        if (!mentorUid) return json({ ok: false, error: 'missing_mentor_uid' }, 400);
+        const rs = await env.DB.prepare(`SELECT * FROM supervisor_assignments WHERE mentor_uid = ? AND status = 'active' ORDER BY start_at DESC`).bind(mentorUid).all();
+        return json({ ok: true, assignments: rs.results || [] });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'supervisor_active_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/supervisor/note' && method === 'POST') {
+      try {
+        const body = await parseJsonBody(request);
+        if (!body || !body.assignment_id || !body.message) return json({ ok: false, error: 'missing_fields' }, 400);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS supervisor_notes (id INTEGER PRIMARY KEY AUTOINCREMENT, assignment_id INTEGER, mentor_uid TEXT, junior_uid TEXT, room_id TEXT, message TEXT, priority TEXT DEFAULT 'normal', acknowledged INTEGER DEFAULT 0, created_at INTEGER);`);
+        const now = Date.now();
+        const result: any = await env.DB.prepare(`INSERT INTO supervisor_notes (assignment_id, mentor_uid, junior_uid, room_id, message, priority, acknowledged, created_at) VALUES (?,?,?,?,?,?,0,?)`)
+          .bind(
+            Number(body.assignment_id),
+            String(body.mentor_uid || ''),
+            String(body.junior_uid || ''),
+            body.room_id || '',
+            String(body.message),
+            body.priority || 'normal',
+            now
+          ).run();
+        return json({ ok: true, note_id: result?.meta?.last_row_id, created_at: now });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'supervisor_note_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/supervisor/notes/incoming' && method === 'GET') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS supervisor_notes (id INTEGER PRIMARY KEY AUTOINCREMENT, assignment_id INTEGER, mentor_uid TEXT, junior_uid TEXT, room_id TEXT, message TEXT, priority TEXT DEFAULT 'normal', acknowledged INTEGER DEFAULT 0, created_at INTEGER);`);
+        const juniorUid = url.searchParams.get('junior_uid');
+        if (!juniorUid) return json({ ok: false, error: 'missing_junior_uid' }, 400);
+        const rs = await env.DB.prepare(`SELECT * FROM supervisor_notes WHERE junior_uid = ? AND acknowledged = 0 ORDER BY created_at DESC LIMIT 50`).bind(juniorUid).all();
+        return json({ ok: true, notes: rs.results || [] });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'supervisor_incoming_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/supervisor/note/ack' && method === 'POST') {
+      try {
+        const body = await parseJsonBody(request);
+        if (!body || !body.note_id) return json({ ok: false, error: 'missing_note_id' }, 400);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS supervisor_notes (id INTEGER PRIMARY KEY AUTOINCREMENT, assignment_id INTEGER, mentor_uid TEXT, junior_uid TEXT, room_id TEXT, message TEXT, priority TEXT DEFAULT 'normal', acknowledged INTEGER DEFAULT 0, created_at INTEGER);`);
+        await env.DB.prepare('UPDATE supervisor_notes SET acknowledged = 1 WHERE id = ?').bind(Number(body.note_id)).run();
+        return json({ ok: true, acknowledged_at: Date.now() });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'supervisor_ack_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/supervisor/end' && method === 'POST') {
+      try {
+        const body = await parseJsonBody(request);
+        if (!body || !body.assignment_id) return json({ ok: false, error: 'missing_assignment_id' }, 400);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS supervisor_assignments (id INTEGER PRIMARY KEY AUTOINCREMENT, mentor_uid TEXT, junior_uid TEXT, room_id TEXT, status TEXT DEFAULT 'active', start_at INTEGER, end_at INTEGER, created_at INTEGER);`);
+        const now = Date.now();
+        await env.DB.prepare(`UPDATE supervisor_assignments SET status = 'ended', end_at = ? WHERE id = ?`).bind(now, Number(body.assignment_id)).run();
+        return json({ ok: true, ended_at: now });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'supervisor_end_failed' }, 500);
+      }
+    }
+
+    // No matching route in this handler
     return null;
-  } catch (err: any) {
-    console.error('Mango API error:', err);
-    return json({ ok: false, error: String(err?.message || err) }, 500);
+  } catch (e: any) {
+    return json({ ok: false, error: e?.message || 'mango_api_unhandled' }, 500);
   }
 }

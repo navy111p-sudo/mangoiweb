@@ -78,22 +78,458 @@
 <body>
 <a class="home-btn" href="/">🏠 <span data-ko="홈" data-en="Home">홈</span></a>
 
+<script>
+// 🔊 음성 안내 버튼을 글로벌 바([🏠 홈] [🌐 EN] 옆)에 자동 inject
+(function tryAddAudioBtn(){
+  if (window.mangoiAddBarButton && document.getElementById('mangoi-global-bar')) {
+    function lvLabel() {
+      var muted = false;
+      try { muted = localStorage.getItem('mangoi_lessonvideo_audio_muted') === '1'; } catch(e){}
+      var en = window.getLang && window.getLang() === 'en';
+      if (muted) return '<span>🔇</span> <span>' + (en?'Audio On':'음성 켜기') + '</span>';
+      return '<span>🔊</span> <span>' + (en?'Audio Off':'음성 끄기') + '</span>';
+    }
+    window.mangoiAddBarButton({
+      id: 'mangoi-lv-audio-btn',
+      text: lvLabel(),
+      title: '음성 안내 켜기/끄기',
+      onclick: function(){ window.toggleLessonAudio && window.toggleLessonAudio(); }
+    });
+    // 토글 후 라벨 업데이트
+    window.addEventListener('mangoi:lang-changed', function(){
+      var b = document.getElementById('mangoi-lv-audio-btn');
+      if (b) b.innerHTML = lvLabel();
+    });
+    window._lvAudioBtnRefresh = function(){
+      var b = document.getElementById('mangoi-lv-audio-btn');
+      if (b) b.innerHTML = lvLabel();
+    };
+  } else {
+    setTimeout(tryAddAudioBtn, 150);
+  }
+})();
+</script>
+
+<script>
+// 🔊 레슨 비디오 페이지 안내 음성 자동 재생 (홈에서 카드 클릭 진입 시)
+(function(){
+  let shouldPlay = false;
+  try { shouldPlay = sessionStorage.getItem('mangoi_play_lessonvideo_audio') === '1'; } catch(e){}
+  try { if (localStorage.getItem('mangoi_lessonvideo_audio_muted') === '1') shouldPlay = false; } catch(e){}
+  try { sessionStorage.removeItem('mangoi_play_lessonvideo_audio'); } catch(e){}
+
+  // 끄기 버튼 상태 동기화
+  function updateBtn() {
+    const muted = localStorage.getItem('mangoi_lessonvideo_audio_muted') === '1';
+    const icon = document.getElementById('lv-audio-icon');
+    const label = document.getElementById('lv-audio-label');
+    if (!icon || !label) return;
+    if (muted) {
+      icon.textContent = '🔇';
+      label.textContent = (window.getLang && window.getLang() === 'en') ? 'Unmute' : '음성 켜기';
+      label.setAttribute('data-ko', '음성 켜기');
+      label.setAttribute('data-en', 'Unmute');
+    } else {
+      icon.textContent = '🔊';
+      label.textContent = (window.getLang && window.getLang() === 'en') ? 'Mute' : '음성 끄기';
+      label.setAttribute('data-ko', '음성 끄기');
+      label.setAttribute('data-en', 'Mute');
+    }
+  }
+  if (document.readyState !== 'loading') updateBtn();
+  else document.addEventListener('DOMContentLoaded', updateBtn);
+  window.addEventListener('mangoi:lang-changed', updateBtn);
+
+  // 토글 핸들러
+  window.toggleLessonAudio = function() {
+    const muted = localStorage.getItem('mangoi_lessonvideo_audio_muted') === '1';
+    if (muted) {
+      localStorage.removeItem('mangoi_lessonvideo_audio_muted');
+      alert(window.getLang && window.getLang() === 'en' ? '🔊 Audio guide enabled.' : '🔊 음성 안내가 켜졌어요.');
+    } else {
+      localStorage.setItem('mangoi_lessonvideo_audio_muted', '1');
+      document.querySelectorAll('audio').forEach(a => { try { a.pause(); } catch(e){} });
+      const t = document.getElementById('lv-audio-toast');
+      if (t) t.remove();
+      alert(window.getLang && window.getLang() === 'en' ? '🔇 Audio guide muted.' : '🔇 음성 안내가 꺼졌어요.');
+    }
+    updateBtn();
+    if (window._lvAudioBtnRefresh) window._lvAudioBtnRefresh();
+  };
+
+  if (!shouldPlay) return;
+
+  // 자동 재생 + 멈춤 토스트
+  const audio = new Audio('/audio/레슨비디오.wav');
+  audio.volume = 0.55;
+  audio.play().catch(() => {});
+
+  const toast = document.createElement('div');
+  toast.id = 'lv-audio-toast';
+  toast.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;background:rgba(20,41,80,0.95);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);border-radius:12px;padding:12px 16px;font-size:13px;font-family:"Noto Sans KR",sans-serif;display:flex;align-items:center;gap:12px;box-shadow:0 12px 32px -8px rgba(0,0,0,0.5);backdrop-filter:blur(8px);animation:lv-slide 0.35s ease-out';
+  const isEn = window.getLang && window.getLang() === 'en';
+  toast.innerHTML =
+    '<span style="display:inline-flex;align-items:center;gap:6px">🔊 <b>' + (isEn ? 'Video Lesson Guide' : '비디오 레슨 안내') + '</b></span>' +
+    '<button id="lv-stop" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#e6ecff;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:11.5px;font-weight:700">⏸ ' + (isEn ? 'Stop' : '멈춤') + '</button>';
+  const style = document.createElement('style');
+  style.textContent = '@keyframes lv-slide{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}';
+  document.head.appendChild(style);
+  document.body.appendChild(toast);
+  document.getElementById('lv-stop').onclick = function() { try { audio.pause(); } catch(e){} toast.remove(); };
+  audio.addEventListener('ended', () => { try { toast.remove(); } catch(e){} });
+})();
+</script>
+
 <div class="wrap">
   <div class="brand">
     <span class="brand-logo">🎬 Mangoi Lessons</span>
-    <div class="sub" data-ko="레벨별 · 강의별 2~3분 짧은 영상으로 영어 시작하기" data-en="Short 2-3min videos by level — start English easy">레벨별 · 강의별 2~3분 짧은 영상으로 영어 시작하기</div>
+    <div class="sub" data-ko="MES · BTS · SIU 교재 × 12개 Lesson — 클릭으로 바로 시청" data-en="MES · BTS · SIU textbooks × 12 lessons — click to watch">MES · BTS · SIU 교재 × 12개 Lesson — 클릭으로 바로 시청</div>
   </div>
 
-  <!-- 레벨 필터 -->
-  <div class="filter-bar" id="filter-bar">
-    <button class="filter-btn active" data-level="">📚 <span data-ko="전체" data-en="All">전체</span></button>
-    <button class="filter-btn lv-A1" data-level="A1">A1 <span style="font-size:10px;opacity:0.7">초급 1</span></button>
-    <button class="filter-btn lv-A2" data-level="A2">A2 <span style="font-size:10px;opacity:0.7">초급 2</span></button>
-    <button class="filter-btn lv-B1" data-level="B1">B1 <span style="font-size:10px;opacity:0.7">중급 1</span></button>
-    <button class="filter-btn lv-B2" data-level="B2">B2 <span style="font-size:10px;opacity:0.7">중급 2</span></button>
-    <button class="filter-btn lv-C1" data-level="C1">C1 <span style="font-size:10px;opacity:0.7">고급 1</span></button>
-    <button class="filter-btn lv-C2" data-level="C2">C2 <span style="font-size:10px;opacity:0.7">고급 2</span></button>
+  <!-- 📚 망고아이 교재 — 3단계 네비게이션 (교재 → 챕터 → 유닛) -->
+  <div class="book-nav" style="background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.05));border:1px solid rgba(99,102,241,0.22);border-radius:14px;padding:14px 18px;margin-bottom:18px">
+
+    <!-- 1단계 — 교재 선택 -->
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <div style="font-size:11px;color:#a3b3d1;font-weight:700;letter-spacing:0.5px"><span data-ko="📚 교재" data-en="📚 Textbook">📚 교재</span></div>
+      <div class="tb-tabs">
+        <button class="tb-tab active" data-tb="MES">🌱 MES <span class="tb-tab-sub" data-ko="입문" data-en="Starter">입문</span></button>
+        <button class="tb-tab" data-tb="BTS">🎵 BTS <span class="tb-tab-sub" data-ko="회화·표현" data-en="Speaking">회화·표현</span></button>
+        <button class="tb-tab" data-tb="SIU">🚀 SIU <span class="tb-tab-sub" data-ko="심화·고급" data-en="Advanced">심화·고급</span></button>
+        <button class="tb-tab" data-tb="EXT">🌐 <span data-ko="외부 컨텐츠" data-en="External">외부 컨텐츠</span> <span class="tb-tab-sub" data-ko="TED · 유튜브" data-en="TED · YouTube">TED · 유튜브</span></button>
+      </div>
+      <span id="tb-stat" style="margin-left:auto;font-size:11px;color:#94a3b8"></span>
+    </div>
+
+    <!-- 2단계 — 챕터 선택 (선택된 교재의 챕터 목록) -->
+    <div id="chapter-area" style="margin-bottom:12px">
+      <div style="font-size:11px;color:#a3b3d1;font-weight:700;letter-spacing:0.5px;margin-bottom:8px"><span data-ko="📖 챕터" data-en="📖 Chapters">📖 챕터</span> <span id="ch-stat" style="color:#94a3b8;font-weight:500"></span></div>
+      <div id="chapter-list" class="chapter-grid">
+        <div style="grid-column:1/-1;color:#94a3b8;font-size:13px;text-align:center;padding:20px" data-ko="불러오는 중…" data-en="Loading…">불러오는 중…</div>
+      </div>
+    </div>
+
+    <!-- 3단계 — 유닛 선택 (선택된 챕터의 유닛 목록) -->
+    <div id="unit-area" style="display:none">
+      <div style="font-size:11px;color:#a3b3d1;font-weight:700;letter-spacing:0.5px;margin-bottom:8px"><span data-ko="🎬 유닛" data-en="🎬 Units">🎬 유닛</span> <span id="un-stat" style="color:#94a3b8;font-weight:500"></span></div>
+      <div id="unit-list" class="unit-grid"></div>
+    </div>
+
+    <div id="tb-filter-status" style="display:none;padding:10px 14px;background:rgba(251,191,36,0.10);border:1px solid rgba(251,191,36,0.30);border-radius:8px;font-size:12.5px;color:#fde68a;margin-top:10px"></div>
+    <p style="font-size:11.5px;color:#a3b3d1;margin-top:8px;text-align:center">
+      <b style="color:#fbbf24"><span data-ko="💡 사용법" data-en="💡 How to use">💡 사용법</span></b>
+      <span data-ko=" — 교재 → 챕터 → 유닛 순으로 선택하면 해당 영상이 아래에 표시됩니다." data-en=" — Select textbook → chapter → unit and the video will appear below."> — 교재 → 챕터 → 유닛 순으로 선택하면 해당 영상이 아래에 표시됩니다.</span>
+    </p>
   </div>
+
+  <style>
+    /* 1단계: 교재 탭 */
+    .tb-tabs { display:flex; gap:6px; flex-wrap:wrap; }
+    .tb-tab {
+      padding:8px 14px; background:rgba(15,23,42,0.7); color:#cbd5e1;
+      border:1px solid rgba(148,163,184,0.2); border-radius:99px;
+      cursor:pointer; font-weight:700; font-size:13px; font-family:inherit;
+      transition:all .15s; display:inline-flex; align-items:center; gap:5px;
+    }
+    .tb-tab:hover { background:rgba(251,191,36,0.18); color:#fcd34d; border-color:rgba(251,191,36,0.5); }
+    .tb-tab.active[data-tb="MES"] { background:linear-gradient(135deg,#10b981,#059669); color:#fff; border-color:#10b981; box-shadow:0 4px 12px rgba(16,185,129,0.4); }
+    .tb-tab.active[data-tb="BTS"] { background:linear-gradient(135deg,#8b5cf6,#7c3aed); color:#fff; border-color:#8b5cf6; box-shadow:0 4px 12px rgba(139,92,246,0.4); }
+    .tb-tab.active[data-tb="SIU"] { background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; border-color:#f59e0b; box-shadow:0 4px 12px rgba(245,158,11,0.4); }
+    .tb-tab.active[data-tb="EXT"] { background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:#fff; border-color:#3b82f6; box-shadow:0 4px 12px rgba(59,130,246,0.4); }
+    .tb-tab-sub { font-size:10px; opacity:0.75; font-weight:600; }
+
+    /* 2단계: 챕터 그리드 — 챕터가 많을 수 있어서 컴팩트하게 */
+    .chapter-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));
+      gap:6px;
+      max-height:280px;
+      overflow-y:auto;
+      padding:4px;
+      background:rgba(15,23,42,0.4);
+      border-radius:8px;
+    }
+    .chapter-grid::-webkit-scrollbar { width:8px; }
+    .chapter-grid::-webkit-scrollbar-thumb { background:rgba(251,191,36,0.3); border-radius:4px; }
+    .chapter-pill {
+      padding:9px 10px; font-size:12px; font-weight:700;
+      background:rgba(15,23,42,0.8); color:#e6ecff;
+      border:1px solid rgba(148,163,184,0.22); border-radius:8px;
+      cursor:pointer; transition:all .12s; font-family:inherit;
+      text-align:left; line-height:1.35;
+      display:flex; flex-direction:column; gap:2px;
+    }
+    .chapter-pill .ch-num { font-size:10px; color:#fbbf24; font-weight:800; letter-spacing:0.5px; }
+    .chapter-pill .ch-title { font-size:12px; color:#cbd5e1; }
+    .chapter-pill:hover {
+      background:rgba(251,191,36,0.18); border-color:rgba(251,191,36,0.5); transform:translateY(-1px);
+    }
+    .chapter-pill:hover .ch-title { color:#fff; }
+    .chapter-pill.active {
+      background:linear-gradient(135deg,#fbbf24,#f59e0b); border-color:#fbbf24;
+      box-shadow:0 4px 12px rgba(245,158,11,0.4);
+    }
+    .chapter-pill.active .ch-num { color:#7c2d12; }
+    .chapter-pill.active .ch-title { color:#1a1a1a; }
+
+    /* 3단계: 유닛 그리드 */
+    .unit-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fill, minmax(110px, 1fr));
+      gap:6px;
+      padding:4px;
+      background:rgba(15,23,42,0.4);
+      border-radius:8px;
+    }
+    .unit-pill {
+      padding:10px 6px; font-size:12px; font-weight:800;
+      background:rgba(15,23,42,0.85); color:#e6ecff;
+      border:1px solid rgba(148,163,184,0.25); border-radius:8px;
+      cursor:pointer; transition:all .12s; font-family:inherit;
+      text-align:center; letter-spacing:-0.2px;
+    }
+    .unit-pill[data-special="REVIEW"] { background:rgba(59,130,246,0.18); color:#93c5fd; border-color:rgba(59,130,246,0.4); }
+    .unit-pill[data-special="TEST"] { background:rgba(239,68,68,0.18); color:#fca5a5; border-color:rgba(239,68,68,0.4); }
+    .unit-pill:hover {
+      background:rgba(251,191,36,0.22); color:#fcd34d; border-color:rgba(251,191,36,0.55); transform:translateY(-1px);
+    }
+    .unit-pill.active {
+      background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a1a; border-color:#fbbf24;
+      box-shadow:0 4px 12px rgba(245,158,11,0.45);
+    }
+
+    @media (max-width:480px) {
+      .tb-tab { padding:7px 11px; font-size:12px; }
+      .chapter-grid { grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); max-height:240px; }
+      .unit-grid { grid-template-columns:repeat(3,1fr); }
+    }
+  </style>
+
+  <script>
+    // 🎯 3단계 네비게이션 — 교재 → 챕터 → 유닛
+    (function(){
+      let curTb = 'MES';
+      let curChapter = null;  // 'BTS 01' 같은 형식
+      let curUnit = null;     // 'UNIT 001' / 'REVIEW' / 'TEST'
+
+      // 비디오 제목에서 챕터/유닛 자동 파싱
+      // 예: "BTS 01(My school) UNIT 001" → { tb:'BTS', chNo:'01', chTitle:'My school', unitLabel:'UNIT 001' }
+      function parseVideo(v) {
+        const title = String(v.title || '').trim();
+        // 패턴 1: "TB 01(Title) UNIT 001" 또는 "TB 01(Title) REVIEW/TEST"
+        const m = title.match(/^(MES|BTS|SIU|EXT)\s*(\d+)\s*\(([^)]+)\)\s*(UNIT\s*\d+|REVIEW|TEST)/i);
+        if (m) {
+          return {
+            tb: m[1].toUpperCase(),
+            chNo: m[2].padStart(2,'0'),
+            chTitle: m[3].trim(),
+            unitLabel: m[4].toUpperCase().replace(/\s+/g,' ').trim(),
+            chKey: m[1].toUpperCase() + ' ' + m[2].padStart(2,'0'),
+          };
+        }
+        // 패턴 2: 외부 컨텐츠 (단순 형식) — category='EXT' 만 있어도 인식
+        // "EXT TED Talk: How to learn..." 같은 자유 형식
+        const cat = String(v.category || '').toUpperCase();
+        const titleUp = title.toUpperCase();
+        if (cat === 'EXT' || titleUp.startsWith('EXT ') || titleUp.startsWith('TED ') || titleUp.startsWith('YOUTUBE ')) {
+          // 외부 컨텐츠는 챕터 = 카테고리 라벨 (TED / YouTube / 기타)
+          let chTitle = 'External Content';
+          let chNo = '01';
+          if (titleUp.startsWith('TED ')) { chTitle = 'TED Talks'; chNo = '01'; }
+          else if (titleUp.startsWith('YOUTUBE ')) { chTitle = 'YouTube'; chNo = '02'; }
+          else if (titleUp.startsWith('EXT ')) { chTitle = '외부 영상'; chNo = '03'; }
+          // lesson_no 가 있으면 그걸로 챕터 구분
+          if (v.lesson_no) chNo = String(v.lesson_no).padStart(2,'0');
+          return {
+            tb: 'EXT',
+            chNo,
+            chTitle,
+            unitLabel: 'UNIT 001',
+            chKey: 'EXT ' + chNo,
+          };
+        }
+        // 패턴 3 (fallback): category + lesson_no 사용 (MES/BTS/SIU)
+        if (['MES','BTS','SIU'].includes(cat)) {
+          const ch = v.lesson_no ? String(v.lesson_no).padStart(2,'0') : '01';
+          return {
+            tb: cat, chNo: ch, chTitle: '',
+            unitLabel: 'UNIT 001',
+            chKey: cat + ' ' + ch,
+          };
+        }
+        return null;
+      }
+
+      function getAllChapters(tb) {
+        if (!window._allVideos) return [];
+        const map = new Map();
+        for (const v of window._allVideos) {
+          const p = parseVideo(v);
+          if (!p || p.tb !== tb) continue;
+          if (!map.has(p.chKey)) map.set(p.chKey, { chNo: p.chNo, chTitle: p.chTitle, count: 0 });
+          map.get(p.chKey).count++;
+        }
+        return [...map.entries()]
+          .map(([key, info]) => ({ key, ...info }))
+          .sort((a,b) => a.chNo.localeCompare(b.chNo));
+      }
+
+      function getAllUnits(tb, chKey) {
+        if (!window._allVideos) return [];
+        const list = [];
+        const seen = new Set();
+        for (const v of window._allVideos) {
+          const p = parseVideo(v);
+          if (!p || p.tb !== tb || p.chKey !== chKey) continue;
+          if (seen.has(p.unitLabel)) continue;
+          seen.add(p.unitLabel);
+          list.push({ label: p.unitLabel, video: v, parsed: p });
+        }
+        // 정렬: UNIT 1~9 → REVIEW → TEST
+        list.sort((a,b) => {
+          const score = (l) => {
+            if (l === 'REVIEW') return 1000;
+            if (l === 'TEST') return 1001;
+            const m = l.match(/UNIT\s*(\d+)/);
+            return m ? parseInt(m[1],10) : 999;
+          };
+          return score(a.label) - score(b.label);
+        });
+        return list;
+      }
+
+      function L() { try { return (window.getLang && window.getLang()) === 'en' ? 'en' : 'ko'; } catch(e){ return 'ko'; } }
+      function T(ko, en) { return L() === 'en' ? en : ko; }
+
+      function renderChapters() {
+        const wrap = document.getElementById('chapter-list');
+        const chapters = getAllChapters(curTb);
+        const chStat = document.getElementById('ch-stat');
+        const tbStat = document.getElementById('tb-stat');
+
+        // 통계
+        const total = (window._allVideos || []).filter(v => {
+          const p = parseVideo(v); return p && p.tb === curTb;
+        }).length;
+        tbStat.textContent = total + T('개 영상', ' video' + (total !== 1 ? 's' : ''));
+        chStat.textContent = '(' + chapters.length + T('개)', chapters.length !== 1 ? ')' : ')');
+
+        if (!chapters.length) {
+          wrap.innerHTML = '<div style="grid-column:1/-1;color:#94a3b8;font-size:12.5px;text-align:center;padding:20px">📭 ' +
+            T('이 교재의 영상이 아직 등록되지 않았습니다.', 'No videos registered for this textbook yet.') +
+            '<br><span style="font-size:11px;opacity:0.7">' +
+            T('관리자가 YouTube URL 을 등록하면 여기에 자동 표시됩니다.', 'Videos will appear here once admin adds YouTube URLs.') +
+            '</span></div>';
+          document.getElementById('unit-area').style.display = 'none';
+          return;
+        }
+        wrap.innerHTML = chapters.map(c => `
+          <button class="chapter-pill ${c.key === curChapter ? 'active' : ''}" data-key="${c.key}">
+            <span class="ch-num">${c.key} <span style="opacity:0.7">· ${c.count}${T('개', '')}</span></span>
+            <span class="ch-title">${(c.chTitle || T('(제목 없음)','(no title)')).replace(/[<>"&]/g, '')}</span>
+          </button>
+        `).join('');
+        wrap.querySelectorAll('.chapter-pill').forEach(b => {
+          b.onclick = () => {
+            curChapter = b.dataset.key;
+            curUnit = null;
+            renderChapters();
+            renderUnits();
+          };
+        });
+      }
+
+      function renderUnits() {
+        const area = document.getElementById('unit-area');
+        const wrap = document.getElementById('unit-list');
+        const unStat = document.getElementById('un-stat');
+        if (!curChapter) { area.style.display = 'none'; return; }
+        const units = getAllUnits(curTb, curChapter);
+        unStat.textContent = '(' + curChapter + ' · ' + units.length + '개)';
+        area.style.display = '';
+        if (!units.length) { wrap.innerHTML = '<div style="grid-column:1/-1;color:#94a3b8;font-size:12px;padding:14px;text-align:center">이 챕터의 유닛이 없습니다.</div>'; return; }
+        wrap.innerHTML = units.map(u => {
+          const label = u.label.replace(/UNIT\s*0*(\d+)/i, (_, n) => 'UNIT ' + n);
+          const special = (u.label === 'REVIEW' || u.label === 'TEST') ? u.label : '';
+          return `<button class="unit-pill${u.label === curUnit ? ' active' : ''}" data-unit="${u.label}" ${special?'data-special="'+special+'"':''}>${label}</button>`;
+        }).join('');
+        wrap.querySelectorAll('.unit-pill').forEach(b => {
+          b.onclick = () => {
+            curUnit = b.dataset.unit;
+            renderUnits();
+            applyFilter();
+          };
+        });
+      }
+
+      function applyFilter() {
+        const status = document.getElementById('tb-filter-status');
+        if (!curChapter || !curUnit) {
+          status.style.display = 'none';
+          window._tbFiltered = null;
+          if (window.renderAll) window.renderAll();
+          return;
+        }
+        status.style.display = 'block';
+        status.innerHTML = '🎯 필터: <b>' + curChapter + ' · ' + curUnit + '</b> ' +
+          '<button onclick="window.clearTbFilter()" style="margin-left:10px;padding:3px 10px;background:rgba(239,68,68,0.18);color:#fca5a5;border:1px solid rgba(239,68,68,0.35);border-radius:6px;font-size:11px;cursor:pointer;font-weight:700">✕ 필터 해제</button>';
+        // 비디오 필터링
+        const filtered = (window._allVideos || []).filter(v => {
+          const p = parseVideo(v);
+          return p && p.tb === curTb && p.chKey === curChapter && p.unitLabel === curUnit;
+        });
+        window._tbFiltered = filtered;
+        if (window.renderAll) window.renderAll();
+        setTimeout(() => {
+          document.getElementById('content')?.scrollIntoView({ behavior:'smooth', block:'start' });
+        }, 100);
+      }
+
+      window.clearTbFilter = function(){
+        curUnit = null;
+        renderUnits();
+        applyFilter();
+      };
+
+      // 교재 탭 클릭
+      document.querySelectorAll('.tb-tab').forEach(b => {
+        b.onclick = () => {
+          document.querySelectorAll('.tb-tab').forEach(x => x.classList.remove('active'));
+          b.classList.add('active');
+          curTb = b.dataset.tb;
+          curChapter = null;
+          curUnit = null;
+          renderChapters();
+          document.getElementById('unit-area').style.display = 'none';
+          applyFilter();
+        };
+      });
+
+      // 비디오 로드 후 자동 렌더
+      window.afterVideosLoaded = renderChapters;
+
+      // 🌐 i18n: 언어 변경 시 동적 그리드 + content 다시 그리기
+      window.addEventListener('mangoi:lang-changed', () => {
+        renderChapters();
+        if (curChapter) renderUnits();
+        if (typeof window.renderAll === 'function') window.renderAll();
+      });
+
+      // URL ?textbook=BTS&chapter=BTS%2001&unit=UNIT%20001 지원
+      window.addEventListener('load', () => {
+        try {
+          const p = new URLSearchParams(location.search);
+          const tb = p.get('textbook');
+          if (tb && ['MES','BTS','SIU'].includes(tb.toUpperCase())) {
+            const tabBtn = document.querySelector('.tb-tab[data-tb="'+tb.toUpperCase()+'"]');
+            if (tabBtn) setTimeout(() => tabBtn.click(), 800);
+          }
+        } catch(e){}
+      });
+    })();
+  </script>
+
+  <!-- 레벨 필터 바 제거됨 — 교재(MES/BTS/SIU) + Lesson 선택만 사용 -->
 
   <div id="content"><div class="empty">불러오는 중…</div></div>
 </div>
@@ -122,6 +558,8 @@ const LEVEL_NAMES = {
 };
 let _allVideos = [];
 let _activeLevel = '';
+window._allVideos = _allVideos;
+window._tbFiltered = null;  // 교재/레슨 필터 결과 (외부 핸들러에서 세팅)
 
 async function loadVideos() {
   const el = document.getElementById('content');
@@ -130,19 +568,59 @@ async function loadVideos() {
     const r = await fetch('/api/mango-videos');
     const d = await r.json();
     _allVideos = (d.items || d.videos || []).filter(v => v.youtube_id);
+    window._allVideos = _allVideos;
     renderAll();
+    // 챕터/유닛 네비게이션 동기화
+    if (typeof window.afterVideosLoaded === 'function') {
+      window.afterVideosLoaded();
+    }
   } catch(e) {
     el.innerHTML = '<div class="empty"><b style="color:#f87171">로드 실패: ' + esc(e.message) + '</b><br><span style="font-size:11.5px;margin-top:6px;display:inline-block">잠시 후 다시 시도하세요</span></div>';
   }
 }
 
+window.renderAll = renderAll;
 function renderAll() {
   const el = document.getElementById('content');
-  let videos = _allVideos;
-  if (_activeLevel) videos = videos.filter(v => v.level === _activeLevel);
+  const isFiltered = window._tbFiltered !== null;
+  let videos = isFiltered ? window._tbFiltered : _allVideos;
 
+  // i18n 헬퍼
+  const isEn = (function(){ try { return (window.getLang && window.getLang()) === 'en'; } catch(e){ return false; } })();
+  const t = (ko, en) => isEn ? en : ko;
+
+  // 처음 진입 (필터 없음) — 학생 친화적 안내
+  if (!isFiltered) {
+    if (!videos.length) {
+      el.innerHTML = `
+        <div style="text-align:center;padding:60px 20px;background:linear-gradient(135deg,rgba(99,102,241,0.10),rgba(20,33,59,0.6));border:1px dashed rgba(148,163,184,0.25);border-radius:14px">
+          <div style="font-size:50px;line-height:1;margin-bottom:14px">📚</div>
+          <h3 style="margin:0 0 10px 0;color:#fbbf24;font-size:18px;font-weight:800">${t('학습을 시작해보세요!','Start Learning!')}</h3>
+          <p style="color:#cbd5e1;font-size:13.5px;line-height:1.7;margin:0">
+            ${t('위에서','Select a lesson from')} <b style="color:#6ee7b7">MES</b> · <b style="color:#c4b5fd">BTS</b> · <b style="color:#fcd34d">SIU</b> ${t('교재 중','textbooks above.')}<br>
+            ${t('원하는 <b>Lesson 번호</b>를 선택하면 영상이 표시됩니다.','Pick a chapter and unit, and the video will appear here.')}
+          </p>
+        </div>`;
+      return;
+    }
+    videos = videos.slice(0, 6);
+    el.innerHTML = `
+      <div style="margin-bottom:12px;padding:10px 14px;background:rgba(99,102,241,0.10);border-left:3px solid #8b5cf6;border-radius:8px;font-size:12.5px;color:#c4b5fd">
+        💡 <b>${t('최근 등록된 영상','Recently added')}</b> — ${t('교재의 Lesson 버튼을 선택하면 해당 레슨만 표시됩니다.','Pick a Lesson to filter videos.')}
+      </div>
+      ${renderLevelSection(t('최근 등록','Recently Added'), videos)}`;
+    return;
+  }
+
+  // 필터 활성화 상태
   if (!videos.length) {
-    el.innerHTML = `<div class="empty">${_activeLevel? `<b style="color:#fbbf24">${_activeLevel}</b> 레벨 영상이 아직 없어요` : '<b style="color:#fbbf24">아직 등록된 학습 영상이 없어요</b>'}<br><span style="font-size:11.5px;margin-top:6px;display:inline-block">관리자에서 영상 등록 후 확인 가능합니다</span></div>`;
+    el.innerHTML = `
+      <div style="text-align:center;padding:50px 20px;background:rgba(20,33,59,0.6);border:1px dashed rgba(251,191,36,0.3);border-radius:12px">
+        <div style="font-size:42px;margin-bottom:10px">🎬</div>
+        <h3 style="color:#fbbf24;font-size:16px;font-weight:800;margin:0 0 8px 0">${t('아직 이 레슨의 영상이 없어요','No videos for this lesson yet')}</h3>
+        <p style="color:#a3b3d1;font-size:12.5px;margin:0;line-height:1.6">${t('관리자가 곧 추가할 예정입니다.','Admin will add them soon.')}<br>${t('다른 Lesson 을 선택해보거나 잠시 후 다시 확인해주세요.','Try a different Lesson or check back later.')}</p>
+        <button onclick="window.clearTbFilter()" style="margin-top:14px;padding:9px 18px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;border:0;border-radius:8px;font-weight:800;cursor:pointer;font-size:12.5px">${t('↩ 다른 영상 보기','↩ Browse other videos')}</button>
+      </div>`;
     return;
   }
 
@@ -216,23 +694,18 @@ window.closeModal = function() {
 };
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-// 필터 클릭
-document.getElementById('filter-bar').addEventListener('click', e => {
-  const btn = e.target.closest('.filter-btn');
-  if (!btn) return;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  _activeLevel = btn.getAttribute('data-level') || '';
-  renderAll();
-});
-
-// URL ?level=A1 자동 필터
+// URL ?textbook=MES&lesson=3 자동 필터 (선택사항)
 (function(){
   try {
-    const lv = new URLSearchParams(location.search).get('level');
-    if (lv) {
-      const btn = document.querySelector(`.filter-btn[data-level="${lv}"]`);
-      if (btn) btn.click();
+    const params = new URLSearchParams(location.search);
+    const tb = params.get('textbook');
+    const ln = params.get('lesson');
+    if (tb && ln) {
+      // 페이지 로드 후 자동 클릭
+      setTimeout(() => {
+        const pill = document.querySelector(`.lesson-pill[data-tb="${tb}"][data-lesson="${ln}"]`);
+        if (pill) pill.click();
+      }, 600);
     }
   } catch(e){}
 })();

@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5" />
+  <title>🧠 1분 단어 퀴즈 — Mangoi</title>
+  <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
+  <meta name="theme-color" content="#0a1530" />
+  <script src="/js/mango-i18n.js" defer></script>
+  <style>
+    :root { --bg:#0a1530; --card:#14213b; --text:#e6ecff; --text2:#a3b3d1;
+      --gold:#fbbf24; --green:#10b981; --red:#ef4444; --blue:#3b82f6;
+      --border:rgba(251,191,36,0.18); }
+    * { box-sizing: border-box; }
+    html, body { margin:0; padding:0; background:var(--bg); color:var(--text);
+      font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif; line-height:1.55; }
+    .top { display:flex; align-items:center; gap:12px; padding:14px 18px;
+      background:rgba(20,33,59,0.95); position:sticky; top:0; z-index:50;
+      backdrop-filter:blur(12px); border-bottom:1px solid var(--border); }
+    .top a { color:var(--text); text-decoration:none; font-weight:700; font-size:14px; }
+    .top h1 { margin:0; font-size:16px; font-weight:800; flex:1; }
+    .wrap { max-width:680px; margin:0 auto; padding:18px; }
+    .intro { background:linear-gradient(135deg,rgba(251,191,36,0.12),rgba(245,158,11,0.06));
+      border:1px solid rgba(251,191,36,0.30); border-radius:14px; padding:18px; margin-bottom:16px; }
+    .intro h2 { margin:0 0 8px 0; font-size:18px; color:var(--gold); font-weight:800; }
+    .intro p { margin:6px 0; color:var(--text2); font-size:13px; line-height:1.65; }
+    .start-btn { display:block; width:100%; padding:16px; margin-top:12px;
+      background:linear-gradient(135deg,#10b981,#059669); color:#fff; border:0;
+      border-radius:12px; font-size:15px; font-weight:800; cursor:pointer;
+      box-shadow:0 6px 18px -2px rgba(16,185,129,0.4); }
+    .start-btn:hover { transform:translateY(-1px); filter:brightness(1.05); }
+    .start-btn:disabled { background:#475569; cursor:not-allowed; box-shadow:none; }
+    .progress-bar { height:6px; background:rgba(255,255,255,0.08); border-radius:99px; overflow:hidden; margin-bottom:14px; }
+    .progress-fill { height:100%; background:linear-gradient(90deg,#fbbf24,#f59e0b); transition:width .3s; border-radius:99px; }
+    .quiz-card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:24px; margin-bottom:14px; }
+    .q-num { font-size:11.5px; color:var(--gold); font-weight:800; letter-spacing:0.5px; margin-bottom:8px; }
+    .q-text { font-size:18px; font-weight:800; color:#fff; margin-bottom:6px; line-height:1.4; }
+    .q-hint { font-size:12.5px; color:var(--text2); font-style:italic; margin-bottom:18px; }
+    .opt { display:block; width:100%; text-align:left; padding:14px 18px; margin-bottom:8px;
+      background:rgba(15,23,42,0.6); color:var(--text); border:1px solid rgba(148,163,184,0.2);
+      border-radius:10px; cursor:pointer; font-size:14px; font-weight:600; font-family:inherit;
+      transition:all .15s; }
+    .opt:hover { background:rgba(251,191,36,0.12); border-color:rgba(251,191,36,0.5); transform:translateX(2px); }
+    .opt.correct { background:rgba(16,185,129,0.25); border-color:#10b981; color:#86efac; }
+    .opt.wrong { background:rgba(239,68,68,0.25); border-color:#ef4444; color:#fca5a5; }
+    .opt:disabled { cursor:default; }
+    .opt-prefix { display:inline-block; width:24px; height:24px; line-height:24px; text-align:center;
+      background:rgba(251,191,36,0.18); color:var(--gold); border-radius:50%; font-weight:800;
+      font-size:12px; margin-right:10px; }
+    .nav-btns { display:flex; gap:10px; margin-top:12px; }
+    .nav-btn { flex:1; padding:13px; background:rgba(255,255,255,0.06); color:var(--text);
+      border:1px solid var(--border); border-radius:10px; font-weight:700; cursor:pointer;
+      font-size:13px; font-family:inherit; }
+    .nav-btn:hover { background:rgba(251,191,36,0.15); }
+    .nav-btn.primary { background:linear-gradient(135deg,var(--gold),#f59e0b); color:#1a1a1a; border:0; }
+    .result-card { text-align:center; padding:32px 20px; }
+    .result-score { font-size:54px; font-weight:900; line-height:1; }
+    .result-label { font-size:14px; color:var(--text2); margin-top:6px; }
+    .result-msg { margin-top:14px; padding:14px 18px; background:rgba(251,191,36,0.10);
+      border-radius:10px; font-size:13.5px; color:#fde68a; line-height:1.6; }
+    .lv-pick, .topic-pick {
+      padding:6px 11px; background:rgba(15,23,42,0.7); color:var(--text2);
+      border:1px solid rgba(148,163,184,0.25); border-radius:99px;
+      font-size:11.5px; font-weight:700; cursor:pointer; font-family:inherit;
+      transition:all .15s;
+    }
+    .lv-pick:hover, .topic-pick:hover { background:rgba(251,191,36,0.15); color:#fcd34d; border-color:rgba(251,191,36,0.5); }
+    .lv-pick.active { background:linear-gradient(135deg,#10b981,#059669); color:#fff; border-color:#10b981; box-shadow:0 3px 8px rgba(16,185,129,0.4); }
+    .topic-pick.active { background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:#fff; border-color:#3b82f6; box-shadow:0 3px 8px rgba(59,130,246,0.4); }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <a href="/">← <span data-ko="홈" data-en="Home">홈</span></a>
+    <h1>🧠 <span data-ko="1분 단어 퀴즈" data-en="1-min Vocab Quiz">1분 단어 퀴즈</span></h1>
+  </div>
+  <div class="wrap">
+    <div id="introBox" class="intro">
+      <h2 data-ko="🎯 마이크로러닝 — 1분 안에 끝!" data-en="🎯 Microlearning — Done in 1 minute!">🎯 마이크로러닝 — 1분 안에 끝!</h2>
+      <p data-ko="📚 내 단어장에서 무작위 5개 단어를 골라 객관식 퀴즈를 만들어줍니다." data-en="📚 5 random words from your vocab list become a multiple-choice quiz.">📚 내 단어장에서 <b>무작위 5개 단어</b>를 골라 객관식 퀴즈를 만들어줍니다.</p>
+      <p data-ko="⏱ 등하교·출퇴근 자투리 시간에 가볍게 복습하세요." data-en="⏱ Review during commute or short breaks.">⏱ 등하교·출퇴근 자투리 시간에 가볍게 복습하세요.</p>
+      <p data-ko="🎁 정답 맞히면 단어 숙련도가 올라가요!" data-en="🎁 Correct answers boost your word mastery!">🎁 정답 맞히면 단어 숙련도가 올라가요!</p>
+      <button class="start-btn" id="startBtn" onclick="startQuiz()">🚀 <span data-ko="퀴즈 시작" data-en="Start">퀴즈 시작</span></button>
+      <div id="introMsg" style="margin-top:10px;font-size:12px;color:var(--text2);text-align:center"></div>
+    </div>
+
+    <!-- 단어장 비어있을 때 — 2가지 옵션 -->
+    <div id="emptyBox" style="display:none;background:linear-gradient(135deg,rgba(59,130,246,0.10),rgba(99,102,241,0.06));border:1px solid rgba(99,102,241,0.30);border-radius:14px;padding:18px;margin-top:14px">
+      <h3 style="margin:0 0 12px 0;font-size:16px;color:#fbbf24;font-weight:800" data-ko="📭 단어장이 비어있어요" data-en="📭 Your vocab list is empty">📭 단어장이 비어있어요</h3>
+      <p style="color:var(--text2);font-size:13px;line-height:1.6;margin:0 0 16px 0" data-ko="두 가지 방법 중 하나를 선택하세요:" data-en="Choose one of these two options:">두 가지 방법 중 하나를 선택하세요:</p>
+
+      <!-- 옵션 1: AI 자동 생성 (추천) -->
+      <div style="background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.30);border-radius:12px;padding:14px 16px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-size:22px">🤖</span>
+          <div style="flex:1">
+            <div style="font-weight:800;color:#6ee7b7;font-size:14.5px" data-ko="옵션 1: AI 자동 생성 (추천!)" data-en="Option 1: AI Auto-Generate (Recommended!)">옵션 1: AI 자동 생성 (추천!)</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px" data-ko="AI가 내 레벨에 맞는 단어 10개를 즉시 채워줘요" data-en="AI instantly fills 10 words matched to your level">AI가 내 레벨에 맞는 단어 10개를 즉시 채워줘요</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0">
+          <span style="font-size:11px;color:var(--text2);align-self:center;margin-right:4px" data-ko="레벨:" data-en="Level:">레벨:</span>
+          <button class="lv-pick active" data-lv="A1" onclick="pickLv(this)"><span data-ko="A1 입문" data-en="A1 Starter">A1 입문</span></button>
+          <button class="lv-pick" data-lv="A2" onclick="pickLv(this)"><span data-ko="A2 초급" data-en="A2 Elementary">A2 초급</span></button>
+          <button class="lv-pick" data-lv="B1" onclick="pickLv(this)"><span data-ko="B1 중급" data-en="B1 Intermediate">B1 중급</span></button>
+          <button class="lv-pick" data-lv="B2" onclick="pickLv(this)"><span data-ko="B2 중상급" data-en="B2 Upper-Int.">B2 중상급</span></button>
+          <button class="lv-pick" data-lv="C1" onclick="pickLv(this)"><span data-ko="C1 고급" data-en="C1 Advanced">C1 고급</span></button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 12px 0">
+          <span style="font-size:11px;color:var(--text2);align-self:center;margin-right:4px" data-ko="주제(선택):" data-en="Topic (optional):">주제(선택):</span>
+          <button class="topic-pick" onclick="pickTopic(this,'')" data-ko="전체" data-en="All">전체</button>
+          <button class="topic-pick" onclick="pickTopic(this,'school')" data-ko="🏫 학교" data-en="🏫 School">🏫 학교</button>
+          <button class="topic-pick" onclick="pickTopic(this,'family')" data-ko="👨‍👩‍👧 가족" data-en="👨‍👩‍👧 Family">👨‍👩‍👧 가족</button>
+          <button class="topic-pick" onclick="pickTopic(this,'food')" data-ko="🍔 음식" data-en="🍔 Food">🍔 음식</button>
+          <button class="topic-pick" onclick="pickTopic(this,'travel')" data-ko="✈️ 여행" data-en="✈️ Travel">✈️ 여행</button>
+          <button class="topic-pick" onclick="pickTopic(this,'animal')" data-ko="🐾 동물" data-en="🐾 Animals">🐾 동물</button>
+          <button class="topic-pick" onclick="pickTopic(this,'weather')" data-ko="☀️ 날씨" data-en="☀️ Weather">☀️ 날씨</button>
+        </div>
+        <button onclick="autoGenerate()" id="autoBtn" style="display:block;width:100%;padding:14px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(16,185,129,0.4)" data-ko="🤖 AI가 단어 10개 만들어주기" data-en="🤖 Let AI generate 10 words">🤖 AI가 단어 10개 만들어주기</button>
+      </div>
+
+      <!-- 옵션 2: 직접 추가 -->
+      <div style="background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.30);border-radius:12px;padding:14px 16px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-size:22px">📝</span>
+          <div style="flex:1">
+            <div style="font-weight:800;color:#fcd34d;font-size:14.5px" data-ko="옵션 2: 직접 단어 추가" data-en="Option 2: Add words manually">옵션 2: 직접 단어 추가</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px" data-ko="내가 원하는 단어를 단어장에서 직접 추가해요" data-en="Add your own words to the vocab list">내가 원하는 단어를 단어장에서 직접 추가해요</div>
+          </div>
+        </div>
+        <button onclick="location.href='/vocab.html'" style="display:block;width:100%;padding:14px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:0;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(245,158,11,0.4)" data-ko="📚 단어장 가서 직접 추가하기" data-en="📚 Go to vocab list & add words">📚 단어장 가서 직접 추가하기</button>
+      </div>
+    </div>
+    <div id="quizArea" style="display:none"></div>
+  </div>
+
+  <script>
+    function getUid() {
+      try { const u = JSON.parse(localStorage.getItem('mango_user') || 'null'); if (u && u.user_id) return u.user_id; } catch(e){}
+      return 'guest_' + Math.random().toString(36).slice(2,8);
+    }
+    function escHtml(s) { return String(s||'').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    let quizzes = [], curIdx = 0, answers = [];
+
+    let curLevel = 'A1';
+    let curTopic = '';
+    function pickLv(btn) {
+      document.querySelectorAll('.lv-pick').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      curLevel = btn.dataset.lv;
+    }
+    function pickTopic(btn, topic) {
+      document.querySelectorAll('.topic-pick').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      curTopic = topic;
+    }
+
+    function tt(ko, en) { try { return (window.getLang && window.getLang()) === 'en' ? en : ko; } catch(e){ return ko; } }
+    async function autoGenerate() {
+      const btn = document.getElementById('autoBtn');
+      btn.disabled = true; btn.innerHTML = tt('⏳ AI 가 단어 만드는 중… (10~20초)', '⏳ AI generating words… (10–20s)');
+      try {
+        const r = await fetch('/api/vocab/auto-generate', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ uid: getUid(), level: curLevel, topic: curTopic, count: 10 })
+        });
+        const d = await r.json();
+        if (d.ok && d.added > 0) {
+          alert(tt(`✅ ${d.added}개 단어가 단어장에 추가되었어요!\n곧 퀴즈를 시작합니다.`, `✅ ${d.added} words added to your list!\nStarting the quiz…`));
+          document.getElementById('emptyBox').style.display = 'none';
+          document.getElementById('introBox').style.display = '';
+          setTimeout(() => startQuiz(), 400);
+        } else if (d.ok && d.added === 0) {
+          alert(tt('이미 비슷한 단어들이 단어장에 있어요. 다른 레벨이나 주제를 시도해보세요!', 'You already have similar words. Try a different level or topic!'));
+          btn.disabled = false; btn.innerHTML = tt('🤖 AI가 단어 10개 만들어주기','🤖 Let AI generate 10 words');
+        } else {
+          alert(tt('생성 실패: ', 'Generation failed: ') + (d.error || 'unknown') + tt('\n다시 시도해주세요.', '\nPlease try again.'));
+          btn.disabled = false; btn.innerHTML = tt('🤖 AI가 단어 10개 만들어주기','🤖 Let AI generate 10 words');
+        }
+      } catch(e) {
+        alert(tt('네트워크 오류 — 다시 시도해주세요', 'Network error — please try again'));
+        btn.disabled = false; btn.innerHTML = tt('🤖 AI가 단어 10개 만들어주기','🤖 Let AI generate 10 words');
+      }
+    }
+
+    async function startQuiz() {
+      const btn = document.getElementById('startBtn');
+      btn.disabled = true; btn.innerHTML = '⏳ 퀴즈 생성 중…';
+      try {
+        const r = await fetch('/api/vocab/gen-quiz', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ uid: getUid(), count: 5 })
+        });
+        const d = await r.json();
+        if (!d.ok) {
+          // 단어장 비어있음 → 옵션 화면 표시
+          if (d.error === 'no_words') {
+            document.getElementById('introBox').style.display = 'none';
+            document.getElementById('emptyBox').style.display = '';
+            return;
+          }
+          document.getElementById('introMsg').innerHTML = '⚠️ ' + escHtml(d.message || d.error || '퀴즈를 만들 수 없어요.');
+          btn.disabled = false; btn.innerHTML = '🚀 퀴즈 시작';
+          return;
+        }
+        quizzes = d.quizzes;
+        curIdx = 0; answers = [];
+        document.getElementById('introBox').style.display = 'none';
+        document.getElementById('emptyBox').style.display = 'none';
+        document.getElementById('quizArea').style.display = '';
+        renderQuiz();
+      } catch(e) {
+        document.getElementById('introMsg').textContent = '네트워크 오류 — 다시 시도해주세요.';
+        btn.disabled = false; btn.innerHTML = '🚀 퀴즈 시작';
+      }
+    }
+
+    function renderQuiz() {
+      const q = quizzes[curIdx];
+      if (!q) return showResult();
+      const total = quizzes.length;
+      const pct = ((curIdx)/total)*100;
+      const area = document.getElementById('quizArea');
+      area.innerHTML = `
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="quiz-card">
+          <div class="q-num">문제 ${curIdx+1} / ${total}</div>
+          <div class="q-text">${escHtml(q.question)}</div>
+          ${q.hint ? `<div class="q-hint">💡 힌트: ${escHtml(q.hint)}</div>` : ''}
+          <div id="opts">
+            ${q.options.map((o, i) => `<button class="opt" data-i="${i}" onclick="pickAnswer(${i})"><span class="opt-prefix">${String.fromCharCode(65+i)}</span>${escHtml(o)}</button>`).join('')}
+          </div>
+          <div id="feedback" style="display:none;margin-top:14px;padding:12px 14px;border-radius:10px;font-size:13.5px;font-weight:600;line-height:1.55"></div>
+          <div id="nextRow" class="nav-btns" style="display:none">
+            <button class="nav-btn primary" onclick="nextQuiz()">${curIdx === total-1 ? '🎯 결과 보기' : '다음 문제 →'}</button>
+          </div>
+        </div>
+      `;
+    }
+
+    async function pickAnswer(i) {
+      const q = quizzes[curIdx];
+      document.querySelectorAll('.opt').forEach(b => b.disabled = true);
+      try {
+        const r = await fetch('/api/vocab/quiz-submit', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ quiz_id: q.id, answer: i })
+        });
+        const d = await r.json();
+        const correctIndex = d.correct_index != null ? d.correct_index : q.correct_index;
+        const isCorrect = i === correctIndex;
+        answers.push({ q: q.question, answer: i, correct: isCorrect });
+
+        document.querySelectorAll('.opt').forEach(b => {
+          const bi = parseInt(b.dataset.i);
+          if (bi === correctIndex) b.classList.add('correct');
+          else if (bi === i && !isCorrect) b.classList.add('wrong');
+        });
+        const fb = document.getElementById('feedback');
+        fb.style.display = 'block';
+        if (isCorrect) {
+          fb.style.background = 'rgba(16,185,129,0.18)'; fb.style.color = '#86efac';
+          fb.innerHTML = '✅ 정답이에요! 잘했어요 🎉';
+        } else {
+          fb.style.background = 'rgba(239,68,68,0.18)'; fb.style.color = '#fca5a5';
+          fb.innerHTML = '❌ 다음엔 맞힐 수 있어요! 정답: <b>' + escHtml(q.options[correctIndex]) + '</b>';
+        }
+        document.getElementById('nextRow').style.display = '';
+      } catch(e) { alert('전송 실패 — 다시 시도해주세요'); }
+    }
+
+    function nextQuiz() {
+      curIdx++;
+      if (curIdx >= quizzes.length) showResult();
+      else renderQuiz();
+    }
+
+    function showResult() {
+      const correct = answers.filter(a => a.correct).length;
+      const total = answers.length;
+      const pct = Math.round((correct/total)*100);
+      const msg = pct === 100 ? '🏆 완벽해요! 모든 단어를 정확히 알고 있어요.'
+              : pct >= 80 ? '✨ 훌륭해요! 거의 다 맞혔어요.'
+              : pct >= 60 ? '💪 잘했어요! 틀린 단어는 단어장에서 한 번 더 확인해보세요.'
+              : '🌱 좋은 시작이에요! 단어장에서 복습한 다음 다시 도전해보세요.';
+      document.getElementById('quizArea').innerHTML = `
+        <div class="quiz-card result-card">
+          <div class="result-score" style="color:${pct>=80?'#10b981':pct>=60?'#fbbf24':'#ef4444'}">${correct} / ${total}</div>
+          <div class="result-label">정답률 ${pct}%</div>
+          <div class="result-msg">${msg}</div>
+          <div class="nav-btns" style="margin-top:18px">
+            <button class="nav-btn" onclick="location.reload()">🔁 다시 풀기</button>
+            <button class="nav-btn primary" onclick="location.href='/vocab.html'">📚 단어장 가기</button>
+          </div>
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>

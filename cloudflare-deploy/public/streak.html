@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes" />
+  <title>🔥 데일리 스트릭 — Mangoi</title>
+  <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0a1530" />
+  <script src="/js/mango-i18n.js" defer></script>
+  <style>
+    :root {
+      --bg: #0a1530; --card: #14213b; --text: #e6ecff; --text2: #a3b3d1;
+      --gold: #fbbf24; --gold2: #f59e0b; --border: rgba(251,191,36,0.18);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+      line-height: 1.55; }
+    .top { display: flex; align-items: center; gap: 12px; padding: 14px 18px;
+      background: rgba(20, 33, 59, 0.95); position: sticky; top: 0; z-index: 50;
+      backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
+    .top a { color: var(--text); text-decoration: none; font-weight: 700; font-size: 14px; }
+    .top h1 { margin: 0; font-size: 16px; font-weight: 800; flex: 1; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 18px; }
+    .hero { background: linear-gradient(135deg, #f97316, #fb923c, #fbbf24);
+      border-radius: 18px; padding: 28px 24px; text-align: center; margin-bottom: 18px;
+      box-shadow: 0 12px 32px -8px rgba(249, 115, 22, 0.4); color: #1f1505; }
+    .hero .flame { font-size: 64px; line-height: 1; }
+    .hero .streak-num { font-size: 56px; font-weight: 900; margin: 6px 0; text-shadow: 0 2px 4px rgba(0,0,0,0.15); }
+    .hero .streak-label { font-size: 14px; font-weight: 700; opacity: 0.85; }
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+    .stat { background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 16px; text-align: center; }
+    .stat-val { font-size: 28px; font-weight: 900; color: var(--gold); }
+    .stat-lbl { font-size: 12px; color: var(--text2); font-weight: 600; margin-top: 4px; }
+    .check-btn { display: block; width: 100%; padding: 18px; margin: 18px 0;
+      background: linear-gradient(135deg, #fbbf24, #f59e0b, #d97706); color: #1a1a1a;
+      border: 0; border-radius: 14px; font-size: 16px; font-weight: 800; cursor: pointer;
+      box-shadow: 0 6px 18px -2px rgba(245, 158, 11, 0.45); }
+    .check-btn:hover { transform: translateY(-2px); filter: brightness(1.05); }
+    .check-btn:disabled { background: #475569; color: #cbd5e1; cursor: not-allowed; box-shadow: none; transform: none; }
+    .milestones { background: var(--card); border-radius: 14px; padding: 16px;
+      border: 1px solid var(--border); margin-bottom: 14px; }
+    .milestones h3 { margin: 0 0 12px 0; font-size: 14px; color: var(--gold); }
+    .ms-row { display: flex; align-items: center; gap: 10px; padding: 8px 0;
+      border-bottom: 1px dashed rgba(251,191,36,0.1); }
+    .ms-row:last-child { border-bottom: 0; }
+    .ms-row .ms-icon { font-size: 20px; }
+    .ms-row .ms-name { flex: 1; font-size: 13px; font-weight: 700; }
+    .ms-row .ms-gem { font-size: 13px; color: var(--gold); font-weight: 800; }
+    .ms-row.done { opacity: 0.5; text-decoration: line-through; }
+    .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+      background: linear-gradient(135deg, #10b981, #059669); color: #fff;
+      padding: 14px 22px; border-radius: 12px; font-weight: 700; font-size: 14px;
+      box-shadow: 0 8px 24px -4px rgba(16,185,129,0.5); z-index: 100;
+      opacity: 0; pointer-events: none; transition: opacity .3s, transform .3s; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(-10px); }
+    .leaders { margin-top: 18px; }
+    .leaders h3 { font-size: 14px; color: var(--gold); margin: 0 0 10px 0; }
+    .leader-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 6px; }
+    .leader-rank { width: 28px; height: 28px; border-radius: 50%;
+      background: rgba(251,191,36,0.18); color: var(--gold);
+      display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; }
+    .leader-uid { flex: 1; font-size: 13px; font-weight: 700; }
+    .leader-streak { font-size: 13px; color: #fb923c; font-weight: 800; }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <a href="/">← <span data-ko="홈" data-en="Home">홈</span></a>
+    <h1 data-ko="🔥 데일리 스트릭" data-en="🔥 Daily Streak">🔥 데일리 스트릭</h1>
+  </div>
+  <div class="wrap">
+    <div class="hero">
+      <div class="flame">🔥</div>
+      <div class="streak-num" id="streakNum">0</div>
+      <div class="streak-label" id="streakLbl" data-ko="연속 출석일" data-en="Day Streak">연속 출석일</div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat">
+        <div class="stat-val" id="gems">0</div>
+        <div class="stat-lbl">💎 <span data-ko="보유 보석" data-en="Gems">보유 보석</span></div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="longest">0</div>
+        <div class="stat-lbl">🏆 <span data-ko="최장 기록" data-en="Best Streak">최장 기록</span></div>
+      </div>
+    </div>
+
+    <button class="check-btn" id="checkBtn" onclick="checkIn()">
+      ✅ <span data-ko="오늘 출석 체크" data-en="Check in today">오늘 출석 체크</span>
+    </button>
+
+    <div class="milestones">
+      <h3>🎁 <span data-ko="마일스톤 보상" data-en="Milestones">마일스톤 보상</span></h3>
+      <div class="ms-row" id="ms3"><span class="ms-icon">💪</span><span class="ms-name" data-ko="3일 연속" data-en="3-day streak">3일 연속</span><span class="ms-gem">+5💎</span></div>
+      <div class="ms-row" id="ms7"><span class="ms-icon">✨</span><span class="ms-name" data-ko="7일 연속" data-en="7-day streak">7일 연속</span><span class="ms-gem">+20💎</span></div>
+      <div class="ms-row" id="ms14"><span class="ms-icon">🔥</span><span class="ms-name" data-ko="2주 연속" data-en="2-week streak">2주 연속</span><span class="ms-gem">+30💎</span></div>
+      <div class="ms-row" id="ms30"><span class="ms-icon">🏆</span><span class="ms-name" data-ko="30일 연속" data-en="30-day streak">30일 연속</span><span class="ms-gem">+50💎</span></div>
+    </div>
+
+    <div class="leaders">
+      <h3>🏅 <span data-ko="이번 주 리더보드" data-en="Leaderboard">이번 주 리더보드</span></h3>
+      <div id="leaderList"><div style="color:var(--text2);font-size:13px;padding:12px">불러오는 중…</div></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // 전체 사이트 로그인된 사용자(mango_user) 자동 사용
+    function getUid() {
+      try {
+        const u = JSON.parse(localStorage.getItem('mango_user') || 'null');
+        if (u && u.user_id) return u.user_id;
+      } catch(e){}
+      // 비로그인 상태도 게스트로 동작 (서버는 처리 가능)
+      return 'guest_' + (Math.random().toString(36).slice(2, 8));
+    }
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3000);
+    }
+    function updateMilestones(streak) {
+      [['ms3', 3], ['ms7', 7], ['ms14', 14], ['ms30', 30]].forEach(([id, n]) => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('done', streak >= n);
+      });
+    }
+    async function loadStatus() {
+      const uid = getUid();
+      try {
+        const r = await fetch('/api/streak/status?uid=' + encodeURIComponent(uid));
+        const d = await r.json();
+        if (d.ok) {
+          document.getElementById('streakNum').textContent = d.current_streak || 0;
+          document.getElementById('gems').textContent = d.gems || 0;
+          document.getElementById('longest').textContent = d.longest_streak || 0;
+          updateMilestones(d.current_streak || 0);
+          const btn = document.getElementById('checkBtn');
+          if (d.checked_today) {
+            btn.disabled = true;
+            btn.innerHTML = '✓ 오늘 출석 완료';
+          }
+        }
+      } catch(e){ console.error(e); }
+    }
+    async function loadLeaderboard() {
+      try {
+        const r = await fetch('/api/streak/leaderboard');
+        const d = await r.json();
+        const wrap = document.getElementById('leaderList');
+        if (d.ok && d.items.length) {
+          wrap.innerHTML = d.items.slice(0, 10).map((it, i) =>
+            `<div class="leader-row">
+              <span class="leader-rank">${i+1}</span>
+              <span class="leader-uid">${(it.student_uid || '').slice(0, 12)}</span>
+              <span class="leader-streak">🔥 ${it.current_streak}일</span>
+            </div>`).join('');
+        } else {
+          wrap.innerHTML = '<div style="color:var(--text2);font-size:13px;padding:12px">아직 데이터가 없어요. 출석 체크로 시작해보세요!</div>';
+        }
+      } catch(e){ console.error(e); }
+    }
+    async function checkIn() {
+      const uid = getUid();
+      const btn = document.getElementById('checkBtn');
+      btn.disabled = true; btn.innerHTML = '⏳ 처리 중…';
+      try {
+        const r = await fetch('/api/streak/check-in', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid })
+        });
+        const d = await r.json();
+        if (d.ok) {
+          if (d.already_today) {
+            showToast('오늘 이미 출석했습니다');
+            btn.innerHTML = '✓ 오늘 출석 완료';
+          } else {
+            showToast(d.bonus_msg + ' (총 💎 ' + d.gems + ')');
+            btn.innerHTML = '✓ 출석 완료!';
+          }
+          await loadStatus();
+        } else {
+          alert('오류: ' + (d.error || 'unknown'));
+          btn.disabled = false; btn.innerHTML = '✅ 오늘 출석 체크';
+        }
+      } catch(e){
+        alert('네트워크 오류'); btn.disabled = false;
+      }
+    }
+    loadStatus(); loadLeaderboard();
+  </script>
+</body>
+</html>

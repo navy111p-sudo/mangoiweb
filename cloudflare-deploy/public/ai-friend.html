@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes" />
+  <title>💬 AI 영어 친구 Mango — Mangoi</title>
+  <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
+  <meta name="theme-color" content="#0a1530" />
+  <script src="/js/mango-i18n.js" defer></script>
+  <style>
+    :root {
+      --bg: #0a1530; --card: #14213b; --text: #e6ecff; --text2: #a3b3d1;
+      --gold: #fbbf24; --green: #10b981; --border: rgba(251,191,36,0.18);
+      --bubble-me: linear-gradient(135deg, #fbbf24, #f59e0b);
+      --bubble-ai: #1e293b;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+      line-height: 1.5; height: 100%; overflow: hidden; }
+    .top { display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+      background: rgba(20, 33, 59, 0.95); position: sticky; top: 0; z-index: 50;
+      backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
+    .top a { color: var(--text); text-decoration: none; font-weight: 700; font-size: 14px; }
+    .top .mango-icon { width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      display: flex; align-items: center; justify-content: center; font-size: 20px; }
+    .top .info { flex: 1; }
+    .top .name { font-size: 14px; font-weight: 800; }
+    .top .status { font-size: 11px; color: var(--green); }
+    .top .clear-btn { background: rgba(239,68,68,0.15); color: #fca5a5;
+      border: 1px solid rgba(239,68,68,0.3); padding: 6px 10px;
+      border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .opts { display: flex; gap: 6px; padding: 10px 14px; background: rgba(20,33,59,0.6);
+      overflow-x: auto; border-bottom: 1px solid var(--border); }
+    .opt { padding: 6px 12px; background: var(--card); border: 1px solid var(--border);
+      color: var(--text); border-radius: 999px; cursor: pointer; font-size: 11.5px;
+      font-weight: 700; white-space: nowrap; }
+    .opt.active { background: linear-gradient(135deg, var(--gold), #f59e0b); color: #1a1a1a; border-color: var(--gold); }
+    .chat { flex: 1; overflow-y: auto; padding: 18px 14px; height: calc(100vh - 240px);
+      display: flex; flex-direction: column; gap: 10px; }
+    .msg { max-width: 78%; padding: 10px 14px; border-radius: 16px;
+      font-size: 14px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+    .msg.user { align-self: flex-end; background: var(--bubble-me); color: #1a1a1a;
+      border-bottom-right-radius: 6px; font-weight: 600; }
+    .msg.ai { align-self: flex-start; background: var(--bubble-ai); color: var(--text);
+      border-bottom-left-radius: 6px; border: 1px solid var(--border); }
+    .ai-row { display: flex; gap: 8px; align-items: flex-end; }
+    .ai-avatar { width: 28px; height: 28px; border-radius: 50%;
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+    .typing { display: inline-flex; gap: 4px; padding: 14px 18px; }
+    .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--gold);
+      animation: bounce 1.4s infinite; }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30% { transform: translateY(-6px); opacity: 1; } }
+    .input-bar { position: fixed; bottom: 0; left: 0; right: 0;
+      background: rgba(20,33,59,0.98); border-top: 1px solid var(--border);
+      padding: 12px 14px; backdrop-filter: blur(12px); }
+    .input-bar form { display: flex; gap: 8px; max-width: 820px; margin: 0 auto; }
+    .input-bar input { flex: 1; padding: 12px 16px; background: var(--card);
+      color: var(--text); border: 1px solid var(--border); border-radius: 999px;
+      font-size: 14px; font-family: inherit; }
+    .input-bar input:focus { outline: 0; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(251,191,36,0.15); }
+    .input-bar button { padding: 10px 18px; background: linear-gradient(135deg, #10b981, #059669);
+      color: #fff; border: 0; border-radius: 999px; font-size: 14px; font-weight: 800;
+      cursor: pointer; box-shadow: 0 4px 14px -2px rgba(16,185,129,0.4); }
+    .input-bar button:disabled { background: #475569; box-shadow: none; }
+    .empty-state { text-align: center; color: var(--text2); padding: 40px 20px; }
+    .empty-state h2 { color: var(--gold); font-size: 18px; margin: 0 0 10px 0; }
+    .empty-state p { font-size: 13px; line-height: 1.6; margin: 6px 0; }
+    .quick { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 14px; }
+    .quick button { padding: 8px 14px; background: rgba(251,191,36,0.12);
+      color: var(--gold); border: 1px solid rgba(251,191,36,0.3);
+      border-radius: 999px; font-size: 12px; cursor: pointer; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <a href="/">←</a>
+    <div class="mango-icon">🥭</div>
+    <div class="info">
+      <div class="name">Mango</div>
+      <div class="status">● <span data-ko="온라인 (24시간)" data-en="online (24/7)">온라인 (24시간)</span></div>
+    </div>
+    <button class="clear-btn" onclick="clearChat()">🗑 <span data-ko="대화 초기화" data-en="Clear">대화 초기화</span></button>
+  </div>
+  <div class="opts">
+    <span style="font-size:11px;color:var(--text2);align-self:center;margin-right:4px">레벨:</span>
+    <button class="opt" data-level="A1">A1</button>
+    <button class="opt" data-level="A2">A2</button>
+    <button class="opt active" data-level="B1">B1</button>
+    <button class="opt" data-level="B2">B2</button>
+    <button class="opt" data-level="C1">C1</button>
+    <span style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px">스타일:</span>
+    <button class="opt active" data-persona="friendly">친근한</button>
+    <button class="opt" data-persona="playful">장난스러운</button>
+    <button class="opt" data-persona="serious">진지한</button>
+    <button class="opt" data-persona="tutor">튜터</button>
+  </div>
+  <div class="chat" id="chat"></div>
+  <div class="input-bar">
+    <form onsubmit="sendMsg(event)">
+      <input id="msgInput" type="text" autocomplete="off" placeholder="영어로 메시지를 보내세요…" maxlength="500" />
+      <button type="submit" id="sendBtn">전송</button>
+    </form>
+  </div>
+
+  <script>
+    // 전체 사이트 로그인된 사용자(mango_user) 자동 사용
+    function getUid() {
+      try {
+        const u = JSON.parse(localStorage.getItem('mango_user') || 'null');
+        if (u && u.user_id) return u.user_id;
+      } catch(e){}
+      return 'guest_' + (Math.random().toString(36).slice(2, 8));
+    }
+    let currentLevel = 'B1';
+    let currentPersona = 'friendly';
+
+    document.querySelectorAll('.opt[data-level]').forEach(b => {
+      b.onclick = () => { document.querySelectorAll('.opt[data-level]').forEach(x=>x.classList.remove('active')); b.classList.add('active'); currentLevel = b.dataset.level; };
+    });
+    document.querySelectorAll('.opt[data-persona]').forEach(b => {
+      b.onclick = () => { document.querySelectorAll('.opt[data-persona]').forEach(x=>x.classList.remove('active')); b.classList.add('active'); currentPersona = b.dataset.persona; };
+    });
+    function escapeHtml(s) {
+      return String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    function appendMsg(role, content) {
+      const chat = document.getElementById('chat');
+      if (role === 'user') {
+        const m = document.createElement('div');
+        m.className = 'msg user';
+        m.textContent = content;
+        chat.appendChild(m);
+      } else {
+        const row = document.createElement('div');
+        row.className = 'ai-row';
+        row.innerHTML = `<div class="ai-avatar">🥭</div><div class="msg ai">${escapeHtml(content).replace(/\n/g, '<br>')}</div>`;
+        chat.appendChild(row);
+      }
+      chat.scrollTop = chat.scrollHeight;
+    }
+    function appendTyping() {
+      const chat = document.getElementById('chat');
+      const row = document.createElement('div');
+      row.id = 'typingRow'; row.className = 'ai-row';
+      row.innerHTML = '<div class="ai-avatar">🥭</div><div class="msg ai typing"><span></span><span></span><span></span></div>';
+      chat.appendChild(row);
+      chat.scrollTop = chat.scrollHeight;
+    }
+    function removeTyping() {
+      const t = document.getElementById('typingRow');
+      if (t) t.remove();
+    }
+    function renderEmpty() {
+      const chat = document.getElementById('chat');
+      chat.innerHTML = `<div class="empty-state">
+        <h2>👋 Hi! I'm Mango</h2>
+        <p>Let's chat in English! 영어 실력은 매일 조금씩 쌓여요.</p>
+        <p style="color:var(--text2)">아래에서 시작해보세요:</p>
+        <div class="quick">
+          <button onclick="quickSend('Hi Mango! How are you today?')">Hi Mango! 👋</button>
+          <button onclick="quickSend('Tell me a fun fact about Korea.')">Fun fact 🇰🇷</button>
+          <button onclick="quickSend('What did you do yesterday?')">Yesterday 📅</button>
+          <button onclick="quickSend('Can you teach me a new word?')">New word 📚</button>
+        </div>
+      </div>`;
+    }
+    async function sendMsg(e) {
+      if (e) e.preventDefault();
+      const input = document.getElementById('msgInput');
+      const msg = (input.value || '').trim();
+      if (!msg) return;
+      const uid = getUid();
+
+      // 빈 상태면 클리어
+      const empty = document.querySelector('.empty-state');
+      if (empty) document.getElementById('chat').innerHTML = '';
+
+      input.value = '';
+      document.getElementById('sendBtn').disabled = true;
+      appendMsg('user', msg);
+      appendTyping();
+      try {
+        const r = await fetch('/api/ai/chat-friend', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid, msg, level: currentLevel, persona: currentPersona })
+        });
+        let d;
+        try { d = await r.json(); } catch(je){ d = { ok:false, error: 'invalid_json_response', status: r.status }; }
+        removeTyping();
+        if (d && d.ok && d.reply) {
+          appendMsg('ai', d.reply);
+        } else {
+          console.error('[AI Friend] server error:', d, 'status:', r.status);
+          const errMsg = d && d.error ? d.error : ('HTTP ' + r.status);
+          const detail = d && d.detail ? '\n' + d.detail : '';
+          appendMsg('ai', '⚠️ 잠시 응답이 지연되고 있어요. 다시 시도해주세요.\n(' + errMsg + detail + ')');
+        }
+      } catch(e){
+        console.error('[AI Friend] fetch failed:', e);
+        removeTyping();
+        appendMsg('ai', '⚠️ 네트워크가 불안정합니다. Wi-Fi 를 확인해주세요. (' + (e && e.message ? e.message : 'unknown') + ')');
+      }
+      document.getElementById('sendBtn').disabled = false;
+      input.focus();
+    }
+    function quickSend(text) {
+      document.getElementById('msgInput').value = text;
+      sendMsg();
+    }
+    async function loadHistory() {
+      const uid = getUid();
+      if (!uid) { renderEmpty(); return; }
+      try {
+        const r = await fetch('/api/ai/chat-history?uid=' + encodeURIComponent(uid));
+        const d = await r.json();
+        if (d.ok && d.items && d.items.length) {
+          d.items.forEach(it => appendMsg(it.role === 'assistant' ? 'ai' : 'user', it.content));
+        } else {
+          renderEmpty();
+        }
+      } catch(e){ renderEmpty(); }
+    }
+    async function clearChat() {
+      if (!confirm('대화 내용을 모두 지울까요?')) return;
+      const uid = getUid();
+      if (uid) {
+        try { await fetch('/api/ai/chat-clear', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uid }) }); } catch(e){}
+      }
+      document.getElementById('chat').innerHTML = '';
+      renderEmpty();
+    }
+    loadHistory();
+  </script>
+</body>
+</html>

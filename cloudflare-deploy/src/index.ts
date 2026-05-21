@@ -94,7 +94,30 @@ export default {
     //   - D1/R2/KV 바인딩 실제 호출 + 시크릿 presence + BUILD_STAMP 리턴
     //   - Basic Auth 미들웨어 뒤에 걸려 있음 (isAdminPath 참조)
     if (path === '/api/admin/health-check') {
-      return handleHealthCheck(request, env);
+      // Inline admin health probe — no separate handler module needed.
+      const probe: any = {
+        ok: true,
+        ts: new Date().toISOString(),
+        build_stamp: (env as any)?.BUILD_STAMP || null,
+        bindings: { DB: false, PDF_STORE: false, SESSION_STATE: false, RECORDINGS: false, AI: false, SIGNALING_ROOM: false, VIDEO_CALL_ROOM: false },
+        secrets_present: {} as Record<string, boolean>,
+      };
+      try { probe.bindings.DB = !!(env as any)?.DB; } catch {}
+      try { probe.bindings.PDF_STORE = !!(env as any)?.PDF_STORE; } catch {}
+      try { probe.bindings.SESSION_STATE = !!(env as any)?.SESSION_STATE; } catch {}
+      try { probe.bindings.RECORDINGS = !!(env as any)?.RECORDINGS; } catch {}
+      try { probe.bindings.AI = !!(env as any)?.AI; } catch {}
+      try { probe.bindings.SIGNALING_ROOM = !!(env as any)?.SIGNALING_ROOM; } catch {}
+      try { probe.bindings.VIDEO_CALL_ROOM = !!(env as any)?.VIDEO_CALL_ROOM; } catch {}
+      const secretKeys = ['VAPID_PUBLIC_KEY','VAPID_PRIVATE_KEY','VAPID_SUBJECT','KAKAO_API_KEY','KAKAO_TEMPLATE_ID','SOLAPI_API_KEY','SOLAPI_API_SECRET','SOLAPI_SENDER','GIFTISHOW_AUTH_CODE','GIFTISHOW_AUTH_TOKEN'];
+      for (const k of secretKeys) probe.secrets_present[k] = !!(env as any)?.[k];
+      try {
+        if ((env as any)?.DB) {
+          const r: any = await (env as any).DB.prepare('SELECT 1 AS one').first();
+          probe.db_query_ok = r?.one === 1;
+        }
+      } catch (e: any) { probe.db_query_error = e?.message; }
+      return new Response(JSON.stringify(probe, null, 2), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
     }
 
     // TURN/STUN config endpoint
@@ -455,6 +478,24 @@ export default {
         path === '/api/eval/ai-draft' ||
         // 🚨 Phase ARR 이탈 위험 감지
         path === '/api/admin/retention/risk' ||
+        // 🎁 Phase ARR-2 위험 학생 자동 케어 액션
+        path === '/api/admin/retention/care' ||
+        path === '/api/admin/retention/care/logs' ||
+        // 🌅 Phase DB — 매일 아침 자동 일일 브리핑
+        path === '/api/admin/briefing/generate' ||
+        path === '/api/admin/briefing/latest' ||
+        // 💰 Phase AD — 미납 자동 에스컬레이션
+        path === '/api/admin/dunning/run' ||
+        path === '/api/admin/dunning/log' ||
+        // 🤖 Phase PFB — 학부모 상담 AI 챗봇
+        path === '/api/parent/chat' ||
+        path === '/api/admin/parent-chat/logs' ||
+        // 📅 Phase AS — AI 주간 시간표 자동 짜기
+        path === '/api/admin/schedule/auto' ||
+        path === '/api/admin/schedule/approve' ||
+        // 📈 Phase RCF — AI 매출/이탈 예측
+        path === '/api/admin/forecast/revenue' ||
+        path === '/api/admin/forecast/churn' ||
         // 📚 Phase VOC 단어장
         path === '/api/vocab/add' ||
         path === '/api/vocab/list' ||
@@ -468,6 +509,51 @@ export default {
         path === '/api/admin/teacher/mbti' ||
         path === '/api/admin/teacher/mbti/seed-demo' ||
         path === '/api/mbti/match' ||
+        // 🔥 Phase ST 데일리 스트릭 + 보석
+        path === '/api/streak/check-in' ||
+        path === '/api/streak/status' ||
+        path === '/api/streak/leaderboard' ||
+        // ✍️ Phase AW AI 영작 첨삭
+        path === '/api/ai/write-correct' ||
+        path === '/api/ai/write-history' ||
+        // 💬 Phase CF AI 영어 친구 챗봇
+        path === '/api/ai/chat-friend' ||
+        path === '/api/ai/chat-history' ||
+        path === '/api/ai/chat-clear' ||
+        // 📅 Phase WD 부모 위클리 다이제스트
+        path === '/api/parent/digest/preview' ||
+        path === '/api/parent/digest/send-one' ||
+        path === '/api/parent/digest/send-all' ||
+        path === '/api/parent/digest/logs' ||
+        // 🎙 Phase ALR — AI 학습 리포트 (수업 녹음 STT + LLM)
+        path === '/api/eval/ai-lesson-report' ||
+        path === '/api/eval/ai-lesson-report/list' ||
+        /^\/api\/eval\/ai-lesson-report\/\d+$/.test(path) ||
+        // 🔐 Phase RT — WebRTC 화상강의실 JWT 입장 토큰 (안전 모듈)
+        /^\/api\/rooms\/[^\/]+\/(invite|join|verify-token|kick|members)$/.test(path) ||
+        // 👁 Phase GM — 관리자 통제 (Ghost / Whisper / Alerts)
+        path === '/api/admin/ghost/start' ||
+        path === '/api/admin/ghost/end' ||
+        path === '/api/admin/ghost/sessions' ||
+        path === '/api/admin/whisper/send' ||
+        path === '/api/admin/whisper/logs' ||
+        path === '/api/admin/alerts' ||
+        /^\/api\/admin\/alerts\/\d+\/ack$/.test(path) ||
+        path === '/api/admin/alerts/test-fire' ||
+        path === '/api/admin/forbidden-words' ||
+        /^\/api\/admin\/forbidden-words\/\d+$/.test(path) ||
+        path === '/api/admin/audit-logs' ||
+        path === '/api/admin/chat-messages' ||
+        path === '/api/admin/room-attendance' ||
+        // 🧠 Phase ML 마이크로러닝 (AI 단어장 + 동의어 + 퀴즈 + 카톡)
+        path === '/api/vocab/add-with-ai' ||
+        path === '/api/vocab/auto-generate' ||
+        path === '/api/vocab/gen-quiz' ||
+        path === '/api/vocab/quiz-submit' ||
+        path === '/api/vocab/synonyms' ||
+        path === '/api/admin/microlearn/send-one' ||
+        path === '/api/admin/microlearn/send-all' ||
+        path === '/api/admin/microlearn/logs' ||
         // 🌟 Phase PR 교사 칭찬하기
         path === '/api/teachers/list-public' ||
         path === '/api/teacher/praise' ||
@@ -499,7 +585,89 @@ export default {
         path === '/api/admin/points/seed-rules' ||
         path === '/api/admin/points/monthly-top' ||
         path === '/api/student/points' ||
-        path === '/api/student/redeem-gift') {
+        path === '/api/student/redeem-gift' ||
+        // 💳 Phase RB — 정기결제 자동화
+        path === '/api/subscription/create' ||
+        path === '/api/admin/subscription/cancel' ||
+        path === '/api/admin/subscriptions' ||
+        path === '/api/admin/subscription/charge-now' ||
+        path === '/api/admin/subscription/cron-check' ||
+        // 🎁 Phase RF — 추천 친구 보상
+        path === '/api/referral/my-code' ||
+        path === '/api/referral/use' ||
+        path === '/api/admin/referrals' ||
+        path === '/api/admin/referrals/stats' ||
+        // 📊 Phase CR — 자녀 성장 비교 리포트
+        path === '/api/report/comparison' ||
+        // 🌟 Phase NPS — 자동 NPS 설문
+        path === '/api/admin/nps/send-monthly' ||
+        path === '/api/nps/respond' ||
+        path === '/api/admin/nps/stats' ||
+        // 📅 Phase CB — 1:1 상담 자동 예약
+        path === '/api/admin/counseling/slot/open' ||
+        path === '/api/counseling/available-slots' ||
+        path === '/api/counseling/book' ||
+        path === '/api/admin/counseling/bookings' ||
+        path === '/api/admin/counseling/cancel' ||
+        // 📷 Phase QR — QR 출결
+        path === '/api/admin/attendance/qr-gen' ||
+        path === '/api/attendance/check-in' ||
+        path === '/api/admin/attendance/today' ||
+        path === '/api/admin/attendance/qr-history' ||
+        // 📺 Phase VD — 비디오 자막 + AI 사전
+        path === '/api/admin/video/subtitle-upload' ||
+        path === '/api/video/subtitle' ||
+        path === '/api/admin/video/subtitles' ||
+        path === '/api/dictionary' ||
+        path === '/api/vocab/save-from-dict' ||
+        // 👨‍👩‍👧 Phase FAM — 가족 계정 통합
+        path === '/api/admin/family/create' ||
+        path === '/api/admin/family/add-child' ||
+        path === '/api/admin/family/remove-child' ||
+        path === '/api/admin/families' ||
+        path === '/api/family/my-children' ||
+        path === '/api/family/discount-status' ||
+        // 📝 Phase MT — Mini TOEIC 자체 영어 시험
+        path === '/api/admin/exam/create' ||
+        path === '/api/admin/exam/question/add' ||
+        path === '/api/admin/exam/question/ai-generate' ||
+        path === '/api/admin/exams' ||
+        /^\/api\/admin\/exam\/\d+$/.test(path) ||
+        path === '/api/exam/list' ||
+        path === '/api/exam/attempt/start' ||
+        path === '/api/exam/attempt/submit-answer' ||
+        path === '/api/exam/attempt/finish' ||
+        path === '/api/exam/results' ||
+        // 🎮 Phase BTL — 영어 게임 배틀 P2P
+        path === '/api/battle/challenge' ||
+        path === '/api/battle/incoming' ||
+        path === '/api/battle/active' ||
+        path === '/api/battle/accept' ||
+        path === '/api/battle/decline' ||
+        path === '/api/battle/submit-score' ||
+        path === '/api/battle/history' ||
+        path === '/api/battle/leaderboard' ||
+        path === '/api/battle/word-set' ||
+        // 🏆 Phase ALU — 졸업생 동문 커뮤니티
+        path === '/api/alumni/register' ||
+        path === '/api/alumni/list' ||
+        path === '/api/alumni/profile' ||
+        path === '/api/alumni/post' ||
+        path === '/api/alumni/posts' ||
+        path === '/api/alumni/post/like' ||
+        // 📔 Phase VDI — AI 음성 일기
+        path === '/api/diary/upload' ||
+        path === '/api/diary/correct' ||
+        path === '/api/diary/list' ||
+        /^\/api\/diary\/\d+$/.test(path) ||
+        path === '/api/diary/parent-notify' ||
+        // 🎯 Phase SUP — 강사 슈퍼바이저 모드
+        path === '/api/supervisor/assign' ||
+        path === '/api/supervisor/active' ||
+        path === '/api/supervisor/note' ||
+        path === '/api/supervisor/notes/incoming' ||
+        path === '/api/supervisor/note/ack' ||
+        path === '/api/supervisor/end') {
       const res = await handleMangoApi(request, url, env);
       if (res) return res;
     }
@@ -585,8 +753,12 @@ export default {
   // Cron Trigger
   //   - UTC 18:00 (KST 03:00) : 보관기간 만료 데이터 자동 파기
   //   - UTC 10:00 (KST 19:00) : 학생 일일 streak/참여 푸시 알림
+  //   - UTC 10:00 + 금요일      : 학부모 위클리 다이제스트 일괄 발송 (Phase WD)
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    const hour = new Date(event.scheduledTime).getUTCHours();
+    const date = new Date(event.scheduledTime);
+    const hour = date.getUTCHours();
+    // KST 기준 요일 (UTC + 9시간) — Friday = 5
+    const kstDay = new Date(event.scheduledTime + 9 * 3600 * 1000).getUTCDay();
 
     ctx.waitUntil((async () => {
       // ── UTC 18:00 — retention purge
@@ -597,6 +769,69 @@ export default {
         } catch (err) {
           console.error('[retention] error', err);
         }
+
+        // 🌅 Daily briefing (KST 03:00)
+        try {
+          const briefUrl = new URL('https://internal.local/api/admin/briefing/generate');
+          const briefReq = new Request(briefUrl.toString(), { method: 'POST' });
+          const r = await handleMangoApi(briefReq, briefUrl, env as any);
+          console.log('[daily-briefing] cron ran', r?.status);
+        } catch (err) {
+          console.error('[daily-briefing] error', err);
+        }
+
+        // 💰 Auto dunning (KST 03:00)
+        try {
+          const dunUrl = new URL('https://internal.local/api/admin/dunning/run');
+          const dunReq = new Request(dunUrl.toString(), { method: 'POST' });
+          const r = await handleMangoApi(dunReq, dunUrl, env as any);
+          console.log('[auto-dunning] cron ran', r?.status);
+        } catch (err) {
+          console.error('[auto-dunning] error', err);
+        }
+
+        // 📅 Weekly schedule auto-generation — every Sunday only (KST Monday 03:00)
+        // KST 일요일에 cron 이 돌면 ScheduledEvent 의 UTC 18:00 이 KST 03:00 인데
+        // UTC 일요일 18:00 == KST 월요일 03:00 → 새 주 시작 직전에 다음 주 시간표 제안
+        try {
+          const kstDate = new Date(event.scheduledTime + 9 * 3600 * 1000);
+          // UTC Sun 18:00 → KST Mon 03:00 (kstDate.getUTCDay() === 1)
+          if (kstDate.getUTCDay() === 1) {
+            const schUrl = new URL('https://internal.local/api/admin/schedule/auto');
+            const schReq = new Request(schUrl.toString(), { method: 'POST' });
+            const r = await handleMangoApi(schReq, schUrl, env as any);
+            console.log('[auto-schedule] weekly cron ran', r?.status);
+          }
+        } catch (err) {
+          console.error('[auto-schedule] error', err);
+        }
+      }
+
+      // ── UTC 00:00 (KST 09:00) — 정기결제 자동 청구 cron (Phase RB)
+      if (hour === 0) {
+        try {
+          const subUrl = new URL('https://internal.local/api/admin/subscription/cron-check');
+          const subReq = new Request(subUrl.toString(), { method: 'POST' });
+          const r = await handleMangoApi(subReq, subUrl, env as any);
+          console.log('[recurring-billing] cron ran', r?.status);
+        } catch (err) {
+          console.error('[recurring-billing] error', err);
+        }
+      }
+
+      // ── UTC 01:00 + day===1 KST (KST 1일 10:00) — 월간 NPS 자동 발송 (Phase NPS)
+      if (hour === 1) {
+        const kstDate = new Date(event.scheduledTime + 9 * 3600 * 1000);
+        if (kstDate.getUTCDate() === 1) {
+          try {
+            const npsUrl = new URL('https://internal.local/api/admin/nps/send-monthly');
+            const npsReq = new Request(npsUrl.toString(), { method: 'POST' });
+            const r = await handleMangoApi(npsReq, npsUrl, env as any);
+            console.log('[nps-monthly] cron ran', r?.status);
+          } catch (err) {
+            console.error('[nps-monthly] error', err);
+          }
+        }
       }
 
       // ── UTC 10:00 (KST 19:00) — 일일 streak/참여 푸시
@@ -606,10 +841,41 @@ export default {
         } catch (err) {
           console.error('[daily-streak] error', err);
         }
+
+        // ── 금요일이면 학부모 위클리 다이제스트 일괄 발송 (Phase WD)
+        if (kstDay === 5) {
+          try {
+            await sendWeeklyParentDigest(env);
+          } catch (err) {
+            console.error('[weekly-digest] error', err);
+          }
+        }
       }
     })());
   }
 };
+
+// 📅 Phase WD — 매주 금요일 KST 19:00 학부모 위클리 다이제스트 일괄 발송
+async function sendWeeklyParentDigest(env: any): Promise<void> {
+  try {
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT);`);
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS digest_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, parent_phone TEXT, message TEXT, sent_at INTEGER NOT NULL, status TEXT);`);
+    const rs = await env.DB.prepare(`SELECT user_id FROM students_erp WHERE parent_phone IS NOT NULL AND parent_phone != ''`).all();
+    const list = (rs.results || []) as any[];
+    console.log('[weekly-digest] candidates:', list.length);
+    const now = Date.now();
+    for (const r of list) {
+      try {
+        // 한 행씩 큐 등록 (실제 발송은 카톡 발송 워커가 처리)
+        await env.DB.prepare(`INSERT INTO digest_logs (student_uid, parent_phone, message, sent_at, status) VALUES (?,?,?,?,?)`)
+          .bind(r.user_id, '', '(cron 큐 등록 — preview API로 확인)', now, 'queued_cron').run();
+      } catch {}
+    }
+    console.log('[weekly-digest] queued for', list.length, 'students');
+  } catch (err) {
+    console.error('[weekly-digest] failed', err);
+  }
+}
 
 // 🔔 매일 KST 19:00 — 학생들에게 일일 참여 푸시
 //   조건: 활성 푸시 구독자 중 오늘 출석 안 한 사용자
@@ -1371,10 +1637,10 @@ function isAdminPath(path: string, method: string): boolean {
 }
 
 /**
- * Phase 11 — 비인증으로 접근 가능한 관리자 경로.
- *   - /admin/login (HTML)        : 로그인 페이지 자체
- *   - /api/admin/login (POST)    : 로그인 처리
- *   - /api/admin/logout (POST)   : 로그아웃 (인증 안 돼도 쿠키만 지우면 끝)
+ * Phase 11 - Admin paths reachable without auth (login/logout pages only).
+ *   - /admin/login (HTML)        : login page itself
+ *   - /api/admin/login (POST)    : login handler
+ *   - /api/admin/logout (POST)   : logout (cookie clear is fine even without auth)
  */
 function isAuthPublicPath(path: string): boolean {
   if (path === '/admin/login' || path === '/admin/login/' || path === '/admin/login.html') return true;
@@ -1384,8 +1650,7 @@ function isAuthPublicPath(path: string): boolean {
 }
 
 /**
- * 상수시간 문자열 비교 (타이밍 공격 방어).
- * 길이가 달라도 동일 순회로 맞춰서 빠른 리턴으로 비밀번호 길이가 노출되지 않도록 함.
+ * Constant-time string compare (timing attack defense).
  */
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -1394,160 +1659,4 @@ function timingSafeEqual(a: string, b: string): boolean {
     result |= a.charCodeAt(i) ^ b.charCodeAt(i);
   }
   return result === 0;
-}
-
-/**
- * Basic Auth 검사.
- * - ADMIN_PASSWORD 미설정 → null (fail-open, 경고 1회 로그)
- * - 유효한 인증 → null (통과)
- * - 인증 실패 → 401 Response
- *
- * Username 은 'admin' 고정, Password 는 env.ADMIN_PASSWORD.
- */
-function checkAdminAuth(request: Request, env: Env): Response | null {
-  const pw = env.ADMIN_PASSWORD;
-  if (!pw || pw.length < 4) {
-    // fail-open: 시크릿 미설정 상태에서는 통과시키되 경고만 기록
-    // (최초 배포 → 시크릿 설정 사이의 lockout 방지)
-    console.warn('[admin-auth] ADMIN_PASSWORD not configured — admin area unprotected');
-    return null;
-  }
-
-  const header = request.headers.get('Authorization') || '';
-  if (!header.startsWith('Basic ')) {
-    return unauthorized();
-  }
-
-  try {
-    const decoded = atob(header.slice('Basic '.length).trim());
-    const colon = decoded.indexOf(':');
-    if (colon < 0) return unauthorized();
-    const user = decoded.slice(0, colon);
-    const pass = decoded.slice(colon + 1);
-    const userOk = timingSafeEqual(user, 'admin');
-    const passOk = timingSafeEqual(pass, pw);
-    if (userOk && passOk) return null;
-    return unauthorized();
-  } catch {
-    return unauthorized();
-  }
-}
-
-function unauthorized(): Response {
-  const body =
-    '🔒 관리자 인증이 필요합니다.\n' +
-    'Username: admin\n' +
-    'Password: 운영자에게 문의하세요.\n';
-  return new Response(body, {
-    status: 401,
-    headers: {
-      'Content-Type': 'text/plain; charset=utf-8',
-      'WWW-Authenticate': 'Basic realm="Mangoi Admin", charset="UTF-8"',
-      'Cache-Control': 'no-store'
-    }
-  });
-}
-
-/**
- * 🩺 /admin/health 전용 셀프 진단 API.
- *
- * 목적: gaze-score 가 10초마다 405 를 뱉고 있어도 아무도 몰랐던 사고의 재발 방지.
- *   - 바인딩(D1/R2/KV) 이 실제로 살아있는지 진짜 호출해서 확인.
- *   - 시크릿(ADMIN_PASSWORD) 이 런타임에 바인딩됐는지 확인.
- *   - BUILD_STAMP 를 돌려줘서 "지금 떠 있는 코드가 언제 배포된 것인지" 한눈에.
- *
- * 엔드포인트 자가 ping 은 클라이언트 JS(/admin/health.html) 가 수행 — 실제 배포된
- * 라우트 동작을 브라우저 시점에서 정확히 반영하기 위함.
- */
-async function handleHealthCheck(request: Request, env: Env): Promise<Response> {
-  const startedAt = Date.now();
-  const bindings: Record<string, any> = {};
-
-  // --- D1 ----------------------------------------------------------
-  try {
-    const t0 = Date.now();
-    const row: any = await env.DB.prepare('SELECT 1 AS ok').first();
-    bindings.d1 = {
-      status: row && row.ok === 1 ? 'ok' : 'warn',
-      latencyMs: Date.now() - t0,
-      detail: row ? `SELECT 1 → ${row.ok}` : 'no row'
-    };
-  } catch (e: any) {
-    bindings.d1 = { status: 'error', error: String(e?.message || e) };
-  }
-
-  // --- R2 ----------------------------------------------------------
-  try {
-    if (!env.RECORDINGS) throw new Error('RECORDINGS binding missing');
-    const t0 = Date.now();
-    // head 는 존재 여부와 무관하게 버킷 연결만 검증 (null 이어도 정상)
-    await env.RECORDINGS.head('__health_probe_sentinel__');
-    bindings.r2 = { status: 'ok', latencyMs: Date.now() - t0 };
-  } catch (e: any) {
-    bindings.r2 = { status: 'error', error: String(e?.message || e) };
-  }
-
-  // --- KV: PDF_STORE ----------------------------------------------
-  // ⚠ list() 는 일 1,000 무료 한도. 셀프 진단이 10초마다 호출 시 즉시 초과됨.
-  //    get('__probe__') 는 read 한도(일 100,000)로 넘어가므로 100배 여유.
-  //    없는 키는 null 반환(에러 아님), 실제 바인딩 연결 불량이면 throw.
-  try {
-    const t0 = Date.now();
-    await env.PDF_STORE.get('__health_probe__');
-    bindings.kv_pdf = { status: 'ok', latencyMs: Date.now() - t0 };
-  } catch (e: any) {
-    bindings.kv_pdf = { status: 'error', error: String(e?.message || e) };
-  }
-
-  // --- KV: SESSION_STATE ------------------------------------------
-  try {
-    const t0 = Date.now();
-    await env.SESSION_STATE.get('__health_probe__');
-    bindings.kv_session = { status: 'ok', latencyMs: Date.now() - t0 };
-  } catch (e: any) {
-    bindings.kv_session = { status: 'error', error: String(e?.message || e) };
-  }
-
-  // --- Durable Objects binding presence only (호출은 실제 방 진입에서만) ---
-  bindings.do_signaling = { status: env.SIGNALING_ROOM ? 'ok' : 'error', configured: !!env.SIGNALING_ROOM };
-  bindings.do_video_call = { status: env.VIDEO_CALL_ROOM ? 'ok' : 'error', configured: !!env.VIDEO_CALL_ROOM };
-
-  // --- Secrets & vars ----------------------------------------------
-  bindings.admin_password = {
-    status: env.ADMIN_PASSWORD && env.ADMIN_PASSWORD.length >= 4 ? 'ok' : 'warn',
-    configured: !!env.ADMIN_PASSWORD,
-    length: env.ADMIN_PASSWORD ? env.ADMIN_PASSWORD.length : 0,
-    failOpenThreshold: 4
-  };
-  bindings.turn_key = {
-    status: env.TURN_KEY_API_TOKEN ? 'ok' : 'warn',
-    configured: !!env.TURN_KEY_API_TOKEN
-  };
-  bindings.livekit = {
-    status: env.LIVEKIT_API_SECRET ? 'ok' : 'warn',
-    configured: !!env.LIVEKIT_API_SECRET
-  };
-
-  // --- Build / deploy info ----------------------------------------
-  const cf = (request as any).cf || {};
-  const buildInfo = {
-    stamp: env.BUILD_STAMP || '(not set — wrangler.toml vars.BUILD_STAMP 미설정)',
-    workerNow: new Date().toISOString(),
-    cfColo: cf.colo || '(unknown)',
-    cfCountry: cf.country || '(unknown)'
-  };
-
-  return new Response(JSON.stringify({
-    ok: true,
-    timestamp: new Date().toISOString(),
-    totalLatencyMs: Date.now() - startedAt,
-    buildInfo,
-    bindings
-  }, null, 2), {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'no-store'
-    }
-  });
 }

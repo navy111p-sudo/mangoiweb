@@ -15,12 +15,42 @@ interface RoomState {
 
 export class SignalingRoom {
   private state: DurableObjectState;
+  private env: any;
   private roomId: string;
   private connections: Map<string, ConnectionInfo> = new Map();
 
-  constructor(state: DurableObjectState) {
+  constructor(state: DurableObjectState, env?: any) {
     this.state = state;
+    this.env = env || null;
     this.roomId = '';
+  }
+
+  // 🔐 Phase RT-4 — 토큰 검증 헬퍼 (옵셔널, 환경변수 REQUIRE_ROOM_TOKEN 이 'true' 일 때만 활성)
+  //   기본 OFF: 토큰 없어도 기존 화상수업 그대로 작동 (호환성 우선)
+  //   ON: ?token=... 쿼리 파라미터가 있으면 검증, 없거나 검증 실패 시 401
+  private async verifyTokenIfRequired(request: Request): Promise<{ ok: boolean; role?: string; userId?: string; error?: string }> {
+    const requireToken = this.env && this.env.REQUIRE_ROOM_TOKEN === 'true';
+    const url = new URL(request.url);
+    const token = url.searchParams.get('token');
+    if (!requireToken) return { ok: true };  // 검증 미강제
+    if (!token) return { ok: false, error: 'token_required' };
+    try {
+      const secret = this.env.ROOM_JWT_SECRET || ('mangoi-fallback-' + (this.env.BUILD_STAMP || 'dev'));
+      const parts = token.split('.');
+      if (parts.length !== 3) return { ok: false, error: 'malformed' };
+      const [h, p, s] = parts;
+      const enc = new TextEncoder();
+      const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
+      const sigBytes = Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+      const ok = await crypto.subtle.verify('HMAC', key, sigBytes, enc.encode(`${h}.${p}`));
+      if (!ok) return { ok: false, error: 'invalid_signature' };
+      const payload = JSON.parse(atob(p.replace(/-/g, '+').replace(/_/g, '/')));
+      if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return { ok: false, error: 'expired' };
+      if (payload.aud && payload.aud !== `room:${this.roomId}`) return { ok: false, error: 'wrong_room' };
+      return { ok: true, role: payload.role, userId: payload.sub };
+    } catch (e: any) {
+      return { ok: false, error: 'verify_failed' };
+    }
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -31,6 +61,14 @@ export class SignalingRoom {
     if (roomIdParam) this.roomId = roomIdParam;
 
     if (request.headers.get('Upgrade') === 'websocket') {
+      // 🔐 Phase RT-4 안전 토큰 검증 (옵셔널)
+      const verify = await this.verifyTokenIfRequired(request);
+      if (!verify.ok) {
+        console.warn('[SignalingRoom] token verification failed:', verify.error);
+        return new Response(JSON.stringify({ error: 'unauthorized', reason: verify.error }), {
+          status: 401, headers: { 'Content-Type': 'application/json' }
+        });
+      }
       return this.handleWebSocket(request);
     }
     return new Response('Invalid request', { status: 400 });

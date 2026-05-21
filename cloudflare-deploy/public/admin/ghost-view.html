@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>👁 라이브 참관 (Ghost Monitor) — Mangoi</title>
+  <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
+  <meta name="theme-color" content="#0a1530" />
+  <!-- 글로벌 바 자동 inject 차단 (자체 헤더 사용) -->
+  <meta name="mangoi-no-global-bar" content="1" />
+  <style>
+    :root { --bg:#0a1530; --card:#14213b; --text:#f9fafb; --text2:#cbd5e1;
+      --gold:#fbbf24; --purple:#8b5cf6; --green:#10b981; --red:#ef4444; --blue:#3b82f6;
+      --border:rgba(139,92,246,0.30); }
+    * { box-sizing: border-box; }
+    html, body { margin:0; padding:0; background:var(--bg); color:var(--text);
+      font-family:-apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+      line-height: 1.5; min-height: 100vh; }
+
+    /* 🎯 우측 상단 컨트롤 바 정리 — 헤더 안 한 줄 정렬 */
+    .header {
+      background:linear-gradient(135deg, #1f1b3a, #0f172a);
+      padding:12px 18px; border-bottom:2px solid var(--purple);
+      display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+      position:sticky; top:0; z-index:50; backdrop-filter:blur(12px);
+    }
+    .header-title { display:flex; align-items:center; gap:8px; min-width:0; }
+    .header h1 { margin:0; font-size:16px; font-weight:800; color:#fff; white-space:nowrap; }
+    .ghost-badge {
+      padding:4px 10px; background:linear-gradient(135deg,#8b5cf6,#7c3aed);
+      color:#fff; border-radius:99px; font-size:10.5px; font-weight:800;
+      box-shadow:0 4px 12px rgba(139,92,246,0.4);
+      animation:ghostPulse 2s ease-in-out infinite; white-space:nowrap;
+    }
+    @keyframes ghostPulse {
+      0%, 100% { box-shadow:0 4px 12px rgba(139,92,246,0.4); }
+      50% { box-shadow:0 6px 20px rgba(139,92,246,0.75); }
+    }
+    .header-info { flex:1; min-width:140px; font-size:11.5px; color:var(--text2); }
+    .header-info b { color:var(--gold); }
+    .header-actions { display:flex; gap:6px; flex-wrap:wrap; }
+    .btn {
+      padding:7px 12px; border-radius:8px; border:none; cursor:pointer;
+      font-family:inherit; font-size:12px; font-weight:700; white-space:nowrap;
+      display:inline-flex; align-items:center; gap:5px; transition:all .15s;
+    }
+    .btn-end { background:linear-gradient(135deg,#ef4444,#b91c1c); color:#fff; }
+    .btn-emergency { background:linear-gradient(135deg,#dc2626,#7f1d1d); color:#fff; font-weight:800; }
+    .btn-ghost { background:rgba(255,255,255,0.08); color:var(--text); border:1px solid rgba(255,255,255,0.18); }
+    .btn-primary { background:linear-gradient(135deg,#8b5cf6,#7c3aed); color:#fff; }
+    .btn-gold { background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a1a; }
+    .btn:hover { transform:translateY(-1px); filter:brightness(1.1); }
+    .btn-home { background:rgba(20,33,59,0.95); color:#fbbf24; border:1px solid rgba(251,191,36,0.45); padding:7px 12px; border-radius:8px; text-decoration:none; font-weight:700; font-size:12px; }
+    .btn-lang { background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a1a; padding:7px 12px; border-radius:8px; font-weight:800; font-size:12px; cursor:pointer; border:none; }
+
+    .wrap { max-width:1500px; margin:0 auto; padding:14px; display:grid;
+            grid-template-columns: 1fr 360px; gap:14px; }
+    @media (max-width:900px) { .wrap { grid-template-columns: 1fr; } }
+
+    .panel {
+      background:var(--card); border:1px solid var(--border);
+      border-radius:14px; padding:14px;
+    }
+    .panel h2 { margin:0 0 10px 0; font-size:13px; color:var(--gold); font-weight:800;
+                display:flex; align-items:center; gap:6px; }
+
+    /* 비디오 영역 */
+    .video-area {
+      position:relative; aspect-ratio:16/9; background:#000;
+      border-radius:10px; overflow:hidden;
+      display:flex; align-items:center; justify-content:center;
+      flex-direction:column; gap:12px;
+      border:2px dashed rgba(139,92,246,0.4);
+    }
+    .video-area .ghost-overlay {
+      position:absolute; top:10px; right:10px;
+      background:rgba(139,92,246,0.85); color:#fff;
+      padding:4px 10px; border-radius:6px; font-size:10.5px; font-weight:800;
+      display:flex; align-items:center; gap:5px;
+    }
+    .video-area .ghost-overlay::before { content:'●'; color:#fca5a5; animation:blink 1.4s infinite; }
+    @keyframes blink { 0%, 100% { opacity:1; } 50% { opacity:0.3; } }
+    .video-status { color:#a3b3d1; font-size:13px; text-align:center; padding:0 20px; }
+    .video-status .big { font-size:32px; margin-bottom:6px; }
+
+    /* KPI 그리드 — 6개 카드 */
+    .info-grid {
+      display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));
+      gap:8px; margin-top:12px;
+    }
+    .info-tile {
+      background:rgba(20,33,59,0.65); border:1px solid rgba(75,85,99,0.35);
+      border-radius:10px; padding:10px 12px;
+    }
+    .info-tile .label { font-size:10.5px; color:#94a3b8; font-weight:700; }
+    .info-tile .value { font-size:18px; font-weight:900; color:var(--gold); margin-top:2px; line-height:1.1; }
+    .info-tile .sub { font-size:10.5px; color:#cbd5e1; margin-top:2px; }
+
+    /* 🆕 참여도/발화 바 */
+    .ratio-bar {
+      margin-top:12px; padding:10px 12px; background:rgba(20,33,59,0.65);
+      border:1px solid rgba(75,85,99,0.35); border-radius:10px;
+    }
+    .ratio-bar h3 { margin:0 0 8px 0; font-size:11.5px; color:#a3b3d1; font-weight:700; display:flex; justify-content:space-between; }
+    .ratio-track {
+      height:22px; background:rgba(15,23,42,0.8); border-radius:99px; overflow:hidden; display:flex;
+    }
+    .ratio-track .teacher { background:linear-gradient(90deg,#3b82f6,#1d4ed8); color:#fff; font-size:10.5px; font-weight:800; display:flex; align-items:center; justify-content:center; transition:width .3s; }
+    .ratio-track .student { background:linear-gradient(90deg,#10b981,#059669); color:#fff; font-size:10.5px; font-weight:800; display:flex; align-items:center; justify-content:center; transition:width .3s; }
+    .ratio-legend { display:flex; justify-content:space-between; font-size:10.5px; color:#a3b3d1; margin-top:5px; }
+
+    /* 🆕 액션 버튼 행 */
+    .action-row {
+      display:flex; gap:6px; flex-wrap:wrap; margin-top:12px;
+    }
+    .action-row .btn { font-size:11.5px; padding:7px 11px; }
+
+    /* 사이드 패널 */
+    .side-tabs { display:flex; gap:3px; margin-bottom:8px; flex-wrap:wrap; }
+    .side-tab {
+      flex:1; min-width:60px; padding:6px 8px; background:rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.10); border-radius:6px;
+      cursor:pointer; font-size:11px; font-weight:700; color:var(--text2);
+      font-family:inherit;
+    }
+    .side-tab.active { background:linear-gradient(135deg,#8b5cf6,#7c3aed); color:#fff; border-color:transparent; }
+    .side-content { max-height:520px; overflow-y:auto; }
+
+    .chat-msg, .alert-msg {
+      padding:7px 10px; margin-bottom:5px; border-radius:7px;
+      background:rgba(15,23,42,0.6); font-size:12px; line-height:1.45;
+    }
+    .chat-msg .name { color:var(--gold); font-weight:800; font-size:10.5px; }
+    .chat-msg .name.teacher { color:#86efac; }
+    .chat-msg .time { float:right; font-size:9.5px; color:#64748b; }
+    .chat-msg .body { color:#e6ecff; margin-top:2px; word-break:break-word; }
+
+    /* 🆕 학생 카드 (ClassIn 스타일) */
+    .member-card {
+      padding:10px; margin-bottom:6px; border-radius:9px;
+      background:rgba(15,23,42,0.6); border:1px solid rgba(75,85,99,0.20);
+    }
+    .member-row { display:flex; align-items:center; gap:8px; }
+    .member-row .avatar {
+      width:34px; height:34px; border-radius:50%;
+      background:linear-gradient(135deg, var(--mc1,#8b5cf6), var(--mc2,#7c3aed));
+      display:flex; align-items:center; justify-content:center;
+      color:#fff; font-weight:800; font-size:13px; flex-shrink:0;
+    }
+    .member-card.teacher .avatar { --mc1:#10b981; --mc2:#059669; }
+    .member-card.student .avatar { --mc1:#3b82f6; --mc2:#1d4ed8; }
+    .member-info { flex:1; min-width:0; }
+    .member-info .name { color:#fff; font-weight:700; font-size:12px; }
+    .member-info .role { color:#94a3b8; font-size:10px; }
+    .live-dot { width:7px; height:7px; border-radius:50%; background:#10b981; box-shadow:0 0 6px #10b981; flex-shrink:0; }
+    .member-stats {
+      display:flex; gap:8px; margin-top:6px; font-size:10px; color:#94a3b8; flex-wrap:wrap;
+    }
+    .member-stats span { background:rgba(75,85,99,0.30); padding:2px 7px; border-radius:99px; }
+    .member-quick {
+      display:flex; gap:4px; margin-top:6px;
+    }
+    .member-quick button {
+      flex:1; padding:4px 6px; background:rgba(75,85,99,0.30); color:#cbd5e1;
+      border:1px solid rgba(75,85,99,0.40); border-radius:5px; font-size:10px; cursor:pointer;
+    }
+    .member-quick button:hover { background:rgba(139,92,246,0.30); color:#fff; }
+
+    /* 귓속말 박스 */
+    .whisper-box {
+      margin-top:12px; padding:11px; background:rgba(245,158,11,0.10);
+      border:1px solid rgba(245,158,11,0.30); border-radius:10px;
+    }
+    .whisper-box h3 { margin:0 0 6px 0; font-size:11.5px; color:#fde68a; font-weight:800; }
+    .whisper-box textarea {
+      width:100%; min-height:48px; padding:7px 9px;
+      background:#142950; color:#f9fafb; border:1px solid rgba(245,158,11,0.30);
+      border-radius:6px; font-size:11.5px; font-family:inherit; resize:vertical;
+    }
+    .whisper-box .row { display:flex; gap:5px; margin-top:5px; }
+    .whisper-box .row select { padding:6px; background:#142950; color:#f9fafb; border:1px solid rgba(245,158,11,0.30); border-radius:6px; font-size:11px; }
+    .whisper-box button {
+      flex:1; padding:7px; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff;
+      border:none; border-radius:6px; font-weight:800; cursor:pointer; font-size:11.5px;
+    }
+
+    /* 🆕 빠른 강사 평가 */
+    .quick-rate {
+      margin-top:12px; padding:11px; background:rgba(59,130,246,0.08);
+      border:1px solid rgba(59,130,246,0.25); border-radius:10px;
+    }
+    .quick-rate h3 { margin:0 0 8px 0; font-size:11.5px; color:#93c5fd; font-weight:800; }
+    .stars-row { display:flex; gap:4px; }
+    .star {
+      width:30px; height:30px; background:rgba(75,85,99,0.30); color:#94a3b8;
+      border:none; border-radius:7px; font-size:16px; cursor:pointer; transition:all .15s;
+    }
+    .star.active, .star:hover { background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a1a; transform:scale(1.05); }
+    .quick-rate textarea {
+      width:100%; min-height:42px; margin-top:6px; padding:6px 9px;
+      background:#142950; color:#f9fafb; border:1px solid rgba(59,130,246,0.30);
+      border-radius:5px; font-size:11px; font-family:inherit; resize:vertical;
+    }
+    .quick-rate button {
+      width:100%; margin-top:5px; padding:6px;
+      background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:#fff;
+      border:none; border-radius:5px; font-weight:800; cursor:pointer; font-size:11px;
+    }
+
+    /* 🆕 참관 노트 (개인 메모) */
+    .note-box {
+      margin-top:12px; padding:11px; background:rgba(16,185,129,0.08);
+      border:1px solid rgba(16,185,129,0.25); border-radius:10px;
+    }
+    .note-box h3 { margin:0 0 6px 0; font-size:11.5px; color:#86efac; font-weight:800; }
+    .note-box textarea {
+      width:100%; min-height:60px; padding:7px 9px;
+      background:#142950; color:#f9fafb; border:1px solid rgba(16,185,129,0.25);
+      border-radius:5px; font-size:11px; font-family:inherit; resize:vertical;
+    }
+    .note-box small { color:#94a3b8; font-size:10px; }
+
+    .alert-banner {
+      position:fixed; top:70px; right:18px; z-index:99999;
+      background:linear-gradient(135deg, rgba(239,68,68,0.95), rgba(185,28,28,0.95));
+      color:#fff; padding:11px 16px; border-radius:9px;
+      font-weight:700; font-size:12.5px;
+      box-shadow:0 12px 32px rgba(239,68,68,0.4);
+      animation:alertSlide .3s ease-out; display:none; max-width:320px;
+    }
+    .alert-banner.show { display:block; }
+    @keyframes alertSlide { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:none; } }
+
+    @media (max-width:600px) {
+      .header { padding:10px 12px; gap:8px; }
+      .header h1 { font-size:14px; }
+      .ghost-badge { font-size:9.5px; padding:3px 8px; }
+      .header-info { font-size:11px; }
+      .btn { font-size:11px; padding:6px 10px; }
+    }
+  </style>
+  <script src="/js/mango-i18n.js" defer></script>
+</head>
+<body>
+  <!-- 🎯 우측 상단 컨트롤 바 — 모두 한 줄, 겹침 없음 -->
+  <div class="header">
+    <div class="header-title">
+      <h1>👁 <span data-ko="라이브 참관" data-en="Live Observation">라이브 참관</span></h1>
+      <span class="ghost-badge">GHOST</span>
+    </div>
+    <div class="header-info">
+      <div><b id="ghd-room">—</b> · <span id="ghd-obs-id">ID: —</span></div>
+      <div style="font-size:10.5px;margin-top:1px"><span data-ko="📡 다른 참가자에게 알림 X" data-en="📡 Silent observation">📡 다른 참가자에게 알림 X</span></div>
+    </div>
+    <div class="header-actions">
+      <a class="btn-home" href="/admin.html"><span>🏠</span> <span data-ko="관리자" data-en="Admin">관리자</span></a>
+      <button class="btn-lang" onclick="window.toggleLang && window.toggleLang()">🌐 <span class="lang-label-sync">EN</span></button>
+      <button class="btn btn-ghost" onclick="ghdRefresh()">🔄 <span data-ko="새로고침" data-en="Refresh">새로고침</span></button>
+      <button class="btn btn-gold" onclick="ghdAiSummary()">🤖 <span data-ko="AI 요약" data-en="AI Summary">AI 요약</span></button>
+      <button class="btn btn-emergency" onclick="ghdEmergency()" title="긴급 강제 종료">🚨 <span data-ko="긴급" data-en="Emergency">긴급</span></button>
+      <button class="btn btn-end" onclick="ghdEndObservation()">⏹ <span data-ko="참관 종료" data-en="End">참관 종료</span></button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <!-- 좌측: 비디오 + KPI + 발화비율 + 액션 -->
+    <div class="panel">
+      <h2>🎬 <span data-ko="강의실 실시간 화면" data-en="Live Classroom">강의실 실시간 화면</span></h2>
+      <div class="video-area" id="ghd-video-area">
+        <span class="ghost-overlay">LIVE OBSERVING</span>
+        <div class="video-status">
+          <div class="big">📡</div>
+          <div data-ko="라이브 영상 스트림 연결 중…" data-en="Connecting to live stream…">라이브 영상 스트림 연결 중…</div>
+          <div style="font-size:11px;color:#fcd34d;margin-top:6px">⚠ 실제 영상은 GM-4 단계에서. 현재는 메타데이터·채팅·참가자만 실시간 표시.</div>
+        </div>
+      </div>
+
+      <!-- 🆕 KPI 그리드 (참여도 + 진도 추가) -->
+      <div class="info-grid">
+        <div class="info-tile">
+          <div class="label">📍 <span data-ko="상태" data-en="Status">상태</span></div>
+          <div class="value" id="ghd-status">—</div>
+          <div class="sub" id="ghd-status-sub">—</div>
+        </div>
+        <div class="info-tile">
+          <div class="label">👥 <span data-ko="참가자" data-en="Members">참가자</span></div>
+          <div class="value" id="ghd-participants">0</div>
+          <div class="sub" data-ko="명 접속" data-en="online">명 접속</div>
+        </div>
+        <div class="info-tile">
+          <div class="label">💬 <span data-ko="채팅" data-en="Messages">채팅</span></div>
+          <div class="value" id="ghd-chat-count">0</div>
+          <div class="sub" data-ko="개" data-en="msgs">개</div>
+        </div>
+        <div class="info-tile">
+          <div class="label">⏱ <span data-ko="진행" data-en="Duration">진행</span></div>
+          <div class="value" id="ghd-duration">0:00</div>
+          <div class="sub" data-ko="참관 시간" data-en="elapsed">참관 시간</div>
+        </div>
+        <!-- 🆕 참여도 점수 (Zoom 스타일) -->
+        <div class="info-tile">
+          <div class="label">🔥 <span data-ko="참여도" data-en="Engagement">참여도</span></div>
+          <div class="value" id="ghd-engagement" style="color:#86efac">—</div>
+          <div class="sub" data-ko="실시간 점수" data-en="live score">실시간 점수</div>
+        </div>
+        <!-- 🆕 알림 카운터 -->
+        <div class="info-tile">
+          <div class="label">🚨 <span data-ko="활성 알림" data-en="Alerts">활성 알림</span></div>
+          <div class="value" id="ghd-alert-count" style="color:#fca5a5">0</div>
+          <div class="sub" data-ko="미확인" data-en="unread">미확인</div>
+        </div>
+      </div>
+
+      <!-- 🆕 발화 비율 (Google Meet 스타일) -->
+      <div class="ratio-bar">
+        <h3>
+          <span>🎙 <span data-ko="발화 비율" data-en="Talk Ratio">발화 비율</span></span>
+          <span style="color:#94a3b8" data-ko="이상적: 학생 60%+" data-en="Ideal: Student 60%+">이상적: 학생 60%+</span>
+        </h3>
+        <div class="ratio-track">
+          <div class="teacher" id="ghd-ratio-teacher" style="width:50%">강사 50%</div>
+          <div class="student" id="ghd-ratio-student" style="width:50%">학생 50%</div>
+        </div>
+        <div class="ratio-legend">
+          <span>👨‍🏫 <span id="ghd-ratio-teacher-msg">0 msg</span></span>
+          <span><span id="ghd-ratio-student-msg">0 msg</span> 👨‍🎓</span>
+        </div>
+      </div>
+
+      <!-- 🆕 액션 행 -->
+      <div class="action-row">
+        <button class="btn btn-primary" onclick="ghdOpenEval()">📝 <span data-ko="강사 평가서 작성" data-en="Write Evaluation">강사 평가서 작성</span></button>
+        <button class="btn btn-ghost" onclick="ghdClipExtract()">🎬 <span data-ko="명장면 5분 클립" data-en="5-min Highlight">명장면 5분 클립</span></button>
+        <button class="btn btn-ghost" onclick="ghdShowAttendance()">📊 <span data-ko="전체 학생 데이터" data-en="All Student Data">전체 학생 데이터</span></button>
+      </div>
+
+      <!-- 강사 귓속말 -->
+      <div class="whisper-box">
+        <h3>📢 <span data-ko="강사에게 귓속말 (학생 못 받음)" data-en="Whisper to Teacher (Students cannot see)">강사에게 귓속말 (학생 못 받음)</span></h3>
+        <textarea id="ghd-whisper-text" placeholder="예: 학생이 어려워해요. 천천히 가세요."></textarea>
+        <div class="row">
+          <select id="ghd-whisper-urgency">
+            <option value="normal">일반</option>
+            <option value="high">🔥 중요</option>
+            <option value="critical">🚨 긴급</option>
+          </select>
+          <button onclick="ghdSendWhisper()">📢 <span data-ko="강사에게 전송" data-en="Send to Teacher">강사에게 전송</span></button>
+        </div>
+      </div>
+
+      <!-- 🆕 빠른 강사 평가 (VIPKid 스타일) -->
+      <div class="quick-rate">
+        <h3>⭐ <span data-ko="빠른 강사 평가" data-en="Quick Teacher Rating">빠른 강사 평가</span></h3>
+        <div class="stars-row" id="ghd-stars">
+          <button class="star" data-val="1" onclick="ghdRate(1)">1</button>
+          <button class="star" data-val="2" onclick="ghdRate(2)">2</button>
+          <button class="star" data-val="3" onclick="ghdRate(3)">3</button>
+          <button class="star" data-val="4" onclick="ghdRate(4)">4</button>
+          <button class="star" data-val="5" onclick="ghdRate(5)">5</button>
+        </div>
+        <textarea id="ghd-rate-comment" placeholder="간단한 메모 (선택)"></textarea>
+        <button onclick="ghdSaveRate()">💾 <span data-ko="평가 저장" data-en="Save Rating">평가 저장</span></button>
+      </div>
+
+      <!-- 🆕 참관 노트 (개인 메모) -->
+      <div class="note-box">
+        <h3>📝 <span data-ko="참관 노트 (개인 메모, 감사 로그에 저장)" data-en="Observation Notes">참관 노트 (개인 메모, 감사 로그에 저장)</span></h3>
+        <textarea id="ghd-note" placeholder="이 수업을 관찰하면서 발견한 점, 강사 피드백 등…"></textarea>
+        <small data-ko="💾 참관 종료 시 자동 저장" data-en="💾 Auto-saved when observation ends">💾 참관 종료 시 자동 저장</small>
+      </div>
+    </div>
+
+    <!-- 우측: 채팅/참가자/알림 탭 -->
+    <div class="panel">
+      <div class="side-tabs">
+        <button class="side-tab active" data-tab="chat" onclick="ghdSetTab('chat')">💬 <span data-ko="채팅" data-en="Chat">채팅</span></button>
+        <button class="side-tab" data-tab="members" onclick="ghdSetTab('members')">👥 <span data-ko="학생" data-en="Students">학생</span></button>
+        <button class="side-tab" data-tab="alerts" onclick="ghdSetTab('alerts')">🚨 <span data-ko="알림" data-en="Alerts">알림</span></button>
+      </div>
+      <div class="side-content">
+        <div id="ghd-chat"></div>
+        <div id="ghd-members" style="display:none"></div>
+        <div id="ghd-alerts" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert-banner" id="ghd-alert-banner"></div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const roomId = params.get('room_id') || '';
+    const obsId = parseInt(params.get('obs_id') || '0', 10);
+    const adminUid = params.get('admin_uid') || 'admin';
+    const startedAt = Date.now();
+    let _teacherUid = '';
+
+    document.getElementById('ghd-room').textContent = roomId || '(강의실 ID 없음)';
+    document.getElementById('ghd-obs-id').textContent = 'ID: ' + (obsId || '—');
+
+    function fmt(t) { return new Date(t).toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit', second:'2-digit' }); }
+    function esc(s) { return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    let _allChat = [];
+    async function loadChat() {
+      try {
+        const r = await fetch('/api/admin/chat-messages?room_id=' + encodeURIComponent(roomId));
+        const d = await r.json();
+        if (!d.ok) return;
+        _allChat = d.items || [];
+        const wrap = document.getElementById('ghd-chat');
+        document.getElementById('ghd-chat-count').textContent = _allChat.length;
+        wrap.innerHTML = _allChat.slice(-50).map(m => {
+          const cls = (m.sender_role === 'teacher' || m.sender_role === 'admin') ? 'teacher' : '';
+          return `<div class="chat-msg"><span class="name ${cls}">${esc(m.sender_name || m.sender_uid || '-')}</span><span class="time">${fmt(m.sent_at)}</span><div class="body">${esc(m.message)}</div></div>`;
+        }).join('') || '<div style="color:#94a3b8;padding:18px;text-align:center;font-size:11.5px">채팅 없음</div>';
+        wrap.scrollTop = wrap.scrollHeight;
+        // 발화 비율 계산
+        const teacherMsg = _allChat.filter(m => m.sender_role === 'teacher').length;
+        const studentMsg = _allChat.filter(m => m.sender_role === 'student' || (!m.sender_role || m.sender_role === '')).length;
+        const total = Math.max(teacherMsg + studentMsg, 1);
+        const tPct = Math.round((teacherMsg / total) * 100);
+        const sPct = 100 - tPct;
+        document.getElementById('ghd-ratio-teacher').style.width = tPct + '%';
+        document.getElementById('ghd-ratio-teacher').textContent = '강사 ' + tPct + '%';
+        document.getElementById('ghd-ratio-student').style.width = sPct + '%';
+        document.getElementById('ghd-ratio-student').textContent = '학생 ' + sPct + '%';
+        document.getElementById('ghd-ratio-teacher-msg').textContent = teacherMsg + ' msg';
+        document.getElementById('ghd-ratio-student-msg').textContent = studentMsg + ' msg';
+        // 참여도 점수 (학생 메시지 5 + 참가자 활동도)
+        const minsElapsed = Math.max((Date.now() - startedAt) / 60000, 0.5);
+        const engagementScore = Math.min(100, Math.round((studentMsg / minsElapsed) * 15 + (sPct >= 50 ? 30 : sPct - 20)));
+        document.getElementById('ghd-engagement').textContent = engagementScore;
+        const eng = document.getElementById('ghd-engagement');
+        eng.style.color = engagementScore >= 70 ? '#86efac' : engagementScore >= 40 ? '#fcd34d' : '#fca5a5';
+      } catch(e){}
+    }
+
+    async function loadMembers() {
+      try {
+        const r = await fetch('/api/admin/room-attendance?room_id=' + encodeURIComponent(roomId));
+        const d = await r.json();
+        const wrap = document.getElementById('ghd-members');
+        const items = (d.items || []).filter(m => !m.left_at);
+        document.getElementById('ghd-participants').textContent = items.length;
+        // 강사 자동 추출 (귓속말용)
+        const teacher = items.find(m => m.role === 'teacher');
+        if (teacher) _teacherUid = teacher.user_id || teacher.username || '';
+        wrap.innerHTML = items.map(m => {
+          const cls = m.role === 'teacher' ? 'teacher' : 'student';
+          const initial = (m.username || m.user_id || '?').charAt(0).toUpperCase();
+          const since = m.joined_at ? Math.round((Date.now() - m.joined_at) / 60000) + '분' : '-';
+          return `<div class="member-card ${cls}">
+            <div class="member-row">
+              <div class="avatar">${esc(initial)}</div>
+              <div class="member-info"><div class="name">${esc(m.username || m.user_id)}</div><div class="role">${esc(m.role || 'student')}</div></div>
+              <div class="live-dot" title="접속중"></div>
+            </div>
+            <div class="member-stats">
+              <span>⏱ ${since}</span>
+              <span>💬 ${_allChat.filter(c => c.sender_uid === m.user_id).length}</span>
+            </div>
+            <div class="member-quick">
+              <button onclick="ghdMemberDetail('${esc(m.user_id)}')">📊 상세</button>
+              ${m.role === 'teacher' ? `<button onclick="ghdFocusWhisper('${esc(m.user_id)}')">📢 귓속말</button>` : `<button onclick="ghdKickStudent('${esc(m.user_id)}')" style="background:rgba(239,68,68,0.20);color:#fca5a5;border-color:rgba(239,68,68,0.35)">🚫 퇴장</button>`}
+            </div>
+          </div>`;
+        }).join('') || '<div style="color:#94a3b8;padding:18px;text-align:center;font-size:11.5px">접속 중인 참가자 없음</div>';
+        document.getElementById('ghd-status').textContent = items.length > 0 ? '🟢 진행' : '⚪ 대기';
+        document.getElementById('ghd-status-sub').textContent = items.length > 0 ? '실시간 라이브' : '아직 접속 없음';
+      } catch(e){}
+    }
+
+    async function loadAlerts() {
+      try {
+        const r = await fetch('/api/admin/alerts?only_unack=1');
+        const d = await r.json();
+        const wrap = document.getElementById('ghd-alerts');
+        const items = (d.items || []).filter(a => a.room_id === roomId);
+        document.getElementById('ghd-alert-count').textContent = items.length;
+        wrap.innerHTML = items.map(a => {
+          const sev = a.severity === 'high' ? '#fca5a5' : a.severity === 'medium' ? '#fcd34d' : '#94a3b8';
+          return `<div class="chat-msg" style="border-left:3px solid ${sev}"><span class="name" style="color:${sev}">${esc(a.alert_type)}</span><span class="time">${fmt(a.triggered_at)}</span><div class="body">${esc((a.detail||'').slice(0,200))}</div></div>`;
+        }).join('') || '<div style="color:#94a3b8;padding:18px;text-align:center;font-size:11.5px">활성 알림 없음</div>';
+      } catch(e){}
+    }
+
+    function updateDuration() {
+      const sec = Math.floor((Date.now() - startedAt) / 1000);
+      const m = Math.floor(sec / 60), s = sec % 60;
+      document.getElementById('ghd-duration').textContent = m + ':' + String(s).padStart(2, '0');
+    }
+
+    window.ghdSetTab = function(tab) {
+      document.querySelectorAll('.side-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+      ['chat','members','alerts'].forEach(t => {
+        document.getElementById('ghd-' + t).style.display = (t === tab) ? '' : 'none';
+      });
+    };
+
+    window.ghdRefresh = function() { loadChat(); loadMembers(); loadAlerts(); };
+
+    window.ghdEndObservation = async function() {
+      if (!confirm('참관을 종료하시겠습니까?\n(참관 노트는 자동 저장됩니다)')) return;
+      const note = document.getElementById('ghd-note').value.trim();
+      if (obsId && adminUid) {
+        try {
+          await fetch('/api/admin/ghost/end', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ admin_uid: adminUid, observation_id: obsId, note }) });
+        } catch(e){}
+      }
+      alert('참관 종료 — 모든 기록은 감사 로그에 저장되었습니다.');
+      window.close();
+    };
+
+    window.ghdEmergency = async function() {
+      if (!confirm('🚨 긴급 강제 종료\n\n부적절한 상황이 감지되었습니까?\n이 수업을 즉시 중단하시겠습니까? (모든 참가자 강제 퇴장)')) return;
+      const r = confirm('정말로 이 강의실을 종료하시겠습니까?\n이 액션은 감사 로그에 기록됩니다.');
+      if (!r) return;
+      try {
+        // 모든 참가자 kick
+        await fetch('/api/rooms/' + encodeURIComponent(roomId) + '/kick', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: 'ALL', emergency: true, by: adminUid }) });
+        showBanner('🚨 긴급 종료 명령 발송 완료');
+      } catch(e){ alert('종료 실패'); }
+    };
+
+    window.ghdSendWhisper = async function() {
+      const text = document.getElementById('ghd-whisper-text').value.trim();
+      const urgency = document.getElementById('ghd-whisper-urgency').value;
+      if (!text) { alert('메시지를 입력하세요'); return; }
+      const tuid = _teacherUid || prompt('강사 UID 를 입력하세요:');
+      if (!tuid) return;
+      try {
+        const r = await fetch('/api/admin/whisper/send', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ admin_uid: adminUid, room_id: roomId, teacher_uid: tuid, message_type: 'text', payload: text, urgency }) });
+        const d = await r.json();
+        if (d.ok) { document.getElementById('ghd-whisper-text').value = ''; showBanner('📢 강사에게 귓속말 전송 (' + urgency + ')'); }
+      } catch(e){ alert('전송 실패'); }
+    };
+
+    window.ghdFocusWhisper = function(uid) {
+      _teacherUid = uid;
+      document.getElementById('ghd-whisper-text').focus();
+      showBanner('🎯 ' + uid + ' 강사에게 귓속말 준비');
+    };
+
+    let _curRating = 0;
+    window.ghdRate = function(val) {
+      _curRating = val;
+      document.querySelectorAll('.star').forEach(s => s.classList.toggle('active', parseInt(s.dataset.val) <= val));
+    };
+    window.ghdSaveRate = async function() {
+      if (!_curRating) { alert('별점을 선택하세요'); return; }
+      const comment = document.getElementById('ghd-rate-comment').value.trim();
+      const tuid = _teacherUid || prompt('강사 UID:');
+      if (!tuid) return;
+      try {
+        // 평가서 시스템과 연동
+        await fetch('/api/admin/whisper/send', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ admin_uid: adminUid, room_id: roomId, teacher_uid: tuid, message_type: 'hint', payload: '[관리자 즉시 평가] 별점 ' + _curRating + '/5\n' + comment, urgency: 'normal' }) });
+        showBanner('⭐ 강사 평가 저장 완료 (' + _curRating + '/5)');
+        _curRating = 0;
+        document.querySelectorAll('.star').forEach(s => s.classList.remove('active'));
+        document.getElementById('ghd-rate-comment').value = '';
+      } catch(e){ alert('저장 실패'); }
+    };
+
+    window.ghdMemberDetail = function(uid) {
+      window.open('/admin.html#student-' + encodeURIComponent(uid), '_blank');
+    };
+    window.ghdKickStudent = async function(uid) {
+      if (!confirm(uid + ' 학생을 강제 퇴장시키겠습니까?')) return;
+      try {
+        await fetch('/api/rooms/' + encodeURIComponent(roomId) + '/kick', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: uid, by: adminUid }) });
+        showBanner('🚫 ' + uid + ' 강제 퇴장 처리');
+        loadMembers();
+      } catch(e){ alert('실패'); }
+    };
+
+    window.ghdAiSummary = async function() {
+      showBanner('🤖 AI 분석 시작… 잠시 기다려주세요');
+      try {
+        // 채팅 내용을 transcript 로 사용해 AI 학습 리포트 생성
+        const transcript = _allChat.map(m => (m.sender_name||m.sender_uid) + ': ' + m.message).join('\n');
+        const r = await fetch('/api/eval/ai-lesson-report', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ student_uid: 'observation_' + obsId, student_name: '참관 ' + obsId, transcript, lesson_title: roomId, auto_save: false }) });
+        const d = await r.json();
+        if (d.ok) {
+          const win = window.open('', '_blank', 'width=720,height=600');
+          win.document.write('<!doctype html><html><body style="font-family:sans-serif;padding:20px;background:#0a1530;color:#e6ecff;line-height:1.6"><h1>🤖 AI 수업 요약</h1><h2>점수: ' + d.overall_score + '/100</h2><p>' + (d.summary_ko || '') + '</p><h3>강점</h3><ul>' + (d.strengths||[]).map(s=>'<li>'+s+'</li>').join('') + '</ul><h3>보완점</h3><ul>' + (d.weaknesses||[]).map(s=>'<li>'+s+'</li>').join('') + '</ul></body></html>');
+        }
+      } catch(e){ alert('AI 분석 실패'); }
+    };
+
+    window.ghdOpenEval = function() {
+      const tuid = _teacherUid || prompt('강사 UID:');
+      if (tuid) window.open('/admin.html?eval=' + encodeURIComponent(tuid) + '&room=' + encodeURIComponent(roomId), '_blank');
+    };
+    window.ghdClipExtract = function() {
+      showBanner('🎬 명장면 추출은 R2 녹화 파일이 있어야 작동합니다 (GM-4 단계)');
+    };
+    window.ghdShowAttendance = function() {
+      window.open('/admin.html#card-students-mgmt', '_blank');
+    };
+
+    function showBanner(msg) {
+      const b = document.getElementById('ghd-alert-banner');
+      b.textContent = msg;
+      b.classList.add('show');
+      setTimeout(() => b.classList.remove('show'), 3500);
+    }
+
+    ghdRefresh();
+    setInterval(ghdRefresh, 3000);
+    setInterval(updateDuration, 1000);
+  </script>
+</body>
+</html>
