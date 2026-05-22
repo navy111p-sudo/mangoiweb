@@ -20240,6 +20240,100 @@ document.addEventListener('click', (e) => {
   }
 </style>
 
+<!-- Phase 50 (2026-05-22) — additional user requests
+     1. Remove dictionary FAB completely
+     2. Mobile: pack voice-diary / login / points / lang chips into one tidy row
+-->
+<style id="ph50-overrides">
+  #mangoi-dict-fab, #mangoi-dict-modal { display: none !important; }
+
+  @media (max-width: 720px) {
+    #mini-toeic-chip, #battle-chip, #referral-chip, #sns-card-chip { display: none !important; }
+  }
+
+  #ph50-chip-row {
+    position: fixed;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 10000;
+    display: flex;
+    flex-direction: row;
+    gap: 5px;
+    align-items: center;
+    pointer-events: none;
+  }
+  #ph50-chip-row > * {
+    position: static !important;
+    top: auto !important;
+    right: auto !important;
+    left: auto !important;
+    bottom: auto !important;
+    margin: 0 !important;
+    pointer-events: auto;
+    padding: 4px 9px !important;
+    font-size: 0.74rem !important;
+    border-radius: 999px !important;
+    line-height: 1 !important;
+    gap: 3px !important;
+    max-width: 95px;
+    height: auto !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  @media (max-width: 480px) {
+    #ph50-chip-row { gap: 3px; top: 0.4rem; right: 0.4rem; }
+    #ph50-chip-row > * {
+      padding: 3px 7px !important;
+      font-size: 0.66rem !important;
+      max-width: 78px;
+    }
+  }
+  @media (max-width: 380px) {
+    #ph50-chip-row > * {
+      padding: 2px 5px !important;
+      font-size: 0.6rem !important;
+      max-width: 66px;
+    }
+  }
+</style>
+
+<script>
+(function(){
+  'use strict';
+  function ph50Init() {
+    try {
+      var fab = document.getElementById('mangoi-dict-fab');
+      if (fab && fab.parentNode) fab.parentNode.removeChild(fab);
+      var dictModal = document.getElementById('mangoi-dict-modal');
+      if (dictModal && dictModal.parentNode) dictModal.parentNode.removeChild(dictModal);
+      window.mangoiOpenDict = function(){};
+    } catch(e){}
+
+    var row = document.getElementById('ph50-chip-row');
+    if (!row) {
+      row = document.createElement('div');
+      row.id = 'ph50-chip-row';
+      document.body.appendChild(row);
+    }
+    var ids = ['voice-diary-chip', 'login-btn', 'points-chip', 'lang-toggle'];
+    ids.forEach(function(id){
+      var el = document.getElementById(id);
+      if (el && el.parentNode !== row) row.appendChild(el);
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ph50Init);
+  } else {
+    ph50Init();
+  }
+  setTimeout(ph50Init, 1000);
+  setTimeout(ph50Init, 3000);
+  setTimeout(ph50Init, 6000);
+})();
+</script>
+
+
 <a class="ph49-kakao-fab" id="ph49-kakao-fab"
    href="https://pf.kakao.com/_mangoi" target="_blank" rel="noopener"
    onclick="try{if(window.openKakao){window.openKakao();return false;}}catch(e){}"
