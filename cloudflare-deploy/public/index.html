@@ -20245,23 +20245,30 @@ document.addEventListener('click', (e) => {
      2. Mobile: pack voice-diary / login / points / lang chips into one tidy row
 -->
 <style id="ph50-overrides">
+  /* 단어 사전 완전 제거 */
   #mangoi-dict-fab, #mangoi-dict-modal { display: none !important; }
 
+  /* 음성일기 칩 완전 제거 (사용자 요청) */
+  #voice-diary-chip { display: none !important; }
+
+  /* 모바일에서 부수 칩들 숨김 — 한 줄 정리 위해 */
   @media (max-width: 720px) {
     #mini-toeic-chip, #battle-chip, #referral-chip, #sns-card-chip { display: none !important; }
   }
 
+  /* ─── 상단 칩 한 줄 컨테이너 ─── */
   #ph50-chip-row {
     position: fixed;
-    top: 0.5rem;
-    right: 0.5rem;
+    top: 0.55rem;
+    right: 0.55rem;
     z-index: 10000;
     display: flex;
     flex-direction: row;
-    gap: 5px;
+    gap: 6px;
     align-items: center;
     pointer-events: none;
   }
+  /* 컨테이너 안의 모든 chip: 절대 위치 제거 + 사이즈 균일 */
   #ph50-chip-row > * {
     position: static !important;
     top: auto !important;
@@ -20269,31 +20276,41 @@ document.addEventListener('click', (e) => {
     left: auto !important;
     bottom: auto !important;
     margin: 0 !important;
+    transform: none !important;
     pointer-events: auto;
-    padding: 4px 9px !important;
-    font-size: 0.74rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    padding: 5px 11px !important;
+    font-size: 0.78rem !important;
     border-radius: 999px !important;
-    line-height: 1 !important;
-    gap: 3px !important;
-    max-width: 95px;
+    line-height: 1.1 !important;
+    gap: 4px !important;
     height: auto !important;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    min-height: 0 !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
   }
-  @media (max-width: 480px) {
-    #ph50-chip-row { gap: 3px; top: 0.4rem; right: 0.4rem; }
+  /* 모바일 (≤720px) — 좀 더 작게 */
+  @media (max-width: 720px) {
+    #ph50-chip-row { gap: 5px; top: 0.5rem; right: 0.5rem; }
     #ph50-chip-row > * {
-      padding: 3px 7px !important;
-      font-size: 0.66rem !important;
-      max-width: 78px;
+      padding: 4px 9px !important;
+      font-size: 0.72rem !important;
     }
   }
-  @media (max-width: 380px) {
+  /* 좁은 모바일 (≤420px) */
+  @media (max-width: 420px) {
+    #ph50-chip-row { gap: 4px; top: 0.4rem; right: 0.4rem; }
     #ph50-chip-row > * {
-      padding: 2px 5px !important;
-      font-size: 0.6rem !important;
-      max-width: 66px;
+      padding: 3px 8px !important;
+      font-size: 0.68rem !important;
+    }
+  }
+  /* 매우 좁은 모바일 (≤360px) */
+  @media (max-width: 360px) {
+    #ph50-chip-row > * {
+      padding: 3px 6px !important;
+      font-size: 0.62rem !important;
     }
   }
 </style>
@@ -20301,35 +20318,76 @@ document.addEventListener('click', (e) => {
 <script>
 (function(){
   'use strict';
-  function ph50Init() {
-    try {
-      var fab = document.getElementById('mangoi-dict-fab');
-      if (fab && fab.parentNode) fab.parentNode.removeChild(fab);
-      var dictModal = document.getElementById('mangoi-dict-modal');
-      if (dictModal && dictModal.parentNode) dictModal.parentNode.removeChild(dictModal);
-      window.mangoiOpenDict = function(){};
-    } catch(e){}
+  // 음성일기 제외, 3개 칩만 한 줄에
+  var CHIP_IDS = ['login-btn', 'points-chip', 'lang-toggle'];
 
+  function ph50EnsureRow() {
     var row = document.getElementById('ph50-chip-row');
     if (!row) {
       row = document.createElement('div');
       row.id = 'ph50-chip-row';
       document.body.appendChild(row);
     }
-    var ids = ['voice-diary-chip', 'login-btn', 'points-chip', 'lang-toggle'];
-    ids.forEach(function(id){
+    return row;
+  }
+
+  function ph50MoveChips() {
+    try {
+      // 1) 단어 사전 / 음성일기 강제 제거
+      ['mangoi-dict-fab', 'mangoi-dict-modal', 'voice-diary-chip'].forEach(function(id){
+        var el = document.getElementById(id);
+        if (el && el.parentNode) {
+          if (id === 'voice-diary-chip') el.style.display = 'none';
+          else el.parentNode.removeChild(el);
+        }
+      });
+      window.mangoiOpenDict = function(){};
+
+      // 2) 3개 칩을 컨테이너로 이동
+      var row = ph50EnsureRow();
+      CHIP_IDS.forEach(function(id){
+        var el = document.getElementById(id);
+        if (el && el.parentNode !== row) {
+          row.appendChild(el);
+        }
+      });
+    } catch(e) { console.warn('[ph50]', e); }
+  }
+
+  // 초기 실행 + 동적 변경 감지
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ph50MoveChips);
+  } else {
+    ph50MoveChips();
+  }
+  [200, 800, 2000, 5000, 10000].forEach(function(d){ setTimeout(ph50MoveChips, d); });
+
+  // 칩이 동적으로 다시 absolute로 돌아가거나 새로 추가되면 즉시 재배치
+  if (typeof MutationObserver !== 'undefined') {
+    var mo = new MutationObserver(function(muts){
+      var needsMove = false;
+      muts.forEach(function(m){
+        if (m.type === 'childList') {
+          for (var i = 0; i < m.addedNodes.length; i++) {
+            var n = m.addedNodes[i];
+            if (n.nodeType === 1 && CHIP_IDS.indexOf(n.id) !== -1) { needsMove = true; break; }
+          }
+        } else if (m.type === 'attributes' && CHIP_IDS.indexOf(m.target.id) !== -1) {
+          // style 이 바뀌어서 위치가 absolute 로 돌아갔는지 체크
+          var row = document.getElementById('ph50-chip-row');
+          if (row && m.target.parentNode !== row) needsMove = true;
+        }
+      });
+      if (needsMove) ph50MoveChips();
+    });
+    // body 의 자식 변경만 관찰 (성능)
+    mo.observe(document.body, { childList: true, subtree: false });
+    // 각 chip 의 style 변경도 관찰
+    CHIP_IDS.forEach(function(id){
       var el = document.getElementById(id);
-      if (el && el.parentNode !== row) row.appendChild(el);
+      if (el) mo.observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
     });
   }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', ph50Init);
-  } else {
-    ph50Init();
-  }
-  setTimeout(ph50Init, 1000);
-  setTimeout(ph50Init, 3000);
-  setTimeout(ph50Init, 6000);
 })();
 </script>
 
