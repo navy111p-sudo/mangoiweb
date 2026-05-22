@@ -667,7 +667,21 @@ export default {
         path === '/api/supervisor/note' ||
         path === '/api/supervisor/notes/incoming' ||
         path === '/api/supervisor/note/ack' ||
-        path === '/api/supervisor/end') {
+        path === '/api/supervisor/end' ||
+        // Audit-added: chat admin cleanup/stats
+        path === '/api/admin/chat/cleanup' ||
+        path === '/api/admin/chat/stats' ||
+        // Audit-added: gift catalog + redeem + giftishow webhook
+        path === '/api/admin/gifts/seed-catalog' ||
+        path === '/api/gifts/catalog' ||
+        path === '/api/gifts/redeem' ||
+        path === '/api/gifts/redemptions' ||
+        path === '/api/gifts/webhook/giftishow' ||
+        // Audit-added: points balance + earn-by-rule
+        path === '/api/points/balance' ||
+        path === '/api/points/earn-by-rule' ||
+        // Audit-added: student recordings listing
+        path === '/api/student/recordings') {
       const res = await handleMangoApi(request, url, env);
       if (res) return res;
     }
