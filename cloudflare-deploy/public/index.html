@@ -20244,6 +20244,172 @@ document.addEventListener('click', (e) => {
      1. Remove dictionary FAB completely
      2. Mobile: pack voice-diary / login / points / lang chips into one tidy row
 -->
+<!-- Phase 51 (2026-05-22) — 3 additional fixes
+     1. Mobile: hide welcome greeting text
+     2. Mobile: shrink Kakao FAB
+     3. Auto-login: persist + restore + suppress repeat login prompts
+-->
+<style id="ph51-overrides">
+  /* ===== 1) 모바일 환영 메시지 숨김 ===== */
+  @media (max-width: 720px) {
+    /* 로비 환영 음성 토글 버튼 + 인사 안내 */
+    #lobby-welcome-toggle, #lobby-welcome-btn, .lobby-welcome-hint { display: none !important; }
+    /* 환영/안내 토스트 (로그인 직후 잠깐 뜨는 것) — 모바일에선 거슬려서 숨김 */
+    .lc-toast[style*="환영"], .welcome-toast { display: none !important; }
+    /* 마스코트 말풍선이 텍스트 가질 경우 */
+    .mascot-greeting, .mascot-bubble .greeting-text { display: none !important; }
+  }
+  /* 로비 환영 음성 자체 정지 — 모바일에서만 (사용자 거슬림) */
+  @media (max-width: 720px) {
+    #lobby-welcome-audio { display: none !important; }
+  }
+
+  /* ===== 2) 카톡 FAB 모바일 축소 ===== */
+  @media (max-width: 720px) {
+    .ph49-kakao-fab {
+      width: 40px !important;
+      height: 40px !important;
+      font-size: 16px !important;
+      bottom: 12px !important;
+      right: 12px !important;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+    }
+    .ph49-kakao-fab .ph49-kakao-label {
+      font-size: 10px !important;
+      right: 46px !important;
+      padding: 4px 8px !important;
+    }
+    body.vc-in-call .ph49-kakao-fab {
+      width: 32px !important;
+      height: 32px !important;
+      font-size: 14px !important;
+      bottom: 6px !important;
+      right: 6px !important;
+      opacity: 0.75 !important;
+    }
+  }
+  @media (max-width: 420px) {
+    .ph49-kakao-fab {
+      width: 36px !important;
+      height: 36px !important;
+      font-size: 14px !important;
+    }
+  }
+</style>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ━━━ 1) 환영 음성 자동 정지 (모바일) ━━━ */
+  function ph51StopWelcome(){
+    if (!window.matchMedia('(max-width: 720px)').matches) return;
+    try {
+      var aud = document.getElementById('lobby-welcome-audio');
+      if (aud) {
+        aud.muted = true;
+        aud.pause();
+        try { aud.currentTime = 0; } catch(_) {}
+      }
+      if (typeof window.lobbyStopWelcome === 'function') {
+        try { window.lobbyStopWelcome(); } catch(_) {}
+      }
+      // play 함수도 no-op 으로
+      if (typeof window.lobbyPlayWelcome === 'function') {
+        window.lobbyPlayWelcome = function(){};
+      }
+    } catch(e){}
+  }
+
+  /* ━━━ 3) 자동 로그인 강화 ━━━
+     로그인 정보를 localStorage 두 키(mangoi_logged_user, mango_user) 에 영속 저장.
+     페이지 로드 시 즉시 복원하여 헤더 갱신 + 모달 자동 표시 차단.
+     로그아웃 누르기 전까지 영원히 유지. */
+  function ph51RestoreLogin(){
+    try {
+      var raw = localStorage.getItem('mangoi_logged_user') ||
+                localStorage.getItem('mango_user');
+      if (!raw || raw === 'null') return;
+      var u = JSON.parse(raw);
+      if (!u || !(u.uid || u.id)) return;
+      // 두 키 동기화 — 어떤 가드 함수가 어느 키를 쓰든 인식하게
+      var norm = { uid: u.uid || u.id, name: u.name || u.uid, role: u.role || 'student' };
+      localStorage.setItem('mangoi_logged_user', JSON.stringify(norm));
+      localStorage.setItem('mango_user',         JSON.stringify(norm));
+      if (norm.uid) localStorage.setItem('mangoi_uid', norm.uid);
+      // 전역 노출
+      window.MANGO_USER = norm;
+      // UI 즉시 갱신
+      if (typeof window.updateLoginUI === 'function') {
+        try { window.updateLoginUI(); } catch(_) {}
+      }
+    } catch(e){}
+  }
+
+  /* 로그인 모달이 자동으로 뜨려고 할 때 — 이미 로그인된 상태면 무시 */
+  function ph51GuardLoginModal(){
+    try {
+      var orig = window.openLoginModal;
+      if (typeof orig !== 'function' || orig.__ph51Wrapped) return;
+      var wrapped = function(){
+        // 이미 로그인 상태면 모달 안 열기
+        var raw = localStorage.getItem('mangoi_logged_user') ||
+                  localStorage.getItem('mango_user');
+        if (raw && raw !== 'null') {
+          try {
+            var u = JSON.parse(raw);
+            if (u && (u.uid || u.id)) {
+              // 사용자가 직접 로그인 버튼 클릭한 경우 — user menu 토글
+              if (typeof window.toggleUserMenu === 'function') {
+                try { window.toggleUserMenu(); } catch(_) {}
+              }
+              return; // 모달 열지 않음
+            }
+          } catch(_){}
+        }
+        return orig.apply(this, arguments);
+      };
+      wrapped.__ph51Wrapped = true;
+      window.openLoginModal = wrapped;
+    } catch(e){}
+  }
+
+  /* setUser 가 호출되면 mango_user 키도 함께 저장 — 다른 코드가 어느 키를 보든 일관 */
+  function ph51HookSetUser(){
+    try {
+      var orig = window.setUser;
+      if (typeof orig !== 'function' || orig.__ph51Wrapped) return;
+      var wrapped = function(u){
+        if (u && (u.uid || u.id)) {
+          try {
+            localStorage.setItem('mangoi_logged_user', JSON.stringify(u));
+            localStorage.setItem('mango_user', JSON.stringify(u));
+            if (u.uid || u.id) localStorage.setItem('mangoi_uid', u.uid || u.id);
+          } catch(_){}
+        }
+        return orig.apply(this, arguments);
+      };
+      wrapped.__ph51Wrapped = true;
+      window.setUser = wrapped;
+    } catch(e){}
+  }
+
+  function ph51Init(){
+    ph51StopWelcome();
+    ph51RestoreLogin();
+    ph51GuardLoginModal();
+    ph51HookSetUser();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ph51Init);
+  } else {
+    ph51Init();
+  }
+  [200, 800, 2000, 5000].forEach(function(d){ setTimeout(ph51Init, d); });
+})();
+</script>
+
 <style id="ph50-overrides">
   /* 단어 사전 / 음성일기 완전 제거 */
   #mangoi-dict-fab, #mangoi-dict-modal { display: none !important; }
