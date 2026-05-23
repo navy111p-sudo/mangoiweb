@@ -20297,72 +20297,123 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- Phase 65 (2026-05-23) — 캘린더 본체 가시화 (파란 빈 박스 fix) -->
+<!-- Phase 65 v2 (2026-05-23) — 캘린더 본체 가시화 + 자동 스크롤 -->
 <style id="ph65-cal-visible">
-  /* 끌어당겨 모드일 때만 캘린더 강제 가시화 */
   @media (max-width: 900px) {
+    /* 모달 자체 전체 높이 */
+    .lc-modal.ph64-mode-drag {
+      height: 100vh !important;
+      max-height: 100vh !important;
+      display: flex !important;
+      flex-direction: column !important;
+    }
+    .lc-modal.ph64-mode-drag .lc-head {
+      flex: 0 0 auto !important;
+    }
+    .lc-modal.ph64-mode-drag .lc-body {
+      flex: 1 1 auto !important;
+      display: flex !important;
+      flex-direction: column !important;
+      padding: 4px !important;
+      gap: 4px !important;
+      overflow: hidden !important;
+    }
+    /* 변경 후 수업 박스 — 매우 작게 */
+    .lc-modal.ph64-mode-drag .lc-info {
+      flex: 0 0 auto !important;
+      max-height: 50px !important;
+      min-height: 0 !important;
+      font-size: 10px !important;
+      padding: 4px 8px !important;
+      line-height: 1.3 !important;
+    }
+    /* 캘린더 nav — 작게 */
+    .lc-modal.ph64-mode-drag .ph49-cal-nav {
+      flex: 0 0 auto !important;
+      padding: 4px 6px !important;
+    }
+    .lc-modal.ph64-mode-drag .ph49-cal-nav button {
+      padding: 5px 6px !important;
+      font-size: 10.5px !important;
+      min-width: 0 !important;
+    }
+    /* 캘린더 전체 — 남은 공간 모두 채움 */
     .lc-modal.ph64-mode-drag #cal-grid-wrap {
-      min-height: 360px !important;
-      max-height: 60vh !important;
+      flex: 1 1 auto !important;
+      min-height: 70vh !important;
+      max-height: none !important;
       display: flex !important;
       flex-direction: column !important;
       width: 100% !important;
       background: rgba(15,23,42,0.95) !important;
       border-radius: 8px;
       border: 1px solid rgba(251,191,36,0.4) !important;
-      margin: 8px;
       box-sizing: border-box;
       overflow: hidden !important;
     }
-    /* 캘린더 헤더 (요일/날짜) */
+    /* 헤더 (요일/날짜) */
     .lc-modal.ph64-mode-drag #cal-grid-wrap > div:first-child {
       flex: 0 0 auto !important;
-      min-height: 30px !important;
+      min-height: 36px !important;
+      max-height: 50px !important;
       display: flex !important;
       width: 100% !important;
       background: rgba(30,41,59,0.95);
     }
-    /* 캘린더 본문 (시간 × 요일 그리드) — 스크롤 강제 */
+    /* 본문 (시간 × 요일) — 가능한 큰 영역 + 스크롤 */
     .lc-modal.ph64-mode-drag #cal-grid-wrap > div:nth-child(2) {
       flex: 1 1 auto !important;
-      min-height: 320px !important;
+      min-height: 60vh !important;
+      max-height: none !important;
       width: 100% !important;
       overflow: auto !important;
       -webkit-overflow-scrolling: touch;
       display: block !important;
       position: relative !important;
     }
-    /* 본문 안의 grid-body — 강제 표시 */
     .lc-modal.ph64-mode-drag #cal-grid-body {
       display: block !important;
-      min-height: 300px !important;
-      min-width: 100% !important;
+      min-height: 100% !important;
+      width: 100% !important;
       visibility: visible !important;
       opacity: 1 !important;
     }
-    /* 모든 자식 visible */
-    .lc-modal.ph64-mode-drag #cal-grid-body > *,
-    .lc-modal.ph64-mode-drag #cal-grid-wrap > div > * {
+    /* 모든 grid-body 자식 visible */
+    .lc-modal.ph64-mode-drag #cal-grid-body * {
       visibility: visible !important;
       opacity: 1 !important;
-    }
-    /* 변경 후 수업 상단 박스 축소 (캘린더 공간 확보) */
-    .lc-modal.ph64-mode-drag .lc-info {
-      max-height: 64px !important;
-      min-height: 0 !important;
-      font-size: 11px !important;
-      padding: 6px 10px !important;
-    }
-    /* 모달 body 가 column 으로 공간 분배 */
-    .lc-modal.ph64-mode-drag .lc-body {
-      display: flex !important;
-      flex-direction: column !important;
-      padding: 4px !important;
-      gap: 4px !important;
-      overflow-y: auto !important;
     }
   }
 </style>
+
+<script>
+(function(){
+  'use strict';
+  // 끌어당겨 모드 진입 시 캘린더 자동 스크롤 — 변경 시간 위치로
+  function ph65AutoScroll(){
+    document.querySelectorAll('.lc-modal.ph64-mode-drag:not([data-ph65-scrolled])').forEach(function(modal){
+      modal.dataset.ph65Scrolled = '1';
+      setTimeout(function(){
+        var scroller = modal.querySelector('#cal-grid-wrap > div:nth-child(2)');
+        if (!scroller) return;
+        // 보라색 "현재" 또는 "NOW" 박스 또는 14:00 row 로 스크롤
+        var target = scroller.querySelector('[class*="current"], [class*="now"], [data-hour="14"], [data-hour="13"]');
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+          // 못 찾으면 중간으로
+          scroller.scrollTop = scroller.scrollHeight * 0.3;
+        }
+      }, 400);
+    });
+  }
+  setInterval(function(){
+    document.querySelectorAll('.lc-modal.ph64-mode-drag').forEach(function(m){
+      if (!m.dataset.ph65Scrolled) ph65AutoScroll();
+    });
+  }, 600);
+})();
+</script>
 
 <!-- Phase 49 (2026-05-22) — 7 fixes
      1. Background face visibility (segmentation softer)
@@ -21774,6 +21825,6 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260523171448 -->
+<!-- BUILD:20260523172047 -->
 </body>
 </html>
