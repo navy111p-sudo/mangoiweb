@@ -20244,6 +20244,60 @@ document.addEventListener('click', (e) => {
      1. Remove dictionary FAB completely
      2. Mobile: pack voice-diary / login / points / lang chips into one tidy row
 -->
+<!-- Phase 53 (2026-05-22) — 배틀 완전 제거 (모바일/태블릿)
+     사용자 요청: 반응형에서 완전히 제거. CSS + JS 양쪽으로 차단. -->
+<style id="ph53-overrides">
+  /* 모바일·태블릿 전 폭에서 배틀 관련 hide */
+  @media (max-width: 1024px) {
+    #battle-chip,
+    .battle-chip,
+    [onclick*="openBattleModal"],
+    [data-go="battle"],
+    .ai-quick-btn[data-go="battle"],
+    button[title*="배틀"],
+    button[title*="Battle"] { display: none !important; visibility: hidden !important; }
+  }
+</style>
+
+<script>
+(function(){
+  'use strict';
+  function ph53RemoveBattle(){
+    var isResponsive = window.matchMedia('(max-width: 1024px)').matches;
+    if (!isResponsive) return;
+    try {
+      // ID 로 직접 제거
+      var chip = document.getElementById('battle-chip');
+      if (chip && chip.parentNode) chip.parentNode.removeChild(chip);
+      // 추가 후보들: onclick 에 openBattleModal 가진 모든 버튼
+      document.querySelectorAll('[onclick*="openBattleModal"], [data-go="battle"]').forEach(function(el){
+        if (el.parentNode) el.parentNode.removeChild(el);
+      });
+      // title 에 "배틀" 또는 "Battle" 가진 버튼
+      document.querySelectorAll('button[title], a[title]').forEach(function(el){
+        var t = (el.getAttribute('title') || '');
+        if (/배틀|Battle/i.test(t)) {
+          if (el.parentNode) el.parentNode.removeChild(el);
+        }
+      });
+      // 함수 자체도 no-op 로 — 우연히 호출돼도 모달 안 뜨게
+      window.openBattleModal = function(){};
+    } catch(e){ console.warn('[ph53]', e); }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ph53RemoveBattle);
+  } else {
+    ph53RemoveBattle();
+  }
+  [200, 800, 2000, 5000, 10000].forEach(function(d){ setTimeout(ph53RemoveBattle, d); });
+  // 동적으로 다시 추가될 가능성 — Mutation 감지
+  if (typeof MutationObserver !== 'undefined') {
+    var mo = new MutationObserver(ph53RemoveBattle);
+    mo.observe(document.body, { childList: true, subtree: true });
+  }
+})();
+</script>
+
 <!-- Phase 52 (2026-05-22) — restore cache clear button
      PWA 캐시·SW 가 옛 HTML 을 보여줄 때 수동으로 비울 수 있는 ♻ 버튼.
      카카오 FAB 위에 항상 떠 있어 메인/수업 어느 화면에서도 접근 가능. -->
@@ -20561,34 +20615,10 @@ document.addEventListener('click', (e) => {
     } catch(e){}
   }
 
-  /* ━━━ VC 로비 [로그인] 버튼 보강 — 한 번 클릭으로 확실히 입장 ━━━ */
+  /* VC 로비 [로그인] 버튼 — fallback 호출 제거 (두 번 호출이 입장 막던 문제 차단) */
   function ph51FixVcLoginBtn(){
-    try {
-      // vc-name-input + vc-room-input + vc-roomcode-input 이 있는 폼에서 로그인 버튼 찾기
-      var loginBtns = document.querySelectorAll('button[onclick*="vcJoinRoom"], #vc-login-btn, #vc-enter-btn');
-      Array.prototype.forEach.call(loginBtns, function(btn){
-        if (btn.__ph51Bound) return;
-        btn.__ph51Bound = true;
-        btn.addEventListener('click', function(e){
-          // 기본 onclick 핸들러가 안 돌면 fallback 으로 vcJoinRoom 직접 호출
-          setTimeout(function(){
-            try {
-              // 입력값 있고 vcUsername 안 잡혔으면 강제 재시도
-              var nameInput = document.getElementById('vc-name-input');
-              var roomInput = document.getElementById('vc-roomcode-input');
-              if (nameInput && nameInput.value && typeof window.vcUsername === 'undefined') {
-                if (typeof window.vcJoinRoom === 'function') {
-                  try { window.vcJoinRoom(); } catch(err) {
-                    console.error('[ph51 vcLogin fallback]', err);
-                    alert('로그인 실패: ' + (err && err.message || err) + '\n\n페이지 새로고침 후 다시 시도해 주세요.');
-                  }
-                }
-              }
-            } catch(_){}
-          }, 600);
-        }, { passive: true });
-      });
-    } catch(e){}
+    // 기본 onclick="vcJoinRoom()" 가 정상 동작하므로 추가 핸들러 불필요
+    // 메인 로그인 정보 자동 채움만 ph51RestoreLogin 에서 처리
   }
 
   function ph51Init(){
@@ -20642,6 +20672,25 @@ document.addEventListener('click', (e) => {
   }
 
   /* (자식 강제 hide 룰 제거 — 입장 시 폼/버튼 막힘 방지) */
+
+  /* ★ 강제 보장: active 클래스 붙으면 무조건 보임 — 모든 hide 룰 override */
+  #view-videocall-call.active,
+  body.vc-in-call #view-videocall-call,
+  body.vc-in-call #view-videocall-call.active {
+    display: flex !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    opacity: 1 !important;
+  }
+  #view-videocall-lobby.active,
+  #view-videocall-lobby.active * {
+    pointer-events: auto !important;
+  }
+  #view-videocall-lobby.active {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
 
   /* ━━━ 수업화면 진입 시 상단 칩 ALL HIDE ━━━ */
   body.vc-in-call #ph50-chip-row,
