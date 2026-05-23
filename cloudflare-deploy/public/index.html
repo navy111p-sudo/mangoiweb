@@ -20863,6 +20863,107 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
+<!-- Phase 56 (2026-05-23) — 음성/메인을 홍길동 옆 ph50-chip-row 로 이동
+     사용자 요청: 모두 한 줄로, 음성과 메인을 홍길동 왼쪽에. -->
+<style id="ph56-overrides">
+  /* ph50-chip-row 안에 들어온 음성/메인/lang-toggle-lobby 는 강제 표시 (ph51 hide 룰 override) */
+  #ph50-chip-row #lobby-audio-toggle,
+  #ph50-chip-row a[href="/"],
+  #ph50-chip-row #lang-toggle-lobby {
+    display: inline-flex !important;
+    visibility: visible !important;
+    position: static !important;
+    background: rgba(20,28,48,0.55) !important;
+    border: 1px solid rgba(255,255,255,0.16) !important;
+    border-radius: 999px !important;
+    padding: 4px 9px !important;
+    font-size: 0.72rem !important;
+    color: #f1f5ff !important;
+    text-decoration: none !important;
+    gap: 3px !important;
+    margin: 0 !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    backdrop-filter: blur(6px);
+  }
+  #ph50-chip-row #lobby-audio-toggle {
+    background: rgba(34,197,94,0.15) !important;
+    border-color: rgba(34,197,94,0.4) !important;
+    color: #86efac !important;
+  }
+  #ph50-chip-row a[href="/"] {
+    background: rgba(251,191,36,0.15) !important;
+    border-color: rgba(251,191,36,0.4) !important;
+    color: #fde68a !important;
+    font-weight: 700 !important;
+  }
+  #ph50-chip-row #lobby-audio-toggle svg,
+  #ph50-chip-row a[href="/"] svg { width: 12px !important; height: 12px !important; }
+
+  /* 좁은 모바일 — 더 작게 */
+  @media (max-width: 420px) {
+    #ph50-chip-row #lobby-audio-toggle,
+    #ph50-chip-row a[href="/"],
+    #ph50-chip-row #lang-toggle-lobby {
+      padding: 3px 7px !important;
+      font-size: 0.65rem !important;
+    }
+  }
+</style>
+
+<script>
+(function(){
+  'use strict';
+  function ph56MoveExtras(){
+    var row = document.getElementById('ph50-chip-row');
+    if (!row) return;
+    var loginBtn = document.getElementById('login-btn');
+
+    // 1) 음성 토글 (#lobby-audio-toggle) 을 홍길동 왼쪽으로
+    var audio = document.getElementById('lobby-audio-toggle');
+    if (audio && audio.parentNode !== row) {
+      if (loginBtn) row.insertBefore(audio, loginBtn);
+      else row.appendChild(audio);
+    }
+
+    // 2) 메인 링크 (a[href="/"][title*="메인"] 또는 비슷한 패턴) — 음성 다음에 배치
+    // 5407 div 안에 있던 a[href="/"]
+    var allMains = document.querySelectorAll('a[href="/"]');
+    var mainLink = null;
+    Array.prototype.forEach.call(allMains, function(a){
+      if (mainLink) return;
+      var title = a.getAttribute('title') || '';
+      var dataTitle = a.getAttribute('data-ko-title') || '';
+      var text = (a.textContent || '').trim();
+      if (/메인|home/i.test(title + dataTitle + text)) mainLink = a;
+    });
+    if (mainLink && mainLink.parentNode !== row) {
+      if (loginBtn) row.insertBefore(mainLink, loginBtn);
+      else row.appendChild(mainLink);
+    }
+
+    // 순서 보정: 음성 → 메인 → 홍길동 → 0P → EN
+    var desired = ['lobby-audio-toggle', null /*main link*/, 'login-btn', 'points-chip', 'lang-toggle'];
+    // 메인 링크는 ID 없으니 마지막에 별도 처리
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ph56MoveExtras);
+  } else {
+    ph56MoveExtras();
+  }
+  [300, 800, 2000, 5000].forEach(function(d){ setTimeout(ph56MoveExtras, d); });
+
+  // MutationObserver — SPA view 전환·동적 갱신 대응
+  if (typeof MutationObserver !== 'undefined') {
+    new MutationObserver(ph56MoveExtras).observe(document.body, {
+      childList: true, subtree: false, attributes: true, attributeFilter: ['class']
+    });
+  }
+})();
+</script>
+
 <!-- Phase 55 (2026-05-22) — 모바일 카테고리 칩 가로 표시
      원인: #gm-category-cards 가 grid 7열 균등 → 모바일에서 카드 폭이 너무 좁아
      "학습 시작" 같은 한글 텍스트가 한 글자씩 wrap 되어 세로로 보임.

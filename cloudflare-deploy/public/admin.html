@@ -1742,6 +1742,7 @@
         <div id="topUserHeader" class="th-user-popup-head">로딩 중…</div>
         <a href="/admin/mypage">👤 마이페이지</a>
         <a href="/admin/health" target="_blank">🩺 셀프 진단</a>
+        <a href="/docs/" target="_blank">📘 <span data-ko="사용 안내서" data-en="User Manuals">사용 안내서</span></a>
         <div class="th-user-popup-divider"></div>
         <button id="topLogoutBtn" type="button" class="th-user-popup-logout">🚪 로그아웃</button>
       </div>
@@ -10397,7 +10398,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="💎 포인트 내역" data-en="💎 Points History">💎 포인트 내역</summary>
         <div class="sub-body">
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-            <input id="pt-search" placeholder="가맹점/대리점 검색" data-ko-ph="가맹점/대리점 검색" data-en-ph="Search agency/branch" style="padding:5px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;width:200px;" />
+            <input id="pt-search-fran" placeholder="가맹점/대리점 검색" data-ko-ph="가맹점/대리점 검색" data-en-ph="Search agency/branch" style="padding:5px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;width:200px;" />
             <select id="pt-type-filter" style="padding:5px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;">
               <option value="" data-ko="전체 유형" data-en="All Types">전체 유형</option>
               <option value="earn" data-ko="🟢 적립" data-en="🟢 Earn">🟢 적립</option>
@@ -10947,8 +10948,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
     <div style="margin:14px 0 6px;font-size:13px;font-weight:600;color:#374151;"
          data-ko="📌 종합 코멘트 (선택)" data-en="📌 Overall Comments (Optional)">📌 종합 코멘트 (선택)</div>
-    <textarea id="ev-strengths"    placeholder="강점 / 성취" data-ko-placeholder="강점 / 성취"   data-en-placeholder="Strengths / Achievements" rows="2" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;margin-bottom:6px;"></textarea>
-    <textarea id="ev-improvements" placeholder="개선 영역" data-ko-placeholder="개선 영역"     data-en-placeholder="Areas for Improvement"     rows="2" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;"></textarea>
+    <textarea id="ev-tch-strengths"    placeholder="강점 / 성취" data-ko-placeholder="강점 / 성취"   data-en-placeholder="Strengths / Achievements" rows="2" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;margin-bottom:6px;"></textarea>
+    <textarea id="ev-tch-improvements" placeholder="개선 영역" data-ko-placeholder="개선 영역"     data-en-placeholder="Areas for Improvement"     rows="2" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;"></textarea>
 
     <div style="margin-top:14px;padding:10px;background:#f0f9ff;border:1px solid #93c5fd;border-radius:6px;font-size:13px;">
       <span data-ko="가중 합계:" data-en="Weighted total:">가중 합계:</span> <strong id="ev-weighted-preview" style="color:#1e40af;">—</strong>
@@ -12696,8 +12697,8 @@ function openEvalModal(teacherId, teacherName, year, month) {
   document.getElementById('ev-punctuality').value  = e.score_punctuality  ?? '';
   document.getElementById('ev-admin').value        = e.score_admin        ?? '';
   document.getElementById('ev-contribution').value = e.score_contribution ?? '';
-  document.getElementById('ev-strengths').value    = e.strengths    ?? '';
-  document.getElementById('ev-improvements').value = e.improvements ?? '';
+  document.getElementById('ev-tch-strengths').value    = e.strengths    ?? '';
+  document.getElementById('ev-tch-improvements').value = e.improvements ?? '';
   document.getElementById('ev-class-count').value  = row.class_count ?? 0;
   // 모달에 컨텍스트 보관
   const bg = document.getElementById('eval-modal-bg');
@@ -12742,8 +12743,8 @@ async function saveEvalAndClasses() {
     score_punctuality:  v('ev-punctuality'),
     score_admin:        v('ev-admin'),
     score_contribution: v('ev-contribution'),
-    strengths:          document.getElementById('ev-strengths').value || null,
-    improvements:       document.getElementById('ev-improvements').value || null,
+    strengths:          document.getElementById('ev-tch-strengths').value || null,
+    improvements:       document.getElementById('ev-tch-improvements').value || null,
     evaluator:          'admin',
   };
   const classCount = parseInt(document.getElementById('ev-class-count').value, 10);
@@ -22490,5 +22491,389 @@ button.chip:hover,
 })();
 </script>
 
+<!-- Phase 51 admin (2026-05-22) — mobile: hide hero greeting image -->
+<style id="ph51-admin-overrides">
+  @media (max-width: 720px) {
+    /* "안녕하세요, 망고아이!" 이미지 배너 — 모바일에서 제거 */
+    .hero-banner-img,
+    img[src*="hero-greeting"],
+    img[alt*="안녕하세요"],
+    img[alt*="망고아이!"] { display: none !important; }
+    /* 동반 텍스트 h1 도 혹시 모르니 hide */
+    h1[data-ko*="안녕하세요"] { display: none !important; }
+  }
+</style>
+<script>
+(function(){
+  function ph51AdminHideGreeting(){
+    if (!window.matchMedia('(max-width: 720px)').matches) return;
+    try {
+      document.querySelectorAll('.hero-banner-img, img[src*="hero-greeting"], img[alt*="안녕하세요"]').forEach(function(el){
+        if (el.parentNode) el.parentNode.removeChild(el);
+      });
+      document.querySelectorAll('h1[data-ko*="안녕하세요"]').forEach(function(el){
+        el.style.display = 'none';
+      });
+    } catch(e){}
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ph51AdminHideGreeting);
+  } else {
+    ph51AdminHideGreeting();
+  }
+  [200, 800, 2000].forEach(function(d){ setTimeout(ph51AdminHideGreeting, d); });
+})();
+</script>
+<!-- Phase 54 admin (2026-05-22) — 강사 스케줄 통합 카드
+     ───────────────────────────────────────────────────────
+     1. 강사 관리(card-teacher-mgmt) 안에 새 sub-card 추가:
+        "📅 강사 스케줄" — 모든 강사 주간 캘린더 그리드 + 강사별 필터
+     2. 강사 목록 테이블 각 행 액션 컬럼에 📅 버튼 추가
+        → 해당 강사만 캘린더에 표시하고 자동으로 카드 펼침/스크롤 -->
+<style id="ph54-admin-schedule">
+  #card-teacher-schedule { margin-top: 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; overflow: hidden; }
+  #card-teacher-schedule > summary {
+    padding: 12px 16px; cursor: pointer;
+    background: linear-gradient(135deg, rgba(16,185,129,0.10), rgba(5,150,105,0.06));
+    font-weight: 700; color: #064e3b; font-size: 14px;
+  }
+  #card-teacher-schedule[open] > summary {
+    background: linear-gradient(135deg, rgba(16,185,129,0.18), rgba(5,150,105,0.12));
+  }
+  #ph54-sched-wrap { padding: 14px 16px; }
+  #ph54-sched-controls {
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    margin-bottom: 12px; padding: 10px 12px;
+    background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px;
+  }
+  #ph54-sched-controls button, #ph54-sched-controls select {
+    padding: 6px 12px; font-size: 13px; border: 1px solid #d1d5db;
+    border-radius: 6px; background: #fff; cursor: pointer;
+  }
+  #ph54-sched-controls button.primary {
+    background: linear-gradient(135deg,#10b981,#059669); color: #fff; border: 0; font-weight: 700;
+  }
+  #ph54-sched-controls .ph54-week-label {
+    font-weight: 700; color: #1f2937; padding: 4px 10px;
+    background: #fff; border-radius: 6px; border: 1px solid #e5e7eb;
+  }
+  #ph54-sched-grid {
+    width: 100%; border-collapse: collapse; background: #fff;
+    border: 1px solid #e5e7eb; font-size: 12px;
+  }
+  #ph54-sched-grid th {
+    padding: 8px 6px; background: linear-gradient(135deg,#10b981,#059669); color: #fff;
+    font-weight: 700; border: 1px solid #047857; text-align: center; position: sticky; top: 0;
+  }
+  #ph54-sched-grid th.ph54-th-teacher { background: #1f2937; min-width: 110px; text-align: left; padding-left: 12px; }
+  #ph54-sched-grid td {
+    padding: 6px 4px; border: 1px solid #e5e7eb; vertical-align: top;
+    min-width: 80px; min-height: 50px;
+  }
+  #ph54-sched-grid td.ph54-td-teacher {
+    font-weight: 800; background: #f3f4f6; color: #1f2937;
+    padding-left: 12px; text-align: left; white-space: nowrap;
+  }
+  #ph54-sched-grid td.ph54-td-weekend { background: #fef3c7; }
+  #ph54-sched-grid td.ph54-td-today { background: #dbeafe; box-shadow: inset 0 0 0 2px #3b82f6; }
+  .ph54-slot {
+    display: inline-block; margin: 1px; padding: 2px 6px; font-size: 11px; font-weight: 700;
+    border-radius: 4px; color: #fff;
+  }
+  .ph54-slot.ontime { background: #10b981; }
+  .ph54-slot.late   { background: #f59e0b; }
+  .ph54-slot.bigLate{ background: #ef4444; }
+  .ph54-slot.empty  { background: #e5e7eb; color: #9ca3af; }
+  /* 강사 행 액션 컬럼에 추가된 📅 버튼 */
+  .ph54-row-cal-btn {
+    padding: 3px 8px; font-size: 10px; background: #10b981; color: #fff;
+    border: 0; border-radius: 4px; cursor: pointer; margin-left: 2px;
+  }
+  .ph54-row-cal-btn:hover { background: #047857; }
+
+  @media (max-width: 720px) {
+    #ph54-sched-grid { font-size: 10px; }
+    #ph54-sched-grid th, #ph54-sched-grid td { padding: 4px 2px; min-width: 50px; }
+    .ph54-slot { font-size: 9px; padding: 1px 4px; }
+  }
+</style>
+
+<script>
+(function(){
+  'use strict';
+
+  var ph54State = {
+    weekOffset: 0,         // 0 = 이번 주, -1 = 지난 주, +1 = 다음 주
+    teacherFilter: '',     // '' = 전체, 또는 강사 id
+    teachers: [],          // [{id, name, korean_name, english_name}]
+    records: []            // [{teacher_id, teacher_name, date, scheduled, actual, late_min}]
+  };
+
+  function ph54Pad(n){ return n < 10 ? '0'+n : ''+n; }
+  function ph54FmtDate(d){ return d.getFullYear()+'-'+ph54Pad(d.getMonth()+1)+'-'+ph54Pad(d.getDate()); }
+  function ph54StartOfWeek(d){
+    var x = new Date(d); var dow = x.getDay();
+    var diff = (dow === 0 ? -6 : 1 - dow);  // 월요일 시작
+    x.setDate(x.getDate() + diff);
+    x.setHours(0,0,0,0);
+    return x;
+  }
+
+  function ph54GetWeekDays(){
+    var base = ph54StartOfWeek(new Date());
+    base.setDate(base.getDate() + ph54State.weekOffset * 7);
+    return Array.from({length:7}, function(_,i){
+      var d = new Date(base);
+      d.setDate(d.getDate() + i);
+      return d;
+    });
+  }
+
+  async function ph54LoadTeachers(){
+    try {
+      var r = await fetch('/api/admin/teacher-profiles?status=활동중', { credentials:'include', cache:'no-store' });
+      var j = await r.json();
+      if (j && j.ok && Array.isArray(j.items) && j.items.length) {
+        ph54State.teachers = j.items.map(function(t){
+          return { id: t.id, name: t.korean_name || t.english_name || ('강사 '+t.id) };
+        });
+        return;
+      }
+    } catch(e){ console.warn('[ph54] teacher load', e); }
+    // fallback — 클라이언트 시드
+    ph54State.teachers = ['Karl','Melca','Mo','Penny','Chaine'].map(function(n,i){
+      return { id: 't'+i, name: n };
+    });
+  }
+
+  async function ph54LoadRecords(){
+    try {
+      var r = await fetch('/api/admin/teacher-attendance?limit=1000', { credentials:'include' });
+      if (r.ok) {
+        var j = await r.json();
+        var rows = j.rows || j.items || (Array.isArray(j) ? j : []);
+        if (Array.isArray(rows) && rows.length) { ph54State.records = rows; return; }
+      }
+    } catch(e){}
+    // fallback: 시드 데이터 (이번 주 + 지난 주 자동 생성)
+    var seed = [];
+    var today = new Date();
+    for (var off = -14; off <= 7; off++) {
+      var d = new Date(today); d.setDate(d.getDate() + off);
+      var dow = d.getDay(); if (dow === 0 || dow === 6) continue;
+      var dStr = ph54FmtDate(d);
+      ph54State.teachers.forEach(function(t){
+        var s = (String(t.id)+dStr).split('').reduce(function(a,c){return a+c.charCodeAt(0);}, 0);
+        var lateMin = (s % 9 === 0) ? Math.floor(s%30) : (s % 4 === 0 ? (s%7) : 0);
+        seed.push({
+          teacher_id: t.id, teacher_name: t.name,
+          date: dStr, scheduled: '09:00',
+          actual: '09:'+ph54Pad(lateMin), late_min: lateMin
+        });
+      });
+    }
+    ph54State.records = seed;
+  }
+
+  function ph54SlotForRecord(rec){
+    if (!rec) return '<span class="ph54-slot empty">—</span>';
+    var lm = Number(rec.late_min || 0);
+    var cls = lm === 0 ? 'ontime' : (lm <= 5 ? 'late' : 'bigLate');
+    var label = (rec.actual || rec.scheduled || '09:00');
+    return '<span class="ph54-slot '+cls+'" title="예정 '+(rec.scheduled||'-')+' / 실제 '+(rec.actual||'-')+(lm?' / +'+lm+'분':'')+'">'+label+'</span>';
+  }
+
+  function ph54Render(){
+    var wrap = document.getElementById('ph54-sched-wrap');
+    if (!wrap) return;
+    var days = ph54GetWeekDays();
+    var todayStr = ph54FmtDate(new Date());
+    var dayLabel = ['월','화','수','목','금','토','일'];
+
+    var filteredTeachers = ph54State.teacherFilter
+      ? ph54State.teachers.filter(function(t){ return String(t.id) === String(ph54State.teacherFilter); })
+      : ph54State.teachers;
+
+    var weekLabel = ph54FmtDate(days[0]) + ' ~ ' + ph54FmtDate(days[6]);
+
+    var html = ''
+      + '<div id="ph54-sched-controls">'
+      +   '<button id="ph54-prev-week">◀ 이전 주</button>'
+      +   '<button id="ph54-this-week" class="primary">📅 이번 주</button>'
+      +   '<button id="ph54-next-week">다음 주 ▶</button>'
+      +   '<span class="ph54-week-label" id="ph54-week-label">'+weekLabel+'</span>'
+      +   '<span style="flex:1"></span>'
+      +   '<label style="font-size:12px;color:#374151">강사 필터: '
+      +     '<select id="ph54-teacher-filter" style="min-width:140px;margin-left:4px">'
+      +       '<option value="">전체 강사 ('+ph54State.teachers.length+'명)</option>'
+      +       ph54State.teachers.map(function(t){
+                return '<option value="'+t.id+'"'+(String(ph54State.teacherFilter)===String(t.id)?' selected':'')+'>'+t.name+'</option>';
+              }).join('')
+      +     '</select>'
+      +   '</label>'
+      +   '<button id="ph54-clear-filter">전체 보기</button>'
+      + '</div>'
+      + '<div style="overflow-x:auto"><table id="ph54-sched-grid"><thead><tr>'
+      +   '<th class="ph54-th-teacher">강사 / 날짜</th>'
+      +   days.map(function(d, i){
+            var isToday = ph54FmtDate(d) === todayStr;
+            return '<th'+(isToday?' style="background:#3b82f6"':'')+'>'+dayLabel[i]+'<br><span style="font-size:10px;font-weight:600">'+ph54Pad(d.getMonth()+1)+'/'+ph54Pad(d.getDate())+'</span></th>';
+          }).join('')
+      + '</tr></thead><tbody>'
+      + (filteredTeachers.length === 0
+          ? '<tr><td colspan="8" style="padding:20px;text-align:center;color:#6b7280">강사 데이터 없음</td></tr>'
+          : filteredTeachers.map(function(t){
+              return '<tr>'
+                + '<td class="ph54-td-teacher">'+t.name+'</td>'
+                + days.map(function(d){
+                    var dStr = ph54FmtDate(d);
+                    var dow = d.getDay();
+                    var isWeekend = (dow === 0 || dow === 6);
+                    var isToday = dStr === todayStr;
+                    var recs = ph54State.records.filter(function(r){
+                      return String(r.teacher_id) === String(t.id) && r.date === dStr;
+                    });
+                    var cellClass = '';
+                    if (isToday) cellClass = 'ph54-td-today';
+                    else if (isWeekend) cellClass = 'ph54-td-weekend';
+                    var inner = recs.length
+                      ? recs.map(ph54SlotForRecord).join(' ')
+                      : (isWeekend ? '<span style="color:#9ca3af;font-size:10px">휴무</span>' : '<span class="ph54-slot empty">—</span>');
+                    return '<td class="'+cellClass+'">'+inner+'</td>';
+                  }).join('')
+                + '</tr>';
+            }).join(''))
+      + '</tbody></table></div>'
+      + '<div style="margin-top:10px;display:flex;gap:14px;font-size:11px;color:#6b7280;flex-wrap:wrap">'
+      +   '<span><span class="ph54-slot ontime">09:00</span> 정시 도착</span>'
+      +   '<span><span class="ph54-slot late">09:03</span> 5분 이내 지각</span>'
+      +   '<span><span class="ph54-slot bigLate">09:12</span> 5분 초과 지각</span>'
+      +   '<span><span class="ph54-slot empty">—</span> 기록 없음</span>'
+      + '</div>';
+
+    wrap.innerHTML = html;
+
+    // 이벤트 바인딩
+    document.getElementById('ph54-prev-week').addEventListener('click', function(){ ph54State.weekOffset--; ph54Render(); });
+    document.getElementById('ph54-this-week').addEventListener('click', function(){ ph54State.weekOffset = 0; ph54Render(); });
+    document.getElementById('ph54-next-week').addEventListener('click', function(){ ph54State.weekOffset++; ph54Render(); });
+    document.getElementById('ph54-teacher-filter').addEventListener('change', function(e){
+      ph54State.teacherFilter = e.target.value; ph54Render();
+    });
+    document.getElementById('ph54-clear-filter').addEventListener('click', function(){
+      ph54State.teacherFilter = ''; ph54Render();
+    });
+  }
+
+  async function ph54Init(){
+    // 1) 카드 추가 — card-class-attendance 다음에
+    var mgmt = document.getElementById('card-teacher-mgmt');
+    if (!mgmt) return;
+    if (document.getElementById('card-teacher-schedule')) return;
+
+    var sched = document.createElement('details');
+    sched.id = 'card-teacher-schedule';
+    sched.innerHTML =
+      '<summary>📅 <span data-ko="강사 스케줄 (주간 통합 캘린더)" data-en="Teacher Schedule (Weekly Calendar)">강사 스케줄 (주간 통합 캘린더)</span></summary>'
+      + '<div id="ph54-sched-wrap"><div style="padding:14px;color:#6b7280">로딩 중…</div></div>';
+
+    // class-attendance 카드 다음, 없으면 attendance-status 다음, 없으면 mgmt 맨 끝
+    var anchor = document.getElementById('card-class-attendance')
+              || document.getElementById('card-attendance-status');
+    if (anchor && anchor.parentNode) {
+      anchor.parentNode.insertBefore(sched, anchor.nextSibling);
+    } else {
+      mgmt.appendChild(sched);
+    }
+
+    // 펼침 시 1회 로드
+    sched.addEventListener('toggle', async function(){
+      if (!sched.open) return;
+      if (!ph54State.teachers.length) {
+        await ph54LoadTeachers();
+        await ph54LoadRecords();
+      }
+      ph54Render();
+    });
+  }
+
+  /* 강사 목록 테이블 각 행 액션 컬럼에 📅 버튼 추가 */
+  function ph54AddRowButtons(){
+    var rows = document.querySelectorAll('#tp-list-body tr');
+    rows.forEach(function(tr){
+      if (tr.dataset.ph54Bound === '1') return;
+      var actionCell = tr.children[tr.children.length - 1];
+      if (!actionCell) return;
+      // teacherProfile id 찾기 — viewTeacherProfile(ID) 패턴에서 추출
+      var viewBtn = actionCell.querySelector('button[onclick*="viewTeacherProfile"]');
+      if (!viewBtn) return;
+      var m = (viewBtn.getAttribute('onclick') || '').match(/viewTeacherProfile\((\d+)\)/);
+      if (!m) return;
+      var tid = m[1];
+
+      // 강사 이름 (두 번째 셀의 <b>)
+      var nameCell = tr.children[1];
+      var nameEl = nameCell && nameCell.querySelector('b');
+      var tname = nameEl ? nameEl.textContent.trim() : '';
+
+      var btn = document.createElement('button');
+      btn.className = 'ph54-row-cal-btn';
+      btn.title = tname + ' 스케줄 캘린더';
+      btn.textContent = '📅';
+      btn.onclick = function(e){
+        e.preventDefault(); e.stopPropagation();
+        // 1) 카드 펼치기
+        var sched = document.getElementById('card-teacher-schedule');
+        if (!sched) return;
+        sched.open = true;
+        // 2) 데이터 로드 (필요 시) + 필터 설정 + 렌더
+        (async function(){
+          if (!ph54State.teachers.length) {
+            await ph54LoadTeachers();
+            await ph54LoadRecords();
+          }
+          ph54State.teacherFilter = String(tid);
+          ph54State.weekOffset = 0;
+          ph54Render();
+          // 3) 카드로 스크롤
+          setTimeout(function(){ sched.scrollIntoView({ behavior:'smooth', block:'start' }); }, 100);
+        })();
+      };
+      actionCell.appendChild(document.createTextNode(' '));
+      actionCell.appendChild(btn);
+      tr.dataset.ph54Bound = '1';
+    });
+  }
+
+  // 초기화 + 동적 행 감지
+  function ph54Boot(){
+    ph54Init();
+    ph54AddRowButtons();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ph54Boot);
+  } else {
+    ph54Boot();
+  }
+  [500, 1500, 3000, 6000].forEach(function(d){ setTimeout(ph54Boot, d); });
+
+  if (typeof MutationObserver !== 'undefined') {
+    var tbody = document.getElementById('tp-list-body');
+    if (tbody) {
+      new MutationObserver(ph54AddRowButtons).observe(tbody, { childList: true, subtree: true });
+    } else {
+      // tbody 아직 없음 — body 전체 감시
+      new MutationObserver(function(){
+        var tb = document.getElementById('tp-list-body');
+        if (tb && !tb.dataset.ph54Mo) {
+          tb.dataset.ph54Mo = '1';
+          new MutationObserver(ph54AddRowButtons).observe(tb, { childList: true, subtree: true });
+        }
+        ph54AddRowButtons();
+      }).observe(document.body, { childList: true, subtree: true });
+    }
+  }
+})();
+</script>
 </body>
 </html>
