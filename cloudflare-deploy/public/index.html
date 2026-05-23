@@ -20569,6 +20569,48 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
+<!-- Phase 68 (2026-05-23) — 카드 텍스트 컨텍스트 자동 감지 (연기/변경 일관화) -->
+<script>
+(function(){
+  'use strict';
+  /* 모달 헤더에서 "연기" 또는 "변경" 감지하여 ph64 카드 텍스트 동적 변경 */
+  function ph68SyncVerb(){
+    var modal = document.querySelector('.lc-modal[data-ph64="1"]');
+    if (!modal) return;
+    var head = modal.querySelector('.lc-head, .lc-modal h2, [class*="title"]');
+    var headText = head ? (head.textContent || '') : '';
+    var verb = '변경';
+    if (/연기/.test(headText)) verb = '연기';
+    else if (/변경/.test(headText)) verb = '변경';
+
+    var pick = document.querySelector('.ph64-mode-pick');
+    if (!pick) return;
+    var title = pick.querySelector('.ph64-title');
+    var labels = pick.querySelectorAll('.ph64-label');
+    var inputTitle = modal.querySelector('.ph64-input-title');
+    var confirmBtn = modal.querySelector('.ph64-confirm');
+
+    if (title) title.innerHTML = '📅 어떻게 ' + verb + '하시겠어요?';
+    if (labels[0]) labels[0].textContent = '시간으로 ' + verb;
+    if (labels[1]) labels[1].textContent = '끌어당겨 ' + verb;
+    if (inputTitle) inputTitle.innerHTML = '🕐 시간으로 ' + verb;
+    if (confirmBtn) confirmBtn.textContent = '✓ 이 시간으로 ' + verb;
+
+    // 모달 헤더 자체도 통일 (수업 연기/수업 변경)
+    if (head && /연기|변경/.test(headText)) {
+      var newHead = headText.replace(/연기|변경/g, verb);
+      // 텍스트 노드만 교체 (아이콘 보존)
+      Array.prototype.forEach.call(head.childNodes, function(node){
+        if (node.nodeType === 3 && /연기|변경/.test(node.textContent)) {
+          node.textContent = node.textContent.replace(/연기|변경/g, verb);
+        }
+      });
+    }
+  }
+  setInterval(ph68SyncVerb, 500);
+})();
+</script>
+
 <!-- Phase 49 (2026-05-22) — 7 fixes
      1. Background face visibility (segmentation softer)
      2. PIP/local box mobile touch drag
@@ -21979,6 +22021,6 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260523173833 -->
+<!-- BUILD:20260523174259 -->
 </body>
 </html>
