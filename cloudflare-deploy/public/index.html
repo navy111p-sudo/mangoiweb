@@ -19996,6 +19996,89 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
+<!-- Phase 60 (2026-05-23) — 대시보드 잘림 + 캘린더 안 보임 fix -->
+<style id="ph60-fix">
+  /* 1) 모든 컨테이너 box-sizing + 화면 폭 제한 — 가로 잘림 방지 */
+  *, *::before, *::after { box-sizing: border-box !important; }
+  html, body {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+    width: 100% !important;
+    margin: 0 !important;
+  }
+  /* 메인 페이지 핵심 컨테이너들 — 화면 폭 안에 강제 */
+  .lobby-box, .home-hero-stack, .grid-menu-cards, #gm-cards,
+  #ai-home-search, .ai-search-box, #gm-category-cards,
+  .gm-cat-modal-box {
+    max-width: calc(100vw - 16px) !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 2) 그리드 메뉴 카드 — 모바일에서 3열, 좁은 화면에서 2열 */
+  @media (max-width: 720px) {
+    .grid-menu-cards, #gm-cards {
+      grid-template-columns: repeat(3, 1fr) !important;
+      gap: 8px !important;
+      width: 100% !important;
+    }
+    .gm-card {
+      min-height: 78px !important;
+      padding: 12px 4px !important;
+    }
+    .gm-card .gm-label, .gm-card span {
+      font-size: 11px !important;
+      text-align: center !important;
+    }
+  }
+  @media (max-width: 380px) {
+    .grid-menu-cards, #gm-cards {
+      grid-template-columns: repeat(2, 1fr) !important;
+    }
+  }
+
+  /* 3) 수업 연기/변경 캘린더 — 강제 표시 + 최대 크기 */
+  @media (max-width: 900px) {
+    .lc-modal .lc-body {
+      padding: 8px !important;
+      overflow-y: auto !important;
+    }
+    #cal-grid-wrap {
+      display: block !important;
+      min-height: 380px !important;
+      max-height: none !important;
+      overflow: visible !important;
+      width: 100% !important;
+    }
+    #cal-grid-wrap > div:nth-child(1) {
+      min-height: 30px !important;
+      display: block !important;
+    }
+    #cal-grid-wrap > div:nth-child(2) {
+      display: block !important;
+      min-height: 350px !important;
+      max-height: 60vh !important;
+      overflow: auto !important;
+      -webkit-overflow-scrolling: touch;
+    }
+    #cal-grid-body {
+      display: block !important;
+      min-height: 320px !important;
+    }
+    /* 변경 후 수업 박스(상단) 작게 */
+    .lc-modal .lc-info, .lc-modal .ph49-cal-collapsible {
+      max-height: 60px !important;
+      overflow: hidden;
+      font-size: 11px !important;
+      padding: 6px 8px !important;
+    }
+  }
+
+  /* 4) 카카오 FAB + ♻ 캐시 — 항상 보이게 z-index 최우선 */
+  .ph49-kakao-fab, .ph52-cache-fab {
+    z-index: 99999 !important;
+  }
+</style>
+
 <!-- Phase 49 (2026-05-22) — 7 fixes
      1. Background face visibility (segmentation softer)
      2. PIP/local box mobile touch drag
@@ -21406,6 +21489,6 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260523162539 -->
+<!-- BUILD:20260523163553 -->
 </body>
 </html>
