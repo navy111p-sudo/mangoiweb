@@ -1,6 +1,33 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+<script id="ph58-sw-kill">
+/* Phase 58 (2026-05-23) — 옛 ServiceWorker 강제 unregister + 캐시 비우기 (한 번만)
+   휴대폰 PWA가 옛 HTML 잡고 있을 때 자동 복구. */
+(function(){
+  try {
+    if ('serviceWorker' in navigator && !sessionStorage.getItem('ph58_done_v2')) {
+      sessionStorage.setItem('ph58_done_v2', '1');
+      navigator.serviceWorker.getRegistrations().then(function(regs){
+        if (!regs.length) return;
+        Promise.all(regs.map(function(r){ return r.unregister(); })).then(function(){
+          if ('caches' in window) {
+            return caches.keys().then(function(keys){
+              return Promise.all(keys.map(function(k){ return caches.delete(k); }));
+            });
+          }
+        }).then(function(){
+          // cache-bust 쿼리로 강제 새로고침 (1회만)
+          var u = new URL(location.href);
+          u.searchParams.set('_swkill', Date.now().toString());
+          location.replace(u.toString());
+        });
+      });
+    }
+  } catch(e){}
+})();
+</script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mangoi 화상솔루션</title>
