@@ -20254,10 +20254,25 @@ document.addEventListener('click', (e) => {
     #mini-toeic-chip, #battle-chip, #referral-chip, #sns-card-chip { display: none !important; }
   }
 
-  /* ━━━ 수업화면(입장 후) 진입 시 상단 칩 ALL HIDE ━━━
-     사용자 요청: 입장하면 자동으로 사라지게.
-     수업 도구바와 겹쳐서 가독성 망치는 문제 해결.
-     카카오 FAB(우하단)은 그대로 둠 — 학생이 수업 중에도 상담 필요할 수 있음. */
+  /* ━━━ 핵심 FIX: 수업화면(view-videocall-call)이 active 아니면 무조건 숨김 ━━━
+     이전 patch 가 가로 회전 안내 dismiss 했을 때 localStorage 에 저장돼서
+     이후 모든 페이지 로드에서 수업화면이 메인 대시보드 아래 강제 노출되던 버그 차단.
+     .view 기본은 display:none 인데 body.vc-orientation-dismissed 가
+     강제 display:flex 적용하는 규칙을 override. */
+  #view-videocall-call:not(.active),
+  body.vc-orientation-dismissed #view-videocall-call:not(.active),
+  body:not(.vc-in-call) #view-videocall-call:not(.active) {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  /* 수업화면이 active 아닐 땐 그 안의 모든 자식 요소도 강제 차단 */
+  body:not(.vc-in-call) #view-videocall-call:not(.active) * {
+    display: none !important;
+  }
+
+  /* ━━━ 수업화면 진입 시 상단 칩 ALL HIDE ━━━ */
   body.vc-in-call #ph50-chip-row,
   body.vc-in-call #login-btn,
   body.vc-in-call #points-chip,
@@ -20273,7 +20288,7 @@ document.addEventListener('click', (e) => {
     visibility: hidden !important;
   }
 
-  /* ─── 홈 화면 — 상단 칩 한 줄 컨테이너 ─── */
+  /* ─── 홈 화면 상단 칩 한 줄 컨테이너 ─── */
   #ph50-chip-row {
     position: fixed;
     top: 0.55rem;
@@ -20333,6 +20348,16 @@ document.addEventListener('click', (e) => {
   'use strict';
   var CHIP_IDS = ['login-btn', 'points-chip', 'lang-toggle'];
 
+  // ★ 잘못된 localStorage flag 자동 제거 — 이게 수업화면을 메인 대시보드 아래 강제 노출시키던 원인
+  try {
+    localStorage.removeItem('mangoi_vc_orientation_dismissed');
+  } catch(e){}
+  // body 에 붙은 dismiss class 도 정리
+  function ph50StripDismiss() {
+    try { document.body.classList.remove('vc-orientation-dismissed'); } catch(e){}
+  }
+  ph50StripDismiss();
+
   function ph50EnsureRow() {
     var row = document.getElementById('ph50-chip-row');
     if (!row) {
@@ -20345,7 +20370,9 @@ document.addEventListener('click', (e) => {
 
   function ph50MoveChips() {
     try {
-      // 1) 단어 사전 / 음성일기 강제 제거
+      // dismiss flag 재발생 시 즉시 제거
+      ph50StripDismiss();
+
       ['mangoi-dict-fab', 'mangoi-dict-modal', 'voice-diary-chip'].forEach(function(id){
         var el = document.getElementById(id);
         if (el) {
@@ -20358,7 +20385,6 @@ document.addEventListener('click', (e) => {
       });
       window.mangoiOpenDict = function(){};
 
-      // 2) 3개 칩을 컨테이너로 이동
       var row = ph50EnsureRow();
       CHIP_IDS.forEach(function(id){
         var el = document.getElementById(id);
@@ -20367,7 +20393,6 @@ document.addEventListener('click', (e) => {
         }
       });
 
-      // 3) 수업화면 진입 상태면 컨테이너 자체 hide (CSS 보조)
       if (document.body.classList.contains('vc-in-call')) {
         row.style.display = 'none';
       } else {
@@ -20395,7 +20420,6 @@ document.addEventListener('click', (e) => {
             }
           }
         } else if (m.type === 'attributes') {
-          // body class 변경(vc-in-call 토글) 또는 chip 위치 변경
           if (m.target === document.body) needsMove = true;
           else if (CHIP_IDS.indexOf(m.target.id) !== -1) {
             var row = document.getElementById('ph50-chip-row');
