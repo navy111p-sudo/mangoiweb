@@ -19996,151 +19996,20 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- Phase 62 (2026-05-23) — 캘린더 fix + 드래그/입력 모드 선택 -->
-<style id="ph62-calendar-mode">
-  /* 모드 토글 버튼 */
-  .ph62-mode-toggle {
-    display: flex;
-    gap: 6px;
-    padding: 8px 10px;
-    background: linear-gradient(180deg, rgba(15,23,42,0.96), rgba(15,23,42,0.85));
-    border-bottom: 1px solid rgba(251,191,36,0.3);
-    position: sticky;
-    top: 36px;
-    z-index: 31;
-  }
-  .ph62-mode-btn {
-    flex: 1;
-    padding: 9px 8px;
-    border: 2px solid rgba(148,163,184,0.3);
-    background: rgba(30,41,59,0.85);
-    color: #cbd5e1;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 800;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .ph62-mode-btn.active {
-    background: linear-gradient(135deg, #10b981, #059669);
-    color: #fff;
-    border-color: #10b981;
-    box-shadow: 0 2px 8px rgba(16,185,129,0.4);
-  }
-  .ph62-mode-btn:hover { transform: translateY(-1px); }
-
-  /* 모드별 표시 제어 */
-  .lc-modal.ph62-mode-drag .ph49-cal-manual { display: none !important; }
-  .lc-modal.ph62-mode-input #cal-grid-wrap > div:nth-child(2) { display: none !important; }
-  .lc-modal.ph62-mode-input #cal-grid-body { display: none !important; }
-  .lc-modal.ph62-mode-input .ph62-input-only-help { display: block !important; }
-  .lc-modal.ph62-mode-drag .ph62-input-only-help { display: none !important; }
-
-  /* 입력 모드 도움말 */
-  .ph62-input-only-help {
-    display: none;
-    padding: 30px 20px;
-    text-align: center;
-    color: #cbd5e1;
-    background: rgba(15,23,42,0.6);
-    border-radius: 10px;
-    margin: 12px;
-    font-size: 13px;
-    line-height: 1.7;
-  }
-  .ph62-input-only-help .icon { font-size: 42px; margin-bottom: 10px; display: block; }
-  .ph62-input-only-help b { color: #fbbf24; }
-
-  /* ph62 캘린더 강제 룰 제거 — 원래 캘린더가 자체 layout 으로 그리도록 */
-</style>
-
-<script>
-(function(){
-  'use strict';
-
-  function ph62EnhanceModal(){
-    var modals = document.querySelectorAll('.lc-modal:not([data-ph62="1"])');
-    if (!modals.length) return;
-    modals.forEach(function(modal){
-      var grid = modal.querySelector('#cal-grid-wrap');
-      if (!grid) return;
-      modal.dataset.ph62 = '1';
-
-      // 기본 모드: 드래그
-      modal.classList.add('ph62-mode-drag');
-
-      // 모드 토글 버튼 추가 (ph49-cal-nav 직후 또는 grid 시작 직전)
-      var nav = grid.querySelector('.ph49-cal-nav');
-      var modeBar = document.createElement('div');
-      modeBar.className = 'ph62-mode-toggle';
-      modeBar.innerHTML =
-        '<button class="ph62-mode-btn active" data-mode="drag">✋ 들어당겨 넣기</button>' +
-        '<button class="ph62-mode-btn" data-mode="input">⌨ 입력하여 넣기</button>';
-
-      if (nav && nav.parentNode) {
-        nav.parentNode.insertBefore(modeBar, nav.nextSibling);
-      } else {
-        grid.insertBefore(modeBar, grid.firstChild);
-      }
-
-      // 입력 전용 도움말 박스 (드래그 영역 숨겨졌을 때 표시)
-      var helpBox = document.createElement('div');
-      helpBox.className = 'ph62-input-only-help';
-      helpBox.innerHTML =
-        '<span class="icon">⌨</span>' +
-        '<b>입력 모드</b><br>' +
-        '아래 날짜 / 시간 입력 후<br><b>"✓ 이 시간으로 변경"</b>을 누르세요.';
-      grid.parentNode.insertBefore(helpBox, grid.nextSibling);
-
-      // 모드 전환 핸들러
-      modeBar.querySelectorAll('.ph62-mode-btn').forEach(function(btn){
-        btn.addEventListener('click', function(){
-          var mode = btn.dataset.mode;
-          modal.classList.remove('ph62-mode-drag', 'ph62-mode-input');
-          modal.classList.add('ph62-mode-' + mode);
-          modeBar.querySelectorAll('.ph62-mode-btn').forEach(function(b){
-            b.classList.toggle('active', b === btn);
-          });
-          // 입력 모드면 ph49-cal-manual 보이도록 강제
-          if (mode === 'input') {
-            var manual = modal.querySelector('.ph49-cal-manual');
-            if (manual) manual.style.display = 'flex';
-          }
-        });
-      });
-    });
-  }
-
-  function ph62Init(){ ph62EnhanceModal(); }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', ph62Init);
-  } else {
-    ph62Init();
-  }
-  [300, 1000, 2500, 6000].forEach(function(d){ setTimeout(ph62Init, d); });
-
-  // MutationObserver 제거 — 한 번만 처리 (충돌 방지)
-  // 새 모달 열릴 때마다 setTimeout 으로 처리
-})();
-</script>
-
 <!-- Phase 60 (2026-05-23) — 대시보드 잘림 + 캘린더 안 보임 fix -->
 <style id="ph60-fix">
-  /* 1) 모든 컨테이너 box-sizing + 화면 폭 제한 — 가로 잘림 방지 */
-  *, *::before, *::after { box-sizing: border-box !important; }
+  /* 1) 화면 폭 제한 — 가로 잘림 방지 */
   html, body {
     overflow-x: hidden !important;
     max-width: 100vw !important;
     width: 100% !important;
     margin: 0 !important;
   }
-  /* 메인 페이지 핵심 컨테이너들 — 화면 폭 안에 강제 */
+  /* 메인 페이지 컨테이너 — 가로 잘림만 방지 (캘린더 등 모달은 건드리지 않음) */
   .lobby-box, .home-hero-stack, .grid-menu-cards, #gm-cards,
-  #ai-home-search, .ai-search-box, #gm-category-cards,
-  .gm-cat-modal-box {
-    max-width: calc(100vw - 16px) !important;
-    box-sizing: border-box !important;
+  #ai-home-search, .ai-search-box, #gm-category-cards {
+    max-width: calc(100vw - 16px);
+    box-sizing: border-box;
   }
 
   /* 2) 그리드 메뉴 카드 — 모바일에서 3열, 좁은 화면에서 2열 */
@@ -20172,6 +20041,106 @@ document.addEventListener('click', (e) => {
     z-index: 99999 !important;
   }
 </style>
+
+<!-- Phase 63 (2026-05-23) — 캘린더 모달에 단순 입력 패널만 추가 (드래그는 원래 캘린더로) -->
+<style id="ph63-cal-input">
+  .ph63-input-panel {
+    display: flex;
+    gap: 6px;
+    padding: 10px;
+    background: rgba(15,23,42,0.95);
+    border-top: 2px solid rgba(251,191,36,0.5);
+    flex-wrap: wrap;
+    position: sticky;
+    bottom: 0;
+    z-index: 100;
+  }
+  .ph63-input-panel input[type="date"],
+  .ph63-input-panel input[type="time"] {
+    flex: 1 1 110px;
+    padding: 9px;
+    background: rgba(30,41,59,0.95);
+    border: 1px solid rgba(148,163,184,0.4);
+    color: #fff;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  .ph63-confirm-btn {
+    flex: 1 1 100%;
+    padding: 12px;
+    background: linear-gradient(135deg,#10b981,#059669);
+    color: #fff;
+    border: 0;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(16,185,129,0.3);
+  }
+  .ph63-confirm-btn:active { transform: scale(0.97); }
+  .ph63-title {
+    flex: 1 1 100%;
+    color: #fbbf24;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+</style>
+<script>
+(function(){
+  'use strict';
+  function ph63AddInputPanel(){
+    var modal = document.querySelector('.lc-modal:not([data-ph63="1"])');
+    if (!modal) return;
+    modal.dataset.ph63 = '1';
+
+    // 기존 ph49-cal-manual 이 있으면 제거 (단순화)
+    var oldManual = modal.querySelector('.ph49-cal-manual');
+    if (oldManual && oldManual.parentNode) oldManual.parentNode.removeChild(oldManual);
+
+    // 새 입력 패널 추가 — modal body 의 마지막에
+    var body = modal.querySelector('.lc-body') || modal;
+    if (body.querySelector('.ph63-input-panel')) return;
+
+    var panel = document.createElement('div');
+    panel.className = 'ph63-input-panel';
+    var today = new Date();
+    var ymd = today.toISOString().slice(0,10);
+    panel.innerHTML =
+      '<div class="ph63-title">⌨ 입력으로 변경하기 (또는 위의 캘린더에서 드래그)</div>' +
+      '<input type="date" id="ph63-date" value="' + ymd + '" min="' + ymd + '">' +
+      '<input type="time" id="ph63-time" value="14:00" step="600">' +
+      '<button type="button" class="ph63-confirm-btn" id="ph63-apply">✓ 이 시간으로 변경</button>';
+    body.appendChild(panel);
+
+    panel.querySelector('#ph63-apply').addEventListener('click', function(){
+      var d = panel.querySelector('#ph63-date').value;
+      var t = panel.querySelector('#ph63-time').value;
+      if (!d || !t) { alert('날짜와 시간을 모두 선택해주세요.'); return; }
+      try {
+        if (window.lcPicker) {
+          window.lcPicker.pickedDate = d;
+          window.lcPicker.pickedHour = t;
+        }
+        var confirmBtn = modal.querySelector('[onclick*="lcConfirm"], [onclick*="confirmChange"], .lc-confirm');
+        if (confirmBtn) { confirmBtn.click(); return; }
+        alert('새 시간: ' + d + ' ' + t + '\n캘린더 영역에서 ✅ 확정 버튼을 눌러주세요.');
+      } catch(e) { alert('새 시간: ' + d + ' ' + t); }
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph63AddInputPanel);
+  else ph63AddInputPanel();
+  [300, 1000, 2500].forEach(function(d){ setTimeout(ph63AddInputPanel, d); });
+  // 새 모달 열리는 것 감지 (조심스럽게)
+  var lastCheck = 0;
+  document.addEventListener('click', function(){
+    var now = Date.now();
+    if (now - lastCheck < 500) return;
+    lastCheck = now;
+    setTimeout(ph63AddInputPanel, 300);
+  });
+})();
+</script>
 
 <!-- Phase 49 (2026-05-22) — 7 fixes
      1. Background face visibility (segmentation softer)
@@ -21583,6 +21552,6 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260523165751 -->
+<!-- BUILD:20260523170142 -->
 </body>
 </html>
