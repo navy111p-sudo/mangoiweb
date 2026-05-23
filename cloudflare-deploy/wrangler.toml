@@ -39,7 +39,7 @@ binding = "AI"
 MAX_RECORDING_MB = "500"
 ALLOWED_RECORDING_MIME = "video/webm,video/mp4,audio/webm,audio/mp4"
 # /admin/health "Last Deploy" tile identifier - auto-updated by fix-and-deploy.ps1
-BUILD_STAMP = "2026-05-21T13:00:00Z"
+BUILD_STAMP = "2026-05-21T15:00:00Z"
 
 [assets]
 directory = "./public"
@@ -53,10 +53,12 @@ not_found_handling = "none"
 html_handling = "none"
 
 # Cron trigger — index.ts 의 scheduled() 핸들러
-#   - KST 03:00 (UTC 18:00) : retention purge
-#   - KST 19:00 (UTC 10:00) : 학생 streak/일일 참여 푸시
+#   - KST 03:00 (UTC 18:00) : retention purge + 일일 브리핑 + dunning + (일) 시간표 자동
+#   - KST 09:00 (UTC 00:00) : 정기결제 자동 청구 (Phase RB)
+#   - KST 10:00 (UTC 01:00) : 매월 1일 NPS 발송 (Phase NPS)
+#   - KST 19:00 (UTC 10:00) : 학생 streak/일일 참여 푸시 + (금) 학부모 다이제스트
 [triggers]
-crons = ["0 18 * * *", "0 10 * * *"]
+crons = ["0 18 * * *", "0 0 * * *", "0 1 * * *", "0 10 * * *"]
 
 # ===== Production environment (Wrangler 4: bindings NOT inherited - must redeclare) =====
 [env.production]
@@ -100,7 +102,7 @@ binding = "AI"
 [env.production.vars]
 MAX_RECORDING_MB = "500"
 ALLOWED_RECORDING_MIME = "video/webm,video/mp4,audio/webm,audio/mp4"
-BUILD_STAMP = "2026-05-21T13:00:00Z"
+BUILD_STAMP = "2026-05-21T15:00:00Z"
 
 [env.production.assets]
 directory = "./public"
@@ -111,4 +113,4 @@ html_handling = "none"
 
 # Production 환경도 동일하게 cron 등록 필요
 [env.production.triggers]
-crons = ["0 18 * * *", "0 10 * * *"]
+crons = ["0 18 * * *", "0 0 * * *", "0 1 * * *", "0 10 * * *"]
