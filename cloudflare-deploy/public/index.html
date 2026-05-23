@@ -20042,80 +20042,221 @@ document.addEventListener('click', (e) => {
   }
 </style>
 
-<!-- Phase 63 (2026-05-23) — 캘린더 모달에 단순 입력 패널만 추가 (드래그는 원래 캘린더로) -->
-<style id="ph63-cal-input">
-  .ph63-input-panel {
+<!-- Phase 64 (2026-05-23) — 연기/변경 모달 2단계 흐름 + 입력 패널 -->
+<style id="ph64-flow">
+  /* 1단계 — 모달 위 큰 카드 선택 오버레이 */
+  .ph64-mode-pick {
+    position: absolute;
+    inset: 0;
+    background: rgba(8, 12, 24, 0.96);
+    z-index: 200;
     display: flex;
-    gap: 6px;
-    padding: 10px;
-    background: rgba(15,23,42,0.95);
-    border-top: 2px solid rgba(251,191,36,0.5);
-    flex-wrap: wrap;
-    position: sticky;
-    bottom: 0;
-    z-index: 100;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    gap: 16px;
   }
-  .ph63-input-panel input[type="date"],
-  .ph63-input-panel input[type="time"] {
-    flex: 1 1 110px;
-    padding: 9px;
+  .ph64-mode-pick .ph64-title {
+    color: #fbbf24;
+    font-size: 18px;
+    font-weight: 800;
+    margin-bottom: 6px;
+    text-align: center;
+  }
+  .ph64-mode-pick .ph64-sub {
+    color: #94a3b8;
+    font-size: 12px;
+    margin-bottom: 18px;
+    text-align: center;
+  }
+  .ph64-card {
+    width: 100%;
+    max-width: 320px;
+    padding: 22px 16px;
+    border-radius: 14px;
+    border: 2px solid;
+    cursor: pointer;
+    text-align: center;
+    color: #fff;
+    transition: transform 0.15s, box-shadow 0.15s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ph64-card:active { transform: scale(0.97); }
+  .ph64-card .ph64-icon {
+    font-size: 42px;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .ph64-card .ph64-label {
+    font-size: 17px;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+  .ph64-card .ph64-desc {
+    font-size: 12px;
+    opacity: 0.8;
+  }
+  .ph64-card.ph64-time {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border-color: #60a5fa;
+    box-shadow: 0 8px 20px rgba(59,130,246,0.4);
+  }
+  .ph64-card.ph64-drag {
+    background: linear-gradient(135deg, #10b981, #059669);
+    border-color: #34d399;
+    box-shadow: 0 8px 20px rgba(16,185,129,0.4);
+  }
+
+  /* 2단계 — 모드 선택 후 보임 */
+  .lc-modal.ph64-mode-time .ph49-cal-nav,
+  .lc-modal.ph64-mode-time #cal-grid-wrap,
+  .lc-modal.ph64-mode-time .lc-info {
+    display: none !important;
+  }
+  .lc-modal.ph64-mode-drag .ph64-input-panel {
+    display: none !important;
+  }
+  .lc-modal.ph64-mode-drag .ph49-cal-manual {
+    display: none !important;
+  }
+
+  /* 입력 패널 (시간으로 연기 모드) */
+  .ph64-input-panel {
+    display: none;
+    padding: 18px;
+    background: rgba(15,23,42,0.95);
+    border-radius: 12px;
+    margin: 16px;
+  }
+  .lc-modal.ph64-mode-time .ph64-input-panel { display: block !important; }
+  .ph64-input-panel .ph64-input-title {
+    color: #fbbf24;
+    font-size: 14px;
+    font-weight: 800;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ph64-input-panel label {
+    display: block;
+    color: #cbd5e1;
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+  .ph64-input-panel input[type="date"],
+  .ph64-input-panel input[type="time"] {
+    width: 100%;
+    padding: 12px;
     background: rgba(30,41,59,0.95);
     border: 1px solid rgba(148,163,184,0.4);
     color: #fff;
     border-radius: 8px;
-    font-size: 14px;
+    font-size: 15px;
+    margin-bottom: 12px;
   }
-  .ph63-confirm-btn {
-    flex: 1 1 100%;
-    padding: 12px;
+  .ph64-input-panel .ph64-confirm {
+    width: 100%;
+    padding: 14px;
     background: linear-gradient(135deg,#10b981,#059669);
     color: #fff;
     border: 0;
-    border-radius: 8px;
-    font-size: 14px;
+    border-radius: 10px;
+    font-size: 15px;
     font-weight: 800;
     cursor: pointer;
-    box-shadow: 0 4px 10px rgba(16,185,129,0.3);
+    box-shadow: 0 4px 12px rgba(16,185,129,0.4);
+    margin-top: 6px;
   }
-  .ph63-confirm-btn:active { transform: scale(0.97); }
-  .ph63-title {
-    flex: 1 1 100%;
+  .ph64-input-panel .ph64-confirm:active { transform: scale(0.97); }
+
+  /* 뒤로가기 버튼 (모드 선택 후) */
+  .ph64-back-btn {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: block;
+    width: 100%;
+    padding: 8px;
+    background: rgba(15,23,42,0.95);
     color: #fbbf24;
-    font-size: 12px;
+    border: 0;
+    border-bottom: 1px solid rgba(251,191,36,0.3);
+    font-size: 13px;
     font-weight: 700;
-    margin-bottom: 2px;
+    cursor: pointer;
+    text-align: left;
+    padding-left: 14px;
+  }
+  .lc-modal:not(.ph64-mode-time):not(.ph64-mode-drag) .ph64-back-btn {
+    display: none !important;
   }
 </style>
+
 <script>
 (function(){
   'use strict';
-  function ph63AddInputPanel(){
-    var modal = document.querySelector('.lc-modal:not([data-ph63="1"])');
-    if (!modal) return;
-    modal.dataset.ph63 = '1';
 
-    // 기존 ph49-cal-manual 이 있으면 제거 (단순화)
+  function ph64Enhance(){
+    var modal = document.querySelector('.lc-modal:not([data-ph64="1"])');
+    if (!modal) return;
+    modal.dataset.ph64 = '1';
+
+    // 기존 ph49-cal-manual 제거 (ph64 입력 패널로 대체)
     var oldManual = modal.querySelector('.ph49-cal-manual');
     if (oldManual && oldManual.parentNode) oldManual.parentNode.removeChild(oldManual);
 
-    // 새 입력 패널 추가 — modal body 의 마지막에
     var body = modal.querySelector('.lc-body') || modal;
-    if (body.querySelector('.ph63-input-panel')) return;
 
-    var panel = document.createElement('div');
-    panel.className = 'ph63-input-panel';
+    // 1단계: 카드 선택 오버레이
+    var pick = document.createElement('div');
+    pick.className = 'ph64-mode-pick';
+    pick.innerHTML =
+      '<div class="ph64-title">📅 어떻게 변경하시겠어요?</div>' +
+      '<div class="ph64-sub">원하시는 방식을 선택해 주세요</div>' +
+      '<div class="ph64-card ph64-time" data-mode="time">' +
+        '<span class="ph64-icon">🕐</span>' +
+        '<div class="ph64-label">시간으로 연기</div>' +
+        '<div class="ph64-desc">날짜·시간을 직접 입력</div>' +
+      '</div>' +
+      '<div class="ph64-card ph64-drag" data-mode="drag">' +
+        '<span class="ph64-icon">✋</span>' +
+        '<div class="ph64-label">끌어당겨 연기</div>' +
+        '<div class="ph64-desc">캘린더에서 손가락으로 드래그</div>' +
+      '</div>';
+    modal.style.position = 'relative';
+    modal.appendChild(pick);
+
+    // 뒤로가기 버튼
+    var back = document.createElement('button');
+    back.className = 'ph64-back-btn';
+    back.type = 'button';
+    back.innerHTML = '◀ 다시 선택';
+    back.addEventListener('click', function(){
+      modal.classList.remove('ph64-mode-time', 'ph64-mode-drag');
+      pick.style.display = 'flex';
+    });
+    body.insertBefore(back, body.firstChild);
+
+    // 입력 패널 (시간으로 연기)
+    var inputPanel = document.createElement('div');
+    inputPanel.className = 'ph64-input-panel';
     var today = new Date();
     var ymd = today.toISOString().slice(0,10);
-    panel.innerHTML =
-      '<div class="ph63-title">⌨ 입력으로 변경하기 (또는 위의 캘린더에서 드래그)</div>' +
-      '<input type="date" id="ph63-date" value="' + ymd + '" min="' + ymd + '">' +
-      '<input type="time" id="ph63-time" value="14:00" step="600">' +
-      '<button type="button" class="ph63-confirm-btn" id="ph63-apply">✓ 이 시간으로 변경</button>';
-    body.appendChild(panel);
+    inputPanel.innerHTML =
+      '<div class="ph64-input-title">🕐 시간으로 연기</div>' +
+      '<label>날짜</label>' +
+      '<input type="date" id="ph64-date" value="' + ymd + '" min="' + ymd + '">' +
+      '<label>시간</label>' +
+      '<input type="time" id="ph64-time" value="14:00" step="600">' +
+      '<button type="button" class="ph64-confirm" id="ph64-apply">✓ 이 시간으로 변경</button>';
+    body.appendChild(inputPanel);
 
-    panel.querySelector('#ph63-apply').addEventListener('click', function(){
-      var d = panel.querySelector('#ph63-date').value;
-      var t = panel.querySelector('#ph63-time').value;
+    inputPanel.querySelector('#ph64-apply').addEventListener('click', function(){
+      var d = inputPanel.querySelector('#ph64-date').value;
+      var t = inputPanel.querySelector('#ph64-time').value;
       if (!d || !t) { alert('날짜와 시간을 모두 선택해주세요.'); return; }
       try {
         if (window.lcPicker) {
@@ -20124,20 +20265,36 @@ document.addEventListener('click', (e) => {
         }
         var confirmBtn = modal.querySelector('[onclick*="lcConfirm"], [onclick*="confirmChange"], .lc-confirm');
         if (confirmBtn) { confirmBtn.click(); return; }
-        alert('새 시간: ' + d + ' ' + t + '\n캘린더 영역에서 ✅ 확정 버튼을 눌러주세요.');
+        alert('✅ 새 시간이 선택되었습니다: ' + d + ' ' + t);
       } catch(e) { alert('새 시간: ' + d + ' ' + t); }
     });
+
+    // 카드 클릭 핸들러
+    pick.querySelectorAll('.ph64-card').forEach(function(card){
+      card.addEventListener('click', function(){
+        var mode = card.dataset.mode;
+        modal.classList.remove('ph64-mode-time', 'ph64-mode-drag');
+        modal.classList.add('ph64-mode-' + mode);
+        pick.style.display = 'none';
+      });
+    });
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph63AddInputPanel);
-  else ph63AddInputPanel();
-  [300, 1000, 2500].forEach(function(d){ setTimeout(ph63AddInputPanel, d); });
-  // 새 모달 열리는 것 감지 (조심스럽게)
-  var lastCheck = 0;
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ph64Enhance);
+  } else {
+    ph64Enhance();
+  }
+  [300, 1000, 2500, 5000].forEach(function(d){ setTimeout(ph64Enhance, d); });
+
+  // 새 모달 열림 감지 — click 으로
+  var lastClick = 0;
   document.addEventListener('click', function(){
     var now = Date.now();
-    if (now - lastCheck < 500) return;
-    lastCheck = now;
-    setTimeout(ph63AddInputPanel, 300);
+    if (now - lastClick < 500) return;
+    lastClick = now;
+    setTimeout(ph64Enhance, 250);
+    setTimeout(ph64Enhance, 800);
   });
 })();
 </script>
@@ -21552,6 +21709,6 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260523170142 -->
+<!-- BUILD:20260523170906 -->
 </body>
 </html>
