@@ -20244,6 +20244,162 @@ document.addEventListener('click', (e) => {
      1. Remove dictionary FAB completely
      2. Mobile: pack voice-diary / login / points / lang chips into one tidy row
 -->
+<!-- Phase 52 (2026-05-22) — restore cache clear button
+     PWA 캐시·SW 가 옛 HTML 을 보여줄 때 수동으로 비울 수 있는 ♻ 버튼.
+     카카오 FAB 위에 항상 떠 있어 메인/수업 어느 화면에서도 접근 가능. -->
+<style id="ph52-overrides">
+  .ph52-cache-fab {
+    position: fixed;
+    bottom: 82px;
+    right: 16px;
+    z-index: 9991;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg,#3b82f6,#1d4ed8);
+    border: 0;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.1);
+    color: #fff;
+    font-size: 20px;
+    font-weight: 900;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .15s ease;
+  }
+  .ph52-cache-fab:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0,0,0,0.4); }
+  .ph52-cache-fab:active { transform: scale(0.93); }
+  .ph52-cache-fab .ph52-cache-label {
+    position: absolute;
+    right: 52px;
+    background: rgba(15,23,42,0.92);
+    color: #93c5fd;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateX(6px);
+    pointer-events: none;
+    transition: opacity .18s, transform .18s;
+  }
+  .ph52-cache-fab:hover .ph52-cache-label,
+  .ph52-cache-fab.ph52-show-label .ph52-cache-label {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  @media (max-width: 720px) {
+    .ph52-cache-fab {
+      width: 36px;
+      height: 36px;
+      font-size: 16px;
+      bottom: 60px;
+      right: 12px;
+    }
+    .ph52-cache-fab .ph52-cache-label {
+      right: 42px;
+      font-size: 10px;
+      padding: 3px 7px;
+    }
+  }
+  @media (max-width: 420px) {
+    .ph52-cache-fab {
+      width: 32px;
+      height: 32px;
+      font-size: 14px;
+      bottom: 52px;
+    }
+  }
+  /* 수업 중에는 더 작고 더 투명하게 */
+  body.vc-in-call .ph52-cache-fab {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 12px !important;
+    bottom: 44px !important;
+    right: 6px !important;
+    opacity: 0.7;
+  }
+  body.vc-in-call .ph52-cache-fab:hover { opacity: 1; }
+</style>
+
+<button type="button" class="ph52-cache-fab" id="ph52-cache-fab"
+   title="캐시 삭제 (새 버전 안 보일 때)" aria-label="Clear cache">
+  <span>&#8635;</span><span class="ph52-cache-label" data-ko="캐시 삭제" data-en="Clear cache">캐시 삭제</span>
+</button>
+
+<script>
+(function(){
+  'use strict';
+
+  async function ph52ClearCache(){
+    var ok = confirm('🔄 캐시 삭제 후 페이지를 새로 불러옵니다.\n\n로그인 정보는 유지됩니다.\n계속하시겠어요?');
+    if (!ok) return;
+    var saved = {};
+    try {
+      ['mangoi_logged_user','mango_user','mangoi_uid',
+       'mangoi_vc_save_id','mangoi_vc_auto_login','mangoi_vc_uid','mangoi_vc_pw',
+       'mangoi_vc_roomcode'].forEach(function(k){
+        var v = localStorage.getItem(k);
+        if (v) saved[k] = v;
+      });
+    } catch(_){}
+    try {
+      if ('serviceWorker' in navigator) {
+        var regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(function(r){ return r.unregister(); }));
+      }
+    } catch(e){ console.warn('[ph52 sw]', e); }
+    try {
+      if ('caches' in window) {
+        var keys = await caches.keys();
+        await Promise.all(keys.map(function(k){ return caches.delete(k); }));
+      }
+    } catch(e){ console.warn('[ph52 caches]', e); }
+    try {
+      // sessionStorage 전체 비움
+      sessionStorage.clear();
+    } catch(_){}
+    // 보존 키 복원
+    try {
+      Object.keys(saved).forEach(function(k){ localStorage.setItem(k, saved[k]); });
+    } catch(_){}
+    // 강제 새로고침 (cache-bust 쿼리)
+    try {
+      var u = new URL(window.location.href);
+      u.searchParams.set('_cb', Date.now().toString());
+      window.location.replace(u.toString());
+    } catch(_){
+      window.location.reload();
+    }
+  }
+  window.ph52ClearCache = ph52ClearCache;
+
+  function ph52Init(){
+    var fab = document.getElementById('ph52-cache-fab');
+    if (!fab) return;
+    if (fab.__ph52Bound) return;
+    fab.__ph52Bound = true;
+    fab.addEventListener('click', function(e){
+      e.preventDefault();
+      ph52ClearCache();
+    });
+    // 첫 로드 시 라벨 잠깐 보이기 — 사용자가 위치 인지하도록
+    fab.classList.add('ph52-show-label');
+    setTimeout(function(){ fab.classList.remove('ph52-show-label'); }, 2200);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ph52Init);
+  } else {
+    ph52Init();
+  }
+  setTimeout(ph52Init, 1000);
+})();
+</script>
+
 <!-- Phase 51 (2026-05-22) — 3 additional fixes
      1. Mobile: hide welcome greeting text
      2. Mobile: shrink Kakao FAB
