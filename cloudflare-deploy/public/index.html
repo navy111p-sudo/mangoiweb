@@ -21214,6 +21214,92 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
+<!-- Phase 72 (2026-05-23) — 연기/변경 모달 톤 테마B (네이비+에메랄드) 적용 -->
+<style id="ph72-theme-b">
+  /* 카드 그라데이션 — 시안(연기) / 에메랄드(변경) */
+  .ph64-mode-pick .ph64-card.ph64-time {
+    background: linear-gradient(135deg, rgba(6,182,212,0.72) 0%, rgba(8,145,178,0.72) 50%, rgba(14,116,144,0.72) 100%) !important;
+    border-color: rgba(103,232,249,0.7) !important;
+    box-shadow: 0 12px 28px rgba(6,182,212,0.5) !important;
+    backdrop-filter: blur(14px) saturate(140%) !important;
+    -webkit-backdrop-filter: blur(14px) saturate(140%) !important;
+  }
+  .ph64-mode-pick .ph64-card.ph64-drag {
+    background: linear-gradient(135deg, rgba(16,185,129,0.72) 0%, rgba(5,150,105,0.72) 50%, rgba(4,120,87,0.72) 100%) !important;
+    border-color: rgba(52,211,153,0.7) !important;
+    box-shadow: 0 12px 28px rgba(16,185,129,0.5) !important;
+    backdrop-filter: blur(14px) saturate(140%) !important;
+    -webkit-backdrop-filter: blur(14px) saturate(140%) !important;
+  }
+  .ph64-mode-pick {
+    background: rgba(6,26,44,0.65) !important;
+    backdrop-filter: blur(18px) saturate(140%) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(140%) !important;
+  }
+  .ph64-input-panel, .ph69-time-picker, .ph71-teacher-picker {
+    background: rgba(15,49,64,0.78) !important;
+    backdrop-filter: blur(16px) saturate(140%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(140%) !important;
+  }
+  /* (ph64-mode-pick 반투명 룰은 위에서 처리) */
+  .ph64-mode-pick .ph64-title { color: #BBF7D0 !important; }
+  .ph64-mode-pick .ph64-sub   { color: #6EE7B7 !important; }
+
+  /* 입력 패널 (시간으로) — 네이비 톤 */
+  .ph64-input-panel, .ph69-time-picker, .ph71-teacher-picker { color: #ECFDF5 !important; }
+  .ph64-input-panel .ph64-input-title,
+  .ph69-time-picker .ph69-label,
+  .ph71-teacher-picker .ph71-teacher-title {
+    color: #34D399 !important;
+  }
+  .ph64-input-panel label { color: #BBF7D0 !important; }
+  .ph64-input-panel input[type="date"],
+  .ph64-input-panel input[type="time"] {
+    background: rgba(10,43,58,0.95) !important;
+    border-color: rgba(94,234,212,0.3) !important;
+    color: #ECFDF5 !important;
+  }
+  .ph64-input-panel .ph64-confirm,
+  .ph69-time-picker .ph69-confirm {
+    background: linear-gradient(135deg, #10B981, #047857) !important;
+    box-shadow: 0 6px 20px rgba(16,185,129,0.45) !important;
+  }
+  /* 큰 버튼 시간 picker (ph69) — 테마 B */
+  .ph69-date-btn, .ph69-hour-btn, .ph69-min-btn {
+    background: rgba(10,43,58,0.85) !important;
+    color: #BBF7D0 !important;
+    border-color: rgba(94,234,212,0.25) !important;
+  }
+  .ph69-date-btn.active, .ph69-hour-btn.active, .ph69-min-btn.active {
+    background: linear-gradient(135deg, #34D399, #10B981) !important;
+    color: #064E3B !important;
+    border-color: #34D399 !important;
+  }
+  .ph69-summary {
+    background: rgba(16,185,129,0.15) !important;
+    border-color: rgba(52,211,153,0.4) !important;
+  }
+  .ph69-summary-label { color: #6EE7B7 !important; }
+
+  /* 교사 picker — 테마 B */
+  .ph71-teacher-btn {
+    background: linear-gradient(135deg, rgba(16,185,129,0.18), rgba(6,182,212,0.12)) !important;
+    border-color: rgba(52,211,153,0.4) !important;
+    color: #ECFDF5 !important;
+  }
+  .ph71-teacher-btn.active {
+    background: linear-gradient(135deg, #34D399, #10B981) !important;
+    color: #064E3B !important;
+    border-color: #34D399 !important;
+  }
+  /* 뒤로 / 다시 선택 */
+  .ph64-back-btn, .ph69-back-to-pick {
+    background: rgba(10,43,58,0.95) !important;
+    color: #34D399 !important;
+    border-color: rgba(52,211,153,0.3) !important;
+  }
+</style>
+
 <!-- Phase 49 (2026-05-22) — 7 fixes
      1. Background face visibility (segmentation softer)
      2. PIP/local box mobile touch drag
@@ -22624,6 +22710,6 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260523175842 -->
+<!-- BUILD:20260523182406 -->
 </body>
 </html>
