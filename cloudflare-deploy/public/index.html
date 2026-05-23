@@ -20250,24 +20250,18 @@ document.addEventListener('click', (e) => {
      3. Auto-login: persist + restore + suppress repeat login prompts
 -->
 <style id="ph51-overrides">
-  /* ===== 1) 모바일 환영 메시지 / 로비 컨트롤 숨김 ===== */
+  /* ===== 1) 모바일 — 환영 메시지 + 로비 상단 컨트롤 강제 제거 ===== */
   @media (max-width: 720px) {
-    /* 로비 환영 음성 토글 + 메인 링크 + 중복 EN(lang-toggle-lobby) — 모두 ph50-chip-row 와 겹쳐 두 줄로 보였던 원인 */
     #lobby-audio-toggle,
     #lobby-welcome-toggle,
     #lobby-welcome-btn,
     #lang-toggle-lobby,
     .lobby-welcome-hint { display: none !important; }
-    /* 환영/안내 토스트 */
     .lc-toast[style*="환영"], .welcome-toast { display: none !important; }
-    /* 마스코트 인사 텍스트 */
     .mascot-greeting, .mascot-bubble .greeting-text { display: none !important; }
-  }
-  /* 환영 음성 자체 비활성화 */
-  @media (max-width: 720px) {
     #lobby-welcome-audio { display: none !important; }
   }
-  /* lang-toggle-lobby 는 데스크탑에서도 ph50 의 #lang-toggle 과 중복이라 어디서나 hide */
+  /* lang-toggle-lobby 는 항상 중복이라 모든 디바이스에서 숨김 */
   #lang-toggle-lobby { display: none !important; }
 
   /* ===== 2) 카톡 FAB 모바일 축소 ===== */
@@ -20307,41 +20301,51 @@ document.addEventListener('click', (e) => {
 (function(){
   'use strict';
 
-  /* ━━━ 1) 환영 음성 + 로비 컨트롤 바 강제 정리 ━━━ */
-  function ph51StopWelcome(){
+  /* ━━━ 1) 로비 컨트롤 바 무조건 hide (모바일) ━━━
+     검사 조건 없이 audio-toggle 의 부모 div 통째로 숨김 */
+  function ph51HideLobbyBar(){
     var isMobile = window.matchMedia('(max-width: 720px)').matches;
+
+    // 항상: lang-toggle-lobby 숨김 (중복 EN)
+    var lt = document.getElementById('lang-toggle-lobby');
+    if (lt) lt.style.display = 'none';
+
+    if (!isMobile) return;
+
+    // 모바일: 환영 음성 정지
     try {
       var aud = document.getElementById('lobby-welcome-audio');
-      if (aud && isMobile) {
-        aud.muted = true;
-        try { aud.pause(); aud.currentTime = 0; } catch(_) {}
-      }
-      if (isMobile && typeof window.lobbyStopWelcome === 'function') {
-        try { window.lobbyStopWelcome(); } catch(_) {}
-      }
-      if (isMobile && typeof window.lobbyPlayWelcome === 'function') {
-        window.lobbyPlayWelcome = function(){};
-      }
+      if (aud) { aud.muted = true; try { aud.pause(); aud.currentTime = 0; } catch(_){} }
+      if (typeof window.lobbyStopWelcome === 'function') { try { window.lobbyStopWelcome(); } catch(_){} }
+      if (typeof window.lobbyPlayWelcome === 'function') { window.lobbyPlayWelcome = function(){}; }
     } catch(e){}
 
-    // 로비 컨트롤 바의 부모 div 자체를 모바일에서 hide — 빈 공간도 안 남게
-    try {
-      var langLobby = document.getElementById('lang-toggle-lobby');
-      var audioToggle = document.getElementById('lobby-audio-toggle');
-      var parent = (audioToggle && audioToggle.parentElement) ||
-                   (langLobby && langLobby.parentElement);
-      if (parent && isMobile) {
-        // 이 div 안에 ph50 chip row 의 핵심 chip 이 들어있지 않은지 확인 (안전장치)
-        if (!parent.querySelector('#login-btn, #points-chip, #lang-toggle')) {
-          parent.style.display = 'none';
-        }
+    // 모바일: 음성 OFF / 메인 / lang-toggle-lobby 모두 hide
+    ['lobby-audio-toggle', 'lang-toggle-lobby'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+
+    // 부모 div 자체도 hide (음성 OFF, 메인, 중복EN 들어있던 div) - 무조건
+    var audio = document.getElementById('lobby-audio-toggle');
+    var parent = (audio && audio.parentElement) || (lt && lt.parentElement);
+    if (parent) {
+      // 부모 div 안의 모든 자식(메인 링크 포함) hide
+      Array.prototype.forEach.call(parent.children, function(c){
+        c.style.display = 'none';
+      });
+      parent.style.display = 'none';
+    }
+    // 추가 안전장치: 5407 div 패턴 — top:1.2rem right:1.2rem
+    var divs = document.querySelectorAll('div[style*="top:1.2rem"][style*="right:1.2rem"]');
+    Array.prototype.forEach.call(divs, function(d){
+      if (!d.querySelector('#login-btn, #points-chip, #lang-toggle')) {
+        d.style.display = 'none';
       }
-      // 데스크탑에서도 lang-toggle-lobby 단일 숨김
-      if (langLobby) langLobby.style.display = 'none';
-    } catch(e){}
+    });
   }
 
-  /* ━━━ 3) 자동 로그인 강화 ━━━ */
+  /* ━━━ 3) 자동 로그인 — 메인 + VC 로비 동시 ━━━ */
   function ph51RestoreLogin(){
     try {
       var raw = localStorage.getItem('mangoi_logged_user') ||
@@ -20357,6 +20361,10 @@ document.addEventListener('click', (e) => {
       if (typeof window.updateLoginUI === 'function') {
         try { window.updateLoginUI(); } catch(_) {}
       }
+
+      // VC 로비 입력란 자동 채움 — 메인 로그인 정보 사용
+      var vcName = document.getElementById('vc-name-input');
+      if (vcName && !vcName.value) vcName.value = norm.name || norm.uid;
     } catch(e){}
   }
 
@@ -20404,11 +20412,42 @@ document.addEventListener('click', (e) => {
     } catch(e){}
   }
 
+  /* ━━━ VC 로비 [로그인] 버튼 보강 — 한 번 클릭으로 확실히 입장 ━━━ */
+  function ph51FixVcLoginBtn(){
+    try {
+      // vc-name-input + vc-room-input + vc-roomcode-input 이 있는 폼에서 로그인 버튼 찾기
+      var loginBtns = document.querySelectorAll('button[onclick*="vcJoinRoom"], #vc-login-btn, #vc-enter-btn');
+      Array.prototype.forEach.call(loginBtns, function(btn){
+        if (btn.__ph51Bound) return;
+        btn.__ph51Bound = true;
+        btn.addEventListener('click', function(e){
+          // 기본 onclick 핸들러가 안 돌면 fallback 으로 vcJoinRoom 직접 호출
+          setTimeout(function(){
+            try {
+              // 입력값 있고 vcUsername 안 잡혔으면 강제 재시도
+              var nameInput = document.getElementById('vc-name-input');
+              var roomInput = document.getElementById('vc-roomcode-input');
+              if (nameInput && nameInput.value && typeof window.vcUsername === 'undefined') {
+                if (typeof window.vcJoinRoom === 'function') {
+                  try { window.vcJoinRoom(); } catch(err) {
+                    console.error('[ph51 vcLogin fallback]', err);
+                    alert('로그인 실패: ' + (err && err.message || err) + '\n\n페이지 새로고침 후 다시 시도해 주세요.');
+                  }
+                }
+              }
+            } catch(_){}
+          }, 600);
+        }, { passive: true });
+      });
+    } catch(e){}
+  }
+
   function ph51Init(){
-    ph51StopWelcome();
+    ph51HideLobbyBar();
     ph51RestoreLogin();
     ph51GuardLoginModal();
     ph51HookSetUser();
+    ph51FixVcLoginBtn();
   }
 
   if (document.readyState === 'loading') {
@@ -20418,9 +20457,13 @@ document.addEventListener('click', (e) => {
   }
   [200, 800, 2000, 5000].forEach(function(d){ setTimeout(ph51Init, d); });
 
-  // SPA view 전환 시 로비 컨트롤 다시 노출될 수 있으니 MutationObserver 로 재실행
+  // SPA view 전환 시 — 로비 컨트롤 재노출 즉시 차단 + 자동 채움 재시도
   if (typeof MutationObserver !== 'undefined') {
-    var mo = new MutationObserver(function(){ ph51StopWelcome(); });
+    var mo = new MutationObserver(function(){
+      ph51HideLobbyBar();
+      ph51RestoreLogin();
+      ph51FixVcLoginBtn();
+    });
     mo.observe(document.body, { childList: true, subtree: false, attributes: true, attributeFilter: ['class'] });
   }
 })();
