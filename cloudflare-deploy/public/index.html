@@ -21319,17 +21319,26 @@ document.addEventListener('click', (e) => {
       if (!isLessonChange) return;
       el.dataset.ph73 = '1';
       el.addEventListener('click', function(e){
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        window.location.href = '/lesson-postpone-demo.html';
+        // 모바일에서만 demo 페이지로 redirect — PC 는 기존 드래그 모달 그대로
+        if (window.matchMedia('(max-width: 900px)').matches) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          window.location.href = '/lesson-postpone-demo.html';
+        }
       }, true);
     });
   }
   function ph73HookFunc(){
     if (typeof window.openLessonChangeModal === 'function' && !window.openLessonChangeModal.__ph73) {
+      var orig = window.openLessonChangeModal;
       var wrapped = function(){
-        window.location.href = '/lesson-postpone-demo.html';
+        // 모바일만 redirect, PC 는 기존 모달
+        if (window.matchMedia('(max-width: 900px)').matches) {
+          window.location.href = '/lesson-postpone-demo.html';
+          return;
+        }
+        return orig && orig.apply(this, arguments);
       };
       wrapped.__ph73 = true;
       window.openLessonChangeModal = wrapped;
@@ -22752,6 +22761,6 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260523184941 -->
+<!-- BUILD:20260523185230 -->
 </body>
 </html>
