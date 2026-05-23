@@ -21300,6 +21300,48 @@ document.addEventListener('click', (e) => {
   }
 </style>
 
+<!-- Phase 73 (2026-05-23) — 메인 메뉴 "연기/변경" 클릭 → demo 페이지 redirect -->
+<script>
+(function(){
+  'use strict';
+  function ph73Hook(){
+    var candidates = document.querySelectorAll(
+      '.gm-card, .ai-quick-btn, [data-go="lesson-change"], [onclick*="openLessonChangeModal"]'
+    );
+    candidates.forEach(function(el){
+      if (el.dataset.ph73 === '1') return;
+      var txt = (el.textContent || '') + (el.getAttribute('data-ko') || '') + (el.getAttribute('title') || '');
+      var isLessonChange =
+        /연기|변경|postpone|reschedule/i.test(txt) &&
+        !/배경화면|배경끄기|배경 끄/.test(txt) &&
+        !/언어 변경|lang/i.test(txt) &&
+        !/마이크\/카메라|마이크|카메라/.test(txt);
+      if (!isLessonChange) return;
+      el.dataset.ph73 = '1';
+      el.addEventListener('click', function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        window.location.href = '/lesson-postpone-demo.html';
+      }, true);
+    });
+  }
+  function ph73HookFunc(){
+    if (typeof window.openLessonChangeModal === 'function' && !window.openLessonChangeModal.__ph73) {
+      var wrapped = function(){
+        window.location.href = '/lesson-postpone-demo.html';
+      };
+      wrapped.__ph73 = true;
+      window.openLessonChangeModal = wrapped;
+    }
+  }
+  function ph73Tick(){ ph73Hook(); ph73HookFunc(); }
+  setInterval(ph73Tick, 500);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph73Tick);
+  else ph73Tick();
+})();
+</script>
+
 <!-- Phase 49 (2026-05-22) — 7 fixes
      1. Background face visibility (segmentation softer)
      2. PIP/local box mobile touch drag
@@ -22710,6 +22752,6 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260523183735 -->
+<!-- BUILD:20260523184354 -->
 </body>
 </html>
