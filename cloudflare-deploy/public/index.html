@@ -19996,6 +19996,75 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
+<!-- Phase 61 (2026-05-23) — 캘린더 더 강력하게 -->
+<style id="ph61-calendar">
+  @media (max-width: 900px) {
+    /* 캘린더 모달 전체 — flex column 으로 본문 영역 확보 */
+    .lc-modal {
+      display: flex !important;
+      flex-direction: column !important;
+      max-height: 100vh !important;
+      height: 100vh !important;
+    }
+    .lc-head { flex: 0 0 auto !important; }
+    .lc-body {
+      flex: 1 1 auto !important;
+      display: flex !important;
+      flex-direction: column !important;
+      padding: 6px !important;
+      overflow-y: auto !important;
+      gap: 6px !important;
+    }
+    /* 변경 후 수업 박스 — 상단에 작게 */
+    .lc-info {
+      flex: 0 0 auto !important;
+      max-height: 80px !important;
+      overflow: hidden;
+      padding: 6px 8px !important;
+      font-size: 11px !important;
+      margin: 0 !important;
+    }
+    /* 캘린더 영역 — 가장 큰 공간 차지 */
+    #cal-grid-wrap {
+      flex: 1 1 auto !important;
+      display: flex !important;
+      flex-direction: column !important;
+      min-height: 400px !important;
+      max-height: none !important;
+      width: 100% !important;
+      overflow: visible !important;
+      background: rgba(15,23,42,0.9) !important;
+      border-radius: 8px;
+      padding: 4px;
+    }
+    /* 캘린더 헤더 (요일) */
+    #cal-grid-wrap > div:first-child {
+      flex: 0 0 auto !important;
+      min-height: 26px !important;
+      display: flex !important;
+      width: 100% !important;
+    }
+    /* 캘린더 본문 (시간 × 요일) */
+    #cal-grid-wrap > div:nth-child(2) {
+      flex: 1 1 auto !important;
+      min-height: 300px !important;
+      max-height: 55vh !important;
+      width: 100% !important;
+      overflow: auto !important;
+      -webkit-overflow-scrolling: touch;
+      display: block !important;
+    }
+    #cal-grid-body {
+      display: block !important;
+      min-height: 280px !important;
+      min-width: 100% !important;
+    }
+    /* 푸터 / 액션 버튼 */
+    .lc-actions, .ph49-cal-manual {
+      flex: 0 0 auto !important;
+    }
+  }
+</style>
 <!-- Phase 60 (2026-05-23) — 대시보드 잘림 + 캘린더 안 보임 fix -->
 <style id="ph60-fix">
   /* 1) 모든 컨테이너 box-sizing + 화면 폭 제한 — 가로 잘림 방지 */
@@ -21489,6 +21558,6 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260523163553 -->
+<!-- BUILD:20260523164200 -->
 </body>
 </html>
