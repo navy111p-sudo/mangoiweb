@@ -20476,29 +20476,22 @@ document.addEventListener('click', (e) => {
       if (typeof window.lobbyPlayWelcome === 'function') { window.lobbyPlayWelcome = function(){}; }
     } catch(e){}
 
-    // 모바일: 음성 OFF / 메인 / lang-toggle-lobby 모두 hide
+    // 모바일: 음성 OFF / 메인 / lang-toggle-lobby 개별 hide (부모 div 는 건드리지 않음)
     ['lobby-audio-toggle', 'lang-toggle-lobby'].forEach(function(id){
       var el = document.getElementById(id);
       if (el) el.style.display = 'none';
     });
-
-    // 부모 div 자체도 hide (음성 OFF, 메인, 중복EN 들어있던 div) - 무조건
+    // 메인 링크 (a[href="/"]) — 같은 5407 div 안의 형제만 정확히 잡아서 hide
     var audio = document.getElementById('lobby-audio-toggle');
-    var parent = (audio && audio.parentElement) || (lt && lt.parentElement);
-    if (parent) {
-      // 부모 div 안의 모든 자식(메인 링크 포함) hide
-      Array.prototype.forEach.call(parent.children, function(c){
-        c.style.display = 'none';
+    if (audio && audio.parentElement) {
+      var siblings = audio.parentElement.children;
+      Array.prototype.forEach.call(siblings, function(c){
+        // a[href="/"] 메인 링크만 hide. 다른 폼/버튼은 건드리지 않음
+        if (c.tagName === 'A' && c.getAttribute('href') === '/') {
+          c.style.display = 'none';
+        }
       });
-      parent.style.display = 'none';
     }
-    // 추가 안전장치: 5407 div 패턴 — top:1.2rem right:1.2rem
-    var divs = document.querySelectorAll('div[style*="top:1.2rem"][style*="right:1.2rem"]');
-    Array.prototype.forEach.call(divs, function(d){
-      if (!d.querySelector('#login-btn, #points-chip, #lang-toggle')) {
-        d.style.display = 'none';
-      }
-    });
   }
 
   /* ━━━ 3) 자동 로그인 — 메인 + VC 로비 동시 ━━━ */
@@ -20648,10 +20641,7 @@ document.addEventListener('click', (e) => {
     pointer-events: none !important;
   }
 
-  /* 수업화면이 active 아닐 땐 그 안의 모든 자식 요소도 강제 차단 */
-  body:not(.vc-in-call) #view-videocall-call:not(.active) * {
-    display: none !important;
-  }
+  /* (자식 강제 hide 룰 제거 — 입장 시 폼/버튼 막힘 방지) */
 
   /* ━━━ 수업화면 진입 시 상단 칩 ALL HIDE ━━━ */
   body.vc-in-call #ph50-chip-row,
@@ -20729,13 +20719,18 @@ document.addEventListener('click', (e) => {
   'use strict';
   var CHIP_IDS = ['login-btn', 'points-chip', 'lang-toggle'];
 
-  // ★ 잘못된 localStorage flag 자동 제거 — 이게 수업화면을 메인 대시보드 아래 강제 노출시키던 원인
-  try {
-    localStorage.removeItem('mangoi_vc_orientation_dismissed');
-  } catch(e){}
-  // body 에 붙은 dismiss class 도 정리
+  // ★ dismiss flag 정리 — 단, 사용자가 의도적으로 dismiss 한 경우(수업 진입 후) 는 보존
   function ph50StripDismiss() {
-    try { document.body.classList.remove('vc-orientation-dismissed'); } catch(e){}
+    try {
+      // 수업 진입 상태(vc-in-call) 또는 lobby 가 active 면 dismiss 그대로 유지
+      if (document.body.classList.contains('vc-in-call')) return;
+      var lobby = document.getElementById('view-videocall-lobby');
+      if (lobby && lobby.classList.contains('active')) return;
+      var call = document.getElementById('view-videocall-call');
+      if (call && call.classList.contains('active')) return;
+      // 그 외(홈 화면)일 때만 정리
+      document.body.classList.remove('vc-orientation-dismissed');
+    } catch(e){}
   }
   ph50StripDismiss();
 
