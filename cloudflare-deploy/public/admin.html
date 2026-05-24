@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525023218 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525024047 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525023218 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525024047 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525023218 -->
+        <!-- BUILD:20260525024047 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -24244,6 +24244,75 @@ button.chip:hover,
   else ph96Init();
   setInterval(ph96Init, 1200);
   console.log('[ph96] unified sidebar controller initialized');
+})();
+</script>
+
+
+<!-- Phase 97 admin (2026-05-25) — window capture phase: 어떤 핸들러도 우회 불가 -->
+<script>
+(function(){
+  'use strict';
+  if (window.__ph97) return;
+  window.__ph97 = true;
+
+  // 글로벌 capture-phase click — 어떤 stopPropagation 도 막을 수 없음
+  window.addEventListener('click', function(e){
+    // 1) 모두 펼치기 / 모두 접기 / 숨기기
+    var btn = e.target.closest('.ph86-action-btn');
+    if (btn) {
+      var act = btn.dataset.act;
+      if (act === 'expand') {
+        document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(g){ g.classList.add('open'); });
+        console.log('[ph97] EXPAND ALL 8 groups');
+        e.stopPropagation();
+        return;
+      } else if (act === 'collapse') {
+        document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(g){ g.classList.remove('open'); });
+        console.log('[ph97] COLLAPSE ALL 8 groups');
+        e.stopPropagation();
+        return;
+      }
+    }
+    // 2) 그룹 헤더 토글
+    var head = e.target.closest('#ph85-sidebar .ph85-head');
+    if (head) {
+      var g = head.parentElement;
+      if (g) {
+        g.classList.toggle('open');
+        console.log('[ph97] toggle group:', (g.querySelector('.ph85-title') || {}).textContent || '?');
+      }
+      e.stopPropagation();
+      return;
+    }
+    // 3) 하위 메뉴 → 카드 scroll
+    var sub = e.target.closest('#ph85-sidebar .ph85-sub');
+    if (sub) {
+      var id = sub.dataset.card;
+      if (id) {
+        var c = document.getElementById(id);
+        if (c) {
+          var lc = document.getElementById('legacy-cards');
+          if (lc) { lc.style.display = 'block'; lc.style.visibility = 'visible'; }
+          c.style.display = '';
+          c.style.visibility = 'visible';
+          if (c.tagName === 'DETAILS') c.open = true;
+          setTimeout(function(){
+            c.scrollIntoView({behavior:'smooth',block:'start'});
+            c.classList.add('ph96-highlight');
+            setTimeout(function(){ c.classList.remove('ph96-highlight'); }, 2500);
+          }, 50);
+          console.log('[ph97] NAV →', id);
+        } else {
+          console.warn('[ph97] card not found:', id);
+          alert('미구현 카드: ' + id);
+        }
+      }
+      e.stopPropagation();
+      return;
+    }
+  }, true);  // CAPTURE phase
+
+  console.log('[ph97] global capture-phase click handler installed — bypass-proof');
 })();
 </script>
 
