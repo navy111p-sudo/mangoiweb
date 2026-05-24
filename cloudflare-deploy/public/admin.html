@@ -4763,7 +4763,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       const d = await r.json();
       if (!d.ok) { alert('전체 보기 실패: ' + (d.error||'')); return; }
       const w = window.open('', '_blank', 'width=900,height=700');
-      w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>AI 학습 리포트 #' + id + '</title></head><body style="font-family:-apple-system,sans-serif;padding:24px;background:#0a1530;color:#e6ecff;line-height:1.7"><h1>🎙 AI 학습 리포트 #' + id + '</h1><h2>📝 전체 STT (' + (d.item.total_words||0) + ' 단어)</h2><pre style="white-space:pre-wrap;background:#14213b;padding:14px;border-radius:10px;color:#cbd5e1">' + (d.item.transcript || '').replace(/[<>]/g,'') + '</pre><!-- BUILD:20260525002039 -->
+      w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>AI 학습 리포트 #' + id + '</title></head><body style="font-family:-apple-system,sans-serif;padding:24px;background:#0a1530;color:#e6ecff;line-height:1.7"><h1>🎙 AI 학습 리포트 #' + id + '</h1><h2>📝 전체 STT (' + (d.item.total_words||0) + ' 단어)</h2><pre style="white-space:pre-wrap;background:#14213b;padding:14px;border-radius:10px;color:#cbd5e1">' + (d.item.transcript || '').replace(/[<>]/g,'') + '</pre><!-- BUILD:20260525002823 -->
 <!-- Phase 60 admin (2026-05-23) — 상단 ▲ 토글 제거 + 칩 3개씩 정렬 -->
 <style id="ph60-admin">
   @media (max-width: 720px) {
@@ -14104,7 +14104,7 @@ function downloadEmptyEnrollmentTemplateExcel() {
   // 10. 푸터
   html += '<tr><td class="footer-cell" colspan="' + colCount + '">© Mangoi · 망고아이 영어 화상수업 · 양식 자동 발급 ' + today + '</td></tr>';
 
-  html += '</table><!-- BUILD:20260525002039 -->
+  html += '</table><!-- BUILD:20260525002823 -->
 </body></html>';
 
   _downloadBlob(new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' }),
@@ -14272,7 +14272,7 @@ function downloadEmptyEnrollmentTemplateWord() {
     // 푸터
     '<div class="footer">© Mangoi · 망고아이 영어 화상수업 · 양식 자동 발급 ' + today + '</div>' +
 
-    '<!-- BUILD:20260525002039 -->
+    '<!-- BUILD:20260525002823 -->
 </body></html>';
 
   _downloadBlob(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
@@ -14732,7 +14732,7 @@ function autoExportBulkEnrollment(records) {
       '<td>' + _aiEsc(r._started_at_str || '—') + '</td>' +
       '</tr>';
   });
-  docHtml += '</table><div class="footer">© Mangoi · 자동 생성 · ' + new Date().toLocaleString('ko-KR') + '</div><!-- BUILD:20260525002039 -->
+  docHtml += '</table><div class="footer">© Mangoi · 자동 생성 · ' + new Date().toLocaleString('ko-KR') + '</div><!-- BUILD:20260525002823 -->
 </body></html>';
   _downloadBlob(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
     '수강신청_일괄_' + N + '명_' + dateStr + '.doc');
@@ -14823,7 +14823,7 @@ async function autoExportEnrollment(enr) {
       '<tr><th>등록일시</th><td>' + _aiEsc(enr.created_at) + '</td></tr>' +
     '</table>' +
     '<div class="footer">© Mangoi · 자동 생성 · ' + new Date().toLocaleString('ko-KR') + '</div>' +
-    '<!-- BUILD:20260525002039 -->
+    '<!-- BUILD:20260525002823 -->
 </body></html>';
   _downloadBlob(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
     '수강신청_' + safeName + '_' + dateStr + '.doc');
@@ -15395,7 +15395,7 @@ function tbfOpenPreview(url, kind, name) {
   if (kind === 'pdf') {
     win.location.href = url;
   } else {
-    win.document.write('<!doctype html><html><head><title>'+_esc(name)+'</title><style>body{margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh;}img{max-width:100%;max-height:100vh;}</style></head><body><img src="'+url+'" /><!-- BUILD:20260525002039 -->
+    win.document.write('<!doctype html><html><head><title>'+_esc(name)+'</title><style>body{margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh;}img{max-width:100%;max-height:100vh;}</style></head><body><img src="'+url+'" /><!-- BUILD:20260525002823 -->
 </body></html>');
     win.document.close();
   }
@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525002039 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525002823 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525002039 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525002823 -->
 </body></html>`;
   }
 
@@ -18664,7 +18664,7 @@ window.rebuildGlobalSearchIndex = function() {
     // 새 창에 인쇄 가능한 형태로 출력
     const w = window.open('', '_blank', 'width=1000,height=900,scrollbars=yes');
     if (!w) { alert('팝업이 차단되었습니다.'); return; }
-    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>재무제표</title></head><body><div style="text-align:center;padding:30px">생성 중…</div><!-- BUILD:20260525002039 -->
+    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>재무제표</title></head><body><div style="text-align:center;padding:30px">생성 중…</div><!-- BUILD:20260525002823 -->
 </body></html>');
     try {
       const r = await fetch(_statementUrl(), { credentials:'include' });
@@ -18697,7 +18697,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525002039 -->
+        <!-- BUILD:20260525002823 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -23590,6 +23590,156 @@ button.chip:hover,
   else ph86Enhance();
   setTimeout(ph86Enhance, 800);
   setTimeout(ph86Enhance, 2000);
+})();
+</script>
+<!-- Phase 87 admin (2026-05-24) — PC 사이드바와 중복되는 우측 메뉴 영역 제거 -->
+<style id="ph87-clean">
+  @media (min-width: 1024px) {
+    /* legacy-cards 메뉴 검색 영역 PC 에서 hide (사이드바와 중복) */
+    #legacy-cards,
+    #legacy-toggle,
+    button[onclick*="toggleAllMenuCards"],
+    #admin-hub {
+      display: none !important;
+    }
+    /* legacy-toggle 옆 wrapper 도 hide (있다면) */
+    .legacy-toggle-wrap, .menu-toggle-bar { display: none !important; }
+  }
+</style>
+<script>
+(function(){
+  'use strict';
+  if (!window.matchMedia('(min-width: 1024px)').matches) return;
+  function ph87Clean(){
+    // legacy-cards DOM 제거 (display:none 보강)
+    var lc = document.getElementById('legacy-cards');
+    if (lc) lc.style.display = 'none';
+    var legacyToggle = document.getElementById('legacy-toggle');
+    if (legacyToggle) legacyToggle.style.display = 'none';
+    document.querySelectorAll('button[onclick*="toggleAllMenuCards"]').forEach(function(b){
+      b.style.display = 'none';
+    });
+    var hub = document.getElementById('admin-hub');
+    if (hub) hub.style.display = 'none';
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph87Clean);
+  else ph87Clean();
+  setTimeout(ph87Clean, 500);
+  setTimeout(ph87Clean, 2000);
+})();
+</script>
+<!-- Phase 88 admin (2026-05-24) — 모든 버튼 강제 작동 (event delegation) -->
+<script>
+(function(){
+  'use strict';
+
+  /* 모든 사이드바 버튼/링크에 event delegation 으로 click 핸들러 강제 */
+  function ph88BindAll(){
+    var bar = document.getElementById('ph85-sidebar');
+    if (!bar || bar.__ph88) return;
+    bar.__ph88 = true;
+
+    // 사이드바 전체에 단일 click delegation
+    bar.addEventListener('click', function(e){
+      var target = e.target;
+
+      // 1) 그룹 헤더 클릭 (.ph85-head 또는 그 자식)
+      var head = target.closest('.ph85-head');
+      if (head) {
+        e.preventDefault();
+        e.stopPropagation();
+        var g = head.parentElement;
+        g.classList.toggle('open');
+        return;
+      }
+
+      // 2) 하위 항목 클릭 (.ph85-sub)
+      var sub = target.closest('.ph85-sub');
+      if (sub) {
+        e.preventDefault();
+        e.stopPropagation();
+        var id = sub.dataset.card;
+        if (id) {
+          var c = document.getElementById(id);
+          if (c) {
+            if (c.tagName === 'DETAILS') c.open = true;
+            c.scrollIntoView({ behavior:'smooth', block:'start' });
+            var orig = c.style.boxShadow;
+            c.style.boxShadow = '0 0 0 3px rgba(251,191,36,0.6)';
+            setTimeout(function(){ c.style.boxShadow = orig; }, 1800);
+          } else {
+            console.warn('[ph88] card not found:', id);
+            alert('해당 메뉴 카드(' + id + ')를 찾을 수 없습니다. (아직 구현되지 않은 페이지일 수 있어요)');
+          }
+        }
+        if (window.matchMedia('(max-width: 1023px)').matches) bar.classList.remove('open');
+        return;
+      }
+
+      // 3) 액션 버튼 (.ph86-action-btn)
+      var actBtn = target.closest('.ph86-action-btn');
+      if (actBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        var act = actBtn.dataset.act;
+        if (act === 'expand') {
+          bar.querySelectorAll('.ph85-group').forEach(function(g){ g.classList.add('open'); });
+        } else if (act === 'collapse') {
+          bar.querySelectorAll('.ph85-group').forEach(function(g){ g.classList.remove('open'); });
+        } else if (act === 'hide') {
+          bar.style.display = 'none';
+          document.body.style.paddingLeft = '0';
+          if (!document.getElementById('ph88-show')) {
+            var show = document.createElement('button');
+            show.id = 'ph88-show';
+            show.type = 'button';
+            show.textContent = '☰ 메뉴 보이기';
+            show.style.cssText = 'position:fixed;top:10px;left:10px;z-index:10001;padding:10px 14px;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;border:0;border-radius:8px;font-weight:800;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,0.3)';
+            show.addEventListener('click', function(){
+              bar.style.display = '';
+              if (window.matchMedia('(min-width: 1024px)').matches) {
+                document.body.style.paddingLeft = '240px';
+              }
+              show.remove();
+            });
+            document.body.appendChild(show);
+          }
+        }
+        return;
+      }
+
+      // 4) 검색창 (input event 별도 처리는 그대로 두고 click 만 stopProp)
+      if (target.id === 'ph85-search') return;
+    }, false);
+
+    // 검색 input 별도 (delegation 으로 안 되니 직접)
+    var search = document.getElementById('ph85-search');
+    if (search && !search.__ph88) {
+      search.__ph88 = true;
+      search.addEventListener('input', function(){
+        var q = search.value.toLowerCase().trim();
+        bar.querySelectorAll('.ph85-group').forEach(function(g){
+          var title = g.querySelector('.ph85-title').textContent.toLowerCase();
+          var subs = g.querySelectorAll('.ph85-sub');
+          var anyMatch = title.includes(q);
+          subs.forEach(function(s){
+            var m = s.textContent.toLowerCase().includes(q);
+            s.style.display = (q === '' || m) ? '' : 'none';
+            if (m) anyMatch = true;
+          });
+          g.style.display = (q === '' || anyMatch) ? '' : 'none';
+          if (q && anyMatch) g.classList.add('open');
+        });
+      });
+    }
+
+    console.log('[ph88] 모든 사이드바 버튼 delegation 완료');
+  }
+
+  // 즉시 + 주기적 재시도
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph88BindAll);
+  else ph88BindAll();
+  [200, 600, 1500, 3000].forEach(function(d){ setTimeout(ph88BindAll, d); });
 })();
 </script>
 </body>
