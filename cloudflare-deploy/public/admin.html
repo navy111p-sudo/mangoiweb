@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525030428 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525031115 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525030428 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525031115 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525030428 -->
+        <!-- BUILD:20260525031115 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -24821,6 +24821,253 @@ button.chip:hover,
     color: #F8FAFC !important;
   }
 </style>
+
+
+<!-- Phase 102 admin (2026-05-25) — 카드별 자체 CSS (.alu-light, .vd-light, .sup-light 등) 다크 override -->
+<style id="ph102-card-css-override">
+  /* ============================================
+     모든 #card-* 안의 *-light 클래스 (자체 CSS 흰 박스) 다크화
+     ============================================ */
+  [id^="card-"] .alu-light,
+  [id^="card-"] .vd-light,
+  [id^="card-"] .sup-light,
+  [id^="card-"] [class*="-light"]:not(.menu-card):not([class*="dark"]) {
+    background: linear-gradient(135deg, rgba(15,23,42,0.7), rgba(30,41,59,0.85)) !important;
+    color: #F8FAFC !important;
+    border: 1px solid rgba(59,130,246,0.4) !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3) !important;
+  }
+  [id^="card-"] .alu-light *,
+  [id^="card-"] .vd-light *,
+  [id^="card-"] .sup-light *,
+  [id^="card-"] [class*="-light"] * {
+    color: #F8FAFC !important;
+  }
+  [id^="card-"] .alu-light b,
+  [id^="card-"] .alu-light strong,
+  [id^="card-"] .vd-light b,
+  [id^="card-"] .vd-light strong,
+  [id^="card-"] .sup-light b,
+  [id^="card-"] .sup-light strong,
+  [id^="card-"] [class*="-light"] b,
+  [id^="card-"] [class*="-light"] strong {
+    color: #93C5FD !important;
+  }
+
+  /* ============================================
+     *-label (필드 라벨) — 노란색에서 시안으로
+     ============================================ */
+  [id^="card-"] .alu-label,
+  [id^="card-"] .vd-label,
+  [id^="card-"] .sup-label,
+  [id^="card-"] [class$="-label"]:not(.menu-card) {
+    color: #67E8F9 !important;
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+  }
+
+  /* ============================================
+     모든 카드 안 input/textarea/select 강제 다크
+     (카드별 자체 CSS specificity 무력화)
+     ============================================ */
+  [id^="card-"] input[type="text"],
+  [id^="card-"] input[type="number"],
+  [id^="card-"] input[type="search"],
+  [id^="card-"] input[type="email"],
+  [id^="card-"] input[type="tel"],
+  [id^="card-"] input[type="url"],
+  [id^="card-"] input[type="password"],
+  [id^="card-"] input[type="date"],
+  [id^="card-"] input[type="month"],
+  [id^="card-"] input[type="time"],
+  [id^="card-"] input[type="datetime-local"],
+  [id^="card-"] input:not([type]),
+  [id^="card-"] textarea,
+  [id^="card-"] select {
+    background: rgba(15,23,42,0.85) !important;
+    background-color: rgba(15,23,42,0.85) !important;
+    background-image: none !important;
+    color: #F8FAFC !important;
+    border: 1px solid rgba(59,130,246,0.45) !important;
+    border-radius: 6px !important;
+    padding: 8px 12px !important;
+    font-size: 13.5px !important;
+  }
+  [id^="card-"] input::placeholder,
+  [id^="card-"] textarea::placeholder {
+    color: #64748B !important;
+  }
+  [id^="card-"] input:focus,
+  [id^="card-"] textarea:focus,
+  [id^="card-"] select:focus {
+    border-color: #60A5FA !important;
+    box-shadow: 0 0 0 3px rgba(96,165,250,0.4) !important;
+    outline: none !important;
+  }
+
+  /* ============================================
+     체크박스/라디오 — accent-color 만 적용
+     ============================================ */
+  [id^="card-"] input[type="checkbox"],
+  [id^="card-"] input[type="radio"] {
+    background: rgba(15,23,42,0.85) !important;
+    accent-color: #2563EB !important;
+    width: auto !important;
+    padding: 0 !important;
+    margin: 0 4px 0 0 !important;
+  }
+
+  /* ============================================
+     알루미니 멘토 활동 가능 label, 기타 label 다크 글자 fix
+     ============================================ */
+  [id^="card-"] label,
+  [id^="card-"] label[style*="color:#0f172a"],
+  [id^="card-"] label[style*="color:#374151"],
+  [id^="card-"] label[style*="color:#1f2937"] {
+    color: #F8FAFC !important;
+  }
+
+  /* ============================================
+     option (select 안) 다크
+     ============================================ */
+  [id^="card-"] option {
+    background: #0F172A !important;
+    color: #F8FAFC !important;
+  }
+
+  /* ============================================
+     알루미니/Voice Diary/Supervisor 카드들의 자체 버튼 (alu-btn, vd-btn, sup-btn) — 통일된 인디고
+     ============================================ */
+  [id^="card-"] .alu-btn,
+  [id^="card-"] .vd-btn,
+  [id^="card-"] .sup-btn,
+  [id^="card-"] [class$="-btn"]:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn) {
+    background: linear-gradient(135deg, #2563EB, #3B82F6) !important;
+    color: #FFFFFF !important;
+    border: 1px solid rgba(147,197,253,0.5) !important;
+    border-radius: 8px !important;
+    padding: 8px 16px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    font-size: 13px !important;
+  }
+  [id^="card-"] .alu-btn:hover,
+  [id^="card-"] .vd-btn:hover,
+  [id^="card-"] .sup-btn:hover {
+    background: linear-gradient(135deg, #1D4ED8, #2563EB) !important;
+    box-shadow: 0 4px 14px rgba(96,165,250,0.4) !important;
+    transform: translateY(-1px) !important;
+  }
+
+  /* ============================================
+     details.sub-item open 시 자체 노란 색 → 블루
+     ============================================ */
+  [id^="card-"] details.sub-item[open] > summary {
+    background: rgba(37,99,235,0.25) !important;
+    color: #DBEAFE !important;
+  }
+  [id^="card-"] details.sub-item > summary:hover {
+    background: rgba(37,99,235,0.18) !important;
+    color: #93C5FD !important;
+  }
+</style>
+
+
+<!-- Phase 103 admin (2026-05-25) — 동적 흰 박스 JS 감지 + 결과 컨테이너 강제 다크 -->
+<style id="ph103-result-boxes">
+  /* === 알려진 결과/출력 컨테이너 ID 들 강제 다크 === */
+  details.menu-card #ov-list,
+  details.menu-card #ov-log,
+  details.menu-card #ov-log-box,
+  details.menu-card #ov-summary,
+  details.menu-card [id$="-list"]:not(.ph85-sub):not(.ph85-group),
+  details.menu-card [id$="-log"],
+  details.menu-card [id$="-result"],
+  details.menu-card [id$="-output"],
+  details.menu-card [id$="-out"],
+  details.menu-card [id$="-box"],
+  details.menu-card [id$="-table"],
+  details.menu-card [id*="result"],
+  details.menu-card [id*="output"] {
+    background: rgba(15,23,42,0.55) !important;
+    color: #F8FAFC !important;
+    border: 1px solid rgba(59,130,246,0.3) !important;
+    border-radius: 8px !important;
+    min-height: 20px !important;
+  }
+  details.menu-card #ov-list:empty,
+  details.menu-card #ov-log:empty,
+  details.menu-card [id$="-list"]:empty,
+  details.menu-card [id$="-result"]:empty,
+  details.menu-card [id$="-output"]:empty,
+  details.menu-card [id$="-box"]:empty {
+    background: rgba(15,23,42,0.3) !important;
+    border-style: dashed !important;
+    padding: 14px !important;
+    min-height: 60px !important;
+  }
+  details.menu-card #ov-list:empty::before,
+  details.menu-card #ov-log:empty::before {
+    content: '결과가 여기에 표시됩니다';
+    color: #64748B;
+    font-size: 12px;
+    font-style: italic;
+  }
+
+  /* === 카드 내 모든 빈 div (display:block 기본) 도 transparent === */
+  details.menu-card .sub-body > div:empty,
+  details.menu-card .menu-body > div:empty {
+    background: transparent !important;
+  }
+</style>
+
+<script>
+(function(){
+  'use strict';
+  // ph103: getComputedStyle 로 흰색 배경 element 찾아서 자동 다크화
+  function ph103DarkifyWhites(){
+    var cards = document.querySelectorAll('details.menu-card, details.table-card.menu-card');
+    cards.forEach(function(card){
+      // 카드 내부 모든 element 검사
+      card.querySelectorAll('*').forEach(function(el){
+        // 폼/버튼/input 류는 ph102 이미 처리 — skip
+        if (el.matches('input, textarea, select, button, option, label')) return;
+        if (el.matches('.ph85-head, .ph85-sub, .ph86-action-btn')) return;
+
+        var cs = window.getComputedStyle(el);
+        var bg = cs.backgroundColor;
+        var m = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+        if (!m) return;
+        var r = parseInt(m[1], 10);
+        var g = parseInt(m[2], 10);
+        var b = parseInt(m[3], 10);
+        var a = m[4] ? parseFloat(m[4]) : 1;
+        // 거의 불투명한 흰색/매우 밝은 색만 감지
+        if (a < 0.5) return;
+        var avg = (r + g + b) / 3;
+        if (avg < 220) return; // 충분히 어두우면 건드리지 않음
+
+        // 다크화 (이미 ph103 처리됨 flag)
+        if (el.__ph103) return;
+        el.__ph103 = true;
+        el.style.setProperty('background', 'rgba(15,23,42,0.7)', 'important');
+        el.style.setProperty('color', '#F8FAFC', 'important');
+        el.style.setProperty('border-color', 'rgba(59,130,246,0.35)', 'important');
+      });
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph103DarkifyWhites);
+  else ph103DarkifyWhites();
+  // 새 카드/결과 생성될 때마다 재검사
+  setInterval(ph103DarkifyWhites, 2000);
+  // MutationObserver 로 새 element 추가 즉시 감지
+  if (window.MutationObserver) {
+    var obs = new MutationObserver(function(){ ph103DarkifyWhites(); });
+    obs.observe(document.body, { childList: true, subtree: true });
+  }
+  console.log('[ph103] white-bg auto-darkifier installed');
+})();
+</script>
 
 </body>
 </html>
