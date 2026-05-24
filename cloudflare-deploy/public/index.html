@@ -21476,6 +21476,36 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
+<!-- Phase 80 main (2026-05-24) — 모바일 대시보드 가로 잘림 강화 -->
+<style id="ph80-main">
+  @media (max-width: 720px) {
+    html, body { overflow-x: hidden !important; max-width: 100vw !important; width: 100% !important; }
+    .lobby-box, .home-hero-stack, .grid-menu-cards, #gm-cards,
+    #ai-home-search, .ai-search-box, #gm-category-cards {
+      max-width: calc(100vw - 12px) !important;
+      box-sizing: border-box !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
+    }
+    /* 메뉴 카드 3열 강제 */
+    .grid-menu-cards, #gm-cards {
+      display: grid !important;
+      grid-template-columns: repeat(3, 1fr) !important;
+      gap: 8px !important;
+      width: 100% !important;
+    }
+    .gm-card { min-height: 78px !important; padding: 12px 4px !important; }
+    .gm-card .gm-label, .gm-card span {
+      font-size: 11.5px !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      text-align: center !important;
+      display: block !important;
+    }
+  }
+</style>
+
 <!-- Phase 49 (2026-05-22) — 7 fixes
      1. Background face visibility (segmentation softer)
      2. PIP/local box mobile touch drag
@@ -22886,6 +22916,6 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260524223956 -->
+<!-- BUILD:20260524230103 -->
 </body>
 </html>
