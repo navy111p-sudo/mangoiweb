@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525024925 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525025847 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525024925 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525025847 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525024925 -->
+        <!-- BUILD:20260525025847 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -24316,225 +24316,125 @@ button.chip:hover,
 })();
 </script>
 
+<!-- Phase 100 admin (2026-05-25) — 통합 블루 디자인 시스템 (WCAG AA, ph98/99 통합) -->
+<style id="ph100-blue-theme">
+  /* ============================================
+     :root — 색상 단일 소스
+     ============================================ */
+  :root {
+    --bg-darkest:  #020617;
+    --bg-outer:    #0F172A;
+    --bg-card:     #1E293B;
+    --bg-header:   #1E3A8A;
+    --bg-soft:     #E0F2FE;
+    --bg-soft-50:  #F0F9FF;
 
-<!-- Phase 98 admin (2026-05-25) — 푸시 관리 카드 다크 테마 (흰 배경 → 진한 네이비, 연한 파란 글자) -->
-<style id="ph98-webpush-dark">
-  /* === card-webpush-mgmt 전체 다크 테마 === */
-  #card-webpush-mgmt {
-    background: linear-gradient(135deg, #0f172a, #1e293b) !important;
-    color: #cbd5e1 !important;
-    border: 1px solid rgba(59,130,246,0.35) !important;
-    border-radius: 14px !important;
-    padding: 18px !important;
-  }
-  #card-webpush-mgmt, #card-webpush-mgmt * {
-    color: #cbd5e1 !important;
-  }
-  /* === 헤더 (summary) 진한 인디고 === */
-  #card-webpush-mgmt > summary,
-  #card-webpush-mgmt details > summary {
-    background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
-    color: #f0f9ff !important;
-    border-radius: 10px !important;
-    padding: 11px 15px !important;
-    cursor: pointer !important;
-  }
-  #card-webpush-mgmt summary,
-  #card-webpush-mgmt summary * {
-    color: #f0f9ff !important;
-  }
-  #card-webpush-mgmt summary span[style*="background:rgba(99,102,241"] {
-    background: rgba(15,23,42,0.6) !important;
-    color: #93c5fd !important;
-    border-color: rgba(147,197,253,0.5) !important;
-  }
-  /* === 안쪽 details 박스 === */
-  #card-webpush-mgmt details {
-    background: rgba(15,23,42,0.4) !important;
-    border: 1px solid rgba(59,130,246,0.3) !important;
-    border-radius: 10px !important;
-    margin-bottom: 10px !important;
-  }
-  /* === 모든 inline background 흰색 박스 → 다크 === */
-  #card-webpush-mgmt div[style*="background:linear-gradient(135deg,#ecfdf5"],
-  #card-webpush-mgmt div[style*="background:linear-gradient(135deg,#fef3c7"],
-  #card-webpush-mgmt div[style*="background:linear-gradient(135deg,#dbeafe"],
-  #card-webpush-mgmt div[style*="background:#ecfdf5"],
-  #card-webpush-mgmt div[style*="background:#d1fae5"],
-  #card-webpush-mgmt div[style*="background:#eff6ff"],
-  #card-webpush-mgmt div[style*="background:#fef3c7"],
-  #card-webpush-mgmt div[style*="background:#fff7ed"],
-  #card-webpush-mgmt div[style*="background:#fff"],
-  #card-webpush-mgmt div[style*="background:#f8fafc"],
-  #card-webpush-mgmt div[style*="background-color:#f"] {
-    background: linear-gradient(135deg, rgba(15,23,42,0.6), rgba(30,41,59,0.7)) !important;
-    border: 1px solid rgba(59,130,246,0.35) !important;
-    color: #cbd5e1 !important;
-  }
-  /* === 강조 글자 — 연한 하늘색 === */
-  #card-webpush-mgmt b,
-  #card-webpush-mgmt strong {
-    color: #93c5fd !important;
-  }
-  #card-webpush-mgmt h2,
-  #card-webpush-mgmt h3,
-  #card-webpush-mgmt h4 {
-    color: #dbeafe !important;
-  }
-  /* === code, pre 다크 === */
-  #card-webpush-mgmt code,
-  #card-webpush-mgmt pre {
-    background: rgba(0,0,0,0.5) !important;
-    color: #93c5fd !important;
-    border: 1px solid rgba(59,130,246,0.4) !important;
-    padding: 2px 6px !important;
-    border-radius: 4px !important;
-    font-family: 'Consolas', 'Monaco', monospace !important;
-  }
-  /* === 버튼 인디고 그라데이션 === */
-  #card-webpush-mgmt button {
-    background: linear-gradient(135deg, #2563eb, #3b82f6) !important;
-    color: #f0f9ff !important;
-    border: 1px solid rgba(147,197,253,0.5) !important;
-    border-radius: 8px !important;
-    padding: 8px 14px !important;
-    font-weight: 700 !important;
-    cursor: pointer !important;
-  }
-  #card-webpush-mgmt button:hover {
-    background: linear-gradient(135deg, #1e40af, #2563eb) !important;
-    box-shadow: 0 4px 12px rgba(59,130,246,0.4) !important;
-  }
-  /* === 표 다크 === */
-  #card-webpush-mgmt table {
-    background: rgba(15,23,42,0.5) !important;
-    border-collapse: collapse !important;
-    width: 100% !important;
-  }
-  #card-webpush-mgmt thead,
-  #card-webpush-mgmt th {
-    background: rgba(30,58,138,0.6) !important;
-    color: #dbeafe !important;
-  }
-  #card-webpush-mgmt td,
-  #card-webpush-mgmt th {
-    border: 1px solid rgba(59,130,246,0.25) !important;
-    padding: 6px 10px !important;
-  }
-  /* === input/textarea/select === */
-  #card-webpush-mgmt input,
-  #card-webpush-mgmt textarea,
-  #card-webpush-mgmt select {
-    background: rgba(15,23,42,0.7) !important;
-    color: #f0f9ff !important;
-    border: 1px solid rgba(59,130,246,0.4) !important;
-    border-radius: 6px !important;
-    padding: 6px 10px !important;
-  }
-  #card-webpush-mgmt input::placeholder,
-  #card-webpush-mgmt textarea::placeholder {
-    color: #64748b !important;
-  }
-  /* === menu-body, sub-menu, sub-body, sub-item 컨테이너 === */
-  #card-webpush-mgmt .menu-body,
-  #card-webpush-mgmt .sub-menu,
-  #card-webpush-mgmt .sub-body,
-  #card-webpush-mgmt .sub-item {
-    background: transparent !important;
-    color: #cbd5e1 !important;
-  }
-  /* === 링크 === */
-  #card-webpush-mgmt a {
-    color: #60a5fa !important;
-    text-decoration: underline !important;
-  }
-  #card-webpush-mgmt a:hover {
-    color: #93c5fd !important;
-  }
-</style>
+    --text-on-dark:        #F8FAFC;
+    --text-on-dark-muted:  #CBD5E1;
+    --text-on-dark-strong: #DBEAFE;
+    --text-on-dark-accent: #93C5FD;
+    --text-on-dark-link:   #60A5FA;
+    --text-on-dark-code:   #67E8F9;
 
+    --text-on-light:        #0F172A;
+    --text-on-light-muted:  #334155;
+    --text-on-light-strong: #1E40AF;
+    --text-on-light-link:   #2563EB;
 
-<!-- Phase 99 admin (2026-05-25) — 모든 menu-card 다크 테마 (ph98 일반화: 카카오/팝업/공지/SOLAPI/통계 모든 카드) -->
-<style id="ph99-all-cards-dark">
-  /* === 모든 카드 다크 네이비 === */
+    --border-on-dark:  rgba(59,130,246,0.35);
+    --border-on-light: rgba(30,64,175,0.25);
+
+    --accent:        #2563EB;
+    --accent-hover:  #1D4ED8;
+    --accent-active: #1E40AF;
+    --focus-ring:    rgba(96,165,250,0.4);
+  }
+
+  /* ============================================
+     body — 페이지 바깥 배경
+     ============================================ */
+  body {
+    background: linear-gradient(180deg, var(--bg-outer) 0%, var(--bg-darkest) 100%) !important;
+    color: var(--text-on-dark) !important;
+    min-height: 100vh;
+  }
+
+  /* ============================================
+     모든 menu-card — 다크 블루 카드
+     ============================================ */
   details.table-card.menu-card,
   details.menu-card {
-    background: linear-gradient(135deg, #0f172a, #1e293b) !important;
-    color: #cbd5e1 !important;
-    border: 1px solid rgba(59,130,246,0.35) !important;
+    background: linear-gradient(135deg, var(--bg-outer), var(--bg-card)) !important;
+    color: var(--text-on-dark) !important;
+    border: 1px solid var(--border-on-dark) !important;
     border-radius: 14px !important;
-    padding: 14px !important;
-    margin-bottom: 14px !important;
+    padding: 18px !important;
+    margin-bottom: 16px !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25) !important;
   }
   details.table-card.menu-card *,
   details.menu-card * {
-    color: #cbd5e1 !important;
+    color: var(--text-on-dark) !important;
   }
 
-  /* === summary (상단 헤더) 진한 인디고 === */
+  /* summary 헤더 — 인디고 그라데이션 */
   details.table-card.menu-card > summary,
   details.menu-card > summary,
   details.table-card.menu-card details > summary,
   details.menu-card details > summary {
-    background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
-    color: #f0f9ff !important;
+    background: linear-gradient(135deg, var(--bg-header), var(--accent)) !important;
+    color: var(--text-on-dark-strong) !important;
     border-radius: 10px !important;
-    padding: 11px 15px !important;
+    padding: 12px 16px !important;
     cursor: pointer !important;
     font-weight: 700 !important;
+    margin-bottom: 14px !important;
   }
   details.table-card.menu-card summary,
   details.menu-card summary,
   details.table-card.menu-card summary *,
   details.menu-card summary * {
-    color: #f0f9ff !important;
+    color: var(--text-on-dark-strong) !important;
   }
 
-  /* === 안쪽 details 박스 (sub-item) === */
+  /* 안쪽 details (sub-item) */
   details.table-card.menu-card details,
   details.menu-card details {
     background: rgba(15,23,42,0.4) !important;
-    border: 1px solid rgba(59,130,246,0.3) !important;
+    border: 1px solid var(--border-on-dark) !important;
     border-radius: 10px !important;
     margin-bottom: 10px !important;
-    padding: 10px !important;
+    padding: 12px !important;
   }
 
-  /* === 모든 inline 흰색/연한 배경 → 다크 === */
-  details.table-card.menu-card div[style*="background:linear-gradient(135deg,#ecfdf5"],
-  details.table-card.menu-card div[style*="background:linear-gradient(135deg,#fef3c7"],
-  details.table-card.menu-card div[style*="background:linear-gradient(135deg,#dbeafe"],
-  details.table-card.menu-card div[style*="background:linear-gradient(135deg,#fff"],
-  details.table-card.menu-card div[style*="background:linear-gradient(135deg,#f"],
-  details.table-card.menu-card div[style*="background:#ecfdf5"],
-  details.table-card.menu-card div[style*="background:#d1fae5"],
-  details.table-card.menu-card div[style*="background:#eff6ff"],
-  details.table-card.menu-card div[style*="background:#fef3c7"],
-  details.table-card.menu-card div[style*="background:#fef9c3"],
-  details.table-card.menu-card div[style*="background:#fff7ed"],
+  /* ============================================
+     인라인 흰색 박스 → 다크 변환
+     ============================================ */
   details.table-card.menu-card div[style*="background:#fff"],
-  details.table-card.menu-card div[style*="background:#f8fafc"],
-  details.table-card.menu-card div[style*="background:#f0f9ff"],
-  details.table-card.menu-card div[style*="background:#dbeafe"],
-  details.table-card.menu-card div[style*="background-color:#f"],
-  details.table-card.menu-card div[style*="background-color:#fff"],
+  details.table-card.menu-card div[style*="background:#f"],
+  details.table-card.menu-card div[style*="background:#e"],
+  details.table-card.menu-card div[style*="background:linear-gradient(135deg,#fff"],
+  details.table-card.menu-card div[style*="background:linear-gradient(135deg,#ec"],
+  details.table-card.menu-card div[style*="background:linear-gradient(135deg,#dbeafe"],
+  details.table-card.menu-card div[style*="background:linear-gradient(135deg,#fef"],
+  details.table-card.menu-card div[style*="background:linear-gradient(135deg,#d1"],
   details.menu-card div[style*="background:#fff"],
-  details.menu-card div[style*="background:#ec"],
-  details.menu-card div[style*="background:#ef"],
-  details.menu-card div[style*="background:#fe"],
-  details.menu-card div[style*="background:#fff7"],
+  details.menu-card div[style*="background:#f"],
+  details.menu-card div[style*="background:#e"],
   details.menu-card div[style*="background:linear-gradient(135deg,#f"] {
     background: linear-gradient(135deg, rgba(15,23,42,0.7), rgba(30,41,59,0.85)) !important;
-    border: 1px solid rgba(59,130,246,0.35) !important;
-    color: #cbd5e1 !important;
+    border: 1px solid var(--border-on-dark) !important;
+    color: var(--text-on-dark) !important;
   }
 
-  /* === 강조 글자 — 연한 하늘색 === */
+  /* ============================================
+     타이포그래피 — WCAG AAA 대비
+     ============================================ */
   details.table-card.menu-card b,
   details.menu-card b,
   details.table-card.menu-card strong,
   details.menu-card strong {
-    color: #93c5fd !important;
+    color: var(--text-on-dark-accent) !important;
   }
   details.table-card.menu-card h2,
   details.menu-card h2,
@@ -24542,85 +24442,94 @@ button.chip:hover,
   details.menu-card h3,
   details.table-card.menu-card h4,
   details.menu-card h4 {
-    color: #dbeafe !important;
+    color: var(--text-on-dark-strong) !important;
   }
 
-  /* === code, pre — 다크 + 시안 글자 === */
+  /* 단계 라벨 (1단계, 2단계...) — 진한 블루 배경 + 흰글자 */
+  details.table-card.menu-card [data-step],
+  details.menu-card [data-step],
+  details.table-card.menu-card .step-label,
+  details.menu-card .step-label {
+    display: inline-block !important;
+    background: var(--accent) !important;
+    color: #FFFFFF !important;
+    padding: 4px 12px !important;
+    border-radius: 999px !important;
+    font-weight: 800 !important;
+    font-size: 12px !important;
+    margin-right: 8px !important;
+  }
+
+  /* ============================================
+     code, pre — 다크 터미널
+     ============================================ */
   details.table-card.menu-card code,
   details.menu-card code,
-  details.table-card.menu-card pre,
-  details.menu-card pre {
-    background: rgba(0,0,0,0.55) !important;
-    color: #67e8f9 !important;
-    border: 1px solid rgba(59,130,246,0.4) !important;
-    padding: 2px 6px !important;
+  code {
+    background: var(--bg-darkest) !important;
+    color: var(--text-on-dark-code) !important;
+    border: 1px solid var(--border-on-dark) !important;
     border-radius: 4px !important;
+    padding: 2px 6px !important;
     font-family: 'Consolas', 'Monaco', monospace !important;
-    font-size: 11.5px !important;
+    font-size: 0.92em !important;
   }
   details.table-card.menu-card pre,
-  details.menu-card pre {
-    padding: 10px 14px !important;
-    border-radius: 8px !important;
+  details.menu-card pre,
+  pre {
+    background: var(--bg-darkest) !important;
+    color: var(--text-on-dark) !important;
+    border: 1px solid var(--border-on-dark) !important;
+    border-radius: 10px !important;
+    padding: 14px 18px !important;
     overflow-x: auto !important;
-    line-height: 1.6 !important;
+    line-height: 1.65 !important;
+    font-family: 'Consolas', 'Monaco', monospace !important;
+    font-size: 12.5px !important;
+  }
+  /* pre 안의 code 는 wrapper, pre 스타일 우선 */
+  pre code {
+    background: transparent !important;
+    border: 0 !important;
+    padding: 0 !important;
+    color: var(--text-on-dark) !important;
   }
 
-  /* === 버튼 인디고 그라데이션 === */
+  /* ============================================
+     버튼 — primary 인디고 그라데이션
+     ============================================ */
   details.table-card.menu-card button:not(.ph86-action-btn):not(.ph85-head):not(.ph85-sub),
   details.menu-card button:not(.ph86-action-btn):not(.ph85-head):not(.ph85-sub) {
-    background: linear-gradient(135deg, #2563eb, #3b82f6) !important;
-    color: #f0f9ff !important;
+    background: linear-gradient(135deg, var(--accent), #3B82F6) !important;
+    color: #FFFFFF !important;
     border: 1px solid rgba(147,197,253,0.5) !important;
     border-radius: 8px !important;
-    padding: 8px 14px !important;
+    padding: 9px 18px !important;
     font-weight: 700 !important;
     cursor: pointer !important;
     transition: all 0.15s !important;
   }
   details.table-card.menu-card button:not(.ph86-action-btn):not(.ph85-head):not(.ph85-sub):hover,
   details.menu-card button:not(.ph86-action-btn):not(.ph85-head):not(.ph85-sub):hover {
-    background: linear-gradient(135deg, #1e40af, #2563eb) !important;
-    box-shadow: 0 4px 14px rgba(59,130,246,0.45) !important;
+    background: linear-gradient(135deg, var(--accent-hover), var(--accent)) !important;
+    box-shadow: 0 4px 14px var(--focus-ring) !important;
     transform: translateY(-1px) !important;
   }
-  /* 주황색/녹색 액션 버튼들도 다크 톤 인디고로 통일 */
+  /* 주황/녹/노 액션 버튼들도 인디고로 통일 */
   details.table-card.menu-card button[style*="background:#f59e0b"],
   details.table-card.menu-card button[style*="background:#f97316"],
   details.table-card.menu-card button[style*="background:#fbbf24"],
   details.table-card.menu-card button[style*="background:#10b981"],
-  details.table-card.menu-card button[style*="background:linear-gradient(135deg,#f"] {
-    background: linear-gradient(135deg, #2563eb, #3b82f6) !important;
-    color: #f0f9ff !important;
+  details.table-card.menu-card button[style*="background:#ef4444"],
+  details.table-card.menu-card button[style*="background:linear-gradient(135deg,#f"],
+  details.table-card.menu-card button[style*="background:linear-gradient(135deg,#e"] {
+    background: linear-gradient(135deg, var(--accent), #3B82F6) !important;
+    color: #FFFFFF !important;
   }
 
-  /* === 표 다크 === */
-  details.table-card.menu-card table,
-  details.menu-card table {
-    background: rgba(15,23,42,0.55) !important;
-    border-collapse: collapse !important;
-    width: 100% !important;
-  }
-  details.table-card.menu-card thead,
-  details.menu-card thead,
-  details.table-card.menu-card th,
-  details.menu-card th {
-    background: rgba(30,58,138,0.65) !important;
-    color: #dbeafe !important;
-  }
-  details.table-card.menu-card td,
-  details.menu-card td,
-  details.table-card.menu-card th,
-  details.menu-card th {
-    border: 1px solid rgba(59,130,246,0.25) !important;
-    padding: 6px 10px !important;
-  }
-  details.table-card.menu-card tr:nth-child(even),
-  details.menu-card tr:nth-child(even) {
-    background: rgba(15,23,42,0.35) !important;
-  }
-
-  /* === 폼 input/textarea/select === */
+  /* ============================================
+     폼 — input/textarea/select
+     ============================================ */
   details.table-card.menu-card input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
   details.menu-card input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
   details.table-card.menu-card textarea,
@@ -24628,17 +24537,17 @@ button.chip:hover,
   details.table-card.menu-card select,
   details.menu-card select {
     background: rgba(15,23,42,0.75) !important;
-    color: #f0f9ff !important;
-    border: 1px solid rgba(59,130,246,0.45) !important;
+    color: var(--text-on-dark) !important;
+    border: 1px solid var(--border-on-dark) !important;
     border-radius: 6px !important;
-    padding: 7px 10px !important;
-    font-size: 13px !important;
+    padding: 8px 12px !important;
+    font-size: 13.5px !important;
   }
   details.table-card.menu-card input::placeholder,
   details.menu-card input::placeholder,
   details.table-card.menu-card textarea::placeholder,
   details.menu-card textarea::placeholder {
-    color: #64748b !important;
+    color: #64748B !important;
   }
   details.table-card.menu-card input:focus,
   details.menu-card input:focus,
@@ -24646,23 +24555,71 @@ button.chip:hover,
   details.menu-card textarea:focus,
   details.table-card.menu-card select:focus,
   details.menu-card select:focus {
-    border-color: #60a5fa !important;
-    box-shadow: 0 0 0 2px rgba(96,165,250,0.3) !important;
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 3px var(--focus-ring) !important;
     outline: none !important;
   }
+  /* readonly URL 박스 */
+  details.table-card.menu-card input[readonly],
+  details.menu-card input[readonly] {
+    background: var(--bg-darkest) !important;
+    color: var(--text-on-dark-code) !important;
+    font-family: 'Consolas', 'Monaco', monospace !important;
+  }
 
-  /* === 링크 === */
+  /* ============================================
+     표 — table
+     ============================================ */
+  details.table-card.menu-card table,
+  details.menu-card table {
+    width: 100% !important;
+    background: rgba(15,23,42,0.55) !important;
+    border-collapse: collapse !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+  }
+  details.table-card.menu-card thead,
+  details.menu-card thead,
+  details.table-card.menu-card th,
+  details.menu-card th {
+    background: var(--bg-header) !important;
+    color: var(--text-on-dark-strong) !important;
+    padding: 8px 12px !important;
+    font-weight: 700 !important;
+    font-size: 12.5px !important;
+  }
+  details.table-card.menu-card td,
+  details.menu-card td {
+    padding: 7px 12px !important;
+    border-bottom: 1px solid var(--border-on-dark) !important;
+    color: var(--text-on-dark) !important;
+    font-size: 13px !important;
+  }
+  details.table-card.menu-card tbody tr:nth-child(even),
+  details.menu-card tbody tr:nth-child(even) {
+    background: rgba(30,41,59,0.35) !important;
+  }
+  details.table-card.menu-card tbody tr:hover,
+  details.menu-card tbody tr:hover {
+    background: rgba(59,130,246,0.15) !important;
+  }
+
+  /* ============================================
+     링크
+     ============================================ */
   details.table-card.menu-card a,
   details.menu-card a {
-    color: #60a5fa !important;
+    color: var(--text-on-dark-link) !important;
     text-decoration: underline !important;
   }
   details.table-card.menu-card a:hover,
   details.menu-card a:hover {
-    color: #93c5fd !important;
+    color: var(--text-on-dark-strong) !important;
   }
 
-  /* === menu-body, sub-menu, sub-body 컨테이너 투명 === */
+  /* ============================================
+     컨테이너 투명화
+     ============================================ */
   details.table-card.menu-card .menu-body,
   details.menu-card .menu-body,
   details.table-card.menu-card .sub-menu,
@@ -24672,15 +24629,196 @@ button.chip:hover,
   details.table-card.menu-card .sub-item,
   details.menu-card .sub-item {
     background: transparent !important;
-    color: #cbd5e1 !important;
+    color: var(--text-on-dark) !important;
+  }
+</style>
+
+
+<!-- Phase 101 admin (2026-05-25) — 남은 흰색/연한 박스 광범위 매칭 (ph100 보강) -->
+<style id="ph101-white-elimination">
+  /* ============================================
+     INPUT/TEXTAREA/SELECT 전부 다크 (selector 단순화 — !important 우선)
+     ============================================ */
+  details.menu-card input,
+  details.table-card.menu-card input,
+  details.menu-card textarea,
+  details.table-card.menu-card textarea,
+  details.menu-card select,
+  details.table-card.menu-card select {
+    background-color: rgba(15,23,42,0.85) !important;
+    background-image: none !important;
+    color: #F8FAFC !important;
+    border: 1px solid rgba(59,130,246,0.45) !important;
+    border-radius: 6px !important;
+    padding: 8px 12px !important;
+    font-size: 13.5px !important;
+  }
+  details.menu-card input[type="checkbox"],
+  details.menu-card input[type="radio"] {
+    background-color: rgba(15,23,42,0.85) !important;
+    accent-color: #2563EB !important;
+    width: auto !important;
+    padding: 0 !important;
+  }
+  details.menu-card input::placeholder,
+  details.menu-card textarea::placeholder {
+    color: #64748B !important;
   }
 
-  /* === ULR/입력값 readonly 박스 === */
-  details.table-card.menu-card input[readonly],
-  details.menu-card input[readonly] {
-    background: rgba(0,0,0,0.5) !important;
-    color: #67e8f9 !important;
-    font-family: 'Consolas', 'Monaco', monospace !important;
+  /* ============================================
+     모든 흰색/연한색 inline 배경 패턴 광범위 매칭
+     ============================================ */
+  details.menu-card [style*="background:#fff"],
+  details.menu-card [style*="background: #fff"],
+  details.menu-card [style*="background:#FFF"],
+  details.menu-card [style*="background:white"],
+  details.menu-card [style*="background: white"],
+  details.menu-card [style*="background:rgb(255"],
+  details.menu-card [style*="background-color:#fff"],
+  details.menu-card [style*="background-color: #fff"],
+  details.menu-card [style*="background-color:#FFF"],
+  details.menu-card [style*="background-color:white"],
+  details.menu-card [style*="background-color:rgb(255"],
+  details.menu-card [style*="background:#fafafa"],
+  details.menu-card [style*="background:#f9fafb"],
+  details.menu-card [style*="background:#f8fafc"],
+  details.menu-card [style*="background:#f3f4f6"],
+  details.menu-card [style*="background:#f1f5f9"],
+  details.menu-card [style*="background:#e5e7eb"],
+  details.menu-card [style*="background:#e2e8f0"],
+  details.menu-card [style*="background:#f0f0f0"],
+  details.menu-card [style*="background:#f5f5f5"],
+  details.menu-card [style*="background:#fef3c7"],
+  details.menu-card [style*="background:#fef9c3"],
+  details.menu-card [style*="background:#fff7ed"],
+  details.menu-card [style*="background:#fffbeb"],
+  details.menu-card [style*="background:#fef2f2"],
+  details.menu-card [style*="background:#fee2e2"],
+  details.menu-card [style*="background:#ecfdf5"],
+  details.menu-card [style*="background:#d1fae5"],
+  details.menu-card [style*="background:#dcfce7"],
+  details.menu-card [style*="background:#eff6ff"],
+  details.menu-card [style*="background:#dbeafe"],
+  details.menu-card [style*="background:#bfdbfe"],
+  details.menu-card [style*="background:#f0f9ff"],
+  details.menu-card [style*="background:#e0f2fe"],
+  details.menu-card [style*="background:#cffafe"],
+  details.menu-card [style*="background:#fdf2f8"],
+  details.menu-card [style*="background:#fce7f3"],
+  details.menu-card [style*="background:#faf5ff"],
+  details.menu-card [style*="background:#f3e8ff"],
+  details.menu-card [style*="background:#fdf4ff"],
+  details.menu-card [style*="background:linear-gradient(135deg,#ec"],
+  details.menu-card [style*="background:linear-gradient(135deg,#fef"],
+  details.menu-card [style*="background:linear-gradient(135deg,#fff"],
+  details.menu-card [style*="background:linear-gradient(135deg,#dbeafe"],
+  details.menu-card [style*="background:linear-gradient(135deg,#bfdbfe"],
+  details.menu-card [style*="background:linear-gradient(135deg,#e0"],
+  details.menu-card [style*="background:linear-gradient(135deg,#d1"],
+  details.menu-card [style*="background:linear-gradient(135deg,#f0"],
+  details.menu-card [style*="background:linear-gradient(135deg,#f3"],
+  details.menu-card [style*="background:linear-gradient(135deg,#f5"],
+  details.menu-card [style*="background:linear-gradient(135deg,#f8"],
+  details.menu-card [style*="background:linear-gradient(135deg,#f9"] {
+    background: linear-gradient(135deg, rgba(15,23,42,0.75), rgba(30,41,59,0.9)) !important;
+    color: #F8FAFC !important;
+    border-color: rgba(59,130,246,0.4) !important;
+  }
+  details.menu-card [style*="background:#fff"] *,
+  details.menu-card [style*="background:white"] *,
+  details.menu-card [style*="background-color:#fff"] *,
+  details.menu-card [style*="background-color:white"] *,
+  details.menu-card [style*="background:#fef"] *,
+  details.menu-card [style*="background:#ecfdf5"] *,
+  details.menu-card [style*="background:#eff6ff"] *,
+  details.menu-card [style*="background:#dbeafe"] *,
+  details.menu-card [style*="background:#f0"] *,
+  details.menu-card [style*="background:linear-gradient(135deg,#f"] *,
+  details.menu-card [style*="background:linear-gradient(135deg,#e"] *,
+  details.menu-card [style*="background:linear-gradient(135deg,#d"] * {
+    color: #F8FAFC !important;
+  }
+  details.menu-card [style*="background:#fff"] b,
+  details.menu-card [style*="background:#ecfdf5"] b,
+  details.menu-card [style*="background:#eff6ff"] b,
+  details.menu-card [style*="background:#fef3c7"] b,
+  details.menu-card [style*="background:linear-gradient(135deg,#f"] b,
+  details.menu-card [style*="background:#fff"] strong,
+  details.menu-card [style*="background:#ecfdf5"] strong,
+  details.menu-card [style*="background:#eff6ff"] strong,
+  details.menu-card [style*="background:linear-gradient(135deg,#f"] strong {
+    color: #93C5FD !important;
+  }
+
+  /* ============================================
+     글자 색 inline 강제 override (연한 회색/녹/주황 → 다크 위 가독성)
+     ============================================ */
+  details.menu-card [style*="color:#065f46"],
+  details.menu-card [style*="color:#047857"],
+  details.menu-card [style*="color:#1e40af"],
+  details.menu-card [style*="color:#1e3a8a"],
+  details.menu-card [style*="color:#92400e"],
+  details.menu-card [style*="color:#451a03"],
+  details.menu-card [style*="color:#78350f"],
+  details.menu-card [style*="color:#0c4a6e"],
+  details.menu-card [style*="color:#831843"],
+  details.menu-card [style*="color:#581c87"] {
+    color: #93C5FD !important;
+  }
+  details.menu-card [style*="color:#6b7280"],
+  details.menu-card [style*="color:#9ca3af"],
+  details.menu-card [style*="color:#94a3b8"] {
+    color: #CBD5E1 !important;
+  }
+  details.menu-card [style*="color:#374151"],
+  details.menu-card [style*="color:#1f2937"],
+  details.menu-card [style*="color:#111827"],
+  details.menu-card [style*="color:#0f172a"] {
+    color: #F8FAFC !important;
+  }
+
+  /* ============================================
+     SOLAPI 가이드 / 카카오 가이드 등 안내 박스들도
+     ============================================ */
+  details.menu-card div[style*="border:1px solid #10b981"],
+  details.menu-card div[style*="border:1px solid #bfdbfe"],
+  details.menu-card div[style*="border:1px solid #fbbf24"],
+  details.menu-card div[style*="border:1px solid #f59e0b"],
+  details.menu-card div[style*="border:1px solid #fdba74"] {
+    border-color: rgba(59,130,246,0.4) !important;
+  }
+
+  /* ============================================
+     갈색/베이지 alert 박스도 다크
+     ============================================ */
+  details.menu-card div[style*="background:#fef3c7"],
+  details.menu-card div[style*="background:#fffbeb"],
+  details.menu-card div[style*="background:#fef9c3"],
+  details.menu-card [style*="background:#fef3c7"],
+  details.menu-card [style*="background:#fef9c3"],
+  details.menu-card [style*="background:#fffbeb"] {
+    background: rgba(250,204,21,0.12) !important;
+    border-left: 4px solid #FACC15 !important;
+    color: #F8FAFC !important;
+  }
+
+  /* ============================================
+     summary 안의 inline 노란/회색 뱃지 다크
+     ============================================ */
+  details.menu-card summary span[style*="background:rgba(99,102,241"],
+  details.menu-card summary span[style*="background:rgba(251,191,36"],
+  details.menu-card summary span[style*="background:#fef3c7"],
+  details.menu-card summary span[style*="background:#e0e7ff"] {
+    background: rgba(15,23,42,0.7) !important;
+    color: #93C5FD !important;
+    border-color: rgba(147,197,253,0.5) !important;
+  }
+
+  /* ============================================
+     체크박스 옆 라벨 색 보장
+     ============================================ */
+  details.menu-card label {
+    color: #F8FAFC !important;
   }
 </style>
 
