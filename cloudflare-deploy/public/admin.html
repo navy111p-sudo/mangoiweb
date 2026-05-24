@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525015537 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525020312 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525015537 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525020312 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525015537 -->
+        <!-- BUILD:20260525020312 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -24079,6 +24079,39 @@ button.chip:hover,
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph94Enhance);
   else ph94Enhance();
   setInterval(ph94Enhance, 1500);
+})();
+</script>
+
+
+<!-- Phase 95 admin (2026-05-25) — 모두 펼치기/접기 버튼 inline onclick 강제 (모든 핸들러 충돌 우회) -->
+<script>
+(function(){
+  'use strict';
+  function ph95Force(){
+    var bar = document.getElementById('ph85-sidebar');
+    if (!bar) return;
+    bar.querySelectorAll('.ph86-action-btn').forEach(function(btn){
+      var act = btn.dataset.act;
+      if (act === 'expand' && !btn.__ph95expand) {
+        btn.__ph95expand = true;
+        btn.setAttribute('onclick',
+          "event.stopPropagation();" +
+          "document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(g){g.classList.add('open');});" +
+          "console.log('[ph95] expand all');"
+        );
+      } else if (act === 'collapse' && !btn.__ph95collapse) {
+        btn.__ph95collapse = true;
+        btn.setAttribute('onclick',
+          "event.stopPropagation();" +
+          "document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(g){g.classList.remove('open'); g.classList.remove('expanded');});" +
+          "console.log('[ph95] collapse all');"
+        );
+      }
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph95Force);
+  else ph95Force();
+  setInterval(ph95Force, 1000);
 })();
 </script>
 
