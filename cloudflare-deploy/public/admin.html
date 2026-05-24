@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525031115 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525031822 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525031115 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525031822 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525031115 -->
+        <!-- BUILD:20260525031822 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -25066,6 +25066,326 @@ button.chip:hover,
     obs.observe(document.body, { childList: true, subtree: true });
   }
   console.log('[ph103] white-bg auto-darkifier installed');
+})();
+</script>
+
+
+<!-- Phase 104 admin (2026-05-25) — 권한 관리 표 (card-permissions) 다크 override -->
+<style id="ph104-permissions-table">
+  /* ============================================
+     #card-permissions 자체 CSS override — ID specificity 동일 + 더 늦은 cascade 우선
+     ============================================ */
+  #card-permissions .perm-table {
+    background: transparent !important;
+    border-radius: 10px !important;
+  }
+  #card-permissions .perm-table thead th {
+    background: linear-gradient(135deg, #1E3A8A, #2563EB) !important;
+    color: #DBEAFE !important;
+    font-weight: 800 !important;
+    padding: 10px 12px !important;
+    border-bottom: 1px solid rgba(59,130,246,0.4) !important;
+  }
+  #card-permissions .perm-table tbody td {
+    background: rgba(15,23,42,0.5) !important;
+    color: #F8FAFC !important;
+    border-color: rgba(59,130,246,0.25) !important;
+    border-bottom: 1px solid rgba(59,130,246,0.15) !important;
+    padding: 7px 10px !important;
+  }
+  #card-permissions .perm-table tbody tr:nth-child(even) td {
+    background: rgba(30,41,59,0.5) !important;
+  }
+  #card-permissions .perm-table tbody tr:hover td {
+    background: rgba(37,99,235,0.25) !important;
+  }
+  #card-permissions .perm-table tbody td:first-child {
+    color: #DBEAFE !important;
+    font-weight: 700 !important;
+  }
+
+  /* === 그룹 헤더 행 (베이지 → 다크 인디고) === */
+  #card-permissions .perm-table tbody tr.group-row td {
+    background: linear-gradient(90deg, #1E3A8A 0%, #2563EB 100%) !important;
+    color: #DBEAFE !important;
+    border-top: 2px solid #60A5FA !important;
+    border-bottom: 1px solid rgba(59,130,246,0.4) !important;
+    font-weight: 900 !important;
+    font-size: 12px !important;
+    letter-spacing: 0.4px !important;
+  }
+
+  /* === 권한 셀 — 상태별 색상 (다크 컬러 톤) === */
+  #card-permissions .perm-table .perm-cell {
+    background: rgba(15,23,42,0.75) !important;
+    border: 1px solid rgba(59,130,246,0.35) !important;
+    color: #F8FAFC !important;
+    width: 42px !important;
+    height: 30px !important;
+    border-radius: 7px !important;
+    cursor: pointer !important;
+    transition: all 0.15s !important;
+  }
+  #card-permissions .perm-table .perm-cell:hover {
+    transform: scale(1.12) !important;
+    box-shadow: 0 3px 10px -2px rgba(59,130,246,0.4) !important;
+    border-color: #60A5FA !important;
+  }
+  /* ✅ 권한 부여 (그린) */
+  #card-permissions .perm-table .perm-cell[data-state="✅"] {
+    background: linear-gradient(135deg, rgba(34,197,94,0.35), rgba(34,197,94,0.55)) !important;
+    border-color: #22C55E !important;
+    color: #DCFCE7 !important;
+  }
+  /* 👁️ 읽기 전용 (블루) */
+  #card-permissions .perm-table .perm-cell[data-state="👁️"] {
+    background: linear-gradient(135deg, rgba(59,130,246,0.35), rgba(59,130,246,0.55)) !important;
+    border-color: #3B82F6 !important;
+    color: #DBEAFE !important;
+  }
+  /* ❌ 차단 (레드) */
+  #card-permissions .perm-table .perm-cell[data-state="❌"] {
+    background: linear-gradient(135deg, rgba(239,68,68,0.3), rgba(239,68,68,0.55)) !important;
+    border-color: #EF4444 !important;
+    color: #FECACA !important;
+  }
+
+  /* === 본사 컬럼 (col-hq) 살짝 강조 === */
+  #card-permissions .perm-table tbody td.col-hq {
+    background: rgba(239,68,68,0.08) !important;
+  }
+  #card-permissions .perm-table tbody td.col-hq.col-divider {
+    border-right: 2px dashed rgba(239,68,68,0.4) !important;
+  }
+
+  /* === 본문 안내 텍스트 === */
+  #card-permissions p[style*="color:#374151"],
+  #card-permissions p[style*="color:#6b7280"] {
+    color: #CBD5E1 !important;
+  }
+
+  /* === 역할 시뮬레이션 박스 (베이지 → 다크 블루) === */
+  #card-permissions div[style*="background:linear-gradient(135deg,#fef3c7"],
+  #card-permissions div[style*="background:#fef3c7"],
+  #card-permissions div[style*="background:#fde68a"] {
+    background: linear-gradient(135deg, rgba(15,23,42,0.8), rgba(30,58,138,0.4)) !important;
+    border: 1px solid rgba(59,130,246,0.4) !important;
+    color: #F8FAFC !important;
+  }
+  #card-permissions div[style*="color:#78350f"],
+  #card-permissions div[style*="color:#92400e"] {
+    color: #F8FAFC !important;
+  }
+  #card-permissions div[style*="background:linear-gradient(135deg,#fef3c7"] b,
+  #card-permissions div[style*="background:#fef3c7"] b {
+    color: #93C5FD !important;
+  }
+
+  /* === 모든 카드의 베이지 그라데이션 그룹 행 일반화 === */
+  details.menu-card table tr[class*="group"] td,
+  details.menu-card tbody tr[style*="background:linear-gradient(135deg,#fef3c7"] td,
+  details.menu-card tbody tr[style*="background:linear-gradient(90deg,#fef3c7"] td {
+    background: linear-gradient(90deg, #1E3A8A 0%, #2563EB 100%) !important;
+    color: #DBEAFE !important;
+    font-weight: 900 !important;
+  }
+
+  /* === 표 위 "표 읽는 법" 안내 === */
+  #card-permissions p[style*="margin:0 0"],
+  #card-permissions p[style*="font-size:12.5px"] {
+    color: #CBD5E1 !important;
+  }
+
+  /* === 카드 안의 select 자체 흰 배경 === */
+  #card-permissions select[style*="background:#fff"] {
+    background: rgba(15,23,42,0.85) !important;
+    color: #F8FAFC !important;
+    border-color: rgba(59,130,246,0.45) !important;
+  }
+
+  /* === "기본값으로 재설정", "전체 저장", "정책 다운로드" 버튼들 통일 === */
+  #card-permissions button {
+    background: linear-gradient(135deg, #2563EB, #3B82F6) !important;
+    color: #FFFFFF !important;
+    border: 1px solid rgba(147,197,253,0.5) !important;
+  }
+</style>
+
+
+<!-- Phase 105 admin (2026-05-25) — 모든 카드 흰 박스 99% 보장 광범위 다크 + JS 보완 -->
+<style id="ph105-universal-dark">
+  /* ============================================
+     모든 카드 안 *-light, *-row, *-card, *-box 등 흰 배경 클래스 무력화
+     ============================================ */
+  [id^="card-"] .alu-light,
+  [id^="card-"] .sup-light,
+  [id^="card-"] .vd-light,
+  [id^="card-"] .alu-row,
+  [id^="card-"] .sup-row,
+  [id^="card-"] .vd-row,
+  [id^="card-"] [class*="-light"],
+  [id^="card-"] [class*="-row"]:not([class*="hover"]),
+  [id^="card-"] [class*="-box"],
+  [id^="card-"] [class*="-card"]:not(.menu-card):not(.table-card),
+  [id^="card-"] [class*="-panel"],
+  [id^="card-"] [class*="-input-group"],
+  [id^="card-"] [class*="-form"] {
+    background: linear-gradient(135deg, rgba(15,23,42,0.7), rgba(30,41,59,0.85)) !important;
+    color: #F8FAFC !important;
+    border-color: rgba(59,130,246,0.4) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25) !important;
+  }
+  [id^="card-"] .alu-light *,
+  [id^="card-"] .sup-light *,
+  [id^="card-"] .vd-light *,
+  [id^="card-"] [class*="-light"] *,
+  [id^="card-"] [class*="-box"] *,
+  [id^="card-"] [class*="-panel"] * {
+    color: #F8FAFC !important;
+  }
+  [id^="card-"] [class*="-light"] b,
+  [id^="card-"] [class*="-light"] strong,
+  [id^="card-"] [class*="-box"] b,
+  [id^="card-"] [class*="-box"] strong {
+    color: #93C5FD !important;
+  }
+  [id^="card-"] [class$="-label"] {
+    color: #67E8F9 !important;
+  }
+
+  /* ============================================
+     모든 카드 input/textarea/select — 강력한 selector + ID specificity 무력화
+     ============================================ */
+  [id^="card-"] input,
+  [id^="card-"] textarea,
+  [id^="card-"] select {
+    background: rgba(15,23,42,0.85) !important;
+    background-color: rgba(15,23,42,0.85) !important;
+    background-image: none !important;
+    color: #F8FAFC !important;
+    border: 1px solid rgba(59,130,246,0.45) !important;
+    border-radius: 6px !important;
+    padding: 8px 12px !important;
+  }
+  [id^="card-"] input[type="checkbox"],
+  [id^="card-"] input[type="radio"] {
+    background: rgba(15,23,42,0.85) !important;
+    accent-color: #2563EB !important;
+    width: auto !important;
+    padding: 0 !important;
+  }
+  [id^="card-"] input::placeholder,
+  [id^="card-"] textarea::placeholder {
+    color: #64748B !important;
+  }
+
+  /* ============================================
+     모든 *-btn 인디고 통일 (단, 사이드바 제외)
+     ============================================ */
+  [id^="card-"] [class$="-btn"]:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn),
+  [id^="card-"] [class*="-btn "]:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn) {
+    background: linear-gradient(135deg, #2563EB, #3B82F6) !important;
+    color: #FFFFFF !important;
+    border: 1px solid rgba(147,197,253,0.5) !important;
+    border-radius: 8px !important;
+    padding: 8px 16px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+  }
+
+  /* ============================================
+     details.sub-item open 색상 통일 (노랑 → 블루)
+     ============================================ */
+  [id^="card-"] details.sub-item > summary {
+    background: rgba(15,23,42,0.5) !important;
+    color: #DBEAFE !important;
+  }
+  [id^="card-"] details.sub-item > summary:hover {
+    background: rgba(37,99,235,0.18) !important;
+    color: #93C5FD !important;
+  }
+  [id^="card-"] details.sub-item[open] > summary {
+    background: rgba(37,99,235,0.25) !important;
+    color: #DBEAFE !important;
+  }
+
+  /* ============================================
+     모든 inline 흰 배경 패턴 강화 (ph101 보강 — alpha 명시)
+     ============================================ */
+  [id^="card-"] [style*="background:#ffffff"],
+  [id^="card-"] [style*="background:#fafafa"],
+  [id^="card-"] [style*="background:#f9fafb"],
+  [id^="card-"] [style*="background:#f8fafc"],
+  [id^="card-"] [style*="background:#f1f5f9"],
+  [id^="card-"] [style*="background:#e2e8f0"],
+  [id^="card-"] [style*="background:rgb(255,255,255)"],
+  [id^="card-"] [style*="background:rgba(255,255,255"] {
+    background: rgba(15,23,42,0.7) !important;
+    color: #F8FAFC !important;
+  }
+</style>
+
+<script>
+(function(){
+  'use strict';
+  // ph105: 모든 카드 안의 흰 컴퓨티드 배경 element 강력 감지 + 다크화
+  function ph105ForceUniversal(){
+    // 모든 카드
+    document.querySelectorAll('[id^="card-"]').forEach(function(card){
+      // 카드 내부 모든 element
+      card.querySelectorAll('div, section, article, form, fieldset').forEach(function(el){
+        // ph85 사이드바, action btn 제외
+        if (el.matches('.ph85-head, .ph85-sub, .ph86-action-btn, #ph85-sidebar, #ph85-sidebar *')) return;
+        if (el.__ph105) return;
+
+        var cs = window.getComputedStyle(el);
+        var bg = cs.backgroundColor;
+        var bgImg = cs.backgroundImage;
+
+        // 흰색 또는 매우 밝은 단색
+        var solidMatch = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+        if (solidMatch) {
+          var r = parseInt(solidMatch[1], 10);
+          var g = parseInt(solidMatch[2], 10);
+          var b = parseInt(solidMatch[3], 10);
+          var a = solidMatch[4] ? parseFloat(solidMatch[4]) : 1;
+          var avg = (r + g + b) / 3;
+          if (a >= 0.5 && avg >= 220) {
+            el.__ph105 = true;
+            el.style.setProperty('background', 'rgba(15,23,42,0.7)', 'important');
+            el.style.setProperty('color', '#F8FAFC', 'important');
+            el.style.setProperty('border-color', 'rgba(59,130,246,0.35)', 'important');
+            return;
+          }
+        }
+
+        // 그라데이션 안에 흰/연한색이 들어간 경우 (linear-gradient(#fff, #eee...))
+        if (bgImg && bgImg !== 'none') {
+          if (/#f[a-f0-9]{2}|#fff|#FFF|rgb\(2[3-5][0-9],/i.test(bgImg)) {
+            // 그라데이션 안에 연한색 → 의심
+            el.__ph105 = true;
+            el.style.setProperty('background', 'linear-gradient(135deg, rgba(15,23,42,0.7), rgba(30,41,59,0.85))', 'important');
+            el.style.setProperty('color', '#F8FAFC', 'important');
+          }
+        }
+      });
+
+      // 카드 내부 모든 input 강제 다크 (마지막 안전망)
+      card.querySelectorAll('input, textarea, select').forEach(function(el){
+        if (el.type === 'checkbox' || el.type === 'radio') return;
+        el.style.setProperty('background', 'rgba(15,23,42,0.85)', 'important');
+        el.style.setProperty('color', '#F8FAFC', 'important');
+        el.style.setProperty('border-color', 'rgba(59,130,246,0.45)', 'important');
+      });
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph105ForceUniversal);
+  else ph105ForceUniversal();
+  setInterval(ph105ForceUniversal, 2000);
+  if (window.MutationObserver) {
+    new MutationObserver(function(){ ph105ForceUniversal(); }).observe(document.body, { childList: true, subtree: true });
+  }
+  console.log('[ph105] universal white-bg eliminator installed (CSS + JS)');
 })();
 </script>
 
