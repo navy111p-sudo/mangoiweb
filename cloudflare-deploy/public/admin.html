@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525021158 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525021917 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525021158 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525021917 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525021158 -->
+        <!-- BUILD:20260525021917 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -24112,6 +24112,138 @@ button.chip:hover,
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph95Force);
   else ph95Force();
   setInterval(ph95Force, 1000);
+})();
+</script>
+
+
+<!-- Phase 96 admin (2026-05-25) — 전체 통합 정리: 단일 컨트롤러로 expand/collapse/toggle/nav 보장 -->
+<style id="ph96-final">
+  /* === 사이드바 토글 transition (단일 source) === */
+  #ph85-sidebar .ph85-subs {
+    max-height: 0 !important;
+    overflow: hidden !important;
+    transition: max-height 0.32s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  }
+  #ph85-sidebar .ph85-group.open .ph85-subs { max-height: 800px !important; }
+  #ph85-sidebar .ph85-arrow { transition: transform 0.25s ease !important; }
+  #ph85-sidebar .ph85-group.open .ph85-arrow {
+    transform: rotate(90deg) !important;
+    color: #fbbf24 !important;
+  }
+  #ph85-sidebar .ph85-head { cursor: pointer !important; user-select: none !important; }
+  #ph85-sidebar .ph85-head:active { background: rgba(251,191,36,0.15) !important; }
+
+  /* === PC 레이아웃 — 단일 source === */
+  @media (min-width: 1024px) {
+    body { padding-left: 240px !important; box-sizing: border-box; }
+    .admin-layout { grid-template-columns: 1fr !important; gap: 0 !important; }
+    /* 카드들 보이게 (ph87이 hide 했던 거 복구) */
+    #legacy-cards,
+    #legacy-cards .table-card,
+    #legacy-cards .menu-card,
+    #legacy-cards details { display: block !important; visibility: visible !important; }
+    /* 중복 메뉴/UI 모두 hide */
+    #admin-hub, #legacy-toggle,
+    button[onclick*="toggleAllMenuCards"],
+    .menu-search-wrap, .menu-search-input, .menu-search-dropdown,
+    .menu-search-clear, .menu-search-item,
+    #admin-sidebar, aside.admin-sidebar,
+    .sidebar-head, .sidebar-search-wrap,
+    #admin-sidebar-list, #sidebar-search-empty,
+    #ph85-sidebar .ph85-brand,
+    .ph86-action-btn.hide,
+    #ph86-show, #ph88-show {
+      display: none !important;
+    }
+  }
+
+  /* 카드 하이라이트 (sub 클릭 시) */
+  .table-card.ph96-highlight, details.ph96-highlight {
+    box-shadow: 0 0 0 4px rgba(251,191,36,0.7), 0 12px 40px rgba(251,191,36,0.3) !important;
+    transition: box-shadow 0.4s ease !important;
+  }
+</style>
+
+<script>
+(function(){
+  'use strict';
+  // ph96 통합 컨트롤러 — 다른 ph 패치의 모든 핸들러 충돌 우회
+  function ph96Init(){
+    var bar = document.getElementById('ph85-sidebar');
+    if (!bar) return;
+
+    // (1) 그룹 헤더 토글 — inline onclick 강제 (capture/bubble 핸들러 무시)
+    bar.querySelectorAll('.ph85-head').forEach(function(head){
+      head.setAttribute('onclick',
+        "event.stopPropagation();this.parentElement.classList.toggle('open');"
+      );
+    });
+
+    // (2) 모두 펼치기 / 모두 접기 — inline onclick 강제
+    bar.querySelectorAll('.ph86-action-btn').forEach(function(btn){
+      var act = btn.dataset.act;
+      if (act === 'expand') {
+        btn.setAttribute('onclick',
+          "event.stopPropagation();" +
+          "document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(g){g.classList.add('open');});" +
+          "console.log('[ph96] expand all 8 groups');"
+        );
+      } else if (act === 'collapse') {
+        btn.setAttribute('onclick',
+          "event.stopPropagation();" +
+          "document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(g){g.classList.remove('open');});" +
+          "console.log('[ph96] collapse all 8 groups');"
+        );
+      } else if (act === 'hide') {
+        btn.style.display = 'none';
+      }
+    });
+
+    // (3) 하위 메뉴 클릭 → 해당 카드로 scroll + 하이라이트
+    bar.querySelectorAll('.ph85-sub').forEach(function(sub){
+      var id = sub.dataset.card;
+      if (!id) return;
+      sub.setAttribute('onclick',
+        "event.stopPropagation();" +
+        "var c=document.getElementById('" + id + "');" +
+        "if(c){" +
+          "var lc=document.getElementById('legacy-cards');" +
+          "if(lc){lc.style.display='block';lc.style.visibility='visible';}" +
+          "c.style.display='';c.style.visibility='visible';" +
+          "if(c.tagName==='DETAILS')c.open=true;" +
+          "setTimeout(function(){" +
+            "c.scrollIntoView({behavior:'smooth',block:'start'});" +
+            "c.classList.add('ph96-highlight');" +
+            "setTimeout(function(){c.classList.remove('ph96-highlight');},2500);" +
+          "},50);" +
+          "console.log('[ph96] navigated to: " + id + "');" +
+        "}else{console.warn('[ph96] card not found: " + id + "');alert('카드 미구현: " + id + "');}"
+      );
+    });
+
+    // (4) floating ☰ 메뉴 버튼 제거 (ph86-show, ph88-show)
+    ['ph86-show','ph88-show'].forEach(function(idv){
+      var el = document.getElementById(idv);
+      if (el) el.remove();
+    });
+
+    // (5) PC 레이아웃 강제 (grid 1fr, body padding)
+    if (window.matchMedia('(min-width: 1024px)').matches) {
+      document.querySelectorAll('.admin-layout').forEach(function(el){
+        el.style.gridTemplateColumns = '1fr';
+        el.style.gap = '0';
+      });
+      document.body.style.paddingLeft = '240px';
+      // legacy-cards 강제 visible
+      var lc = document.getElementById('legacy-cards');
+      if (lc) { lc.style.display = 'block'; lc.style.visibility = 'visible'; }
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph96Init);
+  else ph96Init();
+  setInterval(ph96Init, 1200);
+  console.log('[ph96] unified sidebar controller initialized');
 })();
 </script>
 
