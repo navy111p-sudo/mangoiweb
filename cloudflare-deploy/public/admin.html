@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525013600 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525015537 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525013600 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525015537 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525013600 -->
+        <!-- BUILD:20260525015537 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -24008,5 +24008,79 @@ button.chip:hover,
 
 
 <!-- Phase 93 admin (2026-05-25) — JS string SyntaxError fix (line 4766, 14107 broken by deploy BUILD inject) -->
+
+<!-- Phase 94 admin (2026-05-25) — 하위메뉴 클릭 시 카드 화면 표시 (ph87이 #legacy-cards 까지 hide 했던 것 복구) -->
+<style id="ph94-show-cards">
+  /* legacy-cards 안에 실제 카드들(card-eval-mgmt, card-bulk-eval, ... )이 있음.
+     ph87 의 #legacy-cards display:none 으로 클릭해도 카드 안 보였음 → 다시 보이게 */
+  @media (min-width: 1024px) {
+    #legacy-cards {
+      display: block !important;
+      visibility: visible !important;
+    }
+    /* legacy-cards 안의 카드들 보장 */
+    #legacy-cards .table-card,
+    #legacy-cards .menu-card,
+    #legacy-cards details {
+      display: block !important;
+    }
+    /* admin-hub 는 ph87대로 계속 hide (중복 메뉴 네비) */
+    #admin-hub { display: none !important; }
+    /* legacy-toggle 도 hide (UI 단순화) */
+    #legacy-toggle, button[onclick*="toggleAllMenuCards"] {
+      display: none !important;
+    }
+  }
+  /* 카드 하이라이트 글로우 강화 */
+  .table-card.ph94-highlight {
+    box-shadow: 0 0 0 4px rgba(251,191,36,0.7), 0 12px 40px rgba(251,191,36,0.3) !important;
+    transition: box-shadow 0.4s ease !important;
+  }
+</style>
+<script>
+(function(){
+  'use strict';
+  // ph94: sub 클릭 핸들러 강화 — inline onclick 외에 보강
+  function ph94Enhance(){
+    var bar = document.getElementById('ph85-sidebar');
+    if (!bar) return;
+    bar.querySelectorAll('.ph85-sub').forEach(function(sub){
+      if (sub.__ph94) return;
+      sub.__ph94 = true;
+      sub.addEventListener('click', function(e){
+        var id = sub.dataset.card;
+        if (!id) return;
+        var c = document.getElementById(id);
+        if (!c) {
+          console.warn('[ph94] card not found:', id);
+          return;
+        }
+        // 카드가 hide 되어 있으면 강제 visible
+        c.style.display = '';
+        c.style.visibility = 'visible';
+        // 부모 legacy-cards 도 visible 강제
+        var lc = document.getElementById('legacy-cards');
+        if (lc) {
+          lc.style.display = 'block';
+          lc.style.visibility = 'visible';
+        }
+        // details 면 펼치기
+        if (c.tagName === 'DETAILS') c.open = true;
+        // scroll + highlight
+        setTimeout(function(){
+          c.scrollIntoView({ behavior:'smooth', block:'start' });
+          c.classList.add('ph94-highlight');
+          setTimeout(function(){ c.classList.remove('ph94-highlight'); }, 2500);
+        }, 50);
+        console.log('[ph94] scrolled to:', id);
+      }, false); // bubble phase — inline onclick 이후
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph94Enhance);
+  else ph94Enhance();
+  setInterval(ph94Enhance, 1500);
+})();
+</script>
+
 </body>
 </html>
