@@ -4763,7 +4763,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       const d = await r.json();
       if (!d.ok) { alert('전체 보기 실패: ' + (d.error||'')); return; }
       const w = window.open('', '_blank', 'width=900,height=700');
-      w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>AI 학습 리포트 #' + id + '</title></head><body style="font-family:-apple-system,sans-serif;padding:24px;background:#0a1530;color:#e6ecff;line-height:1.7"><h1>🎙 AI 학습 리포트 #' + id + '</h1><h2>📝 전체 STT (' + (d.item.total_words||0) + ' 단어)</h2><pre style="white-space:pre-wrap;background:#14213b;padding:14px;border-radius:10px;color:#cbd5e1">' + (d.item.transcript || '').replace(/[<>]/g,'') + '</pre><!-- BUILD:20260524232940 -->
+      w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>AI 학습 리포트 #' + id + '</title></head><body style="font-family:-apple-system,sans-serif;padding:24px;background:#0a1530;color:#e6ecff;line-height:1.7"><h1>🎙 AI 학습 리포트 #' + id + '</h1><h2>📝 전체 STT (' + (d.item.total_words||0) + ' 단어)</h2><pre style="white-space:pre-wrap;background:#14213b;padding:14px;border-radius:10px;color:#cbd5e1">' + (d.item.transcript || '').replace(/[<>]/g,'') + '</pre><!-- BUILD:20260524233807 -->
 <!-- Phase 60 admin (2026-05-23) — 상단 ▲ 토글 제거 + 칩 3개씩 정렬 -->
 <style id="ph60-admin">
   @media (max-width: 720px) {
@@ -14104,7 +14104,7 @@ function downloadEmptyEnrollmentTemplateExcel() {
   // 10. 푸터
   html += '<tr><td class="footer-cell" colspan="' + colCount + '">© Mangoi · 망고아이 영어 화상수업 · 양식 자동 발급 ' + today + '</td></tr>';
 
-  html += '</table><!-- BUILD:20260524232940 -->
+  html += '</table><!-- BUILD:20260524233807 -->
 </body></html>';
 
   _downloadBlob(new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' }),
@@ -14272,7 +14272,7 @@ function downloadEmptyEnrollmentTemplateWord() {
     // 푸터
     '<div class="footer">© Mangoi · 망고아이 영어 화상수업 · 양식 자동 발급 ' + today + '</div>' +
 
-    '<!-- BUILD:20260524232940 -->
+    '<!-- BUILD:20260524233807 -->
 </body></html>';
 
   _downloadBlob(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
@@ -14732,7 +14732,7 @@ function autoExportBulkEnrollment(records) {
       '<td>' + _aiEsc(r._started_at_str || '—') + '</td>' +
       '</tr>';
   });
-  docHtml += '</table><div class="footer">© Mangoi · 자동 생성 · ' + new Date().toLocaleString('ko-KR') + '</div><!-- BUILD:20260524232940 -->
+  docHtml += '</table><div class="footer">© Mangoi · 자동 생성 · ' + new Date().toLocaleString('ko-KR') + '</div><!-- BUILD:20260524233807 -->
 </body></html>';
   _downloadBlob(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
     '수강신청_일괄_' + N + '명_' + dateStr + '.doc');
@@ -14823,7 +14823,7 @@ async function autoExportEnrollment(enr) {
       '<tr><th>등록일시</th><td>' + _aiEsc(enr.created_at) + '</td></tr>' +
     '</table>' +
     '<div class="footer">© Mangoi · 자동 생성 · ' + new Date().toLocaleString('ko-KR') + '</div>' +
-    '<!-- BUILD:20260524232940 -->
+    '<!-- BUILD:20260524233807 -->
 </body></html>';
   _downloadBlob(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
     '수강신청_' + safeName + '_' + dateStr + '.doc');
@@ -15395,7 +15395,7 @@ function tbfOpenPreview(url, kind, name) {
   if (kind === 'pdf') {
     win.location.href = url;
   } else {
-    win.document.write('<!doctype html><html><head><title>'+_esc(name)+'</title><style>body{margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh;}img{max-width:100%;max-height:100vh;}</style></head><body><img src="'+url+'" /><!-- BUILD:20260524232940 -->
+    win.document.write('<!doctype html><html><head><title>'+_esc(name)+'</title><style>body{margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh;}img{max-width:100%;max-height:100vh;}</style></head><body><img src="'+url+'" /><!-- BUILD:20260524233807 -->
 </body></html>');
     win.document.close();
   }
@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260524232940 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260524233807 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260524232940 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260524233807 -->
 </body></html>`;
   }
 
@@ -18664,7 +18664,7 @@ window.rebuildGlobalSearchIndex = function() {
     // 새 창에 인쇄 가능한 형태로 출력
     const w = window.open('', '_blank', 'width=1000,height=900,scrollbars=yes');
     if (!w) { alert('팝업이 차단되었습니다.'); return; }
-    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>재무제표</title></head><body><div style="text-align:center;padding:30px">생성 중…</div><!-- BUILD:20260524232940 -->
+    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>재무제표</title></head><body><div style="text-align:center;padding:30px">생성 중…</div><!-- BUILD:20260524233807 -->
 </body></html>');
     try {
       const r = await fetch(_statementUrl(), { credentials:'include' });
@@ -18697,7 +18697,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260524232940 -->
+        <!-- BUILD:20260524233807 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -23017,4 +23017,138 @@ button.chip:hover,
       // tbody 아직 없음 — body 전체 감시
       new MutationObserver(function(){
         var tb = document.getElementById('tp-list-body');
-        if (tb && !tb.da
+        if (tb && !tb.dataset.ph54Mo) {
+          tb.dataset.ph54Mo = '1';
+          new MutationObserver(ph54AddRowButtons).observe(tb, { childList: true, subtree: true });
+        }
+        ph54AddRowButtons();
+      }).observe(document.body, { childList: true, subtree: true });
+    }
+  }
+})();
+</script>
+
+<!-- Phase 80 admin (2026-05-24) — admin 통합 fix -->
+<style id="ph80-admin">
+  @media (max-width: 900px) {
+    button[onclick*="toggleTopHeader"],
+    button[aria-label="Toggle toolbar"] {
+      display: none !important;
+      visibility: hidden !important;
+    }
+    .top-header {
+      display: flex !important;
+      flex-wrap: nowrap !important;
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch;
+      padding: 6px 8px !important;
+      gap: 5px !important;
+    }
+    .top-header .th-btn, .top-header .th-select {
+      flex-shrink: 0 !important;
+      padding: 5px 10px !important;
+      font-size: 11.5px !important;
+      white-space: nowrap !important;
+    }
+    .hero-banner-img { display: none !important; }
+    html, body { overflow-x: hidden !important; max-width: 100vw !important; }
+    #legacy-toggle,
+    button[onclick*="toggleAllMenuCards"] {
+      min-height: 48px !important;
+      padding: 12px 18px !important;
+      font-size: 14px !important;
+      touch-action: manipulation !important;
+      pointer-events: auto !important;
+      position: relative !important;
+      z-index: 50 !important;
+    }
+    #legacy-toggle:active,
+    button[onclick*="toggleAllMenuCards"]:active {
+      transform: scale(0.96) !important;
+    }
+  }
+</style>
+
+<!-- Phase 81 admin (2026-05-24) — ▲ 강제 제거 + 칩 한 줄 작게 (모든 폭) -->
+<style id="ph81-admin">
+  button[onclick*="toggleTopHeader"],
+  button[aria-label="Toggle toolbar"] {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important; height: 0 !important;
+    padding: 0 !important; margin: 0 !important;
+  }
+  .top-header {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    align-items: center !important;
+    gap: 5px !important;
+    padding: 6px 8px !important;
+  }
+  .top-header .th-select,
+  .top-header .th-btn,
+  .top-header a.th-btn,
+  .top-header button.th-btn {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    padding: 5px 9px !important;
+    font-size: 11px !important;
+    height: 28px !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+    border-radius: 8px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+  }
+  .top-header svg { width: 12px !important; height: 12px !important; }
+</style>
+
+<script>
+(function(){
+  'use strict';
+  function ph81RemoveToggle(){
+    document.querySelectorAll(
+      'button[onclick*="toggleTopHeader"], button[aria-label="Toggle toolbar"]'
+    ).forEach(function(btn){
+      if (btn.parentNode) btn.parentNode.removeChild(btn);
+    });
+    document.querySelectorAll('.top-header button').forEach(function(btn){
+      var txt = (btn.textContent || '').trim();
+      if (txt === '\u25B2' || txt === '\u25BC' || txt === '\u25B3' || txt === '\u25BD') {
+        if (btn.parentNode) btn.parentNode.removeChild(btn);
+      }
+    });
+    window.toggleTopHeader = function(){};
+
+    // legacy-toggle / toggleAllMenuCards touchend 보강
+    var legacy = document.getElementById('legacy-toggle');
+    if (legacy && !legacy.__ph81) {
+      legacy.__ph81 = true;
+      legacy.addEventListener('touchend', function(e){
+        e.preventDefault();
+        legacy.click();
+      });
+    }
+    document.querySelectorAll('button[onclick*="toggleAllMenuCards"]').forEach(function(btn){
+      if (btn.__ph81) return;
+      btn.__ph81 = true;
+      btn.addEventListener('touchend', function(e){
+        e.preventDefault();
+        var m = (btn.getAttribute('onclick')||'').match(/toggleAllMenuCards\((true|false)\)/);
+        if (m && typeof window.toggleAllMenuCards === 'function') {
+          window.toggleAllMenuCards(m[1] === 'true');
+        } else { btn.click(); }
+      });
+    });
+  }
+  setInterval(ph81RemoveToggle, 300);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph81RemoveToggle);
+  else ph81RemoveToggle();
+})();
+</script>
+
+</body>
+</html>
