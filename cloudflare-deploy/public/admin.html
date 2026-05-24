@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525024047 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525024925 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525024047 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525024925 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525024047 -->
+        <!-- BUILD:20260525024925 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -24315,6 +24315,374 @@ button.chip:hover,
   console.log('[ph97] global capture-phase click handler installed — bypass-proof');
 })();
 </script>
+
+
+<!-- Phase 98 admin (2026-05-25) — 푸시 관리 카드 다크 테마 (흰 배경 → 진한 네이비, 연한 파란 글자) -->
+<style id="ph98-webpush-dark">
+  /* === card-webpush-mgmt 전체 다크 테마 === */
+  #card-webpush-mgmt {
+    background: linear-gradient(135deg, #0f172a, #1e293b) !important;
+    color: #cbd5e1 !important;
+    border: 1px solid rgba(59,130,246,0.35) !important;
+    border-radius: 14px !important;
+    padding: 18px !important;
+  }
+  #card-webpush-mgmt, #card-webpush-mgmt * {
+    color: #cbd5e1 !important;
+  }
+  /* === 헤더 (summary) 진한 인디고 === */
+  #card-webpush-mgmt > summary,
+  #card-webpush-mgmt details > summary {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
+    color: #f0f9ff !important;
+    border-radius: 10px !important;
+    padding: 11px 15px !important;
+    cursor: pointer !important;
+  }
+  #card-webpush-mgmt summary,
+  #card-webpush-mgmt summary * {
+    color: #f0f9ff !important;
+  }
+  #card-webpush-mgmt summary span[style*="background:rgba(99,102,241"] {
+    background: rgba(15,23,42,0.6) !important;
+    color: #93c5fd !important;
+    border-color: rgba(147,197,253,0.5) !important;
+  }
+  /* === 안쪽 details 박스 === */
+  #card-webpush-mgmt details {
+    background: rgba(15,23,42,0.4) !important;
+    border: 1px solid rgba(59,130,246,0.3) !important;
+    border-radius: 10px !important;
+    margin-bottom: 10px !important;
+  }
+  /* === 모든 inline background 흰색 박스 → 다크 === */
+  #card-webpush-mgmt div[style*="background:linear-gradient(135deg,#ecfdf5"],
+  #card-webpush-mgmt div[style*="background:linear-gradient(135deg,#fef3c7"],
+  #card-webpush-mgmt div[style*="background:linear-gradient(135deg,#dbeafe"],
+  #card-webpush-mgmt div[style*="background:#ecfdf5"],
+  #card-webpush-mgmt div[style*="background:#d1fae5"],
+  #card-webpush-mgmt div[style*="background:#eff6ff"],
+  #card-webpush-mgmt div[style*="background:#fef3c7"],
+  #card-webpush-mgmt div[style*="background:#fff7ed"],
+  #card-webpush-mgmt div[style*="background:#fff"],
+  #card-webpush-mgmt div[style*="background:#f8fafc"],
+  #card-webpush-mgmt div[style*="background-color:#f"] {
+    background: linear-gradient(135deg, rgba(15,23,42,0.6), rgba(30,41,59,0.7)) !important;
+    border: 1px solid rgba(59,130,246,0.35) !important;
+    color: #cbd5e1 !important;
+  }
+  /* === 강조 글자 — 연한 하늘색 === */
+  #card-webpush-mgmt b,
+  #card-webpush-mgmt strong {
+    color: #93c5fd !important;
+  }
+  #card-webpush-mgmt h2,
+  #card-webpush-mgmt h3,
+  #card-webpush-mgmt h4 {
+    color: #dbeafe !important;
+  }
+  /* === code, pre 다크 === */
+  #card-webpush-mgmt code,
+  #card-webpush-mgmt pre {
+    background: rgba(0,0,0,0.5) !important;
+    color: #93c5fd !important;
+    border: 1px solid rgba(59,130,246,0.4) !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    font-family: 'Consolas', 'Monaco', monospace !important;
+  }
+  /* === 버튼 인디고 그라데이션 === */
+  #card-webpush-mgmt button {
+    background: linear-gradient(135deg, #2563eb, #3b82f6) !important;
+    color: #f0f9ff !important;
+    border: 1px solid rgba(147,197,253,0.5) !important;
+    border-radius: 8px !important;
+    padding: 8px 14px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+  }
+  #card-webpush-mgmt button:hover {
+    background: linear-gradient(135deg, #1e40af, #2563eb) !important;
+    box-shadow: 0 4px 12px rgba(59,130,246,0.4) !important;
+  }
+  /* === 표 다크 === */
+  #card-webpush-mgmt table {
+    background: rgba(15,23,42,0.5) !important;
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+  #card-webpush-mgmt thead,
+  #card-webpush-mgmt th {
+    background: rgba(30,58,138,0.6) !important;
+    color: #dbeafe !important;
+  }
+  #card-webpush-mgmt td,
+  #card-webpush-mgmt th {
+    border: 1px solid rgba(59,130,246,0.25) !important;
+    padding: 6px 10px !important;
+  }
+  /* === input/textarea/select === */
+  #card-webpush-mgmt input,
+  #card-webpush-mgmt textarea,
+  #card-webpush-mgmt select {
+    background: rgba(15,23,42,0.7) !important;
+    color: #f0f9ff !important;
+    border: 1px solid rgba(59,130,246,0.4) !important;
+    border-radius: 6px !important;
+    padding: 6px 10px !important;
+  }
+  #card-webpush-mgmt input::placeholder,
+  #card-webpush-mgmt textarea::placeholder {
+    color: #64748b !important;
+  }
+  /* === menu-body, sub-menu, sub-body, sub-item 컨테이너 === */
+  #card-webpush-mgmt .menu-body,
+  #card-webpush-mgmt .sub-menu,
+  #card-webpush-mgmt .sub-body,
+  #card-webpush-mgmt .sub-item {
+    background: transparent !important;
+    color: #cbd5e1 !important;
+  }
+  /* === 링크 === */
+  #card-webpush-mgmt a {
+    color: #60a5fa !important;
+    text-decoration: underline !important;
+  }
+  #card-webpush-mgmt a:hover {
+    color: #93c5fd !important;
+  }
+</style>
+
+
+<!-- Phase 99 admin (2026-05-25) — 모든 menu-card 다크 테마 (ph98 일반화: 카카오/팝업/공지/SOLAPI/통계 모든 카드) -->
+<style id="ph99-all-cards-dark">
+  /* === 모든 카드 다크 네이비 === */
+  details.table-card.menu-card,
+  details.menu-card {
+    background: linear-gradient(135deg, #0f172a, #1e293b) !important;
+    color: #cbd5e1 !important;
+    border: 1px solid rgba(59,130,246,0.35) !important;
+    border-radius: 14px !important;
+    padding: 14px !important;
+    margin-bottom: 14px !important;
+  }
+  details.table-card.menu-card *,
+  details.menu-card * {
+    color: #cbd5e1 !important;
+  }
+
+  /* === summary (상단 헤더) 진한 인디고 === */
+  details.table-card.menu-card > summary,
+  details.menu-card > summary,
+  details.table-card.menu-card details > summary,
+  details.menu-card details > summary {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
+    color: #f0f9ff !important;
+    border-radius: 10px !important;
+    padding: 11px 15px !important;
+    cursor: pointer !important;
+    font-weight: 700 !important;
+  }
+  details.table-card.menu-card summary,
+  details.menu-card summary,
+  details.table-card.menu-card summary *,
+  details.menu-card summary * {
+    color: #f0f9ff !important;
+  }
+
+  /* === 안쪽 details 박스 (sub-item) === */
+  details.table-card.menu-card details,
+  details.menu-card details {
+    background: rgba(15,23,42,0.4) !important;
+    border: 1px solid rgba(59,130,246,0.3) !important;
+    border-radius: 10px !important;
+    margin-bottom: 10px !important;
+    padding: 10px !important;
+  }
+
+  /* === 모든 inline 흰색/연한 배경 → 다크 === */
+  details.table-card.menu-card div[style*="background:linear-gradient(135deg,#ecfdf5"],
+  details.table-card.menu-card div[style*="background:linear-gradient(135deg,#fef3c7"],
+  details.table-card.menu-card div[style*="background:linear-gradient(135deg,#dbeafe"],
+  details.table-card.menu-card div[style*="background:linear-gradient(135deg,#fff"],
+  details.table-card.menu-card div[style*="background:linear-gradient(135deg,#f"],
+  details.table-card.menu-card div[style*="background:#ecfdf5"],
+  details.table-card.menu-card div[style*="background:#d1fae5"],
+  details.table-card.menu-card div[style*="background:#eff6ff"],
+  details.table-card.menu-card div[style*="background:#fef3c7"],
+  details.table-card.menu-card div[style*="background:#fef9c3"],
+  details.table-card.menu-card div[style*="background:#fff7ed"],
+  details.table-card.menu-card div[style*="background:#fff"],
+  details.table-card.menu-card div[style*="background:#f8fafc"],
+  details.table-card.menu-card div[style*="background:#f0f9ff"],
+  details.table-card.menu-card div[style*="background:#dbeafe"],
+  details.table-card.menu-card div[style*="background-color:#f"],
+  details.table-card.menu-card div[style*="background-color:#fff"],
+  details.menu-card div[style*="background:#fff"],
+  details.menu-card div[style*="background:#ec"],
+  details.menu-card div[style*="background:#ef"],
+  details.menu-card div[style*="background:#fe"],
+  details.menu-card div[style*="background:#fff7"],
+  details.menu-card div[style*="background:linear-gradient(135deg,#f"] {
+    background: linear-gradient(135deg, rgba(15,23,42,0.7), rgba(30,41,59,0.85)) !important;
+    border: 1px solid rgba(59,130,246,0.35) !important;
+    color: #cbd5e1 !important;
+  }
+
+  /* === 강조 글자 — 연한 하늘색 === */
+  details.table-card.menu-card b,
+  details.menu-card b,
+  details.table-card.menu-card strong,
+  details.menu-card strong {
+    color: #93c5fd !important;
+  }
+  details.table-card.menu-card h2,
+  details.menu-card h2,
+  details.table-card.menu-card h3,
+  details.menu-card h3,
+  details.table-card.menu-card h4,
+  details.menu-card h4 {
+    color: #dbeafe !important;
+  }
+
+  /* === code, pre — 다크 + 시안 글자 === */
+  details.table-card.menu-card code,
+  details.menu-card code,
+  details.table-card.menu-card pre,
+  details.menu-card pre {
+    background: rgba(0,0,0,0.55) !important;
+    color: #67e8f9 !important;
+    border: 1px solid rgba(59,130,246,0.4) !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    font-family: 'Consolas', 'Monaco', monospace !important;
+    font-size: 11.5px !important;
+  }
+  details.table-card.menu-card pre,
+  details.menu-card pre {
+    padding: 10px 14px !important;
+    border-radius: 8px !important;
+    overflow-x: auto !important;
+    line-height: 1.6 !important;
+  }
+
+  /* === 버튼 인디고 그라데이션 === */
+  details.table-card.menu-card button:not(.ph86-action-btn):not(.ph85-head):not(.ph85-sub),
+  details.menu-card button:not(.ph86-action-btn):not(.ph85-head):not(.ph85-sub) {
+    background: linear-gradient(135deg, #2563eb, #3b82f6) !important;
+    color: #f0f9ff !important;
+    border: 1px solid rgba(147,197,253,0.5) !important;
+    border-radius: 8px !important;
+    padding: 8px 14px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    transition: all 0.15s !important;
+  }
+  details.table-card.menu-card button:not(.ph86-action-btn):not(.ph85-head):not(.ph85-sub):hover,
+  details.menu-card button:not(.ph86-action-btn):not(.ph85-head):not(.ph85-sub):hover {
+    background: linear-gradient(135deg, #1e40af, #2563eb) !important;
+    box-shadow: 0 4px 14px rgba(59,130,246,0.45) !important;
+    transform: translateY(-1px) !important;
+  }
+  /* 주황색/녹색 액션 버튼들도 다크 톤 인디고로 통일 */
+  details.table-card.menu-card button[style*="background:#f59e0b"],
+  details.table-card.menu-card button[style*="background:#f97316"],
+  details.table-card.menu-card button[style*="background:#fbbf24"],
+  details.table-card.menu-card button[style*="background:#10b981"],
+  details.table-card.menu-card button[style*="background:linear-gradient(135deg,#f"] {
+    background: linear-gradient(135deg, #2563eb, #3b82f6) !important;
+    color: #f0f9ff !important;
+  }
+
+  /* === 표 다크 === */
+  details.table-card.menu-card table,
+  details.menu-card table {
+    background: rgba(15,23,42,0.55) !important;
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+  details.table-card.menu-card thead,
+  details.menu-card thead,
+  details.table-card.menu-card th,
+  details.menu-card th {
+    background: rgba(30,58,138,0.65) !important;
+    color: #dbeafe !important;
+  }
+  details.table-card.menu-card td,
+  details.menu-card td,
+  details.table-card.menu-card th,
+  details.menu-card th {
+    border: 1px solid rgba(59,130,246,0.25) !important;
+    padding: 6px 10px !important;
+  }
+  details.table-card.menu-card tr:nth-child(even),
+  details.menu-card tr:nth-child(even) {
+    background: rgba(15,23,42,0.35) !important;
+  }
+
+  /* === 폼 input/textarea/select === */
+  details.table-card.menu-card input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  details.menu-card input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  details.table-card.menu-card textarea,
+  details.menu-card textarea,
+  details.table-card.menu-card select,
+  details.menu-card select {
+    background: rgba(15,23,42,0.75) !important;
+    color: #f0f9ff !important;
+    border: 1px solid rgba(59,130,246,0.45) !important;
+    border-radius: 6px !important;
+    padding: 7px 10px !important;
+    font-size: 13px !important;
+  }
+  details.table-card.menu-card input::placeholder,
+  details.menu-card input::placeholder,
+  details.table-card.menu-card textarea::placeholder,
+  details.menu-card textarea::placeholder {
+    color: #64748b !important;
+  }
+  details.table-card.menu-card input:focus,
+  details.menu-card input:focus,
+  details.table-card.menu-card textarea:focus,
+  details.menu-card textarea:focus,
+  details.table-card.menu-card select:focus,
+  details.menu-card select:focus {
+    border-color: #60a5fa !important;
+    box-shadow: 0 0 0 2px rgba(96,165,250,0.3) !important;
+    outline: none !important;
+  }
+
+  /* === 링크 === */
+  details.table-card.menu-card a,
+  details.menu-card a {
+    color: #60a5fa !important;
+    text-decoration: underline !important;
+  }
+  details.table-card.menu-card a:hover,
+  details.menu-card a:hover {
+    color: #93c5fd !important;
+  }
+
+  /* === menu-body, sub-menu, sub-body 컨테이너 투명 === */
+  details.table-card.menu-card .menu-body,
+  details.menu-card .menu-body,
+  details.table-card.menu-card .sub-menu,
+  details.menu-card .sub-menu,
+  details.table-card.menu-card .sub-body,
+  details.menu-card .sub-body,
+  details.table-card.menu-card .sub-item,
+  details.menu-card .sub-item {
+    background: transparent !important;
+    color: #cbd5e1 !important;
+  }
+
+  /* === ULR/입력값 readonly 박스 === */
+  details.table-card.menu-card input[readonly],
+  details.menu-card input[readonly] {
+    background: rgba(0,0,0,0.5) !important;
+    color: #67e8f9 !important;
+    font-family: 'Consolas', 'Monaco', monospace !important;
+  }
+</style>
 
 </body>
 </html>
