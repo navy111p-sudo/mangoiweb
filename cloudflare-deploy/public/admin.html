@@ -4763,7 +4763,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       const d = await r.json();
       if (!d.ok) { alert('전체 보기 실패: ' + (d.error||'')); return; }
       const w = window.open('', '_blank', 'width=900,height=700');
-      w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>AI 학습 리포트 #' + id + '</title></head><body style="font-family:-apple-system,sans-serif;padding:24px;background:#0a1530;color:#e6ecff;line-height:1.7"><h1>🎙 AI 학습 리포트 #' + id + '</h1><h2>📝 전체 STT (' + (d.item.total_words||0) + ' 단어)</h2><pre style="white-space:pre-wrap;background:#14213b;padding:14px;border-radius:10px;color:#cbd5e1">' + (d.item.transcript || '').replace(/[<>]/g,'') + '</pre><!-- BUILD:20260525003238 -->
+      w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>AI 학습 리포트 #' + id + '</title></head><body style="font-family:-apple-system,sans-serif;padding:24px;background:#0a1530;color:#e6ecff;line-height:1.7"><h1>🎙 AI 학습 리포트 #' + id + '</h1><h2>📝 전체 STT (' + (d.item.total_words||0) + ' 단어)</h2><pre style="white-space:pre-wrap;background:#14213b;padding:14px;border-radius:10px;color:#cbd5e1">' + (d.item.transcript || '').replace(/[<>]/g,'') + '</pre><!-- BUILD:20260525011030 -->
 <!-- Phase 60 admin (2026-05-23) — 상단 ▲ 토글 제거 + 칩 3개씩 정렬 -->
 <style id="ph60-admin">
   @media (max-width: 720px) {
@@ -14104,7 +14104,7 @@ function downloadEmptyEnrollmentTemplateExcel() {
   // 10. 푸터
   html += '<tr><td class="footer-cell" colspan="' + colCount + '">© Mangoi · 망고아이 영어 화상수업 · 양식 자동 발급 ' + today + '</td></tr>';
 
-  html += '</table><!-- BUILD:20260525003238 -->
+  html += '</table><!-- BUILD:20260525011030 -->
 </body></html>';
 
   _downloadBlob(new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' }),
@@ -14272,7 +14272,7 @@ function downloadEmptyEnrollmentTemplateWord() {
     // 푸터
     '<div class="footer">© Mangoi · 망고아이 영어 화상수업 · 양식 자동 발급 ' + today + '</div>' +
 
-    '<!-- BUILD:20260525003238 -->
+    '<!-- BUILD:20260525011030 -->
 </body></html>';
 
   _downloadBlob(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
@@ -14732,7 +14732,7 @@ function autoExportBulkEnrollment(records) {
       '<td>' + _aiEsc(r._started_at_str || '—') + '</td>' +
       '</tr>';
   });
-  docHtml += '</table><div class="footer">© Mangoi · 자동 생성 · ' + new Date().toLocaleString('ko-KR') + '</div><!-- BUILD:20260525003238 -->
+  docHtml += '</table><div class="footer">© Mangoi · 자동 생성 · ' + new Date().toLocaleString('ko-KR') + '</div><!-- BUILD:20260525011030 -->
 </body></html>';
   _downloadBlob(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
     '수강신청_일괄_' + N + '명_' + dateStr + '.doc');
@@ -14823,7 +14823,7 @@ async function autoExportEnrollment(enr) {
       '<tr><th>등록일시</th><td>' + _aiEsc(enr.created_at) + '</td></tr>' +
     '</table>' +
     '<div class="footer">© Mangoi · 자동 생성 · ' + new Date().toLocaleString('ko-KR') + '</div>' +
-    '<!-- BUILD:20260525003238 -->
+    '<!-- BUILD:20260525011030 -->
 </body></html>';
   _downloadBlob(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
     '수강신청_' + safeName + '_' + dateStr + '.doc');
@@ -15395,7 +15395,7 @@ function tbfOpenPreview(url, kind, name) {
   if (kind === 'pdf') {
     win.location.href = url;
   } else {
-    win.document.write('<!doctype html><html><head><title>'+_esc(name)+'</title><style>body{margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh;}img{max-width:100%;max-height:100vh;}</style></head><body><img src="'+url+'" /><!-- BUILD:20260525003238 -->
+    win.document.write('<!doctype html><html><head><title>'+_esc(name)+'</title><style>body{margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh;}img{max-width:100%;max-height:100vh;}</style></head><body><img src="'+url+'" /><!-- BUILD:20260525011030 -->
 </body></html>');
     win.document.close();
   }
@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525003238 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525011030 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525003238 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525011030 -->
 </body></html>`;
   }
 
@@ -18664,7 +18664,7 @@ window.rebuildGlobalSearchIndex = function() {
     // 새 창에 인쇄 가능한 형태로 출력
     const w = window.open('', '_blank', 'width=1000,height=900,scrollbars=yes');
     if (!w) { alert('팝업이 차단되었습니다.'); return; }
-    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>재무제표</title></head><body><div style="text-align:center;padding:30px">생성 중…</div><!-- BUILD:20260525003238 -->
+    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>재무제표</title></head><body><div style="text-align:center;padding:30px">생성 중…</div><!-- BUILD:20260525011030 -->
 </body></html>');
     try {
       const r = await fetch(_statementUrl(), { credentials:'include' });
@@ -18697,7 +18697,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525003238 -->
+        <!-- BUILD:20260525011030 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -23742,5 +23742,152 @@ button.chip:hover,
   [200, 600, 1500, 3000].forEach(function(d){ setTimeout(ph88BindAll, d); });
 })();
 </script>
+
+<!-- Phase 89 admin (2026-05-25) — 우측 메인 영역의 메뉴(가나다 순) 검색 카드 제거 -->
+<style id="ph89-clean">
+  @media (min-width: 1024px) {
+    .menu-search-wrap,
+    .menu-search-input,
+    .menu-search-dropdown,
+    .menu-search-clear,
+    .menu-search-item {
+      display: none !important;
+    }
+    body {
+      padding-left: 240px !important;
+      box-sizing: border-box;
+    }
+  }
+</style>
+<script>
+(function(){
+  'use strict';
+  if (!window.matchMedia('(min-width: 1024px)').matches) return;
+  function ph89Clean(){
+    document.querySelectorAll('.menu-search-wrap, .menu-search-input, .menu-search-dropdown').forEach(function(el){
+      el.style.display = 'none';
+    });
+    document.body.style.paddingLeft = '240px';
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph89Clean);
+  else ph89Clean();
+  setTimeout(ph89Clean, 500);
+  setTimeout(ph89Clean, 2000);
+})();
+</script>
+
+<!-- Phase 90 admin (2026-05-25) — 최종 정리: ☰ 메뉴 floating 버튼 + 브랜드(아이 관리) + 옛 admin-sidebar(가나다 순) 완전 제거 + 아코디언 transition -->
+<style id="ph90-final">
+  /* === 옛 admin-sidebar(가나다 순) 카드 모든 화면에서 hide === */
+  #admin-sidebar,
+  aside.admin-sidebar,
+  .sidebar-head,
+  .sidebar-search-wrap,
+  #admin-sidebar-list,
+  #sidebar-search-empty {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* === ph86 의 floating ☰ 메뉴 버튼 제거 === */
+  #ph86-show { display: none !important; }
+
+  /* === ph85 사이드바 브랜드 (망고아이 관리) hide === */
+  @media (min-width: 1024px) {
+    #ph85-sidebar .ph85-brand { display: none !important; }
+    /* 검색창 위 여백 살짝 줄임 */
+    #ph85-sidebar .ph85-search { margin-top: 4px !important; }
+  }
+
+  /* === 아코디언 부드러운 transition === */
+  #ph85-sidebar .ph85-subs {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.32s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.22s ease, padding 0.25s ease;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  #ph85-sidebar .ph85-group.open .ph85-subs {
+    max-height: 800px;
+    opacity: 1;
+  }
+  /* 화살표 회전 — 닫힘 › / 펼침 ⌄ */
+  #ph85-sidebar .ph85-arrow {
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-origin: center;
+  }
+  #ph85-sidebar .ph85-group.open .ph85-arrow {
+    transform: rotate(90deg);
+  }
+
+  /* === 갯수 배지 강화 (요구사항: 화살표 왼쪽에 배지) === */
+  #ph85-sidebar .ph85-count-badge {
+    background: linear-gradient(135deg, rgba(99,102,241,0.4), rgba(79,70,229,0.5)) !important;
+    color: #fff !important;
+    font-size: 10.5px !important;
+    font-weight: 800 !important;
+    padding: 2px 8px !important;
+    border-radius: 11px !important;
+    min-width: 22px !important;
+    text-align: center !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  #ph85-sidebar .ph85-group.open .ph85-count-badge {
+    background: linear-gradient(135deg, rgba(251,191,36,0.5), rgba(245,158,11,0.6)) !important;
+    color: #fff !important;
+  }
+</style>
+
+<script>
+(function(){
+  'use strict';
+  function ph90Final(){
+    // (1) 옛 admin-sidebar 강제 제거 (DOM 에서 빼내기)
+    var oldBar = document.getElementById('admin-sidebar');
+    if (oldBar) {
+      oldBar.style.display = 'none';
+      oldBar.style.visibility = 'hidden';
+      oldBar.setAttribute('aria-hidden', 'true');
+    }
+
+    // (2) #ph86-show floating 버튼 제거
+    var showBtn = document.getElementById('ph86-show');
+    if (showBtn) showBtn.remove();
+
+    // (3) ph85 사이드바 브랜드 hide (PC 만)
+    if (window.matchMedia('(min-width: 1024px)').matches) {
+      var brand = document.querySelector('#ph85-sidebar .ph85-brand');
+      if (brand) brand.style.display = 'none';
+    }
+
+    // (4) ph86 의 hide(숨기기) 버튼 제거 — 사용자가 실수로 사이드바 숨기면 다시 못 보이게 되므로
+    var hideBtn = document.querySelector('.ph86-action-btn.hide');
+    if (hideBtn) hideBtn.style.display = 'none';
+
+    // (5) ph85 사이드바 가 hidden 상태면 다시 복원
+    var ph85bar = document.getElementById('ph85-sidebar');
+    if (ph85bar && window.matchMedia('(min-width: 1024px)').matches) {
+      if (ph85bar.style.display === 'none') {
+        ph85bar.style.display = '';
+      }
+      if (!document.body.style.paddingLeft || document.body.style.paddingLeft === '0px') {
+        document.body.style.paddingLeft = '240px';
+      }
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph90Final);
+  else ph90Final();
+  [200, 600, 1500, 3000].forEach(function(d){ setTimeout(ph90Final, d); });
+
+  // floating 버튼이 다시 생기면 즉시 제거
+  setInterval(function(){
+    var b = document.getElementById('ph86-show');
+    if (b) b.remove();
+  }, 800);
+})();
+</script>
+
 </body>
 </html>
