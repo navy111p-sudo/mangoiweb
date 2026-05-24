@@ -4763,7 +4763,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       const d = await r.json();
       if (!d.ok) { alert('전체 보기 실패: ' + (d.error||'')); return; }
       const w = window.open('', '_blank', 'width=900,height=700');
-      w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>AI 학습 리포트 #' + id + '</title></head><body style="font-family:-apple-system,sans-serif;padding:24px;background:#0a1530;color:#e6ecff;line-height:1.7"><h1>🎙 AI 학습 리포트 #' + id + '</h1><h2>📝 전체 STT (' + (d.item.total_words||0) + ' 단어)</h2><pre style="white-space:pre-wrap;background:#14213b;padding:14px;border-radius:10px;color:#cbd5e1">' + (d.item.transcript || '').replace(/[<>]/g,'') + '</pre><!-- BUILD:20260525000727 -->
+      w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>AI 학습 리포트 #' + id + '</title></head><body style="font-family:-apple-system,sans-serif;padding:24px;background:#0a1530;color:#e6ecff;line-height:1.7"><h1>🎙 AI 학습 리포트 #' + id + '</h1><h2>📝 전체 STT (' + (d.item.total_words||0) + ' 단어)</h2><pre style="white-space:pre-wrap;background:#14213b;padding:14px;border-radius:10px;color:#cbd5e1">' + (d.item.transcript || '').replace(/[<>]/g,'') + '</pre><!-- BUILD:20260525001506 -->
 <!-- Phase 60 admin (2026-05-23) — 상단 ▲ 토글 제거 + 칩 3개씩 정렬 -->
 <style id="ph60-admin">
   @media (max-width: 720px) {
@@ -14104,7 +14104,7 @@ function downloadEmptyEnrollmentTemplateExcel() {
   // 10. 푸터
   html += '<tr><td class="footer-cell" colspan="' + colCount + '">© Mangoi · 망고아이 영어 화상수업 · 양식 자동 발급 ' + today + '</td></tr>';
 
-  html += '</table><!-- BUILD:20260525000727 -->
+  html += '</table><!-- BUILD:20260525001506 -->
 </body></html>';
 
   _downloadBlob(new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' }),
@@ -14272,7 +14272,7 @@ function downloadEmptyEnrollmentTemplateWord() {
     // 푸터
     '<div class="footer">© Mangoi · 망고아이 영어 화상수업 · 양식 자동 발급 ' + today + '</div>' +
 
-    '<!-- BUILD:20260525000727 -->
+    '<!-- BUILD:20260525001506 -->
 </body></html>';
 
   _downloadBlob(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
@@ -14732,7 +14732,7 @@ function autoExportBulkEnrollment(records) {
       '<td>' + _aiEsc(r._started_at_str || '—') + '</td>' +
       '</tr>';
   });
-  docHtml += '</table><div class="footer">© Mangoi · 자동 생성 · ' + new Date().toLocaleString('ko-KR') + '</div><!-- BUILD:20260525000727 -->
+  docHtml += '</table><div class="footer">© Mangoi · 자동 생성 · ' + new Date().toLocaleString('ko-KR') + '</div><!-- BUILD:20260525001506 -->
 </body></html>';
   _downloadBlob(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
     '수강신청_일괄_' + N + '명_' + dateStr + '.doc');
@@ -14823,7 +14823,7 @@ async function autoExportEnrollment(enr) {
       '<tr><th>등록일시</th><td>' + _aiEsc(enr.created_at) + '</td></tr>' +
     '</table>' +
     '<div class="footer">© Mangoi · 자동 생성 · ' + new Date().toLocaleString('ko-KR') + '</div>' +
-    '<!-- BUILD:20260525000727 -->
+    '<!-- BUILD:20260525001506 -->
 </body></html>';
   _downloadBlob(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
     '수강신청_' + safeName + '_' + dateStr + '.doc');
@@ -15395,7 +15395,7 @@ function tbfOpenPreview(url, kind, name) {
   if (kind === 'pdf') {
     win.location.href = url;
   } else {
-    win.document.write('<!doctype html><html><head><title>'+_esc(name)+'</title><style>body{margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh;}img{max-width:100%;max-height:100vh;}</style></head><body><img src="'+url+'" /><!-- BUILD:20260525000727 -->
+    win.document.write('<!doctype html><html><head><title>'+_esc(name)+'</title><style>body{margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh;}img{max-width:100%;max-height:100vh;}</style></head><body><img src="'+url+'" /><!-- BUILD:20260525001506 -->
 </body></html>');
     win.document.close();
   }
@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525000727 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525001506 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525000727 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525001506 -->
 </body></html>`;
   }
 
@@ -18664,7 +18664,7 @@ window.rebuildGlobalSearchIndex = function() {
     // 새 창에 인쇄 가능한 형태로 출력
     const w = window.open('', '_blank', 'width=1000,height=900,scrollbars=yes');
     if (!w) { alert('팝업이 차단되었습니다.'); return; }
-    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>재무제표</title></head><body><div style="text-align:center;padding:30px">생성 중…</div><!-- BUILD:20260525000727 -->
+    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>재무제표</title></head><body><div style="text-align:center;padding:30px">생성 중…</div><!-- BUILD:20260525001506 -->
 </body></html>');
     try {
       const r = await fetch(_statementUrl(), { credentials:'include' });
@@ -18697,7 +18697,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525000727 -->
+        <!-- BUILD:20260525001506 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -23467,6 +23467,129 @@ button.chip:hover,
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph85Init);
   else ph85Init();
   setTimeout(ph85Init, 600);
+})();
+</script>
+<!-- Phase 86 admin (2026-05-24) — 사이드바 토글/갯수/펼치기버튼 강화 -->
+<style id="ph86-sidebar-enhance">
+  /* 그룹 헤더 내 갯수 배지 */
+  .ph85-count-badge {
+    background: rgba(99,102,241,0.25);
+    color: #a5b4fc;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 10px;
+    margin-right: 4px;
+  }
+  .ph85-group.open .ph85-count-badge {
+    background: rgba(251,191,36,0.3);
+    color: #fde68a;
+  }
+  /* 사이드바 상단 액션 버튼들 */
+  .ph86-actions {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+  .ph86-action-btn {
+    flex: 1;
+    padding: 6px 4px;
+    background: rgba(99,102,241,0.15);
+    color: #c7d2fe;
+    border: 1px solid rgba(99,102,241,0.3);
+    border-radius: 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .ph86-action-btn:hover {
+    background: rgba(99,102,241,0.3);
+    color: #fff;
+  }
+  .ph86-action-btn:active { transform: scale(0.95); }
+  .ph86-action-btn.collapse { background: rgba(244,63,94,0.15); color: #fda4af; border-color: rgba(244,63,94,0.3); }
+  .ph86-action-btn.expand   { background: rgba(34,197,94,0.15);  color: #86efac; border-color: rgba(34,197,94,0.3); }
+  .ph86-action-btn.hide     { background: rgba(148,163,184,0.15); color: #cbd5e1; border-color: rgba(148,163,184,0.3); }
+</style>
+<script>
+(function(){
+  'use strict';
+  function ph86Enhance(){
+    var bar = document.getElementById('ph85-sidebar');
+    if (!bar || bar.__ph86) return;
+    bar.__ph86 = true;
+
+    // 1) 각 그룹 헤더에 하위 메뉴 갯수 배지 추가
+    bar.querySelectorAll('.ph85-group').forEach(function(g){
+      var subs = g.querySelectorAll('.ph85-sub');
+      var count = subs.length;
+      var arrow = g.querySelector('.ph85-arrow');
+      if (arrow && !arrow.previousElementSibling.classList.contains('ph85-count-badge')) {
+        var badge = document.createElement('span');
+        badge.className = 'ph85-count-badge';
+        badge.textContent = count;
+        arrow.parentNode.insertBefore(badge, arrow);
+      }
+    });
+
+    // 2) 기존 ph85 헤더 click 핸들러 (한 번에 하나) 제거하고 독립 토글로 교체
+    bar.querySelectorAll('.ph85-head').forEach(function(head){
+      // clone 으로 기존 핸들러 제거
+      var newHead = head.cloneNode(true);
+      head.parentNode.replaceChild(newHead, head);
+      newHead.addEventListener('click', function(){
+        var g = newHead.parentElement;
+        g.classList.toggle('open');  // 독립 토글
+      });
+    });
+
+    // 3) 검색창 아래에 액션 버튼 추가 (모두 펼치기 / 모두 접기 / 메뉴 숨기기)
+    var search = document.getElementById('ph85-search');
+    if (search && !document.getElementById('ph86-actions')) {
+      var actions = document.createElement('div');
+      actions.className = 'ph86-actions';
+      actions.id = 'ph86-actions';
+      actions.innerHTML =
+        '<button class="ph86-action-btn expand"   type="button" data-act="expand">↧ 모두 펼치기</button>' +
+        '<button class="ph86-action-btn collapse" type="button" data-act="collapse">↥ 모두 접기</button>' +
+        '<button class="ph86-action-btn hide"     type="button" data-act="hide">🙈 숨기기</button>';
+      search.parentNode.insertBefore(actions, search.nextSibling);
+
+      actions.addEventListener('click', function(e){
+        var btn = e.target.closest('.ph86-action-btn');
+        if (!btn) return;
+        var act = btn.dataset.act;
+        if (act === 'expand') {
+          bar.querySelectorAll('.ph85-group').forEach(function(g){ g.classList.add('open'); });
+        } else if (act === 'collapse') {
+          bar.querySelectorAll('.ph85-group').forEach(function(g){ g.classList.remove('open'); });
+        } else if (act === 'hide') {
+          bar.style.display = 'none';
+          // 본문 padding 도 제거
+          document.body.style.paddingLeft = '0';
+          // 다시 보이게 하는 작은 floating 버튼
+          if (!document.getElementById('ph86-show')) {
+            var show = document.createElement('button');
+            show.id = 'ph86-show';
+            show.type = 'button';
+            show.textContent = '☰ 메뉴';
+            show.style.cssText = 'position:fixed;top:10px;left:10px;z-index:10001;padding:10px 14px;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;border:0;border-radius:8px;font-weight:800;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,0.3)';
+            show.addEventListener('click', function(){
+              bar.style.display = '';
+              document.body.style.paddingLeft = '';
+              show.remove();
+            });
+            document.body.appendChild(show);
+          }
+        }
+      });
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph86Enhance);
+  else ph86Enhance();
+  setTimeout(ph86Enhance, 800);
+  setTimeout(ph86Enhance, 2000);
 })();
 </script>
 </body>
