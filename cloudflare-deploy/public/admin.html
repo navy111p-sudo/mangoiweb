@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525163941 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525164909 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525163941 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525164909 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525163941 -->
+        <!-- BUILD:20260525164909 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -23331,7 +23331,7 @@ button.chip:hover,
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-kpi-dashboard,card-daily-charts,card-rankings,card-retention-risk,card-retention,card-active-rooms,card-nps-monthly,card-ai-forecast,card-voice-stats,card-school-attendance-stats">
+  <div class="ph85-group" data-cards="card-kpi-dashboard,card-daily-charts,card-rankings,card-retention-risk,card-retention,card-active-rooms,card-nps-monthly,card-ai-forecast,card-voice-stats">
     <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#6366f1,#4338ca)">📊</div>
       <div class="ph85-title">통계 / KPI</div>
@@ -23347,7 +23347,6 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-nps-monthly" onclick="event.stopPropagation();var c=document.getElementById('card-nps-monthly');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-nps-monthly');}">📈 월별 NPS</div>
       <div class="ph85-sub" data-card="card-ai-forecast" onclick="event.stopPropagation();var c=document.getElementById('card-ai-forecast');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-ai-forecast');}">🔮 AI 예측</div>
       <div class="ph85-sub" data-card="card-voice-stats" onclick="event.stopPropagation();var c=document.getElementById('card-voice-stats');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-voice-stats');}">🎙 음성 통계</div>
-      <div class="ph85-sub" data-card="card-school-attendance-stats" onclick="event.stopPropagation();var c=document.getElementById('card-school-attendance-stats');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-school-attendance-stats');}">📊 학원별 수업현황 ⭐신규</div>
     </div>
   </div>
 
@@ -23368,7 +23367,7 @@ button.chip:hover,
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-students-mgmt,card-family-mgmt,card-inquiry-mgmt,card-enrollments,card-badges-mgmt,card-community,card-counseling-booking,card-parent-digest,card-parent-faq-bot,card-referral,card-alumni,card-gallery">
+  <div class="ph85-group" data-cards="card-students-mgmt,card-school-attendance-stats,card-family-mgmt,card-inquiry-mgmt,card-enrollments,card-badges-mgmt,card-community,card-counseling-booking,card-parent-digest,card-parent-faq-bot,card-referral,card-alumni,card-gallery">
     <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#10b981,#047857)">👥</div>
       <div class="ph85-title">학생 / 학부모</div>
@@ -23376,6 +23375,7 @@ button.chip:hover,
     </div>
     <div class="ph85-subs">
       <div class="ph85-sub" data-card="card-students-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-students-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-students-mgmt');}">학생 관리</div>
+      <div class="ph85-sub" data-card="card-school-attendance-stats" onclick="event.stopPropagation();var c=document.getElementById('card-school-attendance-stats');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-school-attendance-stats');}">📊 학원별 학생 수업현황</div>
       <div class="ph85-sub" data-card="card-family-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-family-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-family-mgmt');}">👨‍👩‍👧‍👦 가족 관리</div>
       <div class="ph85-sub" data-card="card-inquiry-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-inquiry-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-inquiry-mgmt');}">문의 관리</div>
       <div class="ph85-sub" data-card="card-enrollments" onclick="event.stopPropagation();var c=document.getElementById('card-enrollments');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-enrollments');}">등록 관리</div>
@@ -23410,7 +23410,7 @@ button.chip:hover,
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-permissions,card-franchises,card-centers,card-data-export,card-test-seed,card-admin-alerts,card-admin-ghost,card-admin-whisper,card-attendance-status,card-auto-attendance,card-class-attendance,card-school-attendance-stats,card-report-forms">
+  <div class="ph85-group" data-cards="card-permissions,card-franchises,card-centers,card-data-export,card-test-seed,card-admin-alerts,card-admin-ghost,card-admin-whisper,card-attendance-status,card-auto-attendance,card-class-attendance,card-report-forms">
     <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#64748b,#334155)">⚙</div>
       <div class="ph85-title">시스템</div>
@@ -23428,7 +23428,6 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-attendance-status" onclick="event.stopPropagation();var c=document.getElementById('card-attendance-status');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-attendance-status');}">📋 출결 상태</div>
       <div class="ph85-sub" data-card="card-auto-attendance" onclick="event.stopPropagation();var c=document.getElementById('card-auto-attendance');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-auto-attendance');}">📷 QR 출결</div>
       <div class="ph85-sub" data-card="card-class-attendance" onclick="event.stopPropagation();var c=document.getElementById('card-class-attendance');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-class-attendance');}">📝 수업 출결</div>
-      <div class="ph85-sub" data-card="card-school-attendance-stats" onclick="event.stopPropagation();var c=document.getElementById('card-school-attendance-stats');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-school-attendance-stats');}">📊 학원별 수업현황 ⭐신규</div>
       <div class="ph85-sub" data-card="card-report-forms" onclick="event.stopPropagation();var c=document.getElementById('card-report-forms');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-report-forms');}">📋 보고서 양식</div>
     </div>
   </div>
@@ -29020,6 +29019,42 @@ button.chip:hover,
   setInterval(ph118Apply, 1000);  // ph116 보다 빠르게 (ph116=1.5s)
 
   console.log('[ph118] 권한 매트릭스 73 메뉴 × 7 역할 초기화 완료');
+})();
+</script>
+
+
+<!-- Phase 119 admin (2026-05-25) — SLP 수업현황 위치 재조정: 학생/학부모 그룹으로 단일 노출 -->
+<style id="ph119-position-fix">
+  /* 학원별 수업현황 카드의 안내문 색상 강조 */
+  #card-school-attendance-stats .sa-info {
+    background: linear-gradient(135deg, rgba(16,185,129,0.18), rgba(37,99,235,0.15)) !important;
+    border-left: 4px solid #10B981 !important;
+  }
+</style>
+
+<script>
+(function(){
+  'use strict';
+  // 안내문 업데이트 — 학생/학부모 그룹 위치 표시
+  function ph119UpdateInfo(){
+    var card = document.getElementById('card-school-attendance-stats');
+    if (!card || card.__ph119) return;
+    var info = card.querySelector('.sa-info');
+    if (!info) return;
+    info.innerHTML =
+      '💡 <b>학생·학부모 출결 통합 허브</b> — 학원·지사·대리점별 학생 출석률을 한눈에. ' +
+      '학부모는 자녀의 출석률, 관리자는 전체 운영 현황 확인. ' +
+      '출결 관련 다른 도구:<br>' +
+      '<a onclick="jumpToMenu(\'card-attendance-status\')">📋 개별 출결 상태</a> ' +
+      '<a onclick="jumpToMenu(\'card-auto-attendance\')">📷 QR 자동 출결</a> ' +
+      '<a onclick="jumpToMenu(\'card-class-attendance\')">📝 수업별 출결</a>';
+    card.__ph119 = true;
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph119UpdateInfo);
+  else ph119UpdateInfo();
+  setInterval(ph119UpdateInfo, 2000);
+
+  console.log('[ph119] SLP 수업현황 위치 재조정 — 학생/학부모 그룹 단일 노출');
 })();
 </script>
 
