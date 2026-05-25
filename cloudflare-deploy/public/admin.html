@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525174918 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525175412 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525174918 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525175412 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525174918 -->
+        <!-- BUILD:20260525175412 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -30814,6 +30814,724 @@ button.chip:hover,
   setInterval(ph128Init, 2000);
 
   console.log('[ph128] 결제 표 다중 컬럼 동시 필터 활성 — 4개 표 적용');
+})();
+</script>
+
+
+<!-- Phase 129 admin (2026-05-25) — 한↔영 i18n 완전 보강 (사이드바·신규 카드·버튼·알림) -->
+<script>
+(function(){
+  'use strict';
+
+  // === 거대한 한국어 → 영어 사전 ===
+  var I18N = {
+    // === 8 사이드바 그룹 ===
+    '평가서 통합': 'Evaluations',
+    '알림 센터': 'Notifications',
+    '강사 통합': 'Teachers',
+    '통계 / KPI': 'Stats / KPI',
+    '회계 / 포인트': 'Accounting / Points',
+    '학생 / 학부모': 'Students / Parents',
+    '교육 / 콘텐츠': 'Education / Content',
+    '시스템': 'System',
+
+    // === 평가서 통합 sub ===
+    '평가서 작성': 'Write Evaluation',
+    '일괄 평가': 'Bulk Evaluation',
+    'AI 수업 리포트': 'AI Lesson Report',
+    'AI 초안': 'AI Draft',
+    '월별 리포트': 'Monthly Report',
+    '비교 리포트': 'Comparison Report',
+    '📊 비교 리포트': '📊 Comparison Report',
+
+    // === 알림 센터 sub ===
+    '웹 푸시': 'Web Push',
+    '카카오 알림': 'KakaoTalk Alert',
+    '팝업 관리': 'Popup Management',
+    '이벤트 알림': 'Event Alert',
+    '공지사항': 'Notice Board',
+    '📌 공지사항 ⭐신규': '📌 Notice Board ⭐NEW',
+
+    // === 강사 통합 sub ===
+    '강사 관리': 'Teacher Management',
+    '자동 급여': 'Auto Payroll',
+    '급여 관리': 'Payroll',
+    'MBTI': 'MBTI',
+    '칭찬 통계': 'Praise Stats',
+    '👁 강사 슈퍼바이저': '👁 Supervisor',
+    '📨 방 초대 관리': '📨 Room Invite',
+    '🗓 시간표 ⭐신규': '🗓 Timetable ⭐NEW',
+    '📝 수업 일지 ⭐신규': '📝 Lesson Log ⭐NEW',
+    '📋 보고서 양식': '📋 Report Forms',
+
+    // === 통계 / KPI sub ===
+    'KPI 대시보드': 'KPI Dashboard',
+    '일별 차트': 'Daily Charts',
+    '랭킹': 'Rankings',
+    '이탈 위험': 'Churn Risk',
+    '🗑 보관기간 파기': '🗑 Auto Cleanup',
+    '🔴 실시간 수업 (활성 룸)': '🔴 Live Classes (Active Rooms)',
+    '📈 월별 NPS': '📈 Monthly NPS',
+    '🔮 AI 예측': '🔮 AI Forecast',
+    '🎙 음성 통계': '🎙 Voice Stats',
+
+    // === 회계 / 포인트 sub ===
+    '회계 관리': 'Accounting',
+    '🏢 BtoB 결제관리': '🏢 B2B Payments',
+    '👨‍👩‍👧 BtoC 결제관리': '👨‍👩‍👧 B2C Payments',
+    '🔄 정기 결제': '🔄 Recurring',
+    '💸 자동 수금': '💸 Auto Dunning',
+    '📊 정산 통계': '📊 Settlement',
+    '포인트 관리': 'Points',
+
+    // === 학생 / 학부모 sub ===
+    '학생 관리': 'Student Management',
+    '📊 학원별 학생 수업현황': '📊 Attendance by School',
+    '👨‍👩‍👧‍👦 가족 관리': '👨‍👩‍👧‍👦 Family',
+    '문의 관리': 'Inquiries',
+    '등록 관리': 'Enrollments',
+    '뱃지 관리': 'Badges',
+    '커뮤니티': 'Community',
+    '📅 상담 예약': '📅 Counseling',
+    '📰 학부모 요약': '📰 Parent Digest',
+    '🤖 학부모 FAQ봇': '🤖 Parent FAQ Bot',
+    '🎁 친구 추천': '🎁 Referral',
+    '🎓 졸업생 커뮤니티': '🎓 Alumni',
+    '📷 사진/영상 갤러리 ⭐신규': '📷 Photo/Video Gallery ⭐NEW',
+
+    // === 교육 / 콘텐츠 sub ===
+    '교재 콘텐츠': 'Textbooks',
+    '📖 마이크로러닝': '📖 Microlearning',
+    '🎯 미니 토익': '🎯 Mini TOEIC',
+    '🗣 발음 교정': '🗣 Pronunciation',
+    '🎬 영상 사전': '🎬 Video Dictionary',
+    '🎙 음성 일기': '🎙 Voice Diary',
+    '📊 레벨테스트': '📊 Level Test',
+    '⚔ 영어 배틀': '⚔ English Battle',
+    '💾 녹화 보관': '💾 Recording Storage',
+    '📚 숙제 관리 ⭐신규': '📚 Homework ⭐NEW',
+
+    // === 시스템 sub ===
+    '권한 관리': 'Permissions',
+    '가맹점': 'Franchises',
+    '센터': 'Centers',
+    '데이터 추출': 'Data Export',
+    '테스트 시드': 'Test Seed',
+    '🔔 관리자 알림': '🔔 Admin Alerts',
+    '👻 Ghost View': '👻 Ghost View',
+    '💬 귓속말': '💬 Whisper',
+    '📋 출결 상태': '📋 Attendance Status',
+    '📷 QR 출결': '📷 QR Attendance',
+    '📝 수업 출결': '📝 Class Attendance',
+
+    // === 사이드바 액션 버튼 ===
+    '↧ 모두 펼치기': '↧ Expand All',
+    '↥ 모두 접기': '↥ Collapse All',
+    '🙈 숨기기': '🙈 Hide',
+    '☰ 메뉴': '☰ Menu',
+
+    // === ph115/117 사용자 메뉴 ===
+    '관리자': 'Admin',
+    '경영진': 'Executive',
+    '교사': 'Teacher',
+    '지사': 'Branch',
+    '대리점': 'Agency',
+    '학부모': 'Parent',
+    '학생': 'Student',
+    '본사 · 경영진': 'HQ · Executive',
+    '본사 · 관리자': 'HQ · Admin',
+    '본사 · 강사': 'HQ · Teacher',
+    '본사 · CFO': 'HQ · CFO',
+    '지사 · 부산': 'Branch · Busan',
+    '지사 · 대구': 'Branch · Daegu',
+    '대리점 · 강남001': 'Agency · GN001',
+    '대리점 · 송파002': 'Agency · SC002',
+    '👤 마이페이지': '👤 My Page',
+    '🔑 비밀번호 변경': '🔑 Change Password',
+    '📘 자료실 / 사용 안내서': '📘 Resources / Manuals',
+    '🩺 셀프 진단': '🩺 Self Check',
+    '❓ 도움말 / FAQ': '❓ Help / FAQ',
+    '🔄 역할 전환 (테스트)': '🔄 Switch Role (Test)',
+    '🔄 역할 선택 (7가지)': '🔄 Select Role (7 Roles)',
+    '🎭 역할 선택 (로그인)': '🎭 Role Selection (Login)',
+    '✅ 다른 계정으로 로그인': '✅ Login with Different Account',
+    '🚪 로그아웃': '🚪 Logout',
+    '✓ 현재 역할': '✓ Current Role',
+
+    // === ph116 배너 ===
+    '👨‍🏫 강사 모드': '👨‍🏫 Teacher Mode',
+    '🏬 지사 모드': '🏬 Branch Mode',
+    '🤝 대리점 모드': '🤝 Agency Mode',
+    '🛠 관리자로 복귀': '🛠 Back to Admin',
+    '본인 수업·평가만 접근 권한': 'Access to own classes/evaluations only',
+    '산하 대리점 데이터만': 'Sub-agency data only',
+    '본인 학생만 접근 권한': 'Own students only',
+
+    // === ph106 BtoB/BtoC ===
+    '🏢 BtoB 결제관리 (학원 ↔ 본사/대리점)': '🏢 B2B Payments (Academy ↔ HQ/Agency)',
+    '👨‍👩‍👧 BtoC 결제관리 (학원 → 학부모 직판매)': '👨‍👩‍👧 B2C Payments (Academy → Parents)',
+    '📅 오늘 거래액': '📅 Today’s Revenue',
+    '📊 이번달 거래액': '📊 This Month',
+    '🧾 거래 건수': '🧾 Transactions',
+    '💸 수수료 합계': '💸 Fees Total',
+    '📅 오늘 매출': '📅 Today Sales',
+    '📊 이번달 매출': '📊 Monthly Sales',
+    '🧾 주문 건수': '🧾 Orders',
+    '📄 세금계산서 미발행': '📄 Tax Invoice Pending',
+    '전체 본사': 'All HQ',
+    '전체 지사': 'All Branches',
+    '전체 대리점': 'All Agencies',
+    '전체 결제수단': 'All Methods',
+    '전체 상태': 'All Status',
+    '전체 결과': 'All Results',
+    '전체 세금계산서': 'All Tax Invoices',
+    '전체 분류': 'All Categories',
+    '결제완료': 'Paid',
+    '취소': 'Cancel',
+    '환불': 'Refund',
+    '대기': 'Pending',
+    '정상처리': 'Normal',
+    '🔍 검색': '🔍 Search',
+    '📥 CSV 다운로드': '📥 Download CSV',
+    '📊 Excel 다운로드': '📊 Download Excel',
+    '📄 세금계산서 일괄발행': '📄 Bulk Tax Invoice',
+    '📲 위험군 학부모 알림': '📲 Notify Risk Parents',
+    '📈 최근 30일 일별 거래액': '📈 Last 30 Days Revenue',
+    '📈 최근 12개월 월별 매출': '📈 Last 12 Months Sales',
+
+    // === ph107 보고서 양식 ===
+    '📋 보고서 양식 관리': '📋 Report Form Management',
+    '🌴 휴가 계획서': '🌴 Vacation Request',
+    '📄 기안 및 지출서 (구)': '📄 Proposal & Expense Form',
+    '📄 기안 및 지출서': '📄 Proposal & Expense',
+    '신규 양식 등록': 'Register New Form',
+    '➕ 신규 양식 등록': '➕ Register New Form',
+    '인사/총무': 'HR / General Affairs',
+    '회계': 'Accounting',
+    '운영': 'Operations',
+    '기타': 'Other',
+    '사용중': 'Active',
+    '보관': 'Archived',
+    '편집': 'Edit',
+    '보고서 양식명': 'Form Name',
+    '분류': 'Category',
+    '상태': 'Status',
+    '최종 수정일': 'Last Modified',
+    '액션': 'Action',
+    '신청자 정보': 'Applicant Info',
+    '신청자 이름': 'Applicant Name',
+    '사번 / ID': 'Employee ID',
+    '소속 부서': 'Department',
+    '직급': 'Position',
+    '휴가 정보': 'Vacation Info',
+    '휴가 종류': 'Vacation Type',
+    '연차 휴가': 'Annual Leave',
+    '병가': 'Sick Leave',
+    '경조사': 'Family Event',
+    '포상 휴가': 'Bonus Leave',
+    '반차 여부': 'Half Day',
+    '전일 사용': 'Full Day',
+    '오전 반차': 'Morning Half',
+    '오후 반차': 'Afternoon Half',
+    '시작일': 'Start Date',
+    '종료일': 'End Date',
+    '사유 및 인수인계': 'Reason & Handover',
+    '휴가 사유': 'Vacation Reason',
+    '업무 인수자 (수업 대체)': 'Handover (Substitute)',
+    '비상 연락처': 'Emergency Contact',
+    '취소': 'Cancel',
+    '💾 임시 저장': '💾 Save Draft',
+    '📤 결재 상신': '📤 Submit for Approval',
+
+    // === ph109 출력 ===
+    '🖨 인쇄': '🖨 Print',
+    '📄 PDF': '📄 PDF',
+    '📊 Excel': '📊 Excel',
+    '📝 Word': '📝 Word',
+
+    // === ph112 학원별 수업현황 ===
+    '📊 학원별 학생 수업현황 (SLP 출석 통계)': '📊 Attendance Stats by Academy (SLP)',
+    '📊 전체 출석률': '📊 Overall Attendance',
+    '🏫 학원 수': '🏫 Academies',
+    '👨‍🎓 활성 학생': '👨‍🎓 Active Students',
+    '⚠ 위험군 (≤70%)': '⚠ Risk Group (≤70%)',
+    '지사명': 'Branch',
+    '학당명': 'Academy',
+    '학생이름': 'Student Name',
+    '영어이름': 'English Name',
+    '학생아이디': 'Student ID',
+    '결석수': 'Absences',
+    '출석수/수업수': 'Present/Total',
+    '출석률': 'Attendance Rate',
+    '출석률 결과': 'Result',
+    '출석률 그래프': 'Chart',
+
+    // === ph110 신규 5개 카드 ===
+    '📌 공지사항 게시판 ⭐신규': '📌 Notice Board ⭐NEW',
+    '📌 공지사항 게시판': '📌 Notice Board',
+    '🗓 통합 시간표 ⭐신규': '🗓 Integrated Timetable ⭐NEW',
+    '🗓 통합 시간표': '🗓 Integrated Timetable',
+    '📝 수업 일지 ⭐신규': '📝 Lesson Log ⭐NEW',
+    '📝 수업 일지': '📝 Lesson Log',
+    '📷 사진/영상 갤러리 ⭐신규': '📷 Photo/Video Gallery ⭐NEW',
+    '📷 사진/영상 갤러리': '📷 Photo/Video Gallery',
+    '📚 숙제 관리 ⭐신규': '📚 Homework ⭐NEW',
+    '📚 숙제 관리': '📚 Homework',
+
+    // === ph118 권한 통계 ===
+    '허용': 'Allow',
+    '읽기전용': 'Read Only',
+    '차단': 'Blocked',
+
+    // === 공통 단어 ===
+    '검색': 'Search',
+    '초기화': 'Reset',
+    '저장': 'Save',
+    '취소': 'Cancel',
+    '확인': 'Confirm',
+    '등록': 'Register',
+    '수정': 'Edit',
+    '삭제': 'Delete',
+    '추가': 'Add',
+    '닫기': 'Close',
+    '열기': 'Open',
+    '발송': 'Send',
+    '다운로드': 'Download',
+    '업로드': 'Upload',
+    '오늘': 'Today',
+    '이번달': 'This Month',
+    '지난달': 'Last Month',
+    '전체': 'All',
+    '명': '',
+    '건': '',
+    '개': '',
+    '회': '',
+    '시간': 'Hours',
+    '분': 'min',
+    '초': 'sec',
+
+    // === ph123/124/125 손자 메뉴 헤더 ===
+    '카드 전체 열기': 'Open Full Card',
+    '📂 카드 전체 열기': '📂 Open Full Card',
+    '손자 메뉴': 'Sub-items',
+
+    // === ph111/115 사용자 헤더 ===
+    '로그인 필요': 'Login Required',
+    '관리자 페이지에 접근하려면 로그인해주세요.': 'Please login to access the admin page.',
+    '🔐 로그인이 필요합니다': '🔐 Login Required',
+    '✅ 로그인': '✅ Login',
+
+    // === ph128 다중 필터 ===
+    '필터 결과': 'Filter Results',
+    '↩ 필터 초기화': '↩ Reset Filters',
+    '활성': 'active'
+  };
+
+  // 정규식 패턴: 텍스트 노드 안의 한국어 매칭 → 영어 치환
+  function translateText(text){
+    if (!text) return text;
+    // 1) 정확 일치 우선
+    if (I18N[text.trim()]) return I18N[text.trim()];
+    // 2) 부분 치환 (긴 키부터)
+    var keys = Object.keys(I18N).sort(function(a,b){ return b.length - a.length; });
+    var result = text;
+    keys.forEach(function(k){
+      if (k.length < 2) return;
+      var v = I18N[k];
+      if (!v) return;
+      // 안전한 정규식 (escape)
+      var safe = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      result = result.split(k).join(v);
+    });
+    return result;
+  }
+
+  // === EN 모드일 때 자동 번역 ===
+  function ph129ApplyEN(){
+    if (window.adminLang !== 'en') return;
+    // ph85 사이드바 — 그룹 타이틀
+    document.querySelectorAll('#ph85-sidebar .ph85-title').forEach(function(el){
+      if (el.__ph129) return;
+      el.__ph129orig = el.textContent;
+      el.textContent = translateText(el.textContent);
+      el.__ph129 = true;
+    });
+    // 사이드바 sub 라벨
+    document.querySelectorAll('#ph85-sidebar .ph85-sub').forEach(function(el){
+      if (el.__ph129) return;
+      // 첫 텍스트 노드만 (토글 화살표/툴팁 제외)
+      var firstText = '';
+      for (var i = 0; i < el.childNodes.length; i++){
+        if (el.childNodes[i].nodeType === 3) {
+          firstText = el.childNodes[i].nodeValue.trim();
+          if (firstText) {
+            var translated = translateText(firstText);
+            if (translated !== firstText) {
+              el.__ph129orig = firstText;
+              el.childNodes[i].nodeValue = translated;
+            }
+            break;
+          }
+        }
+      }
+      el.__ph129 = true;
+    });
+    // ph85 액션 버튼
+    document.querySelectorAll('#ph85-sidebar .ph86-action-btn').forEach(function(el){
+      if (el.__ph129) return;
+      el.__ph129orig = el.textContent;
+      el.textContent = translateText(el.textContent);
+      el.__ph129 = true;
+    });
+    // 손자 메뉴 (ph125 인라인 아코디언)
+    document.querySelectorAll('#ph85-sidebar .ph125-gc .ph125-text').forEach(function(el){
+      if (el.__ph129) return;
+      el.__ph129orig = el.textContent;
+      el.textContent = translateText(el.textContent);
+      el.__ph129 = true;
+    });
+    // 신규 ph 카드 summary 들 (data-ko 없는 것들)
+    document.querySelectorAll('details.menu-card > summary').forEach(function(el){
+      if (el.__ph129 || el.querySelector('[data-ko]')) return;
+      var orig = el.textContent.trim();
+      var translated = translateText(orig);
+      if (translated !== orig) {
+        el.__ph129orig = orig;
+        // span 안에 텍스트만 교체
+        var span = el.querySelector('span');
+        if (span) span.textContent = translated;
+        else el.textContent = translated;
+      }
+      el.__ph129 = true;
+    });
+    // ph114 사용자 모달 등
+    document.querySelectorAll('[data-ph129-i18n]').forEach(function(el){
+      el.textContent = translateText(el.textContent);
+    });
+  }
+
+  // KO 모드로 돌아갈 때 복구
+  function ph129RestoreKO(){
+    if (window.adminLang === 'en') return;
+    document.querySelectorAll('[data-ph129orig], .__ph129orig').forEach(function(el){
+      if (el.__ph129orig) {
+        el.textContent = el.__ph129orig;
+      }
+    });
+  }
+
+  // === toggleAdminLang() 호출 후 자동 재실행 ===
+  var origToggle = window.toggleAdminLang;
+  window.toggleAdminLang = function(){
+    if (typeof origToggle === 'function') origToggle.apply(this, arguments);
+    // 모든 ph129 적용 element 의 flag 리셋 후 재적용
+    document.querySelectorAll('.__ph129, [data-ph129]').forEach(function(el){ el.__ph129 = false; });
+    setTimeout(function(){
+      if (window.adminLang === 'en') ph129ApplyEN();
+      else ph129RestoreKO();
+    }, 100);
+  };
+
+  // 초기 + 주기 적용
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph129ApplyEN);
+  else ph129ApplyEN();
+  setInterval(function(){
+    if (window.adminLang === 'en') ph129ApplyEN();
+  }, 2000);
+
+  console.log('[ph129] i18n 사전 ' + Object.keys(I18N).length + '개 활성 — EN 모드 시 자동 번역');
+})();
+</script>
+
+
+<!-- Phase 130 admin (2026-05-25) — MBTI 강사 사진 업로드 + 다중 필터 자동완성 -->
+<style id="ph130-photo-autocomplete">
+  /* === MBTI 폼 사진 업로드 영역 === */
+  #ph130-mbti-photo-wrap {
+    display: flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+    margin-bottom: 10px !important;
+    padding: 14px !important;
+    background: rgba(15,23,42,0.5) !important;
+    border: 1px solid rgba(96,165,250,0.4) !important;
+    border-radius: 10px !important;
+  }
+  #ph130-mbti-photo-preview {
+    width: 88px !important; height: 88px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, rgba(96,165,250,0.2), rgba(139,92,246,0.2)) !important;
+    border: 2px dashed rgba(96,165,250,0.5) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+    flex-shrink: 0 !important;
+    cursor: pointer !important;
+    transition: all 0.2s !important;
+    color: #93C5FD !important;
+    font-size: 26px !important;
+    text-align: center !important;
+  }
+  #ph130-mbti-photo-preview:hover {
+    border-color: #60A5FA !important;
+    background: linear-gradient(135deg, rgba(96,165,250,0.3), rgba(139,92,246,0.3)) !important;
+    transform: scale(1.05) !important;
+  }
+  #ph130-mbti-photo-preview img {
+    width: 100% !important; height: 100% !important;
+    object-fit: cover !important;
+  }
+  #ph130-mbti-photo-controls { flex: 1 !important; }
+  #ph130-mbti-photo-controls label {
+    font-size: 12px !important; font-weight: 700 !important;
+    color: #DBEAFE !important;
+    display: block !important; margin-bottom: 6px !important;
+  }
+  #ph130-mbti-photo-input { display: none !important; }
+  #ph130-mbti-photo-btn {
+    background: linear-gradient(135deg, #2563EB, #3B82F6) !important;
+    color: #fff !important;
+    padding: 8px 16px !important;
+    border-radius: 7px !important;
+    border: 0 !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    cursor: pointer !important;
+    margin-right: 6px !important;
+  }
+  #ph130-mbti-photo-btn:hover { background: linear-gradient(135deg, #1E40AF, #2563EB) !important; }
+  #ph130-mbti-photo-remove {
+    background: rgba(239,68,68,0.3) !important;
+    color: #FCA5A5 !important;
+    border: 1px solid rgba(239,68,68,0.5) !important;
+    padding: 8px 14px !important;
+    border-radius: 7px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    display: none !important;
+  }
+  #ph130-mbti-photo-remove.show { display: inline-block !important; }
+  #ph130-mbti-photo-name {
+    font-size: 11px !important;
+    color: #94A3B8 !important;
+    margin-top: 6px !important;
+  }
+
+  /* === 자동완성 드롭다운 === */
+  .ph130-autocomplete-wrap {
+    position: relative !important;
+  }
+  .ph130-autocomplete-dropdown {
+    position: absolute !important;
+    top: calc(100% + 2px) !important;
+    left: 0 !important;
+    right: 0 !important;
+    background: linear-gradient(135deg, #0F172A, #1E293B) !important;
+    border: 1px solid rgba(96,165,250,0.6) !important;
+    border-radius: 6px !important;
+    max-height: 220px !important;
+    overflow-y: auto !important;
+    z-index: 999 !important;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.5) !important;
+    display: none !important;
+  }
+  .ph130-autocomplete-dropdown.show {
+    display: block !important;
+  }
+  .ph130-autocomplete-item {
+    padding: 7px 12px !important;
+    color: #F8FAFC !important;
+    font-size: 12px !important;
+    cursor: pointer !important;
+    border-bottom: 1px solid rgba(96,165,250,0.15) !important;
+  }
+  .ph130-autocomplete-item:hover,
+  .ph130-autocomplete-item.active {
+    background: rgba(37,99,235,0.4) !important;
+    color: #FFFFFF !important;
+  }
+  .ph130-autocomplete-item mark {
+    background: rgba(251,191,36,0.4) !important;
+    color: #FDE68A !important;
+    padding: 0 2px !important;
+    border-radius: 3px !important;
+  }
+  .ph130-autocomplete-empty {
+    padding: 10px 12px !important;
+    color: #64748B !important;
+    font-size: 11.5px !important;
+    text-align: center !important;
+    font-style: italic !important;
+  }
+</style>
+
+<script>
+(function(){
+  'use strict';
+
+  // ============================================================
+  // 1) MBTI 폼 — 강사 사진 업로드 필드 추가
+  // ============================================================
+  function ph130AddMbtiPhoto(){
+    var uidInput = document.getElementById('mbti-uid');
+    if (!uidInput || document.getElementById('ph130-mbti-photo-wrap')) return;
+    var formGrid = uidInput.closest('div[style*="grid-template-columns"]');
+    if (!formGrid || !formGrid.parentElement) return;
+
+    var wrap = document.createElement('div');
+    wrap.id = 'ph130-mbti-photo-wrap';
+    wrap.innerHTML =
+      '<div id="ph130-mbti-photo-preview" onclick="document.getElementById(\'ph130-mbti-photo-input\').click()">' +
+        '📷' +
+      '</div>' +
+      '<div id="ph130-mbti-photo-controls">' +
+        '<label>📸 강사 사진 (학생 매칭 페이지에 표시)</label>' +
+        '<input type="file" id="ph130-mbti-photo-input" accept="image/*" onchange="ph130HandlePhoto(this)">' +
+        '<button type="button" id="ph130-mbti-photo-btn" onclick="document.getElementById(\'ph130-mbti-photo-input\').click()">📁 사진 선택</button>' +
+        '<button type="button" id="ph130-mbti-photo-remove" onclick="ph130RemovePhoto()">✕ 제거</button>' +
+        '<div id="ph130-mbti-photo-name">권장: 정사각형 · 200×200 이상 · JPG/PNG · 최대 2MB</div>' +
+      '</div>';
+
+    // 사진 영역을 폼 grid 위에 삽입
+    formGrid.parentElement.insertBefore(wrap, formGrid);
+    console.log('[ph130] MBTI 강사 사진 업로드 필드 추가');
+  }
+
+  window.ph130HandlePhoto = function(input){
+    var file = input.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { alert('파일 크기 2MB 이하만 가능합니다.'); input.value = ''; return; }
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var preview = document.getElementById('ph130-mbti-photo-preview');
+      preview.innerHTML = '<img src="' + e.target.result + '" alt="강사 사진">';
+      document.getElementById('ph130-mbti-photo-name').textContent = '✅ ' + file.name + ' (' + Math.round(file.size/1024) + 'KB)';
+      document.getElementById('ph130-mbti-photo-remove').classList.add('show');
+      // base64 를 window 에 저장해서 mbtiSave() 가 같이 전송 가능
+      window.__ph130MbtiPhotoBase64 = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  window.ph130RemovePhoto = function(){
+    document.getElementById('ph130-mbti-photo-preview').innerHTML = '📷';
+    document.getElementById('ph130-mbti-photo-input').value = '';
+    document.getElementById('ph130-mbti-photo-name').textContent = '권장: 정사각형 · 200×200 이상 · JPG/PNG · 최대 2MB';
+    document.getElementById('ph130-mbti-photo-remove').classList.remove('show');
+    delete window.__ph130MbtiPhotoBase64;
+  };
+
+  // ============================================================
+  // 2) ph128 다중 필터 input 에 자동완성 드롭다운 부착
+  // ============================================================
+  function ph130AddAutocomplete(){
+    document.querySelectorAll('.ph128-filter-input').forEach(function(input){
+      if (input.__ph130) return;
+      input.__ph130 = true;
+      var th = input.closest('th');
+      if (!th) return;
+      th.classList.add('ph130-autocomplete-wrap');
+
+      var dropdown = document.createElement('div');
+      dropdown.className = 'ph130-autocomplete-dropdown';
+      th.appendChild(dropdown);
+
+      var tbodyId = input.dataset.tbody;
+      var col = parseInt(input.dataset.col, 10);
+
+      // 컬럼의 unique 값들 수집
+      function collectValues(){
+        var tbody = document.getElementById(tbodyId);
+        if (!tbody) return [];
+        var values = {};
+        tbody.querySelectorAll('tr').forEach(function(row){
+          var cells = row.querySelectorAll('td');
+          if (cells[col]) {
+            var v = cells[col].textContent.trim();
+            if (v && v.length < 80) values[v] = true;
+          }
+        });
+        return Object.keys(values).sort();
+      }
+
+      function showSuggestions(){
+        var q = input.value.toLowerCase().trim();
+        var values = collectValues();
+        var matches = q ? values.filter(function(v){ return v.toLowerCase().indexOf(q) >= 0; }) : values;
+        matches = matches.slice(0, 12);
+
+        if (matches.length === 0) {
+          dropdown.innerHTML = '<div class="ph130-autocomplete-empty">매칭 없음</div>';
+        } else {
+          dropdown.innerHTML = matches.map(function(v){
+            var safe = v.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+            var highlighted = v;
+            if (q) {
+              var re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+              highlighted = v.replace(re, '<mark>$1</mark>');
+            }
+            return '<div class="ph130-autocomplete-item" data-val="' + safe + '">' + highlighted + '</div>';
+          }).join('');
+        }
+        dropdown.classList.add('show');
+
+        // 클릭 이벤트
+        dropdown.querySelectorAll('.ph130-autocomplete-item').forEach(function(item){
+          item.addEventListener('mousedown', function(e){
+            e.preventDefault();
+            input.value = item.dataset.val;
+            input.classList.add('has-value');
+            dropdown.classList.remove('show');
+            // ph128 필터 트리거
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.focus();
+          });
+        });
+      }
+
+      input.addEventListener('focus', showSuggestions);
+      input.addEventListener('input', showSuggestions);
+      input.addEventListener('blur', function(){
+        setTimeout(function(){ dropdown.classList.remove('show'); }, 180);
+      });
+      input.addEventListener('keydown', function(e){
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          var items = dropdown.querySelectorAll('.ph130-autocomplete-item');
+          if (!items.length) return;
+          var active = dropdown.querySelector('.ph130-autocomplete-item.active');
+          var idx = active ? Array.prototype.indexOf.call(items, active) : -1;
+          if (active) active.classList.remove('active');
+          idx = e.key === 'ArrowDown' ? (idx + 1) % items.length : (idx - 1 + items.length) % items.length;
+          items[idx].classList.add('active');
+          items[idx].scrollIntoView({ block:'nearest' });
+        } else if (e.key === 'Enter') {
+          var active = dropdown.querySelector('.ph130-autocomplete-item.active');
+          if (active) {
+            e.preventDefault();
+            input.value = active.dataset.val;
+            input.classList.add('has-value');
+            dropdown.classList.remove('show');
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        } else if (e.key === 'Escape') {
+          dropdown.classList.remove('show');
+        }
+      });
+    });
+  }
+
+  function ph130Init(){
+    ph130AddMbtiPhoto();
+    ph130AddAutocomplete();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph130Init);
+  else ph130Init();
+  setInterval(ph130Init, 2000);
+
+  console.log('[ph130] MBTI 강사 사진 업로드 + 다중 필터 자동완성 활성');
 })();
 </script>
 
