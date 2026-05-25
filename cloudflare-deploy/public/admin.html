@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525151354 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525151908 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525151354 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525151908 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525151354 -->
+        <!-- BUILD:20260525151908 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -25991,6 +25991,378 @@ button.chip:hover,
     }
   };
   console.log('[ph107] 보고서 양식 카드 초기화 완료');
+})();
+</script>
+
+
+<!-- Phase 108 admin (2026-05-25) — 보고서 양식 실제 미리보기 모달 + 폼 템플릿 -->
+<style id="ph108-rf-modal">
+  /* 오버레이 */
+  .rf-modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    z-index: 10001;
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    overflow-y: auto;
+    padding: 40px 20px;
+  }
+  .rf-modal-overlay.show { display: flex; }
+
+  /* 모달 박스 */
+  .rf-modal {
+    background: linear-gradient(135deg, #0F172A, #1E293B);
+    border: 1px solid rgba(96,165,250,0.5);
+    border-radius: 16px;
+    max-width: 720px;
+    width: 100%;
+    color: #F8FAFC;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    overflow: hidden;
+    animation: rfModalIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes rfModalIn {
+    from { transform: translateY(-20px) scale(0.95); opacity: 0; }
+    to   { transform: translateY(0) scale(1);       opacity: 1; }
+  }
+
+  /* 모달 헤더 */
+  .rf-modal-header {
+    background: linear-gradient(135deg, #1E3A8A, #2563EB);
+    padding: 18px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(96,165,250,0.3);
+  }
+  .rf-modal-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: #FFFFFF;
+    margin: 0;
+  }
+  .rf-modal-subtitle {
+    font-size: 12px;
+    color: #BFDBFE;
+    margin-top: 2px;
+  }
+  .rf-modal-close {
+    background: rgba(255,255,255,0.15);
+    color: #FFFFFF;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 8px;
+    width: 36px; height: 36px;
+    font-size: 18px;
+    cursor: pointer;
+    font-weight: 700;
+  }
+  .rf-modal-close:hover {
+    background: rgba(239,68,68,0.4);
+    border-color: #EF4444;
+  }
+
+  /* 모달 본문 */
+  .rf-modal-body {
+    padding: 24px;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+  .rf-form-section {
+    background: rgba(15,23,42,0.55);
+    border: 1px solid rgba(59,130,246,0.3);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  .rf-form-section-title {
+    font-size: 13px;
+    font-weight: 800;
+    color: #93C5FD;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(59,130,246,0.25);
+  }
+  .rf-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .rf-form-grid.full { grid-template-columns: 1fr; }
+  @media (max-width: 600px) { .rf-form-grid { grid-template-columns: 1fr; } }
+  .rf-field-label {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #67E8F9;
+    margin-bottom: 4px;
+  }
+  .rf-field-label.required::after { content: ' *'; color: #FCA5A5; }
+  .rf-modal input,
+  .rf-modal textarea,
+  .rf-modal select {
+    width: 100%;
+    background: rgba(15,23,42,0.85) !important;
+    color: #F8FAFC !important;
+    border: 1px solid rgba(59,130,246,0.45) !important;
+    border-radius: 6px !important;
+    padding: 8px 11px !important;
+    font-size: 13px !important;
+    box-sizing: border-box;
+    font-family: inherit;
+  }
+  .rf-modal textarea { resize: vertical; min-height: 90px; }
+  .rf-modal input:focus,
+  .rf-modal textarea:focus,
+  .rf-modal select:focus {
+    border-color: #60A5FA !important;
+    box-shadow: 0 0 0 2px rgba(96,165,250,0.4) !important;
+    outline: none !important;
+  }
+
+  /* 모달 푸터 */
+  .rf-modal-footer {
+    background: rgba(0,0,0,0.3);
+    padding: 14px 24px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    border-top: 1px solid rgba(59,130,246,0.2);
+  }
+  .rf-mf-btn {
+    padding: 10px 22px;
+    border-radius: 8px;
+    font-weight: 800;
+    font-size: 13px;
+    cursor: pointer;
+    border: 0;
+    transition: all 0.15s;
+  }
+  .rf-mf-btn.cancel {
+    background: rgba(148,163,184,0.25);
+    color: #CBD5E1;
+    border: 1px solid rgba(148,163,184,0.4);
+  }
+  .rf-mf-btn.cancel:hover { background: rgba(148,163,184,0.4); }
+  .rf-mf-btn.draft {
+    background: linear-gradient(135deg, #F59E0B, #D97706);
+    color: #fff;
+  }
+  .rf-mf-btn.draft:hover {
+    box-shadow: 0 4px 14px rgba(245,158,11,0.5);
+    transform: translateY(-1px);
+  }
+  .rf-mf-btn.submit {
+    background: linear-gradient(135deg, #2563EB, #1E40AF);
+    color: #fff;
+  }
+  .rf-mf-btn.submit:hover {
+    box-shadow: 0 4px 14px rgba(37,99,235,0.5);
+    transform: translateY(-1px);
+  }
+
+  /* 통계 박스 (휴가 일수 등) */
+  .rf-stat-box {
+    background: rgba(34,197,94,0.15);
+    border: 1px solid rgba(34,197,94,0.4);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: #86EFAC;
+    font-size: 12.5px;
+    font-weight: 700;
+    margin-top: 8px;
+  }
+  .rf-stat-box.warn {
+    background: rgba(250,204,21,0.15);
+    border-color: rgba(250,204,21,0.4);
+    color: #FDE68A;
+  }
+</style>
+
+<!-- 모달 컨테이너 (페이지에 1개만) -->
+<div class="rf-modal-overlay" id="rf-modal-overlay" onclick="if(event.target===this)rfCloseModal()">
+  <div class="rf-modal">
+    <div class="rf-modal-header">
+      <div>
+        <h3 class="rf-modal-title" id="rf-modal-title">양식 미리보기</h3>
+        <div class="rf-modal-subtitle" id="rf-modal-subtitle"></div>
+      </div>
+      <button class="rf-modal-close" onclick="rfCloseModal()" type="button">✕</button>
+    </div>
+    <div class="rf-modal-body" id="rf-modal-body">
+      <!-- 폼 동적 생성 -->
+    </div>
+    <div class="rf-modal-footer">
+      <button class="rf-mf-btn cancel" onclick="rfCloseModal()" type="button">취소</button>
+      <button class="rf-mf-btn draft" onclick="rfSaveDraft()" type="button">💾 임시 저장</button>
+      <button class="rf-mf-btn submit" onclick="rfSubmit()" type="button">📤 결재 상신</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // 양식 템플릿 정의
+  var FORMS = {
+    1: {
+      title: '🌴 휴가 계획서',
+      subtitle: '인사/총무 — 휴가 신청 양식 (사용중)',
+      body: function(){
+        return '\
+          <div class="rf-form-section">\
+            <div class="rf-form-section-title">📌 신청자 정보</div>\
+            <div class="rf-form-grid">\
+              <div><label class="rf-field-label required">신청자 이름</label><input type="text" id="vc-name" placeholder="홍길동"></div>\
+              <div><label class="rf-field-label required">사번 / ID</label><input type="text" id="vc-uid" placeholder="hong_gd"></div>\
+              <div><label class="rf-field-label required">소속 부서</label><select id="vc-dept"><option>본사 — 운영팀</option><option>본사 — 강사팀</option><option>본사 — 회계</option><option>지사 — 강남SLP</option><option>지사 — 부산SLP</option></select></div>\
+              <div><label class="rf-field-label required">직급</label><select id="vc-rank"><option>강사</option><option>매니저</option><option>팀장</option><option>본부장</option><option>임원</option></select></div>\
+            </div>\
+          </div>\
+          <div class="rf-form-section">\
+            <div class="rf-form-section-title">📅 휴가 정보</div>\
+            <div class="rf-form-grid">\
+              <div><label class="rf-field-label required">휴가 종류</label><select id="vc-type" onchange="rfVacUpdate()"><option value="annual">연차 휴가</option><option value="sick">병가</option><option value="family">경조사</option><option value="reward">포상 휴가</option><option value="etc">기타 (사유 필수)</option></select></div>\
+              <div><label class="rf-field-label">반차 여부</label><select id="vc-half"><option value="">전일 사용</option><option value="am">오전 반차</option><option value="pm">오후 반차</option></select></div>\
+              <div><label class="rf-field-label required">시작일</label><input type="date" id="vc-from" onchange="rfVacUpdate()"></div>\
+              <div><label class="rf-field-label required">종료일</label><input type="date" id="vc-to" onchange="rfVacUpdate()"></div>\
+            </div>\
+            <div class="rf-stat-box" id="vc-stat">📊 시작일과 종료일을 입력해주세요</div>\
+          </div>\
+          <div class="rf-form-section">\
+            <div class="rf-form-section-title">📝 사유 및 인수인계</div>\
+            <div class="rf-form-grid full">\
+              <div><label class="rf-field-label required">휴가 사유</label><textarea id="vc-reason" placeholder="구체적인 사유를 작성해주세요. (예: 가족 여행, 개인 사유 등)"></textarea></div>\
+              <div><label class="rf-field-label">업무 인수자 (수업 대체)</label><input type="text" id="vc-handover" placeholder="대체 강사 이름 / 사번"></div>\
+              <div><label class="rf-field-label">비상 연락처</label><input type="tel" id="vc-emergency" placeholder="010-0000-0000"></div>\
+            </div>\
+          </div>';
+      }
+    },
+    2: {
+      title: '📄 기안 및 지출서 (구)',
+      subtitle: '회계 — 일반 기안 및 지출 결의 양식 (사용중)',
+      body: function(){
+        return '\
+          <div class="rf-form-section">\
+            <div class="rf-form-section-title">📌 기안자 정보</div>\
+            <div class="rf-form-grid">\
+              <div><label class="rf-field-label required">기안자</label><input type="text" id="ex-name" placeholder="홍길동"></div>\
+              <div><label class="rf-field-label required">사번 / ID</label><input type="text" id="ex-uid" placeholder="hong_gd"></div>\
+              <div><label class="rf-field-label required">소속 부서</label><select id="ex-dept"><option>본사 — 운영팀</option><option>본사 — 강사팀</option><option>본사 — 회계</option><option>지사 — 강남SLP</option><option>지사 — 부산SLP</option></select></div>\
+              <div><label class="rf-field-label required">기안 일자</label><input type="date" id="ex-date"></div>\
+            </div>\
+          </div>\
+          <div class="rf-form-section">\
+            <div class="rf-form-section-title">📑 기안 내용</div>\
+            <div class="rf-form-grid">\
+              <div><label class="rf-field-label required">분류</label><select id="ex-type" onchange="rfExpUpdate()"><option value="general">일반 기안 (정책·운영)</option><option value="expense">지출 결의</option><option value="contract">계약 체결</option><option value="hr">인사 발령</option><option value="etc">기타</option></select></div>\
+              <div><label class="rf-field-label required">긴급도</label><select id="ex-urgency"><option value="normal">일반</option><option value="urgent">긴급</option><option value="urgent-top">최우선</option></select></div>\
+            </div>\
+            <div class="rf-form-grid full">\
+              <div><label class="rf-field-label required">제목</label><input type="text" id="ex-title" placeholder="기안서 제목 (예: 2026년 1분기 강사 워크샵 진행 건)"></div>\
+              <div><label class="rf-field-label required">상세 내용</label><textarea id="ex-content" placeholder="기안 배경, 추진 사유, 기대 효과 등을 상세히 작성해주세요" style="min-height:120px"></textarea></div>\
+            </div>\
+          </div>\
+          <div class="rf-form-section" id="ex-expense-section" style="display:none">\
+            <div class="rf-form-section-title">💰 지출 정보 (지출 결의 선택 시)</div>\
+            <div class="rf-form-grid">\
+              <div><label class="rf-field-label required">지출 금액 (원)</label><input type="number" id="ex-amount" placeholder="1000000" min="0"></div>\
+              <div><label class="rf-field-label required">지급 수단</label><select id="ex-method"><option>법인카드</option><option>계좌이체</option><option>현금</option><option>법인수표</option></select></div>\
+              <div><label class="rf-field-label">증빙 종류</label><select id="ex-proof"><option>세금계산서</option><option>현금영수증</option><option>신용카드 매출전표</option><option>기타</option></select></div>\
+              <div><label class="rf-field-label">집행 예정일</label><input type="date" id="ex-pay-date"></div>\
+            </div>\
+          </div>\
+          <div class="rf-form-section">\
+            <div class="rf-form-section-title">👥 결재선</div>\
+            <div class="rf-form-grid">\
+              <div><label class="rf-field-label required">1차 결재자 (팀장)</label><input type="text" id="ex-app1" placeholder="김팀장"></div>\
+              <div><label class="rf-field-label">2차 결재자 (본부장)</label><input type="text" id="ex-app2" placeholder="박본부장"></div>\
+              <div><label class="rf-field-label">최종 결재자 (대표)</label><input type="text" id="ex-final" placeholder="대표이사"></div>\
+              <div><label class="rf-field-label">참조 (수신)</label><input type="text" id="ex-cc" placeholder="회계팀, 인사팀"></div>\
+            </div>\
+          </div>';
+      }
+    }
+  };
+
+  // 현재 열린 양식 ID
+  var currentFormId = null;
+
+  // 모달 열기
+  window.rfOpen = function(id){
+    var form = FORMS[id];
+    if (!form) {
+      alert('양식 #' + id + ' 정의 없음 — 기본 빈 양식으로 표시합니다.');
+      return;
+    }
+    currentFormId = id;
+    document.getElementById('rf-modal-title').textContent = form.title;
+    document.getElementById('rf-modal-subtitle').textContent = form.subtitle;
+    document.getElementById('rf-modal-body').innerHTML = form.body();
+    document.getElementById('rf-modal-overlay').classList.add('show');
+    document.body.style.overflow = 'hidden';
+    // 오늘 날짜 기본값
+    var today = new Date().toISOString().slice(0, 10);
+    var dateInputs = document.querySelectorAll('#rf-modal-body input[type="date"]');
+    dateInputs.forEach(function(el){ if (!el.value) el.value = today; });
+    console.log('[ph108] 양식 #' + id + ' 미리보기 열림');
+  };
+
+  // 모달 닫기
+  window.rfCloseModal = function(){
+    document.getElementById('rf-modal-overlay').classList.remove('show');
+    document.body.style.overflow = '';
+    currentFormId = null;
+  };
+
+  // ESC 키로 닫기
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && document.getElementById('rf-modal-overlay').classList.contains('show')) {
+      rfCloseModal();
+    }
+  });
+
+  // 휴가 일수 자동 계산
+  window.rfVacUpdate = function(){
+    var f = document.getElementById('vc-from');
+    var t = document.getElementById('vc-to');
+    var s = document.getElementById('vc-stat');
+    if (!f || !t || !s) return;
+    if (!f.value || !t.value) { s.textContent = '📊 시작일과 종료일을 입력해주세요'; return; }
+    var fd = new Date(f.value), td = new Date(t.value);
+    if (td < fd) { s.textContent = '⚠ 종료일이 시작일보다 빨라요'; s.className = 'rf-stat-box warn'; return; }
+    var days = Math.floor((td - fd) / 86400000) + 1;
+    s.textContent = '📊 사용 휴가 일수: ' + days + '일 (' + f.value + ' ~ ' + t.value + ')';
+    s.className = 'rf-stat-box';
+  };
+
+  // 지출 결의 선택 시 금액 섹션 표시
+  window.rfExpUpdate = function(){
+    var type = document.getElementById('ex-type').value;
+    var sec = document.getElementById('ex-expense-section');
+    if (sec) sec.style.display = (type === 'expense') ? '' : 'none';
+  };
+
+  // 임시 저장
+  window.rfSaveDraft = function(){
+    if (!currentFormId) return;
+    console.log('[ph108] 임시 저장 — 양식 #' + currentFormId);
+    alert('💾 임시 저장 완료\n\n나중에 "내 작성 중 문서" 에서 이어서 작성하실 수 있습니다.');
+  };
+
+  // 결재 상신
+  window.rfSubmit = function(){
+    if (!currentFormId) return;
+    if (!confirm('결재를 상신하시겠습니까?\n\n상신 후에는 결재자가 승인/반려할 수 있습니다.')) return;
+    console.log('[ph108] 결재 상신 — 양식 #' + currentFormId);
+    alert('📤 결재 상신 완료\n\n결재자에게 알림이 발송됩니다.\n(실서비스에서는 백엔드 API 호출 + 알림톡 발송)');
+    rfCloseModal();
+  };
+
+  console.log('[ph108] 양식 미리보기 모달 초기화 완료 — rfOpen(id) 로 양식 ID 1, 2 호출 가능');
 })();
 </script>
 
