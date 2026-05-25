@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525162451 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525163941 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525162451 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525163941 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525162451 -->
+        <!-- BUILD:20260525163941 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -28751,6 +28751,275 @@ button.chip:hover,
   }
 
   console.log('[ph117] 7가지 역할 카드 모달 초기화 완료 — ph117OpenRole() 호출 가능');
+})();
+</script>
+
+
+<!-- Phase 118 admin (2026-05-25) — 권한 매트릭스 실제 사이드바 적용 (역할별 V/X 자동 반영) -->
+<style id="ph118-perms">
+  /* 차단된 메뉴 (X) — 완전 hide */
+  #ph85-sidebar .ph85-sub.ph118-hidden { display: none !important; visibility: hidden !important; }
+  #ph85-sidebar .ph85-group.ph118-empty { display: none !important; }
+
+  /* 읽기 전용 (👁️) — 흐릿 + 클릭 시 안내 */
+  #ph85-sidebar .ph85-sub.ph118-readonly {
+    opacity: 0.55 !important;
+    position: relative;
+  }
+  #ph85-sidebar .ph85-sub.ph118-readonly::after {
+    content: '👁';
+    position: absolute; right: 10px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    opacity: 0.7;
+  }
+  /* 본문 카드 권한 차단 */
+  details.menu-card.ph118-card-hidden {
+    display: none !important;
+  }
+  details.menu-card.ph118-card-readonly {
+    pointer-events: none;
+    opacity: 0.6;
+    position: relative;
+  }
+  details.menu-card.ph118-card-readonly::before {
+    content: '👁 읽기 전용 — 이 권한은 정보 조회만 가능합니다';
+    position: absolute; top: 6px; right: 12px;
+    background: rgba(59,130,246,0.3);
+    color: #DBEAFE;
+    padding: 4px 10px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 700;
+    z-index: 10;
+    pointer-events: auto;
+  }
+
+  /* 현재 역할 표시 (사이드바 상단 ph116 배너에 권한 카운트 추가 영역) */
+  .ph118-perm-stat {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    background: rgba(0,0,0,0.3);
+    padding: 4px 10px;
+    border-radius: 99px;
+    font-size: 10px;
+    font-weight: 700;
+    margin-top: 6px;
+  }
+  .ph118-perm-stat .ok { color: #86EFAC; }
+  .ph118-perm-stat .ro { color: #FCD34D; }
+  .ph118-perm-stat .no { color: #FCA5A5; }
+</style>
+
+<script>
+(function(){
+  'use strict';
+
+  // === 권한 매트릭스 (메뉴 × 7역할) ===
+  // V=허용, R=읽기전용, 없음=차단
+  // role: exec, mgr, teacher, branch, agency, parent, student
+  var PERMS = {
+    // === 평가서 통합 ===
+    'card-eval-mgmt':              {exec:'V', mgr:'V', teacher:'V', branch:'R'},
+    'card-bulk-eval':              {exec:'V', mgr:'V', teacher:'V'},
+    'card-ai-lesson-report':       {exec:'V', mgr:'V', teacher:'V', parent:'R', student:'R'},
+    'card-ai-eval-draft':          {exec:'V', mgr:'V', teacher:'V'},
+    'card-monthly-report':         {exec:'V', mgr:'V', teacher:'V', branch:'V', agency:'V', parent:'V', student:'V'},
+    'card-comparison-report':      {exec:'V', mgr:'V', teacher:'V', parent:'V'},
+
+    // === 알림 센터 ===
+    'card-webpush-mgmt':           {exec:'V', mgr:'V'},
+    'card-kakao-mgmt':             {exec:'V', mgr:'V'},
+    'card-popups-mgmt':            {exec:'V', mgr:'V', branch:'R'},
+    'card-notifications':          {exec:'V', mgr:'V', teacher:'V', branch:'V', agency:'V', parent:'R', student:'R'},
+    'card-notice-board':           {exec:'V', mgr:'V', teacher:'R', branch:'R', agency:'R', parent:'R', student:'R'},
+
+    // === 강사 통합 ===
+    'card-teacher-mgmt':           {exec:'V', mgr:'V', branch:'R', agency:'R'},
+    'card-payroll-auto':           {exec:'V', mgr:'V'},
+    'card-payroll':                {exec:'V', mgr:'R', branch:'R', teacher:'R'},
+    'card-mbti-mgmt':              {exec:'V', mgr:'V', teacher:'V'},
+    'card-praise-stats':           {exec:'V', mgr:'V', teacher:'V', branch:'V', agency:'V', parent:'R'},
+    'card-supervisor':             {exec:'V', mgr:'V', branch:'R'},
+    'card-room-invite':            {exec:'V', mgr:'V', teacher:'V', agency:'V'},
+    'card-timetable':              {exec:'V', mgr:'V', teacher:'V', branch:'V', agency:'V', parent:'V', student:'V'},
+    'card-lesson-log':             {exec:'V', mgr:'V', teacher:'V', parent:'V', student:'V'},
+    'card-report-forms':           {exec:'V', mgr:'V', teacher:'V', branch:'V', agency:'V'},
+
+    // === 통계 / KPI ===
+    'card-kpi-dashboard':          {exec:'V', mgr:'V', branch:'V', agency:'R'},
+    'card-daily-charts':           {exec:'V', mgr:'V', branch:'V', agency:'V'},
+    'card-rankings':               {exec:'V', mgr:'V', teacher:'V', branch:'V', agency:'V', student:'V'},
+    'card-retention-risk':         {exec:'V', mgr:'V', branch:'V', agency:'V'},
+    'card-retention':              {exec:'V', mgr:'V', branch:'R', agency:'R'},
+    'card-active-rooms':           {exec:'V', mgr:'V', teacher:'R', branch:'V'},
+    'card-nps-monthly':            {exec:'V', mgr:'V'},
+    'card-ai-forecast':            {exec:'V', mgr:'V'},
+    'card-voice-stats':            {exec:'V', mgr:'V', teacher:'V'},
+
+    // === 회계 / 포인트 ===
+    'card-accounting-mgmt':        {exec:'V', mgr:'V'},
+    'card-payments-b2b':           {exec:'V', mgr:'V', branch:'V'},
+    'card-payments-b2c':           {exec:'V', mgr:'V', agency:'V', parent:'R'},
+    'card-recurring-billing':      {exec:'V', mgr:'V', agency:'V'},
+    'card-auto-dunning':           {exec:'V', mgr:'V'},
+    'card-settlement-stats':       {exec:'V', mgr:'V', branch:'V', agency:'V'},
+    'card-points-mgmt':            {exec:'V', mgr:'V', teacher:'R', student:'V', parent:'R'},
+
+    // === 학생 / 학부모 ===
+    'card-students-mgmt':          {exec:'V', mgr:'V', teacher:'V', branch:'V', agency:'V'},
+    'card-family-mgmt':            {exec:'V', mgr:'V', agency:'V', parent:'V'},
+    'card-inquiry-mgmt':           {exec:'V', mgr:'V', agency:'V'},
+    'card-enrollments':            {exec:'V', mgr:'V', agency:'V'},
+    'card-badges-mgmt':            {exec:'V', mgr:'V', teacher:'V', student:'V'},
+    'card-community':              {exec:'V', mgr:'V', teacher:'V', parent:'V', student:'V'},
+    'card-counseling-booking':     {exec:'V', mgr:'V', teacher:'V', agency:'V', parent:'V'},
+    'card-parent-digest':          {exec:'V', mgr:'V', parent:'V'},
+    'card-parent-faq-bot':         {exec:'V', mgr:'V', parent:'V'},
+    'card-referral':               {exec:'V', mgr:'V', agency:'V', parent:'V'},
+    'card-alumni':                 {exec:'V', mgr:'V', student:'V'},
+    'card-gallery':                {exec:'V', mgr:'V', teacher:'V', agency:'V', parent:'V', student:'V'},
+
+    // === 교육 / 콘텐츠 ===
+    'card-textbooks':              {exec:'V', mgr:'V', teacher:'V', student:'V'},
+    'card-microlearn':             {exec:'V', mgr:'V', teacher:'V', student:'V'},
+    'card-mini-toeic':             {exec:'V', mgr:'V', teacher:'V', student:'V'},
+    'card-pronunciation':          {exec:'V', mgr:'V', teacher:'V', student:'V'},
+    'card-video-dict':             {exec:'V', mgr:'V', teacher:'V', student:'V'},
+    'card-voice-diary':            {exec:'V', mgr:'V', teacher:'V', student:'V', parent:'R'},
+    'card-level-tests':            {exec:'V', mgr:'V', teacher:'V', student:'V'},
+    'card-battle-mgmt':            {exec:'V', mgr:'V', teacher:'V', student:'V'},
+    'card-recording-storage':      {exec:'V', mgr:'V', teacher:'V', student:'V', parent:'R'},
+    'card-homework':               {exec:'V', mgr:'V', teacher:'V', student:'V', parent:'V'},
+
+    // === 시스템 ===
+    'card-permissions':            {exec:'V', mgr:'R'},
+    'card-franchises':             {exec:'V', mgr:'V'},
+    'card-centers':                {exec:'V', mgr:'V', branch:'V'},
+    'card-data-export':            {exec:'V', mgr:'V'},
+    'card-test-seed':              {exec:'V'},
+    'card-admin-alerts':           {exec:'V', mgr:'V'},
+    'card-admin-ghost':            {exec:'V', mgr:'V'},
+    'card-admin-whisper':          {exec:'V', mgr:'V', teacher:'V'},
+    'card-attendance-status':      {exec:'V', mgr:'V', teacher:'V', branch:'V', agency:'V', parent:'V', student:'V'},
+    'card-auto-attendance':        {exec:'V', mgr:'V', teacher:'V', agency:'V'},
+    'card-class-attendance':       {exec:'V', mgr:'V', teacher:'V', agency:'V'},
+    'card-school-attendance-stats':{exec:'V', mgr:'V', branch:'V', agency:'V'}
+  };
+
+  // === UID → ROLE 매핑 ===
+  var UID_TO_ROLE = {
+    'hq_exec':       'exec',
+    'hq_mgr':        'mgr',
+    'admin':         'mgr',
+    'cfo01':         'mgr',
+    'ops_lead':      'mgr',
+    'hq_t_001':      'teacher',
+    'hq_teacher':    'teacher',
+    'branch_busan':  'branch',
+    'branch_daegu':  'branch',
+    'agency_gn001':  'agency',
+    'agency_sc002':  'agency',
+    'parent_001':    'parent',
+    'student_001':   'student'
+  };
+
+  function getCurrentRole(){
+    try {
+      var u = JSON.parse(localStorage.getItem('admin_session') || 'null');
+      if (!u) return 'exec'; // 비로그인은 일단 전체 허용 (테스트)
+      return UID_TO_ROLE[u.uid] || 'exec';
+    } catch(e){ return 'exec'; }
+  }
+
+  // === 권한 매트릭스 적용 ===
+  function ph118Apply(){
+    var role = getCurrentRole();
+    var statOk = 0, statRo = 0, statNo = 0;
+
+    // 1) 사이드바 sub 권한 적용
+    document.querySelectorAll('#ph85-sidebar .ph85-sub').forEach(function(sub){
+      var cardId = sub.dataset.card;
+      if (!cardId) return;
+      var perms = PERMS[cardId];
+      if (!perms) {
+        sub.classList.remove('ph118-hidden', 'ph118-readonly');
+        statOk++;
+        return;
+      }
+      var p = perms[role];
+      if (p === 'V') {
+        sub.classList.remove('ph118-hidden', 'ph118-readonly');
+        statOk++;
+      } else if (p === 'R') {
+        sub.classList.remove('ph118-hidden');
+        sub.classList.add('ph118-readonly');
+        statRo++;
+      } else {
+        sub.classList.add('ph118-hidden');
+        sub.classList.remove('ph118-readonly');
+        statNo++;
+      }
+    });
+
+    // 2) 본문 카드 권한 적용
+    Object.keys(PERMS).forEach(function(cardId){
+      var card = document.getElementById(cardId);
+      if (!card) return;
+      var perms = PERMS[cardId];
+      var p = perms[role];
+      if (p === 'V') {
+        card.classList.remove('ph118-card-hidden', 'ph118-card-readonly');
+      } else if (p === 'R') {
+        card.classList.remove('ph118-card-hidden');
+        card.classList.add('ph118-card-readonly');
+      } else {
+        card.classList.add('ph118-card-hidden');
+        card.classList.remove('ph118-card-readonly');
+      }
+    });
+
+    // 3) 빈 그룹 hide (모든 sub 가 hide 되면 그룹 자체 hide)
+    document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(g){
+      var subs = g.querySelectorAll('.ph85-sub');
+      var visible = 0;
+      subs.forEach(function(s){
+        if (!s.classList.contains('ph118-hidden')) visible++;
+      });
+      if (visible === 0) g.classList.add('ph118-empty');
+      else g.classList.remove('ph118-empty');
+    });
+
+    // 4) ph116 배너에 권한 통계 추가
+    var banner = document.getElementById('ph116-role-banner');
+    if (banner && !banner.querySelector('.ph118-perm-stat')) {
+      var stat = document.createElement('div');
+      stat.className = 'ph118-perm-stat';
+      stat.innerHTML =
+        '<span class="ok">✅ ' + statOk + '</span>' +
+        '<span class="ro">👁 ' + statRo + '</span>' +
+        '<span class="no">❌ ' + statNo + '</span>';
+      banner.appendChild(stat);
+    } else if (banner) {
+      var s = banner.querySelector('.ph118-perm-stat');
+      s.innerHTML =
+        '<span class="ok">✅ ' + statOk + '</span>' +
+        '<span class="ro">👁 ' + statRo + '</span>' +
+        '<span class="no">❌ ' + statNo + '</span>';
+    }
+
+    if (window.__ph118LastRole !== role) {
+      console.log('[ph118] 권한 적용 — 역할:', role, '| 허용:', statOk, '읽기전용:', statRo, '차단:', statNo);
+      window.__ph118LastRole = role;
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph118Apply);
+  else ph118Apply();
+  setInterval(ph118Apply, 1000);  // ph116 보다 빠르게 (ph116=1.5s)
+
+  console.log('[ph118] 권한 매트릭스 73 메뉴 × 7 역할 초기화 완료');
 })();
 </script>
 
