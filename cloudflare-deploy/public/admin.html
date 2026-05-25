@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525152905 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525153838 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525152905 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525153838 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525152905 -->
+        <!-- BUILD:20260525153838 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -23280,7 +23280,7 @@ button.chip:hover,
   </div>
   <input class="ph85-search" id="ph85-search" type="search" placeholder="🔍 메뉴 검색...">
 
-  <div class="ph85-group" data-cards="card-eval-mgmt,card-bulk-eval,card-ai-lesson-report,card-ai-eval-draft,card-monthly-report">
+  <div class="ph85-group" data-cards="card-eval-mgmt,card-bulk-eval,card-ai-lesson-report,card-ai-eval-draft,card-monthly-report,card-comparison-report">
     <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#10b981,#059669)">📝</div>
       <div class="ph85-title">평가서 통합</div>
@@ -23292,10 +23292,11 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-ai-lesson-report" onclick="event.stopPropagation();var c=document.getElementById('card-ai-lesson-report');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-ai-lesson-report');}">AI 수업 리포트</div>
       <div class="ph85-sub" data-card="card-ai-eval-draft" onclick="event.stopPropagation();var c=document.getElementById('card-ai-eval-draft');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-ai-eval-draft');}">AI 초안</div>
       <div class="ph85-sub" data-card="card-monthly-report" onclick="event.stopPropagation();var c=document.getElementById('card-monthly-report');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-monthly-report');}">월별 리포트</div>
+      <div class="ph85-sub" data-card="card-comparison-report" onclick="event.stopPropagation();var c=document.getElementById('card-comparison-report');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-comparison-report');}">📊 비교 리포트</div>
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-webpush-mgmt,card-kakao-mgmt,card-popups-mgmt,card-notifications">
+  <div class="ph85-group" data-cards="card-webpush-mgmt,card-kakao-mgmt,card-popups-mgmt,card-notifications,card-notice-board">
     <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#ec4899,#be185d)">📢</div>
       <div class="ph85-title">알림 센터</div>
@@ -23306,10 +23307,11 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-kakao-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-kakao-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-kakao-mgmt');}">카카오 알림</div>
       <div class="ph85-sub" data-card="card-popups-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-popups-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-popups-mgmt');}">팝업 관리</div>
       <div class="ph85-sub" data-card="card-notifications" onclick="event.stopPropagation();var c=document.getElementById('card-notifications');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-notifications');}">이벤트 알림</div>
+      <div class="ph85-sub" data-card="card-notice-board" onclick="event.stopPropagation();var c=document.getElementById('card-notice-board');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-notice-board');}">📌 공지사항 ⭐신규</div>
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-teacher-mgmt,card-payroll-auto,card-payroll,card-mbti-mgmt,card-praise-stats,card-report-forms">
+  <div class="ph85-group" data-cards="card-teacher-mgmt,card-payroll-auto,card-payroll,card-mbti-mgmt,card-praise-stats,card-supervisor,card-room-invite,card-timetable,card-lesson-log,card-report-forms">
     <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">👨‍🏫</div>
       <div class="ph85-title">강사 통합</div>
@@ -23321,11 +23323,15 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-payroll" onclick="event.stopPropagation();var c=document.getElementById('card-payroll');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-payroll');}">급여 관리</div>
       <div class="ph85-sub" data-card="card-mbti-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-mbti-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-mbti-mgmt');}">MBTI</div>
       <div class="ph85-sub" data-card="card-praise-stats" onclick="event.stopPropagation();var c=document.getElementById('card-praise-stats');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-praise-stats');}">칭찬 통계</div>
+      <div class="ph85-sub" data-card="card-supervisor" onclick="event.stopPropagation();var c=document.getElementById('card-supervisor');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-supervisor');}">👁 강사 슈퍼바이저</div>
+      <div class="ph85-sub" data-card="card-room-invite" onclick="event.stopPropagation();var c=document.getElementById('card-room-invite');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-room-invite');}">📨 방 초대 관리</div>
+      <div class="ph85-sub" data-card="card-timetable" onclick="event.stopPropagation();var c=document.getElementById('card-timetable');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-timetable');}">🗓 시간표 ⭐신규</div>
+      <div class="ph85-sub" data-card="card-lesson-log" onclick="event.stopPropagation();var c=document.getElementById('card-lesson-log');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-lesson-log');}">📝 수업 일지 ⭐신규</div>
       <div class="ph85-sub" data-card="card-report-forms" onclick="event.stopPropagation();var c=document.getElementById('card-report-forms');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-report-forms');}">📋 보고서 양식</div>
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-kpi-dashboard,card-daily-charts,card-rankings,card-retention-risk,card-active-rooms">
+  <div class="ph85-group" data-cards="card-kpi-dashboard,card-daily-charts,card-rankings,card-retention-risk,card-retention,card-active-rooms,card-nps-monthly,card-ai-forecast,card-voice-stats">
     <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#6366f1,#4338ca)">📊</div>
       <div class="ph85-title">통계 / KPI</div>
@@ -23336,11 +23342,15 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-daily-charts" onclick="event.stopPropagation();var c=document.getElementById('card-daily-charts');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-daily-charts');}">일별 차트</div>
       <div class="ph85-sub" data-card="card-rankings" onclick="event.stopPropagation();var c=document.getElementById('card-rankings');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-rankings');}">랭킹</div>
       <div class="ph85-sub" data-card="card-retention-risk" onclick="event.stopPropagation();var c=document.getElementById('card-retention-risk');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-retention-risk');}">이탈 위험</div>
+      <div class="ph85-sub" data-card="card-retention" onclick="event.stopPropagation();var c=document.getElementById('card-retention');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-retention');}">잔존율</div>
       <div class="ph85-sub" data-card="card-active-rooms" onclick="event.stopPropagation();var c=document.getElementById('card-active-rooms');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-active-rooms');}">활성 룸</div>
+      <div class="ph85-sub" data-card="card-nps-monthly" onclick="event.stopPropagation();var c=document.getElementById('card-nps-monthly');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-nps-monthly');}">📈 월별 NPS</div>
+      <div class="ph85-sub" data-card="card-ai-forecast" onclick="event.stopPropagation();var c=document.getElementById('card-ai-forecast');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-ai-forecast');}">🔮 AI 예측</div>
+      <div class="ph85-sub" data-card="card-voice-stats" onclick="event.stopPropagation();var c=document.getElementById('card-voice-stats');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-voice-stats');}">🎙 음성 통계</div>
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-accounting-mgmt,card-payments-b2b,card-payments-b2c,card-points-mgmt">
+  <div class="ph85-group" data-cards="card-accounting-mgmt,card-payments-b2b,card-payments-b2c,card-recurring-billing,card-auto-dunning,card-settlement-stats,card-points-mgmt">
     <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#f59e0b,#d97706)">💰</div>
       <div class="ph85-title">회계 / 포인트</div>
@@ -23350,11 +23360,14 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-accounting-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-accounting-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-accounting-mgmt');}">회계 관리</div>
       <div class="ph85-sub" data-card="card-payments-b2b" onclick="event.stopPropagation();var c=document.getElementById('card-payments-b2b');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-payments-b2b');}">🏢 BtoB 결제관리</div>
       <div class="ph85-sub" data-card="card-payments-b2c" onclick="event.stopPropagation();var c=document.getElementById('card-payments-b2c');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-payments-b2c');}">👨‍👩‍👧 BtoC 결제관리</div>
+      <div class="ph85-sub" data-card="card-recurring-billing" onclick="event.stopPropagation();var c=document.getElementById('card-recurring-billing');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-recurring-billing');}">🔄 정기 결제</div>
+      <div class="ph85-sub" data-card="card-auto-dunning" onclick="event.stopPropagation();var c=document.getElementById('card-auto-dunning');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-auto-dunning');}">💸 자동 수금</div>
+      <div class="ph85-sub" data-card="card-settlement-stats" onclick="event.stopPropagation();var c=document.getElementById('card-settlement-stats');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-settlement-stats');}">📊 정산 통계</div>
       <div class="ph85-sub" data-card="card-points-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-points-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-points-mgmt');}">포인트 관리</div>
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-students-mgmt,card-inquiry-mgmt,card-enrollments,card-badges-mgmt,card-community">
+  <div class="ph85-group" data-cards="card-students-mgmt,card-family-mgmt,card-inquiry-mgmt,card-enrollments,card-badges-mgmt,card-community,card-counseling-booking,card-parent-digest,card-parent-faq-bot,card-referral,card-alumni,card-gallery">
     <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#10b981,#047857)">👥</div>
       <div class="ph85-title">학생 / 학부모</div>
@@ -23362,29 +23375,41 @@ button.chip:hover,
     </div>
     <div class="ph85-subs">
       <div class="ph85-sub" data-card="card-students-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-students-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-students-mgmt');}">학생 관리</div>
-      <div class="ph85-sub" data-card="card-inquiry-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-inquiry-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-inquiry-mgmt');}">상담 문의</div>
-      <div class="ph85-sub" data-card="card-enrollments" onclick="event.stopPropagation();var c=document.getElementById('card-enrollments');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-enrollments');}">수강 등록</div>
-      <div class="ph85-sub" data-card="card-badges-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-badges-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-badges-mgmt');}">배지</div>
+      <div class="ph85-sub" data-card="card-family-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-family-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-family-mgmt');}">👨‍👩‍👧‍👦 가족 관리</div>
+      <div class="ph85-sub" data-card="card-inquiry-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-inquiry-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-inquiry-mgmt');}">문의 관리</div>
+      <div class="ph85-sub" data-card="card-enrollments" onclick="event.stopPropagation();var c=document.getElementById('card-enrollments');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-enrollments');}">등록 관리</div>
+      <div class="ph85-sub" data-card="card-badges-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-badges-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-badges-mgmt');}">뱃지 관리</div>
       <div class="ph85-sub" data-card="card-community" onclick="event.stopPropagation();var c=document.getElementById('card-community');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-community');}">커뮤니티</div>
+      <div class="ph85-sub" data-card="card-counseling-booking" onclick="event.stopPropagation();var c=document.getElementById('card-counseling-booking');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-counseling-booking');}">📅 상담 예약</div>
+      <div class="ph85-sub" data-card="card-parent-digest" onclick="event.stopPropagation();var c=document.getElementById('card-parent-digest');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-parent-digest');}">📰 학부모 요약</div>
+      <div class="ph85-sub" data-card="card-parent-faq-bot" onclick="event.stopPropagation();var c=document.getElementById('card-parent-faq-bot');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-parent-faq-bot');}">🤖 학부모 FAQ봇</div>
+      <div class="ph85-sub" data-card="card-referral" onclick="event.stopPropagation();var c=document.getElementById('card-referral');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-referral');}">🎁 친구 추천</div>
+      <div class="ph85-sub" data-card="card-alumni" onclick="event.stopPropagation();var c=document.getElementById('card-alumni');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-alumni');}">🎓 졸업생 커뮤니티</div>
+      <div class="ph85-sub" data-card="card-gallery" onclick="event.stopPropagation();var c=document.getElementById('card-gallery');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-gallery');}">📷 사진/영상 갤러리 ⭐신규</div>
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-textbooks,card-level-tests,card-pronunciation,card-recording-storage,card-voice-stats">
+  <div class="ph85-group" data-cards="card-textbooks,card-microlearn,card-mini-toeic,card-pronunciation,card-video-dict,card-voice-diary,card-level-tests,card-battle-mgmt,card-recording-storage,card-homework">
     <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
-      <div class="ph85-ico" style="background:linear-gradient(135deg,#0ea5e9,#0369a1)">🎓</div>
+      <div class="ph85-ico" style="background:linear-gradient(135deg,#0ea5e9,#0369a1)">📚</div>
       <div class="ph85-title">교육 / 콘텐츠</div>
       <div class="ph85-arrow">›</div>
     </div>
     <div class="ph85-subs">
-      <div class="ph85-sub" data-card="card-textbooks" onclick="event.stopPropagation();var c=document.getElementById('card-textbooks');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-textbooks');}">교재</div>
-      <div class="ph85-sub" data-card="card-level-tests" onclick="event.stopPropagation();var c=document.getElementById('card-level-tests');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-level-tests');}">레벨 테스트</div>
-      <div class="ph85-sub" data-card="card-pronunciation" onclick="event.stopPropagation();var c=document.getElementById('card-pronunciation');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-pronunciation');}">발음</div>
-      <div class="ph85-sub" data-card="card-recording-storage" onclick="event.stopPropagation();var c=document.getElementById('card-recording-storage');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-recording-storage');}">녹화 저장소</div>
-      <div class="ph85-sub" data-card="card-voice-stats" onclick="event.stopPropagation();var c=document.getElementById('card-voice-stats');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-voice-stats');}">음성 통계</div>
+      <div class="ph85-sub" data-card="card-textbooks" onclick="event.stopPropagation();var c=document.getElementById('card-textbooks');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-textbooks');}">교재 콘텐츠</div>
+      <div class="ph85-sub" data-card="card-microlearn" onclick="event.stopPropagation();var c=document.getElementById('card-microlearn');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-microlearn');}">📖 마이크로러닝</div>
+      <div class="ph85-sub" data-card="card-mini-toeic" onclick="event.stopPropagation();var c=document.getElementById('card-mini-toeic');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-mini-toeic');}">🎯 미니 토익</div>
+      <div class="ph85-sub" data-card="card-pronunciation" onclick="event.stopPropagation();var c=document.getElementById('card-pronunciation');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-pronunciation');}">🗣 발음 교정</div>
+      <div class="ph85-sub" data-card="card-video-dict" onclick="event.stopPropagation();var c=document.getElementById('card-video-dict');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-video-dict');}">🎬 영상 사전</div>
+      <div class="ph85-sub" data-card="card-voice-diary" onclick="event.stopPropagation();var c=document.getElementById('card-voice-diary');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-voice-diary');}">🎙 음성 일기</div>
+      <div class="ph85-sub" data-card="card-level-tests" onclick="event.stopPropagation();var c=document.getElementById('card-level-tests');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-level-tests');}">📊 레벨테스트</div>
+      <div class="ph85-sub" data-card="card-battle-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-battle-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-battle-mgmt');}">⚔ 영어 배틀</div>
+      <div class="ph85-sub" data-card="card-recording-storage" onclick="event.stopPropagation();var c=document.getElementById('card-recording-storage');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-recording-storage');}">💾 녹화 보관</div>
+      <div class="ph85-sub" data-card="card-homework" onclick="event.stopPropagation();var c=document.getElementById('card-homework');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-homework');}">📚 숙제 관리 ⭐신규</div>
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-permissions,card-franchises,card-centers,card-data-export,card-test-seed,card-report-forms">
+  <div class="ph85-group" data-cards="card-permissions,card-franchises,card-centers,card-data-export,card-test-seed,card-admin-alerts,card-admin-ghost,card-admin-whisper,card-attendance-status,card-auto-attendance,card-class-attendance,card-report-forms">
     <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#64748b,#334155)">⚙</div>
       <div class="ph85-title">시스템</div>
@@ -23396,6 +23421,12 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-centers" onclick="event.stopPropagation();var c=document.getElementById('card-centers');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-centers');}">센터</div>
       <div class="ph85-sub" data-card="card-data-export" onclick="event.stopPropagation();var c=document.getElementById('card-data-export');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-data-export');}">데이터 추출</div>
       <div class="ph85-sub" data-card="card-test-seed" onclick="event.stopPropagation();var c=document.getElementById('card-test-seed');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-test-seed');}">테스트 시드</div>
+      <div class="ph85-sub" data-card="card-admin-alerts" onclick="event.stopPropagation();var c=document.getElementById('card-admin-alerts');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-admin-alerts');}">🔔 관리자 알림</div>
+      <div class="ph85-sub" data-card="card-admin-ghost" onclick="event.stopPropagation();var c=document.getElementById('card-admin-ghost');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-admin-ghost');}">👻 Ghost View</div>
+      <div class="ph85-sub" data-card="card-admin-whisper" onclick="event.stopPropagation();var c=document.getElementById('card-admin-whisper');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-admin-whisper');}">💬 귓속말</div>
+      <div class="ph85-sub" data-card="card-attendance-status" onclick="event.stopPropagation();var c=document.getElementById('card-attendance-status');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-attendance-status');}">📋 출결 상태</div>
+      <div class="ph85-sub" data-card="card-auto-attendance" onclick="event.stopPropagation();var c=document.getElementById('card-auto-attendance');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-auto-attendance');}">📷 QR 출결</div>
+      <div class="ph85-sub" data-card="card-class-attendance" onclick="event.stopPropagation();var c=document.getElementById('card-class-attendance');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-class-attendance');}">📝 수업 출결</div>
       <div class="ph85-sub" data-card="card-report-forms" onclick="event.stopPropagation();var c=document.getElementById('card-report-forms');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-report-forms');}">📋 보고서 양식</div>
     </div>
   </div>
@@ -26698,6 +26729,106 @@ button.chip:hover,
   console.log('[ph109] 인쇄/PDF/Excel/Word 다운로드 4종 초기화 완료');
 })();
 </script>
+
+
+<!-- Phase 110 admin (2026-05-25) — 신규 5개 카드 + 사이드바 31개 카드 통합 -->
+<style id="ph110-new-cards">
+  .pl-info { background: rgba(37,99,235,0.15) !important; border-left: 4px solid #2563EB;
+    color: #F8FAFC !important; padding: 10px 14px; border-radius: 8px;
+    margin-bottom: 14px; font-size: 12.5px; line-height: 1.7; }
+  .pl-info b { color: #93C5FD; }
+  .pl-feature-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px; margin-top: 14px; }
+  .pl-feature-card { background: rgba(15,23,42,0.6) !important;
+    border: 1px solid rgba(59,130,246,0.3); border-radius: 10px;
+    padding: 12px 14px; color: #F8FAFC; }
+  .pl-feature-card b { color: #93C5FD; display: block; margin-bottom: 4px; font-size: 13px; }
+  .pl-feature-card span { font-size: 12px; color: #CBD5E1; }
+  .pl-cta-btn { background: linear-gradient(135deg, #2563EB, #3B82F6) !important;
+    color: #fff !important; border: 0 !important;
+    padding: 10px 22px !important; border-radius: 8px !important;
+    font-weight: 800 !important; cursor: pointer !important; margin-top: 14px !important; }
+</style>
+
+<details class="table-card menu-card" id="card-notice-board">
+  <summary><span>📌 공지사항 게시판 ⭐신규</span></summary>
+  <div class="menu-body">
+    <div class="pl-info">💡 <b>학원 공식 공지</b> — 학부모/강사에게 한 번에 전달. 푸시·카카오 알림 자동 연동.</div>
+    <div class="pl-feature-list">
+      <div class="pl-feature-card"><b>📝 공지 작성</b><span>제목·본문·이미지·첨부파일 + 노출 기간 설정</span></div>
+      <div class="pl-feature-card"><b>🎯 대상 선택</b><span>전체/학년별/지점별/특정 학생</span></div>
+      <div class="pl-feature-card"><b>📲 다채널 발송</b><span>웹 푸시 + 카카오 알림톡 + 이메일 동시</span></div>
+      <div class="pl-feature-card"><b>📊 열람률 통계</b><span>누가 읽었는지, 안 읽은 사람 추적</span></div>
+      <div class="pl-feature-card"><b>💬 댓글 토론</b><span>학부모 질문 + 강사 답글</span></div>
+      <div class="pl-feature-card"><b>📌 상단 고정</b><span>중요 공지 일정 기간 항상 상단 노출</span></div>
+    </div>
+    <button class="pl-cta-btn" onclick="alert('공지 작성 폼 (다음 phase 구현)')">➕ 새 공지 작성</button>
+  </div>
+</details>
+
+<details class="table-card menu-card" id="card-timetable">
+  <summary><span>🗓 통합 시간표 ⭐신규</span></summary>
+  <div class="menu-body">
+    <div class="pl-info">💡 <b>강사·학생·강의실 통합 시간표</b> — 충돌 감지 + 드래그&드롭 배정.</div>
+    <div class="pl-feature-list">
+      <div class="pl-feature-card"><b>📆 주간/월간 뷰</b><span>구글 캘린더 스타일 그리드</span></div>
+      <div class="pl-feature-card"><b>👨‍🏫 강사별 필터</b><span>강사 선택 → 모든 수업</span></div>
+      <div class="pl-feature-card"><b>👨‍🎓 학생별 필터</b><span>학생 선택 → 시간표</span></div>
+      <div class="pl-feature-card"><b>🚪 강의실 배정</b><span>점유율 + 충돌 자동 감지</span></div>
+      <div class="pl-feature-card"><b>🔄 드래그 이동</b><span>드래그&드롭으로 시간 변경</span></div>
+      <div class="pl-feature-card"><b>📲 변경 알림</b><span>이동/취소 시 학부모 자동 알림</span></div>
+    </div>
+    <button class="pl-cta-btn" onclick="alert('시간표 그리드 (FullCalendar.js 통합 예정)')">📆 시간표 보기</button>
+  </div>
+</details>
+
+<details class="table-card menu-card" id="card-lesson-log">
+  <summary><span>📝 수업 일지 ⭐신규</span></summary>
+  <div class="menu-body">
+    <div class="pl-info">💡 <b>매 수업 후 강사 노트</b> — 학부모 자동 공유. Brightwheel·ClassDojo 핵심 기능.</div>
+    <div class="pl-feature-list">
+      <div class="pl-feature-card"><b>⚡ 3분 작성</b><span>학습 내용·잘한점·다음목표 템플릿</span></div>
+      <div class="pl-feature-card"><b>🤖 AI 자동 초안</b><span>수업 음성 STT → AI 일지 초안</span></div>
+      <div class="pl-feature-card"><b>📷 사진 첨부</b><span>학습 결과물 사진 1-3장</span></div>
+      <div class="pl-feature-card"><b>📲 학부모 즉시 발송</b><span>저장 → 카카오 알림 자동</span></div>
+      <div class="pl-feature-card"><b>📊 누적 보관</b><span>학생별 타임라인, 학기말 리포트</span></div>
+      <div class="pl-feature-card"><b>💬 학부모 댓글</b><span>답글 + 강사 응답</span></div>
+    </div>
+    <button class="pl-cta-btn" onclick="alert('수업 일지 작성 (수업 종료 자동 트리거 예정)')">📝 오늘 일지 작성</button>
+  </div>
+</details>
+
+<details class="table-card menu-card" id="card-gallery">
+  <summary><span>📷 사진/영상 갤러리 ⭐신규</span></summary>
+  <div class="menu-body">
+    <div class="pl-info">💡 <b>학원의 모든 추억</b> — 수업 사진·영상을 학부모에게 공유. ClassDojo Story 벤치마킹.</div>
+    <div class="pl-feature-list">
+      <div class="pl-feature-card"><b>📤 일괄 업로드</b><span>드래그&드롭 한 번에 여러 장</span></div>
+      <div class="pl-feature-card"><b>🏷 자동 태깅</b><span>AI 얼굴 인식 → 학생별 분류</span></div>
+      <div class="pl-feature-card"><b>🔒 학부모 동의</b><span>업로드 전 동의 체크 + 비공개</span></div>
+      <div class="pl-feature-card"><b>📲 자녀별 앨범</b><span>학부모 앱 — 우리 아이만</span></div>
+      <div class="pl-feature-card"><b>📅 월별 하이라이트</b><span>매월 베스트 5장 자동 선정</span></div>
+      <div class="pl-feature-card"><b>💝 졸업 앨범</b><span>학년말 자동 PDF 졸업 앨범</span></div>
+    </div>
+    <button class="pl-cta-btn" onclick="alert('갤러리 업로더 (R2 스토리지 연결 예정)')">📤 사진 업로드</button>
+  </div>
+</details>
+
+<details class="table-card menu-card" id="card-homework">
+  <summary><span>📚 숙제 관리 ⭐신규</span></summary>
+  <div class="menu-body">
+    <div class="pl-info">💡 <b>출제 → 제출 → 채점 → 피드백</b> 전 과정 디지털화.</div>
+    <div class="pl-feature-list">
+      <div class="pl-feature-card"><b>📝 출제</b><span>객관식·주관식·음성·영상 답변</span></div>
+      <div class="pl-feature-card"><b>📅 마감 기한</b><span>자동 리마인더 알림</span></div>
+      <div class="pl-feature-card"><b>📊 제출 현황</b><span>학생별 실시간 표</span></div>
+      <div class="pl-feature-card"><b>🤖 AI 자동 채점</b><span>객관식 즉시 + 주관식 AI 초안</span></div>
+      <div class="pl-feature-card"><b>💬 1:1 피드백</b><span>강사 코멘트 + 음성</span></div>
+      <div class="pl-feature-card"><b>🏆 점수/뱃지</b><span>완료 시 자동 포인트 + 뱃지</span></div>
+    </div>
+    <button class="pl-cta-btn" onclick="alert('숙제 출제 폼 (다음 phase 구현)')">📝 새 숙제 출제</button>
+  </div>
+</details>
 
 </body>
 </html>
