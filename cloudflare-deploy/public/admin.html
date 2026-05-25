@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525173552 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525174142 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525173552 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525174142 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525173552 -->
+        <!-- BUILD:20260525174142 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -30439,6 +30439,174 @@ button.chip:hover,
   }, 1500);
 
   console.log('[ph126] 잔존율(보관기간 파기) + 활성 룸 강제 visible 활성');
+})();
+</script>
+
+
+<!-- Phase 127 admin (2026-05-25) — 사이드바 메뉴 호버 시 투명 테두리 툴팁 -->
+<style id="ph127-tooltip">
+  /* 투명 배경 + 테두리만 있는 호버 툴팁 */
+  #ph85-sidebar .ph85-sub[data-tip] {
+    position: relative !important;
+  }
+  #ph85-sidebar .ph85-sub[data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    left: calc(100% + 12px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: 1.5px solid #93C5FD;
+    color: #FFFFFF;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    z-index: 99999;
+    pointer-events: none;
+    letter-spacing: 0.3px;
+    box-shadow: 0 0 0 1px rgba(15,23,42,0.7);
+    text-shadow: 0 0 4px rgba(0,0,0,0.9), 0 1px 2px rgba(0,0,0,0.95);
+    animation: ph127TipIn 0.18s ease-out;
+  }
+  /* 화살표 (좌측) */
+  #ph85-sidebar .ph85-sub[data-tip]:hover::before {
+    content: '';
+    position: absolute;
+    left: calc(100% + 6px);
+    top: 50%;
+    transform: translateY(-50%) rotate(45deg);
+    width: 10px; height: 10px;
+    border-left: 1.5px solid #93C5FD;
+    border-bottom: 1.5px solid #93C5FD;
+    z-index: 100000;
+    pointer-events: none;
+    animation: ph127TipIn 0.18s ease-out;
+  }
+  @keyframes ph127TipIn {
+    from { opacity: 0; transform: translateY(-50%) translateX(-4px); }
+    to   { opacity: 1; transform: translateY(-50%) translateX(0); }
+  }
+  #ph85-sidebar .ph85-sub[data-tip]:hover::before {
+    animation-name: ph127TipArrowIn;
+  }
+  @keyframes ph127TipArrowIn {
+    from { opacity: 0; transform: translateY(-50%) rotate(45deg) translateX(-4px); }
+    to   { opacity: 1; transform: translateY(-50%) rotate(45deg) translateX(0); }
+  }
+</style>
+
+<script>
+(function(){
+  'use strict';
+
+  // === 모든 사이드바 메뉴의 짧은 설명 (호버 툴팁용) ===
+  var TIPS = {
+    // 평가서 통합
+    'card-eval-mgmt':              '📝 학생별 평가서 작성·수정·발행',
+    'card-bulk-eval':              '📋 여러 학생 동시 평가 일괄 작성',
+    'card-ai-lesson-report':       '🤖 수업 STT → AI 자동 리포트 생성',
+    'card-ai-eval-draft':          '✨ AI 가 평가 초안 자동 작성',
+    'card-monthly-report':         '📅 학생별 월간 종합 리포트',
+    'card-comparison-report':      '📊 학생 간 / 기간 간 비교 분석',
+
+    // 알림 센터
+    'card-webpush-mgmt':           '🔔 브라우저 푸시 알림 (무료, VAPID)',
+    'card-kakao-mgmt':             '💬 카카오 알림톡 발송 (SOLAPI)',
+    'card-popups-mgmt':            '🪧 사이트 팝업 광고/공지 관리',
+    'card-notifications':          '📢 이벤트/행사 알림 발송',
+    'card-notice-board':           '📌 학원 공식 공지 게시판',
+
+    // 강사 통합
+    'card-teacher-mgmt':           '🧑‍🏫 강사 등록·수정·평가',
+    'card-payroll-auto':           '💰 강사 급여 자동 계산',
+    'card-payroll':                '💵 이번달 급여 명세 + PDF',
+    'card-mbti-mgmt':              '🧠 강사·학생 MBTI 매칭',
+    'card-praise-stats':           '🌟 강사 칭찬 카운트 + 랭킹',
+    'card-supervisor':             '👁 강사 라이브 참관 + 노트',
+    'card-room-invite':            '📨 학생 수업 방 초대 링크',
+    'card-timetable':              '🗓 강사·학생 통합 시간표',
+    'card-lesson-log':             '📝 매 수업 후 일지 + 학부모 자동 공유',
+    'card-report-forms':           '📋 휴가·기안 결재 양식 관리',
+
+    // 통계 / KPI
+    'card-kpi-dashboard':          '📊 핵심 운영 지표 한눈에',
+    'card-daily-charts':           '📈 일별 트렌드 차트',
+    'card-rankings':               '🏆 학생·강사·학원 랭킹',
+    'card-retention-risk':         '⚠ 이탈 위험 학생 자동 감지',
+    'card-retention':              '🗑 녹화/출결/카카오ID 데이터 보관 기간 자동 파기',
+    'card-active-rooms':           '🔴 현재 진행 중인 실시간 수업 방 모니터링',
+    'card-nps-monthly':            '😊 월별 NPS (순추천지수)',
+    'card-ai-forecast':            '🔮 AI 매출/학생 증감 예측',
+    'card-voice-stats':            '🎙 학생 발화량/발음 통계',
+
+    // 회계 / 포인트
+    'card-accounting-mgmt':        '💰 결제·환불·세금계산서 통합',
+    'card-payments-b2b':           '🏢 본사 ↔ 대리점 결제 내역',
+    'card-payments-b2c':           '👨‍👩‍👧 학원 → 학부모 직판매 결제',
+    'card-recurring-billing':      '🔄 매월 자동 정기 결제',
+    'card-auto-dunning':           '💸 미납 자동 독촉 알림',
+    'card-settlement-stats':       '📊 일별·월별 정산 통계',
+    'card-points-mgmt':            '⭐ 학생 포인트 적립/사용 관리',
+
+    // 학생 / 학부모
+    'card-students-mgmt':          '👨‍🎓 학생 등록·검색·상세 관리',
+    'card-school-attendance-stats':'📊 학원별 학생 출석률 통계',
+    'card-family-mgmt':            '👨‍👩‍👧‍👦 가족(형제자매) 통합 관리',
+    'card-inquiry-mgmt':           '📞 신규 문의 → 상담 → 등록',
+    'card-enrollments':            '✏ 이번달 등록·대기·휴학 관리',
+    'card-badges-mgmt':            '🏅 학생 뱃지 발급/관리',
+    'card-community':              '💬 학원 커뮤니티 게시판',
+    'card-counseling-booking':     '📅 학부모-강사 상담 예약',
+    'card-parent-digest':          '📰 학부모 주간/월간 요약 발송',
+    'card-parent-faq-bot':         '🤖 학부모 FAQ 자동 응답 챗봇',
+    'card-referral':               '🎁 친구 추천 코드 + 보상',
+    'card-alumni':                 '🎓 졸업생 동문 커뮤니티',
+    'card-gallery':                '📷 학원 사진/영상 갤러리',
+
+    // 교육 / 콘텐츠
+    'card-textbooks':              '📚 교재 콘텐츠 + 단원 관리',
+    'card-microlearn':             '📖 5분 마이크로러닝 콘텐츠',
+    'card-mini-toeic':             '🎯 미니 토익 모의고사',
+    'card-pronunciation':          '🗣 AI 발음 교정',
+    'card-video-dict':             '🎬 영상 사전 단어 학습',
+    'card-voice-diary':            '🎙 음성 일기 (AI 첨삭)',
+    'card-level-tests':            '📊 레벨 테스트 응시·결과',
+    'card-battle-mgmt':            '⚔ 영어 배틀 (게임)',
+    'card-recording-storage':      '💾 수업 녹화 영상 보관',
+    'card-homework':               '📚 숙제 출제·제출·채점',
+
+    // 시스템
+    'card-permissions':            '🔐 역할별 메뉴/데이터 권한 설정',
+    'card-franchises':             '🏬 가맹점·지사·대리점 관리',
+    'card-centers':                '🏢 본사 직영 센터 관리',
+    'card-data-export':            '📤 학생/강사/결제 CSV 다운로드',
+    'card-test-seed':              '🌱 테스트용 샘플 데이터 생성',
+    'card-admin-alerts':           '🔔 관리자 알림 (시스템 경고)',
+    'card-admin-ghost':            '👻 실시간 수업 참관 (Ghost View)',
+    'card-admin-whisper':          '💬 학생/강사에게 귓속말',
+    'card-attendance-status':      '📋 학생별 개별 출결 기록',
+    'card-auto-attendance':        '📷 QR 코드 자동 출결 체크',
+    'card-class-attendance':       '📝 수업별 출결 일괄 관리'
+  };
+
+  function ph127ApplyTips(){
+    document.querySelectorAll('#ph85-sidebar .ph85-sub').forEach(function(sub){
+      var cardId = sub.dataset.card;
+      if (!cardId) return;
+      var tip = TIPS[cardId];
+      if (tip && !sub.hasAttribute('data-tip')) {
+        sub.setAttribute('data-tip', tip);
+      }
+    });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph127ApplyTips);
+  else ph127ApplyTips();
+  setInterval(ph127ApplyTips, 1500);
+
+  console.log('[ph127] 사이드바 73개 메뉴 호버 툴팁 활성 (투명 + 테두리)');
 })();
 </script>
 
