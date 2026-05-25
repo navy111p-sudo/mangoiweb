@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525170246 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525170634 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525170246 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525170634 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525170246 -->
+        <!-- BUILD:20260525170634 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -29429,6 +29429,127 @@ button.chip:hover,
   setInterval(ph121DemoNote, 2000);
 
   console.log('[ph121] 검색 결과 통계 박스 가독성 강화 (큰 글자 + 3색 카드 + 큰 초기화 버튼)');
+})();
+</script>
+
+
+<!-- Phase 122 admin (2026-05-25) — 학생 이름 클릭 시 상세보기 페이지로 이동 -->
+<style id="ph122-student-click">
+  /* 클릭 가능한 학생 셀 — 시각적 단서 */
+  #sa-tbody td.ph122-clickable {
+    cursor: pointer !important;
+    color: #60A5FA !important;
+    font-weight: 700 !important;
+    transition: all 0.15s !important;
+    position: relative !important;
+  }
+  #sa-tbody td.ph122-clickable:hover {
+    color: #93C5FD !important;
+    background: rgba(37,99,235,0.3) !important;
+    text-decoration: underline !important;
+  }
+  #sa-tbody td.ph122-clickable::after {
+    content: ' 🔗';
+    opacity: 0;
+    font-size: 10px;
+    transition: opacity 0.15s;
+    margin-left: 4px;
+  }
+  #sa-tbody td.ph122-clickable:hover::after {
+    opacity: 1;
+  }
+  /* 학생이름 컬럼은 더 굵게 */
+  #sa-tbody td.ph122-name {
+    font-size: 13.5px !important;
+  }
+  /* 클릭 안내 헤더 강조 */
+  #card-school-attendance-stats .sa-table thead th:nth-child(4),
+  #card-school-attendance-stats .sa-table thead th:nth-child(5),
+  #card-school-attendance-stats .sa-table thead th:nth-child(6) {
+    background: linear-gradient(135deg, #1E40AF, #3B82F6) !important;
+    position: relative;
+  }
+  #card-school-attendance-stats .sa-table thead th:nth-child(4)::after,
+  #card-school-attendance-stats .sa-table thead th:nth-child(5)::after,
+  #card-school-attendance-stats .sa-table thead th:nth-child(6)::after {
+    content: '🔗';
+    font-size: 10px;
+    margin-left: 4px;
+    opacity: 0.7;
+  }
+  /* 안내 박스 */
+  #ph122-click-hint {
+    background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(96,165,250,0.10)) !important;
+    border: 1px solid rgba(96,165,250,0.5) !important;
+    border-radius: 10px !important;
+    padding: 10px 14px !important;
+    margin-bottom: 12px !important;
+    color: #DBEAFE !important;
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+  }
+  #ph122-click-hint b { color: #67E8F9 !important; }
+</style>
+
+<script>
+(function(){
+  'use strict';
+
+  // 학생 ID 추출 → /admin/student.html?uid=X 새 탭
+  function ph122BindClicks(){
+    var tbody = document.getElementById('sa-tbody');
+    if (!tbody) return;
+    tbody.querySelectorAll('tr').forEach(function(row){
+      if (row.__ph122) return;
+      var cells = row.querySelectorAll('td');
+      if (cells.length < 6) return;
+      var studentId = cells[5].textContent.trim();
+      if (!studentId) return;
+      var studentName = cells[3].textContent.trim();
+      row.__ph122 = true;
+
+      // 학생이름(3), 영어이름(4), 학생ID(5) 모두 클릭 가능
+      [3, 4, 5].forEach(function(idx){
+        var cell = cells[idx];
+        cell.classList.add('ph122-clickable');
+        if (idx === 3) cell.classList.add('ph122-name');
+        cell.setAttribute('title', '🔗 클릭하면 ' + studentName + ' (' + studentId + ') 학생 상세보기 새 탭으로 열림');
+        cell.addEventListener('click', function(e){
+          e.stopPropagation();
+          var url = '/admin/student.html?uid=' + encodeURIComponent(studentId);
+          window.open(url, '_blank');
+          console.log('[ph122] 학생 상세보기 열기:', studentId, '→', url);
+        });
+      });
+    });
+  }
+
+  // 안내 박스 추가 (검색 영역 위)
+  function ph122AddHint(){
+    var card = document.getElementById('card-school-attendance-stats');
+    if (!card || document.getElementById('ph122-click-hint')) return;
+    var hint = document.createElement('div');
+    hint.id = 'ph122-click-hint';
+    hint.innerHTML = '🔗 <b>표의 학생이름·영어이름·학생ID</b> 를 클릭하면 해당 학생의 <b>상세보기 페이지</b>가 새 탭으로 열립니다 (개요 · 출결 · 평가서 · 수업 녹화 등 종합 정보)';
+    var actions = card.querySelector('.sa-actions');
+    if (actions && actions.parentElement) {
+      actions.parentElement.insertBefore(hint, actions.nextSibling);
+    } else {
+      var body = card.querySelector('.menu-body');
+      if (body) body.insertBefore(hint, body.firstChild);
+    }
+  }
+
+  function ph122Init(){
+    ph122BindClicks();
+    ph122AddHint();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph122Init);
+  else ph122Init();
+  setInterval(ph122Init, 1500);
+
+  console.log('[ph122] 학생 이름 클릭 → 상세보기 이동 활성');
 })();
 </script>
 
