@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525144819 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525150757 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525144819 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525150757 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525144819 -->
+        <!-- BUILD:20260525150757 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -23339,7 +23339,7 @@ button.chip:hover,
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-accounting-mgmt,card-points-mgmt">
+  <div class="ph85-group" data-cards="card-accounting-mgmt,card-payments-b2b,card-payments-b2c,card-points-mgmt">
     <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#f59e0b,#d97706)">💰</div>
       <div class="ph85-title">회계 / 포인트</div>
@@ -23347,6 +23347,8 @@ button.chip:hover,
     </div>
     <div class="ph85-subs">
       <div class="ph85-sub" data-card="card-accounting-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-accounting-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-accounting-mgmt');}">회계 관리</div>
+      <div class="ph85-sub" data-card="card-payments-b2b" onclick="event.stopPropagation();var c=document.getElementById('card-payments-b2b');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-payments-b2b');}">🏢 BtoB 결제관리</div>
+      <div class="ph85-sub" data-card="card-payments-b2c" onclick="event.stopPropagation();var c=document.getElementById('card-payments-b2c');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-payments-b2c');}">👨‍👩‍👧 BtoC 결제관리</div>
       <div class="ph85-sub" data-card="card-points-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-points-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-points-mgmt');}">포인트 관리</div>
     </div>
   </div>
@@ -25386,6 +25388,402 @@ button.chip:hover,
     new MutationObserver(function(){ ph105ForceUniversal(); }).observe(document.body, { childList: true, subtree: true });
   }
   console.log('[ph105] universal white-bg eliminator installed (CSS + JS)');
+})();
+</script>
+
+
+<!-- Phase 106 admin (2026-05-25) — BtoB/BtoC 결제관리 카드 (벤치마킹 6가지 적용) -->
+<style id="ph106-payments">
+  /* === KPI 카드 4개 === */
+  .pm-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 900px) { .pm-kpi-row { grid-template-columns: repeat(2, 1fr); } }
+  .pm-kpi {
+    background: linear-gradient(135deg, #1E3A8A, #2563EB) !important;
+    border: 1px solid rgba(96,165,250,0.4) !important;
+    border-radius: 12px !important;
+    padding: 14px 16px !important;
+    color: #F8FAFC !important;
+    box-shadow: 0 4px 14px rgba(37,99,235,0.25) !important;
+  }
+  .pm-kpi-label { font-size: 11.5px !important; color: #93C5FD !important; font-weight: 700 !important; margin-bottom: 6px !important; }
+  .pm-kpi-value { font-size: 22px !important; font-weight: 900 !important; color: #FFFFFF !important; }
+  .pm-kpi-trend { font-size: 11px !important; color: #67E8F9 !important; margin-top: 4px !important; }
+
+  /* === 필터 행 === */
+  .pm-filter-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    background: rgba(15,23,42,0.6) !important;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(59,130,246,0.3);
+    margin-bottom: 12px;
+  }
+  @media (max-width: 900px) { .pm-filter-row { grid-template-columns: repeat(2, 1fr); } }
+  .pm-filter-row select,
+  .pm-filter-row input {
+    background: rgba(15,23,42,0.85) !important;
+    color: #F8FAFC !important;
+    border: 1px solid rgba(59,130,246,0.45) !important;
+    padding: 7px 10px !important;
+    border-radius: 6px !important;
+    font-size: 12.5px !important;
+  }
+
+  /* === 액션 버튼 === */
+  .pm-actions { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .pm-btn-search {
+    background: linear-gradient(135deg, #2563EB, #3B82F6) !important;
+    color: #fff !important; border: 0 !important;
+    padding: 8px 18px !important; border-radius: 8px !important;
+    font-weight: 800 !important; cursor: pointer !important;
+  }
+  .pm-btn-csv {
+    background: linear-gradient(135deg, #10B981, #059669) !important;
+    color: #fff !important; border: 0 !important;
+    padding: 8px 14px !important; border-radius: 8px !important;
+    font-weight: 700 !important; cursor: pointer !important;
+  }
+
+  /* === 표 === */
+  .pm-table {
+    width: 100%;
+    border-collapse: collapse !important;
+    background: rgba(15,23,42,0.5) !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+  }
+  .pm-table thead th {
+    background: linear-gradient(135deg, #1E3A8A, #2563EB) !important;
+    color: #DBEAFE !important;
+    padding: 10px 12px !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    text-align: left !important;
+    cursor: pointer !important;
+    user-select: none !important;
+  }
+  .pm-table thead th:hover { background: linear-gradient(135deg, #2563EB, #3B82F6) !important; }
+  .pm-table tbody td {
+    padding: 9px 12px !important;
+    border-bottom: 1px solid rgba(59,130,246,0.2) !important;
+    color: #F8FAFC !important;
+    font-size: 12.5px !important;
+  }
+  .pm-table tbody tr:nth-child(even) td { background: rgba(30,41,59,0.45) !important; }
+  .pm-table tbody tr:hover td { background: rgba(37,99,235,0.25) !important; }
+
+  /* === 상태 뱃지 === */
+  .pm-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+  }
+  .pm-badge.ok    { background: rgba(34,197,94,0.25)  !important; color: #86EFAC !important; border: 1px solid rgba(34,197,94,0.5); }
+  .pm-badge.cancel{ background: rgba(239,68,68,0.25)  !important; color: #FCA5A5 !important; border: 1px solid rgba(239,68,68,0.5); }
+  .pm-badge.refund{ background: rgba(249,115,22,0.25) !important; color: #FDBA74 !important; border: 1px solid rgba(249,115,22,0.5); }
+  .pm-badge.pending{ background: rgba(250,204,21,0.25) !important; color: #FDE68A !important; border: 1px solid rgba(250,204,21,0.5); }
+
+  /* === 차트 영역 === */
+  .pm-chart {
+    background: rgba(15,23,42,0.6) !important;
+    border: 1px solid rgba(59,130,246,0.3) !important;
+    border-radius: 10px !important;
+    padding: 14px !important;
+    margin-bottom: 12px !important;
+    min-height: 200px !important;
+    position: relative !important;
+  }
+  .pm-chart-title {
+    color: #DBEAFE !important;
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    margin-bottom: 10px !important;
+  }
+
+  /* === 인라인 액션 버튼 (취소/환불/세금계산서) === */
+  .pm-row-btn {
+    background: rgba(239,68,68,0.2) !important;
+    color: #FCA5A5 !important;
+    border: 1px solid rgba(239,68,68,0.5) !important;
+    border-radius: 4px !important;
+    padding: 3px 8px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    margin-right: 4px !important;
+  }
+  .pm-row-btn:hover { background: rgba(239,68,68,0.35) !important; }
+  .pm-row-btn.tax {
+    background: rgba(59,130,246,0.2) !important;
+    color: #93C5FD !important;
+    border-color: rgba(59,130,246,0.5) !important;
+  }
+
+  /* === 페이지네이션 === */
+  .pm-pagination { display: flex; justify-content: center; gap: 4px; margin-top: 14px; }
+  .pm-page-btn {
+    background: rgba(15,23,42,0.7) !important;
+    color: #93C5FD !important;
+    border: 1px solid rgba(59,130,246,0.4) !important;
+    padding: 5px 11px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    font-size: 12px !important;
+  }
+  .pm-page-btn.active { background: linear-gradient(135deg, #2563EB, #3B82F6) !important; color: #fff !important; }
+  .pm-page-btn:hover:not(.active) { background: rgba(37,99,235,0.3) !important; color: #fff !important; }
+</style>
+
+<!-- === Card: BtoB 결제관리 (1번 양식 베이스) === -->
+<details class="table-card menu-card" id="card-payments-b2b">
+  <summary><span data-ko="🏢 BtoB 결제관리 (학원 ↔ 본사/대리점)" data-en="🏢 B2B Payments">🏢 BtoB 결제관리 (학원 ↔ 본사/대리점)</span></summary>
+  <div class="menu-body">
+    <!-- KPI 4카드 -->
+    <div class="pm-kpi-row">
+      <div class="pm-kpi"><div class="pm-kpi-label">📅 오늘 거래액</div><div class="pm-kpi-value" id="b2b-kpi-today">₩0</div><div class="pm-kpi-trend">▲ 전일 대비 +0%</div></div>
+      <div class="pm-kpi"><div class="pm-kpi-label">📊 이번달 거래액</div><div class="pm-kpi-value" id="b2b-kpi-month">₩0</div><div class="pm-kpi-trend">▲ 전월 대비 +0%</div></div>
+      <div class="pm-kpi"><div class="pm-kpi-label">🧾 거래 건수</div><div class="pm-kpi-value" id="b2b-kpi-count">0건</div><div class="pm-kpi-trend">평균 ₩0/건</div></div>
+      <div class="pm-kpi"><div class="pm-kpi-label">💸 수수료 합계</div><div class="pm-kpi-value" id="b2b-kpi-fee">₩0</div><div class="pm-kpi-trend">평균율 2.86%</div></div>
+    </div>
+
+    <!-- 필터 -->
+    <div class="pm-filter-row">
+      <select id="b2b-f-hq"><option value="">전체 본사</option><option>망고아이 본사</option></select>
+      <select id="b2b-f-branch"><option value="">전체 지사</option><option>서울지사</option><option>부산지사</option><option>대구지사</option></select>
+      <select id="b2b-f-agency"><option value="">전체 대리점</option><option>강남SLP</option><option>분당SLP</option><option>해운대SLP</option></select>
+      <input type="text" id="b2b-f-q" placeholder="🔍 학생명·아이디·주문번호">
+    </div>
+    <div class="pm-filter-row">
+      <input type="date" id="b2b-f-from">
+      <input type="date" id="b2b-f-to">
+      <select id="b2b-f-method"><option value="">전체 결제수단</option><option>카드</option><option>계좌이체</option><option>카카오페이</option><option>토스페이</option></select>
+      <select id="b2b-f-status"><option value="">전체 상태</option><option>결제완료</option><option>취소</option><option>환불</option><option>대기</option></select>
+    </div>
+
+    <div class="pm-actions">
+      <button class="pm-btn-search" onclick="b2bSearch()">🔍 검색</button>
+      <button class="pm-btn-csv" onclick="b2bDownloadCsv()">📥 CSV 다운로드</button>
+      <button class="pm-btn-csv" onclick="b2bDownloadExcel()" style="background:linear-gradient(135deg,#3B82F6,#1E40AF) !important">📊 Excel 다운로드</button>
+    </div>
+
+    <!-- 차트 -->
+    <div class="pm-chart">
+      <div class="pm-chart-title">📈 최근 30일 일별 거래액</div>
+      <canvas id="b2b-chart" height="100"></canvas>
+    </div>
+
+    <!-- 표 (1번 양식 베이스) -->
+    <div style="overflow-x:auto">
+    <table class="pm-table" id="b2b-table">
+      <thead><tr>
+        <th>No</th><th>상태</th><th>결제번호</th><th>결제일</th><th>대리점</th><th>학생명</th>
+        <th>결제수단</th><th>상태메시지</th><th style="text-align:right">판매금액</th>
+        <th style="text-align:right">할인금액</th><th style="text-align:right">결제금액</th>
+        <th style="text-align:right">수수료율</th><th style="text-align:right">수수료</th><th>액션</th>
+      </tr></thead>
+      <tbody id="b2b-tbody">
+        <tr><td>9188</td><td><span class="pm-badge ok">결제완료</span></td><td>MH20260525145021...</td><td>2026-05-25 14:51</td><td>동영SLP</td><td>이시청 (kihappy2)</td><td>카드</td><td>정상처리</td><td style="text-align:right">44,000</td><td style="text-align:right">0</td><td style="text-align:right">41,960</td><td style="text-align:right">2.86%</td><td style="text-align:right">1,200</td><td><button class="pm-row-btn">취소</button></td></tr>
+        <tr><td>9187</td><td><span class="pm-badge ok">결제완료</span></td><td>MH20260525144859...</td><td>2026-05-25 14:49</td><td>동영SLP</td><td>이시후 (kihappy1)</td><td>카드</td><td>정상처리</td><td style="text-align:right">44,000</td><td style="text-align:right">0</td><td style="text-align:right">42,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">1,201</td><td><button class="pm-row-btn">취소</button></td></tr>
+        <tr><td>9186</td><td><span class="pm-badge ok">결제완료</span></td><td>MH20260523140729...</td><td>2026-05-23 14:08</td><td>동탄SLP</td><td>신하율 (hayul0610)</td><td>카드</td><td>정상처리</td><td style="text-align:right">44,000</td><td style="text-align:right">0</td><td style="text-align:right">44,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">1,258</td><td><button class="pm-row-btn">취소</button></td></tr>
+        <tr><td>9185</td><td><span class="pm-badge ok">결제완료</span></td><td>MA20260523131725...</td><td>2026-05-23 13:18</td><td>친구소개 3만원</td><td>김가온 (go3439)</td><td>카드</td><td>정상처리</td><td style="text-align:right">360,000</td><td style="text-align:right">18,000</td><td style="text-align:right">342,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">9,781</td><td><button class="pm-row-btn">취소</button></td></tr>
+        <tr><td>9184</td><td><span class="pm-badge cancel">취소</span></td><td>MA20260523131359...</td><td>2026-05-23 13:16</td><td>친구소개 3만원</td><td>김한울 (hw3439)</td><td>카드</td><td>취소처리</td><td style="text-align:right">360,000</td><td style="text-align:right">18,000</td><td style="text-align:right">342,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">9,781</td><td>-</td></tr>
+        <tr><td>9183</td><td><span class="pm-badge ok">결제완료</span></td><td>MA20260522153946...</td><td>2026-05-22 15:40</td><td>오산SLP</td><td>이아현 (katie2012)</td><td>카드</td><td>정상처리</td><td style="text-align:right">44,000</td><td style="text-align:right">0</td><td style="text-align:right">41,880</td><td style="text-align:right">2.86%</td><td style="text-align:right">1,198</td><td><button class="pm-row-btn">취소</button></td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="pm-pagination">
+      <button class="pm-page-btn">‹</button>
+      <button class="pm-page-btn active">1</button>
+      <button class="pm-page-btn">2</button>
+      <button class="pm-page-btn">3</button>
+      <button class="pm-page-btn">…</button>
+      <button class="pm-page-btn">›</button>
+    </div>
+  </div>
+</details>
+
+<!-- === Card: BtoC 결제관리 (2번 양식 베이스) === -->
+<details class="table-card menu-card" id="card-payments-b2c">
+  <summary><span data-ko="👨‍👩‍👧 BtoC 결제관리 (학원 → 학부모 직판매)" data-en="👨‍👩‍👧 B2C Payments">👨‍👩‍👧 BtoC 결제관리 (학원 → 학부모 직판매)</span></summary>
+  <div class="menu-body">
+    <!-- KPI 4카드 -->
+    <div class="pm-kpi-row">
+      <div class="pm-kpi"><div class="pm-kpi-label">📅 오늘 매출</div><div class="pm-kpi-value" id="b2c-kpi-today">₩0</div><div class="pm-kpi-trend">▲ 전일 대비 +0%</div></div>
+      <div class="pm-kpi"><div class="pm-kpi-label">📊 이번달 매출</div><div class="pm-kpi-value" id="b2c-kpi-month">₩0</div><div class="pm-kpi-trend">▲ 전월 대비 +0%</div></div>
+      <div class="pm-kpi"><div class="pm-kpi-label">🧾 주문 건수</div><div class="pm-kpi-value" id="b2c-kpi-count">0건</div><div class="pm-kpi-trend">평균 ₩0/주문</div></div>
+      <div class="pm-kpi"><div class="pm-kpi-label">📄 세금계산서 미발행</div><div class="pm-kpi-value" id="b2c-kpi-tax">0건</div><div class="pm-kpi-trend">발행 필요</div></div>
+    </div>
+
+    <!-- 필터 -->
+    <div class="pm-filter-row">
+      <select id="b2c-f-hq"><option value="">전체 본사</option><option>망고아이 본사</option></select>
+      <select id="b2c-f-branch"><option value="">전체 지사</option><option>서울지사</option><option>부산지사</option></select>
+      <select id="b2c-f-agency"><option value="">전체 대리점</option><option>강남SLP</option><option>분당SLP</option></select>
+      <input type="text" id="b2c-f-q" placeholder="🔍 대리점명·원장명·주문번호">
+    </div>
+    <div class="pm-filter-row">
+      <input type="date" id="b2c-f-from">
+      <input type="date" id="b2c-f-to">
+      <select id="b2c-f-method"><option value="">전체 결제수단</option><option>카드</option><option>계좌이체</option><option>카카오페이</option></select>
+      <select id="b2c-f-tax"><option value="">전체 세금계산서</option><option>발행</option><option>미발행</option></select>
+    </div>
+
+    <div class="pm-actions">
+      <button class="pm-btn-search" onclick="b2cSearch()">🔍 검색</button>
+      <button class="pm-btn-csv" onclick="b2cDownloadCsv()">📥 CSV 다운로드</button>
+      <button class="pm-btn-csv" onclick="b2cBulkTaxInvoice()" style="background:linear-gradient(135deg,#F59E0B,#D97706) !important">📄 세금계산서 일괄발행</button>
+    </div>
+
+    <!-- 차트 -->
+    <div class="pm-chart">
+      <div class="pm-chart-title">📈 최근 12개월 월별 매출</div>
+      <canvas id="b2c-chart" height="100"></canvas>
+    </div>
+
+    <!-- 안내 박스 -->
+    <div style="background:rgba(37,99,235,0.15) !important; border-left:4px solid #2563EB; color:#F8FAFC; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:12.5px; line-height:1.7">
+      <b style="color:#93C5FD">💡 발행 안내:</b><br>
+      ▸ <b>발행하기</b>: 팝빌 시스템을 통해 수동 발행 &nbsp;
+      ▸ <b>재발행하기</b>: 팝빌 시스템을 통해 자동 또는 수동 발행, 실패한 건은 재발행 하기<br>
+      ▸ <b>외부발행처리</b>: 팝빌이 아닌 다른 시스템으로 발행 완료된 경우 처리 &nbsp;
+      ▸ <b>외부발행처리됨</b>: 외부발행으로 처리된 건
+    </div>
+
+    <!-- 표 (2번 양식 베이스) -->
+    <div style="overflow-x:auto">
+    <table class="pm-table" id="b2c-table">
+      <thead><tr>
+        <th>No</th><th>상태</th><th>결제번호</th><th>결제명</th><th>결제일</th><th>대리점</th>
+        <th>결제수단</th><th>세금계산서</th><th style="text-align:right">판매금액</th>
+        <th style="text-align:right">할인금액</th><th style="text-align:right">결제금액</th>
+        <th style="text-align:right">수수료율</th><th style="text-align:right">수수료</th>
+      </tr></thead>
+      <tbody id="b2c-tbody">
+        <tr><td>1625</td><td><span class="pm-badge ok">정상처리</span></td><td>ML20260519140329...</td><td>2026년 4월 망고아이 연장 수강신청</td><td>2026-05-19 14:04</td><td>제니 영어학원</td><td>카드</td><td><button class="pm-row-btn tax">발행하기</button></td><td style="text-align:right">30,000</td><td style="text-align:right">0</td><td style="text-align:right">30,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">858</td></tr>
+        <tr><td>1624</td><td><span class="pm-badge ok">정상처리</span></td><td>ML20260519133601...</td><td>수업료충전</td><td>2026-05-19 13:40</td><td>UBCK어학원</td><td>카드</td><td><button class="pm-row-btn tax">재발행</button></td><td style="text-align:right">1,000,000</td><td style="text-align:right">0</td><td style="text-align:right">1,000,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">28,600</td></tr>
+        <tr><td>1623</td><td><span class="pm-badge ok">정상처리</span></td><td>ML20260517183406...</td><td>2026년 3월 망고아이 연장 수강신청</td><td>2026-05-17 18:35</td><td>라바씽글리시 학원</td><td>카드</td><td>외부발행처리</td><td style="text-align:right">232,500</td><td style="text-align:right">0</td><td style="text-align:right">232,500</td><td style="text-align:right">2.86%</td><td style="text-align:right">6,650</td></tr>
+        <tr><td>1622</td><td><span class="pm-badge ok">정상처리</span></td><td>ML20260515160924...</td><td>2026년 5월 망고아이 연장 수강신청</td><td>2026-05-15 16:10</td><td>탑키즈영어학원</td><td>카드</td><td><button class="pm-row-btn tax">발행하기</button></td><td style="text-align:right">37,500</td><td style="text-align:right">0</td><td style="text-align:right">37,500</td><td style="text-align:right">2.86%</td><td style="text-align:right">1,073</td></tr>
+        <tr><td>1621</td><td><span class="pm-badge ok">정상처리</span></td><td>ML20260513143715...</td><td>2026년 05월 망고아이 연장 수강신청</td><td>2026-05-13 14:38</td><td>이루다잉글리쉬</td><td>카드</td><td>외부발행처리됨</td><td style="text-align:right">150,000</td><td style="text-align:right">0</td><td style="text-align:right">150,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">4,290</td></tr>
+        <tr><td>1620</td><td><span class="pm-badge ok">정상처리</span></td><td>ML20260512175601...</td><td>수업료충전</td><td>2026-05-12 17:56</td><td>강남캐피타운학원</td><td>카드</td><td><button class="pm-row-btn tax">발행하기</button></td><td style="text-align:right">870,000</td><td style="text-align:right">0</td><td style="text-align:right">870,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">24,882</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="pm-pagination">
+      <button class="pm-page-btn">‹</button>
+      <button class="pm-page-btn active">1</button>
+      <button class="pm-page-btn">2</button>
+      <button class="pm-page-btn">3</button>
+      <button class="pm-page-btn">…</button>
+      <button class="pm-page-btn">›</button>
+    </div>
+  </div>
+</details>
+
+<!-- ph106 JS — Chart.js + 데모 데이터 (실서비스 시 fetch API 로 교체) -->
+<script>
+(function(){
+  'use strict';
+  // KPI 데모 값 채우기
+  function fmt(n){ return '₩' + n.toLocaleString('ko-KR'); }
+  function setKpi(id, v){ var e = document.getElementById(id); if (e) e.textContent = v; }
+  // B2B KPI
+  setKpi('b2b-kpi-today', fmt(890000));
+  setKpi('b2b-kpi-month', fmt(28500000));
+  setKpi('b2b-kpi-count', '247건');
+  setKpi('b2b-kpi-fee',   fmt(815100));
+  // B2C KPI
+  setKpi('b2c-kpi-today', fmt(2380000));
+  setKpi('b2c-kpi-month', fmt(45200000));
+  setKpi('b2c-kpi-count', '156건');
+  setKpi('b2c-kpi-tax',   '12건');
+
+  // 간단한 라인 차트 (Canvas API 직접, Chart.js 의존 없음)
+  function drawSimpleLine(canvasId, data, color){
+    var c = document.getElementById(canvasId);
+    if (!c) return;
+    var ctx = c.getContext('2d');
+    var w = c.width = c.offsetWidth;
+    var h = c.height = 100;
+    ctx.clearRect(0, 0, w, h);
+    var max = Math.max.apply(null, data);
+    var step = w / (data.length - 1);
+    // 그라데이션 배경
+    var grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, color + '40');
+    grad.addColorStop(1, color + '00');
+    ctx.beginPath();
+    ctx.moveTo(0, h);
+    data.forEach(function(v, i){
+      var x = i * step;
+      var y = h - (v / max) * (h - 10) - 5;
+      if (i === 0) ctx.lineTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.lineTo(w, h);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+    // 라인
+    ctx.beginPath();
+    data.forEach(function(v, i){
+      var x = i * step;
+      var y = h - (v / max) * (h - 10) - 5;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // 포인트
+    data.forEach(function(v, i){
+      var x = i * step;
+      var y = h - (v / max) * (h - 10) - 5;
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    });
+  }
+
+  function ph106Draw(){
+    // B2B 30일 데모 데이터
+    var b2bData = [];
+    for (var i = 0; i < 30; i++) b2bData.push(Math.floor(500000 + Math.random() * 1500000));
+    drawSimpleLine('b2b-chart', b2bData, '#60A5FA');
+    // B2C 12개월 데모 데이터
+    var b2cData = [12000000, 15000000, 18000000, 22000000, 28000000, 31000000, 35000000, 38000000, 42000000, 39000000, 41000000, 45200000];
+    drawSimpleLine('b2c-chart', b2cData, '#67E8F9');
+  }
+  // 카드가 열릴 때마다 그리기 (details open 이벤트)
+  document.addEventListener('toggle', function(e){
+    if (e.target.id === 'card-payments-b2b' || e.target.id === 'card-payments-b2c') {
+      if (e.target.open) setTimeout(ph106Draw, 100);
+    }
+  }, true);
+  // 초기 1회
+  setTimeout(ph106Draw, 500);
+
+  // 검색/다운로드 stub (실서비스시 fetch API 호출로 교체)
+  window.b2bSearch = function(){ console.log('[ph106] B2B 검색 호출 — 실서비스에서 /api/admin/payments/b2b 호출'); alert('검색 요청 전송 (데모)'); };
+  window.b2cSearch = function(){ console.log('[ph106] B2C 검색 호출'); alert('검색 요청 전송 (데모)'); };
+  window.b2bDownloadCsv = function(){ console.log('[ph106] B2B CSV 다운로드'); alert('CSV 다운로드 시작 (데모)'); };
+  window.b2bDownloadExcel = function(){ console.log('[ph106] B2B Excel 다운로드'); alert('Excel 다운로드 시작 (데모)'); };
+  window.b2cDownloadCsv = function(){ console.log('[ph106] B2C CSV 다운로드'); alert('CSV 다운로드 시작 (데모)'); };
+  window.b2cBulkTaxInvoice = function(){ console.log('[ph106] 세금계산서 일괄발행'); alert('세금계산서 일괄발행 시작 (데모)'); };
+
+  console.log('[ph106] BtoB/BtoC 결제관리 카드 + 차트 초기화 완료');
 })();
 </script>
 
