@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525170634 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525171221 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525170634 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525171221 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525170634 -->
+        <!-- BUILD:20260525171221 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -29550,6 +29550,279 @@ button.chip:hover,
   setInterval(ph122Init, 1500);
 
   console.log('[ph122] 학생 이름 클릭 → 상세보기 이동 활성');
+})();
+</script>
+
+
+<!-- Phase 123 admin (2026-05-25) — 사이드바 3단계 호버 플라이아웃 (부모 > 자식 > 손자) -->
+<style id="ph123-flyout-style">
+  /* === 손자 메뉴 플라이아웃 === */
+  #ph123-flyout {
+    position: fixed !important;
+    background: linear-gradient(135deg, #0F172A, #1E293B) !important;
+    border: 1px solid rgba(96,165,250,0.6) !important;
+    border-radius: 12px !important;
+    padding: 8px !important;
+    min-width: 280px !important;
+    max-width: 360px !important;
+    max-height: 70vh !important;
+    overflow-y: auto !important;
+    z-index: 100001 !important;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.6), 0 0 0 3px rgba(37,99,235,0.2) !important;
+    animation: ph123In 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  }
+  @keyframes ph123In {
+    from { opacity: 0; transform: translateX(-8px) scale(0.96); }
+    to   { opacity: 1; transform: translateX(0) scale(1); }
+  }
+  #ph123-flyout::-webkit-scrollbar { width: 6px; }
+  #ph123-flyout::-webkit-scrollbar-thumb { background: rgba(96,165,250,0.4); border-radius: 3px; }
+
+  #ph123-flyout .ph123-header {
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #1E3A8A, #2563EB);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    color: #F8FAFC;
+    font-size: 12.5px;
+    font-weight: 800;
+  }
+  #ph123-flyout .ph123-header-sub {
+    font-size: 10.5px;
+    color: #BFDBFE;
+    font-weight: 600;
+    margin-top: 2px;
+  }
+  #ph123-flyout .ph123-empty {
+    padding: 16px;
+    color: #94A3B8;
+    font-size: 12px;
+    text-align: center;
+    font-style: italic;
+  }
+  #ph123-flyout .ph123-direct {
+    display: block;
+    padding: 10px 14px;
+    color: #67E8F9 !important;
+    background: rgba(34,211,238,0.1);
+    border: 1px solid rgba(34,211,238,0.3);
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    margin-bottom: 4px;
+  }
+  #ph123-flyout .ph123-direct:hover {
+    background: rgba(34,211,238,0.25);
+    color: #A5F3FC !important;
+  }
+  #ph123-flyout .ph123-gc {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    color: #F8FAFC !important;
+    background: rgba(15,23,42,0.5);
+    border: 1px solid rgba(59,130,246,0.2);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    margin-bottom: 3px;
+    transition: all 0.12s;
+  }
+  #ph123-flyout .ph123-gc:hover {
+    background: rgba(37,99,235,0.3) !important;
+    border-color: rgba(96,165,250,0.6) !important;
+    color: #DBEAFE !important;
+    padding-left: 18px;
+  }
+  #ph123-flyout .ph123-gc .ph123-num {
+    background: rgba(96,165,250,0.3);
+    color: #DBEAFE;
+    font-size: 10px;
+    font-weight: 900;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  #ph123-flyout .ph123-gc .ph123-text {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* sub 호버 시 우측 인디케이터 */
+  #ph85-sidebar .ph85-sub.ph123-active {
+    background: rgba(37,99,235,0.18) !important;
+    color: #93C5FD !important;
+  }
+  #ph85-sidebar .ph85-sub.ph123-active::after {
+    content: '▶';
+    margin-left: auto;
+    font-size: 10px;
+    color: #60A5FA;
+    margin-right: 4px;
+  }
+</style>
+
+<script>
+(function(){
+  'use strict';
+
+  var flyout = null;
+  var hideTimer = null;
+  var currentSub = null;
+
+  // 카드 내 details.sub-item 추출 → 손자 메뉴 목록
+  function getGrandchildren(cardId){
+    var card = document.getElementById(cardId);
+    if (!card) return null;
+    var items = card.querySelectorAll('details.sub-item, details.menu-body details');
+    var result = [];
+    items.forEach(function(item, idx){
+      var summary = item.querySelector(':scope > summary');
+      if (!summary) return;
+      var text = summary.textContent.trim().substring(0, 50);
+      if (text) {
+        result.push({ idx: idx, title: text, element: item });
+      }
+    });
+    return result;
+  }
+
+  // 플라이아웃 생성 & 표시
+  function showFlyout(subEl){
+    var cardId = subEl.dataset.card;
+    if (!cardId) return;
+    var grandchildren = getGrandchildren(cardId);
+    if (!grandchildren) return;
+
+    if (currentSub) currentSub.classList.remove('ph123-active');
+    subEl.classList.add('ph123-active');
+    currentSub = subEl;
+
+    // 기존 플라이아웃 제거
+    if (flyout) { flyout.remove(); flyout = null; }
+
+    var rect = subEl.getBoundingClientRect();
+    flyout = document.createElement('div');
+    flyout.id = 'ph123-flyout';
+
+    var subTitle = subEl.textContent.trim();
+    var headerHtml = '<div class="ph123-header">' +
+      '🧭 ' + subTitle +
+      '<div class="ph123-header-sub">' + cardId + ' · 손자 메뉴 ' + grandchildren.length + '개</div>' +
+    '</div>';
+
+    var directHtml = '<a class="ph123-direct" onclick="ph123JumpCard(\'' + cardId + '\')">📂 카드 전체 열기</a>';
+
+    var listHtml = '';
+    if (grandchildren.length === 0) {
+      listHtml = '<div class="ph123-empty">하위 항목 없음 — "카드 전체 열기" 를 사용하세요</div>';
+    } else {
+      listHtml = grandchildren.map(function(g, i){
+        var safeTitle = g.title.replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+        return '<a class="ph123-gc" onclick="ph123JumpGrandchild(\'' + cardId + '\',' + g.idx + ')">' +
+          '<span class="ph123-num">' + (i + 1) + '</span>' +
+          '<span class="ph123-text">' + safeTitle + '</span>' +
+        '</a>';
+      }).join('');
+    }
+
+    flyout.innerHTML = headerHtml + directHtml + listHtml;
+    document.body.appendChild(flyout);
+
+    // 위치 계산 (사이드바 우측에 표시)
+    var fw = 320; // 예상 너비
+    var fh = Math.min(grandchildren.length * 40 + 100, window.innerHeight * 0.7);
+    var left = rect.right + 6;
+    var top = rect.top;
+    // 화면 밖 방지
+    if (left + fw > window.innerWidth) left = rect.left - fw - 6;
+    if (top + fh > window.innerHeight) top = window.innerHeight - fh - 10;
+    if (top < 10) top = 10;
+    flyout.style.left = left + 'px';
+    flyout.style.top = top + 'px';
+
+    // 플라이아웃 자체에 호버 → 유지
+    flyout.addEventListener('mouseenter', function(){
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+    });
+    flyout.addEventListener('mouseleave', function(){
+      hideFlyout(150);
+    });
+  }
+
+  function hideFlyout(delay){
+    if (hideTimer) clearTimeout(hideTimer);
+    hideTimer = setTimeout(function(){
+      if (flyout) { flyout.remove(); flyout = null; }
+      if (currentSub) { currentSub.classList.remove('ph123-active'); currentSub = null; }
+    }, delay || 200);
+  }
+
+  // 손자 메뉴 클릭 → 해당 카드의 N번째 sub-item 펼침 + scroll
+  window.ph123JumpGrandchild = function(cardId, idx){
+    var card = document.getElementById(cardId);
+    if (!card) return;
+    if (card.tagName === 'DETAILS') card.open = true;
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    var items = card.querySelectorAll('details.sub-item, details.menu-body details');
+    var target = items[idx];
+    if (target) {
+      target.open = true;
+      setTimeout(function(){
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.style.boxShadow = '0 0 0 3px rgba(251,191,36,0.6), 0 12px 40px rgba(251,191,36,0.3)';
+        setTimeout(function(){ target.style.boxShadow = ''; }, 2500);
+      }, 300);
+    }
+    hideFlyout(0);
+    console.log('[ph123] 손자 점프:', cardId, '[' + idx + ']');
+  };
+
+  window.ph123JumpCard = function(cardId){
+    var card = document.getElementById(cardId);
+    if (!card) return;
+    if (card.tagName === 'DETAILS') card.open = true;
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    card.style.boxShadow = '0 0 0 4px rgba(251,191,36,0.7), 0 12px 40px rgba(251,191,36,0.3)';
+    setTimeout(function(){ card.style.boxShadow = ''; }, 2500);
+    hideFlyout(0);
+  };
+
+  // 사이드바 sub 에 호버 이벤트 바인딩
+  function ph123BindHover(){
+    var bar = document.getElementById('ph85-sidebar');
+    if (!bar) return;
+    bar.querySelectorAll('.ph85-sub').forEach(function(sub){
+      if (sub.__ph123) return;
+      sub.__ph123 = true;
+      sub.addEventListener('mouseenter', function(){
+        if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+        showFlyout(sub);
+      });
+      sub.addEventListener('mouseleave', function(){
+        hideFlyout(200);
+      });
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph123BindHover);
+  else ph123BindHover();
+  setInterval(ph123BindHover, 1500);
+
+  // ESC 키로 플라이아웃 닫기
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') hideFlyout(0); });
+
+  console.log('[ph123] 사이드바 3단계 호버 플라이아웃 활성 — sub 호버 시 손자 메뉴 표시');
 })();
 </script>
 
