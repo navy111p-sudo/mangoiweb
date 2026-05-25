@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525172434 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525173552 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525172434 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525173552 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525172434 -->
+        <!-- BUILD:20260525173552 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -23342,8 +23342,8 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-daily-charts" onclick="event.stopPropagation();var c=document.getElementById('card-daily-charts');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-daily-charts');}">일별 차트</div>
       <div class="ph85-sub" data-card="card-rankings" onclick="event.stopPropagation();var c=document.getElementById('card-rankings');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-rankings');}">랭킹</div>
       <div class="ph85-sub" data-card="card-retention-risk" onclick="event.stopPropagation();var c=document.getElementById('card-retention-risk');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-retention-risk');}">이탈 위험</div>
-      <div class="ph85-sub" data-card="card-retention" onclick="event.stopPropagation();var c=document.getElementById('card-retention');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-retention');}">잔존율</div>
-      <div class="ph85-sub" data-card="card-active-rooms" onclick="event.stopPropagation();var c=document.getElementById('card-active-rooms');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-active-rooms');}">활성 룸</div>
+      <div class="ph85-sub" data-card="card-retention" onclick="event.stopPropagation();var c=document.getElementById('card-retention');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-retention');}">🗑 보관기간 파기</div>
+      <div class="ph85-sub" data-card="card-active-rooms" onclick="event.stopPropagation();var c=document.getElementById('card-active-rooms');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-active-rooms');}">🔴 실시간 수업 (활성 룸)</div>
       <div class="ph85-sub" data-card="card-nps-monthly" onclick="event.stopPropagation();var c=document.getElementById('card-nps-monthly');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-nps-monthly');}">📈 월별 NPS</div>
       <div class="ph85-sub" data-card="card-ai-forecast" onclick="event.stopPropagation();var c=document.getElementById('card-ai-forecast');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-ai-forecast');}">🔮 AI 예측</div>
       <div class="ph85-sub" data-card="card-voice-stats" onclick="event.stopPropagation();var c=document.getElementById('card-voice-stats');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-voice-stats');}">🎙 음성 통계</div>
@@ -29862,7 +29862,7 @@ button.chip:hover,
     'card-daily-charts':        ['오늘 차트','일별 비교','시간대별','지역별'],
     'card-rankings':            ['학생 랭킹','강사 랭킹','학원 랭킹','월별 변동'],
     'card-retention-risk':      ['위험군 알림','상담 우선순위','이탈 원인 분석','조치 이력'],
-    'card-retention':           ['잔존율 추이','코호트 분석','이탈률','회복률'],
+    'card-retention':           ['파기 일정 설정','오늘 파기 실행','파기 이력','파기 로그'],
     'card-active-rooms':        ['활성 룸 목록','참여자 수','강제 입장','녹화 시작'],
     'card-nps-monthly':         ['이번달 NPS','전월 비교','피드백 분석','액션 아이템'],
     'card-ai-forecast':         ['매출 예측','학생 증감','이탈 예측','시나리오 비교'],
@@ -30186,7 +30186,7 @@ button.chip:hover,
     'card-daily-charts':        ['오늘 차트','일별 비교','시간대별','지역별'],
     'card-rankings':            ['학생 랭킹','강사 랭킹','학원 랭킹','월별 변동'],
     'card-retention-risk':      ['위험군 알림','상담 우선순위','이탈 원인 분석','조치 이력'],
-    'card-retention':           ['잔존율 추이','코호트 분석','이탈률','회복률'],
+    'card-retention':           ['파기 일정 설정','오늘 파기 실행','파기 이력','파기 로그'],
     'card-active-rooms':        ['활성 룸 목록','참여자 수','강제 입장','녹화 시작'],
     'card-nps-monthly':         ['이번달 NPS','전월 비교','피드백 분석','액션 아이템'],
     'card-ai-forecast':         ['매출 예측','학생 증감','이탈 예측','시나리오 비교'],
@@ -30356,6 +30356,89 @@ button.chip:hover,
   setInterval(ph125Build, 1500);
 
   console.log('[ph125] 인라인 아코디언 손자 메뉴 활성 — 호버 자동 펼침 + ▸ 클릭 토글');
+})();
+</script>
+
+
+<!-- Phase 126 admin (2026-05-25) — 잔존율/활성 룸 강제 visible + 정확한 스크롤 -->
+<style id="ph126-force-visible">
+  /* 두 카드 강제 visible — 모든 hide 패치 무력화 */
+  #card-retention,
+  #card-active-rooms {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+</style>
+
+<script>
+(function(){
+  'use strict';
+
+  // 주기적으로 두 카드 강제 visible (다른 패치가 hide 해도 즉시 복원)
+  function ph126Enforce(){
+    ['card-retention', 'card-active-rooms'].forEach(function(id){
+      var card = document.getElementById(id);
+      if (!card) {
+        console.warn('[ph126] 카드 미존재:', id);
+        return;
+      }
+      // 다른 패치가 추가한 hide 클래스 제거
+      card.classList.remove('ph118-card-hidden');
+      card.classList.remove('ph94-hidden');
+      // inline display 강제
+      card.style.display = '';
+      card.style.visibility = 'visible';
+      card.style.opacity = '1';
+    });
+  }
+
+  // 사이드바 클릭 핸들러 강화 — 클릭 시 카드 강제 visible + 정확한 스크롤
+  function ph126Bind(){
+    ['card-retention', 'card-active-rooms'].forEach(function(id){
+      var sub = document.querySelector('#ph85-sidebar .ph85-sub[data-card="' + id + '"]');
+      if (!sub || sub.__ph126) return;
+      sub.__ph126 = true;
+      // 기존 onclick 외에 추가 핸들러 (capture phase로 먼저 실행)
+      sub.addEventListener('click', function(e){
+        e.stopPropagation();
+        var card = document.getElementById(id);
+        if (!card) { alert('카드 미구현: ' + id); return; }
+        // 강제 visible
+        card.classList.remove('ph118-card-hidden');
+        card.style.display = '';
+        card.style.visibility = 'visible';
+        card.style.opacity = '1';
+        // 부모 legacy-cards 도 visible
+        var lc = document.getElementById('legacy-cards');
+        if (lc) { lc.style.display = 'block'; lc.style.visibility = 'visible'; }
+        // 카드 펼침 + 스크롤
+        if (card.tagName === 'DETAILS') card.open = true;
+        setTimeout(function(){
+          card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          card.style.boxShadow = '0 0 0 4px rgba(251,191,36,0.7), 0 12px 40px rgba(251,191,36,0.3)';
+          setTimeout(function(){ card.style.boxShadow = ''; }, 2500);
+        }, 100);
+        console.log('[ph126] 강제 visible + 스크롤:', id);
+      }, true);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){
+      ph126Enforce();
+      ph126Bind();
+    });
+  } else {
+    ph126Enforce();
+    ph126Bind();
+  }
+  setInterval(function(){
+    ph126Enforce();
+    ph126Bind();
+  }, 1500);
+
+  console.log('[ph126] 잔존율(보관기간 파기) + 활성 룸 강제 visible 활성');
 })();
 </script>
 
