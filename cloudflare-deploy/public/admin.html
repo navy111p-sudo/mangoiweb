@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525165845 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525170246 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525165845 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525170246 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525165845 -->
+        <!-- BUILD:20260525170246 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -29221,6 +29221,214 @@ button.chip:hover,
   setInterval(ph120Init, 1500);
 
   console.log('[ph120] 홈 버튼 → 관리자 상단 + 학원별 수업현황 검색 실제 작동');
+})();
+</script>
+
+
+<!-- Phase 121 admin (2026-05-25) — 검색 결과 통계 박스 가독성 강화 -->
+<style id="ph121-search-stat">
+  /* === 검색 결과 통계 — 큰 글자 + 카드 레이아웃 === */
+  #sa-search-stat {
+    margin-top: 16px !important;
+    background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%) !important;
+    border: 1px solid rgba(96,165,250,0.6) !important;
+    border-radius: 12px !important;
+    padding: 18px 22px !important;
+    color: #F8FAFC !important;
+    box-shadow: 0 6px 20px rgba(37,99,235,0.4) !important;
+  }
+  #sa-search-stat .ph121-main {
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    color: #FFFFFF !important;
+    text-align: center !important;
+    margin-bottom: 12px !important;
+  }
+  #sa-search-stat .ph121-main b {
+    color: #FDE68A !important;
+    font-size: 22px !important;
+    margin: 0 4px !important;
+  }
+  #sa-search-stat .ph121-conds {
+    background: rgba(0,0,0,0.3) !important;
+    border-radius: 8px !important;
+    padding: 8px 14px !important;
+    color: #DBEAFE !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+    margin-bottom: 10px !important;
+    border: 1px solid rgba(96,165,250,0.3) !important;
+  }
+  #sa-search-stat .ph121-cards {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 10px !important;
+    margin-bottom: 12px !important;
+  }
+  @media (max-width: 600px){ #sa-search-stat .ph121-cards { grid-template-columns: repeat(3, 1fr) !important; } }
+  #sa-search-stat .ph121-card {
+    background: rgba(0,0,0,0.35) !important;
+    border: 1px solid;
+    border-radius: 10px !important;
+    padding: 10px 8px !important;
+    text-align: center !important;
+  }
+  #sa-search-stat .ph121-card.excellent { border-color: rgba(34,197,94,0.7) !important; background: rgba(34,197,94,0.18) !important; }
+  #sa-search-stat .ph121-card.warning   { border-color: rgba(250,204,21,0.7) !important; background: rgba(250,204,21,0.18) !important; }
+  #sa-search-stat .ph121-card.fail      { border-color: rgba(239,68,68,0.7) !important; background: rgba(239,68,68,0.18) !important; }
+  #sa-search-stat .ph121-card-label { font-size: 11.5px !important; font-weight: 700 !important; margin-bottom: 4px !important; opacity: 0.95 !important; }
+  #sa-search-stat .ph121-card-value { font-size: 22px !important; font-weight: 900 !important; }
+  #sa-search-stat .ph121-card.excellent .ph121-card-label,
+  #sa-search-stat .ph121-card.excellent .ph121-card-value { color: #86EFAC !important; }
+  #sa-search-stat .ph121-card.warning .ph121-card-label,
+  #sa-search-stat .ph121-card.warning .ph121-card-value   { color: #FDE68A !important; }
+  #sa-search-stat .ph121-card.fail .ph121-card-label,
+  #sa-search-stat .ph121-card.fail .ph121-card-value      { color: #FCA5A5 !important; }
+  #sa-search-stat .ph121-reset {
+    display: block !important;
+    width: 100% !important;
+    background: linear-gradient(135deg, #F59E0B, #D97706) !important;
+    color: #FFFFFF !important;
+    padding: 11px 16px !important;
+    border: 0 !important;
+    border-radius: 10px !important;
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    cursor: pointer !important;
+    text-align: center !important;
+    text-decoration: none !important;
+    transition: all 0.15s !important;
+  }
+  #sa-search-stat .ph121-reset:hover {
+    background: linear-gradient(135deg, #D97706, #B45309) !important;
+    box-shadow: 0 4px 14px rgba(245,158,11,0.5) !important;
+    transform: translateY(-1px) !important;
+  }
+  /* 결과 없음 상태 */
+  #sa-search-stat.empty {
+    background: linear-gradient(135deg, #7F1D1D 0%, #DC2626 100%) !important;
+    border-color: rgba(254,202,202,0.6) !important;
+  }
+  #sa-search-stat.empty .ph121-main { color: #FECACA !important; }
+
+  /* 데모 안내문 (표 아래) — 같이 통일 */
+  #card-school-attendance-stats .menu-body > div[style*="데모 데이터"] {
+    display: none !important;
+  }
+  #ph121-demo-note {
+    background: rgba(15,23,42,0.6) !important;
+    border: 1px solid rgba(96,165,250,0.3) !important;
+    border-radius: 10px !important;
+    padding: 12px 16px !important;
+    margin-top: 14px !important;
+    color: #93C5FD !important;
+    font-size: 12.5px !important;
+    text-align: center !important;
+    font-weight: 600 !important;
+  }
+  #ph121-demo-note b { color: #67E8F9 !important; }
+</style>
+
+<script>
+(function(){
+  'use strict';
+
+  // saSearch override — 통계 박스 새 디자인
+  window.saSearch = function(){
+    var year = (document.getElementById('sa-year')||{}).value || '';
+    var month = (document.getElementById('sa-month')||{}).value || '';
+    var branch = (document.getElementById('sa-branch')||{}).value || '';
+    var academy = (document.getElementById('sa-academy')||{}).value || '';
+    var student = ((document.getElementById('sa-student')||{}).value || '').toLowerCase().trim();
+    var result = (document.getElementById('sa-result')||{}).value || '';
+
+    var rows = document.querySelectorAll('#sa-tbody tr');
+    var visible = 0, exCount = 0, warnCount = 0, failCount = 0;
+
+    rows.forEach(function(row){
+      var cells = row.querySelectorAll('td');
+      if (cells.length < 11) return;
+      var rowBranch  = cells[1].textContent.toLowerCase();
+      var rowAcademy = cells[2].textContent.toLowerCase();
+      var rowStudent = (cells[3].textContent + ' ' + cells[4].textContent + ' ' + cells[5].textContent).toLowerCase();
+      var rowResult = cells[9].textContent.toLowerCase();
+      var match = true;
+      if (academy && rowAcademy.indexOf(academy.toLowerCase()) < 0) match = false;
+      if (branch && rowBranch.indexOf(branch.toLowerCase()) < 0) match = false;
+      if (student && rowStudent.indexOf(student) < 0) match = false;
+      if (result) {
+        if (result === 'excellent' && rowResult.indexOf('excellent') < 0) match = false;
+        if (result === 'warning' && rowResult.indexOf('warning') < 0) match = false;
+        if (result === 'fail' && rowResult.indexOf('fail') < 0) match = false;
+      }
+      row.style.display = match ? '' : 'none';
+      if (match) {
+        visible++;
+        if (rowResult.indexOf('excellent') >= 0) exCount++;
+        else if (rowResult.indexOf('warning') >= 0) warnCount++;
+        else if (rowResult.indexOf('fail') >= 0) failCount++;
+      }
+    });
+
+    var card = document.getElementById('card-school-attendance-stats');
+    if (!card) return;
+    var existing = document.getElementById('sa-search-stat');
+    if (!existing) {
+      existing = document.createElement('div');
+      existing.id = 'sa-search-stat';
+      var tableWrap = card.querySelector('.sa-table');
+      if (tableWrap && tableWrap.parentElement) {
+        tableWrap.parentElement.appendChild(existing);
+      }
+    }
+
+    var conds = [];
+    if (academy) conds.push('🏫 ' + academy);
+    if (branch) conds.push('🏬 ' + branch);
+    if (student) conds.push('👨‍🎓 "' + student + '"');
+    if (result) conds.push('📊 ' + result);
+    if (month) conds.push('📅 ' + year + '/' + month + '월');
+
+    if (visible === 0) {
+      existing.classList.add('empty');
+      existing.innerHTML =
+        '<div class="ph121-main">⚠ 검색 결과 없음</div>' +
+        '<div class="ph121-conds">조건을 완화해서 다시 시도해주세요</div>' +
+        (conds.length ? '<div class="ph121-conds" style="background:rgba(0,0,0,0.4)">현재 조건: ' + conds.join(' · ') + '</div>' : '') +
+        '<a class="ph121-reset" href="javascript:void(0)" onclick="saReset()">↩ 검색 조건 초기화</a>';
+    } else {
+      existing.classList.remove('empty');
+      existing.innerHTML =
+        '<div class="ph121-main">🔍 검색 결과 <b>' + visible + '명</b> 표시 / 전체 ' + rows.length + '명</div>' +
+        (conds.length ? '<div class="ph121-conds">조건: ' + conds.join('  ·  ') + '</div>' : '') +
+        '<div class="ph121-cards">' +
+          '<div class="ph121-card excellent"><div class="ph121-card-label">✅ Excellent</div><div class="ph121-card-value">' + exCount + '명</div></div>' +
+          '<div class="ph121-card warning"><div class="ph121-card-label">⚠ Warning</div><div class="ph121-card-value">' + warnCount + '명</div></div>' +
+          '<div class="ph121-card fail"><div class="ph121-card-label">❌ Fail</div><div class="ph121-card-value">' + failCount + '명</div></div>' +
+        '</div>' +
+        '<a class="ph121-reset" href="javascript:void(0)" onclick="saReset()">↩ 검색 조건 초기화 (전체 ' + rows.length + '명 보기)</a>';
+    }
+    console.log('[ph121] 검색 결과 통계 박스 새 디자인 —', visible, '/', rows.length);
+  };
+
+  // 데모 안내문 다크 박스로 교체
+  function ph121DemoNote(){
+    var card = document.getElementById('card-school-attendance-stats');
+    if (!card || card.__ph121demo) return;
+    var existing = document.getElementById('ph121-demo-note');
+    if (existing) { card.__ph121demo = true; return; }
+    var note = document.createElement('div');
+    note.id = 'ph121-demo-note';
+    note.innerHTML = '📌 <b>데모 데이터 16건</b> 표시 — 실서비스에서는 <b>페이지네이션 + 전체 1,247명 검색 가능</b>';
+    card.querySelector('.menu-body').appendChild(note);
+    card.__ph121demo = true;
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph121DemoNote);
+  else ph121DemoNote();
+  setInterval(ph121DemoNote, 2000);
+
+  console.log('[ph121] 검색 결과 통계 박스 가독성 강화 (큰 글자 + 3색 카드 + 큰 초기화 버튼)');
 })();
 </script>
 
