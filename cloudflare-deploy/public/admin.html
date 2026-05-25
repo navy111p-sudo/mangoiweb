@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525161253 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525162451 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525161253 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525162451 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525161253 -->
+        <!-- BUILD:20260525162451 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -28322,6 +28322,435 @@ button.chip:hover,
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph115Mount);
   else ph115Mount();
   setInterval(ph115Mount, 1500);
+})();
+</script>
+
+
+<!-- Phase 116 admin (2026-05-25) — 역할 무관 ph85 사이드바 항상 visible + 강사/지사/대리점 안내 -->
+<style id="ph116-sidebar-always">
+  /* 권한 시스템이 어떤 역할로 hide 해도 ph85 사이드바는 강제 visible */
+  #ph85-sidebar {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  #ph85-sidebar .ph85-group {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  #ph85-sidebar .ph85-sub {
+    display: block !important;
+    visibility: visible !important;
+  }
+  /* 역할 안내 배너 */
+  #ph116-role-banner {
+    background: linear-gradient(135deg, #1E3A8A, #2563EB);
+    color: #DBEAFE;
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin: 8px;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-align: center;
+    border: 1px solid rgba(96,165,250,0.5);
+    box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+  }
+  #ph116-role-banner.teacher { background: linear-gradient(135deg, #6D28D9, #8B5CF6); color: #EDE9FE; }
+  #ph116-role-banner.branch  { background: linear-gradient(135deg, #D97706, #F59E0B); color: #FEF3C7; }
+  #ph116-role-banner.agency  { background: linear-gradient(135deg, #047857, #22C55E); color: #DCFCE7; }
+  #ph116-role-banner .ph116-role-back-btn {
+    display: inline-block;
+    background: rgba(255,255,255,0.25);
+    color: #fff !important;
+    padding: 4px 10px;
+    border-radius: 99px;
+    font-size: 10.5px;
+    font-weight: 800;
+    margin-top: 6px;
+    cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.4);
+    text-decoration: none !important;
+  }
+  #ph116-role-banner .ph116-role-back-btn:hover {
+    background: rgba(255,255,255,0.4);
+  }
+</style>
+
+<script>
+(function(){
+  'use strict';
+  function getUser(){
+    try { return JSON.parse(localStorage.getItem('admin_session') || 'null'); } catch(e){ return null; }
+  }
+
+  function ph116EnforceSidebar(){
+    var bar = document.getElementById('ph85-sidebar');
+    if (!bar) return;
+    // 강제 visible
+    bar.style.display = 'block';
+    bar.style.visibility = 'visible';
+    bar.style.opacity = '1';
+    bar.querySelectorAll('.ph85-group, .ph85-sub').forEach(function(el){
+      el.style.display = '';
+      el.style.visibility = 'visible';
+    });
+
+    // 역할별 안내 배너
+    var user = getUser();
+    if (!user) return;
+    var existing = document.getElementById('ph116-role-banner');
+    var isAdmin = (user.uid === 'hq_exec' || user.uid === 'hq_mgr' || user.uid === 'admin');
+
+    if (isAdmin) {
+      if (existing) existing.remove();
+      return;
+    }
+
+    // 강사/지사/대리점 → 안내 배너 표시
+    var info = {
+      'hq_t_001':      { cls: 'teacher', label: '👨‍🏫 강사 모드',   note: '본인 수업·평가만 접근 권한' },
+      'branch_busan':  { cls: 'branch',  label: '🏬 지사 모드',   note: '산하 대리점 데이터만' },
+      'branch_daegu':  { cls: 'branch',  label: '🏬 지사 모드',   note: '산하 대리점 데이터만' },
+      'agency_gn001':  { cls: 'agency',  label: '🤝 대리점 모드', note: '본인 학생만 접근 권한' },
+      'agency_sc002':  { cls: 'agency',  label: '🤝 대리점 모드', note: '본인 학생만 접근 권한' }
+    };
+    var meta = info[user.uid];
+    if (!meta) return;
+
+    if (!existing) {
+      existing = document.createElement('div');
+      existing.id = 'ph116-role-banner';
+      bar.insertBefore(existing, bar.firstChild);
+    }
+    existing.className = meta.cls;
+    existing.innerHTML =
+      '<div style="font-size:13px;font-weight:800;margin-bottom:4px">' + meta.label + '</div>' +
+      '<div style="font-size:11px;opacity:0.9">' + meta.note + '</div>' +
+      '<a class="ph116-role-back-btn" href="javascript:void(0)" onclick="ph116BackToAdmin()">🛠 관리자로 복귀</a>';
+  }
+
+  window.ph116BackToAdmin = function(){
+    if (!confirm('관리자(정우영 / hq_mgr) 계정으로 복귀할까요?')) return;
+    try {
+      localStorage.setItem('admin_session', JSON.stringify({
+        uid: 'hq_mgr',
+        name: '정우영',
+        email: 'navy111p@gmail.com',
+        branch: '본사',
+        phone: '010-1234-5678',
+        lastLogin: new Date().toLocaleString('ko-KR').slice(5,17)
+      }));
+    } catch(e){}
+    alert('🛠 관리자로 복귀 — 페이지 새로고침');
+    window.location.reload();
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph116EnforceSidebar);
+  else ph116EnforceSidebar();
+  setInterval(ph116EnforceSidebar, 1500);
+
+  console.log('[ph116] 사이드바 항상 visible + 역할 안내 배너 활성');
+})();
+</script>
+
+
+<!-- Phase 117 admin (2026-05-25) — 7가지 역할 카드 모달 (경영진/관리자/교사/지사/대리점/학부모/학생) -->
+<style id="ph117-role-cards">
+  /* === 7가지 역할 카드 그리드 === */
+  #ph117-role-modal {
+    position: fixed !important; inset: 0 !important;
+    background: rgba(0,0,0,0.78) !important;
+    backdrop-filter: blur(8px) !important;
+    z-index: 100001 !important;
+    display: none !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    padding: 30px 20px !important;
+    overflow-y: auto !important;
+  }
+  #ph117-role-modal.show { display: flex !important; }
+  #ph117-role-modal .ph117-card-wrap {
+    background: linear-gradient(135deg, #0F172A, #1E293B) !important;
+    border: 2px solid rgba(96,165,250,0.6) !important;
+    border-radius: 20px !important;
+    max-width: 920px !important; width: 100% !important;
+    color: #F8FAFC !important;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.7) !important;
+    overflow: hidden !important;
+    animation: ph117In 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes ph117In { from { transform: scale(0.92) translateY(-30px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+  #ph117-role-modal .ph117-header {
+    background: linear-gradient(135deg, #1E3A8A, #2563EB);
+    padding: 22px 28px; text-align: center; position: relative;
+  }
+  #ph117-role-modal .ph117-title { font-size: 22px; font-weight: 900; color: #fff; margin-bottom: 6px; }
+  #ph117-role-modal .ph117-subtitle { font-size: 13px; color: #BFDBFE; }
+  #ph117-role-modal .ph117-close {
+    position: absolute; top: 14px; right: 14px;
+    background: rgba(255,255,255,0.2); color: #fff; border: 0; border-radius: 8px;
+    width: 36px; height: 36px; font-size: 18px; font-weight: 800; cursor: pointer;
+  }
+  #ph117-role-modal .ph117-close:hover { background: rgba(239,68,68,0.5); }
+  #ph117-role-modal .ph117-current {
+    background: rgba(34,197,94,0.15);
+    border: 1px solid rgba(34,197,94,0.5);
+    color: #86EFAC;
+    padding: 10px 14px; margin: 14px; border-radius: 10px;
+    font-size: 13px; font-weight: 700; text-align: center;
+  }
+  #ph117-role-modal .ph117-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+    gap: 12px !important;
+    padding: 14px !important;
+  }
+  #ph117-role-modal .ph117-rc {
+    background: linear-gradient(135deg, rgba(15,23,42,0.7), rgba(30,41,59,0.85)) !important;
+    border: 2px solid rgba(59,130,246,0.4) !important;
+    border-radius: 14px !important;
+    padding: 16px !important;
+    cursor: pointer !important;
+    transition: all 0.2s !important;
+    text-align: center !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+  #ph117-role-modal .ph117-rc::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, var(--rc-color, #2563EB), transparent 70%);
+    opacity: 0.15;
+    pointer-events: none;
+  }
+  #ph117-role-modal .ph117-rc:hover {
+    transform: translateY(-4px) !important;
+    border-color: var(--rc-color, #2563EB) !important;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.4), 0 0 0 4px var(--rc-color, rgba(37,99,235,0.3)) !important;
+  }
+  #ph117-role-modal .ph117-rc.current {
+    background: linear-gradient(135deg, var(--rc-color, #2563EB), rgba(15,23,42,0.5)) !important;
+    border-color: var(--rc-color, #60A5FA) !important;
+    box-shadow: 0 0 0 4px var(--rc-color-alpha, rgba(37,99,235,0.4)) !important;
+  }
+  #ph117-role-modal .ph117-rc.current::after {
+    content: '✓ 현재 역할';
+    position: absolute; top: 8px; right: 8px;
+    background: rgba(34,197,94,0.7); color: #fff;
+    padding: 3px 8px; border-radius: 99px;
+    font-size: 10px; font-weight: 800;
+  }
+  #ph117-role-modal .ph117-rc-icon {
+    font-size: 40px !important;
+    margin-bottom: 8px !important;
+  }
+  #ph117-role-modal .ph117-rc-label {
+    font-size: 15px !important;
+    font-weight: 900 !important;
+    color: #F8FAFC !important;
+    margin-bottom: 4px !important;
+    letter-spacing: 0.5px !important;
+  }
+  #ph117-role-modal .ph117-rc-en {
+    font-size: 11px !important;
+    color: #93C5FD !important;
+    font-style: italic !important;
+    margin-bottom: 8px !important;
+  }
+  #ph117-role-modal .ph117-rc-uid {
+    font-family: Consolas, monospace !important;
+    font-size: 10.5px !important;
+    color: #67E8F9 !important;
+    background: rgba(0,0,0,0.4) !important;
+    padding: 3px 8px !important;
+    border-radius: 4px !important;
+    display: inline-block !important;
+    margin-bottom: 8px !important;
+  }
+  #ph117-role-modal .ph117-rc-desc {
+    font-size: 11px !important;
+    color: #CBD5E1 !important;
+    line-height: 1.5 !important;
+    min-height: 32px !important;
+  }
+  #ph117-role-modal .ph117-rc-perms {
+    margin-top: 8px !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 3px !important;
+    justify-content: center !important;
+  }
+  #ph117-role-modal .ph117-rc-perm {
+    background: rgba(0,0,0,0.4) !important;
+    color: #DBEAFE !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    font-size: 9.5px !important;
+    border: 1px solid rgba(96,165,250,0.3) !important;
+  }
+  #ph117-role-modal .ph117-footer {
+    padding: 14px 24px !important;
+    background: rgba(0,0,0,0.3) !important;
+    text-align: center !important;
+    color: #94A3B8 !important;
+    font-size: 11.5px !important;
+    border-top: 1px solid rgba(96,165,250,0.2) !important;
+  }
+</style>
+
+<div id="ph117-role-modal" onclick="if(event.target===this)ph117CloseRole()">
+  <div class="ph117-card-wrap">
+    <div class="ph117-header">
+      <button type="button" class="ph117-close" onclick="ph117CloseRole()">✕</button>
+      <div class="ph117-title">🎭 역할 선택 (로그인)</div>
+      <div class="ph117-subtitle">7가지 역할 중 하나를 선택하면 해당 권한·데이터 범위가 적용됩니다</div>
+    </div>
+    <div id="ph117-current-info" class="ph117-current"></div>
+    <div class="ph117-grid" id="ph117-grid"></div>
+    <div class="ph117-footer">
+      💡 망고아이 권한 체계: <b style="color:#93C5FD">본사 (HQ)</b> · 지사 (Branch) · 대리점 (Agency) · 학부모 (Parent) · 학생 (Student) — 각 역할별 메뉴/데이터 자동 분리
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // === 7가지 역할 정의 ===
+  var ROLES_117 = [
+    {
+      uid: 'hq_exec', name: '정우영', label: '👑 경영진', en: 'EXECUTIVE',
+      color: '#7F1D1D', colorAlpha: 'rgba(127,29,29,0.4)',
+      desc: '최고 권한 — 모든 데이터 조회·수정·승인',
+      perms: ['전체 메뉴', '재무 승인', '정책 결정', '본사·지사·대리점 전체']
+    },
+    {
+      uid: 'hq_mgr', name: '정우영', label: '🛠 관리자', en: 'MANAGER',
+      color: '#B91C1C', colorAlpha: 'rgba(185,28,28,0.4)',
+      desc: '본사 운영 관리 — 일상 운영 + 강사·학생 관리',
+      perms: ['전체 메뉴', '강사 관리', '학생 관리', '결제 조회']
+    },
+    {
+      uid: 'hq_t_001', name: '김지수 강사', label: '🧑‍🏫 교사', en: 'TEACHER',
+      color: '#F59E0B', colorAlpha: 'rgba(245,158,11,0.4)',
+      desc: '강사 — 본인 수업·평가서·일지만',
+      perms: ['수업 일지', '평가서 작성', '본인 시간표', '본인 급여']
+    },
+    {
+      uid: 'branch_busan', name: '박부산 지사장', label: '🏬 지사', en: 'BRANCH',
+      color: '#D97706', colorAlpha: 'rgba(217,119,6,0.4)',
+      desc: '지사장 — 산하 대리점 통합 관리',
+      perms: ['산하 대리점', '지사 매출', '지사 강사', '신규 가맹']
+    },
+    {
+      uid: 'agency_gn001', name: '이강남 원장', label: '🤝 대리점', en: 'AGENCY',
+      color: '#10B981', colorAlpha: 'rgba(16,185,129,0.4)',
+      desc: '대리점장 — 본인 학원·학생 관리',
+      perms: ['학원 학생', '학원 강사', '본인 매출', '학원 등록']
+    },
+    {
+      uid: 'parent_001', name: '최학부모', label: '👨‍👩‍👧 학부모', en: 'PARENT',
+      color: '#3B82F6', colorAlpha: 'rgba(59,130,246,0.4)',
+      desc: '학부모 — 자녀의 학습·평가·결제만',
+      perms: ['자녀 출결', '자녀 평가서', '학습 일지', '수업료 결제']
+    },
+    {
+      uid: 'student_001', name: '홍길동', label: '🎓 학생', en: 'STUDENT',
+      color: '#8B5CF6', colorAlpha: 'rgba(139,92,246,0.4)',
+      desc: '학생 — 본인 학습·평가·뱃지·콘텐츠',
+      perms: ['수업 입장', '본인 평가서', '뱃지·포인트', '학습 콘텐츠']
+    }
+  ];
+
+  function getCurrentUid(){
+    try {
+      var u = JSON.parse(localStorage.getItem('admin_session') || 'null');
+      return u && u.uid;
+    } catch(e){ return null; }
+  }
+
+  // === 역할 선택 모달 열기 ===
+  window.ph117OpenRole = function(){
+    var grid = document.getElementById('ph117-grid');
+    var currentUid = getCurrentUid();
+    var currentInfo = document.getElementById('ph117-current-info');
+    var current = ROLES_117.find(function(r){ return r.uid === currentUid; });
+    if (current) {
+      currentInfo.innerHTML = '✓ 현재 로그인: <b>' + current.label + '</b> (' + current.name + ' @' + current.uid + ')';
+    } else {
+      currentInfo.innerHTML = '⚠ 로그인된 사용자 없음';
+    }
+    grid.innerHTML = '';
+    ROLES_117.forEach(function(r){
+      var card = document.createElement('div');
+      card.className = 'ph117-rc' + (r.uid === currentUid ? ' current' : '');
+      card.style.setProperty('--rc-color', r.color);
+      card.style.setProperty('--rc-color-alpha', r.colorAlpha);
+      card.onclick = function(){ ph117SelectRole(r.uid); };
+      var permsHtml = r.perms.map(function(p){ return '<span class="ph117-rc-perm">' + p + '</span>'; }).join('');
+      card.innerHTML =
+        '<div class="ph117-rc-icon">' + r.label.split(' ')[0] + '</div>' +
+        '<div class="ph117-rc-label">' + r.label.split(' ').slice(1).join(' ') + '</div>' +
+        '<div class="ph117-rc-en">' + r.en + '</div>' +
+        '<div class="ph117-rc-uid">' + r.uid + '</div>' +
+        '<div class="ph117-rc-desc">' + r.desc + '</div>' +
+        '<div class="ph117-rc-perms">' + permsHtml + '</div>';
+      grid.appendChild(card);
+    });
+    document.getElementById('ph117-role-modal').classList.add('show');
+  };
+
+  window.ph117CloseRole = function(){
+    document.getElementById('ph117-role-modal').classList.remove('show');
+  };
+
+  window.ph117SelectRole = function(uid){
+    var role = ROLES_117.find(function(r){ return r.uid === uid; });
+    if (!role) return;
+    if (!confirm(role.label + ' (' + role.name + ') 으로 로그인할까요?\n\n권한 범위: ' + role.desc)) return;
+    try {
+      localStorage.setItem('admin_session', JSON.stringify({
+        uid: role.uid,
+        name: role.name,
+        email: role.uid + '@mangoi.com',
+        branch: role.label,
+        phone: '010-1234-5678',
+        lastLogin: new Date().toLocaleString('ko-KR').slice(5,17)
+      }));
+    } catch(e){}
+    alert('✅ ' + role.label + ' 로그인 완료 — 페이지 새로고침');
+    window.location.reload();
+  };
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') ph117CloseRole();
+  });
+
+  // === 기존 ph115 사용자 버튼의 "역할 전환" 메뉴를 ph117 로 교체 ===
+  // ph115OpenModal 이후 모달 안의 "🔄 역할 전환" 링크의 onclick 교체
+  var origOpenModal = window.ph115OpenModal;
+  if (typeof origOpenModal === 'function') {
+    window.ph115OpenModal = function(e){
+      origOpenModal(e);
+      setTimeout(function(){
+        document.querySelectorAll('#ph115-modal .ph115-mi').forEach(function(a){
+          if (a.textContent.indexOf('역할 전환') >= 0) {
+            a.setAttribute('onclick', 'ph115CloseModal();ph117OpenRole();');
+            // 라벨도 좀 더 정확하게
+            var icon = a.querySelector('.ph115-mi-icon');
+            if (icon) a.innerHTML = icon.outerHTML + '🎭 역할 선택 (7가지)';
+          }
+          if (a.textContent.indexOf('다른 계정') >= 0 || a.textContent.indexOf('로그인') >= 0 && !a.textContent.indexOf('로그아웃')) {
+            a.setAttribute('onclick', 'ph115CloseModal();ph117OpenRole();');
+          }
+        });
+      }, 50);
+    };
+  }
+
+  console.log('[ph117] 7가지 역할 카드 모달 초기화 완료 — ph117OpenRole() 호출 가능');
 })();
 </script>
 
