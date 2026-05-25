@@ -22896,51 +22896,98 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260525184832 -->
+<!-- BUILD:20260525185506 -->
 
-<!-- index.html fix v2 (2026-05-25) — 가벼운 카테고리 카드 보장 (setInterval 제거) -->
-<style id="gm-fix2-style">
-  body #gm-cat-modal.show {
-    display: flex !important;
-    position: fixed !important;
-    inset: 0 !important;
-    z-index: 999999 !important;
-    align-items: center !important;
-    justify-content: center !important;
-    background: rgba(0,0,0,0.78) !important;
-    backdrop-filter: blur(6px) !important;
-    padding: 30px 20px !important;
-    overflow-y: auto !important;
-  }
-</style>
-<script>
+<!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
+<script id="fix-v3-sw-kill">
 (function(){
   'use strict';
-  // 한 번만 실행 — setInterval 사용 안 함
-  function bindOnce(){
+  // === 1) Service Worker 완전 unregister + 캐시 삭제 (한 번만) ===
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(regs){
+      regs.forEach(function(r){
+        console.log('[fix-v3] SW unregister:', r.scope);
+        r.unregister();
+      });
+    }).catch(function(){});
+  }
+  if (window.caches) {
+    caches.keys().then(function(keys){
+      keys.forEach(function(k){
+        console.log('[fix-v3] cache delete:', k);
+        caches.delete(k);
+      });
+    }).catch(function(){});
+  }
+
+  // === 2) 카테고리 카드 가벼운 바인딩 (한 번만, setInterval 없음) ===
+  function bindCategoryCards(){
     document.querySelectorAll('.gm-cat-card').forEach(function(btn){
-      if (btn.__fix2) return;
-      btn.__fix2 = true;
+      if (btn.__v3) return;
+      btn.__v3 = true;
       btn.addEventListener('click', function(){
+        var cat = btn.dataset.cat || 'all';
         var modal = document.getElementById('gm-cat-modal');
-        if (modal && !modal.classList.contains('show')) {
-          setTimeout(function(){
-            if (!modal.classList.contains('show')) {
-              modal.classList.add('show');
-              document.body.classList.add('gm-cat-modal-open');
-              console.log('[gm-fix2] 모달 강제 visible');
-            }
-          }, 50);
+        if (!modal) {
+          console.warn('[fix-v3] 모달 element 없음');
+          return;
         }
+        // 모달 강제 visible
+        modal.style.cssText = 'position:fixed;inset:0;z-index:9999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);backdrop-filter:blur(6px);padding:30px 20px;overflow-y:auto';
+        modal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+        // body 안에 카드 표시
+        var body = document.getElementById('gm-cat-modal-body');
+        var cards = document.querySelectorAll('.gm-card[data-go]');
+        if (body) {
+          body.innerHTML = '';
+          cards.forEach(function(c){
+            var cardCat = c.getAttribute('data-cat') || 'tools';
+            if (cat === 'all' || cardCat === cat) {
+              body.appendChild(c.cloneNode(true));
+            }
+          });
+        }
+        // 타이틀
+        var title = document.getElementById('gm-cat-modal-title');
+        if (title) title.textContent = (btn.querySelector('.cat-name')||{}).textContent || '카테고리';
+        console.log('[fix-v3] 카테고리 모달 표시:', cat);
       }, false);
     });
-    console.log('[gm-fix2] 가벼운 패치 (1회 실행) — 7개 카드 바인딩');
   }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bindOnce);
-  } else {
-    bindOnce();
+
+  // ESC 또는 ✕ 닫기
+  function bindClose(){
+    var closeBtns = document.querySelectorAll('.gm-cat-modal-close, [aria-label="닫기"]');
+    closeBtns.forEach(function(b){
+      if (b.__v3close) return;
+      b.__v3close = true;
+      b.addEventListener('click', function(){
+        var m = document.getElementById('gm-cat-modal');
+        if (m) m.classList.remove('show');
+        document.body.style.overflow = '';
+      });
+    });
   }
+
+  // 한 번만 실행 (setInterval 없음 = 페이지 가벼움)
+  function init(){
+    bindCategoryCards();
+    bindClose();
+    console.log('[fix-v3] 가벼운 패치 완료 — setInterval 없음, 응답 없음 방지');
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') {
+      var m = document.getElementById('gm-cat-modal');
+      if (m && m.classList.contains('show')) {
+        m.classList.remove('show');
+        document.body.style.overflow = '';
+      }
+    }
+  });
 })();
 </script>
 
