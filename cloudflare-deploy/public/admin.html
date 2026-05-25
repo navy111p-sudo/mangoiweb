@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525171221 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525172413 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525171221 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525172413 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525171221 -->
+        <!-- BUILD:20260525172413 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -29823,6 +29823,539 @@ button.chip:hover,
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape') hideFlyout(0); });
 
   console.log('[ph123] 사이드바 3단계 호버 플라이아웃 활성 — sub 호버 시 손자 메뉴 표시');
+})();
+</script>
+
+
+<!-- Phase 124 admin (2026-05-25) — 손자 메뉴 셀렉터 광범위화 + 데모 손자 메뉴 매핑 -->
+<script>
+(function(){
+  'use strict';
+
+  // === 카드별 손자 메뉴 데모 매핑 (실제 카드에 sub-item 없어도 의미 있는 메뉴 표시) ===
+  var GRANDCHILDREN_MAP = {
+    'card-eval-mgmt':           ['평가서 작성 폼','템플릿 선택','학생별 평가 이력','평가 통계','평가서 PDF 출력'],
+    'card-bulk-eval':           ['일괄 평가 폼','학생 그룹 선택','일괄 발송','진행 상황 추적'],
+    'card-ai-lesson-report':    ['AI 리포트 생성','음성 STT 검토','자동 요약 편집','학부모 발송'],
+    'card-ai-eval-draft':       ['초안 생성','수정·다듬기','승인·확정','발송'],
+    'card-monthly-report':      ['이번달 리포트','지난달 비교','커리큘럼 진도','출석 통계'],
+    'card-comparison-report':   ['학생 간 비교','기간별 추이','학원 평균 대비','학년별 분포'],
+
+    'card-webpush-mgmt':        ['VAPID 키 관리','구독자 목록','푸시 발송','발송 이력'],
+    'card-kakao-mgmt':          ['SOLAPI 설정','템플릿 등록','발송 이력','발송 통계'],
+    'card-popups-mgmt':         ['신규 팝업','노출 일정','대상 선택','클릭률'],
+    'card-notifications':       ['이벤트 등록','수신자 그룹','발송 예약','수신 확인'],
+    'card-notice-board':        ['공지 작성','대상 선택','상단 고정','댓글 관리'],
+
+    'card-teacher-mgmt':        ['강사 정보 등록','강사 목록','평가·평점','수업 배정'],
+    'card-payroll-auto':        ['자동 정산 설정','결산 미리보기','지급 일정','지급 이력'],
+    'card-payroll':             ['이번달 급여','지급 내역','수정·조정','정산서 PDF'],
+    'card-mbti-mgmt':           ['MBTI 등록','강사 매칭','학생 추천','분석 리포트'],
+    'card-praise-stats':        ['이번주 칭찬','강사별 통계','학생별 받은 칭찬','월별 추이'],
+    'card-supervisor':          ['멘토 배정','라이브 참관 (Ghost)','노트 보내기','우선노트'],
+    'card-room-invite':         ['방 초대 발송','초대 링크','참여 현황','만료 관리'],
+    'card-timetable':           ['주간 시간표','월간 시간표','강사별 보기','강의실 충돌'],
+    'card-lesson-log':          ['오늘 일지 작성','AI 초안','학부모 발송','일지 타임라인'],
+    'card-report-forms':        ['🌴 휴가 계획서','📄 기안 및 지출서','신규 양식 등록','발송 이력'],
+
+    'card-kpi-dashboard':       ['오늘 KPI','이번달 추이','매출 추세','학생 변동'],
+    'card-daily-charts':        ['오늘 차트','일별 비교','시간대별','지역별'],
+    'card-rankings':            ['학생 랭킹','강사 랭킹','학원 랭킹','월별 변동'],
+    'card-retention-risk':      ['위험군 알림','상담 우선순위','이탈 원인 분석','조치 이력'],
+    'card-retention':           ['잔존율 추이','코호트 분석','이탈률','회복률'],
+    'card-active-rooms':        ['활성 룸 목록','참여자 수','강제 입장','녹화 시작'],
+    'card-nps-monthly':         ['이번달 NPS','전월 비교','피드백 분석','액션 아이템'],
+    'card-ai-forecast':         ['매출 예측','학생 증감','이탈 예측','시나리오 비교'],
+    'card-voice-stats':         ['오늘 발화량','학생별 점수','녹음 시간','발음 분석'],
+
+    'card-accounting-mgmt':     ['수강료 미납','학생 결제','법인카드','손익·재무'],
+    'card-payments-b2b':        ['거래 내역','거래 통계','수수료 정산','CSV 다운로드'],
+    'card-payments-b2c':        ['주문 내역','매출 통계','세금계산서 발행','환불 처리'],
+    'card-recurring-billing':   ['정기 구독자','결제 예정','실패 처리','구독 변경'],
+    'card-auto-dunning':        ['미납 자동 알림','독촉 일정','연체율','회수 이력'],
+    'card-settlement-stats':    ['일별 정산','대리점별','상품별','수수료별'],
+    'card-points-mgmt':         ['포인트 충전','적립 내역','사용 내역','만료 관리'],
+
+    'card-students-mgmt':       ['학생 등록·검색','학생 상세 프로필','학생 그룹 관리','학년별 통계','비활성 학생'],
+    'card-family-mgmt':         ['가족 그룹','형제자매 묶기','가족 할인','연락처 통합'],
+    'card-inquiry-mgmt':        ['신규 문의','진행 중','종결','전환율'],
+    'card-enrollments':         ['이번달 등록','대기자','휴학 처리','재등록'],
+    'card-badges-mgmt':         ['뱃지 발급','뱃지 디자인','학생별 보유','이벤트 뱃지'],
+    'card-community':           ['게시판','댓글 관리','신고 처리','공지'],
+    'card-counseling-booking':  ['상담 예약 신청','상담 일정','상담 이력','후속 조치'],
+    'card-parent-digest':       ['주간 요약','월간 요약','이메일 발송','학부모 반응'],
+    'card-parent-faq-bot':      ['FAQ 등록','자주 묻는 질문','학부모 답변','챗봇 학습'],
+    'card-referral':            ['추천 코드 발급','추천 통계','보상 지급','이벤트'],
+    'card-alumni':              ['졸업생 등록','졸업생 목록','멘토 활동','동문 게시판','수신노트','Ghost View'],
+    'card-gallery':             ['사진 업로드','자녀별 앨범','월별 하이라이트','졸업 앨범'],
+    'card-school-attendance-stats': ['전체 출석률','학원별 통계','위험군 학부모 알림','월별 비교'],
+
+    'card-textbooks':           ['교재 목록','단원 관리','학습 진도','과제'],
+    'card-microlearn':          ['오늘의 학습','진도 추적','퀴즈','복습'],
+    'card-mini-toeic':          ['모의고사','오답 노트','진도','등급'],
+    'card-pronunciation':       ['발음 평가','녹음 보관','AI 채점','학습 가이드'],
+    'card-video-dict':          ['영상 사전','단어 검색','자막 학습','즐겨찾기'],
+    'card-voice-diary':         ['오늘 일기','녹음 보관','AI 첨삭','월간 모음'],
+    'card-level-tests':         ['레벨 테스트 응시','결과 조회','레벨 변경','히스토리'],
+    'card-battle-mgmt':         ['오늘의 배틀','리그 운영','순위','뱃지'],
+    'card-recording-storage':   ['오늘 녹화','학생별 보관','용량 관리','자동 삭제'],
+    'card-homework':            ['새 숙제 출제','제출 현황','채점','피드백 발송'],
+
+    'card-permissions':         ['역할 관리','메뉴 권한','데이터 권한','감사 로그'],
+    'card-franchises':          ['가맹점 목록','신규 가맹','계약 관리','로열티 정산'],
+    'card-centers':             ['센터 목록','센터 등록','강사 배정','매출 조회'],
+    'card-data-export':         ['학생 CSV','강사 CSV','결제 CSV','출결 CSV'],
+    'card-test-seed':           ['시드 데이터 생성','초기화','샘플 학생','샘플 결제'],
+    'card-admin-alerts':        ['오늘 알림','중요 알림','시스템 경고','읽음 처리'],
+    'card-admin-ghost':         ['활성 룸 참관','녹화 확인','강제 입장','참관 이력'],
+    'card-admin-whisper':       ['귓속말 발송','이력','강사 알림','학생 알림'],
+    'card-attendance-status':   ['오늘 출결','월별 통계','학생별 이력','자동 알림'],
+    'card-auto-attendance':     ['QR 생성','스캔 이력','출결 자동 기록','부정 출결 감지'],
+    'card-class-attendance':    ['수업별 출결','강사 체크인','지각·결석','학부모 알림']
+  };
+
+  // 기존 getGrandchildren override — 데모 매핑 우선, 없으면 DOM 추출 fallback
+  var origGetGrandchildren = window.__ph123_getGrandchildren;
+
+  // ph123의 showFlyout 이 호출하는 getGrandchildren 를 우리 새 버전으로 교체
+  // (ph123 코드가 클로저 안이라 직접 override 어려움 → DOM 호버 이벤트 자체를 재바인딩)
+
+  // 기존 ph123 호버 핸들러 제거 후 새 핸들러 부착
+  var flyout = null;
+  var hideTimer = null;
+  var currentSub = null;
+
+  function getGrandchildrenV2(cardId, subTitle){
+    // 1순위: 데모 매핑
+    if (GRANDCHILDREN_MAP[cardId]) {
+      return GRANDCHILDREN_MAP[cardId].map(function(t, i){
+        return { idx: i, title: t, demo: true };
+      });
+    }
+    // 2순위: DOM 에서 details 추출
+    var card = document.getElementById(cardId);
+    if (!card) return [];
+    var items = [];
+    card.querySelectorAll('details.sub-item, .sub-menu > details, .menu-body > details, .sub-body > details').forEach(function(item, idx){
+      var summary = item.querySelector(':scope > summary');
+      if (summary) {
+        items.push({ idx: idx, title: summary.textContent.trim().substring(0, 50), element: item });
+      }
+    });
+    // 3순위: h3/h4 헤더
+    if (items.length === 0) {
+      card.querySelectorAll('h3, h4').forEach(function(h, idx){
+        items.push({ idx: idx, title: h.textContent.trim().substring(0, 50), header: true });
+      });
+    }
+    return items;
+  }
+
+  function showFlyoutV2(subEl){
+    var cardId = subEl.dataset.card;
+    if (!cardId) return;
+    var subTitle = subEl.textContent.trim().replace(/⭐신규$/, '').trim();
+    var grandchildren = getGrandchildrenV2(cardId, subTitle);
+
+    if (currentSub) currentSub.classList.remove('ph123-active');
+    subEl.classList.add('ph123-active');
+    currentSub = subEl;
+
+    if (flyout) { flyout.remove(); flyout = null; }
+
+    var rect = subEl.getBoundingClientRect();
+    flyout = document.createElement('div');
+    flyout.id = 'ph123-flyout';
+
+    var headerHtml = '<div class="ph123-header">' +
+      '🧭 ' + subTitle +
+      '<div class="ph123-header-sub">손자 메뉴 ' + grandchildren.length + '개</div>' +
+    '</div>';
+
+    var directHtml = '<a class="ph123-direct" onclick="ph124JumpCard(\'' + cardId + '\')">📂 카드 전체 열기</a>';
+
+    var listHtml = '';
+    if (grandchildren.length === 0) {
+      listHtml = '<div class="ph123-empty">하위 항목 매핑 없음 — "카드 전체 열기" 사용</div>';
+    } else {
+      listHtml = grandchildren.map(function(g, i){
+        var safeTitle = String(g.title).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        return '<a class="ph123-gc" onclick="ph124JumpGrandchild(\'' + cardId + '\',' + g.idx + ',\'' + safeTitle + '\')">' +
+          '<span class="ph123-num">' + (i + 1) + '</span>' +
+          '<span class="ph123-text">' + g.title + '</span>' +
+        '</a>';
+      }).join('');
+    }
+
+    flyout.innerHTML = headerHtml + directHtml + listHtml;
+    document.body.appendChild(flyout);
+
+    var fw = 320;
+    var fh = Math.min(grandchildren.length * 40 + 120, window.innerHeight * 0.7);
+    var left = rect.right + 6;
+    var top = rect.top;
+    if (left + fw > window.innerWidth) left = rect.left - fw - 6;
+    if (top + fh > window.innerHeight) top = window.innerHeight - fh - 10;
+    if (top < 10) top = 10;
+    flyout.style.left = left + 'px';
+    flyout.style.top = top + 'px';
+
+    flyout.addEventListener('mouseenter', function(){ if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } });
+    flyout.addEventListener('mouseleave', function(){ hideFlyoutV2(150); });
+  }
+
+  function hideFlyoutV2(delay){
+    if (hideTimer) clearTimeout(hideTimer);
+    hideTimer = setTimeout(function(){
+      if (flyout) { flyout.remove(); flyout = null; }
+      if (currentSub) { currentSub.classList.remove('ph123-active'); currentSub = null; }
+    }, delay || 200);
+  }
+
+  window.ph124JumpCard = function(cardId){
+    var card = document.getElementById(cardId);
+    if (!card) { alert('카드 미구현: ' + cardId); return; }
+    if (card.tagName === 'DETAILS') card.open = true;
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    card.style.boxShadow = '0 0 0 4px rgba(251,191,36,0.7), 0 12px 40px rgba(251,191,36,0.3)';
+    setTimeout(function(){ card.style.boxShadow = ''; }, 2500);
+    hideFlyoutV2(0);
+  };
+
+  window.ph124JumpGrandchild = function(cardId, idx, title){
+    var card = document.getElementById(cardId);
+    if (!card) { alert('카드 미구현: ' + cardId); return; }
+    if (card.tagName === 'DETAILS') card.open = true;
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // DOM 에서 같은 idx 의 sub-item 찾아서 열기
+    var items = card.querySelectorAll('details.sub-item, .sub-menu > details, .menu-body > details');
+    var target = items[idx];
+    if (target) {
+      target.open = true;
+      setTimeout(function(){
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.style.boxShadow = '0 0 0 3px rgba(251,191,36,0.6), 0 12px 40px rgba(251,191,36,0.3)';
+        setTimeout(function(){ target.style.boxShadow = ''; }, 2500);
+      }, 300);
+    } else {
+      // 카드 자체로 이동 + 안내
+      card.style.boxShadow = '0 0 0 4px rgba(251,191,36,0.7), 0 12px 40px rgba(251,191,36,0.3)';
+      setTimeout(function(){ card.style.boxShadow = ''; }, 2500);
+      console.log('[ph124] 손자 idx', idx, '없음 — 카드 전체로 이동:', cardId, '(' + title + ')');
+    }
+    hideFlyoutV2(0);
+  };
+
+  // ph123 의 호버 핸들러 모두 제거 + 새로 부착
+  function ph124RebindHover(){
+    var bar = document.getElementById('ph85-sidebar');
+    if (!bar) return;
+    bar.querySelectorAll('.ph85-sub').forEach(function(sub){
+      if (sub.__ph124) return;
+      // 기존 ph123 핸들러 무력화 — cloneNode 로 핸들러 모두 제거
+      var fresh = sub.cloneNode(true);
+      sub.parentNode.replaceChild(fresh, sub);
+      fresh.__ph124 = true;
+      fresh.__ph123 = true; // ph123 의 setInterval 도 skip
+      fresh.__ph92 = true;  // ph92 capture-phase 도 skip
+      fresh.addEventListener('mouseenter', function(){
+        if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+        showFlyoutV2(fresh);
+      });
+      fresh.addEventListener('mouseleave', function(){
+        hideFlyoutV2(200);
+      });
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph124RebindHover);
+  else ph124RebindHover();
+  setInterval(ph124RebindHover, 1500);
+
+  console.log('[ph124] 손자 메뉴 데모 매핑 73개 카드 활성 — 호버 시 의미 있는 손자 메뉴 표시');
+})();
+</script>
+
+
+<!-- Phase 125 admin (2026-05-25) — 사이드바 손자 메뉴 인라인 아코디언 토글 (호버+클릭) -->
+<style id="ph125-accordion">
+  /* sub 라인 — flex 로 토글 화살표 배치 */
+  #ph85-sidebar .ph85-sub {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    position: relative !important;
+  }
+  #ph85-sidebar .ph85-sub .ph125-toggle {
+    color: #60A5FA !important;
+    font-size: 11px !important;
+    transition: transform 0.2s !important;
+    margin-left: 6px !important;
+    opacity: 0.7 !important;
+  }
+  #ph85-sidebar .ph85-sub.ph125-open .ph125-toggle {
+    transform: rotate(90deg) !important;
+    color: #FBBF24 !important;
+    opacity: 1 !important;
+  }
+  /* 손자 메뉴 컨테이너 — sub 바로 아래에 인라인 펼침 */
+  #ph85-sidebar .ph125-grandchildren {
+    max-height: 0 !important;
+    overflow: hidden !important;
+    transition: max-height 0.32s cubic-bezier(0.4,0,0.2,1) !important;
+    margin-left: 18px !important;
+    border-left: 2px solid rgba(96,165,250,0.4) !important;
+    padding-left: 0 !important;
+    background: rgba(0,0,0,0.25) !important;
+    border-radius: 0 0 6px 0 !important;
+  }
+  #ph85-sidebar .ph85-sub.ph125-open + .ph125-grandchildren {
+    max-height: 600px !important;
+    margin-bottom: 6px !important;
+  }
+  #ph85-sidebar .ph125-gc {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 7px 10px 7px 14px !important;
+    color: #CBD5E1 !important;
+    font-size: 11.5px !important;
+    cursor: pointer !important;
+    border-radius: 4px !important;
+    margin: 2px 4px !important;
+    transition: all 0.12s !important;
+  }
+  #ph85-sidebar .ph125-gc:hover {
+    background: rgba(37,99,235,0.3) !important;
+    color: #DBEAFE !important;
+    padding-left: 18px !important;
+  }
+  #ph85-sidebar .ph125-gc .ph125-num {
+    background: rgba(96,165,250,0.25) !important;
+    color: #93C5FD !important;
+    font-size: 9.5px !important;
+    font-weight: 800 !important;
+    width: 16px !important; height: 16px !important;
+    border-radius: 50% !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+  }
+  #ph85-sidebar .ph125-gc .ph125-text {
+    flex: 1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+</style>
+
+<script>
+(function(){
+  'use strict';
+
+  // ph124 의 GRANDCHILDREN_MAP 재사용 — global 로 노출
+  if (!window.GRANDCHILDREN_MAP) {
+    // ph124 에서 정의했지만 클로저 안일 경우 대비 — 기본 빈 매핑
+    window.GRANDCHILDREN_MAP = {};
+  }
+
+  // 데모 매핑 (ph124와 동일 — fallback)
+  var MAP = {
+    'card-eval-mgmt':           ['평가서 작성 폼','템플릿 선택','학생별 평가 이력','평가 통계','평가서 PDF 출력'],
+    'card-bulk-eval':           ['일괄 평가 폼','학생 그룹 선택','일괄 발송','진행 상황'],
+    'card-ai-lesson-report':    ['AI 리포트 생성','음성 STT 검토','자동 요약 편집','학부모 발송'],
+    'card-ai-eval-draft':       ['초안 생성','수정·다듬기','승인·확정','발송'],
+    'card-monthly-report':      ['이번달 리포트','지난달 비교','커리큘럼 진도','출석 통계'],
+    'card-comparison-report':   ['학생 간 비교','기간별 추이','학원 평균 대비','학년별 분포'],
+    'card-webpush-mgmt':        ['VAPID 키 관리','구독자 목록','푸시 발송','발송 이력'],
+    'card-kakao-mgmt':          ['SOLAPI 설정','템플릿 등록','발송 이력','발송 통계'],
+    'card-popups-mgmt':         ['신규 팝업','노출 일정','대상 선택','클릭률'],
+    'card-notifications':       ['이벤트 등록','수신자 그룹','발송 예약','수신 확인'],
+    'card-notice-board':        ['공지 작성','대상 선택','상단 고정','댓글 관리'],
+    'card-teacher-mgmt':        ['강사 정보 등록','강사 목록','평가·평점','수업 배정'],
+    'card-payroll-auto':        ['자동 정산 설정','결산 미리보기','지급 일정','지급 이력'],
+    'card-payroll':             ['이번달 급여','지급 내역','수정·조정','정산서 PDF'],
+    'card-mbti-mgmt':           ['MBTI 등록','강사 매칭','학생 추천','분석 리포트'],
+    'card-praise-stats':        ['이번주 칭찬','강사별 통계','학생별 받은 칭찬','월별 추이'],
+    'card-supervisor':          ['멘토 배정','라이브 참관','노트 보내기','우선노트'],
+    'card-room-invite':         ['방 초대 발송','초대 링크','참여 현황','만료 관리'],
+    'card-timetable':           ['주간 시간표','월간 시간표','강사별 보기','강의실 충돌'],
+    'card-lesson-log':          ['오늘 일지 작성','AI 초안','학부모 발송','일지 타임라인'],
+    'card-report-forms':        ['🌴 휴가 계획서','📄 기안 및 지출서','신규 양식 등록','발송 이력'],
+    'card-kpi-dashboard':       ['오늘 KPI','이번달 추이','매출 추세','학생 변동'],
+    'card-daily-charts':        ['오늘 차트','일별 비교','시간대별','지역별'],
+    'card-rankings':            ['학생 랭킹','강사 랭킹','학원 랭킹','월별 변동'],
+    'card-retention-risk':      ['위험군 알림','상담 우선순위','이탈 원인 분석','조치 이력'],
+    'card-retention':           ['잔존율 추이','코호트 분석','이탈률','회복률'],
+    'card-active-rooms':        ['활성 룸 목록','참여자 수','강제 입장','녹화 시작'],
+    'card-nps-monthly':         ['이번달 NPS','전월 비교','피드백 분석','액션 아이템'],
+    'card-ai-forecast':         ['매출 예측','학생 증감','이탈 예측','시나리오 비교'],
+    'card-voice-stats':         ['오늘 발화량','학생별 점수','녹음 시간','발음 분석'],
+    'card-accounting-mgmt':     ['수강료 미납','학생 결제','법인카드','손익·재무'],
+    'card-payments-b2b':        ['거래 내역','거래 통계','수수료 정산','CSV 다운로드'],
+    'card-payments-b2c':        ['주문 내역','매출 통계','세금계산서','환불 처리'],
+    'card-recurring-billing':   ['정기 구독자','결제 예정','실패 처리','구독 변경'],
+    'card-auto-dunning':        ['미납 자동 알림','독촉 일정','연체율','회수 이력'],
+    'card-settlement-stats':    ['일별 정산','대리점별','상품별','수수료별'],
+    'card-points-mgmt':         ['포인트 충전','적립 내역','사용 내역','만료 관리'],
+    'card-students-mgmt':       ['학생 등록·검색','학생 상세 프로필','학생 그룹 관리','학년별 통계','비활성 학생'],
+    'card-family-mgmt':         ['가족 그룹','형제자매 묶기','가족 할인','연락처 통합'],
+    'card-inquiry-mgmt':        ['신규 문의','진행 중','종결','전환율'],
+    'card-enrollments':         ['이번달 등록','대기자','휴학 처리','재등록'],
+    'card-badges-mgmt':         ['뱃지 발급','뱃지 디자인','학생별 보유','이벤트 뱃지'],
+    'card-community':           ['게시판','댓글 관리','신고 처리','공지'],
+    'card-counseling-booking':  ['상담 예약','상담 일정','상담 이력','후속 조치'],
+    'card-parent-digest':       ['주간 요약','월간 요약','이메일 발송','학부모 반응'],
+    'card-parent-faq-bot':      ['FAQ 등록','자주 묻는 질문','학부모 답변','챗봇 학습'],
+    'card-referral':            ['추천 코드 발급','추천 통계','보상 지급','이벤트'],
+    'card-alumni':              ['졸업생 등록','졸업생 목록','멘토 활동','동문 게시판'],
+    'card-gallery':             ['사진 업로드','자녀별 앨범','월별 하이라이트','졸업 앨범'],
+    'card-school-attendance-stats': ['전체 출석률','학원별 통계','위험군 알림','월별 비교'],
+    'card-textbooks':           ['교재 목록','단원 관리','학습 진도','과제'],
+    'card-microlearn':          ['오늘의 학습','진도 추적','퀴즈','복습'],
+    'card-mini-toeic':          ['모의고사','오답 노트','진도','등급'],
+    'card-pronunciation':       ['발음 평가','녹음 보관','AI 채점','학습 가이드'],
+    'card-video-dict':          ['영상 사전','단어 검색','자막 학습','즐겨찾기'],
+    'card-voice-diary':         ['오늘 일기','녹음 보관','AI 첨삭','월간 모음'],
+    'card-level-tests':         ['레벨 테스트','결과 조회','레벨 변경','히스토리'],
+    'card-battle-mgmt':         ['오늘의 배틀','리그 운영','순위','뱃지'],
+    'card-recording-storage':   ['오늘 녹화','학생별 보관','용량 관리','자동 삭제'],
+    'card-homework':            ['새 숙제 출제','제출 현황','채점','피드백 발송'],
+    'card-permissions':         ['역할 관리','메뉴 권한','데이터 권한','감사 로그'],
+    'card-franchises':          ['가맹점 목록','신규 가맹','계약 관리','로열티 정산'],
+    'card-centers':             ['센터 목록','센터 등록','강사 배정','매출 조회'],
+    'card-data-export':         ['학생 CSV','강사 CSV','결제 CSV','출결 CSV'],
+    'card-test-seed':           ['시드 데이터','초기화','샘플 학생','샘플 결제'],
+    'card-admin-alerts':        ['오늘 알림','중요 알림','시스템 경고','읽음 처리'],
+    'card-admin-ghost':         ['활성 룸 참관','녹화 확인','강제 입장','참관 이력'],
+    'card-admin-whisper':       ['귓속말 발송','이력','강사 알림','학생 알림'],
+    'card-attendance-status':   ['오늘 출결','월별 통계','학생별 이력','자동 알림'],
+    'card-auto-attendance':     ['QR 생성','스캔 이력','출결 자동','부정 출결'],
+    'card-class-attendance':    ['수업별 출결','강사 체크인','지각·결석','학부모 알림']
+  };
+
+  var hoverTimer = null;
+  var lastOpened = null;
+
+  // === sub 옆에 토글 화살표 + 손자 메뉴 컨테이너 추가 ===
+  function ph125Build(){
+    var bar = document.getElementById('ph85-sidebar');
+    if (!bar) return;
+    bar.querySelectorAll('.ph85-sub').forEach(function(sub){
+      if (sub.__ph125) return;
+      var cardId = sub.dataset.card;
+      if (!cardId) return;
+      var children = MAP[cardId];
+      if (!children || children.length === 0) return;
+      sub.__ph125 = true;
+
+      // ▸ 토글 추가
+      if (!sub.querySelector('.ph125-toggle')) {
+        var toggle = document.createElement('span');
+        toggle.className = 'ph125-toggle';
+        toggle.textContent = '▸';
+        sub.appendChild(toggle);
+      }
+
+      // 다음 sibling 으로 손자 메뉴 컨테이너 추가
+      var existing = sub.nextElementSibling;
+      if (!existing || !existing.classList.contains('ph125-grandchildren')) {
+        var gcContainer = document.createElement('div');
+        gcContainer.className = 'ph125-grandchildren';
+        gcContainer.dataset.parent = cardId;
+        gcContainer.innerHTML = children.map(function(t, i){
+          var safe = String(t).replace(/'/g, "\\'");
+          return '<div class="ph125-gc" onclick="event.stopPropagation();ph125Jump(\'' + cardId + '\',' + i + ',\'' + safe + '\')">' +
+            '<span class="ph125-num">' + (i + 1) + '</span>' +
+            '<span class="ph125-text">' + t + '</span>' +
+          '</div>';
+        }).join('');
+        sub.parentNode.insertBefore(gcContainer, sub.nextSibling);
+      }
+
+      // === 호버 — 자동 펼침 ===
+      sub.addEventListener('mouseenter', function(){
+        if (hoverTimer) clearTimeout(hoverTimer);
+        // 다른 sub 닫기 (단일 펼침)
+        bar.querySelectorAll('.ph85-sub.ph125-open').forEach(function(s){
+          if (s !== sub) s.classList.remove('ph125-open');
+        });
+        sub.classList.add('ph125-open');
+        lastOpened = sub;
+      });
+
+      sub.addEventListener('mouseleave', function(){
+        // 손자 메뉴 위로 마우스 갈 시간 확보
+        hoverTimer = setTimeout(function(){
+          if (sub.classList.contains('ph125-open')) {
+            // 마우스가 손자 컨테이너 위가 아니면 닫기
+            var gc = sub.nextElementSibling;
+            if (gc && !gc.matches(':hover')) {
+              sub.classList.remove('ph125-open');
+            }
+          }
+        }, 300);
+      });
+
+      // === 토글 화살표 클릭 → 명시적 토글 (호버 없이도 작동) ===
+      var toggleBtn = sub.querySelector('.ph125-toggle');
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', function(e){
+          e.stopPropagation();
+          e.preventDefault();
+          // 다른 sub 닫기
+          bar.querySelectorAll('.ph85-sub.ph125-open').forEach(function(s){
+            if (s !== sub) s.classList.remove('ph125-open');
+          });
+          sub.classList.toggle('ph125-open');
+        });
+      }
+    });
+
+    // 손자 메뉴 컨테이너 mouseenter/leave — 유지/닫기
+    bar.querySelectorAll('.ph125-grandchildren').forEach(function(gc){
+      if (gc.__ph125) return;
+      gc.__ph125 = true;
+      gc.addEventListener('mouseenter', function(){
+        if (hoverTimer) clearTimeout(hoverTimer);
+      });
+      gc.addEventListener('mouseleave', function(){
+        hoverTimer = setTimeout(function(){
+          var prev = gc.previousElementSibling;
+          if (prev && !prev.matches(':hover')) {
+            prev.classList.remove('ph125-open');
+          }
+        }, 200);
+      });
+    });
+  }
+
+  window.ph125Jump = function(cardId, idx, title){
+    var card = document.getElementById(cardId);
+    if (!card) { alert('카드 미구현: ' + cardId); return; }
+    if (card.tagName === 'DETAILS') card.open = true;
+    card.scrollIntoView({ behavior:'smooth', block:'start' });
+    var items = card.querySelectorAll('details.sub-item, .sub-menu > details');
+    var target = items[idx];
+    if (target) {
+      target.open = true;
+      setTimeout(function(){
+        target.scrollIntoView({ behavior:'smooth', block:'center' });
+        target.style.boxShadow = '0 0 0 3px rgba(251,191,36,0.6), 0 12px 40px rgba(251,191,36,0.3)';
+        setTimeout(function(){ target.style.boxShadow = ''; }, 2500);
+      }, 300);
+    } else {
+      card.style.boxShadow = '0 0 0 4px rgba(251,191,36,0.7), 0 12px 40px rgba(251,191,36,0.3)';
+      setTimeout(function(){ card.style.boxShadow = ''; }, 2500);
+    }
+    console.log('[ph125] 손자 점프:', cardId, '[' + idx + ']', title);
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph125Build);
+  else ph125Build();
+  setInterval(ph125Build, 1500);
+
+  console.log('[ph125] 인라인 아코디언 손자 메뉴 활성 — 호버 자동 펼침 + ▸ 클릭 토글');
 })();
 </script>
 
