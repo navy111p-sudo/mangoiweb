@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525153838 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525154831 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525153838 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525154831 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525153838 -->
+        <!-- BUILD:20260525154831 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -26829,6 +26829,377 @@ button.chip:hover,
     <button class="pl-cta-btn" onclick="alert('숙제 출제 폼 (다음 phase 구현)')">📝 새 숙제 출제</button>
   </div>
 </details>
+
+
+<!-- Phase 111 admin (2026-05-25) — 사용자 드롭다운 강화: 역할 뱃지 + 로그인/로그아웃 + 다크 테마 -->
+<style id="ph111-user-menu">
+  /* === 사용자 버튼 — 인디고 그라데이션 통일 === */
+  #topUserBtn.th-user {
+    background: linear-gradient(135deg, #2563EB, #1E40AF) !important;
+    border: 1px solid rgba(96,165,250,0.5) !important;
+    color: #F8FAFC !important;
+    font-weight: 700 !important;
+    padding: 10px 18px !important;
+    border-radius: 12px !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    position: relative !important;
+  }
+  #topUserBtn.th-user:hover {
+    background: linear-gradient(135deg, #1E40AF, #1E3A8A) !important;
+    box-shadow: 0 6px 20px rgba(37,99,235,0.5) !important;
+  }
+  #topUserBtn.th-user::after {
+    content: '▾';
+    font-size: 11px;
+    color: #BFDBFE;
+    margin-left: 4px;
+  }
+
+  /* === 드롭다운 팝업 — 다크 테마 === */
+  #topUserPopup.th-user-popup {
+    display: none;
+    position: absolute !important;
+    right: 0 !important; top: calc(100% + 10px) !important;
+    min-width: 320px !important;
+    background: linear-gradient(135deg, #0F172A, #1E293B) !important;
+    backdrop-filter: blur(20px) !important;
+    color: #F8FAFC !important;
+    border: 1px solid rgba(96,165,250,0.5) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.6), 0 4px 12px rgba(37,99,235,0.3) !important;
+    padding: 8px !important;
+    z-index: 10000 !important;
+  }
+  #topUserPopup.th-user-popup.ph111-show { display: block !important; }
+
+  /* 헤더 - 사용자 정보 */
+  #topUserPopup .ph111-userinfo {
+    background: linear-gradient(135deg, #1E3A8A, #2563EB);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 6px;
+    color: #fff !important;
+  }
+  #topUserPopup .ph111-name {
+    font-size: 16px !important;
+    font-weight: 800 !important;
+    color: #FFFFFF !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin-bottom: 4px !important;
+  }
+  #topUserPopup .ph111-uid {
+    font-size: 11.5px !important;
+    color: #BFDBFE !important;
+    font-family: 'Consolas', monospace !important;
+  }
+  #topUserPopup .ph111-meta {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 4px 10px !important;
+    margin-top: 10px !important;
+    font-size: 11px !important;
+    color: #DBEAFE !important;
+  }
+  #topUserPopup .ph111-meta-key { color: #93C5FD !important; }
+
+  /* 역할 뱃지 */
+  #topUserPopup .ph111-role-row {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+    margin-top: 8px !important;
+  }
+  #topUserPopup .ph111-role-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    padding: 4px 10px !important;
+    border-radius: 999px !important;
+    font-size: 10.5px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.3px !important;
+    border: 1px solid !important;
+  }
+  #topUserPopup .ph111-role-badge.admin   { background: rgba(220,38,38,0.25) !important; color: #FCA5A5 !important; border-color: rgba(220,38,38,0.6) !important; }
+  #topUserPopup .ph111-role-badge.exec    { background: rgba(217,119,6,0.25) !important; color: #FBBF24 !important; border-color: rgba(217,119,6,0.6) !important; }
+  #topUserPopup .ph111-role-badge.teacher { background: rgba(139,92,246,0.25) !important; color: #C4B5FD !important; border-color: rgba(139,92,246,0.6) !important; }
+  #topUserPopup .ph111-role-badge.branch  { background: rgba(245,158,11,0.25) !important; color: #FCD34D !important; border-color: rgba(245,158,11,0.6) !important; }
+  #topUserPopup .ph111-role-badge.agency  { background: rgba(34,197,94,0.25) !important; color: #86EFAC !important; border-color: rgba(34,197,94,0.6) !important; }
+  #topUserPopup .ph111-role-badge.student { background: rgba(59,130,246,0.25) !important; color: #93C5FD !important; border-color: rgba(59,130,246,0.6) !important; }
+
+  /* 메뉴 링크 */
+  #topUserPopup a,
+  #topUserPopup button {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 10px 14px !important;
+    font-size: 13.5px !important;
+    border-radius: 8px !important;
+    color: #F8FAFC !important;
+    text-decoration: none !important;
+    cursor: pointer !important;
+    background: transparent !important;
+    border: 0 !important;
+    width: 100% !important;
+    text-align: left !important;
+    transition: all 0.15s !important;
+    font-family: inherit !important;
+  }
+  #topUserPopup a:hover,
+  #topUserPopup button:hover {
+    background: rgba(37,99,235,0.25) !important;
+    color: #DBEAFE !important;
+    padding-left: 18px !important;
+  }
+  #topUserPopup .th-user-popup-divider {
+    height: 1px !important;
+    background: rgba(96,165,250,0.3) !important;
+    margin: 6px 8px !important;
+  }
+  #topUserPopup #topLogoutBtn,
+  #topUserPopup .ph111-logout {
+    color: #FCA5A5 !important;
+    font-weight: 700 !important;
+    margin-top: 4px !important;
+    background: rgba(239,68,68,0.15) !important;
+  }
+  #topUserPopup #topLogoutBtn:hover,
+  #topUserPopup .ph111-logout:hover {
+    background: rgba(239,68,68,0.35) !important;
+    color: #FECACA !important;
+  }
+  #topUserPopup .ph111-login {
+    color: #86EFAC !important;
+    font-weight: 700 !important;
+    background: rgba(34,197,94,0.15) !important;
+  }
+  #topUserPopup .ph111-login:hover {
+    background: rgba(34,197,94,0.35) !important;
+    color: #DCFCE7 !important;
+  }
+
+  /* 헤더 텍스트 */
+  #topUserPopup #topUserHeader {
+    display: none !important; /* ph111이 새 헤더로 교체 */
+  }
+</style>
+
+<script>
+(function(){
+  'use strict';
+
+  // 역할 매핑 (사용자 ID → 표시 정보)
+  var ROLE_MAP = {
+    'hq_exec':       { label: '👑 본사 · 경영진',    badge: 'exec',    desc: '최고 권한 — 전체 데이터' },
+    'hq_mgr':        { label: '🛠 본사 · 관리자',    badge: 'admin',   desc: '운영 관리 — 전체 데이터' },
+    'admin':         { label: '🛠 본사 · 관리자',    badge: 'admin',   desc: '운영 관리 — 전체 데이터' },
+    'cfo01':         { label: '💼 본사 · CFO',       badge: 'admin',   desc: '회계 총괄' },
+    'ops_lead':      { label: '🛠 본사 · 운영',      badge: 'admin',   desc: '운영팀' },
+    'hq_t_001':      { label: '👨‍🏫 본사 · 강사',      badge: 'teacher', desc: '강사 — 본인 수업 데이터' },
+    'hq_teacher':    { label: '👨‍🏫 본사 · 강사',      badge: 'teacher', desc: '강사' },
+    'branch_busan':  { label: '🏬 지사 · 부산',      badge: 'branch',  desc: '지사장 — 산하 대리점 데이터' },
+    'branch_daegu':  { label: '🏬 지사 · 대구',      badge: 'branch',  desc: '지사장' },
+    'agency_gn001':  { label: '🤝 대리점 · 강남001', badge: 'agency',  desc: '대리점장 — 본인 학생만' },
+    'agency_sc002':  { label: '🤝 대리점 · 송파002', badge: 'agency',  desc: '대리점장' }
+  };
+
+  function getCurrentUser(){
+    // localStorage 우선, 그 다음 window.currentAdminUser, 마지막 기본값
+    try {
+      var raw = localStorage.getItem('admin_session');
+      if (raw) return JSON.parse(raw);
+    } catch(e){}
+    if (window.currentAdminUser) return window.currentAdminUser;
+    return null;
+  }
+
+  function renderUserPopup(){
+    var popup = document.getElementById('topUserPopup');
+    var btn = document.getElementById('topUserBtn');
+    var label = document.getElementById('topUserLabel');
+    if (!popup || !btn) return;
+
+    var user = getCurrentUser();
+    var html = '';
+
+    if (user && user.uid) {
+      // === 로그인 상태 ===
+      var role = ROLE_MAP[user.uid] || { label: '👤 ' + (user.role || '사용자'), badge: 'student', desc: user.role || '' };
+      var initial = (user.name || user.uid || 'U').charAt(0).toUpperCase();
+
+      // 버튼 라벨 — 이름 + 역할
+      if (label) {
+        label.innerHTML = '<span style="width:24px;height:24px;background:rgba(255,255,255,0.25);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:900;margin-right:6px">' + initial + '</span>' +
+          '<span>' + (user.name || user.uid) + '</span>' +
+          '<span style="background:rgba(255,255,255,0.2);padding:2px 8px;border-radius:99px;font-size:10.5px;margin-left:6px">' + role.label.replace(/^[^\s]+\s/, '') + '</span>';
+      }
+
+      html =
+        '<div class="ph111-userinfo">' +
+          '<div class="ph111-name">' +
+            '<span style="width:36px;height:36px;background:rgba(255,255,255,0.25);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:18px">' + initial + '</span>' +
+            (user.name || user.uid) +
+          '</div>' +
+          '<div class="ph111-uid">@' + user.uid + '</div>' +
+          '<div class="ph111-role-row">' +
+            '<span class="ph111-role-badge ' + role.badge + '">' + role.label + '</span>' +
+          '</div>' +
+          '<div class="ph111-meta">' +
+            '<span class="ph111-meta-key">📞 연락처</span><span>' + (user.phone || '-') + '</span>' +
+            '<span class="ph111-meta-key">📧 이메일</span><span>' + (user.email || '-') + '</span>' +
+            '<span class="ph111-meta-key">🏢 소속</span><span>' + (user.branch || user.org || '-') + '</span>' +
+            '<span class="ph111-meta-key">🕐 마지막</span><span>' + (user.lastLogin || new Date().toLocaleString('ko-KR').slice(5, 17)) + '</span>' +
+          '</div>' +
+          '<div style="margin-top:8px;font-size:11px;color:#BFDBFE;font-style:italic">' + role.desc + '</div>' +
+        '</div>' +
+        '<a href="/admin/mypage">👤 마이페이지</a>' +
+        '<a href="javascript:void(0)" onclick="ph111ChangePw()">🔑 비밀번호 변경</a>' +
+        '<a href="/admin/health" target="_blank">🩺 셀프 진단</a>' +
+        '<a href="/docs/" target="_blank">📘 사용 안내서</a>' +
+        '<a href="javascript:void(0)" onclick="ph111SwitchRole()">🔄 역할 전환 (테스트)</a>' +
+        '<div class="th-user-popup-divider"></div>' +
+        '<button type="button" class="ph111-logout" onclick="ph111Logout()">🚪 로그아웃</button>';
+    } else {
+      // === 로그아웃 상태 ===
+      if (label) {
+        label.innerHTML = '<span style="width:24px;height:24px;background:rgba(255,255,255,0.2);border-radius:50%;display:inline-flex;align-items:center;justify-content:center">?</span>' +
+          '<span>로그인 필요</span>';
+      }
+      html =
+        '<div class="ph111-userinfo">' +
+          '<div class="ph111-name">🔐 로그인이 필요합니다</div>' +
+          '<div style="margin-top:8px;font-size:12px;color:#BFDBFE">관리자 페이지에 접근하려면 로그인해주세요.</div>' +
+        '</div>' +
+        '<button type="button" class="ph111-login" onclick="ph111Login()">✅ 로그인</button>' +
+        '<div class="th-user-popup-divider"></div>' +
+        '<a href="/admin/health" target="_blank">🩺 셀프 진단 (비로그인)</a>' +
+        '<a href="/docs/" target="_blank">📘 사용 안내서</a>';
+    }
+    popup.innerHTML = html;
+  }
+
+  // 버튼 클릭 → 팝업 토글
+  function ph111Toggle(){
+    var popup = document.getElementById('topUserPopup');
+    if (!popup) return;
+    renderUserPopup();
+    popup.classList.toggle('ph111-show');
+    console.log('[ph111] user menu toggled');
+  }
+
+  // 외부 클릭 시 닫기
+  document.addEventListener('click', function(e){
+    var btn = document.getElementById('topUserBtn');
+    var popup = document.getElementById('topUserPopup');
+    if (!btn || !popup) return;
+    if (btn.contains(e.target)) {
+      ph111Toggle();
+      e.stopPropagation();
+    } else if (!popup.contains(e.target)) {
+      popup.classList.remove('ph111-show');
+    }
+  }, true);
+
+  // 로그인 함수
+  window.ph111Login = function(){
+    var overlay = document.getElementById('admin-login-overlay');
+    if (overlay) {
+      overlay.style.display = 'flex';
+    } else {
+      var uid = prompt('사용자 ID (예: admin, hq_exec, branch_busan, agency_gn001):');
+      if (!uid) return;
+      var name = prompt('이름 (예: 정우영):') || uid;
+      var session = {
+        uid: uid,
+        name: name,
+        phone: '010-0000-0000',
+        email: uid + '@mangoi.com',
+        branch: ROLE_MAP[uid] ? ROLE_MAP[uid].label : '본사',
+        lastLogin: new Date().toLocaleString('ko-KR').slice(5, 17)
+      };
+      localStorage.setItem('admin_session', JSON.stringify(session));
+      window.location.reload();
+    }
+  };
+
+  // 로그아웃
+  window.ph111Logout = function(){
+    if (!confirm('정말 로그아웃 하시겠습니까?')) return;
+    localStorage.removeItem('admin_session');
+    sessionStorage.clear();
+    console.log('[ph111] 로그아웃');
+    // 기존 logout 함수 호출 (있다면)
+    if (typeof window.adminLogout === 'function') window.adminLogout();
+    else if (typeof window.logoutAdmin === 'function') window.logoutAdmin();
+    alert('🚪 로그아웃 되었습니다.\n페이지를 새로고침합니다.');
+    window.location.reload();
+  };
+
+  // 비밀번호 변경
+  window.ph111ChangePw = function(){
+    var current = prompt('현재 비밀번호:');
+    if (!current) return;
+    var next = prompt('새 비밀번호 (8자 이상):');
+    if (!next || next.length < 8) { alert('비밀번호는 8자 이상이어야 합니다.'); return; }
+    var confirm2 = prompt('새 비밀번호 확인:');
+    if (next !== confirm2) { alert('비밀번호가 일치하지 않습니다.'); return; }
+    alert('🔑 비밀번호 변경 요청 — 실서비스에서는 백엔드 API 호출');
+  };
+
+  // 역할 전환 (테스트용)
+  window.ph111SwitchRole = function(){
+    var roles = Object.keys(ROLE_MAP).map(function(k){ return k + ' — ' + ROLE_MAP[k].label; }).join('\n');
+    var sel = prompt('테스트할 역할 ID를 선택하세요 (위 목록 중 하나):\n\n' + roles + '\n\n예: hq_exec, branch_busan, agency_gn001');
+    if (!sel || !ROLE_MAP[sel]) return;
+    var name = prompt('이름:', '정우영') || '테스트사용자';
+    var session = {
+      uid: sel,
+      name: name,
+      phone: '010-1234-5678',
+      email: sel + '@mangoi.com',
+      branch: ROLE_MAP[sel].label,
+      lastLogin: new Date().toLocaleString('ko-KR').slice(5, 17)
+    };
+    localStorage.setItem('admin_session', JSON.stringify(session));
+    window.location.reload();
+  };
+
+  // 초기 렌더 + 주기적 재바인딩
+  function ph111Init(){
+    var btn = document.getElementById('topUserBtn');
+    if (!btn) return;
+    // 기본 사용자 (없으면 정우영 관리자)
+    if (!getCurrentUser()) {
+      var defaultSession = {
+        uid: 'hq_mgr',
+        name: '정우영',
+        phone: '010-1234-5678',
+        email: 'navy111p@gmail.com',
+        branch: '본사',
+        lastLogin: new Date().toLocaleString('ko-KR').slice(5, 17)
+      };
+      localStorage.setItem('admin_session', JSON.stringify(defaultSession));
+    }
+    renderUserPopup();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph111Init);
+  else ph111Init();
+  setInterval(function(){
+    var label = document.getElementById('topUserLabel');
+    if (label && (label.textContent === '👤 관리자' || label.textContent === '로딩 중…')) {
+      renderUserPopup();
+    }
+  }, 1500);
+
+  console.log('[ph111] 사용자 드롭다운 초기화 완료 — 역할 뱃지 + 로그인/로그아웃');
+})();
+</script>
 
 </body>
 </html>
