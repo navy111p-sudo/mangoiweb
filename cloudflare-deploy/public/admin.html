@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525151908 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525152905 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525151908 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525152905 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525151908 -->
+        <!-- BUILD:20260525152905 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -26363,6 +26363,339 @@ button.chip:hover,
   };
 
   console.log('[ph108] 양식 미리보기 모달 초기화 완료 — rfOpen(id) 로 양식 ID 1, 2 호출 가능');
+})();
+</script>
+
+
+<!-- Phase 109 admin (2026-05-25) — 양식 모달 인쇄/PDF/Excel/Word 다운로드 -->
+<style id="ph109-export">
+  /* 출력 버튼 그룹 */
+  .rf-export-row {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    margin-right: auto;  /* 푸터에서 왼쪽 정렬 */
+  }
+  .rf-export-btn {
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 12.5px;
+    cursor: pointer;
+    border: 1px solid;
+    transition: all 0.15s;
+    color: #fff;
+  }
+  .rf-export-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+  .rf-export-btn.print { background: linear-gradient(135deg, #64748B, #475569); border-color: #94A3B8; }
+  .rf-export-btn.pdf   { background: linear-gradient(135deg, #DC2626, #B91C1C); border-color: #FCA5A5; }
+  .rf-export-btn.excel { background: linear-gradient(135deg, #10B981, #047857); border-color: #6EE7B7; }
+  .rf-export-btn.word  { background: linear-gradient(135deg, #2563EB, #1E40AF); border-color: #93C5FD; }
+
+  /* 푸터 레이아웃 — 왼쪽 출력 / 오른쪽 액션 */
+  .rf-modal-footer {
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  /* ===========================
+     인쇄용 CSS — 모달만 출력
+     =========================== */
+  @media print {
+    @page { size: A4; margin: 15mm; }
+    body * { visibility: hidden !important; }
+    .rf-modal-overlay, .rf-modal-overlay * { visibility: visible !important; }
+    .rf-modal-overlay {
+      position: absolute !important;
+      inset: 0 !important;
+      background: #fff !important;
+      backdrop-filter: none !important;
+      padding: 0 !important;
+      display: block !important;
+      overflow: visible !important;
+    }
+    .rf-modal {
+      box-shadow: none !important;
+      border: 0 !important;
+      max-width: 100% !important;
+      width: 100% !important;
+      background: #fff !important;
+      color: #000 !important;
+      animation: none !important;
+    }
+    .rf-modal * {
+      color: #000 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+    .rf-modal-header {
+      background: #f0f0f0 !important;
+      border-bottom: 2px solid #333 !important;
+      padding: 10px 16px !important;
+    }
+    .rf-modal-title { color: #000 !important; font-size: 20px !important; }
+    .rf-modal-subtitle { color: #555 !important; }
+    .rf-modal-close, .rf-modal-footer, .rf-export-row { display: none !important; }
+    .rf-modal-body { max-height: none !important; overflow: visible !important; padding: 16px !important; }
+    .rf-form-section {
+      background: #fff !important;
+      border: 1px solid #ccc !important;
+      border-radius: 4px !important;
+      page-break-inside: avoid !important;
+      margin-bottom: 10px !important;
+    }
+    .rf-form-section-title {
+      color: #000 !important;
+      border-bottom: 1px solid #999 !important;
+      font-weight: 800 !important;
+    }
+    .rf-field-label { color: #000 !important; }
+    .rf-field-label.required::after { content: ' *'; color: #c00 !important; }
+    .rf-modal input,
+    .rf-modal textarea,
+    .rf-modal select {
+      background: #fff !important;
+      color: #000 !important;
+      border: 1px solid #999 !important;
+    }
+    .rf-stat-box {
+      background: #f0f8ff !important;
+      color: #000 !important;
+      border: 1px solid #999 !important;
+    }
+  }
+</style>
+
+<script>
+(function(){
+  'use strict';
+
+  // ============================================
+  // 폼 데이터 수집 helper
+  // ============================================
+  function rfCollectFormData(){
+    var data = {
+      title: document.getElementById('rf-modal-title').textContent || '보고서',
+      subtitle: document.getElementById('rf-modal-subtitle').textContent || '',
+      sections: []
+    };
+    var sections = document.querySelectorAll('#rf-modal-body .rf-form-section');
+    sections.forEach(function(sec){
+      if (sec.style.display === 'none') return;
+      var secTitle = sec.querySelector('.rf-form-section-title');
+      var fields = [];
+      sec.querySelectorAll('input, textarea, select').forEach(function(el){
+        var wrap = el.closest('div');
+        var label = wrap && wrap.querySelector('.rf-field-label');
+        var labelText = label ? label.textContent.replace('*','').trim() : (el.id || el.name || '');
+        var value = '';
+        if (el.tagName === 'SELECT') {
+          value = el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : '';
+        } else {
+          value = el.value || '';
+        }
+        fields.push({ label: labelText, value: value });
+      });
+      data.sections.push({
+        title: secTitle ? secTitle.textContent.trim() : '',
+        fields: fields
+      });
+    });
+    return data;
+  }
+
+  function rfFilename(data, ext){
+    var date = new Date().toISOString().slice(0,10);
+    var clean = data.title.replace(/[^가-힣a-zA-Z0-9_\- ]/g, '').trim();
+    return clean + '_' + date + '.' + ext;
+  }
+
+  function rfDownloadBlob(blob, filename){
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
+  }
+
+  // ============================================
+  // 1) 인쇄 — window.print()
+  // ============================================
+  window.rfPrint = function(){
+    console.log('[ph109] 인쇄 호출');
+    window.print();
+  };
+
+  // ============================================
+  // 2) PDF — jsPDF + html2canvas 동적 로드 후 변환
+  //    (대안: window.print() 다이얼로그에서 PDF 저장 선택)
+  // ============================================
+  window.rfDownloadPDF = function(){
+    var data = rfCollectFormData();
+    var filename = rfFilename(data, 'pdf');
+
+    // 가벼운 방법: 인쇄 다이얼로그에서 "PDF로 저장" 안내
+    if (confirm('PDF 저장 방법을 선택해주세요:\n\n[확인] 인쇄 다이얼로그 열기 → 대상에서 "PDF로 저장" 선택 (가장 깔끔)\n[취소] 즉시 jsPDF 라이브러리 로드 후 자동 PDF 생성 (CDN 다운로드 필요)')) {
+      window.print();
+      return;
+    }
+
+    // jsPDF + html2canvas 동적 로드
+    console.log('[ph109] jsPDF + html2canvas 로딩...');
+    var loaded = 0;
+    function tryGenerate(){
+      if (loaded < 2) return;
+      try {
+        var modal = document.querySelector('.rf-modal');
+        html2canvas(modal, { backgroundColor: '#ffffff', scale: 2 }).then(function(canvas){
+          var imgData = canvas.toDataURL('image/png');
+          var pdf = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+          var pageWidth = pdf.internal.pageSize.getWidth();
+          var pageHeight = pdf.internal.pageSize.getHeight();
+          var imgWidth = pageWidth - 20;
+          var imgHeight = (canvas.height * imgWidth) / canvas.width;
+          var heightLeft = imgHeight;
+          var position = 10;
+          pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+          heightLeft -= (pageHeight - 20);
+          while (heightLeft > 0) {
+            position = heightLeft - imgHeight + 10;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+            heightLeft -= (pageHeight - 20);
+          }
+          pdf.save(filename);
+          console.log('[ph109] PDF 다운로드 완료:', filename);
+        });
+      } catch(e){
+        console.error('[ph109] PDF 생성 실패:', e);
+        alert('PDF 자동 생성 실패. "인쇄 → PDF로 저장" 방법을 권장합니다.');
+        window.print();
+      }
+    }
+    function loadScript(src){
+      var s = document.createElement('script');
+      s.src = src;
+      s.onload = function(){ loaded++; tryGenerate(); };
+      s.onerror = function(){ alert('PDF 라이브러리 로드 실패 (네트워크 확인). 인쇄 다이얼로그를 엽니다.'); window.print(); };
+      document.head.appendChild(s);
+    }
+    if (!window.jspdf) loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    else loaded++;
+    if (!window.html2canvas) loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    else loaded++;
+    if (loaded === 2) tryGenerate();
+  };
+
+  // ============================================
+  // 3) Excel — 자체 .xls 생성 (MS Excel XML 호환)
+  //    의존성 없음
+  // ============================================
+  window.rfDownloadExcel = function(){
+    var data = rfCollectFormData();
+    var filename = rfFilename(data, 'xls');
+    var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
+    html += '<head><meta charset="utf-8">';
+    html += '<xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>' + data.title.substring(0, 28) + '</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml>';
+    html += '<style>td{vnd.ms-excel.numberformat:"@";}</style>';
+    html += '</head><body>';
+    html += '<table border="1" style="border-collapse:collapse;font-family:Malgun Gothic,Arial">';
+    // 제목
+    html += '<tr><td colspan="2" style="background:#1E3A8A;color:#fff;font-size:16pt;font-weight:bold;padding:10px;text-align:center">' + data.title + '</td></tr>';
+    html += '<tr><td colspan="2" style="background:#E0F2FE;color:#1E40AF;padding:6px;text-align:center">' + data.subtitle + '</td></tr>';
+    html += '<tr><td colspan="2" style="padding:4px;font-size:9pt;color:#666">발급일: ' + new Date().toLocaleString('ko-KR') + '</td></tr>';
+    // 빈 행
+    html += '<tr><td colspan="2" style="height:8px"></td></tr>';
+    data.sections.forEach(function(sec){
+      // 섹션 헤더
+      html += '<tr><td colspan="2" style="background:#2563EB;color:#fff;font-weight:bold;padding:6px;font-size:11pt">' + sec.title + '</td></tr>';
+      sec.fields.forEach(function(f){
+        html += '<tr>';
+        html += '<td style="background:#F0F9FF;font-weight:bold;padding:6px;width:30%;border:1px solid #93C5FD">' + f.label + '</td>';
+        html += '<td style="padding:6px;border:1px solid #93C5FD">' + (f.value || '-') + '</td>';
+        html += '</tr>';
+      });
+      html += '<tr><td colspan="2" style="height:4px"></td></tr>';
+    });
+    html += '</table></body></html>';
+    var blob = new Blob(['﻿', html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    rfDownloadBlob(blob, filename);
+    console.log('[ph109] Excel 다운로드 완료:', filename);
+  };
+
+  // ============================================
+  // 4) Word — 자체 .doc 생성 (MS Word XML 호환)
+  //    의존성 없음
+  // ============================================
+  window.rfDownloadWord = function(){
+    var data = rfCollectFormData();
+    var filename = rfFilename(data, 'doc');
+    var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">';
+    html += '<head><meta charset="utf-8"><title>' + data.title + '</title>';
+    html += '<xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotPromptForConvert/><w:DoNotShowInsertionsAndDeletions/></w:WordDocument></xml>';
+    html += '<style>@page WordSection1 { size: A4; margin: 2cm; } div.WordSection1 { page: WordSection1; } body { font-family: "Malgun Gothic", "맑은 고딕", Arial; font-size: 11pt; }</style>';
+    html += '</head><body>';
+    html += '<div class="WordSection1">';
+    // 제목
+    html += '<h1 style="text-align:center;color:#1E3A8A;border-bottom:3px solid #2563EB;padding-bottom:10px">' + data.title + '</h1>';
+    html += '<p style="text-align:center;color:#475569;margin-top:-8px">' + data.subtitle + '</p>';
+    html += '<p style="text-align:right;font-size:10pt;color:#64748B">발급일: ' + new Date().toLocaleString('ko-KR') + '</p>';
+    // 섹션
+    data.sections.forEach(function(sec){
+      html += '<h2 style="background:#2563EB;color:#fff;padding:6px 10px;font-size:13pt;margin-top:18px">' + sec.title + '</h2>';
+      html += '<table border="1" style="border-collapse:collapse;width:100%;font-size:11pt">';
+      sec.fields.forEach(function(f){
+        html += '<tr>';
+        html += '<td style="background:#F0F9FF;color:#1E40AF;font-weight:bold;padding:8px;width:30%;border:1px solid #94A3B8">' + f.label + '</td>';
+        html += '<td style="padding:8px;border:1px solid #94A3B8;color:#0F172A">' + (f.value || '-') + '</td>';
+        html += '</tr>';
+      });
+      html += '</table>';
+    });
+    // 결재 서명란 추가 (보고서 양식 특성)
+    html += '<table style="width:100%;margin-top:30px;border-collapse:collapse;font-size:10pt">';
+    html += '<tr>';
+    html += '<td style="border:1px solid #999;width:25%;text-align:center;padding:8px;background:#F0F9FF">결재선</td>';
+    html += '<td style="border:1px solid #999;height:60px;text-align:center;color:#999">기안자</td>';
+    html += '<td style="border:1px solid #999;height:60px;text-align:center;color:#999">팀장</td>';
+    html += '<td style="border:1px solid #999;height:60px;text-align:center;color:#999">본부장</td>';
+    html += '<td style="border:1px solid #999;height:60px;text-align:center;color:#999">대표이사</td>';
+    html += '</tr>';
+    html += '<tr style="height:80px"><td style="border:1px solid #999;text-align:center;background:#F0F9FF;padding:8px">서명/날인</td>';
+    html += '<td style="border:1px solid #999"></td><td style="border:1px solid #999"></td><td style="border:1px solid #999"></td><td style="border:1px solid #999"></td>';
+    html += '</tr></table>';
+    html += '</div></body></html>';
+    var blob = new Blob(['﻿', html], { type: 'application/msword;charset=utf-8' });
+    rfDownloadBlob(blob, filename);
+    console.log('[ph109] Word 다운로드 완료:', filename);
+  };
+
+  // ============================================
+  // 모달 푸터에 출력 버튼 그룹 동적 삽입
+  // ============================================
+  function ph109InjectButtons(){
+    var footer = document.querySelector('.rf-modal-footer');
+    if (!footer || document.getElementById('rf-export-row')) return;
+    var exportRow = document.createElement('div');
+    exportRow.id = 'rf-export-row';
+    exportRow.className = 'rf-export-row';
+    exportRow.innerHTML =
+      '<button type="button" class="rf-export-btn print" onclick="rfPrint()">🖨 인쇄</button>' +
+      '<button type="button" class="rf-export-btn pdf"   onclick="rfDownloadPDF()">📄 PDF</button>' +
+      '<button type="button" class="rf-export-btn excel" onclick="rfDownloadExcel()">📊 Excel</button>' +
+      '<button type="button" class="rf-export-btn word"  onclick="rfDownloadWord()">📝 Word</button>';
+    footer.insertBefore(exportRow, footer.firstChild);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph109InjectButtons);
+  else ph109InjectButtons();
+  setInterval(ph109InjectButtons, 1500);
+
+  console.log('[ph109] 인쇄/PDF/Excel/Word 다운로드 4종 초기화 완료');
 })();
 </script>
 
