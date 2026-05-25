@@ -22896,6 +22896,126 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260525180326 -->
+<!-- BUILD:20260525180806 -->
+
+<!-- index.html fix (2026-05-25) — 신규 고객 안내 카테고리 카드 강제 작동 -->
+<style id="gm-cat-force">
+  /* 모달 강제 visible — 다른 CSS specificity 무력화 */
+  body #gm-cat-modal.show,
+  body div#gm-cat-modal.show {
+    display: flex !important;
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 999999 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(0,0,0,0.78) !important;
+    backdrop-filter: blur(6px) !important;
+    padding: 30px 20px !important;
+    overflow-y: auto !important;
+  }
+  body #gm-cat-modal.show .gm-cat-modal-box {
+    background: linear-gradient(135deg, #0F172A, #1E293B) !important;
+    border: 2px solid rgba(96,165,250,0.6) !important;
+    border-radius: 18px !important;
+    max-width: 1000px !important;
+    width: 100% !important;
+    color: #F8FAFC !important;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.7) !important;
+    padding: 22px !important;
+    max-height: 88vh !important;
+    overflow-y: auto !important;
+  }
+  /* 카테고리 카드 활성화 강조 */
+  .gm-cat-card.active {
+    background: linear-gradient(135deg, rgba(251,191,36,0.35), rgba(245,158,11,0.25)) !important;
+    border-color: #FBBF24 !important;
+    box-shadow: 0 0 0 3px rgba(251,191,36,0.4) !important;
+    transform: scale(1.05) !important;
+  }
+  body.gm-cat-modal-open { overflow: hidden; }
+</style>
+
+<script>
+(function(){
+  'use strict';
+  // 카테고리 카드 onclick 보강 — 함수 호출 + 디버그
+  function bindGmCatCards(){
+    document.querySelectorAll('.gm-cat-card').forEach(function(btn){
+      if (btn.__fixBound) return;
+      btn.__fixBound = true;
+      btn.addEventListener('click', function(e){
+        var cat = btn.dataset.cat;
+        console.log('[gm-fix] 카테고리 클릭:', cat);
+        // setGmCategory 호출 (있다면)
+        if (typeof window.setGmCategory === 'function') {
+          try {
+            window.setGmCategory(cat, btn);
+          } catch(err) {
+            console.error('[gm-fix] setGmCategory error:', err);
+            forceOpenModal(cat, btn);
+          }
+        } else {
+          forceOpenModal(cat, btn);
+        }
+        // 강제 모달 visible (1초 후 확인)
+        setTimeout(function(){
+          var modal = document.getElementById('gm-cat-modal');
+          if (modal && !modal.classList.contains('show')) {
+            console.warn('[gm-fix] 모달 .show 안 됨 — 강제 추가');
+            modal.classList.add('show');
+            document.body.classList.add('gm-cat-modal-open');
+          }
+        }, 100);
+      }, true);
+    });
+  }
+
+  function forceOpenModal(cat, btn){
+    var modal = document.getElementById('gm-cat-modal');
+    if (!modal) {
+      alert('모달 element 없음 — 페이지 새로고침 필요');
+      return;
+    }
+    var body = document.getElementById('gm-cat-modal-body');
+    var titleEl = document.getElementById('gm-cat-modal-title');
+    var subEl = document.getElementById('gm-cat-modal-sub');
+    var emojiEl = document.getElementById('gm-cat-modal-emoji');
+
+    var name = btn ? (btn.querySelector('.cat-name')||{}).textContent : '카테고리';
+    var emoji = btn ? (btn.querySelector('.cat-emoji')||{}).textContent : '🗂';
+
+    if (titleEl) titleEl.textContent = (name||'').trim() || '카테고리';
+    if (emojiEl) emojiEl.textContent = (emoji||'').trim() || '🗂';
+
+    // 카드 필터링 + 모달 body 에 이동
+    var allCards = document.querySelectorAll('.gm-card[data-go]');
+    var visible = [];
+    allCards.forEach(function(c){
+      var cardCat = c.getAttribute('data-cat') || 'tools';
+      var show = (cat === 'all') || (cardCat === cat);
+      if (show) visible.push(c);
+    });
+    if (body) {
+      body.innerHTML = '';
+      visible.forEach(function(c){ body.appendChild(c); });
+      if (visible.length === 0) {
+        body.innerHTML = '<div style="padding:30px;text-align:center;color:#94A3B8">이 카테고리에 표시할 메뉴가 없습니다.</div>';
+      }
+    }
+    if (subEl) subEl.textContent = visible.length + '개 메뉴';
+    modal.classList.add('show');
+    document.body.classList.add('gm-cat-modal-open');
+    console.log('[gm-fix] 강제 오픈:', cat, '카드 ' + visible.length + '개');
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindGmCatCards);
+  else bindGmCatCards();
+  setInterval(bindGmCatCards, 1500);
+
+  console.log('[gm-fix] 카테고리 카드 강제 작동 패치 활성');
+})();
+</script>
+
 </body>
 </html>
