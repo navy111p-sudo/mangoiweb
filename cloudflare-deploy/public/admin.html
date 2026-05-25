@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525150757 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525151354 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525150757 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525151354 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525150757 -->
+        <!-- BUILD:20260525151354 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -23309,7 +23309,7 @@ button.chip:hover,
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-teacher-mgmt,card-payroll-auto,card-payroll,card-mbti-mgmt,card-praise-stats">
+  <div class="ph85-group" data-cards="card-teacher-mgmt,card-payroll-auto,card-payroll,card-mbti-mgmt,card-praise-stats,card-report-forms">
     <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">👨‍🏫</div>
       <div class="ph85-title">강사 통합</div>
@@ -23321,6 +23321,7 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-payroll" onclick="event.stopPropagation();var c=document.getElementById('card-payroll');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-payroll');}">급여 관리</div>
       <div class="ph85-sub" data-card="card-mbti-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-mbti-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-mbti-mgmt');}">MBTI</div>
       <div class="ph85-sub" data-card="card-praise-stats" onclick="event.stopPropagation();var c=document.getElementById('card-praise-stats');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-praise-stats');}">칭찬 통계</div>
+      <div class="ph85-sub" data-card="card-report-forms" onclick="event.stopPropagation();var c=document.getElementById('card-report-forms');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-report-forms');}">📋 보고서 양식</div>
     </div>
   </div>
 
@@ -23383,7 +23384,7 @@ button.chip:hover,
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-permissions,card-franchises,card-centers,card-data-export,card-test-seed">
+  <div class="ph85-group" data-cards="card-permissions,card-franchises,card-centers,card-data-export,card-test-seed,card-report-forms">
     <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#64748b,#334155)">⚙</div>
       <div class="ph85-title">시스템</div>
@@ -23395,6 +23396,7 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-centers" onclick="event.stopPropagation();var c=document.getElementById('card-centers');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-centers');}">센터</div>
       <div class="ph85-sub" data-card="card-data-export" onclick="event.stopPropagation();var c=document.getElementById('card-data-export');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-data-export');}">데이터 추출</div>
       <div class="ph85-sub" data-card="card-test-seed" onclick="event.stopPropagation();var c=document.getElementById('card-test-seed');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-test-seed');}">테스트 시드</div>
+      <div class="ph85-sub" data-card="card-report-forms" onclick="event.stopPropagation();var c=document.getElementById('card-report-forms');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-report-forms');}">📋 보고서 양식</div>
     </div>
   </div>
 </aside>
@@ -25784,6 +25786,211 @@ button.chip:hover,
   window.b2cBulkTaxInvoice = function(){ console.log('[ph106] 세금계산서 일괄발행'); alert('세금계산서 일괄발행 시작 (데모)'); };
 
   console.log('[ph106] BtoB/BtoC 결제관리 카드 + 차트 초기화 완료');
+})();
+</script>
+
+
+<!-- Phase 107 admin (2026-05-25) — 보고서 양식 관리 카드 (강사+시스템 양쪽 사이드바 노출) -->
+<style id="ph107-report-forms">
+  #card-report-forms .rf-toolbar {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    background: rgba(15,23,42,0.6) !important;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(59,130,246,0.3);
+    margin-bottom: 12px;
+  }
+  #card-report-forms .rf-toolbar input,
+  #card-report-forms .rf-toolbar select {
+    background: rgba(15,23,42,0.85) !important;
+    color: #F8FAFC !important;
+    border: 1px solid rgba(59,130,246,0.45) !important;
+    border-radius: 6px !important;
+    padding: 7px 11px !important;
+    font-size: 13px !important;
+  }
+  #card-report-forms .rf-btn-search {
+    background: linear-gradient(135deg, #2563EB, #3B82F6) !important;
+    color: #fff !important; border: 0 !important;
+    padding: 8px 18px !important; border-radius: 8px !important;
+    font-weight: 800 !important; cursor: pointer !important;
+  }
+  #card-report-forms .rf-btn-new {
+    background: linear-gradient(135deg, #10B981, #059669) !important;
+    color: #fff !important; border: 0 !important;
+    padding: 9px 22px !important; border-radius: 8px !important;
+    font-weight: 800 !important; cursor: pointer !important;
+    margin: 18px auto 0 !important;
+    display: block !important;
+  }
+  #card-report-forms .rf-btn-new:hover {
+    background: linear-gradient(135deg, #059669, #047857) !important;
+    box-shadow: 0 4px 14px rgba(16,185,129,0.4) !important;
+    transform: translateY(-1px) !important;
+  }
+  #card-report-forms .rf-table {
+    width: 100%;
+    border-collapse: collapse !important;
+    background: rgba(15,23,42,0.5) !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+  }
+  #card-report-forms .rf-table thead th {
+    background: linear-gradient(135deg, #1E3A8A, #2563EB) !important;
+    color: #DBEAFE !important;
+    padding: 11px 14px !important;
+    font-size: 12.5px !important;
+    font-weight: 800 !important;
+    text-align: center !important;
+  }
+  #card-report-forms .rf-table tbody td {
+    padding: 10px 14px !important;
+    border-bottom: 1px solid rgba(59,130,246,0.2) !important;
+    color: #F8FAFC !important;
+    font-size: 13px !important;
+    text-align: center !important;
+  }
+  #card-report-forms .rf-table tbody tr:nth-child(even) td { background: rgba(30,41,59,0.45) !important; }
+  #card-report-forms .rf-table tbody tr:hover td { background: rgba(37,99,235,0.25) !important; cursor: pointer; }
+  #card-report-forms .rf-form-name {
+    color: #60A5FA !important;
+    cursor: pointer !important;
+    text-decoration: underline !important;
+    font-weight: 700 !important;
+  }
+  #card-report-forms .rf-form-name:hover { color: #93C5FD !important; }
+  #card-report-forms .rf-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+  }
+  #card-report-forms .rf-badge.active { background: rgba(34,197,94,0.25) !important; color: #86EFAC !important; border: 1px solid rgba(34,197,94,0.5); }
+  #card-report-forms .rf-badge.inactive { background: rgba(148,163,184,0.25) !important; color: #CBD5E1 !important; border: 1px solid rgba(148,163,184,0.5); }
+  #card-report-forms .rf-pagination {
+    display: flex; justify-content: center; gap: 4px; margin-top: 16px;
+  }
+  #card-report-forms .rf-page-btn {
+    background: rgba(15,23,42,0.7) !important;
+    color: #93C5FD !important;
+    border: 1px solid rgba(59,130,246,0.4) !important;
+    padding: 5px 11px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    font-size: 12px !important;
+  }
+  #card-report-forms .rf-page-btn.active {
+    background: linear-gradient(135deg, #2563EB, #3B82F6) !important;
+    color: #fff !important;
+  }
+  #card-report-forms .rf-info {
+    background: rgba(37,99,235,0.15) !important;
+    border-left: 4px solid #2563EB;
+    color: #F8FAFC !important;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    font-size: 12.5px;
+    line-height: 1.7;
+  }
+  #card-report-forms .rf-info b { color: #93C5FD !important; }
+</style>
+
+<details class="table-card menu-card" id="card-report-forms">
+  <summary><span data-ko="📋 보고서 양식 관리" data-en="📋 Report Form Management">📋 보고서 양식 관리</span></summary>
+  <div class="menu-body">
+
+    <!-- 안내 박스 -->
+    <div class="rf-info">
+      💡 <b>보고서 양식</b> — 강사·직원이 작성하는 결재 문서 (휴가 계획서, 기안서, 지출 결의서 등) 의 템플릿을 관리합니다.<br>
+      ▸ <b>강사 측 흐름</b>: 강사가 양식 선택 → 작성 → 결재 신청 &nbsp;
+      ▸ <b>관리자 측 흐름</b>: 신규 등록 / 사용중↔보관 토글 / 양식 편집
+    </div>
+
+    <!-- 검색 툴바 -->
+    <div class="rf-toolbar">
+      <input type="text" id="rf-q" placeholder="🔍 보고서명 검색" style="flex:1;min-width:200px">
+      <select id="rf-status">
+        <option value="">전체 상태</option>
+        <option value="active">사용중</option>
+        <option value="inactive">보관</option>
+      </select>
+      <select id="rf-category">
+        <option value="">전체 분류</option>
+        <option value="hr">인사/총무 (휴가·근태)</option>
+        <option value="finance">회계 (기안·지출)</option>
+        <option value="ops">운영 (보고·일지)</option>
+        <option value="etc">기타</option>
+      </select>
+      <button class="rf-btn-search" onclick="rfSearch()">🔍 검색</button>
+    </div>
+
+    <!-- 표 -->
+    <div style="overflow-x:auto">
+    <table class="rf-table">
+      <thead><tr>
+        <th style="width:60px">No</th>
+        <th>보고서 양식명</th>
+        <th style="width:100px">분류</th>
+        <th style="width:120px">상태</th>
+        <th style="width:140px">최종 수정일</th>
+        <th style="width:160px">액션</th>
+      </tr></thead>
+      <tbody id="rf-tbody">
+        <tr><td>2</td><td><a class="rf-form-name" onclick="rfOpen(2)">📄 기안 및 지출서 (구)</a></td><td>회계</td><td><span class="rf-badge active">사용중</span></td><td>2026-04-15</td><td><button class="pm-row-btn tax" onclick="rfEdit(2)">편집</button><button class="pm-row-btn" onclick="rfToggle(2)">보관</button></td></tr>
+        <tr><td>1</td><td><a class="rf-form-name" onclick="rfOpen(1)">🌴 휴가 계획서</a></td><td>인사/총무</td><td><span class="rf-badge active">사용중</span></td><td>2026-03-22</td><td><button class="pm-row-btn tax" onclick="rfEdit(1)">편집</button><button class="pm-row-btn" onclick="rfToggle(1)">보관</button></td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <!-- 페이지네이션 -->
+    <div class="rf-pagination">
+      <button class="rf-page-btn">«</button>
+      <button class="rf-page-btn">‹</button>
+      <button class="rf-page-btn active">1</button>
+      <button class="rf-page-btn">›</button>
+      <button class="rf-page-btn">»</button>
+    </div>
+
+    <!-- 신규등록 버튼 (중앙 강조) -->
+    <button class="rf-btn-new" onclick="rfNew()">➕ 신규 양식 등록</button>
+
+  </div>
+</details>
+
+<script>
+(function(){
+  'use strict';
+  window.rfSearch = function(){
+    var q = document.getElementById('rf-q').value;
+    var s = document.getElementById('rf-status').value;
+    var c = document.getElementById('rf-category').value;
+    console.log('[ph107] 양식 검색', { q, s, c });
+    alert('검색: ' + (q || '(전체)') + ' / 상태: ' + (s || '전체') + ' / 분류: ' + (c || '전체'));
+  };
+  window.rfOpen = function(id){
+    console.log('[ph107] 양식 열기 #' + id);
+    alert('양식 #' + id + ' 미리보기 (데모)');
+  };
+  window.rfEdit = function(id){
+    console.log('[ph107] 양식 편집 #' + id);
+    alert('양식 #' + id + ' 편집 페이지로 이동 (데모)');
+  };
+  window.rfToggle = function(id){
+    console.log('[ph107] 양식 토글 #' + id);
+    if (confirm('양식 #' + id + ' 의 사용중↔보관 상태를 변경할까요?')) {
+      alert('상태 변경됨 (데모 — 실서비스에서는 API 호출)');
+    }
+  };
+  window.rfNew = function(){
+    console.log('[ph107] 신규 양식 등록');
+    var name = prompt('새 양식의 이름을 입력하세요 (예: 출장 보고서)');
+    if (name && name.trim()) {
+      alert('신규 양식 "' + name + '" 등록 페이지로 이동 (데모)');
+    }
+  };
+  console.log('[ph107] 보고서 양식 카드 초기화 완료');
 })();
 </script>
 
