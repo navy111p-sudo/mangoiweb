@@ -18152,7 +18152,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525154831 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260525155303 -->
 </body></html>`);
 
     try {
@@ -18221,7 +18221,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525154831 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260525155303 -->
 </body></html>`;
   }
 
@@ -18696,7 +18696,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260525154831 -->
+        <!-- BUILD:20260525155303 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -23331,7 +23331,7 @@ button.chip:hover,
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-kpi-dashboard,card-daily-charts,card-rankings,card-retention-risk,card-retention,card-active-rooms,card-nps-monthly,card-ai-forecast,card-voice-stats">
+  <div class="ph85-group" data-cards="card-kpi-dashboard,card-daily-charts,card-rankings,card-retention-risk,card-retention,card-active-rooms,card-nps-monthly,card-ai-forecast,card-voice-stats,card-school-attendance-stats">
     <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#6366f1,#4338ca)">📊</div>
       <div class="ph85-title">통계 / KPI</div>
@@ -23347,6 +23347,7 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-nps-monthly" onclick="event.stopPropagation();var c=document.getElementById('card-nps-monthly');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-nps-monthly');}">📈 월별 NPS</div>
       <div class="ph85-sub" data-card="card-ai-forecast" onclick="event.stopPropagation();var c=document.getElementById('card-ai-forecast');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-ai-forecast');}">🔮 AI 예측</div>
       <div class="ph85-sub" data-card="card-voice-stats" onclick="event.stopPropagation();var c=document.getElementById('card-voice-stats');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-voice-stats');}">🎙 음성 통계</div>
+      <div class="ph85-sub" data-card="card-school-attendance-stats" onclick="event.stopPropagation();var c=document.getElementById('card-school-attendance-stats');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-school-attendance-stats');}">📊 학원별 수업현황 ⭐신규</div>
     </div>
   </div>
 
@@ -23409,7 +23410,7 @@ button.chip:hover,
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-permissions,card-franchises,card-centers,card-data-export,card-test-seed,card-admin-alerts,card-admin-ghost,card-admin-whisper,card-attendance-status,card-auto-attendance,card-class-attendance,card-report-forms">
+  <div class="ph85-group" data-cards="card-permissions,card-franchises,card-centers,card-data-export,card-test-seed,card-admin-alerts,card-admin-ghost,card-admin-whisper,card-attendance-status,card-auto-attendance,card-class-attendance,card-school-attendance-stats,card-report-forms">
     <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#64748b,#334155)">⚙</div>
       <div class="ph85-title">시스템</div>
@@ -23427,6 +23428,7 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-attendance-status" onclick="event.stopPropagation();var c=document.getElementById('card-attendance-status');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-attendance-status');}">📋 출결 상태</div>
       <div class="ph85-sub" data-card="card-auto-attendance" onclick="event.stopPropagation();var c=document.getElementById('card-auto-attendance');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-auto-attendance');}">📷 QR 출결</div>
       <div class="ph85-sub" data-card="card-class-attendance" onclick="event.stopPropagation();var c=document.getElementById('card-class-attendance');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-class-attendance');}">📝 수업 출결</div>
+      <div class="ph85-sub" data-card="card-school-attendance-stats" onclick="event.stopPropagation();var c=document.getElementById('card-school-attendance-stats');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-school-attendance-stats');}">📊 학원별 수업현황 ⭐신규</div>
       <div class="ph85-sub" data-card="card-report-forms" onclick="event.stopPropagation();var c=document.getElementById('card-report-forms');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-report-forms');}">📋 보고서 양식</div>
     </div>
   </div>
@@ -27198,6 +27200,264 @@ button.chip:hover,
   }, 1500);
 
   console.log('[ph111] 사용자 드롭다운 초기화 완료 — 역할 뱃지 + 로그인/로그아웃');
+})();
+</script>
+
+
+<!-- Phase 112 admin (2026-05-25) — 강사 정보 최상단 재배치 + 학원별 학생 수업현황 (출결 통합) -->
+<style id="ph112-attendance-hub">
+  /* === 학원별 수업현황 표 === */
+  #card-school-attendance-stats .sa-filter-row {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px; margin-bottom: 12px;
+    background: rgba(15,23,42,0.6);
+    padding: 12px 14px; border-radius: 10px;
+    border: 1px solid rgba(59,130,246,0.3);
+  }
+  #card-school-attendance-stats .sa-filter-row select,
+  #card-school-attendance-stats .sa-filter-row input {
+    background: rgba(15,23,42,0.85) !important;
+    color: #F8FAFC !important;
+    border: 1px solid rgba(59,130,246,0.45) !important;
+    border-radius: 6px !important;
+    padding: 7px 11px !important;
+    font-size: 13px !important;
+  }
+  #card-school-attendance-stats .sa-actions { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  #card-school-attendance-stats .sa-btn-search {
+    background: linear-gradient(135deg, #2563EB, #3B82F6) !important;
+    color: #fff !important; border: 0 !important;
+    padding: 8px 18px !important; border-radius: 8px !important;
+    font-weight: 800 !important; cursor: pointer !important;
+  }
+  #card-school-attendance-stats .sa-btn-excel {
+    background: linear-gradient(135deg, #10B981, #047857) !important;
+    color: #fff !important; border: 0 !important;
+    padding: 8px 14px !important; border-radius: 8px !important;
+    font-weight: 700 !important; cursor: pointer !important;
+  }
+
+  /* KPI 4카드 */
+  #card-school-attendance-stats .sa-kpi-row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px;
+  }
+  @media (max-width:900px){ #card-school-attendance-stats .sa-kpi-row { grid-template-columns: repeat(2,1fr); } }
+  #card-school-attendance-stats .sa-kpi {
+    background: linear-gradient(135deg, #1E3A8A, #2563EB) !important;
+    border: 1px solid rgba(96,165,250,0.4);
+    border-radius: 10px; padding: 12px 14px;
+    color: #F8FAFC;
+  }
+  #card-school-attendance-stats .sa-kpi-label { font-size: 11px; color: #BFDBFE; font-weight: 700; }
+  #card-school-attendance-stats .sa-kpi-value { font-size: 20px; font-weight: 900; color: #FFFFFF; margin-top: 4px; }
+  #card-school-attendance-stats .sa-kpi-sub { font-size: 10.5px; color: #93C5FD; margin-top: 2px; }
+
+  /* 표 */
+  #card-school-attendance-stats .sa-table {
+    width: 100%; border-collapse: collapse !important;
+    background: rgba(15,23,42,0.5) !important; border-radius: 10px; overflow: hidden;
+  }
+  #card-school-attendance-stats .sa-table thead th {
+    background: linear-gradient(135deg, #1E3A8A, #2563EB) !important;
+    color: #DBEAFE !important;
+    padding: 10px 12px; font-size: 12px; font-weight: 800; text-align: center;
+  }
+  #card-school-attendance-stats .sa-table tbody td {
+    padding: 9px 10px; border-bottom: 1px solid rgba(59,130,246,0.2);
+    color: #F8FAFC !important; font-size: 12.5px; text-align: center;
+  }
+  #card-school-attendance-stats .sa-table tbody tr:nth-child(even) td { background: rgba(30,41,59,0.45) !important; }
+  #card-school-attendance-stats .sa-table tbody tr:hover td { background: rgba(37,99,235,0.25) !important; }
+  #card-school-attendance-stats .sa-table tbody td:first-child { color: #93C5FD !important; font-weight: 700; }
+  #card-school-attendance-stats .sa-table tbody td .sa-sub { font-size: 10.5px; color: #94A3B8; display: block; }
+  #card-school-attendance-stats .sa-table tbody td .sa-rate-bar {
+    display: inline-block; width: 100%; max-width: 120px; height: 14px;
+    background: rgba(0,0,0,0.4); border-radius: 7px; overflow: hidden;
+    position: relative; vertical-align: middle;
+  }
+  #card-school-attendance-stats .sa-table tbody td .sa-rate-fill {
+    height: 100%; transition: width 0.4s;
+  }
+  #card-school-attendance-stats .sa-table tbody td .sa-rate-fill.excellent { background: linear-gradient(90deg, #22C55E, #16A34A); }
+  #card-school-attendance-stats .sa-table tbody td .sa-rate-fill.warning   { background: linear-gradient(90deg, #FACC15, #CA8A04); }
+  #card-school-attendance-stats .sa-table tbody td .sa-rate-fill.fail      { background: linear-gradient(90deg, #EF4444, #DC2626); }
+  #card-school-attendance-stats .sa-table tbody td .sa-result {
+    display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 800;
+  }
+  #card-school-attendance-stats .sa-table tbody td .sa-result.excellent { background: rgba(34,197,94,0.25); color: #86EFAC; border: 1px solid rgba(34,197,94,0.5); }
+  #card-school-attendance-stats .sa-table tbody td .sa-result.warning   { background: rgba(250,204,21,0.25); color: #FDE68A; border: 1px solid rgba(250,204,21,0.5); }
+  #card-school-attendance-stats .sa-table tbody td .sa-result.fail      { background: rgba(239,68,68,0.25); color: #FCA5A5; border: 1px solid rgba(239,68,68,0.5); }
+
+  /* 출결 통합 안내 */
+  #card-school-attendance-stats .sa-info {
+    background: rgba(37,99,235,0.15) !important;
+    border-left: 4px solid #2563EB;
+    color: #F8FAFC !important;
+    padding: 10px 14px; border-radius: 8px;
+    margin-bottom: 14px; font-size: 12.5px; line-height: 1.7;
+  }
+  #card-school-attendance-stats .sa-info b { color: #93C5FD; }
+  #card-school-attendance-stats .sa-info a {
+    color: #67E8F9 !important; text-decoration: underline; cursor: pointer; margin-right: 12px;
+  }
+</style>
+
+<!-- === 학원별 학생 수업현황 카드 (출결 통합 허브) === -->
+<details class="table-card menu-card" id="card-school-attendance-stats">
+  <summary><span>📊 학원별 학생 수업현황 (SLP 출석 통계)</span></summary>
+  <div class="menu-body">
+
+    <!-- 출결 관련 다른 카드 연결 -->
+    <div class="sa-info">
+      💡 <b>출결 통합 허브</b> — 학원·지사·대리점별 학생 출석률을 한눈에. 다른 출결 기능:
+      <br>
+      <a onclick="jumpToMenu('card-attendance-status')">📋 출결 상태 (개별)</a>
+      <a onclick="jumpToMenu('card-auto-attendance')">📷 QR 자동 출결</a>
+      <a onclick="jumpToMenu('card-class-attendance')">📝 수업별 출결</a>
+    </div>
+
+    <!-- KPI 4카드 -->
+    <div class="sa-kpi-row">
+      <div class="sa-kpi"><div class="sa-kpi-label">📊 전체 출석률</div><div class="sa-kpi-value" id="sa-kpi-rate">96.4%</div><div class="sa-kpi-sub">▲ 전월 대비 +1.2%</div></div>
+      <div class="sa-kpi"><div class="sa-kpi-label">🏫 학원 수</div><div class="sa-kpi-value" id="sa-kpi-schools">28개</div><div class="sa-kpi-sub">SLP 24 · 직영 4</div></div>
+      <div class="sa-kpi"><div class="sa-kpi-label">👨‍🎓 활성 학생</div><div class="sa-kpi-value" id="sa-kpi-students">1,247명</div><div class="sa-kpi-sub">전월 1,189명</div></div>
+      <div class="sa-kpi"><div class="sa-kpi-label">⚠ 위험군 (≤70%)</div><div class="sa-kpi-value" id="sa-kpi-risk" style="color:#FCA5A5">23명</div><div class="sa-kpi-sub">상담 필요</div></div>
+    </div>
+
+    <!-- 필터 -->
+    <div class="sa-filter-row">
+      <select id="sa-year"><option value="2026">2026년</option><option value="2025">2025년</option></select>
+      <select id="sa-month"><option value="">전체 월</option><option value="1">1월</option><option value="2">2월</option><option value="3">3월</option><option value="4">4월</option><option value="5" selected>5월</option><option value="6">6월</option><option value="7">7월</option><option value="8">8월</option><option value="9">9월</option><option value="10">10월</option><option value="11">11월</option><option value="12">12월</option></select>
+      <select id="sa-branch"><option value="">전체 지사</option><option>SLP</option><option>SDP</option><option>본사 직영</option></select>
+      <select id="sa-academy"><option value="">전체 학당</option><option>동탄SLP</option><option>망고아이 SSO직영</option><option>부천SLP</option><option>북인천SLP</option><option>오산SLP</option><option>인천청라SLP</option></select>
+      <input type="text" id="sa-student" placeholder="🔍 학생명·아이디">
+      <select id="sa-result"><option value="">전체 결과</option><option value="excellent">Excellent (90% ↑)</option><option value="warning">Warning (70-89%)</option><option value="fail">Fail (70% ↓)</option></select>
+    </div>
+
+    <!-- 액션 -->
+    <div class="sa-actions">
+      <button class="sa-btn-search" onclick="saSearch()">🔍 검색</button>
+      <button class="sa-btn-excel" onclick="saExcelDown()">📊 EXCEL DOWN</button>
+      <button class="sa-btn-excel" onclick="saExcelDown()" style="background:linear-gradient(135deg,#DC2626,#B91C1C) !important">📄 PDF</button>
+      <button class="sa-btn-excel" onclick="saAlertParents()" style="background:linear-gradient(135deg,#F59E0B,#D97706) !important">📲 위험군 학부모 알림</button>
+    </div>
+
+    <!-- 표 -->
+    <div style="overflow-x:auto">
+    <table class="sa-table">
+      <thead><tr>
+        <th style="width:50px">No</th>
+        <th>지사명<br><span class="sa-sub">(지사아이디)</span></th>
+        <th>학당명<br><span class="sa-sub">(학당아이디)</span></th>
+        <th>학생이름</th>
+        <th>영어이름</th>
+        <th>학생아이디</th>
+        <th>결석수</th>
+        <th>출석수/수업수</th>
+        <th>출석률</th>
+        <th>출석률 결과</th>
+        <th style="min-width:140px">출석률 그래프</th>
+      </tr></thead>
+      <tbody id="sa-tbody">
+        <tr><td>21</td><td>SLP<span class="sa-sub">(slp)</span></td><td>동탄SLP<span class="sa-sub">(slp_026)</span></td><td>이인영</td><td>sally</td><td>SLPSSO_skyiy15</td><td>0</td><td>3/3</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>20</td><td>SLP<span class="sa-sub">(slp)</span></td><td>동탄SLP<span class="sa-sub">(slp_026)</span></td><td>김태이</td><td>Taei</td><td>SLPSSO_taeikim</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>19</td><td>SLP<span class="sa-sub">(slp)</span></td><td>동탄SLP<span class="sa-sub">(slp_026)</span></td><td>강다은</td><td>jenna</td><td>kkangdada</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>18</td><td>SLP<span class="sa-sub">(slp)</span></td><td>동탄SLP<span class="sa-sub">(slp_026)</span></td><td>박서윤</td><td>David</td><td>SLPSSO_David0922</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>17</td><td>SLP<span class="sa-sub">(slp)</span></td><td>동탄SLP<span class="sa-sub">(slp_026)</span></td><td>신하율</td><td>kevin</td><td>SLPSSO_hayul0610</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>16</td><td>SLP<span class="sa-sub">(slp)</span></td><td>망고아이 SSO직영<span class="sa-sub">(slp_sso)</span></td><td>신휘서</td><td>henry</td><td>SLPSSO_hwiseo</td><td>0</td><td>1/1</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>15</td><td>SLP<span class="sa-sub">(slp)</span></td><td>망고아이 SSO직영<span class="sa-sub">(slp_sso)</span></td><td>김도경</td><td>Timothy</td><td>SLPSSO_gaglin17</td><td>0</td><td>4/4</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>14</td><td>SLP<span class="sa-sub">(slp)</span></td><td>부천SLP<span class="sa-sub">(slp_029)</span></td><td>오애린</td><td>OH ERIN</td><td>SLPSSO_erin0709</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>13</td><td>SLP<span class="sa-sub">(slp)</span></td><td>북인천SLP<span class="sa-sub">(slp_030)</span></td><td>이유찬</td><td>yuchan</td><td>SLPSSO_lyc070304</td><td>1</td><td>0/1</td><td>0%</td><td><span class="sa-result fail">Fail</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill fail" style="width:1%"></span></span></td></tr>
+        <tr><td>12</td><td>SLP<span class="sa-sub">(slp)</span></td><td>북인천SLP<span class="sa-sub">(slp_030)</span></td><td>황유준</td><td>YOOJUN</td><td>SLPSSO_yoojun</td><td>3</td><td>3/6</td><td>50%</td><td><span class="sa-result fail">Fail</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill fail" style="width:50%"></span></span></td></tr>
+        <tr><td>11</td><td>SLP<span class="sa-sub">(slp)</span></td><td>북인천SLP<span class="sa-sub">(slp_030)</span></td><td>김형준</td><td>KIM, HYEONGJUN</td><td>zienyh</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>10</td><td>SLP<span class="sa-sub">(slp)</span></td><td>북인천SLP<span class="sa-sub">(slp_030)</span></td><td>이서윤</td><td>LeeSeoYun</td><td>SLPSSO_leeseoyun415</td><td>0</td><td>5/5</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>9</td><td>SLP<span class="sa-sub">(slp)</span></td><td>오산SLP<span class="sa-sub">(slp_047)</span></td><td>이규연</td><td>Kenny</td><td>SLPSSO_kenny2012</td><td>0</td><td>3/3</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>8</td><td>SLP<span class="sa-sub">(slp)</span></td><td>오산SLP<span class="sa-sub">(slp_047)</span></td><td>이아현</td><td>Katie</td><td>SLPSSO_katie2012</td><td>0</td><td>3/3</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>7</td><td>SLP<span class="sa-sub">(slp)</span></td><td>오산SLP<span class="sa-sub">(slp_047)</span></td><td>김지한</td><td>David</td><td>SLPSSO_david124</td><td>0</td><td>3/3</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>6</td><td>SLP<span class="sa-sub">(slp)</span></td><td>인천청라slp<span class="sa-sub">(slp_070)</span></td><td>이서유</td><td>dina0905</td><td>SLPSSO_dina0905</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div style="text-align:center;margin-top:14px;color:#94A3B8;font-size:12px">
+      📌 데모 데이터 16건 표시 — 실서비스에서는 페이지네이션 + 전체 1,247명 검색 가능
+    </div>
+  </div>
+</details>
+
+<script>
+(function(){
+  'use strict';
+
+  // === 강사 정보 sub-item 을 강사관리 카드의 최상단으로 이동 ===
+  function ph112ReorderTeacherSubs(){
+    var card = document.getElementById('card-teacher-mgmt');
+    if (!card || card.__ph112) return;
+    var menu = card.querySelector('.sub-menu');
+    if (!menu) return;
+    var subs = menu.querySelectorAll(':scope > details.sub-item');
+    var teacherInfo = null;
+    subs.forEach(function(s){
+      var summary = s.querySelector('summary');
+      if (summary && summary.textContent.indexOf('강사 정보') >= 0) {
+        teacherInfo = s;
+      }
+    });
+    if (teacherInfo && menu.firstElementChild !== teacherInfo) {
+      menu.insertBefore(teacherInfo, menu.firstElementChild);
+      teacherInfo.open = true;
+      card.__ph112 = true;
+      console.log('[ph112] 강사 정보 섹션을 강사관리 카드 최상단으로 이동');
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph112ReorderTeacherSubs);
+  else ph112ReorderTeacherSubs();
+  setInterval(ph112ReorderTeacherSubs, 2000);
+
+  // === 학원별 수업현황 데모 ===
+  window.saSearch = function(){
+    var y = document.getElementById('sa-year').value;
+    var m = document.getElementById('sa-month').value;
+    var b = document.getElementById('sa-branch').value;
+    var a = document.getElementById('sa-academy').value;
+    var s = document.getElementById('sa-student').value;
+    var r = document.getElementById('sa-result').value;
+    console.log('[ph112] 학원별 수업현황 검색', {y,m,b,a,s,r});
+    alert('검색 (데모): ' + y + '/' + (m||'전체') + ' · ' + (a||b||'전체학원') + ' · ' + (s||'전체학생') + ' · ' + (r||'전체결과'));
+  };
+  window.saExcelDown = function(){
+    console.log('[ph112] EXCEL DOWN');
+    // 표 → Excel 생성 (ph109 의 일반 함수 재활용)
+    var rows = document.querySelectorAll('#sa-tbody tr');
+    var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><table border="1"><tr>';
+    document.querySelectorAll('#card-school-attendance-stats .sa-table thead th').forEach(function(th){
+      html += '<th style="background:#1E3A8A;color:#fff;padding:6px">' + th.textContent.trim() + '</th>';
+    });
+    html += '</tr>';
+    rows.forEach(function(tr){
+      html += '<tr>';
+      tr.querySelectorAll('td').forEach(function(td){
+        var txt = td.textContent.trim();
+        html += '<td style="padding:6px">' + txt + '</td>';
+      });
+      html += '</tr>';
+    });
+    html += '</table></body></html>';
+    var blob = new Blob(['﻿', html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = '학원별_학생수업현황_' + new Date().toISOString().slice(0,10) + '.xls';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+  };
+  window.saAlertParents = function(){
+    if (!confirm('출석률 70% 이하 위험군 23명의 학부모에게 카카오 알림을 발송할까요?\n\n메시지: "자녀의 출석률이 낮습니다. 상담 부탁드립니다."')) return;
+    alert('📲 23명 학부모에게 카카오 알림 발송 완료 (데모)');
+  };
+
+  console.log('[ph112] 강사정보 재배치 + 학원별 수업현황 카드 초기화 완료');
 })();
 </script>
 
