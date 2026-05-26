@@ -112,13 +112,15 @@
 (function(){
   function nukeAll(){
     document.querySelectorAll('div, button, a').forEach(function(el){
+      // 정상 v11-modal, cat14-modal 안의 element는 건드리지 않음
+      if (el.closest && (el.closest('#v11-modal') || el.closest('#cat14-modal'))) return;
       var txt = el.textContent || '';
       if (/html\+=|\+catName\+|\+emoji\+|\+name\+|\+matched\.length\+|\+url\+|modal\.innerHTML/.test(txt) && el.children.length < 5) {
         el.style.display = 'none';
         try { el.remove(); } catch(e){}
       }
     });
-    ['v9-modal','v10-modal','v11-modal','new-cat-modal'].forEach(function(id){
+    ['v9-modal','v10-modal','new-cat-modal','ph-modal'].forEach(function(id){
       var el = document.getElementById(id);
       if (el) el.remove();
     });
@@ -23114,7 +23116,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260526151033 -->
+<!-- BUILD:20260526152227 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
