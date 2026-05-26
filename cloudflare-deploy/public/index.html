@@ -3977,37 +3977,37 @@
     </div>
     <!-- 🗂 카테고리 카드 (한 줄 가로 정렬) — 클릭하면 모달로 표시 -->
     <div id="gm-category-cards" style="display:grid;grid-template-columns:repeat(7, minmax(0, 1fr));gap:8px;padding:12px;background:rgba(15,23,42,0.45);border-radius:14px;margin-bottom:14px;border:1px solid rgba(251,191,36,0.18)">
-      <button class="gm-cat-card" data-cat="all"    data-color="mango"  onclick="window.showCatV10 && window.showCatV10('all', this)"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">';html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid rgba(96,165,250,0.4)">';html+='<h2 style="margin:0;font-size:22px;color:#fff">📂 '+catName+' <span style="font-size:14px;color:#93C5FD;font-weight:600">('+matched.length+'개)</span></h2>';html+='<button onclick="document.getElementById(\'v9-modal\').remove();document.body.style.overflow=\'\';document.querySelectorAll(\'.gm-cat-card\').forEach(function(x){x.classList.remove(\'active\');});" style="background:rgba(239,68,68,0.4);color:#fff;border:0;border-radius:8px;width:36px;height:36px;font-size:18px;font-weight:800;cursor:pointer">✕</button>';html+='</div>';html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">';matched.forEach(function(card){var go=card.getAttribute('data-go');var url=URLS[go]||('/?menu='+go);var nameEl=card.querySelector('.gm-card-title,.gm-card-label,[data-ko]')||card;var name=nameEl.textContent.trim().replace(/\s+/g,' ').substring(0,40)||go;var emojiMatch=card.textContent.match(/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F9FF}]+)/u);var emoji=emojiMatch?emojiMatch[0]:'📌';html+='<a href="'+url+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 12px;background:rgba(30,41,59,0.9);border:1px solid rgba(96,165,250,0.5);border-radius:12px;color:#F8FAFC;text-decoration:none;min-height:100px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background=\'rgba(37,99,235,0.5)\';this.style.transform=\'translateY(-2px)\';this.style.borderColor=\'#60A5FA\'" onmouseleave="this.style.background=\'rgba(30,41,59,0.9)\';this.style.transform=\'\';this.style.borderColor=\'rgba(96,165,250,0.5)\'"><div style="font-size:28px">'+emoji+'</div><div>'+name+'</div></a>';});html+='</div></div>';modal.innerHTML=html;document.body.appendChild(modal);document.body.style.overflow='hidden';console.log('[v9] 모달 열림:',c,'->',matched.length,'개 (a href 링크)');})('tools');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">';html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid rgba(96,165,250,0.4)">';html+='<h2 style="margin:0;font-size:22px;color:#fff">📂 '+catName+' <span style="font-size:14px;color:#93C5FD;font-weight:600">('+matched.length+'개)</span></h2>';html+='<button onclick="document.getElementById(\'v9-modal\').remove();document.body.style.overflow=\'\';document.querySelectorAll(\'.gm-cat-card\').forEach(function(x){x.classList.remove(\'active\');});" style="background:rgba(239,68,68,0.4);color:#fff;border:0;border-radius:8px;width:36px;height:36px;font-size:18px;font-weight:800;cursor:pointer">✕</button>';html+='</div>';html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">';matched.forEach(function(card){var go=card.getAttribute('data-go');var url=URLS[go]||('/?menu='+go);var nameEl=card.querySelector('.gm-card-title,.gm-card-label,[data-ko]')||card;var name=nameEl.textContent.trim().replace(/\s+/g,' ').substring(0,40)||go;var emojiMatch=card.textContent.match(/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F9FF}]+)/u);var emoji=emojiMatch?emojiMatch[0]:'📌';html+='<a href="'+url+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 12px;background:rgba(30,41,59,0.9);border:1px solid rgba(96,165,250,0.5);border-radius:12px;color:#F8FAFC;text-decoration:none;min-height:100px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background=\'rgba(37,99,235,0.5)\';this.style.transform=\'translateY(-2px)\';this.style.borderColor=\'#60A5FA\'" onmouseleave="this.style.background=\'rgba(30,41,59,0.9)\';this.style.transform=\'\';this.style.borderColor=\'rgba(96,165,250,0.5)\'"><div style="font-size:28px">'+emoji+'</div><div>'+name+'</div></a>';});html+='</div></div>';modal.innerHTML=html;document.body.appendChild(modal);document.body.style.overflow='hidden';console.log('[v9] 모달 열림:',c,'->',matched.length,'개 (a href 링크)');})('parent');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">';html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid rgba(96,165,250,0.4)">';html+='<h2 style="margin:0;font-size:22px;color:#fff">📂 '+catName+' <span style="font-size:14px;color:#93C5FD;font-weight:600">('+matched.length+'개)</span></h2>';html+='<button onclick="document.getElementById(\'v9-modal\').remove();document.body.style.overflow=\'\';document.querySelectorAll(\'.gm-cat-card\').forEach(function(x){x.classList.remove(\'active\');});" style="background:rgba(239,68,68,0.4);color:#fff;border:0;border-radius:8px;width:36px;height:36px;font-size:18px;font-weight:800;cursor:pointer">✕</button>';html+='</div>';html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">';matched.forEach(function(card){var go=card.getAttribute('data-go');var url=URLS[go]||('/?menu='+go);var nameEl=card.querySelector('.gm-card-title,.gm-card-label,[data-ko]')||card;var name=nameEl.textContent.trim().replace(/\s+/g,' ').substring(0,40)||go;var emojiMatch=card.textContent.match(/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F9FF}]+)/u);var emoji=emojiMatch?emojiMatch[0]:'📌';html+='<a href="'+url+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 12px;background:rgba(30,41,59,0.9);border:1px solid rgba(96,165,250,0.5);border-radius:12px;color:#F8FAFC;text-decoration:none;min-height:100px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background=\'rgba(37,99,235,0.5)\';this.style.transform=\'translateY(-2px)\';this.style.borderColor=\'#60A5FA\'" onmouseleave="this.style.background=\'rgba(30,41,59,0.9)\';this.style.transform=\'\';this.style.borderColor=\'rgba(96,165,250,0.5)\'"><div style="font-size:28px">'+emoji+'</div><div>'+name+'</div></a>';});html+='</div></div>';modal.innerHTML=html;document.body.appendChild(modal);document.body.style.overflow='hidden';console.log('[v9] 모달 열림:',c,'->',matched.length,'개 (a href 링크)');})('reward');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">';html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid rgba(96,165,250,0.4)">';html+='<h2 style="margin:0;font-size:22px;color:#fff">📂 '+catName+' <span style="font-size:14px;color:#93C5FD;font-weight:600">('+matched.length+'개)</span></h2>';html+='<button onclick="document.getElementById(\'v9-modal\').remove();document.body.style.overflow=\'\';document.querySelectorAll(\'.gm-cat-card\').forEach(function(x){x.classList.remove(\'active\');});" style="background:rgba(239,68,68,0.4);color:#fff;border:0;border-radius:8px;width:36px;height:36px;font-size:18px;font-weight:800;cursor:pointer">✕</button>';html+='</div>';html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">';matched.forEach(function(card){var go=card.getAttribute('data-go');var url=URLS[go]||('/?menu='+go);var nameEl=card.querySelector('.gm-card-title,.gm-card-label,[data-ko]')||card;var name=nameEl.textContent.trim().replace(/\s+/g,' ').substring(0,40)||go;var emojiMatch=card.textContent.match(/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F9FF}]+)/u);var emoji=emojiMatch?emojiMatch[0]:'📌';html+='<a href="'+url+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 12px;background:rgba(30,41,59,0.9);border:1px solid rgba(96,165,250,0.5);border-radius:12px;color:#F8FAFC;text-decoration:none;min-height:100px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background=\'rgba(37,99,235,0.5)\';this.style.transform=\'translateY(-2px)\';this.style.borderColor=\'#60A5FA\'" onmouseleave="this.style.background=\'rgba(30,41,59,0.9)\';this.style.transform=\'\';this.style.borderColor=\'rgba(96,165,250,0.5)\'"><div style="font-size:28px">'+emoji+'</div><div>'+name+'</div></a>';});html+='</div></div>';modal.innerHTML=html;document.body.appendChild(modal);document.body.style.overflow='hidden';console.log('[v9] 모달 열림:',c,'->',matched.length,'개 (a href 링크)');})('class');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">';html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid rgba(96,165,250,0.4)">';html+='<h2 style="margin:0;font-size:22px;color:#fff">📂 '+catName+' <span style="font-size:14px;color:#93C5FD;font-weight:600">('+matched.length+'개)</span></h2>';html+='<button onclick="document.getElementById(\'v9-modal\').remove();document.body.style.overflow=\'\';document.querySelectorAll(\'.gm-cat-card\').forEach(function(x){x.classList.remove(\'active\');});" style="background:rgba(239,68,68,0.4);color:#fff;border:0;border-radius:8px;width:36px;height:36px;font-size:18px;font-weight:800;cursor:pointer">✕</button>';html+='</div>';html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">';matched.forEach(function(card){var go=card.getAttribute('data-go');var url=URLS[go]||('/?menu='+go);var nameEl=card.querySelector('.gm-card-title,.gm-card-label,[data-ko]')||card;var name=nameEl.textContent.trim().replace(/\s+/g,' ').substring(0,40)||go;var emojiMatch=card.textContent.match(/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F9FF}]+)/u);var emoji=emojiMatch?emojiMatch[0]:'📌';html+='<a href="'+url+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 12px;background:rgba(30,41,59,0.9);border:1px solid rgba(96,165,250,0.5);border-radius:12px;color:#F8FAFC;text-decoration:none;min-height:100px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background=\'rgba(37,99,235,0.5)\';this.style.transform=\'translateY(-2px)\';this.style.borderColor=\'#60A5FA\'" onmouseleave="this.style.background=\'rgba(30,41,59,0.9)\';this.style.transform=\'\';this.style.borderColor=\'rgba(96,165,250,0.5)\'"><div style="font-size:28px">'+emoji+'</div><div>'+name+'</div></a>';});html+='</div></div>';modal.innerHTML=html;document.body.appendChild(modal);document.body.style.overflow='hidden';console.log('[v9] 모달 열림:',c,'->',matched.length,'개 (a href 링크)');})('ai');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">';html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid rgba(96,165,250,0.4)">';html+='<h2 style="margin:0;font-size:22px;color:#fff">📂 '+catName+' <span style="font-size:14px;color:#93C5FD;font-weight:600">('+matched.length+'개)</span></h2>';html+='<button onclick="document.getElementById(\'v9-modal\').remove();document.body.style.overflow=\'\';document.querySelectorAll(\'.gm-cat-card\').forEach(function(x){x.classList.remove(\'active\');});" style="background:rgba(239,68,68,0.4);color:#fff;border:0;border-radius:8px;width:36px;height:36px;font-size:18px;font-weight:800;cursor:pointer">✕</button>';html+='</div>';html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">';matched.forEach(function(card){var go=card.getAttribute('data-go');var url=URLS[go]||('/?menu='+go);var nameEl=card.querySelector('.gm-card-title,.gm-card-label,[data-ko]')||card;var name=nameEl.textContent.trim().replace(/\s+/g,' ').substring(0,40)||go;var emojiMatch=card.textContent.match(/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F9FF}]+)/u);var emoji=emojiMatch?emojiMatch[0]:'📌';html+='<a href="'+url+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 12px;background:rgba(30,41,59,0.9);border:1px solid rgba(96,165,250,0.5);border-radius:12px;color:#F8FAFC;text-decoration:none;min-height:100px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background=\'rgba(37,99,235,0.5)\';this.style.transform=\'translateY(-2px)\';this.style.borderColor=\'#60A5FA\'" onmouseleave="this.style.background=\'rgba(30,41,59,0.9)\';this.style.transform=\'\';this.style.borderColor=\'rgba(96,165,250,0.5)\'"><div style="font-size:28px">'+emoji+'</div><div>'+name+'</div></a>';});html+='</div></div>';modal.innerHTML=html;document.body.appendChild(modal);document.body.style.overflow='hidden';console.log('[v9] 모달 열림:',c,'->',matched.length,'개 (a href 링크)');})('learn');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">';html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid rgba(96,165,250,0.4)">';html+='<h2 style="margin:0;font-size:22px;color:#fff">📂 '+catName+' <span style="font-size:14px;color:#93C5FD;font-weight:600">('+matched.length+'개)</span></h2>';html+='<button onclick="document.getElementById(\'v9-modal\').remove();document.body.style.overflow=\'\';document.querySelectorAll(\'.gm-cat-card\').forEach(function(x){x.classList.remove(\'active\');});" style="background:rgba(239,68,68,0.4);color:#fff;border:0;border-radius:8px;width:36px;height:36px;font-size:18px;font-weight:800;cursor:pointer">✕</button>';html+='</div>';html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">';matched.forEach(function(card){var go=card.getAttribute('data-go');var url=URLS[go]||('/?menu='+go);var nameEl=card.querySelector('.gm-card-title,.gm-card-label,[data-ko]')||card;var name=nameEl.textContent.trim().replace(/\s+/g,' ').substring(0,40)||go;var emojiMatch=card.textContent.match(/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F9FF}]+)/u);var emoji=emojiMatch?emojiMatch[0]:'📌';html+='<a href="'+url+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 12px;background:rgba(30,41,59,0.9);border:1px solid rgba(96,165,250,0.5);border-radius:12px;color:#F8FAFC;text-decoration:none;min-height:100px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background=\'rgba(37,99,235,0.5)\';this.style.transform=\'translateY(-2px)\';this.style.borderColor=\'#60A5FA\'" onmouseleave="this.style.background=\'rgba(30,41,59,0.9)\';this.style.transform=\'\';this.style.borderColor=\'rgba(96,165,250,0.5)\'"><div style="font-size:28px">'+emoji+'</div><div>'+name+'</div></a>';});html+='</div></div>';modal.innerHTML=html;document.body.appendChild(modal);document.body.style.overflow='hidden';console.log('[v9] 모달 열림:',c,'->',matched.length,'개 (a href 링크)');})('all');">
+      <button class="gm-cat-card" data-cat="all"    data-color="mango"  background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">';html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid rgba(96,165,250,0.4)">';html+='<h2 style="margin:0;font-size:22px;color:#fff">📂 '+catName+' <span style="font-size:14px;color:#93C5FD;font-weight:600">('+matched.length+'개)</span></h2>';html+='<button onclick="document.getElementById(\'v9-modal\').remove();document.body.style.overflow=\'\';document.querySelectorAll(\'.gm-cat-card\').forEach(function(x){x.classList.remove(\'active\');});" style="background:rgba(239,68,68,0.4);color:#fff;border:0;border-radius:8px;width:36px;height:36px;font-size:18px;font-weight:800;cursor:pointer">✕</button>';html+='</div>';html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">';matched.forEach(function(card){var go=card.getAttribute('data-go');var url=URLS[go]||('/?menu='+go);var nameEl=card.querySelector('.gm-card-title,.gm-card-label,[data-ko]')||card;var name=nameEl.textContent.trim().replace(/\s+/g,' ').substring(0,40)||go;var emojiMatch=card.textContent.match(/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F9FF}]+)/u);var emoji=emojiMatch?emojiMatch[0]:'📌';html+='<a href="'+url+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 12px;background:rgba(30,41,59,0.9);border:1px solid rgba(96,165,250,0.5);border-radius:12px;color:#F8FAFC;text-decoration:none;min-height:100px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background=\'rgba(37,99,235,0.5)\';this.style.transform=\'translateY(-2px)\';this.style.borderColor=\'#60A5FA\'" onmouseleave="this.style.background=\'rgba(30,41,59,0.9)\';this.style.transform=\'\';this.style.borderColor=\'rgba(96,165,250,0.5)\'"><div style="font-size:28px">'+emoji+'</div><div>'+name+'</div></a>';});html+='</div></div>';modal.innerHTML=html;document.body.appendChild(modal);document.body.style.overflow='hidden';console.log('[v9] 모달 열림:',c,'->',matched.length,'개 (a href 링크)');})('tools');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">';html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid rgba(96,165,250,0.4)">';html+='<h2 style="margin:0;font-size:22px;color:#fff">📂 '+catName+' <span style="font-size:14px;color:#93C5FD;font-weight:600">('+matched.length+'개)</span></h2>';html+='<button onclick="document.getElementById(\'v9-modal\').remove();document.body.style.overflow=\'\';document.querySelectorAll(\'.gm-cat-card\').forEach(function(x){x.classList.remove(\'active\');});" style="background:rgba(239,68,68,0.4);color:#fff;border:0;border-radius:8px;width:36px;height:36px;font-size:18px;font-weight:800;cursor:pointer">✕</button>';html+='</div>';html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">';matched.forEach(function(card){var go=card.getAttribute('data-go');var url=URLS[go]||('/?menu='+go);var nameEl=card.querySelector('.gm-card-title,.gm-card-label,[data-ko]')||card;var name=nameEl.textContent.trim().replace(/\s+/g,' ').substring(0,40)||go;var emojiMatch=card.textContent.match(/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F9FF}]+)/u);var emoji=emojiMatch?emojiMatch[0]:'📌';html+='<a href="'+url+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 12px;background:rgba(30,41,59,0.9);border:1px solid rgba(96,165,250,0.5);border-radius:12px;color:#F8FAFC;text-decoration:none;min-height:100px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background=\'rgba(37,99,235,0.5)\';this.style.transform=\'translateY(-2px)\';this.style.borderColor=\'#60A5FA\'" onmouseleave="this.style.background=\'rgba(30,41,59,0.9)\';this.style.transform=\'\';this.style.borderColor=\'rgba(96,165,250,0.5)\'"><div style="font-size:28px">'+emoji+'</div><div>'+name+'</div></a>';});html+='</div></div>';modal.innerHTML=html;document.body.appendChild(modal);document.body.style.overflow='hidden';console.log('[v9] 모달 열림:',c,'->',matched.length,'개 (a href 링크)');})('parent');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">';html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid rgba(96,165,250,0.4)">';html+='<h2 style="margin:0;font-size:22px;color:#fff">📂 '+catName+' <span style="font-size:14px;color:#93C5FD;font-weight:600">('+matched.length+'개)</span></h2>';html+='<button onclick="document.getElementById(\'v9-modal\').remove();document.body.style.overflow=\'\';document.querySelectorAll(\'.gm-cat-card\').forEach(function(x){x.classList.remove(\'active\');});" style="background:rgba(239,68,68,0.4);color:#fff;border:0;border-radius:8px;width:36px;height:36px;font-size:18px;font-weight:800;cursor:pointer">✕</button>';html+='</div>';html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">';matched.forEach(function(card){var go=card.getAttribute('data-go');var url=URLS[go]||('/?menu='+go);var nameEl=card.querySelector('.gm-card-title,.gm-card-label,[data-ko]')||card;var name=nameEl.textContent.trim().replace(/\s+/g,' ').substring(0,40)||go;var emojiMatch=card.textContent.match(/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F9FF}]+)/u);var emoji=emojiMatch?emojiMatch[0]:'📌';html+='<a href="'+url+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 12px;background:rgba(30,41,59,0.9);border:1px solid rgba(96,165,250,0.5);border-radius:12px;color:#F8FAFC;text-decoration:none;min-height:100px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background=\'rgba(37,99,235,0.5)\';this.style.transform=\'translateY(-2px)\';this.style.borderColor=\'#60A5FA\'" onmouseleave="this.style.background=\'rgba(30,41,59,0.9)\';this.style.transform=\'\';this.style.borderColor=\'rgba(96,165,250,0.5)\'"><div style="font-size:28px">'+emoji+'</div><div>'+name+'</div></a>';});html+='</div></div>';modal.innerHTML=html;document.body.appendChild(modal);document.body.style.overflow='hidden';console.log('[v9] 모달 열림:',c,'->',matched.length,'개 (a href 링크)');})('reward');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">';html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid rgba(96,165,250,0.4)">';html+='<h2 style="margin:0;font-size:22px;color:#fff">📂 '+catName+' <span style="font-size:14px;color:#93C5FD;font-weight:600">('+matched.length+'개)</span></h2>';html+='<button onclick="document.getElementById(\'v9-modal\').remove();document.body.style.overflow=\'\';document.querySelectorAll(\'.gm-cat-card\').forEach(function(x){x.classList.remove(\'active\');});" style="background:rgba(239,68,68,0.4);color:#fff;border:0;border-radius:8px;width:36px;height:36px;font-size:18px;font-weight:800;cursor:pointer">✕</button>';html+='</div>';html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">';matched.forEach(function(card){var go=card.getAttribute('data-go');var url=URLS[go]||('/?menu='+go);var nameEl=card.querySelector('.gm-card-title,.gm-card-label,[data-ko]')||card;var name=nameEl.textContent.trim().replace(/\s+/g,' ').substring(0,40)||go;var emojiMatch=card.textContent.match(/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F9FF}]+)/u);var emoji=emojiMatch?emojiMatch[0]:'📌';html+='<a href="'+url+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 12px;background:rgba(30,41,59,0.9);border:1px solid rgba(96,165,250,0.5);border-radius:12px;color:#F8FAFC;text-decoration:none;min-height:100px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background=\'rgba(37,99,235,0.5)\';this.style.transform=\'translateY(-2px)\';this.style.borderColor=\'#60A5FA\'" onmouseleave="this.style.background=\'rgba(30,41,59,0.9)\';this.style.transform=\'\';this.style.borderColor=\'rgba(96,165,250,0.5)\'"><div style="font-size:28px">'+emoji+'</div><div>'+name+'</div></a>';});html+='</div></div>';modal.innerHTML=html;document.body.appendChild(modal);document.body.style.overflow='hidden';console.log('[v9] 모달 열림:',c,'->',matched.length,'개 (a href 링크)');})('class');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">';html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid rgba(96,165,250,0.4)">';html+='<h2 style="margin:0;font-size:22px;color:#fff">📂 '+catName+' <span style="font-size:14px;color:#93C5FD;font-weight:600">('+matched.length+'개)</span></h2>';html+='<button onclick="document.getElementById(\'v9-modal\').remove();document.body.style.overflow=\'\';document.querySelectorAll(\'.gm-cat-card\').forEach(function(x){x.classList.remove(\'active\');});" style="background:rgba(239,68,68,0.4);color:#fff;border:0;border-radius:8px;width:36px;height:36px;font-size:18px;font-weight:800;cursor:pointer">✕</button>';html+='</div>';html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">';matched.forEach(function(card){var go=card.getAttribute('data-go');var url=URLS[go]||('/?menu='+go);var nameEl=card.querySelector('.gm-card-title,.gm-card-label,[data-ko]')||card;var name=nameEl.textContent.trim().replace(/\s+/g,' ').substring(0,40)||go;var emojiMatch=card.textContent.match(/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F9FF}]+)/u);var emoji=emojiMatch?emojiMatch[0]:'📌';html+='<a href="'+url+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 12px;background:rgba(30,41,59,0.9);border:1px solid rgba(96,165,250,0.5);border-radius:12px;color:#F8FAFC;text-decoration:none;min-height:100px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background=\'rgba(37,99,235,0.5)\';this.style.transform=\'translateY(-2px)\';this.style.borderColor=\'#60A5FA\'" onmouseleave="this.style.background=\'rgba(30,41,59,0.9)\';this.style.transform=\'\';this.style.borderColor=\'rgba(96,165,250,0.5)\'"><div style="font-size:28px">'+emoji+'</div><div>'+name+'</div></a>';});html+='</div></div>';modal.innerHTML=html;document.body.appendChild(modal);document.body.style.overflow='hidden';console.log('[v9] 모달 열림:',c,'->',matched.length,'개 (a href 링크)');})('ai');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">';html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid rgba(96,165,250,0.4)">';html+='<h2 style="margin:0;font-size:22px;color:#fff">📂 '+catName+' <span style="font-size:14px;color:#93C5FD;font-weight:600">('+matched.length+'개)</span></h2>';html+='<button onclick="document.getElementById(\'v9-modal\').remove();document.body.style.overflow=\'\';document.querySelectorAll(\'.gm-cat-card\').forEach(function(x){x.classList.remove(\'active\');});" style="background:rgba(239,68,68,0.4);color:#fff;border:0;border-radius:8px;width:36px;height:36px;font-size:18px;font-weight:800;cursor:pointer">✕</button>';html+='</div>';html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">';matched.forEach(function(card){var go=card.getAttribute('data-go');var url=URLS[go]||('/?menu='+go);var nameEl=card.querySelector('.gm-card-title,.gm-card-label,[data-ko]')||card;var name=nameEl.textContent.trim().replace(/\s+/g,' ').substring(0,40)||go;var emojiMatch=card.textContent.match(/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F9FF}]+)/u);var emoji=emojiMatch?emojiMatch[0]:'📌';html+='<a href="'+url+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 12px;background:rgba(30,41,59,0.9);border:1px solid rgba(96,165,250,0.5);border-radius:12px;color:#F8FAFC;text-decoration:none;min-height:100px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background=\'rgba(37,99,235,0.5)\';this.style.transform=\'translateY(-2px)\';this.style.borderColor=\'#60A5FA\'" onmouseleave="this.style.background=\'rgba(30,41,59,0.9)\';this.style.transform=\'\';this.style.borderColor=\'rgba(96,165,250,0.5)\'"><div style="font-size:28px">'+emoji+'</div><div>'+name+'</div></a>';});html+='</div></div>';modal.innerHTML=html;document.body.appendChild(modal);document.body.style.overflow='hidden';console.log('[v9] 모달 열림:',c,'->',matched.length,'개 (a href 링크)');})('learn');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">';html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid rgba(96,165,250,0.4)">';html+='<h2 style="margin:0;font-size:22px;color:#fff">📂 '+catName+' <span style="font-size:14px;color:#93C5FD;font-weight:600">('+matched.length+'개)</span></h2>';html+='<button onclick="document.getElementById(\'v9-modal\').remove();document.body.style.overflow=\'\';document.querySelectorAll(\'.gm-cat-card\').forEach(function(x){x.classList.remove(\'active\');});" style="background:rgba(239,68,68,0.4);color:#fff;border:0;border-radius:8px;width:36px;height:36px;font-size:18px;font-weight:800;cursor:pointer">✕</button>';html+='</div>';html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">';matched.forEach(function(card){var go=card.getAttribute('data-go');var url=URLS[go]||('/?menu='+go);var nameEl=card.querySelector('.gm-card-title,.gm-card-label,[data-ko]')||card;var name=nameEl.textContent.trim().replace(/\s+/g,' ').substring(0,40)||go;var emojiMatch=card.textContent.match(/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F9FF}]+)/u);var emoji=emojiMatch?emojiMatch[0]:'📌';html+='<a href="'+url+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 12px;background:rgba(30,41,59,0.9);border:1px solid rgba(96,165,250,0.5);border-radius:12px;color:#F8FAFC;text-decoration:none;min-height:100px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background=\'rgba(37,99,235,0.5)\';this.style.transform=\'translateY(-2px)\';this.style.borderColor=\'#60A5FA\'" onmouseleave="this.style.background=\'rgba(30,41,59,0.9)\';this.style.transform=\'\';this.style.borderColor=\'rgba(96,165,250,0.5)\'"><div style="font-size:28px">'+emoji+'</div><div>'+name+'</div></a>';});html+='</div></div>';modal.innerHTML=html;document.body.appendChild(modal);document.body.style.overflow='hidden';console.log('[v9] 모달 열림:',c,'->',matched.length,'개 (a href 링크)');})('all');">
         <div class="cat-emoji">🗂</div>
         <div class="cat-name"><span data-ko="전체" data-en="All">전체</span></div>
         <div class="cat-count" data-count="0"><span data-count-num>0</span><span data-ko="개" data-en=""> 개</span></div>
       </button>
-      <button class="gm-cat-card" data-cat="learn"  data-color="green"  onclick="window.showCatV10 && window.showCatV10('learn', this)">
+      <button class="gm-cat-card" data-cat="learn"  data-color="green"  >
         <div class="cat-emoji">🚀</div>
         <div class="cat-name"><span data-ko="학습 시작" data-en="Learn">학습 시작</span></div>
         <div class="cat-count" data-count="0"><span data-count-num>0</span><span data-ko="개" data-en=""> 개</span></div>
       </button>
-      <button class="gm-cat-card" data-cat="ai"     data-color="purple" onclick="window.showCatV10 && window.showCatV10('ai', this)">
+      <button class="gm-cat-card" data-cat="ai"     data-color="purple" >
         <div class="cat-emoji">🤖</div>
         <div class="cat-name"><span data-ko="AI 도구" data-en="AI Tools">AI 도구</span></div>
         <div class="cat-count" data-count="0"><span data-count-num>0</span><span data-ko="개" data-en=""> 개</span></div>
       </button>
-      <button class="gm-cat-card" data-cat="class"  data-color="blue"   onclick="window.showCatV10 && window.showCatV10('class', this)">
+      <button class="gm-cat-card" data-cat="class"  data-color="blue"   >
         <div class="cat-emoji">📝</div>
         <div class="cat-name"><span data-ko="수업·평가" data-en="Classes">수업·평가</span></div>
         <div class="cat-count" data-count="0"><span data-count-num>0</span><span data-ko="개" data-en=""> 개</span></div>
       </button>
-      <button class="gm-cat-card" data-cat="reward" data-color="gold"   onclick="window.showCatV10 && window.showCatV10('reward', this)">
+      <button class="gm-cat-card" data-cat="reward" data-color="gold"   >
         <div class="cat-emoji">💎</div>
         <div class="cat-name"><span data-ko="포인트·이벤트" data-en="Rewards">포인트·이벤트</span></div>
         <div class="cat-count" data-count="0"><span data-count-num>0</span><span data-ko="개" data-en=""> 개</span></div>
       </button>
-      <button class="gm-cat-card" data-cat="parent" data-color="pink"   onclick="window.showCatV10 && window.showCatV10('parent', this)">
+      <button class="gm-cat-card" data-cat="parent" data-color="pink"   >
         <div class="cat-emoji">👨‍👩‍👧</div>
         <div class="cat-name"><span data-ko="학부모·소통" data-en="Parent">학부모·소통</span></div>
         <div class="cat-count" data-count="0"><span data-count-num>0</span><span data-ko="개" data-en=""> 개</span></div>
       </button>
-      <button class="gm-cat-card" data-cat="tools"  data-color="slate"  onclick="window.showCatV10 && window.showCatV10('tools', this)">
+      <button class="gm-cat-card" data-cat="tools"  data-color="slate"  >
         <div class="cat-emoji">🛠</div>
         <div class="cat-name"><span data-ko="도움말·기타" data-en="Help & Tools">도움말·기타</span></div>
         <div class="cat-count" data-count="0"><span data-count-num>0</span><span data-ko="개" data-en=""> 개</span></div>
@@ -22896,7 +22896,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260526141721 -->
+<!-- BUILD:20260526142115 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -23231,6 +23231,176 @@ document.addEventListener('keydown', function(e){
   });
 
   console.log('[v10] 카테고리 글로벌 함수 준비 완료');
+})();
+</script>
+
+
+<!-- index.html fix v11 (2026-05-26) — onclick 제거 + addEventListener 바인딩 (escape 회피) -->
+<script>
+(function(){
+  'use strict';
+
+  var URLS = {
+    'admin':'/admin.html','adminmgr':'/admin.html','mypage':'/admin/mypage.html',
+    'payment':'/payment.html','franchise':'/franchise.html','teachers':'/teachers.html',
+    'contact':'/contact.html','notice':'/notice.html','curriculum':'/curriculum.html',
+    'homepage':'/','features':'/features.html','vocab':'/vocab.html','enroll':'/enroll.html',
+    'trial':'/trial.html','event':'/event.html','faq':'/faq.html',
+    'installguide':'/install-guide.html','learnguide':'/learn-guide.html',
+    'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'/contact.html',
+    'library':'/docs/','reviews':'/reviews.html','recordings':'/admin.html',
+    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html',
+    'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
+    'leveltest':'/level-test.html','battle':'/battle.html',
+    'lesson-change':'/lesson-postpone-demo.html','videolesson':'/video-call/',
+    'inquiry':'/contact.html','kakao':'/contact.html','focus':'/focus.html',
+    'goals':'/goals.html','write':'/ai-write.html','parent-dashboard':'/parent.html',
+    'chat':'/ai-friend.html','teacher-praise':'/teacher-praise.html',
+    'points-shop':'/streak.html','mypoints':'/streak.html','checkin':'/streak.html',
+    'leaderboard':'/streak.html','push-subscribe':'/'
+  };
+
+  var CAT_NAMES = {
+    'all':'전체','learn':'학습 시작','ai':'AI 도구',
+    'class':'수업·평가','reward':'포인트·이벤트',
+    'parent':'학부모·소통','tools':'도움말·기타'
+  };
+
+  window.closeCatV11 = function(){
+    var m = document.getElementById('v11-modal');
+    if (m) m.remove();
+    document.body.style.overflow = '';
+    document.querySelectorAll('.gm-cat-card').forEach(function(x){ x.classList.remove('active'); });
+  };
+
+  window.showCatV11 = function(cat, btn){
+    var old = document.getElementById('v11-modal');
+    if (old && old.dataset.cat === cat) { closeCatV11(); return; }
+    if (old) old.remove();
+    document.querySelectorAll('.gm-cat-card').forEach(function(x){ x.classList.remove('active'); });
+    if (btn) btn.classList.add('active');
+
+    var cards = document.querySelectorAll('.gm-card[data-go]');
+    var matched = [];
+    cards.forEach(function(card){
+      var cc = card.getAttribute('data-cat') || 'tools';
+      if (cat === 'all' || cc === cat) matched.push(card);
+    });
+
+    var modal = document.createElement('div');
+    modal.id = 'v11-modal';
+    modal.dataset.cat = cat;
+    modal.style.cssText = 'position:fixed;inset:0;z-index:9999999;background:rgba(0,0,0,0.88);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:30px 20px;overflow-y:auto';
+    modal.addEventListener('click', function(e){ if (e.target === modal) closeCatV11(); });
+
+    var box = document.createElement('div');
+    box.style.cssText = 'background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)';
+
+    var header = document.createElement('div');
+    header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid rgba(96,165,250,0.4)';
+    var h2 = document.createElement('h2');
+    h2.style.cssText = 'margin:0;font-size:22px;color:#fff';
+    h2.innerHTML = '📂 ' + (CAT_NAMES[cat] || cat) + ' <span style="font-size:14px;color:#93C5FD;font-weight:600">(' + matched.length + '개)</span>';
+    header.appendChild(h2);
+    var xBtn = document.createElement('button');
+    xBtn.textContent = '✕';
+    xBtn.style.cssText = 'background:rgba(239,68,68,0.4);color:#fff;border:0;border-radius:8px;width:36px;height:36px;font-size:18px;font-weight:800;cursor:pointer';
+    xBtn.addEventListener('click', closeCatV11);
+    header.appendChild(xBtn);
+    box.appendChild(header);
+
+    var grid = document.createElement('div');
+    grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px';
+
+    if (matched.length === 0) {
+      var empty = document.createElement('div');
+      empty.style.cssText = 'grid-column:1/-1;text-align:center;padding:40px;color:#94A3B8';
+      empty.textContent = '이 카테고리에 카드 없음';
+      grid.appendChild(empty);
+    } else {
+      matched.forEach(function(card){
+        var go = card.getAttribute('data-go');
+        var url = URLS[go] || ('/?menu=' + go);
+        var fullText = card.textContent.trim().replace(/\s+/g, ' ');
+        var emojiMatch = fullText.match(/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F9FF}\u{1F600}-\u{1F64F}\u{1F900}-\u{1F9FF}]+)/u);
+        var emoji = emojiMatch ? emojiMatch[0] : '📌';
+        var name = fullText.replace(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F9FF}\u{1F600}-\u{1F64F}\u{1F900}-\u{1F9FF}]+\s*/u, '').trim().substring(0, 40) || go;
+
+        var a = document.createElement('a');
+        a.href = url;
+        a.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 12px;background:rgba(30,41,59,0.9);border:1px solid rgba(96,165,250,0.5);border-radius:12px;color:#F8FAFC;text-decoration:none;min-height:100px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s';
+        a.addEventListener('mouseenter', function(){
+          this.style.background = 'rgba(37,99,235,0.5)';
+          this.style.transform = 'translateY(-2px)';
+          this.style.borderColor = '#60A5FA';
+        });
+        a.addEventListener('mouseleave', function(){
+          this.style.background = 'rgba(30,41,59,0.9)';
+          this.style.transform = '';
+          this.style.borderColor = 'rgba(96,165,250,0.5)';
+        });
+        var iconDiv = document.createElement('div');
+        iconDiv.style.cssText = 'font-size:28px';
+        iconDiv.textContent = emoji;
+        var nameDiv = document.createElement('div');
+        nameDiv.textContent = name;
+        a.appendChild(iconDiv);
+        a.appendChild(nameDiv);
+        grid.appendChild(a);
+      });
+    }
+
+    box.appendChild(grid);
+    modal.appendChild(box);
+    document.body.appendChild(modal);
+    document.body.style.overflow = 'hidden';
+    console.log('[v11] 모달 열림:', cat, '->', matched.length, '개 (a href)');
+  };
+
+  // 카테고리 카드에 addEventListener 자동 부착 (onclick 없는 상태에서)
+  function bindCategoryCards(){
+    document.querySelectorAll('.gm-cat-card').forEach(function(btn){
+      if (btn.__v11bound) return;
+      btn.__v11bound = true;
+      btn.removeAttribute('onclick'); // 혹시 남은 onclick 강제 제거
+      btn.addEventListener('click', function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        showCatV11(btn.dataset.cat, btn);
+      }, true);  // capture phase
+    });
+    console.log('[v11] 카테고리 카드 7개 addEventListener 바인딩 완료');
+  }
+
+  // 기존 깨진 모달 즉시 제거
+  function cleanOldModals(){
+    ['v9-modal','v10-modal','new-cat-modal'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.remove();
+    });
+    var ogModal = document.getElementById('gm-cat-modal');
+    if (ogModal && ogModal.classList.contains('show')) {
+      ogModal.classList.remove('show');
+      ogModal.style.display = 'none';
+    }
+    document.body.style.overflow = '';
+  }
+
+  function init(){
+    cleanOldModals();
+    bindCategoryCards();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+  // 추가 안전: 500ms 후 한 번 더
+  setTimeout(init, 500);
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') closeCatV11();
+  });
+
+  console.log('[v11] 카테고리 시스템 준비 완료 (escape 회피)');
 })();
 </script>
 
