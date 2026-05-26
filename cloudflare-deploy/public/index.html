@@ -2488,6 +2488,26 @@
         /* 터치 디바이스용: 그리기 중 스크롤 방지 */
         .pdf-anno.active { touch-action: none; }
     </style>
+
+<script>
+// fix v17: v11 모달 보호 - z-index 최대값 유지
+(function(){
+  setInterval(function(){
+    ['v11-modal', 'cat14-modal'].forEach(function(id){
+      var m = document.getElementById(id);
+      if (m) {
+        m.style.setProperty('display', 'flex', 'important');
+        m.style.setProperty('z-index', '2147483647', 'important');
+        m.style.setProperty('visibility', 'visible', 'important');
+        m.style.setProperty('opacity', '1', 'important');
+        m.style.setProperty('position', 'fixed', 'important');
+      }
+    });
+  }, 300);
+  console.log('[fix-v17] 모달 z-index 보호 활성 (300ms 주기)');
+})();
+</script>
+
 </head>
 <body>
 
@@ -23100,7 +23120,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260526152659 -->
+<!-- BUILD:20260526153438 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -23366,7 +23386,7 @@ document.addEventListener('keydown', function(e){
     var modal = document.createElement('div');
     modal.id = 'v10-modal';
     modal.dataset.cat = cat;
-    modal.style.cssText = 'position:fixed;inset:0;z-index:9999999;background:rgba(0,0,0,0.88);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:30px 20px;overflow-y:auto';
+    modal.style.cssText = 'position:fixed !important;inset:0 !important;z-index:2147483647 !important;background:rgba(0,0,0,0.88) !important;backdrop-filter:blur(8px) !important;display:flex !important;align-items:center !important;justify-content:center !important;padding:30px 20px !important;overflow-y:auto !important;visibility:visible !important;opacity:1 !important';
     modal.onclick = function(e){ if (e.target === modal) closeCatV10(); };
 
     var box = document.createElement('div');
@@ -23494,7 +23514,7 @@ document.addEventListener('keydown', function(e){
     var modal = document.createElement('div');
     modal.id = 'v11-modal';
     modal.dataset.cat = cat;
-    modal.style.cssText = 'position:fixed;inset:0;z-index:9999999;background:rgba(0,0,0,0.88);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:30px 20px;overflow-y:auto';
+    modal.style.cssText = 'position:fixed !important;inset:0 !important;z-index:2147483647 !important;background:rgba(0,0,0,0.88) !important;backdrop-filter:blur(8px) !important;display:flex !important;align-items:center !important;justify-content:center !important;padding:30px 20px !important;overflow-y:auto !important;visibility:visible !important;opacity:1 !important';
     modal.addEventListener('click', function(e){ if (e.target === modal) closeCatV11(); });
 
     var box = document.createElement('div');
