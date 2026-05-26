@@ -3977,37 +3977,37 @@
     </div>
     <!-- 🗂 카테고리 카드 (한 줄 가로 정렬) — 클릭하면 모달로 표시 -->
     <div id="gm-category-cards" style="display:grid;grid-template-columns:repeat(7, minmax(0, 1fr));gap:8px;padding:12px;background:rgba(15,23,42,0.45);border-radius:14px;margin-bottom:14px;border:1px solid rgba(251,191,36,0.18)">
-      <button class="gm-cat-card" data-cat="all"    data-color="mango"  onclick="setGmCategory('all', this)">
+      <button class="gm-cat-card" data-cat="all"    data-color="mango"  onclick="event.stopPropagation();(function(c,b){var m=document.getElementById('gm-cat-modal');if(!m){alert('모달 없음');return;}m.style.cssText='position:fixed;inset:0;z-index:9999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);backdrop-filter:blur(6px);padding:30px 20px;overflow-y:auto';m.classList.add('show');document.body.style.overflow='hidden';var body=document.getElementById('gm-cat-modal-body');var title=document.getElementById('gm-cat-modal-title');var sub=document.getElementById('gm-cat-modal-sub');if(title)title.textContent=(b.querySelector('.cat-name')||{}).textContent||c;var cards=document.querySelectorAll('.gm-card[data-go]');var v=0;if(body){body.innerHTML='';cards.forEach(function(card){var cc=card.getAttribute('data-cat')||'tools';if(c==='all'||cc===c){var clone=card.cloneNode(true);clone.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px 12px;background:rgba(15,23,42,0.7);border:1px solid rgba(96,165,250,0.4);border-radius:12px;color:#F8FAFC;cursor:pointer;min-height:90px';body.appendChild(clone);v++;}});if(v===0)body.innerHTML='<div style=\'color:#94A3B8;text-align:center;padding:30px\'>이 카테고리에 카드 없음</div>';}if(sub)sub.textContent=v+'개 메뉴';console.log('[inline] 카테고리:',c,'->',v,'개');})('all',this);">
         <div class="cat-emoji">🗂</div>
         <div class="cat-name"><span data-ko="전체" data-en="All">전체</span></div>
         <div class="cat-count" data-count="0"><span data-count-num>0</span><span data-ko="개" data-en=""> 개</span></div>
       </button>
-      <button class="gm-cat-card" data-cat="learn"  data-color="green"  onclick="setGmCategory('learn', this)">
+      <button class="gm-cat-card" data-cat="learn"  data-color="green"  onclick="event.stopPropagation();(function(c,b){var m=document.getElementById('gm-cat-modal');if(!m){alert('모달 없음');return;}m.style.cssText='position:fixed;inset:0;z-index:9999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);backdrop-filter:blur(6px);padding:30px 20px;overflow-y:auto';m.classList.add('show');document.body.style.overflow='hidden';var body=document.getElementById('gm-cat-modal-body');var title=document.getElementById('gm-cat-modal-title');var sub=document.getElementById('gm-cat-modal-sub');if(title)title.textContent=(b.querySelector('.cat-name')||{}).textContent||c;var cards=document.querySelectorAll('.gm-card[data-go]');var v=0;if(body){body.innerHTML='';cards.forEach(function(card){var cc=card.getAttribute('data-cat')||'tools';if(c==='all'||cc===c){var clone=card.cloneNode(true);clone.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px 12px;background:rgba(15,23,42,0.7);border:1px solid rgba(96,165,250,0.4);border-radius:12px;color:#F8FAFC;cursor:pointer;min-height:90px';body.appendChild(clone);v++;}});if(v===0)body.innerHTML='<div style=\'color:#94A3B8;text-align:center;padding:30px\'>이 카테고리에 카드 없음</div>';}if(sub)sub.textContent=v+'개 메뉴';console.log('[inline] 카테고리:',c,'->',v,'개');})('learn',this);">
         <div class="cat-emoji">🚀</div>
         <div class="cat-name"><span data-ko="학습 시작" data-en="Learn">학습 시작</span></div>
         <div class="cat-count" data-count="0"><span data-count-num>0</span><span data-ko="개" data-en=""> 개</span></div>
       </button>
-      <button class="gm-cat-card" data-cat="ai"     data-color="purple" onclick="setGmCategory('ai', this)">
+      <button class="gm-cat-card" data-cat="ai"     data-color="purple" onclick="event.stopPropagation();(function(c,b){var m=document.getElementById('gm-cat-modal');if(!m){alert('모달 없음');return;}m.style.cssText='position:fixed;inset:0;z-index:9999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);backdrop-filter:blur(6px);padding:30px 20px;overflow-y:auto';m.classList.add('show');document.body.style.overflow='hidden';var body=document.getElementById('gm-cat-modal-body');var title=document.getElementById('gm-cat-modal-title');var sub=document.getElementById('gm-cat-modal-sub');if(title)title.textContent=(b.querySelector('.cat-name')||{}).textContent||c;var cards=document.querySelectorAll('.gm-card[data-go]');var v=0;if(body){body.innerHTML='';cards.forEach(function(card){var cc=card.getAttribute('data-cat')||'tools';if(c==='all'||cc===c){var clone=card.cloneNode(true);clone.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px 12px;background:rgba(15,23,42,0.7);border:1px solid rgba(96,165,250,0.4);border-radius:12px;color:#F8FAFC;cursor:pointer;min-height:90px';body.appendChild(clone);v++;}});if(v===0)body.innerHTML='<div style=\'color:#94A3B8;text-align:center;padding:30px\'>이 카테고리에 카드 없음</div>';}if(sub)sub.textContent=v+'개 메뉴';console.log('[inline] 카테고리:',c,'->',v,'개');})('ai',this);">
         <div class="cat-emoji">🤖</div>
         <div class="cat-name"><span data-ko="AI 도구" data-en="AI Tools">AI 도구</span></div>
         <div class="cat-count" data-count="0"><span data-count-num>0</span><span data-ko="개" data-en=""> 개</span></div>
       </button>
-      <button class="gm-cat-card" data-cat="class"  data-color="blue"   onclick="setGmCategory('class', this)">
+      <button class="gm-cat-card" data-cat="class"  data-color="blue"   onclick="event.stopPropagation();(function(c,b){var m=document.getElementById('gm-cat-modal');if(!m){alert('모달 없음');return;}m.style.cssText='position:fixed;inset:0;z-index:9999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);backdrop-filter:blur(6px);padding:30px 20px;overflow-y:auto';m.classList.add('show');document.body.style.overflow='hidden';var body=document.getElementById('gm-cat-modal-body');var title=document.getElementById('gm-cat-modal-title');var sub=document.getElementById('gm-cat-modal-sub');if(title)title.textContent=(b.querySelector('.cat-name')||{}).textContent||c;var cards=document.querySelectorAll('.gm-card[data-go]');var v=0;if(body){body.innerHTML='';cards.forEach(function(card){var cc=card.getAttribute('data-cat')||'tools';if(c==='all'||cc===c){var clone=card.cloneNode(true);clone.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px 12px;background:rgba(15,23,42,0.7);border:1px solid rgba(96,165,250,0.4);border-radius:12px;color:#F8FAFC;cursor:pointer;min-height:90px';body.appendChild(clone);v++;}});if(v===0)body.innerHTML='<div style=\'color:#94A3B8;text-align:center;padding:30px\'>이 카테고리에 카드 없음</div>';}if(sub)sub.textContent=v+'개 메뉴';console.log('[inline] 카테고리:',c,'->',v,'개');})('class',this);">
         <div class="cat-emoji">📝</div>
         <div class="cat-name"><span data-ko="수업·평가" data-en="Classes">수업·평가</span></div>
         <div class="cat-count" data-count="0"><span data-count-num>0</span><span data-ko="개" data-en=""> 개</span></div>
       </button>
-      <button class="gm-cat-card" data-cat="reward" data-color="gold"   onclick="setGmCategory('reward', this)">
+      <button class="gm-cat-card" data-cat="reward" data-color="gold"   onclick="event.stopPropagation();(function(c,b){var m=document.getElementById('gm-cat-modal');if(!m){alert('모달 없음');return;}m.style.cssText='position:fixed;inset:0;z-index:9999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);backdrop-filter:blur(6px);padding:30px 20px;overflow-y:auto';m.classList.add('show');document.body.style.overflow='hidden';var body=document.getElementById('gm-cat-modal-body');var title=document.getElementById('gm-cat-modal-title');var sub=document.getElementById('gm-cat-modal-sub');if(title)title.textContent=(b.querySelector('.cat-name')||{}).textContent||c;var cards=document.querySelectorAll('.gm-card[data-go]');var v=0;if(body){body.innerHTML='';cards.forEach(function(card){var cc=card.getAttribute('data-cat')||'tools';if(c==='all'||cc===c){var clone=card.cloneNode(true);clone.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px 12px;background:rgba(15,23,42,0.7);border:1px solid rgba(96,165,250,0.4);border-radius:12px;color:#F8FAFC;cursor:pointer;min-height:90px';body.appendChild(clone);v++;}});if(v===0)body.innerHTML='<div style=\'color:#94A3B8;text-align:center;padding:30px\'>이 카테고리에 카드 없음</div>';}if(sub)sub.textContent=v+'개 메뉴';console.log('[inline] 카테고리:',c,'->',v,'개');})('reward',this);">
         <div class="cat-emoji">💎</div>
         <div class="cat-name"><span data-ko="포인트·이벤트" data-en="Rewards">포인트·이벤트</span></div>
         <div class="cat-count" data-count="0"><span data-count-num>0</span><span data-ko="개" data-en=""> 개</span></div>
       </button>
-      <button class="gm-cat-card" data-cat="parent" data-color="pink"   onclick="setGmCategory('parent', this)">
+      <button class="gm-cat-card" data-cat="parent" data-color="pink"   onclick="event.stopPropagation();(function(c,b){var m=document.getElementById('gm-cat-modal');if(!m){alert('모달 없음');return;}m.style.cssText='position:fixed;inset:0;z-index:9999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);backdrop-filter:blur(6px);padding:30px 20px;overflow-y:auto';m.classList.add('show');document.body.style.overflow='hidden';var body=document.getElementById('gm-cat-modal-body');var title=document.getElementById('gm-cat-modal-title');var sub=document.getElementById('gm-cat-modal-sub');if(title)title.textContent=(b.querySelector('.cat-name')||{}).textContent||c;var cards=document.querySelectorAll('.gm-card[data-go]');var v=0;if(body){body.innerHTML='';cards.forEach(function(card){var cc=card.getAttribute('data-cat')||'tools';if(c==='all'||cc===c){var clone=card.cloneNode(true);clone.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px 12px;background:rgba(15,23,42,0.7);border:1px solid rgba(96,165,250,0.4);border-radius:12px;color:#F8FAFC;cursor:pointer;min-height:90px';body.appendChild(clone);v++;}});if(v===0)body.innerHTML='<div style=\'color:#94A3B8;text-align:center;padding:30px\'>이 카테고리에 카드 없음</div>';}if(sub)sub.textContent=v+'개 메뉴';console.log('[inline] 카테고리:',c,'->',v,'개');})('parent',this);">
         <div class="cat-emoji">👨‍👩‍👧</div>
         <div class="cat-name"><span data-ko="학부모·소통" data-en="Parent">학부모·소통</span></div>
         <div class="cat-count" data-count="0"><span data-count-num>0</span><span data-ko="개" data-en=""> 개</span></div>
       </button>
-      <button class="gm-cat-card" data-cat="tools"  data-color="slate"  onclick="setGmCategory('tools', this)">
+      <button class="gm-cat-card" data-cat="tools"  data-color="slate"  onclick="event.stopPropagation();(function(c,b){var m=document.getElementById('gm-cat-modal');if(!m){alert('모달 없음');return;}m.style.cssText='position:fixed;inset:0;z-index:9999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);backdrop-filter:blur(6px);padding:30px 20px;overflow-y:auto';m.classList.add('show');document.body.style.overflow='hidden';var body=document.getElementById('gm-cat-modal-body');var title=document.getElementById('gm-cat-modal-title');var sub=document.getElementById('gm-cat-modal-sub');if(title)title.textContent=(b.querySelector('.cat-name')||{}).textContent||c;var cards=document.querySelectorAll('.gm-card[data-go]');var v=0;if(body){body.innerHTML='';cards.forEach(function(card){var cc=card.getAttribute('data-cat')||'tools';if(c==='all'||cc===c){var clone=card.cloneNode(true);clone.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px 12px;background:rgba(15,23,42,0.7);border:1px solid rgba(96,165,250,0.4);border-radius:12px;color:#F8FAFC;cursor:pointer;min-height:90px';body.appendChild(clone);v++;}});if(v===0)body.innerHTML='<div style=\'color:#94A3B8;text-align:center;padding:30px\'>이 카테고리에 카드 없음</div>';}if(sub)sub.textContent=v+'개 메뉴';console.log('[inline] 카테고리:',c,'->',v,'개');})('tools',this);">
         <div class="cat-emoji">🛠</div>
         <div class="cat-name"><span data-ko="도움말·기타" data-en="Help & Tools">도움말·기타</span></div>
         <div class="cat-count" data-count="0"><span data-count-num>0</span><span data-ko="개" data-en=""> 개</span></div>
@@ -4039,7 +4039,7 @@
     </style>
 
     <!-- 🪟 카테고리 카드 모달 (클릭 시 표시 + 배경 blur) -->
-    <div id="gm-cat-modal" class="gm-cat-modal" onclick="if(event.target===this)closeCatModal()">
+    <div id="gm-cat-modal" class="gm-cat-modal" onclick="if(event.target===this){var m=document.getElementById('gm-cat-modal');if(m)m.classList.remove('show');document.body.style.overflow='';}">
       <div class="gm-cat-modal-box">
         <div class="gm-cat-modal-head">
           <span class="gm-cat-modal-emoji" id="gm-cat-modal-emoji">🗂</span>
@@ -4047,7 +4047,7 @@
             <div class="gm-cat-modal-title" id="gm-cat-modal-title">카테고리</div>
             <div class="gm-cat-modal-sub" id="gm-cat-modal-sub">0개 메뉴</div>
           </div>
-          <button class="gm-cat-modal-close" onclick="closeCatModal()" aria-label="닫기">✕</button>
+          <button class="gm-cat-modal-close" onclick="var m=document.getElementById('gm-cat-modal');if(m)m.classList.remove('show');document.body.style.overflow='';" aria-label="닫기">✕</button>
         </div>
         <div class="gm-cat-modal-body" id="gm-cat-modal-body"></div>
       </div>
@@ -22896,7 +22896,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260526124251 -->
+<!-- BUILD:20260526125410 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -22990,6 +22990,40 @@ document.addEventListener('click', (e) => {
   });
 })();
 </script>
+
+
+<style id="fix-v4-strong">
+  body div#gm-cat-modal.show {
+    display: flex !important;
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 9999999 !important;
+    background: rgba(0,0,0,0.85) !important;
+    backdrop-filter: blur(6px) !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 30px 20px !important;
+    overflow-y: auto !important;
+  }
+  body div#gm-cat-modal.show .gm-cat-modal-box {
+    background: linear-gradient(135deg, #0F172A, #1E293B) !important;
+    border: 2px solid #60A5FA !important;
+    border-radius: 18px !important;
+    max-width: 1100px !important;
+    width: 100% !important;
+    color: #F8FAFC !important;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.7) !important;
+    padding: 24px !important;
+    max-height: 88vh !important;
+    overflow-y: auto !important;
+  }
+  body div#gm-cat-modal.show #gm-cat-modal-body {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+    gap: 10px !important;
+    padding: 14px 0 !important;
+  }
+</style>
 
 </body>
 </html>
