@@ -1,6 +1,92 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+<!-- fix v12 (2026-05-26) — 깨진 v9 텍스트 즉시 제거 + SW 완전 unregister -->
+<script>
+(function(){
+  // 1) Service Worker 완전 unregister (페이지 로드 즉시)
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(rs){
+      rs.forEach(function(r){ r.unregister(); });
+    }).catch(function(){});
+  }
+  // 2) 모든 캐시 삭제
+  if (window.caches) {
+    caches.keys().then(function(ks){
+      ks.forEach(function(k){ caches.delete(k); });
+    }).catch(function(){});
+  }
+  // 3) 깨진 v9 텍스트 노드 즉시 제거
+  var BROKEN_PATTERNS = [
+    "+catName+", "+emoji+", "+name+", "+matched.length+",
+    "modal.innerHTML=html", "appendChild(modal)",
+    "document.body.style.overflow='hidden'",
+    "matched.forEach(function(card)",
+    "card.querySelector('.gm-card-title",
+    "emojiMatch=card.textContent.match",
+    "url=URLS[go]||('/?menu=",
+    "background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid"
+  ];
+  function killBrokenText(){
+    try {
+      var allTextNodes = document.evaluate('//text()', document.body || document, null, XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE, null);
+      var toRemove = [];
+      for (var i = 0; i < allTextNodes.snapshotLength; i++) {
+        var node = allTextNodes.snapshotItem(i);
+        var txt = node.nodeValue;
+        if (!txt || txt.length < 5) continue;
+        for (var j = 0; j < BROKEN_PATTERNS.length; j++) {
+          if (txt.indexOf(BROKEN_PATTERNS[j]) >= 0) {
+            toRemove.push(node);
+            break;
+          }
+        }
+      }
+      toRemove.forEach(function(n){
+        try { n.nodeValue = ''; } catch(e){}
+        try {
+          var p = n.parentElement;
+          if (p && p.tagName !== 'SCRIPT' && p.tagName !== 'STYLE' && p.children.length === 0) {
+            p.style.display = 'none';
+          }
+        } catch(e){}
+      });
+      if (toRemove.length > 0) console.log('[fix-v12] 깨진 텍스트 노드', toRemove.length, '개 제거');
+    } catch(e){
+      console.warn('[fix-v12] 텍스트 제거 실패:', e);
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', killBrokenText);
+  } else {
+    killBrokenText();
+  }
+  setTimeout(killBrokenText, 300);
+  setTimeout(killBrokenText, 1500);
+  setTimeout(killBrokenText, 3000);
+
+  // 4) MutationObserver — 새 깨진 노드 추가 시 즉시 제거
+  if (window.MutationObserver) {
+    var obs = new MutationObserver(function(mutations){
+      var shouldCheck = false;
+      mutations.forEach(function(m){
+        if (m.addedNodes.length) shouldCheck = true;
+      });
+      if (shouldCheck) killBrokenText();
+    });
+    if (document.body) {
+      obs.observe(document.body, { childList: true, subtree: true });
+    } else {
+      document.addEventListener('DOMContentLoaded', function(){
+        obs.observe(document.body, { childList: true, subtree: true });
+      });
+    }
+  }
+
+  console.log('[fix-v12] SW unregister + cache clear + 깨진 텍스트 자동 제거 활성');
+})();
+</script>
+
 <script id="ph58-sw-kill">
 /* Phase 58 (2026-05-23) — 옛 ServiceWorker 강제 unregister + 캐시 비우기 (한 번만)
    휴대폰 PWA가 옛 HTML 잡고 있을 때 자동 복구. */
@@ -22896,7 +22982,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260526142415 -->
+<!-- BUILD:20260526142822 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
