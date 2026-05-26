@@ -2,6 +2,113 @@
 <html lang="ko">
 <head>
 <script>
+// === fix v14 (2026-05-26): 카테고리 카드 깨끗한 새 함수 ===
+(function(){
+  var URLS = {
+    'admin':'/admin.html','adminmgr':'/admin.html','mypage':'/admin/mypage.html',
+    'payment':'/payment.html','franchise':'/franchise.html','teachers':'/teachers.html',
+    'contact':'/contact.html','notice':'/notice.html','curriculum':'/curriculum.html',
+    'homepage':'/','features':'/features.html','vocab':'/vocab.html','enroll':'/enroll.html',
+    'trial':'/trial.html','event':'/event.html','faq':'/faq.html',
+    'installguide':'/install-guide.html','learnguide':'/learn-guide.html',
+    'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'/contact.html',
+    'library':'/docs/','reviews':'/reviews.html','recordings':'/admin.html',
+    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html',
+    'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
+    'leveltest':'/level-test.html','battle':'/battle.html',
+    'lesson-change':'/lesson-postpone-demo.html','videolesson':'/video-call/',
+    'inquiry':'/contact.html','kakao':'/contact.html','focus':'/focus.html',
+    'goals':'/goals.html','write':'/ai-write.html','parent-dashboard':'/parent.html',
+    'chat':'/ai-friend.html','teacher-praise':'/teacher-praise.html',
+    'points-shop':'/streak.html','mypoints':'/streak.html','checkin':'/streak.html',
+    'leaderboard':'/streak.html','push-subscribe':'/'
+  };
+  var CAT_NAMES = {'all':'전체','learn':'학습 시작','ai':'AI 도구','class':'수업·평가','reward':'포인트·이벤트','parent':'학부모·소통','tools':'도움말·기타'};
+
+  function closeCat14(){
+    var m = document.getElementById('cat14-modal');
+    if (m) m.remove();
+    document.body.style.overflow = '';
+    document.querySelectorAll('.gm-cat-card').forEach(function(x){ x.classList.remove('active'); });
+  }
+  window.closeCat14 = closeCat14;
+
+  window.showCat14 = function(cat, btn){
+    // 토글
+    var old = document.getElementById('cat14-modal');
+    if (old && old.getAttribute('data-cat') === cat) { closeCat14(); return; }
+    if (old) old.remove();
+    document.querySelectorAll('.gm-cat-card').forEach(function(x){ x.classList.remove('active'); });
+    if (btn) btn.classList.add('active');
+
+    var cards = document.querySelectorAll('.gm-card[data-go]');
+    var matched = [];
+    cards.forEach(function(c){
+      var cc = c.getAttribute('data-cat') || 'tools';
+      if (cat === 'all' || cc === cat) matched.push(c);
+    });
+
+    var modal = document.createElement('div');
+    modal.id = 'cat14-modal';
+    modal.setAttribute('data-cat', cat);
+    modal.style.cssText = 'position:fixed;inset:0;z-index:99999999;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;padding:30px 20px;overflow-y:auto';
+    modal.onclick = function(e){ if (e.target === modal) closeCat14(); };
+
+    var box = document.createElement('div');
+    box.style.cssText = 'background:#0F172A;border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#fff;box-shadow:0 24px 80px rgba(0,0,0,0.7)';
+
+    var header = document.createElement('div');
+    header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid #2563EB';
+    var h2 = document.createElement('h2');
+    h2.style.cssText = 'margin:0;font-size:22px;color:#fff';
+    h2.textContent = '📂 ' + (CAT_NAMES[cat] || cat) + ' (' + matched.length + '개)';
+    header.appendChild(h2);
+    var xBtn = document.createElement('button');
+    xBtn.textContent = '✕';
+    xBtn.style.cssText = 'background:#EF4444;color:#fff;border:0;border-radius:8px;width:36px;height:36px;font-size:18px;font-weight:800;cursor:pointer';
+    xBtn.onclick = closeCat14;
+    header.appendChild(xBtn);
+    box.appendChild(header);
+
+    var grid = document.createElement('div');
+    grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px';
+
+    if (matched.length === 0) {
+      var empty = document.createElement('div');
+      empty.style.cssText = 'grid-column:1/-1;text-align:center;padding:40px;color:#94A3B8';
+      empty.textContent = '이 카테고리에 카드 없음';
+      grid.appendChild(empty);
+    } else {
+      matched.forEach(function(card){
+        var go = card.getAttribute('data-go');
+        var url = URLS[go] || ('/?menu=' + go);
+        var txt = (card.textContent || '').trim().replace(/\s+/g, ' ');
+        var name = txt.substring(0, 40) || go;
+
+        var a = document.createElement('a');
+        a.href = url;
+        a.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 12px;background:#1E293B;border:1px solid #60A5FA;border-radius:12px;color:#fff;text-decoration:none;min-height:100px;text-align:center;font-size:13px;font-weight:700';
+        a.textContent = name;
+        grid.appendChild(a);
+      });
+    }
+
+    box.appendChild(grid);
+    modal.appendChild(box);
+    document.body.appendChild(modal);
+    document.body.style.overflow = 'hidden';
+    console.log('[v14] 모달 열림:', cat, '->', matched.length, '개');
+  };
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') closeCat14();
+  });
+
+  console.log('[v14] showCat14 글로벌 함수 준비 완료');
+})();
+</script>
+
+<script>
 (function(){
   function nukeAll(){
     document.querySelectorAll('div, button, a').forEach(function(el){
@@ -4088,37 +4195,37 @@
     </div>
     <!-- 🗂 카테고리 카드 (한 줄 가로 정렬) — 클릭하면 모달로 표시 -->
     <div id="gm-category-cards" style="display:grid;grid-template-columns:repeat(7, minmax(0, 1fr));gap:8px;padding:12px;background:rgba(15,23,42,0.45);border-radius:14px;margin-bottom:14px;border:1px solid rgba(251,191,36,0.18)">
-      <button class="gm-cat-card" data-cat="all"    data-color="mango"  background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">'})('tools');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">'})('parent');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">'})('reward');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">'})('class');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">'})('ai');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">'})('learn');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">'})('all');">
+      <button class="gm-cat-card" data-cat="all"    data-color="mango"  background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)" onclick="showCat14('all', this)" type="button">'})('tools');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">'})('parent');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">'})('reward');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">'})('class');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">'})('ai');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">'})('learn');"background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)">'})('all');">
         <div class="cat-emoji">🗂</div>
         <div class="cat-name"><span data-ko="전체" data-en="All">전체</span></div>
         <div class="cat-count" data-count="0"><span data-count-num>0</span><span data-ko="개" data-en=""> 개</span></div>
       </button>
-      <button class="gm-cat-card" data-cat="learn"  data-color="green"  >
+      <button class="gm-cat-card" data-cat="learn"  data-color="green" onclick="showCat14('learn', this)" type="button"  >
         <div class="cat-emoji">🚀</div>
         <div class="cat-name"><span data-ko="학습 시작" data-en="Learn">학습 시작</span></div>
         <div class="cat-count" data-count="0"><span data-count-num>0</span><span data-ko="개" data-en=""> 개</span></div>
       </button>
-      <button class="gm-cat-card" data-cat="ai"     data-color="purple" >
+      <button class="gm-cat-card" data-cat="ai"     data-color="purple" onclick="showCat14('ai', this)" type="button" >
         <div class="cat-emoji">🤖</div>
         <div class="cat-name"><span data-ko="AI 도구" data-en="AI Tools">AI 도구</span></div>
         <div class="cat-count" data-count="0"><span data-count-num>0</span><span data-ko="개" data-en=""> 개</span></div>
       </button>
-      <button class="gm-cat-card" data-cat="class"  data-color="blue"   >
+      <button class="gm-cat-card" data-cat="class"  data-color="blue" onclick="showCat14('class', this)" type="button"   >
         <div class="cat-emoji">📝</div>
         <div class="cat-name"><span data-ko="수업·평가" data-en="Classes">수업·평가</span></div>
         <div class="cat-count" data-count="0"><span data-count-num>0</span><span data-ko="개" data-en=""> 개</span></div>
       </button>
-      <button class="gm-cat-card" data-cat="reward" data-color="gold"   >
+      <button class="gm-cat-card" data-cat="reward" data-color="gold" onclick="showCat14('reward', this)" type="button"   >
         <div class="cat-emoji">💎</div>
         <div class="cat-name"><span data-ko="포인트·이벤트" data-en="Rewards">포인트·이벤트</span></div>
         <div class="cat-count" data-count="0"><span data-count-num>0</span><span data-ko="개" data-en=""> 개</span></div>
       </button>
-      <button class="gm-cat-card" data-cat="parent" data-color="pink"   >
+      <button class="gm-cat-card" data-cat="parent" data-color="pink" onclick="showCat14('parent', this)" type="button"   >
         <div class="cat-emoji">👨‍👩‍👧</div>
         <div class="cat-name"><span data-ko="학부모·소통" data-en="Parent">학부모·소통</span></div>
         <div class="cat-count" data-count="0"><span data-count-num>0</span><span data-ko="개" data-en=""> 개</span></div>
       </button>
-      <button class="gm-cat-card" data-cat="tools"  data-color="slate"  >
+      <button class="gm-cat-card" data-cat="tools"  data-color="slate" onclick="showCat14('tools', this)" type="button"  >
         <div class="cat-emoji">🛠</div>
         <div class="cat-name"><span data-ko="도움말·기타" data-en="Help & Tools">도움말·기타</span></div>
         <div class="cat-count" data-count="0"><span data-count-num>0</span><span data-ko="개" data-en=""> 개</span></div>
@@ -23007,7 +23114,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260526143413 -->
+<!-- BUILD:20260526150915 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
