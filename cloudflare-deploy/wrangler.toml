@@ -39,7 +39,7 @@ binding = "AI"
 MAX_RECORDING_MB = "500"
 ALLOWED_RECORDING_MIME = "video/webm,video/mp4,audio/webm,audio/mp4"
 # /admin/health "Last Deploy" tile identifier - auto-updated by fix-and-deploy.ps1
-BUILD_STAMP = "2026-05-25T19:08:08Z"
+BUILD_STAMP = "2026-05-26T12:42:51Z"
 
 [assets]
 directory = "./public"
@@ -102,7 +102,7 @@ binding = "AI"
 [env.production.vars]
 MAX_RECORDING_MB = "500"
 ALLOWED_RECORDING_MIME = "video/webm,video/mp4,audio/webm,audio/mp4"
-BUILD_STAMP = "2026-05-25T19:08:08Z"
+BUILD_STAMP = "2026-05-26T12:42:51Z"
 
 [env.production.assets]
 directory = "./public"
