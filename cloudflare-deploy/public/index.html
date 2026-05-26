@@ -108,32 +108,7 @@
 })();
 </script>
 
-<script>
-(function(){
-  function nukeAll(){
-    document.querySelectorAll('div, button, a').forEach(function(el){
-      // 정상 v11-modal, cat14-modal 안의 element는 건드리지 않음
-      if (el.closest && (el.closest('#v11-modal') || el.closest('#cat14-modal'))) return;
-      var txt = el.textContent || '';
-      if (/html\+=|\+catName\+|\+emoji\+|\+name\+|\+matched\.length\+|\+url\+|modal\.innerHTML/.test(txt) && el.children.length < 5) {
-        el.style.display = 'none';
-        try { el.remove(); } catch(e){}
-      }
-    });
-    ['v9-modal','v10-modal','new-cat-modal','ph-modal'].forEach(function(id){
-      var el = document.getElementById(id);
-      if (el) el.remove();
-    });
-    document.body.style.overflow = '';
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', nukeAll);
-  else nukeAll();
-  setTimeout(nukeAll, 100);
-  setTimeout(nukeAll, 500);
-  setTimeout(nukeAll, 1500);
-  console.log('[fix-v13] 깨진 모달/박스 강제 제거 활성');
-})();
-</script>
+
 
 <!-- fix v12 (2026-05-26) — 깨진 v9 텍스트 즉시 제거 + SW 완전 unregister -->
 <script>
@@ -169,6 +144,15 @@
         var node = allTextNodes.snapshotItem(i);
         var txt = node.nodeValue;
         if (!txt || txt.length < 5) continue;
+        // 정상 모달 안의 노드는 건드리지 않음
+        try {
+          var p = node.parentElement;
+          while (p) {
+            if (p.id === 'v11-modal' || p.id === 'cat14-modal') break;
+            p = p.parentElement;
+          }
+          if (p) continue;
+        } catch(e){}
         for (var j = 0; j < BROKEN_PATTERNS.length; j++) {
           if (txt.indexOf(BROKEN_PATTERNS[j]) >= 0) {
             toRemove.push(node);
@@ -23116,7 +23100,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260526152227 -->
+<!-- BUILD:20260526152659 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
