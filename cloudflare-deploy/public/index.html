@@ -23027,7 +23027,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260527224829 -->
+<!-- BUILD:20260527225347 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -23825,6 +23825,74 @@ window.vcExitAndGoHome = async function(){
   }, 300);
 };
 console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
+</script>
+
+
+<!-- ============================================================
+     fix v29 (2026-05-27) — 룸 ✕ 버튼 캡처-페이즈 강제 핸들러
+     · 다른 핸들러(stopPropagation 등)가 가로채도 우선 작동
+     · 광범위 매칭: ctrl-btn danger / onclick="vcLeave*" / title*="나가기"
+     · 클릭 즉시 location.href = '/'  (가장 확실한 방법)
+     ============================================================ -->
+<script id="v29-leave-capture">
+(function(){
+  'use strict';
+
+  function isLeaveBtn(el){
+    if (!el) return false;
+    if (el.tagName !== 'BUTTON' && el.tagName !== 'A') return false;
+    // 1) class 매칭
+    if (el.classList && el.classList.contains('ctrl-btn') && el.classList.contains('danger')) return true;
+    // 2) onclick 속성 매칭
+    var oc = el.getAttribute && el.getAttribute('onclick');
+    if (oc && /vcLeaveRoom|vcExitAndGoHome|leaveCall|hangup/i.test(oc)) return true;
+    // 3) title/aria 매칭
+    var t = (el.getAttribute && (el.getAttribute('title')||el.getAttribute('aria-label'))) || '';
+    if (/나가기|Leave|leave room|hang ?up/i.test(t)) return true;
+    // 4) 텍스트가 정확히 ✕ 또는 × 이고 ctrl 영역 안
+    var txt = (el.textContent||'').trim();
+    if ((txt === '✕' || txt === '×') && el.closest && el.closest('.vc-top, .ctrl-area, .vc-controls, header, .vc-toolbar')) return true;
+    return false;
+  }
+
+  function gotoHome(){
+    // 룸 정리 시도 (실패해도 무시)
+    try { if (typeof window.vcLeaveRoom === 'function') { window.vcLeaveRoom(); } } catch(e){}
+    // 즉시 + 안전망
+    setTimeout(function(){ try { location.href = '/'; } catch(e){} }, 150);
+    // 0.3초 안 가면 강제 reload
+    setTimeout(function(){
+      try {
+        if (document.body.classList.contains('vc-in-call') || /[?&](room|r)=/.test(location.search)) {
+          location.replace('/');
+        }
+      } catch(e){}
+    }, 350);
+  }
+
+  // 캡처 단계 (true) — bubble 단계에서 잡는 다른 핸들러보다 먼저 실행
+  window.addEventListener('click', function(e){
+    var btn = e.target && e.target.closest ? e.target.closest('button, a') : null;
+    if (!btn || !isLeaveBtn(btn)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    console.log('[v29] ✕ 버튼 캡처 — 홈으로 강제 이동');
+    gotoHome();
+  }, true);
+
+  // touchstart 도 잡기 (모바일 일부에서 click 이벤트 안 발생할 수도)
+  window.addEventListener('touchend', function(e){
+    var btn = e.target && e.target.closest ? e.target.closest('button, a') : null;
+    if (!btn || !isLeaveBtn(btn)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('[v29] ✕ 버튼 터치 캡처 — 홈으로 강제 이동');
+    gotoHome();
+  }, true);
+
+  console.log('[v29] 룸 ✕ 버튼 캡처-페이즈 강제 핸들러 활성');
+})();
 </script>
 
 </body>
