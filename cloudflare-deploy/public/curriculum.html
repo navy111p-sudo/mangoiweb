@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<title>망고아이 교육과정 — Curriculum</title>
+<link rel="icon" type="image/png" href="/img/icon-192.png">
+<link rel="icon" href="data:," />
+<script src="/js/mango-i18n.js" defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800;900&family=Cormorant+Garamond:ital,wght@1,700&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{min-height:100vh;background:radial-gradient(ellipse at top right,rgba(79,124,255,0.18),transparent 50%),radial-gradient(ellipse at bottom left,rgba(251,191,36,0.10),transparent 45%),linear-gradient(180deg,#0a1530,#0b1c44,#0f1d40);color:#e6ecff;font-family:'Noto Sans KR',sans-serif;padding:24px 16px 80px;line-height:1.6}
+  .wrap{max-width:1100px;margin:0 auto}
+
+  /* 상단 */
+  .brand{text-align:center;margin-bottom:22px}
+  .brand-logo{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:700;background:linear-gradient(180deg,#fff4cc,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:34px;letter-spacing:1px;display:block}
+  .brand-sub{color:#a3b3d1;font-size:13px;margin-top:4px}
+  h1.page-title{text-align:center;font-size:26px;font-weight:900;margin-top:6px;background:linear-gradient(135deg,#fbbf24,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .page-lead{text-align:center;color:#cbd5e1;font-size:14px;margin:8px auto 26px;max-width:680px}
+
+  /* 섹션 카드 */
+  .section{background:rgba(20,41,80,0.6);border:1px solid rgba(99,102,241,0.20);border-radius:18px;padding:22px 22px 26px;margin-bottom:22px;backdrop-filter:blur(8px)}
+  .section h2{display:flex;align-items:center;gap:8px;font-size:19px;font-weight:900;color:#fff;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.08)}
+  .section h2 .ico{font-size:22px}
+  .hint{color:#94a3b8;font-size:12px;margin:4px 0 12px}
+
+  /* 8단계 레벨 표 */
+  .lvl-table{display:flex;flex-direction:column;gap:6px}
+  .lvl-head{display:grid;grid-template-columns:80px 110px 1fr 30px;gap:8px;padding:8px 12px;font-size:11.5px;font-weight:800;color:#94a3b8;letter-spacing:1px;text-transform:uppercase}
+  .lvl-row{background:#0f1f44;border:1px solid rgba(99,102,241,0.18);border-radius:12px;overflow:hidden;transition:all .15s}
+  .lvl-row[open]{border-color:rgba(251,191,36,0.4)}
+  .lvl-row summary{display:grid;grid-template-columns:80px 110px 1fr 30px;gap:8px;align-items:center;padding:12px;cursor:pointer;list-style:none}
+  .lvl-row summary::-webkit-details-marker{display:none}
+  .lvl-cat{display:inline-block;text-align:center;padding:4px 8px;border-radius:99px;font-size:11px;font-weight:800;color:#fff;letter-spacing:0.5px}
+  .lvl-num{font-size:14px;font-weight:900;color:#fff}
+  .lvl-en{font-size:13px;color:#cbd5e1;font-weight:700}
+  .lvl-arrow{color:#94a3b8;text-align:center;transition:transform .15s}
+  .lvl-row[open] .lvl-arrow{transform:rotate(180deg);color:#fbbf24}
+  .lvl-body{padding:0 16px 16px;border-top:1px solid rgba(255,255,255,0.06)}
+  .lvl-title{font-size:14px;font-weight:800;color:#fbbf24;margin:14px 0 8px}
+  .lvl-ko,.lvl-en-desc{font-size:13.5px;line-height:1.75;color:#e6ecff;margin-bottom:8px}
+  .lvl-en-desc{color:#a3b3d1;font-style:italic;font-size:13px}
+
+  /* 목적별 트랙 */
+  .track-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+  .track-card{background:#0f1f44;border:1px solid rgba(99,102,241,0.20);border-radius:12px;padding:16px;transition:all .15s}
+  .track-card:hover{border-color:rgba(251,191,36,0.4);transform:translateY(-2px)}
+  .track-emoji{font-size:28px;margin-bottom:6px}
+  .track-title{font-size:14.5px;font-weight:900;color:#fff;margin-bottom:6px}
+  .track-desc{font-size:12.5px;color:#a3b3d1;line-height:1.6}
+
+  /* 수업 구성 */
+  .class-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+  .class-card{background:linear-gradient(135deg,rgba(79,124,255,0.08),rgba(251,191,36,0.05));border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:18px}
+  .class-card .num{display:inline-block;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;width:32px;height:32px;border-radius:50%;text-align:center;line-height:32px;font-weight:900;margin-bottom:8px}
+  .class-card h4{font-size:15px;font-weight:900;color:#fff;margin-bottom:6px}
+  .class-card p{font-size:12.5px;color:#cbd5e1;line-height:1.6}
+
+  /* 교재 박스 */
+  .book-list{display:flex;flex-direction:column;gap:10px}
+  .book-item{background:#0f1f44;border:1px solid rgba(99,102,241,0.18);border-radius:14px;overflow:hidden}
+  .book-item[open]{border-color:rgba(251,191,36,0.4)}
+  .book-item summary{display:grid;grid-template-columns:64px 1fr 30px;gap:14px;align-items:center;padding:14px;cursor:pointer;list-style:none}
+  .book-item summary::-webkit-details-marker{display:none}
+  .book-cover{width:64px;height:64px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;font-size:18px;letter-spacing:1px;box-shadow:0 6px 14px -4px rgba(0,0,0,0.4)}
+  .book-name{font-size:15px;font-weight:900;color:#fff}
+  .book-level{font-size:12px;color:#94a3b8;margin-top:3px}
+  .book-arrow{color:#94a3b8;text-align:center;transition:transform .15s}
+  .book-item[open] .book-arrow{transform:rotate(180deg);color:#fbbf24}
+  .book-body{padding:0 16px 16px;border-top:1px solid rgba(255,255,255,0.06)}
+  .book-feature-grid{display:grid;gap:8px;margin-top:12px}
+  .book-feature{display:grid;grid-template-columns:32px 1fr;gap:10px;align-items:start;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:8px}
+  .bf-num{color:#fbbf24;font-weight:900;font-size:12px}
+  .bf-text{font-size:13px;color:#e6ecff;line-height:1.65}
+  .book-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .book-tag{padding:4px 10px;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);border-radius:99px;color:#cbd5e1;font-size:11px;font-weight:700}
+
+  /* CTA */
+  .cta-box{background:linear-gradient(135deg,#fbbf24,#f59e0b);border-radius:18px;padding:26px 22px;text-align:center;color:#1a1a1a;margin-top:8px}
+  .cta-box h3{font-size:20px;font-weight:900;margin-bottom:6px}
+  .cta-box p{font-size:13.5px;margin-bottom:14px;color:#1f2937}
+  .cta-btn{display:inline-block;padding:12px 26px;background:#1a1a1a;color:#fbbf24;text-decoration:none;font-weight:900;border-radius:99px;font-size:14px;transition:all .15s;border:0;cursor:pointer;font-family:inherit}
+  .cta-btn:hover{transform:translateY(-2px);box-shadow:0 8px 20px -4px rgba(0,0,0,0.4)}
+
+  /* 홈/언어 버튼 */
+  .home-btn{position:fixed;top:14px;left:14px;z-index:999;padding:9px 16px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;text-decoration:none;font-weight:800;border-radius:99px;font-size:13px;box-shadow:0 6px 14px -4px rgba(0,0,0,0.3)}
+  .lang-btn{position:fixed;top:14px;right:14px;z-index:999;padding:9px 16px;background:rgba(20,41,80,0.9);color:#fff;border:1px solid rgba(99,102,241,0.4);font-weight:800;border-radius:99px;font-size:13px;cursor:pointer;font-family:inherit;backdrop-filter:blur(8px)}
+
+  /* 반응형 */
+  @media (max-width:720px){
+    body{padding:18px 12px 80px}
+    .brand-logo{font-size:28px}
+    h1.page-title{font-size:22px}
+    .section{padding:16px 14px 18px;border-radius:14px}
+    .section h2{font-size:17px}
+    .lvl-head{grid-template-columns:64px 90px 1fr 24px;font-size:10.5px;padding:6px 8px}
+    .lvl-row summary{grid-template-columns:64px 90px 1fr 24px;padding:10px 8px;gap:6px}
+    .lvl-cat{font-size:10px;padding:3px 6px}
+    .lvl-num{font-size:13px}
+    .lvl-en{font-size:11.5px}
+    .lvl-body{padding:0 12px 14px}
+    .lvl-ko,.lvl-en-desc{font-size:13px}
+    .book-item summary{grid-template-columns:54px 1fr 24px;gap:10px;padding:12px}
+    .book-cover{width:54px;height:54px;font-size:16px}
+    .home-btn,.lang-btn{padding:7px 12px;font-size:12px}
+    .cta-box{padding:22px 16px}
+    .cta-box h3{font-size:18px}
+  }
+  @media (max-width:420px){
+    .lvl-head{grid-template-columns:54px 78px 1fr 22px}
+    .lvl-row summary{grid-template-columns:54px 78px 1fr 22px}
+    .lvl-en{display:none}
+    .lvl-head .lvl-en-col{display:none}
+  }
+</style>
+</head>
+<body>
+
+<a class="home-btn" href="/">🏠 <span data-ko="홈" data-en="Home">홈</span></a>
+<button class="lang-btn" onclick="if(window.toggleLang)window.toggleLang()" id="langBtn">🌐 EN</button>
+
+<div class="wrap">
+
+  <div class="brand">
+    <span class="brand-logo">Mangoi</span>
+    <div class="brand-sub" data-ko="망고아이 화상영어 · 글로벌 1:1 영어교육" data-en="Mangoi Video English · Global 1:1 English Education">망고아이 화상영어 · 글로벌 1:1 영어교육</div>
+  </div>
+
+  <h1 class="page-title" data-ko="📚 교육과정 안내" data-en="📚 Curriculum">📚 교육과정 안내</h1>
+  <p class="page-lead" data-ko="레벨·연령·목적별로 세분화된 망고아이 영어 교육과정을 안내해드립니다. 8단계 심층 레벨 시스템과 자체 개발 교재로 완벽한 학습을 지원합니다." data-en="Mangoi's English curriculum is segmented by level, age, and learning goals. Our 8-tier in-depth level system and proprietary textbooks provide a complete learning experience.">레벨·연령·목적별로 세분화된 망고아이 영어 교육과정을 안내해드립니다. 8단계 심층 레벨 시스템과 자체 개발 교재로 완벽한 학습을 지원합니다.</p>
+
+  <!-- ━━━━ 8단계 레벨 ━━━━ -->
+  <div class="section">
+    <h2><span class="ico">📊</span> <span data-ko="8단계 심층 레벨 시스템" data-en="8-Tier In-Depth Level System">8단계 심층 레벨 시스템</span></h2>
+    <p class="hint" data-ko="레벨 행을 클릭하시면 한국어·영문 상세 설명이 펼쳐집니다." data-en="Click each level to expand the Korean and English description.">레벨 행을 클릭하시면 한국어·영문 상세 설명이 펼쳐집니다.</p>
+
+    <div class="lvl-table">
+      <div class="lvl-head">
+        <div><span data-ko="단계" data-en="Tier">단계</span></div>
+        <div><span data-ko="레벨" data-en="Level">레벨</span></div>
+        <div class="lvl-en-col"><span data-ko="능력도" data-en="Proficiency">능력도</span></div>
+        <div></div>
+      </div>
+
+      <!-- 고급 -->
+      <details class="lvl-row">
+        <summary>
+          <span class="lvl-cat" style="background:#7c3aed" data-ko="고급" data-en="Advanced">고급</span>
+          <span class="lvl-num">Level 8</span>
+          <span class="lvl-en">Proficient</span>
+          <span class="lvl-arrow">▾</span>
+        </summary>
+        <div class="lvl-body">
+          <div class="lvl-title">Level 8 — 최상급 / Proficient Level</div>
+          <p class="lvl-ko">실제 교양 있는 원어민에 버금갈 정도로 사적인 주제뿐만 아니라 일반적이고 사회적인 내용에 이르기까지 유창하고 또한 자연스럽게 대화할 수 있는 상태입니다. 이미 영어구사에 있어 상당한 수준에 이르렀기 때문에 아주 쉽게 수준 있는 내용들을 읽고 이해할 수 있으며, 숙달된 문법지식과 구조분석력이 작문에도 그대로 드러나는 수준이라고 말할 수 있습니다. 따라서 원어민들과 함께 일하는 전문적인 업무 환경에서도 능동적으로 잘 대처할 수 있습니다.</p>
+          <p class="lvl-en-desc">The student can speak fluently and spontaneously on a wide range of personal, general or social topics like the real well-educated natives. Reading and understanding advanced text can be with such an ease for he already has a fully operational command of the language. The complexity of grammar and structure that he has mastered can also be manifested in writing. Finally, the student is able to function very well in an environment with native speaking people.</p>
+        </div>
+      </details>
+
+      <details class="lvl-row">
+        <summary>
+          <span class="lvl-cat" style="background:#7c3aed" data-ko="고급" data-en="Advanced">고급</span>
+          <span class="lvl-num">Level 7</span>
+          <span class="lvl-en">Advanced</span>
+          <span class="lvl-arrow">▾</span>
+        </summary>
+        <div class="lvl-body">
+          <div class="lvl-title">Level 7 — 상급 / Advanced Level</div>
+          <p class="lvl-ko">다양한 상황에서도 상대방의 말을 완벽하게 이해할 수 있으며, 자신의 생각을 다양한 방법으로 표현할 수 있는 능력을 갖춘 상태입니다. 수준 있는 글이나 복잡한 구조의 글들을 읽고 이해하는데 전혀 문제가 없으므로, 유창하고 자신감 있게 영어를 구사할 수 있는 수준입니다.</p>
+          <p class="lvl-en-desc">The student can understand statements completely in varied situations. He is also able to use different expressions to communicate his ideas. He has no problem with reading and understanding articles of advanced language and complex structures. He speaks fluently and confidently.</p>
+        </div>
+      </details>
+
+      <!-- 중급 -->
+      <details class="lvl-row">
+        <summary>
+          <span class="lvl-cat" style="background:#0ea5e9" data-ko="중급" data-en="Intermediate">중급</span>
+          <span class="lvl-num">Level 6</span>
+          <span class="lvl-en">Upper Intermediate</span>
+          <span class="lvl-arrow">▾</span>
+        </summary>
+        <div class="lvl-body">
+          <div class="lvl-title">Level 6 — 중급 3 / Upper Intermediate Level</div>
+          <p class="lvl-ko">일반적인 상황에서 완벽하게 상대방의 말을 이해하고, 자신의 생각을 말하며, 질문을 할 수 있으며, 문법지식과 어휘력이 좋기 때문에 읽고 이해하는데 있어 별 무리가 없는 상태입니다. 자신감 있게 자신의 의사를 표출할 수 있으며, 거의 유창한 단계라고 볼 수 있습니다.</p>
+          <p class="lvl-en-desc">The student is able to completely understand and use statements and questions he encounters in normal situation. He experiences no difficulty in reading and comprehension and in expressing himself with his good grammar skills and vocabulary. He expresses himself confidently and his speech is almost fluent.</p>
+        </div>
+      </details>
+
+      <details class="lvl-row">
+        <summary>
+          <span class="lvl-cat" style="background:#0ea5e9" data-ko="중급" data-en="Intermediate">중급</span>
+          <span class="lvl-num">Level 5</span>
+          <span class="lvl-en">Intermediate</span>
+          <span class="lvl-arrow">▾</span>
+        </summary>
+        <div class="lvl-body">
+          <div class="lvl-title">Level 5 — 중급 2 / Intermediate Level</div>
+          <p class="lvl-ko">상대방의 말을 쉽게 이해하고, 복잡한 질문에도 답할 수 있으며, 자신의 생각을 표현함에 있어서 큰 어려움이 없는 상태입니다. 문장 구조의 문법적인 형태들에 대한 기초적인 구사력을 습득한 상태이며, 어휘력이 좋기 때문에 더 복잡한 어휘나 다양한 표현들을 이해하고 구사할 수 있는 수준입니다.</p>
+          <p class="lvl-en-desc">The student can easily understand statements and respond to questions of higher complexity. Expressing his thoughts comes with not much difficulty. He has achieved a basic command of grammatical forms of structures. Also, his good vocabulary enables him to understand and use more difficult words and varied expressions.</p>
+        </div>
+      </details>
+
+      <details class="lvl-row">
+        <summary>
+          <span class="lvl-cat" style="background:#0ea5e9" data-ko="중급" data-en="Intermediate">중급</span>
+          <span class="lvl-num">Level 4</span>
+          <span class="lvl-en">Lower Intermediate</span>
+          <span class="lvl-arrow">▾</span>
+        </summary>
+        <div class="lvl-body">
+          <div class="lvl-title">Level 4 — 중급 1 / Lower Intermediate Level</div>
+          <p class="lvl-ko">자신이 마주치게 되는 거의 모든 말들을 이해할 수 있는 단계입니다. 표현함에 있어 다소 어려움은 존재하지만, 다른 이들에게 자신의 생각을 전달 할 수 있습니다. 읽고 이해함에 있어 문법이해 수준이 향상 되었으며, 어휘력 역시 좋은 편입니다.</p>
+          <p class="lvl-en-desc">The student can understand almost every statement that he encounters. He can now also communicate himself to others better, although still experiencing difficulty in expression. He has better understanding of English grammar and an expanded vocabulary useful in reading and comprehension.</p>
+        </div>
+      </details>
+
+      <!-- 초급 -->
+      <details class="lvl-row">
+        <summary>
+          <span class="lvl-cat" style="background:#10b981" data-ko="초급" data-en="Beginner">초급</span>
+          <span class="lvl-num">Level 3</span>
+          <span class="lvl-en">Upper Beginner</span>
+          <span class="lvl-arrow">▾</span>
+        </summary>
+        <div class="lvl-body">
+          <div class="lvl-title">Level 3 — 초급 2 / Upper Beginner Level</div>
+          <p class="lvl-ko">평소 잘 알고 학습한 상황들에 대해서 문장들을 잘 이해할 수 있고 여전히 제한된 어휘력을 갖고 있지만, 남들이 이해할 수 있도록 자기의 생각을 표현할 수 있는 상태입니다. 간단한 문장이나 질문을 만들 수 있지만, 여전히 명확한 이해를 위해서는 선생님의 반복이 필요한 단계입니다.</p>
+          <p class="lvl-en-desc">The student can understand English statements based on the situation where they are used. He can now express himself well enough for others to understand, though with limited vocabulary. He knows how to make simple sentences and questions. The teacher sometimes need to repeat questions and statements for clear understanding.</p>
+        </div>
+      </details>
+
+      <details class="lvl-row">
+        <summary>
+          <span class="lvl-cat" style="background:#10b981" data-ko="초급" data-en="Beginner">초급</span>
+          <span class="lvl-num">Level 2</span>
+          <span class="lvl-en">Lower Beginner</span>
+          <span class="lvl-arrow">▾</span>
+        </summary>
+        <div class="lvl-body">
+          <div class="lvl-title">Level 2 — 초급 1 / Lower Beginner Level</div>
+          <p class="lvl-ko">흔히 쓰이는 단어나 표현만 이해할 수 있지만, 여전히 자신의 생각을 표현하는데 어려움이 많으며, 적절한 시제나 표현으로 완벽한 문장을 만드는 것에도 어려움이 많은 상태입니다. 학생의 이해를 위해서는 문장을 반복하거나 단순화시켜야 할 때가 많고, 질문 역시 간단해야 이해가 가능한 경우가 많습니다.</p>
+          <p class="lvl-en-desc">The student finds it hard to express himself. The student can understand and use commonly-used English words and expressions. However, he cannot really make complete sentences with the proper tense yet. The teacher has to repeat and simplify questions and statements for the student to understand their meaning.</p>
+        </div>
+      </details>
+
+      <!-- 입문 -->
+      <details class="lvl-row" open>
+        <summary>
+          <span class="lvl-cat" style="background:#f59e0b" data-ko="입문" data-en="Novice">입문</span>
+          <span class="lvl-num">Level 1</span>
+          <span class="lvl-en">Novice</span>
+          <span class="lvl-arrow">▾</span>
+        </summary>
+        <div class="lvl-body">
+          <div class="lvl-title">Level 1 — 입문 / Novice Level</div>
+          <p class="lvl-ko">영어에 대한 단편적인 지식만을 갖추고 있거나, 지식은 많더라도 머릿속에만 존재하는 상태, 또는 그동안 영어에 무관심하여 처음 배우는 것과 다름없는 상태입니다. 문장단위로 들리지 않고 친숙한 단어나 표현만 들리며, 들린다고 알지라도 문장 속에서 의미하는 바가 아닌 다른 뜻으로 받아들일 수 있는 단계입니다. 이해를 위해서 여러 번의 반복 훈련이 필요하며, 질문을 받으면 문장을 구성하지 못하고 어색한 발음의 간단한 단어로 답하게 됩니다.</p>
+          <p class="lvl-en-desc">The student can barely speak English. He can only understand and use basic expressions/phrases and very simple words when asked questions. The teacher needs to repeat questions and statements several times before there is understanding. Finally, the student's pronunciation is difficult to understand.</p>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <!-- ━━━━ 목적별 트랙 ━━━━ -->
+  <div class="section">
+    <h2><span class="ico">🎯</span> <span data-ko="목적별 학습 트랙" data-en="Learning Tracks by Goal">목적별 학습 트랙</span></h2>
+    <div class="track-grid">
+      <div class="track-card">
+        <div class="track-emoji">🧒</div>
+        <div class="track-title" data-ko="키즈 영어" data-en="Kids English">키즈 영어</div>
+        <div class="track-desc" data-ko="만 4-12세, 게임·놀이형 수업으로 자연스럽게 영어를 익혀요" data-en="Ages 4-12, fun game-based lessons for natural language acquisition">만 4-12세, 게임·놀이형 수업으로 자연스럽게 영어를 익혀요</div>
+      </div>
+      <div class="track-card">
+        <div class="track-emoji">🎓</div>
+        <div class="track-title" data-ko="중·고등 학습" data-en="Middle/High School">중·고등 학습</div>
+        <div class="track-desc" data-ko="내신·수능·말하기 평가 대비 맞춤형 커리큘럼" data-en="Tailored curriculum for school exams and speaking assessments">내신·수능·말하기 평가 대비 맞춤형 커리큘럼</div>
+      </div>
+      <div class="track-card">
+        <div class="track-emoji">💼</div>
+        <div class="track-title" data-ko="비즈니스 영어" data-en="Business English">비즈니스 영어</div>
+        <div class="track-desc" data-ko="회의·이메일·프레젠테이션 등 실무 영어 집중" data-en="Focus on practical English: meetings, emails, presentations">회의·이메일·프레젠테이션 등 실무 영어 집중</div>
+      </div>
+      <div class="track-card">
+        <div class="track-emoji">📝</div>
+        <div class="track-title" data-ko="시험 대비" data-en="Test Preparation">시험 대비</div>
+        <div class="track-desc" data-ko="TOEIC · OPIc · IELTS · TOEFL 전문 강사 매칭" data-en="Expert instructors for TOEIC, OPIc, IELTS, and TOEFL">TOEIC · OPIc · IELTS · TOEFL 전문 강사 매칭</div>
+      </div>
+      <div class="track-card">
+        <div class="track-emoji">💬</div>
+        <div class="track-title" data-ko="일상 회화" data-en="Daily Conversation">일상 회화</div>
+        <div class="track-desc" data-ko="자유 주제 토론과 발음 교정으로 자신감 UP" data-en="Free-topic discussions and pronunciation coaching">자유 주제 토론과 발음 교정으로 자신감 UP</div>
+      </div>
+      <div class="track-card">
+        <div class="track-emoji">🌏</div>
+        <div class="track-title" data-ko="해외 거주·여행" data-en="Living Abroad / Travel">해외 거주·여행</div>
+        <div class="track-desc" data-ko="실제 상황 시뮬레이션 기반 회화 훈련" data-en="Real-world situational conversation training">실제 상황 시뮬레이션 기반 회화 훈련</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ━━━━ 수업 구성 ━━━━ -->
+  <div class="section">
+    <h2><span class="ico">📝</span> <span data-ko="수업 구성" data-en="Class Formats">수업 구성</span></h2>
+    <div class="class-grid">
+      <div class="class-card">
+        <div class="num">1</div>
+        <h4 data-ko="1:1 화상 수업" data-en="1:1 Video Lesson">1:1 화상 수업</h4>
+        <p data-ko="25분 또는 50분 1:1 맞춤 수업. 본인 레벨과 목표에 따라 자유롭게 선택" data-en="25 or 50-minute private lessons, tailored to your level and goals">25분 또는 50분 1:1 맞춤 수업. 본인 레벨과 목표에 따라 자유롭게 선택</p>
+      </div>
+      <div class="class-card">
+        <div class="num">2</div>
+        <h4 data-ko="그룹 토론 수업" data-en="Group Discussion">그룹 토론 수업</h4>
+        <p data-ko="2-4명 소그룹으로 토론·발표 능력을 키우는 협동형 수업" data-en="Small groups of 2-4 for collaborative discussion and presentation practice">2-4명 소그룹으로 토론·발표 능력을 키우는 협동형 수업</p>
+      </div>
+      <div class="class-card">
+        <div class="num">3</div>
+        <h4 data-ko="발음 클리닉" data-en="Pronunciation Clinic">발음 클리닉</h4>
+        <p data-ko="AI 음성 분석 + 원어민 강사 코칭을 결합한 집중 발음 교정 프로그램" data-en="Combined AI voice analysis and native instructor coaching for pronunciation correction">AI 음성 분석 + 원어민 강사 코칭을 결합한 집중 발음 교정 프로그램</p>
+      </div>
+      <div class="class-card">
+        <div class="num">4</div>
+        <h4 data-ko="AI 자율 학습" data-en="AI Self-Study">AI 자율 학습</h4>
+        <p data-ko="24시간 AI 친구·MBTI 분석·어휘 퀴즈로 수업 외 시간에도 영어 노출" data-en="24/7 AI friend, MBTI analysis, vocab quizzes for exposure outside class">24시간 AI 친구·MBTI 분석·어휘 퀴즈로 수업 외 시간에도 영어 노출</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ━━━━ 자체 개발 교재 ━━━━ -->
+  <div class="section">
+    <h2><span class="ico">📖</span> <span data-ko="자체 개발 교재 3종" data-en="3 Proprietary Textbooks">자체 개발 교재 3종</span></h2>
+    <p class="hint" data-ko="교재명을 클릭하면 상세 설명·구성·특징이 펼쳐집니다." data-en="Click each textbook for detailed features and curriculum.">교재명을 클릭하면 상세 설명·구성·특징이 펼쳐집니다.</p>
+
+    <div class="book-list">
+
+      <!-- MES -->
+      <details class="book-item" open>
+        <summary>
+          <span class="book-cover" style="background:linear-gradient(135deg,#fbbf24,#f59e0b)">MES</span>
+          <div>
+            <div class="book-name">Mango English Study (MES)</div>
+            <div class="book-level" data-ko="📊 초급 · 중급 · 102 lessons" data-en="📊 Beginner · Intermediate · 102 lessons">📊 초급 · 중급 · 102 lessons</div>
+          </div>
+          <span class="book-arrow">▾</span>
+        </summary>
+        <div class="book-body">
+          <div class="book-feature-grid">
+            <div class="book-feature">
+              <span class="bf-num">01</span>
+              <span class="bf-text" data-ko="초급부터 중급까지 영어를 처음 시작하는 학생들을 위해 흥미로운 사진들과 함께 대화 형식으로 배우는 망고아이 자체 개발 교재" data-en="A Mangoi proprietary textbook for beginner to intermediate students, learning in conversation format with engaging photos">초급부터 중급까지 영어를 처음 시작하는 학생들을 위해 흥미로운 사진들과 함께 대화 형식으로 배우는 망고아이 자체 개발 교재</span>
+            </div>
+            <div class="book-feature">
+              <span class="bf-num">02</span>
+              <span class="bf-text" data-ko="풍부한 ESL경험을 가진 미국교사분들이 약 2년에 걸쳐 개발하여 지난 10년 동안 망고아이에서 애용한 최고의 컨텐츠 교재" data-en="Developed over 2 years by U.S. teachers with rich ESL experience — Mangoi's flagship content for 10+ years">풍부한 ESL경험을 가진 미국교사분들이 약 2년에 걸쳐 개발하여 지난 10년 동안 망고아이에서 애용한 최고의 컨텐츠 교재</span>
+            </div>
+            <div class="book-feature">
+              <span class="bf-num">03</span>
+              <span class="bf-text" data-ko="예복습 비디오와 테스트가 함께 있어 완전 학습이 가능하며 문장 위주의 수업으로 자연스러운 의사소통을 유도함" data-en="Includes pre/post videos and tests for complete learning; sentence-based lessons promote natural communication">예복습 비디오와 테스트가 함께 있어 완전 학습이 가능하며 문장 위주의 수업으로 자연스러운 의사소통을 유도함</span>
+            </div>
+            <div class="book-feature">
+              <span class="bf-num">04</span>
+              <span class="bf-text" data-ko="총 102개의 레슨으로 구성되어 있음" data-en="Comprised of 102 lessons in total">총 102개의 레슨으로 구성되어 있음</span>
+            </div>
+          </div>
+          <div class="book-tags">
+            <span class="book-tag" data-ko="🎬 비디오 학습" data-en="🎬 Video learning">🎬 비디오 학습</span>
+            <span class="book-tag" data-ko="📝 테스트 포함" data-en="📝 Tests included">📝 테스트 포함</span>
+            <span class="book-tag" data-ko="💬 대화형" data-en="💬 Conversational">💬 대화형</span>
+            <span class="book-tag" data-ko="🇺🇸 미국 교사 개발" data-en="🇺🇸 U.S. teacher-developed">🇺🇸 미국 교사 개발</span>
+          </div>
+        </div>
+      </details>
+
+      <!-- BTS -->
+      <details class="book-item">
+        <summary>
+          <span class="book-cover" style="background:linear-gradient(135deg,#ec4899,#db2777)">BTS</span>
+          <div>
+            <div class="book-name">Bubble Tea Study (BTS)</div>
+            <div class="book-level" data-ko="📊 초급 · 중급 · 102 lessons · 2019 출판" data-en="📊 Beginner · Intermediate · 102 lessons · Published 2019">📊 초급 · 중급 · 102 lessons · 2019 출판</div>
+          </div>
+          <span class="book-arrow">▾</span>
+        </summary>
+        <div class="book-body">
+          <div class="book-feature-grid">
+            <div class="book-feature">
+              <span class="bf-num">01</span>
+              <span class="bf-text" data-ko="기초부터 중급까지 다양하고 독특한 이미지들로 구성된 2019년 출판된 최신 교재" data-en="The latest textbook (published 2019) with diverse, distinctive imagery from basic to intermediate level">기초부터 중급까지 다양하고 독특한 이미지들로 구성된 2019년 출판된 최신 교재</span>
+            </div>
+            <div class="book-feature">
+              <span class="bf-num">02</span>
+              <span class="bf-text" data-ko="기초 문법과 발음 교정(Tongue Twist)을 포함하고 음악적인 재미를 위해 각 lesson마다 영어 노래를 삽입, QR 코드로 언제든지 유튜브에서 감상 가능" data-en="Includes basic grammar and pronunciation (Tongue Twist) and an English song per lesson — accessible anytime via QR code on YouTube">기초 문법과 발음 교정(Tongue Twist)을 포함하고 음악적인 재미를 위해 각 lesson마다 영어 노래를 삽입, QR 코드로 언제든지 유튜브에서 감상 가능</span>
+            </div>
+            <div class="book-feature">
+              <span class="bf-num">03</span>
+              <span class="bf-text" data-ko="실생활에서 많이 사용하는 관용 문장과 단어들을 독특하고 흥미로운 사진과 함께 연상하여서 배우는 망고아이 자체 개발의 최신판" data-en="Mangoi's latest in-house edition for learning common everyday phrases and vocabulary through striking visual associations">실생활에서 많이 사용하는 관용 문장과 단어들을 독특하고 흥미로운 사진과 함께 연상하여서 배우는 망고아이 자체 개발의 최신판</span>
+            </div>
+            <div class="book-feature">
+              <span class="bf-num">04</span>
+              <span class="bf-text" data-ko="예복습 비디오와 퀴즈가 혼합되어 있어서 충분한 학습량을 통해서 영어의 듣기와 말하기의 향상에 큰 도움이 됨" data-en="Pre/post videos mixed with quizzes provide ample practice volume to greatly improve listening and speaking">예복습 비디오와 퀴즈가 혼합되어 있어서 충분한 학습량을 통해서 영어의 듣기와 말하기의 향상에 큰 도움이 됨</span>
+            </div>
+            <div class="book-feature">
+              <span class="bf-num">05</span>
+              <span class="bf-text" data-ko="현장 경험과 영어 회화·음성이론을 바탕으로 듣기와 말하기 화상 수업에 최적화하여 만든 컨텐츠" data-en="Optimized for video-call listening/speaking lessons, based on field experience and conversation/phonetic theory">현장 경험과 영어 회화·음성이론을 바탕으로 듣기와 말하기 화상 수업에 최적화하여 만든 컨텐츠</span>
+            </div>
+            <div class="book-feature">
+              <span class="bf-num">06</span>
+              <span class="bf-text" data-ko="Homework Book이 있어서 집에서도 학원에서도 글로 쓰면서 예복습이 가능한 온오프라인 교재" data-en="An accompanying Homework Book enables on/offline review at home or in class through writing practice">Homework Book이 있어서 집에서도 학원에서도 글로 쓰면서 예복습이 가능한 온오프라인 교재</span>
+            </div>
+            <div class="book-feature">
+              <span class="bf-num">07</span>
+              <span class="bf-text" data-ko="총 102개의 레슨으로 구성되어 있음" data-en="Comprised of 102 lessons in total">총 102개의 레슨으로 구성되어 있음</span>
+            </div>
+          </div>
+          <div class="book-tags">
+            <span class="book-tag" data-ko="🎵 영어 노래" data-en="🎵 English songs">🎵 영어 노래</span>
+            <span class="book-tag" data-ko="📱 QR 유튜브" data-en="📱 QR YouTube">📱 QR 유튜브</span>
+            <span class="book-tag" data-ko="📚 Homework Book" data-en="📚 Homework Book">📚 Homework Book</span>
+            <span class="book-tag" data-ko="🎤 Tongue Twist 발음" data-en="🎤 Tongue Twist">🎤 Tongue Twist 발음</span>
+            <span class="book-tag" data-ko="🆕 최신판 (2019)" data-en="🆕 Latest (2019)">🆕 최신판 (2019)</span>
+          </div>
+        </div>
+      </details>
+
+      <!-- SIU -->
+      <details class="book-item">
+        <summary>
+          <span class="book-cover" style="background:linear-gradient(135deg,#0ea5e9,#0284c7)">SIU</span>
+          <div>
+            <div class="book-name">Shake It Up (SIU)</div>
+            <div class="book-level" data-ko="📊 중급 · 고급 · 102 lessons" data-en="📊 Intermediate · Advanced · 102 lessons">📊 중급 · 고급 · 102 lessons</div>
+          </div>
+          <span class="book-arrow">▾</span>
+        </summary>
+        <div class="book-body">
+          <div class="book-feature-grid">
+            <div class="book-feature">
+              <span class="bf-num">01</span>
+              <span class="bf-text" data-ko="Bubble Tea Study(BTS)를 마친 학생들이 주제(토픽)를 가지고 문법과 패턴에 맞게 자유롭게 긴 문장을 사용하며 대화하는 능력을 키우는 교재" data-en="For students after BTS — develops the ability to converse in long, grammatically-correct sentences around topics">Bubble Tea Study(BTS)를 마친 학생들이 주제(토픽)를 가지고 문법과 패턴에 맞게 자유롭게 긴 문장을 사용하며 대화하는 능력을 키우는 교재</span>
+            </div>
+            <div class="book-feature">
+              <span class="bf-num">02</span>
+              <span class="bf-text" data-ko="미국에서 수년간 현지 교사 생활을 한 개발원이 학생들이 가장 관심있어 하는 주제들을 중심으로 대화를 이어가는 프로그램" data-en="Designed by developers with years of teaching experience in the U.S., focused on the topics students care most about">미국에서 수년간 현지 교사 생활을 한 개발원이 학생들이 가장 관심있어 하는 주제들을 중심으로 대화를 이어가는 프로그램</span>
+            </div>
+            <div class="book-feature">
+              <span class="bf-num">03</span>
+              <span class="bf-text" data-ko="화상영어 수업에 최적화된 구성으로 흥미로운 사진과 이미지들을 중요 문장들과 함께 문법에 맞게 익히는 능력을 키우는 중급 이상 단계" data-en="Optimized for video-call classes, building grammatically correct sentence skills through compelling images for intermediate+ levels">화상영어 수업에 최적화된 구성으로 흥미로운 사진과 이미지들을 중요 문장들과 함께 문법에 맞게 익히는 능력을 키우는 중급 이상 단계</span>
+            </div>
+            <div class="book-feature">
+              <span class="bf-num">04</span>
+              <span class="bf-text" data-ko="단순한 회화 수업을 넘어서 중요한 문법과 어휘를 함께 사용하며 문장을 익힐 수 있는 통합식 영어 교재" data-en="Goes beyond simple conversation — integrated grammar and vocabulary build durable sentence patterns">단순한 회화 수업을 넘어서 중요한 문법과 어휘를 함께 사용하며 문장을 익힐 수 있는 통합식 영어 교재</span>
+            </div>
+            <div class="book-feature">
+              <span class="bf-num">05</span>
+              <span class="bf-text" data-ko="총 102개의 레슨으로 구성되어 있음" data-en="Comprised of 102 lessons in total">총 102개의 레슨으로 구성되어 있음</span>
+            </div>
+          </div>
+          <div class="book-tags">
+            <span class="book-tag" data-ko="🎯 토픽 기반" data-en="🎯 Topic-based">🎯 토픽 기반</span>
+            <span class="book-tag" data-ko="📝 통합식 학습" data-en="📝 Integrated">📝 통합식 학습</span>
+            <span class="book-tag" data-ko="🆙 BTS 후속 단계" data-en="🆙 Post-BTS">🆙 BTS 후속 단계</span>
+            <span class="book-tag" data-ko="🎓 중·고급 전용" data-en="🎓 Intermediate+">🎓 중·고급 전용</span>
+          </div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <!-- ━━━━ CTA ━━━━ -->
+  <div class="cta-box">
+    <h3 data-ko="🎁 무료 체험 수업 신청" data-en="🎁 Request a Free Trial Lesson">🎁 무료 체험 수업 신청</h3>
+    <p data-ko="레벨 테스트 + 1:1 무료 체험 수업을 지금 바로 신청하세요!" data-en="Sign up now for a level test plus a free 1:1 trial lesson!">레벨 테스트 + 1:1 무료 체험 수업을 지금 바로 신청하세요!</p>
+    <a class="cta-btn" href="/" data-ko="홈에서 상담 신청 →" data-en="Request consultation on the home page →">홈에서 상담 신청 →</a>
+  </div>
+
+</div>
+
+<script>
+  // 언어 토글 라벨 갱신 — 다음 언어 표시
+  function updateLangBtn(){
+    var btn = document.getElementById('langBtn');
+    if (!btn) return;
+    var cur = (window.getLang && window.getLang()) || 'ko';
+    var next = cur === 'ko' ? 'EN' : 'KO';
+    btn.innerHTML = '🌐 ' + next;
+  }
+  window.addEventListener('mangoi:lang-changed', updateLangBtn);
+  document.addEventListener('DOMContentLoaded', updateLangBtn);
+</script>
+
+<!-- BUILD:20260527180237 -->
+</body>
+</html>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<title>망고아이 고객센터 — Contact</title>
+<link rel="icon" type="image/png" href="/img/icon-192.png">
+<link rel="icon" href="data:," />
+<script src="/js/mango-i18n.js" defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800;900&family=Cormorant+Garamond:ital,wght@1,700&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{min-height:100vh;background:radial-gradient(ellipse at top right,rgba(79,124,255,0.18),transparent 50%),radial-gradient(ellipse at bottom left,rgba(251,191,36,0.10),transparent 45%),linear-gradient(180deg,#0a1530,#0b1c44,#0f1d40);color:#e6ecff;font-family:'Noto Sans KR',sans-serif;padding:24px 16px 80px;line-height:1.6}
+  .wrap{max-width:920px;margin:0 auto}
+  .brand{text-align:center;margin-bottom:22px}
+  .brand-logo{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:700;background:linear-gradient(180deg,#fff4cc,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:34px;letter-spacing:1px;display:block}
+  .brand-sub{color:#a3b3d1;font-size:13px;margin-top:4px}
+  h1.page-title{text-align:center;font-size:26px;font-weight:900;margin-top:6px;background:linear-gradient(135deg,#fbbf24,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .page-lead{text-align:center;color:#cbd5e1;font-size:14px;margin:8px auto 26px;max-width:680px}
+
+  .contact-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-bottom:24px}
+  .contact-card{background:rgba(20,41,80,0.7);border:1px solid rgba(99,102,241,0.25);border-radius:16px;padding:20px;text-align:center;transition:all .15s;text-decoration:none;color:inherit;display:block}
+  .contact-card:hover{transform:translateY(-3px);border-color:rgba(251,191,36,0.5);box-shadow:0 12px 28px -8px rgba(0,0,0,0.5)}
+  .contact-card .ico{font-size:34px;margin-bottom:8px;display:block}
+  .contact-card h3{font-size:15px;font-weight:900;color:#fff;margin-bottom:6px}
+  .contact-card .v{font-size:14px;color:#fbbf24;font-weight:800;margin-bottom:4px;word-break:break-all}
+  .contact-card .d{font-size:12px;color:#a3b3d1}
+
+  .hours-box{background:rgba(20,41,80,0.7);border:1px solid rgba(99,102,241,0.25);border-radius:16px;padding:22px;margin-bottom:24px}
+  .hours-box h2{font-size:18px;font-weight:900;color:#fff;margin-bottom:14px}
+  .hours-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+  .hours-item{padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px}
+  .hours-day{font-size:12px;color:#94a3b8;font-weight:700;margin-bottom:4px}
+  .hours-time{font-size:14px;font-weight:900;color:#e6ecff}
+
+  .home-btn{position:fixed;top:14px;left:14px;z-index:999;padding:9px 16px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;text-decoration:none;font-weight:800;border-radius:99px;font-size:13px;box-shadow:0 6px 14px -4px rgba(0,0,0,0.3)}
+  .lang-btn{position:fixed;top:14px;right:14px;z-index:999;padding:9px 16px;background:rgba(20,41,80,0.9);color:#fff;border:1px solid rgba(99,102,241,0.4);font-weight:800;border-radius:99px;font-size:13px;cursor:pointer;font-family:inherit;backdrop-filter:blur(8px)}
+
+  @media (max-width:720px){
+    body{padding:18px 12px 80px}
+    .brand-logo{font-size:28px}
+    h1.page-title{font-size:22px}
+    .home-btn,.lang-btn{padding:7px 12px;font-size:12px}
+  }
+</style>
+</head>
+<body>
+
+<a class="home-btn" href="/">🏠 <span data-ko="홈" data-en="Home">홈</span></a>
+<button class="lang-btn" onclick="if(window.toggleLang)window.toggleLang()" id="langBtn">🌐 EN</button>
+
+<div class="wrap">
+
+  <div class="brand">
+    <span class="brand-logo">Mangoi</span>
+    <div class="brand-sub" data-ko="망고아이 화상영어 · 글로벌 1:1 영어교육" data-en="Mangoi Video English · Global 1:1 English Education">망고아이 화상영어 · 글로벌 1:1 영어교육</div>
+  </div>
+
+  <h1 class="page-title" data-ko="📞 고객센터" data-en="📞 Contact Us">📞 고객센터</h1>
+  <p class="page-lead" data-ko="궁금하신 점이 있으시면 언제든지 편하게 연락주세요. 빠르고 친절하게 도와드리겠습니다." data-en="Please reach out anytime — we're here to help you quickly and kindly.">궁금하신 점이 있으시면 언제든지 편하게 연락주세요. 빠르고 친절하게 도와드리겠습니다.</p>
+
+  <!-- 연락 채널 -->
+  <div class="contact-grid">
+    <a class="contact-card" href="tel:1588-0000">
+      <span class="ico">📞</span>
+      <h3 data-ko="대표 전화" data-en="Main Phone">대표 전화</h3>
+      <div class="v">1588-0000</div>
+      <div class="d" data-ko="평일 09:00 - 22:00" data-en="Weekdays 09:00 - 22:00">평일 09:00 - 22:00</div>
+    </a>
+    <a class="contact-card" href="mailto:support@mangoi.co.kr">
+      <span class="ico">✉️</span>
+      <h3 data-ko="이메일 문의" data-en="Email">이메일 문의</h3>
+      <div class="v">support@mangoi.co.kr</div>
+      <div class="d" data-ko="24시간 이내 답변" data-en="Replies within 24h">24시간 이내 답변</div>
+    </a>
+    <a class="contact-card" href="#" onclick="alert('카카오톡 채널: @망고아이'); return false;">
+      <span class="ico">💬</span>
+      <h3 data-ko="카카오톡 상담" data-en="KakaoTalk Chat">카카오톡 상담</h3>
+      <div class="v">@망고아이</div>
+      <div class="d" data-ko="실시간 채팅 상담" data-en="Real-time chat">실시간 채팅 상담</div>
+    </a>
+    <a class="contact-card" href="#" onclick="alert('원격지원 안내는 고객센터로 연락주세요.'); return false;">
+      <span class="ico">💻</span>
+      <h3 data-ko="PC 원격지원" data-en="PC Remote Support">PC 원격지원</h3>
+      <div class="v" data-ko="자가진단 지원" data-en="Self-diagnosis">자가진단 지원</div>
+      <div class="d" data-ko="카메라/마이크 등 기술 문의" data-en="Camera/mic technical issues">카메라/마이크 등 기술 문의</div>
+    </a>
+  </div>
+
+  <!-- 운영시간 -->
+  <div class="hours-box">
+    <h2 data-ko="🕘 운영시간 안내" data-en="🕘 Hours of Operation">🕘 운영시간 안내</h2>
+    <div class="hours-grid">
+      <div class="hours-item">
+        <div class="hours-day" data-ko="평일 (월–금)" data-en="Weekdays (Mon–Fri)">평일 (월–금)</div>
+        <div class="hours-time">09:00 - 22:00</div>
+      </div>
+      <div class="hours-item">
+        <div class="hours-day" data-ko="토요일" data-en="Saturday">토요일</div>
+        <div class="hours-time">10:00 - 18:00</div>
+      </div>
+      <div class="hours-item">
+        <div class="hours-day" data-ko="일요일 / 공휴일" data-en="Sunday / Holidays">일요일 / 공휴일</div>
+        <div class="hours-time" data-ko="휴무" data-en="Closed">휴무</div>
+      </div>
+      <div class="hours-item">
+        <div class="hours-day" data-ko="긴급 (수업 시간 중)" data-en="Emergency (during class)">긴급 (수업 시간 중)</div>
+        <div class="hours-time" data-ko="24시간 카톡 대응" data-en="24/7 KakaoTalk">24시간 카톡 대응</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function updateLangBtn(){
+    var btn = document.getElementById('langBtn');
+    if (!btn) return;
+    var cur = (window.getLang && window.getLang()) || 'ko';
+    btn.innerHTML = '🌐 ' + (cur === 'ko' ? 'EN' : 'KO');
+  }
+  window.addEventListener('mangoi:lang-changed', updateLangBtn);
+  document.addEventListener('DOMContentLoaded', updateLangBtn);
+</script>
+
+<!-- BUILD:20260527180237 -->
+</body>
+</html>

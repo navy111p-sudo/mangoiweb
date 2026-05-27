@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="emerald">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#061A2C">
+<title>수업 연기 / 변경 — Premium 모바일</title>
+<style>
+:root {
+  /* 기본 폴백 (charcoal 와 동일) */
+  --bg: #18181B; --bg-soft: #27272A; --bg-card: #2D2D33;
+  --border: rgba(161,161,170,0.18);
+  --text: #FAFAFA; --text-dim: #D4D4D8; --text-mute: #A1A1AA;
+  --indigo: #818CF8; --indigo-soft: rgba(99,102,241,0.22); --indigo-deep: #4F46E5;
+  --green: #34D399; --green-soft: rgba(16,185,129,0.18);
+  --amber: #FBBF24; --amber-soft: rgba(245,158,11,0.18);
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.4), 0 4px 14px rgba(0,0,0,0.5);
+  --shadow-pop:  0 8px 22px rgba(0,0,0,0.55), 0 16px 38px rgba(0,0,0,0.45);
+}
+
+/* ━━ A. 차콜 그레이 + 인디고 (연기=앰버 / 변경=인디고) ━━ */
+:root[data-theme="charcoal"] {
+  --bg: #18181B; --bg-soft: #27272A; --bg-card: #2D2D33;
+  --border: rgba(161,161,170,0.20);
+  --text: #FAFAFA; --text-dim: #D4D4D8; --text-mute: #A1A1AA;
+  --indigo: #818CF8; --indigo-soft: rgba(129,140,248,0.20); --indigo-deep: #4F46E5;
+  --green: #34D399; --green-soft: rgba(52,211,153,0.18);
+  --amber: #FBBF24; --amber-soft: rgba(251,191,36,0.18);
+  /* 카드별 그라데이션 */
+  --postpone-bg: linear-gradient(135deg, rgba(245,158,11,0.72) 0%, rgba(217,119,6,0.72) 50%, rgba(180,83,9,0.72) 100%);
+  --postpone-border: #FBBF24;
+  --postpone-shadow: 0 12px 28px rgba(245,158,11,0.45);
+  --change-bg: linear-gradient(135deg, rgba(99,102,241,0.72) 0%, rgba(79,70,229,0.72) 50%, rgba(67,56,202,0.72) 100%);
+  --change-border: #818CF8;
+  --change-shadow: 0 12px 28px rgba(99,102,241,0.45);
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.4), 0 4px 14px rgba(0,0,0,0.5);
+  --shadow-pop:  0 8px 22px rgba(0,0,0,0.55), 0 16px 38px rgba(0,0,0,0.45);
+}
+
+/* ━━ B. 딥 그린 네이비 (연기=시안 / 변경=에메랄드) ━━ */
+:root[data-theme="emerald"] {
+  --bg: #061A2C; --bg-soft: #0A2B3A; --bg-card: #0F3140;
+  --border: rgba(94,234,212,0.14);
+  --text: #ECFDF5; --text-dim: #BBF7D0; --text-mute: #6EE7B7;
+  --indigo: #34D399; --indigo-soft: rgba(16,185,129,0.18); --indigo-deep: #10B981;
+  --green: #10B981; --green-soft: rgba(16,185,129,0.2);
+  --amber: #FBBF24; --amber-soft: rgba(245,158,11,0.18);
+  --postpone-bg: linear-gradient(135deg, rgba(6,182,212,0.72) 0%, rgba(8,145,178,0.72) 50%, rgba(14,116,144,0.72) 100%);
+  --postpone-border: #67E8F9;
+  --postpone-shadow: 0 12px 28px rgba(6,182,212,0.5);
+  --change-bg: linear-gradient(135deg, rgba(16,185,129,0.72) 0%, rgba(5,150,105,0.72) 50%, rgba(4,120,87,0.72) 100%);
+  --change-border: #34D399;
+  --change-shadow: 0 12px 28px rgba(16,185,129,0.5);
+  --shadow-card: 0 1px 3px rgba(0,30,40,0.5), 0 4px 14px rgba(6,26,44,0.55);
+  --shadow-pop:  0 8px 22px rgba(0,40,55,0.6), 0 16px 38px rgba(6,26,44,0.5);
+}
+
+/* ━━ C. 미드나잇 퍼플 (연기=핫핑크 / 변경=바이올렛) ━━ */
+:root[data-theme="purple"] {
+  --bg: #1A1033; --bg-soft: #2A1B4A; --bg-card: #322258;
+  --border: rgba(216,180,254,0.18);
+  --text: #FAF5FF; --text-dim: #E9D5FF; --text-mute: #C4B5FD;
+  --indigo: #F0ABFC; --indigo-soft: rgba(240,171,252,0.20); --indigo-deep: #C026D3;
+  --green: #34D399; --green-soft: rgba(52,211,153,0.18);
+  --amber: #FBBF24; --amber-soft: rgba(251,191,36,0.18);
+  --postpone-bg: linear-gradient(135deg, rgba(236,72,153,0.72) 0%, rgba(219,39,119,0.72) 50%, rgba(190,24,93,0.72) 100%);
+  --postpone-border: #F472B6;
+  --postpone-shadow: 0 12px 28px rgba(236,72,153,0.5);
+  --change-bg: linear-gradient(135deg, rgba(168,85,247,0.72) 0%, rgba(147,51,234,0.72) 50%, rgba(109,40,217,0.72) 100%);
+  --change-border: #C084FC;
+  --change-shadow: 0 12px 28px rgba(168,85,247,0.5);
+  --shadow-card: 0 1px 3px rgba(26,16,51,0.5), 0 4px 14px rgba(50,34,88,0.55);
+  --shadow-pop:  0 8px 22px rgba(50,34,88,0.6), 0 16px 38px rgba(26,16,51,0.5);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+html, body {
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+               "Noto Sans KR", "Segoe UI", sans-serif;
+  font-size: 14px; line-height: 1.45;
+  overflow: hidden;
+  overscroll-behavior: none;
+  width: 100%; height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── 앱 컨테이너 (모바일 max 430px) ── */
+#app {
+  position: relative;
+  width: 100%;
+  max-width: 430px;
+  height: 100vh;
+  margin: 0 auto;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+/* ── 화면 전환 (Slide) ── */
+.screen {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  background: var(--bg);
+  transform: translateY(100%);
+  transition: transform 0.42s cubic-bezier(0.32,0.72,0,1);
+  will-change: transform;
+}
+.screen.active { transform: translateY(0); }
+.screen.exit-up { transform: translateY(-100%); }
+#screen-main { transform: translateY(0); }  /* 첫 화면 기본 */
+
+/* ── 헤더 ── */
+header {
+  flex: 0 0 auto;
+  display: flex; align-items: center;
+  padding: 12px 14px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 50;
+}
+.back-btn {
+  width: 36px; height: 36px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 18px; color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.back-btn:active { transform: scale(0.92); background: var(--border); }
+.back-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.header-title {
+  flex: 1; text-align: center;
+  font-weight: 800; font-size: 16px;
+  color: var(--text);
+  letter-spacing: -0.4px;
+  padding-right: 36px;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Step 1: 대메뉴 카드 2개 (절반씩)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.main-stage {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+  padding: 16px 16px 24px;
+  gap: 14px;
+  background: var(--bg-soft);
+}
+.main-intro {
+  padding: 8px 4px 4px;
+}
+.main-intro .ttl { font-size: 22px; font-weight: 900; color: var(--text); letter-spacing: -0.6px; }
+.main-intro .sub { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+
+.main-card {
+  flex: 1;
+  padding: 24px;
+  border-radius: 22px;
+  border: 2px solid;
+  cursor: pointer;
+  display: flex; flex-direction: column; justify-content: space-between;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  position: relative; overflow: hidden;
+  color: #fff;
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+.main-card:active { transform: scale(0.97); }
+.main-card .mc-top { display: flex; align-items: center; gap: 12px; }
+.main-card .mc-icon {
+  width: 56px; height: 56px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.25);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 30px;
+  backdrop-filter: blur(8px);
+}
+.main-card .mc-label { font-size: 19px; font-weight: 900; color: #fff; letter-spacing: -0.3px; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+.main-card .mc-desc {
+  font-size: 13px; color: rgba(255,255,255,0.92); line-height: 1.55;
+  margin-top: 14px;
+}
+.main-card .mc-cta {
+  margin-top: 14px;
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 13px; font-weight: 800;
+  color: rgba(255,255,255,0.95);
+}
+
+/* 카드별 그라데이션 — 테마 변수 사용 */
+.main-card.postpone {
+  background: var(--postpone-bg);
+  border-color: var(--postpone-border);
+  box-shadow: var(--postpone-shadow);
+}
+.main-card.change {
+  background: var(--change-bg);
+  border-color: var(--change-border);
+  box-shadow: var(--change-shadow);
+}
+.main-card.postpone:active { box-shadow: 0 4px 14px rgba(0,0,0,0.35), var(--postpone-shadow); }
+.main-card.change:active   { box-shadow: 0 4px 14px rgba(0,0,0,0.35), var(--change-shadow); }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Step 2: 토글 탭 (세그먼트 + 슬라이딩)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.segment {
+  position: relative;
+  margin: 12px 14px;
+  padding: 4px;
+  background: var(--bg-soft);
+  border-radius: 12px;
+  display: flex;
+  border: 1px solid var(--border);
+}
+.segment .seg-slider {
+  position: absolute;
+  top: 4px; left: 4px;
+  width: calc(50% - 4px);
+  height: calc(100% - 8px);
+  background: rgba(52,211,153,0.18);
+  border: 1px solid rgba(52,211,153,0.45);
+  border-radius: 9px;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.32s cubic-bezier(0.32,0.72,0,1);
+  z-index: 1;
+}
+.segment[data-tab="teacher"] .seg-slider { transform: translateX(100%); }
+.segment .seg {
+  flex: 1;
+  padding: 11px 6px;
+  background: transparent; border: 0;
+  font-size: 13.5px; font-weight: 800;
+  color: var(--text-dim);
+  cursor: pointer;
+  position: relative; z-index: 2;
+  transition: color 0.2s;
+  letter-spacing: -0.3px;
+}
+.segment .seg.active { color: var(--indigo); }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Step 2: 본문
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.detail-body {
+  flex: 1; min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 14px 120px;  /* sticky bar 공간 */
+  background: var(--bg);
+}
+
+.section-label {
+  font-size: 12px; font-weight: 700;
+  color: var(--text-mute);
+  margin: 18px 2px 10px;
+  display: flex; align-items: center; gap: 6px;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+
+/* ── 가로 스크롤 날짜 칩 (링글 스타일) ── */
+.date-scroller {
+  display: flex; gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px 4px 6px;
+  scrollbar-width: none;
+}
+.date-scroller::-webkit-scrollbar { display: none; }
+.date-chip {
+  flex: 0 0 auto;
+  min-width: 66px;
+  padding: 12px 6px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.12s, box-shadow 0.15s, border-color 0.15s, background 0.15s;
+  color: var(--text);
+}
+.date-chip:active { transform: scale(0.96); }
+.date-chip.active {
+  background: var(--indigo);
+  color: #fff;
+  border-color: var(--indigo);
+  box-shadow: 0 4px 14px rgba(16,185,129,0.4);
+}
+.date-chip.weekend { color: var(--text-dim); }
+.date-chip.weekend.active { color: #fff; }
+.date-chip .dc-dow { font-size: 10.5px; font-weight: 700; opacity: 0.85; }
+.date-chip .dc-day { font-size: 17px; font-weight: 900; margin-top: 2px; }
+
+/* ── 시간 칩 그리드 ── */
+.hour-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.hour-chip {
+  padding: 12px 4px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-size: 13px; font-weight: 800;
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 0.1s, background 0.15s, border-color 0.15s;
+  text-align: center;
+}
+.hour-chip.hour-mark:not(.active) { color: var(--indigo); font-weight: 800; }
+.hour-chip:active { transform: scale(0.94); }
+.hour-chip.active {
+  background: var(--indigo);
+  color: #fff;
+  border-color: var(--indigo);
+  box-shadow: 0 4px 10px rgba(16,185,129,0.35);
+}
+.hour-chip.disabled { opacity: 0.3; pointer-events: none; }
+
+/* ── 스켈레톤 로더 ── */
+.skeleton {
+  background: linear-gradient(90deg, rgba(52,211,153,0.04) 0%, rgba(52,211,153,0.12) 50%, rgba(52,211,153,0.04) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: 12px;
+}
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton-card {
+  height: 78px; border-radius: 16px;
+  margin-bottom: 8px;
+}
+
+/* ── 교사 카드 (시간 탭 필터 결과) ── */
+.teacher-result {
+  margin-top: 14px;
+}
+.tr-title {
+  font-size: 13px; font-weight: 800; color: var(--text);
+  margin-bottom: 10px;
+  display: flex; align-items: center; gap: 6px;
+}
+.tr-title .badge {
+  background: var(--green-soft); color: var(--green);
+  font-size: 11px; padding: 2px 7px; border-radius: 999px; font-weight: 800;
+}
+
+.teacher-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  cursor: pointer;
+  margin-bottom: 8px;
+  transition: transform 0.12s, box-shadow 0.15s, border-color 0.15s;
+}
+.teacher-card:active { transform: scale(0.98); box-shadow: var(--shadow-pop); }
+.teacher-card.active {
+  border-color: var(--green);
+  background: rgba(16,185,129,0.14);
+  box-shadow: 0 6px 18px rgba(16,185,129,0.25);
+}
+.teacher-card .t-avatar {
+  width: 50px; height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(52,211,153,0.28), rgba(16,185,129,0.2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+.teacher-card .t-info { flex: 1; min-width: 0; }
+.teacher-card .t-name {
+  font-size: 15px; font-weight: 800; color: var(--text);
+  display: flex; align-items: center; gap: 6px;
+}
+.teacher-card .t-tag {
+  font-size: 10.5px; font-weight: 800;
+  padding: 2px 7px; border-radius: 999px;
+  background: rgba(52,211,153,0.22); color: #6EE7B7;
+}
+.teacher-card .t-tag.native { background: rgba(251,191,36,0.22); color: #FBBF24; }
+.teacher-card .t-meta {
+  font-size: 12px; color: var(--text-dim); margin-top: 3px;
+  display: flex; align-items: center; gap: 8px;
+}
+.teacher-card .t-rating {
+  color: var(--amber); font-weight: 800;
+}
+.teacher-card .t-rating::before { content: '★ '; }
+
+/* ── 교사 탭: 아코디언 ── */
+.teacher-feed .teacher-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
+}
+.teacher-feed .tc-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px;
+}
+.teacher-feed .tc-arrow {
+  margin-left: auto;
+  color: var(--text-mute);
+  font-size: 14px;
+  transition: transform 0.25s;
+}
+.teacher-feed .teacher-card.expanded .tc-arrow { transform: rotate(180deg); }
+.tc-accordion {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s ease;
+  background: var(--bg-soft);
+}
+.teacher-feed .teacher-card.expanded .tc-accordion {
+  max-height: 1000px;
+}
+.tc-acc-inner {
+  padding: 12px 14px 16px;
+  border-top: 1px solid var(--border);
+}
+.tc-day {
+  margin-bottom: 12px;
+}
+.tc-day-label {
+  font-size: 11.5px; font-weight: 800; color: var(--text-dim);
+  margin-bottom: 6px;
+  text-transform: uppercase; letter-spacing: 0.4px;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Sticky 하단 바 (Slide-up)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.sticky-bar {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  padding: 14px 14px env(safe-area-inset-bottom);
+  background: rgba(6,26,44,0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  transform: translateY(120%);
+  transition: transform 0.32s cubic-bezier(0.32,0.72,0,1);
+  z-index: 100;
+  box-shadow: 0 -8px 24px rgba(15,23,42,0.08);
+}
+.sticky-bar.show { transform: translateY(0); }
+.sticky-summary {
+  font-size: 13px; color: var(--text);
+  padding: 6px 4px 10px;
+  display: flex; align-items: center; gap: 6px;
+  font-weight: 700;
+}
+.sticky-summary .icon { font-size: 16px; }
+.sticky-summary b { color: var(--indigo); }
+.confirm-btn {
+  display: block; width: 100%;
+  padding: 15px;
+  background: linear-gradient(135deg, #10B981, #047857);
+  color: #fff;
+  border: 0; border-radius: 14px;
+  font-size: 15px; font-weight: 900;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.15s;
+  box-shadow: 0 6px 20px rgba(16,185,129,0.45);
+  letter-spacing: -0.2px;
+}
+.confirm-btn:active { transform: scale(0.97); }
+
+/* ── 토스트 ── */
+.toast {
+  position: fixed;
+  left: 50%; bottom: 130px;
+  transform: translate(-50%, 20px);
+  background: #ECFDF5;
+  color: #064E3B;
+  padding: 12px 22px;
+  border-radius: 999px;
+  font-size: 13px; font-weight: 700;
+  box-shadow: var(--shadow-pop);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s;
+  z-index: 1000;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+
+/* ━━━ Success 오버레이 ━━━ */
+.success-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.success-overlay.show { display: flex; animation: ovFadeIn 0.3s ease; }
+@keyframes ovFadeIn { from{opacity:0} to{opacity:1} }
+.success-card {
+  background: var(--bg-card, #fff);
+  border-radius: 24px;
+  padding: 36px 26px 26px;
+  width: 100%;
+  max-width: 360px;
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.4);
+  animation: ovSlideUp 0.45s cubic-bezier(0.32,0.72,0,1);
+}
+@keyframes ovSlideUp { from{transform:translateY(40px) scale(0.92);opacity:0} to{transform:translateY(0) scale(1);opacity:1} }
+.success-check {
+  width: 84px; height: 84px;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10B981, #059669);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 52px; font-weight: 900;
+  box-shadow: 0 8px 24px rgba(16,185,129,0.5);
+  animation: ovCheckPop 0.5s 0.15s both cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes ovCheckPop { from{transform:scale(0);opacity:0} to{transform:scale(1);opacity:1} }
+.success-title {
+  font-size: 22px; font-weight: 900;
+  color: var(--text, #0F172A);
+  margin-bottom: 6px;
+}
+.success-subtitle {
+  font-size: 13px;
+  color: var(--text-dim, #64748B);
+  margin-bottom: 22px;
+}
+.success-info {
+  background: var(--bg-soft, #F8FAFC);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 22px;
+  text-align: left;
+}
+.success-info-row {
+  display: flex; justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px dashed rgba(148,163,184,0.25);
+}
+.success-info-row:last-child { border-bottom: 0; }
+.success-info-label {
+  font-size: 12.5px; font-weight: 700;
+  color: var(--text-dim, #64748B);
+}
+.success-info-value {
+  font-size: 13.5px; font-weight: 800;
+  color: var(--text, #0F172A);
+}
+.success-btn {
+  width: 100%;
+  padding: 16px;
+  background: var(--primary, #4F46E5);
+  color: #fff;
+  border: 0;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(79,70,229,0.35);
+  -webkit-tap-highlight-color: transparent;
+}
+.success-btn:active { transform: scale(0.97); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ━━━━━━━━━━ Step 1: 대메뉴 ━━━━━━━━━━ -->
+  <section id="screen-main" class="screen active">
+    <header>
+      <button class="back-btn" disabled>‹</button>
+      <div class="header-title">📅 수업 일정</div>
+    </header>
+    <div class="main-stage">
+      <div class="main-intro">
+        <div class="ttl">무엇을 도와드릴까요?</div>
+        <div class="sub">원하시는 작업을 선택해 주세요</div>
+      </div>
+
+      <button class="main-card postpone" data-mode="postpone">
+        <div class="mc-top">
+          <div class="mc-icon">⏰</div>
+          <div class="mc-label">수업 연기하기</div>
+        </div>
+        <div class="mc-desc">이번 주 수업을 다음 주로 미루기.<br>수업 횟수는 그대로 보존됩니다.</div>
+        <div class="mc-cta">시작하기 →</div>
+      </button>
+
+      <button class="main-card change" data-mode="change">
+        <div class="mc-top">
+          <div class="mc-icon">🔄</div>
+          <div class="mc-label">수업 변경하기</div>
+        </div>
+        <div class="mc-desc">원하는 다른 날짜·교사로<br>즉시 예약을 교체합니다.</div>
+        <div class="mc-cta">시작하기 →</div>
+      </button>
+    </div>
+  </section>
+
+  <!-- ━━━━━━━━━━ Step 2/3: 상세 ━━━━━━━━━━ -->
+  <section id="screen-detail" class="screen">
+    <header>
+      <button class="back-btn" id="btn-back">‹</button>
+      <div class="header-title" id="detail-title">—</div>
+    </header>
+
+    <div class="segment" id="segment" data-tab="time">
+      <div class="seg-slider"></div>
+      <button class="seg active" data-tab="time"    id="seg-time"><span id="seg-time-label">🕐 시간으로</span></button>
+      <button class="seg"        data-tab="teacher" id="seg-teacher"><span id="seg-teacher-label">👨‍🏫 교사로</span></button>
+    </div>
+
+    <div class="detail-body" id="detail-body"></div>
+
+    <div class="sticky-bar" id="sticky-bar">
+      <div class="sticky-summary" id="sticky-summary"></div>
+      <button class="confirm-btn" id="confirm-btn">확정</button>
+    </div>
+  </section>
+
+</div>
+<div id="toast" class="toast"></div>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   Mock Data
+   ════════════════════════════════════════════════════════════ */
+const TEACHERS = [
+  { id:'t01', name:'박지윤',       ico:'🇰🇷', tag:'교포',  tagClass:'tag', rating:4.9, reviews:128, exp:'5년차' },
+  { id:'t02', name:'이서연',       ico:'🇰🇷', tag:'교포',  tagClass:'tag', rating:4.8, reviews: 96, exp:'3년차' },
+  { id:'t03', name:'정수아',       ico:'🇰🇷', tag:'교포',  tagClass:'tag', rating:4.7, reviews: 64, exp:'2년차' },
+  { id:'t04', name:'Maria Santos', ico:'🇵🇭', tag:'원어민', tagClass:'native', rating:4.9, reviews:212, exp:'7년차' },
+  { id:'t05', name:'James Cruz',   ico:'🇺🇸', tag:'원어민', tagClass:'native', rating:5.0, reviews:178, exp:'6년차' },
+  { id:'t06', name:'Anna Reyes',   ico:'🇬🇧', tag:'원어민', tagClass:'native', rating:4.8, reviews:142, exp:'4년차' },
+];
+
+const SCHEDULE = (function(){
+  const data = {};
+  const today = new Date();
+  TEACHERS.forEach(t => {
+    data[t.id] = {};
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(today); d.setDate(d.getDate() + i);
+      const iso = d.toISOString().slice(0,10);
+      const seed = t.id.charCodeAt(2) + i;
+      const slots = [];
+      for (let h = 9; h <= 22; h++) {
+        for (let m = 0; m < 60; m += 20) {
+          if ((seed * (h*3 + m/20)) % 4 !== 0) {
+            slots.push((h<10?'0':'')+h+':'+(m<10?'0':'')+m);
+          }
+        }
+      }
+      data[t.id][iso] = slots;
+    }
+  });
+  return data;
+})();
+
+/* ════════════════════════════════════════════════════════════
+   State
+   ════════════════════════════════════════════════════════════ */
+const state = {
+  mode: null,    // 'postpone' | 'change'
+  tab: 'time',
+  date: null,
+  hour: null,
+  teacher: null,
+  expandedTeacher: null,
+  loading: false,
+};
+const VERB = { postpone: '연기', change: '변경' };
+
+/* ════════════════════════════════════════════════════════════
+   유틸
+   ════════════════════════════════════════════════════════════ */
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+const fmtMD  = (iso) => { const d=new Date(iso+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}`; };
+const fmtDOW = (iso) => ['일','월','화','수','목','금','토'][new Date(iso+'T00:00:00').getDay()];
+const isWeekend = (iso) => { const dow=new Date(iso+'T00:00:00').getDay(); return dow===0||dow===6; };
+const fmtH = (s) => s;  // 10분 단위 slot 은 이미 'HH:MM' string
+
+function getNext14Dates(){
+  const arr=[], t=new Date();
+  for(let i=0;i<14;i++){ const d=new Date(t); d.setDate(d.getDate()+i); arr.push(d.toISOString().slice(0,10)); }
+  return arr;
+}
+function showToast(msg){
+  const t=$('#toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+/* ════════════════════════════════════════════════════════════
+   Step 1 → 2 전환
+   ════════════════════════════════════════════════════════════ */
+$$('.main-card').forEach(c => {
+  c.addEventListener('click', () => {
+    state.mode = c.dataset.mode;
+    state.tab = 'time'; state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null;
+    enterDetail();
+  });
+});
+
+function enterDetail(){
+  const v = VERB[state.mode];
+  $('#detail-title').textContent = `수업 ${v}하기`;
+  $('#seg-time-label').textContent    = `🕐 시간으로 ${v}`;
+  $('#seg-teacher-label').textContent = `👨‍🏫 교사로 ${v}`;
+  $('#segment').setAttribute('data-tab', state.tab);
+  $$('.seg').forEach(s => s.classList.toggle('active', s.dataset.tab === state.tab));
+  renderBody(); updateSticky();
+  $('#screen-main').classList.remove('active'); $('#screen-main').classList.add('exit-up');
+  $('#screen-detail').classList.add('active');
+}
+
+$('#btn-back').addEventListener('click', () => {
+  $('#screen-detail').classList.remove('active');
+  $('#screen-main').classList.remove('exit-up'); $('#screen-main').classList.add('active');
+  state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null;
+  updateSticky();
+});
+
+$$('.seg').forEach(s => {
+  s.addEventListener('click', () => {
+    state.tab = s.dataset.tab;
+    $('#segment').setAttribute('data-tab', state.tab);
+    $$('.seg').forEach(b => b.classList.toggle('active', b === s));
+    state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null;
+    renderBody(); updateSticky();
+  });
+});
+
+/* ════════════════════════════════════════════════════════════
+   본문 렌더
+   ════════════════════════════════════════════════════════════ */
+function renderBody(){
+  const body = $('#detail-body');
+  if (state.tab === 'time') body.innerHTML = renderTimeTab();
+  else body.innerHTML = renderTeacherTab();
+  attachHandlers();
+}
+
+/* ── 시간 탭 — 링글 스타일: 가로 스크롤 날짜 + 시간 + 교사 필터 ── */
+function renderTimeTab(){
+  const dates = getNext14Dates();
+  const dateHtml = dates.map(iso => `
+    <button class="date-chip ${state.date===iso?'active':''} ${isWeekend(iso)?'weekend':''}" data-date="${iso}">
+      <div class="dc-dow">${fmtDOW(iso)}</div>
+      <div class="dc-day">${fmtMD(iso)}</div>
+    </button>
+  `).join('');
+
+  let hoursHtml = '';
+  if (state.date) {
+    const set = new Set();
+    TEACHERS.forEach(t => (SCHEDULE[t.id][state.date]||[]).forEach(s => set.add(s)));
+    const allSlots = [];
+    for (let h=9; h<=22; h++) {
+      for (let m=0; m<60; m+=20) {
+        allSlots.push((h<10?'0':'')+h+':'+(m<10?'0':'')+m);
+      }
+    }
+    allSlots.forEach(slot => {
+      const en = set.has(slot);
+      const isHourMark = slot.endsWith(':00');
+      hoursHtml += `<button class="hour-chip ${state.hour===slot?'active':''} ${en?'':'disabled'} ${isHourMark?'hour-mark':''}" data-hour="${slot}">${slot}</button>`;
+    });
+  }
+
+  let resultHtml = '';
+  if (state.date && state.hour) {
+    if (state.loading) {
+      resultHtml = `
+        <div class="teacher-result">
+          <div class="tr-title">⏳ 가능한 교사 검색 중...</div>
+          <div class="skeleton skeleton-card"></div>
+          <div class="skeleton skeleton-card"></div>
+          <div class="skeleton skeleton-card"></div>
+        </div>`;
+    } else {
+      const avail = TEACHERS.filter(t => (SCHEDULE[t.id][state.date]||[]).includes(state.hour));
+      if (avail.length) {
+        resultHtml = `
+          <div class="teacher-result">
+            <div class="tr-title">
+              ✅ 가능한 교사 <span class="badge">${avail.length}명</span>
+            </div>
+            ${avail.map(t => teacherCardHTML(t, state.teacher === t.id)).join('')}
+          </div>`;
+      } else {
+        resultHtml = `
+          <div class="teacher-result">
+            <div class="tr-title" style="color:var(--text-dim);justify-content:center">😢 이 시간에 가능한 교사가 없습니다</div>
+          </div>`;
+      }
+    }
+  }
+
+  return `
+    <div class="section-label">📅 날짜 선택 · 좌우로 밀어보세요</div>
+    <div class="date-scroller">${dateHtml}</div>
+    ${state.date ? `
+      <div class="section-label">🕐 시간 선택</div>
+      <div class="hour-grid">${hoursHtml}</div>
+    ` : '<div style="padding:30px 10px;color:var(--text-dim);text-align:center;font-size:13px">👆 먼저 날짜를 선택해 주세요</div>'}
+    ${resultHtml}
+  `;
+}
+
+function teacherCardHTML(t, active){
+  return `
+    <div class="teacher-card ${active?'active':''}" data-teacher="${t.id}">
+      <div class="t-avatar">${t.ico}</div>
+      <div class="t-info">
+        <div class="t-name">${t.name} <span class="t-tag ${t.tagClass}">${t.tag}</span></div>
+        <div class="t-meta">
+          <span class="t-rating">${t.rating.toFixed(1)}</span>
+          <span>리뷰 ${t.reviews}</span>
+          <span>· ${t.exp}</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ── 교사 탭 — 민병철 스타일: 세로 피드 + 아코디언 ── */
+function renderTeacherTab(){
+  const cards = TEACHERS.map(t => {
+    const expanded = state.expandedTeacher === t.id;
+    const dates = getNext14Dates();
+    let blocks = '';
+    if (expanded) {
+      dates.forEach(iso => {
+        const slots = SCHEDULE[t.id][iso] || [];
+        if (!slots.length) return;
+        blocks += `
+          <div class="tc-day">
+            <div class="tc-day-label">${fmtMD(iso)} (${fmtDOW(iso)})</div>
+            <div class="hour-grid">
+              ${slots.map(s => `
+                <button class="hour-chip ${state.teacher===t.id && state.date===iso && state.hour===s ? 'active' : ''} ${s.endsWith(':00')?'hour-mark':''}"
+                  data-tdate="${iso}" data-thour="${s}" data-tteacher="${t.id}">${s}</button>
+              `).join('')}
+            </div>
+          </div>`;
+      });
+      if (!blocks) blocks = '<div style="color:var(--text-dim);font-size:12.5px;text-align:center;padding:10px">😢 가능한 시간이 없습니다</div>';
+    }
+    return `
+      <div class="teacher-card ${expanded?'expanded':''}" data-expand="${t.id}">
+        <div class="tc-row">
+          <div class="t-avatar">${t.ico}</div>
+          <div class="t-info">
+            <div class="t-name">${t.name} <span class="t-tag ${t.tagClass}">${t.tag}</span></div>
+            <div class="t-meta">
+              <span class="t-rating">${t.rating.toFixed(1)}</span>
+              <span>리뷰 ${t.reviews}</span>
+              <span>· ${t.exp}</span>
+            </div>
+          </div>
+          <div class="tc-arrow">▼</div>
+        </div>
+        <div class="tc-accordion"><div class="tc-acc-inner">${blocks}</div></div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="section-label">👨‍🏫 교사 선택 · 카드를 탭하면 시간이 펼쳐집니다</div>
+    <div class="teacher-feed">${cards}</div>
+  `;
+}
+
+/* ════════════════════════════════════════════════════════════
+   본문 이벤트
+   ════════════════════════════════════════════════════════════ */
+function attachHandlers(){
+  $$('#detail-body .date-chip').forEach(el => el.addEventListener('click', () => {
+    state.date = el.dataset.date; state.hour=null; state.teacher=null;
+    renderBody(); updateSticky();
+  }));
+  $$('#detail-body .hour-chip[data-hour]:not([data-tdate])').forEach(el => el.addEventListener('click', () => {
+    state.hour = el.dataset.hour; state.teacher=null;
+    // 스켈레톤 → 결과
+    state.loading = true; renderBody();
+    setTimeout(() => { state.loading = false; renderBody(); updateSticky(); }, 450);
+  }));
+  $$('#detail-body .teacher-card[data-teacher]').forEach(el => el.addEventListener('click', () => {
+    state.teacher = el.dataset.teacher;
+    renderBody(); updateSticky();
+  }));
+  // 교사 탭: 카드 탭 → 아코디언
+  $$('#detail-body .teacher-card[data-expand]').forEach(el => {
+    el.querySelector('.tc-row').addEventListener('click', () => {
+      const id = el.dataset.expand;
+      state.expandedTeacher = (state.expandedTeacher === id) ? null : id;
+      renderBody();
+    });
+  });
+  // 교사 탭 아코디언 안의 시간 칩
+  $$('#detail-body .hour-chip[data-tdate]').forEach(el => el.addEventListener('click', (e) => {
+    e.stopPropagation();
+    state.teacher = el.dataset.tteacher;
+    state.date = el.dataset.tdate;
+    state.hour = el.dataset.thour;
+    renderBody(); updateSticky();
+  }));
+}
+
+/* ════════════════════════════════════════════════════════════
+   Sticky 하단 바
+   ════════════════════════════════════════════════════════════ */
+function updateSticky(){
+  const bar = $('#sticky-bar');
+  const sum = $('#sticky-summary');
+  const ready = state.date && state.hour && state.teacher;
+  if (ready) {
+    const t = TEACHERS.find(x => x.id === state.teacher);
+    sum.innerHTML = `<span class="icon">✅</span> <b>${t.name}</b> · <b>${fmtMD(state.date)}(${fmtDOW(state.date)}) ${fmtH(state.hour)}</b> 선택됨`;
+    bar.classList.add('show');
+  } else {
+    bar.classList.remove('show');
+  }
+}
+
+$('#confirm-btn').addEventListener('click', () => {
+  const v = VERB[state.mode];
+  const t = TEACHERS.find(x => x.id === state.teacher);
+  // Success 오버레이 표시
+  $('#success-title').textContent = `수업이 ${v} 확정되었습니다!`;
+  $('#success-subtitle').textContent = `${v}된 수업 정보를 확인하세요`;
+  $('#success-teacher').textContent = t.name;
+  $('#success-date').textContent = `${fmtMD(state.date)} (${fmtDOW(state.date)})`;
+  $('#success-hour').textContent = fmtH(state.hour);
+  $('#success-overlay').classList.add('show');
+});
+
+// Success 확인 버튼 — 닫고 메인 화면으로
+$('#success-btn').addEventListener('click', () => {
+  $('#success-overlay').classList.remove('show');
+  // 잠깐 후 메인으로 자동 복귀
+  setTimeout(() => $('#btn-back').click(), 150);
+});
+// 오버레이 배경 클릭 시 닫기
+$('#success-overlay').addEventListener('click', (e) => {
+  if (e.target === $('#success-overlay')) {
+    $('#success-overlay').classList.remove('show');
+    setTimeout(() => $('#btn-back').click(), 150);
+  }
+});
+
+
+
+</script>
+<!-- BUILD:20260527180237 -->
+
+<!-- Success 풀스크린 오버레이 -->
+<div id="success-overlay" class="success-overlay">
+  <div class="success-card">
+    <div class="success-check">✓</div>
+    <div class="success-title" id="success-title">확정되었습니다!</div>
+    <div class="success-subtitle" id="success-subtitle">변경된 수업 정보를 확인하세요</div>
+    <div class="success-info">
+      <div class="success-info-row">
+        <span class="success-info-label">👨‍🏫 교사</span>
+        <span class="success-info-value" id="success-teacher">-</span>
+      </div>
+      <div class="success-info-row">
+        <span class="success-info-label">📅 날짜</span>
+        <span class="success-info-value" id="success-date">-</span>
+      </div>
+      <div class="success-info-row">
+        <span class="success-info-label">🕐 시간</span>
+        <span class="success-info-value" id="success-hour">-</span>
+      </div>
+    </div>
+    <button type="button" class="success-btn" id="success-btn">확인</button>
+  </div>
+</div>
+
+</body>
+</html>

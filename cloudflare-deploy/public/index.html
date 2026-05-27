@@ -23120,7 +23120,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260527174240 -->
+<!-- BUILD:20260527180237 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -23727,6 +23727,133 @@ document.addEventListener('keydown', function(e){
   setInterval(bindAllCards, 1000);
 
   console.log('[v18] 카테고리 모달 비활성 — 모든 카드 직접 노출 모드');
+})();
+</script>
+
+
+<!-- fix v19 (2026-05-27) — 신규 고객 안내 영역 hide + 직접 메뉴 패널 inject -->
+<style id="fix-v19">
+  /* 기존 grid-menu 영역 완전 hide */
+  #grid-menu, .grid-menu, #gm-cards, #gm-category-cards,
+  #gm-cat-modal, #v9-modal, #v10-modal, #v11-modal, #cat14-modal,
+  #gm-empty-hint, .gm-cat-modal {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  /* v19 메뉴 패널 */
+  #v19-panel {
+    margin: 20px auto;
+    max-width: 1100px;
+    background: linear-gradient(135deg, #0F172A, #1E293B);
+    border: 2px solid #60A5FA;
+    border-radius: 18px;
+    padding: 24px;
+    color: #F8FAFC;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  }
+  #v19-panel h2 {
+    margin: 0 0 18px;
+    color: #fff;
+    font-size: 20px;
+    text-align: center;
+    font-weight: 800;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #2563EB;
+  }
+  #v19-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+  }
+  #v19-grid a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 18px 12px;
+    background: rgba(30,41,59,0.9);
+    border: 1px solid rgba(96,165,250,0.5);
+    border-radius: 12px;
+    color: #F8FAFC !important;
+    text-decoration: none !important;
+    cursor: pointer;
+    min-height: 100px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+    transition: all 0.15s;
+  }
+  #v19-grid a:hover {
+    background: rgba(37,99,235,0.5);
+    border-color: #60A5FA;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(96,165,250,0.4);
+  }
+  #v19-grid a .v19-emoji {
+    font-size: 28px;
+  }
+  #v19-grid a .v19-name {
+    line-height: 1.3;
+  }
+</style>
+
+<script>
+(function(){
+  function buildPanel(){
+    if (document.getElementById('v19-panel')) return;
+    var MENUS = [
+      {emoji:'🛠', name:'관리자', url:'/admin.html'},
+      {emoji:'👤', name:'마이페이지', url:'/admin/mypage.html'},
+      {emoji:'💳', name:'결제하기', url:'/payment.html'},
+      {emoji:'📊', name:'KPI 대시보드', url:'/admin.html'},
+      {emoji:'👨‍🏫', name:'강사 소개', url:'/teachers.html'},
+      {emoji:'🏬', name:'가맹점 문의', url:'/franchise.html'},
+      {emoji:'📞', name:'고객센터', url:'/contact.html'},
+      {emoji:'📋', name:'공지사항', url:'/notice.html'},
+      {emoji:'📚', name:'커리큘럼', url:'/curriculum.html'},
+      {emoji:'🤖', name:'AI 친구', url:'/ai-friend.html'},
+      {emoji:'✍', name:'AI 작문', url:'/ai-write.html'},
+      {emoji:'🗣', name:'발음 코치', url:'/speech-coach.html'},
+      {emoji:'📖', name:'단어장', url:'/vocab.html'},
+      {emoji:'🎯', name:'미니 토익', url:'/micro-quiz.html'},
+      {emoji:'📊', name:'레벨 테스트', url:'/admin.html'},
+      {emoji:'🧠', name:'MBTI 매칭', url:'/mbti.html'},
+      {emoji:'⚔', name:'영어 배틀', url:'/battle.html'},
+      {emoji:'🔥', name:'연속 출석', url:'/streak.html'},
+      {emoji:'🌟', name:'칭찬 스티커', url:'/teacher-praise.html'},
+      {emoji:'📅', name:'수업 연기/변경', url:'/lesson-postpone-demo.html'},
+      {emoji:'📺', name:'수업 입장', url:'/video-call/'},
+      {emoji:'👨‍👩‍👧', name:'학부모 페이지', url:'/parent.html'},
+      {emoji:'🩺', name:'시스템 진단', url:'/admin/health.html'},
+      {emoji:'📘', name:'사용 안내서', url:'/docs/'},
+    ];
+    var panel = document.createElement('div');
+    panel.id = 'v19-panel';
+    var html = '<h2>📋 망고아이 전체 메뉴 (' + MENUS.length + '개)</h2><div id="v19-grid">';
+    MENUS.forEach(function(m){
+      html += '<a href="' + m.url + '">' +
+        '<span class="v19-emoji">' + m.emoji + '</span>' +
+        '<span class="v19-name">' + m.name + '</span>' +
+      '</a>';
+    });
+    html += '</div>';
+    panel.innerHTML = html;
+
+    // 검색창 hero section 아래에 추가
+    var hero = document.querySelector('.hero-section, .hero, #hero, main, body');
+    if (hero) {
+      hero.appendChild(panel);
+    } else {
+      document.body.appendChild(panel);
+    }
+    console.log('[v19] 메뉴 패널 inject 완료 — ' + MENUS.length + '개 카드');
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', buildPanel);
+  else buildPanel();
+  setTimeout(buildPanel, 500);
+  setTimeout(buildPanel, 2000);
 })();
 </script>
 

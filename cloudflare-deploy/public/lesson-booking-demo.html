@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FFFFFF">
+<title>수업 연기·변경 — 모바일 예약</title>
+<style>
+:root {
+  --bg: #FFFFFF;
+  --bg-soft: #F8FAFC;
+  --bg-card: #FFFFFF;
+  --border: #E2E8F0;
+  --border-soft: #F1F5F9;
+  --text: #0F172A;            /* 딥 네이비 */
+  --text-dim: #64748B;
+  --text-mute: #94A3B8;
+  --primary: #4F46E5;          /* 인디고 블루 */
+  --primary-soft: #EEF2FF;
+  --primary-dark: #4338CA;
+  --postpone: #F59E0B;
+  --change: #8B5CF6;
+  --green: #10B981;
+  --shadow-sm: 0 1px 3px rgba(15,23,42,0.08);
+  --shadow-md: 0 4px 12px rgba(15,23,42,0.08);
+  --shadow-lg: 0 12px 28px rgba(15,23,42,0.12);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; padding: 0;
+  width: 100%; height: 100vh;
+  background: var(--bg-soft); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+               "Pretendard", "Noto Sans KR", "Segoe UI", sans-serif;
+  font-size: 14px;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+#app {
+  max-width: 430px;
+  margin: 0 auto;
+  position: relative;
+  width: 100%; height: 100vh;
+  background: var(--bg);
+  overflow: hidden;
+  box-shadow: 0 0 40px rgba(15,23,42,0.05);
+}
+
+/* ===== 화면 + 슬라이드 ===== */
+.screen {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  background: var(--bg);
+  transform: translateY(100%);
+  transition: transform 0.35s cubic-bezier(0.32,0.72,0,1);
+  will-change: transform;
+}
+.screen.active { transform: translateY(0); }
+#screen-main { transform: translateY(0); }   /* 항상 베이스 */
+#screen-main.exit { transform: translateY(-100%); transition: none; }
+
+/* ===== 헤더 ===== */
+header {
+  flex: 0 0 auto;
+  display: flex; align-items: center;
+  padding: 14px 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border-soft);
+  position: sticky; top: 0; z-index: 10;
+}
+.back-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  border: 0; font-size: 22px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+.back-btn:active { transform: scale(0.92); background: var(--bg-soft); }
+.back-btn:disabled { opacity: 0.25; pointer-events: none; }
+.header-title {
+  flex: 1; text-align: center;
+  font-weight: 800; font-size: 16px;
+  letter-spacing: -0.3px;
+  padding-right: 40px;
+}
+
+/* ===== Step 1: 메인 카드 ===== */
+.main-wrap {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+  padding: 20px 18px 24px;
+  gap: 14px;
+  overflow-y: auto;
+}
+.main-card {
+  padding: 24px 18px;
+  border-radius: 18px;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  text-align: left;
+  user-select: none;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  flex: 1;
+  display: flex; flex-direction: column;
+  justify-content: space-between;
+  min-height: 180px;
+  position: relative; overflow: hidden;
+}
+.main-card:active { transform: scale(0.97); box-shadow: var(--shadow-sm); }
+.main-card.postpone {
+  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+  color: #78350F;
+  border-color: #FCD34D;
+}
+.main-card.change {
+  background: linear-gradient(135deg, #EDE9FE 0%, #DDD6FE 100%);
+  color: #4C1D95;
+  border-color: #C4B5FD;
+}
+.main-card .mc-icon { font-size: 44px; line-height: 1; }
+.main-card .mc-title { font-size: 20px; font-weight: 900; margin-top: 12px; }
+.main-card .mc-desc {
+  font-size: 12.5px;
+  opacity: 0.85;
+  margin-top: 4px;
+  line-height: 1.55;
+}
+.main-card .mc-arrow {
+  position: absolute; top: 22px; right: 22px;
+  font-size: 22px; opacity: 0.5;
+}
+
+/* ===== Step 2: 토글 탭 ===== */
+.tab-bar {
+  position: relative;
+  display: flex;
+  margin: 14px 14px 8px;
+  padding: 4px;
+  background: var(--bg-soft);
+  border-radius: 12px;
+}
+.tab-slider {
+  position: absolute;
+  top: 4px; left: 4px;
+  width: calc(50% - 4px);
+  height: calc(100% - 8px);
+  background: var(--primary);
+  border-radius: 9px;
+  box-shadow: 0 2px 8px rgba(79,70,229,0.3);
+  transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
+  z-index: 1;
+}
+.tab-bar[data-tab="teacher"] .tab-slider { transform: translateX(100%); }
+.tab {
+  flex: 1;
+  padding: 11px 8px;
+  text-align: center;
+  background: transparent;
+  border: 0;
+  color: var(--text-dim);
+  font-size: 13.5px; font-weight: 800;
+  cursor: pointer;
+  position: relative; z-index: 2;
+  transition: color 0.2s;
+}
+.tab.active { color: #fff; }
+
+/* ===== 본문 ===== */
+.detail-body {
+  flex: 1; min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 0 100px;
+}
+.section-label {
+  color: var(--text);
+  font-size: 13px; font-weight: 800;
+  margin: 14px 14px 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+.section-label .lbl-hint {
+  margin-left: auto;
+  color: var(--text-mute);
+  font-size: 11px; font-weight: 600;
+}
+
+/* ===== 가로 스크롤 날짜 칩 (링글 스타일) ===== */
+.date-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 14px 14px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.date-scroll::-webkit-scrollbar { display: none; }
+.date-chip {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  width: 64px;
+  padding: 10px 0;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.12s, border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+.date-chip:active { transform: scale(0.95); }
+.date-chip .dc-dow { font-size: 11px; color: var(--text-dim); font-weight: 700; }
+.date-chip .dc-day { font-size: 18px; color: var(--text); font-weight: 800; margin-top: 2px; }
+.date-chip.weekend .dc-dow { color: #EF4444; }
+.date-chip.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  box-shadow: 0 6px 14px rgba(79,70,229,0.35);
+}
+.date-chip.active .dc-dow,
+.date-chip.active .dc-day { color: #fff; }
+
+/* ===== 시간 칩 그리드 ===== */
+.hour-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 0 14px;
+}
+.hour-chip {
+  padding: 11px 4px;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 13px; font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.1s, background 0.15s, border-color 0.15s;
+}
+.hour-chip:active { transform: scale(0.93); }
+.hour-chip.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(79,70,229,0.3);
+}
+.hour-chip.disabled {
+  opacity: 0.32;
+  pointer-events: none;
+  background: var(--bg-soft);
+}
+
+/* ===== 교사 카드 (피드형) ===== */
+.teacher-list { padding: 0 14px; }
+.teacher-card {
+  display: flex; gap: 12px; align-items: center;
+  padding: 14px;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.18s, border-color 0.18s;
+}
+.teacher-card:active { transform: scale(0.98); }
+.teacher-card.active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  box-shadow: 0 8px 20px rgba(79,70,229,0.18);
+}
+.teacher-avatar {
+  flex: 0 0 auto;
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #DBEAFE, #BFDBFE);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px;
+}
+.teacher-info { flex: 1; min-width: 0; }
+.teacher-name {
+  font-size: 15px; font-weight: 800; color: var(--text);
+  display: flex; align-items: center; gap: 6px;
+}
+.teacher-tags { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+.teacher-tag {
+  font-size: 10.5px;
+  padding: 2px 8px;
+  background: var(--bg-soft);
+  color: var(--text-dim);
+  border-radius: 999px;
+  font-weight: 700;
+}
+.teacher-tag.native { background: #DCFCE7; color: #166534; }
+.teacher-tag.korean { background: #FEF3C7; color: #92400E; }
+.teacher-tag.kyopo { background: #FFE4E6; color: #BE185D; }
+.teacher-meta { font-size: 11.5px; color: var(--text-dim); margin-top: 4px; }
+.teacher-meta .star { color: #F59E0B; }
+.teacher-chevron {
+  flex: 0 0 auto;
+  color: var(--text-mute);
+  font-size: 20px;
+  transition: transform 0.25s;
+}
+.teacher-card.expanded .teacher-chevron { transform: rotate(90deg); color: var(--primary); }
+
+/* ===== 아코디언 (교사 → 시간) ===== */
+.teacher-schedule {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s cubic-bezier(0.32,0.72,0,1);
+  padding: 0 14px;
+}
+.teacher-schedule.open { max-height: 800px; padding-top: 10px; padding-bottom: 10px; }
+.day-block { margin-bottom: 12px; }
+.day-block-head {
+  font-size: 12px; font-weight: 800;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.day-block-hours { display: flex; flex-wrap: wrap; gap: 5px; }
+.day-block-hours .hour-chip { padding: 8px 12px; font-size: 12.5px; }
+
+/* ===== 필터 결과 (시간으로 탭 → 교사 필터) ===== */
+.filter-result {
+  margin: 14px;
+  padding: 14px;
+  background: var(--primary-soft);
+  border: 1px dashed var(--primary);
+  border-radius: 14px;
+}
+.fr-title {
+  color: var(--primary);
+  font-size: 12.5px; font-weight: 800;
+  margin-bottom: 10px;
+}
+
+/* ===== 스켈레톤 로딩 ===== */
+.skeleton {
+  background: linear-gradient(90deg, #F1F5F9 0%, #E2E8F0 50%, #F1F5F9 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: 10px;
+}
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skel-teacher {
+  display: flex; gap: 12px; align-items: center;
+  padding: 14px; margin-bottom: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
+}
+.skel-avatar { width: 52px; height: 52px; border-radius: 50%; }
+.skel-lines { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.skel-line { height: 12px; }
+.skel-line.short { width: 40%; }
+.skel-line.mid { width: 65%; }
+.skel-line.long { width: 88%; }
+
+.empty-state {
+  text-align: center;
+  padding: 30px 18px;
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.empty-state .es-icon { font-size: 36px; display: block; margin-bottom: 8px; }
+
+/* ===== 스티키 하단 바 ===== */
+.sticky-bar {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 16px rgba(15,23,42,0.06);
+  transform: translateY(100%);
+  transition: transform 0.32s cubic-bezier(0.32,0.72,0,1);
+  z-index: 50;
+}
+.sticky-bar.show { transform: translateY(0); }
+.sb-summary {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  background: var(--primary-soft);
+  border-radius: 10px;
+  font-size: 12.5px;
+}
+.sb-summary .sb-label { color: var(--primary); font-weight: 800; flex: 0 0 auto; }
+.sb-summary .sb-value { color: var(--text); font-weight: 700; }
+.confirm-btn {
+  display: block; width: 100%;
+  padding: 16px;
+  background: var(--primary);
+  color: #fff;
+  border: 0; border-radius: 12px;
+  font-size: 15.5px; font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(79,70,229,0.35);
+  transition: transform 0.1s;
+}
+.confirm-btn:active { transform: scale(0.97); }
+
+/* ===== 토스트 ===== */
+.toast {
+  position: fixed;
+  left: 50%; bottom: 120px;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--text);
+  color: #fff;
+  padding: 14px 22px;
+  border-radius: 999px;
+  font-size: 13px; font-weight: 700;
+  box-shadow: 0 10px 30px rgba(15,23,42,0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s;
+  z-index: 1000;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- ━━━━━ Step 1: 메인 ━━━━━ -->
+  <section id="screen-main">
+    <header>
+      <button class="back-btn" disabled>‹</button>
+      <div class="header-title">📅 수업 일정 관리</div>
+    </header>
+    <div class="main-wrap">
+      <button class="main-card postpone" data-mode="postpone">
+        <span class="mc-arrow">›</span>
+        <span class="mc-icon">⏰</span>
+        <div>
+          <div class="mc-title">수업 연기하기</div>
+          <div class="mc-desc">이번 주 수업을 뒤로 미루거나<br>횟수를 보존해 두기</div>
+        </div>
+      </button>
+      <button class="main-card change" data-mode="change">
+        <span class="mc-arrow">›</span>
+        <span class="mc-icon">🔄</span>
+        <div>
+          <div class="mc-title">수업 변경하기</div>
+          <div class="mc-desc">원하는 다른 날짜·교사로<br>즉시 예약 변경</div>
+        </div>
+      </button>
+    </div>
+  </section>
+
+  <!-- ━━━━━ Step 2/3: 상세 ━━━━━ -->
+  <section id="screen-detail" class="screen">
+    <header>
+      <button class="back-btn" id="btn-back">‹</button>
+      <div class="header-title" id="detail-title">— 로딩 중 —</div>
+    </header>
+
+    <div class="tab-bar" id="tab-bar" data-tab="time">
+      <div class="tab-slider"></div>
+      <button class="tab active" data-tab="time">🕐 <span id="tab-time-label">시간으로</span></button>
+      <button class="tab" data-tab="teacher">👨‍🏫 <span id="tab-teacher-label">교사로</span></button>
+    </div>
+
+    <div class="detail-body" id="detail-body"></div>
+
+    <div class="sticky-bar" id="sticky-bar">
+      <div class="sb-summary" id="sb-summary"></div>
+      <button class="confirm-btn" id="confirm-btn">선택 완료</button>
+    </div>
+  </section>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+/* ============================================================
+   Mock Data
+   ============================================================ */
+const TEACHERS = [
+  { id:'t01', name:'박지윤',       ico:'👩‍🏫', country:'한국',   tag:'korean', tagLabel:'교포·한국인', rating:4.9, classes:1240 },
+  { id:'t02', name:'이서연',       ico:'👩‍🏫', country:'한국',   tag:'korean', tagLabel:'한국인',       rating:4.8, classes: 980 },
+  { id:'t03', name:'Maria Santos', ico:'👩‍🏫', country:'필리핀', tag:'native', tagLabel:'원어민',       rating:4.95, classes:2100 },
+  { id:'t04', name:'James Cruz',   ico:'👨‍🏫', country:'미국',   tag:'native', tagLabel:'원어민·미국',   rating:4.85, classes:1560 },
+  { id:'t05', name:'Anna Reyes',   ico:'👩‍🏫', country:'영국',   tag:'native', tagLabel:'원어민·영국',   rating:4.7, classes: 870 },
+  { id:'t06', name:'Daniel Kim',   ico:'👨‍🏫', country:'미국',   tag:'kyopo',  tagLabel:'교포·미국',     rating:4.9, classes:1820 },
+];
+
+const SCHEDULE = (function(){
+  const data = {};
+  const today = new Date();
+  TEACHERS.forEach(t => {
+    data[t.id] = {};
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(today); d.setDate(d.getDate() + i);
+      const iso = d.toISOString().slice(0,10);
+      const seed = t.id.charCodeAt(2) + i;
+      const hours = [];
+      for (let h = 9; h <= 22; h++) {
+        if ((seed * h) % 3 !== 0) hours.push(h);
+      }
+      data[t.id][iso] = hours;
+    }
+  });
+  return data;
+})();
+
+/* ============================================================
+   State
+   ============================================================ */
+const state = {
+  mode: null,           // 'postpone' | 'change'
+  tab: 'time',          // 'time' | 'teacher'
+  date: null,
+  hour: null,
+  teacher: null,
+  expandedTeacher: null,
+};
+
+const VERB = { postpone: '연기', change: '변경' };
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+function fmtDate(iso){
+  const d = new Date(iso+'T00:00:00');
+  return `${d.getMonth()+1}/${d.getDate()} (${['일','월','화','수','목','금','토'][d.getDay()]})`;
+}
+function fmtHour(h){ return (h<10?'0':'')+h+':00'; }
+function getDates(n=14){
+  const today = new Date();
+  return Array.from({length:n}, (_,i)=>{
+    const d = new Date(today); d.setDate(d.getDate()+i);
+    return d.toISOString().slice(0,10);
+  });
+}
+
+function toast(msg){
+  const t = $('#toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2400);
+}
+
+/* ============================================================
+   Step 1 → 2
+   ============================================================ */
+$$('.main-card').forEach(card=>{
+  card.addEventListener('click', ()=>{
+    state.mode = card.dataset.mode;
+    state.tab = 'time';
+    state.date = null; state.hour = null; state.teacher = null;
+    state.expandedTeacher = null;
+    enterDetail();
+  });
+});
+
+function enterDetail(){
+  const verb = VERB[state.mode];
+  $('#detail-title').textContent = `수업 ${verb}하기`;
+  $('#tab-time-label').textContent = `시간으로 ${verb}`;
+  $('#tab-teacher-label').textContent = `교사로 ${verb}`;
+  $('#tab-bar').setAttribute('data-tab', state.tab);
+  $$('.tab').forEach(b=> b.classList.toggle('active', b.dataset.tab===state.tab));
+  $('#screen-main').classList.add('exit');
+  $('#screen-detail').classList.add('active');
+  render();
+}
+
+$('#btn-back').addEventListener('click', ()=>{
+  $('#screen-detail').classList.remove('active');
+  setTimeout(()=>$('#screen-main').classList.remove('exit'), 30);
+  state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null;
+  updateSticky();
+});
+
+/* ============================================================
+   탭 전환
+   ============================================================ */
+$$('.tab').forEach(t=>{
+  t.addEventListener('click', ()=>{
+    if (state.tab === t.dataset.tab) return;
+    state.tab = t.dataset.tab;
+    $('#tab-bar').setAttribute('data-tab', state.tab);
+    $$('.tab').forEach(b=> b.classList.toggle('active', b===t));
+    state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null;
+    render();
+  });
+});
+
+/* ============================================================
+   본문 렌더
+   ============================================================ */
+function render(){
+  const body = $('#detail-body');
+  if (state.tab === 'time') body.innerHTML = renderTimeTab();
+  else body.innerHTML = renderTeacherTab();
+  bindEvents();
+  updateSticky();
+}
+
+/* ── 시간으로 탭 ── */
+function renderTimeTab(){
+  const dates = getDates(14);
+  const dateHtml = dates.map(iso=>{
+    const d = new Date(iso+'T00:00:00');
+    const dow = ['일','월','화','수','목','금','토'][d.getDay()];
+    const weekend = (d.getDay()===0 || d.getDay()===6);
+    return `<button class="date-chip ${state.date===iso?'active':''} ${weekend?'weekend':''}" data-date="${iso}">
+      <div class="dc-dow">${dow}</div>
+      <div class="dc-day">${d.getDate()}</div>
+    </button>`;
+  }).join('');
+
+  let hourHtml = '';
+  if (state.date) {
+    const hourSet = new Set();
+    TEACHERS.forEach(t => (SCHEDULE[t.id][state.date]||[]).forEach(h=>hourSet.add(h)));
+    for (let h = 9; h <= 22; h++) {
+      const enabled = hourSet.has(h);
+      hourHtml += `<button class="hour-chip ${state.hour===h?'active':''} ${enabled?'':'disabled'}" data-hour="${h}">${fmtHour(h)}</button>`;
+    }
+  }
+
+  let resultHtml = '';
+  if (state.date && state.hour) {
+    const avail = TEACHERS.filter(t => (SCHEDULE[t.id][state.date]||[]).includes(state.hour));
+    resultHtml = `<div class="filter-result">
+      <div class="fr-title">✨ ${fmtDate(state.date)} ${fmtHour(state.hour)} 가능한 교사 ${avail.length}명</div>
+      ${avail.length ? `<div class="teacher-list" style="padding:0">
+        ${avail.map(t => teacherCardHtml(t, false)).join('')}
+      </div>` : `<div class="empty-state"><span class="es-icon">😢</span>이 시간에 가능한 교사가 없습니다.<br>다른 시간을 선택해 보세요.</div>`}
+    </div>`;
+  }
+
+  return `
+    <div class="section-label">📅 이번 주 날짜 <span class="lbl-hint">← 좌우로 밀어보세요</span></div>
+    <div class="date-scroll">${dateHtml}</div>
+    ${state.date ? `
+      <div class="section-label">🕐 가능한 시간</div>
+      <div class="hour-grid">${hourHtml}</div>
+    ` : ''}
+    ${resultHtml}
+  `;
+}
+
+/* ── 교사로 탭 ── */
+function renderTeacherTab(){
+  const cards = TEACHERS.map(t => teacherCardHtml(t, true)).join('');
+  return `
+    <div class="section-label">👨‍🏫 인기 교사 ${TEACHERS.length}명</div>
+    <div class="teacher-list">${cards}</div>
+  `;
+}
+
+function teacherCardHtml(t, withSchedule){
+  const expanded = state.expandedTeacher === t.id;
+  const scheduleHtml = withSchedule ? `
+    <div class="teacher-schedule ${expanded?'open':''}" data-teacher-schedule="${t.id}">
+      ${expanded ? scheduleBlocksHtml(t) : ''}
+    </div>` : '';
+  const isActive = state.teacher === t.id;
+  return `
+    <div class="teacher-card ${isActive?'active':''} ${expanded?'expanded':''}" data-teacher="${t.id}">
+      <div class="teacher-avatar">${t.ico}</div>
+      <div class="teacher-info">
+        <div class="teacher-name">${t.name}</div>
+        <div class="teacher-tags">
+          <span class="teacher-tag ${t.tag}">${t.tagLabel}</span>
+          <span class="teacher-tag">${t.country}</span>
+        </div>
+        <div class="teacher-meta"><span class="star">★</span> ${t.rating} · 누적 ${t.classes.toLocaleString()}회</div>
+      </div>
+      ${withSchedule ? `<div class="teacher-chevron">›</div>` : ''}
+    </div>
+    ${scheduleHtml}
+  `;
+}
+
+function scheduleBlocksHtml(t){
+  const dates = getDates(7);
+  let html = '';
+  dates.forEach(iso => {
+    const hours = (SCHEDULE[t.id][iso] || []);
+    if (!hours.length) return;
+    html += `<div class="day-block">
+      <div class="day-block-head">${fmtDate(iso)}</div>
+      <div class="day-block-hours">
+        ${hours.map(h => `<button class="hour-chip ${state.date===iso && state.hour===h && state.teacher===t.id?'active':''}"
+          data-set-date="${iso}" data-set-hour="${h}" data-set-teacher="${t.id}">${fmtHour(h)}</button>`).join('')}
+      </div>
+    </div>`;
+  });
+  if (!html) html = `<div class="empty-state"><span class="es-icon">😢</span>이번 주 가능한 시간이 없습니다.</div>`;
+  return html;
+}
+
+/* ============================================================
+   스켈레톤 (시간 선택 직후 잠시)
+   ============================================================ */
+function showSkeleton(){
+  const target = $('#detail-body .filter-result');
+  if (!target) return;
+  target.innerHTML = `
+    <div class="fr-title">⏳ 가능한 교사를 찾고 있어요...</div>
+    ${Array.from({length:3}).map(()=>`
+      <div class="skel-teacher">
+        <div class="skeleton skel-avatar"></div>
+        <div class="skel-lines">
+          <div class="skeleton skel-line mid"></div>
+          <div class="skeleton skel-line short"></div>
+          <div class="skeleton skel-line long"></div>
+        </div>
+      </div>
+    `).join('')}
+  `;
+}
+
+/* ============================================================
+   이벤트 바인딩
+   ============================================================ */
+function bindEvents(){
+  $$('#detail-body .date-chip').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      state.date = el.dataset.date;
+      state.hour = null; state.teacher = null;
+      render();
+    });
+  });
+  $$('#detail-body .hour-chip[data-hour]:not([data-set-hour])').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      state.hour = parseInt(el.dataset.hour, 10);
+      state.teacher = null;
+      render();
+      // 스켈레톤 0.6초 후 실제 결과
+      setTimeout(showSkeleton, 0);
+      setTimeout(render, 600);
+    });
+  });
+  $$('#detail-body .hour-chip[data-set-hour]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      state.date = el.dataset.setDate;
+      state.hour = parseInt(el.dataset.setHour, 10);
+      state.teacher = el.dataset.setTeacher;
+      render();
+    });
+  });
+  $$('#detail-body .filter-result .teacher-card').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      state.teacher = el.dataset.teacher;
+      render();
+    });
+  });
+  $$('#detail-body > .teacher-list .teacher-card').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const tid = el.dataset.teacher;
+      state.expandedTeacher = state.expandedTeacher === tid ? null : tid;
+      // 교사 모드에서 카드 펼치기만 (시간 선택은 안의 칩으로)
+      render();
+    });
+  });
+}
+
+/* ============================================================
+   스티키 바
+   ============================================================ */
+function updateSticky(){
+  const bar = $('#sticky-bar');
+  const ready = state.date && state.hour && state.teacher;
+  if (!ready) { bar.classList.remove('show'); return; }
+  const tObj = TEACHERS.find(x=>x.id===state.teacher);
+  const verb = VERB[state.mode];
+  $('#sb-summary').innerHTML =
+    `<span class="sb-label">${verb} 시간</span>` +
+    `<span class="sb-value">${fmtDate(state.date)} ${fmtHour(state.hour)} · ${tObj.name}</span>`;
+  $('#confirm-btn').textContent = `✓ ${verb} 확정`;
+  bar.classList.add('show');
+}
+
+$('#confirm-btn').addEventListener('click', ()=>{
+  const verb = VERB[state.mode];
+  const tObj = TEACHERS.find(x=>x.id===state.teacher);
+  toast(`✅ ${verb} 완료! ${tObj.name} · ${fmtDate(state.date)} ${fmtHour(state.hour)}`);
+  setTimeout(()=> $('#btn-back').click(), 1600);
+});
+</script>
+
+<!-- BUILD:20260527180237 -->
+</body>
+</html>
