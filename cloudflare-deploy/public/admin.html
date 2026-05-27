@@ -10904,9 +10904,31 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           <!-- 메타데이터 (업로드 시 자동 적용) -->
           <div class="menu-form" style="background:#f8fafc;padding:8px 10px;border-radius:8px;margin-bottom:10px;">
             <span style="font-size:11px;color:#475569;font-weight:700;" data-ko="기본값" data-en="Defaults">기본값</span>
-            <select id="tbf-level" style="width:90px;">
+            <!-- ph156: 언어 선택 (영어 / 중국어) -->
+            <select id="tbf-lang" style="width:96px;" onchange="if(window.tbfUpdateLevelOptions)tbfUpdateLevelOptions()">
+              <option value="en" data-ko="🇬🇧 영어" data-en="🇬🇧 English">🇬🇧 영어</option>
+              <option value="zh" data-ko="🇨🇳 중국어" data-en="🇨🇳 Chinese">🇨🇳 중국어</option>
+            </select>
+            <select id="tbf-level" style="width:110px;">
               <option value="" data-ko="레벨 미지정" data-en="No level">레벨 미지정</option>
-              <option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option>
+              <!-- 영어 (CEFR) — JS 가 동적으로 교체 -->
+              <optgroup label="영어 (CEFR)" data-lang="en">
+                <option value="A1">A1 (입문)</option>
+                <option value="A2">A2 (초급)</option>
+                <option value="B1">B1 (중급)</option>
+                <option value="B2">B2 (중상)</option>
+                <option value="C1">C1 (상급)</option>
+                <option value="C2">C2 (원어민)</option>
+              </optgroup>
+              <!-- 중국어 (HSK) -->
+              <optgroup label="중국어 (HSK)" data-lang="zh">
+                <option value="HSK1">HSK 1급 (입문)</option>
+                <option value="HSK2">HSK 2급 (초급)</option>
+                <option value="HSK3">HSK 3급 (중급 하)</option>
+                <option value="HSK4">HSK 4급 (중급 상)</option>
+                <option value="HSK5">HSK 5급 (상급 하)</option>
+                <option value="HSK6">HSK 6급 (원어민)</option>
+              </optgroup>
             </select>
             <input id="tbf-unit" type="number" placeholder="단원 번호" data-ko-placeholder="단원 번호" data-en-placeholder="Unit no." style="width:90px;" />
             <select id="tbf-textbook" style="width:160px;">
@@ -10915,12 +10937,26 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
             <input id="tbf-desc" placeholder="설명 (선택)" data-ko-placeholder="설명 (선택)" data-en-placeholder="Description" style="flex:1;min-width:160px;" />
           </div>
 
-          <!-- 필터 -->
+          <!-- 필터 (ph156: 언어 + HSK 추가) -->
           <div class="menu-form" style="padding:4px 0;">
             <span style="font-size:11px;color:#475569;font-weight:700;" data-ko="필터" data-en="Filter">필터</span>
-            <select id="tbf-filter-level" style="width:110px;" onchange="loadTextbookFiles()">
+            <select id="tbf-filter-lang" style="width:110px;" onchange="loadTextbookFiles()">
+              <option value="" data-ko="전체 언어" data-en="All langs">전체 언어</option>
+              <option value="en">🇬🇧 영어</option>
+              <option value="zh">🇨🇳 중국어</option>
+            </select>
+            <select id="tbf-filter-level" style="width:130px;" onchange="loadTextbookFiles()">
               <option value="" data-ko="전체 레벨" data-en="All levels">전체 레벨</option>
-              <option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option>
+              <optgroup label="영어 (CEFR)">
+                <option value="A1">A1</option><option value="A2">A2</option>
+                <option value="B1">B1</option><option value="B2">B2</option>
+                <option value="C1">C1</option><option value="C2">C2</option>
+              </optgroup>
+              <optgroup label="중국어 (HSK)">
+                <option value="HSK1">HSK 1</option><option value="HSK2">HSK 2</option>
+                <option value="HSK3">HSK 3</option><option value="HSK4">HSK 4</option>
+                <option value="HSK5">HSK 5</option><option value="HSK6">HSK 6</option>
+              </optgroup>
             </select>
             <select id="tbf-filter-kind" style="width:100px;" onchange="loadTextbookFiles()">
               <option value="" data-ko="전체 종류" data-en="All types">전체 종류</option>
@@ -18732,7 +18768,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260528060641 -->
+        <!-- BUILD:20260528061851 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -33881,9 +33917,8 @@ button.chip:hover,
         }
         return JSON.parse(text);
       } catch(e) {
-        // 원본 JSON.parse 에러 → 친절 메시지
         if (e.message && /Unexpected token|is not valid JSON|FRIENDLY_/.test(e.message)) {
-          throw e;  // unhandledrejection 가 잡음
+          throw e;
         }
         throw e;
       }
@@ -33894,7 +33929,7 @@ button.chip:hover,
   var lastAlertTime = 0;
   function friendlyAlert(msg){
     var now = Date.now();
-    if (now - lastAlertTime < 3000) return;  // 3초 throttle
+    if (now - lastAlertTime < 3000) return;
     lastAlertTime = now;
     try { alert(msg); } catch(e){}
   }
@@ -33916,7 +33951,6 @@ button.chip:hover,
     }
   });
 
-  // 3) window.onerror — 동기 JSON.parse 에러도 잡음
   window.addEventListener('error', function(ev){
     var msg = (ev.error && ev.error.message) || ev.message || '';
     if (/Unexpected token.*JSON|is not valid JSON/.test(msg)) {
@@ -33927,6 +33961,55 @@ button.chip:hover,
   });
 
   console.log('[ph155] 친절 에러 메시지 핸들러 활성 — JSON 깨짐 자동 처리');
+})();
+</script>
+
+<!-- ============================================================
+     Phase 156 (2026-05-28) — 교재 라이브러리 중국어 (HSK) 추가
+     · 언어 선택 (영어/중국어) 에 따라 레벨 옵션 자동 필터링
+     ============================================================ -->
+<script id="ph156-chinese-textbook">
+(function(){
+  'use strict';
+
+  // 언어 선택 시 해당 언어의 레벨만 표시
+  window.tbfUpdateLevelOptions = function(){
+    var langSel = document.getElementById('tbf-lang');
+    var levelSel = document.getElementById('tbf-level');
+    if (!langSel || !levelSel) return;
+    var lang = langSel.value;
+    // 모든 optgroup 순회 → data-lang 가 매칭되는 것만 표시
+    levelSel.querySelectorAll('optgroup').forEach(function(og){
+      var ogLang = og.getAttribute('data-lang');
+      if (!ogLang || ogLang === lang) {
+        og.style.display = '';
+        og.disabled = false;
+      } else {
+        og.style.display = 'none';
+        og.disabled = true;
+      }
+    });
+    // 현재 선택된 레벨이 다른 언어 것이면 초기화
+    var sel = levelSel.options[levelSel.selectedIndex];
+    if (sel && sel.parentElement && sel.parentElement.tagName === 'OPTGROUP') {
+      var ogLang = sel.parentElement.getAttribute('data-lang');
+      if (ogLang && ogLang !== lang) {
+        levelSel.value = '';
+      }
+    }
+  };
+
+  // 필터의 언어 선택과 레벨 필터 동기화 (선택 사항 — 필터는 더 자유롭게)
+  function init(){
+    if (typeof window.tbfUpdateLevelOptions === 'function') {
+      tbfUpdateLevelOptions();
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+  setTimeout(init, 500);
+
+  console.log('[ph156] 교재 라이브러리 중국어 (HSK 1~6) 추가 활성');
 })();
 </script>
 
