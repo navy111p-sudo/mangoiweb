@@ -18729,7 +18729,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260528015540 -->
+        <!-- BUILD:20260528021254 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -32185,6 +32185,240 @@ button.chip:hover,
   setTimeout(init, 600);
 
   console.log('[ph134] 모바일 사이드바 햄버거 토글 활성 (≤920px)');
+})();
+</script>
+
+
+<!-- ============================================================
+     Phase 135 (2026-05-28) — 사이드바 종합 UX 패턴
+     · 모바일: 좌측 엣지 스와이프(열기) + 사이드바 좌 스와이프(닫기) + 햄버거(ph134)
+     · 데스크탑: 좌측 호버 자동 펼침/접힘 (옵션) — 사이드바가 화면 차지 줄이고 싶을 때
+     · 모든 기기: 가장자리 펼침 인디케이터 (좁은 띠) 로 발견 가능성 ↑
+     ============================================================ -->
+<style id="ph135-sidebar-ux">
+  /* 좌측 엣지 핫존 (보이지 않는 12px 띠) — 스와이프/탭 감지용 */
+  #ph135-edge-zone {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 14px;
+    z-index: 99989;
+    background: transparent;
+    touch-action: pan-y;
+  }
+  /* 시각적 인디케이터 — "여기 잡고 미세요" 힌트 */
+  #ph135-edge-indicator {
+    display: none;
+    position: fixed;
+    top: 50%; left: 0;
+    transform: translateY(-50%);
+    width: 4px; height: 56px;
+    background: linear-gradient(180deg, rgba(251,191,36,0.7), rgba(245,158,11,0.7));
+    border-radius: 0 4px 4px 0;
+    z-index: 99988;
+    pointer-events: none;
+    box-shadow: 2px 0 12px rgba(251,191,36,0.4);
+    animation: ph135PulseEdge 2.5s ease-in-out infinite;
+  }
+  @keyframes ph135PulseEdge {
+    0%, 100% { opacity: 0.5; transform: translateY(-50%) translateX(0); }
+    50%      { opacity: 1;   transform: translateY(-50%) translateX(2px); }
+  }
+  /* 모바일에서만 엣지 hot zone + 인디케이터 활성 */
+  @media (max-width: 920px) {
+    #ph135-edge-zone { display: block; }
+    #ph135-edge-indicator { display: block; }
+    /* 사이드바 열린 상태에서는 인디케이터 숨김 (불필요) */
+    body.ph134-sidebar-open #ph135-edge-indicator,
+    body.ph134-sidebar-open #ph135-edge-zone { display: none; }
+  }
+
+  /* 데스크탑 호버 자동 펼침 (옵션) — 사이드바가 좁아진 미니 모드 ↔ 확장 모드 */
+  @media (min-width: 921px) {
+    body.ph135-mini .admin-sidebar {
+      width: 64px !important;
+      overflow: hidden;
+      transition: width 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    body.ph135-mini .admin-sidebar:hover,
+    body.ph135-mini .admin-sidebar.ph135-pinned {
+      width: 280px !important;
+      box-shadow: 4px 0 20px rgba(0,0,0,0.3);
+    }
+    body.ph135-mini .admin-sidebar .sidebar-search-wrap,
+    body.ph135-mini .admin-sidebar .sidebar-head h4 {
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    body.ph135-mini .admin-sidebar:hover .sidebar-search-wrap,
+    body.ph135-mini .admin-sidebar:hover .sidebar-head h4,
+    body.ph135-mini .admin-sidebar.ph135-pinned .sidebar-search-wrap,
+    body.ph135-mini .admin-sidebar.ph135-pinned .sidebar-head h4 {
+      opacity: 1;
+    }
+    /* 미니 모드 핀 버튼 (데스크탑 좌상단) */
+    #ph135-pin-btn {
+      position: fixed;
+      top: 14px; left: 14px;
+      z-index: 99996;
+      width: 36px; height: 36px;
+      background: rgba(15,23,42,0.85);
+      color: #fbbf24;
+      border: 1px solid rgba(251,191,36,0.4);
+      border-radius: 10px;
+      font-size: 14px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    #ph135-pin-btn:hover { background: rgba(30,41,59,0.95); transform: scale(1.05); }
+    #ph135-pin-btn.is-pinned { background: rgba(251,191,36,0.18); color: #fbbf24; border-color: rgba(251,191,36,0.7); }
+  }
+  @media (max-width: 920px) {
+    #ph135-pin-btn { display: none; }
+  }
+
+  /* 스와이프 중 사이드바 부드러운 따라오기 */
+  .admin-sidebar.ph135-dragging {
+    transition: none !important;
+  }
+</style>
+
+<!-- 좌측 엣지 핫존 (보이지 않음) + 인디케이터 (보이는 노란 띠) -->
+<div id="ph135-edge-zone" aria-hidden="true"></div>
+<div id="ph135-edge-indicator" aria-hidden="true" title="좌측에서 우측으로 미세요"></div>
+
+<!-- 데스크탑 미니 모드 토글 (선택사항) -->
+<button type="button" id="ph135-pin-btn" onclick="window.ph135TogglePin && window.ph135TogglePin()"
+        title="사이드바 고정/미니" aria-label="사이드바 고정/미니">📌</button>
+
+<script id="ph135-sidebar-ux-js">
+(function(){
+  'use strict';
+
+  function isMobile(){ return window.matchMedia('(max-width: 920px)').matches; }
+  function isDesktop(){ return window.matchMedia('(min-width: 921px)').matches; }
+
+  // ── 1) 모바일 — 좌측 엣지 스와이프로 사이드바 열기 ──
+  function bindEdgeSwipe(){
+    var zone = document.getElementById('ph135-edge-zone');
+    if (!zone || zone.__ph135) return;
+    zone.__ph135 = true;
+
+    var startX = 0, startY = 0, tracking = false;
+
+    zone.addEventListener('touchstart', function(e){
+      var t = e.touches[0];
+      if (t.clientX > 20) return; // 엣지에서만
+      startX = t.clientX; startY = t.clientY; tracking = true;
+    }, { passive: true });
+
+    zone.addEventListener('touchmove', function(e){
+      if (!tracking) return;
+      var t = e.touches[0];
+      var dx = t.clientX - startX;
+      var dy = Math.abs(t.clientY - startY);
+      // 가로 우측 스와이프 + 수직 움직임 작을 때만 (의도 분리)
+      if (dx > 30 && dy < 40) {
+        tracking = false;
+        if (window.ph134Open) window.ph134Open();
+        console.log('[ph135] 엣지 스와이프 — 사이드바 열림');
+      }
+    }, { passive: true });
+
+    zone.addEventListener('touchend', function(){ tracking = false; });
+
+    // 클릭/탭 으로도 열림 (스와이프 모르는 사용자용)
+    zone.addEventListener('click', function(){
+      if (isMobile() && window.ph134Open) {
+        window.ph134Open();
+        console.log('[ph135] 엣지 탭 — 사이드바 열림');
+      }
+    });
+  }
+
+  // ── 2) 모바일 — 사이드바를 좌로 스와이프하면 닫기 ──
+  function bindSidebarSwipeClose(){
+    var sidebar = document.getElementById('admin-sidebar');
+    if (!sidebar || sidebar.__ph135swipe) return;
+    sidebar.__ph135swipe = true;
+
+    var startX = 0, startY = 0, currentDx = 0, tracking = false;
+
+    sidebar.addEventListener('touchstart', function(e){
+      if (!isMobile() || !document.body.classList.contains('ph134-sidebar-open')) return;
+      var t = e.touches[0];
+      startX = t.clientX; startY = t.clientY; currentDx = 0; tracking = true;
+      sidebar.classList.add('ph135-dragging');
+    }, { passive: true });
+
+    sidebar.addEventListener('touchmove', function(e){
+      if (!tracking) return;
+      var t = e.touches[0];
+      var dx = t.clientX - startX;
+      var dy = Math.abs(t.clientY - startY);
+      // 좌측으로 미는 동작만
+      if (dx < 0 && dy < 60) {
+        currentDx = dx;
+        sidebar.style.transform = 'translateX(' + dx + 'px)';
+      }
+    }, { passive: true });
+
+    sidebar.addEventListener('touchend', function(){
+      if (!tracking) return;
+      tracking = false;
+      sidebar.classList.remove('ph135-dragging');
+      sidebar.style.transform = '';
+      // -80px 이상 밀었으면 닫기
+      if (currentDx < -80) {
+        if (window.ph134Close) window.ph134Close();
+        console.log('[ph135] 사이드바 스와이프 닫기');
+      }
+    });
+  }
+
+  // ── 3) 데스크탑 — 미니 모드 ↔ 확장 토글 (핀 버튼) ──
+  window.ph135TogglePin = function(){
+    if (!isDesktop()) return;
+    var body = document.body;
+    var sb = document.getElementById('admin-sidebar');
+    var pin = document.getElementById('ph135-pin-btn');
+    if (body.classList.contains('ph135-mini')) {
+      body.classList.remove('ph135-mini');
+      if (sb) sb.classList.remove('ph135-pinned');
+      if (pin) { pin.classList.remove('is-pinned'); pin.textContent = '📌'; pin.title = '사이드바 미니 모드'; }
+      try { localStorage.setItem('ph135_mini', '0'); } catch(e){}
+      console.log('[ph135] 미니 모드 해제');
+    } else {
+      body.classList.add('ph135-mini');
+      if (pin) { pin.classList.add('is-pinned'); pin.textContent = '📍'; pin.title = '미니 모드 — 호버 시 펼침'; }
+      try { localStorage.setItem('ph135_mini', '1'); } catch(e){}
+      console.log('[ph135] 미니 모드 활성 — 호버 시 자동 펼침');
+    }
+  };
+
+  // localStorage 복원
+  try {
+    if (localStorage.getItem('ph135_mini') === '1' && isDesktop()) {
+      document.body.classList.add('ph135-mini');
+      var pin = document.getElementById('ph135-pin-btn');
+      if (pin) { pin.classList.add('is-pinned'); pin.textContent = '📍'; }
+    }
+  } catch(e){}
+
+  // ── 초기화 ──
+  function init(){ bindEdgeSwipe(); bindSidebarSwipeClose(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+  setTimeout(init, 600);
+
+  // 화면 회전 시 mini 모드 끔 (모바일 시)
+  window.addEventListener('resize', function(){
+    if (isMobile() && document.body.classList.contains('ph135-mini')) {
+      document.body.classList.remove('ph135-mini');
+    }
+  });
+
+  console.log('[ph135] 사이드바 종합 UX 활성 — 엣지 스와이프/탭, 좌측 스와이프 닫기, 데스크탑 미니 모드');
 })();
 </script>
 
