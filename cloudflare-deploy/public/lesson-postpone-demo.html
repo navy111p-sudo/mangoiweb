@@ -1,92 +1,9 @@
 <!DOCTYPE html>
 <html lang="ko" data-theme="emerald">
 <head>
-<!-- fix v25 (2026-05-27) 강력 SSO — 홍길동 자동 로그인 + 모든 게이트 우회 -->
-<script>
-(function(){
-  'use strict';
-  // 1) 홍길동 세션 강제 설정 (없으면)
-  try {
-    var sso = JSON.parse(localStorage.getItem('mango_sso') || 'null');
-    if (!sso || !sso.uid) {
-      sso = {uid:'hong_gd', name:'홍길동', loginAt:new Date().toISOString()};
-      localStorage.setItem('mango_sso', JSON.stringify(sso));
-    }
-    var uid = sso.uid;
-    var name = sso.name || '홍길동';
-    // 모든 localStorage 키 통일
-    ['user_id','mango_user_id','student_id','login_user','currentUserId'].forEach(function(k){
-      if (!localStorage.getItem(k)) localStorage.setItem(k, uid);
-    });
-    ['user_name','mango_user_name','student_name','login_name','currentUserName'].forEach(function(k){
-      if (!localStorage.getItem(k)) localStorage.setItem(k, name);
-    });
-    // window 객체 설정
-    window.currentUser = {uid:uid, name:name, user_id:uid, username:name, student_id:uid};
-    window.currentUserId = uid;
-    window.currentUserName = name;
-    window.userId = uid;
-    window.studentId = uid;
-    window.isLoggedIn = true;
-    // sessionStorage 도 설정
-    sessionStorage.setItem('mango_sso', JSON.stringify(sso));
-    sessionStorage.setItem('user_id', uid);
-    sessionStorage.setItem('logged_in', '1');
-    // 쿠키 설정 (다른 페이지 진입 시 자동 사용)
-    document.cookie = 'mango_user='+uid+';path=/;max-age=86400';
-    document.cookie = 'user_id='+uid+';path=/;max-age=86400';
 
-    // 2) 페이지가 admin이 아니면 로그인 게이트 강제 hide + 자동 채움
-    if (!location.pathname.includes('/admin.html') && !location.pathname.endsWith('/admin')) {
-      function killLoginGates(){
-        // 모든 로그인 모달/오버레이 hide
-        var selectors = [
-          '[id*="login-overlay"]', '[id*="login-modal"]', '[id*="auth-modal"]',
-          '[id*="login-gate"]', '[id*="signin"]', '[id*="signup-modal"]',
-          '[class*="login-gate"]', '[class*="login-overlay"]', '[class*="auth-modal"]'
-        ];
-        selectors.forEach(function(sel){
-          document.querySelectorAll(sel).forEach(function(el){
-            if (el.id && el.id.toLowerCase().indexOf('admin') >= 0) return;
-            el.style.cssText = 'display:none !important;visibility:hidden !important;opacity:0 !important;pointer-events:none !important';
-          });
-        });
-        // 자동 채움 - 학생 ID/이름 input
-        var idSelectors = ['input[id*="user-id"]','input[id*="student-id"]','input[id*="login-uid"]','input[name="user_id"]','input[name="student_id"]','input[name="uid"]'];
-        idSelectors.forEach(function(sel){
-          document.querySelectorAll(sel).forEach(function(inp){
-            if (!inp.value) inp.value = uid;
-          });
-        });
-        var nameSelectors = ['input[id*="user-name"]','input[id*="student-name"]','input[name="user_name"]','input[name="name"]'];
-        nameSelectors.forEach(function(sel){
-          document.querySelectorAll(sel).forEach(function(inp){
-            if (!inp.value) inp.value = name;
-          });
-        });
-        // body의 login-required 클래스 제거
-        document.body && document.body.classList.remove('login-required','not-logged-in','need-login');
-        document.body && document.body.classList.add('logged-in','user-authenticated');
-      }
-      // 즉시 실행
-      killLoginGates();
-      // DOM 로드 후 다시
-      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', killLoginGates);
-      else killLoginGates();
-      // 주기적 + MutationObserver
-      setTimeout(killLoginGates, 100);
-      setTimeout(killLoginGates, 500);
-      setTimeout(killLoginGates, 2000);
-      if (window.MutationObserver) {
-        new MutationObserver(killLoginGates).observe(document.documentElement, {childList:true, subtree:true});
-      }
-      console.log('[v25-SSO] 홍길동 자동 로그인 + 게이트 우회 활성');
-    } else {
-      console.log('[v25-SSO] 관리자 페이지 - 별도 로그인');
-    }
-  } catch(e) { console.warn('[v25-SSO] 실패:', e); }
-})();
-</script>
+
+
 
 
 
@@ -1056,7 +973,7 @@ $('#success-overlay').addEventListener('click', (e) => {
 
 
 </script>
-<!-- BUILD:20260527201449 -->
+<!-- BUILD:20260527204223 -->
 
 <!-- Success 풀스크린 오버레이 -->
 <div id="success-overlay" class="success-overlay">
