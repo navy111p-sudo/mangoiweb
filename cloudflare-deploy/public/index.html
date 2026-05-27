@@ -23120,7 +23120,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260527173624 -->
+<!-- BUILD:20260527174240 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -23625,6 +23625,108 @@ document.addEventListener('keydown', function(e){
   });
 
   console.log('[v11] 카테고리 시스템 준비 완료 (escape 회피)');
+})();
+</script>
+
+
+<!-- fix v18 (2026-05-26) — 카테고리 모달 포기, 모든 카드 직접 노출 + 클릭 = 페이지 이동 -->
+<style id="fix-v18-style">
+  /* 카테고리 카드 줄 hide */
+  #gm-category-cards { display: none !important; }
+  /* "위에서 카테고리 선택해주세요" hint hide */
+  #gm-empty-hint { display: none !important; }
+  /* 모든 .gm-card[data-go] 강제 visible — 그리드 표시 */
+  #gm-cards {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+    gap: 10px !important;
+    padding: 14px !important;
+    background: rgba(15,23,42,0.5) !important;
+    border-radius: 14px !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    max-height: 60vh !important;
+    overflow-y: auto !important;
+  }
+  #gm-cards .gm-card[data-go],
+  #gm-cards .gm-card[data-go][data-cat-hidden] {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    padding: 14px 10px !important;
+    background: rgba(30,41,59,0.9) !important;
+    border: 1px solid rgba(96,165,250,0.5) !important;
+    border-radius: 10px !important;
+    color: #F8FAFC !important;
+    text-decoration: none !important;
+    cursor: pointer !important;
+    min-height: 88px !important;
+    text-align: center !important;
+    font-size: 12.5px !important;
+    font-weight: 700 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  #gm-cards .gm-card[data-go]:hover {
+    background: rgba(37,99,235,0.5) !important;
+    border-color: #60A5FA !important;
+    transform: translateY(-2px) !important;
+  }
+  #gm-cards .gm-card[data-go] * {
+    color: #F8FAFC !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+</style>
+
+<script>
+(function(){
+  var URLS = {
+    'admin':'/admin.html','adminmgr':'/admin.html','mypage':'/admin/mypage.html',
+    'payment':'/payment.html','franchise':'/franchise.html','teachers':'/teachers.html',
+    'contact':'/contact.html','notice':'/notice.html','curriculum':'/curriculum.html',
+    'homepage':'/','features':'/features.html','vocab':'/vocab.html','enroll':'/enroll.html',
+    'trial':'/trial.html','event':'/event.html','faq':'/faq.html',
+    'installguide':'/install-guide.html','learnguide':'/learn-guide.html',
+    'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'/contact.html',
+    'library':'/docs/','reviews':'/reviews.html','recordings':'/admin.html',
+    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html',
+    'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
+    'leveltest':'/level-test.html','battle':'/battle.html',
+    'lesson-change':'/lesson-postpone-demo.html','videolesson':'/video-call/',
+    'inquiry':'/contact.html','kakao':'/contact.html','focus':'/focus.html',
+    'goals':'/goals.html','write':'/ai-write.html','parent-dashboard':'/parent.html',
+    'chat':'/ai-friend.html','teacher-praise':'/teacher-praise.html',
+    'points-shop':'/streak.html','mypoints':'/streak.html','checkin':'/streak.html',
+    'leaderboard':'/streak.html','push-subscribe':'/'
+  };
+
+  function bindAllCards(){
+    document.querySelectorAll('#gm-cards .gm-card[data-go]').forEach(function(card){
+      if (card.__v18) return;
+      card.__v18 = true;
+      card.removeAttribute('data-cat-hidden');  // 강제 visible
+      var go = card.getAttribute('data-go');
+      var url = URLS[go];
+      if (url) {
+        card.style.cursor = 'pointer';
+        card.addEventListener('click', function(e){
+          e.preventDefault();
+          e.stopPropagation();
+          location.href = url;
+        }, true);  // capture phase — 다른 핸들러보다 먼저
+      }
+    });
+    console.log('[v18] 모든 카드 바인딩 — 총', document.querySelectorAll('#gm-cards .gm-card[data-go]').length, '개');
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindAllCards);
+  else bindAllCards();
+  setInterval(bindAllCards, 1000);
+
+  console.log('[v18] 카테고리 모달 비활성 — 모든 카드 직접 노출 모드');
 })();
 </script>
 
