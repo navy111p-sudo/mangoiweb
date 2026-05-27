@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B1224">
+<title>🇨🇳 중국어 발음 교정 — 다락원 중국어 마스터 + Lv 1~20</title>
+<!-- BUILD:20260528063312 -->
+<style>
+:root {
+  --bg: #0B1224;
+  --bg-soft: #131C36;
+  --bg-card: #1A2548;
+  --bg-card-2: #1E2D58;
+  --border: rgba(96, 165, 250, 0.18);
+  --border-strong: rgba(96, 165, 250, 0.45);
+  --text: #E2E8F0;
+  --text-dim: #94A3B8;
+  --text-mute: #64748B;
+  --accent: #3B82F6;
+  --accent-2: #60A5FA;
+  --accent-soft: rgba(59, 130, 246, 0.15);
+  --warn: #FBBF24;
+  --warn-soft: rgba(251, 191, 36, 0.15);
+  --ok: #10B981;
+  --ok-soft: rgba(16, 185, 129, 0.15);
+  --bad: #EF4444;
+  --cn-red: #DC2626;
+  --cn-gold: #F59E0B;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{
+  background:linear-gradient(160deg,var(--bg) 0%,#0E1834 100%);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Noto Sans SC","PingFang SC","Microsoft YaHei","Pretendard",sans-serif;
+  font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+.wrap{max-width:900px;margin:0 auto;padding:16px 14px 100px}
+
+/* 헤더 */
+header.hero{
+  background:linear-gradient(135deg,var(--cn-red) 0%,var(--cn-gold) 100%);
+  border-radius:16px;padding:22px 24px;margin-bottom:16px;
+  box-shadow:0 12px 30px -8px rgba(220,38,38,0.4);
+  position:relative;overflow:hidden;
+}
+header.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 20% 30%, rgba(255,255,255,0.15), transparent 60%);pointer-events:none}
+header.hero h1{font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.4px;display:flex;align-items:center;gap:10px;position:relative}
+header.hero h1 .ico{font-size:32px}
+header.hero .sub{margin-top:6px;font-size:13.5px;color:rgba(255,255,255,0.92);font-weight:600;position:relative}
+header.hero .home{position:absolute;top:14px;right:14px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:#fff;padding:6px 12px;border-radius:99px;font-size:12px;font-weight:700;text-decoration:none;transition:background .15s}
+header.hero .home:hover{background:rgba(255,255,255,0.28)}
+
+/* 레벨 선택 카드 */
+.lvl-section{margin-bottom:18px}
+.lvl-section h2{font-size:14px;font-weight:700;color:var(--accent-2);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.lvl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.lvl-btn{
+  background:var(--bg-card);border:1.5px solid var(--border);border-radius:12px;
+  padding:12px 10px;cursor:pointer;text-align:center;
+  font-size:13px;font-weight:700;color:var(--text);
+  transition:all .15s;-webkit-tap-highlight-color:transparent;
+}
+.lvl-btn:hover{border-color:var(--accent);background:var(--bg-card-2)}
+.lvl-btn.active{
+  background:linear-gradient(135deg,var(--accent),#1D4ED8);
+  border-color:var(--accent-2);color:#fff;
+  box-shadow:0 6px 18px -4px rgba(59,130,246,0.5);
+}
+.lvl-btn .num{font-size:18px;font-weight:900;display:block;margin-bottom:2px}
+.lvl-btn .lbl{font-size:11px;color:var(--text-dim);font-weight:600}
+.lvl-btn.active .lbl{color:rgba(255,255,255,0.85)}
+
+/* 그룹 토글 (다락원 / Lv 1~20) */
+.group-tabs{display:flex;gap:6px;background:var(--bg-card);padding:4px;border-radius:12px;margin-bottom:12px;border:1px solid var(--border)}
+.group-tab{flex:1;padding:9px 12px;background:transparent;border:0;color:var(--text-dim);font-size:13px;font-weight:700;cursor:pointer;border-radius:8px;transition:all .15s}
+.group-tab.active{background:var(--accent);color:#fff;box-shadow:0 4px 12px -3px rgba(59,130,246,0.4)}
+
+/* 메인 카드 — 현재 문장 */
+.main-card{
+  background:var(--bg-card);border:1.5px solid var(--border);border-radius:16px;
+  padding:24px 22px;margin-bottom:14px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.3);
+}
+.main-card .prompt-label{font-size:12px;color:var(--text-dim);margin-bottom:8px;font-weight:600;display:flex;align-items:center;gap:6px}
+.main-card .chinese{
+  font-size:30px;font-weight:700;color:#fff;letter-spacing:1px;line-height:1.4;
+  text-align:center;padding:10px 0;
+  font-family:"PingFang SC","Microsoft YaHei",-apple-system,sans-serif;
+}
+.main-card .pinyin{
+  font-size:16px;color:var(--cn-gold);font-weight:600;text-align:center;
+  margin-top:6px;font-style:italic;letter-spacing:0.5px;
+}
+.main-card .korean{
+  font-size:14px;color:var(--text-dim);text-align:center;margin-top:10px;
+  padding-top:10px;border-top:1px dashed var(--border);
+}
+
+/* 컨트롤 */
+.controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;justify-content:center}
+.btn{
+  padding:11px 18px;border:0;border-radius:10px;cursor:pointer;
+  font-size:13.5px;font-weight:700;display:inline-flex;align-items:center;gap:6px;
+  transition:transform .12s,filter .15s;
+}
+.btn:active{transform:scale(0.96)}
+.btn:hover{filter:brightness(1.1)}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#1D4ED8);color:#fff}
+.btn-ghost{background:transparent;color:var(--accent-2);border:1px solid var(--accent)}
+.btn-warn{background:linear-gradient(135deg,var(--cn-gold),var(--cn-red));color:#fff}
+.btn-record{background:linear-gradient(135deg,var(--bad),#B91C1C);color:#fff;padding:13px 24px;font-size:14.5px}
+.btn-record.recording{background:linear-gradient(135deg,var(--ok),#059669);animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.5)}50%{box-shadow:0 0 0 14px rgba(16,185,129,0)}}
+
+/* 속도 슬라이더 */
+.speed-row{display:flex;align-items:center;gap:10px;margin-top:14px;background:var(--bg-soft);padding:10px 14px;border-radius:10px}
+.speed-row label{font-size:12px;color:var(--text-dim);font-weight:600;min-width:36px}
+.speed-row input[type=range]{flex:1}
+.speed-row .val{font-size:13px;color:var(--cn-gold);font-weight:800;min-width:38px;text-align:right}
+
+/* 진행 + 결과 */
+.progress{font-size:12px;color:var(--text-dim);text-align:center;margin-top:10px}
+.result-card{
+  background:var(--bg-card-2);border:1px solid var(--border);border-radius:12px;
+  padding:14px 16px;margin-top:12px;display:none;
+}
+.result-card.show{display:block;animation:fadeIn .25s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.result-card .score{font-size:32px;font-weight:900;background:linear-gradient(135deg,var(--ok),var(--accent-2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;text-align:center}
+.result-card .feedback{font-size:13px;color:var(--text-dim);margin-top:6px;text-align:center;line-height:1.6}
+
+/* 단원 선택 (다락원) */
+.lesson-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(95px,1fr));gap:6px;margin-bottom:14px}
+.lesson-btn{
+  background:var(--bg-soft);border:1px solid var(--border);border-radius:9px;
+  padding:8px 4px;cursor:pointer;font-size:11.5px;font-weight:600;color:var(--text-dim);
+  text-align:center;line-height:1.3;transition:all .15s;
+}
+.lesson-btn:hover{border-color:var(--cn-gold);color:var(--text)}
+.lesson-btn.active{background:linear-gradient(135deg,var(--cn-red),var(--cn-gold));color:#fff;border-color:transparent}
+.lesson-btn .l-num{font-weight:900;display:block;font-size:13px}
+
+/* 모바일 */
+@media (max-width:600px){
+  .wrap{padding:12px 10px 80px}
+  header.hero{padding:18px 16px}
+  header.hero h1{font-size:18px}
+  header.hero .home{top:10px;right:10px;font-size:11px;padding:5px 10px}
+  .main-card{padding:18px 14px}
+  .main-card .chinese{font-size:24px}
+  .main-card .pinyin{font-size:14px}
+  .lvl-grid{grid-template-columns:repeat(auto-fill,minmax(90px,1fr))}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <a class="home" href="/">🏠 홈</a>
+  <h1><span class="ico">🇨🇳</span>중국어 발음 교정</h1>
+  <p class="sub">다락원 중국어 마스터 + Lv 1~20 · AI 음성 인식 + 원어민 비교</p>
+</header>
+
+<!-- 그룹 토글 -->
+<div class="group-tabs" role="tablist">
+  <button class="group-tab active" data-group="darakwon">📚 다락원 마스터</button>
+  <button class="group-tab" data-group="lv">🎯 Lv 1~20</button>
+</div>
+
+<!-- 다락원 마스터 시리즈 -->
+<div id="grp-darakwon" class="group-panel">
+  <div class="lvl-section">
+    <h2>📖 다락원 중국어 마스터 시리즈</h2>
+    <div class="lvl-grid" id="darakwon-grid"></div>
+  </div>
+  <div class="lvl-section">
+    <h2>📑 단원 선택 <span style="color:var(--text-mute);font-weight:400;font-size:11px">(다락원 마스터 3)</span></h2>
+    <div class="lesson-grid" id="lesson-grid"></div>
+  </div>
+</div>
+
+<!-- Lv 1~20 그룹 -->
+<div id="grp-lv" class="group-panel" style="display:none">
+  <div class="lvl-section">
+    <h2>🎯 학원 자체 레벨 (1~20)</h2>
+    <div class="lvl-grid" id="lv-grid"></div>
+  </div>
+</div>
+
+<!-- 메인 발음 카드 -->
+<div class="main-card">
+  <div class="prompt-label">📢 <span data-ko="아래 문장을 큰 소리로 따라 읽어보세요" data-en="Read aloud">아래 문장을 큰 소리로 따라 읽어보세요</span></div>
+  <div class="chinese" id="cn-text">你好,我是学生。</div>
+  <div class="pinyin" id="cn-pinyin">Nǐ hǎo, wǒ shì xuéshēng.</div>
+  <div class="korean" id="cn-korean">안녕하세요, 저는 학생입니다.</div>
+
+  <div class="controls">
+    <button class="btn btn-warn" id="btn-tts">🔊 원어민 발음 듣기</button>
+    <button class="btn btn-ghost" id="btn-next">↪ 다른 문장</button>
+  </div>
+
+  <div class="speed-row">
+    <label>느리게</label>
+    <input type="range" id="speed-range" min="0.5" max="1.2" step="0.05" value="0.85">
+    <span class="val" id="speed-val">0.85x</span>
+  </div>
+
+  <div class="controls" style="margin-top:18px">
+    <button class="btn btn-record" id="btn-rec">🎙 녹음 시작</button>
+  </div>
+
+  <div class="progress" id="progress">시도 1/3 · 버튼을 눌러 녹음을 시작하세요</div>
+
+  <div class="result-card" id="result">
+    <div class="score" id="score">—</div>
+    <div class="feedback" id="feedback"></div>
+  </div>
+</div>
+
+</div>
+
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════
+   문장 데이터 — 다락원 중국어 마스터 시리즈 1~6
+   각 권 핵심 문장 (모범적인 예문)
+   ════════════════════════════════════════════ */
+const DARAKWON = {
+  1: {
+    name: '마스터 1', sub: 'HSK 1 입문', color: '#10B981',
+    lessons: [
+      { t: '제1과 인사', s: [
+        { c: '你好!', p: 'Nǐ hǎo!', k: '안녕하세요!' },
+        { c: '老师好。', p: 'Lǎoshī hǎo.', k: '선생님 안녕하세요.' },
+        { c: '再见。', p: 'Zàijiàn.', k: '안녕히 가세요.' },
+      ]},
+      { t: '제2과 이름', s: [
+        { c: '我叫王明。', p: 'Wǒ jiào Wáng Míng.', k: '저는 왕밍입니다.' },
+        { c: '你叫什么名字?', p: 'Nǐ jiào shénme míngzi?', k: '이름이 뭐예요?' },
+        { c: '认识你很高兴。', p: 'Rènshi nǐ hěn gāoxìng.', k: '만나서 반가워요.' },
+      ]},
+      { t: '제3과 국적', s: [
+        { c: '我是韩国人。', p: 'Wǒ shì Hánguórén.', k: '저는 한국인입니다.' },
+        { c: '你是哪国人?', p: 'Nǐ shì nǎ guó rén?', k: '어느 나라 사람이에요?' },
+        { c: '他是中国人。', p: 'Tā shì Zhōngguórén.', k: '그는 중국인입니다.' },
+      ]},
+    ],
+  },
+  2: {
+    name: '마스터 2', sub: 'HSK 2 초급', color: '#3B82F6',
+    lessons: [
+      { t: '제1과 가족', s: [
+        { c: '我家有四口人。', p: 'Wǒ jiā yǒu sì kǒu rén.', k: '우리 가족은 네 명입니다.' },
+        { c: '爸爸是医生。', p: 'Bàba shì yīshēng.', k: '아빠는 의사입니다.' },
+        { c: '我有一个妹妹。', p: 'Wǒ yǒu yí ge mèimei.', k: '저는 여동생이 한 명 있어요.' },
+      ]},
+      { t: '제2과 시간', s: [
+        { c: '现在几点?', p: 'Xiànzài jǐ diǎn?', k: '지금 몇 시예요?' },
+        { c: '现在三点半。', p: 'Xiànzài sān diǎn bàn.', k: '지금 3시 반입니다.' },
+        { c: '我每天七点起床。', p: 'Wǒ měi tiān qī diǎn qǐchuáng.', k: '저는 매일 7시에 일어나요.' },
+      ]},
+      { t: '제3과 날씨', s: [
+        { c: '今天天气真好!', p: 'Jīntiān tiānqì zhēn hǎo!', k: '오늘 날씨 정말 좋네요!' },
+        { c: '北京冬天很冷。', p: 'Běijīng dōngtiān hěn lěng.', k: '베이징의 겨울은 매우 추워요.' },
+        { c: '明天会下雨。', p: 'Míngtiān huì xià yǔ.', k: '내일 비가 올 거예요.' },
+      ]},
+    ],
+  },
+  3: {
+    name: '마스터 3', sub: 'HSK 3 중급', color: '#F59E0B',
+    lessons: [
+      { t: '제1과 집·위치 (你住在哪儿?)', s: [
+        { c: '你住在哪儿?', p: 'Nǐ zhù zài nǎr?', k: '어디 사세요?' },
+        { c: '我住在学校附近。', p: 'Wǒ zhù zài xuéxiào fùjìn.', k: '학교 근처에 살아요.' },
+        { c: '从这儿到地铁站很近。', p: 'Cóng zhèr dào dìtiězhàn hěn jìn.', k: '여기서 지하철역까지 가까워요.' },
+      ]},
+      { t: '제2과 전화·연락처', s: [
+        { c: '你的电话号码是多少?', p: 'Nǐ de diànhuà hàomǎ shì duōshǎo?', k: '전화번호가 어떻게 되세요?' },
+        { c: '我的手机号是 010-1234-5678。', p: 'Wǒ de shǒujī hào shì líng yāo líng…', k: '제 휴대폰 번호는 010-1234-5678입니다.' },
+        { c: '我给你发微信。', p: 'Wǒ gěi nǐ fā wēixìn.', k: '제가 위챗 보낼게요.' },
+      ]},
+      { t: '제3과 날짜·요일 (今天几月几号?)', s: [
+        { c: '今天几月几号? 星期几?', p: 'Jīntiān jǐ yuè jǐ hào? Xīngqī jǐ?', k: '오늘은 몇 월 며칠 무슨 요일이에요?' },
+        { c: '今天是十月二十号, 星期五。', p: 'Jīntiān shì shí yuè èrshí hào, xīngqī wǔ.', k: '오늘은 10월 20일 금요일입니다.' },
+        { c: '我下个星期去旅游。', p: 'Wǒ xià ge xīngqī qù lǚyóu.', k: '다음 주에 여행 가요.' },
+      ]},
+      { t: '제5과 쇼핑 (多少钱?)', s: [
+        { c: '这个多少钱?', p: 'Zhège duōshǎo qián?', k: '이거 얼마예요?' },
+        { c: '一斤苹果二十块。', p: 'Yì jīn píngguǒ èrshí kuài.', k: '사과 1근에 20위안이에요.' },
+        { c: '太贵了, 便宜一点儿吧。', p: 'Tài guì le, piányi yìdiǎnr ba.', k: '너무 비싸요, 좀 깎아주세요.' },
+      ]},
+      { t: '제7과 취미 (喜欢)', s: [
+        { c: '我喜欢看电影。', p: 'Wǒ xǐhuan kàn diànyǐng.', k: '저는 영화 보는 걸 좋아해요.' },
+        { c: '你喜欢什么运动?', p: 'Nǐ xǐhuan shénme yùndòng?', k: '어떤 운동을 좋아하세요?' },
+        { c: '我对音乐很感兴趣。', p: 'Wǒ duì yīnyuè hěn gǎn xìngqù.', k: '저는 음악에 관심이 많아요.' },
+      ]},
+      { t: '제9과 비교 (比较)', s: [
+        { c: '北京比首尔大。', p: 'Běijīng bǐ Shǒu\'ěr dà.', k: '베이징이 서울보다 커요.' },
+        { c: '今天比昨天更热。', p: 'Jīntiān bǐ zuótiān gèng rè.', k: '오늘이 어제보다 더 더워요.' },
+        { c: '中文不比英文难。', p: 'Zhōngwén bù bǐ Yīngwén nán.', k: '중국어가 영어보다 어렵지는 않아요.' },
+      ]},
+      { t: '제11과 경험 (经验)', s: [
+        { c: '我去过中国三次。', p: 'Wǒ qù guò Zhōngguó sān cì.', k: '저는 중국에 세 번 가본 적이 있어요.' },
+        { c: '你吃过北京烤鸭吗?', p: 'Nǐ chī guò Běijīng kǎoyā ma?', k: '베이징 오리 먹어본 적 있어요?' },
+        { c: '我从来没看过这部电影。', p: 'Wǒ cónglái méi kàn guò zhè bù diànyǐng.', k: '저는 이 영화를 한 번도 본 적이 없어요.' },
+      ]},
+      { t: '제13과 계획 (计划)', s: [
+        { c: '明年我打算去留学。', p: 'Míngnián wǒ dǎsuàn qù liúxué.', k: '내년에 유학 갈 계획입니다.' },
+        { c: '我们一起去旅行吧!', p: 'Wǒmen yìqǐ qù lǚxíng ba!', k: '우리 함께 여행 가요!' },
+        { c: '周末我要去图书馆学习。', p: 'Zhōumò wǒ yào qù túshūguǎn xuéxí.', k: '주말에 도서관 가서 공부할 거예요.' },
+      ]},
+    ],
+  },
+  4: {
+    name: '마스터 4', sub: 'HSK 4 중상', color: '#EC4899',
+    lessons: [
+      { t: '제1과 직장 생활', s: [
+        { c: '我刚开始工作。', p: 'Wǒ gāng kāishǐ gōngzuò.', k: '저는 막 일을 시작했어요.' },
+        { c: '工作压力很大。', p: 'Gōngzuò yālì hěn dà.', k: '업무 스트레스가 많아요.' },
+        { c: '我希望换一个工作。', p: 'Wǒ xīwàng huàn yí ge gōngzuò.', k: '저는 직장을 옮기고 싶어요.' },
+      ]},
+      { t: '제2과 건강', s: [
+        { c: '我最近身体不太好。', p: 'Wǒ zuìjìn shēntǐ bú tài hǎo.', k: '최근에 몸이 좋지 않아요.' },
+        { c: '医生让我多休息。', p: 'Yīshēng ràng wǒ duō xiūxi.', k: '의사가 푹 쉬라고 했어요.' },
+        { c: '坚持运动对身体很好。', p: 'Jiānchí yùndòng duì shēntǐ hěn hǎo.', k: '운동을 꾸준히 하면 몸에 좋아요.' },
+      ]},
+    ],
+  },
+  5: {
+    name: '마스터 5', sub: 'HSK 5 상급', color: '#A855F7',
+    lessons: [
+      { t: '제1과 환경 보호', s: [
+        { c: '环境保护是每个人的责任。', p: 'Huánjìng bǎohù shì měi ge rén de zérèn.', k: '환경 보호는 모든 사람의 책임입니다.' },
+        { c: '我们应该节约资源。', p: 'Wǒmen yīnggāi jiéyuē zīyuán.', k: '우리는 자원을 절약해야 해요.' },
+      ]},
+      { t: '제2과 교육', s: [
+        { c: '教育对孩子的未来非常重要。', p: 'Jiàoyù duì háizi de wèilái fēicháng zhòngyào.', k: '교육은 아이의 미래에 매우 중요해요.' },
+        { c: '我赞成因材施教。', p: 'Wǒ zànchéng yīn cái shī jiào.', k: '저는 개별 맞춤 교육에 찬성합니다.' },
+      ]},
+    ],
+  },
+  6: {
+    name: '마스터 6', sub: 'HSK 6 원어민', color: '#06B6D4',
+    lessons: [
+      { t: '제1과 문화 비교', s: [
+        { c: '中韩两国文化既有共同点, 也有差异。', p: 'Zhōng Hán liǎng guó wénhuà jì yǒu gòngtóng diǎn, yě yǒu chāyì.', k: '중한 양국 문화는 공통점도 있고 차이도 있어요.' },
+        { c: '不同的角度看, 答案就不一样。', p: 'Bù tóng de jiǎodù kàn, dá\'àn jiù bù yíyàng.', k: '다른 관점에서 보면 답이 달라져요.' },
+      ]},
+    ],
+  },
+};
+
+/* Lv 1~20 — 학원 자체 단계별 핵심 문장 (각 레벨 3개) */
+const LV_SENTENCES = {
+  1:  [{ c:'你好!', p:'Nǐ hǎo!', k:'안녕!' }, { c:'谢谢。', p:'Xièxie.', k:'감사합니다.' }, { c:'再见。', p:'Zàijiàn.', k:'안녕히 가세요.' }],
+  2:  [{ c:'我是学生。', p:'Wǒ shì xuéshēng.', k:'저는 학생입니다.' }, { c:'他是老师。', p:'Tā shì lǎoshī.', k:'그는 선생님입니다.' }, { c:'你好吗?', p:'Nǐ hǎo ma?', k:'잘 지내요?' }],
+  3:  [{ c:'我叫小明。', p:'Wǒ jiào Xiǎo Míng.', k:'저는 샤오밍입니다.' }, { c:'认识你很高兴。', p:'Rènshi nǐ hěn gāoxìng.', k:'만나서 반가워요.' }],
+  4:  [{ c:'我家有五口人。', p:'Wǒ jiā yǒu wǔ kǒu rén.', k:'우리 집은 5명입니다.' }, { c:'我有一个哥哥。', p:'Wǒ yǒu yí ge gēge.', k:'저는 형이 한 명 있어요.' }],
+  5:  [{ c:'现在几点?', p:'Xiànzài jǐ diǎn?', k:'지금 몇 시예요?' }, { c:'今天星期几?', p:'Jīntiān xīngqī jǐ?', k:'오늘 무슨 요일이에요?' }],
+  6:  [{ c:'我喜欢看电影。', p:'Wǒ xǐhuan kàn diànyǐng.', k:'저는 영화 보는 걸 좋아해요.' }, { c:'我会说一点儿汉语。', p:'Wǒ huì shuō yìdiǎnr Hànyǔ.', k:'중국어 조금 할 줄 알아요.' }],
+  7:  [{ c:'这个多少钱?', p:'Zhège duōshǎo qián?', k:'이거 얼마예요?' }, { c:'太贵了, 便宜一点儿。', p:'Tài guì le, piányi yìdiǎnr.', k:'너무 비싸요, 좀 깎아주세요.' }],
+  8:  [{ c:'我去过北京。', p:'Wǒ qù guò Běijīng.', k:'베이징에 가본 적 있어요.' }, { c:'你吃过中国菜吗?', p:'Nǐ chī guò Zhōngguó cài ma?', k:'중국 요리 먹어본 적 있어요?' }],
+  9:  [{ c:'明天我要上班。', p:'Míngtiān wǒ yào shàngbān.', k:'내일 출근해야 해요.' }, { c:'我打算下周去旅游。', p:'Wǒ dǎsuàn xià zhōu qù lǚyóu.', k:'다음 주에 여행 갈 예정이에요.' }],
+  10: [{ c:'今天比昨天热。', p:'Jīntiān bǐ zuótiān rè.', k:'오늘이 어제보다 더워요.' }, { c:'我觉得汉语很有意思。', p:'Wǒ juéde Hànyǔ hěn yǒuyìsi.', k:'저는 중국어가 재미있다고 생각해요.' }],
+  11: [{ c:'虽然下雨, 但是我还要去。', p:'Suīrán xià yǔ, dànshì wǒ hái yào qù.', k:'비가 와도 갈 거예요.' }],
+  12: [{ c:'因为工作忙, 所以没时间。', p:'Yīnwèi gōngzuò máng, suǒyǐ méi shíjiān.', k:'일이 바빠서 시간이 없어요.' }],
+  13: [{ c:'如果有机会, 我想去中国留学。', p:'Rúguǒ yǒu jīhuì, wǒ xiǎng qù Zhōngguó liúxué.', k:'기회가 있다면 중국에 유학 가고 싶어요.' }],
+  14: [{ c:'随着经济发展, 生活水平越来越高。', p:'Suízhe jīngjì fāzhǎn, shēnghuó shuǐpíng yuè lái yuè gāo.', k:'경제 발전과 함께 생활 수준이 점점 높아지고 있어요.' }],
+  15: [{ c:'无论遇到什么困难, 都不要放弃。', p:'Wúlùn yùdào shénme kùnnán, dōu bú yào fàngqì.', k:'어떤 어려움이 있어도 포기하지 마세요.' }],
+  16: [{ c:'尽管他很努力, 还是失败了。', p:'Jǐnguǎn tā hěn nǔlì, háishi shībài le.', k:'그가 열심히 했지만 실패했어요.' }],
+  17: [{ c:'从语言学的角度来看, 汉语属于汉藏语系。', p:'Cóng yǔyánxué de jiǎodù lái kàn, Hànyǔ shǔyú Hàn-Zàng yǔxì.', k:'언어학적 관점에서 중국어는 한장어계에 속합니다.' }],
+  18: [{ c:'国际贸易促进了各国之间的经济合作。', p:'Guójì màoyì cùjìn le gè guó zhī jiān de jīngjì hézuò.', k:'국제 무역은 각국 간의 경제 협력을 촉진했어요.' }],
+  19: [{ c:'科技的发展深刻地改变了人类的生活方式。', p:'Kējì de fāzhǎn shēnkè de gǎibiàn le rénlèi de shēnghuó fāngshì.', k:'과학기술의 발전은 인류의 생활 방식을 깊이 바꿨어요.' }],
+  20: [{ c:'文化的多样性是人类文明最宝贵的财富之一。', p:'Wénhuà de duōyàngxìng shì rénlèi wénmíng zuì bǎoguì de cáifù zhī yī.', k:'문화의 다양성은 인류 문명에서 가장 귀중한 자산 중 하나입니다.' }],
+};
+
+let state = {
+  group: 'darakwon',
+  darakwonBook: 3,
+  lessonIdx: 0,
+  lv: 1,
+  attempt: 1,
+  speed: 0.85,
+  recording: false,
+};
+
+/* ── 다락원 마스터 카드 렌더 ── */
+function renderDarakwon(){
+  const grid = document.getElementById('darakwon-grid');
+  grid.innerHTML = '';
+  Object.entries(DARAKWON).forEach(([k, v]) => {
+    const b = document.createElement('button');
+    b.className = 'lvl-btn' + (Number(k) === state.darakwonBook ? ' active' : '');
+    b.innerHTML = `<span class="num">${k}</span><span class="lbl">${v.name}<br>${v.sub}</span>`;
+    b.onclick = () => { state.darakwonBook = Number(k); state.lessonIdx = 0; renderDarakwon(); renderLessons(); pickRandom(); };
+    grid.appendChild(b);
+  });
+}
+
+function renderLessons(){
+  const grid = document.getElementById('lesson-grid');
+  grid.innerHTML = '';
+  const book = DARAKWON[state.darakwonBook];
+  if (!book) return;
+  book.lessons.forEach((l, i) => {
+    const b = document.createElement('button');
+    b.className = 'lesson-btn' + (i === state.lessonIdx ? ' active' : '');
+    b.innerHTML = `<span class="l-num">${i+1}</span>${l.t.replace(/제\d+과\s*/,'')}`;
+    b.onclick = () => { state.lessonIdx = i; renderLessons(); pickRandom(); };
+    grid.appendChild(b);
+  });
+}
+
+/* ── Lv 1~20 카드 렌더 ── */
+function renderLv(){
+  const grid = document.getElementById('lv-grid');
+  grid.innerHTML = '';
+  for (let i = 1; i <= 20; i++) {
+    const b = document.createElement('button');
+    b.className = 'lvl-btn' + (i === state.lv ? ' active' : '');
+    const lbl = i <= 4 ? '입문' : i <= 8 ? '초급' : i <= 12 ? '중급' : i <= 16 ? '상급' : '원어민';
+    b.innerHTML = `<span class="num">Lv ${i}</span><span class="lbl">${lbl}</span>`;
+    b.onclick = () => { state.lv = i; renderLv(); pickRandom(); };
+    grid.appendChild(b);
+  }
+}
+
+/* ── 문장 선택 ── */
+function pickRandom(){
+  let pool = [];
+  if (state.group === 'darakwon') {
+    const book = DARAKWON[state.darakwonBook];
+    const lesson = book && book.lessons[state.lessonIdx];
+    pool = (lesson && lesson.s) || [];
+  } else {
+    pool = LV_SENTENCES[state.lv] || [];
+  }
+  if (!pool.length) return;
+  const item = pool[Math.floor(Math.random() * pool.length)];
+  document.getElementById('cn-text').textContent = item.c;
+  document.getElementById('cn-pinyin').textContent = item.p;
+  document.getElementById('cn-korean').textContent = item.k;
+  state.attempt = 1;
+  document.getElementById('progress').textContent = `시도 ${state.attempt}/3 · 버튼을 눌러 녹음을 시작하세요`;
+  document.getElementById('result').classList.remove('show');
+}
+
+/* ── TTS ── */
+function speak(){
+  if (!('speechSynthesis' in window)) { alert('이 브라우저는 TTS 를 지원하지 않습니다.'); return; }
+  const text = document.getElementById('cn-text').textContent;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'zh-CN';
+  u.rate = state.speed;
+  u.pitch = 1;
+  // 가능한 중국어 음성 선택
+  const voices = speechSynthesis.getVoices();
+  const cn = voices.find(v => /zh|chinese|mandarin/i.test(v.lang + ' ' + v.name));
+  if (cn) u.voice = cn;
+  speechSynthesis.speak(u);
+}
+
+/* ── 녹음 + 평가 ── */
+let recognition = null, recording = false;
+function startRecord(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert('이 브라우저는 음성 인식을 지원하지 않습니다.\nChrome 또는 Edge 를 사용해 주세요.'); return; }
+  if (recording) { recognition && recognition.stop(); return; }
+  recognition = new SR();
+  recognition.lang = 'zh-CN';
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+
+  const btn = document.getElementById('btn-rec');
+  btn.textContent = '🛑 녹음 중지'; btn.classList.add('recording');
+  recording = true;
+  document.getElementById('progress').textContent = '🎙 듣고 있어요…';
+
+  recognition.onresult = function(e){
+    const said = e.results[0][0].transcript.trim();
+    const target = document.getElementById('cn-text').textContent.replace(/[,.。?!?!]/g, '').trim();
+    const saidClean = said.replace(/[,.。?!?!]/g, '').trim();
+    // 간단 비교 — 글자 일치율
+    let match = 0;
+    for (let i = 0; i < target.length; i++) {
+      if (saidClean.includes(target[i])) match++;
+    }
+    const score = Math.min(100, Math.round((match / target.length) * 100));
+    showResult(score, said);
+  };
+  recognition.onerror = function(e){
+    stopRecord();
+    document.getElementById('progress').textContent = '⚠️ 인식 실패: ' + (e.error || 'error');
+  };
+  recognition.onend = stopRecord;
+  recognition.start();
+}
+function stopRecord(){
+  recording = false;
+  const btn = document.getElementById('btn-rec');
+  btn.textContent = '🎙 녹음 시작'; btn.classList.remove('recording');
+}
+function showResult(score, said){
+  const r = document.getElementById('result');
+  r.classList.add('show');
+  document.getElementById('score').textContent = score + '점';
+  let fb = '';
+  if (score >= 85) fb = `✅ 정말 잘했어요! 원어민처럼 정확해요.\n인식: "${said}"`;
+  else if (score >= 60) fb = `👍 잘했어요! 조금만 더 또박또박.\n인식: "${said}"`;
+  else fb = `💪 다시 한번 도전!\n원어민 발음을 다시 들어보세요.\n인식: "${said}"`;
+  document.getElementById('feedback').textContent = fb;
+  state.attempt = Math.min(3, state.attempt + 1);
+  document.getElementById('progress').textContent = `시도 ${state.attempt}/3`;
+}
+
+/* ── 그룹 토글 ── */
+document.querySelectorAll('.group-tab').forEach(t => {
+  t.onclick = () => {
+    document.querySelectorAll('.group-tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    state.group = t.dataset.group;
+    document.getElementById('grp-darakwon').style.display = state.group === 'darakwon' ? '' : 'none';
+    document.getElementById('grp-lv').style.display = state.group === 'lv' ? '' : 'none';
+    pickRandom();
+  };
+});
+
+/* ── 이벤트 바인딩 ── */
+document.getElementById('btn-tts').onclick = speak;
+document.getElementById('btn-next').onclick = pickRandom;
+document.getElementById('btn-rec').onclick = startRecord;
+document.getElementById('speed-range').oninput = function(){
+  state.speed = parseFloat(this.value);
+  document.getElementById('speed-val').textContent = state.speed.toFixed(2) + 'x';
+};
+
+/* ── 초기 렌더 ── */
+renderDarakwon();
+renderLessons();
+renderLv();
+pickRandom();
+
+// TTS 보이스 비동기 로딩 트리거
+if ('speechSynthesis' in window) speechSynthesis.getVoices();
+
+console.log('[speech-coach-cn] 중국어 발음 교정 활성 — 다락원 마스터 + Lv 1~20');
+</script>
+</body>
+</html>
