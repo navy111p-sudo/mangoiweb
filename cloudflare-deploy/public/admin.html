@@ -18729,7 +18729,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260528022833 -->
+        <!-- BUILD:20260528023322 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -32652,6 +32652,200 @@ button.chip:hover,
   setTimeout(init, 1500);
 
   console.log('[ph138] 사이드바 ✕ 닫기 + 본문 탭 즉시 닫기 활성');
+})();
+</script>
+
+
+<!-- ============================================================
+     Phase 139 (2026-05-28) — 사이드바 30% 너비 + 모두접기 세로 배치
+     · 사이드바 30vw (min 200px max 280px) — 본문 70% 보임
+     · ph86-actions (모두 펼치기/접기/숨기기) — flex-direction: column
+     · 사이드바 안 메뉴 카드도 padding 줄여서 좁은 너비에 맞춤
+     ============================================================ -->
+<style id="ph139-narrow-sidebar">
+  @media (max-width: 920px) {
+    /* 사이드바 30vw 로 축소 — 본문 70% 보장 */
+    .admin-sidebar,
+    aside.admin-sidebar,
+    #admin-sidebar {
+      width: 30vw !important;
+      min-width: 200px !important;
+      max-width: 280px !important;
+      padding-left: 8px !important;
+      padding-right: 8px !important;
+    }
+    /* 모두 펼치기 / 모두 접기 / 숨기기 — 세로 배치 */
+    #ph86-actions {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 6px !important;
+      width: 100% !important;
+      margin: 8px 0 !important;
+    }
+    #ph86-actions .ph86-action-btn {
+      width: 100% !important;
+      padding: 8px 10px !important;
+      font-size: 12px !important;
+      text-align: center !important;
+    }
+    /* 기존 menu-toggle-bar (header 안) 도 세로 */
+    .menu-toggle-bar {
+      flex-direction: column !important;
+      gap: 6px !important;
+    }
+    .menu-toggle-bar > button { width: 100% !important; padding: 8px 10px !important; font-size: 12px !important; }
+
+    /* 사이드바 안 메뉴 카드 패딩 축소 (좁은 너비 대응) */
+    .admin-sidebar .menu-card,
+    .admin-sidebar .sidebar-item {
+      padding: 8px 10px !important;
+      font-size: 12.5px !important;
+    }
+    .admin-sidebar h4 { font-size: 13px !important; }
+    /* 검색창 작게 */
+    .admin-sidebar #sidebar-search {
+      font-size: 12px !important;
+      padding: 6px 24px 6px 8px !important;
+    }
+  }
+
+  /* 매우 작은 화면 (≤480px) — 사이드바 더 좁게 */
+  @media (max-width: 480px) {
+    .admin-sidebar,
+    aside.admin-sidebar,
+    #admin-sidebar {
+      width: 35vw !important;       /* 작은 화면에선 30%만으론 너무 좁아 35% */
+      min-width: 180px !important;
+    }
+  }
+</style>
+
+<script id="ph139-fix-js">
+(function(){
+  'use strict';
+  // ph86-actions 가 없을 수 있어서 DOM ready 후 한 번 더 강제로 column 적용
+  function fix(){
+    var act = document.getElementById('ph86-actions');
+    if (act && window.matchMedia('(max-width: 920px)').matches) {
+      act.style.flexDirection = 'column';
+      act.style.gap = '6px';
+      Array.prototype.forEach.call(act.querySelectorAll('button'), function(b){
+        b.style.width = '100%';
+      });
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fix);
+  else fix();
+  setTimeout(fix, 600);
+  setTimeout(fix, 1500);
+  console.log('[ph139] 사이드바 30% + 세로 버튼 배치 활성');
+})();
+</script>
+
+
+<!-- ============================================================
+     Phase 140 (2026-05-28) — 사이드바 닫혀도 본문 100% 강제
+     · admin-layout grid → block + grid-template-columns: 1fr 강제
+     · 본문 모든 자식 width: 100% + 좌측 padding/margin 강제 0
+     · hero, main, content 영역 모두 풀폭
+     ============================================================ -->
+<style id="ph140-full-content">
+  @media (max-width: 920px) {
+    /* admin-layout 자체 — 어떤 grid 도 무시, 단일 컬럼 */
+    .admin-layout {
+      display: block !important;
+      grid-template-columns: 1fr !important;
+      gap: 0 !important;
+      margin: 0 !important;
+      padding: 60px 0 0 0 !important;  /* 햄버거 공간만 위에 */
+      width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    /* 본문 영역 — 사이드바 제외 모든 자식 100% */
+    .admin-layout > div:not(.admin-sidebar):not(#admin-sidebar),
+    .admin-layout > main,
+    .admin-layout > section {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+      padding-left: 12px !important;
+      padding-right: 12px !important;
+      padding-top: 0 !important;
+      box-sizing: border-box !important;
+    }
+    /* hero 영역도 풀폭 */
+    .hero,
+    .admin-layout .hero,
+    .admin-layout #hero {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin-left: 0 !important;
+      box-sizing: border-box !important;
+    }
+    /* card / menu-card 도 풀폭 (사이드바와 겹치지 않게) */
+    .admin-layout .menu-card,
+    .admin-layout .table-card,
+    .admin-layout .card {
+      width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    /* body 자체에도 padding 안 잡히게 */
+    body {
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    /* 사이드바 닫힌 상태 = 사이드바 화면 밖, 본문 100% */
+    body:not(.ph134-sidebar-open) .admin-layout {
+      margin-left: 0 !important;
+      padding-left: 0 !important;
+    }
+  }
+</style>
+
+<script id="ph140-js">
+(function(){
+  'use strict';
+  function forceFullWidth(){
+    if (!window.matchMedia('(max-width: 920px)').matches) return;
+    // admin-layout 의 inline style 직접 주입 (다른 모든 CSS override)
+    document.querySelectorAll('.admin-layout').forEach(function(el){
+      el.style.setProperty('display', 'block', 'important');
+      el.style.setProperty('grid-template-columns', '1fr', 'important');
+      el.style.setProperty('gap', '0', 'important');
+      el.style.setProperty('width', '100%', 'important');
+      el.style.setProperty('max-width', '100%', 'important');
+      el.style.setProperty('margin-left', '0', 'important');
+      el.style.setProperty('padding-left', '0', 'important');
+    });
+    // 본문 영역 — 사이드바 외 자식들 width 강제
+    document.querySelectorAll('.admin-layout > div').forEach(function(el){
+      if (el.classList.contains('admin-sidebar') || el.id === 'admin-sidebar') return;
+      el.style.setProperty('width', '100%', 'important');
+      el.style.setProperty('max-width', '100%', 'important');
+      el.style.setProperty('margin-left', '0', 'important');
+      el.style.setProperty('padding-left', '12px', 'important');
+      el.style.setProperty('padding-right', '12px', 'important');
+      el.style.setProperty('box-sizing', 'border-box', 'important');
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', forceFullWidth);
+  else forceFullWidth();
+  setTimeout(forceFullWidth, 600);
+  setTimeout(forceFullWidth, 1500);
+  // 사이드바 토글 시에도 본문 100% 유지
+  var origClose = window.ph134Close;
+  if (typeof origClose === 'function') {
+    window.ph134Close = function(){
+      try { origClose(); } catch(e){}
+      forceFullWidth();
+    };
+  }
+  // 화면 회전 시
+  window.addEventListener('resize', forceFullWidth);
+  console.log('[ph140] 본문 100% 강제 풀폭 활성');
 })();
 </script>
 
