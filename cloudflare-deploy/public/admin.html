@@ -35,11 +35,11 @@
 <link rel="icon" type="image/png" sizes="192x192" href="/img/icon-192.png">
 <link rel="shortcut icon" href="/img/icon-192.png">
 <link rel="icon" href="data:," /><!-- favicon.ico 404 방지 -->
-<script src="/js/mango-i18n.js" defer></script>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800;900&family=Black+Han+Sans&family=Jua&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -9510,6 +9510,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      🎨 Phase UNI — 잔여 라이트 카드들 명도 반전 일괄 적용
+</style>
      (이미 #card-points-mgmt 등 명시 unified 카드들은 자체 inline <style> 가
       더 specific 하므로 영향 안 받음.)
      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
@@ -11315,7 +11316,6 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 </details>
 
 
-
 </div><!-- /.legacy-cards (Phase 14: 기본 숨김 영역 종료) -->
 
 <!-- 참석자 picker overlay -->
@@ -11337,8 +11337,6 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
   </div>
 </div>
-
-
 
 
 <!-- 녹화 재생 모달 -->
@@ -18153,7 +18151,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
-      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div><!-- BUILD:20260527211224 -->
+      </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div>
 </body></html>`);
 
     try {
@@ -18222,7 +18220,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}<!-- BUILD:20260527211224 -->
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}
 </body></html>`;
   }
 
@@ -18697,7 +18695,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260527211224 -->
+        <!-- BUILD:20260527212137 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -21560,7 +21558,6 @@ button.chip:hover,
   });
 })();
 </script>
-
 
 
 <!-- 📚 출석현황 (수업당 출결) — 데이터 + 렌더링 + Excel/Chart -->

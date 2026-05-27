@@ -2,11 +2,6 @@
 <html lang="ko">
 <head>
 
-
-
-
-
-
 <script>
 // === fix v14 (2026-05-26): 카테고리 카드 깨끗한 새 함수 ===
 (function(){
@@ -110,13 +105,9 @@
     if (e.key === 'Escape') closeCat14();
   });
 
-  console.log('[v14] showCat14 글로벌 함수 준비 완료');
+
 })();
 </script>
-
-
-
-
 
 <script id="ph58-sw-kill">
 /* Phase 58 (2026-05-23) — 옛 ServiceWorker 강제 unregister + 캐시 비우기 (한 번만)
@@ -5118,7 +5109,7 @@
     const iframe = document.getElementById('mv-iframe');
     iframe.src = 'https://www.youtube.com/embed/' + encodeURIComponent(v.youtube_id) + '?autoplay=1&rel=0&modestbranding=1';
     document.getElementById('mv-player-modal').classList.add('show');
-    
+
   };
   window.mvCloseModal = function() {
     document.getElementById('mv-iframe').src = '';
@@ -5264,7 +5255,6 @@
   .gm-card.primary .gm-sub,
   .gm-card.active .gm-sub { color: rgba(254,243,199,0.7); }
 </style>
-
 
     <style>
       /* Phase 8: 검색카드를 묶는 글래스 컨테이너 */
@@ -6134,7 +6124,6 @@
 </div>
 
 <!-- PDF.js 라이브러리 (PDF 렌더링용) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
 <!-- ================================================================
      [JavaScript] 전체 앱 로직
@@ -6165,7 +6154,6 @@ function showView(viewId) {
     // 2) 선택한 뷰에만 'active' 추가 (= 해당 화면만 표시)
     document.getElementById(viewId).classList.add('active');
 }
-
 
 /* ================================================================
    2. WebSocket 연결 & 재연결 로직
@@ -6298,7 +6286,6 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
     };
 }
 
-
 /* ================================================================
    3. ICE 서버 설정 (STUN / TURN)
    ──────────────────────────────────────────────────────────────────
@@ -6427,7 +6414,6 @@ async function acquireLocalMedia({ video = true, audio = true } = {}) {
         }
     }
 }
-
 
 /* ================================================================
    4. 1:1 시그널링 화상통화
@@ -6737,7 +6723,6 @@ function sigLog(level, message) {
     panel.innerHTML += `<div class="log-entry ${level}">[${time}] ${message}</div>`;
     panel.scrollTop = panel.scrollHeight;
 }
-
 
 /* ================================================================
    5. 다자간 화상통화
@@ -9563,7 +9548,6 @@ function updateUserCount(count) {
     }
 }
 
-
 /* ================================================================
    6. 칠판 (화이트보드)
    ──────────────────────────────────────────────────────────────────
@@ -9724,7 +9708,6 @@ function wbSave() {
     link.href = canvas.toDataURL();
     link.click();
 }
-
 
 /* ================================================================
    7. PDF 공유
@@ -10037,7 +10020,6 @@ function pdfClearRemote() {
     document.getElementById('pdf-canvas').getContext('2d').clearRect(0, 0, 9999, 9999);
     document.getElementById('pdf-page-info').textContent = '-';
 }
-
 
 /* ================================================================
    7b. 동영상 플레이어 (YouTube URL 또는 업로드 파일)
@@ -10435,7 +10417,6 @@ function vpMakeDraggable() {
     header.addEventListener('pointercancel', end);
 }
 
-
 /* ================================================================
    8. 채팅
 ================================================================ */
@@ -10562,7 +10543,6 @@ function vcAddChatSystem(message) {
     vcReceiveChat({ type: 'system', message, userId: '_system', username: '시스템' });
 }
 
-
 /* ================================================================
    유틸리티 함수
 ================================================================ */
@@ -10579,7 +10559,6 @@ function escHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
-
 
 /* ================================================================
    초기화
@@ -10598,15 +10577,14 @@ window.addEventListener('DOMContentLoaded', () => {
 </script>
 
 <!-- v3 명세서 신규 기능: 출석 자동기록 / VAD / 비상 카카오 / 보상 / 대시보드 / 녹화 -->
-<script src="/js/mango.js"></script>
-<script src="/js/mango-rec.js"></script>
+
 <!--
   mango-attendance.js
   WebRTC 수업 중 출석 자동 등록 + 발화시간 자동 집계.
   반드시 mango.js(MangoV3.userId) 이후에 로드되어야 함.
   body.vc-in-call 클래스를 감지해 start/stop 을 자동 토글한다.
 -->
-<script src="/js/mango-attendance.js"></script>
+
 <!--
   mango-gaze.js
   MediaPipe FaceLandmarker 로 로컬 비디오의 yaw/pitch 를 분석,
@@ -10614,8 +10592,6 @@ window.addEventListener('DOMContentLoaded', () => {
   mango-attendance.js 와 동일하게 body.vc-in-call 신호로 자동 토글.
   localStorage.mango_gaze_disabled=1 이면 비활성화.
 -->
-<script src="/js/mango-gaze.js"></script>
-
 
 <!-- 🥭 AI 홈 검색창 핸들러 (2026-05-03 추가) -->
 <script>
@@ -14020,7 +13996,6 @@ window.addEventListener('DOMContentLoaded', () => {
     }).join('') + '</div>';
   };
 
-
   // ━━━━━━━━━━ 녹화본 복습 모달 ━━━━━━━━━━
   async function showRecordingsModal() {
     // 1) 즉시 로딩 상태 표시
@@ -16476,7 +16451,6 @@ window.closeRulesModal = function() {
 };
 </script>
 
-
 <!-- 📅 수업 연기/변경 모달 -->
 <div class="lc-overlay" id="lc-overlay" onclick="if(event.target===this)closeLessonChangeModal()"></div>
 <div class="lc-toast" id="lc-toast"></div>
@@ -16570,7 +16544,7 @@ window.closeRulesModal = function() {
       '</div></div>';
     overlay.innerHTML = html;
     overlay.classList.add('show');
-    
+
   };
   window.closeLessonChangeModal = function(){
     var o=document.getElementById('lc-overlay');
@@ -16791,7 +16765,7 @@ window.closeRulesModal = function() {
     var ov = document.getElementById('lc-overlay');
     ov.innerHTML = html;
     ov.classList.add('show');
-    
+
   }
 
   // 격려 다이얼로그 - 아니요 (취소, 스케줄로 돌아감)
@@ -17059,7 +17033,7 @@ window.closeRulesModal = function() {
     var overlay = document.getElementById('lc-overlay');
     overlay.innerHTML = html;
     overlay.classList.add('show');
-    
+
   }
 
   // 캘린더 그리드 (10분 단위, 09-23시) - 현재 수업 박스 드래그/리사이즈
@@ -17465,7 +17439,6 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-
 <!-- 🔑 로그인 모달 -->
 <div class="login-overlay" id="login-overlay" onclick="if(event.target===this)closeLoginModal()"></div>
 <!-- 로그인 후 사용자 드롭다운 메뉴 -->
@@ -17674,7 +17647,7 @@ window.closeRulesModal = function() {
         '<div id="ps-pane-history" class="ps-pane"><div class="ps-loading">'+(L?'내역 불러오는 중…':'Loading history…')+'</div></div>'+
       '</div></div>';
     ov.classList.add('show');
-    
+
     // 잔액 & 카탈로그 로드
     psRefreshBalance();
     psLoadCatalog();
@@ -17931,7 +17904,7 @@ window.closeRulesModal = function() {
     '</div>';
     ov.innerHTML = html;
     ov.classList.add('show');
-    
+
   };
   window.closeLoginModal = function(){
     document.getElementById('login-overlay').classList.remove('show');
@@ -18018,7 +17991,7 @@ window.closeRulesModal = function() {
         '</div>'+
       '</div>';
       ov.classList.add('show');
-      
+
       return;
     }
     // 로그인된 학생의 수업으로 demoClasses 교체 후 원래 모달 호출
@@ -18145,7 +18118,7 @@ window.closeRulesModal = function() {
       '</div></div>';
     ov.innerHTML = html;
     ov.classList.add('show');
-    
+
 
     // 본인 수업 액션 처리
     window.tryMyAction = function(clsId, mode){
@@ -18313,7 +18286,7 @@ window.closeRulesModal = function() {
       '</div>'+
     '</div>';
     ov.style.display = 'block';
-    
+
     // 🆕 안내 음성 자동 재생 (모달 그려진 후 0.2초 뒤)
     setTimeout(playRsGreeting, 200);
   };
@@ -18454,7 +18427,7 @@ window.closeRulesModal = function() {
       </div>
     </div>`;
     ov.classList.add('show');
-    
+
   };
   window.doDailyCheckin = async function(uid, name, todayStr){
     // 1) localStorage 기록
@@ -18494,7 +18467,7 @@ window.closeRulesModal = function() {
       <div class="feat-body" id="lb-body">${isKo?'불러오는 중…':'Loading…'}</div>
     </div>`;
     ov.classList.add('show');
-    
+
     // 학생 잔액 목록 fetch (관리자 API 재사용 - 공개되어 있음)
     try {
       const r = await fetch('/api/admin/points/list');
@@ -18571,7 +18544,7 @@ window.closeRulesModal = function() {
       </div>
     </div>`;
     ov.classList.add('show');
-    
+
   };
 
   function escapeText(s) { return String(s||'').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'})[c]); }
@@ -22692,7 +22665,6 @@ document.addEventListener('click', (e) => {
   }
 </style>
 
-
 <a class="ph49-kakao-fab" id="ph49-kakao-fab"
    href="https://pf.kakao.com/_mangoi" target="_blank" rel="noopener"
    onclick="try{if(window.openKakao){window.openKakao();return false;}}catch(e){}"
@@ -23033,7 +23005,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260527211224 -->
+<!-- BUILD:20260527212137 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -23072,7 +23044,7 @@ document.addEventListener('click', (e) => {
         // 모달 강제 visible
         modal.style.cssText = 'position:fixed;inset:0;z-index:9999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);backdrop-filter:blur(6px);padding:30px 20px;overflow-y:auto';
         modal.classList.add('show');
-        
+
         // body 안에 카드 표시
         var body = document.getElementById('gm-cat-modal-body');
         var cards = document.querySelectorAll('.gm-card[data-go]');
@@ -23128,7 +23100,6 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-
 <style id="fix-v4-strong">
   body div#gm-cat-modal.show {
     display: flex !important;
@@ -23162,7 +23133,6 @@ document.addEventListener('click', (e) => {
   }
 </style>
 
-
 <style id="fix-v5-body">
   body div#gm-cat-modal.show #gm-cat-modal-body .gm-card,
   body div#gm-cat-modal.show #gm-cat-modal-body button.gm-card,
@@ -23179,7 +23149,6 @@ document.addEventListener('click', (e) => {
     opacity: 1 !important;
   }
 </style>
-
 
 <!-- index.html fix v6 (2026-05-26) — 카테고리 모달 스크롤바 숨김 -->
 <style id="fix-v6-no-scrollbar">
@@ -23213,7 +23182,6 @@ document.addEventListener('click', (e) => {
   }
 </style>
 
-
 <style id="fix-v7-toggle">
   .gm-cat-card.active {
     background: linear-gradient(135deg, rgba(251,191,36,0.4), rgba(245,158,11,0.3)) !important;
@@ -23222,7 +23190,6 @@ document.addEventListener('click', (e) => {
     transform: scale(1.05) !important;
   }
 </style>
-
 
 <script>
 document.addEventListener('keydown', function(e){
@@ -23236,7 +23203,6 @@ document.addEventListener('keydown', function(e){
   }
 });
 </script>
-
 
 <!-- index.html fix v10 (2026-05-26) — 카테고리 모달 글로벌 함수 (HTML escape 문제 회피) -->
 <script>
@@ -23357,8 +23323,8 @@ document.addEventListener('keydown', function(e){
 
     box.appendChild(grid);
     modal.appendChild(box);
-    
-    
+
+
     console.log('[v10] 모달 열림:', cat, '->', matched.length, '개 (a href)');
   };
 
@@ -23367,10 +23333,9 @@ document.addEventListener('keydown', function(e){
     if (e.key === 'Escape') closeCatV10();
   });
 
-  console.log('[v10] 카테고리 글로벌 함수 준비 완료');
+
 })();
 </script>
-
 
 <!-- index.html fix v11 (2026-05-26) — onclick 제거 + addEventListener 바인딩 (escape 회피) -->
 <script>
@@ -23489,8 +23454,8 @@ document.addEventListener('keydown', function(e){
 
     box.appendChild(grid);
     modal.appendChild(box);
-    
-    
+
+
     console.log('[v11] 모달 열림:', cat, '->', matched.length, '개 (a href)');
   };
 
@@ -23506,7 +23471,7 @@ document.addEventListener('keydown', function(e){
         showCatV11(btn.dataset.cat, btn);
       }, true);  // capture phase
     });
-    console.log('[v11] 카테고리 카드 7개 addEventListener 바인딩 완료');
+
   }
 
   // 기존 깨진 모달 즉시 제거
@@ -23537,13 +23502,9 @@ document.addEventListener('keydown', function(e){
     if (e.key === 'Escape') closeCatV11();
   });
 
-  console.log('[v11] 카테고리 시스템 준비 완료 (escape 회피)');
+
 })();
 </script>
-
-
-
-
 
 <!-- fix v19 (2026-05-27) — 신규 고객 안내 영역 hide + 직접 메뉴 패널 inject -->
 <style id="fix-v19">
@@ -23672,7 +23633,6 @@ document.addEventListener('keydown', function(e){
   setTimeout(buildPanel, 2000);
 })();
 </script>
-
 
 <!-- fix v22 (2026-05-27) — 전체메뉴 버튼 capture-phase 핸들러 (다른 핸들러 우회) -->
 <script>
