@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B1224">
+<title>모바일 사이드바 데모 — 반투명 + 터치 토글</title>
+<style>
+/* ───────── 디자인 토큰 (다크 네이비·블루) ───────── */
+:root {
+  --bg:        #0B1224;
+  --bg-soft:   #131C36;
+  --bg-card:   #1A2548;
+  --border:    rgba(96, 165, 250, 0.18);
+  --text:      #E2E8F0;
+  --text-dim:  #94A3B8;
+  --accent:    #3B82F6;
+  --accent-2:  #60A5FA;
+  --accent-soft: rgba(59, 130, 246, 0.18);
+  --warn:      #FBBF24;
+  --shadow:    0 12px 32px rgba(0,0,0,0.55);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body {
+  height: 100%;
+  background: linear-gradient(160deg, var(--bg) 0%, #0E1834 100%);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Pretendard", "Segoe UI", sans-serif;
+  font-size: 15px; line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ───────── 본문 (사이드바와 동시 사용 가능) ───────── */
+main {
+  min-height: 100vh;
+  padding: 72px 18px 90px;          /* 위 토글 버튼 공간 확보 */
+  max-width: 720px;
+  margin: 0 auto;
+}
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+}
+.card h2 { font-size: 17px; font-weight: 700; color: var(--accent-2); margin-bottom: 6px; }
+.card p  { color: var(--text-dim); font-size: 14px; }
+.card .btn-row { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+.btn {
+  padding: 10px 16px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  color: var(--accent-2);
+  border-radius: 999px;
+  font-size: 13px; font-weight: 700;
+  cursor: pointer;
+  transition: transform .12s, background .15s;
+}
+.btn:hover  { background: var(--accent); color: #fff; }
+.btn:active { transform: scale(0.96); }
+
+/* ───────── 토글 버튼 (햄버거 ☰ ↔ ✕) ───────── */
+#sidebar-toggle {
+  position: fixed;
+  top: 14px; left: 14px;
+  z-index: 200;                     /* 사이드바보다 위 */
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), #1D4ED8);
+  border: 2px solid rgba(255,255,255,0.25);
+  color: #fff;
+  font-size: 18px; font-weight: 900;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 18px -4px rgba(59,130,246,0.55);
+  transition: transform .15s, background .2s;
+}
+#sidebar-toggle:hover  { transform: scale(1.05); }
+#sidebar-toggle:active { transform: scale(0.92); }
+#sidebar-toggle.is-open {
+  background: linear-gradient(135deg, #EF4444, #DC2626);
+}
+
+/* ───────── 사이드바 ───────── */
+#sidebar {
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  width: 280px; max-width: 80vw;
+  z-index: 150;
+  background: rgba(11, 18, 36, 0.55);     /* 🌫 반투명 */
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+          backdrop-filter: blur(18px) saturate(160%);
+  border-right: 1px solid var(--border);
+  box-shadow: 4px 0 24px rgba(0,0,0,0.55);
+  transform: translateX(-100%);            /* 기본 = 화면 밖 */
+  transition: transform 0.36s cubic-bezier(0.32, 0.72, 0, 1);
+  will-change: transform;
+  padding: 70px 14px 24px;                 /* 토글 버튼 영역 확보 */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+#sidebar.is-open { transform: translateX(0); }
+
+/* 사이드바 헤더 */
+.sb-head {
+  padding: 0 4px 14px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+.sb-head h1 {
+  font-size: 17px; font-weight: 800;
+  background: linear-gradient(135deg, var(--accent-2), var(--warn));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.sb-head p { font-size: 12px; color: var(--text-dim); margin-top: 3px; }
+
+/* 사이드바 메뉴 항목 */
+.sb-menu { display: flex; flex-direction: column; gap: 4px; }
+.sb-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 14px; font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background .12s, color .12s;
+}
+.sb-item:hover  { background: var(--accent-soft); color: var(--accent-2); }
+.sb-item:active { transform: scale(0.98); }
+.sb-item .ic { font-size: 17px; width: 22px; text-align: center; }
+
+/* ───────── 핵심 — 뒤 본문 클릭 가능 ───────── */
+/* overlay 자체가 본문 영역의 이벤트를 막지 않게 pointer-events: none */
+#sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  background: transparent;        /* 어둠 처리 X (본문이 그대로 보임) */
+  pointer-events: none;           /* 핵심 — 본문 터치/스크롤 그대로 가능 */
+  opacity: 0;
+  transition: opacity .25s;
+}
+/* 사이드바가 열려 있을 때 살짝의 톤 다운만 (선택사항) */
+body.has-open-sidebar #sidebar-overlay {
+  opacity: 1;
+  background: rgba(0,0,0,0.06);  /* 약간만 어둡게 — 본문 visibility 유지 */
+}
+
+/* 사이드바 자체는 당연히 pointer-events 활성 */
+#sidebar { pointer-events: auto; }
+
+/* ───────── 데스크탑 (≥920px) ─ 사이드바 항상 표시 ───────── */
+@media (min-width: 920px) {
+  #sidebar-toggle { display: none; }
+  #sidebar {
+    transform: translateX(0);
+    width: 240px;
+    background: rgba(11, 18, 36, 0.85);
+  }
+  main { margin-left: 240px; max-width: none; }
+}
+
+/* ───────── 모바일 safe-area ───────── */
+@supports (padding: max(0px)) {
+  #sidebar-toggle {
+    top: max(14px, env(safe-area-inset-top));
+    left: max(14px, env(safe-area-inset-left));
+  }
+  #sidebar { padding-top: max(70px, calc(env(safe-area-inset-top) + 60px)); }
+}
+</style>
+</head>
+<body>
+
+<!-- 햄버거 토글 -->
+<button id="sidebar-toggle" type="button" aria-label="사이드바 열기/닫기">☰</button>
+
+<!-- 사이드바 (반투명) -->
+<aside id="sidebar" aria-hidden="true">
+  <div class="sb-head">
+    <h1>🥭 망고아이 메뉴</h1>
+    <p>탭 또는 클릭으로 토글</p>
+  </div>
+  <nav class="sb-menu">
+    <a class="sb-item" href="#"><span class="ic">📊</span>대시보드</a>
+    <a class="sb-item" href="#"><span class="ic">👨‍🎓</span>학생 관리</a>
+    <a class="sb-item" href="#"><span class="ic">👨‍🏫</span>강사 관리</a>
+    <a class="sb-item" href="#"><span class="ic">📅</span>스케줄</a>
+    <a class="sb-item" href="#"><span class="ic">💳</span>결제 관리</a>
+    <a class="sb-item" href="#"><span class="ic">📝</span>평가서</a>
+    <a class="sb-item" href="#"><span class="ic">📞</span>상담 기록</a>
+    <a class="sb-item" href="#"><span class="ic">🎁</span>포인트·이벤트</a>
+    <a class="sb-item" href="#"><span class="ic">⚙️</span>시스템 설정</a>
+  </nav>
+</aside>
+
+<!-- 본문 영역 이벤트를 막지 않는 'see-through' 오버레이 -->
+<div id="sidebar-overlay" aria-hidden="true"></div>
+
+<!-- 본문 (사이드바 열려도 클릭/스크롤 가능) -->
+<main>
+  <div class="card">
+    <h2>👋 본문 영역 (Body Content)</h2>
+    <p>이 영역은 사이드바가 열려 있어도 <b>그대로 보이고 클릭/스크롤이 가능</b>합니다.</p>
+    <div class="btn-row">
+      <button class="btn" onclick="alert('본문 버튼 정상 작동!')">테스트 버튼 1</button>
+      <button class="btn" onclick="alert('두 번째 버튼 클릭!')">테스트 버튼 2</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🎨 디자인 설명</h2>
+    <p>사이드바는 <code>backdrop-filter: blur(18px)</code> 로 흐릿한 반투명 효과.<br>
+       뒤 콘텐츠 색이 살짝 비쳐 보입니다.</p>
+  </div>
+
+  <div class="card">
+    <h2>🔑 핵심 기술 — pointer-events: none</h2>
+    <p>오버레이 div 에 <code>pointer-events: none</code> 를 적용하면 사이드바가 열려도 본문 클릭·스크롤이 <b>그대로 작동</b>합니다.</p>
+    <div class="btn-row">
+      <button class="btn" onclick="document.getElementById('test-out').textContent='✅ 클릭 정상 — ' + new Date().toLocaleTimeString()">클릭 테스트</button>
+    </div>
+    <p id="test-out" style="margin-top: 10px; color: var(--warn); font-weight: 700;">아직 클릭 안 함</p>
+  </div>
+
+  <div class="card">
+    <h2>📋 동작 방법</h2>
+    <p>
+      • 좌상단 <b>파란 ☰</b> 탭 → 사이드바 슬라이드 인 (버튼이 🔴 ✕ 로 변경)<br>
+      • 다시 ✕ 탭 → 사이드바 슬라이드 아웃<br>
+      • 사이드바 열린 상태에서도 본문 영역 클릭 가능
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>📖 더 많은 콘텐츠</h2>
+    <p>스크롤 가능 — 사이드바가 열려도 본문 스크롤이 작동합니다.</p>
+    <p style="margin-top: 12px;">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+    <p style="margin-top: 8px;">Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+    <p style="margin-top: 8px;">Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.</p>
+  </div>
+</main>
+
+<script>
+(function(){
+  'use strict';
+  const toggle  = document.getElementById('sidebar-toggle');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  const body    = document.body;
+
+  function open() {
+    sidebar.classList.add('is-open');
+    toggle.classList.add('is-open');
+    toggle.textContent = '✕';
+    toggle.setAttribute('aria-label', '사이드바 닫기');
+    sidebar.setAttribute('aria-hidden', 'false');
+    body.classList.add('has-open-sidebar');
+  }
+  function close() {
+    sidebar.classList.remove('is-open');
+    toggle.classList.remove('is-open');
+    toggle.textContent = '☰';
+    toggle.setAttribute('aria-label', '사이드바 열기');
+    sidebar.setAttribute('aria-hidden', 'true');
+    body.classList.remove('has-open-sidebar');
+  }
+  function toggleSidebar() {
+    if (sidebar.classList.contains('is-open')) close();
+    else open();
+  }
+
+  // 토글 버튼 — 클릭/터치
+  toggle.addEventListener('click', toggleSidebar);
+
+  // ESC 키로 닫기
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && sidebar.classList.contains('is-open')) close();
+  });
+
+  // 사이드바 안 메뉴 클릭 시 0.2초 후 자동 닫힘 (모바일에서 자연스러움)
+  sidebar.addEventListener('click', e => {
+    if (e.target.closest('.sb-item') && window.matchMedia('(max-width: 919px)').matches) {
+      setTimeout(close, 200);
+    }
+  });
+
+  // 화면 회전 / 데스크탑 너비 — 자동 닫힘
+  window.addEventListener('resize', () => {
+    if (window.matchMedia('(min-width: 920px)').matches) close();
+  });
+
+  console.log('[sidebar] 모바일 사이드바 데모 활성 — ☰ 탭 / ESC / 메뉴 클릭으로 닫힘');
+})();
+</script>
+<!-- BUILD:20260528050203 -->
+</body>
+</html>

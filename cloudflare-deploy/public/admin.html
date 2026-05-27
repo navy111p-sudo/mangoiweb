@@ -2,6 +2,61 @@
 <html lang="ko">
 <head>
 
+<!-- ph148 (2026-05-28) — head 최상단 inline nuker (가장 빠른 시점 사이드바 + 모달 제거) -->
+<style id="ph148-instant-hide">
+  @media (max-width: 920px) {
+    aside, aside.admin-sidebar, #admin-sidebar,
+    #topUserBtn, #topUserPopup, #ph114-user-fab, #ph114-modal, #ph114-modal-overlay,
+    #ph142-toggle, #ph142-overlay, #ph134-hamburger, #ph134-overlay,
+    #ph138-close-btn, #ph135-pin-btn, #ph141-edge, #ph141-edge-indicator, #ph143-handle,
+    #admin-session-banner,
+    .th-user, .th-user-popup {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      width: 0 !important; height: 0 !important;
+      pointer-events: none !important;
+      position: absolute !important;
+      left: -99999px !important;
+    }
+    body { padding-left: 0 !important; }
+    .admin-layout {
+      display: block !important;
+      grid-template-columns: 1fr !important;
+      margin: 0 !important;
+      padding: 8px !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+  }
+</style>
+<script id="ph148-instant-nuke">
+(function(){
+  if (!window.matchMedia('(max-width: 920px)').matches) return;
+  function nuke(){
+    var ids = ['admin-sidebar','topUserBtn','topUserPopup','ph114-user-fab','ph114-modal','ph114-modal-overlay',
+               'ph142-toggle','ph142-overlay','ph134-hamburger','ph134-overlay',
+               'ph138-close-btn','ph135-pin-btn','ph141-edge','ph141-edge-indicator','ph143-handle','admin-session-banner'];
+    ids.forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) { try { el.remove(); } catch(e){ el.style.display='none'; } }
+    });
+    document.querySelectorAll('aside, aside.admin-sidebar, .admin-sidebar, .th-user, .th-user-popup').forEach(function(el){
+      try { el.remove(); } catch(e){ el.style.display='none'; }
+    });
+  }
+  // 가장 빠른 시점: DOM 첫 element 생성 즉시 polling 시작
+  var iv = setInterval(nuke, 50);
+  setTimeout(function(){ clearInterval(iv); }, 8000);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', nuke);
+  else nuke();
+  setTimeout(nuke, 100);
+  setTimeout(nuke, 500);
+  setTimeout(nuke, 2000);
+  console.log('[ph148] head 최상단 inline nuker 활성 — 50ms 폴링 8초간');
+})();
+</script>
+
 <script id="ph58-sw-kill">
 /* Phase 58 (2026-05-23) — 옛 ServiceWorker 강제 unregister + 캐시 비우기 (한 번만)
    휴대폰 PWA가 옛 HTML 잡고 있을 때 자동 복구. */
@@ -18729,7 +18784,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260528042623 -->
+        <!-- BUILD:20260528050203 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -33379,6 +33434,146 @@ button.chip:hover,
   window.addEventListener('resize', forceHide);
 
   console.log('[ph145] 사이드바 완전 숨김 강제 + blur 제거 활성');
+})();
+</script>
+
+
+<!-- ============================================================
+     Phase 146 (2026-05-28) — 좌상단 사용자 정보 모달 강제 숨김
+     · #topUserBtn/Popup, ph114 user-fab/modal, admin-session-banner 모두 숨김
+     · 모바일에서만 적용 (데스크탑은 그대로)
+     ============================================================ -->
+<style id="ph146-hide-user-modal">
+  @media (max-width: 920px) {
+    /* 좌상단/우상단 모든 사용자 정보 dropdown / popup / modal 강제 숨김 */
+    #topUserBtn,
+    #topUserPopup,
+    #ph114-user-fab,
+    #ph114-modal,
+    #ph114-modal-overlay,
+    #ph111-modal,
+    #ph111-modal-overlay,
+    #admin-session-banner,
+    .th-user,
+    .th-user-popup,
+    .user-info-modal,
+    .user-dropdown {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+  }
+</style>
+<script id="ph146-hide-user-modal-js">
+(function(){
+  'use strict';
+  function hideUserModals(){
+    if (!window.matchMedia('(max-width: 920px)').matches) return;
+    var ids = [
+      'topUserBtn','topUserPopup',
+      'ph114-user-fab','ph114-modal','ph114-modal-overlay',
+      'ph111-modal','ph111-modal-overlay',
+      'admin-session-banner'
+    ];
+    ids.forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) {
+        el.style.setProperty('display','none','important');
+        el.style.setProperty('visibility','hidden','important');
+      }
+    });
+    document.querySelectorAll('.th-user, .th-user-popup, .user-info-modal, .user-dropdown').forEach(function(el){
+      el.style.setProperty('display','none','important');
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hideUserModals);
+  else hideUserModals();
+  setInterval(hideUserModals, 500);
+  console.log('[ph146] 좌상단 사용자 모달 모두 숨김 활성');
+})();
+</script>
+
+
+<!-- ============================================================
+     Phase 147 (2026-05-28) — 모바일 사이드바·☰ 토글 모두 영구 제거
+     · 모바일에서 사이드바 자체 완전 제거 (display:none + remove)
+     · ☰ 토글, ✕ 닫기 버튼, 모든 핸들, 오버레이 모두 제거
+     · 본문만 100% 풀폭으로 화면 가득
+     ============================================================ -->
+<style id="ph147-mobile-remove-sidebar">
+  @media (max-width: 920px) {
+    /* 사이드바 + 모든 토글 element 완전 제거 */
+    .admin-sidebar,
+    aside.admin-sidebar,
+    #admin-sidebar,
+    #ph142-toggle,
+    #ph142-overlay,
+    #ph134-hamburger,
+    #ph134-overlay,
+    #ph138-close-btn,
+    #ph135-pin-btn,
+    #ph141-edge,
+    #ph141-edge-indicator,
+    #ph143-handle {
+      display: none !important;
+      visibility: hidden !important;
+      width: 0 !important;
+      height: 0 !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      position: absolute !important;
+      left: -99999px !important;
+    }
+    /* 본문만 100% 풀폭 */
+    .admin-layout {
+      display: block !important;
+      grid-template-columns: 1fr !important;
+      gap: 0 !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 !important;
+      padding: 12px !important;
+      box-sizing: border-box !important;
+    }
+    .admin-layout > div:not(.admin-sidebar):not(#admin-sidebar),
+    .admin-layout > main,
+    .admin-layout > section {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      box-sizing: border-box !important;
+    }
+  }
+</style>
+<script id="ph147-mobile-remove-js">
+(function(){
+  'use strict';
+  function nukeAll(){
+    if (!window.matchMedia('(max-width: 920px)').matches) return;
+    var ids = ['admin-sidebar','ph142-toggle','ph142-overlay','ph134-hamburger','ph134-overlay',
+               'ph138-close-btn','ph135-pin-btn','ph141-edge','ph141-edge-indicator','ph143-handle'];
+    ids.forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) {
+        el.style.setProperty('display','none','important');
+        el.style.setProperty('visibility','hidden','important');
+        // DOM 에서 완전히 제거 — 단 한 번만 안전하게
+        try { el.remove && el.remove(); } catch(e){}
+      }
+    });
+    document.querySelectorAll('.admin-sidebar, aside.admin-sidebar').forEach(function(el){
+      el.style.setProperty('display','none','important');
+      try { el.remove(); } catch(e){}
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', nukeAll);
+  else nukeAll();
+  setTimeout(nukeAll, 300);
+  setTimeout(nukeAll, 1000);
+  setTimeout(nukeAll, 3000);
+  console.log('[ph147] 모바일 사이드바·☰ 토글 완전 제거 활성');
 })();
 </script>
 
