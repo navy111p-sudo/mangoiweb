@@ -4113,7 +4113,7 @@
         <button class="ai-quick-btn" data-go="speech" data-ko="🎤 단계별 발음" data-en="🎤 Curriculum Pronunciation">🎤 단계별 발음</button>
         <button class="ai-quick-btn" data-go="lesson-change" data-ko="📅 연기/변경" data-en="📅 Postpone/Change">📅 연기/변경</button>
         <button class="ai-quick-btn" data-go="inquiry" data-ko="💬 신규상담" data-en="💬 New Inquiry">💬 신규상담</button>
-        <button class="ai-quick-btn" data-go="homepage" data-ko="🏠 홈페이지" data-en="🏠 Homepage">🏠 홈페이지</button>
+        <button class="ai-quick-btn" data-go="all-menu" data-ko="🏠 전체메뉴" data-en="🏠 All Menu" onclick="event.preventDefault();var p=document.getElementById('v19-panel');if(p){p.style.display=p.style.display==='none'?'':'none';if(p.style.display!=='none')p.scrollIntoView({behavior:'smooth',block:'start'});}return false;">🏠 전체메뉴</button>
       </div>
       <!-- 결제하기 + 수업입장 한 줄 (같은 골드 스타일) -->
       <div class="ai-cta-row">
@@ -23120,7 +23120,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260527182804 -->
+<!-- BUILD:20260527183943 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -23742,6 +23742,7 @@ document.addEventListener('keydown', function(e){
   }
   /* v19 메뉴 패널 */
   #v19-panel {
+    display: none;
     margin: 20px auto;
     max-width: 1100px;
     background: linear-gradient(135deg, #0F172A, #1E293B);
