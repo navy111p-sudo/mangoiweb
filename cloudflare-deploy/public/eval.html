@@ -203,8 +203,53 @@
 
   async function load(){
     if (!id || !/^\d+$/.test(id)) {
-      root.innerHTML = '<div>❌ 잘못된 평가서 주소입니다.<br><br><a href="/" style="color:#fde68a">홈으로</a></div>';
+      // v24: ID 없이 접속 시 학생의 최근 평가서 목록 표시 (데모)
+      var userId = localStorage.getItem('user_id') || 'hong_gd';
+      var userName = localStorage.getItem('user_name') || '홍길동';
+      // API 시도 → 실패하면 데모 목록
+      fetch('/api/eval/list?student=' + encodeURIComponent(userId))
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          if (d.ok && d.items && d.items.length) renderEvalList(d.items, userName);
+          else renderEvalDemo(userName);
+        })
+        .catch(function(){ renderEvalDemo(userName); });
       return;
+    }
+    
+    function renderEvalDemo(name){
+      var today = new Date().toISOString().slice(0,10);
+      var demo = [
+        {id:1001, lesson_date:today, lesson_title:'1on1 영어 회화', teacher_name:'Karen', score_overall:4.5, score_participation:5, score_comprehension:4, score_homework:5, score_attitude:5, score_speaking:4, comment:'오늘 발음이 많이 좋아졌어요! 다음 시간에는 새 단어 5개 외워오기.'},
+        {id:1000, lesson_date:'2026-05-25', lesson_title:'문법 - 현재완료', teacher_name:'David', score_overall:4.0, score_participation:4, score_comprehension:4, score_homework:4, score_attitude:5, score_speaking:3.5, comment:'문법 이해도가 좋아요. 회화 연습 더 필요.'},
+        {id:999, lesson_date:'2026-05-23', lesson_title:'어휘 확장 Day 12', teacher_name:'Sarah', score_overall:4.8, score_participation:5, score_comprehension:5, score_homework:5, score_attitude:5, score_speaking:4.5, comment:'완벽한 수업! 모든 영역에서 우수.'}
+      ];
+      renderEvalList(demo, name);
+    }
+    
+    function renderEvalList(items, name){
+      var html = '<div class="eval-card"><div class="eval-head">';
+      html += '<h2 class="eval-title">📋 ' + name + '님의 학습 평가서</h2>';
+      html += '<div class="eval-meta">총 <b>' + items.length + '개</b>의 평가서</div>';
+      html += '</div><div style="padding:16px 24px 24px">';
+      items.forEach(function(e){
+        var dt = e.lesson_date || (e.created_at ? new Date(e.created_at).toISOString().slice(0,10) : '');
+        var st = '<span style="color:#fbbf24">'+'★'.repeat(Math.round(e.score_overall||0))+'</span><span style="color:#475569">'+'☆'.repeat(5-Math.round(e.score_overall||0))+'</span>';
+        html += '<a href="/eval.html?id=' + e.id + '" style="display:block;background:rgba(255,255,255,0.05);border:1px solid rgba(251,191,36,0.25);border-radius:14px;padding:16px 18px;margin-bottom:12px;text-decoration:none;color:#fff;transition:all .15s" onmouseover="this.style.background=\'rgba(251,191,36,0.15)\';this.style.transform=\'translateY(-2px)\';" onmouseout="this.style.background=\'rgba(255,255,255,0.05)\';this.style.transform=\'\';">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:8px">';
+        html += '<div><div style="font-size:11.5px;color:#fde68a;margin-bottom:4px">' + dt + '</div>';
+        html += '<div style="font-size:15px;font-weight:700">' + (e.lesson_title || '수업') + '</div></div>';
+        html += '<div style="text-align:right"><div style="font-size:22px;font-weight:800;background:linear-gradient(180deg,#fff8d8,#fbbf24,#c08820);-webkit-background-clip:text;-webkit-text-fill-color:transparent">' + (e.score_overall || '-') + '</div>';
+        html += '<div style="font-size:11px;color:#94a3b8">' + st + '</div></div></div>';
+        if (e.teacher_name) html += '<div style="font-size:12px;color:#94a3b8">👨‍🏫 ' + e.teacher_name + ' 선생님</div>';
+        if (e.comment) html += '<div style="font-size:12.5px;color:#cbd5e1;margin-top:8px;padding-top:8px;border-top:1px dashed rgba(255,255,255,0.1)">💬 ' + (e.comment.length > 80 ? e.comment.substring(0,80) + '...' : e.comment) + '</div>';
+        html += '</a>';
+      });
+      html += '<div style="text-align:center;margin-top:18px;padding-top:18px;border-top:1px solid rgba(255,255,255,0.08)">';
+      html += '<a href="/" style="color:#fde68a;text-decoration:none;font-size:13px">🏠 홈으로</a>';
+      html += '</div></div></div>';
+      root.className = '';
+      root.innerHTML = html;
     }
     try {
       const r = await fetch('/api/eval/' + id);
@@ -283,6 +328,6 @@
   load();
 })();
 </script>
-<!-- BUILD:20260527190142 -->
+<!-- BUILD:20260527191028 -->
 </body>
 </html>
