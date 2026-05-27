@@ -2,60 +2,8 @@
 <html lang="ko">
 <head>
 
-<!-- ph148 (2026-05-28) — head 최상단 inline nuker (가장 빠른 시점 사이드바 + 모달 제거) -->
-<style id="ph148-instant-hide">
-  @media (max-width: 920px) {
-    aside, aside.admin-sidebar, #admin-sidebar,
-    #topUserBtn, #topUserPopup, #ph114-user-fab, #ph114-modal, #ph114-modal-overlay,
-    #ph142-toggle, #ph142-overlay, #ph134-hamburger, #ph134-overlay,
-    #ph138-close-btn, #ph135-pin-btn, #ph141-edge, #ph141-edge-indicator, #ph143-handle,
-    #admin-session-banner,
-    .th-user, .th-user-popup {
-      display: none !important;
-      visibility: hidden !important;
-      opacity: 0 !important;
-      width: 0 !important; height: 0 !important;
-      pointer-events: none !important;
-      position: absolute !important;
-      left: -99999px !important;
-    }
-    body { padding-left: 0 !important; }
-    .admin-layout {
-      display: block !important;
-      grid-template-columns: 1fr !important;
-      margin: 0 !important;
-      padding: 8px !important;
-      width: 100% !important;
-      box-sizing: border-box !important;
-    }
-  }
-</style>
-<script id="ph148-instant-nuke">
-(function(){
-  if (!window.matchMedia('(max-width: 920px)').matches) return;
-  function nuke(){
-    var ids = ['admin-sidebar','topUserBtn','topUserPopup','ph114-user-fab','ph114-modal','ph114-modal-overlay',
-               'ph142-toggle','ph142-overlay','ph134-hamburger','ph134-overlay',
-               'ph138-close-btn','ph135-pin-btn','ph141-edge','ph141-edge-indicator','ph143-handle','admin-session-banner'];
-    ids.forEach(function(id){
-      var el = document.getElementById(id);
-      if (el) { try { el.remove(); } catch(e){ el.style.display='none'; } }
-    });
-    document.querySelectorAll('aside, aside.admin-sidebar, .admin-sidebar, .th-user, .th-user-popup').forEach(function(el){
-      try { el.remove(); } catch(e){ el.style.display='none'; }
-    });
-  }
-  // 가장 빠른 시점: DOM 첫 element 생성 즉시 polling 시작
-  var iv = setInterval(nuke, 50);
-  setTimeout(function(){ clearInterval(iv); }, 8000);
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', nuke);
-  else nuke();
-  setTimeout(nuke, 100);
-  setTimeout(nuke, 500);
-  setTimeout(nuke, 2000);
-  console.log('[ph148] head 최상단 inline nuker 활성 — 50ms 폴링 8초간');
-})();
-</script>
+<!-- ph149 (2026-05-28) — ph148 race condition 으로 인한 CSS raw 노출 제거 → 비활성 -->
+<style id="ph149-rollback-comment">/* ph148 비활성. admin.html 원본 사이드바 동작 복귀. */</style>
 
 <script id="ph58-sw-kill">
 /* Phase 58 (2026-05-23) — 옛 ServiceWorker 강제 unregister + 캐시 비우기 (한 번만)
@@ -18784,7 +18732,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260528050327 -->
+        <!-- BUILD:20260528051848 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -33574,6 +33522,182 @@ button.chip:hover,
   setTimeout(nukeAll, 1000);
   setTimeout(nukeAll, 3000);
   console.log('[ph147] 모바일 사이드바·☰ 토글 완전 제거 활성');
+})();
+</script>
+
+<!-- ============================================================
+     Phase 150 (2026-05-28) — 🎯 최종 깨끗한 통합 (mobile-sidebar-demo 패턴)
+     · ph134~148 모든 잔여 element 강제 숨김
+     · 반투명 사이드바 + pointer-events:none 오버레이 (본문 그대로 사용)
+     · 단일 ☰ ↔ ✕ 토글 (좌상단 파란 동그라미)
+     ============================================================ -->
+<style id="ph150-final-clean">
+  /* ── 1. 이전 ph134~148 의 모든 잔여 element 강제 숨김 ── */
+  @media (max-width: 920px) {
+    #ph134-hamburger, #ph134-overlay,
+    #ph138-close-btn, #ph135-pin-btn,
+    #ph141-edge, #ph141-edge-indicator,
+    #ph142-toggle, #ph142-overlay,
+    #ph143-handle,
+    #ph114-user-fab, #ph114-modal, #ph114-modal-overlay,
+    #ph111-modal, #ph111-modal-overlay,
+    #topUserBtn, #topUserPopup, #admin-session-banner,
+    .th-user-popup {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
+    /* ── 2. admin-sidebar 를 반투명 슬라이드 인 패턴으로 ── */
+    .admin-sidebar, aside.admin-sidebar, #admin-sidebar {
+      position: fixed !important;
+      top: 0 !important; left: 0 !important; bottom: 0 !important;
+      width: 280px !important; max-width: 80vw !important;
+      height: 100vh !important;
+      z-index: 99950 !important;
+      background: rgba(11, 18, 36, 0.65) !important;
+      -webkit-backdrop-filter: blur(18px) saturate(160%) !important;
+              backdrop-filter: blur(18px) saturate(160%) !important;
+      border-right: 1px solid rgba(96, 165, 250, 0.18) !important;
+      box-shadow: 4px 0 24px rgba(0,0,0,0.55) !important;
+      transform: translateX(-100%) !important;
+      transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1) !important;
+      overflow-y: auto !important;
+      padding-top: 64px !important;
+      pointer-events: auto !important;
+    }
+    body.ph150-open .admin-sidebar,
+    body.ph150-open aside.admin-sidebar,
+    body.ph150-open #admin-sidebar {
+      transform: translateX(0) !important;
+    }
+
+    /* ── 3. 새 토글 버튼 (좌상단 파란 동그라미) ── */
+    #ph150-toggle {
+      position: fixed !important;
+      top: 12px !important; left: 12px !important;
+      z-index: 99999 !important;
+      width: 44px !important; height: 44px !important;
+      border-radius: 50% !important;
+      background: linear-gradient(135deg, #3B82F6, #1D4ED8) !important;
+      border: 2px solid rgba(255,255,255,0.25) !important;
+      color: #fff !important;
+      font-size: 18px !important; font-weight: 900 !important;
+      cursor: pointer !important;
+      display: flex !important;
+      align-items: center !important; justify-content: center !important;
+      box-shadow: 0 6px 18px -4px rgba(59,130,246,0.55) !important;
+      transition: transform .15s, background .2s !important;
+      padding: 0 !important;
+    }
+    #ph150-toggle:active { transform: scale(0.92) !important; }
+    body.ph150-open #ph150-toggle {
+      background: linear-gradient(135deg, #EF4444, #DC2626) !important;
+    }
+
+    /* ── 4. 본문 이벤트 차단 안 함 오버레이 (pointer-events: none 핵심) ── */
+    #ph150-overlay {
+      position: fixed !important;
+      inset: 0 !important;
+      z-index: 99940 !important;
+      background: transparent !important;
+      pointer-events: none !important;
+      opacity: 0 !important;
+      transition: opacity .25s !important;
+    }
+    body.ph150-open #ph150-overlay {
+      opacity: 1 !important;
+      background: rgba(0,0,0,0.08) !important;
+    }
+
+    /* ── 5. 본문 영역 풀폭 ── */
+    .admin-layout {
+      display: block !important;
+      grid-template-columns: 1fr !important;
+      gap: 0 !important;
+      width: 100% !important;
+      padding: 64px 12px 24px !important;
+      box-sizing: border-box !important;
+    }
+    .admin-layout > div:not(.admin-sidebar):not(#admin-sidebar) {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin-left: 0 !important;
+    }
+  }
+  @media (min-width: 921px) {
+    #ph150-toggle, #ph150-overlay { display: none !important; }
+  }
+</style>
+
+<button id="ph150-toggle" type="button" aria-label="사이드바 열기/닫기">☰</button>
+<div id="ph150-overlay" aria-hidden="true"></div>
+
+<script id="ph150-final-js">
+(function(){
+  'use strict';
+  function isMobile(){ return window.matchMedia('(max-width: 920px)').matches; }
+
+  function setOpen(open){
+    var body = document.body;
+    var btn = document.getElementById('ph150-toggle');
+    if (open && isMobile()) {
+      body.classList.add('ph150-open');
+      if (btn){ btn.textContent = '✕'; btn.setAttribute('aria-label','사이드바 닫기'); }
+      console.log('[ph150] 사이드바 열림');
+    } else {
+      body.classList.remove('ph150-open');
+      if (btn){ btn.textContent = '☰'; btn.setAttribute('aria-label','사이드바 열기'); }
+      console.log('[ph150] 사이드바 닫힘');
+    }
+  }
+  function toggle(){
+    setOpen(!document.body.classList.contains('ph150-open'));
+  }
+  window.ph150Toggle = toggle;
+  window.ph150Open = function(){ setOpen(true); };
+  window.ph150Close = function(){ setOpen(false); };
+
+  // 토글 버튼 클릭
+  function bindToggle(){
+    var btn = document.getElementById('ph150-toggle');
+    if (!btn || btn.__ph150) return;
+    btn.__ph150 = true;
+    btn.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation(); toggle();
+    });
+  }
+
+  // 사이드바 안 메뉴 선택 시 자동 닫힘
+  function bindAutoClose(){
+    var sb = document.getElementById('admin-sidebar') || document.querySelector('.admin-sidebar');
+    if (!sb || sb.__ph150) return;
+    sb.__ph150 = true;
+    sb.addEventListener('click', function(e){
+      if (!isMobile() || !document.body.classList.contains('ph150-open')) return;
+      var link = e.target.closest('a[href], .sidebar-item, [data-menu-target]');
+      if (link) setTimeout(function(){ setOpen(false); }, 220);
+    });
+  }
+
+  // ESC 키
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && document.body.classList.contains('ph150-open')) setOpen(false);
+  });
+
+  // 화면 리사이즈
+  window.addEventListener('resize', function(){
+    if (!isMobile()) setOpen(false);
+  });
+
+  function init(){ bindToggle(); bindAutoClose(); setOpen(false); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+  setTimeout(init, 400);
+  setTimeout(init, 1200);
+
+  console.log('[ph150] 깨끗한 통합 사이드바 활성 — 반투명 + 본문 그대로 사용 가능');
 })();
 </script>
 
