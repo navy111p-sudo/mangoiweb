@@ -14,7 +14,7 @@
     'installguide':'/install-guide.html','learnguide':'/learn-guide.html',
     'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'/contact.html',
     'library':'/docs/','reviews':'/reviews.html','recordings':'/admin.html',
-    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html',
+    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
     'leveltest':'/level-test.html','battle':'/battle.html',
     'lesson-change':'/lesson-postpone-demo.html','videolesson':'/video-call/',
@@ -4801,11 +4801,17 @@
         <span class="gm-label" data-ko="학습목표" data-en="Goals">학습목표</span>
         <span class="gm-sub" data-ko="30일 챌린지" data-en="30-day Challenge">30일 챌린지</span>
       </button>
-      <!-- 🆕 AI 음성 코칭 (Whisper + Llama 3.3 70B) -->
+      <!-- 🆕 AI 음성 코칭 (Whisper + Llama 3.3 70B) — 영어 -->
       <button class="gm-card" data-go="speech-coach" data-en-key="ai voice coach" onclick="location.href='/speech-coach.html'">
         <span class="gm-icon">🤖</span>
-        <span class="gm-label" data-ko="AI 음성 코칭" data-en="AI Voice Coach">AI 음성 코칭</span>
+        <span class="gm-label" data-ko="영어 발음 코치" data-en="EN Voice Coach">영어 발음 코치</span>
         <span class="gm-sub" data-ko="자유 문장 · 즉석 AI 점수" data-en="Custom · Instant AI Score">자유 문장 · 즉석 AI 점수</span>
+      </button>
+      <!-- ph157 (2026-05-28) — 🆕 중국어 발음 코치 (다락원 마스터 + Lv 1~20) -->
+      <button class="gm-card" data-go="speech-coach-cn" data-en-key="cn voice coach" onclick="location.href='/speech-coach-cn.html'">
+        <span class="gm-icon">🇨🇳</span>
+        <span class="gm-label" data-ko="중국어 발음 코치" data-en="CN Voice Coach">중국어 발음 코치</span>
+        <span class="gm-sub" data-ko="다락원 마스터 · Lv 1~20" data-en="Darakwon · Lv 1-20">다락원 마스터 · Lv 1~20</span>
       </button>
       <!-- 🆕 부모 대시보드 (자녀 출석/포인트/평가서 한눈에) -->
       <button class="gm-card" data-go="parent-dashboard" data-en-key="parent dashboard" onclick="openParentDashboard()">
@@ -10639,8 +10645,10 @@ window.addEventListener('DOMContentLoaded', () => {
     { kws: ['관리자', '대시보드', 'admin', 'dashboard'], action: () => location.href = '/admin.html', label: '📊 관리자 대시보드' },
     // 신규상담
     { kws: ['신규상담', '신규 상담', '상담', '문의', '문의하기', '연락', 'inquiry', 'consult', '컨설팅'], action: () => window.openInquiryModal(), label: '💬 신규상담' },
-    // 발음연습
-    { kws: ['발음', '발음연습', '발음 연습', 'pronunciation', '스피치', 'speech', '말하기'], action: () => window.gridActions && window.gridActions.speech(), label: '🎤 발음연습 (AI 발음 평가)' },
+    // 발음연습 (영어)
+    { kws: ['발음', '발음연습', '발음 연습', '영어발음', 'pronunciation', '스피치', 'speech', '말하기'], action: () => window.gridActions && window.gridActions.speech(), label: '🎤 영어 발음 코치 (AI 발음 평가)' },
+    // ph157: 중국어 발음 코치
+    { kws: ['중국어', '중국어발음', '중국어 발음', '중국어발음코치', 'chinese', 'mandarin', '다락원', 'darakwon', 'cn voice', '병음', 'pinyin'], action: () => location.href = '/speech-coach-cn.html', label: '🇨🇳 중국어 발음 코치 (다락원 마스터 + Lv 1~20)' },
     // 학생 페이지들
     { kws: ['마이페이지', 'my page', 'mypage', '내정보', '내 정보', '프로필'], action: () => location.href = '/admin/mypage.html', label: '👤 마이페이지' },
 
@@ -23038,7 +23046,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260528063610 -->
+<!-- BUILD:20260528065323 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -23251,7 +23259,7 @@ document.addEventListener('keydown', function(e){
     'installguide':'/install-guide.html','learnguide':'/learn-guide.html',
     'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'/contact.html',
     'library':'/docs/','reviews':'/reviews.html','recordings':'/admin.html',
-    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html',
+    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
     'leveltest':'/level-test.html','battle':'/battle.html',
     'lesson-change':'/lesson-postpone-demo.html','videolesson':'/video-call/',
@@ -23384,7 +23392,7 @@ document.addEventListener('keydown', function(e){
     'installguide':'/install-guide.html','learnguide':'/learn-guide.html',
     'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'/contact.html',
     'library':'/docs/','reviews':'/reviews.html','recordings':'/admin.html',
-    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html',
+    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
     'leveltest':'/level-test.html','battle':'/battle.html',
     'lesson-change':'/lesson-postpone-demo.html','videolesson':'/video-call/',
@@ -23623,7 +23631,8 @@ document.addEventListener('keydown', function(e){
       {emoji:'📊', name:'리포트', url:'/report.html'},
       {emoji:'🤖', name:'AI 친구', url:'/ai-friend.html'},
       {emoji:'✍', name:'AI 작문', url:'/ai-write.html'},
-      {emoji:'🗣', name:'발음 코치', url:'/speech-coach.html'},
+      {emoji:'🗣', name:'영어 발음 코치', url:'/speech-coach.html'},
+      {emoji:'🇨🇳', name:'중국어 발음 코치', url:'/speech-coach-cn.html'},
       {emoji:'📖', name:'단어장', url:'/vocab.html'},
       {emoji:'🎯', name:'미니 퀴즈', url:'/micro-quiz.html'},
       {emoji:'🧠', name:'MBTI 매칭', url:'/mbti.html'},
@@ -23723,7 +23732,8 @@ document.addEventListener('keydown', function(e){
       {emoji:'📊', name:'리포트', url:'/report.html'},
       {emoji:'🤖', name:'AI 친구', url:'/ai-friend.html'},
       {emoji:'✍', name:'AI 작문', url:'/ai-write.html'},
-      {emoji:'🗣', name:'발음 코치', url:'/speech-coach.html'},
+      {emoji:'🗣', name:'영어 발음 코치', url:'/speech-coach.html'},
+      {emoji:'🇨🇳', name:'중국어 발음 코치', url:'/speech-coach-cn.html'},
       {emoji:'📖', name:'단어장', url:'/vocab.html'},
       {emoji:'🎯', name:'미니 퀴즈', url:'/micro-quiz.html'},
       {emoji:'🧠', name:'MBTI 매칭', url:'/mbti.html'},
@@ -24267,15 +24277,19 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       if (e.stopImmediatePropagation) e.stopImmediatePropagation();
       // click 또는 touchend 시 실제 실행 (다른 이벤트는 차단만)
       if (ev === 'click' || ev === 'touchend') {
-        console.log('[v154] ✕ ' + ev + ' 캡처 — 홈 강제 이동');
-        forceHome();
-      }
-    }, true);
-  });
+         try {
+           if (typeof window.vcLeaveRoom === 'function') {
+             try { window.vcLeaveRoom(); } catch(err){}
+           }
+         } catch(err){}
+         var url = '/?_e=' + Date.now();
+         try { location.replace(url); } catch(err){ location.href = url; }
+       }
+     }, true);
+   });
+   console.log('[v154] 룸 exit 캡처 핸들러 활성 (click/touchend/pointerdown 모두)');
+ })();
+ </script>
 
-  console.log('[v154] 룸 ✕ 버튼 capture 강제 핸들러 활성 — click/touch/pointer 4중');
-})();
-</script>
-
-</body>
-</html>
+ </body>
+ </html>

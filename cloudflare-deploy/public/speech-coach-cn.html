@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B1224">
 <title>🇨🇳 중국어 발음 교정 — 다락원 중국어 마스터 + Lv 1~20</title>
-<!-- BUILD:20260528063610 -->
+<!-- BUILD:20260528065323 -->
 <style>
 :root {
   --bg: #0B1224;
@@ -232,40 +232,90 @@ const DARAKWON = {
   1: {
     name: '마스터 1', sub: 'HSK 1 입문', color: '#10B981',
     lessons: [
-      { t: '제1과 인사', s: [
+      { t: '제1과 인사 (你好!)', s: [
         { c: '你好!', p: 'Nǐ hǎo!', k: '안녕하세요!' },
         { c: '老师好。', p: 'Lǎoshī hǎo.', k: '선생님 안녕하세요.' },
         { c: '再见。', p: 'Zàijiàn.', k: '안녕히 가세요.' },
       ]},
-      { t: '제2과 이름', s: [
+      { t: '제2과 이름 (你叫什么名字?)', s: [
         { c: '我叫王明。', p: 'Wǒ jiào Wáng Míng.', k: '저는 왕밍입니다.' },
         { c: '你叫什么名字?', p: 'Nǐ jiào shénme míngzi?', k: '이름이 뭐예요?' },
         { c: '认识你很高兴。', p: 'Rènshi nǐ hěn gāoxìng.', k: '만나서 반가워요.' },
       ]},
-      { t: '제3과 국적', s: [
+      { t: '제3과 국적 (你是哪国人?)', s: [
         { c: '我是韩国人。', p: 'Wǒ shì Hánguórén.', k: '저는 한국인입니다.' },
         { c: '你是哪国人?', p: 'Nǐ shì nǎ guó rén?', k: '어느 나라 사람이에요?' },
         { c: '他是中国人。', p: 'Tā shì Zhōngguórén.', k: '그는 중국인입니다.' },
+      ]},
+      { t: '제4과 직업 (你做什么工作?)', s: [
+        { c: '你做什么工作?', p: 'Nǐ zuò shénme gōngzuò?', k: '무슨 일을 하세요?' },
+        { c: '我是老师。', p: 'Wǒ shì lǎoshī.', k: '저는 선생님입니다.' },
+        { c: '他是公司职员。', p: 'Tā shì gōngsī zhíyuán.', k: '그는 회사원입니다.' },
+      ]},
+      { t: '제5과 가족 (你家有几口人?)', s: [
+        { c: '你家有几口人?', p: 'Nǐ jiā yǒu jǐ kǒu rén?', k: '가족이 몇 명이에요?' },
+        { c: '我家有四口人。', p: 'Wǒ jiā yǒu sì kǒu rén.', k: '우리 가족은 네 명이에요.' },
+        { c: '爸爸、妈妈、姐姐和我。', p: 'Bàba, māma, jiějie hé wǒ.', k: '아빠, 엄마, 언니 그리고 저요.' },
+      ]},
+      { t: '제6과 숫자·나이 (你今年多大?)', s: [
+        { c: '你今年多大?', p: 'Nǐ jīnnián duō dà?', k: '올해 몇 살이에요?' },
+        { c: '我今年二十岁。', p: 'Wǒ jīnnián èrshí suì.', k: '저는 올해 스무 살이에요.' },
+        { c: '我比你大两岁。', p: 'Wǒ bǐ nǐ dà liǎng suì.', k: '저는 당신보다 두 살 많아요.' },
+      ]},
+      { t: '제7과 음식 (你想吃什么?)', s: [
+        { c: '你想吃什么?', p: 'Nǐ xiǎng chī shénme?', k: '뭘 드시고 싶으세요?' },
+        { c: '我想吃饺子。', p: 'Wǒ xiǎng chī jiǎozi.', k: '저는 만두 먹고 싶어요.' },
+        { c: '这个菜很好吃。', p: 'Zhège cài hěn hǎochī.', k: '이 요리 정말 맛있어요.' },
+      ]},
+      { t: '제8과 학교 (你在哪儿学习?)', s: [
+        { c: '你在哪儿学习?', p: 'Nǐ zài nǎr xuéxí?', k: '어디서 공부하세요?' },
+        { c: '我在大学学习。', p: 'Wǒ zài dàxué xuéxí.', k: '저는 대학교에서 공부해요.' },
+        { c: '我学汉语已经一年了。', p: 'Wǒ xué Hànyǔ yǐjīng yì nián le.', k: '중국어 공부한 지 1년 됐어요.' },
       ]},
     ],
   },
   2: {
     name: '마스터 2', sub: 'HSK 2 초급', color: '#3B82F6',
     lessons: [
-      { t: '제1과 가족', s: [
+      { t: '제1과 가족 (我家有四口人)', s: [
         { c: '我家有四口人。', p: 'Wǒ jiā yǒu sì kǒu rén.', k: '우리 가족은 네 명입니다.' },
         { c: '爸爸是医生。', p: 'Bàba shì yīshēng.', k: '아빠는 의사입니다.' },
         { c: '我有一个妹妹。', p: 'Wǒ yǒu yí ge mèimei.', k: '저는 여동생이 한 명 있어요.' },
       ]},
-      { t: '제2과 시간', s: [
+      { t: '제2과 시간 (现在几点?)', s: [
         { c: '现在几点?', p: 'Xiànzài jǐ diǎn?', k: '지금 몇 시예요?' },
         { c: '现在三点半。', p: 'Xiànzài sān diǎn bàn.', k: '지금 3시 반입니다.' },
         { c: '我每天七点起床。', p: 'Wǒ měi tiān qī diǎn qǐchuáng.', k: '저는 매일 7시에 일어나요.' },
       ]},
-      { t: '제3과 날씨', s: [
+      { t: '제3과 날씨 (今天天气怎么样?)', s: [
         { c: '今天天气真好!', p: 'Jīntiān tiānqì zhēn hǎo!', k: '오늘 날씨 정말 좋네요!' },
         { c: '北京冬天很冷。', p: 'Běijīng dōngtiān hěn lěng.', k: '베이징의 겨울은 매우 추워요.' },
         { c: '明天会下雨。', p: 'Míngtiān huì xià yǔ.', k: '내일 비가 올 거예요.' },
+      ]},
+      { t: '제4과 음식점 (来一个鱼香肉丝)', s: [
+        { c: '服务员, 我要点菜。', p: 'Fúwùyuán, wǒ yào diǎn cài.', k: '여기요, 주문할게요.' },
+        { c: '来一个鱼香肉丝, 一碗米饭。', p: 'Lái yí ge yúxiāngròusī, yì wǎn mǐfàn.', k: '위샹러우쓰 하나, 밥 한 공기 주세요.' },
+        { c: '请给我一杯茶。', p: 'Qǐng gěi wǒ yì bēi chá.', k: '차 한 잔 주세요.' },
+      ]},
+      { t: '제5과 교통 (你怎么去学校?)', s: [
+        { c: '你怎么去学校?', p: 'Nǐ zěnme qù xuéxiào?', k: '학교에 어떻게 가요?' },
+        { c: '我坐地铁上班。', p: 'Wǒ zuò dìtiě shàngbān.', k: '저는 지하철로 출근해요.' },
+        { c: '从这儿坐公交车要二十分钟。', p: 'Cóng zhèr zuò gōngjiāochē yào èrshí fēnzhōng.', k: '여기서 버스로 20분 걸려요.' },
+      ]},
+      { t: '제6과 옷 사기 (这件衣服多少钱?)', s: [
+        { c: '这件衣服多少钱?', p: 'Zhè jiàn yīfu duōshǎo qián?', k: '이 옷 얼마예요?' },
+        { c: '可以试一下吗?', p: 'Kěyǐ shì yíxià ma?', k: '한번 입어봐도 돼요?' },
+        { c: '有没有大一点儿的?', p: 'Yǒu méi yǒu dà yìdiǎnr de?', k: '좀 더 큰 거 있어요?' },
+      ]},
+      { t: '제7과 병원 (我有点儿不舒服)', s: [
+        { c: '我有点儿不舒服。', p: 'Wǒ yǒudiǎnr bù shūfu.', k: '몸이 좀 안 좋아요.' },
+        { c: '头疼、嗓子也疼。', p: 'Tóu téng, sǎngzi yě téng.', k: '머리 아프고 목도 아파요.' },
+        { c: '医生说我感冒了。', p: 'Yīshēng shuō wǒ gǎnmào le.', k: '의사가 감기라고 했어요.' },
+      ]},
+      { t: '제8과 약속 (周末有什么计划?)', s: [
+        { c: '周末有什么计划?', p: 'Zhōumò yǒu shénme jìhuà?', k: '주말에 무슨 계획 있어요?' },
+        { c: '我们一起去看电影吧。', p: 'Wǒmen yìqǐ qù kàn diànyǐng ba.', k: '같이 영화 보러 가요.' },
+        { c: '六点在地铁站门口见。', p: 'Liù diǎn zài dìtiězhàn ménkǒu jiàn.', k: '6시에 지하철역 입구에서 만나요.' },
       ]},
     ],
   },
@@ -317,64 +367,156 @@ const DARAKWON = {
   4: {
     name: '마스터 4', sub: 'HSK 4 중상', color: '#EC4899',
     lessons: [
-      { t: '제1과 직장 생활', s: [
+      { t: '제1과 직장 생활 (工作压力)', s: [
         { c: '我刚开始工作。', p: 'Wǒ gāng kāishǐ gōngzuò.', k: '저는 막 일을 시작했어요.' },
         { c: '工作压力很大。', p: 'Gōngzuò yālì hěn dà.', k: '업무 스트레스가 많아요.' },
         { c: '我希望换一个工作。', p: 'Wǒ xīwàng huàn yí ge gōngzuò.', k: '저는 직장을 옮기고 싶어요.' },
       ]},
-      { t: '제2과 건강', s: [
+      { t: '제2과 건강 (注意身体)', s: [
         { c: '我最近身体不太好。', p: 'Wǒ zuìjìn shēntǐ bú tài hǎo.', k: '최근에 몸이 좋지 않아요.' },
         { c: '医生让我多休息。', p: 'Yīshēng ràng wǒ duō xiūxi.', k: '의사가 푹 쉬라고 했어요.' },
         { c: '坚持运动对身体很好。', p: 'Jiānchí yùndòng duì shēntǐ hěn hǎo.', k: '운동을 꾸준히 하면 몸에 좋아요.' },
+      ]},
+      { t: '제3과 인터넷·SNS (网上购物)', s: [
+        { c: '现在大家都喜欢网上购物。', p: 'Xiànzài dàjiā dōu xǐhuan wǎngshàng gòuwù.', k: '요즘은 모두 온라인 쇼핑을 좋아해요.' },
+        { c: '我每天都用微信跟朋友聊天。', p: 'Wǒ měi tiān dōu yòng wēixìn gēn péngyǒu liáotiān.', k: '저는 매일 위챗으로 친구들과 채팅해요.' },
+        { c: '小心别上当受骗。', p: 'Xiǎoxīn bié shàngdàng shòupiàn.', k: '사기 당하지 않게 조심하세요.' },
+      ]},
+      { t: '제4과 여행 (准备旅游)', s: [
+        { c: '这次旅游你准备好了吗?', p: 'Zhè cì lǚyóu nǐ zhǔnbèi hǎo le ma?', k: '이번 여행 준비 다 됐어요?' },
+        { c: '我们打算坐高铁去上海。', p: 'Wǒmen dǎsuàn zuò gāotiě qù Shànghǎi.', k: '우리는 고속철로 상하이에 갈 거예요.' },
+        { c: '别忘了带护照和身份证。', p: 'Bié wàng le dài hùzhào hé shēnfènzhèng.', k: '여권과 신분증 챙기는 것 잊지 마세요.' },
+      ]},
+      { t: '제5과 환경 (空气污染)', s: [
+        { c: '今天的空气质量不太好。', p: 'Jīntiān de kōngqì zhìliàng bú tài hǎo.', k: '오늘 공기 질이 별로예요.' },
+        { c: '为了保护环境, 我们应该少开车。', p: 'Wèile bǎohù huánjìng, wǒmen yīnggāi shǎo kāichē.', k: '환경 보호를 위해 운전을 줄여야 해요.' },
+        { c: '垃圾分类是每个人的责任。', p: 'Lājī fēnlèi shì měi ge rén de zérèn.', k: '쓰레기 분리수거는 모두의 책임이에요.' },
+      ]},
+      { t: '제6과 성격 (人的性格)', s: [
+        { c: '他是个很开朗的人。', p: 'Tā shì ge hěn kāilǎng de rén.', k: '그는 매우 밝은 사람이에요.' },
+        { c: '她做事特别认真。', p: 'Tā zuòshì tèbié rènzhēn.', k: '그녀는 일을 매우 성실히 해요.' },
+        { c: '我不太喜欢爱抱怨的人。', p: 'Wǒ bú tài xǐhuan ài bàoyuàn de rén.', k: '저는 불평 많은 사람을 별로 좋아하지 않아요.' },
       ]},
     ],
   },
   5: {
     name: '마스터 5', sub: 'HSK 5 상급', color: '#A855F7',
     lessons: [
-      { t: '제1과 환경 보호', s: [
+      { t: '제1과 환경 보호 (节约资源)', s: [
         { c: '环境保护是每个人的责任。', p: 'Huánjìng bǎohù shì měi ge rén de zérèn.', k: '환경 보호는 모든 사람의 책임입니다.' },
         { c: '我们应该节约资源。', p: 'Wǒmen yīnggāi jiéyuē zīyuán.', k: '우리는 자원을 절약해야 해요.' },
+        { c: '减少使用一次性产品对环境很有帮助。', p: 'Jiǎnshǎo shǐyòng yícìxìng chǎnpǐn duì huánjìng hěn yǒu bāngzhù.', k: '일회용품 사용을 줄이는 것이 환경에 큰 도움이 됩니다.' },
       ]},
-      { t: '제2과 교육', s: [
+      { t: '제2과 교육 (因材施教)', s: [
         { c: '教育对孩子的未来非常重要。', p: 'Jiàoyù duì háizi de wèilái fēicháng zhòngyào.', k: '교육은 아이의 미래에 매우 중요해요.' },
         { c: '我赞成因材施教。', p: 'Wǒ zànchéng yīn cái shī jiào.', k: '저는 개별 맞춤 교육에 찬성합니다.' },
+        { c: '现代教育强调创造力的培养。', p: 'Xiàndài jiàoyù qiángdiào chuàngzàolì de péiyǎng.', k: '현대 교육은 창의력 양성을 강조합니다.' },
+      ]},
+      { t: '제3과 직업관 (理想职业)', s: [
+        { c: '选择职业要考虑兴趣和能力。', p: 'Xuǎnzé zhíyè yào kǎolǜ xìngqù hé nénglì.', k: '직업을 선택할 때 흥미와 능력을 고려해야 해요.' },
+        { c: '高薪不一定带来幸福。', p: 'Gāo xīn bù yídìng dàilái xìngfú.', k: '높은 연봉이 반드시 행복을 가져다주는 건 아니에요.' },
+        { c: '我希望从事一份有意义的工作。', p: 'Wǒ xīwàng cóngshì yí fèn yǒu yìyì de gōngzuò.', k: '저는 의미 있는 일을 하고 싶어요.' },
+      ]},
+      { t: '제4과 경제 (消费观念)', s: [
+        { c: '年轻人的消费观念正在改变。', p: 'Niánqīngrén de xiāofèi guānniàn zhèngzài gǎibiàn.', k: '젊은이들의 소비 관념이 바뀌고 있어요.' },
+        { c: '理性消费才是明智的选择。', p: 'Lǐxìng xiāofèi cái shì míngzhì de xuǎnzé.', k: '이성적 소비야말로 현명한 선택입니다.' },
+        { c: '储蓄和投资同样重要。', p: 'Chúxù hé tóuzī tóngyàng zhòngyào.', k: '저축과 투자는 똑같이 중요해요.' },
+      ]},
+      { t: '제5과 문화 (传统与现代)', s: [
+        { c: '传统文化是民族的精神财富。', p: 'Chuántǒng wénhuà shì mínzú de jīngshén cáifù.', k: '전통문화는 민족의 정신적 자산입니다.' },
+        { c: '我们要在继承中创新。', p: 'Wǒmen yào zài jìchéng zhōng chuàngxīn.', k: '우리는 계승 속에서 혁신해야 합니다.' },
+        { c: '中韩文化交流越来越频繁。', p: 'Zhōng Hán wénhuà jiāoliú yuè lái yuè pínfán.', k: '중한 문화 교류가 점점 활발해지고 있어요.' },
       ]},
     ],
   },
   6: {
     name: '마스터 6', sub: 'HSK 6 원어민', color: '#06B6D4',
     lessons: [
-      { t: '제1과 문화 비교', s: [
+      { t: '제1과 문화 비교 (中韩文化)', s: [
         { c: '中韩两国文化既有共同点, 也有差异。', p: 'Zhōng Hán liǎng guó wénhuà jì yǒu gòngtóng diǎn, yě yǒu chāyì.', k: '중한 양국 문화는 공통점도 있고 차이도 있어요.' },
         { c: '不同的角度看, 答案就不一样。', p: 'Bù tóng de jiǎodù kàn, dá\'àn jiù bù yíyàng.', k: '다른 관점에서 보면 답이 달라져요.' },
+        { c: '理解他国文化需要包容和耐心。', p: 'Lǐjiě tā guó wénhuà xūyào bāoróng hé nàixīn.', k: '타국 문화를 이해하려면 포용과 인내가 필요해요.' },
+      ]},
+      { t: '제2과 사회 이슈 (社会议题)', s: [
+        { c: '老龄化已经成为全球性问题。', p: 'Lǎolínghuà yǐjīng chéngwéi quánqiúxìng wèntí.', k: '고령화는 이미 전 세계적 문제가 되었어요.' },
+        { c: '贫富差距引发了诸多社会矛盾。', p: 'Pínfù chājù yǐnfā le zhūduō shèhuì máodùn.', k: '빈부 격차가 수많은 사회 갈등을 야기했어요.' },
+        { c: '解决问题的关键在于制度改革。', p: 'Jiějué wèntí de guānjiàn zàiyú zhìdù gǎigé.', k: '문제 해결의 관건은 제도 개혁에 있습니다.' },
+      ]},
+      { t: '제3과 과학기술 (人工智能)', s: [
+        { c: '人工智能正在重塑各个行业。', p: 'Réngōng zhìnéng zhèngzài chóngsù gège hángyè.', k: '인공지능이 모든 산업을 재편하고 있어요.' },
+        { c: '技术进步带来便利, 也带来挑战。', p: 'Jìshù jìnbù dàilái biànlì, yě dàilái tiǎozhàn.', k: '기술 진보는 편리함과 함께 도전도 가져옵니다.' },
+        { c: '我们必须思考技术伦理的边界。', p: 'Wǒmen bìxū sīkǎo jìshù lúnlǐ de biānjiè.', k: '우리는 기술 윤리의 경계를 고민해야 합니다.' },
+      ]},
+      { t: '제4과 글로벌 이슈 (全球化)', s: [
+        { c: '全球化推动了世界经济的融合。', p: 'Quánqiúhuà tuīdòng le shìjiè jīngjì de rónghé.', k: '세계화는 세계 경제의 융합을 추진했어요.' },
+        { c: '气候变化是人类共同面临的挑战。', p: 'Qìhòu biànhuà shì rénlèi gòngtóng miànlín de tiǎozhàn.', k: '기후 변화는 인류가 공동으로 직면한 도전입니다.' },
+        { c: '国际合作是解决全球问题的必由之路。', p: 'Guójì hézuò shì jiějué quánqiú wèntí de bì yóu zhī lù.', k: '국제 협력은 글로벌 문제 해결의 필연적 길입니다.' },
       ]},
     ],
   },
 };
 
-/* Lv 1~20 — 학원 자체 단계별 핵심 문장 (각 레벨 3개) */
 const LV_SENTENCES = {
   1:  [{ c:'你好!', p:'Nǐ hǎo!', k:'안녕!' }, { c:'谢谢。', p:'Xièxie.', k:'감사합니다.' }, { c:'再见。', p:'Zàijiàn.', k:'안녕히 가세요.' }],
   2:  [{ c:'我是学生。', p:'Wǒ shì xuéshēng.', k:'저는 학생입니다.' }, { c:'他是老师。', p:'Tā shì lǎoshī.', k:'그는 선생님입니다.' }, { c:'你好吗?', p:'Nǐ hǎo ma?', k:'잘 지내요?' }],
-  3:  [{ c:'我叫小明。', p:'Wǒ jiào Xiǎo Míng.', k:'저는 샤오밍입니다.' }, { c:'认识你很高兴。', p:'Rènshi nǐ hěn gāoxìng.', k:'만나서 반가워요.' }],
-  4:  [{ c:'我家有五口人。', p:'Wǒ jiā yǒu wǔ kǒu rén.', k:'우리 집은 5명입니다.' }, { c:'我有一个哥哥。', p:'Wǒ yǒu yí ge gēge.', k:'저는 형이 한 명 있어요.' }],
-  5:  [{ c:'现在几点?', p:'Xiànzài jǐ diǎn?', k:'지금 몇 시예요?' }, { c:'今天星期几?', p:'Jīntiān xīngqī jǐ?', k:'오늘 무슨 요일이에요?' }],
-  6:  [{ c:'我喜欢看电影。', p:'Wǒ xǐhuan kàn diànyǐng.', k:'저는 영화 보는 걸 좋아해요.' }, { c:'我会说一点儿汉语。', p:'Wǒ huì shuō yìdiǎnr Hànyǔ.', k:'중국어 조금 할 줄 알아요.' }],
-  7:  [{ c:'这个多少钱?', p:'Zhège duōshǎo qián?', k:'이거 얼마예요?' }, { c:'太贵了, 便宜一点儿。', p:'Tài guì le, piányi yìdiǎnr.', k:'너무 비싸요, 좀 깎아주세요.' }],
-  8:  [{ c:'我去过北京。', p:'Wǒ qù guò Běijīng.', k:'베이징에 가본 적 있어요.' }, { c:'你吃过中国菜吗?', p:'Nǐ chī guò Zhōngguó cài ma?', k:'중국 요리 먹어본 적 있어요?' }],
-  9:  [{ c:'明天我要上班。', p:'Míngtiān wǒ yào shàngbān.', k:'내일 출근해야 해요.' }, { c:'我打算下周去旅游。', p:'Wǒ dǎsuàn xià zhōu qù lǚyóu.', k:'다음 주에 여행 갈 예정이에요.' }],
-  10: [{ c:'今天比昨天热。', p:'Jīntiān bǐ zuótiān rè.', k:'오늘이 어제보다 더워요.' }, { c:'我觉得汉语很有意思。', p:'Wǒ juéde Hànyǔ hěn yǒuyìsi.', k:'저는 중국어가 재미있다고 생각해요.' }],
-  11: [{ c:'虽然下雨, 但是我还要去。', p:'Suīrán xià yǔ, dànshì wǒ hái yào qù.', k:'비가 와도 갈 거예요.' }],
-  12: [{ c:'因为工作忙, 所以没时间。', p:'Yīnwèi gōngzuò máng, suǒyǐ méi shíjiān.', k:'일이 바빠서 시간이 없어요.' }],
-  13: [{ c:'如果有机会, 我想去中国留学。', p:'Rúguǒ yǒu jīhuì, wǒ xiǎng qù Zhōngguó liúxué.', k:'기회가 있다면 중국에 유학 가고 싶어요.' }],
-  14: [{ c:'随着经济发展, 生活水平越来越高。', p:'Suízhe jīngjì fāzhǎn, shēnghuó shuǐpíng yuè lái yuè gāo.', k:'경제 발전과 함께 생활 수준이 점점 높아지고 있어요.' }],
-  15: [{ c:'无论遇到什么困难, 都不要放弃。', p:'Wúlùn yùdào shénme kùnnán, dōu bú yào fàngqì.', k:'어떤 어려움이 있어도 포기하지 마세요.' }],
-  16: [{ c:'尽管他很努力, 还是失败了。', p:'Jǐnguǎn tā hěn nǔlì, háishi shībài le.', k:'그가 열심히 했지만 실패했어요.' }],
-  17: [{ c:'从语言学的角度来看, 汉语属于汉藏语系。', p:'Cóng yǔyánxué de jiǎodù lái kàn, Hànyǔ shǔyú Hàn-Zàng yǔxì.', k:'언어학적 관점에서 중국어는 한장어계에 속합니다.' }],
-  18: [{ c:'国际贸易促进了各国之间的经济合作。', p:'Guójì màoyì cùjìn le gè guó zhī jiān de jīngjì hézuò.', k:'국제 무역은 각국 간의 경제 협력을 촉진했어요.' }],
-  19: [{ c:'科技的发展深刻地改变了人类的生活方式。', p:'Kējì de fāzhǎn shēnkè de gǎibiàn le rénlèi de shēnghuó fāngshì.', k:'과학기술의 발전은 인류의 생활 방식을 깊이 바꿨어요.' }],
-  20: [{ c:'文化的多样性是人类文明最宝贵的财富之一。', p:'Wénhuà de duōyàngxìng shì rénlèi wénmíng zuì bǎoguì de cáifù zhī yī.', k:'문화의 다양성은 인류 문명에서 가장 귀중한 자산 중 하나입니다.' }],
+  3:  [{ c:'我叫小明。', p:'Wǒ jiào Xiǎo Míng.', k:'저는 샤오밍입니다.' }, { c:'认识你很高兴。', p:'Rènshi nǐ hěn gāoxìng.', k:'만나서 반가워요.' }, { c:'你叫什么名字?', p:'Nǐ jiào shénme míngzi?', k:'이름이 뭐예요?' }],
+  4:  [{ c:'我家有五口人。', p:'Wǒ jiā yǒu wǔ kǒu rén.', k:'우리 집은 5명입니다.' }, { c:'我有一个哥哥。', p:'Wǒ yǒu yí ge gēge.', k:'저는 형이 한 명 있어요.' }, { c:'爸爸是老师。', p:'Bàba shì lǎoshī.', k:'아빠는 선생님입니다.' }],
+  5:  [{ c:'现在几点?', p:'Xiànzài jǐ diǎn?', k:'지금 몇 시예요?' }, { c:'今天星期几?', p:'Jīntiān xīngqī jǐ?', k:'오늘 무슨 요일이에요?' }, { c:'我七点起床。', p:'Wǒ qī diǎn qǐchuáng.', k:'저는 7시에 일어나요.' }],
+  6:  [{ c:'我喜欢看电影。', p:'Wǒ xǐhuan kàn diànyǐng.', k:'저는 영화 보는 걸 좋아해요.' }, { c:'我会说一点儿汉语。', p:'Wǒ huì shuō yìdiǎnr Hànyǔ.', k:'중국어 조금 할 줄 알아요.' }, { c:'你喜欢什么运动?', p:'Nǐ xǐhuan shénme yùndòng?', k:'어떤 운동을 좋아하세요?' }],
+  7:  [{ c:'这个多少钱?', p:'Zhège duōshǎo qián?', k:'이거 얼마예요?' }, { c:'太贵了, 便宜一点儿。', p:'Tài guì le, piányi yìdiǎnr.', k:'너무 비싸요, 좀 깎아주세요.' }, { c:'我要这个。', p:'Wǒ yào zhège.', k:'이걸로 할게요.' }],
+  8:  [{ c:'我去过北京。', p:'Wǒ qù guò Běijīng.', k:'베이징에 가본 적 있어요.' }, { c:'你吃过中国菜吗?', p:'Nǐ chī guò Zhōngguó cài ma?', k:'중국 요리 먹어본 적 있어요?' }, { c:'我学了三年汉语了。', p:'Wǒ xué le sān nián Hànyǔ le.', k:'중국어 공부한 지 3년 됐어요.' }],
+  9:  [{ c:'明天我要上班。', p:'Míngtiān wǒ yào shàngbān.', k:'내일 출근해야 해요.' }, { c:'我打算下周去旅游。', p:'Wǒ dǎsuàn xià zhōu qù lǚyóu.', k:'다음 주에 여행 갈 예정이에요.' }, { c:'我们一起吃饭吧。', p:'Wǒmen yìqǐ chīfàn ba.', k:'우리 같이 밥 먹어요.' }],
+  10: [{ c:'今天比昨天热。', p:'Jīntiān bǐ zuótiān rè.', k:'오늘이 어제보다 더워요.' }, { c:'我觉得汉语很有意思。', p:'Wǒ juéde Hànyǔ hěn yǒuyìsi.', k:'중국어가 재미있다고 생각해요.' }, { c:'他比我大两岁。', p:'Tā bǐ wǒ dà liǎng suì.', k:'그는 저보다 두 살 많아요.' }],
+  11: [
+    { c:'虽然下雨, 但是我还要去。', p:'Suīrán xià yǔ, dànshì wǒ hái yào qù.', k:'비가 와도 갈 거예요.' },
+    { c:'他不但聪明, 而且很努力。', p:'Tā búdàn cōngming, érqiě hěn nǔlì.', k:'그는 똑똑할 뿐 아니라 노력도 많이 해요.' },
+    { c:'我一边听音乐, 一边做作业。', p:'Wǒ yìbiān tīng yīnyuè, yìbiān zuò zuòyè.', k:'음악을 들으면서 숙제를 해요.' },
+  ],
+  12: [
+    { c:'因为工作忙, 所以没时间。', p:'Yīnwèi gōngzuò máng, suǒyǐ méi shíjiān.', k:'일이 바빠서 시간이 없어요.' },
+    { c:'只有努力学习, 才能进步。', p:'Zhǐyǒu nǔlì xuéxí, cái néng jìnbù.', k:'열심히 공부해야만 발전할 수 있어요.' },
+    { c:'即使你不来, 我也要去。', p:'Jíshǐ nǐ bù lái, wǒ yě yào qù.', k:'네가 안 와도 나는 갈 거야.' },
+  ],
+  13: [
+    { c:'如果有机会, 我想去中国留学。', p:'Rúguǒ yǒu jīhuì, wǒ xiǎng qù Zhōngguó liúxué.', k:'기회가 있다면 중국에 유학 가고 싶어요.' },
+    { c:'只要坚持下去, 就一定能成功。', p:'Zhǐyào jiānchí xiàqù, jiù yídìng néng chénggōng.', k:'꾸준히 하기만 하면 반드시 성공해요.' },
+    { c:'我宁愿走路, 也不坐地铁。', p:'Wǒ nìngyuàn zǒulù, yě bú zuò dìtiě.', k:'걸을지언정 지하철은 안 타요.' },
+  ],
+  14: [
+    { c:'随着经济发展, 生活水平越来越高。', p:'Suízhe jīngjì fāzhǎn, shēnghuó shuǐpíng yuè lái yuè gāo.', k:'경제 발전과 함께 생활 수준이 점점 높아지고 있어요.' },
+    { c:'这部电影越看越有意思。', p:'Zhè bù diànyǐng yuè kàn yuè yǒu yìsi.', k:'이 영화는 볼수록 재미있어요.' },
+    { c:'除了汉语以外, 他还会日语和英语。', p:'Chúle Hànyǔ yǐwài, tā hái huì Rìyǔ hé Yīngyǔ.', k:'중국어 외에도 그는 일본어와 영어도 할 줄 알아요.' },
+  ],
+  15: [
+    { c:'无论遇到什么困难, 都不要放弃。', p:'Wúlùn yùdào shénme kùnnán, dōu bú yào fàngqì.', k:'어떤 어려움이 있어도 포기하지 마세요.' },
+    { c:'与其抱怨, 不如行动。', p:'Yǔqí bàoyuàn, bùrú xíngdòng.', k:'불평하느니 행동하는 게 나아요.' },
+    { c:'不管你信不信, 这是真的。', p:'Bùguǎn nǐ xìn bu xìn, zhè shì zhēn de.', k:'네가 믿든 안 믿든 이건 사실이야.' },
+  ],
+  16: [
+    { c:'尽管他很努力, 还是失败了。', p:'Jǐnguǎn tā hěn nǔlì, háishi shībài le.', k:'그가 열심히 했지만 실패했어요.' },
+    { c:'与此同时, 市场也发生了巨大变化。', p:'Yǔ cǐ tóngshí, shìchǎng yě fāshēng le jùdà biànhuà.', k:'이와 동시에 시장에도 큰 변화가 일어났어요.' },
+    { c:'换句话说, 我们需要改变策略。', p:'Huàn jù huà shuō, wǒmen xūyào gǎibiàn cèlüè.', k:'다시 말해 우리는 전략을 바꿔야 합니다.' },
+  ],
+  17: [
+    { c:'从语言学的角度来看, 汉语属于汉藏语系。', p:'Cóng yǔyánxué de jiǎodù lái kàn, Hànyǔ shǔyú Hàn-Zàng yǔxì.', k:'언어학적 관점에서 중국어는 한장어계에 속합니다.' },
+    { c:'就目前的情况而言, 短期内不会有大的变化。', p:'Jiù mùqián de qíngkuàng éryán, duǎnqī nèi bú huì yǒu dà de biànhuà.', k:'현 상황으로 볼 때 단기간 내에 큰 변화는 없을 거예요.' },
+    { c:'这个理论引发了学术界的广泛讨论。', p:'Zhège lǐlùn yǐnfā le xuéshùjiè de guǎngfàn tǎolùn.', k:'이 이론은 학계의 광범위한 논의를 불러일으켰어요.' },
+  ],
+  18: [
+    { c:'国际贸易促进了各国之间的经济合作。', p:'Guójì màoyì cùjìn le gè guó zhī jiān de jīngjì hézuò.', k:'국제 무역은 각국 간의 경제 협력을 촉진했어요.' },
+    { c:'全球化对中小企业既是机遇也是挑战。', p:'Quánqiúhuà duì zhōngxiǎo qǐyè jì shì jīyù yě shì tiǎozhàn.', k:'세계화는 중소기업에게 기회이자 도전입니다.' },
+    { c:'可持续发展已成为各国共同关注的议题。', p:'Kěchíxù fāzhǎn yǐ chéngwéi gè guó gòngtóng guānzhù de yìtí.', k:'지속 가능한 발전은 각국이 공통으로 주목하는 의제가 되었어요.' },
+  ],
+  19: [
+    { c:'科技的发展深刻地改变了人类的生活方式。', p:'Kējì de fāzhǎn shēnkè de gǎibiàn le rénlèi de shēnghuó fāngshì.', k:'과학기술의 발전은 인류의 생활 방식을 깊이 바꿨어요.' },
+    { c:'人工智能正在重塑各个行业的未来。', p:'Réngōng zhìnéng zhèngzài chóngsù gège hángyè de wèilái.', k:'인공지능은 모든 산업의 미래를 새롭게 빚어가고 있어요.' },
+    { c:'我们必须在效率与公平之间寻找平衡。', p:'Wǒmen bìxū zài xiàolǜ yǔ gōngpíng zhī jiān xúnzhǎo pínghéng.', k:'우리는 효율과 공정 사이에서 균형을 찾아야 합니다.' },
+  ],
+  20: [
+    { c:'文化的多样性是人类文明最宝贵的财富之一。', p:'Wénhuà de duōyàngxìng shì rénlèi wénmíng zuì bǎoguì de cáifù zhī yī.', k:'문화의 다양성은 인류 문명에서 가장 귀중한 자산 중 하나입니다.' },
+    { c:'唯有理解差异, 方能实现真正的共存。', p:'Wéi yǒu lǐjiě chāyì, fāng néng shíxiàn zhēnzhèng de gòngcún.', k:'차이를 이해해야만 진정한 공존을 실현할 수 있어요.' },
+    { c:'语言不仅是沟通工具, 更是思想的载体。', p:'Yǔyán bùjǐn shì gōutōng gōngjù, gèng shì sīxiǎng de zàitǐ.', k:'언어는 단순한 소통 도구가 아니라 사상의 그릇입니다.' },
+  ],
 };
 
 let state = {
@@ -394,7 +536,7 @@ function renderDarakwon(){
   Object.entries(DARAKWON).forEach(([k, v]) => {
     const b = document.createElement('button');
     b.className = 'lvl-btn' + (Number(k) === state.darakwonBook ? ' active' : '');
-    b.innerHTML = `<span class="num">${k}</span><span class="lbl">${v.name}<br>${v.sub}</span>`;
+    b.innerHTML = '<span class="num">' + k + '</span><span class="lbl">' + v.name + '<br>' + v.sub + '</span>';
     b.onclick = () => { state.darakwonBook = Number(k); state.lessonIdx = 0; renderDarakwon(); renderLessons(); pickRandom(); };
     grid.appendChild(b);
   });
@@ -408,7 +550,7 @@ function renderLessons(){
   book.lessons.forEach((l, i) => {
     const b = document.createElement('button');
     b.className = 'lesson-btn' + (i === state.lessonIdx ? ' active' : '');
-    b.innerHTML = `<span class="l-num">${i+1}</span>${l.t.replace(/제\d+과\s*/,'')}`;
+    b.innerHTML = '<span class="l-num">' + (i+1) + '</span>' + l.t.replace(/제\d+과\s*/, '');
     b.onclick = () => { state.lessonIdx = i; renderLessons(); pickRandom(); };
     grid.appendChild(b);
   });
@@ -422,7 +564,7 @@ function renderLv(){
     const b = document.createElement('button');
     b.className = 'lvl-btn' + (i === state.lv ? ' active' : '');
     const lbl = i <= 4 ? '입문' : i <= 8 ? '초급' : i <= 12 ? '중급' : i <= 16 ? '상급' : '원어민';
-    b.innerHTML = `<span class="num">Lv ${i}</span><span class="lbl">${lbl}</span>`;
+    b.innerHTML = '<span class="num">Lv ' + i + '</span><span class="lbl">' + lbl + '</span>';
     b.onclick = () => { state.lv = i; renderLv(); pickRandom(); };
     grid.appendChild(b);
   }
@@ -444,7 +586,7 @@ function pickRandom(){
   document.getElementById('cn-pinyin').textContent = item.p;
   document.getElementById('cn-korean').textContent = item.k;
   state.attempt = 1;
-  document.getElementById('progress').textContent = `시도 ${state.attempt}/3 · 버튼을 눌러 녹음을 시작하세요`;
+  document.getElementById('progress').textContent = '시도 ' + state.attempt + '/3 · 버튼을 눌러 녹음을 시작하세요';
   document.getElementById('result').classList.remove('show');
 }
 
@@ -457,7 +599,6 @@ function speak(){
   u.lang = 'zh-CN';
   u.rate = state.speed;
   u.pitch = 1;
-  // 가능한 중국어 음성 선택
   const voices = speechSynthesis.getVoices();
   const cn = voices.find(v => /zh|chinese|mandarin/i.test(v.lang + ' ' + v.name));
   if (cn) u.voice = cn;
@@ -484,7 +625,6 @@ function startRecord(){
     const said = e.results[0][0].transcript.trim();
     const target = document.getElementById('cn-text').textContent.replace(/[,.。?!?!]/g, '').trim();
     const saidClean = said.replace(/[,.。?!?!]/g, '').trim();
-    // 간단 비교 — 글자 일치율
     let match = 0;
     for (let i = 0; i < target.length; i++) {
       if (saidClean.includes(target[i])) match++;
@@ -509,12 +649,12 @@ function showResult(score, said){
   r.classList.add('show');
   document.getElementById('score').textContent = score + '점';
   let fb = '';
-  if (score >= 85) fb = `✅ 정말 잘했어요! 원어민처럼 정확해요.\n인식: "${said}"`;
-  else if (score >= 60) fb = `👍 잘했어요! 조금만 더 또박또박.\n인식: "${said}"`;
-  else fb = `💪 다시 한번 도전!\n원어민 발음을 다시 들어보세요.\n인식: "${said}"`;
+  if (score >= 85) fb = '✅ 정말 잘했어요! 원어민처럼 정확해요.\n인식: "' + said + '"';
+  else if (score >= 60) fb = '👍 잘했어요! 조금만 더 또박또박.\n인식: "' + said + '"';
+  else fb = '💪 다시 한번 도전!\n원어민 발음을 다시 들어보세요.\n인식: "' + said + '"';
   document.getElementById('feedback').textContent = fb;
   state.attempt = Math.min(3, state.attempt + 1);
-  document.getElementById('progress').textContent = `시도 ${state.attempt}/3`;
+  document.getElementById('progress').textContent = '시도 ' + state.attempt + '/3';
 }
 
 /* ── 그룹 토글 ── */
@@ -544,7 +684,6 @@ renderLessons();
 renderLv();
 pickRandom();
 
-// TTS 보이스 비동기 로딩 트리거
 if ('speechSynthesis' in window) speechSynthesis.getVoices();
 
 console.log('[speech-coach-cn] 중국어 발음 교정 활성 — 다락원 마스터 + Lv 1~20');

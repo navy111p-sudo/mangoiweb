@@ -18789,7 +18789,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260528063610 -->
+        <!-- BUILD:20260528065323 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -34031,6 +34031,91 @@ button.chip:hover,
   setTimeout(init, 500);
 
   console.log('[ph156] 교재 라이브러리 중국어 (HSK 1~6) 추가 활성');
+})();
+</script>
+
+
+<!-- ============================================================
+     Phase 157 (2026-05-28) - CN Speech Coach entry card
+     · 좌측 사이드바 + 본문 우상단 빠른 진입 버튼 추가
+     · speech-coach-cn.html (다락원 마스터 + Lv 1~20) 로 이동
+     ============================================================ -->
+<style id="ph157-cn-speech-coach-style">
+  #ph157-cn-coach-sidebar {
+    display: block; margin: 12px 14px; padding: 12px 14px;
+    background: linear-gradient(135deg, #DC2626 0%, #F59E0B 100%);
+    border-radius: 12px; cursor: pointer;
+    box-shadow: 0 8px 18px -6px rgba(220, 38, 38, 0.45);
+    text-decoration: none; color: #fff; font-weight: 700;
+    transition: transform .15s, box-shadow .15s;
+    border: 0; width: calc(100% - 28px); text-align: left;
+    font-family: -apple-system, "Pretendard", "Noto Sans KR", sans-serif;
+  }
+  #ph157-cn-coach-sidebar:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 24px -8px rgba(220, 38, 38, 0.6);
+  }
+  #ph157-cn-coach-sidebar .row-1 { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  #ph157-cn-coach-sidebar .row-2 { margin-top: 4px; font-size: 11.5px; opacity: 0.92; font-weight: 600; }
+  #ph157-cn-coach-sidebar .ic { font-size: 18px; }
+  #ph157-cn-coach-sidebar .badge {
+    margin-left: auto; padding: 2px 7px; background: rgba(255,255,255,0.25);
+    border-radius: 99px; font-size: 10px; font-weight: 800; letter-spacing: 0.3px;
+  }
+  #ph157-cn-coach-fab {
+    position: fixed; right: 16px; bottom: 80px; z-index: 9999;
+    padding: 10px 16px 10px 12px; border: 0; border-radius: 99px;
+    background: linear-gradient(135deg, #DC2626, #F59E0B); color: #fff;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    box-shadow: 0 8px 20px -6px rgba(220, 38, 38, 0.55);
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: -apple-system, "Pretendard", "Noto Sans KR", sans-serif;
+    transition: transform .15s, box-shadow .15s;
+  }
+  #ph157-cn-coach-fab:hover { transform: translateY(-2px); box-shadow: 0 14px 28px -8px rgba(220, 38, 38, 0.7); }
+  @media (max-width: 600px) {
+    #ph157-cn-coach-fab { font-size: 12px; padding: 9px 14px 9px 10px; bottom: 76px; right: 12px; }
+  }
+</style>
+
+<button type="button" id="ph157-cn-coach-fab"
+        onclick="location.href='/speech-coach-cn.html'"
+        title="중국어 발음 코치 (다락원 마스터 + Lv 1~20)"
+        aria-label="중국어 발음 코치">
+  <span style="font-size:15px">CN</span>
+  <span data-ko="중국어 발음 코치" data-en="CN Voice Coach">중국어 발음 코치</span>
+</button>
+
+<script id="ph157-cn-coach-sidebar-inject">
+(function(){
+  'use strict';
+  function injectSidebarCard(){
+    if (document.getElementById('ph157-cn-coach-sidebar')) return true;
+    var sidebar = document.getElementById('ph85-sidebar') || document.getElementById('admin-sidebar');
+    if (!sidebar) return false;
+    var card = document.createElement('a');
+    card.id = 'ph157-cn-coach-sidebar';
+    card.href = '/speech-coach-cn.html';
+    card.innerHTML = '<div class="row-1"><span class="ic">CN</span><span>중국어 발음 코치</span><span class="badge">NEW</span></div><div class="row-2">다락원 마스터 · Lv 1~20 · AI 평가</div>';
+    var firstChild = sidebar.firstElementChild;
+    var anchor = sidebar.querySelector('.sidebar-search, .sidebar-header, .sidebar-toolbar');
+    if (anchor && anchor.parentNode) {
+      anchor.parentNode.insertBefore(card, anchor.nextSibling);
+    } else if (firstChild) {
+      sidebar.insertBefore(card, firstChild);
+    } else {
+      sidebar.appendChild(card);
+    }
+    return true;
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', injectSidebarCard);
+  else injectSidebarCard();
+  var tries = 0;
+  var iv = setInterval(function(){
+    tries++;
+    if (injectSidebarCard() || tries > 20) clearInterval(iv);
+  }, 400);
+  console.log('[ph157] CN coach entry card active (sidebar + FAB)');
 })();
 </script>
 
