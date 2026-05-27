@@ -18732,7 +18732,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260528052407 -->
+        <!-- BUILD:20260528053001 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -33754,6 +33754,75 @@ button.chip:hover,
   setTimeout(hide, 1200);
   setTimeout(hide, 3000);
   console.log('[ph151] ph85-sidebar + menu-toggle-bar 모바일 숨김 활성');
+})();
+</script>
+
+
+<!-- ============================================================
+     Phase 152 (2026-05-28) — ph85-sidebar 를 토글 대상으로 변경
+     · admin-sidebar 는 비어있음 → 진짜 메뉴가 든 #ph85-sidebar 활용
+     · ph150 토글 (좌상단 ☰) 이 ph85-sidebar 슬라이드 인/아웃
+     · 빈 admin-sidebar 모바일 숨김 / ph85-sidebar 표시
+     ============================================================ -->
+<style id="ph152-ph85-toggle">
+  @media (max-width: 920px) {
+    /* 빈 admin-sidebar 모바일 숨김 */
+    #admin-sidebar, .admin-sidebar, aside.admin-sidebar {
+      display: none !important;
+    }
+    /* ph85-sidebar — 메뉴가 든 진짜 사이드바 (ph151 이 숨긴 거 다시 표시) */
+    #ph85-sidebar, aside#ph85-sidebar {
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      position: fixed !important;
+      top: 0 !important; left: 0 !important; bottom: 0 !important;
+      width: 280px !important; max-width: 80vw !important;
+      height: 100vh !important;
+      z-index: 99950 !important;
+      background: rgba(11, 18, 36, 0.92) !important;
+      -webkit-backdrop-filter: blur(18px) saturate(160%) !important;
+              backdrop-filter: blur(18px) saturate(160%) !important;
+      border-right: 1px solid rgba(96, 165, 250, 0.18) !important;
+      box-shadow: 4px 0 24px rgba(0,0,0,0.55) !important;
+      transform: translateX(-100%) !important;
+      transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1) !important;
+      overflow-y: auto !important;
+      padding-top: 60px !important;
+      pointer-events: auto !important;
+    }
+    body.ph150-open #ph85-sidebar,
+    body.ph150-open aside#ph85-sidebar {
+      transform: translateX(0) !important;
+    }
+  }
+</style>
+<script id="ph152-ph85-toggle-js">
+(function(){
+  'use strict';
+  function fix(){
+    if (!window.matchMedia('(max-width: 920px)').matches) return;
+    // admin-sidebar 숨김
+    var as = document.getElementById('admin-sidebar');
+    if (as) as.style.setProperty('display','none','important');
+    // ph85-sidebar 강제 표시 + 토글 적용
+    var ps = document.getElementById('ph85-sidebar');
+    if (ps) {
+      ps.style.setProperty('display','block','important');
+      ps.style.setProperty('visibility','visible','important');
+      ps.style.setProperty('opacity','1','important');
+      var open = document.body.classList.contains('ph150-open');
+      ps.style.setProperty('transform', open ? 'translateX(0)' : 'translateX(-100%)', 'important');
+    }
+  }
+  // 매번 ph150 토글 시 sync
+  try {
+    new MutationObserver(fix).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  } catch(e){}
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fix);
+  else fix();
+  setInterval(fix, 500);
+  console.log('[ph152] ph85-sidebar 를 ph150 토글 대상으로 통합');
 })();
 </script>
 
