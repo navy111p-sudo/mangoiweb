@@ -18732,7 +18732,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260528051848 -->
+        <!-- BUILD:20260528052407 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -33698,6 +33698,62 @@ button.chip:hover,
   setTimeout(init, 1200);
 
   console.log('[ph150] 깨끗한 통합 사이드바 활성 — 반투명 + 본문 그대로 사용 가능');
+})();
+</script>
+
+
+<!-- ============================================================
+     Phase 151 (2026-05-28) — ph85-sidebar + 본문 메뉴바 모두 모바일 숨김
+     · #ph85-sidebar (두 번째 사이드바) 숨김
+     · #ph85-toggle (메뉴 숨기기 버튼) 숨김
+     · .menu-toggle-bar (본문 hero 안의 모두 펼치기/접기) 숨김
+     · 본문 hero 의 ph85 관련 모든 inline element 숨김
+     ============================================================ -->
+<style id="ph151-hide-secondary">
+  @media (max-width: 920px) {
+    /* 두 번째 사이드바 (ph85) 와 그 토글 + 본문 메뉴바 모두 숨김 */
+    #ph85-sidebar,
+    aside#ph85-sidebar,
+    #ph85-toggle,
+    .menu-toggle-bar,
+    #legacy-toggle,
+    .ph85-toggle-wrap,
+    .sidebar-fixed-toggle,
+    .ph85-brand-floating {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      width: 0 !important;
+      height: 0 !important;
+      position: absolute !important;
+      left: -99999px !important;
+    }
+  }
+</style>
+<script id="ph151-hide-secondary-js">
+(function(){
+  'use strict';
+  function hide(){
+    if (!window.matchMedia('(max-width: 920px)').matches) return;
+    var ids = ['ph85-sidebar','ph85-toggle','legacy-toggle'];
+    ids.forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) {
+        el.style.setProperty('display','none','important');
+        el.style.setProperty('visibility','hidden','important');
+      }
+    });
+    document.querySelectorAll('.menu-toggle-bar, .ph85-toggle-wrap, .sidebar-fixed-toggle, .ph85-brand-floating').forEach(function(el){
+      el.style.setProperty('display','none','important');
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hide);
+  else hide();
+  setTimeout(hide, 400);
+  setTimeout(hide, 1200);
+  setTimeout(hide, 3000);
+  console.log('[ph151] ph85-sidebar + menu-toggle-bar 모바일 숨김 활성');
 })();
 </script>
 
