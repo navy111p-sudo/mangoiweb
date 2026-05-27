@@ -18729,7 +18729,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260528022140 -->
+        <!-- BUILD:20260528022833 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -32551,6 +32551,107 @@ button.chip:hover,
   }, 5000);
 
   console.log('[ph136] 모바일 사이드바 강제 숨김 fix 활성');
+})();
+</script>
+
+
+<!-- ============================================================
+     Phase 138 (2026-05-28) — 사이드바 큰 ✕ 닫기 버튼 + 본문 영역 즉시 닫기
+     · 사이드바 우상단에 빨간 ✕ 큰 버튼 (44x44) — 누구나 한 눈에 알아봄
+     · 사이드바 너비 280→260px (본문 영역 좀 더 보임)
+     · 본문 영역 어디든 1번 탭으로 즉시 닫힘
+     · 햄버거 자체 클릭 = toggle (열림 ↔ 닫힘)
+     ============================================================ -->
+<style id="ph138-close-btn-style">
+  @media (max-width: 920px) {
+    /* 사이드바 너비 줄임 — 본문 영역 더 보이게 */
+    .admin-sidebar,
+    aside.admin-sidebar,
+    #admin-sidebar {
+      width: 260px !important;
+      max-width: 80vw !important;
+    }
+  }
+  /* 사이드바 안 ✕ 닫기 버튼 */
+  #ph138-close-btn {
+    display: none;
+    position: absolute;
+    top: 10px; right: 10px;
+    z-index: 100;
+    width: 44px; height: 44px;
+    background: rgba(239,68,68,0.92);
+    color: #fff;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-radius: 999px;
+    font-size: 20px; font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 6px 18px -4px rgba(239,68,68,0.5);
+    display: flex;
+    align-items: center; justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .15s, background .15s;
+    padding: 0; line-height: 1;
+  }
+  #ph138-close-btn:hover { background: rgba(220,38,38,0.95); transform: scale(1.05); }
+  #ph138-close-btn:active { transform: scale(0.92); }
+  @media (min-width: 921px) {
+    #ph138-close-btn { display: none !important; }
+  }
+  @media (max-width: 920px) {
+    #ph138-close-btn { display: flex; }
+  }
+</style>
+
+<script id="ph138-close-js">
+(function(){
+  'use strict';
+
+  // 사이드바 안에 큰 ✕ 닫기 버튼 추가 (없으면 생성)
+  function ensureCloseBtn(){
+    var sb = document.getElementById('admin-sidebar') || document.querySelector('.admin-sidebar');
+    if (!sb) return;
+    if (document.getElementById('ph138-close-btn')) return;
+
+    var btn = document.createElement('button');
+    btn.id = 'ph138-close-btn';
+    btn.type = 'button';
+    btn.innerHTML = '✕';
+    btn.setAttribute('aria-label', '사이드바 닫기');
+    btn.setAttribute('title', '닫기');
+    btn.addEventListener('click', function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      if (window.ph134Close) window.ph134Close();
+      console.log('[ph138] ✕ 버튼 — 사이드바 닫힘');
+    });
+    sb.style.position = sb.style.position || 'fixed';
+    sb.insertBefore(btn, sb.firstChild);
+    console.log('[ph138] ✕ 닫기 버튼 추가');
+  }
+
+  // 본문 영역 1번 탭으로 즉시 닫기 (capture phase 로 어떤 핸들러도 먼저)
+  function bindContentTap(){
+    if (window.__ph138contentBound) return;
+    window.__ph138contentBound = true;
+    document.addEventListener('click', function(e){
+      if (!window.matchMedia('(max-width: 920px)').matches) return;
+      if (!document.body.classList.contains('ph134-sidebar-open')) return;
+      var inSidebar = e.target.closest('#admin-sidebar, .admin-sidebar, #ph134-hamburger');
+      if (inSidebar) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (window.ph134Close) window.ph134Close();
+      console.log('[ph138] 본문 영역 탭 — 사이드바 즉시 닫힘');
+    }, true);
+  }
+
+  function init(){ ensureCloseBtn(); bindContentTap(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+  setTimeout(init, 600);
+  setTimeout(init, 1500);
+
+  console.log('[ph138] 사이드바 ✕ 닫기 + 본문 탭 즉시 닫기 활성');
 })();
 </script>
 
