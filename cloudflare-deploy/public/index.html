@@ -23029,7 +23029,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260528010056 -->
+<!-- BUILD:20260528011513 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -23766,9 +23766,12 @@ document.addEventListener('keydown', function(e){
   /* fix v36 (2026-05-28) — 카카오 버튼(ph49-kakao-fab)이 우하단 8px 위치라
      precheck-fab 을 80px 위로 올려서 시각·클릭 충돌 방지 */
   #precheck-fab {
-    /* fix v38 — 카카오(노란) 버튼 왼쪽에 가로로 나란히 배치 (간격 충분히) */
-    position: fixed; right: 96px; bottom: 14px;
-    z-index: 99990;
+    /* fix v43 (2026-05-28) — 카카오 fab (56x56, right:16) 왼쪽에 확실히 분리
+       카카오 왼쪽 끝 = 72px → precheck 오른쪽 끝을 90px 위치로 → 갭 18px + 카카오 56px = 분리 보장 */
+    position: fixed !important;
+    right: 90px !important;
+    bottom: 16px !important;     /* 카카오와 동일 라인 (살짝 위로 안 튀게) */
+    z-index: 99990 !important;
     background: linear-gradient(135deg, #3b82f6, #1d4ed8);
     color: #fff; border: 0; border-radius: 999px;
     padding: 12px 18px 12px 14px;
@@ -23783,7 +23786,7 @@ document.addEventListener('keydown', function(e){
   #precheck-fab .dot { position: absolute; top: 4px; right: 6px; width: 9px; height: 9px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 2px #fff; animation: pcPulse 1.8s ease-out infinite; }
   @keyframes pcPulse { 0%{transform:scale(1);opacity:1} 70%{transform:scale(1.9);opacity:0} 100%{transform:scale(1.9);opacity:0} }
   @media (max-width: 600px) {
-    #precheck-fab { padding: 11px 14px 11px 12px; font-size: 12.5px; bottom: 12px; right: 88px; }
+    #precheck-fab { padding: 11px 14px 11px 12px !important; font-size: 12.5px !important; bottom: 14px !important; right: 80px !important; }
   }
   /* 룸 입장 시(vc-in-call)에는 precheck-fab 숨김 — 룸 안에서는 필요 없음 */
   body.vc-in-call #precheck-fab { display: none !important; }
