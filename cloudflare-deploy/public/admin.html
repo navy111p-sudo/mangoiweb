@@ -18729,7 +18729,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260528030921 -->
+        <!-- BUILD:20260528031441 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -33237,145 +33237,55 @@ button.chip:hover,
 
 
 <!-- ============================================================
-     Phase 143 (2026-05-28) — ☰ 햄버거 제거 + 좌측 핸들 터치 토글
-     · ph142 의 큰 노란 ☰ 버튼 숨김
-     · 좌측 가장자리에 얇은 노란 띠 핸들 (6px) — 항상 보임
-     · 핸들 터치 = 사이드바 토글 (열기 ↔ 닫기)
-     · 본문 영역 터치 = 닫기
-     · aria-hidden focus blur 처리 (접근성 경고 해결)
+     Phase 144 (2026-05-28) — 🎯 깨끗한 사이드바 토글 (FINAL FINAL)
+     · 이전 ph134/138/141/143 의 모든 버튼/핸들 비활성
+     · ph142 의 ☰ 노란 버튼만 살림 (가장 직관적)
+     · 사이드바 너비 25vw / 최대 220px
      ============================================================ -->
-<style id="ph143-handle">
+<style id="ph144-cleanup">
   @media (max-width: 920px) {
-    /* 큰 햄버거 ☰ 버튼 완전히 숨김 */
-    #ph142-toggle,
+    /* 모든 잔여 버튼 제거 */
     #ph134-hamburger,
     #ph138-close-btn,
     #ph135-pin-btn,
     #ph141-edge,
-    #ph141-edge-indicator {
+    #ph141-edge-indicator,
+    #ph143-handle {
       display: none !important;
     }
-
-    /* 좌측 가장자리 얇은 핸들 — 항상 보임 (사이드바 닫혀도) */
-    #ph143-handle {
-      position: fixed !important;
-      top: 0 !important; left: 0 !important; bottom: 0 !important;
-      width: 18px !important;          /* 터치 영역 18px */
-      z-index: 99999 !important;
-      cursor: pointer !important;
-      -webkit-tap-highlight-color: transparent !important;
-      touch-action: manipulation !important;
-      background: transparent !important;
-      display: flex !important;
-      align-items: center !important; justify-content: center !important;
+    /* ph142 버튼만 유지 — 작게 조정 */
+    #ph142-toggle {
+      width: 44px !important;
+      height: 44px !important;
+      top: 10px !important;
+      left: 10px !important;
+      font-size: 18px !important;
     }
-    /* 핸들 안의 시각 표시 (6px 노란 띠) */
-    #ph143-handle::before {
-      content: '';
-      width: 6px;
-      height: 64px;
-      background: linear-gradient(180deg, #fbbf24, #f59e0b);
-      border-radius: 0 6px 6px 0;
-      box-shadow: 2px 0 12px rgba(251,191,36,0.5);
-      transition: width 0.2s, height 0.2s;
-      pointer-events: none;
+    /* 사이드바 너비 통일 */
+    .admin-sidebar,
+    aside.admin-sidebar,
+    #admin-sidebar {
+      width: 25vw !important;
+      min-width: 180px !important;
+      max-width: 220px !important;
     }
-    #ph143-handle:active::before {
-      width: 8px;
-      height: 80px;
-    }
-    /* 사이드바 열린 상태 — 핸들 색을 빨간색 (닫기 힌트) */
-    body.ph142-open #ph143-handle::before {
-      background: linear-gradient(180deg, #ef4444, #dc2626);
-      box-shadow: 2px 0 12px rgba(239,68,68,0.5);
-    }
-    /* 사이드바 열린 상태에서는 핸들 위치를 사이드바 우측 가장자리로 이동 */
-    body.ph142-open #ph143-handle {
-      left: 20vw !important;
-      transition: left 0.3s cubic-bezier(0.32, 0.72, 0, 1) !important;
-    }
-  }
-  @media (min-width: 921px) {
-    #ph143-handle { display: none !important; }
   }
 </style>
-
-<!-- 좌측 핸들 (☰ 대신 얇은 노란 띠) -->
-<div id="ph143-handle"
-     role="button"
-     tabindex="0"
-     aria-label="사이드 메뉴 열기/닫기"
-     title="탭하면 메뉴 열기/닫기"></div>
-
-<script id="ph143-handle-js">
+<script id="ph144-cleanup-js">
 (function(){
   'use strict';
-
-  function isMobile(){ return window.matchMedia('(max-width: 920px)').matches; }
-
-  function doToggle(){
-    if (!isMobile()) return;
-    if (typeof window.ph142Toggle === 'function') {
-      window.ph142Toggle();
-    } else {
-      var open = document.body.classList.contains('ph142-open');
-      document.body.classList.toggle('ph142-open', !open);
-      var sb = document.getElementById('admin-sidebar') || document.querySelector('.admin-sidebar');
-      if (sb) sb.style.setProperty('transform', open ? 'translateX(-100%)' : 'translateX(0)', 'important');
-    }
-  }
-
-  // 핸들 click + touchend 모두 처리
-  function bindHandle(){
-    var h = document.getElementById('ph143-handle');
-    if (!h || h.__ph143) return;
-    h.__ph143 = true;
-
-    h.addEventListener('click', function(e){
-      e.preventDefault(); e.stopPropagation();
-      doToggle();
-      console.log('[ph143] 핸들 탭 — 사이드바 토글');
-    });
-    // 빠른 반응 위해 touchend 도 잡음 (단 click 중복 방지)
-    h.addEventListener('touchend', function(e){
-      e.preventDefault();
-      // touchend 가 자동으로 click 트리거 → click 핸들러가 처리
-    }, { passive: false });
-
-    // 키보드 접근성
-    h.addEventListener('keydown', function(e){
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        doToggle();
-      }
+  // 페이지 로드 시 ph143 잔여 element 강제 제거
+  function removeOld(){
+    ['ph143-handle','ph134-hamburger','ph138-close-btn','ph135-pin-btn','ph141-edge','ph141-edge-indicator'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) { el.style.display = 'none'; el.remove && el.remove(); }
     });
   }
-
-  // aria-hidden 경고 해결 — 사이드바 닫힐 때 안 focus 모두 blur
-  function fixAriaFocus(){
-    var sb = document.getElementById('admin-sidebar') || document.querySelector('.admin-sidebar');
-    if (!sb) return;
-    if (!document.body.classList.contains('ph142-open')) {
-      // 사이드바 안에 focus 가 있으면 body 로 이동
-      if (sb.contains(document.activeElement)) {
-        try { document.activeElement.blur(); } catch(e){}
-      }
-    }
-  }
-
-  function init(){ bindHandle(); }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
-  setTimeout(init, 500);
-  setTimeout(init, 1500);
-
-  // body class 변경 감지 → focus 정리
-  try {
-    var bodyObs = new MutationObserver(fixAriaFocus);
-    bodyObs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-  } catch(e){}
-
-  console.log('[ph143] 좌측 핸들 토글 활성 — ☰ 버튼 제거, 노란 띠 탭 = 열기/닫기');
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', removeOld);
+  else removeOld();
+  setTimeout(removeOld, 500);
+  setTimeout(removeOld, 1500);
+  console.log('[ph144] 정리 완료 — ph142 노란 ☰ 버튼만 활성');
 })();
 </script>
 
