@@ -18732,7 +18732,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260528054633 -->
+        <!-- BUILD:20260528055136 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -33846,6 +33846,89 @@ button.chip:hover,
     }
   }
 </style>
+
+
+<!-- ============================================================
+     Phase 155 (2026-05-28) — JSON 파싱 실패 시 친절 메시지
+     · Response.prototype.json monkey-patch — HTML 응답이면 깔끔 throw
+     · unhandledrejection 글로벌 핸들러 — 친절 alert (3초 throttle)
+     · 콘솔에는 디버그 로그, 사용자는 깨끗한 안내만 봄
+     ============================================================ -->
+<script id="ph155-friendly-error">
+(function(){
+  'use strict';
+
+  // 1) Response.prototype.json 패치 — HTML 응답 감지하고 친절한 메시지로 throw
+  if (window.Response && Response.prototype.json && !Response.prototype.__ph155) {
+    Response.prototype.__ph155 = true;
+    var origJson = Response.prototype.json;
+    Response.prototype.json = async function(){
+      try {
+        var text = await this.clone().text();
+        var trimmed = text.trim();
+        // HTML 응답 감지 (DOCTYPE / <html / <!-- 시작)
+        if (trimmed.startsWith('<')) {
+          console.warn('[ph155] JSON 기대했으나 HTML 응답 받음 — URL:', this.url, '- Status:', this.status);
+          var err = new Error('FRIENDLY_HTML_RESPONSE');
+          err.url = this.url;
+          err.status = this.status;
+          throw err;
+        }
+        // 빈 응답
+        if (!trimmed) {
+          console.warn('[ph155] 빈 응답 — URL:', this.url);
+          throw new Error('FRIENDLY_EMPTY_RESPONSE');
+        }
+        return JSON.parse(text);
+      } catch(e) {
+        // 원본 JSON.parse 에러 → 친절 메시지
+        if (e.message && /Unexpected token|is not valid JSON|FRIENDLY_/.test(e.message)) {
+          throw e;  // unhandledrejection 가 잡음
+        }
+        throw e;
+      }
+    };
+  }
+
+  // 2) 글로벌 unhandledrejection — JSON 파싱 실패 모두 잡음
+  var lastAlertTime = 0;
+  function friendlyAlert(msg){
+    var now = Date.now();
+    if (now - lastAlertTime < 3000) return;  // 3초 throttle
+    lastAlertTime = now;
+    try { alert(msg); } catch(e){}
+  }
+
+  window.addEventListener('unhandledrejection', function(ev){
+    var reason = ev.reason;
+    var msg = (reason && (reason.message || String(reason))) || '';
+    if (/FRIENDLY_HTML_RESPONSE|Unexpected token.*JSON|is not valid JSON|FRIENDLY_EMPTY/.test(msg)) {
+      ev.preventDefault();
+      var status = reason && reason.status;
+      var friendly = '💡 이 기능은 아직 준비 중입니다.\n\n조금만 기다려 주세요. 곧 업데이트 됩니다.';
+      if (status === 401 || status === 403) {
+        friendly = '🔐 로그인이 필요합니다.\n\n다시 로그인해 주세요.';
+      } else if (status === 500 || status === 503) {
+        friendly = '⚠️ 서버에 일시적 문제가 있습니다.\n\n잠시 후 다시 시도해 주세요.';
+      }
+      friendlyAlert(friendly);
+      console.warn('[ph155] 친절 메시지 표시:', friendly.replace(/\n/g,' '));
+    }
+  });
+
+  // 3) window.onerror — 동기 JSON.parse 에러도 잡음
+  window.addEventListener('error', function(ev){
+    var msg = (ev.error && ev.error.message) || ev.message || '';
+    if (/Unexpected token.*JSON|is not valid JSON/.test(msg)) {
+      ev.preventDefault();
+      friendlyAlert('💡 이 기능은 아직 준비 중입니다.\n\n조금만 기다려 주세요.');
+      console.warn('[ph155] JSON 동기 에러 친절 처리:', msg);
+    }
+  });
+
+  console.log('[ph155] 친절 에러 메시지 핸들러 활성 — JSON 깨짐 자동 처리');
+})();
+</script>
 
 </body>
 </html>
