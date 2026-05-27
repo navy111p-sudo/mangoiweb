@@ -1,60 +1,94 @@
 <!DOCTYPE html>
 <html lang="ko" data-theme="emerald">
 <head>
-<!-- fix v23 (2026-05-27) SSO 자동 통과 — 메인에서 로그인 시 모든 페이지 자동 인증 -->
+<!-- fix v25 (2026-05-27) 강력 SSO — 홍길동 자동 로그인 + 모든 게이트 우회 -->
 <script>
 (function(){
   'use strict';
+  // 1) 홍길동 세션 강제 설정 (없으면)
   try {
-    // localStorage 에서 SSO 세션 확인
-    var sso = null;
-    try { sso = JSON.parse(localStorage.getItem('mango_sso') || 'null'); } catch(e){}
-    var userId = (sso && sso.uid) || localStorage.getItem('user_id') || localStorage.getItem('mango_user_id') || 'hong_gd';
-    var userName = (sso && sso.name) || localStorage.getItem('user_name') || localStorage.getItem('mango_user_name') || '홍길동';
-
-    // 모든 localStorage 키 통일
-    if (userId && userId !== 'guest') {
-      localStorage.setItem('mango_sso', JSON.stringify({uid: userId, name: userName, loginAt: new Date().toISOString()}));
-      localStorage.setItem('user_id', userId);
-      localStorage.setItem('user_name', userName);
-      localStorage.setItem('mango_user_id', userId);
-      localStorage.setItem('mango_user_name', userName);
-
-      // window.currentUser 설정
-      window.currentUser = {uid: userId, name: userName, user_id: userId, username: userName};
-
-      // 페이지가 admin 이 아닌 경우 자동 인증 통과
-      if (!location.pathname.includes('/admin')) {
-        function autoFillAndHide(){
-          // 모든 로그인 모달/오버레이 hide (admin 제외)
-          document.querySelectorAll('[id*="login-overlay"],[id*="login-modal"],[id*="auth-modal"],[class*="login-gate"]').forEach(function(el){
-            if (el.id && el.id.toLowerCase().indexOf('admin') >= 0) return;
-            el.style.display = 'none';
-            el.style.visibility = 'hidden';
-          });
-          // 학생 ID 입력 자동 채움
-          document.querySelectorAll('input[id*="user-id"],input[id*="student-id"],input[id*="login-uid"],input[name="user_id"],input[name="student_id"]').forEach(function(inp){
-            if (inp && !inp.value) inp.value = userId;
-          });
-          document.querySelectorAll('input[id*="user-name"],input[name="user_name"],input[name="name"]').forEach(function(inp){
-            if (inp && !inp.value) inp.value = userName;
-          });
-        }
-        if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', autoFillAndHide);
-        } else {
-          autoFillAndHide();
-        }
-        setTimeout(autoFillAndHide, 300);
-        setTimeout(autoFillAndHide, 1000);
-        console.log('[v23-SSO] 자동 인증 통과:', userId, '/', userName);
-      } else {
-        console.log('[v23-SSO] 관리자 페이지 — 별도 로그인 필요');
-      }
+    var sso = JSON.parse(localStorage.getItem('mango_sso') || 'null');
+    if (!sso || !sso.uid) {
+      sso = {uid:'hong_gd', name:'홍길동', loginAt:new Date().toISOString()};
+      localStorage.setItem('mango_sso', JSON.stringify(sso));
     }
-  } catch(e){ console.warn('[v23-SSO] 실패:', e); }
+    var uid = sso.uid;
+    var name = sso.name || '홍길동';
+    // 모든 localStorage 키 통일
+    ['user_id','mango_user_id','student_id','login_user','currentUserId'].forEach(function(k){
+      if (!localStorage.getItem(k)) localStorage.setItem(k, uid);
+    });
+    ['user_name','mango_user_name','student_name','login_name','currentUserName'].forEach(function(k){
+      if (!localStorage.getItem(k)) localStorage.setItem(k, name);
+    });
+    // window 객체 설정
+    window.currentUser = {uid:uid, name:name, user_id:uid, username:name, student_id:uid};
+    window.currentUserId = uid;
+    window.currentUserName = name;
+    window.userId = uid;
+    window.studentId = uid;
+    window.isLoggedIn = true;
+    // sessionStorage 도 설정
+    sessionStorage.setItem('mango_sso', JSON.stringify(sso));
+    sessionStorage.setItem('user_id', uid);
+    sessionStorage.setItem('logged_in', '1');
+    // 쿠키 설정 (다른 페이지 진입 시 자동 사용)
+    document.cookie = 'mango_user='+uid+';path=/;max-age=86400';
+    document.cookie = 'user_id='+uid+';path=/;max-age=86400';
+
+    // 2) 페이지가 admin이 아니면 로그인 게이트 강제 hide + 자동 채움
+    if (!location.pathname.includes('/admin.html') && !location.pathname.endsWith('/admin')) {
+      function killLoginGates(){
+        // 모든 로그인 모달/오버레이 hide
+        var selectors = [
+          '[id*="login-overlay"]', '[id*="login-modal"]', '[id*="auth-modal"]',
+          '[id*="login-gate"]', '[id*="signin"]', '[id*="signup-modal"]',
+          '[class*="login-gate"]', '[class*="login-overlay"]', '[class*="auth-modal"]'
+        ];
+        selectors.forEach(function(sel){
+          document.querySelectorAll(sel).forEach(function(el){
+            if (el.id && el.id.toLowerCase().indexOf('admin') >= 0) return;
+            el.style.cssText = 'display:none !important;visibility:hidden !important;opacity:0 !important;pointer-events:none !important';
+          });
+        });
+        // 자동 채움 - 학생 ID/이름 input
+        var idSelectors = ['input[id*="user-id"]','input[id*="student-id"]','input[id*="login-uid"]','input[name="user_id"]','input[name="student_id"]','input[name="uid"]'];
+        idSelectors.forEach(function(sel){
+          document.querySelectorAll(sel).forEach(function(inp){
+            if (!inp.value) inp.value = uid;
+          });
+        });
+        var nameSelectors = ['input[id*="user-name"]','input[id*="student-name"]','input[name="user_name"]','input[name="name"]'];
+        nameSelectors.forEach(function(sel){
+          document.querySelectorAll(sel).forEach(function(inp){
+            if (!inp.value) inp.value = name;
+          });
+        });
+        // body의 login-required 클래스 제거
+        document.body && document.body.classList.remove('login-required','not-logged-in','need-login');
+        document.body && document.body.classList.add('logged-in','user-authenticated');
+      }
+      // 즉시 실행
+      killLoginGates();
+      // DOM 로드 후 다시
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', killLoginGates);
+      else killLoginGates();
+      // 주기적 + MutationObserver
+      setTimeout(killLoginGates, 100);
+      setTimeout(killLoginGates, 500);
+      setTimeout(killLoginGates, 2000);
+      if (window.MutationObserver) {
+        new MutationObserver(killLoginGates).observe(document.documentElement, {childList:true, subtree:true});
+      }
+      console.log('[v25-SSO] 홍길동 자동 로그인 + 게이트 우회 활성');
+    } else {
+      console.log('[v25-SSO] 관리자 페이지 - 별도 로그인');
+    }
+  } catch(e) { console.warn('[v25-SSO] 실패:', e); }
 })();
 </script>
+
+
 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
@@ -1022,7 +1056,7 @@ $('#success-overlay').addEventListener('click', (e) => {
 
 
 </script>
-<!-- BUILD:20260527191622 -->
+<!-- BUILD:20260527200616 -->
 
 <!-- Success 풀스크린 오버레이 -->
 <div id="success-overlay" class="success-overlay">
