@@ -10920,14 +10920,28 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
                 <option value="C1">C1 (상급)</option>
                 <option value="C2">C2 (원어민)</option>
               </optgroup>
-              <!-- 중국어 (HSK) -->
-              <optgroup label="중국어 (HSK)" data-lang="zh">
-                <option value="HSK1">HSK 1급 (입문)</option>
-                <option value="HSK2">HSK 2급 (초급)</option>
-                <option value="HSK3">HSK 3급 (중급 하)</option>
-                <option value="HSK4">HSK 4급 (중급 상)</option>
-                <option value="HSK5">HSK 5급 (상급 하)</option>
-                <option value="HSK6">HSK 6급 (원어민)</option>
+              <!-- 중국어 (1~20 레벨) -->
+              <optgroup label="중국어 (Lv 1~20)" data-lang="zh">
+                <option value="ZH1">Lv 1 (입문)</option>
+                <option value="ZH2">Lv 2</option>
+                <option value="ZH3">Lv 3</option>
+                <option value="ZH4">Lv 4 (초급 ↓)</option>
+                <option value="ZH5">Lv 5</option>
+                <option value="ZH6">Lv 6</option>
+                <option value="ZH7">Lv 7</option>
+                <option value="ZH8">Lv 8 (초급 ↑)</option>
+                <option value="ZH9">Lv 9</option>
+                <option value="ZH10">Lv 10 (중급 ↓)</option>
+                <option value="ZH11">Lv 11</option>
+                <option value="ZH12">Lv 12</option>
+                <option value="ZH13">Lv 13</option>
+                <option value="ZH14">Lv 14 (중급 ↑)</option>
+                <option value="ZH15">Lv 15</option>
+                <option value="ZH16">Lv 16 (상급 ↓)</option>
+                <option value="ZH17">Lv 17</option>
+                <option value="ZH18">Lv 18</option>
+                <option value="ZH19">Lv 19 (상급 ↑)</option>
+                <option value="ZH20">Lv 20 (원어민)</option>
               </optgroup>
             </select>
             <input id="tbf-unit" type="number" placeholder="단원 번호" data-ko-placeholder="단원 번호" data-en-placeholder="Unit no." style="width:90px;" />
@@ -10937,7 +10951,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
             <input id="tbf-desc" placeholder="설명 (선택)" data-ko-placeholder="설명 (선택)" data-en-placeholder="Description" style="flex:1;min-width:160px;" />
           </div>
 
-          <!-- 필터 (ph156: 언어 + HSK 추가) -->
+          <!-- 필터 (ph156: 언어 + 중국어 Lv 1~20 추가) -->
           <div class="menu-form" style="padding:4px 0;">
             <span style="font-size:11px;color:#475569;font-weight:700;" data-ko="필터" data-en="Filter">필터</span>
             <select id="tbf-filter-lang" style="width:110px;" onchange="loadTextbookFiles()">
@@ -10952,10 +10966,17 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
                 <option value="B1">B1</option><option value="B2">B2</option>
                 <option value="C1">C1</option><option value="C2">C2</option>
               </optgroup>
-              <optgroup label="중국어 (HSK)">
-                <option value="HSK1">HSK 1</option><option value="HSK2">HSK 2</option>
-                <option value="HSK3">HSK 3</option><option value="HSK4">HSK 4</option>
-                <option value="HSK5">HSK 5</option><option value="HSK6">HSK 6</option>
+              <optgroup label="중국어 (Lv 1~20)">
+                <option value="ZH1">Lv 1</option><option value="ZH2">Lv 2</option>
+                <option value="ZH3">Lv 3</option><option value="ZH4">Lv 4</option>
+                <option value="ZH5">Lv 5</option><option value="ZH6">Lv 6</option>
+                <option value="ZH7">Lv 7</option><option value="ZH8">Lv 8</option>
+                <option value="ZH9">Lv 9</option><option value="ZH10">Lv 10</option>
+                <option value="ZH11">Lv 11</option><option value="ZH12">Lv 12</option>
+                <option value="ZH13">Lv 13</option><option value="ZH14">Lv 14</option>
+                <option value="ZH15">Lv 15</option><option value="ZH16">Lv 16</option>
+                <option value="ZH17">Lv 17</option><option value="ZH18">Lv 18</option>
+                <option value="ZH19">Lv 19</option><option value="ZH20">Lv 20</option>
               </optgroup>
             </select>
             <select id="tbf-filter-kind" style="width:100px;" onchange="loadTextbookFiles()">
@@ -18768,7 +18789,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260528061851 -->
+        <!-- BUILD:20260528062322 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
