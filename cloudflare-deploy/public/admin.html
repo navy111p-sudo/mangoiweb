@@ -18729,7 +18729,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260528021843 -->
+        <!-- BUILD:20260528022140 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -32419,6 +32419,138 @@ button.chip:hover,
   });
 
   console.log('[ph135] 사이드바 종합 UX 활성 — 엣지 스와이프/탭, 좌측 스와이프 닫기, 데스크탑 미니 모드');
+})();
+</script>
+
+
+<!-- ============================================================
+     Phase 136 (2026-05-28) — 사이드바 모바일 강제 숨김 fix
+     · 기존 line 186 의 `.admin-sidebar { display:none }` 와 ph134 transform 충돌 해결
+     · 모든 모바일 CSS 에 !important 강제 + display:block 으로 통일
+     · ph134Close 가 작동 안 할 경우 강제 닫기 fallback
+     · 페이지 로드 시 사이드바 강제 닫기 (혹시 열린 상태로 시작 방지)
+     ============================================================ -->
+<style id="ph136-force-hide">
+  @media (max-width: 920px) {
+    /* 기존 display:none 무력화 + transform 슬라이드 통일 — 모든 override 차단 */
+    .admin-sidebar,
+    aside.admin-sidebar,
+    #admin-sidebar {
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      bottom: 0 !important;
+      width: 280px !important;
+      max-width: 85vw !important;
+      height: 100vh !important;
+      z-index: 99994 !important;
+      transform: translateX(-100%) !important;
+      transition: transform .3s cubic-bezier(0.32, 0.72, 0, 1) !important;
+      box-shadow: 0 0 32px rgba(0,0,0,0.6) !important;
+      overflow-y: auto !important;
+      overscroll-behavior: contain !important;
+      padding-top: 60px !important;
+      background: var(--admin-bg, #0F172A) !important;
+    }
+    /* 열린 상태 — body 에 클래스 있을 때만 보이게 */
+    body.ph134-sidebar-open .admin-sidebar,
+    body.ph134-sidebar-open aside.admin-sidebar,
+    body.ph134-sidebar-open #admin-sidebar {
+      transform: translateX(0) !important;
+    }
+    /* 본문 레이아웃 — 사이드바 공간 안 잡음 */
+    .admin-layout {
+      display: block !important;
+      grid-template-columns: 1fr !important;
+      gap: 0 !important;
+      padding-top: 60px;
+    }
+    .admin-layout > div:not(.admin-sidebar) {
+      padding-top: 0 !important;
+    }
+  }
+</style>
+
+<script id="ph136-force-close-js">
+(function(){
+  'use strict';
+
+  // 페이지 로드 시 사이드바 무조건 닫힌 상태로 시작
+  function forceClose(){
+    document.body.classList.remove('ph134-sidebar-open');
+    var ham = document.getElementById('ph134-hamburger');
+    if (ham){ ham.classList.remove('is-open'); ham.textContent = '☰'; }
+    var sb = document.getElementById('admin-sidebar') || document.querySelector('.admin-sidebar');
+    if (sb && window.matchMedia('(max-width: 920px)').matches) {
+      sb.style.transform = '';  // CSS 가 받게 함
+    }
+    console.log('[ph136] 사이드바 강제 닫기');
+  }
+
+  // 1) 페이지 로드 시 강제 닫힘
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', forceClose);
+  } else {
+    forceClose();
+  }
+
+  // 2) 본문 어디 클릭하든 사이드바 닫힘 (사이드바·햄버거 제외)
+  document.addEventListener('click', function(e){
+    if (!window.matchMedia('(max-width: 920px)').matches) return;
+    if (!document.body.classList.contains('ph134-sidebar-open')) return;
+    var inside = e.target.closest('.admin-sidebar, #admin-sidebar, #ph134-hamburger, #ph134-overlay');
+    if (inside) return;
+    forceClose();
+  }, true);
+
+  // 3) 모든 a / button 클릭 후 자동 닫힘 (이미 ph134 에 있지만 강화)
+  document.addEventListener('click', function(e){
+    if (!window.matchMedia('(max-width: 920px)').matches) return;
+    if (!document.body.classList.contains('ph134-sidebar-open')) return;
+    var link = e.target.closest('a[href], .sidebar-item, [data-menu-target], button.menu-toggle');
+    if (link && link.closest('.admin-sidebar, #admin-sidebar')) {
+      setTimeout(forceClose, 200);
+    }
+  }, false);
+
+  // 4) ESC 키
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && document.body.classList.contains('ph134-sidebar-open')) {
+      forceClose();
+    }
+  });
+
+  // 5) 화면 회전/리사이즈 — 데스크탑으로 바뀌면 자동 닫힘
+  window.addEventListener('resize', function(){
+    if (!window.matchMedia('(max-width: 920px)').matches) forceClose();
+  });
+
+  // 6) window.ph134Close override 강화
+  var origClose = window.ph134Close;
+  window.ph134Close = function(){
+    if (typeof origClose === 'function') { try { origClose(); } catch(e){} }
+    forceClose();
+  };
+
+  // 7) 안전망 — 5초마다 비활성 상태인데 보이고 있으면 강제 닫기
+  setInterval(function(){
+    if (!window.matchMedia('(max-width: 920px)').matches) return;
+    var sb = document.querySelector('.admin-sidebar');
+    var open = document.body.classList.contains('ph134-sidebar-open');
+    if (sb && !open) {
+      var rect = sb.getBoundingClientRect();
+      // 사이드바가 화면 안에 보이면 (left 가 0 이상) 강제 닫기
+      if (rect.left >= -10 && rect.right > 50) {
+        sb.style.transform = 'translateX(-100%)';
+        console.log('[ph136] 안전망 — 비활성 상태에서 사이드바 표시 감지, 강제 transform');
+      }
+    }
+  }, 5000);
+
+  console.log('[ph136] 모바일 사이드바 강제 숨김 fix 활성');
 })();
 </script>
 
