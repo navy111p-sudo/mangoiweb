@@ -18729,7 +18729,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260528024112 -->
+        <!-- BUILD:20260528025816 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -33043,6 +33043,195 @@ button.chip:hover,
   setTimeout(init, 1500);
 
   console.log('[ph141] 사이드바 자동 hover + 20vw + 3.5초 auto-hide 활성');
+})();
+</script>
+
+
+<!-- ============================================================
+     Phase 142 (2026-05-28) — 🎯 단일 깨끗한 사이드바 토글 (FINAL)
+     · 이전 ph134~141 모든 핸들러 비활성
+     · 좌상단 단일 노란 ☰ 버튼 — 탭 = 열림, 다시 탭 = 닫힘
+     · inline style 로 transform 직접 조작 (모든 CSS override 무력화)
+     · 본문 탭 시 즉시 닫힘
+     · 사이드바 너비 20vw
+     ============================================================ -->
+<style id="ph142-final-toggle">
+  @media (max-width: 920px) {
+    /* 이전 ✕ 닫기 버튼 / 엣지 인디케이터 / 기존 햄버거 모두 강제 숨김 */
+    #ph134-hamburger,
+    #ph138-close-btn,
+    #ph135-pin-btn,
+    #ph141-edge,
+    #ph141-edge-indicator {
+      display: none !important;
+    }
+
+    /* 사이드바 — inline style 우선이라 CSS 는 최소만 */
+    .admin-sidebar,
+    aside.admin-sidebar,
+    #admin-sidebar {
+      position: fixed !important;
+      top: 0 !important; left: 0 !important; bottom: 0 !important;
+      width: 20vw !important;
+      min-width: 160px !important;
+      max-width: 240px !important;
+      height: 100vh !important;
+      z-index: 99994 !important;
+      transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1) !important;
+      box-shadow: 4px 0 20px rgba(0,0,0,0.5) !important;
+      overflow-y: auto !important;
+      padding-top: 60px !important;
+      background: #0F172A !important;
+    }
+
+    /* 단일 토글 버튼 — 좌상단 노란 동그라미 (햄버거↔X 텍스트 변경) */
+    #ph142-toggle {
+      position: fixed !important;
+      top: 12px !important; left: 12px !important;
+      z-index: 99999 !important;
+      width: 48px !important; height: 48px !important;
+      background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
+      color: #1a1a1a !important;
+      border: 2px solid rgba(255,255,255,0.4) !important;
+      border-radius: 50% !important;
+      font-size: 22px !important; font-weight: 900 !important;
+      cursor: pointer !important;
+      box-shadow: 0 6px 18px -4px rgba(245,158,11,0.65) !important;
+      display: flex !important;
+      align-items: center !important; justify-content: center !important;
+      transition: transform 0.15s, background 0.15s !important;
+      -webkit-tap-highlight-color: transparent !important;
+      padding: 0 !important; line-height: 1 !important;
+    }
+    #ph142-toggle:active { transform: scale(0.93) !important; }
+    #ph142-toggle.is-open {
+      background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+      color: #fff !important;
+    }
+
+    /* 어두운 오버레이 (사이드바 뒤) */
+    #ph142-overlay {
+      position: fixed !important;
+      inset: 0 !important;
+      background: rgba(0,0,0,0.55) !important;
+      z-index: 99993 !important;
+      display: none !important;
+      backdrop-filter: blur(2px) !important;
+    }
+    body.ph142-open #ph142-overlay { display: block !important; }
+  }
+  @media (min-width: 921px) {
+    #ph142-toggle, #ph142-overlay { display: none !important; }
+  }
+</style>
+
+<!-- 단일 토글 버튼 + 오버레이 -->
+<button type="button" id="ph142-toggle" aria-label="메뉴 열기/닫기">☰</button>
+<div id="ph142-overlay" aria-hidden="true"></div>
+
+<script id="ph142-final-js">
+(function(){
+  'use strict';
+
+  function isMobile(){ return window.matchMedia('(max-width: 920px)').matches; }
+
+  function getSidebar(){
+    return document.getElementById('admin-sidebar') || document.querySelector('.admin-sidebar');
+  }
+
+  function setState(open){
+    var sb = getSidebar();
+    var btn = document.getElementById('ph142-toggle');
+    var body = document.body;
+    if (!sb) return;
+
+    if (open && isMobile()) {
+      sb.style.setProperty('transform', 'translateX(0)', 'important');
+      body.classList.add('ph142-open');
+      if (btn) { btn.textContent = '✕'; btn.classList.add('is-open'); btn.setAttribute('aria-label', '메뉴 닫기'); }
+      console.log('[ph142] 사이드바 열림');
+    } else {
+      sb.style.setProperty('transform', 'translateX(-100%)', 'important');
+      body.classList.remove('ph142-open');
+      if (btn) { btn.textContent = '☰'; btn.classList.remove('is-open'); btn.setAttribute('aria-label', '메뉴 열기'); }
+      console.log('[ph142] 사이드바 닫힘');
+    }
+  }
+
+  function toggle(){
+    if (!isMobile()) return;
+    setState(!document.body.classList.contains('ph142-open'));
+  }
+
+  // 전역 함수로도 expose (다른 코드 호환)
+  window.ph142Toggle = toggle;
+  window.ph142Open = function(){ setState(true); };
+  window.ph142Close = function(){ setState(false); };
+  // 이전 ph134/ph141 API 호환
+  window.ph134Toggle = toggle;
+  window.ph134Open = window.ph142Open;
+  window.ph134Close = window.ph142Close;
+
+  // 1) 토글 버튼 클릭
+  function bindToggle(){
+    var btn = document.getElementById('ph142-toggle');
+    if (!btn || btn.__ph142) return;
+    btn.__ph142 = true;
+    btn.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
+      toggle();
+    });
+  }
+
+  // 2) 오버레이 클릭 → 닫힘
+  function bindOverlay(){
+    var ov = document.getElementById('ph142-overlay');
+    if (!ov || ov.__ph142) return;
+    ov.__ph142 = true;
+    ov.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
+      setState(false);
+    });
+  }
+
+  // 3) 본문 영역 클릭 → 닫힘 (사이드바/토글 제외)
+  document.addEventListener('click', function(e){
+    if (!isMobile()) return;
+    if (!document.body.classList.contains('ph142-open')) return;
+    var inside = e.target.closest('.admin-sidebar, #admin-sidebar, #ph142-toggle, #ph142-overlay');
+    if (inside) {
+      // 사이드바 안의 메뉴/링크 선택 시 자동 닫힘
+      var link = e.target.closest('a[href], .sidebar-item, [data-menu-target]');
+      if (link && (link.closest('.admin-sidebar') || link.closest('#admin-sidebar'))) {
+        setTimeout(function(){ setState(false); }, 200);
+      }
+      return;
+    }
+    setState(false);
+  }, true);
+
+  // 4) ESC 키
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') setState(false);
+  });
+
+  // 5) 화면 리사이즈 / 회전
+  window.addEventListener('resize', function(){
+    if (!isMobile()) setState(false);
+  });
+
+  // 6) 페이지 로드 시 강제 닫힘
+  function init(){
+    bindToggle();
+    bindOverlay();
+    setState(false);  // 시작 시 무조건 닫힘
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+  setTimeout(init, 500);
+  setTimeout(init, 1500);
+
+  console.log('[ph142] 단일 사이드바 toggle FINAL 활성 — 노란 ☰ 탭 = 열기/닫기');
 })();
 </script>
 
