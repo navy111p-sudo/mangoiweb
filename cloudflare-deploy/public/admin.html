@@ -18732,7 +18732,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260528053001 -->
+        <!-- BUILD:20260528053714 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -33825,6 +33825,27 @@ button.chip:hover,
   console.log('[ph152] ph85-sidebar 를 ph150 토글 대상으로 통합');
 })();
 </script>
+
+
+<!-- ============================================================
+     Phase 153 (2026-05-28) — precheck-fab-admin 본문 element 와 분리
+     · 본문 ▶ 화살표 / 다음 페이지 버튼 등과 겹침
+     · bottom: 16 → 90 으로 올려서 겹침 방지
+     ============================================================ -->
+<style id="ph153-fab-position">
+  #precheck-fab-admin {
+    bottom: 90px !important;
+    right: 16px !important;
+  }
+  @media (max-width: 600px) {
+    #precheck-fab-admin {
+      bottom: 80px !important;
+      right: 12px !important;
+      padding: 10px 14px !important;
+      font-size: 12px !important;
+    }
+  }
+</style>
 
 </body>
 </html>
