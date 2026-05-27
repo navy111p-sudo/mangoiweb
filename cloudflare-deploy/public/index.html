@@ -23120,7 +23120,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260527181039 -->
+<!-- BUILD:20260527182804 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -23803,30 +23803,31 @@ document.addEventListener('keydown', function(e){
   function buildPanel(){
     if (document.getElementById('v19-panel')) return;
     var MENUS = [
-      {emoji:'🛠', name:'관리자', url:'/admin.html'},
+      {emoji:'🛠', name:'관리자 페이지', url:'/admin.html'},
       {emoji:'👤', name:'마이페이지', url:'/admin/mypage.html'},
-      {emoji:'💳', name:'결제하기', url:'/payment.html'},
-      {emoji:'📊', name:'KPI 대시보드', url:'/admin.html'},
-      {emoji:'👨‍🏫', name:'강사 소개', url:'/teachers.html'},
-      {emoji:'🏬', name:'가맹점 문의', url:'/franchise.html'},
+      {emoji:'👨‍🎓', name:'학생 관리', url:'/admin/students.html'},
+      {emoji:'📅', name:'주간 시간표', url:'/admin/weekly-schedule.html'},
+      {emoji:'📋', name:'전체 일정', url:'/admin/all-schedules.html'},
       {emoji:'📞', name:'고객센터', url:'/contact.html'},
-      {emoji:'📋', name:'공지사항', url:'/notice.html'},
       {emoji:'📚', name:'커리큘럼', url:'/curriculum.html'},
+      {emoji:'📖', name:'수업 자료', url:'/lessons.html'},
+      {emoji:'📝', name:'평가서', url:'/eval.html'},
+      {emoji:'📊', name:'리포트', url:'/report.html'},
       {emoji:'🤖', name:'AI 친구', url:'/ai-friend.html'},
       {emoji:'✍', name:'AI 작문', url:'/ai-write.html'},
       {emoji:'🗣', name:'발음 코치', url:'/speech-coach.html'},
       {emoji:'📖', name:'단어장', url:'/vocab.html'},
-      {emoji:'🎯', name:'미니 토익', url:'/micro-quiz.html'},
-      {emoji:'📊', name:'레벨 테스트', url:'/admin.html'},
+      {emoji:'🎯', name:'미니 퀴즈', url:'/micro-quiz.html'},
       {emoji:'🧠', name:'MBTI 매칭', url:'/mbti.html'},
-      {emoji:'⚔', name:'영어 배틀', url:'/battle.html'},
+      {emoji:'🧪', name:'MBTI 테스트', url:'/mbti-test.html'},
       {emoji:'🔥', name:'연속 출석', url:'/streak.html'},
       {emoji:'🌟', name:'칭찬 스티커', url:'/teacher-praise.html'},
-      {emoji:'📅', name:'수업 연기/변경', url:'/lesson-postpone-demo.html'},
-      {emoji:'📺', name:'수업 입장', url:'/video-call/'},
+      {emoji:'📅', name:'수업 연기·변경', url:'/lesson-postpone-demo.html'},
+      {emoji:'📚', name:'수업 예약', url:'/lesson-booking-demo.html'},
       {emoji:'👨‍👩‍👧', name:'학부모 페이지', url:'/parent.html'},
       {emoji:'🩺', name:'시스템 진단', url:'/admin/health.html'},
-      {emoji:'📘', name:'사용 안내서', url:'/docs/'},
+      {emoji:'👻', name:'Ghost View', url:'/admin/ghost-view.html'},
+      {emoji:'🔐', name:'로그인', url:'/admin/login.html'},
     ];
     var panel = document.createElement('div');
     panel.id = 'v19-panel';
