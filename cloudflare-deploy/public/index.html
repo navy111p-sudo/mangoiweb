@@ -5825,7 +5825,7 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;vertical-align:middle;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 <span class="lang-label-sync">EN</span>
             </button>
-            <button class="ctrl-btn danger" onclick="vcExitAndGoHome()" data-ko-title="나가기 (홈으로)" data-en-title="Leave (Home)" title="나가기 (홈으로)">✕</button>
+            <button class="ctrl-btn danger" id="vc-exit-btn-v32" onclick="(function(){try{if(window.vcLeaveRoom)window.vcLeaveRoom();}catch(e){}try{location.replace('/?_exit='+Date.now());}catch(e){location.href='/';}})();return false;" data-ko-title="나가기 (홈으로)" data-en-title="Leave (Home)" title="나가기 (홈으로)">✕</button>
         </div>
     </div>
 
@@ -23029,7 +23029,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260527230357 -->
+<!-- BUILD:20260527230942 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -23952,6 +23952,72 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     gotoHomeForce();
   }, true);
   console.log('[v31] ✕ 강제 reload + FACE OFF 좌측 적용 활성');
+})();
+</script>
+
+<!-- ============================================================
+     fix v32 (2026-05-27) — ✕ 버튼 mousedown + 강제 재바인딩
+     · 1순위: 버튼 자체 onclick 에 inline JS 박혀 있음 (외부 핸들러 우회 불가)
+     · 2순위: mousedown 캡처 — click 보다 먼저 발생
+     · 3순위: 페이지 로드 후 1초 마다 ✕ 버튼 onclick 재주입 (덮어쓰기 방지)
+     ============================================================ -->
+<script id="v32-exit-supreme">
+(function(){
+  'use strict';
+
+  function forceExit(){
+    try { if (typeof window.vcLeaveRoom === 'function') window.vcLeaveRoom(); } catch(e){}
+    try {
+      // Date.now() 쿼리로 무조건 새 URL → SPA 가 무시 못 함
+      location.replace('/?_exit=' + Date.now());
+    } catch(e){
+      try { location.href = '/?e=1'; } catch(_){}
+      try { location.reload(); } catch(_){}
+    }
+  }
+  window.__forceExit_v32 = forceExit;
+
+  // mousedown 캡처 — click 보다 먼저 발생 (이중 안전망)
+  window.addEventListener('mousedown', function(e){
+    var btn = e.target && e.target.closest ? e.target.closest('button.ctrl-btn.danger, #vc-exit-btn-v32') : null;
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    console.log('[v32] ✕ mousedown 캡처 — forceExit');
+    forceExit();
+  }, true);
+
+  // pointerdown 도 캡처 (touchscreen / pen)
+  window.addEventListener('pointerdown', function(e){
+    var btn = e.target && e.target.closest ? e.target.closest('button.ctrl-btn.danger, #vc-exit-btn-v32') : null;
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    console.log('[v32] ✕ pointerdown 캡처 — forceExit');
+    forceExit();
+  }, true);
+
+  // 강제 onclick 재주입 — 다른 패치가 onclick 을 덮어써도 1초 뒤 복구
+  function rebindExit(){
+    var btn = document.getElementById('vc-exit-btn-v32');
+    if (!btn) return;
+    // onclick 이 forceExit 가 아니면 다시 주입
+    var oc = btn.getAttribute('onclick') || '';
+    if (oc.indexOf('location.replace') === -1 && oc.indexOf('__forceExit_v32') === -1) {
+      btn.setAttribute('onclick', "window.__forceExit_v32&&window.__forceExit_v32();return false;");
+      console.log('[v32] ✕ onclick 재주입');
+    }
+  }
+  setInterval(rebindExit, 1000);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', rebindExit);
+  } else {
+    rebindExit();
+  }
+
+  console.log('[v32] ✕ 버튼 supreme 핸들러 활성 — mousedown + pointerdown + 1s 재바인딩');
 })();
 </script>
 
