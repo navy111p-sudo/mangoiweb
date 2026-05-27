@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#0F172A" />
+<title>🎥 수업 입장 전 자가진단 · 망고아이 PreCheck</title>
+<!-- BUILD:20260527215423 -->
+<style>
+  :root {
+    --bg: #0F172A;
+    --bg2: #1E293B;
+    --card: #1E293B;
+    --border: #334155;
+    --text: #E2E8F0;
+    --muted: #94A3B8;
+    --accent: #2563EB;
+    --accent-light: #93C5FD;
+    --ok: #10B981;
+    --warn: #F59E0B;
+    --bad: #EF4444;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: -apple-system,BlinkMacSystemFont,"SF Pro","Segoe UI","Pretendard","Noto Sans KR",sans-serif; -webkit-font-smoothing: antialiased; }
+  body { min-height: 100vh; padding: 16px; }
+  .wrap { max-width: 920px; margin: 0 auto; }
+
+  header { display: flex; align-items: center; justify-content: space-between; padding: 16px 4px 20px; gap: 12px; flex-wrap: wrap; }
+  .brand { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
+  .brand .mango { font-size: 28px; }
+  .lang-toggle { display: inline-flex; background: var(--card); border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+  .lang-toggle button { background: transparent; border: 0; color: var(--muted); padding: 8px 14px; font-weight: 700; cursor: pointer; font-size: 13px; }
+  .lang-toggle button.on { background: var(--accent); color: #fff; }
+
+  .intro { background: linear-gradient(135deg, rgba(37,99,235,0.18), rgba(147,197,253,0.08)); border: 1px solid rgba(147,197,253,0.25); border-radius: 16px; padding: 18px 20px; margin-bottom: 18px; }
+  .intro h1 { margin: 0 0 6px; font-size: 19px; font-weight: 800; }
+  .intro p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.6; }
+
+  .score-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px; margin-bottom: 18px; display: flex; align-items: center; gap: 22px; }
+  .score-ring { position: relative; width: 110px; height: 110px; flex-shrink: 0; }
+  .score-ring svg { transform: rotate(-90deg); width: 100%; height: 100%; }
+  .score-ring .bg-c { stroke: #334155; stroke-width: 10; fill: none; }
+  .score-ring .fg-c { stroke: var(--ok); stroke-width: 10; fill: none; stroke-linecap: round; transition: stroke-dasharray .6s, stroke .3s; }
+  .score-ring .num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; }
+  .score-info h2 { margin: 0 0 6px; font-size: 17px; }
+  .score-info p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+  .score-info .badge { display: inline-block; padding: 3px 9px; border-radius: 8px; font-size: 11px; font-weight: 700; margin-top: 8px; }
+
+  .test-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  @media (min-width: 720px) { .test-grid { grid-template-columns: 1fr 1fr; } }
+
+  .test { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; transition: border-color .2s; }
+  .test.ok   { border-color: rgba(16,185,129,0.45); }
+  .test.warn { border-color: rgba(245,158,11,0.45); }
+  .test.bad  { border-color: rgba(239,68,68,0.45); }
+  .test-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .test-head .ic { font-size: 20px; }
+  .test-head .ti { font-size: 14.5px; font-weight: 700; flex: 1; }
+  .test-head .st { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; flex-shrink: 0; }
+  .st.pending { background: #334155; color: #cbd5e1; }
+  .st.ok      { background: rgba(16,185,129,0.18); color: #34d399; }
+  .st.warn    { background: rgba(245,158,11,0.18); color: #fbbf24; }
+  .st.bad     { background: rgba(239,68,68,0.18); color: #f87171; }
+  .test-body { font-size: 12.5px; color: var(--muted); line-height: 1.55; }
+  .test-body b { color: #cbd5e1; font-weight: 600; }
+  .test-body .hint { display: block; margin-top: 6px; font-size: 11.5px; color: #64748b; }
+
+  /* 라이브 카메라 미리보기 */
+  .cam-wrap { position: relative; margin-top: 8px; border-radius: 10px; overflow: hidden; background: #0a1530; aspect-ratio: 16 / 9; max-height: 200px; }
+  .cam-wrap video { width: 100%; height: 100%; object-fit: cover; }
+  .cam-overlay { position: absolute; left: 8px; bottom: 8px; background: rgba(0,0,0,0.6); color: #fff; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-family: Consolas,monospace; }
+
+  /* 마이크 VU meter */
+  .vu-wrap { margin-top: 8px; display: flex; align-items: center; gap: 8px; }
+  .vu-bar { flex: 1; height: 10px; background: #0a1530; border-radius: 5px; overflow: hidden; position: relative; }
+  .vu-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #10b981 0%, #fbbf24 70%, #ef4444 90%); transition: width .08s linear; }
+  .vu-label { font-size: 11px; color: var(--muted); font-family: Consolas,monospace; min-width: 38px; text-align: right; }
+
+  /* 액션 영역 */
+  .actions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; padding: 20px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; }
+  @media (min-width: 600px) { .actions { flex-direction: row; } }
+  .btn { flex: 1; padding: 13px 18px; border: 0; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: transform .12s, filter .12s; }
+  .btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
+  .btn-primary { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; }
+  .btn-ghost { background: transparent; color: var(--accent-light); border: 1px solid var(--border); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+  /* 권장사항 패널 */
+  .reco { margin-top: 16px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
+  .reco h3 { margin: 0 0 10px; font-size: 14px; display: flex; align-items: center; gap: 6px; }
+  .reco ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: 12.5px; line-height: 1.8; }
+  .reco li.ok { color: #34d399; }
+  .reco li.warn { color: #fbbf24; }
+  .reco li.bad { color: #f87171; }
+  .reco:empty { display: none; }
+
+  footer { margin: 28px 0 12px; text-align: center; font-size: 11.5px; color: #475569; line-height: 1.6; }
+  footer a { color: var(--accent-light); text-decoration: none; }
+  .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.25); border-top-color: var(--accent-light); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand"><span class="mango">🥭</span> <span data-ko="망고아이 수업 진단" data-en="Mangoi Class PreCheck">망고아이 수업 진단</span></div>
+    <div class="lang-toggle" role="group">
+      <button id="lang-ko" class="on" onclick="setLang('ko')">한국어</button>
+      <button id="lang-en" onclick="setLang('en')">English</button>
+    </div>
+  </header>
+
+  <div class="intro">
+    <h1 data-ko="🎥 수업 입장 전 자가진단" data-en="🎥 Self-check before joining class">🎥 수업 입장 전 자가진단</h1>
+    <p data-ko="9가지 항목을 자동으로 검사합니다 — 카메라·마이크·스피커·대역폭·연결 안정성·보안. 약 15초 소요. 수업 5분 전에 한 번 돌려 주세요." data-en="9 checks run automatically — camera, mic, speaker, bandwidth, connectivity, security. Takes about 15 seconds. Please run this 5 minutes before class.">9가지 항목을 자동으로 검사합니다 — 카메라·마이크·스피커·대역폭·연결 안정성·보안. 약 15초 소요. 수업 5분 전에 한 번 돌려 주세요.</p>
+  </div>
+
+  <!-- 종합 점수 -->
+  <div class="score-card">
+    <div class="score-ring">
+      <svg viewBox="0 0 120 120">
+        <circle class="bg-c" cx="60" cy="60" r="50"></circle>
+        <circle id="score-arc" class="fg-c" cx="60" cy="60" r="50" stroke-dasharray="0 314" pathLength="314"></circle>
+      </svg>
+      <div class="num" id="score-num">--</div>
+    </div>
+    <div class="score-info">
+      <h2 id="score-title" data-ko="진단 진행 중…" data-en="Running diagnostics…">진단 진행 중…</h2>
+      <p id="score-desc" data-ko="잠시만 기다려 주세요. 카메라·마이크 접근을 허용해 주시면 자동으로 시작됩니다." data-en="Please wait. Diagnostics start automatically once you allow camera and microphone access.">잠시만 기다려 주세요. 카메라·마이크 접근을 허용해 주시면 자동으로 시작됩니다.</p>
+      <span id="score-badge" class="badge" style="background:#334155;color:#cbd5e1" data-ko="검사 중" data-en="Testing">검사 중</span>
+    </div>
+  </div>
+
+  <!-- 9가지 검사 카드 -->
+  <div class="test-grid">
+    <div class="test" id="t-https">
+      <div class="test-head">
+        <span class="ic">🔒</span>
+        <span class="ti" data-ko="보안 연결 (HTTPS)" data-en="Secure Connection (HTTPS)">보안 연결 (HTTPS)</span>
+        <span class="st pending" data-ko="검사 중" data-en="Testing">검사 중</span>
+      </div>
+      <div class="test-body" data-ko="암호화된 통신 환경인지 확인합니다. WebRTC는 HTTPS 에서만 작동합니다." data-en="Verifies encrypted transport. WebRTC only works over HTTPS.">암호화된 통신 환경인지 확인합니다. WebRTC는 HTTPS 에서만 작동합니다.</div>
+    </div>
+
+    <div class="test" id="t-browser">
+      <div class="test-head">
+        <span class="ic">🌐</span>
+        <span class="ti" data-ko="브라우저 호환성" data-en="Browser Compatibility">브라우저 호환성</span>
+        <span class="st pending" data-ko="검사 중" data-en="Testing">검사 중</span>
+      </div>
+      <div class="test-body" data-ko="크롬·에지·사파리·파이어폭스 최신 버전 권장." data-en="Chrome, Edge, Safari, Firefox latest version recommended.">크롬·에지·사파리·파이어폭스 최신 버전 권장.</div>
+    </div>
+
+    <div class="test" id="t-camera">
+      <div class="test-head">
+        <span class="ic">📷</span>
+        <span class="ti" data-ko="카메라" data-en="Camera">카메라</span>
+        <span class="st pending" data-ko="허용 필요" data-en="Permission needed">허용 필요</span>
+      </div>
+      <div class="test-body" data-ko="카메라 권한과 해상도를 확인합니다." data-en="Checks camera permission and resolution.">카메라 권한과 해상도를 확인합니다.</div>
+      <div class="cam-wrap" id="cam-wrap" style="display:none">
+        <video id="cam-video" autoplay playsinline muted></video>
+        <div class="cam-overlay" id="cam-info">--</div>
+      </div>
+    </div>
+
+    <div class="test" id="t-mic">
+      <div class="test-head">
+        <span class="ic">🎤</span>
+        <span class="ti" data-ko="마이크" data-en="Microphone">마이크</span>
+        <span class="st pending" data-ko="허용 필요" data-en="Permission needed">허용 필요</span>
+      </div>
+      <div class="test-body" data-ko="에코·노이즈 억제 활성, 음성 입력 레벨 측정." data-en="Echo/noise cancellation enabled, measuring input level.">에코·노이즈 억제 활성, 음성 입력 레벨 측정.</div>
+      <div class="vu-wrap" style="display:none" id="vu-wrap">
+        <div class="vu-bar"><div class="vu-fill" id="vu-fill"></div></div>
+        <div class="vu-label" id="vu-label">0 dB</div>
+      </div>
+    </div>
+
+    <div class="test" id="t-speaker">
+      <div class="test-head">
+        <span class="ic">🔊</span>
+        <span class="ti" data-ko="스피커 / 이어폰" data-en="Speaker / Earphone">스피커 / 이어폰</span>
+        <span class="st pending" data-ko="대기" data-en="Waiting">대기</span>
+      </div>
+      <div class="test-body" data-ko="아래 버튼으로 테스트 음을 재생합니다 — 들리면 ✅ 클릭." data-en="Press the button below to play a test tone — click ✅ if you hear it.">아래 버튼으로 테스트 음을 재생합니다 — 들리면 ✅ 클릭.</div>
+      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-ghost" style="padding:7px 12px;font-size:12px" onclick="playTestTone()" data-ko="🔊 테스트 음 재생" data-en="🔊 Play test tone">🔊 테스트 음 재생</button>
+        <button class="btn btn-ghost" style="padding:7px 12px;font-size:12px" onclick="markSpeaker(true)" data-ko="✅ 들려요" data-en="✅ I hear it">✅ 들려요</button>
+        <button class="btn btn-ghost" style="padding:7px 12px;font-size:12px" onclick="markSpeaker(false)" data-ko="❌ 안 들려요" data-en="❌ Silent">❌ 안 들려요</button>
+      </div>
+    </div>
+
+    <div class="test" id="t-bw">
+      <div class="test-head">
+        <span class="ic">📡</span>
+        <span class="ti" data-ko="네트워크 대역폭" data-en="Network Bandwidth">네트워크 대역폭</span>
+        <span class="st pending" data-ko="측정 중" data-en="Measuring">측정 중</span>
+      </div>
+      <div class="test-body" data-ko="다운로드 속도 측정. 화상수업은 최소 2 Mbps 권장." data-en="Download speed test. Minimum 2 Mbps recommended for video class.">다운로드 속도 측정. 화상수업은 최소 2 Mbps 권장.</div>
+    </div>
+
+    <div class="test" id="t-stun">
+      <div class="test-head">
+        <span class="ic">🔗</span>
+        <span class="ti" data-ko="STUN / TURN 연결성" data-en="STUN / TURN Reachability">STUN / TURN 연결성</span>
+        <span class="st pending" data-ko="검사 중" data-en="Testing">검사 중</span>
+      </div>
+      <div class="test-body" data-ko="NAT/방화벽 통과 가능성을 확인합니다." data-en="Verifies NAT / firewall traversal.">NAT/방화벽 통과 가능성을 확인합니다.</div>
+    </div>
+
+    <div class="test" id="t-rtt">
+      <div class="test-head">
+        <span class="ic">⚡</span>
+        <span class="ti" data-ko="지연시간 (RTT)" data-en="Round-Trip Latency">지연시간 (RTT)</span>
+        <span class="st pending" data-ko="측정 중" data-en="Measuring">측정 중</span>
+      </div>
+      <div class="test-body" data-ko="서버 응답 시간 측정. 150 ms 이하가 이상적." data-en="Server response time. Under 150 ms is ideal.">서버 응답 시간 측정. 150 ms 이하가 이상적.</div>
+    </div>
+
+    <div class="test" id="t-codec">
+      <div class="test-head">
+        <span class="ic">🎬</span>
+        <span class="ti" data-ko="비디오 코덱 지원" data-en="Video Codec Support">비디오 코덱 지원</span>
+        <span class="st pending" data-ko="검사 중" data-en="Testing">검사 중</span>
+      </div>
+      <div class="test-body" data-ko="VP9 / AV1 / H.264 지원 여부 — 화질에 직접 영향." data-en="VP9 / AV1 / H.264 support — directly affects video quality.">VP9 / AV1 / H.264 지원 여부 — 화질에 직접 영향.</div>
+    </div>
+  </div>
+
+  <!-- 권장사항 -->
+  <div class="reco" id="reco-panel"></div>
+
+  <!-- 액션 -->
+  <div class="actions">
+    <button class="btn btn-ghost" onclick="rerunAll()" data-ko="🔄 다시 진단" data-en="🔄 Re-run">🔄 다시 진단</button>
+    <button class="btn btn-primary" id="enter-btn" onclick="enterClass()" disabled data-ko="🎥 수업 입장하기" data-en="🎥 Enter Class">🎥 수업 입장하기</button>
+  </div>
+
+  <footer>
+    <div data-ko="© 망고아이 화상수업 · 자가진단 v1.0" data-en="© Mangoi Video Class · PreCheck v1.0">© 망고아이 화상수업 · 자가진단 v1.0</div>
+    <div style="margin-top:4px">
+      <a href="/" data-ko="← 홈으로" data-en="← Home">← 홈으로</a> ·
+      <a href="mailto:navy111p@gmail.com">support</a>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+/* ==================================================================
+   망고아이 PreCheck v1.0
+   - 9가지 자동 진단 + 점수 산정 + 권장사항
+   ================================================================== */
+'use strict';
+
+// ─────────── i18n ───────────
+let curLang = localStorage.getItem('precheck_lang') || (navigator.language || 'ko').slice(0,2);
+if (curLang !== 'en') curLang = 'ko';
+
+function applyLang(){
+  document.documentElement.lang = curLang;
+  document.querySelectorAll('[data-ko][data-en]').forEach(el => {
+    el.textContent = el.getAttribute('data-' + curLang) || el.textContent;
+  });
+  document.getElementById('lang-ko').classList.toggle('on', curLang === 'ko');
+  document.getElementById('lang-en').classList.toggle('on', curLang === 'en');
+}
+function setLang(l){
+  curLang = l; localStorage.setItem('precheck_lang', l); applyLang(); updateScore();
+}
+
+// ─────────── 상태 ───────────
+const T = {
+  https:   { pass: null, msg: '' },
+  browser: { pass: null, msg: '' },
+  camera:  { pass: null, msg: '' },
+  mic:     { pass: null, msg: '' },
+  speaker: { pass: null, msg: '' },
+  bw:      { pass: null, msg: '' },
+  stun:    { pass: null, msg: '' },
+  rtt:     { pass: null, msg: '' },
+  codec:   { pass: null, msg: '' }
+};
+
+// pass: true(ok) / 'warn' / false(bad) / null(pending)
+
+function setStatus(key, pass, msgKo, msgEn, hintKo, hintEn){
+  T[key].pass = pass;
+  T[key].msg = curLang === 'ko' ? msgKo : msgEn;
+  const card = document.getElementById('t-' + key);
+  if (!card) return;
+  card.classList.remove('ok','warn','bad');
+  const st = card.querySelector('.st');
+  st.classList.remove('pending','ok','warn','bad');
+  if (pass === true)       { card.classList.add('ok');   st.classList.add('ok');   st.textContent = curLang==='ko' ? '✅ 정상' : '✅ Pass'; }
+  else if (pass === 'warn'){ card.classList.add('warn'); st.classList.add('warn'); st.textContent = curLang==='ko' ? '⚠️ 주의' : '⚠️ Warn'; }
+  else if (pass === false) { card.classList.add('bad');  st.classList.add('bad');  st.textContent = curLang==='ko' ? '❌ 실패' : '❌ Fail'; }
+  // body 메시지 갱신
+  const body = card.querySelector('.test-body');
+  let html = '<b>' + (curLang==='ko' ? msgKo : msgEn) + '</b>';
+  if (hintKo && hintEn) html += '<span class="hint">' + (curLang==='ko' ? hintKo : hintEn) + '</span>';
+  body.innerHTML = html;
+  updateScore();
+}
+
+// ─────────── 점수 산정 ───────────
+function updateScore(){
+  const weights = { https:15, browser:10, camera:15, mic:15, speaker:5, bw:15, stun:15, rtt:5, codec:5 };
+  let total = 0, max = 0;
+  for (const k in weights){
+    max += weights[k];
+    const p = T[k].pass;
+    if (p === true) total += weights[k];
+    else if (p === 'warn') total += weights[k] * 0.6;
+    else if (p === null)   total += 0; // pending = 0
+  }
+  const pct = Math.round((total / max) * 100);
+  document.getElementById('score-num').textContent = isNaN(pct) ? '--' : pct;
+  const arc = document.getElementById('score-arc');
+  const dash = (314 * pct / 100).toFixed(1);
+  arc.setAttribute('stroke-dasharray', dash + ' 314');
+
+  let color = '#10B981', titleKo = '✅ 입장 준비 완료', titleEn = '✅ Ready to join', descKo = '모든 항목 정상입니다. 안심하고 수업에 입장하세요.', descEn = 'All checks passed. You can join class with confidence.', badgeKo = '안전·선명·안정', badgeEn = 'Safe · Clear · Stable', badgeColor = 'rgba(16,185,129,0.18)', badgeText='#34d399';
+  if (pct < 60) {
+    color = '#EF4444'; titleKo = '❌ 입장 어려움'; titleEn = '❌ Cannot join safely';
+    descKo = '연결에 심각한 문제가 있습니다. 아래 권장사항을 먼저 해결하세요.';
+    descEn = 'Critical issues detected. Please fix the issues below before joining.';
+    badgeKo = '문제 있음'; badgeEn = 'Issues'; badgeColor='rgba(239,68,68,0.18)'; badgeText='#f87171';
+  } else if (pct < 85) {
+    color = '#F59E0B'; titleKo = '⚠️ 입장 가능 (개선 권장)'; titleEn = '⚠️ Can join (improvement recommended)';
+    descKo = '연결은 가능하지만 더 선명하고 안정적인 수업을 위해 아래 권장사항을 확인하세요.';
+    descEn = 'Joining possible, but follow recommendations below for clearer and more stable class.';
+    badgeKo = '개선 권장'; badgeEn = 'Improvable'; badgeColor='rgba(245,158,11,0.18)'; badgeText='#fbbf24';
+  }
+  arc.style.stroke = color;
+  document.getElementById('score-title').textContent = curLang==='ko' ? titleKo : titleEn;
+  document.getElementById('score-desc').textContent  = curLang==='ko' ? descKo  : descEn;
+  const b = document.getElementById('score-badge');
+  b.textContent = curLang==='ko' ? badgeKo : badgeEn;
+  b.style.background = badgeColor;
+  b.style.color = badgeText;
+
+  // 입장 버튼 — 60점 이상 활성화
+  document.getElementById('enter-btn').disabled = (pct < 60);
+
+  buildRecommendations();
+}
+
+// ─────────── 권장사항 ───────────
+function buildRecommendations(){
+  const recos = [];
+  if (T.https.pass === false)   recos.push({ lv:'bad',  ko:'HTTPS 가 아닙니다 — 주소창 https:// 로 시작하는지 확인하세요.', en:'Not HTTPS — make sure the URL starts with https://.' });
+  if (T.browser.pass === 'warn')recos.push({ lv:'warn', ko:'권장 브라우저(크롬/에지/사파리/파이어폭스 최신)로 변경해 주세요.', en:'Switch to a recommended browser (Chrome/Edge/Safari/Firefox latest).' });
+  if (T.browser.pass === false) recos.push({ lv:'bad',  ko:'이 브라우저는 WebRTC 지원이 부족합니다. 크롬을 추천드립니다.', en:'This browser lacks proper WebRTC support — Chrome recommended.' });
+  if (T.camera.pass === false)  recos.push({ lv:'bad',  ko:'카메라 권한이 거부됐습니다. 주소창 자물쇠 → 카메라 허용으로 변경.', en:'Camera permission denied. Click the lock icon → allow camera.' });
+  if (T.mic.pass === false)     recos.push({ lv:'bad',  ko:'마이크 권한이 거부됐습니다. 주소창 자물쇠 → 마이크 허용으로 변경.', en:'Microphone denied. Click the lock icon → allow mic.' });
+  if (T.mic.pass === 'warn')    recos.push({ lv:'warn', ko:'마이크 입력이 매우 작습니다. 마이크에 더 가까이 말하거나 시스템 음량을 올려 주세요.', en:'Microphone input too low. Speak closer or raise system input gain.' });
+  if (T.speaker.pass === false) recos.push({ lv:'bad',  ko:'스피커에서 소리가 안 납니다. 음소거 해제·볼륨 확인·이어폰 연결 확인.', en:'Speaker silent. Unmute, check volume, reconnect earphones.' });
+  if (T.bw.pass === false)      recos.push({ lv:'bad',  ko:'대역폭이 부족합니다(2 Mbps 미만). 유선 LAN 또는 5GHz Wi-Fi 권장.', en:'Insufficient bandwidth (< 2 Mbps). Use wired LAN or 5GHz Wi-Fi.' });
+  if (T.bw.pass === 'warn')     recos.push({ lv:'warn', ko:'대역폭이 빠듯합니다. 백그라운드 다운로드·스트리밍을 중단하세요.', en:'Bandwidth tight. Stop background downloads/streaming.' });
+  if (T.stun.pass === false)    recos.push({ lv:'bad',  ko:'STUN 서버 연결 실패 — 방화벽/회사망에서 차단됐을 수 있습니다.', en:'STUN unreachable — firewall/corporate network may block WebRTC.' });
+  if (T.rtt.pass === 'warn')    recos.push({ lv:'warn', ko:'지연시간이 다소 큽니다. 공유기에 더 가까이 가거나 LAN을 사용해 주세요.', en:'Latency a bit high. Move closer to the router or use LAN.' });
+  if (T.rtt.pass === false)     recos.push({ lv:'bad',  ko:'지연시간이 매우 큽니다. 네트워크 환경을 변경하세요.', en:'Latency very high. Change your network environment.' });
+  if (T.codec.pass === 'warn')  recos.push({ lv:'warn', ko:'VP9/AV1 미지원 — H.264로 동작합니다(약간 낮은 화질).', en:'VP9/AV1 unsupported — falls back to H.264 (slightly lower quality).' });
+
+  // 항상 표시되는 좋은 습관 팁
+  if (recos.length === 0) {
+    recos.push({ lv:'ok', ko:'유선 LAN·이어폰·정면 조명을 사용하시면 더욱 선명한 수업이 됩니다.', en:'For best results: wired LAN, earphones, and front-facing lighting.' });
+  }
+
+  const panel = document.getElementById('reco-panel');
+  if (recos.length === 0) { panel.innerHTML = ''; return; }
+  let html = '<h3>💡 <span data-ko="권장사항" data-en="Recommendations">' + (curLang==='ko'?'권장사항':'Recommendations') + '</span></h3><ul>';
+  recos.forEach(r => { html += '<li class="' + r.lv + '">' + (curLang==='ko' ? r.ko : r.en) + '</li>'; });
+  html += '</ul>';
+  panel.innerHTML = html;
+}
+
+// ─────────── 1. HTTPS ───────────
+function checkHttps(){
+  const isSecure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  if (isSecure) setStatus('https', true, 'HTTPS 보안 연결 ✓', 'HTTPS secure ✓');
+  else setStatus('https', false, 'HTTPS 가 아닙니다', 'Not HTTPS');
+}
+
+// ─────────── 2. Browser ───────────
+function checkBrowser(){
+  const ua = navigator.userAgent;
+  let name = 'Unknown', ver = '0', ok = false, warn = false;
+  if (/Edg\//.test(ua))      { name='Edge';    ver=(ua.match(/Edg\/(\d+)/)||[])[1]||'?'; ok = parseInt(ver) >= 100; }
+  else if (/Chrome\//.test(ua)){ name='Chrome'; ver=(ua.match(/Chrome\/(\d+)/)||[])[1]||'?'; ok = parseInt(ver) >= 100; }
+  else if (/Firefox\//.test(ua)){ name='Firefox'; ver=(ua.match(/Firefox\/(\d+)/)||[])[1]||'?'; ok = parseInt(ver) >= 100; }
+  else if (/Safari\//.test(ua)){ name='Safari'; ver=(ua.match(/Version\/(\d+)/)||[])[1]||'?'; ok = parseInt(ver) >= 15; warn = !ok; }
+  else if (/SamsungBrowser/.test(ua)){ name='Samsung Internet'; warn = true; }
+  if (!window.RTCPeerConnection) { setStatus('browser', false, name + ' ' + ver + ' — WebRTC 미지원', name + ' ' + ver + ' — no WebRTC'); return; }
+  if (ok)        setStatus('browser', true, name + ' ' + ver + ' ✓', name + ' ' + ver + ' ✓');
+  else if (warn) setStatus('browser', 'warn', name + ' ' + ver + ' (제한적 지원)', name + ' ' + ver + ' (limited support)');
+  else           setStatus('browser', 'warn', name + ' ' + ver + ' — 최신 버전 권장', name + ' ' + ver + ' — update recommended');
+}
+
+// ─────────── 3. Camera ───────────
+async function checkCamera(){
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { width:{ideal:1280}, height:{ideal:720}, frameRate:{ideal:30} }, audio: false });
+    const track = stream.getVideoTracks()[0];
+    const s = track.getSettings();
+    const w = s.width || 0, h = s.height || 0, fps = Math.round(s.frameRate || 0);
+    window._camStream = stream;
+    document.getElementById('cam-wrap').style.display = 'block';
+    document.getElementById('cam-video').srcObject = stream;
+    document.getElementById('cam-info').textContent = w + '×' + h + ' @ ' + fps + 'fps';
+    if (w >= 1280 && h >= 720) setStatus('camera', true, w+'×'+h+' @ '+fps+'fps · HD', w+'×'+h+' @ '+fps+'fps · HD');
+    else setStatus('camera', 'warn', w+'×'+h+' @ '+fps+'fps · SD', w+'×'+h+' @ '+fps+'fps · SD', '해상도가 낮습니다 — 외장 1080p 카메라 권장.', 'Low resolution — external 1080p camera recommended.');
+  } catch(e) {
+    setStatus('camera', false, '카메라 접근 실패: ' + (e.name||'Error'), 'Camera access failed: ' + (e.name||'Error'));
+  }
+}
+
+// ─────────── 4. Mic ───────────
+async function checkMic(){
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true }, video: false });
+    const track = stream.getAudioTracks()[0];
+    const cap = track.getSettings();
+    window._micStream = stream;
+    document.getElementById('vu-wrap').style.display = 'flex';
+
+    // VU meter
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ac = new Ctx();
+    const src = ac.createMediaStreamSource(stream);
+    const ana = ac.createAnalyser();
+    ana.fftSize = 1024;
+    src.connect(ana);
+    const buf = new Uint8Array(ana.frequencyBinCount);
+    let peak = 0, samples = 0;
+    function tick(){
+      ana.getByteTimeDomainData(buf);
+      let max = 0;
+      for (let i=0;i<buf.length;i++){ const v = Math.abs(buf[i]-128); if (v>max) max=v; }
+      const pct = Math.min(100, (max/128)*100*2);
+      document.getElementById('vu-fill').style.width = pct + '%';
+      document.getElementById('vu-label').textContent = Math.round(pct) + ' %';
+      peak = Math.max(peak, pct); samples++;
+      if (samples < 60) requestAnimationFrame(tick);
+      else {
+        // 1초 후 판정
+        if (peak < 3) setStatus('mic', 'warn', '입력 레벨 매우 작음 (peak ' + Math.round(peak) + '%)', 'Input level very low (peak ' + Math.round(peak) + '%)', '마이크에 가까이 말하거나 음량을 높이세요.', 'Speak closer or raise system input gain.');
+        else if (peak < 10) setStatus('mic', 'warn', '입력 레벨 작음 (peak ' + Math.round(peak) + '%)', 'Input level low (peak ' + Math.round(peak) + '%)', '에코 캔슬·노이즈 억제 활성화됨 ✓', 'Echo/noise cancellation enabled ✓');
+        else setStatus('mic', true, '에코 캔슬·노이즈 억제 ✓ · peak ' + Math.round(peak) + '%', 'Echo/noise cancel ON ✓ · peak ' + Math.round(peak) + '%');
+      }
+    }
+    tick();
+  } catch(e) {
+    setStatus('mic', false, '마이크 접근 실패: ' + (e.name||'Error'), 'Microphone access failed: ' + (e.name||'Error'));
+  }
+}
+
+// ─────────── 5. Speaker (manual) ───────────
+let _toneCtx = null;
+function playTestTone(){
+  try {
+    if (_toneCtx) { _toneCtx.close(); _toneCtx = null; }
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    _toneCtx = new Ctx();
+    const osc = _toneCtx.createOscillator();
+    const g = _toneCtx.createGain();
+    osc.type = 'sine'; osc.frequency.value = 440;
+    g.gain.setValueAtTime(0.0, _toneCtx.currentTime);
+    g.gain.linearRampToValueAtTime(0.18, _toneCtx.currentTime + 0.05);
+    g.gain.linearRampToValueAtTime(0.0, _toneCtx.currentTime + 1.4);
+    osc.connect(g); g.connect(_toneCtx.destination);
+    osc.start(); osc.stop(_toneCtx.currentTime + 1.5);
+  } catch(e){ alert('재생 실패: ' + e.message); }
+}
+function markSpeaker(ok){
+  if (ok) setStatus('speaker', true, '사용자 확인 — 정상 ✓', 'User confirmed — OK ✓');
+  else    setStatus('speaker', false, '사용자가 안 들린다고 표시', 'User reported no sound');
+}
+
+// ─────────── 6. Bandwidth ───────────
+async function checkBandwidth(){
+  try {
+    const url = 'https://speed.cloudflare.com/__down?bytes=2500000'; // 2.5 MB
+    const t0 = performance.now();
+    const r = await fetch(url, { cache: 'no-store' });
+    await r.blob();
+    const dt = (performance.now() - t0) / 1000;
+    const mbps = ((2.5 * 8) / dt).toFixed(1);
+    const mbpsN = parseFloat(mbps);
+    if (mbpsN >= 10)      setStatus('bw', true, mbps + ' Mbps · 충분 ✓', mbps + ' Mbps · Plenty ✓');
+    else if (mbpsN >= 2)  setStatus('bw', 'warn', mbps + ' Mbps · 빠듯', mbps + ' Mbps · Tight', '백그라운드 트래픽을 중단하세요.', 'Stop background traffic.');
+    else                  setStatus('bw', false, mbps + ' Mbps · 부족', mbps + ' Mbps · Insufficient');
+  } catch(e) {
+    setStatus('bw', 'warn', '측정 실패 (방화벽/네트워크 제한 가능)', 'Test failed (firewall may block)');
+  }
+}
+
+// ─────────── 7. STUN ───────────
+async function checkStun(){
+  return new Promise(resolve => {
+    try {
+      const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }, { urls: 'stun:stun.l.google.com:19302' }] });
+      let gotCandidate = false, gotPublic = false;
+      const to = setTimeout(() => {
+        try { pc.close(); } catch(e){}
+        if (gotPublic)       { setStatus('stun', true,  '공인 IP 회신 ✓', 'Public IP obtained ✓'); }
+        else if (gotCandidate){ setStatus('stun', 'warn','로컬 후보만 회신 — NAT 통과 불확실', 'Local candidates only — NAT traversal uncertain', 'TURN 서버 사용을 권장합니다.', 'TURN server recommended.'); }
+        else                  { setStatus('stun', false, 'STUN 응답 없음 — 방화벽 차단 가능', 'No STUN response — firewall may block'); }
+        resolve();
+      }, 4000);
+      pc.onicecandidate = e => {
+        if (!e.candidate) return;
+        gotCandidate = true;
+        const c = e.candidate.candidate;
+        if (/typ srflx|typ relay/.test(c)) gotPublic = true;
+      };
+      pc.createDataChannel('p');
+      pc.createOffer().then(o => pc.setLocalDescription(o));
+    } catch(e) {
+      setStatus('stun', false, 'STUN 검사 오류: ' + e.message, 'STUN check error: ' + e.message);
+      resolve();
+    }
+  });
+}
+
+// ─────────── 8. RTT (Cloudflare) ───────────
+async function checkRtt(){
+  try {
+    const samples = [];
+    for (let i=0;i<3;i++){
+      const t0 = performance.now();
+      await fetch('https://speed.cloudflare.com/__down?bytes=0', { cache:'no-store' });
+      samples.push(performance.now() - t0);
+    }
+    const avg = Math.round(samples.reduce((a,b)=>a+b,0) / samples.length);
+    if (avg <= 80)       setStatus('rtt', true, avg + ' ms · 매우 빠름 ✓', avg + ' ms · Excellent ✓');
+    else if (avg <= 150) setStatus('rtt', true, avg + ' ms · 양호', avg + ' ms · Good');
+    else if (avg <= 300) setStatus('rtt', 'warn', avg + ' ms · 다소 느림', avg + ' ms · Slow');
+    else                 setStatus('rtt', false, avg + ' ms · 매우 느림', avg + ' ms · Very slow');
+  } catch(e) {
+    setStatus('rtt', 'warn', '측정 실패', 'Test failed');
+  }
+}
+
+// ─────────── 9. Codec ───────────
+function checkCodec(){
+  if (!window.RTCRtpSender || !RTCRtpSender.getCapabilities) {
+    setStatus('codec', 'warn', '코덱 확인 불가 (브라우저 제한)', 'Codec check unavailable (browser limit)');
+    return;
+  }
+  const caps = RTCRtpSender.getCapabilities('video');
+  if (!caps) { setStatus('codec', 'warn', '비디오 코덱 정보 없음', 'No video codec info'); return; }
+  const list = caps.codecs.map(c => c.mimeType.replace('video/','')).filter((v,i,a)=>a.indexOf(v)===i);
+  const hasVP9 = list.some(c => /VP9/i.test(c));
+  const hasAV1 = list.some(c => /AV1/i.test(c));
+  const hasH264 = list.some(c => /H264/i.test(c));
+  let pri = [];
+  if (hasAV1) pri.push('AV1');
+  if (hasVP9) pri.push('VP9');
+  if (hasH264) pri.push('H.264');
+  if (hasVP9 || hasAV1) setStatus('codec', true, pri.join(' · ') + ' 지원 ✓', pri.join(' · ') + ' supported ✓');
+  else if (hasH264)     setStatus('codec', 'warn', 'H.264 만 지원 (화질 보통)', 'H.264 only (moderate quality)');
+  else                  setStatus('codec', false, '주요 코덱 미지원', 'No major codec supported');
+}
+
+// ─────────── 입장 ───────────
+function enterClass(){
+  // 카메라/마이크 stream 해제 (룸 페이지가 다시 잡도록)
+  try { if (window._camStream) window._camStream.getTracks().forEach(t=>t.stop()); } catch(e){}
+  try { if (window._micStream) window._micStream.getTracks().forEach(t=>t.stop()); } catch(e){}
+  // 실제 룸으로 이동 — 기존 진입 URL 패턴 유지
+  location.href = '/';
+}
+
+// ─────────── 전체 실행 ───────────
+async function rerunAll(){
+  for (const k in T) { T[k].pass = null; T[k].msg = ''; }
+  document.querySelectorAll('.test .st').forEach(s => { s.className = 'st pending'; s.textContent = curLang==='ko' ? '검사 중' : 'Testing'; });
+  updateScore();
+  try { if (window._camStream) window._camStream.getTracks().forEach(t=>t.stop()); } catch(e){}
+  try { if (window._micStream) window._micStream.getTracks().forEach(t=>t.stop()); } catch(e){}
+  document.getElementById('cam-wrap').style.display = 'none';
+  document.getElementById('vu-wrap').style.display = 'none';
+
+  checkHttps();
+  checkBrowser();
+  checkCodec();
+  // 권한 필요한 것 먼저
+  await checkCamera();
+  await checkMic();
+  // 네트워크 병렬
+  await Promise.all([ checkBandwidth(), checkRtt(), checkStun() ]);
+}
+
+// 시작
+applyLang();
+updateScore();
+window.addEventListener('load', () => {
+  // 0.3초 후 자동 시작 (사용자가 권한 다이얼로그 인지할 시간 확보)
+  setTimeout(rerunAll, 300);
+});
+</script>
+</body>
+</html>

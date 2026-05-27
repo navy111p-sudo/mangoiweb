@@ -23005,7 +23005,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260527213930 -->
+<!-- BUILD:20260527215423 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -23736,5 +23736,39 @@ document.addEventListener('keydown', function(e){
 })();
 </script>
 
+
+<!-- ============================================================
+     Phase v27 (2026-05-27) — 수업 입장 전 자가진단 플로팅 버튼
+     · 화면 우하단에 항상 떠 있는 🔍 버튼
+     · 수업 입장 직전 한 번 자가진단 권장
+     ============================================================ -->
+<style id="v27-precheck-fab">
+  #precheck-fab {
+    position: fixed; right: 16px; bottom: 16px;
+    z-index: 99990;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: #fff; border: 0; border-radius: 999px;
+    padding: 12px 18px 12px 14px;
+    font-size: 13.5px; font-weight: 700; cursor: pointer;
+    box-shadow: 0 10px 24px -8px rgba(59,130,246,0.55), 0 4px 10px -2px rgba(0,0,0,0.25);
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: transform .15s, box-shadow .15s;
+    font-family: -apple-system,"Segoe UI","Pretendard","Noto Sans KR",sans-serif;
+  }
+  #precheck-fab:hover { transform: translateY(-2px); box-shadow: 0 16px 32px -8px rgba(59,130,246,0.7); }
+  #precheck-fab .ic { font-size: 17px; }
+  #precheck-fab .dot { position: absolute; top: 4px; right: 6px; width: 9px; height: 9px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 2px #fff; animation: pcPulse 1.8s ease-out infinite; }
+  @keyframes pcPulse { 0%{transform:scale(1);opacity:1} 70%{transform:scale(1.9);opacity:0} 100%{transform:scale(1.9);opacity:0} }
+  @media (max-width: 600px) {
+    #precheck-fab { padding: 11px 14px 11px 12px; font-size: 12.5px; bottom: 12px; right: 12px; }
+  }
+</style>
+<button type="button" id="precheck-fab" onclick="location.href='/precheck.html'"
+        title="수업 입장 전 자가진단 (카메라·마이크·대역폭 체크)"
+        aria-label="수업 입장 전 자가진단">
+  <span class="ic">🎥</span>
+  <span data-ko="수업 진단" data-en="PreCheck">수업 진단</span>
+  <span class="dot"></span>
+</button>
+
 </body>
-</html>
