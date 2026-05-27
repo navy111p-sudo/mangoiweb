@@ -21756,12 +21756,17 @@ document.addEventListener('click', (e) => {
   .ph49-kakao-fab:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,0.4); }
   .ph49-kakao-fab:active { transform: scale(0.95); }
   .ph49-kakao-fab .ph49-kakao-label {
+    /* fix v44 (2026-05-28) — 글꼴 명시 + 자간 조정으로 "상담"이 "상덤"으로 깨져 보이는 문제 해결 */
     position: absolute;
     right: 64px;
     background: rgba(15,23,42,0.92);
     color: #FEE500;
-    font-size: 12px;
+    font-family: "Pretendard","Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",-apple-system,BlinkMacSystemFont,sans-serif !important;
+    font-size: 12.5px;
     font-weight: 700;
+    letter-spacing: 0;
+    word-spacing: 0;
+    line-height: 1.4;
     padding: 6px 11px;
     border-radius: 999px;
     white-space: nowrap;
@@ -21769,6 +21774,10 @@ document.addEventListener('click', (e) => {
     transform: translateX(8px);
     pointer-events: none;
     transition: opacity .2s, transform .2s;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern" 1;
   }
   .ph49-kakao-fab:hover .ph49-kakao-label,
   .ph49-kakao-fab.ph49-kakao-show-label .ph49-kakao-label {
@@ -22693,7 +22702,7 @@ document.addEventListener('click', (e) => {
    href="https://pf.kakao.com/_mangoi" target="_blank" rel="noopener"
    onclick="try{if(window.openKakao){window.openKakao();return false;}}catch(e){}"
    title="Kakao Chat" aria-label="Kakao">
-  <span style="font-size:22px">&#128172;</span><span class="ph49-kakao-label" data-ko="&#52852;&#52852;&#50724; &#49345;&#45924;" data-en="Kakao Chat">Kakao</span>
+  <span style="font-size:22px">&#128172;</span><span class="ph49-kakao-label" data-ko="카카오 상담" data-en="Kakao Chat">Kakao</span>
 </a>
 
 <script>
@@ -23029,7 +23038,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260528012433 -->
+<!-- BUILD:20260528012847 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
