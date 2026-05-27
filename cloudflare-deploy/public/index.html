@@ -23038,7 +23038,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260528053714 -->
+<!-- BUILD:20260528054633 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -24225,6 +24225,55 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   } catch(e){}
 
   console.log('[v35] 카메라 영상 자동 복구 핸들러 활성 — 1s 주기 + class 변경 감지');
+})();
+</script>
+
+
+<!-- ============================================================
+     fix v154 (2026-05-28) — 룸 ✕ 버튼 캡처 강제 (모든 ctrl-btn.danger)
+     · 어떤 ✕ 버튼이든 (anchor, button, sigLeaveRoom 등) 잡음
+     · capture phase 로 다른 모든 핸들러보다 먼저 실행
+     · 즉시 location.replace('/?_e=' + Date.now())
+     ============================================================ -->
+<script id="v154-exit-capture">
+(function(){
+  'use strict';
+
+  function forceHome(){
+    try { if (typeof window.vcLeaveRoom === 'function') window.vcLeaveRoom(); } catch(e){}
+    var url = '/?_e=' + Date.now();
+    try { location.replace(url); } catch(e1){
+      try { location.assign(url); } catch(e2){
+        try { location.href = url; } catch(e3){ location.reload(); }
+      }
+    }
+  }
+
+  function isExitBtn(el){
+    if (!el || !el.closest) return false;
+    return !!el.closest(
+      'a#vc-exit-btn-v34, a#vc-exit-btn-v33, ' +
+      'button.ctrl-btn.danger, a.ctrl-btn.danger, ' +
+      '#vc-exit-btn-v32'
+    );
+  }
+
+  // click + touchend + pointerdown 모두 캡처
+  ['click','touchend','pointerdown','mousedown'].forEach(function(ev){
+    window.addEventListener(ev, function(e){
+      if (!isExitBtn(e.target)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+      // click 또는 touchend 시 실제 실행 (다른 이벤트는 차단만)
+      if (ev === 'click' || ev === 'touchend') {
+        console.log('[v154] ✕ ' + ev + ' 캡처 — 홈 강제 이동');
+        forceHome();
+      }
+    }, true);
+  });
+
+  console.log('[v154] 룸 ✕ 버튼 capture 강제 핸들러 활성 — click/touch/pointer 4중');
 })();
 </script>
 
