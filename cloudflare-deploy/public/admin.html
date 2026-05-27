@@ -2525,6 +2525,40 @@
         </div>
       </details>
 
+      <!-- 📅 학원 전체 스케줄 (fix v39 — 학생 페이지에서 이동) -->
+      <details class="sub-item" id="sm-all-schedules">
+        <summary data-ko="📅 학원 전체 스케줄" data-en="📅 Academy Full Schedule">📅 학원 전체 스케줄</summary>
+        <div class="sub-body">
+          <div style="background:linear-gradient(135deg,rgba(37,99,235,0.10),rgba(59,130,246,0.05));border:1px solid rgba(59,130,246,0.25);border-radius:10px;padding:12px 14px;margin-bottom:10px">
+            <div style="font-size:12.5px;color:#1e40af;font-weight:600;margin-bottom:4px"
+                 data-ko="📌 전체 학생·강사 정규/단일 일정 통합 캘린더"
+                 data-en="📌 Unified calendar for all students/teachers, regular + single sessions">
+              📌 전체 학생·강사 정규/단일 일정 통합 캘린더
+            </div>
+            <div style="font-size:11.5px;color:#475569;line-height:1.6"
+                 data-ko="유형·종류·학생명·강사명으로 필터링 + 주간/테이블 보기. 풀페이지로 열어 사용하시는 게 가장 편합니다."
+                 data-en="Filter by type, kind, student, teacher + weekly/table view. Best opened as full page.">
+              유형·종류·학생명·강사명으로 필터링 + 주간/테이블 보기. 풀페이지로 열어 사용하시는 게 가장 편합니다.
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+            <a href="/admin/all-schedules.html" target="_blank" rel="noopener"
+               style="padding:8px 16px;font-size:13px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border-radius:8px;text-decoration:none;font-weight:700;display:inline-flex;align-items:center;gap:6px"
+               data-ko="🖥️ 풀페이지로 열기" data-en="🖥️ Open Full Page">🖥️ 풀페이지로 열기</a>
+            <button type="button" onclick="document.getElementById('sm-schedule-iframe').src=document.getElementById('sm-schedule-iframe').src"
+                    style="padding:8px 14px;font-size:12.5px;background:#f59e0b;color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:600"
+                    data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+            <a href="/admin/all-schedules.html" target="_blank" rel="noopener"
+               style="padding:8px 14px;font-size:12.5px;background:transparent;border:1px solid #cbd5e1;color:#cbd5e1;border-radius:8px;text-decoration:none"
+               data-ko="↗ 새 탭" data-en="↗ New Tab">↗ 새 탭</a>
+          </div>
+          <iframe id="sm-schedule-iframe" src="/admin/all-schedules.html"
+                  style="width:100%;height:620px;border:1px solid #334155;border-radius:10px;background:#0F172A"
+                  loading="lazy"
+                  title="학원 전체 스케줄"></iframe>
+        </div>
+      </details>
+
       <!-- 🏆 연속 출석 랭킹 -->
       <details class="sub-item">
         <summary data-ko="🏆 연속 출석 랭킹" data-en="🏆 Streak Ranking">🏆 연속 출석 랭킹</summary>
@@ -18695,7 +18729,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260528000750 -->
+        <!-- BUILD:20260528001652 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -31984,7 +32018,6 @@ button.chip:hover,
 })();
 </script>
 
-
 <!-- ============================================================
      Phase 133 (2026-05-27) — 관리자 화면에서도 수업 진단 플로팅 버튼
      ============================================================ -->
@@ -32015,3 +32048,4 @@ button.chip:hover,
 </button>
 
 </body>
+</html>
