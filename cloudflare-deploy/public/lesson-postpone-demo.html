@@ -267,15 +267,63 @@ header {
   text-transform: uppercase; letter-spacing: 0.5px;
 }
 
-/* ── 가로 스크롤 날짜 칩 (링글 스타일) ── */
+/* ── 가로 스크롤 날짜 칩 (링글 스타일) — fix v40 강화 ── */
+.date-scroller-wrap {
+  position: relative;
+  margin: 0 -4px;        /* 부모 padding 보정으로 좌우 화면 끝까지 활용 */
+}
+.date-scroller-wrap::before,
+.date-scroller-wrap::after {
+  content: ''; position: absolute; top: 0; bottom: 6px; width: 32px;
+  pointer-events: none; z-index: 2;
+  transition: opacity .25s;
+}
+.date-scroller-wrap::before {
+  left: 0;
+  background: linear-gradient(90deg, var(--bg, #0f172a) 0%, transparent 100%);
+}
+.date-scroller-wrap::after {
+  right: 0;
+  background: linear-gradient(-90deg, var(--bg, #0f172a) 0%, transparent 100%);
+}
+.date-scroller-wrap.at-start::before { opacity: 0; }
+.date-scroller-wrap.at-end::after { opacity: 0; }
+.date-scroller-nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 32px; height: 32px;
+  background: rgba(15,23,42,0.9);
+  color: #fff; border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 50%; font-size: 16px; font-weight: 900;
+  cursor: pointer; z-index: 3;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+  transition: opacity .2s, transform .12s;
+  user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.date-scroller-nav:hover { transform: translateY(-50%) scale(1.08); }
+.date-scroller-nav:active { transform: translateY(-50%) scale(0.94); }
+.date-scroller-nav.prev { left: -2px; }
+.date-scroller-nav.next { right: -2px; }
+.date-scroller-wrap.at-start .date-scroller-nav.prev { opacity: 0; pointer-events: none; }
+.date-scroller-wrap.at-end   .date-scroller-nav.next { opacity: 0; pointer-events: none; }
+@media (max-width: 600px) {
+  /* 모바일에서는 화살표 숨김 (터치 스와이프가 더 자연스러움) */
+  .date-scroller-nav { display: none; }
+}
+
 .date-scroller {
   display: flex; gap: 8px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 2px 4px 6px;
+  padding: 2px 14px 8px;          /* 좌우 14px 패딩으로 첫·마지막 카드 안 잘리게 */
   scrollbar-width: none;
+  scroll-behavior: smooth;
+  scroll-snap-type: x proximity;  /* 자연스러운 스냅 */
+  cursor: grab;                   /* PC 에서 잡고 드래그 가능 표시 */
 }
+.date-scroller.dragging { cursor: grabbing; scroll-behavior: auto; }
 .date-scroller::-webkit-scrollbar { display: none; }
+.date-chip { scroll-snap-align: start; }
 .date-chip {
   flex: 0 0 auto;
   min-width: 66px;
@@ -821,7 +869,11 @@ function renderTimeTab(){
 
   return `
     <div class="section-label">📅 날짜 선택 · 좌우로 밀어보세요</div>
-    <div class="date-scroller">${dateHtml}</div>
+    <div class="date-scroller-wrap at-start" id="dateScrollerWrap">
+      <button type="button" class="date-scroller-nav prev" id="dateScrollPrev" aria-label="이전 날짜">◀</button>
+      <div class="date-scroller" id="dateScroller">${dateHtml}</div>
+      <button type="button" class="date-scroller-nav next" id="dateScrollNext" aria-label="다음 날짜">▶</button>
+    </div>
     ${state.date ? `
       <div class="section-label">🕐 시간 선택</div>
       <div class="hour-grid">${hoursHtml}</div>
@@ -936,68 +988,85 @@ function updateSticky(){
   const sum = $('#sticky-summary');
   const ready = state.date && state.hour && state.teacher;
   if (ready) {
-    const t = TEACHERS.find(x => x.id === state.teacher);
-    sum.innerHTML = `<span class="icon">✅</span> <b>${t.name}</b> · <b>${fmtMD(state.date)}(${fmtDOW(state.date)}) ${fmtH(state.hour)}</b> 선택됨`;
-    bar.classList.add('show');
+    if (bar) bar.classList.add('visible');
+    if (sum) sum.textContent = state.date + ' · ' + state.hour + ' · ' + state.teacher;
   } else {
-    bar.classList.remove('show');
+    if (bar) bar.classList.remove('visible');
   }
 }
 
-$('#confirm-btn').addEventListener('click', () => {
-  const v = VERB[state.mode];
-  const t = TEACHERS.find(x => x.id === state.teacher);
-  // Success 오버레이 표시
-  $('#success-title').textContent = `수업이 ${v} 확정되었습니다!`;
-  $('#success-subtitle').textContent = `${v}된 수업 정보를 확인하세요`;
-  $('#success-teacher').textContent = t.name;
-  $('#success-date').textContent = `${fmtMD(state.date)} (${fmtDOW(state.date)})`;
-  $('#success-hour').textContent = fmtH(state.hour);
-  $('#success-overlay').classList.add('show');
-});
+/* ════════════════════════════════════════════════════════════
+   v40 — 날짜 칩 가로 드래그 스크롤 + 화살표 + 위치 시그널
+   ════════════════════════════════════════════════════════════ */
+(function v40DateScroller(){
+  function init(){
+    const scroller = document.getElementById('dateScroller');
+    const wrap = document.getElementById('dateScrollerWrap');
+    const prev = document.getElementById('dateScrollPrev');
+    const next = document.getElementById('dateScrollNext');
+    if (!scroller || !wrap || scroller.__v40bound) return;
+    scroller.__v40bound = true;
 
-// Success 확인 버튼 — 닫고 메인 화면으로
-$('#success-btn').addEventListener('click', () => {
-  $('#success-overlay').classList.remove('show');
-  // 잠깐 후 메인으로 자동 복귀
-  setTimeout(() => $('#btn-back').click(), 150);
-});
-// 오버레이 배경 클릭 시 닫기
-$('#success-overlay').addEventListener('click', (e) => {
-  if (e.target === $('#success-overlay')) {
-    $('#success-overlay').classList.remove('show');
-    setTimeout(() => $('#btn-back').click(), 150);
+    /* 1) 위치 시그널 (시작/끝) — 그라데이션 fade + 화살표 표시 */
+    function updateEdges(){
+      const max = scroller.scrollWidth - scroller.clientWidth;
+      const atStart = scroller.scrollLeft <= 2;
+      const atEnd = scroller.scrollLeft >= max - 2;
+      wrap.classList.toggle('at-start', atStart);
+      wrap.classList.toggle('at-end', atEnd);
+    }
+    scroller.addEventListener('scroll', updateEdges, { passive: true });
+    window.addEventListener('resize', updateEdges);
+    updateEdges();
+
+    /* 2) ◀ ▶ 화살표 클릭으로 1 페이지씩 부드럽게 */
+    const PAGE = () => Math.max(160, scroller.clientWidth * 0.7);
+    if (prev) prev.addEventListener('click', e => { e.preventDefault(); scroller.scrollBy({ left: -PAGE(), behavior: 'smooth' }); });
+    if (next) next.addEventListener('click', e => { e.preventDefault(); scroller.scrollBy({ left: PAGE(), behavior: 'smooth' }); });
+
+    /* 3) PC 마우스 드래그 (grab & drag) */
+    let isDown = false, startX = 0, startScroll = 0, moved = false;
+    scroller.addEventListener('mousedown', e => {
+      isDown = true; moved = false;
+      startX = e.pageX; startScroll = scroller.scrollLeft;
+      scroller.classList.add('dragging');
+    });
+    window.addEventListener('mouseup', () => {
+      if (!isDown) return;
+      isDown = false;
+      scroller.classList.remove('dragging');
+    });
+    window.addEventListener('mousemove', e => {
+      if (!isDown) return;
+      const dx = e.pageX - startX;
+      if (Math.abs(dx) > 4) moved = true;
+      scroller.scrollLeft = startScroll - dx;
+    });
+    // 드래그 도중 칩 클릭 방지
+    scroller.addEventListener('click', e => {
+      if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; }
+    }, true);
+
+    /* 4) PC 마우스 휠을 가로 스크롤로 변환 (Shift 없이도 가능) */
+    scroller.addEventListener('wheel', e => {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        scroller.scrollLeft += e.deltaY;
+      }
+    }, { passive: false });
+
+    /* 5) 모바일 터치 스와이프는 브라우저 기본(overflow-x:auto)이 처리 — JS 추가 없음 */
+
+    console.log('[v40] 날짜 칩 가로 드래그/휠/화살표 활성');
   }
-});
 
-
-
+  // 화면 전환마다 새로 생성되므로 MutationObserver 로 감지
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+  // 화면 마운트가 동적이라 polling
+  setInterval(init, 600);
+})();
 </script>
-<!-- BUILD:20260528001652 -->
-
-<!-- Success 풀스크린 오버레이 -->
-<div id="success-overlay" class="success-overlay">
-  <div class="success-card">
-    <div class="success-check">✓</div>
-    <div class="success-title" id="success-title">확정되었습니다!</div>
-    <div class="success-subtitle" id="success-subtitle">변경된 수업 정보를 확인하세요</div>
-    <div class="success-info">
-      <div class="success-info-row">
-        <span class="success-info-label">👨‍🏫 교사</span>
-        <span class="success-info-value" id="success-teacher">-</span>
-      </div>
-      <div class="success-info-row">
-        <span class="success-info-label">📅 날짜</span>
-        <span class="success-info-value" id="success-date">-</span>
-      </div>
-      <div class="success-info-row">
-        <span class="success-info-label">🕐 시간</span>
-        <span class="success-info-value" id="success-hour">-</span>
-      </div>
-    </div>
-    <button type="button" class="success-btn" id="success-btn">확인</button>
-  </div>
-</div>
-
+<!-- BUILD:20260528002145 -->
 </body>
 </html>
