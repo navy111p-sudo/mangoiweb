@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
 <meta name="theme-color" content="#0F172A" />
 <title>🎥 수업 입장 전 자가진단 · 망고아이 PreCheck</title>
-<!-- BUILD:20260527215423 -->
+<!-- BUILD:20260527220341 -->
 <style>
   :root {
     --bg: #0F172A;
@@ -255,8 +255,14 @@
    ================================================================== */
 'use strict';
 
+// ─────────── 안전한 storage 래퍼 (시크릿/iframe 환경 대응) ───────────
+const safeStore = {
+  get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+};
+
 // ─────────── i18n ───────────
-let curLang = localStorage.getItem('precheck_lang') || (navigator.language || 'ko').slice(0,2);
+let curLang = safeStore.get('precheck_lang') || (navigator.language || 'ko').slice(0,2);
 if (curLang !== 'en') curLang = 'ko';
 
 function applyLang(){
@@ -268,7 +274,7 @@ function applyLang(){
   document.getElementById('lang-en').classList.toggle('on', curLang === 'en');
 }
 function setLang(l){
-  curLang = l; localStorage.setItem('precheck_lang', l); applyLang(); updateScore();
+  curLang = l; safeStore.set('precheck_lang', l); applyLang(); updateScore();
 }
 
 // ─────────── 상태 ───────────
@@ -430,6 +436,7 @@ async function checkMic(){
     // VU meter
     const Ctx = window.AudioContext || window.webkitAudioContext;
     const ac = new Ctx();
+    window._micAudioCtx = ac; // 재진단 시 close 위해 보관
     const src = ac.createMediaStreamSource(stream);
     const ana = ac.createAnalyser();
     ana.fftSize = 1024;
@@ -437,19 +444,26 @@ async function checkMic(){
     const buf = new Uint8Array(ana.frequencyBinCount);
     let peak = 0, samples = 0;
     function tick(){
+      // VU 엘리먼트가 사라졌으면(다른 진단 시작 등) 즉시 종료
+      const fillEl = document.getElementById('vu-fill');
+      const labEl  = document.getElementById('vu-label');
+      if (!fillEl || !labEl) { try { ac.close(); } catch(e){} return; }
       ana.getByteTimeDomainData(buf);
       let max = 0;
       for (let i=0;i<buf.length;i++){ const v = Math.abs(buf[i]-128); if (v>max) max=v; }
       const pct = Math.min(100, (max/128)*100*2);
-      document.getElementById('vu-fill').style.width = pct + '%';
-      document.getElementById('vu-label').textContent = Math.round(pct) + ' %';
+      fillEl.style.width = pct + '%';
+      labEl.textContent = Math.round(pct) + ' %';
       peak = Math.max(peak, pct); samples++;
       if (samples < 60) requestAnimationFrame(tick);
       else {
-        // 1초 후 판정
+        // 1초 후 판정 + AudioContext 정리 (메모리 누수 방지)
         if (peak < 3) setStatus('mic', 'warn', '입력 레벨 매우 작음 (peak ' + Math.round(peak) + '%)', 'Input level very low (peak ' + Math.round(peak) + '%)', '마이크에 가까이 말하거나 음량을 높이세요.', 'Speak closer or raise system input gain.');
         else if (peak < 10) setStatus('mic', 'warn', '입력 레벨 작음 (peak ' + Math.round(peak) + '%)', 'Input level low (peak ' + Math.round(peak) + '%)', '에코 캔슬·노이즈 억제 활성화됨 ✓', 'Echo/noise cancellation enabled ✓');
         else setStatus('mic', true, '에코 캔슬·노이즈 억제 ✓ · peak ' + Math.round(peak) + '%', 'Echo/noise cancel ON ✓ · peak ' + Math.round(peak) + '%');
+        try { src.disconnect(); ana.disconnect(); } catch(e){}
+        try { ac.close(); } catch(e){}
+        window._micAudioCtx = null;
       }
     }
     tick();
@@ -487,12 +501,14 @@ async function checkBandwidth(){
     const t0 = performance.now();
     const r = await fetch(url, { cache: 'no-store' });
     await r.blob();
-    const dt = (performance.now() - t0) / 1000;
+    const dt = Math.max(0.05, (performance.now() - t0) / 1000); // dt=0 → Infinity 방지
     const mbps = ((2.5 * 8) / dt).toFixed(1);
     const mbpsN = parseFloat(mbps);
-    if (mbpsN >= 10)      setStatus('bw', true, mbps + ' Mbps · 충분 ✓', mbps + ' Mbps · Plenty ✓');
-    else if (mbpsN >= 2)  setStatus('bw', 'warn', mbps + ' Mbps · 빠듯', mbps + ' Mbps · Tight', '백그라운드 트래픽을 중단하세요.', 'Stop background traffic.');
-    else                  setStatus('bw', false, mbps + ' Mbps · 부족', mbps + ' Mbps · Insufficient');
+    if (!isFinite(mbpsN) || mbpsN <= 0) {
+      setStatus('bw', 'warn', '측정 불가 — 캐시 또는 네트워크 응답 비정상', 'Unable to measure — cache or abnormal response');
+    } else if (mbpsN >= 10) setStatus('bw', true, mbps + ' Mbps · 충분 ✓', mbps + ' Mbps · Plenty ✓');
+    else if (mbpsN >= 2)    setStatus('bw', 'warn', mbps + ' Mbps · 빠듯', mbps + ' Mbps · Tight', '백그라운드 트래픽을 중단하세요.', 'Stop background traffic.');
+    else                    setStatus('bw', false, mbps + ' Mbps · 부족', mbps + ' Mbps · Insufficient');
   } catch(e) {
     setStatus('bw', 'warn', '측정 실패 (방화벽/네트워크 제한 가능)', 'Test failed (firewall may block)');
   }
@@ -518,7 +534,14 @@ async function checkStun(){
         if (/typ srflx|typ relay/.test(c)) gotPublic = true;
       };
       pc.createDataChannel('p');
-      pc.createOffer().then(o => pc.setLocalDescription(o));
+      pc.createOffer()
+        .then(o => pc.setLocalDescription(o))
+        .catch(err => {
+          clearTimeout(to);
+          setStatus('stun', false, 'SDP 생성 실패: ' + (err.name||err.message||'Error'), 'SDP creation failed: ' + (err.name||err.message||'Error'));
+          try { pc.close(); } catch(e){}
+          resolve();
+        });
     } catch(e) {
       setStatus('stun', false, 'STUN 검사 오류: ' + e.message, 'STUN check error: ' + e.message);
       resolve();
@@ -569,8 +592,10 @@ function checkCodec(){
 // ─────────── 입장 ───────────
 function enterClass(){
   // 카메라/마이크 stream 해제 (룸 페이지가 다시 잡도록)
-  try { if (window._camStream) window._camStream.getTracks().forEach(t=>t.stop()); } catch(e){}
-  try { if (window._micStream) window._micStream.getTracks().forEach(t=>t.stop()); } catch(e){}
+  try { if (window._camStream) window._camStream.getTracks().forEach(t=>t.stop()); window._camStream = null; } catch(e){}
+  try { if (window._micStream) window._micStream.getTracks().forEach(t=>t.stop()); window._micStream = null; } catch(e){}
+  try { if (window._micAudioCtx) window._micAudioCtx.close(); window._micAudioCtx = null; } catch(e){}
+  try { if (window._toneCtx) { _toneCtx.close(); _toneCtx = null; } } catch(e){}
   // 실제 룸으로 이동 — 기존 진입 URL 패턴 유지
   location.href = '/';
 }
@@ -580,10 +605,18 @@ async function rerunAll(){
   for (const k in T) { T[k].pass = null; T[k].msg = ''; }
   document.querySelectorAll('.test .st').forEach(s => { s.className = 'st pending'; s.textContent = curLang==='ko' ? '검사 중' : 'Testing'; });
   updateScore();
-  try { if (window._camStream) window._camStream.getTracks().forEach(t=>t.stop()); } catch(e){}
-  try { if (window._micStream) window._micStream.getTracks().forEach(t=>t.stop()); } catch(e){}
+  // 기존 stream / AudioContext / video.srcObject 정리 (메모리·UI 누수 방지)
+  try { if (window._camStream) window._camStream.getTracks().forEach(t=>t.stop()); window._camStream = null; } catch(e){}
+  try { if (window._micStream) window._micStream.getTracks().forEach(t=>t.stop()); window._micStream = null; } catch(e){}
+  try { if (window._micAudioCtx) window._micAudioCtx.close(); window._micAudioCtx = null; } catch(e){}
+  try { if (window._toneCtx) { _toneCtx.close(); _toneCtx = null; } } catch(e){}
+  const camVid = document.getElementById('cam-video');
+  if (camVid) { try { camVid.pause(); } catch(e){} camVid.srcObject = null; }
   document.getElementById('cam-wrap').style.display = 'none';
   document.getElementById('vu-wrap').style.display = 'none';
+  // VU meter 시각 초기화
+  const vf = document.getElementById('vu-fill'); if (vf) vf.style.width = '0%';
+  const vl = document.getElementById('vu-label'); if (vl) vl.textContent = '0 %';
 
   checkHttps();
   checkBrowser();
@@ -595,7 +628,7 @@ async function rerunAll(){
   await Promise.all([ checkBandwidth(), checkRtt(), checkStun() ]);
 }
 
-// 시작
+// ─────────── 시작 ───────────
 applyLang();
 updateScore();
 window.addEventListener('load', () => {
