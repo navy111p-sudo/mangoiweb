@@ -21656,9 +21656,11 @@ document.addEventListener('click', (e) => {
   .ph49-tool-toggle.active { background: linear-gradient(135deg,#10b981,#059669); color: #fff; }
 
   .ph49-face-toggle {
+    /* fix v31 — 우측에서 좌측 상단으로 이동 (✕ 버튼과 클릭 충돌 방지) */
     position: absolute;
     top: 6px;
-    right: 6px;
+    left: 6px;
+    right: auto;
     z-index: 50;
     background: rgba(15,23,42,0.85);
     color: #fbbf24;
@@ -23027,7 +23029,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260527225347 -->
+<!-- BUILD:20260527230357 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -23892,6 +23894,64 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   }, true);
 
   console.log('[v29] 룸 ✕ 버튼 캡처-페이즈 강제 핸들러 활성');
+})();
+</script>
+
+<!-- ============================================================
+     fix v31 (2026-05-27) — 같은 URL 시 강제 reload + ✕ z-index 최상위
+     · location.href='/' 가 현재 URL 과 같으면 navigation 무시됨 → reload 사용
+     · ✕ 버튼 z-index 를 최상위로 끌어올려 어떤 요소도 위에 못 오게 함
+     ============================================================ -->
+<style id="v31-exit-priority">
+  /* 룸 우상단 ✕ 버튼 z-index 최상위 — FACE OFF 등 어떤 요소도 위에 못 오게 */
+  body.vc-in-call .toolbar-right .ctrl-btn.danger {
+    position: relative !important;
+    z-index: 99999 !important;
+    pointer-events: auto !important;
+  }
+  /* FACE OFF 버튼은 우측에서 좌측으로 이미 옮겼지만 한 번 더 강제 */
+  .ph49-face-toggle { left: 6px !important; right: auto !important; }
+</style>
+<script id="v31-force-reload">
+(function(){
+  'use strict';
+  // v29 의 gotoHome 을 강화 — 같은 URL 이면 reload, 아니면 navigate
+  function gotoHomeForce(){
+    try { if (typeof window.vcLeaveRoom === 'function') { window.vcLeaveRoom(); } } catch(e){}
+    setTimeout(function(){
+      try {
+        var isAtRoot = (location.pathname === '/' || location.pathname === '/index.html');
+        var hasQuery = !!location.search;
+        if (isAtRoot && !hasQuery) {
+          // 이미 / 라면 SPA 가 view 전환 못 함 → 강제 reload
+          console.log('[v31] 이미 홈 URL — reload 강제');
+          location.reload();
+        } else {
+          // 다른 URL — 홈으로 이동 (쿼리 추가해서 캐시 우회 확실히)
+          console.log('[v31] 홈으로 navigation');
+          location.replace('/?_exit=' + Date.now());
+        }
+      } catch(e){
+        try { location.reload(); } catch(_){}
+      }
+    }, 150);
+  }
+  // 캡처 단계로 ✕ 버튼 가장 먼저 가로채기 (v29 보다 더 우선)
+  window.addEventListener('click', function(e){
+    var btn = e.target && e.target.closest ? e.target.closest('button, a') : null;
+    if (!btn) return;
+    var isExit = false;
+    if (btn.classList && btn.classList.contains('ctrl-btn') && btn.classList.contains('danger')) isExit = true;
+    var oc = btn.getAttribute && btn.getAttribute('onclick');
+    if (oc && /vcLeaveRoom|vcExitAndGoHome/.test(oc)) isExit = true;
+    if (!isExit) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    console.log('[v31] ✕ 버튼 캡처 — gotoHomeForce 실행');
+    gotoHomeForce();
+  }, true);
+  console.log('[v31] ✕ 강제 reload + FACE OFF 좌측 적용 활성');
 })();
 </script>
 
