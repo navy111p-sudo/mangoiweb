@@ -18729,7 +18729,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260528014152 -->
+        <!-- BUILD:20260528015211 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -32046,6 +32046,147 @@ button.chip:hover,
   <span class="ic">🩺</span>
   <span data-ko="수업 진단" data-en="PreCheck">수업 진단</span>
 </button>
+
+
+<!-- ============================================================
+     Phase 134 / fix v45 (2026-05-28) — 모바일 사이드바 햄버거 토글
+     · ≤920px 화면에서 사이드바 기본 숨김
+     · 좌상단 햄버거 버튼으로 슬라이드 인/아웃
+     · 어두운 오버레이 클릭 / ESC 키 / 메뉴 선택 시 자동 닫힘
+     · 데스크탑(>920px)에서는 항상 표시 (기존 동작 유지)
+     ============================================================ -->
+<style id="ph134-mobile-sidebar">
+  /* 햄버거 버튼 — 모바일에서만 표시 */
+  #ph134-hamburger {
+    display: none;
+    position: fixed;
+    top: 10px; left: 10px;
+    z-index: 99995;
+    width: 44px; height: 44px;
+    background: rgba(15,23,42,0.92);
+    color: #fbbf24;
+    border: 1px solid rgba(251,191,36,0.4);
+    border-radius: 12px;
+    font-size: 20px; line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 6px 18px -4px rgba(0,0,0,0.5);
+    backdrop-filter: blur(8px);
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .15s, background .15s;
+    padding: 0;
+  }
+  #ph134-hamburger:hover { background: rgba(30,41,59,0.95); transform: scale(1.05); }
+  #ph134-hamburger:active { transform: scale(0.95); }
+  #ph134-hamburger.is-open { background: rgba(239,68,68,0.92); border-color: rgba(255,255,255,0.4); color: #fff; }
+
+  /* 어두운 오버레이 (사이드바 뒤 배경) */
+  #ph134-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 99990;
+    backdrop-filter: blur(2px);
+    animation: ph134FadeIn .2s ease-out;
+  }
+  @keyframes ph134FadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  /* 모바일 (≤920px) — 사이드바 기본 숨김 + 슬라이드 인 */
+  @media (max-width: 920px) {
+    #ph134-hamburger { display: flex; align-items: center; justify-content: center; }
+    .admin-layout { display: block !important; }
+    .admin-sidebar {
+      position: fixed !important;
+      top: 0; left: 0; bottom: 0;
+      width: 280px !important; max-width: 85vw;
+      z-index: 99994 !important;
+      transform: translateX(-100%);
+      transition: transform .3s cubic-bezier(0.32, 0.72, 0, 1);
+      box-shadow: 0 0 32px rgba(0,0,0,0.6);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding-top: 60px !important;  /* 햄버거 버튼 영역 확보 */
+    }
+    body.ph134-sidebar-open .admin-sidebar { transform: translateX(0); }
+    body.ph134-sidebar-open #ph134-overlay { display: block; }
+    body.ph134-sidebar-open { overflow: hidden; }
+    /* 본문은 햄버거 공간 확보 */
+    .admin-layout > div:not(.admin-sidebar) { padding-top: 60px; }
+  }
+
+  /* safe-area 적용 (iPhone 노치) */
+  @supports (padding: max(0px)) {
+    @media (max-width: 920px) {
+      #ph134-hamburger { top: max(10px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left)); }
+      .admin-sidebar { padding-top: max(60px, calc(env(safe-area-inset-top) + 50px)) !important; }
+    }
+  }
+</style>
+
+<button type="button" id="ph134-hamburger" onclick="window.ph134Toggle && window.ph134Toggle()"
+        aria-label="메뉴 열기" title="메뉴 열기">☰</button>
+<div id="ph134-overlay" onclick="window.ph134Close && window.ph134Close()" aria-hidden="true"></div>
+
+<script id="ph134-sidebar-js">
+(function(){
+  'use strict';
+
+  function isOpen(){ return document.body.classList.contains('ph134-sidebar-open'); }
+  function isMobile(){ return window.matchMedia('(max-width: 920px)').matches; }
+
+  window.ph134Open = function(){
+    if (!isMobile()) return;
+    document.body.classList.add('ph134-sidebar-open');
+    var ham = document.getElementById('ph134-hamburger');
+    if (ham){ ham.classList.add('is-open'); ham.textContent = '✕'; ham.setAttribute('aria-label', '메뉴 닫기'); }
+    console.log('[ph134] 사이드바 열림');
+  };
+
+  window.ph134Close = function(){
+    document.body.classList.remove('ph134-sidebar-open');
+    var ham = document.getElementById('ph134-hamburger');
+    if (ham){ ham.classList.remove('is-open'); ham.textContent = '☰'; ham.setAttribute('aria-label', '메뉴 열기'); }
+  };
+
+  window.ph134Toggle = function(){
+    if (isOpen()) window.ph134Close();
+    else window.ph134Open();
+  };
+
+  // ESC 키로 닫기
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && isOpen()) window.ph134Close();
+  });
+
+  // 사이드바 안의 링크/버튼 클릭 시 자동 닫힘 (메뉴 선택 후 본문 보기 좋게)
+  function bindAutoClose(){
+    var sidebar = document.getElementById('admin-sidebar');
+    if (!sidebar || sidebar.__ph134bound) return;
+    sidebar.__ph134bound = true;
+    sidebar.addEventListener('click', function(e){
+      if (!isMobile() || !isOpen()) return;
+      // 링크 또는 메뉴 아이템 클릭이면 닫음
+      var link = e.target.closest('a[href], .sidebar-item, .menu-card-title, [data-menu-target]');
+      if (link) {
+        // 0.3초 후 닫음 — 메뉴 전환 애니메이션 완료 후
+        setTimeout(window.ph134Close, 250);
+      }
+    });
+  }
+
+  // 화면 회전/리사이즈 시 — 데스크탑으로 바뀌면 자동 닫기
+  window.addEventListener('resize', function(){
+    if (!isMobile() && isOpen()) window.ph134Close();
+  });
+
+  // 초기화
+  function init(){ bindAutoClose(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+  setTimeout(init, 600);
+
+  console.log('[ph134] 모바일 사이드바 햄버거 토글 활성 (≤920px)');
+})();
+</script>
 
 </body>
 </html>
