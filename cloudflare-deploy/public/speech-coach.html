@@ -74,9 +74,50 @@
     <span class="brand-logo">Mangoi · AI Voice Coach</span>
     <div class="brand-sub" data-ko="자유 문장으로 즉석 AI 발음 평가 — 4점수 + 한국어 피드백" data-en="Custom sentence · Instant AI scoring — 4 metrics + KR feedback">자유 문장으로 즉석 AI 발음 평가 — 4점수 + 한국어 피드백</div>
     <div style="margin-top:10px;font-size:11.5px;color:#94a3b8">
-      <span data-ko="단계별 학습은" data-en="For curriculum learning,">단계별 학습은</span>
-      <a href="https://mangoi-speech.pages.dev/practice" target="_blank" style="color:#a78bfa;text-decoration:underline;font-weight:700">🎯 <span data-ko="발음연습 (Phonics·BTS·SIU)" data-en="Pronunciation Practice (Phonics·BTS·SIU)">발음연습 (Phonics·BTS·SIU)</span></a>
-      <span data-ko=" 으로 이동하세요" data-en="">으로 이동하세요</span>
+      <span data-ko="단계별 학습은 아래에서 선택하세요" data-en="Choose your curriculum below">단계별 학습은 아래에서 선택하세요</span>
+    </div>
+  </div>
+
+  <!-- ph157+ : 언어별 단계 학습 선택 카드 (영어 + 중국어) -->
+  <div id="lang-curriculum-picker" style="margin:14px 0 20px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <span style="font-size:13px;font-weight:800;color:#fbbf24;letter-spacing:0.4px;">🎯 <span data-ko="레벨 선택" data-en="Choose Level">레벨 선택</span></span>
+      <span style="font-size:11px;color:#94a3b8;" data-ko="언어와 레벨을 선택하세요" data-en="Pick language and level">언어와 레벨을 선택하세요</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;">
+      <!-- 영어 Phonics -->
+      <a href="https://mangoi-speech.pages.dev/practice?course=phonics" target="_blank"
+         style="display:block;padding:14px 12px;background:linear-gradient(135deg,rgba(16,185,129,0.18),rgba(5,150,105,0.08));border:1.5px solid rgba(16,185,129,0.45);border-radius:12px;text-decoration:none;text-align:center;color:#fff;font-weight:800;transition:transform .15s,box-shadow .15s;"
+         onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 24px -6px rgba(16,185,129,0.4)'"
+         onmouseout="this.style.transform='';this.style.boxShadow=''">
+        <div style="font-size:13.5px;">🇺🇸 Phonics</div>
+        <div style="font-size:11px;color:#a7f3d0;margin-top:3px;font-weight:600;" data-ko="영어 · Level 0" data-en="English · Level 0">영어 · Level 0</div>
+      </a>
+      <!-- 영어 BTS -->
+      <a href="https://mangoi-speech.pages.dev/practice?course=bts" target="_blank"
+         style="display:block;padding:14px 12px;background:linear-gradient(135deg,rgba(251,191,36,0.18),rgba(245,158,11,0.08));border:1.5px solid rgba(251,191,36,0.45);border-radius:12px;text-decoration:none;text-align:center;color:#fff;font-weight:800;transition:transform .15s,box-shadow .15s;"
+         onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 24px -6px rgba(251,191,36,0.4)'"
+         onmouseout="this.style.transform='';this.style.boxShadow=''">
+        <div style="font-size:13.5px;">🇺🇸 BTS</div>
+        <div style="font-size:11px;color:#fde68a;margin-top:3px;font-weight:600;" data-ko="영어 · Level 1~8" data-en="English · Level 1~8">영어 · Level 1~8</div>
+      </a>
+      <!-- 영어 SIU -->
+      <a href="https://mangoi-speech.pages.dev/practice?course=siu" target="_blank"
+         style="display:block;padding:14px 12px;background:linear-gradient(135deg,rgba(139,92,246,0.18),rgba(99,102,241,0.08));border:1.5px solid rgba(139,92,246,0.45);border-radius:12px;text-decoration:none;text-align:center;color:#fff;font-weight:800;transition:transform .15s,box-shadow .15s;"
+         onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 24px -6px rgba(139,92,246,0.4)'"
+         onmouseout="this.style.transform='';this.style.boxShadow=''">
+        <div style="font-size:13.5px;">🇺🇸 SIU</div>
+        <div style="font-size:11px;color:#c4b5fd;margin-top:3px;font-weight:600;" data-ko="영어 · 고급" data-en="English · Advanced">영어 · 고급</div>
+      </a>
+      <!-- 중국어 다락원 + Lv -->
+      <a href="/speech-coach-cn.html"
+         style="display:block;padding:14px 12px;background:linear-gradient(135deg,rgba(220,38,38,0.22),rgba(245,158,11,0.12));border:1.5px solid rgba(220,38,38,0.55);border-radius:12px;text-decoration:none;text-align:center;color:#fff;font-weight:800;transition:transform .15s,box-shadow .15s;position:relative;"
+         onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 24px -6px rgba(220,38,38,0.5)'"
+         onmouseout="this.style.transform='';this.style.boxShadow=''">
+        <span style="position:absolute;top:6px;right:8px;padding:2px 7px;background:#fbbf24;color:#1a1a1a;font-size:9px;font-weight:900;border-radius:99px;letter-spacing:0.4px;">NEW</span>
+        <div style="font-size:13.5px;">🇨🇳 <span data-ko="중국어" data-en="Chinese">중국어</span></div>
+        <div style="font-size:11px;color:#fecaca;margin-top:3px;font-weight:600;" data-ko="다락원 · Lv 1~20" data-en="Darakwon · Lv 1~20">다락원 · Lv 1~20</div>
+      </a>
     </div>
   </div>
 
@@ -225,6 +266,6 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260528065323 -->
+<!-- BUILD:20260528070550 -->
 </body>
 </html>
