@@ -5825,7 +5825,7 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;vertical-align:middle;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 <span class="lang-label-sync">EN</span>
             </button>
-            <button class="ctrl-btn danger" onclick="vcLeaveRoom()" data-ko-title="나가기" data-en-title="Leave" title="나가기">✕</button>
+            <button class="ctrl-btn danger" onclick="vcExitAndGoHome()" data-ko-title="나가기 (홈으로)" data-en-title="Leave (Home)" title="나가기 (홈으로)">✕</button>
         </div>
     </div>
 
@@ -8369,7 +8369,11 @@ async function vcLeaveRoom() {
     // Wake Lock 해제
     if (wakeLock) { wakeLock.release(); wakeLock = null; console.log('[wakeLock] 해제됨'); }
     vcConn = null;
-    document.getElementById('vc-chat-messages').innerHTML = '';
+    // ── fix v28 (2026-05-27) — ✕ 버튼 → 홈 강제 이동 안전망 ──
+    try {
+        const cm = document.getElementById('vc-chat-messages');
+        if (cm) cm.innerHTML = '';
+    } catch(e){ console.warn('[vcLeaveRoom] chat clear:', e); }
     document.body.classList.remove('vc-in-call');
 
     // 관찰자 모드 해제 시 UI 복원
@@ -8381,7 +8385,25 @@ async function vcLeaveRoom() {
         if (toolbar) toolbar.style.display = '';
     }
 
-    showView('view-home');
+    // 1차 — SPA view 전환 시도
+    try { showView('view-home'); } catch(e){ console.warn('[vcLeaveRoom] showView fail:', e); }
+
+    // 2차 — 0.4초 뒤에도 홈 화면이 안 보이면 강제로 홈 URL 로 이동
+    setTimeout(() => {
+        try {
+            const stillInCall = document.body.classList.contains('vc-in-call');
+            const viewHome = document.getElementById('view-home');
+            const homeVisible = !!(viewHome && viewHome.classList.contains('active') && viewHome.offsetParent !== null);
+            const hasRoomParam = /[?&](room|r)=/.test(location.search);
+            if (stillInCall || !homeVisible || hasRoomParam) {
+                console.warn('[vcLeaveRoom] SPA 전환 실패 감지 — 홈으로 강제 이동');
+                location.href = '/';
+            }
+        } catch(e) {
+            console.warn('[vcLeaveRoom] 안전망 오류 — 강제 이동:', e);
+            try { location.href = '/'; } catch(_){}
+        }
+    }, 400);
 }
 
 /** 마이크 / 카메라 토글 — 진단·복구 강화 */
@@ -23005,7 +23027,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260527224021 -->
+<!-- BUILD:20260527224829 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -23770,5 +23792,39 @@ document.addEventListener('keydown', function(e){
   <span data-ko="수업 진단" data-en="PreCheck">수업 진단</span>
   <span class="dot"></span>
 </button>
+
+<!-- ============================================================
+     fix v28 (2026-05-27) — 룸 ✕ 버튼 → 홈으로 강제 이동
+     · vcLeaveRoom 호출 후 무조건 홈으로 가도록 wrap
+     · vcLeaveRoom 자체가 throw 되어도 안전망 작동
+     ============================================================ -->
+<script id="v28-exit-home">
+window.vcExitAndGoHome = async function(){
+  // 1) 룸 정리 시도 (실패해도 다음 단계로 진행)
+  try {
+    if (typeof window.vcLeaveRoom === 'function') {
+      await window.vcLeaveRoom();
+    }
+  } catch(e){ console.warn('[v28] vcLeaveRoom 실패:', e); }
+
+  // 2) 0.3초 후에도 룸 화면이 남아 있으면 강제 홈 이동
+  setTimeout(function(){
+    try {
+      var stillInCall = document.body.classList.contains('vc-in-call');
+      var viewHome = document.getElementById('view-home');
+      var homeVisible = !!(viewHome && viewHome.classList.contains('active') && viewHome.offsetParent !== null);
+      var hasRoomParam = /[?&](room|r)=/.test(location.search);
+      if (stillInCall || !homeVisible || hasRoomParam) {
+        console.warn('[v28] view 전환 안 됨 — location 으로 홈 강제 이동');
+        location.href = '/';
+      }
+    } catch(err){
+      console.warn('[v28] 안전망 오류 — 강제 이동:', err);
+      try { location.href = '/'; } catch(_){}
+    }
+  }, 300);
+};
+console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
+</script>
 
 </body>
