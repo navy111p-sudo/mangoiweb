@@ -5825,7 +5825,7 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;vertical-align:middle;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 <span class="lang-label-sync">EN</span>
             </button>
-            <a href="/" class="ctrl-btn danger" id="vc-exit-btn-v33" role="button" data-ko-title="나가기 (홈으로)" data-en-title="Leave (Home)" title="나가기 (홈으로)" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;" onclick="try{if(window.vcLeaveRoom)window.vcLeaveRoom();}catch(e){}">✕</a>
+            <a href="/?home=1" class="ctrl-btn danger" id="vc-exit-btn-v34" role="button" data-ko-title="나가기 (홈으로)" data-en-title="Leave (Home)" title="나가기 (홈으로)" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;" onclick="event.preventDefault();event.stopPropagation();try{if(window.vcLeaveRoom)window.vcLeaveRoom();}catch(e){}try{location.replace('/?_e='+Date.now());}catch(e){location.href='/?_e=1';}return false;">✕</a>
         </div>
     </div>
 
@@ -23029,7 +23029,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260527233110 -->
+<!-- BUILD:20260527234008 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -24047,7 +24047,93 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     z-index: 99999;
     position: relative;
   }
-  a#vc-exit-btn-v33.ctrl-btn.danger:hover { background: #dc2626; color: #fff; }
+  a#vc-exit-btn-v33.ctrl-btn.danger:hover,
+  a#vc-exit-btn-v34.ctrl-btn.danger:hover { background: #dc2626; color: #fff; }
+  a#vc-exit-btn-v34.ctrl-btn.danger {
+    width: 36px; height: 36px;
+    text-align: center; line-height: 36px;
+    font-size: 16px; font-weight: 700;
+    color: #fff !important;
+    cursor: pointer;
+    z-index: 99999;
+    position: relative;
+  }
 </style>
+
+<!-- ============================================================
+     fix v34 (2026-05-27) — ✕ 클릭 → 무조건 홈으로 강제 navigation
+     · 같은 URL navigation 무시 문제 해결: location.replace('/?_e='+Date.now())
+     · button / a / 어떤 element 라도 ctrl-btn.danger 면 무조건 잡음
+     · click, mousedown, pointerdown, touchend 4중 캡처
+     · onclick 인라인 + capture handler 동시에 작동
+     ============================================================ -->
+<script id="v34-final-exit">
+(function(){
+  'use strict';
+
+  function FORCE_HOME(){
+    console.log('[v34] FORCE_HOME 실행 — location.replace 강제');
+    // 1) 룸 정리
+    try { if (typeof window.vcLeaveRoom === 'function') window.vcLeaveRoom(); } catch(e){ console.warn('[v34] vcLeaveRoom:', e); }
+    // 2) 무조건 새 URL 로 — Date.now() 라 매번 다름 → 브라우저가 100% navigate
+    var url = '/?_e=' + Date.now();
+    try { location.replace(url); } catch(e1){
+      try { location.assign(url); } catch(e2){
+        try { location.href = url; } catch(e3){
+          try { window.top.location.href = url; } catch(e4){
+            try { location.reload(); } catch(_){}
+          }
+        }
+      }
+    }
+    // 3) 100ms 후에도 안 갔으면 한 번 더
+    setTimeout(function(){
+      try {
+        if (document.body.classList.contains('vc-in-call')) {
+          console.warn('[v34] 100ms 후에도 룸 그대로 — reload 강제');
+          location.reload();
+        }
+      } catch(_){}
+    }, 100);
+  }
+  window.__v34_FORCE_HOME = FORCE_HOME;
+
+  function isExitBtn(el){
+    if (!el || !el.closest) return false;
+    var target = el.closest('a#vc-exit-btn-v34, a#vc-exit-btn-v33, #vc-exit-btn-v32, button.ctrl-btn.danger, a.ctrl-btn.danger');
+    return !!target;
+  }
+
+  // 4중 캡처
+  ['click','mousedown','pointerdown','touchend'].forEach(function(ev){
+    window.addEventListener(ev, function(e){
+      if (!isExitBtn(e.target)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+      console.log('[v34] ✕ ' + ev + ' 캡처');
+      if (ev === 'click' || ev === 'touchend') FORCE_HOME();
+    }, true);
+  });
+
+  // onclick 강제 재주입 (다른 패치가 덮어써도 복구) — 0.8초 주기
+  function rebindExit(){
+    ['vc-exit-btn-v34','vc-exit-btn-v33','vc-exit-btn-v32'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (!el) return;
+      var oc = el.getAttribute('onclick') || '';
+      if (oc.indexOf('__v34_FORCE_HOME') === -1 && oc.indexOf('location.replace') === -1) {
+        el.setAttribute('onclick', "event.preventDefault();window.__v34_FORCE_HOME&&window.__v34_FORCE_HOME();return false;");
+        console.log('[v34] onclick 재주입 →', id);
+      }
+    });
+  }
+  setInterval(rebindExit, 800);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', rebindExit);
+  else rebindExit();
+
+  console.log('[v34] ✕ FINAL exit handler 활성 — click/mousedown/pointerdown/touchend 4중 캡처 + location.replace 강제');
+})();
+</script>
 
 </body>
