@@ -5825,7 +5825,7 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;vertical-align:middle;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 <span class="lang-label-sync">EN</span>
             </button>
-            <button class="ctrl-btn danger" id="vc-exit-btn-v32" onclick="(function(){try{if(window.vcLeaveRoom)window.vcLeaveRoom();}catch(e){}try{location.replace('/?_exit='+Date.now());}catch(e){location.href='/';}})();return false;" data-ko-title="나가기 (홈으로)" data-en-title="Leave (Home)" title="나가기 (홈으로)">✕</button>
+            <a href="/" class="ctrl-btn danger" id="vc-exit-btn-v33" role="button" data-ko-title="나가기 (홈으로)" data-en-title="Leave (Home)" title="나가기 (홈으로)" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;" onclick="try{if(window.vcLeaveRoom)window.vcLeaveRoom();}catch(e){}">✕</a>
         </div>
     </div>
 
@@ -23029,7 +23029,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260527231634 -->
+<!-- BUILD:20260527232901 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -24020,5 +24020,34 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   console.log('[v32] ✕ 버튼 supreme 핸들러 활성 — mousedown + pointerdown + 1s 재바인딩');
 })();
 </script>
+
+
+<!-- ============================================================
+     fix v33 (2026-05-27) — 누락된 js 5개 로드 + ✕ anchor 보강
+     · mango.js (MangoV3 메인) — MUST 가장 먼저
+     · mango-rec.js (자동녹화 폴링)
+     · mango-attendance.js (출석)
+     · mango-gaze.js (시선)
+     · mango-i18n.js (다국어)
+     ============================================================ -->
+<script src="/js/mango.js?v=33" defer></script>
+<script src="/js/mango-rec.js?v=33" defer></script>
+<script src="/js/mango-attendance.js?v=33" defer></script>
+<script src="/js/mango-gaze.js?v=33" defer></script>
+<script src="/js/mango-i18n.js?v=33" defer></script>
+
+<style id="v33-exit-anchor-style">
+  /* ✕ anchor 가 button 처럼 보이게 보장 */
+  a#vc-exit-btn-v33.ctrl-btn.danger {
+    width: 36px; height: 36px;
+    text-align: center; line-height: 36px;
+    font-size: 16px; font-weight: 700;
+    color: #fff !important;
+    cursor: pointer;
+    z-index: 99999;
+    position: relative;
+  }
+  a#vc-exit-btn-v33.ctrl-btn.danger:hover { background: #dc2626; color: #fff; }
+</style>
 
 </body>
