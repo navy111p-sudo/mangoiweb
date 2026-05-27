@@ -1,311 +1,36 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-
-
-
-
-
-
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>📅 학원 전체 스케줄 — 망고아이</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0a0e1a">
+<meta http-equiv="refresh" content="0; url=/admin/weekly-schedule.html">
+<title>주간 전체 스케줄로 이동…</title>
+<!-- BUILD:20260528003000 — v42: all-schedules → weekly-schedule 통합 -->
 <style>
-  :root {
-    --bg:#0f172a; --panel:#1e293b; --panel2:#263449;
-    --fg:#e2e8f0; --mut:#94a3b8; --bd:#334155;
-    --y:#f59e0b; --g:#10b981; --r:#ef4444; --b:#3b82f6; --p:#a855f7;
-  }
-  *,*::before,*::after{box-sizing:border-box}
-  html,body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo",sans-serif;font-size:14px}
-  a{color:#fde68a;text-decoration:none}
-  header.top{height:56px;display:flex;align-items:center;gap:12px;padding:0 20px;border-bottom:1px solid var(--bd);background:#0b1220;position:sticky;top:0;z-index:50}
-  header.top .brand{font-weight:800;color:#fbbf24}
-  header.top .crumb{color:var(--mut);font-size:13px}
-  header.top .right{margin-left:auto;display:flex;align-items:center;gap:8px}
-  header.top a.btn,header.top button.btn{padding:6px 12px;border-radius:6px;border:1px solid var(--bd);background:var(--panel);color:var(--fg);font-size:12px;cursor:pointer}
-  header.top a.btn:hover,header.top button.btn:hover{background:var(--panel2)}
-  main{padding:20px;max-width:1500px;margin:0 auto}
-  .filter-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;background:rgba(15,23,42,0.5);padding:12px 16px;border-radius:10px;border:1px solid rgba(148,163,184,0.2)}
-  .filter-bar input,.filter-bar select{padding:6px 12px;border-radius:6px;border:1px solid #475569;background:rgba(30,41,59,0.6);color:#e2e8f0;font-size:13px}
-  .filter-bar button{padding:6px 14px;border-radius:6px;border:1px solid #f59e0b;background:rgba(254,243,199,0.15);color:#fbbf24;cursor:pointer;font-size:12px;font-weight:600}
-  .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}
-  .summary .card{background:var(--panel);border:1px solid var(--bd);border-radius:10px;padding:12px 14px}
-  .summary .card .lbl{font-size:11px;color:var(--mut);margin-bottom:4px}
-  .summary .card .val{font-size:22px;font-weight:800;color:#fbbf24}
-  table.sched{width:100%;border-collapse:collapse;background:var(--panel);border-radius:10px;overflow:hidden}
-  table.sched th{background:#0b1220;padding:10px 12px;text-align:left;font-size:12px;color:#94a3b8;border-bottom:1px solid var(--bd);font-weight:600;position:sticky;top:56px;z-index:10}
-  table.sched td{padding:10px 12px;border-bottom:1px solid rgba(51,65,85,0.5);font-size:13px;color:#cbd5e1}
-  table.sched tr:hover td{background:rgba(30,41,59,0.5)}
-  .badge{display:inline-block;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700}
-  .b-regular{background:#3b82f6;color:#fff}
-  .b-level_test{background:#f59e0b;color:#fff}
-  .b-trial{background:#10b981;color:#fff}
-  .b-postponed{background:#a855f7;color:#fff}
-  .b-active{background:rgba(16,185,129,0.2);color:#10b981}
-  .b-cancelled{background:rgba(239,68,68,0.2);color:#ef4444}
-  .empty{text-align:center;padding:40px;color:#64748b}
-  .week-grid{display:grid;grid-template-columns:60px repeat(7,1fr);background:#fff;border-radius:10px;border:1px solid #475569;overflow:hidden;color:#1f2937;font-size:11px;margin-top:14px}
-  .week-grid .head{background:#f8fafc;padding:8px 4px;text-align:center;font-weight:700;border-bottom:1px solid #cbd5e1;border-right:1px solid #e2e8f0}
-  .week-grid .cell{min-height:40px;border-right:1px solid #f1f5f9;border-top:1px solid #f1f5f9;padding:2px;position:relative}
-  .week-grid .time-h{padding:4px;font-size:10px;color:#64748b;text-align:right;border-right:1px solid #cbd5e1;border-top:1px solid #cbd5e1;font-weight:600}
-  .week-block{background:#fef3c7;border-left:3px solid #f59e0b;border-radius:3px;padding:3px 5px;margin:1px 0;font-size:10px;color:#78350f;cursor:pointer;line-height:1.2}
-  .week-block.regular{background:#fef3c7;border-left-color:#f59e0b;color:#78350f}
-  .week-block.level_test{background:#dbeafe;border-left-color:#1d4ed8;color:#1e3a8a}
-  .week-block.trial{background:#dcfce7;border-left-color:#047857;color:#064e3b}
+  html,body { margin:0; padding:0; background:#0a0e1a; color:#e2e8f0; font-family:-apple-system,"Segoe UI","Pretendard","Noto Sans KR",sans-serif; min-height:100vh; display:flex; align-items:center; justify-content:center; }
+  .card { background:#131826; border:1px solid #232b40; border-radius:16px; padding:32px 36px; max-width:440px; width:92%; text-align:center; box-shadow:0 24px 48px -12px rgba(0,0,0,0.5); }
+  .ico { font-size:48px; margin-bottom:10px; }
+  h1 { margin:0 0 10px; font-size:20px; color:#fff; font-weight:800; }
+  p { margin:0 0 16px; font-size:14px; color:#94a3b8; line-height:1.6; }
+  .btn { display:inline-block; padding:11px 22px; background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:#fff; border-radius:10px; font-size:14px; font-weight:700; text-decoration:none; }
+  .btn:hover { filter:brightness(1.08); }
+  .spinner { display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,0.2); border-top-color:#60a5fa; border-radius:50%; animation:spin 0.7s linear infinite; vertical-align:-2px; margin-right:6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
-
-<header class="top">
-  <a href="/admin.html" class="crumb">← 대시보드</a>
-  <span class="brand">📅 학원 전체 스케줄</span>
-  <span class="crumb" id="crumb-total">로딩 중…</span>
-  <div class="right">
-    <a href="/admin.html" class="btn">대시보드</a>
-    <a href="/admin/students.html" class="btn">학생관리</a>
+  <div class="card">
+    <div class="ico">📅</div>
+    <h1>주간 전체 스케줄로 이동합니다</h1>
+    <p>
+      <b style="color:#cbd5e1">학원 전체 스케줄</b> 은 <b style="color:#60a5fa">주간 전체 스케줄</b> 페이지로 통합되었습니다.<br>
+      <span class="spinner"></span>잠시 후 자동으로 이동합니다…
+    </p>
+    <a class="btn" href="/admin/weekly-schedule.html">📅 바로 이동</a>
   </div>
-</header>
-
-<main>
-  <div class="filter-bar">
-    <label style="font-size:12px;color:#94a3b8">유형</label>
-    <select id="filterType">
-      <option value="">전체</option>
-      <option value="regular">정규수업</option>
-      <option value="level_test">레벨테스트</option>
-      <option value="trial">체험수업</option>
-    </select>
-    <label style="font-size:12px;color:#94a3b8">종류</label>
-    <select id="filterKind">
-      <option value="all">전체 (정규+단일)</option>
-      <option value="recurring">정규(요일반복)</option>
-      <option value="one_off">단일 일정</option>
-    </select>
-    <label style="font-size:12px;color:#94a3b8">학생명</label>
-    <input id="filterStudent" placeholder="학생 이름 일부" style="min-width:160px">
-    <label style="font-size:12px;color:#94a3b8">강사명</label>
-    <input id="filterTeacher" placeholder="강사 이름 일부" style="min-width:160px">
-    <button id="btnRefresh">🔄 새로고침</button>
-    <button id="btnSeedDemo" style="padding:6px 14px;border-radius:6px;border:1px solid #10b981;background:rgba(16,185,129,0.15);color:#86efac;cursor:pointer;font-size:12px;font-weight:600">🌱 데모 3건 시드</button>
-    <span id="filterCount" style="margin-left:auto;font-size:12px;color:#94a3b8"></span>
-  </div>
-
-  <div class="summary" id="summary"></div>
-
-  <div style="display:flex;gap:10px;margin-bottom:8px">
-    <button id="viewTable" style="padding:6px 14px;border:1px solid #f59e0b;background:#f59e0b;color:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">📋 테이블</button>
-    <button id="viewWeek" style="padding:6px 14px;border:1px solid #475569;background:transparent;color:#cbd5e1;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">📅 주간</button>
-  </div>
-
-  <div id="tableView">
-    <table class="sched">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>학생</th>
-          <th>강사</th>
-          <th>유형</th>
-          <th>종류</th>
-          <th>요일/날짜</th>
-          <th>시간</th>
-          <th>상태</th>
-          <th>출처</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="tbl"><tr><td colspan="10" class="empty">로딩 중…</td></tr></tbody>
-    </table>
-  </div>
-
-  <div id="weekView" style="display:none"></div>
-</main>
-
-<script>
-const DAY_NAME = { mon:'월', tue:'화', wed:'수', thu:'목', fri:'금', sat:'토', sun:'일' };
-const DOW_IDX = { sun:0, mon:1, tue:2, wed:3, thu:4, fri:5, sat:6 };
-const TYPE_NAME = { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
-const STATUS_NAME = { active:'활성', postponed:'연기', cancelled:'취소' };
-let _allItems = [];
-let _viewMode = 'table';
-
-async function loadAll() {
-  document.getElementById('tbl').innerHTML = '<tr><td colspan="10" class="empty">로딩 중…</td></tr>';
-  try {
-    const r = await fetch('/api/admin/class-schedules?limit=500', { credentials:'include' });
-    const j = await r.json();
-    if (!j.ok) throw new Error(j.error || 'load_failed');
-    _allItems = j.items || [];
-    renderSummary();
-    applyFilters();
-  } catch (e) {
-    document.getElementById('tbl').innerHTML = '<tr><td colspan="10" class="empty" style="color:#ef4444">조회 실패: ' + (e.message || e) + '</td></tr>';
-  }
-}
-
-function renderSummary() {
-  const total = _allItems.filter(x => x.status === 'active').length;
-  const recurring = _allItems.filter(x => x.schedule_kind === 'recurring' && x.status === 'active').length;
-  const oneOff = _allItems.filter(x => x.schedule_kind === 'one_off' && x.status === 'active').length;
-  const levelTests = _allItems.filter(x => x.class_type === 'level_test' && x.status === 'active').length;
-  const trials = _allItems.filter(x => x.class_type === 'trial' && x.status === 'active').length;
-  const uniqueStudents = new Set(_allItems.filter(x => x.status === 'active').map(x => x.user_id)).size;
-  document.getElementById('summary').innerHTML =
-    cardHtml('활성 스케줄', total) +
-    cardHtml('정규(요일)', recurring) +
-    cardHtml('단일 일정', oneOff) +
-    cardHtml('레벨테스트', levelTests, '#f59e0b') +
-    cardHtml('체험수업', trials, '#10b981') +
-    cardHtml('등록 학생수', uniqueStudents, '#a855f7');
-  document.getElementById('crumb-total').textContent = '총 ' + _allItems.length + '건 (활성 ' + total + ')';
-}
-
-function cardHtml(lbl, val, color) {
-  return '<div class="card"><div class="lbl">' + lbl + '</div><div class="val" style="' + (color?'color:'+color:'') + '">' + val + '</div></div>';
-}
-
-function applyFilters() {
-  const fType = document.getElementById('filterType').value;
-  const fKind = document.getElementById('filterKind').value;
-  const fStu = document.getElementById('filterStudent').value.trim().toLowerCase();
-  const fTea = document.getElementById('filterTeacher').value.trim().toLowerCase();
-  const filtered = _allItems.filter(x => {
-    if (x.status === 'cancelled') return false;
-    if (fType && x.class_type !== fType) return false;
-    if (fKind !== 'all' && x.schedule_kind !== fKind) return false;
-    if (fStu && !(x.student_name || '').toLowerCase().includes(fStu)) return false;
-    if (fTea && !(x.teacher_name || '').toLowerCase().includes(fTea)) return false;
-    return true;
-  });
-  document.getElementById('filterCount').textContent = '필터 결과: ' + filtered.length + '건';
-  if (_viewMode === 'table') renderTable(filtered);
-  else renderWeek(filtered);
-}
-
-function renderTable(items) {
-  const tbl = document.getElementById('tbl');
-  if (items.length === 0) {
-    tbl.innerHTML = '<tr><td colspan="10" class="empty">조건에 맞는 스케줄이 없습니다.</td></tr>';
-    return;
-  }
-  tbl.innerHTML = items.map((it, idx) => {
-    const days = (it.day_of_week || '').split(',').filter(Boolean).map(d => DAY_NAME[d] || d).join('·');
-    const dateLabel = it.scheduled_date ? '📅 ' + it.scheduled_date : (days ? '🔁 ' + days : '');
-    return '<tr>' +
-      '<td>' + (idx+1) + '</td>' +
-      '<td><a href="/admin/student.html?uid=' + encodeURIComponent(it.user_id) + '"><b>' + esc(it.student_name) + '</b></a></td>' +
-      '<td>' + (it.teacher_name ? esc(it.teacher_name) : '<span style="color:#64748b">미배정</span>') + '</td>' +
-      '<td><span class="badge b-' + it.class_type + '">' + (TYPE_NAME[it.class_type] || it.class_type) + '</span></td>' +
-      '<td>' + (it.schedule_kind === 'recurring' ? '🔁 정규' : '📅 단일') + '</td>' +
-      '<td>' + dateLabel + '</td>' +
-      '<td><b style="color:#fbbf24">' + (it.start_time || '') + '</b></td>' +
-      '<td><span class="badge b-' + it.status + '">' + (STATUS_NAME[it.status] || it.status) + '</span></td>' +
-      '<td style="font-size:11px;color:#94a3b8">' + (it.source || '-') + '</td>' +
-      '<td><button onclick="cancelSched(' + it.id + ')" style="padding:3px 10px;border:1px solid #ef4444;background:transparent;color:#ef4444;border-radius:6px;cursor:pointer;font-size:11px">🗑 취소</button></td>' +
-      '</tr>';
-  }).join('');
-}
-
-function renderWeek(items) {
-  // 9시 ~ 22시 시간 그리드, 30분 단위
-  const HOUR_START = 9, HOUR_END = 22;
-  let html = '<div class="week-grid">';
-  html += '<div class="head">시간</div>';
-  ['일','월','화','수','목','금','토'].forEach((d,i) => {
-    html += '<div class="head" style="' + (i===0?'color:#dc2626':(i===6?'color:#2563eb':'')) + '">' + d + '</div>';
-  });
-  for (let h = HOUR_START; h < HOUR_END; h++) {
-    html += '<div class="time-h">' + String(h).padStart(2,'0') + ':00</div>';
-    for (let dCol = 0; dCol < 7; dCol++) {
-      const blocks = items.filter(it => {
-        const tm = String(it.start_time||'').match(/^(\d{1,2}):(\d{2})$/);
-        if (!tm) return false;
-        const ih = parseInt(tm[1],10);
-        if (ih !== h) return false;
-        if (it.schedule_kind === 'recurring' && it.day_of_week) {
-          return it.day_of_week.split(',').some(d => DOW_IDX[d] === dCol);
-        }
-        if (it.scheduled_date) {
-          const sd = new Date(it.scheduled_date + 'T00:00:00');
-          return sd.getDay() === dCol;
-        }
-        return false;
-      });
-      html += '<div class="cell">';
-      for (const b of blocks) {
-        html += '<div class="week-block ' + b.class_type + '" title="' + esc(b.student_name) + ' / ' + (b.teacher_name||'미배정') + ' / ' + b.start_time + '">' +
-          '<b>' + esc(b.student_name||'?') + '</b>' +
-          (b.teacher_name ? '<br>' + esc(b.teacher_name) : '') +
-          '<br>' + b.start_time +
-        '</div>';
-      }
-      html += '</div>';
-    }
-  }
-  html += '</div>';
-  document.getElementById('weekView').innerHTML = html;
-}
-
-function esc(s) { return String(s||'').replace(/[<>&"']/g, m => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[m])); }
-
-async function cancelSched(id) {
-  if (!confirm('스케줄 #' + id + ' 을(를) 취소하시겠습니까?')) return;
-  try {
-    const r = await fetch('/api/admin/class-schedules/' + id, { method:'DELETE', credentials:'include' });
-    const j = await r.json();
-    if (j.ok) loadAll();
-    else alert('취소 실패: ' + (j.error || ''));
-  } catch (e) { alert('오류: ' + e.message); }
-}
-
-// View toggle
-document.getElementById('viewTable').addEventListener('click', () => {
-  _viewMode = 'table';
-  document.getElementById('tableView').style.display = '';
-  document.getElementById('weekView').style.display = 'none';
-  document.getElementById('viewTable').style.cssText = 'padding:6px 14px;border:1px solid #f59e0b;background:#f59e0b;color:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600';
-  document.getElementById('viewWeek').style.cssText = 'padding:6px 14px;border:1px solid #475569;background:transparent;color:#cbd5e1;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600';
-  applyFilters();
-});
-document.getElementById('viewWeek').addEventListener('click', () => {
-  _viewMode = 'week';
-  document.getElementById('tableView').style.display = 'none';
-  document.getElementById('weekView').style.display = '';
-  document.getElementById('viewWeek').style.cssText = 'padding:6px 14px;border:1px solid #f59e0b;background:#f59e0b;color:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600';
-  document.getElementById('viewTable').style.cssText = 'padding:6px 14px;border:1px solid #475569;background:transparent;color:#cbd5e1;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600';
-  applyFilters();
-});
-
-['filterType','filterKind','filterStudent','filterTeacher'].forEach(id => {
-  document.getElementById(id).addEventListener('input', applyFilters);
-  document.getElementById(id).addEventListener('change', applyFilters);
-});
-document.getElementById('btnRefresh').addEventListener('click', loadAll);
-document.getElementById('btnSeedDemo')?.addEventListener('click', async () => {
-  if (!confirm('가장 최근 등록된 학생에 정규+체험+레벨 데모 3건을 시드합니다. 진행할까요?')) return;
-  try {
-    const r = await fetch('/api/admin/class-schedules/seed-demo', { method:'POST', credentials:'include' });
-    const j = await r.json();
-    if (j.ok) {
-      alert('✅ ' + j.count + '건 시드 완료!\n학생: ' + j.student_name + '\nID: ' + j.user_id);
-      loadAll();
-    } else {
-      alert('❌ 시드 실패: ' + (j.error || '알 수 없음'));
-    }
-  } catch (e) { alert('오류: ' + e.message); }
-});
-
-loadAll();
-</script>
-
-
-<!-- 🏠 글로벌 홈페이지 FAB (모든 admin 페이지 공통) -->
-<a id="global-home-fab" href="/" title="학생 홈페이지로 돌아가기"
-   style="position:fixed;top:14px;right:14px;z-index:99999;display:inline-flex;align-items:center;gap:6px;padding:9px 18px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-weight:800;text-decoration:none;font-size:13px;border-radius:99px;box-shadow:0 6px 20px -4px rgba(245,158,11,.55),0 0 0 2px rgba(255,255,255,.08);transition:transform .15s,box-shadow .15s;font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif"
-   onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 28px -4px rgba(245,158,11,.7),0 0 0 2px rgba(255,255,255,.15)'"
-   onmouseout="this.style.transform='';this.style.boxShadow='0 6px 20px -4px rgba(245,158,11,.55),0 0 0 2px rgba(255,255,255,.08)'">
-  🏠 <span>홈페이지</span>
-</a>
-
+  <script>
+    setTimeout(function(){ try { location.replace('/admin/weekly-schedule.html'); } catch(e){ location.href = '/admin/weekly-schedule.html'; } }, 400);
+  </script>
 </body>
 </html>

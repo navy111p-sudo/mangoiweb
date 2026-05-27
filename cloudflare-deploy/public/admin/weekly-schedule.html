@@ -198,6 +198,29 @@ body.cell-dragging *{cursor:grabbing!important}
 .mini-cal td.slot[data-slot]{cursor:grab}
 .mini-cal td.slot[data-slot]:active{cursor:grabbing}
 
+/* ════════════════════════════════════════
+   v42 — 드래그 안전성 보강 (2026-05-28)
+   ════════════════════════════════════════ */
+/* 드래그 중 의도 못 한 텍스트 선택 차단 */
+.mini-cal, .mini-cal *, .schedule-grid, .schedule-grid * {
+  -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;
+}
+/* 모달 입력 등은 텍스트 선택 허용 */
+input, textarea, [contenteditable="true"], .modal-body input, .modal-body textarea {
+  -webkit-user-select: text !important; user-select: text !important;
+}
+/* 드래그 중 다른 버튼 클릭 차단 (실수 방지) */
+body.cell-dragging button, body.cell-dragging a:not(.lesson-detail-link), body.cell-dragging .icon-btn {
+  pointer-events: none !important;
+}
+/* 모바일 터치 드래그 — 페이지 스크롤 의도와 분리 */
+@media (pointer: coarse) {
+  .mini-cal { touch-action: pan-y; }
+  body.cell-dragging { touch-action: none; overflow: hidden; }
+}
+/* iframe 안에서 사용 시 부모로 스크롤 전파 방지 */
+html, body { overscroll-behavior: contain; }
+
 /* Drag ghost */
 .drag-ghost{position:fixed;pointer-events:none;z-index:9800;background:linear-gradient(135deg,var(--ac),#f59e0b);color:#1a1a1a;padding:8px 14px;border-radius:10px;font-weight:800;font-size:13px;box-shadow:0 12px 28px rgba(245,158,11,.6),0 0 0 3px rgba(251,191,36,.3);display:flex;align-items:center;gap:8px;transform:translate(-50%,-50%);min-width:180px}
 .drag-ghost .gh-ico{font-size:18px}
