@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
 <meta name="theme-color" content="#0F172A" />
 <title>🎥 수업 입장 전 자가진단 · 망고아이 PreCheck</title>
-<!-- BUILD:20260527220613 -->
+<!-- BUILD:20260527223134 -->
 <style>
   :root {
     --bg: #0F172A;
@@ -274,7 +274,10 @@ function applyLang(){
   document.getElementById('lang-en').classList.toggle('on', curLang === 'en');
 }
 function setLang(l){
-  curLang = l; safeStore.set('precheck_lang', l); applyLang(); updateScore();
+  curLang = l; safeStore.set('precheck_lang', l);
+  applyLang();
+  renderAllCards();   // ← 카드 메시지(b/hint) 도 새 언어로 다시 그리기
+  updateScore();
 }
 
 // ─────────── 상태 ───────────
@@ -293,22 +296,42 @@ const T = {
 // pass: true(ok) / 'warn' / false(bad) / null(pending)
 
 function setStatus(key, pass, msgKo, msgEn, hintKo, hintEn){
+  // ko/en 모두 보관 — 언어 토글 시 재렌더링용
   T[key].pass = pass;
-  T[key].msg = curLang === 'ko' ? msgKo : msgEn;
+  T[key].msgKo = msgKo || '';
+  T[key].msgEn = msgEn || '';
+  T[key].hintKo = hintKo || '';
+  T[key].hintEn = hintEn || '';
+  T[key].msg = curLang === 'ko' ? msgKo : msgEn; // 호환성 유지
+  renderCard(key);
+  updateScore();
+}
+
+function renderCard(key){
   const card = document.getElementById('t-' + key);
   if (!card) return;
+  const d = T[key];
   card.classList.remove('ok','warn','bad');
   const st = card.querySelector('.st');
+  if (!st) return;
   st.classList.remove('pending','ok','warn','bad');
-  if (pass === true)       { card.classList.add('ok');   st.classList.add('ok');   st.textContent = curLang==='ko' ? '✅ 정상' : '✅ Pass'; }
-  else if (pass === 'warn'){ card.classList.add('warn'); st.classList.add('warn'); st.textContent = curLang==='ko' ? '⚠️ 주의' : '⚠️ Warn'; }
-  else if (pass === false) { card.classList.add('bad');  st.classList.add('bad');  st.textContent = curLang==='ko' ? '❌ 실패' : '❌ Fail'; }
-  // body 메시지 갱신
+  if (d.pass === true)       { card.classList.add('ok');   st.classList.add('ok');   st.textContent = curLang==='ko' ? '✅ 정상' : '✅ Pass'; }
+  else if (d.pass === 'warn'){ card.classList.add('warn'); st.classList.add('warn'); st.textContent = curLang==='ko' ? '⚠️ 주의' : '⚠️ Warn'; }
+  else if (d.pass === false) { card.classList.add('bad');  st.classList.add('bad');  st.textContent = curLang==='ko' ? '❌ 실패' : '❌ Fail'; }
+  else                       { st.classList.add('pending'); st.textContent = curLang==='ko' ? '검사 중' : 'Testing'; }
+  // body 메시지 갱신 — 검사 결과가 있을 때만
+  if (d.pass === null) return;
   const body = card.querySelector('.test-body');
-  let html = '<b>' + (curLang==='ko' ? msgKo : msgEn) + '</b>';
-  if (hintKo && hintEn) html += '<span class="hint">' + (curLang==='ko' ? hintKo : hintEn) + '</span>';
+  if (!body) return;
+  const msg  = curLang==='ko' ? d.msgKo  : d.msgEn;
+  const hint = curLang==='ko' ? d.hintKo : d.hintEn;
+  let html = '<b>' + msg + '</b>';
+  if (hint) html += '<span class="hint">' + hint + '</span>';
   body.innerHTML = html;
-  updateScore();
+}
+
+function renderAllCards(){
+  for (const k in T) renderCard(k);
 }
 
 // ─────────── 점수 산정 ───────────
@@ -399,7 +422,7 @@ function checkBrowser(){
   else if (/Chrome\//.test(ua)){ name='Chrome'; ver=(ua.match(/Chrome\/(\d+)/)||[])[1]||'?'; ok = parseInt(ver) >= 100; }
   else if (/Firefox\//.test(ua)){ name='Firefox'; ver=(ua.match(/Firefox\/(\d+)/)||[])[1]||'?'; ok = parseInt(ver) >= 100; }
   else if (/Safari\//.test(ua)){ name='Safari'; ver=(ua.match(/Version\/(\d+)/)||[])[1]||'?'; ok = parseInt(ver) >= 15; warn = !ok; }
-  else if (/SamsungBrowser/.test(ua)){ name='Samsung Internet'; warn = true; }
+  else if (/SamsungBrowser/.test(ua)){ name='Samsung Internet'; ver=(ua.match(/SamsungBrowser\/(\d+)/)||[])[1]||'?'; warn = true; }
   if (!window.RTCPeerConnection) { setStatus('browser', false, name + ' ' + ver + ' — WebRTC 미지원', name + ' ' + ver + ' — no WebRTC'); return; }
   if (ok)        setStatus('browser', true, name + ' ' + ver + ' ✓', name + ' ' + ver + ' ✓');
   else if (warn) setStatus('browser', 'warn', name + ' ' + ver + ' (제한적 지원)', name + ' ' + ver + ' (limited support)');
@@ -476,9 +499,14 @@ async function checkMic(){
 let _toneCtx = null;
 function playTestTone(){
   try {
-    if (_toneCtx) { _toneCtx.close(); _toneCtx = null; }
+    try { if (_toneCtx) { _toneCtx.close(); _toneCtx = null; } } catch(e){}
     const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) { alert(curLang==='ko' ? '이 브라우저는 AudioContext 를 지원하지 않습니다.' : 'This browser does not support AudioContext.'); return; }
     _toneCtx = new Ctx();
+    // 자동재생 정책으로 suspended 상태일 수 있음 — resume 시도
+    if (_toneCtx.state === 'suspended' && typeof _toneCtx.resume === 'function') {
+      _toneCtx.resume().catch(function(){});
+    }
     const osc = _toneCtx.createOscillator();
     const g = _toneCtx.createGain();
     osc.type = 'sine'; osc.frequency.value = 440;
@@ -487,7 +515,9 @@ function playTestTone(){
     g.gain.linearRampToValueAtTime(0.0, _toneCtx.currentTime + 1.4);
     osc.connect(g); g.connect(_toneCtx.destination);
     osc.start(); osc.stop(_toneCtx.currentTime + 1.5);
-  } catch(e){ alert('재생 실패: ' + e.message); }
+    // 재생 끝나면 자동 정리 (누수 방지)
+    osc.onended = function(){ try { _toneCtx && _toneCtx.close(); _toneCtx = null; } catch(e){} };
+  } catch(e){ alert((curLang==='ko' ? '재생 실패: ' : 'Playback failed: ') + e.message); }
 }
 function markSpeaker(ok){
   if (ok) setStatus('speaker', true, '사용자 확인 — 정상 ✓', 'User confirmed — OK ✓');
@@ -570,12 +600,20 @@ async function checkRtt(){
 
 // ─────────── 9. Codec ───────────
 function checkCodec(){
-  if (!window.RTCRtpSender || !RTCRtpSender.getCapabilities) {
+  // Safari < 16 등 일부 브라우저는 RTCRtpSender.getCapabilities 미지원 → Receiver 로 폴백
+  let caps = null;
+  try {
+    if (window.RTCRtpSender && typeof RTCRtpSender.getCapabilities === 'function') {
+      caps = RTCRtpSender.getCapabilities('video');
+    }
+    if (!caps && window.RTCRtpReceiver && typeof RTCRtpReceiver.getCapabilities === 'function') {
+      caps = RTCRtpReceiver.getCapabilities('video');
+    }
+  } catch(e){ caps = null; }
+  if (!caps || !caps.codecs) {
     setStatus('codec', 'warn', '코덱 확인 불가 (브라우저 제한)', 'Codec check unavailable (browser limit)');
     return;
   }
-  const caps = RTCRtpSender.getCapabilities('video');
-  if (!caps) { setStatus('codec', 'warn', '비디오 코덱 정보 없음', 'No video codec info'); return; }
   const list = caps.codecs.map(c => c.mimeType.replace('video/','')).filter((v,i,a)=>a.indexOf(v)===i);
   const hasVP9 = list.some(c => /VP9/i.test(c));
   const hasAV1 = list.some(c => /AV1/i.test(c));
@@ -595,36 +633,45 @@ function enterClass(){
   try { if (window._camStream) window._camStream.getTracks().forEach(t=>t.stop()); window._camStream = null; } catch(e){}
   try { if (window._micStream) window._micStream.getTracks().forEach(t=>t.stop()); window._micStream = null; } catch(e){}
   try { if (window._micAudioCtx) window._micAudioCtx.close(); window._micAudioCtx = null; } catch(e){}
-  try { if (window._toneCtx) { _toneCtx.close(); _toneCtx = null; } } catch(e){}
+  try { if (_toneCtx) { _toneCtx.close(); _toneCtx = null; } } catch(e){}
   // 실제 룸으로 이동 — 기존 진입 URL 패턴 유지
   location.href = '/';
 }
 
 // ─────────── 전체 실행 ───────────
 async function rerunAll(){
-  for (const k in T) { T[k].pass = null; T[k].msg = ''; }
-  document.querySelectorAll('.test .st').forEach(s => { s.className = 'st pending'; s.textContent = curLang==='ko' ? '검사 중' : 'Testing'; });
+  // 상태/카드 완전 초기화
+  for (const k in T) { T[k].pass = null; T[k].msg = ''; T[k].msgKo = ''; T[k].msgEn = ''; T[k].hintKo = ''; T[k].hintEn = ''; }
+  document.querySelectorAll('.test').forEach(card => {
+    card.classList.remove('ok','warn','bad');
+    const st = card.querySelector('.st');
+    if (st) { st.className = 'st pending'; st.textContent = curLang==='ko' ? '검사 중' : 'Testing'; }
+    // body 의 옛 검사 결과(b/hint) 제거 — 원래 안내 텍스트(data-ko/data-en) 로 복원
+    const body = card.querySelector('.test-body');
+    if (body) {
+      const ko = body.getAttribute('data-ko');
+      const en = body.getAttribute('data-en');
+      if (ko && en) body.textContent = curLang==='ko' ? ko : en;
+    }
+  });
   updateScore();
   // 기존 stream / AudioContext / video.srcObject 정리 (메모리·UI 누수 방지)
   try { if (window._camStream) window._camStream.getTracks().forEach(t=>t.stop()); window._camStream = null; } catch(e){}
   try { if (window._micStream) window._micStream.getTracks().forEach(t=>t.stop()); window._micStream = null; } catch(e){}
   try { if (window._micAudioCtx) window._micAudioCtx.close(); window._micAudioCtx = null; } catch(e){}
-  try { if (window._toneCtx) { _toneCtx.close(); _toneCtx = null; } } catch(e){}
+  try { if (_toneCtx) { _toneCtx.close(); _toneCtx = null; } } catch(e){}
   const camVid = document.getElementById('cam-video');
   if (camVid) { try { camVid.pause(); } catch(e){} camVid.srcObject = null; }
   document.getElementById('cam-wrap').style.display = 'none';
   document.getElementById('vu-wrap').style.display = 'none';
-  // VU meter 시각 초기화
   const vf = document.getElementById('vu-fill'); if (vf) vf.style.width = '0%';
   const vl = document.getElementById('vu-label'); if (vl) vl.textContent = '0 %';
 
   checkHttps();
   checkBrowser();
   checkCodec();
-  // 권한 필요한 것 먼저
   await checkCamera();
   await checkMic();
-  // 네트워크 병렬
   await Promise.all([ checkBandwidth(), checkRtt(), checkStun() ]);
 }
 
@@ -632,7 +679,6 @@ async function rerunAll(){
 applyLang();
 updateScore();
 window.addEventListener('load', () => {
-  // 0.3초 후 자동 시작 (사용자가 권한 다이얼로그 인지할 시간 확보)
   setTimeout(rerunAll, 300);
 });
 </script>
