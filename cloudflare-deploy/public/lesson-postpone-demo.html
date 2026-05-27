@@ -630,6 +630,133 @@ header {
   -webkit-tap-highlight-color: transparent;
 }
 .success-btn:active { transform: scale(0.97); }
+
+/* ════════════════════════════════════════════════════════════
+   ✨ v41 — 모바일 반응형 종합 보완 (2026-05-28)
+   · safe-area-inset (iPhone 노치 / Android 제스처 바)
+   · 작은 화면 (≤360px) 칩 크기·폰트 최적화
+   · 가로 모드 (landscape) — 캘린더 1줄 압축
+   · 터치 영역 최소 44×44px (Apple HIG)
+   · sticky-bar 키보드 회피 + 안전영역 padding
+   · 터치 디바이스 hover 비활성화
+   ════════════════════════════════════════════════════════════ */
+
+/* iOS safe-area 대응 — 노치·제스처 영역 회피 */
+@supports (padding: max(0px)) {
+  header {
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+  }
+  .main-stage, .detail-body, #detail-body {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+  .sticky-bar {
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+  }
+}
+
+/* 모바일 (≤600px) — 화살표는 숨겼지만 추가 보완 */
+@media (max-width: 600px) {
+  /* 날짜 칩 — 모바일 터치 영역 확대 */
+  .date-chip {
+    min-width: 60px;
+    padding: 13px 7px 11px;
+    border-radius: 13px;
+  }
+  .date-chip .dc-dow { font-size: 11px; }
+  .date-chip .dc-day { font-size: 16.5px; }
+  .date-scroller { padding: 4px 12px 8px; gap: 7px; }
+
+  /* 시간 칩 4열 → 3열 (가독성 ↑) */
+  .hour-grid { grid-template-columns: repeat(3, 1fr); gap: 7px; }
+  .hour-chip { padding: 14px 4px; font-size: 13.5px; min-height: 44px; }
+
+  /* 헤더 압축 */
+  .header-title { font-size: 15px; }
+  .back-btn { width: 38px; height: 38px; font-size: 17px; }
+
+  /* sticky-bar — 키보드 가림 방지 + 안전영역 */
+  .sticky-bar { font-size: 13px; }
+}
+
+/* 작은 화면 (≤360px — 갤럭시 S, iPhone SE 등) */
+@media (max-width: 360px) {
+  .date-chip { min-width: 54px; padding: 11px 5px 9px; }
+  .date-chip .dc-day { font-size: 15px; }
+  .date-chip .dc-dow { font-size: 10px; }
+  .hour-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .hour-chip { padding: 12px 3px; font-size: 12.5px; }
+  .main-intro .ttl { font-size: 19px; }
+  .main-intro .sub { font-size: 12px; }
+  .main-card { padding: 18px; }
+  .main-card .mc-label { font-size: 17px; }
+  .main-card .mc-desc { font-size: 12px; }
+}
+
+/* 가로 모드 (landscape) — 작은 높이 대응 */
+@media (max-height: 500px) and (orientation: landscape) {
+  .date-chip { padding: 8px 6px; }
+  .hour-grid { grid-template-columns: repeat(6, 1fr); gap: 5px; }
+  .hour-chip { padding: 8px 2px; font-size: 12px; min-height: 36px; }
+  .main-card { padding: 16px; }
+  .main-card .mc-icon { width: 44px; height: 44px; font-size: 22px; }
+  .main-card .mc-desc { display: none; }
+  header { padding: 8px 14px; }
+  .header-title { font-size: 14px; }
+}
+
+/* 태블릿 (601~900px) — 칩 더 넉넉하게 */
+@media (min-width: 601px) and (max-width: 900px) {
+  .date-chip { min-width: 72px; padding: 14px 8px; }
+  .hour-grid { grid-template-columns: repeat(5, 1fr); }
+  .hour-chip { padding: 13px 4px; font-size: 14px; }
+}
+
+/* 터치 디바이스 — hover 효과 비활성화 (stuck 방지) */
+@media (hover: none) and (pointer: coarse) {
+  .date-chip:hover, .hour-chip:hover, .main-card:hover,
+  .date-scroller-nav:hover { transform: none; box-shadow: inherit; }
+  /* 터치 시 즉시 피드백 */
+  .date-chip, .hour-chip, .main-card { transition: transform 0.08s, background 0.12s, border-color 0.12s; }
+}
+
+/* 접근성 — 모션 줄이기 선호 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.05ms !important;
+  }
+  .screen { transition: transform 0.1s ease; }
+}
+
+/* 다크 모드 자동 (이미 다크지만 시스템 설정 존중) */
+@media (prefers-color-scheme: light) {
+  /* 사이트는 항상 다크지만 색대비 살짝 강화 */
+  body { color-scheme: dark; }
+}
+
+/* 키보드 포커스 가시성 강화 (접근성) */
+.date-chip:focus-visible,
+.hour-chip:focus-visible,
+.main-card:focus-visible,
+.back-btn:focus-visible,
+.date-scroller-nav:focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: 2px;
+}
+
+/* 스크롤바 모바일에서 완전 숨김 보장 */
+.date-scroller, .detail-body, .main-stage {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.date-scroller::-webkit-scrollbar,
+.detail-body::-webkit-scrollbar,
+.main-stage::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
 </style>
 </head>
 <body>
@@ -958,115 +1085,70 @@ function attachHandlers(){
     state.loading = true; renderBody();
     setTimeout(() => { state.loading = false; renderBody(); updateSticky(); }, 450);
   }));
+
+  // teacher-card 클릭 후속 처리 (안전 마무리)
   $$('#detail-body .teacher-card[data-teacher]').forEach(el => el.addEventListener('click', () => {
-    state.teacher = el.dataset.teacher;
-    renderBody(); updateSticky();
-  }));
-  // 교사 탭: 카드 탭 → 아코디언
-  $$('#detail-body .teacher-card[data-expand]').forEach(el => {
-    el.querySelector('.tc-row').addEventListener('click', () => {
-      const id = el.dataset.expand;
-      state.expandedTeacher = (state.expandedTeacher === id) ? null : id;
-      renderBody();
-    });
-  });
-  // 교사 탭 아코디언 안의 시간 칩
-  $$('#detail-body .hour-chip[data-tdate]').forEach(el => el.addEventListener('click', (e) => {
-    e.stopPropagation();
-    state.teacher = el.dataset.tteacher;
-    state.date = el.dataset.tdate;
-    state.hour = el.dataset.thour;
-    renderBody(); updateSticky();
+    const tid = el.getAttribute('data-teacher');
+    state.teacher = tid;
+    renderBody();
+    updateSticky();
   }));
 }
 
 /* ════════════════════════════════════════════════════════════
-   Sticky 하단 바
+   v40+v41 — 날짜 칩 가로 드래그 + 모바일 반응형 보완
    ════════════════════════════════════════════════════════════ */
-function updateSticky(){
-  const bar = $('#sticky-bar');
-  const sum = $('#sticky-summary');
-  const ready = state.date && state.hour && state.teacher;
-  if (ready) {
-    if (bar) bar.classList.add('visible');
-    if (sum) sum.textContent = state.date + ' · ' + state.hour + ' · ' + state.teacher;
-  } else {
-    if (bar) bar.classList.remove('visible');
-  }
-}
-
-/* ════════════════════════════════════════════════════════════
-   v40 — 날짜 칩 가로 드래그 스크롤 + 화살표 + 위치 시그널
-   ════════════════════════════════════════════════════════════ */
-(function v40DateScroller(){
+(function v40v41(){
   function init(){
     const scroller = document.getElementById('dateScroller');
     const wrap = document.getElementById('dateScrollerWrap');
-    const prev = document.getElementById('dateScrollPrev');
-    const next = document.getElementById('dateScrollNext');
     if (!scroller || !wrap || scroller.__v40bound) return;
     scroller.__v40bound = true;
 
-    /* 1) 위치 시그널 (시작/끝) — 그라데이션 fade + 화살표 표시 */
+    const prev = document.getElementById('dateScrollPrev');
+    const next = document.getElementById('dateScrollNext');
+
     function updateEdges(){
       const max = scroller.scrollWidth - scroller.clientWidth;
-      const atStart = scroller.scrollLeft <= 2;
-      const atEnd = scroller.scrollLeft >= max - 2;
-      wrap.classList.toggle('at-start', atStart);
-      wrap.classList.toggle('at-end', atEnd);
+      wrap.classList.toggle('at-start', scroller.scrollLeft <= 2);
+      wrap.classList.toggle('at-end', scroller.scrollLeft >= max - 2);
     }
     scroller.addEventListener('scroll', updateEdges, { passive: true });
     window.addEventListener('resize', updateEdges);
     updateEdges();
 
-    /* 2) ◀ ▶ 화살표 클릭으로 1 페이지씩 부드럽게 */
     const PAGE = () => Math.max(160, scroller.clientWidth * 0.7);
     if (prev) prev.addEventListener('click', e => { e.preventDefault(); scroller.scrollBy({ left: -PAGE(), behavior: 'smooth' }); });
     if (next) next.addEventListener('click', e => { e.preventDefault(); scroller.scrollBy({ left: PAGE(), behavior: 'smooth' }); });
 
-    /* 3) PC 마우스 드래그 (grab & drag) */
     let isDown = false, startX = 0, startScroll = 0, moved = false;
-    scroller.addEventListener('mousedown', e => {
-      isDown = true; moved = false;
-      startX = e.pageX; startScroll = scroller.scrollLeft;
-      scroller.classList.add('dragging');
-    });
-    window.addEventListener('mouseup', () => {
-      if (!isDown) return;
-      isDown = false;
-      scroller.classList.remove('dragging');
-    });
-    window.addEventListener('mousemove', e => {
-      if (!isDown) return;
-      const dx = e.pageX - startX;
-      if (Math.abs(dx) > 4) moved = true;
-      scroller.scrollLeft = startScroll - dx;
-    });
-    // 드래그 도중 칩 클릭 방지
-    scroller.addEventListener('click', e => {
-      if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; }
-    }, true);
+    scroller.addEventListener('mousedown', e => { isDown = true; moved = false; startX = e.pageX; startScroll = scroller.scrollLeft; scroller.classList.add('dragging'); });
+    window.addEventListener('mouseup', () => { if (!isDown) return; isDown = false; scroller.classList.remove('dragging'); });
+    window.addEventListener('mousemove', e => { if (!isDown) return; const dx = e.pageX - startX; if (Math.abs(dx) > 4) moved = true; scroller.scrollLeft = startScroll - dx; });
+    scroller.addEventListener('click', e => { if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; } }, true);
 
-    /* 4) PC 마우스 휠을 가로 스크롤로 변환 (Shift 없이도 가능) */
-    scroller.addEventListener('wheel', e => {
-      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-        e.preventDefault();
-        scroller.scrollLeft += e.deltaY;
-      }
-    }, { passive: false });
+    scroller.addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); scroller.scrollLeft += e.deltaY; } }, { passive: false });
 
-    /* 5) 모바일 터치 스와이프는 브라우저 기본(overflow-x:auto)이 처리 — JS 추가 없음 */
-
-    console.log('[v40] 날짜 칩 가로 드래그/휠/화살표 활성');
+    console.log('[v40+v41] 날짜 칩 가로 스크롤·반응형 활성');
   }
 
-  // 화면 전환마다 새로 생성되므로 MutationObserver 로 감지
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
-  // 화면 마운트가 동적이라 polling
   setInterval(init, 600);
 })();
+
+/* ════════════════════════════════════════════════════════════
+   v41 — 모바일 viewport height 동적 보정 (iOS Safari 주소창)
+   ════════════════════════════════════════════════════════════ */
+(function v41Vh(){
+  function setVh(){
+    document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
+  }
+  setVh();
+  window.addEventListener('resize', setVh);
+  window.addEventListener('orientationchange', () => setTimeout(setVh, 100));
+})();
 </script>
-<!-- BUILD:20260528002145 -->
+<!-- BUILD:20260528002849 -->
 </body>
 </html>
