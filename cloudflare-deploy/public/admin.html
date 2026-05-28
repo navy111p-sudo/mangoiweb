@@ -18806,7 +18806,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260529040004 -->
+        <!-- BUILD:20260529041043 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -34111,6 +34111,81 @@ button.chip:hover,
   console.log('[ph157-v2] CN coach sidebar card active (FAB removed per user request)');
 })();
 </script>
+
+<!-- ============================================================
+     Phase 174 (2026-05-29) - Admin mobile FAB → 원형 작게
+     · 수업 진단 (#precheck-fab-admin) : 48px 원형, 청진기 아이콘만
+     · 카톡상담 (#kakao-chat-fab) : 48px 원형, 카톡 SVG 아이콘만
+     · 우하단에 세로로 작게 stack
+     ============================================================ -->
+<style id="ph174-admin-mobile-fab-circle">
+  @media (max-width: 640px) {
+
+    /* ─── 수업 진단 FAB — 48px 원형 ─── */
+    #precheck-fab-admin {
+      width: 48px !important;
+      height: 48px !important;
+      padding: 0 !important;
+      border-radius: 50% !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      bottom: 76px !important;
+      right: 14px !important;
+      box-shadow: 0 8px 20px -4px rgba(245,158,11,0.55), inset 0 1px 0 rgba(255,255,255,0.35) !important;
+      border: 1.5px solid rgba(252,211,77,0.6) !important;
+      background: linear-gradient(135deg, #FCD34D 0%, #F59E0B 50%, #D97706 100%) !important;
+      gap: 0 !important;
+    }
+    #precheck-fab-admin .ic {
+      font-size: 22px !important;
+      margin: 0 !important;
+    }
+    /* 라벨 텍스트(수업 진단) 숨김 — 아이콘만 */
+    #precheck-fab-admin span[data-ko],
+    #precheck-fab-admin > span:not(.ic) {
+      display: none !important;
+    }
+
+    /* ─── 카톡상담 FAB — 48px 원형 ─── */
+    #kakao-chat-fab {
+      width: 48px !important;
+      height: 48px !important;
+      padding: 0 !important;
+      border-radius: 50% !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 0 !important;
+      bottom: 14px !important;
+      right: 14px !important;
+      box-shadow: 0 8px 20px -4px rgba(254,229,0,0.55), inset 0 1px 0 rgba(255,255,255,0.55) !important;
+      background: linear-gradient(135deg, #FEE500 0%, #FBBF24 100%) !important;
+    }
+    /* 갈색 원 안 SVG 아이콘만 보이게 — 그 외 라벨/텍스트 모두 숨김 */
+    #kakao-chat-fab > span:nth-child(2),
+    #kakao-chat-fab span[data-ko="카톡상담"] {
+      display: none !important;
+    }
+    /* 첫 span (갈색 원 + SVG) 만 보이게, 크기도 살짝 키움 */
+    #kakao-chat-fab > span:first-child {
+      width: 30px !important;
+      height: 30px !important;
+      margin: 0 !important;
+      background: #3C1E1E !important;
+      border-radius: 50% !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+    #kakao-chat-fab svg {
+      width: 18px !important;
+      height: 18px !important;
+    }
+  }
+</style>
+
+
 
 </body>
 </html>
