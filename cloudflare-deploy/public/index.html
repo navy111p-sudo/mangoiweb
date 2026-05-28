@@ -4018,6 +4018,8 @@
         <button class="ai-quick-btn" data-go="lesson-change" data-ko="📅 연기/변경" data-en="📅 Postpone/Change">📅 연기/변경</button>
         <button class="ai-quick-btn" data-go="inquiry" data-ko="💬 신규상담" data-en="💬 New Inquiry">💬 신규상담</button>
         <button class="ai-quick-btn" data-go="all-menu" data-ko="🏠 전체메뉴" data-en="🏠 All Menu" onclick="event.preventDefault();var p=document.getElementById('v19-panel');if(p){p.style.display=p.style.display==='none'?'':'none';if(p.style.display!=='none')p.scrollIntoView({behavior:'smooth',block:'start'});}return false;">🏠 전체메뉴</button>
+        <!-- ph170 (2026-05-29) — 수업 진단 카드 (FAB 대체) -->
+        <button class="ai-quick-btn" data-go="precheck" data-ko="🎥 수업 진단" data-en="🎥 PreCheck" onclick="event.preventDefault();location.href='/precheck.html';return false;">🎥 수업 진단</button>
       </div>
       <!-- 결제하기 + 수업입장 한 줄 (같은 골드 스타일) -->
       <div class="ai-cta-row">
@@ -23061,7 +23063,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260529032726 -->
+<!-- BUILD:20260529033528 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25036,6 +25038,131 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     }
   }
 </style>
+
+<!-- ============================================================
+     Phase 170 (2026-05-29) - Mobile final polish (4 items)
+     · 1) 카카오 FAB: 더 작은 원형 (38px) + "상담" 텍스트 안에 표시
+     · 2) 수업 진단: 우하단 FAB 숨김 (카드로 이동됨, 위에서 추가)
+     · 3) AI 검색창 우측 → 화살표 숨김 (mic + Enter 키로 충분)
+     · 4) CTA 아래 "화상수업 로비 / 마이크·카메라" 안내 문구 숨김
+     ============================================================ -->
+<style id="ph170-mobile-final">
+  @media (max-width: 640px) {
+
+    /* ─── 1. 카카오 FAB — 38px 원형 + 안에 "상담" 작은 글자 ─── */
+    .ph49-kakao-fab, #ph49-kakao-fab {
+      width: 38px !important;
+      height: 38px !important;
+      padding: 0 !important;
+      bottom: 14px !important;
+      right: 12px !important;
+      flex-direction: column !important;
+      gap: 0 !important;
+      align-items: center !important;
+      justify-content: center !important;
+      line-height: 1 !important;
+    }
+    .ph49-kakao-fab svg, #ph49-kakao-fab svg {
+      width: 13px !important;
+      height: 13px !important;
+      margin-top: 2px !important;
+      display: block !important;
+    }
+    /* "상담" 글자 추가 — span 강제 표시 + 텍스트 교체 */
+    .ph49-kakao-fab span, #ph49-kakao-fab span {
+      display: block !important;
+      font-size: 8.5px !important;
+      font-weight: 800 !important;
+      color: #1A1A1A !important;
+      margin-top: 1px !important;
+      letter-spacing: -0.3px !important;
+      line-height: 1 !important;
+    }
+
+    /* ─── 2. 수업 진단 FAB 우하단에서 숨김 (카드로 대체됨) ─── */
+    #precheck-fab {
+      display: none !important;
+    }
+    /* 캐시 ↻ FAB 위치도 조정 — 카톡 위로 */
+    .ph52-cache-fab, #ph52-cache-fab {
+      bottom: 62px !important;
+      right: 18px !important;
+      width: 32px !important;
+      height: 32px !important;
+    }
+
+    /* ─── 3. AI 검색창 우측 → 화살표 숨김 ─── */
+    .ai-search-go, #ai-home-go {
+      display: none !important;
+    }
+    /* 검색창 입력 영역이 화살표 자리까지 시원하게 사용 */
+    .ai-search-wrap > input,
+    .ai-search-wrap #ai-home-input {
+      flex: 1 1 auto !important;
+    }
+
+    /* ─── 4. CTA 아래 안내 문구 숨김 ─── */
+    /* "🎥 화상수업 로비로 입장" / "📹 마이크 / 카메라 사용" span 들 */
+    span[data-ko="🎥 화상수업 로비로 입장"],
+    span[data-ko="📹 마이크 / 카메라 사용"] {
+      display: none !important;
+    }
+    /* 안내 문구 컨테이너 (부모 div 가 비면 자동으로 안 보이지만 안전망) */
+    .ai-cta-hint, .cta-hint, .ai-cta-row + div[style*="font-size:11"],
+    .ai-cta-row + div[style*="opacity"],
+    .ai-cta-row ~ div:has(span[data-ko*="로비"]),
+    .ai-cta-row ~ div:has(span[data-ko*="마이크"]) {
+      display: none !important;
+    }
+  }
+</style>
+
+<script id="ph170-cleanup-script">
+(function(){
+  'use strict';
+  // 카카오 FAB span 의 텍스트가 "카톡상담" 등으로 길면 "상담"으로 교체
+  // (CSS 만으로는 textContent 변경 못함 — JS 로 처리)
+  function tweakKakao() {
+    var btn = document.getElementById('kakaoChannelBtn') || document.querySelector('.kakao-chat-btn') || document.querySelector('.ph49-kakao-fab');
+    if (!btn) return;
+    var span = btn.querySelector('span');
+    if (span && span.textContent.trim() !== '상담') {
+      // 데이터 속성 백업 후 변경
+      if (!span.dataset._ph170Orig) span.dataset._ph170Orig = span.textContent;
+      span.textContent = '상담';
+    }
+  }
+  // CTA 안내 문구 (sibling div) 모바일에서 강제 숨김 — CSS :has 안되는 구브라우저 대비
+  function hideCtaHint() {
+    if (window.innerWidth > 640) return;
+    var ctaRow = document.querySelector('.ai-cta-row');
+    if (!ctaRow) return;
+    var next = ctaRow.nextElementSibling;
+    while (next) {
+      var txt = next.textContent || '';
+      if (txt.indexOf('화상수업 로비') >= 0 || txt.indexOf('마이크') >= 0 || txt.indexOf('카메라') >= 0) {
+        next.style.display = 'none';
+        break;
+      }
+      // 1~2 형제만 확인
+      next = next.nextElementSibling;
+      if (next && next.tagName === 'SECTION') break;
+    }
+  }
+  function run() {
+    tweakKakao();
+    hideCtaHint();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
+  else run();
+  // Flutter/동적 inject 대비 재시도
+  setTimeout(run, 500);
+  setTimeout(run, 1500);
+  console.log('[ph170] mobile final polish — 카카오 작게+상담 / 수업진단 카드 / 화살표 숨김 / CTA 안내 숨김');
+})();
+</script>
+
+
 
 
 
