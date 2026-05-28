@@ -14,7 +14,7 @@
     'installguide':'/install-guide.html','learnguide':'/learn-guide.html',
     'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'/contact.html',
     'library':'/docs/','reviews':'/reviews.html','recordings':'/admin.html',
-    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html',
+    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
     'leveltest':'/level-test.html','battle':'/battle.html',
     'lesson-change':'/lesson-postpone-demo.html','videolesson':'/video-call/',
@@ -4812,6 +4812,12 @@
         <span class="gm-icon">🇨🇳</span>
         <span class="gm-label" data-ko="중국어 발음 코치" data-en="CN Voice Coach">중국어 발음 코치</span>
         <span class="gm-sub" data-ko="다락원 마스터 · Lv 1~20" data-en="Darakwon · Lv 1-20">다락원 마스터 · Lv 1~20</span>
+      </button>
+      <!-- ph158 (2026-05-28) — 🆕 교재 업로더 (폴더 드래그 → AI 자동 분류) -->
+      <button class="gm-card" data-go="textbook-uploader" data-en-key="textbook uploader" onclick="location.href='/textbook-uploader.html'">
+        <span class="gm-icon">📚</span>
+        <span class="gm-label" data-ko="교재 업로더" data-en="Textbook Uploader">교재 업로더</span>
+        <span class="gm-sub" data-ko="폴더 드래그 → AI 자동 분류" data-en="Folder drop → AI auto-classify">폴더 드래그 → AI 자동 분류</span>
       </button>
       <!-- 🆕 부모 대시보드 (자녀 출석/포인트/평가서 한눈에) -->
       <button class="gm-card" data-go="parent-dashboard" data-en-key="parent dashboard" onclick="openParentDashboard()">
@@ -10649,6 +10655,10 @@ window.addEventListener('DOMContentLoaded', () => {
     { kws: ['발음', '발음연습', '발음 연습', '영어발음', 'pronunciation', '스피치', 'speech', '말하기'], action: () => window.gridActions && window.gridActions.speech(), label: '🎤 영어 발음 코치 (AI 발음 평가)' },
     // ph157: 중국어 발음 코치
     { kws: ['중국어', '중국어발음', '중국어 발음', '중국어발음코치', 'chinese', 'mandarin', '다락원', 'darakwon', 'cn voice', '병음', 'pinyin'], action: () => location.href = '/speech-coach-cn.html', label: '🇨🇳 중국어 발음 코치 (다락원 마스터 + Lv 1~20)' },
+    // ph158: 교재 업로더 (폴더 드래그 → AI 자동 분류)
+    { kws: ['교재', '교재업로더', '교재 업로더', '교재 폴더', '교재폴더', '폴더 업로드', '폴더업로드', '자동 분류', '자동분류', '교과서', 'textbook', 'upload', 'classify'], action: () => location.href = '/textbook-uploader.html', label: '📚 교재 업로더 (폴더 드래그 → AI 자동 분류)' },
+    // ph158: 교재 뷰어 (단독 진입은 라이브러리 통해)
+    { kws: ['교재보기', '교재 보기', '교재뷰어', '교재 뷰어', 'viewer', 'textbook viewer'], action: () => location.href = '/textbook-uploader.html', label: '📖 교재 라이브러리 (보기)' },
     // 학생 페이지들
     { kws: ['마이페이지', 'my page', 'mypage', '내정보', '내 정보', '프로필'], action: () => location.href = '/admin/mypage.html', label: '👤 마이페이지' },
 
@@ -23046,7 +23056,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260528075236 -->
+<!-- BUILD:20260529015853 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -23259,7 +23269,7 @@ document.addEventListener('keydown', function(e){
     'installguide':'/install-guide.html','learnguide':'/learn-guide.html',
     'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'/contact.html',
     'library':'/docs/','reviews':'/reviews.html','recordings':'/admin.html',
-    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html',
+    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
     'leveltest':'/level-test.html','battle':'/battle.html',
     'lesson-change':'/lesson-postpone-demo.html','videolesson':'/video-call/',
@@ -23392,7 +23402,7 @@ document.addEventListener('keydown', function(e){
     'installguide':'/install-guide.html','learnguide':'/learn-guide.html',
     'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'/contact.html',
     'library':'/docs/','reviews':'/reviews.html','recordings':'/admin.html',
-    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html',
+    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
     'leveltest':'/level-test.html','battle':'/battle.html',
     'lesson-change':'/lesson-postpone-demo.html','videolesson':'/video-call/',
@@ -23633,6 +23643,7 @@ document.addEventListener('keydown', function(e){
       {emoji:'✍', name:'AI 작문', url:'/ai-write.html'},
       {emoji:'🗣', name:'영어 발음 코치', url:'/speech-coach.html'},
       {emoji:'🇨🇳', name:'중국어 발음 코치', url:'/speech-coach-cn.html'},
+      {emoji:'📚', name:'교재 업로더', url:'/textbook-uploader.html'},
       {emoji:'📖', name:'단어장', url:'/vocab.html'},
       {emoji:'🎯', name:'미니 퀴즈', url:'/micro-quiz.html'},
       {emoji:'🧠', name:'MBTI 매칭', url:'/mbti.html'},
@@ -23734,6 +23745,7 @@ document.addEventListener('keydown', function(e){
       {emoji:'✍', name:'AI 작문', url:'/ai-write.html'},
       {emoji:'🗣', name:'영어 발음 코치', url:'/speech-coach.html'},
       {emoji:'🇨🇳', name:'중국어 발음 코치', url:'/speech-coach-cn.html'},
+      {emoji:'📚', name:'교재 업로더', url:'/textbook-uploader.html'},
       {emoji:'📖', name:'단어장', url:'/vocab.html'},
       {emoji:'🎯', name:'미니 퀴즈', url:'/micro-quiz.html'},
       {emoji:'🧠', name:'MBTI 매칭', url:'/mbti.html'},
@@ -24290,6 +24302,170 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
    console.log('[v154] 룸 exit 캡처 핸들러 활성 (click/touchend/pointerdown 모두)');
  })();
  </script>
+
+<!-- ============================================================
+     Phase 158-classroom (2026-05-28) - Teacher textbook launcher
+     · 룸 입장 시 (.vc-in-call) 우상단에 "📚 교재 띄우기" 버튼 노출
+     · 클릭 → IndexedDB 의 등록된 교재 목록 모달
+     · 선택 시 textbook-viewer.html 새 탭 + 화면공유 안내
+     ============================================================ -->
+<style id="ph158-classroom-style">
+  #ph158-tb-launcher {
+    position:fixed; top:14px; right:120px; z-index:99950;
+    padding:8px 14px 8px 11px; border:0; border-radius:99px;
+    background:linear-gradient(135deg,#3B82F6,#1D4ED8); color:#fff;
+    font-size:12.5px; font-weight:800; cursor:pointer;
+    box-shadow:0 6px 18px -4px rgba(59,130,246,0.6);
+    display:none; align-items:center; gap:6px;
+    font-family:-apple-system,"Pretendard","Noto Sans KR",sans-serif;
+  }
+  body.vc-in-call #ph158-tb-launcher { display:inline-flex; }
+  #ph158-tb-launcher:hover { transform:translateY(-1px); box-shadow:0 10px 24px -6px rgba(59,130,246,0.8); }
+  @media (max-width:600px) {
+    #ph158-tb-launcher { top:10px; right:60px; padding:7px 12px 7px 10px; font-size:11.5px; }
+  }
+  #ph158-tb-modal {
+    position:fixed; inset:0; background:rgba(0,0,0,0.72); z-index:99999;
+    display:none; align-items:center; justify-content:center; padding:18px;
+    font-family:-apple-system,"Pretendard","Noto Sans KR",sans-serif;
+  }
+  #ph158-tb-modal.show { display:flex; }
+  #ph158-tb-modal .box {
+    background:#131C36; border:1px solid rgba(96,165,250,0.3); border-radius:16px;
+    max-width:600px; width:100%; max-height:80vh; overflow:auto;
+    padding:20px 22px; box-shadow:0 24px 48px rgba(0,0,0,0.6); color:#fff;
+  }
+  #ph158-tb-modal h3 { font-size:16px; font-weight:800; color:#60A5FA; margin:0 0 12px;
+    display:flex; align-items:center; gap:8px; }
+  #ph158-tb-modal .row { background:#1A2548; border:1px solid rgba(96,165,250,0.2); border-radius:10px;
+    padding:11px 14px; margin-bottom:7px; cursor:pointer; display:flex; align-items:center; gap:10px;
+    transition:border-color .15s, background .15s; }
+  #ph158-tb-modal .row:hover { border-color:#60A5FA; background:#1E2D58; }
+  #ph158-tb-modal .row .pub { color:#fbbf24; font-size:11px; font-weight:700;
+    background:rgba(251,191,36,0.15); padding:2px 7px; border-radius:99px; }
+  #ph158-tb-modal .row .name { flex:1; font-weight:700; font-size:13.5px; }
+  #ph158-tb-modal .row .meta { font-size:11px; color:#94A3B8; }
+  #ph158-tb-modal .empty { padding:24px; text-align:center; color:#94A3B8; font-size:13px; font-style:italic; }
+  #ph158-tb-modal .empty a { color:#60A5FA; text-decoration:underline; font-weight:700; }
+  #ph158-tb-modal .close-row { display:flex; justify-content:space-between; align-items:center;
+    margin-top:14px; padding-top:12px; border-top:1px solid rgba(96,165,250,0.15); }
+  #ph158-tb-modal .close-row a { color:#60A5FA; font-size:12px; font-weight:700; text-decoration:none; }
+  #ph158-tb-modal .close-row button { background:transparent; border:1px solid rgba(96,165,250,0.3);
+    color:#E2E8F0; padding:7px 16px; border-radius:8px; font-size:12.5px; font-weight:700; cursor:pointer;
+    font-family:inherit; }
+</style>
+
+<button type="button" id="ph158-tb-launcher" title="저장된 교재를 뷰어로 띄우고 학생에게 화면공유">
+  <span style="font-size:14px">📚</span>
+  <span>교재 띄우기</span>
+</button>
+
+<div id="ph158-tb-modal">
+  <div class="box">
+    <h3>📚 어떤 교재를 띄울까요?</h3>
+    <div id="ph158-tb-list">불러오는 중…</div>
+    <div class="close-row">
+      <a href="/textbook-uploader.html" target="_blank">＋ 새 교재 업로드</a>
+      <button onclick="document.getElementById('ph158-tb-modal').classList.remove('show')">닫기</button>
+    </div>
+  </div>
+</div>
+
+<script id="ph158-classroom-script">
+(function(){
+  'use strict';
+  var DB_NAME = 'mangoi-textbooks';
+  function openDB(){ return new Promise(function(res,rej){
+    var r = indexedDB.open(DB_NAME, 1);
+    r.onsuccess = function(){ res(r.result); };
+    r.onerror = function(){ rej(r.error); };
+  });}
+  function getAll(db, store){ return new Promise(function(res,rej){
+    try {
+      var tx = db.transaction(store, 'readonly');
+      var rq = tx.objectStore(store).getAll();
+      rq.onsuccess = function(){ res(rq.result || []); };
+      rq.onerror = function(){ rej(rq.error); };
+    } catch(e){ res([]); }
+  });}
+
+  function escapeHtml(s){
+    return String(s||'').replace(/[&<>"\']/g, function(c){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+    });
+  }
+
+  async function openModal(){
+    var modal = document.getElementById('ph158-tb-modal');
+    var list = document.getElementById('ph158-tb-list');
+    modal.classList.add('show');
+    list.innerHTML = '<div class="empty">불러오는 중…</div>';
+    try {
+      var db = await openDB();
+      var tbs = await getAll(db, 'textbooks');
+      tbs.sort(function(a,b){ return b.createdAt - a.createdAt; });
+      if (!tbs.length) {
+        list.innerHTML = '<div class="empty">아직 등록된 교재가 없습니다.<br><a href="/textbook-uploader.html" target="_blank">📚 교재 업로더에서 폴더를 드래그하세요</a></div>';
+        return;
+      }
+      list.innerHTML = '';
+      tbs.forEach(function(t){
+        var row = document.createElement('div');
+        row.className = 'row';
+        row.innerHTML = '<span class="pub">'+escapeHtml(t.publisher)+'</span>'+
+          '<span class="name">'+escapeHtml(t.textbook)+' '+escapeHtml(t.level||'')+'</span>'+
+          '<span class="meta">📑 '+t.lessons.length+' · 📄 '+t.totalFiles+'</span>';
+        row.onclick = function(){
+          modal.classList.remove('show');
+          var w = window.open('/textbook-viewer.html?id='+encodeURIComponent(t.id), '_blank', 'width=1280,height=860');
+          setTimeout(function(){
+            try {
+              alert('교재 뷰어가 열렸습니다.\n\n학생에게 보여주려면:\n1) 룸 안에서 [화면공유] 버튼을 누르세요\n2) "현재 탭" 또는 "교재 뷰어 탭" 을 선택\n\n또는 뷰어 우상단 [📺 수업에 공유] 버튼을 직접 눌러도 됩니다.');
+            } catch(e){}
+          }, 500);
+        };
+        list.appendChild(row);
+      });
+    } catch(e) {
+      console.error('[ph158-classroom] DB error:', e);
+      list.innerHTML = '<div class="empty">⚠️ 저장된 교재를 불러올 수 없습니다.<br>브라우저 저장소 권한 확인이 필요할 수 있습니다.</div>';
+    }
+  }
+
+  // launcher 버튼 클릭 핸들러
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    var btn = t.closest && t.closest('#ph158-tb-launcher');
+    if (!btn) return;
+    e.preventDefault();
+    openModal();
+  });
+  // 모달 배경 클릭 시 닫기
+  document.addEventListener('click', function(e){
+    var modal = document.getElementById('ph158-tb-modal');
+    if (e.target === modal) modal.classList.remove('show');
+  });
+  // ESC 닫기
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') {
+      var modal = document.getElementById('ph158-tb-modal');
+      if (modal && modal.classList.contains('show')) modal.classList.remove('show');
+    }
+  });
+  // BroadcastChannel: 뷰어가 공유 시작했음을 알림
+  try {
+    var bc = new BroadcastChannel('mangoi-classroom');
+    bc.onmessage = function(ev){
+      if (ev.data && ev.data.type === 'textbook-shared') {
+        console.log('[ph158-classroom] viewer started sharing textbook', ev.data.tbId);
+      }
+    };
+  } catch(e){}
+  console.log('[ph158-classroom] Textbook launcher active (visible during vc-in-call)');
+})();
+</script>
+
+
 
  </body>
  </html>

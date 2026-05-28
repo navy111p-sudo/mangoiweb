@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B1224">
+<title>📚 교재 업로더 — 폴더째 드래그 → AI 자동 분류</title>
+<!-- BUILD:20260529015853 -->
+<style>
+:root {
+  --bg:#0B1224; --bg-soft:#131C36; --bg-card:#1A2548; --bg-card-2:#1E2D58;
+  --border:rgba(96,165,250,0.18); --border-strong:rgba(96,165,250,0.45);
+  --text:#E2E8F0; --text-dim:#94A3B8; --text-mute:#64748B;
+  --accent:#3B82F6; --accent-2:#60A5FA; --warn:#FBBF24; --ok:#10B981; --bad:#EF4444;
+  --gold:#F59E0B; --cn-red:#DC2626;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:linear-gradient(160deg,var(--bg) 0%,#0E1834 100%);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Pretendard",sans-serif;
+  font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;}
+.wrap{max-width:1180px;margin:0 auto;padding:18px 16px 100px}
+header.hero{background:linear-gradient(135deg,#3B82F6 0%,#1D4ED8 100%);border-radius:16px;padding:22px 24px;margin-bottom:18px;position:relative;overflow:hidden;
+  box-shadow:0 14px 30px -10px rgba(59,130,246,0.5);}
+header.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 20% 30%,rgba(255,255,255,0.15),transparent 60%);pointer-events:none}
+header.hero h1{font-size:22px;font-weight:900;color:#fff;display:flex;align-items:center;gap:10px;position:relative}
+header.hero h1 .ico{font-size:30px}
+header.hero .sub{margin-top:6px;font-size:13.5px;color:rgba(255,255,255,0.92);font-weight:600;position:relative}
+header.hero .home{position:absolute;top:14px;right:14px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:#fff;padding:6px 13px;border-radius:99px;font-size:12px;font-weight:700;text-decoration:none}
+header.hero .home:hover{background:rgba(255,255,255,0.28)}
+
+/* 업로드 영역 */
+.dropzone{background:var(--bg-card);border:2px dashed var(--border-strong);border-radius:18px;padding:38px 24px;text-align:center;transition:all .2s;cursor:pointer;position:relative}
+.dropzone:hover,.dropzone.dragover{border-color:var(--gold);background:linear-gradient(135deg,rgba(251,191,36,0.06),rgba(245,158,11,0.04))}
+.dropzone .dz-ico{font-size:48px;margin-bottom:8px}
+.dropzone .dz-title{font-size:18px;font-weight:800;color:#fff;margin-bottom:6px}
+.dropzone .dz-sub{font-size:13px;color:var(--text-dim);line-height:1.7}
+.dropzone .dz-or{display:inline-block;margin:10px 6px;color:var(--text-mute);font-size:12px;font-weight:600}
+.dropzone .dz-btn{display:inline-block;background:linear-gradient(135deg,var(--accent),#1D4ED8);color:#fff;padding:10px 20px;border-radius:99px;font-size:13.5px;font-weight:800;cursor:pointer;border:0;margin-top:4px}
+.dropzone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+/* 진행 상태 */
+.progress-bar{margin-top:16px;background:var(--bg-soft);border-radius:10px;padding:14px 16px;display:none;border:1px solid var(--border)}
+.progress-bar.show{display:block}
+.progress-bar .pb-text{font-size:13px;color:var(--accent-2);font-weight:700;margin-bottom:6px}
+.progress-bar .pb-rail{background:rgba(0,0,0,0.25);border-radius:6px;height:6px;overflow:hidden}
+.progress-bar .pb-fill{background:linear-gradient(90deg,var(--accent),var(--gold));height:100%;width:0%;transition:width .25s}
+
+/* 분류 결과 표 */
+.classify-result{margin-top:18px;background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:18px;display:none}
+.classify-result.show{display:block}
+.classify-result h2{font-size:15px;font-weight:800;color:var(--gold);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.classify-result h2 .badge{background:var(--gold);color:#1a1a1a;font-size:10px;padding:2px 8px;border-radius:99px;font-weight:900;letter-spacing:0.4px}
+.cr-group{background:var(--bg-card-2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px}
+.cr-group .cr-head{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
+.cr-group input,.cr-group select{background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:7px;padding:6px 10px;font-size:12.5px;color:#fff;font-family:inherit;font-weight:600}
+.cr-group input:focus,.cr-group select:focus{outline:0;border-color:var(--accent-2)}
+.cr-group .cr-tag{font-size:11px;color:var(--text-mute);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;margin-right:2px}
+.cr-group .cr-files{font-size:12px;color:var(--text-dim);background:rgba(0,0,0,0.2);padding:6px 10px;border-radius:7px;margin-top:6px;font-family:ui-monospace,'SF Mono',Consolas,monospace;line-height:1.7;max-height:120px;overflow:auto}
+.cr-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.cr-actions .btn{padding:9px 18px;border:0;border-radius:9px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}
+.cr-actions .btn-save{background:linear-gradient(135deg,var(--ok),#059669);color:#fff}
+.cr-actions .btn-cancel{background:transparent;color:var(--text-dim);border:1px solid var(--border)}
+
+/* 등록된 교재 목록 */
+.library{margin-top:24px;background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:18px}
+.library h2{font-size:15px;font-weight:800;color:var(--accent-2);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.library .lib-toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.library input[type=search],.library select{background:var(--bg-soft);border:1px solid var(--border);border-radius:9px;padding:8px 12px;font-size:13px;color:#fff;font-family:inherit;font-weight:600}
+.library input[type=search]{flex:1;min-width:180px}
+.lib-table{width:100%;border-collapse:collapse;font-size:13px}
+.lib-table th{background:rgba(0,0,0,0.25);color:var(--accent-2);font-weight:700;padding:9px 10px;text-align:left;font-size:11.5px;letter-spacing:0.4px;text-transform:uppercase;border-bottom:1px solid var(--border)}
+.lib-table td{padding:11px 10px;border-bottom:1px dashed rgba(96,165,250,0.12);vertical-align:middle;color:var(--text);font-weight:500}
+.lib-table tr:hover td{background:rgba(59,130,246,0.05)}
+.lib-table .lib-actions{display:flex;gap:5px;flex-wrap:wrap}
+.lib-table .lib-actions button{padding:5px 10px;font-size:11.5px;border-radius:6px;border:0;cursor:pointer;font-weight:700;font-family:inherit}
+.lib-table .act-view{background:linear-gradient(135deg,var(--accent),#1D4ED8);color:#fff}
+.lib-table .act-class{background:linear-gradient(135deg,var(--gold),#D97706);color:#1a1a1a}
+.lib-table .act-del{background:rgba(239,68,68,0.18);color:var(--bad);border:1px solid rgba(239,68,68,0.4)}
+.lib-empty{padding:40px 20px;text-align:center;color:var(--text-mute);font-size:13px;font-style:italic}
+.chip{display:inline-block;padding:2px 8px;background:rgba(59,130,246,0.15);color:var(--accent-2);border-radius:99px;font-size:10.5px;font-weight:700;margin-right:3px}
+.chip.warn{background:rgba(251,191,36,0.18);color:var(--gold)}
+.chip.cn{background:rgba(220,38,38,0.18);color:#fca5a5}
+
+/* 푸터 안내 */
+.tips{margin-top:18px;background:var(--bg-soft);border:1px solid var(--border);border-radius:10px;padding:14px 16px;font-size:12px;color:var(--text-dim);line-height:1.8}
+.tips b{color:var(--gold)}
+.tips code{background:rgba(0,0,0,0.3);padding:1px 6px;border-radius:4px;font-size:11px;color:#fcd34d;font-family:ui-monospace,Consolas,monospace}
+
+@media (max-width:700px){
+  .wrap{padding:14px 10px 80px}
+  header.hero{padding:18px 14px}
+  header.hero h1{font-size:18px}
+  .lib-table{font-size:11.5px}
+  .lib-table th,.lib-table td{padding:7px 6px}
+  .lib-table .lib-actions{flex-direction:column}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <a class="home" href="/">🏠 홈</a>
+  <h1><span class="ico">📚</span>교재 업로더</h1>
+  <p class="sub">교재 폴더를 통째로 드래그하면 AI가 출판사 · 교재명 · 레벨 · 레슨별로 자동 분류해서 라이브러리에 저장합니다.</p>
+</header>
+
+<!-- 드래그앤드롭 영역 -->
+<div class="dropzone" id="dropzone">
+  <div class="dz-ico">📁</div>
+  <div class="dz-title">교재 폴더를 여기로 드래그하세요</div>
+  <div class="dz-sub">예) <code style="background:rgba(0,0,0,0.3);padding:1px 5px;border-radius:4px;font-size:11px;color:#fcd34d">다락원/마스터3/제1과/p001.pdf</code><br>
+  PDF · 이미지(JPG/PNG/WebP) · 동영상(MP4) 모두 지원</div>
+  <div class="dz-or">— 또는 —</div>
+  <label class="dz-btn">📂 폴더 선택하기
+    <input type="file" id="folder-input" webkitdirectory directory multiple>
+  </label>
+</div>
+
+<!-- 진행 상태 -->
+<div class="progress-bar" id="pb">
+  <div class="pb-text" id="pb-text">파일 분석 중…</div>
+  <div class="pb-rail"><div class="pb-fill" id="pb-fill"></div></div>
+</div>
+
+<!-- 자동 분류 결과 -->
+<div class="classify-result" id="cr">
+  <h2>🤖 AI 자동 분류 결과 <span class="badge">검토 후 저장</span></h2>
+  <div id="cr-groups"></div>
+  <div class="cr-actions">
+    <button class="btn btn-cancel" id="btn-cancel">취소</button>
+    <button class="btn btn-save" id="btn-save">💾 라이브러리에 저장</button>
+  </div>
+</div>
+
+<!-- 등록된 교재 라이브러리 -->
+<div class="library">
+  <h2>📖 등록된 교재 라이브러리 <span id="lib-count" style="font-size:11px;color:var(--text-mute);font-weight:600;margin-left:4px"></span></h2>
+  <div class="lib-toolbar">
+    <input type="search" id="lib-search" placeholder="교재명 · 출판사 · 레벨 검색...">
+    <select id="lib-filter-pub">
+      <option value="">전체 출판사</option>
+    </select>
+    <select id="lib-filter-cat">
+      <option value="">전체 분류</option>
+      <option value="영어">영어</option>
+      <option value="중국어">중국어</option>
+      <option value="일본어">일본어</option>
+      <option value="기타">기타</option>
+    </select>
+  </div>
+  <div style="overflow-x:auto">
+    <table class="lib-table">
+      <thead>
+        <tr>
+          <th>출판사</th><th>교재명</th><th>레벨</th><th>분류</th><th>레슨 수</th><th>파일 수</th><th>등록일</th><th>액션</th>
+        </tr>
+      </thead>
+      <tbody id="lib-tbody"></tbody>
+    </table>
+  </div>
+  <div class="lib-empty" id="lib-empty" style="display:none">아직 등록된 교재가 없습니다. 위에서 폴더를 드래그하거나 선택해 업로드하세요.</div>
+</div>
+
+<div class="tips">
+  <b>💡 자동 분류 정확도를 높이는 팁</b><br>
+  • 폴더명에 <code>출판사 / 교재명 / 레슨</code> 구조로 정리하면 가장 정확합니다 — 예: <code>다락원/마스터3/제1과</code><br>
+  • 파일명에 <code>Lv3</code> · <code>Level 3</code> · <code>제1과</code> · <code>Lesson 1</code> · <code>Unit 1</code> 같은 키워드가 있으면 자동 인식됩니다<br>
+  • 분류 결과는 저장 전 수정 가능합니다 — 검토 후 "라이브러리에 저장" 버튼<br>
+  • 저장된 교재는 <b>화상수업 룸에서</b> "📚 교재 띄우기" 버튼으로 학생에게 보여줄 수 있습니다
+</div>
+
+</div>
+
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════
+   IndexedDB 초기화 (mangoi-textbooks DB)
+   ════════════════════════════════════════════ */
+const DB_NAME = 'mangoi-textbooks';
+const DB_VER = 1;
+let db = null;
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = (e) => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('textbooks')) {
+        const s = d.createObjectStore('textbooks', { keyPath: 'id' });
+        s.createIndex('publisher', 'publisher');
+        s.createIndex('category', 'category');
+        s.createIndex('createdAt', 'createdAt');
+      }
+      if (!d.objectStoreNames.contains('files')) {
+        d.createObjectStore('files', { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function dbPut(store, obj) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).put(obj);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+function dbGetAll(store) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function dbDelete(store, key) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/* ════════════════════════════════════════════
+   유틸: UUID, 파일 확장자 분류
+   ════════════════════════════════════════════ */
+function uuid() {
+  return 'tb_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+}
+function fileKind(name) {
+  const ext = name.toLowerCase().split('.').pop();
+  if (['pdf'].includes(ext)) return 'pdf';
+  if (['jpg','jpeg','png','webp','gif','bmp'].includes(ext)) return 'image';
+  if (['mp4','webm','mov','m4v'].includes(ext)) return 'video';
+  if (['mp3','wav','m4a','ogg'].includes(ext)) return 'audio';
+  return 'other';
+}
+function humanSize(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
+  if (b < 1024*1024*1024) return (b/1024/1024).toFixed(1) + ' MB';
+  return (b/1024/1024/1024).toFixed(2) + ' GB';
+}
+
+/* ════════════════════════════════════════════
+   드래그앤드롭 & 폴더 스캔
+   ════════════════════════════════════════════ */
+const dz = document.getElementById('dropzone');
+['dragenter','dragover'].forEach(ev => dz.addEventListener(ev, e => {
+  e.preventDefault(); e.stopPropagation();
+  dz.classList.add('dragover');
+}));
+['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => {
+  e.preventDefault(); e.stopPropagation();
+  if (ev === 'dragleave') dz.classList.remove('dragover');
+}));
+dz.addEventListener('drop', async (e) => {
+  dz.classList.remove('dragover');
+  const items = e.dataTransfer && e.dataTransfer.items;
+  if (!items) return;
+  const files = await readDataTransfer(items);
+  if (files.length) processFiles(files);
+});
+document.getElementById('folder-input').addEventListener('change', (e) => {
+  const files = Array.from(e.target.files || []);
+  // webkitRelativePath 를 fullPath 로
+  files.forEach(f => { f.fullPath = f.webkitRelativePath || f.name; });
+  if (files.length) processFiles(files);
+});
+
+async function readDataTransfer(items) {
+  const all = [];
+  const promises = [];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (item.kind !== 'file') continue;
+    const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+    if (entry) {
+      promises.push(traverseEntry(entry, '', all));
+    } else {
+      const f = item.getAsFile();
+      if (f) { f.fullPath = f.name; all.push(f); }
+    }
+  }
+  await Promise.all(promises);
+  return all;
+}
+function traverseEntry(entry, prefix, out) {
+  return new Promise((resolve) => {
+    if (entry.isFile) {
+      entry.file((file) => {
+        file.fullPath = prefix + entry.name;
+        out.push(file);
+        resolve();
+      }, () => resolve());
+    } else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      const readBatch = () => {
+        reader.readEntries(async (entries) => {
+          if (!entries.length) { resolve(); return; }
+          await Promise.all(entries.map(e => traverseEntry(e, prefix + entry.name + '/', out)));
+          readBatch(); // 더 있을 수 있음
+        }, () => resolve());
+      };
+      readBatch();
+    } else resolve();
+  });
+}
+
+/* ════════════════════════════════════════════
+   AI 자동 분류 — 정규식 기반 (Workers AI hook 가능)
+   ════════════════════════════════════════════ */
+const RX = {
+  publisher: /(다락원|시사|능률|YBM|성안당|망고아이|밍고아이|Darakwon|HSK|Pearson|Oxford|Cambridge)/i,
+  textbook: /(마스터\s*\d+|BTS|Phonics|SIU\s*Basic|SIU\s*Advance|SIU|HSK\s*\d+|HSK|Bridge|Master\s*\d+|Level\s*\d+)/i,
+  level: /(?:마스터\s*(\d+)|Level\s*(\d+)|Lv\.?\s*(\d+)|레벨\s*(\d+)|BTS\s*(\d+)|HSK\s*(\d+))/i,
+  lesson: /(?:제\s*(\d+)\s*과|Lesson\s*(\d+)|Unit\s*(\d+)|U\s*(\d+)|L\s*(\d+)\b|Chapter\s*(\d+)|Ch\.?\s*(\d+)|\b(\d+)\s*과)/i,
+  lang_cn: /(중국어|중문|汉语|漢語|중국|HSK|拼音|병음|중급중국어|초급중국어|chinese|mandarin|darakwon|다락원\s*마스터)/i,
+  lang_en: /(영어|english|phonics|BTS|SIU|bridge|grammar|pronunciation|발음|영문법|회화)/i,
+  lang_jp: /(일본어|일본|japanese|nihongo|JLPT|히라가나|가타카나)/i,
+};
+
+function classifyFile(file) {
+  const path = file.fullPath || file.webkitRelativePath || file.name;
+  const parts = path.split('/');
+  const fileName = parts[parts.length - 1];
+  const dirParts = parts.slice(0, -1); // 폴더 부분
+  const fullText = path;
+
+  // 출판사
+  let publisher = (fullText.match(RX.publisher) || [])[1] || '';
+
+  // 교재명 — 가장 그럴듯한 폴더명/패턴
+  let textbook = '';
+  const tbMatch = fullText.match(RX.textbook);
+  if (tbMatch) textbook = tbMatch[1];
+  if (!textbook && dirParts.length >= 1) {
+    // 최상위 또는 2단계 폴더명을 교재명으로
+    textbook = dirParts[1] || dirParts[0] || '';
+  }
+  textbook = textbook.trim() || '미분류 교재';
+
+  // 레벨
+  let level = '';
+  const lvMatch = fullText.match(RX.level);
+  if (lvMatch) {
+    const num = lvMatch.slice(1).find(x => x);
+    if (num) level = 'Lv ' + num;
+  }
+
+  // 레슨
+  let lesson = '';
+  const lsMatch = fullText.match(RX.lesson);
+  if (lsMatch) {
+    const num = lsMatch.slice(1).find(x => x);
+    if (num) lesson = '제' + num + '과';
+  }
+
+  // 언어 분류
+  let category = '기타';
+  if (RX.lang_cn.test(fullText)) category = '중국어';
+  else if (RX.lang_en.test(fullText)) category = '영어';
+  else if (RX.lang_jp.test(fullText)) category = '일본어';
+
+  if (!publisher) {
+    // 폴더 최상단에서 추정
+    const top = dirParts[0] || '';
+    if (top) publisher = top;
+    else publisher = '미분류';
+  }
+
+  return { publisher, textbook, level, lesson, category, fileName, fullPath: path, kind: fileKind(fileName), size: file.size, file };
+}
+
+function groupByTextbook(classified) {
+  const groups = new Map();
+  for (const c of classified) {
+    const key = (c.publisher + '||' + c.textbook + '||' + c.level).toLowerCase();
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key, publisher: c.publisher, textbook: c.textbook, level: c.level,
+        category: c.category, lessons: new Map(), totalFiles: 0
+      });
+    }
+    const g = groups.get(key);
+    const lsnKey = c.lesson || '미분류 레슨';
+    if (!g.lessons.has(lsnKey)) g.lessons.set(lsnKey, []);
+    g.lessons.get(lsnKey).push(c);
+    g.totalFiles++;
+    // category 가 더 구체적이면 갱신
+    if (g.category === '기타' && c.category !== '기타') g.category = c.category;
+  }
+  return Array.from(groups.values());
+}
+
+/* ════════════════════════════════════════════
+   분류 결과 UI 렌더링
+   ════════════════════════════════════════════ */
+let pendingGroups = []; // 저장 대기 중인 그룹들
+
+async function processFiles(files) {
+  if (!files || !files.length) return;
+  const pb = document.getElementById('pb');
+  const pbText = document.getElementById('pb-text');
+  const pbFill = document.getElementById('pb-fill');
+  pb.classList.add('show');
+  pbText.textContent = `파일 ${files.length}개 분석 중…`;
+  pbFill.style.width = '20%';
+
+  await new Promise(r => setTimeout(r, 80)); // 깜빡임 방지
+
+  // 1. 분류
+  const classified = files.map(classifyFile);
+  pbFill.style.width = '55%';
+  pbText.textContent = '교재별 그룹화 중…';
+  await new Promise(r => setTimeout(r, 60));
+
+  // 2. 그룹화
+  pendingGroups = groupByTextbook(classified);
+  pbFill.style.width = '100%';
+  pbText.textContent = `✅ ${classified.length}개 파일 → ${pendingGroups.length}개 교재로 분류 완료`;
+  setTimeout(() => pb.classList.remove('show'), 1500);
+
+  // 3. 렌더
+  renderClassifyResult();
+}
+
+function renderClassifyResult() {
+  const cr = document.getElementById('cr');
+  const wrap = document.getElementById('cr-groups');
+  wrap.innerHTML = '';
+
+  pendingGroups.forEach((g, gi) => {
+    const lessonCount = g.lessons.size;
+    const card = document.createElement('div');
+    card.className = 'cr-group';
+    card.dataset.gi = gi;
+
+    let lessonsHtml = '';
+    g.lessons.forEach((files, lsnName) => {
+      const fileList = files.map(f => `<div>📄 ${f.fileName} <span style="color:var(--text-mute)">(${humanSize(f.size)})</span></div>`).join('');
+      lessonsHtml += `<div style="margin-top:6px"><div style="font-size:11.5px;color:var(--gold);font-weight:700;margin-bottom:3px">📑 ${lsnName} <span style="color:var(--text-mute);font-weight:500">— ${files.length}개</span></div><div class="cr-files">${fileList}</div></div>`;
+    });
+
+    card.innerHTML = `
+      <div class="cr-head">
+        <span class="cr-tag">출판사</span><input data-k="publisher" value="${escapeHtml(g.publisher)}" style="width:120px">
+        <span class="cr-tag">교재명</span><input data-k="textbook" value="${escapeHtml(g.textbook)}" style="width:160px">
+        <span class="cr-tag">레벨</span><input data-k="level" value="${escapeHtml(g.level)}" style="width:80px" placeholder="예: Lv 3">
+        <span class="cr-tag">분류</span>
+        <select data-k="category">
+          <option value="영어"${g.category==='영어'?' selected':''}>영어</option>
+          <option value="중국어"${g.category==='중국어'?' selected':''}>중국어</option>
+          <option value="일본어"${g.category==='일본어'?' selected':''}>일본어</option>
+          <option value="기타"${g.category==='기타'?' selected':''}>기타</option>
+        </select>
+        <span style="margin-left:auto;color:var(--text-mute);font-size:11px;font-weight:600">📑 ${lessonCount} 레슨 · 📄 ${g.totalFiles} 파일</span>
+      </div>
+      ${lessonsHtml}
+    `;
+    wrap.appendChild(card);
+
+    // inline edit → pendingGroups 반영
+    card.querySelectorAll('input,select').forEach(el => {
+      el.addEventListener('input', () => {
+        g[el.dataset.k] = el.value.trim();
+      });
+    });
+  });
+
+  cr.classList.add('show');
+  cr.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+document.getElementById('btn-cancel').onclick = () => {
+  pendingGroups = [];
+  document.getElementById('cr').classList.remove('show');
+};
+
+/* ════════════════════════════════════════════
+   라이브러리에 저장
+   ════════════════════════════════════════════ */
+document.getElementById('btn-save').onclick = async () => {
+  if (!pendingGroups.length) return;
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true; btn.textContent = '저장 중…';
+
+  try {
+    for (const g of pendingGroups) {
+      const tbId = uuid();
+      const lessonsArr = [];
+      for (const [lsnName, files] of g.lessons.entries()) {
+        const fileIds = [];
+        for (const c of files) {
+          const fid = uuid();
+          // Blob 으로 저장
+          await dbPut('files', { id: fid, name: c.fileName, kind: c.kind, size: c.size, blob: c.file });
+          fileIds.push(fid);
+        }
+        lessonsArr.push({ name: lsnName, fileIds });
+      }
+      const meta = {
+        id: tbId,
+        publisher: g.publisher || '미분류',
+        textbook: g.textbook || '미분류 교재',
+        level: g.level || '',
+        category: g.category || '기타',
+        lessons: lessonsArr,
+        totalFiles: g.totalFiles,
+        createdAt: Date.now(),
+      };
+      await dbPut('textbooks', meta);
+    }
+    btn.textContent = '✅ 저장 완료!';
+    pendingGroups = [];
+    setTimeout(() => {
+      document.getElementById('cr').classList.remove('show');
+      btn.disabled = false; btn.textContent = '💾 라이브러리에 저장';
+    }, 1200);
+    await renderLibrary();
+  } catch (err) {
+    console.error(err);
+    btn.textContent = '❌ 저장 실패';
+    btn.disabled = false;
+    setTimeout(() => btn.textContent = '💾 라이브러리에 저장', 2000);
+  }
+};
+
+/* ════════════════════════════════════════════
+   라이브러리 렌더 + 검색 + 삭제
+   ════════════════════════════════════════════ */
+let libCache = [];
+async function renderLibrary() {
+  libCache = await dbGetAll('textbooks');
+  libCache.sort((a, b) => b.createdAt - a.createdAt);
+  applyLibFilter();
+  // 출판사 옵션 채우기
+  const pubSel = document.getElementById('lib-filter-pub');
+  const pubs = Array.from(new Set(libCache.map(t => t.publisher))).sort();
+  pubSel.innerHTML = '<option value="">전체 출판사</option>' + pubs.map(p => `<option>${escapeHtml(p)}</option>`).join('');
+}
+
+function applyLibFilter() {
+  const q = (document.getElementById('lib-search').value || '').toLowerCase().trim();
+  const fp = document.getElementById('lib-filter-pub').value;
+  const fc = document.getElementById('lib-filter-cat').value;
+
+  const filtered = libCache.filter(t => {
+    if (fp && t.publisher !== fp) return false;
+    if (fc && t.category !== fc) return false;
+    if (q) {
+      const hay = (t.publisher + ' ' + t.textbook + ' ' + t.level + ' ' + t.category).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const tbody = document.getElementById('lib-tbody');
+  const empty = document.getElementById('lib-empty');
+  document.getElementById('lib-count').textContent = `(총 ${libCache.length}개)`;
+
+  if (!filtered.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    empty.textContent = libCache.length ? '검색 조건에 맞는 교재가 없습니다.' : '아직 등록된 교재가 없습니다. 위에서 폴더를 드래그하거나 선택해 업로드하세요.';
+    return;
+  }
+  empty.style.display = 'none';
+  tbody.innerHTML = filtered.map(t => {
+    const cat = t.category === '중국어' ? 'cn' : (t.category === '기타' ? 'warn' : '');
+    const date = new Date(t.createdAt).toLocaleDateString('ko-KR');
+    return `<tr>
+      <td><span class="chip">${escapeHtml(t.publisher)}</span></td>
+      <td style="font-weight:700;color:#fff">${escapeHtml(t.textbook)}</td>
+      <td>${escapeHtml(t.level || '-')}</td>
+      <td><span class="chip ${cat}">${escapeHtml(t.category)}</span></td>
+      <td style="text-align:center">${t.lessons.length}</td>
+      <td style="text-align:center">${t.totalFiles}</td>
+      <td style="font-size:11.5px;color:var(--text-mute)">${date}</td>
+      <td>
+        <div class="lib-actions">
+          <button class="act-view" onclick="window.open('/textbook-viewer.html?id=${t.id}', '_blank')">👀 보기</button>
+          <button class="act-class" onclick="alert('수업 룸 안에서 \\'📚 교재 띄우기\\' 버튼으로 이 교재를 학생에게 보여줄 수 있습니다.')">📺 수업에서</button>
+          <button class="act-del" onclick="delTextbook('${t.id}')">🗑</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+window.delTextbook = async (id) => {
+  const tb = libCache.find(t => t.id === id);
+  if (!tb) return;
+  if (!confirm(`"${tb.textbook}" 교재를 삭제하시겠어요? 첨부 파일도 함께 삭제됩니다.`)) return;
+  // 첨부 파일 삭제
+  for (const l of tb.lessons) {
+    for (const fid of l.fileIds) {
+      await dbDelete('files', fid);
+    }
+  }
+  await dbDelete('textbooks', id);
+  await renderLibrary();
+};
+
+document.getElementById('lib-search').addEventListener('input', applyLibFilter);
+document.getElementById('lib-filter-pub').addEventListener('change', applyLibFilter);
+document.getElementById('lib-filter-cat').addEventListener('change', applyLibFilter);
+
+/* ════════════════════════════════════════════
+   초기화
+   ════════════════════════════════════════════ */
+(async function init(){
+  try {
+    db = await openDB();
+    await renderLibrary();
+    console.log('[textbook-uploader] 활성 — IndexedDB OK');
+  } catch (e) {
+    console.error('[textbook-uploader] IndexedDB 초기화 실패:', e);
+    document.getElementById('lib-empty').textContent = '⚠️ 브라우저 저장소 접근 실패. 시크릿 창이거나 저장소 권한이 없을 수 있습니다.';
+    document.getElementById('lib-empty').style.display = 'block';
+  }
+})();
+</script>
+</body>
+</html>

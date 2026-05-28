@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B1224">
+<title>📖 교재 뷰어 — 망고아이</title>
+<!-- BUILD:20260529015853 -->
+<style>
+:root{--bg:#0B1224;--bg-soft:#131C36;--bg-card:#1A2548;--border:rgba(96,165,250,0.18);--text:#E2E8F0;--text-dim:#94A3B8;--accent:#3B82F6;--accent-2:#60A5FA;--gold:#F59E0B;--ok:#10B981;--bad:#EF4444}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:#0a0f1f;color:var(--text);font-family:-apple-system,"Noto Sans KR","Pretendard",sans-serif;font-size:15px;min-height:100vh;overflow:hidden}
+
+/* 상단 툴바 */
+.topbar{position:fixed;top:0;left:0;right:0;height:56px;z-index:100;background:rgba(11,18,36,0.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:10px}
+.topbar .home{padding:7px 14px;background:linear-gradient(135deg,var(--gold),#D97706);color:#1a1a1a;text-decoration:none;border-radius:99px;font-size:12.5px;font-weight:800}
+.topbar .title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:800;color:#fff}
+.topbar .title .sub{font-size:11px;color:var(--text-dim);font-weight:600;margin-left:8px}
+.topbar .btn{padding:7px 13px;background:var(--bg-card);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px}
+.topbar .btn:hover{border-color:var(--accent-2);background:var(--bg-soft)}
+.topbar .btn.primary{background:linear-gradient(135deg,var(--accent),#1D4ED8);color:#fff;border-color:var(--accent)}
+.topbar .btn.share{background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border-color:#b91c1c}
+.topbar .btn.share.sharing{background:linear-gradient(135deg,var(--ok),#059669);animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.45)}50%{box-shadow:0 0 0 10px rgba(16,185,129,0)}}
+
+/* 좌측 사이드바 (레슨/파일 트리) */
+.sidebar{position:fixed;top:56px;left:0;bottom:0;width:280px;background:rgba(15,23,42,0.6);backdrop-filter:blur(10px);border-right:1px solid var(--border);overflow-y:auto;padding:14px 12px;z-index:50;transition:transform .25s}
+.sidebar.hidden{transform:translateX(-100%)}
+.sidebar h3{font-size:11.5px;font-weight:800;color:var(--accent-2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px}
+.lesson-item{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;overflow:hidden}
+.lesson-head{padding:8px 11px;font-size:12.5px;font-weight:700;color:var(--gold);cursor:pointer;display:flex;align-items:center;justify-content:space-between}
+.lesson-head .cnt{font-size:10.5px;color:var(--text-dim);background:rgba(0,0,0,0.25);padding:1px 7px;border-radius:99px;font-weight:700}
+.lesson-files{display:none;padding:0 6px 6px}
+.lesson-item.open .lesson-files{display:block}
+.file-item{padding:6px 8px;font-size:11.5px;color:var(--text-dim);border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:6px;line-height:1.4;border:1px solid transparent}
+.file-item:hover{background:rgba(59,130,246,0.08);color:#fff;border-color:var(--border)}
+.file-item.active{background:linear-gradient(135deg,rgba(59,130,246,0.18),rgba(29,78,216,0.06));color:#fff;font-weight:700;border-color:var(--accent)}
+.file-item .ic{font-size:13px;flex-shrink:0}
+.file-item .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar-toggle{position:fixed;top:64px;left:288px;z-index:60;background:var(--bg-card);border:1px solid var(--border);color:var(--text);width:28px;height:40px;border-radius:0 8px 8px 0;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:left .25s}
+.sidebar.hidden ~ .sidebar-toggle{left:0}
+
+/* 메인 뷰어 */
+.viewer{position:fixed;top:56px;left:280px;right:0;bottom:0;background:#0a0e1a;overflow:auto;padding:20px;transition:left .25s}
+.sidebar.hidden ~ .viewer{left:0}
+.viewer-stage{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:16px}
+.viewer img,.viewer canvas,.viewer iframe,.viewer video{max-width:100%;background:#fff;border-radius:8px;box-shadow:0 12px 40px -10px rgba(0,0,0,0.7);display:block}
+.viewer iframe{width:100%;height:calc(100vh - 120px);background:#fff}
+.viewer video{background:#000;width:100%;max-width:900px}
+.viewer .audio-card{background:var(--bg-card);border:1px solid var(--border);padding:20px;border-radius:12px;text-align:center;width:100%;max-width:520px}
+.viewer .audio-card audio{width:100%;margin-top:10px}
+
+/* 페이지 컨트롤 (이미지 다페이지인 경우) */
+.page-nav{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:rgba(11,18,36,0.95);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:99px;padding:7px 16px;display:flex;align-items:center;gap:10px;z-index:80;box-shadow:0 8px 24px rgba(0,0,0,0.5)}
+.page-nav button{background:var(--bg-card);border:1px solid var(--border);color:var(--text);width:32px;height:32px;border-radius:50%;font-size:13px;cursor:pointer;font-weight:800}
+.page-nav button:hover:not(:disabled){background:var(--accent);color:#fff}
+.page-nav button:disabled{opacity:0.4;cursor:not-allowed}
+.page-nav .pg{font-size:12.5px;font-weight:700;color:var(--accent-2);min-width:70px;text-align:center}
+
+/* 빈 상태 */
+.empty{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--text-dim);max-width:400px;padding:40px 20px}
+.empty .ico{font-size:64px;margin-bottom:14px;opacity:0.5}
+.empty h2{font-size:18px;color:#fff;margin-bottom:8px;font-weight:800}
+.empty p{font-size:13px;line-height:1.7}
+.empty a{color:var(--accent-2);text-decoration:none;font-weight:700}
+
+/* 모바일 */
+@media (max-width:700px){
+  .sidebar{width:240px}
+  .viewer{left:0;padding:14px}
+  .sidebar:not(.hidden){box-shadow:6px 0 24px rgba(0,0,0,0.5)}
+  .sidebar.hidden{transform:translateX(-100%)}
+  .sidebar-toggle{left:0 !important;top:60px}
+  .topbar .title{font-size:12.5px}
+  .topbar .title .sub{display:none}
+  .topbar .btn{padding:6px 10px;font-size:11px}
+  .viewer iframe{height:calc(100vh - 100px)}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="home" href="/">🏠 홈</a>
+  <div class="title" id="title">교재 로딩 중…</div>
+  <button class="btn" id="btn-prev" title="이전 파일">◀</button>
+  <button class="btn" id="btn-next" title="다음 파일">▶</button>
+  <button class="btn primary" id="btn-fs" title="전체화면">⛶ 전체</button>
+  <button class="btn share" id="btn-share" title="화면 공유로 학생에게 보여주기">📺 수업에 공유</button>
+</div>
+
+<aside class="sidebar" id="sidebar">
+  <h3>📑 레슨 · 파일</h3>
+  <div id="lesson-list"></div>
+</aside>
+<button class="sidebar-toggle" id="sb-toggle" title="사이드바 토글">◀</button>
+
+<main class="viewer" id="viewer">
+  <div class="viewer-stage" id="stage"></div>
+</main>
+
+<div class="page-nav" id="page-nav" style="display:none">
+  <button id="pn-prev">‹</button>
+  <span class="pg" id="pn-info">1 / 1</span>
+  <button id="pn-next">›</button>
+</div>
+
+<div class="empty" id="empty" style="display:none">
+  <div class="ico">📭</div>
+  <h2>교재를 찾을 수 없어요</h2>
+  <p>이 교재가 삭제되었거나, 다른 기기에서 등록한 교재일 수 있습니다.<br>
+  <a href="/textbook-uploader.html">📚 교재 업로더로 돌아가기</a></p>
+</div>
+
+<script>
+'use strict';
+
+const DB_NAME = 'mangoi-textbooks';
+let db = null;
+function openDB(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function dbGet(store, key){
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+const params = new URLSearchParams(location.search);
+const tbId = params.get('id');
+let textbook = null;
+let allFiles = []; // flat list: [{lessonIdx, lessonName, fileId, name, kind}]
+let currentIdx = 0;
+let currentObjectUrl = null;
+
+(async function init(){
+  if (!tbId) { showEmpty(); return; }
+  try {
+    db = await openDB();
+    textbook = await dbGet('textbooks', tbId);
+    if (!textbook) { showEmpty(); return; }
+    document.getElementById('title').innerHTML = `<b>${escapeHtml(textbook.publisher)}</b> · ${escapeHtml(textbook.textbook)} <span class="sub">${escapeHtml(textbook.level||'')} · ${escapeHtml(textbook.category)}</span>`;
+
+    // flatten files
+    textbook.lessons.forEach((l, li) => {
+      l.fileIds.forEach(fid => {
+        allFiles.push({ lessonIdx: li, lessonName: l.name, fileId: fid });
+      });
+    });
+
+    // 사이드바 렌더
+    renderSidebar();
+    if (allFiles.length) await showFile(0);
+    else showEmpty();
+  } catch(e) {
+    console.error(e);
+    showEmpty();
+  }
+})();
+
+function showEmpty(){
+  document.getElementById('empty').style.display = 'block';
+  document.getElementById('stage').style.display = 'none';
+  document.getElementById('title').textContent = '교재 없음';
+}
+
+function escapeHtml(s){
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function renderSidebar(){
+  const wrap = document.getElementById('lesson-list');
+  wrap.innerHTML = '';
+  for (let li = 0; li < textbook.lessons.length; li++) {
+    const l = textbook.lessons[li];
+    const item = document.createElement('div');
+    item.className = 'lesson-item' + (li === 0 ? ' open' : '');
+    let html = `<div class="lesson-head">📑 ${escapeHtml(l.name)} <span class="cnt">${l.fileIds.length}</span></div><div class="lesson-files">`;
+    for (const fid of l.fileIds) {
+      // 파일 메타만 가져오기 (Blob 제외)
+      const meta = await dbGet('files', fid);
+      const k = meta?.kind || 'other';
+      const icon = k==='pdf'?'📄':k==='image'?'🖼':k==='video'?'🎬':k==='audio'?'🎵':'📎';
+      html += `<div class="file-item" data-fid="${fid}"><span class="ic">${icon}</span><span class="nm" title="${escapeHtml(meta?.name||fid)}">${escapeHtml(meta?.name||fid)}</span></div>`;
+    }
+    html += '</div>';
+    item.innerHTML = html;
+    wrap.appendChild(item);
+    item.querySelector('.lesson-head').onclick = () => item.classList.toggle('open');
+    item.querySelectorAll('.file-item').forEach(el => {
+      el.onclick = () => {
+        const idx = allFiles.findIndex(f => f.fileId === el.dataset.fid);
+        if (idx >= 0) showFile(idx);
+      };
+    });
+  }
+}
+
+async function showFile(idx){
+  if (idx < 0 || idx >= allFiles.length) return;
+  currentIdx = idx;
+  const f = allFiles[idx];
+  const meta = await dbGet('files', f.fileId);
+  if (!meta) return;
+
+  // ObjectURL 정리
+  if (currentObjectUrl) { URL.revokeObjectURL(currentObjectUrl); currentObjectUrl = null; }
+  currentObjectUrl = URL.createObjectURL(meta.blob);
+
+  // 활성 표시
+  document.querySelectorAll('.file-item').forEach(el => el.classList.toggle('active', el.dataset.fid === f.fileId));
+
+  const stage = document.getElementById('stage');
+  stage.innerHTML = '';
+
+  if (meta.kind === 'image') {
+    const img = document.createElement('img');
+    img.src = currentObjectUrl;
+    img.alt = meta.name;
+    stage.appendChild(img);
+  } else if (meta.kind === 'pdf') {
+    const ifr = document.createElement('iframe');
+    ifr.src = currentObjectUrl + '#view=FitH';
+    ifr.title = meta.name;
+    stage.appendChild(ifr);
+  } else if (meta.kind === 'video') {
+    const v = document.createElement('video');
+    v.src = currentObjectUrl;
+    v.controls = true;
+    v.playsInline = true;
+    stage.appendChild(v);
+  } else if (meta.kind === 'audio') {
+    const card = document.createElement('div');
+    card.className = 'audio-card';
+    card.innerHTML = `<div style="font-size:32px;margin-bottom:8px">🎵</div><div style="font-weight:800;color:#fff">${escapeHtml(meta.name)}</div>`;
+    const a = document.createElement('audio');
+    a.src = currentObjectUrl; a.controls = true;
+    card.appendChild(a);
+    stage.appendChild(card);
+  } else {
+    // 기타: 다운로드 링크
+    const card = document.createElement('div');
+    card.className = 'audio-card';
+    card.innerHTML = `<div style="font-size:32px;margin-bottom:8px">📎</div><div style="font-weight:800;color:#fff;margin-bottom:10px">${escapeHtml(meta.name)}</div>`;
+    const a = document.createElement('a');
+    a.href = currentObjectUrl; a.download = meta.name;
+    a.textContent = '⬇ 다운로드'; a.style.cssText = 'color:var(--accent-2);font-weight:700;text-decoration:underline';
+    card.appendChild(a);
+    stage.appendChild(card);
+  }
+
+  // 페이지 표시
+  const pnav = document.getElementById('page-nav');
+  if (allFiles.length > 1) {
+    pnav.style.display = 'flex';
+    document.getElementById('pn-info').textContent = `${idx+1} / ${allFiles.length}`;
+    document.getElementById('pn-prev').disabled = idx === 0;
+    document.getElementById('pn-next').disabled = idx === allFiles.length-1;
+  } else pnav.style.display = 'none';
+}
+
+document.getElementById('btn-prev').onclick = document.getElementById('pn-prev').onclick = () => showFile(currentIdx - 1);
+document.getElementById('btn-next').onclick = document.getElementById('pn-next').onclick = () => showFile(currentIdx + 1);
+
+document.getElementById('btn-fs').onclick = () => {
+  const v = document.getElementById('viewer');
+  if (!document.fullscreenElement) v.requestFullscreen?.().catch(()=>{});
+  else document.exitFullscreen?.();
+};
+
+// 사이드바 토글
+const sb = document.getElementById('sidebar');
+const sbT = document.getElementById('sb-toggle');
+sbT.onclick = () => {
+  sb.classList.toggle('hidden');
+  sbT.textContent = sb.classList.contains('hidden') ? '▶' : '◀';
+};
+// 모바일 기본 숨김
+if (window.innerWidth <= 700) { sb.classList.add('hidden'); sbT.textContent='▶'; }
+
+// 키보드 이전/다음
+window.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === 'PageDown') showFile(currentIdx + 1);
+  else if (e.key === 'ArrowLeft' || e.key === 'PageUp') showFile(currentIdx - 1);
+  else if (e.key === 'Escape' && document.fullscreenElement) document.exitFullscreen?.();
+});
+
+/* ════════════════════════════════════════════
+   화면 공유 (수업에 공유)
+   - getDisplayMedia API 로 이 탭 자체를 화면공유 가능
+   - 교사가 수업 룸에서 "공유 받기" 하면 학생에게 전송됨
+   ════════════════════════════════════════════ */
+let sharingStream = null;
+document.getElementById('btn-share').onclick = async () => {
+  const btn = document.getElementById('btn-share');
+  if (sharingStream) {
+    sharingStream.getTracks().forEach(t => t.stop());
+    sharingStream = null;
+    btn.classList.remove('sharing');
+    btn.textContent = '📺 수업에 공유';
+    return;
+  }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+    alert('이 브라우저는 화면 공유를 지원하지 않습니다.\nChrome / Edge / Firefox 최신 버전을 사용해 주세요.');
+    return;
+  }
+  try {
+    // 사용자가 "현재 탭" 선택하면 이 뷰어가 학생에게 그대로 보임
+    sharingStream = await navigator.mediaDevices.getDisplayMedia({
+      video: { cursor: 'always' },
+      audio: false,
+      preferCurrentTab: true  // Chrome 에서 현재 탭 우선
+    });
+    btn.classList.add('sharing');
+    btn.textContent = '🟢 공유 중 (클릭으로 중지)';
+    sharingStream.getVideoTracks()[0].onended = () => {
+      sharingStream = null;
+      btn.classList.remove('sharing');
+      btn.textContent = '📺 수업에 공유';
+    };
+    // 화상수업 룸이 동시에 열려 있으면 BroadcastChannel 로 알림
+    try {
+      const bc = new BroadcastChannel('mangoi-classroom');
+      bc.postMessage({ type:'textbook-shared', tbId, fileIdx: currentIdx });
+    } catch(e){}
+  } catch(err) {
+    if (err.name !== 'NotAllowedError') {
+      alert('화면 공유 시작 실패: ' + (err.message || err.name));
+    }
+  }
+};
+
+// 뒤로/포커스 시 새로고침으로 동기화 (다른 탭에서 추가/삭제 시)
+window.addEventListener('focus', async () => {
+  if (!db || !tbId) return;
+  const fresh = await dbGet('textbooks', tbId);
+  if (fresh && fresh.lessons.length !== textbook.lessons.length) {
+    textbook = fresh;
+    allFiles = [];
+    textbook.lessons.forEach((l, li) => l.fileIds.forEach(fid => allFiles.push({lessonIdx:li, lessonName:l.name, fileId:fid})));
+    await renderSidebar();
+  }
+});
+
+console.log('[textbook-viewer] 활성 — id:', tbId);
+</script>
+</body>
+</html>
