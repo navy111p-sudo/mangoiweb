@@ -3939,6 +3939,94 @@
         </div>
       </details>
 
+      <!-- ph179 (2026-05-29) — 📊 카톡 평가 설문 → 강사 평가 + 급여 반영 -->
+      <details class="sub-item" id="ph179-survey-block">
+        <summary data-ko="📊 카톡 강사 평가 설문 (학생·학부모) → 평가·급여 반영" data-en="📊 KakaoTalk Teacher Survey → Rating &amp; Salary">📊 카톡 강사 평가 설문 (학생·학부모) → 평가·급여 반영</summary>
+        <div class="sub-body">
+          <div style="background:linear-gradient(135deg,rgba(16,185,129,0.15),rgba(5,150,105,0.05));border:1px solid rgba(16,185,129,0.45);border-radius:12px;padding:14px 16px;margin-bottom:14px">
+            <h4 style="margin:0 0 6px;color:#34D399;font-size:14px">⚡ 자동 평가 시스템</h4>
+            <p style="margin:0;font-size:12.5px;color:#cbd5e1;line-height:1.65">
+              학생·학부모에게 <b style="color:#fcd34d">5문항 카톡 설문</b>(만족도/발음교정/진도/친절도/추천도)을 발송 → 응답이 들어오면 <b style="color:#86efac">강사 평균 점수</b> 자동 갱신 + <b style="color:#fcd34d">급여 인센티브</b> 자동 반영.
+            </p>
+          </div>
+
+          <!-- 1) 발송 설정 -->
+          <div style="background:#1A2548;border:1px solid rgba(96,165,250,0.25);border-radius:10px;padding:14px;margin-bottom:12px">
+            <div style="font-size:12px;font-weight:800;color:#93C5FD;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.4px">📤 설문 발송</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:10px">
+              <label style="display:flex;flex-direction:column;gap:4px">
+                <span style="font-size:11.5px;color:#cbd5e1;font-weight:600">강사 선택</span>
+                <select id="ph179-teacher" style="padding:8px 12px;background:rgba(15,23,42,0.6);color:#fff;border:1px solid rgba(96,165,250,0.3);border-radius:7px;font-size:13px">
+                  <option value="all">전체 강사 (12명)</option>
+                  <option value="t01">박지윤 (5년차)</option>
+                  <option value="t02">이서연 (3년차)</option>
+                  <option value="t03">정수아 (2년차)</option>
+                  <option value="t04">Maria Santos (7년차)</option>
+                  <option value="t05">John Lee (4년차)</option>
+                </select>
+              </label>
+              <label style="display:flex;flex-direction:column;gap:4px">
+                <span style="font-size:11.5px;color:#cbd5e1;font-weight:600">발송 대상</span>
+                <select id="ph179-target" style="padding:8px 12px;background:rgba(15,23,42,0.6);color:#fff;border:1px solid rgba(96,165,250,0.3);border-radius:7px;font-size:13px">
+                  <option value="both">학생 + 학부모 (둘 다)</option>
+                  <option value="student">학생만</option>
+                  <option value="parent">학부모만</option>
+                </select>
+              </label>
+              <label style="display:flex;flex-direction:column;gap:4px">
+                <span style="font-size:11.5px;color:#cbd5e1;font-weight:600">발송 주기</span>
+                <select id="ph179-cycle" style="padding:8px 12px;background:rgba(15,23,42,0.6);color:#fff;border:1px solid rgba(96,165,250,0.3);border-radius:7px;font-size:13px">
+                  <option value="monthly">월 1회 (매월 마지막 금요일)</option>
+                  <option value="biweekly">격주 1회</option>
+                  <option value="weekly">매주 (토요일)</option>
+                  <option value="now">지금 1회만 (테스트)</option>
+                </select>
+              </label>
+            </div>
+
+            <!-- 평가 항목 미리보기 -->
+            <div style="background:rgba(15,23,42,0.5);border:1px dashed rgba(96,165,250,0.25);border-radius:8px;padding:12px;margin-bottom:10px">
+              <div style="font-size:11.5px;color:#93C5FD;font-weight:700;margin-bottom:8px">📋 설문 항목 (5문항 · 별 1~5점)</div>
+              <ul style="margin:0;padding-left:20px;font-size:12px;color:#cbd5e1;line-height:1.9">
+                <li>1. <b style="color:#fff">수업 만족도</b> — 전반적인 수업이 만족스러우셨나요?</li>
+                <li>2. <b style="color:#fff">발음 교정</b> — 선생님의 발음 교정이 효과적이었나요?</li>
+                <li>3. <b style="color:#fff">진도 관리</b> — 진도와 숙제 관리가 체계적이었나요?</li>
+                <li>4. <b style="color:#fff">친절도·소통</b> — 선생님이 친절하고 소통이 잘 되셨나요?</li>
+                <li>5. <b style="color:#fff">종합 추천</b> — 친구·다른 학부모에게 추천하시겠어요? (0~10)</li>
+              </ul>
+            </div>
+
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button onclick="ph179_send()" class="primary" style="padding:9px 18px;font-size:13px;font-weight:800;background:linear-gradient(135deg,#FEE500,#FBBF24);color:#191919;border:0;border-radius:8px;cursor:pointer">💬 카톡 설문 발송</button>
+              <button onclick="ph179_simulate()" style="padding:9px 18px;font-size:13px;font-weight:700;background:rgba(139,92,246,0.18);color:#c4b5fd;border:1px solid rgba(139,92,246,0.45);border-radius:8px;cursor:pointer">🧪 응답 시뮬레이션 (테스트)</button>
+              <button onclick="ph179_loadStats()" style="padding:9px 18px;font-size:13px;font-weight:700;background:rgba(59,130,246,0.18);color:#93c5fd;border:1px solid rgba(59,130,246,0.45);border-radius:8px;cursor:pointer">🔄 결과 새로고침</button>
+            </div>
+          </div>
+
+          <!-- 2) 응답 결과 표 -->
+          <div style="background:#1A2548;border:1px solid rgba(96,165,250,0.25);border-radius:10px;padding:14px;margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <div style="font-size:12px;font-weight:800;color:#93C5FD;text-transform:uppercase;letter-spacing:0.4px">📈 강사별 평가 점수 (이번 달)</div>
+              <span id="ph179-meta" style="font-size:11px;color:#94a3b8"></span>
+            </div>
+            <div id="ph179-table-wrap" style="overflow-x:auto"></div>
+          </div>
+
+          <!-- 3) 급여 반영 안내 -->
+          <div style="background:linear-gradient(135deg,rgba(251,191,36,0.12),rgba(245,158,11,0.04));border:1px solid rgba(251,191,36,0.4);border-radius:10px;padding:14px">
+            <div style="font-size:12px;font-weight:800;color:#FCD34D;margin-bottom:8px">💰 급여 인센티브 자동 반영 공식</div>
+            <div style="font-size:12px;color:#e2e8f0;line-height:1.8">
+              ▸ 평균 <b style="color:#86efac">4.5★ 이상</b> → 시급 <b>+15%</b> 인센티브<br>
+              ▸ 평균 <b style="color:#86efac">4.0~4.4★</b> → 시급 <b>+10%</b> 인센티브<br>
+              ▸ 평균 <b style="color:#fcd34d">3.5~3.9★</b> → 시급 그대로 (기본)<br>
+              ▸ 평균 <b style="color:#fca5a5">3.0~3.4★</b> → 시급 <b>-5%</b> + 코칭 권장<br>
+              ▸ 평균 <b style="color:#fca5a5">3.0★ 미만</b> → 시급 <b>-10%</b> + 1:1 면담 필수<br>
+              <span style="font-size:11px;color:#94a3b8;display:block;margin-top:6px">※ 응답 10건 이상부터 통계 신뢰 → 인센티브 자동 산정</span>
+            </div>
+          </div>
+        </div>
+      </details>
+
     </div>
   </div>
 </details>
@@ -18806,7 +18894,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260529044506 -->
+        <!-- BUILD:20260529045226 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -34457,144 +34545,201 @@ button.chip:hover,
 
     var by = d.by_status || {};
     var total = Object.values(by).reduce(function(a,b){return a + (b||0);}, 0) || 1;
-    var order = ["new", "contacted", "registered", "rejected"];
-    bars.style.display = "block";
-    bars.style.cssText = "background:linear-gradient(180deg,#1A2548,#131C36);border:1px solid rgba(96,165,250,0.25);border-radius:10px;padding:14px 18px;box-shadow:0 4px 12px rgba(0,0,0,0.3)";
-    bars.innerHTML = "<div style=\"font-size:12px;font-weight:800;color:#93C5FD;margin-bottom:10px\">" + (en?"📊 Status Distribution (All)":"📊 상태별 분포 (전체)") + "</div>" +
-      order.map(function(st){
-        var n = by[st] || 0;
-        var pct = Math.round((n / total) * 100);
-        return "<div style=\"margin-bottom:8px\">" +
-          "<div style=\"display:flex;justify-content:space-between;font-size:11.5px;color:#E2E8F0;margin-bottom:3px;font-weight:600\">" +
-            "<span><span style=\"color:" + STATUS_COLOR[st] + ";font-weight:800\">" + STATUS_LABEL[st] + "</span></span>" +
-            "<span><b>" + fmt(n) + "건</b> · " + pct + "%</span>" +
-          "</div>" +
-          "<div style=\"height:8px;background:rgba(15,23,42,0.7);border-radius:99px;overflow:hidden\">" +
-            "<div style=\"height:100%;width:" + pct + "%;background:" + STATUS_COLOR[st] + ";transition:width .6s\"></div>" +
-          "</div>" +
-        "</div>";
-      }).join("");
+    var order = ["new", "contacted", "registered", "rej
+
+<!-- ============================================================
+     Phase 179 (2026-05-29) - 카톡 강사 평가 설문 → 평가·급여 반영
+     · 발송 (백엔드 미연결 시 demo)
+     · 응답 시뮬레이션 (24명 분량 무작위 점수)
+     · localStorage 저장 + 강사별 평균 계산
+     · 평균 → 시급 인센티브 자동 산정
+     ============================================================ -->
+<script id="ph179-teacher-survey">
+(function(){
+  "use strict";
+  var STORAGE_KEY = "ph179_survey_responses_v1";
+  var TEACHERS = [
+    { id: "t01", name: "박지윤", exp: "5년차", hourly: 35000 },
+    { id: "t02", name: "이서연", exp: "3년차", hourly: 30000 },
+    { id: "t03", name: "정수아", exp: "2년차", hourly: 28000 },
+    { id: "t04", name: "Maria Santos", exp: "7년차", hourly: 38000 },
+    { id: "t05", name: "John Lee", exp: "4년차", hourly: 32000 }
+  ];
+
+  function loadResponses() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); }
+    catch(e) { return []; }
+  }
+  function saveResponses(arr) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); } catch(e){}
   }
 
-  function wrapInquiry() {
-    if (!window.iqLoadStats || window.iqLoadStats._ph177) return false;
-    window.iqLoadStats = async function(){
-      try {
-        var r = await fetch("/api/admin/inquiry/stats");
-        if (!r.ok) throw new Error("HTTP " + r.status);
+  // ── 1. 카톡 설문 발송 (백엔드 시도 + demo) ────────────────────
+  window.ph179_send = async function(){
+    var t = document.getElementById("ph179-teacher").value;
+    var target = document.getElementById("ph179-target").value;
+    var cycle = document.getElementById("ph179-cycle").value;
+    var teacherName = t === "all" ? "전체 강사" : (TEACHERS.find(function(x){return x.id===t;}) || {name:t}).name;
+    var targetLabel = target === "both" ? "학생+학부모" : target === "student" ? "학생" : "학부모";
+
+    try {
+      var r = await fetch("/api/admin/teacher-survey/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teacher: t, target: target, cycle: cycle })
+      });
+      if (r.ok) {
         var d = await r.json();
-        if (!d) throw new Error("empty");
-        renderInquiryDark(d);
-      } catch(e) {
-        console.warn("[ph177] inquiry stats fallback to demo:", e.message);
-        renderInquiryDark(INQUIRY_DEMO);
+        alert("✅ 발송 완료\n\n강사: " + teacherName + "\n대상: " + targetLabel + "\n발송 건수: " + (d.count || "?") + "건");
+        return;
       }
-    };
-    window.iqLoadStats._ph177 = true;
-    return true;
-  }
-
-  // ── 2. NPS — npsLoad demo fallback ─────────────────────────────────
-  var NPS_DEMO = {
-    ok: true,
-    nps: 42,
-    avg_score: 7.8,
-    total: 38,
-    promoters: 21, promoter_pct: 55,
-    passives: 12,
-    detractors: 5, detractor_pct: 13,
-    recent_comments: [
-      { score: 10, created_at: Date.now() - 86400000, comment: "선생님이 정말 친절하시고 아이가 영어를 좋아하게 됐어요. 강력 추천!" },
-      { score: 9, created_at: Date.now() - 172800000, comment: "주 2회 1:1 수업으로 발음이 눈에 띄게 좋아졌습니다." },
-      { score: 8, created_at: Date.now() - 259200000, comment: "수업 후 리포트가 자세해서 좋아요. 가격이 조금 부담스럽긴 합니다." },
-      { score: 9, created_at: Date.now() - 345600000, comment: "아이가 매번 수업을 기다려요. 한 가지 바라는 점은 숙제 조금 더 많이." },
-      { score: 6, created_at: Date.now() - 432000000, comment: "시간대 변경이 좀 어려운 점이 아쉬워요." },
-      { score: 10, created_at: Date.now() - 518400000, comment: "AI 발음 평가가 신기하고 효과적이에요." }
-    ]
+      throw new Error("HTTP " + r.status);
+    } catch(e) {
+      // demo 모드
+      var demoCount = target === "both" ? 84 : 42;
+      alert("📋 [데모 모드] 카톡 발송 시뮬레이션\n\n강사: " + teacherName + "\n대상: " + targetLabel + "\n주기: " + cycle + "\n발송 건수: " + demoCount + "건\n\n실제 발송은 SOLAPI/카카오 알림톡 백엔드 연결 후 작동합니다.\n응답 시뮬레이션 버튼으로 결과 미리보기 가능.");
+    }
   };
 
-  function renderNps(r, isDemo) {
-    var sb = document.getElementById("nps-stats");
-    var cb = document.getElementById("nps-comments");
-    if (!sb || !cb) return;
-    var en = window.adminLang === "en";
-    var npsColor = r.nps > 30 ? "#86efac" : r.nps > 0 ? "#fcd34d" : "#fca5a5";
-    var demoBanner = isDemo ? "<div style=\"margin-bottom:10px;padding:8px 12px;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.4);border-radius:8px;font-size:11.5px;color:#fcd34d\">📋 데모 데이터 — 백엔드 미연결, 샘플 표시</div>" : "";
-
-    sb.innerHTML = demoBanner +
-      "<div style=\"display:grid;grid-template-columns:1fr 2fr;gap:14px\">" +
-        "<div style=\"background:#0f172a;border:2px solid " + npsColor + ";border-radius:14px;padding:18px;text-align:center\">" +
-          "<div style=\"font-size:11px;color:#94a3b8\">" + (en?"NPS Score":"NPS 점수") + "</div>" +
-          "<div style=\"font-size:42px;font-weight:900;color:" + npsColor + ";margin:6px 0\">" + r.nps + "</div>" +
-          "<div style=\"font-size:11px;color:#cbd5e1\">" + (en?"Avg":"평균") + ": <b>" + r.avg_score + "</b> / " + (en?"Responses":"응답") + ": <b>" + r.total + "</b></div>" +
-        "</div>" +
-        "<div style=\"background:#0f172a;border:1px solid #334155;border-radius:12px;padding:14px\">" +
-          "<div style=\"font-size:12px;color:#94a3b8;margin-bottom:8px\">" + (en?"Breakdown":"분포") + "</div>" +
-          "<div style=\"display:flex;height:30px;border-radius:6px;overflow:hidden;margin-bottom:8px\">" +
-            "<div style=\"background:#22c55e;width:" + r.promoter_pct + "%\"></div>" +
-            "<div style=\"background:#fbbf24;width:" + (100 - r.promoter_pct - r.detractor_pct) + "%\"></div>" +
-            "<div style=\"background:#ef4444;width:" + r.detractor_pct + "%\"></div>" +
-          "</div>" +
-          "<div style=\"display:flex;justify-content:space-between;font-size:11px;flex-wrap:wrap;gap:6px\">" +
-            "<span style=\"color:#86efac\">😍 " + (en?"Promoters":"추천자") + " " + r.promoters + " (" + r.promoter_pct + "%)</span>" +
-            "<span style=\"color:#fcd34d\">😐 " + (en?"Passives":"중립") + " " + r.passives + "</span>" +
-            "<span style=\"color:#fca5a5\">😞 " + (en?"Detractors":"비추천자") + " " + r.detractors + " (" + r.detractor_pct + "%)</span>" +
-          "</div>" +
-        "</div>" +
-      "</div>";
-
-    var esc = function(s){ return String(s||"").replace(/[&<>"\']/g, function(c){
-      return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","\'":"&#39;"})[c];
-    });};
-    var cm = (r.recent_comments || []).map(function(c){
-      var border = c.score >= 9 ? "#22c55e" : c.score >= 7 ? "#fbbf24" : "#ef4444";
-      var dateStr = new Date(c.created_at).toISOString().slice(0, 10);
-      return "<div style=\"background:#0f172a;border-left:3px solid " + border + ";padding:8px 12px;margin-bottom:6px;border-radius:0 8px 8px 0\">" +
-        "<div style=\"font-size:11px;color:#94a3b8\">★ " + c.score + " · " + dateStr + "</div>" +
-        "<div style=\"color:#e2e8f0;font-size:13px;margin-top:4px\">" + esc(c.comment) + "</div>" +
-      "</div>";
-    }).join("");
-    cb.innerHTML = cm ? "<div style=\"font-size:13px;color:#fcd34d;font-weight:700;margin-bottom:8px\">" + (en?"Recent Comments":"최근 코멘트") + "</div>" + cm : "";
-  }
-
-  function wrapNps() {
-    if (!window.npsLoad || window.npsLoad._ph177) return false;
-    window.npsLoad = async function(){
-      try {
-        var ym = new Date().toISOString().slice(0, 7);
-        var r = await fetch("/api/admin/nps/stats?ym=" + ym);
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        var d = await r.json();
-        if (!d.ok) throw new Error(d.error || "API error");
-        renderNps(d, false);
-      } catch(e) {
-        console.warn("[ph177] nps fallback to demo:", e.message);
-        renderNps(NPS_DEMO, true);
+  // ── 2. 응답 시뮬레이션 ────────────────────────────────────
+  window.ph179_simulate = function(){
+    if (!confirm("학생·학부모 24명의 응답을 무작위로 시뮬레이션합니다.\n기존 응답에 추가됩니다. 진행할까요?")) return;
+    var responses = loadResponses();
+    var now = Date.now();
+    for (var i = 0; i < 24; i++) {
+      var teacher = TEACHERS[Math.floor(Math.random() * TEACHERS.length)];
+      // 강사별 평균 다르게 (현실감): 박지윤 4.7, 이서연 4.4, 정수아 4.1, Maria 4.8, John 3.8
+      var bias = { "t01": 4.7, "t02": 4.4, "t03": 4.1, "t04": 4.8, "t05": 3.8 }[teacher.id] || 4.0;
+      function rand5() {
+        // bias 중심 정규분포 비슷하게
+        var v = bias + (Math.random() - 0.5) * 1.5;
+        return Math.max(1, Math.min(5, Math.round(v * 10) / 10));
       }
-    };
-    window.npsLoad._ph177 = true;
-    return true;
-  }
-
-  function run() {
-    var ok1 = wrapInquiry();
-    var ok2 = wrapNps();
-    if (ok1 && typeof window.iqLoadStats === "function") {
-      // 카드가 이미 열려있으면 즉시 다크/demo 적용
-      try { window.iqLoadStats(); } catch(e){}
+      function rand10() { return Math.max(0, Math.min(10, Math.round(bias * 2 + (Math.random() - 0.5) * 3))); }
+      responses.push({
+        ts: now - Math.floor(Math.random() * 30) * 86400000,
+        teacher_id: teacher.id,
+        respondent: Math.random() > 0.5 ? "parent" : "student",
+        scores: {
+          satisfaction: rand5(),
+          pronunciation: rand5(),
+          progress: rand5(),
+          kindness: rand5(),
+          nps: rand10()
+        }
+      });
     }
-    return ok1 && ok2;
-  }
+    saveResponses(responses);
+    ph179_loadStats();
+    alert("✅ 24명 응답 시뮬레이션 완료. 표가 갱신되었습니다.");
+  };
 
-  if (!run()) {
-    var tries = 0;
-    var iv = setInterval(function(){
-      tries++;
-      if (run() || tries > 30) clearInterval(iv);
-    }, 200);
-  }
+  // ── 3. 통계 + 표 렌더 ────────────────────────────────────
+  window.ph179_loadStats = function(){
+    var wrap = document.getElementById("ph179-table-wrap");
+    var meta = document.getElementById("ph179-meta");
+    if (!wrap) return;
+    var responses = loadResponses();
+    var byTeacher = {};
+    responses.forEach(function(r){
+      if (!byTeacher[r.teacher_id]) byTeacher[r.teacher_id] = [];
+      byTeacher[r.teacher_id].push(r);
+    });
 
-  console.log("[ph177] 상태별 분포 다크 + demo, NPS demo 활성");
+    meta.textContent = "총 응답 " + responses.length + "건 · " + Object.keys(byTeacher).length + "명 강사";
+
+    if (!responses.length) {
+      wrap.innerHTML = "<div style=\"padding:30px;text-align:center;color:#94a3b8;font-style:italic\">아직 응답이 없습니다. <b style=\"color:#fcd34d\">[🧪 응답 시뮬레이션]</b> 버튼으로 테스트하거나 실제 카톡 발송 후 결과를 받으세요.</div>";
+      return;
+    }
+
+    function avg(arr) { return arr.reduce(function(a,b){return a+b;}, 0) / arr.length; }
+    function incentive(score) {
+      if (score >= 4.5) return { pct: 15, color: "#34D399", label: "+15%", advice: "최우수" };
+      if (score >= 4.0) return { pct: 10, color: "#86efac", label: "+10%", advice: "우수" };
+      if (score >= 3.5) return { pct: 0,  color: "#FCD34D", label: "기본", advice: "양호" };
+      if (score >= 3.0) return { pct: -5, color: "#FB923C", label: "-5%", advice: "코칭 권장" };
+      return                  { pct: -10, color: "#F87171", label: "-10%", advice: "면담 필수" };
+    }
+
+    var rows = TEACHERS.map(function(t){
+      var rs = byTeacher[t.id] || [];
+      if (!rs.length) return null;
+      var avgSat = avg(rs.map(function(r){return r.scores.satisfaction;}));
+      var avgPron = avg(rs.map(function(r){return r.scores.pronunciation;}));
+      var avgProg = avg(rs.map(function(r){return r.scores.progress;}));
+      var avgKind = avg(rs.map(function(r){return r.scores.kindness;}));
+      var avgNps = avg(rs.map(function(r){return r.scores.nps;}));
+      var overall = (avgSat + avgPron + avgProg + avgKind) / 4;
+      var inc = incentive(overall);
+      var newHourly = Math.round(t.hourly * (1 + inc.pct/100));
+      var diff = newHourly - t.hourly;
+      var fmt = function(n){ return n.toLocaleString("ko-KR"); };
+      var f1 = function(n){ return n.toFixed(2); };
+      return {
+        teacher: t, rs: rs, overall: overall,
+        scores: { sat: avgSat, pron: avgPron, prog: avgProg, kind: avgKind, nps: avgNps },
+        incentive: inc, newHourly: newHourly, diff: diff
+      };
+    }).filter(Boolean);
+
+    // 평균 점수 높은 순 정렬
+    rows.sort(function(a,b){ return b.overall - a.overall; });
+
+    var fmt = function(n){ return n.toLocaleString("ko-KR"); };
+    var stars = function(n){
+      var full = Math.floor(n);
+      var half = (n - full) >= 0.25 && (n - full) < 0.75;
+      var s = "★".repeat(full) + (half ? "½" : "");
+      return s + " <span style=\"color:#94a3b8;font-size:11px\">(" + n.toFixed(2) + ")</span>";
+    };
+
+    var html = "<table style=\"width:100%;border-collapse:collapse;font-size:12.5px\">" +
+      "<thead><tr style=\"background:rgba(0,0,0,0.25)\">" +
+        "<th style=\"text-align:left;padding:9px 10px;color:#93C5FD;font-weight:700;font-size:11px\">강사</th>" +
+        "<th style=\"text-align:center;padding:9px 8px;color:#93C5FD;font-weight:700;font-size:11px\">응답</th>" +
+        "<th style=\"text-align:center;padding:9px 8px;color:#93C5FD;font-weight:700;font-size:11px\">만족</th>" +
+        "<th style=\"text-align:center;padding:9px 8px;color:#93C5FD;font-weight:700;font-size:11px\">발음</th>" +
+        "<th style=\"text-align:center;padding:9px 8px;color:#93C5FD;font-weight:700;font-size:11px\">진도</th>" +
+        "<th style=\"text-align:center;padding:9px 8px;color:#93C5FD;font-weight:700;font-size:11px\">친절</th>" +
+        "<th style=\"text-align:center;padding:9px 8px;color:#93C5FD;font-weight:700;font-size:11px\">NPS</th>" +
+        "<th style=\"text-align:center;padding:9px 8px;color:#fcd34d;font-weight:800;font-size:11px\">종합</th>" +
+        "<th style=\"text-align:right;padding:9px 10px;color:#fcd34d;font-weight:800;font-size:11px\">시급 (인센티브)</th>" +
+      "</tr></thead><tbody>" +
+      rows.map(function(r){
+        var diffStr = r.diff > 0 ? "<span style=\"color:#34D399\">+" + fmt(r.diff) + "원</span>"
+                    : r.diff < 0 ? "<span style=\"color:#F87171\">" + fmt(r.diff) + "원</span>"
+                    : "<span style=\"color:#94a3b8\">동일</span>";
+        return "<tr style=\"border-bottom:1px dashed rgba(96,165,250,0.15)\">" +
+          "<td style=\"padding:11px 10px;color:#fff;font-weight:700\">" + r.teacher.name + " <span style=\"font-size:10.5px;color:#94a3b8;font-weight:500\">(" + r.teacher.exp + ")</span></td>" +
+          "<td style=\"padding:11px 8px;text-align:center;color:#cbd5e1\">" + r.rs.length + "</td>" +
+          "<td style=\"padding:11px 8px;text-align:center;color:#FCD34D\">" + r.scores.sat.toFixed(1) + "</td>" +
+          "<td style=\"padding:11px 8px;text-align:center;color:#FCD34D\">" + r.scores.pron.toFixed(1) + "</td>" +
+          "<td style=\"padding:11px 8px;text-align:center;color:#FCD34D\">" + r.scores.prog.toFixed(1) + "</td>" +
+          "<td style=\"padding:11px 8px;text-align:center;color:#FCD34D\">" + r.scores.kind.toFixed(1) + "</td>" +
+          "<td style=\"padding:11px 8px;text-align:center;color:#86efac\">" + r.scores.nps.toFixed(1) + "</td>" +
+          "<td style=\"padding:11px 8px;text-align:center\"><span style=\"color:" + r.incentive.color + ";font-weight:800;font-size:14px\">" + r.overall.toFixed(2) + "</span><br><span style=\"font-size:10px;color:" + r.incentive.color + ";font-weight:700\">" + r.incentive.advice + "</span></td>" +
+          "<td style=\"padding:11px 10px;text-align:right\">" +
+            "<div style=\"color:#fff;font-weight:800;font-size:13.5px\">" + fmt(r.newHourly) + "원/h</div>" +
+            "<div style=\"font-size:11px;margin-top:2px\"><span style=\"color:" + r.incentive.color + ";font-weight:700\">" + r.incentive.label + "</span> · " + diffStr + "</div>" +
+          "</td>" +
+        "</tr>";
+      }).join("") +
+      "</tbody></table>";
+
+    wrap.innerHTML = html;
+  };
+
+  // 초기 로드 + details 열릴 때마다 갱신
+  document.getElementById("ph179-survey-block")?.addEventListener("toggle", function(){
+    if (this.open) ph179_loadStats();
+  });
+  // 페이지 로드 시 한 번
+  setTimeout(function(){
+    try { ph179_loadStats(); } catch(e){}
+  }, 500);
+
+  console.log("[ph179] 카톡 강사 평가 설문 활성 — 발송/시뮬레이션/통계/급여 인센티브");
 })();
 </script>
 
