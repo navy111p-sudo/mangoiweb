@@ -23063,7 +23063,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260529034709 -->
+<!-- BUILD:20260529035055 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25284,6 +25284,80 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   console.log("[ph171] API circuit breaker active — /api/points/* 503 폭주 차단 (5min cooldown + 30s throttle)");
 })();
 </script>
+
+<!-- ============================================================
+     Phase 172 (2026-05-29) - 단어사전 + 음성일기 완전 박멸
+     · #mangoi-dict-fab / #mangoi-dict-modal / #voice-diary-chip
+     · CSS + JS DOM remove + MutationObserver 부활 차단
+     · PC/모바일 모두 적용 (기존 22337 처리는 모바일 한정이라 부족)
+     ============================================================ -->
+<style id="ph172-nuke-style">
+  /* 모든 상태에서 강제 숨김 — 모바일/PC/룸 입장 모두 */
+  #mangoi-dict-fab,
+  #mangoi-dict-modal,
+  #voice-diary-chip,
+  #voice-diary-modal,
+  [id*="voice-diary"],
+  [id*="mangoi-dict"],
+  button[onclick*="mangoiOpenDict"],
+  button[onclick*="openVoiceDiary"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    position: absolute !important;
+    left: -99999px !important;
+  }
+</style>
+
+<script id="ph172-nuke-script">
+(function(){
+  "use strict";
+  var NUKE_IDS = ["mangoi-dict-fab", "mangoi-dict-modal", "voice-diary-chip", "voice-diary-modal"];
+  var NUKE_SELECTOR = '#mangoi-dict-fab, #mangoi-dict-modal, #voice-diary-chip, #voice-diary-modal, [id*="voice-diary"], [id*="mangoi-dict"], button[onclick*="mangoiOpenDict"], button[onclick*="openVoiceDiary"]';
+
+  function nuke() {
+    try {
+      document.querySelectorAll(NUKE_SELECTOR).forEach(function(el){
+        try { el.remove(); } catch(e) { try { el.parentNode && el.parentNode.removeChild(el); } catch(e2){} }
+      });
+    } catch(e) {}
+    // 함수들도 무력화
+    try { window.mangoiOpenDict = function(){}; } catch(e){}
+    try { window.openVoiceDiaryModal = function(){}; } catch(e){}
+  }
+
+  // 즉시 + 페이지 로드 후 + 1초/3초 안전망
+  nuke();
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", nuke);
+  setTimeout(nuke, 500);
+  setTimeout(nuke, 1500);
+  setTimeout(nuke, 3000);
+
+  // MutationObserver — 동적으로 다시 생성되어도 즉시 제거
+  try {
+    var observer = new MutationObserver(function(mutations){
+      var found = false;
+      mutations.forEach(function(m){
+        m.addedNodes && m.addedNodes.forEach(function(n){
+          if (n.nodeType !== 1) return;
+          if (NUKE_IDS.indexOf(n.id) !== -1) { found = true; }
+          else if (n.querySelector && n.querySelector(NUKE_SELECTOR)) { found = true; }
+        });
+      });
+      if (found) nuke();
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+  } catch(e) { console.warn("[ph172] MutationObserver setup failed:", e); }
+
+  console.log("[ph172] 단어사전 + 음성일기 완전 박멸 — DOM remove + observer + function disable");
+})();
+</script>
+
+
 
 
 
