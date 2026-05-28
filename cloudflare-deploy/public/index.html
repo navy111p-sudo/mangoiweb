@@ -23056,7 +23056,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260529031122 -->
+<!-- BUILD:20260529031636 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -24764,6 +24764,182 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   console.log('[ph167] mobile clean design active — 3x3 grid + FAB stack + safe gaps');
 })();
 </script>
+
+<!-- ============================================================
+     Phase 168 (2026-05-29) - Premium FAB & card design polish
+     · 카카오: 공식 노랑 #FEE500 그라데이션 + 카톡 말풍선 + 글로우
+     · 수업진단: 블루 그라데이션 + ring + 미세 pulse
+     · 캐시 ↻: 글래스 미니 (ring border, 반투명)
+     · 카드 (.ai-quick-btn): 글래스모피즘 + 그라데이션 hover
+     · CTA (결제/수업입장): 골드 그라데이션 + 글로우 강화
+     · 전체 통일된 그림자·radius 시스템
+     ============================================================ -->
+<style id="ph168-polish-style">
+  /* ─── 카카오 FAB (모바일·PC 공통) ────────────────────── */
+  .ph49-kakao-fab, #ph49-kakao-fab {
+    background: linear-gradient(135deg, #FFE812 0%, #FEE500 50%, #FACC15 100%) !important;
+    color: #1A1A1A !important;
+    border: 1.5px solid rgba(255,232,18,0.85) !important;
+    box-shadow:
+      0 8px 24px -4px rgba(254,229,0,0.55),
+      0 0 0 4px rgba(254,229,0,0.12),
+      inset 0 1px 0 rgba(255,255,255,0.6) !important;
+    transition: transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s, filter .2s !important;
+    cursor: pointer !important;
+  }
+  .ph49-kakao-fab:hover, #ph49-kakao-fab:hover {
+    transform: translateY(-2px) scale(1.05) !important;
+    box-shadow:
+      0 14px 32px -6px rgba(254,229,0,0.7),
+      0 0 0 6px rgba(254,229,0,0.18),
+      inset 0 1px 0 rgba(255,255,255,0.7) !important;
+    filter: brightness(1.05) !important;
+  }
+  .ph49-kakao-fab:active, #ph49-kakao-fab:active {
+    transform: translateY(0) scale(0.98) !important;
+  }
+  .ph49-kakao-fab svg, #ph49-kakao-fab svg {
+    fill: #1A1A1A !important;
+    filter: drop-shadow(0 1px 1px rgba(255,255,255,0.4)) !important;
+  }
+
+  /* ─── 수업 진단 (precheck-fab) — 블루 글로우 ───────── */
+  #precheck-fab {
+    background: linear-gradient(135deg, #60A5FA 0%, #3B82F6 50%, #1D4ED8 100%) !important;
+    border: 1.5px solid rgba(96,165,250,0.7) !important;
+    box-shadow:
+      0 8px 24px -4px rgba(59,130,246,0.55),
+      0 0 0 4px rgba(59,130,246,0.12),
+      inset 0 1px 0 rgba(255,255,255,0.25) !important;
+    color: #fff !important;
+    font-weight: 800 !important;
+    transition: transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s !important;
+  }
+  #precheck-fab:hover {
+    transform: translateY(-2px) scale(1.04) !important;
+    box-shadow:
+      0 14px 32px -6px rgba(59,130,246,0.7),
+      0 0 0 6px rgba(59,130,246,0.18),
+      inset 0 1px 0 rgba(255,255,255,0.3) !important;
+  }
+  #precheck-fab:active { transform: translateY(0) scale(0.98) !important; }
+  #precheck-fab .dot {
+    background: #10B981 !important;
+    box-shadow: 0 0 0 2px #fff, 0 0 8px 2px rgba(16,185,129,0.5) !important;
+  }
+
+  /* ─── 캐시 ↻ FAB — 글래스 미니 (덜 시선 끌게) ────── */
+  .ph52-cache-fab, #ph52-cache-fab {
+    background: rgba(30,41,59,0.7) !important;
+    border: 1.5px solid rgba(96,165,250,0.4) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    color: #93C5FD !important;
+    box-shadow:
+      0 6px 16px -3px rgba(0,0,0,0.35),
+      inset 0 1px 0 rgba(255,255,255,0.08) !important;
+    opacity: 0.85 !important;
+    transition: opacity .2s, transform .2s, border-color .2s !important;
+  }
+  .ph52-cache-fab:hover, #ph52-cache-fab:hover {
+    opacity: 1 !important;
+    border-color: rgba(96,165,250,0.7) !important;
+    transform: scale(1.08) !important;
+    color: #fff !important;
+  }
+
+  /* ─── 메인 카드 (.ai-quick-btn) 글래스모피즘 통일 ──── */
+  .ai-quick-btn {
+    background: linear-gradient(135deg, rgba(255,255,255,0.09), rgba(255,255,255,0.04)) !important;
+    border: 1.5px solid rgba(255,255,255,0.14) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    box-shadow:
+      0 4px 12px -2px rgba(0,0,0,0.2),
+      inset 0 1px 0 rgba(255,255,255,0.06) !important;
+    transition: all .2s cubic-bezier(.34,1.56,.64,1) !important;
+  }
+  .ai-quick-btn:hover {
+    background: linear-gradient(135deg, rgba(251,191,36,0.22), rgba(245,158,11,0.10)) !important;
+    border-color: rgba(251,191,36,0.55) !important;
+    color: #fff !important;
+    transform: translateY(-2px) !important;
+    box-shadow:
+      0 10px 24px -4px rgba(251,191,36,0.4),
+      0 0 0 1px rgba(251,191,36,0.3),
+      inset 0 1px 0 rgba(255,255,255,0.12) !important;
+  }
+  .ai-quick-btn:active {
+    transform: translateY(0) scale(0.97) !important;
+    background: rgba(251,191,36,0.32) !important;
+  }
+
+  /* ─── 큰 CTA (결제하기 / 수업 입장) — 골드 글로우 강화 ── */
+  .cta-pay, .cta-enter {
+    background: linear-gradient(135deg, #FCD34D 0%, #F59E0B 50%, #D97706 100%) !important;
+    border: 1.5px solid rgba(252,211,77,0.65) !important;
+    color: #1A1A1A !important;
+    font-weight: 900 !important;
+    box-shadow:
+      0 10px 28px -6px rgba(245,158,11,0.55),
+      0 0 0 4px rgba(245,158,11,0.10),
+      inset 0 1px 0 rgba(255,255,255,0.4) !important;
+    transition: transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s, filter .2s !important;
+  }
+  .cta-pay:hover, .cta-enter:hover {
+    transform: translateY(-2px) scale(1.02) !important;
+    box-shadow:
+      0 16px 36px -8px rgba(245,158,11,0.7),
+      0 0 0 6px rgba(245,158,11,0.15),
+      inset 0 1px 0 rgba(255,255,255,0.5) !important;
+    filter: brightness(1.05) !important;
+  }
+  .cta-pay:active, .cta-enter:active {
+    transform: translateY(0) scale(0.98) !important;
+  }
+
+  /* ─── 상단 배지 (홍길동·0P·EN) 통일 글래스 ─────────── */
+  .ht-user-chip, [class*="user-chip"] {
+    background: linear-gradient(135deg, rgba(16,185,129,0.22), rgba(5,150,105,0.10)) !important;
+    border: 1px solid rgba(16,185,129,0.55) !important;
+    backdrop-filter: blur(8px) !important;
+    color: #6EE7B7 !important;
+    box-shadow: 0 4px 10px -2px rgba(16,185,129,0.3) !important;
+  }
+  .ht-points-chip, [class*="points-chip"] {
+    background: linear-gradient(135deg, rgba(251,191,36,0.22), rgba(245,158,11,0.10)) !important;
+    border: 1px solid rgba(251,191,36,0.55) !important;
+    backdrop-filter: blur(8px) !important;
+    color: #FCD34D !important;
+    box-shadow: 0 4px 10px -2px rgba(251,191,36,0.3) !important;
+  }
+  .ht-lang-chip, [class*="lang-chip"] {
+    background: rgba(15,23,42,0.6) !important;
+    border: 1px solid rgba(96,165,250,0.45) !important;
+    backdrop-filter: blur(8px) !important;
+    color: #93C5FD !important;
+    box-shadow: 0 4px 10px -2px rgba(0,0,0,0.3) !important;
+  }
+
+  /* ─── AI 검색창 — 부드러운 글래스 + 골드 포커스 ──── */
+  .ai-search-wrap {
+    background: linear-gradient(135deg, rgba(15,23,42,0.7), rgba(11,18,36,0.5)) !important;
+    border: 1.5px solid rgba(96,165,250,0.18) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    box-shadow:
+      0 10px 28px -6px rgba(0,0,0,0.4),
+      inset 0 1px 0 rgba(255,255,255,0.06) !important;
+  }
+  #ai-home-input:focus {
+    outline: 0 !important;
+    border-color: rgba(251,191,36,0.6) !important;
+    box-shadow: 0 0 0 3px rgba(251,191,36,0.18) !important;
+  }
+}
+</style>
+
+
 
 
 
