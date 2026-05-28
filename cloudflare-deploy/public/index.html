@@ -23063,7 +23063,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260529035055 -->
+<!-- BUILD:20260529040004 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25356,6 +25356,133 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   console.log("[ph172] 단어사전 + 음성일기 완전 박멸 — DOM remove + observer + function disable");
 })();
 </script>
+
+<!-- ============================================================
+     Phase 173 (2026-05-29) - Room mobile: PIP small square + 칠판 max
+     · 얼굴 PIP: 100x100 정사각형 (좌상단 작게)
+     · 칠판: 화면 가득 (vh 기반 최대 확보)
+     · 컨트롤·탭 영역은 컴팩트하게
+     ============================================================ -->
+<style id="ph173-room-layout">
+  @media (max-width: 700px) {
+
+    /* ─── 1. 비디오 PIP — 100x100 정사각형 (좌상단) ─── */
+    body.vc-in-call .video-pane {
+      width: 100px !important;
+      height: 100px !important;
+      top: 10px !important;
+      left: 10px !important;
+      right: auto !important;
+      bottom: auto !important;
+      border-radius: 14px !important;
+      overflow: hidden !important;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.55), 0 0 0 1.5px rgba(96,165,250,0.4) !important;
+      background: #000 !important;
+      z-index: 60 !important;
+    }
+    /* 비디오가 정사각형 안에 cover 로 꽉 차게 (세로로 길어지지 않게) */
+    body.vc-in-call .video-pane video,
+    body.vc-in-call .video-pane .video-box,
+    body.vc-in-call .video-pane #vc-local-video,
+    body.vc-in-call .video-pane #vc-local-box,
+    body.vc-in-call .video-pane #vc-video-grid {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+      border-radius: 14px !important;
+      aspect-ratio: 1 / 1 !important;
+    }
+    /* 비디오 안의 이름 라벨 — 작게 */
+    body.vc-in-call .video-pane .video-name,
+    body.vc-in-call .video-pane [class*="video-name"] {
+      font-size: 9px !important;
+      padding: 2px 5px !important;
+      bottom: 4px !important;
+      left: 4px !important;
+      max-width: 80px !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      white-space: nowrap !important;
+    }
+    /* 사이즈 조절 바 / detach 버튼 등은 모바일에서 안 보이게 */
+    body.vc-in-call .video-pane .video-size-bar,
+    body.vc-in-call .video-pane .video-detach-btn,
+    body.vc-in-call .video-pane [class*="detach"],
+    body.vc-in-call .video-pane [class*="resize"] {
+      display: none !important;
+    }
+
+    /* ─── 2. 칠판 / 콘텐츠 영역 — 화면 최대 확보 ─── */
+    body.vc-in-call .content-pane,
+    body.vc-in-call .whiteboard-container,
+    body.vc-in-call .vc-content,
+    body.vc-in-call .vc-board-wrap {
+      width: 100% !important;
+      min-height: calc(100vh - 200px) !important;  /* 컨트롤 + 탭 + 도구 영역 빼고 나머지 */
+      flex: 1 1 100% !important;
+    }
+    /* 칠판 캔버스 자체 — width/height 채우기 */
+    body.vc-in-call .whiteboard-container canvas,
+    body.vc-in-call #wb-canvas,
+    body.vc-in-call canvas[id*="board"],
+    body.vc-in-call canvas[id*="white"],
+    body.vc-in-call .vc-board canvas {
+      width: 100% !important;
+      height: 100% !important;
+      min-height: calc(100vh - 220px) !important;
+      max-height: calc(100vh - 200px) !important;
+      background: #fff !important;
+      border-radius: 8px !important;
+    }
+    /* 칠판 영역의 패딩/마진 줄여서 더 큰 공간 확보 */
+    body.vc-in-call .whiteboard-container,
+    body.vc-in-call .vc-board-wrap {
+      padding: 4px !important;
+      margin: 0 !important;
+    }
+
+    /* ─── 3. 화면 분할 모드 무시 — 모바일에선 무조건 100% 콘텐츠 ─── */
+    body.vc-in-call .vc-main-row.video-quarter .content-pane,
+    body.vc-in-call .vc-main-row.video-half .content-pane,
+    body.vc-in-call .vc-main-row.video-threequarter .content-pane,
+    body.vc-in-call .vc-main-row.video-full .content-pane {
+      width: 100% !important;
+      flex: 1 1 100% !important;
+    }
+    body.vc-in-call .vc-main-row.video-quarter .video-pane,
+    body.vc-in-call .vc-main-row.video-half .video-pane,
+    body.vc-in-call .vc-main-row.video-threequarter .video-pane,
+    body.vc-in-call .vc-main-row.video-full .video-pane {
+      width: 100px !important;
+      height: 100px !important;
+      position: absolute !important;
+    }
+
+    /* ─── 4. 도구 영역 (TOOLS / 펜·지우개) 컴팩트 ─── */
+    body.vc-in-call .whiteboard-tools,
+    body.vc-in-call .vc-tools-bar {
+      padding: 4px 6px !important;
+      gap: 4px !important;
+      min-height: 36px !important;
+    }
+    body.vc-in-call .whiteboard-tools button,
+    body.vc-in-call .vc-tools-bar button {
+      padding: 5px 8px !important;
+      font-size: 11px !important;
+      min-height: 30px !important;
+    }
+  }
+
+  /* 극소 화면 — PIP 더 작게 (80x80) */
+  @media (max-width: 380px) {
+    body.vc-in-call .video-pane {
+      width: 80px !important;
+      height: 80px !important;
+    }
+  }
+</style>
+
+
 
 
 
