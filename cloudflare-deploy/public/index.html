@@ -23056,7 +23056,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260529024601 -->
+<!-- BUILD:20260529025330 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -24464,6 +24464,143 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   console.log('[ph158-classroom] Textbook launcher active (visible during vc-in-call)');
 })();
 </script>
+
+<!-- ============================================================
+     Phase 166 (2026-05-29) - Mobile quick-btn click rescue
+     · 학생 홈 모바일에서 .ai-quick-btn 클릭이 안 되는 버그 fix
+     · 1) 강제 z-index + pointer-events 로 오버레이가 위 덮어도 클릭 보장
+     · 2) capture-phase 안전망 위임 핸들러 — 기존 IIFE 가 실패해도 동작
+     · 3) touch-action: manipulation 으로 모바일 더블탭 지연 제거
+     ============================================================ -->
+<style id="ph166-quick-btn-rescue-style">
+  .ai-quick {
+    position: relative !important;
+    z-index: 5 !important;
+  }
+  .ai-quick-btn {
+    position: relative !important;
+    z-index: 6 !important;
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: rgba(251,191,36,0.25) !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+  }
+  .ai-quick-btn:active {
+    transform: scale(0.96) !important;
+    background: rgba(251,191,36,0.3) !important;
+  }
+  /* "결제하기" / "수업 입장" 큰 메인 CTA 도 같이 보장 */
+  .cta-pay, .cta-enter, button[data-go="payment"], button[data-go="enter-class"] {
+    position: relative !important;
+    z-index: 6 !important;
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+  }
+</style>
+
+<script id="ph166-quick-btn-rescue">
+(function(){
+  'use strict';
+
+  var FALLBACK_MAP = {
+    'admin':            { href: '/admin.html' },
+    'mypage':           { href: '/admin/mypage.html' },
+    'points-shop':      { fn: function(){ if (window.showPointsShop) window.showPointsShop(); else location.href = '/streak.html'; } },
+    'speech':           { open: 'https://mangoi-speech.pages.dev/practice' },
+    'speech-coach':     { href: '/speech-coach.html' },
+    'speech-coach-cn':  { href: '/speech-coach-cn.html' },
+    'textbook-uploader':{ href: '/textbook-uploader.html' },
+    'textbook':         { href: '/textbook-uploader.html' },
+    'lesson-change':    { fn: function(){ if (window.openLessonChangeModal) window.openLessonChangeModal(); else location.href = '/lesson-postpone-demo.html'; } },
+    'inquiry':          { fn: function(){ if (window.openInquiryModal) window.openInquiryModal(); else location.href = '/contact.html'; } },
+    'trial':            { fn: function(){ if (window.openInquiryModal) window.openInquiryModal(); else location.href = '/contact.html'; } },
+    'enroll':           { fn: function(){ if (window.openInquiryModal) window.openInquiryModal(); else location.href = '/contact.html'; } },
+    'kakao':            { fn: function(){ var b = document.getElementById('kakaoChannelBtn') || document.querySelector('.kakao-chat-btn'); if (b) b.click(); else location.href = '/contact.html'; } },
+    'enter-class':      { fn: function(){ if (typeof showView === 'function') showView('view-videocall-lobby'); else location.hash = '#videocall-lobby'; } },
+    'payment':          { fn: function(){ if (window.gridActions && window.gridActions.payment) window.gridActions.payment(); else { var m = document.getElementById('payment-modal'); if (m) { m.style.display = 'flex'; } } } },
+    'homepage':         { fn: function(){ var gm = document.getElementById('grid-menu'); if (gm) gm.style.display = 'block'; } },
+    'all-menu':         { fn: function(){
+                              var p = document.getElementById('v19-panel');
+                              if (p) {
+                                p.style.display = (p.style.display === 'none' || !p.style.display) ? 'block' : 'none';
+                                if (p.style.display === 'block') setTimeout(function(){ p.scrollIntoView({behavior:'smooth', block:'start'}); }, 100);
+                              }
+                            } },
+  };
+
+  function dispatchRoute(go) {
+    var m = FALLBACK_MAP[go];
+    if (!m) {
+      console.warn('[ph166] no FALLBACK_MAP for:', go);
+      return false;
+    }
+    try {
+      if (m.fn) m.fn();
+      else if (m.open) window.open(m.open, '_blank');
+      else if (m.href) location.href = m.href;
+      return true;
+    } catch(e) {
+      console.error('[ph166] dispatch error for', go, e);
+      return false;
+    }
+  }
+
+  // ── capture-phase 안전망 위임 핸들러 ─────────────────
+  // 다른 핸들러가 이미 처리해도 fallback 으로 한 번 더 시도하지 않게
+  // 마커로 처리 여부 체크
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest('.ai-quick-btn, .cta-pay, .cta-enter');
+    if (!btn) return;
+    // 이미 처리됐으면 통과 (inline onclick 또는 기존 IIFE 핸들러)
+    if (e._ph166Handled) return;
+    var go = btn.dataset.go || btn.getAttribute('data-go');
+    if (!go) return;
+    // inline onclick 이 있으면 그쪽에 양보 (return; 안 함 — 그냥 통과시켜야 inline 도 실행됨)
+    if (btn.hasAttribute('onclick') && go !== 'all-menu') {
+      // inline onclick 이 작동하도록 그대로 통과
+      return;
+    }
+    // 위임 라우팅 실행
+    var ok = dispatchRoute(go);
+    if (ok) {
+      e._ph166Handled = true;
+      // 다른 핸들러도 동작하도록 propagation 막지 않음
+      // (다만 페이지 이동이 시작되면 다음 핸들러는 자동 무시됨)
+    }
+  }, false);
+
+  // ── touch 이벤트 지원 (iOS Safari 일부 환경에서 click 안 잡힐 때) ─────
+  var touchStartTarget = null;
+  document.addEventListener('touchstart', function(e){
+    var btn = e.target.closest('.ai-quick-btn, .cta-pay, .cta-enter');
+    touchStartTarget = btn || null;
+  }, { passive: true });
+  document.addEventListener('touchend', function(e){
+    if (!touchStartTarget) return;
+    var btn = e.target.closest('.ai-quick-btn, .cta-pay, .cta-enter');
+    if (btn === touchStartTarget) {
+      // touchend 후 50ms 안에 click 이 안 오면 강제 click 발생
+      var tgt = btn;
+      setTimeout(function(){
+        if (!tgt._ph166Clicked) {
+          try { tgt.click(); } catch(e){}
+        }
+      }, 50);
+      tgt._ph166Clicked = false;
+      tgt.addEventListener('click', function once(){
+        tgt._ph166Clicked = true;
+        tgt.removeEventListener('click', once);
+      }, { once: true });
+    }
+    touchStartTarget = null;
+  }, { passive: true });
+
+  console.log('[ph166] quick-btn rescue active — capture handler + z-index force + touch fallback');
+})();
+</script>
+
+
 
 
 
