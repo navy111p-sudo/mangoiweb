@@ -23086,7 +23086,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260529053300 -->
+<!-- BUILD:20260529053845 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25472,14 +25472,16 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     body.vc-in-call .vc-main-row.video-quarter .content
 
 <!-- ============================================================
-     Phase 178 (2026-05-29) - 신청 완료 → 결제 자동 열기 → 상품 선택 직행
-     · ?menu=payment&from=booking 으로 들어오면 결제 모달 자동 표시
-     · 자동으로 "신규 결제 → 상품 선택" 단계까지 진입
-     · type=oneon|group 에 따라 알림 멘트 변경
+     Phase 178 v3 (2026-05-29-FORCE) - 신청 완료 → 신규결제 상품선택 직행
+     · ?menu=payment&from=booking 자동 감지
+     · setInterval 무한 폴링 + 가시적 디버그 배너
+     · openNewPaymentDirect / paymode-card.click 다중 폴백
      ============================================================ -->
 <script id="ph178-payment-auto-open">
+console.log("[ph178-v3] 🚀 script loaded at " + new Date().toISOString());
 (function(){
   "use strict";
+  console.log("[ph178-v3] IIFE 진입, URL:", location.href);
   var _ph178_done = false;
   var _ph178_step1_confirmed = false;
 
@@ -25603,14 +25605,52 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     }
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function(){ setTimeout(tryOpenPayment, 400); });
-  } else {
-    setTimeout(tryOpenPayment, 400);
+  // 가시 디버그 배너 (우상단에 ph178 상태 표시)
+  function showDebugBanner(msg, color) {
+    try {
+      var existing = document.getElementById("ph178-debug-banner");
+      if (existing) existing.remove();
+      var b = document.createElement("div");
+      b.id = "ph178-debug-banner";
+      b.style.cssText = "position:fixed;top:10px;right:10px;z-index:2147483647;padding:8px 14px;background:" + (color || "#1e293b") + ";color:#fff;border-radius:6px;font-size:11px;font-family:monospace;box-shadow:0 4px 12px rgba(0,0,0,0.4);max-width:280px;line-height:1.4";
+      b.textContent = "[ph178] " + msg;
+      document.body && document.body.appendChild(b);
+      setTimeout(function(){ b.style.transition = "opacity .6s"; b.style.opacity = "0"; setTimeout(function(){ b.remove(); }, 700); }, 5000);
+    } catch(e){}
   }
-  // 동적 inject 대비
-  setTimeout(tryOpenPayment, 1500);
-  setTimeout(tryOpenPayment, 3000);
+
+  // 즉시 한 번 시도
+  var params0 = new URLSearchParams(location.search);
+  if (params0.get("menu") === "payment") {
+    console.log("[ph178-v3] URL 매칭 — 무한 폴링 시작");
+    showDebugBanner("URL 감지: ?menu=payment&from=" + (params0.get("from") || "?"), "#0ea5e9");
+  }
+
+  // 무한 폴링 — 500ms 마다 시도, 최대 30초
+  var tickCount = 0;
+  var pollerId = setInterval(function(){
+    tickCount++;
+    if (tickCount > 60) { // 30초 후 중단
+      clearInterval(pollerId);
+      console.log("[ph178-v3] 폴링 종료 (60 tick)");
+      return;
+    }
+    try {
+      tryOpenPayment();
+    } catch(e){ console.warn("[ph178-v3] tryOpenPayment error:", e); }
+    if (_ph178_step1_confirmed) {
+      clearInterval(pollerId);
+      console.log("[ph178-v3] ✅ step1 확정 — 폴링 종료");
+      showDebugBanner("✅ 신규결제 진입 성공!", "#10b981");
+    }
+  }, 500);
+
+  // 초기 즉시 호출도 유지
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function(){ setTimeout(tryOpenPayment, 200); });
+  } else {
+    setTimeout(tryOpenPayment, 100);
+  }
 })();
 </script>
 
