@@ -23067,7 +23067,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260529051155 -->
+<!-- BUILD:20260529052033 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25453,47 +25453,113 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     body.vc-in-call .vc-main-row.video-quarter .content
 
 <!-- ============================================================
-     Phase 178 (2026-05-29) - 신청 완료 → 결제 자동 열기
+     Phase 178 (2026-05-29) - 신청 완료 → 결제 자동 열기 → 상품 선택 직행
      · ?menu=payment&from=booking 으로 들어오면 결제 모달 자동 표시
-     · 또는 결제 카드 스크롤 + 강조
+     · 자동으로 "신규 결제 → 상품 선택" 단계까지 진입
+     · type=oneon|group 에 따라 알림 멘트 변경
      ============================================================ -->
 <script id="ph178-payment-auto-open">
 (function(){
   "use strict";
+  var _ph178_done = false;
+
+  // 상품 선택 단계로 진입 (신규 결제 모드)
+  function goToProductSelect() {
+    try {
+      // 1) 우선 신규 결제 카드 자동 클릭
+      var newCard = document.querySelector('.paymode-card[data-mode="new"]');
+      if (newCard && typeof newCard.click === "function") {
+        newCard.click();
+        console.log("[ph178] 신규 결제 카드 자동 클릭");
+        return true;
+      }
+    } catch(e){}
+    try {
+      // 2) 폴백: payMode 직접 세팅 후 payGoStep(1)
+      if (typeof window.payGoStep === "function") {
+        try { window.payMode = "new"; } catch(_) {}
+        window.payGoStep(1);
+        console.log("[ph178] payGoStep(1) 직접 호출");
+        return true;
+      }
+    } catch(e){}
+    try {
+      // 3) 마지막 폴백: pay-step1 강제 표시
+      var panes = document.querySelectorAll(".pay-step");
+      panes.forEach(function(p){ p.style.display = "none"; p.classList.remove("active"); });
+      var step1 = document.getElementById("pay-step1");
+      if (step1) {
+        step1.style.display = "block";
+        step1.classList.add("active");
+        console.log("[ph178] pay-step1 강제 표시");
+        return true;
+      }
+    } catch(e){}
+    return false;
+  }
+
   function tryOpenPayment() {
+    if (_ph178_done) return;
     var params = new URLSearchParams(location.search);
     if (params.get("menu") !== "payment") return;
 
     var from = params.get("from") || "";
+    var bookingType = params.get("type") || ""; // oneon | group
+    var typeLabel = bookingType === "group" ? "그룹 수업" : (bookingType === "oneon" ? "1:1 수업" : "수업");
 
-    // 1) 결제 모달이 있으면 열기
-    var modal = document.getElementById("payment-modal");
-    if (modal) {
-      modal.style.display = "flex";
-      console.log("[ph178] 결제 모달 자동 열림 (from:" + from + ")");
+    var opened = false;
+
+    // 1) openPaymentModal() 호출 (state reset + step0 진입)
+    if (typeof window.openPaymentModal === "function") {
+      try {
+        window.openPaymentModal();
+        opened = true;
+        console.log("[ph178] openPaymentModal() 호출 성공 (from:" + from + ", type:" + bookingType + ")");
+      } catch(e){ console.warn("[ph178] openPaymentModal 실패:", e); }
+    }
+
+    // 2) 폴백: 모달 직접 display
+    if (!opened) {
+      var modal = document.getElementById("payment-modal");
+      if (modal) {
+        modal.style.display = "flex";
+        opened = true;
+        console.log("[ph178] 결제 모달 직접 표시 (fallback)");
+      }
+    }
+
+    // 3) gridActions.payment() 시도
+    if (!opened && window.gridActions && typeof window.gridActions.payment === "function") {
+      try { window.gridActions.payment(); opened = true; console.log("[ph178] gridActions.payment 실행"); } catch(e){}
+    }
+
+    if (opened) {
+      _ph178_done = true;
+
+      // booking 으로부터 왔으면 자동으로 상품 선택 단계로 이동
+      if (from === "booking") {
+        // 모달이 fully rendered 될 시간 확보
+        setTimeout(function(){ goToProductSelect(); }, 380);
+        setTimeout(function(){ goToProductSelect(); }, 900); // 재시도
+
+        // 신청 완료 toast
+        var t = document.createElement("div");
+        t.style.cssText = "position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:99999;padding:14px 26px;background:linear-gradient(135deg,#10B981,#059669);color:#fff;border-radius:99px;font-weight:800;font-size:14px;box-shadow:0 12px 32px -6px rgba(16,185,129,0.55);font-family:\"Noto Sans KR\",sans-serif;display:flex;align-items:center;gap:10px";
+        t.innerHTML = "✅ " + typeLabel + " 신청 완료! 원하시는 과정을 선택해 주세요.";
+        document.body.appendChild(t);
+        setTimeout(function(){ t.style.transition = "opacity .5s"; t.style.opacity = "0"; setTimeout(function(){ t.remove(); }, 600); }, 3500);
+      }
       return;
     }
-    // 2) gridActions.payment() 시도
-    if (window.gridActions && typeof window.gridActions.payment === "function") {
-      try { window.gridActions.payment(); console.log("[ph178] gridActions.payment 실행"); return; } catch(e){}
-    }
-    // 3) 결제 카드 스크롤 + 강조
+
+    // 4) 모달이 없으면: 결제 카드 스크롤 + 강조
     var card = document.querySelector("[data-go=\"payment\"], .cta-pay");
     if (card) {
       card.scrollIntoView({ behavior: "smooth", block: "center" });
       var orig = card.style.boxShadow;
       card.style.boxShadow = "0 0 0 4px rgba(251,191,36,0.7), 0 0 32px rgba(251,191,36,0.5)";
       setTimeout(function(){ card.style.boxShadow = orig; }, 2400);
-      console.log("[ph178] 결제 카드 스크롤 + 강조");
-    }
-
-    // 신청 완료 toast
-    if (from === "booking") {
-      var t = document.createElement("div");
-      t.style.cssText = "position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:99999;padding:14px 26px;background:linear-gradient(135deg,#10B981,#059669);color:#fff;border-radius:99px;font-weight:800;font-size:14px;box-shadow:0 12px 32px -6px rgba(16,185,129,0.55);font-family:\"Noto Sans KR\",sans-serif;display:flex;align-items:center;gap:10px";
-      t.innerHTML = "✅ 수업 신청 완료! 결제를 진행해 주세요.";
-      document.body.appendChild(t);
-      setTimeout(function(){ t.style.transition = "opacity .5s"; t.style.opacity = "0"; setTimeout(function(){ t.remove(); }, 600); }, 3500);
+      console.log("[ph178] 결제 카드 스크롤 + 강조 (모달 미발견)");
     }
   }
 
@@ -25504,6 +25570,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   }
   // 동적 inject 대비
   setTimeout(tryOpenPayment, 2000);
+  setTimeout(tryOpenPayment, 3500);
 })();
 </script>
 
