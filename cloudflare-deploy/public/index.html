@@ -23086,7 +23086,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260529054126 -->
+<!-- BUILD:20260529054529 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25469,7 +25469,12 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     }
 
     /* ─── 3. 화면 분할 모드 무시 — 모바일에선 무조건 100% 콘텐츠 ─── */
-    body.vc-in-call .vc-main-row.video-quarter .content
+    body.vc-in-call .vc-main-row.video-quarter .content {
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+  }
+</style>
 
 <!-- ============================================================
      Phase 178 v3 (2026-05-29-FORCE) - 신청 완료 → 신규결제 상품선택 직행
@@ -25485,7 +25490,6 @@ console.log("[ph178-v3] 🚀 script loaded at " + new Date().toISOString());
   var _ph178_done = false;
   var _ph178_step1_confirmed = false;
 
-  // step1 (상품 선택) pane 이 실제로 visible 한지 확인
   function isStep1Visible() {
     var p = document.getElementById("pay-step1");
     if (!p) return false;
@@ -25493,42 +25497,28 @@ console.log("[ph178-v3] 🚀 script loaded at " + new Date().toISOString());
     return s.display !== "none" && s.visibility !== "hidden";
   }
 
-  // 끈질긴 진입 시도 — step1 이 보일 때까지 폴링
   function persistJumpToStep1(typeLabel) {
     if (_ph178_step1_confirmed) return;
     var attempt = 0;
-    var maxAttempts = 30; // 30 * 200ms = 6초
-
+    var maxAttempts = 30;
     function tick() {
       attempt++;
       if (_ph178_step1_confirmed || attempt > maxAttempts) return;
-
-      // 이미 step1 도달했으면 종료
       if (isStep1Visible()) {
         _ph178_step1_confirmed = true;
-        console.log("[ph178] ✅ step1 진입 확인 (attempt " + attempt + ")");
+        console.log("[ph178-v3] ✅ step1 진입 확인 (attempt " + attempt + ")");
         return;
       }
-
-      // 시도 1: 공식 API 사용
       if (typeof window.openNewPaymentDirect === "function") {
-        try {
-          window.openNewPaymentDirect();
-        } catch(e){ console.warn("[ph178] openNewPaymentDirect 실패:", e); }
+        try { window.openNewPaymentDirect(); } catch(e){ console.warn("[ph178-v3] openNewPaymentDirect 실패:", e); }
       } else {
-        // 시도 2: 카드 클릭
         try {
           var newCard = document.querySelector('.paymode-card[data-mode="new"]');
-          if (newCard) {
-            newCard.click();
-            console.log("[ph178] paymode 카드 클릭 (attempt " + attempt + ")");
-          }
+          if (newCard) { newCard.click(); console.log("[ph178-v3] paymode 카드 클릭 (attempt " + attempt + ")"); }
         } catch(e){}
       }
-
       setTimeout(tick, 200);
     }
-
     tick();
   }
 
@@ -25536,76 +25526,51 @@ console.log("[ph178-v3] 🚀 script loaded at " + new Date().toISOString());
     if (_ph178_done) return;
     var params = new URLSearchParams(location.search);
     if (params.get("menu") !== "payment") return;
-
     var from = params.get("from") || "";
-    var bookingType = params.get("type") || ""; // oneon | group
+    var bookingType = params.get("type") || "";
     var typeLabel = bookingType === "group" ? "그룹 수업" : (bookingType === "oneon" ? "1:1 수업" : "수업");
-
     var opened = false;
 
-    // booking 으로 들어왔으면 → 신규결제 직행 함수가 있으면 그것만 호출
     if (from === "booking" && typeof window.openNewPaymentDirect === "function") {
       try {
         window.openNewPaymentDirect();
-        opened = true;
-        _ph178_done = true;
-        console.log("[ph178] ✅ openNewPaymentDirect 호출 (from:booking, type:" + bookingType + ")");
-      } catch(e){ console.warn("[ph178] openNewPaymentDirect 호출 실패:", e); }
+        opened = true; _ph178_done = true;
+        console.log("[ph178-v3] ✅ openNewPaymentDirect 호출 (from:booking, type:" + bookingType + ")");
+      } catch(e){ console.warn("[ph178-v3] openNewPaymentDirect 호출 실패:", e); }
     }
-
-    // 1) 폴백: openPaymentModal() 호출 (state reset + step0 진입)
     if (!opened && typeof window.openPaymentModal === "function") {
-      try {
-        window.openPaymentModal();
-        opened = true;
-        console.log("[ph178] openPaymentModal() 호출 (from:" + from + ")");
-      } catch(e){ console.warn("[ph178] openPaymentModal 실패:", e); }
+      try { window.openPaymentModal(); opened = true; console.log("[ph178-v3] openPaymentModal() 호출 (from:" + from + ")"); }
+      catch(e){ console.warn("[ph178-v3] openPaymentModal 실패:", e); }
     }
-
-    // 2) 폴백: 모달 직접 display
     if (!opened) {
       var modal = document.getElementById("payment-modal");
-      if (modal) {
-        modal.style.display = "flex";
-        opened = true;
-        console.log("[ph178] 결제 모달 직접 표시 (fallback)");
-      }
+      if (modal) { modal.style.display = "flex"; opened = true; console.log("[ph178-v3] 결제 모달 직접 표시 (fallback)"); }
     }
-
-    // 3) gridActions.payment() 시도
     if (!opened && window.gridActions && typeof window.gridActions.payment === "function") {
-      try { window.gridActions.payment(); opened = true; console.log("[ph178] gridActions.payment 실행"); } catch(e){}
+      try { window.gridActions.payment(); opened = true; console.log("[ph178-v3] gridActions.payment 실행"); } catch(e){}
     }
-
     if (opened) {
       _ph178_done = true;
-
-      // booking 으로부터 왔으면 자동으로 상품 선택 단계로 이동 (끈질긴 폴링)
       if (from === "booking") {
         persistJumpToStep1(typeLabel);
-
-        // 신청 완료 toast
         var t = document.createElement("div");
-        t.style.cssText = "position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:99999;padding:14px 26px;background:linear-gradient(135deg,#10B981,#059669);color:#fff;border-radius:99px;font-weight:800;font-size:14px;box-shadow:0 12px 32px -6px rgba(16,185,129,0.55);font-family:\"Noto Sans KR\",sans-serif;display:flex;align-items:center;gap:10px";
+        t.style.cssText = "position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:99999;padding:14px 26px;background:linear-gradient(135deg,#10B981,#059669);color:#fff;border-radius:99px;font-weight:800;font-size:14px;box-shadow:0 12px 32px -6px rgba(16,185,129,0.55);font-family:'Noto Sans KR',sans-serif;display:flex;align-items:center;gap:10px";
         t.innerHTML = "✅ " + typeLabel + " 신청 완료! 원하시는 과정을 선택해 주세요.";
         document.body.appendChild(t);
         setTimeout(function(){ t.style.transition = "opacity .5s"; t.style.opacity = "0"; setTimeout(function(){ t.remove(); }, 600); }, 3500);
       }
       return;
     }
-
-    // 4) 모달이 없으면: 결제 카드 스크롤 + 강조
-    var card2 = document.querySelector("[data-go=\"payment\"], .cta-pay");
+    var card2 = document.querySelector('[data-go="payment"], .cta-pay');
     if (card2) {
       card2.scrollIntoView({ behavior: "smooth", block: "center" });
       var orig = card2.style.boxShadow;
       card2.style.boxShadow = "0 0 0 4px rgba(251,191,36,0.7), 0 0 32px rgba(251,191,36,0.5)";
       setTimeout(function(){ card2.style.boxShadow = orig; }, 2400);
-      console.log("[ph178] 결제 카드 스크롤 + 강조 (모달 미발견)");
+      console.log("[ph178-v3] 결제 카드 스크롤 + 강조 (모달 미발견)");
     }
   }
 
-  // 가시 디버그 배너 (우상단에 ph178 상태 표시)
   function showDebugBanner(msg, color) {
     try {
       var existing = document.getElementById("ph178-debug-banner");
@@ -25619,25 +25584,17 @@ console.log("[ph178-v3] 🚀 script loaded at " + new Date().toISOString());
     } catch(e){}
   }
 
-  // 즉시 한 번 시도
   var params0 = new URLSearchParams(location.search);
   if (params0.get("menu") === "payment") {
     console.log("[ph178-v3] URL 매칭 — 무한 폴링 시작");
     showDebugBanner("URL 감지: ?menu=payment&from=" + (params0.get("from") || "?"), "#0ea5e9");
   }
 
-  // 무한 폴링 — 500ms 마다 시도, 최대 30초
   var tickCount = 0;
   var pollerId = setInterval(function(){
     tickCount++;
-    if (tickCount > 60) { // 30초 후 중단
-      clearInterval(pollerId);
-      console.log("[ph178-v3] 폴링 종료 (60 tick)");
-      return;
-    }
-    try {
-      tryOpenPayment();
-    } catch(e){ console.warn("[ph178-v3] tryOpenPayment error:", e); }
+    if (tickCount > 60) { clearInterval(pollerId); console.log("[ph178-v3] 폴링 종료 (60 tick)"); return; }
+    try { tryOpenPayment(); } catch(e){ console.warn("[ph178-v3] tryOpenPayment error:", e); }
     if (_ph178_step1_confirmed) {
       clearInterval(pollerId);
       console.log("[ph178-v3] ✅ step1 확정 — 폴링 종료");
@@ -25645,7 +25602,6 @@ console.log("[ph178-v3] 🚀 script loaded at " + new Date().toISOString());
     }
   }, 500);
 
-  // 초기 즉시 호출도 유지
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function(){ setTimeout(tryOpenPayment, 200); });
   } else {
