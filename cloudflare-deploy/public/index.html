@@ -15700,6 +15700,25 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // ━━━━━━━━━━ 외부 API: 신규결제 상품선택으로 직행 (ph178용) ━━━━━━━━━━
+  // ph178 booking 진입 등에서 사용. payMode local 변수를 직접 세팅 + step1 로 이동
+  window.openNewPaymentDirect = function() {
+    // 모달이 닫혀있으면 먼저 열기
+    if (modal.style.display === 'none' || !modal.style.display) {
+      window.openPaymentModal();
+    }
+    // payMode 직접 세팅 (local 변수)
+    payMode = 'new';
+    window._isAutoRenew = false;
+    // 신규결제 카드에 selected 표시
+    document.querySelectorAll('.paymode-card.selected').forEach(c => c.classList.remove('selected'));
+    const newCard = document.querySelector('.paymode-card[data-mode="new"]');
+    if (newCard) newCard.classList.add('selected');
+    // 짧은 딜레이 후 step1 진입 (modal render 시간 확보)
+    setTimeout(function(){ payGoStep(1); }, 80);
+    console.log('[openNewPaymentDirect] 신규결제 상품선택 진입 완료');
+  };
+
   // 상품 카드 클릭 → 선택 + step 2 자동 전환
   document.querySelectorAll('.product-card').forEach(card => {
     card.addEventListener('click', () => {
@@ -23067,7 +23086,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260529052622 -->
+<!-- BUILD:20260529053300 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25462,40 +25481,53 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 (function(){
   "use strict";
   var _ph178_done = false;
+  var _ph178_step1_confirmed = false;
 
-  // 상품 선택 단계로 진입 (신규 결제 모드)
-  function goToProductSelect() {
-    try {
-      // 1) 우선 신규 결제 카드 자동 클릭
-      var newCard = document.querySelector('.paymode-card[data-mode="new"]');
-      if (newCard && typeof newCard.click === "function") {
-        newCard.click();
-        console.log("[ph178] 신규 결제 카드 자동 클릭");
-        return true;
+  // step1 (상품 선택) pane 이 실제로 visible 한지 확인
+  function isStep1Visible() {
+    var p = document.getElementById("pay-step1");
+    if (!p) return false;
+    var s = window.getComputedStyle(p);
+    return s.display !== "none" && s.visibility !== "hidden";
+  }
+
+  // 끈질긴 진입 시도 — step1 이 보일 때까지 폴링
+  function persistJumpToStep1(typeLabel) {
+    if (_ph178_step1_confirmed) return;
+    var attempt = 0;
+    var maxAttempts = 30; // 30 * 200ms = 6초
+
+    function tick() {
+      attempt++;
+      if (_ph178_step1_confirmed || attempt > maxAttempts) return;
+
+      // 이미 step1 도달했으면 종료
+      if (isStep1Visible()) {
+        _ph178_step1_confirmed = true;
+        console.log("[ph178] ✅ step1 진입 확인 (attempt " + attempt + ")");
+        return;
       }
-    } catch(e){}
-    try {
-      // 2) 폴백: payMode 직접 세팅 후 payGoStep(1)
-      if (typeof window.payGoStep === "function") {
-        try { window.payMode = "new"; } catch(_) {}
-        window.payGoStep(1);
-        console.log("[ph178] payGoStep(1) 직접 호출");
-        return true;
+
+      // 시도 1: 공식 API 사용
+      if (typeof window.openNewPaymentDirect === "function") {
+        try {
+          window.openNewPaymentDirect();
+        } catch(e){ console.warn("[ph178] openNewPaymentDirect 실패:", e); }
+      } else {
+        // 시도 2: 카드 클릭
+        try {
+          var newCard = document.querySelector('.paymode-card[data-mode="new"]');
+          if (newCard) {
+            newCard.click();
+            console.log("[ph178] paymode 카드 클릭 (attempt " + attempt + ")");
+          }
+        } catch(e){}
       }
-    } catch(e){}
-    try {
-      // 3) 마지막 폴백: pay-step1 강제 표시
-      var panes = document.querySelectorAll(".pay-step");
-      panes.forEach(function(p){ p.style.display = "none"; p.classList.remove("active"); });
-      var step1 = document.getElementById("pay-step1");
-      if (step1) {
-        step1.style.display = "block";
-        step1.classList.add("active");
-        console.log("[ph178] pay-step1 강제 표시");
-        return true;
-      }
-    } catch(e){}
-    return false;
+
+      setTimeout(tick, 200);
+    }
+
+    tick();
   }
 
   function tryOpenPayment() {
@@ -25509,12 +25541,22 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 
     var opened = false;
 
-    // 1) openPaymentModal() 호출 (state reset + step0 진입)
-    if (typeof window.openPaymentModal === "function") {
+    // booking 으로 들어왔으면 → 신규결제 직행 함수가 있으면 그것만 호출
+    if (from === "booking" && typeof window.openNewPaymentDirect === "function") {
+      try {
+        window.openNewPaymentDirect();
+        opened = true;
+        _ph178_done = true;
+        console.log("[ph178] ✅ openNewPaymentDirect 호출 (from:booking, type:" + bookingType + ")");
+      } catch(e){ console.warn("[ph178] openNewPaymentDirect 호출 실패:", e); }
+    }
+
+    // 1) 폴백: openPaymentModal() 호출 (state reset + step0 진입)
+    if (!opened && typeof window.openPaymentModal === "function") {
       try {
         window.openPaymentModal();
         opened = true;
-        console.log("[ph178] openPaymentModal() 호출 성공 (from:" + from + ", type:" + bookingType + ")");
+        console.log("[ph178] openPaymentModal() 호출 (from:" + from + ")");
       } catch(e){ console.warn("[ph178] openPaymentModal 실패:", e); }
     }
 
@@ -25536,11 +25578,9 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     if (opened) {
       _ph178_done = true;
 
-      // booking 으로부터 왔으면 자동으로 상품 선택 단계로 이동
+      // booking 으로부터 왔으면 자동으로 상품 선택 단계로 이동 (끈질긴 폴링)
       if (from === "booking") {
-        // 모달이 fully rendered 될 시간 확보
-        setTimeout(function(){ goToProductSelect(); }, 380);
-        setTimeout(function(){ goToProductSelect(); }, 900); // 재시도
+        persistJumpToStep1(typeLabel);
 
         // 신청 완료 toast
         var t = document.createElement("div");
@@ -25553,24 +25593,24 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     }
 
     // 4) 모달이 없으면: 결제 카드 스크롤 + 강조
-    var card = document.querySelector("[data-go=\"payment\"], .cta-pay");
-    if (card) {
-      card.scrollIntoView({ behavior: "smooth", block: "center" });
-      var orig = card.style.boxShadow;
-      card.style.boxShadow = "0 0 0 4px rgba(251,191,36,0.7), 0 0 32px rgba(251,191,36,0.5)";
-      setTimeout(function(){ card.style.boxShadow = orig; }, 2400);
+    var card2 = document.querySelector("[data-go=\"payment\"], .cta-pay");
+    if (card2) {
+      card2.scrollIntoView({ behavior: "smooth", block: "center" });
+      var orig = card2.style.boxShadow;
+      card2.style.boxShadow = "0 0 0 4px rgba(251,191,36,0.7), 0 0 32px rgba(251,191,36,0.5)";
+      setTimeout(function(){ card2.style.boxShadow = orig; }, 2400);
       console.log("[ph178] 결제 카드 스크롤 + 강조 (모달 미발견)");
     }
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function(){ setTimeout(tryOpenPayment, 600); });
+    document.addEventListener("DOMContentLoaded", function(){ setTimeout(tryOpenPayment, 400); });
   } else {
-    setTimeout(tryOpenPayment, 600);
+    setTimeout(tryOpenPayment, 400);
   }
   // 동적 inject 대비
-  setTimeout(tryOpenPayment, 2000);
-  setTimeout(tryOpenPayment, 3500);
+  setTimeout(tryOpenPayment, 1500);
+  setTimeout(tryOpenPayment, 3000);
 })();
 </script>
 
