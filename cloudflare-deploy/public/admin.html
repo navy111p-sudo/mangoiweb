@@ -18806,7 +18806,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260529041043 -->
+        <!-- BUILD:20260529042224 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -34184,6 +34184,220 @@ button.chip:hover,
     }
   }
 </style>
+
+<!-- ============================================================
+     Phase 175 (2026-05-29) - 학생 이탈 위험 스캔 demo fallback
+     · /api/admin/retention/risk 가 503/네트워크 에러일 때
+       샘플 데모 데이터로 기능 시연 (8명) — UI 가 죽지 않게
+     · 백엔드 연결 시 자동으로 실데이터로 전환
+     · 모든 케어 액션 버튼은 demo 모드 안내 후 동작
+     ============================================================ -->
+<script id="ph175-arr-demo-fallback">
+(function(){
+  "use strict";
+
+  var DEMO_RISK = {
+    ok: true,
+    count: 8,
+    at_risk: [
+      {
+        user_id: "demo-hong-1234", student_name: "홍길동",
+        parent_name: "홍부모", parent_phone: "010-1234-5678",
+        risk_score: 92, risk_level: "high",
+        attendance_30d: 2, eval_avg: 2.1, eval_trend: -1.2,
+        overdue_days: 14, hw_missed_30d: 8,
+        reasons: ["마지막 입장 21일 전", "30일 출석 2회", "3개월 출석 70% → 35% 급감", "평가 평균 2.1점", "수강료 14일 미납"],
+        recommended_actions: ["컴백 번들 (500P + 무료 보강)", "학부모 카톡 케어 메시지"]
+      },
+      {
+        user_id: "demo-kim-2456", student_name: "김민준",
+        parent_name: "김부모", parent_phone: "010-2345-6789",
+        risk_score: 86, risk_level: "high",
+        attendance_30d: 3, eval_avg: 2.5, eval_trend: -0.8,
+        overdue_days: 0, hw_missed_30d: 6,
+        reasons: ["출석 추세 60일→30일 65%→40%", "평가서 2주 누락", "숙제 미제출 6회"],
+        recommended_actions: ["기프트 포인트 300P", "이벤트 초대"]
+      },
+      {
+        user_id: "demo-lee-3789", student_name: "이서연",
+        parent_name: "이부모", parent_phone: "010-3456-7890",
+        risk_score: 78, risk_level: "high",
+        attendance_30d: 5, eval_avg: 3.0, eval_trend: -0.5,
+        overdue_days: 7, hw_missed_30d: 4,
+        reasons: ["수강료 7일 미납", "학습 활동 감소", "평가 평균 하락"],
+        recommended_actions: ["학부모 SMS 발송", "결제 안내"]
+      },
+      {
+        user_id: "demo-park-4012", student_name: "박지호",
+        parent_name: "박부모", parent_phone: "010-4567-8901",
+        risk_score: 65, risk_level: "medium",
+        attendance_30d: 7, eval_avg: 3.4, eval_trend: -0.3,
+        overdue_days: 0, hw_missed_30d: 3,
+        reasons: ["출석 약간 감소", "평가 추세 하향"],
+        recommended_actions: ["격려 카톡 메시지", "이벤트 초대"]
+      },
+      {
+        user_id: "demo-choi-5345", student_name: "최예린",
+        parent_name: "최부모", parent_phone: "010-5678-9012",
+        risk_score: 58, risk_level: "medium",
+        attendance_30d: 8, eval_avg: 3.6, eval_trend: 0.1,
+        overdue_days: 0, hw_missed_30d: 2,
+        reasons: ["출석률 평균 미달", "숙제 일부 미제출"],
+        recommended_actions: ["카톡 응원 메시지"]
+      },
+      {
+        user_id: "demo-jung-6678", student_name: "정도윤",
+        parent_name: "정부모", parent_phone: "010-6789-0123",
+        risk_score: 52, risk_level: "medium",
+        attendance_30d: 9, eval_avg: 3.5, eval_trend: -0.2,
+        overdue_days: 0, hw_missed_30d: 2,
+        reasons: ["참여도 약간 하락"],
+        recommended_actions: ["카톡 안부 인사"]
+      },
+      {
+        user_id: "demo-kang-7901", student_name: "강서윤",
+        parent_name: "강부모", parent_phone: "010-7890-1234",
+        risk_score: 38, risk_level: "low",
+        attendance_30d: 11, eval_avg: 3.8, eval_trend: 0.0,
+        overdue_days: 0, hw_missed_30d: 1,
+        reasons: ["출석 평균 약간 하회"],
+        recommended_actions: ["관찰 유지"]
+      },
+      {
+        user_id: "demo-yoon-8234", student_name: "윤하린",
+        parent_name: "윤부모", parent_phone: "010-8901-2345",
+        risk_score: 32, risk_level: "low",
+        attendance_30d: 12, eval_avg: 3.9, eval_trend: 0.2,
+        overdue_days: 0, hw_missed_30d: 0,
+        reasons: ["최근 활동 약간 줄어듦"],
+        recommended_actions: ["관찰 유지"]
+      }
+    ]
+  };
+
+  // arrLoad 가 정의된 후 monkey-patch
+  function wrap() {
+    if (!window.arrLoad) return false;
+    if (window.arrLoad._ph175Wrapped) return true;
+    var origLoad = window.arrLoad;
+    window.arrLoad = async function(){
+      var out = document.getElementById("arr-result");
+      if (out) {
+        out.innerHTML = "<div style=\"color:#a3b3d1\">스캔 중...</div>";
+      }
+      try {
+        var r = await fetch("/api/admin/retention/risk");
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        var d = await r.json();
+        if (!d.ok) throw new Error(d.error || "API error");
+        // 실데이터 성공 — 원본 함수 동작 그대로 (다시 호출)
+        // 원본은 자체적으로 화면을 그리니, 우리는 그냥 결과를 가공해서 렌더
+        renderRiskUI(d, false);
+      } catch(e) {
+        console.warn("[ph175] API 실패 — demo 데이터로 fallback:", e.message);
+        renderRiskUI(DEMO_RISK, true);
+      }
+    };
+    window.arrLoad._ph175Wrapped = true;
+    return true;
+  }
+
+  function esc(s){ return String(s||"").replace(/[&<>"\']/g, function(c){
+    return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","\'":"&#39;"})[c];
+  });}
+
+  function renderRiskUI(d, isDemo) {
+    var out = document.getElementById("arr-result");
+    if (!out) return;
+    window._arrAtRisk = d.at_risk;
+
+    if (!d.count) {
+      out.innerHTML = "<div style=\"padding:24px;text-align:center;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px\"><b style=\"color:#34d399\">✅ 위험 학생이 없습니다!</b><br><span style=\"font-size:11.5px;color:#a3b3d1;margin-top:6px;display:inline-block\">모든 학생이 정상 출석/학습 중입니다.</span></div>";
+      return;
+    }
+
+    var highN = d.at_risk.filter(function(x){return x.risk_level==="high"}).length;
+    var medN  = d.at_risk.filter(function(x){return x.risk_level==="medium"}).length;
+    var lowN  = d.at_risk.filter(function(x){return x.risk_level==="low"}).length;
+
+    var demoBanner = isDemo ? (
+      "<div style=\"margin-bottom:14px;padding:10px 14px;background:linear-gradient(135deg,rgba(251,191,36,0.15),rgba(245,158,11,0.08));border:1px solid rgba(251,191,36,0.45);border-radius:10px;font-size:12px;color:#fcd34d\">" +
+      "<b>📋 데모 데이터</b> · 백엔드 API 가 아직 연결되지 않아 샘플 8명 데이터를 표시합니다. 케어 액션 버튼도 데모 모드로 시연됩니다." +
+      "</div>"
+    ) : "";
+
+    var summary = (
+      "<div style=\"display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap\">" +
+        "<div style=\"background:rgba(239,68,68,0.15);border:1px solid #ef4444;border-radius:8px;padding:8px 14px;font-size:12px\">🚨 심각: <b style=\"color:#fca5a5;font-size:14px\">" + highN + "</b></div>" +
+        "<div style=\"background:rgba(245,158,11,0.15);border:1px solid #f59e0b;border-radius:8px;padding:8px 14px;font-size:12px\">⚠️ 주의: <b style=\"color:#fbbf24;font-size:14px\">" + medN + "</b></div>" +
+        "<div style=\"background:rgba(148,163,184,0.15);border:1px solid #94a3b8;border-radius:8px;padding:8px 14px;font-size:12px\">🟡 관찰: <b style=\"color:#cbd5e1;font-size:14px\">" + lowN + "</b></div>" +
+      "</div>"
+    );
+
+    var cards = d.at_risk.map(function(r, i){
+      var color = r.risk_level === "high" ? "#ef4444" : r.risk_level === "medium" ? "#f59e0b" : "#94a3b8";
+      var bg = r.risk_level === "high" ? "rgba(239,68,68,0.08)" : r.risk_level === "medium" ? "rgba(245,158,11,0.08)" : "rgba(148,163,184,0.06)";
+      var actions = (r.recommended_actions || [r.recommended_action || "-"]).map(esc).join(" · ");
+      var reasons = (r.reasons || []).map(function(x){
+        return "<span style=\"display:inline-block;margin:2px 6px 2px 0;padding:2px 8px;background:rgba(255,255,255,0.05);border-radius:6px\">" + esc(x) + "</span>";
+      }).join("");
+      var metricBits = [
+        "<span>📅 " + r.attendance_30d + "회</span>",
+        "<span>⭐ " + (r.eval_avg || "-") + "</span>",
+        r.eval_trend ? ("<span>" + (r.eval_trend > 0 ? "📈 +" : "📉 ") + r.eval_trend + "</span>") : "",
+        r.overdue_days > 0 ? ("<span style=\"color:#fbbf24\">💰 " + r.overdue_days + "일</span>") : "",
+        r.hw_missed_30d > 0 ? ("<span>📚 " + r.hw_missed_30d + "회</span>") : ""
+      ].filter(Boolean).join(" ");
+
+      var careOnclick = isDemo ? "alert('데모 모드 — 실제 발송은 백엔드 연결 후 작동합니다.\\n\\n학생: " + esc(r.student_name).replace(/\\/g, "\\\\") + "')" : "arrCare('"+esc(r.user_id)+"','kakao','"+esc(r.student_name)+"')";
+
+      return (
+        "<div style=\"background:" + bg + ";border:1px solid " + color + ";border-radius:12px;padding:14px 16px;margin-bottom:10px\">" +
+          "<div style=\"display:flex;justify-content:space-between;align-items:flex-start;gap:12px\">" +
+            "<div style=\"flex:1;min-width:0\">" +
+              "<div style=\"display:flex;align-items:center;gap:10px;flex-wrap:wrap\">" +
+                "<span style=\"font-weight:800;font-size:15px\">" + esc(r.student_name) + "</span>" +
+                "<span style=\"font-family:monospace;font-size:11px;color:#a3b3d1\">" + esc(r.user_id) + "</span>" +
+                (r.parent_name ? "<span style=\"font-size:11px;color:#94a3b8\">👪 " + esc(r.parent_name) + (r.parent_phone ? " · " + esc(r.parent_phone) : "") + "</span>" : "") +
+              "</div>" +
+              "<div style=\"margin-top:6px;display:flex;gap:10px;flex-wrap:wrap;font-size:11.5px;color:#cbd5e1\">" + metricBits + "</div>" +
+              "<div style=\"margin-top:8px;font-size:11.5px;color:#cbd5e1;line-height:1.55\">" + reasons + "</div>" +
+              "<div style=\"margin-top:8px;font-size:12px;color:#fbbf24\"><b>💡 추천:</b> " + actions + "</div>" +
+              "<div style=\"margin-top:10px;display:flex;gap:6px;flex-wrap:wrap\">" +
+                "<button onclick=\"" + careOnclick + "\" style=\"padding:6px 12px;font-size:11.5px;background:#fee500;color:#191919;border:0;border-radius:6px;font-weight:700;cursor:pointer\">💬 카톡</button>" +
+                "<button onclick=\"" + careOnclick.replace("kakao","sms") + "\" style=\"padding:6px 12px;font-size:11.5px;background:#3b82f6;color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer\">📱 문자</button>" +
+                "<button onclick=\"" + careOnclick.replace("kakao","gift") + "\" style=\"padding:6px 12px;font-size:11.5px;background:linear-gradient(135deg,#ec4899,#f43f5e);color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer\">🎁 기프트</button>" +
+                "<button onclick=\"" + careOnclick.replace("kakao","event") + "\" style=\"padding:6px 12px;font-size:11.5px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer\">🎉 이벤트</button>" +
+                "<button onclick=\"" + careOnclick.replace("kakao","comeback_bundle") + "\" style=\"padding:6px 12px;font-size:11.5px;background:linear-gradient(135deg,#8b5cf6,#6366f1);color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer\">🚀 컴백</button>" +
+              "</div>" +
+            "</div>" +
+            "<div style=\"text-align:center;flex-shrink:0\">" +
+              "<div style=\"font-size:32px;font-weight:900;color:" + color + ";line-height:1\">" + r.risk_score + "</div>" +
+              "<div style=\"font-size:10px;color:#a3b3d1;letter-spacing:1px;margin-top:2px\">RISK</div>" +
+              "<div style=\"margin-top:4px;font-size:10px;color:" + color + ";font-weight:800\">" + r.risk_level.toUpperCase() + "</div>" +
+            "</div>" +
+          "</div>" +
+        "</div>"
+      );
+    }).join("");
+
+    out.innerHTML = demoBanner + summary + cards;
+  }
+
+  if (!wrap()) {
+    // arrLoad 가 늦게 정의되면 대기
+    var tries = 0;
+    var iv = setInterval(function(){
+      tries++;
+      if (wrap() || tries > 30) clearInterval(iv);
+    }, 200);
+  }
+
+  console.log("[ph175] 위험 학생 스캔 demo fallback 활성 — API 실패 시 8명 샘플 표시");
+})();
+</script>
+
+
 
 
 
