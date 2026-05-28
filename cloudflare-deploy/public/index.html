@@ -17,7 +17,7 @@
     'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
     'leveltest':'/level-test.html','battle':'/battle.html',
-    'lesson-change':'/lesson-postpone-demo.html','videolesson':'/video-call/',
+    'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
     'inquiry':'/contact.html','kakao':'/contact.html','focus':'/focus.html',
     'goals':'/goals.html','write':'/ai-write.html','parent-dashboard':'/parent.html',
     'chat':'/ai-friend.html','teacher-praise':'/teacher-praise.html',
@@ -4020,6 +4020,8 @@
         <button class="ai-quick-btn" data-go="all-menu" data-ko="🏠 전체메뉴" data-en="🏠 All Menu" onclick="event.preventDefault();var p=document.getElementById('v19-panel');if(p){p.style.display=p.style.display==='none'?'':'none';if(p.style.display!=='none')p.scrollIntoView({behavior:'smooth',block:'start'});}return false;">🏠 전체메뉴</button>
         <!-- ph170 (2026-05-29) — 수업 진단 카드 (FAB 대체) -->
         <button class="ai-quick-btn" data-go="precheck" data-ko="🎥 수업 진단" data-en="🎥 PreCheck" onclick="event.preventDefault();location.href='/precheck.html';return false;">🎥 수업 진단</button>
+        <!-- ph178 (2026-05-29) — 수업 신청 카드 (시간·교사 선택 → 결제) -->
+        <button class="ai-quick-btn" data-go="booking" data-ko="📝 수업 신청" data-en="📝 Book Class" onclick="event.preventDefault();location.href='/lesson-booking-demo.html';return false;">📝 수업 신청</button>
       </div>
       <!-- 결제하기 + 수업입장 한 줄 (같은 골드 스타일) -->
       <div class="ai-cta-row">
@@ -10657,6 +10659,8 @@ window.addEventListener('DOMContentLoaded', () => {
     { kws: ['발음', '발음연습', '발음 연습', '영어발음', 'pronunciation', '스피치', 'speech', '말하기'], action: () => window.gridActions && window.gridActions.speech(), label: '🎤 영어 발음 코치 (AI 발음 평가)' },
     // ph157: 중국어 발음 코치
     { kws: ['중국어', '중국어발음', '중국어 발음', '중국어발음코치', 'chinese', 'mandarin', '다락원', 'darakwon', 'cn voice', '병음', 'pinyin'], action: () => location.href = '/speech-coach-cn.html', label: '🇨🇳 중국어 발음 코치 (다락원 마스터 + Lv 1~20)' },
+    // ph178: 수업 신청 (시간·교사 선택 → 결제)
+    { kws: ['수업신청', '수업 신청', '예약', '신청하기', '시간 선택', '교사 선택', 'book', 'booking', 'lesson booking'], action: () => location.href = '/lesson-booking-demo.html', label: '📝 수업 신청 (시간·교사 → 결제)' },
     // ph158: 교재 업로더 (폴더 드래그 → AI 자동 분류)
     { kws: ['교재', '교재업로더', '교재 업로더', '교재 폴더', '교재폴더', '폴더 업로드', '폴더업로드', '자동 분류', '자동분류', '교과서', 'textbook', 'upload', 'classify'], action: () => location.href = '/textbook-uploader.html', label: '📚 교재 업로더 (폴더 드래그 → AI 자동 분류)' },
     // ph158: 교재 뷰어 (단독 진입은 라이브러리 통해)
@@ -23063,7 +23067,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260529043737 -->
+<!-- BUILD:20260529044506 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -23279,7 +23283,7 @@ document.addEventListener('keydown', function(e){
     'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
     'leveltest':'/level-test.html','battle':'/battle.html',
-    'lesson-change':'/lesson-postpone-demo.html','videolesson':'/video-call/',
+    'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
     'inquiry':'/contact.html','kakao':'/contact.html','focus':'/focus.html',
     'goals':'/goals.html','write':'/ai-write.html','parent-dashboard':'/parent.html',
     'chat':'/ai-friend.html','teacher-praise':'/teacher-praise.html',
@@ -23412,7 +23416,7 @@ document.addEventListener('keydown', function(e){
     'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
     'leveltest':'/level-test.html','battle':'/battle.html',
-    'lesson-change':'/lesson-postpone-demo.html','videolesson':'/video-call/',
+    'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
     'inquiry':'/contact.html','kakao':'/contact.html','focus':'/focus.html',
     'goals':'/goals.html','write':'/ai-write.html','parent-dashboard':'/parent.html',
     'chat':'/ai-friend.html','teacher-praise':'/teacher-praise.html',
@@ -23657,6 +23661,7 @@ document.addEventListener('keydown', function(e){
       {emoji:'🧪', name:'MBTI 테스트', url:'/mbti-test.html'},
       {emoji:'🔥', name:'연속 출석', url:'/streak.html'},
       {emoji:'🌟', name:'칭찬 스티커', url:'/teacher-praise.html'},
+      {emoji:'📝', name:'수업 신청', url:'/lesson-booking-demo.html'},
       {emoji:'📅', name:'수업 연기·변경', url:'/lesson-postpone-demo.html'},
       {emoji:'👨‍👩‍👧', name:'학부모 페이지', url:'/parent.html'},
       {emoji:'🩺', name:'시스템 진단', url:'/admin/health.html'},
@@ -23759,6 +23764,7 @@ document.addEventListener('keydown', function(e){
       {emoji:'🧪', name:'MBTI 테스트', url:'/mbti-test.html'},
       {emoji:'🔥', name:'연속 출석', url:'/streak.html'},
       {emoji:'🌟', name:'칭찬 스티커', url:'/teacher-praise.html'},
+      {emoji:'📝', name:'수업 신청', url:'/lesson-booking-demo.html'},
       {emoji:'📅', name:'수업 연기·변경', url:'/lesson-postpone-demo.html'},
       {emoji:'👨‍👩‍👧', name:'학부모 페이지', url:'/parent.html'},
       {emoji:'🩺', name:'시스템 진단', url:'/admin/health.html'},
@@ -24360,6 +24366,8 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     'textbook-uploader':{ href: '/textbook-uploader.html' },
     'textbook':         { href: '/textbook-uploader.html' },
     'lesson-change':    { fn: function(){ if (window.openLessonChangeModal) window.openLessonChangeModal(); else location.href = '/lesson-postpone-demo.html'; } },
+    'booking':          { href: '/lesson-booking-demo.html' },
+    'lesson-booking':   { href: '/lesson-booking-demo.html' },
     'inquiry':          { fn: function(){ if (window.openInquiryModal) window.openInquiryModal(); else location.href = '/contact.html'; } },
     'trial':            { fn: function(){ if (window.openInquiryModal) window.openInquiryModal(); else location.href = '/contact.html'; } },
     'enroll':           { fn: function(){ if (window.openInquiryModal) window.openInquiryModal(); else location.href = '/contact.html'; } },
@@ -25442,65 +25450,62 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     }
 
     /* ─── 3. 화면 분할 모드 무시 — 모바일에선 무조건 100% 콘텐츠 ─── */
-    body.vc-in-call .vc-main-row.video-quarter .content-pane,
-    body.vc-in-call .vc-main-row.video-half .content-pane,
-    body.vc-in-call .vc-main-row.video-threequarter .content-pane,
-    body.vc-in-call .vc-main-row.video-full .content-pane {
-      width: 100% !important;
-      flex: 1 1 100% !important;
+    body.vc-in-call .vc-main-row.video-quarter .content
+
+<!-- ============================================================
+     Phase 178 (2026-05-29) - 신청 완료 → 결제 자동 열기
+     · ?menu=payment&from=booking 으로 들어오면 결제 모달 자동 표시
+     · 또는 결제 카드 스크롤 + 강조
+     ============================================================ -->
+<script id="ph178-payment-auto-open">
+(function(){
+  "use strict";
+  function tryOpenPayment() {
+    var params = new URLSearchParams(location.search);
+    if (params.get("menu") !== "payment") return;
+
+    var from = params.get("from") || "";
+
+    // 1) 결제 모달이 있으면 열기
+    var modal = document.getElementById("payment-modal");
+    if (modal) {
+      modal.style.display = "flex";
+      console.log("[ph178] 결제 모달 자동 열림 (from:" + from + ")");
+      return;
     }
-    body.vc-in-call .vc-main-row.video-quarter .video-pane,
-    body.vc-in-call .vc-main-row.video-half .video-pane,
-    body.vc-in-call .vc-main-row.video-threequarter .video-pane,
-    body.vc-in-call .vc-main-row.video-full .video-pane {
-      width: 100px !important;
-      height: 100px !important;
-      position: absolute !important;
+    // 2) gridActions.payment() 시도
+    if (window.gridActions && typeof window.gridActions.payment === "function") {
+      try { window.gridActions.payment(); console.log("[ph178] gridActions.payment 실행"); return; } catch(e){}
+    }
+    // 3) 결제 카드 스크롤 + 강조
+    var card = document.querySelector("[data-go=\"payment\"], .cta-pay");
+    if (card) {
+      card.scrollIntoView({ behavior: "smooth", block: "center" });
+      var orig = card.style.boxShadow;
+      card.style.boxShadow = "0 0 0 4px rgba(251,191,36,0.7), 0 0 32px rgba(251,191,36,0.5)";
+      setTimeout(function(){ card.style.boxShadow = orig; }, 2400);
+      console.log("[ph178] 결제 카드 스크롤 + 강조");
     }
 
-    /* ─── 4. 도구 영역 (TOOLS / 펜·지우개) 컴팩트 ─── */
-    body.vc-in-call .whiteboard-tools,
-    body.vc-in-call .vc-tools-bar {
-      padding: 4px 6px !important;
-      gap: 4px !important;
-      min-height: 36px !important;
-    }
-    body.vc-in-call .whiteboard-tools button,
-    body.vc-in-call .vc-tools-bar button {
-      padding: 5px 8px !important;
-      font-size: 11px !important;
-      min-height: 30px !important;
+    // 신청 완료 toast
+    if (from === "booking") {
+      var t = document.createElement("div");
+      t.style.cssText = "position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:99999;padding:14px 26px;background:linear-gradient(135deg,#10B981,#059669);color:#fff;border-radius:99px;font-weight:800;font-size:14px;box-shadow:0 12px 32px -6px rgba(16,185,129,0.55);font-family:\"Noto Sans KR\",sans-serif;display:flex;align-items:center;gap:10px";
+      t.innerHTML = "✅ 수업 신청 완료! 결제를 진행해 주세요.";
+      document.body.appendChild(t);
+      setTimeout(function(){ t.style.transition = "opacity .5s"; t.style.opacity = "0"; setTimeout(function(){ t.remove(); }, 600); }, 3500);
     }
   }
 
-  /* 극소 화면 — PIP 더 작게 (80x80) */
-  @media (max-width: 380px) {
-    body.vc-in-call .video-pane {
-      width: 80px !important;
-      height: 80px !important;
-    }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function(){ setTimeout(tryOpenPayment, 600); });
+  } else {
+    setTimeout(tryOpenPayment, 600);
   }
-</style>
+  // 동적 inject 대비
+  setTimeout(tryOpenPayment, 2000);
+})();
+</script>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
- </body>
- </html>
+</body>
+</html>
