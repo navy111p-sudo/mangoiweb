@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B1224">
 <title>📝 수업 신청 — 망고아이</title>
-<!-- BUILD:20260529050500 -->
+<!-- BUILD:20260529051023 -->
 <style>
 :root{
   --bg:#0B1224; --bg-soft:#131C36; --bg-card:#1A2548; --bg-card-2:#1E2D58;
@@ -96,9 +96,15 @@ header.hero .back{position:absolute;top:14px;left:14px;background:rgba(255,255,2
 .date-chip .mon{font-size:9px;color:#94A3B8;margin-top:2px;text-transform:uppercase;letter-spacing:0.5px}
 .date-chip.active .dow,.date-chip.active .mon{color:rgba(255,255,255,0.85)}
 
-.time-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px}
-.time-chip{background:var(--bg-card);border:1.5px solid var(--border);border-radius:10px;
-  padding:11px 6px;text-align:center;font-size:13.5px;font-weight:700;color:#fff;cursor:pointer;transition:all .15s}
+.time-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:6px;
+  max-height:340px;overflow-y:auto;padding:6px;background:rgba(15,23,42,0.4);
+  border:1px solid var(--border);border-radius:12px;
+  scrollbar-width:thin;scrollbar-color:rgba(96,165,250,0.4) transparent}
+.time-grid::-webkit-scrollbar{width:6px}
+.time-grid::-webkit-scrollbar-thumb{background:rgba(96,165,250,0.4);border-radius:99px}
+.time-grid::-webkit-scrollbar-track{background:transparent}
+.time-chip{background:var(--bg-card);border:1.5px solid var(--border);border-radius:8px;
+  padding:8px 4px;text-align:center;font-size:12.5px;font-weight:700;color:#fff;cursor:pointer;transition:all .15s}
 .time-chip:hover:not(.disabled){border-color:var(--accent-2);background:var(--bg-card-2);transform:translateY(-1px)}
 .time-chip.active{background:linear-gradient(135deg,#FCD34D,#F59E0B);
   color:#1A1A1A;border-color:#FCD34D;box-shadow:0 6px 16px -2px rgba(251,191,36,0.55)}
@@ -151,7 +157,8 @@ header.hero .back{position:absolute;top:14px;left:14px;background:rgba(255,255,2
   .oc-icon{width:46px;height:46px;font-size:28px}
   .oc-label{font-size:16px}
   .teacher-grid{grid-template-columns:repeat(2,1fr);gap:8px}
-  .time-grid{grid-template-columns:repeat(3,1fr)}
+  .time-grid{grid-template-columns:repeat(4,1fr);gap:5px;max-height:280px}
+  .time-chip{font-size:11.5px;padding:7px 3px}
 }
 </style>
 </head>
@@ -219,7 +226,7 @@ header.hero .back{position:absolute;top:14px;left:14px;background:rgba(255,255,2
   <div id="pane-date">
     <div class="sec-h">📅 날짜 선택</div>
     <div class="date-strip" id="date-strip"></div>
-    <div class="sec-h">⏰ 시간 선택 (40분 단위)</div>
+    <div class="sec-h">⏰ 시간 선택 (09:00 ~ 23:00, 10분 단위)</div>
     <div class="time-grid" id="time-grid"></div>
     <div class="sec-h" style="margin-top:18px">👨‍🏫 가능한 교사</div>
     <div class="teacher-grid" id="teacher-grid-date"></div>
@@ -256,7 +263,17 @@ const TEACHERS = [
   { id:'t07', name:'David Kim',    ava:'👨‍🎓', tag:'교포',  cls:'',       rating:4.6, reviews: 88, exp:'2년차' },
   { id:'t08', name:'Sarah Park',   ava:'👩‍🏫', tag:'교포',  cls:'',       rating:4.9, reviews:156, exp:'6년차' }
 ];
-const TIME_SLOTS = ['09:00','10:00','11:00','14:00','15:00','16:00','17:00','19:00','20:00','21:00'];
+// 09:00 ~ 23:00, 10분 단위 (총 85개 슬롯)
+const TIME_SLOTS = (function(){
+  const arr = [];
+  for (let h = 9; h <= 23; h++) {
+    for (let m = 0; m < 60; m += 10) {
+      if (h === 23 && m > 0) break;  // 23:00 까지만
+      arr.push(String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'));
+    }
+  }
+  return arr;
+})();
 
 const state = {
   type: null, mode: 'date',
