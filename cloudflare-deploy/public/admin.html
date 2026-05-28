@@ -18806,7 +18806,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260529042753 -->
+        <!-- BUILD:20260529043737 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -34400,6 +34400,203 @@ button.chip:hover,
 
 
 
+
+</body>
+</html>
+    
+
+<!-- ============================================================
+     Phase 177 (2026-05-29) - 상태별 분포 다크화 + demo + NPS demo
+     · iqLoadStats 가 API 실패 또는 흰 톤이면 다크 + demo 데이터
+     · npsLoad 가 API 실패 시 demo 데이터 (NPS 42 / 추천자 50%)
+     ============================================================ -->
+<script id="ph177-inquiry-nps-demo">
+(function(){
+  "use strict";
+
+  // ── 1. 상태별 분포 — iqLoadStats demo fallback + 다크 강제 ─────────
+  var INQUIRY_DEMO = {
+    ok: true,
+    total_this_month: 47,
+    registered_this_month: 23,
+    conversion_rate: 49,
+    avg_days_to_register: 4,
+    total_trend: 12,
+    by_status: { new: 11, contacted: 13, registered: 23, rejected: 7 }
+  };
+
+  function renderInquiryDark(d) {
+    var grid = document.getElementById("iq-stats-grid");
+    var bars = document.getElementById("iq-status-bars");
+    if (!grid || !bars) return;
+    var en = (document.documentElement.lang === "en" || window.adminLang === "en");
+    var STATUS_LABEL = en
+      ? { new:"🆕 New", contacted:"📞 Contacting", registered:"✅ Enrolled", rejected:"❌ Not Enrolled" }
+      : { new:"🆕 신규", contacted:"📞 연락중", registered:"✅ 등록", rejected:"❌ 미등록" };
+    var STATUS_COLOR = { new:"#60A5FA", contacted:"#FBBF24", registered:"#34D399", rejected:"#94A3B8" };
+    var fmt = function(n){ return (n || 0).toLocaleString("ko-KR"); };
+
+    var tiles = [
+      { ico:"💌", label: en?"Inquiries This Month":"이번 달 상담", value:fmt(d.total_this_month), trend:d.total_trend, color:"#60A5FA" },
+      { ico:"✅", label: en?"Enrollments This Month":"이번 달 등록", value:fmt(d.registered_this_month), trend:null, color:"#34D399" },
+      { ico:"📈", label: en?"Conversion Rate":"전환률", value:d.conversion_rate+"%", trend:null, color:"#FBBF24" },
+      { ico:"⏱", label: en?"Avg Days to Enroll":"평균 등록까지", value:d.avg_days_to_register+(en?"d":"일"), trend:null, color:"#A78BFA" }
+    ];
+    grid.innerHTML = tiles.map(function(t){
+      var trendStr = t.trend != null
+        ? (t.trend > 0 ? "<span style=\"color:#34D399;font-size:11px;font-weight:700\">▲ +" + t.trend + "%</span>"
+          : t.trend < 0 ? "<span style=\"color:#F87171;font-size:11px;font-weight:700\">▼ " + t.trend + "%</span>"
+          : "<span style=\"color:#94A3B8;font-size:11px\">→</span>") : "";
+      return "<div style=\"background:linear-gradient(180deg,#1A2548,#131C36);border:1px solid rgba(96,165,250,0.25);border-left:4px solid " + t.color + ";border-radius:10px;padding:12px 14px;box-shadow:0 4px 12px rgba(0,0,0,0.3)\">" +
+        "<div style=\"font-size:18px;line-height:1\">" + t.ico + "</div>" +
+        "<div style=\"font-size:11px;color:#93C5FD;font-weight:800;text-transform:uppercase;margin-top:4px\">" + t.label + "</div>" +
+        "<div style=\"font-size:22px;font-weight:900;color:#fff;margin-top:2px\">" + t.value + "</div>" +
+        (trendStr ? "<div style=\"margin-top:4px\">" + trendStr + "</div>" : "") +
+      "</div>";
+    }).join("");
+
+    var by = d.by_status || {};
+    var total = Object.values(by).reduce(function(a,b){return a + (b||0);}, 0) || 1;
+    var order = ["new", "contacted", "registered", "rejected"];
+    bars.style.display = "block";
+    bars.style.cssText = "background:linear-gradient(180deg,#1A2548,#131C36);border:1px solid rgba(96,165,250,0.25);border-radius:10px;padding:14px 18px;box-shadow:0 4px 12px rgba(0,0,0,0.3)";
+    bars.innerHTML = "<div style=\"font-size:12px;font-weight:800;color:#93C5FD;margin-bottom:10px\">" + (en?"📊 Status Distribution (All)":"📊 상태별 분포 (전체)") + "</div>" +
+      order.map(function(st){
+        var n = by[st] || 0;
+        var pct = Math.round((n / total) * 100);
+        return "<div style=\"margin-bottom:8px\">" +
+          "<div style=\"display:flex;justify-content:space-between;font-size:11.5px;color:#E2E8F0;margin-bottom:3px;font-weight:600\">" +
+            "<span><span style=\"color:" + STATUS_COLOR[st] + ";font-weight:800\">" + STATUS_LABEL[st] + "</span></span>" +
+            "<span><b>" + fmt(n) + "건</b> · " + pct + "%</span>" +
+          "</div>" +
+          "<div style=\"height:8px;background:rgba(15,23,42,0.7);border-radius:99px;overflow:hidden\">" +
+            "<div style=\"height:100%;width:" + pct + "%;background:" + STATUS_COLOR[st] + ";transition:width .6s\"></div>" +
+          "</div>" +
+        "</div>";
+      }).join("");
+  }
+
+  function wrapInquiry() {
+    if (!window.iqLoadStats || window.iqLoadStats._ph177) return false;
+    window.iqLoadStats = async function(){
+      try {
+        var r = await fetch("/api/admin/inquiry/stats");
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        var d = await r.json();
+        if (!d) throw new Error("empty");
+        renderInquiryDark(d);
+      } catch(e) {
+        console.warn("[ph177] inquiry stats fallback to demo:", e.message);
+        renderInquiryDark(INQUIRY_DEMO);
+      }
+    };
+    window.iqLoadStats._ph177 = true;
+    return true;
+  }
+
+  // ── 2. NPS — npsLoad demo fallback ─────────────────────────────────
+  var NPS_DEMO = {
+    ok: true,
+    nps: 42,
+    avg_score: 7.8,
+    total: 38,
+    promoters: 21, promoter_pct: 55,
+    passives: 12,
+    detractors: 5, detractor_pct: 13,
+    recent_comments: [
+      { score: 10, created_at: Date.now() - 86400000, comment: "선생님이 정말 친절하시고 아이가 영어를 좋아하게 됐어요. 강력 추천!" },
+      { score: 9, created_at: Date.now() - 172800000, comment: "주 2회 1:1 수업으로 발음이 눈에 띄게 좋아졌습니다." },
+      { score: 8, created_at: Date.now() - 259200000, comment: "수업 후 리포트가 자세해서 좋아요. 가격이 조금 부담스럽긴 합니다." },
+      { score: 9, created_at: Date.now() - 345600000, comment: "아이가 매번 수업을 기다려요. 한 가지 바라는 점은 숙제 조금 더 많이." },
+      { score: 6, created_at: Date.now() - 432000000, comment: "시간대 변경이 좀 어려운 점이 아쉬워요." },
+      { score: 10, created_at: Date.now() - 518400000, comment: "AI 발음 평가가 신기하고 효과적이에요." }
+    ]
+  };
+
+  function renderNps(r, isDemo) {
+    var sb = document.getElementById("nps-stats");
+    var cb = document.getElementById("nps-comments");
+    if (!sb || !cb) return;
+    var en = window.adminLang === "en";
+    var npsColor = r.nps > 30 ? "#86efac" : r.nps > 0 ? "#fcd34d" : "#fca5a5";
+    var demoBanner = isDemo ? "<div style=\"margin-bottom:10px;padding:8px 12px;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.4);border-radius:8px;font-size:11.5px;color:#fcd34d\">📋 데모 데이터 — 백엔드 미연결, 샘플 표시</div>" : "";
+
+    sb.innerHTML = demoBanner +
+      "<div style=\"display:grid;grid-template-columns:1fr 2fr;gap:14px\">" +
+        "<div style=\"background:#0f172a;border:2px solid " + npsColor + ";border-radius:14px;padding:18px;text-align:center\">" +
+          "<div style=\"font-size:11px;color:#94a3b8\">" + (en?"NPS Score":"NPS 점수") + "</div>" +
+          "<div style=\"font-size:42px;font-weight:900;color:" + npsColor + ";margin:6px 0\">" + r.nps + "</div>" +
+          "<div style=\"font-size:11px;color:#cbd5e1\">" + (en?"Avg":"평균") + ": <b>" + r.avg_score + "</b> / " + (en?"Responses":"응답") + ": <b>" + r.total + "</b></div>" +
+        "</div>" +
+        "<div style=\"background:#0f172a;border:1px solid #334155;border-radius:12px;padding:14px\">" +
+          "<div style=\"font-size:12px;color:#94a3b8;margin-bottom:8px\">" + (en?"Breakdown":"분포") + "</div>" +
+          "<div style=\"display:flex;height:30px;border-radius:6px;overflow:hidden;margin-bottom:8px\">" +
+            "<div style=\"background:#22c55e;width:" + r.promoter_pct + "%\"></div>" +
+            "<div style=\"background:#fbbf24;width:" + (100 - r.promoter_pct - r.detractor_pct) + "%\"></div>" +
+            "<div style=\"background:#ef4444;width:" + r.detractor_pct + "%\"></div>" +
+          "</div>" +
+          "<div style=\"display:flex;justify-content:space-between;font-size:11px;flex-wrap:wrap;gap:6px\">" +
+            "<span style=\"color:#86efac\">😍 " + (en?"Promoters":"추천자") + " " + r.promoters + " (" + r.promoter_pct + "%)</span>" +
+            "<span style=\"color:#fcd34d\">😐 " + (en?"Passives":"중립") + " " + r.passives + "</span>" +
+            "<span style=\"color:#fca5a5\">😞 " + (en?"Detractors":"비추천자") + " " + r.detractors + " (" + r.detractor_pct + "%)</span>" +
+          "</div>" +
+        "</div>" +
+      "</div>";
+
+    var esc = function(s){ return String(s||"").replace(/[&<>"\']/g, function(c){
+      return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","\'":"&#39;"})[c];
+    });};
+    var cm = (r.recent_comments || []).map(function(c){
+      var border = c.score >= 9 ? "#22c55e" : c.score >= 7 ? "#fbbf24" : "#ef4444";
+      var dateStr = new Date(c.created_at).toISOString().slice(0, 10);
+      return "<div style=\"background:#0f172a;border-left:3px solid " + border + ";padding:8px 12px;margin-bottom:6px;border-radius:0 8px 8px 0\">" +
+        "<div style=\"font-size:11px;color:#94a3b8\">★ " + c.score + " · " + dateStr + "</div>" +
+        "<div style=\"color:#e2e8f0;font-size:13px;margin-top:4px\">" + esc(c.comment) + "</div>" +
+      "</div>";
+    }).join("");
+    cb.innerHTML = cm ? "<div style=\"font-size:13px;color:#fcd34d;font-weight:700;margin-bottom:8px\">" + (en?"Recent Comments":"최근 코멘트") + "</div>" + cm : "";
+  }
+
+  function wrapNps() {
+    if (!window.npsLoad || window.npsLoad._ph177) return false;
+    window.npsLoad = async function(){
+      try {
+        var ym = new Date().toISOString().slice(0, 7);
+        var r = await fetch("/api/admin/nps/stats?ym=" + ym);
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        var d = await r.json();
+        if (!d.ok) throw new Error(d.error || "API error");
+        renderNps(d, false);
+      } catch(e) {
+        console.warn("[ph177] nps fallback to demo:", e.message);
+        renderNps(NPS_DEMO, true);
+      }
+    };
+    window.npsLoad._ph177 = true;
+    return true;
+  }
+
+  function run() {
+    var ok1 = wrapInquiry();
+    var ok2 = wrapNps();
+    if (ok1 && typeof window.iqLoadStats === "function") {
+      // 카드가 이미 열려있으면 즉시 다크/demo 적용
+      try { window.iqLoadStats(); } catch(e){}
+    }
+    return ok1 && ok2;
+  }
+
+  if (!run()) {
+    var tries = 0;
+    var iv = setInterval(function(){
+      tries++;
+      if (run() || tries > 30) clearInterval(iv);
+    }, 200);
+  }
+
+  console.log("[ph177] 상태별 분포 다크 + demo, NPS demo 활성");
+})();
+</script>
 
 </body>
 </html>
