@@ -19262,6 +19262,11 @@ async function loadTextbookLibrary() {
     const r = await fetch('/api/textbook-files?' + qs.toString(), { cache:'no-store' });
     const d = await r.json().catch(()=>({}));
     let items = d.items || [];
+    // ph168 (2026-05-29) — textbook-uploader IndexedDB 의 교재도 함께 표시
+    try {
+      const localItems = await window._ph168_loadIndexedBooks();
+      if (localItems && localItems.length) items = items.concat(localItems);
+    } catch(e) { console.warn('[ph168] IndexedDB merge skipped:', e); }
     if (q) {
       const ql = q.toLowerCase();
       items = items.filter(it => (it.name||'').toLowerCase().includes(ql));
@@ -23056,7 +23061,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260529031636 -->
+<!-- BUILD:20260529032536 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -24303,167 +24308,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
  })();
  </script>
 
-<!-- ============================================================
-     Phase 158-classroom (2026-05-28) - Teacher textbook launcher
-     · 룸 입장 시 (.vc-in-call) 우상단에 "📚 교재 띄우기" 버튼 노출
-     · 클릭 → IndexedDB 의 등록된 교재 목록 모달
-     · 선택 시 textbook-viewer.html 새 탭 + 화면공유 안내
-     ============================================================ -->
-<style id="ph158-classroom-style">
-  #ph158-tb-launcher {
-    position:fixed; top:14px; right:120px; z-index:99950;
-    padding:8px 14px 8px 11px; border:0; border-radius:99px;
-    background:linear-gradient(135deg,#3B82F6,#1D4ED8); color:#fff;
-    font-size:12.5px; font-weight:800; cursor:pointer;
-    box-shadow:0 6px 18px -4px rgba(59,130,246,0.6);
-    display:none; align-items:center; gap:6px;
-    font-family:-apple-system,"Pretendard","Noto Sans KR",sans-serif;
-  }
-  body.vc-in-call #ph158-tb-launcher { display:inline-flex; }
-  #ph158-tb-launcher:hover { transform:translateY(-1px); box-shadow:0 10px 24px -6px rgba(59,130,246,0.8); }
-  @media (max-width:600px) {
-    #ph158-tb-launcher { top:10px; right:60px; padding:7px 12px 7px 10px; font-size:11.5px; }
-  }
-  #ph158-tb-modal {
-    position:fixed; inset:0; background:rgba(0,0,0,0.72); z-index:99999;
-    display:none; align-items:center; justify-content:center; padding:18px;
-    font-family:-apple-system,"Pretendard","Noto Sans KR",sans-serif;
-  }
-  #ph158-tb-modal.show { display:flex; }
-  #ph158-tb-modal .box {
-    background:#131C36; border:1px solid rgba(96,165,250,0.3); border-radius:16px;
-    max-width:600px; width:100%; max-height:80vh; overflow:auto;
-    padding:20px 22px; box-shadow:0 24px 48px rgba(0,0,0,0.6); color:#fff;
-  }
-  #ph158-tb-modal h3 { font-size:16px; font-weight:800; color:#60A5FA; margin:0 0 12px;
-    display:flex; align-items:center; gap:8px; }
-  #ph158-tb-modal .row { background:#1A2548; border:1px solid rgba(96,165,250,0.2); border-radius:10px;
-    padding:11px 14px; margin-bottom:7px; cursor:pointer; display:flex; align-items:center; gap:10px;
-    transition:border-color .15s, background .15s; }
-  #ph158-tb-modal .row:hover { border-color:#60A5FA; background:#1E2D58; }
-  #ph158-tb-modal .row .pub { color:#fbbf24; font-size:11px; font-weight:700;
-    background:rgba(251,191,36,0.15); padding:2px 7px; border-radius:99px; }
-  #ph158-tb-modal .row .name { flex:1; font-weight:700; font-size:13.5px; }
-  #ph158-tb-modal .row .meta { font-size:11px; color:#94A3B8; }
-  #ph158-tb-modal .empty { padding:24px; text-align:center; color:#94A3B8; font-size:13px; font-style:italic; }
-  #ph158-tb-modal .empty a { color:#60A5FA; text-decoration:underline; font-weight:700; }
-  #ph158-tb-modal .close-row { display:flex; justify-content:space-between; align-items:center;
-    margin-top:14px; padding-top:12px; border-top:1px solid rgba(96,165,250,0.15); }
-  #ph158-tb-modal .close-row a { color:#60A5FA; font-size:12px; font-weight:700; text-decoration:none; }
-  #ph158-tb-modal .close-row button { background:transparent; border:1px solid rgba(96,165,250,0.3);
-    color:#E2E8F0; padding:7px 16px; border-radius:8px; font-size:12.5px; font-weight:700; cursor:pointer;
-    font-family:inherit; }
-</style>
 
-<button type="button" id="ph158-tb-launcher" title="저장된 교재를 뷰어로 띄우고 학생에게 화면공유">
-  <span style="font-size:14px">📚</span>
-  <span>교재 띄우기</span>
-</button>
-
-<div id="ph158-tb-modal">
-  <div class="box">
-    <h3>📚 어떤 교재를 띄울까요?</h3>
-    <div id="ph158-tb-list">불러오는 중…</div>
-    <div class="close-row">
-      <a href="/textbook-uploader.html" target="_blank">＋ 새 교재 업로드</a>
-      <button onclick="document.getElementById('ph158-tb-modal').classList.remove('show')">닫기</button>
-    </div>
-  </div>
-</div>
-
-<script id="ph158-classroom-script">
-(function(){
-  'use strict';
-  var DB_NAME = 'mangoi-textbooks';
-  function openDB(){ return new Promise(function(res,rej){
-    var r = indexedDB.open(DB_NAME, 1);
-    r.onsuccess = function(){ res(r.result); };
-    r.onerror = function(){ rej(r.error); };
-  });}
-  function getAll(db, store){ return new Promise(function(res,rej){
-    try {
-      var tx = db.transaction(store, 'readonly');
-      var rq = tx.objectStore(store).getAll();
-      rq.onsuccess = function(){ res(rq.result || []); };
-      rq.onerror = function(){ rej(rq.error); };
-    } catch(e){ res([]); }
-  });}
-
-  function escapeHtml(s){
-    return String(s||'').replace(/[&<>"\']/g, function(c){
-      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
-    });
-  }
-
-  async function openModal(){
-    var modal = document.getElementById('ph158-tb-modal');
-    var list = document.getElementById('ph158-tb-list');
-    modal.classList.add('show');
-    list.innerHTML = '<div class="empty">불러오는 중…</div>';
-    try {
-      var db = await openDB();
-      var tbs = await getAll(db, 'textbooks');
-      tbs.sort(function(a,b){ return b.createdAt - a.createdAt; });
-      if (!tbs.length) {
-        list.innerHTML = '<div class="empty">아직 등록된 교재가 없습니다.<br><a href="/textbook-uploader.html" target="_blank">📚 교재 업로더에서 폴더를 드래그하세요</a></div>';
-        return;
-      }
-      list.innerHTML = '';
-      tbs.forEach(function(t){
-        var row = document.createElement('div');
-        row.className = 'row';
-        row.innerHTML = '<span class="pub">'+escapeHtml(t.publisher)+'</span>'+
-          '<span class="name">'+escapeHtml(t.textbook)+' '+escapeHtml(t.level||'')+'</span>'+
-          '<span class="meta">📑 '+t.lessons.length+' · 📄 '+t.totalFiles+'</span>';
-        row.onclick = function(){
-          modal.classList.remove('show');
-          var w = window.open('/textbook-viewer.html?id='+encodeURIComponent(t.id), '_blank', 'width=1280,height=860');
-          setTimeout(function(){
-            try {
-              alert('교재 뷰어가 열렸습니다.\n\n학생에게 보여주려면:\n1) 룸 안에서 [화면공유] 버튼을 누르세요\n2) "현재 탭" 또는 "교재 뷰어 탭" 을 선택\n\n또는 뷰어 우상단 [📺 수업에 공유] 버튼을 직접 눌러도 됩니다.');
-            } catch(e){}
-          }, 500);
-        };
-        list.appendChild(row);
-      });
-    } catch(e) {
-      console.error('[ph158-classroom] DB error:', e);
-      list.innerHTML = '<div class="empty">⚠️ 저장된 교재를 불러올 수 없습니다.<br>브라우저 저장소 권한 확인이 필요할 수 있습니다.</div>';
-    }
-  }
-
-  // launcher 버튼 클릭 핸들러
-  document.addEventListener('click', function(e){
-    var t = e.target;
-    var btn = t.closest && t.closest('#ph158-tb-launcher');
-    if (!btn) return;
-    e.preventDefault();
-    openModal();
-  });
-  // 모달 배경 클릭 시 닫기
-  document.addEventListener('click', function(e){
-    var modal = document.getElementById('ph158-tb-modal');
-    if (e.target === modal) modal.classList.remove('show');
-  });
-  // ESC 닫기
-  document.addEventListener('keydown', function(e){
-    if (e.key === 'Escape') {
-      var modal = document.getElementById('ph158-tb-modal');
-      if (modal && modal.classList.contains('show')) modal.classList.remove('show');
-    }
-  });
-  // BroadcastChannel: 뷰어가 공유 시작했음을 알림
-  try {
-    var bc = new BroadcastChannel('mangoi-classroom');
-    bc.onmessage = function(ev){
-      if (ev.data && ev.data.type === 'textbook-shared') {
-        console.log('[ph158-classroom] viewer started sharing textbook', ev.data.tbId);
-      }
-    };
-  } catch(e){}
-  console.log('[ph158-classroom] Textbook launcher active (visible during vc-in-call)');
-})();
-</script>
 
 <!-- ============================================================
      Phase 166 (2026-05-29) - Mobile quick-btn click rescue
@@ -24938,6 +24783,263 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   }
 }
 </style>
+
+<!-- ============================================================
+     Phase 168 (2026-05-29) - Room textbook library : IndexedDB merge
+     · 룸 안 "📚 라이브러리" 버튼이 textbook-uploader 의
+       IndexedDB 저장 교재까지 자동으로 함께 표시
+     · 우상단 "교재 띄우기" launcher 는 삭제됨 — 교재 탭 안에서 자연스럽게 접근
+     ============================================================ -->
+<script id="ph168-indexed-library-loader">
+(function(){
+  'use strict';
+
+  // IndexedDB 'mangoi-textbooks' 에서 모든 교재·파일 메타 가져와
+  // /api/textbook-files items 와 같은 shape 으로 normalize
+  window._ph168_loadIndexedBooks = function() {
+    return new Promise(function(resolve){
+      try {
+        var req = indexedDB.open('mangoi-textbooks', 1);
+        req.onsuccess = function() {
+          var db = req.result;
+          if (!db.objectStoreNames.contains('textbooks') || !db.objectStoreNames.contains('files')) {
+            db.close(); resolve([]); return;
+          }
+          var tx = db.transaction(['textbooks', 'files'], 'readonly');
+          var tbReq = tx.objectStore('textbooks').getAll();
+          var fileReq = tx.objectStore('files').getAll();
+          var done = 0, textbooks = [], files = {};
+          function check() {
+            done++;
+            if (done < 2) return;
+            // files 를 id 로 인덱싱
+            files.forEach && files.forEach(function(f){});
+            var fileMap = {};
+            (files || []).forEach(function(f){ fileMap[f.id] = f; });
+
+            // flat list 로 변환
+            var items = [];
+            textbooks.forEach(function(t){
+              t.lessons.forEach(function(l){
+                l.fileIds.forEach(function(fid){
+                  var f = fileMap[fid];
+                  if (!f) return;
+                  items.push({
+                    id: fid,
+                    name: '[' + t.textbook + (t.level ? ' ' + t.level : '') + '] ' + l.name + ' — ' + f.name,
+                    kind: f.kind === 'pdf' ? 'pdf' : (f.kind === 'image' ? 'image' : f.kind),
+                    url: URL.createObjectURL(f.blob),
+                    level: t.level || '',
+                    unit_no: '',
+                    publisher: t.publisher,
+                    category: t.category,
+                    _source: 'idb'
+                  });
+                });
+              });
+            });
+            db.close();
+            console.log('[ph168] IndexedDB books loaded:', items.length);
+            resolve(items);
+          }
+          tbReq.onsuccess = function(){ textbooks = tbReq.result || []; check(); };
+          tbReq.onerror = function(){ check(); };
+          fileReq.onsuccess = function(){ files = fileReq.result || []; check(); };
+          fileReq.onerror = function(){ check(); };
+        };
+        req.onerror = function(){ resolve([]); };
+      } catch(e) {
+        console.warn('[ph168] IndexedDB open failed:', e);
+        resolve([]);
+      }
+    });
+  };
+
+  console.log('[ph168] IndexedDB room-library hook active — admin 업로더 교재 자동 표시');
+})();
+</script>
+
+<!-- ============================================================
+     Phase 169 (2026-05-29) - Room mobile UI cleanup
+     · 룸 안 컨트롤 버튼: 한 줄 그리드, 균등 간격
+     · ✕ 종료 버튼: 우상단으로 분리 (탭 영역 안 침범)
+     · 탭 메뉴 (칠판/교재/동영상/발음): pill 디자인 + 활성 강조
+     · TOOLS 라벨: 컴팩트 chip
+     · 비디오 PIP: 둥근 radius + 그림자
+     · FACE OFF 배지: 컴팩트 위치
+     ============================================================ -->
+<style id="ph169-room-mobile-clean">
+  @media (max-width: 700px) {
+    /* 룸 상단 정보 (참여자 수 등) 가독성 */
+    .vc-room-info, [class*="room-info"], .vc-meta {
+      font-size: 12px !important;
+      padding: 4px 10px !important;
+      gap: 6px !important;
+    }
+
+    /* FACE OFF 배지 — 모바일 컴팩트 */
+    .face-off-badge, [class*="face-off"], [id*="face-off"] {
+      padding: 4px 10px !important;
+      font-size: 11px !important;
+      border-radius: 99px !important;
+      letter-spacing: 0.3px !important;
+    }
+
+    /* 컨트롤 버튼들 (마이크/도구/카메라/채팅/종료) — 균등 그리드 */
+    .ctrl-bar, .vc-controls, [class*="ctrl-bar"] {
+      display: grid !important;
+      grid-template-columns: repeat(5, 1fr) !important;
+      gap: 6px !important;
+      padding: 6px 8px !important;
+    }
+    .ctrl-btn, [class*="ctrl-btn"] {
+      min-height: 44px !important;
+      border-radius: 12px !important;
+      font-size: 16px !important;
+      padding: 8px !important;
+      background: rgba(15,23,42,0.7) !important;
+      border: 1px solid rgba(96,165,250,0.18) !important;
+      backdrop-filter: blur(8px) !important;
+    }
+    .ctrl-btn.danger {
+      background: linear-gradient(135deg,#EF4444,#B91C1C) !important;
+      border-color: rgba(239,68,68,0.55) !important;
+      color: #fff !important;
+      box-shadow: 0 6px 16px -4px rgba(239,68,68,0.5) !important;
+    }
+    .ctrl-btn.active, .ctrl-btn[aria-pressed="true"] {
+      background: linear-gradient(135deg,#3B82F6,#1D4ED8) !important;
+      border-color: rgba(96,165,250,0.6) !important;
+      color: #fff !important;
+    }
+
+    /* 두번째 줄 (EN, ✕) — 작은 chip 두 개로 */
+    .ctrl-bar-sec, .vc-controls-sec {
+      display: flex !important;
+      gap: 8px !important;
+      padding: 6px 8px !important;
+      align-items: center !important;
+    }
+    .lang-btn-room, [class*="lang-btn"] {
+      padding: 6px 12px !important;
+      font-size: 11.5px !important;
+      border-radius: 99px !important;
+      background: rgba(15,23,42,0.7) !important;
+      border: 1px solid rgba(96,165,250,0.4) !important;
+      color: #93C5FD !important;
+    }
+
+    /* 분할 버튼 (1/4, 1/2, 3/4, 전체, PIP, 솔로) — pill grid */
+    .split-bar, .vc-split-options, [class*="split-bar"] {
+      display: grid !important;
+      grid-template-columns: repeat(6, 1fr) !important;
+      gap: 4px !important;
+      padding: 4px 8px !important;
+    }
+    .split-btn, [class*="split-btn"] {
+      padding: 8px 4px !important;
+      font-size: 11px !important;
+      border-radius: 10px !important;
+      background: rgba(15,23,42,0.55) !important;
+      border: 1px solid rgba(96,165,250,0.15) !important;
+      color: #cbd5e1 !important;
+      transition: all .15s !important;
+      min-height: 38px !important;
+    }
+    .split-btn.active, .split-btn[aria-pressed="true"] {
+      background: linear-gradient(135deg,#3B82F6,#1D4ED8) !important;
+      border-color: rgba(96,165,250,0.7) !important;
+      color: #fff !important;
+      box-shadow: 0 4px 12px -2px rgba(59,130,246,0.45) !important;
+    }
+
+    /* 비디오 PIP — 둥근 모서리 + 부드러운 그림자 */
+    .vc-video, .pip-video, video.local-video, video[id*="local"] {
+      border-radius: 16px !important;
+      box-shadow: 0 8px 24px -6px rgba(0,0,0,0.55), 0 0 0 1px rgba(96,165,250,0.2) !important;
+      overflow: hidden !important;
+    }
+
+    /* 탭 메뉴 (칠판/교재/동영상/발음연습/학생게임/배경) — pill 가로 스크롤 */
+    .vc-tabs, [class*="vc-tabs"] {
+      display: flex !important;
+      gap: 6px !important;
+      overflow-x: auto !important;
+      scrollbar-width: none !important;
+      padding: 8px 10px !important;
+      -webkit-overflow-scrolling: touch !important;
+    }
+    .vc-tabs::-webkit-scrollbar { display: none !important; }
+    .vc-tab, [class*="vc-tab"] {
+      flex-shrink: 0 !important;
+      padding: 9px 14px !important;
+      font-size: 12.5px !important;
+      font-weight: 700 !important;
+      border-radius: 99px !important;
+      background: rgba(15,23,42,0.6) !important;
+      border: 1px solid rgba(96,165,250,0.18) !important;
+      color: #cbd5e1 !important;
+      transition: all .15s !important;
+    }
+    .vc-tab.active, .vc-tab[aria-selected="true"] {
+      background: linear-gradient(135deg, rgba(59,130,246,0.3), rgba(29,78,216,0.15)) !important;
+      border-color: rgba(96,165,250,0.7) !important;
+      color: #fff !important;
+      box-shadow: 0 4px 12px -2px rgba(59,130,246,0.4) !important;
+    }
+
+    /* TOOLS 라벨 chip — 깔끔 */
+    .tools-label, [class*="tools-label"] {
+      padding: 5px 11px !important;
+      font-size: 10.5px !important;
+      font-weight: 800 !important;
+      border-radius: 99px !important;
+      letter-spacing: 0.5px !important;
+      background: linear-gradient(135deg,#10B981,#059669) !important;
+      color: #fff !important;
+      box-shadow: 0 4px 10px -2px rgba(16,185,129,0.4) !important;
+    }
+
+    /* "📁 교재 업로드 (PDF/JPG/PNG)" 같은 큰 행동 버튼 */
+    .vc-upload-btn, button[onclick*="upload"], button[onclick*="library"] {
+      padding: 10px 14px !important;
+      font-size: 12.5px !important;
+      border-radius: 12px !important;
+      background: rgba(15,23,42,0.7) !important;
+      border: 1px solid rgba(96,165,250,0.3) !important;
+      color: #e2e8f0 !important;
+    }
+    .vc-upload-btn:active { transform: scale(0.97) !important; }
+
+    /* 룸 안 우하단 작은 종료/카메라 버튼 stack — 정렬 */
+    .vc-bottom-fab, [class*="bottom-fab"] {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 8px !important;
+      right: 10px !important;
+      bottom: 10px !important;
+    }
+
+    /* 비디오 영역 폰트 (홍길동 / 마이크 표시) — 가독성 */
+    .video-label, .video-name, [class*="video-name"] {
+      font-size: 11px !important;
+      padding: 4px 8px !important;
+      border-radius: 8px !important;
+      background: rgba(0,0,0,0.6) !important;
+      backdrop-filter: blur(6px) !important;
+    }
+
+    /* 룸 안에선 메인 페이지 FAB 들 숨김 (이미 vc-in-call 가드 있지만 추가 안전) */
+    body.vc-in-call #precheck-fab {
+      bottom: 80px !important;
+      right: 10px !important;
+    }
+  }
+</style>
+
+
+
+
 
 
 
