@@ -23086,7 +23086,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260529054529 -->
+<!-- BUILD:20260529055130 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25547,7 +25547,29 @@ console.log("[ph178-v3] 🚀 script loaded at " + new Date().toISOString());
       if (modal) { modal.style.display = "flex"; opened = true; console.log("[ph178-v3] 결제 모달 직접 표시 (fallback)"); }
     }
     if (!opened && window.gridActions && typeof window.gridActions.payment === "function") {
-      try { window.gridActions.payment(); opened = true; console.log("[ph178-v3] gridActions.payment 실행"); } catch(e){}
+      try { window.gridActions.payment(); opened = true; console.log("[ph178-v3] gridActions.payment 실행"); } catch(e){ console.warn("[ph178-v3] gridActions.payment 실패:", e); }
+    }
+    // 폴백 4: 화면의 .cta-pay 버튼 자동 클릭 (사용자가 실제로 보는 버튼)
+    if (!opened) {
+      var payBtn = document.querySelector('.cta-pay, button[data-go="payment"]');
+      if (payBtn) {
+        try {
+          payBtn.click();
+          opened = true;
+          console.log("[ph178-v3] .cta-pay 버튼 자동 클릭 성공");
+        } catch(e){ console.warn("[ph178-v3] .cta-pay 클릭 실패:", e); }
+      } else {
+        console.warn("[ph178-v3] .cta-pay 버튼도 못 찾음. DOM 상태 점검 필요");
+      }
+    }
+    // 폴백 5: 진단 로그 (어떤 것이 없는지 확인)
+    if (!opened) {
+      console.error("[ph178-v3] 모든 폴백 실패. 진단:");
+      console.error("  - openNewPaymentDirect:", typeof window.openNewPaymentDirect);
+      console.error("  - openPaymentModal:", typeof window.openPaymentModal);
+      console.error("  - payment-modal element:", !!document.getElementById("payment-modal"));
+      console.error("  - gridActions.payment:", window.gridActions && typeof window.gridActions.payment);
+      console.error("  - .cta-pay element:", !!document.querySelector('.cta-pay'));
     }
     if (opened) {
       _ph178_done = true;
@@ -25571,23 +25593,18 @@ console.log("[ph178-v3] 🚀 script loaded at " + new Date().toISOString());
     }
   }
 
-  function showDebugBanner(msg, color) {
-    try {
-      var existing = document.getElementById("ph178-debug-banner");
-      if (existing) existing.remove();
-      var b = document.createElement("div");
-      b.id = "ph178-debug-banner";
-      b.style.cssText = "position:fixed;top:10px;right:10px;z-index:2147483647;padding:8px 14px;background:" + (color || "#1e293b") + ";color:#fff;border-radius:6px;font-size:11px;font-family:monospace;box-shadow:0 4px 12px rgba(0,0,0,0.4);max-width:280px;line-height:1.4";
-      b.textContent = "[ph178] " + msg;
-      document.body && document.body.appendChild(b);
-      setTimeout(function(){ b.style.transition = "opacity .6s"; b.style.opacity = "0"; setTimeout(function(){ b.remove(); }, 700); }, 5000);
-    } catch(e){}
-  }
+  function showDebugBanner(msg, color) { /* disabled: 디버그 배너 비활성화 */ }
+  // 페이지에 남아있을 수 있는 옛 배너 즉시 제거
+  try {
+    var _oldB = document.getElementById("ph178-debug-banner");
+    if (_oldB) _oldB.remove();
+    setTimeout(function(){ var b = document.getElementById("ph178-debug-banner"); if (b) b.remove(); }, 500);
+  } catch(e){}
 
   var params0 = new URLSearchParams(location.search);
   if (params0.get("menu") === "payment") {
     console.log("[ph178-v3] URL 매칭 — 무한 폴링 시작");
-    showDebugBanner("URL 감지: ?menu=payment&from=" + (params0.get("from") || "?"), "#0ea5e9");
+    // (디버그 배너 제거됨)
   }
 
   var tickCount = 0;
@@ -25598,7 +25615,7 @@ console.log("[ph178-v3] 🚀 script loaded at " + new Date().toISOString());
     if (_ph178_step1_confirmed) {
       clearInterval(pollerId);
       console.log("[ph178-v3] ✅ step1 확정 — 폴링 종료");
-      showDebugBanner("✅ 신규결제 진입 성공!", "#10b981");
+      // (디버그 배너 제거됨)
     }
   }, 500);
 
