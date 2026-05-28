@@ -23063,7 +23063,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260529033528 -->
+<!-- BUILD:20260529034709 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25078,6 +25078,18 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       letter-spacing: -0.3px !important;
       line-height: 1 !important;
     }
+    /* ph170-fix: 검은 타원 (카카오 외부 툴팁 라벨) 완전 제거 ─
+       .ph49-kakao-label 이 자동 hover/show-label 클래스로 떠 있어
+       "수업 입장" 버튼 위에 검은 타원으로 보였음. 모바일에서는 카카오 FAB
+       안에 이미 "상담" 글자가 있으니 외부 라벨 불필요 */
+    .ph49-kakao-fab .ph49-kakao-label,
+    .ph49-kakao-label,
+    .ph49-kakao-fab.ph49-kakao-show-label .ph49-kakao-label {
+      display: none !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
 
     /* ─── 2. 수업 진단 FAB 우하단에서 숨김 (카드로 대체됨) ─── */
     #precheck-fab {
@@ -25149,9 +25161,22 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       if (next && next.tagName === 'SECTION') break;
     }
   }
+  function hideKakaoLabel() {
+    // .ph49-kakao-show-label 클래스가 자동 붙는 곳이 있어 강제 제거
+    document.querySelectorAll('.ph49-kakao-fab.ph49-kakao-show-label').forEach(function(el){
+      el.classList.remove('ph49-kakao-show-label');
+    });
+    // 라벨 자체도 명시적으로 숨김
+    document.querySelectorAll('.ph49-kakao-label').forEach(function(el){
+      el.style.display = 'none';
+      el.style.opacity = '0';
+      el.style.visibility = 'hidden';
+    });
+  }
   function run() {
     tweakKakao();
     hideCtaHint();
+    hideKakaoLabel();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
   else run();
@@ -25161,6 +25186,106 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   console.log('[ph170] mobile final polish — 카카오 작게+상담 / 수업진단 카드 / 화살표 숨김 / CTA 안내 숨김');
 })();
 </script>
+
+<!-- ============================================================
+     Phase 171 (2026-05-29) - API circuit breaker (503 폭주 fix)
+     · /api/points/balance 같은 엔드포인트가 503 받으면
+       5분간 같은 URL 호출 즉시 차단 (cached failure)
+     · 콘솔이 같은 503 으로 도배되는 문제 해결
+     · refreshPointsChip 등의 catch 블록도 silent 처리
+     ============================================================ -->
+<script id="ph171-api-circuit-breaker">
+(function(){
+  "use strict";
+
+  // ─── 1. window.fetch 래퍼: 503 cool-down 캐시 ────────────────
+  if (window._ph171_origFetch) return;  // 이중 적용 방지
+  window._ph171_origFetch = window.fetch.bind(window);
+
+  // url → expiry timestamp 매핑
+  var COOLDOWN = new Map();
+  var COOLDOWN_MS = 5 * 60 * 1000;  // 5분
+  var ENDPOINTS = [
+    "/api/points/balance",
+    "/api/points/",
+    "/api/gifts/",
+  ];
+
+  function pathFromInput(input) {
+    try {
+      if (typeof input === "string") {
+        var u = new URL(input, location.origin);
+        return u.pathname + u.search;
+      }
+      if (input && input.url) {
+        var u2 = new URL(input.url, location.origin);
+        return u2.pathname + u2.search;
+      }
+    } catch(e){}
+    return String(input);
+  }
+
+  function matchesGuarded(path) {
+    return ENDPOINTS.some(function(e){ return path.indexOf(e) >= 0; });
+  }
+
+  window.fetch = function(input, init){
+    var path = pathFromInput(input);
+    var guarded = matchesGuarded(path);
+
+    if (guarded) {
+      var expiry = COOLDOWN.get(path);
+      if (expiry && Date.now() < expiry) {
+        // 쿨다운 중 — fake 503 응답 즉시 반환 (네트워크 호출 X)
+        return Promise.resolve(new Response(
+          JSON.stringify({ ok: false, error: "Service temporarily unavailable (cached)", cached: true }),
+          { status: 503, headers: { "Content-Type": "application/json" } }
+        ));
+      }
+    }
+
+    return window._ph171_origFetch(input, init).then(function(res){
+      if (guarded && res.status === 503) {
+        COOLDOWN.set(path, Date.now() + COOLDOWN_MS);
+        console.warn("[ph171] circuit breaker tripped — 5min cooldown for", path);
+      } else if (guarded && res.ok) {
+        // 정상 응답이면 cooldown 해제
+        COOLDOWN.delete(path);
+      }
+      return res;
+    });
+  };
+
+  // ─── 2. refreshPointsChip 호출 빈도 throttle (30초) ────────────
+  var _lastChipCall = 0;
+  if (window.refreshPointsChip) {
+    var origChip = window.refreshPointsChip;
+    window.refreshPointsChip = function(){
+      var now = Date.now();
+      if (now - _lastChipCall < 30000) return Promise.resolve();
+      _lastChipCall = now;
+      return origChip.apply(this, arguments);
+    };
+  }
+  // refreshPointsChip 이 나중에 정의되는 경우 대비 — 한 번 더 시도
+  setTimeout(function(){
+    if (window.refreshPointsChip && !window.refreshPointsChip._ph171Wrapped) {
+      var orig = window.refreshPointsChip;
+      window.refreshPointsChip = function(){
+        var now = Date.now();
+        if (now - _lastChipCall < 30000) return Promise.resolve();
+        _lastChipCall = now;
+        return orig.apply(this, arguments);
+      };
+      window.refreshPointsChip._ph171Wrapped = true;
+    }
+  }, 1000);
+
+  console.log("[ph171] API circuit breaker active — /api/points/* 503 폭주 차단 (5min cooldown + 30s throttle)");
+})();
+</script>
+
+
 
 
 
