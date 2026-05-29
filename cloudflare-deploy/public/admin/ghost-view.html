@@ -14,6 +14,236 @@
   <meta name="theme-color" content="#0a1530" />
   <!-- 글로벌 바 자동 inject 차단 (자체 헤더 사용) -->
   <meta name="mangoi-no-global-bar" content="1" />
+
+  <!-- ====================================================================
+       🎥 녹화 보강 패치 v2 (2026-05-30) — head 최상단에서 즉시 작동 보장
+       · 외부 스크립트 로드 실패해도 작동
+       · 인라인 onclick 의존 안 함, addEventListener 강제 binding
+       · 진단 콘솔 로그 + 권한 거부 알림
+       ==================================================================== -->
+  <script id="rec-boot">
+  (function(){
+    "use strict";
+    console.log("[REC-BOOT] 🎥 녹화 부트스트랩 로드 @ " + new Date().toISOString());
+    var rec = null, chunks = [], stream = null, startTime = null, timerId = null;
+
+    function getBtnAndLabel() {
+      return {
+        btn: document.getElementById('ghd-record-btn'),
+        label: document.getElementById('ghd-record-label')
+      };
+    }
+
+    function downloadBlob(blob, filename) {
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      setTimeout(function(){ a.remove(); URL.revokeObjectURL(url); }, 1500);
+    }
+
+    async function shareToMobile(blob, filename) {
+      var file = new File([blob], filename, { type: blob.type });
+      if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+        await navigator.share({ files: [file], title: '망고아이 라이브 참관 녹화', text: filename });
+        return;
+      }
+      downloadBlob(blob, filename);
+    }
+
+    async function uploadToServer(blob, filename, onProg) {
+      return new Promise(function(resolve, reject){
+        var xhr = new XMLHttpRequest();
+        var fd = new FormData();
+        fd.append('file', blob, filename);
+        fd.append('room_id', (document.getElementById('ghd-room')||{}).textContent || 'unknown');
+        fd.append('duration_sec', String(Math.floor((Date.now() - (startTime||Date.now()))/1000)));
+        xhr.upload.onprogress = function(e){
+          if (e.lengthComputable && onProg) onProg(Math.floor((e.loaded/e.total)*100));
+        };
+        xhr.onload = function(){
+          if (xhr.status >= 200 && xhr.status < 300) resolve();
+          else if (xhr.status === 404) reject(new Error('서버 업로드 API 미구현 (404)'));
+          else reject(new Error('업로드 실패 HTTP ' + xhr.status));
+        };
+        xhr.onerror = function(){ reject(new Error('네트워크 오류')); };
+        xhr.open('POST', '/api/admin/recordings/upload');
+        xhr.send(fd);
+      });
+    }
+
+    function showSaveModal(blob, filename, sizeMB, durationSec) {
+      var mm = String(Math.floor(durationSec/60)).padStart(2,'0');
+      var ss = String(durationSec%60).padStart(2,'0');
+      var isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+      var ov = document.createElement('div');
+      ov.id = 'rec-save-modal';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;font-family:inherit';
+      ov.innerHTML =
+        '<div style="background:linear-gradient(135deg,#1f1b3a,#0a1530);border:2px solid #8b5cf6;border-radius:18px;padding:24px;max-width:440px;width:100%;color:#fff;box-shadow:0 20px 60px rgba(139,92,246,0.4)">'+
+          '<h2 style="margin:0 0 6px;font-size:18px;font-weight:900;color:#fbbf24">💾 녹화 파일 저장</h2>'+
+          '<p style="margin:0 0 18px;font-size:12px;color:#cbd5e1">📁 <b>'+filename+'</b><br>⏱ '+mm+':'+ss+' · 📦 '+sizeMB+' MB</p>'+
+          '<div style="display:flex;flex-direction:column;gap:10px">'+
+            '<button data-opt="pc" style="padding:14px 16px;background:linear-gradient(135deg,#3b82f6,#2563eb);border:0;border-radius:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;text-align:left">💻 PC 데스크탑에 저장<br><span style="font-size:11px;font-weight:500;color:#dbeafe">바로 다운로드 폴더로</span></button>'+
+            '<button data-opt="mobile" style="padding:14px 16px;background:linear-gradient(135deg,#10b981,#059669);border:0;border-radius:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;text-align:left">📱 휴대폰에 저장<br><span style="font-size:11px;font-weight:500;color:#d1fae5">'+(isMobile?'시스템 공유 시트':'※ 모바일 추천')+'</span></button>'+
+            '<button data-opt="server" style="padding:14px 16px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);border:0;border-radius:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;text-align:left">☁️ 서버에 업로드<br><span style="font-size:11px;font-weight:500;color:#ede9fe">Cloudflare R2 영구 보관</span></button>'+
+            '<button data-opt="all" style="padding:14px 16px;background:linear-gradient(135deg,#f59e0b,#d97706);border:0;border-radius:12px;color:#1a1a1a;font-size:14px;font-weight:800;cursor:pointer;text-align:left">🌐 전체 저장 (PC + 서버)<br><span style="font-size:11px;font-weight:600;color:#451a03">로컬+서버 백업</span></button>'+
+          '</div>'+
+          '<button data-opt="close" style="margin-top:16px;width:100%;padding:10px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#cbd5e1;font-size:12px;cursor:pointer">❌ 취소</button>'+
+          '<div id="rec-prog" style="display:none;margin-top:12px;padding:10px;background:rgba(139,92,246,0.15);border:1px solid #8b5cf6;border-radius:8px;font-size:12px;color:#a78bfa;text-align:center"></div>'+
+        '</div>';
+      document.body.appendChild(ov);
+      ov.addEventListener('click', async function(e){
+        var b = e.target.closest('button[data-opt]');
+        if (!b) return;
+        var opt = b.getAttribute('data-opt');
+        var prog = ov.querySelector('#rec-prog');
+        if (opt === 'close') { ov.remove(); return; }
+        try {
+          prog.style.display = 'block';
+          if (opt === 'pc') { downloadBlob(blob, filename); prog.innerHTML = '✅ PC 다운로드 완료!'; }
+          else if (opt === 'mobile') { prog.innerHTML = '📱 시도 중…'; await shareToMobile(blob, filename); prog.innerHTML = '✅ 휴대폰 저장 완료!'; }
+          else if (opt === 'server') { prog.innerHTML = '☁️ 업로드 중… 0%'; await uploadToServer(blob, filename, function(p){ prog.innerHTML = '☁️ 업로드 중… '+p+'%'; }); prog.innerHTML = '✅ 서버 저장 완료!'; }
+          else if (opt === 'all') { prog.innerHTML = '💾 PC + ☁️ 서버 동시…'; downloadBlob(blob, filename); await uploadToServer(blob, filename, function(p){ prog.innerHTML = '💾 PC ✅ · ☁️ '+p+'%'; }); prog.innerHTML = '✅ 전체 저장 완료!'; }
+          setTimeout(function(){ ov.remove(); }, 1500);
+        } catch(err) {
+          prog.style.background = 'rgba(239,68,68,0.18)';
+          prog.style.borderColor = '#ef4444';
+          prog.style.color = '#fca5a5';
+          prog.innerHTML = '❌ ' + (err.message || err.name);
+        }
+      });
+    }
+
+    async function startRecording() {
+      console.log("[REC-BOOT] startRecording 호출");
+      try {
+        var s = null;
+        // 1) 페이지 안의 video 우선
+        var v = document.querySelector('video');
+        if (v && typeof v.captureStream === 'function' && v.readyState >= 2) {
+          try { s = v.captureStream(); console.log("[REC-BOOT] video.captureStream OK"); } catch(e){}
+        }
+        // 2) canvas
+        if (!s) {
+          var c = document.querySelector('canvas');
+          if (c && typeof c.captureStream === 'function') {
+            try { s = c.captureStream(30); console.log("[REC-BOOT] canvas.captureStream OK"); } catch(e){}
+          }
+        }
+        // 3) 화면 공유 폴백
+        if (!s) {
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+            alert('이 브라우저는 화면 녹화를 지원하지 않습니다.\n\nChrome 또는 Edge 최신 버전을 사용해 주세요.\n(iOS Safari 는 화면 공유 미지원)');
+            return;
+          }
+          console.log("[REC-BOOT] getDisplayMedia 호출 → 사용자 권한 대화상자");
+          s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: true });
+          console.log("[REC-BOOT] 화면 공유 권한 OK");
+        }
+
+        // 마이크 추가 (optional)
+        try {
+          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            var mic = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            mic.getAudioTracks().forEach(function(t){ s.addTrack(t); });
+          }
+        } catch(e) {}
+
+        stream = s;
+        chunks = [];
+        var mime = '';
+        var cands = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4'];
+        for (var i=0; i<cands.length; i++) {
+          if (window.MediaRecorder && MediaRecorder.isTypeSupported(cands[i])) { mime = cands[i]; break; }
+        }
+        rec = new MediaRecorder(s, mime ? { mimeType: mime } : undefined);
+        rec.ondataavailable = function(e){ if (e.data && e.data.size > 0) chunks.push(e.data); };
+        rec.onstop = function(){
+          var ext = (mime||'').indexOf('mp4') >= 0 ? 'mp4' : 'webm';
+          var blob = new Blob(chunks, { type: mime || 'video/webm' });
+          var ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+          var filename = 'mangoi-ghost-recording-' + ts + '.' + ext;
+          var sizeMB = (blob.size/1048576).toFixed(1);
+          var durationSec = startTime ? Math.floor((Date.now()-startTime)/1000) : 0;
+          // UI 복원
+          var els = getBtnAndLabel();
+          if (els.btn) els.btn.classList.remove('recording');
+          if (els.label) { els.label.textContent = '녹화'; els.label.setAttribute('data-ko','녹화'); els.label.setAttribute('data-en','Record'); }
+          if (timerId) { clearInterval(timerId); timerId = null; }
+          if (stream) { stream.getTracks().forEach(function(t){ try{t.stop();}catch(e){} }); stream = null; }
+          rec = null; chunks = [];
+          // 저장 옵션 모달
+          showSaveModal(blob, filename, sizeMB, durationSec);
+        };
+        s.getVideoTracks()[0].addEventListener('ended', function(){
+          if (rec && rec.state === 'recording') { try { rec.stop(); } catch(e){} }
+        });
+        rec.start(1000);
+        startTime = Date.now();
+
+        // UI: 빨간 펄스 + 경과 시간
+        var els = getBtnAndLabel();
+        if (els.btn) els.btn.classList.add('recording');
+        if (els.label) {
+          els.label.setAttribute('data-ko','● REC');
+          els.label.setAttribute('data-en','● REC');
+          timerId = setInterval(function(){
+            var sec = Math.floor((Date.now()-startTime)/1000);
+            var mm = String(Math.floor(sec/60)).padStart(2,'0');
+            var ss = String(sec%60).padStart(2,'0');
+            els.label.textContent = '● ' + mm + ':' + ss;
+          }, 500);
+        }
+        console.log("[REC-BOOT] ✅ 녹화 시작!");
+      } catch(e) {
+        console.error("[REC-BOOT] 녹화 시작 실패:", e);
+        if (e.name === 'NotAllowedError') {
+          alert('화면 공유 권한이 거부됐어요.\n\n다시 시도하면 권한 요청 대화상자가 나타납니다.\n[허용] 버튼을 눌러주세요.');
+        } else if (e.name === 'NotFoundError') {
+          alert('녹화할 화면을 찾을 수 없습니다. 화면 공유 대화상자에서 창/탭을 선택해 주세요.');
+        } else {
+          alert('녹화 시작 실패: ' + (e.message || e.name));
+        }
+      }
+    }
+
+    function toggleRec() {
+      console.log("[REC-BOOT] 토글 호출. 현재 상태:", rec ? rec.state : 'idle');
+      if (rec && rec.state === 'recording') {
+        try { rec.stop(); } catch(e) { console.error('정지 실패:', e); }
+      } else {
+        startRecording();
+      }
+    }
+
+    // 글로벌 노출 — 기존 onclick="ghdToggleRecord()" 가 작동하도록
+    window.ghdToggleRecord = toggleRec;
+
+    // 백업: addEventListener 로도 강하게 binding
+    function bindButton() {
+      var btn = document.getElementById('ghd-record-btn');
+      if (!btn) { setTimeout(bindButton, 300); return; }
+      if (btn._recBound) return;
+      btn._recBound = true;
+      btn.addEventListener('click', function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        console.log("[REC-BOOT] 버튼 클릭 감지");
+        toggleRec();
+      }, true);  // capture phase
+      console.log("[REC-BOOT] ✅ 녹화 버튼에 강제 binding 완료");
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bindButton);
+    } else {
+      bindButton();
+    }
+    setTimeout(bindButton, 500);
+    setTimeout(bindButton, 2000);
+  })();
+  </script>
   <style>
     :root { --bg:#0a1530; --card:#14213b; --text:#f9fafb; --text2:#cbd5e1;
       --gold:#fbbf24; --purple:#8b5cf6; --green:#10b981; --red:#ef4444; --blue:#3b82f6;
@@ -620,282 +850,7 @@
     setInterval(ghdRefresh, 3000);
     setInterval(updateDuration, 1000);
 
-    // ═══════════════════════════════════════════════════════════════
-    // 🎥 녹화 기능 (라이브 화면 녹화 토글)
-    // · 1순위: 페이지 안의 video / canvas 엘리먼트에서 captureStream
-    // · 2순위: getDisplayMedia (화면 공유)
-    // · 마이크 오디오도 같이 녹음
-    // ═══════════════════════════════════════════════════════════════
-    let ghdRecorder = null;
-    let ghdRecChunks = [];
-    let ghdRecStream = null;
-    let ghdRecStartTime = null;
-    let ghdRecTimerId = null;
-
-    async function ghdToggleRecord() {
-      const btn = document.getElementById('ghd-record-btn');
-      const label = document.getElementById('ghd-record-label');
-      if (!btn) return;
-
-      if (ghdRecorder && ghdRecorder.state === 'recording') {
-        try { ghdRecorder.stop(); } catch(e) {}
-        return;
-      }
-
-      try {
-        let stream = null;
-
-        const v = document.querySelector('video');
-        if (v && typeof v.captureStream === 'function' && v.readyState >= 2) {
-          try { stream = v.captureStream(); } catch(e){}
-        }
-        if (!stream) {
-          const c = document.querySelector('canvas');
-          if (c && typeof c.captureStream === 'function') {
-            try { stream = c.captureStream(30); } catch(e){}
-          }
-        }
-        if (!stream) {
-          if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-            alert('이 브라우저는 녹화를 지원하지 않습니다. Chrome / Edge 최신 버전을 사용해 주세요.');
-            return;
-          }
-          stream = await navigator.mediaDevices.getDisplayMedia({
-            video: { frameRate: 30 },
-            audio: true
-          });
-        }
-
-        try {
-          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            const mic = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-            mic.getAudioTracks().forEach(t => stream.addTrack(t));
-          }
-        } catch(e) {}
-
-        ghdRecStream = stream;
-        ghdRecChunks = [];
-
-        const mimeCandidates = [
-          'video/webm;codecs=vp9,opus',
-          'video/webm;codecs=vp8,opus',
-          'video/webm',
-          'video/mp4'
-        ];
-        let mime = '';
-        for (const m of mimeCandidates) {
-          if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) { mime = m; break; }
-        }
-
-        ghdRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
-        ghdRecorder.ondataavailable = (ev) => {
-          if (ev.data && ev.data.size > 0) ghdRecChunks.push(ev.data);
-        };
-        ghdRecorder.onstop = () => {
-          const ext = (mime || '').indexOf('mp4') >= 0 ? 'mp4' : 'webm';
-          const blob = new Blob(ghdRecChunks, { type: mime || 'video/webm' });
-          const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-          const filename = 'mangoi-ghost-recording-' + ts + '.' + ext;
-          const sizeMB = (blob.size / 1048576).toFixed(1);
-          const durationSec = ghdRecStartTime ? Math.floor((Date.now() - ghdRecStartTime) / 1000) : 0;
-
-          if (ghdRecStream) {
-            ghdRecStream.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
-            ghdRecStream = null;
-          }
-          btn.classList.remove('recording');
-          label.textContent = '녹화';
-          label.setAttribute('data-ko', '녹화');
-          label.setAttribute('data-en', 'Record');
-          if (ghdRecTimerId) { clearInterval(ghdRecTimerId); ghdRecTimerId = null; }
-          ghdRecorder = null;
-          ghdRecChunks = [];
-
-          // 저장 옵션 모달 표시
-          ghdShowSaveModal(blob, filename, sizeMB, durationSec);
-        };
-        stream.getVideoTracks()[0].addEventListener('ended', () => {
-          if (ghdRecorder && ghdRecorder.state === 'recording') {
-            try { ghdRecorder.stop(); } catch(e){}
-          }
-        });
-
-        ghdRecorder.start(1000);
-        ghdRecStartTime = Date.now();
-
-        btn.classList.add('recording');
-        label.setAttribute('data-ko', '● REC');
-        label.setAttribute('data-en', '● REC');
-        ghdRecTimerId = setInterval(() => {
-          const sec = Math.floor((Date.now() - ghdRecStartTime) / 1000);
-          const mm = String(Math.floor(sec / 60)).padStart(2, '0');
-          const ss = String(sec % 60).padStart(2, '0');
-          label.textContent = '● ' + mm + ':' + ss;
-        }, 500);
-
-        if (typeof showToast === 'function') showToast('🎥 녹화 시작! 다시 누르면 정지됩니다.');
-      } catch(e) {
-        console.error('[ghdToggleRecord] error:', e);
-        if (e.name === 'NotAllowedError') {
-          alert('화면 공유 권한을 허용해야 녹화할 수 있습니다.');
-        } else {
-          alert('녹화를 시작할 수 없습니다: ' + (e.message || e.name));
-        }
-      }
-    }
-    window.ghdToggleRecord = ghdToggleRecord;
-
-    // ═══════════════════════════════════════════════════════════════
-    // 💾 저장 옵션 모달 + 3가지 저장 방식 (PC / 휴대폰 / 서버)
-    // ═══════════════════════════════════════════════════════════════
-    function ghdShowSaveModal(blob, filename, sizeMB, durationSec) {
-      const mm = String(Math.floor(durationSec / 60)).padStart(2, '0');
-      const ss = String(durationSec % 60).padStart(2, '0');
-      const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-      let canShare = false;
-      try {
-        canShare = !!(navigator.canShare && navigator.canShare({ files: [new File([blob], filename, { type: blob.type })] }));
-      } catch(e) {}
-
-      const overlay = document.createElement('div');
-      overlay.id = 'ghd-save-modal';
-      overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;font-family:inherit';
-
-      const mobileHint = canShare ? '시스템 공유 시트로 사진/파일 앱에 저장' : (isMobile ? '브라우저 다운로드' : '※ 모바일에서 추천');
-
-      overlay.innerHTML =
-        '<div style="background:linear-gradient(135deg,#1f1b3a,#0a1530);border:2px solid #8b5cf6;border-radius:18px;padding:24px;max-width:440px;width:100%;color:#fff;box-shadow:0 20px 60px rgba(139,92,246,0.4)">' +
-          '<h2 style="margin:0 0 6px;font-size:18px;font-weight:900;color:#fbbf24">💾 녹화 파일 저장</h2>' +
-          '<p style="margin:0 0 18px;font-size:12px;color:#cbd5e1;line-height:1.5">' +
-            '📁 <b>' + filename + '</b><br>⏱ ' + mm + ':' + ss + ' · 📦 ' + sizeMB + ' MB' +
-          '</p>' +
-          '<div style="display:flex;flex-direction:column;gap:10px">' +
-            '<button class="ghd-save-opt" data-opt="pc" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:linear-gradient(135deg,#3b82f6,#2563eb);border:0;border-radius:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;text-align:left;transition:all .15s">' +
-              '<span style="font-size:24px">💻</span>' +
-              '<span style="flex:1">PC 데스크탑에 저장<br><span style="font-size:11px;color:#dbeafe;font-weight:500">바로 다운로드 폴더로 받기</span></span>' +
-            '</button>' +
-            '<button class="ghd-save-opt" data-opt="mobile" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:linear-gradient(135deg,#10b981,#059669);border:0;border-radius:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;text-align:left;transition:all .15s">' +
-              '<span style="font-size:24px">📱</span>' +
-              '<span style="flex:1">휴대폰에 저장<br><span style="font-size:11px;color:#d1fae5;font-weight:500">' + mobileHint + '</span></span>' +
-            '</button>' +
-            '<button class="ghd-save-opt" data-opt="server" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);border:0;border-radius:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;text-align:left;transition:all .15s">' +
-              '<span style="font-size:24px">☁️</span>' +
-              '<span style="flex:1">서버에 업로드<br><span style="font-size:11px;color:#ede9fe;font-weight:500">Cloudflare R2 영구 보관</span></span>' +
-            '</button>' +
-            '<button class="ghd-save-opt" data-opt="all" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:linear-gradient(135deg,#f59e0b,#d97706);border:0;border-radius:12px;color:#1a1a1a;font-size:14px;font-weight:800;cursor:pointer;text-align:left;transition:all .15s">' +
-              '<span style="font-size:24px">🌐</span>' +
-              '<span style="flex:1">전체 저장 (PC + 서버)<br><span style="font-size:11px;color:#451a03;font-weight:600">로컬 + 서버 백업 동시에</span></span>' +
-            '</button>' +
-          '</div>' +
-          '<button class="ghd-save-close" style="margin-top:16px;width:100%;padding:10px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#cbd5e1;font-size:12px;cursor:pointer">❌ 취소 (저장 안 함)</button>' +
-          '<div id="ghd-save-progress" style="display:none;margin-top:12px;padding:10px;background:rgba(139,92,246,0.15);border:1px solid #8b5cf6;border-radius:8px;font-size:12px;color:#a78bfa;text-align:center"></div>' +
-        '</div>';
-      document.body.appendChild(overlay);
-
-      overlay.querySelectorAll('.ghd-save-opt').forEach((b) => {
-        b.addEventListener('mouseenter', () => { b.style.transform = 'translateY(-2px)'; });
-        b.addEventListener('mouseleave', () => { b.style.transform = ''; });
-        b.addEventListener('click', async () => {
-          const opt = b.getAttribute('data-opt');
-          const prog = overlay.querySelector('#ghd-save-progress');
-          try {
-            if (opt === 'pc') {
-              ghdSavePC(blob, filename);
-              prog.style.display = 'block';
-              prog.innerHTML = '✅ PC 다운로드 완료!';
-              setTimeout(() => overlay.remove(), 1200);
-            } else if (opt === 'mobile') {
-              prog.style.display = 'block';
-              prog.innerHTML = '📱 휴대폰 저장 시도 중…';
-              await ghdSaveMobile(blob, filename);
-              prog.innerHTML = '✅ 휴대폰 저장 완료!';
-              setTimeout(() => overlay.remove(), 1200);
-            } else if (opt === 'server') {
-              prog.style.display = 'block';
-              prog.innerHTML = '☁️ 서버 업로드 중… 0%';
-              await ghdSaveServer(blob, filename, (pct) => { prog.innerHTML = '☁️ 서버 업로드 중… ' + pct + '%'; });
-              prog.innerHTML = '✅ 서버 저장 완료!';
-              setTimeout(() => overlay.remove(), 1500);
-            } else if (opt === 'all') {
-              prog.style.display = 'block';
-              prog.innerHTML = '💾 PC 다운로드 + ☁️ 서버 업로드 중…';
-              ghdSavePC(blob, filename);
-              await ghdSaveServer(blob, filename, (pct) => { prog.innerHTML = '💾 PC ✅ · ☁️ 서버 ' + pct + '%'; });
-              prog.innerHTML = '✅ 전체 저장 완료!';
-              setTimeout(() => overlay.remove(), 1500);
-            }
-          } catch(e) {
-            prog.style.display = 'block';
-            prog.style.background = 'rgba(239,68,68,0.18)';
-            prog.style.borderColor = '#ef4444';
-            prog.style.color = '#fca5a5';
-            prog.innerHTML = '❌ 저장 실패: ' + (e.message || e.name);
-          }
-        });
-      });
-      overlay.querySelector('.ghd-save-close').addEventListener('click', () => { overlay.remove(); });
-    }
-    window.ghdShowSaveModal = ghdShowSaveModal;
-
-    // ── 1) PC 데스크탑 — 브라우저 다운로드 폴더로 직행 ──
-    function ghdSavePC(blob, filename) {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 1500);
-    }
-
-    // ── 2) 휴대폰 — Web Share API 우선 (사진/파일 앱), 폴백 다운로드 ──
-    async function ghdSaveMobile(blob, filename) {
-      const file = new File([blob], filename, { type: blob.type });
-      if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
-        await navigator.share({
-          files: [file],
-          title: '망고아이 라이브 참관 녹화',
-          text: '강의실 실시간 화면 녹화 (' + filename + ')'
-        });
-        return;
-      }
-      ghdSavePC(blob, filename);
-    }
-
-    // ── 3) 서버 (Cloudflare R2) — POST multipart 업로드 + 진행률 ──
-    async function ghdSaveServer(blob, filename, onProgress) {
-      const roomEl = document.getElementById('ghd-room');
-      const roomId = (roomEl && roomEl.textContent || '').trim() || 'unknown';
-      const adminUid = (window.SSO_USER && window.SSO_USER.uid) || sessionStorage.getItem('admin_uid') || 'admin';
-
-      return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        const fd = new FormData();
-        fd.append('file', blob, filename);
-        fd.append('room_id', roomId);
-        fd.append('admin_uid', adminUid);
-        fd.append('duration_sec', String(Math.floor((Date.now() - (ghdRecStartTime || Date.now())) / 1000)));
-
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable && onProgress) {
-            onProgress(Math.floor((e.loaded / e.total) * 100));
-          }
-        };
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try { resolve(JSON.parse(xhr.responseText)); }
-            catch(e) { resolve({ ok: true }); }
-          } else if (xhr.status === 404) {
-            reject(new Error('서버 업로드 API 미구현 (404). PC/휴대폰 옵션을 사용해 주세요.'));
-          } else {
-            reject(new Error('업로드 실패 (HTTP ' + xhr.status + ')'));
-          }
-        };
-        xhr.onerror = () => reject(new Error('네트워크 오류 — PC/휴대폰 옵션을 사용해 주세요.'));
-        xhr.open('POST', '/api/admin/recordings/upload');
-        xhr.send(fd);
-      });
-    }
+    // 녹화 토글은 head 의 rec-boot 스크립트가 처리합니다 (window.ghdToggleRecord)
   </script>
 </body>
 </html>
