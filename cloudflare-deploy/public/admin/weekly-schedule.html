@@ -2231,7 +2231,7 @@ function renderNewSlotFields(type){
       '<label>'+(L?'코스 종료일':'End Date')+'</label>'+
       '<input type="date" id="ns-end">'+
       '<label>'+(L?'메모 (선택)':'Note (optional)')+'</label>'+
-      '<input type="text" id="ns-note">'+
+      '<input type="text" id="ns-note-2">'+
     '</div>';
   }
 }
@@ -2435,10 +2435,7 @@ reloadAndRender();
 </script>
 
 <!-- 🏠 글로벌 홈페이지 FAB (헤더 EN 옆으로 이동되어 hidden) -->
-<a id="global-home-fab" href="/" title="학생 홈페이지로 돌아가기"
-   style="display:none">
-  🏠 <span>홈페이지</span>
-</a>
+<a id="global-home-fab" href="/" style="display:none">홈</a>
 
 </body>
 </html>
