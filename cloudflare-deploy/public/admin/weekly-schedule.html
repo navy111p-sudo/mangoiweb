@@ -2309,10 +2309,10 @@ reloadAndRender();
 
 
 // ═══════════════════════════════════════════════════════════════
-// 🎓 학생 모드 필터링 (?role=student)
-// · 학생 페이지에서 진입 시 본인 수업만 표시
-// · URL: ?role=student&uid=<학생ID>  또는 sessionStorage.mangoi_user
-// · 헤더 타이틀 + 신규 등록 FAB / 매칭 버튼 숨김
+// 🎓 학생 모드 필터링 v2 (?role=student) - 강화판
+// · demo 데이터에 본인 UID 없으면 첫 번째 학생을 본인으로 자동 매칭
+// · SLOTS 채워질 때까지 polling, 한 번 성공하면 lock
+// · 학생 모드는 본인 슬롯만 표시, 신규 등록/AI 매칭 버튼 숨김
 // ═══════════════════════════════════════════════════════════════
 (function studentMode(){
   "use strict";
@@ -2329,14 +2329,12 @@ reloadAndRender();
   }
 
   if (role !== 'student') return; // 관리자 모드면 그대로
+  window.__STUDENT_MODE = true;
 
-  // 학생 UID 없으면 demo (test_st_5)
-  if (!uid) uid = 'test_st_5';
-  window.__STUDENT_FILTER_UID = uid;
-  console.log('[학생 모드] 필터 활성, 학생 UID:', uid);
+  console.log('[학생 모드 v2] 활성, URL uid=', uid || '(없음, 자동 매칭 예정)');
 
-  function applyStudentFilter() {
-    // 1) 헤더 타이틀 변경
+  // 헤더 / 버튼 UI 변경
+  function patchUI() {
     var h1Spans = document.querySelectorAll('h1 span[data-ko]');
     h1Spans.forEach(function(s){
       var ko = s.getAttribute('data-ko');
@@ -2350,48 +2348,89 @@ reloadAndRender();
         s.setAttribute('data-en', 'My classes only');
       }
     });
-
-    // 2) 학생 등록 FAB / AI 매칭 / 신규 학생 관련 버튼 숨김 (학생은 등록 권한 없음)
     var fab = document.getElementById('fab-enroll');
     if (fab) fab.style.display = 'none';
-    var aiBtn = document.querySelector('button[onclick*="AiMatch"], button[onclick*="ai-match"], .ai-match-btn');
-    if (aiBtn) aiBtn.style.display = 'none';
-    // 헤더 우측의 "AI 매칭" 버튼
     document.querySelectorAll('button').forEach(function(b){
       var txt = (b.textContent || '').trim();
       if (txt.indexOf('AI 매칭') >= 0 || txt.indexOf('AI Match') >= 0) {
         b.style.display = 'none';
       }
     });
+  }
 
-    // 3) SLOTS 에서 학생 UID 매칭 안 되는 것 모두 제거
-    if (typeof window.SLOTS === 'object' && window.SLOTS) {
-      var before = Object.keys(window.SLOTS).length;
-      var removed = 0;
-      Object.keys(window.SLOTS).forEach(function(k){
-        var sl = window.SLOTS[k];
-        var match = sl && sl.students && sl.students.some(function(s){
-          return s.uid === uid || s.uid === window.__STUDENT_FILTER_UID;
+  // 폴링 — SLOTS 가 충분히 채워지면 필터 적용
+  var filterDone = false;
+  var attempt = 0;
+  var poller = setInterval(function(){
+    attempt++;
+    patchUI();
+
+    if (filterDone) { clearInterval(poller); return; }
+    if (attempt > 40) { clearInterval(poller); console.warn('[학생 모드 v2] 폴링 타임아웃'); return; }
+
+    if (typeof window.SLOTS !== 'object' || !window.SLOTS) return;
+    var keys = Object.keys(window.SLOTS);
+    if (keys.length === 0) return; // SLOTS 아직 비어있음, 대기
+
+    // 1) demo 데이터의 모든 학생 UID 수집
+    var allUids = [];
+    var seen = {};
+    keys.forEach(function(k){
+      var sl = window.SLOTS[k];
+      if (sl && sl.students) {
+        sl.students.forEach(function(s){
+          if (s.uid && !seen[s.uid]) { seen[s.uid] = 1; allUids.push(s.uid); }
         });
-        if (!match) { delete window.SLOTS[k]; removed++; }
-      });
-      console.log('[학생 모드] 슬롯 필터: ' + before + ' → ' + (before - removed) + ' (제거 ' + removed + '개)');
-
-      // 강제 재렌더
-      if (typeof window.render === 'function') {
-        try { window.render(); } catch(e){ console.warn('render 실패:', e); }
       }
-    }
-  }
+    });
 
-  // 여러 시점에 시도 (loadData async 대응)
+    // 2) 본인 UID 가 없거나 demo 에 없으면 첫 번째 학생 자동 매칭
+    var myUid = uid;
+    if (!myUid || allUids.indexOf(myUid) < 0) {
+      myUid = allUids[0] || 'test_st_0';
+      console.log('[학생 모드 v2] 자동 매칭: demo 첫 번째 학생 →', myUid);
+    }
+    window.__STUDENT_FILTER_UID = myUid;
+
+    // 3) 본인 UID 매칭 안 되는 슬롯 모두 제거
+    var before = keys.length;
+    var removed = 0;
+    keys.forEach(function(k){
+      var sl = window.SLOTS[k];
+      var match = sl && sl.students && sl.students.some(function(s){ return s.uid === myUid; });
+      if (!match) { delete window.SLOTS[k]; removed++; }
+    });
+
+    // 4) 본인 이름 표시 (헤더 부제목 보강)
+    var myName = '';
+    var firstSlot = window.SLOTS[Object.keys(window.SLOTS)[0]];
+    if (firstSlot && firstSlot.students) {
+      var meEntry = firstSlot.students.find(function(s){ return s.uid === myUid; });
+      if (meEntry) myName = meEntry.name;
+    }
+    if (myName) {
+      var sub = document.querySelector('h1 .sub');
+      if (sub) sub.textContent = myName + ' 학생';
+    }
+
+    console.log('[학생 모드 v2] 필터 적용: ' + before + ' → ' + (before - removed) + ' 슬롯 (제거 ' + removed + ', 학생 ' + (myName || myUid) + ')');
+
+    filterDone = true;
+
+    // 강제 재렌더
+    if (typeof window.render === 'function') {
+      try { window.render(); } catch(e){ console.warn('render 실패:', e); }
+    }
+
+    clearInterval(poller);
+  }, 300);
+
+  // 즉시 1회 UI 패치
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function(){ setTimeout(applyStudentFilter, 100); });
+    document.addEventListener('DOMContentLoaded', patchUI);
   } else {
-    setTimeout(applyStudentFilter, 100);
+    patchUI();
   }
-  setTimeout(applyStudentFilter, 800);
-  setTimeout(applyStudentFilter, 2000);
 })();
 </script>
 
