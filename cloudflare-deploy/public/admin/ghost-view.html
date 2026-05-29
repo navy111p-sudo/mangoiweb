@@ -14,6 +14,8 @@
   <meta name="theme-color" content="#0a1530" />
   <!-- 글로벌 바 자동 inject 차단 (자체 헤더 사용) -->
   <meta name="mangoi-no-global-bar" content="1" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
 
   <!-- ====================================================================
        🎥 녹화 보강 패치 v2 (2026-05-30) — head 최상단에서 즉시 작동 보장
@@ -117,99 +119,140 @@
     }
 
     async function startRecording() {
-      console.log("[REC-BOOT] startRecording 호출");
-      try {
-        var s = null;
-        // 1) 페이지 안의 video 우선
-        var v = document.querySelector('video');
-        if (v && typeof v.captureStream === 'function' && v.readyState >= 2) {
-          try { s = v.captureStream(); console.log("[REC-BOOT] video.captureStream OK"); } catch(e){}
-        }
-        // 2) canvas
-        if (!s) {
-          var c = document.querySelector('canvas');
-          if (c && typeof c.captureStream === 'function') {
-            try { s = c.captureStream(30); console.log("[REC-BOOT] canvas.captureStream OK"); } catch(e){}
-          }
-        }
-        // 3) 화면 공유 폴백
-        if (!s) {
-          if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-            alert('이 브라우저는 화면 녹화를 지원하지 않습니다.\n\nChrome 또는 Edge 최신 버전을 사용해 주세요.\n(iOS Safari 는 화면 공유 미지원)');
-            return;
-          }
-          console.log("[REC-BOOT] getDisplayMedia 호출 → 사용자 권한 대화상자");
-          s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: true });
-          console.log("[REC-BOOT] 화면 공유 권한 OK");
-        }
+      console.log("[REC-BOOT] startRecording 호출 — html2canvas 자동 캡처 방식");
 
-        // 마이크 추가 (optional)
-        try {
-          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            var mic = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-            mic.getAudioTracks().forEach(function(t){ s.addTrack(t); });
-          }
-        } catch(e) {}
+      // 캡처 대상: 강의실 실시간 화면 영역 (없으면 body 전체)
+      var target = document.getElementById('ghd-video-area')
+                || document.querySelector('.video-area')
+                || document.querySelector('.panel')
+                || document.body;
 
-        stream = s;
-        chunks = [];
-        var mime = '';
-        var cands = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4'];
-        for (var i=0; i<cands.length; i++) {
-          if (window.MediaRecorder && MediaRecorder.isTypeSupported(cands[i])) { mime = cands[i]; break; }
-        }
-        rec = new MediaRecorder(s, mime ? { mimeType: mime } : undefined);
-        rec.ondataavailable = function(e){ if (e.data && e.data.size > 0) chunks.push(e.data); };
-        rec.onstop = function(){
-          var ext = (mime||'').indexOf('mp4') >= 0 ? 'mp4' : 'webm';
-          var blob = new Blob(chunks, { type: mime || 'video/webm' });
-          var ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
-          var filename = 'mangoi-ghost-recording-' + ts + '.' + ext;
-          var sizeMB = (blob.size/1048576).toFixed(1);
-          var durationSec = startTime ? Math.floor((Date.now()-startTime)/1000) : 0;
-          // UI 복원
-          var els = getBtnAndLabel();
-          if (els.btn) els.btn.classList.remove('recording');
-          if (els.label) { els.label.textContent = '녹화'; els.label.setAttribute('data-ko','녹화'); els.label.setAttribute('data-en','Record'); }
-          if (timerId) { clearInterval(timerId); timerId = null; }
-          if (stream) { stream.getTracks().forEach(function(t){ try{t.stop();}catch(e){} }); stream = null; }
-          rec = null; chunks = [];
-          // 저장 옵션 모달
-          showSaveModal(blob, filename, sizeMB, durationSec);
-        };
-        s.getVideoTracks()[0].addEventListener('ended', function(){
-          if (rec && rec.state === 'recording') { try { rec.stop(); } catch(e){} }
-        });
-        rec.start(1000);
-        startTime = Date.now();
-
-        // UI: 빨간 펄스 + 경과 시간
-        var els = getBtnAndLabel();
-        if (els.btn) els.btn.classList.add('recording');
-        if (els.label) {
-          els.label.setAttribute('data-ko','● REC');
-          els.label.setAttribute('data-en','● REC');
-          timerId = setInterval(function(){
-            var sec = Math.floor((Date.now()-startTime)/1000);
-            var mm = String(Math.floor(sec/60)).padStart(2,'0');
-            var ss = String(sec%60).padStart(2,'0');
-            els.label.textContent = '● ' + mm + ':' + ss;
-          }, 500);
-        }
-        console.log("[REC-BOOT] ✅ 녹화 시작!");
-      } catch(e) {
-        console.error("[REC-BOOT] 녹화 시작 실패:", e);
-        if (e.name === 'NotAllowedError') {
-          alert('화면 공유 권한이 거부됐어요.\n\n다시 시도하면 권한 요청 대화상자가 나타납니다.\n[허용] 버튼을 눌러주세요.');
-        } else if (e.name === 'NotFoundError') {
-          alert('녹화할 화면을 찾을 수 없습니다. 화면 공유 대화상자에서 창/탭을 선택해 주세요.');
-        } else {
-          alert('녹화 시작 실패: ' + (e.message || e.name));
-        }
+      if (!target) {
+        alert('녹화할 화면 영역을 찾을 수 없습니다.');
+        return;
       }
+
+      // 출력 캔버스 (1280x720 HD)
+      var cvs = document.createElement('canvas');
+      cvs.width = 1280;
+      cvs.height = 720;
+      var ctx = cvs.getContext('2d');
+      ctx.fillStyle = '#0a1530';
+      ctx.fillRect(0, 0, cvs.width, cvs.height);
+
+      var stopFlag = false;
+      var snapshotTimer = null;
+
+      // html2canvas 가 로드돼 있는지 확인
+      if (typeof window.html2canvas !== 'function') {
+        alert('녹화 라이브러리 로드 중입니다. 잠시 후 다시 시도해 주세요.');
+        return;
+      }
+
+      // 주기적으로 강의실 영역 스냅샷 → 캔버스에 그림 (5fps)
+      async function snapshotTick() {
+        if (stopFlag) return;
+        try {
+          var snap = await window.html2canvas(target, {
+            backgroundColor: '#0a1530',
+            logging: false,
+            useCORS: true,
+            allowTaint: true,
+            scale: 1
+          });
+          var w = snap.width || target.offsetWidth || 1280;
+          var h = snap.height || target.offsetHeight || 720;
+          var ratio = Math.min(cvs.width / w, cvs.height / h);
+          var dw = w * ratio, dh = h * ratio;
+          var dx = (cvs.width - dw) / 2, dy = (cvs.height - dh) / 2;
+          ctx.fillStyle = '#0a1530';
+          ctx.fillRect(0, 0, cvs.width, cvs.height);
+          ctx.drawImage(snap, dx, dy, dw, dh);
+
+          // 좌상단 라이브 워터마크
+          ctx.fillStyle = 'rgba(239,68,68,0.85)';
+          ctx.fillRect(20, 20, 130, 30);
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 16px sans-serif';
+          ctx.fillText('● LIVE REC', 32, 41);
+
+          // 우하단 타임스탬프
+          ctx.fillStyle = 'rgba(0,0,0,0.7)';
+          ctx.fillRect(cvs.width - 240, cvs.height - 40, 220, 30);
+          ctx.fillStyle = '#fbbf24';
+          ctx.font = 'bold 13px monospace';
+          ctx.fillText(new Date().toLocaleString('ko-KR'), cvs.width - 230, cvs.height - 20);
+        } catch(e) {
+          console.warn('[REC-BOOT] snapshot fail:', e);
+        }
+        if (!stopFlag) snapshotTimer = setTimeout(snapshotTick, 200); // 5fps
+      }
+      snapshotTick();
+
+      // 캔버스 스트림 생성
+      var s = cvs.captureStream(10);  // 10fps
+
+      // 마이크 오디오 추가 (옵션)
+      try {
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          var mic = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          mic.getAudioTracks().forEach(function(t){ s.addTrack(t); });
+          console.log("[REC-BOOT] 마이크 오디오 추가됨");
+        }
+      } catch(e) { console.log("[REC-BOOT] 마이크 거부됨 (영상만 녹화):", e.message); }
+
+      stream = s;
+      stream._stopSnapshot = function(){ stopFlag = true; if (snapshotTimer) clearTimeout(snapshotTimer); };
+      chunks = [];
+
+      // MIME 자동 선택
+      var mime = '';
+      var cands = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4'];
+      for (var i=0; i<cands.length; i++) {
+        if (window.MediaRecorder && MediaRecorder.isTypeSupported(cands[i])) { mime = cands[i]; break; }
+      }
+      if (!window.MediaRecorder) {
+        alert('이 브라우저는 MediaRecorder 를 지원하지 않습니다.');
+        return;
+      }
+
+      rec = new MediaRecorder(s, mime ? { mimeType: mime } : undefined);
+      rec.ondataavailable = function(e){ if (e.data && e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = function(){
+        if (stream && stream._stopSnapshot) stream._stopSnapshot();
+        var ext = (mime||'').indexOf('mp4') >= 0 ? 'mp4' : 'webm';
+        var blob = new Blob(chunks, { type: mime || 'video/webm' });
+        var ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+        var filename = 'mangoi-ghost-recording-' + ts + '.' + ext;
+        var sizeMB = (blob.size/1048576).toFixed(1);
+        var durationSec = startTime ? Math.floor((Date.now()-startTime)/1000) : 0;
+        var els = getBtnAndLabel();
+        if (els.btn) els.btn.classList.remove('recording');
+        if (els.label) { els.label.textContent = '녹화'; els.label.setAttribute('data-ko','녹화'); els.label.setAttribute('data-en','Record'); }
+        if (timerId) { clearInterval(timerId); timerId = null; }
+        if (stream) { try { stream.getTracks().forEach(function(t){ t.stop(); }); } catch(e){} stream = null; }
+        rec = null; chunks = [];
+        showSaveModal(blob, filename, sizeMB, durationSec);
+      };
+      rec.start(1000);
+      startTime = Date.now();
+
+      var els = getBtnAndLabel();
+      if (els.btn) els.btn.classList.add('recording');
+      if (els.label) {
+        els.label.setAttribute('data-ko','● REC');
+        els.label.setAttribute('data-en','● REC');
+        timerId = setInterval(function(){
+          var sec = Math.floor((Date.now()-startTime)/1000);
+          var mm = String(Math.floor(sec/60)).padStart(2,'0');
+          var ss = String(sec%60).padStart(2,'0');
+          els.label.textContent = '● ' + mm + ':' + ss;
+        }, 500);
+      }
+      console.log("[REC-BOOT] ✅ 강의실 화면 자동 녹화 시작!");
     }
 
-    function toggleRec() {
+        function toggleRec() {
       console.log("[REC-BOOT] 토글 호출. 현재 상태:", rec ? rec.state : 'idle');
       if (rec && rec.state === 'recording') {
         try { rec.stop(); } catch(e) { console.error('정지 실패:', e); }
