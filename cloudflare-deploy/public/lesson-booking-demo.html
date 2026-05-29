@@ -3,472 +3,547 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0B1224">
-<title>📝 수업 신청 — 망고아이</title>
-<!-- BUILD:20260529055130 -->
+<meta name="theme-color" content="#050B14">
+<title>📝 마스터 클래스 디자인 — 망고아이</title>
+<!-- BUILD:20260530-master-v1 -->
 <style>
-:root{
-  --bg:#0B1224; --bg-soft:#131C36; --bg-card:#1A2548; --bg-card-2:#1E2D58;
-  --border:rgba(96,165,250,0.18); --border-strong:rgba(96,165,250,0.45);
-  --text:#E2E8F0; --text-dim:#94A3B8; --text-mute:#64748B;
-  --accent:#3B82F6; --accent-2:#60A5FA; --gold:#F59E0B; --ok:#10B981;
-}
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{
-  background:linear-gradient(160deg,var(--bg) 0%,#0E1834 100%);
-  color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Pretendard",sans-serif;
-  font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;
-  min-height:100vh;
-}
-.wrap{max-width:780px;margin:0 auto;padding:14px 14px 120px}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}
+  html,body{
+    background:#050B14;
+    color:#E2E8F0;
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Pretendard",sans-serif;
+    font-size:15px;line-height:1.5;
+    min-height:100vh;
+  }
+  body{display:flex;justify-content:center;align-items:flex-start;padding:10px}
 
-header.hero{position:relative;background:linear-gradient(135deg,#3B82F6 0%,#1D4ED8 100%);
-  border-radius:16px;padding:18px 22px;margin-bottom:18px;
-  box-shadow:0 12px 28px -8px rgba(59,130,246,0.5);overflow:hidden}
-header.hero::before{content:'';position:absolute;inset:0;
-  background:radial-gradient(circle at 20% 30%,rgba(255,255,255,0.15),transparent 60%);pointer-events:none}
-header.hero h1{font-size:20px;font-weight:900;color:#fff;display:flex;align-items:center;gap:10px;position:relative}
-header.hero h1 .ico{font-size:26px}
-header.hero .sub{margin-top:4px;font-size:12.5px;color:rgba(255,255,255,0.92);font-weight:600;position:relative}
-header.hero .home{position:absolute;top:14px;right:14px;
-  background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:#fff;
-  padding:6px 13px;border-radius:99px;font-size:12px;font-weight:700;text-decoration:none;z-index:1}
-header.hero .back{position:absolute;top:14px;left:14px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);
-  color:#fff;padding:6px 12px;border-radius:99px;font-size:12px;font-weight:700;text-decoration:none;cursor:pointer;z-index:1;display:none}
-.show-back .back{display:inline-block}
+  /* 메인 디바이스 프레임 */
+  .frame{
+    width:100%;max-width:430px;
+    background:#09111E;
+    min-height:calc(100vh - 20px);
+    border-radius:32px;
+    border:6px solid #1E293B;
+    padding:20px 18px 110px;
+    position:relative;
+    box-shadow:0 25px 50px -12px rgba(0,0,0,0.6);
+    overflow:hidden;
+  }
+  @media (max-width:480px){
+    body{padding:0}
+    .frame{border-radius:0;border:0;padding:16px 14px 110px}
+  }
 
-.steps{display:flex;gap:6px;margin-bottom:14px;align-items:center;justify-content:center;font-size:11.5px;color:var(--text-dim);flex-wrap:wrap}
-.steps .st{padding:5px 11px;border-radius:99px;background:rgba(15,23,42,0.6);border:1px solid var(--border);font-weight:700;display:inline-flex;align-items:center;gap:5px;transition:all .2s}
-.steps .st.active{background:linear-gradient(135deg,#3B82F6,#1D4ED8);color:#fff;border-color:var(--accent-2)}
-.steps .st.done{background:rgba(16,185,129,0.18);border-color:rgba(16,185,129,0.5);color:#6EE7B7}
-.steps .sep{color:var(--text-mute);font-size:10px}
+  /* 상단 토스트 */
+  .toast{
+    position:absolute;top:-90px;left:14px;right:14px;
+    background:linear-gradient(135deg,#10B981,#059669);
+    color:#fff;padding:14px 20px;border-radius:30px;
+    font-size:13px;font-weight:700;text-align:center;
+    transition:top .45s cubic-bezier(0.175,0.885,0.32,1.275);
+    z-index:99;box-shadow:0 12px 28px -6px rgba(16,185,129,0.55);
+  }
+  .toast.show{top:15px}
 
-.screen{display:none;animation:fadeIn .3s}
-.screen.active{display:block}
-@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  /* 진행 단계 인디케이터 */
+  .stepbar{
+    display:flex;justify-content:space-between;
+    font-size:11px;color:#475569;margin-bottom:18px;padding:5px 0;
+  }
+  .stepbar span.active{
+    color:#38BDF8;font-weight:bold;
+    text-shadow:0 0 10px rgba(56,189,248,0.3);
+  }
 
-.scr-title{font-size:18px;font-weight:800;color:#fff;margin-bottom:6px}
-.scr-sub{font-size:13px;color:var(--text-dim);margin-bottom:16px}
+  h2.title{font-size:22px;font-weight:900;margin-bottom:4px;letter-spacing:-0.5px;color:#fff}
+  p.sub{color:#94A3B8;font-size:13px;margin-bottom:22px;line-height:1.5}
 
-.option-card{display:block;width:100%;background:var(--bg-card);border:1.5px solid var(--border);
-  border-radius:16px;padding:20px;margin-bottom:12px;cursor:pointer;text-align:left;
-  transition:all .2s cubic-bezier(.34,1.56,.64,1);position:relative;overflow:hidden;font-family:inherit;color:inherit}
-.option-card:hover{border-color:var(--accent-2);background:var(--bg-card-2);
-  transform:translateY(-2px);box-shadow:0 10px 24px -6px rgba(59,130,246,0.35)}
-.option-card.selected{border-color:#FCD34D;background:linear-gradient(135deg,rgba(251,191,36,0.12),rgba(245,158,11,0.04));
-  box-shadow:0 10px 28px -6px rgba(251,191,36,0.45)}
-.option-card.gradient-blue{background:linear-gradient(135deg,#1E40AF 0%,#0F172A 100%)}
-.option-card.gradient-green{background:linear-gradient(135deg,#065F46 0%,#0F172A 100%)}
-.oc-top{display:flex;align-items:center;gap:12px;margin-bottom:10px}
-.oc-icon{font-size:32px;line-height:1;width:50px;height:50px;border-radius:14px;
-  background:rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.oc-label{font-size:17px;font-weight:800;color:#fff}
-.oc-desc{font-size:13px;color:#CBD5E1;line-height:1.6;margin-bottom:10px}
-.oc-meta{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
-.oc-tag{font-size:11px;padding:3px 9px;border-radius:99px;background:rgba(255,255,255,0.15);color:#fff;font-weight:700}
-.oc-tag.gold{background:rgba(252,211,77,0.25);color:#FCD34D}
-.oc-cta{font-size:13px;color:#FCD34D;font-weight:800;text-align:right}
+  /* 1:1 / 그룹 토글 */
+  .type-tabs{display:flex;gap:6px;background:#111C2E;padding:4px;border-radius:12px;margin-bottom:18px}
+  .type-tabs button{
+    flex:1;padding:11px 0;cursor:pointer;border:none;border-radius:9px;
+    font-size:13px;font-weight:bold;transition:all .25s;
+    background:transparent;color:#64748B;
+  }
+  .type-tabs button.active{
+    background:linear-gradient(135deg,#3B82F6,#2563EB);
+    color:#fff;box-shadow:0 4px 12px -4px rgba(59,130,246,0.6);
+  }
 
-.segment{position:relative;display:flex;background:var(--bg-soft);border:1px solid var(--border);
-  border-radius:14px;padding:4px;margin-bottom:18px;overflow:hidden}
-.segment .seg{flex:1;padding:11px 14px;background:transparent;border:0;color:var(--text-dim);
-  font-size:13px;font-weight:700;cursor:pointer;border-radius:10px;
-  transition:color .2s;font-family:inherit;display:inline-flex;align-items:center;justify-content:center;gap:6px;z-index:1;position:relative}
-.segment .seg.active{color:#fff}
-.segment .seg-slider{position:absolute;top:4px;left:4px;width:calc(50% - 4px);height:calc(100% - 8px);
-  background:linear-gradient(135deg,var(--accent),#1D4ED8);
-  border-radius:10px;transition:transform .25s cubic-bezier(.34,1.56,.64,1);
-  box-shadow:0 4px 12px rgba(59,130,246,0.4);z-index:0}
-.segment[data-tab="teacher"] .seg-slider{transform:translateX(100%)}
+  /* 섹션 라벨 */
+  .sec-label{
+    font-size:12.5px;font-weight:700;color:#94A3B8;
+    margin-bottom:8px;display:flex;align-items:center;gap:6px;
+  }
 
-.date-strip{display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;margin-bottom:14px;
-  scrollbar-width:thin;-webkit-overflow-scrolling:touch}
-.date-strip::-webkit-scrollbar{height:5px}
-.date-strip::-webkit-scrollbar-thumb{background:rgba(96,165,250,0.4);border-radius:99px}
-.date-chip{flex-shrink:0;background:var(--bg-card);border:1.5px solid var(--border);
-  border-radius:12px;padding:10px 14px;cursor:pointer;text-align:center;min-width:65px;transition:all .15s}
-.date-chip:hover{border-color:var(--accent-2);background:var(--bg-card-2)}
-.date-chip.active{background:linear-gradient(135deg,#3B82F6,#1D4ED8);
-  border-color:var(--accent-2);color:#fff;box-shadow:0 6px 16px -2px rgba(59,130,246,0.5)}
-.date-chip .dow{font-size:10.5px;color:#94A3B8;font-weight:700;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.5px}
-.date-chip .day{font-size:18px;font-weight:900;color:#fff;line-height:1}
-.date-chip .mon{font-size:9px;color:#94A3B8;margin-top:2px;text-transform:uppercase;letter-spacing:0.5px}
-.date-chip.active .dow,.date-chip.active .mon{color:rgba(255,255,255,0.85)}
+  /* 주간 목표 횟수 토글 */
+  .weekly-target{margin-bottom:18px}
+  .target-tabs{
+    display:flex;gap:4px;background:#111C2E;padding:4px;border-radius:10px;
+  }
+  .target-tabs button{
+    flex:1;padding:8px 0;cursor:pointer;border:none;border-radius:7px;
+    font-size:12px;font-weight:bold;transition:all .2s;
+    background:transparent;color:#64748B;
+  }
+  .target-tabs button.active{
+    background:#2563EB;color:#fff;
+  }
 
-.time-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:6px;
-  max-height:340px;overflow-y:auto;padding:6px;background:rgba(15,23,42,0.4);
-  border:1px solid var(--border);border-radius:12px;
-  scrollbar-width:thin;scrollbar-color:rgba(96,165,250,0.4) transparent}
-.time-grid::-webkit-scrollbar{width:6px}
-.time-grid::-webkit-scrollbar-thumb{background:rgba(96,165,250,0.4);border-radius:99px}
-.time-grid::-webkit-scrollbar-track{background:transparent}
-.time-chip{background:var(--bg-card);border:1.5px solid var(--border);border-radius:8px;
-  padding:8px 4px;text-align:center;font-size:12.5px;font-weight:700;color:#fff;cursor:pointer;transition:all .15s}
-.time-chip:hover:not(.disabled){border-color:var(--accent-2);background:var(--bg-card-2);transform:translateY(-1px)}
-.time-chip.active{background:linear-gradient(135deg,#FCD34D,#F59E0B);
-  color:#1A1A1A;border-color:#FCD34D;box-shadow:0 6px 16px -2px rgba(251,191,36,0.55)}
-.time-chip.disabled{opacity:0.35;cursor:not-allowed;background:rgba(15,23,42,0.5)}
+  /* 날짜 가로 슬라이더 */
+  .date-section{margin-bottom:18px}
+  .date-row{
+    display:flex;gap:8px;overflow-x:auto;
+    scrollbar-width:none;-ms-overflow-style:none;
+    padding-bottom:4px;
+  }
+  .date-row::-webkit-scrollbar{display:none}
+  .date-card{
+    flex:0 0 auto;min-width:64px;
+    padding:12px 6px;border-radius:12px;text-align:center;cursor:pointer;
+    transition:all .25s;
+    background:#111C2E;border:1px solid #1E293B;
+  }
+  .date-card.active{
+    background:#1E3A8A;border:2px solid #38BDF8;padding:11px 5px;
+    box-shadow:0 4px 16px -4px rgba(56,189,248,0.5);
+  }
+  .date-card .dn{font-size:11px;color:#64748B}
+  .date-card .dd{font-size:17px;font-weight:900;margin:3px 0;color:#fff}
+  .date-card.active .dd{color:#38BDF8}
+  .date-card .dm{font-size:10px;color:#475569}
 
-.teacher-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
-.teacher-card{background:var(--bg-card);border:1.5px solid var(--border);border-radius:14px;
-  padding:14px 12px;text-align:center;cursor:pointer;transition:all .2s}
-.teacher-card:hover{border-color:var(--accent-2);transform:translateY(-2px);
-  box-shadow:0 10px 24px -6px rgba(59,130,246,0.35)}
-.teacher-card.active{background:linear-gradient(135deg,rgba(251,191,36,0.15),rgba(245,158,11,0.04));
-  border-color:#FCD34D;box-shadow:0 10px 24px -6px rgba(251,191,36,0.45)}
-.tc-avatar{font-size:36px;margin-bottom:6px;line-height:1}
-.tc-name{font-size:14px;font-weight:800;color:#fff;margin-bottom:2px}
-.tc-tag{display:inline-block;padding:2px 8px;border-radius:99px;background:rgba(96,165,250,0.18);
-  color:#93C5FD;font-size:10.5px;font-weight:700;margin-top:4px}
-.tc-tag.native{background:rgba(167,139,250,0.18);color:#C4B5FD}
-.tc-rating{font-size:11.5px;color:#FCD34D;margin-top:5px;font-weight:700}
-.tc-exp{font-size:10.5px;color:#94A3B8;margin-top:2px}
+  /* 시간 슬롯 그리드 */
+  .time-section{margin-bottom:14px}
+  .time-grid{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:6px;
+    max-height:230px;overflow-y:auto;padding-right:2px;
+  }
+  .time-grid::-webkit-scrollbar{width:4px}
+  .time-grid::-webkit-scrollbar-thumb{background:#1E293B;border-radius:4px}
+  .slot{
+    padding:11px 0;border-radius:8px;
+    font-size:12px;font-weight:bold;transition:all .2s;
+    background:#111C2E;color:#D1D5DB;border:1px solid #1E293B;
+    cursor:pointer;
+  }
+  .slot:hover:not(:disabled){background:#1A2540;border-color:#334155}
+  .slot.selected{
+    background:#1E40AF;color:#38BDF8;border:1px solid #38BDF8;
+    box-shadow:0 0 0 2px rgba(56,189,248,0.18);
+  }
+  .slot:disabled{
+    background:#1E2530;color:#334155;border-color:#1E293B;
+    cursor:not-allowed;
+  }
 
-.sec-h{font-size:12px;font-weight:800;color:#93C5FD;text-transform:uppercase;
-  letter-spacing:0.5px;margin:18px 0 10px;display:flex;align-items:center;gap:6px}
+  /* "장바구니에 담기" 브릿지 버튼 */
+  .add-btn{
+    width:100%;padding:12px;border-radius:10px;border:1px solid #1E293B;
+    font-weight:bold;font-size:13px;margin-top:12px;
+    background:#0F172A;color:#475569;cursor:not-allowed;
+    transition:all .25s;
+  }
+  .add-btn.active{
+    background:rgba(56,189,248,0.12);color:#38BDF8;
+    border-color:#38BDF8;cursor:pointer;
+  }
+  .add-btn.active:hover{background:rgba(56,189,248,0.22)}
 
-.sticky-bar{position:fixed;left:0;right:0;bottom:0;background:rgba(11,18,36,0.97);
-  backdrop-filter:blur(14px);border-top:1px solid var(--border);padding:12px 14px 14px;
-  z-index:100;box-shadow:0 -8px 24px rgba(0,0,0,0.4);
-  padding-bottom:calc(14px + env(safe-area-inset-bottom, 0))}
-.sticky-summary{font-size:12.5px;color:var(--text-dim);margin-bottom:8px;text-align:center}
-.sticky-summary b{color:#FCD34D;font-weight:800}
-.confirm-btn{width:100%;padding:14px;border:0;border-radius:14px;cursor:pointer;font-family:inherit;
-  font-size:15px;font-weight:900;color:#1A1A1A;
-  background:linear-gradient(135deg,#FCD34D 0%,#F59E0B 100%);
-  box-shadow:0 10px 28px -6px rgba(251,191,36,0.55),inset 0 1px 0 rgba(255,255,255,0.4);
-  transition:transform .15s,filter .15s;letter-spacing:-0.2px}
-.confirm-btn:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.05)}
-.confirm-btn:active:not(:disabled){transform:translateY(0) scale(0.98)}
-.confirm-btn:disabled{opacity:0.4;cursor:not-allowed;background:rgba(148,163,184,0.3);color:rgba(255,255,255,0.5);box-shadow:none}
+  /* 장바구니 영역 */
+  .cart{
+    background:#111C2E;padding:14px;border-radius:14px;
+    border:1px solid #1E293B;margin-top:14px;
+  }
+  .cart-head{
+    font-size:13px;font-weight:bold;margin-bottom:10px;color:#38BDF8;
+    display:flex;justify-content:space-between;
+  }
+  .cart-empty{color:#475569;font-size:12px;line-height:1.5}
+  .cart-list{display:flex;flex-direction:column;gap:6px}
+  .cart-item{
+    display:flex;justify-content:space-between;align-items:center;
+    background:#0F172A;padding:10px 12px;border-radius:8px;
+    border:1px solid #1E293B;font-size:12.5px;
+  }
+  .cart-item span.txt{flex:1;color:#E2E8F0}
+  .cart-item button{
+    background:none;border:none;color:#EF4444;font-weight:bold;
+    cursor:pointer;padding:0 4px;font-size:18px;line-height:1;
+  }
 
-#toast{position:fixed;top:24px;left:50%;transform:translateX(-50%) translateY(-200%);
-  background:linear-gradient(135deg,#10B981,#059669);color:#fff;padding:14px 26px;
-  border-radius:99px;font-weight:800;font-size:14px;z-index:9999;
-  box-shadow:0 14px 36px -6px rgba(16,185,129,0.55);transition:transform .4s cubic-bezier(.34,1.56,.64,1)}
-#toast.show{transform:translateX(-50%) translateY(0)}
+  /* 하단 고정 결제 바 */
+  .footer{
+    position:absolute;bottom:0;left:0;right:0;
+    background:#09111E;padding:14px 18px 18px;
+    border-top:1px solid #1E293B;
+  }
+  .footer .info{
+    font-size:12px;color:#94A3B8;margin-bottom:8px;
+    text-align:center;font-weight:500;
+  }
+  .checkout-btn{
+    width:100%;padding:15px;border-radius:18px;
+    font-size:15px;font-weight:900;border:none;transition:all .25s;
+    background:#1E293B;color:#475569;cursor:not-allowed;
+  }
+  .checkout-btn.ready{
+    background:linear-gradient(135deg,#FBBF24,#F59E0B);
+    color:#000;cursor:pointer;
+    box-shadow:0 6px 18px -4px rgba(251,191,36,0.55);
+  }
+  .checkout-btn.ready:hover{transform:translateY(-1px);box-shadow:0 10px 24px -4px rgba(251,191,36,0.65)}
 
-@media (max-width:640px){
-  .wrap{padding:12px 12px 130px}
-  header.hero{padding:16px 14px}
-  header.hero h1{font-size:18px}
-  .option-card{padding:18px}
-  .oc-icon{width:46px;height:46px;font-size:28px}
-  .oc-label{font-size:16px}
-  .teacher-grid{grid-template-columns:repeat(2,1fr);gap:8px}
-  .time-grid{grid-template-columns:repeat(4,1fr);gap:5px;max-height:280px}
-  .time-chip{font-size:11.5px;padding:7px 3px}
-}
+  /* 우측 상단 홈 버튼 */
+  .home-btn{
+    position:absolute;top:18px;right:18px;z-index:5;
+    background:rgba(15,23,42,0.85);border:1px solid #1E293B;
+    color:#94A3B8;padding:7px 12px;border-radius:99px;
+    font-size:12px;cursor:pointer;text-decoration:none;
+    display:flex;align-items:center;gap:4px;
+  }
+  .home-btn:hover{background:#1E293B;color:#fff}
 </style>
 </head>
 <body>
-<div class="wrap" id="wrap">
 
-<header class="hero">
-  <button class="back" id="btn-back" onclick="goBack()">‹ 뒤로</button>
-  <a class="home" href="/">🏠 홈</a>
-  <h1><span class="ico">📝</span>수업 신청</h1>
-  <p class="sub">시간 · 교사 선택 → 자동 결제 진행</p>
-</header>
+<div class="frame">
 
-<div class="steps" id="steps">
-  <span class="st active" id="st-1">① 수업 형태</span>
-  <span class="sep">→</span>
-  <span class="st" id="st-2">② 날짜·교사</span>
-  <span class="sep">→</span>
-  <span class="st" id="st-3">③ 결제</span>
-</div>
+  <!-- 토스트 알림 -->
+  <div id="toast" class="toast"></div>
 
-<section class="screen active" id="screen-1">
-  <div class="scr-title">어떤 수업을 신청하시나요?</div>
-  <div class="scr-sub">원하시는 수업 형태를 선택해 주세요</div>
+  <!-- 홈 버튼 -->
+  <a href="/" class="home-btn">🏠 홈</a>
 
-  <button class="option-card gradient-blue" data-type="oneon">
-    <div class="oc-top">
-      <div class="oc-icon">👤</div>
-      <div class="oc-label">1:1 수업 신청</div>
-    </div>
-    <div class="oc-desc">교사와 시간을 직접 선택하여 1:1 맞춤 수업을 신청합니다. 진도·발음·문법 등 개인별 집중 학습.</div>
-    <div class="oc-meta">
-      <span class="oc-tag gold">⭐ 인기</span>
-      <span class="oc-tag">40분/회</span>
-      <span class="oc-tag">월 ₩400,000~</span>
-    </div>
-    <div class="oc-cta">시작하기 →</div>
-  </button>
-
-  <button class="option-card gradient-green" data-type="group">
-    <div class="oc-top">
-      <div class="oc-icon">👥</div>
-      <div class="oc-label">그룹 수업 신청</div>
-    </div>
-    <div class="oc-desc">2~4명이 함께 배우는 그룹 수업. 토론 · 게임 · 또래 학습으로 부담 없이 영어를 즐깁니다.</div>
-    <div class="oc-meta">
-      <span class="oc-tag">2~4명</span>
-      <span class="oc-tag">40분/회</span>
-      <span class="oc-tag">월 ₩280,000~</span>
-    </div>
-    <div class="oc-cta">시작하기 →</div>
-  </button>
-</section>
-
-<section class="screen" id="screen-2">
-  <div class="scr-title" id="scr2-title">수업 일정을 선택해 주세요</div>
-  <div class="scr-sub">날짜로 또는 교사로 먼저 선택할 수 있어요</div>
-
-  <div class="segment" id="segment" data-tab="date">
-    <div class="seg-slider"></div>
-    <button class="seg active" data-tab="date">🕐 날짜로</button>
-    <button class="seg" data-tab="teacher">👨‍🏫 교사로</button>
+  <!-- 진행 단계 -->
+  <div class="stepbar">
+    <span>① 수업 형태</span>
+    <span class="active">② 날짜·교사</span>
+    <span>③ 결제</span>
   </div>
 
-  <div id="pane-date">
-    <div class="sec-h">📅 날짜 선택</div>
-    <div class="date-strip" id="date-strip"></div>
-    <div class="sec-h">⏰ 시간 선택 (09:00 ~ 23:00, 10분 단위)</div>
+  <h2 class="title">📝 마스터 클래스 디자인</h2>
+  <p class="sub">당신의 목표를 세우고 시간을 예술처럼 디자인하세요.</p>
+
+  <!-- 1:1 / 그룹 토글 -->
+  <div class="sec-label">👥 수업 형태</div>
+  <div class="type-tabs">
+    <button id="type-oneon" class="active" data-type="oneon">1:1 마스터</button>
+    <button id="type-group" data-type="group">그룹 토론</button>
+  </div>
+
+  <!-- 주간 목표 -->
+  <div class="weekly-target">
+    <div class="sec-label">🎯 주간 수업 횟수 설정</div>
+    <div class="target-tabs" id="target-tabs">
+      <button data-count="1">주 1회</button>
+      <button data-count="2" class="active">주 2회</button>
+      <button data-count="3">주 3회</button>
+      <button data-count="4">주 4회</button>
+      <button data-count="5">주 5회</button>
+    </div>
+  </div>
+
+  <!-- 날짜 선택 -->
+  <div class="date-section">
+    <div class="sec-label">📅 날짜 선택 (요일 자유 이동)</div>
+    <div class="date-row" id="date-row"></div>
+  </div>
+
+  <!-- 시간 선택 -->
+  <div class="time-section">
+    <div class="sec-label">⏰ 시간 선택 (최소 20분 자동 블록 + 연속 확장)</div>
     <div class="time-grid" id="time-grid"></div>
-    <div class="sec-h" style="margin-top:18px">👨‍🏫 가능한 교사</div>
-    <div class="teacher-grid" id="teacher-grid-date"></div>
   </div>
 
-  <div id="pane-teacher" style="display:none">
-    <div class="sec-h">👨‍🏫 교사 선택</div>
-    <div class="teacher-grid" id="teacher-grid-main"></div>
-    <div class="sec-h" style="margin-top:18px">📅 가능 날짜</div>
-    <div class="date-strip" id="date-strip-byteacher"></div>
-    <div class="sec-h">⏰ 시간 선택</div>
-    <div class="time-grid" id="time-grid-byteacher"></div>
+  <!-- 장바구니 담기 버튼 -->
+  <button class="add-btn" id="add-btn">➕ 위 시간대 장바구니에 담기</button>
+
+  <!-- 장바구니 영역 -->
+  <div class="cart">
+    <div class="cart-head">
+      <span>🛒 선택된 마스터 예약 목록</span>
+      <span id="cart-count">(0 / 2회 완료)</span>
+    </div>
+    <div id="cart-body">
+      <p class="cart-empty">요일을 이동하며 일정을 장바구니에 채워보세요.</p>
+    </div>
   </div>
-</section>
 
-<div class="sticky-bar" id="sticky-bar">
-  <div class="sticky-summary" id="sticky-summary">수업 형태를 먼저 선택해 주세요</div>
-  <button class="confirm-btn" id="confirm-btn" disabled>다음 →</button>
-</div>
+  <!-- 하단 고정 결제 바 -->
+  <div class="footer">
+    <div class="info" id="footer-info">주 2회 일정을 장바구니에 모두 담아주세요.</div>
+    <button class="checkout-btn" id="checkout-btn" disabled>완벽한 일정 디자인! 결제로 이동 ➡️</button>
+  </div>
 
 </div>
-<div id="toast"></div>
 
 <script>
-'use strict';
+(function(){
+  "use strict";
 
-const TEACHERS = [
-  { id:'t01', name:'박지윤',       ava:'👩‍🏫', tag:'교포',  cls:'',       rating:4.9, reviews:128, exp:'5년차' },
-  { id:'t02', name:'이서연',       ava:'👩‍🏫', tag:'교포',  cls:'',       rating:4.8, reviews: 96, exp:'3년차' },
-  { id:'t03', name:'정수아',       ava:'👩‍🎓', tag:'교포',  cls:'',       rating:4.7, reviews: 64, exp:'2년차' },
-  { id:'t04', name:'Maria Santos', ava:'👩‍🏫', tag:'원어민', cls:'native', rating:4.9, reviews:212, exp:'7년차' },
-  { id:'t05', name:'John Lee',     ava:'👨‍🏫', tag:'원어민', cls:'native', rating:4.8, reviews:178, exp:'4년차' },
-  { id:'t06', name:'Anna Cruz',    ava:'👩‍🎓', tag:'원어민', cls:'native', rating:4.7, reviews:142, exp:'3년차' },
-  { id:'t07', name:'David Kim',    ava:'👨‍🎓', tag:'교포',  cls:'',       rating:4.6, reviews: 88, exp:'2년차' },
-  { id:'t08', name:'Sarah Park',   ava:'👩‍🏫', tag:'교포',  cls:'',       rating:4.9, reviews:156, exp:'6년차' }
-];
-// 09:00 ~ 23:00, 10분 단위 (총 85개 슬롯)
-const TIME_SLOTS = (function(){
-  const arr = [];
-  for (let h = 9; h <= 23; h++) {
-    for (let m = 0; m < 60; m += 10) {
-      if (h === 23 && m > 0) break;  // 23:00 까지만
-      arr.push(String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'));
+  // ─── 상태 ───
+  var state = {
+    type: 'oneon',          // oneon | group
+    weeklyTarget: 2,        // 주간 목표 횟수
+    currentDay: null,       // 현재 선택된 날짜 ID (yyyy-mm-dd)
+    currentSlotIds: [],     // 현재 화면에서 선택 중인 임시 슬롯
+    cart: []                // 누적 예약 장바구니 [{id, dayId, slotIds, display}]
+  };
+
+  // ─── 10분 단위 슬롯 (09:00 ~ 23:00) ───
+  var TIME_SLOTS = [];
+  for (var h = 9; h <= 23; h++) {
+    for (var m = 0; m < 60; m += 10) {
+      if (h === 23 && m > 0) break; // 23:00 까지
+      var t = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+      TIME_SLOTS.push({ id: TIME_SLOTS.length + 1, time: t });
     }
   }
-  return arr;
-})();
 
-const state = {
-  type: null, mode: 'date',
-  date: null, time: null, teacher: null
-};
-
-function showScreen(n){
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById('screen-'+n).classList.add('active');
-  document.getElementById('st-1').classList.toggle('active', n===1);
-  document.getElementById('st-2').classList.toggle('active', n===2);
-  document.getElementById('st-3').classList.toggle('active', n===3);
-  document.getElementById('st-1').classList.toggle('done', n>1);
-  document.getElementById('st-2').classList.toggle('done', n>2);
-  document.querySelector('.wrap').classList.toggle('show-back', n>1);
-  window.scrollTo({top:0, behavior:'smooth'});
-}
-function goBack(){
-  if (document.getElementById('screen-2').classList.contains('active')) {
-    state.type = null; state.date = null; state.time = null; state.teacher = null;
-    document.querySelectorAll('.option-card').forEach(c=>c.classList.remove('selected'));
-    showScreen(1);
-    updateSticky();
-  }
-}
-window.goBack = goBack;
-
-// Screen 1: 수업 형태 선택
-document.querySelectorAll('.option-card').forEach(card => {
-  card.addEventListener('click', () => {
-    state.type = card.dataset.type;
-    document.querySelectorAll('.option-card').forEach(c=>c.classList.remove('selected'));
-    card.classList.add('selected');
-    setTimeout(() => {
-      const title = state.type === 'oneon' ? '1:1 수업 일정을 선택해 주세요' : '그룹 수업 일정을 선택해 주세요';
-      document.getElementById('scr2-title').textContent = title;
-      renderDateStrip('date-strip');
-      renderDateStrip('date-strip-byteacher');
-      renderTeacherGrid('teacher-grid-date');
-      renderTeacherGrid('teacher-grid-main');
-      renderTimeGrid('time-grid');
-      renderTimeGrid('time-grid-byteacher');
-      showScreen(2);
-      updateSticky();
-    }, 280);
-  });
-});
-
-// 세그먼트
-document.querySelectorAll('.segment .seg').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const tab = btn.dataset.tab;
-    state.mode = tab;
-    document.getElementById('segment').dataset.tab = tab;
-    document.querySelectorAll('.segment .seg').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('pane-date').style.display = tab === 'date' ? '' : 'none';
-    document.getElementById('pane-teacher').style.display = tab === 'teacher' ? '' : 'none';
-    updateSticky();
-  });
-});
-
-// 날짜 칩
-function renderDateStrip(containerId){
-  const c = document.getElementById(containerId);
-  c.innerHTML = '';
-  const DOW = ['일','월','화','수','목','금','토'];
-  const today = new Date();
-  for (let i = 0; i < 14; i++) {
-    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
-    const iso = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-    const chip = document.createElement('div');
-    chip.className = 'date-chip' + (state.date === iso ? ' active' : '');
-    chip.dataset.date = iso;
-    chip.innerHTML = '<div class="dow">' + DOW[d.getDay()] + '</div>'
-                   + '<div class="day">' + d.getDate() + '</div>'
-                   + '<div class="mon">' + (d.getMonth()+1) + '월</div>';
-    chip.onclick = () => {
-      state.date = iso;
-      // 모든 date-strip 의 같은 날짜를 active
-      document.querySelectorAll('.date-chip').forEach(x => {
-        x.classList.toggle('active', x.dataset.date === iso);
+  // ─── 날짜 14일 생성 (오늘 ~ +13일) ───
+  var DAYS = [];
+  var DAY_NAMES = ['일','월','화','수','목','금','토'];
+  (function genDays(){
+    var today = new Date();
+    for (var i = 0; i < 14; i++) {
+      var d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
+      var id = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+      DAYS.push({
+        id: id,
+        dayName: DAY_NAMES[d.getDay()],
+        dd: d.getDate(),
+        month: (d.getMonth()+1) + '월'
       });
-      updateSticky();
-    };
-    c.appendChild(chip);
-  }
-}
+    }
+    state.currentDay = DAYS[0].id;
+  })();
 
-// 시간 그리드
-function renderTimeGrid(containerId){
-  const c = document.getElementById(containerId);
-  c.innerHTML = '';
-  TIME_SLOTS.forEach(t => {
-    const chip = document.createElement('div');
-    const disabled = Math.random() < 0.18;
-    chip.className = 'time-chip' + (disabled ? ' disabled' : '') + (state.time === t ? ' active' : '');
-    chip.textContent = t;
-    if (!disabled) {
-      chip.onclick = () => {
-        state.time = t;
-        document.querySelectorAll('.time-chip').forEach(x => {
-          x.classList.toggle('active', x.textContent === t && !x.classList.contains('disabled'));
-        });
-        updateSticky();
+  // ─── 렌더링 ───
+  function renderDates() {
+    var row = document.getElementById('date-row');
+    row.innerHTML = '';
+    DAYS.forEach(function(day){
+      var c = document.createElement('div');
+      c.className = 'date-card' + (state.currentDay === day.id ? ' active' : '');
+      c.innerHTML =
+        '<div class="dn">'+day.dayName+'</div>'+
+        '<div class="dd">'+day.dd+'</div>'+
+        '<div class="dm">'+day.month+'</div>';
+      c.onclick = function(){
+        state.currentDay = day.id;
+        state.currentSlotIds = [];
+        renderDates();
+        renderTimes();
+        renderAddBtn();
       };
-    }
-    c.appendChild(chip);
-  });
-}
+      row.appendChild(c);
+    });
+  }
 
-// 교사 카드
-function renderTeacherGrid(containerId){
-  const c = document.getElementById(containerId);
-  c.innerHTML = '';
-  TEACHERS.forEach(t => {
-    const card = document.createElement('div');
-    card.className = 'teacher-card' + (state.teacher === t.id ? ' active' : '');
-    card.dataset.tid = t.id;
-    card.innerHTML = ''
-      + '<div class="tc-avatar">' + t.ava + '</div>'
-      + '<div class="tc-name">' + t.name + '</div>'
-      + '<div><span class="tc-tag ' + t.cls + '">' + t.tag + '</span></div>'
-      + '<div class="tc-rating">★ ' + t.rating + ' <span style="color:#94A3B8;font-weight:400">(' + t.reviews + ')</span></div>'
-      + '<div class="tc-exp">' + t.exp + '</div>';
-    card.onclick = () => {
-      state.teacher = t.id;
-      document.querySelectorAll('.teacher-card').forEach(x => {
-        x.classList.toggle('active', x.dataset.tid === t.id);
+  function renderTimes() {
+    var grid = document.getElementById('time-grid');
+    grid.innerHTML = '';
+    TIME_SLOTS.forEach(function(slot){
+      var booked = state.cart.some(function(item){
+        return item.dayId === state.currentDay && item.slotIds.indexOf(slot.id) !== -1;
       });
-      updateSticky();
+      var selected = state.currentSlotIds.indexOf(slot.id) !== -1;
+      var b = document.createElement('button');
+      b.className = 'slot' + (selected ? ' selected' : '');
+      b.disabled = booked;
+      b.textContent = slot.time;
+      b.onclick = function(){ handleSlotClick(slot.id); };
+      grid.appendChild(b);
+    });
+  }
+
+  function renderAddBtn() {
+    var btn = document.getElementById('add-btn');
+    if (state.currentSlotIds.length > 0) {
+      btn.classList.add('active');
+      btn.disabled = false;
+    } else {
+      btn.classList.remove('active');
+      btn.disabled = true;
+    }
+  }
+
+  function renderCart() {
+    var body = document.getElementById('cart-body');
+    var count = document.getElementById('cart-count');
+    count.textContent = '(' + state.cart.length + ' / ' + state.weeklyTarget + '회 완료)';
+    if (state.cart.length === 0) {
+      body.innerHTML = '<p class="cart-empty">요일을 이동하며 일정을 장바구니에 채워보세요.</p>';
+    } else {
+      var html = '<div class="cart-list">';
+      state.cart.forEach(function(item){
+        html += '<div class="cart-item"><span class="txt">'+item.display+'</span><button data-rid="'+item.id+'">×</button></div>';
+      });
+      html += '</div>';
+      body.innerHTML = html;
+      // remove 핸들러 연결
+      body.querySelectorAll('button[data-rid]').forEach(function(btn){
+        btn.onclick = function(){
+          var rid = Number(btn.getAttribute('data-rid'));
+          state.cart = state.cart.filter(function(it){ return it.id !== rid; });
+          renderCart();
+          renderTimes();
+          renderFooter();
+        };
+      });
+    }
+  }
+
+  function renderFooter() {
+    var info = document.getElementById('footer-info');
+    var btn = document.getElementById('checkout-btn');
+    var met = (state.cart.length === state.weeklyTarget);
+    if (met) {
+      info.textContent = '✨ 주간 목표 조건 충족! 일정 연동 완료';
+      btn.classList.add('ready');
+      btn.disabled = false;
+    } else {
+      info.textContent = '주 ' + state.weeklyTarget + '회 일정을 장바구니에 모두 담아주세요. (현재 ' + state.cart.length + '회)';
+      btn.classList.remove('ready');
+      btn.disabled = true;
+    }
+  }
+
+  // ─── 슬롯 클릭 로직 (최소 20분 자동 + 연속 확장) ───
+  function handleSlotClick(clickedId) {
+    // 1. 마지막 슬롯 단독 클릭 방지
+    if (clickedId === TIME_SLOTS.length) {
+      showAlert('⚠️ 최소 20분(2개 블록) 예약을 위해 앞 시간대를 선택해 주세요.');
+      return;
+    }
+    // 2. 이미 장바구니에 있는 시간대는 잠금
+    var locked = state.cart.some(function(item){
+      return item.dayId === state.currentDay && item.slotIds.indexOf(clickedId) !== -1;
+    });
+    if (locked) {
+      showAlert('⚠️ 이미 장바구니에 담긴 시간대입니다.');
+      return;
+    }
+    // 3. 첫 선택 → 자동 2블록 (20분)
+    if (state.currentSlotIds.length === 0) {
+      state.currentSlotIds = [clickedId, clickedId + 1];
+    } else {
+      var min = Math.min.apply(null, state.currentSlotIds);
+      var max = Math.max.apply(null, state.currentSlotIds);
+      if (clickedId === max + 1) {
+        state.currentSlotIds.push(clickedId);
+      } else if (clickedId === min - 1) {
+        state.currentSlotIds.unshift(clickedId);
+      } else {
+        // 비연속 → 새 블록으로 리셋
+        state.currentSlotIds = [clickedId, clickedId + 1];
+      }
+    }
+    renderTimes();
+    renderAddBtn();
+  }
+
+  // ─── 장바구니 담기 ───
+  document.getElementById('add-btn').onclick = function(){
+    if (state.currentSlotIds.length === 0) return;
+    if (state.cart.length >= state.weeklyTarget) {
+      showAlert('⚠️ 이미 목표 주 ' + state.weeklyTarget + '회 예약을 모두 완료하셨습니다.');
+      return;
+    }
+    var day = DAYS.find(function(d){ return d.id === state.currentDay; });
+    var sorted = state.currentSlotIds.slice().sort(function(a,b){ return a-b; });
+    var startTime = TIME_SLOTS.find(function(s){ return s.id === sorted[0]; }).time;
+    var lastSlotId = sorted[sorted.length - 1];
+    var nextSlot = TIME_SLOTS.find(function(s){ return s.id === lastSlotId + 1; });
+    var endTime = nextSlot ? nextSlot.time : '종료';
+    state.cart.push({
+      id: Date.now() + Math.random(),
+      dayId: state.currentDay,
+      slotIds: sorted,
+      display: day.month + ' ' + day.dd + '일 (' + day.dayName + ') ' + startTime + ' ~ ' + endTime
+    });
+    state.currentSlotIds = [];
+    renderTimes();
+    renderAddBtn();
+    renderCart();
+    renderFooter();
+  };
+
+  // ─── 1:1/그룹 토글 ───
+  document.querySelectorAll('.type-tabs button').forEach(function(b){
+    b.onclick = function(){
+      document.querySelectorAll('.type-tabs button').forEach(function(x){ x.classList.remove('active'); });
+      b.classList.add('active');
+      state.type = b.getAttribute('data-type');
     };
-    c.appendChild(card);
   });
-}
 
-// Sticky 갱신
-function updateSticky(){
-  const sum = document.getElementById('sticky-summary');
-  const btn = document.getElementById('confirm-btn');
-  if (!state.type) {
-    sum.textContent = '수업 형태를 먼저 선택해 주세요';
-    btn.disabled = true; btn.textContent = '다음 →'; return;
-  }
-  const typeStr = state.type === 'oneon' ? '1:1' : '그룹';
-  const teacher = TEACHERS.find(x => x.id === state.teacher);
-  const dateStr = state.date ? state.date.slice(5).replace('-','월 ') + '일' : '날짜 미선택';
-  const timeStr = state.time || '시간 미선택';
+  // ─── 주간 목표 토글 ───
+  document.querySelectorAll('#target-tabs button').forEach(function(b){
+    b.onclick = function(){
+      document.querySelectorAll('#target-tabs button').forEach(function(x){ x.classList.remove('active'); });
+      b.classList.add('active');
+      state.weeklyTarget = Number(b.getAttribute('data-count'));
+      // 목표 변경 시 장바구니 리셋 (정합성 보장)
+      state.cart = [];
+      state.currentSlotIds = [];
+      renderTimes();
+      renderAddBtn();
+      renderCart();
+      renderFooter();
+    };
+  });
 
-  if (state.mode === 'date') {
-    if (!state.date || !state.time) {
-      sum.innerHTML = '<b>' + typeStr + ' 수업</b> · 날짜와 시간을 선택해 주세요';
-      btn.disabled = true; btn.textContent = '다음 →'; return;
-    }
-  } else {
-    if (!state.teacher || !state.date || !state.time) {
-      sum.innerHTML = '<b>' + typeStr + ' 수업</b> · 교사, 날짜, 시간을 모두 선택해 주세요';
-      btn.disabled = true; btn.textContent = '다음 →'; return;
-    }
-  }
-
-  sum.innerHTML = '<b>' + typeStr + '</b> · <b>' + dateStr + ' ' + timeStr + '</b>' + (teacher ? ' · 교사 <b>' + teacher.name + '</b>' : '');
-  btn.disabled = false;
-  btn.textContent = '✅ 신청하고 결제로 →';
-}
-
-// 확정 → 결제로 이동
-document.getElementById('confirm-btn').onclick = () => {
-  if (document.getElementById('confirm-btn').disabled) return;
-  const t = document.getElementById('toast');
-  t.textContent = '✅ 신청 완료! 결제로 이동합니다…';
-  t.classList.add('show');
-
-  try {
-    localStorage.setItem('mangoi_pending_booking', JSON.stringify({
-      type: state.type, date: state.date, time: state.time,
-      teacher_id: state.teacher, created_at: Date.now()
-    }));
-  } catch(e){}
-
-  setTimeout(() => {
+  // ─── 결제 진입 트리거 ───
+  document.getElementById('checkout-btn').onclick = function(){
+    if (state.cart.length !== state.weeklyTarget) return;
+    var t = document.getElementById('toast');
+    t.textContent = '✅ 신청 완료! 결제로 이동합니다…';
+    t.classList.add('show');
     try {
-      const u = new URL(location.origin + '/');
-      u.searchParams.set('menu', 'payment');
-      u.searchParams.set('from', 'booking');
-      u.searchParams.set('type', state.type);
-      location.href = u.toString();
-    } catch(e) {
-      location.href = '/?menu=payment&from=booking';
-    }
-  }, 1300);
-};
+      localStorage.setItem('mangoi_pending_booking', JSON.stringify({
+        type: state.type,
+        weeklyTarget: state.weeklyTarget,
+        cart: state.cart,
+        created_at: Date.now()
+      }));
+    } catch(e){}
+    setTimeout(function(){
+      try {
+        var u = new URL(location.origin + '/');
+        u.searchParams.set('menu', 'payment');
+        u.searchParams.set('from', 'booking');
+        u.searchParams.set('type', state.type);
+        location.href = u.toString();
+      } catch(e) {
+        location.href = '/?menu=payment&from=booking';
+      }
+    }, 1300);
+  };
 
-updateSticky();
-console.log('[lesson-booking-demo] v2 로드 — 단순 양식');
+  // ─── 알림 토스트 (짧은 경고) ───
+  function showAlert(msg) {
+    var t = document.getElementById('toast');
+    var orig = t.style.background;
+    t.style.background = 'linear-gradient(135deg,#EF4444,#DC2626)';
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(function(){
+      t.classList.remove('show');
+      setTimeout(function(){ t.style.background = orig; t.textContent = ''; }, 500);
+    }, 2200);
+  }
+
+  // ─── 초기 렌더링 ───
+  renderDates();
+  renderTimes();
+  renderAddBtn();
+  renderCart();
+  renderFooter();
+})();
 </script>
+
+<!-- BUILD:20260530030015 -->
 </body>
 </html>
