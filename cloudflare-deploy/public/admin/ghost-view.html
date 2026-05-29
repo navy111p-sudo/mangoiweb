@@ -694,14 +694,10 @@
         ghdRecorder.onstop = () => {
           const ext = (mime || '').indexOf('mp4') >= 0 ? 'mp4' : 'webm';
           const blob = new Blob(ghdRecChunks, { type: mime || 'video/webm' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
           const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-          a.href = url;
-          a.download = 'mangoi-ghost-recording-' + ts + '.' + ext;
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 1000);
+          const filename = 'mangoi-ghost-recording-' + ts + '.' + ext;
+          const sizeMB = (blob.size / 1048576).toFixed(1);
+          const durationSec = ghdRecStartTime ? Math.floor((Date.now() - ghdRecStartTime) / 1000) : 0;
 
           if (ghdRecStream) {
             ghdRecStream.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
@@ -712,9 +708,11 @@
           label.setAttribute('data-ko', '녹화');
           label.setAttribute('data-en', 'Record');
           if (ghdRecTimerId) { clearInterval(ghdRecTimerId); ghdRecTimerId = null; }
-          if (typeof showToast === 'function') showToast('✅ 녹화 저장 완료 (' + ext + ')');
           ghdRecorder = null;
           ghdRecChunks = [];
+
+          // 저장 옵션 모달 표시
+          ghdShowSaveModal(blob, filename, sizeMB, durationSec);
         };
         stream.getVideoTracks()[0].addEventListener('ended', () => {
           if (ghdRecorder && ghdRecorder.state === 'recording') {
@@ -746,6 +744,158 @@
       }
     }
     window.ghdToggleRecord = ghdToggleRecord;
+
+    // ═══════════════════════════════════════════════════════════════
+    // 💾 저장 옵션 모달 + 3가지 저장 방식 (PC / 휴대폰 / 서버)
+    // ═══════════════════════════════════════════════════════════════
+    function ghdShowSaveModal(blob, filename, sizeMB, durationSec) {
+      const mm = String(Math.floor(durationSec / 60)).padStart(2, '0');
+      const ss = String(durationSec % 60).padStart(2, '0');
+      const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+      let canShare = false;
+      try {
+        canShare = !!(navigator.canShare && navigator.canShare({ files: [new File([blob], filename, { type: blob.type })] }));
+      } catch(e) {}
+
+      const overlay = document.createElement('div');
+      overlay.id = 'ghd-save-modal';
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;font-family:inherit';
+
+      const mobileHint = canShare ? '시스템 공유 시트로 사진/파일 앱에 저장' : (isMobile ? '브라우저 다운로드' : '※ 모바일에서 추천');
+
+      overlay.innerHTML =
+        '<div style="background:linear-gradient(135deg,#1f1b3a,#0a1530);border:2px solid #8b5cf6;border-radius:18px;padding:24px;max-width:440px;width:100%;color:#fff;box-shadow:0 20px 60px rgba(139,92,246,0.4)">' +
+          '<h2 style="margin:0 0 6px;font-size:18px;font-weight:900;color:#fbbf24">💾 녹화 파일 저장</h2>' +
+          '<p style="margin:0 0 18px;font-size:12px;color:#cbd5e1;line-height:1.5">' +
+            '📁 <b>' + filename + '</b><br>⏱ ' + mm + ':' + ss + ' · 📦 ' + sizeMB + ' MB' +
+          '</p>' +
+          '<div style="display:flex;flex-direction:column;gap:10px">' +
+            '<button class="ghd-save-opt" data-opt="pc" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:linear-gradient(135deg,#3b82f6,#2563eb);border:0;border-radius:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;text-align:left;transition:all .15s">' +
+              '<span style="font-size:24px">💻</span>' +
+              '<span style="flex:1">PC 데스크탑에 저장<br><span style="font-size:11px;color:#dbeafe;font-weight:500">바로 다운로드 폴더로 받기</span></span>' +
+            '</button>' +
+            '<button class="ghd-save-opt" data-opt="mobile" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:linear-gradient(135deg,#10b981,#059669);border:0;border-radius:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;text-align:left;transition:all .15s">' +
+              '<span style="font-size:24px">📱</span>' +
+              '<span style="flex:1">휴대폰에 저장<br><span style="font-size:11px;color:#d1fae5;font-weight:500">' + mobileHint + '</span></span>' +
+            '</button>' +
+            '<button class="ghd-save-opt" data-opt="server" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);border:0;border-radius:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;text-align:left;transition:all .15s">' +
+              '<span style="font-size:24px">☁️</span>' +
+              '<span style="flex:1">서버에 업로드<br><span style="font-size:11px;color:#ede9fe;font-weight:500">Cloudflare R2 영구 보관</span></span>' +
+            '</button>' +
+            '<button class="ghd-save-opt" data-opt="all" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:linear-gradient(135deg,#f59e0b,#d97706);border:0;border-radius:12px;color:#1a1a1a;font-size:14px;font-weight:800;cursor:pointer;text-align:left;transition:all .15s">' +
+              '<span style="font-size:24px">🌐</span>' +
+              '<span style="flex:1">전체 저장 (PC + 서버)<br><span style="font-size:11px;color:#451a03;font-weight:600">로컬 + 서버 백업 동시에</span></span>' +
+            '</button>' +
+          '</div>' +
+          '<button class="ghd-save-close" style="margin-top:16px;width:100%;padding:10px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#cbd5e1;font-size:12px;cursor:pointer">❌ 취소 (저장 안 함)</button>' +
+          '<div id="ghd-save-progress" style="display:none;margin-top:12px;padding:10px;background:rgba(139,92,246,0.15);border:1px solid #8b5cf6;border-radius:8px;font-size:12px;color:#a78bfa;text-align:center"></div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+
+      overlay.querySelectorAll('.ghd-save-opt').forEach((b) => {
+        b.addEventListener('mouseenter', () => { b.style.transform = 'translateY(-2px)'; });
+        b.addEventListener('mouseleave', () => { b.style.transform = ''; });
+        b.addEventListener('click', async () => {
+          const opt = b.getAttribute('data-opt');
+          const prog = overlay.querySelector('#ghd-save-progress');
+          try {
+            if (opt === 'pc') {
+              ghdSavePC(blob, filename);
+              prog.style.display = 'block';
+              prog.innerHTML = '✅ PC 다운로드 완료!';
+              setTimeout(() => overlay.remove(), 1200);
+            } else if (opt === 'mobile') {
+              prog.style.display = 'block';
+              prog.innerHTML = '📱 휴대폰 저장 시도 중…';
+              await ghdSaveMobile(blob, filename);
+              prog.innerHTML = '✅ 휴대폰 저장 완료!';
+              setTimeout(() => overlay.remove(), 1200);
+            } else if (opt === 'server') {
+              prog.style.display = 'block';
+              prog.innerHTML = '☁️ 서버 업로드 중… 0%';
+              await ghdSaveServer(blob, filename, (pct) => { prog.innerHTML = '☁️ 서버 업로드 중… ' + pct + '%'; });
+              prog.innerHTML = '✅ 서버 저장 완료!';
+              setTimeout(() => overlay.remove(), 1500);
+            } else if (opt === 'all') {
+              prog.style.display = 'block';
+              prog.innerHTML = '💾 PC 다운로드 + ☁️ 서버 업로드 중…';
+              ghdSavePC(blob, filename);
+              await ghdSaveServer(blob, filename, (pct) => { prog.innerHTML = '💾 PC ✅ · ☁️ 서버 ' + pct + '%'; });
+              prog.innerHTML = '✅ 전체 저장 완료!';
+              setTimeout(() => overlay.remove(), 1500);
+            }
+          } catch(e) {
+            prog.style.display = 'block';
+            prog.style.background = 'rgba(239,68,68,0.18)';
+            prog.style.borderColor = '#ef4444';
+            prog.style.color = '#fca5a5';
+            prog.innerHTML = '❌ 저장 실패: ' + (e.message || e.name);
+          }
+        });
+      });
+      overlay.querySelector('.ghd-save-close').addEventListener('click', () => { overlay.remove(); });
+    }
+    window.ghdShowSaveModal = ghdShowSaveModal;
+
+    // ── 1) PC 데스크탑 — 브라우저 다운로드 폴더로 직행 ──
+    function ghdSavePC(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 1500);
+    }
+
+    // ── 2) 휴대폰 — Web Share API 우선 (사진/파일 앱), 폴백 다운로드 ──
+    async function ghdSaveMobile(blob, filename) {
+      const file = new File([blob], filename, { type: blob.type });
+      if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+        await navigator.share({
+          files: [file],
+          title: '망고아이 라이브 참관 녹화',
+          text: '강의실 실시간 화면 녹화 (' + filename + ')'
+        });
+        return;
+      }
+      ghdSavePC(blob, filename);
+    }
+
+    // ── 3) 서버 (Cloudflare R2) — POST multipart 업로드 + 진행률 ──
+    async function ghdSaveServer(blob, filename, onProgress) {
+      const roomEl = document.getElementById('ghd-room');
+      const roomId = (roomEl && roomEl.textContent || '').trim() || 'unknown';
+      const adminUid = (window.SSO_USER && window.SSO_USER.uid) || sessionStorage.getItem('admin_uid') || 'admin';
+
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        const fd = new FormData();
+        fd.append('file', blob, filename);
+        fd.append('room_id', roomId);
+        fd.append('admin_uid', adminUid);
+        fd.append('duration_sec', String(Math.floor((Date.now() - (ghdRecStartTime || Date.now())) / 1000)));
+
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable && onProgress) {
+            onProgress(Math.floor((e.loaded / e.total) * 100));
+          }
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try { resolve(JSON.parse(xhr.responseText)); }
+            catch(e) { resolve({ ok: true }); }
+          } else if (xhr.status === 404) {
+            reject(new Error('서버 업로드 API 미구현 (404). PC/휴대폰 옵션을 사용해 주세요.'));
+          } else {
+            reject(new Error('업로드 실패 (HTTP ' + xhr.status + ')'));
+          }
+        };
+        xhr.onerror = () => reject(new Error('네트워크 오류 — PC/휴대폰 옵션을 사용해 주세요.'));
+        xhr.open('POST', '/api/admin/recordings/upload');
+        xhr.send(fd);
+      });
+    }
   </script>
 </body>
 </html>
