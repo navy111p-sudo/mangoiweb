@@ -17896,7 +17896,7 @@ window.closeRulesModal = function() {
     menu.innerHTML =
       '<div class="um-header">'+(L?'로그인됨':'Signed in')+'<br><b>'+u.name+'</b> <span style="color:#64748b;font-size:11px">('+u.uid+')</span></div>'+
       '<div class="um-item" onclick="openLessonChangeModal();document.getElementById(&quot;user-menu&quot;).classList.remove(&quot;show&quot;)">📅 '+(L?'내 수업 연기/변경':'My Classes')+'</div>'+
-      '<div class="um-item" onclick="alert(&quot;'+(L?'마이페이지는 준비 중입니다.':'My Page coming soon.')+'&quot;);document.getElementById(&quot;user-menu&quot;).classList.remove(&quot;show&quot;)">👤 '+(L?'마이페이지':'My Page')+'</div>'+
+      '<div class="um-item" onclick="location.href=&quot;/admin/mypage.html&quot;">👤 '+(L?'마이페이지':'My Page')+'</div>'+
       '<div class="um-divider"></div>'+
       '<div class="um-item danger" onclick="logout()">🚪 '+(L?'로그아웃':'Logout')+'</div>';
     menu.classList.add('show');
@@ -23086,7 +23086,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260530051228 -->
+<!-- BUILD:20260530052000 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">

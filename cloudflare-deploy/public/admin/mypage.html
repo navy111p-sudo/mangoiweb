@@ -10,6 +10,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>마이페이지 — 망고아이 관리자</title>
+<!-- 🚫 글로벌 [🏠 Home] [🌐 EN] 버튼 자동 inject 차단 (자체 헤더 사용) -->
+<meta name="mangoi-no-global-bar" content="1">
 <link rel="icon" type="image/png" href="/img/icon-192.png">
 <link rel="icon" href="data:," />
 <script src="/js/mango-i18n.js" defer></script>
@@ -21,6 +23,10 @@
      🎨 Mango Bloom — Dark My Page Theme
      레퍼런스: Coursera Profile, Udemy Account, 시원스쿨 마이클래스
   ════════════════════════════════════════════════════════════ */
+  /* 🚫 글로벌 홈/EN 버튼 자동 inject 강제 숨김 (자체 헤더 사용) */
+  #mangoi-global-bar,
+  #mangoi-global-home,
+  #mangoi-global-lang-toggle { display: none !important; }
   *, *::before, *::after { box-sizing: border-box; }
   :root {
     --bg-base: #0a0e1a;
