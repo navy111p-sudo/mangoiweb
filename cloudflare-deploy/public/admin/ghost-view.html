@@ -55,6 +55,9 @@
     .btn-ghost { background:rgba(255,255,255,0.08); color:var(--text); border:1px solid rgba(255,255,255,0.18); }
     .btn-primary { background:linear-gradient(135deg,#8b5cf6,#7c3aed); color:#fff; }
     .btn-gold { background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a1a; }
+    .btn-record { background:rgba(239,68,68,0.18); color:#fca5a5; border:1px solid rgba(239,68,68,0.45); }
+    .btn-record.recording { background:linear-gradient(135deg,#ef4444,#b91c1c); color:#fff; border-color:transparent; animation:recPulse 1.2s infinite; }
+    @keyframes recPulse { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.55)} 50%{box-shadow:0 0 0 6px rgba(239,68,68,0)} }
     .btn:hover { transform:translateY(-1px); filter:brightness(1.1); }
     .btn-home { background:rgba(20,33,59,0.95); color:#fbbf24; border:1px solid rgba(251,191,36,0.45); padding:7px 12px; border-radius:8px; text-decoration:none; font-weight:700; font-size:12px; }
     .btn-lang { background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a1a; padding:7px 12px; border-radius:8px; font-weight:800; font-size:12px; cursor:pointer; border:none; }
@@ -260,6 +263,7 @@
     </div>
     <div class="header-actions">
       <a class="btn-home" href="/admin.html"><span>🏠</span> <span data-ko="관리자" data-en="Admin">관리자</span></a>
+      <button id="ghd-record-btn" class="btn btn-record" onclick="ghdToggleRecord()" title="라이브 화면 녹화 시작/중지">⏺ <span id="ghd-record-label" data-ko="녹화" data-en="Record">녹화</span></button>
       <button class="btn-lang" onclick="window.toggleLang && window.toggleLang()">🌐 <span class="lang-label-sync">EN</span></button>
       <button class="btn btn-ghost" onclick="ghdRefresh()">🔄 <span data-ko="새로고침" data-en="Refresh">새로고침</span></button>
       <button class="btn btn-gold" onclick="ghdAiSummary()">🤖 <span data-ko="AI 요약" data-en="AI Summary">AI 요약</span></button>
@@ -615,6 +619,133 @@
     ghdRefresh();
     setInterval(ghdRefresh, 3000);
     setInterval(updateDuration, 1000);
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🎥 녹화 기능 (라이브 화면 녹화 토글)
+    // · 1순위: 페이지 안의 video / canvas 엘리먼트에서 captureStream
+    // · 2순위: getDisplayMedia (화면 공유)
+    // · 마이크 오디오도 같이 녹음
+    // ═══════════════════════════════════════════════════════════════
+    let ghdRecorder = null;
+    let ghdRecChunks = [];
+    let ghdRecStream = null;
+    let ghdRecStartTime = null;
+    let ghdRecTimerId = null;
+
+    async function ghdToggleRecord() {
+      const btn = document.getElementById('ghd-record-btn');
+      const label = document.getElementById('ghd-record-label');
+      if (!btn) return;
+
+      if (ghdRecorder && ghdRecorder.state === 'recording') {
+        try { ghdRecorder.stop(); } catch(e) {}
+        return;
+      }
+
+      try {
+        let stream = null;
+
+        const v = document.querySelector('video');
+        if (v && typeof v.captureStream === 'function' && v.readyState >= 2) {
+          try { stream = v.captureStream(); } catch(e){}
+        }
+        if (!stream) {
+          const c = document.querySelector('canvas');
+          if (c && typeof c.captureStream === 'function') {
+            try { stream = c.captureStream(30); } catch(e){}
+          }
+        }
+        if (!stream) {
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+            alert('이 브라우저는 녹화를 지원하지 않습니다. Chrome / Edge 최신 버전을 사용해 주세요.');
+            return;
+          }
+          stream = await navigator.mediaDevices.getDisplayMedia({
+            video: { frameRate: 30 },
+            audio: true
+          });
+        }
+
+        try {
+          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            const mic = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            mic.getAudioTracks().forEach(t => stream.addTrack(t));
+          }
+        } catch(e) {}
+
+        ghdRecStream = stream;
+        ghdRecChunks = [];
+
+        const mimeCandidates = [
+          'video/webm;codecs=vp9,opus',
+          'video/webm;codecs=vp8,opus',
+          'video/webm',
+          'video/mp4'
+        ];
+        let mime = '';
+        for (const m of mimeCandidates) {
+          if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) { mime = m; break; }
+        }
+
+        ghdRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+        ghdRecorder.ondataavailable = (ev) => {
+          if (ev.data && ev.data.size > 0) ghdRecChunks.push(ev.data);
+        };
+        ghdRecorder.onstop = () => {
+          const ext = (mime || '').indexOf('mp4') >= 0 ? 'mp4' : 'webm';
+          const blob = new Blob(ghdRecChunks, { type: mime || 'video/webm' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+          a.href = url;
+          a.download = 'mangoi-ghost-recording-' + ts + '.' + ext;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 1000);
+
+          if (ghdRecStream) {
+            ghdRecStream.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
+            ghdRecStream = null;
+          }
+          btn.classList.remove('recording');
+          label.textContent = '녹화';
+          label.setAttribute('data-ko', '녹화');
+          label.setAttribute('data-en', 'Record');
+          if (ghdRecTimerId) { clearInterval(ghdRecTimerId); ghdRecTimerId = null; }
+          if (typeof showToast === 'function') showToast('✅ 녹화 저장 완료 (' + ext + ')');
+          ghdRecorder = null;
+          ghdRecChunks = [];
+        };
+        stream.getVideoTracks()[0].addEventListener('ended', () => {
+          if (ghdRecorder && ghdRecorder.state === 'recording') {
+            try { ghdRecorder.stop(); } catch(e){}
+          }
+        });
+
+        ghdRecorder.start(1000);
+        ghdRecStartTime = Date.now();
+
+        btn.classList.add('recording');
+        label.setAttribute('data-ko', '● REC');
+        label.setAttribute('data-en', '● REC');
+        ghdRecTimerId = setInterval(() => {
+          const sec = Math.floor((Date.now() - ghdRecStartTime) / 1000);
+          const mm = String(Math.floor(sec / 60)).padStart(2, '0');
+          const ss = String(sec % 60).padStart(2, '0');
+          label.textContent = '● ' + mm + ':' + ss;
+        }, 500);
+
+        if (typeof showToast === 'function') showToast('🎥 녹화 시작! 다시 누르면 정지됩니다.');
+      } catch(e) {
+        console.error('[ghdToggleRecord] error:', e);
+        if (e.name === 'NotAllowedError') {
+          alert('화면 공유 권한을 허용해야 녹화할 수 있습니다.');
+        } else {
+          alert('녹화를 시작할 수 없습니다: ' + (e.message || e.name));
+        }
+      }
+    }
+    window.ghdToggleRecord = ghdToggleRecord;
   </script>
 </body>
 </html>
