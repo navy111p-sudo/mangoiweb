@@ -446,7 +446,7 @@ body.dragging{cursor:crosshair}
       <div class="breadcrumb"><a href="/admin.html" data-ko="← 관리자 대시보드" data-en="← Admin Dashboard">← 관리자 대시보드</a></div>
       <h1><span class="icon">📅</span><span data-ko="주간 전체 스케줄" data-en="Weekly Schedule Overview">주간 전체 스케줄</span><span class="sub" data-ko="모든 교사 한눈에" data-en="All teachers at a glance">모든 교사 한눈에</span><span id="demo-badge" style="display:none;margin-left:10px;padding:3px 10px;background:rgba(251,191,36,.18);border:1.5px solid var(--ac);border-radius:999px;color:#fde68a;font-size:11px;font-weight:800">DEMO MODE</span></h1>
     </div>
-    <div class="timezone-bar"><span data-ko="시간대:" data-en="Time zone:">시간대:</span><select id="tz-select"><option value="Asia/Seoul">🇰🇷 KST (한국)</option><option value="America/New_York">🇺🇸 EST (뉴욕)</option><option value="America/Los_Angeles">🇺🇸 PST (LA)</option><option value="America/Chicago">🇺🇸 CST (시카고)</option><option value="Asia/Manila">🇵🇭 PHT (마닐라)</option></select><span class="tz-chip" id="tz-now">--:--</span></div><button class="ai-suggest-btn" onclick="aiSuggestSlot()">✨ <span data-ko="AI 매칭" data-en="AI Match">AI 매칭</span></button><button class="icon-btn lang-toggle" id="lang-toggle" onclick="toggleLang()">🌐 <span id="lang-label">EN</span></button>
+    <div class="timezone-bar"><span data-ko="시간대:" data-en="Time zone:">시간대:</span><select id="tz-select"><option value="Asia/Seoul">🇰🇷 KST (한국)</option><option value="America/New_York">🇺🇸 EST (뉴욕)</option><option value="America/Los_Angeles">🇺🇸 PST (LA)</option><option value="America/Chicago">🇺🇸 CST (시카고)</option><option value="Asia/Manila">🇵🇭 PHT (마닐라)</option></select><span class="tz-chip" id="tz-now">--:--</span></div><button class="ai-suggest-btn" onclick="aiSuggestSlot()">✨ <span data-ko="AI 매칭" data-en="AI Match">AI 매칭</span></button><button class="icon-btn lang-toggle" id="lang-toggle" onclick="toggleLang()">🌐 <span id="lang-label">EN</span></button><a href="/" id="header-home-btn" title="학생 홈페이지로 돌아가기" style="margin-left:12px;display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-weight:800;text-decoration:none;font-size:12.5px;border-radius:99px;box-shadow:0 4px 14px -3px rgba(245,158,11,.55);transition:transform .15s,box-shadow .15s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 18px -3px rgba(245,158,11,.7)'" onmouseout="this.style.transform='';this.style.boxShadow='0 4px 14px -3px rgba(245,158,11,.55)'">🏠 <span data-ko="홈페이지" data-en="Homepage">홈페이지</span></a>
   </div>
 </header>
 <section class="stats">
@@ -2434,11 +2434,9 @@ reloadAndRender();
 })();
 </script>
 
-<!-- 🏠 글로벌 홈페이지 FAB (모든 admin 페이지 공통) -->
+<!-- 🏠 글로벌 홈페이지 FAB (헤더 EN 옆으로 이동되어 hidden) -->
 <a id="global-home-fab" href="/" title="학생 홈페이지로 돌아가기"
-   style="position:fixed;top:14px;right:14px;z-index:99999;display:inline-flex;align-items:center;gap:6px;padding:9px 18px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-weight:800;text-decoration:none;font-size:13px;border-radius:99px;box-shadow:0 6px 20px -4px rgba(245,158,11,.55),0 0 0 2px rgba(255,255,255,.08);transition:transform .15s,box-shadow .15s;font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif"
-   onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 28px -4px rgba(245,158,11,.7),0 0 0 2px rgba(255,255,255,.15)'"
-   onmouseout="this.style.transform='';this.style.boxShadow='0 6px 20px -4px rgba(245,158,11,.55),0 0 0 2px rgba(255,255,255,.08)'">
+   style="display:none">
   🏠 <span>홈페이지</span>
 </a>
 
