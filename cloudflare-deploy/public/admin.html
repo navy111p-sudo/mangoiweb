@@ -18894,7 +18894,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260530030714 -->
+        <!-- BUILD:20260530031322 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -22460,7 +22460,7 @@ button.chip:hover,
     }
   };
   window.ptSeedCatalog = async function(){
-    if (!confirm('기본 6개 상품(스타벅스/배스킨/교촌/CGV/교보/GS25)을 시드하시겠습니까?')) return;
+    if (!confirm('기본 6개 상품(메가커피/배스킨/교촌/CGV/교보/GS25)을 시드하시겠습니까?')) return;
     try {
       const r = await fetch('/api/admin/gifts/seed-catalog', { method:'POST' });
       const d = await r.json();
@@ -22485,8 +22485,8 @@ button.chip:hover,
       sort_order: g.sort_order || 0,
       enabled: g.enabled !== 0,
     };
-    const brand = prompt('브랜드 (예: 스타벅스)', data.brand); if (brand === null) return;
-    const name = prompt('상품명 (예: 아이스 아메리카노 Tall)', data.name); if (name === null) return;
+    const brand = prompt('브랜드 (예: 메가커피)', data.brand); if (brand === null) return;
+    const name = prompt('상품명 (예: 아메리카노 (ICE))', data.name); if (name === null) return;
     const fv = parseInt(prompt('정가 (원)', String(data.face_value)), 10); if (!fv) return;
     const pp = parseInt(prompt('포인트 가격', String(data.point_price || fv)), 10); if (!pp) return;
     const cat = prompt('카테고리 (cafe/food/movie/book/voucher/etc)', data.category) || 'cafe';
