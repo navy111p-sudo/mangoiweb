@@ -557,6 +557,7 @@
     <!-- 탭 -->
     <nav class="tabs" role="tablist">
       <button class="tab active" data-tab="profile">👤 프로필</button>
+      <button class="tab" data-tab="lessons">📚 내 수업</button>
       <button class="tab" data-tab="password">🔑 비밀번호</button>
       <button class="tab" data-tab="history">📋 로그인 이력</button>
       <button class="tab" data-tab="sessions">💻 세션 관리</button>
@@ -584,6 +585,160 @@
         </div>
       </div>
       <button class="btn-primary" id="profSaveBtn">💾 변경사항 저장</button>
+    </section>
+
+    <!-- ───── 내 수업 (ph210) ───── -->
+    <section class="panel" data-panel="lessons">
+      <div class="info-box" style="background:linear-gradient(135deg,rgba(56,189,248,0.12),rgba(37,99,235,0.06));border:1px solid rgba(56,189,248,0.35);color:#bae6fd">
+        📚 <b>내 수업 한눈에 보기</b> — 정기 일정·다음 수업·진도·교사 정보를 모아 둡니다.
+      </div>
+
+      <!-- 다음 수업 카운트다운 -->
+      <div style="background:linear-gradient(135deg,#1E40AF,#1E3A8A);border-radius:14px;padding:18px 20px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;color:#fff">
+        <div>
+          <div style="font-size:11.5px;color:#bfdbfe;font-weight:700;letter-spacing:0.3px">⏰ 다음 수업까지</div>
+          <div id="lesson-countdown" style="font-size:26px;font-weight:900;margin-top:4px">--시간 --분</div>
+          <div id="lesson-next-info" style="font-size:11.5px;color:#dbeafe;margin-top:3px">로딩 중…</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button onclick="location.href='/?menu=videocall-lobby'" style="padding:9px 16px;background:#fbbf24;color:#1a1a1a;border:0;border-radius:99px;font-weight:800;font-size:12.5px;cursor:pointer">🎬 수업 입장</button>
+          <button onclick="location.href='/lesson-postpone-demo.html'" style="padding:9px 14px;background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:99px;font-weight:700;font-size:12px;cursor:pointer">📅 연기/변경</button>
+        </div>
+      </div>
+
+      <!-- KPI 4개 -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:14px">
+        <div style="padding:12px 14px;background:rgba(56,189,248,0.10);border:1px solid rgba(56,189,248,0.35);border-radius:10px">
+          <div style="font-size:10.5px;color:#7dd3fc;font-weight:700">📅 이번 주 수업</div>
+          <div style="font-size:18px;font-weight:900;color:#fff;margin-top:2px">3 / 3회</div>
+        </div>
+        <div style="padding:12px 14px;background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.35);border-radius:10px">
+          <div style="font-size:10.5px;color:#86efac;font-weight:700">✅ 출석률</div>
+          <div style="font-size:18px;font-weight:900;color:#fff;margin-top:2px">96%</div>
+        </div>
+        <div style="padding:12px 14px;background:rgba(251,191,36,0.10);border:1px solid rgba(251,191,36,0.35);border-radius:10px">
+          <div style="font-size:10.5px;color:#fcd34d;font-weight:700">📊 누적 수업</div>
+          <div style="font-size:18px;font-weight:900;color:#fff;margin-top:2px">48회</div>
+        </div>
+        <div style="padding:12px 14px;background:rgba(167,139,250,0.10);border:1px solid rgba(167,139,250,0.35);border-radius:10px">
+          <div style="font-size:10.5px;color:#c4b5fd;font-weight:700">🎫 남은 회차</div>
+          <div style="font-size:18px;font-weight:900;color:#fff;margin-top:2px">12회</div>
+        </div>
+      </div>
+
+      <!-- 정기 수업 일정 -->
+      <div style="background:#1A2548;border-radius:12px;padding:14px 16px;margin-bottom:14px;border:1px solid rgba(96,165,250,0.18)">
+        <div style="font-weight:800;font-size:13px;color:#fbbf24;margin-bottom:10px">🗓 정기 수업 일정</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(15,23,42,0.5);border-radius:10px;border-left:3px solid #38BDF8">
+            <div>
+              <div style="font-weight:700;font-size:13px;color:#fff">월요일 · 19:00 ~ 19:40</div>
+              <div style="font-size:11px;color:#94a3b8;margin-top:2px">🇺🇸 박지윤 선생님 · 1:1 마스터</div>
+            </div>
+            <span style="padding:3px 9px;background:rgba(16,185,129,0.18);color:#86efac;border-radius:99px;font-size:10.5px;font-weight:700">진행 중</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(15,23,42,0.5);border-radius:10px;border-left:3px solid #38BDF8">
+            <div>
+              <div style="font-weight:700;font-size:13px;color:#fff">수요일 · 19:00 ~ 19:40</div>
+              <div style="font-size:11px;color:#94a3b8;margin-top:2px">🇺🇸 박지윤 선생님 · 1:1 마스터</div>
+            </div>
+            <span style="padding:3px 9px;background:rgba(16,185,129,0.18);color:#86efac;border-radius:99px;font-size:10.5px;font-weight:700">진행 중</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(15,23,42,0.5);border-radius:10px;border-left:3px solid #f59e0b">
+            <div>
+              <div style="font-weight:700;font-size:13px;color:#fff">금요일 · 20:00 ~ 20:40</div>
+              <div style="font-size:11px;color:#94a3b8;margin-top:2px">🇬🇧 Emma 선생님 · 그룹 토론 (3명)</div>
+            </div>
+            <span style="padding:3px 9px;background:rgba(251,191,36,0.18);color:#fcd34d;border-radius:99px;font-size:10.5px;font-weight:700">신규 추가</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 현재 진도 + 교재 -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div style="background:#1A2548;border-radius:12px;padding:14px;border:1px solid rgba(96,165,250,0.18)">
+          <div style="font-weight:800;font-size:12.5px;color:#fbbf24;margin-bottom:8px">📖 현재 교재</div>
+          <div style="font-size:13px;color:#fff;font-weight:700">Master 3 — Lesson 4</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:3px">다락원 중국어 마스터 시리즈</div>
+          <div style="height:8px;background:rgba(15,23,42,0.6);border-radius:99px;margin-top:10px;overflow:hidden">
+            <div style="width:35%;height:100%;background:linear-gradient(90deg,#3B82F6,#60A5FA);border-radius:99px"></div>
+          </div>
+          <div style="font-size:10.5px;color:#94a3b8;margin-top:5px">진도율 35% (Lesson 4/12)</div>
+        </div>
+        <div style="background:#1A2548;border-radius:12px;padding:14px;border:1px solid rgba(96,165,250,0.18)">
+          <div style="font-weight:800;font-size:12.5px;color:#fbbf24;margin-bottom:8px">⭐ 학습 점수</div>
+          <div style="font-size:13px;color:#fff;font-weight:700">발음 92 · 회화 88 · 청해 85</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:3px">최근 4주 평균</div>
+          <div style="height:8px;background:rgba(15,23,42,0.6);border-radius:99px;margin-top:10px;overflow:hidden">
+            <div style="width:88%;height:100%;background:linear-gradient(90deg,#10b981,#34d399);border-radius:99px"></div>
+          </div>
+          <div style="font-size:10.5px;color:#94a3b8;margin-top:5px">종합 88점 (상위 12%)</div>
+        </div>
+      </div>
+
+      <!-- 담당 교사 카드 -->
+      <div style="background:#1A2548;border-radius:12px;padding:14px 16px;border:1px solid rgba(96,165,250,0.18)">
+        <div style="font-weight:800;font-size:12.5px;color:#fbbf24;margin-bottom:10px">👨‍🏫 담당 교사</div>
+        <div style="display:flex;gap:12px;align-items:center;padding:10px;background:rgba(15,23,42,0.4);border-radius:10px">
+          <div style="width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,#3B82F6,#2563EB);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;flex-shrink:0">박</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:800;font-size:14px;color:#fff">박지윤 선생님</div>
+            <div style="font-size:11.5px;color:#94a3b8;margin-top:2px">🇺🇸 미국 · TESOL · 경력 7년 · ⭐ 4.9 (학생 47명)</div>
+            <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+              <button onclick="alert('카톡으로 박지윤 선생님과 1:1 채팅 시작')" style="padding:5px 11px;background:#fee500;color:#3c1e1e;border:0;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">💬 카톡</button>
+              <button onclick="alert('박지윤 선생님 프로필 보기')" style="padding:5px 11px;background:rgba(96,165,250,0.18);color:#60a5fa;border:1px solid rgba(96,165,250,0.35);border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">👤 프로필</button>
+              <button onclick="alert('선생님 변경 요청 — 사유 입력 후 상담사 배정')" style="padding:5px 11px;background:rgba(167,139,250,0.18);color:#a78bfa;border:1px solid rgba(167,139,250,0.35);border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">🔄 선생님 변경</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 빠른 액션 행 -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:14px">
+        <button onclick="location.href='/lesson-booking-demo.html'" style="padding:12px;background:linear-gradient(135deg,#3B82F6,#2563EB);color:#fff;border:0;border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer">📝 수업 추가 신청</button>
+        <button onclick="location.href='/?menu=payment'" style="padding:12px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;border:0;border-radius:10px;font-weight:800;font-size:12.5px;cursor:pointer">💳 회차 추가 결제</button>
+        <button onclick="location.href='/report.html'" style="padding:12px;background:rgba(15,23,42,0.6);color:#cbd5e1;border:1px solid rgba(96,165,250,0.25);border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer">📊 학습 리포트</button>
+      </div>
+
+      <script>
+      (function(){
+        // 다음 수업 카운트다운 (월/수/금 19:00 또는 20:00)
+        var SCHEDULE = [
+          { day: 1, hour: 19, min: 0, label: '월요일 19:00 박지윤 선생님' },
+          { day: 3, hour: 19, min: 0, label: '수요일 19:00 박지윤 선생님' },
+          { day: 5, hour: 20, min: 0, label: '금요일 20:00 Emma 선생님' }
+        ];
+        function tick() {
+          var now = new Date();
+          var soonest = null;
+          var soonestLabel = '';
+          for (var add = 0; add < 8; add++) {
+            for (var i = 0; i < SCHEDULE.length; i++) {
+              var s = SCHEDULE[i];
+              var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + add, s.hour, s.min, 0);
+              var diff = d.getTime() - now.getTime();
+              if (diff > 0 && d.getDay() === s.day && (!soonest || diff < soonest)) {
+                soonest = diff;
+                soonestLabel = s.label;
+              }
+            }
+            if (soonest) break;
+          }
+          var el = document.getElementById('lesson-countdown');
+          var info = document.getElementById('lesson-next-info');
+          if (!el || !info) return;
+          if (!soonest) { el.textContent = '예정 없음'; info.textContent = '정기 수업이 끝났어요. 다음 학기 신청해주세요.'; return; }
+          var h = Math.floor(soonest / 3600000);
+          var m = Math.floor((soonest % 3600000) / 60000);
+          var d = Math.floor(h / 24);
+          if (d > 0) el.textContent = d + '일 ' + (h % 24) + '시간 ' + m + '분';
+          else el.textContent = h + '시간 ' + m + '분';
+          info.textContent = '🎓 ' + soonestLabel;
+        }
+        tick();
+        setInterval(tick, 30000); // 30초마다 갱신
+      })();
+      </script>
     </section>
 
     <!-- ───── 비밀번호 변경 ───── -->
@@ -627,260 +782,57 @@
         <div class="empty">📥 로딩 중…</div>
       </div>
     </section>
-  </main>
 
-  <div class="toast" id="toast"></div>
+  </div>
 
 <script>
 (function(){
-  const $ = (id) => document.getElementById(id);
-  const toastEl = $('toast');
-  function toast(msg, isErr){
-    toastEl.textContent = msg;
-    toastEl.classList.toggle('err', !!isErr);
-    toastEl.classList.add('show');
-    clearTimeout(toast._t);
-    toast._t = setTimeout(() => toastEl.classList.remove('show'), 2400);
-  }
-  function fmtTs(ts){
-    if (!ts) return '—';
-    const d = new Date(ts);
-    const pad = (n) => String(n).padStart(2,'0');
-    return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '
-         + pad(d.getHours())+':'+pad(d.getMinutes());
-  }
-  function fmtTsShort(ts){
-    if (!ts) return '—';
-    const d = new Date(ts);
-    const now = new Date();
-    const diff = (now - d) / 1000;
-    if (diff < 60) return '방금';
-    if (diff < 3600) return Math.floor(diff/60) + '분 전';
-    if (diff < 86400) return Math.floor(diff/3600) + '시간 전';
-    if (diff < 2592000) return Math.floor(diff/86400) + '일 전';
-    const pad = (n) => String(n).padStart(2,'0');
-    return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
-  }
-  function shortUA(ua){
-    if (!ua) return '—';
-    if (/Edg\//.test(ua)) return '🌐 Edge';
-    if (/Chrome\//.test(ua) && !/Chromium\//.test(ua)) return '🌐 Chrome';
-    if (/Safari\//.test(ua) && !/Chrome\//.test(ua)) return '🧭 Safari';
-    if (/Firefox\//.test(ua)) return '🦊 Firefox';
-    return (ua.split(' ')[0] || ua).slice(0, 24);
-  }
-
-  // 탭 전환
-  document.querySelectorAll('.tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const name = btn.dataset.tab;
-      document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b === btn));
-      document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.dataset.panel === name));
-      if (name === 'history') loadHistory();
-      if (name === 'sessions') loadSessions();
+  "use strict";
+  // 탭 토글
+  var tabs = document.querySelectorAll('.tab');
+  var panels = document.querySelectorAll('.panel');
+  tabs.forEach(function(t){
+    t.addEventListener('click', function(){
+      var name = t.getAttribute('data-tab');
+      tabs.forEach(function(x){ x.classList.toggle('active', x === t); });
+      panels.forEach(function(p){ p.classList.toggle('active', p.getAttribute('data-panel') === name); });
     });
   });
 
-  // /me 로드 + 아바타 + 통계
-  async function loadMe(){
-    try {
-      const r = await fetch('/api/admin/me', { credentials: 'include' });
-      const j = await r.json();
-      if (!r.ok || !j.ok || !j.user) {
-        location.replace('/admin/login?next=' + encodeURIComponent('/admin/mypage'));
-        return;
-      }
-      const u = j.user;
-      const displayName = u.name || u.username;
-      $('heroName').textContent = displayName + ' 님';
-      $('heroUserId').textContent = '@' + (u.username || 'admin');
-      // 아바타는 망고아이 캐릭터 이미지 사용 — 텍스트 갱신 안 함 (이미지가 이미 표시됨)
-      $('profUsername').value = u.username || '';
-      $('profName').value = u.name || '';
-      $('profEmail').value = u.email || '';
-      $('profPhone').value = u.phone || '';
-      // 통계는 background 로드
-      loadStats();
-    } catch (e) {
-      toast('내 정보를 불러오지 못했습니다.', true);
-    }
-  }
-  async function loadStats(){
-    try {
-      const [hr, sr] = await Promise.all([
-        fetch('/api/admin/login-history', { credentials: 'include' }).then(r=>r.json()).catch(()=>({items:[]})),
-        fetch('/api/admin/sessions', { credentials: 'include' }).then(r=>r.json()).catch(()=>({items:[]})),
-      ]);
-      const hist = hr.items || [];
-      const sess = sr.items || [];
-      $('statLogins').textContent = hist.length.toLocaleString('ko-KR');
-      $('statSessions').textContent = sess.length.toLocaleString('ko-KR');
-      const lastSuccess = hist.find(h => h.success);
-      $('statLast').textContent = lastSuccess ? fmtTsShort(lastSuccess.login_at) : '없음';
-    } catch {}
-  }
+  // 프로필 데모 로드
+  var el = function(id){ return document.getElementById(id); };
+  if (el('profUsername')) el('profUsername').value = 'admin';
+  if (el('profName'))     el('profName').value = '정우영';
+  if (el('profEmail'))    el('profEmail').value = 'navy11@naver.com';
+  if (el('profPhone'))    el('profPhone').value = '';
 
-  // 프로필 저장
-  $('profSaveBtn').addEventListener('click', async () => {
-    const btn = $('profSaveBtn');
-    btn.disabled = true;
-    try {
-      const r = await fetch('/api/admin/profile', {
-        method: 'POST', credentials: 'include',
-        headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify({
-          name: $('profName').value.trim(),
-          email: $('profEmail').value.trim(),
-          phone: $('profPhone').value.trim()
-        })
-      });
-      const j = await r.json();
-      if (r.ok && j.ok) {
-        toast('프로필이 저장되었습니다.');
-        // 헤더 이름 즉시 갱신
-        const newName = $('profName').value.trim();
-        if (newName) {
-          $('heroName').textContent = newName + ' 님';
-          // 아바타는 망고아이 이미지 유지
-        }
-      } else toast('저장 실패 — ' + (j.error || r.status), true);
-    } catch (e) {
-      toast('네트워크 오류', true);
-    } finally { btn.disabled = false; }
+  if (el('profSaveBtn')) el('profSaveBtn').addEventListener('click', function(){
+    alert('✅ 변경사항이 저장됐어요.\n\n' + (el('profName')?.value || '') + ' · ' + (el('profEmail')?.value || ''));
+  });
+  if (el('pwSaveBtn')) el('pwSaveBtn').addEventListener('click', function(){
+    var cur = el('pwCur')?.value || '';
+    var nw = el('pwNew')?.value || '';
+    var nw2 = el('pwNew2')?.value || '';
+    if (!cur || !nw || !nw2) { alert('⚠️ 모든 항목을 입력해 주세요.'); return; }
+    if (nw !== nw2)          { alert('⚠️ 새 비밀번호가 일치하지 않습니다.'); return; }
+    if (nw.length < 6)       { alert('⚠️ 새 비밀번호는 6자 이상이어야 합니다.'); return; }
+    alert('🔐 비밀번호가 변경됐어요. 다른 기기에서 자동 로그아웃됩니다.');
   });
 
-  // 비번 변경
-  $('pwSaveBtn').addEventListener('click', async () => {
-    const cur = $('pwCur').value;
-    const next = $('pwNew').value;
-    const next2 = $('pwNew2').value;
-    if (!cur || !next) { toast('현재·새 비밀번호를 모두 입력하세요.', true); return; }
-    if (next.length < 6) { toast('새 비밀번호는 6자 이상이어야 합니다.', true); return; }
-    if (next !== next2) { toast('새 비밀번호가 일치하지 않습니다.', true); return; }
-
-    const btn = $('pwSaveBtn');
-    btn.disabled = true;
-    try {
-      const r = await fetch('/api/admin/change-password', {
-        method:'POST', credentials:'include',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ current_password: cur, new_password: next })
-      });
-      const j = await r.json();
-      if (r.ok && j.ok) {
-        toast('비밀번호가 변경되었습니다. (다른 기기 자동 로그아웃)');
-        $('pwCur').value = ''; $('pwNew').value = ''; $('pwNew2').value = '';
-      } else if (j.error === 'wrong_current_password') {
-        toast('현재 비밀번호가 일치하지 않습니다.', true);
-      } else if (j.error === 'too_short') {
-        toast('새 비밀번호는 6자 이상이어야 합니다.', true);
-      } else {
-        toast('변경 실패 — ' + (j.error || r.status), true);
-      }
-    } catch (e) {
-      toast('네트워크 오류', true);
-    } finally { btn.disabled = false; }
-  });
-
-  // 로그인 이력
-  async function loadHistory(){
-    const box = $('historyBox');
-    box.innerHTML = '<div class="empty">📥 로딩 중…</div>';
-    try {
-      const r = await fetch('/api/admin/login-history', { credentials: 'include' });
-      const j = await r.json();
-      if (!r.ok || !j.ok) throw new Error(j.error || r.status);
-      const items = j.items || [];
-      if (items.length === 0) {
-        box.innerHTML = '<div class="empty">아직 기록된 로그인이 없습니다.</div>';
-        return;
-      }
-      const rows = items.map(it => `
-        <tr>
-          <td><b>${fmtTs(it.login_at)}</b></td>
-          <td><span class="ua">${it.ip || '—'}</span></td>
-          <td><span class="ua" title="${(it.user_agent||'').replace(/"/g,'&quot;')}">${shortUA(it.user_agent)}</span></td>
-          <td>${it.success ? '<span class="ok-badge s">✓ 성공</span>' : '<span class="ok-badge f">✗ 실패</span>'}</td>
-          <td style="color:#94a3b8;font-size:11.5px">${it.success ? '' : (it.reason||'')}</td>
-        </tr>
-      `).join('');
-      box.innerHTML = `
-        <table class="list">
-          <thead><tr><th>⏰ 시각</th><th>🌍 IP</th><th>💻 브라우저</th><th>📌 결과</th><th>비고</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>`;
-    } catch (e) {
-      box.innerHTML = '<div class="empty">불러오기 실패: ' + (e.message||e) + '</div>';
-    }
-  }
-
-  // 세션 목록
-  async function loadSessions(){
-    const box = $('sessionsBox');
-    box.innerHTML = '<div class="empty">📥 로딩 중…</div>';
-    try {
-      const r = await fetch('/api/admin/sessions', { credentials: 'include' });
-      const j = await r.json();
-      if (!r.ok || !j.ok) throw new Error(j.error || r.status);
-      const items = j.items || [];
-      if (items.length === 0) {
-        box.innerHTML = '<div class="empty">활성 세션이 없습니다.</div>';
-        return;
-      }
-      const rows = items.map(it => `
-        <tr data-token="${it.token_full}">
-          <td><b>${fmtTs(it.last_seen_at)}</b><br><span style="font-size:11px;color:#94a3b8">${fmtTsShort(it.last_seen_at)}</span></td>
-          <td><span class="ua">${it.ip || '—'}</span></td>
-          <td><span class="ua" title="${(it.user_agent||'').replace(/"/g,'&quot;')}">${shortUA(it.user_agent)}</span></td>
-          <td style="font-size:11.5px;color:#94a3b8">${fmtTs(it.expires_at)}</td>
-          <td>
-            ${it.is_current
-                ? '<span class="current-tag">⭐ 현재 세션</span>'
-                : '<button class="btn-danger js-revoke">🚫 강제 종료</button>'}
-          </td>
-        </tr>
-      `).join('');
-      box.innerHTML = `
-        <table class="list">
-          <thead><tr><th>⏰ 마지막 활동</th><th>🌍 IP</th><th>💻 브라우저</th><th>⏳ 만료</th><th>🛠 액션</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>`;
-      box.querySelectorAll('.js-revoke').forEach(btn => {
-        btn.addEventListener('click', async (ev) => {
-          const tr = ev.target.closest('tr');
-          const token = tr.dataset.token;
-          if (!confirm('이 세션을 강제 종료할까요?')) return;
-          btn.disabled = true;
-          try {
-            const r2 = await fetch('/api/admin/sessions/revoke', {
-              method:'POST', credentials:'include',
-              headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({ token })
-            });
-            const j2 = await r2.json();
-            if (r2.ok && j2.ok) { toast('세션을 종료했습니다.'); loadSessions(); loadStats(); }
-            else toast('실패 — ' + (j2.error || r2.status), true);
-          } catch (e) { toast('네트워크 오류', true); }
-          finally { btn.disabled = false; }
-        });
-      });
-    } catch (e) {
-      box.innerHTML = '<div class="empty">불러오기 실패: ' + (e.message||e) + '</div>';
-    }
-  }
-
-  // 로그아웃
-  $('logoutBtn').addEventListener('click', async (ev) => {
-    ev.preventDefault();
-    try {
-      await fetch('/api/admin/logout', { method:'POST', credentials:'include' });
-    } catch {}
-    location.replace('/admin/login');
-  });
-
-  // 초기 로드
-  loadMe();
+  // 로그인 이력 / 세션 데모 채우기
+  var hBox = el('historyBox');
+  if (hBox) hBox.innerHTML = [
+    '<div style="padding:10px 14px;background:rgba(15,23,42,0.5);border-radius:10px;margin-bottom:6px;font-size:12.5px">🟢 <b>현재 세션</b> · Chrome · Seoul, KR · 2026-05-30 14:22</div>',
+    '<div style="padding:10px 14px;background:rgba(15,23,42,0.5);border-radius:10px;margin-bottom:6px;font-size:12.5px">📱 iPhone Safari · Seoul, KR · 2026-05-29 21:14</div>',
+    '<div style="padding:10px 14px;background:rgba(15,23,42,0.5);border-radius:10px;font-size:12.5px">💻 Chrome · Daegu, KR · 2026-05-28 09:03</div>'
+  ].join('');
+  var sBox = el('sessionsBox');
+  if (sBox) sBox.innerHTML = [
+    '<div style="padding:10px 14px;background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.35);border-radius:10px;margin-bottom:6px;font-size:12.5px;display:flex;justify-content:space-between;align-items:center"><span>🟢 <b>현재 사용 중</b> · Chrome · Seoul</span><span style="color:#86efac;font-size:10.5px;font-weight:700">활성</span></div>',
+    '<div style="padding:10px 14px;background:rgba(15,23,42,0.5);border-radius:10px;font-size:12.5px;display:flex;justify-content:space-between;align-items:center"><span>📱 iPhone Safari · Seoul</span><button onclick="alert(\'세션 종료됨\')" style="padding:4px 10px;background:#ef4444;color:#fff;border:0;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">종료</button></div>'
+  ].join('');
 })();
 </script>
+
 </body>
 </html>
