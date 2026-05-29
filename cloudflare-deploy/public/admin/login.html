@@ -3,34 +3,211 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>망고아이 관리자 로그인 — 리다이렉트</title>
-<meta http-equiv="refresh" content="0; url=/admin.html?login=1">
+<title>망고아이 관리자 로그인</title>
+<meta name="theme-color" content="#0a1530">
 <style>
-  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
-    background:linear-gradient(135deg,#0a1530,#1f1b3a); min-height:100vh;
-    display:flex; align-items:center; justify-content:center; color:#fff; text-align:center; }
-  .box { padding:30px 40px; background:rgba(20,33,59,0.9); border-radius:18px;
-    border:1px solid rgba(139,92,246,0.3); box-shadow:0 20px 60px rgba(0,0,0,0.5); }
-  h1 { margin:0 0 8px; font-size:18px; color:#fbbf24; }
-  p { margin:6px 0; color:#cbd5e1; font-size:13px; }
-  a { color:#60a5fa; text-decoration:none; font-weight:700; }
-  a:hover { text-decoration:underline; }
-  .spinner { width:38px; height:38px; margin:0 auto 12px;
-    border:3px solid rgba(251,191,36,0.2); border-top-color:#fbbf24; border-radius:50%;
-    animation:spin 0.8s linear infinite; }
-  @keyframes spin { to { transform:rotate(360deg); } }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin:0; padding:0; height:100%; }
+  body {
+    font-family:-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Segoe UI", sans-serif;
+    background:linear-gradient(135deg, #0a1530 0%, #1f1b3a 100%);
+    min-height:100vh;
+    display:flex; align-items:center; justify-content:center;
+    color:#f9fafb;
+    padding:20px;
+  }
+  .card {
+    width:100%; max-width:420px;
+    background:linear-gradient(135deg, #14213b, #0f172a);
+    border:1.5px solid rgba(139,92,246,0.35);
+    border-radius:22px;
+    box-shadow:0 25px 60px -10px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.04);
+    overflow:hidden;
+  }
+  .header {
+    background:linear-gradient(135deg, rgba(251,191,36,0.18), rgba(245,158,11,0.08));
+    padding:28px 26px 22px;
+    text-align:center;
+    border-bottom:1px solid rgba(139,92,246,0.2);
+  }
+  .logo { font-size:42px; margin-bottom:6px; line-height:1 }
+  h1 { margin:0; font-size:22px; font-weight:900; color:#fbbf24; letter-spacing:-0.5px }
+  .sub { margin-top:6px; font-size:12.5px; color:#cbd5e1 }
+  .body { padding:24px 26px 22px }
+  label { display:block; font-size:12px; font-weight:700; color:#cbd5e1; margin-bottom:6px }
+  .field { margin-bottom:14px }
+  input[type="text"], input[type="password"] {
+    width:100%; padding:12px 14px;
+    background:rgba(15,23,42,0.65); border:1.5px solid rgba(96,165,250,0.25);
+    border-radius:10px; color:#f9fafb; font-size:14px;
+    transition:border-color .15s, background .15s;
+    font-family:inherit;
+  }
+  input:focus {
+    outline:none;
+    border-color:#fbbf24;
+    background:rgba(15,23,42,0.85);
+    box-shadow:0 0 0 3px rgba(251,191,36,0.18);
+  }
+  .pw-wrap { position:relative }
+  .pw-eye {
+    position:absolute; top:50%; right:10px; transform:translateY(-50%);
+    background:transparent; border:0; color:#94a3b8; cursor:pointer;
+    padding:4px 8px; border-radius:6px; font-size:16px;
+  }
+  .pw-eye:hover { background:rgba(96,165,250,0.12); color:#60a5fa }
+  .remember {
+    display:flex; align-items:center; gap:8px; margin-bottom:14px;
+    font-size:12.5px; color:#94a3b8;
+  }
+  .remember input { width:16px; height:16px; accent-color:#fbbf24 }
+  .login-btn {
+    width:100%; padding:13px;
+    background:linear-gradient(135deg, #fbbf24, #f59e0b);
+    color:#1a1a1a; font-weight:900; font-size:15px;
+    border:0; border-radius:12px; cursor:pointer;
+    transition:transform .15s, box-shadow .15s;
+    box-shadow:0 6px 18px -4px rgba(251,191,36,0.55);
+    font-family:inherit;
+  }
+  .login-btn:hover { transform:translateY(-1px); box-shadow:0 10px 24px -4px rgba(251,191,36,0.7) }
+  .login-btn:disabled { opacity:0.55; cursor:not-allowed; transform:none }
+  .err {
+    display:none; margin-top:14px; padding:10px 14px;
+    background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.4);
+    border-radius:8px; color:#fca5a5; font-size:12.5px; line-height:1.5;
+  }
+  .err.show { display:block }
+  .footer {
+    padding:14px 26px 22px;
+    border-top:1px solid rgba(139,92,246,0.15);
+    text-align:center; font-size:11.5px; color:#94a3b8; line-height:1.6;
+  }
+  .footer a { color:#60a5fa; text-decoration:none; font-weight:700 }
+  .footer a:hover { text-decoration:underline }
+  .version {
+    position:absolute; top:14px; right:14px; font-size:10.5px; color:#64748b;
+    padding:3px 8px; background:rgba(0,0,0,0.3); border-radius:99px;
+  }
+  .home-link {
+    position:absolute; top:14px; left:14px; color:#fbbf24;
+    text-decoration:none; font-size:12.5px; font-weight:700;
+    padding:6px 12px; background:rgba(20,33,59,0.85);
+    border:1px solid rgba(251,191,36,0.4); border-radius:99px;
+  }
+  .home-link:hover { background:rgba(20,33,59,1); color:#fde68a }
 </style>
 </head>
 <body>
-<div class="box">
-  <div class="spinner"></div>
-  <h1>🥭 관리자 로그인으로 이동</h1>
-  <p>통합 관리자 페이지로 이동 중입니다…</p>
-  <p style="margin-top:14px"><a href="/admin.html?login=1">바로 이동 →</a></p>
+
+<a href="/" class="home-link">🏠 홈으로</a>
+<div class="version">v2 · 다크 테마</div>
+
+<div class="card">
+  <div class="header">
+    <div class="logo">🥭</div>
+    <h1>망고아이 관리자</h1>
+    <div class="sub">화상수업 운영 시스템 — Cloudflare Workers</div>
+  </div>
+  <div class="body">
+    <form id="loginForm" autocomplete="on">
+      <div class="field">
+        <label for="username">아이디</label>
+        <input type="text" id="username" name="username" autocomplete="username"
+               placeholder="admin / branch_busan / agency_gn001 ..." required value="admin">
+      </div>
+      <div class="field">
+        <label for="password">비밀번호</label>
+        <div class="pw-wrap">
+          <input type="password" id="password" name="password" autocomplete="current-password"
+                 placeholder="●●●●●●" required>
+          <button type="button" class="pw-eye" id="pwEye" title="비밀번호 보기/숨기기" tabindex="-1">👁</button>
+        </div>
+      </div>
+      <div class="remember">
+        <input type="checkbox" id="remember" name="remember">
+        <label for="remember" style="margin:0;cursor:pointer">30일 동안 로그인 유지</label>
+      </div>
+      <button type="submit" class="login-btn" id="loginBtn">로그인 →</button>
+      <div class="err" id="errMsg"></div>
+    </form>
+  </div>
+  <div class="footer">
+    비밀번호를 잊으셨나요? 운영자(<a href="mailto:navy111p@gmail.com">navy111p@gmail.com</a>)에게 문의하세요.
+  </div>
 </div>
+
 <script>
-  // 즉시 리다이렉트 (meta refresh 백업)
-  location.replace('/admin.html?login=1');
+(function(){
+  "use strict";
+
+  // 비밀번호 보기/숨기기
+  document.getElementById('pwEye').addEventListener('click', function(){
+    var pw = document.getElementById('password');
+    if (pw.type === 'password') { pw.type = 'text'; this.textContent = '🙈'; }
+    else { pw.type = 'password'; this.textContent = '👁'; }
+  });
+
+  // ?next= 파라미터 (어디로 돌아갈지)
+  var params = new URLSearchParams(location.search);
+  var nextUrl = params.get('next') || '/admin.html';
+  try { nextUrl = decodeURIComponent(nextUrl); } catch(e){}
+
+  // 로그인 폼 제출
+  document.getElementById('loginForm').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var btn = document.getElementById('loginBtn');
+    var err = document.getElementById('errMsg');
+    var uid = document.getElementById('username').value.trim();
+    var pw = document.getElementById('password').value;
+    var remember = document.getElementById('remember').checked;
+
+    err.classList.remove('show');
+    if (!uid || !pw) {
+      err.textContent = '⚠️ 아이디와 비밀번호를 입력해 주세요.';
+      err.classList.add('show');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '로그인 중...';
+
+    try {
+      var res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: uid, password: pw, remember: remember }),
+        credentials: 'include'
+      });
+      var data = await res.json().catch(function(){ return {}; });
+
+      if (res.ok && data.ok) {
+        btn.textContent = '✅ 로그인 성공! 이동 중...';
+        // ?login=1 파라미터 제거 (무한 루프 방지)
+        var clean = nextUrl.replace(/[?&]login=1/g, '').replace(/\?$/, '');
+        setTimeout(function(){ location.href = clean || '/admin.html'; }, 400);
+      } else {
+        var msg = (data && (data.error || data.message)) || '아이디 또는 비밀번호가 올바르지 않습니다.';
+        err.textContent = '❌ ' + msg;
+        err.classList.add('show');
+        btn.disabled = false;
+        btn.textContent = '로그인 →';
+      }
+    } catch(e) {
+      err.textContent = '❌ 네트워크 오류: ' + (e.message || e.name);
+      err.classList.add('show');
+      btn.disabled = false;
+      btn.textContent = '로그인 →';
+    }
+  });
+
+  // 자동 포커스
+  setTimeout(function(){
+    var pw = document.getElementById('password');
+    if (document.getElementById('username').value) pw.focus();
+    else document.getElementById('username').focus();
+  }, 100);
+})();
 </script>
 </body>
 </html>
