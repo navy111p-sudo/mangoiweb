@@ -58,6 +58,45 @@
   h2.title{font-size:22px;font-weight:900;margin-bottom:4px;letter-spacing:-0.5px;color:#fff}
   p.sub{color:#94A3B8;font-size:13px;margin-bottom:22px;line-height:1.5}
 
+  /* 선택 모드 카드 (날짜로 / 교사로) */
+  .mode-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+  .mode-card{
+    padding:18px 12px;border-radius:14px;cursor:pointer;text-align:center;
+    background:#111C2E;border:1.5px solid #1E293B;transition:all .22s;
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+  }
+  .mode-card .emo{font-size:28px;line-height:1}
+  .mode-card .title{font-size:13.5px;font-weight:800;color:#E2E8F0}
+  .mode-card .sub{font-size:10.5px;color:#64748B}
+  .mode-card.active{
+    background:linear-gradient(135deg,rgba(59,130,246,0.18),rgba(37,99,235,0.10));
+    border-color:#38BDF8;
+    box-shadow:0 6px 18px -6px rgba(56,189,248,0.5);
+  }
+  .mode-card.active .title{color:#38BDF8}
+  .mode-card:hover:not(.active){background:#1A2540;border-color:#334155}
+
+  /* 교사 카드 그리드 */
+  .teacher-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px}
+  .teacher-card{
+    padding:12px 10px;border-radius:12px;cursor:pointer;text-align:center;
+    background:#111C2E;border:1.5px solid #1E293B;transition:all .2s;
+  }
+  .teacher-card .avatar{
+    width:48px;height:48px;border-radius:50%;margin:0 auto 6px;
+    background:linear-gradient(135deg,#3B82F6,#2563EB);
+    display:flex;align-items:center;justify-content:center;
+    font-size:22px;color:#fff;font-weight:900;
+  }
+  .teacher-card .tname{font-size:13px;font-weight:800;color:#fff;margin-bottom:2px}
+  .teacher-card .ttag{font-size:10.5px;color:#94A3B8;line-height:1.4}
+  .teacher-card.active{
+    background:linear-gradient(135deg,rgba(56,189,248,0.18),rgba(29,78,216,0.08));
+    border-color:#38BDF8;
+    box-shadow:0 6px 18px -6px rgba(56,189,248,0.5);
+  }
+  .teacher-card.active .tname{color:#38BDF8}
+
   /* 1:1 / 그룹 토글 */
   .type-tabs{display:flex;gap:6px;background:#111C2E;padding:4px;border-radius:12px;margin-bottom:18px}
   .type-tabs button{
@@ -232,6 +271,27 @@
     <button id="type-group" data-type="group">그룹 토론</button>
   </div>
 
+  <!-- 선택 방식 (날짜로 / 교사로) -->
+  <div class="sec-label">🔍 어떻게 선택하시겠어요?</div>
+  <div class="mode-cards">
+    <div class="mode-card active" data-mode="date">
+      <div class="emo">📅</div>
+      <div class="title">날짜로 선택</div>
+      <div class="sub">원하는 날·시간 먼저 고르기</div>
+    </div>
+    <div class="mode-card" data-mode="teacher">
+      <div class="emo">🧑‍🏫</div>
+      <div class="title">교사로 선택</div>
+      <div class="sub">교사 먼저 → 가능 시간 보기</div>
+    </div>
+  </div>
+
+  <!-- 교사 선택 그리드 (mode=teacher 일 때만 표시) -->
+  <div id="teacher-section" style="display:none;margin-bottom:18px">
+    <div class="sec-label">🧑‍🏫 교사 선택</div>
+    <div class="teacher-grid" id="teacher-grid"></div>
+  </div>
+
   <!-- 주간 목표 -->
   <div class="weekly-target">
     <div class="sec-label">🎯 주간 수업 횟수 설정</div>
@@ -285,11 +345,35 @@
   // ─── 상태 ───
   var state = {
     type: 'oneon',          // oneon | group
-    weeklyTarget: 2,        // 주간 목표 횟수
-    currentDay: null,       // 현재 선택된 날짜 ID (yyyy-mm-dd)
-    currentSlotIds: [],     // 현재 화면에서 선택 중인 임시 슬롯
-    cart: []                // 누적 예약 장바구니 [{id, dayId, slotIds, display}]
+    mode: 'date',           // date | teacher (선택 방식)
+    weeklyTarget: 2,
+    currentDay: null,
+    currentTeacherId: null, // teacher 모드용
+    currentSlotIds: [],
+    cart: []
   };
+
+  // ─── 교사 데모 데이터 ───
+  var TEACHERS = [
+    { id: 't1', name: '박지윤', avatar: '박', tag: '🇺🇸 7년 · TESOL', avail: 'all' },
+    { id: 't2', name: '김민서', avatar: '김', tag: '🇰🇷 5년 · 키즈 전문', avail: 'morning' },
+    { id: 't3', name: '이서연', avatar: '이', tag: '🇺🇸 10년 · 비즈니스', avail: 'evening' },
+    { id: 't4', name: 'Emma',  avatar: 'E',  tag: '🇬🇧 8년 · 발음', avail: 'all' },
+    { id: 't5', name: 'James', avatar: 'J',  tag: '🇺🇸 6년 · 회화', avail: 'afternoon' },
+    { id: 't6', name: 'Sarah', avatar: 'S',  tag: '🇦🇺 4년 · 초보', avail: 'morning' }
+  ];
+
+  // 교사별 가능 슬롯 필터 — 시간대 limit
+  function isSlotAvailableForTeacher(teacher, slotId) {
+    if (!teacher || teacher.avail === 'all') return true;
+    var slot = TIME_SLOTS.find(function(s){ return s.id === slotId; });
+    if (!slot) return false;
+    var h = parseInt(slot.time.split(':')[0], 10);
+    if (teacher.avail === 'morning')   return h >= 9  && h < 12;
+    if (teacher.avail === 'afternoon') return h >= 12 && h < 18;
+    if (teacher.avail === 'evening')   return h >= 18 && h <= 23;
+    return true;
+  }
 
   // ─── 10분 단위 슬롯 (09:00 ~ 23:00) ───
   var TIME_SLOTS = [];
@@ -344,18 +428,65 @@
   function renderTimes() {
     var grid = document.getElementById('time-grid');
     grid.innerHTML = '';
+    var teacher = state.mode === 'teacher' && state.currentTeacherId
+      ? TEACHERS.find(function(t){ return t.id === state.currentTeacherId; }) : null;
     TIME_SLOTS.forEach(function(slot){
       var booked = state.cart.some(function(item){
         return item.dayId === state.currentDay && item.slotIds.indexOf(slot.id) !== -1;
       });
+      var unavailable = teacher && !isSlotAvailableForTeacher(teacher, slot.id);
       var selected = state.currentSlotIds.indexOf(slot.id) !== -1;
       var b = document.createElement('button');
       b.className = 'slot' + (selected ? ' selected' : '');
-      b.disabled = booked;
+      b.disabled = booked || unavailable;
       b.textContent = slot.time;
+      if (unavailable) b.title = '이 교사는 이 시간대에 수업하지 않습니다';
       b.onclick = function(){ handleSlotClick(slot.id); };
       grid.appendChild(b);
     });
+  }
+
+  // 교사 그리드 렌더링
+  function renderTeachers() {
+    var grid = document.getElementById('teacher-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    TEACHERS.forEach(function(t){
+      var c = document.createElement('div');
+      c.className = 'teacher-card' + (state.currentTeacherId === t.id ? ' active' : '');
+      c.innerHTML =
+        '<div class="avatar">'+t.avatar+'</div>'+
+        '<div class="tname">'+t.name+'</div>'+
+        '<div class="ttag">'+t.tag+'</div>';
+      c.onclick = function(){
+        state.currentTeacherId = t.id;
+        state.currentSlotIds = [];
+        renderTeachers();
+        renderTimes();
+        renderAddBtn();
+      };
+      grid.appendChild(c);
+    });
+  }
+
+  // 모드 토글 (date | teacher)
+  function applyMode() {
+    var teacherSection = document.getElementById('teacher-section');
+    document.querySelectorAll('.mode-card').forEach(function(c){
+      c.classList.toggle('active', c.getAttribute('data-mode') === state.mode);
+    });
+    if (state.mode === 'teacher') {
+      teacherSection.style.display = 'block';
+      // 교사가 선택 안 됐으면 첫 교사 자동 선택
+      if (!state.currentTeacherId) state.currentTeacherId = TEACHERS[0].id;
+      renderTeachers();
+    } else {
+      teacherSection.style.display = 'none';
+      state.currentTeacherId = null;
+    }
+    state.currentSlotIds = [];
+    renderTimes();
+    renderAddBtn();
   }
 
   function renderAddBtn() {
@@ -410,14 +541,11 @@
     }
   }
 
-  // ─── 슬롯 클릭 로직 (최소 20분 자동 + 연속 확장) ───
   function handleSlotClick(clickedId) {
-    // 1. 마지막 슬롯 단독 클릭 방지
     if (clickedId === TIME_SLOTS.length) {
       showAlert('⚠️ 최소 20분(2개 블록) 예약을 위해 앞 시간대를 선택해 주세요.');
       return;
     }
-    // 2. 이미 장바구니에 있는 시간대는 잠금
     var locked = state.cart.some(function(item){
       return item.dayId === state.currentDay && item.slotIds.indexOf(clickedId) !== -1;
     });
@@ -425,26 +553,19 @@
       showAlert('⚠️ 이미 장바구니에 담긴 시간대입니다.');
       return;
     }
-    // 3. 첫 선택 → 자동 2블록 (20분)
     if (state.currentSlotIds.length === 0) {
       state.currentSlotIds = [clickedId, clickedId + 1];
     } else {
       var min = Math.min.apply(null, state.currentSlotIds);
       var max = Math.max.apply(null, state.currentSlotIds);
-      if (clickedId === max + 1) {
-        state.currentSlotIds.push(clickedId);
-      } else if (clickedId === min - 1) {
-        state.currentSlotIds.unshift(clickedId);
-      } else {
-        // 비연속 → 새 블록으로 리셋
-        state.currentSlotIds = [clickedId, clickedId + 1];
-      }
+      if (clickedId === max + 1) state.currentSlotIds.push(clickedId);
+      else if (clickedId === min - 1) state.currentSlotIds.unshift(clickedId);
+      else state.currentSlotIds = [clickedId, clickedId + 1];
     }
     renderTimes();
     renderAddBtn();
   }
 
-  // ─── 장바구니 담기 ───
   document.getElementById('add-btn').onclick = function(){
     if (state.currentSlotIds.length === 0) return;
     if (state.cart.length >= state.weeklyTarget) {
@@ -457,11 +578,17 @@
     var lastSlotId = sorted[sorted.length - 1];
     var nextSlot = TIME_SLOTS.find(function(s){ return s.id === lastSlotId + 1; });
     var endTime = nextSlot ? nextSlot.time : '종료';
+    var teacherName = '';
+    if (state.mode === 'teacher' && state.currentTeacherId) {
+      var t = TEACHERS.find(function(x){ return x.id === state.currentTeacherId; });
+      if (t) teacherName = ' · ' + t.name + ' 선생님';
+    }
     state.cart.push({
       id: Date.now() + Math.random(),
       dayId: state.currentDay,
+      teacherId: state.currentTeacherId,
       slotIds: sorted,
-      display: day.month + ' ' + day.dd + '일 (' + day.dayName + ') ' + startTime + ' ~ ' + endTime
+      display: day.month + ' ' + day.dd + '일 (' + day.dayName + ') ' + startTime + ' ~ ' + endTime + teacherName
     });
     state.currentSlotIds = [];
     renderTimes();
@@ -470,7 +597,7 @@
     renderFooter();
   };
 
-  // ─── 1:1/그룹 토글 ───
+  // 1:1 / 그룹 토글
   document.querySelectorAll('.type-tabs button').forEach(function(b){
     b.onclick = function(){
       document.querySelectorAll('.type-tabs button').forEach(function(x){ x.classList.remove('active'); });
@@ -479,13 +606,20 @@
     };
   });
 
-  // ─── 주간 목표 토글 ───
+  // 선택 방식 (날짜로 / 교사로)
+  document.querySelectorAll('.mode-card').forEach(function(c){
+    c.onclick = function(){
+      state.mode = c.getAttribute('data-mode');
+      applyMode();
+    };
+  });
+
+  // 주간 목표
   document.querySelectorAll('#target-tabs button').forEach(function(b){
     b.onclick = function(){
       document.querySelectorAll('#target-tabs button').forEach(function(x){ x.classList.remove('active'); });
       b.classList.add('active');
       state.weeklyTarget = Number(b.getAttribute('data-count'));
-      // 목표 변경 시 장바구니 리셋 (정합성 보장)
       state.cart = [];
       state.currentSlotIds = [];
       renderTimes();
@@ -495,7 +629,7 @@
     };
   });
 
-  // ─── 결제 진입 트리거 ───
+  // 결제 진입
   document.getElementById('checkout-btn').onclick = function(){
     if (state.cart.length !== state.weeklyTarget) return;
     var t = document.getElementById('toast');
@@ -503,10 +637,8 @@
     t.classList.add('show');
     try {
       localStorage.setItem('mangoi_pending_booking', JSON.stringify({
-        type: state.type,
-        weeklyTarget: state.weeklyTarget,
-        cart: state.cart,
-        created_at: Date.now()
+        type: state.type, mode: state.mode, weeklyTarget: state.weeklyTarget,
+        cart: state.cart, created_at: Date.now()
       }));
     } catch(e){}
     setTimeout(function(){
@@ -522,7 +654,6 @@
     }, 1300);
   };
 
-  // ─── 알림 토스트 (짧은 경고) ───
   function showAlert(msg) {
     var t = document.getElementById('toast');
     var orig = t.style.background;
@@ -535,16 +666,17 @@
     }, 2200);
   }
 
-  // ─── 초기 렌더링 ───
+  // 초기 렌더링
   renderDates();
   renderTimes();
   renderAddBtn();
   renderCart();
   renderFooter();
+  applyMode();
 })();
 </script>
 
-<!-- BUILD:20260530-clean -->
-<!-- BUILD:20260530044023 -->
+<!-- BUILD:20260530-modecards -->
+<!-- BUILD:20260530044910 -->
 </body>
 </html>
