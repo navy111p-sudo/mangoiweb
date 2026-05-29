@@ -23086,7 +23086,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260530030015 -->
+<!-- BUILD:20260530030714 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25381,6 +25381,229 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   } catch(e) { console.warn("[ph172] MutationObserver setup failed:", e); }
 
   console.log("[ph172] 단어사전 + 음성일기 완전 박멸 — DOM remove + observer + function disable");
+})();
+</script>
+
+<!-- ============================================================
+     Phase 191 (2026-05-30) - 전체메뉴 버튼 작동 무조건 보장
+     · ph166/v22 기존 핸들러가 막아도 우선 가로채는 capture-phase
+     · 패널 없으면 즉시 생성 + 모바일 fullscreen 모달 형태
+     · pointerdown + touchstart + click 3중 핸들러
+     ============================================================ -->
+<style id="ph191-allmenu-style">
+  #ph191-allmenu-panel {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 2147483647;
+    background: rgba(0, 0, 0, 0.92);
+    backdrop-filter: blur(8px);
+    overflow-y: auto;
+    padding: 20px 16px 40px;
+    animation: ph191Fade .25s;
+  }
+  @keyframes ph191Fade { from { opacity: 0 } to { opacity: 1 } }
+  #ph191-allmenu-panel .ph191-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    background: linear-gradient(135deg, #0F172A, #1E293B);
+    border: 2px solid #60A5FA;
+    border-radius: 18px;
+    padding: 22px 18px;
+    color: #F8FAFC;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+    position: relative;
+  }
+  #ph191-allmenu-panel .ph191-close {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    background: rgba(255,255,255,0.1);
+    border: 0;
+    color: #fff;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #ph191-allmenu-panel h2 {
+    margin: 0 0 18px;
+    color: #fff;
+    font-size: 18px;
+    text-align: center;
+    font-weight: 800;
+    padding: 6px 40px 14px;
+    border-bottom: 1px solid #2563EB;
+  }
+  #ph191-allmenu-panel .ph191-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  @media (max-width: 480px) {
+    #ph191-allmenu-panel .ph191-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    #ph191-allmenu-panel { padding: 14px 10px 30px }
+    #ph191-allmenu-panel .ph191-inner { padding: 18px 12px }
+  }
+  #ph191-allmenu-panel a.ph191-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px 8px;
+    background: rgba(30,41,59,0.9);
+    border: 1px solid rgba(96,165,250,0.5);
+    border-radius: 12px;
+    color: #F8FAFC;
+    text-decoration: none;
+    cursor: pointer;
+    min-height: 90px;
+    text-align: center;
+    font-size: 12.5px;
+    font-weight: 700;
+    transition: transform .15s, background .15s;
+  }
+  #ph191-allmenu-panel a.ph191-card:hover {
+    background: rgba(59,130,246,0.25);
+    transform: translateY(-2px);
+  }
+  #ph191-allmenu-panel a.ph191-card .ph191-emoji { font-size: 26px }
+</style>
+<script id="ph191-allmenu-script">
+(function(){
+  "use strict";
+  console.log("[ph191] 전체메뉴 무조건 작동 보장 패치 로드");
+
+  var MENUS = [
+    {e:'🛠', n:'관리자',          u:'/admin.html'},
+    {e:'👤', n:'마이페이지',       u:'/admin/mypage.html'},
+    {e:'👨‍🎓', n:'학생 관리',       u:'/admin/students.html'},
+    {e:'📅', n:'주간 시간표',      u:'/admin/weekly-schedule.html'},
+    {e:'📞', n:'고객센터',         u:'/contact.html'},
+    {e:'📚', n:'커리큘럼',         u:'/curriculum.html'},
+    {e:'📖', n:'수업 자료',        u:'/lessons.html'},
+    {e:'📝', n:'평가서',           u:'/eval.html'},
+    {e:'📊', n:'리포트',           u:'/report.html'},
+    {e:'🤖', n:'AI 친구',          u:'/ai-friend.html'},
+    {e:'✍', n:'AI 작문',           u:'/ai-write.html'},
+    {e:'🗣', n:'영어 발음',        u:'/speech-coach.html'},
+    {e:'🇨🇳', n:'중국어 발음',     u:'/speech-coach-cn.html'},
+    {e:'📚', n:'교재 업로더',      u:'/textbook-uploader.html'},
+    {e:'📖', n:'단어장',           u:'/vocab.html'},
+    {e:'🎯', n:'미니 퀴즈',        u:'/micro-quiz.html'},
+    {e:'🧠', n:'MBTI 매칭',        u:'/mbti.html'},
+    {e:'🧪', n:'MBTI 테스트',      u:'/mbti-test.html'},
+    {e:'🔥', n:'연속 출석',        u:'/streak.html'},
+    {e:'🌟', n:'칭찬 스티커',      u:'/teacher-praise.html'},
+    {e:'📝', n:'수업 신청',        u:'/lesson-booking-demo.html'},
+    {e:'📅', n:'수업 연기',        u:'/lesson-postpone-demo.html'},
+    {e:'👨‍👩‍👧', n:'학부모',         u:'/parent.html'},
+    {e:'🩺', n:'시스템 진단',      u:'/admin/health.html'},
+    {e:'👻', n:'Ghost View',       u:'/admin/ghost-view.html'},
+    {e:'🔐', n:'로그인',           u:'/admin/login.html'},
+    {e:'💳', n:'결제하기',         u:'/?menu=payment'},
+    {e:'🎬', n:'화상수업',         u:'/?menu=videocall-lobby'}
+  ];
+
+  function buildPanel() {
+    if (document.getElementById('ph191-allmenu-panel')) return;
+    var panel = document.createElement('div');
+    panel.id = 'ph191-allmenu-panel';
+    var html = '<div class="ph191-inner">';
+    html += '<button class="ph191-close" type="button" aria-label="닫기">✕</button>';
+    html += '<h2>📋 망고아이 전체 메뉴 (' + MENUS.length + '개)</h2>';
+    html += '<div class="ph191-grid">';
+    MENUS.forEach(function(m){
+      html += '<a class="ph191-card" href="' + m.u + '"><span class="ph191-emoji">' + m.e + '</span><span>' + m.n + '</span></a>';
+    });
+    html += '</div></div>';
+    panel.innerHTML = html;
+    document.body.appendChild(panel);
+
+    // 닫기 버튼
+    panel.querySelector('.ph191-close').addEventListener('click', function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      panel.style.display = 'none';
+    });
+    // 배경 클릭으로 닫기
+    panel.addEventListener('click', function(e){
+      if (e.target === panel) panel.style.display = 'none';
+    });
+    console.log('[ph191] 패널 생성 완료 (' + MENUS.length + '개 메뉴)');
+  }
+  window.ph191BuildPanel = buildPanel;
+
+  function openPanel() {
+    if (!document.getElementById('ph191-allmenu-panel')) buildPanel();
+    var p = document.getElementById('ph191-allmenu-panel');
+    if (p) {
+      p.style.display = 'block';
+      console.log('[ph191] ✅ 전체메뉴 열림');
+    }
+  }
+  window.ph191OpenPanel = openPanel;
+
+  function togglePanel() {
+    if (!document.getElementById('ph191-allmenu-panel')) buildPanel();
+    var p = document.getElementById('ph191-allmenu-panel');
+    if (!p) return;
+    var hidden = (p.style.display === 'none' || !p.style.display);
+    p.style.display = hidden ? 'block' : 'none';
+    console.log('[ph191] 전체메뉴 토글:', hidden ? '열림' : '닫힘');
+  }
+  window.ph191TogglePanel = togglePanel;
+
+  // 셀렉터 매칭 — 전체메뉴 버튼 후보 모두
+  function isAllMenuBtn(el) {
+    if (!el || !el.closest) return false;
+    return !!(
+      el.closest('[data-go="all-menu"]') ||
+      el.closest('button[data-ko*="전체메뉴"]') ||
+      el.closest('a[data-ko*="전체메뉴"]')
+    );
+  }
+
+  // capture-phase 최우선 핸들러 (window 레벨)
+  function handler(e) {
+    var btn = e.target.closest('[data-go="all-menu"], button[data-ko*="전체메뉴"], a[data-ko*="전체메뉴"]');
+    if (!btn) {
+      // 텍스트 fallback
+      var t = e.target.closest('button, a');
+      if (t && t.textContent && t.textContent.replace(/\s/g,'').indexOf('전체메뉴') >= 0) {
+        btn = t;
+      }
+    }
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    togglePanel();
+  }
+
+  // 3중 핸들러 (모바일/PC 모두 대응)
+  window.addEventListener('click', handler, true);
+  window.addEventListener('pointerdown', handler, true);
+  window.addEventListener('touchstart', handler, { capture: true, passive: false });
+
+  // 페이지 로드시 즉시 패널 생성
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', buildPanel);
+  } else {
+    buildPanel();
+  }
+  setTimeout(buildPanel, 500);
+  setTimeout(buildPanel, 2000);
+
+  console.log('[ph191] ✅ 전체메뉴 강제 작동 활성 (capture phase + 3중 이벤트)');
 })();
 </script>
 
