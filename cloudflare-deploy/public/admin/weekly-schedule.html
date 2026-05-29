@@ -2306,6 +2306,93 @@ window.editSlotPrompt=editSlotPrompt;
 
 
 reloadAndRender();
+
+
+// ═══════════════════════════════════════════════════════════════
+// 🎓 학생 모드 필터링 (?role=student)
+// · 학생 페이지에서 진입 시 본인 수업만 표시
+// · URL: ?role=student&uid=<학생ID>  또는 sessionStorage.mangoi_user
+// · 헤더 타이틀 + 신규 등록 FAB / 매칭 버튼 숨김
+// ═══════════════════════════════════════════════════════════════
+(function studentMode(){
+  "use strict";
+  var params = new URLSearchParams(location.search);
+  var role = params.get('role');
+  var uid = params.get('uid') || params.get('student_uid');
+
+  // sessionStorage 확인 (SSO)
+  if (role !== 'student') {
+    try {
+      var u = JSON.parse(sessionStorage.getItem('mangoi_user') || 'null');
+      if (u && u.role === 'student') { role = 'student'; uid = uid || u.uid; }
+    } catch(e){}
+  }
+
+  if (role !== 'student') return; // 관리자 모드면 그대로
+
+  // 학생 UID 없으면 demo (test_st_5)
+  if (!uid) uid = 'test_st_5';
+  window.__STUDENT_FILTER_UID = uid;
+  console.log('[학생 모드] 필터 활성, 학생 UID:', uid);
+
+  function applyStudentFilter() {
+    // 1) 헤더 타이틀 변경
+    var h1Spans = document.querySelectorAll('h1 span[data-ko]');
+    h1Spans.forEach(function(s){
+      var ko = s.getAttribute('data-ko');
+      if (ko === '주간 전체 스케줄' || ko === 'Weekly Schedule Overview') {
+        s.textContent = '내 주간 스케줄';
+        s.setAttribute('data-ko', '내 주간 스케줄');
+        s.setAttribute('data-en', 'My Weekly Schedule');
+      } else if (ko === '모든 교사 한눈에') {
+        s.textContent = '내 수업만 표시';
+        s.setAttribute('data-ko', '내 수업만 표시');
+        s.setAttribute('data-en', 'My classes only');
+      }
+    });
+
+    // 2) 학생 등록 FAB / AI 매칭 / 신규 학생 관련 버튼 숨김 (학생은 등록 권한 없음)
+    var fab = document.getElementById('fab-enroll');
+    if (fab) fab.style.display = 'none';
+    var aiBtn = document.querySelector('button[onclick*="AiMatch"], button[onclick*="ai-match"], .ai-match-btn');
+    if (aiBtn) aiBtn.style.display = 'none';
+    // 헤더 우측의 "AI 매칭" 버튼
+    document.querySelectorAll('button').forEach(function(b){
+      var txt = (b.textContent || '').trim();
+      if (txt.indexOf('AI 매칭') >= 0 || txt.indexOf('AI Match') >= 0) {
+        b.style.display = 'none';
+      }
+    });
+
+    // 3) SLOTS 에서 학생 UID 매칭 안 되는 것 모두 제거
+    if (typeof window.SLOTS === 'object' && window.SLOTS) {
+      var before = Object.keys(window.SLOTS).length;
+      var removed = 0;
+      Object.keys(window.SLOTS).forEach(function(k){
+        var sl = window.SLOTS[k];
+        var match = sl && sl.students && sl.students.some(function(s){
+          return s.uid === uid || s.uid === window.__STUDENT_FILTER_UID;
+        });
+        if (!match) { delete window.SLOTS[k]; removed++; }
+      });
+      console.log('[학생 모드] 슬롯 필터: ' + before + ' → ' + (before - removed) + ' (제거 ' + removed + '개)');
+
+      // 강제 재렌더
+      if (typeof window.render === 'function') {
+        try { window.render(); } catch(e){ console.warn('render 실패:', e); }
+      }
+    }
+  }
+
+  // 여러 시점에 시도 (loadData async 대응)
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(applyStudentFilter, 100); });
+  } else {
+    setTimeout(applyStudentFilter, 100);
+  }
+  setTimeout(applyStudentFilter, 800);
+  setTimeout(applyStudentFilter, 2000);
+})();
 </script>
 
 <!-- 🏠 글로벌 홈페이지 FAB (모든 admin 페이지 공통) -->
