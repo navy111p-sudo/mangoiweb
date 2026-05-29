@@ -23,7 +23,11 @@ input::placeholder{color:#94a3b8}
 input:focus{outline:none;border-color:#3b82f6;background:#fff;box-shadow:0 0 0 3px rgba(59,130,246,0.13)}
 .pw-eye{position:absolute;top:50%;right:10px;transform:translateY(-50%);background:transparent;border:0;color:#94a3b8;cursor:pointer;padding:4px 8px;border-radius:6px;font-size:16px}
 .pw-eye:hover{background:#f1f5f9;color:#475569}
-.pw-forgot{display:block;text-align:right;margin-top:6px;font-size:11.5px;color:#3b82f6;text-decoration:none;font-weight:700}
+.remember-row{display:flex;align-items:center;justify-content:space-between;margin-top:8px;gap:10px}
+.remember{display:flex;align-items:center;gap:6px;font-size:11.5px;color:#475569;font-weight:600;cursor:pointer;user-select:none}
+.remember input{width:15px;height:15px;accent-color:#3b82f6;cursor:pointer}
+.remember:hover{color:#0f172a}
+.pw-forgot{font-size:11.5px;color:#3b82f6;text-decoration:none;font-weight:700}
 .pw-forgot:hover{text-decoration:underline}
 .login-btn{width:100%;padding:13px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-weight:800;font-size:14.5px;border:0;border-radius:11px;cursor:pointer;transition:transform .12s,box-shadow .15s;box-shadow:0 6px 16px -4px rgba(59,130,246,0.5);font-family:inherit;margin-top:4px}
 .login-btn:hover{transform:translateY(-1px);box-shadow:0 10px 22px -4px rgba(59,130,246,0.65)}
@@ -72,7 +76,13 @@ input:focus{outline:none;border-color:#3b82f6;background:#fff;box-shadow:0 0 0 3
           <input type="password" id="password" name="password" autocomplete="current-password" placeholder="●●●●" required>
           <button type="button" class="pw-eye" id="pwEye" title="비밀번호 보기/숨기기" tabindex="-1">👁</button>
         </div>
-        <a href="#" class="pw-forgot" id="pwForgot">🔧 비밀번호를 잊으셨나요?</a>
+        <div class="remember-row">
+          <label class="remember">
+            <input type="checkbox" id="rememberId">
+            <span>💾 아이디 저장</span>
+          </label>
+          <a href="#" class="pw-forgot" id="pwForgot">🔧 비밀번호 찾기</a>
+        </div>
       </div>
       <button type="submit" class="login-btn" id="loginBtn">✅ 로그인</button>
       <div class="err" id="errMsg"></div>
@@ -85,7 +95,7 @@ input:focus{outline:none;border-color:#3b82f6;background:#fff;box-shadow:0 0 0 3
     </div>
     <div class="demo" id="demoToggle">▸ 💡 시연용 데모 계정 보기</div>
     <div class="demo-list" id="demoList">
-      <div style="margin-bottom:6px"><b>👑 본사·경영진</b> · <span class="pill" data-uid="admin">admin / admin</span> <span class="pill" data-uid="cfo">cfo / cfo</span></div>
+      <div style="margin-bottom:6px"><b>👑 본사·경영진</b> · <span class="pill">admin / admin</span> <span class="pill">cfo / cfo</span></div>
       <div style="margin-bottom:6px"><b>🛠️ 본사·관리자</b> · <span class="pill">ops_lead / ops</span></div>
       <div style="margin-bottom:6px"><b>🏬 지사</b> · <span class="pill">branch_busan / busan</span> <span class="pill">branch_daegu / daegu</span></div>
       <div style="margin-bottom:6px"><b>🤝 대리점</b> · <span class="pill">agency_gn001 / gn001</span> <span class="pill">agency_sc002 / sc002</span></div>
@@ -97,6 +107,17 @@ input:focus{outline:none;border-color:#3b82f6;background:#fff;box-shadow:0 0 0 3
 <script>
 (function(){
   "use strict";
+  var SAVED_KEY = 'mangoi_admin_saved_uid';
+
+  // 페이지 진입 시 저장된 아이디 자동 입력
+  try {
+    var savedUid = localStorage.getItem(SAVED_KEY);
+    if (savedUid) {
+      document.getElementById('username').value = savedUid;
+      document.getElementById('rememberId').checked = true;
+    }
+  } catch(e){}
+
   document.getElementById('pwEye').addEventListener('click', function(){
     var pw = document.getElementById('password');
     if (pw.type === 'password') { pw.type = 'text'; this.textContent = '🙈'; }
@@ -145,6 +166,14 @@ input:focus{outline:none;border-color:#3b82f6;background:#fff;box-shadow:0 0 0 3
       var data = await res.json().catch(function(){ return {}; });
       if (res.ok && data.ok) {
         btn.textContent = '✅ 로그인 성공!';
+        // 아이디 자동 저장 처리
+        try {
+          if (document.getElementById('rememberId').checked) {
+            localStorage.setItem(SAVED_KEY, uid);
+          } else {
+            localStorage.removeItem(SAVED_KEY);
+          }
+        } catch(e){}
         var clean = nextUrl.replace(/[?&]login=1/g,'').replace(/\?$/,'');
         setTimeout(function(){ location.href = clean || '/admin.html'; }, 400);
       } else {
