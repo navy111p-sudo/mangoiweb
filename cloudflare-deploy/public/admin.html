@@ -18894,7 +18894,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260530034354 -->
+        <!-- BUILD:20260530035329 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -34499,53 +34499,9 @@ button.chip:hover,
      · npsLoad 가 API 실패 시 demo 데이터 (NPS 42 / 추천자 50%)
      ============================================================ -->
 <script id="ph177-inquiry-nps-demo">
-(function(){
-  "use strict";
-
-  // ── 1. 상태별 분포 — iqLoadStats demo fallback + 다크 강제 ─────────
-  var INQUIRY_DEMO = {
-    ok: true,
-    total_this_month: 47,
-    registered_this_month: 23,
-    conversion_rate: 49,
-    avg_days_to_register: 4,
-    total_trend: 12,
-    by_status: { new: 11, contacted: 13, registered: 23, rejected: 7 }
-  };
-
-  function renderInquiryDark(d) {
-    var grid = document.getElementById("iq-stats-grid");
-    var bars = document.getElementById("iq-status-bars");
-    if (!grid || !bars) return;
-    var en = (document.documentElement.lang === "en" || window.adminLang === "en");
-    var STATUS_LABEL = en
-      ? { new:"🆕 New", contacted:"📞 Contacting", registered:"✅ Enrolled", rejected:"❌ Not Enrolled" }
-      : { new:"🆕 신규", contacted:"📞 연락중", registered:"✅ 등록", rejected:"❌ 미등록" };
-    var STATUS_COLOR = { new:"#60A5FA", contacted:"#FBBF24", registered:"#34D399", rejected:"#94A3B8" };
-    var fmt = function(n){ return (n || 0).toLocaleString("ko-KR"); };
-
-    var tiles = [
-      { ico:"💌", label: en?"Inquiries This Month":"이번 달 상담", value:fmt(d.total_this_month), trend:d.total_trend, color:"#60A5FA" },
-      { ico:"✅", label: en?"Enrollments This Month":"이번 달 등록", value:fmt(d.registered_this_month), trend:null, color:"#34D399" },
-      { ico:"📈", label: en?"Conversion Rate":"전환률", value:d.conversion_rate+"%", trend:null, color:"#FBBF24" },
-      { ico:"⏱", label: en?"Avg Days to Enroll":"평균 등록까지", value:d.avg_days_to_register+(en?"d":"일"), trend:null, color:"#A78BFA" }
-    ];
-    grid.innerHTML = tiles.map(function(t){
-      var trendStr = t.trend != null
-        ? (t.trend > 0 ? "<span style=\"color:#34D399;font-size:11px;font-weight:700\">▲ +" + t.trend + "%</span>"
-          : t.trend < 0 ? "<span style=\"color:#F87171;font-size:11px;font-weight:700\">▼ " + t.trend + "%</span>"
-          : "<span style=\"color:#94A3B8;font-size:11px\">→</span>") : "";
-      return "<div style=\"background:linear-gradient(180deg,#1A2548,#131C36);border:1px solid rgba(96,165,250,0.25);border-left:4px solid " + t.color + ";border-radius:10px;padding:12px 14px;box-shadow:0 4px 12px rgba(0,0,0,0.3)\">" +
-        "<div style=\"font-size:18px;line-height:1\">" + t.ico + "</div>" +
-        "<div style=\"font-size:11px;color:#93C5FD;font-weight:800;text-transform:uppercase;margin-top:4px\">" + t.label + "</div>" +
-        "<div style=\"font-size:22px;font-weight:900;color:#fff;margin-top:2px\">" + t.value + "</div>" +
-        (trendStr ? "<div style=\"margin-top:4px\">" + trendStr + "</div>" : "") +
-      "</div>";
-    }).join("");
-
-    var by = d.by_status || {};
-    var total = Object.values(by).reduce(function(a,b){return a + (b||0);}, 0) || 1;
-    var order = ["new", "contacted", "registered", "rej
+// (ph177 placeholder — 본문 손상으로 비활성화. 핵심 데이터 fallback 은 ph176/ph178 에 있음)
+(function(){ "use strict"; /* no-op */ })();
+</script>
 
 <!-- ============================================================
      Phase 179 (2026-05-29) - 카톡 강사 평가 설문 → 평가·급여 반영
