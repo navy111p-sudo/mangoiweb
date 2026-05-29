@@ -18894,7 +18894,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260530041051 -->
+        <!-- BUILD:20260530041341 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -34696,6 +34696,30 @@ button.chip:hover,
   }, 500);
 
   console.log("[ph179] 카톡 강사 평가 설문 활성 — 발송/시뮬레이션/통계/급여 인센티브");
+})();
+</script>
+
+
+<!-- ph202: ?login=1 URL 감지 시 ph132 로그인 모달 자동 표시 -->
+<script id="ph202-login-url">
+(function(){
+  "use strict";
+  var params = new URLSearchParams(location.search);
+  if (params.get('login') !== '1') return;
+  function showLogin() {
+    var ov = document.getElementById('admin-login-overlay');
+    if (ov) {
+      ov.style.display = 'flex';
+      console.log('[ph202] ?login=1 → 로그인 모달 자동 표시');
+    } else {
+      setTimeout(showLogin, 300);
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(showLogin, 200); });
+  } else {
+    setTimeout(showLogin, 200);
+  }
 })();
 </script>
 
