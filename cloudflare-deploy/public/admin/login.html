@@ -3,205 +3,164 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>망고아이 관리자 로그인</title>
-<meta name="theme-color" content="#0a1530">
+<title>관리자 로그인 — 망고아이</title>
+<meta name="theme-color" content="#f1f5f9">
 <style>
-  *, *::before, *::after { box-sizing: border-box; }
-  html, body { margin:0; padding:0; height:100%; }
-  body {
-    font-family:-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Segoe UI", sans-serif;
-    background:linear-gradient(135deg, #0a1530 0%, #1f1b3a 100%);
-    min-height:100vh;
-    display:flex; align-items:center; justify-content:center;
-    color:#f9fafb;
-    padding:20px;
-  }
-  .card {
-    width:100%; max-width:420px;
-    background:linear-gradient(135deg, #14213b, #0f172a);
-    border:1.5px solid rgba(139,92,246,0.35);
-    border-radius:22px;
-    box-shadow:0 25px 60px -10px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.04);
-    overflow:hidden;
-  }
-  .header {
-    background:linear-gradient(135deg, rgba(251,191,36,0.18), rgba(245,158,11,0.08));
-    padding:28px 26px 22px;
-    text-align:center;
-    border-bottom:1px solid rgba(139,92,246,0.2);
-  }
-  .logo { font-size:42px; margin-bottom:6px; line-height:1 }
-  h1 { margin:0; font-size:22px; font-weight:900; color:#fbbf24; letter-spacing:-0.5px }
-  .sub { margin-top:6px; font-size:12.5px; color:#cbd5e1 }
-  .body { padding:24px 26px 22px }
-  label { display:block; font-size:12px; font-weight:700; color:#cbd5e1; margin-bottom:6px }
-  .field { margin-bottom:14px }
-  input[type="text"], input[type="password"] {
-    width:100%; padding:12px 14px;
-    background:rgba(15,23,42,0.65); border:1.5px solid rgba(96,165,250,0.25);
-    border-radius:10px; color:#f9fafb; font-size:14px;
-    transition:border-color .15s, background .15s;
-    font-family:inherit;
-  }
-  input:focus {
-    outline:none;
-    border-color:#fbbf24;
-    background:rgba(15,23,42,0.85);
-    box-shadow:0 0 0 3px rgba(251,191,36,0.18);
-  }
-  .pw-wrap { position:relative }
-  .pw-eye {
-    position:absolute; top:50%; right:10px; transform:translateY(-50%);
-    background:transparent; border:0; color:#94a3b8; cursor:pointer;
-    padding:4px 8px; border-radius:6px; font-size:16px;
-  }
-  .pw-eye:hover { background:rgba(96,165,250,0.12); color:#60a5fa }
-  .remember {
-    display:flex; align-items:center; gap:8px; margin-bottom:14px;
-    font-size:12.5px; color:#94a3b8;
-  }
-  .remember input { width:16px; height:16px; accent-color:#fbbf24 }
-  .login-btn {
-    width:100%; padding:13px;
-    background:linear-gradient(135deg, #fbbf24, #f59e0b);
-    color:#1a1a1a; font-weight:900; font-size:15px;
-    border:0; border-radius:12px; cursor:pointer;
-    transition:transform .15s, box-shadow .15s;
-    box-shadow:0 6px 18px -4px rgba(251,191,36,0.55);
-    font-family:inherit;
-  }
-  .login-btn:hover { transform:translateY(-1px); box-shadow:0 10px 24px -4px rgba(251,191,36,0.7) }
-  .login-btn:disabled { opacity:0.55; cursor:not-allowed; transform:none }
-  .err {
-    display:none; margin-top:14px; padding:10px 14px;
-    background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.4);
-    border-radius:8px; color:#fca5a5; font-size:12.5px; line-height:1.5;
-  }
-  .err.show { display:block }
-  .footer {
-    padding:14px 26px 22px;
-    border-top:1px solid rgba(139,92,246,0.15);
-    text-align:center; font-size:11.5px; color:#94a3b8; line-height:1.6;
-  }
-  .footer a { color:#60a5fa; text-decoration:none; font-weight:700 }
-  .footer a:hover { text-decoration:underline }
-  .version {
-    position:absolute; top:14px; right:14px; font-size:10.5px; color:#64748b;
-    padding:3px 8px; background:rgba(0,0,0,0.3); border-radius:99px;
-  }
-  .home-link {
-    position:absolute; top:14px; left:14px; color:#fbbf24;
-    text-decoration:none; font-size:12.5px; font-weight:700;
-    padding:6px 12px; background:rgba(20,33,59,0.85);
-    border:1px solid rgba(251,191,36,0.4); border-radius:99px;
-  }
-  .home-link:hover { background:rgba(20,33,59,1); color:#fde68a }
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Segoe UI",sans-serif;background:#f1f5f9;min-height:100vh;display:flex;align-items:center;justify-content:center;color:#0f172a;padding:20px}
+.wrap{width:100%;max-width:420px;background:#fff;border-radius:20px;box-shadow:0 20px 50px -12px rgba(15,23,42,0.18),0 0 0 1px rgba(15,23,42,0.05);overflow:hidden}
+.head{text-align:center;padding:32px 28px 18px;background:#fff}
+.lock-icon{width:54px;height:54px;margin:0 auto 12px;background:#fbbf24;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 8px 20px -6px rgba(251,191,36,0.5)}
+h1{margin:0;font-size:20px;font-weight:900;color:#0f172a;letter-spacing:-0.4px}
+.sub{margin-top:6px;font-size:12.5px;color:#64748b}
+.body{padding:8px 28px 22px}
+.field{margin-bottom:14px}
+label{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:#475569;margin-bottom:6px}
+.input-wrap{position:relative}
+input[type="text"],input[type="password"]{width:100%;padding:12px 14px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;color:#0f172a;font-size:14px;transition:border-color .15s,background .15s;font-family:inherit}
+input::placeholder{color:#94a3b8}
+input:focus{outline:none;border-color:#3b82f6;background:#fff;box-shadow:0 0 0 3px rgba(59,130,246,0.13)}
+.pw-eye{position:absolute;top:50%;right:10px;transform:translateY(-50%);background:transparent;border:0;color:#94a3b8;cursor:pointer;padding:4px 8px;border-radius:6px;font-size:16px}
+.pw-eye:hover{background:#f1f5f9;color:#475569}
+.pw-forgot{display:block;text-align:right;margin-top:6px;font-size:11.5px;color:#3b82f6;text-decoration:none;font-weight:700}
+.pw-forgot:hover{text-decoration:underline}
+.login-btn{width:100%;padding:13px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-weight:800;font-size:14.5px;border:0;border-radius:11px;cursor:pointer;transition:transform .12s,box-shadow .15s;box-shadow:0 6px 16px -4px rgba(59,130,246,0.5);font-family:inherit;margin-top:4px}
+.login-btn:hover{transform:translateY(-1px);box-shadow:0 10px 22px -4px rgba(59,130,246,0.65)}
+.login-btn:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+.err{display:none;margin-top:12px;padding:9px 13px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#b91c1c;font-size:12px;line-height:1.5}
+.err.show{display:block}
+.divider{display:flex;align-items:center;gap:10px;margin:18px 0 12px;color:#94a3b8;font-size:11.5px;font-weight:600}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:#e2e8f0}
+.socials{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.social{padding:10px 8px;border-radius:9px;border:1.5px solid #e2e8f0;background:#fff;font-size:12.5px;font-weight:700;cursor:pointer;transition:transform .12s,box-shadow .12s;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:4px}
+.social:hover{transform:translateY(-1px);box-shadow:0 4px 10px -3px rgba(15,23,42,0.12)}
+.social.kakao{background:#fee500;color:#3c1e1e;border-color:#fee500}
+.social.naver{background:#03c75a;color:#fff;border-color:#03c75a}
+.social.google{background:#fff;color:#0f172a;border-color:#e2e8f0}
+.demo{margin-top:14px;padding:10px 14px;background:#fef9c3;border:1px solid #fde68a;border-radius:9px;cursor:pointer;font-size:12px;color:#854d0e;font-weight:700;display:flex;align-items:center;gap:6px;transition:background .15s}
+.demo:hover{background:#fef08a}
+.demo-list{display:none;margin-top:8px;padding:10px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;font-size:11.5px;color:#78350f;line-height:1.7}
+.demo-list.show{display:block}
+.demo-list b{color:#1e293b}
+.demo-list .pill{display:inline-block;padding:1px 7px;background:#fef08a;border-radius:99px;margin:1px 3px 1px 0;font-size:10.5px;color:#854d0e;cursor:pointer;font-weight:700}
+.demo-list .pill:hover{background:#fde047}
+.footer{padding:12px 28px 22px;text-align:center;font-size:11px;color:#94a3b8;border-top:1px solid #f1f5f9}
+.footer a{color:#3b82f6;text-decoration:none;font-weight:700}
+.footer a:hover{text-decoration:underline}
+.home-link{position:absolute;top:14px;left:14px;background:#fff;border:1px solid #e2e8f0;color:#475569;padding:6px 12px;border-radius:99px;text-decoration:none;font-size:12px;font-weight:700;box-shadow:0 2px 6px -1px rgba(15,23,42,0.08)}
+.home-link:hover{background:#f8fafc;color:#0f172a}
 </style>
 </head>
 <body>
-
 <a href="/" class="home-link">🏠 홈으로</a>
-<div class="version">v2 · 다크 테마</div>
-
-<div class="card">
-  <div class="header">
-    <div class="logo">🥭</div>
-    <h1>망고아이 관리자</h1>
-    <div class="sub">화상수업 운영 시스템 — Cloudflare Workers</div>
+<div class="wrap">
+  <div class="head">
+    <div class="lock-icon">🔐</div>
+    <h1>관리자 로그인</h1>
+    <div class="sub">역할에 맞는 데이터 범위가 자동 적용됩니다.</div>
   </div>
   <div class="body">
     <form id="loginForm" autocomplete="on">
       <div class="field">
-        <label for="username">아이디</label>
-        <input type="text" id="username" name="username" autocomplete="username"
-               placeholder="admin / branch_busan / agency_gn001 ..." required value="admin">
+        <label>👤 아이디</label>
+        <input type="text" id="username" name="username" autocomplete="username" placeholder="admin / branch_busan / agency_gn001 ..." required value="admin">
       </div>
       <div class="field">
-        <label for="password">비밀번호</label>
-        <div class="pw-wrap">
-          <input type="password" id="password" name="password" autocomplete="current-password"
-                 placeholder="●●●●●●" required>
+        <label>🔑 비밀번호</label>
+        <div class="input-wrap">
+          <input type="password" id="password" name="password" autocomplete="current-password" placeholder="●●●●" required>
           <button type="button" class="pw-eye" id="pwEye" title="비밀번호 보기/숨기기" tabindex="-1">👁</button>
         </div>
+        <a href="#" class="pw-forgot" id="pwForgot">🔧 비밀번호를 잊으셨나요?</a>
       </div>
-      <div class="remember">
-        <input type="checkbox" id="remember" name="remember">
-        <label for="remember" style="margin:0;cursor:pointer">30일 동안 로그인 유지</label>
-      </div>
-      <button type="submit" class="login-btn" id="loginBtn">로그인 →</button>
+      <button type="submit" class="login-btn" id="loginBtn">✅ 로그인</button>
       <div class="err" id="errMsg"></div>
     </form>
+    <div class="divider">또는 소셜 계정으로 로그인</div>
+    <div class="socials">
+      <button class="social kakao" onclick="alert('카카오 소셜 로그인 — 운영 환경에서 활성화됩니다.')">💬 카카오</button>
+      <button class="social naver" onclick="alert('네이버 소셜 로그인 — 운영 환경에서 활성화됩니다.')"><b>N</b> 네이버</button>
+      <button class="social google" onclick="alert('Google 소셜 로그인 — 운영 환경에서 활성화됩니다.')"><b>G</b> 구글</button>
+    </div>
+    <div class="demo" id="demoToggle">▸ 💡 시연용 데모 계정 보기</div>
+    <div class="demo-list" id="demoList">
+      <div style="margin-bottom:6px"><b>👑 본사·경영진</b> · <span class="pill" data-uid="admin">admin / admin</span> <span class="pill" data-uid="cfo">cfo / cfo</span></div>
+      <div style="margin-bottom:6px"><b>🛠️ 본사·관리자</b> · <span class="pill">ops_lead / ops</span></div>
+      <div style="margin-bottom:6px"><b>🏬 지사</b> · <span class="pill">branch_busan / busan</span> <span class="pill">branch_daegu / daegu</span></div>
+      <div style="margin-bottom:6px"><b>🤝 대리점</b> · <span class="pill">agency_gn001 / gn001</span> <span class="pill">agency_sc002 / sc002</span></div>
+      <div><b>👨‍🏫 교사</b> · <span class="pill">hq_t_001 / teacher</span></div>
+    </div>
   </div>
-  <div class="footer">
-    비밀번호를 잊으셨나요? 운영자(<a href="mailto:navy111p@gmail.com">navy111p@gmail.com</a>)에게 문의하세요.
-  </div>
+  <div class="footer">문의: <a href="mailto:navy111p@gmail.com">navy111p@gmail.com</a> · 망고아이 화상수업 운영 시스템</div>
 </div>
-
 <script>
 (function(){
   "use strict";
-
-  // 비밀번호 보기/숨기기
   document.getElementById('pwEye').addEventListener('click', function(){
     var pw = document.getElementById('password');
     if (pw.type === 'password') { pw.type = 'text'; this.textContent = '🙈'; }
     else { pw.type = 'password'; this.textContent = '👁'; }
   });
-
-  // ?next= 파라미터 (어디로 돌아갈지)
+  document.getElementById('pwForgot').addEventListener('click', function(e){
+    e.preventDefault();
+    alert('비밀번호 재설정\n\n운영자 이메일 navy111p@gmail.com 으로\n계정 ID와 함께 요청해 주세요.\n\n또는 소셜 로그인을 이용하실 수 있습니다.');
+  });
+  document.getElementById('demoToggle').addEventListener('click', function(){
+    var list = document.getElementById('demoList');
+    var open = list.classList.toggle('show');
+    this.textContent = (open ? '▾' : '▸') + ' 💡 시연용 데모 계정 보기';
+  });
+  document.getElementById('demoList').addEventListener('click', function(e){
+    var pill = e.target.closest('.pill');
+    if (!pill) return;
+    var text = pill.textContent.trim();
+    var parts = text.split(/\s*\/\s*/);
+    if (parts.length === 2) {
+      document.getElementById('username').value = parts[0];
+      document.getElementById('password').value = parts[1];
+      document.getElementById('password').focus();
+    }
+  });
   var params = new URLSearchParams(location.search);
   var nextUrl = params.get('next') || '/admin.html';
   try { nextUrl = decodeURIComponent(nextUrl); } catch(e){}
-
-  // 로그인 폼 제출
   document.getElementById('loginForm').addEventListener('submit', async function(e){
     e.preventDefault();
     var btn = document.getElementById('loginBtn');
     var err = document.getElementById('errMsg');
     var uid = document.getElementById('username').value.trim();
     var pw = document.getElementById('password').value;
-    var remember = document.getElementById('remember').checked;
-
     err.classList.remove('show');
-    if (!uid || !pw) {
-      err.textContent = '⚠️ 아이디와 비밀번호를 입력해 주세요.';
-      err.classList.add('show');
-      return;
-    }
-
+    if (!uid || !pw) { err.textContent = '⚠️ 아이디와 비밀번호를 입력해 주세요.'; err.classList.add('show'); return; }
     btn.disabled = true;
-    btn.textContent = '로그인 중...';
-
+    btn.textContent = '🔄 로그인 중...';
     try {
       var res = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: uid, password: pw, remember: remember }),
-        credentials: 'include'
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ username: uid, password: pw, remember: true }),
+        credentials:'include'
       });
       var data = await res.json().catch(function(){ return {}; });
-
       if (res.ok && data.ok) {
-        btn.textContent = '✅ 로그인 성공! 이동 중...';
-        // ?login=1 파라미터 제거 (무한 루프 방지)
-        var clean = nextUrl.replace(/[?&]login=1/g, '').replace(/\?$/, '');
+        btn.textContent = '✅ 로그인 성공!';
+        var clean = nextUrl.replace(/[?&]login=1/g,'').replace(/\?$/,'');
         setTimeout(function(){ location.href = clean || '/admin.html'; }, 400);
       } else {
         var msg = (data && (data.error || data.message)) || '아이디 또는 비밀번호가 올바르지 않습니다.';
         err.textContent = '❌ ' + msg;
         err.classList.add('show');
         btn.disabled = false;
-        btn.textContent = '로그인 →';
+        btn.textContent = '✅ 로그인';
       }
     } catch(e) {
       err.textContent = '❌ 네트워크 오류: ' + (e.message || e.name);
       err.classList.add('show');
       btn.disabled = false;
-      btn.textContent = '로그인 →';
+      btn.textContent = '✅ 로그인';
     }
   });
-
-  // 자동 포커스
   setTimeout(function(){
     var pw = document.getElementById('password');
     if (document.getElementById('username').value) pw.focus();
