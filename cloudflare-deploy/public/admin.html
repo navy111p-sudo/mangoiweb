@@ -2814,26 +2814,173 @@
         </div>
       </details>
 
-      <!-- 4. 가맹점 정산 -->
-      <details class="sub-item">
-        <summary data-ko="🏢 가맹점 정산" data-en="🏢 Franchise Settlement">🏢 가맹점 정산</summary>
+      <!-- 4. 가맹점 정산 — ph204 직관적 재디자인 -->
+      <details class="sub-item" open>
+        <summary data-ko="🏢 지점/가맹점 정산 (한눈에)" data-en="🏢 Branch Settlement Dashboard">🏢 지점/가맹점 정산 (한눈에)</summary>
         <div class="sub-body">
-          <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
-            <input id="acc-fr-month" type="month" value="2026-05" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db" />
-            <button id="acc-fr-load" class="primary" onclick="accLoadFranchise()" style="padding:5px 12px;font-size:12px;" data-ko="🧮 불러오기" data-en="🧮 Load">🧮 불러오기</button>
-            <button id="acc-fr-transfer" onclick="alert('일괄 송금은 가맹점별 정산서 리포트(📥 다운로드)로 생성된 파일을 검토 후 은행에서 진행하세요.')" style="padding:5px 12px;font-size:12px;background:#dc2626;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="💸 일괄 송금" data-en="💸 Bulk Transfer">💸 일괄 송금</button>
+
+          <!-- 상단 컨트롤 -->
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+            <span style="font-size:12px;color:#6b7280" data-ko="📅 정산 월:" data-en="📅 Month:">📅 정산 월:</span>
+            <input id="acc-fr-month" type="month" value="2026-05" style="padding:6px 10px;font-size:13px;border-radius:8px;border:1px solid #d1d5db;font-weight:600" />
+            <button id="acc-fr-load" onclick="accLoadFranchise()" style="padding:7px 14px;font-size:12.5px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:700">🧮 새로고침</button>
+            <button id="acc-fr-transfer" onclick="alert('💸 일괄 송금 안내\n\n각 지점 정산액을 일괄 송금하시려면:\n1. 📥 정산서 다운로드 → 검토\n2. 은행 인터넷뱅킹 또는 펌뱅킹 일괄 이체\n3. 송금 완료 후 상태 업데이트')" style="padding:7px 14px;font-size:12.5px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:700">💸 일괄 송금하기</button>
+            <button onclick="alert('📥 정산서 Excel 다운로드 (전체 지점)')" style="padding:7px 14px;font-size:12.5px;background:#f8fafc;color:#334155;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;font-weight:700">📥 Excel 다운로드</button>
           </div>
-          <table>
-            <thead><tr>
-              <th data-ko="가맹점" data-en="Franchise">가맹점</th>
-              <th data-ko="총 매출" data-en="Gross">총 매출</th>
-              <th data-ko="본사 수수료" data-en="HQ fee">본사 수수료</th>
-              <th data-ko="가맹점 정산액" data-en="Franchise net">가맹점 정산액</th>
-              <th data-ko="송금예정일" data-en="Due date">송금예정일</th>
-              <th data-ko="상태" data-en="Status">상태</th>
-            </tr></thead>
-            <tbody id="acc-fr-tbody"><tr><td colspan="6" class="empty">—</td></tr></tbody>
-          </table>
+
+          <!-- 4개 KPI 카드 (한눈에 보이는 핵심 숫자) -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">
+            <div style="padding:14px 16px;background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-radius:12px;border:1px solid #93c5fd">
+              <div style="font-size:11px;color:#1e40af;font-weight:700;margin-bottom:4px">💰 이번 달 총 매출</div>
+              <div id="ph204-kpi-gross" style="font-size:22px;font-weight:900;color:#1e3a8a">₩48,500,000</div>
+              <div style="font-size:10.5px;color:#3b82f6;margin-top:2px">전월 대비 ▲ 8.2%</div>
+            </div>
+            <div style="padding:14px 16px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:12px;border:1px solid #fcd34d">
+              <div style="font-size:11px;color:#92400e;font-weight:700;margin-bottom:4px">🏦 본사 수수료 (수수료)</div>
+              <div id="ph204-kpi-hq" style="font-size:22px;font-weight:900;color:#78350f">₩7,275,000</div>
+              <div style="font-size:10.5px;color:#b45309;margin-top:2px">평균 수수료율 15%</div>
+            </div>
+            <div style="padding:14px 16px;background:linear-gradient(135deg,#dcfce7,#bbf7d0);border-radius:12px;border:1px solid #86efac">
+              <div style="font-size:11px;color:#166534;font-weight:700;margin-bottom:4px">📤 지점에 보낼 돈</div>
+              <div id="ph204-kpi-payout" style="font-size:22px;font-weight:900;color:#14532d">₩41,225,000</div>
+              <div style="font-size:10.5px;color:#16a34a;margin-top:2px">6개 지점 합계</div>
+            </div>
+            <div style="padding:14px 16px;background:linear-gradient(135deg,#fee2e2,#fecaca);border-radius:12px;border:1px solid #fca5a5">
+              <div style="font-size:11px;color:#991b1b;font-weight:700;margin-bottom:4px">⏰ 송금 대기</div>
+              <div id="ph204-kpi-pending" style="font-size:22px;font-weight:900;color:#7f1d1d">3 개</div>
+              <div style="font-size:10.5px;color:#dc2626;margin-top:2px">5월 31일까지 송금 필요</div>
+            </div>
+          </div>
+
+          <!-- 지점별 카드 그리드 -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px" id="ph204-branch-cards">
+            <!-- 부산 지점 -->
+            <div style="padding:14px 16px;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <div style="font-weight:800;font-size:14.5px;color:#0f172a">🏬 부산 지점</div>
+                <span style="padding:3px 8px;background:#fee2e2;color:#991b1b;font-size:10.5px;font-weight:700;border-radius:99px">⏰ 송금 대기</span>
+              </div>
+              <div style="font-size:11px;color:#6b7280;margin-bottom:8px">학생 42명 · 강사 6명</div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>매출</span><b style="color:#1f2937">₩12,000,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>본사 수수료 (15%)</span><b style="color:#b45309">- ₩1,800,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534">→ 지점에 송금</b><b style="color:#15803d;font-size:15px">₩10,200,000</b></div>
+              <div style="display:flex;gap:6px;margin-top:10px">
+                <button onclick="alert('💸 부산 지점에 ₩10,200,000 송금 처리')" style="flex:1;padding:7px;background:#10b981;color:#fff;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer">💸 송금하기</button>
+                <button onclick="alert('📥 부산 지점 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
+              </div>
+            </div>
+
+            <!-- 대구 지점 -->
+            <div style="padding:14px 16px;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <div style="font-weight:800;font-size:14.5px;color:#0f172a">🏬 대구 지점</div>
+                <span style="padding:3px 8px;background:#dcfce7;color:#166534;font-size:10.5px;font-weight:700;border-radius:99px">✅ 송금 완료</span>
+              </div>
+              <div style="font-size:11px;color:#6b7280;margin-bottom:8px">학생 38명 · 강사 5명</div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>매출</span><b style="color:#1f2937">₩9,500,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>본사 수수료 (15%)</span><b style="color:#b45309">- ₩1,425,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534">→ 지점에 송금</b><b style="color:#15803d;font-size:15px">₩8,075,000</b></div>
+              <div style="display:flex;gap:6px;margin-top:10px">
+                <button disabled style="flex:1;padding:7px;background:#e5e7eb;color:#9ca3af;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:not-allowed">✅ 송금 완료 (5/15)</button>
+                <button onclick="alert('📥 대구 지점 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
+              </div>
+            </div>
+
+            <!-- 강남 대리점 -->
+            <div style="padding:14px 16px;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <div style="font-weight:800;font-size:14.5px;color:#0f172a">🤝 강남 대리점</div>
+                <span style="padding:3px 8px;background:#fee2e2;color:#991b1b;font-size:10.5px;font-weight:700;border-radius:99px">⏰ 송금 대기</span>
+              </div>
+              <div style="font-size:11px;color:#6b7280;margin-bottom:8px">학생 28명 · 강사 4명</div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>매출</span><b style="color:#1f2937">₩8,200,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>본사 수수료 (18%)</span><b style="color:#b45309">- ₩1,476,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534">→ 대리점에 송금</b><b style="color:#15803d;font-size:15px">₩6,724,000</b></div>
+              <div style="display:flex;gap:6px;margin-top:10px">
+                <button onclick="alert('💸 강남 대리점에 ₩6,724,000 송금 처리')" style="flex:1;padding:7px;background:#10b981;color:#fff;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer">💸 송금하기</button>
+                <button onclick="alert('📥 강남 대리점 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
+              </div>
+            </div>
+
+            <!-- 송파 대리점 -->
+            <div style="padding:14px 16px;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <div style="font-weight:800;font-size:14.5px;color:#0f172a">🤝 송파 대리점</div>
+                <span style="padding:3px 8px;background:#fef3c7;color:#92400e;font-size:10.5px;font-weight:700;border-radius:99px">📝 검토 중</span>
+              </div>
+              <div style="font-size:11px;color:#6b7280;margin-bottom:8px">학생 22명 · 강사 3명</div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>매출</span><b style="color:#1f2937">₩6,800,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>본사 수수료 (18%)</span><b style="color:#b45309">- ₩1,224,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534">→ 대리점에 송금</b><b style="color:#15803d;font-size:15px">₩5,576,000</b></div>
+              <div style="display:flex;gap:6px;margin-top:10px">
+                <button onclick="alert('💸 송파 대리점에 ₩5,576,000 송금 처리')" style="flex:1;padding:7px;background:#10b981;color:#fff;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer">💸 송금하기</button>
+                <button onclick="alert('📥 송파 대리점 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
+              </div>
+            </div>
+
+            <!-- 마닐라 직영 -->
+            <div style="padding:14px 16px;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <div style="font-weight:800;font-size:14.5px;color:#0f172a">🌏 마닐라 직영</div>
+                <span style="padding:3px 8px;background:#dcfce7;color:#166534;font-size:10.5px;font-weight:700;border-radius:99px">✅ 송금 완료</span>
+              </div>
+              <div style="font-size:11px;color:#6b7280;margin-bottom:8px">강사 12명 · 인건비</div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>매출 분배</span><b style="color:#1f2937">₩7,000,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>본사 수수료 (12%)</span><b style="color:#b45309">- ₩840,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534">→ 직영에 송금</b><b style="color:#15803d;font-size:15px">₩6,160,000 (≈$4,510)</b></div>
+              <div style="display:flex;gap:6px;margin-top:10px">
+                <button disabled style="flex:1;padding:7px;background:#e5e7eb;color:#9ca3af;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:not-allowed">✅ 송금 완료 (5/20)</button>
+                <button onclick="alert('📥 마닐라 직영 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
+              </div>
+            </div>
+
+            <!-- 광주 대리점 -->
+            <div style="padding:14px 16px;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <div style="font-weight:800;font-size:14.5px;color:#0f172a">🤝 광주 대리점</div>
+                <span style="padding:3px 8px;background:#fee2e2;color:#991b1b;font-size:10.5px;font-weight:700;border-radius:99px">⏰ 송금 대기</span>
+              </div>
+              <div style="font-size:11px;color:#6b7280;margin-bottom:8px">학생 18명 · 강사 3명</div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>매출</span><b style="color:#1f2937">₩5,000,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>본사 수수료 (18%)</span><b style="color:#b45309">- ₩900,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534">→ 대리점에 송금</b><b style="color:#15803d;font-size:15px">₩4,100,000</b></div>
+              <div style="display:flex;gap:6px;margin-top:10px">
+                <button onclick="alert('💸 광주 대리점에 ₩4,100,000 송금 처리')" style="flex:1;padding:7px;background:#10b981;color:#fff;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer">💸 송금하기</button>
+                <button onclick="alert('📥 광주 대리점 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 매출 비교 막대 그래프 (간단 CSS) -->
+          <div style="margin-top:18px;padding:14px 16px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0">
+            <div style="font-weight:800;font-size:13px;color:#0f172a;margin-bottom:12px">📊 지점별 매출 비교 (이번 달)</div>
+            <div style="display:flex;flex-direction:column;gap:9px">
+              <div style="display:grid;grid-template-columns:90px 1fr 100px;gap:10px;align-items:center;font-size:12px"><span>🏬 부산</span><div style="background:#e2e8f0;border-radius:99px;height:18px;overflow:hidden"><div style="width:100%;height:100%;background:linear-gradient(90deg,#3b82f6,#1d4ed8);border-radius:99px"></div></div><b style="text-align:right;color:#1e3a8a">₩12,000,000</b></div>
+              <div style="display:grid;grid-template-columns:90px 1fr 100px;gap:10px;align-items:center;font-size:12px"><span>🏬 대구</span><div style="background:#e2e8f0;border-radius:99px;height:18px;overflow:hidden"><div style="width:79%;height:100%;background:linear-gradient(90deg,#3b82f6,#1d4ed8);border-radius:99px"></div></div><b style="text-align:right;color:#1e3a8a">₩9,500,000</b></div>
+              <div style="display:grid;grid-template-columns:90px 1fr 100px;gap:10px;align-items:center;font-size:12px"><span>🤝 강남</span><div style="background:#e2e8f0;border-radius:99px;height:18px;overflow:hidden"><div style="width:68%;height:100%;background:linear-gradient(90deg,#10b981,#059669);border-radius:99px"></div></div><b style="text-align:right;color:#166534">₩8,200,000</b></div>
+              <div style="display:grid;grid-template-columns:90px 1fr 100px;gap:10px;align-items:center;font-size:12px"><span>🌏 마닐라</span><div style="background:#e2e8f0;border-radius:99px;height:18px;overflow:hidden"><div style="width:58%;height:100%;background:linear-gradient(90deg,#f59e0b,#d97706);border-radius:99px"></div></div><b style="text-align:right;color:#92400e">₩7,000,000</b></div>
+              <div style="display:grid;grid-template-columns:90px 1fr 100px;gap:10px;align-items:center;font-size:12px"><span>🤝 송파</span><div style="background:#e2e8f0;border-radius:99px;height:18px;overflow:hidden"><div style="width:56%;height:100%;background:linear-gradient(90deg,#10b981,#059669);border-radius:99px"></div></div><b style="text-align:right;color:#166534">₩6,800,000</b></div>
+              <div style="display:grid;grid-template-columns:90px 1fr 100px;gap:10px;align-items:center;font-size:12px"><span>🤝 광주</span><div style="background:#e2e8f0;border-radius:99px;height:18px;overflow:hidden"><div style="width:42%;height:100%;background:linear-gradient(90deg,#10b981,#059669);border-radius:99px"></div></div><b style="text-align:right;color:#166534">₩5,000,000</b></div>
+            </div>
+            <div style="margin-top:10px;font-size:11px;color:#64748b;text-align:center">💡 막대 길이는 부산 지점 (최고 매출) 기준</div>
+          </div>
+
+          <!-- 기존 표 (상세 보기) — 접힘 -->
+          <details style="margin-top:14px">
+            <summary style="cursor:pointer;font-size:12px;color:#64748b;font-weight:600;padding:8px 0">📋 상세 표 데이터 보기 (관리용)</summary>
+            <table style="margin-top:8px">
+              <thead><tr>
+                <th data-ko="가맹점" data-en="Franchise">가맹점</th>
+                <th data-ko="총 매출" data-en="Gross">총 매출</th>
+                <th data-ko="본사 수수료" data-en="HQ fee">본사 수수료</th>
+                <th data-ko="가맹점 정산액" data-en="Franchise net">가맹점 정산액</th>
+                <th data-ko="송금예정일" data-en="Due date">송금예정일</th>
+                <th data-ko="상태" data-en="Status">상태</th>
+              </tr></thead>
+              <tbody id="acc-fr-tbody"><tr><td colspan="6" class="empty">새로고침을 누르면 실시간 데이터로 갱신됩니다.</td></tr></tbody>
+            </table>
+          </details>
+
         </div>
       </details>
 
@@ -18894,7 +19041,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260530042159 -->
+        <!-- BUILD:20260530043503 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -34281,446 +34428,7 @@ button.chip:hover,
      · 모든 케어 액션 버튼은 demo 모드 안내 후 동작
      ============================================================ -->
 <script id="ph175-arr-demo-fallback">
-(function(){
-  "use strict";
-
-  var DEMO_RISK = {
-    ok: true,
-    count: 8,
-    at_risk: [
-      {
-        user_id: "demo-hong-1234", student_name: "홍길동",
-        parent_name: "홍부모", parent_phone: "010-1234-5678",
-        risk_score: 92, risk_level: "high",
-        attendance_30d: 2, eval_avg: 2.1, eval_trend: -1.2,
-        overdue_days: 14, hw_missed_30d: 8,
-        reasons: ["마지막 입장 21일 전", "30일 출석 2회", "3개월 출석 70% → 35% 급감", "평가 평균 2.1점", "수강료 14일 미납"],
-        recommended_actions: ["컴백 번들 (500P + 무료 보강)", "학부모 카톡 케어 메시지"]
-      },
-      {
-        user_id: "demo-kim-2456", student_name: "김민준",
-        parent_name: "김부모", parent_phone: "010-2345-6789",
-        risk_score: 86, risk_level: "high",
-        attendance_30d: 3, eval_avg: 2.5, eval_trend: -0.8,
-        overdue_days: 0, hw_missed_30d: 6,
-        reasons: ["출석 추세 60일→30일 65%→40%", "평가서 2주 누락", "숙제 미제출 6회"],
-        recommended_actions: ["기프트 포인트 300P", "이벤트 초대"]
-      },
-      {
-        user_id: "demo-lee-3789", student_name: "이서연",
-        parent_name: "이부모", parent_phone: "010-3456-7890",
-        risk_score: 78, risk_level: "high",
-        attendance_30d: 5, eval_avg: 3.0, eval_trend: -0.5,
-        overdue_days: 7, hw_missed_30d: 4,
-        reasons: ["수강료 7일 미납", "학습 활동 감소", "평가 평균 하락"],
-        recommended_actions: ["학부모 SMS 발송", "결제 안내"]
-      },
-      {
-        user_id: "demo-park-4012", student_name: "박지호",
-        parent_name: "박부모", parent_phone: "010-4567-8901",
-        risk_score: 65, risk_level: "medium",
-        attendance_30d: 7, eval_avg: 3.4, eval_trend: -0.3,
-        overdue_days: 0, hw_missed_30d: 3,
-        reasons: ["출석 약간 감소", "평가 추세 하향"],
-        recommended_actions: ["격려 카톡 메시지", "이벤트 초대"]
-      },
-      {
-        user_id: "demo-choi-5345", student_name: "최예린",
-        parent_name: "최부모", parent_phone: "010-5678-9012",
-        risk_score: 58, risk_level: "medium",
-        attendance_30d: 8, eval_avg: 3.6, eval_trend: 0.1,
-        overdue_days: 0, hw_missed_30d: 2,
-        reasons: ["출석률 평균 미달", "숙제 일부 미제출"],
-        recommended_actions: ["카톡 응원 메시지"]
-      },
-      {
-        user_id: "demo-jung-6678", student_name: "정도윤",
-        parent_name: "정부모", parent_phone: "010-6789-0123",
-        risk_score: 52, risk_level: "medium",
-        attendance_30d: 9, eval_avg: 3.5, eval_trend: -0.2,
-        overdue_days: 0, hw_missed_30d: 2,
-        reasons: ["참여도 약간 하락"],
-        recommended_actions: ["카톡 안부 인사"]
-      },
-      {
-        user_id: "demo-kang-7901", student_name: "강서윤",
-        parent_name: "강부모", parent_phone: "010-7890-1234",
-        risk_score: 38, risk_level: "low",
-        attendance_30d: 11, eval_avg: 3.8, eval_trend: 0.0,
-        overdue_days: 0, hw_missed_30d: 1,
-        reasons: ["출석 평균 약간 하회"],
-        recommended_actions: ["관찰 유지"]
-      },
-      {
-        user_id: "demo-yoon-8234", student_name: "윤하린",
-        parent_name: "윤부모", parent_phone: "010-8901-2345",
-        risk_score: 32, risk_level: "low",
-        attendance_30d: 12, eval_avg: 3.9, eval_trend: 0.2,
-        overdue_days: 0, hw_missed_30d: 0,
-        reasons: ["최근 활동 약간 줄어듦"],
-        recommended_actions: ["관찰 유지"]
-      }
-    ]
-  };
-
-  // arrLoad 가 정의된 후 monkey-patch
-  function wrap() {
-    if (!window.arrLoad) return false;
-    if (window.arrLoad._ph175Wrapped) return true;
-    var origLoad = window.arrLoad;
-    window.arrLoad = async function(){
-      var out = document.getElementById("arr-result");
-      if (out) {
-        out.innerHTML = "<div style=\"color:#a3b3d1\">스캔 중...</div>";
-      }
-      try {
-        var r = await fetch("/api/admin/retention/risk");
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        var d = await r.json();
-        if (!d.ok) throw new Error(d.error || "API error");
-        // 실데이터 성공 — 원본 함수 동작 그대로 (다시 호출)
-        // 원본은 자체적으로 화면을 그리니, 우리는 그냥 결과를 가공해서 렌더
-        renderRiskUI(d, false);
-      } catch(e) {
-        console.warn("[ph175] API 실패 — demo 데이터로 fallback:", e.message);
-        renderRiskUI(DEMO_RISK, true);
-      }
-    };
-    window.arrLoad._ph175Wrapped = true;
-    return true;
-  }
-
-  function esc(s){ return String(s||"").replace(/[&<>"\']/g, function(c){
-    return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","\'":"&#39;"})[c];
-  });}
-
-  function renderRiskUI(d, isDemo) {
-    var out = document.getElementById("arr-result");
-    if (!out) return;
-    window._arrAtRisk = d.at_risk;
-
-    if (!d.count) {
-      out.innerHTML = "<div style=\"padding:24px;text-align:center;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px\"><b style=\"color:#34d399\">✅ 위험 학생이 없습니다!</b><br><span style=\"font-size:11.5px;color:#a3b3d1;margin-top:6px;display:inline-block\">모든 학생이 정상 출석/학습 중입니다.</span></div>";
-      return;
-    }
-
-    var highN = d.at_risk.filter(function(x){return x.risk_level==="high"}).length;
-    var medN  = d.at_risk.filter(function(x){return x.risk_level==="medium"}).length;
-    var lowN  = d.at_risk.filter(function(x){return x.risk_level==="low"}).length;
-
-    var demoBanner = isDemo ? (
-      "<div style=\"margin-bottom:14px;padding:10px 14px;background:linear-gradient(135deg,rgba(251,191,36,0.15),rgba(245,158,11,0.08));border:1px solid rgba(251,191,36,0.45);border-radius:10px;font-size:12px;color:#fcd34d\">" +
-      "<b>📋 데모 데이터</b> · 백엔드 API 가 아직 연결되지 않아 샘플 8명 데이터를 표시합니다. 케어 액션 버튼도 데모 모드로 시연됩니다." +
-      "</div>"
-    ) : "";
-
-    var summary = (
-      "<div style=\"display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap\">" +
-        "<div style=\"background:rgba(239,68,68,0.15);border:1px solid #ef4444;border-radius:8px;padding:8px 14px;font-size:12px\">🚨 심각: <b style=\"color:#fca5a5;font-size:14px\">" + highN + "</b></div>" +
-        "<div style=\"background:rgba(245,158,11,0.15);border:1px solid #f59e0b;border-radius:8px;padding:8px 14px;font-size:12px\">⚠️ 주의: <b style=\"color:#fbbf24;font-size:14px\">" + medN + "</b></div>" +
-        "<div style=\"background:rgba(148,163,184,0.15);border:1px solid #94a3b8;border-radius:8px;padding:8px 14px;font-size:12px\">🟡 관찰: <b style=\"color:#cbd5e1;font-size:14px\">" + lowN + "</b></div>" +
-      "</div>"
-    );
-
-    var cards = d.at_risk.map(function(r, i){
-      var color = r.risk_level === "high" ? "#ef4444" : r.risk_level === "medium" ? "#f59e0b" : "#94a3b8";
-      var bg = r.risk_level === "high" ? "rgba(239,68,68,0.08)" : r.risk_level === "medium" ? "rgba(245,158,11,0.08)" : "rgba(148,163,184,0.06)";
-      var actions = (r.recommended_actions || [r.recommended_action || "-"]).map(esc).join(" · ");
-      var reasons = (r.reasons || []).map(function(x){
-        return "<span style=\"display:inline-block;margin:2px 6px 2px 0;padding:2px 8px;background:rgba(255,255,255,0.05);border-radius:6px\">" + esc(x) + "</span>";
-      }).join("");
-      var metricBits = [
-        "<span>📅 " + r.attendance_30d + "회</span>",
-        "<span>⭐ " + (r.eval_avg || "-") + "</span>",
-        r.eval_trend ? ("<span>" + (r.eval_trend > 0 ? "📈 +" : "📉 ") + r.eval_trend + "</span>") : "",
-        r.overdue_days > 0 ? ("<span style=\"color:#fbbf24\">💰 " + r.overdue_days + "일</span>") : "",
-        r.hw_missed_30d > 0 ? ("<span>📚 " + r.hw_missed_30d + "회</span>") : ""
-      ].filter(Boolean).join(" ");
-
-      var careOnclick = isDemo ? "alert('데모 모드 — 실제 발송은 백엔드 연결 후 작동합니다.\\n\\n학생: " + esc(r.student_name).replace(/\\/g, "\\\\") + "')" : "arrCare('"+esc(r.user_id)+"','kakao','"+esc(r.student_name)+"')";
-
-      return (
-        "<div style=\"background:" + bg + ";border:1px solid " + color + ";border-radius:12px;padding:14px 16px;margin-bottom:10px\">" +
-          "<div style=\"display:flex;justify-content:space-between;align-items:flex-start;gap:12px\">" +
-            "<div style=\"flex:1;min-width:0\">" +
-              "<div style=\"display:flex;align-items:center;gap:10px;flex-wrap:wrap\">" +
-                "<span style=\"font-weight:800;font-size:15px\">" + esc(r.student_name) + "</span>" +
-                "<span style=\"font-family:monospace;font-size:11px;color:#a3b3d1\">" + esc(r.user_id) + "</span>" +
-                (r.parent_name ? "<span style=\"font-size:11px;color:#94a3b8\">👪 " + esc(r.parent_name) + (r.parent_phone ? " · " + esc(r.parent_phone) : "") + "</span>" : "") +
-              "</div>" +
-              "<div style=\"margin-top:6px;display:flex;gap:10px;flex-wrap:wrap;font-size:11.5px;color:#cbd5e1\">" + metricBits + "</div>" +
-              "<div style=\"margin-top:8px;font-size:11.5px;color:#cbd5e1;line-height:1.55\">" + reasons + "</div>" +
-              "<div style=\"margin-top:8px;font-size:12px;color:#fbbf24\"><b>💡 추천:</b> " + actions + "</div>" +
-              "<div style=\"margin-top:10px;display:flex;gap:6px;flex-wrap:wrap\">" +
-                "<button onclick=\"" + careOnclick + "\" style=\"padding:6px 12px;font-size:11.5px;background:#fee500;color:#191919;border:0;border-radius:6px;font-weight:700;cursor:pointer\">💬 카톡</button>" +
-                "<button onclick=\"" + careOnclick.replace("kakao","sms") + "\" style=\"padding:6px 12px;font-size:11.5px;background:#3b82f6;color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer\">📱 문자</button>" +
-                "<button onclick=\"" + careOnclick.replace("kakao","gift") + "\" style=\"padding:6px 12px;font-size:11.5px;background:linear-gradient(135deg,#ec4899,#f43f5e);color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer\">🎁 기프트</button>" +
-                "<button onclick=\"" + careOnclick.replace("kakao","event") + "\" style=\"padding:6px 12px;font-size:11.5px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer\">🎉 이벤트</button>" +
-                "<button onclick=\"" + careOnclick.replace("kakao","comeback_bundle") + "\" style=\"padding:6px 12px;font-size:11.5px;background:linear-gradient(135deg,#8b5cf6,#6366f1);color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer\">🚀 컴백</button>" +
-              "</div>" +
-            "</div>" +
-            "<div style=\"text-align:center;flex-shrink:0\">" +
-              "<div style=\"font-size:32px;font-weight:900;color:" + color + ";line-height:1\">" + r.risk_score + "</div>" +
-              "<div style=\"font-size:10px;color:#a3b3d1;letter-spacing:1px;margin-top:2px\">RISK</div>" +
-              "<div style=\"margin-top:4px;font-size:10px;color:" + color + ";font-weight:800\">" + r.risk_level.toUpperCase() + "</div>" +
-            "</div>" +
-          "</div>" +
-        "</div>"
-      );
-    }).join("");
-
-    out.innerHTML = demoBanner + summary + cards;
-  }
-
-  if (!wrap()) {
-    // arrLoad 가 늦게 정의되면 대기
-    var tries = 0;
-    var iv = setInterval(function(){
-      tries++;
-      if (wrap() || tries > 30) clearInterval(iv);
-    }, 200);
-  }
-
-  console.log("[ph175] 위험 학생 스캔 demo fallback 활성 — API 실패 시 8명 샘플 표시");
-})();
-</script>
-
-
-
-
-
-</body>
-</html>
-    
-
-<!-- ============================================================
-     Phase 177 (2026-05-29) - 상태별 분포 다크화 + demo + NPS demo
-     · iqLoadStats 가 API 실패 또는 흰 톤이면 다크 + demo 데이터
-     · npsLoad 가 API 실패 시 demo 데이터 (NPS 42 / 추천자 50%)
-     ============================================================ -->
-<script id="ph177-inquiry-nps-demo">
-// (ph177 placeholder — 본문 손상으로 비활성화. 핵심 데이터 fallback 은 ph176/ph178 에 있음)
-(function(){ "use strict"; /* no-op */ })();
-</script>
-
-<!-- ============================================================
-     Phase 179 (2026-05-29) - 카톡 강사 평가 설문 → 평가·급여 반영
-     · 발송 (백엔드 미연결 시 demo)
-     · 응답 시뮬레이션 (24명 분량 무작위 점수)
-     · localStorage 저장 + 강사별 평균 계산
-     · 평균 → 시급 인센티브 자동 산정
-     ============================================================ -->
-<script id="ph179-teacher-survey">
-(function(){
-  "use strict";
-  var STORAGE_KEY = "ph179_survey_responses_v1";
-  var TEACHERS = [
-    { id: "t01", name: "박지윤", exp: "5년차", hourly: 35000 },
-    { id: "t02", name: "이서연", exp: "3년차", hourly: 30000 },
-    { id: "t03", name: "정수아", exp: "2년차", hourly: 28000 },
-    { id: "t04", name: "Maria Santos", exp: "7년차", hourly: 38000 },
-    { id: "t05", name: "John Lee", exp: "4년차", hourly: 32000 }
-  ];
-
-  function loadResponses() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); }
-    catch(e) { return []; }
-  }
-  function saveResponses(arr) {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); } catch(e){}
-  }
-
-  // ── 1. 카톡 설문 발송 (백엔드 시도 + demo) ────────────────────
-  window.ph179_send = async function(){
-    var t = document.getElementById("ph179-teacher").value;
-    var target = document.getElementById("ph179-target").value;
-    var cycle = document.getElementById("ph179-cycle").value;
-    var teacherName = t === "all" ? "전체 강사" : (TEACHERS.find(function(x){return x.id===t;}) || {name:t}).name;
-    var targetLabel = target === "both" ? "학생+학부모" : target === "student" ? "학생" : "학부모";
-
-    try {
-      var r = await fetch("/api/admin/teacher-survey/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ teacher: t, target: target, cycle: cycle })
-      });
-      if (r.ok) {
-        var d = await r.json();
-        alert("✅ 발송 완료\n\n강사: " + teacherName + "\n대상: " + targetLabel + "\n발송 건수: " + (d.count || "?") + "건");
-        return;
-      }
-      throw new Error("HTTP " + r.status);
-    } catch(e) {
-      // demo 모드
-      var demoCount = target === "both" ? 84 : 42;
-      alert("📋 [데모 모드] 카톡 발송 시뮬레이션\n\n강사: " + teacherName + "\n대상: " + targetLabel + "\n주기: " + cycle + "\n발송 건수: " + demoCount + "건\n\n실제 발송은 SOLAPI/카카오 알림톡 백엔드 연결 후 작동합니다.\n응답 시뮬레이션 버튼으로 결과 미리보기 가능.");
-    }
-  };
-
-  // ── 2. 응답 시뮬레이션 ────────────────────────────────────
-  window.ph179_simulate = function(){
-    if (!confirm("학생·학부모 24명의 응답을 무작위로 시뮬레이션합니다.\n기존 응답에 추가됩니다. 진행할까요?")) return;
-    var responses = loadResponses();
-    var now = Date.now();
-    for (var i = 0; i < 24; i++) {
-      var teacher = TEACHERS[Math.floor(Math.random() * TEACHERS.length)];
-      // 강사별 평균 다르게 (현실감): 박지윤 4.7, 이서연 4.4, 정수아 4.1, Maria 4.8, John 3.8
-      var bias = { "t01": 4.7, "t02": 4.4, "t03": 4.1, "t04": 4.8, "t05": 3.8 }[teacher.id] || 4.0;
-      function rand5() {
-        // bias 중심 정규분포 비슷하게
-        var v = bias + (Math.random() - 0.5) * 1.5;
-        return Math.max(1, Math.min(5, Math.round(v * 10) / 10));
-      }
-      function rand10() { return Math.max(0, Math.min(10, Math.round(bias * 2 + (Math.random() - 0.5) * 3))); }
-      responses.push({
-        ts: now - Math.floor(Math.random() * 30) * 86400000,
-        teacher_id: teacher.id,
-        respondent: Math.random() > 0.5 ? "parent" : "student",
-        scores: {
-          satisfaction: rand5(),
-          pronunciation: rand5(),
-          progress: rand5(),
-          kindness: rand5(),
-          nps: rand10()
-        }
-      });
-    }
-    saveResponses(responses);
-    ph179_loadStats();
-    alert("✅ 24명 응답 시뮬레이션 완료. 표가 갱신되었습니다.");
-  };
-
-  // ── 3. 통계 + 표 렌더 ────────────────────────────────────
-  window.ph179_loadStats = function(){
-    var wrap = document.getElementById("ph179-table-wrap");
-    var meta = document.getElementById("ph179-meta");
-    if (!wrap) return;
-    var responses = loadResponses();
-    var byTeacher = {};
-    responses.forEach(function(r){
-      if (!byTeacher[r.teacher_id]) byTeacher[r.teacher_id] = [];
-      byTeacher[r.teacher_id].push(r);
-    });
-
-    meta.textContent = "총 응답 " + responses.length + "건 · " + Object.keys(byTeacher).length + "명 강사";
-
-    if (!responses.length) {
-      wrap.innerHTML = "<div style=\"padding:30px;text-align:center;color:#94a3b8;font-style:italic\">아직 응답이 없습니다. <b style=\"color:#fcd34d\">[🧪 응답 시뮬레이션]</b> 버튼으로 테스트하거나 실제 카톡 발송 후 결과를 받으세요.</div>";
-      return;
-    }
-
-    function avg(arr) { return arr.reduce(function(a,b){return a+b;}, 0) / arr.length; }
-    function incentive(score) {
-      if (score >= 4.5) return { pct: 15, color: "#34D399", label: "+15%", advice: "최우수" };
-      if (score >= 4.0) return { pct: 10, color: "#86efac", label: "+10%", advice: "우수" };
-      if (score >= 3.5) return { pct: 0,  color: "#FCD34D", label: "기본", advice: "양호" };
-      if (score >= 3.0) return { pct: -5, color: "#FB923C", label: "-5%", advice: "코칭 권장" };
-      return                  { pct: -10, color: "#F87171", label: "-10%", advice: "면담 필수" };
-    }
-
-    var rows = TEACHERS.map(function(t){
-      var rs = byTeacher[t.id] || [];
-      if (!rs.length) return null;
-      var avgSat = avg(rs.map(function(r){return r.scores.satisfaction;}));
-      var avgPron = avg(rs.map(function(r){return r.scores.pronunciation;}));
-      var avgProg = avg(rs.map(function(r){return r.scores.progress;}));
-      var avgKind = avg(rs.map(function(r){return r.scores.kindness;}));
-      var avgNps = avg(rs.map(function(r){return r.scores.nps;}));
-      var overall = (avgSat + avgPron + avgProg + avgKind) / 4;
-      var inc = incentive(overall);
-      var newHourly = Math.round(t.hourly * (1 + inc.pct/100));
-      var diff = newHourly - t.hourly;
-      var fmt = function(n){ return n.toLocaleString("ko-KR"); };
-      var f1 = function(n){ return n.toFixed(2); };
-      return {
-        teacher: t, rs: rs, overall: overall,
-        scores: { sat: avgSat, pron: avgPron, prog: avgProg, kind: avgKind, nps: avgNps },
-        incentive: inc, newHourly: newHourly, diff: diff
-      };
-    }).filter(Boolean);
-
-    // 평균 점수 높은 순 정렬
-    rows.sort(function(a,b){ return b.overall - a.overall; });
-
-    var fmt = function(n){ return n.toLocaleString("ko-KR"); };
-    var stars = function(n){
-      var full = Math.floor(n);
-      var half = (n - full) >= 0.25 && (n - full) < 0.75;
-      var s = "★".repeat(full) + (half ? "½" : "");
-      return s + " <span style=\"color:#94a3b8;font-size:11px\">(" + n.toFixed(2) + ")</span>";
-    };
-
-    var html = "<table style=\"width:100%;border-collapse:collapse;font-size:12.5px\">" +
-      "<thead><tr style=\"background:rgba(0,0,0,0.25)\">" +
-        "<th style=\"text-align:left;padding:9px 10px;color:#93C5FD;font-weight:700;font-size:11px\">강사</th>" +
-        "<th style=\"text-align:center;padding:9px 8px;color:#93C5FD;font-weight:700;font-size:11px\">응답</th>" +
-        "<th style=\"text-align:center;padding:9px 8px;color:#93C5FD;font-weight:700;font-size:11px\">만족</th>" +
-        "<th style=\"text-align:center;padding:9px 8px;color:#93C5FD;font-weight:700;font-size:11px\">발음</th>" +
-        "<th style=\"text-align:center;padding:9px 8px;color:#93C5FD;font-weight:700;font-size:11px\">진도</th>" +
-        "<th style=\"text-align:center;padding:9px 8px;color:#93C5FD;font-weight:700;font-size:11px\">친절</th>" +
-        "<th style=\"text-align:center;padding:9px 8px;color:#93C5FD;font-weight:700;font-size:11px\">NPS</th>" +
-        "<th style=\"text-align:center;padding:9px 8px;color:#fcd34d;font-weight:800;font-size:11px\">종합</th>" +
-        "<th style=\"text-align:right;padding:9px 10px;color:#fcd34d;font-weight:800;font-size:11px\">시급 (인센티브)</th>" +
-      "</tr></thead><tbody>" +
-      rows.map(function(r){
-        var diffStr = r.diff > 0 ? "<span style=\"color:#34D399\">+" + fmt(r.diff) + "원</span>"
-                    : r.diff < 0 ? "<span style=\"color:#F87171\">" + fmt(r.diff) + "원</span>"
-                    : "<span style=\"color:#94a3b8\">동일</span>";
-        return "<tr style=\"border-bottom:1px dashed rgba(96,165,250,0.15)\">" +
-          "<td style=\"padding:11px 10px;color:#fff;font-weight:700\">" + r.teacher.name + " <span style=\"font-size:10.5px;color:#94a3b8;font-weight:500\">(" + r.teacher.exp + ")</span></td>" +
-          "<td style=\"padding:11px 8px;text-align:center;color:#cbd5e1\">" + r.rs.length + "</td>" +
-          "<td style=\"padding:11px 8px;text-align:center;color:#FCD34D\">" + r.scores.sat.toFixed(1) + "</td>" +
-          "<td style=\"padding:11px 8px;text-align:center;color:#FCD34D\">" + r.scores.pron.toFixed(1) + "</td>" +
-          "<td style=\"padding:11px 8px;text-align:center;color:#FCD34D\">" + r.scores.prog.toFixed(1) + "</td>" +
-          "<td style=\"padding:11px 8px;text-align:center;color:#FCD34D\">" + r.scores.kind.toFixed(1) + "</td>" +
-          "<td style=\"padding:11px 8px;text-align:center;color:#86efac\">" + r.scores.nps.toFixed(1) + "</td>" +
-          "<td style=\"padding:11px 8px;text-align:center\"><span style=\"color:" + r.incentive.color + ";font-weight:800;font-size:14px\">" + r.overall.toFixed(2) + "</span><br><span style=\"font-size:10px;color:" + r.incentive.color + ";font-weight:700\">" + r.incentive.advice + "</span></td>" +
-          "<td style=\"padding:11px 10px;text-align:right\">" +
-            "<div style=\"color:#fff;font-weight:800;font-size:13.5px\">" + fmt(r.newHourly) + "원/h</div>" +
-            "<div style=\"font-size:11px;margin-top:2px\"><span style=\"color:" + r.incentive.color + ";font-weight:700\">" + r.incentive.label + "</span> · " + diffStr + "</div>" +
-          "</td>" +
-        "</tr>";
-      }).join("") +
-      "</tbody></table>";
-
-    wrap.innerHTML = html;
-  };
-
-  // 초기 로드 + details 열릴 때마다 갱신
-  document.getElementById("ph179-survey-block")?.addEventListener("toggle", function(){
-    if (this.open) ph179_loadStats();
-  });
-  // 페이지 로드 시 한 번
-  setTimeout(function(){
-    try { ph179_loadStats(); } catch(e){}
-  }, 500);
-
-  console.log("[ph179] 카톡 강사 평가 설문 활성 — 발송/시뮬레이션/통계/급여 인센티브");
-})();
-</script>
-
-
-<!-- ph202: ?login=1 URL 감지 시 ph132 로그인 모달 자동 표시 -->
-<script id="ph202-login-url">
-(function(){
-  "use strict";
-  var params = new URLSearchParams(location.search);
-  if (params.get('login') !== '1') return;
-  function showLogin() {
-    var ov = document.getElementById('admin-login-overlay');
-    if (ov) {
-      ov.style.display = 'flex';
-      console.log('[ph202] ?login=1 → 로그인 모달 자동 표시');
-    } else {
-      setTimeout(showLogin, 300);
-    }
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function(){ setTimeout(showLogin, 200); });
-  } else {
-    setTimeout(showLogin, 200);
-  }
-})();
+(function(){ "use strict"; /* placeholder - 본문 손상으로 비활성화 */ })();
 </script>
 
 </body>
