@@ -19451,6 +19451,35 @@ window.closeRulesModal = function() {
             fls.forEach(function(f){ fm[f.id] = f; });
             db.close();
             if (done) return; done = true; clearTimeout(to);
+  window.selectFromTextbookLibrary = async function(id, url, kind, name) {
+    console.log('[ph247] selectFromTextbookLibrary:', id, kind, name);
+    try {
+      if (typeof window.vcSwitchTab === 'function') {
+        try { window.vcSwitchTab('pdf'); } catch(_){}
+      }
+      if (typeof window.pdfLoad === 'function') {
+        window.pdfCurrentId = 'lib_' + id;
+        await window.pdfLoad(url, kind);
+        console.log('[ph247] pdfLoad OK');
+      } else {
+        console.warn('[ph247] pdfLoad missing, fallback');
+        window.open(url, '_blank');
+        return;
+      }
+      if (window.vcConn && typeof window.vcConn.send === 'function') {
+        try {
+          window.vcConn.send({type:'pdf-share', data:{pdfId:'lib_'+id, url:url, currentPage:1, kind:kind, source:'library', name:name}});
+        } catch(e) { console.warn('[ph247] vcConn.send fail', e); }
+      }
+      if (typeof window.showToast === 'function') {
+        try { window.showToast('📚 ' + (name || '교재 적용')); } catch(_){}
+      }
+    } catch(e) {
+      console.error('[ph247] 교재 로딩 실패', e);
+      alert('❌ 교재 로딩 실패: ' + (e.message || e));
+    }
+  };
+
             console.log('[ph245] IDB 교재', tbs.length, '· 파일', fls.length);
             resolve({textbooks:tbs, files:fm, err:null});
           }
@@ -23484,7 +23513,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260530200510 -->
+<!-- BUILD:20260530215511 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
