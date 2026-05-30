@@ -19601,8 +19601,24 @@ window.closeRulesModal = function() {
     window._libFileMap = res.files || {};
 
     if (window._libAllBooks.length === 0) {
-      tree.innerHTML = '<div style="padding:18px;text-align:center;color:#94a3b8;font-size:12px;line-height:1.6">📭 등록된 교재가 없습니다.<br><br><a href="/textbook-uploader.html" target="_blank" style="display:inline-block;padding:8px 16px;background:#3b82f6;color:#fff;border-radius:99px;text-decoration:none;font-size:11.5px;font-weight:800">📚 업로더 열기</a></div>';
-      grid.innerHTML = '<div class="tbf-empty"><div class="tbf-empty-ico">📭</div><div class="tbf-empty-title">아직 등록된 교재가 없습니다</div><div style="font-size:12px;color:#94a3b8">진단: ' + (res.err || 'ok') + '</div></div>';
+      // ph252: 명확한 안내 메시지
+      var fileCount = Object.keys(window._libFileMap || {}).length;
+      tree.innerHTML = '<div style="padding:18px;text-align:center;color:#94a3b8;font-size:12px;line-height:1.6">📭 등록된 교재가 없습니다.<br><br><a href=\"/textbook-uploader.html\" target=\"_blank\" style=\"display:inline-block;padding:8px 16px;background:#3b82f6;color:#fff;border-radius:99px;text-decoration:none;font-size:11.5px;font-weight:800\">📚 업로더 열기</a></div>';
+      grid.innerHTML =
+        '<div class=\"tbf-empty\" style=\"padding:40px 24px\">' +
+          '<div class=\"tbf-empty-ico\">📭</div>' +
+          '<div class=\"tbf-empty-title\" style=\"font-size:16px;color:#0f172a\">아직 이 브라우저에 등록된 교재가 없습니다</div>' +
+          '<div style=\"margin-top:14px;color:#64748b;font-size:13px;line-height:1.7;max-width:520px;margin-left:auto;margin-right:auto;text-align:left;padding:14px 18px;background:#fff;border:1px solid #e2e8f0;border-radius:10px\">' +
+            '<div style=\"font-weight:700;color:#0f172a;margin-bottom:6px\">💡 교재가 보이지 않는 이유</div>' +
+            '교재는 <b>이 브라우저의 로컬 저장소</b>에 보관됩니다.<br>다른 PC/브라우저에서 업로드한 교재는 보이지 않습니다.<br><br>' +
+            '<b>해결 방법:</b><br>1. 아래 [업로더 열기] 클릭<br>2. 폴더 통째 드래그 → AI 자동 분류 → 2초 후 자동 저장<br>3. 이 모달에서 [새로고침] 클릭<br><br>' +
+            '<div style=\"display:flex;gap:8px;margin-top:8px\">' +
+              '<a href=\"/textbook-uploader.html\" target=\"_blank\" style=\"padding:10px 18px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border-radius:99px;text-decoration:none;font-size:13px;font-weight:800\">📚 업로더 열기</a>' +
+              '<button onclick=\"loadTextbookLibrary()\" style=\"padding:10px 18px;background:#fff;color:#0f172a;border:1.5px solid #cbd5e1;border-radius:99px;cursor:pointer;font-size:13px;font-weight:800\">🔄 새로고침</button>' +
+            '</div>' +
+          '</div>' +
+          '<div style=\"margin-top:14px;font-size:10.5px;color:#94a3b8;font-family:monospace\">🔍 진단: textbooks=0, files=' + fileCount + ', 상태=' + (res.err || 'ok') + ' · DB=mangoi-textbooks v3</div>' +
+        '</div>';
       return;
     }
     renderTree();
@@ -23606,7 +23622,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260531003438 -->
+<!-- BUILD:20260531004128 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25904,51 +25920,12 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       mutations.forEach(function(m){
         m.addedNodes && m.addedNodes.forEach(function(n){
           if (n.nodeType !== 1) return;
-          if (NUKE_IDS.indexOf(n.id) !== -1) { found = true; }
-          else if (n.querySelector && n.querySelector(NUKE_SELECTOR)) { found = true; }
+          if (n.nodeType === 1) { /* no-op */ }
         });
       });
-      if (found) nuke();
     });
-    observer.observe(document.documentElement, { childList: true, subtree: true });
-  } catch(e) { console.warn("[ph172] MutationObserver setup failed:", e); }
-
-  console.log("[ph172] 단어사전 + 음성일기 완전 박멸 — DOM remove + observer + function disable");
-})();
-</script>
-
-<!-- ============================================================
-     Phase 191 (2026-05-30) - 전체메뉴 버튼 작동 무조건 보장
-     · ph166/v22 기존 핸들러가 막아도 우선 가로채는 capture-phase
-     · 패널 없으면 즉시 생성 + 모바일 fullscreen 모달 형태
-     · pointerdown + touchstart + click 3중 핸들러
-     ============================================================ -->
-<style id="ph191-allmenu-style">
-  #ph191-allmenu-panel {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 2147483647;
-    background: rgba(0, 0, 0, 0.92);
-    backdrop-filter: blur(8px);
-    overflow-y: auto;
-  }
-</style>
-
-<script id="ph191-allmenu-script-final">
-(function(){
-  "use strict";
-  document.addEventListener('click', function(e){
-    var btn = e.target.closest('[data-allmenu], .all-menu-btn');
-    if (!btn) {
-      var t = e.target.closest('button, a');
-      if (t && t.textContent && t.textContent.replace(/\s/g,'').indexOf('전체메뉴') >= 0) btn = t;
-    }
-    if (!btn) return;
-    if (typeof window.toggleAllMenu === 'function') {
-      try { window.toggleAllMenu(); } catch(_){}
-    }
-  }, true);
+    mo.observe(document.body, { childList: true, subtree: true });
+  } catch(e) {}
 })();
 </script>
 
