@@ -19433,20 +19433,46 @@ async function loadTextbookLibrary() {
     return;
   }
 
-  // 정상 — 카드 그리드 렌더
-  grid.innerHTML = items.map(function(f){
-    var thumb = f.kind === 'pdf'
-      ? '<div style="height:120px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#7f1d1d,#451a03);color:#fca5a5;font-size:42px;">📕</div>'
-      : '<img src="' + f.url + '" loading="lazy" style="height:120px;width:100%;object-fit:cover;background:#1e293b;" />';
-    var lvl = f.level ? '<span style="display:inline-block;padding:1px 6px;background:rgba(59,130,246,0.2);color:#93c5fd;border-radius:99px;font-size:10px;font-weight:700;">' + f.level + '</span>' : '';
-    var src = f._source === 'idb' ? '<span style="display:inline-block;padding:1px 6px;background:rgba(16,185,129,0.2);color:#86efac;border-radius:99px;font-size:10px;font-weight:700;">💾 내 PC</span>' : '';
-    return '<div class="tbf-lib-card" data-id="' + f.id + '" data-url="' + f.url + '" data-kind="' + f.kind + '" data-name="' + String(f.name||'').replace(/"/g,'&quot;') + '" style="background:#1e293b; border:1px solid rgba(148,163,184,0.2); border-radius:8px; overflow:hidden; cursor:pointer; transition:transform .15s, box-shadow .15s;">'
-      + thumb
-      + '<div style="padding:8px;">'
-      +   '<div style="font-size:12px; font-weight:700; color:#e2e8f0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + String(f.name||'').replace(/</g,'&lt;') + '</div>'
-      +   '<div style="display:flex; gap:4px; align-items:center; margin-top:4px; flex-wrap:wrap;">' + lvl + ' ' + src + '</div>'
-      + '</div>'
-      + '</div>';
+  // 정상 — 카드 그리드 렌더 (강화: 이미지 fallback + 명확한 디자인)
+  console.log('[loadTextbookLibrary] 렌더 시작 — 아이템 ' + items.length + '개');
+  if (items.length > 0) console.log('[loadTextbookLibrary] 첫 아이템 샘플:', items[0]);
+
+  grid.innerHTML = items.map(function(f, idx){
+    var safeName = String(f.name || '교재 ' + (idx+1)).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    var safeNameAttr = String(f.name || '').replace(/"/g, '&quot;');
+    var hasUrl = !!f.url;
+
+    // 썸네일 — 이미지면 onerror fallback, PDF/오디오/비디오면 아이콘
+    var thumb;
+    if (f.kind === 'pdf') {
+      thumb = '<div style="height:130px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff;font-size:48px;font-weight:900;">📕</div>';
+    } else if (f.kind === 'video') {
+      thumb = '<div style="height:130px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff;font-size:48px;">🎬</div>';
+    } else if (f.kind === 'audio') {
+      thumb = '<div style="height:130px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#581c87,#a855f7);color:#fff;font-size:48px;">🎵</div>';
+    } else if (hasUrl) {
+      // image — onerror 시 이모지 폴백
+      thumb = '<div style="height:130px;background:#0f172a;display:flex;align-items:center;justify-content:center;overflow:hidden;">' +
+                '<img src="' + f.url + '" loading="lazy" alt="' + safeNameAttr + '" ' +
+                'style="max-width:100%;max-height:100%;object-fit:contain;background:#fff;" ' +
+                'onerror="this.style.display=\'none\';this.parentNode.innerHTML=\'<div style=&quot;font-size:48px;color:#64748b&quot;>🖼️</div>\'" />' +
+              '</div>';
+    } else {
+      thumb = '<div style="height:130px;display:flex;align-items:center;justify-content:center;background:#0f172a;color:#64748b;font-size:42px;">📄</div>';
+    }
+
+    var lvl = f.level ? '<span style="display:inline-block;padding:2px 7px;background:rgba(59,130,246,0.25);color:#93c5fd;border-radius:99px;font-size:10.5px;font-weight:800;">' + f.level + '</span>' : '';
+    var src = f._source === 'idb' ? '<span style="display:inline-block;padding:2px 7px;background:rgba(16,185,129,0.25);color:#86efac;border-radius:99px;font-size:10.5px;font-weight:800;">💾 내 PC</span>' : '';
+    var pub = f.publisher ? '<span style="display:inline-block;padding:2px 7px;background:rgba(251,191,36,0.20);color:#fcd34d;border-radius:99px;font-size:10.5px;font-weight:700;">' + String(f.publisher).replace(/</g,'&lt;') + '</span>' : '';
+
+    return '<div class="tbf-lib-card" data-id="' + (f.id||'') + '" data-url="' + (f.url||'') + '" data-kind="' + (f.kind||'') + '" data-name="' + safeNameAttr + '" ' +
+           'style="background:linear-gradient(180deg,#1e293b,#0f172a); border:1.5px solid rgba(96,165,250,0.30); border-radius:12px; overflow:hidden; cursor:pointer; transition:transform .15s, box-shadow .15s, border-color .15s; display:flex; flex-direction:column;">' +
+      thumb +
+      '<div style="padding:10px 12px; flex:1; display:flex; flex-direction:column; gap:6px;">' +
+        '<div style="font-size:12.5px; font-weight:800; color:#fff; line-height:1.35; min-height:34px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">' + safeName + '</div>' +
+        '<div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">' + pub + ' ' + lvl + ' ' + src + '</div>' +
+      '</div>' +
+    '</div>';
   }).join('');
 
   grid.querySelectorAll('.tbf-lib-card').forEach(function(c){
@@ -23219,7 +23245,7 @@ console.log('[ph234] 교재 라이브러리 모달 + IndexedDB v3 통합 활성'
 })();
 </script>
 
-<!-- BUILD:20260530174158 -->
+<!-- BUILD:20260530175220 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
