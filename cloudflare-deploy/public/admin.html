@@ -15767,15 +15767,111 @@ async function togglePinPost(id, pinned) {
 }
 
 // ── 교재 ────────────────────────────────────────────────────────────
-async function loadTextbooks() {
-  const r = await fetch('/api/admin/textbooks',{cache:'no-store',credentials:'include'});
-  const d = await r.json().catch(()=>({}));
-  const tb = document.getElementById('textbooks-table');
-  if (!d.ok || !d.items || d.items.length === 0) { tb.innerHTML='<tr><td colspan="6" class="empty">—</td></tr>'; return; }
-  tb.innerHTML = d.items.map(t =>
-    `<tr><td>${t.id}</td><td><b>${_esc(t.title)}</b></td><td>${_esc(t.level)||'—'}</td><td style="text-align:right;">${t.units||'—'}</td><td>${_esc(t.publisher)||'—'}</td><td><code style="font-size:11px;">${_esc(t.isbn)||'—'}</code></td></tr>`
-  ).join('');
+// ═══════════════════════════════════════════════════════════════
+// ph240 — 컨텐츠 교재 관리 표 통합 로드
+// 서버 D1 (/api/admin/textbooks) + IndexedDB v3 (textbook-uploader 저장소) 합쳐서 표시
+// 화상수업 교재 라이브러리와 단일 진실로 통합
+// ═══════════════════════════════════════════════════════════════
+async function _adminLoadIdbTextbooks() {
+  return new Promise(function(resolve){
+    try {
+      var req = indexedDB.open('mangoi-textbooks', 3);
+      req.onupgradeneeded = function(e) {
+        var d = e.target.result;
+        if (!d.objectStoreNames.contains('textbooks')) {
+          var s = d.createObjectStore('textbooks', { keyPath: 'id' });
+          try { s.createIndex('publisher', 'publisher'); } catch(_){}
+          try { s.createIndex('createdAt', 'createdAt'); } catch(_){}
+        }
+        if (!d.objectStoreNames.contains('files')) {
+          d.createObjectStore('files', { keyPath: 'id' });
+        }
+      };
+      req.onsuccess = function() {
+        var db = req.result;
+        if (!db.objectStoreNames.contains('textbooks')) { db.close(); resolve([]); return; }
+        var tx = db.transaction(['textbooks'], 'readonly');
+        var tbReq = tx.objectStore('textbooks').getAll();
+        tbReq.onsuccess = function() {
+          db.close();
+          var rows = (tbReq.result || []).map(function(t){
+            return {
+              _src: 'idb',
+              id: t.id,
+              title: t.textbook || t.title || '—',
+              level: t.level || '',
+              units: (t.lessons || []).length || (t.unit_count || 0),
+              publisher: t.publisher || '',
+              isbn: t.isbn || '',
+              createdAt: t.createdAt
+            };
+          });
+          console.log('[ph240 admin loadTextbooks] IndexedDB 교재 ' + rows.length + '개');
+          resolve(rows);
+        };
+        tbReq.onerror = function() { db.close(); resolve([]); };
+      };
+      req.onerror = function() { resolve([]); };
+      req.onblocked = function() { resolve([]); };
+    } catch(e) { resolve([]); }
+  });
 }
+
+async function loadTextbooks() {
+  var tb = document.getElementById('textbooks-table');
+  if (!tb) return;
+  tb.innerHTML = '<tr><td colspan="6" class="empty">📥 불러오는 중…</td></tr>';
+
+  var items = [];
+  var srvCount = 0, idbCount = 0;
+
+  // 1) 서버 D1
+  try {
+    var r = await fetch('/api/admin/textbooks', { cache:'no-store', credentials:'include' });
+    var d = await r.json().catch(function(){ return {}; });
+    if (d.ok && d.items) {
+      srvCount = d.items.length;
+      items = items.concat(d.items.map(function(t){ return Object.assign({_src:'srv'}, t); }));
+    }
+  } catch(e) { console.warn('[ph240] 서버 API 실패', e); }
+
+  // 2) IndexedDB v3 (textbook-uploader 저장소)
+  try {
+    var idbItems = await _adminLoadIdbTextbooks();
+    idbCount = idbItems.length;
+    items = items.concat(idbItems);
+  } catch(e) { console.warn('[ph240] IDB 실패', e); }
+
+  console.log('[ph240] 컨텐츠 교재 관리 표 — 서버 ' + srvCount + '개 + IDB ' + idbCount + '개 = 총 ' + items.length + '개');
+
+  if (items.length === 0) {
+    tb.innerHTML = '<tr><td colspan="6" class="empty">📭 교재 없음 — 위 [교재 폴더 업로더] 로 추가하거나 [+ 교재 등록] 으로 수동 등록</td></tr>';
+    return;
+  }
+
+  // 출처 칩 helper
+  function srcChip(src) {
+    if (src === 'idb') {
+      return '<span style="display:inline-block;padding:2px 7px;background:rgba(16,185,129,0.22);color:#86efac;border-radius:99px;font-size:10.5px;font-weight:800;margin-left:6px" title="브라우저 IndexedDB — 폴더 업로더로 저장됨">💾 내 PC</span>';
+    }
+    return '<span style="display:inline-block;padding:2px 7px;background:rgba(59,130,246,0.22);color:#93c5fd;border-radius:99px;font-size:10.5px;font-weight:800;margin-left:6px" title="서버 D1 — 수동 등록됨">☁ 서버</span>';
+  }
+
+  tb.innerHTML = items.map(function(t, i) {
+    var idCell = t._src === 'idb'
+      ? '<span style="color:#86efac;font-size:14px">💾</span> <code style="font-size:10px;opacity:0.7">' + String(t.id || '').slice(0,8) + '</code>'
+      : (t.id || (i+1));
+    return '<tr>' +
+      '<td style="white-space:nowrap">' + idCell + '</td>' +
+      '<td><b>' + _esc(t.title || '—') + '</b>' + srcChip(t._src) + '</td>' +
+      '<td>' + (_esc(t.level) || '—') + '</td>' +
+      '<td style="text-align:right">' + (t.units || '—') + '</td>' +
+      '<td>' + (_esc(t.publisher) || '—') + '</td>' +
+      '<td><code style="font-size:11px">' + (_esc(t.isbn) || '—') + '</code></td>' +
+    '</tr>';
+  }).join('');
+}
+window.loadTextbooks = loadTextbooks;
 async function addTextbook() {
   const e = id => document.getElementById(id);
   const title = (e('tb-title').value||'').trim();
@@ -19166,7 +19262,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260530184557 -->
+        <!-- BUILD:20260530185815 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
