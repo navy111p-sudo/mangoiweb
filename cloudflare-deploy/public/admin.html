@@ -5,6 +5,68 @@
 <!-- ph149 (2026-05-28) — ph148 race condition 으로 인한 CSS raw 노출 제거 → 비활성 -->
 <style id="ph149-rollback-comment">/* ph148 비활성. admin.html 원본 사이드바 동작 복귀. */</style>
 
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- ph239 (2026-05-30) — 두 번째 로그인 모달 영구 차단                 -->
+<!-- admin/login.html 이 1차 로그인. 이 admin-login-overlay 는 절대 안 뜸  -->
+<!-- 누군가 띄우려고 하면 자동으로 /admin/login.html 로 redirect       -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<style id="ph239-nuke-style">
+  #admin-login-overlay { display: none !important; visibility: hidden !important; opacity: 0 !important; }
+</style>
+<script id="ph239-nuke-script">
+(function(){
+  "use strict";
+  function goLogin(){
+    try {
+      if (sessionStorage.getItem('_admin_login_redirected')) return; // 무한 루프 방지
+      sessionStorage.setItem('_admin_login_redirected', '1');
+      var next = encodeURIComponent(location.pathname + location.search);
+      location.replace('/admin/login.html?next=' + next);
+    } catch(e) { try { location.replace('/admin/login.html'); } catch(_){} }
+  }
+  function hasSession(){
+    try { return !!localStorage.getItem('mangoi_admin_session'); } catch(e){ return false; }
+  }
+  function watch(){
+    var ov = document.getElementById('admin-login-overlay');
+    if (!ov) { setTimeout(watch, 80); return; }
+    // 즉시 강제 숨김
+    ov.style.setProperty('display', 'none', 'important');
+    ov.setAttribute('aria-hidden', 'true');
+    // 다른 코드가 표시 시도 → 차단 + redirect
+    try {
+      var mo = new MutationObserver(function(muts){
+        for (var i = 0; i < muts.length; i++) {
+          if (muts[i].attributeName === 'style' || muts[i].attributeName === 'class') {
+            var cs = (ov.getAttribute('style') || '').toLowerCase();
+            if (cs.indexOf('display: flex') >= 0 || cs.indexOf('display:flex') >= 0 ||
+                cs.indexOf('display: block') >= 0 || cs.indexOf('display:block') >= 0) {
+              ov.style.setProperty('display', 'none', 'important');
+              if (!hasSession()) { console.log('[ph239] overlay 표시 시도 차단 → login.html 로 이동'); goLogin(); }
+              else { console.log('[ph239] 세션 있으므로 overlay 숨김만 (redirect 없음)'); }
+            }
+          }
+        }
+      });
+      mo.observe(ov, { attributes: true, attributeFilter: ['style','class'] });
+    } catch(e){}
+    // 세션이 처음부터 없으면 즉시 redirect (페이지가 빈 상태로 보이지 않게)
+    if (!hasSession()) {
+      console.log('[ph239] 진입 시 세션 없음 → login.html 로 이동');
+      goLogin();
+    } else {
+      try { sessionStorage.removeItem('_admin_login_redirected'); } catch(e){}
+    }
+  }
+  // overlay 가 body 에 들어오는 시점에 작동하도록 DOMContentLoaded + 즉시 양쪽
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', watch);
+  } else {
+    watch();
+  }
+})();
+</script>
+
 <script id="ph58-sw-kill">
 /* Phase 58 (2026-05-23) — 옛 ServiceWorker 강제 unregister + 캐시 비우기 (한 번만)
    휴대폰 PWA가 옛 HTML 잡고 있을 때 자동 복구. */
@@ -19104,7 +19166,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260530180904 -->
+        <!-- BUILD:20260530184557 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -19692,9 +19754,19 @@ window.rebuildGlobalSearchIndex = function() {
     const s = window._adminSession;
     if (!s) {
       banner.style.display = 'none';
-      if (overlay) overlay.style.display = 'flex';
+      // ph239: 두 번째 로그인 모달 대신 admin/login.html 로 자동 redirect (1회 제한)
+      if (overlay) overlay.style.display = 'none';
+      try {
+        if (!sessionStorage.getItem('_admin_login_redirected')) {
+          sessionStorage.setItem('_admin_login_redirected', '1');
+          var next = encodeURIComponent(location.pathname + location.search);
+          setTimeout(function(){ location.replace('/admin/login.html?next=' + next); }, 120);
+        }
+      } catch(e) {}
       return;
     }
+    // 세션 있음 — redirect 플래그 청소 (다음 로그아웃 시 다시 redirect 가능하도록)
+    try { sessionStorage.removeItem('_admin_login_redirected'); } catch(e){}
     if (overlay) overlay.style.display = 'none';
     const ROLE_DESC = {
       hq_exec:    { icon:'👑', name:'본사·경영진', name_en:'HQ Executive', bg:'linear-gradient(135deg,#4b5563,#1f2937)', fg:'#f9fafb' },
@@ -34385,103 +34457,27 @@ button.chip:hover,
         // 빈 응답
         if (!trimmed) {
           console.warn('[ph155] 빈 응답 — URL:', this.url);
-          throw new Error('FRIENDLY_EMPTY_RESPONSE');
+          var err = new Error('FRIENDLY_EMPTY_RESPONSE');
+          err.url = this.url;
+          err.status = this.status;
+          throw err;
         }
-        return JSON.parse(text);
-      } catch(e) {
-        if (e.message && /Unexpected token|is not valid JSON|FRIENDLY_/.test(e.message)) {
-          throw e;
+        // 정상 JSON 시도
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          console.warn('[ph155] JSON 파싱 실패 — URL:', this.url, 'err:', e.message);
+          var perr = new Error('FRIENDLY_JSON_PARSE');
+          perr.url = this.url;
+          perr.status = this.status;
+          throw perr;
         }
-        throw e;
-      }
-    };
+      };
+      try { Object.defineProperty(Response.prototype.json, '_ph155', { value: true }); } catch(_){}
+    }
+  } catch(e) {
+    console.error('[ph155] 패치 설치 실패:', e);
   }
-
-  // 2) 글로벌 unhandledrejection — JSON 파싱 실패 모두 잡음
-  var lastAlertTime = 0;
-  function friendlyAlert(msg){
-    var now = Date.now();
-    if (now - lastAlertTime < 3000) return;
-    lastAlertTime = now;
-    try { alert(msg); } catch(e){}
-  }
-
-  window.addEventListener('unhandledrejection', function(ev){
-    var reason = ev.reason;
-    var msg = (reason && (reason.message || String(reason))) || '';
-    if (/FRIENDLY_HTML_RESPONSE|Unexpected token.*JSON|is not valid JSON|FRIENDLY_EMPTY/.test(msg)) {
-      ev.preventDefault();
-      var status = reason && reason.status;
-      var friendly = '💡 이 기능은 아직 준비 중입니다.\n\n조금만 기다려 주세요. 곧 업데이트 됩니다.';
-      if (status === 401 || status === 403) {
-        friendly = '🔐 로그인이 필요합니다.\n\n다시 로그인해 주세요.';
-      } else if (status === 500 || status === 503) {
-        friendly = '⚠️ 서버에 일시적 문제가 있습니다.\n\n잠시 후 다시 시도해 주세요.';
-      }
-      friendlyAlert(friendly);
-      console.warn('[ph155] 친절 메시지 표시:', friendly.replace(/\n/g,' '));
-    }
-  });
-
-  window.addEventListener('error', function(ev){
-    var msg = (ev.error && ev.error.message) || ev.message || '';
-    if (/Unexpected token.*JSON|is not valid JSON/.test(msg)) {
-      ev.preventDefault();
-      friendlyAlert('💡 이 기능은 아직 준비 중입니다.\n\n조금만 기다려 주세요.');
-      console.warn('[ph155] JSON 동기 에러 친절 처리:', msg);
-    }
-  });
-
-  console.log('[ph155] 친절 에러 메시지 핸들러 활성 — JSON 깨짐 자동 처리');
-})();
-</script>
-
-<!-- ============================================================
-     Phase 156 (2026-05-28) — 교재 라이브러리 중국어 (HSK) 추가
-     · 언어 선택 (영어/중국어) 에 따라 레벨 옵션 자동 필터링
-     ============================================================ -->
-<script id="ph156-chinese-textbook">
-(function(){
-  'use strict';
-
-  // 언어 선택 시 해당 언어의 레벨만 표시
-  window.tbfUpdateLevelOptions = function(){
-    var langSel = document.getElementById('tbf-lang');
-    var levelSel = document.getElementById('tbf-level');
-    if (!langSel || !levelSel) return;
-    var lang = langSel.value;
-    // 모든 optgroup 순회 → data-lang 가 매칭되는 것만 표시
-    levelSel.querySelectorAll('optgroup').forEach(function(og){
-      var ogLang = og.getAttribute('data-lang');
-      if (!ogLang || ogLang === lang) {
-        og.style.display = '';
-        og.disabled = false;
-      } else {
-        og.style.display = 'none';
-        og.disabled = true;
-      }
-    });
-    // 현재 선택된 레벨이 다른 언어 것이면 초기화
-    var sel = levelSel.options[levelSel.selectedIndex];
-    if (sel && sel.parentElement && sel.parentElement.tagName === 'OPTGROUP') {
-      var ogLang = sel.parentElement.getAttribute('data-lang');
-      if (ogLang && ogLang !== lang) {
-        levelSel.value = '';
-      }
-    }
-  };
-
-  // 필터의 언어 선택과 레벨 필터 동기화 (선택 사항 — 필터는 더 자유롭게)
-  function init(){
-    if (typeof window.tbfUpdateLevelOptions === 'function') {
-      tbfUpdateLevelOptions();
-    }
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
-  setTimeout(init, 500);
-
-  console.log('[ph156] 교재 라이브러리 중국어 (HSK 1~6) 추가 활성');
 })();
 </script>
 
