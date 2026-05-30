@@ -6085,6 +6085,8 @@
                     <button id="pdf-tool-none" class="active" onclick="pdfSetDrawTool('none', this)" title="그리기 끔" data-ko="🖱 보기" data-en="🖱 View">🖱 보기</button>
                     <button id="pdf-tool-pen" onclick="pdfSetDrawTool('pen', this)" title="펜" data-ko="✏️ 펜" data-en="✏️ Pen">✏️ 펜</button>
                     <button id="pdf-tool-eraser" onclick="pdfSetDrawTool('eraser', this)" title="지우개" data-ko="🧽 지우개" data-en="🧽 Eraser">🧽 지우개</button>
+                    <!-- ph265: 키보드 텍스트 도구 -->
+                    <button id="pdf-tool-text" onclick="pdfSetDrawTool('text', this)" title="텍스트 (키보드 타자)" data-ko="📝 텍스트" data-en="📝 Text">📝 텍스트</button>
                     <input type="color" id="pdf-anno-color" value="#ef4444" title="색상" style="width:32px;height:26px;border:none;cursor:pointer;" />
                     <input type="range" id="pdf-anno-size" min="1" max="20" value="3" title="굵기" style="width:80px;" />
                     <button onclick="pdfClearAnno()" title="이 페이지 주석 모두 지우기" data-ko="🗑 지우기" data-en="🗑 Clear">🗑 지우기</button>
@@ -10175,6 +10177,21 @@ function pdfRedrawAnno(anno, pageNum) {
 }
 
 function pdfDrawStroke(ctx, w, h, s) {
+    // ph265: 텍스트 타입 그리기
+    if (s.tool === 'text' && s.text) {
+        ctx.save();
+        const fs = s.fontSize || 28;
+        ctx.font = '700 ' + fs + 'px -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif';
+        ctx.fillStyle = s.color || '#ef4444';
+        ctx.textBaseline = 'alphabetic';
+        // 가독성을 위한 흰 외곽선
+        ctx.lineWidth = Math.max(2, fs * 0.08);
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+        ctx.strokeText(s.text, s.x * w, s.y * h);
+        ctx.fillText(s.text, s.x * w, s.y * h);
+        ctx.restore();
+        return;
+    }
     if (!s.points || s.points.length === 0) return;
     ctx.save();
     ctx.lineCap = 'round';
@@ -10226,12 +10243,44 @@ function pdfBindAnnoEvents(annoId) {
     }
     anno.addEventListener('pointerdown', (e) => {
         if (pdfDrawTool === 'none') return;
-        drawing = true;
-        anno.setPointerCapture(e.pointerId);
         const color = document.getElementById('pdf-anno-color').value;
         const size  = parseInt(document.getElementById('pdf-anno-size').value) || 3;
-        currentStroke = { tool: pdfDrawTool, color, size, points: [pos(e)] };
         const pageNum = parseInt(anno.dataset.page);
+        // ph265: 텍스트 도구 — 클릭 위치에 input 띄우기
+        if (pdfDrawTool === 'text') {
+            e.preventDefault();
+            const rect = anno.getBoundingClientRect();
+            const fontSize = Math.max(14, size * 6);
+            // 기존 input 있으면 제거
+            const old = document.getElementById('ph265-textinput');
+            if (old) old.remove();
+            const inp = document.createElement('input');
+            inp.id = 'ph265-textinput';
+            inp.type = 'text';
+            inp.placeholder = '타자 입력 후 Enter';
+            inp.style.cssText = 'position:absolute;z-index:99999;left:' + e.clientX + 'px;top:' + (e.clientY - fontSize) + 'px;font-size:' + fontSize + 'px;color:' + color + ';background:rgba(255,255,255,0.92);border:2px dashed ' + color + ';padding:2px 6px;border-radius:4px;font-family:inherit;font-weight:700;outline:none;min-width:120px';
+            document.body.appendChild(inp);
+            inp.focus();
+            const px = (e.clientX - rect.left) / rect.width;
+            const py = (e.clientY - rect.top) / rect.height;
+            function commit(){
+                const txt = inp.value.trim();
+                inp.remove();
+                if (!txt) return;
+                if (!pdfAnnotations[pageNum]) pdfAnnotations[pageNum] = [];
+                pdfAnnotations[pageNum].push({ tool:'text', text:txt, color:color, size:size, x:px, y:py, fontSize:fontSize });
+                pdfRedrawAnno(anno, pageNum);
+            }
+            inp.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
+                else if (ev.key === 'Escape') { inp.remove(); }
+            });
+            inp.addEventListener('blur', commit);
+            return;
+        }
+        drawing = true;
+        anno.setPointerCapture(e.pointerId);
+        currentStroke = { tool: pdfDrawTool, color, size, points: [pos(e)] };
         if (!pdfAnnotations[pageNum]) pdfAnnotations[pageNum] = [];
         pdfAnnotations[pageNum].push(currentStroke);
     });
@@ -23918,7 +23967,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260531024530 -->
+<!-- BUILD:20260531025417 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25876,74 +25925,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 
     /* "📁 교재 업로드 (PDF/JPG/PNG)" 같은 큰 행동 버튼 */
     .vc-upload-btn, button[onclick*="upload"], button[onclick*="library"] {
-      padding: 10px 14px !important;
-      font-size: 12.5px !important;
-      border-radius: 12px !important;
-      background: rgba(15,23,42,0.7) !important;
-      border: 1px solid rgba(96,165,250,0.3) !important;
-      color: #e2e8f0 !important;
-    }
-    .vc-upload-btn:active { transform: scale(0.97) !important; }
-
-    /* 룸 안 우하단 작은 종료/카메라 버튼 stack — 정렬 */
-    .vc-bottom-fab, [class*="bottom-fab"] {
-      display: flex !important;
-      flex-direction: column !important;
-      gap: 8px !important;
-      right: 10px !important;
-      bottom: 10px !important;
-    }
-
-    /* 비디오 영역 폰트 (홍길동 / 마이크 표시) — 가독성 */
-    .video-label, .video-name, [class*="video-name"] {
-      font-size: 11px !important;
-      padding: 4px 8px !important;
-      border-radius: 8px !important;
-      background: rgba(0,0,0,0.6) !important;
-      backdrop-filter: blur(6px) !important;
-    }
-
-    /* 룸 안에선 메인 페이지 FAB 들 숨김 (이미 vc-in-call 가드 있지만 추가 안전) */
-    body.vc-in-call #precheck-fab {
-      bottom: 80px !important;
-      right: 10px !important;
-    }
-  }
-</style>
-
-<!-- ============================================================
-     Phase 170 (2026-05-29) - Mobile final polish (4 items)
-     · 1) 카카오 FAB: 더 작은 원형 (38px) + "상담" 텍스트 안에 표시
-     · 2) 수업 진단: 우하단 FAB 숨김 (카드로 이동됨, 위에서 추가)
-     · 3) AI 검색창 우측 → 화살표 숨김 (mic + Enter 키로 충분)
-     · 4) CTA 아래 "화상수업 로비 / 마이크·카메라" 안내 문구 숨김
-     ============================================================ -->
-<style id="ph170-mobile-final">
-  @media (max-width: 640px) {
-
-    /* ─── 1. 카카오 FAB — 38px 원형 + 안에 "상담" 작은 글자 ─── */
-    .ph49-kakao-fab, #ph49-kakao-fab {
-      width: 38px !important;
-      height: 38px !important;
-      padding: 0 !important;
-      bottom: 14px !important;
-      right: 12px !important;
-      flex-direction: column !important;
-      gap: 0 !important;
-      align-items: center !important;
-      justify-content: center !important;
-      line-height: 1 !important;
-    }
-    .ph49-kakao-fab svg, #ph49-kakao-fab svg {
-      width: 13px !important;
-      height: 13px !important;
-      margin-top: 2px !important;
-      display: block !important;
-    }
-    /* "상담" 글자 추가 — span 강제 표시 + 텍스트 교체 */
-    .ph49-kakao-fab span, #ph49-kakao-fab span {
-      display: inline !important;
-      content: "상담" !important;
+      padding: 9px 18px !important;
     }
   }
 </style>
