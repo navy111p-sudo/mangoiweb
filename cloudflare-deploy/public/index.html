@@ -7456,7 +7456,61 @@ async function vcJoinRoom(skipUI) {
             try { pdfNextPage(); } catch(e){}
           }
         });
-        console.log('[vc] PDF touch pan + swipe ready');
+        // ph260: 📏 Pinch-to-zoom + 더블탭 reset
+        let pinchStartDist = 0;
+        let pinchStartZoom = 1;
+        let pinching = false;
+        function dist(t1, t2){
+          var dx = t1.clientX - t2.clientX, dy = t1.clientY - t2.clientY;
+          return Math.sqrt(dx*dx + dy*dy);
+        }
+        wrap.addEventListener('touchstart', function(e){
+          if (e.touches.length === 2) {
+            pinching = true;
+            pinchStartDist = dist(e.touches[0], e.touches[1]);
+            pinchStartZoom = (typeof window.pdfZoom === 'number') ? window.pdfZoom : 1;
+            dragging = false;
+          }
+        }, { passive: true });
+        wrap.addEventListener('touchmove', function(e){
+          if (!pinching || e.touches.length !== 2) return;
+          e.preventDefault();
+          var d = dist(e.touches[0], e.touches[1]);
+          var ratio = d / (pinchStartDist || 1);
+          var newZoom = pinchStartZoom * ratio;
+          if (newZoom < 0.05) newZoom = 0.05;
+          if (newZoom > 5) newZoom = 5;
+          window.pdfZoom = newZoom;
+          if (typeof window._pinchRaf !== 'undefined') cancelAnimationFrame(window._pinchRaf);
+          window._pinchRaf = requestAnimationFrame(function(){
+            if (typeof window.pdfRender === 'function') window.pdfRender();
+          });
+        }, { passive: false });
+        wrap.addEventListener('touchend', function(e){
+          if (pinching && e.touches.length < 2) {
+            pinching = false;
+            console.log('[ph260] pinch end — zoom=' + Math.round((window.pdfZoom||1)*100) + '%');
+          }
+        });
+
+        // 더블탭 → 100% reset (pinch zoom 후 빠르게 원상복구)
+        var lastTap = 0;
+        wrap.addEventListener('touchend', function(e){
+          if (e.changedTouches.length !== 1) return;
+          var now = Date.now();
+          if (now - lastTap < 300) {
+            // 더블탭 감지
+            window.pdfZoom = 1;
+            if (typeof window.pdfRender === 'function') window.pdfRender();
+            console.log('[ph260] 더블탭 → zoom 100% reset');
+            lastTap = 0;
+            e.preventDefault && e.preventDefault();
+          } else {
+            lastTap = now;
+          }
+        });
+
+        console.log('[vc] PDF touch pan + swipe + ph260 pinch zoom ready');
       };
       // DOM 이 아직 안 만들어졌을 수 있어 약간 지연
       setTimeout(setup, 300);
@@ -23852,7 +23906,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260531015727 -->
+<!-- BUILD:20260531020720 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25884,70 +25938,10 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       letter-spacing: -0.3px !important;
       line-height: 1 !important;
     }
-    /* ph170-fix: 검은 타원 (카카오 외부 툴팁 라벨) 완전 제거 ─
-       .ph49-kakao-label 이 자동 hover/show-label 클래스로 떠 있어
-       "수업 입장" 버튼 위에 검은 타원으로 보였음. 모바일에서는 카카오 FAB
-       안에 이미 "상담" 글자가 있으니 외부 라벨 불필요 */
-    .ph49-kakao-fab .ph49-kakao-label,
-    .ph49-kakao-label,
-    .ph49-kakao-fab.ph49-kakao-show-label .ph49-kakao-label {
-      display: none !important;
-      opacity: 0 !important;
-      visibility: hidden !important;
-      pointer-events: none !important;
-    }
-
-    /* ─── 2. 수업 진단 FAB 우하단에서 숨김 (카드로 대체됨) ─── */
-    #precheck-fab {
-      display: none !important;
-    }
-    /* 캐시 ↻ FAB 위치도 조정 — 카톡 위로 */
-    .ph52-cache-fab, #ph52-cache-fab {
-      bottom: 62px !important;
-      right: 18px !important;
-      width: 32px !important;
-      height: 32px !important;
-    }
-
-    /* ─── 3. AI 검색창 우측 → 화살표 숨김 ─── */
-    .ai-search-go, #ai-home-go {
-      display: none !important;
-    }
-    /* 검색창 입력 영역이 화살표 자리까지 시원하게 사용 */
-    .ai-search-wrap > input,
-    .ai-search-wrap #ai-home-input {
-      flex: 1 1 auto !important;
-    }
-
-    /* ─── 4. CTA 아래 안내 문구 숨김 ─── */
-    /* "🎥 화상수업 로비로 입장" / "📹 마이크 / 카메라 사용" span 들 */
-    span[data-ko="🎥 화상수업 로비로 입장"],
-    span[data-ko="📹 마이크 / 카메라 사용"] {
-      display: none !important;
-    }
-    /* 안내 문구 컨테이너 (부모 div 가 비면 자동으로 안 보이지만 안전망) */
-    .ai-cta-hint, .cta-hint, .ai-cta-row + div[style*="font-size:11"],
-    .ai-cta-row + div[style*="opacity"],
-    .ai-cta-row ~ div:has(span[data-ko*="로비"]),
-    .ai-cta-row ~ div:has(span[data-ko*="마이크"]) {
-      display: none !important;
-    }
+    /* ph170-fix: 검은 타원 (카카오 외부 툴팁 라벨) 완전 제거 */
+    .ph49-kakao-label { display: none !important; }
   }
 </style>
-
-<script id="ph259-final-stub">
-(function(){
-  "use strict";
-  try {
-    document.querySelectorAll('.ph49-kakao-label').forEach(function(el){
-      el.style.display = 'none';
-      el.style.opacity = '0';
-      el.style.visibility = 'hidden';
-      el.style.pointerEvents = 'none';
-    });
-  } catch(e) {}
-})();
-</script>
 
 </body>
 </html>
