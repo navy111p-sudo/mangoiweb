@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B1224">
 <title>📖 교재 뷰어 — 망고아이</title>
-<!-- BUILD:20260530164907 -->
+<!-- BUILD:20260530170419 -->
 <style>
 :root{--bg:#0B1224;--bg-soft:#131C36;--bg-card:#1A2548;--border:rgba(96,165,250,0.18);--text:#E2E8F0;--text-dim:#94A3B8;--accent:#3B82F6;--accent-2:#60A5FA;--gold:#F59E0B;--ok:#10B981;--bad:#EF4444}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -201,29 +201,80 @@ html,body{background:#0a0f1f;color:var(--text);font-family:-apple-system,"Noto S
 <div class="empty" id="empty" style="display:none">
   <div class="ico">📭</div>
   <h2>교재를 찾을 수 없어요</h2>
-  <p>이 교재가 삭제되었거나, 다른 기기에서 등록한 교재일 수 있습니다.<br>
-  <a href="/textbook-uploader.html">📚 교재 업로더로 돌아가기</a></p>
+  <p>이 교재가 삭제되었거나, 다른 기기에서 등록한 교재일 수 있습니다.</p>
+  <div id="other-books" style="margin-top:18px"></div>
+  <p style="margin-top:18px"><a href="/textbook-uploader.html" style="background:linear-gradient(135deg,#3B82F6,#1D4ED8);color:#fff;padding:9px 18px;border-radius:99px;font-weight:800;text-decoration:none;font-size:13px">📚 교재 업로더로 돌아가기</a></p>
 </div>
 
 <script>
 'use strict';
 
 const DB_NAME = 'mangoi-textbooks';
+const DB_VER = 3;  // uploader 와 동일한 버전 (ph229)
 let db = null;
+
+function _createStores(d) {
+  if (!d.objectStoreNames.contains('textbooks')) {
+    const s = d.createObjectStore('textbooks', { keyPath: 'id' });
+    try { s.createIndex('publisher', 'publisher'); } catch(_){}
+    try { s.createIndex('category', 'category'); } catch(_){}
+    try { s.createIndex('createdAt', 'createdAt'); } catch(_){}
+  }
+  if (!d.objectStoreNames.contains('files')) {
+    d.createObjectStore('files', { keyPath: 'id' });
+  }
+}
+
 function openDB(){
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onsuccess = () => resolve(req.result);
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = (e) => _createStores(e.target.result);
+    req.onsuccess = () => {
+      const d = req.result;
+      if (!d.objectStoreNames.contains('textbooks') || !d.objectStoreNames.contains('files')) {
+        d.close();
+        const dr = indexedDB.deleteDatabase(DB_NAME);
+        dr.onsuccess = () => openDB().then(resolve).catch(reject);
+        dr.onerror = () => reject(dr.error);
+        return;
+      }
+      resolve(d);
+    };
     req.onerror = () => reject(req.error);
   });
 }
+
+async function _safeRun(fn) {
+  if (!db) db = await openDB();
+  try { return await fn(); }
+  catch (e) {
+    const m = (e && e.message) || '';
+    if (m.indexOf('object store') >= 0 || m.indexOf('NotFoundError') >= 0) {
+      try { db.close(); } catch(_){}
+      db = null;
+      await new Promise(r => { const dr = indexedDB.deleteDatabase(DB_NAME); dr.onsuccess = dr.onerror = dr.onblocked = () => r(); });
+      db = await openDB();
+      return await fn();
+    }
+    throw e;
+  }
+}
+
 function dbGet(store, key){
-  return new Promise((resolve, reject) => {
+  return _safeRun(() => new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readonly');
     const req = tx.objectStore(store).get(key);
     req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+    req.onerror = () => reject(req.error || new Error('IDB error'));
+  }));
+}
+function dbGetAll(store){
+  return _safeRun(() => new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error('IDB error'));
+  }));
 }
 
 const params = new URLSearchParams(location.search);
@@ -258,10 +309,36 @@ let currentObjectUrl = null;
   }
 })();
 
-function showEmpty(){
+async function showEmpty(){
   document.getElementById('empty').style.display = 'block';
   document.getElementById('stage').style.display = 'none';
   document.getElementById('title').textContent = '교재 없음';
+
+  // 다른 등록된 교재 목록 표시 (있으면)
+  try {
+    if (!db) db = await openDB();
+    const all = await dbGetAll('textbooks');
+    const box = document.getElementById('other-books');
+    if (!box) return;
+    if (!all || all.length === 0) {
+      box.innerHTML = '<p style="color:#94A3B8;font-size:12.5px">아직 등록된 교재가 없습니다. 먼저 업로더에서 교재를 등록해 주세요.</p>';
+      return;
+    }
+    all.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+    var html = '<div style="font-size:13px;color:#FBBF24;font-weight:700;margin-bottom:10px">📚 등록된 다른 교재 ' + all.length + '개</div>';
+    html += '<div style="display:flex;flex-direction:column;gap:6px;max-width:420px;margin:0 auto">';
+    all.slice(0, 8).forEach(function(t){
+      html += '<a href="/textbook-viewer.html?id=' + encodeURIComponent(t.id) + '" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(59,130,246,0.10);border:1px solid rgba(96,165,250,0.30);border-radius:10px;color:#fff;text-decoration:none;font-size:12.5px;font-weight:700;transition:background .15s" onmouseover="this.style.background=\'rgba(59,130,246,0.22)\'" onmouseout="this.style.background=\'rgba(59,130,246,0.10)\'">' +
+                '<span>📖 ' + escapeHtml(t.publisher) + ' · ' + escapeHtml(t.textbook) + ' <span style="color:#94A3B8;font-weight:500">· ' + escapeHtml(t.level||'') + '</span></span>' +
+                '<span style="color:#FBBF24;font-size:11px">' + (t.totalFiles||0) + ' 파일 ›</span>' +
+              '</a>';
+    });
+    if (all.length > 8) html += '<div style="font-size:11px;color:#94A3B8;text-align:center;margin-top:4px">+ ' + (all.length - 8) + '개 더…</div>';
+    html += '</div>';
+    box.innerHTML = html;
+  } catch(e) {
+    console.error('[showEmpty] 다른 교재 로딩 실패:', e);
+  }
 }
 
 function escapeHtml(s){
@@ -434,82 +511,65 @@ if (shareBtn) shareBtn.onclick = async () => {
   const stage = document.getElementById('stage');
   if (!stage) return;
 
-  // 콘텐츠를 .pan-wrap 으로 감싸기 (이미 있으면 skip)
   function ensureWrap() {
     let wrap = stage.querySelector('.pan-wrap');
     if (wrap) return wrap;
     wrap = document.createElement('div');
     wrap.className = 'pan-wrap';
-    // stage 안 직접 자식들을 wrap 안으로 이동
-    while (stage.firstChild) {
-      wrap.appendChild(stage.firstChild);
-    }
+    while (stage.firstChild) wrap.appendChild(stage.firstChild);
     stage.appendChild(wrap);
     return wrap;
   }
-
-  // 콘텐츠가 동적으로 변경될 수 있으니 MutationObserver 로 감지
   const mo = new MutationObserver(() => {
-    if (!stage.querySelector('.pan-wrap')) {
-      ensureWrap();
-      resetTransform();
-    }
+    if (!stage.querySelector('.pan-wrap')) { ensureWrap(); resetTransform(); }
   });
   mo.observe(stage, { childList: true });
   ensureWrap();
 
-  // 줌/팬 상태
   let scale = 1, tx = 0, ty = 0;
   const MIN_SCALE = 0.05, MAX_SCALE = 5;
 
-  function applyTransform() {
+  function applyTransformCore() {
     const wrap = stage.querySelector('.pan-wrap');
     if (!wrap) return;
     wrap.style.transform = 'translate(calc(-50% + ' + tx + 'px), calc(-50% + ' + ty + 'px)) scale(' + scale + ')';
-    const label = document.getElementById('zoom-label');
-    if (label) label.textContent = Math.round(scale * 100) + '%';
+    const lab = document.getElementById('zr-label');
+    if (lab) lab.textContent = Math.round(scale * 100) + '%';
+    const r = document.getElementById('zr-range');
+    if (r && document.activeElement !== r) r.value = Math.round(scale * 100);
   }
-  function resetTransform() {
-    scale = 1; tx = 0; ty = 0;
-    applyTransform();
-  }
+  let applyTransform = applyTransformCore;
+  function resetTransform() { scale = 1; tx = 0; ty = 0; applyTransform(); }
   window.tbResetView = resetTransform;
   window.tbZoom = function(delta){
     scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale + delta));
     applyTransform();
   };
 
-  // ── 마우스 드래그 ──
-  let dragging = false, dragStart = null;
+  let isDragging = false, dragStart = null;
   stage.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('.zoom-ctrl')) return;
-    dragging = true;
+    if (e.target.closest('.zoom-rail')) return;
+    isDragging = true;
     dragStart = { x: e.clientX - tx, y: e.clientY - ty };
     stage.classList.add('dragging');
     try { stage.setPointerCapture(e.pointerId); } catch(_){}
   });
   stage.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
+    if (!isDragging) return;
     tx = e.clientX - dragStart.x;
     ty = e.clientY - dragStart.y;
     applyTransform();
   });
   ['pointerup','pointercancel','pointerleave'].forEach(ev => {
-    stage.addEventListener(ev, () => {
-      dragging = false;
-      stage.classList.remove('dragging');
-    });
+    stage.addEventListener(ev, () => { isDragging = false; stage.classList.remove('dragging'); });
   });
-
-  // ── 휠 줌 ──
   stage.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale + delta));
+    const d = e.deltaY > 0 ? -0.1 : 0.1;
+    scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale + d));
     applyTransform();
   }, { passive: false });
 
-  // ── 터치 — 한 손가락 이동 / 두 손가락 핀치 ──
   let touchStartDist = 0, touchStartScale = 1;
   stage.addEventListener('touchstart', (e) => {
     if (e.touches.length === 2) {
@@ -532,68 +592,31 @@ if (shareBtn) shareBtn.onclick = async () => {
     }
   }, { passive: false });
   stage.addEventListener('touchend', () => { touchStartDist = 0; });
-
-  // 더블 클릭/탭 = 리셋
   stage.addEventListener('dblclick', resetTransform);
 
-  // 🔍 좌측 줌 슬라이더(자) UI 추가
   if (!document.querySelector('.zoom-rail')) {
     const rail = document.createElement('div');
     rail.className = 'zoom-rail';
     rail.innerHTML =
       '<div class="zr-mag">🔍</div>' +
       '<button class="zr-btn" type="button" id="zr-plus" title="확대">+</button>' +
-      '<div class="zr-slider">' +
-        '<input type="range" id="zr-range" min="5" max="500" step="1" value="100" />' +
-      '</div>' +
+      '<div class="zr-slider"><input type="range" id="zr-range" min="5" max="500" step="1" value="100" /></div>' +
       '<button class="zr-btn" type="button" id="zr-minus" title="축소">−</button>' +
       '<div class="zr-pct" id="zr-label">100%</div>' +
       '<button class="zr-btn reset" type="button" id="zr-reset" title="원래대로">↺</button>';
     document.body.appendChild(rail);
 
-    // 슬라이더 → 줌 동기화
-    const range = rail.querySelector('#zr-range');
-    range.addEventListener('input', (e) => {
-      const pct = Number(e.target.value);
-      scale = pct / 100;
+    rail.querySelector('#zr-range').addEventListener('input', (e) => {
+      scale = Number(e.target.value) / 100;
       applyTransform();
     });
-    // 버튼 핸들러
-    rail.querySelector('#zr-plus').onclick = () => {
-      tbZoom(0.1);
-      const r = document.getElementById('zr-range');
-      if (r) r.value = Math.round(scale * 100);
-    };
-    rail.querySelector('#zr-minus').onclick = () => {
-      tbZoom(-0.1);
-      const r = document.getElementById('zr-range');
-      if (r) r.value = Math.round(scale * 100);
-    };
-    rail.querySelector('#zr-reset').onclick = () => {
-      tbResetView();
-      const r = document.getElementById('zr-range');
-      if (r) r.value = 100;
-    };
+    rail.querySelector('#zr-plus').onclick = () => window.tbZoom(0.1);
+    rail.querySelector('#zr-minus').onclick = () => window.tbZoom(-0.1);
+    rail.querySelector('#zr-reset').onclick = () => window.tbResetView();
   }
 
-  // 호환: zoom-label 도 같이 갱신
-  const _origApply = applyTransform;
-  window.tbSyncZoomUI = function(){
-    const lab = document.getElementById('zr-label');
-    if (lab) lab.textContent = Math.round(scale * 100) + '%';
-    const r = document.getElementById('zr-range');
-    if (r && document.activeElement !== r) r.value = Math.round(scale * 100);
-  };
-  // applyTransform 호출 시 마다 UI sync
-  const _patched = function(){
-    _origApply();
-    window.tbSyncZoomUI();
-  };
-  // applyTransform 재정의 (외부 호출도 영향)
-  applyTransform = _patched;
-  window.tbSyncZoomUI();
-
-  console.log('[ph222] 교재 뷰어 — 드래그/터치/줌 활성 (이미지 전체 보임)');
+  applyTransform();
+  console.log('[ph222/229] 교재 뷰어 — 드래그/터치/줌 + DB v3 자가복구 활성');
 })();
 </script>
 </body>
