@@ -1731,6 +1731,53 @@
   #th-collapse-btn:hover { background: rgba(255,255,255,0.95); transform: scale(1.05); }
   body.th-collapsed #th-collapse-btn { transform: rotate(180deg); }
 </style>
+
+<style id="ph218-eval-mobile">
+  /* ⭐ 평가서 카드 — 모바일 가독성 fix */
+  @media (max-width: 600px) {
+    /* 별점 5개 라벨 — 줄바꿈 방지 + 작게 + ellipsis */
+    #card-eval .ev-lbl-sub {
+      font-size: 10.5px !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      display: block !important;
+      text-align: center !important;
+      margin-bottom: 4px !important;
+    }
+    /* 별점 입력칸 — 가운데 정렬 + 컴팩트 */
+    #card-eval .ev-score {
+      text-align: center !important;
+      padding: 6px 4px !important;
+      font-size: 14px !important;
+      font-weight: 800 !important;
+    }
+    /* 별점 5개 grid — 모바일에서 더 좁게 + 간격 줄임 */
+    #card-eval [class="evbox-rating"],
+    #card-eval div[style*="grid-template-columns:repeat(5,1fr)"] {
+      gap: 5px !important;
+    }
+    /* 평가서 저장 + 초기화 버튼 — 균형 + nowrap */
+    #card-eval div[style*="display:flex"][style*="gap:8px"][style*="align-items:center"] {
+      flex-wrap: wrap !important;
+      gap: 6px !important;
+    }
+    #card-eval div[style*="display:flex"][style*="gap:8px"][style*="align-items:center"] > button {
+      flex: 1 1 auto !important;
+      white-space: nowrap !important;
+      padding: 11px 12px !important;
+      font-size: 12.5px !important;
+    }
+    #card-eval div[style*="display:flex"][style*="gap:8px"][style*="align-items:center"] > button:first-child {
+      flex: 2 1 60% !important;
+    }
+    /* 학부모/학생 전화 2칸 — 모바일 좁을 때 1칸 */
+    #card-eval div[style*="grid-template-columns:1fr 1fr"] {
+      grid-template-columns: 1fr !important;
+      gap: 8px !important;
+    }
+  }
+</style>
 </head>
 <body>
 
@@ -7945,15 +7992,15 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
             <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.22);border-radius:12px;padding:14px 16px">
               <div style="font-size:13px;font-weight:800;color:#fbbf24;margin-bottom:10px" data-ko="⭐ 5개 항목 별점 (1~5)" data-en="⭐ 5-item Rating (1~5)">⭐ 5개 항목 별점 (1~5)</div>
               <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
-                <div><label class="ev-lbl-sub" data-ko="🎯 참여도" data-en="🎯 Participation">🎯 참여도</label>
+                <div><label class="ev-lbl-sub" data-ko="🎯 참여" data-en="🎯 Part.">🎯 참여</label>
                   <input id="ev-s-part" type="number" min="1" max="5" placeholder="5" class="ev-inp ev-score" /></div>
-                <div><label class="ev-lbl-sub" data-ko="💡 이해도" data-en="💡 Comprehension">💡 이해도</label>
+                <div><label class="ev-lbl-sub" data-ko="💡 이해" data-en="💡 Comp.">💡 이해</label>
                   <input id="ev-s-comp" type="number" min="1" max="5" placeholder="5" class="ev-inp ev-score" /></div>
                 <div><label class="ev-lbl-sub" data-ko="📝 숙제" data-en="📝 Homework">📝 숙제</label>
                   <input id="ev-s-hw" type="number" min="1" max="5" placeholder="5" class="ev-inp ev-score" /></div>
                 <div><label class="ev-lbl-sub" data-ko="😊 태도" data-en="😊 Attitude">😊 태도</label>
                   <input id="ev-s-att" type="number" min="1" max="5" placeholder="5" class="ev-inp ev-score" /></div>
-                <div><label class="ev-lbl-sub" data-ko="🗣 말하기" data-en="🗣 Speaking">🗣 말하기</label>
+                <div><label class="ev-lbl-sub" data-ko="🗣 말하기" data-en="🗣 Speak">🗣 말하기</label>
                   <input id="ev-s-spk" type="number" min="1" max="5" placeholder="5" class="ev-inp ev-score" /></div>
               </div>
             </div>
@@ -11619,9 +11666,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
   <div id="rec-filters" style="display:none;gap:6px;flex-wrap:wrap;margin:6px 0 8px 0;align-items:center;">
     <button class="rec-filter" data-filter="all" style="padding:4px 12px;border-radius:14px;border:1px solid #d1d5db;background:#fff;color:#111827;font-size:12px;cursor:pointer;" data-ko="전체" data-en="All" title="클릭하여 전체 녹화 목록 열기/닫기" data-ko-title="클릭하여 전체 녹화 목록 열기/닫기" data-en-title="Click to open/close all recordings">전체</button>
-    <button class="rec-filter" data-filter="both" style="padding:4px 12px;border-radius:14px;border:1px solid #d1d5db;background:#fff;color:#111827;font-size:12px;cursor:pointer;" data-ko="D1+R2 (정상)" data-en="D1+R2 (healthy)">D1+R2 (정상)</button>
-    <button class="rec-filter" data-filter="d1only" style="padding:4px 12px;border-radius:14px;border:1px solid #d1d5db;background:#fff;color:#111827;font-size:12px;cursor:pointer;" data-ko="D1만 / 파일 누락" data-en="D1 only / file missing">D1만 / 파일 누락</button>
-    <button class="rec-filter" data-filter="orphan" style="padding:4px 12px;border-radius:14px;border:1px solid #d1d5db;background:#fff;color:#111827;font-size:12px;cursor:pointer;" data-ko="R2만 / 메타 누락(고아)" data-en="R2 only / meta missing (orphan)">R2만 / 메타 누락(고아)</button>
+    <button class="rec-filter" data-filter="both" style="padding:4px 12px;border-radius:14px;border:1px solid #10b981;background:#ecfdf5;color:#065f46;font-size:12px;font-weight:700;cursor:pointer;" data-ko="✅ 정상" data-en="✅ Healthy" title="영상 파일과 기록 모두 정상">✅ 정상</button>
+    <button class="rec-filter" data-filter="d1only" style="padding:4px 12px;border-radius:14px;border:1px solid #f59e0b;background:#fffbeb;color:#92400e;font-size:12px;font-weight:700;cursor:pointer;" data-ko="⚠️ 영상 없음" data-en="⚠️ Video missing" title="기록은 있는데 영상 파일이 없는 경우 (업로드 실패 또는 진행 중)">⚠️ 영상 없음</button>
+    <button class="rec-filter" data-filter="orphan" style="padding:4px 12px;border-radius:14px;border:1px solid #ef4444;background:#fef2f2;color:#991b1b;font-size:12px;font-weight:700;cursor:pointer;" data-ko="⚠️ 기록 없음" data-en="⚠️ Record missing" title="영상은 있는데 어떤 수업인지 기록이 없는 경우 (정리 필요)">⚠️ 기록 없음</button>
     <span style="flex:1;"></span>
     <div id="rec-pagination" style="display:flex;gap:6px;align-items:center;font-size:12px;color:#6b7280;">
       <span id="rec-page-info">—</span>
@@ -12561,8 +12608,8 @@ function renderRecordingsTable() {
   const cEl = document.getElementById('rec-counts');
   if (cEl) {
     cEl.textContent = adminLang === 'en'
-      ? ('Total ' + rows.length + ' · Healthy(D1+R2) ' + cBoth + ' · D1 only ' + cD1 + ' · Orphan(R2 only) ' + cOrphan)
-      : ('총 ' + rows.length + '건 · 정상(D1+R2) ' + cBoth + ' · D1만 ' + cD1 + ' · 고아(R2만) ' + cOrphan);
+      ? ('Total ' + rows.length + '  ·  ✅ Healthy ' + cBoth + '  ·  ⚠️ Video missing ' + cD1 + '  ·  ⚠️ Record missing ' + cOrphan)
+      : ('총 ' + rows.length + '건  ·  ✅ 정상(영상+기록) ' + cBoth + '  ·  ⚠️ 영상 없음 ' + cD1 + '  ·  ⚠️ 기록 없음 ' + cOrphan);
   }
 
   if (!filtered.length) {
@@ -12592,9 +12639,9 @@ function renderRecordingsTable() {
 
     // 스토리지 배지 (D1=메타데이터 DB, R2=파일 저장소)
     let storageBadge;
-    if (r.source === 'both')         storageBadge = '<span class="badge ok" title="정상: D1(메타) + R2(파일) 모두 존재">D1+R2</span>';
-    else if (r.source === 'd1only')  storageBadge = '<span class="badge warn" title="주의: D1(메타)만 있음. R2에 동영상 파일 없음(업로드 실패 또는 진행 중)">'+(adminLang==='en'?'D1 only':'D1만')+'</span>';
-    else                              storageBadge = '<span class="badge" style="background:#fff7ed;color:#c2410c;" title="주의: R2(파일)만 있음. D1 메타데이터 없음(고아 파일)">'+(adminLang==='en'?'R2 only':'R2만')+'</span>';
+    if (r.source === 'both')         storageBadge = '<span class="badge ok" title="영상 파일과 기록 모두 정상">✅ 정상</span>';
+    else if (r.source === 'd1only')  storageBadge = '<span class="badge warn" title="기록은 있는데 영상 파일이 없습니다 (업로드 실패 또는 진행 중)">'+(adminLang==='en'?'⚠️ Video missing':'⚠️ 영상 없음')+'</span>';
+    else                              storageBadge = '<span class="badge" style="background:#fef2f2;color:#991b1b;border:1px solid #fecaca;" title="영상은 있는데 어떤 수업인지 기록이 없습니다 (정리 필요)">'+(adminLang==='en'?'⚠️ Record missing':'⚠️ 기록 없음')+'</span>';
 
     // 재생/액션 버튼
     let playBtn;
@@ -12722,7 +12769,7 @@ document.addEventListener('click', function(ev) {
   btn.style.background = '#111827';
   btn.style.color = '#fff';
 
-  // 다른 필터 (D1+R2 / D1만 / R2만) 클릭 시 — 닫힘 상태였다면 자동으로 열고 데이터 로드
+  // 필터 (정상 / 영상 없음 / 기록 없음) 클릭 시 — 자동 열고 데이터 로드
   const tableWrap2 = document.getElementById('rec-table-wrap');
   if (tableWrap2 && tableWrap2.style.display === 'none') {
     tableWrap2.style.display = '';
@@ -19057,7 +19104,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260530152852 -->
+        <!-- BUILD:20260530154654 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
