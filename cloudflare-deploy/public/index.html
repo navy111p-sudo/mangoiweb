@@ -1407,6 +1407,127 @@
         }
         .pdf-controls { flex-shrink: 0; }
         .pdf-pan-top { flex-shrink: 0; }
+        /* ═══════════════════════════════════════════════════════ */
+        /* ph259: 교재 툴바 모던 디자인 — 그룹 정리 + pill + glassmorphism */
+        /* ═══════════════════════════════════════════════════════ */
+        .pdf-controls, .pdf-anno-bar {
+            display: flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            padding: 8px 12px !important;
+            margin-bottom: 8px !important;
+            background: linear-gradient(135deg, rgba(30,41,59,0.85), rgba(15,23,42,0.85)) !important;
+            border: 1px solid rgba(96,165,250,0.18) !important;
+            border-radius: 14px !important;
+            backdrop-filter: blur(12px) saturate(160%) !important;
+            -webkit-backdrop-filter: blur(12px) saturate(160%) !important;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.25) !important;
+            flex-wrap: wrap !important;
+        }
+        .pdf-controls > button, .pdf-controls > label, .pdf-controls > span > button,
+        .pdf-anno-bar > button {
+            padding: 7px 14px !important;
+            border-radius: 99px !important;
+            background: rgba(51,65,85,0.6) !important;
+            color: #e2e8f0 !important;
+            font-size: 12.5px !important;
+            font-weight: 700 !important;
+            border: 1px solid rgba(148,163,184,0.18) !important;
+            cursor: pointer !important;
+            transition: all .15s !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 5px !important;
+        }
+        .pdf-controls > button:hover, .pdf-controls > label:hover, .pdf-controls > span > button:hover,
+        .pdf-anno-bar > button:hover {
+            background: rgba(59,130,246,0.25) !important;
+            border-color: rgba(96,165,250,0.5) !important;
+            color: #fff !important;
+            transform: translateY(-1px) !important;
+        }
+        .pdf-controls button.active, .pdf-anno-bar button.active,
+        .pdf-controls .pdf-view-btn.active {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important;
+            color: #fff !important;
+            border-color: transparent !important;
+            box-shadow: 0 4px 12px rgba(59,130,246,0.4) !important;
+        }
+        /* 라이브러리 버튼 — 강조 (primary) */
+        .pdf-controls button[onclick*="openTextbookLibrary"] {
+            background: linear-gradient(135deg, #3b82f6, #6366f1) !important;
+            color: #fff !important;
+            border-color: transparent !important;
+            font-weight: 800 !important;
+            box-shadow: 0 4px 12px rgba(99,102,241,0.4) !important;
+        }
+        .pdf-controls button[onclick*="openTextbookLibrary"]:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 8px 20px rgba(99,102,241,0.55) !important;
+        }
+        /* 페이지 정보 */
+        #pdf-page-info, #pdf-zoom-info {
+            font-size: 12.5px !important;
+            color: #cbd5e1 !important;
+            font-weight: 800 !important;
+            min-width: 60px !important;
+            text-align: center !important;
+            padding: 4px 10px !important;
+            background: rgba(0,0,0,0.25) !important;
+            border-radius: 99px !important;
+            font-variant-numeric: tabular-nums !important;
+        }
+        /* 그룹 사이 spacer (보이지 않는 구분) */
+        .pdf-controls > span {
+            display: inline-flex !important;
+            gap: 4px !important;
+            padding-left: 8px !important;
+            border-left: 1px solid rgba(148,163,184,0.15) !important;
+            margin-left: 4px !important;
+        }
+        /* 공유 중지 — 빨강 강조 */
+        .pdf-controls button[onclick*="pdfStopShare"] {
+            background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+            color: #fff !important;
+            border-color: transparent !important;
+            margin-left: auto !important;
+            box-shadow: 0 4px 10px rgba(239,68,68,0.35) !important;
+        }
+        .pdf-controls button[onclick*="pdfStopShare"]:hover {
+            background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+            transform: translateY(-2px) !important;
+        }
+        /* 파일 업로드 라벨 — 더 부드러운 secondary */
+        .pdf-controls label[for], .pdf-controls > label {
+            background: rgba(71,85,105,0.5) !important;
+        }
+        /* 주석 툴바 색상/굵기 input */
+        .pdf-anno-bar input[type="color"] {
+            width: 32px !important;
+            height: 32px !important;
+            border: 2px solid rgba(148,163,184,0.35) !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            padding: 2px !important;
+            background: rgba(0,0,0,0.2) !important;
+        }
+        .pdf-anno-bar input[type="range"] {
+            width: 90px !important;
+            accent-color: #3b82f6 !important;
+            cursor: pointer !important;
+        }
+        @media (max-width: 700px) {
+            .pdf-controls, .pdf-anno-bar {
+                padding: 6px 8px !important;
+                gap: 4px !important;
+            }
+            .pdf-controls > button, .pdf-controls > label,
+            .pdf-anno-bar > button {
+                padding: 6px 10px !important;
+                font-size: 11.5px !important;
+            }
+        }
+        /* ═══════════════════════════════════════════════════════ */
         .pdf-canvas-wrap canvas {
             display: block;
         }
@@ -23731,7 +23852,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260531014557 -->
+<!-- BUILD:20260531015727 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25814,208 +25935,17 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   }
 </style>
 
-<script id="ph170-cleanup-script">
+<script id="ph259-final-stub">
 (function(){
-  'use strict';
-  // 카카오 FAB span 의 텍스트가 "카톡상담" 등으로 길면 "상담"으로 교체
-  // (CSS 만으로는 textContent 변경 못함 — JS 로 처리)
-  function tweakKakao() {
-    var btn = document.getElementById('kakaoChannelBtn') || document.querySelector('.kakao-chat-btn') || document.querySelector('.ph49-kakao-fab');
-    if (!btn) return;
-    var span = btn.querySelector('span');
-    if (span && span.textContent.trim() !== '상담') {
-      // 데이터 속성 백업 후 변경
-      if (!span.dataset._ph170Orig) span.dataset._ph170Orig = span.textContent;
-      span.textContent = '상담';
-    }
-  }
-  // CTA 안내 문구 (sibling div) 모바일에서 강제 숨김 — CSS :has 안되는 구브라우저 대비
-  function hideCtaHint() {
-    if (window.innerWidth > 640) return;
-    var ctaRow = document.querySelector('.ai-cta-row');
-    if (!ctaRow) return;
-    var next = ctaRow.nextElementSibling;
-    while (next) {
-      var txt = next.textContent || '';
-      if (txt.indexOf('화상수업 로비') >= 0 || txt.indexOf('마이크') >= 0 || txt.indexOf('카메라') >= 0) {
-        next.style.display = 'none';
-        break;
-      }
-      // 1~2 형제만 확인
-      next = next.nextElementSibling;
-      if (next && next.tagName === 'SECTION') break;
-    }
-  }
-  function hideKakaoLabel() {
-    // .ph49-kakao-show-label 클래스가 자동 붙는 곳이 있어 강제 제거
-    document.querySelectorAll('.ph49-kakao-fab.ph49-kakao-show-label').forEach(function(el){
-      el.classList.remove('ph49-kakao-show-label');
-    });
-    // 라벨 자체도 명시적으로 숨김
+  "use strict";
+  try {
     document.querySelectorAll('.ph49-kakao-label').forEach(function(el){
       el.style.display = 'none';
       el.style.opacity = '0';
       el.style.visibility = 'hidden';
+      el.style.pointerEvents = 'none';
     });
-  }
-  function run() {
-    tweakKakao();
-    hideCtaHint();
-    hideKakaoLabel();
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
-  else run();
-  // Flutter/동적 inject 대비 재시도
-  setTimeout(run, 500);
-  setTimeout(run, 1500);
-  console.log('[ph170] mobile final polish — 카카오 작게+상담 / 수업진단 카드 / 화살표 숨김 / CTA 안내 숨김');
-})();
-</script>
-
-<!-- ============================================================
-     Phase 171 (2026-05-29) - API circuit breaker (503 폭주 fix)
-     · /api/points/balance 같은 엔드포인트가 503 받으면
-       5분간 같은 URL 호출 즉시 차단 (cached failure)
-     · 콘솔이 같은 503 으로 도배되는 문제 해결
-     · refreshPointsChip 등의 catch 블록도 silent 처리
-     ============================================================ -->
-<script id="ph171-api-circuit-breaker">
-(function(){
-  "use strict";
-
-  // ─── 1. window.fetch 래퍼: 503 cool-down 캐시 ────────────────
-  if (window._ph171_origFetch) return;  // 이중 적용 방지
-  window._ph171_origFetch = window.fetch.bind(window);
-
-  // url → expiry timestamp 매핑
-  var COOLDOWN = new Map();
-  var COOLDOWN_MS = 5 * 60 * 1000;  // 5분
-  var ENDPOINTS = [
-    "/api/points/balance",
-    "/api/points/",
-    "/api/gifts/",
-  ];
-
-  function pathFromInput(input) {
-    try {
-      if (typeof input === "string") {
-        var u = new URL(input, location.origin);
-        return u.pathname + u.search;
-      }
-      if (input && input.url) {
-        var u2 = new URL(input.url, location.origin);
-        return u2.pathname + u2.search;
-      }
-    } catch(e){}
-    return String(input);
-  }
-
-  function matchesGuarded(path) {
-    return ENDPOINTS.some(function(e){ return path.indexOf(e) >= 0; });
-  }
-
-  window.fetch = function(input, init){
-    var path = pathFromInput(input);
-    var guarded = matchesGuarded(path);
-
-    if (guarded) {
-      var expiry = COOLDOWN.get(path);
-      if (expiry && Date.now() < expiry) {
-        // 쿨다운 중 — fake 503 응답 즉시 반환 (네트워크 호출 X)
-        return Promise.resolve(new Response(
-          JSON.stringify({ ok: false, error: "Service temporarily unavailable (cached)", cached: true }),
-          { status: 503, headers: { "Content-Type": "application/json" } }
-        ));
-      }
-    }
-
-    return window._ph171_origFetch(input, init).then(function(res){
-      if (guarded && res.status === 503) {
-        COOLDOWN.set(path, Date.now() + COOLDOWN_MS);
-        console.warn("[ph171] circuit breaker tripped — 5min cooldown for", path);
-      } else if (guarded && res.ok) {
-        // 정상 응답이면 cooldown 해제
-        COOLDOWN.delete(path);
-      }
-      return res;
-    });
-  };
-
-  // ─── 2. refreshPointsChip 호출 빈도 throttle (30초) ────────────
-  var _lastChipCall = 0;
-  if (window.refreshPointsChip) {
-    var origChip = window.refreshPointsChip;
-    window.refreshPointsChip = function(){
-      var now = Date.now();
-      if (now - _lastChipCall < 30000) return Promise.resolve();
-      _lastChipCall = now;
-      return origChip.apply(this, arguments);
-    };
-  }
-  // refreshPointsChip 이 나중에 정의되는 경우 대비 — 한 번 더 시도
-  setTimeout(function(){
-    if (window.refreshPointsChip && !window.refreshPointsChip._ph171Wrapped) {
-      var orig = window.refreshPointsChip;
-      window.refreshPointsChip = function(){
-        var now = Date.now();
-        if (now - _lastChipCall < 30000) return Promise.resolve();
-        _lastChipCall = now;
-        return orig.apply(this, arguments);
-      };
-      window.refreshPointsChip._ph171Wrapped = true;
-    }
-  }, 1000);
-
-  console.log("[ph171] API circuit breaker active — /api/points/* 503 폭주 차단 (5min cooldown + 30s throttle)");
-})();
-</script>
-
-<!-- ============================================================
-     Phase 172 (2026-05-29) - 단어사전 + 음성일기 완전 박멸
-     · #mangoi-dict-fab / #mangoi-dict-modal / #voice-diary-chip
-     · CSS + JS DOM remove + MutationObserver 부활 차단
-     · PC/모바일 모두 적용 (기존 22337 처리는 모바일 한정이라 부족)
-     ============================================================ -->
-<style id="ph172-nuke-style">
-  /* 모든 상태에서 강제 숨김 — 모바일/PC/룸 입장 모두 */
-  #mangoi-dict-fab,
-  #mangoi-dict-modal,
-  #voice-diary-chip,
-  #voice-diary-modal,
-  [id*="voice-diary"],
-  [id*="mangoi-dict"],
-  button[onclick*="mangoiOpenDict"],
-  button[onclick*="openVoiceDiary"] {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-    width: 0 !important;
-    height: 0 !important;
-    overflow: hidden !important;
-    position: absolute !important;
-    left: -99999px !important;
-  }
-</style>
-
-<script id="ph172-nuke-script">
-(function(){
-  "use strict";
-  var NUKE_IDS = ["mangoi-dict-fab", "mangoi-dict-modal", "voice-diary-chip", "voice-diary-modal"];
-  var NUKE_SELECTOR = '#mangoi-dict-fab, #mangoi-dict-modal, #voice-diary-chip, #voice-diary-modal, [id*="voice-diary"], [id*="mangoi-dict"], button[onclick*="mangoiOpenDict"], button[onclick*="openVoiceDiary"]';
-
-  function nuke() {
-    try {
-      document.querySelectorAll(NUKE_SELECTOR).forEach(function(el){
-        try { el.remove(); } catch(e) { try { el.parentNode && el.parentNode.removeChild(el); } catch(e2){} }
-      });
-    } catch(e) {}
-    // 함수들도 무력화
-    try { window.mangoiOpenDict = function(){}; } catch(e){}
-    try { window.mangoiOpenVoice = function(){}; } catch(e){}
-  }
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", nuke);
-  setTimeout(nuke, 500);
+  } catch(e) {}
 })();
 </script>
 
