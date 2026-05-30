@@ -19239,29 +19239,80 @@ window.closeRulesModal = function() {
 <!-- ═══════════════════════════════════════════════════════════════ -->
 <!-- 🥭 Phase 39 — 교재 라이브러리 모달 (강의실에서 선택)                -->
 <!-- ═══════════════════════════════════════════════════════════════ -->
-<div id="tbf-lib-modal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.75); align-items:center; justify-content:center; padding:20px;">
-  <div style="background:#0f172a; border:1px solid rgba(148,163,184,0.25); border-radius:14px; width:min(960px, 95vw); max-height:88vh; display:flex; flex-direction:column; box-shadow:0 30px 80px rgba(0,0,0,0.6); overflow:hidden;">
-    <div style="padding:14px 18px; border-bottom:1px solid rgba(148,163,184,0.15); display:flex; align-items:center; gap:10px; background:linear-gradient(135deg,#1e293b,#0f172a);">
-      <div style="font-size:20px;">📚</div>
+<!-- ph238: 교재 라이브러리 모달 — 밝은 회색 테마 + 큰 카드 강제 -->
+<style>
+  #tbf-lib-modal{ display:none; position:fixed; inset:0; z-index:9999; background:rgba(15,23,42,0.72); align-items:center; justify-content:center; padding:20px; }
+  #tbf-lib-modal .tbf-shell{ background:#ffffff; border:1px solid #cbd5e1; border-radius:16px; width:min(1100px,96vw); max-height:90vh; display:flex; flex-direction:column; box-shadow:0 30px 80px rgba(0,0,0,0.45); overflow:hidden; color:#0f172a; }
+  #tbf-lib-modal .tbf-head{ padding:16px 22px; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; gap:12px; background:linear-gradient(135deg,#f8fafc,#e2e8f0); }
+  #tbf-lib-modal .tbf-title{ font-weight:900; color:#0f172a; font-size:18px; }
+  #tbf-lib-modal .tbf-sub{ font-size:12px; color:#475569; margin-top:2px; }
+  #tbf-lib-modal .tbf-close{ background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; font-size:18px; line-height:1; cursor:pointer; padding:8px 14px; border-radius:10px; font-weight:800; }
+  #tbf-lib-modal .tbf-close:hover{ background:#e2e8f0; }
+  #tbf-lib-modal .tbf-toolbar{ padding:12px 22px; border-bottom:1px solid #e2e8f0; display:flex; gap:10px; flex-wrap:wrap; background:#f8fafc; }
+  #tbf-lib-modal .tbf-toolbar select, #tbf-lib-modal .tbf-toolbar input{ padding:9px 12px; background:#fff; color:#0f172a; border:1.5px solid #cbd5e1; border-radius:9px; font-size:14px; font-weight:600; }
+  #tbf-lib-modal .tbf-toolbar input{ flex:1; min-width:180px; }
+  #tbf-lib-modal .tbf-toolbar button{ padding:9px 18px; background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:#fff; border:none; border-radius:9px; cursor:pointer; font-size:13.5px; font-weight:800; box-shadow:0 4px 12px rgba(59,130,246,0.35); }
+  #tbf-lib-grid{
+    padding:18px 22px !important;
+    overflow-y:auto !important;
+    flex:1 !important;
+    display:grid !important;
+    grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)) !important;
+    gap:18px !important;
+    background:#f1f5f9 !important;
+    align-content:start !important;
+  }
+  @media (max-width:640px){
+    #tbf-lib-grid{ grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)) !important; gap:12px !important; padding:14px !important; }
+  }
+  .tbf-lib-card{
+    background:#ffffff !important;
+    border:1.5px solid #e2e8f0 !important;
+    border-radius:14px !important;
+    overflow:hidden !important;
+    cursor:pointer !important;
+    transition:transform .15s, box-shadow .15s, border-color .15s !important;
+    display:flex !important;
+    flex-direction:column !important;
+    min-height:240px !important;
+    box-shadow:0 1px 3px rgba(15,23,42,0.06) !important;
+  }
+  .tbf-lib-card:hover{ transform:translateY(-3px) !important; box-shadow:0 10px 24px rgba(59,130,246,0.25) !important; border-color:#3b82f6 !important; }
+  .tbf-lib-thumb{ height:150px !important; min-height:150px !important; display:flex !important; align-items:center !important; justify-content:center !important; overflow:hidden !important; background:#f8fafc !important; }
+  .tbf-lib-thumb img{ max-width:100% !important; max-height:100% !important; object-fit:contain !important; display:block !important; }
+  .tbf-lib-body{ padding:12px 14px !important; flex:1 !important; display:flex !important; flex-direction:column !important; gap:8px !important; background:#fff !important; }
+  .tbf-lib-name{ font-size:13.5px !important; font-weight:800 !important; color:#0f172a !important; line-height:1.4 !important; min-height:38px !important; overflow:hidden !important; display:-webkit-box !important; -webkit-line-clamp:2 !important; -webkit-box-orient:vertical !important; }
+  .tbf-lib-meta{ display:flex !important; gap:5px !important; align-items:center !important; flex-wrap:wrap !important; }
+  .tbf-chip{ display:inline-block !important; padding:3px 9px !important; border-radius:99px !important; font-size:11px !important; font-weight:800 !important; }
+  .tbf-chip-lvl{ background:#dbeafe !important; color:#1e40af !important; }
+  .tbf-chip-pub{ background:#fef3c7 !important; color:#92400e !important; }
+  .tbf-chip-src{ background:#dcfce7 !important; color:#166534 !important; }
+  #tbf-lib-modal .tbf-foot{ padding:12px 22px; border-top:1px solid #e2e8f0; background:#f8fafc; font-size:12px; color:#475569; font-weight:600; }
+</style>
+
+<div id="tbf-lib-modal">
+  <div class="tbf-shell">
+    <div class="tbf-head">
+      <div style="font-size:24px;">📚</div>
       <div style="flex:1;">
-        <div style="font-weight:800; color:#f1f5f9; font-size:16px;" data-ko="교재 라이브러리" data-en="Textbook Library">교재 라이브러리</div>
-        <div style="font-size:11px; color:#94a3b8;" data-ko="관리자가 업로드한 교재 선택 → 칠판/뷰어에 표시" data-en="Pick a textbook uploaded by admin">관리자가 업로드한 교재 선택 → 칠판/뷰어에 표시</div>
+        <div class="tbf-title" data-ko="교재 라이브러리" data-en="Textbook Library">교재 라이브러리</div>
+        <div class="tbf-sub" data-ko="관리자가 업로드한 교재 선택 → 칠판/뷰어에 표시" data-en="Pick a textbook uploaded by admin">관리자가 업로드한 교재 선택 → 칠판/뷰어에 표시</div>
       </div>
-      <button onclick="closeTextbookLibrary()" style="background:transparent; border:none; color:#94a3b8; font-size:24px; cursor:pointer; padding:4px 12px; border-radius:6px;">×</button>
+      <button class="tbf-close" onclick="closeTextbookLibrary()">✕</button>
     </div>
-    <div style="padding:10px 18px; border-bottom:1px solid rgba(148,163,184,0.15); display:flex; gap:8px; flex-wrap:wrap; background:#0b1220;">
-      <select id="tbf-lib-level" onchange="loadTextbookLibrary()" style="padding:6px 10px; background:#0f172a; color:#e2e8f0; border:1px solid rgba(148,163,184,0.3); border-radius:6px; font-size:13px;">
+    <div class="tbf-toolbar">
+      <select id="tbf-lib-level" onchange="loadTextbookLibrary()">
         <option value="" data-ko="전체 레벨" data-en="All levels">전체 레벨</option>
         <option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option>
       </select>
-      <input id="tbf-lib-search" type="text" placeholder="검색…" data-ko-placeholder="검색…" data-en-placeholder="Search…" oninput="if(window._tblDeb)clearTimeout(window._tblDeb); window._tblDeb=setTimeout(loadTextbookLibrary,250)" style="flex:1; min-width:140px; padding:6px 10px; background:#0f172a; color:#e2e8f0; border:1px solid rgba(148,163,184,0.3); border-radius:6px; font-size:13px;" />
-      <button onclick="loadTextbookLibrary()" style="padding:6px 14px; background:#3b82f6; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:700;" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄</button>
+      <input id="tbf-lib-search" type="text" placeholder="🔍 교재명 검색…" data-ko-placeholder="🔍 교재명 검색…" data-en-placeholder="🔍 Search…" oninput="if(window._tblDeb)clearTimeout(window._tblDeb); window._tblDeb=setTimeout(loadTextbookLibrary,250)" />
+      <button onclick="loadTextbookLibrary()" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
     </div>
-    <div id="tbf-lib-grid" style="padding:14px 18px; overflow-y:auto; flex:1; display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:12px; background:#0a0f1c;">
-      <div style="grid-column:1/-1; text-align:center; padding:40px; color:#64748b;" data-ko="불러오는 중…" data-en="Loading…">불러오는 중…</div>
+    <div id="tbf-lib-grid">
+      <div style="grid-column:1/-1; text-align:center; padding:40px; color:#64748b;" data-ko="불러오는 중…" data-en="Loading…">📥 불러오는 중…</div>
     </div>
-    <div style="padding:10px 18px; border-top:1px solid rgba(148,163,184,0.15); background:#0b1220; font-size:11px; color:#94a3b8;">
-      <span data-ko="💡 강사 모드에서 선택하면 모든 참여자에게 자동 공유됩니다." data-en="💡 In teacher mode, selecting a file shares it with everyone automatically.">💡 강사 모드에서 선택하면 모든 참여자에게 자동 공유됩니다.</span>
+    <div class="tbf-foot">
+      <span data-ko="💡 강사 모드에서 카드를 클릭하면 모든 참여자에게 자동 공유됩니다." data-en="💡 In teacher mode, clicking a card shares it with everyone automatically.">💡 강사 모드에서 카드를 클릭하면 모든 참여자에게 자동 공유됩니다.</span>
     </div>
   </div>
 </div>
@@ -19433,56 +19484,58 @@ async function loadTextbookLibrary() {
     return;
   }
 
-  // 정상 — 카드 그리드 렌더 (강화: 이미지 fallback + 명확한 디자인)
-  console.log('[loadTextbookLibrary] 렌더 시작 — 아이템 ' + items.length + '개');
-  if (items.length > 0) console.log('[loadTextbookLibrary] 첫 아이템 샘플:', items[0]);
+  // ph238: 정상 — 카드 그리드 렌더 (밝은 테마 + CSS class 강제)
+  console.log('[ph238] 카드 렌더 시작 — 아이템 ' + items.length + '개');
+  if (items.length > 0) console.log('[ph238] 첫 아이템 샘플:', items[0]);
 
-  grid.innerHTML = items.map(function(f, idx){
-    var safeName = String(f.name || '교재 ' + (idx+1)).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  var html = '';
+  for (var i = 0; i < items.length; i++) {
+    var f = items[i];
+    var safeName = String(f.name || '교재 ' + (i+1)).replace(/</g, '&lt;').replace(/>/g, '&gt;');
     var safeNameAttr = String(f.name || '').replace(/"/g, '&quot;');
     var hasUrl = !!f.url;
 
-    // 썸네일 — 이미지면 onerror fallback, PDF/오디오/비디오면 아이콘
+    // 썸네일 (밝은 톤)
     var thumb;
     if (f.kind === 'pdf') {
-      thumb = '<div style="height:130px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff;font-size:48px;font-weight:900;">📕</div>';
+      thumb = '<div class="tbf-lib-thumb" style="background:linear-gradient(135deg,#fee2e2,#fecaca) !important;"><div style="font-size:64px;">📕</div></div>';
     } else if (f.kind === 'video') {
-      thumb = '<div style="height:130px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff;font-size:48px;">🎬</div>';
+      thumb = '<div class="tbf-lib-thumb" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe) !important;"><div style="font-size:64px;">🎬</div></div>';
     } else if (f.kind === 'audio') {
-      thumb = '<div style="height:130px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#581c87,#a855f7);color:#fff;font-size:48px;">🎵</div>';
+      thumb = '<div class="tbf-lib-thumb" style="background:linear-gradient(135deg,#e9d5ff,#d8b4fe) !important;"><div style="font-size:64px;">🎵</div></div>';
     } else if (hasUrl) {
-      // image — onerror 시 이모지 폴백
-      thumb = '<div style="height:130px;background:#0f172a;display:flex;align-items:center;justify-content:center;overflow:hidden;">' +
+      thumb = '<div class="tbf-lib-thumb">' +
                 '<img src="' + f.url + '" loading="lazy" alt="' + safeNameAttr + '" ' +
-                'style="max-width:100%;max-height:100%;object-fit:contain;background:#fff;" ' +
-                'onerror="this.style.display=\'none\';this.parentNode.innerHTML=\'<div style=&quot;font-size:48px;color:#64748b&quot;>🖼️</div>\'" />' +
+                'onerror="this.style.display=\'none\';this.parentNode.innerHTML=\'<div style=&quot;font-size:64px&quot;>🖼️</div>\'" />' +
               '</div>';
     } else {
-      thumb = '<div style="height:130px;display:flex;align-items:center;justify-content:center;background:#0f172a;color:#64748b;font-size:42px;">📄</div>';
+      thumb = '<div class="tbf-lib-thumb" style="background:linear-gradient(135deg,#f1f5f9,#e2e8f0) !important;"><div style="font-size:64px;">📄</div></div>';
     }
 
-    var lvl = f.level ? '<span style="display:inline-block;padding:2px 7px;background:rgba(59,130,246,0.25);color:#93c5fd;border-radius:99px;font-size:10.5px;font-weight:800;">' + f.level + '</span>' : '';
-    var src = f._source === 'idb' ? '<span style="display:inline-block;padding:2px 7px;background:rgba(16,185,129,0.25);color:#86efac;border-radius:99px;font-size:10.5px;font-weight:800;">💾 내 PC</span>' : '';
-    var pub = f.publisher ? '<span style="display:inline-block;padding:2px 7px;background:rgba(251,191,36,0.20);color:#fcd34d;border-radius:99px;font-size:10.5px;font-weight:700;">' + String(f.publisher).replace(/</g,'&lt;') + '</span>' : '';
+    var pub = f.publisher ? '<span class="tbf-chip tbf-chip-pub">' + String(f.publisher).replace(/</g,'&lt;') + '</span>' : '';
+    var lvl = f.level ? '<span class="tbf-chip tbf-chip-lvl">' + f.level + '</span>' : '';
+    var src = f._source === 'idb' ? '<span class="tbf-chip tbf-chip-src">💾 내 PC</span>' : '<span class="tbf-chip" style="background:#e0e7ff !important; color:#3730a3 !important;">☁ 서버</span>';
 
-    return '<div class="tbf-lib-card" data-id="' + (f.id||'') + '" data-url="' + (f.url||'') + '" data-kind="' + (f.kind||'') + '" data-name="' + safeNameAttr + '" ' +
-           'style="background:linear-gradient(180deg,#1e293b,#0f172a); border:1.5px solid rgba(96,165,250,0.30); border-radius:12px; overflow:hidden; cursor:pointer; transition:transform .15s, box-shadow .15s, border-color .15s; display:flex; flex-direction:column;">' +
+    html += '<div class="tbf-lib-card" data-id="' + (f.id||'') + '" data-url="' + (f.url||'') + '" data-kind="' + (f.kind||'') + '" data-name="' + safeNameAttr + '">' +
       thumb +
-      '<div style="padding:10px 12px; flex:1; display:flex; flex-direction:column; gap:6px;">' +
-        '<div style="font-size:12.5px; font-weight:800; color:#fff; line-height:1.35; min-height:34px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">' + safeName + '</div>' +
-        '<div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">' + pub + ' ' + lvl + ' ' + src + '</div>' +
+      '<div class="tbf-lib-body">' +
+        '<div class="tbf-lib-name">' + safeName + '</div>' +
+        '<div class="tbf-lib-meta">' + pub + lvl + src + '</div>' +
       '</div>' +
     '</div>';
-  }).join('');
+  }
+  grid.innerHTML = html;
 
-  grid.querySelectorAll('.tbf-lib-card').forEach(function(c){
-    c.addEventListener('mouseenter', function(){ c.style.transform = 'translateY(-2px)'; c.style.boxShadow = '0 6px 20px rgba(59,130,246,0.3)'; });
-    c.addEventListener('mouseleave', function(){ c.style.transform = ''; c.style.boxShadow = ''; });
-    c.addEventListener('click', function(){
-      selectFromTextbookLibrary(c.getAttribute('data-id'), c.getAttribute('data-url'), c.getAttribute('data-kind'), c.getAttribute('data-name'));
-    });
-  });
-  console.log('[loadTextbookLibrary] 렌더 완료 — ' + items.length + '개 카드');
+  // 클릭 핸들러
+  var cards = grid.querySelectorAll('.tbf-lib-card');
+  for (var j = 0; j < cards.length; j++) {
+    (function(c){
+      c.addEventListener('click', function(){
+        selectFromTextbookLibrary(c.getAttribute('data-id'), c.getAttribute('data-url'), c.getAttribute('data-kind'), c.getAttribute('data-name'));
+      });
+    })(cards[j]);
+  }
+  console.log('[ph238] 카드 렌더 완료 — ' + cards.length + '개 (DOM 확인됨)');
 }
 window.loadTextbookLibrary = loadTextbookLibrary;
 
@@ -19519,7 +19572,7 @@ document.addEventListener('keydown', function(e){
     if (m && m.style.display === 'flex') closeTextbookLibrary();
   }
 });
-console.log('[ph234] 교재 라이브러리 모달 + IndexedDB v3 통합 활성');
+console.log('[ph238] 교재 라이브러리 모달 — 밝은 테마 + CSS class 강제 + 큰 카드 (240px min-height)');
 </script>
 
 <!-- 📸 Phase SNS — 성취 카드 자동 생성 (Canvas 1080x1080) + 🎁 Phase RF — 추천 코드 모달 -->
@@ -23245,7 +23298,7 @@ console.log('[ph234] 교재 라이브러리 모달 + IndexedDB v3 통합 활성'
 })();
 </script>
 
-<!-- BUILD:20260530180340 -->
+<!-- BUILD:20260530180904 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
