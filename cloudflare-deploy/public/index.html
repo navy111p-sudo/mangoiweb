@@ -19982,7 +19982,22 @@ window.closeRulesModal = function() {
     alert(msg);
   };
 
-    console.log('[ph245] 교재 라이브러리 모달 — split layout + 카드 그리드 로드');
+  // ph256: BroadcastChannel — textbook-uploader 가 저장하면 자동 reload
+  try {
+    var libBC = new BroadcastChannel('mangoi-textbooks-sync');
+    libBC.onmessage = function(e) {
+      console.log('[ph256] 다른 탭에서 교재 업데이트:', e.data);
+      var modal = document.getElementById('tbf-lib-modal');
+      if (modal && modal.style.display === 'flex') {
+        console.log('[ph256] 라이브러리 모달 열려있음 → 자동 reload');
+        if (typeof window.loadTextbookLibrary === 'function') {
+          window.loadTextbookLibrary();
+        }
+      }
+    };
+  } catch(e) { console.warn('[ph256] BC 수신 설정 실패', e); }
+
+      console.log('[ph245] 교재 라이브러리 모달 — split layout + 카드 그리드 로드');
 })();
 
 </script>
@@ -23710,7 +23725,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260531012202 -->
+<!-- BUILD:20260531012842 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">

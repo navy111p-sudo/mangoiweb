@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B1224">
 <title>📚 교재 업로더 — 폴더째 드래그 → AI 자동 분류</title>
-<!-- BUILD:20260531012202 -->
+<!-- BUILD:20260531012842 -->
 <style>
 :root {
   --bg:#0B1224; --bg-soft:#131C36; --bg-card:#1A2548; --bg-card-2:#1E2D58;
@@ -749,8 +749,36 @@ document.getElementById('btn-save').onclick = async () => {
     // 라이브러리 새로고침
     await renderLibrary();
 
-    // 명확한 성공 알림
-    alert('✅ 저장 완료!\n\n📚 ' + savedBooks + '개 교재 · ' + totalFiles + '개 파일\n\n아래 "등록된 교재 라이브러리" 에서 확인하세요.');
+    // ph256: 저장 후 raw IDB 검증 + 다른 탭에 broadcast
+    var rawCount = '?';
+    try {
+      var verifyDb = await new Promise(function(r){
+        var rq = indexedDB.open('mangoi-textbooks', 3);
+        rq.onsuccess = function(){ r(rq.result); };
+        rq.onerror = function(){ r(null); };
+        setTimeout(function(){ r(null); }, 2000);
+      });
+      if (verifyDb) {
+        var vtx = verifyDb.transaction(['textbooks'], 'readonly');
+        rawCount = await new Promise(function(r){
+          var cr = vtx.objectStore('textbooks').count();
+          cr.onsuccess = function(){ r(cr.result); };
+          cr.onerror = function(){ r('error'); };
+        });
+        verifyDb.close();
+      }
+    } catch(e) { rawCount = 'exception:' + e.message; }
+    console.log('[ph256] 저장 후 IDB raw count =', rawCount);
+    // BroadcastChannel — 다른 탭(화상수업 룸)에 자동 알림
+    try {
+      var bc = new BroadcastChannel('mangoi-textbooks-sync');
+      bc.postMessage({ type: 'textbooks-updated', count: savedBooks, totalFiles: totalFiles, rawCount: rawCount, at: Date.now() });
+      bc.close();
+      console.log('[ph256] BroadcastChannel 송신 — 다른 탭에 알림');
+    } catch(e) { console.warn('[ph256] BC 송신 실패', e); }
+
+    // 명확한 성공 알림 (raw 검증 결과 포함)
+    alert('✅ 저장 완료!\n\n📚 ' + savedBooks + '개 교재 · ' + totalFiles + '개 파일\n🔍 IDB 검증: ' + rawCount + '개 textbooks 저장됨\n\n💡 화상수업 룸의 라이브러리는 자동으로 갱신됩니다.\n   안 보이면 라이브러리 [🔄 새로고침] 클릭.');
 
     // UI 복원
     document.getElementById('cr').classList.remove('show');
@@ -1064,7 +1092,7 @@ async function traverseEntry(entry, files, path) {
       if (el.tagName === 'SELECT') el.addEventListener('change', applyLibFilter);
     }
   });
-  openDB().then(() => renderLibrary()).catch(e => console.error('[init] DB 초기화 실패:', e));
+  openDB().then(() => renderLibrary()).catch(e => console.error('[init] DB 입력 실패:', e));
 })();
 </script>
 </body>
