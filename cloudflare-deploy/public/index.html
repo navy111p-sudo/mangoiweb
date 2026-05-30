@@ -23086,7 +23086,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260530171037 -->
+<!-- BUILD:20260530171721 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -24825,10 +24825,23 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 
   // IndexedDB 'mangoi-textbooks' 에서 모든 교재·파일 메타 가져와
   // /api/textbook-files items 와 같은 shape 으로 normalize
+  // ph232: DB_VER 3 으로 동기화 (uploader/viewer 와 일치) + onupgradeneeded store 생성
   window._ph168_loadIndexedBooks = function() {
     return new Promise(function(resolve){
       try {
-        var req = indexedDB.open('mangoi-textbooks', 1);
+        var req = indexedDB.open('mangoi-textbooks', 3);
+        req.onupgradeneeded = function(e) {
+          var d = e.target.result;
+          if (!d.objectStoreNames.contains('textbooks')) {
+            var s = d.createObjectStore('textbooks', { keyPath: 'id' });
+            try { s.createIndex('publisher', 'publisher'); } catch(_){}
+            try { s.createIndex('category', 'category'); } catch(_){}
+            try { s.createIndex('createdAt', 'createdAt'); } catch(_){}
+          }
+          if (!d.objectStoreNames.contains('files')) {
+            d.createObjectStore('files', { keyPath: 'id' });
+          }
+        };
         req.onsuccess = function() {
           var db = req.result;
           if (!db.objectStoreNames.contains('textbooks') || !db.objectStoreNames.contains('files')) {
@@ -25825,23 +25838,25 @@ console.log("[ph178-v3] 🚀 script loaded at " + new Date().toISOString());
   } catch(e){}
 
   var params0 = new URLSearchParams(location.search);
-  if (params0.get("menu") === "payment") {
-    console.log("[ph178-v3] URL 매칭 — 무한 폴링 시작");
-    // (디버그 배너 제거됨)
-  }
-
+  // 무한 폴링 — 500ms 마다 시도, 최대 30초
   var tickCount = 0;
   var pollerId = setInterval(function(){
     tickCount++;
-    if (tickCount > 60) { clearInterval(pollerId); console.log("[ph178-v3] 폴링 종료 (60 tick)"); return; }
-    try { tryOpenPayment(); } catch(e){ console.warn("[ph178-v3] tryOpenPayment error:", e); }
+    if (tickCount > 60) {
+      clearInterval(pollerId);
+      console.log("[ph178-v3] 폴링 종료 (60 tick)");
+      return;
+    }
+    try {
+      tryOpenPayment();
+    } catch(e){ console.warn("[ph178-v3] tryOpenPayment error:", e); }
     if (_ph178_step1_confirmed) {
       clearInterval(pollerId);
       console.log("[ph178-v3] ✅ step1 확정 — 폴링 종료");
-      // (디버그 배너 제거됨)
     }
   }, 500);
 
+  // 초기 즉시 호출도 유지
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function(){ setTimeout(tryOpenPayment, 200); });
   } else {
