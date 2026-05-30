@@ -19239,484 +19239,526 @@ window.closeRulesModal = function() {
 <!-- ═══════════════════════════════════════════════════════════════ -->
 <!-- 🥭 Phase 39 — 교재 라이브러리 모달 (강의실에서 선택)                -->
 <!-- ═══════════════════════════════════════════════════════════════ -->
-<!-- ph238: 교재 라이브러리 모달 — 밝은 회색 테마 + 큰 카드 강제 -->
-<style>
-  #tbf-lib-modal{ display:none; position:fixed; inset:0; z-index:9999; background:rgba(15,23,42,0.72); align-items:center; justify-content:center; padding:20px; }
-  #tbf-lib-modal .tbf-shell{ background:#ffffff; border:1px solid #cbd5e1; border-radius:16px; width:min(1100px,96vw); max-height:90vh; display:flex; flex-direction:column; box-shadow:0 30px 80px rgba(0,0,0,0.45); overflow:hidden; color:#0f172a; }
-  #tbf-lib-modal .tbf-head{ padding:16px 22px; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; gap:12px; background:linear-gradient(135deg,#f8fafc,#e2e8f0); }
-  #tbf-lib-modal .tbf-title{ font-weight:900; color:#0f172a; font-size:18px; }
-  #tbf-lib-modal .tbf-sub{ font-size:12px; color:#475569; margin-top:2px; }
-  #tbf-lib-modal .tbf-close{ background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; font-size:18px; line-height:1; cursor:pointer; padding:8px 14px; border-radius:10px; font-weight:800; }
-  #tbf-lib-modal .tbf-close:hover{ background:#e2e8f0; }
-  #tbf-lib-modal .tbf-toolbar{ padding:12px 22px; border-bottom:1px solid #e2e8f0; display:flex; gap:10px; flex-wrap:wrap; background:#f8fafc; }
-  #tbf-lib-modal .tbf-toolbar select, #tbf-lib-modal .tbf-toolbar input{ padding:9px 12px; background:#fff; color:#0f172a; border:1.5px solid #cbd5e1; border-radius:9px; font-size:14px; font-weight:600; }
-  #tbf-lib-modal .tbf-toolbar input{ flex:1; min-width:180px; }
-  #tbf-lib-modal .tbf-toolbar button{ padding:9px 18px; background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:#fff; border:none; border-radius:9px; cursor:pointer; font-size:13.5px; font-weight:800; box-shadow:0 4px 12px rgba(59,130,246,0.35); }
-  /* ph243 폴더 트리 모드 — grid 가 아닌 block */
-  #tbf-lib-grid{
-    padding:14px 18px !important;
-    overflow-y:auto !important;
-    flex:1 !important;
-    display:block !important;
-    background:#f8fafc !important;
-  }
-  /* 출판사(최상위) 폴더 */
-  .tbf-tree-pub{ background:#fff; border:1.5px solid #e2e8f0; border-radius:12px; margin-bottom:10px; overflow:hidden; box-shadow:0 1px 3px rgba(15,23,42,0.05); }
-  .tbf-tree-pub > summary{ list-style:none; padding:14px 16px; cursor:pointer; display:flex; align-items:center; gap:10px; font-weight:800; font-size:15px; color:#0f172a; background:linear-gradient(135deg,#dbeafe,#bfdbfe); user-select:none; }
-  .tbf-tree-pub > summary::-webkit-details-marker{ display:none; }
-  .tbf-tree-pub > summary::before{ content:'▶'; font-size:11px; color:#475569; transition:transform .15s; display:inline-block; width:14px; }
-  .tbf-tree-pub[open] > summary::before{ transform:rotate(90deg); }
-  .tbf-tree-pub > summary .tbf-pub-icon{ font-size:22px; }
-  .tbf-tree-pub > summary .tbf-pub-name{ flex:1; }
-  .tbf-tree-pub > summary .tbf-pub-count{ font-size:11px; padding:3px 9px; background:rgba(255,255,255,0.7); border-radius:99px; font-weight:700; color:#1e40af; }
-  /* 레벨(2단계) 폴더 */
-  .tbf-tree-lvl{ margin:6px 12px 10px 28px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; }
-  .tbf-tree-lvl > summary{ list-style:none; padding:10px 13px; cursor:pointer; display:flex; align-items:center; gap:8px; font-weight:700; font-size:13.5px; color:#334155; background:#eff6ff; user-select:none; }
-  .tbf-tree-lvl > summary::-webkit-details-marker{ display:none; }
-  .tbf-tree-lvl > summary::before{ content:'▶'; font-size:10px; color:#64748b; transition:transform .15s; display:inline-block; width:12px; }
-  .tbf-tree-lvl[open] > summary::before{ transform:rotate(90deg); }
-  .tbf-tree-lvl > summary .tbf-lvl-icon{ font-size:16px; }
-  .tbf-tree-lvl > summary .tbf-lvl-name{ flex:1; }
-  .tbf-tree-lvl > summary .tbf-lvl-count{ font-size:10.5px; padding:2px 7px; background:#dbeafe; border-radius:99px; color:#1e3a8a; font-weight:700; }
-  /* 레슨(3단계) 폴더 */
-  .tbf-tree-lsn{ margin:5px 10px 8px 24px; background:#fff; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; }
-  .tbf-tree-lsn > summary{ list-style:none; padding:8px 12px; cursor:pointer; display:flex; align-items:center; gap:7px; font-weight:600; font-size:12.5px; color:#475569; user-select:none; }
-  .tbf-tree-lsn > summary::-webkit-details-marker{ display:none; }
-  .tbf-tree-lsn > summary::before{ content:'▶'; font-size:9px; color:#94a3b8; transition:transform .15s; display:inline-block; width:11px; }
-  .tbf-tree-lsn[open] > summary::before{ transform:rotate(90deg); }
-  .tbf-tree-lsn > summary .tbf-lsn-name{ flex:1; }
-  .tbf-tree-lsn > summary .tbf-lsn-count{ font-size:10px; padding:2px 6px; background:#f1f5f9; border-radius:99px; color:#64748b; font-weight:700; }
-  /* 파일 카드 (4단계) */
-  .tbf-tree-files{ display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:8px; padding:8px 12px 12px; }
-  .tbf-file-card{ background:#fff; border:1.5px solid #e2e8f0; border-radius:8px; padding:8px; cursor:pointer; transition:all .15s; display:flex; flex-direction:column; align-items:center; gap:4px; }
-  .tbf-file-card:hover{ border-color:#3b82f6; box-shadow:0 4px 10px rgba(59,130,246,0.2); transform:translateY(-1px); }
-  .tbf-file-card .tbf-file-ico{ font-size:32px; }
-  .tbf-file-card .tbf-file-name{ font-size:11px; text-align:center; color:#334155; font-weight:600; word-break:break-all; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; min-height:28px; }
-  .tbf-file-card .tbf-file-kind{ font-size:9px; padding:1px 6px; background:#dbeafe; color:#1e40af; border-radius:99px; font-weight:700; text-transform:uppercase; }
-  @media (max-width:640px){
-    .tbf-tree-files{ grid-template-columns:repeat(auto-fill, minmax(100px, 1fr)); gap:6px; }
-    .tbf-file-card .tbf-file-ico{ font-size:26px; }
-    .tbf-tree-pub > summary{ padding:11px 13px; font-size:14px; }
-    .tbf-tree-lvl{ margin:5px 8px 8px 20px; }
-    .tbf-tree-lsn{ margin:4px 6px 6px 16px; }
-  }
-  .tbf-lib-card{
-    background:#ffffff !important;
-    border:1.5px solid #e2e8f0 !important;
-    border-radius:14px !important;
-    overflow:hidden !important;
-    cursor:pointer !important;
-    transition:transform .15s, box-shadow .15s, border-color .15s !important;
-    display:flex !important;
-    flex-direction:column !important;
-    min-height:240px !important;
-    box-shadow:0 1px 3px rgba(15,23,42,0.06) !important;
-  }
-  .tbf-lib-card:hover{ transform:translateY(-3px) !important; box-shadow:0 10px 24px rgba(59,130,246,0.25) !important; border-color:#3b82f6 !important; }
-  .tbf-lib-thumb{ height:150px !important; min-height:150px !important; display:flex !important; align-items:center !important; justify-content:center !important; overflow:hidden !important; background:#f8fafc !important; }
-  .tbf-lib-thumb img{ max-width:100% !important; max-height:100% !important; object-fit:contain !important; display:block !important; }
-  .tbf-lib-body{ padding:12px 14px !important; flex:1 !important; display:flex !important; flex-direction:column !important; gap:8px !important; background:#fff !important; }
-  .tbf-lib-name{ font-size:13.5px !important; font-weight:800 !important; color:#0f172a !important; line-height:1.4 !important; min-height:38px !important; overflow:hidden !important; display:-webkit-box !important; -webkit-line-clamp:2 !important; -webkit-box-orient:vertical !important; }
-  .tbf-lib-meta{ display:flex !important; gap:5px !important; align-items:center !important; flex-wrap:wrap !important; }
-  .tbf-chip{ display:inline-block !important; padding:3px 9px !important; border-radius:99px !important; font-size:11px !important; font-weight:800 !important; }
-  .tbf-chip-lvl{ background:#dbeafe !important; color:#1e40af !important; }
-  .tbf-chip-pub{ background:#fef3c7 !important; color:#92400e !important; }
-  .tbf-chip-src{ background:#dcfce7 !important; color:#166534 !important; }
-  #tbf-lib-modal .tbf-foot{ padding:12px 22px; border-top:1px solid #e2e8f0; background:#f8fafc; font-size:12px; color:#475569; font-weight:600; }
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- ph245 — 교재 라이브러리 모달 (split layout + 카드 그리드)         -->
+<!-- 좌측: 영어/중국어 카테고리 폴더 트리                                -->
+<!-- 우측: 선택된 폴더의 교재 카드 그리드 (썸네일+레벨+레슨수+hover 액션) -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<style id="ph245-lib-style">
+  #tbf-lib-modal{ display:none; position:fixed; inset:0; z-index:9999; background:rgba(15,23,42,0.72); align-items:center; justify-content:center; padding:14px; font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif; }
+  #tbf-lib-modal .tbf-shell{ background:#fff; border-radius:16px; width:min(1200px,98vw); height:min(800px,92vh); display:flex; flex-direction:column; box-shadow:0 30px 80px rgba(0,0,0,0.5); overflow:hidden; color:#0f172a; }
+  #tbf-lib-modal .tbf-head{ padding:14px 22px; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; gap:12px; background:linear-gradient(135deg,#f8fafc,#eff6ff); }
+  #tbf-lib-modal .tbf-title{ font-weight:900; font-size:17px; color:#0f172a; }
+  #tbf-lib-modal .tbf-sub{ font-size:11.5px; color:#64748b; margin-top:2px; }
+  #tbf-lib-modal .tbf-close{ background:#fff; border:1px solid #cbd5e1; color:#475569; font-size:16px; cursor:pointer; padding:8px 14px; border-radius:10px; font-weight:800; }
+  #tbf-lib-modal .tbf-close:hover{ background:#f1f5f9; }
+  /* 상단 툴바 */
+  #tbf-lib-modal .tbf-toolbar{ padding:10px 22px; border-bottom:1px solid #e2e8f0; display:flex; gap:8px; flex-wrap:wrap; align-items:center; background:#fafbfc; }
+  #tbf-lib-modal .tbf-toolbar select, #tbf-lib-modal .tbf-toolbar input{ padding:8px 12px; background:#fff; color:#0f172a; border:1.5px solid #cbd5e1; border-radius:10px; font-size:13px; font-weight:600; font-family:inherit; }
+  #tbf-lib-modal .tbf-toolbar input{ flex:1; min-width:160px; }
+  #tbf-lib-modal .tbf-toolbar button{ padding:8px 16px; background:linear-gradient(135deg,#3b82f6,#2563eb); color:#fff; border:none; border-radius:10px; cursor:pointer; font-size:12.5px; font-weight:800; box-shadow:0 3px 8px rgba(59,130,246,0.3); }
+  /* split body */
+  #tbf-lib-modal .tbf-body{ flex:1; display:flex; min-height:0; }
+  /* 좌측 사이드바 */
+  #tbf-lib-modal .tbf-sidebar{ width:260px; min-width:260px; border-right:1px solid #e2e8f0; background:#f8fafc; overflow-y:auto; padding:14px 10px; }
+  @media(max-width:760px){ #tbf-lib-modal .tbf-sidebar{ width:200px; min-width:200px; } }
+  @media(max-width:560px){ #tbf-lib-modal .tbf-sidebar{ display:none; } }
+  #tbf-lib-modal .tbf-sb-card{ background:#fff; border:1.5px solid #bfdbfe; border-radius:12px; overflow:hidden; }
+  #tbf-lib-modal .tbf-sb-header{ padding:11px 14px; background:linear-gradient(135deg,#dbeafe,#bfdbfe); font-weight:900; font-size:14px; color:#0f172a; border-bottom:1px solid #93c5fd; }
+  #tbf-lib-modal .tbf-sb-body{ padding:6px 4px; }
+  /* 카테고리 (영어/중국어) — 1단계 */
+  #tbf-lib-modal .tbf-cat{ margin-bottom:4px; }
+  #tbf-lib-modal .tbf-cat-head{ display:flex; align-items:center; gap:6px; padding:8px 8px; cursor:pointer; border-radius:8px; user-select:none; font-weight:800; color:#1e293b; font-size:13.5px; transition:background .15s; }
+  #tbf-lib-modal .tbf-cat-head:hover{ background:#eff6ff; }
+  #tbf-lib-modal .tbf-cat-head .tbf-cat-chev{ display:inline-block; width:12px; font-size:10px; color:#64748b; transition:transform .15s; }
+  #tbf-lib-modal .tbf-cat.open .tbf-cat-chev{ transform:rotate(90deg); }
+  #tbf-lib-modal .tbf-cat-head .tbf-cat-icon{ font-size:18px; }
+  #tbf-lib-modal .tbf-cat-head .tbf-cat-count{ margin-left:auto; font-size:10.5px; padding:2px 7px; background:#dbeafe; color:#1e40af; border-radius:99px; font-weight:700; }
+  /* 코스 (Phonics/MES/BTS/SIU/마스터3) — 2단계 */
+  #tbf-lib-modal .tbf-courses{ display:none; padding:2px 4px 4px 18px; }
+  #tbf-lib-modal .tbf-cat.open .tbf-courses{ display:block; }
+  #tbf-lib-modal .tbf-course{ display:flex; align-items:center; gap:6px; padding:7px 10px; cursor:pointer; border-radius:7px; font-size:13px; color:#334155; font-weight:600; transition:all .12s; margin-bottom:2px; }
+  #tbf-lib-modal .tbf-course:hover{ background:#eff6ff; color:#1e40af; }
+  #tbf-lib-modal .tbf-course.active{ background:#3b82f6; color:#fff; font-weight:800; box-shadow:0 2px 6px rgba(59,130,246,0.35); }
+  #tbf-lib-modal .tbf-course.active .tbf-course-count{ background:rgba(255,255,255,0.3); color:#fff; }
+  #tbf-lib-modal .tbf-course .tbf-course-icon{ font-size:15px; }
+  #tbf-lib-modal .tbf-course .tbf-course-count{ margin-left:auto; font-size:10px; padding:1px 6px; background:#e2e8f0; color:#475569; border-radius:99px; font-weight:700; }
+  /* 우측 메인 */
+  #tbf-lib-modal .tbf-main{ flex:1; overflow-y:auto; background:#f1f5f9; padding:18px 22px; min-width:0; }
+  #tbf-lib-modal .tbf-main-head{ display:flex; align-items:center; gap:10px; margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid #cbd5e1; }
+  #tbf-lib-modal .tbf-main-title{ font-size:18px; font-weight:900; color:#0f172a; }
+  #tbf-lib-modal .tbf-main-sub{ font-size:11.5px; color:#64748b; font-weight:600; }
+  #tbf-lib-modal .tbf-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:16px; }
+  @media(max-width:560px){ #tbf-lib-modal .tbf-grid{ grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px; } }
+  /* 교재 카드 */
+  #tbf-lib-modal .tbf-card{ background:#fff; border:1.5px solid #e2e8f0; border-radius:14px; overflow:hidden; cursor:pointer; transition:all .18s; display:flex; flex-direction:column; position:relative; box-shadow:0 1px 3px rgba(15,23,42,0.06); }
+  #tbf-lib-modal .tbf-card:hover{ transform:translateY(-3px); border-color:#3b82f6; box-shadow:0 12px 28px rgba(59,130,246,0.25); }
+  #tbf-lib-modal .tbf-card-thumb{ height:140px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:linear-gradient(135deg,#f1f5f9,#e2e8f0); position:relative; }
+  #tbf-lib-modal .tbf-card-thumb img{ max-width:100%; max-height:100%; object-fit:contain; display:block; }
+  #tbf-lib-modal .tbf-card-thumb .tbf-card-emoji{ font-size:56px; }
+  #tbf-lib-modal .tbf-card-body{ padding:12px 14px; flex:1; display:flex; flex-direction:column; gap:6px; background:#fff; }
+  #tbf-lib-modal .tbf-card-title{ font-size:14px; font-weight:800; color:#0f172a; line-height:1.35; min-height:38px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  #tbf-lib-modal .tbf-card-meta{ display:flex; gap:5px; align-items:center; flex-wrap:wrap; }
+  #tbf-lib-modal .tbf-card-chip{ display:inline-block; padding:2px 8px; border-radius:99px; font-size:10.5px; font-weight:800; }
+  #tbf-lib-modal .tbf-chip-lvl{ background:#dbeafe; color:#1e40af; }
+  #tbf-lib-modal .tbf-chip-cnt{ background:#fef3c7; color:#92400e; }
+  /* hover 액션 (PC 만) */
+  #tbf-lib-modal .tbf-card-actions{ position:absolute; inset:0; background:rgba(15,23,42,0.78); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; opacity:0; transition:opacity .15s; padding:14px; }
+  #tbf-lib-modal .tbf-card:hover .tbf-card-actions{ opacity:1; }
+  #tbf-lib-modal .tbf-card-actions button{ padding:9px 18px; border:none; border-radius:99px; font-size:12.5px; font-weight:800; cursor:pointer; font-family:inherit; transition:transform .12s; }
+  #tbf-lib-modal .tbf-act-apply{ background:linear-gradient(135deg,#10b981,#059669); color:#fff; box-shadow:0 4px 12px rgba(16,185,129,0.4); }
+  #tbf-lib-modal .tbf-act-preview{ background:#fff; color:#0f172a; border:1.5px solid rgba(255,255,255,0.3); }
+  #tbf-lib-modal .tbf-card-actions button:hover{ transform:scale(1.05); }
+  @media(max-width:560px){ #tbf-lib-modal .tbf-card-actions{ opacity:0; pointer-events:none; } }
+  /* 빈 상태 */
+  #tbf-lib-modal .tbf-empty{ text-align:center; padding:60px 20px; color:#64748b; }
+  #tbf-lib-modal .tbf-empty-ico{ font-size:56px; margin-bottom:12px; opacity:0.5; }
+  #tbf-lib-modal .tbf-empty-title{ font-size:15px; font-weight:700; color:#334155; margin-bottom:6px; }
+  /* foot */
+  #tbf-lib-modal .tbf-foot{ padding:10px 22px; border-top:1px solid #e2e8f0; background:#fafbfc; font-size:11.5px; color:#64748b; font-weight:600; }
 </style>
 
 <div id="tbf-lib-modal">
   <div class="tbf-shell">
+    <!-- 헤더 -->
     <div class="tbf-head">
-      <div style="font-size:24px;">📚</div>
-      <div style="flex:1;">
+      <div style="font-size:24px">📚</div>
+      <div style="flex:1">
         <div class="tbf-title" data-ko="교재 라이브러리" data-en="Textbook Library">교재 라이브러리</div>
-        <div class="tbf-sub" data-ko="관리자가 업로드한 교재 선택 → 칠판/뷰어에 표시" data-en="Pick a textbook uploaded by admin">관리자가 업로드한 교재 선택 → 칠판/뷰어에 표시</div>
+        <div class="tbf-sub" data-ko="관리자가 업로드한 교재 선택 → 칠판/뷰어에 표시" data-en="Pick a textbook → show on board">관리자가 업로드한 교재 선택 → 칠판/뷰어에 표시</div>
       </div>
-      <button class="tbf-close" onclick="closeTextbookLibrary()">✕</button>
+      <button class="tbf-close" onclick="closeTextbookLibrary()" title="닫기">✕</button>
     </div>
+    <!-- 툴바 -->
     <div class="tbf-toolbar">
-      <select id="tbf-lib-level" onchange="loadTextbookLibrary()">
-        <option value="" data-ko="전체 레벨" data-en="All levels">전체 레벨</option>
+      <select id="tbf-lib-level" onchange="if(window.loadTextbookLibrary)loadTextbookLibrary()">
+        <option value="">📊 전체 레벨</option>
         <option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option>
+        <option>Lv 1</option><option>Lv 2</option><option>Lv 3</option><option>Lv 4</option><option>Lv 5</option>
       </select>
-      <input id="tbf-lib-search" type="text" placeholder="🔍 교재명 검색…" data-ko-placeholder="🔍 교재명 검색…" data-en-placeholder="🔍 Search…" oninput="if(window._tblDeb)clearTimeout(window._tblDeb); window._tblDeb=setTimeout(loadTextbookLibrary,250)" />
-      <button onclick="loadTextbookLibrary()" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+      <input id="tbf-lib-search" type="text" placeholder="🔍 교재명 검색…" oninput="if(window._tblDeb)clearTimeout(window._tblDeb); window._tblDeb=setTimeout(loadTextbookLibrary,250)" />
+      <button onclick="loadTextbookLibrary()">🔄 새로고침</button>
     </div>
-    <div id="tbf-lib-grid">
-      <div style="grid-column:1/-1; text-align:center; padding:40px; color:#64748b;" data-ko="불러오는 중…" data-en="Loading…">📥 불러오는 중…</div>
+    <!-- 본문 split -->
+    <div class="tbf-body">
+      <!-- 좌측 사이드바 -->
+      <aside class="tbf-sidebar">
+        <div class="tbf-sb-card">
+          <div class="tbf-sb-header">📁 카테고리</div>
+          <div class="tbf-sb-body" id="tbf-lib-tree">
+            <div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">📥 로딩 중…</div>
+          </div>
+        </div>
+      </aside>
+      <!-- 우측 메인 -->
+      <main class="tbf-main">
+        <div class="tbf-main-head">
+          <div>
+            <div class="tbf-main-title" id="tbf-main-title">전체 교재</div>
+            <div class="tbf-main-sub" id="tbf-main-sub">왼쪽에서 폴더를 선택하면 해당 교재만 표시됩니다</div>
+          </div>
+        </div>
+        <div class="tbf-grid" id="tbf-lib-grid">
+          <div class="tbf-empty">
+            <div class="tbf-empty-ico">📥</div>
+            <div class="tbf-empty-title">로딩 중…</div>
+          </div>
+        </div>
+      </main>
     </div>
     <div class="tbf-foot">
-      <span data-ko="💡 강사 모드에서 카드를 클릭하면 모든 참여자에게 자동 공유됩니다." data-en="💡 In teacher mode, clicking a card shares it with everyone automatically.">💡 강사 모드에서 카드를 클릭하면 모든 참여자에게 자동 공유됩니다.</span>
+      💡 강사 모드에서 [바로 수업 적용] 을 누르면 모든 참여자에게 자동 공유됩니다.
     </div>
   </div>
 </div>
 
-<script>
-// ═══════════════════════════════════════════════════════════════
-// 📚 화상수업 교재 라이브러리 모달 (ph234 — 통째 재작성)
-// IndexedDB v3 (uploader 와 동기화) 에서 교재 로드
-// ═══════════════════════════════════════════════════════════════
-
-function openTextbookLibrary() {
-  var m = document.getElementById('tbf-lib-modal');
-  if (!m) { alert('교재 라이브러리 모달을 찾을 수 없습니다.'); return; }
-  m.style.display = 'flex';
-  loadTextbookLibrary();
-}
-window.openTextbookLibrary = openTextbookLibrary;
-
-function closeTextbookLibrary() {
-  var m = document.getElementById('tbf-lib-modal');
-  if (m) m.style.display = 'none';
-}
-window.closeTextbookLibrary = closeTextbookLibrary;
-
-// 인라인 IndexedDB 조회 (uploader 와 같은 DB v3)
-function _ph234_loadInlineBooks() {
-  return new Promise(function(resolve){
-    try {
-      var req = indexedDB.open('mangoi-textbooks', 3);
-      req.onupgradeneeded = function(e) {
-        var d = e.target.result;
-        if (!d.objectStoreNames.contains('textbooks')) {
-          var s = d.createObjectStore('textbooks', { keyPath: 'id' });
-          try { s.createIndex('publisher', 'publisher'); } catch(_){}
-          try { s.createIndex('createdAt', 'createdAt'); } catch(_){}
-        }
-        if (!d.objectStoreNames.contains('files')) {
-          d.createObjectStore('files', { keyPath: 'id' });
-        }
-      };
-      req.onsuccess = function() {
-        var db = req.result;
-        if (!db.objectStoreNames.contains('textbooks') || !db.objectStoreNames.contains('files')) {
-          db.close();
-          resolve({ items: [], debug: 'store_missing' });
-          return;
-        }
-        var tx = db.transaction(['textbooks', 'files'], 'readonly');
-        var tbReq = tx.objectStore('textbooks').getAll();
-        var fileReq = tx.objectStore('files').getAll();
-        var done = 0;
-        var textbooks = [];
-        var files = [];
-        function check() {
-          done++;
-          if (done < 2) return;
-          var fileMap = {};
-          files.forEach(function(f){ fileMap[f.id] = f; });
-          var items = [];
-          textbooks.forEach(function(t){
-            (t.lessons || []).forEach(function(l){
-              (l.fileIds || []).forEach(function(fid){
-                var f = fileMap[fid];
-                if (!f || !f.blob) return;
-                items.push({
-                  id: fid,
-                  name: '[' + (t.textbook || '교재') + (t.level ? ' ' + t.level : '') + '] ' + (l.name || '') + ' — ' + (f.name || ''),
-                  kind: f.kind === 'pdf' ? 'pdf' : (f.kind === 'image' ? 'image' : f.kind),
-                  url: URL.createObjectURL(f.blob),
-                  level: t.level || '',
-                  unit_no: '',
-                  publisher: t.publisher || '',
-                  category: t.category || '',
-                  _source: 'idb',
-                  _tbId: t.id
-                });
-              });
-            });
-          });
-          db.close();
-          console.log('[ph234] IndexedDB 조회 — 교재 ' + textbooks.length + '개 · 파일 ' + files.length + '개 · flat ' + items.length + '개');
-          resolve({ items: items, debug: 'ok', tbCount: textbooks.length, fileCount: files.length });
-        }
-        tbReq.onsuccess = function(){ textbooks = tbReq.result || []; check(); };
-        tbReq.onerror = function(){ console.error('[ph234] tb 조회 실패', tbReq.error); check(); };
-        fileReq.onsuccess = function(){ files = fileReq.result || []; check(); };
-        fileReq.onerror = function(){ console.error('[ph234] files 조회 실패', fileReq.error); check(); };
-      };
-      req.onerror = function(){
-        console.error('[ph234] DB open 실패', req.error);
-        resolve({ items: [], debug: 'open_failed:' + (req.error && req.error.message) });
-      };
-      req.onblocked = function(){
-        console.warn('[ph234] DB blocked');
-        resolve({ items: [], debug: 'blocked' });
-      };
-    } catch(e) {
-      console.error('[ph234] indexedDB 예외:', e);
-      resolve({ items: [], debug: 'exception:' + e.message });
-    }
-  });
-}
-
-async function loadTextbookLibrary() {
-  var grid = document.getElementById('tbf-lib-grid');
-  if (!grid) { console.error('[ph243] grid 없음'); return; }
-  grid.innerHTML = '<div style="text-align:center;padding:40px;color:#64748b">📥 불러오는 중…</div>';
-
-  var lvEl = document.getElementById('tbf-lib-level');
-  var qEl  = document.getElementById('tbf-lib-search');
-  var lv = lvEl ? lvEl.value : '';
-  var q  = qEl ? (qEl.value || '').trim().toLowerCase() : '';
-
-  // IndexedDB 직접 조회 — textbook + files 통째로 (timeout 5초)
-  function loadAll() {
-    return new Promise(function(resolve) {
-      var done = false;
-      var timeoutId = setTimeout(function() {
-        if (done) return; done = true;
-        console.warn('[ph243] IDB timeout 5s');
-        resolve({ textbooks: [], files: {}, err: 'timeout' });
-      }, 5000);
-      try {
-        var req = indexedDB.open('mangoi-textbooks', 3);
-        req.onupgradeneeded = function(e) {
-          var d = e.target.result;
-          if (!d.objectStoreNames.contains('textbooks')) {
-            var s = d.createObjectStore('textbooks', { keyPath:'id' });
-            try { s.createIndex('publisher','publisher'); } catch(_){}
-          }
-          if (!d.objectStoreNames.contains('files')) d.createObjectStore('files', { keyPath:'id' });
-        };
-        req.onsuccess = function() {
-          var db = req.result;
-          if (!db.objectStoreNames.contains('textbooks') || !db.objectStoreNames.contains('files')) {
-            db.close();
-            if (done) return; done = true; clearTimeout(timeoutId);
-            resolve({ textbooks:[], files:{}, err:'store_missing' });
-            return;
-          }
-          var tx = db.transaction(['textbooks','files'], 'readonly');
-          var tbReq = tx.objectStore('textbooks').getAll();
-          var flReq = tx.objectStore('files').getAll();
-          var tbs = null, fls = null;
-          function check() {
-            if (tbs === null || fls === null) return;
-            var fileMap = {};
-            fls.forEach(function(f) { fileMap[f.id] = f; });
-            db.close();
-            if (done) return; done = true; clearTimeout(timeoutId);
-            console.log('[ph243] IDB 로드 완료 — 교재', tbs.length, '· 파일', fls.length);
-            resolve({ textbooks: tbs, files: fileMap, err: null });
-          }
-          tbReq.onsuccess = function(){ tbs = tbReq.result || []; check(); };
-          tbReq.onerror = function(){ tbs = []; check(); };
-          flReq.onsuccess = function(){ fls = flReq.result || []; check(); };
-          flReq.onerror = function(){ fls = []; check(); };
-        };
-        req.onerror = function() {
-          if (done) return; done = true; clearTimeout(timeoutId);
-          console.error('[ph243] IDB open 실패', req.error);
-          resolve({ textbooks:[], files:{}, err:'open_failed' });
-        };
-        req.onblocked = function() {
-          if (done) return; done = true; clearTimeout(timeoutId);
-          resolve({ textbooks:[], files:{}, err:'blocked' });
-        };
-      } catch(e) {
-        if (done) return; done = true; clearTimeout(timeoutId);
-        console.error('[ph243] IDB exception', e);
-        resolve({ textbooks:[], files:{}, err:'exception:'+e.message });
-      }
-    });
-  }
-
-  var res = await loadAll();
-  var textbooks = res.textbooks || [];
-
-  // 레벨/검색 필터
-  if (lv) textbooks = textbooks.filter(function(t){ return (t.level || '').toLowerCase().indexOf(lv.toLowerCase()) >= 0; });
-
-  // 빈 상태
-  if (textbooks.length === 0) {
-    grid.innerHTML =
-      '<div style="text-align:center;padding:40px 20px;color:#64748b">' +
-        '<div style="font-size:48px;margin-bottom:12px">📭</div>' +
-        '<div style="font-size:15px;color:#0f172a;font-weight:700;margin-bottom:6px">아직 등록된 교재가 없습니다</div>' +
-        '<div style="font-size:12px;color:#64748b;line-height:1.7;margin-bottom:14px">' +
-          '관리자가 교재를 업로드하면 여기에 자동으로 나타납니다.' +
-        '</div>' +
-        '<a href="/textbook-uploader.html" target="_blank" style="display:inline-block;padding:10px 22px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border-radius:99px;text-decoration:none;font-size:13px;font-weight:800">📚 교재 업로더 열기</a>' +
-        '<div style="margin-top:18px;padding:8px 12px;background:#f1f5f9;border-radius:8px;font-size:10.5px;color:#64748b;font-family:monospace">진단: ' + (res.err || 'ok') + '</div>' +
-      '</div>';
-    return;
-  }
-
-  // ph243 폴더 트리 그룹화 — 출판사 → 레벨 → 레슨 → 파일
-  // 출판사 순서 강제
-  var PUB_ORDER = ['Phonics', 'MES', 'BTS', 'SIU', '마스터3', '마스터'];
-  function pubOrder(name) {
-    var n = (name || '').toLowerCase();
-    for (var i = 0; i < PUB_ORDER.length; i++) {
-      if (n.indexOf(PUB_ORDER[i].toLowerCase()) >= 0) return i;
-    }
-    return 100;
-  }
-  function pubIcon(name) {
+<script id="ph245-lib-script">
+(function(){
+  "use strict";
+  var COURSE_ORDER = ['Phonics','MES','BTS','SIU','마스터3','마스터','Master'];
+  var CATEGORY_ORDER = ['영어','중국어','일본어','기타'];
+  var CATEGORY_ICON = { '영어':'🇬🇧', '중국어':'🇨🇳', '일본어':'🇯🇵', '기타':'📚' };
+  function courseIcon(name){
     var n = (name || '').toLowerCase();
     if (n.indexOf('phonics') >= 0) return '🔤';
     if (n.indexOf('mes') >= 0) return '🎯';
     if (n.indexOf('bts') >= 0) return '🌟';
     if (n.indexOf('siu') >= 0) return '🦁';
     if (n.indexOf('마스터') >= 0 || n.indexOf('master') >= 0) return '🏆';
-    return '📚';
+    return '📂';
   }
-  function fileIcon(kind) {
+  function courseOrder(name){
+    var n = (name || '').toLowerCase();
+    for (var i = 0; i < COURSE_ORDER.length; i++) {
+      if (n.indexOf(COURSE_ORDER[i].toLowerCase()) >= 0) return i;
+    }
+    return 99;
+  }
+  function catOrder(cat){
+    var i = CATEGORY_ORDER.indexOf(cat);
+    return i < 0 ? 99 : i;
+  }
+  function esc(s){
+    return String(s || '').replace(/[&<>"']/g, function(c){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+    });
+  }
+  function fileEmoji(kind){
     if (kind === 'pdf') return '📕';
     if (kind === 'image') return '🖼️';
     if (kind === 'video') return '🎬';
     if (kind === 'audio') return '🎵';
     return '📄';
   }
-  function esc(s) { return String(s||'').replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
 
-  // pub → lvl → lsn → [files]
-  var tree = {};
-  textbooks.forEach(function(tb) {
-    var pubName = tb.publisher || '기타';
-    if (!tree[pubName]) tree[pubName] = {};
-    var lvlName = tb.level || '미분류';
-    if (!tree[pubName][lvlName]) tree[pubName][lvlName] = {};
-    (tb.lessons || []).forEach(function(l) {
-      var lsnName = l.name || '미분류 레슨';
-      if (!tree[pubName][lvlName][lsnName]) tree[pubName][lvlName][lsnName] = [];
-      (l.fileIds || []).forEach(function(fid) {
-        var f = res.files[fid];
-        if (!f) return;
-        if (q) {
-          var hay = ((f.name || '') + ' ' + tb.textbook + ' ' + tb.publisher + ' ' + (tb.level||'')).toLowerCase();
-          if (hay.indexOf(q) < 0) return;
-        }
-        tree[pubName][lvlName][lsnName].push({
-          id: fid,
-          name: f.name || '파일',
-          kind: f.kind || 'other',
-          blob: f.blob,
-          tbName: tb.textbook,
-          tbLevel: tb.level,
-          tbPublisher: tb.publisher
-        });
-      });
+  window._libAllBooks = [];
+  window._libFileMap = {};
+  window._libCurrentCourse = null;
+  window._libCurrentCategory = null;
+  window._tbfUrlCache = window._tbfUrlCache || {};
+
+  function loadAll(){
+    return new Promise(function(resolve){
+      var done = false;
+      var to = setTimeout(function(){
+        if (done) return; done = true;
+        resolve({textbooks:[], files:{}, err:'timeout'});
+      }, 5000);
+      try {
+        var req = indexedDB.open('mangoi-textbooks', 3);
+        req.onupgradeneeded = function(e){
+          var d = e.target.result;
+          if (!d.objectStoreNames.contains('textbooks')) {
+            var s = d.createObjectStore('textbooks', {keyPath:'id'});
+            try { s.createIndex('publisher','publisher'); } catch(_){}
+          }
+          if (!d.objectStoreNames.contains('files')) d.createObjectStore('files', {keyPath:'id'});
+        };
+        req.onsuccess = function(){
+          var db = req.result;
+          if (!db.objectStoreNames.contains('textbooks') || !db.objectStoreNames.contains('files')) {
+            db.close();
+            if (done) return; done = true; clearTimeout(to);
+            resolve({textbooks:[], files:{}, err:'store_missing'}); return;
+          }
+          var tx = db.transaction(['textbooks','files'], 'readonly');
+          var tbR = tx.objectStore('textbooks').getAll();
+          var flR = tx.objectStore('files').getAll();
+          var tbs = null, fls = null;
+          function chk(){
+            if (tbs === null || fls === null) return;
+            var fm = {};
+            fls.forEach(function(f){ fm[f.id] = f; });
+            db.close();
+            if (done) return; done = true; clearTimeout(to);
+            console.log('[ph245] IDB 교재', tbs.length, '· 파일', fls.length);
+            resolve({textbooks:tbs, files:fm, err:null});
+          }
+          tbR.onsuccess = function(){ tbs = tbR.result || []; chk(); };
+          tbR.onerror = function(){ tbs = []; chk(); };
+          flR.onsuccess = function(){ fls = flR.result || []; chk(); };
+          flR.onerror = function(){ fls = []; chk(); };
+        };
+        req.onerror = function(){
+          if (done) return; done = true; clearTimeout(to);
+          resolve({textbooks:[], files:{}, err:'open_failed'});
+        };
+        req.onblocked = function(){
+          if (done) return; done = true; clearTimeout(to);
+          resolve({textbooks:[], files:{}, err:'blocked'});
+        };
+      } catch(e){
+        if (done) return; done = true; clearTimeout(to);
+        resolve({textbooks:[], files:{}, err:'exception:' + e.message});
+      }
     });
-  });
-
-  // 검색 결과 0개
-  var hasAny = false;
-  for (var p in tree) for (var l in tree[p]) for (var s in tree[p][l]) if (tree[p][l][s].length > 0) { hasAny = true; break; }
-  if (!hasAny && q) {
-    grid.innerHTML = '<div style="text-align:center;padding:40px;color:#64748b"><div style="font-size:36px;margin-bottom:8px">🔍</div><div>"' + esc(q) + '" 검색 결과가 없습니다.</div></div>';
-    return;
   }
 
-  // 출판사 정렬
-  var pubKeys = Object.keys(tree).sort(function(a, b) {
-    var oa = pubOrder(a), ob = pubOrder(b);
-    if (oa !== ob) return oa - ob;
-    return a.localeCompare(b, 'ko');
-  });
+  window.openTextbookLibrary = function(){
+    var m = document.getElementById('tbf-lib-modal');
+    if (!m) { alert('교재 라이브러리 모달이 없습니다.'); return; }
+    m.style.display = 'flex';
+    window.loadTextbookLibrary();
+  };
+  window.closeTextbookLibrary = function(){
+    var m = document.getElementById('tbf-lib-modal');
+    if (m) m.style.display = 'none';
+  };
 
-  // URL 캐시 (blob URL 재사용)
-  if (!window._tbfUrlCache) window._tbfUrlCache = {};
+  window.loadTextbookLibrary = async function(){
+    var tree = document.getElementById('tbf-lib-tree');
+    var grid = document.getElementById('tbf-lib-grid');
+    if (!tree || !grid) return;
+    tree.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">📥 로딩 중…</div>';
+    grid.innerHTML = '<div class="tbf-empty"><div class="tbf-empty-ico">📥</div><div class="tbf-empty-title">로딩 중…</div></div>';
 
-  var html = '';
-  pubKeys.forEach(function(pName) {
-    var lvlGroup = tree[pName];
-    var lvlKeys = Object.keys(lvlGroup).sort();
-    var pubFileCount = 0;
-    lvlKeys.forEach(function(lN) { var lsns = lvlGroup[lN]; Object.keys(lsns).forEach(function(s){ pubFileCount += lsns[s].length; }); });
-    if (pubFileCount === 0) return;
-    html += '<details class="tbf-tree-pub" open>';
-    html += '<summary><span class="tbf-pub-icon">' + pubIcon(pName) + '</span>';
-    html += '<span class="tbf-pub-name">' + esc(pName) + '</span>';
-    html += '<span class="tbf-pub-count">' + pubFileCount + ' 파일</span></summary>';
-    lvlKeys.forEach(function(lN) {
-      var lsnGroup = lvlGroup[lN];
-      var lsnKeys = Object.keys(lsnGroup).sort();
-      var lvlFileCount = 0;
-      lsnKeys.forEach(function(sN){ lvlFileCount += lsnGroup[sN].length; });
-      if (lvlFileCount === 0) return;
-      html += '<details class="tbf-tree-lvl">';
-      html += '<summary><span class="tbf-lvl-icon">📘</span>';
-      html += '<span class="tbf-lvl-name">' + esc(lN) + '</span>';
-      html += '<span class="tbf-lvl-count">' + lvlFileCount + ' 파일</span></summary>';
-      lsnKeys.forEach(function(sN) {
-        var files = lsnGroup[sN];
-        if (files.length === 0) return;
-        html += '<details class="tbf-tree-lsn" open>';
-        html += '<summary><span style="font-size:13px">📑</span>';
-        html += '<span class="tbf-lsn-name">' + esc(sN) + '</span>';
-        html += '<span class="tbf-lsn-count">' + files.length + ' 파일</span></summary>';
-        html += '<div class="tbf-tree-files">';
-        files.forEach(function(f) {
-          var safeId = f.id;
-          html += '<div class="tbf-file-card" data-id="' + safeId + '" data-kind="' + (f.kind||'') + '" data-name="' + esc(f.name) + '">';
-          html += '<div class="tbf-file-ico">' + fileIcon(f.kind) + '</div>';
-          html += '<div class="tbf-file-name">' + esc(f.name) + '</div>';
-          html += '<div class="tbf-file-kind">' + (f.kind || '?').toUpperCase() + '</div>';
-          html += '</div>';
-        });
-        html += '</div></details>';
+    var res = await loadAll();
+    window._libAllBooks = res.textbooks || [];
+    window._libFileMap = res.files || {};
+
+    if (window._libAllBooks.length === 0) {
+      tree.innerHTML = '<div style="padding:18px;text-align:center;color:#94a3b8;font-size:12px;line-height:1.6">📭 등록된 교재가 없습니다.<br><br><a href="/textbook-uploader.html" target="_blank" style="display:inline-block;padding:8px 16px;background:#3b82f6;color:#fff;border-radius:99px;text-decoration:none;font-size:11.5px;font-weight:800">📚 업로더 열기</a></div>';
+      grid.innerHTML = '<div class="tbf-empty"><div class="tbf-empty-ico">📭</div><div class="tbf-empty-title">아직 등록된 교재가 없습니다</div><div style="font-size:12px;color:#94a3b8">진단: ' + (res.err || 'ok') + '</div></div>';
+      return;
+    }
+    renderTree();
+    if (!window._libCurrentCourse) renderCards(null, null);
+    else renderCards(window._libCurrentCategory, window._libCurrentCourse);
+  };
+
+  function renderTree(){
+    var tree = document.getElementById('tbf-lib-tree');
+    var books = window._libAllBooks;
+    var lvFilter = (document.getElementById('tbf-lib-level') || {}).value || '';
+    var qFilter = ((document.getElementById('tbf-lib-search') || {}).value || '').trim().toLowerCase();
+
+    var grouped = {};
+    books.forEach(function(b){
+      if (lvFilter && (b.level || '').toLowerCase().indexOf(lvFilter.toLowerCase()) < 0) return;
+      if (qFilter && ((b.textbook || '') + ' ' + (b.publisher || '')).toLowerCase().indexOf(qFilter) < 0) return;
+      var cat = b.category || '기타';
+      var pub = b.publisher || '미분류';
+      if (!grouped[cat]) grouped[cat] = {};
+      if (!grouped[cat][pub]) grouped[cat][pub] = 0;
+      grouped[cat][pub]++;
+    });
+
+    var catKeys = Object.keys(grouped).sort(function(a, b){ return catOrder(a) - catOrder(b); });
+    if (catKeys.length === 0) {
+      tree.innerHTML = '<div style="padding:18px;text-align:center;color:#94a3b8;font-size:12px">🔍 검색 결과 없음</div>';
+      return;
+    }
+    var html = '';
+    var totalCount = 0;
+    catKeys.forEach(function(c){ Object.keys(grouped[c]).forEach(function(p){ totalCount += grouped[c][p]; }); });
+    var allActive = !window._libCurrentCourse;
+    html += '<div class="tbf-course ' + (allActive ? 'active' : '') + '" data-cat="" data-course="" style="margin-bottom:10px;font-weight:800">';
+    html += '<span class="tbf-course-icon">🏠</span><span>전체 교재</span><span class="tbf-course-count">' + totalCount + '</span></div>';
+
+    catKeys.forEach(function(cat){
+      var courses = grouped[cat];
+      var courseKeys = Object.keys(courses).sort(function(a, b){
+        var oa = courseOrder(a), ob = courseOrder(b);
+        if (oa !== ob) return oa - ob;
+        return a.localeCompare(b, 'ko');
       });
-      html += '</details>';
+      var catTotal = 0; courseKeys.forEach(function(p){ catTotal += courses[p]; });
+      html += '<div class="tbf-cat open" data-cat="' + esc(cat) + '">';
+      html += '<div class="tbf-cat-head"><span class="tbf-cat-chev">▶</span>';
+      html += '<span class="tbf-cat-icon">' + (CATEGORY_ICON[cat] || '📁') + '</span>';
+      html += '<span>' + esc(cat) + '</span>';
+      html += '<span class="tbf-cat-count">' + catTotal + '</span></div>';
+      html += '<div class="tbf-courses">';
+      courseKeys.forEach(function(pub){
+        var active = (window._libCurrentCourse === pub && window._libCurrentCategory === cat);
+        html += '<div class="tbf-course ' + (active ? 'active' : '') + '" data-cat="' + esc(cat) + '" data-course="' + esc(pub) + '">';
+        html += '<span class="tbf-course-icon">' + courseIcon(pub) + '</span>';
+        html += '<span>' + esc(pub) + '</span>';
+        html += '<span class="tbf-course-count">' + courses[pub] + '</span>';
+        html += '</div>';
+      });
+      html += '</div></div>';
     });
-    html += '</details>';
-  });
-  grid.innerHTML = html;
+    tree.innerHTML = html;
 
-  // 클릭 핸들러 — 파일 클릭 시 blob 변환 후 selectFromTextbookLibrary 호출
-  var fileMap = res.files;
-  grid.querySelectorAll('.tbf-file-card').forEach(function(card) {
-    card.addEventListener('click', function() {
-      var fid = card.getAttribute('data-id');
-      var kind = card.getAttribute('data-kind');
-      var name = card.getAttribute('data-name');
-      var f = fileMap[fid];
-      if (!f || !f.blob) { alert('파일을 찾을 수 없습니다.'); return; }
-      var url = window._tbfUrlCache[fid] || URL.createObjectURL(f.blob);
-      window._tbfUrlCache[fid] = url;
-      selectFromTextbookLibrary(fid, url, kind, name);
+    tree.querySelectorAll('.tbf-cat-head').forEach(function(h){
+      h.addEventListener('click', function(){ h.parentNode.classList.toggle('open'); });
     });
-  });
-  console.log('[ph243] 폴더 트리 렌더 완료 — 출판사', pubKeys.length, '개');
-}
-window.loadTextbookLibrary = loadTextbookLibrary;
+    tree.querySelectorAll('.tbf-course').forEach(function(c){
+      c.addEventListener('click', function(e){
+        e.stopPropagation();
+        var cat = c.getAttribute('data-cat') || null;
+        var crs = c.getAttribute('data-course') || null;
+        window._libCurrentCategory = cat;
+        window._libCurrentCourse = crs;
+        tree.querySelectorAll('.tbf-course').forEach(function(x){ x.classList.remove('active'); });
+        c.classList.add('active');
+        renderCards(cat, crs);
+      });
+    });
+  }
 
-async function selectFromTextbookLibrary(id, url, kind, name) {
-  closeTextbookLibrary();
-  try {
-    if (typeof pdfLoad === 'function') {
-      window.pdfCurrentId = 'lib_' + id;
-      await pdfLoad(url, kind);
-      if (typeof vcSwitchTab === 'function') vcSwitchTab('pdf');
-      if (window.vcConn && typeof window.vcConn.send === 'function') {
-        try {
-          window.vcConn.send({ type: 'pdf-share', data: { pdfId: 'lib_' + id, url: url, currentPage: 1, kind: kind, source: 'library', name: name } });
-        } catch(e){}
+  function renderCards(cat, course){
+    var grid = document.getElementById('tbf-lib-grid');
+    var titleEl = document.getElementById('tbf-main-title');
+    var subEl = document.getElementById('tbf-main-sub');
+    var books = window._libAllBooks.slice();
+    var lvFilter = (document.getElementById('tbf-lib-level') || {}).value || '';
+    var qFilter = ((document.getElementById('tbf-lib-search') || {}).value || '').trim().toLowerCase();
+
+    if (lvFilter) books = books.filter(function(b){ return (b.level || '').toLowerCase().indexOf(lvFilter.toLowerCase()) >= 0; });
+    if (qFilter) books = books.filter(function(b){ return ((b.textbook || '') + ' ' + (b.publisher || '')).toLowerCase().indexOf(qFilter) >= 0; });
+    if (course) books = books.filter(function(b){ return b.publisher === course; });
+    if (cat && !course) books = books.filter(function(b){ return (b.category || '기타') === cat; });
+
+    if (course) {
+      titleEl.textContent = courseIcon(course) + ' ' + course;
+      subEl.textContent = (cat || '') + ' · ' + books.length + '개 교재';
+    } else if (cat) {
+      titleEl.textContent = (CATEGORY_ICON[cat] || '📁') + ' ' + cat;
+      subEl.textContent = books.length + '개 교재';
+    } else {
+      titleEl.textContent = '🏠 전체 교재';
+      subEl.textContent = '전체 ' + books.length + '개 교재';
+    }
+
+    if (books.length === 0) {
+      grid.innerHTML = '<div class="tbf-empty" style="grid-column:1/-1"><div class="tbf-empty-ico">🔍</div><div class="tbf-empty-title">표시할 교재가 없습니다</div></div>';
+      return;
+    }
+
+    var html = '';
+    books.forEach(function(b){
+      var totalFiles = b.totalFiles || 0;
+      var lessonCount = (b.lessons || []).length;
+      var firstFile = null;
+      for (var li = 0; li < (b.lessons || []).length && !firstFile; li++) {
+        var l = b.lessons[li];
+        for (var fi = 0; fi < (l.fileIds || []).length; fi++) {
+          var f = window._libFileMap[l.fileIds[fi]];
+          if (f && f.blob) { firstFile = f; break; }
+        }
       }
-      if (typeof showToast === 'function') showToast('📚 ' + (name || 'Library'));
-    } else if (kind === 'image') {
-      // 이미지를 칠판/뷰어에 표시 (pdfLoad 없을 때 폴백)
-      window.open(url, '_blank');
+      var thumbHtml;
+      if (firstFile && firstFile.kind === 'image') {
+        var url = window._tbfUrlCache[firstFile.id] || URL.createObjectURL(firstFile.blob);
+        window._tbfUrlCache[firstFile.id] = url;
+        thumbHtml = '<div class="tbf-card-thumb"><img src="' + url + '" alt="' + esc(b.textbook) + '" /></div>';
+      } else if (firstFile && firstFile.kind === 'pdf') {
+        thumbHtml = '<div class="tbf-card-thumb" style="background:linear-gradient(135deg,#fee2e2,#fecaca)"><div class="tbf-card-emoji">📕</div></div>';
+      } else {
+        thumbHtml = '<div class="tbf-card-thumb"><div class="tbf-card-emoji">' + courseIcon(b.publisher) + '</div></div>';
+      }
+      var lvlChip = b.level ? '<span class="tbf-card-chip tbf-chip-lvl">' + esc(b.level) + '</span>' : '';
+      var cntChip = '<span class="tbf-card-chip tbf-chip-cnt">📑 ' + lessonCount + '과 · 📄 ' + totalFiles + '</span>';
+      html += '<div class="tbf-card" data-tb-id="' + esc(b.id) + '">';
+      html += thumbHtml;
+      html += '<div class="tbf-card-body">';
+      html += '<div class="tbf-card-title">' + esc(b.textbook || '제목 없음') + '</div>';
+      html += '<div class="tbf-card-meta">' + lvlChip + cntChip + '</div>';
+      html += '</div>';
+      html += '<div class="tbf-card-actions">';
+      html += '<button class="tbf-act-apply" data-act="apply">📺 바로 수업 적용</button>';
+      html += '<button class="tbf-act-preview" data-act="preview">👀 미리보기</button>';
+      html += '</div>';
+      html += '</div>';
+    });
+    grid.innerHTML = html;
+
+    grid.querySelectorAll('.tbf-card').forEach(function(card){
+      var tbId = card.getAttribute('data-tb-id');
+      var book = window._libAllBooks.find(function(x){ return x.id === tbId; });
+      if (!book) return;
+      card.querySelectorAll('button').forEach(function(btn){
+        btn.addEventListener('click', function(e){
+          e.stopPropagation();
+          var act = btn.getAttribute('data-act');
+          if (act === 'apply') applyBookToClass(book);
+          else if (act === 'preview') previewBook(book);
+        });
+      });
+      card.addEventListener('click', function(){ applyBookToClass(book); });
+    });
+  }
+
+  function getFirstViewableFile(book){
+    for (var li = 0; li < (book.lessons || []).length; li++) {
+      var l = book.lessons[li];
+      for (var fi = 0; fi < (l.fileIds || []).length; fi++) {
+        var f = window._libFileMap[l.fileIds[fi]];
+        if (f && f.blob && (f.kind === 'image' || f.kind === 'pdf')) return f;
+      }
+    }
+    for (var li2 = 0; li2 < (book.lessons || []).length; li2++) {
+      var l2 = book.lessons[li2];
+      for (var fi2 = 0; fi2 < (l2.fileIds || []).length; fi2++) {
+        var f2 = window._libFileMap[l2.fileIds[fi2]];
+        if (f2 && f2.blob) return f2;
+      }
+    }
+    return null;
+  }
+  function applyBookToClass(book){
+    var f = getFirstViewableFile(book);
+    if (!f) { alert('이 교재에 표시할 파일이 없습니다.'); return; }
+    var url = window._tbfUrlCache[f.id] || URL.createObjectURL(f.blob);
+    window._tbfUrlCache[f.id] = url;
+    closeTextbookLibrary();
+    if (typeof window.selectFromTextbookLibrary === 'function') {
+      window.selectFromTextbookLibrary(f.id, url, f.kind, '[' + book.textbook + '] ' + (f.name || ''));
     } else {
       window.open(url, '_blank');
     }
-  } catch (e) {
-    console.error('selectFromTextbookLibrary', e);
-    alert('교재 로딩 실패: ' + (e.message || e));
   }
-}
-window.selectFromTextbookLibrary = selectFromTextbookLibrary;
+  function previewBook(book){
+    var lessons = book.lessons || [];
+    var modal = document.createElement('div');
+    modal.id = 'tbf-preview-modal';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;padding:14px';
+    var lessonsHtml = '';
+    if (lessons.length === 0) {
+      lessonsHtml = '<div style="color:#94a3b8;text-align:center;padding:30px">레슨 정보가 없습니다.</div>';
+    } else {
+      lessons.forEach(function(l){
+        lessonsHtml += '<div style="margin-bottom:10px"><div style="font-weight:700;color:#1e40af;font-size:13px;margin-bottom:4px">📑 ' + esc(l.name) + '</div>';
+        (l.fileIds || []).forEach(function(fid){
+          var f = window._libFileMap[fid];
+          if (!f) {
+            lessonsHtml += '<div style="color:#94a3b8;padding:4px 8px">❓ 파일 없음</div>';
+          } else {
+            lessonsHtml += '<div class="tbf-pv-file" data-fid="' + esc(fid) + '" data-kind="' + esc(f.kind) + '" data-name="' + esc(f.name) + '" style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:#f8fafc;border-radius:6px;margin:3px 0;font-size:12px;cursor:pointer;border:1px solid #e2e8f0">' +
+              '<span>' + fileEmoji(f.kind) + '</span>' +
+              '<span style="flex:1;color:#334155;font-weight:600">' + esc(f.name) + '</span>' +
+              '<span style="padding:3px 10px;background:#3b82f6;color:#fff;border-radius:99px;font-size:11px;font-weight:700">▶ 띄우기</span>' +
+            '</div>';
+          }
+        });
+        lessonsHtml += '</div>';
+      });
+    }
+    modal.innerHTML =
+      '<div style="background:#fff;border-radius:14px;width:min(640px,95vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden">' +
+        '<div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#f8fafc,#eff6ff)">' +
+          '<div style="font-size:22px">' + courseIcon(book.publisher) + '</div>' +
+          '<div style="flex:1">' +
+            '<div style="font-weight:900;color:#0f172a;font-size:15px">' + esc(book.textbook) + '</div>' +
+            '<div style="font-size:11.5px;color:#64748b">' + esc(book.publisher) + ' · ' + esc(book.level || '') + '</div>' +
+          '</div>' +
+          '<button id="tbf-pv-close" style="background:#fff;border:1px solid #cbd5e1;padding:6px 12px;border-radius:8px;cursor:pointer;font-weight:700">✕</button>' +
+        '</div>' +
+        '<div style="padding:14px 18px;overflow-y:auto;flex:1">' + lessonsHtml + '</div>' +
+      '</div>';
+    modal.addEventListener('click', function(e){ if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+    document.getElementById('tbf-pv-close').addEventListener('click', function(){ modal.remove(); });
+    modal.querySelectorAll('.tbf-pv-file').forEach(function(el){
+      el.addEventListener('click', function(){
+        var fid = el.getAttribute('data-fid');
+        var kind = el.getAttribute('data-kind');
+        var name = el.getAttribute('data-name');
+        var f = window._libFileMap[fid];
+        if (!f || !f.blob) { alert('파일을 찾을 수 없습니다.'); return; }
+        var url = window._tbfUrlCache[fid] || URL.createObjectURL(f.blob);
+        window._tbfUrlCache[fid] = url;
+        modal.remove();
+        closeTextbookLibrary();
+        if (window.selectFromTextbookLibrary) window.selectFromTextbookLibrary(fid, url, kind, name);
+      });
+    });
+  }
 
-// ESC 키 닫기
-document.addEventListener('keydown', function(e){
-  if (e.key === 'Escape') {
-    var m = document.getElementById('tbf-lib-modal');
-    if (m && m.style.display === 'flex') closeTextbookLibrary();
-  }
-});
-console.log('[ph238] 교재 라이브러리 모달 — 밝은 테마 + CSS class 강제 + 큰 카드 (240px min-height)');
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') {
+      var pv = document.getElementById('tbf-preview-modal');
+      if (pv) { pv.remove(); return; }
+      var m = document.getElementById('tbf-lib-modal');
+      if (m && m.style.display === 'flex') closeTextbookLibrary();
+    }
+  });
+
+  console.log('[ph245] 교재 라이브러리 모달 — split layout + 카드 그리드 로드');
+})();
+
 </script>
 
 <!-- 📸 Phase SNS — 성취 카드 자동 생성 (Canvas 1080x1080) + 🎁 Phase RF — 추천 코드 모달 -->
@@ -23442,7 +23484,7 @@ console.log('[ph238] 교재 라이브러리 모달 — 밝은 테마 + CSS class
 })();
 </script>
 
-<!-- BUILD:20260530193717 -->
+<!-- BUILD:20260530200510 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
