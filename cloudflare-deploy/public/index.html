@@ -19595,10 +19595,14 @@ window.closeRulesModal = function() {
     </div>
     <!-- 툴바 -->
     <div class="tbf-toolbar">
-      <select id="tbf-lib-level" onchange="if(window.loadTextbookLibrary)loadTextbookLibrary()">
-        <option value="">📊 전체 레벨</option>
-        <option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option>
-        <option>Lv 1</option><option>Lv 2</option><option>Lv 3</option><option>Lv 4</option><option>Lv 5</option>
+      <!-- ph264: 전체 레벨 → 교재 선택 (Phonics/MES/BTS/SIU/다락원) -->
+      <select id="tbf-lib-level" onchange="if(window.loadTextbookLibrary)loadTextbookLibrary()" title="교재 선택">
+        <option value="">📚 전체 교재</option>
+        <option value="Phonics">🔤 Phonics</option>
+        <option value="MES">🎯 MES</option>
+        <option value="BTS">🌟 BTS</option>
+        <option value="SIU">🦁 SIU</option>
+        <option value="마스터">🏆 다락원 (마스터3)</option>
       </select>
       <input id="tbf-lib-search" type="text" placeholder="🔍 교재명 검색…" oninput="if(window._tblDeb)clearTimeout(window._tblDeb); window._tblDeb=setTimeout(loadTextbookLibrary,250)" />
       <button onclick="loadTextbookLibrary()">🔄 새로고침</button>
@@ -19842,7 +19846,11 @@ window.closeRulesModal = function() {
 
     var grouped = {};
     books.forEach(function(b){
-      if (lvFilter && (b.level || '').toLowerCase().indexOf(lvFilter.toLowerCase()) < 0) return;
+      // ph264: lvFilter 가 교재(publisher) 필터로 동작
+      if (lvFilter) {
+        var pubHay = ((b.publisher || '') + ' ' + (b.textbook || '')).toLowerCase();
+        if (pubHay.indexOf(lvFilter.toLowerCase()) < 0) return;
+      }
       if (qFilter && ((b.textbook || '') + ' ' + (b.publisher || '')).toLowerCase().indexOf(qFilter) < 0) return;
       var cat = b.category || '기타';
       var pub = b.publisher || '미분류';
@@ -19914,7 +19922,11 @@ window.closeRulesModal = function() {
     var lvFilter = (document.getElementById('tbf-lib-level') || {}).value || '';
     var qFilter = ((document.getElementById('tbf-lib-search') || {}).value || '').trim().toLowerCase();
 
-    if (lvFilter) books = books.filter(function(b){ return (b.level || '').toLowerCase().indexOf(lvFilter.toLowerCase()) >= 0; });
+    // ph264: lvFilter 가 교재(publisher) 필터로 동작
+    if (lvFilter) books = books.filter(function(b){
+      var hay = ((b.publisher || '') + ' ' + (b.textbook || '')).toLowerCase();
+      return hay.indexOf(lvFilter.toLowerCase()) >= 0;
+    });
     if (qFilter) books = books.filter(function(b){ return ((b.textbook || '') + ' ' + (b.publisher || '')).toLowerCase().indexOf(qFilter) >= 0; });
     if (course) books = books.filter(function(b){ return b.publisher === course; });
     if (cat && !course) books = books.filter(function(b){ return (b.category || '기타') === cat; });
@@ -23906,7 +23918,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260531022648 -->
+<!-- BUILD:20260531024530 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25930,16 +25942,9 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     }
     /* "상담" 글자 추가 — span 강제 표시 + 텍스트 교체 */
     .ph49-kakao-fab span, #ph49-kakao-fab span {
-      display: block !important;
-      font-size: 8.5px !important;
-      font-weight: 800 !important;
-      color: #1A1A1A !important;
-      margin-top: 1px !important;
-      letter-spacing: -0.3px !important;
-      line-height: 1 !important;
+      display: inline !important;
+      content: "상담" !important;
     }
-    /* ph170-fix: 검은 타원 (카카오 외부 툴팁 라벨) 완전 제거 */
-    .ph49-kakao-label { display: none !important; }
   }
 </style>
 
