@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B1224">
 <title>📚 교재 업로더 — 폴더째 드래그 → AI 자동 분류</title>
-<!-- BUILD:20260530185815 -->
+<!-- BUILD:20260530190657 -->
 <style>
 :root {
   --bg:#0B1224; --bg-soft:#131C36; --bg-card:#1A2548; --bg-card-2:#1E2D58;
@@ -449,6 +449,46 @@ let pendingGroups = []; // 저장 대기 중인 그룹들
 
 async function processFiles(files) {
   if (!files || !files.length) return;
+
+  // 🛡️ ph241 — 압축 파일 + 너무 큰 파일 자동 거부 (IndexedDB quota 초과 방지)
+  const ARCHIVE_EXT = ['zip','rar','7z','tar','gz','bz2','xz','tgz','zipx','ace','arj','cab','iso'];
+  const MAX_FILE_SIZE = 80 * 1024 * 1024; // 80 MB — IndexedDB 안전 한도
+  const rejected = [];
+  const accepted = [];
+  for (const f of files) {
+    const ext = (f.name || '').toLowerCase().split('.').pop();
+    if (ARCHIVE_EXT.indexOf(ext) >= 0) {
+      rejected.push({ name: f.name, size: f.size, reason: '🗜️ 압축 파일 (' + ext.toUpperCase() + ')' });
+      continue;
+    }
+    if (f.size > MAX_FILE_SIZE) {
+      rejected.push({ name: f.name, size: f.size, reason: '📏 용량 초과 (' + humanSize(f.size) + ' > 80MB)' });
+      continue;
+    }
+    const kind = fileKind(f.name);
+    if (kind === 'other') {
+      rejected.push({ name: f.name, size: f.size, reason: '❓ 미지원 형식' });
+      continue;
+    }
+    accepted.push(f);
+  }
+  if (rejected.length > 0) {
+    let msg = '⚠️ ' + rejected.length + '개 파일이 제외되었습니다.\n\n';
+    rejected.slice(0, 12).forEach(r => msg += '• ' + r.name + ' — ' + r.reason + '\n');
+    if (rejected.length > 12) msg += '… (그 외 ' + (rejected.length - 12) + '개)\n';
+    msg += '\n💡 지원 파일: PDF, JPG, PNG, WEBP, MP4, MP3 (각 80MB 이하)';
+    msg += '\n💡 ZIP 파일은 압축을 푼 후 폴더 자체를 드래그해 주세요.';
+    msg += '\n   (1GB ZIP 은 브라우저 저장소에 직접 들어갈 수 없습니다)';
+    alert(msg);
+    console.warn('[ph241] 제외된 파일:', rejected);
+  }
+  if (accepted.length === 0) {
+    alert('❌ 등록할 수 있는 파일이 없습니다.\n\nZIP 파일을 풀고 PDF/이미지 등이 들어있는 폴더를 드래그해 주세요.');
+    return;
+  }
+  console.log('[ph241] 허용된 파일:', accepted.length, '/ 거부:', rejected.length);
+  files = accepted; // 이후 로직은 허용된 파일만 사용
+
   const pb = document.getElementById('pb');
   const pbText = document.getElementById('pb-text');
   const pbFill = document.getElementById('pb-fill');
@@ -520,35 +560,32 @@ function renderClassifyResult() {
   cr.classList.add('show');
   cr.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  // 🤖 AI 자동 저장 (ph237): 검토 시간 1.5초 후 자동 저장
-  // 사용자가 [취소] 누르면 _autoSaveCancelled = true 로 중단
+  // 🤖 ph241 AI 자동 저장 — 강화된 단순 버전 (즉시 작동 보장)
   window._autoSaveCancelled = false;
   var btn = document.getElementById('btn-save');
-  var origText = btn.textContent;
-  var sec = 2;
-  btn.textContent = '🤖 ' + sec + '초 후 자동 저장…';
+  if (!btn) { console.warn('[ph241] btn-save 없음'); return; }
   btn.style.background = 'linear-gradient(135deg,#fbbf24,#f59e0b)';
   btn.style.color = '#1a1a1a';
-  var countdownId = setInterval(function(){
-    sec--;
+  btn.textContent = '🤖 AI 자동 저장 진행 중… (검토 후 2초 안에 ❌ 클릭하면 취소)';
+  console.log('[ph241] 자동 저장 카운트다운 시작 — 2초 후 트리거');
+  setTimeout(function(){
     if (window._autoSaveCancelled) {
-      clearInterval(countdownId);
-      btn.textContent = origText;
+      console.log('[ph241] 자동 저장 취소됨');
       btn.style.background = '';
       btn.style.color = '';
+      btn.textContent = '💾 라이브러리에 저장';
       return;
     }
-    if (sec <= 0) {
-      clearInterval(countdownId);
-      btn.style.background = '';
-      btn.style.color = '';
-      btn.textContent = origText;
-      console.log('[ph237] AI 자동 저장 트리거');
-      btn.click();
-    } else {
-      btn.textContent = '🤖 ' + sec + '초 후 자동 저장… (취소: ❌)';
+    console.log('[ph241] AI 자동 저장 트리거 — btn.click()');
+    btn.style.background = '';
+    btn.style.color = '';
+    btn.textContent = '💾 라이브러리에 저장';
+    try { btn.click(); }
+    catch(e) {
+      console.error('[ph241] 자동 저장 실패:', e);
+      alert('❌ 자동 저장 실행 중 오류:\n' + (e.message || e));
     }
-  }, 1000);
+  }, 2000);
 }
 
 function escapeHtml(s) {
@@ -688,7 +725,6 @@ function applyLibFilter() {
   const q = (document.getElementById('lib-search').value || '').toLowerCase().trim();
   const fp = document.getElementById('lib-filter-pub').value;
   const fc = document.getElementById('lib-filter-cat').value;
-
   const filtered = libCache.filter(t => {
     if (fp && t.publisher !== fp) return false;
     if (fc && t.category !== fc) return false;
@@ -698,11 +734,9 @@ function applyLibFilter() {
     }
     return true;
   });
-
   const tbody = document.getElementById('lib-tbody');
   const empty = document.getElementById('lib-empty');
-  document.getElementById('lib-count').textContent = `(총 ${libCache.length}개)`;
-
+  document.getElementById('lib-count').textContent = '(총 ' + libCache.length + '개)';
   if (!filtered.length) {
     tbody.innerHTML = '';
     empty.style.display = 'block';
@@ -713,22 +747,22 @@ function applyLibFilter() {
   tbody.innerHTML = filtered.map(t => {
     const cat = t.category === '중국어' ? 'cn' : (t.category === '기타' ? 'warn' : '');
     const date = new Date(t.createdAt).toLocaleDateString('ko-KR');
-    return `<tr>
-      <td><span class="chip">${escapeHtml(t.publisher)}</span></td>
-      <td style="font-weight:700;color:#fff">${escapeHtml(t.textbook)}</td>
-      <td>${escapeHtml(t.level || '-')}</td>
-      <td><span class="chip ${cat}">${escapeHtml(t.category)}</span></td>
-      <td style="text-align:center">${t.lessons.length}</td>
-      <td style="text-align:center">${t.totalFiles}</td>
-      <td style="font-size:11.5px;color:var(--text-mute)">${date}</td>
-      <td>
-        <div class="lib-actions">
-          <button class="act-view" onclick="window.open('/textbook-viewer.html?id=${t.id}', '_blank')">👀 보기</button>
-          <button class="act-class" onclick="alert('수업 룸 안에서 \'📚 교재 띄우기\' 버튼으로 이 교재를 학생에게 보여줄 수 있습니다.')">📺 수업에서</button>
-          <button class="act-del" onclick="delTextbook('${t.id}')">🗑</button>
-        </div>
-      </td>
-    </tr>`;
+    return '<tr>' +
+      '<td><span class="chip">' + escapeHtml(t.publisher) + '</span></td>' +
+      '<td style="font-weight:700;color:#fff">' + escapeHtml(t.textbook) + '</td>' +
+      '<td>' + escapeHtml(t.level || '-') + '</td>' +
+      '<td><span class="chip ' + cat + '">' + escapeHtml(t.category) + '</span></td>' +
+      '<td style="text-align:center">' + t.lessons.length + '</td>' +
+      '<td style="text-align:center">' + t.totalFiles + '</td>' +
+      '<td style="font-size:11.5px;color:var(--text-mute)">' + date + '</td>' +
+      '<td>' +
+        '<div class="lib-actions">' +
+          '<button class="act-view" onclick="window.open(\'/textbook-viewer.html?id=' + t.id + '\', \'_blank\')">보기</button>' +
+          '<button class="act-class" onclick="alert(\'수업 룸 안에서 [교재 띄우기] 버튼으로 학생에게 보여줄 수 있습니다.\')">수업에서</button>' +
+          '<button class="act-del" onclick="delTextbook(\'' + t.id + '\')">삭제</button>' +
+        '</div>' +
+      '</td>' +
+    '</tr>';
   }).join('');
 }
 
@@ -741,30 +775,67 @@ window.delTextbook = async (id) => {
       try { await dbDelete('files', fid); } catch(e){}
     }
   }
-  await dbDelete('textbooks', id);
+  try { await dbDelete('textbooks', id); } catch(e){}
   await renderLibrary();
 };
 
-const _ls = document.getElementById('lib-search');
-const _lp = document.getElementById('lib-filter-pub');
-const _lc = document.getElementById('lib-filter-cat');
-if (_ls) _ls.addEventListener('input', applyLibFilter);
-if (_lp) _lp.addEventListener('change', applyLibFilter);
-if (_lc) _lc.addEventListener('change', applyLibFilter);
+async function traverseEntry(entry, files, path) {
+  path = path || '';
+  return new Promise(resolve => {
+    if (entry.isFile) {
+      entry.file(f => { f.fullPath = path + entry.name; files.push(f); resolve(); });
+    } else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      reader.readEntries(async entries => {
+        await Promise.all(entries.map(e => traverseEntry(e, files, path + entry.name + '/')));
+        resolve();
+      });
+    } else { resolve(); }
+  });
+}
 
-(async function init(){
-  try {
-    db = await openDB();
-    await renderLibrary();
-    console.log('[textbook-uploader] 활성 — IndexedDB OK (ver ' + DB_VER + ')');
-  } catch (e) {
-    console.error('[textbook-uploader] IndexedDB 초기화 실패:', e);
-    const emp = document.getElementById('lib-empty');
-    if (emp) {
-      emp.textContent = '⚠️ 브라우저 저장소 접근 실패. 시크릿 창이거나 저장소 권한이 없을 수 있습니다.';
-      emp.style.display = 'block';
-    }
+(function init(){
+  const dz = document.getElementById('dropzone');
+  if (dz) {
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+    dz.addEventListener('drop', async e => {
+      e.preventDefault();
+      dz.classList.remove('dragover');
+      const items = e.dataTransfer.items;
+      const files = [];
+      if (items && items[0] && items[0].webkitGetAsEntry) {
+        const tasks = [];
+        for (const it of items) {
+          const ent = it.webkitGetAsEntry();
+          if (ent) tasks.push(traverseEntry(ent, files));
+        }
+        await Promise.all(tasks);
+      } else {
+        for (const f of e.dataTransfer.files) files.push(f);
+      }
+      processFiles(files);
+    });
   }
+  const fileInput = document.getElementById('file-input');
+  if (fileInput) {
+    fileInput.addEventListener('change', e => { processFiles(Array.from(e.target.files)); });
+  }
+  const folderInput = document.getElementById('folder-input');
+  if (folderInput) {
+    folderInput.addEventListener('change', e => {
+      const files = Array.from(e.target.files).map(f => { f.fullPath = f.webkitRelativePath; return f; });
+      processFiles(files);
+    });
+  }
+  ['lib-search','lib-filter-pub','lib-filter-cat'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', applyLibFilter);
+      if (el.tagName === 'SELECT') el.addEventListener('change', applyLibFilter);
+    }
+  });
+  openDB().then(() => renderLibrary()).catch(e => console.error('[init] DB 초기화 실패:', e));
 })();
 </script>
 </body>
