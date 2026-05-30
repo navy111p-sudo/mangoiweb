@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B1224">
 <title>📚 교재 업로더 — 폴더째 드래그 → AI 자동 분류</title>
-<!-- BUILD:20260530164254 -->
+<!-- BUILD:20260530164752 -->
 <style>
 :root {
   --bg:#0B1224; --bg-soft:#131C36; --bg-card:#1A2548; --bg-card-2:#1E2D58;
@@ -179,50 +179,95 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
    IndexedDB 초기화 (mangoi-textbooks DB)
    ════════════════════════════════════════════ */
 const DB_NAME = 'mangoi-textbooks';
-const DB_VER = 1;
+const DB_VER = 3;  // ph228: store 누락 fix 위해 버전 업
 let db = null;
+
+function _createStores(d) {
+  if (!d.objectStoreNames.contains('textbooks')) {
+    const s = d.createObjectStore('textbooks', { keyPath: 'id' });
+    try { s.createIndex('publisher', 'publisher'); } catch(_){}
+    try { s.createIndex('category', 'category'); } catch(_){}
+    try { s.createIndex('createdAt', 'createdAt'); } catch(_){}
+  }
+  if (!d.objectStoreNames.contains('files')) {
+    d.createObjectStore('files', { keyPath: 'id' });
+  }
+}
+
 function openDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VER);
     req.onupgradeneeded = (e) => {
       const d = e.target.result;
-      if (!d.objectStoreNames.contains('textbooks')) {
-        const s = d.createObjectStore('textbooks', { keyPath: 'id' });
-        s.createIndex('publisher', 'publisher');
-        s.createIndex('category', 'category');
-        s.createIndex('createdAt', 'createdAt');
-      }
-      if (!d.objectStoreNames.contains('files')) {
-        d.createObjectStore('files', { keyPath: 'id' });
-      }
+      _createStores(d);
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      const d = req.result;
+      // 안전 검증: 두 store 모두 있어야 함
+      if (!d.objectStoreNames.contains('textbooks') || !d.objectStoreNames.contains('files')) {
+        console.warn('[openDB] store 누락 — DB 재생성');
+        d.close();
+        const delReq = indexedDB.deleteDatabase(DB_NAME);
+        delReq.onsuccess = () => {
+          // 재오픈 시 onupgradeneeded 에서 store 생성됨
+          openDB().then(resolve).catch(reject);
+        };
+        delReq.onerror = () => reject(delReq.error);
+        delReq.onblocked = () => reject(new Error('DB 삭제 차단 — 다른 탭이 열려있을 수 있습니다.'));
+        return;
+      }
+      resolve(d);
+    };
     req.onerror = () => reject(req.error);
+    req.onblocked = () => reject(new Error('DB 업그레이드 차단 — 다른 탭을 닫고 새로고침해 주세요.'));
   });
 }
+
+// 안전한 dbPut/Get/Delete — store 없으면 에러 시 한 번만 자가 복구 시도
+async function _safeRun(opName, store, fn) {
+  if (!db) db = await openDB();
+  try {
+    return await fn();
+  } catch (e) {
+    const msg = (e && e.message) || '';
+    if (msg.indexOf('object stores was not found') >= 0 || msg.indexOf('object store') >= 0 || msg.indexOf('NotFoundError') >= 0) {
+      console.warn('[' + opName + '] store 누락 감지 → DB 재초기화 시도');
+      try { db.close(); } catch(_){}
+      db = null;
+      // 한 번만 재시도
+      await new Promise((r) => {
+        const dr = indexedDB.deleteDatabase(DB_NAME);
+        dr.onsuccess = dr.onerror = dr.onblocked = () => r();
+      });
+      db = await openDB();
+      return await fn();
+    }
+    throw e;
+  }
+}
 function dbPut(store, obj) {
-  return new Promise((resolve, reject) => {
+  return _safeRun('dbPut', store, () => new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readwrite');
     tx.objectStore(store).put(obj);
     tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+    tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction error'));
+  }));
 }
 function dbGetAll(store) {
-  return new Promise((resolve, reject) => {
+  return _safeRun('dbGetAll', store, () => new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readonly');
     const req = tx.objectStore(store).getAll();
     req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+    req.onerror = () => reject(req.error || new Error('IndexedDB transaction error'));
+  }));
 }
 function dbDelete(store, key) {
-  return new Promise((resolve, reject) => {
+  return _safeRun('dbDelete', store, () => new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readwrite');
     tx.objectStore(store).delete(key);
     tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+    tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction error'));
+  }));
 }
 
 /* ════════════════════════════════════════════
@@ -677,7 +722,7 @@ if (_lc) _lc.addEventListener('change', applyLibFilter);
   try {
     db = await openDB();
     await renderLibrary();
-    console.log('[textbook-uploader] 활성 — IndexedDB OK');
+    console.log('[textbook-uploader] 활성 — IndexedDB OK (ver ' + DB_VER + ')');
   } catch (e) {
     console.error('[textbook-uploader] IndexedDB 초기화 실패:', e);
     const emp = document.getElementById('lib-empty');
