@@ -9941,9 +9941,26 @@ async function pdfRender() {
     } else {
         wrap2.style.display = 'none';
     }
-    const info = pdfPagesPerView === 2 && pdfPageNum + 1 <= pdfDoc.numPages
-        ? `${pdfPageNum}-${pdfPageNum + 1} / ${pdfDoc.numPages}`
-        : `${pdfPageNum} / ${pdfDoc.numPages}`;
+    // ph251: 시퀀스 모드면 "현재 파일 / 전체 파일" 로 표시 (이미지 1개씩일 때 1/N 보장)
+    let info;
+    const seq = window._libSequence;
+    if (seq && seq.length > 0) {
+        const seqIdx = (window._libSeqIdx || 0) + 1;
+        const seqTotal = seq.length;
+        if (pdfDoc.numPages > 1) {
+            // PDF 가 여러 페이지인 경우: "📄 3/47 · p2/12"
+            info = pdfPagesPerView === 2 && pdfPageNum + 1 <= pdfDoc.numPages
+                ? `📚 ${seqIdx}/${seqTotal} · p${pdfPageNum}-${pdfPageNum+1}/${pdfDoc.numPages}`
+                : `📚 ${seqIdx}/${seqTotal} · p${pdfPageNum}/${pdfDoc.numPages}`;
+        } else {
+            // 이미지/1페이지 PDF: "📚 3 / 47"
+            info = `📚 ${seqIdx} / ${seqTotal}`;
+        }
+    } else {
+        info = pdfPagesPerView === 2 && pdfPageNum + 1 <= pdfDoc.numPages
+            ? `${pdfPageNum}-${pdfPageNum + 1} / ${pdfDoc.numPages}`
+            : `${pdfPageNum} / ${pdfDoc.numPages}`;
+    }
     document.getElementById('pdf-page-info').textContent = info;
     document.getElementById('pdf-zoom-info').textContent = Math.round(pdfZoom * 100) + '%';
 }
@@ -23589,7 +23606,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260531002421 -->
+<!-- BUILD:20260531003058 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25915,10 +25932,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     background: rgba(0, 0, 0, 0.92);
     backdrop-filter: blur(8px);
     overflow-y: auto;
-    padding: 20px 16px 40px;
-    animation: ph191Fade .25s;
   }
-  @keyframes ph191Fade { from { opacity: 0; } to { opacity: 1; } }
 </style>
 
 <script id="ph191-allmenu-script-final">
