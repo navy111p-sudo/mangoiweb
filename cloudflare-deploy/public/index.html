@@ -6043,6 +6043,8 @@
                     <button onclick="wbSetTool('line')" data-ko="📏 선" data-en="📏 Line">📏 선</button>
                     <button onclick="wbSetTool('rect')" data-ko="⬜ 사각형" data-en="⬜ Rect">⬜ 사각형</button>
                     <button onclick="wbSetTool('circle')" data-ko="⭕ 원" data-en="⭕ Circle">⭕ 원</button>
+                    <!-- ph268: 키보드 텍스트 도구 -->
+                    <button onclick="wbSetTool('text')" data-ko="📝 텍스트" data-en="📝 Text" title="키보드 타자">📝 텍스트</button>
                     <input type="color" id="wb-color" value="#000000" title="색상" style="width:32px;height:28px;border:none;cursor:pointer;" />
                     <input type="range" id="wb-size" min="1" max="30" value="3" title="굵기" style="width:80px;" />
                     <button onclick="wbClear()" data-ko="🗑️ 전체 지우기" data-en="🗑️ Clear All">🗑️ 전체 지우기</button>
@@ -9825,6 +9827,51 @@ function wbInit() {
     const ctx = canvas.getContext('2d');
 
     canvas.addEventListener('mousedown', e => {
+        // ph268: 텍스트 도구 — 클릭 위치에 input 띄우기
+        if (wbTool === 'text') {
+            e.preventDefault();
+            const rect2 = canvas.getBoundingClientRect();
+            const cx = e.clientX - rect2.left;
+            const cy = e.clientY - rect2.top;
+            const color = document.getElementById('wb-color').value;
+            const size = parseInt(document.getElementById('wb-size').value) || 3;
+            const fontSize = Math.max(16, size * 8);
+            const old = document.getElementById('ph268-wb-textinput');
+            if (old) old.remove();
+            const inp = document.createElement('input');
+            inp.id = 'ph268-wb-textinput';
+            inp.type = 'text';
+            inp.placeholder = '타자 후 Enter';
+            inp.style.cssText = 'position:absolute;z-index:99999;left:' + e.clientX + 'px;top:' + (e.clientY - fontSize) + 'px;font-size:' + fontSize + 'px;color:' + color + ';background:rgba(255,255,255,0.95);border:2px dashed ' + color + ';padding:2px 6px;border-radius:4px;font-family:inherit;font-weight:700;outline:none;min-width:120px';
+            document.body.appendChild(inp);
+            inp.focus();
+            function commit(){
+                const txt = inp.value.trim();
+                inp.remove();
+                if (!txt) return;
+                ctx.save();
+                ctx.font = '700 ' + fontSize + 'px -apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif';
+                ctx.fillStyle = color;
+                ctx.textBaseline = 'alphabetic';
+                ctx.fillText(txt, cx, cy);
+                ctx.restore();
+                // 공유
+                if (vcConn) {
+                    try {
+                        vcConn.send({
+                            type: 'whiteboard-text',
+                            data: { text: txt, x: cx / canvas.width, y: cy / canvas.height, color, fontSize }
+                        });
+                    } catch(_){}
+                }
+            }
+            inp.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
+                else if (ev.key === 'Escape') { inp.remove(); }
+            });
+            inp.addEventListener('blur', commit);
+            return;
+        }
         wbDrawing = true;
         const rect = canvas.getBoundingClientRect();
         wbLastX = e.clientX - rect.left;
@@ -23967,7 +24014,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260531030159 -->
+<!-- BUILD:20260531031155 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25865,67 +25912,6 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       border-radius: 10px !important;
       background: rgba(15,23,42,0.55) !important;
       border: 1px solid rgba(96,165,250,0.15) !important;
-      color: #cbd5e1 !important;
-      transition: all .15s !important;
-      min-height: 38px !important;
-    }
-    .split-btn.active, .split-btn[aria-pressed="true"] {
-      background: linear-gradient(135deg,#3B82F6,#1D4ED8) !important;
-      border-color: rgba(96,165,250,0.7) !important;
-      color: #fff !important;
-      box-shadow: 0 4px 12px -2px rgba(59,130,246,0.45) !important;
-    }
-
-    /* 비디오 PIP — 둥근 모서리 + 부드러운 그림자 */
-    .vc-video, .pip-video, video.local-video, video[id*="local"] {
-      border-radius: 16px !important;
-      box-shadow: 0 8px 24px -6px rgba(0,0,0,0.55), 0 0 0 1px rgba(96,165,250,0.2) !important;
-      overflow: hidden !important;
-    }
-
-    /* 탭 메뉴 (칠판/교재/동영상/발음연습/학생게임/배경) — pill 가로 스크롤 */
-    .vc-tabs, [class*="vc-tabs"] {
-      display: flex !important;
-      gap: 6px !important;
-      overflow-x: auto !important;
-      scrollbar-width: none !important;
-      padding: 8px 10px !important;
-      -webkit-overflow-scrolling: touch !important;
-    }
-    .vc-tabs::-webkit-scrollbar { display: none !important; }
-    .vc-tab, [class*="vc-tab"] {
-      flex-shrink: 0 !important;
-      padding: 9px 14px !important;
-      font-size: 12.5px !important;
-      font-weight: 700 !important;
-      border-radius: 99px !important;
-      background: rgba(15,23,42,0.6) !important;
-      border: 1px solid rgba(96,165,250,0.18) !important;
-      color: #cbd5e1 !important;
-      transition: all .15s !important;
-    }
-    .vc-tab.active, .vc-tab[aria-selected="true"] {
-      background: linear-gradient(135deg, rgba(59,130,246,0.3), rgba(29,78,216,0.15)) !important;
-      border-color: rgba(96,165,250,0.7) !important;
-      color: #fff !important;
-      box-shadow: 0 4px 12px -2px rgba(59,130,246,0.4) !important;
-    }
-
-    /* TOOLS 라벨 chip — 깔끔 */
-    .tools-label, [class*="tools-label"] {
-      padding: 5px 11px !important;
-      font-size: 10.5px !important;
-      font-weight: 800 !important;
-      border-radius: 99px !important;
-      letter-spacing: 0.5px !important;
-      background: linear-gradient(135deg,#10B981,#059669) !important;
-      color: #fff !important;
-      box-shadow: 0 4px 10px -2px rgba(16,185,129,0.4) !important;
-    }
-
-    /* "📁 교재 업로드 (PDF/JPG/PNG)" 같은 큰 행동 버튼 */
-    .vc-upload-btn, button[onclick*="upload"], button[onclick*="library"] {
-      padding: 9px 18px !important;
     }
   }
 </style>
