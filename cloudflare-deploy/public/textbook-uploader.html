@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B1224">
 <title>📚 교재 업로더 — 폴더째 드래그 → AI 자동 분류</title>
-<!-- BUILD:20260530215511 -->
+<!-- BUILD:20260530230120 -->
 <style>
 :root {
   --bg:#0B1224; --bg-soft:#131C36; --bg-card:#1A2548; --bg-card-2:#1E2D58;
@@ -404,22 +404,35 @@ const RX = {
 
 function classifyFile(file) {
   const path = file.fullPath || file.webkitRelativePath || file.name;
-  const parts = path.split('/');
+  const parts = path.split('/').filter(function(p){ return p; });
   const fileName = parts[parts.length - 1];
   const dirParts = parts.slice(0, -1); // 폴더 부분
   const fullText = path;
 
-  // 출판사
+  // ph248: 폴더 구조 우선 정책 ─ 같은 1차 폴더(Phonics)여도 2차 폴더가 다르면 다른 교재로 분리
+  // 출판사 = RX 매칭 우선, 없으면 최상위 폴더
   let publisher = (fullText.match(RX.publisher) || [])[1] || '';
+  if (!publisher && dirParts[0]) publisher = dirParts[0];
+  if (!publisher) publisher = '미분류';
 
-  // 교재명 — 가장 그럴듯한 폴더명/패턴
+  // 교재명 = 2단계 폴더명 (Phonics/Lv1/... → 'Lv1' or 'Phonics 1')
+  // 단, 2단계 폴더가 레벨/레슨 패턴이면 1단계 폴더명 사용
   let textbook = '';
-  const tbMatch = fullText.match(RX.textbook);
-  if (tbMatch) textbook = tbMatch[1];
-  if (!textbook && dirParts.length >= 1) {
-    // 최상위 또는 2단계 폴더명을 교재명으로
-    textbook = dirParts[1] || dirParts[0] || '';
+  const lvlOnlyPat = /^(Lv\.?\s*\d+|Level\s*\d+|레벨\s*\d+|A1|A2|B1|B2|C1|C2|HSK\s*\d+)$/i;
+  const lsnOnlyPat = /^(제\s*\d+\s*과|Lesson\s*\d+|Unit\s*\d+|U\d+|L\d+|Chapter\s*\d+|Ch\.?\s*\d+|\d+과)$/i;
+  if (dirParts.length >= 2 && !lvlOnlyPat.test(dirParts[1]) && !lsnOnlyPat.test(dirParts[1])) {
+    // 2단계 폴더가 책 이름인 경우 (Phonics/Phonics 1/Lv1/...)
+    textbook = dirParts[1];
+  } else if (dirParts[0]) {
+    // 1단계 폴더만 의미있음 (Phonics/Lv1/...)
+    textbook = dirParts[0];
   }
+  // RX.textbook 패턴이 더 구체적이면 그 매칭값 사용
+  const tbMatch = fullText.match(RX.textbook);
+  if (tbMatch && tbMatch[1].length > (textbook||'').length) {
+    textbook = tbMatch[1];
+  }
+  if (!textbook) textbook = '미분류 교재';
   textbook = textbook.trim() || '미분류 교재';
 
   // 레벨
@@ -505,22 +518,23 @@ async function processFiles(files) {
     }
     accepted.push(f);
   }
+  // ph248: 거부 파일을 화면에도 표시 (분류 결과 영역 위에 노란 박스)
+  window._lastRejectedFiles = rejected;
   if (rejected.length > 0) {
     let msg = '⚠️ ' + rejected.length + '개 파일이 제외되었습니다.\n\n';
     rejected.slice(0, 12).forEach(r => msg += '• ' + r.name + ' — ' + r.reason + '\n');
     if (rejected.length > 12) msg += '… (그 외 ' + (rejected.length - 12) + '개)\n';
-    msg += '\n💡 지원 파일: PDF, JPG, PNG, WEBP, MP4, MP3 (각 80MB 이하)';
-    msg += '\n💡 ZIP 파일은 압축을 푼 후 폴더 자체를 드래그해 주세요.';
-    msg += '\n   (1GB ZIP 은 브라우저 저장소에 직접 들어갈 수 없습니다)';
+    msg += '\n💡 지원: PDF, JPG, PNG, WEBP, MP4, MP3 (각 80MB 이하)';
+    msg += '\n💡 ZIP 은 풀어서 폴더로 드래그하세요. 큰 파일은 분할 또는 압축 후 80MB 이하로.';
     alert(msg);
-    console.warn('[ph241] 제외된 파일:', rejected);
+    console.warn('[ph248] 제외된 파일 목록:', rejected);
   }
   if (accepted.length === 0) {
     alert('❌ 등록할 수 있는 파일이 없습니다.\n\nZIP 파일을 풀고 PDF/이미지 등이 들어있는 폴더를 드래그해 주세요.');
     return;
   }
-  console.log('[ph241] 허용된 파일:', accepted.length, '/ 거부:', rejected.length);
-  files = accepted; // 이후 로직은 허용된 파일만 사용
+  console.log('[ph248] 허용', accepted.length, '/ 거부', rejected.length);
+  files = accepted;
 
   const pb = document.getElementById('pb');
   const pbText = document.getElementById('pb-text');
@@ -551,6 +565,30 @@ function renderClassifyResult() {
   const cr = document.getElementById('cr');
   const wrap = document.getElementById('cr-groups');
   wrap.innerHTML = '';
+
+  // ph248: 거부 파일 + 그룹 분리 요약 배너
+  const rejected = window._lastRejectedFiles || [];
+  if (rejected.length > 0 || pendingGroups.length > 0) {
+    const banner = document.createElement('div');
+    banner.style.cssText = 'background:linear-gradient(135deg,#fef3c7,#fde68a);border:1.5px solid #fbbf24;border-radius:10px;padding:12px 14px;margin-bottom:12px;color:#78350f;font-size:12.5px;line-height:1.6;font-weight:600';
+    let html = '<div style="font-weight:900;margin-bottom:6px;font-size:13px">📊 자동 분류 결과</div>';
+    html += '✅ ' + pendingGroups.length + '개 교재 그룹 · ' + pendingGroups.reduce(function(s,g){return s+g.totalFiles;},0) + '개 파일 등록 예정';
+    if (rejected.length > 0) {
+      html += '<br>⚠️ <b>' + rejected.length + '개 파일 제외</b> — ';
+      const reasons = {};
+      rejected.forEach(function(r){
+        const k = (r.reason||'').split('(')[0].trim();
+        reasons[k] = (reasons[k]||0)+1;
+      });
+      html += Object.keys(reasons).map(function(k){ return k + ' ' + reasons[k] + '건'; }).join(' · ');
+      html += '<details style="margin-top:6px"><summary style="cursor:pointer;color:#92400e">📋 자세히 보기</summary><div style="margin-top:6px;max-height:120px;overflow-y:auto;background:rgba(255,255,255,0.4);padding:6px 8px;border-radius:6px;font-size:11.5px;font-family:ui-monospace,monospace">';
+      rejected.slice(0, 30).forEach(function(r){ html += '• ' + r.name + ' — ' + r.reason + '<br>'; });
+      if (rejected.length > 30) html += '… (그 외 ' + (rejected.length-30) + '개)';
+      html += '</div></details>';
+    }
+    banner.innerHTML = html;
+    wrap.appendChild(banner);
+  }
 
   pendingGroups.forEach((g, gi) => {
     const lessonCount = g.lessons.size;
@@ -931,7 +969,7 @@ function applyLibFilter() {
   if (!filtered.length) {
     tbody.innerHTML = '';
     empty.style.display = 'block';
-    empty.textContent = libCache.length ? '검색 조건에 맞는 교재가 없습니다.' : '아직 등록된 교재가 없습니다. 위에서 폴더를 드래그하거나 선택해 업로드하세요.';
+    empty.textContent = libCache.length ? '검색 조건에 맞는 교재가 없습니다.' : '아직 등록된 교재가 없습니다.';
     return;
   }
   empty.style.display = 'none';
@@ -948,13 +986,17 @@ function applyLibFilter() {
       '<td style="font-size:11.5px;color:var(--text-mute)">' + date + '</td>' +
       '<td>' +
         '<div class="lib-actions">' +
-          '<button class="act-view" onclick="window.open(\'/textbook-viewer.html?id=' + t.id + '\', \'_blank\')">👀 보기</button>' +
-          '<button class="act-class" onclick="alert(\'수업 룸 안에서 [📚 교재 띄우기] 버튼으로 학생에게 보여줄 수 있습니다.\')">📺 수업에서</button>' +
-          '<button class="act-del" onclick="delTextbook(\'' + t.id + '\')">🗑</button>' +
+          '<button class="act-view" data-tb-id="' + t.id + '">보기</button>' +
+          '<button class="act-class">수업에서</button>' +
+          '<button class="act-del" data-tb-id="' + t.id + '">삭제</button>' +
         '</div>' +
       '</td>' +
     '</tr>';
   }).join('');
+  // 이벤트 위임 (inline onclick 의 escape 문제 회피)
+  tbody.querySelectorAll('.act-view').forEach(b => b.onclick = () => window.open('/textbook-viewer.html?id=' + b.dataset.tbId, '_blank'));
+  tbody.querySelectorAll('.act-del').forEach(b => b.onclick = () => delTextbook(b.dataset.tbId));
+  tbody.querySelectorAll('.act-class').forEach(b => b.onclick = () => alert('수업 룸 안에서 [교재 띄우기] 버튼으로 학생에게 보여줄 수 있습니다.'));
 }
 
 window.delTextbook = async (id) => {
@@ -1009,14 +1051,12 @@ async function traverseEntry(entry, files, path) {
     });
   }
   const fileInput = document.getElementById('file-input');
-  if (fileInput) { fileInput.addEventListener('change', e => { processFiles(Array.from(e.target.files)); }); }
+  if (fileInput) fileInput.addEventListener('change', e => processFiles(Array.from(e.target.files)));
   const folderInput = document.getElementById('folder-input');
-  if (folderInput) {
-    folderInput.addEventListener('change', e => {
-      const files = Array.from(e.target.files).map(f => { f.fullPath = f.webkitRelativePath; return f; });
-      processFiles(files);
-    });
-  }
+  if (folderInput) folderInput.addEventListener('change', e => {
+    const files = Array.from(e.target.files).map(f => { f.fullPath = f.webkitRelativePath; return f; });
+    processFiles(files);
+  });
   ['lib-search','lib-filter-pub','lib-filter-cat'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {

@@ -11265,112 +11265,19 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         </div>
       </details>
 
-      <!-- 🥭 Phase 39 — 1-3) 교재 파일 라이브러리 (PDF / JPG / PNG) -->
-      <!--   경쟁사 참고: ClassIn(칠판 PDF), Tutoring(레벨별 자료), Khan Academy -->
+      <!-- ph248: 교재 파일 라이브러리 → 폴더 업로더로 통일 안내 -->
       <details class="sub-item" id="sub-textbook-files">
-        <summary data-ko="📂 교재 파일 라이브러리 (PDF/JPG/PNG)" data-en="📂 Textbook File Library (PDF/JPG/PNG)">📂 교재 파일 라이브러리 (PDF/JPG/PNG)</summary>
-        <div class="sub-body">
-          <!-- 업로드 드롭존 -->
-          <div id="tbf-dropzone" style="border:2px dashed #93c5fd;border-radius:10px;padding:20px;text-align:center;background:linear-gradient(135deg,#eff6ff,#f0f9ff);cursor:pointer;transition:all .2s;margin-bottom:10px;">
-            <div style="font-size:32px;line-height:1;margin-bottom:6px;">📤</div>
-            <div style="font-weight:700;color:#1e40af;font-size:14px;" data-ko="파일을 끌어다 놓거나 클릭해서 선택" data-en="Drag &amp; drop or click to select">파일을 끌어다 놓거나 클릭해서 선택</div>
-            <div style="color:#64748b;font-size:11px;margin-top:4px;" data-ko="PDF / JPG / PNG / WEBP · 최대 80MB" data-en="PDF / JPG / PNG / WEBP · up to 80MB">PDF / JPG / PNG / WEBP · 최대 80MB</div>
-            <input id="tbf-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" style="display:none;" multiple />
-          </div>
-
-          <!-- 메타데이터 (업로드 시 자동 적용) -->
-          <div class="menu-form" style="background:#f8fafc;padding:8px 10px;border-radius:8px;margin-bottom:10px;">
-            <span style="font-size:11px;color:#475569;font-weight:700;" data-ko="기본값" data-en="Defaults">기본값</span>
-            <!-- ph156: 언어 선택 (영어 / 중국어) -->
-            <select id="tbf-lang" style="width:96px;" onchange="if(window.tbfUpdateLevelOptions)tbfUpdateLevelOptions()">
-              <option value="en" data-ko="🇬🇧 영어" data-en="🇬🇧 English">🇬🇧 영어</option>
-              <option value="zh" data-ko="🇨🇳 중국어" data-en="🇨🇳 Chinese">🇨🇳 중국어</option>
-            </select>
-            <select id="tbf-level" style="width:110px;">
-              <option value="" data-ko="레벨 미지정" data-en="No level">레벨 미지정</option>
-              <!-- 영어 (CEFR) — JS 가 동적으로 교체 -->
-              <optgroup label="영어 (CEFR)" data-lang="en">
-                <option value="A1">A1 (입문)</option>
-                <option value="A2">A2 (초급)</option>
-                <option value="B1">B1 (중급)</option>
-                <option value="B2">B2 (중상)</option>
-                <option value="C1">C1 (상급)</option>
-                <option value="C2">C2 (원어민)</option>
-              </optgroup>
-              <!-- 중국어 (1~20 레벨) -->
-              <optgroup label="중국어 (Lv 1~20)" data-lang="zh">
-                <option value="ZH1">Lv 1 (입문)</option>
-                <option value="ZH2">Lv 2</option>
-                <option value="ZH3">Lv 3</option>
-                <option value="ZH4">Lv 4 (초급 ↓)</option>
-                <option value="ZH5">Lv 5</option>
-                <option value="ZH6">Lv 6</option>
-                <option value="ZH7">Lv 7</option>
-                <option value="ZH8">Lv 8 (초급 ↑)</option>
-                <option value="ZH9">Lv 9</option>
-                <option value="ZH10">Lv 10 (중급 ↓)</option>
-                <option value="ZH11">Lv 11</option>
-                <option value="ZH12">Lv 12</option>
-                <option value="ZH13">Lv 13</option>
-                <option value="ZH14">Lv 14 (중급 ↑)</option>
-                <option value="ZH15">Lv 15</option>
-                <option value="ZH16">Lv 16 (상급 ↓)</option>
-                <option value="ZH17">Lv 17</option>
-                <option value="ZH18">Lv 18</option>
-                <option value="ZH19">Lv 19 (상급 ↑)</option>
-                <option value="ZH20">Lv 20 (원어민)</option>
-              </optgroup>
-            </select>
-            <input id="tbf-unit" type="number" placeholder="단원 번호" data-ko-placeholder="단원 번호" data-en-placeholder="Unit no." style="width:90px;" />
-            <select id="tbf-textbook" style="width:160px;">
-              <option value="" data-ko="교재 미지정" data-en="No textbook">교재 미지정</option>
-            </select>
-            <input id="tbf-desc" placeholder="설명 (선택)" data-ko-placeholder="설명 (선택)" data-en-placeholder="Description" style="flex:1;min-width:160px;" />
-          </div>
-
-          <!-- 필터 (ph156: 언어 + 중국어 Lv 1~20 추가) -->
-          <div class="menu-form" style="padding:4px 0;">
-            <span style="font-size:11px;color:#475569;font-weight:700;" data-ko="필터" data-en="Filter">필터</span>
-            <select id="tbf-filter-lang" style="width:110px;" onchange="loadTextbookFiles()">
-              <option value="" data-ko="전체 언어" data-en="All langs">전체 언어</option>
-              <option value="en">🇬🇧 영어</option>
-              <option value="zh">🇨🇳 중국어</option>
-            </select>
-            <select id="tbf-filter-level" style="width:130px;" onchange="loadTextbookFiles()">
-              <option value="" data-ko="전체 레벨" data-en="All levels">전체 레벨</option>
-              <optgroup label="영어 (CEFR)">
-                <option value="A1">A1</option><option value="A2">A2</option>
-                <option value="B1">B1</option><option value="B2">B2</option>
-                <option value="C1">C1</option><option value="C2">C2</option>
-              </optgroup>
-              <optgroup label="중국어 (Lv 1~20)">
-                <option value="ZH1">Lv 1</option><option value="ZH2">Lv 2</option>
-                <option value="ZH3">Lv 3</option><option value="ZH4">Lv 4</option>
-                <option value="ZH5">Lv 5</option><option value="ZH6">Lv 6</option>
-                <option value="ZH7">Lv 7</option><option value="ZH8">Lv 8</option>
-                <option value="ZH9">Lv 9</option><option value="ZH10">Lv 10</option>
-                <option value="ZH11">Lv 11</option><option value="ZH12">Lv 12</option>
-                <option value="ZH13">Lv 13</option><option value="ZH14">Lv 14</option>
-                <option value="ZH15">Lv 15</option><option value="ZH16">Lv 16</option>
-                <option value="ZH17">Lv 17</option><option value="ZH18">Lv 18</option>
-                <option value="ZH19">Lv 19</option><option value="ZH20">Lv 20</option>
-              </optgroup>
-            </select>
-            <select id="tbf-filter-kind" style="width:100px;" onchange="loadTextbookFiles()">
-              <option value="" data-ko="전체 종류" data-en="All types">전체 종류</option>
-              <option value="pdf">PDF</option>
-              <option value="image" data-ko="이미지" data-en="Image">이미지</option>
-            </select>
-            <input id="tbf-filter-q" placeholder="이름 검색" data-ko-placeholder="이름 검색" data-en-placeholder="Search name" style="width:160px;" oninput="if(window._tbfDeb)clearTimeout(window._tbfDeb); window._tbfDeb=setTimeout(loadTextbookFiles,250)" />
-            <button class="primary" style="padding:5px 12px;font-size:13px;" onclick="loadTextbookFiles()" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
-          </div>
-
-          <!-- 진행 상태 -->
-          <div id="tbf-progress" style="display:none;margin:6px 0;padding:8px 10px;background:#fef3c7;border-radius:6px;font-size:12px;color:#92400e;"></div>
-
-          <!-- 라이브러리 그리드 -->
-          <div id="tbf-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:8px;">
-            <div class="empty" style="grid-column:1/-1;text-align:center;padding:24px;color:#94a3b8;" data-ko="아직 업로드된 파일이 없습니다." data-en="No files uploaded yet.">아직 업로드된 파일이 없습니다.</div>
+        <summary data-ko="📂 교재 파일 라이브러리 (개별 파일)" data-en="📂 Textbook File Library (single files)">📂 교재 파일 라이브러리 (개별 파일)</summary>
+        <div class="sub-body" style="padding:16px">
+          <div style="padding:18px 20px;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1.5px solid #fbbf24;border-radius:12px;color:#78350f;font-size:13.5px;line-height:1.7;font-weight:600">
+            <div style="font-size:15px;font-weight:900;margin-bottom:8px">🔀 이 메뉴는 위의 <span style="color:#1d4ed8">[📚 교재 폴더 업로더 (AI 자동 분류)]</span> 로 통합되었습니다.</div>
+            <div style="margin-bottom:12px;font-weight:500">
+              하나의 통합된 시스템으로 단순화했습니다 — 폴더 통째 드래그 → AI 자동 분류 → 출판사·교재·레벨·레슨별 자동 그룹화.
+            </div>
+            <a href="/textbook-uploader.html" target="_blank"
+               style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border-radius:99px;text-decoration:none;font-weight:800;font-size:13px;box-shadow:0 6px 14px rgba(59,130,246,0.4)">
+              📚 교재 폴더 업로더 열기 →
+            </a>
           </div>
         </div>
       </details>
@@ -19262,7 +19169,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260530215511 -->
+        <!-- BUILD:20260530230120 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
