@@ -19641,6 +19641,7 @@ window.closeRulesModal = function() {
             '<div style=\"display:flex;gap:8px;margin-top:8px\">' +
               '<a href=\"/textbook-uploader.html\" target=\"_blank\" style=\"padding:10px 18px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border-radius:99px;text-decoration:none;font-size:13px;font-weight:800\">📚 업로더 열기</a>' +
               '<button onclick=\"loadTextbookLibrary()\" style=\"padding:10px 18px;background:#fff;color:#0f172a;border:1.5px solid #cbd5e1;border-radius:99px;cursor:pointer;font-size:13px;font-weight:800\">🔄 새로고침</button>' +
+              '<button onclick=\"tbfDiagnostic()\" style=\"padding:10px 18px;background:#fef3c7;color:#78350f;border:1.5px solid #fbbf24;border-radius:99px;cursor:pointer;font-size:13px;font-weight:800\">🔬 진단</button>' +
             '</div>' +
           '</div>' +
           '<div style=\"margin-top:14px;font-size:10.5px;color:#94a3b8;font-family:monospace\">🔍 진단: textbooks=0, files=' + fileCount + ', 상태=' + (res.err || 'ok') + ' · DB=mangoi-textbooks v3</div>' +
@@ -19920,7 +19921,68 @@ window.closeRulesModal = function() {
     }
   });
 
-  console.log('[ph245] 교재 라이브러리 모달 — split layout + 카드 그리드 로드');
+  // ph255: IDB raw 진단 — 사용자가 화면에서 직접 확인 가능
+  window.tbfDiagnostic = async function(){
+    var lines = ['🔬 IndexedDB 진단 결과', '─────────────────'];
+    lines.push('현재 URL: ' + location.origin);
+    lines.push('User-Agent: ' + navigator.userAgent.slice(0, 80));
+    try {
+      var dbs = await indexedDB.databases();
+      lines.push('');
+      lines.push('📦 모든 DB (' + dbs.length + '개):');
+      for (var i = 0; i < dbs.length; i++) {
+        lines.push('  • ' + dbs[i].name + ' (v' + dbs[i].version + ')');
+      }
+    } catch(e) { lines.push('❌ DB 목록 조회 실패: ' + e.message); }
+    // mangoi-textbooks 직접 조회
+    try {
+      var r = await new Promise(function(resolve){
+        var req = indexedDB.open('mangoi-textbooks');
+        req.onsuccess = function(){ resolve({ok:true, db:req.result}); };
+        req.onerror = function(){ resolve({ok:false, err:req.error}); };
+        req.onblocked = function(){ resolve({ok:false, err:'blocked'}); };
+        setTimeout(function(){ resolve({ok:false, err:'timeout'}); }, 3000);
+      });
+      lines.push('');
+      lines.push('🗃 mangoi-textbooks 조회:');
+      if (!r.ok) { lines.push('  ❌ ' + (r.err || 'unknown')); }
+      else {
+        var db = r.db;
+        lines.push('  ✅ open OK · version=' + db.version);
+        lines.push('  · stores=[' + Array.from(db.objectStoreNames).join(', ') + ']');
+        if (db.objectStoreNames.contains('textbooks') && db.objectStoreNames.contains('files')) {
+          var tx = db.transaction(['textbooks','files'], 'readonly');
+          var tbCount = await new Promise(function(res){
+            var cr = tx.objectStore('textbooks').count();
+            cr.onsuccess = function(){ res(cr.result); };
+            cr.onerror = function(){ res('?'); };
+          });
+          var flCount = await new Promise(function(res){
+            var cr = tx.objectStore('files').count();
+            cr.onsuccess = function(){ res(cr.result); };
+            cr.onerror = function(){ res('?'); };
+          });
+          lines.push('  · textbooks count = ' + tbCount);
+          lines.push('  · files count = ' + flCount);
+        }
+        db.close();
+      }
+    } catch(e) { lines.push('❌ 직접 조회 실패: ' + e.message); }
+    // storage estimate
+    try {
+      if (navigator.storage && navigator.storage.estimate) {
+        var est = await navigator.storage.estimate();
+        lines.push('');
+        lines.push('💾 Storage quota: ' + Math.round((est.quota||0)/1024/1024) + ' MB');
+        lines.push('💾 Storage usage: ' + Math.round((est.usage||0)/1024/1024) + ' MB');
+      }
+    } catch(e){}
+    var msg = lines.join('\n');
+    console.log(msg);
+    alert(msg);
+  };
+
+    console.log('[ph245] 교재 라이브러리 모달 — split layout + 카드 그리드 로드');
 })();
 
 </script>
@@ -23648,7 +23710,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260531011616 -->
+<!-- BUILD:20260531012202 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
