@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B1224">
 <title>📚 교재 업로더 — 폴더째 드래그 → AI 자동 분류</title>
-<!-- BUILD:20260531013322 -->
+<!-- ph257: JSZip CDN — zip 파일 자동 풀기 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<!-- BUILD:20260531013930 -->
 <style>
 :root {
   --bg:#0B1224; --bg-soft:#131C36; --bg-card:#1A2548; --bg-card-2:#1E2D58;
@@ -136,7 +138,7 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
   <div class="dz-ico">📁</div>
   <div class="dz-title">교재 폴더를 여기로 드래그하세요</div>
   <div class="dz-sub">예) <code style="background:rgba(0,0,0,0.3);padding:1px 5px;border-radius:4px;font-size:11px;color:#fcd34d">다락원/마스터3/제1과/p001.pdf</code><br>
-  PDF · 이미지(JPG/PNG/WebP) · 동영상(MP4) 모두 지원</div>
+  PDF · 이미지(JPG/PNG/WebP) · 동영상(MP4) · 🗜 <b>ZIP 자동 풀기</b> 지원</div>
   <div class="dz-or">— 또는 —</div>
   <label class="dz-btn">📂 폴더 선택하기
     <input type="file" id="folder-input" webkitdirectory directory multiple>
@@ -496,15 +498,57 @@ let pendingGroups = []; // 저장 대기 중인 그룹들
 async function processFiles(files) {
   if (!files || !files.length) return;
 
-  // 🛡️ ph241 — 압축 파일 + 너무 큰 파일 자동 거부 (IndexedDB quota 초과 방지)
-  const ARCHIVE_EXT = ['zip','rar','7z','tar','gz','bz2','xz','tgz','zipx','ace','arj','cab','iso'];
-  const MAX_FILE_SIZE = 80 * 1024 * 1024; // 80 MB — IndexedDB 안전 한도
+  // ph257: ZIP 자동 풀기 (JSZip) + 나머지 압축 형식은 거부
+  const ZIP_EXT = ['zip'];
+  const ARCHIVE_EXT = ['rar','7z','tar','gz','bz2','xz','tgz','zipx','ace','arj','cab','iso'];
+  const MAX_FILE_SIZE = 80 * 1024 * 1024; // 80 MB
+  // ZIP 자동 unzip
+  if (window.JSZip) {
+    const newFiles = [];
+    for (const f of files) {
+      const ext = (f.name || '').toLowerCase().split('.').pop();
+      if (ZIP_EXT.indexOf(ext) >= 0) {
+        try {
+          console.log('[ph257] ZIP 풀기 시작:', f.name, humanSize(f.size));
+          const pbZ = document.getElementById('pb');
+          const pbZT = document.getElementById('pb-text');
+          if (pbZ) pbZ.classList.add('show');
+          if (pbZT) pbZT.textContent = '🗜 ' + f.name + ' 압축 풀기…';
+          const zip = await JSZip.loadAsync(f);
+          let cnt = 0;
+          await Promise.all(Object.keys(zip.files).map(async function(name){
+            const entry = zip.files[name];
+            if (entry.dir) return;
+            try {
+              const blob = await entry.async('blob');
+              const fname = name.split('/').pop();
+              const file = new File([blob], fname, { type: blob.type || '' });
+              // 원본 zip 이름을 prefix로 + 내부 경로 보존 → 폴더 구조 자동 분류 작동
+              const zipBase = (f.name || '').replace(/\.zip$/i, '');
+              file.fullPath = zipBase + '/' + name;
+              newFiles.push(file);
+              cnt++;
+            } catch(e) { console.warn('[ph257] 엔트리 풀기 실패:', name, e); }
+          }));
+          console.log('[ph257] ZIP 풀기 완료:', f.name, '→', cnt, '개 파일');
+        } catch(e) {
+          console.error('[ph257] ZIP 풀기 실패:', f.name, e);
+          alert('❌ ZIP 풀기 실패: ' + f.name + '\n\n' + (e.message || e));
+        }
+      } else {
+        newFiles.push(f);
+      }
+    }
+    files = newFiles;
+  } else {
+    console.warn('[ph257] JSZip 미로드 — ZIP 풀기 불가');
+  }
   const rejected = [];
   const accepted = [];
   for (const f of files) {
     const ext = (f.name || '').toLowerCase().split('.').pop();
     if (ARCHIVE_EXT.indexOf(ext) >= 0) {
-      rejected.push({ name: f.name, size: f.size, reason: '🗜️ 압축 파일 (' + ext.toUpperCase() + ')' });
+      rejected.push({ name: f.name, size: f.size, reason: '🗜️ 미지원 압축 (' + ext.toUpperCase() + ') — ZIP 만 자동 풀림' });
       continue;
     }
     if (f.size > MAX_FILE_SIZE) {
