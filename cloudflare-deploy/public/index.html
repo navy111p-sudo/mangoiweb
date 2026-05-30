@@ -19277,32 +19277,126 @@ function closeTextbookLibrary() {
   const m = document.getElementById('tbf-lib-modal');
   if (m) m.style.display = 'none';
 }
+// ph233: 인라인 IndexedDB 조회 (ph168 의존성 제거)
+function _ph233_loadInlineBooks() {
+  return new Promise(function(resolve){
+    try {
+      var req = indexedDB.open('mangoi-textbooks', 3);
+      req.onupgradeneeded = function(e) {
+        var d = e.target.result;
+        if (!d.objectStoreNames.contains('textbooks')) {
+          var s = d.createObjectStore('textbooks', { keyPath: 'id' });
+          try { s.createIndex('publisher', 'publisher'); } catch(_){}
+          try { s.createIndex('createdAt', 'createdAt'); } catch(_){}
+        }
+        if (!d.objectStoreNames.contains('files')) d.createObjectStore('files', { keyPath: 'id' });
+      };
+      req.onsuccess = function() {
+        var db = req.result;
+        if (!db.objectStoreNames.contains('textbooks') || !db.objectStoreNames.contains('files')) {
+          db.close(); console.warn('[ph233] store 누락'); resolve({items:[], debug:'store_missing'}); return;
+        }
+        var tx = db.transaction(['textbooks', 'files'], 'readonly');
+        var tbReq = tx.objectStore('textbooks').getAll();
+        var fileReq = tx.objectStore('files').getAll();
+        var done = 0, textbooks = [], files = [];
+        function check() {
+          done++; if (done < 2) return;
+          var fileMap = {}; files.forEach(function(f){ fileMap[f.id] = f; });
+          var items = [];
+          textbooks.forEach(function(t){
+            (t.lessons || []).forEach(function(l){
+              (l.fileIds || []).forEach(function(fid){
+                var f = fileMap[fid]; if (!f) return;
+                items.push({
+                  id: fid,
+                  name: '[' + (t.textbook || '교재') + (t.level ? ' ' + t.level : '') + '] ' + (l.name || '') + ' — ' + (f.name || ''),
+                  kind: f.kind === 'pdf' ? 'pdf' : (f.kind === 'image' ? 'image' : f.kind),
+                  url: URL.createObjectURL(f.blob),
+                  level: t.level || '', unit_no: '',
+                  publisher: t.publisher, category: t.category, _source: 'idb'
+                });
+              });
+            });
+          });
+          db.close();
+          console.log('[ph233] IndexedDB 조회 완료 — 교재 ' + textbooks.length + '개 / 파일 ' + files.length + '개 / flat ' + items.length + '개');
+          resolve({items:items, debug:'ok', tbCount:textbooks.length, fileCount:files.length});
+        }
+        tbReq.onsuccess = function(){ textbooks = tbReq.result || []; check(); };
+        tbReq.onerror = function(){ console.error('[ph233] textbooks 조회 실패', tbReq.error); check(); };
+        fileReq.onsuccess = function(){ files = fileReq.result || []; check(); };
+        fileReq.onerror = function(){ console.error('[ph233] files 조회 실패', fileReq.error); check(); };
+      };
+      req.onerror = function(){ console.error('[ph233] DB open 실패', req.error); resolve({items:[], debug:'open_failed:' + (req.error && req.error.message)}); };
+      req.onblocked = function(){ console.warn('[ph233] DB blocked'); resolve({items:[], debug:'blocked'}); };
+    } catch(e) {
+      console.error('[ph233] indexedDB 에러:', e);
+      resolve({items:[], debug:'exception:' + e.message});
+    }
+  });
+}
+
 async function loadTextbookLibrary() {
   const grid = document.getElementById('tbf-lib-grid');
   const lv = document.getElementById('tbf-lib-level').value;
   const q  = (document.getElementById('tbf-lib-search').value || '').trim();
   const qs = new URLSearchParams();
   if (lv) qs.set('level', lv);
+
+  let items = [];
+  let apiOk = false, apiCount = 0;
+  let idbDebug = 'not_tried', idbCount = 0, tbCount = 0;
+
+  // 1) 서버 API 시도 (실패해도 OK)
   try {
     const r = await fetch('/api/textbook-files?' + qs.toString(), { cache:'no-store' });
-    const d = await r.json().catch(()=>({}));
-    let items = d.items || [];
-    // ph168 (2026-05-29) — textbook-uploader IndexedDB 의 교재도 함께 표시
-    try {
-      const localItems = await window._ph168_loadIndexedBooks();
-      if (localItems && localItems.length) items = items.concat(localItems);
-    } catch(e) { console.warn('[ph168] IndexedDB merge skipped:', e); }
-    if (q) {
-      const ql = q.toLowerCase();
-      items = items.filter(it => (it.name||'').toLowerCase().includes(ql));
+    if (r.ok) {
+      const d = await r.json().catch(()=>({}));
+      const apiItems = d.items || [];
+      apiCount = apiItems.length;
+      apiOk = true;
+      items = items.concat(apiItems);
     }
-    const ko = (typeof currentLang!=='undefined'?currentLang:'ko')==='ko';
-    if (items.length === 0) {
-      grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#64748b;">📭 ' +
-        (ko ? '아직 라이브러리에 파일이 없습니다. 관리자 페이지 → 교재 파일 라이브러리에서 업로드하세요.' :
-              'No files in library yet. Upload from admin → Textbook File Library.') + '</div>';
-      return;
-    }
+  } catch(e) { console.warn('[loadTextbookLibrary] 서버 API skipped:', e.message); }
+
+  // 2) 인라인 IndexedDB 조회 (필수)
+  try {
+    const idbRes = await _ph233_loadInlineBooks();
+    idbDebug = idbRes.debug || 'unknown';
+    idbCount = (idbRes.items || []).length;
+    tbCount = idbRes.tbCount || 0;
+    if (idbRes.items && idbRes.items.length) items = items.concat(idbRes.items);
+  } catch(e) {
+    console.error('[loadTextbookLibrary] IndexedDB 조회 실패:', e);
+    idbDebug = 'exception:' + e.message;
+  }
+
+  // 검색 필터
+  if (q) {
+    const ql = q.toLowerCase();
+    items = items.filter(it => (it.name||'').toLowerCase().includes(ql));
+  }
+
+  const ko = (typeof currentLang!=='undefined'?currentLang:'ko')==='ko';
+
+  // 빈 상태 — 자세한 디버그 정보 제공
+  if (items.length === 0) {
+    const dbg = '서버 API: ' + (apiOk ? '응답 ' + apiCount + '개' : '실패') + ' · 내 PC IndexedDB: ' + idbDebug + ' (' + idbCount + '개)';
+    grid.innerHTML =
+      '<div style="grid-column:1/-1; text-align:center; padding:40px 20px; color:#94a3b8;">' +
+        '<div style="font-size:48px;margin-bottom:14px">📭</div>' +
+        '<div style="font-size:15px;color:#e2e8f0;font-weight:700;margin-bottom:8px">' + (ko ? '교재가 안 보입니다' : 'No textbooks found') + '</div>' +
+        '<div style="font-size:12px;color:#94a3b8;line-height:1.7;margin-bottom:14px">' +
+          '💡 ' + (ko ? '교재를 먼저 등록하셨나요?' : 'Did you upload textbooks?') + '<br>' +
+          '<a href="/textbook-uploader.html" target="_blank" style="display:inline-block;margin-top:6px;padding:8px 18px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border-radius:99px;text-decoration:none;font-size:12.5px;font-weight:800">📚 교재 업로더 열기</a>' +
+        '</div>' +
+        '<div style="margin-top:18px;padding:8px 12px;background:rgba(0,0,0,0.3);border-radius:8px;font-size:10.5px;color:#64748b;font-family:monospace;line-height:1.5">' +
+          '🔍 진단: ' + dbg +
+        '</div>' +
+      '</div>';
+    return;
+  }
     grid.innerHTML = items.map(f => {
       const thumb = f.kind === 'pdf'
         ? '<div style="height:120px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#7f1d1d,#451a03);color:#fca5a5;font-size:42px;">📕</div>'
@@ -23086,7 +23180,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260530171721 -->
+<!-- BUILD:20260530172645 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25719,144 +25813,37 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      · openNewPaymentDirect / paymode-card.click 다중 폴백
      ============================================================ -->
 <script id="ph178-payment-auto-open">
-console.log("[ph178-v3] 🚀 script loaded at " + new Date().toISOString());
 (function(){
   "use strict";
-  console.log("[ph178-v3] IIFE 진입, URL:", location.href);
   var _ph178_done = false;
   var _ph178_step1_confirmed = false;
-
-  function isStep1Visible() {
-    var p = document.getElementById("pay-step1");
-    if (!p) return false;
-    var s = window.getComputedStyle(p);
-    return s.display !== "none" && s.visibility !== "hidden";
-  }
-
-  function persistJumpToStep1(typeLabel) {
-    if (_ph178_step1_confirmed) return;
-    var attempt = 0;
-    var maxAttempts = 30;
-    function tick() {
-      attempt++;
-      if (_ph178_step1_confirmed || attempt > maxAttempts) return;
-      if (isStep1Visible()) {
-        _ph178_step1_confirmed = true;
-        console.log("[ph178-v3] ✅ step1 진입 확인 (attempt " + attempt + ")");
-        return;
-      }
-      if (typeof window.openNewPaymentDirect === "function") {
-        try { window.openNewPaymentDirect(); } catch(e){ console.warn("[ph178-v3] openNewPaymentDirect 실패:", e); }
-      } else {
-        try {
-          var newCard = document.querySelector('.paymode-card[data-mode="new"]');
-          if (newCard) { newCard.click(); console.log("[ph178-v3] paymode 카드 클릭 (attempt " + attempt + ")"); }
-        } catch(e){}
-      }
-      setTimeout(tick, 200);
-    }
-    tick();
-  }
 
   function tryOpenPayment() {
     if (_ph178_done) return;
     var params = new URLSearchParams(location.search);
     if (params.get("menu") !== "payment") return;
     var from = params.get("from") || "";
-    var bookingType = params.get("type") || "";
-    var typeLabel = bookingType === "group" ? "그룹 수업" : (bookingType === "oneon" ? "1:1 수업" : "수업");
-    var opened = false;
-
     if (from === "booking" && typeof window.openNewPaymentDirect === "function") {
       try {
         window.openNewPaymentDirect();
-        opened = true; _ph178_done = true;
-        console.log("[ph178-v3] ✅ openNewPaymentDirect 호출 (from:booking, type:" + bookingType + ")");
-      } catch(e){ console.warn("[ph178-v3] openNewPaymentDirect 호출 실패:", e); }
-    }
-    if (!opened && typeof window.openPaymentModal === "function") {
-      try { window.openPaymentModal(); opened = true; console.log("[ph178-v3] openPaymentModal() 호출 (from:" + from + ")"); }
-      catch(e){ console.warn("[ph178-v3] openPaymentModal 실패:", e); }
-    }
-    if (!opened) {
-      var modal = document.getElementById("payment-modal");
-      if (modal) { modal.style.display = "flex"; opened = true; console.log("[ph178-v3] 결제 모달 직접 표시 (fallback)"); }
-    }
-    if (!opened && window.gridActions && typeof window.gridActions.payment === "function") {
-      try { window.gridActions.payment(); opened = true; console.log("[ph178-v3] gridActions.payment 실행"); } catch(e){ console.warn("[ph178-v3] gridActions.payment 실패:", e); }
-    }
-    // 폴백 4: 화면의 .cta-pay 버튼 자동 클릭 (사용자가 실제로 보는 버튼)
-    if (!opened) {
-      var payBtn = document.querySelector('.cta-pay, button[data-go="payment"]');
-      if (payBtn) {
-        try {
-          payBtn.click();
-          opened = true;
-          console.log("[ph178-v3] .cta-pay 버튼 자동 클릭 성공");
-        } catch(e){ console.warn("[ph178-v3] .cta-pay 클릭 실패:", e); }
-      } else {
-        console.warn("[ph178-v3] .cta-pay 버튼도 못 찾음. DOM 상태 점검 필요");
-      }
-    }
-    // 폴백 5: 진단 로그 (어떤 것이 없는지 확인)
-    if (!opened) {
-      console.error("[ph178-v3] 모든 폴백 실패. 진단:");
-      console.error("  - openNewPaymentDirect:", typeof window.openNewPaymentDirect);
-      console.error("  - openPaymentModal:", typeof window.openPaymentModal);
-      console.error("  - payment-modal element:", !!document.getElementById("payment-modal"));
-      console.error("  - gridActions.payment:", window.gridActions && typeof window.gridActions.payment);
-      console.error("  - .cta-pay element:", !!document.querySelector('.cta-pay'));
-    }
-    if (opened) {
-      _ph178_done = true;
-      if (from === "booking") {
-        persistJumpToStep1(typeLabel);
-        var t = document.createElement("div");
-        t.style.cssText = "position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:99999;padding:14px 26px;background:linear-gradient(135deg,#10B981,#059669);color:#fff;border-radius:99px;font-weight:800;font-size:14px;box-shadow:0 12px 32px -6px rgba(16,185,129,0.55);font-family:'Noto Sans KR',sans-serif;display:flex;align-items:center;gap:10px";
-        t.innerHTML = "✅ " + typeLabel + " 신청 완료! 원하시는 과정을 선택해 주세요.";
-        document.body.appendChild(t);
-        setTimeout(function(){ t.style.transition = "opacity .5s"; t.style.opacity = "0"; setTimeout(function(){ t.remove(); }, 600); }, 3500);
-      }
+        _ph178_done = true;
+        _ph178_step1_confirmed = true;
+      } catch(e){}
       return;
     }
-    var card2 = document.querySelector('[data-go="payment"], .cta-pay');
-    if (card2) {
-      card2.scrollIntoView({ behavior: "smooth", block: "center" });
-      var orig = card2.style.boxShadow;
-      card2.style.boxShadow = "0 0 0 4px rgba(251,191,36,0.7), 0 0 32px rgba(251,191,36,0.5)";
-      setTimeout(function(){ card2.style.boxShadow = orig; }, 2400);
-      console.log("[ph178-v3] 결제 카드 스크롤 + 강조 (모달 미발견)");
+    if (typeof window.openPaymentModal === "function") {
+      try { window.openPaymentModal(); _ph178_done = true; } catch(e){}
     }
   }
 
-  function showDebugBanner(msg, color) { /* disabled: 디버그 배너 비활성화 */ }
-  // 페이지에 남아있을 수 있는 옛 배너 즉시 제거
-  try {
-    var _oldB = document.getElementById("ph178-debug-banner");
-    if (_oldB) _oldB.remove();
-    setTimeout(function(){ var b = document.getElementById("ph178-debug-banner"); if (b) b.remove(); }, 500);
-  } catch(e){}
-
-  var params0 = new URLSearchParams(location.search);
-  // 무한 폴링 — 500ms 마다 시도, 최대 30초
   var tickCount = 0;
   var pollerId = setInterval(function(){
     tickCount++;
-    if (tickCount > 60) {
-      clearInterval(pollerId);
-      console.log("[ph178-v3] 폴링 종료 (60 tick)");
-      return;
-    }
-    try {
-      tryOpenPayment();
-    } catch(e){ console.warn("[ph178-v3] tryOpenPayment error:", e); }
-    if (_ph178_step1_confirmed) {
-      clearInterval(pollerId);
-      console.log("[ph178-v3] ✅ step1 확정 — 폴링 종료");
-    }
+    if (tickCount > 60) { clearInterval(pollerId); return; }
+    try { tryOpenPayment(); } catch(e){}
+    if (_ph178_step1_confirmed) clearInterval(pollerId);
   }, 500);
 
-  // 초기 즉시 호출도 유지
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function(){ setTimeout(tryOpenPayment, 200); });
   } else {
