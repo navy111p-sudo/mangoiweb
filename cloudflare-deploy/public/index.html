@@ -6162,7 +6162,17 @@
     </div>
 </div>
 
-<!-- PDF.js 라이브러리 (PDF 렌더링용) -->
+<!-- PDF.js 라이브러리 (PDF 렌더링용) — ph254: CDN 복구 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  /* ph254: pdfjsLib 로드 즉시 worker 경로 설정 */
+  if (window.pdfjsLib) {
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    console.log('[ph254] PDF.js 로드 완료 — v3.11.174');
+  } else {
+    console.error('[ph254] PDF.js CDN 로드 실패 — pdfjsLib undefined');
+  }
+</script>
 
 <!-- ================================================================
      [JavaScript] 전체 앱 로직
@@ -19601,10 +19611,26 @@ window.closeRulesModal = function() {
     window._libFileMap = res.files || {};
 
     if (window._libAllBooks.length === 0) {
-      // ph252: 명확한 안내 메시지
+      // ph252 + ph253: 시크릿 모드 자동 감지 + 명확한 안내
       var fileCount = Object.keys(window._libFileMap || {}).length;
+      // ph253: 시크릿 모드 감지 — quota < 200MB 면 거의 확실히 private browsing
+      var isPrivate = false;
+      try {
+        if (navigator.storage && navigator.storage.estimate) {
+          var est = await navigator.storage.estimate();
+          if (est.quota && est.quota < 200 * 1024 * 1024) isPrivate = true;
+        }
+      } catch(_){}
+      var privateBanner = isPrivate
+        ? '<div style="margin-bottom:14px;padding:14px 18px;background:linear-gradient(135deg,#fee2e2,#fecaca);border:1.5px solid #dc2626;border-radius:10px;color:#7f1d1d;font-size:13.5px;font-weight:700;line-height:1.6;text-align:left;max-width:520px;margin-left:auto;margin-right:auto">' +
+            '<div style="font-size:15px;font-weight:900;margin-bottom:6px">🕶️ 시크릿/InPrivate 모드 감지됨</div>' +
+            '시크릿 모드의 브라우저 저장소는 <b>일반 모드와 완전히 격리</b>됩니다.<br>' +
+            '교재 업로더에서 저장한 교재가 여기서 안 보이는 이유입니다.<br><br>' +
+            '<b>해결:</b> 일반 모드 (시크릿 X) 에서 양쪽 페이지를 모두 여세요.' +
+          '</div>'
+        : '';
       tree.innerHTML = '<div style="padding:18px;text-align:center;color:#94a3b8;font-size:12px;line-height:1.6">📭 등록된 교재가 없습니다.<br><br><a href=\"/textbook-uploader.html\" target=\"_blank\" style=\"display:inline-block;padding:8px 16px;background:#3b82f6;color:#fff;border-radius:99px;text-decoration:none;font-size:11.5px;font-weight:800\">📚 업로더 열기</a></div>';
-      grid.innerHTML =
+      grid.innerHTML = privateBanner +
         '<div class=\"tbf-empty\" style=\"padding:40px 24px\">' +
           '<div class=\"tbf-empty-ico\">📭</div>' +
           '<div class=\"tbf-empty-title\" style=\"font-size:16px;color:#0f172a\">아직 이 브라우저에 등록된 교재가 없습니다</div>' +
@@ -23622,7 +23648,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260531004418 -->
+<!-- BUILD:20260531011151 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25911,22 +25937,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", nuke);
   setTimeout(nuke, 500);
   setTimeout(nuke, 1500);
-  setTimeout(nuke, 3000);
-
-  // MutationObserver — 동적으로 다시 생성되어도 즉시 제거
-  try {
-    var observer = new MutationObserver(function(mutations){
-      var found = false;
-      mutations.forEach(function(m){
-        m.addedNodes && m.addedNodes.forEach(function(n){
-          if (n.nodeType !== 1) return;
-          if (n.nodeType === 1) { /* no-op */ }
-        });
-      });
-    });
-    mo.observe(document.body, { childList: true, subtree: true });
-  } catch(e) {}
-})();
+  setTimeout(nuke, 3000);})();
 </script>
 
 </body>
