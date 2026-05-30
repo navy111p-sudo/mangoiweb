@@ -2887,10 +2887,10 @@
               <div id="ph204-kpi-hq" style="font-size:22px;font-weight:900;color:#78350f">₩7,275,000</div>
               <div style="font-size:10.5px;color:#b45309;margin-top:2px">평균 수수료율 15%</div>
             </div>
-            <div style="padding:14px 16px;background:linear-gradient(135deg,#dcfce7,#bbf7d0);border-radius:12px;border:1px solid #86efac">
-              <div style="font-size:11px;color:#166534;font-weight:700;margin-bottom:4px">📤 지점에 보낼 돈</div>
-              <div id="ph204-kpi-payout" style="font-size:22px;font-weight:900;color:#14532d">₩41,225,000</div>
-              <div style="font-size:10.5px;color:#16a34a;margin-top:2px">6개 지점 합계</div>
+            <div style="padding:14px 16px;background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-radius:12px;border:1px solid #93c5fd">
+              <div style="font-size:11px;color:#1e40af;font-weight:700;margin-bottom:4px">📤 지점에 보낼 돈</div>
+              <div id="ph204-kpi-payout" style="font-size:22px;font-weight:900;color:#1e3a8a">₩41,225,000</div>
+              <div style="font-size:10.5px;color:#2563eb;margin-top:2px">6개 지점 합계</div>
             </div>
             <div style="padding:14px 16px;background:linear-gradient(135deg,#fee2e2,#fecaca);border-radius:12px;border:1px solid #fca5a5">
               <div style="font-size:11px;color:#991b1b;font-weight:700;margin-bottom:4px">⏰ 송금 대기</div>
@@ -19104,7 +19104,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260530154654 -->
+        <!-- BUILD:20260530155647 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -25982,6 +25982,13 @@ button.chip:hover,
       <canvas id="b2b-chart" height="100"></canvas>
     </div>
 
+    <!-- 🔵🔴 3년 평균 vs 현재 비교 차트 (BtoB) -->
+    <div class="pm-chart" style="margin-top:14px">
+      <div class="pm-chart-title">📊 같은 기간 비교 — <span style="color:#60a5fa">■ 지난 3년 평균</span> vs <span style="color:#f87171">■ 올해 현재</span></div>
+      <canvas id="b2b-compare-chart" height="120"></canvas>
+      <div id="b2b-compare-summary" style="margin-top:8px;font-size:12px;color:#cbd5e1;text-align:center"></div>
+    </div>
+
     <!-- 표 (1번 양식 베이스) -->
     <div style="overflow-x:auto">
     <table class="pm-table" id="b2b-table">
@@ -26049,6 +26056,13 @@ button.chip:hover,
     <div class="pm-chart">
       <div class="pm-chart-title">📈 최근 12개월 월별 매출</div>
       <canvas id="b2c-chart" height="100"></canvas>
+    </div>
+
+    <!-- 🔵🔴 3년 평균 vs 현재 비교 차트 (BtoC) -->
+    <div class="pm-chart" style="margin-top:14px">
+      <div class="pm-chart-title">📊 같은 기간 비교 — <span style="color:#60a5fa">■ 지난 3년 평균</span> vs <span style="color:#f87171">■ 올해 현재</span></div>
+      <canvas id="b2c-compare-chart" height="120"></canvas>
+      <div id="b2c-compare-summary" style="margin-top:8px;font-size:12px;color:#cbd5e1;text-align:center"></div>
     </div>
 
     <!-- 안내 박스 -->
@@ -26184,6 +26198,128 @@ button.chip:hover,
   window.b2cBulkTaxInvoice = function(){ console.log('[ph106] 세금계산서 일괄발행'); alert('세금계산서 일괄발행 시작 (데모)'); };
 
   console.log('[ph106] BtoB/BtoC 결제관리 카드 + 차트 초기화 완료');
+
+  // ═════════════════════════════════════════════════════════════════
+  // 🔵🔴 ph220: 3년 평균 vs 현재 비교 막대 차트 (BtoB + BtoC 공통)
+  // ═════════════════════════════════════════════════════════════════
+  function ph220DrawCompareChart(canvasId, summaryId, type) {
+    var c = document.getElementById(canvasId);
+    if (!c) return;
+    var ctx = c.getContext('2d');
+    if (!ctx) return;
+
+    // demo 데이터: 12개월 — 3년 평균 vs 올해
+    var months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+    var nowMonth = new Date().getMonth() + 1;  // 1~12
+
+    // 시드 기반 demo (BtoB 는 더 크게, BtoC 는 더 변동성 큼)
+    var base = (type === 'b2b') ? 28000000 : 36000000;
+    var avg3y = months.map(function(_, i){
+      var m = i + 1;
+      var seasonal = 1 + 0.18 * Math.sin((m - 3) * Math.PI / 6); // 봄·가을 피크
+      return Math.round(base * seasonal * (0.94 + Math.random() * 0.06));
+    });
+    // 올해 = 현재 월까지만 표시 + 평균 대비 -8%~+22% 변동
+    var thisY = months.map(function(_, i){
+      var m = i + 1;
+      if (m > nowMonth) return null;
+      var multi = (type === 'b2b') ? (1.05 + Math.random() * 0.12) : (0.92 + Math.random() * 0.25);
+      return Math.round(avg3y[i] * multi);
+    });
+
+    // canvas 크기
+    var w = c.clientWidth || c.parentNode.clientWidth || 800;
+    var h = 120;
+    c.width = w * (window.devicePixelRatio || 1);
+    c.height = h * (window.devicePixelRatio || 1);
+    c.style.width = w + 'px';
+    c.style.height = h + 'px';
+    ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+
+    // 배경
+    ctx.fillStyle = 'rgba(15,23,42,0.4)';
+    ctx.fillRect(0, 0, w, h);
+
+    // max
+    var maxVal = Math.max.apply(null, avg3y.concat(thisY.filter(function(v){return v!=null;})));
+    var pad = 24, gridH = h - 36;
+
+    // 그리드 라인
+    ctx.strokeStyle = 'rgba(96,165,250,0.15)';
+    ctx.lineWidth = 1;
+    for (var g = 0; g <= 4; g++) {
+      var y = pad + (gridH * g / 4);
+      ctx.beginPath();
+      ctx.moveTo(28, y);
+      ctx.lineTo(w - 8, y);
+      ctx.stroke();
+    }
+
+    // 막대
+    var barAreaW = (w - 36) / months.length;
+    var barW = Math.max(3, (barAreaW - 4) / 2);
+    months.forEach(function(_, i){
+      var x = 30 + i * barAreaW;
+      var avgH = (avg3y[i] / maxVal) * gridH;
+      var thisH = thisY[i] != null ? (thisY[i] / maxVal) * gridH : 0;
+
+      // 파란 막대 (3년 평균) - 왼쪽
+      var blueGrad = ctx.createLinearGradient(0, pad + gridH - avgH, 0, pad + gridH);
+      blueGrad.addColorStop(0, '#60a5fa');
+      blueGrad.addColorStop(1, '#2563eb');
+      ctx.fillStyle = blueGrad;
+      ctx.fillRect(x, pad + gridH - avgH, barW, avgH);
+
+      // 빨간 막대 (올해 현재) - 오른쪽
+      if (thisY[i] != null) {
+        var redGrad = ctx.createLinearGradient(0, pad + gridH - thisH, 0, pad + gridH);
+        redGrad.addColorStop(0, '#f87171');
+        redGrad.addColorStop(1, '#dc2626');
+        ctx.fillStyle = redGrad;
+        ctx.fillRect(x + barW + 2, pad + gridH - thisH, barW, thisH);
+      }
+
+      // 월 라벨
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(months[i], x + barW + 1, h - 8);
+    });
+
+    // 요약 텍스트
+    var thisYearTotal = thisY.filter(function(v){return v!=null;}).reduce(function(a,b){return a+b;}, 0);
+    var avgSamePeriod = avg3y.slice(0, nowMonth).reduce(function(a,b){return a+b;}, 0);
+    var diff = thisYearTotal - avgSamePeriod;
+    var pct = Math.round((diff / avgSamePeriod) * 100);
+    var sign = diff >= 0 ? '▲' : '▼';
+    var color = diff >= 0 ? '#10b981' : '#ef4444';
+    var fmtMoney = function(n){ return '₩' + Math.round(n / 10000).toLocaleString('ko-KR') + '만'; };
+    var summary = document.getElementById(summaryId);
+    if (summary) {
+      summary.innerHTML =
+        '<span style="color:#60a5fa">3년 평균 (1~' + nowMonth + '월): <b>' + fmtMoney(avgSamePeriod) + '</b></span>' +
+        ' &nbsp;·&nbsp; <span style="color:#f87171">올해 현재 (1~' + nowMonth + '월): <b>' + fmtMoney(thisYearTotal) + '</b></span>' +
+        ' &nbsp;·&nbsp; <span style="color:' + color + ';font-weight:800">' + sign + ' ' + Math.abs(pct) + '%</span>';
+    }
+  }
+
+  function ph220DrawAll() {
+    ph220DrawCompareChart('b2b-compare-chart', 'b2b-compare-summary', 'b2b');
+    ph220DrawCompareChart('b2c-compare-chart', 'b2c-compare-summary', 'b2c');
+  }
+
+  // 초기 호출 + details open 시 재호출
+  setTimeout(ph220DrawAll, 600);
+  setTimeout(ph220DrawAll, 2000);
+  ['card-payments-b2b','card-payments-b2c'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('toggle', function(){
+      if (el.open) setTimeout(ph220DrawAll, 200);
+    });
+  });
+  window.addEventListener('resize', function(){ setTimeout(ph220DrawAll, 100); });
+
+  console.log('[ph220] 3년 평균 vs 현재 비교 차트 초기화 완료');
 })();
 </script>
 
@@ -34347,151 +34483,6 @@ button.chip:hover,
 
   console.log('[ph156] 교재 라이브러리 중국어 (HSK 1~6) 추가 활성');
 })();
-</script>
-
-<!-- ============================================================
-     Phase 157-v2 (2026-05-29) - CN Speech Coach sidebar card only
-     · FAB 제거됨 (사용자 요청)
-     · admin 좌측 사이드바에 카드 형태로만 유지
-     ============================================================ -->
-<style id="ph157-cn-coach-sidebar-style">
-  #ph157-cn-coach-sidebar {
-    display: block; margin: 12px 14px; padding: 12px 14px;
-    background: linear-gradient(135deg, #DC2626 0%, #F59E0B 100%);
-    border-radius: 12px; cursor: pointer;
-    box-shadow: 0 8px 18px -6px rgba(220, 38, 38, 0.45);
-    text-decoration: none; color: #fff; font-weight: 700;
-    transition: transform .15s, box-shadow .15s;
-    border: 0; width: calc(100% - 28px); text-align: left;
-    font-family: -apple-system, "Pretendard", "Noto Sans KR", sans-serif;
-  }
-  #ph157-cn-coach-sidebar:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 14px 24px -8px rgba(220, 38, 38, 0.6);
-  }
-  #ph157-cn-coach-sidebar .row-1 { display: flex; align-items: center; gap: 8px; font-size: 14px; }
-  #ph157-cn-coach-sidebar .row-2 { margin-top: 4px; font-size: 11.5px; opacity: 0.92; font-weight: 600; }
-  #ph157-cn-coach-sidebar .ic { font-size: 18px; }
-  #ph157-cn-coach-sidebar .badge {
-    margin-left: auto; padding: 2px 7px; background: rgba(255,255,255,0.25);
-    border-radius: 99px; font-size: 10px; font-weight: 800; letter-spacing: 0.3px;
-  }
-</style>
-
-<script id="ph157-cn-coach-sidebar-inject">
-(function(){
-  'use strict';
-  function injectSidebarCard(){
-    if (document.getElementById('ph157-cn-coach-sidebar')) return true;
-    var sidebar = document.getElementById('ph85-sidebar') || document.getElementById('admin-sidebar');
-    if (!sidebar) return false;
-    var card = document.createElement('a');
-    card.id = 'ph157-cn-coach-sidebar';
-    card.href = '/speech-coach-cn.html';
-    card.innerHTML = '<div class="row-1"><span class="ic">CN</span><span>중국어 발음 코치</span><span class="badge">NEW</span></div><div class="row-2">다락원 마스터 · Lv 1~20 · AI 평가</div>';
-    var anchor = sidebar.querySelector('.sidebar-search, .sidebar-header, .sidebar-toolbar');
-    if (anchor && anchor.parentNode) {
-      anchor.parentNode.insertBefore(card, anchor.nextSibling);
-    } else if (sidebar.firstElementChild) {
-      sidebar.insertBefore(card, sidebar.firstElementChild);
-    } else {
-      sidebar.appendChild(card);
-    }
-    return true;
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', injectSidebarCard);
-  else injectSidebarCard();
-  var tries = 0;
-  var iv = setInterval(function(){
-    tries++;
-    if (injectSidebarCard() || tries > 20) clearInterval(iv);
-  }, 400);
-  console.log('[ph157-v2] CN coach sidebar card active (FAB removed per user request)');
-})();
-</script>
-
-<!-- ============================================================
-     Phase 174 (2026-05-29) - Admin mobile FAB → 원형 작게
-     · 수업 진단 (#precheck-fab-admin) : 48px 원형, 청진기 아이콘만
-     · 카톡상담 (#kakao-chat-fab) : 48px 원형, 카톡 SVG 아이콘만
-     · 우하단에 세로로 작게 stack
-     ============================================================ -->
-<style id="ph174-admin-mobile-fab-circle">
-  @media (max-width: 640px) {
-
-    /* ─── 수업 진단 FAB — 48px 원형 ─── */
-    #precheck-fab-admin {
-      width: 48px !important;
-      height: 48px !important;
-      padding: 0 !important;
-      border-radius: 50% !important;
-      display: inline-flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      bottom: 76px !important;
-      right: 14px !important;
-      box-shadow: 0 8px 20px -4px rgba(245,158,11,0.55), inset 0 1px 0 rgba(255,255,255,0.35) !important;
-      border: 1.5px solid rgba(252,211,77,0.6) !important;
-      background: linear-gradient(135deg, #FCD34D 0%, #F59E0B 50%, #D97706 100%) !important;
-      gap: 0 !important;
-    }
-    #precheck-fab-admin .ic {
-      font-size: 22px !important;
-      margin: 0 !important;
-    }
-    /* 라벨 텍스트(수업 진단) 숨김 — 아이콘만 */
-    #precheck-fab-admin span[data-ko],
-    #precheck-fab-admin > span:not(.ic) {
-      display: none !important;
-    }
-
-    /* ─── 카톡상담 FAB — 48px 원형 ─── */
-    #kakao-chat-fab {
-      width: 48px !important;
-      height: 48px !important;
-      padding: 0 !important;
-      border-radius: 50% !important;
-      display: inline-flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      gap: 0 !important;
-      bottom: 14px !important;
-      right: 14px !important;
-      box-shadow: 0 8px 20px -4px rgba(254,229,0,0.55), inset 0 1px 0 rgba(255,255,255,0.55) !important;
-      background: linear-gradient(135deg, #FEE500 0%, #FBBF24 100%) !important;
-    }
-    /* 갈색 원 안 SVG 아이콘만 보이게 — 그 외 라벨/텍스트 모두 숨김 */
-    #kakao-chat-fab > span:nth-child(2),
-    #kakao-chat-fab span[data-ko="카톡상담"] {
-      display: none !important;
-    }
-    /* 첫 span (갈색 원 + SVG) 만 보이게, 크기도 살짝 키움 */
-    #kakao-chat-fab > span:first-child {
-      width: 30px !important;
-      height: 30px !important;
-      margin: 0 !important;
-      background: #3C1E1E !important;
-      border-radius: 50% !important;
-      display: inline-flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-    }
-    #kakao-chat-fab svg {
-      width: 18px !important;
-      height: 18px !important;
-    }
-  }
-</style>
-
-<!-- ============================================================
-     Phase 175 (2026-05-29) - 학생 이탈 위험 스캔 demo fallback
-     · /api/admin/retention/risk 가 503/네트워크 에러일 때
-       샘플 데모 데이터로 기능 시연 (8명) — UI 가 죽지 않게
-     · 백엔드 연결 시 자동으로 실데이터로 전환
-     · 모든 케어 액션 버튼은 demo 모드 안내 후 동작
-     ============================================================ -->
-<script id="ph175-arr-demo-fallback">
-(function(){ "use strict"; /* placeholder - 본문 손상으로 비활성화 */ })();
 </script>
 
 </body>
