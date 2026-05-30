@@ -9963,8 +9963,8 @@ function pdfDrawStroke(ctx, w, h, s) {
 }
 
 // 줌
-function pdfZoomIn()  { pdfZoom = Math.min(4, pdfZoom + 0.2); if (pdfDoc) pdfRender(); }
-function pdfZoomOut() { pdfZoom = Math.max(0.4, pdfZoom - 0.2); if (pdfDoc) pdfRender(); }
+function pdfZoomIn()  { pdfZoom = Math.min(5, pdfZoom + 0.1); if (pdfDoc) pdfRender(); }
+function pdfZoomOut() { pdfZoom = Math.max(0.05, pdfZoom - 0.1); if (pdfDoc) pdfRender(); }
 function pdfZoomReset() { pdfZoom = 1; if (pdfDoc) pdfRender(); }
 
 // 그리기 도구 전환
@@ -23086,7 +23086,7 @@ document.addEventListener('click', (e) => {
 })();
 </script>
 
-<!-- BUILD:20260530162711 -->
+<!-- BUILD:20260530163236 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
