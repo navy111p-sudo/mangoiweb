@@ -1441,6 +1441,38 @@
             border-radius: 8px;
             scroll-behavior: smooth;
         }
+        /* ph249: 가로/세로 스크롤바 강제 표시 + 두껍게 + 예쁘게 */
+        .ph249-scroll {
+            overflow: scroll !important;   /* 항상 스크롤바 표시 */
+            scrollbar-width: auto;          /* Firefox — 보통 두께 */
+            scrollbar-color: #3b82f6 #e2e8f0;
+        }
+        .ph249-scroll::-webkit-scrollbar {
+            width: 14px;
+            height: 14px;
+            background: #f1f5f9;
+        }
+        .ph249-scroll::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 8px;
+        }
+        .ph249-scroll::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border-radius: 8px;
+            border: 2px solid #f1f5f9;
+            min-height: 40px;
+            min-width: 40px;
+        }
+        .ph249-scroll::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #2563eb, #1e40af);
+        }
+        .ph249-scroll::-webkit-scrollbar-corner {
+            background: #e2e8f0;
+        }
+        /* 모바일 — 스크롤바 약간 가늘게 */
+        @media (max-width: 768px) {
+            .ph249-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+        }
         .pdf-canvas-wrap {
             display: inline-flex;
             gap: 12px;
@@ -5936,13 +5968,9 @@
                     <input type="range" id="pdf-anno-size" min="1" max="20" value="3" title="굵기" style="width:80px;" />
                     <button onclick="pdfClearAnno()" title="이 페이지 주석 모두 지우기" data-ko="🗑 지우기" data-en="🗑 Clear">🗑 지우기</button>
                 </div>
-                <!-- 위쪽 팬 툴바 (좌우 이동) -->
-                <div class="pdf-pan-top">
-                    <button class="pdf-pan-btn" onclick="pdfPan(-150, 0)" title="왼쪽으로 이동">◀</button>
-                    <button class="pdf-pan-btn" onclick="pdfPan(150, 0)" title="오른쪽으로 이동">▶</button>
-                </div>
+                <!-- ph249: 팬 화살표 버튼 모두 제거 → native 스크롤바로 대체 -->
                 <div class="pdf-main-row">
-                    <div class="pdf-scroll-wrap" id="pdf-scroll-wrap">
+                    <div class="pdf-scroll-wrap ph249-scroll" id="pdf-scroll-wrap">
                         <div class="pdf-canvas-wrap" id="pdf-canvas-wrap">
                             <div class="pdf-page-wrap" id="pdf-page-wrap-1">
                                 <canvas id="pdf-canvas"></canvas>
@@ -5953,11 +5981,6 @@
                                 <canvas id="pdf-anno-2" class="pdf-anno"></canvas>
                             </div>
                         </div>
-                    </div>
-                    <!-- 오른쪽 팬 툴바 (상하 이동) -->
-                    <div class="pdf-pan-right">
-                        <button class="pdf-pan-btn" onclick="pdfPan(0, -150)" title="위로 이동">▲</button>
-                        <button class="pdf-pan-btn" onclick="pdfPan(0, 150)" title="아래로 이동">▼</button>
                     </div>
                 </div>
             </div>
@@ -10034,17 +10057,52 @@ function pdfPan(dx, dy) {
 }
 
 function pdfGoToPage(num) { pdfPageNum = num; pdfRender(); }
+// ph250: 시퀀스 자동 이동 — 마지막 페이지에서 [다음] → 다음 파일 자동 로드
 function pdfPrevPage() {
-    if (pdfPageNum <= 1) return;
-    pdfPageNum = Math.max(1, pdfPageNum - pdfPagesPerView);
-    pdfRender();
-    if (vcConn) vcConn.send({ type: 'pdf-page-change', data: { currentPage: pdfPageNum } });
+    if (pdfDoc && pdfPageNum > 1) {
+        pdfPageNum = Math.max(1, pdfPageNum - pdfPagesPerView);
+        pdfRender();
+        if (vcConn) vcConn.send({ type: 'pdf-page-change', data: { currentPage: pdfPageNum } });
+        return;
+    }
+    // 첫 페이지 → 시퀀스의 이전 파일로
+    if (window._libSequence && window._libSequence.length > 1) {
+        var idx = window._libSeqIdx || 0;
+        if (idx > 0) {
+            var prev = window._libSequence[idx - 1];
+            window._libSeqIdx = idx - 1;
+            console.log('[ph250] 이전 파일로 자동 이동:', prev.name);
+            if (typeof window.selectFromTextbookLibrary === 'function') {
+                window.selectFromTextbookLibrary(prev.id, prev.url, prev.kind, prev.name);
+            }
+            return;
+        }
+    }
 }
 function pdfNextPage() {
-    if (!pdfDoc || pdfPageNum >= pdfDoc.numPages) return;
-    pdfPageNum = Math.min(pdfDoc.numPages, pdfPageNum + pdfPagesPerView);
-    pdfRender();
-    if (vcConn) vcConn.send({ type: 'pdf-page-change', data: { currentPage: pdfPageNum } });
+    if (pdfDoc && pdfPageNum < pdfDoc.numPages) {
+        pdfPageNum = Math.min(pdfDoc.numPages, pdfPageNum + pdfPagesPerView);
+        pdfRender();
+        if (vcConn) vcConn.send({ type: 'pdf-page-change', data: { currentPage: pdfPageNum } });
+        return;
+    }
+    // 마지막 페이지 → 시퀀스의 다음 파일로
+    if (window._libSequence && window._libSequence.length > 1) {
+        var idx = window._libSeqIdx || 0;
+        if (idx < window._libSequence.length - 1) {
+            var next = window._libSequence[idx + 1];
+            window._libSeqIdx = idx + 1;
+            console.log('[ph250] 다음 파일로 자동 이동:', next.name);
+            if (typeof window.selectFromTextbookLibrary === 'function') {
+                window.selectFromTextbookLibrary(next.id, next.url, next.kind, next.name);
+            }
+            return;
+        } else {
+            if (typeof window.showToast === 'function') {
+                try { window.showToast('📚 마지막 파일입니다'); } catch(_){}
+            }
+        }
+    }
 }
 function pdfStopShare() {
     pdfDoc = null;
@@ -19690,33 +19748,40 @@ window.closeRulesModal = function() {
     });
   }
 
-  function getFirstViewableFile(book){
-    for (var li = 0; li < (book.lessons || []).length; li++) {
-      var l = book.lessons[li];
-      for (var fi = 0; fi < (l.fileIds || []).length; fi++) {
-        var f = window._libFileMap[l.fileIds[fi]];
-        if (f && f.blob && (f.kind === 'image' || f.kind === 'pdf')) return f;
-      }
-    }
-    for (var li2 = 0; li2 < (book.lessons || []).length; li2++) {
-      var l2 = book.lessons[li2];
-      for (var fi2 = 0; fi2 < (l2.fileIds || []).length; fi2++) {
-        var f2 = window._libFileMap[l2.fileIds[fi2]];
-        if (f2 && f2.blob) return f2;
-      }
-    }
-    return null;
+  // ph250: 자연 정렬 (Slide1 < Slide2 < Slide10)
+  function naturalCmp(a, b){
+    return String(a||'').localeCompare(String(b||''), undefined, { numeric:true, sensitivity:'base' });
+  }
+  // 같은 book 의 모든 파일을 자연 정렬된 시퀀스로 (레슨 순서 → 파일 자연 정렬)
+  function buildBookSequence(book){
+    var seq = [];
+    (book.lessons || []).slice().sort(function(a, b){ return naturalCmp(a.name, b.name); }).forEach(function(l){
+      var lessonFiles = (l.fileIds || []).map(function(fid){
+        var f = window._libFileMap[fid];
+        if (!f || !f.blob) return null;
+        return { id: fid, name: f.name || '', kind: f.kind, blob: f.blob, lessonName: l.name };
+      }).filter(function(x){ return x && (x.kind === 'image' || x.kind === 'pdf'); });
+      lessonFiles.sort(function(a, b){ return naturalCmp(a.name, b.name); });
+      lessonFiles.forEach(function(x){
+        var url = window._tbfUrlCache[x.id] || URL.createObjectURL(x.blob);
+        window._tbfUrlCache[x.id] = url;
+        seq.push({ id: x.id, url: url, kind: x.kind, name: '[' + book.textbook + '] ' + (x.lessonName || '') + ' / ' + x.name });
+      });
+    });
+    return seq;
   }
   function applyBookToClass(book){
-    var f = getFirstViewableFile(book);
-    if (!f) { alert('이 교재에 표시할 파일이 없습니다.'); return; }
-    var url = window._tbfUrlCache[f.id] || URL.createObjectURL(f.blob);
-    window._tbfUrlCache[f.id] = url;
+    var seq = buildBookSequence(book);
+    if (seq.length === 0) { alert('이 교재에 표시할 파일이 없습니다.'); return; }
+    window._libSequence = seq;
+    window._libSeqIdx = 0;
+    console.log('[ph250] 시퀀스 모드 시작 — 총', seq.length, '개 파일 (자연 정렬)');
     closeTextbookLibrary();
+    var first = seq[0];
     if (typeof window.selectFromTextbookLibrary === 'function') {
-      window.selectFromTextbookLibrary(f.id, url, f.kind, '[' + book.textbook + '] ' + (f.name || ''));
+      window.selectFromTextbookLibrary(first.id, first.url, first.kind, first.name);
     } else {
-      window.open(url, '_blank');
+      window.open(first.url, '_blank');
     }
   }
   function previewBook(book){
@@ -19728,9 +19793,15 @@ window.closeRulesModal = function() {
     if (lessons.length === 0) {
       lessonsHtml = '<div style="color:#94a3b8;text-align:center;padding:30px">레슨 정보가 없습니다.</div>';
     } else {
-      lessons.forEach(function(l){
+      // ph250: 레슨 자연 정렬 + 레슨 안의 파일도 자연 정렬
+      lessons.slice().sort(function(a,b){ return naturalCmp(a.name, b.name); }).forEach(function(l){
         lessonsHtml += '<div style="margin-bottom:10px"><div style="font-weight:700;color:#1e40af;font-size:13px;margin-bottom:4px">📑 ' + esc(l.name) + '</div>';
-        (l.fileIds || []).forEach(function(fid){
+        var sortedIds = (l.fileIds || []).slice().sort(function(a, b){
+          var fa = window._libFileMap[a] || {};
+          var fb = window._libFileMap[b] || {};
+          return naturalCmp(fa.name || '', fb.name || '');
+        });
+        sortedIds.forEach(function(fid){
           var f = window._libFileMap[fid];
           if (!f) {
             lessonsHtml += '<div style="color:#94a3b8;padding:4px 8px">❓ 파일 없음</div>';
@@ -19760,18 +19831,23 @@ window.closeRulesModal = function() {
     modal.addEventListener('click', function(e){ if (e.target === modal) modal.remove(); });
     document.body.appendChild(modal);
     document.getElementById('tbf-pv-close').addEventListener('click', function(){ modal.remove(); });
+    // ph250: 미리보기에서 파일 클릭 시 — book 전체 시퀀스 만들어 그 파일부터 시작
     modal.querySelectorAll('.tbf-pv-file').forEach(function(el){
       el.addEventListener('click', function(){
         var fid = el.getAttribute('data-fid');
-        var kind = el.getAttribute('data-kind');
-        var name = el.getAttribute('data-name');
-        var f = window._libFileMap[fid];
-        if (!f || !f.blob) { alert('파일을 찾을 수 없습니다.'); return; }
-        var url = window._tbfUrlCache[fid] || URL.createObjectURL(f.blob);
-        window._tbfUrlCache[fid] = url;
+        var seq = buildBookSequence(book);
+        var idx = 0;
+        for (var i = 0; i < seq.length; i++) {
+          if (seq[i].id === fid) { idx = i; break; }
+        }
+        if (seq.length === 0) { alert('파일을 찾을 수 없습니다.'); return; }
+        window._libSequence = seq;
+        window._libSeqIdx = idx;
+        console.log('[ph250] 미리보기에서 시퀀스 시작 —', seq.length, '개 / 현재', idx + 1);
         modal.remove();
         closeTextbookLibrary();
-        if (window.selectFromTextbookLibrary) window.selectFromTextbookLibrary(fid, url, kind, name);
+        var f = seq[idx];
+        if (window.selectFromTextbookLibrary) window.selectFromTextbookLibrary(f.id, f.url, f.kind, f.name);
       });
     });
   }
@@ -23513,7 +23589,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260530230120 -->
+<!-- BUILD:20260531002421 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25842,205 +25918,23 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     padding: 20px 16px 40px;
     animation: ph191Fade .25s;
   }
-  @keyframes ph191Fade { from { opacity: 0 } to { opacity: 1 } }
-  #ph191-allmenu-panel .ph191-inner {
-    max-width: 1100px;
-    margin: 0 auto;
-    background: linear-gradient(135deg, #0F172A, #1E293B);
-    border: 2px solid #60A5FA;
-    border-radius: 18px;
-    padding: 22px 18px;
-    color: #F8FAFC;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
-    position: relative;
-  }
-  #ph191-allmenu-panel .ph191-close {
-    position: absolute;
-    top: 12px;
-    right: 14px;
-    background: rgba(255,255,255,0.1);
-    border: 0;
-    color: #fff;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    font-size: 18px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  #ph191-allmenu-panel h2 {
-    margin: 0 0 18px;
-    color: #fff;
-    font-size: 18px;
-    text-align: center;
-    font-weight: 800;
-    padding: 6px 40px 14px;
-    border-bottom: 1px solid #2563EB;
-  }
-  #ph191-allmenu-panel .ph191-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 10px;
-  }
-  @media (max-width: 480px) {
-    #ph191-allmenu-panel .ph191-grid {
-      grid-template-columns: repeat(2, 1fr);
-      gap: 8px;
-    }
-    #ph191-allmenu-panel { padding: 14px 10px 30px }
-    #ph191-allmenu-panel .ph191-inner { padding: 18px 12px }
-  }
-  #ph191-allmenu-panel a.ph191-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 16px 8px;
-    background: rgba(30,41,59,0.9);
-    border: 1px solid rgba(96,165,250,0.5);
-    border-radius: 12px;
-    color: #F8FAFC;
-    text-decoration: none;
-    cursor: pointer;
-    min-height: 90px;
-    text-align: center;
-    font-size: 12.5px;
-    font-weight: 700;
-    transition: transform .15s, background .15s;
-  }
-  #ph191-allmenu-panel a.ph191-card:hover {
-    background: rgba(59,130,246,0.25);
-    transform: translateY(-2px);
-  }
-  #ph191-allmenu-panel a.ph191-card .ph191-emoji { font-size: 26px }
+  @keyframes ph191Fade { from { opacity: 0; } to { opacity: 1; } }
 </style>
-<script id="ph191-allmenu-script">
+
+<script id="ph191-allmenu-script-final">
 (function(){
   "use strict";
-  console.log("[ph191] 전체메뉴 무조건 작동 보장 패치 로드");
-
-  var MENUS = [
-    {e:'🛠', n:'관리자',          u:'/admin.html'},
-    {e:'👤', n:'마이페이지',       u:'/admin/mypage.html'},
-    {e:'👨‍🎓', n:'학생 관리',       u:'/admin/students.html'},
-    {e:'📅', n:'내 주간 스케줄',   u:'/admin/weekly-schedule.html?role=student'},
-    {e:'📞', n:'고객센터',         u:'/contact.html'},
-    {e:'📚', n:'커리큘럼',         u:'/curriculum.html'},
-    {e:'📖', n:'수업 자료',        u:'/lessons.html'},
-    {e:'📝', n:'평가서',           u:'/eval.html'},
-    {e:'📊', n:'리포트',           u:'/report.html'},
-    {e:'🤖', n:'AI 친구',          u:'/ai-friend.html'},
-    {e:'✍', n:'AI 작문',           u:'/ai-write.html'},
-    {e:'🗣', n:'영어 발음',        u:'/speech-coach.html'},
-    {e:'🇨🇳', n:'중국어 발음',     u:'/speech-coach-cn.html'},
-    {e:'📚', n:'교재 업로더',      u:'/textbook-uploader.html'},
-    {e:'📖', n:'단어장',           u:'/vocab.html'},
-    {e:'🎯', n:'미니 퀴즈',        u:'/micro-quiz.html'},
-    {e:'🧠', n:'MBTI 매칭',        u:'/mbti.html'},
-    {e:'🧪', n:'MBTI 테스트',      u:'/mbti-test.html'},
-    {e:'🔥', n:'연속 출석',        u:'/streak.html'},
-    {e:'🌟', n:'칭찬 스티커',      u:'/teacher-praise.html'},
-    {e:'📝', n:'수업 신청',        u:'/lesson-booking-demo.html'},
-    {e:'📅', n:'수업 연기',        u:'/lesson-postpone-demo.html'},
-    {e:'👨‍👩‍👧', n:'학부모',         u:'/parent.html'},
-    {e:'🩺', n:'시스템 진단',      u:'/admin/health.html'},
-    {e:'👻', n:'Ghost View',       u:'/admin/ghost-view.html'},
-    {e:'🔐', n:'관리자 로그인',    u:'/admin/login'},
-    {e:'💳', n:'결제하기',         u:'/?menu=payment'},
-    {e:'🎬', n:'화상수업',         u:'/?menu=videocall-lobby'}
-  ];
-
-  function buildPanel() {
-    if (document.getElementById('ph191-allmenu-panel')) return;
-    var panel = document.createElement('div');
-    panel.id = 'ph191-allmenu-panel';
-    var html = '<div class="ph191-inner">';
-    html += '<button class="ph191-close" type="button" aria-label="닫기">✕</button>';
-    html += '<h2>📋 망고아이 전체 메뉴 (' + MENUS.length + '개)</h2>';
-    html += '<div class="ph191-grid">';
-    MENUS.forEach(function(m){
-      html += '<a class="ph191-card" href="' + m.u + '"><span class="ph191-emoji">' + m.e + '</span><span>' + m.n + '</span></a>';
-    });
-    html += '</div></div>';
-    panel.innerHTML = html;
-    document.body.appendChild(panel);
-
-    // 닫기 버튼
-    panel.querySelector('.ph191-close').addEventListener('click', function(e){
-      e.preventDefault();
-      e.stopPropagation();
-      panel.style.display = 'none';
-    });
-    // 배경 클릭으로 닫기
-    panel.addEventListener('click', function(e){
-      if (e.target === panel) panel.style.display = 'none';
-    });
-    console.log('[ph191] 패널 생성 완료 (' + MENUS.length + '개 메뉴)');
-  }
-  window.ph191BuildPanel = buildPanel;
-
-  function openPanel() {
-    if (!document.getElementById('ph191-allmenu-panel')) buildPanel();
-    var p = document.getElementById('ph191-allmenu-panel');
-    if (p) {
-      p.style.display = 'block';
-      console.log('[ph191] ✅ 전체메뉴 열림');
-    }
-  }
-  window.ph191OpenPanel = openPanel;
-
-  function togglePanel() {
-    if (!document.getElementById('ph191-allmenu-panel')) buildPanel();
-    var p = document.getElementById('ph191-allmenu-panel');
-    if (!p) return;
-    var hidden = (p.style.display === 'none' || !p.style.display);
-    p.style.display = hidden ? 'block' : 'none';
-    console.log('[ph191] 전체메뉴 토글:', hidden ? '열림' : '닫힘');
-  }
-  window.ph191TogglePanel = togglePanel;
-
-  // 셀렉터 매칭 — 전체메뉴 버튼 후보 모두
-  function isAllMenuBtn(el) {
-    if (!el || !el.closest) return false;
-    return !!(
-      el.closest('[data-go="all-menu"]') ||
-      el.closest('button[data-ko*="전체메뉴"]') ||
-      el.closest('a[data-ko*="전체메뉴"]')
-    );
-  }
-
-  // capture-phase 최우선 핸들러 (window 레벨)
-  function handler(e) {
-    var btn = e.target.closest('[data-go="all-menu"], button[data-ko*="전체메뉴"], a[data-ko*="전체메뉴"]');
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest('[data-allmenu], .all-menu-btn');
     if (!btn) {
-      // 텍스트 fallback
       var t = e.target.closest('button, a');
-      if (t && t.textContent && t.textContent.replace(/\s/g,'').indexOf('전체메뉴') >= 0) {
-        btn = t;
-      }
+      if (t && t.textContent && t.textContent.replace(/\s/g,'').indexOf('전체메뉴') >= 0) btn = t;
     }
     if (!btn) return;
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-    togglePanel();
-  }
-
-  // 3중 핸들러 (모바일/PC 모두 대응)
-  window.addEventListener('click', handler, true);
-  window.addEventListener('pointerdown', handler, true);
-  window.addEventListener('touchstart', handler, { capture: true, passive: false });
-
-  // 페이지 로드시 즉시 패널 생성
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', buildPanel);
-  } else {
-    buildPanel();
-  }
-  setTimeout(buildPanel, 500);
+    if (typeof window.toggleAllMenu === 'function') {
+      try { window.toggleAllMenu(); } catch(_){}
+    }
+  }, true);
 })();
 </script>
 
