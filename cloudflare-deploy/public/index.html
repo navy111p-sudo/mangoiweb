@@ -9925,7 +9925,11 @@ async function pdfRender() {
         baseScale = Math.min(halfW / baseVp.width, availH / baseVp.height);
         if (!isFinite(baseScale) || baseScale <= 0) baseScale = 1.2;
     } else {
-        baseScale = 2.2;
+        // ph258: 1페이지 모드도 칠판 영역에 정확히 fit (가로/세로 중 작은 비율로)
+        const availW = (wrap ? wrap.clientWidth : 800) - 24;
+        const availH = (wrap ? wrap.clientHeight : 600) - 16;
+        baseScale = Math.min(availW / baseVp.width, availH / baseVp.height);
+        if (!isFinite(baseScale) || baseScale <= 0) baseScale = 1.0;
     }
     const scale = baseScale * pdfZoom;
 
@@ -19544,6 +19548,8 @@ window.closeRulesModal = function() {
       }
       if (typeof window.pdfLoad === 'function') {
         window.pdfCurrentId = 'lib_' + id;
+        // ph258: 새 파일 띄울 때 zoom 100% reset (자동 fit)
+        if (typeof window.pdfZoom !== 'undefined') window.pdfZoom = 1.0;
         await window.pdfLoad(url, kind);
         console.log('[ph247] pdfLoad OK');
       } else {
@@ -23725,7 +23731,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260531013930 -->
+<!-- BUILD:20260531014557 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -26006,15 +26012,11 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     } catch(e) {}
     // 함수들도 무력화
     try { window.mangoiOpenDict = function(){}; } catch(e){}
-    try { window.openVoiceDiaryModal = function(){}; } catch(e){}
+    try { window.mangoiOpenVoice = function(){}; } catch(e){}
   }
-
-  // 즉시 + 페이지 로드 후 + 1초/3초 안전망
-  nuke();
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", nuke);
   setTimeout(nuke, 500);
-  setTimeout(nuke, 1500);
-  setTimeout(nuke, 3000);})();
+})();
 </script>
 
 </body>
