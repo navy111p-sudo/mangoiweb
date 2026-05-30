@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B1224">
 <title>📖 교재 뷰어 — 망고아이</title>
-<!-- BUILD:20260530161028 -->
+<!-- BUILD:20260530162030 -->
 <style>
 :root{--bg:#0B1224;--bg-soft:#131C36;--bg-card:#1A2548;--border:rgba(96,165,250,0.18);--text:#E2E8F0;--text-dim:#94A3B8;--accent:#3B82F6;--accent-2:#60A5FA;--gold:#F59E0B;--ok:#10B981;--bad:#EF4444}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -51,10 +51,93 @@ html,body{background:#0a0f1f;color:var(--text);font-family:-apple-system,"Noto S
 .viewer canvas{max-width:90vw;max-height:calc(100vh - 80px);background:#fff;border-radius:8px;box-shadow:0 12px 40px -10px rgba(0,0,0,0.7);display:block}
 .viewer iframe,.viewer video{max-width:100%;background:#fff;border-radius:8px;box-shadow:0 12px 40px -10px rgba(0,0,0,0.7);display:block}
 /* 줌/리셋 컨트롤 */
-.zoom-ctrl{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:6px;z-index:90}
-.zoom-ctrl button{width:42px;height:42px;border-radius:50%;background:rgba(11,18,36,0.92);border:1px solid var(--border);color:#fff;font-size:18px;font-weight:900;cursor:pointer;backdrop-filter:blur(8px);box-shadow:0 6px 18px rgba(0,0,0,0.5);transition:transform .15s,background .15s}
-.zoom-ctrl button:hover{background:var(--accent);transform:translateY(-1px)}
-.zoom-ctrl .zlabel{text-align:center;font-size:11px;color:var(--text-dim);background:rgba(11,18,36,0.92);padding:3px 6px;border-radius:6px;font-weight:700}
+.zoom-ctrl{display:none}
+/* 🔍 가로 알약형 줌 컨트롤 (좌측 중앙 floating) */
+.zoom-rail{
+  position:fixed;left:18px;top:50%;transform:translateY(-50%);z-index:95;
+  display:flex;align-items:center;gap:10px;
+  padding:10px 16px;
+  background:linear-gradient(135deg, rgba(30,58,138,0.95), rgba(15,23,42,0.95));
+  border:1.5px solid rgba(96,165,250,0.5);
+  border-radius:99px;
+  box-shadow:0 14px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(96,165,250,0.12), inset 0 1px 0 rgba(255,255,255,0.08);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  font-family:inherit;
+}
+.zoom-rail .zr-mag{
+  font-size:22px;line-height:1;color:#fbbf24;
+  filter:drop-shadow(0 2px 6px rgba(251,191,36,0.5));
+  margin-right:2px;
+}
+.zoom-rail .zr-btn{
+  width:34px;height:34px;border-radius:50%;border:0;cursor:pointer;
+  background:linear-gradient(135deg, #3B82F6, #1D4ED8);
+  color:#fff;font-size:18px;font-weight:900;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 12px rgba(59,130,246,0.55), inset 0 1px 0 rgba(255,255,255,0.18);
+  transition:transform .15s, box-shadow .15s, background .15s;
+  font-family:inherit;
+}
+.zoom-rail .zr-btn:hover{transform:translateY(-1px) scale(1.06);box-shadow:0 8px 22px rgba(59,130,246,0.75)}
+.zoom-rail .zr-btn:active{transform:scale(0.95)}
+.zoom-rail .zr-btn.reset{
+  background:linear-gradient(135deg, #F59E0B, #D97706);
+  box-shadow:0 4px 12px rgba(245,158,11,0.55), inset 0 1px 0 rgba(255,255,255,0.2);
+  font-size:14px;
+}
+.zoom-rail .zr-btn.reset:hover{box-shadow:0 8px 22px rgba(245,158,11,0.75)}
+
+/* 가로 슬라이더 */
+.zoom-rail .zr-slider{
+  width:180px;height:34px;display:flex;align-items:center;
+}
+.zoom-rail .zr-slider input[type=range]{
+  -webkit-appearance:none;appearance:none;
+  width:100%;height:8px;margin:0;
+  background:linear-gradient(90deg, #1E40AF 0%, #3B82F6 30%, #60A5FA 60%, #FBBF24 100%);
+  border-radius:99px;outline:none;cursor:pointer;
+  box-shadow:inset 0 1px 3px rgba(0,0,0,0.4);
+}
+.zoom-rail .zr-slider input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;
+  width:22px;height:22px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #fff 0%, #DBEAFE 40%, #3B82F6 100%);
+  border:2.5px solid #fff;
+  box-shadow:0 0 0 2px rgba(59,130,246,0.5), 0 4px 12px rgba(0,0,0,0.55);
+  cursor:grab;
+  transition:transform .12s;
+}
+.zoom-rail .zr-slider input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.15)}
+.zoom-rail .zr-slider input[type=range]::-webkit-slider-thumb:active{cursor:grabbing;transform:scale(1.2)}
+.zoom-rail .zr-slider input[type=range]::-moz-range-thumb{
+  width:22px;height:22px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #fff 0%, #DBEAFE 40%, #3B82F6 100%);
+  border:2.5px solid #fff;
+  box-shadow:0 0 0 2px rgba(59,130,246,0.5), 0 4px 12px rgba(0,0,0,0.55);
+  cursor:grab;
+}
+
+.zoom-rail .zr-pct{
+  font-size:13px;font-weight:900;color:#fff;
+  background:linear-gradient(135deg, #FBBF24, #F59E0B);
+  padding:4px 10px;border-radius:99px;
+  min-width:54px;text-align:center;
+  box-shadow:0 3px 10px rgba(245,158,11,0.4);
+  font-family:'Inter',-apple-system,sans-serif;
+  letter-spacing:-0.3px;
+}
+
+@media (max-width:700px){
+  .zoom-rail{
+    left:50%;top:auto;bottom:18px;transform:translateX(-50%);
+    padding:8px 12px;gap:7px;
+  }
+  .zoom-rail .zr-mag{font-size:18px}
+  .zoom-rail .zr-btn{width:30px;height:30px;font-size:15px}
+  .zoom-rail .zr-slider{width:120px;height:30px}
+  .zoom-rail .zr-pct{font-size:11.5px;padding:3px 8px;min-width:44px}
+}
 .viewer iframe{width:100%;height:calc(100vh - 120px);background:#fff}
 .viewer video{background:#000;width:100%;max-width:900px}
 .viewer .audio-card{background:var(--bg-card);border:1px solid var(--border);padding:20px;border-radius:12px;text-align:center;width:100%;max-width:520px}
@@ -453,17 +536,62 @@ if (shareBtn) shareBtn.onclick = async () => {
   // 더블 클릭/탭 = 리셋
   stage.addEventListener('dblclick', resetTransform);
 
-  // 줌 컨트롤 UI 추가
-  if (!document.querySelector('.zoom-ctrl')) {
-    const ctrl = document.createElement('div');
-    ctrl.className = 'zoom-ctrl';
-    ctrl.innerHTML =
-      '<button onclick="tbZoom(0.2)" title="확대">+</button>' +
-      '<div class="zlabel" id="zoom-label">100%</div>' +
-      '<button onclick="tbZoom(-0.2)" title="축소">−</button>' +
-      '<button onclick="tbResetView()" title="원래대로" style="font-size:14px">↺</button>';
-    document.body.appendChild(ctrl);
+  // 🔍 좌측 줌 슬라이더(자) UI 추가
+  if (!document.querySelector('.zoom-rail')) {
+    const rail = document.createElement('div');
+    rail.className = 'zoom-rail';
+    rail.innerHTML =
+      '<div class="zr-mag">🔍</div>' +
+      '<button class="zr-btn" type="button" id="zr-plus" title="확대">+</button>' +
+      '<div class="zr-slider">' +
+        '<input type="range" id="zr-range" min="30" max="500" step="5" value="100" />' +
+      '</div>' +
+      '<button class="zr-btn" type="button" id="zr-minus" title="축소">−</button>' +
+      '<div class="zr-pct" id="zr-label">100%</div>' +
+      '<button class="zr-btn reset" type="button" id="zr-reset" title="원래대로">↺</button>';
+    document.body.appendChild(rail);
+
+    // 슬라이더 → 줌 동기화
+    const range = rail.querySelector('#zr-range');
+    range.addEventListener('input', (e) => {
+      const pct = Number(e.target.value);
+      scale = pct / 100;
+      applyTransform();
+    });
+    // 버튼 핸들러
+    rail.querySelector('#zr-plus').onclick = () => {
+      tbZoom(0.1);
+      const r = document.getElementById('zr-range');
+      if (r) r.value = Math.round(scale * 100);
+    };
+    rail.querySelector('#zr-minus').onclick = () => {
+      tbZoom(-0.1);
+      const r = document.getElementById('zr-range');
+      if (r) r.value = Math.round(scale * 100);
+    };
+    rail.querySelector('#zr-reset').onclick = () => {
+      tbResetView();
+      const r = document.getElementById('zr-range');
+      if (r) r.value = 100;
+    };
   }
+
+  // 호환: zoom-label 도 같이 갱신
+  const _origApply = applyTransform;
+  window.tbSyncZoomUI = function(){
+    const lab = document.getElementById('zr-label');
+    if (lab) lab.textContent = Math.round(scale * 100) + '%';
+    const r = document.getElementById('zr-range');
+    if (r && document.activeElement !== r) r.value = Math.round(scale * 100);
+  };
+  // applyTransform 호출 시 마다 UI sync
+  const _patched = function(){
+    _origApply();
+    window.tbSyncZoomUI();
+  };
+  // applyTransform 재정의 (외부 호출도 영향)
+  applyTransform = _patched;
+  window.tbSyncZoomUI();
 
   console.log('[ph222] 교재 뷰어 — 드래그/터치/줌 활성 (이미지 전체 보임)');
 })();
