@@ -7,7 +7,7 @@
 <title>📚 교재 업로더 — 폴더째 드래그 → AI 자동 분류</title>
 <!-- ph257: JSZip CDN — zip 파일 자동 풀기 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<!-- BUILD:20260531020810 -->
+<!-- BUILD:20260531022254 -->
 <style>
 :root {
   --bg:#0B1224; --bg-soft:#131C36; --bg-card:#1A2548; --bg-card-2:#1E2D58;
@@ -239,16 +239,16 @@ function openDB() {
     req.onsuccess = () => {
       const d = req.result;
       // 안전 검증: 두 store 모두 있어야 함
+      // ph261: 자동 DB 삭제 비활성 — 데이터 손실 방지!
+      // 사용자에게 명시적으로 확인 받지 않으면 절대 deleteDatabase 호출 X
       if (!d.objectStoreNames.contains('textbooks') || !d.objectStoreNames.contains('files')) {
-        console.warn('[openDB] store 누락 — DB 재생성');
+        console.warn('[ph261] store 누락 — 사용자 동의 없이는 DB 삭제 안 함');
+        // store 만 생성 시도 (version 올려서 onupgradeneeded 트리거)
         d.close();
-        const delReq = indexedDB.deleteDatabase(DB_NAME);
-        delReq.onsuccess = () => {
-          // 재오픈 시 onupgradeneeded 에서 store 생성됨
-          openDB().then(resolve).catch(reject);
-        };
-        delReq.onerror = () => reject(delReq.error);
-        delReq.onblocked = () => reject(new Error('DB 삭제 차단 — 다른 탭이 열려있을 수 있습니다.'));
+        const upReq = indexedDB.open(DB_NAME, (d.version || 3) + 1);
+        upReq.onupgradeneeded = (e2) => { _createStores(e2.target.result); };
+        upReq.onsuccess = () => { resolve(upReq.result); };
+        upReq.onerror = () => reject(upReq.error);
         return;
       }
       resolve(d);
@@ -266,14 +266,11 @@ async function _safeRun(opName, store, fn) {
   } catch (e) {
     const msg = (e && e.message) || '';
     if (msg.indexOf('object stores was not found') >= 0 || msg.indexOf('object store') >= 0 || msg.indexOf('NotFoundError') >= 0) {
-      console.warn('[' + opName + '] store 누락 감지 → DB 재초기화 시도');
+      // ph261: 자동 deleteDatabase 제거 — 데이터 손실 방지!
+      // store 만 만들고 데이터는 보존 (version 올려서 onupgradeneeded 트리거)
+      console.warn('[ph261][' + opName + '] store 누락 → DB 재open 만 시도 (데이터 보존)');
       try { db.close(); } catch(_){}
       db = null;
-      // 한 번만 재시도
-      await new Promise((r) => {
-        const dr = indexedDB.deleteDatabase(DB_NAME);
-        dr.onsuccess = dr.onerror = dr.onblocked = () => r();
-      });
       db = await openDB();
       return await fn();
     }
