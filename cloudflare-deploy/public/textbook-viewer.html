@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B1224">
 <title>📖 교재 뷰어 — 망고아이</title>
-<!-- BUILD:20260530155647 -->
+<!-- BUILD:20260530160517 -->
 <style>
 :root{--bg:#0B1224;--bg-soft:#131C36;--bg-card:#1A2548;--border:rgba(96,165,250,0.18);--text:#E2E8F0;--text-dim:#94A3B8;--accent:#3B82F6;--accent-2:#60A5FA;--gold:#F59E0B;--ok:#10B981;--bad:#EF4444}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -41,10 +41,20 @@ html,body{background:#0a0f1f;color:var(--text);font-family:-apple-system,"Noto S
 .sidebar.hidden ~ .sidebar-toggle{left:0}
 
 /* 메인 뷰어 */
-.viewer{position:fixed;top:56px;left:280px;right:0;bottom:0;background:#0a0e1a;overflow:auto;padding:20px;transition:left .25s}
+.viewer{position:fixed;top:56px;left:280px;right:0;bottom:0;background:#0a0e1a;overflow:hidden;padding:0;transition:left .25s}
 .sidebar.hidden ~ .viewer{left:0}
-.viewer-stage{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:16px}
-.viewer img,.viewer canvas,.viewer iframe,.viewer video{max-width:100%;background:#fff;border-radius:8px;box-shadow:0 12px 40px -10px rgba(0,0,0,0.7);display:block}
+.viewer-stage{width:100%;height:100%;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:grab;touch-action:none;user-select:none}
+.viewer-stage.dragging{cursor:grabbing}
+.viewer-stage > .pan-wrap{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(1);transform-origin:center center;transition:transform .12s ease-out;will-change:transform}
+.viewer-stage.dragging > .pan-wrap{transition:none}
+.viewer img{max-width:90vw;max-height:calc(100vh - 80px);width:auto;height:auto;object-fit:contain;background:#fff;border-radius:8px;box-shadow:0 12px 40px -10px rgba(0,0,0,0.7);display:block;pointer-events:none;-webkit-user-drag:none}
+.viewer canvas{max-width:90vw;max-height:calc(100vh - 80px);background:#fff;border-radius:8px;box-shadow:0 12px 40px -10px rgba(0,0,0,0.7);display:block}
+.viewer iframe,.viewer video{max-width:100%;background:#fff;border-radius:8px;box-shadow:0 12px 40px -10px rgba(0,0,0,0.7);display:block}
+/* 줌/리셋 컨트롤 */
+.zoom-ctrl{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:6px;z-index:90}
+.zoom-ctrl button{width:42px;height:42px;border-radius:50%;background:rgba(11,18,36,0.92);border:1px solid var(--border);color:#fff;font-size:18px;font-weight:900;cursor:pointer;backdrop-filter:blur(8px);box-shadow:0 6px 18px rgba(0,0,0,0.5);transition:transform .15s,background .15s}
+.zoom-ctrl button:hover{background:var(--accent);transform:translateY(-1px)}
+.zoom-ctrl .zlabel{text-align:center;font-size:11px;color:var(--text-dim);background:rgba(11,18,36,0.92);padding:3px 6px;border-radius:6px;font-weight:700}
 .viewer iframe{width:100%;height:calc(100vh - 120px);background:#fff}
 .viewer video{background:#000;width:100%;max-width:900px}
 .viewer .audio-card{background:var(--bg-card);border:1px solid var(--border);padding:20px;border-radius:12px;text-align:center;width:100%;max-width:520px}
@@ -298,13 +308,13 @@ window.addEventListener('keydown', e => {
    - 교사가 수업 룸에서 "공유 받기" 하면 학생에게 전송됨
    ════════════════════════════════════════════ */
 let sharingStream = null;
-document.getElementById('btn-share').onclick = async () => {
-  const btn = document.getElementById('btn-share');
+const shareBtn = document.getElementById('btn-share');
+if (shareBtn) shareBtn.onclick = async () => {
   if (sharingStream) {
     sharingStream.getTracks().forEach(t => t.stop());
     sharingStream = null;
-    btn.classList.remove('sharing');
-    btn.textContent = '📺 수업에 공유';
+    shareBtn.classList.remove('sharing');
+    shareBtn.textContent = '📺 수업에 공유';
     return;
   }
   if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
@@ -312,44 +322,151 @@ document.getElementById('btn-share').onclick = async () => {
     return;
   }
   try {
-    // 사용자가 "현재 탭" 선택하면 이 뷰어가 학생에게 그대로 보임
     sharingStream = await navigator.mediaDevices.getDisplayMedia({
-      video: { cursor: 'always' },
-      audio: false,
-      preferCurrentTab: true  // Chrome 에서 현재 탭 우선
+      video: { frameRate: 30 },
+      audio: false
     });
-    btn.classList.add('sharing');
-    btn.textContent = '🟢 공유 중 (클릭으로 중지)';
-    sharingStream.getVideoTracks()[0].onended = () => {
+    shareBtn.classList.add('sharing');
+    shareBtn.textContent = '🔴 공유 중지';
+    sharingStream.getVideoTracks()[0].addEventListener('ended', () => {
       sharingStream = null;
-      btn.classList.remove('sharing');
-      btn.textContent = '📺 수업에 공유';
-    };
-    // 화상수업 룸이 동시에 열려 있으면 BroadcastChannel 로 알림
-    try {
-      const bc = new BroadcastChannel('mangoi-classroom');
-      bc.postMessage({ type:'textbook-shared', tbId, fileIdx: currentIdx });
-    } catch(e){}
-  } catch(err) {
-    if (err.name !== 'NotAllowedError') {
-      alert('화면 공유 시작 실패: ' + (err.message || err.name));
-    }
+      shareBtn.classList.remove('sharing');
+      shareBtn.textContent = '📺 수업에 공유';
+    });
+  } catch(e) {
+    alert('화면 공유 실패: ' + (e.message || e.name));
   }
 };
 
-// 뒤로/포커스 시 새로고침으로 동기화 (다른 탭에서 추가/삭제 시)
-window.addEventListener('focus', async () => {
-  if (!db || !tbId) return;
-  const fresh = await dbGet('textbooks', tbId);
-  if (fresh && fresh.lessons.length !== textbook.lessons.length) {
-    textbook = fresh;
-    allFiles = [];
-    textbook.lessons.forEach((l, li) => l.fileIds.forEach(fid => allFiles.push({lessonIdx:li, lessonName:l.name, fileId:fid})));
-    await renderSidebar();
-  }
-});
+/* ═══════════════════════════════════════════════════════════════
+   🎨 ph222: 교재 미리보기 — 전체 보이기 + 마우스 드래그 + 터치 이동 + 줌
+   - 이미지/PDF/canvas 자동 감지
+   - 마우스 드래그 (pointerdown/move/up)
+   - 터치 한 손가락 = 이동
+   - 터치 두 손가락 = 핀치 줌
+   - 휠 = 줌
+   - 우하단 +/- 버튼 + 리셋
+   ═══════════════════════════════════════════════════════════════ */
+(function setupPanZoom(){
+  const stage = document.getElementById('stage');
+  if (!stage) return;
 
-console.log('[textbook-viewer] 활성 — id:', tbId);
+  // 콘텐츠를 .pan-wrap 으로 감싸기 (이미 있으면 skip)
+  function ensureWrap() {
+    let wrap = stage.querySelector('.pan-wrap');
+    if (wrap) return wrap;
+    wrap = document.createElement('div');
+    wrap.className = 'pan-wrap';
+    // stage 안 직접 자식들을 wrap 안으로 이동
+    while (stage.firstChild) {
+      wrap.appendChild(stage.firstChild);
+    }
+    stage.appendChild(wrap);
+    return wrap;
+  }
+
+  // 콘텐츠가 동적으로 변경될 수 있으니 MutationObserver 로 감지
+  const mo = new MutationObserver(() => {
+    if (!stage.querySelector('.pan-wrap')) {
+      ensureWrap();
+      resetTransform();
+    }
+  });
+  mo.observe(stage, { childList: true });
+  ensureWrap();
+
+  // 줌/팬 상태
+  let scale = 1, tx = 0, ty = 0;
+  const MIN_SCALE = 0.3, MAX_SCALE = 5;
+
+  function applyTransform() {
+    const wrap = stage.querySelector('.pan-wrap');
+    if (!wrap) return;
+    wrap.style.transform = 'translate(calc(-50% + ' + tx + 'px), calc(-50% + ' + ty + 'px)) scale(' + scale + ')';
+    const label = document.getElementById('zoom-label');
+    if (label) label.textContent = Math.round(scale * 100) + '%';
+  }
+  function resetTransform() {
+    scale = 1; tx = 0; ty = 0;
+    applyTransform();
+  }
+  window.tbResetView = resetTransform;
+  window.tbZoom = function(delta){
+    scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale + delta));
+    applyTransform();
+  };
+
+  // ── 마우스 드래그 ──
+  let dragging = false, dragStart = null;
+  stage.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.zoom-ctrl')) return;
+    dragging = true;
+    dragStart = { x: e.clientX - tx, y: e.clientY - ty };
+    stage.classList.add('dragging');
+    try { stage.setPointerCapture(e.pointerId); } catch(_){}
+  });
+  stage.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    tx = e.clientX - dragStart.x;
+    ty = e.clientY - dragStart.y;
+    applyTransform();
+  });
+  ['pointerup','pointercancel','pointerleave'].forEach(ev => {
+    stage.addEventListener(ev, () => {
+      dragging = false;
+      stage.classList.remove('dragging');
+    });
+  });
+
+  // ── 휠 줌 ──
+  stage.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale + delta));
+    applyTransform();
+  }, { passive: false });
+
+  // ── 터치 — 한 손가락 이동 / 두 손가락 핀치 ──
+  let touchStartDist = 0, touchStartScale = 1;
+  stage.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      touchStartDist = Math.sqrt(dx*dx + dy*dy);
+      touchStartScale = scale;
+    }
+  }, { passive: false });
+  stage.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (touchStartDist > 0) {
+        scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, touchStartScale * (dist / touchStartDist)));
+        applyTransform();
+      }
+    }
+  }, { passive: false });
+  stage.addEventListener('touchend', () => { touchStartDist = 0; });
+
+  // 더블 클릭/탭 = 리셋
+  stage.addEventListener('dblclick', resetTransform);
+
+  // 줌 컨트롤 UI 추가
+  if (!document.querySelector('.zoom-ctrl')) {
+    const ctrl = document.createElement('div');
+    ctrl.className = 'zoom-ctrl';
+    ctrl.innerHTML =
+      '<button onclick="tbZoom(0.2)" title="확대">+</button>' +
+      '<div class="zlabel" id="zoom-label">100%</div>' +
+      '<button onclick="tbZoom(-0.2)" title="축소">−</button>' +
+      '<button onclick="tbResetView()" title="원래대로" style="font-size:14px">↺</button>';
+    document.body.appendChild(ctrl);
+  }
+
+  console.log('[ph222] 교재 뷰어 — 드래그/터치/줌 활성 (이미지 전체 보임)');
+})();
 </script>
 </body>
 </html>
