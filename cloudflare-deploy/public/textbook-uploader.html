@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B1224">
 <title>📚 교재 업로더 — 폴더째 드래그 → AI 자동 분류</title>
-<!-- BUILD:20260530175220 -->
+<!-- BUILD:20260530180340 -->
 <style>
 :root {
   --bg:#0B1224; --bg-soft:#131C36; --bg-card:#1A2548; --bg-card-2:#1E2D58;
@@ -519,6 +519,36 @@ function renderClassifyResult() {
 
   cr.classList.add('show');
   cr.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // 🤖 AI 자동 저장 (ph237): 검토 시간 1.5초 후 자동 저장
+  // 사용자가 [취소] 누르면 _autoSaveCancelled = true 로 중단
+  window._autoSaveCancelled = false;
+  var btn = document.getElementById('btn-save');
+  var origText = btn.textContent;
+  var sec = 2;
+  btn.textContent = '🤖 ' + sec + '초 후 자동 저장…';
+  btn.style.background = 'linear-gradient(135deg,#fbbf24,#f59e0b)';
+  btn.style.color = '#1a1a1a';
+  var countdownId = setInterval(function(){
+    sec--;
+    if (window._autoSaveCancelled) {
+      clearInterval(countdownId);
+      btn.textContent = origText;
+      btn.style.background = '';
+      btn.style.color = '';
+      return;
+    }
+    if (sec <= 0) {
+      clearInterval(countdownId);
+      btn.style.background = '';
+      btn.style.color = '';
+      btn.textContent = origText;
+      console.log('[ph237] AI 자동 저장 트리거');
+      btn.click();
+    } else {
+      btn.textContent = '🤖 ' + sec + '초 후 자동 저장… (취소: ❌)';
+    }
+  }, 1000);
 }
 
 function escapeHtml(s) {
@@ -526,8 +556,15 @@ function escapeHtml(s) {
 }
 
 document.getElementById('btn-cancel').onclick = () => {
+  window._autoSaveCancelled = true; // 자동 저장 중단
   pendingGroups = [];
   document.getElementById('cr').classList.remove('show');
+  var btn = document.getElementById('btn-save');
+  if (btn) {
+    btn.textContent = '💾 라이브러리에 저장';
+    btn.style.background = '';
+    btn.style.color = '';
+  }
 };
 
 /* ════════════════════════════════════════════
@@ -715,9 +752,6 @@ if (_ls) _ls.addEventListener('input', applyLibFilter);
 if (_lp) _lp.addEventListener('change', applyLibFilter);
 if (_lc) _lc.addEventListener('change', applyLibFilter);
 
-/* ════════════════════════════════════════════
-   초기화
-   ════════════════════════════════════════════ */
 (async function init(){
   try {
     db = await openDB();
