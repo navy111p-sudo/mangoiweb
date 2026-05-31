@@ -23744,12 +23744,40 @@ window.closeRulesModal = function() {
   }
 </style>
 
+<!-- ph271: 카카오 FAB + "상담" 글자 강제 -->
+<style id="ph271-kakao-text">
+  #ph49-kakao-fab { display:inline-flex !important; flex-direction:column !important; align-items:center !important; justify-content:center !important; gap:1px !important; text-align:center !important; }
+  #ph49-kakao-fab .ph49-kakao-intext { display:inline-block !important; visibility:visible !important; opacity:1 !important; font-size:10px !important; font-weight:900 !important; color:#3C1E1E !important; line-height:1 !important; }
+  #ph49-kakao-fab .ph49-kakao-label { display:none !important; }
+</style>
 <a class="ph49-kakao-fab" id="ph49-kakao-fab"
    href="https://pf.kakao.com/_mangoi" target="_blank" rel="noopener"
    onclick="try{if(window.openKakao){window.openKakao();return false;}}catch(e){}"
-   title="Kakao Chat" aria-label="Kakao">
-  <span class="ph49-kakao-ico">&#128172;</span><span class="ph49-kakao-intext" data-ko="상담" data-en="Chat">상담</span><span class="ph49-kakao-label" data-ko="카카오 상담" data-en="Kakao Chat">Kakao</span>
+   title="카카오 상담" aria-label="상담">
+  <span class="ph49-kakao-ico">&#128172;</span><span class="ph49-kakao-intext">상담</span>
 </a>
+<script>
+/* ph271: 다른 nuker 가 상담 텍스트를 숨기지 못하도록 — setInterval 강제 보장 */
+(function(){
+  function ensureSangdam(){
+    var fab = document.getElementById('ph49-kakao-fab');
+    if (!fab) return;
+    var intext = fab.querySelector('.ph49-kakao-intext');
+    if (!intext) {
+      intext = document.createElement('span');
+      intext.className = 'ph49-kakao-intext';
+      intext.textContent = '상담';
+      fab.appendChild(intext);
+    } else if (!intext.textContent || !intext.textContent.trim()) {
+      intext.textContent = '상담';
+    }
+    intext.style.cssText = 'display:inline-block !important;visibility:visible !important;opacity:1 !important;font-size:10px !important;font-weight:900 !important;color:#3C1E1E !important;line-height:1 !important;margin-top:1px !important;';
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ensureSangdam);
+  ensureSangdam();
+  setInterval(ensureSangdam, 1000);
+})();
+</script>
 
 <script>
 (function(){
@@ -24084,7 +24112,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260601055318 -->
+<!-- BUILD:20260601055908 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -24842,44 +24870,41 @@ document.addEventListener('keydown', function(e){
 <style id="v27-precheck-fab">
   /* fix v36 (2026-05-28) — 카카오 버튼(ph49-kakao-fab)이 우하단 8px 위치라
      precheck-fab 을 80px 위로 올려서 시각·클릭 충돌 방지 */
+  /* ph271: 수업 진단 버튼 작게 (PC + 모바일 모두) */
   #precheck-fab {
-    /* fix v46 (2026-05-28) — 3단계 조건부 배치
-       데스크탑(>600px): 카카오 옆 right:100, bottom:16, 갭 28px
-       일반 모바일(401~600px): right:88, bottom:14, 갭 16px
-       극소 모바일(≤400px): 카카오 위 bottom:80, right:16 (옆 공간 부족) */
     position: fixed !important;
-    right: 100px !important;
-    bottom: 16px !important;
+    right: 88px !important;
+    bottom: 14px !important;
     z-index: 99990 !important;
     background: linear-gradient(135deg, #3b82f6, #1d4ed8);
     color: #fff; border: 0; border-radius: 999px;
-    padding: 8px 13px 8px 11px;
-    font-size: 11.5px; font-weight: 700; cursor: pointer;
-    box-shadow: 0 8px 18px -8px rgba(59,130,246,0.5), 0 3px 8px -2px rgba(0,0,0,0.22);
-    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px 5px 8px !important;
+    font-size: 10px !important; font-weight: 700; cursor: pointer;
+    box-shadow: 0 4px 10px -4px rgba(59,130,246,0.5), 0 2px 5px -2px rgba(0,0,0,0.22);
+    display: inline-flex; align-items: center; gap: 4px;
     transition: transform .15s, box-shadow .15s;
     font-family: -apple-system,"Segoe UI","Pretendard","Noto Sans KR",sans-serif;
+    line-height: 1.1;
   }
-  #precheck-fab:hover { transform: translateY(-2px); box-shadow: 0 16px 32px -8px rgba(59,130,246,0.7); }
-  #precheck-fab .ic { font-size: 14px; }
-  #precheck-fab .dot { position: absolute; top: 4px; right: 6px; width: 9px; height: 9px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 2px #fff; animation: pcPulse 1.8s ease-out infinite; }
+  #precheck-fab:hover { transform: translateY(-1px); box-shadow: 0 8px 18px -6px rgba(59,130,246,0.6); }
+  #precheck-fab .ic { font-size: 11px !important; }
+  #precheck-fab .dot { position: absolute; top: 2px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 1.5px #fff; animation: pcPulse 1.8s ease-out infinite; }
   @keyframes pcPulse { 0%{transform:scale(1);opacity:1} 70%{transform:scale(1.9);opacity:0} 100%{transform:scale(1.9);opacity:0} }
   @media (max-width: 600px) {
     #precheck-fab {
-      padding: 7px 11px 7px 9px !important;
-      font-size: 11px !important;
-      bottom: 16px !important;
-      right: 84px !important;
+      padding: 4px 8px 4px 6px !important;
+      font-size: 9.5px !important;
+      bottom: 14px !important;
+      right: 76px !important;
     }
-    #precheck-fab .ic { font-size: 13px !important; }
+    #precheck-fab .ic { font-size: 10px !important; }
   }
-  /* fix v46 — 극소 화면 (≤400px, iPhone SE / 갤럭시 S 등) : 옆 공간 부족 → 카카오 위로 자동 이동 */
   @media (max-width: 400px) {
     #precheck-fab {
-      bottom: 84px !important;
-      right: 14px !important;
-      padding: 6px 10px 6px 9px !important;
-      font-size: 10.5px !important;
+      bottom: 76px !important;
+      right: 12px !important;
+      padding: 4px 7px 4px 6px !important;
+      font-size: 9px !important;
     }
   }
   /* 룸 입장 시(vc-in-call)에는 precheck-fab 숨김 — 룸 안에서는 필요 없음 */
@@ -25823,33 +25848,9 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     backdrop-filter: blur(8px) !important;
     color: #93C5FD !important;
     box-shadow: 0 4px 10px -2px rgba(0,0,0,0.3) !important;
+  }}
   }
-
-  /* ─── AI 검색창 — 부드러운 글래스 + 골드 포커스 ──── */
-  .ai-search-wrap {
-    background: linear-gradient(135deg, rgba(15,23,42,0.7), rgba(11,18,36,0.5)) !important;
-    border: 1.5px solid rgba(96,165,250,0.18) !important;
-    backdrop-filter: blur(14px) !important;
-    -webkit-backdrop-filter: blur(14px) !important;
-    box-shadow:
-      0 10px 28px -6px rgba(0,0,0,0.4),
-      inset 0 1px 0 rgba(255,255,255,0.06) !important;
-  }
-  #ai-home-input:focus {
-    outline: 0 !important;
-    border-color: rgba(251,191,36,0.6) !important;
-    box-shadow: 0 0 0 3px rgba(251,191,36,0.18) !important;
-  }
-}
 </style>
-
-<!-- ============================================================
-     Phase 168 (2026-05-29) - Room textbook library : IndexedDB merge
-     · 룸 안 "📚 라이브러리" 버튼이 textbook-uploader 의
-       IndexedDB 저장 교재까지 자동으로 함께 표시
-     · 우상단 "교재 띄우기" launcher 는 삭제됨 — 교재 탭 안에서 자연스럽게 접근
-     ============================================================ -->
-<script id="ph269-final-stub">/* ph269 final stub */</script>
 
 </body>
 </html>
