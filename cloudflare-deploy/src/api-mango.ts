@@ -39,6 +39,11 @@ const json = (data: any, status = 200): Response =>
     }
   });
 
+// fix (2026-06-01) — 포인트 테이블 DDL 을 isolate 당 1회만 실행.
+//   매 요청마다 CREATE TABLE 6개를 돌리면, 페이지 로드 시 동시 요청 폭주 →
+//   D1 락/과부하 → 미처리 예외 → Cloudflare 503 발생. 이 플래그로 방지.
+let __pointTablesReady = false;
+
 const today = (ts: number = Date.now()) => {
   const d = new Date(ts);
   // KST 기준 날짜
@@ -1476,12 +1481,14 @@ export async function handleMangoApi(
 
     // 헬퍼: 포인트 테이블 자동 생성 (안전망)
     const ensurePointTables = async () => {
+      if (__pointTablesReady) return;   // isolate 당 1회만 DDL 실행 (503 폭주 방지)
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_points (user_id TEXT PRIMARY KEY, student_name TEXT, balance INTEGER NOT NULL DEFAULT 0, lifetime_earned INTEGER NOT NULL DEFAULT 0, lifetime_spent INTEGER NOT NULL DEFAULT 0, last_earned_at INTEGER, last_spent_at INTEGER, updated_at INTEGER NOT NULL);`);
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS point_transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, type TEXT NOT NULL, amount INTEGER NOT NULL, balance_after INTEGER NOT NULL, reason TEXT, rule_code TEXT, redemption_id INTEGER, actor_id TEXT, actor_name TEXT, created_at INTEGER NOT NULL, meta TEXT);`);
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS point_rules (code TEXT PRIMARY KEY, label TEXT NOT NULL, amount INTEGER NOT NULL, cooldown_sec INTEGER DEFAULT 0, daily_cap INTEGER, enabled INTEGER DEFAULT 1, description TEXT, updated_at INTEGER NOT NULL);`);
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS gift_catalog (id INTEGER PRIMARY KEY AUTOINCREMENT, external_id TEXT, brand TEXT, name TEXT NOT NULL, category TEXT, face_value INTEGER NOT NULL, point_price INTEGER NOT NULL, thumbnail_url TEXT, stock INTEGER, enabled INTEGER DEFAULT 1, sort_order INTEGER DEFAULT 0, description TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS gift_redemptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, catalog_id INTEGER NOT NULL, gift_name TEXT, gift_brand TEXT, face_value INTEGER NOT NULL, point_price INTEGER NOT NULL, recipient_phone TEXT, recipient_name TEXT, status TEXT NOT NULL DEFAULT 'pending', external_order_id TEXT, external_coupon_code TEXT, error_message TEXT, requested_at INTEGER NOT NULL, sent_at INTEGER, delivered_at INTEGER, failed_at INTEGER, refunded_at INTEGER, txn_spend_id INTEGER, txn_refund_id INTEGER, meta TEXT);`);
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS point_rule_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, rule_code TEXT NOT NULL, amount INTEGER NOT NULL, triggered_at INTEGER NOT NULL, txn_id INTEGER, meta TEXT);`);
+      __pointTablesReady = true;
     };
 
     // 헬퍼: 학생 포인트 거래 (적립 또는 차감) - 트랜잭션 보장
@@ -1520,19 +1527,25 @@ export async function handleMangoApi(
 
     // ── GET /api/points/balance?uid=xxx — 학생 본인 포인트 잔액 + 최근 거래 ──
     if (method === 'GET' && path === '/api/points/balance') {
-      await ensurePointTables();
       const uid = (url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
-      const row: any = await env.DB.prepare(`SELECT * FROM student_points WHERE user_id=?`).bind(uid).first();
-      const txns = await env.DB.prepare(`SELECT id, type, amount, balance_after, reason, created_at FROM point_transactions WHERE user_id=? ORDER BY created_at DESC LIMIT 30`).bind(uid).all();
-      return json({
-        ok: true,
-        balance: row?.balance || 0,
-        lifetime_earned: row?.lifetime_earned || 0,
-        lifetime_spent: row?.lifetime_spent || 0,
-        student_name: row?.student_name || null,
-        recent: txns.results || [],
-      });
+      // fix (2026-06-01) — DB 에러가 나도 절대 503/500 던지지 않고 잔액 0 으로 graceful 응답.
+      //   (DDL 폭주/락으로 인한 503 콘솔 도배 방지)
+      try {
+        await ensurePointTables();
+        const row: any = await env.DB.prepare(`SELECT * FROM student_points WHERE user_id=?`).bind(uid).first();
+        const txns = await env.DB.prepare(`SELECT id, type, amount, balance_after, reason, created_at FROM point_transactions WHERE user_id=? ORDER BY created_at DESC LIMIT 30`).bind(uid).all();
+        return json({
+          ok: true,
+          balance: row?.balance || 0,
+          lifetime_earned: row?.lifetime_earned || 0,
+          lifetime_spent: row?.lifetime_spent || 0,
+          student_name: row?.student_name || null,
+          recent: txns.results || [],
+        });
+      } catch (e: any) {
+        return json({ ok: false, balance: 0, lifetime_earned: 0, lifetime_spent: 0, recent: [], error: 'points_unavailable', detail: String(e?.message || e) });
+      }
     }
 
     // ── GET /api/admin/points/list — 전체 학생 포인트 잔액 (관리자) ──

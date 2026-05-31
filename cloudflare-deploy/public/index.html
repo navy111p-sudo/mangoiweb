@@ -7936,8 +7936,8 @@ async function vcAutoEarnAttendance() {
         console.warn('[vc-p5] on_time check err:', e);
     }
 
-    // 잔액 칩 갱신
-    if (typeof refreshPointsChip === 'function') refreshPointsChip();
+    // 잔액 칩 갱신 (적립 직후 → 강제 갱신)
+    if (typeof refreshPointsChip === 'function') refreshPointsChip(true);
 }
 
 // 적립 토스트 (화면 상단 중앙에 잠시 표시)
@@ -17980,22 +17980,34 @@ window.closeRulesModal = function() {
   window.updateLoginUI = updateLoginUI;
 
   // 🎁 Phase P3 — 포인트 칩 + 상점 ───────────────────────────────────
-  window.refreshPointsChip = async function(){
+  // fix (2026-06-01) — 단일 요청(single-flight) + 5초 캐시로 폭주 방지.
+  //   여러 init 경로가 동시에 호출해도 네트워크 요청은 1번만 나감 → 503 폭주 차단.
+  window._pointsChipInflight = null;
+  window._pointsChipLastTs = 0;
+  window.refreshPointsChip = async function(force){
     var chip = document.getElementById('points-chip');
     var lbl = document.getElementById('points-chip-label');
     if (!chip || !lbl) return;
     var u = getCurrentUser();
     if (!u) { chip.style.display='none'; return; }
     chip.style.display='inline-flex';
-    try {
-      var r = await fetch('/api/points/balance?uid=' + encodeURIComponent(u.uid));
-      var d = await r.json();
-      var bal = (d && d.ok) ? (d.balance || 0) : 0;
-      lbl.textContent = bal.toLocaleString('ko-KR') + ' P';
-      chip.setAttribute('data-balance', String(bal));
-    } catch(e) {
-      lbl.textContent = '0 P';
-    }
+    var now = Date.now();
+    if (!force && (now - window._pointsChipLastTs < 5000)) return;   // 5초 내 중복 호출 무시
+    if (window._pointsChipInflight) return;                          // 진행 중이면 재사용
+    window._pointsChipInflight = (async function(){
+      try {
+        var r = await fetch('/api/points/balance?uid=' + encodeURIComponent(u.uid), { cache: 'no-store' });
+        var d = await r.json();
+        var bal = (d && typeof d.balance === 'number') ? d.balance : 0;
+        lbl.textContent = bal.toLocaleString('ko-KR') + ' P';
+        chip.setAttribute('data-balance', String(bal));
+        window._pointsChipLastTs = Date.now();
+      } catch(e) {
+        lbl.textContent = '0 P';
+      } finally {
+        window._pointsChipInflight = null;
+      }
+    })();
   };
 
   // 🆕 포인트 상점 안내 음성 (중간 볼륨 자동재생 + 우상단 🔇 토글)
@@ -18097,7 +18109,7 @@ window.closeRulesModal = function() {
       var L = (window.getLang?window.getLang():'ko')==='ko';
       el.innerHTML = '<span class="ps-bal-label">'+(L?'내 포인트':'My Points')+'</span> '+
         '<span class="ps-bal-amt">'+bal.toLocaleString('ko-KR')+' P</span>';
-      refreshPointsChip();
+      refreshPointsChip(true);
     } catch(e) {}
   };
   window.psLoadCatalog = async function(){
@@ -18859,7 +18871,7 @@ window.closeRulesModal = function() {
       const d = await r.json();
       if (d.ok) {
         alert((L()?'🔥 출석 +':'🔥 Check-in +') + (d.rule?.amount||10) + 'P');
-        if (typeof refreshPointsChip === 'function') refreshPointsChip();
+        if (typeof refreshPointsChip === 'function') refreshPointsChip(true);
       } else if (d.error === 'cooldown' || d.error === 'daily_cap_reached') {
         alert(L()?'✅ 이미 오늘 출석했어요':'✅ Already checked in today');
       }
@@ -24058,7 +24070,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260601045422 -->
+<!-- BUILD:20260601051446 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">

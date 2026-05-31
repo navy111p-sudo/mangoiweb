@@ -682,8 +682,17 @@ export default {
         path === '/api/points/earn-by-rule' ||
         // Audit-added: student recordings listing
         path === '/api/student/recordings') {
-      const res = await handleMangoApi(request, url, env);
-      if (res) return res;
+      // fix (2026-06-01) — 미처리 예외가 Cloudflare 503 으로 새지 않도록 방어:
+      //   어떤 경우에도 JSON 응답을 보장 (콘솔 503 도배 방지).
+      try {
+        const res = await handleMangoApi(request, url, env);
+        if (res) return res;
+      } catch (e: any) {
+        return new Response(
+          JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
+          { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' } }
+        );
+      }
     }
 
     // 📥 회계 리포트 6종 (2026-05-03 추가)
