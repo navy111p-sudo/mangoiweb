@@ -4170,7 +4170,7 @@
         <button class="ai-quick-btn" data-go="speech" data-ko="🎤 단계별 발음" data-en="🎤 Curriculum Pronunciation">🎤 단계별 발음</button>
         <button class="ai-quick-btn" data-go="lesson-change" data-ko="📅 연기/변경" data-en="📅 Postpone/Change">📅 연기/변경</button>
         <button class="ai-quick-btn" data-go="inquiry" data-ko="💬 신규상담" data-en="💬 New Inquiry">💬 신규상담</button>
-        <button class="ai-quick-btn" data-go="all-menu" data-ko="🏠 전체메뉴" data-en="🏠 All Menu" onclick="event.preventDefault();return false;">🏠 전체메뉴</button>
+        <button class="ai-quick-btn" data-go="all-menu" data-ko="🏠 전체메뉴" data-en="🏠 All Menu" onclick="if(window.toggleAllMenu){window.toggleAllMenu();return false;}">🏠 전체메뉴</button>
         <!-- ph170 (2026-05-29) — 수업 진단 카드 (FAB 대체) -->
         <button class="ai-quick-btn" data-go="precheck" data-ko="🎥 수업 진단" data-en="🎥 PreCheck" onclick="event.preventDefault();location.href='/precheck.html';return false;">🎥 수업 진단</button>
         <!-- ph178 (2026-05-29) — 수업 신청 카드 (시간·교사 선택 → 결제) -->
@@ -22776,14 +22776,28 @@ window.closeRulesModal = function() {
     transition: transform .15s ease, box-shadow .15s ease;
   }
   /* fix (2026-06-01) — 노란 동그라미 안에 '상담' 글자 상시 노출 */
-  .ph49-kakao-fab .ph49-kakao-ico { font-size: 20px; line-height: 1; }
-  .ph49-kakao-fab .ph49-kakao-intext {
+  .ph49-kakao-fab .ph49-kakao-ico { font-size: 18px; line-height: 1; }
+  .ph49-kakao-fab .ph49-kakao-intext,
+  #ph49-kakao-fab .ph49-kakao-intext {
     font-family: "Pretendard","Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",-apple-system,BlinkMacSystemFont,sans-serif !important;
-    font-size: 11px;
-    font-weight: 900;
-    color: #3C1E1E;
-    letter-spacing: -0.2px;
-    line-height: 1;
+    font-size: 11px !important;
+    font-weight: 900 !important;
+    color: #3C1E1E !important;
+    letter-spacing: -0.2px !important;
+    line-height: 1 !important;
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    margin-top: 2px !important;
+  }
+  /* ph269: 카카오 FAB 안에 "상담" 글자 강제 표시 (세로 배치) */
+  .ph49-kakao-fab, #ph49-kakao-fab {
+    display: inline-flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 1px !important;
+    text-align: center !important;
   }
   .ph49-kakao-fab:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,0.4); }
   .ph49-kakao-fab:active { transform: scale(0.95); }
@@ -24070,7 +24084,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260601052208 -->
+<!-- BUILD:20260601052950 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25835,174 +25849,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
        IndexedDB 저장 교재까지 자동으로 함께 표시
      · 우상단 "교재 띄우기" launcher 는 삭제됨 — 교재 탭 안에서 자연스럽게 접근
      ============================================================ -->
-<script id="ph168-indexed-library-loader">
-(function(){
-  'use strict';
-
-  // IndexedDB 'mangoi-textbooks' 에서 모든 교재·파일 메타 가져와
-  // /api/textbook-files items 와 같은 shape 으로 normalize
-  // ph232: DB_VER 3 으로 동기화 (uploader/viewer 와 일치) + onupgradeneeded store 생성
-  window._ph168_loadIndexedBooks = function() {
-    return new Promise(function(resolve){
-      try {
-        var req = indexedDB.open('mangoi-textbooks', 3);
-        req.onupgradeneeded = function(e) {
-          var d = e.target.result;
-          if (!d.objectStoreNames.contains('textbooks')) {
-            var s = d.createObjectStore('textbooks', { keyPath: 'id' });
-            try { s.createIndex('publisher', 'publisher'); } catch(_){}
-            try { s.createIndex('category', 'category'); } catch(_){}
-            try { s.createIndex('createdAt', 'createdAt'); } catch(_){}
-          }
-          if (!d.objectStoreNames.contains('files')) {
-            d.createObjectStore('files', { keyPath: 'id' });
-          }
-        };
-        req.onsuccess = function() {
-          var db = req.result;
-          if (!db.objectStoreNames.contains('textbooks') || !db.objectStoreNames.contains('files')) {
-            db.close(); resolve([]); return;
-          }
-          var tx = db.transaction(['textbooks', 'files'], 'readonly');
-          var tbReq = tx.objectStore('textbooks').getAll();
-          var fileReq = tx.objectStore('files').getAll();
-          var done = 0, textbooks = [], files = {};
-          function check() {
-            done++;
-            if (done < 2) return;
-            // files 를 id 로 인덱싱
-            files.forEach && files.forEach(function(f){});
-            var fileMap = {};
-            (files || []).forEach(function(f){ fileMap[f.id] = f; });
-
-            // flat list 로 변환
-            var items = [];
-            textbooks.forEach(function(t){
-              t.lessons.forEach(function(l){
-                l.fileIds.forEach(function(fid){
-                  var f = fileMap[fid];
-                  if (!f) return;
-                  items.push({
-                    id: fid,
-                    name: '[' + t.textbook + (t.level ? ' ' + t.level : '') + '] ' + l.name + ' — ' + f.name,
-                    kind: f.kind === 'pdf' ? 'pdf' : (f.kind === 'image' ? 'image' : f.kind),
-                    url: URL.createObjectURL(f.blob),
-                    level: t.level || '',
-                    unit_no: '',
-                    publisher: t.publisher,
-                    category: t.category,
-                    _source: 'idb'
-                  });
-                });
-              });
-            });
-            db.close();
-            console.log('[ph168] IndexedDB books loaded:', items.length);
-            resolve(items);
-          }
-          tbReq.onsuccess = function(){ textbooks = tbReq.result || []; check(); };
-          tbReq.onerror = function(){ check(); };
-          fileReq.onsuccess = function(){ files = fileReq.result || []; check(); };
-          fileReq.onerror = function(){ check(); };
-        };
-        req.onerror = function(){ resolve([]); };
-      } catch(e) {
-        console.warn('[ph168] IndexedDB open failed:', e);
-        resolve([]);
-      }
-    });
-  };
-
-  console.log('[ph168] IndexedDB room-library hook active — admin 업로더 교재 자동 표시');
-})();
-</script>
-
-<!-- ============================================================
-     Phase 169 (2026-05-29) - Room mobile UI cleanup
-     · 룸 안 컨트롤 버튼: 한 줄 그리드, 균등 간격
-     · ✕ 종료 버튼: 우상단으로 분리 (탭 영역 안 침범)
-     · 탭 메뉴 (칠판/교재/동영상/발음): pill 디자인 + 활성 강조
-     · TOOLS 라벨: 컴팩트 chip
-     · 비디오 PIP: 둥근 radius + 그림자
-     · FACE OFF 배지: 컴팩트 위치
-     ============================================================ -->
-<style id="ph169-room-mobile-clean">
-  @media (max-width: 700px) {
-    /* 룸 상단 정보 (참여자 수 등) 가독성 */
-    .vc-room-info, [class*="room-info"], .vc-meta {
-      font-size: 12px !important;
-      padding: 4px 10px !important;
-      gap: 6px !important;
-    }
-
-    /* FACE OFF 배지 — 모바일 컴팩트 */
-    .face-off-badge, [class*="face-off"], [id*="face-off"] {
-      padding: 4px 10px !important;
-      font-size: 11px !important;
-      border-radius: 99px !important;
-      letter-spacing: 0.3px !important;
-    }
-
-    /* 컨트롤 버튼들 (마이크/도구/카메라/채팅/종료) — 균등 그리드 */
-    .ctrl-bar, .vc-controls, [class*="ctrl-bar"] {
-      display: grid !important;
-      grid-template-columns: repeat(5, 1fr) !important;
-      gap: 6px !important;
-      padding: 6px 8px !important;
-    }
-    .ctrl-btn, [class*="ctrl-btn"] {
-      min-height: 44px !important;
-      border-radius: 12px !important;
-      font-size: 16px !important;
-      padding: 8px !important;
-      background: rgba(15,23,42,0.7) !important;
-      border: 1px solid rgba(96,165,250,0.18) !important;
-      backdrop-filter: blur(8px) !important;
-    }
-    .ctrl-btn.danger {
-      background: linear-gradient(135deg,#EF4444,#B91C1C) !important;
-      border-color: rgba(239,68,68,0.55) !important;
-      color: #fff !important;
-      box-shadow: 0 6px 16px -4px rgba(239,68,68,0.5) !important;
-    }
-    .ctrl-btn.active, .ctrl-btn[aria-pressed="true"] {
-      background: linear-gradient(135deg,#3B82F6,#1D4ED8) !important;
-      border-color: rgba(96,165,250,0.6) !important;
-      color: #fff !important;
-    }
-
-    /* 두번째 줄 (EN, ✕) — 작은 chip 두 개로 */
-    .ctrl-bar-sec, .vc-controls-sec {
-      display: flex !important;
-      gap: 8px !important;
-      padding: 6px 8px !important;
-      align-items: center !important;
-    }
-    .lang-btn-room, [class*="lang-btn"] {
-      padding: 6px 12px !important;
-      font-size: 11.5px !important;
-      border-radius: 99px !important;
-      background: rgba(15,23,42,0.7) !important;
-      border: 1px solid rgba(96,165,250,0.4) !important;
-      color: #93C5FD !important;
-    }
-
-    /* 분할 버튼 (1/4, 1/2, 3/4, 전체, PIP, 솔로) — pill grid */
-    .split-bar, .vc-split-options, [class*="split-bar"] {
-      display: grid !important;
-      grid-template-columns: repeat(6, 1fr) !important;
-      gap: 4px !important;
-      padding: 4px 8px !important;
-    }
-    .split-btn, [class*="split-btn"] {
-      padding: 8px 4px !important;
-      font-size: 11px !important;
-      border-radius: 10px !important;
-      background: rgba(15,23,42,0.55) !important;
-      border: 1px solid rgba(96,165,250,0.15) !important;
-    }
-  }
-</style>
+<script id="ph269-final-stub">/* ph269 final stub */</script>
 
 </body>
 </html>
