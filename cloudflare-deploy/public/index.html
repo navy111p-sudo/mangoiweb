@@ -4170,7 +4170,7 @@
         <button class="ai-quick-btn" data-go="speech" data-ko="🎤 단계별 발음" data-en="🎤 Curriculum Pronunciation">🎤 단계별 발음</button>
         <button class="ai-quick-btn" data-go="lesson-change" data-ko="📅 연기/변경" data-en="📅 Postpone/Change">📅 연기/변경</button>
         <button class="ai-quick-btn" data-go="inquiry" data-ko="💬 신규상담" data-en="💬 New Inquiry">💬 신규상담</button>
-        <button class="ai-quick-btn" data-go="all-menu" data-ko="🏠 전체메뉴" data-en="🏠 All Menu" onclick="event.preventDefault();var p=document.getElementById('v19-panel');if(p){p.style.display=p.style.display==='none'?'':'none';if(p.style.display!=='none')p.scrollIntoView({behavior:'smooth',block:'start'});}return false;">🏠 전체메뉴</button>
+        <button class="ai-quick-btn" data-go="all-menu" data-ko="🏠 전체메뉴" data-en="🏠 All Menu" onclick="event.preventDefault();return false;">🏠 전체메뉴</button>
         <!-- ph170 (2026-05-29) — 수업 진단 카드 (FAB 대체) -->
         <button class="ai-quick-btn" data-go="precheck" data-ko="🎥 수업 진단" data-en="🎥 PreCheck" onclick="event.preventDefault();location.href='/precheck.html';return false;">🎥 수업 진단</button>
         <!-- ph178 (2026-05-29) — 수업 신청 카드 (시간·교사 선택 → 결제) -->
@@ -15102,18 +15102,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     <!-- 본문 -->
     <div style="padding:22px 28px 28px">
-      <!-- 카카오 즉시상담 (가장 쉬운 옵션) -->
-      <button type="button" onclick="window.openKakao&&window.openKakao()" class="kakao-quick-btn">
-        <svg width="22" height="20" viewBox="0 0 256 240" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path fill="#3C1E1E" d="M128 0C57.31 0 0 45.16 0 100.97c0 36.49 24.61 68.42 61.6 86.07-1.96 7.27-12.67 47.05-13.1 49.97 0 0-.26 2.21 1.18 3.05 1.43.84 3.13.18 3.13.18 4.05-.57 47.05-30.86 54.83-36.41 6.66.94 13.51 1.43 20.36 1.43 70.69 0 128-45.16 128-100.97S198.69 0 128 0z"/>
-        </svg>
-        <span><b>가장 쉬운 방법</b>: 카카오로 바로 상담받고 결제하기</span>
-      </button>
-
-      <div style="text-align:center;color:#94a3b8;font-size:11px;margin:12px 0 8px;position:relative">
-        <span style="background:linear-gradient(135deg,#1e293b,#0f172a);padding:0 14px;position:relative;z-index:1">또는 폼으로 직접 신청</span>
-        <span style="position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(255,255,255,0.08);z-index:0"></span>
-      </div>
+      <!-- (제거됨) 카카오 즉시상담 노란 버튼 — 사용자 요청으로 삭제 -->
 
       <!-- ━━━━━━━━━━ STEP 0: 결제 종류 선택 (신규 / 연장 / 자동연장) ━━━━━━━━━━ -->
       <div id="pay-step0" class="pay-step-pane">
@@ -19781,7 +19770,7 @@ window.closeRulesModal = function() {
   window._libCurrentCategory = null;
   window._tbfUrlCache = window._tbfUrlCache || {};
 
-  function loadAll(){
+  function _loadAllIDB(){
     return new Promise(function(resolve){
       var done = false;
       var to = setTimeout(function(){
@@ -19866,6 +19855,48 @@ window.closeRulesModal = function() {
         if (done) return; done = true; clearTimeout(to);
         resolve({textbooks:[], files:{}, err:'exception:' + e.message});
       }
+    });
+  }
+
+  // fix (2026-06-01) — 서버(R2/D1) 저장 교재를 모든 기기(휴대폰 포함)에서 보이게:
+  //   관리자가 서버에 올린 교재(/api/textbook-files 공개 목록)를 IndexedDB 교재와 병합.
+  function _serverFilesToBooks(items){
+    var books = [], files = {};
+    (items || []).forEach(function(it){
+      var fid = 'srv_' + it.id;
+      files[fid] = { id: fid, name: it.name || ('교재 ' + it.id), kind: it.kind || 'pdf', url: it.url, _remote: true };
+      books.push({
+        id: 'srvbook_' + it.id,
+        publisher: '🌐 서버 교재',
+        textbook: it.name || ('교재 ' + it.id),
+        level: it.level || '',
+        category: '서버 교재',
+        lessons: [{ name: it.name || ('교재 ' + it.id), fileIds: [fid] }],
+        totalFiles: 1,
+        createdAt: it.created_at || 0,
+        _remote: true
+      });
+    });
+    return { books: books, files: files };
+  }
+
+  function loadAll(){
+    var idbP = _loadAllIDB();
+    var srvP = fetch('/api/textbook-files', { cache: 'no-store' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .catch(function(){ return null; });
+    return Promise.all([idbP, srvP]).then(function(arr){
+      var idb = arr[0] || { textbooks: [], files: {}, err: null };
+      var srv = arr[1];
+      if (srv && srv.ok && srv.items && srv.items.length) {
+        var conv = _serverFilesToBooks(srv.items);
+        var mergedFiles = {};
+        Object.keys(idb.files || {}).forEach(function(k){ mergedFiles[k] = idb.files[k]; });
+        Object.keys(conv.files).forEach(function(k){ mergedFiles[k] = conv.files[k]; });
+        console.log('[srvmerge] 서버 교재', conv.books.length, '+ IDB 교재', (idb.textbooks||[]).length);
+        return { textbooks: (idb.textbooks || []).concat(conv.books), files: mergedFiles, err: idb.err };
+      }
+      return idb;
     });
   }
 
@@ -20052,12 +20083,12 @@ window.closeRulesModal = function() {
         var l = b.lessons[li];
         for (var fi = 0; fi < (l.fileIds || []).length; fi++) {
           var f = window._libFileMap[l.fileIds[fi]];
-          if (f && f.blob) { firstFile = f; break; }
+          if (f && (f.blob || f.url)) { firstFile = f; break; }
         }
       }
       var thumbHtml;
       if (firstFile && firstFile.kind === 'image') {
-        var url = window._tbfUrlCache[firstFile.id] || URL.createObjectURL(firstFile.blob);
+        var url = window._tbfUrlCache[firstFile.id] || (firstFile.blob ? URL.createObjectURL(firstFile.blob) : firstFile.url);
         window._tbfUrlCache[firstFile.id] = url;
         thumbHtml = '<div class="tbf-card-thumb"><img src="' + url + '" alt="' + esc(b.textbook) + '" /></div>';
       } else if (firstFile && firstFile.kind === 'pdf') {
@@ -20107,12 +20138,12 @@ window.closeRulesModal = function() {
     (book.lessons || []).slice().sort(function(a, b){ return naturalCmp(a.name, b.name); }).forEach(function(l){
       var lessonFiles = (l.fileIds || []).map(function(fid){
         var f = window._libFileMap[fid];
-        if (!f || !f.blob) return null;
-        return { id: fid, name: f.name || '', kind: f.kind, blob: f.blob, lessonName: l.name };
+        if (!f || !(f.blob || f.url)) return null;
+        return { id: fid, name: f.name || '', kind: f.kind, blob: f.blob, url: f.url, lessonName: l.name };
       }).filter(function(x){ return x && (x.kind === 'image' || x.kind === 'pdf'); });
       lessonFiles.sort(function(a, b){ return naturalCmp(a.name, b.name); });
       lessonFiles.forEach(function(x){
-        var url = window._tbfUrlCache[x.id] || URL.createObjectURL(x.blob);
+        var url = window._tbfUrlCache[x.id] || (x.blob ? URL.createObjectURL(x.blob) : x.url);
         window._tbfUrlCache[x.id] = url;
         seq.push({ id: x.id, url: url, kind: x.kind, name: '[' + book.textbook + '] ' + (x.lessonName || '') + ' / ' + x.name });
       });
@@ -22712,8 +22743,8 @@ window.closeRulesModal = function() {
     bottom: 16px;
     right: 16px;
     z-index: 9990;
-    width: 56px;
-    height: 56px;
+    width: 60px;
+    height: 60px;
     border-radius: 50%;
     background: #FEE500;
     border: 0;
@@ -22723,11 +22754,24 @@ window.closeRulesModal = function() {
     font-weight: 900;
     cursor: pointer;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 1px;
+    line-height: 1;
     text-decoration: none;
     -webkit-tap-highlight-color: transparent;
     transition: transform .15s ease, box-shadow .15s ease;
+  }
+  /* fix (2026-06-01) — 노란 동그라미 안에 '상담' 글자 상시 노출 */
+  .ph49-kakao-fab .ph49-kakao-ico { font-size: 20px; line-height: 1; }
+  .ph49-kakao-fab .ph49-kakao-intext {
+    font-family: "Pretendard","Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",-apple-system,BlinkMacSystemFont,sans-serif !important;
+    font-size: 11px;
+    font-weight: 900;
+    color: #3C1E1E;
+    letter-spacing: -0.2px;
+    line-height: 1;
   }
   .ph49-kakao-fab:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,0.4); }
   .ph49-kakao-fab:active { transform: scale(0.95); }
@@ -23678,7 +23722,7 @@ window.closeRulesModal = function() {
    href="https://pf.kakao.com/_mangoi" target="_blank" rel="noopener"
    onclick="try{if(window.openKakao){window.openKakao();return false;}}catch(e){}"
    title="Kakao Chat" aria-label="Kakao">
-  <span style="font-size:22px">&#128172;</span><span class="ph49-kakao-label" data-ko="카카오 상담" data-en="Kakao Chat">Kakao</span>
+  <span class="ph49-kakao-ico">&#128172;</span><span class="ph49-kakao-intext" data-ko="상담" data-en="Chat">상담</span><span class="ph49-kakao-label" data-ko="카카오 상담" data-en="Kakao Chat">Kakao</span>
 </a>
 
 <script>
@@ -24014,7 +24058,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260531031155 -->
+<!-- BUILD:20260601045422 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -24678,12 +24722,28 @@ document.addEventListener('keydown', function(e){
       }
     }
     if (panel) {
-      var isHidden = (panel.style.display === 'none' || getComputedStyle(panel).display === 'none');
-      panel.style.display = isHidden ? 'block' : 'none';
-      if (panel.style.display === 'block') {
-        setTimeout(function(){ panel.scrollIntoView({behavior:'smooth', block:'start'}); }, 100);
+      var isHidden = (panel.style.display === 'none' || panel.style.display === '' || getComputedStyle(panel).display === 'none');
+      if (isHidden) {
+        // fix (2026-06-01) — 모바일에서 카드가 안 나오던 문제: 전체화면 fixed 오버레이로 강제 표시
+        panel.style.cssText = 'display:block;position:fixed;inset:0;z-index:100000;margin:0;max-width:none;width:100%;height:100%;border-radius:0;overflow-y:auto;-webkit-overflow-scrolling:touch;background:linear-gradient(135deg,#0F172A,#1E293B);padding:18px 14px 48px;color:#F8FAFC;box-sizing:border-box';
+        // 닫기 버튼 1회만 주입
+        if (!panel.querySelector('.v19-close')) {
+          var cb = document.createElement('button');
+          cb.className = 'v19-close';
+          cb.type = 'button';
+          cb.setAttribute('aria-label', '닫기');
+          cb.innerHTML = '✕';
+          cb.style.cssText = 'position:sticky;top:0;float:right;margin:0 0 6px;width:40px;height:40px;border-radius:50%;background:rgba(248,250,252,0.12);border:1px solid rgba(248,250,252,0.25);color:#fff;font-size:20px;font-weight:800;cursor:pointer;line-height:1;z-index:5';
+          cb.onclick = function(ev){ ev.preventDefault(); ev.stopPropagation(); panel.style.display = 'none'; document.body.style.overflow = ''; };
+          panel.insertBefore(cb, panel.firstChild);
+        }
+        document.body.style.overflow = 'hidden';
+        panel.scrollTop = 0;
+      } else {
+        panel.style.display = 'none';
+        document.body.style.overflow = '';
       }
-      console.log('[v22] 전체메뉴 토글:', isHidden ? '열림' : '닫힘');
+      console.log('[v22] 전체메뉴 토글:', isHidden ? '열림(overlay)' : '닫힘');
     }
   }, true);  // capture phase
 
@@ -24767,32 +24827,33 @@ document.addEventListener('keydown', function(e){
     z-index: 99990 !important;
     background: linear-gradient(135deg, #3b82f6, #1d4ed8);
     color: #fff; border: 0; border-radius: 999px;
-    padding: 12px 18px 12px 14px;
-    font-size: 13.5px; font-weight: 700; cursor: pointer;
-    box-shadow: 0 10px 24px -8px rgba(59,130,246,0.55), 0 4px 10px -2px rgba(0,0,0,0.25);
-    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 13px 8px 11px;
+    font-size: 11.5px; font-weight: 700; cursor: pointer;
+    box-shadow: 0 8px 18px -8px rgba(59,130,246,0.5), 0 3px 8px -2px rgba(0,0,0,0.22);
+    display: inline-flex; align-items: center; gap: 6px;
     transition: transform .15s, box-shadow .15s;
     font-family: -apple-system,"Segoe UI","Pretendard","Noto Sans KR",sans-serif;
   }
   #precheck-fab:hover { transform: translateY(-2px); box-shadow: 0 16px 32px -8px rgba(59,130,246,0.7); }
-  #precheck-fab .ic { font-size: 17px; }
+  #precheck-fab .ic { font-size: 14px; }
   #precheck-fab .dot { position: absolute; top: 4px; right: 6px; width: 9px; height: 9px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 2px #fff; animation: pcPulse 1.8s ease-out infinite; }
   @keyframes pcPulse { 0%{transform:scale(1);opacity:1} 70%{transform:scale(1.9);opacity:0} 100%{transform:scale(1.9);opacity:0} }
   @media (max-width: 600px) {
     #precheck-fab {
-      padding: 11px 14px 11px 12px !important;
-      font-size: 12.5px !important;
-      bottom: 14px !important;
-      right: 88px !important;
+      padding: 7px 11px 7px 9px !important;
+      font-size: 11px !important;
+      bottom: 16px !important;
+      right: 84px !important;
     }
+    #precheck-fab .ic { font-size: 13px !important; }
   }
   /* fix v46 — 극소 화면 (≤400px, iPhone SE / 갤럭시 S 등) : 옆 공간 부족 → 카카오 위로 자동 이동 */
   @media (max-width: 400px) {
     #precheck-fab {
-      bottom: 82px !important;
-      right: 16px !important;
-      padding: 10px 14px 10px 12px !important;
-      font-size: 12px !important;
+      bottom: 84px !important;
+      right: 14px !important;
+      padding: 6px 10px 6px 9px !important;
+      font-size: 10.5px !important;
     }
   }
   /* 룸 입장 시(vc-in-call)에는 precheck-fab 숨김 — 룸 안에서는 필요 없음 */

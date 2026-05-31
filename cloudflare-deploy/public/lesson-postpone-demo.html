@@ -114,6 +114,9 @@ html, body {
 .screen.active { transform: translateY(0); }
 .screen.exit-up { transform: translateY(-100%); }
 #screen-main { transform: translateY(0); }  /* 첫 화면 기본 */
+/* fix (2026-06-01) — 화면 밖(비활성) screen 이 탭을 가로채 카드가 안 눌리던 문제 해결 */
+.screen:not(.active) { pointer-events: none; }
+.screen.active { pointer-events: auto; }
 
 /* ── 헤더 ── */
 header {
@@ -166,6 +169,8 @@ header {
   border-radius: 22px;
   border: 2px solid;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(255,255,255,0.08);
   display: flex; flex-direction: column; justify-content: space-between;
   transition: transform 0.18s ease, box-shadow 0.18s ease;
   position: relative; overflow: hidden;
@@ -891,13 +896,19 @@ function showToast(msg){
 /* ════════════════════════════════════════════════════════════
    Step 1 → 2 전환
    ════════════════════════════════════════════════════════════ */
-$$('.main-card').forEach(c => {
-  c.addEventListener('click', () => {
-    state.mode = c.dataset.mode;
-    state.tab = 'time'; state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null;
-    enterDetail();
-  });
-});
+function _goMode(mode){
+  if (!mode) return;
+  state.mode = mode;
+  state.tab = 'time'; state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null;
+  enterDetail();
+}
+/* fix (2026-06-01) — 모바일 탭 보강: 단일 위임 핸들러로 어떤 환경에서도 카드 탭이 동작하도록 */
+document.addEventListener('click', (e) => {
+  const card = e.target.closest && e.target.closest('.main-card');
+  if (card && card.dataset.mode && document.getElementById('screen-main').classList.contains('active')) {
+    _goMode(card.dataset.mode);
+  }
+}, false);
 
 function enterDetail(){
   const v = VERB[state.mode];
@@ -1149,6 +1160,6 @@ function attachHandlers(){
   window.addEventListener('orientationchange', () => setTimeout(setVh, 100));
 })();
 </script>
-<!-- BUILD:20260531031155 -->
+<!-- BUILD:20260601045422 -->
 </body>
 </html>

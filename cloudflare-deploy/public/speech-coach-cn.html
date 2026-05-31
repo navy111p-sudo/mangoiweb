@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B1224">
 <title>🇨🇳 중국어 발음 교정 — 다락원 중국어 마스터 + Lv 1~20</title>
-<!-- BUILD:20260531031155 -->
+<!-- BUILD:20260601045422 -->
 <style>
 :root {
   --bg: #0B1224;
@@ -111,7 +111,18 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
 .btn-warn{background:linear-gradient(135deg,var(--cn-gold),var(--cn-red));color:#fff}
 .btn-record{background:linear-gradient(135deg,var(--bad),#B91C1C);color:#fff;padding:13px 24px;font-size:14.5px}
 .btn-record.recording{background:linear-gradient(135deg,var(--ok),#059669);animation:pulse 1.2s infinite}
+.btn-warn.playing{background:linear-gradient(135deg,var(--ok),#059669)}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.5)}50%{box-shadow:0 0 0 14px rgba(16,185,129,0)}}
+
+/* 반복 듣기 컨트롤 */
+.repeat-row{display:flex;align-items:center;gap:10px;margin-top:12px;background:var(--bg-soft);padding:8px 12px;border-radius:10px;flex-wrap:wrap;justify-content:center}
+.repeat-label{font-size:13px;color:var(--text-dim);font-weight:700}
+.repeat-stepper{display:flex;align-items:center;gap:8px}
+.repeat-stepper button{width:34px;height:34px;border:0;border-radius:9px;background:var(--bg-card-2);color:#fff;font-size:18px;font-weight:800;cursor:pointer;line-height:1}
+.repeat-stepper button:active{transform:scale(0.92)}
+#rep-val{min-width:46px;text-align:center;font-size:14px;font-weight:800;color:var(--cn-gold)}
+.rep-inf-btn{border:1px solid var(--accent);background:transparent;color:var(--accent-2);border-radius:9px;padding:7px 12px;font-size:13px;font-weight:800;cursor:pointer}
+.rep-inf-btn.active{background:linear-gradient(135deg,var(--cn-gold),var(--cn-red));color:#fff;border-color:transparent}
 
 /* 속도 슬라이더 */
 .speed-row{display:flex;align-items:center;gap:10px;margin-top:14px;background:var(--bg-soft);padding:10px 14px;border-radius:10px}
@@ -199,6 +210,17 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
   <div class="controls">
     <button class="btn btn-warn" id="btn-tts">🔊 원어민 발음 듣기</button>
     <button class="btn btn-ghost" id="btn-next">↪ 다른 문장</button>
+  </div>
+
+  <!-- fix (2026-06-01) — 반복 듣기 (1~무한) -->
+  <div class="repeat-row" id="repeat-row">
+    <span class="repeat-label">🔁 <span data-ko="반복" data-en="Repeat">반복</span></span>
+    <div class="repeat-stepper">
+      <button type="button" id="rep-dec" aria-label="감소">−</button>
+      <span id="rep-val">1회</span>
+      <button type="button" id="rep-inc" aria-label="증가">+</button>
+    </div>
+    <button type="button" id="rep-inf" class="rep-inf-btn" aria-label="무한 반복">∞ <span data-ko="무한" data-en="∞">무한</span></button>
   </div>
 
   <div class="speed-row">
@@ -907,7 +929,9 @@ let state = {
   attempt: 1,
   speed: 0.85,
   recording: false,
+  repeat: 1,           // 반복 횟수 (숫자 또는 Infinity)
 };
+const REP_STEPS = [1, 2, 3, 5, 10];
 
 /* ── 다락원 마스터 카드 렌더 ── */
 function renderDarakwon(){
@@ -970,19 +994,50 @@ function pickRandom(){
   document.getElementById('result').classList.remove('show');
 }
 
-/* ── TTS ── */
+/* ── TTS + 반복 듣기 (1~무한) ── */
+let speaking = false;
+function setTtsBtn(on){
+  const b = document.getElementById('btn-tts');
+  if (!b) return;
+  if (on){ b.textContent = '⏹ 멈추기'; b.classList.add('playing'); }
+  else   { b.textContent = '🔊 원어민 발음 듣기'; b.classList.remove('playing'); }
+}
+function stopSpeak(){
+  speaking = false;
+  try { speechSynthesis.cancel(); } catch(_){}
+  setTtsBtn(false);
+}
 function speak(){
   if (!('speechSynthesis' in window)) { alert('이 브라우저는 TTS 를 지원하지 않습니다.'); return; }
+  // 재생 중이면 멈추기 (토글)
+  if (speaking) { stopSpeak(); return; }
+
   const text = document.getElementById('cn-text').textContent;
-  speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'zh-CN';
-  u.rate = state.speed;
-  u.pitch = 1;
-  const voices = speechSynthesis.getVoices();
-  const cn = voices.find(v => /zh|chinese|mandarin/i.test(v.lang + ' ' + v.name));
-  if (cn) u.voice = cn;
-  speechSynthesis.speak(u);
+  const total = state.repeat;          // 숫자 또는 Infinity
+  let count = 0;
+  speaking = true;
+  setTtsBtn(true);
+
+  function playOnce(){
+    if (!speaking) return;
+    if (total !== Infinity && count >= total) { stopSpeak(); return; }
+    count++;
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN';
+    u.rate = state.speed;
+    u.pitch = 1;
+    const voices = speechSynthesis.getVoices();
+    const cn = voices.find(v => /zh|chinese|mandarin/i.test(v.lang + ' ' + v.name));
+    if (cn) u.voice = cn;
+    u.onend = function(){ if (speaking) setTimeout(playOnce, 280); };
+    u.onerror = function(){ stopSpeak(); };
+    try { speechSynthesis.cancel(); } catch(_){}
+    speechSynthesis.speak(u);
+    const label = (total === Infinity) ? (count + '회 (무한)') : (count + ' / ' + total + '회');
+    const pr = document.getElementById('progress');
+    if (pr) pr.textContent = '🔊 듣는 중… ' + label;
+  }
+  playOnce();
 }
 
 /* ── 녹음 + 평가 ── */
@@ -1049,10 +1104,44 @@ document.querySelectorAll('.group-tab').forEach(t => {
   };
 });
 
+/* ── 반복 듣기 컨트롤 ── */
+function updateRepeatUI(){
+  const valEl = document.getElementById('rep-val');
+  const infEl = document.getElementById('rep-inf');
+  if (state.repeat === Infinity){
+    if (valEl) valEl.textContent = '∞';
+    if (infEl) infEl.classList.add('active');
+  } else {
+    if (valEl) valEl.textContent = state.repeat + '회';
+    if (infEl) infEl.classList.remove('active');
+  }
+}
+document.getElementById('rep-dec').onclick = function(){
+  if (state.repeat === Infinity){ state.repeat = REP_STEPS[REP_STEPS.length-1]; }
+  else {
+    let i = REP_STEPS.indexOf(state.repeat);
+    if (i > 0) state.repeat = REP_STEPS[i-1];
+    else if (i === -1) state.repeat = 1;
+  }
+  updateRepeatUI();
+};
+document.getElementById('rep-inc').onclick = function(){
+  if (state.repeat === Infinity) return;
+  let i = REP_STEPS.indexOf(state.repeat);
+  if (i >= 0 && i < REP_STEPS.length-1) state.repeat = REP_STEPS[i+1];
+  else if (i === -1) state.repeat = 2;
+  updateRepeatUI();
+};
+document.getElementById('rep-inf').onclick = function(){
+  state.repeat = (state.repeat === Infinity) ? 1 : Infinity;
+  updateRepeatUI();
+};
+updateRepeatUI();
+
 /* ── 이벤트 바인딩 ── */
 document.getElementById('btn-tts').onclick = speak;
-document.getElementById('btn-next').onclick = pickRandom;
-document.getElementById('btn-rec').onclick = startRecord;
+document.getElementById('btn-next').onclick = function(){ stopSpeak(); pickRandom(); };
+document.getElementById('btn-rec').onclick = function(){ stopSpeak(); startRecord(); };
 document.getElementById('speed-range').oninput = function(){
   state.speed = parseFloat(this.value);
   document.getElementById('speed-val').textContent = state.speed.toFixed(2) + 'x';

@@ -7,7 +7,7 @@
 <title>📚 교재 업로더 — 폴더째 드래그 → AI 자동 분류</title>
 <!-- ph257: JSZip CDN — zip 파일 자동 풀기 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<!-- BUILD:20260531031155 -->
+<!-- BUILD:20260601045422 -->
 <style>
 :root {
   --bg:#0B1224; --bg-soft:#131C36; --bg-card:#1A2548; --bg-card-2:#1E2D58;
@@ -753,6 +753,20 @@ document.getElementById('btn-save').onclick = async () => {
             throw new Error('파일 "' + c.fileName + '" 저장 실패: ' + (e.message || e.name) + ' (브라우저 저장 공간 부족 가능)');
           }
           fileIds.push(fid);
+          // fix (2026-06-01) — 서버(R2)에도 best-effort 업로드: 모든 기기(휴대폰)에서 교재가 보이도록.
+          //   pdf/jpg/png/webp 만 지원. 관리자 세션이 있을 때만 성공(없으면 401 → 무시).
+          (function(file, kind, name, level){
+            if (kind !== 'pdf' && kind !== 'image') return;
+            try {
+              var fd = new FormData();
+              fd.append('file', file, file.name || name);
+              fd.append('name', name);
+              if (level) fd.append('level', level);
+              fetch('/api/admin/textbook-files', { method: 'POST', body: fd, credentials: 'same-origin' })
+                .then(function(r){ if (r.ok) console.log('[srvupload] OK:', name); else console.warn('[srvupload] skip(', r.status, '):', name); })
+                .catch(function(){ /* 오프라인/비관리자 — 무시 */ });
+            } catch(_) {}
+          })(c.file, c.kind, (g.textbook ? '['+g.textbook+'] ' : '') + (lsnName ? lsnName+' / ' : '') + c.fileName, g.level || '');
           done++;
           // 진행률 표시 (10개마다 또는 마지막)
           if (done % 10 === 0 || done === totalFiles) {
