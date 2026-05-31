@@ -24070,7 +24070,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260601051727 -->
+<!-- BUILD:20260601052208 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25565,21 +25565,36 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       bottom: 16px !important;
       right: 12px !important;
       padding: 0 !important;
-      width: 48px !important;
-      height: 48px !important;
+      width: 56px !important;
+      height: 56px !important;
       border-radius: 50% !important;
       display: inline-flex !important;
+      flex-direction: column !important;
       align-items: center !important;
       justify-content: center !important;
+      gap: 1px !important;
       box-shadow: 0 8px 20px -4px rgba(250,225,0,0.5) !important;
     }
-    .ph49-kakao-fab span, #ph49-kakao-fab span {
-      display: none !important;  /* 라벨 숨김, 아이콘만 */
+    /* fix (2026-06-01) — 아이콘+'상담' 글자는 보이게, 떠다니는 라벨(Kakao)만 숨김 */
+    .ph49-kakao-fab .ph49-kakao-label, #ph49-kakao-fab .ph49-kakao-label {
+      display: none !important;
+    }
+    .ph49-kakao-fab .ph49-kakao-ico, #ph49-kakao-fab .ph49-kakao-ico {
+      display: block !important;
+      font-size: 19px !important;
+      line-height: 1 !important;
+    }
+    .ph49-kakao-fab .ph49-kakao-intext, #ph49-kakao-fab .ph49-kakao-intext {
+      display: block !important;
+      font-size: 11px !important;
+      font-weight: 900 !important;
+      color: #3C1E1E !important;
+      line-height: 1 !important;
     }
     .ph49-kakao-fab svg, #ph49-kakao-fab svg {
       display: block !important;
-      width: 22px !important;
-      height: 22px !important;
+      width: 20px !important;
+      height: 20px !important;
     }
     .ph52-cache-fab, #ph52-cache-fab {
       bottom: 76px !important;    /* 카톡 위 */
