@@ -8114,6 +8114,8 @@ function vcHandleMessage(msg) {
             //   (예전엔 무조건 /api/video-call/pdf/{pdfId} 로 불러서 라이브러리 교재가 흰 화면이 됐음)
             var sUrl = msg.data.url || '';
             var sPid = msg.data.pdfId || '';
+            try { if (typeof showToast === 'function') showToast('📡 교재 신호 수신 (' + msg.type + ')'); } catch(_){}
+            console.log('[pdf-share] 수신:', msg.type, 'url=', sUrl, 'pdfId=', sPid, 'kind=', msg.data.kind);
             if (sUrl && /^blob:/i.test(sUrl)) {
                 // 로컬(blob) 교재는 상대 기기에서 열 수 없음 — 서버 교재를 써야 함
                 console.warn('[pdf-share] 로컬(blob) 교재는 공유 불가:', sUrl);
@@ -8128,12 +8130,24 @@ function vcHandleMessage(msg) {
                     if (/textbook-files|\.(jpe?g|png|webp|gif|bmp)(\?|$)/i.test(sUrl)) sKind = 'image';
                     else if (/\.pdf(\?|$)/i.test(sUrl)) sKind = 'pdf';
                 }
+                // 🔎 화면 진단(콘솔 없이도 보이게)
+                try { if (typeof showToast === 'function') showToast('📥 교재 수신 — 여는 중 (' + (sKind || '자동') + ')'); } catch(_){}
                 pdfCurrentId = sPid || sUrl;
                 vcSwitchTab('pdf');
-                Promise.resolve(pdfLoad(sUrl, sKind || undefined)).then(function(){ pdfPageNum = msg.data.currentPage || 1; pdfRender(); }).catch(function(e){
+                Promise.resolve(pdfLoad(sUrl, sKind || undefined)).then(function(){
+                    pdfPageNum = msg.data.currentPage || 1; pdfRender();
+                    try { if (typeof showToast === 'function') showToast('✅ 교재 표시됨'); } catch(_){}
+                }).catch(function(e){
                     console.warn('[pdf-share] url 로드 1차 실패, 반대 종류로 재시도', e && e.message);
                     var alt = (sKind === 'image') ? 'pdf' : 'image';
-                    Promise.resolve(pdfLoad(sUrl, alt)).then(function(){ pdfPageNum = msg.data.currentPage || 1; pdfRender(); }).catch(function(e2){ console.warn('[pdf-share] 재시도도 실패', e2 && e2.message); });
+                    Promise.resolve(pdfLoad(sUrl, alt)).then(function(){
+                        pdfPageNum = msg.data.currentPage || 1; pdfRender();
+                        try { if (typeof showToast === 'function') showToast('✅ 교재 표시됨(재시도)'); } catch(_){}
+                    }).catch(function(e2){
+                        console.warn('[pdf-share] 재시도도 실패', e2 && e2.message);
+                        try { if (typeof showToast === 'function') showToast('❌ 교재 로드 실패: ' + (e2 && e2.message || e2)); } catch(_){}
+                        try { alert('❌ 교재 로드 실패\nURL: ' + sUrl + '\n오류: ' + (e2 && e2.message || e2)); } catch(_){}
+                    });
                 });
                 break;
             }
@@ -24284,7 +24298,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260601225223 -->
+<!-- BUILD:20260601230749 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
