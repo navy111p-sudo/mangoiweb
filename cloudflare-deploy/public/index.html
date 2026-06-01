@@ -2572,8 +2572,9 @@
             /* 3) 번역(EN) 버튼 제거 — toolbar-right 의 첫 버튼(언어) */
             body.vc-in-call .toolbar-right > button:first-child { display: none !important; }
 
-            /* 4) 내 화면 숨김 → 상대 화면만 크게 (교사는 학생만, 학생은 교사만) */
-            body.vc-in-call #vc-local-box { display: none !important; }
+            /* 4) 상대가 있을 때만 내 화면 숨김 → 상대 화면만 크게 (교사는 학생만, 학생은 교사만).
+                  혼자일 때(참여자 1명)는 내 화면을 보여줘 검은 화면 방지. */
+            body.vc-in-call #vc-video-grid:not([data-count="1"]) #vc-local-box { display: none !important; }
             body.vc-in-call #vc-video-grid {
                 grid-template-columns: 1fr !important;
                 grid-auto-rows: auto !important;
@@ -24546,7 +24547,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260602034622 -->
+<!-- BUILD:20260602035516 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
