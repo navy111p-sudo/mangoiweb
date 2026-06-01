@@ -6524,13 +6524,30 @@ Respond in JSON ONLY:
       const tb = url.searchParams.get('textbook_id');
       const kd = url.searchParams.get('kind');
       const q  = url.searchParams.get('q');
+      const book = url.searchParams.get('book');
       const where: string[] = ['active = 1'];
       const binds: any[] = [];
       if (lv) { where.push('level = ?');       binds.push(lv); }
       if (tb) { where.push('textbook_id = ?'); binds.push(Number(tb)); }
       if (kd) { where.push('kind = ?');        binds.push(kd); }
       if (q)  { where.push('name LIKE ?');     binds.push(`%${q}%`); }
-      const sql = `SELECT id, name, kind, mime, ext, size_bytes, r2_key, textbook_id, level, unit_no, description, uploaded_by, created_at, updated_at FROM textbook_files WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT 500`;
+      if (book) { where.push('name LIKE ?');   binds.push(`[${book}]%`); }   // 특정 교재의 파일만
+
+      // fix (2026-06-02) — 그룹 집계 모드(?group=1): 교재명([book])별 파일 수를 한 번에.
+      //   38,000+ 파일이 있어도 모든 교재가 항상 표에 보이게 (limit 500 에 가려지던 문제 해결).
+      if (url.searchParams.get('group') === '1') {
+        const gsql = `SELECT (CASE WHEN substr(name,1,1)='[' THEN substr(name,2,instr(name,']')-2) ELSE '(기타)' END) AS book,
+                             COUNT(*) AS files, MIN(level) AS level, MAX(kind) AS kind
+                      FROM textbook_files WHERE ${where.join(' AND ')}
+                      GROUP BY book ORDER BY book ASC`;
+        const grs: any = await env.DB.prepare(gsql).bind(...binds).all();
+        const groups = grs.results || [];
+        const total = groups.reduce((a: number, g: any) => a + (g.files || 0), 0);
+        return json({ ok: true, groups, total });
+      }
+
+      const limit = Math.min(20000, Math.max(1, parseInt(url.searchParams.get('limit') || '500', 10)));
+      const sql = `SELECT id, name, kind, mime, ext, size_bytes, r2_key, textbook_id, level, unit_no, description, uploaded_by, created_at, updated_at FROM textbook_files WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT ${limit}`;
       const rs: any = await env.DB.prepare(sql).bind(...binds).all();
       const items = (rs.results || []).map((it: any) => ({
         ...it,
@@ -6607,11 +6624,28 @@ Respond in JSON ONLY:
     if (method === 'GET' && path === '/api/textbook-files') {
       await ensureTextbookFilesTable();
       const lv = url.searchParams.get('level');
+      const book = url.searchParams.get('book');
       const where: string[] = ['active = 1'];
       const binds: any[] = [];
       if (lv) { where.push('level = ?'); binds.push(lv); }
+      if (book) { where.push('name LIKE ?'); binds.push(`[${book}]%`); }   // 특정 교재의 파일만(시퀀스 로딩용)
+
+      // fix (2026-06-02) — 그룹 집계 모드(?group=1): 라이브러리 트리/칩이 모든 교재를 한눈에 (limit 무관)
+      if (url.searchParams.get('group') === '1') {
+        const gsql = `SELECT (CASE WHEN substr(name,1,1)='[' THEN substr(name,2,instr(name,']')-2) ELSE '(기타)' END) AS book,
+                             COUNT(*) AS files, MIN(level) AS level, MAX(kind) AS kind
+                      FROM textbook_files WHERE ${where.join(' AND ')}
+                      GROUP BY book ORDER BY book ASC`;
+        const grs: any = await env.DB.prepare(gsql).bind(...binds).all();
+        const groups = grs.results || [];
+        const total = groups.reduce((a: number, g: any) => a + (g.files || 0), 0);
+        return json({ ok: true, groups, total });
+      }
+
+      // fix (2026-06-02) — limit 파라미터 허용(기본 500, 최대 20000). 교재 전체를 불러올 수 있게.
+      const limit = Math.min(20000, Math.max(1, parseInt(url.searchParams.get('limit') || '500', 10)));
       const rs: any = await env.DB.prepare(
-        `SELECT id, name, kind, ext, size_bytes, level, unit_no, description, created_at FROM textbook_files WHERE ${where.join(' AND ')} ORDER BY level ASC, unit_no ASC, created_at DESC LIMIT 500`
+        `SELECT id, name, kind, ext, size_bytes, level, unit_no, description, created_at FROM textbook_files WHERE ${where.join(' AND ')} ORDER BY level ASC, unit_no ASC, created_at DESC LIMIT ${limit}`
       ).bind(...binds).all();
       const items = (rs.results || []).map((it: any) => ({
         ...it,

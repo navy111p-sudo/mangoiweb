@@ -15784,33 +15784,24 @@ async function loadTextbooks() {
   try {
     var haveTitles = {};
     items.forEach(function(t){ var k=(t.title||'').trim().toLowerCase(); if(k) haveTitles[k]=1; });
-    var fr = await fetch('/api/admin/textbook-files?limit=1000', { credentials:'include', cache:'no-store' });
+    // fix (2026-06-02) — 서버 그룹 집계(?group=1) 사용: 38,000+ 파일도 모든 교재가 빠짐없이 표에 보임.
+    //   (예전 ?limit=1000 은 최근 1000개만 받아 대부분 교재가 '사라진 것처럼' 안 보였음)
+    var fr = await fetch('/api/admin/textbook-files?group=1', { credentials:'include', cache:'no-store' });
     var fdj = await fr.json().catch(function(){ return {}; });
-    if (fdj.ok && fdj.items) {
-      var groups = {}; // book -> { files:0, lessons:{}, level:'' }
-      fdj.items.forEach(function(it){
-        var nm = it.name || '';
-        var m = nm.match(/^\[([^\]]+)\]\s*(.*)$/);
-        var book = m ? (m[1].trim() || '서버 교재') : '서버 교재';
-        var rest = m ? (m[2] || '') : '';
-        var slash = rest.indexOf('/');
-        var lesson = slash >= 0 ? rest.slice(0, slash).trim() : '';
-        if (!groups[book]) groups[book] = { files: 0, lessons: {}, level: it.level || '' };
-        groups[book].files++;
-        if (lesson) groups[book].lessons[lesson] = 1;
-      });
-      Object.keys(groups).forEach(function(book){
-        srvFileCount += groups[book].files;
+    if (fdj.ok && fdj.groups) {
+      fdj.groups.forEach(function(g){
+        var book = (g.book || '서버 교재').trim();
+        srvFileCount += (g.files || 0);
         if (haveTitles[book.toLowerCase()]) return;  // IDB/D1 에 이미 있으면 중복 추가 안 함
         items.push({
           _src: 'srvfile',
           id: '☁',
           title: book,
-          level: groups[book].level || '',
-          units: Object.keys(groups[book].lessons).length || 1,
+          level: g.level || '',
+          units: '',
           publisher: book,
           isbn: '',
-          _fileCount: groups[book].files
+          _fileCount: g.files || 0
         });
       });
     }
@@ -15917,7 +15908,7 @@ function _tbRenderRows(key) {
       : (t.id || (i+1));
     return '<tr>' +
       '<td style="white-space:nowrap">' + idCell + '</td>' +
-      '<td><b>' + _esc(t.title || '—') + '</b>' + srcChip(t._src) + '</td>' +
+      '<td><b>' + _esc(t.title || '—') + '</b>' + srcChip(t._src) + (t._fileCount ? ' <span style="display:inline-block;padding:2px 7px;background:rgba(251,191,36,0.18);color:#fcd34d;border-radius:99px;font-size:10.5px;font-weight:800;margin-left:4px" title="서버에 저장된 파일 수">📄 ' + t._fileCount + '</span>' : '') + '</td>' +
       '<td>' + (_esc(t.level) || '—') + '</td>' +
       '<td style="text-align:right">' + (t.units || '—') + '</td>' +
       '<td>' + (_esc(t.publisher) || '—') + '</td>' +
@@ -19519,7 +19510,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260602025634 -->
+        <!-- BUILD:20260602031524 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

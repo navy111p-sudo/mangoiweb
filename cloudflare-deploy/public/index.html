@@ -2407,47 +2407,77 @@
                 flex-direction: column !important;
                 height: 100%;
             }
+            /* fix (2026-06-02) — 세로 모드: 영상을 '정사각형'으로, 높이를 영상에 맞춰 축소해
+               칠판/교재가 화면 위쪽에서 바로 보이게(수업 편의). 기존 42vh 고정 → 영상 크기만큼만 차지. */
             .video-pane {
                 width: 100% !important;
-                height: 42vh;
-                min-height: 160px;
+                height: auto !important;
+                max-height: 38vh !important;
+                min-height: 0 !important;
                 border-right: none !important;
                 border-bottom: 1px solid rgba(148,163,184,0.2);
                 flex-shrink: 0;
+                overflow-y: auto !important;
+                padding: 6px !important;
             }
-            .vc-main-row.video-full .video-pane { height: 100% !important; }
+            .vc-main-row.video-full .video-pane { height: 100% !important; max-height: none !important; }
             .vc-main-row.video-full .content-pane { display: none; }
             .content-pane { flex: 1; min-height: 0; }
 
-            /* 참가자 수 기반 그리드 (세로 모드: 행 우선) */
+            /* 정사각형 영상 (1:1) — 가운데 정렬, 바로 아래에서 칠판/교재 시작 */
             #vc-video-grid {
+                display: grid !important;
                 grid-template-columns: 1fr !important;
-                grid-auto-rows: 1fr;
-                overflow: hidden;
-                align-content: stretch;
+                grid-auto-rows: auto !important;
+                justify-items: center !important;
+                align-content: start !important;
+                gap: 6px !important;
+                overflow: visible !important;
             }
             #vc-video-grid .video-box {
-                aspect-ratio: auto !important;
-                width: 100%;
-                height: 100%;
+                aspect-ratio: 1 / 1 !important;
+                width: min(46vw, 180px) !important;
+                height: auto !important;
+                min-height: 0 !important;
+                border-radius: 12px !important;
+                overflow: hidden !important;
             }
-            #vc-video-grid[data-count="1"] { grid-template-rows: 1fr; }
-            #vc-video-grid[data-count="2"] { grid-template-rows: repeat(2, 1fr); }
-            #vc-video-grid[data-count="3"] { grid-template-rows: repeat(3, 1fr); }
+            #vc-video-grid .video-box video { object-fit: cover !important; }
+            /* 2~4명: 정사각형 2열 */
+            #vc-video-grid[data-count="2"],
+            #vc-video-grid[data-count="3"],
             #vc-video-grid[data-count="4"] {
-                grid-template-columns: repeat(2, 1fr) !important;
-                grid-template-rows: repeat(2, 1fr);
+                grid-template-columns: 1fr 1fr !important;
             }
+            #vc-video-grid[data-count="2"] .video-box,
+            #vc-video-grid[data-count="3"] .video-box,
+            #vc-video-grid[data-count="4"] .video-box {
+                width: 100% !important;
+                max-width: 44vw !important;
+            }
+            /* 5명 이상: 정사각형 3열 */
             #vc-video-grid[data-count="5"],
-            #vc-video-grid[data-count="6"] {
-                grid-template-columns: repeat(2, 1fr) !important;
-                grid-template-rows: repeat(3, 1fr);
-            }
+            #vc-video-grid[data-count="6"],
             #vc-video-grid[data-count="7"],
             #vc-video-grid[data-count="8"],
             #vc-video-grid[data-count="9"] {
                 grid-template-columns: repeat(3, 1fr) !important;
-                grid-template-rows: repeat(3, 1fr);
+            }
+            #vc-video-grid[data-count="5"] .video-box,
+            #vc-video-grid[data-count="6"] .video-box,
+            #vc-video-grid[data-count="7"] .video-box,
+            #vc-video-grid[data-count="8"] .video-box,
+            #vc-video-grid[data-count="9"] .video-box {
+                width: 100% !important;
+                max-width: 30vw !important;
+            }
+            /* '전체' 화면 모드일 때는 정사각형 해제하고 영상이 화면을 채우게 */
+            .vc-main-row.video-full #vc-video-grid { grid-template-columns: 1fr !important; align-content: stretch !important; }
+            .vc-main-row.video-full #vc-video-grid .video-box {
+                aspect-ratio: auto !important;
+                width: 100% !important;
+                max-width: none !important;
+                height: 100% !important;
             }
         }
 
@@ -20160,7 +20190,8 @@ window.closeRulesModal = function() {
 
   function loadAll(){
     var idbP = _loadAllIDB();
-    var srvP = fetch('/api/textbook-files', { cache: 'no-store' })
+    // fix (2026-06-02) — limit=20000 으로 서버 교재 '전부' 로드. (기본 500 이라 대부분 교재가 라이브러리에서 안 보였음)
+    var srvP = fetch('/api/textbook-files?limit=20000', { cache: 'no-store' })
       .then(function(r){ return r.ok ? r.json() : null; })
       .catch(function(){ return null; });
     return Promise.all([idbP, srvP]).then(function(arr){
@@ -23101,6 +23132,8 @@ window.closeRulesModal = function() {
     width: 24px !important; height: 24px !important; font-size: 12px !important;
     bottom: 8px !important; right: 8px !important;
     gap: 0 !important;
+    background: rgba(254,229,0,0.5) !important;   /* fix (2026-06-02) 반투명 노랑 */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.28) !important;
     opacity: 0.9;
   }
   body.vc-in-call .ph49-kakao-fab .ph49-kakao-ico { font-size: 12px !important; }
@@ -23357,6 +23390,23 @@ window.closeRulesModal = function() {
     opacity: 0.65;
   }
   body.vc-in-call .ph52-cache-fab:hover { opacity: 1; color: #cbd5e1 !important; }
+
+  /* fix (2026-06-02) — 휴대폰 메인화면: 상담 작게+반투명 노랑, 새로고침 작게+투명 배경 */
+  @media (max-width: 600px) {
+    body:not(.vc-in-call) .ph49-kakao-fab {
+      width: 46px !important; height: 46px !important;
+      background: rgba(254,229,0,0.55) !important;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25) !important;
+      bottom: 14px !important; right: 14px !important;
+    }
+    body:not(.vc-in-call) .ph49-kakao-fab .ph49-kakao-ico { font-size: 15px !important; }
+    body:not(.vc-in-call) .ph49-kakao-fab .ph49-kakao-intext { font-size: 8.5px !important; margin-top: 1px !important; }
+    body:not(.vc-in-call) .ph52-cache-fab {
+      width: 30px !important; height: 30px !important; font-size: 17px !important;
+      background: transparent !important; box-shadow: none !important; color: #93c5fd !important;
+      bottom: 66px !important; right: 22px !important;
+    }
+  }
 </style>
 
 <button type="button" class="ph52-cache-fab" id="ph52-cache-fab"
@@ -24404,7 +24454,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260602025634 -->
+<!-- BUILD:20260602031524 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
