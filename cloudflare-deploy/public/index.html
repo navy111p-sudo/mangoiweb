@@ -6909,6 +6909,7 @@ function sigLog(level, message) {
 let vcConn = null;              // WebSocket 연결
 let vcLocalStream = null;       // 내 미디어 스트림
 let vcPeerConnections = {};     // { userId: RTCPeerConnection } 맵
+let vcRemoteStreams = {};       // fix (2026-06-01) { userId: MediaStream } — 트랙별 ontrack 누적용 (원격 영상 검게 나오던 문제)
 let vcRoomId = '';
 let vcUsername = '';
 let vcUserId = '';              // 서버가 부여한 내 ID
@@ -6995,6 +6996,7 @@ function vcCleanupAllPeers() {
         if (el) el.remove();
     });
     vcPeerConnections = {};
+    vcRemoteStreams = {};
 }
 let vcMicOn = true;
 let vcCamOn = true;
@@ -8227,8 +8229,20 @@ function vcCreatePeer(userId, username) {
 
     pc.ontrack = (event) => {
         console.log('[vc-webrtc] ★ ontrack!', userId, event.track.kind, 'streams:', event.streams.length);
-        const stream = event.streams[0] || new MediaStream([event.track]);
+        // fix (2026-06-01) — ontrack 은 오디오/비디오 트랙마다 따로 호출됨.
+        //   브라우저가 묶어준 streams[0] 이 있으면 그걸 쓰고, 없으면 유저별 영속 스트림에 트랙을 누적.
+        //   (예전엔 트랙마다 new MediaStream 을 만들어 비디오가 누락 → 원격 화면이 검게 나왔음)
+        let stream = event.streams && event.streams[0];
+        if (!stream) {
+            stream = vcRemoteStreams[userId];
+            if (!stream) { stream = new MediaStream(); vcRemoteStreams[userId] = stream; }
+            try { if (!stream.getTracks().some(t => t.id === event.track.id)) stream.addTrack(event.track); } catch(_){}
+        } else {
+            vcRemoteStreams[userId] = stream;
+        }
         vcAddRemoteVideo(userId, username, stream);
+        // 트랙이 늦게 도착(예: 비디오)해도 화면 갱신되도록 약간 뒤 한 번 더 시도
+        try { event.track.onunmute = () => vcAddRemoteVideo(userId, username, vcRemoteStreams[userId] || stream); } catch(_){}
     };
 
     return pc;
@@ -8313,9 +8327,10 @@ function vcAddRemoteVideo(userId, username, stream) {
     const existing = document.getElementById(`vc-video-${userId}`);
     if (existing) {
         const existingVid = existing.querySelector('video');
-        if (existingVid && existingVid.srcObject !== stream) {
-            existingVid.srcObject = stream;
-            existingVid.play().catch(e => console.warn('[vc] 기존 비디오 play 실패:', e));
+        if (existingVid) {
+            // fix (2026-06-01) — 같은 스트림이어도 항상 play() 한번 더 호출(늦게 온 비디오 트랙 렌더 보장)
+            if (existingVid.srcObject !== stream) existingVid.srcObject = stream;
+            existingVid.play().catch(e => console.warn('[vc] 기존 비디오 play 실패:', e && e.name));
         }
         return;
     }
@@ -8326,6 +8341,8 @@ function vcAddRemoteVideo(userId, username, stream) {
     box.innerHTML = `<video autoplay playsinline muted></video><span class="video-label">${escHtml(username)}</span>`;
     const vid = box.querySelector('video');
     vid.srcObject = stream;
+    // fix (2026-06-01) — 메타데이터 로드/트랙 도착 시 재생 재시도(원격 영상 검게 나오던 문제 보강)
+    vid.onloadedmetadata = () => { vid.play().catch(()=>{}); };
     grid.appendChild(box);
     vcUpdateGridCount();
     // 모바일 자동재생 정책 대응: muted로 시작 → 재생 후 unmute
@@ -8559,6 +8576,7 @@ function attachStreamMonitor(box, stream) {
 function vcRemovePeer(userId) {
     const pc = vcPeerConnections[userId];
     if (pc) { pc.close(); delete vcPeerConnections[userId]; }
+    try { delete vcRemoteStreams[userId]; } catch(_){}   // fix (2026-06-01) 원격 스트림도 정리
     const box = document.getElementById(`vc-video-${userId}`);
     if (box) box.remove();
     vcUpdateGridCount();
@@ -8595,6 +8613,7 @@ async function vcLeaveRoom() {
         if (el) el.remove();
     });
     vcPeerConnections = {};
+    vcRemoteStreams = {};
     if (vcConn) vcConn.close();
     if (vcLocalStream) {
         vcLocalStream.getTracks().forEach(t => t.stop());
@@ -24118,7 +24137,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260601182743 -->
+<!-- BUILD:20260601183812 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
