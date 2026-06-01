@@ -83,7 +83,8 @@ async function acquireLocalMedia() {
 
 async function joinRoom() {
   username = $usernameInput.value.trim() || ('사용자' + Math.floor(Math.random() * 1000));
-  roomId = $roomInput.value.trim() || generateRoomId();
+  // fix (2026-06-01) — 비우면 랜덤 방이 아니라 공용 수업방(mangoi-class)으로 입장 → 교사·학생이 같은 방에서 만남
+  roomId = $roomInput.value.trim() || 'mangoi-class';
 
   localStream = await acquireLocalMedia();
 
