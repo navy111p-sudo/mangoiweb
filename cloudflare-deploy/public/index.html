@@ -6918,8 +6918,8 @@ window.vcShareTextbook = function(pdfId, url, kind, name){
     if (shareUrl && shareUrl.charAt(0) === '/') shareUrl = location.origin + shareUrl;
     if (vcConn && typeof vcConn.send === 'function') {
       vcConn.send({ type: 'pdf-share', data: { pdfId: pdfId, url: shareUrl, currentPage: 1, kind: kind || '', name: name || '' } });
-      // 교사 자신은 이미 교재를 보고 있으므로, 폴링이 재로드하지 않도록 표시 키를 맞춰둠
-      try { window._vcShownPdfKey = (shareUrl && shareUrl.charAt(0)==='/' ? location.origin+shareUrl : shareUrl) + '|1'; } catch(_){}
+      // 교사 자신은 이미 교재를 보고 있으므로, 폴링이 재로드하지 않도록 표시 키/URL 을 맞춰둠
+      try { var _abs = (shareUrl && shareUrl.charAt(0)==='/') ? location.origin+shareUrl : shareUrl; window._vcShownPdfUrl = _abs; window._vcShownPdfKey = _abs + '|1'; } catch(_){}
       console.log('[vcShareTextbook] ✅ 전송:', shareUrl, kind);
       try { if (typeof showToast === 'function') showToast('📤 교재 공유 전송됨 → 학생'); } catch(_){}
       return true;
@@ -6935,14 +6935,22 @@ window.vcShareTextbook = function(pdfId, url, kind, name){
 //   방 상태(/api/room-status/{room}.pdfState)를 3초마다 확인해 교사가 올린 교재를 무조건 띄움.
 //   → "반드시 학생이 교재를 본다" 보장.
 window._vcShownPdfKey = '';            // 현재 표시 중인 교재 키 (url|page) — 중복 로드 방지
+window._vcShownPdfUrl = '';            // 현재 표시 중인 교재 URL (같은 교재면 페이지 이동만)
 window._vcPdfPollTimer = null;
 window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid){
   try {
     if (!sUrl) return;
     if (/^blob:/i.test(sUrl)) return;  // 로컬 blob 은 다른 기기에서 열 수 없음
     if (sUrl.charAt(0) === '/') sUrl = location.origin + sUrl;
-    var key = sUrl + '|' + (currentPage || 1);
+    var pg = currentPage || 1;
+    var key = sUrl + '|' + pg;
     if (key === window._vcShownPdfKey) return;  // 이미 같은 교재/페이지 표시 중
+    // 같은 교재인데 페이지만 다르면 → 전체 재로드 없이 페이지 이동만(깜빡임 방지)
+    if (sUrl === window._vcShownPdfUrl) {
+      window._vcShownPdfKey = key;
+      try { if (typeof pdfGoToPage === 'function') pdfGoToPage(pg); else { if (typeof pdfPageNum !== 'undefined') pdfPageNum = pg; if (typeof pdfRender === 'function') pdfRender(); } } catch(_){}
+      return;
+    }
     var k = sKind || '';
     if (!k) {
       if (/textbook-files|\.(jpe?g|png|webp|gif|bmp)(\?|$)/i.test(sUrl)) k = 'image';
@@ -6953,12 +6961,14 @@ window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid){
     try { if (typeof vcSwitchTab === 'function') vcSwitchTab('pdf'); } catch(_){}
     try { if (typeof showToast === 'function') showToast('📥 교재 수신 — 여는 중 (' + (k || '자동') + ')'); } catch(_){}
     Promise.resolve(pdfLoad(sUrl, k || undefined)).then(function(){
+      window._vcShownPdfUrl = sUrl;  // 현재 교재 URL 기록 (이후 페이지 이동은 재로드 없이)
       try { if (typeof pdfPageNum !== 'undefined') pdfPageNum = currentPage || 1; } catch(_){}
       try { if (typeof pdfRender === 'function') pdfRender(); } catch(_){}
       try { if (typeof showToast === 'function') showToast('✅ 교재 표시됨'); } catch(_){}
     }).catch(function(){
       var alt = (k === 'image') ? 'pdf' : 'image';
       Promise.resolve(pdfLoad(sUrl, alt)).then(function(){
+        window._vcShownPdfUrl = sUrl;
         try { if (typeof pdfPageNum !== 'undefined') pdfPageNum = currentPage || 1; } catch(_){}
         try { if (typeof pdfRender === 'function') pdfRender(); } catch(_){}
         try { if (typeof showToast === 'function') showToast('✅ 교재 표시됨(재시도)'); } catch(_){}
@@ -24379,7 +24389,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260602012254 -->
+<!-- BUILD:20260602022319 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
