@@ -2594,31 +2594,24 @@
             /* 5) 칠판/교재 영역 최대한 크게(위로) */
             body.vc-in-call .content-pane { flex: 1 1 auto !important; min-height: 0 !important; }
 
-            /* 6) 둘째 툴줄(보기·펜·지우개·텍스트 등)을 칠판/교재 '맨 아래'에 가로 배치 */
-            body.vc-in-call #tab-whiteboard .whiteboard-container,
-            body.vc-in-call #tab-pdf .pdf-container {
-                position: relative !important;
-                padding-bottom: 52px !important;
-            }
-            body.vc-in-call .wb-toolbar,
-            body.vc-in-call .pdf-anno-bar {
-                position: absolute !important;
-                left: 4px !important;
-                right: 36px !important;      /* 우하단 상담/새로고침 버튼 피하기 */
-                bottom: 4px !important;
-                top: auto !important;
-                z-index: 45 !important;
-                display: flex !important;
+            /* 6) 둘째 툴줄(보기·펜·지우개 등)을 칠판/교재 '맨 아래'로 — flex order 방식
+                  (absolute 겹침 X → 항상 보이고 항상 눌림). 캔버스는 위, 툴줄은 아래. */
+            body.vc-in-call .wb-canvas-wrap { order: 1 !important; }
+            body.vc-in-call .wb-toolbar {
+                order: 5 !important;
+                margin: 4px 0 0 !important;
                 flex-wrap: nowrap !important;
                 overflow-x: auto !important;
                 -webkit-overflow-scrolling: touch;
-                gap: 5px !important;
-                padding: 6px 8px !important;
-                margin: 0 !important;
-                background: rgba(15,23,42,0.93) !important;
-                border: 1px solid rgba(148,163,184,0.28) !important;
-                border-radius: 12px !important;
-                backdrop-filter: blur(8px);
+            }
+            body.vc-in-call .pdf-controls { order: 0 !important; }
+            body.vc-in-call .pdf-main-row { order: 1 !important; }
+            body.vc-in-call .pdf-anno-bar {
+                order: 5 !important;
+                margin: 4px 0 0 !important;
+                flex-wrap: nowrap !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
             }
             body.vc-in-call .wb-toolbar button,
             body.vc-in-call .pdf-anno-bar button { flex: 0 0 auto !important; }
@@ -24547,7 +24540,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260602035516 -->
+<!-- BUILD:20260602035817 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
