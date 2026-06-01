@@ -15758,7 +15758,46 @@ async function loadTextbooks() {
     items = items.concat(idbItems);
   } catch(e) { console.warn('[ph240] IDB 실패', e); }
 
-  console.log('[ph240] 컨텐츠 교재 관리 표 — 서버 ' + srvCount + '개 + IDB ' + idbCount + '개 = 총 ' + items.length + '개');
+  // 3) fix (2026-06-01) — 서버 textbook-files 를 교재별로 묶어서 합침.
+  //   ★ 핵심: 휴대폰·다른 기기에서 실제로 보이는 건 '서버' 교재뿐. 이 표가 그걸 그대로 보여줘야
+  //   "Phonics 업로드했는데 없다고 나옴" 같은 혼란이 사라짐. (이미 표에 있는 교재명은 중복 추가 안 함)
+  var srvFileCount = 0;
+  try {
+    var haveTitles = {};
+    items.forEach(function(t){ var k=(t.title||'').trim().toLowerCase(); if(k) haveTitles[k]=1; });
+    var fr = await fetch('/api/admin/textbook-files?limit=1000', { credentials:'include', cache:'no-store' });
+    var fdj = await fr.json().catch(function(){ return {}; });
+    if (fdj.ok && fdj.items) {
+      var groups = {}; // book -> { files:0, lessons:{}, level:'' }
+      fdj.items.forEach(function(it){
+        var nm = it.name || '';
+        var m = nm.match(/^\[([^\]]+)\]\s*(.*)$/);
+        var book = m ? (m[1].trim() || '서버 교재') : '서버 교재';
+        var rest = m ? (m[2] || '') : '';
+        var slash = rest.indexOf('/');
+        var lesson = slash >= 0 ? rest.slice(0, slash).trim() : '';
+        if (!groups[book]) groups[book] = { files: 0, lessons: {}, level: it.level || '' };
+        groups[book].files++;
+        if (lesson) groups[book].lessons[lesson] = 1;
+      });
+      Object.keys(groups).forEach(function(book){
+        srvFileCount += groups[book].files;
+        if (haveTitles[book.toLowerCase()]) return;  // IDB/D1 에 이미 있으면 중복 추가 안 함
+        items.push({
+          _src: 'srvfile',
+          id: '☁',
+          title: book,
+          level: groups[book].level || '',
+          units: Object.keys(groups[book].lessons).length || 1,
+          publisher: book,
+          isbn: '',
+          _fileCount: groups[book].files
+        });
+      });
+    }
+  } catch(e) { console.warn('[ph240] 서버 파일 그룹 실패', e); }
+
+  console.log('[ph240] 교재 표 — D1 ' + srvCount + ' + IDB ' + idbCount + ' + 서버파일 ' + srvFileCount + '개 = 표시 ' + items.length + '그룹');
 
   if (items.length === 0) {
     var fb0 = document.getElementById('tb-filter-bar'); if (fb0) fb0.innerHTML = '';
@@ -19312,7 +19351,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260601191723 -->
+        <!-- BUILD:20260601192919 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
