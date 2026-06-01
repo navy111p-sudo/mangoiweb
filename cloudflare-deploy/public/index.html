@@ -8142,6 +8142,7 @@ async function vcJoinRoom(skipUI) {
     );
     window.vcConn = vcConn;   // fix (2026-06-01) — 라이브러리 교재 공유(selectFromTextbookLibrary)가 window.vcConn 을 쓰므로 노출
     try { window.vcStartPdfPoll && window.vcStartPdfPoll(); } catch(_){}  // fix (2026-06-02) 교재 표시 안전장치
+    try { setTimeout(function(){ window.vcApplyDefaultVideoSize && window.vcApplyDefaultVideoSize(); }, 500); } catch(_){}  // 가로 진입 시 3/4 기본
     setStatusDot('vc-status-dot', 'connecting');
 
     // 🛡 최후의 안전망 — 입장 3초 후에도 비디오 트랙이 없거나 video.videoWidth=0 이면
@@ -8390,6 +8391,7 @@ async function vcJoinAsObserver(roomId) {
     );
     window.vcConn = vcConn;   // fix (2026-06-01) — window.vcConn 노출
     try { window.vcStartPdfPoll && window.vcStartPdfPoll(); } catch(_){}  // fix (2026-06-02) 교재 표시 안전장치
+    try { setTimeout(function(){ window.vcApplyDefaultVideoSize && window.vcApplyDefaultVideoSize(); }, 500); } catch(_){}  // 가로 진입 시 3/4 기본
     setStatusDot('vc-status-dot', 'connecting');
 }
 
@@ -10056,6 +10058,27 @@ function vcSetVideoSize(size, btn) {
     // 칠판 캔버스가 보이면 새 폭에 맞춰 크기 조정
     setTimeout(() => { if (typeof wbResize === 'function') wbResize(); }, 280);
 }
+
+// fix (2026-06-02) — 휴대폰 가로(landscape)로 들어오면 기본 영상 크기를 '3/4'로.
+//   세로/PC 또는 사용자가 전체·솔로를 고른 경우는 건드리지 않음.
+window.vcApplyDefaultVideoSize = function(){
+    try {
+        var isMobile = window.matchMedia && window.matchMedia('(max-width: 1024px)').matches;
+        var isLandscape = window.matchMedia && window.matchMedia('(orientation: landscape)').matches;
+        if (!(isMobile && isLandscape)) return;
+        var row = document.getElementById('vc-main-row');
+        if (!row) return;
+        if (row.classList.contains('video-full') || row.classList.contains('video-solo')) return;
+        var btn = document.querySelector('.video-size-bar button[onclick*="threequarter"]');
+        vcSetVideoSize('threequarter', btn);
+    } catch(_){}
+};
+// 회전 시에도 가로면 3/4 기본 재적용
+try {
+    window.addEventListener('orientationchange', function(){
+        setTimeout(function(){ if (document.body.classList.contains('vc-in-call')) window.vcApplyDefaultVideoSize(); }, 350);
+    });
+} catch(_){}
 
 /* 📌 PIP — 참가자 비디오를 콘텐츠 위에 띄우는 오버레이 토글.
    "다른 사람들이 잘 보이지 않아" 문제 해결.
@@ -24677,7 +24700,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260602051728 -->
+<!-- BUILD:20260602053942 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
