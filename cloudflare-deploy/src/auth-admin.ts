@@ -144,6 +144,36 @@ export async function ensureAuthSchema(env: AuthEnv): Promise<void> {
   } catch (e) {
     console.warn('[auth-admin] bootstrap failed:', (e as any)?.message);
   }
+
+  // fix (2026-06-01) — 로그인 화면에 안내된 '시연용 데모 계정' 들을 실제로 생성(없을 때만).
+  //   이게 없어서 hq_t_001/teacher 등 데모 로그인이 invalid_credentials 로 막혔음.
+  try {
+    const demoAccounts: Array<[string, string, string]> = [
+      ['admin', 'admin', '본사·경영진'],
+      ['cfo', 'cfo', '본사·재무(CFO)'],
+      ['ops_lead', 'ops', '본사·관리자'],
+      ['branch_busan', 'busan', '부산 지사'],
+      ['branch_daegu', 'daegu', '대구 지사'],
+      ['agency_gn001', 'gn001', '강남 대리점'],
+      ['agency_sc002', 'sc002', '서초 대리점'],
+      ['hq_t_001', 'teacher', '교사'],
+    ];
+    const nowD = Date.now();
+    for (const acc of demoAccounts) {
+      const u = acc[0], pw = acc[1], nm = acc[2];
+      const ex = await env.DB.prepare(`SELECT id FROM admin_account WHERE username = ? LIMIT 1`).bind(u).first();
+      if (!ex) {
+        const h = await hashPassword(pw);
+        await env.DB.prepare(
+          `INSERT INTO admin_account (username, password_hash, name, email, phone, created_at, updated_at) VALUES (?, ?, ?, NULL, NULL, ?, ?)`
+        ).bind(u, h, nm, nowD, nowD).run();
+        console.warn('[auth-admin] demo account seeded:', u);
+      }
+    }
+  } catch (e) {
+    console.warn('[auth-admin] demo seed failed:', (e as any)?.message);
+  }
+
   _schemaReady = true;
 }
 

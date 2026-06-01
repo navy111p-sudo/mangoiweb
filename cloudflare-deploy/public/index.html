@@ -8081,8 +8081,25 @@ function vcHandleMessage(msg) {
         // PDF
         case 'pdf-sync':
         case 'pdf-share': {
-            // 서버가 pdfId 또는 url을 보낼 수 있으므로 양쪽 모두 처리
-            const syncPdfId = msg.data.pdfId || (msg.data.url ? msg.data.url.replace('/api/video-call/pdf/', '') : null);
+            // fix (2026-06-01) — 라이브러리/서버 교재는 받은 url 을 '직접' 로드해야 다른 기기에서 보임.
+            //   (예전엔 무조건 /api/video-call/pdf/{pdfId} 로 불러서 라이브러리 교재가 흰 화면이 됐음)
+            var sUrl = msg.data.url || '';
+            var sPid = msg.data.pdfId || '';
+            if (sUrl && /^blob:/i.test(sUrl)) {
+                // 로컬(blob) 교재는 상대 기기에서 열 수 없음 — 서버 교재를 써야 함
+                console.warn('[pdf-share] 로컬(blob) 교재는 공유 불가:', sUrl);
+                if (typeof showToast === 'function') { try { showToast('⚠️ 이 교재는 서버에 없어 화면 공유가 안 됩니다. 관리자 페이지에서 교재를 서버로 업로드해 주세요.'); } catch(_){} }
+                break;
+            }
+            if (sUrl && (/^https?:\/\//i.test(sUrl) || sUrl.charAt(0) === '/')) {
+                // 서버/절대 URL — 그대로 직접 로드 (cross-device)
+                pdfCurrentId = sPid || sUrl;
+                Promise.resolve(pdfLoad(sUrl, msg.data.kind)).then(function(){ pdfPageNum = msg.data.currentPage || 1; pdfRender(); }).catch(function(e){ console.warn('[pdf-share] url 로드 실패', e); });
+                vcSwitchTab('pdf');
+                break;
+            }
+            // 화상수업 업로드 PDF (PDF_STORE) — 서버 엔드포인트로 로드
+            var syncPdfId = sPid || (sUrl ? sUrl.replace('/api/video-call/pdf/', '') : null);
             if (syncPdfId) {
                 pdfLoadRemote(syncPdfId, msg.data.currentPage, msg.data.kind);
                 vcSwitchTab('pdf');
@@ -19860,7 +19877,15 @@ window.closeRulesModal = function() {
       }
       if (window.vcConn && typeof window.vcConn.send === 'function') {
         try {
-          window.vcConn.send({type:'pdf-share', data:{pdfId:'lib_'+id, url:url, currentPage:1, kind:kind, source:'library', name:name}});
+          // fix (2026-06-01) — 상대 기기에서 열리도록 절대 URL 로 변환해서 공유.
+          //   blob: 은 로컬 전용이라 공유해도 상대가 못 엶(서버 교재를 써야 함).
+          var shareUrl = url;
+          if (shareUrl && shareUrl.charAt(0) === '/') { try { shareUrl = location.origin + shareUrl; } catch(_){} }
+          if (/^blob:/i.test(shareUrl)) {
+            console.warn('[ph247] blob 교재는 공유 불가(로컬 전용):', shareUrl);
+            if (typeof window.showToast === 'function') { try { window.showToast('⚠️ 이 교재는 이 PC에만 저장돼 학생 화면엔 안 보입니다. 관리자 페이지에서 서버로 업로드 후 사용하세요.'); } catch(_){} }
+          }
+          window.vcConn.send({type:'pdf-share', data:{pdfId:'lib_'+id, url:shareUrl, currentPage:1, kind:kind, source:'library', name:name}});
         } catch(e) { console.warn('[ph247] vcConn.send fail', e); }
       }
       if (typeof window.showToast === 'function') {
@@ -24184,7 +24209,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260601194136 -->
+<!-- BUILD:20260601201027 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
