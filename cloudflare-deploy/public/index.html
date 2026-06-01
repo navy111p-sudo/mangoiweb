@@ -6910,6 +6910,23 @@ function sigLog(level, message) {
 ================================================================ */
 
 let vcConn = null;              // WebSocket 연결
+// fix (2026-06-01) — 교재 공유 전용 전송 함수. selectFromTextbookLibrary(다른 스코프)가 window.vcConn 타이밍에
+//   의존하지 않고, 여기 '지역 vcConn'을 직접 써서 확실히 전송. 교사 화면에 전송 확인 토스트도 표시.
+window.vcShareTextbook = function(pdfId, url, kind, name){
+  try {
+    var shareUrl = url || '';
+    if (shareUrl && shareUrl.charAt(0) === '/') shareUrl = location.origin + shareUrl;
+    if (vcConn && typeof vcConn.send === 'function') {
+      vcConn.send({ type: 'pdf-share', data: { pdfId: pdfId, url: shareUrl, currentPage: 1, kind: kind || '', name: name || '' } });
+      console.log('[vcShareTextbook] ✅ 전송:', shareUrl, kind);
+      try { if (typeof showToast === 'function') showToast('📤 교재 공유 전송됨 → 학생'); } catch(_){}
+      return true;
+    }
+    console.warn('[vcShareTextbook] ❌ vcConn 연결 없음 — 방에 입장했는지 확인');
+    try { if (typeof showToast === 'function') showToast('⚠️ 화상수업 연결이 없어 교재 공유 못함(방 재입장 필요)'); } catch(_){}
+    return false;
+  } catch(e){ console.warn('[vcShareTextbook] 예외', e); return false; }
+};
 let vcLocalStream = null;       // 내 미디어 스트림
 let vcPeerConnections = {};     // { userId: RTCPeerConnection } 맵
 let vcRemoteStreams = {};       // fix (2026-06-01) { userId: MediaStream } — 트랙별 ontrack 누적용 (원격 영상 검게 나오던 문제)
@@ -19971,32 +19988,33 @@ window.closeRulesModal = function() {
         window.open(url, '_blank');
         return;
       }
-      if (window.vcConn && typeof window.vcConn.send === 'function') {
-        try {
-          // fix (2026-06-01 v2) — 학생도 교재가 보이게:
-          //   blob(로컬 IDB) 교재는 상대가 못 엶 → 즉석에서 서버(R2)에 업로드해 '서버 URL' 로 공유.
-          //   서버/상대경로 URL 은 절대경로로 변환. (둘 다 cross-device 동작)
-          var shareUrl = url;
-          if (/^blob:/i.test(shareUrl)) {
-            try {
-              if (typeof window.showToast === 'function') window.showToast('📤 교재를 서버에 올리는 중… (학생에게 공유)');
-              var blob = await (await fetch(url)).blob();
-              var ext = (kind === 'pdf' || (blob.type && blob.type.indexOf('pdf') >= 0)) ? 'pdf'
-                        : ((blob.type && blob.type.indexOf('png') >= 0) ? 'png' : 'jpg');
-              var fname = (name || 'textbook').replace(/[^\w가-힣.-]+/g, '_') + '.' + ext;
-              // 공개 엔드포인트(/api/video-call/upload-pdf) — 교사 로그인 불필요, PDF·이미지 모두 허용
-              var fd = new FormData();
-              fd.append('pdf', blob, fname);
-              var up = await fetch('/api/video-call/upload-pdf', { method: 'POST', body: fd });
-              var uj = await up.json().catch(function(){ return {}; });
-              if (up.ok && uj && uj.url) { shareUrl = uj.url; console.log('[ph247] blob→서버(공개) 업로드 OK:', shareUrl); }
-              else { console.warn('[ph247] blob→서버 업로드 실패(' + up.status + ')', uj); if (typeof window.showToast === 'function') window.showToast('⚠️ 교재 서버 업로드 실패 — 학생에게 안 보일 수 있어요.'); }
-            } catch(e) { console.warn('[ph247] blob 업로드 예외', e); }
-          }
-          if (shareUrl && shareUrl.charAt(0) === '/') { try { shareUrl = location.origin + shareUrl; } catch(_){} }
-          window.vcConn.send({type:'pdf-share', data:{pdfId:'lib_'+id, url:shareUrl, currentPage:1, kind:kind, source:'library', name:name}});
-        } catch(e) { console.warn('[ph247] vcConn.send fail', e); }
-      }
+      try {
+        // fix (2026-06-01 v3) — 학생도 교재가 보이게:
+        //   blob(로컬 IDB) 교재는 상대가 못 엶 → 즉석에서 서버(R2)에 업로드해 '서버 URL' 로 공유.
+        var shareUrl = url;
+        if (/^blob:/i.test(shareUrl)) {
+          try {
+            if (typeof window.showToast === 'function') window.showToast('📤 교재를 서버에 올리는 중…');
+            var blob = await (await fetch(url)).blob();
+            var ext = (kind === 'pdf' || (blob.type && blob.type.indexOf('pdf') >= 0)) ? 'pdf'
+                      : ((blob.type && blob.type.indexOf('png') >= 0) ? 'png' : 'jpg');
+            var fname = (name || 'textbook').replace(/[^\w가-힣.-]+/g, '_') + '.' + ext;
+            var fd = new FormData();
+            fd.append('pdf', blob, fname);
+            var up = await fetch('/api/video-call/upload-pdf', { method: 'POST', body: fd });
+            var uj = await up.json().catch(function(){ return {}; });
+            if (up.ok && uj && uj.url) { shareUrl = uj.url; console.log('[ph247] blob→서버(공개) 업로드 OK:', shareUrl); }
+            else { console.warn('[ph247] blob→서버 업로드 실패(' + up.status + ')', uj); }
+          } catch(e) { console.warn('[ph247] blob 업로드 예외', e); }
+        }
+        // ★ 전용 전송 함수 — 지역 vcConn 을 직접 써서 확실히 전송 (window.vcConn 타이밍 무관)
+        if (typeof window.vcShareTextbook === 'function') {
+          window.vcShareTextbook('lib_' + id, shareUrl, kind, name);
+        } else if (window.vcConn && typeof window.vcConn.send === 'function') {
+          if (shareUrl && shareUrl.charAt(0) === '/') shareUrl = location.origin + shareUrl;
+          window.vcConn.send({type:'pdf-share', data:{pdfId:'lib_'+id, url:shareUrl, currentPage:1, kind:kind, name:name}});
+        }
+      } catch(e) { console.warn('[ph247] 교재 공유 전송 실패', e); }
       if (typeof window.showToast === 'function') {
         try { window.showToast('📚 ' + (name || '교재 적용')); } catch(_){}
       }
@@ -24318,7 +24336,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260601233509 -->
+<!-- BUILD:20260602005324 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
