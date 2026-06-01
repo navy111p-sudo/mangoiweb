@@ -54,6 +54,9 @@ export class VideoCallRoom {
           roomId: this.roomId,
           userCount: this.users.size,
           users,
+          // fix (2026-06-02) — 현재 공유 중인 교재 상태를 HTTP 로도 노출.
+          //   학생이 WebSocket pdf-sync 를 놓쳐도 폴링으로 교재를 받아 볼 수 있게 함(안전장치).
+          pdfState: this.pdfState,
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );

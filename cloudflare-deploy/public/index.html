@@ -6918,6 +6918,8 @@ window.vcShareTextbook = function(pdfId, url, kind, name){
     if (shareUrl && shareUrl.charAt(0) === '/') shareUrl = location.origin + shareUrl;
     if (vcConn && typeof vcConn.send === 'function') {
       vcConn.send({ type: 'pdf-share', data: { pdfId: pdfId, url: shareUrl, currentPage: 1, kind: kind || '', name: name || '' } });
+      // 교사 자신은 이미 교재를 보고 있으므로, 폴링이 재로드하지 않도록 표시 키를 맞춰둠
+      try { window._vcShownPdfKey = (shareUrl && shareUrl.charAt(0)==='/' ? location.origin+shareUrl : shareUrl) + '|1'; } catch(_){}
       console.log('[vcShareTextbook] ✅ 전송:', shareUrl, kind);
       try { if (typeof showToast === 'function') showToast('📤 교재 공유 전송됨 → 학생'); } catch(_){}
       return true;
@@ -6927,6 +6929,68 @@ window.vcShareTextbook = function(pdfId, url, kind, name){
     return false;
   } catch(e){ console.warn('[vcShareTextbook] 예외', e); return false; }
 };
+
+// fix (2026-06-02) — 교재 표시 '안전장치(폴링)':
+//   학생이 실시간 WebSocket pdf-sync 메시지를 놓쳐도(연결 끊김/재연결/타이밍),
+//   방 상태(/api/room-status/{room}.pdfState)를 3초마다 확인해 교사가 올린 교재를 무조건 띄움.
+//   → "반드시 학생이 교재를 본다" 보장.
+window._vcShownPdfKey = '';            // 현재 표시 중인 교재 키 (url|page) — 중복 로드 방지
+window._vcPdfPollTimer = null;
+window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid){
+  try {
+    if (!sUrl) return;
+    if (/^blob:/i.test(sUrl)) return;  // 로컬 blob 은 다른 기기에서 열 수 없음
+    if (sUrl.charAt(0) === '/') sUrl = location.origin + sUrl;
+    var key = sUrl + '|' + (currentPage || 1);
+    if (key === window._vcShownPdfKey) return;  // 이미 같은 교재/페이지 표시 중
+    var k = sKind || '';
+    if (!k) {
+      if (/textbook-files|\.(jpe?g|png|webp|gif|bmp)(\?|$)/i.test(sUrl)) k = 'image';
+      else if (/\.pdf(\?|$)/i.test(sUrl)) k = 'pdf';
+    }
+    window._vcShownPdfKey = key;
+    try { if (typeof pdfCurrentId !== 'undefined') pdfCurrentId = sPid || sUrl; } catch(_){}
+    try { if (typeof vcSwitchTab === 'function') vcSwitchTab('pdf'); } catch(_){}
+    try { if (typeof showToast === 'function') showToast('📥 교재 수신 — 여는 중 (' + (k || '자동') + ')'); } catch(_){}
+    Promise.resolve(pdfLoad(sUrl, k || undefined)).then(function(){
+      try { if (typeof pdfPageNum !== 'undefined') pdfPageNum = currentPage || 1; } catch(_){}
+      try { if (typeof pdfRender === 'function') pdfRender(); } catch(_){}
+      try { if (typeof showToast === 'function') showToast('✅ 교재 표시됨'); } catch(_){}
+    }).catch(function(){
+      var alt = (k === 'image') ? 'pdf' : 'image';
+      Promise.resolve(pdfLoad(sUrl, alt)).then(function(){
+        try { if (typeof pdfPageNum !== 'undefined') pdfPageNum = currentPage || 1; } catch(_){}
+        try { if (typeof pdfRender === 'function') pdfRender(); } catch(_){}
+        try { if (typeof showToast === 'function') showToast('✅ 교재 표시됨(재시도)'); } catch(_){}
+      }).catch(function(e2){
+        window._vcShownPdfKey = '';  // 실패 시 키 초기화 → 다음 폴링에서 재시도
+        try { if (typeof showToast === 'function') showToast('❌ 교재 로드 실패: ' + (e2 && e2.message || e2)); } catch(_){}
+      });
+    });
+  } catch(e){ console.warn('[vcApplySharedPdf]', e); }
+};
+window.vcStartPdfPoll = function(){
+  try {
+    if (window._vcPdfPollTimer) clearInterval(window._vcPdfPollTimer);
+    window._vcPdfPollTimer = setInterval(function(){
+      try {
+        if (!vcRoomId) return;
+        fetch('/api/room-status/' + encodeURIComponent(vcRoomId), { cache: 'no-store' })
+          .then(function(r){ return r.ok ? r.json() : null; })
+          .then(function(d){
+            if (d && d.pdfState && d.pdfState.url) {
+              window.vcApplySharedPdf(d.pdfState.url, d.pdfState.kind, d.pdfState.currentPage, d.pdfState.pdfId);
+            }
+          }).catch(function(){});
+      } catch(_){}
+    }, 3000);
+    console.log('[vcPdfPoll] 시작 — 3초마다 방 교재 상태 확인');
+  } catch(e){}
+};
+window.vcStopPdfPoll = function(){
+  try { if (window._vcPdfPollTimer) { clearInterval(window._vcPdfPollTimer); window._vcPdfPollTimer = null; } } catch(_){}
+};
+
 let vcLocalStream = null;       // 내 미디어 스트림
 let vcPeerConnections = {};     // { userId: RTCPeerConnection } 맵
 let vcRemoteStreams = {};       // fix (2026-06-01) { userId: MediaStream } — 트랙별 ontrack 누적용 (원격 영상 검게 나오던 문제)
@@ -7808,6 +7872,7 @@ async function vcJoinRoom(skipUI) {
         () => setStatusDot('vc-status-dot', 'disconnected')
     );
     window.vcConn = vcConn;   // fix (2026-06-01) — 라이브러리 교재 공유(selectFromTextbookLibrary)가 window.vcConn 을 쓰므로 노출
+    try { window.vcStartPdfPoll && window.vcStartPdfPoll(); } catch(_){}  // fix (2026-06-02) 교재 표시 안전장치
     setStatusDot('vc-status-dot', 'connecting');
 
     // 🛡 최후의 안전망 — 입장 3초 후에도 비디오 트랙이 없거나 video.videoWidth=0 이면
@@ -8055,6 +8120,7 @@ async function vcJoinAsObserver(roomId) {
         () => setStatusDot('vc-status-dot', 'disconnected')
     );
     window.vcConn = vcConn;   // fix (2026-06-01) — window.vcConn 노출
+    try { window.vcStartPdfPoll && window.vcStartPdfPoll(); } catch(_){}  // fix (2026-06-02) 교재 표시 안전장치
     setStatusDot('vc-status-dot', 'connecting');
 }
 
@@ -8159,32 +8225,8 @@ function vcHandleMessage(msg) {
                 break;
             }
             if (sUrl && (/^https?:\/\//i.test(sUrl) || sUrl.charAt(0) === '/')) {
-                // 서버/절대 URL — 그대로 직접 로드 (cross-device)
-                // fix (2026-06-01) — kind 가 없으면 URL 로 이미지/PDF 자동 판별 (서버 교재 URL 은 확장자가 없어 PDF 오인 방지)
-                var sKind = msg.data.kind || '';
-                if (!sKind) {
-                    if (/textbook-files|\.(jpe?g|png|webp|gif|bmp)(\?|$)/i.test(sUrl)) sKind = 'image';
-                    else if (/\.pdf(\?|$)/i.test(sUrl)) sKind = 'pdf';
-                }
-                // 🔎 화면 진단(콘솔 없이도 보이게)
-                try { if (typeof showToast === 'function') showToast('📥 교재 수신 — 여는 중 (' + (sKind || '자동') + ')'); } catch(_){}
-                pdfCurrentId = sPid || sUrl;
-                vcSwitchTab('pdf');
-                Promise.resolve(pdfLoad(sUrl, sKind || undefined)).then(function(){
-                    pdfPageNum = msg.data.currentPage || 1; pdfRender();
-                    try { if (typeof showToast === 'function') showToast('✅ 교재 표시됨'); } catch(_){}
-                }).catch(function(e){
-                    console.warn('[pdf-share] url 로드 1차 실패, 반대 종류로 재시도', e && e.message);
-                    var alt = (sKind === 'image') ? 'pdf' : 'image';
-                    Promise.resolve(pdfLoad(sUrl, alt)).then(function(){
-                        pdfPageNum = msg.data.currentPage || 1; pdfRender();
-                        try { if (typeof showToast === 'function') showToast('✅ 교재 표시됨(재시도)'); } catch(_){}
-                    }).catch(function(e2){
-                        console.warn('[pdf-share] 재시도도 실패', e2 && e2.message);
-                        try { if (typeof showToast === 'function') showToast('❌ 교재 로드 실패: ' + (e2 && e2.message || e2)); } catch(_){}
-                        try { alert('❌ 교재 로드 실패\nURL: ' + sUrl + '\n오류: ' + (e2 && e2.message || e2)); } catch(_){}
-                    });
-                });
+                // 서버/절대 URL — 통합 함수로 직접 로드 (cross-device). 폴링과 동일 경로라 중복 로드 없음.
+                window.vcApplySharedPdf(sUrl, msg.data.kind, msg.data.currentPage, sPid);
                 break;
             }
             // 화상수업 업로드 PDF (PDF_STORE) — 서버 엔드포인트로 로드
@@ -8729,6 +8771,7 @@ async function vcLeaveRoom() {
     if (wakeLock) { wakeLock.release(); wakeLock = null; console.log('[wakeLock] 해제됨'); }
     vcConn = null;
     window.vcConn = null;
+    try { window.vcStopPdfPoll && window.vcStopPdfPoll(); window._vcShownPdfKey = ''; } catch(_){}  // fix (2026-06-02) 폴링 중지
     // ── fix v28 (2026-05-27) — ✕ 버튼 → 홈 강제 이동 안전망 ──
     try {
         const cm = document.getElementById('vc-chat-messages');
@@ -24336,7 +24379,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260602010413 -->
+<!-- BUILD:20260602012254 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
