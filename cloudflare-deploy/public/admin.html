@@ -1843,6 +1843,18 @@
 </head>
 <body>
 
+<!-- fix (2026-06-01) — 🎥 수업 입장 배너 (모든 화면폭·모든 역할에서 항상 표시. 사이드바/RBAC 영향 없음) -->
+<div id="teacher-class-banner"
+     onclick="(window.openLiveClass?window.openLiveClass():(location.href='/?vc_autojoin=1&vc_room=mangoi-class&vc_name='+encodeURIComponent('교사')));return false;"
+     style="position:sticky;top:0;z-index:100000;display:flex;align-items:center;gap:10px;padding:11px 16px;
+            background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;cursor:pointer;
+            box-shadow:0 4px 14px rgba(0,0,0,0.35);font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif">
+  <span style="font-size:20px">🎥</span>
+  <span style="font-weight:800;font-size:15px">수업 입장</span>
+  <span style="font-size:10px;font-weight:900;letter-spacing:0.6px;background:#ef4444;padding:3px 9px;border-radius:99px">LIVE ▶</span>
+  <span style="margin-left:auto;font-size:11.5px;opacity:0.92">교사 화상수업 · 교재 업로드/다운로드</span>
+</div>
+
 <!-- 🎚 hover 트리거 띠 — 헤더가 숨겨졌을 때 마우스를 여기에 올리면 다시 표시 -->
 <div id="th-hover-trigger" aria-hidden="true"></div>
 
@@ -2214,26 +2226,52 @@
   </div>
 </div>
 
-<!-- fix (2026-06-01) — 🎥 수업 입장 (화상수업 임베드) -->
+<!-- fix (2026-06-01) — 🎥 수업 입장 (화상수업 임베드 + 교사 표시 + 교재 업로드/다운로드) -->
 <section id="card-live-class" style="display:none;margin:14px 0;background:#0f1830;border:1px solid #1e3a5f;border-radius:14px;padding:16px;">
+  <!-- 헤더: 제목 + 새로고침/닫기 -->
   <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
     <div style="display:flex;align-items:center;gap:10px">
       <span style="font-size:22px">🎥</span>
-      <div>
-        <div style="font-size:16px;font-weight:800;color:#e6ecff">수업 입장 — 화상수업</div>
-        <div id="live-class-teacher-label" style="font-size:12.5px;color:#93c5fd;margin-top:2px">교사 · …</div>
-      </div>
+      <div style="font-size:16px;font-weight:800;color:#e6ecff" data-ko="수업 입장 — 화상수업" data-en="Join Class — Live">수업 입장 — 화상수업</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
-      <button type="button" id="live-class-reload" style="padding:7px 12px;border-radius:8px;border:1px solid #334155;background:#1e293b;color:#cbd5e1;font-size:12px;cursor:pointer">↻ 새로고침</button>
-      <button type="button" id="live-class-close" style="padding:7px 12px;border-radius:8px;border:1px solid #334155;background:#1e293b;color:#cbd5e1;font-size:12px;cursor:pointer">✕ 닫기</button>
+      <button type="button" id="live-class-reload" style="padding:7px 12px;border-radius:8px;border:1px solid #334155;background:#1e293b;color:#cbd5e1;font-size:12px;cursor:pointer" data-ko="↻ 새로고침" data-en="↻ Reload">↻ 새로고침</button>
+      <button type="button" id="live-class-close" style="padding:7px 12px;border-radius:8px;border:1px solid #334155;background:#1e293b;color:#cbd5e1;font-size:12px;cursor:pointer" data-ko="✕ 닫기" data-en="✕ Close">✕ 닫기</button>
     </div>
   </div>
-  <div style="font-size:11.5px;color:#94a3b8;margin-bottom:8px">💡 교사 영상이 위에 나오고, 교재 탭에서 📁 업로드 · 📚 라이브러리(서버 교재)로 교재를 띄우고 내려받을 수 있습니다. 학생은 같은 방(mangoi-class)으로 입장하면 같은 화면을 봅니다.</div>
-  <div id="live-class-frame-wrap" style="position:relative;width:100%;height:78vh;min-height:520px;border-radius:10px;overflow:hidden;background:#000;border:1px solid #1e293b">
-    <div id="live-class-placeholder" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:13px">불러오는 중…</div>
+
+  <!-- ① 교사 수업 화면 (영상) — 가장 위 -->
+  <div id="live-class-frame-wrap" style="position:relative;width:100%;height:62vh;min-height:440px;border-radius:10px;overflow:hidden;background:#000;border:1px solid #1e293b">
+    <div id="live-class-placeholder" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:13px" data-ko="불러오는 중…" data-en="Loading…">불러오는 중…</div>
     <iframe id="live-class-frame" title="화상수업" allow="camera; microphone; fullscreen; display-capture; autoplay" style="width:100%;height:100%;border:0;display:block"></iframe>
   </div>
+
+  <!-- ② 교사 표시 + 이름 — 영상 바로 아래 -->
+  <div id="live-class-teacher-bar" style="display:flex;align-items:center;gap:10px;margin-top:10px;padding:11px 14px;border-radius:10px;background:linear-gradient(135deg,rgba(37,99,235,0.18),rgba(29,78,216,0.08));border:1px solid rgba(59,130,246,0.35)">
+    <span style="font-size:20px">👨‍🏫</span>
+    <span style="font-size:11px;font-weight:800;letter-spacing:0.4px;color:#bfdbfe;background:rgba(37,99,235,0.35);padding:3px 10px;border-radius:99px" data-ko="교사" data-en="TEACHER">교사</span>
+    <span id="live-class-teacher-name" style="font-size:15px;font-weight:800;color:#e6ecff">…</span>
+  </div>
+
+  <!-- ③ 교재 업로드 / 다운로드 — 수업 화면 안에서 -->
+  <div style="margin-top:14px;background:#111c34;border:1px solid #1e3a5f;border-radius:12px;padding:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">📚</span>
+        <span style="font-size:14px;font-weight:800;color:#e6ecff" data-ko="수업 교재" data-en="Class Materials">수업 교재</span>
+      </div>
+      <button type="button" id="lc-mat-pick" style="padding:7px 14px;border-radius:8px;border:0;cursor:pointer;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-size:12.5px;font-weight:700" data-ko="📁 교재 업로드" data-en="📁 Upload">📁 교재 업로드</button>
+    </div>
+    <input type="file" id="lc-mat-input" accept=".pdf,.jpg,.jpeg,.png,.webp" multiple style="display:none" />
+    <div id="lc-mat-dropzone"
+         style="border:1.5px dashed #3b5680;border-radius:10px;padding:16px;text-align:center;color:#93a8cc;font-size:12.5px;cursor:pointer;transition:all .18s;background:rgba(37,99,235,0.05)"
+         data-ko="📁 교재 파일을 끌어다 놓거나 클릭하세요 (PDF · JPG · PNG · WEBP / 최대 80MB)"
+         data-en="📁 Drop files here or click (PDF · JPG · PNG · WEBP / max 80MB)">📁 교재 파일을 끌어다 놓거나 클릭하세요 (PDF · JPG · PNG · WEBP / 최대 80MB)</div>
+    <div id="lc-mat-progress" style="display:none;margin-top:8px;font-size:12px;color:#cbd5e1"></div>
+    <div id="lc-mat-list" style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px"></div>
+  </div>
+
+  <div style="font-size:11.5px;color:#94a3b8;margin-top:10px">💡 <span data-ko="교사 영상이 가장 위에 나오고, 그 아래에 교사 이름이 표시됩니다. 교재는 이 화면에서 바로 업로드·다운로드할 수 있어요. 학생은 같은 방(mangoi-class)으로 입장하면 같은 화면을 봅니다." data-en="The teacher's video shows at the top, the teacher's name right below it. Upload and download materials right here. Students who join the same room (mangoi-class) see the same screen.">교사 영상이 가장 위에 나오고, 그 아래에 교사 이름이 표시됩니다. 교재는 이 화면에서 바로 업로드·다운로드할 수 있어요. 학생은 같은 방(mangoi-class)으로 입장하면 같은 화면을 봅니다.</span></div>
 </section>
 
 <style>
@@ -16023,7 +16061,7 @@ window.openLiveClass = async function(){
   var sec = document.getElementById('card-live-class');
   if (!sec) return;
   var frame = document.getElementById('live-class-frame');
-  var label = document.getElementById('live-class-teacher-label');
+  var nameEl = document.getElementById('live-class-teacher-name');
   var ph = document.getElementById('live-class-placeholder');
   var tname = '교사';
   try {
@@ -16031,7 +16069,7 @@ window.openLiveClass = async function(){
     var j = await r.json().catch(function(){ return null; });
     if (j && j.ok && j.user) tname = j.user.name || j.user.username || '교사';
   } catch(_){}
-  if (label) label.textContent = '교사 · ' + tname;
+  if (nameEl) nameEl.textContent = tname;
   var displayName = '교사 ' + tname;
   var src = '/?vc_autojoin=1&vc_room=' + encodeURIComponent('mangoi-class') + '&vc_name=' + encodeURIComponent(displayName);
   sec.style.display = 'block';
@@ -16040,6 +16078,8 @@ window.openLiveClass = async function(){
     frame.onload = function(){ if (ph) ph.style.display = 'none'; };
     frame.src = src;
   }
+  if (typeof lcInitMaterials === 'function') lcInitMaterials();
+  if (typeof lcLoadMaterials === 'function') lcLoadMaterials();
   setTimeout(function(){ try { sec.scrollIntoView({ behavior:'smooth', block:'start' }); } catch(_){} }, 80);
 };
 (function _bindLiveClassBtns(){
@@ -16049,10 +16089,103 @@ window.openLiveClass = async function(){
     var frame = document.getElementById('live-class-frame');
     if (rl && !rl._b){ rl._b = 1; rl.addEventListener('click', function(){ if (frame && frame.src && frame.src !== 'about:blank') { var s = frame.src; frame.src = 'about:blank'; setTimeout(function(){ frame.src = s; }, 60); } }); }
     if (cl && !cl._b){ cl._b = 1; cl.addEventListener('click', function(){ var sec = document.getElementById('card-live-class'); if (frame) frame.src = 'about:blank'; if (sec) sec.style.display = 'none'; }); }
+    if (typeof lcInitMaterials === 'function') lcInitMaterials();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
   else bind();
 })();
+
+// fix (2026-06-01) — 🎥 수업 입장 화면 안의 교재 업로드/다운로드 (서버 textbook-files 재사용)
+function lcInitMaterials(){
+  var dz = document.getElementById('lc-mat-dropzone');
+  var inp = document.getElementById('lc-mat-input');
+  var pick = document.getElementById('lc-mat-pick');
+  if (!dz || !inp) return;
+  if (pick && !pick._b){ pick._b = 1; pick.addEventListener('click', function(){ inp.click(); }); }
+  if (!dz._b){
+    dz._b = 1;
+    dz.addEventListener('click', function(){ inp.click(); });
+    inp.addEventListener('change', function(){ lcUploadMaterials(inp.files); inp.value = ''; });
+    ['dragenter','dragover'].forEach(function(ev){ dz.addEventListener(ev, function(e){ e.preventDefault(); dz.style.background = 'rgba(37,99,235,0.18)'; dz.style.borderColor = '#60a5fa'; }); });
+    ['dragleave','drop'].forEach(function(ev){ dz.addEventListener(ev, function(e){ e.preventDefault(); dz.style.background = 'rgba(37,99,235,0.05)'; dz.style.borderColor = '#3b5680'; }); });
+    dz.addEventListener('drop', function(e){ if (e.dataTransfer) lcUploadMaterials(e.dataTransfer.files); });
+  }
+}
+
+async function lcUploadMaterials(files){
+  if (!files || !files.length) return;
+  var prog = document.getElementById('lc-mat-progress');
+  var ok = 0, fail = 0;
+  if (prog) prog.style.display = 'block';
+  for (var i = 0; i < files.length; i++){
+    var f = files[i];
+    if (prog) prog.textContent = (adminLang==='en'?'Uploading ':'업로드 중 ') + (i+1) + '/' + files.length + ' — ' + f.name;
+    var form = new FormData();
+    form.append('file', f);
+    form.append('name', f.name);
+    form.append('uploaded_by', (document.getElementById('live-class-teacher-name')||{}).textContent || '교사');
+    try {
+      var r = await fetch('/api/admin/textbook-files', { method:'POST', credentials:'include', body: form });
+      var j = await r.json().catch(function(){ return {}; });
+      if (r.ok && j.ok) ok++; else { fail++; console.warn('lc upload fail', f.name, j); }
+    } catch(e){ fail++; console.error(e); }
+  }
+  if (prog){
+    prog.innerHTML = (adminLang==='en'?'Done — ':'완료 — ') + '<b style="color:#34d399">'+ok+' OK</b>' + (fail?' / <b style="color:#f87171">'+fail+' FAIL</b>':'');
+    setTimeout(function(){ prog.style.display = 'none'; }, 4000);
+  }
+  lcLoadMaterials();
+}
+
+async function lcLoadMaterials(){
+  var grid = document.getElementById('lc-mat-list');
+  if (!grid) return;
+  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:14px;color:#64748b;font-size:12px">'+(adminLang==='en'?'Loading…':'불러오는 중…')+'</div>';
+  try {
+    var r = await fetch('/api/admin/textbook-files', { credentials:'include', cache:'no-store' });
+    var d = await r.json().catch(function(){ return {}; });
+    if (!d.ok || !d.items || !d.items.length){
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:18px;color:#64748b;font-size:12px">'+(adminLang==='en'?'No materials yet. Upload one above.':'아직 교재가 없습니다. 위에서 업로드하세요.')+'</div>';
+      return;
+    }
+    grid.innerHTML = d.items.map(function(f){
+      var dlName = (f.name||'file').replace(/"/g,'');
+      var thumb = f.kind === 'pdf'
+        ? '<div style="height:96px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e293b,#0f172a);font-size:34px">📕</div>'
+        : '<img src="'+f.url+'" loading="lazy" style="height:96px;width:100%;object-fit:cover;background:#0f172a" />';
+      return '<div style="background:#0f1830;border:1px solid #1e3a5f;border-radius:9px;overflow:hidden;display:flex;flex-direction:column">'
+        + thumb
+        + '<div style="padding:8px;flex:1;display:flex;flex-direction:column;gap:3px">'
+        +   '<div style="font-size:11.5px;font-weight:700;color:#e6ecff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_esc(f.name)+'">'+_esc(f.name)+'</div>'
+        +   '<div style="font-size:10px;color:#7c8db5">'+(f.kind==='pdf'?'PDF':'IMG')+' · '+_humanSize(f.size_bytes)+'</div>'
+        + '</div>'
+        + '<div style="display:flex;border-top:1px solid #1e3a5f">'
+        +   '<button type="button" class="lc-mat-view" data-url="'+f.url+'" data-kind="'+f.kind+'" data-name="'+_esc(dlName)+'" style="flex:1;padding:7px;border:0;background:#16223e;color:#cbd5e1;cursor:pointer;font-size:11px" title="미리보기">👁 '+(adminLang==='en'?'View':'보기')+'</button>'
+        +   '<a class="lc-mat-dl" href="'+f.url+'" download="'+_esc(dlName)+'" style="flex:1;padding:7px;border-left:1px solid #1e3a5f;background:#16223e;color:#86efac;text-decoration:none;text-align:center;font-size:11px" title="다운로드">⬇ '+(adminLang==='en'?'Download':'다운로드')+'</a>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+    grid.querySelectorAll('.lc-mat-view').forEach(function(b){
+      b.addEventListener('click', function(){ lcPreviewMaterial(b.getAttribute('data-url'), b.getAttribute('data-kind'), b.getAttribute('data-name')); });
+    });
+  } catch(e){
+    console.error('lcLoadMaterials', e);
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:14px;color:#f87171;font-size:12px">'+(adminLang==='en'?'Failed to load.':'불러오기 실패')+'</div>';
+  }
+}
+
+function lcPreviewMaterial(url, kind, name){
+  var win = window.open('', '_blank');
+  if (!win){ alert(adminLang==='en'?'Allow popup to preview':'팝업 허용이 필요합니다'); return; }
+  if (kind === 'pdf'){
+    win.location.href = url;
+  } else {
+    win.document.write('<!doctype html><html><head><title>'+_esc(name)+'</title><style>body{margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh}img{max-width:100%;max-height:100vh}</style></head><body><img src="'+url+'" /></body></html>');
+    win.document.close();
+  }
+}
+window.lcInitMaterials = lcInitMaterials;
+window.lcLoadMaterials = lcLoadMaterials;
 
 async function addTextbook() {
   const e = id => document.getElementById(id);
@@ -19446,7 +19579,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260601213710 -->
+        <!-- BUILD:20260601215620 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -23936,6 +24069,25 @@ button.chip:hover,
   }
   .ph85-search::placeholder { color: #64748b; }
 
+  /* fix (2026-06-01) — 🎥 수업입장 카드 (평가서 통합 위 고정) */
+  .ph85-classroom {
+    display: flex; align-items: center; gap: 9px;
+    padding: 11px 12px; margin-bottom: 8px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #fff; text-decoration: none;
+    box-shadow: 0 6px 16px -6px rgba(37,99,235,0.7);
+    cursor: pointer; transition: filter .18s, transform .18s;
+  }
+  .ph85-classroom:hover { filter: brightness(1.08); transform: translateY(-1px); }
+  .ph85-classroom .ph85-title { flex: 1; color: #fff; font-weight: 800; font-size: 13px; }
+  .ph85-classroom .ph85-live {
+    font-size: 9px; font-weight: 900; letter-spacing: 0.5px;
+    background: #ef4444; color: #fff; padding: 2px 7px; border-radius: 99px;
+    animation: ph85LiveBlink 1.6s ease-in-out infinite;
+  }
+  @keyframes ph85LiveBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
   .ph85-group {
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(99,102,241,0.18);
@@ -23997,6 +24149,14 @@ button.chip:hover,
     <span class="ph85-brand-text">망고아이 관리</span>
   </div>
   <input class="ph85-search" id="ph85-search" type="search" placeholder="🔍 메뉴 검색...">
+
+  <!-- fix (2026-06-01) — 🎥 수업입장 (평가서 통합 위, 항상 표시) -->
+  <a href="javascript:void(0)" id="ph85-classroom-card" class="ph85-classroom"
+     onclick="event.stopPropagation();(window.openLiveClass?window.openLiveClass():(location.href='/?vc_autojoin=1&vc_room=mangoi-class&vc_name='+encodeURIComponent('교사')));return false;">
+    <div class="ph85-ico" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)">🎥</div>
+    <div class="ph85-title" data-ko="수업입장" data-en="Join Class">수업입장</div>
+    <span class="ph85-live">LIVE</span>
+  </a>
 
   <div class="ph85-group" data-cards="card-eval-mgmt,card-bulk-eval,card-ai-lesson-report,card-ai-eval-draft,card-monthly-report,card-comparison-report">
     <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
