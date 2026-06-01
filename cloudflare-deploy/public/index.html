@@ -2407,55 +2407,75 @@
                 flex-direction: column !important;
                 height: 100%;
             }
-            /* fix (2026-06-02) — 세로 모드: 영상을 '정사각형'으로, 높이를 영상에 맞춰 축소해
-               칠판/교재가 화면 위쪽에서 바로 보이게(수업 편의). 기존 42vh 고정 → 영상 크기만큼만 차지. */
+            /* fix (2026-06-02 v2) — 세로 모드 수업 최적화:
+               · 화면크기 조절 바를 상단 우측(빈 곳)으로 작게 이동
+               · 얼굴 영상을 가로로 넓게(4:3) 2개 나란히 → 화면 폭 채움
+               · 영상 영역 높이 축소(28vh) → 칠판/교재 최대한 위로
+               · 영상 안 라벨/버튼 작게 → 얼굴 잘 보이게 */
             .video-pane {
                 width: 100% !important;
                 height: auto !important;
-                max-height: 38vh !important;
+                max-height: 28vh !important;
                 min-height: 0 !important;
                 border-right: none !important;
                 border-bottom: 1px solid rgba(148,163,184,0.2);
                 flex-shrink: 0;
                 overflow-y: auto !important;
-                padding: 6px !important;
+                padding: 3px !important;
             }
             .vc-main-row.video-full .video-pane { height: 100% !important; max-height: none !important; }
             .vc-main-row.video-full .content-pane { display: none; }
             .content-pane { flex: 1; min-height: 0; }
 
-            /* 정사각형 영상 (1:1) — 가운데 정렬, 바로 아래에서 칠판/교재 시작 */
+            /* 화면크기 조절 바 → 상단 우측에 작게 고정 (녹화 ↔ EN 사이 빈 곳).
+               덜 쓰는 1/4·3/4 는 세로모드에서 숨겨 자리 확보. */
+            body.vc-in-call .video-size-bar {
+                position: fixed !important;
+                top: calc(env(safe-area-inset-top,0) + 44px) !important;  /* 헤더 바로 아래 우측 빈 곳 */
+                right: 6px !important;
+                left: auto !important;
+                width: auto !important;
+                z-index: 9997 !important;
+                gap: 2px !important;
+                padding: 2px 4px !important;
+                background: rgba(15,23,42,0.72) !important;
+                border: 1px solid rgba(148,163,184,0.25) !important;
+                border-radius: 9px !important;
+                backdrop-filter: blur(6px);
+            }
+            body.vc-in-call .video-size-bar button {
+                flex: 0 0 auto !important;
+                padding: 2px 5px !important;
+                font-size: 8.5px !important;
+                min-width: 0 !important;
+                border-radius: 5px !important;
+            }
+            body.vc-in-call .video-size-bar button:nth-child(1),
+            body.vc-in-call .video-size-bar button:nth-child(3) { display: none !important; }
+
+            /* 얼굴 영상 — 가로로 넓게(4:3), 2개 나란히 화면 폭 채움 */
             #vc-video-grid {
                 display: grid !important;
-                grid-template-columns: 1fr !important;
+                grid-template-columns: 1fr 1fr !important;
                 grid-auto-rows: auto !important;
-                justify-items: center !important;
+                justify-items: stretch !important;
                 align-content: start !important;
-                gap: 6px !important;
+                gap: 4px !important;
                 overflow: visible !important;
             }
             #vc-video-grid .video-box {
-                aspect-ratio: 1 / 1 !important;
-                width: min(46vw, 180px) !important;
+                aspect-ratio: 4 / 3 !important;
+                width: 100% !important;
                 height: auto !important;
                 min-height: 0 !important;
-                border-radius: 12px !important;
+                border-radius: 10px !important;
                 overflow: hidden !important;
             }
             #vc-video-grid .video-box video { object-fit: cover !important; }
-            /* 2~4명: 정사각형 2열 */
-            #vc-video-grid[data-count="2"],
-            #vc-video-grid[data-count="3"],
-            #vc-video-grid[data-count="4"] {
-                grid-template-columns: 1fr 1fr !important;
-            }
-            #vc-video-grid[data-count="2"] .video-box,
-            #vc-video-grid[data-count="3"] .video-box,
-            #vc-video-grid[data-count="4"] .video-box {
-                width: 100% !important;
-                max-width: 44vw !important;
-            }
-            /* 5명 이상: 정사각형 3열 */
+            /* 1명일 때는 한 개를 넓게(가운데) */
+            #vc-video-grid[data-count="1"] { grid-template-columns: 1fr !important; justify-items: center !important; }
+            #vc-video-grid[data-count="1"] .video-box { width: min(82vw, 360px) !important; }
+            /* 5명 이상은 3열 */
             #vc-video-grid[data-count="5"],
             #vc-video-grid[data-count="6"],
             #vc-video-grid[data-count="7"],
@@ -2463,15 +2483,20 @@
             #vc-video-grid[data-count="9"] {
                 grid-template-columns: repeat(3, 1fr) !important;
             }
-            #vc-video-grid[data-count="5"] .video-box,
-            #vc-video-grid[data-count="6"] .video-box,
-            #vc-video-grid[data-count="7"] .video-box,
-            #vc-video-grid[data-count="8"] .video-box,
-            #vc-video-grid[data-count="9"] .video-box {
-                width: 100% !important;
-                max-width: 30vw !important;
+
+            /* 영상 안 라벨/표시 최소화 (얼굴 잘 보이게) */
+            #vc-video-grid .video-box .video-label,
+            #vc-video-grid .video-box > span:not(:empty) {
+                font-size: 9px !important;
+                padding: 1px 5px !important;
+                opacity: 0.85;
             }
-            /* '전체' 화면 모드일 때는 정사각형 해제하고 영상이 화면을 채우게 */
+            #vc-video-grid .video-box button {
+                transform: scale(0.72);
+                transform-origin: top right;
+            }
+
+            /* '전체' 화면 모드: 영상이 화면을 채우게 */
             .vc-main-row.video-full #vc-video-grid { grid-template-columns: 1fr !important; align-content: stretch !important; }
             .vc-main-row.video-full #vc-video-grid .video-box {
                 aspect-ratio: auto !important;
@@ -24454,7 +24479,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260602031812 -->
+<!-- BUILD:20260602033037 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
