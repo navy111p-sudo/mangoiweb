@@ -23776,11 +23776,29 @@ window.closeRulesModal = function() {
   #ph49-kakao-fab .ph49-kakao-label { display:none !important; }
 </style>
 <a class="ph49-kakao-fab" id="ph49-kakao-fab"
-   href="https://pf.kakao.com/_mangoi" target="_blank" rel="noopener"
+   href="https://pf.kakao.com/_mangoi/chat" target="_blank" rel="noopener"
    onclick="try{if(window.openKakao){window.openKakao();return false;}}catch(e){}"
    title="카카오 상담" aria-label="상담">
   <span class="ph49-kakao-ico">&#128172;</span><span class="ph49-kakao-intext">상담</span>
 </a>
+<script>
+/* fix (2026-06-01) — 카카오 상담 버튼 동작 정의.
+   기존엔 window.openKakao 가 어디에도 정의되지 않아, 그 함수를 부르는 상담 버튼들(결제·고객센터·FAB 등)이
+   눌러도 아무 동작을 안 했음. 이제 누르면 카카오 채널 채팅이 열림.
+   ★ 채널 변경 시 아래 KAKAO_CHANNEL_ID 만 본인 채널 '검색용 아이디'로 교체:
+     카카오톡채널 관리자센터 → 채널 → 관리 → 상세설정 → '검색용 아이디' (예: _mangoi) */
+(function(){
+  'use strict';
+  var KAKAO_CHANNEL_ID = '_mangoi';
+  window.KAKAO_CHANNEL_ID = KAKAO_CHANNEL_ID;
+  window.openKakao = function(){
+    var url = 'https://pf.kakao.com/' + KAKAO_CHANNEL_ID + '/chat';   // 채팅 바로 열기
+    try { window.open(url, '_blank', 'noopener'); }
+    catch(e) { try { location.href = url; } catch(_){} }
+    return false;
+  };
+})();
+</script>
 <script>
 /* ph271: 다른 nuker 가 상담 텍스트를 숨기지 못하도록 — setInterval 강제 보장 */
 (function(){
@@ -24137,7 +24155,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260601183934 -->
+<!-- BUILD:20260601185117 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
