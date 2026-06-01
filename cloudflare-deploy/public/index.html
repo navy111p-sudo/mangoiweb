@@ -20435,23 +20435,53 @@ window.closeRulesModal = function() {
 
   function loadAll(){
     var idbP = _loadAllIDB();
-    // fix (2026-06-02) — limit=20000 으로 서버 교재 '전부' 로드. (기본 500 이라 대부분 교재가 라이브러리에서 안 보였음)
-    var srvP = fetch('/api/textbook-files?limit=20000', { cache: 'no-store' })
+    // fix (2026-06-02 v2) — 서버 교재는 '그룹 집계(?group=1)'로 전체 목록을 받음(38,000+ 파일이어도 모든 교재 표시).
+    //   파일은 교재를 '열 때' 그 교재 것만 lazy 로드(?book=) → 빠르고 누락 없음.
+    var srvP = fetch('/api/textbook-files?group=1', { cache: 'no-store' })
       .then(function(r){ return r.ok ? r.json() : null; })
       .catch(function(){ return null; });
     return Promise.all([idbP, srvP]).then(function(arr){
       var idb = arr[0] || { textbooks: [], files: {}, err: null };
       var srv = arr[1];
-      if (srv && srv.ok && srv.items && srv.items.length) {
-        var conv = _serverFilesToBooks(srv.items);
-        var mergedFiles = {};
-        Object.keys(idb.files || {}).forEach(function(k){ mergedFiles[k] = idb.files[k]; });
-        Object.keys(conv.files).forEach(function(k){ mergedFiles[k] = conv.files[k]; });
-        console.log('[srvmerge] 서버 교재', conv.books.length, '+ IDB 교재', (idb.textbooks||[]).length);
-        return { textbooks: (idb.textbooks || []).concat(conv.books), files: mergedFiles, err: idb.err };
+      if (srv && srv.ok && srv.groups && srv.groups.length) {
+        var books = srv.groups.map(function(g){
+          var name = (g.book || '서버 교재').trim();
+          return {
+            id: 'srvbook_' + name.replace(/[^a-zA-Z0-9가-힣]+/g, '_'),
+            publisher: name,
+            textbook: name,
+            level: g.level || '',
+            category: _srvGuessCategory(name),
+            lessons: [],            // 파일은 열 때 lazy 로드
+            totalFiles: g.files || 0,
+            createdAt: 0,
+            _remote: true,
+            _serverBook: name       // ← lazy 로드 키
+          };
+        });
+        console.log('[srvmerge] 서버 교재(그룹)', books.length, '+ IDB 교재', (idb.textbooks||[]).length);
+        return { textbooks: (idb.textbooks || []).concat(books), files: (idb.files || {}), err: idb.err };
       }
       return idb;
     });
+  }
+
+  // fix (2026-06-02) — 서버 교재의 파일을 '열 때' 그 교재 것만 불러와 lessons/_libFileMap 채움
+  async function _ensureServerBookFiles(book){
+    if (!book || !book._serverBook) return;
+    if (book.lessons && book.lessons.length) return;  // 이미 로드됨
+    var r = await fetch('/api/textbook-files?book=' + encodeURIComponent(book._serverBook) + '&limit=20000', { cache: 'no-store' });
+    var d = await r.json().catch(function(){ return {}; });
+    var items = (d && d.items) || [];
+    var conv = _serverFilesToBooks(items);
+    Object.keys(conv.files).forEach(function(k){ window._libFileMap[k] = conv.files[k]; });
+    var matched = null;
+    for (var i = 0; i < conv.books.length; i++) {
+      if (conv.books[i].textbook === book._serverBook) { matched = conv.books[i]; break; }
+    }
+    if (!matched && conv.books.length) matched = conv.books[0];
+    book.lessons = matched ? matched.lessons : [];
+    console.log('[lazy] 서버 교재 파일 로드:', book._serverBook, '파일', items.length, '개');
   }
 
   window.openTextbookLibrary = function(){
@@ -20704,7 +20734,13 @@ window.closeRulesModal = function() {
     });
     return seq;
   }
-  function applyBookToClass(book){
+  async function applyBookToClass(book){
+    try {
+      if (book && book._serverBook && !(book.lessons && book.lessons.length)) {
+        try { if (typeof window.showToast === 'function') window.showToast('📥 교재 불러오는 중…'); } catch(_){}
+        await _ensureServerBookFiles(book);
+      }
+    } catch(e) { alert('교재 파일 로드 실패: ' + (e.message || e)); return; }
     var seq = buildBookSequence(book);
     if (seq.length === 0) { alert('이 교재에 표시할 파일이 없습니다.'); return; }
     window._libSequence = seq;
@@ -20718,7 +20754,12 @@ window.closeRulesModal = function() {
       window.open(first.url, '_blank');
     }
   }
-  function previewBook(book){
+  async function previewBook(book){
+    // 서버 교재면 파일을 먼저 lazy 로드
+    if (book && book._serverBook && !(book.lessons && book.lessons.length)) {
+      try { if (typeof window.showToast === 'function') window.showToast('📥 교재 불러오는 중…'); } catch(_){}
+      try { await _ensureServerBookFiles(book); } catch(e) { alert('교재 파일 로드 실패: ' + (e.message || e)); return; }
+    }
     var lessons = book.lessons || [];
     var modal = document.createElement('div');
     modal.id = 'tbf-preview-modal';
@@ -24700,7 +24741,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260602053942 -->
+<!-- BUILD:20260602055841 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
