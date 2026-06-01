@@ -2645,49 +2645,56 @@
         }
 
         /* ════════════════════════════════════════════════════════════════
-           fix (2026-06-02) — PC 데스크탑: 영상(1번)을 맨 위, 칠판/교재(2번)를 아래로
-           세로 배치 + 보드(칠판/교재)를 최대한 크게. 영상 크기 버튼은 '위 칸 높이' 조절.
+           fix (2026-06-02 v2) — PC 데스크탑: 좌우 배치
+           · 왼쪽(1번): 얼굴 — 교사(내 화면) 위, 학생 아래로 세로 정렬. 3명까지 세로,
+             4명부터 정사각형 퍼즐(2열).
+           · 오른쪽(2번): 칠판/교재를 최대한 크게.
            ════════════════════════════════════════════════════════════════ */
         @media (min-width: 1025px) {
-            body.vc-in-call .vc-main-row { flex-direction: column !important; height: 100% !important; }
+            body.vc-in-call .vc-main-row { flex-direction: row !important; height: 100% !important; }
             body.vc-in-call .video-pane {
-                width: 100% !important;
-                max-width: none !important;
-                min-width: 0 !important;
-                height: 24vh !important;
+                height: 100% !important;
                 min-height: 0 !important;
-                border-right: none !important;
-                border-bottom: 1px solid rgba(148,163,184,0.25) !important;
+                border-right: 1px solid rgba(148,163,184,0.25) !important;
+                border-bottom: none !important;
                 flex-shrink: 0 !important;
+                flex-direction: column !important;
             }
-            body.vc-in-call .content-pane {
-                width: 100% !important;
-                flex: 1 1 auto !important;
-                min-height: 0 !important;
-            }
-            /* 영상은 위 칸에 가로로 나열 */
+            /* 영상 칸 너비: 기본 좁게 → 칠판/교재 최대한 크게. 1/4·1/2·3/4 버튼으로 조절 */
+            body.vc-in-call .vc-main-row.video-quarter      .video-pane { width: 200px !important; max-width: 200px !important; min-width: 0 !important; }
+            body.vc-in-call .vc-main-row.video-half         .video-pane { width: 300px !important; max-width: 300px !important; min-width: 0 !important; }
+            body.vc-in-call .vc-main-row.video-threequarter .video-pane { width: 46% !important; max-width: none !important; }
+            body.vc-in-call .vc-main-row.video-full         .video-pane { width: 100% !important; max-width: none !important; }
+            body.vc-in-call .vc-main-row.video-full         .content-pane { display: none !important; }
+            body.vc-in-call .content-pane { flex: 1 1 auto !important; width: auto !important; min-width: 0 !important; }
+
+            /* 얼굴: 왼쪽 칼럼을 꽉 채워 세로로 정렬 — 교사(내 화면) 맨 위, 학생 아래.
+               2명=세로2칸, 3명=세로3칸 (각 칸이 높이를 균등 분할해 칼럼을 채움) */
             body.vc-in-call #vc-video-grid {
                 display: grid !important;
-                grid-auto-flow: column !important;
-                grid-auto-columns: minmax(0, 1fr) !important;
-                grid-template-columns: none !important;
-                grid-template-rows: 1fr !important;
-                gap: 8px !important;
+                grid-template-columns: 1fr !important;
+                grid-auto-rows: 1fr !important;
+                grid-auto-flow: row !important;
+                gap: 6px !important;
                 height: 100% !important;
-                overflow: hidden !important;
+                align-content: stretch !important;
+                overflow-y: auto !important;
             }
             body.vc-in-call #vc-video-grid .video-box {
                 aspect-ratio: auto !important;
                 width: 100% !important;
                 height: 100% !important;
+                min-height: 0 !important;
             }
-            /* '전체' 모드: 영상 꽉 채우고 콘텐츠 숨김 */
-            body.vc-in-call .vc-main-row.video-full .video-pane { height: 100% !important; }
-            body.vc-in-call .vc-main-row.video-full .content-pane { display: none !important; }
-            /* 영상 크기 버튼으로 '위 영상칸 높이' 조절 */
-            body.vc-in-call .vc-main-row.video-quarter .video-pane { height: 16vh !important; }
-            body.vc-in-call .vc-main-row.video-half .video-pane { height: 24vh !important; }
-            body.vc-in-call .vc-main-row.video-threequarter .video-pane { height: 38vh !important; }
+            /* 4명(교사+학생3)부터: 정사각형 퍼즐 — 2열 격자 */
+            body.vc-in-call #vc-video-grid[data-count="4"],
+            body.vc-in-call #vc-video-grid[data-count="5"],
+            body.vc-in-call #vc-video-grid[data-count="6"],
+            body.vc-in-call #vc-video-grid[data-count="7"],
+            body.vc-in-call #vc-video-grid[data-count="8"],
+            body.vc-in-call #vc-video-grid[data-count="9"] {
+                grid-template-columns: 1fr 1fr !important;
+            }
         }
 
         /* ── 세로(portrait) 모바일: 가로 모드 전환 안내 오버레이 ── */
@@ -24616,7 +24623,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260602042817 -->
+<!-- BUILD:20260602044329 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
