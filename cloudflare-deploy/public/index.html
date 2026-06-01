@@ -6981,8 +6981,13 @@ window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid){
 };
 window.vcStartPdfPoll = function(){
   try {
+    // fix (2026-06-02) — 입장할 때마다 '표시 상태'를 초기화. 안 하면 이전 세션의 _vcShownPdfUrl 이 남아
+    //   같은 교재가 '이미 표시 중'으로 잘못 판단돼 페이지 이동만 하고 실제 로드를 건너뜀(학생 흰 화면 회귀).
+    window._vcShownPdfKey = '';
+    window._vcShownPdfUrl = '';
     if (window._vcPdfPollTimer) clearInterval(window._vcPdfPollTimer);
-    window._vcPdfPollTimer = setInterval(function(){
+    // 입장 직후 즉시 1회 확인(3초 기다리지 않고 바로 교재 표시)
+    var _pollOnce = function(){
       try {
         if (!vcRoomId) return;
         fetch('/api/room-status/' + encodeURIComponent(vcRoomId), { cache: 'no-store' })
@@ -6993,8 +6998,10 @@ window.vcStartPdfPoll = function(){
             }
           }).catch(function(){});
       } catch(_){}
-    }, 3000);
-    console.log('[vcPdfPoll] 시작 — 3초마다 방 교재 상태 확인');
+    };
+    setTimeout(_pollOnce, 800);
+    window._vcPdfPollTimer = setInterval(_pollOnce, 3000);
+    console.log('[vcPdfPoll] 시작 — 입장 직후 + 3초마다 방 교재 상태 확인');
   } catch(e){}
 };
 window.vcStopPdfPoll = function(){
@@ -8781,7 +8788,7 @@ async function vcLeaveRoom() {
     if (wakeLock) { wakeLock.release(); wakeLock = null; console.log('[wakeLock] 해제됨'); }
     vcConn = null;
     window.vcConn = null;
-    try { window.vcStopPdfPoll && window.vcStopPdfPoll(); window._vcShownPdfKey = ''; } catch(_){}  // fix (2026-06-02) 폴링 중지
+    try { window.vcStopPdfPoll && window.vcStopPdfPoll(); window._vcShownPdfKey = ''; window._vcShownPdfUrl = ''; } catch(_){}  // fix (2026-06-02) 폴링 중지+표시상태 초기화
     // ── fix v28 (2026-05-27) — ✕ 버튼 → 홈 강제 이동 안전망 ──
     try {
         const cm = document.getElementById('vc-chat-messages');
@@ -24397,7 +24404,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260602023850 -->
+<!-- BUILD:20260602025029 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
