@@ -15876,7 +15876,19 @@ function _tbRenderChips(items) {
   }).join('');
   bar.querySelectorAll('.tb-chip').forEach(function(btn){
     btn.addEventListener('click', function(){
-      window._tbActiveFilter = btn.getAttribute('data-key');
+      var key = btn.getAttribute('data-key');
+      // fix (2026-06-02) — '전체교재'는 토글: 펼쳐진 상태에서 다시 누르면 모두 닫힘, 다시 누르면 펼침
+      if (key === '전체교재') {
+        if (window._tbActiveFilter === '전체교재' && !window._tbCollapsed) {
+          window._tbCollapsed = true;     // 펼쳐져 있으면 → 접기
+        } else {
+          window._tbActiveFilter = '전체교재';
+          window._tbCollapsed = false;    // 접혀 있거나 다른 필터였으면 → 펼치기
+        }
+      } else {
+        window._tbActiveFilter = key;
+        window._tbCollapsed = false;       // 다른 칩은 항상 펼침
+      }
       _tbRenderChips(window._tbItems || []);   // active 표시 갱신
       _tbRenderRows(window._tbActiveFilter);
     });
@@ -15885,6 +15897,11 @@ function _tbRenderChips(items) {
 function _tbRenderRows(key) {
   var tb = document.getElementById('textbooks-table');
   if (!tb) return;
+  // fix (2026-06-02) — '전체교재' 접힘 상태면 목록 숨김 (전체교재 다시 누르면 펼쳐짐)
+  if (window._tbCollapsed) {
+    tb.innerHTML = '<tr><td colspan="6" class="empty" style="cursor:pointer;color:#93c5fd" onclick="(function(){window._tbCollapsed=false;_tbRenderChips(window._tbItems||[]);_tbRenderRows(window._tbActiveFilter);})()">📁 목록이 접혀 있습니다 — \'전체교재\'를 다시 누르거나 여기를 클릭하면 펼쳐집니다</td></tr>';
+    return;
+  }
   var items = (window._tbItems || []).filter(function(t){ return _tbItemMatches(t, key); });
   function srcChip(src) {
     if (src === 'idb') return '<span style="display:inline-block;padding:2px 7px;background:rgba(16,185,129,0.22);color:#86efac;border-radius:99px;font-size:10.5px;font-weight:800;margin-left:6px" title="브라우저 IndexedDB — 폴더 업로더로 저장됨">💾 내 PC</span>';
@@ -19502,7 +19519,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260602025029 -->
+        <!-- BUILD:20260602025634 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -32961,7 +32978,8 @@ button.chip:hover,
      ============================================================ -->
 <style id="ph133-precheck-fab">
   #precheck-fab-admin {
-    position: fixed; right: 16px; bottom: 16px;
+    /* fix (2026-06-02) — 카톡상담(#kakao-chat-fab, bottom:20px) 위로 올려 겹침 방지 */
+    position: fixed; right: 16px; bottom: 80px;
     z-index: 99990;
     background: linear-gradient(135deg, #f59e0b, #d97706);
     color: #fff; border: 0; border-radius: 999px;
@@ -32975,7 +32993,7 @@ button.chip:hover,
   #precheck-fab-admin:hover { transform: translateY(-2px); box-shadow: 0 16px 32px -8px rgba(245,158,11,0.7); }
   #precheck-fab-admin .ic { font-size: 17px; }
   @media (max-width: 600px) {
-    #precheck-fab-admin { padding: 11px 14px 11px 12px; font-size: 12.5px; bottom: 12px; right: 12px; }
+    #precheck-fab-admin { padding: 11px 14px 11px 12px; font-size: 12.5px; bottom: 74px; right: 12px; }
   }
 </style>
 <button type="button" id="precheck-fab-admin" onclick="window.open('/precheck.html','_blank')"
