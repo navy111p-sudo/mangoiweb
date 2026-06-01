@@ -23089,11 +23089,16 @@ window.closeRulesModal = function() {
     opacity: 1;
     transform: translateX(0);
   }
+  /* fix (2026-06-02) — 수업 중 상담 버튼 '절반 크기'로 축소 (44→24px). 하단 3버튼 겹침 정리 */
   body.vc-in-call .ph49-kakao-fab {
-    width: 44px; height: 44px; font-size: 18px;
-    bottom: 8px; right: 8px;
-    opacity: 0.85;
+    width: 24px !important; height: 24px !important; font-size: 12px !important;
+    bottom: 8px !important; right: 8px !important;
+    gap: 0 !important;
+    opacity: 0.9;
   }
+  body.vc-in-call .ph49-kakao-fab .ph49-kakao-ico { font-size: 12px !important; }
+  /* 너무 작아 '상담' 글자는 숨기고 카톡 아이콘만 (탭 영역은 유지) */
+  body.vc-in-call .ph49-kakao-fab .ph49-kakao-intext { display: none !important; }
   body.vc-in-call .ph49-kakao-fab:hover { opacity: 1; }
 
   @media (max-width: 900px) {
@@ -23332,16 +23337,19 @@ window.closeRulesModal = function() {
       bottom: 52px;
     }
   }
-  /* 수업 중에는 더 작고 더 투명하게 */
+  /* fix (2026-06-02) — 수업 중 새로고침(↻)은 최대한 작게 + 배경 투명 (글리프만 보이게) */
   body.vc-in-call .ph52-cache-fab {
-    width: 28px !important;
-    height: 28px !important;
-    font-size: 12px !important;
-    bottom: 44px !important;
-    right: 6px !important;
-    opacity: 0.7;
+    width: 20px !important;
+    height: 20px !important;
+    font-size: 15px !important;
+    bottom: 38px !important;
+    right: 8px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #94a3b8 !important;
+    opacity: 0.65;
   }
-  body.vc-in-call .ph52-cache-fab:hover { opacity: 1; }
+  body.vc-in-call .ph52-cache-fab:hover { opacity: 1; color: #cbd5e1 !important; }
 </style>
 
 <button type="button" class="ph52-cache-fab" id="ph52-cache-fab"
@@ -24389,7 +24397,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260602022319 -->
+<!-- BUILD:20260602023441 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25476,7 +25484,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      · mango-i18n.js (다국어)
      ============================================================ -->
 <script src="/js/mango.js?v=33" defer></script>
-<script src="/js/mango-rec.js?v=33" defer></script>
+<script src="/js/mango-rec.js?v=34" defer></script>
 <script src="/js/mango-attendance.js?v=33" defer></script>
 <script src="/js/mango-gaze.js?v=33" defer></script>
 <script src="/js/mango-i18n.js?v=33" defer></script>
