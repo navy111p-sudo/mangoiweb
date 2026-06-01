@@ -1553,7 +1553,31 @@
             min-height: 0;
             gap: 8px;
             align-items: stretch;
+            position: relative;   /* fix (2026-06-02) — 다음/이전 화살표 기준 */
         }
+        /* 교재 다음/이전 큰 화살표 — 기본 숨김(PC는 툴바 버튼 사용), 휴대폰에서 표시 */
+        .pdf-nav-arrow {
+            display: none;
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 44px; height: 64px;
+            border: none;
+            background: rgba(15,23,42,0.45);
+            color: #fff;
+            font-size: 34px;
+            font-weight: 900;
+            line-height: 1;
+            border-radius: 12px;
+            cursor: pointer;
+            z-index: 50;
+            align-items: center;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .pdf-nav-arrow:active { background: rgba(37,99,235,0.7); }
+        .pdf-nav-prev { left: 4px; }
+        .pdf-nav-next { right: 4px; }
         .pdf-scroll-wrap {
             flex: 1;
             min-width: 0;
@@ -2615,6 +2639,55 @@
             }
             body.vc-in-call .wb-toolbar button,
             body.vc-in-call .pdf-anno-bar button { flex: 0 0 auto !important; }
+
+            /* 7) 교재 다음/이전 큰 화살표 표시 (휴대폰) */
+            body.vc-in-call #tab-pdf .pdf-nav-arrow { display: flex !important; }
+        }
+
+        /* ════════════════════════════════════════════════════════════════
+           fix (2026-06-02) — PC 데스크탑: 영상(1번)을 맨 위, 칠판/교재(2번)를 아래로
+           세로 배치 + 보드(칠판/교재)를 최대한 크게. 영상 크기 버튼은 '위 칸 높이' 조절.
+           ════════════════════════════════════════════════════════════════ */
+        @media (min-width: 1025px) {
+            body.vc-in-call .vc-main-row { flex-direction: column !important; height: 100% !important; }
+            body.vc-in-call .video-pane {
+                width: 100% !important;
+                max-width: none !important;
+                min-width: 0 !important;
+                height: 24vh !important;
+                min-height: 0 !important;
+                border-right: none !important;
+                border-bottom: 1px solid rgba(148,163,184,0.25) !important;
+                flex-shrink: 0 !important;
+            }
+            body.vc-in-call .content-pane {
+                width: 100% !important;
+                flex: 1 1 auto !important;
+                min-height: 0 !important;
+            }
+            /* 영상은 위 칸에 가로로 나열 */
+            body.vc-in-call #vc-video-grid {
+                display: grid !important;
+                grid-auto-flow: column !important;
+                grid-auto-columns: minmax(0, 1fr) !important;
+                grid-template-columns: none !important;
+                grid-template-rows: 1fr !important;
+                gap: 8px !important;
+                height: 100% !important;
+                overflow: hidden !important;
+            }
+            body.vc-in-call #vc-video-grid .video-box {
+                aspect-ratio: auto !important;
+                width: 100% !important;
+                height: 100% !important;
+            }
+            /* '전체' 모드: 영상 꽉 채우고 콘텐츠 숨김 */
+            body.vc-in-call .vc-main-row.video-full .video-pane { height: 100% !important; }
+            body.vc-in-call .vc-main-row.video-full .content-pane { display: none !important; }
+            /* 영상 크기 버튼으로 '위 영상칸 높이' 조절 */
+            body.vc-in-call .vc-main-row.video-quarter .video-pane { height: 16vh !important; }
+            body.vc-in-call .vc-main-row.video-half .video-pane { height: 24vh !important; }
+            body.vc-in-call .vc-main-row.video-threequarter .video-pane { height: 38vh !important; }
         }
 
         /* ── 세로(portrait) 모바일: 가로 모드 전환 안내 오버레이 ── */
@@ -6225,6 +6298,9 @@
                             </div>
                         </div>
                     </div>
+                    <!-- fix (2026-06-02) — 휴대폰에서 교재 다음/이전을 확실히 넘기는 큰 화살표 -->
+                    <button type="button" class="pdf-nav-arrow pdf-nav-prev" onclick="pdfPrevPage()" aria-label="이전 교재/페이지">‹</button>
+                    <button type="button" class="pdf-nav-arrow pdf-nav-next" onclick="pdfNextPage()" aria-label="다음 교재/페이지">›</button>
                 </div>
             </div>
         </div>
@@ -24540,7 +24616,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260602040621 -->
+<!-- BUILD:20260602042817 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
