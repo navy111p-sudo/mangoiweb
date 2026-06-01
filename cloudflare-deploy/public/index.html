@@ -8056,10 +8056,27 @@ function vcHandleMessage(msg) {
                 // 각 사용자에 대해 약간의 지연을 주어 동시 offer 폭주 방지
                 setTimeout(() => vcCreatePeerAndOffer(user.userId, user.username), idx * 300);
             });
-            // PDF/이미지 공유 동기화
-            if (msg.data.pdfState) {
-                const epdfId = msg.data.pdfState.pdfId || (msg.data.pdfState.url ? msg.data.pdfState.url.replace('/api/video-call/pdf/', '') : null);
-                if (epdfId) pdfLoadRemote(epdfId, msg.data.pdfState.currentPage, msg.data.pdfState.kind);
+            // PDF/이미지 공유 동기화 (늦게 입장한 학생도 현재 교재가 보이게)
+            // fix (2026-06-01) — 서버/절대 URL 은 직접 로드 (예전 pdfLoadRemote 는 라이브러리 교재 흰화면 원인)
+            if (msg.data.pdfState && msg.data.pdfState.url) {
+                var jUrl = msg.data.pdfState.url;
+                var jKind = msg.data.pdfState.kind || '';
+                if (!jKind) {
+                    if (/textbook-files|\.(jpe?g|png|webp|gif|bmp)(\?|$)/i.test(jUrl)) jKind = 'image';
+                    else if (/\.pdf(\?|$)/i.test(jUrl)) jKind = 'pdf';
+                }
+                if (/^blob:/i.test(jUrl)) { /* 로컬 blob 은 다른 기기에서 못 엶 — 무시 */ }
+                else if (/^https?:\/\//i.test(jUrl) || jUrl.charAt(0) === '/') {
+                    pdfCurrentId = jUrl;
+                    vcSwitchTab('pdf');
+                    Promise.resolve(pdfLoad(jUrl, jKind || undefined)).then(function(){ pdfPageNum = msg.data.pdfState.currentPage || 1; pdfRender(); }).catch(function(e){
+                        var alt = (jKind === 'image') ? 'pdf' : 'image';
+                        Promise.resolve(pdfLoad(jUrl, alt)).then(function(){ pdfPageNum = msg.data.pdfState.currentPage || 1; pdfRender(); }).catch(function(){});
+                    });
+                } else {
+                    var epdfId = msg.data.pdfState.pdfId || jUrl.replace('/api/video-call/pdf/', '');
+                    if (epdfId) pdfLoadRemote(epdfId, msg.data.pdfState.currentPage, jKind);
+                }
             }
             break;
 
@@ -24301,7 +24318,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260601231859 -->
+<!-- BUILD:20260601233016 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
