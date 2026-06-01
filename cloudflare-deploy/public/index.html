@@ -4170,7 +4170,7 @@
         <button class="ai-quick-btn" data-go="speech" data-ko="🎤 단계별 발음" data-en="🎤 Curriculum Pronunciation">🎤 단계별 발음</button>
         <button class="ai-quick-btn" data-go="lesson-change" data-ko="📅 연기/변경" data-en="📅 Postpone/Change">📅 연기/변경</button>
         <button class="ai-quick-btn" data-go="inquiry" data-ko="💬 신규상담" data-en="💬 New Inquiry">💬 신규상담</button>
-        <button class="ai-quick-btn" data-go="all-menu" data-ko="🏠 전체메뉴" data-en="🏠 All Menu" onclick="if(window.toggleAllMenu){window.toggleAllMenu();return false;}">🏠 전체메뉴</button>
+        <button class="ai-quick-btn" data-go="all-menu" data-ko="🏠 전체메뉴" data-en="🏠 All Menu" onclick="event.preventDefault();if(window.openAllMenuOverlay)window.openAllMenuOverlay();return false;">🏠 전체메뉴</button>
         <!-- ph170 (2026-05-29) — 수업 진단 카드 (FAB 대체) -->
         <button class="ai-quick-btn" data-go="precheck" data-ko="🎥 수업 진단" data-en="🎥 PreCheck" onclick="event.preventDefault();location.href='/precheck.html';return false;">🎥 수업 진단</button>
         <!-- ph178 (2026-05-29) — 수업 신청 카드 (시간·교사 선택 → 결제) -->
@@ -11053,7 +11053,7 @@ window.addEventListener('DOMContentLoaded', () => {
     { kws: ['결제', '결제하기', '수강료', '결제 신청', 'payment', '결제 신청서', '결제폼'], action: () => window.gridActions && window.gridActions.payment(), label: '💳 결제하기' },
     { kws: ['공지', '공지사항', '알림', '소식', '뉴스', 'notice', '공지글'], action: () => window.gridActions && window.gridActions.notice(), label: '📢 공지사항' },
     { kws: ['평가표', '평가', '일별평가서', '일별 평가', 'report', '리포트', '수업 평가', '리뷰표'], action: () => window.gridActions && window.gridActions.report(), label: '📋 평가표' },
-    { kws: ['전체 메뉴', '전체메뉴', '메뉴', '모든 메뉴', '히트맵', '바로가기'], action: () => { const gm = document.getElementById('grid-menu'); if (gm) gm.style.display = 'block'; }, label: '🥭 전체 메뉴' },
+    { kws: ['전체 메뉴', '전체메뉴', '메뉴', '모든 메뉴', '히트맵', '바로가기'], action: () => { if (window.openAllMenuOverlay) window.openAllMenuOverlay(); }, label: '🥭 전체 메뉴' },
     // 메인
   ];
 
@@ -24112,7 +24112,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260601173314 -->
+<!-- BUILD:20260601174420 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -24684,6 +24684,7 @@ document.addEventListener('keydown', function(e){
 <script>
 (function(){
   function buildPanel(){
+    return; // fix (2026-06-01 v3) — 레거시 v19-panel 비활성. 전체메뉴는 openAllMenuOverlay 사용.
     if (document.getElementById('v19-panel')) return;
     var MENUS = [
       {emoji:'🛠', name:'관리자 페이지', url:'/admin.html'},
@@ -24778,13 +24779,16 @@ document.addEventListener('keydown', function(e){
     {emoji:'👻', name:'Ghost View', url:'/admin/ghost-view.html'},
     {emoji:'🔐', name:'관리자 로그인', url:'/admin/login'}
   ];
+  function _allmenuEsc(ev){ if (ev.key === 'Escape' || ev.keyCode === 27) closeAllMenuOverlay(); }
   function closeAllMenuOverlay(){
     var ov = document.getElementById('mangoi-allmenu');
-    if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+    if (ov && ov.parentNode) ov.parentNode.removeChild(ov);   // 여러 번 호출돼도 안전(idempotent)
     document.body.style.overflow = '';
+    document.removeEventListener('keydown', _allmenuEsc);
   }
   function openAllMenuOverlay(){
-    if (document.getElementById('mangoi-allmenu')) { closeAllMenuOverlay(); return; }
+    // 이미 열려 있으면 다시 열지 않음 — 중복 트리거(터치+클릭)에도 닫히지 않고 그대로 유지
+    if (document.getElementById('mangoi-allmenu')) return;
     var ov = document.createElement('div');
     ov.id = 'mangoi-allmenu';
     ov.setAttribute('style', 'position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;z-index:2147483600;background:linear-gradient(135deg,#0F172A,#1E293B);overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 64px;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;');
@@ -24801,9 +24805,12 @@ document.addEventListener('keydown', function(e){
     ov.innerHTML = h;
     document.body.appendChild(ov);
     document.body.style.overflow = 'hidden';
+    function _closeFromEvent(ev){ ev.preventDefault(); ev.stopPropagation(); closeAllMenuOverlay(); }
     var x = document.getElementById('mangoi-allmenu-x');
-    if (x) x.onclick = function(ev){ ev.preventDefault(); ev.stopPropagation(); closeAllMenuOverlay(); };
+    if (x) { x.addEventListener('click', _closeFromEvent); x.addEventListener('touchend', _closeFromEvent); }
     ov.addEventListener('click', function(ev){ if (ev.target === ov) closeAllMenuOverlay(); });
+    ov.addEventListener('touchend', function(ev){ if (ev.target === ov) { ev.preventDefault(); closeAllMenuOverlay(); } });
+    document.addEventListener('keydown', _allmenuEsc);
     console.log('[allmenu] 열림(overlay v3) — ' + ALLMENU_ITEMS.length + '개');
   }
   window.openAllMenuOverlay = openAllMenuOverlay;
@@ -24813,6 +24820,7 @@ document.addEventListener('keydown', function(e){
   //   토글이 열림→닫힘으로 즉시 닫히던 문제: 600ms 디바운스로 1회만 동작.
   var _allmenuLastTrigger = 0;
   function allmenuTrigger(e){
+    if (!e || !e.target || typeof e.target.closest !== 'function') return;
     var btn = e.target.closest('[data-go="all-menu"], button[data-ko*="전체메뉴"]');
     if (!btn) {
       var clicked = e.target.closest('button.ai-quick-btn');
@@ -24832,6 +24840,7 @@ document.addEventListener('keydown', function(e){
 
   // === v19 패널 없으면 즉시 만들기 ===
   function buildPanelV22(){
+    return; // fix (2026-06-01 v3) — 레거시 v19-panel 비활성. 전체메뉴는 openAllMenuOverlay 사용.
     if (document.getElementById('v19-panel')) return;
     var MENUS = [
       {emoji:'🛠', name:'관리자 페이지', url:'/admin.html'},
@@ -25462,14 +25471,9 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     'kakao':            { fn: function(){ var b = document.getElementById('kakaoChannelBtn') || document.querySelector('.kakao-chat-btn'); if (b) b.click(); else location.href = '/contact.html'; } },
     'enter-class':      { fn: function(){ if (typeof showView === 'function') showView('view-videocall-lobby'); else location.hash = '#videocall-lobby'; } },
     'payment':          { fn: function(){ if (window.gridActions && window.gridActions.payment) window.gridActions.payment(); else { var m = document.getElementById('payment-modal'); if (m) { m.style.display = 'flex'; } } } },
-    'homepage':         { fn: function(){ var gm = document.getElementById('grid-menu'); if (gm) gm.style.display = 'block'; } },
-    'all-menu':         { fn: function(){
-                              var p = document.getElementById('v19-panel');
-                              if (p) {
-                                p.style.display = (p.style.display === 'none' || !p.style.display) ? 'block' : 'none';
-                                if (p.style.display === 'block') setTimeout(function(){ p.scrollIntoView({behavior:'smooth', block:'start'}); }, 100);
-                              }
-                            } },
+    'homepage':         { fn: function(){ if (window.openAllMenuOverlay) window.openAllMenuOverlay(); } },
+    // fix (2026-06-01 v3) — 죽은 v19-panel 토글 제거. 새 오버레이(openAllMenuOverlay)만 호출(멱등).
+    'all-menu':         { fn: function(){ if (window.openAllMenuOverlay) window.openAllMenuOverlay(); } },
   };
 
   function dispatchRoute(go) {
