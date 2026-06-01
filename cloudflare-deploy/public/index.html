@@ -19929,14 +19929,25 @@ window.closeRulesModal = function() {
       }
       if (window.vcConn && typeof window.vcConn.send === 'function') {
         try {
-          // fix (2026-06-01) — 상대 기기에서 열리도록 절대 URL 로 변환해서 공유.
-          //   blob: 은 로컬 전용이라 공유해도 상대가 못 엶(서버 교재를 써야 함).
+          // fix (2026-06-01 v2) — 학생도 교재가 보이게:
+          //   blob(로컬 IDB) 교재는 상대가 못 엶 → 즉석에서 서버(R2)에 업로드해 '서버 URL' 로 공유.
+          //   서버/상대경로 URL 은 절대경로로 변환. (둘 다 cross-device 동작)
           var shareUrl = url;
-          if (shareUrl && shareUrl.charAt(0) === '/') { try { shareUrl = location.origin + shareUrl; } catch(_){} }
           if (/^blob:/i.test(shareUrl)) {
-            console.warn('[ph247] blob 교재는 공유 불가(로컬 전용):', shareUrl);
-            if (typeof window.showToast === 'function') { try { window.showToast('⚠️ 이 교재는 이 PC에만 저장돼 학생 화면엔 안 보입니다. 관리자 페이지에서 서버로 업로드 후 사용하세요.'); } catch(_){} }
+            try {
+              if (typeof window.showToast === 'function') window.showToast('📤 교재를 서버에 올리는 중… (학생에게 공유)');
+              var blob = await (await fetch(url)).blob();
+              var ext = (kind === 'pdf') ? 'pdf' : ((blob.type && blob.type.indexOf('png') >= 0) ? 'png' : 'jpg');
+              var fd = new FormData();
+              fd.append('file', blob, (name || 'textbook').replace(/[^\w가-힣.-]+/g, '_') + '.' + ext);
+              fd.append('name', name || 'textbook');
+              var up = await fetch('/api/admin/textbook-files', { method: 'POST', body: fd, credentials: 'include' });
+              var uj = await up.json().catch(function(){ return {}; });
+              if (up.ok && uj && uj.url) { shareUrl = uj.url; console.log('[ph247] blob→서버 업로드 OK:', shareUrl); }
+              else { console.warn('[ph247] blob→서버 업로드 실패(' + up.status + ') — 관리자 로그인 필요할 수 있음'); if (typeof window.showToast === 'function') window.showToast('⚠️ 교재 서버 업로드 실패 — 학생에게 안 보일 수 있어요(관리자 로그인 필요).'); }
+            } catch(e) { console.warn('[ph247] blob 업로드 예외', e); }
           }
+          if (shareUrl && shareUrl.charAt(0) === '/') { try { shareUrl = location.origin + shareUrl; } catch(_){} }
           window.vcConn.send({type:'pdf-share', data:{pdfId:'lib_'+id, url:shareUrl, currentPage:1, kind:kind, source:'library', name:name}});
         } catch(e) { console.warn('[ph247] vcConn.send fail', e); }
       }
@@ -24261,7 +24272,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260601220937 -->
+<!-- BUILD:20260601222556 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
