@@ -7790,6 +7790,7 @@ async function vcJoinRoom(skipUI) {
         },
         () => setStatusDot('vc-status-dot', 'disconnected')
     );
+    window.vcConn = vcConn;   // fix (2026-06-01) — 라이브러리 교재 공유(selectFromTextbookLibrary)가 window.vcConn 을 쓰므로 노출
     setStatusDot('vc-status-dot', 'connecting');
 
     // 🛡 최후의 안전망 — 입장 3초 후에도 비디오 트랙이 없거나 video.videoWidth=0 이면
@@ -8036,6 +8037,7 @@ async function vcJoinAsObserver(roomId) {
         },
         () => setStatusDot('vc-status-dot', 'disconnected')
     );
+    window.vcConn = vcConn;   // fix (2026-06-01) — window.vcConn 노출
     setStatusDot('vc-status-dot', 'connecting');
 }
 
@@ -8692,6 +8694,7 @@ async function vcLeaveRoom() {
     // Wake Lock 해제
     if (wakeLock) { wakeLock.release(); wakeLock = null; console.log('[wakeLock] 해제됨'); }
     vcConn = null;
+    window.vcConn = null;
     // ── fix v28 (2026-05-27) — ✕ 버튼 → 홈 강제 이동 안전망 ──
     try {
         const cm = document.getElementById('vc-chat-messages');
@@ -24298,7 +24301,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260601230901 -->
+<!-- BUILD:20260601231500 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
