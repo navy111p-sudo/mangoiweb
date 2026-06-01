@@ -19937,14 +19937,16 @@ window.closeRulesModal = function() {
             try {
               if (typeof window.showToast === 'function') window.showToast('📤 교재를 서버에 올리는 중… (학생에게 공유)');
               var blob = await (await fetch(url)).blob();
-              var ext = (kind === 'pdf') ? 'pdf' : ((blob.type && blob.type.indexOf('png') >= 0) ? 'png' : 'jpg');
+              var ext = (kind === 'pdf' || (blob.type && blob.type.indexOf('pdf') >= 0)) ? 'pdf'
+                        : ((blob.type && blob.type.indexOf('png') >= 0) ? 'png' : 'jpg');
+              var fname = (name || 'textbook').replace(/[^\w가-힣.-]+/g, '_') + '.' + ext;
+              // 공개 엔드포인트(/api/video-call/upload-pdf) — 교사 로그인 불필요, PDF·이미지 모두 허용
               var fd = new FormData();
-              fd.append('file', blob, (name || 'textbook').replace(/[^\w가-힣.-]+/g, '_') + '.' + ext);
-              fd.append('name', name || 'textbook');
-              var up = await fetch('/api/admin/textbook-files', { method: 'POST', body: fd, credentials: 'include' });
+              fd.append('pdf', blob, fname);
+              var up = await fetch('/api/video-call/upload-pdf', { method: 'POST', body: fd });
               var uj = await up.json().catch(function(){ return {}; });
-              if (up.ok && uj && uj.url) { shareUrl = uj.url; console.log('[ph247] blob→서버 업로드 OK:', shareUrl); }
-              else { console.warn('[ph247] blob→서버 업로드 실패(' + up.status + ') — 관리자 로그인 필요할 수 있음'); if (typeof window.showToast === 'function') window.showToast('⚠️ 교재 서버 업로드 실패 — 학생에게 안 보일 수 있어요(관리자 로그인 필요).'); }
+              if (up.ok && uj && uj.url) { shareUrl = uj.url; console.log('[ph247] blob→서버(공개) 업로드 OK:', shareUrl); }
+              else { console.warn('[ph247] blob→서버 업로드 실패(' + up.status + ')', uj); if (typeof window.showToast === 'function') window.showToast('⚠️ 교재 서버 업로드 실패 — 학생에게 안 보일 수 있어요.'); }
             } catch(e) { console.warn('[ph247] blob 업로드 예외', e); }
           }
           if (shareUrl && shareUrl.charAt(0) === '/') { try { shareUrl = location.origin + shareUrl; } catch(_){} }
@@ -24272,7 +24274,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260601222556 -->
+<!-- BUILD:20260601223437 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">

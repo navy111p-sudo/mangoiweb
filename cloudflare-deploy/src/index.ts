@@ -1050,8 +1050,18 @@ async function handlePdfUpload(request: Request, env: Env): Promise<Response> {
       buffer = await request.arrayBuffer();
     }
 
-    if (mimeType !== 'application/pdf') {
-      return new Response(JSON.stringify({ error: 'Only PDF files are allowed' }), {
+    // fix (2026-06-01) — PDF 뿐 아니라 이미지(JPG/PNG/WEBP)도 허용 (수업 중 교재 즉석 공유용)
+    const _allowedUpload = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (mimeType && mimeType.indexOf('image/') !== 0 && mimeType !== 'application/pdf') {
+      // mimeType 이 비거나 octet-stream 이면 파일명 확장자로 보정
+      const ln = (originalName || '').toLowerCase();
+      if (/\.(jpe?g)$/.test(ln)) mimeType = 'image/jpeg';
+      else if (/\.png$/.test(ln)) mimeType = 'image/png';
+      else if (/\.webp$/.test(ln)) mimeType = 'image/webp';
+      else if (/\.pdf$/.test(ln)) mimeType = 'application/pdf';
+    }
+    if (!_allowedUpload.includes(mimeType)) {
+      return new Response(JSON.stringify({ error: 'Only PDF or image (JPG/PNG/WEBP) files are allowed' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -1074,7 +1084,7 @@ async function handlePdfUpload(request: Request, env: Env): Promise<Response> {
     const r2 = (env as any).RECORDINGS as R2Bucket | undefined;
     if (r2) {
       await r2.put(`pdfs/${fileKey}`, buffer, {
-        httpMetadata: { contentType: 'application/pdf' },
+        httpMetadata: { contentType: mimeType || 'application/pdf' },   // fix (2026-06-01) 실제 형식 저장
         customMetadata: { originalName, uploadedAt: new Date().toISOString(), size: String(size) }
       });
     } else {
@@ -1153,13 +1163,21 @@ async function handlePdfDownload(path: string, env: Env): Promise<Response> {
     const r2 = (env as any).RECORDINGS as R2Bucket | undefined;
     let bodyStream: ReadableStream<Uint8Array> | null = null;
     let pdfBuffer: ArrayBuffer | null = null;
+    let ctype = 'application/pdf';   // fix (2026-06-01) 저장된 실제 형식으로 서빙 (이미지 교재 지원)
     if (r2) {
       const obj = await r2.get(`pdfs/${fileKey}`);
-      if (obj) bodyStream = obj.body;
+      if (obj) { bodyStream = obj.body; if (obj.httpMetadata && obj.httpMetadata.contentType) ctype = obj.httpMetadata.contentType; }
     }
     if (!bodyStream) {
       const kv = await env.PDF_STORE.get(fileKey, { type: 'arrayBuffer' });
       if (kv) pdfBuffer = kv;
+    }
+    // 확장자로도 형식 보정 (KV fallback 등)
+    if (ctype === 'application/pdf') {
+      const lk = fileKey.toLowerCase();
+      if (/\.(jpe?g)/.test(lk)) ctype = 'image/jpeg';
+      else if (/\.png/.test(lk)) ctype = 'image/png';
+      else if (/\.webp/.test(lk)) ctype = 'image/webp';
     }
 
     if (!bodyStream && !pdfBuffer) {
@@ -1172,7 +1190,7 @@ async function handlePdfDownload(path: string, env: Env): Promise<Response> {
     return new Response(bodyStream || pdfBuffer, {
       status: 200,
       headers: {
-        'Content-Type': 'application/pdf',
+        'Content-Type': ctype,
         'Access-Control-Allow-Origin': '*',
         'Cache-Control': 'public, max-age=3600'
       }
