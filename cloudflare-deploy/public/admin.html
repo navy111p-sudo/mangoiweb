@@ -1843,17 +1843,7 @@
 </head>
 <body>
 
-<!-- fix (2026-06-01) — 🎥 수업 입장 배너 (모든 화면폭·모든 역할에서 항상 표시. 사이드바/RBAC 영향 없음) -->
-<div id="teacher-class-banner"
-     onclick="(window.openLiveClass?window.openLiveClass():(location.href='/?vc_autojoin=1&vc_room=mangoi-class&vc_name='+encodeURIComponent('교사')));return false;"
-     style="position:sticky;top:0;z-index:100000;display:flex;align-items:center;gap:10px;padding:11px 16px;
-            background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;cursor:pointer;
-            box-shadow:0 4px 14px rgba(0,0,0,0.35);font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif">
-  <span style="font-size:20px">🎥</span>
-  <span style="font-weight:800;font-size:15px">수업 입장</span>
-  <span style="font-size:10px;font-weight:900;letter-spacing:0.6px;background:#ef4444;padding:3px 9px;border-radius:99px">LIVE ▶</span>
-  <span style="margin-left:auto;font-size:11.5px;opacity:0.92">교사 화상수업 · 교재 업로드/다운로드</span>
-</div>
+<!-- (2026-06-01) 관리자 페이지 수업입장 배너 제거 — 교사 마이페이지에서만 입장 -->
 
 <!-- 🎚 hover 트리거 띠 — 헤더가 숨겨졌을 때 마우스를 여기에 올리면 다시 표시 -->
 <div id="th-hover-trigger" aria-hidden="true"></div>
@@ -1975,15 +1965,6 @@
       <button type="button" onclick="document.getElementById('sidebar-search').value='';filterSidebar('')" title="지우기"
               style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:transparent;border:0;color:#9ca3af;cursor:pointer;font-size:14px;padding:2px 6px;line-height:1">✕</button>
     </div>
-    <!-- fix (2026-06-01) — 🎥 수업입장 카드 (평가서 통합 위, 고정). 렌더 로직과 무관하게 항상 표시 -->
-    <a href="javascript:void(0)" id="teacher-enter-class-card" onclick="(window.openLiveClass?window.openLiveClass():(location.href='/?vc_autojoin=1&vc_room=mangoi-class&vc_name='+encodeURIComponent('교사')));return false;"
-       style="display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:13px 14px;border-radius:12px;
-              background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;text-decoration:none;font-weight:800;font-size:14px;
-              box-shadow:0 6px 16px -6px rgba(37,99,235,0.6);cursor:pointer">
-      <span style="font-size:19px">🎥</span>
-      <span style="flex:1">수업입장</span>
-      <span style="font-size:9.5px;font-weight:900;letter-spacing:0.6px;background:#ef4444;padding:2px 7px;border-radius:99px;animation:liveBlink 1.6s ease-in-out infinite">LIVE</span>
-    </a>
     <div id="admin-sidebar-list"></div>
     <div id="sidebar-search-empty" style="display:none;padding:20px 10px;text-align:center;color:#9ca3af;font-size:12px">검색 결과가 없습니다.</div>
 
@@ -2091,18 +2072,6 @@
       </span>
       <span data-ko="카톡상담" data-en="Kakao Chat" style="white-space:nowrap;letter-spacing:0.3px">카톡상담</span>
     </a>
-
-    <!-- fix (2026-06-01) — 🎥 수업입장 버튼 (평가서 통합 위, 항상 보임) -->
-    <div style="margin:0 0 10px">
-      <button type="button" onclick="(window.openLiveClass?window.openLiveClass():(location.href='/?vc_autojoin=1&vc_room=mangoi-class&vc_name='+encodeURIComponent('교사')));return false;"
-        style="display:flex;align-items:center;gap:10px;width:100%;padding:14px 16px;border-radius:12px;border:0;cursor:pointer;
-               background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-weight:800;font-size:15px;
-               box-shadow:0 8px 20px -8px rgba(37,99,235,0.7)">
-        <span style="font-size:20px">🎥</span>
-        <span style="flex:1;text-align:left">수업 입장</span>
-        <span style="font-size:10px;font-weight:900;letter-spacing:0.6px;background:#ef4444;padding:3px 9px;border-radius:99px">LIVE ▶</span>
-      </button>
-    </div>
 
     <!-- 메뉴 토글 바 — legacy-cards 보이기/숨기기 + 펼치기/접기 -->
     <div class="menu-toggle-bar">
@@ -2226,53 +2195,7 @@
   </div>
 </div>
 
-<!-- fix (2026-06-01) — 🎥 수업 입장 (화상수업 임베드 + 교사 표시 + 교재 업로드/다운로드) -->
-<section id="card-live-class" style="display:none;margin:14px 0;background:#0f1830;border:1px solid #1e3a5f;border-radius:14px;padding:16px;">
-  <!-- 헤더: 제목 + 새로고침/닫기 -->
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-    <div style="display:flex;align-items:center;gap:10px">
-      <span style="font-size:22px">🎥</span>
-      <div style="font-size:16px;font-weight:800;color:#e6ecff" data-ko="수업 입장 — 화상수업" data-en="Join Class — Live">수업 입장 — 화상수업</div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <button type="button" id="live-class-reload" style="padding:7px 12px;border-radius:8px;border:1px solid #334155;background:#1e293b;color:#cbd5e1;font-size:12px;cursor:pointer" data-ko="↻ 새로고침" data-en="↻ Reload">↻ 새로고침</button>
-      <button type="button" id="live-class-close" style="padding:7px 12px;border-radius:8px;border:1px solid #334155;background:#1e293b;color:#cbd5e1;font-size:12px;cursor:pointer" data-ko="✕ 닫기" data-en="✕ Close">✕ 닫기</button>
-    </div>
-  </div>
-
-  <!-- ① 교사 수업 화면 (영상) — 가장 위 -->
-  <div id="live-class-frame-wrap" style="position:relative;width:100%;height:62vh;min-height:440px;border-radius:10px;overflow:hidden;background:#000;border:1px solid #1e293b">
-    <div id="live-class-placeholder" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:13px" data-ko="불러오는 중…" data-en="Loading…">불러오는 중…</div>
-    <iframe id="live-class-frame" title="화상수업" allow="camera; microphone; fullscreen; display-capture; autoplay" style="width:100%;height:100%;border:0;display:block"></iframe>
-  </div>
-
-  <!-- ② 교사 표시 + 이름 — 영상 바로 아래 -->
-  <div id="live-class-teacher-bar" style="display:flex;align-items:center;gap:10px;margin-top:10px;padding:11px 14px;border-radius:10px;background:linear-gradient(135deg,rgba(37,99,235,0.18),rgba(29,78,216,0.08));border:1px solid rgba(59,130,246,0.35)">
-    <span style="font-size:20px">👨‍🏫</span>
-    <span style="font-size:11px;font-weight:800;letter-spacing:0.4px;color:#bfdbfe;background:rgba(37,99,235,0.35);padding:3px 10px;border-radius:99px" data-ko="교사" data-en="TEACHER">교사</span>
-    <span id="live-class-teacher-name" style="font-size:15px;font-weight:800;color:#e6ecff">…</span>
-  </div>
-
-  <!-- ③ 교재 업로드 / 다운로드 — 수업 화면 안에서 -->
-  <div style="margin-top:14px;background:#111c34;border:1px solid #1e3a5f;border-radius:12px;padding:14px">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:18px">📚</span>
-        <span style="font-size:14px;font-weight:800;color:#e6ecff" data-ko="수업 교재" data-en="Class Materials">수업 교재</span>
-      </div>
-      <button type="button" id="lc-mat-pick" style="padding:7px 14px;border-radius:8px;border:0;cursor:pointer;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-size:12.5px;font-weight:700" data-ko="📁 교재 업로드" data-en="📁 Upload">📁 교재 업로드</button>
-    </div>
-    <input type="file" id="lc-mat-input" accept=".pdf,.jpg,.jpeg,.png,.webp" multiple style="display:none" />
-    <div id="lc-mat-dropzone"
-         style="border:1.5px dashed #3b5680;border-radius:10px;padding:16px;text-align:center;color:#93a8cc;font-size:12.5px;cursor:pointer;transition:all .18s;background:rgba(37,99,235,0.05)"
-         data-ko="📁 교재 파일을 끌어다 놓거나 클릭하세요 (PDF · JPG · PNG · WEBP / 최대 80MB)"
-         data-en="📁 Drop files here or click (PDF · JPG · PNG · WEBP / max 80MB)">📁 교재 파일을 끌어다 놓거나 클릭하세요 (PDF · JPG · PNG · WEBP / 최대 80MB)</div>
-    <div id="lc-mat-progress" style="display:none;margin-top:8px;font-size:12px;color:#cbd5e1"></div>
-    <div id="lc-mat-list" style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px"></div>
-  </div>
-
-  <div style="font-size:11.5px;color:#94a3b8;margin-top:10px">💡 <span data-ko="교사 영상이 가장 위에 나오고, 그 아래에 교사 이름이 표시됩니다. 교재는 이 화면에서 바로 업로드·다운로드할 수 있어요. 학생은 같은 방(mangoi-class)으로 입장하면 같은 화면을 봅니다." data-en="The teacher's video shows at the top, the teacher's name right below it. Upload and download materials right here. Students who join the same room (mangoi-class) see the same screen.">교사 영상이 가장 위에 나오고, 그 아래에 교사 이름이 표시됩니다. 교재는 이 화면에서 바로 업로드·다운로드할 수 있어요. 학생은 같은 방(mangoi-class)으로 입장하면 같은 화면을 봅니다.</span></div>
-</section>
+<!-- (2026-06-01) 관리자 페이지의 임베드 수업입장 섹션(수업 교재 그리드 포함) 제거 — 교사 마이페이지에서 입장 -->
 
 <style>
   /* 사이드바 수업입장 카드 */
@@ -19579,7 +19502,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260601215620 -->
+        <!-- BUILD:20260601220937 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -24149,14 +24072,6 @@ button.chip:hover,
     <span class="ph85-brand-text">망고아이 관리</span>
   </div>
   <input class="ph85-search" id="ph85-search" type="search" placeholder="🔍 메뉴 검색...">
-
-  <!-- fix (2026-06-01) — 🎥 수업입장 (평가서 통합 위, 항상 표시) -->
-  <a href="javascript:void(0)" id="ph85-classroom-card" class="ph85-classroom"
-     onclick="event.stopPropagation();(window.openLiveClass?window.openLiveClass():(location.href='/?vc_autojoin=1&vc_room=mangoi-class&vc_name='+encodeURIComponent('교사')));return false;">
-    <div class="ph85-ico" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)">🎥</div>
-    <div class="ph85-title" data-ko="수업입장" data-en="Join Class">수업입장</div>
-    <span class="ph85-live">LIVE</span>
-  </a>
 
   <div class="ph85-group" data-cards="card-eval-mgmt,card-bulk-eval,card-ai-lesson-report,card-ai-eval-draft,card-monthly-report,card-comparison-report">
     <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
