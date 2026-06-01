@@ -285,10 +285,12 @@ export class VideoCallRoom {
   }
 
   private handlePdfShare(userId: string, data: any): void {
-    const { url, currentPage } = data;
+    const { url, currentPage, kind, name } = data;
     if (!url) return;
 
-    this.pdfState = { url, currentPage: currentPage || 1 };
+    // fix (2026-06-01) — kind(이미지/PDF)·name 도 함께 보관·전달.
+    //   서버 교재 URL(/api/textbook-files/:id/raw)은 확장자가 없어, kind 없으면 학생이 PDF로 오인해 흰 화면이 됨.
+    this.pdfState = { url, currentPage: currentPage || 1, kind: kind || '', name: name || '' };
 
     this.broadcast(userId, {
       type: 'pdf-sync',
