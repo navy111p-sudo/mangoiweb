@@ -11231,7 +11231,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           <details>
             <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 교재 등록 (수동 메타데이터)" data-en="＋ Add Textbook (manual metadata)">＋ 교재 등록 (수동 메타데이터)</summary>
             <div class="menu-form">
-              <input id="tb-title"     placeholder="교재명 (필수)" data-ko-placeholder="교재명 (필수)" data-en-placeholder="Title (required)" style="width:200px;" />
+              <input id="tb-title"     list="tb-title-list" placeholder="교재명 (클릭하면 기존 교재 표시)" data-ko-placeholder="교재명 (클릭하면 기존 교재 표시)" data-en-placeholder="Title (click to see existing)" style="width:230px;" />
+              <datalist id="tb-title-list"></datalist>
               <select id="tb-level" style="width:90px;">
                 <option value="">level…</option>
                 <option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option>
@@ -11242,7 +11243,15 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <button id="tb-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Register">+ 등록</button>
             </div>
           </details>
-          <table style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="교재명" data-en="Title">교재명</th><th data-ko="레벨" data-en="Level">레벨</th><th data-ko="단원" data-en="Units">단원</th><th data-ko="출판사" data-en="Publisher">출판사</th><th>ISBN</th></tr></thead>
+          <!-- fix (2026-06-01) — '내 PC(IndexedDB)' 교재를 서버로 올려 모든 기기/휴대폰에서 보이게 -->
+          <div style="margin:12px 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <button id="tb-sync-server-btn" type="button" class="primary" style="padding:8px 16px;font-size:13px;font-weight:800;background:linear-gradient(135deg,#10b981,#059669);border:0;border-radius:10px;color:#fff;cursor:pointer">☁ 이 PC 교재 서버로 업로드</button>
+            <span id="tb-sync-status" style="font-size:12px;color:#94a3b8"></span>
+          </div>
+          <div style="font-size:11.5px;color:#94a3b8;margin-bottom:6px">💡 "💾 내 PC" 표시 교재는 이 브라우저에만 저장된 상태라 휴대폰·다른 기기에선 안 보입니다. 위 버튼으로 서버에 올리면 모든 기기에서 보입니다.</div>
+          <!-- fix (2026-06-01) — 교재명 클릭 필터: 전체교재/Phonics/MES/BTS/SIU/다락원 등. 클릭하면 그 교재만 표에 표시 -->
+          <div id="tb-filter-bar" style="display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 4px;"></div>
+          <table style="margin-top:6px;"><thead><tr><th>ID</th><th data-ko="교재명" data-en="Title">교재명</th><th data-ko="레벨" data-en="Level">레벨</th><th data-ko="단원" data-en="Units">단원</th><th data-ko="출판사" data-en="Publisher">출판사</th><th>ISBN</th></tr></thead>
             <tbody id="textbooks-table"><tr><td colspan="6" class="empty">—</td></tr></tbody></table>
         </div>
       </details>
@@ -15752,18 +15761,81 @@ async function loadTextbooks() {
   console.log('[ph240] 컨텐츠 교재 관리 표 — 서버 ' + srvCount + '개 + IDB ' + idbCount + '개 = 총 ' + items.length + '개');
 
   if (items.length === 0) {
+    var fb0 = document.getElementById('tb-filter-bar'); if (fb0) fb0.innerHTML = '';
     tb.innerHTML = '<tr><td colspan="6" class="empty">📭 교재 없음 — 위 [교재 폴더 업로더] 로 추가하거나 [+ 교재 등록] 으로 수동 등록</td></tr>';
     return;
   }
 
-  // 출처 칩 helper
-  function srcChip(src) {
-    if (src === 'idb') {
-      return '<span style="display:inline-block;padding:2px 7px;background:rgba(16,185,129,0.22);color:#86efac;border-radius:99px;font-size:10.5px;font-weight:800;margin-left:6px" title="브라우저 IndexedDB — 폴더 업로더로 저장됨">💾 내 PC</span>';
-    }
-    return '<span style="display:inline-block;padding:2px 7px;background:rgba(59,130,246,0.22);color:#93c5fd;border-radius:99px;font-size:10.5px;font-weight:800;margin-left:6px" title="서버 D1 — 수동 등록됨">☁ 서버</span>';
-  }
+  // fix (2026-06-01) — 데이터 보관 + 필터칩 렌더 + (현재 선택 유지)
+  window._tbItems = items;
+  _tbRenderChips(items);
+  _tbRenderRows(window._tbActiveFilter || '전체교재');
+}
+window.loadTextbooks = loadTextbooks;
 
+// 교재명(그룹) 클릭 필터 ───────────────────────────────────────────
+window._tbActiveFilter = '전체교재';
+function _tbItemMatches(t, key) {
+  if (!key || key === '전체교재') return true;
+  var hay = ((t.title || '') + ' ' + (t.publisher || '')).toLowerCase();
+  if (key === '다락원') return hay.indexOf('다락원') >= 0 || hay.indexOf('master') >= 0 || hay.indexOf('마스터') >= 0;
+  return hay.indexOf(key.toLowerCase()) >= 0;
+}
+function _tbRenderChips(items) {
+  var bar = document.getElementById('tb-filter-bar');
+  if (!bar) return;
+  // 교재명 입력칸 datalist 채우기 (클릭하면 기존 교재명 목록 표시)
+  var dl = document.getElementById('tb-title-list');
+  if (dl) {
+    var seen = {}, opts = '';
+    (items || []).forEach(function(t){
+      var nm = (t.title || '').trim();
+      if (nm && nm !== '—' && !seen[nm]) { seen[nm] = 1; opts += '<option value="' + _esc(nm) + '"></option>'; }
+    });
+    dl.innerHTML = opts;
+  }
+  // 고정 그룹 + 데이터에 있는 출판사 자동 추가
+  var fixed = ['전체교재', 'Phonics', 'MES', 'BTS', 'SIU', '다락원'];
+  var extra = {};
+  (items || []).forEach(function(t){
+    var pub = (t.publisher || '').trim();
+    if (pub && fixed.indexOf(pub) < 0) {
+      // 고정 키워드에 포함되지 않는 출판사만 별도 칩으로
+      var covered = fixed.some(function(k){ return k !== '전체교재' && _tbItemMatches(t, k); });
+      if (!covered) extra[pub] = true;
+    }
+  });
+  var keys = fixed.concat(Object.keys(extra));
+  bar.innerHTML = keys.map(function(k){
+    var active = (window._tbActiveFilter === k);
+    var n = (k === '전체교재') ? (items || []).length : (items || []).filter(function(t){ return _tbItemMatches(t, k); }).length;
+    return '<button type="button" class="tb-chip" data-key="' + _esc(k) + '" style="' +
+      'padding:6px 12px;border-radius:99px;cursor:pointer;font-size:12.5px;font-weight:700;' +
+      'border:1px solid ' + (active ? '#3b82f6' : 'rgba(148,163,184,0.4)') + ';' +
+      'background:' + (active ? '#3b82f6' : 'rgba(148,163,184,0.12)') + ';' +
+      'color:' + (active ? '#fff' : '#cbd5e1') + ';">' +
+      _esc(k) + ' <span style="opacity:.7;font-weight:500">' + n + '</span></button>';
+  }).join('');
+  bar.querySelectorAll('.tb-chip').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      window._tbActiveFilter = btn.getAttribute('data-key');
+      _tbRenderChips(window._tbItems || []);   // active 표시 갱신
+      _tbRenderRows(window._tbActiveFilter);
+    });
+  });
+}
+function _tbRenderRows(key) {
+  var tb = document.getElementById('textbooks-table');
+  if (!tb) return;
+  var items = (window._tbItems || []).filter(function(t){ return _tbItemMatches(t, key); });
+  function srcChip(src) {
+    if (src === 'idb') return '<span style="display:inline-block;padding:2px 7px;background:rgba(16,185,129,0.22);color:#86efac;border-radius:99px;font-size:10.5px;font-weight:800;margin-left:6px" title="브라우저 IndexedDB — 폴더 업로더로 저장됨">💾 내 PC</span>';
+    return '<span style="display:inline-block;padding:2px 7px;background:rgba(59,130,246,0.22);color:#93c5fd;border-radius:99px;font-size:10.5px;font-weight:800;margin-left:6px" title="서버 — 모든 기기에서 보임">☁ 서버</span>';
+  }
+  if (items.length === 0) {
+    tb.innerHTML = '<tr><td colspan="6" class="empty">📭 "' + _esc(key) + '" 교재 없음</td></tr>';
+    return;
+  }
   tb.innerHTML = items.map(function(t, i) {
     var idCell = t._src === 'idb'
       ? '<span style="color:#86efac;font-size:14px">💾</span> <code style="font-size:10px;opacity:0.7">' + String(t.id || '').slice(0,8) + '</code>'
@@ -15778,7 +15850,77 @@ async function loadTextbooks() {
     '</tr>';
   }).join('');
 }
-window.loadTextbooks = loadTextbooks;
+// fix (2026-06-01) — 이 PC(IndexedDB)의 교재 파일을 서버로 업로드 → 모든 기기/휴대폰에서 보이게
+async function syncLocalTextbooksToServer() {
+  var btn = document.getElementById('tb-sync-server-btn');
+  var status = document.getElementById('tb-sync-status');
+  function setStatus(t){ if (status) status.textContent = t; }
+  if (btn) btn.disabled = true;
+  setStatus('📂 이 PC 교재 읽는 중…');
+  try {
+    // 1) IndexedDB 교재·파일 읽기
+    var data = await new Promise(function(resolve){
+      var req = indexedDB.open('mangoi-textbooks', 3);
+      req.onsuccess = function(){
+        var db = req.result;
+        if (!db.objectStoreNames.contains('textbooks') || !db.objectStoreNames.contains('files')) { db.close(); resolve({textbooks:[], files:{}}); return; }
+        var tx = db.transaction(['textbooks','files'],'readonly');
+        var tbR = tx.objectStore('textbooks').getAll();
+        var flR = tx.objectStore('files').getAll();
+        var tbs=null, fls=null;
+        function chk(){ if (tbs===null||fls===null) return; var fm={}; fls.forEach(function(f){ fm[f.id]=f; }); db.close(); resolve({textbooks:tbs, files:fm}); }
+        tbR.onsuccess=function(){ tbs=tbR.result||[]; chk(); }; tbR.onerror=function(){ tbs=[]; chk(); };
+        flR.onsuccess=function(){ fls=flR.result||[]; chk(); }; flR.onerror=function(){ fls=[]; chk(); };
+      };
+      req.onerror=function(){ resolve({textbooks:[], files:{}}); };
+      setTimeout(function(){ resolve({textbooks:[], files:{}}); }, 8000);
+    });
+    // 2) 서버 기존 파일 이름 (중복 업로드 방지)
+    var existing = {};
+    try {
+      var er = await fetch('/api/admin/textbook-files?limit=1000', { credentials:'include', cache:'no-store' });
+      var ed = await er.json().catch(function(){ return {}; });
+      (ed.items||[]).forEach(function(it){ if (it && it.name) existing[it.name] = 1; });
+    } catch(_){}
+    // 3) 업로드 대상 수집 (pdf/이미지만, 서버에 없는 것만)
+    var jobs = [];
+    (data.textbooks||[]).forEach(function(t){
+      (t.lessons||[]).forEach(function(l){
+        (l.fileIds||[]).forEach(function(fid){
+          var f = data.files[fid];
+          if (!f || !f.blob) return;
+          if (f.kind !== 'pdf' && f.kind !== 'image') return;
+          var name = '[' + (t.textbook || '교재') + '] ' + (l.name || '미분류') + ' / ' + (f.name || fid);
+          if (existing[name]) return;
+          jobs.push({ blob:f.blob, name:name, fname:(f.name || 'file'), level:(t.level || '') });
+        });
+      });
+    });
+    if (jobs.length === 0) { setStatus('✅ 새로 올릴 교재 없음 — 이미 서버에 있거나, 업로드 가능한(PDF·이미지) 파일이 없습니다.'); if (btn) btn.disabled=false; return; }
+    // 4) 순차 업로드
+    var ok=0, fail=0;
+    for (var i=0;i<jobs.length;i++){
+      var j = jobs[i];
+      setStatus('☁ 서버 업로드 중… ' + (i+1) + ' / ' + jobs.length + ' (' + Math.round((i+1)/jobs.length*100) + '%)');
+      try {
+        var fd = new FormData();
+        fd.append('file', j.blob, j.fname);
+        fd.append('name', j.name);
+        if (j.level) fd.append('level', j.level);
+        var rr = await fetch('/api/admin/textbook-files', { method:'POST', body:fd, credentials:'include' });
+        if (rr.ok) ok++; else { fail++; if (rr.status===401) { setStatus('❌ 관리자 로그인이 필요합니다. 로그인 후 다시 시도하세요.'); break; } }
+      } catch(e){ fail++; }
+    }
+    setStatus('✅ 완료: ' + ok + '개 서버 업로드' + (fail ? (' · 실패 ' + fail + '개') : '') + ' — 이제 휴대폰·다른 기기 화상수업 교재에서 보입니다.');
+    if (typeof loadTextbooks === 'function') loadTextbooks();
+  } catch(e) {
+    setStatus('❌ 오류: ' + (e && e.message || e));
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+window.syncLocalTextbooksToServer = syncLocalTextbooksToServer;
+
 async function addTextbook() {
   const e = id => document.getElementById(id);
   const title = (e('tb-title').value||'').trim();
@@ -16874,6 +17016,7 @@ window.bulkCopyContacts = function() {
   if (e('en-status-filter')) e('en-status-filter').addEventListener('change', loadEnrollments);
   if (e('cm-add-btn'))      e('cm-add-btn').addEventListener('click', addCommunityPost);
   if (e('tb-add-btn'))      e('tb-add-btn').addEventListener('click', addTextbook);
+  if (e('tb-sync-server-btn')) e('tb-sync-server-btn').addEventListener('click', syncLocalTextbooksToServer);
 })();
 
 async function seedDemoTeachers() {
@@ -19169,7 +19312,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260601185117 -->
+        <!-- BUILD:20260601191723 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

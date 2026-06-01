@@ -19895,22 +19895,51 @@ window.closeRulesModal = function() {
     });
   }
 
-  // fix (2026-06-01) — 서버(R2/D1) 저장 교재를 모든 기기(휴대폰 포함)에서 보이게:
-  //   관리자가 서버에 올린 교재(/api/textbook-files 공개 목록)를 IndexedDB 교재와 병합.
+  // fix (2026-06-01) — 서버(R2/D1) 저장 교재를 모든 기기(휴대폰 포함)에서 보이게.
+  //   /api/textbook-files 의 name 은 "[교재] 레슨 / 파일" 형식 → 파싱해서 교재·레슨별로 묶음.
+  //   (예전엔 파일 하나하나가 별도 카드로 떠서 정리가 안 됐음 + 사이드바 필터에 안 잡힘)
+  function _srvGuessCategory(book){
+    var b = (book || '').toLowerCase();
+    if (/phonics|파닉스/.test(b)) return 'Phonics';
+    if (/siu/.test(b)) return 'SIU';
+    if (/bts/.test(b)) return 'BTS';
+    if (/mes/.test(b)) return 'MES';
+    if (/다락원|master|마스터/.test(b)) return '다락원';
+    return '서버 교재';
+  }
   function _serverFilesToBooks(items){
-    var books = [], files = {};
+    var groups = {}; // book → { lessons: { lessonName: [fid,...] } }
+    var files = {};
     (items || []).forEach(function(it){
       var fid = 'srv_' + it.id;
-      files[fid] = { id: fid, name: it.name || ('교재 ' + it.id), kind: it.kind || 'pdf', url: it.url, _remote: true };
+      var nm = it.name || ('교재 ' + it.id);
+      var book = '서버 교재', lesson = '미분류', fileName = nm;
+      var m = nm.match(/^\[([^\]]+)\]\s*(.*)$/);
+      if (m) {
+        book = m[1].trim() || '서버 교재';
+        var rest = m[2] || '';
+        var slash = rest.indexOf('/');
+        if (slash >= 0) { lesson = (rest.slice(0, slash).trim() || '미분류'); fileName = rest.slice(slash + 1).trim() || nm; }
+        else { fileName = rest.trim() || nm; }
+      }
+      files[fid] = { id: fid, name: fileName, kind: it.kind || 'pdf', url: it.url, _remote: true };
+      if (!groups[book]) groups[book] = {};
+      if (!groups[book][lesson]) groups[book][lesson] = [];
+      groups[book][lesson].push(fid);
+    });
+    var books = [];
+    Object.keys(groups).forEach(function(book){
+      var lessonsArr = Object.keys(groups[book]).map(function(ln){ return { name: ln, fileIds: groups[book][ln] }; });
+      var total = 0; lessonsArr.forEach(function(l){ total += l.fileIds.length; });
       books.push({
-        id: 'srvbook_' + it.id,
-        publisher: '🌐 서버 교재',
-        textbook: it.name || ('교재 ' + it.id),
-        level: it.level || '',
-        category: '서버 교재',
-        lessons: [{ name: it.name || ('교재 ' + it.id), fileIds: [fid] }],
-        totalFiles: 1,
-        createdAt: it.created_at || 0,
+        id: 'srvbook_' + book.replace(/[^a-zA-Z0-9가-힣]+/g, '_'),
+        publisher: book,
+        textbook: book,
+        level: '',
+        category: _srvGuessCategory(book),
+        lessons: lessonsArr,
+        totalFiles: total,
+        createdAt: 0,
         _remote: true
       });
     });
@@ -24155,7 +24184,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260601185117 -->
+<!-- BUILD:20260601191723 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
