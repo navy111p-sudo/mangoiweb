@@ -554,6 +554,31 @@
       </div>
     </div>
 
+    <!-- fix (2026-06-01) — 🎥 교사 수업 입장 카드 -->
+    <a href="javascript:void(0)" id="teacher-enter-class" onclick="enterClassAsTeacher();return false;"
+       style="display:flex;align-items:center;gap:14px;margin:0 0 18px;padding:18px 20px;border-radius:16px;
+              background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;text-decoration:none;
+              box-shadow:0 10px 24px -8px rgba(37,99,235,0.6);cursor:pointer">
+      <span style="font-size:30px">🎥</span>
+      <span style="flex:1">
+        <span style="display:block;font-size:17px;font-weight:800">수업 입장</span>
+        <span style="display:block;font-size:12.5px;opacity:0.9;margin-top:2px">화상수업 방에 교사로 바로 입장 · 교재 띄우기/업로드</span>
+      </span>
+      <span style="font-size:9.5px;font-weight:900;letter-spacing:0.6px;background:#ef4444;padding:3px 9px;border-radius:99px">LIVE ▶</span>
+    </a>
+    <script>
+      async function enterClassAsTeacher(){
+        var tname = '교사';
+        try {
+          var r = await fetch('/api/admin/me', { credentials:'include' });
+          var j = await r.json().catch(function(){ return null; });
+          if (j && j.ok && j.user) tname = j.user.name || j.user.username || '교사';
+        } catch(_){}
+        var url = '/?vc_autojoin=1&vc_room=' + encodeURIComponent('mangoi-class') + '&vc_name=' + encodeURIComponent('교사 ' + tname);
+        location.href = url;
+      }
+    </script>
+
     <!-- 페이지 메타 -->
     <div class="page-meta">
       <h2>⚙ 계정 설정</h2>
