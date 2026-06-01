@@ -1963,6 +1963,15 @@
       <button type="button" onclick="document.getElementById('sidebar-search').value='';filterSidebar('')" title="지우기"
               style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:transparent;border:0;color:#9ca3af;cursor:pointer;font-size:14px;padding:2px 6px;line-height:1">✕</button>
     </div>
+    <!-- fix (2026-06-01) — 🎥 수업입장 카드 (평가서 통합 위, 고정). 렌더 로직과 무관하게 항상 표시 -->
+    <a href="javascript:void(0)" id="teacher-enter-class-card" onclick="(window.openLiveClass?window.openLiveClass():(location.href='/?vc_autojoin=1&vc_room=mangoi-class&vc_name='+encodeURIComponent('교사')));return false;"
+       style="display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:13px 14px;border-radius:12px;
+              background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;text-decoration:none;font-weight:800;font-size:14px;
+              box-shadow:0 6px 16px -6px rgba(37,99,235,0.6);cursor:pointer">
+      <span style="font-size:19px">🎥</span>
+      <span style="flex:1">수업입장</span>
+      <span style="font-size:9.5px;font-weight:900;letter-spacing:0.6px;background:#ef4444;padding:2px 7px;border-radius:99px;animation:liveBlink 1.6s ease-in-out infinite">LIVE</span>
+    </a>
     <div id="admin-sidebar-list"></div>
     <div id="sidebar-search-empty" style="display:none;padding:20px 10px;text-align:center;color:#9ca3af;font-size:12px">검색 결과가 없습니다.</div>
 
@@ -17689,11 +17698,8 @@ function renderSidebar() {
   });
 
   // 2) HTML 렌더
-  // fix (2026-06-01) — 사이드바 맨 위 '수업입장' 카드 (화상수업 입장)
-  const classroomCard = '<a href="javascript:void(0)" class="sb-classroom-card" onclick="openLiveClass();return false;">'
-    + '<span class="sb-cc-ico">🎥</span><span class="sb-cc-label">' + (useEn ? 'Enter Class' : '수업입장') + '</span>'
-    + '<span class="sb-cc-live">LIVE</span></a>';
-  const html = classroomCard + '<div class="sb-cat-wrap">' + SB_CATEGORIES.map(c => {
+  // (수업입장 카드는 #admin-sidebar-list 위에 고정 HTML 로 넣음 — 렌더와 무관하게 항상 표시)
+  const html = '<div class="sb-cat-wrap">' + SB_CATEGORIES.map(c => {
     const items = groups[c.id];
     const label = useEn ? c.en : c.ko;
     let subHtml = '';
@@ -19428,7 +19434,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260601211624 -->
+        <!-- BUILD:20260601212431 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
