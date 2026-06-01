@@ -24112,7 +24112,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260601172110 -->
+<!-- BUILD:20260601173314 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -24747,62 +24747,88 @@ document.addEventListener('keydown', function(e){
 (function(){
   'use strict';
 
-  // === window 자체에 capture-phase click 글로벌 핸들러 ===
-  window.addEventListener('click', function(e){
-    // 🏠 전체메뉴 버튼 클릭 감지 (data-go="all-menu" 또는 텍스트에 "전체메뉴")
+  // fix (2026-06-01 v3) — 완전 독립형 전체메뉴 오버레이.
+  //   레거시 v19-panel 위치/부모 transform 에 의존하지 않고, 클릭 시 body 직속에
+  //   새 오버레이를 만들어 띄운다 → 휴대폰에서 100% 표시.
+  var ALLMENU_ITEMS = [
+    {emoji:'🛠', name:'관리자 페이지', url:'/admin.html'},
+    {emoji:'👤', name:'마이페이지', url:'/admin/mypage.html'},
+    {emoji:'👨‍🎓', name:'학생 관리', url:'/admin/students.html'},
+    {emoji:'📅', name:'내 주간 스케줄', url:'/admin/weekly-schedule.html?role=student'},
+    {emoji:'📞', name:'고객센터', url:'/contact.html'},
+    {emoji:'📚', name:'커리큘럼', url:'/curriculum.html'},
+    {emoji:'📖', name:'수업 자료', url:'/lessons.html'},
+    {emoji:'📝', name:'평가서', url:'/eval.html'},
+    {emoji:'📊', name:'리포트', url:'/report.html'},
+    {emoji:'🤖', name:'AI 친구', url:'/ai-friend.html'},
+    {emoji:'✍', name:'AI 작문', url:'/ai-write.html'},
+    {emoji:'🗣', name:'영어 발음 코치', url:'/speech-coach.html'},
+    {emoji:'🇨🇳', name:'중국어 발음 코치', url:'/speech-coach-cn.html'},
+    {emoji:'📚', name:'교재 업로더', url:'/textbook-uploader.html'},
+    {emoji:'📖', name:'단어장', url:'/vocab.html'},
+    {emoji:'🎯', name:'미니 퀴즈', url:'/micro-quiz.html'},
+    {emoji:'🧠', name:'MBTI 매칭', url:'/mbti.html'},
+    {emoji:'🧪', name:'MBTI 테스트', url:'/mbti-test.html'},
+    {emoji:'🔥', name:'연속 출석', url:'/streak.html'},
+    {emoji:'🌟', name:'칭찬 스티커', url:'/teacher-praise.html'},
+    {emoji:'📝', name:'수업 신청', url:'/lesson-booking-demo.html'},
+    {emoji:'📅', name:'수업 연기·변경', url:'/lesson-postpone-demo.html'},
+    {emoji:'👨‍👩‍👧', name:'학부모 페이지', url:'/parent.html'},
+    {emoji:'🩺', name:'시스템 진단', url:'/admin/health.html'},
+    {emoji:'👻', name:'Ghost View', url:'/admin/ghost-view.html'},
+    {emoji:'🔐', name:'관리자 로그인', url:'/admin/login'}
+  ];
+  function closeAllMenuOverlay(){
+    var ov = document.getElementById('mangoi-allmenu');
+    if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+    document.body.style.overflow = '';
+  }
+  function openAllMenuOverlay(){
+    if (document.getElementById('mangoi-allmenu')) { closeAllMenuOverlay(); return; }
+    var ov = document.createElement('div');
+    ov.id = 'mangoi-allmenu';
+    ov.setAttribute('style', 'position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;z-index:2147483600;background:linear-gradient(135deg,#0F172A,#1E293B);overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 64px;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;');
+    var h = '<div style="display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:2;margin:-14px -14px 12px;padding:14px;background:linear-gradient(135deg,#0F172A,#1E293B)">'
+      + '<h2 style="margin:0;color:#fff;font-size:18px;font-weight:800">📋 전체 메뉴</h2>'
+      + '<button type="button" id="mangoi-allmenu-x" aria-label="닫기" style="width:44px;height:44px;border-radius:50%;background:rgba(248,250,252,0.14);border:1px solid rgba(248,250,252,0.3);color:#fff;font-size:21px;font-weight:800;cursor:pointer;line-height:1">✕</button>'
+      + '</div>';
+    h += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">';
+    ALLMENU_ITEMS.forEach(function(m){
+      h += '<a href="' + m.url + '" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:16px 10px;background:rgba(30,41,59,0.92);border:1px solid rgba(96,165,250,0.5);border-radius:14px;color:#F8FAFC;text-decoration:none;min-height:94px;text-align:center;font-size:13px;font-weight:700;-webkit-tap-highlight-color:rgba(96,165,250,0.3)">'
+        + '<span style="font-size:26px">' + m.emoji + '</span><span>' + m.name + '</span></a>';
+    });
+    h += '</div>';
+    ov.innerHTML = h;
+    document.body.appendChild(ov);
+    document.body.style.overflow = 'hidden';
+    var x = document.getElementById('mangoi-allmenu-x');
+    if (x) x.onclick = function(ev){ ev.preventDefault(); ev.stopPropagation(); closeAllMenuOverlay(); };
+    ov.addEventListener('click', function(ev){ if (ev.target === ov) closeAllMenuOverlay(); });
+    console.log('[allmenu] 열림(overlay v3) — ' + ALLMENU_ITEMS.length + '개');
+  }
+  window.openAllMenuOverlay = openAllMenuOverlay;
+
+  // === capture-phase 트리거 (click + touchend) + 디바운스 ===
+  //   fix (2026-06-01 v3) — 휴대폰에서 한 번 탭 시 터치+클릭 이벤트가 2번 발생해
+  //   토글이 열림→닫힘으로 즉시 닫히던 문제: 600ms 디바운스로 1회만 동작.
+  var _allmenuLastTrigger = 0;
+  function allmenuTrigger(e){
     var btn = e.target.closest('[data-go="all-menu"], button[data-ko*="전체메뉴"]');
     if (!btn) {
-      // 텍스트로도 감지
       var clicked = e.target.closest('button.ai-quick-btn');
-      if (clicked && clicked.textContent.indexOf('전체메뉴') >= 0) {
-        btn = clicked;
-      }
+      if (clicked && clicked.textContent.indexOf('전체메뉴') >= 0) btn = clicked;
     }
     if (!btn) return;
-
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
-
-    var panel = document.getElementById('v19-panel');
-    if (!panel) {
-      console.warn('[v22] v19-panel 없음 — 즉시 생성');
-      // v19 buildPanel 강제 호출
-      if (typeof window.v19BuildPanel === 'function') window.v19BuildPanel();
-      else {
-        // 패널이 없으면 즉시 만들기
-        buildPanelV22();
-        panel = document.getElementById('v19-panel');
-      }
-    }
-    if (panel) {
-      var isHidden = (panel.style.display === 'none' || panel.style.display === '' || getComputedStyle(panel).display === 'none');
-      if (isHidden) {
-        // fix (2026-06-01 v2) — 부모에 transform/overflow 가 걸려 position:fixed 가 화면을 못 덮던 문제:
-        //   패널을 <body> 직속으로 옮긴 뒤 전체화면 오버레이로 강제 표시.
-        if (panel.parentNode !== document.body) document.body.appendChild(panel);
-        panel.style.cssText = 'display:block;position:fixed;inset:0;top:0;left:0;right:0;bottom:0;z-index:2147483600;margin:0;max-width:none;width:100vw;height:100vh;border-radius:0;overflow-y:auto;-webkit-overflow-scrolling:touch;background:linear-gradient(135deg,#0F172A,#1E293B);padding:18px 14px 48px;color:#F8FAFC;box-sizing:border-box';
-        panel.style.setProperty('display', 'block', 'important');
-        // 닫기 버튼 1회만 주입
-        if (!panel.querySelector('.v19-close')) {
-          var cb = document.createElement('button');
-          cb.className = 'v19-close';
-          cb.type = 'button';
-          cb.setAttribute('aria-label', '닫기');
-          cb.innerHTML = '✕';
-          cb.style.cssText = 'position:sticky;top:0;float:right;margin:0 0 6px;width:40px;height:40px;border-radius:50%;background:rgba(248,250,252,0.12);border:1px solid rgba(248,250,252,0.25);color:#fff;font-size:20px;font-weight:800;cursor:pointer;line-height:1;z-index:5';
-          cb.onclick = function(ev){ ev.preventDefault(); ev.stopPropagation(); panel.style.display = 'none'; document.body.style.overflow = ''; };
-          panel.insertBefore(cb, panel.firstChild);
-        }
-        document.body.style.overflow = 'hidden';
-        panel.scrollTop = 0;
-      } else {
-        panel.style.display = 'none';
-        document.body.style.overflow = '';
-      }
-      console.log('[v22] 전체메뉴 토글:', isHidden ? '열림(overlay)' : '닫힘');
-    }
-  }, true);  // capture phase
+    var now = Date.now();
+    if (now - _allmenuLastTrigger < 600) return;   // 중복 이벤트(터치+클릭) 무시 → 1회만 토글
+    _allmenuLastTrigger = now;
+    openAllMenuOverlay();
+  }
+  window.addEventListener('click', allmenuTrigger, true);
+  window.addEventListener('touchend', allmenuTrigger, true);
 
   // === v19 패널 없으면 즉시 만들기 ===
   function buildPanelV22(){
