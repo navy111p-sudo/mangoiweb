@@ -779,8 +779,7 @@ header {
         <div class="sub">원하시는 작업을 선택해 주세요</div>
       </div>
 
-      <!-- ph270: 직접 onclick 부착 (스크립트 의존 X) -->
-      <button class="main-card postpone" data-mode="postpone" onclick="alert('⏰ 수업 연기하기\n\n예약된 수업을 다음 주로 미루는 기능입니다.\n관리자에게 연락하거나 ☎ 1234-5678 로 문의해 주세요.\n\n또는 카카오톡 상담 (🟡 노란 버튼) 으로 즉시 신청 가능합니다.')">
+      <button class="main-card postpone" data-mode="postpone">
         <div class="mc-top">
           <div class="mc-icon">⏰</div>
           <div class="mc-label">수업 연기하기</div>
@@ -789,7 +788,7 @@ header {
         <div class="mc-cta">시작하기 →</div>
       </button>
 
-      <button class="main-card change" data-mode="change" onclick="alert('🔄 수업 변경하기\n\n다른 날짜 또는 다른 교사로 예약을 즉시 교체합니다.\n관리자에게 연락하거나 ☎ 1234-5678 로 문의해 주세요.\n\n또는 카카오톡 상담 (🟡 노란 버튼) 으로 즉시 신청 가능합니다.')">
+      <button class="main-card change" data-mode="change">
         <div class="mc-top">
           <div class="mc-icon">🔄</div>
           <div class="mc-label">수업 변경하기</div>
@@ -810,14 +809,357 @@ header {
     <div class="segment" id="segment" data-tab="time">
       <div class="seg-slider"></div>
       <button class="seg active" data-tab="time"    id="seg-time"><span id="seg-time-label">🕐 시간으로</span></button>
-      <button class="seg" data-tab="teacher" id="seg-teacher"><span id="seg-teacher-label">👨‍🏫 교사로</span></button>
+      <button class="seg"        data-tab="teacher" id="seg-teacher"><span id="seg-teacher-label">👨‍🏫 교사로</span></button>
     </div>
-    <div style="padding:20px;text-align:center;color:#94a3b8">
-      이 기능은 카드 클릭 시 알림으로 안내됩니다.<br>
-      자세한 신청은 카카오톡 상담 (🟡) 또는 ☎ 1234-5678 로 문의해 주세요.
+
+    <div class="detail-body" id="detail-body"></div>
+
+    <div class="sticky-bar" id="sticky-bar">
+      <div class="sticky-summary" id="sticky-summary"></div>
+      <button class="confirm-btn" id="confirm-btn">확정</button>
     </div>
-  </div>
+  </section>
+
 </div>
-<!-- BUILD:20260601174420 -->
+<div id="toast" class="toast"></div>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   Mock Data
+   ════════════════════════════════════════════════════════════ */
+const TEACHERS = [
+  { id:'t01', name:'박지윤',       ico:'🇰🇷', tag:'교포',  tagClass:'tag', rating:4.9, reviews:128, exp:'5년차' },
+  { id:'t02', name:'이서연',       ico:'🇰🇷', tag:'교포',  tagClass:'tag', rating:4.8, reviews: 96, exp:'3년차' },
+  { id:'t03', name:'정수아',       ico:'🇰🇷', tag:'교포',  tagClass:'tag', rating:4.7, reviews: 64, exp:'2년차' },
+  { id:'t04', name:'Maria Santos', ico:'🇵🇭', tag:'원어민', tagClass:'native', rating:4.9, reviews:212, exp:'7년차' },
+  { id:'t05', name:'James Cruz',   ico:'🇺🇸', tag:'원어민', tagClass:'native', rating:5.0, reviews:178, exp:'6년차' },
+  { id:'t06', name:'Anna Reyes',   ico:'🇬🇧', tag:'원어민', tagClass:'native', rating:4.8, reviews:142, exp:'4년차' },
+];
+
+const SCHEDULE = (function(){
+  const data = {};
+  const today = new Date();
+  TEACHERS.forEach(t => {
+    data[t.id] = {};
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(today); d.setDate(d.getDate() + i);
+      const iso = d.toISOString().slice(0,10);
+      const seed = t.id.charCodeAt(2) + i;
+      const slots = [];
+      for (let h = 9; h <= 22; h++) {
+        for (let m = 0; m < 60; m += 20) {
+          if ((seed * (h*3 + m/20)) % 4 !== 0) {
+            slots.push((h<10?'0':'')+h+':'+(m<10?'0':'')+m);
+          }
+        }
+      }
+      data[t.id][iso] = slots;
+    }
+  });
+  return data;
+})();
+
+/* ════════════════════════════════════════════════════════════
+   State
+   ════════════════════════════════════════════════════════════ */
+const state = {
+  mode: null,    // 'postpone' | 'change'
+  tab: 'time',
+  date: null,
+  hour: null,
+  teacher: null,
+  expandedTeacher: null,
+  loading: false,
+};
+const VERB = { postpone: '연기', change: '변경' };
+
+/* ════════════════════════════════════════════════════════════
+   유틸
+   ════════════════════════════════════════════════════════════ */
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+const fmtMD  = (iso) => { const d=new Date(iso+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}`; };
+const fmtDOW = (iso) => ['일','월','화','수','목','금','토'][new Date(iso+'T00:00:00').getDay()];
+const isWeekend = (iso) => { const dow=new Date(iso+'T00:00:00').getDay(); return dow===0||dow===6; };
+const fmtH = (s) => s;  // 10분 단위 slot 은 이미 'HH:MM' string
+
+function getNext14Dates(){
+  const arr=[], t=new Date();
+  for(let i=0;i<14;i++){ const d=new Date(t); d.setDate(d.getDate()+i); arr.push(d.toISOString().slice(0,10)); }
+  return arr;
+}
+function showToast(msg){
+  const t=$('#toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+/* ════════════════════════════════════════════════════════════
+   Step 1 → 2 전환
+   ════════════════════════════════════════════════════════════ */
+function _goMode(mode){
+  if (!mode) return;
+  state.mode = mode;
+  state.tab = 'time'; state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null;
+  enterDetail();
+}
+/* fix (2026-06-01) — 모바일 탭 보강: 단일 위임 핸들러로 어떤 환경에서도 카드 탭이 동작하도록 */
+document.addEventListener('click', (e) => {
+  const card = e.target.closest && e.target.closest('.main-card');
+  if (card && card.dataset.mode && document.getElementById('screen-main').classList.contains('active')) {
+    _goMode(card.dataset.mode);
+  }
+}, false);
+
+function enterDetail(){
+  const v = VERB[state.mode];
+  $('#detail-title').textContent = `수업 ${v}하기`;
+  $('#seg-time-label').textContent    = `🕐 시간으로 ${v}`;
+  $('#seg-teacher-label').textContent = `👨‍🏫 교사로 ${v}`;
+  $('#segment').setAttribute('data-tab', state.tab);
+  $$('.seg').forEach(s => s.classList.toggle('active', s.dataset.tab === state.tab));
+  renderBody(); updateSticky();
+  $('#screen-main').classList.remove('active'); $('#screen-main').classList.add('exit-up');
+  $('#screen-detail').classList.add('active');
+}
+
+$('#btn-back').addEventListener('click', () => {
+  $('#screen-detail').classList.remove('active');
+  $('#screen-main').classList.remove('exit-up'); $('#screen-main').classList.add('active');
+  state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null;
+  updateSticky();
+});
+
+$$('.seg').forEach(s => {
+  s.addEventListener('click', () => {
+    state.tab = s.dataset.tab;
+    $('#segment').setAttribute('data-tab', state.tab);
+    $$('.seg').forEach(b => b.classList.toggle('active', b === s));
+    state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null;
+    renderBody(); updateSticky();
+  });
+});
+
+/* ════════════════════════════════════════════════════════════
+   본문 렌더
+   ════════════════════════════════════════════════════════════ */
+function renderBody(){
+  const body = $('#detail-body');
+  if (state.tab === 'time') body.innerHTML = renderTimeTab();
+  else body.innerHTML = renderTeacherTab();
+  attachHandlers();
+}
+
+/* ── 시간 탭 — 링글 스타일: 가로 스크롤 날짜 + 시간 + 교사 필터 ── */
+function renderTimeTab(){
+  const dates = getNext14Dates();
+  const dateHtml = dates.map(iso => `
+    <button class="date-chip ${state.date===iso?'active':''} ${isWeekend(iso)?'weekend':''}" data-date="${iso}">
+      <div class="dc-dow">${fmtDOW(iso)}</div>
+      <div class="dc-day">${fmtMD(iso)}</div>
+    </button>
+  `).join('');
+
+  let hoursHtml = '';
+  if (state.date) {
+    const set = new Set();
+    TEACHERS.forEach(t => (SCHEDULE[t.id][state.date]||[]).forEach(s => set.add(s)));
+    const allSlots = [];
+    for (let h=9; h<=22; h++) {
+      for (let m=0; m<60; m+=20) {
+        allSlots.push((h<10?'0':'')+h+':'+(m<10?'0':'')+m);
+      }
+    }
+    allSlots.forEach(slot => {
+      const en = set.has(slot);
+      const isHourMark = slot.endsWith(':00');
+      hoursHtml += `<button class="hour-chip ${state.hour===slot?'active':''} ${en?'':'disabled'} ${isHourMark?'hour-mark':''}" data-hour="${slot}">${slot}</button>`;
+    });
+  }
+
+  let resultHtml = '';
+  if (state.date && state.hour) {
+    if (state.loading) {
+      resultHtml = `
+        <div class="teacher-result">
+          <div class="tr-title">⏳ 가능한 교사 검색 중...</div>
+          <div class="skeleton skeleton-card"></div>
+          <div class="skeleton skeleton-card"></div>
+          <div class="skeleton skeleton-card"></div>
+        </div>`;
+    } else {
+      const avail = TEACHERS.filter(t => (SCHEDULE[t.id][state.date]||[]).includes(state.hour));
+      if (avail.length) {
+        resultHtml = `
+          <div class="teacher-result">
+            <div class="tr-title">
+              ✅ 가능한 교사 <span class="badge">${avail.length}명</span>
+            </div>
+            ${avail.map(t => teacherCardHTML(t, state.teacher === t.id)).join('')}
+          </div>`;
+      } else {
+        resultHtml = `
+          <div class="teacher-result">
+            <div class="tr-title" style="color:var(--text-dim);justify-content:center">😢 이 시간에 가능한 교사가 없습니다</div>
+          </div>`;
+      }
+    }
+  }
+
+  return `
+    <div class="section-label">📅 날짜 선택 · 좌우로 밀어보세요</div>
+    <div class="date-scroller-wrap at-start" id="dateScrollerWrap">
+      <button type="button" class="date-scroller-nav prev" id="dateScrollPrev" aria-label="이전 날짜">◀</button>
+      <div class="date-scroller" id="dateScroller">${dateHtml}</div>
+      <button type="button" class="date-scroller-nav next" id="dateScrollNext" aria-label="다음 날짜">▶</button>
+    </div>
+    ${state.date ? `
+      <div class="section-label">🕐 시간 선택</div>
+      <div class="hour-grid">${hoursHtml}</div>
+    ` : '<div style="padding:30px 10px;color:var(--text-dim);text-align:center;font-size:13px">👆 먼저 날짜를 선택해 주세요</div>'}
+    ${resultHtml}
+  `;
+}
+
+function teacherCardHTML(t, active){
+  return `
+    <div class="teacher-card ${active?'active':''}" data-teacher="${t.id}">
+      <div class="t-avatar">${t.ico}</div>
+      <div class="t-info">
+        <div class="t-name">${t.name} <span class="t-tag ${t.tagClass}">${t.tag}</span></div>
+        <div class="t-meta">
+          <span class="t-rating">${t.rating.toFixed(1)}</span>
+          <span>리뷰 ${t.reviews}</span>
+          <span>· ${t.exp}</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ── 교사 탭 — 민병철 스타일: 세로 피드 + 아코디언 ── */
+function renderTeacherTab(){
+  const cards = TEACHERS.map(t => {
+    const expanded = state.expandedTeacher === t.id;
+    const dates = getNext14Dates();
+    let blocks = '';
+    if (expanded) {
+      dates.forEach(iso => {
+        const slots = SCHEDULE[t.id][iso] || [];
+        if (!slots.length) return;
+        blocks += `
+          <div class="tc-day">
+            <div class="tc-day-label">${fmtMD(iso)} (${fmtDOW(iso)})</div>
+            <div class="hour-grid">
+              ${slots.map(s => `
+                <button class="hour-chip ${state.teacher===t.id && state.date===iso && state.hour===s ? 'active' : ''} ${s.endsWith(':00')?'hour-mark':''}"
+                  data-tdate="${iso}" data-thour="${s}" data-tteacher="${t.id}">${s}</button>
+              `).join('')}
+            </div>
+          </div>`;
+      });
+      if (!blocks) blocks = '<div style="color:var(--text-dim);font-size:12.5px;text-align:center;padding:10px">😢 가능한 시간이 없습니다</div>';
+    }
+    return `
+      <div class="teacher-card ${expanded?'expanded':''}" data-expand="${t.id}">
+        <div class="tc-row">
+          <div class="t-avatar">${t.ico}</div>
+          <div class="t-info">
+            <div class="t-name">${t.name} <span class="t-tag ${t.tagClass}">${t.tag}</span></div>
+            <div class="t-meta">
+              <span class="t-rating">${t.rating.toFixed(1)}</span>
+              <span>리뷰 ${t.reviews}</span>
+              <span>· ${t.exp}</span>
+            </div>
+          </div>
+          <div class="tc-arrow">▼</div>
+        </div>
+        <div class="tc-accordion"><div class="tc-acc-inner">${blocks}</div></div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="section-label">👨‍🏫 교사 선택 · 카드를 탭하면 시간이 펼쳐집니다</div>
+    <div class="teacher-feed">${cards}</div>
+  `;
+}
+
+/* ════════════════════════════════════════════════════════════
+   본문 이벤트
+   ════════════════════════════════════════════════════════════ */
+function attachHandlers(){
+  $$('#detail-body .date-chip').forEach(el => el.addEventListener('click', () => {
+    state.date = el.dataset.date; state.hour=null; state.teacher=null;
+    renderBody(); updateSticky();
+  }));
+  $$('#detail-body .hour-chip[data-hour]:not([data-tdate])').forEach(el => el.addEventListener('click', () => {
+    state.hour = el.dataset.hour; state.teacher=null;
+    // 스켈레톤 → 결과
+    state.loading = true; renderBody();
+    setTimeout(() => { state.loading = false; renderBody(); updateSticky(); }, 450);
+  }));
+
+  // teacher-card 클릭 후속 처리 (안전 마무리)
+  $$('#detail-body .teacher-card[data-teacher]').forEach(el => el.addEventListener('click', () => {
+    const tid = el.getAttribute('data-teacher');
+    state.teacher = tid;
+    renderBody();
+    updateSticky();
+  }));
+}
+
+/* ════════════════════════════════════════════════════════════
+   v40+v41 — 날짜 칩 가로 드래그 + 모바일 반응형 보완
+   ════════════════════════════════════════════════════════════ */
+(function v40v41(){
+  function init(){
+    const scroller = document.getElementById('dateScroller');
+    const wrap = document.getElementById('dateScrollerWrap');
+    if (!scroller || !wrap || scroller.__v40bound) return;
+    scroller.__v40bound = true;
+
+    const prev = document.getElementById('dateScrollPrev');
+    const next = document.getElementById('dateScrollNext');
+
+    function updateEdges(){
+      const max = scroller.scrollWidth - scroller.clientWidth;
+      wrap.classList.toggle('at-start', scroller.scrollLeft <= 2);
+      wrap.classList.toggle('at-end', scroller.scrollLeft >= max - 2);
+    }
+    scroller.addEventListener('scroll', updateEdges, { passive: true });
+    window.addEventListener('resize', updateEdges);
+    updateEdges();
+
+    const PAGE = () => Math.max(160, scroller.clientWidth * 0.7);
+    if (prev) prev.addEventListener('click', e => { e.preventDefault(); scroller.scrollBy({ left: -PAGE(), behavior: 'smooth' }); });
+    if (next) next.addEventListener('click', e => { e.preventDefault(); scroller.scrollBy({ left: PAGE(), behavior: 'smooth' }); });
+
+    let isDown = false, startX = 0, startScroll = 0, moved = false;
+    scroller.addEventListener('mousedown', e => { isDown = true; moved = false; startX = e.pageX; startScroll = scroller.scrollLeft; scroller.classList.add('dragging'); });
+    window.addEventListener('mouseup', () => { if (!isDown) return; isDown = false; scroller.classList.remove('dragging'); });
+    window.addEventListener('mousemove', e => { if (!isDown) return; const dx = e.pageX - startX; if (Math.abs(dx) > 4) moved = true; scroller.scrollLeft = startScroll - dx; });
+    scroller.addEventListener('click', e => { if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; } }, true);
+
+    scroller.addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); scroller.scrollLeft += e.deltaY; } }, { passive: false });
+
+    console.log('[v40+v41] 날짜 칩 가로 스크롤·반응형 활성');
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+  setInterval(init, 600);
+})();
+
+/* ════════════════════════════════════════════════════════════
+   v41 — 모바일 viewport height 동적 보정 (iOS Safari 주소창)
+   ════════════════════════════════════════════════════════════ */
+(function v41Vh(){
+  function setVh(){
+    document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
+  }
+  setVh();
+  window.addEventListener('resize', setVh);
+  window.addEventListener('orientationchange', () => setTimeout(setVh, 100));
+})();
+</script>
+<!-- BUILD:20260601175119 -->
 </body>
 </html>
