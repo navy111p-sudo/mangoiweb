@@ -2713,6 +2713,44 @@
             }
         }
 
+        /* ════════════════════════════════════════════════════════════════
+           fix (2026-06-02) — 휴대폰 가로(landscape) '전체' 모드: 위아래 X → 좌우 분할
+           (교사 왼쪽 · 학생 오른쪽). 1:1 이면 1×2.
+           ════════════════════════════════════════════════════════════════ */
+        @media (orientation: landscape) and (max-width: 1024px) {
+            body.vc-in-call .vc-main-row.video-full #vc-video-grid {
+                display: grid !important;
+                grid-template-columns: 1fr 1fr !important;
+                grid-template-rows: 1fr !important;
+                grid-auto-flow: column !important;
+                height: 100% !important;
+                gap: 4px !important;
+                overflow: hidden !important;
+            }
+            body.vc-in-call .vc-main-row.video-full #vc-video-grid[data-count="1"] {
+                grid-template-columns: 1fr !important;
+            }
+            body.vc-in-call .vc-main-row.video-full #vc-video-grid[data-count="3"] {
+                grid-template-columns: repeat(3, 1fr) !important;
+            }
+            /* 4명 이상: 2열 2행 격자 */
+            body.vc-in-call .vc-main-row.video-full #vc-video-grid[data-count="4"],
+            body.vc-in-call .vc-main-row.video-full #vc-video-grid[data-count="5"],
+            body.vc-in-call .vc-main-row.video-full #vc-video-grid[data-count="6"],
+            body.vc-in-call .vc-main-row.video-full #vc-video-grid[data-count="7"],
+            body.vc-in-call .vc-main-row.video-full #vc-video-grid[data-count="8"],
+            body.vc-in-call .vc-main-row.video-full #vc-video-grid[data-count="9"] {
+                grid-template-columns: 1fr 1fr !important;
+                grid-template-rows: repeat(2, 1fr) !important;
+                grid-auto-flow: row !important;
+            }
+            body.vc-in-call .vc-main-row.video-full #vc-video-grid .video-box {
+                width: 100% !important;
+                height: 100% !important;
+                aspect-ratio: auto !important;
+            }
+        }
+
         /* ── 세로(portrait) 모바일: 가로 모드 전환 안내 오버레이 ── */
         .rotate-hint {
             display: none;
@@ -24639,7 +24677,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260602045604 -->
+<!-- BUILD:20260602051349 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -26408,7 +26446,6 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     backdrop-filter: blur(8px) !important;
     color: #93C5FD !important;
     box-shadow: 0 4px 10px -2px rgba(0,0,0,0.3) !important;
-  }}
   }
 </style>
 
