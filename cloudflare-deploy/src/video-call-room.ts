@@ -304,16 +304,21 @@ export class VideoCallRoom {
   }
 
   private handlePdfPageChange(userId: string, data: any): void {
-    const pageNum = data.pageNum || data;
-    if (typeof pageNum !== 'number') return;
+    // fix (2026-06-02) — 클라이언트는 { currentPage: N } 으로 보냄. 예전엔 pageNum 만 읽어
+    //   숫자가 아니라며 버려져서 학생 화면이 다음 페이지로 안 넘어갔음. currentPage 도 수용.
+    const pageNum = (typeof data === 'number') ? data
+      : (typeof data?.pageNum === 'number' ? data.pageNum
+        : (typeof data?.currentPage === 'number' ? data.currentPage : NaN));
+    if (typeof pageNum !== 'number' || isNaN(pageNum)) return;
 
     if (this.pdfState) {
       this.pdfState.currentPage = pageNum;
     }
 
+    // pageNum + currentPage 둘 다 실어 보내 학생 수신부(currentPage||pageNum)와 호환
     this.broadcast(userId, {
       type: 'pdf-page-change',
-      data: { pageNum }
+      data: { pageNum, currentPage: pageNum }
     });
   }
 

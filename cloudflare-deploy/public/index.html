@@ -2695,6 +2695,22 @@
             body.vc-in-call #vc-video-grid[data-count="9"] {
                 grid-template-columns: 1fr 1fr !important;
             }
+
+            /* '전체' 버튼: 영상이 화면 전체를 좌우로 분할 — 교사(왼쪽) · 학생(오른쪽).
+               단 둘이면 1×2(좌우). 3명=3열, 4명 이상=2열 격자. */
+            body.vc-in-call .vc-main-row.video-full #vc-video-grid {
+                grid-template-columns: 1fr 1fr !important;
+                grid-auto-rows: 1fr !important;
+                grid-auto-flow: row !important;
+                height: 100% !important;
+                align-content: stretch !important;
+            }
+            body.vc-in-call .vc-main-row.video-full #vc-video-grid[data-count="1"] {
+                grid-template-columns: 1fr !important;
+            }
+            body.vc-in-call .vc-main-row.video-full #vc-video-grid[data-count="3"] {
+                grid-template-columns: repeat(3, 1fr) !important;
+            }
         }
 
         /* ── 세로(portrait) 모바일: 가로 모드 전환 안내 오버레이 ── */
@@ -24623,7 +24639,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260602044329 -->
+<!-- BUILD:20260602045604 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
