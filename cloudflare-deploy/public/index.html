@@ -8122,9 +8122,19 @@ function vcHandleMessage(msg) {
             }
             if (sUrl && (/^https?:\/\//i.test(sUrl) || sUrl.charAt(0) === '/')) {
                 // 서버/절대 URL — 그대로 직접 로드 (cross-device)
+                // fix (2026-06-01) — kind 가 없으면 URL 로 이미지/PDF 자동 판별 (서버 교재 URL 은 확장자가 없어 PDF 오인 방지)
+                var sKind = msg.data.kind || '';
+                if (!sKind) {
+                    if (/textbook-files|\.(jpe?g|png|webp|gif|bmp)(\?|$)/i.test(sUrl)) sKind = 'image';
+                    else if (/\.pdf(\?|$)/i.test(sUrl)) sKind = 'pdf';
+                }
                 pdfCurrentId = sPid || sUrl;
-                Promise.resolve(pdfLoad(sUrl, msg.data.kind)).then(function(){ pdfPageNum = msg.data.currentPage || 1; pdfRender(); }).catch(function(e){ console.warn('[pdf-share] url 로드 실패', e); });
                 vcSwitchTab('pdf');
+                Promise.resolve(pdfLoad(sUrl, sKind || undefined)).then(function(){ pdfPageNum = msg.data.currentPage || 1; pdfRender(); }).catch(function(e){
+                    console.warn('[pdf-share] url 로드 1차 실패, 반대 종류로 재시도', e && e.message);
+                    var alt = (sKind === 'image') ? 'pdf' : 'image';
+                    Promise.resolve(pdfLoad(sUrl, alt)).then(function(){ pdfPageNum = msg.data.currentPage || 1; pdfRender(); }).catch(function(e2){ console.warn('[pdf-share] 재시도도 실패', e2 && e2.message); });
+                });
                 break;
             }
             // 화상수업 업로드 PDF (PDF_STORE) — 서버 엔드포인트로 로드
@@ -24274,7 +24284,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260601224013 -->
+<!-- BUILD:20260601225058 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">

@@ -1152,6 +1152,28 @@ async function handlePdfDownload(path: string, env: Env): Promise<Response> {
     const rawKey = path.replace('/api/video-call/pdf/', '');
     const fileKey = decodeURIComponent(rawKey);
 
+    // fix (2026-06-01) — 라이브러리(서버) 교재 공유 호환:
+    //   옛 클라이언트가 'lib_srv_{id}' / 'srv_{id}' 로 요청해도 실제 textbook_files 로 연결(프록시).
+    //   서버 교재 URL 은 확장자가 없어, 저장된 mime 으로 정확히 서빙 → 학생 흰화면 방지.
+    const libMatch = fileKey.match(/(?:lib_)?srv_(\d+)/);
+    if (libMatch) {
+      try {
+        const tbId = Number(libMatch[1]);
+        const row: any = await env.DB.prepare('SELECT r2_key, mime, ext FROM textbook_files WHERE id = ?').bind(tbId).first();
+        const r2b = (env as any).RECORDINGS as R2Bucket | undefined;
+        if (row && row.r2_key && r2b) {
+          const obj = await r2b.get(row.r2_key);
+          if (obj) {
+            const ct = row.mime || (row.ext === 'pdf' ? 'application/pdf' : 'image/jpeg');
+            return new Response(obj.body, {
+              status: 200,
+              headers: { 'Content-Type': ct, 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=3600' }
+            });
+          }
+        }
+      } catch (e) { console.warn('[pdf-proxy] lib_srv lookup failed:', (e as any)?.message); }
+    }
+
     if (!fileKey) {
       return new Response(JSON.stringify({ error: 'No file key provided' }), {
         status: 400,
