@@ -910,6 +910,35 @@ document.addEventListener('click', (e) => {
   }
 }, false);
 
+/* ════════════════════════════════════════════════════════════
+   fix (2026-06-01) — updateSticky 미정의로 enterDetail 이 예외를 던져
+   상세(시간·교사 선택) 화면이 안 뜨던 문제 해결. 하단 확정바 갱신 + 확정 처리.
+   ════════════════════════════════════════════════════════════ */
+function updateSticky(){
+  var bar = document.getElementById('sticky-bar');
+  var summary = document.getElementById('sticky-summary');
+  var btn = document.getElementById('confirm-btn');
+  if (!bar || !summary) return;
+  if (state.date && state.hour && state.teacher) {
+    var t = (typeof TEACHERS !== 'undefined') ? TEACHERS.find(function(x){ return x.id === state.teacher; }) : null;
+    summary.innerHTML = '<span class="icon">📅</span> <b>' + fmtMD(state.date) + ' (' + fmtDOW(state.date) + ') ' + state.hour + '</b> · ' + (t ? (t.ico + ' ' + t.name) : '');
+    bar.classList.add('show');
+    if (btn && !btn._confirmBound) {
+      btn._confirmBound = true;
+      btn.addEventListener('click', confirmBooking);
+    }
+  } else {
+    bar.classList.remove('show');
+  }
+}
+function confirmBooking(){
+  if (!(state.date && state.hour && state.teacher)) return;
+  var t = (typeof TEACHERS !== 'undefined') ? TEACHERS.find(function(x){ return x.id === state.teacher; }) : null;
+  var v = VERB[state.mode] || '';
+  var msg = '✅ ' + fmtMD(state.date) + '(' + fmtDOW(state.date) + ') ' + state.hour + ' · ' + (t ? t.name : '') + ' 수업 ' + v + ' 신청 완료!';
+  try { showToast(msg); } catch(e) { alert(msg); }
+}
+
 function enterDetail(){
   const v = VERB[state.mode];
   $('#detail-title').textContent = `수업 ${v}하기`;
@@ -1160,6 +1189,6 @@ function attachHandlers(){
   window.addEventListener('orientationchange', () => setTimeout(setVh, 100));
 })();
 </script>
-<!-- BUILD:20260601175413 -->
+<!-- BUILD:20260601180030 -->
 </body>
 </html>
