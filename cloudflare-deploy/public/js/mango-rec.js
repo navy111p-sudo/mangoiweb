@@ -471,8 +471,8 @@
         '#mango-rec-badge .mango-rec-time-text{display:inline;}',
         // 모바일: 작은 원형 점으로 축소 (시간 텍스트 숨김), 탭하면 확장
         '@media (max-width: 900px){' +
-          // fix (2026-06-02) — 녹화 빨간 원을 '오른쪽 위 채팅 표시 옆'으로 이동 (하단 상담/새로고침 겹침 해소)
-          '#mango-rec-badge{top:calc(env(safe-area-inset-top, 0) + 54px) !important;bottom:auto !important;right:10px !important;padding:6px;border-radius:50%;width:22px;height:22px;box-shadow:0 2px 6px rgba(220,38,38,0.5);gap:0;opacity:0.85;}' +
+          // fix (2026-06-02 v2) — 녹화 빨간 원을 상단 우측 ✕ 버튼 바로 옆으로 (헤더 안)
+          '#mango-rec-badge{top:calc(env(safe-area-inset-top, 0) + 9px) !important;bottom:auto !important;right:50px !important;padding:5px;border-radius:50%;width:20px;height:20px;box-shadow:0 2px 6px rgba(220,38,38,0.5);gap:0;opacity:0.9;}' +
           '#mango-rec-badge .mango-rec-time-text{display:none;}' +
           '#mango-rec-badge.mango-rec-expanded{width:auto;height:auto;border-radius:20px;padding:6px 12px;opacity:1;gap:6px;}' +
           '#mango-rec-badge.mango-rec-expanded .mango-rec-time-text{display:inline;font-size:12px;}' +

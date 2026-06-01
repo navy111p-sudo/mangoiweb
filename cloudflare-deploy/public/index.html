@@ -2557,6 +2557,72 @@
             }
         }
 
+        /* ════════════════════════════════════════════════════════════════
+           fix (2026-06-02 v3) — 휴대폰 세로 수업화면 정리 (사용자 요청)
+           · FACE OFF / 화면비율바(1/2·전체·PIP·솔로) / 번역(EN) 삭제
+           · 내 화면 숨기고 '상대 화면'만 크게
+           · ✕ 는 녹화표시 옆(상단 우측)
+           · 칠판/교재 최대한 위로, 둘째 툴줄(보기·펜·지우개)은 화면 '맨 아래'
+           ════════════════════════════════════════════════════════════════ */
+        @media (max-width: 900px) and (orientation: portrait) {
+            /* 1) FACE OFF 토글 제거 */
+            body.vc-in-call .ph49-face-toggle { display: none !important; }
+            /* 2) 화면비율 바 제거 */
+            body.vc-in-call .video-size-bar { display: none !important; }
+            /* 3) 번역(EN) 버튼 제거 — toolbar-right 의 첫 버튼(언어) */
+            body.vc-in-call .toolbar-right > button:first-child { display: none !important; }
+
+            /* 4) 내 화면 숨김 → 상대 화면만 크게 (교사는 학생만, 학생은 교사만) */
+            body.vc-in-call #vc-local-box { display: none !important; }
+            body.vc-in-call #vc-video-grid {
+                grid-template-columns: 1fr !important;
+                grid-auto-rows: auto !important;
+                justify-items: stretch !important;
+            }
+            body.vc-in-call #vc-video-grid .video-box {
+                aspect-ratio: 16 / 10 !important;
+                width: 100% !important;
+                max-width: none !important;
+                height: auto !important;
+            }
+            body.vc-in-call .video-pane {
+                max-height: 32vh !important;
+                padding: 2px !important;
+            }
+
+            /* 5) 칠판/교재 영역 최대한 크게(위로) */
+            body.vc-in-call .content-pane { flex: 1 1 auto !important; min-height: 0 !important; }
+
+            /* 6) 둘째 툴줄(보기·펜·지우개·텍스트 등)을 칠판/교재 '맨 아래'에 가로 배치 */
+            body.vc-in-call #tab-whiteboard .whiteboard-container,
+            body.vc-in-call #tab-pdf .pdf-container {
+                position: relative !important;
+                padding-bottom: 52px !important;
+            }
+            body.vc-in-call .wb-toolbar,
+            body.vc-in-call .pdf-anno-bar {
+                position: absolute !important;
+                left: 4px !important;
+                right: 36px !important;      /* 우하단 상담/새로고침 버튼 피하기 */
+                bottom: 4px !important;
+                top: auto !important;
+                z-index: 45 !important;
+                display: flex !important;
+                flex-wrap: nowrap !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
+                gap: 5px !important;
+                padding: 6px 8px !important;
+                margin: 0 !important;
+                background: rgba(15,23,42,0.93) !important;
+                border: 1px solid rgba(148,163,184,0.28) !important;
+                border-radius: 12px !important;
+                backdrop-filter: blur(8px);
+            }
+            body.vc-in-call .wb-toolbar button,
+            body.vc-in-call .pdf-anno-bar button { flex: 0 0 auto !important; }
+        }
+
         /* ── 세로(portrait) 모바일: 가로 모드 전환 안내 오버레이 ── */
         .rotate-hint {
             display: none;
@@ -24281,6 +24347,7 @@ window.closeRulesModal = function() {
   }
 
   function ph49AddFaceToggle(){
+    return;  // fix (2026-06-02) — 사용자 요청: FACE OFF 버튼 완전 제거
     var localBox = document.getElementById('vc-local-box');
     var videoPane = document.getElementById('vc-video-pane');
     var mainRow = document.getElementById('vc-main-row');
@@ -24479,7 +24546,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260602033037 -->
+<!-- BUILD:20260602034622 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25566,7 +25633,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      · mango-i18n.js (다국어)
      ============================================================ -->
 <script src="/js/mango.js?v=33" defer></script>
-<script src="/js/mango-rec.js?v=34" defer></script>
+<script src="/js/mango-rec.js?v=35" defer></script>
 <script src="/js/mango-attendance.js?v=33" defer></script>
 <script src="/js/mango-gaze.js?v=33" defer></script>
 <script src="/js/mango-i18n.js?v=33" defer></script>
