@@ -2192,7 +2192,44 @@
     </button>
   </div>
 </div>
+
+<!-- fix (2026-06-01) — 🎥 수업 입장 (화상수업 임베드) -->
+<section id="card-live-class" style="display:none;margin:14px 0;background:#0f1830;border:1px solid #1e3a5f;border-radius:14px;padding:16px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:22px">🎥</span>
+      <div>
+        <div style="font-size:16px;font-weight:800;color:#e6ecff">수업 입장 — 화상수업</div>
+        <div id="live-class-teacher-label" style="font-size:12.5px;color:#93c5fd;margin-top:2px">교사 · …</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button type="button" id="live-class-reload" style="padding:7px 12px;border-radius:8px;border:1px solid #334155;background:#1e293b;color:#cbd5e1;font-size:12px;cursor:pointer">↻ 새로고침</button>
+      <button type="button" id="live-class-close" style="padding:7px 12px;border-radius:8px;border:1px solid #334155;background:#1e293b;color:#cbd5e1;font-size:12px;cursor:pointer">✕ 닫기</button>
+    </div>
+  </div>
+  <div style="font-size:11.5px;color:#94a3b8;margin-bottom:8px">💡 교사 영상이 위에 나오고, 교재 탭에서 📁 업로드 · 📚 라이브러리(서버 교재)로 교재를 띄우고 내려받을 수 있습니다. 학생은 같은 방(mangoi-class)으로 입장하면 같은 화면을 봅니다.</div>
+  <div id="live-class-frame-wrap" style="position:relative;width:100%;height:78vh;min-height:520px;border-radius:10px;overflow:hidden;background:#000;border:1px solid #1e293b">
+    <div id="live-class-placeholder" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:13px">불러오는 중…</div>
+    <iframe id="live-class-frame" title="화상수업" allow="camera; microphone; fullscreen; display-capture; autoplay" style="width:100%;height:100%;border:0;display:block"></iframe>
+  </div>
+</section>
+
 <style>
+  /* 사이드바 수업입장 카드 */
+  #admin-sidebar-list .sb-classroom-card{
+    display:flex;align-items:center;gap:10px;padding:12px 14px;margin:0 0 10px;border-radius:12px;
+    background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;text-decoration:none;font-weight:800;font-size:14px;
+    box-shadow:0 6px 16px -6px rgba(37,99,235,0.6);cursor:pointer;
+  }
+  #admin-sidebar-list .sb-classroom-card:hover{ filter:brightness(1.08); transform:translateY(-1px); }
+  #admin-sidebar-list .sb-classroom-card .sb-cc-ico{ font-size:18px; }
+  #admin-sidebar-list .sb-classroom-card .sb-cc-label{ flex:1; }
+  #admin-sidebar-list .sb-classroom-card .sb-cc-live{
+    font-size:9.5px;font-weight:900;letter-spacing:0.6px;background:#ef4444;color:#fff;padding:2px 7px;border-radius:99px;
+    animation:liveBlink 1.6s ease-in-out infinite;
+  }
+  @keyframes liveBlink{0%,100%{opacity:1}50%{opacity:0.45}}
   .hub-btn{
     display:flex;align-items:center;gap:12px;padding:14px 16px;
     background:rgba(255,255,255,0.04);border:1px solid rgba(99,102,241,0.18);
@@ -15960,6 +15997,42 @@ async function syncLocalTextbooksToServer() {
 }
 window.syncLocalTextbooksToServer = syncLocalTextbooksToServer;
 
+// fix (2026-06-01) — 🎥 수업 입장 (화상수업 방을 관리자 안에 임베드, 교사로 자동 입장)
+window.openLiveClass = async function(){
+  var sec = document.getElementById('card-live-class');
+  if (!sec) return;
+  var frame = document.getElementById('live-class-frame');
+  var label = document.getElementById('live-class-teacher-label');
+  var ph = document.getElementById('live-class-placeholder');
+  var tname = '교사';
+  try {
+    var r = await fetch('/api/admin/me', { credentials:'include' });
+    var j = await r.json().catch(function(){ return null; });
+    if (j && j.ok && j.user) tname = j.user.name || j.user.username || '교사';
+  } catch(_){}
+  if (label) label.textContent = '교사 · ' + tname;
+  var displayName = '교사 ' + tname;
+  var src = '/?vc_autojoin=1&vc_room=' + encodeURIComponent('mangoi-class') + '&vc_name=' + encodeURIComponent(displayName);
+  sec.style.display = 'block';
+  if (ph) ph.style.display = 'flex';
+  if (frame) {
+    frame.onload = function(){ if (ph) ph.style.display = 'none'; };
+    frame.src = src;
+  }
+  setTimeout(function(){ try { sec.scrollIntoView({ behavior:'smooth', block:'start' }); } catch(_){} }, 80);
+};
+(function _bindLiveClassBtns(){
+  function bind(){
+    var rl = document.getElementById('live-class-reload');
+    var cl = document.getElementById('live-class-close');
+    var frame = document.getElementById('live-class-frame');
+    if (rl && !rl._b){ rl._b = 1; rl.addEventListener('click', function(){ if (frame && frame.src && frame.src !== 'about:blank') { var s = frame.src; frame.src = 'about:blank'; setTimeout(function(){ frame.src = s; }, 60); } }); }
+    if (cl && !cl._b){ cl._b = 1; cl.addEventListener('click', function(){ var sec = document.getElementById('card-live-class'); if (frame) frame.src = 'about:blank'; if (sec) sec.style.display = 'none'; }); }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+
 async function addTextbook() {
   const e = id => document.getElementById(id);
   const title = (e('tb-title').value||'').trim();
@@ -17616,7 +17689,11 @@ function renderSidebar() {
   });
 
   // 2) HTML 렌더
-  const html = '<div class="sb-cat-wrap">' + SB_CATEGORIES.map(c => {
+  // fix (2026-06-01) — 사이드바 맨 위 '수업입장' 카드 (화상수업 입장)
+  const classroomCard = '<a href="javascript:void(0)" class="sb-classroom-card" onclick="openLiveClass();return false;">'
+    + '<span class="sb-cc-ico">🎥</span><span class="sb-cc-label">' + (useEn ? 'Enter Class' : '수업입장') + '</span>'
+    + '<span class="sb-cc-live">LIVE</span></a>';
+  const html = classroomCard + '<div class="sb-cat-wrap">' + SB_CATEGORIES.map(c => {
     const items = groups[c.id];
     const label = useEn ? c.en : c.ko;
     let subHtml = '';
@@ -19351,7 +19428,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260601201027 -->
+        <!-- BUILD:20260601210408 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

@@ -6067,6 +6067,9 @@
                     <button onclick="openTextbookLibrary()" style="padding:0.4rem 0.8rem; border-radius:8px; background:linear-gradient(135deg,#3b82f6,#6366f1); color:#fff; font-size:0.85rem; cursor:pointer; border:none; font-weight:700;" data-ko="📚 라이브러리" data-en="📚 Library" title="관리자가 업로드한 교재 라이브러리에서 선택">
                         📚 <span data-ko="라이브러리" data-en="Library">라이브러리</span>
                     </button>
+                    <button onclick="vcDownloadCurrentTextbook()" style="padding:0.4rem 0.8rem; border-radius:8px; background:rgba(16,185,129,0.18); color:#86efac; font-size:0.85rem; cursor:pointer; border:1px solid rgba(16,185,129,0.4); font-weight:700;" data-ko="⬇ 다운로드" data-en="⬇ Download" title="현재 교재 파일 다운로드">
+                        ⬇ <span data-ko="다운로드" data-en="Download">다운로드</span>
+                    </button>
                     <button onclick="pdfPrevPage()" data-ko="◀ 이전" data-en="◀ Prev">◀ 이전</button>
                     <span id="pdf-page-info" style="font-size:0.85rem;color:#94a3b8;">-</span>
                     <button onclick="pdfNextPage()" data-ko="다음 ▶" data-en="Next ▶">다음 ▶</button>
@@ -7185,6 +7188,32 @@ if (typeof _origShowView_vc === 'function') {
     }
   };
 }
+// fix (2026-06-01) — 자동 입장 (관리자 '수업입장' iframe 임베드용)
+//   /?vc_autojoin=1&vc_room=mangoi-class&vc_name=교사 홍길동  → 로비 자동 채움 + 입장 시도
+(function vcAutoJoinFromParams(){
+  function run(){
+    try {
+      var sp = new URLSearchParams(location.search);
+      if (sp.get('vc_autojoin') !== '1') return;
+      var room = sp.get('vc_room') || 'mangoi-class';
+      var name = sp.get('vc_name') || '교사';
+      (function tryJoin(attempt){
+        if (typeof showView !== 'function') { if (attempt < 40) return setTimeout(function(){ tryJoin(attempt+1); }, 150); return; }
+        try { showView('view-videocall-lobby'); } catch(_){}
+        setTimeout(function(){
+          var ni = document.getElementById('vc-name-input');
+          var ri = document.getElementById('vc-roomcode-input');
+          if (ni) ni.value = name;
+          if (ri) ri.value = room;
+          if (typeof vcJoinRoom === 'function') { try { vcJoinRoom(); } catch(e){ console.warn('[vc-autojoin] join 실패(로비에서 수동 입장 가능):', e); } }
+        }, 350);
+      })(0);
+    } catch(e){}
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
+  else run();
+})();
+
 // 페이지가 보이지 않게 되면(탭 전환) 음성 일시 정지 — 매너 모드
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) lobbyStopWelcome();
@@ -10148,6 +10177,8 @@ async function pdfUpload(input) {
 }
 
 async function pdfLoad(url, kind) {
+    // fix (2026-06-01) — 현재 교재 URL 기억 (다운로드 버튼용)
+    try { window._vcCurrentPdfUrl = url; window._vcCurrentPdfKind = kind || ''; } catch(_){}
     // kind가 지정되지 않았으면 URL/MIME으로 추정 (레거시 호출 호환)
     if (!kind) {
         // HEAD 시도: Content-Type을 보고 판단
@@ -10170,6 +10201,27 @@ async function pdfLoad(url, kind) {
     pdfPageNum = 1;
     pdfRender();
 }
+
+// fix (2026-06-01) — 현재 화면의 교재 파일 다운로드
+async function vcDownloadCurrentTextbook() {
+    var url = window._vcCurrentPdfUrl;
+    if (!url) { alert('다운로드할 교재가 없습니다. 먼저 교재를 띄워주세요.'); return; }
+    try {
+        var resp = await fetch(url);
+        var blob = await resp.blob();
+        var ext = (window._vcCurrentPdfKind === 'image') ? 'jpg' : (url.split('.').pop().split('?')[0] || 'pdf');
+        if (ext.length > 5) ext = (blob.type.indexOf('pdf') >= 0 ? 'pdf' : 'jpg');
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = '교재_' + Date.now() + '.' + ext;
+        document.body.appendChild(a); a.click();
+        setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    } catch(e) {
+        // CORS/네트워크 실패 시 새 탭으로 열기 (사용자가 직접 저장)
+        try { window.open(url, '_blank'); } catch(_){ alert('다운로드 실패: ' + (e.message||e)); }
+    }
+}
+window.vcDownloadCurrentTextbook = vcDownloadCurrentTextbook;
 
 async function pdfLoadRemote(pdfId, page, kind) {
     pdfCurrentId = pdfId;
@@ -24209,7 +24261,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260601201027 -->
+<!-- BUILD:20260601210408 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
