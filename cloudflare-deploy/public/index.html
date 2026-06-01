@@ -24112,7 +24112,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260601061245 -->
+<!-- BUILD:20260601171845 -->
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -24778,8 +24778,11 @@ document.addEventListener('keydown', function(e){
     if (panel) {
       var isHidden = (panel.style.display === 'none' || panel.style.display === '' || getComputedStyle(panel).display === 'none');
       if (isHidden) {
-        // fix (2026-06-01) — 모바일에서 카드가 안 나오던 문제: 전체화면 fixed 오버레이로 강제 표시
-        panel.style.cssText = 'display:block;position:fixed;inset:0;z-index:100000;margin:0;max-width:none;width:100%;height:100%;border-radius:0;overflow-y:auto;-webkit-overflow-scrolling:touch;background:linear-gradient(135deg,#0F172A,#1E293B);padding:18px 14px 48px;color:#F8FAFC;box-sizing:border-box';
+        // fix (2026-06-01 v2) — 부모에 transform/overflow 가 걸려 position:fixed 가 화면을 못 덮던 문제:
+        //   패널을 <body> 직속으로 옮긴 뒤 전체화면 오버레이로 강제 표시.
+        if (panel.parentNode !== document.body) document.body.appendChild(panel);
+        panel.style.cssText = 'display:block;position:fixed;inset:0;top:0;left:0;right:0;bottom:0;z-index:2147483600;margin:0;max-width:none;width:100vw;height:100vh;border-radius:0;overflow-y:auto;-webkit-overflow-scrolling:touch;background:linear-gradient(135deg,#0F172A,#1E293B);padding:18px 14px 48px;color:#F8FAFC;box-sizing:border-box';
+        panel.style.setProperty('display', 'block', 'important');
         // 닫기 버튼 1회만 주입
         if (!panel.querySelector('.v19-close')) {
           var cb = document.createElement('button');
