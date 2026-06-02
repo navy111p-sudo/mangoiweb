@@ -4398,12 +4398,7 @@
             <line x1="8" y1="22" x2="16" y2="22"></line>
           </svg>
         </button>
-        <button class="ai-search-go" id="ai-home-go" type="button" title="이동" data-ko-title="이동" data-en-title="Go">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-            <polyline points="12 5 19 12 12 19"></polyline>
-          </svg>
-        </button>
+        <!-- ph272 (2026-06-03) — 검색창 화살표(→) 삭제: 엔터/마이크로 검색, 화살표 불필요 -->
       </div>
       <div id="ai-home-listening" class="ai-listening" style="display:none"
            data-ko="🎙 듣고 있습니다… 말씀해주세요"
@@ -11981,7 +11976,7 @@ window.addEventListener('DOMContentLoaded', () => {
       handleQuery(input.value);
     }
   });
-  goBtn.addEventListener('click', () => handleQuery(input.value));
+  if (goBtn) goBtn.addEventListener('click', () => handleQuery(input.value)); // ph272: 화살표 삭제로 null 가능 — 가드
 
   // ========== 빠른 진입 버튼 ==========
   document.querySelectorAll('.ai-quick-btn').forEach(btn => {
@@ -25577,13 +25572,9 @@ document.addEventListener('keydown', function(e){
   /* 룸 입장 시(vc-in-call)에는 precheck-fab 숨김 — 룸 안에서는 필요 없음 */
   body.vc-in-call #precheck-fab { display: none !important; }
 </style>
-<button type="button" id="precheck-fab" onclick="location.href='/precheck.html'"
-        title="수업 입장 전 자가진단 (카메라·마이크·대역폭 체크)"
-        aria-label="수업 입장 전 자가진단">
-  <span class="ic">🎥</span>
-  <span data-ko="수업 진단" data-en="PreCheck">수업 진단</span>
-  <span class="dot"></span>
-</button>
+<!-- ph272 (2026-06-03) — 떠다니는 수업 진단 FAB 삭제 (메뉴 그리드 카드로 대체, 우하단 버튼 겹침 제거) -->
+<!-- precheck-fab 제거됨: 동일 기능은 상단 메뉴 "🎥 수업 진단" 카드 사용 -->
+
 
 <!-- ============================================================
      fix v28 (2026-05-27) — 룸 ✕ 버튼 → 홈으로 강제 이동
@@ -26515,3 +26506,4 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 
 </body>
 </html>
+                                                                                                                                                                                                                                                                                                                                                                                        

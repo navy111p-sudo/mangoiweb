@@ -2062,11 +2062,11 @@
 
     <!-- 💬 카톡상담 — 우하단 floating 작은 말풍선 -->
     <a href="https://pf.kakao.com/_mango_i/chat" target="_blank" rel="noopener" id="kakao-chat-fab"
-       style="position:fixed;right:20px;bottom:20px;z-index:9990;display:flex;align-items:center;gap:8px;padding:10px 16px 10px 12px;background:linear-gradient(135deg,#FEE500,#FBBF24);color:#3C1E1E;text-decoration:none;border-radius:24px 24px 6px 24px;box-shadow:0 6px 18px -4px rgba(254,229,0,0.6),inset 0 1px 0 rgba(255,255,255,0.55);font-weight:800;font-size:13px;transition:transform .2s,box-shadow .2s"
+       style="position:fixed;right:14px;bottom:14px;z-index:9990;display:flex;align-items:center;gap:5px;padding:5px 9px 5px 6px;background:linear-gradient(135deg,#FEE500,#FBBF24);color:#3C1E1E;text-decoration:none;border-radius:14px 14px 4px 14px;box-shadow:0 4px 10px -3px rgba(254,229,0,0.55),inset 0 1px 0 rgba(255,255,255,0.55);font-weight:800;font-size:11px;transition:transform .2s,box-shadow .2s"
        onmouseover="this.style.transform='translateY(-2px) scale(1.03)'"
        onmouseout="this.style.transform=''">
-      <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;background:#3C1E1E;border-radius:50%;flex-shrink:0">
-        <svg width="18" height="18" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:#3C1E1E;border-radius:50%;flex-shrink:0">
+        <svg width="11" height="11" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <path fill="#FEE500" d="M128 32C70.6 32 24 68.4 24 113.4c0 28.4 18.6 53.3 46.7 67.6l-9.4 34.5c-1.4 5.1 4.2 9.2 8.7 6.3l40.6-26.6c5.7 0.7 11.5 1 17.4 1c57.4 0 104-36.4 104-81.4S185.4 32 128 32z"/>
         </svg>
       </span>
@@ -33181,12 +33181,8 @@ button.chip:hover,
     #precheck-fab-admin { padding: 11px 14px 11px 12px; font-size: 12.5px; bottom: 74px; right: 12px; }
   }
 </style>
-<button type="button" id="precheck-fab-admin" onclick="window.open('/precheck.html','_blank')"
-        title="수업 환경 자가진단 (새 창)"
-        aria-label="수업 환경 자가진단">
-  <span class="ic">🩺</span>
-  <span data-ko="수업 진단" data-en="PreCheck">수업 진단</span>
-</button>
+<!-- ph153 (2026-06-03) — 관리자 화면 수업 진단 FAB 삭제 (요청: 불필요 + 카톡상담과 겹침) -->
+<!-- precheck-fab-admin 제거됨 -->
 
 
 <!-- ============================================================
@@ -34809,13 +34805,17 @@ button.chip:hover,
 
   // 사이드바 안 메뉴 선택 시 자동 닫힘
   function bindAutoClose(){
-    var sb = document.getElementById('admin-sidebar') || document.querySelector('.admin-sidebar');
+    // ph153 수정 — 실제 메뉴가 든 #ph85-sidebar 에 바인딩 (admin-sidebar 는 ph147 이 제거함)
+    var sb = document.getElementById('ph85-sidebar')
+           || document.getElementById('admin-sidebar')
+           || document.querySelector('.admin-sidebar');
     if (!sb || sb.__ph150) return;
     sb.__ph150 = true;
     sb.addEventListener('click', function(e){
       if (!isMobile() || !document.body.classList.contains('ph150-open')) return;
-      var link = e.target.closest('a[href], .sidebar-item, [data-menu-target]');
-      if (link) setTimeout(function(){ setOpen(false); }, 220);
+      // 아코디언 헤더(.ph85-head)는 펼침용 → 닫지 않음. 실제 메뉴 항목 클릭 시에만 닫음.
+      var leaf = e.target.closest('.ph85-sub, a[href], .sidebar-item, [data-menu-target]');
+      if (leaf) setTimeout(function(){ setOpen(false); }, 220);
     });
   }
 
@@ -34849,9 +34849,8 @@ button.chip:hover,
      ============================================================ -->
 <style id="ph151-hide-secondary">
   @media (max-width: 920px) {
-    /* 두 번째 사이드바 (ph85) 와 그 토글 + 본문 메뉴바 모두 숨김 */
-    #ph85-sidebar,
-    aside#ph85-sidebar,
+    /* ph153 수정 — #ph85-sidebar 는 ph152 가 토글 대상으로 사용하므로 숨김 목록에서 제외.
+       (여기서 숨기면 인라인 !important 와 충돌해 사이드바가 안 열림) */
     #ph85-toggle,
     .menu-toggle-bar,
     #legacy-toggle,
@@ -34874,7 +34873,7 @@ button.chip:hover,
   'use strict';
   function hide(){
     if (!window.matchMedia('(max-width: 920px)').matches) return;
-    var ids = ['ph85-sidebar','ph85-toggle','legacy-toggle'];
+    var ids = ['ph85-toggle','legacy-toggle']; // ph153 — ph85-sidebar 제외 (토글 대상)
     ids.forEach(function(id){
       var el = document.getElementById(id);
       if (el) {
@@ -34922,13 +34921,4 @@ button.chip:hover,
       -webkit-backdrop-filter: blur(18px) saturate(160%) !important;
               backdrop-filter: blur(18px) saturate(160%) !important;
       border-right: 1px solid rgba(96, 165, 250, 0.18) !important;
-      box-shadow: 4px 0 24px rgba(0,0,0,0.55) !important;
-      transform: translateX(-100%) !important;
-      transition: transform 0.25s ease !important;
-    }
-    body.mobile-menu-open .ph85-sidebar { transform: translateX(0) !important; }
-  }
-</style>
-
-</body>
-</html>
+      box
