@@ -5035,7 +5035,9 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
 <details class="table-card menu-card" id="card-ai-lesson-report">
   <summary><span data-ko="🎙 AI 학습 리포트 (수업 녹음 자동 분석)" data-en="🎙 AI Lesson Report (Auto-Analyze Recording)">🎙 AI 학습 리포트 (수업 녹음 자동 분석)</span><span class="card-howto" style="display:block;font-size:11.5px;font-weight:600;color:#a5b4fc;margin-top:5px;line-height:1.55" data-ko="📌 사용법: ① 학생 UID 입력 → ② 수업 녹음 넣기(R2 녹음ID·파일·URL 중 하나) → ③ [AI 리포트 자동 생성]. ➡ AI가 녹음을 직접 듣고 무슨 말을 했는지 분석해 리포트를 써줘요. 강사가 점수·글을 안 써도 됩니다." data-en="📌 How to use: ① Enter student UID → ② Add the lesson recording (R2 ID / file / URL) → ③ Click [Generate]. ➡ AI listens to the recording and writes the report itself — no teacher input needed.">📌 사용법: ① 학생 UID → ② 수업 녹음 넣기 → ③ [AI 리포트 자동 생성] · AI가 녹음을 듣고 알아서 써줘요(강사 입력 X)</span></summary>
   <div class="menu-body">
-    <div style="background:linear-gradient(135deg,rgba(99,102,241,0.10),rgba(139,92,246,0.06));border:1px solid rgba(99,102,241,0.30);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:13px;color:#c4b5fd;line-height:1.65">
+    <div style="background:linear-gradient(135deg,rgba(99,102,241,0.10),rgba(139,92,246,0.06));border:1px solid rgba(99,102,241,0.30);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:13px;color:#c4b5fd;line-height:1.65"
+         data-ko="💡 수업이 끝난 녹음 파일을 자동 분석 — Whisper STT → Llama 3.3 70B 가 문법 오류, 대안 표현, 다빈도 단어, 강점·약점 을 자동 추출해서 평가서로 정리합니다. &quot;Good job!&quot; 같은 형식적 피드백이 아닌 구체적이고 교육적인 리포트가 30초 만에 완성돼요."
+         data-en="💡 Auto-analyzes the lesson recording — Whisper STT → Llama 3.3 70B extracts grammar errors, better expressions, frequent words, and strengths/weaknesses into an evaluation. A concrete, educational report (not generic &quot;Good job!&quot;) in about 30 seconds.">
       💡 <b>수업이 끝난 녹음 파일을 자동 분석</b> — Whisper STT → Llama 3.3 70B 가
       <b>문법 오류, 대안 표현, 다빈도 단어, 강점·약점</b> 를 자동 추출해서 평가서로 정리합니다.
       "Good job!" 같은 형식적 피드백이 아닌 <b>구체적이고 교육적인 리포트</b>가 30초 만에 완성돼요.
@@ -5043,31 +5045,31 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
 
     <div style="display:grid;gap:8px;max-width:760px;margin-bottom:12px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <label style="font-size:12.5px;font-weight:700;color:#fbbf24">학생 UID <span style="color:#f87171">*</span> <input id="alr-uid" type="text" placeholder="hong_gd" style="width:100%;padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13px;margin-top:3px"/></label>
-        <label style="font-size:12.5px;font-weight:700;color:#fbbf24">학생 이름 <input id="alr-name" type="text" placeholder="홍길동" style="width:100%;padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13px;margin-top:3px"/></label>
+        <label style="font-size:12.5px;font-weight:700;color:#fbbf24"><span data-ko="학생 UID" data-en="Student UID">학생 UID</span> <span style="color:#f87171">*</span> <input id="alr-uid" type="text" placeholder="hong_gd" data-ko-placeholder="hong_gd" data-en-placeholder="hong_gd" style="width:100%;padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13px;margin-top:3px"/></label>
+        <label style="font-size:12.5px;font-weight:700;color:#fbbf24"><span data-ko="학생 이름" data-en="Student name">학생 이름</span> <input id="alr-name" type="text" placeholder="홍길동" data-ko-placeholder="홍길동" data-en-placeholder="e.g. Min-jun" style="width:100%;padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13px;margin-top:3px"/></label>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <label style="font-size:12.5px;font-weight:700;color:#fbbf24">강사 이름 <input id="alr-teacher" type="text" placeholder="Karen" style="width:100%;padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13px;margin-top:3px"/></label>
-        <label style="font-size:12.5px;font-weight:700;color:#fbbf24">수업 제목 <input id="alr-title" type="text" placeholder="BTS 12 (Jobs) UNIT 003" style="width:100%;padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13px;margin-top:3px"/></label>
+        <label style="font-size:12.5px;font-weight:700;color:#fbbf24"><span data-ko="강사 이름" data-en="Teacher name">강사 이름</span> <input id="alr-teacher" type="text" placeholder="Karen" data-ko-placeholder="Karen" data-en-placeholder="Karen" style="width:100%;padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13px;margin-top:3px"/></label>
+        <label style="font-size:12.5px;font-weight:700;color:#fbbf24"><span data-ko="수업 제목" data-en="Lesson title">수업 제목</span> <input id="alr-title" type="text" placeholder="BTS 12 (Jobs) UNIT 003" data-ko-placeholder="BTS 12 (Jobs) UNIT 003" data-en-placeholder="BTS 12 (Jobs) UNIT 003" style="width:100%;padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13px;margin-top:3px"/></label>
       </div>
       <label style="font-size:12.5px;font-weight:700;color:#fbbf24">
-        📂 녹음 소스 <span style="font-size:11px;color:#a3b3d1;font-weight:500">(3가지 중 하나 — recording_id 가장 권장)</span>
+        <span data-ko="📂 녹음 소스" data-en="📂 Recording source">📂 녹음 소스</span> <span style="font-size:11px;color:#a3b3d1;font-weight:500" data-ko="(3가지 중 하나 — recording_id 가장 권장)" data-en="(any one of three — recording_id recommended)">(3가지 중 하나 — recording_id 가장 권장)</span>
       </label>
       <div style="display:grid;grid-template-columns:1fr;gap:6px">
-        <input id="alr-recording-id" type="text" placeholder="① R2 녹음 ID (예: room123/2026-05-20.webm)" style="padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:12.5px"/>
-        <input id="alr-recording-url" type="text" placeholder="② 외부 URL (https://... 직접 다운로드 가능한 wav/webm/mp4)" style="padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:12.5px"/>
+        <input id="alr-recording-id" type="text" placeholder="① R2 녹음 ID (예: room123/2026-05-20.webm)" data-ko-placeholder="① R2 녹음 ID (예: room123/2026-05-20.webm)" data-en-placeholder="① R2 recording ID (e.g. room123/2026-05-20.webm)" style="padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:12.5px"/>
+        <input id="alr-recording-url" type="text" placeholder="② 외부 URL (https://... 직접 다운로드 가능한 wav/webm/mp4)" data-ko-placeholder="② 외부 URL (https://... 직접 다운로드 가능한 wav/webm/mp4)" data-en-placeholder="② External URL (https://... downloadable wav/webm/mp4)" style="padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:12.5px"/>
         <input id="alr-audio-file" type="file" accept="audio/*,video/*" style="padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:12.5px"/>
         <details style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 12px;margin-top:4px">
-          <summary style="cursor:pointer;font-size:11.5px;color:#a3b3d1">📝 또는 STT 결과 직접 붙여넣기 (Whisper 미사용)</summary>
-          <textarea id="alr-transcript" rows="4" placeholder="이미 변환된 텍스트가 있으면 여기에 붙여넣으세요. (Whisper STT 건너뛰고 바로 분석)" style="width:100%;margin-top:8px;padding:8px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:6px;font-size:12px;font-family:inherit;resize:vertical"></textarea>
+          <summary style="cursor:pointer;font-size:11.5px;color:#a3b3d1" data-ko="📝 또는 STT 결과 직접 붙여넣기 (Whisper 미사용)" data-en="📝 Or paste the transcript directly (skip Whisper)">📝 또는 STT 결과 직접 붙여넣기 (Whisper 미사용)</summary>
+          <textarea id="alr-transcript" rows="4" placeholder="이미 변환된 텍스트가 있으면 여기에 붙여넣으세요. (Whisper STT 건너뛰고 바로 분석)" data-ko-placeholder="이미 변환된 텍스트가 있으면 여기에 붙여넣으세요. (Whisper STT 건너뛰고 바로 분석)" data-en-placeholder="Paste already-transcribed text here. (Skips Whisper STT, analyzes directly)" style="width:100%;margin-top:8px;padding:8px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:6px;font-size:12px;font-family:inherit;resize:vertical"></textarea>
         </details>
       </div>
     </div>
 
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0">
-      <button onclick="alrGenerate()" id="alr-go-btn" style="padding:12px 22px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;border:0;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px rgba(139,92,246,0.45)">🚀 AI 리포트 자동 생성</button>
-      <button onclick="alrLoadList()" style="padding:10px 16px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#e6ecff;border-radius:8px;font-weight:700;cursor:pointer">📜 최근 리포트 목록</button>
-      <span style="font-size:11.5px;color:#a3b3d1;align-self:center">⏱ 평균 20~40초 소요 (수업 길이에 따라)</span>
+      <button onclick="alrGenerate()" id="alr-go-btn" style="padding:12px 22px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;border:0;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px rgba(139,92,246,0.45)" data-ko="🚀 AI 리포트 자동 생성" data-en="🚀 Generate AI Report">🚀 AI 리포트 자동 생성</button>
+      <button onclick="alrLoadList()" style="padding:10px 16px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#e6ecff;border-radius:8px;font-weight:700;cursor:pointer" data-ko="📜 최근 리포트 목록" data-en="📜 Recent Reports">📜 최근 리포트 목록</button>
+      <span style="font-size:11.5px;color:#a3b3d1;align-self:center" data-ko="⏱ 평균 20~40초 소요 (수업 길이에 따라)" data-en="⏱ ~20–40s (depending on lesson length)">⏱ 평균 20~40초 소요 (수업 길이에 따라)</span>
     </div>
 
     <div id="alr-result" style="margin-top:16px"></div>
@@ -19607,7 +19609,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260602100514 -->
+        <!-- BUILD:20260602101138 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
