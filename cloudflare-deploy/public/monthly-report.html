@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>망고아이 월간 학습 레포트</title>
+<style>
+  :root{--mango:#FFCC00;--mango-d:#F5A800;--kakao:#FEE500;--navy:#0F172A;--slate:#334155;--muted:#64748b;
+    --line:#e2e8f0;--bg:#eef2f7;--card:#fff;--good:#10b981;--up:#22c55e;--blue:#3b82f6;--pink:#ec4899;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Pretendard','Apple SD Gothic Neo','Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;
+    background:var(--bg);color:var(--navy);line-height:1.55;-webkit-font-smoothing:antialiased;padding:18px 12px 60px}
+  .wrap{max-width:640px;margin:0 auto}
+  .topbar{display:flex;align-items:center;gap:8px;max-width:640px;margin:0 auto 14px}
+  .topbar .logo{font-weight:900;font-size:15px}
+  .topbar .sp{flex:1}
+  .lang-btn{background:#fff;border:1px solid var(--line);border-radius:99px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer;color:var(--slate)}
+  /* form */
+  .formcard{background:#fff;border:1px solid var(--line);border-radius:18px;padding:24px 22px;box-shadow:0 10px 30px -16px rgba(15,23,42,.3)}
+  .formcard h2{font-size:17px;font-weight:900;margin-bottom:4px}
+  .formcard p{font-size:12.5px;color:var(--muted);margin-bottom:16px}
+  .fld{margin-bottom:13px}
+  .fld label{display:block;font-size:12px;font-weight:800;color:var(--slate);margin-bottom:5px}
+  .fld input{width:100%;padding:11px 13px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px;font-family:inherit}
+  .gobtn{width:100%;margin-top:6px;padding:13px;border:0;border-radius:11px;font-weight:900;font-size:14px;cursor:pointer;
+    background:linear-gradient(135deg,#F5A800,#e08e00);color:#fff;box-shadow:0 8px 18px -8px rgba(245,168,0,.7)}
+  /* dashboard */
+  .dash{background:var(--card);border-radius:22px;overflow:hidden;box-shadow:0 18px 44px -22px rgba(15,23,42,.4);border:1px solid var(--line)}
+  .hero{background:linear-gradient(135deg,#FFCC00,#F5A800);padding:22px 22px 48px;position:relative;color:#3b2f00}
+  .hero .mango{position:absolute;right:18px;top:14px;font-size:44px;filter:drop-shadow(0 4px 6px rgba(0,0,0,.18))}
+  .hero .badge{display:inline-block;background:rgba(255,255,255,.6);font-size:11px;font-weight:800;padding:3px 11px;border-radius:99px;margin-bottom:8px}
+  .hero h2{font-size:21px;font-weight:900}
+  .hero .who{font-size:13px;font-weight:700;opacity:.85;margin-top:2px}
+  .body{padding:0 16px 22px;margin-top:-30px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:15px 15px;margin-bottom:13px;box-shadow:0 4px 14px -8px rgba(15,23,42,.18)}
+  .card h3{font-size:13px;font-weight:900;display:flex;align-items:center;gap:7px;margin-bottom:10px}
+  .ai-greet{font-size:13.5px;color:var(--slate);line-height:1.75;white-space:pre-wrap}
+  .ai-tag{margin-left:auto;font-size:10px;font-weight:800;color:#92600e;background:#fff3cf;padding:2px 8px;border-radius:99px}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:13px}
+  .kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 6px;text-align:center}
+  .kpi .v{font-size:19px;font-weight:900}
+  .kpi .l{font-size:10px;color:var(--muted);font-weight:700;margin-top:2px}
+  .mg{color:var(--mango-d)}.blue{color:var(--blue)}.up{color:var(--up)}.pink{color:var(--pink)}
+  .legend{display:flex;gap:14px;font-size:11px;color:var(--muted);font-weight:700;margin-bottom:6px;flex-wrap:wrap}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:middle}
+  .pron-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+  .pron-row .lab{font-size:12px;font-weight:700;width:64px;flex-shrink:0;color:var(--slate)}
+  .bar{flex:1;height:12px;background:#eef2f7;border-radius:99px;overflow:hidden}
+  .bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#34d399,#10b981)}
+  .pron-row .pct{font-size:12px;font-weight:900;width:54px;text-align:right}
+  .comment{background:#fffdf5;border:1px dashed #f3d27a;border-radius:14px;padding:12px 14px;font-size:13px;color:#4b3f1d;line-height:1.65}
+  .comment .by{font-size:11px;font-weight:800;color:#b45309;margin-top:8px}
+  .goal{display:flex;align-items:flex-start;gap:9px;font-size:13px;color:var(--slate);margin-bottom:7px}
+  .goal .n{flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--mango);color:#3b2f00;font-weight:900;font-size:12px;display:flex;align-items:center;justify-content:center}
+  .cta{display:flex;gap:10px;margin-top:4px}
+  .cta a{flex:1;text-align:center;padding:13px;border-radius:13px;font-weight:900;font-size:13.5px;text-decoration:none}
+  .cta .primary{background:linear-gradient(135deg,#F5A800,#e08e00);color:#fff;box-shadow:0 8px 18px -8px rgba(245,168,0,.7)}
+  .cta .ghost{background:#fff;border:1.5px solid var(--mango-d);color:var(--mango-d)}
+  .empty{padding:40px 20px;text-align:center;color:var(--muted)}
+  .empty .ico{font-size:46px;opacity:.5;margin-bottom:10px}
+  .muted-note{font-size:11px;color:var(--muted);text-align:center;margin-top:14px;line-height:1.6}
+  .spin{text-align:center;padding:60px 0;color:var(--muted);font-weight:700}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <span class="logo">🥭 <span data-ko="망고아이 학습 레포트" data-en="Mangoi Learning Report">망고아이 학습 레포트</span></span>
+    <span class="sp"></span>
+    <button class="lang-btn" id="langBtn" onclick="toggleLang()">EN</button>
+  </div>
+  <div class="wrap" id="root"><div class="spin">로딩 중…</div></div>
+
+<script>
+(function(){
+  "use strict";
+  var L = { ko:{}, en:{} };
+  var lang = 'ko';
+  function t(ko,en){ return lang==='ko'?ko:(en||ko); }
+
+  var q = new URLSearchParams(location.search);
+  var uid = (q.get('uid')||q.get('id')||'').trim();
+  var period = (q.get('period')||'').trim();   // YYYY-MM
+  var nameOverride = (q.get('name')||'').trim();
+  var token = (q.get('t')||'').trim();          // 있으면 토큰 열람(저장된 레포트), 없으면 실시간 미리보기
+
+  window.toggleLang = function(){
+    lang = (lang==='ko')?'en':'ko';
+    document.getElementById('langBtn').textContent = (lang==='ko')?'EN':'한국어';
+    document.documentElement.lang = lang;
+    // static labels
+    document.querySelectorAll('[data-ko]').forEach(function(el){
+      var v = el.getAttribute(lang==='ko'?'data-ko':'data-en'); if(v!=null) el.textContent=v;
+    });
+    if (window._lastData) renderDash(window._lastData);
+    else if (!uid) renderForm();
+  };
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  function renderForm(){
+    var thisMonth = new Date().toISOString().slice(0,7);
+    document.getElementById('root').innerHTML =
+      '<div class="formcard">'+
+        '<h2>'+t('월간 학습 레포트 미리보기','Monthly Report Preview')+'</h2>'+
+        '<p>'+t('학생 ID와 월을 입력하면 해당 학생의 월간 레포트를 불러옵니다. (관리자·교사용)','Enter a student ID and month to load the report. (Admin/Teacher)')+'</p>'+
+        '<div class="fld"><label>'+t('학생 ID','Student ID')+'</label><input id="f-uid" placeholder="예: hong / stu_123" /></div>'+
+        '<div class="fld"><label>'+t('월','Month')+'</label><input id="f-period" type="month" value="'+thisMonth+'" /></div>'+
+        '<button class="gobtn" onclick="goReport()">'+t('레포트 보기 ›','View Report ›')+'</button>'+
+      '</div>'+
+      '<div class="muted-note">'+t('💡 카카오톡으로 보낼 때는 이 페이지 주소에 ?uid=학생ID&period=YYYY-MM 를 붙입니다.','💡 To send via Kakao, append ?uid=ID&period=YYYY-MM to this URL.')+'</div>';
+  }
+  window.goReport = function(){
+    var u = (document.getElementById('f-uid').value||'').trim();
+    var p = (document.getElementById('f-period').value||'').trim();
+    if(!u||!p){ alert(t('학생 ID와 월을 입력하세요.','Enter student ID and month.')); return; }
+    location.search = '?uid='+encodeURIComponent(u)+'&period='+encodeURIComponent(p);
+  };
+
+  function svgTrend(items){
+    // items: [{score_overall, ...}] 종합점수(5점) → 라인. 비면 안내
+    var pts = (items||[]).map(function(r){ return Number(r.score_overall)||0; }).filter(function(v){return v>0;});
+    if(pts.length<2) return '<div style="font-size:12px;color:#94a3b8;padding:10px 4px">'+t('점수 추이를 그릴 데이터가 아직 적어요.','Not enough data yet.')+'</div>';
+    var W=500,H=170,pad=24, n=pts.length;
+    var max=5, min=0;
+    var xs=function(i){ return pad + (W-pad*2)*(i/(n-1)); };
+    var ys=function(v){ return 18 + (H-40)*(1-(v-min)/(max-min)); };
+    var poly=pts.map(function(v,i){return xs(i).toFixed(1)+','+ys(v).toFixed(1);}).join(' ');
+    var dots=pts.map(function(v,i){return '<circle cx="'+xs(i).toFixed(1)+'" cy="'+ys(v).toFixed(1)+'" r="4.5" fill="#3b82f6"/>';}).join('');
+    var labs=pts.map(function(v,i){return '<text x="'+xs(i).toFixed(1)+'" y="'+H+'" fill="#64748b" font-size="10" font-weight="700" text-anchor="middle">'+(i+1)+t('회','')+'</text>';}).join('');
+    return '<svg viewBox="0 0 '+W+' '+(H+6)+'" style="width:100%;height:auto">'+
+      '<g stroke="#eef2f7"><line x1="'+pad+'" y1="18" x2="'+(W-pad)+'" y2="18"/><line x1="'+pad+'" y1="78" x2="'+(W-pad)+'" y2="78"/><line x1="'+pad+'" y1="138" x2="'+(W-pad)+'" y2="138"/></g>'+
+      '<polyline fill="none" stroke="#3b82f6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="'+poly+'"/>'+dots+labs+'</svg>';
+  }
+
+  function renderDash(d){
+    window._lastData = d;
+    var s = d.student||{};
+    var nm = nameOverride || s.student_name || s.user_id || uid;
+    var ev = d.evaluations||{count:0,avg_score:0,items:[]};
+    var vo = d.voice||{};
+    var att = (d.attendance||{}).days||0;
+    var items = ev.items||[];
+    var lastEval = items.length?items[items.length-1]:null;
+    var hasData = (ev.count>0)||(att>0)||((vo.sessions||0)>0);
+
+    var goals = items.map(function(r){return r.next_goals;}).filter(Boolean).slice(-3);
+    var aiText = d.ai_text || (hasData ? t('이번 달 학습 요약입니다.','Monthly learning summary.') : '');
+
+    var html = '<div class="dash"><div class="hero"><div class="mango">🥭</div>'+
+      '<span class="badge">'+esc(d.year_month||period)+'</span>'+
+      '<h2>'+esc(nm)+' '+t('학생 학습 레포트','Report')+'</h2>'+
+      '<div class="who">'+(s.parent_name?(t('학부모: ','Parent: ')+esc(s.parent_name)):t('망고아이 영어','Mangoi English'))+'</div></div>'+
+      '<div class="body">';
+
+    if(!hasData){
+      html += '<div class="card"><div class="empty"><div class="ico">📭</div><div style="font-weight:800;color:#334155">'+
+        t('이번 달 학습 기록이 아직 없습니다','No records for this month yet')+'</div>'+
+        '<div style="font-size:12.5px;margin-top:6px">'+t('수업·평가·발음 연습 기록이 쌓이면 자동으로 채워집니다.','It fills automatically as lessons and evaluations accumulate.')+'</div></div></div>';
+    } else {
+      // AI 인사말
+      if(aiText) html += '<div class="card"><h3>💬 '+t('담임의 한마디','Teacher\'s Note')+' <span class="ai-tag">AI</span></h3><div class="ai-greet">'+esc(aiText)+'</div></div>';
+      // KPI
+      html += '<div class="kpis">'+
+        '<div class="kpi"><div class="v mg">'+att+t('일','d')+'</div><div class="l">'+t('출석','Attend')+'</div></div>'+
+        '<div class="kpi"><div class="v blue">'+(ev.avg_score||0)+'</div><div class="l">'+t('평가(5점)','Eval/5')+'</div></div>'+
+        '<div class="kpi"><div class="v up">'+(vo.avg_pronunciation||0)+'</div><div class="l">'+t('발음','Pron')+'</div></div>'+
+        '<div class="kpi"><div class="v pink">'+(vo.best||0)+'</div><div class="l">'+t('최고','Best')+'</div></div></div>';
+      // 점수 추이
+      html += '<div class="card"><h3>📈 '+t('평가 점수 추이','Score Trend')+'</h3>'+svgTrend(items)+'</div>';
+      // 발음
+      if((vo.sessions||0)>0){
+        html += '<div class="card"><h3>🎤 '+t('발음 영역별','Pronunciation')+'</h3>'+
+          pronRow(t('정확도','Accuracy'),vo.avg_accuracy)+pronRow(t('발음','Pron.'),vo.avg_pronunciation)+pronRow(t('유창성','Fluency'),vo.avg_fluency)+'</div>';
+      }
+      // 강사 코멘트
+      if(lastEval && lastEval.teacher_comment){
+        html += '<div class="card"><h3>⭐ '+t('강사 코멘트','Teacher Comment')+'</h3><div class="comment">'+esc(lastEval.teacher_comment)+
+          '<div class="by">— '+t('망고아이 담임강사','Mangoi Teacher')+'</div></div></div>';
+      }
+      // 다음 목표
+      if(goals.length){
+        var gi=''; goals.forEach(function(g,i){ gi+='<div class="goal"><span class="n">'+(i+1)+'</span><span>'+esc(g)+'</span></div>'; });
+        html += '<div class="card"><h3>🎯 '+t('다음 달 목표','Next Goals')+'</h3>'+gi+'</div>';
+      }
+    }
+    // CTA (항상)
+    html += '<div class="cta"><a class="primary" href="/?menu=payment">'+t('🔄 수강 연장','🔄 Renew')+'</a>'+
+      '<a class="ghost" href="/?menu=inquiry">'+t('💬 상담 신청','💬 Consult')+'</a></div>';
+    html += '<div class="muted-note">'+t('이 레포트는 망고아이 학습 데이터를 바탕으로 자동 생성되었습니다.','Auto-generated from Mangoi learning data.')+'</div>';
+    html += '</div></div>';
+    document.getElementById('root').innerHTML = html;
+  }
+  function pronRow(lab,v){ v=Number(v)||0; return '<div class="pron-row"><span class="lab">'+lab+'</span><div class="bar"><i style="width:'+Math.max(0,Math.min(100,v))+'%"></i></div><span class="pct">'+v+t('점','')+'</span></div>'; }
+
+  function loadReport(){
+    document.getElementById('root').innerHTML = '<div class="spin">'+t('레포트 불러오는 중…','Loading…')+'</div>';
+    // 토큰이 있으면 저장된 레포트를 토큰 검증으로 열람(학부모 링크), 없으면 실시간 생성 미리보기(관리자/교사)
+    var api = token
+      ? '/api/report/monthly-view?uid='+encodeURIComponent(uid)+'&period='+encodeURIComponent(period)+'&t='+encodeURIComponent(token)
+      : '/api/report/monthly/'+encodeURIComponent(uid)+'/'+encodeURIComponent(period)+'?ai=1';
+    fetch(api, {cache:'no-store'})
+      .then(function(r){ return r.ok?r.json():null; })
+      .then(function(d){
+        if(!d||!d.ok){ document.getElementById('root').innerHTML='<div class="card"><div class="empty"><div class="ico">⚠️</div>'+t('레포트를 불러오지 못했습니다.','Could not load the report.')+'</div></div>'; return; }
+        renderDash(d);
+      })
+      .catch(function(){ document.getElementById('root').innerHTML='<div class="card"><div class="empty"><div class="ico">⚠️</div>'+t('네트워크 오류','Network error')+'</div></div>'; });
+  }
+
+  if(uid && period){ loadReport(); } else { renderForm(); }
+})();
+</script>
+<!-- BUILD:20260602095516 -->
+</body>
+</html>

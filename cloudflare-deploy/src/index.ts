@@ -6,7 +6,7 @@
 import { SignalingRoom } from './signaling-room';
 import { VideoCallRoom } from './video-call-room';
 import { HealthResponse, TurnConfigResponse, PdfUploadResponse } from './types';
-import { handleMangoApi } from './api-mango';
+import { handleMangoApi, runMonthlyReports } from './api-mango';
 import { purgeExpired } from './retention';
 import { handleLivekit, ensureLivekitSchema } from './livekit-bridge';
 import { handleRecordingUpload as handleR2MultipartUpload } from './recordings-r2';
@@ -504,6 +504,12 @@ export default {
         /^\/api\/vocab\/\d+$/.test(path) ||
         // 📄 Phase MR 월별 보고서 (HTML/PDF 페이지)
         /^\/api\/report\/monthly\/[^\/]+\/\d{4}-\d{2}$/.test(path) ||
+        // 📊 Phase MAR 월간 AI 레포트 (관리자 생성/발송 + 공개 토큰 열람)
+        path === '/api/admin/monthly-report/generate' ||
+        path === '/api/admin/monthly-report/list' ||
+        path === '/api/admin/monthly-report/send' ||
+        path === '/api/admin/monthly-report/run-all' ||
+        path === '/api/report/monthly-view' ||
         // 🧠 Phase MBTI 매칭
         path === '/api/teachers/mbti-list' ||
         path === '/api/admin/teacher/mbti' ||
@@ -853,6 +859,17 @@ export default {
             console.log('[nps-monthly] cron ran', r?.status);
           } catch (err) {
             console.error('[nps-monthly] error', err);
+          }
+          // 📊 Phase MAR — 매월 1일 KST 지난달 월간 AI 레포트 생성+발송 (학생+학부모)
+          try {
+            const kd = new Date(event.scheduledTime + 9 * 3600 * 1000);
+            const py = kd.getUTCMonth() === 0 ? kd.getUTCFullYear() - 1 : kd.getUTCFullYear();
+            const pm = kd.getUTCMonth() === 0 ? 12 : kd.getUTCMonth();
+            const period = `${py}-${String(pm).padStart(2, '0')}`;
+            const r = await runMonthlyReports(env as any, period);
+            console.log('[monthly-report] cron ran', JSON.stringify(r));
+          } catch (err) {
+            console.error('[monthly-report] error', err);
           }
         }
       }

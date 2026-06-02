@@ -6180,6 +6180,103 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
 </script>
 
 <!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- 📊 월간 AI 레포트 — 학생별 생성 + 학부모/학생 카톡 발송              -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<details class="table-card menu-card" id="card-monthly-report">
+  <summary><span data-ko="📊 월간 AI 학습 레포트" data-en="📊 Monthly AI Report">📊 월간 AI 학습 레포트</span></summary>
+  <div class="menu-body">
+    <div style="background:linear-gradient(135deg,rgba(245,158,11,0.10),rgba(217,119,6,0.05));border:1px solid rgba(245,158,11,0.30);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:13px;color:#fde68a;line-height:1.65"
+         data-ko="💡 학생의 출석·평가·발음 데이터를 AI가 학부모용 한국어 레포트로 작성합니다. [생성] 후 미리보기 링크를 확인하고, [카톡 발송]으로 학생+학부모에게 보냅니다. 매월 1일 KST 자동 일괄 발송됩니다. (SOLAPI 미설정 시 발송은 '대기'로 기록되고 링크는 생성됩니다.)"
+         data-en="💡 AI writes a parent-friendly monthly report from attendance/eval/pronunciation data. Generate, preview, then send to student+parent via KakaoTalk. Auto-runs on the 1st of each month (KST).">
+      💡 학생의 출석·평가·발음 데이터를 AI가 학부모용 레포트로 작성 → 미리보기 → 학생+학부모 카톡 발송. 매월 1일 KST 자동 일괄.
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
+      <label style="font-size:12px;color:#cbd5e1;font-weight:700">학생 ID<br><input id="mr-uid" placeholder="예: hong / stu_123" style="margin-top:4px;padding:8px 10px;border:1px solid #475569;border-radius:8px;background:#1e293b;color:#e2e8f0;font-size:13px;min-width:160px"></label>
+      <label style="font-size:12px;color:#cbd5e1;font-weight:700">월<br><input id="mr-period" type="month" style="margin-top:4px;padding:8px 10px;border:1px solid #475569;border-radius:8px;background:#1e293b;color:#e2e8f0;font-size:13px"></label>
+      <button onclick="mrGenerate()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:0;border-radius:9px;padding:9px 15px;font-weight:700;cursor:pointer">🔄 <span data-ko="생성" data-en="Generate">생성</span></button>
+      <button onclick="mrSend()" style="background:#10b981;color:#fff;border:0;border-radius:9px;padding:9px 15px;font-weight:700;cursor:pointer">💬 <span data-ko="카톡 발송" data-en="Send Kakao">카톡 발송</span></button>
+      <button onclick="mrRunAll()" style="background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:9px;padding:9px 15px;font-weight:600;cursor:pointer">📤 <span data-ko="전체 일괄" data-en="Run All">전체 일괄</span></button>
+      <button onclick="mrList()" style="background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:9px;padding:9px 15px;font-weight:600;cursor:pointer">📋 <span data-ko="목록" data-en="List">목록</span></button>
+    </div>
+    <div id="mr-result" style="margin-top:6px"></div>
+  </div>
+</details>
+<script>
+(function(){
+  const esc = s => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+  function call(method, url, body){
+    const opts = { method, headers: {'Content-Type':'application/json'}, credentials:'include' };
+    if (body) opts.body = JSON.stringify(body);
+    return fetch(url, opts).then(r => r.json());
+  }
+  function prevMonth(){ const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-1); return d.toISOString().slice(0,7); }
+  function fields(){
+    const uid=(document.getElementById('mr-uid').value||'').trim();
+    const period=(document.getElementById('mr-period').value||'').trim();
+    return {uid, period};
+  }
+  function box(){ return document.getElementById('mr-result'); }
+  function err(m){ box().innerHTML = '<div style="color:#fca5a5;background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.30);border-radius:10px;padding:12px">❌ '+esc(m)+'</div>'; }
+
+  window.mrGenerate = async function(){
+    const {uid,period}=fields(); if(!uid||!period){ return err('학생 ID와 월을 입력하세요.'); }
+    box().innerHTML='<div style="color:#fbbf24;padding:12px">⏳ AI 레포트 생성 중…</div>';
+    try{
+      const r=await call('POST','/api/admin/monthly-report/generate',{uid,period});
+      if(!r.ok) throw new Error(r.error||'생성 실패');
+      const ev=(r.report&&r.report.evaluations)||{}; const vo=(r.report&&r.report.voice)||{}; const at=(r.report&&r.report.attendance)||{};
+      box().innerHTML =
+        '<div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:14px">'+
+        '<div style="font-weight:800;color:#fbbf24;margin-bottom:6px">✅ 생성 완료 — '+esc(uid)+' · '+esc(period)+'</div>'+
+        '<div style="color:#fde68a;white-space:pre-wrap;line-height:1.7;font-size:13.5px;margin-bottom:10px">'+esc(r.report&&r.report.ai_text||'(AI 텍스트 없음)')+'</div>'+
+        '<div style="font-size:12px;color:#94a3b8;margin-bottom:8px">출석 '+(at.days||0)+'일 · 평가 '+(ev.avg_score||0)+'/5 · 발음 '+(vo.avg_pronunciation||0)+'점</div>'+
+        '<a href="'+esc(r.url)+'" target="_blank" style="display:inline-block;background:#3b82f6;color:#fff;padding:8px 14px;border-radius:8px;text-decoration:none;font-weight:700;font-size:12.5px">📄 학부모용 레포트 미리보기 ›</a>'+
+        '</div>';
+    }catch(e){ err(e.message); }
+  };
+  window.mrSend = async function(){
+    const {uid,period}=fields(); if(!uid||!period){ return err('학생 ID와 월을 입력하세요.'); }
+    box().innerHTML='<div style="color:#fbbf24;padding:12px">⏳ 카톡 발송 중…</div>';
+    try{
+      const r=await call('POST','/api/admin/monthly-report/send',{uid,period});
+      if(!r.ok) throw new Error(r.error||'발송 실패');
+      const mode = r.mode==='real' ? '실제 발송' : (r.mode==='mock' ? '모의(테스트)' : '대기(SOLAPI 미설정)');
+      box().innerHTML =
+        '<div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:12px;padding:14px">'+
+        '<div style="font-weight:800;color:#6ee7b7;margin-bottom:6px">💬 발송 결과 ('+esc(mode)+')</div>'+
+        '<div style="font-size:13px;color:#cbd5e1">학생: '+(r.sent_to_student?'✅ 발송':'➖ 미발송/대기')+' · 학부모: '+(r.sent_to_parent?'✅ 발송':'➖ 미발송/대기')+'</div>'+
+        '<a href="'+esc(r.url)+'" target="_blank" style="display:inline-block;margin-top:8px;color:#93c5fd;font-size:12.5px">🔗 발송된 레포트 링크 열기</a>'+
+        '</div>';
+    }catch(e){ err(e.message); }
+  };
+  window.mrRunAll = async function(){
+    const {period}=fields(); if(!period){ return err('월을 입력하세요.'); }
+    if(!confirm(period+' 전체 학생에게 월간 레포트를 생성·발송할까요?')) return;
+    box().innerHTML='<div style="color:#fbbf24;padding:12px">⏳ 전체 학생 일괄 처리 중… (학생 수에 따라 시간이 걸립니다)</div>';
+    try{
+      const r=await call('POST','/api/admin/monthly-report/run-all',{period});
+      if(!r.ok) throw new Error(r.error||'일괄 실패');
+      box().innerHTML='<div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.3);border-radius:12px;padding:14px;color:#bfdbfe;font-size:13px">📤 일괄 완료 — 대상 '+(r.total||0)+'명 · 생성 '+(r.generated||0)+' · 발송 '+(r.sent||0)+' · 오류 '+(r.errors||0)+'</div>';
+    }catch(e){ err(e.message); }
+  };
+  window.mrList = async function(){
+    const {period}=fields();
+    box().innerHTML='<div style="color:#fbbf24;padding:12px">⏳ 불러오는 중…</div>';
+    try{
+      const r=await call('GET','/api/admin/monthly-report/list'+(period?('?period='+encodeURIComponent(period)):''));
+      if(!r.ok) throw new Error(r.error||'조회 실패');
+      if(!r.items||!r.items.length){ box().innerHTML='<div style="color:#94a3b8;padding:12px">생성된 레포트가 없습니다.</div>'; return; }
+      box().innerHTML='<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><tr style="color:#94a3b8;text-align:left"><th style="padding:6px">학생</th><th>월</th><th>상태</th><th>학생</th><th>학부모</th></tr>'+
+        r.items.map(it=>'<tr style="border-top:1px solid #334155;color:#e2e8f0"><td style="padding:6px">'+esc(it.student_name||it.student_uid)+'</td><td>'+esc(it.period)+'</td><td>'+esc(it.status||'')+'</td><td>'+(it.sent_to_student?'✅':'➖')+'</td><td>'+(it.sent_to_parent?'✅':'➖')+'</td></tr>').join('')+'</table></div>';
+    }catch(e){ err(e.message); }
+  };
+  document.getElementById('card-monthly-report')?.addEventListener('toggle', function(){
+    if(this.open){ const p=document.getElementById('mr-period'); if(p&&!p.value) p.value=prevMonth(); }
+  });
+})();
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
 <!-- 💰 Auto Dunning — 미납 자동 에스컬레이션                            -->
 <!-- ═══════════════════════════════════════════════════════════════ -->
 <details class="table-card menu-card" id="card-auto-dunning">
@@ -19510,7 +19607,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260602090540 -->
+        <!-- BUILD:20260602095516 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
