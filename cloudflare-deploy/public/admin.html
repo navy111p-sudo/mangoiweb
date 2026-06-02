@@ -5053,8 +5053,18 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
         <label style="font-size:12.5px;font-weight:700;color:#fbbf24"><span data-ko="수업 제목" data-en="Lesson title">수업 제목</span> <input id="alr-title" type="text" placeholder="BTS 12 (Jobs) UNIT 003" data-ko-placeholder="BTS 12 (Jobs) UNIT 003" data-en-placeholder="BTS 12 (Jobs) UNIT 003" style="width:100%;padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13px;margin-top:3px"/></label>
       </div>
       <label style="font-size:12.5px;font-weight:700;color:#fbbf24">
-        <span data-ko="📂 녹음 소스" data-en="📂 Recording source">📂 녹음 소스</span> <span style="font-size:11px;color:#a3b3d1;font-weight:500" data-ko="(3가지 중 하나 — recording_id 가장 권장)" data-en="(any one of three — recording_id recommended)">(3가지 중 하나 — recording_id 가장 권장)</span>
+        <span data-ko="📂 녹음 소스" data-en="📂 Recording source">📂 녹음 소스</span> <span style="font-size:11px;color:#a3b3d1;font-weight:500" data-ko="(저장된 녹화본 선택 권장 — 업로드 불필요)" data-en="(pick a saved recording — no upload needed)">(저장된 녹화본 선택 권장 — 업로드 불필요)</span>
       </label>
+      <!-- ⭐ 저장된 녹화본에서 바로 선택 (업로드 X) -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:2px">
+        <button type="button" onclick="alrAIPick()" style="padding:9px 14px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border:0;border-radius:8px;font-weight:800;font-size:12.5px;cursor:pointer;white-space:nowrap;box-shadow:0 4px 12px rgba(139,92,246,0.4)" data-ko="🤖 AI 추천 (최고의 수업 자동 선택)" data-en="🤖 AI Pick (best lesson)">🤖 AI 추천 (최고의 수업 자동 선택)</button>
+        <button type="button" onclick="alrLoadRecordings()" style="padding:9px 14px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;font-weight:800;font-size:12.5px;cursor:pointer;white-space:nowrap" data-ko="🔄 녹화본 직접 선택" data-en="🔄 Browse recordings">🔄 녹화본 직접 선택</button>
+        <select id="alr-rec-select" onchange="alrPickRecording()" style="flex:1;min-width:230px;padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(16,185,129,0.45);border-radius:8px;font-size:12.5px">
+          <option value="" data-ko="— 학생 UID 입력 후 [AI 추천] 또는 [직접 선택] —" data-en="— Enter UID, then AI Pick / Browse —">— 학생 UID 입력 후 [AI 추천] 또는 [직접 선택] —</option>
+        </select>
+      </div>
+      <div id="alr-rec-note" style="font-size:11.5px;color:#c4b5fd;font-weight:700;min-height:14px;margin-bottom:2px"></div>
+      <div style="font-size:11px;color:#6ee7b7;margin-bottom:6px" data-ko="✅ 추천: 수업은 자동 녹화·저장됩니다. 학생 UID 입력 → [🤖 AI 추천]을 누르면 집중도 높고 끊김 적은 최고의 수업을 자동 선택해요. 업로드 불필요." data-en="✅ Lessons are auto-recorded & saved. Enter UID → [🤖 AI Pick] auto-selects the smoothest, most-focused lesson. No upload needed.">✅ 추천: 수업은 자동 녹화·저장됩니다. 학생 UID 입력 → [🤖 AI 추천] → 집중도 높고 끊김 적은 최고의 수업 자동 선택. 업로드 불필요.</div>
       <div style="display:grid;grid-template-columns:1fr;gap:6px">
         <input id="alr-recording-id" type="text" placeholder="① R2 녹음 ID (예: room123/2026-05-20.webm)" data-ko-placeholder="① R2 녹음 ID (예: room123/2026-05-20.webm)" data-en-placeholder="① R2 recording ID (e.g. room123/2026-05-20.webm)" style="padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:12.5px"/>
         <input id="alr-recording-url" type="text" placeholder="② 외부 URL (https://... 직접 다운로드 가능한 wav/webm/mp4)" data-ko-placeholder="② 외부 URL (https://... 직접 다운로드 가능한 wav/webm/mp4)" data-en-placeholder="② External URL (https://... downloadable wav/webm/mp4)" style="padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:12.5px"/>
@@ -5088,6 +5098,84 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       r.readAsDataURL(file);
     });
   }
+  function _en(){ return window.adminLang === 'en'; }
+  // ⭐ 저장된 녹화본 목록 불러오기 → 드롭다운 채우기 (업로드 불필요)
+  window.alrLoadRecordings = async function(){
+    const uid = getVal('alr-uid');
+    const sel = document.getElementById('alr-rec-select');
+    if (!uid) { alert(_en()?'Enter student UID first.':'먼저 학생 UID 를 입력하세요.'); return; }
+    sel.innerHTML = '<option value="">'+(_en()?'Loading…':'불러오는 중…')+'</option>';
+    try {
+      const r = await fetch('/api/student/recordings?uid='+encodeURIComponent(uid)+'&limit=30', { credentials:'include' });
+      const d = await r.json();
+      const rows = (d.rows || d.recordings || []);
+      if (!rows.length) { sel.innerHTML = '<option value="">'+(_en()?'No recordings found for this student':'이 학생의 녹화본이 없습니다')+'</option>'; return; }
+      sel.innerHTML = '<option value="">'+(_en()?'— Select a recording —':'— 녹화본 선택 —')+'</option>' +
+        rows.map(function(x){
+          var label = (x.date||'') + ' · ' + (x.topic||'') + (x.duration?(' · '+x.duration):'');
+          return '<option value="'+esc(x.url||'')+'">'+esc(label)+'</option>';
+        }).join('');
+    } catch(e) {
+      sel.innerHTML = '<option value="">'+(_en()?'Load failed':'불러오기 실패')+'</option>';
+    }
+  };
+  // 🤖 AI 추천 — 집중도·끊김·참여율로 점수 매겨 최고의 수업 자동 선택
+  window.alrAIPick = async function(){
+    const uid = getVal('alr-uid');
+    const sel = document.getElementById('alr-rec-select');
+    const note = document.getElementById('alr-rec-note');
+    if (!uid) { alert(_en()?'Enter student UID first.':'먼저 학생 UID 를 입력하세요.'); return; }
+    sel.innerHTML = '<option>'+(_en()?'🤖 AI analyzing recordings…':'🤖 AI 분석 중…')+'</option>';
+    if (note) note.textContent = '';
+    try {
+      const r = await fetch('/api/admin/student/best-recording?uid='+encodeURIComponent(uid), { credentials:'include' });
+      const d = await r.json();
+      if (!d.ok || !d.items || !d.items.length) {
+        sel.innerHTML = '<option value="">'+(_en()?'No scored recordings':'점수 매길 녹화본이 없습니다')+'</option>';
+        if (note) note.textContent = '';
+        return;
+      }
+      sel.innerHTML = d.items.map(function(x, idx){
+        var star = idx===0 ? '⭐ ' : '';
+        var bits = [(_en()?'score ':'점수 ')+x.score];
+        if (x.gaze!=null) bits.push((_en()?'focus ':'집중 ')+x.gaze);
+        bits.push((_en()?'drops ':'끊김 ')+x.disconnect+(_en()?'':'회'));
+        if (x.active_pct!=null) bits.push((_en()?'active ':'참여 ')+x.active_pct+'%');
+        var label = star+(x.date||'')+' · '+bits.join(' · ');
+        return '<option value="'+esc(x.recording_key||'')+'" data-kind="key"'+(idx===0?' selected':'')+'>'+esc(label)+'</option>';
+      }).join('');
+      var best = d.best;
+      if (best) {
+        var idInput=document.getElementById('alr-recording-id'); var urlInput=document.getElementById('alr-recording-url');
+        if (idInput) idInput.value = best.recording_key || '';
+        if (urlInput) urlInput.value = '';
+      }
+      if (note) note.textContent = (_en()?'🤖 AI picked the best lesson — ':'🤖 AI가 최고의 수업 선택 — ')+(d.reason||'');
+    } catch(e) {
+      sel.innerHTML = '<option value="">'+(_en()?'AI pick failed':'AI 추천 실패')+'</option>';
+    }
+  };
+  // 녹화본 선택 → R2 키(data-kind=key)면 recording_id, blob URL이면 키 추출, http면 recording_url
+  window.alrPickRecording = function(){
+    const sel = document.getElementById('alr-rec-select');
+    const opt = sel ? sel.options[sel.selectedIndex] : null;
+    const val = sel ? sel.value : '';
+    const idInput = document.getElementById('alr-recording-id');
+    const urlInput = document.getElementById('alr-recording-url');
+    if (idInput) idInput.value = '';
+    if (urlInput) urlInput.value = '';
+    if (!val) return;
+    if (opt && opt.getAttribute('data-kind') === 'key') { if (idInput) idInput.value = val; return; }  // R2 키 직접
+    const marker = '/api/recordings/blob/';
+    const i = val.indexOf(marker);
+    if (i >= 0) {
+      if (idInput) idInput.value = decodeURIComponent(val.slice(i + marker.length));   // 정확한 R2 키
+    } else if (/^https?:\/\//.test(val)) {
+      if (urlInput) urlInput.value = val;
+    } else {
+      if (urlInput) urlInput.value = location.origin + val;
+    }
+  };
   window.alrGenerate = async function(){
     const uid = getVal('alr-uid');
     if (!uid) { alert('학생 UID 를 입력해주세요'); return; }
@@ -19609,7 +19697,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260602101138 -->
+        <!-- BUILD:20260602102533 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

@@ -668,6 +668,64 @@ export async function handleMangoApi(
       }
     }
 
+    // 🤖 AI 추천 — 학생 녹화본 중 '집중도 높고 끊김 적은 최고의 수업' 자동 선택
+    //   GET /api/admin/student/best-recording?uid=  (admin)
+    //   점수 = 집중도(gaze)×0.5 + 참여율(active%)×0.3 + 끊김 적을수록 가점×0.2
+    if (method === 'GET' && path === '/api/admin/student/best-recording') {
+      const uid = (url.searchParams.get('uid') || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid 필요' }, 400);
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS recordings (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT, teacher_id TEXT, teacher_name TEXT, filename TEXT, file_url TEXT, size_bytes INTEGER, duration_ms INTEGER, participant_ids TEXT, participant_names TEXT, consented_user_ids TEXT, started_at INTEGER, ended_at INTEGER, status TEXT, storage TEXT, expires_at INTEGER);`);
+        const likePattern = '%' + JSON.stringify(uid).slice(1, -1) + '%';
+        const rs = await env.DB.prepare(
+          `SELECT id, room_id, file_url, filename, duration_ms, started_at, status
+             FROM recordings
+            WHERE (participant_ids LIKE ? OR participant_names LIKE ? OR teacher_name = ? OR teacher_id = ?)
+              AND status != 'deleted'
+            ORDER BY started_at DESC LIMIT 50`
+        ).bind(likePattern, likePattern, uid, uid).all();
+        const recs = (rs.results || []) as any[];
+        const scored: any[] = [];
+        for (const r of recs) {
+          let att: any = null;
+          try {
+            att = await env.DB.prepare(
+              `SELECT gaze_score, disconnect_count, total_active_ms, total_session_ms
+                 FROM attendance WHERE room_id = ? AND user_id = ? ORDER BY joined_at DESC LIMIT 1`
+            ).bind(r.room_id, uid).first();
+          } catch {}
+          const gaze = (att && typeof att.gaze_score === 'number') ? att.gaze_score : null;
+          const disc = (att && att.disconnect_count) || 0;
+          const activePct = (att && att.total_session_ms > 0)
+            ? Math.round(att.total_active_ms * 100 / att.total_session_ms) : null;
+          const gazeV = gaze == null ? 60 : gaze;        // 데이터 없으면 중립값
+          const activeV = activePct == null ? 70 : activePct;
+          const smoothV = Math.max(0, 100 - Math.min(100, disc * 20));
+          const score = Math.round(gazeV * 0.5 + activeV * 0.3 + smoothV * 0.2);
+          const key = r.file_url || r.filename || '';
+          const date = r.started_at ? new Date(r.started_at).toISOString().slice(0, 10) : '-';
+          scored.push({
+            id: r.id, room_id: r.room_id, recording_key: key, date,
+            duration_sec: Math.round((r.duration_ms || 0) / 1000),
+            gaze, disconnect: disc, active_pct: activePct, score,
+          });
+        }
+        scored.sort((a, b) => b.score - a.score);
+        const best = scored[0] || null;
+        let reason = '';
+        if (best) {
+          const parts: string[] = [];
+          if (best.gaze != null) parts.push('집중도 ' + best.gaze);
+          parts.push('끊김 ' + best.disconnect + '회');
+          if (best.active_pct != null) parts.push('참여율 ' + best.active_pct + '%');
+          reason = parts.join(' · ') + ' — 종합 ' + best.score + '점';
+        }
+        return json({ ok: true, best, reason, items: scored });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message }, 500);
+      }
+    }
+
     // ===== 👨‍🏫 공개 강사 목록 (학생 홈페이지 강사진 미리보기용) =====
     if (path === '/api/teacher-profiles' && method === 'GET') {
       try {
