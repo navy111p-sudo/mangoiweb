@@ -75,7 +75,7 @@ async function verifyJwt(token: string, secret: string): Promise<Record<string, 
   const key = await hmacKey(secret, 'verify');
   const ok = await crypto.subtle.verify(
     'HMAC', key,
-    b64urlDecodeToBytes(sig),
+    b64urlDecodeToBytes(sig) as BufferSource,
     new TextEncoder().encode(`${head}.${body}`)
   );
   if (!ok) return null;

@@ -5021,7 +5021,7 @@ Respond in JSON ONLY:
         user: {
           user_id: stu.user_id,
           user_name: stu.student_name || stu.user_id,
-          role: stu.parent_user_id ? 'student' : 'student',  // 학생/학부모 구분은 추후
+          role: 'student',  // 이 엔드포인트는 학생 로그인 → 항상 student (학부모 로그인은 별도 경로)
           parent_name: stu.parent_name,
           parent_user_id: stu.parent_user_id,
           has_password: !!stu.password_hash,

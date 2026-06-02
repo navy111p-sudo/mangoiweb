@@ -19510,7 +19510,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260602055841 -->
+        <!-- BUILD:20260602090540 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -28112,17 +28112,33 @@ button.chip:hover,
   function ph111Init(){
     var btn = document.getElementById('topUserBtn');
     if (!btn) return;
-    // 기본 사용자 (없으면 정우영 관리자)
+    // 기본 사용자 (없으면 → 진짜 로그인 세션을 우선 반영, 그것도 없으면 관리자 데모)
     if (!getCurrentUser()) {
-      var defaultSession = {
-        uid: 'hq_mgr',
-        name: '정우영',
-        phone: '010-1234-5678',
-        email: 'navy111p@gmail.com',
-        branch: '본사',
-        lastLogin: new Date().toLocaleString('ko-KR').slice(5, 17)
-      };
-      localStorage.setItem('admin_session', JSON.stringify(defaultSession));
+      // fix (2026-06-02) — 실제 로그인은 'mangoi_admin_session'에 저장됨. 그게 있으면 그 역할(지사/대리점/교사)을
+      //   cosmetic 레이어(admin_session)에 연결해, 역할 배너·드롭다운이 '진짜 로그인한 사람'을 표시하게 함.
+      var _real = null;
+      try { _real = JSON.parse(localStorage.getItem('mangoi_admin_session') || 'null'); } catch(e){}
+      if (_real && _real.uid) {
+        localStorage.setItem('admin_session', JSON.stringify({
+          uid: _real.uid,
+          name: _real.name || _real.uid,
+          phone: _real.phone || '010-1234-5678',
+          email: _real.email || (_real.uid + '@mangoi.com'),
+          branch: _real.branch || '',
+          role: _real.role || '',
+          lastLogin: new Date().toLocaleString('ko-KR').slice(5, 17)
+        }));
+      } else {
+        var defaultSession = {
+          uid: 'hq_mgr',
+          name: '정우영',
+          phone: '010-1234-5678',
+          email: 'navy111p@gmail.com',
+          branch: '본사',
+          lastLogin: new Date().toLocaleString('ko-KR').slice(5, 17)
+        };
+        localStorage.setItem('admin_session', JSON.stringify(defaultSession));
+      }
     }
     renderUserPopup();
   }
@@ -29367,19 +29383,10 @@ button.chip:hover,
   }
 
   window.ph116BackToAdmin = function(){
-    if (!confirm('관리자(정우영 / hq_mgr) 계정으로 복귀할까요?')) return;
-    try {
-      localStorage.setItem('admin_session', JSON.stringify({
-        uid: 'hq_mgr',
-        name: '정우영',
-        email: 'navy111p@gmail.com',
-        branch: '본사',
-        phone: '010-1234-5678',
-        lastLogin: new Date().toLocaleString('ko-KR').slice(5,17)
-      }));
-    } catch(e){}
-    alert('🛠 관리자로 복귀 — 페이지 새로고침');
-    window.location.reload();
+    // fix (2026-06-02) — 가짜 hq_mgr 세션을 만들지 않고, 실제 관리자 로그인 페이지로 이동(정직한 권한 전환)
+    if (!confirm('관리자 계정으로 다시 로그인할까요? (현재 역할에서 로그아웃)')) return;
+    try { localStorage.removeItem('admin_session'); localStorage.removeItem('mangoi_admin_session'); } catch(e){}
+    window.location.href = '/admin/login';
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph116EnforceSidebar);
