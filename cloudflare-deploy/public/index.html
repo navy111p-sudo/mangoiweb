@@ -4122,9 +4122,9 @@
       window.openAboutMangoi = function(){
         var ex = document.getElementById('about-mangoi-ov');
         if (ex) { ex.style.display='flex'; return; }
-        var abmAudio=null;function abmPlayVoice(){ try{ if(!abmAudio){ abmAudio=new Audio('/audio/teacher-ai-voice.mp3'); abmAudio.preload='auto'; } abmAudio.currentTime=0; var p=abmAudio.play(); if(p&&p.catch) p.catch(function(){}); }catch(e){} }function abmStopVoice(){ try{ if(abmAudio){ abmAudio.pause(); abmAudio.currentTime=0; } }catch(e){} }var closeAbout = function(){ abmStopVoice(); var o=document.getElementById('about-mangoi-ov'); if(o) o.style.display='none'; };
+        var abmAudio=null;var abmMuted=(function(){try{return localStorage.getItem('abm_muted')==='1';}catch(e){return false;}})();function abmPlayVoice(src){ try{ if(abmMuted) return; abmStopVoice(); abmAudio=new Audio(src); var p=abmAudio.play(); if(p&&p.catch) p.catch(function(){}); }catch(e){} }function abmStopVoice(){ try{ if(abmAudio){ abmAudio.pause(); abmAudio.currentTime=0; } }catch(e){} }var closeAbout = function(){ abmStopVoice(); var o=document.getElementById('about-mangoi-ov'); if(o) o.style.display='none'; };
         var BENEFITS = [
-          {ic:'🤝', t:'교사와 A.I가 함께 학생 실력 향상', lead:true,
+          {ic:'🤝', t:'교사와 A.I가 함께 학생 실력 향상', lead:true, voice:'/audio/teacher-ai-voice.mp3',
            d:'원어민 선생님의 1:1 화상수업과 A.I 학습관리가 하나의 시스템 안에서 맞물려 돌아갑니다. 수업은 사람이 이끌고, 예습·복습·평가·발음 교정은 A.I가 24시간 도와 학습의 빈틈을 메웁니다.',
            p:['수업(사람) + 학습관리(A.I)를 한 곳에서 — 수업만 제공하는 캠블리·링글과 다릅니다','매 수업이 끝나면 A.I가 자동으로 평가서와 맞춤 복습 퀴즈를 생성','교사 피드백과 A.I 학습 데이터가 서로 연동되어 약점을 정확히 보완'],
            cta:{l:'🤖 AI 학습 친구 만나기', go:function(){ closeAbout(); location.href='/ai-friend.html'; }}},
@@ -4160,7 +4160,7 @@
            d:'수업 전 예습 영상으로 미리 준비하고, 수업 후에는 복습 퀴즈와 단어 게임으로 반복 학습합니다. 배운 내용을 놀이처럼 익혀 오래 기억하게 합니다.',
            p:['게임형 마이크로 퀴즈로 지루하지 않은 복습','단어장·연속 학습(스트릭)으로 꾸준한 습관 형성','예습 영상으로 수업 이해도 향상'],
            cta:{l:'🎯 복습 퀴즈 체험', go:function(){ closeAbout(); location.href='/micro-quiz.html'; }}},
-          {ic:'🤖', t:'A.I를 활용한 수업 평가 · 복습 · 소통',
+          {ic:'🤖', t:'A.I를 활용한 수업 평가 · 복습 · 소통', voice:'/audio/ai-report-voice.mp3',
            d:'매 수업이 끝나면 A.I가 발음·표현·참여도를 분석해 평가서를 자동으로 만들고, 아이에게 꼭 필요한 맞춤 복습을 추천합니다. 월간 리포트로 성장 흐름도 정리해 드립니다.',
            p:['수업마다 A.I 자동 평가서 생성','약점을 짚어 주는 맞춤형 복습 추천','월간 A.I 리포트로 한 달 성장 요약'],
            cta:{l:'📊 월간 AI 리포트 보기', go:function(){ closeAbout(); location.href='/monthly-report.html'; }}},
@@ -4182,6 +4182,7 @@
         ov.innerHTML =
           '<div class="abm-card" role="dialog" aria-modal="true">'
           + '<button class="abm-close" aria-label="닫기">✕</button>'
+          + '<button class="abm-mute" type="button" aria-label="음성 켜기/끄기" title="음성 켜기/끄기">🔊</button>'
           + '<div class="abm-view abm-view-list">'
           +   '<div class="abm-head"><h2 class="abm-title">망고아이란?</h2>'
           +     '<p class="abm-sub">20년 전통 · 국내 최초의 화상영어 기업</p><div class="abm-rule"></div>'
@@ -4210,11 +4211,11 @@
             + '<button class="abm-cta abm-dcta" type="button">'+b.cta.l+'</button>';
           detailBody.querySelector('.abm-dcta').addEventListener('click', b.cta.go);
           listView.style.display='none'; detailView.style.display='block';
-          detailView.classList.remove('abm-anim'); void detailView.offsetWidth; detailView.classList.add('abm-anim'); abmStopVoice(); if(i===0){ abmPlayVoice(); }
+          detailView.classList.remove('abm-anim'); void detailView.offsetWidth; detailView.classList.add('abm-anim'); abmStopVoice(); if(b&&b.voice){ abmPlayVoice(b.voice); }
           card.scrollTop=0;
         }
         ov.addEventListener('click', function(e){ if(e.target===ov) closeAbout(); });
-        ov.querySelector('.abm-close').addEventListener('click', closeAbout);
+        ov.querySelector('.abm-close').addEventListener('click', closeAbout);var abmMuteBtn=ov.querySelector('.abm-mute');function abmUpdateMute(){ if(!abmMuteBtn) return; abmMuteBtn.textContent=abmMuted?'🔇':'🔊'; abmMuteBtn.classList.toggle('muted',abmMuted); }abmUpdateMute();if(abmMuteBtn) abmMuteBtn.addEventListener('click', function(){ abmMuted=!abmMuted; try{localStorage.setItem('abm_muted',abmMuted?'1':'0');}catch(e){} if(abmMuted) abmStopVoice(); abmUpdateMute(); });
         ov.querySelector('.abm-cta-main').addEventListener('click', function(){ closeAbout(); if(window.openInquiryModal) window.openInquiryModal(); });
         ov.querySelector('.abm-back').addEventListener('click', showList);
         Array.prototype.forEach.call(ov.querySelectorAll('.abm-item'), function(btn){ btn.addEventListener('click', function(){ showDetail(+btn.getAttribute('data-i')); }); });
@@ -4227,6 +4228,9 @@
           + '@keyframes abmIn{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}'
           + '.abm-close{position:absolute;top:14px;right:14px;width:34px;height:34px;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#aebfd6;font-size:16px;cursor:pointer;z-index:5}'
           + '.abm-close:hover{color:#93c5fd;background:rgba(255,255,255,.18)}'
+          + '.abm-mute{position:absolute;top:14px;left:14px;width:34px;height:34px;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#aebfd6;font-size:15px;cursor:pointer;z-index:5;line-height:1}'
+          + '.abm-mute:hover{color:#93c5fd;background:rgba(255,255,255,.18)}'
+          + '.abm-mute.muted{color:#f87171;background:rgba(248,113,113,.16)}'
           + '.abm-head{text-align:center;margin-bottom:20px}.abm-logo{font-size:44px;line-height:1;margin-bottom:6px}'
           + '.abm-title{margin:0;font-size:25px;font-weight:900;color:#f1f6ff;letter-spacing:-.5px}'
           + '.abm-sub{margin:6px 0 0;font-size:13px;font-weight:700;color:#8fb8f2}'
@@ -24933,7 +24937,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260608225205 -->
+<!-- BUILD:20260608230843 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
