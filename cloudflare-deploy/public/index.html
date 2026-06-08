@@ -4122,7 +4122,7 @@
       window.openAboutMangoi = function(){
         var ex = document.getElementById('about-mangoi-ov');
         if (ex) { ex.style.display='flex'; return; }
-        var closeAbout = function(){ var o=document.getElementById('about-mangoi-ov'); if(o) o.style.display='none'; };
+        var abmAudio=null;function abmPlayVoice(){ try{ if(!abmAudio){ abmAudio=new Audio('/audio/teacher-ai-voice.mp3'); abmAudio.preload='auto'; } abmAudio.currentTime=0; var p=abmAudio.play(); if(p&&p.catch) p.catch(function(){}); }catch(e){} }function abmStopVoice(){ try{ if(abmAudio){ abmAudio.pause(); abmAudio.currentTime=0; } }catch(e){} }var closeAbout = function(){ abmStopVoice(); var o=document.getElementById('about-mangoi-ov'); if(o) o.style.display='none'; };
         var BENEFITS = [
           {ic:'🤝', t:'교사와 A.I가 함께 학생 실력 향상', lead:true,
            d:'원어민 선생님의 1:1 화상수업과 A.I 학습관리가 하나의 시스템 안에서 맞물려 돌아갑니다. 수업은 사람이 이끌고, 예습·복습·평가·발음 교정은 A.I가 24시간 도와 학습의 빈틈을 메웁니다.',
@@ -4198,7 +4198,7 @@
         var listView = ov.querySelector('.abm-view-list');
         var detailView = ov.querySelector('.abm-view-detail');
         var detailBody = ov.querySelector('.abm-detail-body');
-        function showList(){ detailView.style.display='none'; listView.style.display='block'; card.scrollTop=0; }
+        function showList(){ abmStopVoice(); detailView.style.display='none'; listView.style.display='block'; card.scrollTop=0; }
         function showDetail(i){
           var b=BENEFITS[i];
           var pts=b.p.map(function(x){ return '<li>'+x+'</li>'; }).join('');
@@ -4210,7 +4210,7 @@
             + '<button class="abm-cta abm-dcta" type="button">'+b.cta.l+'</button>';
           detailBody.querySelector('.abm-dcta').addEventListener('click', b.cta.go);
           listView.style.display='none'; detailView.style.display='block';
-          detailView.classList.remove('abm-anim'); void detailView.offsetWidth; detailView.classList.add('abm-anim');
+          detailView.classList.remove('abm-anim'); void detailView.offsetWidth; detailView.classList.add('abm-anim'); abmStopVoice(); if(i===0){ abmPlayVoice(); }
           card.scrollTop=0;
         }
         ov.addEventListener('click', function(e){ if(e.target===ov) closeAbout(); });
@@ -24933,7 +24933,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260608222649 -->
+<!-- BUILD:20260608225205 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
