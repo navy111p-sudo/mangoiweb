@@ -1,5 +1,0 @@
-node_modules/
-uploads/*.pdf
-.env
-.wrangler/
-.dev.vars
