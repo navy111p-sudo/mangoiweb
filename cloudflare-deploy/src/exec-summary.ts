@@ -125,6 +125,9 @@ async function expense(env: Env, a: number, b: number, scope: Scope) {
   const payroll = await safe(async () => { const r = await env.DB.prepare(`SELECT COALESCE(SUM(payment_krw),0) s FROM payslips WHERE paid=1 AND finalized_at>=? AND finalized_at<?`).bind(a, b).first<{ s: number }>(); return r?.s || 0; }, 0);
   return { manual, payroll, total: manual + payroll, hqOnly: false };
 }
+// 본사 수수료율(가맹 정산 기준) — accounting-reports.ts 기본값과 동일
+const HQ_FEE_RATE = 0.15;
+
 async function activeTotal(env: Env, scope: Scope): Promise<number> {
   return safe(async () => {
     const c = stuCond(scope);
@@ -151,7 +154,8 @@ async function summary(env: Env, scope: Scope): Promise<Response> {
 
   const pack = async (a: number, b: number) => {
     const inc = await income(env, a, b, scope), exp = await expense(env, a, b, scope);
-    return { income: inc.sum, pay_count: inc.count, expense: exp.total, expense_manual: exp.manual, expense_payroll: exp.payroll, net: inc.sum - exp.total };
+    const _fee = Math.round(inc.sum * HQ_FEE_RATE);
+    return { income: inc.sum, pay_count: inc.count, expense: exp.total, expense_manual: exp.manual, expense_payroll: exp.payroll, net: inc.sum - exp.total, fee: _fee, settle: inc.sum - _fee };
   };
   const tdy = await pack(tStart, tEnd), yday = await pack(yStart, tStart);
   const week = await pack(wkStart, now), lastWeek = await pack(lastWkStart, wkStart);
@@ -164,7 +168,7 @@ async function summary(env: Env, scope: Scope): Promise<Response> {
   return j({
     ok: true, as_of: new Date(now).toISOString(),
     scope: { type: scope.type, value: scope.value, label: scope.label },
-    cost_hq_only: scope.type !== 'hq',
+    cost_hq_only: scope.type !== 'hq', fee_rate: HQ_FEE_RATE,
     students: { active, new_today: newToday, new_this_month: newMonth },
     today: { date: today, ...tdy, income_trend: trend(tdy.income, yday.income), net_trend: trend(tdy.net, yday.net) },
     this_week: { start: wk, ...week, income_trend: trend(week.income, lastWeek.income), net_trend: trend(week.net, lastWeek.net) },
@@ -374,7 +378,8 @@ async function breakdown(env: Env, url: URL, scope: Scope): Promise<Response> {
     status_breakdown: statusRows.map((s: any) => ({ status: s.status, count: s.c })),
     billing: { active, paid: paidStudents, unpaid, collect_rate: collectRate },
     retention: { active, drop_this_month: dropMonth },
-    branches: branches.map((b: any) => ({ shop: b.shop, region: b.region, students: b.students, rev_month: b.rev_month })),
+    fee_rate: HQ_FEE_RATE,
+    branches: branches.map((b: any) => ({ shop: b.shop, region: b.region, students: b.students, rev_month: b.rev_month, fee_month: Math.round((b.rev_month||0) * HQ_FEE_RATE) })),
   });
 }
 

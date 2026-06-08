@@ -180,7 +180,7 @@
       <div class="chart-wrap"><div class="chart-box sm"><canvas id="branchChart"></canvas></div></div>
       <div class="card" style="padding:0;overflow:hidden">
         <table class="list" id="branchTable">
-          <thead><tr><th>대리점</th><th class="num">재원</th><th class="num">이번달 매출</th><th class="num">인당</th></tr></thead>
+          <thead><tr><th>대리점</th><th class="num">재원</th><th class="num">이번달 매출</th><th class="num">수수료(15%)</th><th class="num">인당</th></tr></thead>
           <tbody><tr><td colspan="4" class="empty"><span class="spin"></span></td></tr></tbody>
         </table>
       </div>
@@ -240,13 +240,13 @@ async function loadSummary(){
   $('#kpiToday').innerHTML = `
     <div class="card kpi-card" style="--accent:rgba(245,158,11,.16)"><h3>👥 재원생</h3><div class="big">${s.students.active.toLocaleString('ko-KR')}<small> 명</small></div><div class="sub">오늘 신규 +${s.students.new_today}명</div></div>
     <div class="card kpi-card" style="--accent:rgba(16,185,129,.16)"><h3>💰 오늘 매출</h3><div class="big" style="color:#34d399">${manwon(s.today.income)}</div><div class="sub">${s.today.pay_count}건 결제 ${trendTag(s.today.income_trend)}</div></div>
-    <div class="card kpi-card" style="--accent:rgba(239,68,68,.16)"><h3>💸 오늘 비용</h3>${costCell(manwon(s.today.expense), `급여 ${manwon(s.today.expense_payroll)} · 기타 ${manwon(s.today.expense_manual)}`)}</div>
-    <div class="card kpi-card" style="--accent:rgba(59,130,246,.16)"><h3>📈 오늘 순익</h3><div class="big" style="color:${s.today.net>=0?'#60a5fa':'#f87171'}">${manwon(s.today.net)}</div><div class="sub">전일 대비 ${trendTag(s.today.net_trend)}</div></div>`;
+    <div class="card kpi-card" style="--accent:${s.cost_hq_only?'rgba(245,158,11,.16)':'rgba(239,68,68,.16)'}">${s.cost_hq_only?`<h3>🧾 오늘 수수료</h3><div class="big" style="color:#fbbf24">${manwon(s.today.fee)}</div><div class="sub">매출의 ${Math.round((s.fee_rate||.15)*100)}%</div>`:`<h3>💸 오늘 비용</h3><div class="big" style="color:#f87171">${manwon(s.today.expense)}</div><div class="sub">급여 ${manwon(s.today.expense_payroll)} · 기타 ${manwon(s.today.expense_manual)}</div>`}</div>
+    <div class="card kpi-card" style="--accent:rgba(59,130,246,.16)">${s.cost_hq_only?`<h3>🧮 오늘 정산액</h3><div class="big" style="color:#60a5fa">${manwon(s.today.settle)}</div><div class="sub">매출-수수료</div>`:`<h3>📈 오늘 순익</h3><div class="big" style="color:${s.today.net>=0?'#60a5fa':'#f87171'}">${manwon(s.today.net)}</div><div class="sub">전일 대비 ${trendTag(s.today.net_trend)}</div>`}</div>`;
   $('#kpiMonth').innerHTML = `
     <div class="card kpi-card" style="--accent:rgba(168,85,247,.16)"><h3>🆕 이번달 신규</h3><div class="big">+${s.students.new_this_month}<small> 명</small></div><div class="sub">${s.this_month.period}</div></div>
     <div class="card kpi-card" style="--accent:rgba(16,185,129,.16)"><h3>💰 이번달 매출</h3><div class="big" style="color:#34d399">${manwon(s.this_month.income)}</div><div class="sub">${s.this_month.pay_count}건 ${trendTag(s.this_month.income_trend)}</div></div>
-    <div class="card kpi-card" style="--accent:rgba(239,68,68,.16)"><h3>💸 이번달 비용</h3>${costCell(manwon(s.this_month.expense), `급여 ${manwon(s.this_month.expense_payroll)}`)}</div>
-    <div class="card kpi-card" style="--accent:rgba(59,130,246,.16)"><h3>📈 이번달 순익</h3><div class="big" style="color:${s.this_month.net>=0?'#60a5fa':'#f87171'}">${manwon(s.this_month.net)}</div><div class="sub">전월 대비 ${trendTag(s.this_month.net_trend)}</div></div>`;
+    <div class="card kpi-card" style="--accent:${s.cost_hq_only?'rgba(245,158,11,.16)':'rgba(239,68,68,.16)'}">${s.cost_hq_only?`<h3>🧾 이번달 수수료</h3><div class="big" style="color:#fbbf24">${manwon(s.this_month.fee)}</div><div class="sub">매출의 ${Math.round((s.fee_rate||.15)*100)}%</div>`:`<h3>💸 이번달 비용</h3>${costCell(manwon(s.this_month.expense), `급여 ${manwon(s.this_month.expense_payroll)}`)}`}</div>
+    <div class="card kpi-card" style="--accent:rgba(59,130,246,.16)">${s.cost_hq_only?`<h3>🧮 이번달 정산액</h3><div class="big" style="color:#60a5fa">${manwon(s.this_month.settle)}</div><div class="sub">매출-수수료</div>`:`<h3>📈 이번달 순익</h3><div class="big" style="color:${s.this_month.net>=0?'#60a5fa':'#f87171'}">${manwon(s.this_month.net)}</div><div class="sub">전월 대비 ${trendTag(s.this_month.net_trend)}</div>`}</div>`;
 }
 
 const gridC='rgba(148,163,184,.12)', tickC='#9fb0c8';
@@ -330,7 +330,7 @@ async function loadBreakdown(){
       options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gridC},ticks:{color:tickC,font:{size:10},callback:v=>(v/10000)+'만'}},y:{grid:{display:false},ticks:{color:tickC,font:{size:11}}}}}});
     $('#branchTable').querySelector('tbody').innerHTML = branches.map((x,i)=>{
       const per = x.students? Math.round(x.rev_month/x.students):0;
-      return `<tr><td><span class="rank ${i<3?'r'+(i+1):''}">${i+1}</span>${x.shop.replace('망고아이 ','').replace(' 대리점','')}<div style="font-size:10px;color:var(--dim)">${x.region||''}</div></td><td class="num">${x.students}명</td><td class="num" style="color:#34d399">${manwon(x.rev_month)}</td><td class="num">${manwon(per)}</td></tr>`;
+      return `<tr><td><span class="rank ${i<3?'r'+(i+1):''}">${i+1}</span>${x.shop.replace('망고아이 ','').replace(' 대리점','')}<div style="font-size:10px;color:var(--dim)">${x.region||''}</div></td><td class="num">${x.students}명</td><td class="num" style="color:#34d399">${manwon(x.rev_month)}</td><td class="num" style="color:#fbbf24">${manwon(x.fee_month)}</td><td class="num">${manwon(per)}</td></tr>`;
     }).join('');
   } else {
     $('#branchSection').style.display='none';
