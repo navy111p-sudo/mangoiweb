@@ -2,77 +2,106 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
 <title>📊 경영진 대시보드 — 망고아이</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
   :root{
-    --bg:#0f172a; --panel:#1e293b; --panel2:#263449;
-    --fg:#e2e8f0; --mut:#94a3b8; --dim:#64748b; --bd:#334155;
-    --y:#f59e0b; --g:#10b981; --r:#ef4444; --b:#3b82f6; --p:#a855f7;
+    --bg:#0b1120; --bg2:#0f172a; --panel:#161f33; --panel2:#1e293b;
+    --fg:#e8eef7; --mut:#9fb0c8; --dim:#64748b; --bd:#26324a;
+    --y:#f59e0b; --g:#10b981; --r:#ef4444; --b:#3b82f6; --p:#a855f7; --c:#06b6d4;
+    --shadow:0 6px 24px rgba(0,0,0,.28);
   }
   *,*::before,*::after{box-sizing:border-box}
-  html,body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo",sans-serif;font-size:14px}
+  html,body{margin:0;background:
+    radial-gradient(1200px 600px at 80% -10%,rgba(59,130,246,.08),transparent 60%),
+    radial-gradient(900px 500px at -10% 10%,rgba(168,85,247,.07),transparent 55%),
+    var(--bg);
+    color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Pretendard",sans-serif;font-size:14px;-webkit-text-size-adjust:100%}
   a{color:inherit;text-decoration:none}
-  header.top{min-height:56px;display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;padding:8px 14px;border-bottom:1px solid var(--bd);background:#0b1220;position:sticky;top:0;z-index:50}
-  header.top h1{font-size:16px;margin:0;font-weight:800;letter-spacing:-.3px}
+  header.top{min-height:58px;display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;padding:10px 16px;border-bottom:1px solid var(--bd);background:rgba(11,18,32,.82);backdrop-filter:saturate(160%) blur(12px);position:sticky;top:0;z-index:50}
+  header.top h1{font-size:17px;margin:0;font-weight:800;letter-spacing:-.4px;display:flex;align-items:center;gap:8px}
   header.top .grow{flex:1}
-  header.top a.btn,header.top button.btn{padding:6px 12px;border-radius:6px;border:1px solid var(--bd);background:var(--panel);color:var(--fg);font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0}
-  header.top a.btn:hover,header.top button.btn:hover{background:var(--panel2)}
-  main{max-width:1080px;margin:0 auto;padding:16px 14px 80px}
-  .as-of{color:var(--dim);font-size:12px;margin:4px 2px 14px}
-  h2.sec{font-size:14px;color:var(--mut);font-weight:700;margin:22px 2px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-  .seg{display:inline-flex;gap:6px}
-  .seg button{padding:4px 11px;border-radius:6px;border:1px solid var(--bd);background:var(--panel);color:var(--mut);font-size:12px;cursor:pointer}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px}
+  .pill.date{background:rgba(245,158,11,.14);color:#fcd34d}
+  .pill.scope{background:rgba(59,130,246,.16);color:#93c5fd}
+  header.top .btn{padding:7px 12px;border-radius:9px;border:1px solid var(--bd);background:var(--panel);color:var(--fg);font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:.15s}
+  header.top .btn:hover{background:var(--panel2);border-color:#3a4a68}
+  select#scopeSel{padding:6px 9px;border-radius:9px;border:1px solid var(--bd);background:var(--panel);color:var(--fg);font-size:12px;max-width:60vw}
+  main{max-width:1140px;margin:0 auto;padding:16px 16px 96px}
+  .as-of{color:var(--dim);font-size:12px;margin:6px 2px 16px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  h2.sec{font-size:13px;color:var(--mut);font-weight:700;margin:26px 2px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;letter-spacing:.2px}
+  h2.sec .tag{font-size:10px;font-weight:700;color:var(--dim);border:1px solid var(--bd);border-radius:20px;padding:2px 8px}
+  .seg{display:inline-flex;gap:5px;margin-left:auto}
+  .seg button{padding:5px 12px;border-radius:8px;border:1px solid var(--bd);background:var(--panel);color:var(--mut);font-size:12px;cursor:pointer;transition:.15s}
   .seg button.active{background:#0b1220;color:#fcd34d;border-color:var(--y);font-weight:700}
-  .kpi-row{display:grid;gap:12px;grid-template-columns:repeat(4,1fr)}
-  @media(max-width:780px){.kpi-row{grid-template-columns:repeat(2,1fr)}}
-  .kpi-card{background:var(--panel);border:1px solid var(--bd);border-radius:14px;padding:16px;position:relative;overflow:hidden}
-  .kpi-card::after{content:"";position:absolute;inset:0 0 auto auto;width:80px;height:80px;background:radial-gradient(circle at top right,rgba(245,158,11,.10),transparent 70%)}
-  .kpi-card h3{margin:0 0 8px;font-size:12px;color:var(--mut);font-weight:600;display:flex;align-items:center;gap:6px}
-  .kpi-card .big{font-size:26px;font-weight:800;letter-spacing:-1px;line-height:1.1}
-  .kpi-card .sub{margin-top:6px;font-size:12px;color:var(--dim)}
-  .trend{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:2px}
-  .up{background:rgba(16,185,129,.15);color:#34d399}
-  .down{background:rgba(239,68,68,.15);color:#f87171}
-  .flat{background:rgba(148,163,184,.15);color:#cbd5e1}
-  .chart-wrap{background:var(--panel);border:1px solid var(--bd);border-radius:14px;padding:14px}
+  .grid{display:grid;gap:13px}
+  .kpi-row{grid-template-columns:repeat(4,1fr)}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  @media(max-width:820px){.kpi-row,.g3{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:520px){.kpi-row,.g2,.g3{grid-template-columns:1fr 1fr}}
+  .card{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--bd);border-radius:16px;padding:16px;position:relative;overflow:hidden;box-shadow:var(--shadow)}
+  .kpi-card::after{content:"";position:absolute;inset:0 0 auto auto;width:96px;height:96px;background:radial-gradient(circle at top right,var(--accent,rgba(245,158,11,.14)),transparent 70%);pointer-events:none}
+  .kpi-card h3{margin:0 0 9px;font-size:12px;color:var(--mut);font-weight:600;display:flex;align-items:center;gap:6px}
+  .kpi-card .big{font-size:27px;font-weight:850;letter-spacing:-1px;line-height:1.08}
+  .kpi-card .big small{font-size:14px;color:var(--mut);font-weight:600;letter-spacing:0}
+  .kpi-card .sub{margin-top:7px;font-size:11.5px;color:var(--dim);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .trend{display:inline-flex;align-items:center;font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:20px}
+  .up{background:rgba(16,185,129,.16);color:#34d399}
+  .down{background:rgba(239,68,68,.16);color:#f87171}
+  .flat{background:rgba(148,163,184,.16);color:#cbd5e1}
+  .chart-wrap{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--bd);border-radius:16px;padding:15px;box-shadow:var(--shadow)}
   .chart-box{position:relative;height:300px;width:100%}
-  @media(max-width:640px){.chart-box{height:240px}.kpi-card .big{font-size:22px}}
-  .hint{font-size:11px;color:var(--dim);margin:8px 2px 0;text-align:center}
-  /* drawer */
-  .scrim{position:fixed;inset:0;background:rgba(2,6,23,.62);opacity:0;pointer-events:none;transition:opacity .25s;z-index:80}
-  .scrim.on{opacity:1;pointer-events:auto}
-  .drawer{position:fixed;top:0;right:0;height:100%;width:min(440px,92vw);background:var(--bg);border-left:1px solid var(--bd);transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:90;display:flex;flex-direction:column}
-  .drawer.on{transform:translateX(0)}
-  .drawer header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--bd);background:#0b1220}
-  .drawer header h3{margin:0;font-size:15px;font-weight:800}
-  .drawer header .x{margin-left:auto;background:transparent;border:1px solid var(--bd);color:var(--fg);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:15px}
-  .drawer .body{padding:16px;overflow-y:auto;flex:1}
-  .mini-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
-  .mini{background:var(--panel);border:1px solid var(--bd);border-radius:10px;padding:11px}
-  .mini .lbl{font-size:11px;color:var(--mut)}
-  .mini .val{font-size:17px;font-weight:800;margin-top:3px}
-  .dgrp{margin-top:18px}
-  .dgrp h4{margin:0 0 8px;font-size:12px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+  .chart-box.sm{height:230px}
+  @media(max-width:640px){.chart-box{height:250px}.chart-box.sm{height:210px}.kpi-card .big{font-size:23px}}
+  .hint{font-size:11px;color:var(--dim);margin:9px 2px 0;text-align:center}
+  /* 수납/유지 미니 통계 */
+  .stat{display:flex;flex-direction:column;gap:3px}
+  .stat .lbl{font-size:11.5px;color:var(--mut);font-weight:600;display:flex;align-items:center;gap:5px}
+  .stat .v{font-size:24px;font-weight:850;letter-spacing:-.5px}
+  .bar{height:9px;border-radius:6px;background:#0b1322;overflow:hidden;margin-top:9px;border:1px solid var(--bd)}
+  .bar > i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,#10b981,#34d399);transition:width .6s cubic-bezier(.3,1,.4,1)}
   table.list{width:100%;border-collapse:collapse;font-size:13px}
-  table.list th,table.list td{padding:8px 9px;text-align:left;border-bottom:1px solid var(--bd)}
-  table.list th{background:var(--panel2);color:var(--mut);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+  table.list th,table.list td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--bd)}
+  table.list th{background:var(--panel2);color:var(--mut);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;position:sticky;top:0}
   table.list td.num{text-align:right;font-variant-numeric:tabular-nums}
-  .empty{color:var(--dim);font-size:13px;padding:10px 2px}
-  .badge{display:inline-block;background:rgba(245,158,11,.14);color:#fcd34d;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px}
+  table.list tr:hover td{background:rgba(255,255,255,.02)}
+  .rank{display:inline-flex;width:20px;height:20px;border-radius:6px;align-items:center;justify-content:center;font-size:11px;font-weight:800;background:var(--panel2);color:var(--mut);margin-right:7px}
+  .rank.r1{background:rgba(245,158,11,.2);color:#fcd34d}
+  .rank.r2{background:rgba(148,163,184,.2);color:#e2e8f0}
+  .rank.r3{background:rgba(180,120,60,.2);color:#fbbf8f}
+  .empty{color:var(--dim);font-size:13px;padding:14px 2px;text-align:center}
+  .badge-pct{font-size:11px;font-weight:800;padding:2px 8px;border-radius:20px;background:rgba(16,185,129,.15);color:#34d399}
+  .skel{background:linear-gradient(90deg,#1a2436,#222f47,#1a2436);background-size:200% 100%;animation:sh 1.3s infinite;border-radius:6px;color:transparent!important}
+  @keyframes sh{to{background-position:-200% 0}}
   .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--bd);border-top-color:var(--y);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
   @keyframes sp{to{transform:rotate(360deg)}}
+  /* drawer */
+  .scrim{position:fixed;inset:0;background:rgba(2,6,23,.66);opacity:0;pointer-events:none;transition:opacity .25s;z-index:80}
+  .scrim.on{opacity:1;pointer-events:auto}
+  .drawer{position:fixed;top:0;right:0;height:100%;width:min(460px,94vw);background:var(--bg);border-left:1px solid var(--bd);transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:90;display:flex;flex-direction:column}
+  .drawer.on{transform:translateX(0)}
+  .drawer header{display:flex;align-items:center;gap:10px;padding:15px 16px;border-bottom:1px solid var(--bd);background:#0b1220}
+  .drawer header h3{margin:0;font-size:15px;font-weight:800}
+  .drawer header .x{margin-left:auto;background:transparent;border:1px solid var(--bd);color:var(--fg);border-radius:9px;width:32px;height:32px;cursor:pointer;font-size:15px}
+  .drawer .body{padding:16px;overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
+  .mini-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+  .mini{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:12px}
+  .mini .lbl{font-size:11px;color:var(--mut)}
+  .mini .val{font-size:17px;font-weight:850;margin-top:3px}
+  .dgrp{margin-top:18px}
+  .dgrp h4{margin:0 0 9px;font-size:12px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
 </style>
 </head>
 <body>
 <header class="top">
   <h1>📊 경영진 대시보드</h1>
-  <span class="badge" id="brandDate">—</span>
-  <span class="badge" id="scopeBadge" style="background:rgba(59,130,246,.18);color:#93c5fd">—</span>
-  <select id="scopeSel" style="display:none;padding:5px 8px;border-radius:6px;border:1px solid var(--bd);background:var(--panel);color:var(--fg);font-size:12px"></select>
+  <span class="pill date" id="brandDate">—</span>
+  <span class="pill scope" id="scopeBadge">—</span>
+  <select id="scopeSel" style="display:none"></select>
   <span class="grow"></span>
-  <a class="btn" href="/admin/students-unified">👨‍🎓 학생</a>
   <a class="btn" href="/admin/finance-realtime">💸 실시간 재무</a>
   <a class="btn" href="/admin">← 관리자</a>
   <button class="btn" id="refreshBtn">↻ 새로고침</button>
@@ -81,25 +110,51 @@
 <main>
   <p class="as-of" id="asOf"><span class="spin"></span> 불러오는 중…</p>
 
-  <!-- ① 핵심 지표 -->
+  <!-- ① 오늘의 핵심 지표 -->
   <section>
-    <h2 class="sec">오늘의 경영 지표</h2>
-    <div class="kpi-row" id="kpiToday">
-      <div class="kpi-card"><h3>👥 재원생</h3><div class="big">…</div></div>
-      <div class="kpi-card"><h3>💰 오늘 매출</h3><div class="big">…</div></div>
-      <div class="kpi-card"><h3>💸 오늘 비용</h3><div class="big">…</div></div>
-      <div class="kpi-card"><h3>📈 오늘 순익</h3><div class="big">…</div></div>
-    </div>
-    <h2 class="sec">이번 달 누계</h2>
-    <div class="kpi-row" id="kpiMonth">
-      <div class="kpi-card"><h3>🆕 이번달 신규</h3><div class="big">…</div></div>
-      <div class="kpi-card"><h3>💰 이번달 매출</h3><div class="big">…</div></div>
-      <div class="kpi-card"><h3>💸 이번달 비용</h3><div class="big">…</div></div>
-      <div class="kpi-card"><h3>📈 이번달 순익</h3><div class="big">…</div></div>
+    <h2 class="sec">⚡ 오늘의 경영 지표</h2>
+    <div class="grid kpi-row" id="kpiToday">
+      <div class="card kpi-card"><h3>👥 재원생</h3><div class="big skel">000</div></div>
+      <div class="card kpi-card"><h3>💰 오늘 매출</h3><div class="big skel">000</div></div>
+      <div class="card kpi-card"><h3>💸 오늘 비용</h3><div class="big skel">000</div></div>
+      <div class="card kpi-card"><h3>📈 오늘 순익</h3><div class="big skel">000</div></div>
     </div>
   </section>
 
-  <!-- ② 학생수 추이 -->
+  <!-- ② 이번 달 누계 -->
+  <section>
+    <h2 class="sec">🗓️ 이번 달 누계</h2>
+    <div class="grid kpi-row" id="kpiMonth">
+      <div class="card kpi-card"><h3>🆕 이번달 신규</h3><div class="big skel">000</div></div>
+      <div class="card kpi-card"><h3>💰 이번달 매출</h3><div class="big skel">000</div></div>
+      <div class="card kpi-card"><h3>💸 이번달 비용</h3><div class="big skel">000</div></div>
+      <div class="card kpi-card"><h3>📈 이번달 순익</h3><div class="big skel">000</div></div>
+    </div>
+  </section>
+
+  <!-- ③ 재원·수납·유지 현황 -->
+  <section>
+    <h2 class="sec">🎯 재원 · 수납 · 유지 현황 <span class="tag">이번 달</span></h2>
+    <div class="grid g3">
+      <div class="card">
+        <div class="stat"><span class="lbl">💳 이번달 수납률</span><span class="v" id="collectRate">—</span></div>
+        <div class="bar"><i id="collectBar" style="width:0%"></i></div>
+        <div class="sub" style="margin-top:8px;font-size:11.5px;color:var(--dim)" id="collectSub">—</div>
+      </div>
+      <div class="card">
+        <div class="stat"><span class="lbl">🔒 재원 유지율</span><span class="v" id="retainRate">—</span></div>
+        <div class="bar"><i id="retainBar" style="width:0%;background:linear-gradient(90deg,#3b82f6,#60a5fa)"></i></div>
+        <div class="sub" style="margin-top:8px;font-size:11.5px;color:var(--dim)" id="retainSub">—</div>
+      </div>
+      <div class="card">
+        <div class="stat"><span class="lbl">📉 이번달 탈락</span><span class="v" id="dropCnt">—</span></div>
+        <div class="sub" style="margin-top:14px;font-size:11.5px;color:var(--dim)" id="dropSub">신규 등록 대비 순증감</div>
+        <div class="sub" id="netGrow" style="font-size:13px;font-weight:800"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ④ 학생수 추이 -->
   <section>
     <h2 class="sec">👥 학생수 추이
       <span class="seg" id="rangeSeg">
@@ -111,21 +166,46 @@
     <div class="chart-wrap"><div class="chart-box"><canvas id="stuChart"></canvas></div></div>
   </section>
 
-  <!-- ③ 매출·비용 추이 -->
+  <!-- ⑤ 매출·비용·순익 추이 -->
   <section>
     <h2 class="sec">💰 매출 · 비용 · 순익 추이</h2>
     <div class="chart-wrap"><div class="chart-box"><canvas id="finChart"></canvas></div></div>
-    <p class="hint">📌 차트의 막대/점을 누르면 그날의 상세 데이터(결제·지출·신규 학생)가 열립니다.</p>
+    <p class="hint">📌 차트의 막대/점을 누르면 그날의 상세(결제·지출·신규 학생)가 열립니다.</p>
+  </section>
+
+  <!-- ⑥ 대리점별 비교 (본사 전용) -->
+  <section id="branchSection" style="display:none">
+    <h2 class="sec">🏬 대리점별 비교 <span class="tag">이번 달 매출 기준</span></h2>
+    <div class="grid g2" style="align-items:start">
+      <div class="chart-wrap"><div class="chart-box sm"><canvas id="branchChart"></canvas></div></div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <table class="list" id="branchTable">
+          <thead><tr><th>대리점</th><th class="num">재원</th><th class="num">이번달 매출</th><th class="num">인당</th></tr></thead>
+          <tbody><tr><td colspan="4" class="empty"><span class="spin"></span></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑦ 결제수단 비중 -->
+  <section>
+    <h2 class="sec">💳 결제수단 비중 <span class="tag">이번 달</span></h2>
+    <div class="grid g2" style="align-items:start">
+      <div class="chart-wrap"><div class="chart-box sm"><canvas id="methodChart"></canvas></div></div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <table class="list" id="methodTable">
+          <thead><tr><th>수단</th><th class="num">건수</th><th class="num">금액</th><th class="num">비중</th></tr></thead>
+          <tbody><tr><td colspan="4" class="empty"><span class="spin"></span></td></tr></tbody>
+        </table>
+      </div>
+    </div>
   </section>
 </main>
 
 <!-- 상세 드로어 -->
 <div class="scrim" id="scrim"></div>
 <aside class="drawer" id="drawer" aria-hidden="true">
-  <header>
-    <h3 id="dTitle">상세</h3>
-    <button class="x" id="dClose">✕</button>
-  </header>
+  <header><h3 id="dTitle">상세</h3><button class="x" id="dClose">✕</button></header>
   <div class="body" id="dBody"><p class="empty">날짜를 선택하세요.</p></div>
 </aside>
 
@@ -139,38 +219,42 @@ function trendTag(v){
   const cls = v>0?'up':(v<0?'down':'flat'); const arw = v>0?'▲':(v<0?'▼':'–');
   return `<span class="trend ${cls}">${arw} ${Math.abs(v)}%</span>`;
 }
-let stuChart, finChart, curDays=30, seriesCache=[];
+let stuChart, finChart, branchChart, methodChart, curDays=30, seriesCache=[];
 let asParam='';
 function withAs(u){ return asParam ? u + (u.includes('?')?'&':'?') + 'as=' + encodeURIComponent(asParam) : u; }
-
 async function jget(u){ const r=await fetch(u,{credentials:'same-origin'}); if(!r.ok) throw new Error(u+' '+r.status); return r.json(); }
+
+const PALETTE=['#f59e0b','#3b82f6','#10b981','#a855f7','#06b6d4','#ef4444','#eab308'];
 
 async function loadSummary(){
   const s = await jget(withAs('/api/admin/exec/summary'));
-  const today = new Date(s.as_of); 
-  $('#brandDate').textContent = s.today.date;
+  const today = new Date(s.as_of);
+  $('#brandDate').textContent = '📅 ' + s.today.date;
   if (s.scope) $('#scopeBadge').textContent = s.scope.label;
   $('#asOf').textContent = '최종 갱신 ' + today.toLocaleString('ko-KR',{hour12:false});
-  // 오늘
+  window.__hqOnly = s.cost_hq_only;
+  window.__newMonth = s.students.new_this_month || 0;
+  const costCell = (val, sub) => s.cost_hq_only
+    ? '<div class="big"><small>본사 통합</small></div><div class="sub">대리점은 매출·학생만</div>'
+    : `<div class="big" style="color:#f87171">${val}</div><div class="sub">${sub}</div>`;
   $('#kpiToday').innerHTML = `
-    <div class="kpi-card"><h3>👥 재원생</h3><div class="big">${s.students.active.toLocaleString('ko-KR')}<span style="font-size:14px;color:var(--mut)">명</span></div><div class="sub">오늘 신규 +${s.students.new_today}명</div></div>
-    <div class="kpi-card"><h3>💰 오늘 매출</h3><div class="big" style="color:#34d399">${manwon(s.today.income)}</div><div class="sub">${s.today.pay_count}건 결제 ${trendTag(s.today.income_trend)}</div></div>
-    <div class="kpi-card"><h3>💸 오늘 비용</h3>${s.cost_hq_only?'<div class="big" style="color:#64748b;font-size:17px">본사 통합</div><div class="sub">대리점은 매출·학생만</div>':`<div class="big" style="color:#f87171">${manwon(s.today.expense)}</div><div class="sub">급여 ${manwon(s.today.expense_payroll)} · 기타 ${manwon(s.today.expense_manual)}</div>`}</div>
-    <div class="kpi-card"><h3>📈 오늘 순익</h3><div class="big" style="color:${s.today.net>=0?'#60a5fa':'#f87171'}">${manwon(s.today.net)}</div><div class="sub">${trendTag(s.today.net_trend)}</div></div>`;
-  // 이번달
+    <div class="card kpi-card" style="--accent:rgba(245,158,11,.16)"><h3>👥 재원생</h3><div class="big">${s.students.active.toLocaleString('ko-KR')}<small> 명</small></div><div class="sub">오늘 신규 +${s.students.new_today}명</div></div>
+    <div class="card kpi-card" style="--accent:rgba(16,185,129,.16)"><h3>💰 오늘 매출</h3><div class="big" style="color:#34d399">${manwon(s.today.income)}</div><div class="sub">${s.today.pay_count}건 결제 ${trendTag(s.today.income_trend)}</div></div>
+    <div class="card kpi-card" style="--accent:rgba(239,68,68,.16)"><h3>💸 오늘 비용</h3>${costCell(manwon(s.today.expense), `급여 ${manwon(s.today.expense_payroll)} · 기타 ${manwon(s.today.expense_manual)}`)}</div>
+    <div class="card kpi-card" style="--accent:rgba(59,130,246,.16)"><h3>📈 오늘 순익</h3><div class="big" style="color:${s.today.net>=0?'#60a5fa':'#f87171'}">${manwon(s.today.net)}</div><div class="sub">전일 대비 ${trendTag(s.today.net_trend)}</div></div>`;
   $('#kpiMonth').innerHTML = `
-    <div class="kpi-card"><h3>🆕 이번달 신규</h3><div class="big">+${s.students.new_this_month}<span style="font-size:14px;color:var(--mut)">명</span></div><div class="sub">${s.this_month.period}</div></div>
-    <div class="kpi-card"><h3>💰 이번달 매출</h3><div class="big" style="color:#34d399">${manwon(s.this_month.income)}</div><div class="sub">${s.this_month.pay_count}건 ${trendTag(s.this_month.income_trend)}</div></div>
-    <div class="kpi-card"><h3>💸 이번달 비용</h3>${s.cost_hq_only?'<div class="big" style="color:#64748b;font-size:17px">본사 통합</div><div class="sub">대리점은 매출·학생만</div>':`<div class="big" style="color:#f87171">${manwon(s.this_month.expense)}</div><div class="sub">급여 ${manwon(s.this_month.expense_payroll)}</div>`}</div>
-    <div class="kpi-card"><h3>📈 이번달 순익</h3><div class="big" style="color:${s.this_month.net>=0?'#60a5fa':'#f87171'}">${manwon(s.this_month.net)}</div><div class="sub">${trendTag(s.this_month.net_trend)}</div></div>`;
+    <div class="card kpi-card" style="--accent:rgba(168,85,247,.16)"><h3>🆕 이번달 신규</h3><div class="big">+${s.students.new_this_month}<small> 명</small></div><div class="sub">${s.this_month.period}</div></div>
+    <div class="card kpi-card" style="--accent:rgba(16,185,129,.16)"><h3>💰 이번달 매출</h3><div class="big" style="color:#34d399">${manwon(s.this_month.income)}</div><div class="sub">${s.this_month.pay_count}건 ${trendTag(s.this_month.income_trend)}</div></div>
+    <div class="card kpi-card" style="--accent:rgba(239,68,68,.16)"><h3>💸 이번달 비용</h3>${costCell(manwon(s.this_month.expense), `급여 ${manwon(s.this_month.expense_payroll)}`)}</div>
+    <div class="card kpi-card" style="--accent:rgba(59,130,246,.16)"><h3>📈 이번달 순익</h3><div class="big" style="color:${s.this_month.net>=0?'#60a5fa':'#f87171'}">${manwon(s.this_month.net)}</div><div class="sub">전월 대비 ${trendTag(s.this_month.net_trend)}</div></div>`;
 }
 
-const gridC='rgba(148,163,184,.12)', tickC='#94a3b8';
-const baseOpts = onClick => ({
+const gridC='rgba(148,163,184,.12)', tickC='#9fb0c8';
+const baseOpts = () => ({
   responsive:true, maintainAspectRatio:false,
   interaction:{mode:'index',intersect:false},
   onClick:(e,els)=>{ if(els&&els.length){ const i=els[0].index; const d=seriesCache[i]; if(d) openDetail(d.date); } },
-  plugins:{ legend:{labels:{color:tickC,boxWidth:12,font:{size:11}}}, tooltip:{} },
+  plugins:{ legend:{labels:{color:tickC,boxWidth:12,font:{size:11}}}, tooltip:{padding:10,cornerRadius:8} },
   scales:{ x:{grid:{color:gridC},ticks:{color:tickC,maxRotation:0,autoSkip:true,maxTicksLimit:8,font:{size:10}}} }
 });
 
@@ -186,8 +270,8 @@ async function loadSeries(days){
 
   if(stuChart) stuChart.destroy();
   stuChart = new Chart($('#stuChart'),{ data:{labels,datasets:[
-      {type:'line',label:'누적 재원생',data:cum,borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,.12)',tension:.3,fill:true,pointRadius:2,yAxisID:'y',order:1},
-      {type:'bar',label:'신규 학생',data:nw,backgroundColor:'rgba(168,85,247,.6)',borderRadius:3,yAxisID:'y1',order:2}
+      {type:'line',label:'누적 재원생',data:cum,borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,.12)',tension:.35,fill:true,pointRadius:2,yAxisID:'y',order:1},
+      {type:'bar',label:'신규 학생',data:nw,backgroundColor:'rgba(168,85,247,.65)',borderRadius:4,yAxisID:'y1',order:2}
     ]}, options:{...baseOpts(), scales:{
       x:{grid:{color:gridC},ticks:{color:tickC,maxRotation:0,autoSkip:true,maxTicksLimit:8,font:{size:10}}},
       y:{position:'left',grid:{color:gridC},ticks:{color:tickC,font:{size:10}},title:{display:true,text:'재원생(명)',color:tickC,font:{size:10}}},
@@ -196,13 +280,61 @@ async function loadSeries(days){
 
   if(finChart) finChart.destroy();
   finChart = new Chart($('#finChart'),{ data:{labels,datasets:[
-      {type:'bar',label:'매출',data:inc,backgroundColor:'rgba(16,185,129,.55)',borderRadius:3,order:2},
-      {type:'bar',label:'비용',data:exp,backgroundColor:'rgba(239,68,68,.55)',borderRadius:3,order:2},
-      {type:'line',label:'순익',data:net,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.1)',tension:.3,fill:true,pointRadius:2,order:1}
+      {type:'bar',label:'매출',data:inc,backgroundColor:'rgba(16,185,129,.6)',borderRadius:4,order:2},
+      {type:'bar',label:'비용',data:exp,backgroundColor:'rgba(239,68,68,.55)',borderRadius:4,order:2},
+      {type:'line',label:'순익',data:net,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.1)',tension:.35,fill:true,pointRadius:2,order:1}
     ]}, options:{...baseOpts(), scales:{
       x:{grid:{color:gridC},ticks:{color:tickC,maxRotation:0,autoSkip:true,maxTicksLimit:8,font:{size:10}}},
       y:{grid:{color:gridC},ticks:{color:tickC,font:{size:10},callback:v=>(v/10000)+'만'}}
     }}});
+}
+
+async function loadBreakdown(){
+  const b = await jget(withAs('/api/admin/exec/breakdown'));
+  // 수납률
+  const bl = b.billing||{};
+  $('#collectRate').textContent = (bl.collect_rate||0) + '%';
+  $('#collectBar').style.width = Math.min(bl.collect_rate||0,100) + '%';
+  $('#collectSub').textContent = `재원 ${bl.active||0}명 중 ${bl.paid||0}명 납부 · 미납 ${bl.unpaid||0}명`;
+  // 유지율
+  const rt = b.retention||{}; const drop = rt.drop_this_month||0; const act = rt.active||0;
+  const retain = (act+drop)>0 ? Math.round(act/(act+drop)*1000)/10 : 100;
+  $('#retainRate').textContent = retain + '%';
+  $('#retainBar').style.width = Math.min(retain,100) + '%';
+  $('#retainSub').textContent = `재원 ${act}명 유지 · 이번달 이탈 ${drop}명`;
+  // 탈락 / 순증감
+  $('#dropCnt').textContent = drop + '명';
+  const newM = (window.__newMonth||0);
+  const net = newM - drop;
+  $('#netGrow').innerHTML = `이번달 순증감 <span style="color:${net>=0?'#34d399':'#f87171'}">${net>=0?'+':''}${net}명</span>`;
+  // 결제수단
+  const methods = b.methods||[];
+  const totalS = methods.reduce((a,m)=>a+(m.sum||0),0)||1;
+  if(methodChart) methodChart.destroy();
+  if(methods.length){
+    methodChart = new Chart($('#methodChart'),{ type:'doughnut',
+      data:{labels:methods.map(m=>m.method),datasets:[{data:methods.map(m=>m.sum),backgroundColor:PALETTE,borderColor:'#0b1120',borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'bottom',labels:{color:tickC,boxWidth:11,padding:10,font:{size:11}}}}}});
+    $('#methodTable').querySelector('tbody').innerHTML = methods.map((m,i)=>
+      `<tr><td><span class="rank ${i<3?'r'+(i+1):''}">${i+1}</span>${m.method}</td><td class="num">${m.count}건</td><td class="num">${manwon(m.sum)}</td><td class="num"><span class="badge-pct">${Math.round(m.sum/totalS*100)}%</span></td></tr>`).join('');
+  } else {
+    $('#methodTable').querySelector('tbody').innerHTML = '<tr><td colspan="4" class="empty">이번달 결제 내역 없음</td></tr>';
+  }
+  // 대리점별 (본사 전용)
+  const branches = b.branches||[];
+  if(branches.length){
+    $('#branchSection').style.display='';
+    if(branchChart) branchChart.destroy();
+    branchChart = new Chart($('#branchChart'),{ type:'bar',
+      data:{labels:branches.map(x=>x.shop.replace('망고아이 ','').replace(' 대리점','')),datasets:[{label:'이번달 매출',data:branches.map(x=>x.rev_month),backgroundColor:branches.map((_,i)=>PALETTE[i%PALETTE.length]),borderRadius:5}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gridC},ticks:{color:tickC,font:{size:10},callback:v=>(v/10000)+'만'}},y:{grid:{display:false},ticks:{color:tickC,font:{size:11}}}}}});
+    $('#branchTable').querySelector('tbody').innerHTML = branches.map((x,i)=>{
+      const per = x.students? Math.round(x.rev_month/x.students):0;
+      return `<tr><td><span class="rank ${i<3?'r'+(i+1):''}">${i+1}</span>${x.shop.replace('망고아이 ','').replace(' 대리점','')}<div style="font-size:10px;color:var(--dim)">${x.region||''}</div></td><td class="num">${x.students}명</td><td class="num" style="color:#34d399">${manwon(x.rev_month)}</td><td class="num">${manwon(per)}</td></tr>`;
+    }).join('');
+  } else {
+    $('#branchSection').style.display='none';
+  }
 }
 
 async function openDetail(date){
@@ -216,19 +348,16 @@ async function openDetail(date){
       <div class="mini"><div class="lbl">비용</div><div class="val" style="color:#f87171">${manwon(d.expense_total)}</div></div>
       <div class="mini"><div class="lbl">순익</div><div class="val" style="color:#60a5fa">${manwon(d.income_total-d.expense_total)}</div></div>
     </div>`;
-    // 신규 학생
     h += `<div class="dgrp"><h4>🆕 신규 학생 (${d.new_students.length}명)</h4>`;
     h += d.new_students.length ? '<table class="list"><tr><th>이름</th><th>영문명</th></tr>' +
       d.new_students.map(s=>`<tr><td>${s.korean_name||'-'}</td><td>${s.english_name||'-'}</td></tr>`).join('')+'</table>'
       : '<p class="empty">신규 등록 없음</p>';
     h += '</div>';
-    // 결제 내역
     h += `<div class="dgrp"><h4>💰 결제 내역 (${d.payments.length}건)</h4>`;
     h += d.payments.length ? '<table class="list"><tr><th>학생</th><th>방식</th><th>시각</th><th class="num">금액</th></tr>' +
       d.payments.map(p=>`<tr><td>${p.student_name||'-'}</td><td>${p.method||'-'}</td><td>${fmtTime(p.paid_at)}</td><td class="num">${won(p.amount_krw)}</td></tr>`).join('')+'</table>'
       : '<p class="empty">결제 없음</p>';
     h += '</div>';
-    // 지출 내역
     h += `<div class="dgrp"><h4>💸 지출 내역 (수동 ${d.expenses.length}건 + 급여 ${d.payroll_count}건)</h4>`;
     let xt = d.expenses.length ? '<table class="list"><tr><th>분류</th><th>메모</th><th class="num">금액</th></tr>' +
       d.expenses.map(x=>`<tr><td>${x.category||'기타'}</td><td>${x.memo||'-'}</td><td class="num">${won(x.amount_krw)}</td></tr>`).join('')+'</table>'
@@ -263,7 +392,10 @@ async function loadScopes(){
   }catch(e){}
 }
 async function reload(){
-  try{ await loadSummary(); await loadSeries(curDays); }
+  try{
+    await loadSummary();
+    await Promise.all([ loadSeries(curDays), loadBreakdown() ]);
+  }
   catch(e){ $('#asOf').innerHTML = '⚠️ 데이터를 불러오지 못했습니다 — 로그인이 필요할 수 있어요. <a href="/admin/login?next=/admin/exec" style="color:#fcd34d">로그인</a>'; }
 }
 async function boot(){ await loadScopes(); await reload(); }

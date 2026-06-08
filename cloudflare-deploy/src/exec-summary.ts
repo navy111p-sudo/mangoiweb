@@ -311,6 +311,71 @@ async function delRecip(env: Env, id: number): Promise<Response> {
   return j({ ok: true });
 }
 
+
+// ════════ 추가 분석: 대리점 비교·결제수단·수납·유지 ════════
+async function breakdown(env: Env, url: URL, scope: Scope): Promise<Response> {
+  const today = todayKST();
+  const mo = today.slice(0, 7);
+  const monStart = monthStartMs(today);
+  const c = stuCond(scope);
+  const inPay = c.clause ? ` AND user_id IN (SELECT user_id FROM students_erp WHERE ${c.clause})` : '';
+  const stuClause = c.clause ? ` AND ${c.clause}` : '';
+
+  // 결제수단 비중 (이번달, 스코프 반영)
+  const methods = await safe(async () => (await env.DB.prepare(
+    `SELECT COALESCE(method,'기타') method, COUNT(*) c, COALESCE(SUM(amount_krw),0) s
+     FROM student_payments WHERE status='paid' AND paid_at>=?` + inPay + ` GROUP BY method ORDER BY s DESC`
+  ).bind(monStart, ...c.binds).all()).results as any[], []);
+
+  // 재원 상태 분포 (정상/휴원/퇴원 등)
+  const statusRows = await safe(async () => (await env.DB.prepare(
+    `SELECT COALESCE(NULLIF(status,''),'미상') status, COUNT(*) c FROM students_erp WHERE 1=1` + stuClause + ` GROUP BY status ORDER BY c DESC`
+  ).bind(...c.binds).all()).results as any[], []);
+
+  // 이번달 탈락(퇴원/휴원) — status<>'정상' AND end_date 이번달
+  const dropMonth = await safe(async () => {
+    const r = await env.DB.prepare(
+      `SELECT COUNT(*) c FROM students_erp WHERE status<>'정상' AND end_date LIKE ?` + stuClause
+    ).bind(mo + '%', ...c.binds).first<{ c: number }>();
+    return r?.c || 0;
+  }, 0);
+
+  // 수납 현황: 재원생 중 이번달 결제 학생 수
+  const active = await activeTotal(env, scope);
+  const paidStudents = await safe(async () => {
+    const r = await env.DB.prepare(
+      `SELECT COUNT(DISTINCT user_id) c FROM student_payments WHERE status='paid' AND paid_at>=?` + inPay
+    ).bind(monStart, ...c.binds).first<{ c: number }>();
+    return r?.c || 0;
+  }, 0);
+
+  // 대리점별 비교 (본사 전용)
+  let branches: any[] = [];
+  if (scope.type === 'hq') {
+    branches = await safe(async () => (await env.DB.prepare(
+      `SELECT se.shop_name shop, se.franchise region,
+              COUNT(DISTINCT se.user_id) students,
+              COALESCE(SUM(CASE WHEN sp.status='paid' AND sp.paid_at>=? THEN sp.amount_krw ELSE 0 END),0) rev_month
+       FROM students_erp se
+       LEFT JOIN student_payments sp ON sp.user_id = se.user_id
+       WHERE se.status='정상' AND se.shop_name IS NOT NULL AND se.shop_name<>''
+       GROUP BY se.shop_name ORDER BY rev_month DESC`
+    ).bind(monStart).all()).results as any[], []);
+  }
+
+  const unpaid = Math.max(active - paidStudents, 0);
+  const collectRate = active ? Math.round((paidStudents / active) * 1000) / 10 : 0;
+
+  return j({
+    ok: true, period: mo, cost_hq_only: scope.type !== 'hq',
+    methods: methods.map((m: any) => ({ method: m.method, count: m.c, sum: m.s })),
+    status_breakdown: statusRows.map((s: any) => ({ status: s.status, count: s.c })),
+    billing: { active, paid: paidStudents, unpaid, collect_rate: collectRate },
+    retention: { active, drop_this_month: dropMonth },
+    branches: branches.map((b: any) => ({ shop: b.shop, region: b.region, students: b.students, rev_month: b.rev_month })),
+  });
+}
+
 export async function execRouter(request: Request, env: Env): Promise<Response> {
   try {
     const url = new URL(request.url);
@@ -330,6 +395,7 @@ export async function execRouter(request: Request, env: Env): Promise<Response> 
     if (p === 'series') return await series(env, url, scope);
     if (p === 'detail') return await detail(env, url, scope);
     if (p === 'scopes') return await scopes(env, scope);
+    if (p === 'breakdown') return await breakdown(env, url, scope);
     return j({ ok: false, error: 'not found' }, 404);
   } catch (e: any) {
     return j({ ok: false, error: String(e?.message || e) }, 500);
