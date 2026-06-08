@@ -32,11 +32,12 @@ export async function handleRecordingUpload(
 
   // 1) multipart 업로드 시작 — 방에 들어가자마자 호출
   if (path === "/api/recordings/upload/create" && method === "POST") {
-    const b = (await request.json()) as {
+    const b = (await request.json().catch(() => null)) as {
       recording_id: number;
       room_id: string;
       filename?: string;
-    };
+    } | null;
+    if (!b || !b.room_id || !b.recording_id) return J({ error: "invalid body" }, 400);
     const key = `rec/${b.room_id}/${b.recording_id}_${Date.now()}.webm`;
     const mp = await env.RECORDINGS.createMultipartUpload(key, {
       httpMetadata: { contentType: "video/webm" },
@@ -69,14 +70,15 @@ export async function handleRecordingUpload(
 
   // 3) 업로드 마무리 — 수업 종료 시 호출
   if (path === "/api/recordings/upload/complete" && method === "POST") {
-    const b = (await request.json()) as {
+    const b = (await request.json().catch(() => null)) as {
       recording_id: number;
       key: string;
       upload_id: string;
       parts: Array<{ partNumber: number; etag: string }>;
       duration_ms?: number;
       size_bytes?: number;
-    };
+    } | null;
+    if (!b || !b.key || !b.upload_id || !Array.isArray(b.parts)) return J({ error: "invalid body" }, 400);
     const mp = env.RECORDINGS.resumeMultipartUpload(b.key, b.upload_id);
     const obj = await mp.complete(b.parts);
     const now = Date.now();
@@ -92,11 +94,12 @@ export async function handleRecordingUpload(
 
   // 4) 중단 (네트워크 에러·탭 종료 시 정리)
   if (path === "/api/recordings/upload/abort" && method === "POST") {
-    const b = (await request.json()) as {
+    const b = (await request.json().catch(() => null)) as {
       recording_id: number;
       key: string;
       upload_id: string;
-    };
+    } | null;
+    if (!b || !b.recording_id) return J({ error: "invalid body" }, 400);
     try {
       const mp = env.RECORDINGS.resumeMultipartUpload(b.key, b.upload_id);
       await mp.abort();

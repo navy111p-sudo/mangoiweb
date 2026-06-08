@@ -2872,14 +2872,15 @@ export async function handleMangoApi(
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, username TEXT, name TEXT, phone TEXT, parent_phone TEXT, status TEXT);`); } catch {}
 
       // 각 학생의 마지막 paid 결제 + 미납일수 계산
+      const _sw = await studentScopeWhere(env, request, 's');  // 🔒 지사/대리점 격리
       const rs = await env.DB.prepare(
         `SELECT s.user_id, s.name AS student_name, s.parent_phone, s.phone AS student_phone,
                 (SELECT MAX(paid_at) FROM student_payments WHERE user_id = s.user_id AND status='paid') AS last_paid_at,
                 (SELECT amount_krw FROM student_payments WHERE user_id = s.user_id AND status='paid' ORDER BY paid_at DESC LIMIT 1) AS last_amount
            FROM students_erp s
-          WHERE s.status = '정상' OR s.status = '활동' OR s.status IS NULL OR s.status = ''
+          WHERE (s.status = '정상' OR s.status = '활동' OR s.status IS NULL OR s.status = '')${_sw.cond ? ' AND ' + _sw.cond : ''}
           ORDER BY s.name`
-      ).all().catch(() => ({ results: [] } as any));
+      ).bind(..._sw.binds).all().catch(() => ({ results: [] } as any));
       const overdue: any[] = [];
       const upToDate: any[] = [];
       const neverPaid: any[] = [];
@@ -2971,13 +2972,14 @@ export async function handleMangoApi(
       const now = Date.now();
       const cutoff = now - graceDays * 86400 * 1000;
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, username TEXT, name TEXT, phone TEXT, parent_phone TEXT, status TEXT);`); } catch {}
+      const _sw = await studentScopeWhere(env, request, 's');  // 🔒 지사/대리점 격리 (본사 전체 발송 방지)
       const rs = await env.DB.prepare(
         `SELECT s.user_id, s.name AS student_name, s.parent_phone, s.phone AS student_phone,
                 (SELECT MAX(paid_at) FROM student_payments WHERE user_id = s.user_id AND status='paid') AS last_paid_at,
                 (SELECT amount_krw FROM student_payments WHERE user_id = s.user_id AND status='paid' ORDER BY paid_at DESC LIMIT 1) AS last_amount
            FROM students_erp s
-          WHERE (s.status = '정상' OR s.status = '활동' OR s.status IS NULL OR s.status = '')`
-      ).all().catch(() => ({ results: [] } as any));
+          WHERE (s.status = '정상' OR s.status = '활동' OR s.status IS NULL OR s.status = '')${_sw.cond ? ' AND ' + _sw.cond : ''}`
+      ).bind(..._sw.binds).all().catch(() => ({ results: [] } as any));
       const results: any[] = [];
       let sent = 0, failed = 0, skipped = 0;
       for (const r of (rs.results || [])) {
@@ -3051,6 +3053,10 @@ export async function handleMangoApi(
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, amount_krw INTEGER NOT NULL, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`); } catch {}
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, scheduled_date TEXT, status TEXT, created_at INTEGER);`); } catch {}
 
+      // 🔒 세션 기반 강제 스코프 — 지사/대리점은 자기 범위만(본사=전체). 누수 차단.
+      const _sf = await scopeFragments(env, request);
+      const _uidScope = _sf.uidScope, _erpScope = _sf.erpScope, _sb = _sf.binds;
+
       const now = Date.now();
       // 이번 달 / 지난 달 기간
       const d = new Date();
@@ -3072,13 +3078,13 @@ export async function handleMangoApi(
       };
 
       // 1. 학생 수
-      const studentTotal: any = await fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE (status = '정상' OR status = '활동' OR status IS NULL OR status = '')`);
-      const studentNewThisMonth: any = await fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ?`, thisMonthStart);
-      const studentNewLastMonth: any = await fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ? AND created_at < ?`, lastMonthStart, lastMonthEnd);
+      const studentTotal: any = await fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE (status = '정상' OR status = '활동' OR status IS NULL OR status = '')${_erpScope}`, ..._sb);
+      const studentNewThisMonth: any = await fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ?${_erpScope}`, thisMonthStart, ..._sb);
+      const studentNewLastMonth: any = await fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ? AND created_at < ?${_erpScope}`, lastMonthStart, lastMonthEnd, ..._sb);
 
       // 2. 매출
-      const revThisMonth: any = await fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND paid_at >= ? AND paid_at < ?`, thisMonthStart, thisMonthEnd);
-      const revLastMonth: any = await fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND paid_at >= ? AND paid_at < ?`, lastMonthStart, lastMonthEnd);
+      const revThisMonth: any = await fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND paid_at >= ? AND paid_at < ?${_uidScope}`, thisMonthStart, thisMonthEnd, ..._sb);
+      const revLastMonth: any = await fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND paid_at >= ? AND paid_at < ?${_uidScope}`, lastMonthStart, lastMonthEnd, ..._sb);
 
       // 3. 출석 (point_rule_log attendance)
       let attendanceThisMonth = 0, attendanceLastMonth = 0;
@@ -3126,7 +3132,7 @@ export async function handleMangoApi(
         const cutoff = now - 35 * 86400 * 1000;
         const oc: any = await fetch1(`SELECT COUNT(DISTINCT s.user_id) AS n FROM students_erp s
                                        WHERE (s.status = '정상' OR s.status = '활동' OR s.status IS NULL OR s.status = '')
-                                         AND s.user_id NOT IN (SELECT user_id FROM student_payments WHERE status='paid' AND paid_at >= ?)`, cutoff);
+                                         AND s.user_id NOT IN (SELECT user_id FROM student_payments WHERE status='paid' AND paid_at >= ?)${_uidScope}`, cutoff, ..._sb);
         overdueCount = oc?.n || 0;
       } catch {}
 
@@ -3156,7 +3162,7 @@ export async function handleMangoApi(
       for (let i = 6; i >= 0; i--) {
         const dayStart = new Date(); dayStart.setDate(dayStart.getDate() - i); dayStart.setHours(0,0,0,0);
         const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);
-        const r: any = await fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum FROM student_payments WHERE status='paid' AND paid_at >= ? AND paid_at < ?`, dayStart.getTime(), dayEnd.getTime());
+        const r: any = await fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum FROM student_payments WHERE status='paid' AND paid_at >= ? AND paid_at < ?${_uidScope}`, dayStart.getTime(), dayEnd.getTime(), ..._sb);
         dailyRev.push({ date: dayStart.toISOString().slice(5,10), revenue: r?.sum || 0 });
       }
 
@@ -4614,9 +4620,10 @@ Respond in JSON ONLY:
           parentPhoneCol ? 'parent_phone' : `'' AS parent_phone`,
           parentNameCol ? 'parent_name' : `'' AS parent_name`,
         ].join(', ');
+        const _swRisk = await studentScopeWhere(env, request);  // 🔒 지사/대리점 격리
         const studentsRs = await env.DB.prepare(
-          `SELECT ${selectCols} FROM students_erp WHERE status = '정상' OR status IS NULL OR status = '' LIMIT 500`
-        ).all();
+          `SELECT ${selectCols} FROM students_erp WHERE (status = '정상' OR status IS NULL OR status = '')${_swRisk.cond ? ' AND ' + _swRisk.cond : ''} LIMIT 500`
+        ).bind(..._swRisk.binds).all();
         const students = (studentsRs.results || []) as any[];
         if (!students.length) return json({ ok: true, count: 0, at_risk: [], schema: { name_col: nameCol } });
 
@@ -6437,9 +6444,10 @@ Respond in JSON ONLY:
       const lim = Math.max(1, Math.min(2000, parseInt(url.searchParams.get('limit') || '500', 10)));
       try {
         // rowid 는 모든 SQLite 테이블에 항상 존재 — id 컬럼 없는 스키마에서도 동작
+        const _swErp = await studentScopeWhere(env, request);  // 🔒 지사/대리점 격리
         const rs = await env.DB.prepare(
-          `SELECT rowid AS _rowid, * FROM students_erp ORDER BY rowid DESC LIMIT ?`
-        ).bind(lim).all<any>();
+          `SELECT rowid AS _rowid, * FROM students_erp ${_swErp.cond ? 'WHERE ' + _swErp.cond + ' ' : ''}ORDER BY rowid DESC LIMIT ?`
+        ).bind(..._swErp.binds, lim).all<any>();
         const items = (rs.results || []).map(r => {
           // id 컬럼이 없으면 rowid 를 id 로 사용 (프론트 호환)
           if (r.id == null) r.id = r._rowid;
@@ -6635,6 +6643,7 @@ Respond in JSON ONLY:
     //   attendance 테이블에서 distinct user_id + 최근 활동 집계
     if (method === 'GET' && path === '/api/admin/students/list') {
       const lim = Math.max(1, Math.min(1000, parseInt(url.searchParams.get('limit') || '200', 10)));
+      const _sfList = await scopeFragments(env, request);  // 🔒 지사/대리점 격리
       const rs = await env.DB.prepare(
         `SELECT user_id,
                 MAX(username) AS username,
@@ -6643,11 +6652,11 @@ Respond in JSON ONLY:
                 MAX(joined_at) AS last_seen,
                 COUNT(*)       AS sessions
          FROM attendance
-         WHERE user_id IS NOT NULL AND user_id != ''
+         WHERE user_id IS NOT NULL AND user_id != ''${_sfList.uidScope}
          GROUP BY user_id
          ORDER BY MAX(joined_at) DESC
          LIMIT ?`
-      ).bind(lim).all();
+      ).bind(..._sfList.binds, lim).all();
       return json({ ok: true, items: rs.results || [] });
     }
 
