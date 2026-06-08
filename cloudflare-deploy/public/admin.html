@@ -2184,6 +2184,85 @@
 
 <!-- 기존 카드 영역 — 기본 숨김. "📋 모든 메뉴 보기" 토글로 표시 -->
 <div class="legacy-cards" id="legacy-cards">
+<!-- 🏬 지사 전용 — 대리점별 현황 (학생수·매출·지사 수수료) : 지사 로그인 시 대시보드 최상단 -->
+<div id="branch-agency-overview" style="display:none"></div>
+<script>
+(function(){
+  function won(n){ try{ return '₩' + Math.round(n).toLocaleString('ko-KR'); }catch(e){ return '₩'+n; } }
+  function num(n){ try{ return Number(n).toLocaleString('ko-KR'); }catch(e){ return n; } }
+  function sess(){ try{ return JSON.parse(localStorage.getItem('mangoi_admin_session')||'null'); }catch(e){ return null; } }
+  function demoAgencies(){
+    return [
+      { name:'강남점', students:128, revenue:18400000, rate:0.05 },
+      { name:'서초점', students: 96, revenue:13900000, rate:0.05 },
+      { name:'분당점', students: 74, revenue:10200000, rate:0.045 },
+      { name:'판교점', students: 53, revenue: 7300000, rate:0.04 }
+    ];
+  }
+  function normalize(list){
+    return (list||[]).map(function(a){
+      var revenue = (a.revenue!=null)?a.revenue:((a.revenue_month!=null)?a.revenue_month:(a.sales||0));
+      var rate = (a.rate!=null)?a.rate:((a.branch_rate!=null)?a.branch_rate:0.05);
+      var fee = (a.fee!=null)?a.fee:((a.branch_fee!=null)?a.branch_fee:Math.round(revenue*rate));
+      var nm = a.name||a.agency_name||a.agency||'대리점';
+      if(nm.indexOf('대리점')<0) nm = nm + ' 대리점';
+      return { name:nm, students:(a.students!=null)?a.students:(a.student_count||a.active_students||0), revenue:revenue, fee:fee, rate:rate };
+    });
+  }
+  function summ(label,val,color){
+    return '<div style="background:rgba(15,23,42,.4);border:1px solid rgba(148,163,184,.2);border-radius:12px;padding:12px 14px;text-align:center">'
+      +'<div style="font-size:11.5px;color:#94a3b8;margin-bottom:4px">'+label+'</div>'
+      +'<div style="font-size:20px;font-weight:900;color:'+color+'">'+val+'</div></div>';
+  }
+  function render(list, branchName){
+    var host=document.getElementById('branch-agency-overview'); if(!host) return;
+    var totS=0,totR=0,totF=0;
+    list.forEach(function(a){ totS+=a.students||0; totR+=a.revenue||0; totF+=a.fee||0; });
+    var cards=list.map(function(a){
+      var pct=a.rate?((Math.round(a.rate*1000)/10)+'%'):'';
+      return '<div style="background:rgba(255,255,255,.05);border:1px solid rgba(148,163,184,.22);border-radius:14px;padding:14px 16px">'
+        +'<div style="font-weight:800;font-size:15px;color:#fcd34d;margin-bottom:10px">🤝 '+a.name+'</div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+        +'<div><div style="font-size:11px;color:#94a3b8">👥 학생수</div><div style="font-size:18px;font-weight:800;color:#e2e8f0">'+num(a.students)+'<span style="font-size:12px;color:#94a3b8;font-weight:600"> 명</span></div></div>'
+        +'<div><div style="font-size:11px;color:#94a3b8">💰 이번 달 매출</div><div style="font-size:16px;font-weight:800;color:#34d399">'+won(a.revenue)+'</div></div>'
+        +'</div>'
+        +'<div style="margin-top:10px;padding-top:10px;border-top:1px dashed rgba(148,163,184,.25);display:flex;justify-content:space-between;align-items:center">'
+        +'<span style="font-size:12px;color:#94a3b8">🏦 지사 수수료'+(pct?(' ('+pct+')'):'')+'</span>'
+        +'<b style="font-size:17px;color:#fbbf24">'+won(a.fee)+'</b>'
+        +'</div></div>';
+    }).join('');
+    host.innerHTML='<div style="background:linear-gradient(135deg,rgba(245,158,11,.14),rgba(245,158,11,.04));border:1px solid rgba(245,158,11,.35);border-radius:18px;padding:18px 20px;margin-bottom:18px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px">'
+      +'<h2 style="margin:0;font-size:19px;font-weight:900;color:#fcd34d;display:flex;align-items:center;gap:8px">🏬 '+(branchName||'우리 지사')+' · 대리점별 현황</h2>'
+      +'<span style="font-size:11.5px;color:#cbb58a">산하 대리점 '+list.length+'곳 · 한눈에 보기</span>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px">'
+      +summ('🏪 대리점 수', num(list.length)+' 곳', '#fbbf24')
+      +summ('👥 총 학생수', num(totS)+' 명', '#60a5fa')
+      +summ('💰 이번 달 매출 합계', won(totR), '#34d399')
+      +summ('🏦 지사 수수료 합계', won(totF), '#fbbf24')
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">'+cards+'</div>'
+      +'</div>';
+    host.style.display='block';
+  }
+  function init(){
+    var s=sess();
+    if(!s || s.role!=='branch') return;
+    if(!document.getElementById('branch-agency-overview')) return;
+    var bid=s.branch_id||'';
+    var fb=function(){ render(normalize(demoAgencies()), s.branch); };
+    try {
+      if(typeof fetch!=='function'){ fb(); return; }
+      fetch('/api/admin/branch/agency-stats?branch_id='+encodeURIComponent(bid), {headers:{'Accept':'application/json'}})
+        .then(function(r){ if(!r.ok) throw 0; return r.json(); })
+        .then(function(d){ var list=Array.isArray(d)?d:(d.agencies||d.items||d.data||[]); list=normalize(list); if(!list.length) throw 0; render(list, s.branch); })
+        .catch(fb);
+    } catch(e){ fb(); }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+</script>
 
 <div class="grid" id="kpi"></div>
 
@@ -20195,7 +20274,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260608230843 -->
+        <!-- BUILD:20260608231818 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
