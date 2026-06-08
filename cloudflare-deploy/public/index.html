@@ -4117,27 +4117,102 @@
       window.openAboutMangoi = function(){
         var ex = document.getElementById('about-mangoi-ov');
         if (ex) { ex.style.display='flex'; return; }
+        var closeAbout = function(){ var o=document.getElementById('about-mangoi-ov'); if(o) o.style.display='none'; };
         var BENEFITS = [
-          ['🤝','<b>교사와 A.I가 함께</b> 학생 실력 향상'],
-          ['🧑‍🏫','원어민 선생님과 <b>1:1 / 1:2 수업</b>'],['💬','영어 커뮤니케이션 <b>능력의 향상</b>'],
-          ['💰','<b>저렴한 비용</b>으로 최고의 학습 효과'],['🏆','최고의 강사진과 <b>체계적인 관리 시스템</b>'],
-          ['⏰','<b>시간과 장소</b>에 구애받지 않는 시스템'],['📚','우수한 교재에 의한 <b>영어 말하기 동기 부여</b>'],
-          ['📱','편리하고 다양한 기능의 <b>앱과 홈페이지</b>'],['🎬','즐겁고 효과적인 <b>예습·복습 비디오와 퀴즈</b>'],
-          ['🤖','<b>A.I를 활용한</b> 수업 평가 · 복습 · 소통'],['🇵🇭','<b>직영 필리핀 현지</b> 교육센터 운영'],
-          ['🥇','<b>20년 전통</b>, 국내 최초의 화상영어 기업'],['📩','<b>학생 정보를 카카오톡으로</b> 실시간 제공']
+          {ic:'🤝', t:'교사와 A.I가 함께 학생 실력 향상', lead:true,
+           d:'원어민 선생님의 1:1 화상수업과 A.I 학습관리가 하나의 시스템 안에서 맞물려 돌아갑니다. 수업은 사람이 이끌고, 예습·복습·평가·발음 교정은 A.I가 24시간 도와 학습의 빈틈을 메웁니다.',
+           p:['수업(사람) + 학습관리(A.I)를 한 곳에서 — 수업만 제공하는 캠블리·링글과 다릅니다','매 수업이 끝나면 A.I가 자동으로 평가서와 맞춤 복습 퀴즈를 생성','교사 피드백과 A.I 학습 데이터가 서로 연동되어 약점을 정확히 보완'],
+           cta:{l:'🤖 AI 학습 친구 만나기', go:function(){ closeAbout(); location.href='/ai-friend.html'; }}},
+          {ic:'🧑‍🏫', t:'원어민 선생님과 1:1 / 1:2 수업',
+           d:'엄격하게 검증된 원어민 전담 선생님과 1:1 또는 1:2 소수정예로 진행합니다. 같은 선생님이 꾸준히 관리하기 때문에 아이의 성향과 약점을 정확히 파악해 맞춤 지도를 합니다.',
+           p:['매번 바뀌는 랜덤 매칭이 아닌 전담 선생님제로 안정적인 관리','형제·친구와 함께하는 1:2 수업으로 비용 부담은 낮추고 효과는 그대로','직영 센터에서 근무하는 정규 교사 — 검증된 수업 품질'],
+           cta:{l:'📝 수업 신청하러 가기', go:function(){ closeAbout(); location.href='/lesson-booking-demo.html'; }}},
+          {ic:'💬', t:'영어 커뮤니케이션 능력의 향상',
+           d:'문법 암기가 아니라 실제로 입이 트이는 말하기 중심 수업입니다. 매 수업 충분한 발화량과 즉각적인 교정으로 머릿속 영어를 살아있는 회화로 바꿔 줍니다.',
+           p:['수업 외 시간에도 A.I 발음 코치로 무제한 말하기 연습','발화량과 발음 점수를 데이터로 기록해 성장 과정을 확인','실생활 표현 중심 커리큘럼으로 바로 쓰는 영어'],
+           cta:{l:'🎤 AI 발음 코치 체험', go:function(){ closeAbout(); if(window.gridActions&&window.gridActions.speech) window.gridActions.speech(); }}},
+          {ic:'💰', t:'저렴한 비용으로 최고의 학습 효과',
+           d:'필리핀 현지 교육센터를 직접 운영해 불필요한 중간 비용을 없앴습니다. 영미권 원어민 화상영어 대비 합리적인 가격으로, 같은 예산이면 더 자주 수업할 수 있습니다.',
+           p:['직영 운영으로 거품을 뺀 합리적인 수강료','1:2 수업을 선택하면 1인당 비용을 한 번 더 절감','월 단위 부담 없이 시작 — 무료 상담으로 맞춤 견적 제공'],
+           cta:{l:'💳 수강료·결제 안내', go:function(){ closeAbout(); if(window.gridActions&&window.gridActions.payment) window.gridActions.payment(); }}},
+          {ic:'🏆', t:'최고의 강사진과 체계적인 관리 시스템',
+           d:'엄격한 채용과 정기 교육을 거친 강사진이 수업을 맡고, 출결·진도·성취를 데이터로 관리합니다. 담당 매니저가 학습 전반을 함께 챙겨 드립니다.',
+           p:['매 수업 평가표를 자동으로 생성해 성장 추이를 한눈에','전담 매니저의 학습 케어와 정기 상담','데이터 기반 진도 관리로 빠짐없는 학습'],
+           cta:{l:'📋 평가표 살펴보기', go:function(){ closeAbout(); if(window.gridActions&&window.gridActions.report) window.gridActions.report(); }}},
+          {ic:'⏰', t:'시간과 장소에 구애받지 않는 시스템',
+           d:'집, 학교, 여행지 어디서나 PC·태블릿·휴대폰으로 수업에 입장합니다. 원하는 시간대로 예약하고, 갑작스러운 일정은 연기·변경으로 유연하게 조정할 수 있습니다.',
+           p:['모바일까지 완벽 대응 — 언제 어디서나 수업 입장','수업 연기·변경 기능으로 일정 변동에도 빠짐없이','원하는 시간대 자유 예약'],
+           cta:{l:'📅 수업 연기·변경 보기', go:function(){ closeAbout(); location.href='/lesson-postpone-demo.html'; }}},
+          {ic:'📚', t:'우수한 교재에 의한 영어 말하기 동기 부여',
+           d:'연령과 레벨에 맞춰 설계된 자체 교재와 CEFR 기반 커리큘럼으로 학습합니다. 아이가 흥미를 느끼는 주제로 구성해 스스로 말하고 싶게 만듭니다.',
+           p:['CEFR 국제 기준에 맞춘 단계별 커리큘럼','디지털 교재 뷰어로 예습·복습이 간편','연령·관심사 맞춤 주제로 학습 동기 부여'],
+           cta:{l:'📚 교육과정 보기', go:function(){ closeAbout(); if(window.gridActions&&window.gridActions.curriculum) window.gridActions.curriculum(); }}},
+          {ic:'📱', t:'편리하고 다양한 기능의 앱과 홈페이지',
+           d:'수업 입장부터 예습·복습, 평가 확인, 결제, 상담까지 하나의 앱과 홈페이지에서 끝납니다. A.I 검색으로 원하는 기능을 말 한마디로 바로 찾을 수 있습니다.',
+           p:['여러 앱을 오갈 필요 없는 올인원 통합 플랫폼','A.I 음성·텍스트 검색으로 원하는 기능 즉시 이동','전체 메뉴 한눈에 보기'],
+           cta:{l:'🏠 전체 메뉴 열기', go:function(){ closeAbout(); if(window.openAllMenuOverlay) window.openAllMenuOverlay(); }}},
+          {ic:'🎬', t:'즐겁고 효과적인 예습·복습 비디오와 퀴즈',
+           d:'수업 전 예습 영상으로 미리 준비하고, 수업 후에는 복습 퀴즈와 단어 게임으로 반복 학습합니다. 배운 내용을 놀이처럼 익혀 오래 기억하게 합니다.',
+           p:['게임형 마이크로 퀴즈로 지루하지 않은 복습','단어장·연속 학습(스트릭)으로 꾸준한 습관 형성','예습 영상으로 수업 이해도 향상'],
+           cta:{l:'🎯 복습 퀴즈 체험', go:function(){ closeAbout(); location.href='/micro-quiz.html'; }}},
+          {ic:'🤖', t:'A.I를 활용한 수업 평가 · 복습 · 소통',
+           d:'매 수업이 끝나면 A.I가 발음·표현·참여도를 분석해 평가서를 자동으로 만들고, 아이에게 꼭 필요한 맞춤 복습을 추천합니다. 월간 리포트로 성장 흐름도 정리해 드립니다.',
+           p:['수업마다 A.I 자동 평가서 생성','약점을 짚어 주는 맞춤형 복습 추천','월간 A.I 리포트로 한 달 성장 요약'],
+           cta:{l:'📊 월간 AI 리포트 보기', go:function(){ closeAbout(); location.href='/monthly-report.html'; }}},
+          {ic:'🇵🇭', t:'직영 필리핀 현지 교육센터 운영',
+           d:'외주 업체가 아니라 망고아이가 직접 운영하는 필리핀 현지 교육센터입니다. 안정적인 인터넷과 근무 환경에서 검증된 정규 교사가 책임감 있게 수업합니다.',
+           p:['외주가 아닌 직영 운영 — 수업 품질과 비용을 직접 관리','전용 인터넷·장비를 갖춘 안정적인 수업 환경','정규직 교사의 책임 있는 전담 관리'],
+           cta:{l:'🌟 망고아이 특장점', go:function(){ closeAbout(); if(window.gridActions&&window.gridActions.features) window.gridActions.features(); }}},
+          {ic:'🥇', t:'20년 전통, 국내 최초의 화상영어 기업',
+           d:'국내에서 화상영어를 가장 먼저 시작한 20년 전통의 기업입니다. 오랜 노하우와 수많은 학생 데이터가 쌓인, 시간으로 검증된 교육 시스템을 제공합니다.',
+           p:['신생 스타트업과는 다른 20년의 운영 노하우','수많은 학생을 지도하며 다듬어 온 커리큘럼','실제 학부모·학생 후기로 검증된 신뢰'],
+           cta:{l:'⭐ 수강 후기 보기', go:function(){ closeAbout(); if(window.gridActions&&window.gridActions.reviews) window.gridActions.reviews(); }}},
+          {ic:'📩', t:'학생 정보를 카카오톡으로 실시간 제공',
+           d:'수업 출결, 평가, 진도, 공지를 학부모님 카카오톡으로 실시간 전송합니다. 따로 앱을 열지 않아도 아이의 학습 상황을 바로 확인할 수 있습니다.',
+           p:['수업 출결·평가를 카카오톡으로 실시간 알림','월간 A.I 리포트도 카카오톡으로 발송','학부모와 센터 간 빠른 소통 창구'],
+           cta:{l:'💬 카카오톡 채널 가기', go:function(){ closeAbout(); if(window.gridActions&&window.gridActions.kakao) window.gridActions.kakao(); }}}
         ];
-        var items = BENEFITS.map(function(b,i){ var cls=(i===0)?'abm-item abm-lead':'abm-item'; return '<div class="'+cls+'"><span class="abm-ic">'+b[0]+'</span><span class="abm-tx">'+b[1]+'</span></div>'; }).join('');
         var ov = document.createElement('div'); ov.id='about-mangoi-ov';
+        var gridHtml = BENEFITS.map(function(b,i){ var cls=b.lead?'abm-item abm-lead':'abm-item'; return '<button type="button" class="'+cls+'" data-i="'+i+'"><span class="abm-ic">'+b.ic+'</span><span class="abm-tx">'+b.t+'</span><span class="abm-chev">›</span></button>'; }).join('');
         ov.innerHTML =
           '<div class="abm-card" role="dialog" aria-modal="true">'
-          + '<button class="abm-close" aria-label="닫기" onclick="document.getElementById(\'about-mangoi-ov\').style.display=\'none\'">✕</button>'
-          + '<div class="abm-head"><div class="abm-logo">🥭</div><h2 class="abm-title">망고아이란?</h2>'
-          +   '<p class="abm-sub">20년 전통 · 국내 최초의 화상영어 기업</p><div class="abm-rule"></div>'
-          +   '<p class="abm-intro">원어민 1:1 화상수업과 A.I 학습관리로, 합리적인 비용에 최고의 영어 말하기 효과를 드립니다.</p></div>'
-          + '<div class="abm-grid">'+items+'</div>'
-          + '<div class="abm-foot"><button class="abm-cta" onclick="document.getElementById(\'about-mangoi-ov\').style.display=\'none\';if(window.openInquiryModal)window.openInquiryModal();">무료 상담 신청하기</button></div>'
+          + '<button class="abm-close" aria-label="닫기">✕</button>'
+          + '<div class="abm-view abm-view-list">'
+          +   '<div class="abm-head"><div class="abm-logo">🥭</div><h2 class="abm-title">망고아이란?</h2>'
+          +     '<p class="abm-sub">20년 전통 · 국내 최초의 화상영어 기업</p><div class="abm-rule"></div>'
+          +     '<p class="abm-intro">원어민 1:1 화상수업과 A.I 학습관리로, 합리적인 비용에 최고의 영어 말하기 효과를 드립니다. <b class="abm-hint">카드를 누르면 자세히 볼 수 있어요 👆</b></p></div>'
+          +   '<div class="abm-grid">'+gridHtml+'</div>'
+          +   '<div class="abm-foot"><button class="abm-cta abm-cta-main">무료 상담 신청하기</button></div>'
+          + '</div>'
+          + '<div class="abm-view abm-view-detail" style="display:none">'
+          +   '<button class="abm-back" type="button">← 목록으로</button>'
+          +   '<div class="abm-detail-body"></div>'
+          + '</div>'
           + '</div>';
-        ov.addEventListener('click', function(e){ if(e.target===ov) ov.style.display='none'; });
+        var card = ov.querySelector('.abm-card');
+        var listView = ov.querySelector('.abm-view-list');
+        var detailView = ov.querySelector('.abm-view-detail');
+        var detailBody = ov.querySelector('.abm-detail-body');
+        function showList(){ detailView.style.display='none'; listView.style.display='block'; card.scrollTop=0; }
+        function showDetail(i){
+          var b=BENEFITS[i];
+          var pts=b.p.map(function(x){ return '<li>'+x+'</li>'; }).join('');
+          detailBody.innerHTML =
+            '<div class="abm-dhead"><span class="abm-dic">'+b.ic+'</span><h3 class="abm-dtitle">'+b.t+'</h3></div>'
+            + '<p class="abm-ddesc">'+b.d+'</p>'
+            + '<div class="abm-dpts-h">✨ 망고아이만의 강점</div>'
+            + '<ul class="abm-dpts">'+pts+'</ul>'
+            + '<button class="abm-cta abm-dcta" type="button">'+b.cta.l+'</button>';
+          detailBody.querySelector('.abm-dcta').addEventListener('click', b.cta.go);
+          listView.style.display='none'; detailView.style.display='block';
+          detailView.classList.remove('abm-anim'); void detailView.offsetWidth; detailView.classList.add('abm-anim');
+          card.scrollTop=0;
+        }
+        ov.addEventListener('click', function(e){ if(e.target===ov) closeAbout(); });
+        ov.querySelector('.abm-close').addEventListener('click', closeAbout);
+        ov.querySelector('.abm-cta-main').addEventListener('click', function(){ closeAbout(); if(window.openInquiryModal) window.openInquiryModal(); });
+        ov.querySelector('.abm-back').addEventListener('click', showList);
+        Array.prototype.forEach.call(ov.querySelectorAll('.abm-item'), function(btn){ btn.addEventListener('click', function(){ showDetail(+btn.getAttribute('data-i')); }); });
         document.body.appendChild(ov);
         if(!document.getElementById('abm-style')){
           var st=document.createElement('style'); st.id='abm-style';
@@ -4145,24 +4220,41 @@
             '#about-mangoi-ov{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(6,12,27,.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}'
           + '.abm-card{position:relative;width:100%;max-width:760px;max-height:88vh;overflow-y:auto;background:linear-gradient(180deg,#13294e,#0b1c3a);border:1px solid rgba(96,165,250,.22);border-radius:24px;box-shadow:0 30px 80px -20px rgba(0,0,0,.7);padding:30px 26px 24px;animation:abmIn .28s cubic-bezier(.34,1.56,.64,1)}'
           + '@keyframes abmIn{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}'
-          + '.abm-close{position:absolute;top:14px;right:14px;width:34px;height:34px;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#aebfd6;font-size:16px;cursor:pointer}'
+          + '.abm-close{position:absolute;top:14px;right:14px;width:34px;height:34px;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#aebfd6;font-size:16px;cursor:pointer;z-index:5}'
           + '.abm-close:hover{color:#93c5fd;background:rgba(255,255,255,.18)}'
           + '.abm-head{text-align:center;margin-bottom:20px}.abm-logo{font-size:44px;line-height:1;margin-bottom:6px}'
           + '.abm-title{margin:0;font-size:25px;font-weight:900;color:#f1f6ff;letter-spacing:-.5px}'
           + '.abm-sub{margin:6px 0 0;font-size:13px;font-weight:700;color:#8fb8f2}'
           + '.abm-rule{width:48px;height:4px;border-radius:4px;background:linear-gradient(90deg,#60a5fa,#3b82f6);margin:13px auto}'
           + '.abm-intro{margin:0;font-size:14px;line-height:1.65;color:#aebfd6;max-width:520px;margin-left:auto;margin-right:auto}'
+          + '.abm-hint{display:inline-block;margin-top:6px;color:#93c5fd;font-weight:700}'
           + '.abm-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}'
-          + '.abm-item{display:flex;align-items:center;gap:12px;background:#e8f1fc;border:1px solid #d2e3f8;border-radius:16px;padding:14px 16px;box-shadow:0 4px 12px -6px rgba(0,0,0,.35);transition:transform .15s}'
-          + '.abm-item:hover{transform:translateY(-2px);background:#eff5fe}'
+          + '.abm-item{display:flex;align-items:center;gap:12px;background:#e8f1fc;border:1px solid #d2e3f8;border-radius:16px;padding:14px 16px;box-shadow:0 4px 12px -6px rgba(0,0,0,.35);transition:transform .15s,box-shadow .15s;cursor:pointer;text-align:left;width:100%;font-family:inherit}'
+          + '.abm-item:hover{transform:translateY(-2px);background:#eff5fe;box-shadow:0 10px 22px -8px rgba(37,99,235,.45)}'
+          + '.abm-item:active{transform:translateY(0)}'
           + '.abm-lead{grid-column:1 / -1;background:linear-gradient(135deg,#1d4ed8,#2563eb);border-color:#3b82f6;box-shadow:0 8px 22px -8px rgba(37,99,235,.7)}'
-          + '.abm-lead .abm-tx{color:#fff;font-size:15px}.abm-lead .abm-tx b{color:#bfdbfe}.abm-lead .abm-ic{background:rgba(255,255,255,.2)}'
+          + '.abm-lead .abm-tx{color:#fff;font-size:15px}.abm-lead .abm-tx b{color:#bfdbfe}.abm-lead .abm-ic{background:rgba(255,255,255,.2)}.abm-lead .abm-chev{color:rgba(255,255,255,.85)}'
           + '.abm-ic{font-size:22px;flex-shrink:0;width:42px;height:42px;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:13px;box-shadow:0 2px 6px -2px rgba(30,58,95,.25)}'
-          + '.abm-tx{font-size:14px;line-height:1.45;color:#1e3a5f}.abm-tx b{color:#1d4ed8;font-weight:800}'
+          + '.abm-tx{flex:1;font-size:14px;line-height:1.45;color:#1e3a5f;font-weight:600}.abm-tx b{color:#1d4ed8;font-weight:800}'
+          + '.abm-chev{flex-shrink:0;font-size:22px;font-weight:800;color:#94b3d8;line-height:1;transition:transform .15s}'
+          + '.abm-item:hover .abm-chev{transform:translateX(3px);color:#2563eb}'
           + '.abm-foot{margin-top:20px;text-align:center}'
-          + '.abm-cta{border:0;border-radius:16px;padding:14px 30px;font-size:15px;font-weight:800;color:#fff;cursor:pointer;background:linear-gradient(135deg,#60a5fa,#2563eb);box-shadow:0 10px 26px -8px rgba(37,99,235,.65)}'
+          + '.abm-cta{border:0;border-radius:16px;padding:14px 30px;font-size:15px;font-weight:800;color:#fff;cursor:pointer;background:linear-gradient(135deg,#60a5fa,#2563eb);box-shadow:0 10px 26px -8px rgba(37,99,235,.65);font-family:inherit}'
           + '.abm-cta:hover{filter:brightness(1.06)}'
-          + '@media(max-width:560px){.abm-grid{grid-template-columns:1fr}.abm-card{padding:24px 16px 18px}.abm-title{font-size:22px}}';
+          + '.abm-back{border:0;background:rgba(255,255,255,.08);color:#9ec1f0;font-size:13.5px;font-weight:700;padding:9px 16px;border-radius:12px;cursor:pointer;margin-bottom:18px;font-family:inherit}'
+          + '.abm-back:hover{background:rgba(255,255,255,.16);color:#cfe2ff}'
+          + '.abm-view-detail.abm-anim{animation:abmDetIn .3s cubic-bezier(.34,1.2,.64,1)}'
+          + '@keyframes abmDetIn{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}'
+          + '.abm-dhead{display:flex;align-items:center;gap:14px;margin-bottom:16px}'
+          + '.abm-dic{font-size:30px;flex-shrink:0;width:58px;height:58px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1d4ed8,#2563eb);border-radius:18px;box-shadow:0 10px 24px -10px rgba(37,99,235,.8)}'
+          + '.abm-dtitle{margin:0;font-size:20px;font-weight:900;color:#f1f6ff;line-height:1.3;letter-spacing:-.4px}'
+          + '.abm-ddesc{margin:0 0 22px;font-size:15px;line-height:1.75;color:#c4d6ef}'
+          + '.abm-dpts-h{font-size:14px;font-weight:800;color:#93c5fd;margin-bottom:12px}'
+          + '.abm-dpts{list-style:none;margin:0 0 24px;padding:0;display:flex;flex-direction:column;gap:10px}'
+          + '.abm-dpts li{position:relative;padding:13px 16px 13px 42px;background:rgba(255,255,255,.05);border:1px solid rgba(96,165,250,.18);border-radius:14px;font-size:14px;line-height:1.55;color:#dbe7f7}'
+          + '.abm-dpts li:before{content:"✓";position:absolute;left:15px;top:13px;color:#34d399;font-weight:900}'
+          + '.abm-dcta{width:100%;padding:15px}'
+          + '@media(max-width:560px){.abm-grid{grid-template-columns:1fr}.abm-card{padding:24px 16px 18px}.abm-title{font-size:22px}.abm-dtitle{font-size:18px}.abm-dic{width:50px;height:50px;font-size:26px}.abm-ddesc{font-size:14px}}';
           document.head.appendChild(st);
         }
         ov.style.display='flex';
@@ -24829,7 +24921,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260608210431 -->
+<!-- BUILD:20260608211643 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -26676,7 +26768,4 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     var id = e && e.detail && e.detail.bookId; if(id) window.mangoiPlayLessonVideo(id);
   });
   // 동영상 탭 컨트롤에 '📘 교재 동영상' 버튼 자동 추가 (수동 호출용)
-  function injectBtn(){
-    var ctr = document.querySelector('#tab-video .vp-controls');
-    if(!ctr || document.getElementById('ml-btn')) return;
-    var b = document.createEleme
+  function injec
