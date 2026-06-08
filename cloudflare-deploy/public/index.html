@@ -4234,14 +4234,14 @@
           + '.abm-intro{margin:0;font-size:14px;line-height:1.65;color:#aebfd6;max-width:520px;margin-left:auto;margin-right:auto}'
           + '.abm-hint{display:inline-block;margin-top:6px;color:#93c5fd;font-weight:700}'
           + '.abm-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}'
-          + '.abm-item{display:flex;align-items:center;gap:12px;background:#e8f1fc;border:1px solid #d2e3f8;border-radius:16px;padding:14px 16px;box-shadow:0 4px 12px -6px rgba(0,0,0,.35);transition:transform .15s,box-shadow .15s;cursor:pointer;text-align:left;width:100%;font-family:inherit}'
-          + '.abm-item:hover{transform:translateY(-2px);background:#eff5fe;box-shadow:0 10px 22px -8px rgba(37,99,235,.45)}'
+          + '.abm-item{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.055);border:1px solid rgba(147,180,224,.28);border-radius:16px;padding:14px 16px;box-shadow:0 4px 12px -6px rgba(0,0,0,.3);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:transform .15s,box-shadow .15s,background .15s;cursor:pointer;text-align:left;width:100%;font-family:inherit}'
+          + '.abm-item:hover{transform:translateY(-2px);background:rgba(255,255,255,.12);box-shadow:0 10px 22px -8px rgba(37,99,235,.45)}'
           + '.abm-item:active{transform:translateY(0)}'
           + '.abm-lead{grid-column:1 / -1;background:linear-gradient(135deg,#1d4ed8,#2563eb);border-color:#3b82f6;box-shadow:0 8px 22px -8px rgba(37,99,235,.7)}'
           + '.abm-lead .abm-tx{color:#fff;font-size:15px}.abm-lead .abm-tx b{color:#bfdbfe}.abm-lead .abm-ic{background:rgba(255,255,255,.2)}.abm-lead .abm-chev{color:rgba(255,255,255,.85)}'
-          + '.abm-ic{font-size:22px;flex-shrink:0;width:42px;height:42px;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:13px;box-shadow:0 2px 6px -2px rgba(30,58,95,.25)}'
-          + '.abm-tx{flex:1;font-size:14px;line-height:1.45;color:#1e3a5f;font-weight:600}.abm-tx b{color:#1d4ed8;font-weight:800}'
-          + '.abm-chev{flex-shrink:0;font-size:22px;font-weight:800;color:#94b3d8;line-height:1;transition:transform .15s}'
+          + '.abm-ic{font-size:22px;flex-shrink:0;width:42px;height:42px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.12);border-radius:13px}'
+          + '.abm-tx{flex:1;font-size:14px;line-height:1.45;color:#e3edfb;font-weight:600}.abm-tx b{color:#93c5fd;font-weight:800}'
+          + '.abm-chev{flex-shrink:0;font-size:22px;font-weight:800;color:#9ec1f0;line-height:1;transition:transform .15s}'
           + '.abm-item:hover .abm-chev{transform:translateX(3px);color:#2563eb}'
           + '.abm-foot{margin-top:20px;text-align:center}'
           + '.abm-cta{border:0;border-radius:16px;padding:14px 30px;font-size:15px;font-weight:800;color:#fff;cursor:pointer;background:linear-gradient(135deg,#60a5fa,#2563eb);box-shadow:0 10px 26px -8px rgba(37,99,235,.65);font-family:inherit}'
@@ -24933,7 +24933,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260608220549 -->
+<!-- BUILD:20260608221207 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
