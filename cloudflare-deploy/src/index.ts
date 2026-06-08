@@ -938,6 +938,16 @@ export default {
         } catch (err) {
           console.error('[recurring-billing] error', err);
         }
+
+        // 📊 경영 브리핑 알림톡 (KST 09:00) — 수신자에게 학생수·매출·비용 발송
+        try {
+          const briefUrl = new URL('https://internal.local/api/admin/exec/send-briefing');
+          const briefReq = new Request(briefUrl.toString(), { method: 'POST' });
+          const r = await execRouter(briefReq, env as any);
+          console.log('[exec-briefing] cron ran', r?.status);
+        } catch (err) {
+          console.error('[exec-briefing] error', err);
+        }
       }
 
       // ── UTC 01:00 + day===1 KST (KST 1일 10:00) — 월간 NPS 자동 발송 (Phase NPS)

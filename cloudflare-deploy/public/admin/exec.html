@@ -69,6 +69,8 @@
 <header class="top">
   <h1>📊 경영진 대시보드</h1>
   <span class="badge" id="brandDate">—</span>
+  <span class="badge" id="scopeBadge" style="background:rgba(59,130,246,.18);color:#93c5fd">—</span>
+  <select id="scopeSel" style="display:none;padding:5px 8px;border-radius:6px;border:1px solid var(--bd);background:var(--panel);color:var(--fg);font-size:12px"></select>
   <span class="grow"></span>
   <a class="btn" href="/admin/finance-realtime">💸 실시간 재무</a>
   <a class="btn" href="/admin">← 관리자</a>
@@ -137,25 +139,28 @@ function trendTag(v){
   return `<span class="trend ${cls}">${arw} ${Math.abs(v)}%</span>`;
 }
 let stuChart, finChart, curDays=30, seriesCache=[];
+let asParam='';
+function withAs(u){ return asParam ? u + (u.includes('?')?'&':'?') + 'as=' + encodeURIComponent(asParam) : u; }
 
 async function jget(u){ const r=await fetch(u,{credentials:'same-origin'}); if(!r.ok) throw new Error(u+' '+r.status); return r.json(); }
 
 async function loadSummary(){
-  const s = await jget('/api/admin/exec/summary');
+  const s = await jget(withAs('/api/admin/exec/summary'));
   const today = new Date(s.as_of); 
   $('#brandDate').textContent = s.today.date;
+  if (s.scope) $('#scopeBadge').textContent = s.scope.label;
   $('#asOf').textContent = '최종 갱신 ' + today.toLocaleString('ko-KR',{hour12:false});
   // 오늘
   $('#kpiToday').innerHTML = `
     <div class="kpi-card"><h3>👥 재원생</h3><div class="big">${s.students.active.toLocaleString('ko-KR')}<span style="font-size:14px;color:var(--mut)">명</span></div><div class="sub">오늘 신규 +${s.students.new_today}명</div></div>
     <div class="kpi-card"><h3>💰 오늘 매출</h3><div class="big" style="color:#34d399">${manwon(s.today.income)}</div><div class="sub">${s.today.pay_count}건 결제 ${trendTag(s.today.income_trend)}</div></div>
-    <div class="kpi-card"><h3>💸 오늘 비용</h3><div class="big" style="color:#f87171">${manwon(s.today.expense)}</div><div class="sub">급여 ${manwon(s.today.expense_payroll)} · 기타 ${manwon(s.today.expense_manual)}</div></div>
+    <div class="kpi-card"><h3>💸 오늘 비용</h3>${s.cost_hq_only?'<div class="big" style="color:#64748b;font-size:17px">본사 통합</div><div class="sub">대리점은 매출·학생만</div>':`<div class="big" style="color:#f87171">${manwon(s.today.expense)}</div><div class="sub">급여 ${manwon(s.today.expense_payroll)} · 기타 ${manwon(s.today.expense_manual)}</div>`}</div>
     <div class="kpi-card"><h3>📈 오늘 순익</h3><div class="big" style="color:${s.today.net>=0?'#60a5fa':'#f87171'}">${manwon(s.today.net)}</div><div class="sub">${trendTag(s.today.net_trend)}</div></div>`;
   // 이번달
   $('#kpiMonth').innerHTML = `
     <div class="kpi-card"><h3>🆕 이번달 신규</h3><div class="big">+${s.students.new_this_month}<span style="font-size:14px;color:var(--mut)">명</span></div><div class="sub">${s.this_month.period}</div></div>
     <div class="kpi-card"><h3>💰 이번달 매출</h3><div class="big" style="color:#34d399">${manwon(s.this_month.income)}</div><div class="sub">${s.this_month.pay_count}건 ${trendTag(s.this_month.income_trend)}</div></div>
-    <div class="kpi-card"><h3>💸 이번달 비용</h3><div class="big" style="color:#f87171">${manwon(s.this_month.expense)}</div><div class="sub">급여 ${manwon(s.this_month.expense_payroll)}</div></div>
+    <div class="kpi-card"><h3>💸 이번달 비용</h3>${s.cost_hq_only?'<div class="big" style="color:#64748b;font-size:17px">본사 통합</div><div class="sub">대리점은 매출·학생만</div>':`<div class="big" style="color:#f87171">${manwon(s.this_month.expense)}</div><div class="sub">급여 ${manwon(s.this_month.expense_payroll)}</div>`}</div>
     <div class="kpi-card"><h3>📈 이번달 순익</h3><div class="big" style="color:${s.this_month.net>=0?'#60a5fa':'#f87171'}">${manwon(s.this_month.net)}</div><div class="sub">${trendTag(s.this_month.net_trend)}</div></div>`;
 }
 
@@ -169,7 +174,7 @@ const baseOpts = onClick => ({
 });
 
 async function loadSeries(days){
-  const r = await jget('/api/admin/exec/series?days='+days);
+  const r = await jget(withAs('/api/admin/exec/series?days='+days));
   seriesCache = r.series;
   const labels = r.series.map(d=>d.date.slice(5));
   const cum = r.series.map(d=>d.cum_students);
@@ -204,7 +209,7 @@ async function openDetail(date){
   $('#dBody').innerHTML = '<p class="empty"><span class="spin"></span> 불러오는 중…</p>';
   $('#scrim').classList.add('on'); $('#drawer').classList.add('on'); $('#drawer').setAttribute('aria-hidden','false');
   try{
-    const d = await jget('/api/admin/exec/detail?date='+date);
+    const d = await jget(withAs('/api/admin/exec/detail?date='+date));
     let h = `<div class="mini-row">
       <div class="mini"><div class="lbl">매출</div><div class="val" style="color:#34d399">${manwon(d.income_total)}</div></div>
       <div class="mini"><div class="lbl">비용</div><div class="val" style="color:#f87171">${manwon(d.expense_total)}</div></div>
@@ -243,10 +248,24 @@ $('#rangeSeg').addEventListener('click', e=>{
   curDays = +b.dataset.days; loadSeries(curDays);
 });
 
-async function boot(){
+async function loadScopes(){
+  try{
+    const r = await jget('/api/admin/exec/scopes');
+    if(!r || !r.hq) return;
+    const sel = $('#scopeSel');
+    const opts = [{value:'',label:'🏢 본사 전체'}]
+      .concat((r.branches||[]).map(b=>({value:b.value,label:'🏬 '+b.label})))
+      .concat((r.agencies||[]).map(a=>({value:a.value,label:'🏪 '+a.label+' ('+a.students+'명)'})));
+    sel.innerHTML = opts.map(o=>`<option value="${o.value}">${o.label}</option>`).join('');
+    sel.style.display='';
+    sel.onchange=()=>{ asParam=sel.value; reload(); };
+  }catch(e){}
+}
+async function reload(){
   try{ await loadSummary(); await loadSeries(curDays); }
   catch(e){ $('#asOf').innerHTML = '⚠️ 데이터를 불러오지 못했습니다 — 로그인이 필요할 수 있어요. <a href="/admin/login?next=/admin/exec" style="color:#fcd34d">로그인</a>'; }
 }
+async function boot(){ await loadScopes(); await reload(); }
 boot();
 </script>
 </body>
