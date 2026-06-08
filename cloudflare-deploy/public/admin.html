@@ -2283,6 +2283,7 @@
     var s=sess();
     if(!s || s.role!=='agency') return;
     if(!document.getElementById('agency-academy-overview')) return;
+    var _bo=document.getElementById('branch-agency-overview'); if(_bo){ _bo.style.display='none'; _bo.innerHTML=''; }
     var aid=s.agency_id||'';
     var fb=function(){ render(normalize(demo()), s.branch); };
     try {
@@ -2362,6 +2363,7 @@
     var s=sess();
     if(!s || s.role!=='branch') return;
     if(!document.getElementById('branch-agency-overview')) return;
+    var _ao=document.getElementById('agency-academy-overview'); if(_ao){ _ao.style.display='none'; _ao.innerHTML=''; }
     var bid=s.branch_id||'';
     var fb=function(){ render(normalize(demoAgencies()), s.branch); };
     try {
@@ -20387,7 +20389,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260608234048 -->
+        <!-- BUILD:20260609000858 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

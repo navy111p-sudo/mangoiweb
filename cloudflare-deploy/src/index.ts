@@ -13,6 +13,7 @@ import { handleRecordingUpload as handleR2MultipartUpload } from './recordings-r
 import { handleAdminAuthApi, checkAdminSession } from './auth-admin';
 import { reportsRouter } from './accounting-reports';
 import { realtimeRouter, runFinanceSnapshot } from './accounting-realtime';
+import { execRouter } from './exec-summary';
 import { learningRouter, runLearningSnapshot } from './learning-insights';
 import { marketingRouter } from './marketing-studio';
 
@@ -727,6 +728,18 @@ export default {
     // 💸 /admin/finance-realtime — 실시간 재무 대시보드 페이지 (관리자 전용)
     if (path === '/admin/finance-realtime' || path === '/admin/finance-realtime/') {
       const r = new Request(new URL('/admin/finance-realtime.html' + url.search, request.url).toString(), request);
+      return env.ASSETS.fetch(r);
+    }
+
+    // 📊 경영진 일일 요약 API (2026-06-09 추가)
+    //   /api/admin/exec/{summary|series|detail}
+    if (path.startsWith('/api/admin/exec/')) {
+      return execRouter(request, env);
+    }
+
+    // 📊 /admin/exec — 경영진 대시보드 페이지 (관리자 전용)
+    if (path === '/admin/exec' || path === '/admin/exec/') {
+      const r = new Request(new URL('/admin/exec.html' + url.search, request.url).toString(), request);
       return env.ASSETS.fetch(r);
     }
 
@@ -1738,6 +1751,9 @@ function isAdminPath(path: string, method: string): boolean {
   // 💸 실시간 재무 대시보드 + API (2026-06-03) — 관리자 전용
   if (path === '/admin/finance-realtime' || path === '/admin/finance-realtime/' || path === '/admin/finance-realtime.html') return true;
   if (path.startsWith('/api/admin/realtime/')) return true;
+  // 📊 경영진 대시보드 + API (2026-06-09) — 관리자 전용
+  if (path === '/admin/exec' || path === '/admin/exec/' || path === '/admin/exec.html') return true;
+  if (path.startsWith('/api/admin/exec/')) return true;
   // 🎓 학습 인사이트 대시보드 + API (2026-06-03) — 관리자 전용
   if (path === '/admin/learning-insights' || path === '/admin/learning-insights/' || path === '/admin/learning-insights.html') return true;
   if (path.startsWith('/api/admin/learning/')) return true;
