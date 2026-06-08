@@ -143,11 +143,13 @@
       return orig(constraints).catch(function (err) {
         // 인앱 브라우저거나 권한/장치 오류면 안내 배너 노출
         var name = err && err.name;
-        if (isInApp ||
-            name === 'NotAllowedError' ||
-            name === 'NotFoundError' ||
-            name === 'NotReadableError' ||
-            name === 'SecurityError') {
+        var permErr = name === 'NotAllowedError' || name === 'NotFoundError' ||
+                      name === 'NotReadableError' || name === 'SecurityError';
+        if (isInApp && isAndroid) {
+          // 안드로이드 인앱: 카메라가 막히면 곧바로 외부 브라우저로 전환 + 안내 버튼
+          showBanner();
+          openExternal();
+        } else if (isInApp || permErr) {
           showBanner();
         }
         throw err; // 기존 폴백 로직은 그대로 동작
@@ -162,15 +164,15 @@
                     window.MANGO_VIDEO_PAGE === true;
 
   if (isInApp && isVideoPage) {
-    if (isAndroid) {
-      // 안드로이드 인앱 → 즉시 외부 브라우저로 전환 시도.
-      // 전환이 안 되는 기기를 위해 잠시 후 안내 배너도 표시(폴백).
-      var redirected = openExternal();
-      if (redirected) setTimeout(showBanner, 1500);
-      else showBanner();
-    } else {
-      // iOS 인앱 → 자동 전환 불가, 안내 배너 표시
-      showBanner();
-    }
+    // 1) 배너를 '먼저' 화면에 그린다 → 자동 전환이 실패/검은화면이어도 버튼은 항상 보임.
+    // 2) 그 다음에 외부 브라우저 자동 전환을 시도(안드로이드).
+    var autoEscape = function () {
+      buildBanner();               // 배너 즉시 렌더
+      if (isAndroid) {
+        setTimeout(openExternal, 600); // 배너가 보인 뒤 전환 시도
+      }
+    };
+    if (document.body) autoEscape();
+    else document.addEventListener('DOMContentLoaded', autoEscape);
   }
 })();
