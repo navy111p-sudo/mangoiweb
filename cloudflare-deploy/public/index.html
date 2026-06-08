@@ -4092,6 +4092,7 @@
         </button>
         <!-- ph272 (2026-06-03) — 검색창 화살표(→) 삭제: 엔터/마이크로 검색, 화살표 불필요 -->
       </div>
+      <script>(function(){function c(){var i=document.getElementById("ai-home-input");if(i&&i.value){i.value="";}}c();document.addEventListener("DOMContentLoaded",c);window.addEventListener("load",function(){c();setTimeout(c,150);setTimeout(c,600);setTimeout(c,1500);});})();</script>
       <div id="ai-home-listening" class="ai-listening" style="display:none"
            data-ko="🎙 듣고 있습니다… 말씀해주세요"
            data-en="🎙 Listening… please speak">
@@ -5708,10 +5709,10 @@
       .ai-cta-row .cta-pay { animation-delay: 0.3s; }
       /* ✨ 홈 진입 시 서서히 나타나기 (fade-in): 검색창 → 결제 → 수업입장 */
       @keyframes mgHomeFadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
-      .ai-search-wrap{opacity:0;animation:mgHomeFadeIn .9s ease-out .15s forwards}
+      .ai-search-wrap{opacity:0;animation:mgHomeFadeIn .9s ease-out 2s forwards}
       .ai-cta-row > *{opacity:0;animation:mgHomeFadeIn .9s ease-out forwards, lessonPulse 2.6s infinite !important}
-      .ai-cta-row .cta-pay{animation-delay:.5s, 1.4s !important}
-      .ai-cta-row .cta-enter{animation-delay:.75s, 1.65s !important}
+      .ai-cta-row .cta-pay{animation-delay:2.3s, 3.2s !important}
+      .ai-cta-row .cta-enter{animation-delay:2.55s, 3.45s !important}
       @media (prefers-reduced-motion: reduce){.ai-search-wrap,.ai-cta-row > *{animation:none !important;opacity:1 !important}}
       /* 모바일에서 더 적절한 사이즈 */
       @media (max-width: 640px) {
@@ -24928,7 +24929,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260608215400 -->
+<!-- BUILD:20260608215547 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
