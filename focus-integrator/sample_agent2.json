@@ -1,0 +1,11 @@
+{
+  "agent": "speech_agent",
+  "status": "success",
+  "speech_score": 82.5,
+  "details": {
+    "speech_rate_wpm": 135,
+    "pause_ratio": 0.18,
+    "sentiment": "engaged"
+  },
+  "timestamp": "2026-04-22T09:00:00Z"
+}

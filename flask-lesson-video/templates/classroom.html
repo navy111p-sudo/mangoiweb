@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>망고아이 수업방 — 교재 + 예습/복습 동영상</title>
+
+  <!--
+    [이 화면이 하는 일]
+      1) 수업방에 입장하면(=이 페이지가 열리면) 현재 교재 id 로 서버 API 를 호출합니다.
+      2) 서버가 준 video_url 을 <video> 태그의 src 에 자동으로 끼워 넣습니다.
+      3) 크롬 자동재생 정책 때문에, '음소거(muted)' 상태로 자동재생(autoplay)합니다.
+         - 크롬은 '소리가 나는 영상의 자동재생'은 막지만, '음소거 영상의 자동재생'은 허용합니다.
+  -->
+
+  <style>
+    /* 보기 좋게 만드는 간단한 스타일 (기능과는 무관) */
+    body { font-family: -apple-system, "Malgun Gothic", sans-serif; background:#0f172a; color:#e2e8f0; margin:0; padding:24px; }
+    .wrap { max-width: 900px; margin: 0 auto; }
+    h1 { font-size: 20px; }
+    .info { color:#94a3b8; font-size: 14px; margin-bottom: 16px; }
+    .video-box { background:#1e293b; border-radius:14px; padding:14px; box-shadow:0 8px 24px rgba(0,0,0,.4); }
+    video { width: 100%; border-radius: 10px; background:#000; display:block; }
+    .badge { display:inline-block; background:#2563eb; color:#fff; font-size:12px; padding:3px 10px; border-radius:99px; margin-left:6px; }
+    .empty { padding: 40px; text-align:center; color:#94a3b8; }
+    .unmute-btn { margin-top:12px; padding:8px 16px; border:0; border-radius:8px; background:#f59e0b; color:#1f2937; font-weight:700; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🥭 수업방 — 교재 동영상</h1>
+
+    <!--
+      현재 열려는 교재 id 를 화면에 숨겨둡니다.
+      app.py 의 render_template("classroom.html", book_id=book_id) 로 넘어온 값이
+      Jinja 템플릿 문법 {{ book_id }} 에 들어갑니다.
+    -->
+    <div class="info">
+      현재 교재 ID: <b id="book-id" data-book-id="{{ book_id }}">{{ book_id }}</b>
+      <span id="video-meta"></span>
+    </div>
+
+    <!-- 동영상이 들어갈 영역 -->
+    <div class="video-box">
+      <!--
+        video 태그 속성 설명:
+          - autoplay   : 페이지가 뜨면 자동 재생 시도
+          - muted      : 음소거 (크롬 자동재생 정책 통과를 위해 필수에 가까움)
+          - playsinline: 모바일에서 전체화면으로 튀지 않고 화면 안에서 재생
+          - controls   : 재생/정지/볼륨 등 컨트롤 표시
+        ※ src 는 비워둡니다. JavaScript 가 서버에서 받아온 주소를 넣어줄 거예요.
+      -->
+      <video id="lesson-video" autoplay muted playsinline controls>
+        브라우저가 video 태그를 지원하지 않습니다.
+      </video>
+
+      <!-- 동영상이 없을 때 보여줄 안내 (처음엔 숨김) -->
+      <div id="no-video" class="empty" style="display:none;"></div>
+
+      <!--
+        '소리 켜기' 버튼:
+          음소거로 자동재생되니, 사용자가 한 번 누르면 소리를 켭니다.
+          (사용자 클릭 후에는 크롬이 소리 재생을 허용합니다.)
+      -->
+      <button id="unmute" class="unmute-btn" style="display:none;">🔊 소리 켜기</button>
+    </div>
+  </div>
+
+  <script>
+    // ───────────────────────────────────────────────────────────
+    // 1) 현재 교재 id 읽기
+    //    HTML 의 data-book-id 속성에서 숫자를 가져옵니다.
+    // ───────────────────────────────────────────────────────────
+    const bookId = document.getElementById("book-id").dataset.bookId;
+
+    // 자주 쓰는 요소들을 미리 변수에 담아둡니다.
+    const videoEl   = document.getElementById("lesson-video"); // <video>
+    const noVideoEl = document.getElementById("no-video");     // 동영상 없음 안내
+    const unmuteBtn = document.getElementById("unmute");       // 소리 켜기 버튼
+    const metaEl    = document.getElementById("video-meta");   // 상단 메타 표시
+
+    // ───────────────────────────────────────────────────────────
+    // 2) 서버 API 호출 → 동영상 주소 받아오기
+    //    async/await 로 '서버 응답을 기다렸다가' 처리합니다.
+    // ───────────────────────────────────────────────────────────
+    async function loadLessonVideo() {
+      try {
+        // fetch 로 우리 Flask API 를 호출 (GET 요청)
+        const res = await fetch(`/api/get-lesson-video/${bookId}`);
+        const data = await res.json(); // 응답(JSON)을 자바스크립트 객체로 변환
+
+        // (a) 교재 자체가 없거나 요청 실패한 경우
+        if (!data.success) {
+          showNoVideo(data.message || "교재 정보를 불러오지 못했습니다.");
+          return;
+        }
+
+        // (b) 교재는 있는데 연결된 동영상이 없는 경우
+        if (!data.has_video) {
+          showNoVideo(data.message || "이 교재에는 동영상이 없습니다.");
+          return;
+        }
+
+        // (c) 정상: 받아온 video_url 을 <video> 의 src 에 넣는다 ★핵심★
+        videoEl.src = data.video_url;
+
+        // 상단에 어떤 영상인지 표시 (예습/복습 + 제목)
+        const typeLabel = data.video_type === "review" ? "복습" : "예습";
+        metaEl.innerHTML =
+          `<span class="badge">${typeLabel}</span> ${escapeHtml(data.video_title || "")}`;
+
+        // 자동재생 시도 (muted 상태라 크롬에서도 보통 성공)
+        // .play() 는 Promise 를 돌려주므로, 막혔을 때를 대비해 catch 로 처리합니다.
+        videoEl.play().catch(() => {
+          // 혹시 자동재생이 막히면, 사용자가 직접 누를 수 있게 알림
+          console.log("자동재생이 차단되었습니다. 사용자가 재생 버튼을 눌러야 합니다.");
+        });
+
+        // 음소거 상태이므로 '소리 켜기' 버튼을 보여준다.
+        unmuteBtn.style.display = "inline-block";
+
+      } catch (err) {
+        // 네트워크 오류 등 예외 처리
+        console.error(err);
+        showNoVideo("동영상을 불러오는 중 오류가 발생했습니다.");
+      }
+    }
+
+    // ───────────────────────────────────────────────────────────
+    // 3) 동영상이 없을 때: <video> 숨기고 안내 문구 표시
+    // ───────────────────────────────────────────────────────────
+    function showNoVideo(message) {
+      videoEl.style.display = "none";
+      unmuteBtn.style.display = "none";
+      noVideoEl.style.display = "block";
+      noVideoEl.textContent = "🎬 " + message;
+    }
+
+    // ───────────────────────────────────────────────────────────
+    // 4) '소리 켜기' 버튼: 음소거 해제 + (필요시) 다시 재생
+    // ───────────────────────────────────────────────────────────
+    unmuteBtn.addEventListener("click", () => {
+      videoEl.muted = false;   // 음소거 해제
+      videoEl.play();          // 사용자가 누른 것이므로 소리 재생 허용됨
+      unmuteBtn.style.display = "none";
+    });
+
+    // 간단한 XSS 방지용 (제목에 특수문자가 있어도 안전하게 출력)
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c =>
+        ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+    }
+
+    // ───────────────────────────────────────────────────────────
+    // 5) 페이지가 열리면 곧바로 실행 (수업방 입장 = 동영상 자동 매칭)
+    // ───────────────────────────────────────────────────────────
+    loadLessonVideo();
+  </script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "main-system-focus-integrator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "에이전트1(시선)+에이전트2(발화) JSON을 통합해 최종 집중도를 계산하는 메인 통합 시스템 (Cloudflare Pages 배포용).",
+  "scripts": {
+    "dev": "npx wrangler pages dev .",
+    "deploy": "npx wrangler pages deploy ."
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}

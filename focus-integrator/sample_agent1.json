@@ -1,0 +1,11 @@
+{
+  "agent": "gaze_agent",
+  "status": "success",
+  "gaze_score": 92.5,
+  "details": {
+    "eye_contact_ratio": 0.88,
+    "blink_rate": 14,
+    "head_orientation": "center"
+  },
+  "timestamp": "2026-04-22T09:00:00Z"
+}

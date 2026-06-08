@@ -1,0 +1,22 @@
+# ⚠️ 이 파일은 실행되지 않습니다.
+#
+# GitHub Actions 는 오직 **저장소 루트의 `.github/workflows/`** 디렉터리만 인식합니다.
+# 이 파일은 `cloudflare-deploy/.github/workflows/` 경로에 있어 트리거되지 않습니다.
+#
+# 실제로 사용되는 워크플로우는 저장소 루트에 있습니다:
+#   .github/workflows/deploy.yml   ← Cloudflare Workers 배포 (base + production)
+#
+# 이 파일은 역사적 잔재로 남겨두며, 지우셔도 무방합니다.
+
+name: (DEPRECATED — repo-root 의 .github/workflows/deploy.yml 사용)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "이 워크플로우는 사용되지 않습니다."
+          echo "실제 배포는 repo-root의 .github/workflows/deploy.yml 이 담당합니다."

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>통합 검색창 데모 — 메뉴 / 학생 / 교사</title>
+<style>
+  :root{ --bg:#0f172a; --card:#1e293b; --line:#334155; --txt:#e2e8f0; --mut:#94a3b8; --accent:#fbbf24; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,"Noto Sans KR",sans-serif;padding:40px 16px}
+  .wrap{max-width:640px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:var(--mut);font-size:13px;margin-bottom:22px}
+
+  /* 검색창 */
+  .us-box{position:relative}
+  .us-input{
+    width:100%;padding:16px 46px 16px 46px;border-radius:14px;
+    background:var(--card);border:1.5px solid var(--line);color:var(--txt);
+    font-size:16px;outline:none;transition:border-color .15s;
+  }
+  .us-input:focus{border-color:var(--accent)}
+  .us-ico{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--accent);font-size:18px}
+  .us-clear{position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:0;color:var(--mut);font-size:18px;cursor:pointer;display:none}
+
+  /* 결과 드롭다운 */
+  .us-results{
+    margin-top:10px;background:var(--card);border:1px solid var(--line);
+    border-radius:14px;overflow:hidden;display:none;
+  }
+  .us-results.show{display:block}
+  .us-group-head{font-size:11px;font-weight:800;color:var(--mut);padding:10px 16px 4px}
+  .us-item{
+    display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+    background:none;border:0;border-top:1px solid var(--line);
+    padding:13px 16px;color:var(--txt);font-size:14px;cursor:pointer;
+  }
+  .us-item:first-of-type{border-top:0}
+  .us-item:hover,.us-item.active{background:rgba(251,191,36,0.14)}
+  .us-kind{min-width:74px;font-size:10.5px;font-weight:700;color:var(--mut);background:rgba(148,163,184,.16);padding:3px 8px;border-radius:999px;text-align:center}
+  .us-label{flex:1;font-weight:700}
+  .us-sub{font-size:11.5px;color:var(--mut)}
+  .us-empty,.us-loading{padding:18px 16px;text-align:center;color:var(--mut);font-size:13.5px}
+  mark{background:var(--accent);color:#1a0f08;border-radius:3px;padding:0 2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔎 통합 검색창 데모</h1>
+  <p class="sub">메뉴 · 학생 · 교사를 자동 분류해서 찾아 해당 페이지로 이동합니다. (이 데모는 mock 데이터로 동작)</p>
+
+  <div class="us-box">
+    <span class="us-ico">🔍</span>
+    <input id="unified-search" class="us-input" type="search" autocomplete="off"
+           placeholder="평가서, 정산, 포인트… 또는 학생·교사 이름">
+    <button id="unified-search-clear" class="us-clear" title="지우기">✕</button>
+    <div id="unified-search-results" class="us-results"></div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   통합 검색창 — 프론트엔드 로직
+   1) 입력 → 디바운스 → 백엔드 API(/api/admin/search?q=) 호출
+   2) 응답을 type(menu/student/teacher)별로 그룹핑해 표시
+   3) 클릭/Enter → 해당 url 로 라우팅
+   4) 결과 없으면 안내 메시지
+   ──────────────────────────────────────────────────────────────
+   ※ 이 데모는 백엔드가 없으므로 fetch 실패 시 mockSearch() 로 폴백합니다.
+     실제 적용 시 mockSearch 폴백을 지우고 API 만 쓰면 됩니다.
+   ════════════════════════════════════════════════════════════════ */
+(function(){
+  'use strict';
+  const input    = document.getElementById('unified-search');
+  const dropdown = document.getElementById('unified-search-results');
+  const clearBtn = document.getElementById('unified-search-clear');
+  if (!input || !dropdown) return;
+
+  const KIND_LABEL = { menu:'📋 메뉴', student:'👨‍🎓 학생', teacher:'🧑‍🏫 교사' };
+  let debounce, items = [], active = -1, lastQ = '';
+
+  // ── 입력 핸들러 (디바운스 250ms) ──
+  input.addEventListener('input', () => {
+    clearBtn.style.display = input.value ? 'block' : 'none';
+    clearTimeout(debounce);
+    const q = input.value.trim();
+    lastQ = q;
+    if (!q) return hide();
+    debounce = setTimeout(() => runSearch(q), 250);
+  });
+  clearBtn.addEventListener('click', () => { input.value=''; clearBtn.style.display='none'; hide(); input.focus(); });
+
+  // ── 키보드 내비게이션 ──
+  input.addEventListener('keydown', (e) => {
+    if (!items.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); active = (active+1) % items.length; paintActive(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); active = (active-1+items.length) % items.length; paintActive(); }
+    else if (e.key === 'Enter')  { e.preventDefault(); if (items[active]) route(items[active]); }
+    else if (e.key === 'Escape') { hide(); }
+  });
+
+  // ── 결과 클릭 → 라우팅 ──
+  dropdown.addEventListener('click', (e) => {
+    const btn = e.target.closest('.us-item');
+    if (btn) route(items[Number(btn.dataset.i)]);
+  });
+
+  // ── 검색 실행 (백엔드 호출 → 실패 시 mock 폴백) ──
+  async function runSearch(q){
+    showHtml('<div class="us-loading">🔎 검색 중…</div>');
+    let data;
+    try {
+      const r = await fetch('/api/admin/search?q=' + encodeURIComponent(q), { credentials:'include' });
+      if (!r.ok) throw new Error('http ' + r.status);
+      data = await r.json();
+    } catch (e) {
+      data = mockSearch(q);          // ← 데모용 폴백 (실제 적용 시 삭제)
+    }
+    if (q !== lastQ) return;          // 더 최신 입력이 있으면 무시
+    renderResults(q, data);
+  }
+
+  // ── 결과 렌더 (type 별 그룹) ──
+  function renderResults(q, data){
+    items = (data && data.results) || [];
+    active = -1;
+    if (!items.length) {
+      showHtml('<div class="us-empty">' + ((data && data.message) || '검색 결과가 없습니다.') + '</div>');
+      return;
+    }
+    const order = ['menu','student','teacher'];
+    let html = '', idx = 0;
+    order.forEach(type => {
+      const group = items.filter(it => it.type === type);
+      if (!group.length) return;
+      html += '<div class="us-group-head">' + (KIND_LABEL[type] || type) + ' (' + group.length + ')</div>';
+      group.forEach(it => {
+        const i = items.indexOf(it);
+        html += '<button class="us-item" data-i="' + i + '">' +
+                  '<span class="us-kind">' + (KIND_LABEL[it.type]||'') + '</span>' +
+                  '<span class="us-label">' + highlight(it.label, q) + '</span>' +
+                  (it.sub ? '<span class="us-sub">' + esc(it.sub) + '</span>' : '') +
+                '</button>';
+        idx++;
+      });
+    });
+    showHtml(html);
+    active = 0; paintActive();
+  }
+
+  function route(it){ if (it && it.url){ hide(); /* 실제 이동 */ location.href = it.url; } }
+  function paintActive(){ dropdown.querySelectorAll('.us-item').forEach((el,i)=>el.classList.toggle('active', i===active)); }
+  function showHtml(h){ dropdown.innerHTML = h; dropdown.classList.add('show'); }
+  function hide(){ dropdown.classList.remove('show'); dropdown.innerHTML=''; items=[]; active=-1; }
+  function esc(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function highlight(text, q){
+    const s = esc(text), ql = q.toLowerCase(), pos = s.toLowerCase().indexOf(ql);
+    if (pos < 0) return s;
+    return s.slice(0,pos) + '<mark>' + s.slice(pos,pos+q.length) + '</mark>' + s.slice(pos+q.length);
+  }
+
+  /* ════════════════ 데모용 mock 백엔드 (실제론 서버가 처리) ════════════════ */
+  const MENU_CATALOG = [
+    { id:'eval',       label:'평가서',     url:'/admin/eval',       keywords:['평가서','평가','성적','리포트','report'] },
+    { id:'settlement', label:'정산 통계',  url:'/admin/settlement', keywords:['정산','지사','대리점','매출','정산통계'] },
+    { id:'stats',      label:'통계',       url:'/admin/stats',      keywords:['통계','지표','대시보드','kpi'] },
+    { id:'points',     label:'포인트',     url:'/admin/points',     keywords:['포인트','기프트','상점','리워드','적립'] },
+    { id:'parent',     label:'학부모',     url:'/admin/parents',    keywords:['학부모','부모','보호자'] },
+    { id:'content',    label:'콘텐츠',     url:'/admin/content',    keywords:['콘텐츠','교재','자료','영상'] },
+    { id:'system',     label:'시스템',     url:'/admin/system',     keywords:['시스템','설정','권한','진단'] },
+  ];
+  const STUDENTS = [
+    { id:'stu001', name:'김민준', en:'Minjun Kim' },
+    { id:'stu002', name:'이서윤', en:'Seoyoon Lee' },
+    { id:'stu003', name:'박지호', en:'Jiho Park' },
+    { id:'stu004', name:'정우영', en:'Wooyoung Jung' },
+  ];
+  const TEACHERS = [
+    { id:'t01', name:'박지윤' }, { id:'t02', name:'이서연' },
+    { id:'t03', name:'Maria Santos' }, { id:'t04', name:'James Cruz' },
+  ];
+  function mockSearch(q){
+    const ql = q.toLowerCase();
+    const menu = MENU_CATALOG
+      .filter(m => m.label.toLowerCase().includes(ql) || m.keywords.some(k => k.includes(ql) || ql.includes(k)))
+      .map(m => ({ type:'menu', id:m.id, label:m.label, sub:'메뉴', url:m.url }));
+    const student = STUDENTS
+      .filter(s => s.name.includes(q) || s.en.toLowerCase().includes(ql) || s.id.includes(ql))
+      .map(s => ({ type:'student', id:s.id, label:s.name, sub:s.en + ' · ' + s.id, url:'/admin/student?uid=' + s.id }));
+    const teacher = TEACHERS
+      .filter(t => t.name.toLowerCase().includes(ql))
+      .map(t => ({ type:'teacher', id:t.id, label:t.name, sub:'교사', url:'/admin/teacher?id=' + t.id }));
+    const results = [...menu, ...student, ...teacher];
+    return results.length
+      ? { query:q, results, total:results.length }
+      : { query:q, results:[], message:'해당하는 메뉴/사용자를 찾을 수 없습니다.' };
+  }
+})();
+</script>
+</body>
+</html>

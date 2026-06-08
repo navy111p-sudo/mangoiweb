@@ -1,0 +1,17 @@
+{
+  "name": "webrtc-unified-platform-workers",
+  "version": "1.0.0",
+  "description": "Cloudflare Workers deployment for WebRTC unified platform",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler publish",
+    "build": "tsc",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "wrangler": "^3.28.0",
+    "@cloudflare/workers-types": "^4.20240620.0",
+    "typescript": "^5.3.0"
+  }
+}
