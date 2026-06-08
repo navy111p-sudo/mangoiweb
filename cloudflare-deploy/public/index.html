@@ -2904,6 +2904,10 @@
   #mg-drawer-tab{position:absolute;right:-46px;top:50%;transform:translateY(-50%);width:44px;height:78px;border:1px solid rgba(245,158,11,0.30);border-left:0;border-radius:0 14px 14px 0;background:transparent;color:#f59e0b;font-size:14px;font-weight:800;cursor:pointer;box-shadow:2px 1px 8px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;padding:0;-webkit-tap-highlight-color:transparent}
   #mg-drawer-tab #mg-tab-label{writing-mode:vertical-rl;text-orientation:upright;font-size:14px;font-weight:800;letter-spacing:1px;line-height:1.15}
   .ai-quick{display:none !important}
+  /* ✨ "열림" 탭도 홈 진입 시 검색창과 같은 속도로 fade-in (위치 유지: opacity만) */
+  @keyframes mgTabFadeIn{from{opacity:0}to{opacity:1}}
+  #mg-drawer-tab{opacity:0;animation:mgTabFadeIn .9s ease-out 2s forwards}
+  @media (prefers-reduced-motion: reduce){#mg-drawer-tab{animation:none !important;opacity:1 !important}}
 </style>
 <script>
   function mgSetLabel(open){var l=document.getElementById('mg-tab-label');if(l)l.textContent=open?'닫힘':'열림';}
@@ -24929,7 +24933,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260608215547 -->
+<!-- BUILD:20260608220549 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
