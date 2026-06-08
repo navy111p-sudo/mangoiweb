@@ -153,17 +153,18 @@ async function summary(env: Env, scope: Scope): Promise<Response> {
   const now = Date.now();
 
   const pack = async (a: number, b: number) => {
-    const inc = await income(env, a, b, scope), exp = await expense(env, a, b, scope);
+    // ⚡ 속도: 수입·지출 쿼리 병렬 실행
+    const [inc, exp] = await Promise.all([income(env, a, b, scope), expense(env, a, b, scope)]);
     const _fee = Math.round(inc.sum * HQ_FEE_RATE);
     return { income: inc.sum, pay_count: inc.count, expense: exp.total, expense_manual: exp.manual, expense_payroll: exp.payroll, net: inc.sum - exp.total, fee: _fee, settle: inc.sum - _fee };
   };
-  const tdy = await pack(tStart, tEnd), yday = await pack(yStart, tStart);
-  const week = await pack(wkStart, now), lastWeek = await pack(lastWkStart, wkStart);
-  const month = await pack(monStart, now), lastMonth = await pack(lastMonStart, monStart);
-
-  const active = await activeTotal(env, scope);
-  const newToday = await newStudents(env, today, scope);
-  const newMonth = await newStudents(env, mo + '%', scope);
+  // ⚡ 속도: 6개 기간 집계 + 학생수 3종을 모두 병렬 실행 (기존 순차 → 병렬)
+  const [tdy, yday, week, lastWeek, month, lastMonth, active, newToday, newMonth] = await Promise.all([
+    pack(tStart, tEnd), pack(yStart, tStart),
+    pack(wkStart, now), pack(lastWkStart, wkStart),
+    pack(monStart, now), pack(lastMonStart, monStart),
+    activeTotal(env, scope), newStudents(env, today, scope), newStudents(env, mo + '%', scope)
+  ]);
 
   return j({
     ok: true, as_of: new Date(now).toISOString(),
