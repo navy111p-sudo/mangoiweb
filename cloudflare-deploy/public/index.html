@@ -4183,7 +4183,7 @@
           '<div class="abm-card" role="dialog" aria-modal="true">'
           + '<button class="abm-close" aria-label="닫기">✕</button>'
           + '<div class="abm-view abm-view-list">'
-          +   '<div class="abm-head"><div class="abm-logo">🥭</div><h2 class="abm-title">망고아이란?</h2>'
+          +   '<div class="abm-head"><h2 class="abm-title">망고아이란?</h2>'
           +     '<p class="abm-sub">20년 전통 · 국내 최초의 화상영어 기업</p><div class="abm-rule"></div>'
           +     '<p class="abm-intro">원어민 1:1 화상수업과 A.I 학습관리로, 합리적인 비용에 최고의 영어 말하기 효과를 드립니다. <b class="abm-hint">카드를 누르면 자세히 볼 수 있어요 👆</b></p></div>'
           +   '<div class="abm-grid">'+gridHtml+'</div>'
@@ -4237,21 +4237,21 @@
           + '.abm-item{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.055);border:1px solid rgba(147,180,224,.28);border-radius:16px;padding:14px 16px;box-shadow:0 4px 12px -6px rgba(0,0,0,.3);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:transform .15s,box-shadow .15s,background .15s;cursor:pointer;text-align:left;width:100%;font-family:inherit}'
           + '.abm-item:hover{transform:translateY(-2px);background:rgba(255,255,255,.12);box-shadow:0 10px 22px -8px rgba(37,99,235,.45)}'
           + '.abm-item:active{transform:translateY(0)}'
-          + '.abm-lead{grid-column:1 / -1;background:linear-gradient(135deg,#1d4ed8,#2563eb);border-color:#3b82f6;box-shadow:0 8px 22px -8px rgba(37,99,235,.7)}'
-          + '.abm-lead .abm-tx{color:#fff;font-size:15px}.abm-lead .abm-tx b{color:#bfdbfe}.abm-lead .abm-ic{background:rgba(255,255,255,.2)}.abm-lead .abm-chev{color:rgba(255,255,255,.85)}'
+          + '.abm-lead{grid-column:1 / -1;background:rgba(255,255,255,.055);border-color:rgba(147,180,224,.28);box-shadow:0 4px 12px -6px rgba(0,0,0,.3)}'
+          + '.abm-lead .abm-tx{color:#e3edfb;font-size:15px}.abm-lead .abm-tx b{color:#93c5fd}.abm-lead .abm-ic{background:rgba(255,255,255,.1)}.abm-lead .abm-chev{color:#9ec1f0}'
           + '.abm-ic{font-size:22px;flex-shrink:0;width:42px;height:42px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.12);border-radius:13px}'
           + '.abm-tx{flex:1;font-size:14px;line-height:1.45;color:#e3edfb;font-weight:600}.abm-tx b{color:#93c5fd;font-weight:800}'
           + '.abm-chev{flex-shrink:0;font-size:22px;font-weight:800;color:#9ec1f0;line-height:1;transition:transform .15s}'
           + '.abm-item:hover .abm-chev{transform:translateX(3px);color:#2563eb}'
           + '.abm-foot{margin-top:20px;text-align:center}'
-          + '.abm-cta{border:0;border-radius:16px;padding:14px 30px;font-size:15px;font-weight:800;color:#fff;cursor:pointer;background:linear-gradient(135deg,#60a5fa,#2563eb);box-shadow:0 10px 26px -8px rgba(37,99,235,.65);font-family:inherit}'
+          + '.abm-cta{border:1px solid rgba(147,180,224,.45);border-radius:16px;padding:14px 30px;font-size:15px;font-weight:800;color:#e8f1fc;cursor:pointer;background:rgba(255,255,255,.07);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:0 8px 22px -10px rgba(0,0,0,.5);font-family:inherit}'
           + '.abm-cta:hover{filter:brightness(1.06)}'
           + '.abm-back{border:0;background:rgba(255,255,255,.08);color:#9ec1f0;font-size:13.5px;font-weight:700;padding:9px 16px;border-radius:12px;cursor:pointer;margin-bottom:18px;font-family:inherit}'
           + '.abm-back:hover{background:rgba(255,255,255,.16);color:#cfe2ff}'
           + '.abm-view-detail.abm-anim{animation:abmDetIn .3s cubic-bezier(.34,1.2,.64,1)}'
           + '@keyframes abmDetIn{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}'
           + '.abm-dhead{display:flex;align-items:center;gap:14px;margin-bottom:16px}'
-          + '.abm-dic{font-size:30px;flex-shrink:0;width:58px;height:58px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1d4ed8,#2563eb);border-radius:18px;box-shadow:0 10px 24px -10px rgba(37,99,235,.8)}'
+          + '.abm-dic{font-size:30px;flex-shrink:0;width:58px;height:58px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:18px}'
           + '.abm-dtitle{margin:0;font-size:20px;font-weight:900;color:#f1f6ff;line-height:1.3;letter-spacing:-.4px}'
           + '.abm-ddesc{margin:0 0 22px;font-size:15px;line-height:1.75;color:#c4d6ef}'
           + '.abm-dpts-h{font-size:14px;font-weight:800;color:#93c5fd;margin-bottom:12px}'
@@ -24933,7 +24933,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260608221941 -->
+<!-- BUILD:20260608222436 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
