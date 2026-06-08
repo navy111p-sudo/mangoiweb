@@ -14,6 +14,7 @@ import { handleAdminAuthApi, checkAdminSession } from './auth-admin';
 import { reportsRouter } from './accounting-reports';
 import { realtimeRouter, runFinanceSnapshot } from './accounting-realtime';
 import { execRouter } from './exec-summary';
+import { getScope } from './scope';
 import { learningRouter, runLearningSnapshot } from './learning-insights';
 import { marketingRouter } from './marketing-studio';
 
@@ -86,6 +87,22 @@ export default {
           JSON.stringify({ ok: false, error: 'auth_required' }),
           { status: 401, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
         );
+      }
+
+      // 🏪 대리점/지사(비-본사) 제한 뷰 — 본사 전용 콘솔/ API 차단, 자기 대시보드로 유도
+      if (sess.ok) {
+        const _sc = await getScope(env, request);
+        if (_sc.type === 'agency' || _sc.type === 'branch') {
+          // (1) 통합 콘솔 페이지 → 대리점 전용 경영 대시보드로 리다이렉트
+          if (path === '/admin' || path === '/admin/' || path === '/admin.html') {
+            return Response.redirect(new URL('/admin/exec', request.url).toString(), 302);
+          }
+          // (2) 본사 전용 API 는 차단(허용 목록만 통과) — URL 조작으로도 못 뚫음
+          if (path.startsWith('/api/admin/') && !isAgencyAllowedApi(path)) {
+            return new Response(JSON.stringify({ ok: false, error: 'forbidden_scope', scope: _sc.type }),
+              { status: 403, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+          }
+        }
       }
     }
 
@@ -937,6 +954,16 @@ export default {
           console.log('[recurring-billing] cron ran', r?.status);
         } catch (err) {
           console.error('[recurring-billing] error', err);
+        }
+
+        // 📊 경영 브리핑 알림톡 (KST 09:00) — 수신자에게 학생수·매출·비용 발송
+        try {
+          const briefUrl = new URL('https://internal.local/api/admin/exec/send-briefing');
+          const briefReq = new Request(briefUrl.toString(), { method: 'POST' });
+          const r = await execRouter(briefReq, env as any);
+          console.log('[exec-briefing] cron ran', r?.status);
+        } catch (err) {
+          console.error('[exec-briefing] error', err);
         }
       }
 
@@ -1829,6 +1856,18 @@ function isAdminPath(path: string, method: string): boolean {
  *   - /api/admin/login (POST)    : login handler
  *   - /api/admin/logout (POST)   : logout (cookie clear is fine even without auth)
  */
+// 🏪 비-본사(대리점·지사) 계정이 사용할 수 있는 API 허용 목록(그 외 /api/admin/* 는 403)
+function isAgencyAllowedApi(path: string): boolean {
+  const allow = [
+    '/api/admin/exec/', '/api/admin/realtime/', '/api/admin/stats/',
+    '/api/admin/students/unified', '/api/admin/students/erp-list',
+    '/api/admin/me', '/api/admin/profile', '/api/admin/logout',
+    '/api/admin/change-password', '/api/admin/login-history', '/api/admin/sessions',
+    '/api/admin/health-check', '/api/admin/omnisearch',
+  ];
+  return allow.some(a => path === a || path.startsWith(a));
+}
+
 function isAuthPublicPath(path: string): boolean {
   if (path === '/admin/login' || path === '/admin/login/' || path === '/admin/login.html') return true;
   if (path === '/api/admin/login') return true;

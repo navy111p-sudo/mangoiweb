@@ -26,13 +26,13 @@ export function scopeLabel(type: string, value: string | null): string {
 export function stuCond(scope: Scope): { clause: string; binds: any[] } {
   if (scope.type === 'agency') return { clause: `shop_name = ?`, binds: [scope.value] };
   if (scope.type === 'branch') return { clause: `franchise LIKE ?`, binds: [scope.value + '%'] };
-  if (scope.type === 'none') return { clause: `1=0`, binds: [] };
+  // 'none'(내부직원·교사) = 제한 없음 — agency/branch만 격리
   return { clause: '', binds: [] };
 }
 
 // student_payments(매출) 필터용 ' AND user_id IN (...)' 조각. hq면 빈 조각.
 export function paymentScopeSql(scope?: Scope): { sql: string; binds: any[] } {
-  if (scope && scope.type !== 'hq') {
+  if (scope && (scope.type === 'agency' || scope.type === 'branch')) {
     const c = stuCond(scope);
     if (c.clause) return { sql: ` AND user_id IN (SELECT user_id FROM students_erp WHERE ${c.clause})`, binds: c.binds };
   }
@@ -41,7 +41,7 @@ export function paymentScopeSql(scope?: Scope): { sql: string; binds: any[] } {
 
 // 비용(지출)은 본사만. 대리점/지사면 false.
 export function expenseVisible(scope?: Scope): boolean {
-  return !scope || scope.type === 'hq';
+  return !scope || (scope.type !== 'agency' && scope.type !== 'branch');
 }
 
 async function ensureScope(env: ScopeEnv): Promise<void> {
@@ -91,7 +91,7 @@ export function scopeStudentCond(scope: Scope, alias = ''): { cond: string; bind
   const a = alias ? alias + '.' : '';
   if (scope.type === 'agency') return { cond: `${a}shop_name = ?`, binds: [scope.value] };
   if (scope.type === 'branch') return { cond: `${a}franchise LIKE ?`, binds: [scope.value + '%'] };
-  if (scope.type === 'none') return { cond: `1=0`, binds: [] };
+  // 'none'(내부직원·교사) = 제한 없음 — agency/branch만 격리
   return { cond: '', binds: [] };
 }
 
