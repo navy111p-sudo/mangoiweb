@@ -82,12 +82,14 @@ CREATE INDEX IF NOT EXISTS idx_gc_brand ON gift_catalog(brand);
 -- 데모 카탈로그 시드 (실제 발송 전까지 표시만 됨 - external_id NULL)
 INSERT OR IGNORE INTO gift_catalog (external_id, brand, name, category, face_value, point_price, thumbnail_url, enabled, sort_order, description, created_at, updated_at)
 VALUES
-  (NULL, '스타벅스',     '아이스 아메리카노 Tall',     'cafe',  4500,  4500,  NULL, 1, 10, '시원한 한 잔의 여유', strftime('%s','now')*1000, strftime('%s','now')*1000),
-  (NULL, '배스킨라빈스', '파인트 (1개)',                'cafe',  9800,  9800,  NULL, 1, 20, '취향대로 골라먹는 31', strftime('%s','now')*1000, strftime('%s','now')*1000),
-  (NULL, '교촌치킨',     '교촌오리지날 + 콜라1.25L',   'food',  21000, 21000, NULL, 1, 30, '바삭 짭짤 든든',       strftime('%s','now')*1000, strftime('%s','now')*1000),
-  (NULL, 'CGV',         '영화 1매 (전 지점)',          'movie', 14000, 14000, NULL, 1, 40, '평일 일반관 1회 사용', strftime('%s','now')*1000, strftime('%s','now')*1000),
-  (NULL, '교보문고',     '도서상품권 5,000원',          'book',  5000,  5000,  NULL, 1, 50, '온/오프라인 사용 가능', strftime('%s','now')*1000, strftime('%s','now')*1000),
-  (NULL, 'GS25',        '편의점 금액권 5,000원',       'voucher', 5000, 5000, NULL, 1, 60, '전국 GS25에서 사용',   strftime('%s','now')*1000, strftime('%s','now')*1000);
+  (NULL, '🥭 망고아이',  '수업료 전환 (5,000원)',       'tuition', 5000,  5000,  NULL, 1, 5,  '모은 포인트로 다음 수업료 즉시 차감', strftime('%s','now')*1000, strftime('%s','now')*1000),
+  (NULL, '메가커피',     '아메리카노 (ICE)',           'cafe',    1500,  1500,  NULL, 1, 10, '가성비 1위, 시원한 한 잔',         strftime('%s','now')*1000, strftime('%s','now')*1000),
+  (NULL, '배스킨라빈스', '파인트 (1개)',                'cafe',    9800,  9800,  NULL, 1, 20, '취향대로 골라먹는 31',             strftime('%s','now')*1000, strftime('%s','now')*1000),
+  (NULL, '배달의민족',   'e쿠폰 5,000원',               'food',    5000,  5000,  NULL, 1, 25, '배달 음식 주문 시 즉시 차감',      strftime('%s','now')*1000, strftime('%s','now')*1000),
+  (NULL, 'CGV',         '영화 1매 (전 지점)',          'movie',   14000, 14000, NULL, 1, 40, '평일 일반관 1회 사용',             strftime('%s','now')*1000, strftime('%s','now')*1000),
+  (NULL, '교보문고',     '도서상품권 5,000원',          'book',    5000,  5000,  NULL, 1, 50, '온/오프라인 사용 가능',            strftime('%s','now')*1000, strftime('%s','now')*1000),
+  (NULL, '컬쳐랜드',     '문화상품권 5,000원',          'voucher', 5000,  5000,  NULL, 1, 55, '쿠팡·게임·도서·OTT 등 어디든',     strftime('%s','now')*1000, strftime('%s','now')*1000),
+  (NULL, 'GS25',        '편의점 금액권 5,000원',       'voucher', 5000,  5000,  NULL, 1, 60, '전국 GS25에서 사용',               strftime('%s','now')*1000, strftime('%s','now')*1000);
 
 -- (5) 교환 거래 (학생이 신청 → 발송 진행 → 완료/실패)
 CREATE TABLE IF NOT EXISTS gift_redemptions (

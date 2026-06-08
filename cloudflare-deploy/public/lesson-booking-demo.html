@@ -27,7 +27,7 @@
     padding:20px 18px 110px;
     position:relative;
     box-shadow:0 25px 50px -12px rgba(0,0,0,0.6);
-    overflow:hidden;
+    overflow:visible;
   }
   @media (max-width:480px){
     body{padding:0}
@@ -58,23 +58,6 @@
   h2.title{font-size:22px;font-weight:900;margin-bottom:4px;letter-spacing:-0.5px;color:#fff}
   p.sub{color:#94A3B8;font-size:13px;margin-bottom:22px;line-height:1.5}
 
-  /* 선택 모드 카드 (날짜로 / 교사로) */
-  .mode-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
-  .mode-card{
-    padding:18px 12px;border-radius:14px;cursor:pointer;text-align:center;
-    background:#111C2E;border:1.5px solid #1E293B;transition:all .22s;
-    display:flex;flex-direction:column;align-items:center;gap:6px;
-  }
-  .mode-card .emo{font-size:28px;line-height:1}
-  .mode-card .title{font-size:13.5px;font-weight:800;color:#E2E8F0}
-  .mode-card .sub{font-size:10.5px;color:#64748B}
-  .mode-card.active{
-    background:linear-gradient(135deg,rgba(59,130,246,0.18),rgba(37,99,235,0.10));
-    border-color:#38BDF8;
-    box-shadow:0 6px 18px -6px rgba(56,189,248,0.5);
-  }
-  .mode-card.active .title{color:#38BDF8}
-  .mode-card:hover:not(.active){background:#1A2540;border-color:#334155}
 
   /* 교사 카드 그리드 */
   .teacher-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px}
@@ -211,11 +194,13 @@
     cursor:pointer;padding:0 4px;font-size:18px;line-height:1;
   }
 
-  /* 하단 고정 결제 바 */
+  /* 하단 고정 결제 바 — 화면 하단에 항상 고정 (스크롤해도 보임) */
   .footer{
-    position:absolute;bottom:0;left:0;right:0;
+    position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+    width:100%;max-width:430px;z-index:60;
     background:#09111E;padding:14px 18px 18px;
     border-top:1px solid #1E293B;
+    box-shadow:0 -8px 24px -8px rgba(0,0,0,0.6);
   }
   .footer .info{
     font-size:12px;color:#94A3B8;margin-bottom:8px;
@@ -256,8 +241,8 @@
 
   <!-- 진행 단계 -->
   <div class="stepbar">
-    <span>① 수업 형태</span>
-    <span class="active">② 날짜·교사</span>
+    <span class="active">① 시간 선택</span>
+    <span class="active">② 교사 선택</span>
     <span>③ 결제</span>
   </div>
 
@@ -266,30 +251,22 @@
 
   <!-- 1:1 / 그룹 토글 -->
   <div class="sec-label">👥 수업 형태</div>
-  <div class="type-tabs">
+  <div class="type-tabs" id="type-tabs">
     <button id="type-oneon" class="active" data-type="oneon">1:1 마스터</button>
     <button id="type-group" data-type="group">그룹 토론</button>
   </div>
 
   <!-- 선택 방식 (날짜로 / 교사로) -->
-  <div class="sec-label">🔍 어떻게 선택하시겠어요?</div>
-  <div class="mode-cards">
-    <div class="mode-card active" data-mode="date">
-      <div class="emo">📅</div>
-      <div class="title">날짜로 선택</div>
-      <div class="sub">원하는 날·시간 먼저 고르기</div>
-    </div>
-    <div class="mode-card" data-mode="teacher">
-      <div class="emo">🧑‍🏫</div>
-      <div class="title">교사로 선택</div>
-      <div class="sub">교사 먼저 → 가능 시간 보기</div>
-    </div>
+  <div class="sec-label">🔍 선택 방식</div>
+  <div class="type-tabs" id="mode-tabs">
+    <button class="active" data-mode="date">📅 날짜로 선택</button>
+    <button data-mode="teacher">🧑‍🏫 교사로 선택</button>
   </div>
 
-  <!-- 교사 선택 그리드 (mode=teacher 일 때만 표시) -->
-  <div id="teacher-section" style="display:none;margin-bottom:18px">
-    <div class="sec-label">🧑‍🏫 교사 선택</div>
-    <div class="teacher-grid" id="teacher-grid"></div>
+  <!-- (교사로 모드) 교사 먼저 선택 -->
+  <div id="teacher-first" style="display:none;margin-bottom:18px">
+    <div class="sec-label">🧑‍🏫 교사 선택 — 먼저 선생님을 고르세요</div>
+    <div class="teacher-grid" id="teacher-first-grid"></div>
   </div>
 
   <!-- 주간 목표 -->
@@ -316,8 +293,15 @@
     <div class="time-grid" id="time-grid"></div>
   </div>
 
-  <!-- 장바구니 담기 버튼 -->
-  <button class="add-btn" id="add-btn">➕ 위 시간대 장바구니에 담기</button>
+  <!-- (날짜로 모드) 시간 선택 후 가능한 교사 → 클릭 시 등록 -->
+  <div id="teacher-section" style="display:none;margin-top:14px">
+    <div class="sec-label" id="teacher-label">🧑‍🏫 이 시간에 가능한 교사 — 누르면 바로 등록돼요</div>
+    <div class="teacher-grid" id="teacher-grid"></div>
+  </div>
+  <!-- (교사로 모드) 담기 버튼 -->
+  <button class="add-btn" id="add-btn" style="display:none" disabled>➕ 장바구니에 담기</button>
+  <!-- 안내 -->
+  <div class="add-btn" id="pick-hint" style="text-align:center">⏰ 위에서 시간을 선택하세요</div>
 
   <!-- 장바구니 영역 -->
   <div class="cart">
@@ -348,8 +332,8 @@
     mode: 'date',           // date | teacher (선택 방식)
     weeklyTarget: 2,
     currentDay: null,
-    currentTeacherId: null, // teacher 모드용
-    currentSlotIds: [],
+    currentTeacherId: null, // 교사로 모드에서 먼저 고른 교사
+    currentSlotIds: [],     // 선택한 시간 블록
     cart: []
   };
 
@@ -419,7 +403,7 @@
         state.currentSlotIds = [];
         renderDates();
         renderTimes();
-        renderAddBtn();
+        renderStep();
       };
       row.appendChild(c);
     });
@@ -428,7 +412,12 @@
   function renderTimes() {
     var grid = document.getElementById('time-grid');
     grid.innerHTML = '';
-    var teacher = state.mode === 'teacher' && state.currentTeacherId
+    // 교사로 모드인데 아직 교사 미선택 → 안내
+    if (state.mode === 'teacher' && !state.currentTeacherId) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#64748B;font-size:12px;padding:16px;border:1px dashed #1E293B;border-radius:12px">🧑‍🏫 먼저 위에서 교사를 선택하세요</div>';
+      return;
+    }
+    var teacher = (state.mode === 'teacher' && state.currentTeacherId)
       ? TEACHERS.find(function(t){ return t.id === state.currentTeacherId; }) : null;
     TIME_SLOTS.forEach(function(slot){
       var booked = state.cart.some(function(item){
@@ -446,9 +435,65 @@
     });
   }
 
-  // 교사 그리드 렌더링
-  function renderTeachers() {
+  // ── 시간 선택 후 처리 (모드별) ──
+  function renderStep() {
+    var sec = document.getElementById('teacher-section');
+    var hint = document.getElementById('pick-hint');
+    var addBtn = document.getElementById('add-btn');
     var grid = document.getElementById('teacher-grid');
+    var label = document.getElementById('teacher-label');
+
+    // 시간 미선택 → 안내
+    if (state.currentSlotIds.length === 0) {
+      sec.style.display = 'none';
+      addBtn.style.display = 'none';
+      hint.style.display = 'block';
+      hint.textContent = (state.mode === 'teacher' && !state.currentTeacherId)
+        ? '🧑‍🏫 먼저 교사를 선택하세요'
+        : '⏰ 위에서 시간을 선택하세요';
+      return;
+    }
+
+    hint.style.display = 'none';
+    var sorted = state.currentSlotIds.slice().sort(function(a,b){ return a-b; });
+    var startTime = (TIME_SLOTS.find(function(s){ return s.id === sorted[0]; }) || {}).time || '';
+
+    if (state.mode === 'teacher') {
+      // 교사로 모드: 교사는 이미 선택됨 → 담기 버튼
+      sec.style.display = 'none';
+      var tt = TEACHERS.find(function(x){ return x.id === state.currentTeacherId; });
+      addBtn.style.display = 'block';
+      addBtn.disabled = false;
+      addBtn.classList.add('active');
+      addBtn.textContent = '➕ ' + startTime + ' · ' + (tt ? tt.name : '') + ' 선생님 장바구니에 담기';
+      return;
+    }
+
+    // 날짜로 모드: 그 시간에 가능한 교사 표시 → 클릭 등록
+    addBtn.style.display = 'none';
+    sec.style.display = 'block';
+    if (label) label.innerHTML = '🧑‍🏫 <b style="color:#38BDF8">'+startTime+'</b> 에 가능한 교사 — 누르면 바로 등록돼요';
+    var avail = TEACHERS.filter(function(t){ return isSlotAvailableForTeacher(t, sorted[0]); });
+    grid.innerHTML = '';
+    if (avail.length === 0) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#64748B;font-size:12px;padding:16px;border:1px dashed #1E293B;border-radius:12px">😢 이 시간에 가능한 교사가 없어요. 다른 시간을 선택해 주세요.</div>';
+      return;
+    }
+    avail.forEach(function(t){
+      var c = document.createElement('div');
+      c.className = 'teacher-card';
+      c.innerHTML =
+        '<div class="avatar">'+t.avatar+'</div>'+
+        '<div class="tname">'+t.name+'</div>'+
+        '<div class="ttag">'+t.tag+'</div>';
+      c.onclick = function(){ registerBooking(t.id); };
+      grid.appendChild(c);
+    });
+  }
+
+  // 교사로 모드: 교사 먼저 선택 그리드
+  function renderTeacherFirst() {
+    var grid = document.getElementById('teacher-first-grid');
     if (!grid) return;
     grid.innerHTML = '';
     TEACHERS.forEach(function(t){
@@ -461,43 +506,30 @@
       c.onclick = function(){
         state.currentTeacherId = t.id;
         state.currentSlotIds = [];
-        renderTeachers();
+        renderTeacherFirst();
         renderTimes();
-        renderAddBtn();
+        renderStep();
       };
       grid.appendChild(c);
     });
   }
 
-  // 모드 토글 (date | teacher)
+  // 모드 전환 (날짜로 / 교사로)
   function applyMode() {
-    var teacherSection = document.getElementById('teacher-section');
-    document.querySelectorAll('.mode-card').forEach(function(c){
-      c.classList.toggle('active', c.getAttribute('data-mode') === state.mode);
+    document.querySelectorAll('#mode-tabs button').forEach(function(b){
+      b.classList.toggle('active', b.getAttribute('data-mode') === state.mode);
     });
+    var tf = document.getElementById('teacher-first');
     if (state.mode === 'teacher') {
-      teacherSection.style.display = 'block';
-      // 교사가 선택 안 됐으면 첫 교사 자동 선택
-      if (!state.currentTeacherId) state.currentTeacherId = TEACHERS[0].id;
-      renderTeachers();
+      tf.style.display = 'block';
+      renderTeacherFirst();
     } else {
-      teacherSection.style.display = 'none';
+      tf.style.display = 'none';
       state.currentTeacherId = null;
     }
     state.currentSlotIds = [];
     renderTimes();
-    renderAddBtn();
-  }
-
-  function renderAddBtn() {
-    var btn = document.getElementById('add-btn');
-    if (state.currentSlotIds.length > 0) {
-      btn.classList.add('active');
-      btn.disabled = false;
-    } else {
-      btn.classList.remove('active');
-      btn.disabled = true;
-    }
+    renderStep();
   }
 
   function renderCart() {
@@ -563,10 +595,11 @@
       else state.currentSlotIds = [clickedId, clickedId + 1];
     }
     renderTimes();
-    renderAddBtn();
+    renderStep();
   }
 
-  document.getElementById('add-btn').onclick = function(){
+  // 🧑‍🏫 교사 클릭 → 날짜+시간+교사 장바구니 등록
+  function registerBooking(teacherId) {
     if (state.currentSlotIds.length === 0) return;
     if (state.cart.length >= state.weeklyTarget) {
       showAlert('⚠️ 이미 목표 주 ' + state.weeklyTarget + '회 예약을 모두 완료하셨습니다.');
@@ -578,41 +611,50 @@
     var lastSlotId = sorted[sorted.length - 1];
     var nextSlot = TIME_SLOTS.find(function(s){ return s.id === lastSlotId + 1; });
     var endTime = nextSlot ? nextSlot.time : '종료';
-    var teacherName = '';
-    if (state.mode === 'teacher' && state.currentTeacherId) {
-      var t = TEACHERS.find(function(x){ return x.id === state.currentTeacherId; });
-      if (t) teacherName = ' · ' + t.name + ' 선생님';
-    }
+    var t = TEACHERS.find(function(x){ return x.id === teacherId; });
+    var teacherName = t ? ' · ' + t.name + ' 선생님' : '';
     state.cart.push({
       id: Date.now() + Math.random(),
       dayId: state.currentDay,
-      teacherId: state.currentTeacherId,
+      teacherId: teacherId,
       slotIds: sorted,
       display: day.month + ' ' + day.dd + '일 (' + day.dayName + ') ' + startTime + ' ~ ' + endTime + teacherName
     });
     state.currentSlotIds = [];
     renderTimes();
-    renderAddBtn();
+    renderStep();
     renderCart();
     renderFooter();
-  };
+    showOK('✅ 등록 완료 · ' + startTime + (t ? ' · ' + t.name : ''));
+  }
 
   // 1:1 / 그룹 토글
-  document.querySelectorAll('.type-tabs button').forEach(function(b){
+  document.querySelectorAll('#type-tabs button').forEach(function(b){
     b.onclick = function(){
-      document.querySelectorAll('.type-tabs button').forEach(function(x){ x.classList.remove('active'); });
+      document.querySelectorAll('#type-tabs button').forEach(function(x){ x.classList.remove('active'); });
       b.classList.add('active');
       state.type = b.getAttribute('data-type');
     };
   });
 
-  // 선택 방식 (날짜로 / 교사로)
-  document.querySelectorAll('.mode-card').forEach(function(c){
-    c.onclick = function(){
-      state.mode = c.getAttribute('data-mode');
+  // 선택 방식 토글 (날짜로 / 교사로)
+  document.querySelectorAll('#mode-tabs button').forEach(function(b){
+    b.onclick = function(){
+      state.mode = b.getAttribute('data-mode');
+      state.cart = [];
+      state.currentTeacherId = null;
+      state.currentSlotIds = [];
       applyMode();
+      renderCart();
+      renderFooter();
     };
   });
+
+  // (교사로 모드) 담기 버튼 → 미리 고른 교사로 등록
+  document.getElementById('add-btn').onclick = function(){
+    if (this.disabled) return;
+    registerBooking(state.currentTeacherId);
+  };
 
   // 주간 목표
   document.querySelectorAll('#target-tabs button').forEach(function(b){
@@ -623,7 +665,7 @@
       state.cart = [];
       state.currentSlotIds = [];
       renderTimes();
-      renderAddBtn();
+      renderStep();
       renderCart();
       renderFooter();
     };
@@ -637,7 +679,7 @@
     t.classList.add('show');
     try {
       localStorage.setItem('mangoi_pending_booking', JSON.stringify({
-        type: state.type, mode: state.mode, weeklyTarget: state.weeklyTarget,
+        type: state.type, weeklyTarget: state.weeklyTarget,
         cart: state.cart, created_at: Date.now()
       }));
     } catch(e){}
@@ -651,31 +693,33 @@
       } catch(e) {
         location.href = '/?menu=payment&from=booking';
       }
-    }, 1300);
+    }, 350);
   };
 
   function showAlert(msg) {
     var t = document.getElementById('toast');
-    var orig = t.style.background;
     t.style.background = 'linear-gradient(135deg,#EF4444,#DC2626)';
     t.textContent = msg;
     t.classList.add('show');
-    setTimeout(function(){
-      t.classList.remove('show');
-      setTimeout(function(){ t.style.background = orig; t.textContent = ''; }, 500);
-    }, 2200);
+    setTimeout(function(){ t.classList.remove('show'); }, 2200);
+  }
+
+  function showOK(msg) {
+    var t = document.getElementById('toast');
+    t.style.background = 'linear-gradient(135deg,#10B981,#059669)';
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(function(){ t.classList.remove('show'); }, 1500);
   }
 
   // 초기 렌더링
   renderDates();
-  renderTimes();
-  renderAddBtn();
+  applyMode();      // 모드 UI + 시간/스텝 초기화
   renderCart();
   renderFooter();
-  applyMode();
 })();
 </script>
 <!-- BUILD:20260530-final -->
-<!-- BUILD:20260602103212 -->
+<!-- BUILD:20260608203344 -->
 </body>
 </html>

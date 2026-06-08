@@ -22,8 +22,8 @@
   }
 
   // ━━━━ 지원 언어 + 순환 순서 ━━━━
-  var LANG_CYCLE = ['ko', 'en', 'zh', 'ja', 'vi'];
-  var LANG_LABEL = { ko:'KO', en:'EN', zh:'ZH', ja:'JA', vi:'VI' };
+  var LANG_CYCLE = ['ko', 'en'];           // 한국어·영어만 순환 (중국어·일본어·베트남어 제외)
+  var LANG_LABEL = { ko:'KO', en:'EN' };
   // 토글 버튼은 "다음" 언어를 표시 (현재 KO 면 → 다음 EN 표시)
   function nextLangOf(l){ var i = LANG_CYCLE.indexOf(l); return LANG_CYCLE[(i + 1) % LANG_CYCLE.length]; }
 

@@ -762,6 +762,41 @@ header {
 .detail-body::-webkit-scrollbar,
 .main-stage::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
+/* ── 요구사항 구현: 현재수업 / 주간횟수 / 밀기 / 장바구니 / 완료 ── */
+.cur-lesson{background:var(--bg-card);border:1px solid var(--border);border-left:4px solid var(--green);border-radius:14px;padding:12px 14px;margin-bottom:14px}
+.cur-lesson .cl-tag{font-size:11px;font-weight:800;color:var(--green);margin-bottom:7px;letter-spacing:.3px}
+.cur-lesson .cl-item{font-size:13.5px;color:var(--text);padding:3px 0}
+.cur-lesson .cl-item b{font-weight:800}
+.cur-lesson .cl-meta{color:var(--text-mute);font-size:12px}
+
+.wk-tabs{display:flex;gap:6px;background:var(--bg-soft);padding:4px;border-radius:12px;margin-bottom:14px}
+.wk-tabs .wk{flex:1;padding:9px 0;border:0;border-radius:9px;background:transparent;color:var(--text-mute);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s}
+.wk-tabs .wk.active{background:var(--indigo-deep);color:#fff}
+
+.push-btn{width:100%;padding:12px;border-radius:12px;border:1.5px solid var(--amber);background:var(--amber-soft);color:var(--amber);font-weight:800;font-size:13px;cursor:pointer;margin-bottom:14px;transition:transform .12s}
+.push-btn:active{transform:scale(0.98)}
+
+.cart-box{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-top:16px}
+.cart-box .cart-head{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:800;color:var(--green);margin-bottom:10px}
+.cart-box .cart-head .cnt{font-variant-numeric:tabular-nums;color:var(--text)}
+.cart-empty{color:var(--text-mute);font-size:12.5px;text-align:center;padding:12px}
+.cart-item{display:flex;justify-content:space-between;align-items:center;background:var(--bg-soft);border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin-bottom:6px;font-size:12.5px;color:var(--text)}
+.cart-item button{background:none;border:0;color:#F87171;font-size:18px;font-weight:800;cursor:pointer;line-height:1;padding:0 4px}
+
+.confirm-btn.ready{background:var(--green);color:#04210f}
+
+#screen-done .done-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:62vh;padding:30px 20px;text-align:center}
+#screen-done .done-ico{font-size:58px;margin-bottom:14px;animation:pop .4s cubic-bezier(.34,1.56,.64,1)}
+@keyframes pop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+#screen-done .done-ttl{font-size:22px;font-weight:900;color:var(--text);margin-bottom:10px}
+#screen-done .done-sub{font-size:12.5px;color:var(--text-mute);margin-bottom:20px;line-height:1.6}
+#screen-done .done-list{list-style:none;width:100%;max-width:360px;margin:0 0 24px;padding:0}
+#screen-done .done-list li{background:var(--bg-card);border:1px solid var(--border);border-left:4px solid var(--green);border-radius:10px;padding:11px 14px;margin-bottom:8px;font-size:13px;color:var(--text);text-align:left}
+#screen-done .done-actions{display:flex;gap:10px;width:100%;max-width:360px}
+#screen-done .done-btn{flex:1;padding:14px 10px;border:0;border-radius:14px;background:var(--green);color:#04210f;font-weight:900;font-size:14.5px;cursor:pointer;transition:transform .12s}
+#screen-done .done-btn:active{transform:scale(0.97)}
+#screen-done .done-btn.ghost{background:transparent;border:1.5px solid var(--green);color:var(--green)}
+
 </style>
 </head>
 <body>
@@ -770,7 +805,7 @@ header {
   <!-- ━━━━━━━━━━ Step 1: 대메뉴 ━━━━━━━━━━ -->
   <section id="screen-main" class="screen active">
     <header>
-      <button class="back-btn" disabled>‹</button>
+      <button class="back-btn" onclick="location.href='/'" title="홈으로" aria-label="홈으로">‹</button>
       <div class="header-title">📅 수업 일정</div>
     </header>
     <div class="main-stage">
@@ -820,6 +855,24 @@ header {
     </div>
   </section>
 
+  <!-- ━━━━━━━━━━ Step 4: 완료 ━━━━━━━━━━ -->
+  <section id="screen-done" class="screen">
+    <header>
+      <button class="back-btn" disabled>‹</button>
+      <div class="header-title">완료</div>
+    </header>
+    <div class="done-wrap">
+      <div class="done-ico">✅</div>
+      <div class="done-ttl" id="done-title">완료되었습니다</div>
+      <div class="done-sub" id="done-sub"></div>
+      <ul class="done-list" id="done-list"></ul>
+      <div class="done-actions">
+        <button class="done-btn ghost" id="done-again">🔄 다시하기</button>
+        <button class="done-btn" id="done-home">🏠 홈으로</button>
+      </div>
+    </div>
+  </section>
+
 </div>
 <div id="toast" class="toast"></div>
 
@@ -860,16 +913,30 @@ const SCHEDULE = (function(){
 })();
 
 /* ════════════════════════════════════════════════════════════
+   현재 수강 중인 정규 스케줄 (요구사항 2: 현재 수업 정보)
+   ════════════════════════════════════════════════════════════ */
+const CURRENT_SCHEDULE = (function(){
+  const t = new Date();
+  const plus = (n)=>{ const d=new Date(t); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
+  return [
+    { teacherId:'t01', teacherName:'박지윤', ico:'🇰🇷', date: plus(2), hour:'11:20' },
+    { teacherId:'t01', teacherName:'박지윤', ico:'🇰🇷', date: plus(5), hour:'14:00' },
+  ];
+})();
+
+/* ════════════════════════════════════════════════════════════
    State
    ════════════════════════════════════════════════════════════ */
 const state = {
-  mode: null,    // 'postpone' | 'change'
-  tab: 'time',
+  mode: null,        // 'postpone'(연기) | 'change'(변경)
+  tab: 'time',       // 'time'(날짜로) | 'teacher'(교사로)
+  weeklyTarget: CURRENT_SCHEDULE.length,  // 주 N회 = 담아야 할 수업 수
   date: null,
   hour: null,
   teacher: null,
   expandedTeacher: null,
   loading: false,
+  cart: [],          // [{teacherId, teacherName, ico, date, hour}]
 };
 const VERB = { postpone: '연기', change: '변경' };
 
@@ -899,10 +966,13 @@ function showToast(msg){
 function _goMode(mode){
   if (!mode) return;
   state.mode = mode;
-  state.tab = 'time'; state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null;
+  state.tab = 'time';
+  state.weeklyTarget = CURRENT_SCHEDULE.length;
+  state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null;
+  state.cart = [];
   enterDetail();
 }
-/* fix (2026-06-01) — 모바일 탭 보강: 단일 위임 핸들러로 어떤 환경에서도 카드 탭이 동작하도록 */
+/* 모바일 탭 보강: 단일 위임 핸들러 */
 document.addEventListener('click', (e) => {
   const card = e.target.closest && e.target.closest('.main-card');
   if (card && card.dataset.mode && document.getElementById('screen-main').classList.contains('active')) {
@@ -910,39 +980,54 @@ document.addEventListener('click', (e) => {
   }
 }, false);
 
-/* ════════════════════════════════════════════════════════════
-   fix (2026-06-01) — updateSticky 미정의로 enterDetail 이 예외를 던져
-   상세(시간·교사 선택) 화면이 안 뜨던 문제 해결. 하단 확정바 갱신 + 확정 처리.
-   ════════════════════════════════════════════════════════════ */
+/* ── 하단 확정바: 장바구니 진행도 + 완료 버튼 ── */
 function updateSticky(){
-  var bar = document.getElementById('sticky-bar');
-  var summary = document.getElementById('sticky-summary');
-  var btn = document.getElementById('confirm-btn');
-  if (!bar || !summary) return;
-  if (state.date && state.hour && state.teacher) {
-    var t = (typeof TEACHERS !== 'undefined') ? TEACHERS.find(function(x){ return x.id === state.teacher; }) : null;
-    summary.innerHTML = '<span class="icon">📅</span> <b>' + fmtMD(state.date) + ' (' + fmtDOW(state.date) + ') ' + state.hour + '</b> · ' + (t ? (t.ico + ' ' + t.name) : '');
-    bar.classList.add('show');
-    if (btn && !btn._confirmBound) {
-      btn._confirmBound = true;
-      btn.addEventListener('click', confirmBooking);
-    }
-  } else {
-    bar.classList.remove('show');
-  }
-}
-function confirmBooking(){
-  if (!(state.date && state.hour && state.teacher)) return;
-  var t = (typeof TEACHERS !== 'undefined') ? TEACHERS.find(function(x){ return x.id === state.teacher; }) : null;
+  var bar = $('#sticky-bar'), summary = $('#sticky-summary'), btn = $('#confirm-btn');
+  if (!bar || !summary || !btn) return;
   var v = VERB[state.mode] || '';
-  var msg = '✅ ' + fmtMD(state.date) + '(' + fmtDOW(state.date) + ') ' + state.hour + ' · ' + (t ? t.name : '') + ' 수업 ' + v + ' 신청 완료!';
-  try { showToast(msg); } catch(e) { alert(msg); }
+  if (state.cart.length === 0) { bar.classList.remove('show'); return; }
+  var met = state.cart.length >= state.weeklyTarget;
+  summary.innerHTML = '<span class="icon">🛒</span> <b>' + state.cart.length + ' / ' + state.weeklyTarget + '</b> 담음';
+  btn.textContent = met ? (v + ' 완료하기 ✓') : ('일정을 더 담아주세요 (' + state.cart.length + '/' + state.weeklyTarget + ')');
+  btn.disabled = !met;
+  btn.classList.toggle('ready', met);
+  bar.classList.add('show');
+  if (!btn._confirmBound) { btn._confirmBound = true; btn.addEventListener('click', onConfirm); }
+}
+function onConfirm(){
+  if (state.cart.length === 0 || state.cart.length < state.weeklyTarget) return;
+  showCompletion();
+}
+
+/* ── 완료 화면 (요구사항 6) ── */
+function showCompletion(){
+  var v = VERB[state.mode] || '';
+  var sorted = state.cart.slice().sort(function(a,b){ return (a.date+a.hour) < (b.date+b.hour) ? -1 : 1; });
+  var list = sorted.map(function(it){
+    return '<li>' + (it.ico||'') + ' <b>' + it.teacherName + '</b> · ' + fmtMD(it.date) + ' (' + fmtDOW(it.date) + ') ' + it.hour + '</li>';
+  }).join('');
+  var beforeList = CURRENT_SCHEDULE.map(function(c){
+    return (c.ico||'') + ' ' + c.teacherName + ' ' + fmtMD(c.date) + '(' + fmtDOW(c.date) + ') ' + c.hour;
+  }).join(' / ');
+  $('#done-title').textContent = '✅ ' + v + ' 완료되었습니다';
+  $('#done-sub').innerHTML = '기존: ' + beforeList + '<br>↓ 아래 일정으로 ' + v + '되었습니다';
+  $('#done-list').innerHTML = list;
+  $('#screen-detail').classList.remove('active');
+  $('#screen-done').classList.add('active');
+}
+function resetToMain(){
+  state.mode=null; state.tab='time'; state.cart=[];
+  state.weeklyTarget=CURRENT_SCHEDULE.length;
+  state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null;
+  $('#screen-done').classList.remove('active');
+  $('#screen-detail').classList.remove('active');
+  $('#screen-main').classList.remove('exit-up'); $('#screen-main').classList.add('active');
 }
 
 function enterDetail(){
   const v = VERB[state.mode];
   $('#detail-title').textContent = `수업 ${v}하기`;
-  $('#seg-time-label').textContent    = `🕐 시간으로 ${v}`;
+  $('#seg-time-label').textContent    = `🕐 날짜로 ${v}`;
   $('#seg-teacher-label').textContent = `👨‍🏫 교사로 ${v}`;
   $('#segment').setAttribute('data-tab', state.tab);
   $$('.seg').forEach(s => s.classList.toggle('active', s.dataset.tab === state.tab));
@@ -954,9 +1039,11 @@ function enterDetail(){
 $('#btn-back').addEventListener('click', () => {
   $('#screen-detail').classList.remove('active');
   $('#screen-main').classList.remove('exit-up'); $('#screen-main').classList.add('active');
-  state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null;
-  updateSticky();
 });
+(function(){
+  var a = $('#done-again'); if (a) a.addEventListener('click', resetToMain);
+  var h = $('#done-home');  if (h) h.addEventListener('click', function(){ location.href = '/'; });
+})();
 
 $$('.seg').forEach(s => {
   s.addEventListener('click', () => {
@@ -964,17 +1051,77 @@ $$('.seg').forEach(s => {
     $('#segment').setAttribute('data-tab', state.tab);
     $$('.seg').forEach(b => b.classList.toggle('active', b === s));
     state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null;
-    renderBody(); updateSticky();
+    renderBody(); updateSticky();   // 장바구니는 유지
   });
 });
 
 /* ════════════════════════════════════════════════════════════
+   장바구니 로직 (요구사항 5 / 기획 ②)
+   ════════════════════════════════════════════════════════════ */
+function addToCart(teacherId, date, hour){
+  if (!teacherId || !date || !hour) return;
+  if (state.cart.length >= state.weeklyTarget) { showToast('⚠️ 주 ' + state.weeklyTarget + '회를 모두 담았어요'); return; }
+  if (state.cart.some(function(it){ return it.date===date && it.hour===hour && it.teacherId===teacherId; })) { showToast('이미 담긴 일정이에요'); return; }
+  var t = TEACHERS.find(function(x){ return x.id === teacherId; });
+  state.cart.push({ teacherId: teacherId, teacherName: t?t.name:'', ico: t?t.ico:'', date: date, hour: hour });
+  state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null;
+  showToast('✅ 담겼어요 (' + state.cart.length + '/' + state.weeklyTarget + ')');
+  renderBody(); updateSticky();
+}
+function removeFromCart(idx){ state.cart.splice(idx, 1); renderBody(); updateSticky(); }
+
+/* 한 수업씩 뒤로 밀기 (요구사항 3 / 기획 ①) — 전체 일정을 1주 뒤로 자동 이월 */
+function pushBackAll(){
+  state.cart = CURRENT_SCHEDULE.map(function(c){
+    var d = new Date(c.date + 'T00:00:00'); d.setDate(d.getDate() + 7);
+    var iso = d.toISOString().slice(0,10);
+    var keep = SCHEDULE[c.teacherId] && SCHEDULE[c.teacherId][iso] && SCHEDULE[c.teacherId][iso].indexOf(c.hour) !== -1;
+    var tId = c.teacherId, tName = c.teacherName, ico = c.ico;
+    if (!keep) {
+      var alt = TEACHERS.find(function(t){ return SCHEDULE[t.id][iso] && SCHEDULE[t.id][iso].indexOf(c.hour) !== -1; });
+      if (alt) { tId = alt.id; tName = alt.name; ico = alt.ico; }
+    }
+    return { teacherId: tId, teacherName: tName, ico: ico, date: iso, hour: c.hour };
+  });
+  state.weeklyTarget = CURRENT_SCHEDULE.length;
+  showToast('⏩ 전체 일정을 한 수업씩 뒤로 밀었어요');
+  renderBody(); updateSticky();
+}
+
+/* ════════════════════════════════════════════════════════════
    본문 렌더
    ════════════════════════════════════════════════════════════ */
+function renderCurrentLesson(){
+  var items = CURRENT_SCHEDULE.map(function(c){
+    return '<div class="cl-item">' + (c.ico||'') + ' <b>' + c.teacherName + '</b> 선생님 <span class="cl-meta">· ' + fmtMD(c.date) + ' (' + fmtDOW(c.date) + ') ' + c.hour + '</span></div>';
+  }).join('');
+  return '<div class="cur-lesson"><div class="cl-tag">📌 현재 수업 (' + CURRENT_SCHEDULE.length + '회)</div>' + items + '</div>';
+}
+function renderWeekly(){
+  var btns = '';
+  for (var i=1;i<=5;i++) btns += '<button class="wk ' + (state.weeklyTarget===i?'active':'') + '" data-wk="' + i + '">주 ' + i + '회</button>';
+  return '<div class="section-label">🎯 주간 횟수 · 담을 수업 수</div><div class="wk-tabs">' + btns + '</div>';
+}
+function renderPushBtn(){
+  var v = VERB[state.mode] || '';
+  return '<button class="push-btn" id="pushBtn">⏩ 전체 일정 한 수업씩 뒤로 밀기 (자동 ' + v + ')</button>';
+}
+function renderCartBox(){
+  var v = VERB[state.mode] || '';
+  var inner;
+  if (state.cart.length === 0) inner = '<div class="cart-empty">일정을 골라 장바구니에 담아주세요.</div>';
+  else inner = state.cart.map(function(it, idx){
+    return '<div class="cart-item"><span>' + (it.ico||'') + ' ' + it.teacherName + ' · ' + fmtMD(it.date) + ' (' + fmtDOW(it.date) + ') ' + it.hour + '</span><button data-rm="' + idx + '">×</button></div>';
+  }).join('');
+  return '<div class="cart-box"><div class="cart-head">🛒 ' + v + ' 장바구니 <span class="cnt">' + state.cart.length + ' / ' + state.weeklyTarget + '</span></div>' + inner + '</div>';
+}
 function renderBody(){
   const body = $('#detail-body');
-  if (state.tab === 'time') body.innerHTML = renderTimeTab();
-  else body.innerHTML = renderTeacherTab();
+  var html = renderCurrentLesson() + renderWeekly();
+  if (state.tab === 'time') html += renderPushBtn() + renderTimeTab();
+  else html += renderTeacherTab();
+  html += renderCartBox();
+  body.innerHTML = html;
   attachHandlers();
 }
 
@@ -1115,23 +1262,49 @@ function renderTeacherTab(){
    본문 이벤트
    ════════════════════════════════════════════════════════════ */
 function attachHandlers(){
+  // 🎯 주간 횟수 선택
+  $$('#detail-body .wk').forEach(el => el.addEventListener('click', () => {
+    state.weeklyTarget = Number(el.dataset.wk);
+    if (state.cart.length > state.weeklyTarget) state.cart = state.cart.slice(0, state.weeklyTarget);
+    renderBody(); updateSticky();
+  }));
+
+  // ⏩ 한 수업씩 뒤로 밀기
+  var pb = document.getElementById('pushBtn');
+  if (pb) pb.addEventListener('click', pushBackAll);
+
+  // 🗑 장바구니에서 제거
+  $$('#detail-body .cart-item button[data-rm]').forEach(el => el.addEventListener('click', () => {
+    removeFromCart(Number(el.getAttribute('data-rm')));
+  }));
+
+  // ── 날짜로 탭 ──
   $$('#detail-body .date-chip').forEach(el => el.addEventListener('click', () => {
     state.date = el.dataset.date; state.hour=null; state.teacher=null;
     renderBody(); updateSticky();
   }));
   $$('#detail-body .hour-chip[data-hour]:not([data-tdate])').forEach(el => el.addEventListener('click', () => {
     state.hour = el.dataset.hour; state.teacher=null;
-    // 스켈레톤 → 결과
     state.loading = true; renderBody();
     setTimeout(() => { state.loading = false; renderBody(); updateSticky(); }, 450);
   }));
-
-  // teacher-card 클릭 후속 처리 (안전 마무리)
+  // 날짜로 탭: 가능한 교사 클릭 → 장바구니 담기
   $$('#detail-body .teacher-card[data-teacher]').forEach(el => el.addEventListener('click', () => {
-    const tid = el.getAttribute('data-teacher');
-    state.teacher = tid;
+    addToCart(el.getAttribute('data-teacher'), state.date, state.hour);
+  }));
+
+  // ── 교사로 탭 ──
+  // 카드 탭 → 시간 아코디언 펼침/접힘
+  $$('#detail-body .teacher-card[data-expand]').forEach(el => el.addEventListener('click', (e) => {
+    if (e.target.closest && e.target.closest('.hour-chip')) return;
+    const tid = el.getAttribute('data-expand');
+    state.expandedTeacher = (state.expandedTeacher === tid) ? null : tid;
     renderBody();
-    updateSticky();
+  }));
+  // 펼쳐진 시간 선택 → 장바구니 담기
+  $$('#detail-body .hour-chip[data-tdate]').forEach(el => el.addEventListener('click', (e) => {
+    e.stopPropagation();
+    addToCart(el.getAttribute('data-tteacher'), el.getAttribute('data-tdate'), el.getAttribute('data-thour'));
   }));
 }
 
@@ -1189,6 +1362,6 @@ function attachHandlers(){
   window.addEventListener('orientationchange', () => setTimeout(setVh, 100));
 })();
 </script>
-<!-- BUILD:20260602103212 -->
+<!-- BUILD:20260608203344 -->
 </body>
 </html>

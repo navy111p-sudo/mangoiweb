@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🎓 학습 인사이트 — 망고아이</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#263449;
+    --fg:#e2e8f0; --mut:#94a3b8; --dim:#64748b; --bd:#334155;
+    --y:#f59e0b; --g:#10b981; --r:#ef4444; --b:#3b82f6; --p:#a855f7;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo",sans-serif;font-size:14px}
+  a{color:#fde68a;text-decoration:none}
+
+  header.top{min-height:56px;display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;padding:8px 14px;border-bottom:1px solid var(--bd);background:#0b1220;position:sticky;top:0;z-index:50}
+  header.top .brand{font-weight:800;color:#fbbf24;white-space:nowrap;flex-shrink:0}
+  header.top .crumb{color:var(--mut);font-size:13px;white-space:nowrap;flex-shrink:0}
+  header.top .right{margin-left:auto;display:flex;align-items:center;flex-wrap:wrap;gap:8px;flex-shrink:0}
+  header.top a.btn,header.top button.btn,header.top select{padding:6px 12px;border-radius:6px;border:1px solid var(--bd);background:var(--panel);color:var(--fg);font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0}
+  @media(max-width:480px){
+    header.top{gap:6px 8px;padding:8px 10px}
+    header.top .crumb{display:none}
+    header.top .right{width:100%;margin-left:0;justify-content:flex-start}
+    header.top a.btn,header.top button.btn,header.top select{padding:6px 10px;font-size:11.5px}
+  }
+  header.top a.btn:hover,header.top button.btn:hover{background:var(--panel2)}
+
+  main{max-width:1400px;margin:0 auto;padding:18px}
+  .as-of{font-size:12px;color:var(--dim);margin:0 2px 14px}
+  section{margin-bottom:22px}
+  h2.sec{font-size:13px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;margin:0 0 10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  h2.sec .seg{margin-left:auto;display:flex;gap:4px}
+  .seg button{padding:4px 11px;border-radius:6px;border:1px solid var(--bd);background:var(--panel);color:var(--mut);font-size:12px;cursor:pointer}
+  .seg button.active{background:#0b1220;color:#fcd34d;border-color:var(--y);font-weight:700}
+
+  /* 요약 KPI */
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .kpi{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:15px 16px}
+  .kpi .lab{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+  .kpi .val{font-size:26px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums}
+  .kpi .sub{font-size:11px;color:var(--dim);margin-top:2px}
+  .kpi.high .val{color:var(--r)} .kpi.medium .val{color:var(--y)} .kpi.low .val{color:var(--g)} .kpi.tot .val{color:var(--b)}
+
+  .card{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:16px}
+  .tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
+  .tools a,.tools button,.tools select{font-size:12px;padding:6px 11px;border-radius:6px;border:1px solid var(--bd);background:var(--panel);color:var(--fg);cursor:pointer}
+
+  .scroll{overflow-x:auto;border-radius:8px}
+  table.list{width:100%;border-collapse:collapse;font-size:13px;min-width:680px}
+  table.list th,table.list td{padding:9px 10px;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap}
+  table.list th{background:var(--panel2);color:var(--mut);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;position:sticky;top:0}
+  table.list td.num{text-align:right;font-variant-numeric:tabular-nums}
+  table.list tr:hover td{background:rgba(245,158,11,.06)}
+  tr.clk{cursor:pointer}
+  .badge{display:inline-block;padding:2px 9px;border-radius:11px;font-size:11px;font-weight:700}
+  .badge.high{background:rgba(239,68,68,.18);color:#fca5a5;border:1px solid #991b1b}
+  .badge.medium{background:rgba(245,158,11,.18);color:#fcd34d;border:1px solid #92400e}
+  .badge.low{background:rgba(16,185,129,.18);color:#6ee7b7;border:1px solid #065f46}
+  .reasons{color:var(--mut);font-size:12px;white-space:normal;max-width:320px}
+  .empty{text-align:center;padding:34px 10px;color:var(--mut);font-size:13px}
+
+  .chart-box{position:relative;height:300px;width:100%}
+  @media(max-width:640px){.chart-box{height:240px}}
+  .picker{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  .picker input{padding:8px 11px;border-radius:7px;border:1px solid var(--bd);background:var(--panel2);color:var(--fg);font-size:14px;min-width:200px}
+  .picker input:focus{outline:none;border-color:var(--y)}
+  .hint{font-size:12px;color:var(--dim)}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0b1220;border:1px solid var(--bd);color:var(--fg);padding:11px 18px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:99}
+  .toast.show{opacity:1}.toast.err{border-color:#991b1b;color:#fca5a5}
+</style>
+</head>
+<body>
+<header class="top">
+  <span class="brand">🥭 망고아이</span>
+  <span class="crumb">／ 학습 인사이트</span>
+  <div class="right">
+    <a class="btn" href="/admin/finance-realtime">💸 재무</a>
+    <a class="btn" href="/admin/marketing-studio">📣 마케팅</a>
+    <select id="daysSel" title="분석 기간">
+      <option value="14">최근 14일</option>
+      <option value="30" selected>최근 30일</option>
+      <option value="60">최근 60일</option>
+      <option value="90">최근 90일</option>
+    </select>
+    <button class="btn" id="refreshBtn">↻ 새로고침</button>
+    <a class="btn" href="/admin">← 관리자</a>
+  </div>
+</header>
+
+<main>
+  <p class="as-of" id="asOf">불러오는 중…</p>
+
+  <!-- ① 요약 -->
+  <section>
+    <h2 class="sec">📊 코호트 요약</h2>
+    <div class="kpi-grid" id="kpiGrid">
+      <div class="kpi tot"><div class="lab">활성 학생</div><div class="val">…</div></div>
+    </div>
+  </section>
+
+  <!-- ①b 위험분포 추이 -->
+  <section>
+    <h2 class="sec">📉 월별 위험도 분포 추이</h2>
+    <div class="card"><div class="chart-box" style="height:240px"><canvas id="riskHistChart"></canvas></div>
+      <div class="hint" style="margin-top:8px">매월 새벽 스냅샷이 누적되면 추이가 채워집니다. (지금 바로 누적하려면 관리자 cron 또는 스냅샷 API 호출)</div>
+    </div>
+  </section>
+
+  <!-- ② 위험도 세그먼트 -->
+  <section>
+    <h2 class="sec">🚦 위험도 세그먼트
+      <span class="seg" id="riskSeg">
+        <button data-risk="" class="active">전체</button>
+        <button data-risk="high">고위험</button>
+        <button data-risk="medium">주의</button>
+        <button data-risk="low">안정</button>
+      </span>
+    </h2>
+    <div class="tools">
+      <a id="segCsv" href="#" target="_blank">⬇ CSV 다운로드</a>
+      <span class="hint">행을 클릭하면 아래에 해당 학생의 장기 트렌드가 표시됩니다.</span>
+    </div>
+    <div class="card">
+      <div class="scroll">
+        <table class="list">
+          <thead><tr>
+            <th>학생</th><th>위험도</th><th class="num">출석일</th><th class="num">마지막출석</th>
+            <th class="num">집중도</th><th class="num">평가평균</th><th class="num">평가추세</th><th>사유</th>
+          </tr></thead>
+          <tbody id="segBody"><tr><td colspan="8" class="empty">불러오는 중…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ③ 장기 트렌드 -->
+  <section>
+    <h2 class="sec">📈 학생 장기 트렌드</h2>
+    <div class="picker">
+      <input id="uidInput" placeholder="학생 user_id 입력 또는 위 표에서 클릭">
+      <select id="monthsSel">
+        <option value="6" selected>6개월</option>
+        <option value="12">12개월</option>
+        <option value="24">24개월</option>
+      </select>
+      <button class="btn" id="trendBtn" style="border:1px solid var(--bd);background:var(--panel);color:var(--fg);padding:8px 14px;border-radius:7px;cursor:pointer">조회</button>
+      <span class="hint" id="trendName"></span>
+    </div>
+    <div class="card"><div class="chart-box"><canvas id="trendChart"></canvas></div></div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+let trendChart, curDays = 30, curRisk = '';
+
+function toast(m, e){ const t=$('#toast'); t.textContent=m; t.className='toast show'+(e?' err':''); setTimeout(()=>t.className='toast'+(e?' err':''),2200); }
+async function api(path){
+  const r = await fetch(path, { headers:{'Content-Type':'application/json'} });
+  if (r.status===401){ location.href='/admin/login?next='+encodeURIComponent(location.pathname); throw new Error('auth'); }
+  const j = await r.json().catch(()=>({ok:false,error:'bad json'}));
+  if (j.ok===false) throw new Error(j.error||'error');
+  return j;
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+const fmt = (v,suf='')=> v==null?'-':(v+suf);
+
+// ① 요약
+async function loadOverview(){
+  try{
+    const j = await api(`/api/admin/learning/overview?days=${curDays}`);
+    $('#asOf').textContent = `분석 기준: 최근 ${j.range_days}일 · 활성 학생 ${j.total_students}명`;
+    const s = j.segments, a = j.averages;
+    $('#kpiGrid').innerHTML = `
+      <div class="kpi tot"><div class="lab">활성 학생</div><div class="val">${j.total_students}</div><div class="sub">명</div></div>
+      <div class="kpi high"><div class="lab">고위험</div><div class="val">${s.high}</div><div class="sub">즉시 케어 필요</div></div>
+      <div class="kpi medium"><div class="lab">주의</div><div class="val">${s.medium}</div><div class="sub">관찰 권장</div></div>
+      <div class="kpi low"><div class="lab">안정</div><div class="val">${s.low}</div><div class="sub">양호</div></div>
+      <div class="kpi"><div class="lab">평균 출석일</div><div class="val" style="color:var(--fg)">${fmt(a.attendance_days)}</div></div>
+      <div class="kpi"><div class="lab">평균 평가</div><div class="val" style="color:var(--fg)">${fmt(a.eval_avg)}</div></div>
+      <div class="kpi"><div class="lab">평균 집중도</div><div class="val" style="color:var(--fg)">${fmt(a.gaze_avg,'%')}</div></div>`;
+  }catch(e){ if(e.message!=='auth') $('#kpiGrid').innerHTML = '<div class="kpi"><div class="empty">요약 로드 실패: '+esc(e.message)+'</div></div>'; }
+}
+
+// ② 세그먼트
+async function loadSegments(){
+  $('#segCsv').href = `/api/admin/learning/segments?days=${curDays}&risk=${curRisk}&format=csv`;
+  try{
+    const j = await api(`/api/admin/learning/segments?days=${curDays}&risk=${curRisk}`);
+    if (!j.students.length){ $('#segBody').innerHTML='<tr><td colspan="8" class="empty">해당 조건의 학생이 없습니다.</td></tr>'; return; }
+    const riskKo = {high:'고위험',medium:'주의',low:'안정'};
+    $('#segBody').innerHTML = j.students.map(s=>{
+      const last = s.days_since_last==null?'-':(s.days_since_last+'일 전');
+      const tr = s.eval_trend==null?'-':(s.eval_trend>0?('▲ '+s.eval_trend):(s.eval_trend<0?('▼ '+Math.abs(s.eval_trend)):'±0'));
+      const trCol = s.eval_trend>0?'color:#6ee7b7':(s.eval_trend<0?'color:#fca5a5':'');
+      return `<tr class="clk" data-uid="${esc(s.user_id)}" data-name="${esc(s.name)}">
+        <td><b>${esc(s.name)}</b><div style="color:var(--dim);font-size:11px">${esc(s.user_id)}</div></td>
+        <td><span class="badge ${s.risk}">${riskKo[s.risk]}</span></td>
+        <td class="num">${s.attendance_days}</td>
+        <td class="num">${last}</td>
+        <td class="num">${fmt(s.gaze,'%')}</td>
+        <td class="num">${fmt(s.eval_avg)}</td>
+        <td class="num" style="${trCol}">${tr}</td>
+        <td class="reasons">${s.reasons.map(esc).join(' · ')}</td>
+      </tr>`;
+    }).join('');
+  }catch(e){ if(e.message!=='auth') $('#segBody').innerHTML='<tr><td colspan="8" class="empty">로드 실패: '+esc(e.message)+'</td></tr>'; }
+}
+
+// ③ 트렌드
+async function loadTrend(uid, name){
+  if (!uid){ toast('user_id를 입력하세요.', true); return; }
+  $('#trendName').textContent = name ? `· ${name}` : '';
+  try{
+    const months = $('#monthsSel').value;
+    const j = await api(`/api/admin/learning/trends?uid=${encodeURIComponent(uid)}&months=${months}`);
+    $('#trendName').textContent = `· ${j.name} (${j.uid})`;
+    const labels = j.series.map(s=>s.period);
+    if (trendChart) trendChart.destroy();
+    trendChart = new Chart($('#trendChart'), {
+      data:{ labels, datasets:[
+        { type:'bar', label:'출석일', data:j.series.map(s=>s.attendance_days), backgroundColor:'rgba(59,130,246,.5)', borderRadius:3, yAxisID:'yL', order:3 },
+        { type:'line', label:'평가평균', data:j.series.map(s=>s.eval_avg), borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,.1)', tension:.3, pointRadius:3, yAxisID:'yR', spanGaps:true, order:1 },
+        { type:'line', label:'집중도%', data:j.series.map(s=>s.gaze_avg), borderColor:'#10b981', tension:.3, pointRadius:2, yAxisID:'yL', spanGaps:true, order:2 },
+        { type:'line', label:'음성평균', data:j.series.map(s=>s.voice_avg), borderColor:'#a855f7', borderDash:[5,4], tension:.3, pointRadius:2, yAxisID:'yL', spanGaps:true, order:2 },
+      ]},
+      options:{
+        responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
+        plugins:{ legend:{ labels:{ color:'#94a3b8', boxWidth:12, font:{size:11} } } },
+        scales:{
+          x:{ ticks:{ color:'#64748b', font:{size:11} }, grid:{ color:'rgba(51,65,85,.4)' } },
+          yL:{ position:'left', ticks:{ color:'#64748b', font:{size:10} }, grid:{ color:'rgba(51,65,85,.4)' }, title:{display:true,text:'출석일 · 집중도 · 음성',color:'#64748b',font:{size:10}} },
+          yR:{ position:'right', min:0, max:5, ticks:{ color:'#f59e0b', font:{size:10} }, grid:{ drawOnChartArea:false }, title:{display:true,text:'평가(5점)',color:'#f59e0b',font:{size:10}} },
+        }
+      }
+    });
+  }catch(e){ if(e.message!=='auth') toast('트렌드 로드 실패: '+e.message, true); }
+}
+
+// 이벤트
+$('#daysSel').addEventListener('change', e=>{ curDays=+e.target.value; loadOverview(); loadSegments(); });
+$('#riskSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return;
+  $('#riskSeg').querySelectorAll('button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); curRisk=b.dataset.risk; loadSegments(); });
+$('#segBody').addEventListener('click', e=>{ const tr=e.target.closest('tr.clk'); if(!tr)return;
+  $('#uidInput').value=tr.dataset.uid; loadTrend(tr.dataset.uid, tr.dataset.name); document.querySelector('#trendChart').scrollIntoView({behavior:'smooth',block:'center'}); });
+$('#trendBtn').addEventListener('click', ()=>loadTrend($('#uidInput').value.trim()));
+$('#uidInput').addEventListener('keydown', e=>{ if(e.key==='Enter') loadTrend($('#uidInput').value.trim()); });
+$('#monthsSel').addEventListener('change', ()=>{ const u=$('#uidInput').value.trim(); if(u) loadTrend(u); });
+$('#refreshBtn').addEventListener('click', ()=>{ loadOverview(); loadSegments(); loadRiskHistory(); toast('새로고침 완료'); });
+
+async function loadRiskHistory(){
+  try{
+    const j = await api('/api/admin/learning/risk-history?months=12');
+    const s = j.series||[];
+    if(!s.length){ if(window.riskHistChart){window.riskHistChart.destroy();window.riskHistChart=null;} return; }
+    if(window.riskHistChart) window.riskHistChart.destroy();
+    window.riskHistChart = new Chart($('#riskHistChart'),{type:'bar',data:{labels:s.map(x=>x.period),datasets:[
+      {label:'고위험',data:s.map(x=>x.high),backgroundColor:'rgba(239,68,68,.75)',stack:'a'},
+      {label:'주의',data:s.map(x=>x.medium),backgroundColor:'rgba(245,158,11,.75)',stack:'a'},
+      {label:'안정',data:s.map(x=>x.low),backgroundColor:'rgba(16,185,129,.75)',stack:'a'}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#94a3b8',font:{size:11},boxWidth:12}}},
+      scales:{x:{stacked:true,ticks:{color:'#64748b',font:{size:11}},grid:{color:'rgba(51,65,85,.4)'}},y:{stacked:true,ticks:{color:'#64748b',font:{size:10}},grid:{color:'rgba(51,65,85,.4)'}}}}});
+  }catch(e){}
+}
+loadOverview(); loadSegments(); loadRiskHistory();
+</script>
+</body>
+</html>

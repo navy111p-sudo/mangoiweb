@@ -197,7 +197,8 @@
             background-attachment: scroll, fixed, scroll;
         }
         /* 우주 데코 - 떠다니는 행성/은하 (홈 화면 전용, 클릭 차단 없음) */
-        .deco-galaxy, .deco-saturn, .deco-mini-galaxies {
+        .deco-galaxy, .lobby-deco-galaxy { display: none !important; }
+        .deco-saturn, .deco-mini-galaxies {
             position: absolute;
             pointer-events: none;
             z-index: 1;
@@ -325,22 +326,20 @@
             width: 80px; height: 1.5px;
             background: linear-gradient(to right, rgba(255,255,255,0.7), transparent);
         }
-        /* ═══════ 🧑‍🚀 우주비행사 — 멀리서 다가오며 떠다님 (사진 이미지) ═══════ */
+        /* ═══════ 🧑‍🚀 우주비행사 (망고 우주인 이미지) — 왼쪽 위, 멀리서 다가옴 ═══════ */
         .astronaut-wrap {
             position: absolute;
-            top: 35%;
-            right: 8%;
-            width: 180px;
-            height: 240px;
+            top: 15%;
+            right: 2%;
+            width: 900px;
+            height: 1175px;
             z-index: 3;
             pointer-events: none;
             transform-origin: center center;
-            /* 진입 애니메이션: 멀리서 다가오기 (12초) + 이후 떠다님 무한 반복 */
+            /* 진입 애니메이션: 빠르게 다가오기 (4초) + 이후 떠다님 — 약 2배 크게(얼굴 클로즈업) */
             animation:
-              astroApproach 12s cubic-bezier(0.25, 0.1, 0.3, 1) forwards,
-              astroFloat 9s ease-in-out 12s infinite,
-              astroDrift 18s ease-in-out 12s infinite,
-              astroRotate 25s ease-in-out 12s infinite;
+              astroApproach 4s cubic-bezier(0.22, 0.7, 0.3, 1) forwards,
+              astroIdle 16s ease-in-out 4s infinite;
             filter:
               drop-shadow(0 18px 36px rgba(0,0,0,0.55))
               drop-shadow(0 0 22px rgba(251,191,36,0.30))
@@ -357,37 +356,29 @@
         }
         /* ── 멀리서 다가오는 진입 애니메이션 ── */
         @keyframes astroApproach {
-            0%   { transform: translate(-60vw, -40vh) scale(0.04) rotate(-12deg); opacity: 0; filter: blur(2px) brightness(0.6); }
+            0%   { transform: translate(60vw, -40vh) scale(0.04) rotate(12deg); opacity: 0; filter: blur(2px) brightness(0.6); }
             8%   { opacity: 0.6; filter: blur(1.2px) brightness(0.75); }
-            22%  { transform: translate(-38vw, -22vh) scale(0.18) rotate(-7deg); opacity: 0.85; filter: blur(0.6px) brightness(0.9); }
-            45%  { transform: translate(-18vw, -8vh) scale(0.42) rotate(-3deg); opacity: 1; filter: blur(0) brightness(1); }
-            72%  { transform: translate(-4vw, 4vh) scale(0.78) rotate(2deg); opacity: 1; }
+            22%  { transform: translate(38vw, -22vh) scale(0.18) rotate(7deg); opacity: 0.85; filter: blur(0.6px) brightness(0.9); }
+            45%  { transform: translate(18vw, -8vh) scale(0.42) rotate(3deg); opacity: 1; filter: blur(0) brightness(1); }
+            72%  { transform: translate(4vw, 4vh) scale(0.78) rotate(-2deg); opacity: 1; }
             100% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; filter: blur(0) brightness(1); }
         }
-        @keyframes astroFloat {
-            0%, 100% { transform: translateY(0) translateX(0) scale(1); }
-            25%      { transform: translateY(-22px) translateX(8px) scale(1); }
-            50%      { transform: translateY(-10px) translateX(-12px) scale(1); }
-            75%      { transform: translateY(-26px) translateX(6px) scale(1); }
-        }
-        @keyframes astroDrift {
-            0%, 100% { margin-left: 0; }
-            33%      { margin-left: 22px; }
-            66%      { margin-left: -16px; }
-        }
-        @keyframes astroRotate {
-            0%, 100% { rotate: 0deg; }
-            25%      { rotate: 8deg; }
-            50%      { rotate: -5deg; }
-            75%      { rotate: 10deg; }
+        /* ── 자연스러운 무중력 부유 (부드러운 단일 애니메이션) ── */
+        @keyframes astroIdle {
+            0%   { transform: translate(0px, 0px) rotate(0deg); }
+            20%  { transform: translate(-12px, -18px) rotate(-2deg); }
+            40%  { transform: translate(9px, -28px) rotate(1.5deg); }
+            60%  { transform: translate(14px, -14px) rotate(2deg); }
+            80%  { transform: translate(-7px, -22px) rotate(-1.5deg); }
+            100% { transform: translate(0px, 0px) rotate(0deg); }
         }
         /* 태블릿 */
         @media (max-width: 980px) and (min-width: 641px) {
-            .astronaut-wrap { width: 150px; height: 200px; right: 6%; top: 30%; }
+            .astronaut-wrap { width: 320px; height: 420px; right: 1%; top: 6%; }
         }
         /* 모바일 — 강아지 우주비행사 완전 숨김 (사용자 요청: 모바일 너무 복잡) */
         @media (max-width: 640px) {
-            .astronaut-wrap { display: none !important; }
+            .astronaut-wrap { width: 92px; height: 122px; right: 1%; top: 4%; opacity: 0.96; }
         }
 
         /* ═══════ 🚀 우주선 (영화 수준 vivid) ═══════ */
@@ -1066,6 +1057,21 @@
         .ctrl-btn.off { background: rgba(239,68,68,0.2); color: #ef4444; }
         .ctrl-btn.danger { background: #ef4444; color: #fff; }
         .ctrl-btn.danger:hover { background: #dc2626; }
+        .ctrl-select {
+            height: 42px; max-width: 190px;
+            padding: 0 30px 0 14px;
+            border-radius: 21px;
+            border: 1px solid rgba(148,163,184,0.28);
+            background-color: rgba(148,163,184,0.15);
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>');
+            background-repeat: no-repeat; background-position: right 11px center;
+            color: #e2e8f0; font-size: 0.82rem; font-weight: 600;
+            -webkit-appearance: none; -moz-appearance: none; appearance: none;
+            cursor: pointer; transition: all 0.2s; outline: none;
+        }
+        .ctrl-select:hover { background-color: rgba(148,163,184,0.28); }
+        .ctrl-select:focus { border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,0.3); }
+        .ctrl-select option { background: #1e293b; color: #e2e8f0; }
 
         /* 연결 상태 표시 */
         .status-dot {
@@ -1729,6 +1735,16 @@
             z-index: 100;
         }
         .chat-panel.open { transform: translateX(0); }
+        /* 🔥 ④ 비디오 렌더링 GPU 최적화 — 별도 합성 레이어로 분리해 재페인트 최소화 */
+        #vc-video-grid video, .video-box video, #vc-local-box video {
+            object-fit: cover;
+            transform: translateZ(0);
+            will-change: transform;
+            backface-visibility: hidden;
+            contain: layout paint;
+        }
+        /* 비디오에 그림자·블러 금지 (매 프레임 GPU 재계산 = 발열 주범) */
+        .video-box { box-shadow: none !important; }
         .chat-header {
             display: flex;
             align-items: center;
@@ -1957,7 +1973,30 @@
                 padding:4px 6px; font-size:0.8rem;
             }
             .vp-floating { width:220px; height:140px; right:8px; bottom:70px; }
-            .chat-panel { width: 100%; }
+            /* 📱 채팅: 화면 전체 대신 1/3만 차지 — 수업 화면이 계속 보이게 */
+            /* 세로(포트레이트): 하단 시트, 높이 1/3 */
+            .chat-panel {
+                width: 100%;
+                top: auto; bottom: 0; right: 0;
+                height: 33vh; min-height: 220px;
+                border-left: 0;
+                border-top: 1.5px solid rgba(148,163,184,0.3);
+                border-radius: 14px 14px 0 0;
+                transform: translateY(100%);
+                box-shadow: 0 -10px 30px rgba(0,0,0,0.45);
+            }
+            .chat-panel.open { transform: translateY(0); }
+            /* 가로(랜드스케이프): 우측 패널, 폭 1/3 */
+            @media (orientation: landscape) {
+                .chat-panel {
+                    top: 0; bottom: auto; height: 100vh; min-height: 0;
+                    width: 33vw; min-width: 240px;
+                    border-top: 0; border-left: 1px solid rgba(148,163,184,0.25);
+                    border-radius: 0;
+                    transform: translateX(100%);
+                }
+                .chat-panel.open { transform: translateX(0); }
+            }
         }
         @media (max-width: 640px) {
             .video-area { grid-template-columns: 1fr; }
@@ -1968,6 +2007,7 @@
             .toolbar { flex-wrap:wrap; padding:4px 6px; gap:4px; }
             .toolbar-left, .toolbar-center, .toolbar-right { gap:4px; }
             .ctrl-btn { padding:6px 8px; font-size:0.9rem; }
+            .ctrl-select { max-width:130px; height:36px; font-size:0.76rem; padding:0 26px 0 10px; }
             .room-info { font-size:0.8rem; }
             .lobby-box { padding:1.8rem 1.2rem 1.4rem; width:92%; border-radius:20px; }
             .lobby-box h1 { font-size:1.55rem; }
@@ -2496,9 +2536,15 @@
                 overflow: hidden !important;
             }
             #vc-video-grid .video-box video { object-fit: cover !important; }
-            /* 1명일 때는 한 개를 넓게(가운데) */
-            #vc-video-grid[data-count="1"] { grid-template-columns: 1fr !important; justify-items: center !important; }
-            #vc-video-grid[data-count="1"] .video-box { width: min(82vw, 360px) !important; }
+            /* 1명일 때는 얼굴 화면이 칠판 위 영역 전체 폭을 채움 */
+            #vc-video-grid[data-count="1"] { grid-template-columns: 1fr !important; justify-items: stretch !important; }
+            #vc-video-grid[data-count="1"] .video-box,
+            #vc-video-grid .video-box:only-child {
+                grid-column: 1 / -1 !important;
+                width: 100% !important;
+                aspect-ratio: 16 / 9 !important;
+                max-height: 27vh !important;
+            }
             /* 5명 이상은 3열 */
             #vc-video-grid[data-count="5"],
             #vc-video-grid[data-count="6"],
@@ -2816,6 +2862,54 @@
 
 </head>
 <body>
+<!-- 🍔 모바일 좌측 슬라이드 사이드바 (터치로 열고/닫기) -->
+<div id="mg-drawer-overlay" onclick="mgDrawerClose()"></div>
+<aside id="mg-drawer" aria-label="메뉴 사이드바">
+  <div class="mg-drawer-head">
+    <span class="mg-drawer-logo">🥭 Mangoi</span>
+    <button class="mg-drawer-x" onclick="mgDrawerClose()" aria-label="닫기">✕</button>
+  </div>
+  <nav class="mg-drawer-nav">
+    <button onclick="mgGo('about')">🥭 망고아이란?</button>
+    <button onclick="mgGo('admin')">📊 관리자</button>
+    <button onclick="mgGo('mypage')">👤 마이페이지</button>
+    <button onclick="mgGo('points-shop')">🎁 포인트상점</button>
+    <button onclick="mgGo('speech')">🎤 단계별 발음</button>
+    <button onclick="mgGo('lesson-change')">📅 연기/변경</button>
+    <button onclick="mgGo('inquiry')">💬 신규상담</button>
+    <button onclick="mgGo('precheck')">🎥 수업 진단</button>
+    <button onclick="mgGo('booking')">📝 수업 신청</button>
+    <button onclick="mgDrawerClose();if(window.gridActions&&window.gridActions.teachers)window.gridActions.teachers();">👨‍🏫 교사 소개</button>
+    <button onclick="mgGo('all-menu')">🏠 전체메뉴</button>
+  </nav>
+  <button id="mg-drawer-tab" onclick="mgDrawerToggle()" aria-label="메뉴 열기/닫기"><span id="mg-tab-label">열림</span></button>
+</aside>
+<style>
+  #mg-drawer{position:fixed;top:0;left:0;height:100%;width:250px;max-width:80vw;background:rgba(11,16,32,0.22);-webkit-backdrop-filter:blur(10px) saturate(130%);backdrop-filter:blur(10px) saturate(130%);box-shadow:6px 0 24px rgba(0,0,0,.3);transform:translateX(-100%);transition:transform .32s cubic-bezier(.4,0,.2,1);z-index:100000;display:flex;flex-direction:column;font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;border-right:1px solid rgba(251,191,36,.25)}
+  #mg-drawer.open{transform:translateX(0)}
+  #mg-drawer-overlay{position:fixed;inset:0;background:rgba(2,6,18,.55);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);opacity:0;visibility:hidden;transition:opacity .3s;z-index:99999}
+  #mg-drawer-overlay.open{opacity:1;visibility:visible}
+  .mg-drawer-head{display:flex;align-items:center;justify-content:space-between;padding:18px 16px 12px;border-bottom:1px solid rgba(255,255,255,.08)}
+  .mg-drawer-logo{font-size:18px;font-weight:800;color:#fbbf24;letter-spacing:.3px}
+  .mg-drawer-x{background:rgba(255,255,255,.08);border:0;color:#cbd5e1;width:30px;height:30px;border-radius:8px;font-size:15px;cursor:pointer}
+  .mg-drawer-nav{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+  .mg-drawer-nav button{text-align:left;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);color:#e2e8f0;padding:12px 14px;border-radius:11px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s,transform .1s}
+  .mg-drawer-nav button:active{background:rgba(251,191,36,.18);transform:scale(.98)}
+  .mg-drawer-cta{padding:12px;display:flex;flex-direction:column;gap:8px;border-top:1px solid rgba(255,255,255,.08)}
+  .mg-cta{border:0;border-radius:12px;padding:13px;font-size:15px;font-weight:800;cursor:pointer;color:#1a1a1a;background:linear-gradient(135deg,#fde68a,#f59e0b)}
+  .mg-cta.enter{background:linear-gradient(135deg,#fbbf24,#d97706)}
+  #mg-drawer-tab{position:absolute;right:-46px;top:50%;transform:translateY(-50%);width:44px;height:78px;border:1px solid rgba(245,158,11,0.30);border-left:0;border-radius:0 14px 14px 0;background:transparent;color:#f59e0b;font-size:14px;font-weight:800;cursor:pointer;box-shadow:2px 1px 8px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;padding:0;-webkit-tap-highlight-color:transparent}
+  #mg-drawer-tab #mg-tab-label{writing-mode:vertical-rl;text-orientation:upright;font-size:14px;font-weight:800;letter-spacing:1px;line-height:1.15}
+  .ai-quick{display:none !important}
+</style>
+<script>
+  function mgSetLabel(open){var l=document.getElementById('mg-tab-label');if(l)l.textContent=open?'닫힘':'열림';}
+  window.mgDrawerToggle=function(){var d=document.getElementById('mg-drawer'),o=document.getElementById('mg-drawer-overlay');var open=d.classList.toggle('open');o.classList.toggle('open',open);mgSetLabel(open);};
+  window.mgDrawerClose=function(){var d=document.getElementById('mg-drawer'),o=document.getElementById('mg-drawer-overlay');if(d)d.classList.remove('open');if(o)o.classList.remove('open');mgSetLabel(false);};
+  window.mgClick=function(sel){var b=document.querySelector(sel);if(b)b.click();mgDrawerClose();};
+  window.mgGo=function(go){var b=document.querySelector('.ai-quick-btn[data-go="'+go+'"]')||document.querySelector('.gm-card[data-go="'+go+'"]');if(b)b.click();mgDrawerClose();};
+</script>
+
 
 <!-- ================================================================
      [화면 1] 메인 대시보드 (홈)
@@ -3480,8 +3574,6 @@
     <div id="starfield"></div>
 
     <!-- 🌌 Phase 8: 우주 데코 (좌상단 나선은하 + 우상단 토성 + 우하단 작은 은하들) -->
-    <img class="deco-galaxy" src="/img/spiral-galaxy.png" alt="" aria-hidden="true"
-         onerror="this.style.display='none'" />
     <img class="deco-saturn" src="/img/saturn.png" alt="" aria-hidden="true"
          onerror="this.style.display='none'" />
     <div class="deco-mini-galaxies" aria-hidden="true">
@@ -3699,407 +3791,7 @@
 
     <!-- 🐶 마티즈 우주비행사 (입체감 강화 — 다층 그라데이션 + 명암 + 하이라이트) -->
     <div id="astronaut" class="astronaut-wrap" aria-hidden="true">
-      <svg viewBox="0 0 240 360" xmlns="http://www.w3.org/2000/svg" class="astronaut-svg" style="width:100%;height:100%;display:block;overflow:visible">
-        <defs>
-          <!-- 우주복 — 구면 그라데이션(왼쪽 위 광원) -->
-          <radialGradient id="suit3D" cx="32%" cy="22%" r="85%">
-            <stop offset="0%"   stop-color="#fefae0"/>
-            <stop offset="30%"  stop-color="#f3e9b0"/>
-            <stop offset="60%"  stop-color="#d4c279"/>
-            <stop offset="85%"  stop-color="#9c8744"/>
-            <stop offset="100%" stop-color="#6b5a25"/>
-          </radialGradient>
-          <!-- 팔 (실린더) 좌측 -->
-          <linearGradient id="armL" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%"   stop-color="#8c7637"/>
-            <stop offset="35%"  stop-color="#e8d997"/>
-            <stop offset="60%"  stop-color="#fefae0"/>
-            <stop offset="100%" stop-color="#b39e54"/>
-          </linearGradient>
-          <linearGradient id="armR" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%"   stop-color="#b39e54"/>
-            <stop offset="40%"  stop-color="#fefae0"/>
-            <stop offset="65%"  stop-color="#e8d997"/>
-            <stop offset="100%" stop-color="#8c7637"/>
-          </linearGradient>
-          <!-- 헬멧(투명 구) — 다층 광택 -->
-          <radialGradient id="helmet3D" cx="30%" cy="22%" r="80%">
-            <stop offset="0%"   stop-color="#ffffff"/>
-            <stop offset="25%"  stop-color="#f3f8ff"/>
-            <stop offset="60%"  stop-color="#cbd5e1"/>
-            <stop offset="90%"  stop-color="#64748b"/>
-            <stop offset="100%" stop-color="#334155"/>
-          </radialGradient>
-          <!-- 바이저 — 골드 글래스 (투과+반사) -->
-          <radialGradient id="visor3D" cx="32%" cy="25%" r="85%">
-            <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.95"/>
-            <stop offset="18%"  stop-color="#fff5d6" stop-opacity="0.8"/>
-            <stop offset="45%"  stop-color="#fde68a" stop-opacity="0.55"/>
-            <stop offset="72%"  stop-color="#f59e0b" stop-opacity="0.42"/>
-            <stop offset="92%"  stop-color="#9a3412" stop-opacity="0.7"/>
-            <stop offset="100%" stop-color="#451a03" stop-opacity="0.85"/>
-          </radialGradient>
-          <!-- 마티즈 흰털 — 머리 본체 (구) -->
-          <radialGradient id="fur3D" cx="38%" cy="28%" r="78%">
-            <stop offset="0%"   stop-color="#ffffff"/>
-            <stop offset="25%"  stop-color="#fdfcf8"/>
-            <stop offset="55%"  stop-color="#f0ece0"/>
-            <stop offset="80%"  stop-color="#d4cdb8"/>
-            <stop offset="100%" stop-color="#9c9580"/>
-          </radialGradient>
-          <!-- 귀 — 드리운 입체감 -->
-          <linearGradient id="earL" x1="100%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%"   stop-color="#9c9580"/>
-            <stop offset="30%"  stop-color="#d4cdb8"/>
-            <stop offset="60%"  stop-color="#f8f5ec"/>
-            <stop offset="100%" stop-color="#ffffff"/>
-          </linearGradient>
-          <linearGradient id="earR" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%"   stop-color="#ffffff"/>
-            <stop offset="40%"  stop-color="#f8f5ec"/>
-            <stop offset="70%"  stop-color="#d4cdb8"/>
-            <stop offset="100%" stop-color="#9c9580"/>
-          </linearGradient>
-          <!-- 머즐(주둥이) — 살짝 튀어나오게 -->
-          <radialGradient id="muzzle3D" cx="50%" cy="35%" r="65%">
-            <stop offset="0%"   stop-color="#ffffff"/>
-            <stop offset="55%"  stop-color="#fbf9f3"/>
-            <stop offset="100%" stop-color="#e0d9c4"/>
-          </radialGradient>
-          <!-- 코 — 글로시 검정(3D 비드) -->
-          <radialGradient id="nose3D" cx="32%" cy="28%" r="75%">
-            <stop offset="0%"   stop-color="#a3a3a3"/>
-            <stop offset="20%"  stop-color="#525252"/>
-            <stop offset="55%"  stop-color="#1c1c1c"/>
-            <stop offset="100%" stop-color="#000000"/>
-          </radialGradient>
-          <!-- 눈 — 단추 비드 -->
-          <radialGradient id="eye3D" cx="30%" cy="25%" r="80%">
-            <stop offset="0%"   stop-color="#9a8466"/>
-            <stop offset="22%"  stop-color="#3a2a1a"/>
-            <stop offset="55%"  stop-color="#0a0604"/>
-            <stop offset="100%" stop-color="#000000"/>
-          </radialGradient>
-          <!-- 백팩(PLSS) -->
-          <linearGradient id="plss3D" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%"   stop-color="#ffffff"/>
-            <stop offset="40%"  stop-color="#dde2eb"/>
-            <stop offset="100%" stop-color="#6b7280"/>
-          </linearGradient>
-          <linearGradient id="plssSide" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%"   stop-color="#475569"/>
-            <stop offset="100%" stop-color="#0f172a"/>
-          </linearGradient>
-          <!-- 장갑 -->
-          <radialGradient id="glove3D" cx="32%" cy="28%" r="80%">
-            <stop offset="0%"   stop-color="#6b7280"/>
-            <stop offset="40%"  stop-color="#1f2937"/>
-            <stop offset="100%" stop-color="#000000"/>
-          </radialGradient>
-          <!-- 그림자(투영) -->
-          <radialGradient id="groundShadow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%"   stop-color="#000000" stop-opacity="0.5"/>
-            <stop offset="60%"  stop-color="#000000" stop-opacity="0.18"/>
-            <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
-          </radialGradient>
-          <!-- 부드러운 그림자 필터 -->
-          <filter id="bodyShadow" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
-            <feOffset dx="2" dy="4"/>
-            <feComponentTransfer><feFuncA type="linear" slope="0.45"/></feComponentTransfer>
-            <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
-          </filter>
-          <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur stdDeviation="1.5"/>
-          </filter>
-          <!-- 헬멧 표면 specular -->
-          <filter id="helmetSpec" x="-20%" y="-20%" width="140%" height="140%">
-            <feSpecularLighting result="spec" surfaceScale="3" specularConstant="0.6" specularExponent="20" lighting-color="#ffffff">
-              <fePointLight x="-30" y="-50" z="120"/>
-            </feSpecularLighting>
-            <feComposite in="spec" in2="SourceGraphic" operator="in" result="specMask"/>
-            <feComposite in="SourceGraphic" in2="specMask" operator="arithmetic" k1="0" k2="1" k3="1" k4="0"/>
-          </filter>
-        </defs>
-
-        <!-- ━━━ 0. 바닥 그림자 (투영) ━━━ -->
-        <ellipse cx="120" cy="338" rx="72" ry="8" fill="url(#groundShadow)"/>
-
-        <!-- ━━━ 1. 백팩 (어깨 뒤) — 깊이감 ━━━ -->
-        <!-- 그림자(뒤) -->
-        <rect x="62" y="138" width="120" height="100" rx="14" fill="#1f2937" opacity="0.35" filter="url(#softGlow)"/>
-        <!-- 백팩 본체 -->
-        <rect x="60" y="135" width="120" height="100" rx="14" fill="url(#plss3D)" stroke="#5b6472" stroke-width="1.2"/>
-        <!-- 좌우 측면 그림자(입체) -->
-        <rect x="60" y="135" width="8" height="100" rx="3" fill="url(#plssSide)" opacity="0.55"/>
-        <rect x="172" y="135" width="8" height="100" rx="3" fill="url(#plssSide)" opacity="0.55"/>
-        <!-- 상단 하이라이트 -->
-        <rect x="68" y="138" width="104" height="6" rx="3" fill="#ffffff" opacity="0.7"/>
-        <!-- 패널 -->
-        <rect x="68" y="148" width="22" height="14" rx="2" fill="#0f172a"/>
-        <rect x="150" y="148" width="22" height="14" rx="2" fill="#0f172a"/>
-        <rect x="68" y="148" width="22" height="3" rx="1" fill="#475569"/>
-        <rect x="150" y="148" width="22" height="3" rx="1" fill="#475569"/>
-        <!-- LED -->
-        <circle cx="79" cy="180" r="3.2" fill="#10b981"/>
-        <circle cx="78" cy="178.5" r="1" fill="#ecfdf5"/>
-        <circle cx="161" cy="180" r="3.2" fill="#ef4444"/>
-        <circle cx="160" cy="178.5" r="1" fill="#fee2e2"/>
-        <!-- 그릴 -->
-        <line x1="100" y1="200" x2="140" y2="200" stroke="#475569" stroke-width="1"/>
-        <line x1="100" y1="206" x2="140" y2="206" stroke="#475569" stroke-width="1"/>
-        <line x1="100" y1="212" x2="140" y2="212" stroke="#475569" stroke-width="1"/>
-
-        <!-- ━━━ 2. 우주복 — 몸통(둥근 구면) ━━━ -->
-        <path d="M70 160 Q70 250 80 280 L160 280 Q170 250 170 160 Q170 145 155 142 L85 142 Q70 145 70 160 Z"
-              fill="url(#suit3D)" stroke="#6b5a25" stroke-width="1.4"/>
-        <!-- 측면 그림자 -->
-        <path d="M70 160 Q70 250 80 280 L88 280 Q82 250 82 162 Q82 150 92 144 L85 142 Q70 145 70 160 Z" fill="#6b5a25" opacity="0.35"/>
-        <path d="M170 160 Q170 250 160 280 L152 280 Q158 250 158 162 Q158 150 148 144 L155 142 Q170 145 170 160 Z" fill="#6b5a25" opacity="0.25"/>
-        <!-- 중앙 광택 -->
-        <ellipse cx="106" cy="180" rx="14" ry="42" fill="#ffffff" opacity="0.45"/>
-        <!-- 패널 라인 -->
-        <line x1="120" y1="150" x2="120" y2="278" stroke="#475569" stroke-width="0.8" stroke-dasharray="3,2" opacity="0.7"/>
-        <!-- 미션 패치 -->
-        <circle cx="98" cy="195" r="13.5" fill="#1e3a8a" stroke="#fbbf24" stroke-width="1.6"/>
-        <circle cx="95" cy="192" r="4" fill="#3b82f6" opacity="0.7"/>
-        <text x="98" y="200" text-anchor="middle" fill="#fef3c7" font-size="11" font-weight="bold" font-family="Arial, sans-serif">🐾</text>
-        <!-- 🇰🇷 태극기 (Taegukgi) -->
-        <rect x="135" y="186" width="26" height="16" rx="1.5" fill="#ffffff" stroke="#1f2937" stroke-width="0.6"/>
-        <!-- 태극 — 음양 곡선 (빨강 위, 파랑 아래) -->
-        <g transform="rotate(-33 148 194)">
-          <circle cx="148" cy="194" r="5" fill="#ffffff"/>
-          <path d="M 143 194 A 5 5 0 0 1 153 194 A 2.5 2.5 0 0 0 148 194 A 2.5 2.5 0 0 1 143 194 Z" fill="#cd2e3a"/>
-          <path d="M 143 194 A 5 5 0 0 0 153 194 A 2.5 2.5 0 0 1 148 194 A 2.5 2.5 0 0 0 143 194 Z" fill="#0047a0"/>
-        </g>
-        <!-- 4괘: 건(☰) 상좌, 감(☵) 상우, 리(☲) 하좌, 곤(☷) 하우 -->
-        <!-- 건 ☰ (3 solid) — 좌상 -->
-        <rect x="137" y="188"   width="5" height="0.5" fill="#000"/>
-        <rect x="137" y="189.5" width="5" height="0.5" fill="#000"/>
-        <rect x="137" y="191"   width="5" height="0.5" fill="#000"/>
-        <!-- 감 ☵ (broken-solid-broken) — 우상 -->
-        <rect x="154" y="188"   width="2" height="0.5" fill="#000"/>
-        <rect x="157" y="188"   width="2" height="0.5" fill="#000"/>
-        <rect x="154" y="189.5" width="5" height="0.5" fill="#000"/>
-        <rect x="154" y="191"   width="2" height="0.5" fill="#000"/>
-        <rect x="157" y="191"   width="2" height="0.5" fill="#000"/>
-        <!-- 리 ☲ (solid-broken-solid) — 좌하 -->
-        <rect x="137" y="197"   width="5" height="0.5" fill="#000"/>
-        <rect x="137" y="198.5" width="2" height="0.5" fill="#000"/>
-        <rect x="140" y="198.5" width="2" height="0.5" fill="#000"/>
-        <rect x="137" y="200"   width="5" height="0.5" fill="#000"/>
-        <!-- 곤 ☷ (3 broken) — 우하 -->
-        <rect x="154" y="197"   width="2" height="0.5" fill="#000"/>
-        <rect x="157" y="197"   width="2" height="0.5" fill="#000"/>
-        <rect x="154" y="198.5" width="2" height="0.5" fill="#000"/>
-        <rect x="157" y="198.5" width="2" height="0.5" fill="#000"/>
-        <rect x="154" y="200"   width="2" height="0.5" fill="#000"/>
-        <rect x="157" y="200"   width="2" height="0.5" fill="#000"/>
-
-        <!-- ━━━ 3. 컨트롤 패널 (아랫배) ━━━ -->
-        <rect x="92" y="232" width="56" height="22" rx="3" fill="#e5e7eb" stroke="#475569" stroke-width="0.8"/>
-        <rect x="92" y="232" width="56" height="3" rx="1" fill="#ffffff"/>
-        <rect x="92" y="251" width="56" height="3" rx="1" fill="#9aa3b1" opacity="0.6"/>
-        <circle cx="102" cy="243" r="2.8" fill="#dc2626"/>
-        <circle cx="101" cy="241.5" r="0.9" fill="#fee2e2"/>
-        <circle cx="112" cy="243" r="2.8" fill="#fbbf24"/>
-        <circle cx="111" cy="241.5" r="0.9" fill="#fef3c7"/>
-        <circle cx="122" cy="243" r="2.8" fill="#10b981"/>
-        <circle cx="121" cy="241.5" r="0.9" fill="#ecfdf5"/>
-        <rect x="130" y="239" width="14" height="8" rx="1" fill="#0f172a"/>
-        <rect x="131" y="240" width="12" height="2" rx="0.5" fill="#06b6d4" opacity="0.7"/>
-
-        <!-- ━━━ 4. 팔 (실린더 입체) ━━━ -->
-        <path d="M70 165 Q55 200 60 240 Q62 252 76 250 Q72 220 80 175 Z" fill="url(#armL)" stroke="#6b5a25" stroke-width="1.2"/>
-        <g class="dog-wave-arm">
-          <!-- 👋 흔드는 우측 팔 (들어올린 자세) -->
-          <animateTransform attributeName="transform" type="rotate"
-            values="-8 170 165; 18 170 165; -8 170 165"
-            dur="1.4s" repeatCount="indefinite"/>
-          <path d="M170 165 Q190 145 200 110 Q205 100 213 105 Q208 145 180 175 Z" fill="url(#armR)" stroke="#6b5a25" stroke-width="1.2"/>
-          <!-- 들어올린 앞발 -->
-          <ellipse cx="213" cy="95" rx="14" ry="12" fill="url(#fur3D)" stroke="#c4bda8" stroke-width="0.8"/>
-          <ellipse cx="213" cy="99" rx="6" ry="4.5" fill="#3a2418"/>
-          <ellipse cx="205" cy="91" rx="2.6" ry="2" fill="#3a2418"/>
-          <ellipse cx="209.5" cy="88.5" rx="2.6" ry="2" fill="#3a2418"/>
-          <ellipse cx="216.5" cy="88.5" rx="2.6" ry="2" fill="#3a2418"/>
-          <ellipse cx="221" cy="91" rx="2.6" ry="2" fill="#3a2418"/>
-          <ellipse cx="204" cy="88.5" rx="1" ry="0.7" fill="#fdfcf8"/>
-          <ellipse cx="208.5" cy="85.5" rx="1" ry="0.7" fill="#fdfcf8"/>
-          <ellipse cx="217.5" cy="85.5" rx="1" ry="0.7" fill="#fdfcf8"/>
-          <ellipse cx="222" cy="88.5" rx="1" ry="0.7" fill="#fdfcf8"/>
-          <ellipse cx="211.5" cy="98" rx="2.5" ry="1.2" fill="#6b4030" opacity="0.7"/>
-        </g>
-        <!-- 팔꿈치 주름 -->
-        <path d="M61 205 Q66 207 72 205" stroke="#9aa3b1" stroke-width="0.6" fill="none" opacity="0.6"/>
-        <path d="M179 205 Q174 207 168 205" stroke="#9aa3b1" stroke-width="0.6" fill="none" opacity="0.6"/>
-        <!-- 장갑 (구체 입체) -->
-        <g>
-          <ellipse cx="64" cy="258" rx="14" ry="12" fill="url(#fur3D)" stroke="#c4bda8" stroke-width="0.8"/>
-          <ellipse cx="64" cy="262" rx="6" ry="4.5" fill="#3a2418"/>
-          <ellipse cx="56" cy="254" rx="2.6" ry="2" fill="#3a2418"/>
-          <ellipse cx="60.5" cy="251.5" rx="2.6" ry="2" fill="#3a2418"/>
-          <ellipse cx="67.5" cy="251.5" rx="2.6" ry="2" fill="#3a2418"/>
-          <ellipse cx="72" cy="254" rx="2.6" ry="2" fill="#3a2418"/>
-          <ellipse cx="55" cy="251.5" rx="1" ry="0.7" fill="#fdfcf8"/>
-          <ellipse cx="59.5" cy="248.5" rx="1" ry="0.7" fill="#fdfcf8"/>
-          <ellipse cx="68.5" cy="248.5" rx="1" ry="0.7" fill="#fdfcf8"/>
-          <ellipse cx="73" cy="251.5" rx="1" ry="0.7" fill="#fdfcf8"/>
-          <ellipse cx="62.5" cy="261" rx="2.5" ry="1.2" fill="#6b4030" opacity="0.7"/>
-        </g>
-        <!-- 우측 앞발은 dog-wave-arm 그룹 안으로 이동됨 -->
-        <!-- 손목 링 -->
-        <ellipse cx="64" cy="246" rx="11" ry="3" fill="#475569"/>
-        <ellipse cx="176" cy="246" rx="11" ry="3" fill="#475569"/>
-
-        <!-- ━━━ 4-B. 다리 (실린더) ━━━ -->
-        <!-- 좌측 다리 -->
-        <path d="M88 280 Q86 295 88 310 Q90 320 100 320 Q104 305 102 280 Z"
-              fill="url(#armL)" stroke="#6b5a25" stroke-width="1.2"/>
-        <!-- 우측 다리 -->
-        <path d="M152 280 Q154 295 152 310 Q150 320 140 320 Q136 305 138 280 Z"
-              fill="url(#armR)" stroke="#6b5a25" stroke-width="1.2"/>
-        <!-- 다리 무릎 주름 -->
-        <path d="M89 297 Q94 299 101 297" stroke="#9c8744" stroke-width="0.6" fill="none" opacity="0.6"/>
-        <path d="M151 297 Q146 299 139 297" stroke="#9c8744" stroke-width="0.6" fill="none" opacity="0.6"/>
-
-        <!-- ━━━ 4-C. 발(부츠) ━━━ -->
-        <!-- 좌측 뒷발 -->
-        <g>
-          <ellipse cx="94" cy="319" rx="9" ry="4" fill="url(#fur3D)" stroke="#c4bda8" stroke-width="0.7"/>
-          <ellipse cx="94" cy="328" rx="14" ry="6" fill="url(#fur3D)" stroke="#c4bda8" stroke-width="0.9"/>
-          <ellipse cx="94" cy="332" rx="7" ry="2" fill="#3a2418" opacity="0.85"/>
-          <ellipse cx="84" cy="326" rx="2.2" ry="1.7" fill="#3a2418"/>
-          <ellipse cx="89" cy="324.5" rx="2.2" ry="1.7" fill="#3a2418"/>
-          <ellipse cx="99" cy="324.5" rx="2.2" ry="1.7" fill="#3a2418"/>
-          <ellipse cx="104" cy="326" rx="2.2" ry="1.7" fill="#3a2418"/>
-          <ellipse cx="83" cy="324" rx="0.9" ry="0.6" fill="#fdfcf8"/>
-          <ellipse cx="88" cy="322.5" rx="0.9" ry="0.6" fill="#fdfcf8"/>
-          <ellipse cx="100" cy="322.5" rx="0.9" ry="0.6" fill="#fdfcf8"/>
-          <ellipse cx="105" cy="324" rx="0.9" ry="0.6" fill="#fdfcf8"/>
-        </g>
-        <!-- 우측 뒷발 -->
-        <g>
-          <ellipse cx="146" cy="319" rx="9" ry="4" fill="url(#fur3D)" stroke="#c4bda8" stroke-width="0.7"/>
-          <ellipse cx="146" cy="328" rx="14" ry="6" fill="url(#fur3D)" stroke="#c4bda8" stroke-width="0.9"/>
-          <ellipse cx="146" cy="332" rx="7" ry="2" fill="#3a2418" opacity="0.85"/>
-          <ellipse cx="136" cy="326" rx="2.2" ry="1.7" fill="#3a2418"/>
-          <ellipse cx="141" cy="324.5" rx="2.2" ry="1.7" fill="#3a2418"/>
-          <ellipse cx="151" cy="324.5" rx="2.2" ry="1.7" fill="#3a2418"/>
-          <ellipse cx="156" cy="326" rx="2.2" ry="1.7" fill="#3a2418"/>
-          <ellipse cx="135" cy="324" rx="0.9" ry="0.6" fill="#fdfcf8"/>
-          <ellipse cx="140" cy="322.5" rx="0.9" ry="0.6" fill="#fdfcf8"/>
-          <ellipse cx="152" cy="322.5" rx="0.9" ry="0.6" fill="#fdfcf8"/>
-          <ellipse cx="157" cy="324" rx="0.9" ry="0.6" fill="#fdfcf8"/>
-        </g>
-
-        <!-- ━━━ 5. 헬멧 외곽 (구) ━━━ -->
-        <ellipse cx="120" cy="92" rx="68" ry="74" fill="url(#helmet3D)" stroke="#475569" stroke-width="2"/>
-        <!-- 헬멧 림 (그림자 + 하이라이트) -->
-        <ellipse cx="120" cy="142" rx="58" ry="7" fill="#475569"/>
-        <ellipse cx="120" cy="140.5" rx="55" ry="3" fill="#cbd5e1" opacity="0.7"/>
-
-        <!-- ━━━ 6. 바이저 (글래스) ━━━ -->
-        <ellipse cx="120" cy="92" rx="56" ry="60" fill="url(#visor3D)" stroke="#7c2d12" stroke-width="1.8"/>
-        <!-- 바이저 안쪽 림 그림자 -->
-        <ellipse cx="120" cy="92" rx="55" ry="59" fill="none" stroke="#451a03" stroke-width="1" opacity="0.6"/>
-
-        <!-- ━━━ 7. 🐶 마티즈 강아지 얼굴 (입체 다층) ━━━ -->
-        <!-- 귀 그림자 (얼굴 뒤) -->
-        <ellipse cx="84" cy="98" rx="20" ry="34" fill="#5b5040" opacity="0.35" transform="rotate(-12 84 98)"/>
-        <ellipse cx="156" cy="98" rx="20" ry="34" fill="#5b5040" opacity="0.35" transform="rotate(12 156 98)"/>
-        <!-- 귀 본체 -->
-        <ellipse cx="82" cy="92" rx="18" ry="32" fill="url(#earL)" stroke="#c4bda8" stroke-width="0.8" transform="rotate(-12 82 92)"/>
-        <ellipse cx="158" cy="92" rx="18" ry="32" fill="url(#earR)" stroke="#c4bda8" stroke-width="0.8" transform="rotate(12 158 92)"/>
-        <!-- 귀 끝 털결 -->
-        <path d="M76 118 Q78 124 80 122 M84 122 Q86 128 88 126" stroke="#a8a08c" stroke-width="0.7" fill="none" opacity="0.7" transform="rotate(-12 82 92)"/>
-        <path d="M152 122 Q154 128 156 126 M160 122 Q162 128 164 126" stroke="#a8a08c" stroke-width="0.7" fill="none" opacity="0.7" transform="rotate(12 158 92)"/>
-        <!-- 머리 윗부분 (이마 털) -->
-        <ellipse cx="120" cy="68" rx="42" ry="22" fill="url(#fur3D)" stroke="#c4bda8" stroke-width="0.6"/>
-        <!-- 머리 본체 (구체) -->
-        <ellipse cx="120" cy="98" rx="46" ry="42" fill="url(#fur3D)" stroke="#c4bda8" stroke-width="0.8"/>
-        <!-- 얼굴 좌측 음영 -->
-        <ellipse cx="100" cy="105" rx="20" ry="30" fill="#a8a08c" opacity="0.18"/>
-        <!-- 얼굴 우측 하이라이트 -->
-        <ellipse cx="138" cy="80" rx="14" ry="20" fill="#ffffff" opacity="0.55"/>
-        <!-- 털 결 디테일 -->
-        <path d="M80 75 Q85 70 90 78 M95 65 Q100 60 105 68 M115 60 Q120 56 125 62 M135 64 Q140 60 145 68 M155 73 Q160 70 165 80"
-              stroke="#d4cdb8" stroke-width="1.3" fill="none" opacity="0.85" stroke-linecap="round"/>
-        <path d="M82 110 Q86 116 92 112 M155 110 Q158 116 165 112 M88 130 Q92 134 96 130 M148 130 Q152 134 156 130"
-              stroke="#c4bda8" stroke-width="1" fill="none" opacity="0.7" stroke-linecap="round"/>
-
-        <!-- ━━━ 눈 (3D 단추 비드) ━━━ -->
-        <!-- 눈구멍 그림자 -->
-        <ellipse cx="103" cy="96" rx="7" ry="7.5" fill="#3a2a1a" opacity="0.45"/>
-        <ellipse cx="137" cy="96" rx="7" ry="7.5" fill="#3a2a1a" opacity="0.45"/>
-        <!-- 눈동자 -->
-        <ellipse cx="103" cy="95" rx="6" ry="6.5" fill="url(#eye3D)"/>
-        <ellipse cx="137" cy="95" rx="6" ry="6.5" fill="url(#eye3D)"/>
-        <!-- 메인 하이라이트 -->
-        <circle cx="100.5" cy="91.5" r="2.2" fill="#ffffff" opacity="0.95"/>
-        <circle cx="134.5" cy="91.5" r="2.2" fill="#ffffff" opacity="0.95"/>
-        <!-- 부 하이라이트 -->
-        <circle cx="105" cy="98" r="0.9" fill="#ffffff" opacity="0.75"/>
-        <circle cx="139" cy="98" r="0.9" fill="#ffffff" opacity="0.75"/>
-        <!-- 반사광(아래) -->
-        <ellipse cx="103" cy="100" rx="3" ry="0.8" fill="#fbbf24" opacity="0.45"/>
-        <ellipse cx="137" cy="100" rx="3" ry="0.8" fill="#fbbf24" opacity="0.45"/>
-
-        <!-- ━━━ 머즐 (입체 돌출) ━━━ -->
-        <!-- 머즐 그림자 -->
-        <ellipse cx="120" cy="118" rx="17" ry="12" fill="#a8a08c" opacity="0.35" filter="url(#softGlow)"/>
-        <!-- 머즐 본체 -->
-        <ellipse cx="120" cy="115" rx="16" ry="12" fill="url(#muzzle3D)" stroke="#d4cdb8" stroke-width="0.7"/>
-        <!-- 머즐 상단 광택 -->
-        <ellipse cx="120" cy="111" rx="10" ry="3" fill="#ffffff" opacity="0.7"/>
-
-        <!-- ━━━ 코 (글로시 3D) ━━━ -->
-        <!-- 코 그림자 -->
-        <ellipse cx="120" cy="110" rx="6" ry="4.5" fill="#000" opacity="0.35" filter="url(#softGlow)"/>
-        <!-- 코 본체 -->
-        <ellipse cx="120" cy="108" rx="5.5" ry="4.2" fill="url(#nose3D)"/>
-        <!-- 코 메인 하이라이트 -->
-        <ellipse cx="118" cy="106" rx="1.8" ry="1.2" fill="#ffffff" opacity="0.85"/>
-        <!-- 코 부 하이라이트 -->
-        <circle cx="121" cy="107" r="0.6" fill="#ffffff" opacity="0.6"/>
-
-        <!-- ━━━ 입 + 혀 ━━━ -->
-        <!-- 😄 웃는 입 (활짝 웃음 + 혀) -->
-        <line x1="120" y1="112" x2="120" y2="116" stroke="#3a2a1a" stroke-width="1.5" stroke-linecap="round"/>
-        <!-- 입 외곽 (열린 웃음) -->
-        <path d="M105 117 Q120 134 135 117 Q132 122 120 124 Q108 122 105 117 Z" fill="#1a0808" stroke="#3a2a1a" stroke-width="1.4" stroke-linejoin="round"/>
-        <!-- 윗니 살짝 -->
-        <rect x="113" y="117.5" width="14" height="1.5" rx="0.5" fill="#fdfcf8" opacity="0.95"/>
-        <line x1="116" y1="117.5" x2="116" y2="119" stroke="#9aa3b1" stroke-width="0.3" opacity="0.5"/>
-        <line x1="120" y1="117.5" x2="120" y2="119" stroke="#9aa3b1" stroke-width="0.3" opacity="0.5"/>
-        <line x1="124" y1="117.5" x2="124" y2="119" stroke="#9aa3b1" stroke-width="0.3" opacity="0.5"/>
-        <!-- 큰 분홍 혀 (튀어나옴) -->
-        <path d="M113 122 Q120 134 127 122 Q124 130 120 130 Q116 130 113 122 Z" fill="#ef4444"/>
-        <ellipse cx="120" cy="126" rx="3.5" ry="1.2" fill="#fca5a5" opacity="0.75"/>
-        <line x1="120" y1="124" x2="120" y2="129" stroke="#dc2626" stroke-width="0.4" opacity="0.5"/>
-
-        <!-- ━━━ 볼터치 ━━━ -->
-        <ellipse cx="92" cy="113" rx="5.5" ry="4" fill="#fda4af" opacity="0.5"/>
-        <ellipse cx="148" cy="113" rx="5.5" ry="4" fill="#fda4af" opacity="0.5"/>
-
-        <!-- ━━━ 8. 헬멧 표면 광택(specular) ━━━ -->
-        <!-- 메인 광채 -->
-        <ellipse cx="92" cy="62" rx="16" ry="26" fill="#ffffff" opacity="0.7"/>
-        <ellipse cx="98" cy="52" rx="7" ry="11" fill="#ffffff" opacity="0.95"/>
-        <!-- 우측 보조 반사 -->
-        <ellipse cx="158" cy="115" rx="5" ry="14" fill="#ffffff" opacity="0.35"/>
-        <!-- 하단 림 라이트 -->
-        <ellipse cx="120" cy="142" rx="40" ry="5" fill="#ffffff" opacity="0.55"/>
-
-        <!-- ━━━ 9. 안테나 ━━━ -->
-        <line x1="120" y1="20" x2="120" y2="6" stroke="#475569" stroke-width="1.5"/>
-        <line x1="120" y1="20" x2="120" y2="6" stroke="#cbd5e1" stroke-width="0.5"/>
-        <circle cx="120" cy="4" r="2.5" fill="#dc2626"/>
-        <circle cx="119" cy="3" r="0.9" fill="#fee2e2"/>
-
-        <!-- ━━━ 10. 주변 글로우 ━━━ -->
-        <ellipse cx="120" cy="92" rx="64" ry="68" fill="#fde68a" opacity="0.05"/>
-      </svg>
+      <img src="/img/astronaut.png" class="astronaut-img" alt="망고 우주비행사" />
     </div>
 
     <script>
@@ -4135,12 +3827,12 @@
     })();
     </script>
     <script>
-    // 🌐 v2 — 5 languages: KO → EN → ZH → JA → VI (cycle)
-    var LANG_CYCLE = ['ko','en','zh','ja','vi'];
-    var LANG_LABEL = { ko:'KO', en:'EN', zh:'ZH', ja:'JA', vi:'VI' };
-    var HOME_SUBTITLE = { ko:'Mangoi 화상솔루션', en:'Mangoi Video Solution', zh:'Mangoi 视频解决方案', ja:'Mangoi ビデオソリューション', vi:'Giải pháp Video Mangoi' };
-    var HOME_CARD_BADGE = { ko:'다자간 통화', en:'Multi-party Call', zh:'多方通话', ja:'多人数通話', vi:'Cuộc gọi nhóm' };
-    var HOME_CARD_TITLE = { ko:'화상통화 + (칠판·채팅·동영상)', en:'Video Call + (Board·Chat·Video)', zh:'视频通话+(黑板·聊天·视频)', ja:'ビデオ通話+(黒板·チャット·動画)', vi:'Gọi video + (Bảng·Chat·Video)' };
+    // 🌐 KO ↔ EN 만 순환 (중국어·일본어·베트남어 제외)
+    var LANG_CYCLE = ['ko','en'];  // 한국어·영어만 순환
+    var LANG_LABEL = { ko:'KO', en:'EN' };
+    var HOME_SUBTITLE = { ko:'MANGO AI', en:'Mangoi Video Solution', zh:'Mangoi 视频解决方案' };
+    var HOME_CARD_BADGE = { ko:'다자간 통화', en:'Multi-party Call', zh:'多方通话' };
+    var HOME_CARD_TITLE = { ko:'화상통화 + (칠판·채팅·동영상)', en:'Video Call + (Board·Chat·Video)', zh:'视频通话+(黑板·聊天·视频)' };
 
     var currentLang = 'ko';
 
@@ -4156,7 +3848,7 @@
       var newLabel = LANG_LABEL[LANG_CYCLE[(LANG_CYCLE.indexOf(currentLang)+1) % LANG_CYCLE.length]];
       // 홈 화면 고정 텍스트
       var sub = document.getElementById('home-subtitle');
-      if(sub) sub.textContent = HOME_SUBTITLE[currentLang] || HOME_SUBTITLE.en;
+      if(sub) sub.setAttribute('aria-label', HOME_SUBTITLE[currentLang] || HOME_SUBTITLE.en);
       var badge = document.getElementById('home-card-badge');
       if(badge) badge.textContent = HOME_CARD_BADGE[currentLang] || HOME_CARD_BADGE.en;
       var title = document.getElementById('home-card-title');
@@ -4204,7 +3896,14 @@
       function restore(){
         try {
           var saved = localStorage.getItem('mangoi_lang');
-          if (saved && LANG_CYCLE.indexOf(saved) >= 0) { currentLang = saved; applyLang(); }
+          if (saved && LANG_CYCLE.indexOf(saved) >= 0) {
+            currentLang = saved;
+          } else {
+            // 예전 값(ja·zh·vi 등) 청소 → KO 기본
+            currentLang = 'ko';
+            try { localStorage.setItem('mangoi_lang', 'ko'); } catch(_){}
+          }
+          applyLang();
         } catch(e){}
       }
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', restore);
@@ -4234,15 +3933,14 @@
     <!-- 🥭 Phase 8 — 우주 버블 안의 망고아이 마스코트 + 골드 세리프 타이틀 -->
     <div class="home-hero-stack" style="display:flex;flex-direction:column;align-items:center;margin-bottom:1.4rem;position:relative;z-index:2;">
       <div class="mascot-bubble" aria-hidden="false">
-        <img src="/img/Mangoi_Character.jpg" alt="Mangoi"
+        <img src="/img/Mangoi_Character.png" alt="Mangoi"
              onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#fbbf24,#f59e0b)';this.style.padding='40px';this.style.fontSize='120px';this.alt='🥭';"
              class="mascot-img" />
         <span class="mascot-shine"></span>
         <span class="mascot-rim"></span>
       </div>
-      <h1 id="home-subtitle" class="home-title">
-        <span class="ht-mangoi">Mangoi</span>
-        <span class="ht-sub" data-ko="화상솔루션" data-en="Video Solution">화상솔루션</span>
+      <h1 id="home-subtitle" class="home-title" aria-label="MANGO AI">
+        <span class="ht-glass">Mango Ai</span>
       </h1>
     </div>
     <style>
@@ -4253,32 +3951,22 @@
         height: clamp(120px, 13vw, 160px);
         margin-bottom: 1rem;
         border-radius: 50%;
-        background: radial-gradient(circle at 32% 28%,
-                    rgba(255,255,255,0.22) 0%,
-                    rgba(200,220,255,0.10) 28%,
-                    rgba(100,140,210,0.06) 60%,
-                    rgba(40,60,110,0.04) 100%);
-        box-shadow:
-          inset 0 0 25px rgba(180,210,255,0.20),
-          inset 0 0 70px rgba(100,160,240,0.10),
-          0 18px 50px -8px rgba(0,0,0,0.55),
-          0 0 40px rgba(180,220,255,0.15);
-        backdrop-filter: blur(2px);
-        -webkit-backdrop-filter: blur(2px);
-        border: 1.5px solid rgba(255,255,255,0.22);
+        background: transparent;
+        box-shadow: 0 12px 30px -14px rgba(0,0,0,0.40);
+        border: none;
         animation: mangoiFloat 4s ease-in-out infinite alternate;
         overflow: visible;
       }
       .mascot-img {
-        width: 84%; height: 84%;
-        position: absolute; top: 8%; left: 8%;
-        border-radius: 50%;
-        object-fit: cover;
-        filter: drop-shadow(0 6px 16px rgba(245,158,11,0.35))
-                drop-shadow(0 0 12px rgba(255,200,120,0.18));
+        width: 94%; height: 94%;
+        position: absolute; top: 3%; left: 3%;
+        object-fit: contain;
+        filter: drop-shadow(0 8px 18px rgba(245,158,11,0.40))
+                drop-shadow(0 0 14px rgba(255,200,120,0.22));
       }
       /* 비누거품 광택 - 좌상단 큰 하이라이트 */
       .mascot-shine {
+        display: none;
         position: absolute;
         top: 6%; left: 14%;
         width: 42%; height: 32%;
@@ -4293,6 +3981,7 @@
       }
       /* 비누거품 림 - 위/아래 반사 */
       .mascot-rim {
+        display: none;
         position: absolute; inset: -2px;
         border-radius: 50%;
         border: 1px solid rgba(255,255,255,0.25);
@@ -4408,6 +4097,7 @@
       <div id="ai-home-suggest" class="ai-suggest" style="display:none"></div>
       <div class="ai-quick">
         <!-- 🔤 가나다 순 (관 → 마 → 발 → 수 → 신 → 홈) -->
+        <button class="ai-quick-btn" data-go="about" data-ko="🥭 망고아이란?" data-en="🥭 About Mangoi" onclick="event.preventDefault();openAboutMangoi();return false;">🥭 망고아이란?</button>
         <button class="ai-quick-btn" data-go="admin" data-ko="📊 관리자" data-en="📊 Admin">📊 관리자</button>
         <button class="ai-quick-btn" data-go="mypage" data-ko="👤 마이페이지" data-en="👤 My Page">👤 마이페이지</button>
         <button class="ai-quick-btn" data-go="points-shop" data-ko="🎁 포인트상점" data-en="🎁 Point Shop" onclick="event.preventDefault();showPointsShop();">🎁 포인트상점</button>
@@ -4420,6 +4110,61 @@
         <!-- ph178 (2026-05-29) — 수업 신청 카드 (시간·교사 선택 → 결제) -->
         <button class="ai-quick-btn" data-go="booking" data-ko="📝 수업 신청" data-en="📝 Book Class" onclick="event.preventDefault();location.href='/lesson-booking-demo.html';return false;">📝 수업 신청</button>
       </div>
+      <script>
+      window.openAboutMangoi = function(){
+        var ex = document.getElementById('about-mangoi-ov');
+        if (ex) { ex.style.display='flex'; return; }
+        var BENEFITS = [
+          ['🤝','<b>교사와 A.I가 함께</b> 학생 실력 향상'],
+          ['🧑‍🏫','원어민 선생님과 <b>1:1 / 1:2 수업</b>'],['💬','영어 커뮤니케이션 <b>능력의 향상</b>'],
+          ['💰','<b>저렴한 비용</b>으로 최고의 학습 효과'],['🏆','최고의 강사진과 <b>체계적인 관리 시스템</b>'],
+          ['⏰','<b>시간과 장소</b>에 구애받지 않는 시스템'],['📚','우수한 교재에 의한 <b>영어 말하기 동기 부여</b>'],
+          ['📱','편리하고 다양한 기능의 <b>앱과 홈페이지</b>'],['🎬','즐겁고 효과적인 <b>예습·복습 비디오와 퀴즈</b>'],
+          ['🤖','<b>A.I를 활용한</b> 수업 평가 · 복습 · 소통'],['🇵🇭','<b>직영 필리핀 현지</b> 교육센터 운영'],
+          ['🥇','<b>20년 전통</b>, 국내 최초의 화상영어 기업'],['📩','<b>학생 정보를 카카오톡으로</b> 실시간 제공']
+        ];
+        var items = BENEFITS.map(function(b,i){ var cls=(i===0)?'abm-item abm-lead':'abm-item'; return '<div class="'+cls+'"><span class="abm-ic">'+b[0]+'</span><span class="abm-tx">'+b[1]+'</span></div>'; }).join('');
+        var ov = document.createElement('div'); ov.id='about-mangoi-ov';
+        ov.innerHTML =
+          '<div class="abm-card" role="dialog" aria-modal="true">'
+          + '<button class="abm-close" aria-label="닫기" onclick="document.getElementById(\'about-mangoi-ov\').style.display=\'none\'">✕</button>'
+          + '<div class="abm-head"><div class="abm-logo">🥭</div><h2 class="abm-title">망고아이란?</h2>'
+          +   '<p class="abm-sub">20년 전통 · 국내 최초의 화상영어 기업</p><div class="abm-rule"></div>'
+          +   '<p class="abm-intro">원어민 1:1 화상수업과 A.I 학습관리로, 합리적인 비용에 최고의 영어 말하기 효과를 드립니다.</p></div>'
+          + '<div class="abm-grid">'+items+'</div>'
+          + '<div class="abm-foot"><button class="abm-cta" onclick="document.getElementById(\'about-mangoi-ov\').style.display=\'none\';if(window.openInquiryModal)window.openInquiryModal();">무료 상담 신청하기</button></div>'
+          + '</div>';
+        ov.addEventListener('click', function(e){ if(e.target===ov) ov.style.display='none'; });
+        document.body.appendChild(ov);
+        if(!document.getElementById('abm-style')){
+          var st=document.createElement('style'); st.id='abm-style';
+          st.textContent =
+            '#about-mangoi-ov{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(6,12,27,.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}'
+          + '.abm-card{position:relative;width:100%;max-width:760px;max-height:88vh;overflow-y:auto;background:linear-gradient(180deg,#13294e,#0b1c3a);border:1px solid rgba(96,165,250,.22);border-radius:24px;box-shadow:0 30px 80px -20px rgba(0,0,0,.7);padding:30px 26px 24px;animation:abmIn .28s cubic-bezier(.34,1.56,.64,1)}'
+          + '@keyframes abmIn{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}'
+          + '.abm-close{position:absolute;top:14px;right:14px;width:34px;height:34px;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#aebfd6;font-size:16px;cursor:pointer}'
+          + '.abm-close:hover{color:#93c5fd;background:rgba(255,255,255,.18)}'
+          + '.abm-head{text-align:center;margin-bottom:20px}.abm-logo{font-size:44px;line-height:1;margin-bottom:6px}'
+          + '.abm-title{margin:0;font-size:25px;font-weight:900;color:#f1f6ff;letter-spacing:-.5px}'
+          + '.abm-sub{margin:6px 0 0;font-size:13px;font-weight:700;color:#8fb8f2}'
+          + '.abm-rule{width:48px;height:4px;border-radius:4px;background:linear-gradient(90deg,#60a5fa,#3b82f6);margin:13px auto}'
+          + '.abm-intro{margin:0;font-size:14px;line-height:1.65;color:#aebfd6;max-width:520px;margin-left:auto;margin-right:auto}'
+          + '.abm-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}'
+          + '.abm-item{display:flex;align-items:center;gap:12px;background:#e8f1fc;border:1px solid #d2e3f8;border-radius:16px;padding:14px 16px;box-shadow:0 4px 12px -6px rgba(0,0,0,.35);transition:transform .15s}'
+          + '.abm-item:hover{transform:translateY(-2px);background:#eff5fe}'
+          + '.abm-lead{grid-column:1 / -1;background:linear-gradient(135deg,#1d4ed8,#2563eb);border-color:#3b82f6;box-shadow:0 8px 22px -8px rgba(37,99,235,.7)}'
+          + '.abm-lead .abm-tx{color:#fff;font-size:15px}.abm-lead .abm-tx b{color:#bfdbfe}.abm-lead .abm-ic{background:rgba(255,255,255,.2)}'
+          + '.abm-ic{font-size:22px;flex-shrink:0;width:42px;height:42px;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:13px;box-shadow:0 2px 6px -2px rgba(30,58,95,.25)}'
+          + '.abm-tx{font-size:14px;line-height:1.45;color:#1e3a5f}.abm-tx b{color:#1d4ed8;font-weight:800}'
+          + '.abm-foot{margin-top:20px;text-align:center}'
+          + '.abm-cta{border:0;border-radius:16px;padding:14px 30px;font-size:15px;font-weight:800;color:#fff;cursor:pointer;background:linear-gradient(135deg,#60a5fa,#2563eb);box-shadow:0 10px 26px -8px rgba(37,99,235,.65)}'
+          + '.abm-cta:hover{filter:brightness(1.06)}'
+          + '@media(max-width:560px){.abm-grid{grid-template-columns:1fr}.abm-card{padding:24px 16px 18px}.abm-title{font-size:22px}}';
+          document.head.appendChild(st);
+        }
+        ov.style.display='flex';
+      };
+      </script>
       <!-- 결제하기 + 수업입장 한 줄 (같은 골드 스타일) -->
       <div class="ai-cta-row">
         <button class="cta-pay" data-go="payment" onclick="if(window.gridActions&&window.gridActions.payment)window.gridActions.payment();">
@@ -5670,18 +5415,15 @@
 </style>
 
     <style>
-      /* Phase 8: 검색카드를 묶는 글래스 컨테이너 */
+      /* Phase 8 → 그림자 사각형 박스 완전 제거 — 검색창·CTA가 우주 배경 위에 바로 떠 보이게 */
       .ai-search-wrap{
-        padding: 22px 22px 20px;
-        background: rgba(14,20,40,0.55);
-        backdrop-filter: blur(18px) saturate(140%);
-        -webkit-backdrop-filter: blur(18px) saturate(140%);
-        border: 1px solid rgba(255,255,255,0.10);
-        border-radius: 26px;
-        box-shadow:
-          0 30px 80px -20px rgba(0,0,0,0.75),
-          0 0 0 1px rgba(255,255,255,0.05),
-          inset 0 1px 0 rgba(255,255,255,0.06);
+        padding: 0 !important;
+        background: transparent !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
       }
       .ai-search-box {
         display:flex; align-items:center; gap:8px;
@@ -5729,13 +5471,34 @@
       }
       .ai-suggest {
         margin-top: 12px;
-        background: rgba(15,23,42,0.85);
+        background: rgba(15,23,42,0.92);
         border: 1px solid rgba(251,191,36,0.3);
         border-radius: 12px;
-        padding: 14px 18px;
+        padding: 8px;
         color: #e2e8f0; font-size: 14px; line-height: 1.5;
         backdrop-filter: blur(8px);
         animation: fadeIn 0.3s;
+      }
+      .ai-suggest .ai-sg-head {
+        font-size: 11.5px; color: #94a3b8; font-weight: 700;
+        padding: 4px 10px 6px;
+      }
+      .ai-suggest .ai-sg-item {
+        display: block; width: 100%; text-align: left;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 9px;
+        padding: 12px 14px; margin: 4px 0;
+        color: #f1f5f9; font-size: 14px; font-weight: 700;
+        cursor: pointer; transition: all .15s;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .ai-suggest .ai-sg-item:hover,
+      .ai-suggest .ai-sg-item:focus {
+        background: rgba(251,191,36,0.18);
+        border-color: rgba(251,191,36,0.6);
+        color: #fff; outline: none;
+        transform: translateX(2px);
       }
       @keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1} }
       @keyframes slideDown { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:translateY(0)} }
@@ -5963,7 +5726,6 @@
 <div id="view-videocall-lobby" class="view lobby">
     <!-- 🌌 로비 우주 배경 데코 (학생 홈페이지 동일 스타일) -->
     <div class="lobby-starfield" id="lobby-starfield" aria-hidden="true"></div>
-    <img class="lobby-deco lobby-deco-galaxy" src="/img/spiral-galaxy.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
     <img class="lobby-deco lobby-deco-saturn" src="/img/saturn.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
     <div class="lobby-deco lobby-deco-planet" aria-hidden="true"></div>
 
@@ -6001,13 +5763,21 @@
             <svg class="lf-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         </div>
         <div class="lobby-field">
-            <input id="vc-room-input" type="password" autocomplete="current-password" data-ko-ph="비밀번호" data-en-ph="Password" placeholder="비밀번호" />
+            <input id="vc-room-input" type="password" autocomplete="current-password" data-ko-ph="비밀번호" data-en-ph="Password" placeholder="비밀번호" style="padding-right:42px" />
+            <button type="button" aria-label="비밀번호 보기" onclick="var p=document.getElementById('vc-room-input');p.type=(p.type==='password'?'text':'password');this.textContent=(p.type==='password'?'👁':'🙈');" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;font-size:16px;color:#94a3b8;padding:4px;line-height:1;z-index:2">👁</button>
             <svg class="lf-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         </div>
-        <div class="lobby-field">
+        <!-- 기본: 방코드 비움 → 교사·학생 모두 같은 공용 수업방에서 자동으로 만남 -->
+        <div style="font-size:12px;color:#6ee7b7;background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.35);border-radius:9px;padding:8px 11px;margin:2px 0 6px;text-align:left"
+             data-ko="✅ 아이디·비밀번호만 입력하면 선생님과 같은 수업방에서 자동으로 만나요"
+             data-en="✅ Just log in — you'll meet your teacher in the same classroom automatically">✅ 아이디·비밀번호만 입력하면 선생님과 같은 수업방에서 자동으로 만나요</div>
+        <details style="margin:0 0 4px;text-align:left">
+          <summary style="cursor:pointer;font-size:11px;color:#64748b;list-style:none" data-ko="⚙️ 방 코드 직접 입력 (선택)" data-en="⚙️ Enter room code manually (optional)">⚙️ 방 코드 직접 입력 (선택)</summary>
+          <div class="lobby-field" style="margin-top:6px">
             <input id="vc-roomcode-input" type="text" autocomplete="off" data-ko-ph="방 코드 (비우면 공용 수업방으로 입장)" data-en-ph="Room code (empty → shared class room)" placeholder="방 코드 (비우면 공용 수업방으로 입장)" />
             <svg class="lf-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        </div>
+          </div>
+        </details>
 
         <!-- 🔒 자동저장 / 🔁 자동로그인 옵션 -->
         <div class="lobby-options">
@@ -6227,6 +5997,7 @@
         <div class="toolbar-center">
             <button class="ctrl-btn on" id="vc-btn-mic" onclick="vcToggleMic()" title="마이크 켜기/끄기">🎤</button>
             <button class="ctrl-btn" onclick="vcDiagnoseMic()" title="마이크 진단·복구" style="background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.4);color:#fbbf24">🛠</button>
+            <select class="ctrl-select" id="vc-mic-select" onchange="vcSwitchMic(this.value)" title="마이크 장치 선택" aria-label="마이크 장치 선택"><option value="">🎙 마이크 선택</option></select>
             <button class="ctrl-btn on" id="vc-btn-cam" onclick="vcToggleCam()" title="카메라">📷</button>
             <button class="ctrl-btn on" id="vc-btn-chat" onclick="vcToggleChat()" title="채팅" style="position:relative;">
                 💬
@@ -6797,18 +6568,27 @@ async function acquireLocalMedia({ video = true, audio = true } = {}) {
         throw e;
     }
 
-    const audioConstraints = audio ? {
+    const _savedMic = (function(){ try { return localStorage.getItem('mangoi_vc_mic_id') || ''; } catch(e){ return ''; } })();
+    const audioConstraints = audio ? Object.assign({
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true,
         sampleRate: { ideal: 48000 }
-    } : false;
+    }, _savedMic ? { deviceId: { ideal: _savedMic } } : {}) : false;
 
-    const videoConstraints = video ? {
+    // 🔥 모바일 발열 최소화 — 휴대폰은 VGA(640x480)·15fps 로, PC는 HD·24fps 로 캡처
+    var _isMobileCam = window.matchMedia('(max-width: 920px)').matches
+                       || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+    const videoConstraints = video ? (_isMobileCam ? {
+        facingMode: 'user',
+        width:  { ideal: 640,  max: 1280 },
+        height: { ideal: 480,  max: 720 },
+        frameRate: { ideal: 15, max: 20 }   // 30→15fps : CPU·발열 절반
+    } : {
         width:  { ideal: 1280 },
         height: { ideal: 720 },
-        frameRate: { ideal: 30, max: 30 }
-    } : false;
+        frameRate: { ideal: 24, max: 30 }
+    }) : false;
 
     // 1차: 고급 제약
     try {
@@ -7013,6 +6793,11 @@ function sigCreatePeerConnection() {
         remoteVideo.srcObject = event.streams[0];
         remoteVideo.style.display = 'block';
         document.getElementById('sig-remote-placeholder').style.display = 'none';
+        // 🆕 교사(상대방) 영상 도착 → 자동 이등분(1/2)
+        if (!window.__vcAutoHalfDone) {
+            window.__vcAutoHalfDone = true;
+            setTimeout(function(){ try{ var _hb=document.querySelector('.video-size-bar button[onclick*="half"]'); window.vcSetVideoSize && window.vcSetVideoSize('half', _hb); }catch(_){} }, 800);
+        }
     };
 
     // ── 연결 상태 변화 모니터링 ──
@@ -7511,7 +7296,9 @@ function vcRestoreCredentials() {
     if (saveId && uid && idInput) idInput.value = uid;
     // fix (2026-06-01) — 예전에 저장된 'room-랜덤' 코드는 복원하지 않음(각자 다른 방으로 갈라지는 원인).
     //   사용자가 직접 입력한 코드만 복원. 비어 있으면 공용 수업방(mangoi-class)으로 입장됨.
-    if (saveId && roomCode && roomInput && !/^room-[a-z0-9]{4,8}$/i.test(roomCode)) roomInput.value = roomCode;
+    // 🆕 방코드 자동복원 제거 — 옛 코드가 몰래 채워져 교사·학생이 서로 다른 방에 들어가던 문제 차단.
+    //    비워 두면 모두 공용 수업방(mangoi-class)에서 자동으로 만난다.
+    if (roomInput) roomInput.value = '';
     if (autoLogin && pw && pwInput) pwInput.value = pw;
     // ⛔ 자동 입장 제거 — 사용자가 직접 [입장] 버튼을 눌러야만 입장하도록
   } catch (e) { /* localStorage 차단 환경 — 무시 */ }
@@ -7527,9 +7314,26 @@ if (typeof _origShowView_vc === 'function') {
     if (id === 'view-videocall-lobby') {
         setTimeout(vcRestoreCredentials, 50);
         setTimeout(lobbyPlayWelcome, 80);              // ⏱ DOM 렌더 후 재생
+        // 🆕 이미 홈페이지에서 로그인했으면 로비를 건너뛰고 바로 수업 입장 (두 번 로그인 방지)
+        setTimeout(function(){
+          try {
+            if (window.__vcLobbyAutoJoined) return;
+            var raw = localStorage.getItem('mangoi_logged_user');
+            if (!raw || raw === 'null' || raw === '{}') return;
+            var u; try { u = JSON.parse(raw); } catch(_) { return; }
+            if (!(u && (u.uid || u.id) && u.name)) return;   // 로그인 안돼있으면 로비 그대로
+            var ni = document.getElementById('vc-name-input');
+            var pw = document.getElementById('vc-room-input');
+            if (ni && !ni.value) ni.value = u.name;
+            if (pw && !pw.value) pw.value = '0000';
+            window.__vcLobbyAutoJoined = true;
+            if (typeof vcJoinRoom === 'function') vcJoinRoom();   // 바로 수업 화면으로
+          } catch(e){ console.warn('[auto-enter]', e); }
+        }, 220);
     } else {
-        // 로비에서 다른 화면으로 떠날 때 자동 정지
+        // 로비에서 다른 화면으로 떠날 때 자동 정지 + 자동입장 플래그 리셋
         lobbyStopWelcome();
+        window.__vcLobbyAutoJoined = false;
     }
   };
 }
@@ -8126,6 +7930,9 @@ async function vcJoinRoom(skipUI) {
         }
     }
 
+    // 🎙 마이크 선택 드롭다운 채우기 (권한 확보 후 라벨이 보임)
+    setTimeout(function(){ try { vcPopulateMicSelect(); } catch(e){} }, 600);
+
     vcConn = createWebSocket(
         `/ws/video-call?roomId=${encodeURIComponent(vcRoomId)}`,
         vcHandleMessage,
@@ -8137,7 +7944,7 @@ async function vcJoinRoom(skipUI) {
     );
     window.vcConn = vcConn;   // fix (2026-06-01) — 라이브러리 교재 공유(selectFromTextbookLibrary)가 window.vcConn 을 쓰므로 노출
     try { window.vcStartPdfPoll && window.vcStartPdfPoll(); } catch(_){}  // fix (2026-06-02) 교재 표시 안전장치
-    try { setTimeout(function(){ window.vcApplyDefaultVideoSize && window.vcApplyDefaultVideoSize(); }, 500); } catch(_){}  // 가로 진입 시 3/4 기본
+    try { window.__vcAutoHalfDone=false; setTimeout(function(){ try{ var _tb=document.querySelector('.video-size-bar button[onclick*="threequarter"]'); window.vcSetVideoSize && window.vcSetVideoSize('threequarter', _tb); }catch(_){} window.vcApplyDefaultVideoSize && window.vcApplyDefaultVideoSize(); }, 500); } catch(_){}  // 진입 시 무조건 3/4
     setStatusDot('vc-status-dot', 'connecting');
 
     // 🛡 최후의 안전망 — 입장 3초 후에도 비디오 트랙이 없거나 video.videoWidth=0 이면
@@ -8386,7 +8193,7 @@ async function vcJoinAsObserver(roomId) {
     );
     window.vcConn = vcConn;   // fix (2026-06-01) — window.vcConn 노출
     try { window.vcStartPdfPoll && window.vcStartPdfPoll(); } catch(_){}  // fix (2026-06-02) 교재 표시 안전장치
-    try { setTimeout(function(){ window.vcApplyDefaultVideoSize && window.vcApplyDefaultVideoSize(); }, 500); } catch(_){}  // 가로 진입 시 3/4 기본
+    try { window.__vcAutoHalfDone=false; setTimeout(function(){ try{ var _tb=document.querySelector('.video-size-bar button[onclick*="threequarter"]'); window.vcSetVideoSize && window.vcSetVideoSize('threequarter', _tb); }catch(_){} window.vcApplyDefaultVideoSize && window.vcApplyDefaultVideoSize(); }, 500); } catch(_){}  // 진입 시 무조건 3/4
     setStatusDot('vc-status-dot', 'connecting');
 }
 
@@ -8564,6 +8371,71 @@ async function vcCreatePeerAndOffer(userId, username) {
     }
 }
 
+/* 🔥🔋 모바일 발열 최소화 — 송신 비디오 코덱·비트레이트·fps 상한 + 백그라운드 절전
+   · H.264/VP8(하드웨어 가속 코덱) 우선 → 인코딩을 칩이 대신 처리 = CPU·발열↓
+   · 비트레이트·fps 상한 → 인코더가 풀가동하지 않게 함 (발열의 핵심 주범)
+   · 휴대폰일 때만 강하게 적용, PC는 화질 우선                                   */
+function vcApplyLowPower(pc) {
+  var isMobile = window.matchMedia('(max-width: 920px)').matches
+                 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+
+  // 1) 코덱 우선순위: H.264 → VP8 (offer 만들기 전에 적용해야 효과)
+  try {
+    if (window.RTCRtpReceiver && RTCRtpReceiver.getCapabilities) {
+      var caps = RTCRtpReceiver.getCapabilities('video');
+      if (caps && caps.codecs) {
+        var pref = [], rest = [];
+        ['video/H264', 'video/VP8'].forEach(function(m){
+          caps.codecs.forEach(function(c){ if (c.mimeType.toLowerCase() === m.toLowerCase()) pref.push(c); });
+        });
+        caps.codecs.forEach(function(c){ if (pref.indexOf(c) < 0) rest.push(c); });
+        var ordered = pref.concat(rest);
+        pc.getTransceivers().forEach(function(tr){
+          if (tr.sender && tr.sender.track && tr.sender.track.kind === 'video' && tr.setCodecPreferences) {
+            try { tr.setCodecPreferences(ordered); } catch(_){}
+          }
+        });
+      }
+    }
+  } catch(e){ console.warn('[lowpower codec]', e); }
+
+  // 2) 송신 비트레이트·fps 상한 (모바일만 강하게)
+  try {
+    var sender = pc.getSenders().find(function(s){ return s.track && s.track.kind === 'video'; });
+    if (sender && sender.getParameters) {
+      var params = sender.getParameters();
+      if (!params.encodings || !params.encodings.length) params.encodings = [{}];
+      params.encodings[0].maxBitrate   = (isMobile ? 500 : 1200) * 1000; // 모바일 500kbps
+      params.encodings[0].maxFramerate = isMobile ? 15 : 24;
+      params.degradationPreference = 'balanced';   // 부하 시 화질·fps 균형 저하
+      sender.setParameters(params).catch(function(e){ console.warn('[lowpower params]', e); });
+    }
+  } catch(e){ console.warn('[lowpower bitrate]', e); }
+}
+
+/* 백그라운드(탭 전환·화면 끔)일 때 내 카메라 인코딩 정지 → 발열·배터리 절약.
+   소리는 유지(수업 끊김 방지). 화면 돌아오면 자동 재개. 한 번만 등록. */
+(function vcBackgroundThrottle(){
+  if (window.__vcBgThrottle) return; window.__vcBgThrottle = true;
+  function setVideo(on){
+    try {
+      if (window.vcLocalStream) vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = on; });
+      // 가상배경 ML 루프도 함께 정지/재개 (백그라운드 발열 차단)
+      if (window.vcBg && vcBg.isProcessing !== undefined) {
+        if (!on) { vcBg._wasProcessing = vcBg.isProcessing; vcBg.isProcessing = false; }
+        else if (vcBg._wasProcessing) { vcBg.isProcessing = true; if (typeof vcBgRenderLoop === 'function') vcBgRenderLoop(); vcBg._wasProcessing = false; }
+      }
+    } catch(_){}
+  }
+  document.addEventListener('visibilitychange', function(){
+    // 수업 중일 때만 동작
+    if (!document.body.classList.contains('vc-in-call')) return;
+    setVideo(document.visibilityState === 'visible');
+  });
+  window.addEventListener('pagehide', function(){ if (document.body.classList.contains('vc-in-call')) setVideo(false); });
+  window.addEventListener('pageshow', function(){ if (document.body.classList.contains('vc-in-call')) setVideo(true); });
+})();
+
 /** RTCPeerConnection을 생성합니다 (다자간 통화용). */
 function vcCreatePeer(userId, username) {
     // 기존 PC가 있으면 정리 후 새로 생성
@@ -8586,6 +8458,8 @@ function vcCreatePeer(userId, username) {
         const tracks = vcLocalStream.getTracks();
         console.log('[vc-webrtc] addTrack:', tracks.length, '개 (video:', vcLocalStream.getVideoTracks().length, ', audio:', vcLocalStream.getAudioTracks().length, ')');
         tracks.forEach(t => pc.addTrack(t, vcLocalStream));
+        // 🔥 발열 최소화 — 송신 비디오에 효율 코덱(H.264/VP8) 우선 + 비트레이트·fps 상한
+        try { vcApplyLowPower(pc); } catch(e) { console.warn('[lowpower]', e); }
     } else {
         console.warn('[vc-webrtc] ⚠ localStream 없음! 상대방에게 미디어가 전송되지 않음');
     }
@@ -8657,6 +8531,11 @@ function vcCreatePeer(userId, username) {
         vcAddRemoteVideo(userId, username, stream);
         // 트랙이 늦게 도착(예: 비디오)해도 화면 갱신되도록 약간 뒤 한 번 더 시도
         try { event.track.onunmute = () => vcAddRemoteVideo(userId, username, vcRemoteStreams[userId] || stream); } catch(_){}
+        // 🆕 교사(원격 참가자) 영상 도착 → 자동 이등분(1/2)
+        if (event.track && event.track.kind === 'video' && !window.__vcAutoHalfDone) {
+            window.__vcAutoHalfDone = true;
+            setTimeout(function(){ try{ var _hb=document.querySelector('.video-size-bar button[onclick*="half"]'); window.vcSetVideoSize && window.vcSetVideoSize('half', _hb); }catch(_){} }, 800);
+        }
     };
 
     return pc;
@@ -9188,6 +9067,81 @@ function stopMicLevelMeter() {
     if (_micMeterEl) { _micMeterEl.remove(); _micMeterEl = null; }
 }
 
+/* ===== 🎙 마이크 장치 선택 드롭다운 ===== */
+const VC_MIC_PREF_KEY = 'mangoi_vc_mic_id';
+function vcSavedMicId(){ try { return localStorage.getItem(VC_MIC_PREF_KEY) || ''; } catch(e){ return ''; } }
+
+/** 드롭다운에 현재 마이크 목록 채우기 */
+async function vcPopulateMicSelect() {
+    const sel = document.getElementById('vc-mic-select');
+    if (!sel || !navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const mics = devices.filter(d => d.kind === 'audioinput' && d.deviceId && d.deviceId !== 'communications');
+        let activeId = '';
+        try {
+            const at = (window.vcLocalStream && vcLocalStream.getAudioTracks) ? vcLocalStream.getAudioTracks()[0] : null;
+            if (at && at.getSettings) activeId = at.getSettings().deviceId || '';
+        } catch(e){}
+        const saved = vcSavedMicId();
+        if (!mics.length) { sel.innerHTML = '<option value="">마이크 없음</option>'; return; }
+        sel.innerHTML = '';
+        mics.forEach((d, i) => {
+            const opt = document.createElement('option');
+            opt.value = d.deviceId;
+            let label = d.label || ('마이크 ' + (i+1));
+            label = label.replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*/i, '').trim();
+            opt.textContent = '🎙 ' + label;
+            if (d.deviceId === activeId || (!activeId && d.deviceId === saved)) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    } catch (e) { console.warn('[mic-select] 목록 조회 실패:', e); }
+}
+
+/** 선택한 마이크로 전환 — 모든 통화 연결에 즉시 반영 */
+async function vcSwitchMic(deviceId) {
+    if (!deviceId) return;
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: { deviceId: { exact: deviceId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+        });
+        const newTrack = stream.getAudioTracks()[0];
+        if (!newTrack) throw new Error('오디오 트랙 없음');
+        newTrack.enabled = (typeof vcMicOn === 'undefined') ? true : vcMicOn;
+        if (!window.vcLocalStream) vcLocalStream = new MediaStream();
+        vcLocalStream.getAudioTracks().forEach(old => { try { old.stop(); } catch(e){} try { vcLocalStream.removeTrack(old); } catch(e){} });
+        vcLocalStream.addTrack(newTrack);
+        if (typeof vcPeerConnections === 'object' && vcPeerConnections) {
+            Object.values(vcPeerConnections).forEach(pc => {
+                try {
+                    const sender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
+                    if (sender) sender.replaceTrack(newTrack);
+                    else pc.addTrack(newTrack, vcLocalStream);
+                } catch(e) { console.warn('[mic-switch] sender 교체 실패:', e); }
+            });
+        }
+        try { localStorage.setItem(VC_MIC_PREF_KEY, deviceId); } catch(e){}
+        try { stopMicLevelMeter(); } catch(e){}
+        if (typeof vcMicOn === 'undefined' || vcMicOn) { try { startMicLevelMeter(); } catch(e){} }
+        await vcPopulateMicSelect();
+        console.log('[mic-switch] ✅ 마이크 전환 완료:', newTrack.label);
+    } catch (e) {
+        console.error('[mic-switch] 실패:', e);
+        const msg = (e && e.name === 'NotAllowedError') ? '브라우저 마이크 권한이 차단되어 있습니다.' :
+                    (e && e.name === 'NotFoundError') ? '선택한 마이크를 찾을 수 없습니다.' :
+                    '마이크 전환 실패: ' + (e && e.message || e);
+        alert('🎙 ' + msg);
+        try { await vcPopulateMicSelect(); } catch(e2){}
+    }
+}
+window.vcSwitchMic = vcSwitchMic;
+window.vcPopulateMicSelect = vcPopulateMicSelect;
+try {
+    if (navigator.mediaDevices && typeof navigator.mediaDevices.addEventListener === 'function') {
+        navigator.mediaDevices.addEventListener('devicechange', function(){ try { vcPopulateMicSelect(); } catch(e){} });
+    }
+} catch(e){}
+
 /** 🛠 마이크 진단·재설정 도구 — 사용자가 직접 트러블슈팅 가능 */
 window.vcDiagnoseMic = async function() {
     let report = '🎤 마이크 진단 보고서\n\n';
@@ -9310,6 +9264,7 @@ const vcBg = {
   sending: false,        // 동시 send() 방지 플래그
   lastVideoTime: -1,     // 동일 프레임 중복 송신 방지
 };
+try { window.vcBg = vcBg; } catch(_){}  // 절전 핸들러(백그라운드 정지)에서 참조하도록 노출
 
 // --- 1) 테마별 배경 이미지 (실제 사진 파일 → 한 번 로드 후 캐시) ---
 const VC_BG_IMAGES = {
@@ -9462,8 +9417,14 @@ async function vcBgRenderLoop(){
   const v = vcBg.hiddenVideo;
   // Phase 7m: 모델이 무거워진 만큼 3 프레임마다 1번 처리 (CPU 66% 절약 → 멈춤 방지)
   //   ↳ 화상통화에선 20fps 정도면 충분히 자연스러움
+  // 🔥 모바일은 발열 절감을 위해 더 드물게 처리 (휴대폰 6프레임당 1회 ≈ 10fps, PC 3프레임당 1회)
+  if (vcBg._mobile === undefined) {
+    vcBg._mobile = window.matchMedia('(max-width: 920px)').matches
+      || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+  }
   vcBg.frameTick = (vcBg.frameTick || 0) + 1;
-  const shouldProcess = (vcBg.frameTick % 3 === 0);
+  const _everyN = vcBg._mobile ? 6 : 3;
+  const shouldProcess = (vcBg.frameTick % _everyN === 0);
   if (shouldProcess && v && v.readyState >= 2 && v.videoWidth > 0 && v.videoHeight > 0
       && vcBg.segmenter && !vcBg.sending) {
     vcBg.sending = true;
@@ -9765,6 +9726,10 @@ function _gameUpdateScore() {
   document.getElementById('game-wrong').textContent = _gameState.wrong;
 }
 
+// 🔊 원어민 발음 (TTS)
+window.gameSpeak = function(text){ try{ if(!text) return; var u=new SpeechSynthesisUtterance(String(text)); u.lang='en-US'; u.rate=0.85; u.pitch=1.0; window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);}catch(_){} };
+window.gameSpeakBuilt = function(){ try{ var pk=(_gameState.current&&_gameState.current.picked)||[]; if(pk.length) gameSpeak(pk.join(' ')); }catch(_){} };
+
 // 🧱 게임 1: 문장 벽돌 — 영어 단어 브릭을 순서대로 클릭해서 문장 완성
 function gameRenderBrick() {
   const sentence = _GAME_VOCAB[Math.floor(Math.random() * _GAME_VOCAB.length)];
@@ -9789,6 +9754,7 @@ function gameRenderBrick() {
   html += '</div>' +
     '<div style="text-align:center;display:flex;gap:10px;justify-content:center">' +
       '<button onclick="gameBrickReset()" style="padding:8px 18px;background:rgba(148,163,184,0.2);color:#cbd5e1;border:0;border-radius:8px;cursor:pointer;font-size:13px">↩ 다시</button>' +
+      '<button onclick="gameSpeakBuilt()" style="padding:10px 20px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border:0;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(139,92,246,0.4)">🔊 발음 듣기</button>' +
       '<button onclick="gameBrickCheck()" style="padding:10px 24px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(16,185,129,0.4)">✅ 확인</button>' +
     '</div>';
   document.getElementById('game-area').innerHTML = html;
@@ -9797,6 +9763,7 @@ function gameRenderBrick() {
 function gameBrickPick(btn) {
   const word = btn.dataset.word;
   _gameState.current.picked.push(word);
+  try{ window.gameSpeak && gameSpeak(word); }catch(_){}
   btn.style.opacity = '0.3'; btn.disabled = true;
   const built = document.getElementById('brick-built');
   const empty = document.getElementById('brick-empty');
@@ -9820,7 +9787,8 @@ function gameBrickCheck() {
   if (correct) {
     _gameState.score += 10; _gameState.correct++;
     fb.innerHTML = '<span style="color:#10b981">✅ 정답! +10점</span>';
-    setTimeout(gameNextRound, 1500);
+    try{ window.gameSpeak && gameSpeak(sent.en); }catch(_){}
+    setTimeout(gameNextRound, 2200);
   } else {
     _gameState.wrong++;
     fb.innerHTML = '<span style="color:#ef4444">❌ 다시 시도! 정답: ' + sent.en + '</span>';
@@ -9860,6 +9828,7 @@ function gameMatchFlip(card) {
   card.dataset.flipped = '1';
   card.innerHTML = '<span style="font-size:18px;padding:8px;text-align:center">' + card.dataset.text + '</span>';
   card.style.transform = 'scale(1.05)';
+  if (card.dataset.type === 'en') { try{ window.gameSpeak && gameSpeak(card.dataset.text); }catch(_){} }
   _gameState.current.flipped.push(card);
   if (_gameState.current.flipped.length === 2) {
     const [a, b] = _gameState.current.flipped;
@@ -9910,7 +9879,7 @@ function gameRenderFill() {
   const allWords = _GAME_VOCAB.flatMap(s => s.words).filter(w => w.toLowerCase() !== answer.toLowerCase() && w.length > 2);
   const wrongs = _gameShuffle(allWords).slice(0, 3);
   const options = _gameShuffle([answer, ...wrongs]);
-  _gameState.current = { answer };
+  _gameState.current = { answer, sentence: sent };
   // 빈칸 표시 문장
   const masked = sent.words.map((w, i) => i === blankIdx ? '___' : w).join(' ');
   let html =
@@ -9941,12 +9910,14 @@ function gameFillCheck(picked, btn) {
     btn.style.transform = 'scale(1.05)';
     _gameState.score += 8; _gameState.correct++;
     fb.innerHTML = '<span style="color:#10b981">✅ 정답! +8점</span>';
-    setTimeout(gameNextRound, 1300);
+    try{ window.gameSpeak && _gameState.current.sentence && gameSpeak(_gameState.current.sentence.en); }catch(_){}
+    setTimeout(gameNextRound, 1900);
   } else {
     btn.style.background = 'linear-gradient(135deg,#dc2626,#991b1b)';
     btn.style.opacity = '0.4';
     btn.disabled = true;
     _gameState.wrong++;
+    try{ window.gameSpeak && gameSpeak(picked); }catch(_){}
     fb.innerHTML = '<span style="color:#ef4444">❌ 오답! 정답은: ' + _gameState.current.answer + '</span>';
   }
   _gameUpdateScore();
@@ -10023,6 +9994,7 @@ function gameBalloonPop(bl) {
   if (_gameState.current.popped) return;
   _gameState.current.popped = true;
   const en = bl.dataset.en;
+  try{ window.gameSpeak && gameSpeak(en); }catch(_){}
   const correct = en === _gameState.current.answer;
   bl.style.transform = 'scale(1.3)';
   bl.style.opacity = '0';
@@ -11492,16 +11464,36 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // ========== 키워드 → 액션 룰 (오프라인 fallback) ==========
   const RULES = [
+    // ═══ 전체메뉴 항목 직접 매칭 (이름 + 유사어) — 최우선 ═══
+    { kws:['포인트','포인트상점','포인트 상점','포인트샵','포인트 샵','포인트몰','기프트','기프티콘','기프티쇼','선물','상점','쇼핑','리워드','적립','마일리지','교환','point','points','gift','shop','reward'], action: () => { if (typeof window.showPointsShop==='function') window.showPointsShop(); }, label:'🎁 포인트 상점' },
+    { kws:['주간 스케줄','주간스케줄','내 스케줄','내스케줄','스케줄','시간표','주간 시간표','내 수업 일정','수업 일정','일정표','schedule','timetable'], action: () => location.href='/admin/weekly-schedule.html?role=student', label:'📅 내 주간 스케줄' },
+    { kws:['학생관리','학생 관리','학생목록','학생 목록','학생리스트','학생 명단','반 학생','students'], action: () => location.href='/admin/students.html', label:'👨‍🎓 학생 관리' },
+    { kws:['수업자료','수업 자료','학습자료','학습 자료','강의자료','수업 교재','수업노트','materials'], action: () => location.href='/lessons.html', label:'📖 수업 자료' },
+    { kws:['평가서','월말평가','월간평가','평가 결과','평가결과','evaluation'], action: () => location.href='/eval.html', label:'📝 평가서' },
+    { kws:['리포트','학습리포트','학습 리포트','월간리포트','분석 리포트','report'], action: () => location.href='/report.html', label:'📊 리포트' },
+    { kws:['ai 친구','ai친구','인공지능 친구','영어 친구','대화 연습','챗봇','ai friend','chatbot'], action: () => location.href='/ai-friend.html', label:'🤖 AI 친구' },
+    { kws:['ai 작문','ai작문','영작','영작문','작문 첨삭','글쓰기','ai write','writing'], action: () => location.href='/ai-write.html', label:'✍ AI 작문' },
+    { kws:['영어 발음 코치','영어발음코치','영어 발음 연습'], action: () => location.href='/speech-coach.html', label:'🗣 영어 발음 코치' },
+    { kws:['단어장','단어 장','내 단어장','어휘장','어휘','vocab','vocabulary','word list'], action: () => location.href='/vocab.html', label:'📖 단어장' },
+    { kws:['미니 퀴즈','미니퀴즈','퀴즈','단어 퀴즈','쪽지시험','quiz'], action: () => location.href='/micro-quiz.html', label:'🎯 미니 퀴즈' },
+    { kws:['mbti 매칭','mbti매칭','엠비티아이 매칭','강사 매칭','성향 매칭','mbti match'], action: () => location.href='/mbti.html', label:'🧠 MBTI 매칭' },
+    { kws:['mbti 테스트','mbti테스트','엠비티아이 테스트','성향 테스트','성격 테스트','mbti test'], action: () => location.href='/mbti-test.html', label:'🧪 MBTI 테스트' },
+    { kws:['연속 출석','연속출석','출석','출석체크','출석 체크','스트릭','데일리 출석','streak','attendance'], action: () => location.href='/streak.html', label:'🔥 연속 출석' },
+    { kws:['칭찬 스티커','칭찬스티커','칭찬','스티커','교사 칭찬','선생님 칭찬','별점','praise','sticker'], action: () => location.href='/teacher-praise.html', label:'🌟 칭찬 스티커' },
+    { kws:['학부모','학부모 페이지','부모','자녀 보기','자녀보기','parent'], action: () => location.href='/parent.html', label:'👨‍👩‍👧 학부모 페이지' },
+    { kws:['시스템 진단','시스템진단','상태 점검','헬스체크','health'], action: () => location.href='/admin/health.html', label:'🩺 시스템 진단' },
     // 수업입장 (구 화상통화)
-    { kws: ['수업입장', '수업 입장', '입장', '수업 시작', '수업시작', '화상통화', '화상 통화', '비디오', 'video', '다자간', '그룹수업', '그룹 수업', '클래스', 'class'], action: () => showView('view-videocall-lobby'), label: '🎥 수업입장' },
+    { kws: ['수업입장', '수업 입장', '입장', '수업 시작', '수업시작', '화상통화', '화상 통화', '비디오', 'video', '다자간', '그룹수업', '그룹 수업', '클래스', 'class', '강의실', '들어가기', '링크', '링크 연결', '공부시작', '공부 시작', '화상수업 로비', '방 들어가기'], action: () => showView('view-videocall-lobby'), label: '🎥 수업입장' },
+    { kws: ['결제', '결제하기', '강의료', '수강료', '학원비', '등록금', '학비', '수업료', '월회비', '레슨비', '교육비', '등록비', '돈', '금액', '가격', '비용', '카드', '충전', '납부', 'payment', 'pay', 'tuition'], action: () => { if (window.gridActions && typeof window.gridActions.payment === 'function') window.gridActions.payment(); }, label: '💳 수강료 결제' },
+    { kws: ['연기', '변경', '수업 연기', '수업연기', '스케줄 변경', '날짜 변경', '시간 변경', '시간 바꿈', '미루기', '일정 변경', '오늘 수업 패스', '수업 취소', '수업취소'], action: () => { if (typeof window.openLessonChangeModal === 'function') window.openLessonChangeModal(); }, label: '📅 연기/변경' },
     // 홈페이지 (구 1:1 통화) → 그리드 메뉴 표시
     { kws: ['홈페이지', '홈페', 'homepage', 'home', '메인', '처음'], action: () => { const gm = document.getElementById('grid-menu'); if (gm) gm.style.display = 'block'; }, label: '🏠 홈페이지 (전체 메뉴)' },
     // 관리자
     { kws: ['관리자', '대시보드', 'admin', 'dashboard'], action: () => location.href = '/admin.html', label: '📊 관리자 대시보드' },
     // 신규상담
-    { kws: ['신규상담', '신규 상담', '상담', '문의', '문의하기', '연락', 'inquiry', 'consult', '컨설팅'], action: () => window.openInquiryModal(), label: '💬 신규상담' },
+    { kws: ['신규상담', '신규 상담', '상담', '상담신청', '상담 신청', '문의', '문의하기', '가입 문의', '가입문의', '첫 방문', '전화상담', '연락', 'inquiry', 'consult', '컨설팅'], action: () => window.openInquiryModal(), label: '💬 신규상담' },
     // 발음연습 (영어)
-    { kws: ['발음', '발음연습', '발음 연습', '영어발음', 'pronunciation', '스피치', 'speech', '말하기'], action: () => window.gridActions && window.gridActions.speech(), label: '🎤 영어 발음 코치 (AI 발음 평가)' },
+    { kws: ['발음', '발음연습', '발음 연습', '발음교정', '발음 교정', '발음테스트', '발음 체크', '영어발음', 'pronunciation', '스피치', 'speech', '스피킹', '말하기', '말하기 연습'], action: () => window.gridActions && window.gridActions.speech(), label: '🎤 영어 발음 코치 (AI 발음 평가)' },
     // ph157: 중국어 발음 코치
     { kws: ['중국어', '중국어발음', '중국어 발음', '중국어발음코치', 'chinese', 'mandarin', '다락원', 'darakwon', 'cn voice', '병음', 'pinyin'], action: () => location.href = '/speech-coach-cn.html', label: '🇨🇳 중국어 발음 코치 (다락원 마스터 + Lv 1~20)' },
     // ph178: 수업 신청 (시간·교사 선택 → 결제)
@@ -11537,7 +11529,7 @@ window.addEventListener('DOMContentLoaded', () => {
     { kws: ['집중도', '집중도 측정', '집중력', '시선 추적', '발화 비율', 'focus', 'attention', 'gaze', '아이트래킹'], action: () => window.gridActions && window.gridActions.focus(), label: '🎯 집중도 측정' },
     { kws: ['결제', '결제하기', '수강료', '결제 신청', 'payment', '결제 신청서', '결제폼'], action: () => window.gridActions && window.gridActions.payment(), label: '💳 결제하기' },
     { kws: ['공지', '공지사항', '알림', '소식', '뉴스', 'notice', '공지글'], action: () => window.gridActions && window.gridActions.notice(), label: '📢 공지사항' },
-    { kws: ['평가표', '평가', '일별평가서', '일별 평가', 'report', '리포트', '수업 평가', '리뷰표'], action: () => window.gridActions && window.gridActions.report(), label: '📋 평가표' },
+    { kws: ['평가표', '평가', '성적표', '성적', '점수', '시험점수', '테스트결과', '결과', '피드백', '내 성적', '일별평가서', '일별 평가', 'report', '리포트', '수업 평가', '리뷰표'], action: () => window.gridActions && window.gridActions.report(), label: '📋 평가표' },
     { kws: ['전체 메뉴', '전체메뉴', '메뉴', '모든 메뉴', '히트맵', '바로가기'], action: () => { if (window.openAllMenuOverlay) window.openAllMenuOverlay(); }, label: '🥭 전체 메뉴' },
     // 메인
   ];
@@ -11580,6 +11572,23 @@ window.addEventListener('DOMContentLoaded', () => {
     if (rule) {
       showSuggest(`<b>${rule.label}</b> 으로 이동합니다...`, true);
       setTimeout(rule.action, 400);
+      return;
+    }
+
+    // 1-b. 학생 이름(한글 2~4자) → 내 이름이면 마이페이지, 다른 이름이면 학생 정보 검색
+    if (/^[가-힣]{2,4}$/.test(text)) {
+      var _myName = '';
+      try {
+        var _u = JSON.parse(localStorage.getItem('mangoi_logged_user') || localStorage.getItem('mango_user') || 'null');
+        _myName = (_u && (_u.name || _u.username || '')) || '';
+      } catch(e){}
+      if (_myName && _myName.replace(/\s/g,'') === text.replace(/\s/g,'')) {
+        showSuggest(`<b>👤 ${text} 마이페이지</b> 로 이동합니다...`, true);
+        setTimeout(() => { location.href = '/admin/mypage.html'; }, 400);
+        return;
+      }
+      showSuggest(`<b>👤 '${text}' 학생 정보</b> 로 이동합니다...`, true);
+      setTimeout(() => { location.href = '/admin/students-unified.html?q=' + encodeURIComponent(text); }, 400);
       return;
     }
 
@@ -11987,21 +11996,52 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // ========== 입력 중 자동완성 힌트 ==========
+  // ========== 입력 중 자동완성 힌트 (클릭 / ↓키 선택 → 해당 페이지로 이동) ==========
   let hintTimer;
+  let _sgMatches = [];
   input.addEventListener('input', () => {
     clearTimeout(hintTimer);
     hintTimer = setTimeout(() => {
       const t = input.value.toLowerCase().trim();
-      if (!t) { suggest.style.display = 'none'; return; }
-      const matches = RULES.filter(r => r.kws.some(k => k.toLowerCase().startsWith(t) || t.includes(k.toLowerCase())));
+      if (!t) { suggest.style.display = 'none'; _sgMatches = []; return; }
+      const matches = RULES.filter(r => r.kws.some(k => k.toLowerCase().startsWith(t) || t.includes(k.toLowerCase()))).slice(0, 6);
+      _sgMatches = matches;
       if (matches.length) {
-        suggest.innerHTML = '💡 추천: ' + matches.slice(0, 3).map(m => `<b>${m.label}</b>`).join(' · ');
+        suggest.innerHTML =
+          '<div class="ai-sg-head">💡 추천 — 눌러서 이동 (↓ 키로 선택)</div>' +
+          matches.map((m, i) => `<button type="button" class="ai-sg-item" data-sg="${i}">${m.label}</button>`).join('');
         suggest.style.display = 'block';
       } else {
         suggest.style.display = 'none';
       }
     }, 200);
+  });
+
+  function _runSg(i){
+    const m = _sgMatches[i];
+    if (m && typeof m.action === 'function') { suggest.style.display = 'none'; m.action(); }
+  }
+  // 추천 클릭 → 이동
+  suggest.addEventListener('click', (e) => {
+    const btn = e.target.closest('.ai-sg-item');
+    if (btn) _runSg(Number(btn.getAttribute('data-sg')));
+  });
+  // 검색창에서 ↓ → 첫 추천으로 포커스
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' && suggest.style.display === 'block') {
+      const first = suggest.querySelector('.ai-sg-item');
+      if (first) { e.preventDefault(); first.focus(); }
+    }
+  });
+  // 추천 목록 내 ↑/↓ 이동 · Enter 실행 · Esc 닫기
+  suggest.addEventListener('keydown', (e) => {
+    const items = Array.prototype.slice.call(suggest.querySelectorAll('.ai-sg-item'));
+    if (!items.length) return;
+    const idx = items.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') { e.preventDefault(); (items[idx + 1] || items[0]).focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); if (idx <= 0) input.focus(); else items[idx - 1].focus(); }
+    else if (e.key === 'Enter') { e.preventDefault(); var a = document.activeElement; if (a && a.getAttribute) _runSg(Number(a.getAttribute('data-sg'))); }
+    else if (e.key === 'Escape') { suggest.style.display = 'none'; input.focus(); }
   });
 })();
 </script>
@@ -13229,6 +13269,26 @@ window.addEventListener('DOMContentLoaded', () => {
     head.appendChild(headInfo);
     box.appendChild(head);
 
+    // 🎥 수업 입장 — 공용 수업방(빈 방코드)으로 모두 통일 → 교사·학생이 무조건 같은 방에서 만남
+    (function(){
+      var joinBtn = document.createElement('button');
+      joinBtn.textContent = '🎥 수업 입장 — ' + (t.korean_name || t.english_name || '') + ' 선생님과 같은 방에서 만나요';
+      joinBtn.style.cssText = 'width:100%;margin-top:14px;padding:14px;border:0;border-radius:12px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a0f08;font-size:15px;font-weight:900;cursor:pointer;box-shadow:0 8px 22px -6px rgba(245,158,11,0.55)';
+      joinBtn.onclick = function(){
+        try { overlay.remove(); } catch(e){}
+        if (window.mangoiJoinClass) window.mangoiJoinClass('');   // 공용 수업방
+      };
+      box.appendChild(joinBtn);
+    })();
+
+    // 💬 선생님 한마디 (소개글) — 눈에 띄게 상단 표시
+    if (t.notes) {
+      const cmt = document.createElement('div');
+      cmt.style.cssText = 'margin-top:14px;padding:12px 14px;background:rgba(251,191,36,0.10);border:1px solid rgba(251,191,36,0.35);border-radius:10px;color:#fde68a;font-size:13.5px;line-height:1.65;font-style:italic';
+      cmt.textContent = '“' + t.notes + '”';
+      box.appendChild(cmt);
+    }
+
     // 필드 표
     const fields = [
       ['🎓 학력', t.education],
@@ -14146,7 +14206,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // 5. 네트워크 속도 (간이 — 작은 이미지 ms 측정)
     try {
       const t0 = performance.now();
-      await fetch('/img/Mangoi_Character.jpg?cb=' + Date.now(), { cache: 'no-store' });
+      await fetch('/img/Mangoi_Character.png?cb=' + Date.now(), { cache: 'no-store' });
       const ms = performance.now() - t0;
       if (ms < 200) { set('diag-speed', 'ok', `✓ 빠름 (${Math.round(ms)}ms)`); pass++; }
       else if (ms < 800) { set('diag-speed', 'ok', `✓ 양호 (${Math.round(ms)}ms)`); pass++; }
@@ -14310,6 +14370,16 @@ window.addEventListener('DOMContentLoaded', () => {
     if (_reportSession && _reportSession.uid) {
       return renderReportFor(_reportSession);
     }
+    // 🆕 전역 로그인 세션 재사용 — 이미 로그인했으면 재로그인 없이 바로 표시
+    try {
+      var _raw = localStorage.getItem('mangoi_logged_user') || localStorage.getItem('mango_user');
+      var _g = _raw ? JSON.parse(_raw) : null;
+      var _guid = _g && (_g.uid || _g.id || _g.user_id || _g.username);
+      if (_guid) {
+        _reportSession = { uid: _guid, name: _g.name || _g.username || _guid, profile: _g };
+        return renderReportFor(_reportSession);
+      }
+    } catch (e) {}
     // 쿠키 기반 세션 자동 확인 (서버에 /api/me 류가 있으면)
     try {
       const r = await fetch('/api/me', { credentials: 'include' });
@@ -16530,7 +16600,11 @@ window.addEventListener('DOMContentLoaded', () => {
       window._isAutoRenew = (mode === 'auto');
       document.querySelectorAll('.paymode-card.selected').forEach(c => c.classList.remove('selected'));
       card.classList.add('selected');
-      setTimeout(() => payGoStep(1), 180);
+      setTimeout(() => {
+        payGoStep(1);
+        // 🆕 로그인한 학생이면 '학생 확인' 단계를 자동 통과
+        if (payMode === 'extend') setTimeout(payAutoVerifyIfLoggedIn, 280);
+      }, 180);
     });
   });
 
@@ -16848,6 +16922,28 @@ window.addEventListener('DOMContentLoaded', () => {
       if (lookupBtn) { lookupBtn.disabled = false; lookupBtn.textContent = '🔍 학생 정보 확인'; }
     }
   };
+
+  // 🆕 현재 수강 중(로그인)인 학생이면 '학생 확인' 단계를 자동 통과 → 추가 입력/클릭 없이 바로 연장옵션
+  async function payAutoVerifyIfLoggedIn(){
+    try {
+      var raw = localStorage.getItem('mangoi_logged_user');
+      if (!raw || raw === 'null' || raw === '{}') return;
+      var u; try { u = JSON.parse(raw); } catch(_) { return; }
+      if (!(u && (u.uid || u.id) && u.name)) return;     // 비로그인 → 수동 확인 그대로
+      var uidEl = document.getElementById('ext-uid');
+      var authEl = document.getElementById('ext-auth');
+      if (!uidEl || !authEl) return;
+      if (!uidEl.value) uidEl.value = u.uid || u.id || u.name;
+      if (!authEl.value) authEl.value = u.phone || '010-0000-0000';
+      extStudent = null;
+      await window.lookupExtStudent();
+      if (extStudent && (extStudent.uid || extStudent.name)) {
+        if (u.name) extStudent.name = u.name;            // 로그인 정보로 동기화
+        if (u.uid || u.id) extStudent.uid = u.uid || u.id;
+        setTimeout(function(){ try { payGoStep(2); } catch(_){} }, 150);   // 바로 연장옵션으로
+      }
+    } catch(e){ console.warn('[pay-auto-verify]', e); }
+  }
 
   function renderExtStudentCard(s) {
     const studCard = document.getElementById('ext-student-card');
@@ -18790,7 +18886,10 @@ window.closeRulesModal = function() {
         '<div class="lm-label">'+(L?'👤 학생 ID / 비밀번호':'Student ID / Password')+'</div>'+
         '<div style="display:grid;gap:8px;margin-bottom:14px">'+
           '<input id="lm-uid" type="text" placeholder="'+(L?'예: hong_gd':'e.g. hong_gd')+'" style="width:100%;padding:11px 13px;background:#131826;color:#fff;border:1px solid #232b40;border-radius:9px;font-size:13px" />'+
-          '<input id="lm-pw" type="password" placeholder="'+(L?'비밀번호 (없으면 비워두기)':'Password (optional)')+'" style="width:100%;padding:11px 13px;background:#131826;color:#fff;border:1px solid #232b40;border-radius:9px;font-size:13px" />'+
+          '<div style="position:relative">'+
+            '<input id="lm-pw" type="password" placeholder="'+(L?'비밀번호 (없으면 비워두기)':'Password (optional)')+'" style="width:100%;padding:11px 40px 11px 13px;background:#131826;color:#fff;border:1px solid #232b40;border-radius:9px;font-size:13px;box-sizing:border-box" />'+
+            '<button type="button" aria-label="비밀번호 보기" onclick="var p=document.getElementById(&quot;lm-pw&quot;);p.type=(p.type===&quot;password&quot;?&quot;text&quot;:&quot;password&quot;);this.textContent=(p.type===&quot;password&quot;?&quot;👁&quot;:&quot;🙈&quot;);" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;font-size:16px;padding:4px;line-height:1">👁</button>'+
+          '</div>'+
           '<button onclick="doStudentLogin()" style="padding:11px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;border:0;border-radius:9px;font-weight:800;font-size:13px;cursor:pointer">🔑 '+(L?'로그인':'Sign In')+'</button>'+
           '<div id="lm-err" style="display:none;padding:8px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#fca5a5;font-size:11.5px"></div>'+
         '</div>'+
@@ -18845,13 +18944,18 @@ window.closeRulesModal = function() {
         return;
       }
       try {
-        localStorage.setItem('mango_user', JSON.stringify({
+        var _lu = {
           user_id: d.user.user_id,
           uid: d.user.user_id,
           name: d.user.user_name,
           user_name: d.user.user_name,
           role: d.user.role || 'student',
-        }));
+        };
+        localStorage.setItem('mango_user', JSON.stringify(_lu));
+        // 🔑 표시 로직이 우선 읽는 키도 함께 갱신 — 계정 전환 시 옛 이름(홍길동 등)이 남는 버그 수정
+        localStorage.setItem('mangoi_logged_user', JSON.stringify(_lu));
+        // 화상수업 입장 이름도 새 사용자로 갱신
+        localStorage.setItem('mangoi_vc_uid', _lu.name || _lu.uid);
       } catch(e){}
       closeLoginModal();
       showLcToast2('✅ ' + d.user.user_name + '님 환영합니다!');
@@ -19469,9 +19573,29 @@ window.closeRulesModal = function() {
   // 1) Service Worker 등록 (오프라인 캐시 + 빠른 로딩)
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
-        .then(reg => console.log('[pwa] SW 등록:', reg.scope))
+      // updateViaCache:'none' → sw.js 자체를 항상 새로 받아 배포 즉시 새 버전 적용
+      navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
+        .then(reg => {
+          console.log('[pwa] SW 등록:', reg.scope);
+          // 입장할 때마다 새 버전 확인 → 있으면 즉시 교체
+          reg.update().catch(()=>{});
+          if (reg.waiting) reg.waiting.postMessage('SKIP_WAITING');
+          reg.addEventListener('updatefound', () => {
+            const nw = reg.installing;
+            if (!nw) return;
+            nw.addEventListener('statechange', () => {
+              if (nw.state === 'installed') nw.postMessage('SKIP_WAITING');
+            });
+          });
+        })
         .catch(err => console.warn('[pwa] SW 등록 실패:', err));
+      // 새 SW 가 제어권을 잡으면 한 번만 새로고침 → 항상 최신 화면
+      let _swReloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (_swReloaded) return;
+        _swReloaded = true;
+        location.reload();
+      });
     });
   }
 
@@ -20303,6 +20427,16 @@ window.closeRulesModal = function() {
             if (done) return; done = true; clearTimeout(to);
   window.selectFromTextbookLibrary = async function(id, url, kind, name) {
     console.log('[ph247] selectFromTextbookLibrary:', id, kind, name);
+    // 🎬 교재(책)가 바뀔 때 1회만 예습/복습 동영상 자동 매칭·재생 (페이지 넘김엔 반복 안함)
+    try {
+      var _bm = String(name || '').match(/\[([^\]]+)\]/);   // 파일명 앞 "[교재명]" 추출
+      var _bk = _bm ? _bm[1] : '';
+      if (_bk && _bk !== window.__mangoiLastVideoBook) {
+        window.__mangoiLastVideoBook = _bk;
+        window.__mangoiCurrentBookId = _bk;
+        if (window.mangoiPlayLessonVideo) window.mangoiPlayLessonVideo(_bk);
+      }
+    } catch(_) {}
     try {
       if (typeof window.vcSwitchTab === 'function') {
         try { window.vcSwitchTab('pdf'); } catch(_){}
@@ -20477,6 +20611,11 @@ window.closeRulesModal = function() {
     if (!matched && conv.books.length) matched = conv.books[0];
     book.lessons = matched ? matched.lessons : [];
     console.log('[lazy] 서버 교재 파일 로드:', book._serverBook, '파일', items.length, '개');
+    // 🎬 교재 열 때 예습/복습 동영상 자동 매칭·재생 (등록된 망고아이 비디오에서 교재명으로 매칭)
+    try {
+      window.__mangoiCurrentBookId = book._serverBook;
+      if (window.mangoiPlayLessonVideo) window.mangoiPlayLessonVideo(book._serverBook);
+    } catch(_) {}
   }
 
   window.openTextbookLibrary = function(){
@@ -21676,15 +21815,15 @@ window.closeRulesModal = function() {
   #mangoi-dict-result { margin-top:14px; padding:12px; background:#0f172a; border-radius:8px; min-height:60px; font-size:13px; line-height:1.6; }
 </style>
 <button id="mangoi-dict-fab" onclick="mangoiOpenDict()" title="단어 사전">
-  <span style="font-size:14px">📖</span> <span data-ko="단어 사전" data-en="Dictionary" data-zh="词典" data-ja="辞書" data-vi="Từ điển">단어 사전</span>
+  <span style="font-size:14px">📖</span> <span data-ko="단어 사전" data-en="Dictionary">단어 사전</span>
 </button>
 <div id="mangoi-dict-modal" onclick="if(event.target===this)mangoiCloseDict()">
   <div id="mangoi-dict-box">
-    <h3 data-ko="📖 단어 클릭 사전 (AI 즉시 번역)" data-en="📖 Click-to-translate Dictionary (AI)" data-zh="📖 单词点击词典" data-ja="📖 単語クリック辞書" data-vi="📖 Từ điển nhấp từ">📖 단어 클릭 사전 (AI)</h3>
+    <h3 data-ko="📖 단어 클릭 사전 (AI 즉시 번역)" data-en="📖 Click-to-translate Dictionary (AI)">📖 단어 클릭 사전 (AI)</h3>
     <input id="mangoi-dict-input" type="text" placeholder="word (e.g. ambitious)" data-ko-ph="영어 단어 입력" data-en-ph="Enter English word" onkeydown="if(event.key==='Enter')mangoiLookupDict()">
     <div class="row-btns">
-      <button onclick="mangoiLookupDict()" data-ko="🔍 번역" data-en="🔍 Translate" data-zh="🔍 翻译" data-ja="🔍 翻訳" data-vi="🔍 Dịch">🔍 번역</button>
-      <button class="close" onclick="mangoiCloseDict()" data-ko="닫기" data-en="Close" data-zh="关闭" data-ja="閉じる" data-vi="Đóng">닫기</button>
+      <button onclick="mangoiLookupDict()" data-ko="🔍 번역" data-en="🔍 Translate">🔍 번역</button>
+      <button class="close" onclick="mangoiCloseDict()" data-ko="닫기" data-en="Close">닫기</button>
     </div>
     <div id="mangoi-dict-result"></div>
   </div>
@@ -21739,6 +21878,24 @@ window.closeRulesModal = function() {
   #ai-home-search, .ai-search-box, #gm-category-cards {
     max-width: calc(100vw - 16px);
     box-sizing: border-box;
+  }
+  /* 🟪 화상통화 로그인 — 가운데 정사각형 모달 */
+  #view-videocall-lobby .lobby-box {
+    width: min(700px, 94vw) !important;
+    max-width: 700px !important;
+    aspect-ratio: 1 / 1;
+    display: flex !important;
+    flex-direction: column;
+    justify-content: center;
+    overflow: hidden;
+  }
+  @media (max-width: 760px) {
+    #view-videocall-lobby .lobby-box {
+      aspect-ratio: auto;
+      width: 94vw !important;
+      max-width: 94vw !important;
+      justify-content: flex-start;
+    }
   }
 
   /* 2) 그리드 메뉴 카드 — 모바일에서 3열, 좁은 화면에서 2열 */
@@ -23130,80 +23287,9 @@ window.closeRulesModal = function() {
     .ph75-card.d-change   { background: linear-gradient(135deg,#10B981,#059669); border-color:#34D399; }
   }
 </style>
-<script>
-(function(){
-  'use strict';
-  function ph75Build(){
-    if (!window.matchMedia('(min-width: 901px)').matches) return;  // PC 전용
-    var pick = document.querySelector('.ph64-mode-pick:not([data-ph75="1"])');
-    if (!pick) return;
-    pick.dataset.ph75 = '1';
-    pick.classList.add('ph75-4card');
+<!-- 🧹 ph75 (PC 4카드 연기/변경 모달) 스크립트 제거됨 (2026-06-08)
+     — 연기/변경이 /lesson-postpone-demo.html 단일 페이지로 통합되어 미사용 -->
 
-    // 기존 카드 제거 후 4개 그리드로 재구성
-    pick.querySelectorAll('.ph64-card').forEach(function(c){ if (c.parentNode) c.parentNode.removeChild(c); });
-
-    var title = pick.querySelector('.ph64-title');
-    var sub   = pick.querySelector('.ph64-sub');
-    if (title) title.textContent = '📅 어떤 작업을 하시겠어요?';
-    if (sub)   sub.textContent = '시간 또는 교사 기준으로, 연기 또는 변경을 선택하세요';
-
-    var grid = document.createElement('div');
-    grid.className = 'ph75-grid';
-    grid.innerHTML =
-      '<button type="button" class="ph75-card t-postpone" data-method="time"    data-mode="postpone">' +
-        '<span class="ph75-icon">🕐</span>' +
-        '<div class="ph75-label">시간으로 연기</div>' +
-        '<div class="ph75-desc">날짜·시간 직접 입력 / 다음 가능 시간으로 미루기</div>' +
-      '</button>' +
-      '<button type="button" class="ph75-card t-change" data-method="time"    data-mode="change">' +
-        '<span class="ph75-icon">🕐</span>' +
-        '<div class="ph75-label">시간으로 변경</div>' +
-        '<div class="ph75-desc">원하는 날짜·시간으로 즉시 변경</div>' +
-      '</button>' +
-      '<button type="button" class="ph75-card d-postpone" data-method="drag"   data-mode="postpone">' +
-        '<span class="ph75-icon">✋</span>' +
-        '<div class="ph75-label">교사로 연기</div>' +
-        '<div class="ph75-desc">캘린더 드래그로 교사 시간 보존 연기</div>' +
-      '</button>' +
-      '<button type="button" class="ph75-card d-change" data-method="drag"   data-mode="change">' +
-        '<span class="ph75-icon">✋</span>' +
-        '<div class="ph75-label">교사로 변경</div>' +
-        '<div class="ph75-desc">캘린더 드래그로 다른 교사·시간 변경</div>' +
-      '</button>';
-    pick.appendChild(grid);
-
-    grid.querySelectorAll('.ph75-card').forEach(function(card){
-      card.addEventListener('click', function(e){
-        e.preventDefault(); e.stopPropagation();
-        var method = card.dataset.method;  // 'time' or 'drag'
-        var mode   = card.dataset.mode;    // 'postpone' or 'change'
-        var modal = document.querySelector('.lc-modal[data-ph64="1"]');
-        if (!modal) return;
-
-        // 모달 헤더 텍스트 — 연기/변경 동기화
-        var verb = (mode === 'postpone') ? '연기' : '변경';
-        var head = modal.querySelector('.lc-head, h2');
-        if (head) {
-          Array.prototype.forEach.call(head.childNodes, function(n){
-            if (n.nodeType === 3 && /연기|변경/.test(n.textContent)) {
-              n.textContent = n.textContent.replace(/연기|변경/g, verb);
-            }
-          });
-        }
-        // 모드 클래스 설정
-        modal.classList.remove('ph64-mode-time', 'ph64-mode-drag');
-        modal.classList.add('ph64-mode-' + (method === 'time' ? 'time' : 'drag'));
-        // pick 숨김
-        pick.classList.add('ph64-hidden');
-      });
-    });
-  }
-  setInterval(ph75Build, 500);
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph75Build);
-  else ph75Build();
-})();
-</script>
 
 <!-- Phase 82 main (2026-05-24) — 안전 모바일 가로 잘림 fix (카드 내부 건드리지 않음) -->
 <style id="ph82-main">
@@ -24200,9 +24286,21 @@ window.closeRulesModal = function() {
 (function(){
   'use strict';
 
-  /* [1] 강제 자동 로그인 — 비어있으면 홍길동 */
+  /* [1] 자동 로그인 보정 — 실제 로그인 사용자만 사용 (🧹 강제 홍길동 제거, 2026-06-08) */
   function ph59ForceLogin(){
     try {
+      // 🧹 옛 강제 데모(홍길동) 잔재 청소 — 실제 로그인 이름이 가려지던 원인
+      try {
+        var oldU = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null');
+        if (oldU && oldU.uid === 'hong' && oldU.name === '홍길동') localStorage.removeItem('mangoi_logged_user');
+        var oldM = JSON.parse(localStorage.getItem('mango_user') || 'null');
+        if (oldM && oldM.uid === 'hong' && oldM.name === '홍길동') localStorage.removeItem('mango_user');
+        if ((localStorage.getItem('mangoi_vc_uid') || '') === '홍길동') {
+          localStorage.removeItem('mangoi_vc_uid');
+          if ((localStorage.getItem('mangoi_vc_pw') || '') === '0000') localStorage.removeItem('mangoi_vc_pw');
+        }
+      } catch(_){}
+
       var raw = localStorage.getItem('mangoi_logged_user');
       if (raw && raw !== 'null' && raw !== '{}') {
         try {
@@ -24219,42 +24317,34 @@ window.closeRulesModal = function() {
         try {
           var u2 = JSON.parse(alt);
           if (u2 && (u2.uid || u2.id)) {
-            var norm = { uid: u2.uid||u2.id, name: u2.name||u2.uid||'홍길동', role: u2.role||'student' };
+            var norm = { uid: u2.uid||u2.id, name: u2.name||u2.uid, role: u2.role||'student' };
             localStorage.setItem('mangoi_logged_user', JSON.stringify(norm));
             ph59FillVcInputs(norm);
             return;
           }
         } catch(_){}
       }
-      // 강제로 홍길동
-      var hong = { uid: 'hong', name: '홍길동', role: 'student' };
-      localStorage.setItem('mangoi_logged_user', JSON.stringify(hong));
-      localStorage.setItem('mango_user', JSON.stringify(hong));
-      localStorage.setItem('mangoi_uid', hong.uid);
-      window.MANGO_USER = hong;
-      ph59FillVcInputs(hong);
-      if (typeof window.updateLoginUI === 'function') {
-        try { window.updateLoginUI(); } catch(_) {}
-      }
+      // 🆕 로그인 안 된 상태면 아무것도 강제하지 않음 — 로그인 버튼으로 본인 계정 로그인
     } catch(e){ console.warn('[ph59]', e); }
   }
 
-  /* [2] VC 로비 입력란 자동 채움 — 메인 로그인 정보로 */
+  /* [2] VC 로비 입력란 자동 채움 — 실제 로그인 사용자 이름으로 (홍길동 잔재는 덮어씀) */
   function ph59FillVcInputs(user){
     try {
+      var nm = user.name || user.uid || '';
+      if (!nm) return;
       var name = document.getElementById('vc-name-input');
-      if (name && !name.value) name.value = user.name || user.uid || '홍길동';
+      if (name && (!name.value || name.value === '홍길동')) name.value = nm;
       var pw = document.getElementById('vc-room-input');
       if (pw && !pw.value) pw.value = '0000';
       var save = document.getElementById('vc-save-id');
       if (save) save.checked = true;
       var auto = document.getElementById('vc-auto-login');
       if (auto) auto.checked = true;
-      // VC 자체 저장도
       localStorage.setItem('mangoi_vc_save_id', '1');
       localStorage.setItem('mangoi_vc_auto_login', '1');
-      localStorage.setItem('mangoi_vc_uid', user.name || user.uid || '홍길동');
-      localStorage.setItem('mangoi_vc_pw', '0000');
+      localStorage.setItem('mangoi_vc_uid', nm);
+      if (!localStorage.getItem('mangoi_vc_pw')) localStorage.setItem('mangoi_vc_pw', '0000');
     } catch(e){}
   }
 
@@ -24736,7 +24826,30 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260602103212 -->
+<!-- BUILD:20260608203344 -->
+
+<!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
+<script id="lesson-change-unify">
+(function(){
+  'use strict';
+  function goLC(){
+    try { location.href = '/lesson-postpone-demo.html'; }
+    catch(e){ try { location.assign('/lesson-postpone-demo.html'); } catch(_){} }
+  }
+  // 모든 진입점이 이 함수를 호출 → 항상 깔끔한 단일 화면으로 이동
+  window.openLessonChangeModal = goLC;
+  window.openMyLessonChangeModal = goLC;
+  // 특정 수업 카드의 연기/변경 버튼도 동일 페이지로 (인자 무시)
+  window.tryLessonAction = function(){ goLC(); };
+  window.tryMyAction = function(){ goLC(); };
+  // 혹시 뒤늦게 재정의되어도 다시 덮어쓰기 (옛 ph 레이어 무력화)
+  setTimeout(function(){
+    window.openLessonChangeModal = goLC;
+    window.tryLessonAction = function(){ goLC(); };
+    window.tryMyAction = function(){ goLC(); };
+  }, 1500);
+})();
+</script>
 
 <!-- index.html fix v3 (2026-05-25) — SW kill + 가벼운 카테고리 카드 + 응답없음 방지 -->
 <script id="fix-v3-sw-kill">
@@ -25305,67 +25418,7 @@ document.addEventListener('keydown', function(e){
   }
 </style>
 
-<script>
-(function(){
-  function buildPanel(){
-    return; // fix (2026-06-01 v3) — 레거시 v19-panel 비활성. 전체메뉴는 openAllMenuOverlay 사용.
-    if (document.getElementById('v19-panel')) return;
-    var MENUS = [
-      {emoji:'🛠', name:'관리자 페이지', url:'/admin.html'},
-      {emoji:'👤', name:'마이페이지', url:'/admin/mypage.html'},
-      {emoji:'👨‍🎓', name:'학생 관리', url:'/admin/students.html'},
-      {emoji:'📅', name:'내 주간 스케줄', url:'/admin/weekly-schedule.html?role=student'},
-      {emoji:'📞', name:'고객센터', url:'/contact.html'},
-      {emoji:'📚', name:'커리큘럼', url:'/curriculum.html'},
-      {emoji:'📖', name:'수업 자료', url:'/lessons.html'},
-      {emoji:'📝', name:'평가서', url:'/eval.html'},
-      {emoji:'📊', name:'리포트', url:'/report.html'},
-      {emoji:'🤖', name:'AI 친구', url:'/ai-friend.html'},
-      {emoji:'✍', name:'AI 작문', url:'/ai-write.html'},
-      {emoji:'🗣', name:'영어 발음 코치', url:'/speech-coach.html'},
-      {emoji:'🇨🇳', name:'중국어 발음 코치', url:'/speech-coach-cn.html'},
-      {emoji:'📚', name:'교재 업로더', url:'/textbook-uploader.html'},
-      {emoji:'📖', name:'단어장', url:'/vocab.html'},
-      {emoji:'🎯', name:'미니 퀴즈', url:'/micro-quiz.html'},
-      {emoji:'🧠', name:'MBTI 매칭', url:'/mbti.html'},
-      {emoji:'🧪', name:'MBTI 테스트', url:'/mbti-test.html'},
-      {emoji:'🔥', name:'연속 출석', url:'/streak.html'},
-      {emoji:'🌟', name:'칭찬 스티커', url:'/teacher-praise.html'},
-      {emoji:'📝', name:'수업 신청', url:'/lesson-booking-demo.html'},
-      {emoji:'📅', name:'수업 연기·변경', url:'/lesson-postpone-demo.html'},
-      {emoji:'👨‍👩‍👧', name:'학부모 페이지', url:'/parent.html'},
-      {emoji:'🩺', name:'시스템 진단', url:'/admin/health.html'},
-      {emoji:'👻', name:'Ghost View', url:'/admin/ghost-view.html'},
-      {emoji:'🔐', name:'관리자 로그인', url:'/admin/login'},
-    ];
-    var panel = document.createElement('div');
-    panel.id = 'v19-panel';
-    var html = '<h2>📋 망고아이 전체 메뉴 (' + MENUS.length + '개)</h2><div id="v19-grid">';
-    MENUS.forEach(function(m){
-      html += '<a href="' + m.url + '">' +
-        '<span class="v19-emoji">' + m.emoji + '</span>' +
-        '<span class="v19-name">' + m.name + '</span>' +
-      '</a>';
-    });
-    html += '</div>';
-    panel.innerHTML = html;
-
-    // 검색창 hero section 아래에 추가
-    var hero = document.querySelector('.hero-section, .hero, #hero, main, body');
-    if (hero) {
-      hero.appendChild(panel);
-    } else {
-      document.body.appendChild(panel);
-    }
-    console.log('[v19] 메뉴 패널 inject 완료 — ' + MENUS.length + '개 카드');
-  }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', buildPanel);
-  else buildPanel();
-  setTimeout(buildPanel, 500);
-  setTimeout(buildPanel, 2000);
-})();
-</script>
+<!-- 🧹 레거시 v19 메뉴 패널 스크립트 제거됨 (2026-06-08) — 전체메뉴는 openAllMenuOverlay 사용 -->
 
 <!-- fix v22 (2026-05-27) — 전체메뉴 버튼 capture-phase 핸들러 (다른 핸들러 우회) -->
 <script>
@@ -25464,53 +25517,7 @@ document.addEventListener('keydown', function(e){
 
   // === v19 패널 없으면 즉시 만들기 ===
   function buildPanelV22(){
-    return; // fix (2026-06-01 v3) — 레거시 v19-panel 비활성. 전체메뉴는 openAllMenuOverlay 사용.
-    if (document.getElementById('v19-panel')) return;
-    var MENUS = [
-      {emoji:'🛠', name:'관리자 페이지', url:'/admin.html'},
-      {emoji:'👤', name:'마이페이지', url:'/admin/mypage.html'},
-      {emoji:'👨‍🎓', name:'학생 관리', url:'/admin/students.html'},
-      {emoji:'📅', name:'내 주간 스케줄', url:'/admin/weekly-schedule.html?role=student'},
-      {emoji:'📞', name:'고객센터', url:'/contact.html'},
-      {emoji:'📚', name:'커리큘럼', url:'/curriculum.html'},
-      {emoji:'📖', name:'수업 자료', url:'/lessons.html'},
-      {emoji:'📝', name:'평가서', url:'/eval.html'},
-      {emoji:'📊', name:'리포트', url:'/report.html'},
-      {emoji:'🤖', name:'AI 친구', url:'/ai-friend.html'},
-      {emoji:'✍', name:'AI 작문', url:'/ai-write.html'},
-      {emoji:'🗣', name:'영어 발음 코치', url:'/speech-coach.html'},
-      {emoji:'🇨🇳', name:'중국어 발음 코치', url:'/speech-coach-cn.html'},
-      {emoji:'📚', name:'교재 업로더', url:'/textbook-uploader.html'},
-      {emoji:'📖', name:'단어장', url:'/vocab.html'},
-      {emoji:'🎯', name:'미니 퀴즈', url:'/micro-quiz.html'},
-      {emoji:'🧠', name:'MBTI 매칭', url:'/mbti.html'},
-      {emoji:'🧪', name:'MBTI 테스트', url:'/mbti-test.html'},
-      {emoji:'🔥', name:'연속 출석', url:'/streak.html'},
-      {emoji:'🌟', name:'칭찬 스티커', url:'/teacher-praise.html'},
-      {emoji:'📝', name:'수업 신청', url:'/lesson-booking-demo.html'},
-      {emoji:'📅', name:'수업 연기·변경', url:'/lesson-postpone-demo.html'},
-      {emoji:'👨‍👩‍👧', name:'학부모 페이지', url:'/parent.html'},
-      {emoji:'🩺', name:'시스템 진단', url:'/admin/health.html'},
-      {emoji:'👻', name:'Ghost View', url:'/admin/ghost-view.html'},
-      {emoji:'🔐', name:'관리자 로그인', url:'/admin/login'}
-    ];
-    var panel = document.createElement('div');
-    panel.id = 'v19-panel';
-    panel.style.cssText = 'display:none;margin:20px auto;max-width:1100px;background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;padding:24px;color:#F8FAFC;box-shadow:0 12px 40px rgba(0,0,0,0.5)';
-    var html = '<h2 style="margin:0 0 18px;color:#fff;font-size:20px;text-align:center;font-weight:800;padding-bottom:14px;border-bottom:1px solid #2563EB">📋 망고아이 전체 메뉴 (' + MENUS.length + '개)</h2>';
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">';
-    MENUS.forEach(function(m){
-      html += '<a href="' + m.url + '" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 12px;background:rgba(30,41,59,0.9);border:1px solid rgba(96,165,250,0.5);border-radius:12px;color:#F8FAFC;text-decoration:none;cursor:pointer;min-height:100px;text-align:center;font-size:13px;font-weight:700">' +
-        '<span style="font-size:28px">' + m.emoji + '</span>' +
-        '<span>' + m.name + '</span>' +
-      '</a>';
-    });
-    html += '</div>';
-    panel.innerHTML = html;
-
-    // body에 직접 추가
-    document.body.appendChild(panel);
-    console.log('[v22] 패널 생성 완료 — 25개 카드');
+    // 🧹 레거시 v19 패널 본문 제거됨 (2026-06-08) — 전체메뉴는 openAllMenuOverlay 사용
   }
   window.buildPanelV22 = buildPanelV22;
 
@@ -26504,6 +26511,169 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   }
 </style>
 
-</body>
-</html>
-                                                                                                                                                                                                                                                                                                                                                                                        
+<style id="cta-transparent-override">
+  .ai-cta-row .cta-pay, .ai-cta-row .cta-enter,
+  body .cta-pay, body .cta-enter,
+  button.cta-pay, button.cta-enter {
+    background: rgba(245,158,11,0.10) !important;
+    border: 1.5px solid rgba(245,158,11,0.60) !important;
+    color: #fbbf24 !important;
+    box-shadow: 0 6px 18px -8px rgba(245,158,11,0.4) !important;
+    -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
+  }
+  .ai-cta-row .cta-pay::before, .ai-cta-row .cta-enter::before,
+  .cta-pay::before, .cta-enter::before { opacity: 0 !important; background: transparent !important; }
+  .ai-cta-row .cta-pay *, .ai-cta-row .cta-enter *,
+  .cta-pay svg, .cta-enter svg, .cta-pay span, .cta-enter span { color: #fbbf24 !important; stroke: #fbbf24 !important; }
+</style>
+<style id="home-title-image-css">
+  .home-title { background: transparent !important; }
+  .home-title-img {
+    width: min(700px, 92vw); max-width: 100%; height: auto; display: block; margin: -8px auto -4px;
+    image-rendering: auto;
+    filter: drop-shadow(0 2px 8px rgba(30,15,70,0.45));
+  }
+</style>
+<style id="scifi-title-override">
+  /* 🪟 투명 유리 제목 — 글자 안(채움)·겉(배경) 모두 투명, 가는 외곽선 + SF 글로우 */
+  .home-title { background: transparent !important; gap: 0 !important; font-size: clamp(40px, 7.6vw, 80px) !important; }
+  .home-title-img { display: none !important; }
+  .ht-glass {
+    font-family: 'Arial Black', 'Noto Sans KR', system-ui, sans-serif;
+    font-weight: 800;
+    font-style: normal;
+    text-transform: uppercase;          /* 영문 대문자 */
+    letter-spacing: 2px;
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;   /* 글자 안 투명 — 뒤 배경이 비침 */
+    background: transparent !important;                 /* 글자 겉(박스) 투명 */
+    -webkit-text-stroke: 2px #5eead4;   /* 외곽선 — 색은 아래 애니메이션으로 순환 */
+    text-stroke: 2px #5eead4;
+    text-shadow: none;                  /* 글자 안 완전 투명 */
+    paint-order: stroke fill;
+    animation: htHue 9s linear infinite;
+  }
+  @keyframes htHue {
+    0%,100% { -webkit-text-stroke-color:#5eead4; text-stroke-color:#5eead4; filter: drop-shadow(0 0 6px rgba(94,234,212,0.55)); }
+    25%     { -webkit-text-stroke-color:#a78bfa; text-stroke-color:#a78bfa; filter: drop-shadow(0 0 6px rgba(167,139,250,0.55)); }
+    50%     { -webkit-text-stroke-color:#f472b6; text-stroke-color:#f472b6; filter: drop-shadow(0 0 6px rgba(244,114,182,0.55)); }
+    75%     { -webkit-text-stroke-color:#fcd34d; text-stroke-color:#fcd34d; filter: drop-shadow(0 0 6px rgba(252,211,77,0.55)); }
+  }
+  @media (max-width:640px){ .ht-glass{ -webkit-text-stroke-width:1.4px; letter-spacing:0.5px; } }
+</style>
+<style id="consult-fab-transparent">
+  /* 💬 상담 FAB — 동그란 원(배경·테두리·그림자) 완전 제거, 말풍선 아이콘만 */
+  #ph49-kakao-fab, .ph49-kakao-fab {
+    background: transparent !important;
+    border: 0 !important;
+    color: #FEE500 !important;
+    box-shadow: none !important;
+    -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  }
+  /* 모바일·통화중 등 어떤 상태에서도 원 제거 (미디어쿼리 노란 배경 무력화) */
+  body #ph49-kakao-fab,
+  body:not(.vc-in-call) #ph49-kakao-fab,
+  body.vc-in-call #ph49-kakao-fab {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+  #ph49-kakao-fab .ph49-kakao-intext, .ph49-kakao-fab .ph49-kakao-intext { color: #FEE500 !important; }
+</style>
+<script>
+/* 💳 예약 페이지 → "결제로 이동" 클릭 시, 홈(?menu=payment)으로 와서 결제창 자동 오픈 */
+(function(){
+  try {
+    var p = new URLSearchParams(location.search);
+    if (p.get('menu') !== 'payment') return;
+    var tries = 0;
+    var timer = setInterval(function(){
+      tries++;
+      if (window.gridActions && typeof window.gridActions.payment === 'function') {
+        clearInterval(timer);
+        try { window.gridActions.payment(); } catch(e){ console.warn('[auto-pay]', e); }
+        // URL 파라미터 정리 (뒤로가기/새로고침 시 중복 오픈 방지)
+        try { history.replaceState(null, '', location.pathname); } catch(_){}
+      } else if (tries > 60) {   // 약 6초까지 시도
+        clearInterval(timer);
+      }
+    }, 100);
+  } catch(e){ console.warn('[auto-pay init]', e); }
+})();
+</script>
+<script>
+/* 🎥 원클릭 수업 입장 — 강사별 고정 교실 방코드
+   · window.mangoiJoinClass('t-penny') → 로비 열고 방코드 자동 입력, 저장된 로그인 있으면 즉시 입장
+   · URL ?room=t-penny 로 접속해도 동일 (교사·학생 모두 링크 하나로 입장)              */
+(function(){
+  'use strict';
+  window.mangoiJoinClass = function(code){
+    try {
+      if (typeof showView === 'function') showView('view-videocall-lobby');
+      var rc = document.getElementById('vc-roomcode-input');
+      if (rc) rc.value = code || '';   // 코드 없으면 비움 → 공용 수업방(mangoi-class)에서 만남
+      // 저장된 아이디/비밀번호 있으면 자동 채움 → 바로 입장
+      var uid = localStorage.getItem('mangoi_vc_uid') || '';
+      var pw  = localStorage.getItem('mangoi_vc_pw') || '';
+      var ni = document.getElementById('vc-name-input');
+      var pi = document.getElementById('vc-room-input');
+      if (uid && ni && !ni.value) ni.value = uid;
+      if (pw  && pi && !pi.value) pi.value = pw;
+      if (ni && ni.value && pi && pi.value && typeof vcJoinRoom === 'function') {
+        setTimeout(function(){ try { vcJoinRoom(); } catch(e){} }, 300);  // 🚀 원클릭 입장
+      }
+      // 로그인 정보 없으면 로비가 열린 채 방코드만 채워짐 → 한 번만 입력하면 다음부턴 자동
+    } catch(e){ console.warn('[joinClass]', e); }
+  };
+  // URL ?room= 자동 입장 (알림톡/북마크 링크용)
+  try {
+    var room = new URLSearchParams(location.search).get('room');
+    if (room) setTimeout(function(){ window.mangoiJoinClass(room); }, 700);
+  } catch(e){}
+})();
+</script>
+<script>
+/* 🎬 교재 → 예습/복습 동영상 자동 매칭·재생 (망고아이 수업방) */
+(function(){
+  // 교재 id 로 매칭된 동영상을 받아와 동영상 탭(#vp-stage)에서 자동 재생
+  window.mangoiPlayLessonVideo = async function(bookId){
+    if(!bookId) return;
+    try{
+      var qs = /^\d+$/.test(String(bookId)) ? ('id=' + encodeURIComponent(bookId)) : ('q=' + encodeURIComponent(bookId));
+      var d = await (await fetch('/api/lesson-video?' + qs, { cache:'no-store' })).json();
+      var st = document.getElementById('vp-stage');
+      if(!st) return;
+      if(!d || !d.success || !d.has_video) return; // 매칭 동영상 없으면 조용히 무시
+      try{ if(typeof vcSwitchTab==='function') vcSwitchTab('video'); }catch(_){}   // 동영상 탭으로 전환
+      var t = (d.video_type==='review') ? '복습' : '예습';
+      var label = '<div style="position:absolute;top:8px;left:8px;z-index:2;background:#2563eb;color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px">'+t+' · '+(d.video_title||'')+'</div>';
+      if(d.is_youtube && d.youtube_id){
+        // YouTube → iframe 임베드 (자동재생 + 음소거, 크롬 정책 통과). 🔊 클릭 시 mute=0 으로 재로드해 소리 켜짐
+        st.innerHTML = label +
+          '<iframe id="ml-frame" src="https://www.youtube.com/embed/'+d.youtube_id+'?autoplay=1&mute=1&rel=0&playsinline=1" allow="autoplay; encrypted-media" allowfullscreen style="width:100%;height:100%;border:0;border-radius:8px;background:#000"></iframe>' +
+          '<button id="ml-un" style="position:absolute;bottom:12px;right:12px;z-index:2;padding:7px 14px;border:0;border-radius:8px;background:#f59e0b;color:#1f2937;font-weight:800;cursor:pointer">🔊 소리 켜기</button>';
+        var ubf = document.getElementById('ml-un');
+        if(ubf) ubf.onclick = function(){ var f=document.getElementById('ml-frame'); if(f) f.src='https://www.youtube.com/embed/'+d.youtube_id+'?autoplay=1&mute=0&rel=0&playsinline=1'; ubf.style.display='none'; };
+      } else if(d.video_url){
+        // 직접 동영상 파일(mp4 등) → <video>
+        st.innerHTML = label +
+          '<video id="ml-vid" autoplay muted playsinline controls style="width:100%;height:100%;background:#000;border-radius:8px"></video>' +
+          '<button id="ml-un" style="position:absolute;bottom:12px;right:12px;z-index:2;padding:7px 14px;border:0;border-radius:8px;background:#f59e0b;color:#1f2937;font-weight:800;cursor:pointer">🔊 소리 켜기</button>';
+        var v = document.getElementById('ml-vid');
+        v.src = d.video_url;
+        v.play().catch(function(){});   // muted 라 크롬 자동재생 통과
+        var ub = document.getElementById('ml-un');
+        if(ub) ub.onclick = function(){ v.muted=false; v.play(); ub.style.display='none'; };
+      }
+    }catch(e){ console.warn('[lesson-video]', e); }
+  };
+  // ✅ 수업방에서 교재를 열 때 이 이벤트만 쏘면 자동 재생됩니다:
+  //    window.dispatchEvent(new CustomEvent('mangoi:textbook-open',{detail:{bookId: 교재번호}}));
+  window.addEventListener('mangoi:textbook-open', function(e){
+    var id = e && e.detail && e.detail.bookId; if(id) window.mangoiPlayLessonVideo(id);
+  });
+  // 동영상 탭 컨트롤에 '📘 교재 동영상' 버튼 자동 추가 (수동 호출용)
+  function injectBtn(){
+    var ctr = document.querySelector('#tab-video .vp-controls');
+    if(!ctr || document.getElementById('ml-btn')) return;
+    var b = document.createEleme

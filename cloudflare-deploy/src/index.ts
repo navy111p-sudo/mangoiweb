@@ -12,6 +12,9 @@ import { handleLivekit, ensureLivekitSchema } from './livekit-bridge';
 import { handleRecordingUpload as handleR2MultipartUpload } from './recordings-r2';
 import { handleAdminAuthApi, checkAdminSession } from './auth-admin';
 import { reportsRouter } from './accounting-reports';
+import { realtimeRouter, runFinanceSnapshot } from './accounting-realtime';
+import { learningRouter, runLearningSnapshot } from './learning-insights';
+import { marketingRouter } from './marketing-studio';
 
 interface Env {
   SIGNALING_ROOM: DurableObjectNamespace;
@@ -371,6 +374,8 @@ export default {
         path.startsWith('/api/admin/export/') ||
         path.startsWith('/api/admin/stats/') ||
         path === '/api/admin/ai-command' ||
+        path === '/api/student/ai-command' ||
+        path === '/api/admin/omnisearch' ||
         path === '/api/admin/ai-action' ||
         path === '/api/admin/class-schedules' ||
         path === '/api/admin/class-schedules/seed-demo' ||
@@ -396,12 +401,15 @@ export default {
         path === '/api/admin/community-posts' ||
         /^\/api\/admin\/community-posts\/\d+$/.test(path) ||
         path === '/api/admin/textbooks' ||
+        /^\/api\/get-lesson-video\/\d+$/.test(path) ||
+        path === '/api/lesson-video' ||
         // 📚 Phase 39 — 교재 파일 라이브러리 + 망고아이 비디오
         path === '/api/admin/textbook-files' ||
         /^\/api\/admin\/textbook-files\/\d+$/.test(path) ||
         path === '/api/textbook-files' ||
         /^\/api\/textbook-files\/\d+(\/raw)?$/.test(path) ||
         path === '/api/admin/mango-videos' ||
+        path === '/api/admin/mango-videos/import-channel' ||
         /^\/api\/admin\/mango-videos\/\d+$/.test(path) ||
         path === '/api/mango-videos' ||
         // 📲 카카오 알림톡 (SOLAPI) — 누락되어 있던 게이트 추가
@@ -418,6 +426,7 @@ export default {
         path === '/api/popups/active' ||
         /^\/api\/popups\/\d+\/(view|click|dismiss)$/.test(path) ||
         path === '/api/admin/students/list' ||
+        path === '/api/admin/students/unified' ||
         path === '/api/admin/students/erp-list' ||
         path === '/api/admin/students/erp' ||
         path === '/api/admin/students/erp-seed' ||
@@ -708,6 +717,45 @@ export default {
       return reportsRouter(request, env);
     }
 
+    // 💸 실시간 수입·지출 분석 & 재무 스냅샷 (2026-06-03 추가)
+    //   /api/admin/realtime/{summary|daily|weekly|expenses|snapshots|snapshot}
+    //   기존 reports 와 prefix 분리 + 자체 try/catch 로 독립 동작
+    if (path.startsWith('/api/admin/realtime/')) {
+      return realtimeRouter(request, env);
+    }
+
+    // 💸 /admin/finance-realtime — 실시간 재무 대시보드 페이지 (관리자 전용)
+    if (path === '/admin/finance-realtime' || path === '/admin/finance-realtime/') {
+      const r = new Request(new URL('/admin/finance-realtime.html' + url.search, request.url).toString(), request);
+      return env.ASSETS.fetch(r);
+    }
+
+    // 🎓 학습 인사이트: 위험도 세그먼트 & 장기 트렌드 (2026-06-03 추가)
+    //   /api/admin/learning/{overview|segments|trends|snapshots|snapshot}
+    //   기존 ai-analyze(온디맨드 AI)와 별개 — 룰 기반 집계, 자체 try/catch 독립 동작
+    if (path.startsWith('/api/admin/learning/')) {
+      return learningRouter(request, env);
+    }
+
+    // 🎓 /admin/learning-insights — 학습 인사이트 대시보드 페이지 (관리자 전용)
+    if (path === '/admin/learning-insights' || path === '/admin/learning-insights/') {
+      const r = new Request(new URL('/admin/learning-insights.html' + url.search, request.url).toString(), request);
+      return env.ASSETS.fetch(r);
+    }
+
+    // 📣 마케팅 스튜디오: 차별화 카피 생성 & 타겟팅 (2026-06-03 추가)
+    //   /api/admin/marketing/{segments|channels|generate|campaigns}
+    //   기존 발송 인프라와 별개 — 콘텐츠 제작/타겟팅 계층, 자체 try/catch 독립 동작
+    if (path.startsWith('/api/admin/marketing/')) {
+      return marketingRouter(request, env);
+    }
+
+    // 📣 /admin/marketing-studio — 마케팅 스튜디오 페이지 (관리자 전용)
+    if (path === '/admin/marketing-studio' || path === '/admin/marketing-studio/') {
+      const r = new Request(new URL('/admin/marketing-studio.html' + url.search, request.url).toString(), request);
+      return env.ASSETS.fetch(r);
+    }
+
     // WebSocket upgrade for signaling
     if (path.startsWith('/ws/signaling')) {
       return await handleSignalingWebSocket(request, url, env);
@@ -735,6 +783,12 @@ export default {
     if (path === '/admin/student' || path === '/admin/student/') {
       const studentRequest = new Request(new URL('/admin/student.html' + url.search, request.url).toString(), request);
       return env.ASSETS.fetch(studentRequest);
+    }
+
+    // 🧑‍🎓 /admin/students-unified — 통합 학생관리(단일 화면)
+    if (path === '/admin/students-unified' || path === '/admin/students-unified/') {
+      const r = new Request(new URL('/admin/students-unified.html' + url.search, request.url).toString(), request);
+      return env.ASSETS.fetch(r);
     }
 
     // 👨‍🎓 /admin/students — 학생 목록 ERP 풀페이지 (Phase 10)
@@ -817,6 +871,31 @@ export default {
           console.log('[auto-dunning] cron ran', r?.status);
         } catch (err) {
           console.error('[auto-dunning] error', err);
+        }
+
+        // 💸 재무 스냅샷 — 어제·오늘분 일일 스냅샷 자동 저장 (KST 03:00)
+        //   전일 마감 + 당일 초기값을 finance_snapshots 에 upsert. 실패해도 다른 cron 무영향.
+        try {
+          const kstNow = new Date(event.scheduledTime + 9 * 3600 * 1000);
+          const yMs = kstNow.getTime() - 86400000;
+          const yStr = new Date(yMs).toISOString().slice(0, 10);
+          const tStr = kstNow.toISOString().slice(0, 10);
+          const ry = await runFinanceSnapshot(env as any, yStr);
+          const rt = await runFinanceSnapshot(env as any, tStr);
+          console.log('[finance-snapshot] cron ran', JSON.stringify({ y: ry, t: rt }));
+        } catch (err) {
+          console.error('[finance-snapshot] error', err);
+        }
+
+        // 🎓 학습 인사이트 — 당월 위험도 스냅샷 자동 저장 (KST 03:00)
+        //   learning_trend_snapshots 에 당월 코호트 위험도 upsert. 실패해도 무영향.
+        try {
+          const kstNow = new Date(event.scheduledTime + 9 * 3600 * 1000);
+          const period = kstNow.toISOString().slice(0, 7);
+          const rl = await runLearningSnapshot(env as any, period);
+          console.log('[learning-snapshot] cron ran', JSON.stringify(rl));
+        } catch (err) {
+          console.error('[learning-snapshot] error', err);
         }
 
         // 📅 Weekly schedule auto-generation — every Sunday only (KST Monday 03:00)
@@ -1653,8 +1732,18 @@ function isAdminPath(path: string, method: string): boolean {
   if (path.startsWith('/api/admin/student/')) return true;
   // 👨‍🎓 /admin/students ERP 풀페이지 (Phase 10)
   if (path === '/admin/students' || path === '/admin/students/' || path === '/admin/students.html') return true;
+  if (path === '/admin/students-unified' || path === '/admin/students-unified/' || path === '/admin/students-unified.html') return true;
   // 👤 /admin/mypage — 마이페이지 (Phase 11)
   if (path === '/admin/mypage' || path === '/admin/mypage/' || path === '/admin/mypage.html') return true;
+  // 💸 실시간 재무 대시보드 + API (2026-06-03) — 관리자 전용
+  if (path === '/admin/finance-realtime' || path === '/admin/finance-realtime/' || path === '/admin/finance-realtime.html') return true;
+  if (path.startsWith('/api/admin/realtime/')) return true;
+  // 🎓 학습 인사이트 대시보드 + API (2026-06-03) — 관리자 전용
+  if (path === '/admin/learning-insights' || path === '/admin/learning-insights/' || path === '/admin/learning-insights.html') return true;
+  if (path.startsWith('/api/admin/learning/')) return true;
+  // 📣 마케팅 스튜디오 대시보드 + API (2026-06-03) — 관리자 전용
+  if (path === '/admin/marketing-studio' || path === '/admin/marketing-studio/' || path === '/admin/marketing-studio.html') return true;
+  if (path.startsWith('/api/admin/marketing/')) return true;
   // 🔐 Phase 11 — 인증·세션 API (login·logout 만 isAuthPublicPath 로 예외)
   if (path === '/api/admin/me' || path === '/api/admin/profile') return true;
   if (path === '/api/admin/change-password') return true;
@@ -1673,6 +1762,7 @@ function isAdminPath(path: string, method: string): boolean {
   if (path.startsWith('/api/admin/stats/')) return true;
   // 🥭 Phase 21 — AI 명령 / 액션 (Workers AI)
   if (path === '/api/admin/ai-command' || path === '/api/admin/ai-action') return true;
+  if (path === '/api/admin/omnisearch') return true;
   if (path === '/api/admin/class-schedules' || path === '/api/admin/class-schedules/seed-demo' || /^\/api\/admin\/class-schedules\/\d+$/.test(path)) return true;
   if (path === '/api/admin/students/merge-duplicates') return true;
   // 💼 강사 급여·평가 (Phase 8) — 관리자 전용
@@ -1695,6 +1785,7 @@ function isAdminPath(path: string, method: string): boolean {
   // 🎬 Phase 39 — 망고아이 비디오 관리 (관리자 전용)
   if (path === '/api/admin/mango-videos' || /^\/api\/admin\/mango-videos\/\d+$/.test(path)) return true;
   if (path === '/api/admin/students/list') return true;
+  if (path === '/api/admin/students/unified') return true;
   if (path === '/api/admin/students/erp-list' || path === '/api/admin/students/erp' || path === '/api/admin/students/erp-seed') return true;
   // 대시보드·활성 방·방 상태 — 모두 관리자 전용
   if (path === '/api/dashboard') return true;

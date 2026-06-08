@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>📣 마케팅 스튜디오 — 망고아이</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#263449;
+    --fg:#e2e8f0; --mut:#94a3b8; --dim:#64748b; --bd:#334155;
+    --y:#f59e0b; --g:#10b981; --r:#ef4444; --b:#3b82f6; --p:#a855f7;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo",sans-serif;font-size:14px}
+  a{color:#fde68a;text-decoration:none}
+
+  header.top{min-height:56px;display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;padding:8px 14px;border-bottom:1px solid var(--bd);background:#0b1220;position:sticky;top:0;z-index:50}
+  header.top .brand{font-weight:800;color:#fbbf24;white-space:nowrap;flex-shrink:0}
+  header.top .crumb{color:var(--mut);font-size:13px;white-space:nowrap;flex-shrink:0}
+  header.top .right{margin-left:auto;display:flex;flex-wrap:wrap;gap:8px;flex-shrink:0}
+  header.top a.btn,header.top button.btn{padding:6px 12px;border-radius:6px;border:1px solid var(--bd);background:var(--panel);color:var(--fg);font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0}
+  @media(max-width:480px){
+    header.top{gap:6px 8px;padding:8px 10px}
+    header.top .crumb{display:none}
+    header.top .right{width:100%;margin-left:0;justify-content:flex-start}
+    header.top a.btn,header.top button.btn{padding:6px 10px;font-size:11.5px}
+  }
+  header.top a.btn:hover,header.top button.btn:hover{background:var(--panel2)}
+
+  main{max-width:1320px;margin:0 auto;padding:18px}
+  section{margin-bottom:22px}
+  h2.sec{font-size:13px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;margin:0 0 10px}
+
+  /* 채널 상태 */
+  .chan-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:6px}
+  .chan{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:14px 16px}
+  .chan .lab{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+  .chan .val{font-size:22px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums}
+  .chan .sub{font-size:11px;color:var(--dim);margin-top:2px}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+  .dot.on{background:var(--g)} .dot.off{background:var(--r)}
+
+  .grid{display:grid;grid-template-columns:380px 1fr;gap:16px;align-items:start}
+  .card{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:16px}
+  .card h3{margin:0 0 12px;font-size:13px;font-weight:700;color:#fcd34d}
+  .form-row{display:flex;flex-direction:column;gap:4px;margin-bottom:11px}
+  .form-row label{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+  .form-row input,.form-row select,.form-row textarea{padding:9px 11px;border-radius:7px;border:1px solid var(--bd);background:var(--panel2);color:var(--fg);font-size:14px;width:100%;font-family:inherit}
+  .form-row textarea{min-height:54px;resize:vertical}
+  .form-row input:focus,.form-row select:focus,.form-row textarea:focus{outline:none;border-color:var(--y)}
+  .aud-hint{font-size:12px;color:var(--mut);background:var(--panel2);border:1px solid var(--bd);border-radius:8px;padding:9px 11px;margin-bottom:11px}
+  .aud-hint b{color:#fcd34d}
+  button.primary{width:100%;padding:12px;border-radius:8px;border:0;background:linear-gradient(135deg,var(--y),#d97706);color:#1e293b;font-weight:800;font-size:14px;cursor:pointer}
+  button.primary:hover{filter:brightness(1.06)} button.primary:disabled{opacity:.55;cursor:not-allowed}
+
+  .result{min-height:120px}
+  .copy-block{background:var(--panel2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:12px;position:relative}
+  .copy-block .tag{display:inline-block;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+  .copy-block .hl{font-size:16px;font-weight:800;color:#fde68a;margin:0 0 8px}
+  .copy-block .bd{white-space:pre-wrap;line-height:1.6;color:var(--fg)}
+  .copy-block .cta{margin-top:10px;display:inline-block;background:rgba(245,158,11,.16);color:#fcd34d;border:1px solid #92400e;border-radius:8px;padding:6px 12px;font-weight:700;font-size:13px}
+  .copy-block .tags{margin-top:8px;color:#7dd3fc;font-size:12px}
+  .copy-block .cpbtn{position:absolute;top:10px;right:10px;font-size:11px;background:var(--panel);border:1px solid var(--bd);color:var(--mut);border-radius:6px;padding:3px 8px;cursor:pointer}
+  .copy-block .cpbtn:hover{color:var(--fg)}
+  .variant{border-left:3px solid var(--p)}
+  .placeholder{color:var(--mut);text-align:center;padding:40px 10px}
+
+  .scroll{overflow-x:auto}
+  table.list{width:100%;border-collapse:collapse;font-size:13px;min-width:620px}
+  table.list th,table.list td{padding:9px 10px;border-bottom:1px solid var(--bd);text-align:left;vertical-align:top}
+  table.list th{background:var(--panel2);color:var(--mut);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+  .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:rgba(59,130,246,.16);color:#93c5fd}
+  .del{background:transparent;border:1px solid var(--bd);color:#fca5a5;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer}
+  .empty{text-align:center;padding:30px;color:var(--mut)}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0b1220;border:1px solid var(--bd);color:var(--fg);padding:11px 18px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:99}
+  .toast.show{opacity:1}.toast.err{border-color:#991b1b;color:#fca5a5}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(30,41,59,.4);border-top-color:#1e293b;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  @media(max-width:860px){ .grid{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<header class="top">
+  <span class="brand">🥭 망고아이</span>
+  <span class="crumb">／ 마케팅 스튜디오</span>
+  <div class="right">
+    <a class="btn" href="/admin/finance-realtime">💸 재무</a>
+    <a class="btn" href="/admin/learning-insights">🎓 학습</a>
+    <button class="btn" id="refreshBtn">↻ 새로고침</button>
+    <a class="btn" href="/admin">← 관리자</a>
+  </div>
+</header>
+
+<main>
+  <!-- 채널 상태 -->
+  <section>
+    <h2 class="sec">📡 현재 운영 채널</h2>
+    <div class="chan-row" id="chanRow"><div class="chan"><div class="placeholder">불러오는 중…</div></div></div>
+  </section>
+
+  <section>
+    <div class="grid">
+      <!-- 생성 폼 -->
+      <div class="card">
+        <h3>✨ AI 차별화 카피 생성</h3>
+        <div class="form-row">
+          <label>타겟 세그먼트</label>
+          <select id="fSegment"></select>
+        </div>
+        <div class="aud-hint" id="audHint">세그먼트를 선택하면 도달 가능 인원이 표시됩니다.</div>
+        <div class="aud-hint" id="recoBox" style="display:none"></div>
+        <div class="form-row">
+          <label>캠페인 유형</label>
+          <select id="fType">
+            <option value="promotion">프로모션/할인</option>
+            <option value="reengagement">재참여 유도</option>
+            <option value="referral">추천/소개 이벤트</option>
+            <option value="event">특강/이벤트 안내</option>
+            <option value="welcome">신규 환영</option>
+            <option value="review">후기 요청</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>채널</label>
+          <select id="fChannel">
+            <option value="kakao">카카오 알림톡/친구톡</option>
+            <option value="sms">문자(SMS)</option>
+            <option value="push">웹 푸시</option>
+            <option value="instagram">인스타그램</option>
+            <option value="blog">블로그/홈페이지</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>톤</label>
+          <select id="fTone">
+            <option value="friendly">친근하게</option>
+            <option value="professional">전문적으로</option>
+            <option value="urgent">긴급/한정</option>
+            <option value="warm">따뜻하게</option>
+            <option value="playful">발랄하게</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>상품/주제 (선택)</label>
+          <input id="fProduct" placeholder="예: 여름방학 집중 화상영어 4주 과정">
+        </div>
+        <div class="form-row">
+          <label>혜택/오퍼 (선택)</label>
+          <input id="fOffer" placeholder="예: 첫 달 20% 할인, 교재 무료">
+        </div>
+        <button class="primary" id="genBtn">✨ 카피 생성</button>
+      </div>
+
+      <!-- 결과 -->
+      <div class="card">
+        <h3>📝 생성 결과</h3>
+        <div class="result" id="result">
+          <div class="placeholder">왼쪽에서 조건을 선택하고 <b>카피 생성</b>을 누르세요.<br>세그먼트 특성에 맞춰 차별화된 메시지와 A/B 변형이 생성됩니다.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 저장된 캠페인 -->
+  <section>
+    <h2 class="sec">🗂 저장된 캠페인</h2>
+    <div class="card">
+      <div class="scroll">
+        <table class="list">
+          <thead><tr><th>생성일</th><th>세그먼트</th><th>채널</th><th>헤드라인</th><th class="num">타겟</th><th></th></tr></thead>
+          <tbody id="campBody"><tr><td colspan="6" class="empty">불러오는 중…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+let segData = [];
+
+function toast(m,e){const t=$('#toast');t.textContent=m;t.className='toast show'+(e?' err':'');setTimeout(()=>t.className='toast'+(e?' err':''),2400);}
+async function api(path, opts){
+  const r = await fetch(path, Object.assign({headers:{'Content-Type':'application/json'}}, opts));
+  if(r.status===401){location.href='/admin/login?next='+encodeURIComponent(location.pathname);throw new Error('auth');}
+  const j = await r.json().catch(()=>({ok:false,error:'bad json'}));
+  if(j.ok===false) throw new Error(j.error||'error');
+  return j;
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+// 채널 상태
+async function loadChannels(){
+  try{
+    const j = await api('/api/admin/marketing/channels');
+    const c = j.channels;
+    $('#chanRow').innerHTML = `
+      <div class="chan"><div class="lab">카카오 발송</div><div class="val"><span class="dot ${c.kakao.configured?'on':'off'}"></span>${c.kakao.configured?'연동됨':'미설정'}</div><div class="sub">동의 수신자 ${c.kakao.consented_recipients}명</div></div>
+      <div class="chan"><div class="lab">웹 푸시</div><div class="val">${c.web_push.subscribers}</div><div class="sub">구독자</div></div>
+      <div class="chan"><div class="lab">팝업 노출</div><div class="val">${c.popup.views}</div><div class="sub">활성 ${c.popup.active}개 · CTR ${c.popup.ctr_pct==null?'-':c.popup.ctr_pct+'%'}</div></div>
+      <div class="chan"><div class="lab">AI 생성</div><div class="val"><span class="dot ${j.ai_ready?'on':'off'}"></span>${j.ai_ready?'사용 가능':'미설정'}</div><div class="sub">Llama 3.3</div></div>`;
+  }catch(e){ if(e.message!=='auth') $('#chanRow').innerHTML='<div class="chan"><div class="placeholder">채널 로드 실패: '+esc(e.message)+'</div></div>'; }
+}
+
+// 세그먼트
+async function loadSegments(){
+  try{
+    const j = await api('/api/admin/marketing/segments');
+    segData = j.segments;
+    $('#fSegment').innerHTML = segData.map(s=>`<option value="${s.key}">${esc(s.label)} (${s.total}명)</option>`).join('');
+    updateAudHint(); loadReco();
+  }catch(e){ if(e.message!=='auth') $('#audHint').textContent='세그먼트 로드 실패: '+e.message; }
+}
+function updateAudHint(){
+  const key = $('#fSegment').value;
+  const s = segData.find(x=>x.key===key);
+  if(!s){ $('#audHint').textContent='-'; return; }
+  const ch = $('#fChannel').value;
+  const reach = ch==='push' ? s.push_reachable : s.kakao_reachable;
+  const chLabel = ch==='push' ? '푸시 구독' : '카카오 동의';
+  $('#audHint').innerHTML = `${esc(s.desc)} · 대상 <b>${s.total}명</b> 중 ${chLabel} 도달 가능 <b>${reach}명</b>`;
+}
+
+// 생성
+async function generate(){
+  const btn = $('#genBtn'); btn.disabled = true;
+  const orig = btn.innerHTML; btn.innerHTML = '<span class="spin"></span>생성 중…';
+  try{
+    const j = await api('/api/admin/marketing/generate', { method:'POST', body: JSON.stringify({
+      segment: $('#fSegment').value, campaign_type: $('#fType').value, channel: $('#fChannel').value,
+      tone: $('#fTone').value, product: $('#fProduct').value || undefined, offer: $('#fOffer').value || undefined,
+    })});
+    renderCopy(j);
+    toast('카피가 생성·저장되었습니다.');
+    loadCampaigns();
+  }catch(e){ if(e.message!=='auth'){ toast('생성 실패: '+e.message, true); $('#result').innerHTML='<div class="placeholder" style="color:#fca5a5">생성 실패: '+esc(e.message)+'</div>'; } }
+  finally{ btn.disabled=false; btn.innerHTML=orig; }
+}
+function block(tag, hl, bd, cta, tags, variant){
+  return `<div class="copy-block ${variant?'variant':''}">
+    <button class="cpbtn" data-copy="${encodeURIComponent((hl?hl+'\\n\\n':'')+(bd||'')+(cta?'\\n\\n'+cta:''))}">복사</button>
+    <span class="tag">${tag}</span>
+    ${hl?`<p class="hl">${esc(hl)}</p>`:''}
+    <div class="bd">${esc(bd)}</div>
+    ${cta?`<span class="cta">${esc(cta)}</span>`:''}
+    ${tags&&tags.length?`<div class="tags">${tags.map(esc).join(' ')}</div>`:''}
+  </div>`;
+}
+function renderCopy(j){
+  const c = j.copy, a = j.audience;
+  let html = `<div class="aud-hint">타겟: <b>${esc(a.label)}</b> · 대상 ${a.total}명 · 카카오 도달 ${a.kakao_reachable} · 푸시 도달 ${a.push_reachable}</div>`;
+  html += block('메인', c.headline, c.body, c.cta, c.hashtags, false);
+  (c.variants||[]).forEach((v,i)=> html += block('변형 '+(i+1)+' (A/B)', v.headline, v.body, v.cta, null, true));
+  $('#result').innerHTML = html;
+}
+
+// 저장된 캠페인
+async function loadCampaigns(){
+  try{
+    const j = await api('/api/admin/marketing/campaigns?limit=50');
+    if(!j.campaigns.length){ $('#campBody').innerHTML='<tr><td colspan="6" class="empty">아직 생성된 캠페인이 없습니다.</td></tr>'; return; }
+    $('#campBody').innerHTML = j.campaigns.map(c=>`<tr>
+      <td>${new Date(c.created_at).toLocaleDateString('ko-KR')}</td>
+      <td><span class="badge">${esc(c.segment_label)}</span></td>
+      <td>${esc(c.channel)}</td>
+      <td style="max-width:320px"><b>${esc(c.headline)}</b><div style="color:var(--mut);font-size:12px;margin-top:3px;white-space:pre-wrap">${esc((c.body||'').slice(0,90))}${(c.body||'').length>90?'…':''}</div></td>
+      <td class="num">${c.audience_reachable}/${c.audience_total}</td>
+      <td><button class="del" data-id="${c.id}">삭제</button></td>
+    </tr>`).join('');
+  }catch(e){ if(e.message!=='auth') $('#campBody').innerHTML='<tr><td colspan="6" class="empty">로드 실패: '+esc(e.message)+'</td></tr>'; }
+}
+async function delCampaign(id){
+  if(!confirm('이 캠페인을 삭제할까요?')) return;
+  try{ await api('/api/admin/marketing/campaigns/'+id, {method:'DELETE'}); toast('삭제됨'); loadCampaigns(); }
+  catch(e){ if(e.message!=='auth') toast('삭제 실패: '+e.message, true); }
+}
+
+function optText(selId,val){ const o=[...$('#'+selId).options].find(x=>x.value===val); return o?o.textContent:val; }
+async function loadReco(){
+  try{
+    const j = await api('/api/admin/marketing/recommend?segment='+encodeURIComponent($('#fSegment').value));
+    const r=j.recommendation;
+    const box=$('#recoBox'); box.style.display='block';
+    box.innerHTML = `💡 추천: <b>${esc(optText('fType',r.campaign_type))}</b> · ${esc(optText('fTone',r.tone))} · ${esc(optText('fChannel',r.channel))}<br><span style="color:var(--mut)">${esc(r.why)}</span> <button id="applyReco" style="margin-left:4px;background:var(--y);color:#1e293b;border:0;border-radius:6px;padding:3px 10px;font-weight:700;cursor:pointer">적용</button>`;
+    $('#applyReco').onclick=()=>{ $('#fType').value=r.campaign_type; $('#fTone').value=r.tone; $('#fChannel').value=r.channel; updateAudHint(); toast('추천 설정을 적용했습니다.'); };
+  }catch(e){}
+}
+// 이벤트
+$('#fSegment').addEventListener('change', updateAudHint);
+$('#fSegment').addEventListener('change', loadReco);
+$('#fChannel').addEventListener('change', updateAudHint);
+$('#genBtn').addEventListener('click', generate);
+$('#campBody').addEventListener('click', e=>{ const b=e.target.closest('.del'); if(b) delCampaign(b.dataset.id); });
+$('#result').addEventListener('click', e=>{ const b=e.target.closest('.cpbtn'); if(b){ navigator.clipboard.writeText(decodeURIComponent(b.dataset.copy)).then(()=>toast('복사됨')); } });
+$('#refreshBtn').addEventListener('click', ()=>{ loadChannels(); loadSegments(); loadCampaigns(); toast('새로고침 완료'); });
+
+loadChannels(); loadSegments(); loadCampaigns();
+</script>
+</body>
+</html>

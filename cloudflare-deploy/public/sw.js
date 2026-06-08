@@ -1,8 +1,8 @@
 // 🌐 Mangoi Service Worker — PWA 오프라인 캐시 + 빠른 로딩
 // 버전 갱신 시 CACHE_NAME 의 숫자만 바꾸면 모든 사용자에게 즉시 새 버전 전파
 
-const CACHE_NAME = 'mangoi-v12-202605230637-force';
-const RUNTIME_CACHE = 'mangoi-v12-202605230637-force';
+const CACHE_NAME = 'mangoi-v13-always-fresh';
+const RUNTIME_CACHE = 'mangoi-v13-always-fresh';
 
 // 첫 설치 때 미리 캐시할 핵심 자산 (필수 only — 너무 많으면 install 실패)
 const PRECACHE_URLS = [
@@ -66,7 +66,8 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate' || request.destination === 'document') {
     event.respondWith((async () => {
       try {
-        return await fetch(request);
+        // 항상 최신 HTML — 브라우저 HTTP 캐시 우회 (배포 즉시 반영)
+        return await fetch(request, { cache: 'no-store' });
       } catch (e) {
         const cached = await caches.match('/');
         if (cached) return cached;
@@ -83,8 +84,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 정적 자산 (이미지/JS/CSS/폰트): 캐시 우선
-  event.respondWith(cacheFirst(request, RUNTIME_CACHE));
+  // 정적 자산 (이미지/JS/CSS/폰트): 네트워크 우선 — 배포 즉시 반영, 오프라인 시 캐시 fallback
+  event.respondWith(networkFirst(request, RUNTIME_CACHE, 4000));
 });
 
 // 네트워크 우선 (timeout 시 캐시 fallback)

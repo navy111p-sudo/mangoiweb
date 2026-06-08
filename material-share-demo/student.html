@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>학생 — 교재 보기</title>
+<style>
+  body{font-family:-apple-system,"Noto Sans KR",sans-serif;margin:0;background:#0f172a;color:#e2e8f0}
+  .bar{display:flex;gap:8px;align-items:center;padding:12px;background:#1e293b}
+  #canvas{display:block;background:#fff;margin:12px auto;max-width:96%;border-radius:8px}
+  .tag{font-size:12px;color:#94a3b8}
+  #toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:#111827;color:#fff;
+         padding:8px 14px;border-radius:99px;font-size:13px;opacity:0;transition:opacity .2s;z-index:9}
+  #toast.show{opacity:1}
+</style>
+</head>
+<body>
+  <div class="bar"><b>🧑‍🎓 학생</b> <span class="tag" id="roomTag"></span> <span class="tag" id="pageInfo"></span></div>
+  <canvas id="canvas" width="900" height="600"></canvas>
+  <div id="toast"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const room = new URLSearchParams(location.search).get('room') || 'class1';
+    document.getElementById('roomTag').textContent = '방: ' + room;
+
+    const socket = io();
+    socket.emit('join_room', room);            // 교사와 '같은 방 코드'로 입장해야 교재가 옴
+
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    let pages = [];                            // 교사가 보낸 교재 페이지(이미지)들
+
+    // 화면 안내 토스트 (콘솔 없이도 동작을 눈으로 확인)
+    function toast(msg){
+      const t = document.getElementById('toast');
+      t.textContent = msg; t.classList.add('show');
+      clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    // 캔버스에 이미지를 비율 유지하며 꽉 차게 그리기 (교사와 동일 로직)
+    function drawImage(url){
+      const img = new Image();
+      img.onload = () => {
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const r = Math.min(canvas.width / img.width, canvas.height / img.height);
+        const w = img.width * r, h = img.height * r;
+        ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+        toast('✅ 교재 표시됨');
+      };
+      img.onerror = () => toast('❌ 교재 이미지 로드 실패');
+      img.src = url;
+    }
+
+    // ① 교사가 교재를 공유하면 → 캔버스에 그 이미지를 그림
+    socket.on('material_share', (payload) => {
+      toast('📡 교재 수신');
+      pages = [payload.image];                 // (여러 장이면 배열로 받기)
+      document.getElementById('pageInfo').textContent = (payload.name || '교재') + ' · ' + (payload.page || 1) + 'p';
+      drawImage(payload.image);                // 화이트보드 배경에 교재 표시
+    });
+
+    // ② 교사가 페이지를 넘기면 → 해당 페이지 이미지로 새로고침
+    socket.on('material_page', (payload) => {
+      document.getElementById('pageInfo').textContent = '페이지 ' + payload.page;
+      // 교사가 새 페이지의 image 를 함께 보냈으면 그걸 그림
+      if (payload.image) { drawImage(payload.image); }
+      // (이미지를 안 보냈다면, 미리 받아둔 pages 배열에서 해당 페이지를 그리도록 확장 가능)
+    });
+  </script>
+</body>
+</html>

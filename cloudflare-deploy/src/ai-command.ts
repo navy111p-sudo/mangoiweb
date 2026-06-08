@@ -881,3 +881,65 @@ export async function executeAction(
     return { ok: false, error: 'action_exec_failed', detail: String(e?.message || e) };
   }
 }
+
+
+// ════════════════════════════════════════════════════════════════════════
+// 🎒 학생 검색창 라우터 (관리자 ai-command 와 동일 Workers AI 엔진 공유, 학생 스코프)
+//   index.html 학생 검색창의 폴백 호출 /api/student/ai-command 를 처리한다.
+//   클라이언트가 소비하는 응답 형태로만 출력: navigate(url|view|external_url) / action(inquiry) / answer
+// ════════════════════════════════════════════════════════════════════════
+const STUDENT_SYSTEM_PROMPT = `You are 망고아이(Mangoi) student search router. Classify the Korean student search input and output ONE JSON object only. No prose, no markdown, no code blocks.
+
+Allowed outputs (choose exactly one shape):
+{"intent":"navigate","url":"/admin/mypage.html","answer":"<Korean 1 sentence>"}
+{"intent":"navigate","view":"view-videocall-lobby","answer":"<Korean 1 sentence>"}
+{"intent":"navigate","external_url":"https://mangoi-speech.pages.dev/practice","answer":"<Korean 1 sentence>"}
+{"intent":"navigate","url":"/admin.html","answer":"<Korean 1 sentence>"}
+{"intent":"action","name":"inquiry","answer":"<Korean 1 sentence>"}
+{"intent":"answer","answer":"<Korean 1 sentence>"}
+
+Mapping rules (synonyms -> output):
+- 마이페이지/내정보/내 정보/프로필 -> navigate url "/admin/mypage.html" (단, 이는 교사·관리자용. 학생이면 아래 평가표 규칙 우선)
+- 평가표/성적표/성적/점수/시험점수/테스트결과/결과/피드백/리포트/Report/레벨테스트 결과 -> intent "answer", answer = "내 평가표는 검색창에 '평가표'라고 입력하면 바로 열려요."
+- 수업입장/강의실/수업시작/들어가기/입장/링크/링크 연결/공부시작/클래스 입장/화상수업 로비/방 들어가기/화상통화 -> navigate view "view-videocall-lobby"
+- 발음연습/발음교정/발음테스트/스피킹/말하기 연습/발음 체크/단계별 발음 -> navigate external_url "https://mangoi-speech.pages.dev/practice"
+- 관리자/원장 페이지/관리자 로그인/시스템 관리 -> navigate url "/admin.html"
+- 신규상담/상담신청/문의/고객센터/전화상담/첫 방문/가입 문의/레벨테스트 신청/수업신청/수강신청/등록 -> action name "inquiry"
+- 연기/변경/스케줄 변경/수업 연기/날짜 변경/시간 변경/시간 바꿈/미루기/일정 변경/오늘 수업 패스/수업 취소 -> intent "answer", answer = "수업 연기·변경은 메뉴의 '연기/변경'에서 하실 수 있어요."
+- 결제/결제하기/강의료/수강료/학원비/돈/금액/얼마/가격/비용/카드/충전 -> intent "answer", answer = "결제는 메인 화면 아래의 \"결제하기\" 버튼을 눌러주세요."
+- 학생/강사/학원 이름 검색 -> intent "answer", answer = "이름 검색은 관리자 기능이에요. 학생은 메뉴 키워드로 검색해 주세요."
+- 그 외 알 수 없으면 -> intent "answer", answer = "명령을 이해하지 못했어요. 수업입장·발음연습·마이페이지·신규상담 등으로 시도해 보세요."
+
+The "answer" field is ALWAYS one short Korean sentence. Output JSON only.`;
+
+export async function processStudentCommand(env: { AI?: any }, command: string): Promise<any> {
+  const cmd = (command || '').toString().trim();
+  if (!cmd) return { intent: 'answer', answer: '검색어를 입력해주세요.' };
+  if (cmd.length > 300) return { intent: 'answer', answer: '검색어가 너무 길어요. 짧게 입력해 주세요.' };
+  if (!env.AI) return { intent: 'answer', answer: '명령을 이해하지 못했어요. 수업입장·발음연습·마이페이지·신규상담 등으로 시도해 보세요.' };
+  try {
+    const result = await env.AI.run(MODEL, {
+      messages: [
+        { role: 'system', content: STUDENT_SYSTEM_PROMPT },
+        { role: 'user', content: cmd },
+      ],
+      max_tokens: 300,
+      temperature: 0.1,
+      response_format: { type: 'json_object' },
+    });
+    const raw = (result?.response || result?.result?.response || '').trim();
+    let parsed: any = null;
+    try { parsed = JSON.parse(raw); }
+    catch { const m = raw.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : null; }
+    if (!parsed || !parsed.intent) throw new Error('no intent');
+    if (!['navigate', 'action', 'answer'].includes(parsed.intent)) parsed.intent = 'answer';
+    if (parsed.intent === 'action' && parsed.name !== 'inquiry') {
+      parsed.intent = 'answer';
+      parsed.answer = parsed.answer || '아래 버튼을 이용해 주세요.';
+    }
+    if (!parsed.answer) parsed.answer = '이동합니다.';
+    return parsed;
+  } catch {
+    return { intent: 'answer', answer: '명령을 이해하지 못했어요. 수업입장·발음연습·마이페이지·신규상담 등으로 시도해 보세요.' };
+  }
+}

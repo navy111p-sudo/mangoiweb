@@ -94,6 +94,34 @@
 })();
 </script>
 
+<script id="sw-always-fresh">
+/* 관리자 페이지 — 입장 시 SW 자동 갱신 → 배포 즉시 최신 화면 (수동 캐시삭제 불필요) */
+(function(){
+  if (!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
+      .then(function(reg){
+        reg.update().catch(function(){});
+        if (reg.waiting) reg.waiting.postMessage('SKIP_WAITING');
+        reg.addEventListener('updatefound', function(){
+          var nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener('statechange', function(){
+            if (nw.state === 'installed') nw.postMessage('SKIP_WAITING');
+          });
+        });
+      })
+      .catch(function(){});
+    var _swReloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function(){
+      if (_swReloaded) return;
+      _swReloaded = true;
+      location.reload();
+    });
+  });
+})();
+</script>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>망고아이 관리 대시보드</title>
@@ -470,7 +498,7 @@
 .sb-cat-count{font-size:10.5px;color:#9ca3af;font-weight:600;padding:1px 7px;background:rgba(0,0,0,.05);border-radius:99px}
 .sb-cat:hover .sb-cat-count{background:rgba(245,158,11,.25);color:#78350f}
 .sb-cat-arrow{font-size:11px;color:#9ca3af;transition:transform .15s}
-.sb-cat:hover .sb-cat-arrow{transform:translateX(3px);color:#f59e0b}
+.sb-cat:hover .sb-cat-arrow{color:#f59e0b}
 
 /* hover로 펼치는 submenu 패널 */
 .sb-cat .sb-sub-panel{
@@ -486,7 +514,7 @@
   display:none;z-index:1000;
   animation:sbFadeIn .12s ease-out;
 }
-@keyframes sbFadeIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+@keyframes sbFadeIn{from{opacity:0}to{opacity:1}}
 .sb-cat:hover > .sb-sub-panel{display:block}
 /* 마우스가 사이로 잠시 이동할 때 안 사라지게 안전 영역 */
 .sb-cat:hover > .sb-sub-panel::before{
@@ -508,7 +536,7 @@
 .sb-sub-item .sb-sub-ico{flex-shrink:0;font-size:14px;width:18px;text-align:center}
 .sb-sub-item .sb-sub-text{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sb-sub-item .sb-sub-more{font-size:10px;color:#9ca3af;flex-shrink:0;transition:transform .12s}
-.sb-sub-item:hover .sb-sub-more{transform:translateX(2px);color:#f59e0b}
+.sb-sub-item:hover .sb-sub-more{color:#f59e0b}
 
 /* 3단계 (sub-sub) — submenu 아이템 hover 시 우측 펼침 */
 .sb-sub-item.has-sub > .sb-subsub-panel{
@@ -576,10 +604,11 @@
 
   /* 📐 Phase 18c — 학생 목록 표 그리드 정렬 (행·열 깔끔) */
   #sm-students-table {
-    table-layout: fixed;
+    table-layout: auto;
     width: 100%;
+    min-width: max-content;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: 12.5px;
   }
   #sm-students-table th, #sm-students-table td {
     padding: 9px 12px;
@@ -589,13 +618,8 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  /* 컬럼 너비 — table-layout: fixed 가 첫 row 의 col 너비를 따름 */
-  #sm-students-table th:nth-child(1), #sm-students-table td:nth-child(1) { width: 22%; }   /* USER_ID */
-  #sm-students-table th:nth-child(2), #sm-students-table td:nth-child(2) { width: 18%; }   /* 이름 */
-  #sm-students-table th:nth-child(3), #sm-students-table td:nth-child(3) { width: 9%;  text-align: right; font-variant-numeric: tabular-nums; }   /* 세션 수 */
-  #sm-students-table th:nth-child(4), #sm-students-table td:nth-child(4) { width: 18%; font-variant-numeric: tabular-nums; }   /* 최초 방문 */
-  #sm-students-table th:nth-child(5), #sm-students-table td:nth-child(5) { width: 18%; font-variant-numeric: tabular-nums; }   /* 최근 방문 */
-  #sm-students-table th:nth-child(6), #sm-students-table td:nth-child(6) { width: 15%; text-align: center; }   /* 상세보기 */
+  /* 컬럼 너비 — ERP 다컬럼: 자동 너비 + 가로 스크롤 (래퍼 overflow-x) */
+  #sm-students-table th, #sm-students-table td { min-width: 72px; }
 
   /* 헤더 강조 */
   #sm-students-table thead th {
@@ -1860,15 +1884,13 @@
     <span class="th-subtitle" data-ko="화상수업 대시보드" data-en="Class Dashboard">화상수업 대시보드</span>
   </a>
   <div class="th-controls">
-    <select id="period" class="th-select">
+    <select id="period" class="th-select" style="display:none" aria-hidden="true">
       <option value="1"  data-ko="최근 1일"  data-en="Last 1 day">최근 1일</option>
       <option value="7" selected data-ko="최근 7일" data-en="Last 7 days">최근 7일</option>
       <option value="30" data-ko="최근 30일" data-en="Last 30 days">최근 30일</option>
       <option value="90" data-ko="최근 90일" data-en="Last 90 days">최근 90일</option>
     </select>
-    <button class="th-btn th-btn-primary" id="refresh" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
     <a class="th-btn th-btn-amber" href="/admin/health" title="셀프 진단" data-ko="🩺 셀프 진단" data-en="🩺 Health">🩺 셀프 진단</a>
-    <a class="th-btn th-btn-amber" href="/" title="학생 홈으로" data-ko="🏠 홈" data-en="🏠 Home" data-ko-title="학생 홈으로" data-en-title="Back to Student Home">🏠 홈</a>
     <button class="th-btn th-btn-ghost" onclick="toggleAdminLang()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
       <span id="admin-lang-label">EN</span>
@@ -1884,6 +1906,11 @@
         <div id="topUserHeader" class="th-user-popup-head">로딩 중…</div>
         <a href="/admin/mypage">👤 마이페이지</a>
         <a href="/admin/health" target="_blank">🩺 셀프 진단</a>
+        <div class="th-user-popup-divider"></div>
+        <a href="/admin/finance-realtime" data-ko="💸 실시간 재무" data-en="💸 Live Finance">💸 실시간 재무</a>
+        <a href="/admin/learning-insights" data-ko="🎓 학습 인사이트" data-en="🎓 Learning Insights">🎓 학습 인사이트</a>
+        <a href="/admin/marketing-studio" data-ko="📣 마케팅 스튜디오" data-en="📣 Marketing Studio">📣 마케팅 스튜디오</a>
+        <div class="th-user-popup-divider"></div>
         <a href="/docs/" target="_blank">📘 <span data-ko="사용 안내서" data-en="User Manuals">사용 안내서</span></a>
         <div class="th-user-popup-divider"></div>
         <button id="topLogoutBtn" type="button" class="th-user-popup-logout">🚪 로그아웃</button>
@@ -1891,6 +1918,102 @@
     </div>
   </div>
 </div>
+
+<!-- ↻ 새로고침 FAB — 학생 홈페이지와 동일 (우측 하단 꺽은 화살표, 캐시 비우고 최신 새로고침) -->
+<style id="admin-refresh-fab-css">
+  .adm-refresh-fab {
+    position: fixed;
+    bottom: 82px;
+    right: 16px;
+    z-index: 9991;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg,#3b82f6,#1d4ed8);
+    border: 0;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.1);
+    color: #fff;
+    font-size: 20px;
+    font-weight: 900;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .adm-refresh-fab:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0,0,0,0.4); }
+  .adm-refresh-fab:active { transform: scale(0.93); }
+  .adm-refresh-fab .adm-refresh-label {
+    position: absolute;
+    right: 52px;
+    background: rgba(15,23,42,0.92);
+    color: #93c5fd;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateX(6px);
+    pointer-events: none;
+    transition: opacity .18s, transform .18s;
+  }
+  .adm-refresh-fab:hover .adm-refresh-label,
+  .adm-refresh-fab.adm-show-label .adm-refresh-label {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  @media (max-width: 720px) {
+    .adm-refresh-fab { width: 36px; height: 36px; font-size: 16px; bottom: 60px; right: 12px; }
+    .adm-refresh-fab .adm-refresh-label { right: 42px; font-size: 10px; padding: 3px 7px; }
+  }
+  @media (max-width: 420px) {
+    .adm-refresh-fab { width: 32px; height: 32px; font-size: 14px; bottom: 52px; }
+  }
+</style>
+<button type="button" class="adm-refresh-fab" id="adm-refresh-fab"
+   title="새로고침 (캐시 비우고 최신)" aria-label="Refresh"
+   data-ko-title="새로고침 (캐시 비우고 최신)" data-en-title="Refresh (clear cache)">
+  <span>&#8635;</span><span class="adm-refresh-label" data-ko="새로고침" data-en="Refresh">새로고침</span>
+</button>
+<script>
+(function(){
+  'use strict';
+  async function admRefresh(){
+    try {
+      if ('serviceWorker' in navigator) {
+        var regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(function(r){ return r.unregister(); }));
+      }
+    } catch(e){ console.warn('[adm-refresh sw]', e); }
+    try {
+      if ('caches' in window) {
+        var keys = await caches.keys();
+        await Promise.all(keys.map(function(k){ return caches.delete(k); }));
+      }
+    } catch(e){ console.warn('[adm-refresh caches]', e); }
+    try { sessionStorage.clear(); } catch(_){}
+    try {
+      var u = new URL(window.location.href);
+      u.searchParams.set('_cb', Date.now().toString());
+      window.location.replace(u.toString());
+    } catch(_){ window.location.reload(); }
+  }
+  window.admRefresh = admRefresh;
+  function admInit(){
+    var fab = document.getElementById('adm-refresh-fab');
+    if (!fab || fab.__admBound) return;
+    fab.__admBound = true;
+    fab.addEventListener('click', function(e){ e.preventDefault(); admRefresh(); });
+    fab.classList.add('adm-show-label');
+    setTimeout(function(){ fab.classList.remove('adm-show-label'); }, 2200);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', admInit);
+  else admInit();
+  setTimeout(admInit, 1000);
+})();
+</script>
 
 <div class="admin-layout">
   <!-- 좌측 사이드바 — JS 로 자동 채워짐 -->
@@ -1953,28 +2076,7 @@
     </div>
   </div>
 
-  <aside class="admin-sidebar" id="admin-sidebar">
-    <!-- 🆔 현재 세션 컨텍스트 배너 (로그인 후 표시) -->
-    <div id="admin-session-banner" style="display:none;margin-bottom:10px;padding:10px 12px;border-radius:10px;font-size:11.5px;line-height:1.5"></div>
-    <div class="sidebar-head" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px">
-      <h4 data-ko-html="📋 메뉴 <span style='font-size:11px;color:#9ca3af;font-weight:400'>(가나다 순)</span>" data-en-html="📋 Menu <span style='font-size:11px;color:#9ca3af;font-weight:400'>(A · B · C ...)</span>" style="margin:0;flex-shrink:0">📋 메뉴 <span style="font-size:11px;color:#9ca3af;font-weight:400">(가나다 순)</span></h4>
-    </div>
-    <div class="sidebar-search-wrap" style="position:relative;margin-bottom:10px">
-      <input id="sidebar-search" type="text" placeholder="🔍 메뉴 검색..." oninput="filterSidebar(this.value)" onkeydown="if(event.key==='Escape'){this.value='';filterSidebar('')}"
-             style="width:100%;padding:7px 28px 7px 10px;font-size:12px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#374151;outline:none;transition:all .18s;box-sizing:border-box" />
-      <button type="button" onclick="document.getElementById('sidebar-search').value='';filterSidebar('')" title="지우기"
-              style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:transparent;border:0;color:#9ca3af;cursor:pointer;font-size:14px;padding:2px 6px;line-height:1">✕</button>
-    </div>
-    <div id="admin-sidebar-list"></div>
-    <div id="sidebar-search-empty" style="display:none;padding:20px 10px;text-align:center;color:#9ca3af;font-size:12px">검색 결과가 없습니다.</div>
-
-    <style>
-      #sidebar-search:focus { border-color:#fbbf24; box-shadow: 0 0 0 3px rgba(251,191,36,0.15); }
-      #admin-sidebar-list .sidebar-item.search-hidden { display:none !important; }
-      #admin-sidebar-list .sidebar-item.search-match { background: rgba(251,191,36,0.08); }
-      #admin-sidebar-list .sidebar-item mark { background: #fef08a; color: #78350f; padding: 0 2px; border-radius: 3px; font-weight: 700; }
-    </style>
-  </aside>
+  <!-- (옛 가나다 사이드바 #admin-sidebar 완전 제거됨 — 현재 사이드바는 #ph85-sidebar) -->
 
   <!-- 메인 영역 -->
   <div>
@@ -1982,7 +2084,7 @@
     <section class="hero">
       <div class="hero-text">
         <!-- 🥭 Phase 19f — 배너 이미지 우선, 실패 시 CSS h1 fallback -->
-        <img src="/img/hero-greeting.png" alt="안녕하세요, 망고아이!" class="hero-banner-img"
+        <img src="/img/hero-greeting-gold.png" alt="안녕하세요, MANGO-AI" class="hero-banner-img"
              onerror="this.style.display='none';this.nextElementSibling.style.display='inline-block';" />
         <h1 data-ko="안녕하세요💛 망고아이!" data-en="Hello💛 Mangoi!" data-text="안녕하세요💛 망고아이!" style="display:none">안녕하세요💛 망고아이!</h1>
         <p class="hero-sub" data-ko="무엇이든 검색해보세요 — 학생·교사·가맹점·메뉴·녹화·통계까지 한 번에." data-en="Search anything — students, teachers, franchises, menus, recordings, stats.">무엇이든 검색해보세요 — 학생·교사·가맹점·메뉴·녹화·통계까지 한 번에.</p>
@@ -2185,7 +2287,7 @@
     </button>
 
     <!-- ⚙ 시스템 -->
-    <button class="hub-btn" onclick="hubJump('system', ['card-permissions','card-franchises','card-centers','card-data-export','card-test-seed'])" data-hub="system">
+    <button class="hub-btn" onclick="hubJump('system', ['card-permissions','card-franchises','card-centers','card-data-export'])" data-hub="system">
       <div class="hub-icon" style="background:linear-gradient(135deg,#64748b,#334155)">⚙</div>
       <div>
         <div class="hub-title" data-ko="시스템" data-en="System">시스템</div>
@@ -2252,6 +2354,39 @@
     }
   };
 </script>
+
+<details class="table-card menu-card" open id="card-ai-insights">
+  <summary><span data-ko="🤖 AI 인사이트 대시보드" data-en="🤖 AI Insight Dashboards">🤖 AI 인사이트 대시보드</span></summary>
+  <div class="menu-body">
+    <style>
+      .ai-hub-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+      @media(max-width:760px){.ai-hub-grid{grid-template-columns:1fr}}
+      .ai-hub-card{display:flex;align-items:center;gap:14px;padding:18px 18px;border-radius:16px;text-decoration:none;color:#fff;
+        box-shadow:0 10px 26px -10px rgba(0,0,0,.5);transition:transform .18s,filter .18s;border:1px solid rgba(255,255,255,.12)}
+      .ai-hub-card:hover{transform:translateY(-3px);filter:brightness(1.07)}
+      .ai-hub-card .ico{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;background:rgba(255,255,255,.18);flex-shrink:0}
+      .ai-hub-card .tt{font-size:15px;font-weight:800;line-height:1.25}
+      .ai-hub-card .ds{font-size:11.5px;opacity:.9;margin-top:3px;line-height:1.4}
+      .ai-hub-card.fin{background:linear-gradient(135deg,#0ea5e9,#1d4ed8)}
+      .ai-hub-card.lrn{background:linear-gradient(135deg,#10b981,#047857)}
+      .ai-hub-card.mkt{background:linear-gradient(135deg,#f59e0b,#d97706)}
+    </style>
+    <div class="ai-hub-grid">
+      <a class="ai-hub-card fin" href="/admin/finance-realtime">
+        <span class="ico">💸</span><span><span class="tt" data-ko="실시간 재무" data-en="Live Finance">실시간 재무</span>
+        <span class="ds" data-ko="일·주 수입/지출·순이익·스냅샷" data-en="Daily/weekly income·expense·net">일·주 수입/지출·순이익·스냅샷</span></span>
+      </a>
+      <a class="ai-hub-card lrn" href="/admin/learning-insights">
+        <span class="ico">🎓</span><span><span class="tt" data-ko="학습 인사이트" data-en="Learning Insights">학습 인사이트</span>
+        <span class="ds" data-ko="위험도 세그먼트·장기 트렌드" data-en="Risk segments·long-term trends">위험도 세그먼트·장기 트렌드</span></span>
+      </a>
+      <a class="ai-hub-card mkt" href="/admin/marketing-studio">
+        <span class="ico">📣</span><span><span class="tt" data-ko="마케팅 스튜디오" data-en="Marketing Studio">마케팅 스튜디오</span>
+        <span class="ds" data-ko="AI 카피 생성·세그먼트 타겟팅" data-en="AI copy·segment targeting">AI 카피 생성·세그먼트 타겟팅</span></span>
+      </a>
+    </div>
+  </div>
+</details>
 
 <details class="table-card menu-card" open id="card-kpi-dashboard">
   <summary><span data-ko="📊 운영 대시보드 KPI" data-en="📊 Operations KPI Dashboard">📊 운영 대시보드 KPI</span></summary>
@@ -2370,9 +2505,16 @@
 })();
 </script>
 
-<details class="table-card menu-card" open id="card-daily-charts">
+<details class="table-card menu-card" id="card-daily-charts">
   <summary><span data-ko="📅 일자별 차트 (출석·보상·매출·학생)" data-en="📅 Daily Charts (Attendance · Rewards · Revenue · Students)">📅 일자별 차트 (출석·보상·매출·학생)</span></summary>
   <div class="menu-body">
+    <div style="display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12.5px;color:#475569">
+      <span>🔎 <b style="color:#4338ca">역할 안내</b> — 실시간 <b>수입·지출·순이익</b>은</span>
+      <a href="/admin/finance-realtime" style="background:linear-gradient(135deg,#0ea5e9,#1d4ed8);color:#fff;padding:3px 10px;border-radius:7px;font-weight:700;text-decoration:none">💸 실시간 재무</a>
+      <span>· <b>출결·학습 위험도</b> 심화는</span>
+      <a href="/admin/learning-insights" style="background:linear-gradient(135deg,#10b981,#047857);color:#fff;padding:3px 10px;border-radius:7px;font-weight:700;text-decoration:none">🎓 학습 인사이트</a>
+      <span>에서. 아래는 <b>출석·보상·학생 흐름</b> 이력 차트입니다.</span>
+    </div>
 
     <!-- 💰 매출 5단계 KPI 카드 + 미니 꺾은선 (sparkline) -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px" id="rev-kpis">
@@ -2571,17 +2713,7 @@
 <details class="table-card menu-card" id="card-students-mgmt">
   <summary><span data-ko="👨‍🎓 학생관리" data-en="👨‍🎓 Student Management">👨‍🎓 학생관리</span></summary>
   <div class="menu-body">
-    <!-- 🌱 빠른 테스트 데이터 로드 배너 -->
-    <div style="background:linear-gradient(135deg,#dcfce7,#bbf7d0);border:1px solid #86efac;border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-      <div style="font-size:12.5px;color:#15803d">
-        🧪 <b>테스트 모드</b> — 시드 데이터 20명을 학생관리 모든 섹션에 즉시 표시합니다.
-      </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button onclick="(window.__forceRenderStudentMgmt&&window.__forceRenderStudentMgmt())||alert('렌더 함수 미준비')" class="primary" style="padding:6px 14px;font-size:12px;font-weight:700;background:#dc2626;color:#fff;border:0;border-radius:6px;cursor:pointer">🔥 강제 표시 (즉시)</button>
-        <button onclick="quickSeedAndLoad&&quickSeedAndLoad()" style="padding:6px 14px;font-size:12px;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">⚡ 시드 + 로드</button>
-        <button onclick="quickReloadStudentMgmt&&quickReloadStudentMgmt()" style="padding:6px 14px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer">🔄 새로고침</button>
-      </div>
-    </div>
+    <!-- 테스트 시드 배너 제거됨 (실제 학생 데이터만 표시) -->
     <div class="sub-menu">
 
       <details class="sub-item">
@@ -2589,7 +2721,6 @@
         <div class="sub-body">
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
             <button id="sm-load-students" class="primary" style="padding:5px 12px;font-size:12px;" data-ko="🧮 불러오기" data-en="🧮 Load">🧮 불러오기</button>
-            <a href="/admin/students" target="_blank" style="padding:5px 12px;font-size:12px;background:#f59e0b;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;" data-ko="🖥️ 풀페이지 열기 (ERP)" data-en="🖥️ Open Full Page (ERP)">🖥️ 풀페이지 열기 (ERP)</a>
             <span style="font-size:11px;color:#6b7280;" id="sm-students-count"></span>
           </div>
           <div style="font-size:11px;color:#92400e;background:rgba(254,243,199,0.45);border:1px solid rgba(245,158,11,0.25);border-radius:6px;padding:6px 12px;margin-bottom:6px"
@@ -2597,17 +2728,30 @@
                data-en="💡 Click header to sort / Shift+Click for multi-sort (up to 3)">
             💡 컬럼 헤더 클릭 = 정렬 / Shift+클릭 = 다중 정렬 (최대 3개 동시)
           </div>
-          <table id="sm-students-table" class="sortable-table">
+          <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;border:1px solid rgba(245,158,11,0.18)"><table id="sm-students-table" class="sortable-table">
             <thead><tr>
-              <th class="sortable" data-sort-key="user_id"     data-ko="user_id" data-en="user_id">user_id<span class="sort-indicator"></span></th>
-              <th class="sortable" data-sort-key="username"    data-ko="이름" data-en="Name">이름<span class="sort-indicator"></span></th>
-              <th class="sortable" data-sort-key="session_count" data-sort-default-dir="desc" data-ko="세션 수" data-en="Sessions">세션 수<span class="sort-indicator"></span></th>
-              <th class="sortable" data-sort-key="first_seen"  data-ko="최초 방문" data-en="First Seen">최초 방문<span class="sort-indicator"></span></th>
-              <th class="sortable" data-sort-key="last_seen"   data-sort-default-dir="desc" data-ko="최근 방문" data-en="Last Seen">최근 방문<span class="sort-indicator"></span></th>
+              <th class="sortable" data-sort-key="user_id" data-ko="아이디" data-en="ID">아이디<span class="sort-indicator"></span></th>
+              <th class="sortable" data-sort-key="username" data-ko="학생명" data-en="Name">학생명<span class="sort-indicator"></span></th>
               <th data-ko="상세보기" data-en="Details">상세보기</th>
+              <th data-ko="결제타입" data-en="Pay Type">결제타입</th>
+              <th class="sortable" data-sort-key="signup_date" data-sort-default-dir="desc" data-ko="수강 시작일" data-en="Start">수강 시작일<span class="sort-indicator"></span></th>
+              <th class="sortable" data-sort-key="end_date" data-sort-default-dir="desc" data-ko="수강 종료일" data-en="End">수강 종료일<span class="sort-indicator"></span></th>
+              <th data-ko="요약" data-en="Summary">요약</th>
+              <th class="sortable" data-sort-key="created_at" data-sort-default-dir="desc" data-ko="가입일" data-en="Joined">가입일<span class="sort-indicator"></span></th>
+              <th data-ko="수업회수(주)" data-en="Wk">수업회수(주)</th>
+              <th class="sortable" data-sort-key="points" data-sort-default-dir="desc" data-ko="포인트" data-en="Points">포인트<span class="sort-indicator"></span></th>
+              <th data-ko="수강신청" data-en="Enroll">수강신청</th>
+              <th data-ko="학생 번호" data-en="Stu Phone">학생 번호</th>
+              <th data-ko="부모님 번호" data-en="Parent Phone">부모님 번호</th>
+              <th data-ko="대리점 연락처" data-en="Agency Tel">대리점 연락처</th>
+              <th data-ko="대리점명" data-en="Agency">대리점명</th>
+              <th data-ko="본사명" data-en="HQ">본사명</th>
+              <th data-ko="지사명" data-en="Branch2">지사명</th>
+              <th class="sortable" data-sort-key="session_count" data-sort-default-dir="desc" data-ko="세션 수" data-en="Sessions">세션 수<span class="sort-indicator"></span></th>
+              <th data-ko="상태" data-en="Status">상태</th>
             </tr></thead>
-            <tbody id="sm-students-tbody"><tr><td colspan="6" class="empty">—</td></tr></tbody>
-          </table>
+            <tbody id="sm-students-tbody"><tr><td colspan="19" class="empty">—</td></tr></tbody>
+          </table></div>
         </div>
       </details>
 
@@ -3745,63 +3889,7 @@
   </div>
 </details>
 
-<!-- 🌱 테스트 데이터 시드 (학생·지사·대리점 일괄 생성) -->
-<details class="table-card menu-card" id="card-test-seed">
-  <summary><span data-ko="🌱 테스트 데이터 시드" data-en="🌱 Test Seed">🌱 테스트 데이터 시드</span></summary>
-  <div class="menu-body">
-    <div class="sub-menu">
-      <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #86efac;border-radius:12px;padding:18px;margin-bottom:12px">
-        <h3 style="margin:0 0 6px;color:#15803d;font-size:15px">🧪 테스트 환경 일괄 셋업</h3>
-        <p style="margin:0 0 12px;font-size:12.5px;color:#166534;line-height:1.6">
-          개발·QA·시연용 가짜 데이터를 한 번에 생성합니다. 실제 운영 데이터와 분리되어 있으며, 언제든 [전체 삭제]로 정리 가능합니다.
-        </p>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">
-          <button onclick="seedTestStudents()" id="seed-students-btn" class="primary" style="padding:12px;font-size:13px;font-weight:700">
-            🎓 학생 20명 생성
-            <div style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.85);margin-top:3px">레벨·결제·평가 포함</div>
-          </button>
-          <button onclick="seedTestBranches()" id="seed-branches-btn" style="padding:12px;font-size:13px;font-weight:700;background:#f59e0b;color:#fff;border:0;border-radius:8px;cursor:pointer">
-            🏬 지사 20개 생성
-            <div style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.85);margin-top:3px">전국 광역시·도</div>
-          </button>
-          <button onclick="seedTestAgencies()" id="seed-agencies-btn" style="padding:12px;font-size:13px;font-weight:700;background:#10b981;color:#fff;border:0;border-radius:8px;cursor:pointer">
-            🤝 대리점 20개 생성
-            <div style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.85);margin-top:3px">지사 산하 분포</div>
-          </button>
-          <button onclick="seedTestAll()" style="padding:12px;font-size:13px;font-weight:700;background:#8b5cf6;color:#fff;border:0;border-radius:8px;cursor:pointer">
-            🚀 전체 일괄 생성
-            <div style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.85);margin-top:3px">학생+지사+대리점</div>
-          </button>
-        </div>
-      </div>
-
-      <!-- 시드 결과 패널 -->
-      <div id="seed-result" style="display:none;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px;margin-bottom:12px;max-height:240px;overflow-y:auto"></div>
-
-      <!-- 📋 테스트 데이터 미리보기 테이블 (생성 즉시 표시) -->
-      <div id="seed-preview" style="display:none">
-        <div style="display:flex;gap:6px;margin-bottom:8px;border-bottom:2px solid #e5e7eb;padding-bottom:6px">
-          <button onclick="seedShowTab('students')" id="seed-tab-students" class="seed-tab seed-tab-active" style="padding:7px 16px;font-size:12px;font-weight:700;background:#fef3c7;color:#92400e;border:0;border-radius:6px 6px 0 0;cursor:pointer">🎓 학생 <span id="seed-cnt-students">0</span>명</button>
-          <button onclick="seedShowTab('branches')" id="seed-tab-branches" class="seed-tab" style="padding:7px 16px;font-size:12px;font-weight:700;background:#f3f4f6;color:#6b7280;border:0;border-radius:6px 6px 0 0;cursor:pointer">🏬 지사 <span id="seed-cnt-branches">0</span>개</button>
-          <button onclick="seedShowTab('agencies')" id="seed-tab-agencies" class="seed-tab" style="padding:7px 16px;font-size:12px;font-weight:700;background:#f3f4f6;color:#6b7280;border:0;border-radius:6px 6px 0 0;cursor:pointer">🤝 대리점 <span id="seed-cnt-agencies">0</span>개</button>
-        </div>
-        <div id="seed-tab-content" style="background:#fff;border:1px solid #e5e7eb;border-radius:0 8px 8px 8px;overflow:auto;max-height:480px"></div>
-      </div>
-      <style>
-        .seed-tab.seed-tab-active { background: #fef3c7 !important; color: #92400e !important; box-shadow: 0 -2px 0 #f59e0b inset; }
-      </style>
-
-      <!-- 위험: 전체 삭제 -->
-      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px">
-        <h4 style="margin:0 0 6px;color:#991b1b;font-size:13px">⚠️ 위험 영역</h4>
-        <p style="margin:0 0 8px;font-size:11.5px;color:#7f1d1d">생성된 모든 테스트 데이터를 삭제합니다. 실제 운영 데이터에는 영향 없음.</p>
-        <button onclick="seedTestPurge()" style="padding:7px 14px;background:#dc2626;color:#fff;border:0;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">
-          🗑 모든 테스트 데이터 삭제
-        </button>
-      </div>
-    </div>
-  </div>
-</details>
+<!-- 🌱 테스트 데이터 시드 메뉴 제거됨 -->
 
 <!-- 🥭 Phase 34 — 🧑‍🏫 강사관리 (학생관리 바로 아래) -->
 <details class="table-card menu-card" id="card-teacher-mgmt">
@@ -3922,6 +4010,7 @@
                      data-ko="＋ 신규 강사 등록" data-en="＋ Add New Teacher">＋ 신규 강사 등록</summary>
             <div style="background:rgba(99,102,241,0.06);border:1px dashed rgba(99,102,241,0.35);border-radius:10px;padding:14px;margin-top:8px">
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
+                <div style="grid-column:1/-1;padding:7px 12px;background:rgba(99,102,241,0.14);border-left:3px solid #6366f1;border-radius:6px;font-size:12.5px;font-weight:800;color:#a5b4fc" data-ko="👤 기본 정보 · 연락처" data-en="👤 Basic Info · Contact">👤 기본 정보 · 연락처</div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="한글 이름 *" data-en="Korean Name *">한글 이름 *</label>
                   <input id="tp-name" type="text" placeholder="홍길동" data-ko-placeholder="홍길동" data-en-placeholder="Hong Gildong" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="영문 이름" data-en="English Name">영문 이름</label>
@@ -3941,6 +4030,7 @@
                     <option value="F" data-ko="여성" data-en="Female">여성</option>
                     <option value="O" data-ko="기타" data-en="Other">기타</option>
                   </select></div>
+                <div style="grid-column:1/-1;margin-top:10px;padding:7px 12px;background:rgba(16,185,129,0.12);border-left:3px solid #10b981;border-radius:6px;font-size:12.5px;font-weight:800;color:#6ee7b7" data-ko="💼 근무 정보" data-en="💼 Work Info">💼 근무 정보</div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="활동 지역" data-en="Active Region">활동 지역</label>
                   <input id="tp-active-region" type="text" placeholder="예: 서울 강남" data-ko-placeholder="예: 서울 강남" data-en-placeholder="e.g., Seoul Gangnam" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="출신 지역" data-en="Origin Region">출신 지역</label>
@@ -3963,6 +4053,9 @@
                   <input id="tp-join-date" type="date" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="퇴사일 (해당 시)" data-en="Leave Date (if any)">퇴사일 (해당 시)</label>
                   <input id="tp-leave-date" type="date" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
+                <div style="grid-column:1/-1;margin-top:10px;padding:8px 12px;background:rgba(251,191,36,0.12);border-left:3px solid #fbbf24;border-radius:6px;font-size:12.5px;font-weight:800;color:#fcd34d"
+                     data-ko="🎬 학생 페이지 프로필 — 사진 · 소개 영상 <span style='font-weight:600;font-size:11px;opacity:.85'>(여기 입력하면 학생 홈페이지 ‘강사 소개’에 자동 표시)</span>"
+                     data-en="🎬 Student-page Profile — Photo · Intro Video">🎬 학생 페이지 프로필 — 사진 · 소개 영상 <span style="font-weight:600;font-size:11px;opacity:.85">(여기 입력하면 학생 홈페이지 ‘강사 소개’에 자동 표시)</span></div>
                 <div style="grid-column:1/-1">
                   <label style="font-size:11px;color:#374151;font-weight:600" data-ko="프로필 이미지 (파일)" data-en="Profile Image (File)">프로필 이미지 (파일)</label>
                   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px">
@@ -4001,20 +4094,24 @@
                         data-ko="YouTube/MP4 URL 자동 임베드 · 파일은 최대 30MB · 학생 페이지 강사소개에 자동 표시"
                         data-en="YouTube/MP4 URL auto-embed · Max 30MB · Auto-shows in student Teacher Intro page">YouTube/MP4 URL 자동 임베드 · 파일은 최대 30MB · 학생 페이지 강사소개에 자동 표시</span>
                 </div>
+                <div style="grid-column:1/-1;margin-top:10px;padding:7px 12px;background:rgba(59,130,246,0.12);border-left:3px solid #3b82f6;border-radius:6px;font-size:12.5px;font-weight:800;color:#93c5fd" data-ko="🎓 학력 · 경력 · 자격" data-en="🎓 Education · Career · Certs">🎓 학력 · 경력 · 자격</div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="학력" data-en="Education">학력</label>
                   <input id="tp-education" type="text" placeholder="예: 서울대 영문과 졸업" data-ko-placeholder="예: 서울대 영문과 졸업" data-en-placeholder="e.g., SNU English Lit BA" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="경력" data-en="Career">경력</label>
                   <input id="tp-career" type="text" placeholder="예: 5년" data-ko-placeholder="예: 5년" data-en-placeholder="e.g., 5 years" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="자격증" data-en="Certifications">자격증</label>
                   <input id="tp-cert" type="text" placeholder="TESOL, CELTA 등" data-ko-placeholder="TESOL, CELTA 등" data-en-placeholder="TESOL, CELTA, etc." style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
+                <div style="grid-column:1/-1;margin-top:10px;padding:7px 12px;background:rgba(168,85,247,0.12);border-left:3px solid #a855f7;border-radius:6px;font-size:12.5px;font-weight:800;color:#d8b4fe" data-ko="🗓 수업 가능 시간" data-en="🗓 Availability">🗓 수업 가능 시간</div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="가능 요일" data-en="Available Days">가능 요일</label>
                   <input id="tp-avail-days" type="text" placeholder="월화수목금" data-ko-placeholder="월화수목금" data-en-placeholder="Mon Tue Wed Thu Fri" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="가능 시간대" data-en="Available Hours">가능 시간대</label>
                   <input id="tp-avail-hours" type="text" placeholder="09:00-18:00" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
+                <div style="grid-column:1/-1;margin-top:10px;padding:7px 12px;background:rgba(236,72,153,0.12);border-left:3px solid #ec4899;border-radius:6px;font-size:12.5px;font-weight:800;color:#f9a8d4" data-ko="💰 정산 계좌" data-en="💰 Payout Account">💰 정산 계좌</div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="은행명" data-en="Bank Name">은행명</label>
                   <input id="tp-bank-name" type="text" placeholder="국민은행" data-ko-placeholder="국민은행" data-en-placeholder="KB Bank" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="계좌번호" data-en="Account Number">계좌번호</label>
                   <input id="tp-bank-acct" type="text" placeholder="123-456-789012" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
+                <div style="grid-column:1/-1;margin-top:10px;padding:7px 12px;background:rgba(148,163,184,0.12);border-left:3px solid #94a3b8;border-radius:6px;font-size:12.5px;font-weight:800;color:#cbd5e1" data-ko="📝 메모" data-en="📝 Notes">📝 메모</div>
                 <div style="grid-column:1/-1"><label style="font-size:11px;color:#374151;font-weight:600" data-ko="메모" data-en="Notes">메모</label>
                   <textarea id="tp-notes" rows="2" placeholder="기타 참고사항" data-ko-placeholder="기타 참고사항" data-en-placeholder="Additional notes" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical"></textarea></div>
 
@@ -4104,10 +4201,11 @@
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="입사일" data-en="Join Date">입사일</th>
                   <th class="hr-eval-col" style="padding:6px;border:1px solid #e5e7eb;background:linear-gradient(135deg,rgba(168,85,247,0.18),rgba(124,58,237,0.18))" data-ko="인사평가" data-en="HR Score" data-ko-title="수업 25% · 재등록 30% · 근태 20% · 행정 15% · 조직 10% 가중평균" data-en-title="Weighted: Class 25% · Retention 30% · Punct 20% · Admin 15% · Contrib 10%">인사평가</th>
                   <th class="hr-eval-col" style="padding:6px;border:1px solid #e5e7eb;background:linear-gradient(135deg,rgba(251,191,36,0.18),rgba(245,158,11,0.18))" data-ko="순위" data-en="Rank">순위</th>
+                  <th style="padding:6px;border:1px solid #e5e7eb;background:linear-gradient(135deg,rgba(124,58,237,0.18),rgba(139,92,246,0.18))" data-ko="소개영상" data-en="Intro Video">소개영상</th>
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="액션" data-en="Actions">액션</th>
                 </tr>
               </thead>
-              <tbody id="tp-list-body"><tr><td colspan="11" class="empty">—</td></tr></tbody>
+              <tbody id="tp-list-body"><tr><td colspan="12" class="empty">—</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -6272,7 +6370,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
 <!-- ═══════════════════════════════════════════════════════════════ -->
 <!-- 📊 월간 AI 레포트 — 학생별 생성 + 학부모/학생 카톡 발송              -->
 <!-- ═══════════════════════════════════════════════════════════════ -->
-<details class="table-card menu-card" id="card-monthly-report">
+<details class="table-card menu-card" id="card-monthly-ai-report">
   <summary><span data-ko="📊 월간 AI 학습 레포트" data-en="📊 Monthly AI Report">📊 월간 AI 학습 레포트</span></summary>
   <div class="menu-body">
     <div style="background:linear-gradient(135deg,rgba(245,158,11,0.10),rgba(217,119,6,0.05));border:1px solid rgba(245,158,11,0.30);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:13px;color:#fde68a;line-height:1.65"
@@ -7012,7 +7110,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
      🏆 Phase ALU — 졸업생 동문 커뮤니티
      ════════════════════════════════════════════════════════════════════ -->
 <details class="table-card menu-card" id="card-alumni">
-  <summary><span data-ko="🏆 졸업생 동문 커뮤니티" data-en="🏆 Alumni Community" data-zh="🏆 校友社区" data-ja="🏆 卒業生コミュニティ" data-vi="🏆 Cộng đồng cựu sinh viên">🏆 졸업생 동문 커뮤니티</span></summary>
+  <summary><span data-ko="🏆 졸업생 동문 커뮤니티" data-en="🏆 Alumni Community">🏆 졸업생 동문 커뮤니티</span></summary>
   <div class="menu-body">
     <!-- 🎨 외부 진한 톤 + 안쪽 연한 흰빛 (명도 반전) -->
     <style>
@@ -7248,7 +7346,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
      📔 Phase VD — AI 음성 일기 (관리자 모니터)
      ════════════════════════════════════════════════════════════════════ -->
 <details class="table-card menu-card" id="card-voice-diary">
-  <summary><span data-ko="📔 AI 음성 일기 (관리자)" data-en="📔 AI Voice Diary (Admin)" data-zh="📔 AI语音日记" data-ja="📔 AI音声日記" data-vi="📔 Nhật ký giọng nói AI">📔 AI 음성 일기 (관리자)</span></summary>
+  <summary><span data-ko="📔 AI 음성 일기 (관리자)" data-en="📔 AI Voice Diary (Admin)">📔 AI 음성 일기 (관리자)</span></summary>
   <div class="menu-body">
     <style>
       #card-voice-diary details.sub-item {
@@ -7420,7 +7518,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
      🎯 Phase SUP — 강사 슈퍼바이저 모드
      ════════════════════════════════════════════════════════════════════ -->
 <details class="table-card menu-card" id="card-supervisor">
-  <summary><span data-ko="🎯 강사 슈퍼바이저 모드" data-en="🎯 Teacher Supervisor Mode" data-zh="🎯 教师督导模式" data-ja="🎯 教師スーパーバイザー" data-vi="🎯 Giám sát giáo viên">🎯 강사 슈퍼바이저 모드</span></summary>
+  <summary><span data-ko="🎯 강사 슈퍼바이저 모드" data-en="🎯 Teacher Supervisor Mode">🎯 강사 슈퍼바이저 모드</span></summary>
   <div class="menu-body">
     <style>
       #card-supervisor details.sub-item {
@@ -7663,7 +7761,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
 
 <!-- 📷 Phase QR — QR 출결 자동 체크 -->
 <details class="table-card menu-card" id="card-auto-attendance">
-  <summary><span data-ko="📷 QR 출결 자동 체크" data-en="📷 QR Auto Attendance" data-zh="📷 二维码自动考勤" data-ja="📷 QRコード出席" data-vi="📷 Điểm danh QR">📷 QR 출결 자동 체크</span></summary>
+  <summary><span data-ko="📷 QR 출결 자동 체크" data-en="📷 QR Auto Attendance">📷 QR 출결 자동 체크</span></summary>
   <div class="menu-body">
     <div style="background:linear-gradient(135deg,rgba(34,197,94,0.10),rgba(22,163,74,0.05));border:1px solid rgba(34,197,94,0.30);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#86efac;line-height:1.6"
          data-ko="💡 강사가 QR 생성 (5분 유효) → 학생 폰으로 스캔 → 자동 출석 처리."
@@ -7676,7 +7774,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
         <input id="aa-room" placeholder="room_id" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
         <input id="aa-teacher" placeholder="teacher_uid" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
         <button onclick="aaGenQR()" style="background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">
-          <span data-ko="🎫 QR 생성" data-en="🎫 Generate" data-zh="🎫 生成" data-ja="🎫 生成" data-vi="🎫 Tạo">🎫 QR 생성</span>
+          <span data-ko="🎫 QR 생성" data-en="🎫 Generate">🎫 QR 생성</span>
         </button>
       </div>
       <div id="aa-qr" style="margin-top:14px"></div>
@@ -7684,7 +7782,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
     <div style="display:flex;gap:8px;margin-bottom:12px">
       <input id="aa-room-q" placeholder="room_id (옵션)" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px;flex:1">
       <button onclick="aaLoadToday()" style="background:#475569;color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer">
-        <span data-ko="🔄 오늘 출석" data-en="🔄 Today" data-zh="🔄 今日" data-ja="🔄 今日" data-vi="🔄 Hôm nay">🔄 오늘 출석</span>
+        <span data-ko="🔄 오늘 출석" data-en="🔄 Today">🔄 오늘 출석</span>
       </button>
     </div>
     <div id="aa-today" style="overflow-x:auto"></div>
@@ -7733,10 +7831,10 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       </tr>`).join('');
       box.innerHTML = `<table style="width:100%;border-collapse:collapse;background:#0f172a;border:1px solid #334155;border-radius:10px;overflow:hidden">
         <thead><tr style="background:#1e293b;color:#94a3b8;font-size:11px;text-align:left">
-          <th style="padding:8px" data-ko="시각" data-en="Time" data-zh="时间" data-ja="時刻" data-vi="Giờ">시각</th>
-          <th style="padding:8px" data-ko="학생" data-en="Student" data-zh="学生" data-ja="生徒" data-vi="HS">학생</th>
-          <th style="padding:8px" data-ko="강의실" data-en="Room" data-zh="教室" data-ja="教室" data-vi="Phòng">강의실</th>
-          <th style="padding:8px" data-ko="상태" data-en="Status" data-zh="状态" data-ja="状態" data-vi="TT">상태</th>
+          <th style="padding:8px" data-ko="시각" data-en="Time">시각</th>
+          <th style="padding:8px" data-ko="학생" data-en="Student">학생</th>
+          <th style="padding:8px" data-ko="강의실" data-en="Room">강의실</th>
+          <th style="padding:8px" data-ko="상태" data-en="Status">상태</th>
         </tr></thead>
         <tbody>${rows || `<tr><td colspan="4" style="padding:20px;text-align:center;color:#64748b">${en?'No check-ins today':'오늘 출석 없음'}</td></tr>`}</tbody>
       </table>`;
@@ -7748,7 +7846,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
 
 <!-- 📺 Phase VD — 비디오 자막 + 단어 클릭 사전 -->
 <details class="table-card menu-card" id="card-video-dict">
-  <summary><span data-ko="📺 비디오 자막 + 사전" data-en="📺 Video Subtitles + Dictionary" data-zh="📺 视频字幕+词典" data-ja="📺 動画字幕+辞書" data-vi="📺 Phụ đề + Từ điển">📺 비디오 자막 + 사전</span></summary>
+  <summary><span data-ko="📺 비디오 자막 + 사전" data-en="📺 Video Subtitles + Dictionary">📺 비디오 자막 + 사전</span></summary>
   <div class="menu-body">
     <div style="background:linear-gradient(135deg,rgba(168,85,247,0.10),rgba(139,92,246,0.05));border:1px solid rgba(168,85,247,0.30);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#d8b4fe;line-height:1.6"
          data-ko="💡 SRT 자막 업로드 + 단어 클릭 시 AI 즉시 번역 (Llama 3.3 + 캐시)."
@@ -7843,7 +7941,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
 
 <!-- 👨‍👩‍👧 Phase FAM — 가족 계정 통합 -->
 <details class="table-card menu-card" id="card-family-mgmt">
-  <summary><span data-ko="👨‍👩‍👧 가족 계정 통합" data-en="👨‍👩‍👧 Family Accounts" data-zh="👨‍👩‍👧 家庭账户" data-ja="👨‍👩‍👧 家族アカウント" data-vi="👨‍👩‍👧 Tài khoản gia đình">👨‍👩‍👧 가족 계정 통합</span></summary>
+  <summary><span data-ko="👨‍👩‍👧 가족 계정 통합" data-en="👨‍👩‍👧 Family Accounts">👨‍👩‍👧 가족 계정 통합</span></summary>
   <div class="menu-body">
     <div style="background:linear-gradient(135deg,rgba(251,146,60,0.10),rgba(249,115,22,0.05));border:1px solid rgba(251,146,60,0.30);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#fdba74;line-height:1.6"
          data-ko="💡 학부모 1명 = 가족 1개. 자녀 2명 이상 등록 시 정기결제 자동 할인."
@@ -7941,7 +8039,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
 
 <!-- 📝 Phase MT — Mini TOEIC 자체 영어 능력 시험 -->
 <details class="table-card menu-card" id="card-mini-toeic">
-  <summary><span data-ko="📝 Mini TOEIC 시험 관리" data-en="📝 Mini TOEIC Exam Mgmt" data-zh="📝 迷你托业管理" data-ja="📝 ミニTOEIC管理" data-vi="📝 Quản lý Mini TOEIC">📝 Mini TOEIC 시험 관리</span></summary>
+  <summary><span data-ko="📝 Mini TOEIC 시험 관리" data-en="📝 Mini TOEIC Exam Mgmt">📝 Mini TOEIC 시험 관리</span></summary>
   <div class="menu-body">
     <div style="background:linear-gradient(135deg,rgba(99,102,241,0.10),rgba(79,70,229,0.05));border:1px solid rgba(99,102,241,0.30);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#a5b4fc;line-height:1.6"
          data-ko="💡 자체 영어 시험 — Listening + Reading 분리 채점, AI 자동 출제, 학생 응시 후 학부모 카톡 자동."
@@ -8099,7 +8197,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
 
 <!-- 🎮 Phase BTL — 영어 게임 배틀 P2P 관리 -->
 <details class="table-card menu-card" id="card-battle-mgmt">
-  <summary><span data-ko="🎮 영어 배틀 관리" data-en="🎮 English Battle Mgmt" data-zh="🎮 英语对战管理" data-ja="🎮 英語バトル管理" data-vi="🎮 Quản lý Battle">🎮 영어 배틀 관리</span></summary>
+  <summary><span data-ko="🎮 영어 배틀 관리" data-en="🎮 English Battle Mgmt">🎮 영어 배틀 관리</span></summary>
   <div class="menu-body">
     <div style="background:linear-gradient(135deg,rgba(244,63,94,0.10),rgba(225,29,72,0.05));border:1px solid rgba(244,63,94,0.30);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#fda4af;line-height:1.6"
          data-ko="💡 친구와 영어 배틀 — 도전장 → 수락/거절 → 동시 응시 → 자동 채점 → 보상 포인트 지급."
@@ -9361,32 +9459,35 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       const d = await r.json();
       const m = d.mode;
       const INFO = {
-        disabled: { color:'#9ca3af', bg:'#f3f4f6', icon:'⏸', label:'미연동', desc:'API 키 없음 — 학생 입장/종료/채팅 시 알림톡 안 보냄' },
-        mock:     { color:'#a855f7', bg:'#faf5ff', icon:'🧪', label:'테스트 모드', desc:'mock 응답 — 콘솔에만 로그, 실제 카톡 안 감' },
-        real:     { color:'#10b981', bg:'#ecfdf5', icon:'✅', label:'실제 발송 중', desc:'학생 입장/종료/채팅 시 자동 알림톡' },
+        disabled: { color:'#9ca3af', bg:'#f8fafc', icon:'⏸', label:'미연동', desc:'아직 연동 전이라 알림톡이 발송되지 않아요' },
+        mock:     { color:'#a855f7', bg:'#faf5ff', icon:'🧪', label:'테스트 모드', desc:'실제 카톡은 발송되지 않아요 (mock)' },
+        real:     { color:'#10b981', bg:'#ecfdf5', icon:'✅', label:'실제 발송 중', desc:'학생 입장·종료·채팅 시 자동 발송돼요' },
       };
       const info = INFO[m] || INFO.disabled;
-      const balLine = d.balance != null
-        ? `<div style="font-size:13px;color:#374151;margin-top:8px"><b>SOLAPI 잔액:</b> <span style="font-weight:800;color:#d97706">${(d.balance||0).toLocaleString('ko-KR')} 원</span> · 포인트 ${(d.point||0).toLocaleString('ko-KR')}</div>`
-        : (d.balance_error ? `<div style="font-size:11.5px;color:#ef4444;margin-top:8px">잔액 조회 실패: ${d.balance_error}</div>` : '');
       const t = d.templates || {};
       const tCount = (t.lesson_start?1:0)+(t.lesson_end?1:0)+(t.chat_summary?1:0)+(t.mention?1:0);
-      const tLine = `<div style="font-size:11.5px;color:#6b7280;margin-top:6px">템플릿 <b>${tCount}/4</b> 등록됨${tCount<4?' <span style="color:#f59e0b">⚠ 부족 - 미등록 시 해당 알림 건너뜀</span>':''}</div>`;
+      // 가로 배지 (✓ 초록 / ✗ 회색) — 줄바꿈 자동
+      const chip = (label, ok) => `<span style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:999px;font-size:11.5px;font-weight:700;white-space:nowrap;background:${ok?'#ecfdf5':'#f3f4f6'};color:${ok?'#059669':'#9ca3af'};border:1px solid ${ok?'#a7f3d0':'#e5e7eb'}">${ok?'✓':'✗'} ${label}</span>`;
+      const balChip = d.balance != null
+        ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:999px;font-size:11.5px;font-weight:700;white-space:nowrap;background:#fffbeb;color:#d97706;border:1px solid #fde68a">💰 ${(d.balance||0).toLocaleString('ko-KR')}원</span>`
+        : '';
       el.innerHTML = `
-        <div style="background:${info.bg};border:1px solid ${info.color};border-left:5px solid ${info.color};border-radius:10px;padding:14px 16px">
-          <div style="display:flex;align-items:center;gap:10px">
-            <div style="font-size:24px">${info.icon}</div>
-            <div style="flex:1">
-              <div style="font-size:14.5px;font-weight:800;color:${info.color}">${info.label}</div>
-              <div style="font-size:12px;color:#4b5563;margin-top:2px">${info.desc}</div>
+        <div style="background:${info.bg};border:1px solid ${info.color};border-left:5px solid ${info.color};border-radius:12px;padding:14px 16px;width:100%;box-sizing:border-box">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div style="font-size:26px;line-height:1;flex-shrink:0">${info.icon}</div>
+            <div style="flex:1;min-width:140px">
+              <div style="font-size:16px;font-weight:800;color:${info.color};word-break:keep-all">${info.label}</div>
+              <div style="font-size:12.5px;color:#4b5563;margin-top:2px;word-break:keep-all">${info.desc}</div>
             </div>
-            <button onclick="loadKakaoStatus()" style="padding:6px 12px;font-size:11.5px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer">🔄</button>
+            <button onclick="loadKakaoStatus()" title="새로고침" style="flex-shrink:0;padding:8px 13px;font-size:13px;background:#fff;border:1px solid #d1d5db;border-radius:8px;cursor:pointer">🔄</button>
           </div>
-          ${balLine}
-          ${tLine}
-          <div style="margin-top:10px;padding-top:10px;border-top:1px dashed ${info.color};font-size:11px;color:#6b7280;font-family:monospace">
-            api_key=${d.api_key_set?'✓':'✗'} · secret=${d.api_secret_set?'✓':'✗'} · pfid=${d.pfid_set?'✓':'✗'} · test_mode=${d.test_mode?'on':'off'}<br>
-            templates: start=${t.lesson_start?'✓':'✗'} end=${t.lesson_end?'✓':'✗'} summary=${t.chat_summary?'✓':'✗'} mention=${t.mention?'✓':'✗'}
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px">
+            ${chip('API키', d.api_key_set)}
+            ${chip('시크릿', d.api_secret_set)}
+            ${chip('발신프로필', d.pfid_set)}
+            ${chip('템플릿 '+tCount+'/4', tCount===4)}
+            ${d.test_mode ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:999px;font-size:11.5px;font-weight:700;white-space:nowrap;background:#faf5ff;color:#a855f7;border:1px solid #e9d5ff">🧪 테스트모드</span>` : ''}
+            ${balChip}
           </div>
         </div>`;
     } catch(e) {
@@ -11510,6 +11611,38 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
             <span style="color:#9a3412;font-size:11px">→ 이 형식 + 카테고리(EXT) 로 등록하면 학생 페이지의 외부 컨텐츠 탭에 자동 노출됩니다.</span>
           </div>
 
+          <!-- 📥 유튜브 채널 일괄 가져오기 (YouTube Data API v3) -->
+          <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.30);border-radius:8px;padding:10px 12px;margin-bottom:12px;">
+            <div style="font-size:13px;font-weight:800;color:#3b82f6;margin-bottom:8px">📥 유튜브 채널 영상 일괄 가져오기</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              <input id="yt-imp-key" placeholder="YouTube Data API 키" style="width:300px" />
+              <input id="yt-imp-ch" placeholder="채널 URL 또는 채널ID(UC...)" style="width:320px" />
+              <button id="yt-imp-btn" class="primary" style="padding:6px 14px;font-size:13px" onclick="ytImportChannel()">📥 일괄 가져오기</button>
+              <span id="yt-imp-status" style="font-size:12px;color:#64748b"></span>
+            </div>
+            <div style="font-size:11px;color:#64748b;margin-top:6px">※ API 키는 Google Cloud Console → "YouTube Data API v3" 에서 무료 발급. 키는 이 브라우저에만 저장됩니다. 채널의 모든 영상이 자동 등록되며 중복은 건너뜁니다.</div>
+          </div>
+          <script>
+            window.ytImportChannel = async function(){
+              var st = document.getElementById('yt-imp-status');
+              var btn = document.getElementById('yt-imp-btn');
+              var key = (document.getElementById('yt-imp-key').value || '').trim();
+              var ch  = (document.getElementById('yt-imp-ch').value || '').trim();
+              if(!key){ alert('YouTube Data API 키를 입력하세요'); return; }
+              if(!ch){ alert('채널 URL 또는 채널ID를 입력하세요'); return; }
+              try{ localStorage.setItem('mangoi_yt_api_key', key); }catch(_){}
+              btn.disabled = true; st.textContent = '⏳ 가져오는 중… (영상이 많으면 수십 초)';
+              try{
+                var r = await fetch('/api/admin/mango-videos/import-channel', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ api_key:key, channel_url:ch }) });
+                var d = await r.json();
+                if(d && d.ok){ st.textContent = '✅ '+d.imported+'개 등록 (중복·제외 '+d.skipped+', 전체 '+d.total+')'; if(typeof loadMangoVideos==='function'){ try{ loadMangoVideos(); }catch(_){} } }
+                else { st.textContent = '❌ '+((d&&d.message)||'실패'); }
+              }catch(e){ st.textContent = '❌ '+e.message; }
+              btn.disabled = false;
+            };
+            try{ var _k=localStorage.getItem('mangoi_yt_api_key'); if(_k){ var _el=document.getElementById('yt-imp-key'); if(_el) _el.value=_k; } }catch(_){}
+          </script>
+
           <details open>
             <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 비디오 등록" data-en="＋ Add Video">＋ 비디오 등록</summary>
             <div class="menu-form" style="margin-top:8px;flex-wrap:wrap;">
@@ -11776,6 +11909,59 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      존재하므로 focus-integrator.pages.dev iframe 임베드는 중복. 사용자가
      "다시 이걸 볼 필요 없음" 요청으로 삭제. 필요하면 git 히스토리에서 복원. -->
 
+<!-- 🩺 강의실 입장·장비(웹캠/마이크) 점검 테스트 하네스 (2026-06-08) -->
+<details class="table-card menu-card" id="card-classroom-test" data-menu-label-ko="🩺 강의실 입장 테스트" data-menu-label-en="🩺 Classroom Test">
+  <summary><span data-ko="🩺 강의실 입장·장비 점검 테스트" data-en="🩺 Classroom Join · Device Test">🩺 강의실 입장·장비 점검 테스트</span></summary>
+  <div class="menu-body" style="padding:16px">
+    <p style="font-size:12.5px;color:#475569;line-height:1.6;margin:0 0 12px">
+      가짜 데이터로 <b>강의실 입장 + 웹캠/마이크 연결 확인</b> 로직이 오차 없이 동작하는지 검증합니다.
+      정상 1건 + 오류 2건(마이크 꺼짐·카메라 실패)을 검사합니다.
+    </p>
+    <button onclick="runClassroomTest()" style="padding:10px 18px;font-size:13.5px;font-weight:800;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:0;border-radius:9px;cursor:pointer">▶ 테스트 실행</button>
+    <div id="classroom-test-result" style="margin-top:14px"></div>
+  </div>
+</details>
+<script>
+/* 🩺 강의실 입장·장비 점검 — 파이썬 테스트 하네스(classroom_test_harness.py)와 동일 로직의 JS 포팅 */
+(function(){
+  function validateJoin(req){
+    var reasons = [];
+    if (!req.room)   reasons.push('방 코드가 없습니다.');
+    if (!req.mic_on) reasons.push('마이크가 꺼져 있습니다.');
+    if (!req.cam_on) reasons.push('카메라(웹캠) 연결에 실패했습니다.');
+    return { ok: reasons.length === 0, reasons: reasons };
+  }
+  function runAll(){
+    var cases = [
+      { title:'정상: 강사 입장 + 장비 정상', req:{ role:'teacher', name:'정우영', room:'mangoi-class', mic_on:true,  cam_on:true  }, expect:true  },
+      { title:'오류1: 학생 입장 — 마이크 꺼짐', req:{ role:'student', name:'장지웅', room:'mangoi-class', mic_on:false, cam_on:true  }, expect:false },
+      { title:'오류2: 강사 입장 — 카메라 연결 실패', req:{ role:'teacher', name:'정우영', room:'mangoi-class', mic_on:true,  cam_on:false }, expect:false },
+    ];
+    var results = cases.map(function(c){
+      var v = validateJoin(c.req);
+      return { title:c.title, test_passed: (v.ok === c.expect), join_ok: v.ok, reasons: v.reasons };
+    });
+    var passed = results.filter(function(r){ return r.test_passed; }).length;
+    return { results: results, passed: passed, total: results.length, all_passed: passed === results.length };
+  }
+  window.runClassroomTest = function(){
+    var s = runAll();
+    var rows = s.results.map(function(r, i){
+      var color = r.test_passed ? '#10b981' : '#ef4444';
+      var badge = r.test_passed ? '✅ 통과' : '❌ 실패';
+      var why = (!r.join_ok && r.reasons.length) ? '<div style="font-size:11.5px;color:#64748b;margin-top:3px">🔎 ' + r.reasons.join(', ') + '</div>' : '';
+      return '<div style="padding:10px 12px;border-left:4px solid '+color+';background:#f8fafc;border-radius:8px;margin:6px 0">' +
+             '<b style="color:#0f172a;font-size:13px">['+(i+1)+'] '+r.title+'</b>' +
+             '<span style="float:right;color:'+color+';font-weight:800;font-size:12.5px">'+badge+'</span>'+why+'</div>';
+    }).join('');
+    var tone = s.all_passed ? '#10b981' : '#f59e0b';
+    var mark = s.all_passed ? '🎉' : '⚠️';
+    document.getElementById('classroom-test-result').innerHTML =
+      rows + '<div style="margin-top:10px;padding:10px;border-radius:8px;background:#0f172a;color:'+tone+';font-weight:800;text-align:center">'+mark+' [총 '+s.total+'개 중 '+s.passed+'개 성공]</div>';
+  };
+})();
+</script>
+
 <!-- 🎥 녹화 관리 — 영상 목록 + 저장소 상태 + 진단 통합 (2026-05-06) -->
 <details class="table-card menu-card" id="card-recording-storage" data-menu-label-ko="🎥 녹화 관리" data-menu-label-en="🎥 Recordings">
   <summary style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 18px;">
@@ -11801,6 +11987,16 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       .rs-kpi .label { font-size:11px; font-weight:700; color:#64748b; margin-bottom:2px }
       .rs-kpi .value { font-size:20px; font-weight:900; color:#0f172a; font-variant-numeric:tabular-nums; line-height:1.1 }
       .rs-kpi .unit { font-size:11px; font-weight:600; color:#94a3b8; margin-top:3px }
+      /* 📱 모바일 — 녹화관리 헤더/카운트/버튼 세로 정렬 (글자 쪼개짐 방지) */
+      @media (max-width: 768px) {
+        #card-recording-storage > summary { flex-wrap: wrap !important; align-items: flex-start !important; gap: 8px !important; padding: 12px 14px !important; }
+        #card-recording-storage > summary > span { width: 100% !important; flex-wrap: wrap !important; margin-right: 0 !important; row-gap: 6px !important; }
+        #card-recording-storage #rec-counts { display:block !important; width: 100% !important; white-space: normal !important; word-break: keep-all !important; line-height: 1.6 !important; font-size: 12px !important; }
+        #card-recording-storage #rs-refresh-btn, #card-recording-storage #rs-diag-btn { flex: 1 1 0 !important; justify-content: center !important; min-width: 110px !important; padding: 10px 12px !important; font-size: 13px !important; }
+        #card-recording-storage #rs-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+        #card-recording-storage .rs-kpi .label { font-size: 10.5px !important; }
+        #card-recording-storage .rs-kpi .value { font-size: 18px !important; }
+      }
     </style>
     <div style="font-size:11.5px;font-weight:700;color:#475569;margin:2px 0 8px 2px;letter-spacing:0.3px"><span data-ko="📊 저장소 상태" data-en="📊 Storage Status">📊 저장소 상태</span></div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px" id="rs-kpi-grid">
@@ -12213,7 +12409,7 @@ function fmtKrwShort(n) {
 async function loadTodayKpi() {
   const $ = (id) => document.getElementById(id);
   try {
-    const r = await fetch('/api/admin/stats/today', { credentials:'include', cache:'no-store' });
+    const r = await fetch('/api/admin/stats/today' + (window.mangoiScopeQS?mangoiScopeQS('?'):''), { credentials:'include', cache:'no-store' });
     const j = await r.json();
     if (!j || !j.ok) {
       $('today-revenue').textContent  = '—';
@@ -12266,7 +12462,7 @@ async function loadRevenueChart() {
   if (fromV) params.set('from', fromV);
   if (toV)   params.set('to', toV);
   try {
-    const r = await fetch('/api/admin/stats/revenue?' + params, { credentials:'include', cache:'no-store' });
+    const r = await fetch('/api/admin/stats/revenue?' + params + (window.mangoiScopeQS?mangoiScopeQS('&'):''), { credentials:'include', cache:'no-store' });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || r.status);
 
@@ -12398,7 +12594,7 @@ async function loadKpiSparklines() {
 
   await Promise.allSettled(configs.map(async (c) => {
     try {
-      const r = await fetch(`/api/admin/stats/revenue?period=${c.period}&from=${fmt(c.from)}&to=${toStr}`,
+      const r = await fetch(`/api/admin/stats/revenue?period=${c.period}&from=${fmt(c.from)}&to=${toStr}` + (window.mangoiScopeQS?mangoiScopeQS('&'):''),
                             { credentials: 'include', cache: 'no-store' });
       const j = await r.json();
       if (!j.ok) return;
@@ -13841,7 +14037,7 @@ async function loadTeacherProfiles() {
   const items = (res && res.ok && res.items) ? res.items : [];
   if (cnt) cnt.textContent = items.length + '명';
   if (items.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="11" class="empty">강사 데이터 없음 — 위에서 신규 등록</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" class="empty">강사 데이터 없음 — 위에서 신규 등록</td></tr>';
     return;
   }
   // 인사평가 점수·순위 미리 계산
@@ -13879,6 +14075,12 @@ async function loadTeacherProfiles() {
       '</td>' +
       '<td class="hr-eval-col" style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + _hrRankBadge(rank) + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center;white-space:nowrap">' +
+        (t.intro_video_url
+          ? '<button onclick="viewTeacherVideo(\'' + encodeURIComponent(t.intro_video_url) + '\',\'' + _aiEsc(t.korean_name||'') + '\')" title="소개 영상 보기" style="padding:3px 11px;font-size:11px;background:#7c3aed;color:#fff;border:0;border-radius:5px;cursor:pointer;font-weight:700">▶ 영상</button>'
+          : '<span style="color:#9ca3af;font-size:11px">—</span>') +
+      '</td>' +
+      '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center;white-space:nowrap">' +
+        '<button onclick="window.open(\'/?room=mangoi-class\',\'_blank\')" title="🎥 수업 입장 — 학생들과 같은 공용 수업방으로 들어갑니다 (이 링크를 강사에게 주세요)" style="padding:3px 8px;font-size:10px;background:#f59e0b;color:#fff;border:0;border-radius:4px;cursor:pointer">🎥</button> ' +
         '<button onclick="viewTeacherProfile(' + t.id + ')" title="상세 보기" style="padding:3px 8px;font-size:10px;background:#3b82f6;color:#fff;border:0;border-radius:4px;cursor:pointer">🔍</button> ' +
         '<button onclick="editTeacherProfile(' + t.id + ')" title="수정" style="padding:3px 8px;font-size:10px;background:#10b981;color:#fff;border:0;border-radius:4px;cursor:pointer">✏️</button> ' +
         '<button onclick="removeTeacherProfile(' + t.id + ',\'' + _aiEsc(t.korean_name||'') + '\')" title="제거" style="padding:3px 8px;font-size:10px;background:#ef4444;color:#fff;border:0;border-radius:4px;cursor:pointer">🗑️</button>' +
@@ -13886,6 +14088,25 @@ async function loadTeacherProfiles() {
     '</tr>';
   }).join('');
 }
+
+// 🎬 강사 소개 영상 — 목록 ▶ 버튼 클릭 시 모달로 바로 재생 (YouTube 임베드 / mp4)
+window.viewTeacherVideo = function(encUrl, name){
+  var url = decodeURIComponent(encUrl || '');
+  if (!url) return;
+  var m = url.match(/[?&]v=([\w-]{11})/) || url.match(/youtu\.be\/([\w-]{11})/) || url.match(/embed\/([\w-]{11})/);
+  var inner = m
+    ? '<iframe src="https://www.youtube.com/embed/' + m[1] + '?autoplay=1&rel=0" allow="autoplay; encrypted-media" allowfullscreen style="width:100%;aspect-ratio:16/9;border:0;border-radius:10px;background:#000"></iframe>'
+    : '<video src="' + _aiEsc(url) + '" controls autoplay playsinline style="width:100%;max-height:70vh;border-radius:10px;background:#000"></video>';
+  var ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML = '<div style="background:#0f172a;border:1px solid #334155;border-radius:14px;padding:16px;max-width:760px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,.6)">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;color:#e2e8f0;font-weight:800;font-size:15px">🎬 ' + _aiEsc(name||'') + ' 소개 영상' +
+        '<button data-close="1" style="background:none;border:0;color:#94a3b8;font-size:22px;cursor:pointer;line-height:1">✕</button></div>' +
+      inner + '</div>';
+  ov.addEventListener('click', function(e){ if (e.target === ov || e.target.getAttribute('data-close')) document.body.removeChild(ov); });
+  document.body.appendChild(ov);
+};
+
 // 프로필 이미지 파일 업로드 — R2 우선, 실패시 base64 fallback
 window.handleProfileImageUpload = async function(input) {
   const file = input.files && input.files[0];
@@ -16938,28 +17159,78 @@ const SM_SORT_MAX = 3;
 let _smStudents = [];                                       // 원본 데이터 캐시
 let _smSort = [{ key: 'last_seen', dir: 'desc' }];          // 정렬 배열 (우선순위 순)
 
+// 🔒 역할별 데이터 범위 판별 — 지사/대리점/교사/학부모/학생은 자기 범위만
+function mangoiGetDataScope(){
+  try {
+    var role;
+    var sim = localStorage.getItem('mangoi_user_role');
+    if (sim){ var M={hq_exec:'exec',hq_mgr:'mgr',hq_teacher:'teacher',branch:'branch',agency:'agency',parent:'parent',student:'student'}; role=M[sim]||sim; }
+    else {
+      var u=null; try{ u=JSON.parse(localStorage.getItem('admin_session')||'null'); }catch(_){}
+      var U={hq_t_001:'teacher',hq_teacher:'teacher',hq_exec:'exec',hq_mgr:'mgr',admin:'exec',cfo01:'mgr',ops_lead:'mgr',branch_busan:'branch',branch_daegu:'branch',agency_gn001:'agency',agency_sc002:'agency',parent_001:'parent',student_001:'student'};
+      role = u ? (U[u.uid]||'exec') : 'exec';
+    }
+    var saved={}; try{ saved=JSON.parse(localStorage.getItem('mangoi_scope_value')||'{}'); }catch(_){}
+    var DEMO={
+      branch: {field:'branch1_name', value: saved.branch  || '서울 대표지사'},
+      agency: {field:'shop_name',    value: saved.agency  || '망고아이 강남 대리점'},
+      teacher:{field:'teacher_phone',value: saved.teacher || '010-3333-2001'},
+      parent: {field:'parent_phone', value: saved.parent  || ''},
+      student:{field:'user_id',      value: saved.student || ''}
+    };
+    if (DEMO[role] && DEMO[role].value) return { role: role, field: DEMO[role].field, value: DEMO[role].value };
+    return null; // 경영자·관리자·본사 = 전체
+  } catch(e){ return null; }
+}
+window.mangoiGetDataScope = mangoiGetDataScope;
+window.mangoiScopeQS = function(sep){ try{ var sc=mangoiGetDataScope(); if(!sc) return ''; return (sep||'&')+'scope_field='+encodeURIComponent(sc.field)+'&scope_value='+encodeURIComponent(sc.value); }catch(e){ return ''; } };
+
 async function loadStudentList() {
   const _L = adminLang === 'en';
   const tb = document.getElementById('sm-students-tbody');
   const cnt = document.getElementById('sm-students-count');
   if (!tb) return;
-  tb.innerHTML = '<tr><td colspan="6" class="empty">' + (_L?'Loading...':'불러오는 중...') + '</td></tr>';
+  tb.innerHTML = '<tr><td colspan="19" class="empty">' + (_L?'Loading...':'불러오는 중...') + '</td></tr>';
   let seedStudents = [];
-  try { seedStudents = JSON.parse(localStorage.getItem('mangoi_test_students') || '[]'); } catch{}
   let apiItems = [];
   try {
-    const r = await fetch('/api/admin/students/list?limit=200', { cache: 'no-store', credentials: 'include' });
+    const _scope = (typeof mangoiGetDataScope==='function') ? mangoiGetDataScope() : null;
+    const _su = '/api/admin/students/unified' + (_scope ? ('?scope_field='+encodeURIComponent(_scope.field)+'&scope_value='+encodeURIComponent(_scope.value)) : '');
+    const r = await fetch(_su, { cache: 'no-store', credentials: 'include' });
     const d = await r.json();
-    if (d && d.ok && Array.isArray(d.items)) apiItems = d.items;
+    const rows = (d && d.ok && Array.isArray(d.students)) ? d.students : (Array.isArray(d && d.items) ? d.items : []);
+    apiItems = rows.map(s => ({
+      user_id: s.user_id,
+      username: s.name || s.username || s.user_id,
+      role: '',
+      payment_type: s.payment_type || '',
+      signup_date: s.signup_date || '',
+      end_date: s.end_date || '',
+      summary: [s.grade, s.level].filter(Boolean).join(' '),
+      schedule: s.classes_per_week ? ('주 ' + s.classes_per_week + '회') : '',
+      created_at: s.created_at || null,
+      classes_per_week: s.classes_per_week || '',
+      points: Number(s.points || 0),
+      enroll_req: s.enroll_package || '',
+      student_phone: s.student_phone || '',
+      parent_phone: s.parent_phone || '',
+      teacher_phone: s.teacher_phone || '',
+      shop_name: s.shop_name || '',
+      hq_name: s.hq_name || '',
+      branch1_name: s.branch1_name || '',
+      branch2_name: s.branch2_name || '',
+      franchise: s.franchise || '',
+      status: s.status || '',
+      sessions: Number(s.sessions || 0),
+      first_seen: s.signup_date || s.created_at || null,
+      last_seen: s.last_seen || null,
+    }));
   } catch (e) {}
-  let merged = [
-    ...seedStudents.map(s => ({ ...s, _seed: true, sessions: s.classes_used || 0 })),
-    ...apiItems,
-  ];
+  let merged = apiItems;
   // 🔐 RBAC 스코프 필터 — 본사는 모두, 지사는 산하 대리점만, 대리점은 자기 학생만
   if (typeof window.adminScopeFilter === 'function') merged = window.adminScopeFilter(merged, 'students');
   if (!merged.length) {
-    tb.innerHTML = '<tr><td colspan="6" class="empty">' + (_L?'No students yet':'아직 학생 데이터 없음') + '</td></tr>';
+    tb.innerHTML = '<tr><td colspan="19" class="empty">' + (_L?'No students yet':'아직 학생 데이터 없음') + '</td></tr>';
     return;
   }
   _smStudents = merged.map(s => ({
@@ -16970,6 +17241,108 @@ async function loadStudentList() {
   if (cnt) cnt.textContent = (_L ? _smStudents.length + ' students' : _smStudents.length + '명') + (seedStudents.length ? (_L ? ' (' + seedStudents.length + ' seeded)' : ' (시드 ' + seedStudents.length + '명)') : '');
   renderStudentTable();
 }
+
+function openScheduleCalendar(uidEnc){
+  const uid = decodeURIComponent(uidEnc);
+  const st = (typeof _smStudents!=='undefined' ? _smStudents : (window._smStudents||[])).find(x=>String(x.user_id)===uid) || {};
+  const name = st.username || uid;
+  const cpw = parseInt(st.classes_per_week,10) || 0;
+  const dayMap = {1:[3],2:[2,4],3:[1,3,5],4:[1,2,4,5],5:[1,2,3,4,5],6:[1,2,3,4,5,6]};
+  const classDays = dayMap[cpw] || (cpw>=5?[1,2,3,4,5]:(cpw>0?[1,3,5]:[]));
+  const WD=['일','월','화','수','목','금','토'];
+  let view = new Date(); view.setDate(1);
+  let ov = document.getElementById('sched-cal-overlay'); if (ov) ov.remove();
+  ov = document.createElement('div'); ov.id='sched-cal-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(3px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+  const box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:16px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.35);overflow:hidden';
+  ov.appendChild(box); document.body.appendChild(ov);
+  function render(){
+    const y=view.getFullYear(), m=view.getMonth();
+    const first=new Date(y,m,1).getDay(), days=new Date(y,m+1,0).getDate();
+    const t=new Date(); t.setHours(0,0,0,0);
+    let cells='';
+    for(let i=0;i<first;i++) cells+='<div></div>';
+    for(let d=1;d<=days;d++){
+      const wd=new Date(y,m,d).getDay();
+      const isClass=classDays.includes(wd);
+      const isToday=(y===t.getFullYear()&&m===t.getMonth()&&d===t.getDate());
+      const bg=isClass?'background:linear-gradient(135deg,#60a5fa,#3b82f6);color:#fff;font-weight:700':'color:#334155';
+      const ring=isToday?'box-shadow:0 0 0 2px #f59e0b inset':'';
+      cells+='<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:13px;border-radius:8px;'+bg+';'+ring+'">'+d+'</div>';
+    }
+    box.innerHTML=''
+      +'<div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;padding:16px 20px">'
+      +  '<div style="font-size:15px;font-weight:800">📅 '+_esc(name)+' 님 수업 스케줄</div>'
+      +  '<div style="font-size:12px;opacity:0.85;margin-top:3px">'+(cpw?('주 '+cpw+'회 · '+classDays.map(w=>WD[w]).join('·')+'요일'):'등록된 주간 수업 횟수 없음')+'</div>'
+      +'</div>'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px">'
+      +  '<button id="cal-prev" style="border:0;background:#eff6ff;color:#2563eb;width:34px;height:34px;border-radius:9px;cursor:pointer;font-size:18px">‹</button>'
+      +  '<b style="font-size:14px;color:#1e293b">'+y+'년 '+(m+1)+'월</b>'
+      +  '<button id="cal-next" style="border:0;background:#eff6ff;color:#2563eb;width:34px;height:34px;border-radius:9px;cursor:pointer;font-size:18px">›</button>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;padding:0 16px 6px">'
+      +  WD.map((w,i)=>'<div style="text-align:center;font-size:11px;font-weight:700;color:'+(i===0?'#dc2626':i===6?'#2563eb':'#64748b')+'">'+w+'</div>').join('')
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;padding:0 16px 12px">'+cells+'</div>'
+      +'<div style="display:flex;align-items:center;gap:6px;padding:0 20px 12px;font-size:11px;color:#64748b">'
+      +  '<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#3b82f6"></span> 수업일'
+      +  '<span style="display:inline-block;width:12px;height:12px;border-radius:3px;box-shadow:0 0 0 2px #f59e0b inset;margin-left:10px"></span> 오늘'
+      +'</div>'
+      +'<div style="padding:0 16px 16px"><button id="cal-close" style="width:100%;padding:11px;border:0;background:#1e293b;color:#fff;border-radius:11px;cursor:pointer;font-weight:700">닫기</button></div>';
+    box.querySelector('#cal-prev').onclick=()=>{view.setMonth(view.getMonth()-1);render();};
+    box.querySelector('#cal-next').onclick=()=>{view.setMonth(view.getMonth()+1);render();};
+    box.querySelector('#cal-close').onclick=()=>ov.remove();
+  }
+  render();
+}
+window.openScheduleCalendar = openScheduleCalendar;
+
+async function aiOpenAnalysis(uid, name){
+  uid = String(uid||''); name = String(name||uid);
+  let ov = document.getElementById('ai-analysis-overlay'); if (ov) ov.remove();
+  ov = document.createElement('div'); ov.id='ai-analysis-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,0.65);backdrop-filter:blur(3px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+  const box=document.createElement('div');
+  box.style.cssText='background:#0f172a;border:1px solid #6366f1;border-radius:16px;max-width:560px;width:100%;max-height:85vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.5);color:#e2e8f0';
+  ov.appendChild(box); document.body.appendChild(ov);
+  const esc = v => String(v==null?'':v).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+  box.innerHTML = '<div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:16px 20px;border-radius:16px 16px 0 0">'
+    +'<div style="font-size:16px;font-weight:800;color:#fff">\U0001F916 AI 학습 분석 — '+esc(name)+'</div>'
+    +'<div style="font-size:12px;color:#e0e7ff;margin-top:2px">Llama 3.3 70B · 최근 60일 데이터 기반</div></div>'
+    +'<div id="ai-an-body" style="padding:20px"><div style="text-align:center;color:#a5b4fc;padding:30px">\U0001F916 AI가 분석 중입니다… (10~20초)</div></div>';
+  let data;
+  try {
+    const r = await fetch('/api/admin/ai-analyze/student', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ student_uid: uid, student_name: name }) });
+    data = await r.json();
+  } catch(e) { data = { ok:false, error: String(e&&e.message||e) }; }
+  const body = box.querySelector('#ai-an-body');
+  if (!data || !data.ok) {
+    const msg = (data && (data.message||data.error)) || '알 수 없는 오류';
+    body.innerHTML = '<div style="color:#fca5a5;padding:14px;background:rgba(239,68,68,0.1);border:1px solid #ef4444;border-radius:10px">⚠️ AI 분석 실패: '+esc(msg)+'</div>'
+      +'<div style="margin-top:12px;text-align:center"><button onclick="document.getElementById(\'ai-analysis-overlay\').remove()" style="padding:10px 20px;background:#334155;color:#fff;border:0;border-radius:8px;cursor:pointer">닫기</button></div>';
+    return;
+  }
+  const a = data.analysis || {};
+  const list = v => { const arr = Array.isArray(v)?v:String(v||'').split('|').map(x=>x.trim()).filter(Boolean); return arr.length? '<ul style="margin:6px 0 0;padding-left:18px;line-height:1.7">'+arr.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<div style="color:#64748b">—</div>'; };
+  const risk = (a.risk_level||'unknown');
+  const riskColor = risk==='high'?'#ef4444':risk==='medium'?'#f59e0b':risk==='low'?'#10b981':'#64748b';
+  const riskLabel = risk==='high'?'⚠️ 높음':risk==='medium'?'주의':risk==='low'?'✅ 양호':'—';
+  const ds = a.data_sources||{};
+  body.innerHTML = ''
+    +'<div style="background:rgba(99,102,241,0.12);border:1px solid #6366f1;border-radius:10px;padding:14px;margin-bottom:14px"><div style="font-size:11px;color:#a5b4fc;font-weight:700;margin-bottom:4px">\U0001F4CB 요약</div><div style="font-size:13.5px;line-height:1.6">'+esc(a.summary)+'</div></div>'
+    +'<div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">'
+    +'<div style="flex:1;min-width:120px;background:#1e293b;border-radius:8px;padding:10px"><div style="font-size:11px;color:#94a3b8">위험도</div><div style="font-weight:800;color:'+riskColor+';font-size:15px">'+riskLabel+'</div></div>'
+    +'<div style="flex:2;min-width:160px;background:#1e293b;border-radius:8px;padding:10px"><div style="font-size:11px;color:#94a3b8">데이터</div><div style="font-size:12px;color:#cbd5e1">출석 '+(ds.attendance_count||0)+' · 평가 '+(ds.eval_count||0)+' · 채팅 '+(ds.chat_messages||0)+' · 적립 '+(ds.point_earned||0)+'P</div></div></div>'
+    +'<div style="margin-bottom:12px"><div style="font-size:12px;color:#34d399;font-weight:700">\U0001F4AA 강점</div>'+list(a.strengths)+'</div>'
+    +'<div style="margin-bottom:12px"><div style="font-size:12px;color:#fbbf24;font-weight:700">\U0001F4CC 보완점</div>'+list(a.weaknesses)+'</div>'
+    +'<div style="margin-bottom:12px"><div style="font-size:12px;color:#60a5fa;font-weight:700">\U0001F3AF 추천 학습</div>'+list(a.recommendations)+'</div>'
+    +(a.next_action?'<div style="background:rgba(16,185,129,0.1);border-left:3px solid #10b981;padding:10px 12px;border-radius:6px;margin-bottom:12px"><div style="font-size:11px;color:#6ee7b7;font-weight:700">다음 수업 우선순위</div><div style="font-size:13px">'+esc(a.next_action)+'</div></div>':'')
+    +'<div style="text-align:center;margin-top:8px"><button onclick="document.getElementById(\'ai-analysis-overlay\').remove()" style="padding:10px 24px;background:#6366f1;color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:700">닫기</button></div>';
+}
+window.aiOpenAnalysis = aiOpenAnalysis;
 
 function renderStudentTable() {
   const _L = adminLang === 'en';
@@ -17026,19 +17399,33 @@ function renderStudentTable() {
     return `<span class="date-line"><span class="date-d">${dPart}</span><br><span class="date-t">${tPart}</span></span>`;
   };
 
+  const _c = v => { const x = _esc(v == null ? '' : v); return x || '—'; };
+  const _d = v => v ? _esc(String(v).slice(0,10)) : '—';
   tb.innerHTML = arr.map(s => {
     const uid = String(s.user_id || '');
     const uidEnc = encodeURIComponent(uid);
     const safeUid  = _esc(uid);
     const safeName = _esc(s.username || uid);
-    const role = s.role ? _esc(s.role) : '';
     return `<tr>
       <td title="${safeUid}"><code>${safeUid}</code></td>
-      <td><b>${safeName}</b>${role ? '<span class="role-badge">'+role+'</span>' : ''}</td>
-      <td><span class="sess-count">${(s.session_count||0).toLocaleString()}</span></td>
-      <td>${splitDt(s.first_seen)}</td>
-      <td>${splitDt(s.last_seen)}</td>
-      <td><a href="/admin/student?uid=${uidEnc}" target="_blank">🎓 ${_L?'Details':'상세보기'}</a></td>
+      <td><b>${safeName}</b></td>
+      <td style="text-align:center"><a href="/admin/student?uid=${uidEnc}" target="_blank">🎓 ${_L?'Details':'상세'}</a></td>
+      <td>${_c(s.payment_type)}</td>
+      <td>${_d(s.signup_date)}</td>
+      <td>${_d(s.end_date)}</td>
+      <td>${_c(s.summary)}</td>
+      <td>${splitDt(s.created_at)}</td>
+      <td style="text-align:right">${_c(s.classes_per_week)}</td>
+      <td style="text-align:right">${(Number(s.points)||0).toLocaleString()}</td>
+      <td>${_c(s.enroll_req)}</td>
+      <td>${_c(s.student_phone)}</td>
+      <td>${_c(s.parent_phone)}</td>
+      <td>${_c(s.teacher_phone)}</td>
+      <td>${_c(s.shop_name)}</td>
+      <td>${_c(s.hq_name)}</td>
+      <td>${_c(s.branch2_name)}</td>
+      <td style="text-align:right"><span class="sess-count">${(s.session_count||0).toLocaleString()}</span></td>
+      <td>${_c(s.status)}</td>
     </tr>`;
   }).join('');
 }
@@ -17665,10 +18052,8 @@ async function testR2() {
 }
 
 document.getElementById('rooms-refresh').onclick = loadActiveRooms;
-document.getElementById('refresh').onclick = async function() {
-  const btn = this;
-  btn.disabled = true;
-  btn.textContent = adminLang==='en'?'⏳ Loading...':'⏳ 로딩...';
+// 데이터 새로고침 — 우하단 ↻ FAB 등에서 재사용 가능 (헤더 버튼은 제거됨)
+window.adminRefreshData = async function() {
   try {
     await Promise.allSettled([
       load(),
@@ -17679,6 +18064,13 @@ document.getElementById('refresh').onclick = async function() {
       loadStorageStats()
     ]);
   } catch(e) { console.warn('refresh error:', e); }
+};
+var _adminRefreshEl = document.getElementById('refresh');
+if (_adminRefreshEl) _adminRefreshEl.onclick = async function() {
+  const btn = this;
+  btn.disabled = true;
+  btn.textContent = adminLang==='en'?'⏳ Loading...':'⏳ 로딩...';
+  await window.adminRefreshData();
   btn.disabled = false;
   btn.textContent = adminLang==='en'?'🔄 Refresh':'🔄 새로고침';
 };
@@ -17733,20 +18125,69 @@ function buildMenuIndex() {
     sub: '',
     action: () => jumpToMenu(m.id)
   }));
+
+  // 🔎 검색 별칭(유사어) — 카드 라벨과 검색어가 달라도 바로 해당 페이지로 연결
+  var MENU_ALIASES = [
+    { kw:'지사 대리점 정산 정산통계 branch agency', card:'card-settlement-stats', label:'지사·대리점·정산 통계' },
+    { kw:'재무 회계 매출 지출 손익 정산 accounting finance', card:'card-accounting-mgmt', label:'재무·회계 관리' },
+    { kw:'권한 권한설정 역할 접근 permission role', card:'card-permissions', label:'권한 설정' },
+    { kw:'학생 학생관리 수강생 student', card:'card-students-mgmt', label:'학생 관리' },
+    { kw:'교사 강사 강사관리 선생 선생님 teacher', card:'card-teacher-mgmt', label:'강사 관리' },
+    { kw:'포인트 기프트 기프티콘 상점 리워드 적립 point', card:'card-points-mgmt', label:'포인트 관리' },
+    { kw:'출석 출결 qr 체크 attendance', card:'card-auto-attendance', label:'출결 관리' },
+    { kw:'공지 공지사항 게시판 알림글 notice', card:'card-notice-board', label:'공지사항' },
+    { kw:'카카오 알림톡 카톡 kakao', card:'card-kakao-mgmt', label:'카카오 알림톡' },
+    { kw:'푸시 웹푸시 알림 push notification', card:'card-webpush-mgmt', label:'웹푸시 알림' },
+    { kw:'mbti 매칭 성향 mbti', card:'card-mbti-mgmt', label:'MBTI 매칭' },
+    { kw:'배틀 대결 battle', card:'card-battle-mgmt', label:'영어 배틀' },
+    { kw:'토익 toeic 시험 미니토익', card:'card-mini-toeic', label:'Mini TOEIC' },
+    { kw:'음성일기 일기 다이어리 voice diary', card:'card-voice-diary', label:'AI 음성 일기' },
+    { kw:'평가 평가서 평가관리 성적 eval', card:'card-eval-mgmt', label:'평가 관리' },
+    { kw:'상담 문의 컨설팅 inquiry', card:'card-inquiry-mgmt', label:'상담·문의 관리' },
+    { kw:'리포트 월간리포트 보고서 report', card:'card-monthly-report', label:'월간 리포트' },
+    { kw:'kpi 대시보드 핵심지표 통계 dashboard', card:'card-kpi-dashboard', label:'KPI 대시보드' },
+    { kw:'랭킹 순위 ranking', card:'card-rankings', label:'랭킹' },
+    { kw:'일별 일자별 차트 chart', card:'card-daily-charts', label:'일자별 차트' },
+    { kw:'인사이트 ai인사이트 분석 insight', card:'card-ai-insights', label:'AI 인사이트' },
+    { kw:'칭찬 스티커 칭찬스티커 praise', card:'card-praise-stats', label:'칭찬 스티커 통계' },
+    { kw:'정기결제 구독 자동결제 recurring', card:'card-recurring-billing', label:'정기 결제' },
+    { kw:'미납 독촉 미수금 dunning', card:'card-auto-dunning', label:'미납 추적' },
+    { kw:'녹화 녹화본 활성방 recording', card:'card-active-rooms', label:'녹화·활성 방' },
+    { kw:'가족 가족계정 family', card:'card-family-mgmt', label:'가족 계정' },
+    { kw:'동영상 비디오 영상 유튜브 youtube 비디오관리 video', card:'sub-mango-videos', label:'망고아이 비디오 관리 (YouTube)' },
+    { kw:'자막 사전 비디오자막 subtitle', card:'card-video-dict', label:'비디오 자막·사전' },
+    { kw:'콘텐츠 컨텐츠 교재 자료 content', card:'card-textbooks', label:'교재 콘텐츠 관리' },
+    { kw:'갤러리 사진 영상갤러리 gallery', card:'card-gallery', label:'사진·영상 갤러리' },
+    { kw:'수강신청 수강 등록 enrollment', card:'card-students-mgmt', label:'학생·수강 관리' },
+    { kw:'결제 수납 입금 payment', card:'card-accounting-mgmt', label:'결제·회계' },
+    { kw:'레벨테스트 레벨 테스트 level', card:'card-students-mgmt', label:'학생 관리(레벨)' },
+    { kw:'법인카드 법인 카드내역 카드사용 지출 지출내역 경비 corpcard', card:'acc-corpcard', label:'법인카드 사용내역 (지출)' },
+    { kw:'강의실 입장 테스트 장비점검 웹캠 마이크 점검 테스트하네스 진단 test', card:'card-classroom-test', label:'강의실 입장·장비 점검 테스트' }
+  ];
+  MENU_ALIASES.forEach(function(a){
+    var el = document.getElementById(a.card);
+    if (!el || el.style.display === 'none') return;  // RBAC 숨김 카드는 제외
+    _globalSearchIndex.push({
+      kind:'menu', kindLabelKo:'📋 바로가기', kindLabelEn:'📋 Shortcut',
+      label: a.label, labelEn: a.label,
+      sub: a.kw,                       // 유사어 — 검색 매칭용
+      action: function(){ jumpToMenu(a.card); }
+    });
+  });
 }
 
 // ── 모든 데이터 통합 색인 ──────────────────────────────────────────
 async function buildGlobalIndex() {
   // 메뉴는 buildMenuIndex 가 이미 추가. 다른 카테고리만 fetch.
   const sources = [
-    { url: '/api/admin/students/list?limit=500', kindKo: '👨‍🎓 학생',     kindEn: '👨‍🎓 Student',    items: 'items',
-      label: s => s.username || s.user_id,
-      sub:   s => s.user_id || '',
-      action: s => window.open('/admin/student?uid=' + encodeURIComponent(s.user_id || ''), '_blank') },
+    { url: '/api/admin/students/erp-list?limit=1000', kindKo: '👨‍🎓 학생',     kindEn: '👨‍🎓 Student',    items: 'items',
+      label: s => s.korean_name || s.english_name || s.username || s.user_id,
+      sub:   s => [s.english_name, s.user_id].filter(Boolean).join(' · '),
+      action: s => { const uid = s.user_id || s.username; if (uid) window.open('/admin/student?uid=' + encodeURIComponent(uid), '_blank'); else jumpToMenuByLabelMatch('학생관리'); } },
     { url: '/api/admin/teachers',         kindKo: '🧑‍🏫 교사',     kindEn: '🧑‍🏫 Teacher',     items: 'items',
       label: t => t.name,
       sub:   t => `${t.status || '—'} · ${t.years != null ? t.years + 'y' : ''} · rate ${t.rate_per_10min_php || '—'}`,
-      action: () => jumpToMenuByLabelMatch('Mangoi') },
+      action: () => jumpToMenuByLabelMatch('강사') },
     { url: '/api/admin/franchises',       kindKo: '🏬 가맹점',     kindEn: '🏬 Franchise',    items: 'items',
       label: f => f.name,
       sub:   f => f.owner_name || '',
@@ -18063,6 +18504,9 @@ function jumpToMenu(id, opts) {
     lc.classList.add('legacy-show');
     if (typeof syncLegacyToggleLabel === 'function') syncLegacyToggleLabel();
   }
+  // 🆕 중첩된 sub-item(예: 망고아이 비디오 관리)도 보이도록 부모 details 모두 펼침
+  let _anc = el.parentElement;
+  while (_anc) { if (_anc.tagName === 'DETAILS') _anc.open = true; _anc = _anc.parentElement; }
   el.open = true;
   el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   // 시각적 강조 — 잠깐 노란 테두리
@@ -18088,11 +18532,24 @@ function _highlight(text, q) {
 function searchAllFor(q) {
   const ql = q.toLowerCase().trim();
   if (!ql) return [];
-  const hits = _globalSearchIndex.filter(it =>
-    (it.label    || '').toLowerCase().includes(ql) ||
-    (it.labelEn  || '').toLowerCase().includes(ql) ||
-    (it.sub      || '').toLowerCase().includes(ql)
+  const matchBy = (needle) => _globalSearchIndex.filter(it =>
+    (it.label    || '').toLowerCase().includes(needle) ||
+    (it.labelEn  || '').toLowerCase().includes(needle) ||
+    (it.sub      || '').toLowerCase().includes(needle)
   );
+  let hits = matchBy(ql);
+  // 🆕 문장형 검색 fallback — "법인카드 내역 보여줘"처럼 명령어가 붙으면 단어별로 매칭
+  if (hits.length === 0 && /\s/.test(ql)) {
+    const STOP = ['보여줘','보여주세요','알려줘','알려주세요','열어줘','열어','찾아줘','찾아','조회','검색','해줘','해주세요','좀','내역','관리','페이지','메뉴','화면','정보','목록'];
+    const tokens = ql.split(/\s+/).filter(t => t.length >= 2 && STOP.indexOf(t) === -1);
+    const seen = new Set();
+    tokens.forEach(t => {
+      matchBy(t).forEach(h => {
+        const key = (h.kind || '') + '|' + (h.label || '');
+        if (!seen.has(key)) { seen.add(key); hits.push(h); }
+      });
+    });
+  }
   // 정렬: (1) 메뉴 최우선  (2) 매칭 위치 앞쪽  (3) 짧은 이름
   return hits.sort((a, b) => {
     if (a.kind === 'menu' && b.kind !== 'menu') return -1;
@@ -18221,6 +18678,47 @@ function renderSearchDropdown(q) {
       }
     }, 80);
   });
+
+  // 🔎 실시간 서버 검색 — 이름/기능을 DB 에서 즉시 찾아 드롭다운에 표시 (느린 AI 대기 불필요)
+  let _liveTimer;
+  input.addEventListener('input', () => {
+    clearTimeout(_liveTimer);
+    const q = (input.value || '').trim();
+    if (q.length < 2) return;
+    _liveTimer = setTimeout(() => _liveServerSearch(q), 200);
+  });
+  async function _liveServerSearch(q) {
+    let data;
+    try {
+      const r = await fetch('/api/admin/omnisearch?q=' + encodeURIComponent(q), { credentials: 'include', cache: 'no-store' });
+      if (!r.ok) return;
+      data = await r.json();
+    } catch { return; }
+    if ((input.value || '').trim() !== q) return;        // 입력이 바뀌었으면 무시
+    const results = (data && data.results) || [];
+    if (!results.length) return;
+    const live = results.map(x => ({
+      kind: x.type === 'teacher' ? '🧑‍🏫 교사' : '👨‍🎓 학생',
+      kindLabelKo: x.type === 'teacher' ? '🧑‍🏫 교사' : '👨‍🎓 학생',
+      kindLabelEn: x.type === 'teacher' ? '🧑‍🏫 Teacher' : '👨‍🎓 Student',
+      label: x.name || '', labelEn: x.name || '', sub: x.sub || '',
+      action: () => { if (x.url) window.open(x.url, '_blank'); else jumpToMenuByLabelMatch('강사'); }
+    }));
+    _cancelAiAuto();                                      // 결과 있으니 AI 자동호출 취소
+    const menus = searchAllFor(q).filter(h => h.kind === 'menu');
+    const combined = live.concat(menus).slice(0, 30);
+    _searchCurrentHits = combined;
+    _searchActiveIdx = 0;
+    const useEn = (typeof adminLang !== 'undefined' && adminLang === 'en');
+    dd.innerHTML = combined.map((h, i) =>
+      '<div class="menu-search-item' + (i === 0 ? ' active' : '') + '" data-idx="' + i + '">' +
+        '<span style="display:inline-block;min-width:90px;font-size:10px;font-weight:700;color:#6b7280;background:#f3f4f6;padding:2px 6px;border-radius:10px;text-align:center;">' + _escSb(useEn ? h.kindLabelEn : h.kindLabelKo) + '</span>' +
+        '<span style="flex:1;">' + _highlight(h.label || '', q) + '</span>' +
+        (h.sub ? '<span style="font-size:11px;color:#9ca3af;">' + _escSb(h.sub) + '</span>' : '') +
+      '</div>'
+    ).join('');
+    dd.classList.add('show');
+  }
   input.addEventListener('focus', () => {
     if (input.value.trim()) renderSearchDropdown(input.value);
   });
@@ -19697,7 +20195,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260602103212 -->
+        <!-- BUILD:20260608203344 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -19743,6 +20241,16 @@ window.rebuildGlobalSearchIndex = function() {
     if (!_cardData) _cardData = generateCardSampleData();
     renderCardKpis(); renderCardCharts(); renderCardTable(); renderCardFeedback();
   };
+
+  // 🆕 법인카드 섹션을 열면 자동 조회 — 버튼 안 눌러도 지출내역 바로 표시
+  (function(){
+    var d = document.getElementById('acc-corpcard');
+    if (d && !d.__cardAutoBound) {
+      d.__cardAutoBound = true;
+      d.addEventListener('toggle', function(){ if (d.open) window.cardLoad(); });
+      if (d.open) window.cardLoad();
+    }
+  })();
 
   function generateCardSampleData() {
     // 한도 ₩1,000,000에 맞춰 모든 거래 금액 축소
@@ -19973,12 +20481,19 @@ window.rebuildGlobalSearchIndex = function() {
     { group_ko: '🏠 대시보드', group_en: '🏠 Dashboard', items: [
       { id: 'dashboard',     name_ko: '메인 대시보드',     name_en: 'Main Dashboard',          def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'✅', parent:'✅', student:'✅' } },
       { id: 'realtime_class', name_ko: '실시간 수업 현황',  name_en: 'Live Class Status',       def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'👁️', parent:'❌', student:'❌' } },
+      { id: 'finance_realtime', name_ko: '실시간 재무 (수입·지출·손익)', name_en: 'Realtime Finance', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'learning_insights', name_ko: '학습 인사이트 (위험도·세그먼트)', name_en: 'Learning Insights', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'kpi_dashboard', name_ko: '운영 대시보드 KPI (8대 지표)', name_en: 'Operations KPI Dashboard', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'ai_insights_hub', name_ko: 'AI 인사이트 대시보드', name_en: 'AI Insights Dashboard', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'today_kpi', name_ko: '오늘의 핵심 지표 (매출·출석·결석·신규)', name_en: "Today KPIs", def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'👁️', parent:'❌', student:'❌' } },
     ]},
     { group_ko: '👨‍🎓 학생 관리', group_en: '👨‍🎓 Student Management', items: [
       { id: 'students_list',   name_ko: '학생 목록·상세보기', name_en: 'Student List · Details',  def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'👁️', parent:'❌', student:'❌' } },
       { id: 'students_self',   name_ko: '내 학습 정보 조회',  name_en: 'My Learning Info',          def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'❌', parent:'✅', student:'✅' } },
       { id: 'students_eval',   name_ko: '평가서 작성·수정',   name_en: 'Evaluation Create · Edit',  def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'❌', parent:'❌', student:'❌' } },
       { id: 'enrollment',      name_ko: '수강신청 관리',      name_en: 'Enrollment Management',     def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'✅', agency:'✅', parent:'👁️', student:'👁️' } },
+      { id: 'students_unified', name_ko: '통합 학생관리', name_en: 'Unified Student Mgmt', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'👁️', parent:'❌', student:'❌' } },
+      { id: 'ai_student_analysis', name_ko: 'AI 학습 분석 (Llama 3.3)', name_en: 'AI Learning Analysis', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
     ]},
     { group_ko: '🧑‍🏫 강사 관리', group_en: '🧑‍🏫 Teacher Management', items: [
       { id: 'teachers_list',   name_ko: '강사 목록·평가',     name_en: 'Teacher List · Evaluation', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'✅', agency:'❌', parent:'❌', student:'❌' } },
@@ -19990,15 +20505,21 @@ window.rebuildGlobalSearchIndex = function() {
       { id: 'financials',       name_ko: '손익·재무제표',     name_en: 'P&L · Financial Stmt',      def: { hq_exec:'✅', hq_mgr:'❌', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
       { id: 'refunds',          name_ko: '환불·취소 처리',    name_en: 'Refund · Cancel',           def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'✅', agency:'❌', parent:'❌', student:'❌' } },
       { id: 'accounting_reports', name_ko: '회계 리포트 다운로드', name_en: 'Accounting Report Download', def: { hq_exec:'✅', hq_mgr:'👁️', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'recurring_billing', name_ko: '정기결제 자동화', name_en: 'Recurring Billing', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'auto_dunning', name_ko: '미납 자동 추적 (D-1/7/14)', name_en: 'Auto Dunning', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'points_gift', name_ko: '포인트·기프트콘 관리', name_en: 'Points · Gifticon', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'✅', agency:'👁️', parent:'❌', student:'❌' } },
     ]},
     { group_ko: '🎬 콘텐츠·녹화', group_en: '🎬 Content · Recording', items: [
       { id: 'recordings_view', name_ko: '수업 녹화본 조회',   name_en: 'Class Recordings View',     def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'👁️', parent:'✅', student:'✅' } },
       { id: 'textbooks',       name_ko: '교재 콘텐츠 관리',   name_en: 'Textbook Content Mgmt',     def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'❌', parent:'👁️', student:'👁️' } },
+      { id: 'voice_coaching', name_ko: '음성 코칭 진도 (AI 발음)', name_en: 'Voice Coaching Progress', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'👁️', agency:'❌', parent:'👁️', student:'👁️' } },
     ]},
     { group_ko: '📢 운영', group_en: '📢 Operations', items: [
       { id: 'community',       name_ko: '학원 게시판 (소식·FAQ) 작성', name_en: 'Notice Board (News·FAQ) — write',        def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'✅', agency:'❌', parent:'👁️', student:'👁️' } },
       { id: 'inquiries',       name_ko: '신규상담 처리',       name_en: 'New Inquiries',             def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'✅', agency:'✅', parent:'❌', student:'❌' } },
       { id: 'kakao_blast',     name_ko: '카톡 공지 발송',      name_en: 'KakaoTalk Broadcast',       def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'✅', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'nps_survey', name_ko: '월간 NPS 설문', name_en: 'Monthly NPS Survey', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'marketing_studio', name_ko: '마케팅 스튜디오 (AI 카피·세그먼트)', name_en: 'Marketing Studio', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
     ]},
     // 🆕 수업 연기/변경 시간 제한 우회 권한 — 본사/강사는 언제든지 가능, 지사/대리점/학생은 24h/30분 룰 준수
     { group_ko: '📅 수업 변경 권한', group_en: '📅 Lesson Change Permissions', items: [
@@ -20566,6 +21087,9 @@ window.rebuildGlobalSearchIndex = function() {
 
   // ── 1. 학생 20명 시드 ──
   window.seedTestStudents = async function() {
+    try { localStorage.removeItem('mangoi_test_students'); localStorage.removeItem('mangoi_test_branches'); localStorage.removeItem('mangoi_test_agencies'); } catch{}
+    if (typeof loadStudentList === 'function') loadStudentList();
+    return; // 🚫 테스트 시드 생성 영구 비활성화 — 실제 학생 데이터만 사용
     const btn = document.getElementById('seed-students-btn');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ 생성 중…'; }
     const items = [];
@@ -20621,6 +21145,8 @@ window.rebuildGlobalSearchIndex = function() {
 
   // ── 2. 지사 20개 시드 ──
   window.seedTestBranches = async function() {
+    try { localStorage.removeItem('mangoi_test_branches'); } catch{}
+    return; // 🚫 테스트 시드(지사) 생성 영구 비활성화
     const btn = document.getElementById('seed-branches-btn');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ 생성 중…'; }
     const items = SI_DO.map((b, i) => ({
@@ -20656,6 +21182,8 @@ window.rebuildGlobalSearchIndex = function() {
 
   // ── 3. 대리점 20개 시드 ──
   window.seedTestAgencies = async function() {
+    try { localStorage.removeItem('mangoi_test_agencies'); } catch{}
+    return; // 🚫 테스트 시드(대리점) 생성 영구 비활성화
     const btn = document.getElementById('seed-agencies-btn');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ 생성 중…'; }
     const items = [];
@@ -20948,6 +21476,8 @@ window.rebuildGlobalSearchIndex = function() {
 
   // 🚀 페이지 로드 시 시드 데이터가 없으면 자동 생성 (테스트 모드 자동 활성화)
   function autoSeedIfNeeded() {
+    try { localStorage.removeItem('mangoi_test_students'); localStorage.removeItem('mangoi_test_branches'); localStorage.removeItem('mangoi_test_agencies'); } catch{}
+    return; // 🚫 자동 테스트 시드 영구 비활성화
     const data = _getSeedData();
     if (data.students.length === 0) {
       // 자동으로 시드 학생 20명 생성 (사일런트)
@@ -21042,28 +21572,8 @@ window.rebuildGlobalSearchIndex = function() {
   // ━━━ fetch 인터셉터 ━━━ admin API 호출 시 시드 데이터를 응답에 자동 합산
   // 시드 데이터 강제 보장 (페이지 로드 즉시)
   function ensureSeed() {
-    let data = getSeed();
-    if (data.students.length > 0) return data;
-    const names = ['홍길동','김민수','이지민','박서연','최우진','정수아','강지원','윤하린','오은서','신예린','한지유','조서진','백채원','권유나','황도윤','안시현','송지호','전다은','전민서','문하준'];
-    const seedStudents = names.map((name, i) => ({
-      user_id: 'test_st_' + i,
-      username: 'test_st_' + i,
-      name,
-      phone: '010-' + String(1234+i).padStart(4,'0') + '-' + String(5678+i*7).padStart(4,'0').slice(-4),
-      email: 'test'+i+'@mangoi-test.kr',
-      program: ['1on1-8','1on1-12','group-12','business','kids'][i%5],
-      program_label: ['1:1 8회권','1:1 12회권','그룹 12회권','비즈니스','키즈'][i%5],
-      amount: [400000,560000,280000,580000,320000][i%5],
-      classes_total: [8,12,12,16,12][i%5],
-      classes_used: i % 5 + 1,
-      level: ['A1','A2','B1','B2','C1'][i%5],
-      grade: ['초3','초5','중1','중2','고1','성인'][i%6],
-      teacher: ['Maria Santos','James Cruz','Anna Reyes','Carlos Lim'][i%4],
-      franchise: ['서울 강남','경기 분당','부산 해운대','인천 송도','대구 수성'][i%5],
-      is_test: true,
-    }));
-    try { localStorage.setItem('mangoi_test_students', JSON.stringify(seedStudents)); } catch{}
-    return getSeed();
+    try { localStorage.removeItem('mangoi_test_students'); localStorage.removeItem('mangoi_test_branches'); localStorage.removeItem('mangoi_test_agencies'); } catch{}
+    return { students:[], branches:[], agencies:[] };
   }
   // 페이지 로드 즉시 시드 보장
   ensureSeed();
@@ -21075,6 +21585,7 @@ window.rebuildGlobalSearchIndex = function() {
 
   const origFetch = window.fetch;
   window.fetch = async function(input, init) {
+    return origFetch.apply(this, arguments); // 🚫 가짜 시드 주입 비활성화 — 항상 실제 서버 사용
     const url = typeof input === 'string' ? input : (input && input.url) || '';
     const data = ensureSeed();
 
@@ -21426,6 +21937,7 @@ window.rebuildGlobalSearchIndex = function() {
   // ━━━━━━━━━━ 💥 최후의 수단 — DOM 직접 강제 주입 ━━━━━━━━━━
   // fetch 인터셉터·load 함수가 어떤 이유로든 실패해도 시드 학생이 무조건 표시되도록
   function forceRenderStudentMgmt() {
+    return; // 🚫 테스트 시드 강제렌더 영구 비활성화
     const data = ensureSeed();
     if (!data.students || !data.students.length) return;
     const today = new Date(); today.setHours(0,0,0,0);
@@ -24250,13 +24762,23 @@ button.chip:hover,
   @media (min-width: 1024px) {
     body { padding-left: 240px !important; }
   }
-  /* 모바일/태블릿 — 사이드바 + 햄버거 완전 숨김 (PC 데스크탑 전용) */
+  /* 모바일/태블릿 — #ph85-sidebar 를 ☰(ph134)로 여닫는 슬라이드 드로어로 (터치 토글) */
   @media (max-width: 1023px) {
-    #ph85-sidebar,
-    #ph85-toggle {
-      display: none !important;
-      visibility: hidden !important;
+    #ph85-toggle { display: none !important; }
+    #ph134-hamburger { display: flex !important; align-items: center; justify-content: center; }
+    .admin-sidebar { display: none !important; }
+    #ph85-sidebar {
+      display: block !important;
+      visibility: visible !important;
+      transform: translateX(-100%);
+      transition: transform .3s cubic-bezier(.32,.72,0,1);
+      z-index: 99994 !important;
+      box-shadow: 0 0 32px rgba(0,0,0,.6);
+      padding-top: 60px !important;
     }
+    body.ph134-sidebar-open #ph85-sidebar { transform: translateX(0); }
+    body.ph134-sidebar-open #ph134-overlay { display: block; }
+    body.ph134-sidebar-open { overflow: hidden; }
   }
   #ph85-toggle { display: none; }
 </style>
@@ -24409,7 +24931,6 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-franchises" onclick="event.stopPropagation();var c=document.getElementById('card-franchises');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-franchises');}">가맹점</div>
       <div class="ph85-sub" data-card="card-centers" onclick="event.stopPropagation();var c=document.getElementById('card-centers');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-centers');}">센터</div>
       <div class="ph85-sub" data-card="card-data-export" onclick="event.stopPropagation();var c=document.getElementById('card-data-export');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-data-export');}">데이터 추출</div>
-      <div class="ph85-sub" data-card="card-test-seed" onclick="event.stopPropagation();var c=document.getElementById('card-test-seed');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-test-seed');}">테스트 시드</div>
       <div class="ph85-sub" data-card="card-admin-alerts" onclick="event.stopPropagation();var c=document.getElementById('card-admin-alerts');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-admin-alerts');}">🔔 관리자 알림</div>
       <div class="ph85-sub" data-card="card-admin-ghost" onclick="event.stopPropagation();var c=document.getElementById('card-admin-ghost');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-admin-ghost');}">👻 Ghost View</div>
       <div class="ph85-sub" data-card="card-admin-whisper" onclick="event.stopPropagation();var c=document.getElementById('card-admin-whisper');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-admin-whisper');}">💬 귓속말</div>
@@ -24419,6 +24940,14 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-report-forms" onclick="event.stopPropagation();var c=document.getElementById('card-report-forms');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-report-forms');}">📋 보고서 양식</div>
     </div>
   </div>
+  <style>
+    #ph85-backtop{ display:flex;align-items:center;justify-content:center;gap:6px;width:calc(100% - 4px);margin:14px 2px 8px;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid rgba(148,163,184,0.25);border-radius:10px;color:#94a3b8;font-size:12.5px;font-weight:700;cursor:pointer;transition:all .15s; }
+    #ph85-backtop:hover{ background:rgba(251,191,36,0.14);border-color:rgba(251,191,36,0.5);color:#fbbf24; }
+    #ph85-backtop:active{ transform:translateY(1px); }
+  </style>
+  <button type="button" id="ph85-backtop" title="맨 위로" onclick="(function(){try{var s=document.getElementById('ph85-sidebar');if(s&&s.scrollTo)s.scrollTo({top:0,behavior:'smooth'});window.scrollTo({top:0,behavior:'smooth'});}catch(e){try{window.scrollTo(0,0);}catch(_){}}})()">
+    <span style="font-size:14px">⬆</span><span data-ko="맨 위로" data-en="Back to top">맨 위로</span>
+  </button>
 </aside>
 
 <button id="ph85-toggle" type="button">☰</button>
@@ -29950,6 +30479,8 @@ button.chip:hover,
   // V=허용, R=읽기전용, 없음=차단
   // role: exec, mgr, teacher, branch, agency, parent, student
   var PERMS = {
+    // === 상단 대시보드 — 경영진·관리자 전용 ===
+    'card-ai-insights':            {exec:'V', mgr:'V'},
     // === 평가서 통합 ===
     'card-eval-mgmt':              {exec:'V', mgr:'V', teacher:'V', branch:'R'},
     'card-bulk-eval':              {exec:'V', mgr:'V', teacher:'V'},
@@ -29978,7 +30509,7 @@ button.chip:hover,
     'card-report-forms':           {exec:'V', mgr:'V', teacher:'V', branch:'V', agency:'V'},
 
     // === 통계 / KPI ===
-    'card-kpi-dashboard':          {exec:'V', mgr:'V', branch:'V', agency:'R'},
+    'card-kpi-dashboard':          {exec:'V', mgr:'V'},
     'card-daily-charts':           {exec:'V', mgr:'V', branch:'V', agency:'V'},
     'card-rankings':               {exec:'V', mgr:'V', teacher:'V', branch:'V', agency:'V', student:'V'},
     'card-retention-risk':         {exec:'V', mgr:'V', branch:'V', agency:'V'},
@@ -30042,7 +30573,7 @@ button.chip:hover,
   var UID_TO_ROLE = {
     'hq_exec':       'exec',
     'hq_mgr':        'mgr',
-    'admin':         'mgr',
+    'admin':         'exec',
     'cfo01':         'mgr',
     'ops_lead':      'mgr',
     'hq_t_001':      'teacher',
@@ -30057,10 +30588,63 @@ button.chip:hover,
 
   function getCurrentRole(){
     try {
+      // 🎭 역할 시뮬레이션이 설정돼 있으면 그 역할로 권한 적용 (테스트용)
+      var sim = localStorage.getItem('mangoi_user_role');
+      if (sim) {
+        var SIM_MAP = { hq_exec:'exec', hq_mgr:'mgr', hq_teacher:'teacher', branch:'branch', agency:'agency', parent:'parent', student:'student' };
+        return SIM_MAP[sim] || sim;
+      }
       var u = JSON.parse(localStorage.getItem('admin_session') || 'null');
       if (!u) return 'exec'; // 비로그인은 일단 전체 허용 (테스트)
       return UID_TO_ROLE[u.uid] || 'exec';
     } catch(e){ return 'exec'; }
+  }
+
+  // 🔗 권한설정 표(mangoi_perm_matrix) ↔ ph118 연결 매핑
+  var MATRIX_ROLE_KEY = { exec:'hq_exec', mgr:'hq_mgr', teacher:'hq_teacher', branch:'branch', agency:'agency', parent:'parent', student:'student' };
+  var MATRIX_CARD_MAP = {
+    // 📊 대시보드/통계·차트 — X 하면 차트류 전부 숨김
+    'dashboard':        ['card-daily-charts','card-kpi-dashboard','card-rankings','card-retention-risk','card-retention','card-ai-forecast','card-nps-monthly','card-school-attendance-stats'],
+    'today_kpi':        ['card-daily-charts','card-kpi-dashboard'],
+    'kpi_dashboard':    ['card-kpi-dashboard','card-daily-charts','card-rankings','card-retention-risk','card-ai-forecast','card-school-attendance-stats'],
+    'realtime_class':   ['card-active-rooms'],
+    'finance_realtime': ['card-ai-insights'],
+    'learning_insights':['card-ai-insights'],
+    'marketing_studio': ['card-ai-insights'],
+    'ai_insights_hub':  ['card-ai-insights'],
+    'students_eval':    ['card-eval-mgmt','card-bulk-eval'],
+    'students_list':    ['card-students-mgmt'],
+    'students_self':    ['card-students-mgmt'],
+    'students_unified': ['card-students-mgmt'],
+    'ai_student_analysis':['card-students-mgmt'],
+    'enrollment':       ['card-enrollments'],
+    'teachers_list':    ['card-teacher-mgmt'],
+    'teacher_payroll':  ['card-payroll','card-payroll-auto'],
+    'student_payments': ['card-payments-b2c','card-payments-b2b'],
+    'corpcard':         ['card-payments-b2b'],
+    'financials':       ['card-accounting-mgmt','card-settlement-stats'],
+    'refunds':          ['card-payments-b2c'],
+    'accounting_reports':['card-settlement-stats','card-accounting-mgmt'],
+    'recurring_billing':['card-recurring-billing'],
+    'auto_dunning':     ['card-auto-dunning'],
+    'points_gift':      ['card-points-mgmt'],
+    'voice_coaching':   ['card-voice-stats'],
+    'nps_survey':       ['card-nps-monthly'],
+    'recordings_view':  ['card-recording-storage'],
+    'textbooks':        ['card-textbooks'],
+    'community':        ['card-notice-board'],
+    'inquiries':        ['card-inquiry-mgmt'],
+    'kakao_blast':      ['card-kakao-mgmt'],
+    'permissions':      ['card-permissions'],
+    'audit_log':        ['card-permissions'],
+    'franchise_mgmt':   ['card-franchises','card-centers']
+  };
+  function ph118ApplyState(el, val, isCard){
+    var H = isCard ? 'ph118-card-hidden' : 'ph118-hidden';
+    var R = isCard ? 'ph118-card-readonly' : 'ph118-readonly';
+    if (val === '✅') { el.classList.remove(H, R); }
+    else if (val === '👁️' || val === '👁') { el.classList.remove(H); el.classList.add(R); }
+    else { el.classList.add(H); el.classList.remove(R); }
   }
 
   // === 권한 매트릭스 적용 ===
@@ -30109,6 +30693,23 @@ button.chip:hover,
         card.classList.remove('ph118-card-readonly');
       }
     });
+
+    // 2.5) 🔗 권한설정 표(mangoi_perm_matrix)를 실제 차단에 적용 — 표에서 바꾸면 반영
+    try {
+      var savedMx = JSON.parse(localStorage.getItem('mangoi_perm_matrix') || 'null');
+      if (savedMx) {
+        var mkey = MATRIX_ROLE_KEY[role] || 'hq_exec';
+        Object.keys(MATRIX_CARD_MAP).forEach(function(fid){
+          var rowVal = savedMx[fid] && savedMx[fid][mkey];
+          if (!rowVal) return;
+          MATRIX_CARD_MAP[fid].forEach(function(cardId){
+            var card = document.getElementById(cardId);
+            if (card) ph118ApplyState(card, rowVal, true);
+            document.querySelectorAll('#ph85-sidebar .ph85-sub[data-card="'+cardId+'"]').forEach(function(sub){ ph118ApplyState(sub, rowVal, false); });
+          });
+        });
+      }
+    } catch(e){}
 
     // 3) 빈 그룹 hide (모든 sub 가 hide 되면 그룹 자체 hide)
     document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(g){
@@ -31036,7 +31637,6 @@ button.chip:hover,
     'card-franchises':          ['가맹점 목록','신규 가맹','계약 관리','로열티 정산'],
     'card-centers':             ['센터 목록','센터 등록','강사 배정','매출 조회'],
     'card-data-export':         ['학생 CSV','강사 CSV','결제 CSV','출결 CSV'],
-    'card-test-seed':           ['시드 데이터 생성','초기화','샘플 학생','샘플 결제'],
     'card-admin-alerts':        ['오늘 알림','중요 알림','시스템 경고','읽음 처리'],
     'card-admin-ghost':         ['활성 룸 참관','녹화 확인','강제 입장','참관 이력'],
     'card-admin-whisper':       ['귓속말 발송','이력','강사 알림','학생 알림'],
@@ -31356,7 +31956,6 @@ button.chip:hover,
     'card-franchises':          ['가맹점 목록','신규 가맹','계약 관리','로열티 정산'],
     'card-centers':             ['센터 목록','센터 등록','강사 배정','매출 조회'],
     'card-data-export':         ['학생 CSV','강사 CSV','결제 CSV','출결 CSV'],
-    'card-test-seed':           ['시드 데이터','초기화','샘플 학생','샘플 결제'],
     'card-admin-alerts':        ['오늘 알림','중요 알림','시스템 경고','읽음 처리'],
     'card-admin-ghost':         ['활성 룸 참관','녹화 확인','강제 입장','참관 이력'],
     'card-admin-whisper':       ['귓속말 발송','이력','강사 알림','학생 알림'],
@@ -31713,7 +32312,6 @@ button.chip:hover,
     'card-franchises':             '🏬 가맹점·지사·대리점 관리',
     'card-centers':                '🏢 본사 직영 센터 관리',
     'card-data-export':            '📤 학생/강사/결제 CSV 다운로드',
-    'card-test-seed':              '🌱 테스트용 샘플 데이터 생성',
     'card-admin-alerts':           '🔔 관리자 알림 (시스템 경고)',
     'card-admin-ghost':            '👻 실시간 수업 참관 (Ghost View)',
     'card-admin-whisper':          '💬 학생/강사에게 귓속말',
@@ -33262,6 +33860,15 @@ button.chip:hover,
 <button type="button" id="ph134-hamburger" onclick="window.ph134Toggle && window.ph134Toggle()"
         aria-label="메뉴 열기" title="메뉴 열기">☰</button>
 <div id="ph134-overlay" onclick="window.ph134Close && window.ph134Close()" aria-hidden="true"></div>
+<script>
+(function(){
+  document.addEventListener('click', function(e){
+    if (!document.body.classList.contains('ph134-sidebar-open')) return;
+    var t = e.target.closest('#ph85-sidebar .ph85-sub, #ph85-sidebar a[href]');
+    if (t && window.ph134Close) setTimeout(window.ph134Close, 60);
+  }, true);
+})();
+</script>
 
 <script id="ph134-sidebar-js">
 (function(){
@@ -33271,7 +33878,6 @@ button.chip:hover,
   function isMobile(){ return window.matchMedia('(max-width: 920px)').matches; }
 
   window.ph134Open = function(){
-    if (!isMobile()) return;
     document.body.classList.add('ph134-sidebar-open');
     var ham = document.getElementById('ph134-hamburger');
     if (ham){ ham.classList.add('is-open'); ham.textContent = '✕'; ham.setAttribute('aria-label', '메뉴 닫기'); }
@@ -34901,24 +35507,141 @@ button.chip:hover,
      · ph150 토글 (좌상단 ☰) 이 ph85-sidebar 슬라이드 인/아웃
      · 빈 admin-sidebar 모바일 숨김 / ph85-sidebar 표시
      ============================================================ -->
-<style id="ph152-ph85-toggle">
-  @media (max-width: 920px) {
-    /* 빈 admin-sidebar 모바일 숨김 */
-    #admin-sidebar, .admin-sidebar, aside.admin-sidebar {
-      display: none !important;
+<!-- 🍔 (2026-06) 관리자 모바일 사이드바 — 학생홈처럼 왼쪽 끝 중앙 ☰ 탭으로 여닫기. 옛 ph134/ph135/ph150/ph152 등 충돌 시스템 정리 -->
+<style id="mga-drawer-style">
+  /* 옛 햄버거/엣지탭/닫기버튼 전부 숨김 */
+  #ph134-hamburger, #ph134-overlay, #ph85-toggle, #ph142-toggle, #ph150-toggle, #ph86-show, #ph88-show,
+  #ph135-edge-indicator, #ph135-edge-zone, #ph138-close, .menu-toggle-bar, .legacy-toggle-wrap { display: none !important; }
+
+  @media (max-width: 1023px) {
+    /* 옛 가나다 사이드바 숨김 */
+    #admin-sidebar, .admin-sidebar, aside.admin-sidebar { display: none !important; }
+    /* 본문 좌측 패딩 제거 (드로어 방식) */
+    html body { padding-left: 0 !important; }
+
+    /* 진짜 메뉴 사이드바 = 왼쪽 슬라이드 드로어 */
+    html body #ph85-sidebar, html body aside#ph85-sidebar {
+      display: block !important; visibility: visible !important; opacity: 1 !important;
+      position: fixed !important; top: 0 !important; left: 0 !important; bottom: 0 !important;
+      width: 282px !important; max-width: 82vw !important; height: 100vh !important;
+      z-index: 100001 !important;
+      background: linear-gradient(180deg,#1e293b 0%,#0f172a 100%) !important;
+      border-right: 1px solid rgba(99,102,241,0.3) !important;
+      box-shadow: 6px 0 30px rgba(0,0,0,.55) !important;
+      overflow-y: auto !important; padding-top: 16px !important;
+      transition: transform .32s cubic-bezier(.32,.72,0,1) !important;
     }
-    /* ph85-sidebar — 메뉴가 든 진짜 사이드바 (ph151 이 숨긴 거 다시 표시) */
-    #ph85-sidebar, aside#ph85-sidebar {
-      display: block !important;
-      visibility: visible !important;
-      opacity: 1 !important;
-      position: fixed !important;
-      top: 0 !important; left: 0 !important; bottom: 0 !important;
-      width: 280px !important; max-width: 80vw !important;
-      height: 100vh !important;
-      z-index: 99950 !important;
-      background: rgba(11, 18, 36, 0.92) !important;
-      -webkit-backdrop-filter: blur(18px) saturate(160%) !important;
-              backdrop-filter: blur(18px) saturate(160%) !important;
-      border-right: 1px solid rgba(96, 165, 250, 0.18) !important;
-      box
+    /* 닫힘(기본) — :not 으로 옛 *-open 클래스보다 우선 */
+    html body:not(.mga-open) #ph85-sidebar { transform: translateX(-100%) !important; }
+    /* 열림 */
+    html body.mga-open #ph85-sidebar { transform: translateX(0) !important; }
+
+    #mga-tab { display: flex !important; }
+    body.mga-open #mga-overlay { display: block !important; }
+    body.mga-open { overflow: hidden !important; }
+  }
+  @media (min-width: 1024px) { #mga-tab, #mga-overlay { display: none !important; } }
+
+  #mga-tab {
+    display: none; position: fixed; left: 0; top: 50%; transform: translateY(-50%);
+    width: 40px; height: 78px; border: 1px solid rgba(245,158,11,0.30); border-left: 0; border-radius: 0 14px 14px 0;
+    background: rgba(245,158,11,0.10); color: #f59e0b;
+    font-size: 25px; font-weight: 900; cursor: pointer; z-index: 100002;
+    box-shadow: 2px 1px 8px rgba(0,0,0,.18); align-items: center; justify-content: center;
+    -webkit-tap-highlight-color: transparent; padding: 0;
+    transition: left .32s cubic-bezier(.32,.72,0,1), background .2s;
+  }
+  body.mga-open #mga-tab { left: min(282px, 82vw); background: rgba(239,68,68,0.14); color: #ef4444; border-color: rgba(239,68,68,0.30); }
+  #mga-overlay { display: none; position: fixed; inset: 0; background: rgba(2,6,18,.55); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); z-index: 100000; }
+</style>
+<button id="mga-tab" type="button" aria-label="메뉴 열기/닫기" onclick="window.mgaToggle&&window.mgaToggle()"><span id="mga-tab-ico">☰</span></button>
+<div id="mga-overlay" onclick="window.mgaClose&&window.mgaClose()" aria-hidden="true"></div>
+<script id="mga-drawer-js">
+(function(){
+  function ico(){ var s=document.getElementById('mga-tab-ico'); if(s) s.textContent = document.body.classList.contains('mga-open') ? '✕' : '☰'; }
+  window.mgaOpen = function(){ document.body.classList.add('mga-open'); ico(); };
+  window.mgaClose = function(){ document.body.classList.remove('mga-open'); ico(); };
+  window.mgaToggle = function(){ document.body.classList.toggle('mga-open'); ico(); };
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') window.mgaClose(); });
+  document.addEventListener('click', function(e){
+    if(!document.body.classList.contains('mga-open')) return;
+    if(e.target.closest('#ph85-sidebar .ph85-sub, #ph85-sidebar a[href]')) setTimeout(window.mgaClose, 80);
+  }, true);
+})();
+</script>
+<!-- 🔒 (2026-06) 대시보드 — 무조건 경영진(exec)·관리자(mgr) 전용 강제 숨김 (매트릭스/PERMS 무관) -->
+<script id="exec-only-guard">
+(function(){
+  'use strict';
+  var UID2ROLE = {hq_exec:'exec',hq_mgr:'mgr',admin:'exec',cfo01:'mgr',ops_lead:'mgr',hq_t_001:'teacher',hq_teacher:'teacher',branch_busan:'branch',branch_daegu:'branch',agency_gn001:'agency',agency_sc002:'agency',parent_001:'parent',student_001:'student'};
+  var SIM2ROLE = {hq_exec:'exec',hq_mgr:'mgr',hq_teacher:'teacher',branch:'branch',agency:'agency',parent:'parent',student:'student'};
+  function role(){
+    try {
+      var sim = localStorage.getItem('mangoi_user_role');
+      if (sim) return SIM2ROLE[sim] || sim;
+      var u = JSON.parse(localStorage.getItem('admin_session')||'null');
+      if (!u) return 'exec';
+      return UID2ROLE[u.uid] || 'exec';
+    } catch(e){ return 'exec'; }
+  }
+  var IDS = ['card-ai-insights','card-kpi-dashboard','kpi','kpi-today'];
+  function apply(){
+    var allow = (role()==='exec' || role()==='mgr');
+    for (var i=0;i<IDS.length;i++){
+      var el = document.getElementById(IDS[i]);
+      if (el) el.style.setProperty('display', allow ? '' : 'none', 'important');
+    }
+  }
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', apply); else apply();
+  setInterval(apply, 600);
+  window.EXEC_ONLY_GUARD = apply;
+})();
+</script>
+<style id="ph-hero-mobile-hide">
+  /* 모바일에서 히어로(인사말+통합검색+AI) 패널 숨김 — 사용자 요청 */
+  @media (max-width: 1023px) {
+    section.hero, .hero { display: none !important; }
+  }
+</style>
+<style id="ph-dup-sidebar-fix">
+  /* 🛠 사이드바 정리 — 최근 #ph85-sidebar("망고아이 관리")만 사용. 옛 #admin-sidebar 완전 제거 */
+  #admin-sidebar { display: none !important; }
+  .admin-layout { grid-template-columns: 1fr !important; }
+  /* 옛 세대 토글/오버레이 숨김 — 현재 mga-tab 하나만 */
+  #ph134-hamburger, #ph134-overlay,
+  #ph142-toggle, #ph142-overlay,
+  #ph150-toggle, #ph150-overlay { display: none !important; }
+</style>
+<style id="ph-teacher-hide-css">
+  /* 🔒 교사(강사)에게 완전히 숨길 카드/메뉴 — 회계관리·정산통계관리·일자별차트·권한설정 */
+  body.role-teacher #card-accounting-mgmt,
+  body.role-teacher #card-settlement-stats,
+  body.role-teacher #card-daily-charts,
+  body.role-teacher #card-permissions,
+  body.role-teacher #ph85-sidebar .ph85-sub[data-card="card-accounting-mgmt"],
+  body.role-teacher #ph85-sidebar .ph85-sub[data-card="card-settlement-stats"],
+  body.role-teacher #ph85-sidebar .ph85-sub[data-card="card-daily-charts"],
+  body.role-teacher #ph85-sidebar .ph85-sub[data-card="card-permissions"] {
+    display: none !important; visibility: hidden !important;
+  }
+</style>
+<script id="ph-teacher-hide-js">
+(function teacherHideGuard(){
+  function role(){
+    try{
+      var sim = localStorage.getItem('mangoi_user_role');
+      if (sim){ var M={hq_exec:'exec',hq_mgr:'mgr',hq_teacher:'teacher',branch:'branch',agency:'agency',parent:'parent',student:'student'}; return M[sim]||sim; }
+      var u = JSON.parse(localStorage.getItem('admin_session')||'null');
+      if (!u) return 'exec';
+      var U={hq_t_001:'teacher',hq_teacher:'teacher',hq_exec:'exec',hq_mgr:'mgr',admin:'exec',cfo01:'mgr',ops_lead:'mgr',branch_busan:'branch',branch_daegu:'branch',agency_gn001:'agency',agency_sc002:'agency',parent_001:'parent',student_001:'student'};
+      return U[u.uid]||'exec';
+    }catch(e){ return 'exec'; }
+  }
+  function apply(){ try{ var r=role(); document.body.classList.toggle('role-teacher', r==='teacher'); }catch(_){} }
+  apply();
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', apply);
+  setInterval(apply, 1000);
+})();
+</script>
+</body>
+</html>

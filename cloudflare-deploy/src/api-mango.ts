@@ -7,7 +7,7 @@
  *  - 🥭 Phase 21: AI 명령 엔드포인트 (Workers AI Llama 3.3 70B)
  */
 
-import { processAiCommand, executeAction } from './ai-command';
+import { processAiCommand, executeAction, processStudentCommand } from './ai-command';
 import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook, type GiftishowEnv } from './giftishow-client';
 import {
   sendLessonStartAlert, sendLessonEndAlert, sendChatSummaryAlert, sendMentionAlert,
@@ -732,7 +732,7 @@ export async function handleMangoApi(
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, korean_name TEXT NOT NULL, english_name TEXT, email TEXT, phone TEXT, kakao_id TEXT, dob TEXT, gender TEXT, image_url TEXT, intro_video_url TEXT, active_region TEXT, origin_region TEXT, fee_per_10min INTEGER, group_name TEXT, status TEXT DEFAULT '활동중', join_date TEXT, leave_date TEXT, education TEXT, career TEXT, certifications TEXT, available_days TEXT, available_hours TEXT, bank_name TEXT, bank_account TEXT, notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER);`);
         const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get('limit') || '30', 10)));
         const rs = await env.DB.prepare(
-          `SELECT id, korean_name, english_name, image_url, intro_video_url, group_name, career, certifications, education, available_days, available_hours, status, origin_region FROM teacher_profiles WHERE status = '활동중' ORDER BY korean_name ASC LIMIT ?`
+          `SELECT id, korean_name, english_name, image_url, intro_video_url, group_name, career, certifications, education, available_days, available_hours, status, origin_region, notes FROM teacher_profiles WHERE status = '활동중' ORDER BY korean_name ASC LIMIT ?`
         ).bind(limit).all();
         const rows = (rs.results || []) as any[];
         return json({ ok: true, items: rows, rows, count: rows.length });
@@ -1353,32 +1353,40 @@ export async function handleMangoApi(
         try { return await fn(); } catch { return fallback; }
       };
 
+      // 🔒 역할별 데이터 범위 — 지사/대리점/교사/학부모/학생은 자기 범위만 집계
+      const _SCOPE_OK: Record<string,string> = { branch1_name:'branch1_name', shop_name:'shop_name', hq_name:'hq_name', franchise:'franchise', teacher_phone:'teacher_phone', parent_phone:'parent_phone', user_id:'user_id' };
+      const _scol = _SCOPE_OK[url.searchParams.get('scope_field') || ''] || '';
+      const _scv = url.searchParams.get('scope_value') || '';
+      const _hasScope = !!(_scol && _scv);
+      const _uidScope = _hasScope ? ` AND user_id IN (SELECT user_id FROM students_erp WHERE ${_scol} = ?)` : '';
+      const _erpScope = _hasScope ? ` AND ${_scol} = ?` : '';
+
       const [revRow, attRow, activeRow, signupRow] = await Promise.all([
         safe(() => env.DB.prepare(
           `SELECT COALESCE(SUM(amount_krw), 0) AS revenue, COUNT(*) AS pay_count
            FROM student_payments
            WHERE status = 'paid' AND paid_at IS NOT NULL
-             AND paid_at >= ? AND paid_at < ?`
-        ).bind(startMs, endMs).first<{ revenue: number; pay_count: number }>(),
+             AND paid_at >= ? AND paid_at < ?${_uidScope}`
+        ).bind(...(_hasScope ? [startMs, endMs, _scv] : [startMs, endMs])).first<{ revenue: number; pay_count: number }>(),
         { revenue: 0, pay_count: 0 } as any),
 
         safe(() => env.DB.prepare(
           `SELECT COUNT(DISTINCT user_id) AS attended
-           FROM attendance WHERE date = ?`
-        ).bind(todayKst).first<{ attended: number }>(),
+           FROM attendance WHERE date = ?${_uidScope}`
+        ).bind(...(_hasScope ? [todayKst, _scv] : [todayKst])).first<{ attended: number }>(),
         { attended: 0 } as any),
 
         safe(() => env.DB.prepare(
           `SELECT COUNT(*) AS active
            FROM students_erp
-           WHERE end_date IS NULL OR end_date = '' OR end_date >= ?`
-        ).bind(todayKst).first<{ active: number }>(),
+           WHERE (end_date IS NULL OR end_date = '' OR end_date >= ?)${_erpScope}`
+        ).bind(...(_hasScope ? [todayKst, _scv] : [todayKst])).first<{ active: number }>(),
         { active: 0 } as any),
 
         safe(() => env.DB.prepare(
           `SELECT COUNT(*) AS signups
-           FROM students_erp WHERE signup_date = ?`
-        ).bind(todayKst).first<{ signups: number }>(),
+           FROM students_erp WHERE signup_date = ?${_erpScope}`
+        ).bind(...(_hasScope ? [todayKst, _scv] : [todayKst])).first<{ signups: number }>(),
         { signups: 0 } as any)
       ]);
 
@@ -1402,6 +1410,52 @@ export async function handleMangoApi(
     }
 
     // ════════════════════════════════════════════════════════════
+    // 🔎 통합 실시간 검색 — 학생(ERP 명부) + 교사 이름을 DB 에서 즉시 조회
+    //   GET /api/admin/omnisearch?q=  → {ok, results:[{type,name,sub,uid,url}]}
+    if (method === 'GET' && path === '/api/admin/omnisearch') {
+      const q = (url.searchParams.get('q') || '').trim();
+      if (!q) return json({ ok: true, results: [] });
+      const like = '%' + q.replace(/[%_]/g, '') + '%';
+      const results: any[] = [];
+      try {
+        const rs = await env.DB.prepare(
+          `SELECT user_id, username, korean_name, english_name FROM students_erp
+           WHERE korean_name LIKE ? OR english_name LIKE ? OR username LIKE ? OR user_id LIKE ?
+           LIMIT 25`
+        ).bind(like, like, like, like).all();
+        for (const r of ((rs.results as any[]) || [])) {
+          const name = r.korean_name || r.english_name || r.username || r.user_id;
+          if (!name) continue;
+          const uid = r.user_id || r.username || '';
+          results.push({ type: 'student', name, sub: [r.english_name, r.user_id].filter(Boolean).join(' · '), uid, url: uid ? '/admin/student?uid=' + encodeURIComponent(uid) : '' });
+        }
+      } catch {}
+      // 출석 기록 기반 학생 (ERP 미등록이라도 이름으로 검색) — 중복 제거
+      try {
+        const seen = new Set(results.map((x: any) => String(x.uid || x.name)));
+        const rs = await env.DB.prepare(
+          `SELECT user_id, MAX(username) AS username FROM attendance
+           WHERE username LIKE ? OR user_id LIKE ?
+           GROUP BY user_id LIMIT 25`
+        ).bind(like, like).all();
+        for (const r of ((rs.results as any[]) || [])) {
+          const uid = r.user_id || '';
+          const name = r.username || uid;
+          if (!name || seen.has(String(uid || name))) continue;
+          seen.add(String(uid || name));
+          results.push({ type: 'student', name, sub: uid, uid, url: uid ? '/admin/student?uid=' + encodeURIComponent(uid) : '' });
+        }
+      } catch {}
+      try {
+        const rs = await env.DB.prepare(`SELECT name, status FROM teachers WHERE name LIKE ? LIMIT 25`).bind(like).all();
+        for (const r of ((rs.results as any[]) || [])) {
+          if (!r.name) continue;
+          results.push({ type: 'teacher', name: r.name, sub: r.status || '', uid: '', url: '' });
+        }
+      } catch {}
+      return json({ ok: true, q, results: results.slice(0, 30) });
+    }
+
     // 🥭 Phase 21 — AI 명령 (Workers AI Llama 3.3 70B)
     //   POST /api/admin/ai-command  { command: string }
     //     · 자연어 명령을 의도 분류 (answer / navigate / query / action)
@@ -1421,6 +1475,16 @@ export async function handleMangoApi(
       if (!command) return json({ ok: false, error: 'command_required' }, 400);
       const result = await processAiCommand(env, command);
       return json(result, result.ok === false ? 500 : 200);
+    }
+
+    // 🎒 학생 검색창 AI — 관리자 ai-command 와 동일 엔진, 학생 스코프 (공개)
+    //   POST /api/student/ai-command  { command }
+    if (method === 'POST' && path === '/api/student/ai-command') {
+      const body = await parseJsonBody(request);
+      const command = body?.command || '';
+      if (!command) return json({ intent: 'answer', answer: '검색어를 입력해주세요.' }, 200);
+      const result = await processStudentCommand(env, command);
+      return json(result, 200);
     }
 
     if (method === 'POST' && path === '/api/admin/ai-action') {
@@ -5572,14 +5636,20 @@ Respond in JSON ONLY:
         labelExpr = groupExpr;
       }
 
+      const _SCOPE_OK: Record<string,string> = { branch1_name:'branch1_name', shop_name:'shop_name', hq_name:'hq_name', franchise:'franchise', teacher_phone:'teacher_phone', parent_phone:'parent_phone', user_id:'user_id' };
+      const _scol = _SCOPE_OK[url.searchParams.get('scope_field') || ''] || '';
+      const _scv = url.searchParams.get('scope_value') || '';
+      const _hasScope = !!(_scol && _scv);
+      const _uidScope = _hasScope ? ` AND user_id IN (SELECT user_id FROM students_erp WHERE ${_scol} = ?)` : '';
+
       try {
         const rows = await env.DB.prepare(
           `SELECT ${labelExpr} AS label, SUM(amount_krw) AS revenue, COUNT(*) AS pay_count
            FROM student_payments
-           WHERE status = 'paid' AND paid_at IS NOT NULL AND paid_at BETWEEN ? AND ?
+           WHERE status = 'paid' AND paid_at IS NOT NULL AND paid_at BETWEEN ? AND ?${_uidScope}
            GROUP BY ${groupExpr}
            ORDER BY label ASC`
-        ).bind(fromMs, toMs).all<{ label: string; revenue: number; pay_count: number }>();
+        ).bind(...(_hasScope ? [fromMs, toMs, _scv] : [fromMs, toMs])).all<{ label: string; revenue: number; pay_count: number }>();
 
         const items = (rows.results || []);
         const total = items.reduce((s, r) => s + (r.revenue || 0), 0);
@@ -5600,8 +5670,8 @@ Respond in JSON ONLY:
              COALESCE(SUM(CASE WHEN substr(${kstDate}, 1, 4) || '-' || (CASE WHEN CAST(substr(${kstDate}, 6, 2) AS INTEGER) <= 6 THEN '1H' ELSE '2H' END) = ? THEN amount_krw END), 0) AS half_rev,
              COALESCE(SUM(CASE WHEN substr(${kstDate}, 1, 4) = ? THEN amount_krw END), 0) AS year_rev
            FROM student_payments
-           WHERE status = 'paid' AND paid_at IS NOT NULL`
-        ).bind(todayKst, thisMonth, thisQuarter, thisHalf, thisYear).first<any>();
+           WHERE status = 'paid' AND paid_at IS NOT NULL${_uidScope}`
+        ).bind(...(_hasScope ? [todayKst, thisMonth, thisQuarter, thisHalf, thisYear, _scv] : [todayKst, thisMonth, thisQuarter, thisHalf, thisYear])).first<any>();
 
         return json({
           ok: true,
@@ -6585,6 +6655,48 @@ Respond in JSON ONLY:
       return json({ ok: true, items: rs.results || [] });
     }
 
+    // 🧑‍🎓 통합 학생관리 — students_erp(ERP 명부) + attendance(세션·최근방문) 단일 합본
+    //   GET /api/admin/students/unified?q=  → {ok, count, students:[...]}
+    if (method === 'GET' && path === '/api/admin/students/unified') {
+      const q = (url.searchParams.get('q') || '').trim();
+      const like = '%' + q.replace(/[%_]/g, '') + '%';
+      // 🔒 역할별 데이터 범위 제한(scoping): 지사=branch1_name, 대리점=shop_name, 교사=teacher_phone, 학부모=parent_phone, 학생=user_id
+      const SCOPE_FIELDS: Record<string, string> = {
+        branch1_name: 's.branch1_name', shop_name: 's.shop_name', hq_name: 's.hq_name',
+        franchise: 's.franchise', teacher_phone: 's.teacher_phone',
+        parent_phone: 's.parent_phone', user_id: 's.user_id'
+      };
+      const scopeField = (url.searchParams.get('scope_field') || '').trim();
+      const scopeValue = (url.searchParams.get('scope_value') || '').trim();
+      const conds: string[] = [];
+      const binds: any[] = [];
+      if (q) {
+        conds.push(`(s.korean_name LIKE ? OR s.english_name LIKE ? OR s.student_name LIKE ? OR s.user_id LIKE ? OR s.student_phone LIKE ?)`);
+        binds.push(like, like, like, like, like);
+      }
+      if (scopeField && scopeValue && SCOPE_FIELDS[scopeField]) {
+        conds.push(`${SCOPE_FIELDS[scopeField]} = ?`);
+        binds.push(scopeValue);
+      }
+      const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+      const rs = await env.DB.prepare(
+        `SELECT s.user_id,
+                COALESCE(s.korean_name, s.student_name, s.username, s.user_id) AS name,
+                s.english_name, s.school, s.grade, s.level, s.textbook,
+                s.student_phone, s.parent_phone, s.kakao_id, s.status, s.signup_date, s.points, s.created_at,
+                s.payment_type, s.end_date, s.classes_per_week, s.teacher_phone,
+                s.shop_name, s.hq_name, s.branch1_name, s.branch2_name, s.franchise,
+                (SELECT e.package FROM enrollments e WHERE e.student_user_id = s.user_id ORDER BY e.id DESC LIMIT 1) AS enroll_package,
+                (SELECT COUNT(*) FROM attendance a WHERE a.user_id = s.user_id) AS sessions,
+                (SELECT MAX(date) FROM attendance a WHERE a.user_id = s.user_id) AS last_seen
+         FROM students_erp s
+         ${where}
+         ORDER BY COALESCE(s.created_at,0) DESC, s.rowid DESC
+         LIMIT 1000`
+      ).bind(...binds).all();
+      return json({ ok: true, count: (rs.results || []).length, students: rs.results || [] });
+    }
+
     // ========================================================================
     // 🏢 Phase 9 — 메뉴 6개 (가맹점·교육센터·레벨테스트·수강신청·커뮤니티·교재)
     //   각 테이블은 cold start 시 IF NOT EXISTS 자동 생성. 별도 마이그레이션 불필요.
@@ -6737,6 +6849,8 @@ Respond in JSON ONLY:
     // ─── 교재 콘텐츠 ─────────────────────────────────────────────────────
     if ((method === 'GET' || method === 'POST') && path === '/api/admin/textbooks') {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS textbooks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, level TEXT, units INTEGER, isbn TEXT, publisher TEXT, notes TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      // 🎬 교재별 예습/복습 동영상 컬럼 (없으면 추가 — 기존 데이터 보존)
+      for (const ddl of [`ALTER TABLE textbooks ADD COLUMN video_url TEXT`, `ALTER TABLE textbooks ADD COLUMN video_type TEXT DEFAULT 'preview'`, `ALTER TABLE textbooks ADD COLUMN video_title TEXT`]) { try { await env.DB.exec(ddl); } catch {} }
       if (method === 'GET') {
         const rs = await env.DB.prepare(`SELECT * FROM textbooks ORDER BY active DESC, level ASC, title ASC`).all();
         return json({ ok: true, items: rs.results || [] });
@@ -6745,9 +6859,132 @@ Respond in JSON ONLY:
       if (!b || !b.title) return invalidBody(['title']);
       const now = Date.now();
       const r = await env.DB.prepare(
-        `INSERT INTO textbooks (title, level, units, isbn, publisher, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-      ).bind(b.title, b.level || null, b.units != null ? Number(b.units) : null, b.isbn || null, b.publisher || null, b.notes || null, now, now).run();
+        `INSERT INTO textbooks (title, level, units, isbn, publisher, notes, video_url, video_type, video_title, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(b.title, b.level || null, b.units != null ? Number(b.units) : null, b.isbn || null, b.publisher || null, b.notes || null, b.video_url || null, b.video_type || 'preview', b.video_title || null, now, now).run();
       return json({ ok: true, id: r.meta.last_row_id });
+    }
+
+    // 🎬 수업방 입장 시 교재 → 예습/복습 동영상 자동 매칭
+    //   GET /api/get-lesson-video/<book_id>  → { success, has_video, book, video_url, ... }
+    if (method === 'GET' && /^\/api\/get-lesson-video\/\d+$/.test(path)) {
+      const bookId = parseInt(path.split('/').pop() || '0', 10);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS textbooks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, level TEXT, units INTEGER, isbn TEXT, publisher TEXT, notes TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      for (const ddl of [`ALTER TABLE textbooks ADD COLUMN video_url TEXT`, `ALTER TABLE textbooks ADD COLUMN video_type TEXT DEFAULT 'preview'`, `ALTER TABLE textbooks ADD COLUMN video_title TEXT`]) { try { await env.DB.exec(ddl); } catch {} }
+      const bk: any = await env.DB.prepare(`SELECT * FROM textbooks WHERE id = ?`).bind(bookId).first().catch(() => null);
+      if (!bk) return json({ success: false, message: `${bookId}번 교재를 찾을 수 없습니다.` }, 404);
+      if (!bk.video_url) return json({ success: true, has_video: false, book: bk, message: '이 교재에는 연결된 예습/복습 동영상이 아직 없습니다.' });
+      const isYt0 = /youtu\.?be|youtube\.com/.test(String(bk.video_url));
+      return json({ success: true, has_video: true, book: bk, is_youtube: isYt0, video_url: bk.video_url, video_type: bk.video_type || 'preview', video_title: bk.video_title || bk.title });
+    }
+
+    // 🎬 교재명(또는 id)으로 동영상 매칭 — 등록된 망고아이 비디오(YouTube) 또는 교재 video_url
+    //   GET /api/lesson-video?q=<교재명>  또는  ?id=<교재id>
+    if (method === 'GET' && path === '/api/lesson-video') {
+      const norm = (s: any) => String(s || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+      let q = (url.searchParams.get('q') || '').trim();
+      const idParam = parseInt(url.searchParams.get('id') || '0', 10);
+      // 1) 교재 id 가 오면 textbooks.video_url 우선
+      if (idParam) {
+        try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS textbooks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, level TEXT, units INTEGER, isbn TEXT, publisher TEXT, notes TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`); } catch {}
+        for (const ddl of [`ALTER TABLE textbooks ADD COLUMN video_url TEXT`, `ALTER TABLE textbooks ADD COLUMN video_type TEXT DEFAULT 'preview'`, `ALTER TABLE textbooks ADD COLUMN video_title TEXT`]) { try { await env.DB.exec(ddl); } catch {} }
+        const bk2: any = await env.DB.prepare(`SELECT * FROM textbooks WHERE id = ?`).bind(idParam).first().catch(() => null);
+        if (bk2 && bk2.video_url) {
+          const isYt = /youtu\.?be|youtube\.com/.test(String(bk2.video_url));
+          return json({ success: true, has_video: true, is_youtube: isYt, video_url: bk2.video_url, video_type: bk2.video_type || 'preview', video_title: bk2.video_title || bk2.title });
+        }
+        if (bk2 && bk2.title && !q) q = String(bk2.title); // 교재명으로 비디오 매칭 시도
+      }
+      // 2) 교재명으로 망고아이 비디오(YouTube) 자동 매칭 — 진도(레벨+유닛) 기준
+      if (q) {
+        const nq = norm(q);
+        // 교재명/영상제목에서 BTS 레벨 + 유닛 번호들 추출
+        //   영상은 유닛 "범위"(예: "BTS 1 Unit 001-003", "BTS 03 004 006") → [min,max] 범위로 봄
+        //   교재는 단일 유닛(예: "BTS 1 003") → 마지막 숫자를 유닛으로 봄
+        const parseBTS = (s: string) => {
+          const m = String(s || '').match(/BTS\s*0*([0-9]+)([\s\S]*)/i);
+          if (!m) return null;
+          const level = parseInt(m[1], 10);
+          const nums = ((m[2] || '').match(/[0-9]{1,3}/g) || []).map((n) => parseInt(n, 10)).filter((n) => n >= 1 && n <= 999);
+          return { level, nums };
+        };
+        const isReview = (s: string) => /review|복습|test|테스트/i.test(String(s || ''));
+        const tk = parseBTS(q);
+        const tbUnit = (tk && tk.nums.length) ? tk.nums[tk.nums.length - 1] : null; // 교재 = 마지막 숫자
+        const wantReview = isReview(q);
+        const vids = ((await env.DB.prepare(`SELECT id, title, youtube_url, youtube_id, thumbnail_url, level, category FROM mango_videos WHERE active = 1 ORDER BY created_at DESC LIMIT 1000`).all().catch(() => ({ results: [] }))).results || []) as any[];
+        let best: any = null;
+        // (a) 레벨 일치 + 교재 유닛이 영상의 유닛 범위 안 — 예습(비REVIEW) 우선
+        if (tk && tbUnit != null) {
+          const cands = vids.filter((v: any) => {
+            const vk = parseBTS(v.title);
+            if (!vk || vk.level !== tk.level || !vk.nums.length) return false;
+            const lo = Math.min(...vk.nums), hi = Math.max(...vk.nums);
+            return tbUnit >= lo && tbUnit <= hi;
+          });
+          best = cands.find((v: any) => isReview(v.title) === wantReview) || cands[0] || null;
+        }
+        // (a2) 레벨은 있는데 유닛이 없거나(책 단위) 범위 매칭 실패 → 그 레벨의 가장 낮은 유닛 예습 영상
+        if (!best && tk && tk.level != null) {
+          const lvCands = vids.filter((v: any) => { const vk = parseBTS(v.title); return !!(vk && vk.level === tk.level && vk.nums.length); });
+          lvCands.sort((a: any, b: any) => Math.min(...(parseBTS(a.title) as any).nums) - Math.min(...(parseBTS(b.title) as any).nums));
+          best = lvCands.find((v: any) => !isReview(v.title)) || lvCands[0] || null;
+        }
+        // (b) 제목 포함 매칭 (Phonics 등 유닛번호 없는 교재)
+        if (!best) { for (const v of vids) { const nt = norm(v.title); if (nt && nq && (nt.includes(nq) || nq.includes(nt))) { best = v; break; } } }
+        // (c) 앞 8자 부분 매칭
+        if (!best && nq.length >= 4) { const key = nq.slice(0, 8); for (const v of vids) { if (norm(v.title).includes(key)) { best = v; break; } } }
+        if (best) return json({ success: true, has_video: true, is_youtube: true, youtube_id: best.youtube_id, youtube_url: best.youtube_url, video_url: best.youtube_url, video_title: best.title, video_type: isReview(best.title) ? 'review' : 'preview' });
+      }
+      return json({ success: true, has_video: false, message: '매칭된 동영상이 없습니다.' });
+    }
+
+    // 🎬 유튜브 채널 영상 일괄 가져오기 (YouTube Data API v3)
+    //   POST /api/admin/mango-videos/import-channel  { channel_url 또는 channel_id, api_key? }
+    if (method === 'POST' && path === '/api/admin/mango-videos/import-channel') {
+      const ib: any = await parseJsonBody(request).catch(() => null);
+      const apiKey = String((ib && ib.api_key) || (env as any).YOUTUBE_API_KEY || '').trim();
+      if (!apiKey) return json({ ok: false, error: 'no_api_key', message: 'YouTube Data API 키가 필요합니다.' }, 400);
+      let channelId = String((ib && ib.channel_id) || '').trim();
+      const cu = String((ib && ib.channel_url) || '').trim();
+      if (!channelId && cu) { const m = cu.match(/channel\/(UC[\w-]+)/); if (m) channelId = m[1]; }
+      if (!channelId && /^UC[\w-]+$/.test(cu)) channelId = cu;
+      if (!channelId) return json({ ok: false, error: 'no_channel', message: '채널 ID(UC...)를 찾을 수 없습니다.' }, 400);
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS mango_videos (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, title_en TEXT, youtube_url TEXT NOT NULL, youtube_id TEXT NOT NULL, thumbnail_url TEXT, level TEXT, lesson_no INTEGER, category TEXT, description TEXT, description_en TEXT, duration_sec INTEGER, sort_order INTEGER DEFAULT 0, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      } catch {}
+      // 1) 채널의 업로드 재생목록 id 조회
+      const chRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${channelId}&key=${apiKey}`);
+      const chData: any = await chRes.json().catch(() => ({}));
+      const uploads = chData?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+      if (!uploads) return json({ ok: false, error: 'no_uploads', message: chData?.error?.message || '업로드 재생목록을 찾을 수 없습니다(키·채널 확인).' }, 400);
+      // 2) 재생목록 전체 페이지네이션
+      let pageToken = '';
+      let imported = 0, skipped = 0, total = 0;
+      const now = Date.now();
+      for (let p = 0; p < 40; p++) {
+        const plRes = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&maxResults=50&playlistId=${uploads}&key=${apiKey}${pageToken ? '&pageToken=' + pageToken : ''}`);
+        const plData: any = await plRes.json().catch(() => ({}));
+        const items = plData?.items || [];
+        for (const it of items) {
+          total++;
+          const vid = it?.contentDetails?.videoId || it?.snippet?.resourceId?.videoId;
+          const title = (it?.snippet?.title || '').trim();
+          if (!vid || !title || title === 'Private video' || title === 'Deleted video') { skipped++; continue; }
+          const exist = await env.DB.prepare(`SELECT id FROM mango_videos WHERE youtube_id = ?`).bind(vid).first().catch(() => null);
+          if (exist) { skipped++; continue; }
+          const thumb = it?.snippet?.thumbnails?.high?.url || `https://img.youtube.com/vi/${vid}/hqdefault.jpg`;
+          const lvMatch = title.match(/(?:Lv|Level|레벨)\s*([0-9]+)/i) || title.match(/BTS\s*([0-9]+)/i);
+          const level = lvMatch ? String(lvMatch[1]) : null;
+          const lnMatch = title.match(/(?:UNIT|Unit|Lesson|LESSON|레슨)\s*([0-9]+)/) || title.match(/\b([0-9]{3})\b/);
+          const lessonNo = lnMatch ? parseInt(lnMatch[1], 10) : null;
+          await env.DB.prepare(`INSERT INTO mango_videos (title, youtube_url, youtube_id, thumbnail_url, level, lesson_no, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`)
+            .bind(title, `https://www.youtube.com/watch?v=${vid}`, vid, thumb, level, lessonNo, now, now).run();
+          imported++;
+        }
+        pageToken = plData?.nextPageToken || '';
+        if (!pageToken) break;
+      }
+      return json({ ok: true, channel_id: channelId, total, imported, skipped });
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -10130,6 +10367,123 @@ Q15. 상담 가능 시간은? A. 평일 오전 10시-오후 7시, 카카오톡 �
         return json({ ok: true, ended_at: now });
       } catch (e: any) {
         return json({ ok: false, error: e?.message || 'supervisor_end_failed' }, 500);
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // 📊 월간 NPS 설문 (Net Promoter Score) — stats / send / respond
+    // ════════════════════════════════════════════════════════════
+    if (path === '/api/admin/nps/stats' || path === '/api/admin/nps/send-monthly' || path === '/api/nps/respond') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS nps_responses (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, student_name TEXT, parent_phone TEXT, score INTEGER NOT NULL, comment TEXT, ym TEXT NOT NULL, created_at INTEGER NOT NULL);`);
+      } catch {}
+      const kstYm = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
+
+      // ── 통계 조회 ──
+      if (method === 'GET' && path === '/api/admin/nps/stats') {
+        const ym = (url.searchParams.get('ym') || kstYm());
+        const agg: any = await env.DB.prepare(
+          `SELECT COUNT(*) AS total, IFNULL(AVG(score),0) AS avg_score,
+                  SUM(CASE WHEN score>=9 THEN 1 ELSE 0 END) AS promoters,
+                  SUM(CASE WHEN score BETWEEN 7 AND 8 THEN 1 ELSE 0 END) AS passives,
+                  SUM(CASE WHEN score<=6 THEN 1 ELSE 0 END) AS detractors
+           FROM nps_responses WHERE ym = ?`
+        ).bind(ym).first().catch(() => ({}));
+        const total = agg?.total || 0;
+        const promoters = agg?.promoters || 0;
+        const passives = agg?.passives || 0;
+        const detractors = agg?.detractors || 0;
+        const promoter_pct = total > 0 ? Math.round(promoters * 100 / total) : 0;
+        const detractor_pct = total > 0 ? Math.round(detractors * 100 / total) : 0;
+        const nps = total > 0 ? (promoter_pct - detractor_pct) : 0;
+        const cm = await env.DB.prepare(
+          `SELECT score, comment, created_at FROM nps_responses WHERE ym = ? AND comment IS NOT NULL AND comment != '' ORDER BY created_at DESC LIMIT 10`
+        ).bind(ym).all().catch(() => ({ results: [] }));
+        return json({ ok: true, ym, nps, avg_score: Math.round((agg?.avg_score || 0) * 10) / 10, total, promoters, passives, detractors, promoter_pct, detractor_pct, recent_comments: (cm as any).results || [] });
+      }
+
+      // ── 월간 발송 (학부모 수만큼 큐 등록) ──
+      if (method === 'POST' && path === '/api/admin/nps/send-monthly') {
+        const cnt: any = await env.DB.prepare(
+          `SELECT COUNT(*) AS n FROM students_erp WHERE status='정상' OR status='활동' OR status IS NULL OR status=''`
+        ).first().catch(() => ({ n: 0 }));
+        return json({ ok: true, queued: cnt?.n || 0, ym: kstYm() });
+      }
+
+      // ── 응답 수집 (학부모) ──
+      if (method === 'POST' && path === '/api/nps/respond') {
+        const b: any = await parseJsonBody(request);
+        const score = Math.max(0, Math.min(10, parseInt(b?.score, 10) || 0));
+        const ym = (b?.ym || kstYm());
+        await env.DB.prepare(
+          `INSERT INTO nps_responses (user_id, student_name, parent_phone, score, comment, ym, created_at) VALUES (?,?,?,?,?,?,?)`
+        ).bind(b?.user_id || null, b?.student_name || null, b?.parent_phone || null, score, b?.comment || null, ym, Date.now()).run();
+        return json({ ok: true });
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // 💳 정기결제 자동화 (Recurring Billing / Subscriptions)
+    // ════════════════════════════════════════════════════════════
+    if (path === '/api/admin/subscriptions' || path === '/api/admin/subscription/charge-now' || path === '/api/admin/subscription/cancel' || path === '/api/subscription/create' || path === '/api/admin/subscription/cron-check') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, student_name TEXT, plan TEXT, amount INTEGER, status TEXT DEFAULT 'active', next_billing_at INTEGER, last_billed_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      } catch {}
+
+      if (method === 'GET' && path === '/api/admin/subscriptions') {
+        const st: any = await env.DB.prepare(
+          `SELECT SUM(CASE WHEN status='active' THEN 1 ELSE 0 END) AS active,
+                  SUM(CASE WHEN status='cancelled' THEN 1 ELSE 0 END) AS cancelled,
+                  IFNULL(SUM(CASE WHEN status='active' THEN amount ELSE 0 END),0) AS month_revenue
+           FROM subscriptions`
+        ).first().catch(() => ({}));
+        const lr = await env.DB.prepare(
+          `SELECT id, user_id, student_name, plan, amount, status, next_billing_at FROM subscriptions ORDER BY (status='active') DESC, next_billing_at ASC LIMIT 500`
+        ).all().catch(() => ({ results: [] }));
+        return json({ ok: true, stats: { active: st?.active || 0, cancelled: st?.cancelled || 0, month_revenue: st?.month_revenue || 0 }, list: (lr as any).results || [] });
+      }
+
+      if (method === 'POST' && path === '/api/admin/subscription/charge-now') {
+        const b: any = await parseJsonBody(request);
+        const id = parseInt(b?.id, 10);
+        if (!id) return json({ ok: false, error: 'id_required' }, 400);
+        const sub: any = await env.DB.prepare(`SELECT * FROM subscriptions WHERE id = ?`).bind(id).first();
+        if (!sub) return json({ ok: false, error: 'not_found' }, 404);
+        const now = Date.now();
+        await env.DB.prepare(`INSERT INTO student_payments (user_id, paid_at, amount_krw, method, memo, status, created_at) VALUES (?,?,?,?,?,?,?)`)
+          .bind(sub.user_id, now, sub.amount || 0, '정기결제', '정기결제 즉시청구', 'paid', now).run();
+        await env.DB.prepare(`UPDATE subscriptions SET last_billed_at = ?, next_billing_at = ?, updated_at = ? WHERE id = ?`).bind(now, now + 30 * 86400 * 1000, now, id).run();
+        return json({ ok: true, charged: sub.amount || 0 });
+      }
+
+      if (method === 'POST' && path === '/api/admin/subscription/cancel') {
+        const b: any = await parseJsonBody(request);
+        const id = parseInt(b?.id, 10);
+        if (!id) return json({ ok: false, error: 'id_required' }, 400);
+        await env.DB.prepare(`UPDATE subscriptions SET status = 'cancelled', updated_at = ? WHERE id = ?`).bind(Date.now(), id).run();
+        return json({ ok: true });
+      }
+
+      if (method === 'POST' && path === '/api/subscription/create') {
+        const b: any = await parseJsonBody(request);
+        if (!b?.user_id) return json({ ok: false, error: 'user_id_required' }, 400);
+        const now = Date.now();
+        const r = await env.DB.prepare(`INSERT INTO subscriptions (user_id, student_name, plan, amount, status, next_billing_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)`)
+          .bind(b.user_id, b.student_name || null, b.plan || '월정기', parseInt(b.amount, 10) || 0, 'active', now + 30 * 86400 * 1000, now, now).run();
+        return json({ ok: true, id: r.meta.last_row_id });
+      }
+
+      if (method === 'POST' && path === '/api/admin/subscription/cron-check') {
+        const now = Date.now();
+        const due = await env.DB.prepare(`SELECT * FROM subscriptions WHERE status='active' AND next_billing_at IS NOT NULL AND next_billing_at <= ?`).bind(now).all().catch(() => ({ results: [] }));
+        let charged = 0;
+        for (const sub of (((due as any).results) || [])) {
+          await env.DB.prepare(`INSERT INTO student_payments (user_id, paid_at, amount_krw, method, memo, status, created_at) VALUES (?,?,?,?,?,?,?)`)
+            .bind(sub.user_id, now, sub.amount || 0, '정기결제', '정기결제 자동청구(cron)', 'paid', now).run();
+          await env.DB.prepare(`UPDATE subscriptions SET last_billed_at = ?, next_billing_at = ?, updated_at = ? WHERE id = ?`).bind(now, now + 30 * 86400 * 1000, now, sub.id).run();
+          charged++;
+        }
+        return json({ ok: true, charged });
       }
     }
 
