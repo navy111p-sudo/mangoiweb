@@ -4067,7 +4067,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,500;1,600;1,700&family=Noto+Serif+KR:wght@500;700&display=swap" rel="stylesheet">
     <!-- 🏠 홈페이지 바로 가기 (구 AI 검색창) -->
-    <div class="ai-search-wrap" style="display:none!important;position:relative;z-index:1;width:100%;max-width:680px;margin:0 auto">
+    <div class="ai-search-wrap" style="position:relative;z-index:1;width:100%;max-width:680px;margin:0 auto">
       <div class="ai-search-box">
         <span class="ai-search-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
@@ -5706,6 +5706,13 @@
         transform: translateY(0) scale(0.99);
       }
       .ai-cta-row .cta-pay { animation-delay: 0.3s; }
+      /* ✨ 홈 진입 시 서서히 나타나기 (fade-in): 검색창 → 결제 → 수업입장 */
+      @keyframes mgHomeFadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+      .ai-search-wrap{opacity:0;animation:mgHomeFadeIn .9s ease-out .15s forwards}
+      .ai-cta-row > *{opacity:0;animation:mgHomeFadeIn .9s ease-out forwards, lessonPulse 2.6s infinite !important}
+      .ai-cta-row .cta-pay{animation-delay:.5s, 1.4s !important}
+      .ai-cta-row .cta-enter{animation-delay:.75s, 1.65s !important}
+      @media (prefers-reduced-motion: reduce){.ai-search-wrap,.ai-cta-row > *{animation:none !important;opacity:1 !important}}
       /* 모바일에서 더 적절한 사이즈 */
       @media (max-width: 640px) {
         .ai-cta-row {
@@ -24921,7 +24928,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260608214524 -->
+<!-- BUILD:20260608215020 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
