@@ -2183,7 +2183,6 @@
     </div>
 
 <!-- 기존 카드 영역 — 기본 숨김. "📋 모든 메뉴 보기" 토글로 표시 -->
-<div class="legacy-cards" id="legacy-cards">
 <!-- 🏬 지사 전용 — 대리점별 현황 (학생수·매출·지사 수수료) : 지사 로그인 시 대시보드 최상단 -->
 <div id="branch-agency-overview" style="display:none"></div>
 <script>
@@ -2263,6 +2262,7 @@
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
 </script>
+<div class="legacy-cards" id="legacy-cards">
 
 <div class="grid" id="kpi"></div>
 
@@ -20274,7 +20274,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260608231818 -->
+        <!-- BUILD:20260608233059 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
