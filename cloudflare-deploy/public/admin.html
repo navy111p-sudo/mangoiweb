@@ -12536,10 +12536,10 @@ async function load() {
 
   const L = adminLang === 'en';
   document.getElementById('kpi').innerHTML = `
-    <div class="card"><div class="card-label">${L?'Total Sessions':'총 출석 세션'}</div><div class="card-value">${data.attendance.total}</div><div class="card-sub">${L?'Last '+days+' days':'최근 '+days+'일 누적'}</div></div>
-    <div class="card"><div class="card-label">${L?'Avg Speaking Ratio':'평균 발화 비율'}</div><div class="card-value">${avgActivePct}%</div><div class="card-sub">${L?'Active / Total session':'활성 발화 / 총 세션시간'}</div></div>
-    <div class="card"><div class="card-label">${L?'Reconnect Rate':'재연결 발생률'}</div><div class="card-value">${disconnectRate}%</div><div class="card-sub">${L?totalDisconnects+' / '+totalSessions+' sessions':totalDisconnects+'회 / '+totalSessions+'세션'}</div></div>
-    <div class="card"><div class="card-label">${L?'Rewards':'보상 발급'}</div><div class="card-value">${totalRewards}</div><div class="card-sub">${L?'Stickers + Coupons':'스티커+쿠폰 합산'}</div></div>
+    <div class="card"><div class="card-label">${L?'📊 Total Sessions':'📊 총 출석 세션'}</div><div class="card-value">${data.attendance.total}</div><div class="card-sub">${L?'Last '+days+' days':'최근 '+days+'일 누적'}</div></div>
+    <div class="card"><div class="card-label">${L?'🗣️ Avg Speaking Ratio':'🗣️ 평균 발화 비율'}</div><div class="card-value">${avgActivePct}%</div><div class="card-sub">${L?'Active / Total session':'활성 발화 / 총 세션시간'}</div></div>
+    <div class="card"><div class="card-label">${L?'🔄 Reconnect Rate':'🔄 재연결 발생률'}</div><div class="card-value">${disconnectRate}%</div><div class="card-sub">${L?totalDisconnects+' / '+totalSessions+' sessions':totalDisconnects+'회 / '+totalSessions+'세션'}</div></div>
+    <div class="card"><div class="card-label">${L?'🎁 Rewards':'🎁 보상 발급'}</div><div class="card-value">${totalRewards}</div><div class="card-sub">${L?'Stickers + Coupons':'스티커+쿠폰 합산'}</div></div>
   `;
 
   // 🥭 Phase 20 — 오늘의 KPI 4박스 갱신 (병렬 fetch, 실패해도 다른 위젯에 영향 없음)
@@ -20399,7 +20399,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260609051758 -->
+        <!-- BUILD:20260609054053 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -35847,5 +35847,73 @@ button.chip:hover,
   setInterval(apply, 1000);
 })();
 </script>
+<style id="ph-kpi-colorful-css">
+  /* ===== 🎨 KPI 카드 컬러풀 리디자인 (경영진/관리자 대시보드 상단 8박스) ===== */
+  #kpi, #kpi-today { gap: 18px !important; }
+
+  #kpi .card, #kpi-today .card {
+    position: relative !important;
+    overflow: hidden !important;
+    border: 1px solid rgba(255,255,255,0.07) !important;
+    border-radius: 18px !important;
+    padding: 22px 22px 20px !important;
+    transition: transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s ease !important;
+    box-shadow: 0 10px 26px -12px rgba(0,0,0,.45) !important;
+    background: var(--da-card, #142950) !important;
+  }
+  /* 컬러 그라데이션 면 */
+  #kpi .card::before, #kpi-today .card::before {
+    content: ""; position: absolute; inset: 0; z-index: 0;
+    background: var(--kpi-grad, transparent);
+  }
+  /* 상단 글로우 컬러바 */
+  #kpi .card::after, #kpi-today .card::after {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px; z-index: 2;
+    background: var(--kpi-bar, transparent);
+    box-shadow: 0 0 14px 1px var(--kpi-glow, transparent);
+  }
+  #kpi .card > *, #kpi-today .card > * { position: relative; z-index: 1; }
+
+  #kpi .card:hover, #kpi-today .card:hover {
+    transform: translateY(-5px) !important;
+    box-shadow: 0 20px 40px -12px var(--kpi-glow, rgba(0,0,0,.4)), 0 4px 12px rgba(0,0,0,.3) !important;
+  }
+
+  #kpi .card-label, #kpi-today .card-label {
+    font-size: 13.5px !important; font-weight: 800 !important;
+    letter-spacing: .2px !important; color: #e6ecff !important;
+    margin-bottom: 10px !important;
+  }
+  #kpi .card-value, #kpi-today .card-value {
+    font-size: 34px !important; font-weight: 900 !important;
+    color: #ffffff !important; margin-top: 2px !important; line-height: 1.05 !important;
+    text-shadow: 0 2px 12px rgba(0,0,0,.30);
+  }
+  #kpi .card-sub, #kpi-today .card-sub {
+    font-size: 11.5px !important; font-weight: 600 !important;
+    color: rgba(230,236,255,.72) !important; margin-top: 6px !important;
+  }
+
+  /* ── 1행 (#kpi): 인디고 · 에메랄드 · 앰버 · 핑크 ── */
+  #kpi .card:nth-child(1){--kpi-grad:linear-gradient(135deg,rgba(99,102,241,.30),rgba(99,102,241,.05));--kpi-bar:linear-gradient(90deg,#6366f1,#818cf8);--kpi-glow:rgba(99,102,241,.55);}
+  #kpi .card:nth-child(2){--kpi-grad:linear-gradient(135deg,rgba(16,185,129,.30),rgba(16,185,129,.05));--kpi-bar:linear-gradient(90deg,#10b981,#34d399);--kpi-glow:rgba(16,185,129,.55);}
+  #kpi .card:nth-child(3){--kpi-grad:linear-gradient(135deg,rgba(245,158,11,.32),rgba(245,158,11,.05));--kpi-bar:linear-gradient(90deg,#f59e0b,#fbbf24);--kpi-glow:rgba(245,158,11,.55);}
+  #kpi .card:nth-child(4){--kpi-grad:linear-gradient(135deg,rgba(236,72,153,.30),rgba(236,72,153,.05));--kpi-bar:linear-gradient(90deg,#ec4899,#f472b6);--kpi-glow:rgba(236,72,153,.55);}
+
+  /* ── 2행 (#kpi-today): 앰버 · 에메랄드 · 레드 · 블루 (inline border-left 덮어씀) ── */
+  #kpi-today .card { border-left: 1px solid rgba(255,255,255,0.07) !important; }
+  #kpi-today .card:nth-child(1){--kpi-grad:linear-gradient(135deg,rgba(245,158,11,.32),rgba(245,158,11,.05));--kpi-bar:linear-gradient(90deg,#f59e0b,#fbbf24);--kpi-glow:rgba(245,158,11,.55);}
+  #kpi-today .card:nth-child(2){--kpi-grad:linear-gradient(135deg,rgba(16,185,129,.30),rgba(16,185,129,.05));--kpi-bar:linear-gradient(90deg,#10b981,#34d399);--kpi-glow:rgba(16,185,129,.55);}
+  #kpi-today .card:nth-child(3){--kpi-grad:linear-gradient(135deg,rgba(239,68,68,.30),rgba(239,68,68,.05));--kpi-bar:linear-gradient(90deg,#ef4444,#f87171);--kpi-glow:rgba(239,68,68,.55);}
+  #kpi-today .card:nth-child(4){--kpi-grad:linear-gradient(135deg,rgba(59,130,246,.30),rgba(59,130,246,.05));--kpi-bar:linear-gradient(90deg,#3b82f6,#60a5fa);--kpi-glow:rgba(59,130,246,.55);}
+
+
+  /* 모바일: 라벨/값 약간 축소 */
+  @media (max-width: 560px){
+    #kpi .card-value, #kpi-today .card-value { font-size: 28px !important; }
+    #kpi .card, #kpi-today .card { padding: 18px 16px 16px !important; }
+  }
+</style>
+
 </body>
 </html>

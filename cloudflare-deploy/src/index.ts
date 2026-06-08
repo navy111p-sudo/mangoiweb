@@ -93,8 +93,12 @@ export default {
       if (sess.ok) {
         const _sc = await getScope(env, request);
         if (_sc.type === 'agency' || _sc.type === 'branch') {
-          // (1) 통합 콘솔 페이지 → 대리점 전용 경영 대시보드로 리다이렉트
-          if (path === '/admin' || path === '/admin/' || path === '/admin.html') {
+          // (1) 본사 전용 페이지 → 대리점 전용 경영 대시보드로 리다이렉트
+          //     통합 콘솔(/admin.html)뿐 아니라 실시간재무·학습인사이트·마케팅도 차단
+          if (path === '/admin' || path === '/admin/' || path === '/admin.html' ||
+              path === '/admin/finance-realtime' || path === '/admin/finance-realtime/' ||
+              path === '/admin/learning-insights' || path === '/admin/learning-insights/' ||
+              path === '/admin/marketing-studio' || path === '/admin/marketing-studio/') {
             return Response.redirect(new URL('/admin/exec', request.url).toString(), 302);
           }
           // (2) 본사 전용 API 는 차단(허용 목록만 통과) — URL 조작으로도 못 뚫음
