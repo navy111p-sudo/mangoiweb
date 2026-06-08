@@ -2190,31 +2190,22 @@
   function won(n){ try{ return '₩'+Math.round(n).toLocaleString('ko-KR'); }catch(e){ return '₩'+n; } }
   function num(n){ try{ return Number(n).toLocaleString('ko-KR'); }catch(e){ return n; } }
   function sess(){ try{ return JSON.parse(localStorage.getItem('mangoi_admin_session')||'null'); }catch(e){ return null; } }
-  function _hash(str){ var h=2166136261>>>0; str=String(str||'a'); for(var i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619); } return h>>>0; }
-  function _rng(seed){ var x=(seed>>>0)||123456789; return function(){ x^=x<<13; x>>>=0; x^=x>>>17; x^=x<<5; x>>>=0; return x/4294967296; }; }
-  function acadName(s){ var aid=((s&&s.agency_id)||'').trim(); var m={gn001:'강남점',sc002:'서초점',pj003:'판교점'}; var b=((s&&s.branch)||'').trim(); if(b) return (b.indexOf('학원')>=0||b.indexOf('대리점')>=0)?b:(b+' 학원'); if(m[aid]) return m[aid]+' 학원'; return aid?(aid+' 학원'):'우리 학원'; }
-  function demoFor(aid){
-    var r=_rng(_hash(aid)+97);
-    var names=['김민준','이서연','박지호','최유나','정도윤','강하은','윤서준','임채원','오지후','한예린','서준우','조하린','신우진','배수아','홍지안','곽서윤','문해성','양지우','남도현','심예나'];
-    var grades=['초3 · A1','초4 · A1','초5 · A2','초6 · A2','중1 · A2','중2 · B1','중3 · B1','고1 · B2','고2 · C1'];
-    var total=38+Math.floor(r()*90);
-    var active=Math.max(total-Math.floor(r()*6),0);
-    var avgFee=140000+Math.floor(r()*60000);
-    var revenue=total*avgFee;
-    var rateOpts=[0.12,0.15,0.18]; var rate=rateOpts[Math.floor(r()*rateOpts.length)];
-    var fee=Math.round(revenue*rate); var net=revenue-fee;
-    var att=80+Math.floor(r()*18);
-    var unpaid_count=Math.floor(r()*7);
-    var unpaid_amount=unpaid_count*(120000+Math.floor(r()*60000));
-    var pool=names.slice();
-    for(var i=pool.length-1;i>0;i--){ var j=Math.floor(r()*(i+1)); var t=pool[i]; pool[i]=pool[j]; pool[j]=t; }
-    var list=[];
-    for(var k=0;k<8;k++){
-      var pr=r(); var pay=pr<0.62?'완납':(pr<0.83?'예정':'미납');
-      var day=1+Math.floor(r()*27); var mon=(pay==='완납')?7:6;
-      list.push({name:pool[k]||('학생'+(k+1)), grade:grades[Math.floor(r()*grades.length)], att:70+Math.floor(r()*30), pay:pay, due:'2026-0'+mon+'-'+(day<10?('0'+day):day)});
-    }
-    return {students_total:total,students_active:active,revenue_month:revenue,fee_rate:rate,fee:fee,net:net,attendance_rate:att,unpaid_count:unpaid_count,unpaid_amount:unpaid_amount,students:list};
+  function demo(){
+    return {
+      students_total:84, students_active:78,
+      revenue_month:12600000, fee_rate:0.18, fee:2268000, net:10332000,
+      attendance_rate:92, unpaid_count:5, unpaid_amount:750000,
+      students:[
+        {name:'김민준', grade:'중2 · B1', att:96, pay:'완납', due:'2026-07-05'},
+        {name:'이서연', grade:'초5 · A2', att:88, pay:'미납', due:'2026-06-05'},
+        {name:'박지호', grade:'고1 · B2', att:100, pay:'완납', due:'2026-07-10'},
+        {name:'최유나', grade:'중3 · B1', att:73, pay:'예정', due:'2026-06-15'},
+        {name:'정도윤', grade:'초6 · A2', att:91, pay:'완납', due:'2026-07-03'},
+        {name:'강하은', grade:'중1 · A2', att:84, pay:'미납', due:'2026-06-08'},
+        {name:'윤서준', grade:'고2 · C1', att:97, pay:'완납', due:'2026-07-12'},
+        {name:'임채원', grade:'초4 · A1', att:79, pay:'예정', due:'2026-06-20'}
+      ]
+    };
   }
   function normalize(d){
     d=d||{};
@@ -2294,13 +2285,12 @@
     if(!document.getElementById('agency-academy-overview')) return;
     var _bo=document.getElementById('branch-agency-overview'); if(_bo){ _bo.style.display='none'; _bo.innerHTML=''; }
     var aid=s.agency_id||'';
-    var academyName=acadName(s);
-    var fb=function(){ render(normalize(demoFor(aid)), academyName); };
+    var fb=function(){ render(normalize(demo()), s.branch); };
     try {
       if(typeof fetch!=='function'){ fb(); return; }
       fetch('/api/admin/agency/overview?agency_id='+encodeURIComponent(aid), {headers:{'Accept':'application/json'}})
         .then(function(r){ if(!r.ok) throw 0; return r.json(); })
-        .then(function(d){ render(normalize(d), academyName); })
+        .then(function(d){ var o=normalize(d); render(o, s.branch); })
         .catch(fb);
     } catch(e){ fb(); }
   }
@@ -20399,7 +20389,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260609043146 -->
+        <!-- BUILD:20260609045137 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

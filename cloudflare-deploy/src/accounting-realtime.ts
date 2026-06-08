@@ -21,8 +21,6 @@
  * 신규 테이블 finance_expenses / finance_snapshots 는 IF NOT EXISTS 로 안전 생성한다.
  */
 
-import { getScope, paymentScopeSql, expenseVisible, type Scope } from './scope';
-
 interface Env {
   DB: D1Database;
 }
@@ -104,21 +102,19 @@ async function ensureTables(env: Env): Promise<void> {
 }
 
 // ── 핵심 집계: 기간 내 수입 합계 ────────────────────────────────────────
-async function incomeBetween(env: Env, startMs: number, endMs: number, scope?: Scope): Promise<{ sum: number; count: number }> {
+async function incomeBetween(env: Env, startMs: number, endMs: number): Promise<{ sum: number; count: number }> {
   return safe(async () => {
-    const ps = paymentScopeSql(scope);
     const r = await env.DB.prepare(
       `SELECT COALESCE(SUM(amount_krw),0) AS sum, COUNT(*) AS count
        FROM student_payments
-       WHERE status='paid' AND paid_at >= ? AND paid_at < ?` + ps.sql
-    ).bind(startMs, endMs, ...ps.binds).first<{ sum: number; count: number }>();
+       WHERE status='paid' AND paid_at >= ? AND paid_at < ?`
+    ).bind(startMs, endMs).first<{ sum: number; count: number }>();
     return { sum: r?.sum || 0, count: r?.count || 0 };
   }, { sum: 0, count: 0 });
 }
 
 // ── 핵심 집계: 기간 내 지출 합계 (수동 + 급여) ──────────────────────────
-async function expenseBetween(env: Env, startMs: number, endMs: number, scope?: Scope): Promise<{ manual: number; payroll: number; total: number }> {
-  if (!expenseVisible(scope)) return { manual: 0, payroll: 0, total: 0 };
+async function expenseBetween(env: Env, startMs: number, endMs: number): Promise<{ manual: number; payroll: number; total: number }> {
   const manual = await safe(async () => {
     const r = await env.DB.prepare(
       `SELECT COALESCE(SUM(amount_krw),0) AS s FROM finance_expenses WHERE spent_at >= ? AND spent_at < ?`
@@ -136,25 +132,23 @@ async function expenseBetween(env: Env, startMs: number, endMs: number, scope?: 
 }
 
 // ── 일별 그룹 집계 맵 (KST 날짜 → 합계) ────────────────────────────────
-async function dailyIncomeMap(env: Env, startMs: number, endMs: number, scope?: Scope): Promise<Record<string, { sum: number; count: number }>> {
+async function dailyIncomeMap(env: Env, startMs: number, endMs: number): Promise<Record<string, { sum: number; count: number }>> {
   return safe(async () => {
-    const ps = paymentScopeSql(scope);
     const rs = await env.DB.prepare(
       `SELECT strftime('%Y-%m-%d', (paid_at/1000 + ${SEC_OFFSET}), 'unixepoch') AS d,
               COALESCE(SUM(amount_krw),0) AS sum, COUNT(*) AS count
        FROM student_payments
-       WHERE status='paid' AND paid_at >= ? AND paid_at < ?` + ps.sql + `
+       WHERE status='paid' AND paid_at >= ? AND paid_at < ?
        GROUP BY d`
-    ).bind(startMs, endMs, ...ps.binds).all<{ d: string; sum: number; count: number }>();
+    ).bind(startMs, endMs).all<{ d: string; sum: number; count: number }>();
     const map: Record<string, { sum: number; count: number }> = {};
     for (const row of (rs.results || [])) map[row.d] = { sum: row.sum || 0, count: row.count || 0 };
     return map;
   }, {} as Record<string, { sum: number; count: number }>);
 }
 
-async function dailyExpenseMap(env: Env, startMs: number, endMs: number, scope?: Scope): Promise<Record<string, number>> {
+async function dailyExpenseMap(env: Env, startMs: number, endMs: number): Promise<Record<string, number>> {
   const map: Record<string, number> = {};
-  if (!expenseVisible(scope)) return map;
   await safe(async () => {
     const rs = await env.DB.prepare(
       `SELECT strftime('%Y-%m-%d', (spent_at/1000 + ${SEC_OFFSET}), 'unixepoch') AS d, COALESCE(SUM(amount_krw),0) AS sum
@@ -192,19 +186,18 @@ export async function realtimeRouter(request: Request, env: Env): Promise<Respon
 
   try {
     await ensureTables(env);
-    const scope = await getScope(env, request);
 
-    if (p === 'summary' && method === 'GET') return await summary(env, scope);
-    if (p === 'daily' && method === 'GET') return await daily(env, url, fmt, scope);
-    if (p === 'weekly' && method === 'GET') return await weekly(env, url, fmt, scope);
+    if (p === 'summary' && method === 'GET') return await summary(env);
+    if (p === 'daily' && method === 'GET') return await daily(env, url, fmt);
+    if (p === 'weekly' && method === 'GET') return await weekly(env, url, fmt);
 
-    if (p === 'expenses' && method === 'GET') return await listExpenses(env, url, fmt, scope);
+    if (p === 'expenses' && method === 'GET') return await listExpenses(env, url, fmt);
     if (p === 'expenses' && method === 'POST') return await addExpense(env, request);
     const expDel = p.match(/^expenses\/(\d+)$/);
     if (expDel && method === 'DELETE') return await deleteExpense(env, Number(expDel[1]));
 
-    if (p === 'snapshots' && method === 'GET') return await listSnapshots(env, url, scope);
-    if (p === 'expense-breakdown' && method === 'GET') return await expenseBreakdown(env, url, scope);
+    if (p === 'snapshots' && method === 'GET') return await listSnapshots(env, url);
+    if (p === 'expense-breakdown' && method === 'GET') return await expenseBreakdown(env, url);
     if (p === 'snapshot' && method === 'POST') {
       const date = url.searchParams.get('date') || todayKST();
       const r = await runFinanceSnapshot(env, date);
@@ -219,7 +212,7 @@ export async function realtimeRouter(request: Request, env: Env): Promise<Respon
 }
 
 // ── 1) 실시간 요약 ────────────────────────────────────────────────────────
-async function summary(env: Env, scope?: Scope): Promise<Response> {
+async function summary(env: Env): Promise<Response> {
   const today = todayKST();
   const todayStart = kstDayStartMs(today);
   const tomorrowStart = kstDayStartMs(shiftDate(today, 1));
@@ -237,8 +230,8 @@ async function summary(env: Env, scope?: Scope): Promise<Response> {
   const now = Date.now();
 
   const pack = async (startMs: number, endMs: number) => {
-    const inc = await incomeBetween(env, startMs, endMs, scope);
-    const exp = await expenseBetween(env, startMs, endMs, scope);
+    const inc = await incomeBetween(env, startMs, endMs);
+    const exp = await expenseBetween(env, startMs, endMs);
     return { income: inc.sum, pay_count: inc.count, expense: exp.total, expense_manual: exp.manual, expense_payroll: exp.payroll, net: inc.sum - exp.total };
   };
 
@@ -251,8 +244,6 @@ async function summary(env: Env, scope?: Scope): Promise<Response> {
 
   return json({
     ok: true,
-    scope: scope ? { type: scope.type, value: scope.value, label: scope.label } : null,
-    cost_hq_only: !!(scope && scope.type !== 'hq'),
     as_of: new Date(now).toISOString(),
     today: { date: today, ...tdy, income_trend: trend(tdy.income, yday.income), net_trend: trend(tdy.net, yday.net) },
     this_week: { start: wkStart, ...wk, income_trend: trend(wk.income, lastWk.income), net_trend: trend(wk.net, lastWk.net) },
@@ -261,15 +252,15 @@ async function summary(env: Env, scope?: Scope): Promise<Response> {
 }
 
 // ── 2) 일별 시계열 ────────────────────────────────────────────────────────
-async function daily(env: Env, url: URL, fmt: string, scope?: Scope): Promise<Response> {
+async function daily(env: Env, url: URL, fmt: string): Promise<Response> {
   const days = Math.min(180, Math.max(1, parseInt(url.searchParams.get('days') || '30', 10)));
   const today = todayKST();
   const startDate = shiftDate(today, -(days - 1));
   const startMs = kstDayStartMs(startDate);
   const endMs = kstDayStartMs(shiftDate(today, 1));
 
-  const incMap = await dailyIncomeMap(env, startMs, endMs, scope);
-  const expMap = await dailyExpenseMap(env, startMs, endMs, scope);
+  const incMap = await dailyIncomeMap(env, startMs, endMs);
+  const expMap = await dailyExpenseMap(env, startMs, endMs);
 
   const series: { date: string; income: number; expense: number; net: number; pay_count: number }[] = [];
   let cumNet = 0;
@@ -298,7 +289,7 @@ async function daily(env: Env, url: URL, fmt: string, scope?: Scope): Promise<Re
 }
 
 // ── 3) 주별 집계 ──────────────────────────────────────────────────────────
-async function weekly(env: Env, url: URL, fmt: string, scope?: Scope): Promise<Response> {
+async function weekly(env: Env, url: URL, fmt: string): Promise<Response> {
   const weeks = Math.min(52, Math.max(1, parseInt(url.searchParams.get('weeks') || '12', 10)));
   const today = todayKST();
   const curWkStart = weekStartMonday(today);
@@ -307,8 +298,8 @@ async function weekly(env: Env, url: URL, fmt: string, scope?: Scope): Promise<R
   const endMs = kstDayStartMs(shiftDate(today, 1));
 
   // 일별 맵을 받아 주 단위로 합산 (쿼리 1~2회로 처리)
-  const incMap = await dailyIncomeMap(env, startMs, endMs, scope);
-  const expMap = await dailyExpenseMap(env, startMs, endMs, scope);
+  const incMap = await dailyIncomeMap(env, startMs, endMs);
+  const expMap = await dailyExpenseMap(env, startMs, endMs);
 
   const series: { week_start: string; label: string; income: number; expense: number; net: number }[] = [];
   for (let w = 0; w < weeks; w++) {
@@ -336,8 +327,7 @@ async function weekly(env: Env, url: URL, fmt: string, scope?: Scope): Promise<R
 }
 
 // ── 4) 지출 목록 ──────────────────────────────────────────────────────────
-async function listExpenses(env: Env, url: URL, fmt: string, scope?: Scope): Promise<Response> {
-  if (!expenseVisible(scope)) return json({ ok: true, count: 0, total_krw: 0, expenses: [], hq_only: true });
+async function listExpenses(env: Env, url: URL, fmt: string): Promise<Response> {
   const limit = Math.min(1000, Math.max(1, parseInt(url.searchParams.get('limit') || '200', 10)));
   const fromStr = url.searchParams.get('from'); // YYYY-MM-DD
   const toStr = url.searchParams.get('to');
@@ -396,21 +386,8 @@ async function deleteExpense(env: Env, id: number): Promise<Response> {
 }
 
 // ── 7) 스냅샷 목록 ────────────────────────────────────────────────────────
-async function listSnapshots(env: Env, url: URL, scope?: Scope): Promise<Response> {
+async function listSnapshots(env: Env, url: URL): Promise<Response> {
   const limit = Math.min(366, Math.max(1, parseInt(url.searchParams.get('limit') || '60', 10)));
-  if (scope && scope.type !== 'hq') {
-    const today = todayKST();
-    const startMs = kstDayStartMs(shiftDate(today, -(limit - 1)));
-    const endMs = kstDayStartMs(shiftDate(today, 1));
-    const incMap = await dailyIncomeMap(env, startMs, endMs, scope);
-    const out: any[] = [];
-    for (let i = 0; i < limit; i++) {
-      const d = shiftDate(today, -i);
-      const inc = incMap[d] || { sum: 0, count: 0 };
-      out.push({ snap_date: d, income_krw: inc.sum, expense_krw: 0, net_krw: inc.sum, pay_count: inc.count, generated_at: null });
-    }
-    return json({ ok: true, count: out.length, cost_hq_only: true, snapshots: out });
-  }
   const rows = await safe(async () => {
     const rs = await env.DB.prepare(
       `SELECT snap_date, income_krw, expense_krw, net_krw, pay_count, generated_at FROM finance_snapshots ORDER BY snap_date DESC LIMIT ?`
@@ -422,8 +399,7 @@ async function listSnapshots(env: Env, url: URL, scope?: Scope): Promise<Respons
 
 // ── 8) 스냅샷 생성/갱신 (라우터 + cron 공용) ───────────────────────────────
 // ── 지출 카테고리별 분석 (도넛/구성비) ─────────────────────────────────────
-async function expenseBreakdown(env: Env, url: URL, scope?: Scope): Promise<Response> {
-  if (!expenseVisible(scope)) return json({ ok: true, range_days: 0, total: 0, breakdown: [], hq_only: true });
+async function expenseBreakdown(env: Env, url: URL): Promise<Response> {
   const days = Math.min(365, Math.max(1, parseInt(url.searchParams.get('days') || '30', 10)));
   const sinceMs = Date.now() - days * 86400000;
   const cats = await safe(async () => {

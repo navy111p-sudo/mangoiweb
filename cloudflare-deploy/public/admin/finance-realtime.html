@@ -91,7 +91,6 @@
 <header class="top">
   <span class="brand">🥭 망고아이</span>
   <span class="crumb">／ 실시간 재무</span>
-  <span class="crumb" id="scopeCrumb" style="color:#93c5fd;font-weight:700"></span>
   <div class="right">
     <a class="btn" href="/admin/learning-insights">🎓 학습</a>
     <a class="btn" href="/admin/marketing-studio">📣 마케팅</a>
@@ -242,7 +241,6 @@ async function loadSummary(){
   try{
     const j = await api('/api/admin/realtime/summary');
     $('#asOf').textContent = '기준 시각: ' + new Date(j.as_of).toLocaleString('ko-KR');
-    if(j.scope) $('#scopeCrumb').textContent = '· ' + j.scope.label + (j.cost_hq_only?' (매출만)':'');
     const blocks = [
       { title:'오늘', d:j.today, sub:j.today.date },
       { title:'이번 주', d:j.this_week, sub:'주 시작 '+j.this_week.start },
@@ -252,7 +250,7 @@ async function loadSummary(){
       const net = b.d.net, netCls = net<0?'net minus':'net';
       return `<div class="kpi-card"><h3>${b.title} <span style="color:var(--dim);font-weight:400;font-size:11px">${b.sub}</span></h3>
         <div class="line"><span class="lab">수입</span><span><span class="val income">${won(b.d.income)}</span>${trendHtml(b.d.income_trend)}</span></div>
-        <div class="line"><span class="lab">지출</span><span class="val expense">${j.cost_hq_only?'<span style="color:var(--dim);font-size:12px">본사 통합</span>':won(b.d.expense)}</span></div>
+        <div class="line"><span class="lab">지출</span><span class="val expense">${won(b.d.expense)}</span></div>
         <div class="line"><span class="lab">순이익</span><span><span class="val ${netCls}">${won(net)}</span>${trendHtml(b.d.net_trend)}</span></div>
         <div class="line"><span class="lab">결제건수</span><span class="val" style="font-size:15px">${b.d.pay_count}건</span></div>
       </div>`;

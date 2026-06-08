@@ -8,7 +8,6 @@
  */
 
 import { processAiCommand, executeAction, processStudentCommand } from './ai-command';
-import { scopeFragments, studentScopeWhere } from './scope';
 import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook, type GiftishowEnv } from './giftishow-client';
 import {
   sendLessonStartAlert, sendLessonEndAlert, sendChatSummaryAlert, sendMentionAlert,
@@ -1355,9 +1354,12 @@ export async function handleMangoApi(
       };
 
       // 🔒 역할별 데이터 범위 — 지사/대리점/교사/학부모/학생은 자기 범위만 집계
-      // 🔒 세션 기반 강제 스코프(대리점/지사는 자기 범위만, 본사는 전체/?as= 드릴다운)
-      const _sf = await scopeFragments(env, request);
-      const _uidScope = _sf.uidScope, _erpScope = _sf.erpScope, _sb = _sf.binds;
+      const _SCOPE_OK: Record<string,string> = { branch1_name:'branch1_name', shop_name:'shop_name', hq_name:'hq_name', franchise:'franchise', teacher_phone:'teacher_phone', parent_phone:'parent_phone', user_id:'user_id' };
+      const _scol = _SCOPE_OK[url.searchParams.get('scope_field') || ''] || '';
+      const _scv = url.searchParams.get('scope_value') || '';
+      const _hasScope = !!(_scol && _scv);
+      const _uidScope = _hasScope ? ` AND user_id IN (SELECT user_id FROM students_erp WHERE ${_scol} = ?)` : '';
+      const _erpScope = _hasScope ? ` AND ${_scol} = ?` : '';
 
       const [revRow, attRow, activeRow, signupRow] = await Promise.all([
         safe(() => env.DB.prepare(
@@ -1365,26 +1367,26 @@ export async function handleMangoApi(
            FROM student_payments
            WHERE status = 'paid' AND paid_at IS NOT NULL
              AND paid_at >= ? AND paid_at < ?${_uidScope}`
-        ).bind(startMs, endMs, ..._sb).first<{ revenue: number; pay_count: number }>(),
+        ).bind(...(_hasScope ? [startMs, endMs, _scv] : [startMs, endMs])).first<{ revenue: number; pay_count: number }>(),
         { revenue: 0, pay_count: 0 } as any),
 
         safe(() => env.DB.prepare(
           `SELECT COUNT(DISTINCT user_id) AS attended
            FROM attendance WHERE date = ?${_uidScope}`
-        ).bind(todayKst, ..._sb).first<{ attended: number }>(),
+        ).bind(...(_hasScope ? [todayKst, _scv] : [todayKst])).first<{ attended: number }>(),
         { attended: 0 } as any),
 
         safe(() => env.DB.prepare(
           `SELECT COUNT(*) AS active
            FROM students_erp
            WHERE (end_date IS NULL OR end_date = '' OR end_date >= ?)${_erpScope}`
-        ).bind(todayKst, ..._sb).first<{ active: number }>(),
+        ).bind(...(_hasScope ? [todayKst, _scv] : [todayKst])).first<{ active: number }>(),
         { active: 0 } as any),
 
         safe(() => env.DB.prepare(
           `SELECT COUNT(*) AS signups
            FROM students_erp WHERE signup_date = ?${_erpScope}`
-        ).bind(todayKst, ..._sb).first<{ signups: number }>(),
+        ).bind(...(_hasScope ? [todayKst, _scv] : [todayKst])).first<{ signups: number }>(),
         { signups: 0 } as any)
       ]);
 
@@ -5634,8 +5636,11 @@ Respond in JSON ONLY:
         labelExpr = groupExpr;
       }
 
-      const _sf = await scopeFragments(env, request);
-      const _uidScope = _sf.uidScope, _sb = _sf.binds;
+      const _SCOPE_OK: Record<string,string> = { branch1_name:'branch1_name', shop_name:'shop_name', hq_name:'hq_name', franchise:'franchise', teacher_phone:'teacher_phone', parent_phone:'parent_phone', user_id:'user_id' };
+      const _scol = _SCOPE_OK[url.searchParams.get('scope_field') || ''] || '';
+      const _scv = url.searchParams.get('scope_value') || '';
+      const _hasScope = !!(_scol && _scv);
+      const _uidScope = _hasScope ? ` AND user_id IN (SELECT user_id FROM students_erp WHERE ${_scol} = ?)` : '';
 
       try {
         const rows = await env.DB.prepare(
@@ -5644,7 +5649,7 @@ Respond in JSON ONLY:
            WHERE status = 'paid' AND paid_at IS NOT NULL AND paid_at BETWEEN ? AND ?${_uidScope}
            GROUP BY ${groupExpr}
            ORDER BY label ASC`
-        ).bind(fromMs, toMs, ..._sb).all<{ label: string; revenue: number; pay_count: number }>();
+        ).bind(...(_hasScope ? [fromMs, toMs, _scv] : [fromMs, toMs])).all<{ label: string; revenue: number; pay_count: number }>();
 
         const items = (rows.results || []);
         const total = items.reduce((s, r) => s + (r.revenue || 0), 0);
@@ -5666,7 +5671,7 @@ Respond in JSON ONLY:
              COALESCE(SUM(CASE WHEN substr(${kstDate}, 1, 4) = ? THEN amount_krw END), 0) AS year_rev
            FROM student_payments
            WHERE status = 'paid' AND paid_at IS NOT NULL${_uidScope}`
-        ).bind(todayKst, thisMonth, thisQuarter, thisHalf, thisYear, ..._sb).first<any>();
+        ).bind(...(_hasScope ? [todayKst, thisMonth, thisQuarter, thisHalf, thisYear, _scv] : [todayKst, thisMonth, thisQuarter, thisHalf, thisYear])).first<any>();
 
         return json({
           ok: true,
@@ -5794,15 +5799,14 @@ Respond in JSON ONLY:
                  : new Date(Date.now() - 90*86400000 + 9*3600*1000).toISOString().slice(0,10);
       const to = /^\d{4}-\d{2}-\d{2}$/.test(toStr) ? toStr : today;
 
-      const _sf = await scopeFragments(env, request);
       try {
         // 신규 가입 (signup_date 기준)
         const newRows = await env.DB.prepare(
           `SELECT signup_date AS date, COUNT(*) AS cnt
            FROM students_erp
-           WHERE signup_date IS NOT NULL AND signup_date BETWEEN ? AND ?` + _sf.erpScope + `
+           WHERE signup_date IS NOT NULL AND signup_date BETWEEN ? AND ?
            GROUP BY signup_date ORDER BY signup_date ASC`
-        ).bind(from, to, ..._sf.binds).all<{ date: string; cnt: number }>();
+        ).bind(from, to).all<{ date: string; cnt: number }>();
 
         // 탈락 (end_date < 오늘 + status 가 정상 아님)
         const dropRows = await env.DB.prepare(
@@ -5810,16 +5814,16 @@ Respond in JSON ONLY:
            FROM students_erp
            WHERE end_date IS NOT NULL AND end_date BETWEEN ? AND ?
              AND end_date < ?
-             AND status != '정상'` + _sf.erpScope + `
+             AND status != '정상'
            GROUP BY end_date ORDER BY end_date ASC`
-        ).bind(from, to, today, ..._sf.binds).all<{ date: string; cnt: number }>();
+        ).bind(from, to, today).all<{ date: string; cnt: number }>();
 
         // 전체 학생 수 (현재 활성 — 종료일 미만이거나 미설정)
         const activeRow = await env.DB.prepare(
           `SELECT COUNT(*) AS active
            FROM students_erp
-           WHERE (end_date IS NULL OR end_date >= ?)` + _sf.erpScope + ``
-        ).bind(today, ..._sf.binds).first<{ active: number }>();
+           WHERE end_date IS NULL OR end_date >= ?`
+        ).bind(today).first<{ active: number }>();
 
         const totalNew = (newRows.results || []).reduce((s, r) => s + (r.cnt || 0), 0);
         const totalDropped = (dropRows.results || []).reduce((s, r) => s + (r.cnt || 0), 0);
@@ -6662,14 +6666,18 @@ Respond in JSON ONLY:
         franchise: 's.franchise', teacher_phone: 's.teacher_phone',
         parent_phone: 's.parent_phone', user_id: 's.user_id'
       };
-      const _ssw = await studentScopeWhere(env, request, 's');
+      const scopeField = (url.searchParams.get('scope_field') || '').trim();
+      const scopeValue = (url.searchParams.get('scope_value') || '').trim();
       const conds: string[] = [];
       const binds: any[] = [];
       if (q) {
         conds.push(`(s.korean_name LIKE ? OR s.english_name LIKE ? OR s.student_name LIKE ? OR s.user_id LIKE ? OR s.student_phone LIKE ?)`);
         binds.push(like, like, like, like, like);
       }
-      if (_ssw.cond) { conds.push(_ssw.cond); binds.push(..._ssw.binds); }
+      if (scopeField && scopeValue && SCOPE_FIELDS[scopeField]) {
+        conds.push(`${SCOPE_FIELDS[scopeField]} = ?`);
+        binds.push(scopeValue);
+      }
       const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
       const rs = await env.DB.prepare(
         `SELECT s.user_id,
