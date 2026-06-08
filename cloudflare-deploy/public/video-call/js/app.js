@@ -194,6 +194,8 @@ function connectWebSocket() {
 
   ws.onopen = () => {
     console.log('WebSocket 연결 완료');
+    _wsReconnectCount = 0;
+    startHeartbeat();
     sendWsMessage({ type: 'join-room', data: { roomId, username } });
   };
   ws.onmessage = (event) => {
@@ -205,23 +207,49 @@ function connectWebSocket() {
   ws.onerror = () => { console.error('WebSocket 오류'); };
   ws.onclose = () => {
     console.log('WebSocket 연결 종료 → 재연결 시도');
-    // 백그라운드에서 WS가 끊어진 경우 자동 재연결 (최대 5번)
-    if (!document.hidden) setTimeout(reconnectWebSocket, 2000);
+    stopHeartbeat();
+    scheduleReconnect();
   };
 }
 
+// 🔁 끊김 방지 — 지수 백오프 재연결(2s→최대 15s, 영구 재시도) + 하트비트 + 탭 복귀 재연결
 let _wsReconnectCount = 0;
-function reconnectWebSocket() {
-  if (_wsReconnectCount >= 5) return;
+let _hbTimer = null, _lastPong = 0;
+function scheduleReconnect() {
+  if (document.hidden) return;            // 숨김 탭은 복귀 시(visibilitychange) 재연결
+  if (ws && ws.readyState === WebSocket.OPEN) return;
   _wsReconnectCount++;
-  console.log('[ws] 재연결 시도:', _wsReconnectCount);
-  connectWebSocket();
+  const delay = Math.min(1000 * Math.pow(2, _wsReconnectCount), 15000);
+  console.log('[ws] 재연결 예약:', _wsReconnectCount, delay + 'ms');
+  setTimeout(() => { if (!ws || ws.readyState !== WebSocket.OPEN) connectWebSocket(); }, delay);
 }
+function startHeartbeat() {
+  stopHeartbeat();
+  _lastPong = Date.now();
+  _hbTimer = setInterval(() => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (Date.now() - _lastPong > 32000) {   // 32초간 pong 없음 → 죽은 연결, 강제 재연결
+      console.warn('[ws] 하트비트 응답 없음 → 강제 재연결');
+      try { ws.close(); } catch (_) {}
+      return;
+    }
+    sendWsMessage({ type: 'ping' });
+  }, 12000);
+}
+function stopHeartbeat() { if (_hbTimer) { clearInterval(_hbTimer); _hbTimer = null; } }
+// 백그라운드 탭으로 끊겼다가 돌아오면 즉시 재연결
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && (!ws || ws.readyState !== WebSocket.OPEN)) {
+    _wsReconnectCount = 0;
+    connectWebSocket();
+  }
+});
 
 function handleWebSocketMessage(msg) {
   const { type, data } = msg;
   _wsReconnectCount = 0;
   switch (type) {
+    case 'pong': _lastPong = Date.now(); break;
     case 'existing-users': handleExistingUsers(data); break;
     case 'room-joined': handleRoomJoined(data); break;
     case 'user-joined': handleUserJoined(data); break;

@@ -154,6 +154,10 @@ export class VideoCallRoom {
         case 'ice-candidate':
           this.handleIceCandidate(userId, msg.data as any);
           break;
+        case 'ping':
+          // 💓 하트비트 — 죽은 연결 감지 + 유휴 끊김 방지
+          this.send(userId, { type: 'pong', data: {} });
+          break;
         default:
           console.warn(`Unknown message type: ${msg.type}`);
       }
