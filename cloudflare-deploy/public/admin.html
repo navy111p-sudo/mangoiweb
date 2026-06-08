@@ -2183,6 +2183,119 @@
     </div>
 
 <!-- 기존 카드 영역 — 기본 숨김. "📋 모든 메뉴 보기" 토글로 표시 -->
+<!-- 🤝 대리점(학원) 전용 — 내 학원 현황 (학생·매출·수수료·출석률·결제상태) : 대리점 로그인 시 대시보드 최상단 -->
+<div id="agency-academy-overview" style="display:none"></div>
+<script>
+(function(){
+  function won(n){ try{ return '₩'+Math.round(n).toLocaleString('ko-KR'); }catch(e){ return '₩'+n; } }
+  function num(n){ try{ return Number(n).toLocaleString('ko-KR'); }catch(e){ return n; } }
+  function sess(){ try{ return JSON.parse(localStorage.getItem('mangoi_admin_session')||'null'); }catch(e){ return null; } }
+  function demo(){
+    return {
+      students_total:84, students_active:78,
+      revenue_month:12600000, fee_rate:0.18, fee:2268000, net:10332000,
+      attendance_rate:92, unpaid_count:5, unpaid_amount:750000,
+      students:[
+        {name:'김민준', grade:'중2 · B1', att:96, pay:'완납', due:'2026-07-05'},
+        {name:'이서연', grade:'초5 · A2', att:88, pay:'미납', due:'2026-06-05'},
+        {name:'박지호', grade:'고1 · B2', att:100, pay:'완납', due:'2026-07-10'},
+        {name:'최유나', grade:'중3 · B1', att:73, pay:'예정', due:'2026-06-15'},
+        {name:'정도윤', grade:'초6 · A2', att:91, pay:'완납', due:'2026-07-03'},
+        {name:'강하은', grade:'중1 · A2', att:84, pay:'미납', due:'2026-06-08'},
+        {name:'윤서준', grade:'고2 · C1', att:97, pay:'완납', due:'2026-07-12'},
+        {name:'임채원', grade:'초4 · A1', att:79, pay:'예정', due:'2026-06-20'}
+      ]
+    };
+  }
+  function normalize(d){
+    d=d||{};
+    var rev=(d.revenue_month!=null)?d.revenue_month:(d.revenue||0);
+    var rate=(d.fee_rate!=null)?d.fee_rate:0.18;
+    var fee=(d.fee!=null)?d.fee:Math.round(rev*rate);
+    var net=(d.net!=null)?d.net:(rev-fee);
+    var sts=(d.students||d.student_list||[]).map(function(x){
+      return {name:x.name||x.student_name||'학생', grade:x.grade||x.level||'', att:(x.att!=null)?x.att:(x.attendance!=null?x.attendance:0), pay:x.pay||x.pay_status||x.payment||'예정', due:x.due||x.next_due||''};
+    });
+    return {
+      students_total:(d.students_total!=null)?d.students_total:(d.total_students!=null?d.total_students:sts.length),
+      students_active:(d.students_active!=null)?d.students_active:(d.active_students!=null?d.active_students:sts.length),
+      revenue_month:rev, fee_rate:rate, fee:fee, net:net,
+      attendance_rate:(d.attendance_rate!=null)?d.attendance_rate:(d.attendance!=null?d.attendance:0),
+      unpaid_count:(d.unpaid_count!=null)?d.unpaid_count:0, unpaid_amount:(d.unpaid_amount!=null)?d.unpaid_amount:0,
+      students:sts
+    };
+  }
+  function kpi(label,val,sub,color,bg){
+    return '<div style="background:'+(bg||'rgba(15,23,42,.4)')+';border:1px solid rgba(148,163,184,.22);border-radius:14px;padding:14px 16px">'
+      +'<div style="font-size:12px;color:#94a3b8;margin-bottom:6px">'+label+'</div>'
+      +'<div style="font-size:22px;font-weight:900;color:'+color+';line-height:1.1">'+val+'</div>'
+      +(sub?('<div style="font-size:11px;color:#7c8aa0;margin-top:4px">'+sub+'</div>'):'')+'</div>';
+  }
+  function attBar(p){
+    var c = p>=90?'#34d399':(p>=80?'#fbbf24':'#f87171');
+    return '<div style="display:flex;align-items:center;gap:8px">'
+      +'<div style="flex:1;height:7px;background:rgba(148,163,184,.2);border-radius:99px;overflow:hidden;min-width:60px"><div style="width:'+p+'%;height:100%;background:'+c+'"></div></div>'
+      +'<span style="font-size:12px;font-weight:700;color:'+c+';min-width:34px;text-align:right">'+p+'%</span></div>';
+  }
+  function payChip(st){
+    var m={'완납':['#065f46','#34d399','rgba(16,185,129,.15)'],'미납':['#7f1d1d','#f87171','rgba(248,113,113,.16)'],'예정':['#78350f','#fbbf24','rgba(245,158,11,.16)']};
+    var c=m[st]||m['예정'];
+    return '<span style="display:inline-block;padding:3px 11px;border-radius:99px;font-size:11.5px;font-weight:800;color:'+c[1]+';background:'+c[2]+';border:1px solid '+c[1]+'55">'+st+'</span>';
+  }
+  function render(d, academyName){
+    var host=document.getElementById('agency-academy-overview'); if(!host) return;
+    var rows=d.students.map(function(x){
+      return '<tr style="border-bottom:1px solid rgba(148,163,184,.12)">'
+        +'<td style="padding:10px 12px;color:#e2e8f0;font-weight:700">'+x.name+'</td>'
+        +'<td style="padding:10px 12px;color:#94a3b8;font-size:12.5px">'+x.grade+'</td>'
+        +'<td style="padding:10px 12px;min-width:130px">'+attBar(x.att)+'</td>'
+        +'<td style="padding:10px 12px;text-align:center">'+payChip(x.pay)+'</td>'
+        +'<td style="padding:10px 12px;color:#94a3b8;font-size:12.5px;text-align:right">'+(x.due||'-')+'</td>'
+        +'</tr>';
+    }).join('');
+    host.innerHTML='<div style="background:linear-gradient(135deg,rgba(16,185,129,.13),rgba(16,185,129,.03));border:1px solid rgba(16,185,129,.35);border-radius:18px;padding:18px 20px;margin-bottom:18px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px">'
+      +'<h2 style="margin:0;font-size:19px;font-weight:900;color:#6ee7b7;display:flex;align-items:center;gap:8px">🤝 '+(academyName||'우리 학원')+' · 한눈에 보기</h2>'
+      +'<span style="font-size:11.5px;color:#9ae6c4">내 학원 데이터만 표시</span>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">'
+      +kpi('👥 학생수', num(d.students_total)+'<span style="font-size:13px;color:#94a3b8;font-weight:700"> 명</span>', '활성 '+num(d.students_active)+'명', '#e2e8f0')
+      +kpi('💰 이번 달 매출', won(d.revenue_month), '이번 달 누적', '#34d399')
+      +kpi('🏦 본사 수수료', '-'+won(d.fee), '수수료율 '+(Math.round(d.fee_rate*1000)/10)+'%', '#f87171')
+      +kpi('💵 실수령 정산금', won(d.net), '수수료 차감 후', '#fbbf24', 'rgba(245,158,11,.10)')
+      +kpi('📊 평균 출석률', d.attendance_rate+'%', '이번 달 기준', (d.attendance_rate>=90?'#34d399':(d.attendance_rate>=80?'#fbbf24':'#f87171')))
+      +kpi('💳 미결제', num(d.unpaid_count)+'<span style="font-size:13px;color:#94a3b8;font-weight:700"> 건</span>', won(d.unpaid_amount), (d.unpaid_count>0?'#f87171':'#34d399'))
+      +'</div>'
+      +'<div style="background:rgba(15,23,42,.45);border:1px solid rgba(148,163,184,.18);border-radius:14px;overflow:hidden">'
+      +'<div style="padding:12px 14px;font-size:13.5px;font-weight:800;color:#cbd5e1;border-bottom:1px solid rgba(148,163,184,.18)">🧑‍🎓 학생 목록 · 출석/결제 현황</div>'
+      +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:560px">'
+      +'<thead><tr style="background:rgba(148,163,184,.08)">'
+      +'<th style="padding:10px 12px;text-align:left;font-size:11.5px;color:#94a3b8;font-weight:700">학생</th>'
+      +'<th style="padding:10px 12px;text-align:left;font-size:11.5px;color:#94a3b8;font-weight:700">학년·레벨</th>'
+      +'<th style="padding:10px 12px;text-align:left;font-size:11.5px;color:#94a3b8;font-weight:700">출석률</th>'
+      +'<th style="padding:10px 12px;text-align:center;font-size:11.5px;color:#94a3b8;font-weight:700">결제상태</th>'
+      +'<th style="padding:10px 12px;text-align:right;font-size:11.5px;color:#94a3b8;font-weight:700">다음 결제일</th>'
+      +'</tr></thead><tbody>'+rows+'</tbody></table></div></div>'
+      +'</div>';
+    host.style.display='block';
+  }
+  function init(){
+    var s=sess();
+    if(!s || s.role!=='agency') return;
+    if(!document.getElementById('agency-academy-overview')) return;
+    var aid=s.agency_id||'';
+    var fb=function(){ render(normalize(demo()), s.branch); };
+    try {
+      if(typeof fetch!=='function'){ fb(); return; }
+      fetch('/api/admin/agency/overview?agency_id='+encodeURIComponent(aid), {headers:{'Accept':'application/json'}})
+        .then(function(r){ if(!r.ok) throw 0; return r.json(); })
+        .then(function(d){ var o=normalize(d); render(o, s.branch); })
+        .catch(fb);
+    } catch(e){ fb(); }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+</script>
 <!-- 🏬 지사 전용 — 대리점별 현황 (학생수·매출·지사 수수료) : 지사 로그인 시 대시보드 최상단 -->
 <div id="branch-agency-overview" style="display:none"></div>
 <script>
@@ -20274,7 +20387,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260608233536 -->
+        <!-- BUILD:20260608234048 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
