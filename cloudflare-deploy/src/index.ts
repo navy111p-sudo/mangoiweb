@@ -93,12 +93,10 @@ export default {
       if (sess.ok) {
         const _sc = await getScope(env, request);
         if (_sc.type === 'agency' || _sc.type === 'branch') {
-          // (1) 본사 전용 페이지 → 대리점 전용 경영 대시보드로 리다이렉트
-          //     통합 콘솔(/admin.html)뿐 아니라 실시간재무·학습인사이트·마케팅도 차단
-          if (path === '/admin' || path === '/admin/' || path === '/admin.html' ||
-              path === '/admin/finance-realtime' || path === '/admin/finance-realtime/' ||
-              path === '/admin/learning-insights' || path === '/admin/learning-insights/' ||
-              path === '/admin/marketing-studio' || path === '/admin/marketing-studio/') {
+          // (1) 본사 전용 화면 전면 차단 → 자기 경영 대시보드(/admin/exec)로.
+          //     허용 화면(exec·login·logout·mypage·health) 외 모든 /admin 페이지 리다이렉트.
+          const _isAdminConsolePage = (path === '/admin' || path === '/admin/' || path === '/admin.html' || path.startsWith('/admin/'));
+          if (_isAdminConsolePage && !isAgencyAllowedPage(path)) {
             return Response.redirect(new URL('/admin/exec', request.url).toString(), 302);
           }
           // (2) 본사 전용 API 는 차단(허용 목록만 통과) — URL 조작으로도 못 뚫음
@@ -1861,6 +1859,16 @@ function isAdminPath(path: string, method: string): boolean {
  *   - /api/admin/logout (POST)   : logout (cookie clear is fine even without auth)
  */
 // 🏪 비-본사(대리점·지사) 계정이 사용할 수 있는 API 허용 목록(그 외 /api/admin/* 는 403)
+// 🏪 비-본사(대리점·지사) 계정이 접근 가능한 화면(그 외 모든 /admin 페이지는 /admin/exec 로 리다이렉트)
+function isAgencyAllowedPage(path: string): boolean {
+  if (path === '/admin/exec' || path === '/admin/exec/' || path === '/admin/exec.html') return true;
+  if (path === '/admin/login' || path === '/admin/login/' || path === '/admin/login.html') return true;
+  if (path === '/admin/logout') return true;
+  if (path === '/admin/mypage' || path === '/admin/mypage/') return true;
+  if (path === '/admin/health' || path === '/admin/health/') return true;
+  return false;
+}
+
 function isAgencyAllowedApi(path: string): boolean {
   const allow = [
     '/api/admin/exec/', '/api/admin/realtime/', '/api/admin/stats/',

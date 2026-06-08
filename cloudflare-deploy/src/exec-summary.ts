@@ -282,7 +282,7 @@ async function sendBriefing(env: Env): Promise<Response> {
     '#{어제매출}': fmtMan(d.revYday), '#{어제비용}': fmtMan(d.costYday), '#{어제순익}': fmtMan(d.netYday),
     '#{월매출}': fmtMan(d.revMonth), '#{월비용}': fmtMan(d.costMonth), '#{월순익}': fmtMan(d.netMonth),
   };
-  const smsText = `[망고아이 경영브리핑] ${dateLabel}\n재원생 ${d.active}명(월신규+${d.newMonth})\n어제 매출 ${fmtMan(d.revYday)}/비용 ${fmtMan(d.costYday)}/순익 ${fmtMan(d.netYday)}\n이달 매출 ${fmtMan(d.revMonth)}/순익 ${fmtMan(d.netMonth)}\n대시보드 https://mango-i.com/admin/exec`;
+  const smsText = `[망고아이 경영브리핑] ${dateLabel}\n재원생 ${d.active}명(월신규+${d.newMonth})\n어제 매출 ${fmtMan(d.revYday)}/비용 ${fmtMan(d.costYday)}/순익 ${fmtMan(d.netYday)}\n이달 매출 ${fmtMan(d.revMonth)}/순익 ${fmtMan(d.netMonth)}\n대시보드 https://webrtc-unified-platform.navy111p.workers.dev/admin/exec`;
   const templateCode = (env as any).SOLAPI_TEMPLATE_EXEC_BRIEFING || '';
   const results: any[] = [];
   for (const r of recips) {
@@ -349,18 +349,20 @@ async function breakdown(env: Env, url: URL, scope: Scope): Promise<Response> {
     return r?.c || 0;
   }, 0);
 
-  // 대리점별 비교 (본사 전용)
+  // 대리점별 비교 — 본사(전체) + 지사(자기 지역 대리점들로 구분). 대리점(단일매장)은 미표시.
   let branches: any[] = [];
-  if (scope.type === 'hq') {
+  if (scope.type === 'hq' || scope.type === 'branch') {
+    const bc = stuCond(scope); // hq→조건없음, branch→franchise LIKE '지역%'
+    const bWhere = bc.clause ? ` AND ${bc.clause}` : '';
     branches = await safe(async () => (await env.DB.prepare(
       `SELECT se.shop_name shop, se.franchise region,
               COUNT(DISTINCT se.user_id) students,
               COALESCE(SUM(CASE WHEN sp.status='paid' AND sp.paid_at>=? THEN sp.amount_krw ELSE 0 END),0) rev_month
        FROM students_erp se
        LEFT JOIN student_payments sp ON sp.user_id = se.user_id
-       WHERE se.status='정상' AND se.shop_name IS NOT NULL AND se.shop_name<>''
+       WHERE se.status='정상' AND se.shop_name IS NOT NULL AND se.shop_name<>''` + bWhere + `
        GROUP BY se.shop_name ORDER BY rev_month DESC`
-    ).bind(monStart).all()).results as any[], []);
+    ).bind(monStart, ...bc.binds).all()).results as any[], []);
   }
 
   const unpaid = Math.max(active - paidStudents, 0);
