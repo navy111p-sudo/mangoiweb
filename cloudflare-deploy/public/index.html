@@ -6438,6 +6438,14 @@
                 <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
                 <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🛕 앙코르와트" data-en="🛕 Angkor Wat">🛕 앙코르와트</span>
               </button>
+              <button class="vc-bg-tile" data-bg="planet" onclick="vcSetBackground('planet')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/planet.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+                <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
+                <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🪐 외계행성" data-en="🪐 Alien Planet">🪐 외계행성</span>
+              </button>
+              <button class="vc-bg-tile" data-bg="spaceship" onclick="vcSetBackground('spaceship')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/spaceship.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+                <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
+                <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🚀 우주선" data-en="🚀 Spaceship">🚀 우주선</span>
+              </button>
             </div>
             <div style="margin-top:18px;padding:12px 14px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:10px;font-size:12px;color:#fde68a;line-height:1.6">
               💡 <span data-ko="가상 배경은 모든 참가자에게 적용된 모습으로 보입니다. 카메라가 켜져 있어야 작동합니다." data-en="Virtual background is visible to all participants. Camera must be on.">가상 배경은 모든 참가자에게 적용된 모습으로 보입니다. 카메라가 켜져 있어야 작동합니다.</span>
@@ -9459,6 +9467,8 @@ const VC_BG_IMAGES = {
   jungle:     '/img/bg/jungle.jpg',     // 정글 - 열대우림 + 새 + 원숭이
   fireplace:  '/img/bg/fireplace.jpg',  // 벽난로 - 따뜻한 거실
   angkor:     '/img/bg/angkor.jpg',     // 앙코르와트 - 캄보디아 유적
+  planet:     '/img/bg/planet.jpg',     // 외계행성 - 장가계풍 우주 풍경
+  spaceship:  '/img/bg/spaceship.jpg',  // 우주선 조종실
 };
 const _vcBgCache = {}; // theme → HTMLImageElement (loaded)
 
@@ -25010,7 +25020,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260610012553 -->
+<!-- BUILD:20260610013355 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
