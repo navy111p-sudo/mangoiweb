@@ -20608,7 +20608,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260610003841 -->
+        <!-- BUILD:20260610003414 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -25206,7 +25206,7 @@ button.chip:hover,
   <input class="ph85-search" id="ph85-search" type="search" placeholder="🔍 메뉴 검색...">
 
   <div class="ph85-group" data-cards="card-eval-mgmt,card-bulk-eval,card-ai-lesson-report,card-ai-eval-draft,card-monthly-report,card-comparison-report">
-    <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
+    <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#10b981,#059669)">📝</div>
       <div class="ph85-title">평가서 통합</div>
       <div class="ph85-arrow">›</div>
@@ -25222,7 +25222,7 @@ button.chip:hover,
   </div>
 
   <div class="ph85-group" data-cards="card-webpush-mgmt,card-kakao-mgmt,card-popups-mgmt,card-notifications,card-notice-board">
-    <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
+    <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#ec4899,#be185d)">📢</div>
       <div class="ph85-title">알림 센터</div>
       <div class="ph85-arrow">›</div>
@@ -25237,7 +25237,7 @@ button.chip:hover,
   </div>
 
   <div class="ph85-group" data-cards="card-teacher-mgmt,card-payroll-auto,card-payroll,card-mbti-mgmt,card-praise-stats,card-supervisor,card-room-invite,card-timetable,card-lesson-log,card-report-forms">
-    <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
+    <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">👨‍🏫</div>
       <div class="ph85-title">강사 통합</div>
       <div class="ph85-arrow">›</div>
@@ -25257,7 +25257,7 @@ button.chip:hover,
   </div>
 
   <div class="ph85-group" data-cards="card-kpi-dashboard,card-daily-charts,card-rankings,card-retention-risk,card-retention,card-active-rooms,card-nps-monthly,card-ai-forecast,card-voice-stats">
-    <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
+    <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#6366f1,#4338ca)">📊</div>
       <div class="ph85-title">통계 / KPI</div>
       <div class="ph85-arrow">›</div>
@@ -25276,7 +25276,7 @@ button.chip:hover,
   </div>
 
   <div class="ph85-group" data-cards="card-accounting-mgmt,card-payments-b2b,card-payments-b2c,card-recurring-billing,card-auto-dunning,card-settlement-stats,card-points-mgmt">
-    <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
+    <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#f59e0b,#d97706)">💰</div>
       <div class="ph85-title">회계 / 포인트</div>
       <div class="ph85-arrow">›</div>
@@ -25293,7 +25293,7 @@ button.chip:hover,
   </div>
 
   <div class="ph85-group" data-cards="card-students-mgmt,card-school-attendance-stats,card-family-mgmt,card-inquiry-mgmt,card-enrollments,card-badges-mgmt,card-community,card-counseling-booking,card-parent-digest,card-parent-faq-bot,card-referral,card-alumni,card-gallery">
-    <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
+    <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#10b981,#047857)">👥</div>
       <div class="ph85-title">학생 / 학부모</div>
       <div class="ph85-arrow">›</div>
@@ -25316,7 +25316,7 @@ button.chip:hover,
   </div>
 
   <div class="ph85-group" data-cards="card-textbooks,card-microlearn,card-mini-toeic,card-pronunciation,card-video-dict,card-voice-diary,card-level-tests,card-battle-mgmt,card-recording-storage,card-homework">
-    <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
+    <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#0ea5e9,#0369a1)">📚</div>
       <div class="ph85-title">교육 / 콘텐츠</div>
       <div class="ph85-arrow">›</div>
@@ -25336,7 +25336,7 @@ button.chip:hover,
   </div>
 
   <div class="ph85-group" data-cards="card-calendar,card-permissions,card-franchises,card-centers,card-data-export,card-test-seed,card-admin-alerts,card-admin-ghost,card-admin-whisper,card-attendance-status,card-auto-attendance,card-class-attendance,card-report-forms">
-    <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
+    <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#64748b,#334155)">⚙</div>
       <div class="ph85-title">시스템</div>
       <div class="ph85-arrow">›</div>
@@ -25380,8 +25380,15 @@ button.chip:hover,
     // 햄버거
     toggle.addEventListener('click', function(){ bar.classList.toggle('open'); });
 
-    // 그룹 헤더 — 아코디언은 인라인 onclick(ph85 self-accordion)으로 단일화.
-    // (JS에서 중복 핸들러를 붙이면 인라인과 충돌해 두 그룹이 동시에 열리므로 제거됨)
+    // 그룹 헤더 — 아코디언
+    bar.querySelectorAll('.ph85-head').forEach(function(head){
+      head.addEventListener('click', function(){
+        var g = head.parentElement;
+        var wasOpen = g.classList.contains('open');
+        bar.querySelectorAll('.ph85-group').forEach(function(x){ x.classList.remove('open'); });
+        if (!wasOpen) g.classList.add('open');
+      });
+    });
 
     // 하위 항목 — 카드로 스크롤
     bar.querySelectorAll('.ph85-sub').forEach(function(s){
@@ -26139,7 +26146,7 @@ button.chip:hover,
     // (1) 그룹 헤더 토글 — inline onclick 강제 (capture/bubble 핸들러 무시)
     bar.querySelectorAll('.ph85-head').forEach(function(head){
       head.setAttribute('onclick',
-        "event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);"
+        "event.stopPropagation();this.parentElement.classList.toggle('open');"
       );
     });
 
