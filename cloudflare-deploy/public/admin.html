@@ -20608,7 +20608,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260610010337 -->
+        <!-- BUILD:20260610011212 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -25204,6 +25204,15 @@ button.chip:hover,
     <span class="ph85-brand-text">망고아이 관리</span>
   </div>
   <input class="ph85-search" id="ph85-search" type="search" placeholder="🔍 메뉴 검색...">
+
+  <!-- AI 운영비서 진입 (플로팅 대체) -->
+  <a id="ph85-ai-asst" role="button" tabindex="0"
+     onclick="event.preventDefault();event.stopPropagation();if(window.miAsstOpen){window.miAsstOpen();}else{alert('AI 운영비서를 불러오는 중입니다. 잠시 후 다시 눌러주세요.');}if(window.mgaClose)window.mgaClose();"
+     style="display:flex;align-items:center;gap:9px;padding:12px 13px;margin:2px 0 10px;border-radius:10px;background:linear-gradient(135deg,#fbbf24,#ea8a04);color:#fff;text-decoration:none;cursor:pointer;box-shadow:0 6px 16px -6px rgba(245,158,11,0.6)">
+    <span style="font-size:20px">🥭</span>
+    <span style="flex:1;font-weight:800;font-size:13px">AI 운영비서</span>
+    <span style="font-size:10px;font-weight:900;letter-spacing:.5px;background:rgba(255,255,255,0.25);padding:2px 8px;border-radius:99px">AI</span>
+  </a>
 
   <div class="ph85-group" data-cards="card-eval-mgmt,card-bulk-eval,card-ai-lesson-report,card-ai-eval-draft,card-monthly-report,card-comparison-report">
     <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
@@ -35679,10 +35688,8 @@ button.chip:hover,
 })();
 </script>
 <style id="ph-hero-mobile-hide">
-  /* 모바일에서 히어로(인사말+통합검색+AI) 패널 숨김 — 사용자 요청 */
-  @media (max-width: 1023px) {
-    section.hero, .hero { display: none !important; }
-  }
+  /* (2026-06-10 사용자 요청) 모바일에서도 히어로 AI 검색창 표시 — 숨김 해제 */
+  /* @media (max-width: 1023px) { section.hero, .hero { display: none !important; } } */
 </style>
 <style id="ph-dup-sidebar-fix">
   /* 🛠 사이드바 정리 — 최근 #ph85-sidebar("망고아이 관리")만 사용. 옛 #admin-sidebar 완전 제거 */
@@ -35822,7 +35829,7 @@ button.chip:hover,
 <!-- 🥭 P3 — AI 운영 비서 대화 패널 (기존 ai-command 연결 · 가산적/비파괴 · id 충돌 회피 mi-asst-) -->
 <script>
 (function(){
-  if(document.getElementById('mi-asst-fab')) return;
+  if(document.getElementById('mi-asst-panel')) return;
   var st=document.createElement('style');
   st.textContent='@keyframes miAsstSlide{from{transform:translateX(100%)}to{transform:translateX(0)}}'
     +'.mi-dot{display:inline-block;width:6px;height:6px;margin:0 1px;border-radius:50%;background:#94a3b8;animation:miDot 1s infinite}'
@@ -35834,7 +35841,6 @@ button.chip:hover,
 
   var box=document.createElement('div');
   box.innerHTML=''
-   +'<button id="mi-asst-fab" aria-label="AI 운영 비서" style="position:fixed;right:20px;bottom:92px;z-index:9998;width:56px;height:56px;border:none;border-radius:18px;cursor:pointer;background:linear-gradient(135deg,#fbbf24,#ea8a04);color:#fff;font-size:26px;box-shadow:0 10px 26px -8px rgba(245,158,11,.6);transition:transform .15s">🥭</button>'
    +'<div id="mi-asst-back" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(2,6,23,.5);backdrop-filter:blur(2px)"></div>'
    +'<aside id="mi-asst-panel" style="display:none;position:fixed;top:0;right:0;z-index:9999;height:100vh;width:390px;max-width:94vw;background:#0f172a;border-left:1px solid rgba(99,102,241,.25);box-shadow:-12px 0 40px -12px rgba(0,0,0,.6);flex-direction:column;animation:miAsstSlide .28s ease both">'
    +'  <div style="display:flex;align-items:center;gap:10px;padding:0 16px;height:60px;border-bottom:1px solid rgba(99,102,241,.18)">'
@@ -35894,7 +35900,7 @@ button.chip:hover,
   }
   function open(){ boot(); panel.style.display='flex'; back.style.display='block'; }
   function close(){ panel.style.display='none'; back.style.display='none'; }
-  document.getElementById('mi-asst-fab').onclick=open;
+  window.miAsstOpen=open;  // 사이드바 메뉴에서 호출
   document.getElementById('mi-asst-close').onclick=close;
   back.onclick=close;
   document.getElementById('mi-asst-form').addEventListener('submit',function(e){ e.preventDefault(); var v=document.getElementById('mi-asst-input').value.trim(); if(!v)return; ask(v); document.getElementById('mi-asst-input').value=''; });
