@@ -149,6 +149,50 @@ try {
   check('cleanup: 삭제 용량 로깅(humanBytes)', mod.includes('deleted_human') && mod.includes('humanBytes'));
 } catch (e) { check('recordings-cleanup.ts 읽기', false); console.log('    →', e.message); }
 
+// ── 8) 실제 admin.html 개선 검증 (P1 PDF CDN · P2-1 실시간 수업 이상감지) ──
+console.log('\n[8] 실제 admin.html 개선 (P1 안전수정 · P2-1 즉시대응)');
+try {
+  const a = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8');
+  // P1-1: PDF 라이브러리 cdnjs(차단) → jsDelivr
+  check('P1-1: admin.html 에 cdnjs 잔여 없음', !a.includes('cdnjs.cloudflare.com'));
+  check('P1-1: jsPDF jsDelivr 로드', a.includes('jsdelivr.net/npm/jspdf'));
+  check('P1-1: html2canvas jsDelivr 로드', a.includes('jsdelivr.net/npm/html2canvas'));
+  // P2-1: 실시간 수업 이상감지 강조·정렬·액션
+  check('P2-1: alerts 교차참조(alertMap)', a.includes('alertMap') && a.includes("/api/admin/alerts"));
+  check('P2-1: 미확인 알림만 표시(acknowledged_at)', a.includes('acknowledged_at'));
+  check('P2-1: 이상감지 방 최상단 정렬', /sort\(\(a,b\)=>\s*\(alertMap/.test(a));
+  check('P2-1: 빨간 Pulse 클래스/애니메이션', a.includes('room-alert') && a.includes('roomAlertPulse'));
+  check('P2-1: 모션 최소화 대응', a.includes('prefers-reduced-motion'));
+  check('P2-1: 즉시 개입 + GHOST 참관 버튼', a.includes('interveneRoom') && a.includes('GHOST 참관'));
+  check('P2-1: 기존 강제종료 유지(회귀 방지)', a.includes('forceEndRoom'));
+} catch (e) { check('admin.html 개선 검증 읽기', false); console.log('    →', e.message); }
+
+// ── 9) P2-3 차트 툴팁 전역 개선 ──
+console.log('\n[9] P2-3 차트 툴팁 전역 개선 (Chart.js 지연로드 대응)');
+try {
+  const a = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8');
+  check('P2-3: Chart 전역 tooltip 기본값 설정', a.includes('Chart.defaults.plugins.tooltip') || a.includes('Chart.defaults.plugins'));
+  check('P2-3: 지연로드 대응 폴링(가드)', a.includes('__miTipDone') && a.includes('applyChartDefaults'));
+  check('P2-3: 포인트 hover 반응 강화', a.includes('hoverRadius') && a.includes('hitRadius'));
+  check('P2-3: 실패해도 차트 동작 무영향(try/catch)', a.includes('Chart.__miTipDone=true;') && a.includes('}catch(e){}'));
+  // 실제 문서 종료 직전 삽입(템플릿 문자열 body 아닌 곳)인지 — 마지막 </body> 직전 script
+  check('P2-3: 문서 종료부에 삽입(구조 안전)', a.lastIndexOf('__miTipDone') < a.lastIndexOf('</body>'));
+} catch (e) { check('P2-3 읽기', false); console.log('    →', e.message); }
+
+// ── 10) P3 AI 운영 비서 대화 패널 (가산적·비파괴) ──
+console.log('\n[10] P3 AI 운영 비서 대화 패널 (기존 ai-command 연결)');
+try {
+  const a = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8');
+  check('P3: 비서 FAB + 패널 존재', a.includes('mi-asst-fab') && a.includes('mi-asst-panel'));
+  check('P3: 실제 /api/admin/ai-command 연결', /miAsstAsk|mi-asst-form[\s\S]{0,1200}\/api\/admin\/ai-command/.test(a) || a.includes("body:JSON.stringify({command:q})"));
+  check('P3: API 실패/무답 시 폴백 응답', a.includes('function fb(q)') && a.includes('FB.eval'));
+  check('P3: 3대 역량 라우팅(평가서·이상감지·정산)', a.includes('평가서|피드백') && a.includes('미납|수강료|정산'));
+  check('P3: 답변 끝 번호요약 페르소나', a.includes('요약 —'));
+  check('P3: id 충돌 회피(mi-asst- 접두사)', a.includes('mi-asst-input') && a.includes('mi-asst-chips'));
+  check('P3: 기존 askAI 흐름 미수정(비파괴)', a.includes('async function askAI(command)'));
+  check('P3: 기존 #ai-panel 그대로 유지', a.includes("getElementById('ai-panel')"));
+} catch (e) { check('P3 읽기', false); console.log('    →', e.message); }
+
 // ── 결과 ──────────────────────────────────────────────────────────────
 console.log('\n' + '='.repeat(52));
 console.log(`🎯 총 ${PASS+FAIL}건 중 ✅ ${PASS} 통과 / ❌ ${FAIL} 실패`);

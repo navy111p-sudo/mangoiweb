@@ -13621,63 +13621,34 @@ document.getElementById('retention-run').onclick = async () => {
 };
 
 // ── 활성 방 목록 로딩 ──
-function _ensureRoomEnhCss(){
-  if(document.getElementById('rooms-enh-css'))return;
-  const st=document.createElement('style');st.id='rooms-enh-css';
-  st.textContent='@keyframes roomAlertPulse{0%{box-shadow:inset 3px 0 0 #ef4444,0 0 0 0 rgba(239,68,68,.45)}70%{box-shadow:inset 3px 0 0 #ef4444,0 0 0 6px rgba(239,68,68,0)}100%{box-shadow:inset 3px 0 0 #ef4444,0 0 0 0 rgba(239,68,68,0)}} tr.room-alert>td{background:rgba(239,68,68,.08)!important} tr.room-alert>td:first-child{animation:roomAlertPulse 1.3s ease-in-out infinite} @media (prefers-reduced-motion:reduce){tr.room-alert>td:first-child{animation:none}} .room-alert-badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:9999px;background:#ef4444;color:#fff;font-size:10px;font-weight:800;vertical-align:middle}';
-  document.head.appendChild(st);
-}
 async function loadActiveRooms() {
-  _ensureRoomEnhCss();
-  const _L = adminLang==='en';
   try {
-    const [rr, ar] = await Promise.all([
-      fetch('/api/active-rooms'),
-      fetch('/api/admin/alerts').catch(()=>null)
-    ]);
-    const rooms = await rr.json();
+    const r = await fetch('/api/active-rooms');
+    const rooms = await r.json();
     const tb = document.getElementById('active-rooms-table');
-    // 미확인(unack) 알림을 room_id 별로 매핑 → 이상감지 표시·정렬용
-    const alertMap = {};
-    try {
-      if (ar) { const ad = await ar.json(); if (ad && ad.ok !== false) (ad.items||[]).forEach(it => { if (!it.acknowledged_at) alertMap[String(it.room_id)] = it; }); }
-    } catch(_) {}
     if (!rooms || rooms.length === 0) {
-      tb.innerHTML = '<tr><td colspan="6" class="empty">'+(_L?'No active classes':'현재 진행 중인 수업 없음')+'</td></tr>';
+      tb.innerHTML = '<tr><td colspan="6" class="empty">'+(adminLang==='en'?'No active classes':'현재 진행 중인 수업 없음')+'</td></tr>';
       return;
     }
-    const TYPE_KO = { silence_20s:'침묵 20초', forbidden_word:'금지어 감지', low_engagement:'참여 저하', network_poor:'네트워크 저하' };
-    // 🚨 이상감지 방을 최상단으로 정렬
-    const sorted = rooms.slice().sort((a,b)=> (alertMap[String(b.roomId)]?1:0) - (alertMap[String(a.roomId)]?1:0));
-    tb.innerHTML = sorted.map(room => {
+    tb.innerHTML = rooms.map(room => {
       const userNames = (room.users || []).map(u => u.username).join(', ') || '-';
+      const _L = adminLang==='en';
       const roomIdJs = JSON.stringify(room.roomId);
-      const al = alertMap[String(room.roomId)];
-      const badge = al ? ' <span class="room-alert-badge">🚨 '+(TYPE_KO[al.alert_type]||al.alert_type)+'</span>' : '';
-      return `<tr class="${al?'room-alert':''}">
-        <td>${room.roomId}${badge}</td>
+      return `<tr>
+        <td>${room.roomId}</td>
         <td>${room.userCount}${_L?'':' 명'}${room.observerCount > 0 ? ' <span style="color:#f59e0b;font-size:11px;">('+ (_L?'obs ':'관찰 ') + room.observerCount+')</span>' : ''}</td>
         <td>${userNames}</td>
         <td>${room.hasPdf ? '<span class="badge ok">'+(_L?'Sharing':'공유중')+'</span>' : '-'}</td>
         <td>${room.hasVideo ? '<span class="badge ok">'+(_L?'Sharing':'공유중')+'</span>' : '-'}</td>
         <td style="display:flex;gap:6px;flex-wrap:wrap;">
-          ${al?`<button onclick="interveneRoom(${roomIdJs})" style="background:#ef4444;color:#fff;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;">🚨 ${_L?'Intervene':'즉시 개입'}</button>`:''}
-          <button onclick="observeRoom(${roomIdJs})" style="background:#f59e0b;color:#fff;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;">👁 ${_L?'Ghost':'GHOST 참관'}</button>
+          <button onclick="observeRoom(${roomIdJs})" style="background:#f59e0b;color:#fff;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;">🔍 ${_L?'Observe':'관찰'}</button>
           <button onclick="forceEndRoom(${roomIdJs})" title="${_L?'Force end this class (disconnects all participants)':'이 수업을 강제 종료합니다 (모든 참가자 연결 해제)'}" style="background:#dc2626;color:#fff;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;">🛑 ${_L?'Force End':'강제 종료'}</button>
         </td>
       </tr>`;
     }).join('');
   } catch(e) {
-    document.getElementById('active-rooms-table').innerHTML = '<tr><td colspan="6" class="empty">'+(_L?'Load failed: ':'로딩 실패: ') + e.message + '</td></tr>';
+    document.getElementById('active-rooms-table').innerHTML = '<tr><td colspan="6" class="empty">'+(adminLang==='en'?'Load failed: ':'로딩 실패: ') + e.message + '</td></tr>';
   }
-}
-// 🚨 즉시 개입 — 강사 귓속말(Whisper) 카드로 이동해 즉시 대처
-function interveneRoom(roomId){
-  try{
-    const c=document.getElementById('card-admin-whisper');
-    if(c){ if(c.tagName==='DETAILS') c.open=true; c.scrollIntoView({behavior:'smooth',block:'start'}); const o=c.style.boxShadow; c.style.boxShadow='0 0 0 3px rgba(239,68,68,0.6)'; setTimeout(function(){c.style.boxShadow=o;},1800); }
-    else { alert('강사 귓속말 기능으로 이동: '+roomId); }
-  }catch(_){ }
 }
 
 function observeRoom(roomId) {
@@ -20608,7 +20579,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260610000511 -->
+        <!-- BUILD:20260609222554 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -28685,9 +28656,9 @@ button.chip:hover,
       s.onerror = function(){ alert('PDF 라이브러리 로드 실패 (네트워크 확인). 인쇄 다이얼로그를 엽니다.'); window.print(); };
       document.head.appendChild(s);
     }
-    if (!window.jspdf) loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
+    if (!window.jspdf) loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
     else loaded++;
-    if (!window.html2canvas) loadScript('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js');
+    if (!window.html2canvas) loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
     else loaded++;
     if (loaded === 2) tryGenerate();
   };
@@ -36126,113 +36097,5 @@ button.chip:hover,
   }
 </style>
 
-<!-- 📊 P2-3 차트 툴팁 전역 개선 (Chart.js 지연 로드 대응 · 개별 설정 미파괴) -->
-<script>
-(function(){
-  function applyChartDefaults(){
-    if(!window.Chart||!Chart.defaults||!Chart.defaults.plugins) return false;
-    if(Chart.__miTipDone) return true;
-    try{
-      var t=Chart.defaults.plugins.tooltip;
-      t.backgroundColor='rgba(15,23,42,0.96)';
-      t.titleColor='#cbd5e1'; t.bodyColor='#ffffff';
-      t.padding=10; t.cornerRadius=10; t.displayColors=false;
-      t.borderColor='rgba(99,102,241,0.40)'; t.borderWidth=1;
-      t.titleFont={weight:'700',size:12}; t.bodyFont={weight:'800',size:13};
-      if(Chart.defaults.elements&&Chart.defaults.elements.point){
-        Chart.defaults.elements.point.hoverRadius=6;
-        Chart.defaults.elements.point.hitRadius=8;
-      }
-      Chart.__miTipDone=true;
-    }catch(e){}
-    return true;
-  }
-  if(!applyChartDefaults()){
-    var iv=setInterval(function(){ if(applyChartDefaults()) clearInterval(iv); },120);
-    setTimeout(function(){ clearInterval(iv); },15000);
-  }
-})();
-</script>
-<!-- 🥭 P3 — AI 운영 비서 대화 패널 (기존 ai-command 연결 · 가산적/비파괴 · id 충돌 회피 mi-asst-) -->
-<script>
-(function(){
-  if(document.getElementById('mi-asst-fab')) return;
-  var st=document.createElement('style');
-  st.textContent='@keyframes miAsstSlide{from{transform:translateX(100%)}to{transform:translateX(0)}}'
-    +'.mi-dot{display:inline-block;width:6px;height:6px;margin:0 1px;border-radius:50%;background:#94a3b8;animation:miDot 1s infinite}'
-    +'.mi-dot:nth-child(2){animation-delay:.15s}.mi-dot:nth-child(3){animation-delay:.3s}'
-    +'@keyframes miDot{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}'
-    +'#mi-asst-chips button:hover{background:rgba(99,102,241,.18)}'
-    +'#mi-asst-fab:hover{transform:scale(1.06)}';
-  document.head.appendChild(st);
-
-  var box=document.createElement('div');
-  box.innerHTML=''
-   +'<button id="mi-asst-fab" aria-label="AI 운영 비서" style="position:fixed;right:20px;bottom:92px;z-index:9998;width:56px;height:56px;border:none;border-radius:18px;cursor:pointer;background:linear-gradient(135deg,#fbbf24,#ea8a04);color:#fff;font-size:26px;box-shadow:0 10px 26px -8px rgba(245,158,11,.6);transition:transform .15s">🥭</button>'
-   +'<div id="mi-asst-back" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(2,6,23,.5);backdrop-filter:blur(2px)"></div>'
-   +'<aside id="mi-asst-panel" style="display:none;position:fixed;top:0;right:0;z-index:9999;height:100vh;width:390px;max-width:94vw;background:#0f172a;border-left:1px solid rgba(99,102,241,.25);box-shadow:-12px 0 40px -12px rgba(0,0,0,.6);flex-direction:column;animation:miAsstSlide .28s ease both">'
-   +'  <div style="display:flex;align-items:center;gap:10px;padding:0 16px;height:60px;border-bottom:1px solid rgba(99,102,241,.18)">'
-   +'    <span style="width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:linear-gradient(135deg,#fbbf24,#ea8a04);font-size:18px">🥭</span>'
-   +'    <div style="line-height:1.2"><div style="font-weight:800;color:#e6ecff">AI 운영 비서</div><div style="font-size:11px;color:#34d399">● 온라인</div></div>'
-   +'    <button id="mi-asst-close" aria-label="닫기" style="margin-left:auto;background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;padding:6px">✕</button>'
-   +'  </div>'
-   +'  <div id="mi-asst-body" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px"></div>'
-   +'  <div id="mi-asst-chips" style="display:flex;gap:8px;overflow-x:auto;padding:0 14px 8px"></div>'
-   +'  <form id="mi-asst-form" style="display:flex;gap:8px;padding:12px;border-top:1px solid rgba(99,102,241,.18)">'
-   +'    <input id="mi-asst-input" autocomplete="off" placeholder="무엇이든 물어보세요…" style="flex:1;height:44px;padding:0 14px;border-radius:12px;border:1px solid rgba(99,102,241,.25);background:#0c1a3a;color:#e6ecff;outline:none;font-size:14px"/>'
-   +'    <button type="submit" aria-label="보내기" style="width:44px;height:44px;border:none;border-radius:12px;background:#2563eb;color:#fff;font-size:18px;cursor:pointer">➤</button>'
-   +'  </form>'
-   +'</aside>';
-  document.body.appendChild(box);
-
-  var panel=document.getElementById('mi-asst-panel'), back=document.getElementById('mi-asst-back'), body=document.getElementById('mi-asst-body');
-  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
-  function bubble(role,html){
-    var w=document.createElement('div');
-    w.style.cssText='display:flex;'+(role==='me'?'justify-content:flex-end':'justify-content:flex-start');
-    w.innerHTML=role==='me'
-      ? '<div style="max-width:80%;padding:10px 13px;border-radius:14px 14px 4px 14px;background:#2563eb;color:#fff;font-size:13.5px;line-height:1.55">'+html+'</div>'
-      : '<div style="display:flex;gap:8px;max-width:92%"><span style="width:26px;height:26px;border-radius:9px;flex:none;display:grid;place-items:center;background:linear-gradient(135deg,#fbbf24,#ea8a04);font-size:14px">🥭</span><div style="padding:10px 13px;border-radius:14px 14px 14px 4px;background:#1e293b;color:#e6ecff;font-size:13.5px;line-height:1.6">'+html+'</div></div>';
-    body.appendChild(w); body.scrollTop=body.scrollHeight; return w;
-  }
-  function typing(){ var w=bubble('ai','<span class="mi-dot"></span><span class="mi-dot"></span><span class="mi-dot"></span>'); w.id='mi-asst-typing'; return w; }
-  function untype(){ var t=document.getElementById('mi-asst-typing'); if(t)t.remove(); }
-
-  var FB={
-    eval:'알겠습니다 매니저님! 수업 음성(STT)과 키워드를 분석해 학부모용 피드백 초안을 만들었어요 ✍️<br><br><b>[잘한 점]</b> 일상 표현을 자신감 있게 구사했어요.<br><b>[보완할 점]</b> 과거시제(was/were)를 현재형과 혼동하는 경향이 있어요.<br><b>[다음 목표]</b> 과거시제 문장 10개 말하기로 정확도를 높여요.<br><br>요약 —<br>1. 음성+키워드로 30초 내 초안 완성<br>2. 잘한 점·보완점·목표 3단 구성<br>3. 검토 후 카톡으로 바로 발송',
-    alert:'이상 징후 대응을 도와드릴게요 🚨<br><br>• <b>GHOST 참관</b> — 학생·강사 모르게 조용히 입장해 확인<br>• <b>강사 귓속말</b> — 학생에겐 안 들리게 강사에게만 가이드<br>• 침묵 20초·네트워크 저하·금지어는 실시간 알림으로 잡히고, 2회 연속이면 관리자 에스컬레이션<br><br>요약 —<br>1. 실시간 이상감지<br>2. 참관·귓속말로 즉시 개입<br>3. 반복 시 자동 에스컬레이션',
-    settle:'정산·알림 업무 도와드릴게요 💸<br><br>• <b>미납 카톡</b> — 대상 스캔 후 알림톡 D+1·D+3 자동 발송<br>• <b>지점 정산</b> — 매출에서 본사 수수료(15~18%)를 빼 자동 계산<br>• <b>강사 급여</b> — 수업 횟수×단가 산정, KRW/PHP 환전 처리<br><br>요약 —<br>1. 미납 안내 자동 발송<br>2. 지점 수수료 자동 정산<br>3. 강사료·환전까지 한 번에',
-    base:'무엇이든 도와드릴게요 매니저님! 🥭<br><br>1. ✍️ AI 평가서·학습 리포트 초안<br>2. 🚨 실시간 이상감지 대응<br>3. 💸 미납 알림·지점/강사 정산<br><br>아래 버튼을 누르거나 자유롭게 질문해 주세요!'
-  };
-  function fb(q){ if(/평가서|피드백|리포트|초안/.test(q))return FB.eval; if(/이상|침묵|네트워크|고스트|참관|귓속말|감지/i.test(q))return FB.alert; if(/미납|수강료|정산|급여|알림톡|카톡|환전/.test(q))return FB.settle; return FB.base; }
-
-  async function ask(q){
-    bubble('me',esc(q)); typing();
-    try{
-      var r=await fetch('/api/admin/ai-command',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({command:q})});
-      var res=await r.json(); untype();
-      if(res && res.ok!==false && res.answer){ bubble('ai', esc(res.answer).replace(/\n/g,'<br>')); }
-      else { bubble('ai', fb(q)); }
-    }catch(e){ untype(); bubble('ai', fb(q)); }
-  }
-  window.miAsstAsk=ask;
-
-  var CHIPS=['이번 주 평가서 초안 써줘','지금 이상감지 현황은?','미납 학생 카톡 보내는 법','이번 달 지점 정산 요약'];
-  var inited=false;
-  function boot(){
-    if(inited)return; inited=true;
-    bubble('ai','안녕하세요 매니저님! 저는 망고아이 <b>AI 운영 비서</b>예요 🥭<br>평가서 작성·실시간 이상감지 대응·정산/알림까지 도와드릴게요.');
-    var ch=document.getElementById('mi-asst-chips');
-    ch.innerHTML=CHIPS.map(function(c){return '<button type="button" style="flex:none;white-space:nowrap;font-size:12px;padding:7px 12px;border-radius:9999px;border:1px solid rgba(99,102,241,.25);background:#0c1a3a;color:#cbd5e1;cursor:pointer">'+c+'</button>';}).join('');
-    Array.prototype.forEach.call(ch.querySelectorAll('button'),function(b){ b.onclick=function(){ ask(b.textContent); }; });
-  }
-  function open(){ boot(); panel.style.display='flex'; back.style.display='block'; }
-  function close(){ panel.style.display='none'; back.style.display='none'; }
-  document.getElementById('mi-asst-fab').onclick=open;
-  document.getElementById('mi-asst-close').onclick=close;
-  back.onclick=close;
-  document.getElementById('mi-asst-form').addEventListener('submit',function(e){ e.preventDefault(); var v=document.getElementById('mi-asst-input').value.trim(); if(!v)return; ask(v); document.getElementById('mi-asst-input').value=''; });
-})();
-</script>
 </body>
 </html>
