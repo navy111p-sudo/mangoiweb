@@ -24937,7 +24937,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260609182754 -->
+<!-- BUILD:20260609183245 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -25579,27 +25579,57 @@ document.addEventListener('keydown', function(e){
     if (document.getElementById('mangoi-allmenu')) return;
     var ov = document.createElement('div');
     ov.id = 'mangoi-allmenu';
-    ov.setAttribute('style', 'position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;z-index:2147483600;background:linear-gradient(135deg,#0F172A,#1E293B);overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 64px;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;');
-    var h = '<div style="display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:2;margin:-14px -14px 12px;padding:14px;background:linear-gradient(135deg,#0F172A,#1E293B)">'
-      + '<h2 style="margin:0;color:#fff;font-size:18px;font-weight:800">📋 전체 메뉴</h2>'
-      + '<button type="button" id="mangoi-allmenu-x" aria-label="닫기" style="width:44px;height:44px;border-radius:50%;background:rgba(248,250,252,0.14);border:1px solid rgba(248,250,252,0.3);color:#fff;font-size:21px;font-weight:800;cursor:pointer;line-height:1">✕</button>'
+    // 🌌 우주 배경 (홈 화면과 동일한 space.jpg + 비네팅) + 투명 글래스 모달
+    ov.setAttribute('style', 'position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;z-index:2147483600;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;background:radial-gradient(ellipse at center,rgba(11,15,30,0.45) 0%,rgba(8,11,24,0.92) 100%),url(\'/img/bg/space.jpg\') center center / cover no-repeat,#050714;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;animation:mgAmFade .28s ease;');
+
+    // ✨ 반짝이는 별 필드 (디자인 디테일)
+    var sf = '<style>@keyframes mgAmFade{from{opacity:0}to{opacity:1}}@keyframes mgAmRise{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}@keyframes mgamTwinkle{0%,100%{opacity:.25;transform:scale(1)}50%{opacity:1;transform:scale(1.5)}}@media(max-width:560px){#mgam-grid{grid-template-columns:repeat(3,1fr)!important}}</style>'
+;
+    sf += '<div id="mgam-stars" style="position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden">';
+    for (var i=0;i<46;i++){
+      var top=(Math.random()*100).toFixed(2), left=(Math.random()*100).toFixed(2);
+      var sz=(Math.random()*2+1).toFixed(2), dur=(Math.random()*2.5+1.8).toFixed(2), dly=(Math.random()*3).toFixed(2);
+      var op=(Math.random()*0.5+0.4).toFixed(2);
+      sf += '<span style="position:absolute;top:'+top+'%;left:'+left+'%;width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:#fff;opacity:'+op+';box-shadow:0 0 4px 1px rgba(255,255,255,0.55);animation:mgamTwinkle '+dur+'s ease-in-out '+dly+'s infinite"></span>';
+    }
+    sf += '</div>';
+
+    // 🪟 투명 글래스 모달 박스
+    var h = sf;
+    h += '<div id="mgam-box" style="position:relative;z-index:1;width:100%;max-width:560px;max-height:88vh;display:flex;flex-direction:column;background:rgba(255,255,255,0.05);backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);border:1px solid rgba(255,255,255,0.16);border-radius:22px;box-shadow:0 24px 70px -20px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.14);overflow:hidden;animation:mgAmRise .32s cubic-bezier(.2,.8,.2,1)">';
+
+    // 헤더
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,0.1);flex:0 0 auto">'
+      + '<h2 style="margin:0;color:#fff;font-size:16px;font-weight:800;letter-spacing:.3px;text-shadow:0 1px 8px rgba(0,0,0,0.4)">📋 전체 메뉴</h2>'
+      + '<button type="button" id="mangoi-allmenu-x" aria-label="닫기" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.22);color:#fff;font-size:16px;font-weight:800;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;transition:background .15s">✕</button>'
       + '</div>';
-    h += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">';
+
+    // 카드 그리드 (스크롤 영역)
+    h += '<div style="overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;flex:1 1 auto">';
+    h += '<div id="mgam-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:9px">';
     ALLMENU_ITEMS.forEach(function(m){
-      h += '<a href="' + m.url + '" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:16px 10px;background:rgba(30,41,59,0.92);border:1px solid rgba(96,165,250,0.5);border-radius:14px;color:#F8FAFC;text-decoration:none;min-height:94px;text-align:center;font-size:13px;font-weight:700;-webkit-tap-highlight-color:rgba(96,165,250,0.3)">'
-        + '<span style="font-size:26px">' + m.emoji + '</span><span>' + m.name + '</span></a>';
+      h += '<a href="' + m.url + '" class="mgam-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px 6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.13);border-radius:13px;color:#F1F5F9;text-decoration:none;min-height:74px;text-align:center;font-size:11.5px;font-weight:600;line-height:1.25;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);transition:transform .15s,background .15s,border-color .15s;-webkit-tap-highlight-color:rgba(96,165,250,0.3)">'
+        + '<span style="font-size:21px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4))">' + m.emoji + '</span><span>' + m.name + '</span></a>';
     });
+    h += '</div></div>';
     h += '</div>';
     ov.innerHTML = h;
     document.body.appendChild(ov);
     document.body.style.overflow = 'hidden';
+
+    // 호버 효과 (마우스 환경)
+    ov.querySelectorAll('.mgam-card').forEach(function(c){
+      c.addEventListener('mouseenter', function(){ c.style.transform='translateY(-3px)'; c.style.background='rgba(96,165,250,0.18)'; c.style.borderColor='rgba(96,165,250,0.55)'; });
+      c.addEventListener('mouseleave', function(){ c.style.transform=''; c.style.background='rgba(255,255,255,0.06)'; c.style.borderColor='rgba(255,255,255,0.13)'; });
+    });
+
     function _closeFromEvent(ev){ ev.preventDefault(); ev.stopPropagation(); closeAllMenuOverlay(); }
     var x = document.getElementById('mangoi-allmenu-x');
     if (x) { x.addEventListener('click', _closeFromEvent); x.addEventListener('touchend', _closeFromEvent); }
     ov.addEventListener('click', function(ev){ if (ev.target === ov) closeAllMenuOverlay(); });
     ov.addEventListener('touchend', function(ev){ if (ev.target === ov) { ev.preventDefault(); closeAllMenuOverlay(); } });
     document.addEventListener('keydown', _allmenuEsc);
-    console.log('[allmenu] 열림(overlay v3) — ' + ALLMENU_ITEMS.length + '개');
+    console.log('[allmenu] 열림(overlay v4 우주글래스) — ' + ALLMENU_ITEMS.length + '개');
   }
   window.openAllMenuOverlay = openAllMenuOverlay;
 
