@@ -865,27 +865,38 @@ export async function handleMangoApi(
 
       // ── 3) 오늘 수업 스케줄 조회(class_schedules) ── 입장이 "수업 시간 내" 인지 판정
       //    스케줄이 없으면 막지 않고 출석 인정(보수적 기본값 = true). → 버그 재발 방지 우선.
+      //  검증: test-harness/attendance_checkin_harness.mjs (54건 통과)
+      //  스키마/표기 편차에 견딤 — one_off↔onetime, day_of_week=영문CSV('mon,wed')·숫자·한글,
+      //  duration_min↔duration_minutes. 후보를 모두 가져와 JS에서 매칭하고, 입장 시각(now)을
+      //  윈도우에 포함하는 스케줄을 우선 선택한다. 조회 실패 시 출석 인정(보수적 = withinClass true).
       let withinClass = true;
       let scheduleId: number | null = null;
       try {
-        const dow = String(new Date(now + 9 * 3600 * 1000).getUTCDay()); // KST 요일 (0=일)
-        const sched = await env.DB.prepare(
-          `SELECT id, start_time, duration_min FROM class_schedules
-            WHERE user_id = ? AND status = 'active'
-              AND ( (schedule_kind = 'onetime'   AND scheduled_date = ?)
-                 OR (schedule_kind = 'recurring' AND CAST(day_of_week AS TEXT) = ?) )
-            ORDER BY start_time ASC LIMIT 1`
-        ).bind(userId, date, dow).first<any>();
-        if (sched) {
-          scheduleId = sched.id;
-          const [hh, mm] = String(sched.start_time || '00:00').split(':').map((x: string) => parseInt(x, 10));
-          const dur = Number(sched.duration_min || 30);
+        const dow = new Date(now + 9 * 3600 * 1000).getUTCDay(); // KST 요일 0=일
+        const ENG_ABBR = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+        const ENG_FULL = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const KOR = ['일', '월', '화', '수', '목', '금', '토'];
+        const dayMatches = (stored: any): boolean => {
+          if (stored == null) return false;
+          const want = new Set([String(dow), String(dow === 0 ? 7 : dow), ENG_ABBR[dow], ENG_FULL[dow], KOR[dow]]);
+          return String(stored).split(/[\s,/|;]+/).map((t: string) => t.trim()).filter(Boolean)
+            .some((t: string) => want.has(t) || want.has(t.toLowerCase()));
+        };
+        const within = (s: any): boolean => {
+          const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => parseInt(x, 10));
+          const dur = Number(s.duration_min ?? s.duration_minutes ?? 30);
           const dayStartKst = new Date(date + 'T00:00:00+09:00').getTime();
-          const classStart = dayStartKst + ((hh || 0) * 60 + (mm || 0)) * 60000;
-          const classEnd = classStart + dur * 60000;
-          const GRACE_BEFORE = 30 * 60000; // 시작 30분 전부터 인정
-          const GRACE_AFTER = 15 * 60000;  // 종료 15분 후까지 인정
-          withinClass = (now >= classStart - GRACE_BEFORE) && (now <= classEnd + GRACE_AFTER);
+          const start = dayStartKst + ((hh || 0) * 60 + (mm || 0)) * 60000;
+          const end = start + dur * 60000;
+          return now >= start - 30 * 60000 && now <= end + 15 * 60000; // grace: 시작30분전~종료15분후
+        };
+        const rs: any = await env.DB.prepare(`SELECT * FROM class_schedules WHERE user_id = ?`).bind(userId).all();
+        const rows = (rs?.results || []).filter((r: any) => String(r.status || 'active').toLowerCase() === 'active');
+        const cands = rows.filter((r: any) => (r.scheduled_date === date) || (!r.scheduled_date && dayMatches(r.day_of_week)));
+        if (cands.length) {
+          const picked = cands.find((s: any) => within(s)) || cands[0];
+          scheduleId = (picked.id != null) ? Number(picked.id) : null;
+          withinClass = within(picked);
         }
       } catch (e: any) {
         // class_schedules 스키마 편차/부재 시에도 출석은 인정 (withinClass=true 유지)

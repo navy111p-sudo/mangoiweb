@@ -88,6 +88,18 @@ export function canViewPII(scope: Scope | null | undefined): boolean {
 const PHONE_KEYS = ['phone', 'student_phone', 'parent_phone', 'teacher_phone'];
 const ID_KEYS = ['kakao_id', 'kakaoId', 'parent_kakao_id', 'student_kakao_id', 'email'];
 
+/** PII 입력 저장 시 마스킹 가드가 검사할 컬럼 (전화·카톡·이메일) */
+export const PII_WRITE_KEYS = [...PHONE_KEYS, ...ID_KEYS];
+
+/**
+ * 값이 이미 마스킹된 표시값(별표 포함)인가?
+ *   수정 폼이 마스킹 표시값("010-1234-****")을 그대로 제출했을 때
+ *   원본을 덮어써 손상시키는 것을 막기 위해 저장 단계에서 검사한다.
+ */
+export function isMaskedValue(v: unknown): boolean {
+  return typeof v === 'string' && v.indexOf('*') > -1;
+}
+
 /**
  * 단일 레코드의 PII 컬럼을 마스킹한 얕은 복제본을 반환한다. (원본 불변)
  */
