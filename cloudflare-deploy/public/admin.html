@@ -7955,7 +7955,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
     const en = isEn();
     const room = v('sup-ghost-room').trim();
     if (!room) { alert(en?'Enter room ID':'강의실 ID 입력'); return; }
-    window.open('/admin/ghost-view.html?room='+encodeURIComponent(room), '_blank', 'width=1280,height=820');
+    window.open('/admin/ghost-view.html?room_id='+encodeURIComponent(room), '_blank', 'width=1280,height=820');
   };
 
   document.getElementById('card-supervisor')?.addEventListener('toggle', function(){
@@ -12079,33 +12079,44 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   <summary><span data-ko="📅 캘린더 관리 (휴가·공휴일)" data-en="📅 Calendar (Vacation·Holiday)">📅 캘린더 관리 (휴가·공휴일)</span></summary>
   <div class="menu-body">
     <style>
+      /* ━━ 캘린더 다크 테마 시인성 개선 ━━ */
       #card-calendar .cal-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-      #card-calendar .cal-navbtn{padding:5px 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;font-size:13px;font-weight:700}
-      #card-calendar .cal-navbtn:hover{background:#f3f4f6}
-      #card-calendar #cal-month-label{font-size:16px;font-weight:800;color:#111827;min-width:130px;text-align:center}
-      #card-calendar .cal-legend{font-size:11.5px;color:#6b7280;display:flex;gap:10px;flex-wrap:wrap;margin-left:auto}
+      #card-calendar .cal-navbtn{padding:5px 12px;border:1px solid rgba(255,255,255,0.18);border-radius:6px;background:rgba(255,255,255,0.06);color:#e2e8f0;cursor:pointer;font-size:13px;font-weight:700}
+      #card-calendar .cal-navbtn:hover{background:rgba(255,255,255,0.13)}
+      #card-calendar #cal-month-label{font-size:16px;font-weight:800;color:#f8fafc;min-width:130px;text-align:center}
+      #card-calendar .cal-legend{font-size:11.5px;color:#a3b3d1;display:flex;gap:10px;flex-wrap:wrap;margin-left:auto}
       #card-calendar .cal-legend span{display:inline-flex;align-items:center;gap:4px}
       #card-calendar .cal-dot{width:10px;height:10px;border-radius:3px;display:inline-block}
-      #card-calendar .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;background:#e5e7eb;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden}
-      #card-calendar .cal-dow{background:#f9fafb;text-align:center;font-size:12px;font-weight:800;padding:8px 0}
-      #card-calendar .cal-cell{background:#fff;min-height:84px;padding:5px 5px 6px;display:flex;flex-direction:column;gap:3px}
-      #card-calendar .cal-cell.cal-out{background:#fafafa}
-      #card-calendar .cal-cell.cal-out .cal-date{color:#cbd5e1}
-      #card-calendar .cal-cell.cal-today{box-shadow:inset 0 0 0 2px #f59e0b}
-      #card-calendar .cal-date{font-size:12px;font-weight:700;color:#374151}
-      #card-calendar .cal-chip{font-size:11px;font-weight:700;padding:2px 5px;border-radius:4px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
-      #card-calendar .cal-chip:hover{filter:brightness(0.94)}
+      /* 1) 격자 — 밝은 슬레이트 1px 그리드라인으로 칸 경계 선명화 */
+      #card-calendar .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.15);border-radius:10px;overflow:hidden}
+      #card-calendar .cal-dow{background:#16264d;text-align:center;font-size:12px;font-weight:800;padding:9px 0;color:#cbd5e1}
+      #card-calendar .cal-cell{background:#0f1d40;min-height:88px;padding:6px 6px 7px;display:flex;flex-direction:column;gap:4px;transition:background .12s}
+      #card-calendar .cal-cell:hover{background:#16264d}
+      #card-calendar .cal-cell.cal-out{background:#0b1530}
+      #card-calendar .cal-cell.cal-out .cal-date{color:#475569}
+      /* 2) 오늘 강조 — 연한 블루 틴트 + 2px 블루 하이라이트 */
+      #card-calendar .cal-cell.cal-today{background:rgba(59,130,246,0.10);box-shadow:inset 0 0 0 2px #3b82f6}
+      /* 4) 날짜 숫자 가독성 — 14px / 600 / 밝은 흰색, 일요일 적색·토요일 청색 */
+      #card-calendar .cal-date{font-size:14px;font-weight:600;color:#f8fafc;line-height:1.1}
+      #card-calendar .cal-date.cal-sun{color:#f87171}
+      #card-calendar .cal-date.cal-sat{color:#60a5fa}
+      /* 3) 일정 — 라운드 뱃지 카드(좌측 3px 컬러바) */
+      #card-calendar .cal-chip{font-size:11px;font-weight:700;padding:3px 7px;border-radius:6px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35;border-left:3px solid transparent}
+      #card-calendar .cal-chip:hover{filter:brightness(1.12)}
+      #card-calendar .cal-chip.bg-kr-holiday{background:rgba(239,68,68,0.18);color:#fca5a5;border-left-color:#ef4444}
+      #card-calendar .cal-chip.bg-ph-holiday{background:rgba(59,130,246,0.18);color:#93c5fd;border-left-color:#3b82f6}
+      #card-calendar .cal-chip.bg-teacher-vacation{background:rgba(245,158,11,0.18);color:#fcd34d;border-left-color:#f59e0b}
       #card-calendar .cal-forms{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
-      #card-calendar .cal-form{background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:12px}
-      #card-calendar .cal-form h5{margin:0 0 8px;font-size:13px;font-weight:800;color:#111827}
+      #card-calendar .cal-form{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px}
+      #card-calendar .cal-form h5{margin:0 0 8px;font-size:13px;font-weight:800;color:#f8fafc}
       #card-calendar .cal-form .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:7px}
-      #card-calendar .cal-form input,#card-calendar .cal-form select{padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12.5px}
-      #card-calendar .cal-form .lbl{font-size:12px;color:#6b7280;min-width:48px}
+      #card-calendar .cal-form input,#card-calendar .cal-form select{padding:5px 8px;border:1px solid rgba(255,255,255,0.18);border-radius:6px;font-size:12.5px}
+      #card-calendar .cal-form .lbl{font-size:12px;color:#a3b3d1;min-width:48px}
       #card-calendar .cal-btn{padding:7px 14px;border:none;border-radius:7px;cursor:pointer;font-size:13px;font-weight:800;color:#fff}
       #card-calendar .cal-btn.seed{background:linear-gradient(135deg,#ef4444,#3b82f6)}
       #card-calendar .cal-btn.vac{background:#f59e0b}
       #card-calendar .cal-btn.hol{background:#ef4444}
-      @media(max-width:760px){#card-calendar .cal-forms{grid-template-columns:1fr}#card-calendar .cal-cell{min-height:64px}}
+      @media(max-width:760px){#card-calendar .cal-forms{grid-template-columns:1fr}#card-calendar .cal-cell{min-height:64px}#card-calendar .cal-chip{font-size:10px;padding:2px 5px}}
     </style>
 
     <div style="font-size:12px;color:#6b7280;background:#f9fafb;border:1px dashed #e5e7eb;border-radius:8px;padding:8px 12px;margin-bottom:12px;line-height:1.6"
@@ -12169,12 +12180,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     var grid=document.getElementById('cal-grid');if(!grid)return;
     var lbl=document.getElementById('cal-month-label');if(lbl)lbl.textContent=calCur.getFullYear()+'년 '+(calCur.getMonth()+1)+'월';
     var r=calRange(calCur),dow=['일','월','화','수','목','금','토'],html='';
-    dow.forEach(function(d,i){html+='<div class="cal-dow" style="color:'+(i===0?'#ef4444':i===6?'#3b82f6':'#374151')+'">'+d+'</div>';});
+    dow.forEach(function(d,i){html+='<div class="cal-dow" style="color:'+(i===0?'#f87171':i===6?'#60a5fa':'#cbd5e1')+'">'+d+'</div>';});
     var cur=new Date(r.gs),today=calISO(new Date());
     for(var i=0;i<42;i++){
       var iso=calISO(cur),inM=cur.getMonth()===calCur.getMonth(),evs=evOn(iso);
-      var chips=evs.map(function(ev){var col=ev.color||'#64748b';var safe=calEsc(ev.title).replace(/'/g,'');return '<div class="cal-chip" title="'+calEsc(ev.title)+'" onclick="calDelete('+ev.id+",'"+safe+"')\" style=\"background:"+col+"1f;border-left:3px solid "+col+";color:"+col+'">'+(ev.event_type==='vacation'?'🏖 ':'')+calEsc(ev.title)+'</div>';}).join('');
-      html+='<div class="cal-cell'+(inM?'':' cal-out')+(iso===today?' cal-today':'')+'"><div class="cal-date">'+cur.getDate()+'</div>'+chips+'</div>';
+      var chips=evs.map(function(ev){var col=(ev.color||'').toLowerCase();var safe=calEsc(ev.title).replace(/'/g,'');var cls='cal-chip ';if(ev.event_type==='vacation'){cls+='bg-teacher-vacation';}else if(ev.country==='PH'||col.indexOf('3b82f6')>=0||col.indexOf('60a5fa')>=0||col.indexOf('2563eb')>=0){cls+='bg-ph-holiday';}else{cls+='bg-kr-holiday';}return '<div class="'+cls+'" title="'+calEsc(ev.title)+'" onclick="calDelete('+ev.id+",'"+safe+"')\">"+(ev.event_type==='vacation'?'🏖 ':'')+calEsc(ev.title)+'</div>';}).join('');
+      var dowCls=cur.getDay()===0?' cal-sun':cur.getDay()===6?' cal-sat':'';html+='<div class="cal-cell'+(inM?'':' cal-out')+(iso===today?' cal-today':'')+'"><div class="cal-date'+dowCls+'">'+cur.getDate()+'</div>'+chips+'</div>';
       cur.setDate(cur.getDate()+1);
     }
     grid.innerHTML=html;
@@ -20554,7 +20565,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260609212953 -->
+        <!-- BUILD:20260609213645 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

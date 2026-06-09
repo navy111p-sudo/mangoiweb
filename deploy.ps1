@@ -77,13 +77,16 @@ foreach ($f in $htmlFiles) {
 Write-Step "5/7" "git commit + push"
 git config user.email "navy111p@gmail.com" 2>&1 | Out-Null
 git config user.name  "navy111p-sudo" 2>&1 | Out-Null
-git add cloudflare-deploy/public/ cloudflare-deploy/src/ cloudflare-deploy/wrangler.toml 2>&1 | Out-Null
+git add cloudflare-deploy/public/ cloudflare-deploy/src/ cloudflare-deploy/wrangler.toml test-harness/ .gitignore deploy.ps1 2>&1 | Out-Null
 git commit -m "deploy: $(Get-Date -Format 'yyyy-MM-dd HH:mm') (build $buildTs)" 2>&1 | Out-Null
 git push origin main 2>&1 | Out-Null
 Write-Host "  완료" -ForegroundColor Green
 
 # [6] Cloudflare deploy
 Write-Step "6/7" "Cloudflare Workers 배포"
+# 비대화형 모드 — wrangler 최신 버전의 "skills 설치?" 등 프롬프트로 멈추지 않게
+$env:CI = "true"
+$env:WRANGLER_SEND_METRICS = "false"
 Push-Location cloudflare-deploy
 try {
     & npx --yes wrangler@latest deploy --config wrangler.toml 2>&1 | ForEach-Object {

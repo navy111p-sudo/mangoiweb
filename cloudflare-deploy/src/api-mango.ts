@@ -9,7 +9,7 @@
 
 import { processAiCommand, executeAction, processStudentCommand } from './ai-command';
 import { scopeFragments, studentScopeWhere, getScope } from './scope';
-import { applyPIIScope, canViewPII, maskRecordPII } from './pii-mask';  // 🔒 PII 권한별 마스킹
+import { applyPIIScope, canViewPII, maskRecordPII, isMaskedValue } from './pii-mask';  // 🔒 PII 권한별 마스킹
 import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook, type GiftishowEnv } from './giftishow-client';
 import {
   sendLessonStartAlert, sendLessonEndAlert, sendChatSummaryAlert, sendMentionAlert,
@@ -7981,18 +7981,26 @@ Respond in JSON ONLY:
         const b = await parseJsonBody(request);
         if (!b) return invalidBody(['<any contact field>']);
         const allowed = ['student_phone','parent_phone','teacher_phone','school','grade','kakao_id','parent_kakao_id','address','birth_date','notes','shop_name','franchise'];
-        const sets: string[] = []; const vals: any[] = [];
+        const PII_GUARD = new Set(['student_phone','parent_phone','teacher_phone','kakao_id','parent_kakao_id']);
+        const sets: string[] = []; const vals: any[] = []; const skippedMasked: string[] = [];
         for (const k of allowed) {
-          if (b[k] !== undefined) { sets.push(`${k} = ?`); vals.push(b[k]); }
+          if (b[k] === undefined) continue;
+          // 🔒 마스킹된 표시값(*) 저장 차단 — 마스킹 문자열을 그대로 저장해 원본을 덮어쓰는 손상 방지
+          if (PII_GUARD.has(k) && isMaskedValue(b[k])) { skippedMasked.push(k); continue; }
+          sets.push(`${k} = ?`); vals.push(b[k]);
         }
-        if (sets.length === 0) return json({ ok: false, error: 'nothing_to_update' }, 400);
+        if (sets.length === 0) {
+          return skippedMasked.length
+            ? json({ ok: false, error: 'masked_values_rejected', skipped_masked: skippedMasked }, 400)
+            : json({ ok: false, error: 'nothing_to_update' }, 400);
+        }
         sets.push('updated_at = ?'); vals.push(Date.now());
         // student_id 우선, 없으면 login_id, 없으면 username 으로 매칭
         vals.push(uid, uid, uid);
         await env.DB.prepare(
           `UPDATE students_erp SET ${sets.join(', ')} WHERE student_id = ? OR login_id = ? OR username = ?`
         ).bind(...vals).run();
-        return json({ ok: true, updated_fields: sets.length - 1 });
+        return json({ ok: true, updated_fields: sets.length - 1, skipped_masked: skippedMasked });
       }
     }
 

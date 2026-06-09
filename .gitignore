@@ -3,3 +3,13 @@ uploads/*.pdf
 .env
 .wrangler/
 .dev.vars
+
+*.bak_kpi
+admin.html.bak_kpi
+*.bak
+*.bak2
+_preview_dark.png
+_preview_*.png
+
+# test-harness 임시 트랜스파일 산출물
+test-harness/.build/

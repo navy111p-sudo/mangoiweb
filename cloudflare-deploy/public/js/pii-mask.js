@@ -64,6 +64,12 @@
     return raw.slice(0, 3) + '***';
   }
 
+  /**
+   * 값이 이미 마스킹된 표시값(별표 포함)인가? — 마스킹 문자열을 그대로 저장해
+   * 원본을 덮어쓰는 손상을 막기 위해 폼 저장 전 검사용.
+   */
+  function isMaskedValue(v) { return typeof v === 'string' && v.indexOf('*') > -1; }
+
   // ── 권한 플래그 (백엔드 응답의 can_view_pii 로 설정) ──
   //   기본값 false = 안전측(권한 모름 → 마스킹). hq/none 응답을 받으면 true 로 갱신.
   var _canView = false;
@@ -83,6 +89,7 @@
   global.PIIMask = {
     maskPhoneNumber: maskPhoneNumber,
     maskKakaoId: maskKakaoId,
+    isMaskedValue: isMaskedValue,
     maskByPermission: maskByPermission,
     canView: canView,
     setCanView: setCanView

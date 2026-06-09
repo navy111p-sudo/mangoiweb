@@ -531,7 +531,7 @@
       <span class="ghost-badge">GHOST</span>
     </div>
     <div class="header-info">
-      <div><b id="ghd-room">—</b> · <span id="ghd-obs-id">ID: —</span></div>
+      <div><b id="ghd-room">—</b> · <span id="ghd-obs-id">ID: —</span> · <span id="ghd-conn" title="실시간 연결 상태" style="font-weight:800">🟢 <span data-ko="실시간" data-en="Live">실시간</span></span></div>
       <div style="font-size:10.5px;margin-top:1px"><span data-ko="📡 다른 참가자에게 알림 X" data-en="📡 Silent observation">📡 다른 참가자에게 알림 X</span></div>
     </div>
     <div class="header-actions">
@@ -687,7 +687,7 @@
     let _allChat = [];
     async function loadChat() {
       try {
-        const r = await fetch('/api/admin/chat-messages?room_id=' + encodeURIComponent(roomId));
+        const r = await safeFetch('/api/admin/chat-messages?room_id=' + encodeURIComponent(roomId));
         const d = await r.json();
         if (!d.ok) return;
         _allChat = d.items || [];
@@ -716,12 +716,12 @@
         document.getElementById('ghd-engagement').textContent = engagementScore;
         const eng = document.getElementById('ghd-engagement');
         eng.style.color = engagementScore >= 70 ? '#86efac' : engagementScore >= 40 ? '#fcd34d' : '#fca5a5';
-      } catch(e){}
+      } catch(e){ throw e; }
     }
 
     async function loadMembers() {
       try {
-        const r = await fetch('/api/admin/room-attendance?room_id=' + encodeURIComponent(roomId));
+        const r = await safeFetch('/api/admin/room-attendance?room_id=' + encodeURIComponent(roomId));
         const d = await r.json();
         const wrap = document.getElementById('ghd-members');
         const items = (d.items || []).filter(m => !m.left_at);
@@ -751,12 +751,12 @@
         }).join('') || '<div style="color:#94a3b8;padding:18px;text-align:center;font-size:11.5px">접속 중인 참가자 없음</div>';
         document.getElementById('ghd-status').textContent = items.length > 0 ? '🟢 진행' : '⚪ 대기';
         document.getElementById('ghd-status-sub').textContent = items.length > 0 ? '실시간 라이브' : '아직 접속 없음';
-      } catch(e){}
+      } catch(e){ throw e; }
     }
 
     async function loadAlerts() {
       try {
-        const r = await fetch('/api/admin/alerts?only_unack=1');
+        const r = await safeFetch('/api/admin/alerts?only_unack=1');
         const d = await r.json();
         const wrap = document.getElementById('ghd-alerts');
         const items = (d.items || []).filter(a => a.room_id === roomId);
@@ -765,7 +765,7 @@
           const sev = a.severity === 'high' ? '#fca5a5' : a.severity === 'medium' ? '#fcd34d' : '#94a3b8';
           return `<div class="chat-msg" style="border-left:3px solid ${sev}"><span class="name" style="color:${sev}">${esc(a.alert_type)}</span><span class="time">${fmt(a.triggered_at)}</span><div class="body">${esc((a.detail||'').slice(0,200))}</div></div>`;
         }).join('') || '<div style="color:#94a3b8;padding:18px;text-align:center;font-size:11.5px">활성 알림 없음</div>';
-      } catch(e){}
+      } catch(e){ throw e; }
     }
 
     function updateDuration() {
@@ -889,8 +889,72 @@
       setTimeout(() => b.classList.remove('show'), 3500);
     }
 
-    ghdRefresh();
-    setInterval(ghdRefresh, 3000);
+    // ───────────────────────────────────────────────────────────
+    // 🔌 연결·폴링 안정화 엔진 (속도·안정성 핵심)
+    //  · safeFetch: 8초 타임아웃 + Abort 로 멈춘 요청이 쌓이지 않게 함
+    //  · 연속 실패 시 지수 백오프(3s→6s→12s…최대 30s) 로 서버 폭주 방지
+    //  · 탭이 숨겨지면 폴링 일시정지(배터리·서버부하 절감), 복귀 즉시 갱신
+    //  · 연결 상태를 헤더 칩(🟢실시간 / 🟡재연결 / 🔴끊김)으로 표시
+    // ───────────────────────────────────────────────────────────
+    const POLL_BASE = 3000, POLL_MAX = 30000, FETCH_TIMEOUT = 8000;
+    let _failStreak = 0, _pollTimer = null, _connState = '';
+
+    function setConn(state) {
+      if (state === _connState) return;
+      _connState = state;
+      const el = document.getElementById('ghd-conn');
+      if (!el) return;
+      const en = document.documentElement.getAttribute('data-lang') === 'en';
+      if (state === 'live')   el.innerHTML = '🟢 <span data-ko="실시간" data-en="Live">' + (en?'Live':'실시간') + '</span>';
+      else if (state === 'retry') el.innerHTML = '🟡 <span data-ko="재연결 중" data-en="Reconnecting">' + (en?'Reconnecting':'재연결 중') + '</span>';
+      else if (state === 'down')  el.innerHTML = '🔴 <span data-ko="연결 끊김" data-en="Offline">' + (en?'Offline':'연결 끊김') + '</span>';
+      else if (state === 'paused') el.innerHTML = '⏸ <span data-ko="일시정지" data-en="Paused">' + (en?'Paused':'일시정지') + '</span>';
+    }
+
+    // 타임아웃·Abort 가 달린 fetch — 멈춘 요청을 8초 후 강제 취소
+    window.safeFetch = async function(url, opts) {
+      opts = opts || {};
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT);
+      try {
+        return await fetch(url, Object.assign({}, opts, { signal: ctrl.signal, cache: 'no-store' }));
+      } finally { clearTimeout(t); }
+    };
+
+    // 한 사이클 = 세 패널 동시 갱신. 하나라도 끝까지 실패하면 unhealthy.
+    async function pollCycle() {
+      const results = await Promise.allSettled([loadChat(), loadMembers(), loadAlerts()]);
+      const ok = results.some(r => r.status === 'fulfilled');
+      const allFail = results.every(r => r.status === 'rejected');
+      if (allFail) { _failStreak++; setConn(_failStreak >= 3 ? 'down' : 'retry'); }
+      else { _failStreak = 0; setConn('live'); }
+      return ok;
+    }
+
+    // 자가 스케줄러 — setInterval 대신 setTimeout 체인(겹침·폭주 방지) + 백오프
+    async function scheduleNext() {
+      if (document.hidden) { setConn('paused'); return; } // 숨김 시 정지(복귀 핸들러가 재가동)
+      await pollCycle();
+      const delay = _failStreak === 0
+        ? POLL_BASE
+        : Math.min(POLL_MAX, POLL_BASE * Math.pow(2, _failStreak)); // 3→6→12→24→30s
+      _pollTimer = setTimeout(scheduleNext, delay);
+    }
+    function kickPolling() {
+      if (_pollTimer) { clearTimeout(_pollTimer); _pollTimer = null; }
+      scheduleNext();
+    }
+
+    // 탭 복귀 / 네트워크 복구 시 즉시 재연결
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) kickPolling(); });
+    window.addEventListener('online',  () => { _failStreak = 0; kickPolling(); });
+    window.addEventListener('offline', () => setConn('down'));
+
+    // 수동 새로고침도 스케줄러를 깨워 즉시 1회 갱신
+    const _origRefresh = window.ghdRefresh;
+    window.ghdRefresh = function(){ kickPolling(); };
+
+    kickPolling();
     setInterval(updateDuration, 1000);
 
     // 녹화 토글은 head 의 rec-boot 스크립트가 처리합니다 (window.ghdToggleRecord)
