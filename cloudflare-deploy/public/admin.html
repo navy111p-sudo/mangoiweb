@@ -20608,7 +20608,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260610004003 -->
+        <!-- BUILD:20260610005016 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -26237,13 +26237,15 @@ button.chip:hover,
         return;
       }
     }
-    // 2) 그룹 헤더 토글
+    // 2) 그룹 헤더 — 아코디언(한 번에 하나만 열림)
     var head = e.target.closest('#ph85-sidebar .ph85-head');
     if (head) {
       var g = head.parentElement;
       if (g) {
-        g.classList.toggle('open');
-        console.log('[ph97] toggle group:', (g.querySelector('.ph85-title') || {}).textContent || '?');
+        var wasOpen = g.classList.contains('open');
+        document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){ x.classList.remove('open'); });
+        if (!wasOpen) g.classList.add('open');
+        console.log('[ph97] accordion group:', (g.querySelector('.ph85-title') || {}).textContent || '?');
       }
       e.stopPropagation();
       return;
@@ -26270,6 +26272,15 @@ button.chip:hover,
           console.warn('[ph97] card not found:', id);
           alert('미구현 카드: ' + id);
         }
+      }
+      // 하위 항목 선택 시 모든 그룹 자동 접기 (보기 편하게)
+      document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){ x.classList.remove('open'); });
+      // 모바일 드로어 자동 닫기
+      if (window.matchMedia('(max-width: 1023px)').matches) {
+        var sb = document.getElementById('ph85-sidebar');
+        if (sb) sb.classList.remove('open');
+        document.body.classList.remove('ph134-sidebar-open');
+        document.body.classList.remove('ph150-open');
       }
       e.stopPropagation();
       return;
