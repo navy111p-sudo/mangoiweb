@@ -20608,7 +20608,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260610002052 -->
+        <!-- BUILD:20260610002742 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -36242,6 +36242,30 @@ button.chip:hover,
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; scroll-behavior:auto !important; }
 }
+</style>
+<!-- 🖱️ 사이드바 hover·아코디언 부드럽게 + 클릭 쉽게 (가산적·비파괴) -->
+<style id="mi-sidebar-ux">
+  /* hover가 즉각 깜빡이지 않게 부드러운 전환 추가 */
+  #ph85-sidebar .ph85-group,
+  #ph85-sidebar .ph85-head,
+  #ph85-sidebar .ph85-sub,
+  #ph85-sidebar .ph85-arrow{
+    transition: background-color .2s ease, color .2s ease, border-color .2s ease, transform .2s ease !important;
+  }
+  /* 클릭 영역 확대 — 손가락/마우스로 누르기 쉽게 */
+  #ph85-sidebar .ph85-head{ padding:13px 12px !important; }
+  #ph85-sidebar .ph85-sub{
+    padding-top:11px !important; padding-bottom:11px !important;
+    padding-left:47px !important; font-size:12.5px !important; line-height:1.35 !important;
+  }
+  /* 아코디언: 살짝 느리고 부드럽게 + 항목 많은 그룹 잘림 방지 */
+  #ph85-sidebar .ph85-subs{ transition: max-height .4s cubic-bezier(.25,.8,.3,1) !important; }
+  #ph85-sidebar .ph85-group.open .ph85-subs{ max-height:760px !important; }
+  /* 모션 최소화 사용자는 전환 끔(접근성) */
+  @media (prefers-reduced-motion: reduce){
+    #ph85-sidebar .ph85-group,#ph85-sidebar .ph85-head,#ph85-sidebar .ph85-sub,
+    #ph85-sidebar .ph85-arrow,#ph85-sidebar .ph85-subs{ transition:none !important; }
+  }
 </style>
 </body>
 </html>

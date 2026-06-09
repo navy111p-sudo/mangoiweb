@@ -215,6 +215,18 @@ try {
   check('P4: 둘째 카드 reader가 mar-uid로 연결', a.includes("const uid=(document.getElementById('mar-uid').value||'').trim();"));
 } catch (e) { check('P4 dup-id 읽기', false); console.log('    →', e.message); }
 
+// ── 13) 사이드바 hover·아코디언 UX 개선 ──
+console.log('\n[13] 사이드바 hover·아코디언 UX (부드럽게+클릭 쉽게)');
+try {
+  const a = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8');
+  check('사이드바: hover 부드러운 전환 추가', a.includes('mi-sidebar-ux') && /\.ph85-head[\s\S]{0,80}transition/.test(a));
+  check('사이드바: 클릭 영역 확대(padding 키움)', a.includes('padding:13px 12px !important') && a.includes('padding-top:11px !important'));
+  check('사이드바: 아코디언 부드럽게(0.4s)', a.includes('transition: max-height .4s'));
+  check('사이드바: 항목 많은 그룹 잘림 방지(max-height 키움)', a.includes('max-height:760px !important'));
+  check('사이드바: 모션 최소화 대응', /mi-sidebar-ux[\s\S]{0,900}prefers-reduced-motion/.test(a));
+  check('사이드바: 가산적·비파괴(기존 클릭 토글 유지)', a.includes("this.parentElement.classList.toggle('open')"));
+} catch (e) { check('사이드바 UX 읽기', false); console.log('    →', e.message); }
+
 // ── 결과 ──────────────────────────────────────────────────────────────
 console.log('\n' + '='.repeat(52));
 console.log(`🎯 총 ${PASS+FAIL}건 중 ✅ ${PASS} 통과 / ❌ ${FAIL} 실패`);
