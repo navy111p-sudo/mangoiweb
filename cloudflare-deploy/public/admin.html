@@ -18623,7 +18623,7 @@ const SB_CATEGORIES = [
   { id:'edu',      ico:'🎓', ko:'교육', en:'Education',
     keywords:['교재','자료','도서','학습자료','pdf','book','material','레벨','level test','발음','pronunciation','녹화','recording','video','컨텐츠','content','수업'] },
   { id:'system',   ico:'⚙', ko:'시스템', en:'System',
-    keywords:['권한','권한 설정','permission','가맹점','franchise','지사','대리점','센터','center','branch','데이터','export','csv','내보내기','테스트','test data','시드','seed','보관','삭제','정리','임직원'] }
+    keywords:['권한','권한 설정','permission','가맹점','franchise','지사','대리점','센터','center','branch','데이터','export','csv','내보내기','테스트','test data','시드','seed','보관','삭제','정리','임직원','캘린더','calendar','휴가','vacation','공휴일','holiday','달력'] }
 ];
 
 // 명시적 ID → category 매핑 (키워드보다 우선)
@@ -18663,6 +18663,7 @@ const SB_ID_MAP = {
   'card-centers':          'system',
   'card-data-export':      'system',
   'card-test-seed':        'system',
+  'card-calendar':         'system',   // 📅 캘린더 관리(휴가·공휴일) → 시스템
 
   // 🆕 신규 카드들 명시 매핑
   'card-badges-mgmt':      'student',   // 🎮 학생 배지 → 학생/학부모
@@ -20534,7 +20535,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260609203103 -->
+        <!-- BUILD:20260609203651 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
