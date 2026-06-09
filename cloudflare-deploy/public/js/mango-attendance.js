@@ -156,12 +156,18 @@
       catch (_) { return 'student'; }
     })();
     state.role = role;
-    const ok = await apiPost('/api/attendance/join', {
+    const body = {
       room_id:  state.roomId,
       user_id:  state.userId,
       username: state.username || '',
-      role
-    });
+      role,
+      timestamp: Date.now()
+    };
+    // 1) join — 입장 알림/푸시(본인·학부모) 트리거 (기존 동작 유지)
+    const ok = await apiPost('/api/attendance/join', body);
+    // 2) checkin — 출석(attended) 확정 + attended_at 기록 + 결석 복구
+    //    대시보드 결석률 100% 버그를 막는 핵심 호출. join 실패와 무관하게 시도.
+    await apiPost('/api/attendance/checkin', body);
     state.joined = true;
     console.log('[attendance] join →', ok ? 'ok' : 'failed',
       { room: state.roomId, user: state.userId, role });

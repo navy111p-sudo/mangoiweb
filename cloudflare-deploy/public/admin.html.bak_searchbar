@@ -939,13 +939,7 @@
     border-radius: 28px;
     outline: none;
   }
-  .hero .hero-search input::placeholder {
-    color: #6b5f57;            /* 더 진한 웜그레이 — 시인성 강화 */
-    font-weight: 500;
-    font-size: 1.02em;          /* 약간 키움 */
-    letter-spacing: 0.01em;
-    opacity: 1;
-  }
+  .hero .hero-search input::placeholder { color: #a8a29e; font-weight: 400; }
 
   /* 🎤 음성 검색 마이크 버튼 — 입력창 우측에 위치 */
   .hero .hero-search-mic {
@@ -970,10 +964,9 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.9);
   }
   .hero .hero-search-mic .mic-icon {
-    width: 25px; height: 25px;
-    color: #9a3412;            /* 더 진한 색 — 시각적 가중치↑ */
-    stroke-width: 2.4;
-    filter: drop-shadow(0 1px 2px rgba(124, 45, 18, 0.22));
+    width: 24px; height: 24px;
+    color: #c2410c;
+    filter: drop-shadow(0 1px 2px rgba(124, 45, 18, 0.18));
     z-index: 2;
     transition: color 0.2s;
   }
@@ -1049,10 +1042,9 @@
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .hero .hero-search-icon svg {
-    width: 24px; height: 24px;
-    color: #9a3412;            /* 더 진한 색 — 시각적 가중치↑ */
-    stroke-width: 2.7;          /* 더 굵은 플랫 라인 */
-    filter: drop-shadow(0 1px 2px rgba(124, 45, 18, 0.22));
+    width: 22px; height: 22px;
+    color: #c2410c;
+    filter: drop-shadow(0 1px 2px rgba(124, 45, 18, 0.18));
   }
   /* 포커스 시 살짝 펄스 + 컬러 진하게 — "활성화" 시각 신호 */
   .hero .hero-search:focus-within .hero-search-icon {
@@ -11216,12 +11208,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     background: transparent !important;
     color: var(--da-text) !important;
   }
-  .hero .hero-search input::placeholder {
-    color: var(--da-text) !important;   /* 다크: 더 밝게 */
-    opacity: 0.78 !important;
-    font-weight: 500 !important;
-    font-size: 1.02em !important;
-  }
+  .hero .hero-search input::placeholder { color: var(--da-text-2) !important; }
   /* 망고아이 캐릭터 박스 (오른쪽) 테두리/배경 */
   .hero-banner-img { filter: drop-shadow(0 8px 24px rgba(251,191,36,0.30)) !important; }
 
@@ -20554,7 +20541,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260609211956 -->
+        <!-- BUILD:20260609211628 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

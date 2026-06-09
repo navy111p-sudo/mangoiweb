@@ -24,6 +24,7 @@ export function maskPhoneNumber(phone: string | null | undefined): string {
   if (phone == null) return '';
   const raw = String(phone).trim();
   if (!raw) return '';
+  if (raw.indexOf('*') > -1) return raw;  // 이미 마스킹됨 → 멱등 반환
   // 숫자만 추출 (하이픈·공백·괄호·+82 등 모든 구분자 제거)
   const digits = raw.replace(/\D/g, '');
   // 너무 짧으면(7자리 미만) 전부 가린다 — 부분 정보도 노출 금지
@@ -60,6 +61,7 @@ export function maskKakaoId(id: string | null | undefined): string {
   if (id == null) return '';
   const raw = String(id).trim();
   if (!raw) return '';
+  if (raw.indexOf('*') > -1) return raw;  // 이미 마스킹됨 → 멱등 반환
   const at = raw.indexOf('@');
   if (at > 0) {
     // 이메일: 로컬파트 앞 3글자만 남기고 도메인은 보존 (연락 가능성 유지)
