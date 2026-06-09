@@ -20535,7 +20535,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260609204118 -->
+        <!-- BUILD:20260609205707 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -21278,6 +21278,7 @@ window.rebuildGlobalSearchIndex = function() {
   //   ★agency  = 본사 + 지사 + 대리점 (모든 직원 — 학부모/학생 제외)
   //   ★all     = 누구나 (등록되지 않은 카드는 기본 ★all)
   const CARD_POLICY = {
+    'card-calendar':          'agency',   // 📅 캘린더 관리(휴가·공휴일) — 모든 관리자
     // 회계 / 경영 / 시스템 — 경영진만
     'card-permissions':       'exec',
     'card-corpcard':          'exec',
