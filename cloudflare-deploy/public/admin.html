@@ -20608,7 +20608,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260610005626 -->
+        <!-- BUILD:20260610010142 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -25155,12 +25155,12 @@ button.chip:hover,
     font-size: 17px; color: #fff;
   }
   .ph85-title { flex: 1; font-size: 15px; font-weight: 700; }
-  .ph85-arrow { color: #94a3b8; font-size: 14px; transition: transform 0.2s; }
+  .ph85-arrow { color: #94a3b8; font-size: 14px; transition: transform 0.4s; }
   .ph85-group.open .ph85-arrow { transform: rotate(90deg); color: #fbbf24; }
   .ph85-subs {
     max-height: 0;
     overflow: hidden;
-    transition: max-height 0.3s cubic-bezier(0.32,0.72,0,1);
+    transition: max-height 0.5s cubic-bezier(0.32,0.72,0,1);
     background: rgba(0,0,0,0.2);
   }
   .ph85-group.open .ph85-subs { max-height: 760px; }
@@ -25646,7 +25646,7 @@ button.chip:hover,
     max-height: 0;
     overflow: hidden;
     opacity: 0;
-    transition: max-height 0.32s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.22s ease, padding 0.25s ease;
+    transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease, padding 0.35s ease;
     padding-top: 0;
     padding-bottom: 0;
   }
@@ -25656,7 +25656,7 @@ button.chip:hover,
   }
   /* 화살표 회전 — 닫힘 › / 펼침 ⌄ */
   #ph85-sidebar .ph85-arrow {
-    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     transform-origin: center;
   }
   #ph85-sidebar .ph85-group.open .ph85-arrow {
@@ -25756,13 +25756,13 @@ button.chip:hover,
   #ph85-sidebar .ph85-subs {
     max-height: 0 !important;
     overflow: hidden !important;
-    transition: max-height 0.32s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
   }
   #ph85-sidebar .ph85-group.open .ph85-subs {
     max-height: 600px !important;
   }
   #ph85-sidebar .ph85-arrow {
-    transition: transform 0.25s ease !important;
+    transition: transform 0.4s ease !important;
   }
   #ph85-sidebar .ph85-group.open .ph85-arrow {
     transform: rotate(90deg) !important;
@@ -25822,10 +25822,10 @@ button.chip:hover,
   #ph85-sidebar .ph85-subs {
     max-height: 0 !important;
     overflow: hidden !important;
-    transition: max-height 0.32s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
   }
   #ph85-sidebar .ph85-group.open .ph85-subs { max-height: 800px !important; }
-  #ph85-sidebar .ph85-arrow { transition: transform 0.25s ease !important; }
+  #ph85-sidebar .ph85-arrow { transition: transform 0.4s ease !important; }
   #ph85-sidebar .ph85-group.open .ph85-arrow {
     transform: rotate(90deg) !important;
     color: #fbbf24 !important;
@@ -31378,7 +31378,7 @@ button.chip:hover,
     overflow-y: auto !important;
     z-index: 100001 !important;
     box-shadow: 0 16px 40px rgba(0,0,0,0.6), 0 0 0 3px rgba(37,99,235,0.2) !important;
-    animation: ph123In 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    animation: ph123In 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
   }
   @keyframes ph123In {
     from { opacity: 0; transform: translateX(-8px) scale(0.96); }
@@ -31731,6 +31731,7 @@ button.chip:hover,
   // 기존 ph123 호버 핸들러 제거 후 새 핸들러 부착
   var flyout = null;
   var hideTimer = null;
+  var showTimer = null;   // 호버 의도 지연 — 커서가 스쳐 지나가면 안 열리게
   var currentSub = null;
 
   function getGrandchildrenV2(cardId, subTitle){
@@ -31808,7 +31809,7 @@ button.chip:hover,
     flyout.style.left = left + 'px';
     flyout.style.top = top + 'px';
 
-    flyout.addEventListener('mouseenter', function(){ if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } });
+    flyout.addEventListener('mouseenter', function(){ if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } if (showTimer) { clearTimeout(showTimer); showTimer = null; } });
     flyout.addEventListener('mouseleave', function(){ hideFlyoutV2(150); });
   }
 
@@ -31868,10 +31869,13 @@ button.chip:hover,
       fresh.__ph92 = true;  // ph92 capture-phase 도 skip
       fresh.addEventListener('mouseenter', function(){
         if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
-        showFlyoutV2(fresh);
+        // 약 0.35초 머문 뒤에만 손자 메뉴 표시 (빠른 전환 방지)
+        if (showTimer) clearTimeout(showTimer);
+        showTimer = setTimeout(function(){ showFlyoutV2(fresh); }, 350);
       });
       fresh.addEventListener('mouseleave', function(){
-        hideFlyoutV2(200);
+        if (showTimer) { clearTimeout(showTimer); showTimer = null; }
+        hideFlyoutV2(300);
       });
     });
   }
@@ -31909,7 +31913,7 @@ button.chip:hover,
   #ph85-sidebar .ph125-grandchildren {
     max-height: 0 !important;
     overflow: hidden !important;
-    transition: max-height 0.32s cubic-bezier(0.4,0,0.2,1) !important;
+    transition: max-height 0.5s cubic-bezier(0.4,0,0.2,1) !important;
     margin-left: 18px !important;
     border-left: 2px solid rgba(96,165,250,0.4) !important;
     padding-left: 0 !important;
@@ -35921,7 +35925,7 @@ button.chip:hover,
     padding-left:47px !important; font-size:12.5px !important; line-height:1.35 !important;
   }
   /* 아코디언: 살짝 느리고 부드럽게 + 항목 많은 그룹 잘림 방지 */
-  #ph85-sidebar .ph85-subs{ transition: max-height .4s cubic-bezier(.25,.8,.3,1) !important; }
+  #ph85-sidebar .ph85-subs{ transition: max-height .55s cubic-bezier(.25,.8,.3,1) !important; }
   #ph85-sidebar .ph85-group.open .ph85-subs{ max-height:760px !important; }
   /* 모션 최소화 사용자는 전환 끔(접근성) */
   @media (prefers-reduced-motion: reduce){
