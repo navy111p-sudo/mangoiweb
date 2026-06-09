@@ -226,8 +226,8 @@
         }
         /* 우상단 토성 */
         .deco-saturn {
-            top: 5%; left: 6%;   /* 우상단→좌상단 이동 */
-            width: clamp(180px, 22vw, 320px);
+            top: 3%; right: 3%;   /* 오른쪽 위, 작게 — UFO 비행경로 회피 */
+            width: clamp(90px, 11vw, 150px);
             opacity: 0.98;
             filter: drop-shadow(0 18px 36px rgba(0,0,0,0.55)) drop-shadow(0 0 30px rgba(220,170,110,0.35));
             animation: decoFloatB 12s ease-in-out infinite;
@@ -794,8 +794,8 @@
             animation: lobbyGalaxySpin 80s linear infinite, lobbyFloatA 14s ease-in-out infinite;
         }
         .lobby .lobby-deco-saturn {
-            top: 6%; left: 8%;   /* 우상단→좌상단 이동 */
-            width: clamp(120px, 16vw, 220px);
+            top: 5%; right: 4%;   /* 오른쪽 위, 작게 */
+            width: clamp(80px, 10vw, 140px);
             opacity: 0.95;
             filter: drop-shadow(0 14px 28px rgba(0,0,0,0.55)) drop-shadow(0 0 24px rgba(220,170,110,0.32));
             animation: lobbyFloatB 11s ease-in-out infinite;
@@ -832,7 +832,7 @@
         @media (max-width: 640px) {
             .lobby .lobby-deco-galaxy { display: none; }
             .lobby .lobby-deco-planet { display: none; }
-            .lobby .lobby-deco-saturn { width: clamp(100px,18vw,140px); top: 4%; left: 4%; opacity: .8 }
+            .lobby .lobby-deco-saturn { width: clamp(80px,14vw,110px); top: 3%; right: 4%; opacity: .8 }
         }
 
         /* ✨ Glassmorphism 모달 박스 */
@@ -3620,7 +3620,7 @@
     <img id="mango-ufo" class="mango-ufo" src="/img/mango-ufo.png" alt="망고 UFO" aria-hidden="true" onerror="this.style.display='none'" />
 
     <!-- 🌌 Phase 8: 우주 데코 (좌상단 나선은하 + 우상단 토성 + 우하단 작은 은하들) -->
-    <img class="deco-saturn" src="/img/saturn-realistic.png" alt="" aria-hidden="true"
+    <img class="deco-saturn" src="/img/saturn-blue.png" alt="" aria-hidden="true"
          onerror="this.style.display='none'" />
     <div class="deco-mini-galaxies" aria-hidden="true">
       <div class="mg mg-1"></div>
@@ -3851,8 +3851,8 @@
         s.style.cssText=`width:${size}px;height:${size}px;top:${Math.random()*100}%;left:${Math.random()*100}%;--dur:${Math.random()*1.5+0.8}s;--min-o:${Math.random()*0.15+0.05};--max-o:${Math.random()*0.5+0.5};animation-delay:${Math.random()*3}s;`;
         sf.appendChild(s);
       }
-      // 행성 4개 복원 — 토성(고리), 목성(띠), 화성, 해왕성
-      ['planet-saturn','planet-jupiter','planet-mars','planet-neptune'].forEach(function(cls){
+      // 행성 복원 — 목성(띠), 화성, 해왕성 (옛 CSS 토성은 새 사실적 토성으로 대체되어 제거)
+      ['planet-jupiter','planet-mars','planet-neptune'].forEach(function(cls){
         var p = document.createElement('div');
         p.className = 'planet ' + cls;
         sf.appendChild(p);
@@ -5876,7 +5876,7 @@
 <div id="view-videocall-lobby" class="view lobby">
     <!-- 🌌 로비 우주 배경 데코 (학생 홈페이지 동일 스타일) -->
     <div class="lobby-starfield" id="lobby-starfield" aria-hidden="true"></div>
-    <img class="lobby-deco lobby-deco-saturn" src="/img/saturn-realistic.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
+    <img class="lobby-deco lobby-deco-saturn" src="/img/saturn-blue.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
     <div class="lobby-deco lobby-deco-planet" aria-hidden="true"></div>
 
     <!-- 🔊 로비 환영 음성 (수업입장 시 자동 재생, 작은 볼륨, 음소거 토글) -->
@@ -24976,7 +24976,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260609190002 -->
+<!-- BUILD:20260609191613 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
