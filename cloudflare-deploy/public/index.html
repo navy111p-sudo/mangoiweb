@@ -232,6 +232,19 @@
             filter: drop-shadow(0 18px 36px rgba(0,0,0,0.55)) drop-shadow(0 0 30px rgba(220,170,110,0.35));
             animation: decoFloatB 12s ease-in-out infinite;
         }
+        /* 왼쪽 위 — 사실적 갈색 토성 */
+        .deco-saturn-left {
+            position: absolute;
+            pointer-events: none;
+            z-index: 1;
+            user-select: none;
+            -webkit-user-drag: none;
+            top: 4%; left: 3%;
+            width: clamp(150px, 18vw, 250px);
+            opacity: 0.98;
+            filter: drop-shadow(0 16px 32px rgba(0,0,0,0.55)) drop-shadow(0 0 28px rgba(220,170,110,0.35));
+            animation: decoFloatB 13s ease-in-out infinite;
+        }
         @keyframes decoFloatB {
             0%, 100% { translate: 0 0; rotate: -2deg; }
             50%      { translate: -10px 14px; rotate: 1deg; }
@@ -286,6 +299,7 @@
             .deco-mini-galaxies { display: none !important; }
             .starship-wrap      { display: none !important; }
             .deco-saturn        { display: none !important; }
+            .deco-saturn-left   { display: none !important; }
         }
         /* 별/행성 컨테이너 — 배경 전체에 고정, 클릭 절대 가로채지 않음 */
         #starfield {
@@ -3621,6 +3635,8 @@
 
     <!-- 🌌 Phase 8: 우주 데코 (좌상단 나선은하 + 우상단 토성 + 우하단 작은 은하들) -->
     <img class="deco-saturn" src="/img/saturn-blue.png" alt="" aria-hidden="true"
+         onerror="this.style.display='none'" />
+    <img class="deco-saturn-left" src="/img/saturn-realistic.png" alt="" aria-hidden="true"
          onerror="this.style.display='none'" />
     <div class="deco-mini-galaxies" aria-hidden="true">
       <div class="mg mg-1"></div>
@@ -24976,7 +24992,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260609191613 -->
+<!-- BUILD:20260609192213 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
