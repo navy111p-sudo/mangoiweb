@@ -7585,6 +7585,7 @@ async function vcJoinRoom(skipUI) {
     showView('view-videocall-call');
     document.body.classList.add('vc-in-call');
     document.getElementById('vc-room-name').textContent = vcRoomId;
+    try { if (window.mangoiClassEntryNotice) setTimeout(window.mangoiClassEntryNotice, 600); } catch(e){}
     requestWakeLock(); // 화면 꺼짐 방지 활성화
 
     // 📱 모바일에서 가로 모드 자동 시도 (지원 시) — 사용자 제스처 직후라 가능
@@ -25009,7 +25010,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260609195557 -->
+<!-- BUILD:20260609201951 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -25603,6 +25604,49 @@ document.addEventListener('keydown', function(e){
 
 <!-- 🧹 레거시 v19 메뉴 패널 스크립트 제거됨 (2026-06-08) — 전체메뉴는 openAllMenuOverlay 사용 -->
 
+<!-- 📅 Phase CAL — 학생 수업 입장 시 휴가·공휴일 공지 투명 팝업 -->
+<script>
+(function(){
+  'use strict';
+  function nIso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function nEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function nFmt(iso){var p=(iso||'').split('-');return p.length===3?(p[1]+'/'+p[2]):iso;}
+  window.closeClassEntryNotice=function(){var el=document.getElementById('mangoi-class-notice');if(el&&el.parentNode)el.parentNode.removeChild(el);};
+  window.mangoiClassEntryNotice=async function(){
+    try{
+      if(document.getElementById('mangoi-class-notice'))return;
+      var today=new Date();today.setHours(0,0,0,0);
+      var t0=nIso(today);
+      var end=new Date(today.getTime()+30*86400000);
+      var res=await fetch('/api/calendar/events?from='+t0+'&to='+nIso(end),{cache:'no-store'});
+      var j=await res.json();
+      var evs=((j&&j.events)||[]).filter(function(e){return (e.end_date||e.date)>=t0;});
+      evs.sort(function(a,b){return a.date<b.date?-1:1;});
+      if(!evs.length)return;
+      evs=evs.slice(0,6);
+      var rows=evs.map(function(e){
+        var col=e.color||(e.event_type==='vacation'?'#f59e0b':'#ef4444');
+        var span=(e.end_date&&e.end_date!==e.date)?(nFmt(e.date)+'~'+nFmt(e.end_date)):nFmt(e.date);
+        return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid rgba(255,255,255,0.08)">'
+          +'<span style="flex:0 0 auto;width:9px;height:9px;border-radius:3px;background:'+col+'"></span>'
+          +'<span style="flex:0 0 auto;font-size:11.5px;font-weight:800;color:#cbd5e1;min-width:50px">'+span+'</span>'
+          +'<span style="flex:1;font-size:12.5px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(e.event_type==='vacation'?'🏖 ':'')+nEsc(e.title)+(e.country?' ('+nEsc(e.country)+')':'')+'</span></div>';
+      }).join('');
+      var box=document.createElement('div');
+      box.id='mangoi-class-notice';
+      box.setAttribute('style','position:fixed;top:72px;right:16px;z-index:2147482000;width:300px;max-width:84vw;background:rgba(15,23,42,0.55);backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);border:1px solid rgba(255,255,255,0.18);border-radius:16px;box-shadow:0 18px 50px -16px rgba(0,0,0,0.7);color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;padding:14px 16px 12px;animation:mgNoticeIn .35s cubic-bezier(.2,.8,.2,1)');
+      box.innerHTML='<style>@keyframes mgNoticeIn{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}</style>'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+        +'<div style="font-size:13.5px;font-weight:800;letter-spacing:.2px">📅 휴가·공휴일 안내</div>'
+        +'<button type="button" aria-label="닫기" onclick="closeClassEntryNotice()" style="width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.22);color:#fff;font-size:14px;font-weight:800;cursor:pointer;line-height:1">✕</button></div>'
+        +'<div style="font-size:11px;color:#94a3b8;margin-bottom:2px">다가오는 일정 (30일)</div>'
+        +rows;
+      document.body.appendChild(box);
+    }catch(e){}
+  };
+})();
+</script>
+
 <!-- fix v22 (2026-05-27) — 전체메뉴 버튼 capture-phase 핸들러 (다른 핸들러 우회) -->
 <script>
 (function(){
@@ -25652,12 +25696,12 @@ document.addEventListener('keydown', function(e){
     var ov = document.createElement('div');
     ov.id = 'mangoi-allmenu';
     // 🌌 우주 배경 (홈 화면과 동일한 space.jpg + 비네팅) + 투명 글래스 모달
-    ov.setAttribute('style', 'position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;z-index:2147483600;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;background:radial-gradient(ellipse at center,rgba(11,15,30,0.45) 0%,rgba(8,11,24,0.92) 100%),url(\'/img/bg/space.jpg\') center center / cover no-repeat,#050714;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;animation:mgAmFade .28s ease;');
+    ov.setAttribute('style', 'position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;z-index:2147483600;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;background:radial-gradient(ellipse at center,rgba(8,11,24,0.55) 0%,rgba(6,9,20,0.90) 100%),#050714;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;animation:mgAmFade .28s ease;');
 
     // ✨ 반짝이는 별 필드 (디자인 디테일)
     var sf = '<style>@keyframes mgAmFade{from{opacity:0}to{opacity:1}}@keyframes mgAmRise{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}@keyframes mgamTwinkle{0%,100%{opacity:.25;transform:scale(1)}50%{opacity:1;transform:scale(1.5)}}@media(max-width:560px){#mgam-grid{grid-template-columns:repeat(3,1fr)!important}}</style>'
 ;
-    sf += '<div id="mgam-stars" style="position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden">';
+    sf += '<div id="mgam-stars" style="position:absolute;inset:0;pointer-events:none;z-index:1;overflow:hidden">';
     for (var i=0;i<46;i++){
       var top=(Math.random()*100).toFixed(2), left=(Math.random()*100).toFixed(2);
       var sz=(Math.random()*2+1).toFixed(2), dur=(Math.random()*2.5+1.8).toFixed(2), dly=(Math.random()*3).toFixed(2);
@@ -25668,7 +25712,8 @@ document.addEventListener('keydown', function(e){
 
     // 🪟 투명 글래스 모달 박스
     var h = sf;
-    h += '<div id="mgam-box" style="position:relative;z-index:1;width:100%;max-width:680px;min-height:74vh;max-height:92vh;display:flex;flex-direction:column;background:rgba(255,255,255,0.05);backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);border:1px solid rgba(255,255,255,0.16);border-radius:22px;box-shadow:0 24px 70px -20px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.14);overflow:hidden;animation:mgAmRise .32s cubic-bezier(.2,.8,.2,1)">';
+    h += '<div id="mgam-bg" style="position:absolute;inset:-40px;z-index:0;background:url(\'/img/bg/space.jpg\') center center / cover no-repeat;filter:blur(13px) brightness(0.5) saturate(1.1);transform:scale(1.06)"></div>';
+    h += '<div id="mgam-box" style="position:relative;z-index:2;width:100%;max-width:680px;min-height:74vh;max-height:92vh;display:flex;flex-direction:column;background:rgba(255,255,255,0.05);backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);border:1px solid rgba(255,255,255,0.16);border-radius:22px;box-shadow:0 24px 70px -20px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.14);overflow:hidden;animation:mgAmRise .32s cubic-bezier(.2,.8,.2,1)">';
 
     // 헤더
     h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:20px 22px;border-bottom:1px solid rgba(255,255,255,0.1);flex:0 0 auto">'

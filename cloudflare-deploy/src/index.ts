@@ -445,6 +445,11 @@ export default {
         path === '/api/popups' ||
         path === '/api/popups/active' ||
         /^\/api\/popups\/\d+\/(view|click|dismiss)$/.test(path) ||
+        // 📅 Phase CAL — 캘린더(교사 휴가 + 한국/필리핀 공휴일)
+        path === '/api/calendar/events' ||
+        path === '/api/admin/calendar/events' ||
+        /^\/api\/admin\/calendar\/events\/\d+$/.test(path) ||
+        path === '/api/admin/calendar/seed-holidays' ||
         path === '/api/admin/students/list' ||
         path === '/api/admin/students/unified' ||
         path === '/api/admin/students/erp-list' ||

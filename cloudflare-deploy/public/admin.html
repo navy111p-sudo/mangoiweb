@@ -2491,7 +2491,7 @@
     </button>
 
     <!-- ⚙ 시스템 -->
-    <button class="hub-btn" onclick="hubJump('system', ['card-permissions','card-franchises','card-centers','card-data-export'])" data-hub="system">
+    <button class="hub-btn" onclick="hubJump('system', ['card-calendar','card-permissions','card-franchises','card-centers','card-data-export'])" data-hub="system">
       <div class="hub-icon" style="background:linear-gradient(135deg,#64748b,#334155)">⚙</div>
       <div>
         <div class="hub-title" data-ko="시스템" data-en="System">시스템</div>
@@ -12060,6 +12060,149 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
   </div>
 </details>
+<!-- 📅 Phase CAL — 캘린더 관리 (교사 휴가 + 한국/필리핀 공휴일) -->
+<details class="table-card menu-card" id="card-calendar">
+  <summary><span data-ko="📅 캘린더 관리 (휴가·공휴일)" data-en="📅 Calendar (Vacation·Holiday)">📅 캘린더 관리 (휴가·공휴일)</span></summary>
+  <div class="menu-body">
+    <style>
+      #card-calendar .cal-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+      #card-calendar .cal-navbtn{padding:5px 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;font-size:13px;font-weight:700}
+      #card-calendar .cal-navbtn:hover{background:#f3f4f6}
+      #card-calendar #cal-month-label{font-size:16px;font-weight:800;color:#111827;min-width:130px;text-align:center}
+      #card-calendar .cal-legend{font-size:11.5px;color:#6b7280;display:flex;gap:10px;flex-wrap:wrap;margin-left:auto}
+      #card-calendar .cal-legend span{display:inline-flex;align-items:center;gap:4px}
+      #card-calendar .cal-dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+      #card-calendar .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;background:#e5e7eb;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden}
+      #card-calendar .cal-dow{background:#f9fafb;text-align:center;font-size:12px;font-weight:800;padding:8px 0}
+      #card-calendar .cal-cell{background:#fff;min-height:84px;padding:5px 5px 6px;display:flex;flex-direction:column;gap:3px}
+      #card-calendar .cal-cell.cal-out{background:#fafafa}
+      #card-calendar .cal-cell.cal-out .cal-date{color:#cbd5e1}
+      #card-calendar .cal-cell.cal-today{box-shadow:inset 0 0 0 2px #f59e0b}
+      #card-calendar .cal-date{font-size:12px;font-weight:700;color:#374151}
+      #card-calendar .cal-chip{font-size:11px;font-weight:700;padding:2px 5px;border-radius:4px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
+      #card-calendar .cal-chip:hover{filter:brightness(0.94)}
+      #card-calendar .cal-forms{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+      #card-calendar .cal-form{background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:12px}
+      #card-calendar .cal-form h5{margin:0 0 8px;font-size:13px;font-weight:800;color:#111827}
+      #card-calendar .cal-form .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:7px}
+      #card-calendar .cal-form input,#card-calendar .cal-form select{padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12.5px}
+      #card-calendar .cal-form .lbl{font-size:12px;color:#6b7280;min-width:48px}
+      #card-calendar .cal-btn{padding:7px 14px;border:none;border-radius:7px;cursor:pointer;font-size:13px;font-weight:800;color:#fff}
+      #card-calendar .cal-btn.seed{background:linear-gradient(135deg,#ef4444,#3b82f6)}
+      #card-calendar .cal-btn.vac{background:#f59e0b}
+      #card-calendar .cal-btn.hol{background:#ef4444}
+      @media(max-width:760px){#card-calendar .cal-forms{grid-template-columns:1fr}#card-calendar .cal-cell{min-height:64px}}
+    </style>
+
+    <div style="font-size:12px;color:#6b7280;background:#f9fafb;border:1px dashed #e5e7eb;border-radius:8px;padding:8px 12px;margin-bottom:12px;line-height:1.6"
+         data-ko="💡 교사 휴가와 한국·필리핀 공휴일을 캘린더에 등록합니다. 등록 즉시 색상으로 표시되고, 공지사항·알림에 자동으로 올라가며, 주간 스케줄에도 색으로 나타납니다."
+         data-en="💡 Register teacher vacations and KR/PH holidays. They appear in color, auto-post to announcements/alerts, and show on the weekly schedule.">
+      💡 교사 휴가와 한국·필리핀 공휴일을 캘린더에 등록합니다. 등록 즉시 색상으로 표시되고, 공지사항·알림에 자동으로 올라가며, 주간 스케줄에도 색으로 나타납니다.
+    </div>
+
+    <div class="cal-bar">
+      <button class="cal-navbtn" onclick="calPrev()">◀</button>
+      <span id="cal-month-label">—</span>
+      <button class="cal-navbtn" onclick="calNext()">▶</button>
+      <button class="cal-navbtn" onclick="calToday()" data-ko="오늘" data-en="Today">오늘</button>
+      <button class="cal-btn seed" onclick="calSeed()" data-ko="🇰🇷🇵🇭 2026 공휴일 자동 채우기" data-en="🇰🇷🇵🇭 Fill 2026 Holidays">🇰🇷🇵🇭 2026 공휴일 자동 채우기</button>
+      <span class="cal-legend">
+        <span><i class="cal-dot" style="background:#ef4444"></i>한국 공휴일</span>
+        <span><i class="cal-dot" style="background:#3b82f6"></i>필리핀 공휴일</span>
+        <span><i class="cal-dot" style="background:#f59e0b"></i>교사 휴가</span>
+      </span>
+    </div>
+
+    <div class="cal-grid" id="cal-grid"></div>
+
+    <div class="cal-forms">
+      <div class="cal-form">
+        <h5 data-ko="🏖 교사 휴가 추가" data-en="🏖 Add Teacher Vacation">🏖 교사 휴가 추가</h5>
+        <div class="row"><span class="lbl" data-ko="교사" data-en="Teacher">교사</span><input id="cal-v-teacher" type="text" placeholder="교사 이름" style="flex:1" /></div>
+        <div class="row"><span class="lbl" data-ko="사유" data-en="Reason">사유</span><input id="cal-v-title" type="text" placeholder="예: 연차 휴가" style="flex:1" /></div>
+        <div class="row"><span class="lbl" data-ko="기간" data-en="Dates">기간</span><input id="cal-v-from" type="date" /> ~ <input id="cal-v-to" type="date" /></div>
+        <div class="row"><span class="lbl" data-ko="메모" data-en="Note">메모</span><input id="cal-v-note" type="text" placeholder="선택" style="flex:1" /></div>
+        <button class="cal-btn vac" onclick="calAddVacation()" data-ko="휴가 등록" data-en="Add Vacation">휴가 등록</button>
+      </div>
+      <div class="cal-form">
+        <h5 data-ko="📅 공휴일 직접 추가" data-en="📅 Add Holiday Manually">📅 공휴일 직접 추가</h5>
+        <div class="row"><span class="lbl" data-ko="국가" data-en="Country">국가</span>
+          <select id="cal-h-country"><option value="KR">🇰🇷 한국</option><option value="PH">🇵🇭 필리핀</option></select></div>
+        <div class="row"><span class="lbl" data-ko="이름" data-en="Name">이름</span><input id="cal-h-title" type="text" placeholder="예: 임시공휴일" style="flex:1" /></div>
+        <div class="row"><span class="lbl" data-ko="날짜" data-en="Date">날짜</span><input id="cal-h-date" type="date" /></div>
+        <div style="font-size:11px;color:#9ca3af;margin:4px 0 8px">2026 정규 공휴일은 위 [자동 채우기] 버튼이 더 편합니다.</div>
+        <button class="cal-btn hol" onclick="calAddHoliday()" data-ko="공휴일 등록" data-en="Add Holiday">공휴일 등록</button>
+      </div>
+    </div>
+  </div>
+</details>
+
+<script>
+(function(){
+  var calCur = new Date(); calCur.setDate(1);
+  var calEvents = [];
+  function calEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function calISO(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function calRange(base){var y=base.getFullYear(),m=base.getMonth();var first=new Date(y,m,1);var gs=new Date(y,m,1-first.getDay());var ge=new Date(gs);ge.setDate(gs.getDate()+41);return {gs:gs,ge:ge};}
+  async function calLoad(){
+    var r=calRange(calCur);
+    try{var res=await fetch('/api/calendar/events?from='+calISO(r.gs)+'&to='+calISO(r.ge),{credentials:'include',cache:'no-store'});var j=await res.json();calEvents=(j&&j.events)||[];}
+    catch(e){calEvents=[];}
+    calRender();
+  }
+  function evOn(iso){return calEvents.filter(function(ev){var s=ev.date,e=ev.end_date||ev.date;return iso>=s&&iso<=e;});}
+  function calRender(){
+    var grid=document.getElementById('cal-grid');if(!grid)return;
+    var lbl=document.getElementById('cal-month-label');if(lbl)lbl.textContent=calCur.getFullYear()+'년 '+(calCur.getMonth()+1)+'월';
+    var r=calRange(calCur),dow=['일','월','화','수','목','금','토'],html='';
+    dow.forEach(function(d,i){html+='<div class="cal-dow" style="color:'+(i===0?'#ef4444':i===6?'#3b82f6':'#374151')+'">'+d+'</div>';});
+    var cur=new Date(r.gs),today=calISO(new Date());
+    for(var i=0;i<42;i++){
+      var iso=calISO(cur),inM=cur.getMonth()===calCur.getMonth(),evs=evOn(iso);
+      var chips=evs.map(function(ev){var col=ev.color||'#64748b';var safe=calEsc(ev.title).replace(/'/g,'');return '<div class="cal-chip" title="'+calEsc(ev.title)+'" onclick="calDelete('+ev.id+",'"+safe+"')\" style=\"background:"+col+"1f;border-left:3px solid "+col+";color:"+col+'">'+(ev.event_type==='vacation'?'🏖 ':'')+calEsc(ev.title)+'</div>';}).join('');
+      html+='<div class="cal-cell'+(inM?'':' cal-out')+(iso===today?' cal-today':'')+'"><div class="cal-date">'+cur.getDate()+'</div>'+chips+'</div>';
+      cur.setDate(cur.getDate()+1);
+    }
+    grid.innerHTML=html;
+  }
+  window.calPrev=function(){calCur.setMonth(calCur.getMonth()-1);calLoad();};
+  window.calNext=function(){calCur.setMonth(calCur.getMonth()+1);calLoad();};
+  window.calToday=function(){calCur=new Date();calCur.setDate(1);calLoad();};
+  window.calSeed=async function(){
+    if(!confirm('한국·필리핀 2026 공휴일을 캘린더에 자동으로 채울까요?\n(이미 있는 항목은 건너뜁니다)'))return;
+    try{var res=await fetch('/api/admin/calendar/seed-holidays',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({countries:['KR','PH'],year:2026})});var j=await res.json();
+      if(j&&j.ok){alert('✅ 공휴일 '+j.added+'건 추가됨 (공지·알림에도 등록되었습니다)');calLoad();}else alert('실패: '+(j&&j.error||'unknown'));}
+    catch(e){alert('오류: '+e.message);}
+  };
+  window.calAddVacation=async function(){
+    var name=(document.getElementById('cal-v-teacher').value||'').trim();
+    var title=(document.getElementById('cal-v-title').value||'').trim()||'휴가';
+    var date=document.getElementById('cal-v-from').value;
+    var end=document.getElementById('cal-v-to').value;
+    var note=(document.getElementById('cal-v-note').value||'').trim();
+    if(!date){alert('시작 날짜를 선택하세요');return;}
+    try{var res=await fetch('/api/admin/calendar/events',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({event_type:'vacation',teacher_name:name,title:title,date:date,end_date:end||null,note:note})});var j=await res.json();
+      if(j&&j.ok){document.getElementById('cal-v-teacher').value='';document.getElementById('cal-v-title').value='';document.getElementById('cal-v-note').value='';alert('✅ 휴가 등록됨 (공지·알림 등록)');calLoad();}else alert('실패: '+(j&&j.error||'unknown'));}
+    catch(e){alert('오류: '+e.message);}
+  };
+  window.calAddHoliday=async function(){
+    var title=(document.getElementById('cal-h-title').value||'').trim();
+    var date=document.getElementById('cal-h-date').value;
+    var country=document.getElementById('cal-h-country').value;
+    if(!title||!date){alert('이름과 날짜를 입력하세요');return;}
+    try{var res=await fetch('/api/admin/calendar/events',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({event_type:'holiday',title:title,date:date,country:country})});var j=await res.json();
+      if(j&&j.ok){document.getElementById('cal-h-title').value='';alert('✅ 공휴일 등록됨');calLoad();}else alert('실패: '+(j&&j.error||'unknown'));}
+    catch(e){alert('오류: '+e.message);}
+  };
+  window.calDelete=async function(id,title){
+    if(!confirm('삭제할까요?\n'+title))return;
+    try{await fetch('/api/admin/calendar/events/'+id,{method:'DELETE',credentials:'include'});calLoad();}catch(e){alert('오류: '+e.message);}
+  };
+  var card=document.getElementById('card-calendar');
+  if(card){card.addEventListener('toggle',function(){if(card.open&&!card._calInit){card._calInit=true;calLoad();}});}
+})();
+</script>
+
 
 <!-- 📣 Phase 5: 알림 큐 (운영 이벤트 자동 적재 + 상태 모니터링) -->
 <details class="table-card menu-card" id="card-notifications">
@@ -20391,7 +20534,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260609195557 -->
+        <!-- BUILD:20260609201951 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

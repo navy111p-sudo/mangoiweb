@@ -534,6 +534,22 @@ function isSameDate(a,b){return a.getFullYear()===b.getFullYear()&&a.getMonth()=
 function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});}
 
 var currentWeekStart=startOfWeek(new Date());
+// 📅 Phase CAL — 캘린더(휴가/공휴일) 주간 표시
+var HOLIDAY_MAP={};
+async function loadHolidays(){
+  HOLIDAY_MAP={};
+  try{
+    var from=fmtISO(currentWeekStart);
+    var endD=new Date(currentWeekStart);endD.setDate(endD.getDate()+6);
+    var res=await fetch('/api/calendar/events?from='+from+'&to='+fmtISO(endD),{credentials:'include',cache:'no-store'});
+    var j=await res.json();
+    (j&&j.events||[]).forEach(function(ev){
+      var d=new Date((ev.date)+'T00:00:00');var ed=new Date(((ev.end_date||ev.date))+'T00:00:00');
+      var guard=0;
+      while(d<=ed && guard<400){var iso=fmtISO(d);(HOLIDAY_MAP[iso]=HOLIDAY_MAP[iso]||[]).push(ev);d.setDate(d.getDate()+1);guard++;}
+    });
+  }catch(e){}
+}
 var TEACHERS=[],SLOTS={},activeCategory='all',searchQuery='';
 var demoNames=['홍길동','김민수','이지민','박서연','최우진','정수아','강지원','윤하린','오은서','신예린','한지유','조서진','백채원','권유나','황도윤'];
 function addSlot(tid,d,h,s){SLOTS[tid+'__'+d+'__'+h]=s;}
@@ -733,7 +749,11 @@ function renderTeacher(t){
   for(var i=0;i<7;i++){
     var d=new Date(currentWeekStart);d.setDate(d.getDate()+i);
     var isToday=isSameDate(d,today);
-    html+='<th class="day-th'+(isToday?' today':'')+'"><div class="dn">'+dn[i]+'</div><div class="dd">'+d.getDate()+'</div></th>';
+    var _hev=(HOLIDAY_MAP&&HOLIDAY_MAP[fmtISO(d)])||[];
+    var _hbg=_hev.length?(' style="background:'+(_hev[0].color||'#ef4444')+'14"'):'';
+    html+='<th class="day-th'+(isToday?' today':'')+'"'+_hbg+'><div class="dn">'+dn[i]+'</div><div class="dd">'+d.getDate()+'</div>';
+    if(_hev.length){html+='<div title="'+escapeHtml(_hev.map(function(e){return e.title;}).join(', '))+'" style="margin-top:2px;font-size:9px;font-weight:800;color:#fff;background:'+(_hev[0].color||'#ef4444')+';border-radius:4px;padding:1px 3px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%">'+(_hev[0].event_type==='vacation'?'🏖':'')+escapeHtml(_hev[0].title)+(_hev.length>1?' +'+(_hev.length-1):'')+'</div>';}
+    html+='</th>';
   }
   html+='</tr></thead><tbody>';
   var nowH=today.getHours();var nowM=today.getMinutes();
@@ -2000,7 +2020,7 @@ function aiSuggestSlot(){
 window.aiSuggestSlot=aiSuggestSlot;
 
 
-async function reloadAndRender(){await loadData();applyLang(currentLang);}
+async function reloadAndRender(){await loadData();await loadHolidays();applyLang(currentLang);}
 
 
 // ═══ 풀 상세 모달 + 드래그 편집 ═══
