@@ -502,7 +502,7 @@
 
 /* hover로 펼치는 submenu 패널 */
 .sb-cat .sb-sub-panel{
-  position:absolute;left:calc(100% + 4px);top:0;
+  position:absolute;left:calc(100% + 10px);top:0;
   background:#fff;
   border:1px solid #e5e7eb;
   border-left:3px solid #f59e0b;
@@ -511,14 +511,20 @@
   padding:8px;
   min-width:260px;max-width:340px;
   max-height:80vh;overflow-y:auto;
-  display:none;z-index:1000;
-  animation:sbFadeIn .12s ease-out;
+  z-index:1000;
+  /* hover 카스케이드 — 천천히 열리고, 마우스가 잠깐 벗어나도 천천히 닫혀서 하위 메뉴 클릭이 쉽도록 */
+  opacity:0;visibility:hidden;pointer-events:none;
+  transform:translateX(-6px);
+  transition:opacity .22s ease .55s, transform .22s ease .55s, visibility 0s linear .8s;
 }
 @keyframes sbFadeIn{from{opacity:0}to{opacity:1}}
-.sb-cat:hover > .sb-sub-panel{display:block}
-/* 마우스가 사이로 잠시 이동할 때 안 사라지게 안전 영역 */
-.sb-cat:hover > .sb-sub-panel::before{
-  content:'';position:absolute;left:-8px;top:0;bottom:0;width:8px;background:transparent;
+.sb-cat:hover > .sb-sub-panel{
+  opacity:1;visibility:visible;pointer-events:auto;transform:translateX(0);
+  transition:opacity .18s ease .18s, transform .18s ease .18s, visibility 0s;
+}
+/* 카테고리와 패널 사이 빈 공간을 채우는 넓은 안전 다리(bridge) — 마우스가 끊겨도 hover 유지 */
+.sb-cat .sb-sub-panel::before{
+  content:'';position:absolute;left:-18px;top:-10px;bottom:-10px;width:20px;background:transparent;
 }
 .sb-sub-item{
   padding:8px 12px;
@@ -540,7 +546,7 @@
 
 /* 3단계 (sub-sub) — submenu 아이템 hover 시 우측 펼침 */
 .sb-sub-item.has-sub > .sb-subsub-panel{
-  position:absolute;left:calc(100% + 4px);top:-8px;
+  position:absolute;left:calc(100% + 8px);top:-8px;
   background:#fff;
   border:1px solid #e5e7eb;
   border-left:3px solid #6366f1;
@@ -548,10 +554,18 @@
   box-shadow:0 12px 32px rgba(0,0,0,.15);
   padding:6px;
   min-width:220px;
-  display:none;z-index:1001;
-  animation:sbFadeIn .12s ease-out;
+  z-index:1001;
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .2s ease .5s, visibility 0s linear .72s;
 }
-.sb-sub-item.has-sub:hover > .sb-subsub-panel{display:block}
+.sb-sub-item.has-sub:hover > .sb-subsub-panel{
+  opacity:1;visibility:visible;pointer-events:auto;
+  transition:opacity .16s ease .18s, visibility 0s;
+}
+/* 3단계 패널용 안전 다리 */
+.sb-sub-item.has-sub > .sb-subsub-panel::before{
+  content:'';position:absolute;left:-16px;top:0;bottom:0;width:18px;background:transparent;
+}
 .sb-subsub-item{
   padding:7px 10px;border-radius:6px;font-size:12px;color:#475569;
   cursor:pointer;display:block;text-decoration:none;font-weight:500;
@@ -559,7 +573,7 @@
 .sb-subsub-item:hover{background:#eef2ff;color:#3730a3;font-weight:700}
 
 /* 펼침 모드 (모바일/접근성 — 클릭으로 열림) */
-.sb-cat.expanded > .sb-sub-panel{display:block;position:static;box-shadow:none;border:none;border-top:1px dashed #e5e7eb;border-radius:0;padding:6px 4px;animation:none}
+.sb-cat.expanded > .sb-sub-panel{display:block;opacity:1;visibility:visible;pointer-events:auto;transform:none;transition:none;position:static;box-shadow:none;border:none;border-top:1px dashed #e5e7eb;border-radius:0;padding:6px 4px;animation:none}
 
     /* === 하위(nested) 메뉴 토글 — 학생관리 같은 상위 카드 안의 sub-item === */
   .sub-menu { display:flex; flex-direction:column; gap:0; padding-left:8px; border-left:3px solid #e5e7eb; margin:8px 0; }
@@ -20565,7 +20579,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260609214325 -->
+        <!-- BUILD:20260609222554 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
