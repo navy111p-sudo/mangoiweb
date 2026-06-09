@@ -6598,7 +6598,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       💡 학생의 출석·평가·발음 데이터를 AI가 학부모용 레포트로 작성 → 미리보기 → 학생+학부모 카톡 발송. 매월 1일 KST 자동 일괄.
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
-      <label style="font-size:12px;color:#cbd5e1;font-weight:700">학생 ID<br><input id="mr-uid" placeholder="예: hong / stu_123" style="margin-top:4px;padding:8px 10px;border:1px solid #475569;border-radius:8px;background:#1e293b;color:#e2e8f0;font-size:13px;min-width:160px"></label>
+      <label style="font-size:12px;color:#cbd5e1;font-weight:700">학생 ID<br><input id="mar-uid" placeholder="예: hong / stu_123" style="margin-top:4px;padding:8px 10px;border:1px solid #475569;border-radius:8px;background:#1e293b;color:#e2e8f0;font-size:13px;min-width:160px"></label>
       <label style="font-size:12px;color:#cbd5e1;font-weight:700">월<br><input id="mr-period" type="month" style="margin-top:4px;padding:8px 10px;border:1px solid #475569;border-radius:8px;background:#1e293b;color:#e2e8f0;font-size:13px"></label>
       <button onclick="mrGenerate()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:0;border-radius:9px;padding:9px 15px;font-weight:700;cursor:pointer">🔄 <span data-ko="생성" data-en="Generate">생성</span></button>
       <button onclick="mrSend()" style="background:#10b981;color:#fff;border:0;border-radius:9px;padding:9px 15px;font-weight:700;cursor:pointer">💬 <span data-ko="카톡 발송" data-en="Send Kakao">카톡 발송</span></button>
@@ -6618,7 +6618,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   }
   function prevMonth(){ const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-1); return d.toISOString().slice(0,7); }
   function fields(){
-    const uid=(document.getElementById('mr-uid').value||'').trim();
+    const uid=(document.getElementById('mar-uid').value||'').trim();
     const period=(document.getElementById('mr-period').value||'').trim();
     return {uid, period};
   }
@@ -20608,7 +20608,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260610001353 -->
+        <!-- BUILD:20260610002052 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

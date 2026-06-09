@@ -203,6 +203,18 @@ try {
   check('P4-a: 비파괴(기존 askAI 유지)', a.includes('async function askAI(command)'));
 } catch (e) { check('P4-a 읽기', false); console.log('    →', e.message); }
 
+// ── 12) P4 구조 정리 — 중복 id 버그 수정 ──
+console.log('\n[12] P4 구조 — 중복 id(mr-uid) 버그 수정');
+try {
+  const a = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8');
+  const defUid = (a.match(/id="mr-uid"/g)||[]).length;
+  const defMar = (a.match(/id="mar-uid"/g)||[]).length;
+  check('P4: mr-uid 정의 1개로 정상화(중복 해소)', defUid === 1);
+  check('P4: 둘째 카드 mar-uid 분리(정의 1·참조 1)', defMar === 1 && a.includes("getElementById('mar-uid')"));
+  check('P4: 첫 카드 mr-uid 읽기 보존(비파괴)', a.includes("const uid = document.getElementById('mr-uid').value.trim();"));
+  check('P4: 둘째 카드 reader가 mar-uid로 연결', a.includes("const uid=(document.getElementById('mar-uid').value||'').trim();"));
+} catch (e) { check('P4 dup-id 읽기', false); console.log('    →', e.message); }
+
 // ── 결과 ──────────────────────────────────────────────────────────────
 console.log('\n' + '='.repeat(52));
 console.log(`🎯 총 ${PASS+FAIL}건 중 ✅ ${PASS} 통과 / ❌ ${FAIL} 실패`);
