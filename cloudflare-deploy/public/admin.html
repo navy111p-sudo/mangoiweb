@@ -20608,7 +20608,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260610005016 -->
+        <!-- BUILD:20260610005626 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -25496,16 +25496,7 @@ button.chip:hover,
       }
     });
 
-    // 2) 기존 ph85 헤더 click 핸들러 (한 번에 하나) 제거하고 독립 토글로 교체
-    bar.querySelectorAll('.ph85-head').forEach(function(head){
-      // clone 으로 기존 핸들러 제거
-      var newHead = head.cloneNode(true);
-      head.parentNode.replaceChild(newHead, head);
-      newHead.addEventListener('click', function(){
-        var g = newHead.parentElement;
-        g.classList.toggle('open');  // 독립 토글
-      });
-    });
+    // (파트2 제거: head 복제+독립토글 — ph97 아코디언이 단일 처리)
 
     // 3) 검색창 아래에 액션 버튼 추가 (모두 펼치기 / 모두 접기 / 메뉴 숨기기)
     var search = document.getElementById('ph85-search');
@@ -25592,119 +25583,7 @@ button.chip:hover,
 })();
 </script>
 <!-- Phase 88 admin (2026-05-24) — 모든 버튼 강제 작동 (event delegation) -->
-<script>
-(function(){
-  'use strict';
-
-  /* 모든 사이드바 버튼/링크에 event delegation 으로 click 핸들러 강제 */
-  function ph88BindAll(){
-    var bar = document.getElementById('ph85-sidebar');
-    if (!bar || bar.__ph88) return;
-    bar.__ph88 = true;
-
-    // 사이드바 전체에 단일 click delegation
-    bar.addEventListener('click', function(e){
-      var target = e.target;
-
-      // 1) 그룹 헤더 클릭 (.ph85-head 또는 그 자식)
-      var head = target.closest('.ph85-head');
-      if (head) {
-        e.preventDefault();
-        e.stopPropagation();
-        var g = head.parentElement;
-        g.classList.toggle('open');
-        return;
-      }
-
-      // 2) 하위 항목 클릭 (.ph85-sub)
-      var sub = target.closest('.ph85-sub');
-      if (sub) {
-        e.preventDefault();
-        e.stopPropagation();
-        var id = sub.dataset.card;
-        if (id) {
-          var c = document.getElementById(id);
-          if (c) {
-            if (c.tagName === 'DETAILS') c.open = true;
-            c.scrollIntoView({ behavior:'smooth', block:'start' });
-            var orig = c.style.boxShadow;
-            c.style.boxShadow = '0 0 0 3px rgba(251,191,36,0.6)';
-            setTimeout(function(){ c.style.boxShadow = orig; }, 1800);
-          } else {
-            console.warn('[ph88] card not found:', id);
-            alert('해당 메뉴 카드(' + id + ')를 찾을 수 없습니다. (아직 구현되지 않은 페이지일 수 있어요)');
-          }
-        }
-        if (window.matchMedia('(max-width: 1023px)').matches) bar.classList.remove('open');
-        return;
-      }
-
-      // 3) 액션 버튼 (.ph86-action-btn)
-      var actBtn = target.closest('.ph86-action-btn');
-      if (actBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        var act = actBtn.dataset.act;
-        if (act === 'expand') {
-          bar.querySelectorAll('.ph85-group').forEach(function(g){ g.classList.add('open'); });
-        } else if (act === 'collapse') {
-          bar.querySelectorAll('.ph85-group').forEach(function(g){ g.classList.remove('open'); });
-        } else if (act === 'hide') {
-          bar.style.display = 'none';
-          document.body.style.paddingLeft = '0';
-          if (!document.getElementById('ph88-show')) {
-            var show = document.createElement('button');
-            show.id = 'ph88-show';
-            show.type = 'button';
-            show.textContent = '☰ 메뉴 보이기';
-            show.style.cssText = 'position:fixed;top:10px;left:10px;z-index:10001;padding:10px 14px;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;border:0;border-radius:8px;font-weight:800;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,0.3)';
-            show.addEventListener('click', function(){
-              bar.style.display = '';
-              if (window.matchMedia('(min-width: 1024px)').matches) {
-                document.body.style.paddingLeft = '312px';
-              }
-              show.remove();
-            });
-            document.body.appendChild(show);
-          }
-        }
-        return;
-      }
-
-      // 4) 검색창 (input event 별도 처리는 그대로 두고 click 만 stopProp)
-      if (target.id === 'ph85-search') return;
-    }, false);
-
-    // 검색 input 별도 (delegation 으로 안 되니 직접)
-    var search = document.getElementById('ph85-search');
-    if (search && !search.__ph88) {
-      search.__ph88 = true;
-      search.addEventListener('input', function(){
-        var q = search.value.toLowerCase().trim();
-        bar.querySelectorAll('.ph85-group').forEach(function(g){
-          var title = g.querySelector('.ph85-title').textContent.toLowerCase();
-          var subs = g.querySelectorAll('.ph85-sub');
-          var anyMatch = title.includes(q);
-          subs.forEach(function(s){
-            var m = s.textContent.toLowerCase().includes(q);
-            s.style.display = (q === '' || m) ? '' : 'none';
-            if (m) anyMatch = true;
-          });
-          g.style.display = (q === '' || anyMatch) ? '' : 'none';
-          if (q && anyMatch) g.classList.add('open');
-        });
-      });
-    }
-
-    console.log('[ph88] 모든 사이드바 버튼 delegation 완료');
-  }
-
-  // 즉시 + 주기적 재시도
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph88BindAll);
-  else ph88BindAll();
-  [200, 600, 1500, 3000].forEach(function(d){ setTimeout(ph88BindAll, d); });
-})();
-</script>
+<!-- [ph88] 중복 핸들러 스크립트 제거 — ph97 글로벌 컨트롤러 + CSS가 대체 -->
 
 <!-- Phase 89 admin (2026-05-25) — 우측 메인 영역의 메뉴(가나다 순) 검색 카드 제거 -->
 <style id="ph89-clean">
@@ -25869,37 +25748,7 @@ button.chip:hover,
     }
   }
 </style>
-<script>
-(function(){
-  'use strict';
-  function ph91Fix(){
-    // (1) admin-layout grid 직접 수정 (style 우선순위 보강)
-    if (window.matchMedia('(min-width: 1024px)').matches) {
-      document.querySelectorAll('.admin-layout').forEach(function(el){
-        el.style.gridTemplateColumns = '1fr';
-        el.style.gap = '0';
-      });
-    }
-
-    // (2) ph86 의 head 클릭 핸들러 vs ph88 의 delegation → 둘 다 toggle 해서 서로 상쇄
-    //     해결: .ph85-head 의 직접 핸들러 제거 (clone 으로 dom 교체) → ph88 delegation 만 작동
-    var bar = document.getElementById('ph85-sidebar');
-    if (bar && !bar.__ph91) {
-      bar.__ph91 = true;
-      bar.querySelectorAll('.ph85-head').forEach(function(head){
-        var fresh = head.cloneNode(true);
-        head.parentNode.replaceChild(fresh, head);
-      });
-      // 그러면 ph88 delegation 만 살아남아 토글 작동
-      console.log('[ph91] head direct handlers cleared — delegation only');
-    }
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph91Fix);
-  else ph91Fix();
-  // ph86/ph88 이 setTimeout 으로 다시 head clone 할 수 있으므로 더 늦게 한 번 더
-  [400, 1200, 2500, 4000].forEach(function(d){ setTimeout(ph91Fix, d); });
-})();
-</script>
+<!-- [ph91] 중복 핸들러 스크립트 제거 — ph97 글로벌 컨트롤러 + CSS가 대체 -->
 
 
 <!-- Phase 92 admin (2026-05-25) — 토글 절대 보장: inline onclick + capture-phase fallback + 주기 재바인딩 -->
@@ -25927,48 +25776,7 @@ button.chip:hover,
     background: rgba(251,191,36,0.15) !important;
   }
 </style>
-<script>
-(function(){
-  'use strict';
-  function ph92Force(){
-    var bar = document.getElementById('ph85-sidebar');
-    if (!bar) return;
-    bar.querySelectorAll('.ph85-head').forEach(function(head){
-      if (head.__ph92) return;
-      head.__ph92 = true;
-      head.addEventListener('click', function(e){
-        e.stopPropagation();
-        var g = head.parentElement;
-        if (g) g.classList.toggle('open');
-      }, true);
-    });
-    bar.querySelectorAll('.ph85-sub').forEach(function(sub){
-      if (sub.__ph92) return;
-      sub.__ph92 = true;
-      sub.addEventListener('click', function(e){
-        e.stopPropagation();
-      }, true);
-    });
-    bar.querySelectorAll('.ph86-action-btn').forEach(function(btn){
-      if (btn.__ph92) return;
-      btn.__ph92 = true;
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        var act = btn.dataset.act;
-        if (act === 'expand') {
-          bar.querySelectorAll('.ph85-group').forEach(function(g){ g.classList.add('open'); });
-        } else if (act === 'collapse') {
-          bar.querySelectorAll('.ph85-group').forEach(function(g){ g.classList.remove('open'); });
-        }
-      }, true);
-    });
-    console.log('[ph92] heads/subs/action-btns bound with capture-phase');
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph92Force);
-  else ph92Force();
-  setInterval(ph92Force, 1500);
-})();
-</script>
+<!-- [ph92] 중복 핸들러 스크립트 제거 — ph97 글로벌 컨트롤러 + CSS가 대체 -->
 
 
 <!-- Phase 93 admin (2026-05-25) — JS string SyntaxError fix (line 4766, 14107 broken by deploy BUILD inject) -->
@@ -26001,83 +25809,11 @@ button.chip:hover,
     transition: box-shadow 0.4s ease !important;
   }
 </style>
-<script>
-(function(){
-  'use strict';
-  // ph94: sub 클릭 핸들러 강화 — inline onclick 외에 보강
-  function ph94Enhance(){
-    var bar = document.getElementById('ph85-sidebar');
-    if (!bar) return;
-    bar.querySelectorAll('.ph85-sub').forEach(function(sub){
-      if (sub.__ph94) return;
-      sub.__ph94 = true;
-      sub.addEventListener('click', function(e){
-        var id = sub.dataset.card;
-        if (!id) return;
-        var c = document.getElementById(id);
-        if (!c) {
-          console.warn('[ph94] card not found:', id);
-          return;
-        }
-        // 카드가 hide 되어 있으면 강제 visible
-        c.style.display = '';
-        c.style.visibility = 'visible';
-        // 부모 legacy-cards 도 visible 강제
-        var lc = document.getElementById('legacy-cards');
-        if (lc) {
-          lc.style.display = 'block';
-          lc.style.visibility = 'visible';
-        }
-        // details 면 펼치기
-        if (c.tagName === 'DETAILS') c.open = true;
-        // scroll + highlight
-        setTimeout(function(){
-          c.scrollIntoView({ behavior:'smooth', block:'start' });
-          c.classList.add('ph94-highlight');
-          setTimeout(function(){ c.classList.remove('ph94-highlight'); }, 2500);
-        }, 50);
-        console.log('[ph94] scrolled to:', id);
-      }, false); // bubble phase — inline onclick 이후
-    });
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph94Enhance);
-  else ph94Enhance();
-  setInterval(ph94Enhance, 1500);
-})();
-</script>
+<!-- [ph94] 중복 핸들러 스크립트 제거 — ph97 글로벌 컨트롤러 + CSS가 대체 -->
 
 
 <!-- Phase 95 admin (2026-05-25) — 모두 펼치기/접기 버튼 inline onclick 강제 (모든 핸들러 충돌 우회) -->
-<script>
-(function(){
-  'use strict';
-  function ph95Force(){
-    var bar = document.getElementById('ph85-sidebar');
-    if (!bar) return;
-    bar.querySelectorAll('.ph86-action-btn').forEach(function(btn){
-      var act = btn.dataset.act;
-      if (act === 'expand' && !btn.__ph95expand) {
-        btn.__ph95expand = true;
-        btn.setAttribute('onclick',
-          "event.stopPropagation();" +
-          "document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(g){g.classList.add('open');});" +
-          "console.log('[ph95] expand all');"
-        );
-      } else if (act === 'collapse' && !btn.__ph95collapse) {
-        btn.__ph95collapse = true;
-        btn.setAttribute('onclick',
-          "event.stopPropagation();" +
-          "document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(g){g.classList.remove('open'); g.classList.remove('expanded');});" +
-          "console.log('[ph95] collapse all');"
-        );
-      }
-    });
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph95Force);
-  else ph95Force();
-  setInterval(ph95Force, 1000);
-})();
-</script>
+<!-- [ph95] 중복 핸들러 스크립트 제거 — ph97 글로벌 컨트롤러 + CSS가 대체 -->
 
 
 <!-- Phase 96 admin (2026-05-25) — 전체 통합 정리: 단일 컨트롤러로 expand/collapse/toggle/nav 보장 -->
@@ -26128,88 +25864,7 @@ button.chip:hover,
   }
 </style>
 
-<script>
-(function(){
-  'use strict';
-  // ph96 통합 컨트롤러 — 다른 ph 패치의 모든 핸들러 충돌 우회
-  function ph96Init(){
-    var bar = document.getElementById('ph85-sidebar');
-    if (!bar) return;
-
-    // (1) 그룹 헤더 토글 — inline onclick 강제 (capture/bubble 핸들러 무시)
-    bar.querySelectorAll('.ph85-head').forEach(function(head){
-      head.setAttribute('onclick',
-        "event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);"
-      );
-    });
-
-    // (2) 모두 펼치기 / 모두 접기 — inline onclick 강제
-    bar.querySelectorAll('.ph86-action-btn').forEach(function(btn){
-      var act = btn.dataset.act;
-      if (act === 'expand') {
-        btn.setAttribute('onclick',
-          "event.stopPropagation();" +
-          "document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(g){g.classList.add('open');});" +
-          "console.log('[ph96] expand all 8 groups');"
-        );
-      } else if (act === 'collapse') {
-        btn.setAttribute('onclick',
-          "event.stopPropagation();" +
-          "document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(g){g.classList.remove('open');});" +
-          "console.log('[ph96] collapse all 8 groups');"
-        );
-      } else if (act === 'hide') {
-        btn.style.display = 'none';
-      }
-    });
-
-    // (3) 하위 메뉴 클릭 → 해당 카드로 scroll + 하이라이트
-    bar.querySelectorAll('.ph85-sub').forEach(function(sub){
-      var id = sub.dataset.card;
-      if (!id) return;
-      sub.setAttribute('onclick',
-        "event.stopPropagation();" +
-        "var c=document.getElementById('" + id + "');" +
-        "if(c){" +
-          "var lc=document.getElementById('legacy-cards');" +
-          "if(lc){lc.style.display='block';lc.style.visibility='visible';}" +
-          "c.style.display='';c.style.visibility='visible';" +
-          "if(c.tagName==='DETAILS')c.open=true;" +
-          "setTimeout(function(){" +
-            "c.scrollIntoView({behavior:'smooth',block:'start'});" +
-            "c.classList.add('ph96-highlight');" +
-            "setTimeout(function(){c.classList.remove('ph96-highlight');},2500);" +
-          "},50);" +
-          "console.log('[ph96] navigated to: " + id + "');" +
-        "}else{console.warn('[ph96] card not found: " + id + "');alert('카드 미구현: " + id + "');}"
-      );
-    });
-
-    // (4) floating ☰ 메뉴 버튼 제거 (ph86-show, ph88-show)
-    ['ph86-show','ph88-show'].forEach(function(idv){
-      var el = document.getElementById(idv);
-      if (el) el.remove();
-    });
-
-    // (5) PC 레이아웃 강제 (grid 1fr, body padding)
-    if (window.matchMedia('(min-width: 1024px)').matches) {
-      document.querySelectorAll('.admin-layout').forEach(function(el){
-        el.style.gridTemplateColumns = '1fr';
-        el.style.gap = '0';
-      });
-      document.body.style.paddingLeft = '312px';
-      // legacy-cards 강제 visible
-      var lc = document.getElementById('legacy-cards');
-      if (lc) { lc.style.display = 'block'; lc.style.visibility = 'visible'; }
-    }
-  }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph96Init);
-  else ph96Init();
-  setInterval(ph96Init, 1200);
-  console.log('[ph96] unified sidebar controller initialized');
-})();
-</script>
+<!-- [ph96] 중복 핸들러 스크립트 제거 — ph97 글로벌 컨트롤러 + CSS가 대체 -->
 
 
 <!-- Phase 97 admin (2026-05-25) — window capture phase: 어떤 핸들러도 우회 불가 -->
