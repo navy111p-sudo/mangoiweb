@@ -226,7 +226,7 @@
         }
         /* 우상단 토성 */
         .deco-saturn {
-            top: 5%; right: 12%;
+            top: 5%; left: 6%;   /* 우상단→좌상단 이동 */
             width: clamp(180px, 22vw, 320px);
             opacity: 0.98;
             filter: drop-shadow(0 18px 36px rgba(0,0,0,0.55)) drop-shadow(0 0 30px rgba(220,170,110,0.35));
@@ -398,7 +398,7 @@
             user-select: none;
             -webkit-user-drag: none;
             filter: drop-shadow(0 14px 26px rgba(0,0,0,0.55)) drop-shadow(0 0 20px rgba(120,190,255,0.35));
-            animation: mangoUfoFly 15s cubic-bezier(0.45,0.05,0.55,0.95) 2.5s infinite;
+            animation: mangoUfoFly 26s cubic-bezier(0.45,0.05,0.55,0.95) 2.5s infinite;
         }
         @keyframes mangoUfoFly {
             0%   { transform: translate(-22vw, 7vh) scale(0.10); opacity: 0; }
@@ -794,7 +794,7 @@
             animation: lobbyGalaxySpin 80s linear infinite, lobbyFloatA 14s ease-in-out infinite;
         }
         .lobby .lobby-deco-saturn {
-            top: 6%; right: 8%;
+            top: 6%; left: 8%;   /* 우상단→좌상단 이동 */
             width: clamp(120px, 16vw, 220px);
             opacity: 0.95;
             filter: drop-shadow(0 14px 28px rgba(0,0,0,0.55)) drop-shadow(0 0 24px rgba(220,170,110,0.32));
@@ -832,7 +832,7 @@
         @media (max-width: 640px) {
             .lobby .lobby-deco-galaxy { display: none; }
             .lobby .lobby-deco-planet { display: none; }
-            .lobby .lobby-deco-saturn { width: clamp(100px,18vw,140px); top: 4%; right: 4%; opacity: .8 }
+            .lobby .lobby-deco-saturn { width: clamp(100px,18vw,140px); top: 4%; left: 4%; opacity: .8 }
         }
 
         /* ✨ Glassmorphism 모달 박스 */
@@ -3620,7 +3620,7 @@
     <img id="mango-ufo" class="mango-ufo" src="/img/mango-ufo.png" alt="망고 UFO" aria-hidden="true" onerror="this.style.display='none'" />
 
     <!-- 🌌 Phase 8: 우주 데코 (좌상단 나선은하 + 우상단 토성 + 우하단 작은 은하들) -->
-    <img class="deco-saturn" src="/img/saturn.png" alt="" aria-hidden="true"
+    <img class="deco-saturn" src="/img/saturn-realistic.png" alt="" aria-hidden="true"
          onerror="this.style.display='none'" />
     <div class="deco-mini-galaxies" aria-hidden="true">
       <div class="mg mg-1"></div>
@@ -5876,7 +5876,7 @@
 <div id="view-videocall-lobby" class="view lobby">
     <!-- 🌌 로비 우주 배경 데코 (학생 홈페이지 동일 스타일) -->
     <div class="lobby-starfield" id="lobby-starfield" aria-hidden="true"></div>
-    <img class="lobby-deco lobby-deco-saturn" src="/img/saturn.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
+    <img class="lobby-deco lobby-deco-saturn" src="/img/saturn-realistic.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
     <div class="lobby-deco lobby-deco-planet" aria-hidden="true"></div>
 
     <!-- 🔊 로비 환영 음성 (수업입장 시 자동 재생, 작은 볼륨, 음소거 토글) -->
@@ -24976,7 +24976,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260609185307 -->
+<!-- BUILD:20260609185801 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
