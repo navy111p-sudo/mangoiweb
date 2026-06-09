@@ -384,8 +384,44 @@
             .astronaut-wrap { width: 92px; height: 122px; right: 1%; top: 4%; opacity: 0.96; }
         }
 
+        /* ═══════ 🛸 망고 UFO — 왼쪽 멀리서 작게 → 오른쪽으로 크게 가로지름 (2026-06-09) ═══════ */
+        .mango-ufo {
+            position: absolute;
+            left: 0; top: 30%;
+            width: clamp(150px, 20vw, 330px);
+            height: auto;
+            z-index: 2;
+            pointer-events: none;
+            opacity: 0;
+            will-change: transform, opacity;
+            transform-origin: center;
+            user-select: none;
+            -webkit-user-drag: none;
+            filter: drop-shadow(0 14px 26px rgba(0,0,0,0.55)) drop-shadow(0 0 20px rgba(120,190,255,0.35));
+            animation: mangoUfoFly 15s cubic-bezier(0.45,0.05,0.55,0.95) 2.5s infinite;
+        }
+        @keyframes mangoUfoFly {
+            0%   { transform: translate(-22vw, 7vh) scale(0.10); opacity: 0; }
+            4%   { opacity: 1; }
+            26%  { transform: translate(34vw, 0vh) scale(0.48); opacity: 1; }
+            50%  { transform: translate(112vw, -11vh) scale(1.22); opacity: 1; }
+            55%  { transform: translate(112vw, -11vh) scale(1.22); opacity: 0; }
+            100% { transform: translate(112vw, -11vh) scale(1.22); opacity: 0; }
+        }
+        @media (max-width: 640px) {
+            .mango-ufo { top: 25%; width: clamp(110px, 34vw, 200px); }
+            @keyframes mangoUfoFly {
+                0%   { transform: translate(-30vw, 6vh) scale(0.12); opacity: 0; }
+                5%   { opacity: 1; }
+                30%  { transform: translate(30vw, 0vh) scale(0.5); opacity: 1; }
+                52%  { transform: translate(120vw, -8vh) scale(1.15); opacity: 1; }
+                58%  { transform: translate(120vw, -8vh) scale(1.15); opacity: 0; }
+                100% { transform: translate(120vw, -8vh) scale(1.15); opacity: 0; }
+            }
+        }
         /* ═══════ 🚀 우주선 — 사용자 요청으로 완전 제거 (2026-06-09) ═══════ */
         .starship-wrap { display: none !important; }
+        /* ═══════ 🚀 우주선 (영화 수준 vivid) ═══════ */
         .starship-wrap {
             position: absolute;
             top: 45%; left: 0;
@@ -3580,6 +3616,8 @@
       }
     </style>
     <div id="starfield"></div>
+    <!-- 🛸 망고 UFO — 왼쪽 멀리서 작게 시작해 오른쪽으로 크게 가로지름 -->
+    <img id="mango-ufo" class="mango-ufo" src="/img/mango-ufo.png" alt="망고 UFO" aria-hidden="true" onerror="this.style.display='none'" />
 
     <!-- 🌌 Phase 8: 우주 데코 (좌상단 나선은하 + 우상단 토성 + 우하단 작은 은하들) -->
     <img class="deco-saturn" src="/img/saturn.png" alt="" aria-hidden="true"
@@ -24938,7 +24976,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260609184200 -->
+<!-- BUILD:20260609185205 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
