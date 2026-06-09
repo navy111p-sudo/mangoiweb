@@ -20608,7 +20608,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260610002742 -->
+        <!-- BUILD:20260610003256 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -25081,7 +25081,7 @@ button.chip:hover,
   #ph85-sidebar {
     position: fixed;
     top: 0; left: 0; bottom: 0;
-    width: 240px;
+    width: 312px;
     background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
     border-right: 1px solid rgba(99,102,241,0.3);
     overflow-y: auto;
@@ -25099,24 +25099,24 @@ button.chip:hover,
     border-bottom: 1px solid rgba(255,255,255,0.08);
     margin-bottom: 12px;
   }
-  #ph85-sidebar .ph85-brand-ico { font-size: 22px; }
-  #ph85-sidebar .ph85-brand-text { font-size: 14px; font-weight: 800; color: #fbbf24; }
+  #ph85-sidebar .ph85-brand-ico { font-size: 28px; }
+  #ph85-sidebar .ph85-brand-text { font-size: 18px; font-weight: 800; color: #fbbf24; }
 
   .ph85-search {
-    width: 100%; padding: 8px 10px;
+    width: 100%; padding: 11px 13px;
     background: rgba(15,23,42,0.6);
     border: 1px solid rgba(148,163,184,0.25);
     border-radius: 8px;
-    color: #fff; font-size: 12.5px;
-    margin-bottom: 10px;
+    color: #fff; font-size: 15px;
+    margin-bottom: 12px;
     box-sizing: border-box;
   }
   .ph85-search::placeholder { color: #64748b; }
 
   /* fix (2026-06-01) — 🎥 수업입장 카드 (평가서 통합 위 고정) */
   .ph85-classroom {
-    display: flex; align-items: center; gap: 9px;
-    padding: 11px 12px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 11px;
+    padding: 14px 15px; margin-bottom: 10px;
     border-radius: 10px;
     background: linear-gradient(135deg, #2563eb, #1d4ed8);
     color: #fff; text-decoration: none;
@@ -25124,7 +25124,7 @@ button.chip:hover,
     cursor: pointer; transition: filter .18s, transform .18s;
   }
   .ph85-classroom:hover { filter: brightness(1.08); transform: translateY(-1px); }
-  .ph85-classroom .ph85-title { flex: 1; color: #fff; font-weight: 800; font-size: 13px; }
+  .ph85-classroom .ph85-title { flex: 1; color: #fff; font-weight: 800; font-size: 16px; }
   .ph85-classroom .ph85-live {
     font-size: 9px; font-weight: 900; letter-spacing: 0.5px;
     background: #ef4444; color: #fff; padding: 2px 7px; border-radius: 99px;
@@ -25142,20 +25142,20 @@ button.chip:hover,
   .ph85-group:hover { border-color: rgba(99,102,241,0.45); }
   .ph85-group.open { border-color: rgba(251,191,36,0.5); background: rgba(99,102,241,0.10); }
   .ph85-head {
-    display: flex; align-items: center; gap: 9px;
-    padding: 10px 12px;
+    display: flex; align-items: center; gap: 11px;
+    padding: 13px 15px;
     cursor: pointer;
     user-select: none;
   }
   .ph85-head:hover { background: rgba(99,102,241,0.10); }
   .ph85-ico {
-    width: 26px; height: 26px;
-    border-radius: 6px;
+    width: 34px; height: 34px;
+    border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 13px; color: #fff;
+    font-size: 17px; color: #fff;
   }
-  .ph85-title { flex: 1; font-size: 12.5px; font-weight: 700; }
-  .ph85-arrow { color: #94a3b8; font-size: 11px; transition: transform 0.2s; }
+  .ph85-title { flex: 1; font-size: 15px; font-weight: 700; }
+  .ph85-arrow { color: #94a3b8; font-size: 14px; transition: transform 0.2s; }
   .ph85-group.open .ph85-arrow { transform: rotate(90deg); color: #fbbf24; }
   .ph85-subs {
     max-height: 0;
@@ -25163,10 +25163,10 @@ button.chip:hover,
     transition: max-height 0.3s cubic-bezier(0.32,0.72,0,1);
     background: rgba(0,0,0,0.2);
   }
-  .ph85-group.open .ph85-subs { max-height: 500px; }
+  .ph85-group.open .ph85-subs { max-height: 760px; }
   .ph85-sub {
-    padding: 8px 12px 8px 47px;
-    cursor: pointer; color: #cbd5e1; font-size: 11.5px;
+    padding: 10px 14px 10px 56px;
+    cursor: pointer; color: #cbd5e1; font-size: 14px;
     border-top: 1px solid rgba(255,255,255,0.04);
     display: flex; align-items: center;
   }
@@ -25174,7 +25174,7 @@ button.chip:hover,
   .ph85-sub::before { content: '›'; color: #64748b; margin-right: 6px; }
 
   @media (min-width: 1024px) {
-    body { padding-left: 240px !important; }
+    body { padding-left: 312px !important; }
   }
   /* 모바일/태블릿 — #ph85-sidebar 를 ☰(ph134)로 여닫는 슬라이드 드로어로 (터치 토글) */
   @media (max-width: 1023px) {
@@ -25184,6 +25184,7 @@ button.chip:hover,
     #ph85-sidebar {
       display: block !important;
       visibility: visible !important;
+      width: min(312px, 84vw) !important;
       transform: translateX(-100%);
       transition: transform .3s cubic-bezier(.32,.72,0,1);
       z-index: 99994 !important;
@@ -25405,6 +25406,8 @@ button.chip:hover,
           // 카드 없으면 alert (디버그)
           console.log('[ph85] card not found:', id);
         }
+        // 하위 항목 선택 시 모든 그룹 자동 접기(UX)
+        bar.querySelectorAll('.ph85-group').forEach(function(x){ x.classList.remove('open'); });
         if (window.matchMedia('(max-width: 1023px)').matches) bar.classList.remove('open');
       });
     });
@@ -25665,7 +25668,7 @@ button.chip:hover,
             show.addEventListener('click', function(){
               bar.style.display = '';
               if (window.matchMedia('(min-width: 1024px)').matches) {
-                document.body.style.paddingLeft = '240px';
+                document.body.style.paddingLeft = '312px';
               }
               show.remove();
             });
@@ -25721,7 +25724,7 @@ button.chip:hover,
       display: none !important;
     }
     body {
-      padding-left: 240px !important;
+      padding-left: 312px !important;
       box-sizing: border-box;
     }
   }
@@ -25734,7 +25737,7 @@ button.chip:hover,
     document.querySelectorAll('.menu-search-wrap, .menu-search-input, .menu-search-dropdown').forEach(function(el){
       el.style.display = 'none';
     });
-    document.body.style.paddingLeft = '240px';
+    document.body.style.paddingLeft = '312px';
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph89Clean);
   else ph89Clean();
@@ -25839,7 +25842,7 @@ button.chip:hover,
         ph85bar.style.display = '';
       }
       if (!document.body.style.paddingLeft || document.body.style.paddingLeft === '0px') {
-        document.body.style.paddingLeft = '240px';
+        document.body.style.paddingLeft = '312px';
       }
     }
   }
@@ -26103,7 +26106,7 @@ button.chip:hover,
 
   /* === PC 레이아웃 — 단일 source === */
   @media (min-width: 1024px) {
-    body { padding-left: 240px !important; box-sizing: border-box; }
+    body { padding-left: 312px !important; box-sizing: border-box; }
     .admin-layout { grid-template-columns: 1fr !important; gap: 0 !important; }
     /* 카드들 보이게 (ph87이 hide 했던 거 복구) */
     #legacy-cards,
@@ -26201,7 +26204,7 @@ button.chip:hover,
         el.style.gridTemplateColumns = '1fr';
         el.style.gap = '0';
       });
-      document.body.style.paddingLeft = '240px';
+      document.body.style.paddingLeft = '312px';
       // legacy-cards 강제 visible
       var lc = document.getElementById('legacy-cards');
       if (lc) { lc.style.display = 'block'; lc.style.visibility = 'visible'; }
