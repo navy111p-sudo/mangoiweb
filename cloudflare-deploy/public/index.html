@@ -192,12 +192,28 @@
             padding: 2rem;
             position: relative;
             overflow: hidden;
-            /* 우주 배경: 어두운 비네팅 + space.jpg */
-            background:
-              radial-gradient(ellipse at center, rgba(11,15,30,0.35) 0%, rgba(8,11,24,0.85) 100%),
-              url('/img/bg/space.jpg') center center / cover no-repeat,
-              #050714;
-            background-attachment: scroll, fixed, scroll;
+            background: #050714;
+        }
+        /* 배경 이미지 레이어: 살짝 블러 + 어둡게 — 시선 분산을 줄여 중앙을 강조 */
+        #view-home::before {
+            content: '';
+            position: absolute; inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background: url('/img/bg/space.jpg') center center / cover no-repeat;
+            filter: blur(4px) brightness(0.62) saturate(0.92);
+            transform: scale(1.08);
+        }
+        /* 중앙 스포트라이트 비네트: 가운데는 맑게, 주변은 차분히 어둡게(구글식 집중) */
+        #view-home::after {
+            content: '';
+            position: absolute; inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background: radial-gradient(ellipse 66% 56% at 50% 44%,
+                rgba(5,8,18,0) 0%,
+                rgba(5,8,18,0.34) 52%,
+                rgba(3,5,14,0.76) 100%);
         }
         /* 우주 데코 - 떠다니는 행성/은하 (홈 화면 전용, 클릭 차단 없음) */
         .deco-galaxy, .lobby-deco-galaxy { display: none !important; }
@@ -310,6 +326,7 @@
             pointer-events: none;
             z-index: 0;
             overflow: hidden;
+            opacity: 0.55;   /* 별을 살짝 줄여 배경을 차분하게 */
         }
         /* 반짝이는 별 */
         .star {
@@ -24992,7 +25009,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260609194015 -->
+<!-- BUILD:20260609195305 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
