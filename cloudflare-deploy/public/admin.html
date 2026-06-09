@@ -20391,7 +20391,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260609181839 -->
+        <!-- BUILD:20260609182754 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -30695,7 +30695,7 @@ button.chip:hover,
     // === 강사 통합 ===
     'card-teacher-mgmt':           {exec:'V', mgr:'V', branch:'R', agency:'R'},
     'card-payroll-auto':           {exec:'V', mgr:'V'},
-    'card-payroll':                {exec:'V', mgr:'R', branch:'R', teacher:'R'},
+    'card-payroll':                {exec:'V', mgr:'R', branch:'R'},
     'card-mbti-mgmt':              {exec:'V', mgr:'V', teacher:'V'},
     'card-praise-stats':           {exec:'V', mgr:'V', teacher:'V', branch:'V', agency:'V', parent:'R'},
     'card-supervisor':             {exec:'V', mgr:'V', branch:'R'},
@@ -30707,13 +30707,13 @@ button.chip:hover,
     // === 통계 / KPI ===
     'card-kpi-dashboard':          {exec:'V', mgr:'V'},
     'card-daily-charts':           {exec:'V', mgr:'V', branch:'V', agency:'V'},
-    'card-rankings':               {exec:'V', mgr:'V', teacher:'V', branch:'V', agency:'V', student:'V'},
+    'card-rankings':               {exec:'V', mgr:'V', branch:'V', agency:'V', student:'V'},
     'card-retention-risk':         {exec:'V', mgr:'V', branch:'V', agency:'V'},
     'card-retention':              {exec:'V', mgr:'V', branch:'R', agency:'R'},
-    'card-active-rooms':           {exec:'V', mgr:'V', teacher:'R', branch:'V'},
+    'card-active-rooms':           {exec:'V', mgr:'V', branch:'V'},
     'card-nps-monthly':            {exec:'V', mgr:'V'},
     'card-ai-forecast':            {exec:'V', mgr:'V'},
-    'card-voice-stats':            {exec:'V', mgr:'V', teacher:'V'},
+    'card-voice-stats':            {exec:'V', mgr:'V'},
 
     // === 회계 / 포인트 ===
     'card-accounting-mgmt':        {exec:'V', mgr:'V'},
@@ -30722,7 +30722,7 @@ button.chip:hover,
     'card-recurring-billing':      {exec:'V', mgr:'V', agency:'V'},
     'card-auto-dunning':           {exec:'V', mgr:'V'},
     'card-settlement-stats':       {exec:'V', mgr:'V', branch:'V', agency:'V'},
-    'card-points-mgmt':            {exec:'V', mgr:'V', teacher:'R', student:'V', parent:'R'},
+    'card-points-mgmt':            {exec:'V', mgr:'V', student:'V', parent:'R'},
 
     // === 학생 / 학부모 ===
     'card-students-mgmt':          {exec:'V', mgr:'V', teacher:'V', branch:'V', agency:'V'},
