@@ -8,7 +8,8 @@
  */
 
 import { processAiCommand, executeAction, processStudentCommand } from './ai-command';
-import { scopeFragments, studentScopeWhere } from './scope';
+import { scopeFragments, studentScopeWhere, getScope } from './scope';
+import { applyPIIScope, canViewPII, maskRecordPII } from './pii-mask';  // 🔒 PII 권한별 마스킹
 import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook, type GiftishowEnv } from './giftishow-client';
 import {
   sendLessonStartAlert, sendLessonEndAlert, sendChatSummaryAlert, sendMentionAlert,
@@ -821,6 +822,155 @@ export async function handleMangoApi(
         }
       }
       return json({ ok: true, attendance_id: res.meta.last_row_id, joined_at: now });
+    }
+
+    // ===== 🥭 출결 체크인 (방 입장 확정) — 결석률 100% 버그 방어용 핵심 엔드포인트 =====
+    //  POST /api/attendance/checkin
+    //    body: { room_id, user_id, role?('student'|'teacher'), timestamp?, username? }
+    //  목적:
+    //    - WebRTC 시그널링 서버 / 클라이언트가 "학생이 방에 실제 입장" 했을 때 호출.
+    //    - attendance 행을 '출석(attended)' 으로 확정하고 attended_at(실제 입장 시각) 기록.
+    //    - 결석 배치가 이미 status='absent' 로 바꿔놨더라도, 입장이 수업 시간 내면 '출석'으로 복구.
+    //    - 대시보드(/api/admin/stats/today)는 attendance.date 기준 DISTINCT user_id 를 출석자로 세므로
+    //      이 엔드포인트가 안정적으로 행을 남기면 "활성 52명 전원 결석(100%)" 오류가 사라진다.
+    if (path === '/api/attendance/checkin' && method === 'POST') {
+      const b = await parseJsonBody(request);
+
+      // ── 1) 데이터 무결성 검증 ── user_id / room_id 필수 + 형식 검사
+      const userId = b?.user_id != null ? String(b.user_id).trim() : '';
+      const roomId = b?.room_id != null ? String(b.room_id).trim() : '';
+      const ID_RE = /^[A-Za-z0-9_.:@-]{1,128}$/; // 허용 문자/길이 제한 (SQL injection·쓰레기 입력 방어)
+      if (!ID_RE.test(userId) || !ID_RE.test(roomId)) {
+        return invalidBody(['room_id', 'user_id']);
+      }
+      const role = (b.role === 'teacher') ? 'teacher' : 'student';
+
+      // 입장 시각: 클라이언트가 보낸 timestamp(ms 또는 ISO 문자열)를 신뢰하되,
+      // 과거 24h ~ 미래 5분 범위만 허용(시계 오차·위변조 방어). 벗어나면 서버 시각 사용.
+      let now = Date.now();
+      if (b.timestamp != null) {
+        const parsed = typeof b.timestamp === 'number' ? b.timestamp : Date.parse(String(b.timestamp));
+        if (Number.isFinite(parsed) && parsed > Date.now() - 86400000 && parsed < Date.now() + 300000) {
+          now = parsed;
+        }
+      }
+      const date = today(now); // KST 기준 YYYY-MM-DD (대시보드 집계 키와 동일)
+
+      // ── 2) 자가치유 ── 운영 D1 에 테이블/컬럼이 없을 수 있으므로 보강 (NOOP if exists)
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT NOT NULL, user_id TEXT NOT NULL, username TEXT, role TEXT DEFAULT 'student', joined_at INTEGER NOT NULL, left_at INTEGER, status TEXT DEFAULT 'present', date TEXT, attended_at INTEGER, total_session_ms INTEGER DEFAULT 0, total_active_ms INTEGER DEFAULT 0, disconnect_count INTEGER DEFAULT 0);`);
+      } catch {}
+      try { await env.DB.exec(`ALTER TABLE attendance ADD COLUMN attended_at INTEGER`); } catch {} // 이미 있으면 무시
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_attendance_user_date ON attendance(user_id, date)`); } catch {}
+
+      // ── 3) 오늘 수업 스케줄 조회(class_schedules) ── 입장이 "수업 시간 내" 인지 판정
+      //    스케줄이 없으면 막지 않고 출석 인정(보수적 기본값 = true). → 버그 재발 방지 우선.
+      let withinClass = true;
+      let scheduleId: number | null = null;
+      try {
+        const dow = String(new Date(now + 9 * 3600 * 1000).getUTCDay()); // KST 요일 (0=일)
+        const sched = await env.DB.prepare(
+          `SELECT id, start_time, duration_min FROM class_schedules
+            WHERE user_id = ? AND status = 'active'
+              AND ( (schedule_kind = 'onetime'   AND scheduled_date = ?)
+                 OR (schedule_kind = 'recurring' AND CAST(day_of_week AS TEXT) = ?) )
+            ORDER BY start_time ASC LIMIT 1`
+        ).bind(userId, date, dow).first<any>();
+        if (sched) {
+          scheduleId = sched.id;
+          const [hh, mm] = String(sched.start_time || '00:00').split(':').map((x: string) => parseInt(x, 10));
+          const dur = Number(sched.duration_min || 30);
+          const dayStartKst = new Date(date + 'T00:00:00+09:00').getTime();
+          const classStart = dayStartKst + ((hh || 0) * 60 + (mm || 0)) * 60000;
+          const classEnd = classStart + dur * 60000;
+          const GRACE_BEFORE = 30 * 60000; // 시작 30분 전부터 인정
+          const GRACE_AFTER = 15 * 60000;  // 종료 15분 후까지 인정
+          withinClass = (now >= classStart - GRACE_BEFORE) && (now <= classEnd + GRACE_AFTER);
+        }
+      } catch (e: any) {
+        // class_schedules 스키마 편차/부재 시에도 출석은 인정 (withinClass=true 유지)
+        console.warn('[checkin] schedule lookup skipped:', e?.message);
+      }
+
+      // ── 4) 방어적 UPSERT ── 오늘 (user_id, room_id, date) 행이 있으면 출석으로 복구, 없으면 생성
+      const existing = await env.DB.prepare(
+        `SELECT id, status FROM attendance
+          WHERE user_id = ? AND room_id = ? AND date = ?
+          ORDER BY joined_at DESC LIMIT 1`
+      ).bind(userId, roomId, date).first<any>();
+
+      let attendanceId: number;
+      let recovered = false; // 결석→출석 복구 여부
+      if (existing) {
+        if (withinClass) {
+          // 입장이 수업 시간 내 → status='attended' 로 확정/복구 (결석 배치 결과 덮어쓰기)
+          await env.DB.prepare(
+            `UPDATE attendance
+                SET status = 'attended',
+                    attended_at = COALESCE(attended_at, ?),
+                    role     = COALESCE(role, ?),
+                    username = COALESCE(username, ?)
+              WHERE id = ?`
+          ).bind(now, role, b.username || null, existing.id).run();
+          recovered = (existing.status === 'absent');
+        } else {
+          // 수업 시간 밖 입장 → status 는 건드리지 않고 attended_at 만 보강
+          await env.DB.prepare(
+            `UPDATE attendance SET attended_at = COALESCE(attended_at, ?) WHERE id = ?`
+          ).bind(now, existing.id).run();
+        }
+        attendanceId = Number(existing.id);
+      } else {
+        const ins = await env.DB.prepare(
+          `INSERT INTO attendance (room_id, user_id, username, role, joined_at, attended_at, status, date)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(roomId, userId, b.username || null, role, now, now, withinClass ? 'attended' : 'present', date).run();
+        attendanceId = Number(ins.meta.last_row_id);
+      }
+
+      // ── 5) 알림 센터 연동 ── 첫 출석 확정 시 class_start 이벤트 적재
+      //    (실서비스 경로) D1 notification_queue → cron 이 SOLAPI 알림톡/카카오로 발송.
+      const firstAttend = !existing || recovered;
+      if (firstAttend && role === 'student') {
+        await enqueueNotification(env, {
+          type: 'class_start',
+          title: `🎬 수업 시작 — 방 ${roomId}`,
+          body: `${b.username || userId} 님 출석 확정 (${date})`,
+          meta: { room_id: roomId, user_id: userId, role, attended_at: now, schedule_id: scheduleId }
+        });
+
+        // ──────────────────────────────────────────────────────────────────
+        // 🔮 (예비/가짜코드) Cloudflare Queue 직접 적재 경로 — 바인딩 추가 시 활성화.
+        //   wrangler.toml 에 아래를 추가하고 MangoEnv 에 `QUEUE?: Queue` 선언한 뒤 주석 해제:
+        //     [[queues.producers]]
+        //     binding = "QUEUE"
+        //     queue   = "class-events"
+        //   consumer Worker 가 이 메시지를 받아 SOLAPI 알림톡 발송 대기열로 넘긴다.
+        // ──────────────────────────────────────────────────────────────────
+        // if ((env as any).QUEUE) {
+        //   await (env as any).QUEUE.send({
+        //     event: 'class_start',
+        //     room_id: roomId,
+        //     user_id: userId,
+        //     role,
+        //     attended_at: now,
+        //     notify: { channel: 'kakao_alimtalk', template: 'CLASS_START' } // SOLAPI 발송 대기 큐 페이로드
+        //   });
+        // }
+      }
+
+      return json({
+        ok: true,
+        attendance_id: attendanceId,
+        user_id: userId,
+        room_id: roomId,
+        status: withinClass ? 'attended' : 'present',
+        attended_at: now,
+        date,
+        within_class: withinClass,
+        schedule_id: scheduleId,
+        recovered_from_absent: recovered
+      });
     }
 
     if (path === '/api/attendance/leave' && method === 'POST') {
@@ -6572,7 +6722,8 @@ Respond in JSON ONLY:
           if (!r.login_id && r.user_id) r.login_id = r.user_id;
           return r;
         });
-        return json({ ok: true, items });
+        const _piiItems = applyPIIScope(items, _swErp.scope);  // 🔒 권한별 PII 마스킹(hq/none=원본, 지사/대리점=마스킹)
+        return json({ ok: true, items: _piiItems, can_view_pii: canViewPII(_swErp.scope) });
       } catch (e: any) {
         // 어떤 에러든 빈 배열로 graceful — UI 가 "데이터 없음" 으로 표시
         console.warn('[erp-list] query failed:', e?.message || e);
@@ -6811,7 +6962,8 @@ Respond in JSON ONLY:
          ORDER BY COALESCE(s.created_at,0) DESC, s.rowid DESC
          LIMIT 1000`
       ).bind(...binds).all();
-      return json({ ok: true, count: (rs.results || []).length, students: rs.results || [] });
+      const _piiStudents = applyPIIScope(rs.results || [], _ssw.scope);  // 🔒 권한별 PII 마스킹
+      return json({ ok: true, count: _piiStudents.length, students: _piiStudents, can_view_pii: canViewPII(_ssw.scope) });
     }
 
     // ========================================================================
@@ -7638,11 +7790,15 @@ Respond in JSON ONLY:
           return [];
         };
 
+        const _fullScope = await getScope(env as any, request);  // 🔒 PII 열람 권한 판정
+        const _erpRow: any = pick(0);
+        const _fullErpPII = (_erpRow && !canViewPII(_fullScope)) ? maskRecordPII(_erpRow) : _erpRow;
         return json({
           ok: true,
           user_id: uid,
           period_days: days,
-          erp: pick(0),
+          erp: _fullErpPII,
+          can_view_pii: canViewPII(_fullScope),
           profile: pick(1),
           summary: pick(2) || {},
           by_day: pickList(3),

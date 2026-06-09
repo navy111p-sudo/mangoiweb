@@ -8,6 +8,7 @@ import { VideoCallRoom } from './video-call-room';
 import { HealthResponse, TurnConfigResponse, PdfUploadResponse } from './types';
 import { handleMangoApi, runMonthlyReports } from './api-mango';
 import { purgeExpired } from './retention';
+import { purgeOrphanedRecordings } from './recordings-cleanup';
 import { handleLivekit, ensureLivekitSchema } from './livekit-bridge';
 import { handleRecordingUpload as handleR2MultipartUpload } from './recordings-r2';
 import { handleAdminAuthApi, checkAdminSession } from './auth-admin';
@@ -749,6 +750,32 @@ export default {
       return realtimeRouter(request, env);
     }
 
+    // 🧹 R2 고아 파일(기록 없음) 청소 — 관리자 수동 트리거 / 미리보기
+    //   GET  /api/admin/recordings/cleanup            → dry-run(분석만, 삭제 X)
+    //   POST /api/admin/recordings/cleanup            → 실제 삭제 실행(안전장치 포함)
+    //   GET  /api/admin/recordings/cleanup?status=1   → 마지막 실행 결과(KV) 조회
+    //   (auth 는 상단 관리자 세션 미들웨어가 이미 보장)
+    if (path === '/api/admin/recordings/cleanup') {
+      const J = (o: any, st = 200) =>
+        new Response(JSON.stringify(o), {
+          status: st,
+          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+        });
+      try {
+        // 마지막 실행 결과 조회
+        if (request.method === 'GET' && url.searchParams.get('status')) {
+          const last = await env.SESSION_STATE.get('recordings-cleanup:last_run');
+          return J({ ok: true, last_run: last ? JSON.parse(last) : null });
+        }
+        // POST = 실제 삭제, GET = dry-run(안전 기본값)
+        const dryRun = request.method !== 'POST';
+        const res = await purgeOrphanedRecordings(env as any, { dryRun });
+        return J({ ok: !res.aborted_by_guard, result: res });
+      } catch (err: any) {
+        return J({ ok: false, error: err?.message || String(err) }, 500);
+      }
+    }
+
     // 💸 /admin/finance-realtime — 실시간 재무 대시보드 페이지 (관리자 전용)
     if (path === '/admin/finance-realtime' || path === '/admin/finance-realtime/') {
       const r = new Request(new URL('/admin/finance-realtime.html' + url.search, request.url).toString(), request);
@@ -888,6 +915,22 @@ export default {
           console.log('[retention] purged', JSON.stringify(result));
         } catch (err) {
           console.error('[retention] error', err);
+        }
+
+        // 🧹 R2 고아 파일 청소 (KST 03:00) — D1 메타 없는 R2 객체 자동 삭제
+        //   매일 돌려도 안전: 50% 안전장치 + 24h grace 로 in-flight 보호.
+        //   ctx.waitUntil 안에서 실행되므로 실패해도 다른 cron 에 무영향.
+        try {
+          const clean = await purgeOrphanedRecordings(env);
+          console.log('[recordings-cleanup] cron ran', JSON.stringify({
+            total: clean.total_objects,
+            orphans: clean.orphan_count,
+            deleted: clean.deleted_count,
+            freed: clean.deleted_human,
+            aborted: clean.aborted_by_guard,
+          }));
+        } catch (err) {
+          console.error('[recordings-cleanup] error', err);
         }
 
         // 🌅 Daily briefing (KST 03:00)

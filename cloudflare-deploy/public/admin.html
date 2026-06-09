@@ -20535,7 +20535,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260609205953 -->
+        <!-- BUILD:20260609211628 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -25261,13 +25261,14 @@ button.chip:hover,
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-permissions,card-franchises,card-centers,card-data-export,card-test-seed,card-admin-alerts,card-admin-ghost,card-admin-whisper,card-attendance-status,card-auto-attendance,card-class-attendance,card-report-forms">
+  <div class="ph85-group" data-cards="card-calendar,card-permissions,card-franchises,card-centers,card-data-export,card-test-seed,card-admin-alerts,card-admin-ghost,card-admin-whisper,card-attendance-status,card-auto-attendance,card-class-attendance,card-report-forms">
     <div class="ph85-head" onclick="event.stopPropagation();this.parentElement.classList.toggle('open');">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#64748b,#334155)">⚙</div>
       <div class="ph85-title">시스템</div>
       <div class="ph85-arrow">›</div>
     </div>
     <div class="ph85-subs">
+      <div class="ph85-sub" data-card="card-calendar" onclick="event.stopPropagation();var c=document.getElementById('card-calendar');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-calendar');}">📅 캘린더 관리</div>
       <div class="ph85-sub" data-card="card-permissions" onclick="event.stopPropagation();var c=document.getElementById('card-permissions');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-permissions');}">권한 관리</div>
       <div class="ph85-sub" data-card="card-franchises" onclick="event.stopPropagation();var c=document.getElementById('card-franchises');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-franchises');}">가맹점</div>
       <div class="ph85-sub" data-card="card-centers" onclick="event.stopPropagation();var c=document.getElementById('card-centers');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-centers');}">센터</div>
