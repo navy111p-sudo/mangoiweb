@@ -193,6 +193,16 @@ try {
   check('P3: 기존 #ai-panel 그대로 유지', a.includes("getElementById('ai-panel')"));
 } catch (e) { check('P3 읽기', false); console.log('    →', e.message); }
 
+// ── 11) P4-a 접근성 개선 (가산적·비파괴) ──
+console.log('\n[11] P4-a 접근성 (focus-visible · reduced-motion · aria-live)');
+try {
+  const a = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8');
+  check('P4-a: 키보드 포커스 링(focus-visible)', a.includes(':focus-visible') && a.includes('mi-a11y'));
+  check('P4-a: 모션 최소화 전역 존중', a.includes('@media (prefers-reduced-motion: reduce)'));
+  check('P4-a: AI 비서 화면낭독(aria-live)', a.includes('aria-live="polite"') && a.includes('role="log"'));
+  check('P4-a: 비파괴(기존 askAI 유지)', a.includes('async function askAI(command)'));
+} catch (e) { check('P4-a 읽기', false); console.log('    →', e.message); }
+
 // ── 결과 ──────────────────────────────────────────────────────────────
 console.log('\n' + '='.repeat(52));
 console.log(`🎯 총 ${PASS+FAIL}건 중 ✅ ${PASS} 통과 / ❌ ${FAIL} 실패`);

@@ -20608,7 +20608,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260610000830 -->
+        <!-- BUILD:20260610001259 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -36176,7 +36176,7 @@ button.chip:hover,
    +'    <div style="line-height:1.2"><div style="font-weight:800;color:#e6ecff">AI 운영 비서</div><div style="font-size:11px;color:#34d399">● 온라인</div></div>'
    +'    <button id="mi-asst-close" aria-label="닫기" style="margin-left:auto;background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;padding:6px">✕</button>'
    +'  </div>'
-   +'  <div id="mi-asst-body" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px"></div>'
+   +'  <div id="mi-asst-body" role="log" aria-live="polite" aria-label="AI 운영 비서 대화" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px"></div>'
    +'  <div id="mi-asst-chips" style="display:flex;gap:8px;overflow-x:auto;padding:0 14px 8px"></div>'
    +'  <form id="mi-asst-form" style="display:flex;gap:8px;padding:12px;border-top:1px solid rgba(99,102,241,.18)">'
    +'    <input id="mi-asst-input" autocomplete="off" placeholder="무엇이든 물어보세요…" style="flex:1;height:44px;padding:0 14px;border-radius:12px;border:1px solid rgba(99,102,241,.25);background:#0c1a3a;color:#e6ecff;outline:none;font-size:14px"/>'
@@ -36234,5 +36234,14 @@ button.chip:hover,
   document.getElementById('mi-asst-form').addEventListener('submit',function(e){ e.preventDefault(); var v=document.getElementById('mi-asst-input').value.trim(); if(!v)return; ask(v); document.getElementById('mi-asst-input').value=''; });
 })();
 </script>
+<!-- ♿ P4-a 접근성 개선 (가산적·비파괴): 키보드 포커스 링 + 모션 최소화 존중 -->
+<style id="mi-a11y">
+:where(button,a,input,select,textarea,summary,[tabindex]):focus-visible{
+  outline:2px solid #60a5fa !important; outline-offset:2px !important; border-radius:6px;
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; scroll-behavior:auto !important; }
+}
+</style>
 </body>
 </html>
