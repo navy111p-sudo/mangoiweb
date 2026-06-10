@@ -537,5 +537,39 @@ startTimer();
   🏠 <span>홈페이지</span>
 </a>
 
+<!-- 🔊 시스템 진단 음성 자동 안내 (학생·학부모용) -->
+<audio id="sysdiag-voice" src="/audio/system-diagnostic.mp3" preload="auto"></audio>
+<script>
+(function(){
+  var a = document.getElementById('sysdiag-voice');
+  if(!a) return;
+  var played = false;
+  function play(){
+    if(played) return; played = true;
+    var p = a.play();
+    if(p && p.catch) p.catch(function(){ played = false; arm(); });
+  }
+  function arm(){
+    var once = function(){
+      document.removeEventListener('pointerdown', once);
+      document.removeEventListener('keydown', once);
+      play();
+    };
+    document.addEventListener('pointerdown', once);
+    document.addEventListener('keydown', once);
+  }
+  // 페이지 진입 시 자동 재생 시도 → 브라우저가 막으면 첫 클릭/터치에 재생
+  if (document.readyState === 'complete') play();
+  else window.addEventListener('load', play);
+  // 🔊 다시 듣기 버튼
+  var btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = '🔊 음성 안내 다시 듣기';
+  btn.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:99999;padding:9px 16px;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;border:0;border-radius:99px;font-weight:800;font-size:13px;cursor:pointer;box-shadow:0 6px 18px -4px rgba(99,102,241,.6);font-family:inherit';
+  btn.onclick = function(){ try{ a.currentTime = 0; }catch(e){} played = true; a.play(); };
+  document.body.appendChild(btn);
+})();
+</script>
+
 </body>
 </html>
