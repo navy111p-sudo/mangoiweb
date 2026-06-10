@@ -17,7 +17,7 @@
     'installguide':'/install-guide.html','learnguide':'/learn-guide.html',
     'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'/contact.html',
     'library':'/docs/','reviews':'/reviews.html','recordings':'/admin.html',
-    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
+    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach-cn.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
     'leveltest':'/level-test.html','battle':'/battle.html',
     'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
@@ -6226,7 +6226,6 @@
                 <button class="tab-btn active" onclick="vcSwitchTab('whiteboard')" data-ko="🖊 칠판" data-en="🖊 Board">🖊 칠판</button>
                 <button class="tab-btn" onclick="vcSwitchTab('pdf')" data-ko="📄 교재" data-en="📄 Materials">📄 교재</button>
                 <button class="tab-btn" onclick="vcSwitchTab('video')" data-ko="📹 동영상" data-en="📹 Video">📹 동영상</button>
-                <button class="tab-btn" onclick="vcSwitchTab('pron')" data-ko="🎯 발음연습" data-en="🎯 Pronunciation">🎯 발음연습</button>
                 <button class="tab-btn" onclick="vcSwitchTab('game')" data-ko="🎮 학생게임" data-en="🎮 Game">🎮 학생게임</button>
                 <button class="tab-btn" onclick="vcSwitchTab('bg')" data-ko="🎨 배경화면" data-en="🎨 Background">🎨 배경화면</button>
             </div>
@@ -6336,29 +6335,6 @@
                 <div class="vp-stage" id="vp-stage">
                     <div class="vp-empty" data-ko="🎬 YouTube 주소를 붙여넣거나 동영상 파일을 업로드하세요." data-en="🎬 Paste a YouTube URL or upload a video file.">🎬 YouTube 주소를 붙여넣거나 동영상 파일을 업로드하세요.</div>
                 </div>
-            </div>
-        </div>
-        <!-- 🎯 발음연습 탭 — 외부 도구 (mangoi-speech.pages.dev/practice) -->
-        <div class="tab-panel" id="tab-pron" style="flex-direction:column">
-            <div style="display:flex;gap:8px;align-items:center;padding:8px 12px;background:rgba(15,23,42,0.65);border-bottom:1px solid rgba(148,163,184,0.15);flex-wrap:wrap;flex-shrink:0">
-                <span style="font-size:13px;color:#fbbf24;font-weight:700">🎯 <span data-ko="발음연습" data-en="Pronunciation">발음연습</span></span>
-                <span style="font-size:11px;color:#94a3b8" data-ko="음성 인식 + AI 발음 평가" data-en="Speech recognition + AI feedback">음성 인식 + AI 발음 평가</span>
-                <a href="https://mangoi-speech.pages.dev/practice" target="_blank" rel="noopener"
-                   style="margin-left:auto;padding:6px 14px;font-size:12px;background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;border-radius:6px;text-decoration:none;font-weight:700"
-                   data-ko="🔗 새 탭에서 열기 (마이크 권한 정상)" data-en="🔗 Open in new tab (mic works)">🔗 새 탭에서 열기 (마이크 권한 정상)</a>
-                <button onclick="document.getElementById('pron-frame').src='https://mangoi-speech.pages.dev/practice'" style="padding:6px 12px;font-size:12px;background:rgba(148,163,184,0.2);color:#e2e8f0;border:0;border-radius:6px;cursor:pointer" data-ko="↻ 새로고침" data-en="↻ Reload">↻ 새로고침</button>
-            </div>
-            <div style="flex:1;min-height:0;background:#fff;position:relative">
-                <iframe id="pron-frame" src="https://mangoi-speech.pages.dev/practice"
-                        style="width:100%;height:100%;border:0;background:#fff"
-                        allow="microphone *; camera *; autoplay *; clipboard-write *"
-                        referrerpolicy="no-referrer-when-downgrade"
-                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals"
-                        loading="lazy"
-                        title="망고아이 발음연습"></iframe>
-            </div>
-            <div style="padding:8px 12px;background:rgba(15,23,42,0.65);border-top:1px solid rgba(148,163,184,0.15);font-size:11px;color:#94a3b8;flex-shrink:0">
-                💡 <span data-ko="iframe 내 마이크 권한이 차단되면 [🔗 새 탭에서 열기]로 사용하세요." data-en="If mic is blocked in iframe, use [🔗 Open in new tab].">iframe 내 마이크 권한이 차단되면 [🔗 새 탭에서 열기]로 사용하세요.</span>
             </div>
         </div>
 
@@ -7973,7 +7949,6 @@ async function vcJoinRoom(skipUI) {
         title: '📚 학습도구',
         items: [
           { icon:'🎬', label:'동영상', onclick:`vcMobileTabSwitch('video')` },
-          { icon:'🎯', label:'발음연습', onclick:`vcMobileTabSwitch('pronunciation')` },
           { icon:'🎲', label:'학생게임', onclick:`vcMobileTabSwitch('game')` },
           { icon:'🎨', label:'배경화면', onclick:`vcMobileTabSwitch('bg')` },
           { icon:'📝', label:'칠판', onclick:`vcMobileTabSwitch('whiteboard')` },
@@ -11705,7 +11680,7 @@ window.addEventListener('DOMContentLoaded', () => {
     { kws: ['결제', '결제하기', '강의료', '수강료', '학원비', '등록금', '학비', '수업료', '월회비', '레슨비', '교육비', '등록비', '돈', '금액', '가격', '비용', '카드', '충전', '납부', 'payment', 'pay', 'tuition'], action: () => { if (window.gridActions && typeof window.gridActions.payment === 'function') window.gridActions.payment(); }, label: '💳 수강료 결제' },
     { kws: ['연기', '변경', '수업 연기', '수업연기', '스케줄 변경', '날짜 변경', '시간 변경', '시간 바꿈', '미루기', '일정 변경', '오늘 수업 패스', '수업 취소', '수업취소'], action: () => { if (typeof window.openLessonChangeModal === 'function') window.openLessonChangeModal(); }, label: '📅 연기/변경' },
     // 홈페이지 (구 1:1 통화) → 그리드 메뉴 표시
-    { kws: ['홈페이지', '홈페', 'homepage', 'home', '메인', '처음'], action: () => { const gm = document.getElementById('grid-menu'); if (gm) gm.style.display = 'block'; }, label: '🏠 홈페이지 (전체 메뉴)' },
+    { kws: ['홈페이지', '홈페', 'homepage', 'home', '메인', '처음'], action: () => { if (window.openAllMenuOverlay) window.openAllMenuOverlay(); }, label: '🏠 홈페이지 (전체 메뉴)' },
     // 관리자
     { kws: ['관리자', '대시보드', 'admin', 'dashboard'], action: () => location.href = '/admin.html', label: '📊 관리자 대시보드' },
     // 신규상담
@@ -11755,11 +11730,11 @@ window.addEventListener('DOMContentLoaded', () => {
   const QUICK_MAP = {
     'enter-class':   () => showView('view-videocall-lobby'),
     'lesson-change': () => { if (typeof window.openLessonChangeModal === 'function') window.openLessonChangeModal(); },
-    'homepage':      () => { const gm = document.getElementById('grid-menu'); if (gm) gm.style.display = 'block'; },
+    'homepage':      () => { if (window.openAllMenuOverlay) window.openAllMenuOverlay(); },
     'inquiry':       () => window.openInquiryModal(),
     'trial':         () => window.openInquiryModal(),
     'enroll':        () => window.openInquiryModal(),
-    'speech':        () => window.open('https://mangoi-speech.pages.dev/practice', '_blank'),
+    'speech':        () => { location.href = '/speech-coach-cn.html'; },
     'mypage':        () => location.href = '/admin/mypage.html',
     'admin':         () => location.href = '/admin.html',
     'payment':       () => { if (window.gridActions && typeof window.gridActions.payment === 'function') window.gridActions.payment(); else alert('결제 기능을 불러올 수 없습니다.'); },
@@ -14454,12 +14429,50 @@ window.addEventListener('DOMContentLoaded', () => {
     trial:       () => { closeGrid(); window.openInquiryModal&&window.openInquiryModal(); setTimeout(()=>{ const p=document.getElementById('inq-program'); if(p)p.value='trial'; }, 100); },
     faq:         () => { closeGrid(); showModal(FAQ); },
     leveltest:   () => { closeGrid(); showLevelTestModal(); },
-    speech:      () => { closeGrid(); window.open('https://mangoi-speech.pages.dev/practice', '_blank'); },
+    speech:      () => { closeGrid(); location.href = '/speech-coach-cn.html'; },
     teachers:    () => {
       closeGrid();
       showModal(TEACHERS);
       // 모달 렌더 후 ERP 등록 강사로 갤러리 동적 갱신
       setTimeout(() => { if (window.loadDynamicTeacherGallery) window.loadDynamicTeacherGallery(); }, 200);
+      // 🔊 강사 소개 안내 음성 (15초) — 무음 토글 + 배경음악 줄임(볼륨 0.55)
+      try {
+        var MK = 'mangoi_voice_muted';
+        var VOL = 0.55;
+        var a = document.getElementById('teacher-intro-voice');
+        if (!a) {
+          a = document.createElement('audio');
+          a.id = 'teacher-intro-voice'; a.src = '/audio/teacher-intro.mp3'; a.preload = 'auto';
+          document.body.appendChild(a);
+        }
+        a.volume = VOL;
+        function tiMuted(){ try { return localStorage.getItem(MK) === '1'; } catch(e){ return false; } }
+        var wrap = document.getElementById('teacher-intro-ctrl');
+        if (!wrap) {
+          wrap = document.createElement('div');
+          wrap.id = 'teacher-intro-ctrl';
+          wrap.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:2147483646;display:none;gap:8px';
+          var rp = document.createElement('button'); rp.type = 'button'; rp.textContent = '🔊 다시 듣기';
+          rp.style.cssText = 'padding:9px 16px;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;border:0;border-radius:99px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit';
+          var mb = document.createElement('button'); mb.type = 'button';
+          mb.style.cssText = 'padding:9px 16px;background:rgba(20,41,80,0.9);color:#cbd5e1;border:1px solid rgba(148,163,184,0.4);border-radius:99px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit';
+          function tiUpd(){ mb.textContent = tiMuted() ? '🔈 소리 켜기' : '🔇 무음'; }
+          rp.onclick = function(){ try{ localStorage.setItem(MK,'0'); }catch(e){} try{ a.currentTime = 0; }catch(e){} a.volume = VOL; a.play(); tiUpd(); };
+          mb.onclick = function(){
+            var m = !tiMuted();
+            try { localStorage.setItem(MK, m ? '1' : '0'); } catch(e){}
+            if (m) { try{ a.pause(); }catch(e){} } else { try{ a.currentTime = 0; }catch(e){} a.volume = VOL; a.play(); }
+            tiUpd();
+          };
+          a.addEventListener('ended', function(){ wrap.style.display = 'none'; });
+          wrap.appendChild(rp); wrap.appendChild(mb);
+          document.body.appendChild(wrap);
+          wrap.__upd = tiUpd;
+        }
+        if (wrap.__upd) wrap.__upd();
+        wrap.style.display = 'flex';
+        if (!tiMuted()) { try{ a.currentTime = 0; }catch(e){} a.volume = VOL; var pr = a.play(); if (pr && pr.catch) pr.catch(function(){}); }
+      } catch(e){}
     },
     reviews:     () => { closeGrid(); showModal(REVIEWS); },
     diagnosis:   () => { closeGrid(); runDiagnosis(); },
@@ -25038,7 +25051,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260611051922 -->
+<!-- BUILD:20260611055404 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -25274,7 +25287,7 @@ document.addEventListener('keydown', function(e){
     'installguide':'/install-guide.html','learnguide':'/learn-guide.html',
     'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'/contact.html',
     'library':'/docs/','reviews':'/reviews.html','recordings':'/admin.html',
-    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
+    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach-cn.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
     'leveltest':'/level-test.html','battle':'/battle.html',
     'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
@@ -25407,7 +25420,7 @@ document.addEventListener('keydown', function(e){
     'installguide':'/install-guide.html','learnguide':'/learn-guide.html',
     'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'/contact.html',
     'library':'/docs/','reviews':'/reviews.html','recordings':'/admin.html',
-    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
+    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach-cn.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
     'leveltest':'/level-test.html','battle':'/battle.html',
     'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
@@ -26370,7 +26383,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     'admin':            { href: '/admin.html' },
     'mypage':           { href: '/admin/mypage.html' },
     'points-shop':      { fn: function(){ if (window.showPointsShop) window.showPointsShop(); else location.href = '/streak.html'; } },
-    'speech':           { open: 'https://mangoi-speech.pages.dev/practice' },
+    'speech':           { href: '/speech-coach-cn.html' },
     'speech-coach':     { href: '/speech-coach.html' },
     'speech-coach-cn':  { href: '/speech-coach-cn.html' },
     'textbook-uploader':{ href: '/textbook-uploader.html' },

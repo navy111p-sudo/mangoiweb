@@ -84,10 +84,10 @@ html, body {
   background: var(--bg); color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
                "Noto Sans KR", "Segoe UI", sans-serif;
-  font-size: 14px; line-height: 1.45;
-  overflow: hidden;
+  font-size: 16.5px; line-height: 1.45;
+  overflow-y: auto;
   overscroll-behavior: none;
-  width: 100%; height: 100vh; height: 100dvh;
+  width: 100%; min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -95,9 +95,8 @@ html, body {
 #app {
   position: relative;
   width: 100%;
-  max-width: 430px;
-  height: 100vh;
-  height: 100dvh;
+  max-width: 645px;
+  min-height: 130vh;
   margin: 0 auto;
   background: var(--bg);
   overflow: hidden;
@@ -134,7 +133,7 @@ header {
   background: var(--bg-soft);
   border: 1px solid var(--border);
   border-radius: 12px;
-  font-size: 18px; color: var(--text);
+  font-size: 21.2px; color: var(--text);
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -142,7 +141,7 @@ header {
 .back-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .header-title {
   flex: 1; text-align: center;
-  font-weight: 800; font-size: 16px;
+  font-weight: 800; font-size: 18.9px;
   color: var(--text);
   letter-spacing: -0.4px;
   padding-right: 36px;
@@ -161,8 +160,8 @@ header {
 .main-intro {
   padding: 8px 4px 4px;
 }
-.main-intro .ttl { font-size: 22px; font-weight: 900; color: var(--text); letter-spacing: -0.6px; }
-.main-intro .sub { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+.main-intro .ttl { font-size: 26px; font-weight: 900; color: var(--text); letter-spacing: -0.6px; }
+.main-intro .sub { font-size: 15.3px; color: var(--text-dim); margin-top: 4px; }
 
 .main-card {
   flex: 1;
@@ -187,18 +186,18 @@ header {
   background: rgba(255,255,255,0.18);
   border: 1px solid rgba(255,255,255,0.25);
   display: flex; align-items: center; justify-content: center;
-  font-size: 30px;
+  font-size: 35.4px;
   backdrop-filter: blur(8px);
 }
-.main-card .mc-label { font-size: 19px; font-weight: 900; color: #fff; letter-spacing: -0.3px; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+.main-card .mc-label { font-size: 22.4px; font-weight: 900; color: #fff; letter-spacing: -0.3px; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
 .main-card .mc-desc {
-  font-size: 13px; color: rgba(255,255,255,0.92); line-height: 1.55;
+  font-size: 15.3px; color: rgba(255,255,255,0.92); line-height: 1.55;
   margin-top: 14px;
 }
 .main-card .mc-cta {
   margin-top: 14px;
   display: inline-flex; align-items: center; gap: 4px;
-  font-size: 13px; font-weight: 800;
+  font-size: 15.3px; font-weight: 800;
   color: rgba(255,255,255,0.95);
 }
 
@@ -245,7 +244,7 @@ header {
   flex: 1;
   padding: 11px 6px;
   background: transparent; border: 0;
-  font-size: 13.5px; font-weight: 800;
+  font-size: 15.9px; font-weight: 800;
   color: var(--text-dim);
   cursor: pointer;
   position: relative; z-index: 2;
@@ -268,7 +267,7 @@ header {
 #detail-body { padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important; }
 
 .section-label {
-  font-size: 12px; font-weight: 700;
+  font-size: 14.2px; font-weight: 700;
   color: var(--text-mute);
   margin: 18px 2px 10px;
   display: flex; align-items: center; gap: 6px;
@@ -301,7 +300,7 @@ header {
   width: 32px; height: 32px;
   background: rgba(15,23,42,0.9);
   color: #fff; border: 1px solid rgba(255,255,255,0.18);
-  border-radius: 50%; font-size: 16px; font-weight: 900;
+  border-radius: 50%; font-size: 18.9px; font-weight: 900;
   cursor: pointer; z-index: 3;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 4px 12px rgba(0,0,0,0.35);
@@ -354,8 +353,8 @@ header {
 }
 .date-chip.weekend { color: var(--text-dim); }
 .date-chip.weekend.active { color: #fff; }
-.date-chip .dc-dow { font-size: 10.5px; font-weight: 700; opacity: 0.85; }
-.date-chip .dc-day { font-size: 17px; font-weight: 900; margin-top: 2px; }
+.date-chip .dc-dow { font-size: 12.4px; font-weight: 700; opacity: 0.85; }
+.date-chip .dc-day { font-size: 20.1px; font-weight: 900; margin-top: 2px; }
 
 /* ── 시간 칩 그리드 ── */
 .hour-grid {
@@ -368,7 +367,7 @@ header {
   background: var(--bg-card);
   border: 1.5px solid var(--border);
   border-radius: 12px;
-  font-size: 13px; font-weight: 800;
+  font-size: 15.3px; font-weight: 800;
   color: var(--text);
   cursor: pointer;
   transition: transform 0.1s, background 0.15s, border-color 0.15s;
@@ -405,13 +404,13 @@ header {
   margin-top: 14px;
 }
 .tr-title {
-  font-size: 13px; font-weight: 800; color: var(--text);
+  font-size: 15.3px; font-weight: 800; color: var(--text);
   margin-bottom: 10px;
   display: flex; align-items: center; gap: 6px;
 }
 .tr-title .badge {
   background: var(--green-soft); color: var(--green);
-  font-size: 11px; padding: 2px 7px; border-radius: 999px; font-weight: 800;
+  font-size: 13px; padding: 2px 7px; border-radius: 999px; font-weight: 800;
 }
 
 .teacher-card {
@@ -435,22 +434,22 @@ header {
   border-radius: 50%;
   background: linear-gradient(135deg, rgba(52,211,153,0.28), rgba(16,185,129,0.2));
   display: flex; align-items: center; justify-content: center;
-  font-size: 24px;
+  font-size: 28.3px;
   flex-shrink: 0;
 }
 .teacher-card .t-info { flex: 1; min-width: 0; }
 .teacher-card .t-name {
-  font-size: 15px; font-weight: 800; color: var(--text);
+  font-size: 17.7px; font-weight: 800; color: var(--text);
   display: flex; align-items: center; gap: 6px;
 }
 .teacher-card .t-tag {
-  font-size: 10.5px; font-weight: 800;
+  font-size: 12.4px; font-weight: 800;
   padding: 2px 7px; border-radius: 999px;
   background: rgba(52,211,153,0.22); color: #6EE7B7;
 }
 .teacher-card .t-tag.native { background: rgba(251,191,36,0.22); color: #FBBF24; }
 .teacher-card .t-meta {
-  font-size: 12px; color: var(--text-dim); margin-top: 3px;
+  font-size: 14.2px; color: var(--text-dim); margin-top: 3px;
   display: flex; align-items: center; gap: 8px;
 }
 .teacher-card .t-rating {
@@ -473,7 +472,7 @@ header {
 .teacher-feed .tc-arrow {
   margin-left: auto;
   color: var(--text-mute);
-  font-size: 14px;
+  font-size: 16.5px;
   transition: transform 0.25s;
 }
 .teacher-feed .teacher-card.expanded .tc-arrow { transform: rotate(180deg); }
@@ -494,7 +493,7 @@ header {
   margin-bottom: 12px;
 }
 .tc-day-label {
-  font-size: 11.5px; font-weight: 800; color: var(--text-dim);
+  font-size: 13.6px; font-weight: 800; color: var(--text-dim);
   margin-bottom: 6px;
   text-transform: uppercase; letter-spacing: 0.4px;
 }
@@ -517,12 +516,12 @@ header {
 }
 .sticky-bar.show { transform: translateY(0); }
 .sticky-summary {
-  font-size: 13px; color: var(--text);
+  font-size: 15.3px; color: var(--text);
   padding: 6px 4px 10px;
   display: flex; align-items: center; gap: 6px;
   font-weight: 700;
 }
-.sticky-summary .icon { font-size: 16px; }
+.sticky-summary .icon { font-size: 18.9px; }
 .sticky-summary b { color: var(--indigo); }
 .confirm-btn {
   display: block; width: 100%;
@@ -530,7 +529,7 @@ header {
   background: linear-gradient(135deg, #10B981, #047857);
   color: #fff;
   border: 0; border-radius: 14px;
-  font-size: 15px; font-weight: 900;
+  font-size: 17.7px; font-weight: 900;
   cursor: pointer;
   transition: transform 0.1s, box-shadow 0.15s;
   box-shadow: 0 6px 20px rgba(16,185,129,0.45);
@@ -547,7 +546,7 @@ header {
   color: #064E3B;
   padding: 12px 22px;
   border-radius: 999px;
-  font-size: 13px; font-weight: 700;
+  font-size: 15.3px; font-weight: 700;
   box-shadow: var(--shadow-pop);
   opacity: 0;
   pointer-events: none;
@@ -588,18 +587,18 @@ header {
   background: linear-gradient(135deg, #10B981, #059669);
   color: #fff;
   display: flex; align-items: center; justify-content: center;
-  font-size: 52px; font-weight: 900;
+  font-size: 61.4px; font-weight: 900;
   box-shadow: 0 8px 24px rgba(16,185,129,0.5);
   animation: ovCheckPop 0.5s 0.15s both cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 @keyframes ovCheckPop { from{transform:scale(0);opacity:0} to{transform:scale(1);opacity:1} }
 .success-title {
-  font-size: 22px; font-weight: 900;
+  font-size: 26px; font-weight: 900;
   color: var(--text, #0F172A);
   margin-bottom: 6px;
 }
 .success-subtitle {
-  font-size: 13px;
+  font-size: 15.3px;
   color: var(--text-dim, #64748B);
   margin-bottom: 22px;
 }
@@ -617,11 +616,11 @@ header {
 }
 .success-info-row:last-child { border-bottom: 0; }
 .success-info-label {
-  font-size: 12.5px; font-weight: 700;
+  font-size: 14.8px; font-weight: 700;
   color: var(--text-dim, #64748B);
 }
 .success-info-value {
-  font-size: 13.5px; font-weight: 800;
+  font-size: 15.9px; font-weight: 800;
   color: var(--text, #0F172A);
 }
 .success-btn {
@@ -631,7 +630,7 @@ header {
   color: #fff;
   border: 0;
   border-radius: 14px;
-  font-size: 16px;
+  font-size: 18.9px;
   font-weight: 800;
   cursor: pointer;
   box-shadow: 0 8px 20px rgba(79,70,229,0.35);
@@ -674,53 +673,53 @@ header {
     padding: 13px 7px 11px;
     border-radius: 13px;
   }
-  .date-chip .dc-dow { font-size: 11px; }
-  .date-chip .dc-day { font-size: 16.5px; }
+  .date-chip .dc-dow { font-size: 13px; }
+  .date-chip .dc-day { font-size: 19.5px; }
   .date-scroller { padding: 4px 12px 8px; gap: 7px; }
 
   /* 시간 칩 4열 → 3열 (가독성 ↑) */
   .hour-grid { grid-template-columns: repeat(3, 1fr); gap: 7px; }
-  .hour-chip { padding: 14px 4px; font-size: 13.5px; min-height: 44px; }
+  .hour-chip { padding: 14px 4px; font-size: 15.9px; min-height: 44px; }
 
   /* 헤더 압축 */
-  .header-title { font-size: 15px; }
-  .back-btn { width: 38px; height: 38px; font-size: 17px; }
+  .header-title { font-size: 17.7px; }
+  .back-btn { width: 38px; height: 38px; font-size: 20.1px; }
 
   /* sticky-bar — 키보드 가림 방지 + 안전영역 */
-  .sticky-bar { font-size: 13px; }
+  .sticky-bar { font-size: 15.3px; }
 }
 
 /* 작은 화면 (≤360px — 갤럭시 S, iPhone SE 등) */
 @media (max-width: 360px) {
   .date-chip { min-width: 54px; padding: 11px 5px 9px; }
-  .date-chip .dc-day { font-size: 15px; }
-  .date-chip .dc-dow { font-size: 10px; }
+  .date-chip .dc-day { font-size: 17.7px; }
+  .date-chip .dc-dow { font-size: 11.8px; }
   .hour-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
-  .hour-chip { padding: 12px 3px; font-size: 12.5px; }
-  .main-intro .ttl { font-size: 19px; }
-  .main-intro .sub { font-size: 12px; }
+  .hour-chip { padding: 12px 3px; font-size: 14.8px; }
+  .main-intro .ttl { font-size: 22.4px; }
+  .main-intro .sub { font-size: 14.2px; }
   .main-card { padding: 18px; }
-  .main-card .mc-label { font-size: 17px; }
-  .main-card .mc-desc { font-size: 12px; }
+  .main-card .mc-label { font-size: 20.1px; }
+  .main-card .mc-desc { font-size: 14.2px; }
 }
 
 /* 가로 모드 (landscape) — 작은 높이 대응 */
 @media (max-height: 500px) and (orientation: landscape) {
   .date-chip { padding: 8px 6px; }
   .hour-grid { grid-template-columns: repeat(6, 1fr); gap: 5px; }
-  .hour-chip { padding: 8px 2px; font-size: 12px; min-height: 36px; }
+  .hour-chip { padding: 8px 2px; font-size: 14.2px; min-height: 36px; }
   .main-card { padding: 16px; }
-  .main-card .mc-icon { width: 44px; height: 44px; font-size: 22px; }
+  .main-card .mc-icon { width: 44px; height: 44px; font-size: 26px; }
   .main-card .mc-desc { display: none; }
   header { padding: 8px 14px; }
-  .header-title { font-size: 14px; }
+  .header-title { font-size: 16.5px; }
 }
 
 /* 태블릿 (601~900px) — 칩 더 넉넉하게 */
 @media (min-width: 601px) and (max-width: 900px) {
   .date-chip { min-width: 72px; padding: 14px 8px; }
   .hour-grid { grid-template-columns: repeat(5, 1fr); }
-  .hour-chip { padding: 13px 4px; font-size: 14px; }
+  .hour-chip { padding: 13px 4px; font-size: 16.5px; }
 }
 
 /* 터치 디바이스 — hover 효과 비활성화 (stuck 방지) */
@@ -767,36 +766,36 @@ header {
 
 /* ── 요구사항 구현: 현재수업 / 주간횟수 / 밀기 / 장바구니 / 완료 ── */
 .cur-lesson{background:var(--bg-card);border:1px solid var(--border);border-left:4px solid var(--green);border-radius:14px;padding:12px 14px;margin-bottom:14px}
-.cur-lesson .cl-tag{font-size:11px;font-weight:800;color:var(--green);margin-bottom:7px;letter-spacing:.3px}
-.cur-lesson .cl-item{font-size:13.5px;color:var(--text);padding:3px 0}
+.cur-lesson .cl-tag{font-size:13px;font-weight:800;color:var(--green);margin-bottom:7px;letter-spacing:.3px}
+.cur-lesson .cl-item{font-size:15.9px;color:var(--text);padding:3px 0}
 .cur-lesson .cl-item b{font-weight:800}
-.cur-lesson .cl-meta{color:var(--text-mute);font-size:12px}
+.cur-lesson .cl-meta{color:var(--text-mute);font-size:14.2px}
 
 .wk-tabs{display:flex;gap:6px;background:var(--bg-soft);padding:4px;border-radius:12px;margin-bottom:14px}
-.wk-tabs .wk{flex:1;padding:9px 0;border:0;border-radius:9px;background:transparent;color:var(--text-mute);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s}
+.wk-tabs .wk{flex:1;padding:9px 0;border:0;border-radius:9px;background:transparent;color:var(--text-mute);font-size:14.2px;font-weight:700;cursor:pointer;transition:all .15s}
 .wk-tabs .wk.active{background:var(--indigo-deep);color:#fff}
 
-.push-btn{width:100%;padding:12px;border-radius:12px;border:1.5px solid var(--amber);background:var(--amber-soft);color:var(--amber);font-weight:800;font-size:13px;cursor:pointer;margin-bottom:14px;transition:transform .12s}
+.push-btn{width:100%;padding:12px;border-radius:12px;border:1.5px solid var(--amber);background:var(--amber-soft);color:var(--amber);font-weight:800;font-size:15.3px;cursor:pointer;margin-bottom:14px;transition:transform .12s}
 .push-btn:active{transform:scale(0.98)}
 
 .cart-box{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-top:16px}
-.cart-box .cart-head{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:800;color:var(--green);margin-bottom:10px}
+.cart-box .cart-head{display:flex;justify-content:space-between;align-items:center;font-size:15.3px;font-weight:800;color:var(--green);margin-bottom:10px}
 .cart-box .cart-head .cnt{font-variant-numeric:tabular-nums;color:var(--text)}
-.cart-empty{color:var(--text-mute);font-size:12.5px;text-align:center;padding:12px}
-.cart-item{display:flex;justify-content:space-between;align-items:center;background:var(--bg-soft);border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin-bottom:6px;font-size:12.5px;color:var(--text)}
-.cart-item button{background:none;border:0;color:#F87171;font-size:18px;font-weight:800;cursor:pointer;line-height:1;padding:0 4px}
+.cart-empty{color:var(--text-mute);font-size:14.8px;text-align:center;padding:12px}
+.cart-item{display:flex;justify-content:space-between;align-items:center;background:var(--bg-soft);border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin-bottom:6px;font-size:14.8px;color:var(--text)}
+.cart-item button{background:none;border:0;color:#F87171;font-size:21.2px;font-weight:800;cursor:pointer;line-height:1;padding:0 4px}
 
 .confirm-btn.ready{background:var(--green);color:#04210f}
 
 #screen-done .done-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:62vh;padding:30px 20px;text-align:center}
-#screen-done .done-ico{font-size:58px;margin-bottom:14px;animation:pop .4s cubic-bezier(.34,1.56,.64,1)}
+#screen-done .done-ico{font-size:68.4px;margin-bottom:14px;animation:pop .4s cubic-bezier(.34,1.56,.64,1)}
 @keyframes pop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
-#screen-done .done-ttl{font-size:22px;font-weight:900;color:var(--text);margin-bottom:10px}
-#screen-done .done-sub{font-size:12.5px;color:var(--text-mute);margin-bottom:20px;line-height:1.6}
+#screen-done .done-ttl{font-size:26px;font-weight:900;color:var(--text);margin-bottom:10px}
+#screen-done .done-sub{font-size:14.8px;color:var(--text-mute);margin-bottom:20px;line-height:1.6}
 #screen-done .done-list{list-style:none;width:100%;max-width:360px;margin:0 0 24px;padding:0}
-#screen-done .done-list li{background:var(--bg-card);border:1px solid var(--border);border-left:4px solid var(--green);border-radius:10px;padding:11px 14px;margin-bottom:8px;font-size:13px;color:var(--text);text-align:left}
+#screen-done .done-list li{background:var(--bg-card);border:1px solid var(--border);border-left:4px solid var(--green);border-radius:10px;padding:11px 14px;margin-bottom:8px;font-size:15.3px;color:var(--text);text-align:left}
 #screen-done .done-actions{display:flex;gap:10px;width:100%;max-width:360px}
-#screen-done .done-btn{flex:1;padding:14px 10px;border:0;border-radius:14px;background:var(--green);color:#04210f;font-weight:900;font-size:14.5px;cursor:pointer;transition:transform .12s}
+#screen-done .done-btn{flex:1;padding:14px 10px;border:0;border-radius:14px;background:var(--green);color:#04210f;font-weight:900;font-size:17.1px;cursor:pointer;transition:transform .12s}
 #screen-done .done-btn:active{transform:scale(0.97)}
 #screen-done .done-btn.ghost{background:transparent;border:1.5px solid var(--green);color:var(--green)}
 
@@ -1194,7 +1193,7 @@ function renderTimeTab(){
     ${state.date ? `
       <div class="section-label">🕐 시간 선택</div>
       <div class="hour-grid">${hoursHtml}</div>
-    ` : '<div style="padding:30px 10px;color:var(--text-dim);text-align:center;font-size:13px">👆 먼저 날짜를 선택해 주세요</div>'}
+    ` : '<div style="padding:30px 10px;color:var(--text-dim);text-align:center;font-size:15.3px">👆 먼저 날짜를 선택해 주세요</div>'}
     ${resultHtml}
   `;
 }
@@ -1235,7 +1234,7 @@ function renderTeacherTab(){
             </div>
           </div>`;
       });
-      if (!blocks) blocks = '<div style="color:var(--text-dim);font-size:12.5px;text-align:center;padding:10px">😢 가능한 시간이 없습니다</div>';
+      if (!blocks) blocks = '<div style="color:var(--text-dim);font-size:14.8px;text-align:center;padding:10px">😢 가능한 시간이 없습니다</div>';
     }
     return `
       <div class="teacher-card ${expanded?'expanded':''}" data-expand="${t.id}">
@@ -1365,6 +1364,6 @@ function attachHandlers(){
   window.addEventListener('orientationchange', () => setTimeout(setVh, 100));
 })();
 </script>
-<!-- BUILD:20260611051922 -->
+<!-- BUILD:20260611055404 -->
 </body>
 </html>
