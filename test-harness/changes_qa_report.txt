@@ -1,0 +1,50 @@
+# Change-set QA report (2026-06-10T14:45:03.295Z)
+
+PASS=46 FAIL=0
+
+PASS  integrity:cloudflare-deploy/public/index.html delta  — HEAD=26965 WORK=26966 delta=1 (expect 1)
+PASS  integrity:cloudflare-deploy/public/index.html tail  — tail="</html>"
+PASS  integrity:cloudflare-deploy/src/api-mango.ts delta  — HEAD=10787 WORK=10839 delta=52 (expect 52)
+PASS  integrity:cloudflare-deploy/src/api-mango.ts tail  — tail="}"
+PASS  integrity:cloudflare-deploy/src/api-mango.ts brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
+PASS  integrity:cloudflare-deploy/src/index.ts delta  — HEAD=1948 WORK=1949 delta=1 (expect 1)
+PASS  integrity:cloudflare-deploy/src/index.ts tail  — tail="}"
+PASS  integrity:cloudflare-deploy/src/index.ts brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
+PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html delta  — HEAD=1367 WORK=1370 delta=3 (expect 3)
+PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html tail  — tail="</html>"
+PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
+PASS  integrity:cloudflare-deploy/public/admin.html delta  — HEAD=35949 WORK=35949 delta=0 (expect 0)
+PASS  integrity:cloudflare-deploy/public/admin.html tail  — tail="</html>"
+PASS  integrity:cloudflare-deploy/public/admin.html brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
+PASS  syntax:cloudflare-deploy/public/index.html  — 56 inline scripts, 0 errors
+PASS  syntax:cloudflare-deploy/public/lesson-postpone-demo.html  — 1 inline scripts, 0 errors
+PASS  syntax:cloudflare-deploy/public/admin.html  — 79 inline scripts, 0 errors
+PASS  syntax:mangoi-speech-patch/mangoi_Speech/practice.html  — 8 inline scripts, 0 errors
+PASS  wiring:gate registered in index.ts
+PASS  wiring:handler present in api-mango.ts
+PASS  wiring:frontend calls endpoint
+PASS  wiring:frontend sends user_id+from_session
+PASS  wiring:frontend reads d.student
+PASS  wiring:handler returns expected fields
+PASS  wiring:renderExtStudentCard consumes subset
+PASS  wiring:dummy phone removed
+PASS  wiring:fake demo fallback removed
+PASS  audio:practice has intro voice + same mp3
+PASS  audio:mute key consistent with PC
+PASS  layout:postpone has 100dvh
+PASS  layout:postpone detail-body bottom padding fix
+PASS  layout:admin sidebar fix present
+PASS  about:intro mp3 referenced
+PASS  about:intro player defined+called
+PASS  about:reuses abm_muted mute key
+PASS  about:intro mp3 file present
+PASS  htmlvalid:index ends with </html>
+PASS  htmlvalid:index <script> balanced
+PASS  feature:lesson-video IIFE closed + defined
+PASS  logic:no user_id → 400  — status=400 user_id_required
+PASS  logic:not found → 404  — status=404 user_not_found
+PASS  logic:passwordless → 200  — status=200
+PASS  logic:pw account + no auth → 401  — status=401 auth_required
+PASS  logic:pw account + wrong pw → 401  — status=401 invalid_auth
+PASS  logic:pw account + correct pw → 200  — status=200
+PASS  logic:pw account + matching phone → 200  — status=200

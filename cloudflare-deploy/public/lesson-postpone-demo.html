@@ -87,7 +87,7 @@ html, body {
   font-size: 14px; line-height: 1.45;
   overflow: hidden;
   overscroll-behavior: none;
-  width: 100%; height: 100vh;
+  width: 100%; height: 100vh; height: 100dvh;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -97,6 +97,7 @@ html, body {
   width: 100%;
   max-width: 430px;
   height: 100vh;
+  height: 100dvh;
   margin: 0 auto;
   background: var(--bg);
   overflow: hidden;
@@ -263,6 +264,8 @@ header {
   padding: 0 14px 120px;  /* sticky bar 공간 */
   background: var(--bg);
 }
+/* fix (2026-06-10) — 하단 결제 바(sticky-bar)에 가리지 않게 본문 하단 여백 확보 (@supports 24px 덮어쓰기 보정) */
+#detail-body { padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important; }
 
 .section-label {
   font-size: 12px; font-weight: 700;
@@ -1362,6 +1365,6 @@ function attachHandlers(){
   window.addEventListener('orientationchange', () => setTimeout(setVh, 100));
 })();
 </script>
-<!-- BUILD:20260610172700 -->
+<!-- BUILD:20260611050732 -->
 </body>
 </html>

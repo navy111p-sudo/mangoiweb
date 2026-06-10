@@ -5671,6 +5671,58 @@ Respond in JSON ONLY:
       });
     }
 
+    // ── POST /api/student/lookup — 학생 본인 수강정보 조회 (연장/자동연장 결제용) ──
+    //   body: { user_id, auth?, from_session? }
+    //   보안: 로그인(/api/student/login)과 "동일한" 보안수준으로만 노출 (IDOR 방지)
+    //     · 비밀번호 설정 계정 → auth(비밀번호 또는 등록 전화/학부모 전화) 일치해야 조회 (from_session 단독으론 거부)
+    //     · 비밀번호 미설정 계정 → user_id 만으로 조회 가능 (로그인 정책과 동일)
+    //   응답에는 평문 전화번호 등 민감정보는 포함하지 않음.
+    if (method === 'POST' && path === '/api/student/lookup') {
+      const b: any = await request.json().catch(() => ({}));
+      const uid = String(b.user_id || '').trim();
+      const auth = String(b.auth || '').trim();
+      if (!uid) return json({ ok: false, error: 'user_id_required' }, 400);
+
+      let stu: any = null;
+      try { stu = await env.DB.prepare(`SELECT * FROM students_erp WHERE user_id = ?`).bind(uid).first(); } catch {}
+      if (!stu) return json({ ok: false, error: 'user_not_found', message: '학생 정보를 찾을 수 없습니다.' }, 404);
+
+      const hasPw = !!stu.password_hash;
+      if (hasPw) {
+        if (!auth) return json({ ok: false, error: 'auth_required', message: '비밀번호 또는 등록 전화번호를 입력해 주세요.' }, 401);
+        const digits = (v: any) => String(v || '').replace(/[^0-9]/g, '');
+        const authDigits = digits(auth);
+        const pwOk = (await hashPwd(auth)) === stu.password_hash;
+        const phoneOk = authDigits.length >= 8 && (authDigits === digits(stu.phone) || authDigits === digits(stu.parent_phone));
+        if (!pwOk && !phoneOk) return json({ ok: false, error: 'invalid_auth', message: '본인 확인에 실패했습니다.' }, 401);
+      }
+
+      const endDate: string | null = stu.end_date || stu.expire_at || null;
+      let dDay: number | null = null;
+      if (endDate && /^\d{4}-\d{2}-\d{2}/.test(String(endDate))) {
+        const ms = new Date(String(endDate).slice(0, 10) + 'T00:00:00Z').getTime() - Date.now();
+        dDay = Math.ceil(ms / 86400000);
+      }
+      const program: string | null = stu.program || stu.current_program || null;
+      const name: string = stu.student_name || stu.korean_name || stu.name || stu.username || uid;
+
+      return json({
+        ok: true,
+        student: {
+          uid: stu.user_id,
+          name,
+          program,
+          current_program: program,
+          current_program_label: program,
+          status: stu.status || null,
+          signup_date: stu.signup_date || null,
+          expire_at: endDate,
+          d_day: dDay,
+          has_password: hasPw,
+        },
+      });
+    }
+
     // ── POST /api/student/set-password — 학생 비밀번호 설정/변경 ──
     if (method === 'POST' && path === '/api/student/set-password') {
       await ensureLoginTable();

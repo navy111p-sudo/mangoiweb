@@ -4193,7 +4193,7 @@
       <script>
       window.openAboutMangoi = function(){
         var ex = document.getElementById('about-mangoi-ov');
-        if (ex) { ex.style.display='flex'; return; }
+        if (ex) { ex.style.display='flex'; if(window.__abmPlayIntro) window.__abmPlayIntro(); return; }
         var abmAudio=null;var abmMuted=(function(){try{return localStorage.getItem('abm_muted')==='1';}catch(e){return false;}})();function abmPlayVoice(src){ try{ if(abmMuted) return; abmStopVoice(); abmAudio=new Audio(src); var p=abmAudio.play(); if(p&&p.catch) p.catch(function(){}); }catch(e){} }function abmStopVoice(){ try{ if(abmAudio){ abmAudio.pause(); abmAudio.currentTime=0; } }catch(e){} }var closeAbout = function(){ abmStopVoice(); var o=document.getElementById('about-mangoi-ov'); if(o) o.style.display='none'; };
         var BENEFITS = [
           {ic:'🤝', t:'교사와 A.I가 함께 학생 실력 향상', lead:true, voice:'/audio/teacher-ai-voice.mp3',
@@ -4292,6 +4292,8 @@
         ov.querySelector('.abm-back').addEventListener('click', showList);
         Array.prototype.forEach.call(ov.querySelectorAll('.abm-item'), function(btn){ btn.addEventListener('click', function(){ showDetail(+btn.getAttribute('data-i')); }); });
         document.body.appendChild(ov);
+        window.__abmPlayIntro = function(){ abmPlayVoice('/audio/mangoi-intro.mp3'); };  // 🔊 (fix 2026-06-10) '망고아이란?' 모달 열기 인트로 음성 — abm_muted 무음설정 존중
+        window.__abmPlayIntro();
         if(!document.getElementById('abm-style')){
           var st=document.createElement('style'); st.id='abm-style';
           st.textContent =
@@ -14069,7 +14071,7 @@ window.addEventListener('DOMContentLoaded', () => {
     <div class="info-grid">
       <div class="info-tile"><b>🇵🇭 필리핀</b><span>현지 원어민 강사</span></div>
       <div class="info-tile"><b>🇺🇸 미국·캐나다</b><span>원어민</span></div>
-      <div class="info-tile"><b>🇬🇧 영국·호주</b><span>원어민</span></div>
+      <div class="info-tile"><b>🇬🇧 영국·호주</b><span>원어민 <em style="display:inline-block;margin-left:4px;padding:1px 7px;border-radius:999px;background:#fef3c7;color:#b45309;font-size:10px;font-weight:800;font-style:normal;vertical-align:middle;border:1px solid #fcd34d;white-space:nowrap">준비중</em></span></div>
       <div class="info-tile"><b>🇨🇳 중국어</b><span>이중언어</span></div>
     </div>
 
@@ -17119,45 +17121,39 @@ window.addEventListener('DOMContentLoaded', () => {
       extStudent = d.student;
       renderExtStudentCard(extStudent);
     } catch (e) {
-      // Fallback — demo / hong_gildong 등
-      if ((uid === 'demo' && auth === 'demo') || uid === 'hong_gildong' || auth.includes('010')) {
-        extStudent = {
-          uid: uid, name: uid === 'demo' ? '데모 학생' : '홍길동', level: 'B1',
-          current_program: '1on1-8', current_program_label: '1:1 8회권',
-          remaining: 3, total_classes: 32, months: 3,
-          expire_at: new Date(Date.now() + 7*86400*1000).toISOString().slice(0,10),
-          d_day: 7,
-          favorite_teacher: 'Maria Santos (🇵🇭)',
-          loyalty_tier: 'Silver',
-        };
-        renderExtStudentCard(extStudent);
-      } else {
-        if (err) { err.textContent = '학생 정보를 찾을 수 없습니다. ID·연락처를 확인해 주세요.'; err.style.display = 'block'; }
-      }
+      // (fix 2026-06-10) 가짜 데모(홍길동) 폴백 제거 — 실패 시 정직하게 에러 표시
+      if (err) { err.textContent = '학생 정보를 확인할 수 없습니다. 학생 ID와 비밀번호(또는 등록 전화번호)를 확인해 주세요.'; err.style.display = 'block'; }
     } finally {
       if (lookupBtn) { lookupBtn.disabled = false; lookupBtn.textContent = '🔍 학생 정보 확인'; }
     }
   };
 
-  // 🆕 현재 수강 중(로그인)인 학생이면 '학생 확인' 단계를 자동 통과 → 추가 입력/클릭 없이 바로 연장옵션
+  // 🆕 (fix 2026-06-10) 로그인 학생이면 '학생 확인' 단계 자동 통과 → 바로 연장옵션.
+  //   · 가짜 전화번호 주입 / 가짜 데모(홍길동) 폴백 제거. 로그인 세션을 본인인증으로 사용.
+  //   · 실데이터는 /api/student/lookup 으로 조회(비번 미설정 계정=로그인과 동일 보안수준). 없으면 정직하게 기본값.
   async function payAutoVerifyIfLoggedIn(){
     try {
-      var raw = localStorage.getItem('mangoi_logged_user');
-      if (!raw || raw === 'null' || raw === '{}') return;
-      var u; try { u = JSON.parse(raw); } catch(_) { return; }
-      if (!(u && (u.uid || u.id) && u.name)) return;     // 비로그인 → 수동 확인 그대로
+      var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+      if (!u) { try { u = JSON.parse(localStorage.getItem('mangoi_logged_user') || localStorage.getItem('mango_user') || 'null'); } catch(_){} }
+      var realUid = u && (u.uid || u.id || u.user_id);
+      if (!realUid) return;                               // 비로그인 → 기존 수동 입력 경로 유지
       var uidEl = document.getElementById('ext-uid');
       var authEl = document.getElementById('ext-auth');
-      if (!uidEl || !authEl) return;
-      if (!uidEl.value) uidEl.value = u.uid || u.id || u.name;
-      if (!authEl.value) authEl.value = u.phone || '010-0000-0000';
-      extStudent = null;
-      await window.lookupExtStudent();
-      if (extStudent && (extStudent.uid || extStudent.name)) {
-        if (u.name) extStudent.name = u.name;            // 로그인 정보로 동기화
-        if (u.uid || u.id) extStudent.uid = u.uid || u.id;
-        setTimeout(function(){ try { payGoStep(2); } catch(_){} }, 150);   // 바로 연장옵션으로
-      }
+      if (uidEl) uidEl.value = realUid;                   // 학생 ID 자동채움
+      if (authEl) authEl.value = '';                      // 🔒 민감정보(전화/비번) 미주입
+      var student = null;
+      try {
+        var r = await fetch('/api/student/lookup', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ user_id: realUid, from_session: true })
+        });
+        var d = await r.json().catch(function(){ return {}; });
+        if (r.ok && d && d.ok && d.student) student = d.student;
+      } catch(_){}
+      extStudent = student || { uid: realUid, name: (u && (u.name || u.user_name)) || realUid, session_only: true };
+      if (u && (u.name || u.user_name) && !extStudent.name) extStudent.name = u.name || u.user_name;
+      try { renderExtStudentCard(extStudent); } catch(_){}
+      setTimeout(function(){ try { payGoStep(2); } catch(_){} }, 150);   // 바로 연장옵션으로
     } catch(e){ console.warn('[pay-auto-verify]', e); }
   }
 
@@ -25042,7 +25038,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260610172700 -->
+<!-- BUILD:20260611050732 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -26962,5 +26958,9 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   window.addEventListener('mangoi:textbook-open', function(e){
     var id = e && e.detail && e.detail.bookId; if(id) window.mangoiPlayLessonVideo(id);
   });
-  // 동영상 탭 컨트롤에 '📘 교재 동영상' 버튼 자동 추가 (수동 호출용)
-  function injec
+  // (참고 2026-06-10) 아래에 있던 'function injec…'(동영상 탭에 📘교재동영상 버튼 자동추가, 수동호출용) 코드는
+  //   git 전 커밋 전부에서 잘려 원본 복구 불가 → 제거. 핵심 자동재생은 위 window.mangoiPlayLessonVideo 로 정상 동작.
+})();
+</script>
+</body>
+</html>
