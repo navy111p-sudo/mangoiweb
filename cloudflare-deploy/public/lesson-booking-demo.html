@@ -12,14 +12,14 @@
     background:#050B14;
     color:#E2E8F0;
     font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Pretendard",sans-serif;
-    font-size:15px;line-height:1.5;
+    font-size:17px;line-height:1.5;
     min-height:100vh;
   }
   body{display:flex;justify-content:center;align-items:flex-start;padding:10px}
 
   /* 메인 디바이스 프레임 */
   .frame{
-    width:100%;max-width:430px;
+    width:100%;max-width:560px;
     background:#09111E;
     min-height:calc(100vh - 20px);
     border-radius:32px;
@@ -39,7 +39,7 @@
     position:absolute;top:-90px;left:14px;right:14px;
     background:linear-gradient(135deg,#10B981,#059669);
     color:#fff;padding:14px 20px;border-radius:30px;
-    font-size:13px;font-weight:700;text-align:center;
+    font-size:15px;font-weight:700;text-align:center;
     transition:top .45s cubic-bezier(0.175,0.885,0.32,1.275);
     z-index:99;box-shadow:0 12px 28px -6px rgba(16,185,129,0.55);
   }
@@ -48,15 +48,15 @@
   /* 진행 단계 인디케이터 */
   .stepbar{
     display:flex;justify-content:space-between;
-    font-size:11px;color:#475569;margin-bottom:18px;padding:5px 0;
+    font-size:13px;color:#475569;margin-bottom:18px;padding:5px 0;
   }
   .stepbar span.active{
     color:#38BDF8;font-weight:bold;
     text-shadow:0 0 10px rgba(56,189,248,0.3);
   }
 
-  h2.title{font-size:22px;font-weight:900;margin-bottom:4px;letter-spacing:-0.5px;color:#fff}
-  p.sub{color:#94A3B8;font-size:13px;margin-bottom:22px;line-height:1.5}
+  h2.title{font-size:26px;font-weight:900;margin-bottom:4px;letter-spacing:-0.5px;color:#fff}
+  p.sub{color:#94A3B8;font-size:15px;margin-bottom:22px;line-height:1.5}
 
 
   /* 교사 카드 그리드 */
@@ -69,9 +69,9 @@
     width:48px;height:48px;border-radius:50%;margin:0 auto 6px;
     background:linear-gradient(135deg,#3B82F6,#2563EB);
     display:flex;align-items:center;justify-content:center;
-    font-size:22px;color:#fff;font-weight:900;
+    font-size:26px;color:#fff;font-weight:900;
   }
-  .teacher-card .tname{font-size:13px;font-weight:800;color:#fff;margin-bottom:2px}
+  .teacher-card .tname{font-size:15px;font-weight:800;color:#fff;margin-bottom:2px}
   .teacher-card .ttag{font-size:10.5px;color:#94A3B8;line-height:1.4}
   .teacher-card.active{
     background:linear-gradient(135deg,rgba(56,189,248,0.18),rgba(29,78,216,0.08));
@@ -84,7 +84,7 @@
   .type-tabs{display:flex;gap:6px;background:#111C2E;padding:4px;border-radius:12px;margin-bottom:18px}
   .type-tabs button{
     flex:1;padding:11px 0;cursor:pointer;border:none;border-radius:9px;
-    font-size:13px;font-weight:bold;transition:all .25s;
+    font-size:15px;font-weight:bold;transition:all .25s;
     background:transparent;color:#64748B;
   }
   .type-tabs button.active{
@@ -105,7 +105,7 @@
   }
   .target-tabs button{
     flex:1;padding:8px 0;cursor:pointer;border:none;border-radius:7px;
-    font-size:12px;font-weight:bold;transition:all .2s;
+    font-size:14px;font-weight:bold;transition:all .2s;
     background:transparent;color:#64748B;
   }
   .target-tabs button.active{
@@ -130,10 +130,10 @@
     background:#1E3A8A;border:2px solid #38BDF8;padding:11px 5px;
     box-shadow:0 4px 16px -4px rgba(56,189,248,0.5);
   }
-  .date-card .dn{font-size:11px;color:#64748B}
-  .date-card .dd{font-size:17px;font-weight:900;margin:3px 0;color:#fff}
+  .date-card .dn{font-size:13px;color:#64748B}
+  .date-card .dd{font-size:19px;font-weight:900;margin:3px 0;color:#fff}
   .date-card.active .dd{color:#38BDF8}
-  .date-card .dm{font-size:10px;color:#475569}
+  .date-card .dm{font-size:12px;color:#475569}
 
   /* 시간 슬롯 그리드 */
   .time-section{margin-bottom:14px}
@@ -145,7 +145,7 @@
   .time-grid::-webkit-scrollbar-thumb{background:#1E293B;border-radius:4px}
   .slot{
     padding:11px 0;border-radius:8px;
-    font-size:12px;font-weight:bold;transition:all .2s;
+    font-size:14px;font-weight:bold;transition:all .2s;
     background:#111C2E;color:#D1D5DB;border:1px solid #1E293B;
     cursor:pointer;
   }
@@ -162,7 +162,7 @@
   /* "장바구니에 담기" 브릿지 버튼 */
   .add-btn{
     width:100%;padding:12px;border-radius:10px;border:1px solid #1E293B;
-    font-weight:bold;font-size:13px;margin-top:12px;
+    font-weight:bold;font-size:15px;margin-top:12px;
     background:#0F172A;color:#475569;cursor:not-allowed;
     transition:all .25s;
   }
@@ -178,10 +178,10 @@
     border:1px solid #1E293B;margin-top:14px;
   }
   .cart-head{
-    font-size:13px;font-weight:bold;margin-bottom:10px;color:#38BDF8;
+    font-size:15px;font-weight:bold;margin-bottom:10px;color:#38BDF8;
     display:flex;justify-content:space-between;
   }
-  .cart-empty{color:#475569;font-size:12px;line-height:1.5}
+  .cart-empty{color:#475569;font-size:14px;line-height:1.5}
   .cart-list{display:flex;flex-direction:column;gap:6px}
   .cart-item{
     display:flex;justify-content:space-between;align-items:center;
@@ -191,24 +191,24 @@
   .cart-item span.txt{flex:1;color:#E2E8F0}
   .cart-item button{
     background:none;border:none;color:#EF4444;font-weight:bold;
-    cursor:pointer;padding:0 4px;font-size:18px;line-height:1;
+    cursor:pointer;padding:0 4px;font-size:21px;line-height:1;
   }
 
   /* 하단 고정 결제 바 — 화면 하단에 항상 고정 (스크롤해도 보임) */
   .footer{
     position:fixed;bottom:0;left:50%;transform:translateX(-50%);
-    width:100%;max-width:430px;z-index:60;
+    width:100%;max-width:560px;z-index:60;
     background:#09111E;padding:14px 18px 18px;
     border-top:1px solid #1E293B;
     box-shadow:0 -8px 24px -8px rgba(0,0,0,0.6);
   }
   .footer .info{
-    font-size:12px;color:#94A3B8;margin-bottom:8px;
+    font-size:14px;color:#94A3B8;margin-bottom:8px;
     text-align:center;font-weight:500;
   }
   .checkout-btn{
     width:100%;padding:15px;border-radius:18px;
-    font-size:15px;font-weight:900;border:none;transition:all .25s;
+    font-size:17px;font-weight:900;border:none;transition:all .25s;
     background:#1E293B;color:#475569;cursor:not-allowed;
   }
   .checkout-btn.ready{
@@ -223,7 +223,7 @@
     position:absolute;top:18px;right:18px;z-index:5;
     background:rgba(15,23,42,0.85);border:1px solid #1E293B;
     color:#94A3B8;padding:7px 12px;border-radius:99px;
-    font-size:12px;cursor:pointer;text-decoration:none;
+    font-size:14px;cursor:pointer;text-decoration:none;
     display:flex;align-items:center;gap:4px;
   }
   .home-btn:hover{background:#1E293B;color:#fff}
@@ -414,7 +414,7 @@
     grid.innerHTML = '';
     // 교사로 모드인데 아직 교사 미선택 → 안내
     if (state.mode === 'teacher' && !state.currentTeacherId) {
-      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#64748B;font-size:12px;padding:16px;border:1px dashed #1E293B;border-radius:12px">🧑‍🏫 먼저 위에서 교사를 선택하세요</div>';
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#64748B;font-size:14px;padding:16px;border:1px dashed #1E293B;border-radius:12px">🧑‍🏫 먼저 위에서 교사를 선택하세요</div>';
       return;
     }
     var teacher = (state.mode === 'teacher' && state.currentTeacherId)
@@ -476,7 +476,7 @@
     var avail = TEACHERS.filter(function(t){ return isSlotAvailableForTeacher(t, sorted[0]); });
     grid.innerHTML = '';
     if (avail.length === 0) {
-      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#64748B;font-size:12px;padding:16px;border:1px dashed #1E293B;border-radius:12px">😢 이 시간에 가능한 교사가 없어요. 다른 시간을 선택해 주세요.</div>';
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#64748B;font-size:14px;padding:16px;border:1px dashed #1E293B;border-radius:12px">😢 이 시간에 가능한 교사가 없어요. 다른 시간을 선택해 주세요.</div>';
       return;
     }
     avail.forEach(function(t){
@@ -720,7 +720,7 @@
 })();
 </script>
 <!-- BUILD:20260530-final -->
-<!-- BUILD:20260611050732 -->
+<!-- BUILD:20260611051849 -->
 <!-- 🔊 수업 신청 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="booking-voice" src="/audio/lesson-booking.mp3" preload="auto"></audio>
 <script>
@@ -743,11 +743,11 @@
   wrap.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:99999;display:flex;gap:8px;flex-wrap:wrap';
   var replay = document.createElement('button');
   replay.type = 'button'; replay.textContent = '🔊 안내 다시 듣기';
-  replay.style.cssText = 'padding:9px 16px;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;border:0;border-radius:99px;font-weight:800;font-size:13px;cursor:pointer;box-shadow:0 6px 18px -4px rgba(99,102,241,.6);font-family:inherit';
+  replay.style.cssText = 'padding:9px 16px;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;border:0;border-radius:99px;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 6px 18px -4px rgba(99,102,241,.6);font-family:inherit';
   replay.onclick = function(){ try{ localStorage.setItem(MUTE_KEY,'0'); }catch(e){} try{ a.currentTime = 0; }catch(e){} played = true; a.play(); updateMute(); };
   var mute = document.createElement('button');
   mute.type = 'button';
-  mute.style.cssText = 'padding:9px 16px;background:rgba(20,41,80,0.9);color:#cbd5e1;border:1px solid rgba(148,163,184,0.4);border-radius:99px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit';
+  mute.style.cssText = 'padding:9px 16px;background:rgba(20,41,80,0.9);color:#cbd5e1;border:1px solid rgba(148,163,184,0.4);border-radius:99px;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit';
   function updateMute(){ mute.textContent = isMuted() ? '🔈 소리 켜기' : '🔇 무음'; }
   mute.onclick = function(){
     var m = !isMuted();
