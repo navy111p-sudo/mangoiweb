@@ -158,13 +158,67 @@ function showResult() {
     <div style="margin-top:18px;padding:12px;background:rgba(255,255,255,0.04);border-radius:10px;font-size:11.5px;color:#a3b3d1;line-height:1.6">
       💡 정확한 결과를 원하면 <a href="https://www.16personalities.com/ko" target="_blank" style="color:#93c5fd">16personalities.com</a> 에서 정밀 검사도 추천드려요.
     </div>
+    <div id="mbti-teacher-matches" style="margin-top:20px"></div>
   `;
   el.classList.add('show');
   el.scrollIntoView({ behavior:'smooth', block:'start' });
+  loadTeacherMatches(finalMbti);
+}
+
+function esc(x){return String(x==null?'':x).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+// 강사 선택 → 선택정보 저장 후 신규상담/체험 페이지로 (mbti.html 과 동일 동작)
+window.bookTeacher = function(teacherUid, teacherName, mbti, score, type){
+  type = type || 'inquiry';
+  try { sessionStorage.setItem('mangoi_selected_teacher', JSON.stringify({
+    teacher_uid:teacherUid, teacher_name:teacherName, teacher_mbti:mbti,
+    match_score:score, request_type:type, selected_at:Date.now()
+  })); } catch(e){}
+  if (type === 'trial')      location.href = '/?go=trial&teacher='   + encodeURIComponent(teacherUid);
+  else if (type === 'enroll')location.href = '/?go=enroll&teacher='  + encodeURIComponent(teacherUid);
+  else                       location.href = '/?go=inquiry&teacher=' + encodeURIComponent(teacherUid);
+};
+
+// 테스트 결과 MBTI 로 비슷한 강사 자동 매칭 → 선택 카드 렌더
+async function loadTeacherMatches(mbti){
+  var box = document.getElementById('mbti-teacher-matches');
+  if (!box) return;
+  box.innerHTML = '<div style="text-align:center;color:#a3b3d1;padding:16px">🔍 ' + mbti + ' 와 잘 맞는 선생님을 찾는 중…</div>';
+  try {
+    var r = await fetch('/api/mbti/match', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ mbti: mbti }) });
+    var d = await r.json();
+    if (!d.ok || !d.top_matches || !d.top_matches.length) {
+      box.innerHTML = '<div style="text-align:center;color:#a3b3d1;padding:18px;font-size:12px">아직 등록된 선생님 MBTI 가 없어요. <a href="/mbti.html?mbti=' + mbti + '" style="color:#93c5fd">강사 찾기 →</a></div>';
+      return;
+    }
+    var head = '<div style="font-size:13.5px;font-weight:800;color:#fbbf24;margin:4px 0 12px;text-align:center">🌟 ' + mbti + ' 와 잘 맞는 선생님 — 눌러서 선택하세요!</div>';
+    box.innerHTML = head + d.top_matches.map(function(t, i){
+      var tier = t.match_score >= 80 ? '#34d399' : (t.match_score >= 60 ? '#fbbf24' : '#a3b3d1');
+      var top = i === 0;
+      var bd = top ? 'rgba(251,191,36,0.6)' : 'rgba(148,163,184,0.2)';
+      var fallback = 'https://api.dicebear.com/7.x/lorelei/svg?seed=' + encodeURIComponent(t.teacher_name||t.teacher_uid) + '&backgroundColor=fbbf24,b6e3f4,c0aede,fcd0a1';
+      var photo = t.photo_url || fallback;
+      var tname = esc(t.teacher_name||t.teacher_uid);
+      return '<div onclick="bookTeacher(\''+esc(t.teacher_uid)+'\',\''+tname+'\',\''+esc(t.mbti)+'\','+t.match_score+',\'inquiry\')" '
+        + 'style="display:flex;gap:12px;align-items:center;background:rgba(255,255,255,0.05);border:1px solid '+bd+';border-radius:12px;padding:12px;margin-bottom:10px;cursor:pointer;transition:transform .15s,border-color .15s" '
+        + 'onmouseover="this.style.transform=\'translateY(-2px)\';this.style.borderColor=\'#fbbf24\'" onmouseout="this.style.transform=\'\';this.style.borderColor=\''+bd+'\'">'
+        + '<img src="'+esc(photo)+'" alt="" style="width:52px;height:52px;border-radius:50%;object-fit:cover;flex:none;background:#1e293b">'
+        + '<div style="text-align:center;min-width:44px"><div style="font-size:22px;font-weight:900;color:'+tier+'">'+t.match_score+'</div><div style="font-size:8px;letter-spacing:1px;color:#a3b3d1;font-weight:700">SCORE</div></div>'
+        + '<div style="flex:1;min-width:0;text-align:left">'
+          + '<div style="font-weight:800;color:#fff;font-size:14px">'+esc(t.teacher_name)+(top?' 🥇':'')+' <span style="padding:1px 7px;background:rgba(79,124,255,0.25);color:#a5b4fc;border-radius:99px;font-size:10px;font-weight:800">'+esc(t.mbti)+'</span></div>'
+          + (t.teaching_style ? '<div style="font-size:11px;color:#c4b5fd;margin-top:2px">🎓 '+esc(t.teaching_style)+'</div>' : '')
+          + (t.hobby ? '<div style="font-size:11px;color:#a3b3d1;margin-top:1px">🎨 '+esc(t.hobby)+'</div>' : '')
+        + '</div>'
+        + '<div style="flex:none;color:#fbbf24;font-weight:800;font-size:20px">›</div>'
+      + '</div>';
+    }).join('') + '<div style="text-align:center;margin-top:4px"><a href="/mbti.html?mbti='+mbti+'" style="color:#93c5fd;font-size:11.5px">더 자세히 보기 →</a></div>';
+  } catch(e) {
+    box.innerHTML = '<div style="text-align:center;color:#f87171;padding:16px;font-size:12px">선생님 정보를 불러오지 못했어요. <a href="/mbti.html?mbti='+mbti+'" style="color:#93c5fd">강사 찾기 →</a></div>';
+  }
 }
 
 render();
 </script>
-<!-- BUILD:20260610163524 -->
+<!-- BUILD:20260610164333 -->
 </body>
 </html>
