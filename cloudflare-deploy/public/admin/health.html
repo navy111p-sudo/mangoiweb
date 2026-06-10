@@ -554,18 +554,12 @@ startTimer();
   }
   if (document.readyState === 'complete') play(); else window.addEventListener('load', play);
 
-  // 🔊 다시 듣기 + 🔇 무음 토글 (무음은 모든 안내 음성에 공통 적용 · 기억됨)
-  var wrap = document.createElement('div');
-  wrap.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:99999;display:flex;gap:8px;flex-wrap:wrap';
-  var replay = document.createElement('button');
-  replay.type = 'button'; replay.textContent = '🔊 안내 다시 듣기';
-  replay.style.cssText = 'padding:9px 16px;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;border:0;border-radius:99px;font-weight:800;font-size:13px;cursor:pointer;box-shadow:0 6px 18px -4px rgba(99,102,241,.6);font-family:inherit';
-  replay.onclick = function(){ try{ localStorage.setItem(MUTE_KEY,'0'); }catch(e){} try{ a.currentTime = 0; }catch(e){} played = true; a.play(); updateMute(); };
-  var mute = document.createElement('button');
-  mute.type = 'button';
-  mute.style.cssText = 'padding:9px 16px;background:rgba(20,41,80,0.9);color:#cbd5e1;border:1px solid rgba(148,163,184,0.4);border-radius:99px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit';
-  function updateMute(){ mute.textContent = isMuted() ? '🔈 소리 켜기' : '🔇 무음'; }
-  mute.onclick = function(){
+  // 🔊 작은 아이콘 1개 — 상단 우측 홈 버튼 옆에 배치, 클릭 시 음소거/켜기 토글
+  var btn = document.createElement('button');
+  btn.type = 'button'; btn.setAttribute('aria-label', '음성 켜기/끄기');
+  btn.style.cssText = 'width:34px;height:34px;border-radius:50%;border:1px solid rgba(148,163,184,0.45);background:rgba(20,41,80,0.9);color:#fff;font-size:16px;line-height:1;cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;margin-right:8px';
+  function updateMute(){ btn.textContent = isMuted() ? '🔇' : '🔊'; btn.title = isMuted() ? '소리 켜기' : '음소거'; }
+  btn.onclick = function(){
     var m = !isMuted();
     try { localStorage.setItem(MUTE_KEY, m ? '1' : '0'); } catch(e){}
     if (m) { try{ a.pause(); }catch(e){} }
@@ -573,8 +567,22 @@ startTimer();
     updateMute();
   };
   updateMute();
-  wrap.appendChild(replay); wrap.appendChild(mute);
-  document.body.appendChild(wrap);
+  (function placeBtn(){
+    var home = document.querySelector('.home-btn, #global-home-fab, #global-home, .home');
+    if (!home) { btn.style.position='fixed'; btn.style.top='14px'; btn.style.right='70px'; btn.style.zIndex='100000'; document.body.appendChild(btn); return; }
+    var cs = getComputedStyle(home);
+    if (cs.position === 'fixed') {
+      var r = home.getBoundingClientRect();
+      btn.style.position = 'fixed';
+      btn.style.top = Math.max(8, r.top + (r.height - 34) / 2) + 'px';
+      btn.style.right = (window.innerWidth - r.left + 8) + 'px';
+      btn.style.zIndex = String((parseInt(cs.zIndex, 10) || 999) + 1);
+      btn.style.marginRight = '0';
+      document.body.appendChild(btn);
+    } else {
+      home.parentNode.insertBefore(btn, home);
+    }
+  })();
 })();
 </script>
 
