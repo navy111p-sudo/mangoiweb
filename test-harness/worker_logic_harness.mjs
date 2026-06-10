@@ -221,10 +221,11 @@ try {
   const a = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8');
   check('사이드바: hover 부드러운 전환 추가', a.includes('mi-sidebar-ux') && /\.ph85-head[\s\S]{0,80}transition/.test(a));
   check('사이드바: 클릭 영역 확대(padding 키움)', a.includes('padding:13px 12px !important') && a.includes('padding-top:11px !important'));
-  check('사이드바: 아코디언 부드럽게(0.4s)', a.includes('transition: max-height .4s'));
+  check('사이드바: 아코디언 부드럽게(0.55s)', a.includes('transition: max-height .55s'));
   check('사이드바: 항목 많은 그룹 잘림 방지(max-height 키움)', a.includes('max-height:760px !important'));
   check('사이드바: 모션 최소화 대응', /mi-sidebar-ux[\s\S]{0,900}prefers-reduced-motion/.test(a));
-  check('사이드바: 가산적·비파괴(기존 클릭 토글 유지)', a.includes("this.parentElement.classList.toggle('open')"));
+  check('사이드바: 아코디언 단일 컨트롤러(ph97, 한 번에 하나만 열림)', a.includes('[ph97] accordion group') && a.includes("forEach(function(x){ x.classList.remove('open'); });"));
+  check('사이드바: 옛 독립토글 제거 확인(중복 핸들러 청소)', !a.includes("this.parentElement.classList.toggle('open')"));
 } catch (e) { check('사이드바 UX 읽기', false); console.log('    →', e.message); }
 
 // ── 결과 ──────────────────────────────────────────────────────────────
