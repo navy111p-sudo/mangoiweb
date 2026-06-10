@@ -17,7 +17,7 @@
     'installguide':'/install-guide.html','learnguide':'/learn-guide.html',
     'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'/contact.html',
     'library':'/docs/','reviews':'/reviews.html','recordings':'/admin.html',
-    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
+    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach.html','speech-cn':'/speech-coach.html','chinese-speech':'/speech-coach.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
     'leveltest':'/level-test.html','battle':'/battle.html',
     'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
@@ -5128,12 +5128,6 @@
         <span class="gm-icon">🤖</span>
         <span class="gm-label" data-ko="영어 발음 코치" data-en="EN Voice Coach">영어 발음 코치</span>
         <span class="gm-sub" data-ko="자유 문장 · 즉석 AI 점수" data-en="Custom · Instant AI Score">자유 문장 · 즉석 AI 점수</span>
-      </button>
-      <!-- ph157 (2026-05-28) — 🆕 중국어 발음 코치 (다락원 마스터 + Lv 1~20) -->
-      <button class="gm-card" data-go="speech-coach-cn" data-en-key="cn voice coach" onclick="location.href='/speech-coach-cn.html'">
-        <span class="gm-icon">🇨🇳</span>
-        <span class="gm-label" data-ko="중국어 발음 코치" data-en="CN Voice Coach">중국어 발음 코치</span>
-        <span class="gm-sub" data-ko="다락원 마스터 · Lv 1~20" data-en="Darakwon · Lv 1-20">다락원 마스터 · Lv 1~20</span>
       </button>
       <!-- ph158 (2026-05-28) — 🆕 교재 업로더 (폴더 드래그 → AI 자동 분류) -->
       <button class="gm-card" data-go="textbook-uploader" data-en-key="textbook uploader" onclick="location.href='/textbook-uploader.html'">
@@ -11710,8 +11704,6 @@ window.addEventListener('DOMContentLoaded', () => {
     { kws: ['신규상담', '신규 상담', '상담', '상담신청', '상담 신청', '문의', '문의하기', '가입 문의', '가입문의', '첫 방문', '전화상담', '연락', 'inquiry', 'consult', '컨설팅'], action: () => window.openInquiryModal(), label: '💬 신규상담' },
     // 발음연습 (영어)
     { kws: ['발음', '발음연습', '발음 연습', '발음교정', '발음 교정', '발음테스트', '발음 체크', '영어발음', 'pronunciation', '스피치', 'speech', '스피킹', '말하기', '말하기 연습'], action: () => window.gridActions && window.gridActions.speech(), label: '🎤 영어 발음 코치 (AI 발음 평가)' },
-    // ph157: 중국어 발음 코치
-    { kws: ['중국어', '중국어발음', '중국어 발음', '중국어발음코치', 'chinese', 'mandarin', '다락원', 'darakwon', 'cn voice', '병음', 'pinyin'], action: () => location.href = '/speech-coach-cn.html', label: '🇨🇳 중국어 발음 코치 (다락원 마스터 + Lv 1~20)' },
     // ph178: 수업 신청 (시간·교사 선택 → 결제)
     { kws: ['수업신청', '수업 신청', '예약', '신청하기', '시간 선택', '교사 선택', 'book', 'booking', 'lesson booking'], action: () => location.href = '/lesson-booking-demo.html', label: '📝 수업 신청 (시간·교사 → 결제)' },
     // ph158: 교재 업로더 (폴더 드래그 → AI 자동 분류)
@@ -25042,7 +25034,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260610170528 -->
+<!-- BUILD:20260610172052 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -25278,7 +25270,7 @@ document.addEventListener('keydown', function(e){
     'installguide':'/install-guide.html','learnguide':'/learn-guide.html',
     'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'/contact.html',
     'library':'/docs/','reviews':'/reviews.html','recordings':'/admin.html',
-    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
+    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach.html','speech-cn':'/speech-coach.html','chinese-speech':'/speech-coach.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
     'leveltest':'/level-test.html','battle':'/battle.html',
     'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
@@ -25411,7 +25403,7 @@ document.addEventListener('keydown', function(e){
     'installguide':'/install-guide.html','learnguide':'/learn-guide.html',
     'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'/contact.html',
     'library':'/docs/','reviews':'/reviews.html','recordings':'/admin.html',
-    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
+    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach.html','speech-cn':'/speech-coach.html','chinese-speech':'/speech-coach.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
     'leveltest':'/level-test.html','battle':'/battle.html',
     'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
@@ -25700,7 +25692,6 @@ document.addEventListener('keydown', function(e){
     {emoji:'🤖', name:'AI 친구', url:'/ai-friend.html'},
     {emoji:'✍', name:'AI 작문', url:'/ai-write.html'},
     {emoji:'🗣', name:'영어 발음 코치', url:'/speech-coach.html'},
-    {emoji:'🇨🇳', name:'중국어 발음 코치', url:'/speech-coach-cn.html'},
     {emoji:'📚', name:'교재 업로더', url:'/textbook-uploader.html'},
     {emoji:'📖', name:'단어장', url:'/vocab.html'},
     {emoji:'🎯', name:'미니 퀴즈', url:'/micro-quiz.html'},
@@ -26376,7 +26367,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     'points-shop':      { fn: function(){ if (window.showPointsShop) window.showPointsShop(); else location.href = '/streak.html'; } },
     'speech':           { open: 'https://mangoi-speech.pages.dev/practice' },
     'speech-coach':     { href: '/speech-coach.html' },
-    'speech-coach-cn':  { href: '/speech-coach-cn.html' },
+    'speech-coach-cn':  { href: '/speech-coach.html' },
     'textbook-uploader':{ href: '/textbook-uploader.html' },
     'textbook':         { href: '/textbook-uploader.html' },
     'lesson-change':    { fn: function(){ if (window.openLessonChangeModal) window.openLessonChangeModal(); else location.href = '/lesson-postpone-demo.html'; } },
