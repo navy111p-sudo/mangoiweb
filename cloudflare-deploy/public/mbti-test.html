@@ -44,10 +44,13 @@
   .btn-secondary{padding:12px 24px;background:rgba(99,102,241,0.2);color:#c4b5fd;border:1px solid rgba(99,102,241,0.4);border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;text-decoration:none;display:inline-block}
 
   .home-btn{position:fixed;top:14px;right:14px;z-index:999;padding:9px 18px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;text-decoration:none;font-weight:800;border-radius:99px;font-size:13px}
+  .back-btn{position:fixed;top:14px;left:14px;z-index:999;padding:9px 16px;background:rgba(20,41,80,0.85);color:#cbd5e1;border:1px solid rgba(148,163,184,0.35);border-radius:99px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+  .back-btn:hover{color:#fff;border-color:#fbbf24}
 </style>
 </head>
 <body>
 <a class="home-btn" href="/">🏠 <span data-ko="홈" data-en="Home">홈</span></a>
+<button type="button" class="back-btn" id="back-btn" onclick="goBack()">‹ <span data-ko="뒤로" data-en="Back">뒤로</span></button>
 
 <div class="wrap">
   <div class="brand">
@@ -123,6 +126,20 @@ window.pickAnswer = function(letter) {
   answers.push(letter);
   currentIdx++;
   render();
+};
+
+// 뒤로가기: 결과/현재 질문 → 이전 질문, 첫 질문에서 누르면 전체메뉴(이전 화면)로
+window.goBack = function() {
+  var res = document.getElementById('result-area');
+  if (res && res.classList.contains('show')) { res.classList.remove('show'); res.innerHTML = ''; }
+  if (currentIdx > 0) {
+    currentIdx--;
+    if (answers.length) answers.pop();
+    render();
+  } else {
+    if (history.length > 1) history.back();
+    else location.href = '/';
+  }
 };
 
 function showResult() {
@@ -219,6 +236,27 @@ async function loadTeacherMatches(mbti){
 
 render();
 </script>
-<!-- BUILD:20260610164554 -->
+<!-- BUILD:20260610165032 -->
+<!-- 🔊 MBTI 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
+<audio id="mbti-voice" src="/audio/mbti-test.mp3" preload="auto"></audio>
+<script>
+(function(){
+  var a = document.getElementById('mbti-voice');
+  if(!a) return;
+  var played = false;
+  function play(){ if(played) return; played = true; var p = a.play(); if(p && p.catch) p.catch(function(){ played = false; arm(); }); }
+  function arm(){
+    var once = function(){ document.removeEventListener('pointerdown', once); document.removeEventListener('keydown', once); play(); };
+    document.addEventListener('pointerdown', once);
+    document.addEventListener('keydown', once);
+  }
+  if (document.readyState === 'complete') play(); else window.addEventListener('load', play);
+  var btn = document.createElement('button');
+  btn.type = 'button'; btn.textContent = '🔊 안내 다시 듣기';
+  btn.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:999;padding:9px 16px;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;border:0;border-radius:99px;font-weight:800;font-size:13px;cursor:pointer;box-shadow:0 6px 18px -4px rgba(99,102,241,.6);font-family:inherit';
+  btn.onclick = function(){ try{ a.currentTime = 0; }catch(e){} played = true; a.play(); };
+  document.body.appendChild(btn);
+})();
+</script>
 </body>
 </html>
