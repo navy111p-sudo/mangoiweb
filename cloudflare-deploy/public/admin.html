@@ -20608,7 +20608,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260610145105 -->
+        <!-- BUILD:20260610161121 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -35650,8 +35650,15 @@ button.chip:hover,
 (function(){
   function ico(){ var s=document.getElementById('mga-tab-ico'); if(s) s.textContent = document.body.classList.contains('mga-open') ? '✕' : '☰'; }
   window.mgaOpen = function(){ document.body.classList.add('mga-open'); ico(); };
-  window.mgaClose = function(){ document.body.classList.remove('mga-open'); ico(); };
-  window.mgaToggle = function(){ document.body.classList.toggle('mga-open'); ico(); };
+  // 🛠 (fix 2026-06-10) 닫기 = mga-open + 옛 드로어 시스템(ph134/ph150/ph142/ph152) open 클래스까지 모두 제거.
+  //   어떤 ✕/오버레이/ESC 로도 확실히 닫히도록 (시스템 충돌로 사이드바가 안 닫히던 버그 수정)
+  window.mgaClose = function(){
+    document.body.classList.remove('mga-open','ph134-sidebar-open','ph150-open','ph142-open','ph152-open');
+    var sb = document.getElementById('ph85-sidebar');
+    if (sb) sb.classList.remove('open','is-open','ph134-sidebar-open');
+    ico();
+  };
+  window.mgaToggle = function(){ if (document.body.classList.contains('mga-open')) { window.mgaClose(); } else { window.mgaOpen(); } };
   document.addEventListener('keydown', function(e){ if(e.key==='Escape') window.mgaClose(); });
   document.addEventListener('click', function(e){
     if(!document.body.classList.contains('mga-open')) return;
