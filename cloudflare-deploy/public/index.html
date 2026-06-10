@@ -17,7 +17,7 @@
     'installguide':'/install-guide.html','learnguide':'/learn-guide.html',
     'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'/contact.html',
     'library':'/docs/','reviews':'/reviews.html','recordings':'/admin.html',
-    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach-cn.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
+    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
     'leveltest':'/level-test.html','battle':'/battle.html',
     'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
@@ -11734,7 +11734,7 @@ window.addEventListener('DOMContentLoaded', () => {
     'inquiry':       () => window.openInquiryModal(),
     'trial':         () => window.openInquiryModal(),
     'enroll':        () => window.openInquiryModal(),
-    'speech':        () => { location.href = '/speech-coach-cn.html'; },
+    'speech':        () => { location.href = '/speech-coach.html'; },
     'mypage':        () => location.href = '/admin/mypage.html',
     'admin':         () => location.href = '/admin.html',
     'payment':       () => { if (window.gridActions && typeof window.gridActions.payment === 'function') window.gridActions.payment(); else alert('결제 기능을 불러올 수 없습니다.'); },
@@ -14429,7 +14429,7 @@ window.addEventListener('DOMContentLoaded', () => {
     trial:       () => { closeGrid(); window.openInquiryModal&&window.openInquiryModal(); setTimeout(()=>{ const p=document.getElementById('inq-program'); if(p)p.value='trial'; }, 100); },
     faq:         () => { closeGrid(); showModal(FAQ); },
     leveltest:   () => { closeGrid(); showLevelTestModal(); },
-    speech:      () => { closeGrid(); location.href = '/speech-coach-cn.html'; },
+    speech:      () => { closeGrid(); location.href = '/speech-coach.html'; },
     teachers:    () => {
       closeGrid();
       showModal(TEACHERS);
@@ -25051,7 +25051,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260611055404 -->
+<!-- BUILD:20260611060229 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -25287,7 +25287,7 @@ document.addEventListener('keydown', function(e){
     'installguide':'/install-guide.html','learnguide':'/learn-guide.html',
     'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'/contact.html',
     'library':'/docs/','reviews':'/reviews.html','recordings':'/admin.html',
-    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach-cn.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
+    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
     'leveltest':'/level-test.html','battle':'/battle.html',
     'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
@@ -25420,7 +25420,7 @@ document.addEventListener('keydown', function(e){
     'installguide':'/install-guide.html','learnguide':'/learn-guide.html',
     'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'/contact.html',
     'library':'/docs/','reviews':'/reviews.html','recordings':'/admin.html',
-    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach-cn.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
+    'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
     'leveltest':'/level-test.html','battle':'/battle.html',
     'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
@@ -26383,7 +26383,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     'admin':            { href: '/admin.html' },
     'mypage':           { href: '/admin/mypage.html' },
     'points-shop':      { fn: function(){ if (window.showPointsShop) window.showPointsShop(); else location.href = '/streak.html'; } },
-    'speech':           { href: '/speech-coach-cn.html' },
+    'speech':           { href: '/speech-coach.html' },
     'speech-coach':     { href: '/speech-coach.html' },
     'speech-coach-cn':  { href: '/speech-coach-cn.html' },
     'textbook-uploader':{ href: '/textbook-uploader.html' },
