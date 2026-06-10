@@ -720,26 +720,45 @@
 })();
 </script>
 <!-- BUILD:20260530-final -->
-<!-- BUILD:20260610170017 -->
+<!-- BUILD:20260610170528 -->
 <!-- 🔊 수업 신청 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="booking-voice" src="/audio/lesson-booking.mp3" preload="auto"></audio>
 <script>
 (function(){
   var a = document.getElementById('booking-voice');
   if(!a) return;
+  var MUTE_KEY = 'mangoi_voice_muted';
+  function isMuted(){ try { return localStorage.getItem(MUTE_KEY) === '1'; } catch(e){ return false; } }
   var played = false;
-  function play(){ if(played) return; played = true; var p = a.play(); if(p && p.catch) p.catch(function(){ played = false; arm(); }); }
+  function play(){ if(played || isMuted()) return; played = true; var p = a.play(); if(p && p.catch) p.catch(function(){ played = false; arm(); }); }
   function arm(){
     var once = function(){ document.removeEventListener('pointerdown', once); document.removeEventListener('keydown', once); play(); };
     document.addEventListener('pointerdown', once);
     document.addEventListener('keydown', once);
   }
   if (document.readyState === 'complete') play(); else window.addEventListener('load', play);
-  var btn = document.createElement('button');
-  btn.type = 'button'; btn.textContent = '🔊 안내 다시 듣기';
-  btn.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:99999;padding:9px 16px;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;border:0;border-radius:99px;font-weight:800;font-size:13px;cursor:pointer;box-shadow:0 6px 18px -4px rgba(99,102,241,.6);font-family:inherit';
-  btn.onclick = function(){ try{ a.currentTime = 0; }catch(e){} played = true; a.play(); };
-  document.body.appendChild(btn);
+
+  // 🔊 다시 듣기 + 🔇 무음 토글 (무음은 모든 안내 음성에 공통 적용 · 기억됨)
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:99999;display:flex;gap:8px;flex-wrap:wrap';
+  var replay = document.createElement('button');
+  replay.type = 'button'; replay.textContent = '🔊 안내 다시 듣기';
+  replay.style.cssText = 'padding:9px 16px;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;border:0;border-radius:99px;font-weight:800;font-size:13px;cursor:pointer;box-shadow:0 6px 18px -4px rgba(99,102,241,.6);font-family:inherit';
+  replay.onclick = function(){ try{ localStorage.setItem(MUTE_KEY,'0'); }catch(e){} try{ a.currentTime = 0; }catch(e){} played = true; a.play(); updateMute(); };
+  var mute = document.createElement('button');
+  mute.type = 'button';
+  mute.style.cssText = 'padding:9px 16px;background:rgba(20,41,80,0.9);color:#cbd5e1;border:1px solid rgba(148,163,184,0.4);border-radius:99px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit';
+  function updateMute(){ mute.textContent = isMuted() ? '🔈 소리 켜기' : '🔇 무음'; }
+  mute.onclick = function(){
+    var m = !isMuted();
+    try { localStorage.setItem(MUTE_KEY, m ? '1' : '0'); } catch(e){}
+    if (m) { try{ a.pause(); }catch(e){} }
+    else { try{ a.currentTime = 0; }catch(e){} played = true; a.play(); }
+    updateMute();
+  };
+  updateMute();
+  wrap.appendChild(replay); wrap.appendChild(mute);
+  document.body.appendChild(wrap);
 })();
 </script>
 </body>
