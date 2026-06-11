@@ -241,9 +241,9 @@
             0%, 100% { translate: 0 0; }
             50%      { translate: 8px -12px; }
         }
-        /* 우상단 토성 */
+        /* 좌하단 토성 */
         .deco-saturn {
-            top: 3%; right: 3%;   /* 오른쪽 위, 작게 — UFO 비행경로 회피 */
+            bottom: 3%; left: 2%;   /* 왼쪽 맨 아래로 이동 */
             width: clamp(90px, 11vw, 150px);
             opacity: 0.98;
             filter: drop-shadow(0 18px 36px rgba(0,0,0,0.55)) drop-shadow(0 0 30px rgba(220,170,110,0.35));
@@ -2934,8 +2934,14 @@
 
 </head>
 <body>
+<style>
+/* 교사 영상: 모바일에선 칩 2줄(로그인+EN, top 3rem) 아래로 내림 */
+@media (max-width:640px){
+  #mango-promo-video{ top:5.8rem!important; right:12px!important; }
+}
+</style>
 <!-- 🎬 우상단 홍보 영상 (망고아이 콜센터 교사) — 자동재생(무음) + 무음 토글 -->
-<div id="mango-promo-video" style="position:fixed;top:215px;left:22px;z-index:100050;width:min(190px,40vw);aspect-ratio:1/1;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px -8px rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.18);background:#000">
+<div id="mango-promo-video" style="position:fixed;top:68px;right:22px;z-index:100050;width:min(190px,40vw);aspect-ratio:1/1;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px -8px rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.18);background:#000">
   <video id="mango-promo-vid" src="/video/callcenter-teacher.mp4" autoplay muted loop playsinline preload="auto" style="width:100%;height:100%;object-fit:cover;display:block"></video>
   <button id="mango-promo-mute" type="button" aria-label="소리 켜기/끄기" title="소리 켜기/끄기" style="position:absolute;right:6px;bottom:6px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)">🔇</button>
   <button id="mango-promo-close" type="button" aria-label="닫기" title="닫기" style="position:absolute;right:6px;top:6px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.5);color:#fff;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">✕</button>
@@ -25073,7 +25079,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260612020525 -->
+<!-- BUILD:20260612020816 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
