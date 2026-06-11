@@ -2941,24 +2941,63 @@
 }
 </style>
 <!-- 🎬 우상단 홍보 영상 (망고아이 콜센터 교사) — 자동재생(무음) + 무음 토글 -->
-<div id="mango-promo-video" style="position:fixed;top:68px;right:22px;z-index:100050;width:min(190px,40vw);aspect-ratio:1/1;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px -8px rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.18);background:#000">
+<div id="mango-promo-video" style="position:fixed;top:68px;right:22px;z-index:100050;width:min(190px,40vw);aspect-ratio:1/1;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px -8px rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.18);background:#000;display:none">
   <video id="mango-promo-vid" src="/video/callcenter-teacher.mp4" autoplay muted loop playsinline preload="auto" style="width:100%;height:100%;object-fit:cover;display:block"></video>
   <button id="mango-promo-mute" type="button" aria-label="소리 켜기/끄기" title="소리 켜기/끄기" style="position:absolute;right:6px;bottom:6px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)">🔇</button>
   <button id="mango-promo-close" type="button" aria-label="닫기" title="닫기" style="position:absolute;right:6px;top:6px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.5);color:#fff;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">✕</button>
 </div>
 <script>
+/* 홍보 영상 정책 (2026-06-12)
+   ① 인트로 영상이 떠 있는 동안엔 절대 표시 안 함 — 인트로가 사라진 뒤에만 표시
+   ② 표시된 뒤 화면 아무 곳이나 클릭(모달·카드·메뉴 열기 포함)하면 즉시 제거
+   ③ 한 번 사라지면 같은 세션에서는 다시 표시 안 함 (홈 첫 화면 전용) */
 (function(){
   var v=document.getElementById('mango-promo-vid'), mb=document.getElementById('mango-promo-mute'),
       cb=document.getElementById('mango-promo-close'), box=document.getElementById('mango-promo-video');
-  if(!v) return;
-  function killBox(){ try{ v.pause(); }catch(e){} if(box) box.remove(); }
-  function upd(){ mb.textContent = v.muted ? '🔇' : '🔊'; }
-  upd();
-  mb.onclick=function(e){ e.stopPropagation(); v.muted=!v.muted; if(!v.muted){ var p=v.play(); if(p&&p.catch)p.catch(function(){}); } upd(); };
+  if(!box) return;
+  var KEY='mango_promo_dismissed';
+  function killBox(){
+    try{ sessionStorage.setItem(KEY,'1'); }catch(e){}
+    try{ v&&v.pause(); }catch(e){}
+    document.removeEventListener('click', onAnyClick, true);
+    window.removeEventListener('hashchange', killBox);
+    window.removeEventListener('popstate', killBox);
+    if(box&&box.parentNode) box.parentNode.removeChild(box);
+  }
+  try{ if(sessionStorage.getItem(KEY)==='1'){ if(box.parentNode)box.parentNode.removeChild(box); return; } }catch(e){}
+  function onAnyClick(e){
+    if(mb && (e.target===mb || mb.contains(e.target))) return; // 🔇 음소거 토글만 예외
+    killBox();
+  }
+  function upd(){ if(mb) mb.textContent = v.muted ? '🔇' : '🔊'; }
+  if(mb) mb.onclick=function(e){ e.stopPropagation(); v.muted=!v.muted; if(!v.muted){ var p=v.play(); if(p&&p.catch)p.catch(function(){}); } upd(); };
   if(cb) cb.onclick=function(e){ e.stopPropagation(); killBox(); };
-  // 🖱 영상/화면 아무 곳이나 클릭하면 바로 사라짐
-  box.style.cursor='pointer';
-  box.addEventListener('click', killBox);
+  upd();
+  var shown=false;
+  function showBox(){
+    if(shown) return; shown=true;
+    box.style.display='block';
+    box.style.cursor='pointer';
+    if(v){ var p=v.play(); if(p&&p.catch)p.catch(function(){}); }
+    setTimeout(function(){
+      document.addEventListener('click', onAnyClick, true);   // 아무 곳 클릭 → 즉시 제거
+      window.addEventListener('hashchange', killBox);          // 페이지/메뉴 전환 → 제거
+      window.addEventListener('popstate', killBox);
+    },0);
+  }
+  function introGone(){
+    var ov=document.getElementById('mango-intro-overlay');
+    if(!ov || !document.body.contains(ov)) return true;
+    if(ov.hidden || ov.style.display==='none') return true;
+    if(ov.classList.contains('is-hiding')) return true;
+    return false;
+  }
+  function waitIntro(){
+    if(introGone()){ showBox(); return; }
+    var iv=setInterval(function(){ if(introGone()){ clearInterval(iv); showBox(); } },250);
+  }
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', waitIntro); }
+  else { waitIntro(); }
 })();
 </script>
 <!-- 🍔 모바일 좌측 슬라이드 사이드바 (터치로 열고/닫기) -->
@@ -25079,7 +25118,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260612022218 -->
+<!-- BUILD:20260612022421 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
