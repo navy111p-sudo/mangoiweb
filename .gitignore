@@ -15,3 +15,6 @@ _preview_*.png
 test-harness/.build/
 *.bak_*
 *.bak.*
+
+# 정리 보관함 (확인 후 비우세요)
+_trash_*/

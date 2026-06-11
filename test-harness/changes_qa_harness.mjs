@@ -25,7 +25,7 @@ const files = [   // 2026-06-12: 배포 완료 직후 기준 — worktree == HEA
   ['cloudflare-deploy/public/index.html', 0, '</html>'],
   ['cloudflare-deploy/src/api-mango.ts', 0, '}'],
   ['cloudflare-deploy/src/index.ts', 0, '}'],
-  ['cloudflare-deploy/public/lesson-postpone-demo.html', -9, '</html>'],  // 06-12 정리: dead --vh 세터 12줄 제거 + 100dvh 3줄 추가
+  ['cloudflare-deploy/public/lesson-postpone-demo.html', 0, '</html>'],  // 06-12 정리: dead --vh 세터 12줄 제거 + 100dvh 3줄 추가
   ['cloudflare-deploy/public/admin.html', 0, '</html>'],
 ];
 for (const [rel, expectDelta, tailNeedle] of files) {
