@@ -865,5 +865,54 @@
 })();
 </script>
 
+
+<!-- 🎥 상담직원 인사말 팝업 — 우상단 휴대폰 크기, 자동 재생 (⏸️ 멈춤 / ❌ 나가기) -->
+<div id="greet-pop" style="position:fixed;top:14px;right:14px;z-index:99999;width:min(232px,62vw);background:rgba(15,23,42,0.94);border:1.5px solid rgba(251,191,36,0.55);border-radius:18px;box-shadow:0 18px 44px -10px rgba(0,0,0,0.65);overflow:hidden;display:none;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 9px;background:rgba(251,191,36,0.13)">
+    <span style="font-size:12px;font-weight:800;color:#fde68a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">💁‍♀️ 상담직원 인사말</span>
+    <span style="display:flex;gap:5px;flex:none">
+      <button id="greet-pause" type="button" title="멈춤" aria-label="멈춤/재생" style="width:28px;height:28px;border-radius:50%;border:1px solid rgba(148,163,184,0.4);background:rgba(30,41,59,0.9);font-size:14px;line-height:1;cursor:pointer;padding:0">⏸️</button>
+      <button id="greet-close" type="button" title="나가기" aria-label="나가기" style="width:28px;height:28px;border-radius:50%;border:1px solid rgba(148,163,184,0.4);background:rgba(30,41,59,0.9);font-size:13px;line-height:1;cursor:pointer;padding:0">❌</button>
+    </span>
+  </div>
+  <video id="greet-video" src="/video/counselor-greeting.mp4" playsinline preload="auto" style="display:block;width:100%;aspect-ratio:1/1;object-fit:cover;background:#000"></video>
+  <button id="greet-sound" type="button" style="display:none;width:100%;border:none;padding:8px 0;background:#fbbf24;color:#1a1a1a;font-weight:900;font-size:12.5px;cursor:pointer">🔊 소리 켜고 다시 듣기</button>
+</div>
+<script>
+(function(){
+  var pop = document.getElementById('greet-pop');
+  var v = document.getElementById('greet-video');
+  var btnP = document.getElementById('greet-pause');
+  var btnX = document.getElementById('greet-close');
+  var btnS = document.getElementById('greet-sound');
+  if (!pop || !v) return;
+  pop.style.display = 'block';
+  // 자동 재생: 소리 포함 시도 → 차단되면 음소거 재생 + "소리 켜기" 버튼
+  v.muted = false;
+  var p = v.play();
+  if (p && p.catch) p.catch(function(){
+    v.muted = true;
+    var p2 = v.play();
+    if (p2 && p2.catch) p2.catch(function(){ btnP.textContent = '▶️'; btnP.title = '재생'; });
+    btnS.style.display = 'block';
+  });
+  btnS.addEventListener('click', function(){
+    v.muted = false;
+    try { v.currentTime = 0; } catch(e){}
+    v.play();
+    btnS.style.display = 'none';
+  });
+  btnP.addEventListener('click', function(){
+    if (v.paused) { v.play(); } else { v.pause(); }
+  });
+  v.addEventListener('play',  function(){ btnP.textContent = '⏸️'; btnP.title = '멈춤'; });
+  v.addEventListener('pause', function(){ btnP.textContent = '▶️'; btnP.title = '재생'; });
+  v.addEventListener('ended', function(){ btnP.textContent = '▶️'; btnP.title = '다시 재생'; });
+  btnX.addEventListener('click', function(){
+    try { v.pause(); } catch(e){}
+    pop.style.display = 'none';
+  });
+})();
+</script>
 </body>
 </html>
