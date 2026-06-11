@@ -33,6 +33,12 @@
   .contact-card .v{font-size:14px;color:#fbbf24;font-weight:800;margin-bottom:4px;word-break:break-all}
   .contact-card .d{font-size:12px;color:#a3b3d1}
 
+  /* 음성 메시지 카드 */
+  .contact-card{position:relative}
+  .voice-badge{position:absolute;top:10px;right:12px;font-size:18px;line-height:1;pointer-events:none}
+  .contact-card.playing{border-color:#fbbf24;box-shadow:0 0 0 0 rgba(251,191,36,0.45);animation:voicePulse 1.4s ease-out infinite}
+  @keyframes voicePulse{0%{box-shadow:0 0 0 0 rgba(251,191,36,0.45)}100%{box-shadow:0 0 0 14px rgba(251,191,36,0)}}
+
   .hours-box{background:rgba(20,41,80,0.7);border:1px solid rgba(99,102,241,0.25);border-radius:16px;padding:22px;margin-bottom:24px}
   .hours-box h2{font-size:18px;font-weight:900;color:#fff;margin-bottom:14px}
   .hours-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
@@ -80,7 +86,8 @@
       <div class="v">support@mangoi.co.kr</div>
       <div class="d" data-ko="24시간 이내 답변" data-en="Replies within 24h">24시간 이내 답변</div>
     </a>
-    <a class="contact-card" href="#" onclick="alert('카카오톡 채널: @망고아이'); return false;">
+    <a class="contact-card" id="kakao-card" href="#" onclick="toggleKakaoVoice(); return false;">
+      <span class="voice-badge" id="kakao-voice-emoji">🔇</span>
       <span class="ico">💬</span>
       <h3 data-ko="카카오톡 상담" data-en="KakaoTalk Chat">카카오톡 상담</h3>
       <div class="v">@망고아이</div>
@@ -93,6 +100,7 @@
       <div class="d" data-ko="카메라/마이크 등 기술 문의" data-en="Camera/mic technical issues">카메라/마이크 등 기술 문의</div>
     </a>
   </div>
+  <audio id="kakao-voice" src="/audio/kakao-voice-20260612.mp3" preload="none"></audio>
 
   <!-- 운영시간 -->
   <div class="hours-box">
@@ -120,6 +128,24 @@
 </div>
 
 <script>
+  // 카카오톡 카드: 음성 메시지 재생/일시정지 (🔇 ↔ 🔊)
+  window.toggleKakaoVoice = function() {
+    var a = document.getElementById('kakao-voice');
+    var em = document.getElementById('kakao-voice-emoji');
+    var card = document.getElementById('kakao-card');
+    if (a.paused) {
+      a.play().then(function(){ em.textContent = '🔊'; card.classList.add('playing'); })
+        .catch(function(){ em.textContent = '🔇'; card.classList.remove('playing'); });
+    } else {
+      a.pause();
+      em.textContent = '🔇'; card.classList.remove('playing');
+    }
+  };
+  document.getElementById('kakao-voice').addEventListener('ended', function(){
+    document.getElementById('kakao-voice-emoji').textContent = '🔇';
+    document.getElementById('kakao-card').classList.remove('playing');
+  });
+
   function updateLangBtn(){
     var btn = document.getElementById('langBtn');
     if (!btn) return;
@@ -130,4 +156,6 @@
   document.addEventListener('DOMContentLoaded', updateLangBtn);
 </script>
 
-<!-- BUILD:20260
+<!-- BUILD:20260612005904 -->
+</body>
+</html>

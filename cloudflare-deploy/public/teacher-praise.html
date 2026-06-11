@@ -50,6 +50,13 @@
   .anon-badge{display:inline-block;padding:4px 12px;background:rgba(99,102,241,0.18);border:1px solid rgba(99,102,241,0.35);border-radius:99px;font-size:11px;color:#a5b4fc;font-weight:700;letter-spacing:0.5px;margin-bottom:8px}
   .home-btn{position:fixed;top:14px;right:14px;z-index:999;padding:9px 18px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;text-decoration:none;font-weight:800;border-radius:99px;font-size:13px}
   .help{font-size:11.5px;color:#6b7a99;margin-top:8px;line-height:1.6}
+
+  /* 음성 메시지 버튼 */
+  .voice-btn{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:10px 22px;background:rgba(251,191,36,0.10);border:1px solid rgba(251,191,36,0.45);border-radius:99px;color:#fbbf24;font-weight:800;font-size:13.5px;font-family:inherit;cursor:pointer;transition:all .2s;-webkit-tap-highlight-color:transparent}
+  .voice-btn:hover{background:rgba(251,191,36,0.20);transform:translateY(-1px)}
+  .voice-btn .v-emoji{font-size:20px;line-height:1}
+  .voice-btn.playing{background:linear-gradient(135deg,rgba(251,191,36,0.25),rgba(245,158,11,0.18));border-color:#fbbf24;box-shadow:0 0 0 0 rgba(251,191,36,0.45);animation:voicePulse 1.4s ease-out infinite}
+  @keyframes voicePulse{0%{box-shadow:0 0 0 0 rgba(251,191,36,0.45)}100%{box-shadow:0 0 0 14px rgba(251,191,36,0)}}
 </style>
 </head>
 <body>
@@ -59,6 +66,11 @@
   <div class="brand">
     <span class="brand-logo">🌟 Teacher Praise</span>
     <div class="sub" data-ko="좋아하는 강사님께 익명으로 감사 메시지를 남겨주세요. 강사님께 큰 힘이 됩니다!" data-en="Send anonymous praise to your favorite teacher. It means a lot!">좋아하는 강사님께 익명으로 감사 메시지를 남겨주세요. 강사님께 큰 힘이 됩니다!</div>
+    <button type="button" id="voice-msg-btn" class="voice-btn" onclick="toggleVoiceMsg()" aria-label="음성 메시지 듣기">
+      <span class="v-emoji" id="voice-emoji">🔇</span>
+      <span data-ko="음성 메시지 듣기" data-en="Play voice message">음성 메시지 듣기</span>
+    </button>
+    <audio id="voice-msg" src="/audio/praise-voice-20260612.mp3" preload="none"></audio>
   </div>
 
   <div class="card">
@@ -115,6 +127,24 @@
 
 <script>
 const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+// 음성 메시지 재생/일시정지 (🔇 ↔ 🔊)
+window.toggleVoiceMsg = function() {
+  const a = document.getElementById('voice-msg');
+  const em = document.getElementById('voice-emoji');
+  const btn = document.getElementById('voice-msg-btn');
+  if (a.paused) {
+    a.play().then(() => { em.textContent = '🔊'; btn.classList.add('playing'); })
+      .catch(() => { em.textContent = '🔇'; btn.classList.remove('playing'); });
+  } else {
+    a.pause();
+    em.textContent = '🔇'; btn.classList.remove('playing');
+  }
+};
+document.getElementById('voice-msg').addEventListener('ended', () => {
+  document.getElementById('voice-emoji').textContent = '🔇';
+  document.getElementById('voice-msg-btn').classList.remove('playing');
+});
+
 let selectedTeacher = null;
 let selectedStar = null;
 
@@ -175,6 +205,6 @@ window.submitPraise = async function() {
   }
 };
 </script>
-<!-- BUILD:20260612004312 -->
+<!-- BUILD:20260612005904 -->
 </body>
 </html>

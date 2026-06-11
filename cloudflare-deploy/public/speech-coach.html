@@ -171,19 +171,49 @@ function setTarget(t) {
   resetUI();
 }
 
-function speakTarget() {
-  const t = document.getElementById('target-input').value || document.getElementById('target-display').textContent;
-  if (!t) return;
+let ttsAudio = null;
+const ttsCache = {};
+function detectTtsLang(t) {
+  if (/[\u4e00-\u9fff]/.test(t)) return 'zh';
+  if (/[\uac00-\ud7a3]/.test(t)) return 'ko';
+  return 'en';
+}
+function speakFallback(t, lang) {
   try {
     const u = new SpeechSynthesisUtterance(t);
-    // 영어 우선, 없으면 시스템 기본
     const voices = window.speechSynthesis.getVoices();
-    const enVoice = voices.find(v => v.lang.startsWith('en'));
-    if (enVoice) u.voice = enVoice;
+    const pref = lang === 'ko' ? 'ko' : lang === 'zh' ? 'zh' : 'en';
+    const v = voices.find(v => v.lang && v.lang.toLowerCase().startsWith(pref));
+    if (v) u.voice = v;
+    u.lang = pref === 'ko' ? 'ko-KR' : pref === 'zh' ? 'zh-CN' : 'en-US';
     u.rate = 0.9;
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
   } catch(e) { alert('음성 합성 실패: ' + e.message); }
+}
+async function speakTarget() {
+  const t = document.getElementById('target-input').value || document.getElementById('target-display').textContent;
+  if (!t) return;
+  const lang = detectTtsLang(t);
+  if (lang === 'ko') { speakFallback(t, lang); return; } // 한국어는 브라우저 TTS
+  if (ttsAudio) { try { ttsAudio.pause(); } catch(_){} }
+  try { window.speechSynthesis.cancel(); } catch(_){}
+  try {
+    let url = ttsCache[lang + '|' + t];
+    if (!url) {
+      const resp = await fetch('/api/voice/tts', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: t, lang })
+      });
+      if (!resp.ok || !((resp.headers.get('content-type') || '').includes('audio'))) throw new Error('tts_unavailable');
+      const blob = await resp.blob();
+      if (blob.size < 200) throw new Error('tts_empty');
+      url = URL.createObjectURL(blob);
+      ttsCache[lang + '|' + t] = url;
+    }
+    ttsAudio = new Audio(url);
+    await ttsAudio.play();
+  } catch (e) { speakFallback(t, lang); } // 서버 TTS 실패 시 브라우저 TTS 폴백
 }
 
 function resetUI() {
@@ -265,7 +295,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260612004312 -->
+<!-- BUILD:20260612005904 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>

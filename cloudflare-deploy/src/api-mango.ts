@@ -4231,6 +4231,59 @@ ${chatSampleText}
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_voice_student ON voice_coaching(student_uid, created_at DESC)`); } catch {}
     };
 
+    // ── POST /api/voice/tts — 모범 음성 (원어민 TTS: Deepgram Aura-1 / MeloTTS) ──
+    if (method === 'POST' && path === '/api/voice/tts') {
+      try {
+        const b: any = await request.json().catch(() => ({}));
+        const text = String(b.text || '').trim().slice(0, 400);
+        const lang = String(b.lang || 'en').toLowerCase();
+        if (!text) return json({ ok: false, error: 'text_required' }, 400);
+        const ai = (env as any).AI;
+        if (!ai) return json({ ok: false, error: 'workers_ai_not_bound' }, 503);
+
+        const audioHeaders = {
+          'Content-Type': 'audio/mpeg',
+          'Cache-Control': 'public, max-age=604800',
+          'Access-Control-Allow-Origin': '*'
+        };
+        const b64ToBytes = (b64: string) => {
+          const bin = atob(b64);
+          const u8 = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+          return u8;
+        };
+        // MeloTTS — base64 MP3 반환 (en/zh 지원)
+        const melo = async (meloLang: string) => {
+          const r: any = await ai.run('@cf/myshell-ai/melotts', { prompt: text, lang: meloLang });
+          const b64 = typeof r === 'string' ? r : (r?.audio || '');
+          if (!b64) throw new Error('melotts_empty');
+          return new Response(b64ToBytes(b64), { headers: audioHeaders });
+        };
+
+        // 중국어 → MeloTTS(zh)
+        if (lang.startsWith('zh') || lang === 'cn') return await melo('zh');
+
+        // 영어 → Deepgram Aura-1 (원어민 수준, MPEG 스트림) → 실패 시 MeloTTS(en) 폴백
+        try {
+          const speaker = String(b.speaker || 'asteria');
+          const raw: any = await ai.run('@cf/deepgram/aura-1', { text, speaker }, { returnRawResponse: true });
+          let buf: ArrayBuffer | null = null;
+          if (raw instanceof Response) buf = await raw.arrayBuffer();
+          else if (raw instanceof ArrayBuffer) buf = raw;
+          else if (raw && raw.body) buf = await new Response(raw.body).arrayBuffer();
+          else if (raw && raw.audio) return new Response(b64ToBytes(String(raw.audio)), { headers: audioHeaders });
+          if (!buf || buf.byteLength < 200) throw new Error('aura_empty');
+          return new Response(buf, { headers: audioHeaders });
+        } catch (auraErr: any) {
+          console.warn('[voice/tts] aura-1 failed, fallback melotts:', auraErr?.message);
+          return await melo('en');
+        }
+      } catch (e: any) {
+        console.warn('[voice/tts] error:', e?.message);
+        return json({ ok: false, error: e?.message || 'tts_failed' }, 500);
+      }
+    }
+
     // ── POST /api/voice/transcribe — 오디오 → 텍스트 (Whisper) ──
     if (method === 'POST' && path === '/api/voice/transcribe') {
       try {

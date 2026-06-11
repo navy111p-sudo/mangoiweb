@@ -80,18 +80,22 @@
   .eval-date { font-size: 11px; color: #94a3b8; margin-left: 6px; }
   .eval-text { font-size: 12px; color: #e6e9f5; margin-top: 6px; line-height: 1.5; }
 
-  .home-btn {
-    position: fixed; top: 14px; right: 14px; z-index: 999;
-    padding: 9px 18px; background: linear-gradient(135deg,#fbbf24,#f59e0b);
-    color: #1a1a1a; text-decoration: none; font-weight: 800; border-radius: 99px;
-    font-size: 13px; box-shadow: 0 6px 18px -4px rgba(245,158,11,0.5);
+  /* 상단 우측 이모지 아이콘 (간격 띄워 겹침 방지) */
+  .top-icons { position: fixed; top: 12px; right: 12px; z-index: 1000; display: flex; gap: 10px; align-items: center; }
+  .icon-btn {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; line-height: 1; padding: 0; cursor: pointer; text-decoration: none;
+    border: 1px solid rgba(148,163,184,0.4);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
   }
-  .lang-btn {
-    position: fixed; top: 14px; right: 148px; z-index: 999;
-    padding: 9px 14px; background: rgba(255,255,255,0.9); color: #1a1a1a;
-    border: 1px solid rgba(245,158,11,0.4); border-radius: 99px;
-    font-size: 12px; font-weight: 800; cursor: pointer;
-  }
+  .icon-btn.home-btn  { background: linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a1a; border-color: rgba(245,158,11,0.5); box-shadow: 0 4px 12px -2px rgba(245,158,11,0.45); }
+  .icon-btn.lang-btn  { background: rgba(20,41,80,0.9); color:#7dd3fc; }
+  .icon-btn.audio-btn { background: rgba(20,41,80,0.9); color:#fbbf24; border-color: rgba(251,191,36,0.45); }
+  /* 우하단 카카오 상담 (이모지 원형) */
+  .kakao-fab { position: fixed; right: 16px; bottom: 16px; z-index: 1000; width: 54px; height: 54px; border-radius: 50%;
+    background: linear-gradient(135deg,#fee500,#f6cc00); color:#191919; border:0; cursor:pointer; font-size: 24px;
+    display:flex; align-items:center; justify-content:center; box-shadow: 0 8px 20px -4px rgba(254,229,0,0.55); }
 
   .uid-input {
     width: 100%; max-width: 400px; padding: 10px 14px; font-size: 14px;
@@ -114,18 +118,14 @@
 </head>
 <body>
 
-<button class="lang-btn" onclick="toggleLang()">🌐 <span class="lang-label-sync">EN</span></button>
-<a class="home-btn" href="/" data-ko-title="홈으로" data-en-title="Home">🏠 <span data-ko="홈" data-en="Home">홈</span></a>
-
-<!-- 🔊 항상 보이는 음성 안내 끄기/켜기 + 📲 카카오 공유 (좌상단) -->
-<div style="position:fixed;top:14px;left:14px;z-index:999;display:flex;gap:8px;flex-wrap:wrap">
-  <button id="parent-audio-toggle" onclick="toggleParentAudio()" style="padding:9px 14px;background:rgba(20,41,80,0.85);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);border-radius:99px;cursor:pointer;font-size:12px;font-weight:700;backdrop-filter:blur(8px);font-family:'Noto Sans KR',sans-serif">
-    <span id="parent-audio-icon">🔊</span> <span id="parent-audio-label" data-ko="음성 끄기" data-en="Mute Audio">음성 끄기</span>
-  </button>
-  <button onclick="shareToKakao()" style="padding:9px 14px;background:linear-gradient(135deg,#fee500,#f6cc00);color:#191919;border:0;border-radius:99px;cursor:pointer;font-size:12px;font-weight:800;backdrop-filter:blur(8px);font-family:'Noto Sans KR',sans-serif;box-shadow:0 4px 12px -2px rgba(254,229,0,0.35)">
-    💬 <span data-ko="카카오로 받기" data-en="Get via KakaoTalk">카카오로 받기</span>
-  </button>
+<!-- 상단 우측: 음성 / 번역 / 홈 (이모지 원형, 간격 띄움) -->
+<div class="top-icons">
+  <button id="parent-audio-toggle" class="icon-btn audio-btn" onclick="toggleParentAudio()" title="음성 켜기/끄기" aria-label="음성 켜기/끄기"><span id="parent-audio-icon">🔊</span></button>
+  <button class="icon-btn lang-btn" onclick="toggleLang()" title="한국어 / English" aria-label="언어 변경">🌐</button>
+  <a class="icon-btn home-btn" href="/" title="홈으로" aria-label="홈">🏠</a>
 </div>
+<!-- 우하단: 카카오 상담 (이모지 원형) -->
+<button class="kakao-fab" onclick="shareToKakao()" title="카카오톡 상담/공유" aria-label="카카오 상담">💬</button>
 <script>
 // 🔊 음성 토글 상태 초기화
 (function(){
@@ -134,18 +134,14 @@
     const icon = document.getElementById('parent-audio-icon');
     const label = document.getElementById('parent-audio-label');
     const btn = document.getElementById('parent-audio-toggle');
-    if (!icon || !label || !btn) return;
+    if (!icon || !btn) return;
     if (muted) {
       icon.textContent = '🔇';
-      label.textContent = (window.getLang && window.getLang() === 'en') ? 'Unmute' : '음성 켜기';
-      label.setAttribute('data-ko', '음성 켜기');
-      label.setAttribute('data-en', 'Unmute');
+      if (label) { label.textContent = (window.getLang && window.getLang() === 'en') ? 'Unmute' : '음성 켜기'; label.setAttribute('data-ko', '음성 켜기'); label.setAttribute('data-en', 'Unmute'); }
       btn.style.opacity = '0.7';
     } else {
       icon.textContent = '🔊';
-      label.textContent = (window.getLang && window.getLang() === 'en') ? 'Mute Audio' : '음성 끄기';
-      label.setAttribute('data-ko', '음성 끄기');
-      label.setAttribute('data-en', 'Mute Audio');
+      if (label) { label.textContent = (window.getLang && window.getLang() === 'en') ? 'Mute Audio' : '음성 끄기'; label.setAttribute('data-ko', '음성 끄기'); label.setAttribute('data-en', 'Mute Audio'); }
       btn.style.opacity = '1';
     }
   }
@@ -621,6 +617,6 @@ function pdRender(d){
   }
 })();
 </script>
-<!-- BUILD:20260612004312 -->
+<!-- BUILD:20260612005904 -->
 </body>
 </html>

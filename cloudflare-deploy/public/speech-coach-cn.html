@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B1224">
 <title>🇨🇳 중국어 발음 교정 — 다락원 중국어 마스터 + Lv 1~20</title>
-<!-- BUILD:20260612004312 -->
+<!-- BUILD:20260612005904 -->
 <style>
 :root {
   --bg: #0B1224;
@@ -1002,13 +1002,15 @@ function setTtsBtn(on){
   if (on){ b.textContent = '⏹ 멈추기'; b.classList.add('playing'); }
   else   { b.textContent = '🔊 원어민 발음 듣기'; b.classList.remove('playing'); }
 }
+let cnAudio = null;
+const cnTtsCache = {};
 function stopSpeak(){
   speaking = false;
+  if (cnAudio) { try { cnAudio.pause(); } catch(_){} }
   try { speechSynthesis.cancel(); } catch(_){}
   setTtsBtn(false);
 }
-function speak(){
-  if (!('speechSynthesis' in window)) { alert('이 브라우저는 TTS 를 지원하지 않습니다.'); return; }
+async function speak(){
   // 재생 중이면 멈추기 (토글)
   if (speaking) { stopSpeak(); return; }
 
@@ -1018,10 +1020,42 @@ function speak(){
   speaking = true;
   setTtsBtn(true);
 
+  // 1) 서버 원어민 TTS (Workers AI) — 실패 시 브라우저 TTS 폴백
+  let url = cnTtsCache[text];
+  if (!url) {
+    try {
+      const resp = await fetch('/api/voice/tts', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text, lang: 'zh' })
+      });
+      if (resp.ok && ((resp.headers.get('content-type') || '').includes('audio'))) {
+        const blob = await resp.blob();
+        if (blob.size > 200) { url = URL.createObjectURL(blob); cnTtsCache[text] = url; }
+      }
+    } catch(_){}
+  }
+  if (!speaking) return; // 로딩 중 멈춤 처리
+
+  function showLabel(){
+    const label = (total === Infinity) ? (count + '회 (무한)') : (count + ' / ' + total + '회');
+    const pr = document.getElementById('progress');
+    if (pr) pr.textContent = '🔊 듣는 중… ' + label;
+  }
+
   function playOnce(){
     if (!speaking) return;
     if (total !== Infinity && count >= total) { stopSpeak(); return; }
     count++;
+    showLabel();
+    if (url) {
+      cnAudio = new Audio(url);
+      cnAudio.playbackRate = state.speed;
+      cnAudio.onended = function(){ if (speaking) setTimeout(playOnce, 280); };
+      cnAudio.onerror = function(){ stopSpeak(); };
+      cnAudio.play().catch(function(){ stopSpeak(); });
+      return;
+    }
+    if (!('speechSynthesis' in window)) { stopSpeak(); alert('이 브라우저는 TTS 를 지원하지 않습니다.'); return; }
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'zh-CN';
     u.rate = state.speed;
@@ -1033,9 +1067,6 @@ function speak(){
     u.onerror = function(){ stopSpeak(); };
     try { speechSynthesis.cancel(); } catch(_){}
     speechSynthesis.speak(u);
-    const label = (total === Infinity) ? (count + '회 (무한)') : (count + ' / ' + total + '회');
-    const pr = document.getElementById('progress');
-    if (pr) pr.textContent = '🔊 듣는 중… ' + label;
   }
   playOnce();
 }

@@ -20608,7 +20608,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260612004312 -->
+        <!-- BUILD:20260612005904 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -35944,6 +35944,28 @@ button.chip:hover,
   @media (prefers-reduced-motion: reduce){
     #ph85-sidebar .ph85-group,#ph85-sidebar .ph85-head,#ph85-sidebar .ph85-sub,
     #ph85-sidebar .ph85-arrow,#ph85-sidebar .ph85-subs{ transition:none !important; }
+  }
+</style>
+
+<!-- 📐 ph-keepall (2026-06-12) — 카드 제목/사이드바 한국어 줄바꿈 정리 -->
+<style id="ph-keepall-wordwrap">
+  /* 단어 중간에서 끊기지 않게: "다이제스트", "대리점", "단어" 등 단어 단위 줄바꿈 */
+  summary, summary span, summary b,
+  #ph85-sidebar .ph85-head, #ph85-sidebar .ph85-sub,
+  .menu-card button, .menu-card label, .menu-card .sub-item {
+    word-break: keep-all !important;
+    overflow-wrap: break-word !important;
+  }
+  /* 카드 헤더: 우측 ▶ 화살표와 글자가 겹치지 않게 여백 확보 + 줄간격 정리 */
+  details.table-card.menu-card > summary,
+  details.menu-card > summary {
+    padding-right: 42px !important;
+    line-height: 1.5 !important;
+  }
+  details.table-card.menu-card details > summary,
+  details.menu-card details > summary {
+    padding-right: 36px !important;
+    line-height: 1.5 !important;
   }
 </style>
 </body>

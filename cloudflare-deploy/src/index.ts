@@ -608,6 +608,7 @@ export default {
         path === '/api/oauth/status' ||
         /^\/api\/oauth\/(kakao|naver|google)\/(url|callback)$/.test(path) ||
         // 🎙 Phase AV AI 음성 코칭
+        path === '/api/voice/tts' ||
         path === '/api/voice/transcribe' ||
         path === '/api/voice/coach' ||
         path === '/api/voice/history' ||
