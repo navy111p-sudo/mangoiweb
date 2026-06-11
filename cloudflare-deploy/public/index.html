@@ -2934,7 +2934,7 @@
 </head>
 <body>
 <!-- 🎬 우상단 홍보 영상 (망고아이 콜센터 교사) — 자동재생(무음) + 무음 토글 -->
-<div id="mango-promo-video" style="position:fixed;top:14px;right:18px;z-index:100050;width:min(190px,40vw);aspect-ratio:1/1;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px -8px rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.18);background:#000">
+<div id="mango-promo-video" style="position:fixed;top:215px;left:22px;z-index:100050;width:min(190px,40vw);aspect-ratio:1/1;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px -8px rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.18);background:#000">
   <video id="mango-promo-vid" src="/video/callcenter-teacher.mp4" autoplay muted loop playsinline preload="auto" style="width:100%;height:100%;object-fit:cover;display:block"></video>
   <button id="mango-promo-mute" type="button" aria-label="소리 켜기/끄기" title="소리 켜기/끄기" style="position:absolute;right:6px;bottom:6px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)">🔇</button>
   <button id="mango-promo-close" type="button" aria-label="닫기" title="닫기" style="position:absolute;right:6px;top:6px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.5);color:#fff;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">✕</button>
@@ -2944,17 +2944,21 @@
   var v=document.getElementById('mango-promo-vid'), mb=document.getElementById('mango-promo-mute'),
       cb=document.getElementById('mango-promo-close'), box=document.getElementById('mango-promo-video');
   if(!v) return;
+  function killBox(){ try{ v.pause(); }catch(e){} if(box) box.remove(); }
   function upd(){ mb.textContent = v.muted ? '🔇' : '🔊'; }
   upd();
-  mb.onclick=function(){ v.muted=!v.muted; if(!v.muted){ var p=v.play(); if(p&&p.catch)p.catch(function(){}); } upd(); };
-  if(cb) cb.onclick=function(){ try{ v.pause(); }catch(e){} if(box) box.remove(); };
+  mb.onclick=function(e){ e.stopPropagation(); v.muted=!v.muted; if(!v.muted){ var p=v.play(); if(p&&p.catch)p.catch(function(){}); } upd(); };
+  if(cb) cb.onclick=function(e){ e.stopPropagation(); killBox(); };
+  // 🖱 영상/화면 아무 곳이나 클릭하면 바로 사라짐
+  box.style.cursor='pointer';
+  box.addEventListener('click', killBox);
 })();
 </script>
 <!-- 🍔 모바일 좌측 슬라이드 사이드바 (터치로 열고/닫기) -->
 <div id="mg-drawer-overlay" onclick="mgDrawerClose()"></div>
 <aside id="mg-drawer" aria-label="메뉴 사이드바">
   <div class="mg-drawer-head">
-    <span class="mg-drawer-logo"><img src="/img/mango-ufo.png" alt="" style="height:24px;width:auto;vertical-align:middle;margin-right:5px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))"> Mangoi</span>
+    <span class="mg-drawer-logo" onclick="mgDrawerClose();location.href='/';" style="cursor:pointer" title="홈으로" role="link" tabindex="0" onkeydown="if(event.key==='Enter'){mgDrawerClose();location.href='/';}"><img src="/img/mango-ufo.png" alt="" style="height:24px;width:auto;vertical-align:middle;margin-right:5px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))"> Mangoi</span>
     <button class="mg-drawer-x" onclick="mgDrawerClose()" aria-label="닫기">✕</button>
   </div>
   <nav class="mg-drawer-nav">
@@ -25068,7 +25072,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260612013617 -->
+<!-- BUILD:20260612014557 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -25792,20 +25796,26 @@ document.addEventListener('keydown', function(e){
     document.body.appendChild(ov);
     document.body.style.overflow = 'hidden';
 
-    // 🎬 우상단 안내 동영상 — 전체메뉴 열 때 자동재생(무음) + 무음 토글 + 닫기
+    // 🎬 우상단 안내 동영상 — 전체메뉴 열 때 음성+영상 자동재생(1회만), 클릭하면 즉시 사라짐
     (function(){
       var vw = document.createElement('div');
-      vw.style.cssText = 'position:fixed;top:12px;right:12px;z-index:6;width:min(240px,46vw);aspect-ratio:1/1;border-radius:16px;overflow:hidden;box-shadow:0 12px 30px -8px rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.2);background:#000';
-      vw.innerHTML = '<video id="mgam-vid" src="/video/langedu-female.mp4" autoplay muted loop playsinline preload="auto" style="width:100%;height:100%;object-fit:cover;display:block"></video>'
-        + '<button type="button" id="mgam-vid-mute" title="소리 켜기/끄기" aria-label="소리 켜기/끄기" style="position:absolute;right:6px;bottom:6px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">🔇</button>'
+      vw.style.cssText = 'position:fixed;top:12px;right:12px;z-index:6;width:min(240px,46vw);aspect-ratio:1/1;border-radius:16px;overflow:hidden;box-shadow:0 12px 30px -8px rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.2);background:#000;cursor:pointer';
+      vw.innerHTML = '<video id="mgam-vid" src="/video/langedu-female.mp4" autoplay playsinline preload="auto" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none"></video>'
+        + '<button type="button" id="mgam-vid-mute" title="소리 켜기/끄기" aria-label="소리 켜기/끄기" style="position:absolute;right:6px;bottom:6px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">🔊</button>'
         + '<button type="button" id="mgam-vid-x" title="닫기" aria-label="닫기" style="position:absolute;left:6px;top:6px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.5);color:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">✕</button>';
       ov.appendChild(vw);
       var vid=vw.querySelector('#mgam-vid'), vmb=vw.querySelector('#mgam-vid-mute'), vx=vw.querySelector('#mgam-vid-x');
       function vupd(){ vmb.textContent = vid.muted ? '🔇' : '🔊'; }
+      function killVid(){ try{ vid.pause(); }catch(_){ } if(vw && vw.parentNode) vw.remove(); }
+      // 음성+영상 자동재생 (소리 ON, 1회 — loop 없음). 브라우저가 막으면 무음으로라도 재생.
+      vid.muted = false;
+      var p0 = vid.play();
+      if (p0 && p0.catch) p0.catch(function(){ vid.muted = true; vupd(); var p1=vid.play(); if(p1&&p1.catch)p1.catch(function(){}); });
       vupd();
       vmb.addEventListener('click', function(e){ e.stopPropagation(); vid.muted=!vid.muted; if(!vid.muted){ var pp=vid.play(); if(pp&&pp.catch)pp.catch(function(){}); } vupd(); });
-      vx.addEventListener('click', function(e){ e.stopPropagation(); try{ vid.pause(); }catch(_){ } vw.remove(); });
-      var p0=vid.play(); if(p0&&p0.catch)p0.catch(function(){});
+      vx.addEventListener('click', function(e){ e.stopPropagation(); killVid(); });
+      // 🖱 영상 클릭하면 바로 사라짐
+      vw.addEventListener('click', killVid);
     })();
 
     // 💬 좌하단 카카오 상담 (작은 이모지)
