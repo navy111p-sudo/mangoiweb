@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS attendance (
   left_at INTEGER,
   status TEXT DEFAULT 'present',
   date TEXT,
+  attended_at INTEGER,
   total_session_ms INTEGER DEFAULT 0,
   total_active_ms INTEGER DEFAULT 0,
   disconnect_count INTEGER DEFAULT 0,
@@ -43,6 +44,7 @@ CREATE INDEX IF NOT EXISTS idx_attendance_room ON attendance(room_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_user ON attendance(user_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance(date);
 CREATE INDEX IF NOT EXISTS idx_attendance_joined_at ON attendance(joined_at);
+CREATE INDEX IF NOT EXISTS idx_attendance_user_date ON attendance(user_id, date);
 
 CREATE TABLE IF NOT EXISTS kakao_ids (
   user_id TEXT PRIMARY KEY,

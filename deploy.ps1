@@ -77,7 +77,7 @@ foreach ($f in $htmlFiles) {
 Write-Step "5/7" "git commit + push"
 git config user.email "navy111p@gmail.com" 2>&1 | Out-Null
 git config user.name  "navy111p-sudo" 2>&1 | Out-Null
-git add cloudflare-deploy/public/ cloudflare-deploy/src/ cloudflare-deploy/wrangler.toml test-harness/ .gitignore deploy.ps1 2>&1 | Out-Null
+git add cloudflare-deploy/public/ cloudflare-deploy/src/ cloudflare-deploy/wrangler.toml cloudflare-deploy/schema.sql cloudflare-deploy/migration-attendance-checkin.sql cloudflare-deploy/tsconfig.testbuild.json test-harness/ .gitignore deploy.ps1 2>&1 | Out-Null
 git commit -m "deploy: $(Get-Date -Format 'yyyy-MM-dd HH:mm') (build $buildTs)" 2>&1 | Out-Null
 git push origin main 2>&1 | Out-Null
 Write-Host "  완료" -ForegroundColor Green

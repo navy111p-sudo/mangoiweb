@@ -87,7 +87,8 @@ html, body {
   font-size: 16.5px; line-height: 1.45;
   overflow-y: auto;
   overscroll-behavior: none;
-  width: 100%; min-height: 100vh;
+  width: 100%; min-height: 100vh; min-height: 100dvh; /* 모바일 주소창 대응 */
+  min-height: 100dvh; /* 모바일 주소창 보정 — 미지원 브라우저는 위 100vh 사용 */
   -webkit-font-smoothing: antialiased;
 }
 
@@ -96,7 +97,7 @@ html, body {
   position: relative;
   width: 100%;
   max-width: 645px;
-  min-height: 130vh;
+  min-height: 130vh; min-height: calc(100dvh + 30vh); /* dvh 폴백 */
   margin: 0 auto;
   background: var(--bg);
   overflow: hidden;
@@ -1379,17 +1380,7 @@ function attachHandlers(){
   setInterval(init, 600);
 })();
 
-/* ════════════════════════════════════════════════════════════
-   v41 — 모바일 viewport height 동적 보정 (iOS Safari 주소창)
-   ════════════════════════════════════════════════════════════ */
-(function v41Vh(){
-  function setVh(){
-    document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
-  }
-  setVh();
-  window.addEventListener('resize', setVh);
-  window.addEventListener('orientationchange', () => setTimeout(setVh, 100));
-})();
+/* (정리 2026-06-12) v41 --vh 세터 제거 — 소비처 없는 죽은 코드. 100dvh CSS로 대체 */
 
 /* ── 안내 동영상: 음소거 토글 + 화면 전환 시 자동 일시정지 (2026-06-12) ── */
 (function(){
@@ -1415,6 +1406,6 @@ function attachHandlers(){
   new MutationObserver(syncVis).observe(main,{attributes:true,attributeFilter:['class']});
 })();
 </script>
-<!-- BUILD:20260612022421 -->
+<!-- BUILD:20260612025121 -->
 </body>
 </html>

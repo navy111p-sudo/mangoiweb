@@ -1,22 +1,22 @@
-# Change-set QA report (2026-06-10T14:45:03.295Z)
+# Change-set QA report (2026-06-11T17:33:08.279Z)
 
-PASS=46 FAIL=0
+PASS=61 FAIL=0
 
-PASS  integrity:cloudflare-deploy/public/index.html delta  — HEAD=26965 WORK=26966 delta=1 (expect 1)
+PASS  integrity:cloudflare-deploy/public/index.html delta  — HEAD=27078 WORK=27078 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/index.html tail  — tail="</html>"
-PASS  integrity:cloudflare-deploy/src/api-mango.ts delta  — HEAD=10787 WORK=10839 delta=52 (expect 52)
+PASS  integrity:cloudflare-deploy/src/api-mango.ts delta  — HEAD=10892 WORK=10892 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/src/api-mango.ts tail  — tail="}"
 PASS  integrity:cloudflare-deploy/src/api-mango.ts brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  integrity:cloudflare-deploy/src/index.ts delta  — HEAD=1948 WORK=1949 delta=1 (expect 1)
+PASS  integrity:cloudflare-deploy/src/index.ts delta  — HEAD=1950 WORK=1950 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/src/index.ts tail  — tail="}"
 PASS  integrity:cloudflare-deploy/src/index.ts brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html delta  — HEAD=1367 WORK=1370 delta=3 (expect 3)
+PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html delta  — HEAD=1420 WORK=1411 delta=-9 (expect -9)
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  integrity:cloudflare-deploy/public/admin.html delta  — HEAD=35949 WORK=35949 delta=0 (expect 0)
+PASS  integrity:cloudflare-deploy/public/admin.html delta  — HEAD=35972 WORK=35972 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/admin.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/public/admin.html brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  syntax:cloudflare-deploy/public/index.html  — 56 inline scripts, 0 errors
+PASS  syntax:cloudflare-deploy/public/index.html  — 57 inline scripts, 0 errors
 PASS  syntax:cloudflare-deploy/public/lesson-postpone-demo.html  — 1 inline scripts, 0 errors
 PASS  syntax:cloudflare-deploy/public/admin.html  — 79 inline scripts, 0 errors
 PASS  syntax:mangoi-speech-patch/mangoi_Speech/practice.html  — 8 inline scripts, 0 errors
@@ -32,6 +32,7 @@ PASS  wiring:fake demo fallback removed
 PASS  audio:practice has intro voice + same mp3
 PASS  audio:mute key consistent with PC
 PASS  layout:postpone has 100dvh
+PASS  layout:postpone dead --vh setter removed
 PASS  layout:postpone detail-body bottom padding fix
 PASS  layout:admin sidebar fix present
 PASS  about:intro mp3 referenced
@@ -48,3 +49,17 @@ PASS  logic:pw account + no auth → 401  — status=401 auth_required
 PASS  logic:pw account + wrong pw → 401  — status=401 invalid_auth
 PASS  logic:pw account + correct pw → 200  — status=200
 PASS  logic:pw account + matching phone → 200  — status=200
+PASS  promo:starts hidden
+PASS  promo:session dismiss key
+PASS  promo:global capture click kills
+PASS  promo:gated by intro overlay
+PASS  promo:hashchange/popstate kill
+PASS  promo:old box-only click handler removed
+PASS  promo:mute button exception kept
+PASS  lp:guide video fixed (not absolute)
+PASS  lp:desktop right-gap centering
+PASS  lp:video moved out of screen-main (fixed가 transform에 안 갇힘)
+PASS  lp:video+FAB at body level
+PASS  lp:consult FAB present + kakao link
+PASS  lp:visibility sync on screen change
+PASS  lp:FAB z-index above sticky bar

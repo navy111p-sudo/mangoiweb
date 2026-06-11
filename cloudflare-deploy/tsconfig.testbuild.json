@@ -1,0 +1,1 @@
+{"compilerOptions":{"target":"ES2022","lib":["ES2022","WebWorker"],"module":"CommonJS","moduleResolution":"node","outDir":"/tmp/twbuild2","rootDir":"./src","strict":false,"esModuleInterop":true,"skipLibCheck":true,"types":["@cloudflare/workers-types"]},"include":["src/scope.ts","src/auth-admin.ts","src/types.ts"]}

@@ -1,4 +1,4 @@
-// changes_qa_harness.mjs — QA harness for the 2026-06-10 change-set
+// changes_qa_harness.mjs — QA harness for the latest change-set (updated 2026-06-12)
 // Runs: integrity checks, frontend inline-JS syntax, endpoint wiring, lookup-handler logic.
 // Backend compile (wrangler dry-run / tsc) is run separately and noted in the report.
 import { execSync } from 'node:child_process';
@@ -6,7 +6,7 @@ import { writeFileSync, readFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const ROOT = process.argv[2] || '/sessions/trusting-affectionate-hypatia/mnt/mangoiweb(last)';
+const ROOT = process.argv[2] || join(import.meta.dirname, '..');
 const CD = ROOT + '/cloudflare-deploy';
 const tmp = mkdtempSync(join(tmpdir(), 'qa-'));
 let pass = 0, fail = 0;
@@ -21,11 +21,11 @@ const headLines = rel => { try { return parseInt(execSync(`git -C "${ROOT}" show
 const wcLines = p => read(p).split('\n').length - 1;
 
 console.log('=== 1) INTEGRITY ===');
-const files = [
-  ['cloudflare-deploy/public/index.html', 1, '</html>'],
-  ['cloudflare-deploy/src/api-mango.ts', 52, '}'],
-  ['cloudflare-deploy/src/index.ts', 1, '}'],
-  ['cloudflare-deploy/public/lesson-postpone-demo.html', 3, '</html>'],
+const files = [   // 2026-06-12: 배포 완료 직후 기준 — worktree == HEAD (delta 0)
+  ['cloudflare-deploy/public/index.html', 0, '</html>'],
+  ['cloudflare-deploy/src/api-mango.ts', 0, '}'],
+  ['cloudflare-deploy/src/index.ts', 0, '}'],
+  ['cloudflare-deploy/public/lesson-postpone-demo.html', -9, '</html>'],  // 06-12 정리: dead --vh 세터 12줄 제거 + 100dvh 3줄 추가
   ['cloudflare-deploy/public/admin.html', 0, '</html>'],
 ];
 for (const [rel, expectDelta, tailNeedle] of files) {
@@ -82,7 +82,8 @@ const speechPc = read(CD + '/public/speech-coach.html');
 ok('audio:practice has intro voice + same mp3', /id="ms-intro-voice"/.test(practice) && /audio\/speech-coach\.mp3/.test(practice));
 ok('audio:mute key consistent with PC', /mangoi_voice_muted/.test(practice) && /mangoi_voice_muted/.test(speechPc));
 const postpone = read(CD + '/public/lesson-postpone-demo.html');
-ok('layout:postpone has 100dvh', (postpone.match(/100dvh/g)||[]).length >= 2);
+ok('layout:postpone has 100dvh', (postpone.match(/100dvh/g)||[]).length >= 1);
+ok('layout:postpone dead --vh setter removed', !postpone.includes("setProperty('--vh'"));
 ok('layout:postpone detail-body bottom padding fix', /padding-bottom: calc\(120px \+ env\(safe-area-inset-bottom\)\) !important/.test(postpone));
 ok('layout:admin sidebar fix present', /remove\('mga-open','ph134-sidebar-open'/.test(read(CD+'/public/admin.html')));
 const idxHtml2 = read(CD+'/public/index.html');
@@ -129,6 +130,25 @@ const tests = [
   ['pw account + matching phone → 200', await lookupLogic({user_id:'s2', password_hash:pwHash, phone:'010-1234-5678', student_name:'홍'}, {user_id:'s2', auth:'010-1234-5678'}), r => r.status===200],
 ];
 for (const [name, res, check] of tests) ok(`logic:${name}`, check(res), `status=${res.status}${res.error?' '+res.error:''}`);
+
+console.log('\n=== 6) 2026-06-12 CHANGE-SET (홍보영상 정책 + 연기데모 영상/상담FAB) ===');
+const idx612 = read(CD + '/public/index.html');
+ok('promo:starts hidden', idx612.includes('background:#000;display:none'));
+ok('promo:session dismiss key', idx612.includes("sessionStorage.setItem(KEY,'1')") && idx612.includes('mango_promo_dismissed'));
+ok('promo:global capture click kills', /document\.addEventListener\('click', onAnyClick, true\)/.test(idx612));
+ok('promo:gated by intro overlay', /introGone/.test(idx612) && /mango-intro-overlay/.test(idx612) && /is-hiding/.test(idx612));
+ok('promo:hashchange/popstate kill', /hashchange', killBox/.test(idx612) && /popstate', killBox/.test(idx612));
+ok('promo:old box-only click handler removed', !idx612.includes("box.addEventListener('click', killBox);"));
+ok('promo:mute button exception kept', /e\.target===mb \|\| mb\.contains\(e\.target\)/.test(idx612));
+const lp612 = read(CD + '/public/lesson-postpone-demo.html');
+ok('lp:guide video fixed (not absolute)', /\.guide-video-wrap\{position:fixed/.test(lp612));
+ok('lp:desktop right-gap centering', /min-width:1024px/.test(lp612) && /calc\(75vw \+ 161px\)/.test(lp612) && /translate\(-50%,-50%\)/.test(lp612));
+const lpMain612 = lp612.split('id="screen-main"')[1].split('</section>')[0];
+ok('lp:video moved out of screen-main (fixed가 transform에 안 갇힘)', !lpMain612.includes('guide-video-wrap'));
+ok('lp:video+FAB at body level', lp612.indexOf('id="guide-video-wrap"') > lp612.indexOf('</section>'));
+ok('lp:consult FAB present + kakao link', /id="consult-fab"/.test(lp612) && lp612.includes('pf.kakao.com/_mangoi/chat'));
+ok('lp:visibility sync on screen change', /function syncVis/.test(lp612) && /gv-hidden/.test(lp612));
+ok('lp:FAB z-index above sticky bar', /\.consult-fab\{[^}]*z-index:70/.test(lp612));
 
 console.log(`\n=== SUMMARY: ${pass} passed, ${fail} failed ===`);
 // write report
