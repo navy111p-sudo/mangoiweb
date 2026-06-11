@@ -802,15 +802,18 @@ header {
 
 
 /* ── 안내 동영상 오버레이 (2026-06-12) ── */
-.guide-video-wrap{position:fixed;top:58px;right:10px;width:50%;max-width:300px;z-index:60;border-radius:14px;overflow:hidden;box-shadow:0 10px 28px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.18);background:#000}
+.guide-video-wrap{position:fixed;top:58px;right:10px;width:35%;max-width:210px;z-index:60;border-radius:14px;overflow:hidden;box-shadow:0 10px 28px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.18);background:#000}
 .guide-video-wrap.gv-hidden{display:none}
 /* 데스크톱: 카드와 겹치지 않게 앱 오른쪽 빈 공간 정중앙에 배치 (2026-06-12) */
 @media (min-width:1024px){
-  .guide-video-wrap{top:50%;right:auto;left:calc(75vw + 161px);transform:translate(-50%,-50%);width:min(320px,calc(50vw - 348px));max-width:none}
+  .guide-video-wrap{top:50%;right:auto;left:calc(75vw + 161px);transform:translate(-50%,-50%);width:min(224px,calc(50vw - 348px));max-width:none}
 }
 .guide-video-wrap video{display:block;width:100%;height:auto}
 .gv-btn{position:absolute;bottom:6px;right:6px;width:36px;height:36px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .gv-btn:active{transform:scale(.92)}
+.gv-close{bottom:auto;top:6px;left:6px;right:auto;width:30px;height:30px;font-size:15px}
+.guide-video-wrap{transition:opacity .5s}
+.guide-video-wrap.gv-fade{opacity:0;pointer-events:none}
 
 /* ── 상담 FAB (오른쪽 아래, 2026-06-12) ── */
 .consult-fab{position:fixed;right:16px;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:70;width:58px;height:58px;border-radius:50%;background:linear-gradient(135deg,#FEE500,#F6CC00);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;text-decoration:none;box-shadow:0 8px 22px rgba(0,0,0,.45);transition:transform .15s}
@@ -898,7 +901,8 @@ header {
 </div>
 <!-- 안내 동영상 + 상담 FAB : body 레벨(screen transform 영향 회피, 2026-06-12) -->
 <div class="guide-video-wrap" id="guide-video-wrap">
-  <video id="guide-video" src="/video/postpone-guide.mp4" autoplay muted loop playsinline></video>
+  <video id="guide-video" src="/video/postpone-guide.mp4" autoplay muted playsinline></video>
+  <button class="gv-btn gv-close" id="gv-close" title="닫기" aria-label="안내 영상 닫기">✕</button>
   <button class="gv-btn" id="gv-mute" title="소리 켜기/끄기" aria-label="음소거 전환">🔇</button>
 </div>
 <a class="consult-fab" id="consult-fab" href="https://pf.kakao.com/_mangoi/chat" target="_blank" rel="noopener" title="카카오톡 상담" aria-label="상담">
@@ -1382,30 +1386,61 @@ function attachHandlers(){
 
 /* (정리 2026-06-12) v41 --vh 세터 제거 — 소비처 없는 죽은 코드. 100dvh CSS로 대체 */
 
-/* ── 안내 동영상: 음소거 토글 + 화면 전환 시 자동 일시정지 (2026-06-12) ── */
+/* ── 안내 동영상: 1회 재생 후 자동 종료 + X 닫기 + 음소거 토글 (2026-06-12) ── */
 (function(){
   var gv=document.getElementById('guide-video'),
       btn=document.getElementById('gv-mute'),
+      closeBtn=document.getElementById('gv-close'),
+      wrap=document.getElementById('guide-video-wrap'),
       main=document.getElementById('screen-main');
-  if(!gv||!btn||!main) return;
+  if(!gv||!btn||!wrap||!main) return;
+  var done=false;
+
+  function dismiss(){
+    if(done) return;
+    done=true;
+    wrap.classList.add('gv-fade');
+    setTimeout(function(){ wrap.classList.add('gv-hidden'); gv.pause(); },520);
+  }
+
+  /* 1회 재생이 끝나면 자동으로 사라짐 */
+  gv.addEventListener('ended',dismiss);
+  /* X 버튼으로 즉시 닫기 */
+  if(closeBtn) closeBtn.addEventListener('click',function(e){ e.stopPropagation(); dismiss(); });
+
+  /* 소리 자동재생 시도 → 차단되면 음소거 재생 + 첫 터치에서 소리 켜고 처음부터 */
+  gv.muted=false;
+  gv.play().then(function(){ btn.textContent='🔊'; }).catch(function(){
+    gv.muted=true; btn.textContent='🔇';
+    gv.play().catch(function(){});
+    var unmute=function(){
+      if(done||!gv.muted) return;
+      gv.muted=false; btn.textContent='🔊';
+      gv.currentTime=0;
+      gv.play().catch(function(){});
+    };
+    document.addEventListener('pointerdown',unmute,{once:true});
+  });
+
   btn.addEventListener('click',function(e){
     e.stopPropagation();
     gv.muted=!gv.muted;
     btn.textContent=gv.muted?'🔇':'🔊';
     if(!gv.muted) gv.play().catch(function(){});
   });
-  var wrap=document.getElementById('guide-video-wrap'),
-      fab=document.getElementById('consult-fab');
+
+  var fab=document.getElementById('consult-fab');
   function syncVis(){
     var on=main.classList.contains('active');
-    if(wrap) wrap.classList.toggle('gv-hidden',!on);
     if(fab) fab.classList.toggle('gv-hidden',!on);
+    if(done){ wrap.classList.add('gv-hidden'); return; }
+    wrap.classList.toggle('gv-hidden',!on);
     if(on){ gv.play().catch(function(){}); } else { gv.pause(); }
   }
   syncVis();
   new MutationObserver(syncVis).observe(main,{attributes:true,attributeFilter:['class']});
 })();
 </script>
-<!-- BUILD:20260612030420 -->
+<!-- BUILD:20260612031102 -->
 </body>
 </html>
