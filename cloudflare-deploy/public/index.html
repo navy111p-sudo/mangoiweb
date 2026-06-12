@@ -3513,7 +3513,7 @@
       #lang-toggle.hero-chip-lang{ right: 1.1rem; }
       .hero-chip-lang #lang-label{ color:#fde68a; font-weight:800; }
       /* [2026-06-12] 화상통화 로비가 떠 있으면 홈 칩 전부 숨김 — 우상단 두 줄 겹침 방지 */
-      body:has(#view-videocall-lobby.active) #view-home .hero-chip{ display:none !important; }
+      body:has(#view-videocall-lobby.active) .hero-chip{ display:none !important; }
       /* 로비 우상단 바: 모바일에서도 한 줄 유지·축소 */
       @media (max-width:640px){
         #lobby-topbar{ top:0.7rem !important; right:0.7rem !important; gap:5px !important; }
@@ -25154,7 +25154,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260612170203 -->
+<!-- BUILD:20260612170447 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
