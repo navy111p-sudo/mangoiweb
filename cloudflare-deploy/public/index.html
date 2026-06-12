@@ -3002,27 +3002,27 @@
 </script>
 <!-- 🍔 모바일 좌측 슬라이드 사이드바 (터치로 열고/닫기) -->
 <div id="mg-drawer-overlay" onclick="mgDrawerClose()"></div>
-<aside id="mg-drawer" aria-label="메뉴 사이드바">
+<aside id="mg-drawer" aria-label="메뉴 사이드바" data-ko-aria="메뉴 사이드바" data-en-aria="Menu sidebar">
   <div class="mg-drawer-head">
-    <span class="mg-drawer-logo" onclick="mgDrawerClose();location.href='/';" style="cursor:pointer" title="홈으로" role="link" tabindex="0" onkeydown="if(event.key==='Enter'){mgDrawerClose();location.href='/';}"><img src="/img/mango-ufo.png" alt="" style="height:24px;width:auto;vertical-align:middle;margin-right:5px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))"> Mangoi</span>
-    <button class="mg-drawer-x" onclick="mgDrawerClose()" aria-label="닫기">✕</button>
+    <span class="mg-drawer-logo" onclick="mgDrawerClose();location.href='/';" style="cursor:pointer" title="홈으로" data-ko-title="홈으로" data-en-title="Home" role="link" tabindex="0" onkeydown="if(event.key==='Enter'){mgDrawerClose();location.href='/';}"><img src="/img/mango-ufo.png" alt="" style="height:24px;width:auto;vertical-align:middle;margin-right:5px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))"> Mangoi</span>
+    <button class="mg-drawer-x" onclick="mgDrawerClose()" aria-label="닫기" data-ko-aria="닫기" data-en-aria="Close">✕</button>
   </div>
   <nav class="mg-drawer-nav">
-    <button onclick="mgGo('about')"><img src="/img/Mangoi_Character.png" alt="" style="height:20px;width:20px;object-fit:contain;vertical-align:middle;margin-right:6px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))">망고아이란?</button>
-    <button onclick="mgGo('admin')">📊 관리자</button>
-    <button onclick="mgGo('mypage')">👤 마이페이지</button>
-    <button onclick="mgGo('points-shop')">🎁 포인트상점</button>
-    <button onclick="mgGo('speech')">🎤 단계별 발음</button>
-    <button onclick="mgGo('lesson-change')">📅 연기/변경</button>
-    <button onclick="mgGo('inquiry')">💬 신규상담</button>
-    <button onclick="mgGo('precheck')">🎥 수업 진단</button>
-    <button onclick="mgGo('booking')">📝 수업 신청</button>
-    <button onclick="mgDrawerClose();if(window.gridActions&&window.gridActions.teachers)window.gridActions.teachers();">👨‍🏫 교사 소개</button>
-    <button id="mg-faq-btn" onclick="event.preventDefault();if(window.mgDrawerClose)mgDrawerClose();if(window.openFaqOverlay)openFaqOverlay();return false;">❓ 자주 묻는 질문</button>
-    <button onclick="mgDrawerClose();location.href='/review-quiz.html';">🧠 복습퀴즈</button>
-    <button onclick="mgGo('all-menu')">🏠 전체메뉴</button>
+    <button onclick="mgGo('about')"><img src="/img/Mangoi_Character.png" alt="" style="height:20px;width:20px;object-fit:contain;vertical-align:middle;margin-right:6px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))"><span data-ko="망고아이란?" data-en="About Mangoi">망고아이란?</span></button>
+    <button onclick="mgGo('admin')" data-ko="📊 관리자" data-en="📊 Admin">📊 관리자</button>
+    <button onclick="mgGo('mypage')" data-ko="👤 마이페이지" data-en="👤 My Page">👤 마이페이지</button>
+    <button onclick="mgGo('points-shop')" data-ko="🎁 포인트상점" data-en="🎁 Point Shop">🎁 포인트상점</button>
+    <button onclick="mgGo('speech')" data-ko="🎤 단계별 발음" data-en="🎤 Curriculum Pronunciation">🎤 단계별 발음</button>
+    <button onclick="mgGo('lesson-change')" data-ko="📅 연기/변경" data-en="📅 Postpone/Change">📅 연기/변경</button>
+    <button onclick="mgGo('inquiry')" data-ko="💬 신규상담" data-en="💬 New Inquiry">💬 신규상담</button>
+    <button onclick="mgGo('precheck')" data-ko="🎥 수업 진단" data-en="🎥 PreCheck">🎥 수업 진단</button>
+    <button onclick="mgGo('booking')" data-ko="📝 수업 신청" data-en="📝 Book Class">📝 수업 신청</button>
+    <button onclick="mgDrawerClose();if(window.gridActions&&window.gridActions.teachers)window.gridActions.teachers();" data-ko="👨‍🏫 교사 소개" data-en="👨‍🏫 Teachers">👨‍🏫 교사 소개</button>
+    <button id="mg-faq-btn" onclick="event.preventDefault();if(window.mgDrawerClose)mgDrawerClose();if(window.openFaqOverlay)openFaqOverlay();return false;" data-ko="❓ 자주 묻는 질문" data-en="❓ FAQ">❓ 자주 묻는 질문</button>
+    <button onclick="mgDrawerClose();location.href='/review-quiz.html';" data-ko="🧠 복습퀴즈" data-en="🧠 Review Quiz">🧠 복습퀴즈</button>
+    <button onclick="mgGo('all-menu')" data-ko="🏠 전체메뉴" data-en="🏠 All Menu">🏠 전체메뉴</button>
   </nav>
-  <button id="mg-drawer-tab" onclick="mgDrawerToggle()" aria-label="메뉴 열기/닫기"><span id="mg-tab-label">열림</span></button>
+  <button id="mg-drawer-tab" onclick="mgDrawerToggle()" aria-label="메뉴 열기/닫기" data-ko-aria="메뉴 열기/닫기" data-en-aria="Open/close menu"><span id="mg-tab-label" data-ko="열림" data-en="Open">열림</span></button>
 </aside>
 <style>
   #mg-drawer{position:fixed;top:0;left:0;height:100%;width:250px;max-width:80vw;background:rgba(11,16,32,0.22);-webkit-backdrop-filter:blur(10px) saturate(130%);backdrop-filter:blur(10px) saturate(130%);box-shadow:6px 0 24px rgba(0,0,0,.3);transform:translateX(-100%);transition:transform .32s cubic-bezier(.4,0,.2,1);z-index:100000;display:flex;flex-direction:column;font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;border-right:1px solid rgba(251,191,36,.25)}
@@ -3047,7 +3047,7 @@
   @media (prefers-reduced-motion: reduce){#mg-drawer-tab{animation:none !important;opacity:1 !important}}
 </style>
 <script>
-  function mgSetLabel(open){var l=document.getElementById('mg-tab-label');if(l)l.textContent=open?'닫힘':'열림';}
+  function mgSetLabel(open){var l=document.getElementById('mg-tab-label');if(!l)return;var ko=open?'닫힘':'열림',en=open?'Close':'Open';l.setAttribute('data-ko',ko);l.setAttribute('data-en',en);var lg='ko';try{lg=window.getLang?window.getLang():(localStorage.getItem('mangoi_lang')||'ko');}catch(e){}l.textContent=(lg==='ko')?ko:en;}
   window.mgDrawerToggle=function(){var d=document.getElementById('mg-drawer'),o=document.getElementById('mg-drawer-overlay');var open=d.classList.toggle('open');o.classList.toggle('open',open);mgSetLabel(open);};
   window.mgDrawerClose=function(){var d=document.getElementById('mg-drawer'),o=document.getElementById('mg-drawer-overlay');if(d)d.classList.remove('open');if(o)o.classList.remove('open');mgSetLabel(false);};
   window.mgClick=function(sel){var b=document.querySelector(sel);if(b)b.click();mgDrawerClose();};
@@ -25139,7 +25139,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260612172427 -->
+<!-- BUILD:20260612172717 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
