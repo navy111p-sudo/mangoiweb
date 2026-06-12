@@ -236,7 +236,51 @@
 
     loadList();
   </script>
-<!-- BUILD:20260612181316 -->
+<!-- BUILD:20260612183345 -->
+<!-- ━━━ 복습퀴즈 선생님 영상 메시지 팝업 (1회만 표시) ━━━ -->
+<div id="rq-video-pop" style="display:none;position:fixed;top:64px;right:14px;z-index:99998;width:220px;background:rgba(13,20,40,0.97);border:1px solid rgba(251,191,36,0.45);border-radius:18px;box-shadow:0 14px 40px -6px rgba(0,0,0,0.6);overflow:hidden;font-family:'Noto Sans KR',-apple-system,sans-serif;backdrop-filter:blur(8px)">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px 6px;border-bottom:1px solid rgba(255,255,255,0.08)">
+    <span style="font-size:12.5px;font-weight:800;color:#fbbf24;display:flex;align-items:center;gap:5px">❓👩‍🏫 <span data-ko="선생님 영상 메시지" data-en="Teacher's Video Message">선생님 영상 메시지</span></span>
+    <button id="rq-vp-x" type="button" aria-label="닫기" style="background:rgba(255,255,255,0.10);border:0;color:#e2e8f0;width:24px;height:24px;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;line-height:1">✕</button>
+  </div>
+  <div style="position:relative">
+    <video id="rq-vp-video" src="/video/review-quiz-teacher.mp4" playsinline preload="auto" style="display:block;width:100%;aspect-ratio:9/16;object-fit:cover;background:#000"></video>
+    <button id="rq-vp-unmute" type="button" style="display:none;position:absolute;left:50%;bottom:10px;transform:translateX(-50%);background:linear-gradient(135deg,#fbbf24,#f59e0b);border:0;color:#1a1a1a;padding:7px 14px;border-radius:99px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,0.5)" data-ko="🔊 소리 켜기" data-en="🔊 Sound on">🔊 소리 켜기</button>
+  </div>
+</div>
+<style>
+  @keyframes rqVpIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+  #rq-video-pop.show{display:block !important;animation:rqVpIn .45s ease-out}
+  @media (max-width:480px){#rq-video-pop{top:56px;right:8px;width:46vw;max-width:185px}}
+</style>
+<script>
+(function(){
+  'use strict';
+  var KEY='rqVideoMsgShown_v1';
+  try{ if(localStorage.getItem(KEY)==='1') return; }catch(e){}
+  var pop=document.getElementById('rq-video-pop'),
+      vid=document.getElementById('rq-vp-video'),
+      x=document.getElementById('rq-vp-x'),
+      un=document.getElementById('rq-vp-unmute');
+  if(!pop||!vid) return;
+  function close(){ try{vid.pause();}catch(e){} pop.style.display='none'; pop.classList.remove('show'); }
+  function markShown(){ try{localStorage.setItem(KEY,'1');}catch(e){} }
+  x.onclick=close;
+  vid.onended=function(){ setTimeout(close,400); };
+  vid.onerror=function(){ close(); }; // 영상 파일이 없으면 조용히 숨김
+  un.onclick=function(){ vid.muted=false; vid.volume=1; un.style.display='none'; vid.play().catch(function(){}); };
+  function show(){
+    pop.classList.add('show'); markShown();
+    vid.muted=false;
+    vid.play().catch(function(){
+      vid.muted=true; un.style.display='block';
+      vid.play().catch(function(){});
+    });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(show,400);});
+  else setTimeout(show,400);
+})();
+</script>
 <script defer src="/js/back-nav.js"></script>
 </body>
 </html>
