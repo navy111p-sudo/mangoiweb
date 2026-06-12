@@ -18923,10 +18923,11 @@ function jumpToMenu(id, opts) {
   while (_anc) { if (_anc.tagName === 'DETAILS') _anc.open = true; _anc = _anc.parentElement; }
   el.open = true;
   el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  // 시각적 강조 — 잠깐 노란 테두리
-  el.style.transition = 'box-shadow 0.4s';
-  el.style.boxShadow = '0 0 0 3px #fde047';
-  setTimeout(() => { el.style.boxShadow = ''; }, 1200);
+  // 시각적 강조 — 배경 틴트+링 글로우 펄스 (ph96-highlight 공용, 2026-06-12)
+  el.classList.remove('ph96-highlight');
+  void el.offsetWidth; /* 애니메이션 재시작 */
+  el.classList.add('ph96-highlight');
+  setTimeout(() => { el.classList.remove('ph96-highlight'); }, 3000);
   // 사이드바 active 표시
   document.querySelectorAll('#admin-sidebar-list a').forEach(a => {
     a.classList.toggle('active', a.dataset.menuId === id);
@@ -20609,7 +20610,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260612094709 -->
+        <!-- BUILD:20260612101016 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -25867,11 +25868,17 @@ button.chip:hover,
     }
   }
 
-  /* 카드 하이라이트 (sub 클릭 시) */
-  .table-card.ph96-highlight, details.ph96-highlight {
-    box-shadow: 0 0 0 4px rgba(251,191,36,0.7), 0 12px 40px rgba(251,191,36,0.3) !important;
-    transition: box-shadow 0.4s ease !important;
+  /* 카드 하이라이트 (메뉴 클릭·검색 이동 공용) — 배경 틴트 + 링 글로우 펄스 (2026-06-12) */
+  .ph96-highlight {
+    animation: ph96pulse 3s ease-out 1 both !important;
   }
+  @keyframes ph96pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(251,191,36,0), inset 0 0 0 9999px rgba(251,191,36,0); }
+    8%   { box-shadow: 0 0 0 6px rgba(251,191,36,.95), 0 14px 48px rgba(251,191,36,.45), inset 0 0 0 9999px rgba(251,191,36,.22); }
+    60%  { box-shadow: 0 0 0 4px rgba(251,191,36,.55), 0 10px 32px rgba(251,191,36,.28), inset 0 0 0 9999px rgba(251,191,36,.12); }
+    100% { box-shadow: 0 0 0 0 rgba(251,191,36,0), inset 0 0 0 9999px rgba(251,191,36,0); }
+  }
+  @media (prefers-reduced-motion: reduce) { .ph96-highlight { animation: none !important; box-shadow: 0 0 0 4px rgba(251,191,36,.7) !important; } }
 </style>
 
 <!-- [ph96] 중복 핸들러 스크립트 제거 — ph97 글로벌 컨트롤러 + CSS가 대체 -->
@@ -25929,8 +25936,10 @@ button.chip:hover,
           if (c.tagName === 'DETAILS') c.open = true;
           setTimeout(function(){
             c.scrollIntoView({behavior:'smooth',block:'start'});
+            c.classList.remove('ph96-highlight');
+            void c.offsetWidth; /* 애니메이션 재시작 */
             c.classList.add('ph96-highlight');
-            setTimeout(function(){ c.classList.remove('ph96-highlight'); }, 2500);
+            setTimeout(function(){ c.classList.remove('ph96-highlight'); }, 3000);
           }, 50);
           console.log('[ph97] NAV →', id);
         } else {
