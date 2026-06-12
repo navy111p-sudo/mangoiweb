@@ -2506,7 +2506,7 @@
     </button>
 
     <!-- 🎓 교육/콘텐츠 -->
-    <button class="hub-btn" onclick="hubJump('edu', ['card-textbooks','card-level-tests','card-pronunciation','card-recording-storage','card-voice-stats'])" data-hub="edu">
+    <button class="hub-btn" onclick="hubJump('edu', ['card-review-quiz','card-textbooks','card-level-tests','card-pronunciation','card-recording-storage','card-voice-stats'])" data-hub="edu">
       <div class="hub-icon" style="background:linear-gradient(135deg,#0ea5e9,#0369a1)">🎓</div>
       <div>
         <div class="hub-title" data-ko="교육/콘텐츠" data-en="Education">교육/콘텐츠</div>
@@ -12244,6 +12244,215 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 </script>
 
 
+
+<!-- 🧠 Phase RQ: 복습퀴즈 출제 (학생 /review-quiz.html 에서 풀이 + 자동 채점) -->
+<details class="table-card menu-card" id="card-review-quiz">
+  <summary><span data-ko="🧠 복습퀴즈 출제 (학생 복습용)" data-en="🧠 Review Quiz Builder">🧠 복습퀴즈 출제 (학생 복습용)</span></summary>
+  <div class="menu-body">
+    <style>
+      #card-review-quiz .rq-box{background:rgba(148,163,184,0.08);border:1px solid rgba(148,163,184,0.25);border-radius:10px;padding:14px;margin-bottom:14px}
+      #card-review-quiz .rq-in{width:100%;padding:8px 10px;border:1px solid rgba(148,163,184,0.4);border-radius:7px;font-size:13px;background:rgba(255,255,255,0.9);color:#111}
+      #card-review-quiz label{font-size:12px;font-weight:700;display:block;margin:8px 0 4px}
+      #card-review-quiz .rq-qblock{border:1px dashed rgba(148,163,184,0.5);border-radius:9px;padding:10px 12px;margin:10px 0;position:relative}
+      #card-review-quiz .rq-opt-row{display:flex;gap:6px;align-items:center;margin:4px 0}
+      #card-review-quiz .rq-opt-row b{width:22px;text-align:center;font-size:12px}
+      #card-review-quiz .rq-btn{padding:8px 14px;border:0;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+      #card-review-quiz .rq-btn.add{background:#e0f2fe;color:#0369a1}
+      #card-review-quiz .rq-btn.save{background:linear-gradient(135deg,#10b981,#059669);color:#fff}
+      #card-review-quiz .rq-btn.ghost{background:rgba(148,163,184,0.18);color:inherit}
+      #card-review-quiz .rq-del-q{position:absolute;top:8px;right:8px;background:#fee2e2;color:#b91c1c;border:0;border-radius:6px;padding:3px 9px;font-size:11.5px;cursor:pointer;font-weight:700}
+      #card-review-quiz table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+      #card-review-quiz th,#card-review-quiz td{padding:7px 8px;border-bottom:1px solid rgba(148,163,184,0.25);text-align:left}
+      #card-review-quiz .rq-pill{padding:2px 9px;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer;border:0}
+      #card-review-quiz .rq-pill.on{background:#dcfce7;color:#15803d}
+      #card-review-quiz .rq-pill.off{background:#f3f4f6;color:#6b7280}
+      #card-review-quiz .rq-mini{padding:4px 9px;border:1px solid rgba(148,163,184,0.45);background:transparent;border-radius:6px;font-size:11.5px;cursor:pointer;margin-right:4px;color:inherit}
+    </style>
+    <div style="font-size:12px;color:#6b7280;background:rgba(148,163,184,0.10);border:1px dashed rgba(148,163,184,0.4);border-radius:8px;padding:8px 12px;margin-bottom:12px;line-height:1.6"
+         data-ko="💡 여기서 만든 퀴즈는 학생 홈 사이드바 [🧠 복습퀴즈] 에 바로 나타납니다. 학생이 풀면 자동 채점되어 점수·해설이 표시되고, 아래 [응시 결과]에서 학생별 점수를 확인할 수 있어요."
+         data-en="💡 Quizzes you save here appear instantly in the student sidebar [🧠 Review Quiz]. Answers are auto-graded with score & explanations, and you can check per-student results below.">
+      💡 여기서 만든 퀴즈는 학생 홈 사이드바 <b>[🧠 복습퀴즈]</b> 에 바로 나타납니다. 학생이 풀면 자동 채점되어 점수·해설이 표시되고, 아래 <b>[응시 결과]</b>에서 학생별 점수를 확인할 수 있어요.
+    </div>
+
+    <!-- 작성 폼 -->
+    <div class="rq-box">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <b id="rq-form-title" style="font-size:14px">➕ 새 퀴즈 만들기</b>
+        <button class="rq-btn ghost" id="rq-cancel-edit" style="display:none" onclick="rqCancelEdit()">수정 취소</button>
+      </div>
+      <label data-ko="퀴즈 제목 *" data-en="Quiz title *">퀴즈 제목 *</label>
+      <input class="rq-in" id="rq-title" placeholder="예: 5월 2주차 복습 — 동물 단어" />
+      <label data-ko="설명 (선택)" data-en="Description (optional)">설명 (선택)</label>
+      <input class="rq-in" id="rq-desc" placeholder="예: 이번 주 수업에서 배운 단어를 복습해요" />
+      <div id="rq-qlist"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="rq-btn add" onclick="rqAddQ()">➕ 문항 추가</button>
+        <button class="rq-btn save" id="rq-save-btn" onclick="rqSave()">💾 퀴즈 저장</button>
+      </div>
+      <div id="rq-form-msg" style="font-size:12px;margin-top:8px;color:#059669"></div>
+    </div>
+
+    <!-- 목록 -->
+    <b style="font-size:14px">📋 저장된 퀴즈</b>
+    <div id="rq-list" style="margin-top:4px;font-size:12.5px;color:#6b7280">⏳ 불러오는 중…</div>
+
+    <!-- 결과 -->
+    <div id="rq-results-wrap" style="display:none;margin-top:14px">
+      <b style="font-size:14px">🏆 응시 결과 — <span id="rq-results-title"></span></b>
+      <div id="rq-results" style="margin-top:4px"></div>
+    </div>
+  </div>
+</details>
+<script>
+(function(){
+  var rqCache = [];
+  var rqEditing = 0;
+  function rqEsc(v){ return String(v==null?'':v).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+  var RQ_ABC = ['A','B','C','D'];
+
+  window.rqAddQ = function(data){
+    data = data || {};
+    var list = document.getElementById('rq-qlist');
+    var n = list.children.length;
+    if (n >= 30) { alert('문항은 최대 30개까지예요.'); return; }
+    var div = document.createElement('div');
+    div.className = 'rq-qblock';
+    var opts = (data.opts && data.opts.length) ? data.opts : ['','','',''];
+    var optHtml = '';
+    for (var k=0; k<4; k++) {
+      optHtml += '<div class="rq-opt-row"><b>'+RQ_ABC[k]+'</b><input class="rq-in rq-opt" placeholder="보기 '+RQ_ABC[k]+(k>1?' (선택)':' *')+'" value="'+rqEsc(opts[k]||'')+'" /></div>';
+    }
+    div.innerHTML =
+      '<button class="rq-del-q" onclick="this.parentNode.remove();rqRenum()">✕ 삭제</button>' +
+      '<b class="rq-qnum" style="font-size:12.5px;color:#0369a1">Q'+(n+1)+'</b>' +
+      '<input class="rq-in rq-q" style="margin-top:6px" placeholder="문제를 입력하세요 *" value="'+rqEsc(data.q||'')+'" />' +
+      optHtml +
+      '<div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap">' +
+      '<span style="font-size:12px;font-weight:700">정답:</span>' +
+      '<select class="rq-in rq-ans" style="width:auto;padding:6px 10px">' +
+        '<option value="0"'+(data.answer===0||data.answer==null?' selected':'')+'>A</option>' +
+        '<option value="1"'+(data.answer===1?' selected':'')+'>B</option>' +
+        '<option value="2"'+(data.answer===2?' selected':'')+'>C</option>' +
+        '<option value="3"'+(data.answer===3?' selected':'')+'>D</option>' +
+      '</select>' +
+      '<input class="rq-in rq-explain" style="flex:1;min-width:180px" placeholder="해설 (선택) — 정답 공개 시 학생에게 보여요" value="'+rqEsc(data.explain||'')+'" />' +
+      '</div>';
+    list.appendChild(div);
+  };
+  window.rqRenum = function(){
+    var blocks = document.querySelectorAll('#rq-qlist .rq-qblock .rq-qnum');
+    for (var i=0; i<blocks.length; i++) blocks[i].textContent = 'Q'+(i+1);
+  };
+  function rqCollect(){
+    var title = document.getElementById('rq-title').value.trim();
+    if (!title) { alert('퀴즈 제목을 입력하세요.'); return null; }
+    var blocks = document.querySelectorAll('#rq-qlist .rq-qblock');
+    if (!blocks.length) { alert('문항을 1개 이상 추가하세요.'); return null; }
+    var questions = [];
+    for (var i=0; i<blocks.length; i++) {
+      var b = blocks[i];
+      var q = b.querySelector('.rq-q').value.trim();
+      if (!q) { alert('Q'+(i+1)+' 문제를 입력하세요.'); return null; }
+      var optEls = b.querySelectorAll('.rq-opt');
+      var opts = [];
+      for (var k=0; k<optEls.length; k++) { var v = optEls[k].value.trim(); if (v) opts.push(v); }
+      if (opts.length < 2) { alert('Q'+(i+1)+' 보기를 2개 이상 입력하세요.'); return null; }
+      var ans = parseInt(b.querySelector('.rq-ans').value, 10) || 0;
+      if (ans >= opts.length) { alert('Q'+(i+1)+' 정답으로 고른 보기가 비어 있어요.'); return null; }
+      questions.push({ q:q, opts:opts, answer:ans, explain: b.querySelector('.rq-explain').value.trim() });
+    }
+    return { title:title, description: document.getElementById('rq-desc').value.trim(), questions:questions };
+  }
+  window.rqSave = async function(){
+    var body = rqCollect(); if (!body) return;
+    if (rqEditing) body.id = rqEditing;
+    var btn = document.getElementById('rq-save-btn');
+    btn.disabled = true; btn.textContent = '저장 중…';
+    try {
+      var r = await fetch('/api/admin/review-quiz/save', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }).then(function(x){ return x.json(); });
+      if (r && r.ok) {
+        document.getElementById('rq-form-msg').textContent = '✅ 저장되었습니다. 학생 화면에 바로 반영돼요.';
+        setTimeout(function(){ document.getElementById('rq-form-msg').textContent=''; }, 4000);
+        rqCancelEdit(); rqLoad();
+      } else alert('저장 실패: ' + (r && r.error || 'unknown'));
+    } catch(e) { alert('오류: ' + e.message); }
+    btn.disabled = false; btn.textContent = '💾 퀴즈 저장';
+  };
+  window.rqCancelEdit = function(){
+    rqEditing = 0;
+    document.getElementById('rq-title').value = '';
+    document.getElementById('rq-desc').value = '';
+    document.getElementById('rq-qlist').innerHTML = '';
+    rqAddQ();
+    document.getElementById('rq-form-title').textContent = '➕ 새 퀴즈 만들기';
+    document.getElementById('rq-cancel-edit').style.display = 'none';
+  };
+  window.rqEdit = function(id){
+    var q = null;
+    for (var i=0; i<rqCache.length; i++) if (rqCache[i].id === id) q = rqCache[i];
+    if (!q) return;
+    rqEditing = id;
+    document.getElementById('rq-title').value = q.title || '';
+    document.getElementById('rq-desc').value = q.description || '';
+    var list = document.getElementById('rq-qlist'); list.innerHTML = '';
+    (q.questions || []).forEach(function(qq){ rqAddQ(qq); });
+    document.getElementById('rq-form-title').textContent = '✏️ 퀴즈 수정 — #' + id;
+    document.getElementById('rq-cancel-edit').style.display = '';
+    document.getElementById('card-review-quiz').scrollIntoView({behavior:'smooth'});
+  };
+  window.rqToggle = async function(id, active){
+    try { await fetch('/api/admin/review-quiz/toggle', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id:id, active:active?1:0 }) }); rqLoad(); }
+    catch(e) { alert('오류: ' + e.message); }
+  };
+  function rqFind(id){ for (var i=0; i<rqCache.length; i++) if (rqCache[i].id === id) return rqCache[i]; return null; }
+  window.rqDel = async function(id){
+    var q = rqFind(id);
+    if (!confirm('퀴즈를 삭제할까요? 학생 응시 기록도 함께 삭제됩니다. — ' + (q ? q.title : '#' + id))) return;
+    try { await fetch('/api/admin/review-quiz/' + id, { method:'DELETE', credentials:'include' }); if (rqEditing === id) rqCancelEdit(); rqLoad(); }
+    catch(e) { alert('오류: ' + e.message); }
+  };
+  window.rqResults = async function(id){
+    var q0 = rqFind(id);
+    var wrap = document.getElementById('rq-results-wrap');
+    var box = document.getElementById('rq-results');
+    document.getElementById('rq-results-title').textContent = q0 ? q0.title : ('#' + id);
+    wrap.style.display = ''; box.innerHTML = '⏳ 불러오는 중…';
+    try {
+      var r = await fetch('/api/admin/review-quiz/results?quiz_id=' + id, { credentials:'include' }).then(function(x){ return x.json(); });
+      var rows = (r && r.results) || [];
+      if (!rows.length) { box.innerHTML = '<div style="font-size:12.5px;color:#6b7280;padding:8px 0">아직 응시한 학생이 없어요.</div>'; return; }
+      box.innerHTML = '<table><thead><tr><th>학생</th><th>점수</th><th>백분율</th><th>응시 일시</th></tr></thead><tbody>' +
+        rows.map(function(x){
+          var pct = x.total ? Math.round(x.score / x.total * 100) : 0;
+          var d = new Date(x.created_at);
+          var when = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+          return '<tr><td>' + rqEsc(x.user_name || x.user_id) + '</td><td><b>' + x.score + ' / ' + x.total + '</b></td><td>' + pct + '점</td><td>' + when + '</td></tr>';
+        }).join('') + '</tbody></table>';
+    } catch(e) { box.innerHTML = '<div style="color:#b91c1c;font-size:12.5px">불러오기 실패: ' + rqEsc(e.message) + '</div>'; }
+  };
+  window.rqLoad = async function(){
+    var box = document.getElementById('rq-list');
+    try {
+      var r = await fetch('/api/admin/review-quiz/list', { credentials:'include' }).then(function(x){ return x.json(); });
+      rqCache = (r && r.quizzes) || [];
+      if (!rqCache.length) { box.innerHTML = '<div style="padding:8px 0">아직 만든 퀴즈가 없어요. 위에서 첫 퀴즈를 만들어보세요!</div>'; return; }
+      box.innerHTML = '<table><thead><tr><th>제목</th><th>문항</th><th>응시</th><th>상태</th><th>관리</th></tr></thead><tbody>' +
+        rqCache.map(function(q){
+          return '<tr><td><b>' + rqEsc(q.title) + '</b>' + (q.description ? '<div style="font-size:11px;color:#6b7280">' + rqEsc(q.description) + '</div>' : '') + '</td>' +
+            '<td>' + (q.questions||[]).length + '</td>' +
+            '<td>' + (q.attempt_count||0) + '회</td>' +
+            '<td><button class="rq-pill ' + (q.active?'on':'off') + '" onclick="rqToggle(' + q.id + ',' + (q.active?0:1) + ')">' + (q.active?'활성':'숨김') + '</button></td>' +
+            '<td><button class="rq-mini" onclick="rqEdit(' + q.id + ')">✏️ 수정</button>' +
+            '<button class="rq-mini" onclick="rqResults(' + q.id + ')">🏆 결과</button>' +
+            '<button class="rq-mini" style="color:#b91c1c" onclick="rqDel(' + q.id + ')">🗑</button></td></tr>';
+        }).join('') + '</tbody></table>';
+    } catch(e) { box.innerHTML = '<div style="color:#b91c1c">목록 불러오기 실패: ' + rqEsc(e.message) + '</div>'; }
+  };
+  var card = document.getElementById('card-review-quiz');
+  if (card) { card.addEventListener('toggle', function(){ if (card.open && !card._rqInit) { card._rqInit = true; rqAddQ(); rqLoad(); } }); }
+})();
+</script>
+
 <!-- 📣 Phase 5: 알림 큐 (운영 이벤트 자동 적재 + 상태 모니터링) -->
 <details class="table-card menu-card" id="card-notifications">
   <summary style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
@@ -20613,7 +20822,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260612170917 -->
+        <!-- BUILD:20260612171726 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -21357,6 +21566,7 @@ window.rebuildGlobalSearchIndex = function() {
   //   ★all     = 누구나 (등록되지 않은 카드는 기본 ★all)
   const CARD_POLICY = {
     'card-calendar':          'agency',   // 📅 캘린더 관리(휴가·공휴일) — 모든 관리자
+    'card-review-quiz':       'hq',       // 🧠 복습퀴즈 출제 — 본사(교사 포함)
     // 회계 / 경영 / 시스템 — 경영진만
     'card-permissions':       'exec',
     'card-corpcard':          'exec',
@@ -31782,6 +31992,7 @@ button.chip:hover,
 
     'card-textbooks':           ['교재 목록','단원 관리','학습 진도','과제'],
     'card-microlearn':          ['오늘의 학습','진도 추적','퀴즈','복습'],
+    'card-review-quiz':         ['퀴즈 출제','문항 작성','응시 결과','복습퀴즈'],
     'card-mini-toeic':          ['모의고사','오답 노트','진도','등급'],
     'card-pronunciation':       ['발음 평가','녹음 보관','AI 채점','학습 가이드'],
     'card-video-dict':          ['영상 사전','단어 검색','자막 학습','즐겨찾기'],
@@ -32106,6 +32317,7 @@ button.chip:hover,
     'card-school-attendance-stats': ['전체 출석률','학원별 통계','위험군 알림','월별 비교'],
     'card-textbooks':           ['교재 목록','단원 관리','학습 진도','과제'],
     'card-microlearn':          ['오늘의 학습','진도 추적','퀴즈','복습'],
+    'card-review-quiz':         ['퀴즈 출제','문항 작성','응시 결과','복습퀴즈'],
     'card-mini-toeic':          ['모의고사','오답 노트','진도','등급'],
     'card-pronunciation':       ['발음 평가','녹음 보관','AI 채점','학습 가이드'],
     'card-video-dict':          ['영상 사전','단어 검색','자막 학습','즐겨찾기'],
