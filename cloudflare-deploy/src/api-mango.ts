@@ -2776,6 +2776,158 @@ export async function handleMangoApi(
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // 🧩 Phase RQ — 복습퀴즈 (관리자 출제 → 학생 풀이 + 자동 채점/기록)
+    //   관리자: /api/admin/review-quiz/{list,save,toggle,results}, DELETE /api/admin/review-quiz/:id
+    //   학생  : /api/review-quiz/{list,get,submit}  (get 은 정답 미포함, 채점은 서버에서)
+    // ═══════════════════════════════════════════════════════════════
+    const ensureReviewQuizTables = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS review_quizzes (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, description TEXT, questions TEXT NOT NULL, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS review_quiz_results (id INTEGER PRIMARY KEY AUTOINCREMENT, quiz_id INTEGER NOT NULL, user_id TEXT NOT NULL, user_name TEXT, score INTEGER NOT NULL, total INTEGER NOT NULL, answers TEXT, created_at INTEGER NOT NULL);`);
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_rq_results_quiz ON review_quiz_results(quiz_id, created_at DESC);`); } catch {}
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_rq_results_user ON review_quiz_results(user_id, created_at DESC);`); } catch {}
+    };
+    // 문항 검증: [{ q, opts:[2~6개], answer:정답index, explain? }]
+    const rqParseQuestions = (raw: any): { ok: boolean; error?: string; list?: any[] } => {
+      let list: any[] = [];
+      if (Array.isArray(raw)) list = raw;
+      else { try { list = JSON.parse(String(raw || '[]')); } catch { return { ok: false, error: 'questions_invalid_json' }; } }
+      if (!Array.isArray(list) || list.length === 0) return { ok: false, error: 'questions_required' };
+      const clean: any[] = [];
+      for (const q of list) {
+        const text = String(q?.q || '').trim();
+        const opts = Array.isArray(q?.opts) ? q.opts.map((o: any) => String(o || '').trim()) : [];
+        const answer = Number(q?.answer);
+        if (!text) return { ok: false, error: 'question_text_required' };
+        if (opts.length < 2 || opts.length > 6 || opts.some((o: string) => !o)) return { ok: false, error: 'options_required' };
+        if (!Number.isInteger(answer) || answer < 0 || answer >= opts.length) return { ok: false, error: 'answer_index_invalid' };
+        clean.push({ q: text, opts, answer, explain: String(q?.explain || '').trim() });
+      }
+      return { ok: true, list: clean };
+    };
+
+    // ── GET /api/review-quiz/list?user_id=xxx — 학생: 활성 퀴즈 목록 (+내 최고점/시도수) ──
+    if (method === 'GET' && path === '/api/review-quiz/list') {
+      await ensureReviewQuizTables();
+      const userId = (url.searchParams.get('user_id') || '').trim();
+      const rs = await env.DB.prepare(`SELECT id, title, description, questions, created_at FROM review_quizzes WHERE active = 1 ORDER BY id DESC`).all();
+      const quizzes: any[] = [];
+      for (const row of (((rs.results as any[]) || []))) {
+        let count = 0; try { count = (JSON.parse(row.questions) || []).length; } catch {}
+        const item: any = { id: row.id, title: row.title, description: row.description || '', question_count: count, created_at: row.created_at, best_score: null, attempts: 0 };
+        if (userId) {
+          const best: any = await env.DB.prepare(`SELECT MAX(score) AS best, COUNT(*) AS n FROM review_quiz_results WHERE quiz_id = ? AND user_id = ?`).bind(row.id, userId).first();
+          if (best && Number(best.n) > 0) { item.best_score = best.best; item.attempts = Number(best.n); }
+        }
+        quizzes.push(item);
+      }
+      return json({ ok: true, quizzes });
+    }
+
+    // ── GET /api/review-quiz/get?id=N — 학생: 퀴즈 1건 (정답/해설 제외) ──
+    if (method === 'GET' && path === '/api/review-quiz/get') {
+      await ensureReviewQuizTables();
+      const id = parseInt(url.searchParams.get('id') || '0', 10);
+      if (!id) return json({ ok: false, error: 'id_required' }, 400);
+      const row: any = await env.DB.prepare(`SELECT id, title, description, questions, active FROM review_quizzes WHERE id = ?`).bind(id).first();
+      if (!row || !row.active) return json({ ok: false, error: 'quiz_not_found' }, 404);
+      let qs: any[] = []; try { qs = JSON.parse(row.questions) || []; } catch {}
+      const safe = qs.map((q: any, i: number) => ({ idx: i, q: q.q, opts: q.opts }));
+      return json({ ok: true, quiz: { id: row.id, title: row.title, description: row.description || '', questions: safe } });
+    }
+
+    // ── POST /api/review-quiz/submit — 학생: 답안 제출 → 서버 채점 + 기록 저장 ──
+    if (method === 'POST' && path === '/api/review-quiz/submit') {
+      await ensureReviewQuizTables();
+      const b: any = await request.json().catch(() => ({}));
+      const quizId = Number(b.quiz_id);
+      const userId = String(b.user_id || '').trim();
+      const userName = String(b.user_name || '').trim() || null;
+      const answers: any[] = Array.isArray(b.answers) ? b.answers : [];
+      if (!quizId) return json({ ok: false, error: 'quiz_id_required' }, 400);
+      if (!userId) return json({ ok: false, error: 'user_id_required' }, 400);
+      const row: any = await env.DB.prepare(`SELECT id, title, questions FROM review_quizzes WHERE id = ? AND active = 1`).bind(quizId).first();
+      if (!row) return json({ ok: false, error: 'quiz_not_found' }, 404);
+      let qs: any[] = []; try { qs = JSON.parse(row.questions) || []; } catch {}
+      if (!qs.length) return json({ ok: false, error: 'quiz_empty' }, 400);
+      let score = 0;
+      const detail = qs.map((q: any, i: number) => {
+        const ans = Number(answers[i]);
+        const correct = Number.isInteger(ans) && ans === Number(q.answer);
+        if (correct) score++;
+        return { idx: i, correct, your_answer: Number.isInteger(ans) ? ans : null, answer: Number(q.answer), explain: q.explain || '' };
+      });
+      await env.DB.prepare(`INSERT INTO review_quiz_results (quiz_id, user_id, user_name, score, total, answers, created_at) VALUES (?,?,?,?,?,?,?)`)
+        .bind(quizId, userId, userName, score, qs.length, JSON.stringify(answers.slice(0, qs.length)), Date.now()).run();
+      return json({ ok: true, score, total: qs.length, percent: Math.round((score / qs.length) * 100), detail });
+    }
+
+    // ── GET /api/admin/review-quiz/list — 관리자: 전체 퀴즈 (정답 포함 + 응시수) ──
+    if (method === 'GET' && path === '/api/admin/review-quiz/list') {
+      await ensureReviewQuizTables();
+      const rs = await env.DB.prepare(`SELECT q.*, (SELECT COUNT(*) FROM review_quiz_results r WHERE r.quiz_id = q.id) AS attempt_count FROM review_quizzes q ORDER BY q.id DESC`).all();
+      const quizzes = (((rs.results as any[]) || [])).map((row: any) => {
+        let qs: any[] = []; try { qs = JSON.parse(row.questions) || []; } catch {}
+        return { ...row, questions: qs };
+      });
+      return json({ ok: true, quizzes });
+    }
+
+    // ── POST /api/admin/review-quiz/save — 관리자: 생성/수정 (id 있으면 수정) ──
+    if (method === 'POST' && path === '/api/admin/review-quiz/save') {
+      await ensureReviewQuizTables();
+      const b: any = await request.json().catch(() => ({}));
+      const title = String(b.title || '').trim();
+      if (!title) return json({ ok: false, error: 'title_required' }, 400);
+      const description = String(b.description || '').trim();
+      const parsed = rqParseQuestions(b.questions);
+      if (!parsed.ok) return json({ ok: false, error: parsed.error }, 400);
+      const active = (b.active === 0 || b.active === false) ? 0 : 1;
+      const now = Date.now();
+      const id = Number(b.id) || 0;
+      if (id) {
+        const r = await env.DB.prepare(`UPDATE review_quizzes SET title=?, description=?, questions=?, active=?, updated_at=? WHERE id=?`)
+          .bind(title, description, JSON.stringify(parsed.list), active, now, id).run();
+        if (!((r as any).meta && (r as any).meta.changes)) return json({ ok: false, error: 'quiz_not_found' }, 404);
+        return json({ ok: true, id });
+      }
+      const ins = await env.DB.prepare(`INSERT INTO review_quizzes (title, description, questions, active, created_at, updated_at) VALUES (?,?,?,?,?,?)`)
+        .bind(title, description, JSON.stringify(parsed.list), active, now, now).run();
+      return json({ ok: true, id: (ins as any).meta?.last_row_id });
+    }
+
+    // ── POST /api/admin/review-quiz/toggle — 관리자: 활성/비활성 ──
+    if (method === 'POST' && path === '/api/admin/review-quiz/toggle') {
+      await ensureReviewQuizTables();
+      const b: any = await request.json().catch(() => ({}));
+      const id = Number(b.id) || 0;
+      if (!id) return json({ ok: false, error: 'id_required' }, 400);
+      const active = (b.active === 0 || b.active === false) ? 0 : 1;
+      await env.DB.prepare(`UPDATE review_quizzes SET active=?, updated_at=? WHERE id=?`).bind(active, Date.now(), id).run();
+      return json({ ok: true, id, active });
+    }
+
+    // ── DELETE /api/admin/review-quiz/:id — 관리자: 삭제 (결과 기록도 함께) ──
+    if (method === 'DELETE' && /^\/api\/admin\/review-quiz\/\d+$/.test(path)) {
+      await ensureReviewQuizTables();
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      await env.DB.prepare(`DELETE FROM review_quizzes WHERE id=?`).bind(id).run();
+      await env.DB.prepare(`DELETE FROM review_quiz_results WHERE quiz_id=?`).bind(id).run();
+      return json({ ok: true });
+    }
+
+    // ── GET /api/admin/review-quiz/results?quiz_id=N — 관리자: 학생 응시 결과 ──
+    if (method === 'GET' && path === '/api/admin/review-quiz/results') {
+      await ensureReviewQuizTables();
+      const quizId = parseInt(url.searchParams.get('quiz_id') || '0', 10);
+      let q = `SELECT r.*, q.title AS quiz_title FROM review_quiz_results r LEFT JOIN review_quizzes q ON q.id = r.quiz_id`;
+      const binds: any[] = [];
+      if (quizId) { q += ` WHERE r.quiz_id = ?`; binds.push(quizId); }
+      q += ` ORDER BY r.created_at DESC LIMIT 500`;
+      const rs = await env.DB.prepare(q).bind(...binds).all();
+      return json({ ok: true, results: rs.results || [] });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // 💬 Phase K1 — 화상수업 채팅 영속화
     // ═══════════════════════════════════════════════════════════════
     const ensureChatTable = async () => {

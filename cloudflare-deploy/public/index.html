@@ -3018,6 +3018,8 @@
     <button onclick="mgGo('precheck')">🎥 수업 진단</button>
     <button onclick="mgGo('booking')">📝 수업 신청</button>
     <button onclick="mgDrawerClose();if(window.gridActions&&window.gridActions.teachers)window.gridActions.teachers();">👨‍🏫 교사 소개</button>
+    <button id="mg-faq-btn" onclick="event.preventDefault();if(window.mgDrawerClose)mgDrawerClose();if(window.openFaqOverlay)openFaqOverlay();return false;">❓ 자주 묻는 질문</button>
+    <button onclick="mgDrawerClose();location.href='/review-quiz.html';">🧠 복습퀴즈</button>
     <button onclick="mgGo('all-menu')">🏠 전체메뉴</button>
   </nav>
   <button id="mg-drawer-tab" onclick="mgDrawerToggle()" aria-label="메뉴 열기/닫기"><span id="mg-tab-label">열림</span></button>
@@ -4259,6 +4261,7 @@
         <button class="ai-quick-btn" data-go="speech" data-ko="🎤 단계별 발음" data-en="🎤 Curriculum Pronunciation">🎤 단계별 발음</button>
         <button class="ai-quick-btn" data-go="lesson-change" data-ko="📅 연기/변경" data-en="📅 Postpone/Change">📅 연기/변경</button>
         <button class="ai-quick-btn" data-go="inquiry" data-ko="💬 신규상담" data-en="💬 New Inquiry">💬 신규상담</button>
+        <button class="ai-quick-btn" data-go="review-quiz" data-ko="🧠 복습퀴즈" data-en="🧠 Review Quiz" onclick="event.preventDefault();location.href='/review-quiz.html';return false;">🧠 복습퀴즈</button>
         <button class="ai-quick-btn" data-go="all-menu" data-ko="🏠 전체메뉴" data-en="🏠 All Menu" onclick="event.preventDefault();if(window.openAllMenuOverlay)window.openAllMenuOverlay();return false;">🏠 전체메뉴</button>
         <!-- ph170 (2026-05-29) — 수업 진단 카드 (FAB 대체) -->
         <button class="ai-quick-btn" data-go="precheck" data-ko="🎥 수업 진단" data-en="🎥 PreCheck" onclick="event.preventDefault();location.href='/precheck.html';return false;">🎥 수업 진단</button>
@@ -11742,6 +11745,7 @@ window.addEventListener('DOMContentLoaded', () => {
     { kws:['ai 작문','ai작문','영작','영작문','작문 첨삭','글쓰기','ai write','writing'], action: () => location.href='/ai-write.html', label:'✍ AI 작문' },
     { kws:['영어 발음 코치','영어발음코치','영어 발음 연습'], action: () => location.href='/speech-coach.html', label:'🗣 영어 발음 코치' },
     { kws:['단어장','단어 장','내 단어장','어휘장','어휘','vocab','vocabulary','word list'], action: () => location.href='/vocab.html', label:'📖 단어장' },
+    { kws:['복습퀴즈','복습 퀴즈','선생님 퀴즈','리뷰 퀴즈','review quiz'], action: () => location.href='/review-quiz.html', label:'🧠 복습퀴즈' },
     { kws:['미니 퀴즈','미니퀴즈','퀴즈','단어 퀴즈','쪽지시험','quiz'], action: () => location.href='/micro-quiz.html', label:'🎯 미니 퀴즈' },
     { kws:['mbti 매칭','mbti매칭','엠비티아이 매칭','강사 매칭','성향 매칭','mbti match'], action: () => location.href='/mbti.html', label:'🧠 MBTI 매칭' },
     { kws:['mbti 테스트','mbti테스트','엠비티아이 테스트','성향 테스트','성격 테스트','mbti test'], action: () => location.href='/mbti-test.html', label:'🧪 MBTI 테스트' },
@@ -24187,17 +24191,15 @@ window.closeRulesModal = function() {
 <style id="ph51-overrides">
   /* ===== 1) 모바일 — 환영 메시지 + 로비 상단 컨트롤 강제 제거 ===== */
   @media (max-width: 720px) {
-    #lobby-audio-toggle,
+    /* [2026-06-12] 로비 컨트롤(음성·EN·메인)은 모바일에서도 한 줄로 표시 — 숨김 해제 */
     #lobby-welcome-toggle,
     #lobby-welcome-btn,
-    #lang-toggle-lobby,
     .lobby-welcome-hint { display: none !important; }
     .lc-toast[style*="환영"], .welcome-toast { display: none !important; }
     .mascot-greeting, .mascot-bubble .greeting-text { display: none !important; }
     #lobby-welcome-audio { display: none !important; }
   }
-  /* lang-toggle-lobby 는 항상 중복이라 모든 디바이스에서 숨김 */
-  #lang-toggle-lobby { display: none !important; }
+  /* [2026-06-12] 로비 EN 버튼 복원 — 로비에서는 글로벌 칩(.hero-chip)이 숨겨져 중복 아님 */
 
   /* ===== 2) 카톡 FAB 모바일 축소 ===== */
   @media (max-width: 720px) {
@@ -24241,9 +24243,7 @@ window.closeRulesModal = function() {
   function ph51HideLobbyBar(){
     var isMobile = window.matchMedia('(max-width: 720px)').matches;
 
-    // 항상: lang-toggle-lobby 숨김 (중복 EN)
-    var lt = document.getElementById('lang-toggle-lobby');
-    if (lt) lt.style.display = 'none';
+    // [2026-06-12] lang-toggle-lobby 숨김 해제 — 로비 한 줄 바([음성][메인][EN])로 표시
 
     if (!isMobile) return;
 
@@ -24255,22 +24255,7 @@ window.closeRulesModal = function() {
       if (typeof window.lobbyPlayWelcome === 'function') { window.lobbyPlayWelcome = function(){}; }
     } catch(e){}
 
-    // 모바일: 음성 OFF / 메인 / lang-toggle-lobby 개별 hide (부모 div 는 건드리지 않음)
-    ['lobby-audio-toggle', 'lang-toggle-lobby'].forEach(function(id){
-      var el = document.getElementById(id);
-      if (el) el.style.display = 'none';
-    });
-    // 메인 링크 (a[href="/"]) — 같은 5407 div 안의 형제만 정확히 잡아서 hide
-    var audio = document.getElementById('lobby-audio-toggle');
-    if (audio && audio.parentElement) {
-      var siblings = audio.parentElement.children;
-      Array.prototype.forEach.call(siblings, function(c){
-        // a[href="/"] 메인 링크만 hide. 다른 폼/버튼은 건드리지 않음
-        if (c.tagName === 'A' && c.getAttribute('href') === '/') {
-          c.style.display = 'none';
-        }
-      });
-    }
+    // [2026-06-12] 모바일에서도 로비 컨트롤 바 유지(작게 한 줄) — 개별 hide 제거
   }
 
   /* ━━━ 3) 자동 로그인 — 메인 + VC 로비 동시 ━━━ */
@@ -24597,7 +24582,7 @@ window.closeRulesModal = function() {
   }
   #voice-diary-chip, #battle-chip, #mini-toeic-chip,
   #referral-chip, #sns-card-chip, #mangoi-dict-fab,
-  #mangoi-dict-modal, #lang-toggle-lobby {
+  #mangoi-dict-modal {
     display: none !important;
   }
   .gm-card, .grid-menu-cards .gm-card, #gm-cards .gm-card {
@@ -25154,7 +25139,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260612170447 -->
+<!-- BUILD:20260612170917 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -27110,5 +27095,141 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   //   git 전 커밋 전부에서 잘려 원본 복구 불가 → 제거. 핵심 자동재생은 위 window.mangoiPlayLessonVideo 로 정상 동작.
 })();
 </script>
+<!-- ═══ faq-v1 (2026-06-12) — ❓ 자주 묻는 질문 오버레이 (사이드바 카드, mangoi.co.kr/faq.php 내용 반영) ═══ -->
+<style id="mg-faq-style">
+  #mg-faq-ov{position:fixed;inset:0;z-index:100002;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(2,6,18,.62);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+  #mg-faq-ov.open{display:flex}
+  .mg-faq-panel{width:min(760px,96vw);max-height:88vh;display:flex;flex-direction:column;background:linear-gradient(160deg,rgba(15,23,42,.97),rgba(11,16,32,.97));border:1px solid rgba(251,191,36,.35);border-radius:20px;box-shadow:0 24px 64px rgba(0,0,0,.5);overflow:hidden;font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;color:#e5e7eb}
+  .mg-faq-head{display:flex;align-items:center;gap:10px;padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
+  .mg-faq-head h2{margin:0;font-size:19px;font-weight:800;color:#fbbf24;letter-spacing:-.3px}
+  .mg-faq-head .mg-faq-sub{font-size:12px;color:#94a3b8;margin-top:2px}
+  .mg-faq-x{margin-left:auto;flex:0 0 auto;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:#e5e7eb;font-size:15px;cursor:pointer;transition:.2s}
+  .mg-faq-x:hover{background:rgba(251,191,36,.2);border-color:rgba(251,191,36,.5)}
+  .mg-faq-tools{padding:12px 20px 4px}
+  .mg-faq-search{width:100%;box-sizing:border-box;padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#f1f5f9;font-size:14px;outline:none}
+  .mg-faq-search:focus{border-color:rgba(251,191,36,.55)}
+  .mg-faq-search::placeholder{color:#7b8794}
+  .mg-faq-cats{display:flex;gap:6px;overflow-x:auto;padding:10px 20px 6px;scrollbar-width:none}
+  .mg-faq-cats::-webkit-scrollbar{display:none}
+  .mg-faq-cat{flex:0 0 auto;padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#cbd5e1;font-size:12.5px;cursor:pointer;white-space:nowrap;transition:.18s}
+  .mg-faq-cat.on{background:rgba(251,191,36,.18);border-color:#fbbf24;color:#fde68a;font-weight:700}
+  .mg-faq-list{flex:1;overflow-y:auto;padding:8px 20px 16px;-webkit-overflow-scrolling:touch}
+  .mg-faq-item{border:1px solid rgba(255,255,255,.09);border-radius:14px;margin-bottom:10px;background:rgba(255,255,255,.035);overflow:hidden;transition:border-color .2s}
+  .mg-faq-item.open{border-color:rgba(251,191,36,.45)}
+  .mg-faq-q{display:flex;align-items:center;gap:10px;width:100%;padding:13px 14px;background:none;border:none;color:#f1f5f9;font-size:14.5px;font-weight:600;text-align:left;cursor:pointer;line-height:1.45}
+  .mg-faq-q .qb{flex:0 0 auto;width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:rgba(251,191,36,.16);color:#fbbf24;font-weight:800;font-size:13px}
+  .mg-faq-q .qc{flex:0 0 auto;font-size:11px;color:#94a3b8;background:rgba(255,255,255,.07);padding:2px 8px;border-radius:999px}
+  .mg-faq-q .arr{margin-left:auto;flex:0 0 auto;color:#94a3b8;transition:transform .25s;font-size:12px}
+  .mg-faq-item.open .mg-faq-q .arr{transform:rotate(180deg);color:#fbbf24}
+  .mg-faq-a{display:none;padding:0 14px 14px 48px;color:#cbd5e1;font-size:13.5px;line-height:1.75;white-space:pre-line}
+  .mg-faq-item.open .mg-faq-a{display:block;animation:mgFaqDown .22s ease}
+  @keyframes mgFaqDown{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  .mg-faq-empty{text-align:center;color:#94a3b8;font-size:13.5px;padding:30px 0}
+  .mg-faq-foot{padding:11px 20px;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:#94a3b8;display:flex;flex-wrap:wrap;gap:4px 14px}
+  .mg-faq-foot b{color:#fbbf24}
+  @media (max-width:640px){
+    #mg-faq-ov{padding:0;align-items:flex-end}
+    .mg-faq-panel{width:100vw;max-height:92vh;border-radius:20px 20px 0 0;border-left:none;border-right:none;border-bottom:none}
+    .mg-faq-a{padding-left:14px}
+  }
+</style>
+<script id="mg-faq-script">
+(function(){
+  'use strict';
+  var DATA=[
+   {c:'레벨테스트',q:'레벨테스트를 꼭 받아야 하나요?',a:'레벨테스트는 실제 수업에 앞서 현재 영어 실력과 약점을 파악하여, 가장 알맞은 과정을 추천해 드리기 위한 무료 테스트입니다. 실력 향상을 위해 꼭 받아보시길 권장하지만, 테스트 없이 바로 수강 신청으로 과정을 선택하실 수도 있습니다.\n※ 신청 방법: 상단 [레벨테스트 신청] > [무료 레벨테스트 신청하기]'},
+   {c:'레벨테스트',q:'레벨 테스트 수업을 결석했어요. 다시 받을 수 있을까요?',a:'네, 가능합니다. 레벨테스트 재신청권을 충전한 후 다시 예약·진행하실 수 있습니다. 재신청을 원하시면 [1:1 문의게시판]에 분류를 [레벨테스트 관련]으로 설정하여 요청해 주세요.\n레벨테스트는 알맞은 과정을 고르기 위한 가이드라인일 뿐이니, 성적이 낮게 나와도 실망하지 않으셔도 됩니다.'},
+   {c:'수강문의',q:'수강을 하고 싶어요. 수강절차가 어떻게 되나요?',a:'상단 [수강신청] > 수강신청 및 수강료 결제 > 화면 하단 [수강신청하기] > 원하는 강사의 성별·성향 필터링 > 강사 선택 > 시간 선택 순서로 진행됩니다.\n결제 페이지에서 수업 받을 시간과 날짜 등을 입력하고 결제하시면, 이후 [나의공부방] > [강의실 입장]으로 수업에 참여하시면 됩니다.'},
+   {c:'수강문의',q:'화상영어를 수강하려면 무엇이 필요한가요?',a:'기본적으로 컴퓨터(또는 태블릿·스마트폰)와 화상카메라(웹캠), 헤드셋이 필요합니다. 헤드셋은 필수이며, 화상카메라가 없어도 수업은 가능하지만 강사와 학생 간의 유대감 형성을 위해 준비해 주시기를 권장합니다.'},
+   {c:'수강문의',q:'수업시간이 어떻게 되나요?',a:'평일 월~금 주 5일, 오후 2시부터 11시까지 수업이 진행됩니다. (주말·오전 수업은 준비 중입니다.)\n화상영어 수업시간은 보통 20분이며, 개인 수업은 20분/40분으로 정해지고 단체 수업은 10분 단위로 추가되기도 합니다.'},
+   {c:'수업진행',q:'화상 수업 시 강사님이 입장하지 않았어요.',a:'강사님이 수업을 조금 늦게 시작하거나, 현지 사정(태풍·정전, 병결 등)으로 수업 연결이 되지 않는 경우가 간혹 있습니다.\n해당 내용을 망고톡이나 게시판에 남겨주시면 상담원이 센터에 확인하여 보강 수업을 등록해 드리고, 사유에 대한 상담 전화를 드립니다. (게시판 상담: 평일 오후 2시~8시)'},
+   {c:'수업진행',q:'연기신청은 어떻게 하나요?',a:'수업 시작 30분 전까지 전화·망고톡으로 요청하시거나, 마이페이지 > 오늘의 수업 > 공부방 입장 > [강의연기요청]에서 직접 신청하실 수 있습니다.\n연기 횟수는 수강 횟수의 1/2까지 가능합니다. (예: 주 1회 수강 시 월 최대 2회, 주 3회 시 월 최대 6회)'},
+   {c:'수업진행',q:'결석처리는 어떻게 되나요?',a:'수업시간 동안 입장하지 않으시면 결석 처리되며, 수강생 과실로 인한 결석은 별도의 보강이 제공되지 않습니다.\n수강생 사정으로 수업 시작이 늦어진 경우에는 수업시간을 채우지 못했더라도 예정된 종료시간에 수업이 종료됩니다. (다음 예약 학생 수업 보호를 위해 불가피합니다.)'},
+   {c:'수업진행',q:'사이트 장애나 문제로 수업을 못 할 경우에는 어떻게 되나요?',a:'시스템 문제로 수업을 못 한 경우에는 연기 처리되어 보강이나 연기로 수업을 받게 됩니다. 학습의 지속성을 위해 연기보다는 보강으로 잡으시는 것을 추천드립니다.'},
+   {c:'수업진행',q:'로그인이 안 될 때는 어떻게 해야 하나요?',a:'아이디와 비밀번호가 맞는지 한 번 더 확인해 주세요. 그래도 안 되면 아래 방법을 시도해 주세요.\n① Ctrl + F5 (강력 새로고침)\n② 인터넷 옵션 > 임시 인터넷 파일 > 설정을 "페이지를 열 때마다"로 변경\n③ 임시 인터넷 파일 삭제\n모두 시도해도 안 되면 1644-0561 또는 망고톡으로 문의해 주세요.'},
+   {c:'수업진행',q:'교사의 소리나 화면이 잘 들리거나 보이지 않을 경우에는 어떻게 되나요?',a:'1644-0561로 연락 주시면 원인을 파악하여 친절하게 안내해 드립니다. 수업이 제대로 진행되지 않은 경우 연기 처리하여 원하시는 다른 시간에 보강을 진행하며, 다음 수업에 문제가 없도록 원격지원으로 컴퓨터 점검도 도와드립니다.'},
+   {c:'스케줄',q:'수업시간을 변경할 수 있나요?',a:'네, 가능합니다. 앱에서 [연기신청]을 눌러 교사 또는 수업 시간 중 선택하여 변경할 수 있습니다. 수업 시간을 변경하면 담당강사가 바뀔 수 있으니 신청 시 유의해 주세요.\n수업 시간 변경은 월 전체 수업 횟수의 1/2까지 가능합니다.'},
+   {c:'스케줄',q:'담당강사 변경이 가능한가요?',a:'네, [학습 매니저 1:1게시판]에서 변경 신청이 가능합니다. 당일 수업 1일 전까지, 월 1회 변경하실 수 있습니다. (단, 강사의 불성실로 인한 교체는 제한 횟수에 포함되지 않습니다.)'},
+   {c:'부가서비스',q:'레슨 비디오는 어떻게 보나요?',a:'로그인 후 PC에서는 [나의 공부방]에서, 앱에서는 메인 중앙의 검은색 원형 MY 버튼에서 레슨 비디오를 확인하실 수 있습니다. 수업 전이나 후에 언제든지 시청하시면 됩니다.'},
+   {c:'부가서비스',q:'리뷰 퀴즈는 어떻게 푸나요?',a:'레슨 비디오와 마찬가지로 로그인 후 PC는 [나의공부방], 앱은 메인 화면의 MY 버튼에서 퀴즈를 풀 수 있습니다. 퀴즈 완료 후 결과표도 확인하실 수 있습니다.'},
+   {c:'강사',q:'강사님들은 어느 나라 사람들인가요?',a:'필리핀 현지 교육센터에서 근무하는 필리핀(또는 미국계 혼혈) 강사님과, 재택근무로 진행되는 북미(미국·캐나다) 원어민 강사님으로 구성되어 있습니다. 무료 레벨테스트를 통해 직접 수업 품질을 확인해 보세요.'},
+   {c:'강사',q:'강사님에게 전달하고 싶은 얘기가 있는데 말하기 능력이 부족합니다.',a:'[마이페이지] > [학습캘린더] 해당 일의 "요청사항"에 적어주시거나, 강사 "미니홈"에 남겨주시면 강사님이 확인합니다.\n영작이 어려우시면 1:1 문의게시판에 한글로 남겨주세요. 센터로 전달해 드리겠습니다.'},
+   {c:'단체수강',q:'학원에서 단체로 수강하려고 합니다.',a:'학원에서 단체 수강을 원하시는 경우 010-5893-0509로 연락 주시면 친절하게 안내해 드리겠습니다.'},
+   {c:'이벤트',q:'이벤트 참여는 아무나 할 수 있는 건가요?',a:'네, 그렇습니다. 홈페이지에서 회원가입을 하신 모든 회원님은 이벤트에 참여하실 수 있습니다.'},
+   {c:'입금/환불',q:'환불규정은 어떻게 되나요?',a:'환불은 관련 법령과 이용약관의 환불 규정에 따라 처리됩니다. 자세한 내용은 학습지원센터(1644-0561) 또는 1:1 문의게시판으로 문의해 주시면 안내해 드리겠습니다.'}
+  ];
+  var cats=['전체'];
+  DATA.forEach(function(d){ if(cats.indexOf(d.c)<0) cats.push(d.c); });
+  var curCat='전체', curQ='';
+
+  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function build(){
+    var ov=document.createElement('div'); ov.id='mg-faq-ov';
+    ov.innerHTML=
+      '<div class="mg-faq-panel" role="dialog" aria-modal="true" aria-label="자주 묻는 질문">'+
+        '<div class="mg-faq-head"><div><h2>❓ 자주 묻는 질문</h2><div class="mg-faq-sub">망고아이 화상영어 FAQ — 궁금한 점을 빠르게 확인하세요</div></div>'+
+        '<button class="mg-faq-x" aria-label="닫기">✕</button></div>'+
+        '<div class="mg-faq-tools"><input class="mg-faq-search" type="text" placeholder="🔍 궁금한 내용을 검색해 보세요 (예: 환불, 연기, 레벨테스트)" aria-label="FAQ 검색"></div>'+
+        '<div class="mg-faq-cats"></div>'+
+        '<div class="mg-faq-list"></div>'+
+        '<div class="mg-faq-foot"><span>📞 학습지원센터 <b>1644-0561</b></span><span>운영 10:00~20:00 (주말·공휴일 휴무)</span><span>수업 14:00~23:00</span></div>'+
+      '</div>';
+    document.body.appendChild(ov);
+    var catBox=ov.querySelector('.mg-faq-cats');
+    cats.forEach(function(c){
+      var b=document.createElement('button'); b.type='button'; b.className='mg-faq-cat'+(c===curCat?' on':''); b.textContent=c;
+      b.onclick=function(){ curCat=c; catBox.querySelectorAll('.mg-faq-cat').forEach(function(x){x.classList.toggle('on',x.textContent===c);}); render(ov); };
+      catBox.appendChild(b);
+    });
+    ov.querySelector('.mg-faq-search').addEventListener('input',function(){ curQ=this.value.trim(); render(ov); });
+    ov.querySelector('.mg-faq-x').onclick=close;
+    ov.addEventListener('click',function(e){ if(e.target===ov) close(); });
+    document.addEventListener('keydown',function(e){ if(e.key==='Escape' && ov.classList.contains('open')) close(); });
+    render(ov);
+    return ov;
+  }
+
+  function render(ov){
+    var list=ov.querySelector('.mg-faq-list'); list.innerHTML='';
+    var q=curQ.toLowerCase();
+    var shown=DATA.filter(function(d){
+      if(curCat!=='전체' && d.c!==curCat) return false;
+      if(q && (d.q+d.a).toLowerCase().indexOf(q)<0) return false;
+      return true;
+    });
+    if(!shown.length){ list.innerHTML='<div class="mg-faq-empty">검색 결과가 없습니다. 다른 키워드로 검색해 보세요. 🥭</div>'; return; }
+    shown.forEach(function(d){
+      var it=document.createElement('div'); it.className='mg-faq-item';
+      it.innerHTML='<button type="button" class="mg-faq-q"><span class="qb">Q</span><span class="qc">'+esc(d.c)+'</span><span>'+esc(d.q)+'</span><span class="arr">▼</span></button>'+
+                   '<div class="mg-faq-a">'+esc(d.a)+'</div>';
+      it.querySelector('.mg-faq-q').onclick=function(){
+        var was=it.classList.contains('open');
+        list.querySelectorAll('.mg-faq-item.open').forEach(function(x){x.classList.remove('open');});
+        if(!was) it.classList.add('open');
+      };
+      list.appendChild(it);
+    });
+  }
+
+  window.openFaqOverlay=function(){
+    var ov=document.getElementById('mg-faq-ov')||build();
+    ov.classList.add('open');
+    try{ var s=ov.querySelector('.mg-faq-search'); if(s && window.innerWidth>700) s.focus(); }catch(_){}
+  };
+  function close(){ var ov=document.getElementById('mg-faq-ov'); if(ov) ov.classList.remove('open'); }
+
+  // capture-phase 보조 핸들러 — 다른 글로벌 핸들러(stopPropagation) 간섭 대비 (v22 전체메뉴 패턴)
+  document.addEventListener('click',function(e){
+    var b=e.target&&e.target.closest&&e.target.closest('#mg-faq-btn');
+    if(!b) return;
+    e.preventDefault(); e.stopPropagation();
+    try{ if(window.mgDrawerClose) window.mgDrawerClose(); }catch(_){}
+    window.openFaqOverlay();
+  },true);
+  console.log('[faq-v1] FAQ 오버레이 활성 ('+DATA.length+'문항)');
+})();
+</script>
+
 </body>
 </html>

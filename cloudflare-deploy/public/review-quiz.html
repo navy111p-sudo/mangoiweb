@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5" />
+  <title>🧠 복습퀴즈 — Mangoi</title>
+  <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
+  <meta name="theme-color" content="#0a1530" />
+  <script src="/js/mango-i18n.js" defer></script>
+  <style>
+    :root { --bg:#0a1530; --card:#14213b; --text:#e6ecff; --text2:#a3b3d1;
+      --gold:#fbbf24; --green:#10b981; --red:#ef4444; --blue:#3b82f6;
+      --border:rgba(251,191,36,0.18); }
+    * { box-sizing: border-box; }
+    html, body { margin:0; padding:0; background:var(--bg); color:var(--text);
+      font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif; line-height:1.55; }
+    .top { display:flex; align-items:center; gap:12px; padding:14px 18px;
+      background:rgba(20,33,59,0.95); position:sticky; top:0; z-index:50;
+      backdrop-filter:blur(12px); border-bottom:1px solid var(--border); }
+    .top a { color:var(--text); text-decoration:none; font-weight:700; font-size:14px; white-space:nowrap; }
+    .top h1 { margin:0; font-size:16px; font-weight:800; flex:1; }
+    .wrap { max-width:680px; margin:0 auto; padding:18px; }
+    .intro { background:linear-gradient(135deg,rgba(251,191,36,0.12),rgba(245,158,11,0.06));
+      border:1px solid rgba(251,191,36,0.30); border-radius:14px; padding:16px 18px; margin-bottom:16px; }
+    .intro h2 { margin:0 0 6px 0; font-size:17px; color:var(--gold); font-weight:800; }
+    .intro p { margin:4px 0; color:var(--text2); font-size:13px; line-height:1.6; }
+    .quiz-item { display:flex; align-items:center; gap:14px; width:100%; text-align:left;
+      background:var(--card); border:1px solid var(--border); border-radius:14px;
+      padding:16px 18px; margin-bottom:10px; cursor:pointer; color:var(--text);
+      font-family:inherit; transition:all .15s; }
+    .quiz-item:hover { border-color:rgba(251,191,36,0.55); transform:translateY(-1px);
+      box-shadow:0 6px 16px -4px rgba(0,0,0,0.45); }
+    .qi-icon { font-size:26px; flex-shrink:0; }
+    .qi-body { flex:1; min-width:0; }
+    .qi-title { font-size:15px; font-weight:800; color:#fff; }
+    .qi-desc { font-size:12px; color:var(--text2); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .qi-meta { font-size:11.5px; color:var(--text2); margin-top:5px; display:flex; gap:10px; flex-wrap:wrap; }
+    .qi-best { color:#6ee7b7; font-weight:700; }
+    .qi-go { font-size:13px; color:var(--gold); font-weight:800; flex-shrink:0; }
+    .empty-box { text-align:center; padding:38px 20px; background:var(--card);
+      border:1px dashed rgba(148,163,184,0.35); border-radius:14px; color:var(--text2); font-size:13.5px; }
+    .progress-bar { height:6px; background:rgba(255,255,255,0.08); border-radius:99px; overflow:hidden; margin-bottom:14px; }
+    .progress-fill { height:100%; background:linear-gradient(90deg,#fbbf24,#f59e0b); transition:width .3s; border-radius:99px; }
+    .quiz-card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:24px; margin-bottom:14px; }
+    .q-num { font-size:11.5px; color:var(--gold); font-weight:800; letter-spacing:0.5px; margin-bottom:8px; }
+    .q-text { font-size:18px; font-weight:800; color:#fff; margin-bottom:18px; line-height:1.4; }
+    .opt { display:block; width:100%; text-align:left; padding:14px 18px; margin-bottom:8px;
+      background:rgba(15,23,42,0.6); color:var(--text); border:1px solid rgba(148,163,184,0.2);
+      border-radius:10px; cursor:pointer; font-size:14px; font-weight:600; font-family:inherit;
+      transition:all .15s; }
+    .opt:hover { background:rgba(251,191,36,0.12); border-color:rgba(251,191,36,0.5); }
+    .opt.sel { background:rgba(59,130,246,0.22); border-color:#3b82f6; color:#bfdbfe; }
+    .opt-prefix { display:inline-block; width:24px; height:24px; line-height:24px; text-align:center;
+      background:rgba(251,191,36,0.18); color:var(--gold); border-radius:50%; font-weight:800;
+      font-size:12px; margin-right:10px; }
+    .nav-btns { display:flex; gap:10px; margin-top:12px; }
+    .nav-btn { flex:1; padding:13px; background:rgba(255,255,255,0.06); color:var(--text);
+      border:1px solid var(--border); border-radius:10px; font-weight:700; cursor:pointer;
+      font-size:13px; font-family:inherit; }
+    .nav-btn:hover { background:rgba(251,191,36,0.15); }
+    .nav-btn.primary { background:linear-gradient(135deg,var(--gold),#f59e0b); color:#1a1a1a; border:0; }
+    .nav-btn:disabled { opacity:.45; cursor:not-allowed; }
+    .result-card { text-align:center; padding:30px 20px; }
+    .result-score { font-size:54px; font-weight:900; line-height:1; }
+    .result-label { font-size:14px; color:var(--text2); margin-top:6px; }
+    .result-msg { margin-top:14px; padding:13px 18px; background:rgba(251,191,36,0.10);
+      border-radius:10px; font-size:13.5px; color:#fde68a; line-height:1.6; }
+    .review-q { text-align:left; background:rgba(15,23,42,0.55); border:1px solid rgba(148,163,184,0.18);
+      border-radius:12px; padding:14px 16px; margin-top:10px; }
+    .review-q .rq-t { font-size:13.5px; font-weight:700; color:#fff; margin-bottom:6px; }
+    .review-q .rq-a { font-size:12.5px; margin:3px 0; }
+    .rq-ok { color:#6ee7b7; } .rq-no { color:#fca5a5; }
+    .rq-explain { font-size:12px; color:var(--text2); margin-top:6px; padding-top:6px;
+      border-top:1px dashed rgba(148,163,184,0.25); }
+    .badge-ok { color:#10b981; font-weight:800; } .badge-no { color:#ef4444; font-weight:800; }
+    @media (max-width:480px) {
+      .wrap { padding:14px 12px; }
+      .quiz-card { padding:18px 16px; }
+      .q-text { font-size:16px; }
+      .result-score { font-size:46px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <a href="/">← <span data-ko="홈" data-en="Home">홈</span></a>
+    <h1>🧠 <span data-ko="복습퀴즈" data-en="Review Quiz">복습퀴즈</span></h1>
+  </div>
+  <div class="wrap">
+    <div id="listView">
+      <div class="intro">
+        <h2 data-ko="🧠 선생님이 내주신 복습퀴즈" data-en="🧠 Review quizzes from your teacher">🧠 선생님이 내주신 복습퀴즈</h2>
+        <p data-ko="📚 수업에서 배운 내용을 퀴즈로 복습해요. 풀고 나면 점수와 해설이 바로 나와요!" data-en="📚 Review what you learned in class. Get your score & explanations instantly!">📚 수업에서 배운 내용을 퀴즈로 복습해요. 풀고 나면 <b>점수와 해설</b>이 바로 나와요!</p>
+      </div>
+      <div id="quizList"><div class="empty-box" data-ko="⏳ 퀴즈를 불러오는 중…" data-en="⏳ Loading quizzes…">⏳ 퀴즈를 불러오는 중…</div></div>
+    </div>
+    <div id="playView" style="display:none"></div>
+    <div id="resultView" style="display:none"></div>
+  </div>
+
+  <script>
+    function getUser() {
+      try { var u = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null'); if (u && u.uid) return { uid:u.uid, name:u.name||u.uid }; } catch(e){}
+      try { var a = JSON.parse(localStorage.getItem('mango_user') || 'null'); if (a && (a.uid||a.id||a.user_id)) return { uid:a.uid||a.id||a.user_id, name:a.name||'' }; } catch(e){}
+      try {
+        var g = localStorage.getItem('rq_guest_id');
+        if (!g) { g = 'guest_' + Math.random().toString(36).slice(2,10); localStorage.setItem('rq_guest_id', g); }
+        return { uid:g, name:'게스트' };
+      } catch(e){ return { uid:'guest', name:'게스트' }; }
+    }
+    function esc(s) { return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+    function isEn(){ return (window.langCurrent === 'en') || (document.documentElement.lang === 'en'); }
+    var ME = getUser();
+    var state = { quiz:null, idx:0, answers:[] };
+    var ABC = ['A','B','C','D','E','F'];
+
+    // ───── 목록 ─────
+    async function loadList() {
+      var box = document.getElementById('quizList');
+      try {
+        var r = await fetch('/api/review-quiz/list?user_id=' + encodeURIComponent(ME.uid)).then(function(x){ return x.json(); });
+        if (!r.ok) throw new Error(r.error||'load_fail');
+        if (!r.quizzes.length) {
+          box.innerHTML = '<div class="empty-box">📭 ' + (isEn() ? 'No quizzes yet. Your teacher will add some soon!' : '아직 등록된 퀴즈가 없어요.<br>선생님이 곧 퀴즈를 올려주실 거예요!') + '</div>';
+          return;
+        }
+        box.innerHTML = r.quizzes.map(function(q){
+          var meta = '<span>📝 ' + q.question_count + (isEn()?' questions':'문항') + '</span>';
+          if (q.best_score != null) meta += '<span class="qi-best">🏆 ' + (isEn()?'Best ':'최고 ') + q.best_score + '/' + q.question_count + ' · ' + q.attempts + (isEn()?' tries':'회 도전') + '</span>';
+          return '<button class="quiz-item" onclick="startQuiz(' + q.id + ')">' +
+            '<span class="qi-icon">🧠</span><span class="qi-body">' +
+            '<div class="qi-title">' + esc(q.title) + '</div>' +
+            (q.description ? '<div class="qi-desc">' + esc(q.description) + '</div>' : '') +
+            '<div class="qi-meta">' + meta + '</div></span>' +
+            '<span class="qi-go">' + (isEn()?'Start ▶':'풀기 ▶') + '</span></button>';
+        }).join('');
+      } catch(e) {
+        box.innerHTML = '<div class="empty-box">⚠️ ' + (isEn()?'Failed to load quizzes. Please try again.':'퀴즈를 불러오지 못했어요. 잠시 후 다시 시도해주세요.') + '</div>';
+      }
+    }
+
+    // ───── 풀기 ─────
+    async function startQuiz(id) {
+      try {
+        var r = await fetch('/api/review-quiz/get?id=' + id).then(function(x){ return x.json(); });
+        if (!r.ok) throw new Error(r.error||'get_fail');
+        state.quiz = r.quiz; state.idx = 0;
+        state.answers = new Array(r.quiz.questions.length).fill(null);
+        document.getElementById('listView').style.display = 'none';
+        document.getElementById('resultView').style.display = 'none';
+        document.getElementById('playView').style.display = 'block';
+        renderQ();
+        window.scrollTo(0,0);
+      } catch(e) { alert(isEn()?'Could not open this quiz.':'퀴즈를 열 수 없어요. 잠시 후 다시 시도해주세요.'); }
+    }
+    function renderQ() {
+      var qz = state.quiz, i = state.idx, q = qz.questions[i], total = qz.questions.length;
+      var pct = Math.round((i / total) * 100);
+      var html = '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
+        '<div class="quiz-card">' +
+        '<div class="q-num">' + esc(qz.title) + ' — Q' + (i+1) + ' / ' + total + '</div>' +
+        '<div class="q-text">' + esc(q.q) + '</div>' +
+        q.opts.map(function(o, k){
+          return '<button class="opt' + (state.answers[i]===k?' sel':'') + '" onclick="pick(' + k + ')">' +
+            '<span class="opt-prefix">' + ABC[k] + '</span>' + esc(o) + '</button>';
+        }).join('') +
+        '<div class="nav-btns">' +
+        (i > 0 ? '<button class="nav-btn" onclick="moveQ(-1)">← ' + (isEn()?'Prev':'이전') + '</button>' : '') +
+        (i < total-1
+          ? '<button class="nav-btn primary" id="nextBtn" ' + (state.answers[i]==null?'disabled':'') + ' onclick="moveQ(1)">' + (isEn()?'Next':'다음') + ' →</button>'
+          : '<button class="nav-btn primary" id="nextBtn" ' + (state.answers[i]==null?'disabled':'') + ' onclick="submitQuiz()">✅ ' + (isEn()?'Submit':'제출하기') + '</button>') +
+        '</div>' +
+        '<div style="margin-top:10px;text-align:center"><button class="nav-btn" style="flex:none;padding:9px 18px;font-size:12px" onclick="backToList()">' + (isEn()?'Quit':'그만두기') + '</button></div>' +
+        '</div>';
+      document.getElementById('playView').innerHTML = html;
+    }
+    function pick(k) { state.answers[state.idx] = k; renderQ(); }
+    function moveQ(d) { state.idx += d; renderQ(); window.scrollTo(0,0); }
+    function backToList() {
+      document.getElementById('playView').style.display = 'none';
+      document.getElementById('resultView').style.display = 'none';
+      document.getElementById('listView').style.display = 'block';
+      loadList(); window.scrollTo(0,0);
+    }
+
+    // ───── 제출 + 결과 ─────
+    async function submitQuiz() {
+      var btn = document.getElementById('nextBtn');
+      if (btn) { btn.disabled = true; btn.textContent = isEn()?'Scoring…':'채점 중…'; }
+      try {
+        var r = await fetch('/api/review-quiz/submit', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ quiz_id: state.quiz.id, user_id: ME.uid, user_name: ME.name, answers: state.answers })
+        }).then(function(x){ return x.json(); });
+        if (!r.ok) throw new Error(r.error||'submit_fail');
+        showResult(r);
+      } catch(e) {
+        alert(isEn()?'Submit failed. Please try again.':'제출에 실패했어요. 다시 시도해주세요.');
+        renderQ();
+      }
+    }
+    function showResult(r) {
+      var qz = state.quiz;
+      var color = r.percent >= 80 ? '#10b981' : (r.percent >= 50 ? '#fbbf24' : '#ef4444');
+      var msg;
+      if (r.percent === 100) msg = isEn()?'🎉 Perfect! Amazing job!':'🎉 만점! 완벽해요, 최고예요!';
+      else if (r.percent >= 80) msg = isEn()?'🌟 Great job! Almost perfect!':'🌟 훌륭해요! 거의 다 맞췄어요!';
+      else if (r.percent >= 50) msg = isEn()?'💪 Good try! Review the ones you missed.':'💪 잘했어요! 틀린 문제를 한 번 더 복습해봐요.';
+      else msg = isEn()?'📚 Keep going! Try again after reviewing.':'📚 괜찮아요! 복습하고 다시 도전해봐요.';
+      var review = r.detail.map(function(d, i){
+        var q = qz.questions[i];
+        var your = (d.your_answer!=null && q.opts[d.your_answer]!=null) ? (ABC[d.your_answer] + '. ' + q.opts[d.your_answer]) : (isEn()?'(no answer)':'(무응답)');
+        var ans = ABC[d.answer] + '. ' + (q.opts[d.answer]!=null?q.opts[d.answer]:'');
+        return '<div class="review-q">' +
+          '<div class="rq-t">' + (d.correct?'<span class="badge-ok">⭕</span>':'<span class="badge-no">❌</span>') + ' Q' + (i+1) + '. ' + esc(q.q) + '</div>' +
+          '<div class="rq-a ' + (d.correct?'rq-ok':'rq-no') + '">' + (isEn()?'My answer: ':'내 답: ') + esc(your) + '</div>' +
+          (!d.correct ? '<div class="rq-a rq-ok">' + (isEn()?'Answer: ':'정답: ') + esc(ans) + '</div>' : '') +
+          (d.explain ? '<div class="rq-explain">💡 ' + esc(d.explain) + '</div>' : '') +
+          '</div>';
+      }).join('');
+      document.getElementById('playView').style.display = 'none';
+      document.getElementById('resultView').style.display = 'block';
+      document.getElementById('resultView').innerHTML =
+        '<div class="quiz-card result-card">' +
+        '<div style="font-size:13px;color:var(--text2);font-weight:700;margin-bottom:10px">' + esc(qz.title) + '</div>' +
+        '<div class="result-score" style="color:' + color + '">' + r.score + ' / ' + r.total + '</div>' +
+        '<div class="result-label">' + (isEn()?'Score':'점수') + ' ' + r.percent + (isEn()?' pts':'점') + ' (100' + (isEn()?' max':'점 만점') + ')</div>' +
+        '<div class="result-msg">' + msg + '</div>' +
+        review +
+        '<div class="nav-btns" style="margin-top:16px">' +
+        '<button class="nav-btn" onclick="backToList()">📋 ' + (isEn()?'Quiz list':'퀴즈 목록') + '</button>' +
+        '<button class="nav-btn primary" onclick="startQuiz(' + qz.id + ')">🔄 ' + (isEn()?'Try again':'다시 도전') + '</button>' +
+        '</div></div>';
+      window.scrollTo(0,0);
+    }
+
+    loadList();
+  </script>
+<!-- BUILD:20260612170917 -->
+</body>
+</html>
