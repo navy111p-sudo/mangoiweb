@@ -1,19 +1,19 @@
-# Change-set QA report (2026-06-12T02:06:03.740Z)
+# Change-set QA report (2026-06-12T03:01:51.492Z)
 
-PASS=60 FAIL=1
+PASS=72 FAIL=2
 
 PASS  integrity:cloudflare-deploy/public/index.html delta  — HEAD=27076 WORK=27076 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/index.html tail  — tail="</html>"
-PASS  integrity:cloudflare-deploy/src/api-mango.ts delta  — HEAD=10892 WORK=10892 delta=0 (expect 0)
+FAIL  integrity:cloudflare-deploy/src/api-mango.ts delta  — HEAD=10892 WORK=11003 delta=111 (expect 0)
 PASS  integrity:cloudflare-deploy/src/api-mango.ts tail  — tail="}"
 PASS  integrity:cloudflare-deploy/src/api-mango.ts brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
 PASS  integrity:cloudflare-deploy/src/index.ts delta  — HEAD=1950 WORK=1950 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/src/index.ts tail  — tail="}"
 PASS  integrity:cloudflare-deploy/src/index.ts brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html delta  — HEAD=1446 WORK=1446 delta=0 (expect 0)
+PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html delta  — HEAD=1449 WORK=1449 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-FAIL  integrity:cloudflare-deploy/public/admin.html delta  — HEAD=35998 WORK=36012 delta=14 (expect 0)
+FAIL  integrity:cloudflare-deploy/public/admin.html delta  — HEAD=36012 WORK=36033 delta=21 (expect 0)
 PASS  integrity:cloudflare-deploy/public/admin.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/public/admin.html brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
 PASS  syntax:cloudflare-deploy/public/index.html  — 57 inline scripts, 0 errors
@@ -63,3 +63,16 @@ PASS  lp:video+FAB at body level
 PASS  lp:consult FAB present + kakao link
 PASS  lp:visibility sync on screen change
 PASS  lp:FAB z-index above sticky bar
+PASS  sb:sub active CSS (!important)
+PASS  sb:head active CSS
+PASS  sb:click sets active + clears prev
+PASS  sb:ancestor details opened (손자 카드)
+PASS  hl:::after overlay pulse
+PASS  hl:rAFx2 start in ph97 + jumpToMenu
+PASS  fam:6 handlers implemented
+PASS  fam:lazy tables
+PASS  fam:null body guarded
+PASS  fam:frontend wiring matches
+PASS  video:plays once then dismiss
+PASS  video:close btn + 30% smaller
+PASS  video:unmute skips control buttons

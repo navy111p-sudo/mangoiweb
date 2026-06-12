@@ -20612,7 +20612,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260612110811 -->
+        <!-- BUILD:20260612120317 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -25175,6 +25175,19 @@ button.chip:hover,
     display: flex; align-items: center;
   }
   .ph85-sub:hover { background: rgba(251,191,36,0.10); color: #fde68a; }
+  /* [2026-06-12] 클릭한 자식 메뉴·부모 그룹에 선택 색상 유지 — ph100 테마 !important 대응 */
+  #ph85-sidebar .ph85-sub:hover { background: rgba(251,191,36,0.16) !important; color: #fde68a !important; }
+  #ph85-sidebar .ph85-sub.ph85-active {
+    background: linear-gradient(90deg, rgba(251,191,36,0.30), rgba(251,191,36,0.08)) !important;
+    color: #fde047 !important; font-weight: 800 !important;
+    box-shadow: inset 3px 0 0 #fbbf24 !important;
+  }
+  #ph85-sidebar .ph85-sub.ph85-active::before { color: #fbbf24 !important; }
+  #ph85-sidebar .ph85-head.ph85-active {
+    background: rgba(251,191,36,0.12) !important;
+    box-shadow: inset 3px 0 0 #fbbf24 !important;
+  }
+  #ph85-sidebar .ph85-head.ph85-active .ph85-title { color: #fde047 !important; }
   .ph85-sub::before { content: '›'; color: #64748b; margin-right: 6px; }
 
   @media (min-width: 1024px) {
@@ -25952,6 +25965,11 @@ button.chip:hover,
     var sub = e.target.closest('#ph85-sidebar .ph85-sub');
     if (sub) {
       if (!__deliberate(e)) { e.stopPropagation(); e.preventDefault(); return; }
+      /* [2026-06-12] 클릭한 자식 메뉴 + 부모 그룹 head에 선택 색상 유지 */
+      document.querySelectorAll('#ph85-sidebar .ph85-active').forEach(function(x){ x.classList.remove('ph85-active'); });
+      sub.classList.add('ph85-active');
+      var __grp = sub.closest('.ph85-group');
+      if (__grp) { var __hd = __grp.querySelector('.ph85-head'); if (__hd) __hd.classList.add('ph85-active'); }
       var id = sub.dataset.card;
       if (id) {
         var c = document.getElementById(id);
@@ -25961,6 +25979,9 @@ button.chip:hover,
           c.style.display = '';
           c.style.visibility = 'visible';
           if (c.tagName === 'DETAILS') c.open = true;
+          /* [2026-06-12] 손자 카드(부모 카드 안 중첩) 대응: 조상 details 전부 열기 */
+          var __anc = c.parentElement;
+          while (__anc) { if (__anc.tagName === 'DETAILS') __anc.open = true; __anc = __anc.parentElement; }
           setTimeout(function(){
             c.scrollIntoView({behavior:'smooth',block:'start'});
             /* 무거운 카드 렌더(수십초 프리즈)가 끝나고 첫 프레임이 그려진 뒤 펄스 시작

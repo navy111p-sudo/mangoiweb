@@ -10420,6 +10420,117 @@ Q15. 상담 가능 시간은? A. 평일 오전 10시-오후 7시, 카카오톡 �
       }
     }
 
+    // [Phase FAM] - 가족 계정 통합 (2026-06-12 구현: 게이트만 있고 핸들러가 누락돼
+    //   /api/admin/families 등이 HTML로 폴스루 → "not valid JSON" 에러였던 것 수정)
+    const ensureFamilyTables = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS families (id INTEGER PRIMARY KEY AUTOINCREMENT, parent_uid TEXT NOT NULL, family_name TEXT NOT NULL, discount_percent INTEGER DEFAULT 10, created_at INTEGER NOT NULL);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS family_members (id INTEGER PRIMARY KEY AUTOINCREMENT, family_id INTEGER NOT NULL, student_uid TEXT NOT NULL, relationship TEXT, created_at INTEGER NOT NULL, UNIQUE(family_id, student_uid));`);
+    };
+
+    if (path === '/api/admin/family/create' && method === 'POST') {
+      try {
+        await ensureFamilyTables();
+        const body = (await parseJsonBody(request)) || {};
+        const parent_uid = String(body.parent_uid || '').trim();
+        const family_name = String(body.family_name || '').trim();
+        const discount_percent = Math.min(50, Math.max(0, Number(body.discount_percent) || 10));
+        if (!parent_uid || !family_name) return json({ ok: false, error: 'parent_uid_and_family_name_required' }, 400);
+        const dup = await env.DB.prepare(`SELECT id FROM families WHERE parent_uid = ?`).bind(parent_uid).first();
+        if (dup) return json({ ok: false, error: 'family_already_exists_for_parent' }, 409);
+        const r = await env.DB.prepare(`INSERT INTO families (parent_uid, family_name, discount_percent, created_at) VALUES (?,?,?,?)`)
+          .bind(parent_uid, family_name, discount_percent, Date.now()).run();
+        return json({ ok: true, id: r.meta?.last_row_id ?? null });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'family_create_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/admin/family/add-child' && method === 'POST') {
+      try {
+        await ensureFamilyTables();
+        const body = (await parseJsonBody(request)) || {};
+        const family_id = Number(body.family_id) || 0;
+        const student_uid = String(body.student_uid || '').trim();
+        const relationship = String(body.relationship || '자녀').trim();
+        if (!family_id || !student_uid) return json({ ok: false, error: 'family_id_and_student_uid_required' }, 400);
+        const fam = await env.DB.prepare(`SELECT id FROM families WHERE id = ?`).bind(family_id).first();
+        if (!fam) return json({ ok: false, error: 'family_not_found' }, 404);
+        try {
+          await env.DB.prepare(`INSERT INTO family_members (family_id, student_uid, relationship, created_at) VALUES (?,?,?,?)`)
+            .bind(family_id, student_uid, relationship, Date.now()).run();
+        } catch {
+          return json({ ok: false, error: 'already_member' }, 409);
+        }
+        return json({ ok: true });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'family_add_child_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/admin/family/remove-child' && method === 'POST') {
+      try {
+        await ensureFamilyTables();
+        const body = (await parseJsonBody(request)) || {};
+        const member_id = Number(body.member_id) || 0;
+        if (!member_id) return json({ ok: false, error: 'member_id_required' }, 400);
+        await env.DB.prepare(`DELETE FROM family_members WHERE id = ?`).bind(member_id).run();
+        return json({ ok: true });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'family_remove_child_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/admin/families' && method === 'GET') {
+      try {
+        await ensureFamilyTables();
+        const fams = ((await env.DB.prepare(`SELECT * FROM families ORDER BY created_at DESC`).all()).results || []) as any[];
+        const mems = ((await env.DB.prepare(`SELECT * FROM family_members ORDER BY created_at ASC`).all()).results || []) as any[];
+        const byFam: Record<string, any[]> = {};
+        for (const m of mems) (byFam[String(m.family_id)] ||= []).push(m);
+        const list = fams.map(f => {
+          const members = byFam[String(f.id)] || [];
+          return { ...f, members, member_count: members.length };
+        });
+        return json({ ok: true, list });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'families_list_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/family/my-children' && method === 'GET') {
+      try {
+        await ensureFamilyTables();
+        const uid = String(url.searchParams.get('user_id') || '').trim();
+        if (!uid) return json({ ok: false, error: 'user_id_required' }, 400);
+        const fam = await env.DB.prepare(`SELECT * FROM families WHERE parent_uid = ?`).bind(uid).first<any>();
+        if (!fam) return json({ ok: true, family: null, children: [] });
+        const mems = ((await env.DB.prepare(`SELECT * FROM family_members WHERE family_id = ? ORDER BY created_at ASC`).bind(fam.id).all()).results || []) as any[];
+        return json({ ok: true, family: { id: fam.id, family_name: fam.family_name, discount_percent: fam.discount_percent }, children: mems });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'my_children_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/family/discount-status' && method === 'GET') {
+      try {
+        await ensureFamilyTables();
+        const uid = String(url.searchParams.get('user_id') || '').trim();
+        if (!uid) return json({ ok: false, error: 'user_id_required' }, 400);
+        let fam = await env.DB.prepare(`SELECT * FROM families WHERE parent_uid = ?`).bind(uid).first<any>();
+        if (!fam) {
+          const mem = await env.DB.prepare(`SELECT family_id FROM family_members WHERE student_uid = ?`).bind(uid).first<any>();
+          if (mem) fam = await env.DB.prepare(`SELECT * FROM families WHERE id = ?`).bind(mem.family_id).first<any>();
+        }
+        if (!fam) return json({ ok: true, eligible: false, discount_percent: 0, member_count: 0 });
+        const cnt = await env.DB.prepare(`SELECT COUNT(*) AS c FROM family_members WHERE family_id = ?`).bind(fam.id).first<any>();
+        const member_count = Number(cnt?.c || 0);
+        const eligible = member_count >= 2;
+        return json({ ok: true, eligible, discount_percent: eligible ? Number(fam.discount_percent || 0) : 0, member_count, family_name: fam.family_name });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'discount_status_failed' }, 500);
+      }
+    }
+
     // [Phase ALU] - Alumni Community
     //   - Graduates/long-term students join alumni pool, share mentorship/careers/news
     //   - Admin auto-detect: enrolled_months >= 12 -> prompt alumni registration (TODO: separate cron)

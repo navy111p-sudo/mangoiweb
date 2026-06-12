@@ -150,6 +150,25 @@ ok('lp:consult FAB present + kakao link', /id="consult-fab"/.test(lp612) && lp61
 ok('lp:visibility sync on screen change', /function syncVis/.test(lp612) && /gv-hidden/.test(lp612));
 ok('lp:FAB z-index above sticky bar', /\.consult-fab\{[^}]*z-index:70/.test(lp612));
 
+console.log('\n=== 7) 2026-06-12 2차 — 사이드바 active 색상 + 가족 API + 하이라이트 ===');
+const adm7 = read(CD + '/public/admin.html');
+ok('sb:sub active CSS (!important)', /\.ph85-sub\.ph85-active[\s\S]{0,200}inset 3px 0 0 #fbbf24/.test(adm7));
+ok('sb:head active CSS', /\.ph85-head\.ph85-active/.test(adm7));
+ok('sb:click sets active + clears prev', adm7.includes("sub.classList.add('ph85-active')") && adm7.includes(".ph85-active').forEach(function(x){ x.classList.remove('ph85-active')"));
+ok('sb:ancestor details opened (손자 카드)', /__anc\.tagName === 'DETAILS'\) __anc\.open = true/.test(adm7));
+ok('hl:::after overlay pulse', adm7.includes('.ph96-highlight::after') && adm7.includes('@keyframes ph96pulse'));
+ok('hl:rAFx2 start in ph97 + jumpToMenu', (adm7.match(/requestAnimationFrame\(/g)||[]).length >= 4);
+const api7 = read(CD + '/src/api-mango.ts');
+const famPaths = ['/api/admin/family/create','/api/admin/family/add-child','/api/admin/family/remove-child','/api/admin/families','/api/family/my-children','/api/family/discount-status'];
+ok('fam:6 handlers implemented', famPaths.every(pp => api7.includes(`path === '${pp}'`)));
+ok('fam:lazy tables', api7.includes('CREATE TABLE IF NOT EXISTS families') && api7.includes('CREATE TABLE IF NOT EXISTS family_members'));
+ok('fam:null body guarded', !/\[Phase FAM\][\s\S]*?\[Phase ALU\]/.test(api7) || /\(await parseJsonBody\(request\)\) \|\| \{\}/.test(api7));
+ok('fam:frontend wiring matches', read(CD+'/public/admin.html').includes("fetch('/api/admin/families')") && api7.includes("return json({ ok: true, list })"));
+const lp7 = read(CD + '/public/lesson-postpone-demo.html');
+ok('video:plays once then dismiss', lp7.includes("addEventListener('ended',dismiss)") && !/guide-video\.mp4" autoplay muted loop/.test(lp7));
+ok('video:close btn + 30% smaller', lp7.includes('id="gv-close"') && lp7.includes('width:35%;max-width:210px'));
+ok('video:unmute skips control buttons', lp7.includes('closeBtn&&closeBtn.contains(e.target)'));
+
 console.log(`\n=== SUMMARY: ${pass} passed, ${fail} failed ===`);
 // write report
 const report = `# Change-set QA report (${new Date().toISOString()})\n\nPASS=${pass} FAIL=${fail}\n\n${log.join('\n')}\n`;
