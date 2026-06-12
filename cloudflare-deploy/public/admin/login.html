@@ -60,14 +60,15 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
 .footer{padding:12px 28px 22px;text-align:center;font-size:11px;color:rgba(230,236,255,0.55);border-top:1px solid rgba(255,255,255,0.1)}
 .footer a{color:#60a5fa;text-decoration:none;font-weight:700}
 .footer a:hover{text-decoration:underline}
-.home-link{position:fixed;top:14px;left:14px;z-index:3;background:rgba(255,255,255,0.1);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.22);color:#fff;padding:7px 14px;border-radius:99px;text-decoration:none;font-size:12px;font-weight:700;box-shadow:0 4px 12px -2px rgba(0,0,0,0.4)}
+.home-link{position:fixed;top:14px;left:60px;z-index:99999;width:38px;height:38px;display:flex;align-items:center;justify-content:center;background:rgba(20,33,59,0.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.22);color:#fff;border-radius:99px;text-decoration:none;font-size:17px;line-height:1;box-shadow:0 6px 18px -2px rgba(0,0,0,0.4);transition:all .15s;-webkit-tap-highlight-color:transparent}
+@media(max-width:480px){.home-link{top:8px;left:48px;width:34px;height:34px;font-size:15px}}
 .home-link:hover{background:rgba(255,255,255,0.18)}
 </style>
 </head>
 <body>
 <div id="lg-bg"></div>
 <div id="lg-stars"></div>
-<a href="/" class="home-link">🏠 홈으로</a>
+<a href="/" class="home-link" title="홈으로" aria-label="홈으로 (학생 홈페이지)">🏠</a>
 <div class="wrap">
   <div class="head">
     <div class="lock-icon">🔐</div>
