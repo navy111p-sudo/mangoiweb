@@ -3512,6 +3512,14 @@
       #login-btn.hero-chip{ right: 5.5rem; }
       #lang-toggle.hero-chip-lang{ right: 1.1rem; }
       .hero-chip-lang #lang-label{ color:#fde68a; font-weight:800; }
+      /* [2026-06-12] 화상통화 로비가 떠 있으면 홈 칩 전부 숨김 — 우상단 두 줄 겹침 방지 */
+      body:has(#view-videocall-lobby.active) #view-home .hero-chip{ display:none !important; }
+      /* 로비 우상단 바: 모바일에서도 한 줄 유지·축소 */
+      @media (max-width:640px){
+        #lobby-topbar{ top:0.7rem !important; right:0.7rem !important; gap:5px !important; }
+        #lobby-topbar > button, #lobby-topbar > a{ padding:0.32rem 0.5rem !important; font-size:0.74rem !important; }
+        #lobby-topbar #lobby-audio-icon{ font-size:0.9rem !important; }
+      }
       /* 🆕 모바일에서는 우상단 칩들이 좁아 겹치므로 두 줄로 분리:
          1줄: 포인트 (작게)
          2줄: 로그인 + EN (가로 배치 with right padding) */
@@ -5985,13 +5993,12 @@
     <audio id="lobby-welcome-audio" src="/audio/lobby-welcome.mp3" preload="auto" data-ko-title="환영 음성" data-en-title="Welcome audio"></audio>
 
     <!-- 🎯 우측 상단 컨트롤 바: [🔊 음성] [🏠 메인] [🌐 EN] 한 줄 정렬 -->
-    <div style="position:absolute;top:1.2rem;right:1.2rem;z-index:10;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <div id="lobby-topbar" style="position:absolute;top:1.2rem;right:1.2rem;z-index:10;display:flex;gap:6px;align-items:center;flex-wrap:nowrap">
       <button id="lobby-audio-toggle" type="button" onclick="lobbyToggleAudio()"
               data-ko-title="환영 음성 켜기/끄기" data-en-title="Toggle welcome audio"
-              title="환영 음성 켜기/끄기"
-              style="background:rgba(30,41,59,0.55);backdrop-filter:blur(6px);border:1px solid rgba(148,163,184,0.25);border-radius:12px;padding:0.45rem 0.7rem;color:#cbd5e1;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;gap:0.4rem;transition:all 0.3s;">
-          <span id="lobby-audio-icon" style="font-size:1rem">🔊</span>
-          <span id="lobby-audio-label" data-ko="음성 ON" data-en="Audio ON">음성 ON</span>
+              title="환영 음성 켜기/끄기" aria-label="환영 음성 켜기/끄기"
+              style="background:rgba(30,41,59,0.55);backdrop-filter:blur(6px);border:1px solid rgba(148,163,184,0.25);border-radius:999px;padding:0.4rem 0.55rem;color:#cbd5e1;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.3s;">
+          <span id="lobby-audio-icon" style="font-size:1rem;line-height:1">🔊</span>
       </button>
       <a href="/" data-ko-title="메인 홈" data-en-title="Main Home" title="메인 홈"
          style="background:rgba(30,41,59,0.55);backdrop-filter:blur(6px);border:1px solid rgba(251,191,36,0.40);border-radius:12px;padding:0.45rem 0.7rem;color:#fbbf24;font-size:0.85rem;text-decoration:none;display:flex;align-items:center;gap:0.4rem;font-weight:700;transition:all 0.3s">
@@ -25147,7 +25154,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260612162851 -->
+<!-- BUILD:20260612170203 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
