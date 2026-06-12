@@ -20612,7 +20612,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260612105300 -->
+        <!-- BUILD:20260612110811 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -25904,11 +25904,23 @@ button.chip:hover,
   if (window.__ph97) return;
   window.__ph97 = true;
 
+  // [ph97-감도보정 2026-06-12] 드래그로 발생한 클릭 무시 + 연속클릭 디바운스
+  var __pdX=0, __pdY=0, __lastAct=0;
+  window.addEventListener('pointerdown', function(e){ __pdX=e.clientX; __pdY=e.clientY; }, true);
+  function __deliberate(e){
+    var dx=Math.abs(e.clientX-__pdX), dy=Math.abs(e.clientY-__pdY);
+    if (dx>12 || dy>12) { console.log('[ph97] 클릭 무시: 드래그 중 ('+dx+','+dy+'px)'); return false; }
+    var now=Date.now();
+    if (now-__lastAct < 350) { console.log('[ph97] 클릭 무시: 너무 빠른 연속 클릭'); return false; }
+    __lastAct=now; return true;
+  }
+
   // 글로벌 capture-phase click — 어떤 stopPropagation 도 막을 수 없음
   window.addEventListener('click', function(e){
     // 1) 모두 펼치기 / 모두 접기 / 숨기기
     var btn = e.target.closest('.ph86-action-btn');
     if (btn) {
+      if (!__deliberate(e)) { e.stopPropagation(); e.preventDefault(); return; }
       var act = btn.dataset.act;
       if (act === 'expand') {
         document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(g){ g.classList.add('open'); });
@@ -25925,6 +25937,7 @@ button.chip:hover,
     // 2) 그룹 헤더 — 아코디언(한 번에 하나만 열림)
     var head = e.target.closest('#ph85-sidebar .ph85-head');
     if (head) {
+      if (!__deliberate(e)) { e.stopPropagation(); e.preventDefault(); return; }
       var g = head.parentElement;
       if (g) {
         var wasOpen = g.classList.contains('open');
@@ -25938,6 +25951,7 @@ button.chip:hover,
     // 3) 하위 메뉴 → 카드 scroll
     var sub = e.target.closest('#ph85-sidebar .ph85-sub');
     if (sub) {
+      if (!__deliberate(e)) { e.stopPropagation(); e.preventDefault(); return; }
       var id = sub.dataset.card;
       if (id) {
         var c = document.getElementById(id);

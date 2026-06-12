@@ -1413,13 +1413,16 @@ function attachHandlers(){
   gv.play().then(function(){ btn.textContent='🔊'; }).catch(function(){
     gv.muted=true; btn.textContent='🔇';
     gv.play().catch(function(){});
-    var unmute=function(){
-      if(done||!gv.muted) return;
+    var unmute=function(e){
+      if(done||!gv.muted){ document.removeEventListener('pointerdown',unmute,true); return; }
+      /* X 닫기·음소거 버튼 클릭은 소리 켜기로 취급하지 않음 (닫는 순간 소리 튐 방지) */
+      if(e&&e.target&&((closeBtn&&closeBtn.contains(e.target))||btn.contains(e.target))) return;
+      document.removeEventListener('pointerdown',unmute,true);
       gv.muted=false; btn.textContent='🔊';
       gv.currentTime=0;
       gv.play().catch(function(){});
     };
-    document.addEventListener('pointerdown',unmute,{once:true});
+    document.addEventListener('pointerdown',unmute,true);
   });
 
   btn.addEventListener('click',function(e){
@@ -1441,6 +1444,6 @@ function attachHandlers(){
   new MutationObserver(syncVis).observe(main,{attributes:true,attributeFilter:['class']});
 })();
 </script>
-<!-- BUILD:20260612105300 -->
+<!-- BUILD:20260612110811 -->
 </body>
 </html>
