@@ -16766,6 +16766,35 @@ window.addEventListener('DOMContentLoaded', () => {
     'other': { icon: '❓', name: '기타 / 상담', detail: '맞춤 코스', price: 0 },
   };
 
+  // 🎬 결제 안내 영상 (typecast 남자 강사) — 결제하기 진입 시 자동 재생, 끝나면 자동으로 사라짐 (2026-06-12)
+  function killPayGuideVideo(){
+    var w = document.getElementById('pay-guide-vid-wrap');
+    if (w) { try { var v = w.querySelector('video'); if (v) v.pause(); } catch(_){} if (w.parentNode) w.parentNode.removeChild(w); }
+  }
+  function showPayGuideVideo(){
+    killPayGuideVideo();
+    var vw = document.createElement('div');
+    vw.id = 'pay-guide-vid-wrap';
+    vw.style.cssText = 'position:fixed;top:12px;right:12px;z-index:10001;width:min(220px,44vw);aspect-ratio:1/1;border-radius:16px;overflow:hidden;box-shadow:0 12px 30px -8px rgba(0,0,0,.7);border:1px solid rgba(251,191,36,.45);background:#000;cursor:pointer;animation:fadeIn .25s';
+    vw.innerHTML = '<video id="pay-guide-vid" src="/video/payment-guide-male.mp4" autoplay playsinline preload="auto" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none"></video>'
+      + '<button type="button" id="pay-guide-vid-mute" title="소리 켜기/끄기" aria-label="소리 켜기/끄기" style="position:absolute;right:6px;bottom:6px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">🔊</button>'
+      + '<button type="button" id="pay-guide-vid-x" title="닫기" aria-label="닫기" style="position:absolute;left:6px;top:6px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.5);color:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">✕</button>';
+    document.body.appendChild(vw);
+    var vid = vw.querySelector('#pay-guide-vid');
+    var vmb = vw.querySelector('#pay-guide-vid-mute');
+    var vx  = vw.querySelector('#pay-guide-vid-x');
+    function vupd(){ vmb.textContent = vid.muted ? '🔇' : '🔊'; }
+    // 음성+영상 자동재생 (1회). 브라우저가 막으면 무음으로라도 재생.
+    vid.muted = false;
+    var p0 = vid.play();
+    if (p0 && p0.catch) p0.catch(function(){ vid.muted = true; vupd(); var p1 = vid.play(); if (p1 && p1.catch) p1.catch(function(){}); });
+    vupd();
+    vid.addEventListener('ended', killPayGuideVideo);           // 끝나면 자동으로 사라짐
+    vmb.addEventListener('click', function(e){ e.stopPropagation(); vid.muted = !vid.muted; if (!vid.muted) { var pp = vid.play(); if (pp && pp.catch) pp.catch(function(){}); } vupd(); });
+    vx.addEventListener('click', function(e){ e.stopPropagation(); killPayGuideVideo(); });
+    vw.addEventListener('click', killPayGuideVideo);            // 영상 클릭해도 바로 사라짐
+  }
+
   window.openPaymentModal = function(){
     selectedProgram = null; selectedPrice = 0; selectedMethod = null;
     payMode = null; extStudent = null; extMode = 'same'; extPackage = null; extAddons = new Set();
@@ -16787,10 +16816,12 @@ window.addEventListener('DOMContentLoaded', () => {
     payGoStep(0);
     result.style.display = 'none';
     modal.style.display = 'flex';
+    showPayGuideVideo();   // 🎬 결제 안내 영상 자동 재생
   };
 
   function closeModal(){
     modal.style.display = 'none';
+    killPayGuideVideo();   // 영상도 함께 종료
     // 결제 모달 닫으면 히트맵 그리드(메뉴)로 자동 복귀
     const gm = document.getElementById('grid-menu');
     if (gm) gm.style.display = 'block';
@@ -25116,7 +25147,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260612121026 -->
+<!-- BUILD:20260612121744 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

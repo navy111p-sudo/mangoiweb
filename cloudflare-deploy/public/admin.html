@@ -18925,6 +18925,7 @@ function jumpToMenu(id, opts) {
   el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   // 시각적 강조 — 렌더 안정 후(rAF x2) 배경 틴트+링 글로우 펄스 (2026-06-12)
   requestAnimationFrame(() => { requestAnimationFrame(() => {
+    el.scrollIntoView({ behavior: 'auto', block: 'start' }); /* 렌더 후 위치 재보정 */
     el.classList.remove('ph96-highlight');
     void el.offsetWidth; /* 애니메이션 재시작 */
     el.classList.add('ph96-highlight');
@@ -20612,7 +20613,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260612121026 -->
+        <!-- BUILD:20260612121744 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -25885,7 +25886,7 @@ button.chip:hover,
 
   /* [성능 2026-06-12] legacy-cards 첫 표시 시 100+ 카드 동시 렌더 → 수십초 메인스레드 프리즈 방지.
      화면 밖 카드는 content-visibility:auto 로 렌더 생략(스크롤·scrollIntoView 시 자동 렌더). */
-  #legacy-cards > details, #legacy-cards > .table-card {
+  #legacy-cards details, #legacy-cards .table-card {
     content-visibility: auto;
     contain-intrinsic-size: auto 180px;
   }
@@ -25994,6 +25995,8 @@ button.chip:hover,
             /* 무거운 카드 렌더(수십초 프리즈)가 끝나고 첫 프레임이 그려진 뒤 펄스 시작
                — 프리즈 중에 시작하면 애니메이션이 화면 풀리기 전에 이미 끝나버림 (2026-06-12) */
             requestAnimationFrame(function(){ requestAnimationFrame(function(){
+              /* content-visibility 추정 높이로 어긋난 스크롤 위치 재보정 */
+              c.scrollIntoView({behavior:'auto',block:'start'});
               c.classList.remove('ph96-highlight');
               void c.offsetWidth; /* 애니메이션 재시작 */
               c.classList.add('ph96-highlight');
