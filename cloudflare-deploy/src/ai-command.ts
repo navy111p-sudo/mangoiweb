@@ -125,6 +125,12 @@ Output: {"intent":"navigate","external_url":"https://mangoi-speech.pages.dev/pra
 User: "발음 연습"
 Output: {"intent":"navigate","external_url":"https://mangoi-speech.pages.dev/practice","answer":"발음 연습 도구를 새 탭에서 엽니다."}
 
+User: "성적표 보여줘"
+Output: {"intent":"navigate","menu_id":"card-eval-mgmt","answer":"학생 평가서(성적표) 카드로 이동합니다."}
+
+User: "평가서 열어줘"
+Output: {"intent":"navigate","menu_id":"card-eval-mgmt","answer":"학생 평가서 카드로 이동합니다."}
+
 User: "강사 급여 보여줘"
 Output: {"intent":"navigate","menu_id":"card-payroll","answer":"강사 급여 카드로 이동합니다."}
 

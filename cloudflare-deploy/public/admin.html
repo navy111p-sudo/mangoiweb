@@ -20613,7 +20613,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260612123636 -->
+        <!-- BUILD:20260612131455 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -35964,6 +35964,26 @@ button.chip:hover,
       var res=await r.json(); untype();
       if(res && res.ok!==false && res.answer){ bubble('ai', esc(res.answer).replace(/\n/g,'<br>')); }
       else { bubble('ai', fb(q)); }
+      /* [2026-06-12] 말만 하고 이동 안 하던 버그 수정 — navigate intent 실제 실행 */
+      if(res && res.ok!==false && res.intent==='navigate'){
+        if(res.menu_id){
+          var card=document.getElementById(res.menu_id);
+          if(card){
+            setTimeout(function(){
+              close(); /* 패널 닫고 카드가 보이게 */
+              if(typeof jumpToMenu==='function'){ jumpToMenu(res.menu_id); }
+              else { card.scrollIntoView({behavior:'smooth',block:'start'}); }
+            },700);
+          } else {
+            bubble('ai','⚠️ 해당 메뉴 카드를 찾지 못했어요: '+esc(res.menu_id));
+          }
+        } else if(res.external_url){
+          bubble('ai','🔗 <a href="'+esc(res.external_url)+'" target="_blank" rel="noopener" style="color:#93c5fd;font-weight:700">새 탭에서 열기</a> (자동으로 안 열리면 클릭)');
+          setTimeout(function(){ try{ window.open(res.external_url,'_blank','noopener'); }catch(e){} },300);
+        } else if(res.url){
+          setTimeout(function(){ window.location.href=res.url; },700);
+        }
+      }
     }catch(e){ untype(); bubble('ai', fb(q)); }
   }
   window.miAsstAsk=ask;
