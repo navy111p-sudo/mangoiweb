@@ -21117,7 +21117,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260613204014 -->
+        <!-- BUILD:20260613203124 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -36413,173 +36413,106 @@ button.chip:hover,
   }
 })();
 </script>
-<!-- 🥭 P3 — AI 운영 비서 대화 패널 (ai-command 연결 · 한/영 이중언어 · 가산적/비파괴 · mi-asst-) -->
+<!-- 🥭 P3 — AI 운영 비서 대화 패널 (기존 ai-command 연결 · 가산적/비파괴 · id 충돌 회피 mi-asst-) -->
 <script>
 (function(){
   if(document.getElementById('mi-asst-panel')) return;
-
-  // 🌐 현재 언어 (admin.html 의 window.adminLang 사용, 기본 ko)
-  function curLang(){ try{ return (window.adminLang==='en')?'en':'ko'; }catch(e){ return 'ko'; } }
-  function isEn(){ return curLang()==='en'; }
-  function L(ko,en){ return isEn()?en:ko; }
-
   var st=document.createElement('style');
   st.textContent='@keyframes miAsstSlide{from{transform:translateX(100%)}to{transform:translateX(0)}}'
     +'.mi-dot{display:inline-block;width:6px;height:6px;margin:0 1px;border-radius:50%;background:#94a3b8;animation:miDot 1s infinite}'
     +'.mi-dot:nth-child(2){animation-delay:.15s}.mi-dot:nth-child(3){animation-delay:.3s}'
     +'@keyframes miDot{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}'
     +'#mi-asst-chips button:hover{background:rgba(99,102,241,.18)}'
-    +'#mi-asst-fab:hover{transform:scale(1.06)}'
-    +'.mi-nav-item{cursor:pointer;border-radius:8px;padding:3px 6px;margin:1px -6px;transition:background .15s ease}'
-    +'.mi-nav-item:hover{background:rgba(99,102,241,.22)}'
-    +'.mi-nav-item:after{content:" ↗";opacity:.55;font-size:11px}';
+    +'#mi-asst-fab:hover{transform:scale(1.06)}';
   document.head.appendChild(st);
 
   var box=document.createElement('div');
   box.innerHTML=''
    +'<div id="mi-asst-back" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(2,6,23,.5);backdrop-filter:blur(2px)"></div>'
-   +'<aside id="mi-asst-panel" role="dialog" aria-label="AI Ops Assistant" style="display:none;position:fixed;top:0;right:0;z-index:9999;height:100vh;width:390px;max-width:94vw;background:#0f172a;border-left:1px solid rgba(99,102,241,.25);box-shadow:-12px 0 40px -12px rgba(0,0,0,.6);flex-direction:column;animation:miAsstSlide .28s ease both">'
+   +'<aside id="mi-asst-panel" style="display:none;position:fixed;top:0;right:0;z-index:9999;height:100vh;width:390px;max-width:94vw;background:#0f172a;border-left:1px solid rgba(99,102,241,.25);box-shadow:-12px 0 40px -12px rgba(0,0,0,.6);flex-direction:column;animation:miAsstSlide .28s ease both">'
    +'  <div style="display:flex;align-items:center;gap:10px;padding:0 16px;height:60px;border-bottom:1px solid rgba(99,102,241,.18)">'
-   +'    <img src="/img/Mangoi_Character.png" alt="Mangoi AI Ops Assistant" style="width:40px;height:34px;object-fit:contain;flex:none;filter:drop-shadow(0 2px 5px rgba(0,0,0,.4))">'
-   +'    <div style="line-height:1.2"><div id="mi-asst-title" style="font-weight:800;color:#e6ecff"></div><div id="mi-asst-status" style="font-size:11px;color:#34d399"></div></div>'
-   +'    <button id="mi-asst-close" aria-label="Close" style="margin-left:auto;background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;padding:6px">✕</button>'
+   +'    <img src="/img/Mangoi_Character.png" alt="망고아이 AI 운영 비서" style="width:40px;height:34px;object-fit:contain;flex:none;filter:drop-shadow(0 2px 5px rgba(0,0,0,.4))">'
+   +'    <div style="line-height:1.2"><div style="font-weight:800;color:#e6ecff">AI 운영 비서</div><div style="font-size:11px;color:#34d399">● 온라인</div></div>'
+   +'    <button id="mi-asst-close" aria-label="닫기" style="margin-left:auto;background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;padding:6px">✕</button>'
    +'  </div>'
-   +'  <div id="mi-asst-body" role="log" aria-live="polite" aria-label="AI Ops Assistant chat" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px"></div>'
+   +'  <div id="mi-asst-body" role="log" aria-live="polite" aria-label="AI 운영 비서 대화" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px"></div>'
    +'  <div id="mi-asst-chips" style="display:flex;gap:8px;overflow-x:auto;padding:0 14px 8px"></div>'
    +'  <form id="mi-asst-form" style="display:flex;gap:8px;padding:12px;border-top:1px solid rgba(99,102,241,.18)">'
-   +'    <input id="mi-asst-input" autocomplete="off" style="flex:1;height:44px;padding:0 14px;border-radius:12px;border:1px solid rgba(99,102,241,.25);background:#0c1a3a;color:#e6ecff;outline:none;font-size:14px"/>'
-   +'    <button type="submit" aria-label="Send" style="width:44px;height:44px;border:none;border-radius:12px;background:#2563eb;color:#fff;font-size:18px;cursor:pointer">➤</button>'
+   +'    <input id="mi-asst-input" autocomplete="off" placeholder="무엇이든 물어보세요…" style="flex:1;height:44px;padding:0 14px;border-radius:12px;border:1px solid rgba(99,102,241,.25);background:#0c1a3a;color:#e6ecff;outline:none;font-size:14px"/>'
+   +'    <button type="submit" aria-label="보내기" style="width:44px;height:44px;border:none;border-radius:12px;background:#2563eb;color:#fff;font-size:18px;cursor:pointer">➤</button>'
    +'  </form>'
    +'</aside>';
   document.body.appendChild(box);
 
   var panel=document.getElementById('mi-asst-panel'), back=document.getElementById('mi-asst-back'), body=document.getElementById('mi-asst-body');
   function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
-
-  // 🧭 메뉴/카드로 이동 — 패널 닫고 해당 카드 펼침+강조
-  function goCard(id){
-    close();
-    setTimeout(function(){
-      if(typeof jumpToMenu==='function'){ jumpToMenu(id); }
-      else { var c=document.getElementById(id); if(c){ try{c.open=true;}catch(e){} c.scrollIntoView({behavior:'smooth',block:'start'}); } }
-    },380);
-  }
-  window.miAsstGoCard=goCard;
-
   function bubble(role,html){
     var w=document.createElement('div');
     w.style.cssText='display:flex;'+(role==='me'?'justify-content:flex-end':'justify-content:flex-start');
     w.innerHTML=role==='me'
       ? '<div style="max-width:80%;padding:10px 13px;border-radius:14px 14px 4px 14px;background:#2563eb;color:#fff;font-size:13.5px;line-height:1.55">'+html+'</div>'
-      : '<div style="display:flex;gap:8px;max-width:92%"><img src="/img/Mangoi_Character.png" alt="" style="width:30px;height:26px;object-fit:contain;flex:none;filter:drop-shadow(0 1px 3px rgba(0,0,0,.35))"><div class="mi-bubble-content" style="padding:10px 13px;border-radius:14px 14px 14px 4px;background:#1e293b;color:#e6ecff;font-size:13.5px;line-height:1.6">'+html+'</div></div>';
+      : '<div style="display:flex;gap:8px;max-width:92%"><img src="/img/Mangoi_Character.png" alt="" style="width:30px;height:26px;object-fit:contain;flex:none;filter:drop-shadow(0 1px 3px rgba(0,0,0,.35))"><div style="padding:10px 13px;border-radius:14px 14px 14px 4px;background:#1e293b;color:#e6ecff;font-size:13.5px;line-height:1.6">'+html+'</div></div>';
     body.appendChild(w); body.scrollTop=body.scrollHeight; return w;
   }
   function typing(){ var w=bubble('ai','<span class="mi-dot"></span><span class="mi-dot"></span><span class="mi-dot"></span>'); w.id='mi-asst-typing'; return w; }
   function untype(){ var t=document.getElementById('mi-asst-typing'); if(t)t.remove(); }
 
-  // 폴백 응답 (서버 AI 실패 시) — 한/영
-  function FB(key){
-    var T={
-      eval:{ko:'알겠습니다 매니저님! 수업 음성(STT)과 키워드를 분석해 학부모용 피드백 초안을 만들었어요 ✍️<br><br><b>[잘한 점]</b> 일상 표현을 자신감 있게 구사했어요.<br><b>[보완할 점]</b> 과거시제(was/were)를 현재형과 혼동하는 경향이 있어요.<br><b>[다음 목표]</b> 과거시제 문장 10개 말하기로 정확도를 높여요.',
-            en:'Got it! I analyzed the lesson audio (STT) and keywords and drafted parent feedback ✍️<br><br><b>[Strengths]</b> Used everyday expressions with confidence.<br><b>[To improve]</b> Tends to confuse past tense (was/were) with present.<br><b>[Next goal]</b> Practice 10 past-tense sentences to boost accuracy.'},
-      alert:{ko:'이상 징후 대응을 도와드릴게요 🚨<br><br>• <b>GHOST 참관</b> — 조용히 입장해 확인<br>• <b>강사 귓속말</b> — 강사에게만 가이드<br>• 침묵 20초·네트워크 저하·금지어는 실시간 알림으로 잡혀요.',
-             en:'I can help you respond to anomalies 🚨<br><br>• <b>GHOST observe</b> — join silently to check<br>• <b>Whisper to teacher</b> — guide the teacher only<br>• 20s silence, network drops and banned words trigger real-time alerts.'},
-      settle:{ko:'정산·알림 업무 도와드릴게요 💸<br><br>• <b>미납 카톡</b> — D+1·D+3 자동 발송<br>• <b>지점 정산</b> — 본사 수수료 자동 계산<br>• <b>강사 급여</b> — 수업×단가, 환전 처리',
-              en:'I can help with settlement & alerts 💸<br><br>• <b>Overdue KakaoTalk</b> — auto-send on D+1 / D+3<br>• <b>Branch settlement</b> — auto-calculate HQ fees<br>• <b>Teacher payroll</b> — sessions × rate, FX handling'},
-      base:{ko:'무엇이든 도와드릴게요 매니저님!<br><br>1. ✍️ AI 평가서·학습 리포트 초안<br>2. 🚨 실시간 이상감지 대응<br>3. 💸 미납 알림·지점/강사 정산<br><br>아래 버튼을 누르거나 자유롭게 질문해 주세요!',
-            en:'I can help with anything!<br><br>1. ✍️ AI evaluation / learning report draft<br>2. 🚨 Real-time anomaly response<br>3. 💸 Overdue alerts · branch/teacher settlement<br><br>Tap a button below or just ask me anything!'}
-    };
-    return T[key][curLang()];
-  }
-  function fbKey(q){ if(/평가서|피드백|리포트|초안|eval|report|feedback|draft/i.test(q))return 'eval'; if(/이상|침묵|네트워크|고스트|참관|귓속말|감지|anomaly|alert|ghost|whisper|monitor/i.test(q))return 'alert'; if(/미납|수강료|정산|급여|알림톡|카톡|환전|overdue|unpaid|settle|payroll|salary/i.test(q))return 'settle'; return 'base'; }
+  var FB={
+    eval:'알겠습니다 매니저님! 수업 음성(STT)과 키워드를 분석해 학부모용 피드백 초안을 만들었어요 ✍️<br><br><b>[잘한 점]</b> 일상 표현을 자신감 있게 구사했어요.<br><b>[보완할 점]</b> 과거시제(was/were)를 현재형과 혼동하는 경향이 있어요.<br><b>[다음 목표]</b> 과거시제 문장 10개 말하기로 정확도를 높여요.<br><br>요약 —<br>1. 음성+키워드로 30초 내 초안 완성<br>2. 잘한 점·보완점·목표 3단 구성<br>3. 검토 후 카톡으로 바로 발송',
+    alert:'이상 징후 대응을 도와드릴게요 🚨<br><br>• <b>GHOST 참관</b> — 학생·강사 모르게 조용히 입장해 확인<br>• <b>강사 귓속말</b> — 학생에겐 안 들리게 강사에게만 가이드<br>• 침묵 20초·네트워크 저하·금지어는 실시간 알림으로 잡히고, 2회 연속이면 관리자 에스컬레이션<br><br>요약 —<br>1. 실시간 이상감지<br>2. 참관·귓속말로 즉시 개입<br>3. 반복 시 자동 에스컬레이션',
+    settle:'정산·알림 업무 도와드릴게요 💸<br><br>• <b>미납 카톡</b> — 대상 스캔 후 알림톡 D+1·D+3 자동 발송<br>• <b>지점 정산</b> — 매출에서 본사 수수료(15~18%)를 빼 자동 계산<br>• <b>강사 급여</b> — 수업 횟수×단가 산정, KRW/PHP 환전 처리<br><br>요약 —<br>1. 미납 안내 자동 발송<br>2. 지점 수수료 자동 정산<br>3. 강사료·환전까지 한 번에',
+    base:'무엇이든 도와드릴게요 매니저님! <img src="/img/Mangoi_Character.png" alt="망고" style="width:20px;height:17px;object-fit:contain;display:inline-block;vertical-align:-3px"><br><br>1. ✍️ AI 평가서·학습 리포트 초안<br>2. 🚨 실시간 이상감지 대응<br>3. 💸 미납 알림·지점/강사 정산<br><br>아래 버튼을 누르거나 자유롭게 질문해 주세요!'
+  };
+  function fb(q){ if(/평가서|피드백|리포트|초안/.test(q))return FB.eval; if(/이상|침묵|네트워크|고스트|참관|귓속말|감지/i.test(q))return FB.alert; if(/미납|수강료|정산|급여|알림톡|카톡|환전/.test(q))return FB.settle; return FB.base; }
 
   async function ask(q){
     bubble('me',esc(q)); typing();
     try{
-      var r=await fetch('/api/admin/ai-command',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({command:q, lang:curLang()})});
+      var r=await fetch('/api/admin/ai-command',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({command:q})});
       var res=await r.json(); untype();
       if(res && res.ok!==false && res.answer){ bubble('ai', esc(res.answer).replace(/\n/g,'<br>')); }
-      else { bubble('ai', FB(fbKey(q))); }
+      else { bubble('ai', fb(q)); }
+      /* [2026-06-12] 말만 하고 이동 안 하던 버그 수정 — navigate intent 실제 실행 */
       if(res && res.ok!==false && res.intent==='navigate'){
         if(res.menu_id){
           var card=document.getElementById(res.menu_id);
-          if(card){ setTimeout(function(){ goCard(res.menu_id); },650); }
-          else { bubble('ai', L('⚠️ 해당 메뉴 카드를 찾지 못했어요: ','⚠️ Could not find that menu card: ')+esc(res.menu_id)); }
+          if(card){
+            setTimeout(function(){
+              close(); /* 패널 닫고 카드가 보이게 */
+              if(typeof jumpToMenu==='function'){ jumpToMenu(res.menu_id); }
+              else { card.scrollIntoView({behavior:'smooth',block:'start'}); }
+            },700);
+          } else {
+            bubble('ai','⚠️ 해당 메뉴 카드를 찾지 못했어요: '+esc(res.menu_id));
+          }
         } else if(res.external_url){
-          bubble('ai','🔗 <a href="'+esc(res.external_url)+'" target="_blank" rel="noopener" style="color:#93c5fd;font-weight:700">'+L('새 탭에서 열기','Open in new tab')+'</a> '+L('(자동으로 안 열리면 클릭)','(click if it does not open automatically)'));
+          bubble('ai','🔗 <a href="'+esc(res.external_url)+'" target="_blank" rel="noopener" style="color:#93c5fd;font-weight:700">새 탭에서 열기</a> (자동으로 안 열리면 클릭)');
           setTimeout(function(){ try{ window.open(res.external_url,'_blank','noopener'); }catch(e){} },300);
         } else if(res.url){
-          setTimeout(function(){ window.location.href=res.url; },650);
+          setTimeout(function(){ window.location.href=res.url; },700);
         }
       }
-    }catch(e){ untype(); bubble('ai', FB(fbKey(q))); }
+    }catch(e){ untype(); bubble('ai', fb(q)); }
   }
   window.miAsstAsk=ask;
 
-  // 인사말의 1·2·3 항목 → 클릭 시 해당 메뉴 카드로 이동
-  var GREET_NAV=[
-    {ko:'✍️ AI 평가서·학습 리포트 초안', en:'✍️ AI evaluation / learning report draft', card:'card-ai-eval-draft'},
-    {ko:'🚨 실시간 이상감지 대응',       en:'🚨 Real-time anomaly response',          card:'card-admin-alerts'},
-    {ko:'💸 미납 알림·지점/강사 정산',    en:'💸 Overdue alerts · branch/teacher settlement', card:'card-auto-dunning'}
-  ];
-  function greetHtml(){
-    var head=L('안녕하세요 매니저님! 저는 망고아이 <b>AI 운영 비서</b>예요','Hello, manager! I am the Mangoi <b>AI Ops Assistant</b>');
-    var sub=L('평가서 작성·실시간 이상감지 대응·정산/알림까지 도와드릴게요.<br>아래 항목을 누르면 바로 해당 메뉴로 이동해요 👇','I help with evaluations, real-time anomaly response, settlement & alerts.<br>Tap an item below to jump straight to that menu 👇');
-    var items=GREET_NAV.map(function(it,i){
-      return '<div class="mi-nav-item" data-card="'+it.card+'"><b>'+(i+1)+'.</b> '+(isEn()?it.en:it.ko)+'</div>';
-    }).join('');
-    return head+' <img src="/img/Mangoi_Character.png" alt="" style="width:20px;height:17px;object-fit:contain;display:inline-block;vertical-align:-3px"><br>'+sub+'<br><br>'+items;
-  }
-  function wireGreet(w){
-    if(!w) return;
-    Array.prototype.forEach.call(w.querySelectorAll('.mi-nav-item'),function(el){
-      el.onclick=function(){ goCard(el.getAttribute('data-card')); };
-    });
-  }
-
-  var CHIPS_KO=['이번 주 평가서 초안 써줘','지금 이상감지 현황은?','이번 달 매출 보여줘','복습퀴즈 출제 열어줘'];
-  var CHIPS_EN=['Draft this week’s evaluation','Any anomalies right now?','Show this month’s revenue','Open the review quiz builder'];
-
-  var inited=false, greetBubble=null;
-  function renderChips(){
-    var ch=document.getElementById('mi-asst-chips');
-    var chips=isEn()?CHIPS_EN:CHIPS_KO;
-    ch.innerHTML=chips.map(function(c){return '<button type="button" style="flex:none;white-space:nowrap;font-size:12px;padding:7px 12px;border-radius:9999px;border:1px solid rgba(99,102,241,.25);background:#0c1a3a;color:#cbd5e1;cursor:pointer">'+esc(c)+'</button>';}).join('');
-    Array.prototype.forEach.call(ch.querySelectorAll('button'),function(b){ b.onclick=function(){ ask(b.textContent); }; });
-  }
-  function applyStaticLang(){
-    document.getElementById('mi-asst-title').textContent=L('AI 운영 비서','AI Ops Assistant');
-    document.getElementById('mi-asst-status').textContent=L('● 온라인','● Online');
-    document.getElementById('mi-asst-input').placeholder=L('무엇이든 물어보세요…','Ask me anything…');
-  }
+  var CHIPS=['이번 주 평가서 초안 써줘','지금 이상감지 현황은?','미납 학생 카톡 보내는 법','이번 달 지점 정산 요약'];
+  var inited=false;
   function boot(){
-    applyStaticLang();
-    if(inited){ return; } inited=true;
-    greetBubble=bubble('ai', greetHtml()); wireGreet(greetBubble);
-    renderChips();
+    if(inited)return; inited=true;
+    bubble('ai','안녕하세요 매니저님! 저는 망고아이 <b>AI 운영 비서</b>예요 <img src="/img/Mangoi_Character.png" alt="망고" style="width:20px;height:17px;object-fit:contain;display:inline-block;vertical-align:-3px"><br>평가서 작성·실시간 이상감지 대응·정산/알림까지 도와드릴게요.');
+    var ch=document.getElementById('mi-asst-chips');
+    ch.innerHTML=CHIPS.map(function(c){return '<button type="button" style="flex:none;white-space:nowrap;font-size:12px;padding:7px 12px;border-radius:9999px;border:1px solid rgba(99,102,241,.25);background:#0c1a3a;color:#cbd5e1;cursor:pointer">'+c+'</button>';}).join('');
+    Array.prototype.forEach.call(ch.querySelectorAll('button'),function(b){ b.onclick=function(){ ask(b.textContent); }; });
   }
   function open(){ boot(); panel.style.display='flex'; back.style.display='block'; }
   function close(){ panel.style.display='none'; back.style.display='none'; }
-  window.miAsstOpen=open;
+  window.miAsstOpen=open;  // 사이드바 메뉴에서 호출
   document.getElementById('mi-asst-close').onclick=close;
   back.onclick=close;
   document.getElementById('mi-asst-form').addEventListener('submit',function(e){ e.preventDefault(); var v=document.getElementById('mi-asst-input').value.trim(); if(!v)return; ask(v); document.getElementById('mi-asst-input').value=''; });
-
-  // 언어 토글 시 정적 텍스트·칩·인사말 즉시 갱신
-  function onLangChange(){
-    applyStaticLang();
-    if(inited){
-      renderChips();
-      if(greetBubble){ var gc=greetBubble.querySelector('.mi-bubble-content'); if(gc){ gc.innerHTML=greetHtml(); } wireGreet(greetBubble); }
-    }
-  }
-  try{ document.addEventListener('mangoi:lang-changed', onLangChange); }catch(e){}
-  try{ window.addEventListener('mangoi:lang-changed', onLangChange); }catch(e){}
-
-  applyStaticLang();
 })();
 </script>
-
 <!-- ♿ P4-a 접근성 개선 (가산적·비파괴): 키보드 포커스 링 + 모션 최소화 존중 -->
 <style id="mi-a11y">
 :where(button,a,input,select,textarea,summary,[tabindex]):focus-visible{

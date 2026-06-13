@@ -1632,9 +1632,7 @@ export async function handleMangoApi(
       const body = await parseJsonBody(request);
       const command = body?.command || '';
       if (!command) return json({ ok: false, error: 'command_required' }, 400);
-      // 🌐 프런트에서 전달한 언어 힌트 (en/ko) — AI 답변 언어 결정
-      const lang = (body?.lang === 'en') ? 'en' : 'ko';
-      const result = await processAiCommand(env, command, lang);
+      const result = await processAiCommand(env, command);
       return json(result, result.ok === false ? 500 : 200);
     }
 
@@ -3476,29 +3474,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
     // ═══════════════════════════════════════════════════════════════
 
     const ensureEvalTable = async () => {
-      // 신규 DB: user_id/eval_at 도 함께 생성(레거시 호환). 기존 DB 에는 아래 가산 마이그레이션이 적용됨.
-      await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_evaluations (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, eval_at INTEGER, student_uid TEXT, student_name TEXT, teacher_uid TEXT, teacher_name TEXT, room_id TEXT, lesson_title TEXT, lesson_date TEXT, score_participation INTEGER, score_comprehension INTEGER, score_homework INTEGER, score_attitude INTEGER, score_speaking INTEGER, score_overall REAL, strengths TEXT, improvements TEXT, next_goals TEXT, teacher_comment TEXT, parent_notified INTEGER DEFAULT 0, parent_notified_at INTEGER, viewed_by_parent INTEGER DEFAULT 0, viewed_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER);`);
-      // 🔧 fix (2026-06-13) — 스키마 드리프트 통합. 운영 DB 의 student_evaluations 는 레거시
-      //   스키마(user_id/eval_at/score_total/next_goal …)로 만들어져 있어, 코드가 기대하는
-      //   E1~E4 컬럼(student_uid/score_homework/next_goals/viewed_by_parent …)이 없어서
-      //   평가서 작성·목록·열람·카톡발송이 전부 D1 에러로 실패했음. 누락 컬럼만 가산(ADD COLUMN)해 통합.
-      try {
-        const info: any = await env.DB.prepare(`PRAGMA table_info(student_evaluations)`).all();
-        const have = new Set(((info && info.results) || []).map((r: any) => String(r.name)));
-        const want: Array<[string, string]> = [
-          ['student_uid','TEXT'],['student_name','TEXT'],['teacher_uid','TEXT'],['teacher_name','TEXT'],
-          ['room_id','TEXT'],['lesson_title','TEXT'],['lesson_date','TEXT'],
-          ['score_participation','INTEGER'],['score_comprehension','INTEGER'],['score_homework','INTEGER'],
-          ['score_attitude','INTEGER'],['score_speaking','INTEGER'],['score_overall','REAL'],
-          ['score_grammar','REAL'],['score_vocab','REAL'],
-          ['strengths','TEXT'],['improvements','TEXT'],['weaknesses','TEXT'],['next_goals','TEXT'],['teacher_comment','TEXT'],
-          ['parent_notified','INTEGER'],['parent_notified_at','INTEGER'],['viewed_by_parent','INTEGER'],['viewed_at','INTEGER'],
-          ['updated_at','INTEGER'],
-        ];
-        for (const [col, typ] of want) {
-          if (!have.has(col)) { try { await env.DB.exec(`ALTER TABLE student_evaluations ADD COLUMN ${col} ${typ}`); } catch {} }
-        }
-      } catch {}
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_evaluations (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, student_name TEXT, teacher_uid TEXT, teacher_name TEXT, room_id TEXT, lesson_title TEXT, lesson_date TEXT, score_participation INTEGER, score_comprehension INTEGER, score_homework INTEGER, score_attitude INTEGER, score_speaking INTEGER, score_overall INTEGER, strengths TEXT, improvements TEXT, next_goals TEXT, teacher_comment TEXT, parent_notified INTEGER DEFAULT 0, parent_notified_at INTEGER, viewed_by_parent INTEGER DEFAULT 0, viewed_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_eval_student ON student_evaluations(student_uid, created_at DESC);`); } catch {}
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_eval_teacher ON student_evaluations(teacher_uid, created_at DESC);`); } catch {}
     };
@@ -3517,12 +3493,11 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         ? Math.round((scores.reduce((a,b)=>a+b,0) / scores.length) * 10) / 10
         : null;
       const ins = await env.DB.prepare(
-        `INSERT INTO student_evaluations (user_id, eval_at, student_uid, student_name, teacher_uid, teacher_name, room_id, lesson_title, lesson_date,
+        `INSERT INTO student_evaluations (student_uid, student_name, teacher_uid, teacher_name, room_id, lesson_title, lesson_date,
           score_participation, score_comprehension, score_homework, score_attitude, score_speaking, score_overall,
           strengths, improvements, next_goals, teacher_comment, created_at, updated_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
       ).bind(
-        body.student_uid, now,
         body.student_uid, body.student_name || null,
         body.teacher_uid || null, body.teacher_name || null,
         body.room_id || null, body.lesson_title || null,

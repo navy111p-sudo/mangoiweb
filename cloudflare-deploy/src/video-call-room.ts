@@ -175,6 +175,12 @@ export class VideoCallRoom {
 
     if (this.users.size >= MAX_USERS) {
       this.send(userId, { type: 'room-full', data: { roomId: this.roomId } });
+      // fix (2026-06-13) — 정원 초과로 거부된 연결을 connections 에서 제거하고 종료.
+      //   제거하지 않으면 거부된 참가자가 broadcastAll(채팅/입퇴장/교재공유)을 계속 수신하는
+      //   유령 연결이 됨. SignalingRoom.handleJoin 의 room-full 처리와 동일하게 정리.
+      const ghost = this.connections.get(userId);
+      try { ghost?.ws.close(1000, 'room-full'); } catch {}
+      this.connections.delete(userId);
       return;
     }
 
