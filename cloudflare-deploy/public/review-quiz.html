@@ -178,7 +178,7 @@
           + '<div style="text-align:center"><button id="micBtn" type="button" onclick="micToggle('+i+')" style="padding:14px 26px;border:0;border-radius:99px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:15px;font-weight:800;cursor:pointer">🎤 '+(isEn()?'Record':'녹음하고 말하기')+'</button>'
           + '<div id="micStatus" style="font-size:12px;color:var(--text2);margin-top:10px">'+(state.answers[i]?('🗣 '+esc(state.answers[i])):(isEn()?'Tap to record':'버튼을 누르고 또박또박 말해보세요'))+'</div></div>';
       }
-      var dis = answered(i) ? '' : 'disabled';
+      var dis = '';  // 갇힘 방지: 다음/제출은 항상 가능 (미응답은 서버에서 오답 처리)
       var html = '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
         '<div class="quiz-card">' +
         '<div class="q-num">' + esc(qz.title) + ' — ' + TYPE_ICON[typ] + ' ' + (isEn()?typ:TYPE_KO[typ]) + ' · Q' + (i+1) + ' / ' + total + '</div>' +
@@ -192,18 +192,32 @@
         '<div style="margin-top:10px;text-align:center"><button class="nav-btn" style="flex:none;padding:9px 18px;font-size:12px" onclick="backToList()">' + (isEn()?'Quit':'그만두기') + '</button></div>' +
         '</div>';
       document.getElementById('playView').innerHTML = html;
-      if (typ==='listen') setTimeout(function(){ playAudio(i); }, 350);
+      if (typ==='listen') setTimeout(function(){ playAudio(i, true); }, 350);
     }
-    function refreshNext(){ var n=document.getElementById('nextBtn'); if(n) n.disabled = !answered(state.idx); }
+    function refreshNext(){ var n=document.getElementById('nextBtn'); if(n) n.disabled=false; }
     window.setText = function(v){ state.answers[state.idx]=v; refreshNext(); };
-    window.playAudio = async function(i){
-      var btn=document.getElementById('playBtn'); if(btn){ btn.disabled=true; btn.textContent='🔊 …'; }
+    var SILENT_WAV='data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YSADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==';
+    var rqAudio=null;
+    function rqGetAudio(){ if(!rqAudio){ rqAudio=new Audio(); rqAudio.preload='auto'; try{rqAudio.playsInline=true;}catch(e){} } return rqAudio; }
+    // 첫 사용자 동작에서 오디오 잠금 해제 (모바일/iOS 자동재생 차단 우회)
+    document.addEventListener('click', function rqOnce(){ try{ var a=rqGetAudio(); a.muted=true; a.src=SILENT_WAV; var p=a.play(); if(p&&p.catch)p.catch(function(){}); }catch(e){} document.removeEventListener('click', rqOnce, true); }, true);
+    window.playAudio = async function(i, auto){
+      var btn=document.getElementById('playBtn'); if(btn && !auto){ btn.disabled=true; btn.textContent='🔊 …'; }
+      var a=rqGetAudio();
+      // 클릭 제스처 안에서 동기적으로 잠금 해제 → await 이후 play() 차단 방지
+      try{ a.muted=true; a.src=SILENT_WAV; var pp=a.play(); if(pp&&pp.catch)pp.catch(function(){}); }catch(e){}
       try {
-        var resp = await fetch('/api/review-quiz/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ quiz_id:state.quiz.id, idx:(state.quiz.questions[i] && state.quiz.questions[i].idx!=null ? state.quiz.questions[i].idx : i) }) });
-        if(!resp.ok) throw new Error('tts');
-        var blob = await resp.blob(); new Audio(URL.createObjectURL(blob)).play().catch(function(){});
-      } catch(e){ if(btn) btn.textContent='⚠️ '+(isEn()?'audio failed':'음성 실패'); }
-      finally { if(btn) setTimeout(function(){ btn.disabled=false; btn.textContent='🔊 '+(isEn()?'Play again':'다시 듣기'); }, 700); }
+        var idx=(state.quiz.questions[i] && state.quiz.questions[i].idx!=null ? state.quiz.questions[i].idx : i);
+        var resp = await fetch('/api/review-quiz/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ quiz_id:state.quiz.id, idx:idx }) });
+        if(!resp.ok) throw new Error('http_'+resp.status);
+        var blob = await resp.blob();
+        if(!blob || blob.size < 200 || /json|text/i.test(blob.type||'')) throw new Error('empty_audio');
+        a.muted=false; a.src=URL.createObjectURL(blob);
+        await a.play();
+        if(btn){ btn.disabled=false; btn.textContent='🔊 '+(isEn()?'Play again':'다시 듣기'); }
+      } catch(e){
+        if(btn){ btn.disabled=false; btn.textContent = auto ? ('🔊 '+(isEn()?'Play audio':'음성 듣기')) : ('🔁 '+(isEn()?'Tap to retry':'다시 눌러 듣기')); }
+      }
     };
     window.micToggle = async function(i){
       var btn=document.getElementById('micBtn'), stt=document.getElementById('micStatus');
@@ -220,19 +234,19 @@
           if(btn){ btn.textContent='🎤 '+(isEn()?'Record':'녹음하고 말하기'); btn.style.background='linear-gradient(135deg,#10b981,#059669)'; }
           if(stt) stt.textContent='🧠 '+(isEn()?'Recognizing…':'음성 인식 중…');
           var blob=new Blob(rec.chunks,{type:'audio/webm'}); rec.mr=null; rec.idx=-1;
-          if(blob.size<600){ if(stt) stt.textContent=isEn()?'Too short, try again':'너무 짧아요. 다시 시도해주세요'; return; }
+          if(blob.size<600){ if(stt) stt.textContent=isEn()?'Too short — try again or tap Next':'너무 짧아요. 다시 하거나 다음으로 넘어가도 돼요'; return; }
           try {
             var fd=new FormData(); fd.append('audio',blob,'speak.webm');
             var r=await fetch('/api/voice/transcribe',{method:'POST',body:fd}).then(function(x){return x.json();});
             var text=(r&&r.ok&&r.text)?String(r.text).trim():'';
-            if(!text){ if(stt) stt.textContent=isEn()?'Could not hear you':'잘 못 들었어요. 다시 말해볼까요?'; return; }
+            if(!text){ if(stt) stt.textContent=isEn()?'Could not hear you — try again or tap Next':'잘 못 들었어요. 다시 하거나 다음으로 넘어가도 돼요'; return; }
             state.answers[i]=text; if(stt) stt.innerHTML='🗣 '+esc(text); refreshNext();
-          } catch(e){ if(stt) stt.textContent=isEn()?'Recognition failed':'인식 실패. 다시 시도해주세요'; }
+          } catch(e){ if(stt) stt.textContent=isEn()?'Recognition failed — try again or tap Next':'인식 실패. 다시 하거나 다음으로 넘어가도 돼요'; }
         };
         rec.mr.start();
         if(btn){ btn.textContent='⏹ '+(isEn()?'Stop':'정지'); btn.style.background='linear-gradient(135deg,#ef4444,#dc2626)'; }
         if(stt) stt.textContent='🔴 '+(isEn()?'Recording… tap Stop':'녹음 중… 끝나면 정지');
-      } catch(e){ if(stt) stt.textContent=isEn()?'Mic permission needed':'마이크 권한이 필요해요'; }
+      } catch(e){ if(stt) stt.textContent=isEn()?'Mic permission needed — or tap Next':'마이크 권한이 필요해요. 허용하거나 다음으로 넘어가도 돼요'; }
     };
     function pick(k) { state.answers[state.idx] = k; renderQ(); }
     function moveQ(d) { state.idx += d; renderQ(); window.scrollTo(0,0); }
@@ -304,7 +318,7 @@
 
     loadList();
   </script>
-<!-- BUILD:20260613194334 -->
+<!-- BUILD:20260613195608 -->
 <!-- ━━━ 복습퀴즈 선생님 영상 메시지 팝업 (1회만 표시) ━━━ -->
 <div id="rq-video-pop" style="display:none;position:fixed;top:64px;right:14px;z-index:99998;width:220px;background:rgba(13,20,40,0.97);border:1px solid rgba(251,191,36,0.45);border-radius:18px;box-shadow:0 14px 40px -6px rgba(0,0,0,0.6);overflow:hidden;font-family:'Noto Sans KR',-apple-system,sans-serif;backdrop-filter:blur(8px)">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px 6px;border-bottom:1px solid rgba(255,255,255,0.08)">
