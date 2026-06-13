@@ -1863,8 +1863,11 @@ document.getElementById('check-all').addEventListener('change', e => {
   document.querySelectorAll('#students-tbody input[type=checkbox]').forEach(cb => cb.checked = e.target.checked);
 });
 
-// 첫 로드
-loadStudents();
+// 첫 로드 — URL ?q= 있으면 검색어 주입 후 검색 (AI 비서 "OOO 학생 열어줘" 라우팅 지원)
+(function(){
+  try{ var _q=new URLSearchParams(location.search).get('q'); if(_q){ var _kw=document.getElementById('f-keyword'); if(_kw) _kw.value=_q; } }catch(e){}
+  loadStudents();
+})();
 
 // ───── Phase 11 — 우상단 사용자 메뉴: /me 로 라벨 갱신 + 로그아웃 처리 ─────
 (function initTopUser(){

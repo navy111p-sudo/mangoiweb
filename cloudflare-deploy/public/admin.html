@@ -21117,7 +21117,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260613213401 -->
+        <!-- BUILD:20260613214845 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -36531,6 +36531,7 @@ button.chip:hover,
     {re:/캘린더|휴가|공휴일|calendar|holiday/i, menu_id:'card-calendar', ko:'캘린더 관리 카드로 이동할게요.', en:'Opening the calendar card.'},
     {re:/상담\s*예약/i, menu_id:'card-counseling-booking', ko:'상담 예약 카드로 이동할게요.', en:'Opening the counseling booking card.'},
     {re:/신규\s*상담|상담|문의|inquiry|counsel/i, menu_id:'card-inquiry-mgmt', ko:'신규상담 카드로 이동할게요.', en:'Opening the new inquiry card.'},
+    {re:/팝업|popup/i, menu_id:'card-popups-mgmt', ko:'공지/팝업 관리 카드로 이동할게요.', en:'Opening the notice/popup management card.'},
     {re:/공지|게시판|notice|board/i, menu_id:'card-notice-board', ko:'공지사항 게시판 카드로 이동할게요.', en:'Opening the notice board card.'},
     {re:/카카오|알림톡|kakao/i, menu_id:'card-kakao-mgmt', ko:'카카오 알림톡 카드로 이동할게요.', en:'Opening the KakaoTalk card.'},
     {re:/가맹점|franchise/i, menu_id:'card-franchises', ko:'가맹점 관리 카드로 이동할게요.', en:'Opening the franchises card.'},
@@ -36542,11 +36543,19 @@ button.chip:hover,
     {re:/수업\s*일지|일지|lesson\s*log/i, menu_id:'card-lesson-log', ko:'수업 일지 카드로 이동할게요.', en:'Opening the lesson log card.'},
     {re:/학생\s*관리|학생관리|학생\s*목록|student\s*manage/i, url:'/admin/students.html', ko:'학생관리 페이지로 이동할게요.', en:'Opening the student management page.'},
     {re:/전체\s*스케줄|학원\s*전체|all\s*schedule/i, url:'/admin/all-schedules.html', ko:'학원 전체 스케줄 페이지로 이동할게요.', en:'Opening the academy-wide schedule page.'},
-    {re:/마이\s*페이지|마이페이지|내\s*정보|mypage|profile/i, url:'/admin/mypage.html', ko:'마이페이지로 이동할게요.', en:'Opening my page.'}
+    {re:/마이\s*페이지|마이페이지|내\s*정보|mypage|profile/i, url:'/admin/mypage.html', ko:'마이페이지로 이동할게요.', en:'Opening my page.'},
+    {re:/단체\s*등록|단체등록|일괄\s*등록|대량\s*등록|bulk\s*regist/i, menu_id:'card-enrollments', ko:'수강신청 관리에서 일괄(단체) 등록을 할 수 있어요.', en:'You can bulk-register in the enrollment card.'},
+    {re:/알림\s*큐|푸시\s*알림|알림\s*설정|알림/i, menu_id:'card-notifications', ko:'알림 큐 카드로 이동할게요.', en:'Opening the notifications card.'}
   ];
   function localRoute(q){
     var s=String(q||'');
     for(var i=0;i<MI_ROUTES.length;i++){ if(MI_ROUTES[i].re.test(s)) return MI_ROUTES[i]; }
+    // 학생 이름 조회 — "정우영 학생", "홍길동 학생 열어줘" → 학생관리에서 해당 학생 검색
+    var sm=s.match(/([가-힣]{2,4})\s*학생/);
+    if(sm && !/관리|목록|랭킹|평가|성적|배지|출석|급여|이탈|전체|전학|전반/.test(s)){
+      var nm=sm[1];
+      return {url:'/admin/students.html?q='+encodeURIComponent(nm), ko:'"'+nm+'" 학생을 학생관리에서 검색할게요.', en:'Searching for student "'+nm+'".'};
+    }
     return null;
   }
   // 네비게이션 실행 — menu_id(같은 페이지 카드) / external_url(새 탭) / url(이동). 성공 시 true
@@ -36704,12 +36713,26 @@ button.chip:hover,
     btnM.textContent=v.muted?'🔇':'🔊';
     btnM.title=v.muted?'소리 켜기':'무음';
   }
+  var dismissHandler=null;
+  function disarmDismiss(){ if(dismissHandler){ try{document.removeEventListener('click',dismissHandler,true);}catch(e){} dismissHandler=null; } }
+  function armDismiss(){
+    disarmDismiss();
+    dismissHandler=function(ev){
+      // 무음 버튼 클릭은 닫지 않음(소리 토글 유지)
+      try{ if(btnM && (ev.target===btnM || (btnM.contains&&btnM.contains(ev.target)))) return; }catch(e){}
+      fadeOut();
+    };
+    // 팝업을 띄운 그 클릭이 즉시 닫지 않도록 다음 틱부터 전역 클릭 감지 등록
+    setTimeout(function(){ try{ document.addEventListener('click',dismissHandler,true); }catch(e){} }, 350);
+  }
   function fadeOut(){
+    disarmDismiss();
     if(fadeTimer){clearTimeout(fadeTimer);fadeTimer=null;}
     pop.classList.remove('show');
     fadeTimer=setTimeout(function(){ pop.style.display='none'; },480);
     try{ v.pause(); }catch(e){}
   }
+  window.miAsstHideVideo=fadeOut;
   function playVideo(){
     if(hideTimer){clearTimeout(hideTimer);hideTimer=null;}
     if(fadeTimer){clearTimeout(fadeTimer);fadeTimer=null;}
@@ -36725,6 +36748,8 @@ button.chip:hover,
       var p2=v.play(); if(p2&&p2.catch) p2.catch(function(){});
     });
     syncMute();
+    // 클릭(영상/사이드바/카드 등 어디든)·페이지 이동·사이드바 닫기 시 자동으로 사라지게
+    armDismiss();
   }
   window.miAsstPlayVideo=playVideo;
 
