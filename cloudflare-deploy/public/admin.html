@@ -12290,19 +12290,19 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <!-- 작성 폼 -->
     <div class="rq-box">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <b id="rq-form-title" style="font-size:14px">➕ 새 퀴즈 만들기</b>
-        <button class="rq-btn ghost" id="rq-cancel-edit" style="display:none" onclick="rqCancelEdit()">수정 취소</button>
+        <b id="rq-form-title" style="font-size:14px" data-ko="➕ 새 퀴즈 만들기" data-en="➕ New Quiz">➕ 새 퀴즈 만들기</b>
+        <button class="rq-btn ghost" id="rq-cancel-edit" style="display:none" onclick="rqCancelEdit()" data-ko="수정 취소" data-en="Cancel edit">수정 취소</button>
       </div>
       <label data-ko="퀴즈 제목 *" data-en="Quiz title *">퀴즈 제목 *</label>
-      <input class="rq-in" id="rq-title" placeholder="예: 5월 2주차 복습 — 동물 단어" />
+      <input class="rq-in" id="rq-title" placeholder="예: 5월 2주차 복습 — 동물 단어" data-ko-placeholder="예: 5월 2주차 복습 — 동물 단어" data-en-placeholder="e.g. Week 2 May review — animal words" />
       <label data-ko="설명 (선택)" data-en="Description (optional)">설명 (선택)</label>
-      <input class="rq-in" id="rq-desc" placeholder="예: 이번 주 수업에서 배운 단어를 복습해요" />
+      <input class="rq-in" id="rq-desc" placeholder="예: 이번 주 수업에서 배운 단어를 복습해요" data-ko-placeholder="예: 이번 주 수업에서 배운 단어를 복습해요" data-en-placeholder="e.g. Review the words learned this week" />
 
       <!-- 🎯 교재/레벨/레슨 매칭 메타 (화상수업 [🧠 복습퀴즈] 자동 매칭에 사용) -->
       <div style="display:grid;grid-template-columns:1fr 1fr 90px;gap:8px;margin-top:6px">
-        <div><label data-ko="교재명 (자동매칭)" data-en="Textbook">교재명 (자동매칭)</label><input class="rq-in" id="rq-textbook" placeholder="예: SIU 1, MES 2" /></div>
-        <div><label data-ko="레벨" data-en="Level">레벨</label><input class="rq-in" id="rq-level" placeholder="예: Lv.3, A1" /></div>
-        <div><label data-ko="레슨" data-en="Lesson">레슨</label><input class="rq-in" id="rq-lesson" type="number" min="0" placeholder="예: 5" /></div>
+        <div><label data-ko="교재명 (자동매칭)" data-en="Textbook">교재명 (자동매칭)</label><input class="rq-in" id="rq-textbook" placeholder="예: SIU 1, MES 2" data-ko-placeholder="예: SIU 1, MES 2" data-en-placeholder="e.g. SIU 1, MES 2" /></div>
+        <div><label data-ko="레벨" data-en="Level">레벨</label><input class="rq-in" id="rq-level" placeholder="예: Lv.3, A1" data-ko-placeholder="예: Lv.3, A1" data-en-placeholder="e.g. Lv.3, A1" /></div>
+        <div><label data-ko="레슨" data-en="Lesson">레슨</label><input class="rq-in" id="rq-lesson" type="number" min="0" placeholder="예: 5" data-ko-placeholder="예: 5" data-en-placeholder="e.g. 5" /></div>
       </div>
       <div style="font-size:11px;color:#6b7280;margin:4px 0 2px;line-height:1.5"
            data-ko="💡 교재명·레벨·레슨을 채우면 화상수업 [🧠 복습퀴즈] 탭에서 학생에게 자동으로 매칭돼요. 비워두면 공통 퀴즈로 전체 학생에게 노출됩니다."
@@ -12312,18 +12312,18 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
       <!-- 🤖 AI 자동 출제 -->
       <details style="margin:12px 0;border:1px solid rgba(99,102,241,0.35);border-radius:10px;background:rgba(99,102,241,0.06)">
-        <summary style="cursor:pointer;font-weight:800;font-size:13px;color:#4338ca;padding:10px 12px">🤖 AI 자동 출제 (교재·레벨·레슨 기반 듣기/쓰기/말하기)</summary>
+        <summary style="cursor:pointer;font-weight:800;font-size:13px;color:#4338ca;padding:10px 12px" data-ko="🤖 AI 자동 출제 (교재·레벨·레슨 기반 듣기/쓰기/말하기)" data-en="🤖 AI Auto-Generate (listening/writing/speaking by textbook·level·lesson)">🤖 AI 자동 출제 (교재·레벨·레슨 기반 듣기/쓰기/말하기)</summary>
         <div style="padding:4px 12px 12px">
           <label data-ko="핵심 단어·주제 (선택, AI 정확도↑)" data-en="Key vocab/topic (optional)">핵심 단어·주제 (선택, AI 정확도↑)</label>
-          <textarea class="rq-in" id="rq-ai-topic" rows="2" placeholder="예: animals, colors, present continuous / 이번 레슨 핵심 단어를 적어주면 더 정확해요"></textarea>
+          <textarea class="rq-in" id="rq-ai-topic" rows="2" placeholder="예: animals, colors, present continuous / 이번 레슨 핵심 단어를 적어주면 더 정확해요" data-ko-placeholder="예: animals, colors, present continuous / 이번 레슨 핵심 단어를 적어주면 더 정확해요" data-en-placeholder="e.g. animals, colors, present continuous / listing key words improves accuracy"></textarea>
           <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px">
-            <div><label>🎧 듣기</label><input class="rq-in" id="rq-ai-listen" type="number" min="0" max="5" value="2" /></div>
-            <div><label>✍️ 쓰기</label><input class="rq-in" id="rq-ai-write" type="number" min="0" max="5" value="2" /></div>
-            <div><label>🎤 말하기</label><input class="rq-in" id="rq-ai-speak" type="number" min="0" max="5" value="2" /></div>
-            <div><label>📝 객관식</label><input class="rq-in" id="rq-ai-choice" type="number" min="0" max="5" value="2" /></div>
+            <div><label data-ko="🎧 듣기" data-en="🎧 Listening">🎧 듣기</label><input class="rq-in" id="rq-ai-listen" type="number" min="0" max="5" value="2" /></div>
+            <div><label data-ko="✍️ 쓰기" data-en="✍️ Writing">✍️ 쓰기</label><input class="rq-in" id="rq-ai-write" type="number" min="0" max="5" value="2" /></div>
+            <div><label data-ko="🎤 말하기" data-en="🎤 Speaking">🎤 말하기</label><input class="rq-in" id="rq-ai-speak" type="number" min="0" max="5" value="2" /></div>
+            <div><label data-ko="📝 객관식" data-en="📝 Multiple choice">📝 객관식</label><input class="rq-in" id="rq-ai-choice" type="number" min="0" max="5" value="2" /></div>
           </div>
           <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
-            <button class="rq-btn" style="background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff" onclick="rqAiGen()">🤖 AI로 문항 생성</button>
+            <button class="rq-btn" style="background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff" onclick="rqAiGen()" data-ko="🤖 AI로 문항 생성" data-en="🤖 Generate with AI">🤖 AI로 문항 생성</button>
             <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;margin:0"><input type="checkbox" id="rq-ai-replace" /> <span data-ko="기존 문항 비우고 채우기" data-en="Replace existing">기존 문항 비우고 채우기</span></label>
             <span id="rq-ai-msg" style="font-size:12px;color:#4338ca"></span>
           </div>
@@ -12332,16 +12332,18 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
       <!-- 🏗️ 교재별 40문제 은행 자동 생성 (학생은 랜덤 10출제: 듣기4·말하기3·사지선다3) -->
       <details style="margin:12px 0;border:1px solid rgba(16,185,129,0.4);border-radius:10px;background:rgba(16,185,129,0.06)">
-        <summary style="cursor:pointer;font-weight:800;font-size:13px;color:#047857;padding:10px 12px">🏗️ 교재별 40문제 은행 자동 생성 (전체 교재 일괄)</summary>
+        <summary style="cursor:pointer;font-weight:800;font-size:13px;color:#047857;padding:10px 12px" data-ko="🏗️ 교재별 40문제 은행 자동 생성 (전체 교재 일괄)" data-en="🏗️ Auto-build 40-question bank per textbook (all textbooks)">🏗️ 교재별 40문제 은행 자동 생성 (전체 교재 일괄)</summary>
         <div style="padding:6px 12px 12px">
-          <div style="font-size:12px;color:#374151;line-height:1.6;margin-bottom:8px">
+          <div style="font-size:12px;color:#374151;line-height:1.6;margin-bottom:8px"
+               data-ko-html="교재 콘텐츠에 등록된 <b>모든 교재</b>마다 AI가 약 <b>40문제 은행</b>(듣기·말하기·사지선다)을 만들어 둡니다. 학생이 풀 때는 그 은행에서 <b>랜덤 10문제(듣기4·말하기3·사지선다3)</b>가 출제돼요. 교재 수가 많으면 <b>수십 분</b> 걸리고, 진행 중 이 탭을 열어두어야 합니다. (이미 40문제인 교재는 건너뜀 · 중단해도 다음에 이어서 진행)"
+               data-en-html="For <b>every textbook</b> in Textbook Content, AI builds a bank of about <b>40 questions</b> (listening·speaking·MCQ). When a student takes it, <b>10 random questions (4 listening·3 speaking·3 MCQ)</b> are drawn. With many textbooks this can take <b>tens of minutes</b> — keep this tab open while it runs. (Textbooks already at 40 are skipped · resumes if stopped)">
             교재 콘텐츠에 등록된 <b>모든 교재</b>마다 AI가 약 <b>40문제 은행</b>(듣기·말하기·사지선다)을 만들어 둡니다.
             학생이 풀 때는 그 은행에서 <b>랜덤 10문제(듣기4·말하기3·사지선다3)</b>가 출제돼요.
             교재 수가 많으면 <b>수십 분</b> 걸리고, 진행 중 이 탭을 열어두어야 합니다. (이미 40문제인 교재는 건너뜀 · 중단해도 다음에 이어서 진행)
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <button class="rq-btn" id="rq-bank-all-btn" style="background:linear-gradient(135deg,#10b981,#047857);color:#fff" onclick="rqBuildAllBanks()">🏗️ 전체 교재 은행 자동 생성 시작</button>
-            <button class="rq-btn ghost" id="rq-bank-stop-btn" style="display:none" onclick="window.__rqBankStop=true">⏹ 중단</button>
+            <button class="rq-btn" id="rq-bank-all-btn" style="background:linear-gradient(135deg,#10b981,#047857);color:#fff" onclick="rqBuildAllBanks()" data-ko="🏗️ 전체 교재 은행 자동 생성 시작" data-en="🏗️ Start building all banks">🏗️ 전체 교재 은행 자동 생성 시작</button>
+            <button class="rq-btn ghost" id="rq-bank-stop-btn" style="display:none" onclick="window.__rqBankStop=true" data-ko="⏹ 중단" data-en="⏹ Stop">⏹ 중단</button>
           </div>
           <div id="rq-bank-progress" style="margin-top:8px;height:8px;border-radius:99px;background:rgba(148,163,184,0.25);overflow:hidden;display:none"><div id="rq-bank-bar" style="height:100%;width:0;background:linear-gradient(90deg,#10b981,#34d399);transition:width .3s"></div></div>
           <div id="rq-bank-msg" style="font-size:12px;color:#047857;margin-top:8px;line-height:1.5"></div>
@@ -12350,22 +12352,22 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
       <div id="rq-qlist"></div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        <button class="rq-btn add" onclick="rqAddQ({type:'choice'})">➕ 📝 객관식</button>
-        <button class="rq-btn add" onclick="rqAddQ({type:'listen'})">➕ 🎧 듣기</button>
-        <button class="rq-btn add" onclick="rqAddQ({type:'write'})">➕ ✍️ 쓰기</button>
-        <button class="rq-btn add" onclick="rqAddQ({type:'speak'})">➕ 🎤 말하기</button>
-        <button class="rq-btn save" id="rq-save-btn" onclick="rqSave()">💾 퀴즈 저장</button>
+        <button class="rq-btn add" onclick="rqAddQ({type:'choice'})" data-ko="➕ 📝 객관식" data-en="➕ 📝 MCQ">➕ 📝 객관식</button>
+        <button class="rq-btn add" onclick="rqAddQ({type:'listen'})" data-ko="➕ 🎧 듣기" data-en="➕ 🎧 Listening">➕ 🎧 듣기</button>
+        <button class="rq-btn add" onclick="rqAddQ({type:'write'})" data-ko="➕ ✍️ 쓰기" data-en="➕ ✍️ Writing">➕ ✍️ 쓰기</button>
+        <button class="rq-btn add" onclick="rqAddQ({type:'speak'})" data-ko="➕ 🎤 말하기" data-en="➕ 🎤 Speaking">➕ 🎤 말하기</button>
+        <button class="rq-btn save" id="rq-save-btn" onclick="rqSave()" data-ko="💾 퀴즈 저장" data-en="💾 Save quiz">💾 퀴즈 저장</button>
       </div>
       <div id="rq-form-msg" style="font-size:12px;margin-top:8px;color:#059669"></div>
     </div>
 
     <!-- 목록 -->
-    <b style="font-size:14px">📋 저장된 퀴즈</b>
-    <div id="rq-list" style="margin-top:4px;font-size:12.5px;color:#6b7280">⏳ 불러오는 중…</div>
+    <b style="font-size:14px" data-ko="📋 저장된 퀴즈" data-en="📋 Saved Quizzes">📋 저장된 퀴즈</b>
+    <div id="rq-list" style="margin-top:4px;font-size:12.5px;color:#6b7280" data-ko="⏳ 불러오는 중…" data-en="⏳ Loading…">⏳ 불러오는 중…</div>
 
     <!-- 결과 -->
     <div id="rq-results-wrap" style="display:none;margin-top:14px">
-      <b style="font-size:14px">🏆 응시 결과 — <span id="rq-results-title"></span></b>
+      <b style="font-size:14px"><span data-ko="🏆 응시 결과 — " data-en="🏆 Results — ">🏆 응시 결과 — </span><span id="rq-results-title"></span></b>
       <div id="rq-results" style="margin-top:4px"></div>
     </div>
   </div>
@@ -21063,7 +21065,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260613195608 -->
+        <!-- BUILD:20260613195956 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -25800,7 +25802,7 @@ button.chip:hover,
       <div class="ph85-arrow">›</div>
     </div>
     <div class="ph85-subs">
-      <div class="ph85-sub" data-card="card-review-quiz" onclick="event.stopPropagation();var c=document.getElementById('card-review-quiz');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-review-quiz');}">🧠 복습퀴즈 출제</div>
+      <div class="ph85-sub" data-card="card-review-quiz" data-ko="🧠 복습퀴즈 출제" data-en="🧠 Review Quiz" onclick="event.stopPropagation();var c=document.getElementById('card-review-quiz');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-review-quiz');}">🧠 복습퀴즈 출제</div>
       <div class="ph85-sub" data-card="card-textbooks" onclick="event.stopPropagation();var c=document.getElementById('card-textbooks');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-textbooks');}">교재 콘텐츠</div>
       <div class="ph85-sub" data-card="card-microlearn" onclick="event.stopPropagation();var c=document.getElementById('card-microlearn');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-microlearn');}">📖 마이크로러닝</div>
       <div class="ph85-sub" data-card="card-mini-toeic" onclick="event.stopPropagation();var c=document.getElementById('card-mini-toeic');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-mini-toeic');}">🎯 미니 토익</div>
