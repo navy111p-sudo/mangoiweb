@@ -2786,7 +2786,7 @@ export async function handleMangoApi(
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_rq_results_quiz ON review_quiz_results(quiz_id, created_at DESC);`); } catch {}
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_rq_results_user ON review_quiz_results(user_id, created_at DESC);`); } catch {}
       // Phase RQ2 — 레벨/교재/레슨 매칭 + AI 자동출제 메타 컬럼
-      for (const col of ['level TEXT', 'textbook TEXT', 'lesson_no INTEGER', "source TEXT DEFAULT 'manual'"]) {
+      for (const col of ['level TEXT', 'textbook TEXT', 'lesson_no INTEGER', "source TEXT DEFAULT 'manual'", 'draw TEXT']) {
         try { await env.DB.exec(`ALTER TABLE review_quizzes ADD COLUMN ${col};`); } catch {}
       }
     };
@@ -2847,6 +2847,26 @@ export async function handleMangoApi(
       if (type === 'listen') out.has_audio = true;
       return out;
     });
+    // 🎲 랜덤 출제(draw) — 유형별로 무작위 N개 뽑되 원본 bank index(idx) 보존
+    const rqSafeOne = (q: any, i: number) => {
+      const type = q.type || 'choice';
+      const out: any = { idx: i, type, q: q.q };
+      if (type === 'choice' || type === 'listen') out.opts = q.opts;
+      if (type === 'speak') out.target = q.answer_text;
+      if (type === 'listen') out.has_audio = true;
+      return out;
+    };
+    const rqShuffle = (arr: any[]) => { const a = arr.slice(); for (let k = a.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); const t = a[k]; a[k] = a[j]; a[j] = t; } return a; };
+    const rqDrawIndices = (qs: any[], draw: any) => {
+      const by: any = { listen: [], speak: [], choice: [], write: [] };
+      qs.forEach((q: any, i: number) => { const t = (q && q.type) || 'choice'; (by[t] || by.choice).push(i); });
+      let out: number[] = [];
+      out = out.concat(rqShuffle(by.listen).slice(0, draw.listen || 0));
+      out = out.concat(rqShuffle(by.speak).slice(0, draw.speak || 0));
+      out = out.concat(rqShuffle(by.choice).slice(0, draw.choice || 0));
+      out = out.concat(rqShuffle(by.write).slice(0, draw.write || 0));
+      return rqShuffle(out);
+    };
     // 채점 (유형별) — answers[i]: choice/listen=보기 index, write/speak=텍스트
     const rqGrade = (qs: any[], answers: any[]) => {
       let score = 0;
@@ -2931,11 +2951,13 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
     if (method === 'GET' && path === '/api/review-quiz/list') {
       await ensureReviewQuizTables();
       const userId = (url.searchParams.get('user_id') || '').trim();
-      const rs = await env.DB.prepare(`SELECT id, title, description, questions, level, textbook, lesson_no, source, created_at FROM review_quizzes WHERE active = 1 ORDER BY id DESC`).all();
+      const rs = await env.DB.prepare(`SELECT id, title, description, questions, level, textbook, lesson_no, source, draw, created_at FROM review_quizzes WHERE active = 1 ORDER BY id DESC`).all();
       const quizzes: any[] = [];
       for (const row of (((rs.results as any[]) || []))) {
         let count = 0; try { count = (JSON.parse(row.questions) || []).length; } catch {}
-        const item: any = { id: row.id, title: row.title, description: row.description || '', question_count: count, level: row.level || '', textbook: row.textbook || '', lesson_no: row.lesson_no, source: row.source || 'manual', created_at: row.created_at, best_score: null, attempts: 0 };
+        let drawTotal = 0; try { if (row.draw) { const d = JSON.parse(row.draw); drawTotal = (d.listen || 0) + (d.speak || 0) + (d.choice || 0) + (d.write || 0); } } catch {}
+        const shown = drawTotal > 0 ? Math.min(drawTotal, count) : count;
+        const item: any = { id: row.id, title: row.title, description: row.description || '', question_count: shown, bank_size: count, draw_total: drawTotal, level: row.level || '', textbook: row.textbook || '', lesson_no: row.lesson_no, source: row.source || 'manual', created_at: row.created_at, best_score: null, attempts: 0 };
         if (userId) {
           const best: any = await env.DB.prepare(`SELECT MAX(score) AS best, COUNT(*) AS n FROM review_quiz_results WHERE quiz_id = ? AND user_id = ?`).bind(row.id, userId).first();
           if (best && Number(best.n) > 0) { item.best_score = best.best; item.attempts = Number(best.n); }
@@ -2950,11 +2972,14 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       await ensureReviewQuizTables();
       const id = parseInt(url.searchParams.get('id') || '0', 10);
       if (!id) return json({ ok: false, error: 'id_required' }, 400);
-      const row: any = await env.DB.prepare(`SELECT id, title, description, questions, active, level, textbook, lesson_no, source FROM review_quizzes WHERE id = ?`).bind(id).first();
+      const row: any = await env.DB.prepare(`SELECT id, title, description, questions, active, level, textbook, lesson_no, source, draw FROM review_quizzes WHERE id = ?`).bind(id).first();
       if (!row || !row.active) return json({ ok: false, error: 'quiz_not_found' }, 404);
       let qs: any[] = []; try { qs = JSON.parse(row.questions) || []; } catch {}
-      const safe = rqSafeQuestions(qs);
-      return json({ ok: true, quiz: { id: row.id, title: row.title, description: row.description || '', level: row.level || '', textbook: row.textbook || '', lesson_no: row.lesson_no, source: row.source || 'manual', questions: safe } });
+      let draw: any = null; try { draw = row.draw ? JSON.parse(row.draw) : null; } catch {}
+      let safe: any[];
+      if (draw && qs.length) { const idxs = rqDrawIndices(qs, draw); safe = idxs.map((i: number) => rqSafeOne(qs[i], i)); }
+      else { safe = rqSafeQuestions(qs); }
+      return json({ ok: true, quiz: { id: row.id, title: row.title, description: row.description || '', level: row.level || '', textbook: row.textbook || '', lesson_no: row.lesson_no, source: row.source || 'manual', draw: draw || null, questions: safe } });
     }
 
     // ── POST /api/review-quiz/submit — 학생: 답안 제출 → 서버 채점 + 기록 저장 ──
@@ -2971,10 +2996,16 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       if (!row) return json({ ok: false, error: 'quiz_not_found' }, 404);
       let qs: any[] = []; try { qs = JSON.parse(row.questions) || []; } catch {}
       if (!qs.length) return json({ ok: false, error: 'quiz_empty' }, 400);
-      const { score, detail } = rqGrade(qs, answers);
+      // 🎲 학생이 받은 문항(서버 draw 결과)만 채점 — served = 원본 bank index 배열
+      const served: number[] | null = Array.isArray(b.served)
+        ? b.served.map((n: any) => Number(n)).filter((n: number) => Number.isInteger(n) && n >= 0 && n < qs.length)
+        : null;
+      const gradeQs = (served && served.length) ? served.map((i: number) => qs[i]) : qs;
+      const { score, detail } = rqGrade(gradeQs, answers);
+      const total = gradeQs.length;
       await env.DB.prepare(`INSERT INTO review_quiz_results (quiz_id, user_id, user_name, score, total, answers, created_at) VALUES (?,?,?,?,?,?,?)`)
-        .bind(quizId, userId, userName, score, qs.length, JSON.stringify(answers.slice(0, qs.length)), Date.now()).run();
-      return json({ ok: true, score, total: qs.length, percent: Math.round((score / qs.length) * 100), detail });
+        .bind(quizId, userId, userName, score, total, JSON.stringify(answers.slice(0, total)), Date.now()).run();
+      return json({ ok: true, score, total, percent: total ? Math.round((score / total) * 100) : 0, detail });
     }
 
     // ── POST /api/review-quiz/tts — 듣기 문항 음성 (정답 원문 비공개, 서버 TTS) ──
@@ -3058,6 +3089,38 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       });
       if (!gen.ok) return json({ ok: false, error: gen.error }, 502);
       return json({ ok: true, questions: gen.questions });
+    }
+
+    // ── POST /api/admin/review-quiz/build-bank — 관리자: 교재(또는 레벨)별 40문제 은행 점진 생성 ──
+    //   한 번 호출 = AI 1배치(듣기4·말하기3·사지선다3 = 10문항) 생성 후 해당 교재 은행에 누적.
+    //   클라이언트가 bank_size<target 동안 반복 호출 → ~40문제 은행 완성. draw 설정으로 학생은 랜덤 10출제.
+    if (method === 'POST' && path === '/api/admin/review-quiz/build-bank') {
+      await ensureReviewQuizTables();
+      const b: any = await request.json().catch(() => ({}));
+      const textbook = String(b.textbook || '').trim();
+      const level = String(b.level || '').trim();
+      const topic = String(b.topic || '').trim().slice(0, 300);
+      const target = Math.min(Math.max(Number(b.target) || 40, 10), 60);
+      if (!textbook && !level) return json({ ok: false, error: 'textbook_or_level_required' }, 400);
+      const keyCol = textbook ? 'textbook' : 'level';
+      const keyVal = textbook || level;
+      const existing: any = await env.DB.prepare(`SELECT id, questions FROM review_quizzes WHERE source='bank' AND ${keyCol} = ? LIMIT 1`).bind(keyVal).first();
+      let qs: any[] = []; if (existing) { try { qs = JSON.parse(existing.questions) || []; } catch {} }
+      if (qs.length >= target) return json({ ok: true, id: existing.id, bank_size: qs.length, target, done: true });
+      const gen = await rqAiGenerate({ level, textbook, lesson_no: null, topic, counts: { listen: 4, speak: 3, choice: 3, write: 0 } });
+      if (!gen.ok) return json({ ok: false, error: gen.error }, 502);
+      qs = qs.concat(gen.questions);
+      if (qs.length > target) qs = qs.slice(0, target);
+      const drawJson = JSON.stringify({ listen: 4, speak: 3, choice: 3 });
+      const now = Date.now();
+      if (existing) {
+        await env.DB.prepare(`UPDATE review_quizzes SET questions=?, draw=?, active=1, updated_at=? WHERE id=?`).bind(JSON.stringify(qs), drawJson, now, existing.id).run();
+        return json({ ok: true, id: existing.id, bank_size: qs.length, target, done: qs.length >= target });
+      }
+      const title = textbook ? `\u{1F4DA} ${textbook}` : `\u{1F3F7}\uFE0F ${level}`;
+      const ins = await env.DB.prepare(`INSERT INTO review_quizzes (title, description, questions, active, level, textbook, lesson_no, source, draw, created_at, updated_at) VALUES (?,?,?,1,?,?,?,'bank',?,?,?)`)
+        .bind(title, '교재 은행에서 듣기4·말하기3·사지선다3 랜덤 10출제', JSON.stringify(qs), level || null, textbook || null, null, drawJson, now, now).run();
+      return json({ ok: true, id: (ins as any).meta?.last_row_id, bank_size: qs.length, target, done: qs.length >= target });
     }
 
     // ── GET /api/admin/review-quiz/list — 관리자: 전체 퀴즈 (정답 포함 + 응시수) ──

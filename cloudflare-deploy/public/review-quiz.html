@@ -199,7 +199,7 @@
     window.playAudio = async function(i){
       var btn=document.getElementById('playBtn'); if(btn){ btn.disabled=true; btn.textContent='🔊 …'; }
       try {
-        var resp = await fetch('/api/review-quiz/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ quiz_id:state.quiz.id, idx:i }) });
+        var resp = await fetch('/api/review-quiz/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ quiz_id:state.quiz.id, idx:(state.quiz.questions[i] && state.quiz.questions[i].idx!=null ? state.quiz.questions[i].idx : i) }) });
         if(!resp.ok) throw new Error('tts');
         var blob = await resp.blob(); new Audio(URL.createObjectURL(blob)).play().catch(function(){});
       } catch(e){ if(btn) btn.textContent='⚠️ '+(isEn()?'audio failed':'음성 실패'); }
@@ -250,7 +250,7 @@
       try {
         var r = await fetch('/api/review-quiz/submit', {
           method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ quiz_id: state.quiz.id, user_id: ME.uid, user_name: ME.name, answers: state.answers })
+          body: JSON.stringify({ quiz_id: state.quiz.id, user_id: ME.uid, user_name: ME.name, answers: state.answers, served: state.quiz.questions.map(function(q){ return (q && q.idx!=null) ? q.idx : 0; }) })
         }).then(function(x){ return x.json(); });
         if (!r.ok) throw new Error(r.error||'submit_fail');
         showResult(r);
@@ -304,7 +304,7 @@
 
     loadList();
   </script>
-<!-- BUILD:20260613153257 -->
+<!-- BUILD:20260613155150 -->
 <!-- ━━━ 복습퀴즈 선생님 영상 메시지 팝업 (1회만 표시) ━━━ -->
 <div id="rq-video-pop" style="display:none;position:fixed;top:64px;right:14px;z-index:99998;width:220px;background:rgba(13,20,40,0.97);border:1px solid rgba(251,191,36,0.45);border-radius:18px;box-shadow:0 14px 40px -6px rgba(0,0,0,0.6);overflow:hidden;font-family:'Noto Sans KR',-apple-system,sans-serif;backdrop-filter:blur(8px)">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px 6px;border-bottom:1px solid rgba(255,255,255,0.08)">

@@ -12317,6 +12317,24 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         </div>
       </details>
 
+      <!-- 🏗️ 교재별 40문제 은행 자동 생성 (학생은 랜덤 10출제: 듣기4·말하기3·사지선다3) -->
+      <details style="margin:12px 0;border:1px solid rgba(16,185,129,0.4);border-radius:10px;background:rgba(16,185,129,0.06)">
+        <summary style="cursor:pointer;font-weight:800;font-size:13px;color:#047857;padding:10px 12px">🏗️ 교재별 40문제 은행 자동 생성 (전체 교재 일괄)</summary>
+        <div style="padding:6px 12px 12px">
+          <div style="font-size:12px;color:#374151;line-height:1.6;margin-bottom:8px">
+            교재 콘텐츠에 등록된 <b>모든 교재</b>마다 AI가 약 <b>40문제 은행</b>(듣기·말하기·사지선다)을 만들어 둡니다.
+            학생이 풀 때는 그 은행에서 <b>랜덤 10문제(듣기4·말하기3·사지선다3)</b>가 출제돼요.
+            교재 수가 많으면 <b>수십 분</b> 걸리고, 진행 중 이 탭을 열어두어야 합니다. (이미 40문제인 교재는 건너뜀 · 중단해도 다음에 이어서 진행)
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="rq-btn" id="rq-bank-all-btn" style="background:linear-gradient(135deg,#10b981,#047857);color:#fff" onclick="rqBuildAllBanks()">🏗️ 전체 교재 은행 자동 생성 시작</button>
+            <button class="rq-btn ghost" id="rq-bank-stop-btn" style="display:none" onclick="window.__rqBankStop=true">⏹ 중단</button>
+          </div>
+          <div id="rq-bank-progress" style="margin-top:8px;height:8px;border-radius:99px;background:rgba(148,163,184,0.25);overflow:hidden;display:none"><div id="rq-bank-bar" style="height:100%;width:0;background:linear-gradient(90deg,#10b981,#34d399);transition:width .3s"></div></div>
+          <div id="rq-bank-msg" style="font-size:12px;color:#047857;margin-top:8px;line-height:1.5"></div>
+        </div>
+      </details>
+
       <div id="rq-qlist"></div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
         <button class="rq-btn add" onclick="rqAddQ({type:'choice'})">➕ 📝 객관식</button>
@@ -12475,6 +12493,55 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       rqRenum();
       msg.style.color='#059669'; msg.textContent='✅ '+qs.length+'개 문항이 추가됐어요. 내용을 검토·수정 후 저장하세요.';
     } catch(e){ msg.style.color='#b91c1c'; msg.textContent='⚠️ 생성 실패: '+e.message+' (Workers AI 응답 문제일 수 있어요. 다시 시도하거나 수동 입력하세요.)'; }
+  };
+  // 🏗️ 전체 교재 40문제 은행 자동 생성 (교재 목록을 돌며 배치 생성)
+  window.__rqBankStop = false;
+  window.rqBuildAllBanks = async function(){
+    var msg = document.getElementById('rq-bank-msg');
+    var bar = document.getElementById('rq-bank-bar');
+    var barWrap = document.getElementById('rq-bank-progress');
+    var startBtn = document.getElementById('rq-bank-all-btn');
+    var stopBtn = document.getElementById('rq-bank-stop-btn');
+    if (!confirm('교재마다 40문제 은행을 AI로 생성합니다. 교재 수에 따라 수십 분 걸리고, 끝날 때까지 이 탭을 열어두어야 해요. 시작할까요?')) return;
+    window.__rqBankStop = false;
+    startBtn.disabled = true; stopBtn.style.display=''; barWrap.style.display='';
+    var sleep = function(ms){ return new Promise(function(res){ setTimeout(res, ms); }); };
+    msg.style.color='#047857'; msg.textContent='📚 교재 목록을 불러오는 중…';
+    var books = [];
+    try {
+      var g = await fetch('/api/admin/textbook-files?group=1', { credentials:'include' }).then(function(x){return x.json();});
+      books = (g.groups||[]).filter(function(b){ return b.book && b.book!=='(기타)'; });
+    } catch(e){ msg.style.color='#b91c1c'; msg.textContent='⚠️ 교재 목록 로드 실패: '+e.message; startBtn.disabled=false; stopBtn.style.display='none'; return; }
+    if (!books.length){ msg.textContent='⚠️ 교재가 없습니다.'; startBtn.disabled=false; stopBtn.style.display='none'; return; }
+    var total = books.length, doneBooks = 0, madeQ = 0, failed = 0;
+    for (var bi=0; bi<books.length; bi++){
+      if (window.__rqBankStop){ msg.textContent='⏹ 중단됨 — '+doneBooks+'/'+total+' 교재 완료. 다시 시작하면 이어서 진행돼요.'; break; }
+      var bk = books[bi]; var lvl = bk.level || '';
+      var size = 0, guard = 0;
+      while (size < 40 && guard < 6){
+        if (window.__rqBankStop) break;
+        guard++;
+        try {
+          var r = await fetch('/api/admin/review-quiz/build-bank', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ textbook: bk.book, level: lvl, target: 40 }) }).then(function(x){return x.json();});
+          if (!r.ok){ failed++; msg.style.color='#b45309'; msg.textContent='⚠️ '+bk.book+' 일부 실패('+(r.error||'')+') — 계속 진행'; await sleep(800); break; }
+          size = r.bank_size||0; madeQ = madeQ;
+          if (r.done) break;
+        } catch(e){ msg.textContent='⚠️ 네트워크 지연 — 재시도 중…'; await sleep(1500); }
+      }
+      doneBooks++;
+      var pct = Math.round(doneBooks/total*100);
+      bar.style.width = pct+'%';
+      msg.style.color='#047857';
+      msg.textContent='🏗️ '+doneBooks+'/'+total+' 교재 ('+pct+'%) — 최근: '+bk.book+' · '+size+'/40문제';
+      await sleep(120);
+    }
+    if (!window.__rqBankStop){
+      bar.style.width='100%';
+      msg.textContent='✅ 완료: '+doneBooks+'/'+total+' 교재 은행 생성'+(failed?(' · 일부 '+failed+'건 재시도 필요'):'')+'. 학생 복습퀴즈에서 교재별 랜덤 10문제로 출제됩니다.';
+    }
+    startBtn.disabled=false; stopBtn.style.display='none';
+    if (window.rqLoad) try{ rqLoad(); }catch(e){}
   };
   window.rqSave = async function(){
     var body = rqCollect(); if (!body) return;
@@ -20952,7 +21019,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260613153257 -->
+        <!-- BUILD:20260613155150 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
