@@ -156,7 +156,7 @@ function rqGrade(qs, answers){
     const type = q.type || 'choice';
     const a = answers[i];
     if (type === 'choice' || type === 'listen'){
-      const ans = Number(a);
+      const ans = (a == null || a === '') ? NaN : Number(a);   // fix 미러: 무응답을 NaN 처리
       const correct = Number.isInteger(ans) && ans === Number(q.answer);
       if (correct) score++;
       return { idx:i, type, correct };
@@ -196,15 +196,15 @@ eq('일치율: 빈 정답 → 0', rqWordAcc('', 'anything'), 0);
   eq('문자열 "2" 도 숫자로 채점', rqGrade([{type:'choice',answer:2}], ['2']).score, 1);
 }
 
-// 3-C') ⚠️ 발견된 잠재 이슈(KNOWN ISSUE) — 무응답 null 채점 오류
-//   rqGrade 는 Number(a) 를 쓰는데 Number(null)===0 이므로,
-//   "정답이 0번 보기"인 문항을 학생이 무응답(null)으로 두면 오답이 아니라 정답으로 채점됨.
-//   → 권장 수정: a == null 이면 명시적으로 오답 처리 (예: const ans = (a == null || a === '') ? NaN : Number(a))
-//   아래는 현재 소스의 '실제' 동작을 기록한 회귀 가드입니다(고치면 이 값이 바뀝니다).
+// 3-C') ✅ FIXED(회귀가드) — 무응답 null 채점 오류 수정 검증 (2026-06-13)
+//   과거 버그: Number(null)===0 → "정답이 0번 보기"인 문항을 무응답(null)으로 두면 정답으로 오채점.
+//   수정: api-mango.ts rqGrade 에서 a==null/'' 를 NaN 처리 → 무응답은 항상 오답.
 {
-  const KNOWN = rqGrade([{ type:'choice', answer:0 }], [null]).score;
-  check('⚠️ KNOWN ISSUE: 무응답(null)+정답0번 → 현재 소스는 오채점(정답으로 집계됨, score=1)', KNOWN === 1);
-  console.log('     ↳ 권장: api-mango.ts rqGrade 에서 a==null/"" 를 NaN 처리하면 score 0 이 됩니다.');
+  eq('FIXED: 무응답(null)+정답0번 → 오답(score 0)', rqGrade([{ type:'choice', answer:0 }], [null]).score, 0);
+  eq('FIXED: 빈문자열 답+정답0번 → 오답', rqGrade([{ type:'choice', answer:0 }], ['']).score, 0);
+  eq('정상: 0번 보기 정답을 0 으로 응답 → 정답 유지', rqGrade([{ type:'choice', answer:0 }], [0]).score, 1);
+  const api = readSrc('api-mango.ts');
+  check("소스 일치: rqGrade 가 무응답을 NaN 처리(a == null || a === '')", /const ans = \(a == null \|\| a === ''\) \? NaN : Number\(a\)/.test(api));
 }
 
 // 3-D) 쓰기 채점 (정규화 정확 일치 OR 85% 이상 OR accept 목록)

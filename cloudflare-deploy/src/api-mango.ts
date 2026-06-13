@@ -2919,7 +2919,7 @@ export async function handleMangoApi(
         const type = q.type || 'choice';
         const a = answers[i];
         if (type === 'choice' || type === 'listen') {
-          const ans = Number(a);
+          const ans = (a == null || a === '') ? NaN : Number(a);   // fix: 무응답(null/빈값)을 0으로 오채점하지 않도록 NaN 처리
           const correct = Number.isInteger(ans) && ans === Number(q.answer);
           if (correct) score++;
           const d: any = { idx: i, type, correct, your_answer: Number.isInteger(ans) ? ans : null, answer: Number(q.answer), explain: q.explain || '' };
