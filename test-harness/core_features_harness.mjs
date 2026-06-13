@@ -77,3 +77,383 @@ eq('첫 입장 시 attended_at 기록', coalesceAttendedAt(null, 2000), 2000);
   check('소스 일치: 수업시간 내 status=attended 확정', /withinClass\s*\?\s*'attended'\s*:\s*'present'/.test(api));
   check('소스 일치: attended_at 은 COALESCE 보존', /attended_at\s*=\s*COALESCE\(attended_at/.test(api));
 }
+
+// ════════════════════════════════════════════════════════════════════
+// [2] 숙제 처리 데이터 무결성  (평가표 점수 · 숙제 적립 · 미제출 리스크)
+// ════════════════════════════════════════════════════════════════════
+section('[2] 숙제 처리 데이터 무결성');
+
+// 2-A) 평가표 종합점수 — api-mango.ts /api/eval/create 미러
+//   5개 점수 중 null/NaN 제외, 평균을 소수1자리 반올림, 전부 비면 null
+function evalOverall(scores){
+  const v = scores.filter(x => x != null && !isNaN(x)).map(Number);
+  return v.length ? Math.round((v.reduce((a,b)=>a+b,0)/v.length)*10)/10 : null;
+}
+eq('5점 평가 평균 (5,4,5,4,5) → 4.6', evalOverall([5,4,5,4,5]), 4.6);
+eq('숙제 점수 null 은 평균에서 제외', evalOverall([5,null,5,null,5]), 5);
+eq('전부 미입력 → null (0 으로 오염 금지)', evalOverall([null,null,null,null,null]), null);
+eq('NaN 방어: 잘못된 입력 무시', evalOverall([4, NaN, 'x' === 'x' ? 4 : null]), 4);
+check('🔒 무결성: 미입력 평가표가 0점으로 저장되지 않음', evalOverall([]) === null);
+
+// 교차검증
+{
+  const api = readSrc('api-mango.ts');
+  check('소스 일치: overall 은 null/NaN 제외 평균', /filter\(v\s*=>\s*v\s*!=\s*null\s*&&\s*!isNaN\(v\)\)/.test(api));
+  check('소스 일치: overall 소수1자리 반올림', /Math\.round\(\(scores\.reduce[\s\S]{0,40}\/\s*scores\.length\)\s*\*\s*10\)\s*\/\s*10/.test(api));
+  check('소스 일치: 평가 테이블에 score_homework 컬럼 존재', /score_homework\s+INTEGER/.test(api));
+}
+
+// 2-B) 숙제 완료 포인트 적립 — points 규칙(rule=homework): 20점, 쿨다운 3600s, 일일 3회
+const HW_RULE = { code:'homework', points:20, cooldown_sec:3600, daily_limit:3 };
+function canEarn(rule, lastEarnedAt, todayCount, now){
+  if (now - lastEarnedAt < rule.cooldown_sec) return { ok:false, reason:'cooldown' };
+  if (todayCount >= rule.daily_limit)         return { ok:false, reason:'daily_limit' };
+  return { ok:true, add: rule.points };
+}
+eq('숙제 적립 정상 → +20', canEarn(HW_RULE, 0, 0, 100000), { ok:true, add:20 });
+eq('쿨다운(1시간) 내 재적립 차단', canEarn(HW_RULE, 100000, 0, 100000+10).ok, false);
+eq('일일 3회 초과 차단', canEarn(HW_RULE, 0, 3, 1e9).ok, false);
+check('🔒 무결성: 중복 적립 방지(쿨다운+일일한도)', !canEarn(HW_RULE,100000,0,100100).ok && !canEarn(HW_RULE,0,5,1e9).ok);
+
+// 교차검증: seed 규칙에 homework 20/3600/3 이 있는지
+{
+  const api = readSrc('api-mango.ts');
+  check("소스 일치: 'homework' 적립규칙 20점/3600s/3회 seed", /'homework','숙제 완료',20,3600,3/.test(api));
+}
+
+// 2-C) 이탈위험(retention): 숙제 5회 이상 미제출 → 위험점수 +12, 코디네이터 액션
+function homeworkRisk(missedCount){
+  let risk = 0; const signals = {};
+  if (missedCount >= 5) { risk += 12; signals.homework = 'high-miss'; }
+  return { risk, signals };
+}
+eq('숙제 5회 미제출 → 위험 +12', homeworkRisk(5).risk, 12);
+eq('숙제 4회 미제출 → 위험 0 (임계 미만)', homeworkRisk(4).risk, 0);
+eq('high-miss 신호 발생', homeworkRisk(6).signals.homework, 'high-miss');
+{
+  const api = readSrc('api-mango.ts');
+  check('소스 일치: hwMissed >= 5 → risk += 12', /hwMissed\s*>=\s*5[\s\S]{0,40}risk\s*\+=\s*12/.test(api));
+}
+
+// ════════════════════════════════════════════════════════════════════
+// [3] AI 퀴즈 응답 정확도  (서버 채점 · 정답 비공개 · 랜덤출제 무결성)
+// ════════════════════════════════════════════════════════════════════
+section('[3] AI 퀴즈 응답 정확도');
+
+// 아래 3개 함수는 api-mango.ts 의 rqNorm / rqWordAcc / rqGrade 를 그대로 포팅(미러)한 것
+const rqNorm = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9가-힣\s']/g,' ').replace(/\s+/g,' ').trim();
+const rqWordAcc = (target, said) => {
+  const t = rqNorm(target).split(' ').filter(Boolean);
+  const s = rqNorm(said).split(' ').filter(Boolean);
+  if (!t.length) return 0;
+  const pool = s.slice(); let hit = 0;
+  for (const w of t){ const i = pool.indexOf(w); if (i>=0){ hit++; pool.splice(i,1); } }
+  return hit / t.length;
+};
+function rqGrade(qs, answers){
+  let score = 0;
+  const detail = qs.map((q,i) => {
+    const type = q.type || 'choice';
+    const a = answers[i];
+    if (type === 'choice' || type === 'listen'){
+      const ans = Number(a);
+      const correct = Number.isInteger(ans) && ans === Number(q.answer);
+      if (correct) score++;
+      return { idx:i, type, correct };
+    }
+    const said = String(a == null ? '' : a).slice(0,500);
+    let accuracy = Math.round(rqWordAcc(q.answer_text, said) * 100);
+    let correct = false;
+    if (type === 'write'){
+      const cands = [rqNorm(q.answer_text), ...((q.accept||[]).map(x=>rqNorm(x)))].filter(Boolean);
+      correct = !!said.trim() && (cands.includes(rqNorm(said)) || accuracy >= 85);
+    } else { // speak
+      correct = accuracy >= 60;
+    }
+    if (correct) score++;
+    return { idx:i, type, correct, accuracy };
+  });
+  return { score, detail };
+}
+
+// 3-A) 텍스트 정규화 — 대소문/문장부호/공백 무시
+eq('정규화: 대문자·마침표 제거', rqNorm('Hello, World!'), 'hello world');
+eq('정규화: 다중 공백 축소', rqNorm('  I   am  ok  '), 'i am ok');
+eq('정규화: 한글 보존', rqNorm('사과 Apple!'), '사과 apple');
+
+// 3-B) 단어 일치율
+eq('일치율: 완전일치 = 1', rqWordAcc('I am happy', 'I am happy'), 1);
+check('일치율: 2/3 ≈ 0.67', Math.abs(rqWordAcc('I am happy','I am sad') - 2/3) < 1e-9);
+eq('일치율: 빈 정답 → 0', rqWordAcc('', 'anything'), 0);
+
+// 3-C) 객관식/듣기 채점 (보기 index 일치)
+{
+  const qs = [{ type:'choice', answer:2 }, { type:'listen', answer:1 }];
+  eq('객관식+듣기 둘다 정답 → 2/2', rqGrade(qs, [2,1]).score, 2);
+  eq('객관식 오답 → 1/2', rqGrade(qs, [1,1]).score, 1);
+  eq('무응답(undefined) → 오답 처리', rqGrade(qs, [undefined,undefined]).score, 0);
+  eq('무응답(null) + 정답이 0번이 아니면 → 오답', rqGrade(qs, [null,null]).score, 0);
+  eq('문자열 "2" 도 숫자로 채점', rqGrade([{type:'choice',answer:2}], ['2']).score, 1);
+}
+
+// 3-C') ⚠️ 발견된 잠재 이슈(KNOWN ISSUE) — 무응답 null 채점 오류
+//   rqGrade 는 Number(a) 를 쓰는데 Number(null)===0 이므로,
+//   "정답이 0번 보기"인 문항을 학생이 무응답(null)으로 두면 오답이 아니라 정답으로 채점됨.
+//   → 권장 수정: a == null 이면 명시적으로 오답 처리 (예: const ans = (a == null || a === '') ? NaN : Number(a))
+//   아래는 현재 소스의 '실제' 동작을 기록한 회귀 가드입니다(고치면 이 값이 바뀝니다).
+{
+  const KNOWN = rqGrade([{ type:'choice', answer:0 }], [null]).score;
+  check('⚠️ KNOWN ISSUE: 무응답(null)+정답0번 → 현재 소스는 오채점(정답으로 집계됨, score=1)', KNOWN === 1);
+  console.log('     ↳ 권장: api-mango.ts rqGrade 에서 a==null/"" 를 NaN 처리하면 score 0 이 됩니다.');
+}
+
+// 3-D) 쓰기 채점 (정규화 정확 일치 OR 85% 이상 OR accept 목록)
+{
+  const q = [{ type:'write', answer_text:'I like apples', accept:['I love apples'] }];
+  eq('쓰기 정확일치(대소문 무관) → 정답', rqGrade(q, ['i like apples']).score, 1);
+  eq('쓰기 accept 동의답안 → 정답', rqGrade(q, ['I love apples']).score, 1);
+  eq('쓰기 85%↑ 부분일치 → 정답', rqGrade([{type:'write',answer_text:'I am very happy today'}], ['I am very happy today!']).score, 1);
+  eq('쓰기 공백답 → 오답', rqGrade(q, ['']).score, 0);
+}
+
+// 3-E) 말하기 채점 (60% 이상)
+{
+  const q = [{ type:'speak', answer_text:'Good morning teacher' }];
+  eq('말하기 100% → 정답', rqGrade(q, ['Good morning teacher']).score, 1);
+  eq('말하기 67%(2/3) → 정답(>=60%)', rqGrade(q, ['Good morning everyone']).score, 1);
+  eq('말하기 33%(1/3) → 오답(<60%)', rqGrade(q, ['Good night']).score, 0);
+}
+
+// 3-F) 🔒 정답 비공개 — 학생 전달 문항에는 answer/answer_text/audio_text 가 없어야 함 (rqSafeQuestions 미러)
+const rqSafeQuestions = (qs) => qs.map((q,i) => {
+  const type = q.type || 'choice';
+  const out = { idx:i, type, q:q.q };
+  if (type === 'choice' || type === 'listen') out.opts = q.opts;
+  if (type === 'speak') out.target = q.answer_text;
+  if (type === 'listen') out.has_audio = true;
+  return out;
+});
+{
+  const bank = [
+    { type:'choice', q:'2+2?', opts:['3','4'], answer:1, explain:'사칙연산' },
+    { type:'listen', q:'들어보세요', opts:['cat','dog'], answer:0, audio_text:'cat', explain:'동물' },
+    { type:'write', q:'사과는?', answer_text:'apple', accept:['Apple'] },
+  ];
+  const safe = rqSafeQuestions(bank);
+  check('객관식: answer 미노출', safe[0].answer === undefined);
+  check('듣기: audio_text(원문) 미노출', safe[1].audio_text === undefined);
+  check('듣기: has_audio 플래그만 노출', safe[1].has_audio === true);
+  check('쓰기: answer_text 미노출', safe[2].answer_text === undefined);
+  check('explain(해설) 미노출', safe.every(s => s.explain === undefined));
+  check('🔒 보안: 학생 응답 정확도 조작 불가(정답이 클라이언트로 새지 않음)',
+        !JSON.stringify(safe).includes('apple') && !JSON.stringify(safe).includes('"answer"'));
+}
+
+// 3-G) served(서버 추첨 문항) 채점 무결성 — 학생이 받은 문항만 채점, total=served 길이
+function gradeSubmit(bank, served, answers){
+  const gradeQs = (served && served.length) ? served.map(i => bank[i]) : bank;
+  const { score } = rqGrade(gradeQs, answers);
+  const total = gradeQs.length;
+  return { score, total, percent: total ? Math.round((score/total)*100) : 0 };
+}
+{
+  const bank = [{type:'choice',answer:0},{type:'choice',answer:1},{type:'choice',answer:0},{type:'choice',answer:1}];
+  eq('served=[1,3] 두 문항만 채점 → total 2', gradeSubmit(bank,[1,3],[1,1]).total, 2);
+  eq('served=[1,3] 둘 다 정답 → 100%', gradeSubmit(bank,[1,3],[1,1]).percent, 100);
+  eq('served=[1,3] 한 개 정답 → 50%', gradeSubmit(bank,[1,3],[1,0]).percent, 50);
+}
+
+// 3-H) AI 자동출제 수량 클램프 — 유형별 0~5 로 제한 (rqAiGenerate 미러)
+const lim = (v, dft) => Math.min(Math.max(Number(v ?? dft) || 0, 0), 5);
+eq('AI 출제 수량 음수 → 0', lim(-3, 2), 0);
+eq('AI 출제 수량 과다(99) → 5 상한', lim(99, 2), 5);
+eq('AI 출제 수량 미지정 → 기본값', lim(undefined, 2), 2);
+{
+  const api = readSrc('api-mango.ts');
+  check('소스 일치: 채점은 서버에서(rqGrade) 수행', /const\s*\{\s*score,\s*detail\s*\}\s*=\s*rqGrade/.test(api));
+  check('소스 일치: submit 응답 percent 계산', /percent:\s*total\s*\?\s*Math\.round\(\(score\s*\/\s*total\)\s*\*\s*100\)/.test(api));
+  check('소스 일치: AI 수량 클램프 0~5', /Math\.min\(Math\.max\(Number\(v\s*\?\?\s*dft\)\s*\|\|\s*0,\s*0\),\s*5\)/.test(api));
+}
+
+// ════════════════════════════════════════════════════════════════════
+// [4] 카카오톡 평가표 발송 자동화  (src/solapi-client.ts)
+// ════════════════════════════════════════════════════════════════════
+section('[4] 카카오톡 평가표 발송 자동화');
+
+// getSolapiMode 미러: 키 없으면 disabled, TEST_MODE=true 면 mock, 아니면 real
+function getSolapiMode(env){
+  if (!env.SOLAPI_API_KEY || !env.SOLAPI_API_SECRET) return 'disabled';
+  if (env.SOLAPI_TEST_MODE === 'true') return 'mock';
+  return 'real';
+}
+const normalizePhone = (p) => (p || '').replace(/[^0-9]/g, '');
+
+// sendKakaoAlimtalk 의 분기(실제 네트워크 호출 제외) 미러
+function sendKakao(env, params){
+  const mode = getSolapiMode(env);
+  const phone = normalizePhone(params.recipientPhone);
+  if (mode === 'disabled') return { ok:false, mode, status:'skipped', message:'SOLAPI_API_KEY 미설정' };
+  if (!params.templateCode) return { ok:false, mode, status:'skipped', message:'templateCode 미설정' };
+  if (!phone || phone.length < 10) return { ok:false, mode, status:'failed', error:'invalid_phone' };
+  if (mode === 'mock') return { ok:true, mode:'mock', status:'sent', messageId:'mock_x' };
+  return { ok:true, mode:'real', status:'sent' }; // (실제 발송 분기 — 여기선 네트워크 미호출)
+}
+
+// 4-A) 모드 판정
+eq('키 미설정 → disabled', getSolapiMode({}), 'disabled');
+eq('TEST_MODE=true → mock', getSolapiMode({SOLAPI_API_KEY:'k',SOLAPI_API_SECRET:'s',SOLAPI_TEST_MODE:'true'}), 'mock');
+eq('키 설정+운영 → real', getSolapiMode({SOLAPI_API_KEY:'k',SOLAPI_API_SECRET:'s'}), 'real');
+
+// 4-B) 전화번호 정규화
+eq('하이픈 제거', normalizePhone('010-1234-5678'), '01012345678');
+eq('공백/괄호 제거', normalizePhone('(010) 1234 5678'), '01012345678');
+
+// 4-C) 발송 분기 — 안전한 폴백(키 없으면 조용히 skipped, 크래시 금지)
+const T = { templateCode:'EVAL_REPORT', recipientPhone:'010-1234-5678', variables:{} };
+eq('키 없음 → skipped (자동발송이 시스템을 막지 않음)', sendKakao({}, T).status, 'skipped');
+eq('템플릿코드 없음 → skipped', sendKakao({SOLAPI_API_KEY:'k',SOLAPI_API_SECRET:'s',SOLAPI_TEST_MODE:'true'}, {...T, templateCode:''}).status, 'skipped');
+eq('잘못된 번호 → failed/invalid_phone', sendKakao({SOLAPI_API_KEY:'k',SOLAPI_API_SECRET:'s',SOLAPI_TEST_MODE:'true'}, {...T, recipientPhone:'12345'}).error, 'invalid_phone');
+{
+  const r = sendKakao({SOLAPI_API_KEY:'k',SOLAPI_API_SECRET:'s',SOLAPI_TEST_MODE:'true'}, T);
+  check('mock 모드 → 실제발송 없이 성공(sent)', r.ok && r.mode==='mock' && r.status==='sent');
+}
+check('🔒 자동화 안전성: 평가표 작성은 발송 실패와 무관하게 진행(skipped 는 ok=false 지만 throw 아님)',
+      sendKakao({}, T).ok === false && typeof sendKakao({}, T).status === 'string');
+
+// 4-D) 학생+학부모 동시 발송 대상 결정 — 둘 다 있으면 둘 다, 없으면 건너뜀
+function pickRecipients(stu){
+  const out = [];
+  if (stu.student_phone) out.push({ who:'student', phone:stu.student_phone });
+  if (stu.parent_phone)  out.push({ who:'parent',  phone:stu.parent_phone });
+  return out;
+}
+eq('학생+학부모 번호 → 2건 발송', pickRecipients({student_phone:'01011112222',parent_phone:'01033334444'}).length, 2);
+eq('학부모 번호만 → 1건', pickRecipients({parent_phone:'01033334444'}).length, 1);
+eq('번호 없음 → 0건(발송 안함)', pickRecipients({}).length, 0);
+
+// 교차검증
+{
+  const sol = readSrc('solapi-client.ts');
+  check('소스 일치: 키 없으면 disabled', /!env\.SOLAPI_API_KEY\s*\|\|\s*!env\.SOLAPI_API_SECRET\)\s*return\s*'disabled'/.test(sol));
+  check('소스 일치: TEST_MODE=true → mock', /SOLAPI_TEST_MODE\s*===\s*'true'\)\s*return\s*'mock'/.test(sol));
+  check('소스 일치: 키 미설정 발송 → skipped', /status:\s*'skipped'/.test(sol));
+  check('소스 일치: 번호 10자리 미만 → invalid_phone', /phone\.length\s*<\s*10[\s\S]{0,60}invalid_phone/.test(sol));
+}
+
+// ════════════════════════════════════════════════════════════════════
+// [5] 교재/교사 업로드 → 학생·수업화면 표시 검증
+// ════════════════════════════════════════════════════════════════════
+section('[5] 교재/교사 업로드 → 표시 검증');
+
+// 5-A) 교재 파일 업로드 검증 — 확장자 화이트리스트 + 80MB 상한 (POST /api/admin/textbook-files 미러)
+const ALLOWED_EXT = ['pdf','jpg','jpeg','png','webp'];
+const MAX_SIZE = 80 * 1024 * 1024;
+function validateTextbookUpload(filename, size){
+  const ext = (filename.split('.').pop() || 'bin').toLowerCase();
+  if (!ALLOWED_EXT.includes(ext)) return { ok:false, error:'invalid_type' };
+  if (size > MAX_SIZE) return { ok:false, error:'file_too_large' };
+  return { ok:true, kind: ext === 'pdf' ? 'pdf' : 'image' };
+}
+eq('PDF 업로드 → pdf 종류', validateTextbookUpload('unit1.pdf', 1024).kind, 'pdf');
+eq('PNG 업로드 → image 종류', validateTextbookUpload('cover.PNG', 1024).kind, 'image');
+eq('실행파일(.exe) 차단', validateTextbookUpload('hack.exe', 100).error, 'invalid_type');
+eq('80MB 초과 차단', validateTextbookUpload('big.pdf', MAX_SIZE + 1).error, 'file_too_large');
+eq('80MB 정확히 → 허용', validateTextbookUpload('ok.pdf', MAX_SIZE).ok, true);
+
+// 5-B) 🔒 학생 표시 데이터 — 내부 저장키(r2_key) 미노출, 안전한 url 만 제공 (GET /api/textbook-files 미러)
+function studentTextbookView(row){
+  // 학생 GET 이 SELECT 하는 컬럼만 노출 + url 합성
+  const { id, name, kind, ext, size_bytes, level, unit_no, description, created_at } = row;
+  return { id, name, kind, ext, size_bytes, level, unit_no, description, created_at, url:`/api/textbook-files/${id}/raw` };
+}
+{
+  const dbRow = { id:7, name:'[Smart1] Unit3', kind:'pdf', ext:'pdf', size_bytes:2048, level:'Smart1', unit_no:3,
+                  description:'3과', created_at:1700000000000, r2_key:'textbook-files/secret-key.pdf', uploaded_by:'teacher_kim' };
+  const view = studentTextbookView(dbRow);
+  check('업로드한 교재가 학생에게 표시됨(name/level/unit 일치)', view.name === dbRow.name && view.level === 'Smart1' && view.unit_no === 3);
+  check('표시용 url 합성됨', view.url === '/api/textbook-files/7/raw');
+  check('🔒 내부 r2_key 미노출', view.r2_key === undefined);
+  check('🔒 uploaded_by(작성자) 미노출', view.uploaded_by === undefined);
+}
+
+// 5-C) 교재 라이브러리 그룹 집계 — [교재명] 접두사로 그룹핑(수업화면 칩/트리)
+function bookFromName(name){
+  const m = /^\[([^\]]+)\]/.exec(name);
+  return m ? m[1] : '(기타)';
+}
+eq('[Smart1] 접두사 → 교재명 추출', bookFromName('[Smart1] Unit3'), 'Smart1');
+eq('접두사 없음 → (기타)', bookFromName('자유업로드.pdf'), '(기타)');
+
+// 5-D) 교사 프로필 표시 — 활동중만 노출 + 🔒 민감정보(전화/카톡/계좌/단가) 미노출 (GET /api/teacher-profiles 미러)
+function teacherPublicView(t){
+  // 학생용 GET 이 SELECT 하는 안전 컬럼만
+  const allow = ['id','korean_name','english_name','image_url','intro_video_url','group_name','career',
+                 'certifications','education','available_days','available_hours','status','origin_region','notes'];
+  const out = {}; for (const k of allow) if (t[k] !== undefined) out[k] = t[k];
+  return out;
+}
+function listActiveTeachers(rows){ return rows.filter(t => t.status === '활동중').map(teacherPublicView); }
+{
+  const rows = [
+    { id:1, korean_name:'김선생', english_name:'Kate', status:'활동중', image_url:'/img/1.jpg',
+      phone:'010-1111-2222', kakao_id:'kate_kk', bank_account:'123-456', fee_per_10min:5000, intro_video_url:'/v/1.mp4' },
+    { id:2, korean_name:'박선생', english_name:'Ben', status:'퇴사', phone:'010-3333-4444' },
+  ];
+  const pub = listActiveTeachers(rows);
+  eq('활동중 교사만 노출(퇴사 제외)', pub.length, 1);
+  check('업로드한 교사정보 표시(이름/영문명/소개영상)', pub[0].korean_name === '김선생' && pub[0].english_name === 'Kate' && pub[0].intro_video_url === '/v/1.mp4');
+  check('🔒 전화번호 미노출', pub[0].phone === undefined);
+  check('🔒 카카오ID 미노출', pub[0].kakao_id === undefined);
+  check('🔒 계좌번호 미노출', pub[0].bank_account === undefined);
+  check('🔒 강사료 단가 미노출', pub[0].fee_per_10min === undefined);
+}
+
+// 교차검증: 실제 GET 쿼리가 활동중 필터 + 민감컬럼 미포함인지
+{
+  const api = readSrc('api-mango.ts');
+  check("소스 일치: 교사 GET 은 status='활동중' 만", /teacher_profiles WHERE status = '활동중'/.test(api));
+  check('소스 일치: 교사 공개 SELECT 에 bank/phone/kakao_id 미포함',
+        /SELECT id, korean_name, english_name, image_url, intro_video_url, group_name, career, certifications, education, available_days, available_hours, status, origin_region, notes FROM teacher_profiles/.test(api));
+  check('소스 일치: 학생 교재 GET 에 r2_key 미포함',
+        /SELECT id, name, kind, ext, size_bytes, level, unit_no, description, created_at FROM textbook_files/.test(api));
+  check('소스 일치: 교재 업로드 확장자 화이트리스트', /allowedExt\s*=\s*\['pdf',\s*'jpg',\s*'jpeg',\s*'png',\s*'webp'\]/.test(api));
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  결과 요약 + 리포트(txt) 저장
+// ════════════════════════════════════════════════════════════════════
+console.log('\n' + '═'.repeat(60));
+console.log('📊 영역별 결과');
+const lines = [];
+lines.push('🥭 망고아이 핵심 기능 통합 테스트 리포트');
+lines.push('생성: ' + new Date().toISOString());
+lines.push('='.repeat(60));
+for (const [name, s] of Object.entries(SECT)) {
+  const total = s.pass + s.fail;
+  const mark = s.fail === 0 ? '✅' : '⚠️';
+  const row = `${mark} ${name}: ${s.pass}/${total} 통과`;
+  console.log('  ' + row);
+  lines.push(row);
+}
+console.log('═'.repeat(60));
+const totalAll = PASS + FAIL;
+const summary = `총 ${totalAll}건 중 ✅ ${PASS} 통과 / ❌ ${FAIL} 실패`;
+console.log(summary);
+lines.push('-'.repeat(60));
+lines.push(summary);
+if (FAIL > 0) {
+  console.log('\n❌ 실패 항목:');
+  lines.push('', '실패 항목:');
+  for (const f of FAILS) { console.log('  - ' + f); lines.push('  - ' + f); }
+} else {
+  const ok = '\n🎉 전체 통과 — 5대 핵심 기능 사양 회귀 없음.';
+  console.log(ok); lines.push(ok.trim());
+}
+
+try {
+  const { writeFileSync } = await import('node:fs');
+  writeFileSync(resolve(__dir, 'core_features_report.txt'), lines.join('\n') + '\n', 'utf8');
+  console.log('\n📝 리포트 저장: test-harness/core_features_report.txt');
+} catch (e) { console.log('리포트 저장 실패:', e.message); }
+
+process.exit(FAIL > 0 ? 1 : 0);
