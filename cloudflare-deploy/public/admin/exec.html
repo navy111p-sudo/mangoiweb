@@ -247,6 +247,8 @@ async function loadSummary(){
   const today = new Date(s.as_of);
   $('#brandDate').textContent = '📅 ' + s.today.date;
   if (s.scope) $('#scopeBadge').textContent = s.scope.label;
+  if (window.__agencyGreet) window.__agencyGreet.apply(s.scope ? s.scope.type : null);
+  if (window.__branchGreet) window.__branchGreet.apply(s.scope ? s.scope.type : null);
   $('#asOf').textContent = '최종 갱신 ' + today.toLocaleString('ko-KR',{hour12:false});
   window.__hqOnly = s.cost_hq_only;
   window.__newMonth = s.students.new_this_month || 0;
@@ -461,17 +463,8 @@ boot();
   var btnX= document.getElementById('exec-greet-close');
   var btnS= document.getElementById('exec-greet-sound');
   if (!pop || !v) return;
-  pop.style.display = 'block';
+  var started = false, closed = false;
   function syncMute(){ if(!btnM)return; btnM.textContent=v.muted?'🔇':'🔊'; btnM.title=v.muted?'소리 켜기':'무음'; }
-  v.muted = false;
-  var p = v.play();
-  if (p && p.catch) p.catch(function(){
-    v.muted = true; syncMute();
-    var p2 = v.play();
-    if (p2 && p2.catch) p2.catch(function(){ btnP.textContent='▶️'; btnP.title='재생'; });
-    btnS.style.display='block';
-  });
-  syncMute();
   if (btnM) btnM.addEventListener('click', function(){ v.muted=!v.muted; if(!v.muted)btnS.style.display='none'; syncMute(); });
   v.addEventListener('volumechange', syncMute);
   btnS.addEventListener('click', function(){ v.muted=false; try{v.currentTime=0;}catch(e){} v.play(); btnS.style.display='none'; syncMute(); });
@@ -479,7 +472,93 @@ boot();
   v.addEventListener('play',  function(){ btnP.textContent='⏸️'; btnP.title='멈춤'; });
   v.addEventListener('pause', function(){ btnP.textContent='▶️'; btnP.title='재생'; });
   v.addEventListener('ended', function(){ btnP.textContent='▶️'; btnP.title='다시 재생'; });
-  btnX.addEventListener('click', function(){ try{v.pause();}catch(e){} pop.style.display='none'; });
+  btnX.addEventListener('click', function(){ closed=true; try{v.pause();}catch(e){} pop.style.display='none'; });
+  function showAndPlay(){
+    if (started || closed) return; started = true;
+    pop.style.display = 'block';
+    v.muted = false;
+    var p = v.play();
+    if (p && p.catch) p.catch(function(){
+      v.muted = true; syncMute();
+      var p2 = v.play();
+      if (p2 && p2.catch) p2.catch(function(){ btnP.textContent='▶️'; btnP.title='재생'; });
+      btnS.style.display='block';
+    });
+    syncMute();
+  }
+  // 🔑 대리점(agency) 계정일 때만 노출. 지사·본사 등은 숨김.
+  window.__agencyGreet = {
+    apply: function(scopeType){
+      if (scopeType === 'agency') { showAndPlay(); if(!closed) pop.style.display='block'; }
+      else { if(!closed){ try{v.pause();}catch(e){} pop.style.display='none'; } }
+    }
+  };
+})();
+</script>
+
+<!-- 🎥 지사장님 메시지 — 지사(branch) 계정에서만 노출. 우상단 고정, 휴대폰=절반 크기 (⏸️ 멈춤 / 🔇 무음 / ❌ 나가기) -->
+<style>
+#exec-branch-greet-pop .greet-btn:hover{background:rgba(51,65,85,0.95)}
+@media (max-width:768px){
+  #exec-branch-greet-pop{width:min(120px,32vw) !important;top:8px !important;right:8px !important;border-radius:12px !important}
+  #exec-branch-greet-pop .greet-bar{padding:4px 5px !important}
+  #exec-branch-greet-pop .greet-title{font-size:8.5px !important}
+  #exec-branch-greet-pop .greet-btns{gap:3px !important}
+  #exec-branch-greet-pop .greet-btn{width:19px !important;height:19px !important;font-size:9.5px !important}
+  #exec-branch-greet-pop #exec-branch-greet-sound{font-size:9px !important;padding:5px 0 !important}
+}
+</style>
+<div id="exec-branch-greet-pop" style="position:fixed;top:14px;right:14px;z-index:99999;width:min(232px,62vw);background:rgba(15,23,42,0.94);border:1.5px solid rgba(96,165,250,0.55);border-radius:18px;box-shadow:0 18px 44px -10px rgba(0,0,0,0.65);overflow:hidden;display:none;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)">
+  <div class="greet-bar" style="display:flex;align-items:center;justify-content:space-between;padding:7px 9px;background:rgba(96,165,250,0.14)">
+    <span class="greet-title" style="font-size:12px;font-weight:800;color:#bfdbfe;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📢 지사장님 메시지</span>
+    <span class="greet-btns" style="display:flex;gap:5px;flex:none">
+      <button id="exec-branch-greet-pause" class="greet-btn" type="button" title="멈춤" aria-label="멈춤/재생" style="width:28px;height:28px;border-radius:50%;border:1px solid rgba(148,163,184,0.4);background:rgba(30,41,59,0.9);font-size:14px;line-height:1;cursor:pointer;padding:0">⏸️</button>
+      <button id="exec-branch-greet-mute" class="greet-btn" type="button" title="무음" aria-label="무음/소리 전환" style="width:28px;height:28px;border-radius:50%;border:1px solid rgba(148,163,184,0.4);background:rgba(30,41,59,0.9);font-size:13px;line-height:1;cursor:pointer;padding:0">🔇</button>
+      <button id="exec-branch-greet-close" class="greet-btn" type="button" title="나가기" aria-label="나가기" style="width:28px;height:28px;border-radius:50%;border:1px solid rgba(148,163,184,0.4);background:rgba(30,41,59,0.9);font-size:13px;line-height:1;cursor:pointer;padding:0">❌</button>
+    </span>
+  </div>
+  <video id="exec-branch-greet-video" src="/video/branch-greeting.mp4" playsinline preload="auto" style="display:block;width:100%;aspect-ratio:1/1;object-fit:cover;background:#000"></video>
+  <button id="exec-branch-greet-sound" type="button" style="display:none;width:100%;border:none;padding:8px 0;background:#60a5fa;color:#0b1220;font-weight:900;font-size:12.5px;cursor:pointer">🔊 소리 켜고 다시 듣기</button>
+</div>
+<script>
+(function(){
+  var pop = document.getElementById('exec-branch-greet-pop');
+  var v   = document.getElementById('exec-branch-greet-video');
+  var btnP= document.getElementById('exec-branch-greet-pause');
+  var btnM= document.getElementById('exec-branch-greet-mute');
+  var btnX= document.getElementById('exec-branch-greet-close');
+  var btnS= document.getElementById('exec-branch-greet-sound');
+  if (!pop || !v) return;
+  var started = false, closed = false;
+  function syncMute(){ if(!btnM)return; btnM.textContent=v.muted?'🔇':'🔊'; btnM.title=v.muted?'소리 켜기':'무음'; }
+  if (btnM) btnM.addEventListener('click', function(){ v.muted=!v.muted; if(!v.muted)btnS.style.display='none'; syncMute(); });
+  v.addEventListener('volumechange', syncMute);
+  btnS.addEventListener('click', function(){ v.muted=false; try{v.currentTime=0;}catch(e){} v.play(); btnS.style.display='none'; syncMute(); });
+  btnP.addEventListener('click', function(){ if(v.paused){v.play();}else{v.pause();} });
+  v.addEventListener('play',  function(){ btnP.textContent='⏸️'; btnP.title='멈춤'; });
+  v.addEventListener('pause', function(){ btnP.textContent='▶️'; btnP.title='재생'; });
+  v.addEventListener('ended', function(){ btnP.textContent='▶️'; btnP.title='다시 재생'; });
+  btnX.addEventListener('click', function(){ closed=true; try{v.pause();}catch(e){} pop.style.display='none'; });
+  function showAndPlay(){
+    if (started || closed) return; started = true;
+    pop.style.display = 'block';
+    v.muted = false;
+    var p = v.play();
+    if (p && p.catch) p.catch(function(){
+      v.muted = true; syncMute();
+      var p2 = v.play();
+      if (p2 && p2.catch) p2.catch(function(){ btnP.textContent='▶️'; btnP.title='재생'; });
+      btnS.style.display='block';
+    });
+    syncMute();
+  }
+  // 🔑 지사(branch) 계정일 때만 노출. 대리점·본사 등은 숨김.
+  window.__branchGreet = {
+    apply: function(scopeType){
+      if (scopeType === 'branch') { showAndPlay(); if(!closed) pop.style.display='block'; }
+      else { if(!closed){ try{v.pause();}catch(e){} pop.style.display='none'; } }
+    }
+  };
 })();
 </script>
 </body>
