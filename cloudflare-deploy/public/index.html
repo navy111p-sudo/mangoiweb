@@ -25168,7 +25168,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260613163153 -->
+<!-- BUILD:20260613163730 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -27543,7 +27543,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   window.rqvPlay = async function(i){
     var btn=$('rqv-play'); if(btn){ btn.disabled=true; btn.textContent='🔊 …'; }
     try {
-      var resp = await fetch('/api/review-quiz/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ quiz_id:st.quiz.id, idx:i }) });
+      var resp = await fetch('/api/review-quiz/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ quiz_id:st.quiz.id, idx:(st.quiz.questions[i] && st.quiz.questions[i].idx!=null ? st.quiz.questions[i].idx : i) }) });
       if(!resp.ok) throw new Error('tts');
       var blob = await resp.blob(); var a = new Audio(URL.createObjectURL(blob)); a.play().catch(function(){});
     } catch(e){ if(btn) btn.textContent='⚠️ '+(isEn()?'audio failed':'음성 실패'); }
@@ -27590,7 +27590,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     var u=me();
     try {
       var r = await fetch('/api/review-quiz/submit', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ quiz_id:st.quiz.id, user_id:u.uid, user_name:u.name, answers:st.answers }) }).then(function(x){return x.json();});
+        body: JSON.stringify({ quiz_id:st.quiz.id, user_id:u.uid, user_name:u.name, answers:st.answers, served: st.quiz.questions.map(function(q){ return (q && q.idx!=null) ? q.idx : 0; }) }) }).then(function(x){return x.json();});
       if(!r.ok) throw new Error(r.error||'submit');
       showResult(r);
     } catch(e){ alert(isEn()?'Submit failed.':'제출 실패. 다시 시도해주세요.'); renderQ(); }

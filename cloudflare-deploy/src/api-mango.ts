@@ -3096,7 +3096,11 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       const allowGenerate = b.auto_generate !== 0 && b.auto_generate !== false;
       const pickSafe = (row: any) => {
         let qs: any[] = []; try { qs = JSON.parse(row.questions) || []; } catch {}
-        return { id: row.id, title: row.title, description: row.description || '', level: row.level || '', textbook: row.textbook || '', lesson_no: row.lesson_no, source: row.source || 'manual', questions: rqSafeQuestions(qs) };
+        let draw: any = null; try { draw = row.draw ? JSON.parse(row.draw) : null; } catch {}
+        let safe: any[];
+        if (draw && qs.length) { const idxs = rqDrawIndices(qs, draw); safe = idxs.map((i: number) => rqSafeOne(qs[i], i)); }
+        else { safe = rqSafeQuestions(qs); }
+        return { id: row.id, title: row.title, description: row.description || '', level: row.level || '', textbook: row.textbook || '', lesson_no: row.lesson_no, source: row.source || 'manual', draw: draw || null, questions: safe };
       };
       // 1) 교재+레슨 → 2) 교재 전체용 → 3) 레벨 전체용 순서로 매칭
       const tries: Array<{ sql: string; binds: any[] }> = [];
@@ -3152,11 +3156,11 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       const existing: any = await env.DB.prepare(`SELECT id, questions FROM review_quizzes WHERE source='bank' AND ${keyCol} = ? LIMIT 1`).bind(keyVal).first();
       let qs: any[] = []; if (existing) { try { qs = JSON.parse(existing.questions) || []; } catch {} }
       if (qs.length >= target) return json({ ok: true, id: existing.id, bank_size: qs.length, target, done: true });
-      const gen = await rqAiGenerate({ level, textbook, lesson_no: null, topic, counts: { listen: 4, speak: 3, choice: 3, write: 0 } });
+      const gen = await rqAiGenerate({ level, textbook, lesson_no: null, topic, counts: { listen: 4, write: 3, speak: 3, choice: 0 } });
       if (!gen.ok) return json({ ok: false, error: gen.error }, 502);
       qs = qs.concat(gen.questions);
       if (qs.length > target) qs = qs.slice(0, target);
-      const drawJson = JSON.stringify({ listen: 4, speak: 3, choice: 3 });
+      const drawJson = JSON.stringify({ listen: 4, write: 3, speak: 3 });
       const now = Date.now();
       if (existing) {
         await env.DB.prepare(`UPDATE review_quizzes SET questions=?, draw=?, active=1, updated_at=? WHERE id=?`).bind(JSON.stringify(qs), drawJson, now, existing.id).run();
@@ -3164,7 +3168,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       }
       const title = textbook ? `\u{1F4DA} ${textbook}` : `\u{1F3F7}\uFE0F ${level}`;
       const ins = await env.DB.prepare(`INSERT INTO review_quizzes (title, description, questions, active, level, textbook, lesson_no, source, draw, created_at, updated_at) VALUES (?,?,?,1,?,?,?,'bank',?,?,?)`)
-        .bind(title, '교재 은행에서 듣기4·말하기3·사지선다3 랜덤 10출제', JSON.stringify(qs), level || null, textbook || null, null, drawJson, now, now).run();
+        .bind(title, '교재 은행에서 듣기4·쓰기3·말하기3 랜덤 10출제', JSON.stringify(qs), level || null, textbook || null, null, drawJson, now, now).run();
       return json({ ok: true, id: (ins as any).meta?.last_row_id, bank_size: qs.length, target, done: qs.length >= target });
     }
 
