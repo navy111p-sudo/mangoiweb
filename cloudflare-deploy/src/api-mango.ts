@@ -2776,6 +2776,51 @@ export async function handleMangoApi(
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // 🌐 i18n 자동번역 — 사전(DICT)에 없는 한국어 UI 텍스트를 AI로 ko→en 번역 (+KV 캐시)
+    //   클라이언트(i18n-sweep.js)가 미번역 한국어를 모아 배치 호출 → localStorage 캐시.
+    // ═══════════════════════════════════════════════════════════════
+    if (method === 'POST' && path === '/api/i18n/translate') {
+      const b: any = await request.json().catch(() => ({}));
+      let texts: string[] = Array.isArray(b.texts) ? b.texts.map((t: any) => String(t || '')).filter((t: string) => t.trim()) : [];
+      texts = Array.from(new Set(texts)).slice(0, 50);
+      if (!texts.length) return json({ ok: true, map: {} });
+      const ai = (env as any).AI;
+      const kv = (env as any).SESSION_STATE;
+      const map: Record<string, string> = {};
+      const need: string[] = [];
+      for (const t of texts) {
+        let cached: string | null = null;
+        if (kv) { try { cached = await kv.get('i18n:en:' + t); } catch {} }
+        if (cached != null) map[t] = cached; else need.push(t);
+      }
+      if (need.length && ai) {
+        for (let i = 0; i < need.length; i += 20) {
+          const chunk = need.slice(i, i + 20);
+          const prompt = 'Translate each Korean app-UI string into natural, concise English suitable for a button/menu/label. Keep emojis, numbers, punctuation and placeholders such as ${...}, {x}, %s unchanged. Do not add quotes or notes. Return ONLY a JSON array of strings, same length and order as the input.\nInput:\n' + JSON.stringify(chunk);
+          try {
+            const resp: any = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+              messages: [
+                { role: 'system', content: 'You are a precise Korean-to-English UI translator. Output a raw JSON array of strings only.' },
+                { role: 'user', content: prompt }
+              ],
+              max_tokens: 1800,
+            });
+            let txt = typeof resp === 'string' ? resp : (resp && typeof resp.response === 'string' ? resp.response : '');
+            const mm = String(txt || '').match(/\[[\s\S]*\]/);
+            let arr: any[] = [];
+            if (mm) { try { arr = JSON.parse(mm[0]); } catch {} }
+            for (let j = 0; j < chunk.length; j++) {
+              const en = (Array.isArray(arr) && typeof arr[j] === 'string' && arr[j].trim()) ? String(arr[j]) : chunk[j];
+              map[chunk[j]] = en;
+              if (kv && en && en !== chunk[j]) { try { await kv.put('i18n:en:' + chunk[j], en, { expirationTtl: 60 * 60 * 24 * 180 }); } catch {} }
+            }
+          } catch { for (const c of chunk) map[c] = c; }
+        }
+      } else if (need.length) { for (const c of need) map[c] = c; }
+      return json({ ok: true, map });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // 🧩 Phase RQ — 복습퀴즈 (관리자 출제 → 학생 풀이 + 자동 채점/기록)
     //   관리자: /api/admin/review-quiz/{list,save,toggle,results}, DELETE /api/admin/review-quiz/:id
     //   학생  : /api/review-quiz/{list,get,submit}  (get 은 정답 미포함, 채점은 서버에서)

@@ -595,6 +595,39 @@
   var SKIP=/^(SCRIPT|STYLE|NOSCRIPT|TEXTAREA|CODE|PRE)$/;
   var records=[];
 
+  // 🌐 자동번역 폴백 — 사전에 없는 한국어는 서버 AI로 번역 후 localStorage 캐시
+  var AUTO = {};
+  try { AUTO = JSON.parse(localStorage.getItem('mangoi_i18n_en') || '{}') || {}; } catch(e) { AUTO = {}; }
+  var MISS = {};        // 이번 배치 대상
+  var TRIED = {};       // 세션 내 1회만 시도 (무한루프 방지)
+  var flushTimer = null;
+  function hasKo(s){ return /[가-힣]/.test(s); }
+  function maybeQueue(k){
+    if (TRIED[k]) return;
+    if (!hasKo(k) || k.length > 200) return;
+    TRIED[k] = true; MISS[k] = true; scheduleFlush();
+  }
+  function scheduleFlush(){ if (flushTimer) return; flushTimer = setTimeout(flushMiss, 900); }
+  function flushMiss(){
+    flushTimer = null;
+    var items = Object.keys(MISS); MISS = {};
+    if (!items.length || !isEn()) return;
+    (async function(){
+      var changed = false;
+      for (var i = 0; i < items.length; i += 50){
+        var chunk = items.slice(i, i + 50);
+        try {
+          var r = await fetch('/api/i18n/translate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ texts: chunk, target: 'en' }) }).then(function(x){ return x.json(); });
+          if (r && r.map){
+            for (var key in r.map){ var en = r.map[key]; if (en && en !== key){ AUTO[key] = en; changed = true; } }
+          }
+        } catch(e) {}
+      }
+      if (changed){ try { localStorage.setItem('mangoi_i18n_en', JSON.stringify(AUTO)); } catch(e){} }
+      if (changed && isEn()){ try { sweep(document.body); } catch(e){} }
+    })();
+  }
+
   function lang(){
     try{ if(window.getLang) return window.getLang(); }catch(e){}
     try{ var l=localStorage.getItem('mangoi_lang'); if(l) return l; }catch(e){}
@@ -613,7 +646,8 @@
       for(var j=0;j<REPL.length;j++){ var nr=r.split(REPL[j][0]).join(REPL[j][1]); if(nr!==r){ r=nr; hit=true; } }
       if(hit) v=r;
     }
-    if(v===undefined) return null;
+    if(v===undefined && AUTO[k]!==undefined) v=AUTO[k];
+    if(v===undefined){ maybeQueue(k); return null; }
     return t.replace(k, v);
   }
 

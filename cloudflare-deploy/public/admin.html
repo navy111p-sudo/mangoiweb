@@ -12513,32 +12513,59 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       books = (g.groups||[]).filter(function(b){ return b.book && b.book!=='(기타)'; });
     } catch(e){ msg.style.color='#b91c1c'; msg.textContent='⚠️ 교재 목록 로드 실패: '+e.message; startBtn.disabled=false; stopBtn.style.display='none'; return; }
     if (!books.length){ msg.textContent='⚠️ 교재가 없습니다.'; startBtn.disabled=false; stopBtn.style.display='none'; return; }
-    var total = books.length, doneBooks = 0, madeQ = 0, failed = 0;
-    for (var bi=0; bi<books.length; bi++){
-      if (window.__rqBankStop){ msg.textContent='⏹ 중단됨 — '+doneBooks+'/'+total+' 교재 완료. 다시 시작하면 이어서 진행돼요.'; break; }
-      var bk = books[bi]; var lvl = bk.level || '';
-      var size = 0, guard = 0;
+    var total = books.length, doneBooks = 0, okBooks = 0, failedBooks = 0, madeQ = 0, aborted = false;
+    // 한 교재 은행 생성 — HTTP 상태/JSON을 정직하게 파싱
+    async function buildOne(bk, lvl){
+      var size = 0, guard = 0, lastErr = '';
       while (size < 40 && guard < 6){
         if (window.__rqBankStop) break;
         guard++;
+        var status = 0, data = null, raw = '';
         try {
-          var r = await fetch('/api/admin/review-quiz/build-bank', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ textbook: bk.book, level: lvl, target: 40 }) }).then(function(x){return x.json();});
-          if (!r.ok){ failed++; msg.style.color='#b45309'; msg.textContent='⚠️ '+bk.book+' 일부 실패('+(r.error||'')+') — 계속 진행'; await sleep(800); break; }
-          size = r.bank_size||0; madeQ = madeQ;
-          if (r.done) break;
-        } catch(e){ msg.textContent='⚠️ 네트워크 지연 — 재시도 중…'; await sleep(1500); }
+          var resp = await fetch('/api/admin/review-quiz/build-bank', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ textbook: bk.book, level: lvl, target: 40 }) });
+          status = resp.status; raw = await resp.text();
+          try { data = JSON.parse(raw); } catch(e){ data = null; }
+        } catch(e){ lastErr='network'; await sleep(1500); continue; }
+        // 엔드포인트 자체가 없거나(404/405) JSON이 아니면 = 백엔드 미배포 → 전체 중단
+        if (status === 404 || status === 405 || (data === null && status !== 200)){ return { size:0, fatal:true, status:status }; }
+        if (!data || data.ok !== true){ lastErr = (data && data.error) || ('http '+status); await sleep(700); break; }
+        size = data.bank_size || 0;
+        if (data.done) break;
+      }
+      return { size:size, fatal:false, err:lastErr };
+    }
+    for (var bi=0; bi<books.length; bi++){
+      if (window.__rqBankStop){ aborted=true; break; }
+      var bk = books[bi]; var lvl = bk.level || '';
+      var res = await buildOne(bk, lvl);
+      if (res.fatal){
+        msg.style.color='#b91c1c';
+        msg.innerHTML='❌ 생성 엔드포인트가 라이브에 없습니다 (HTTP '+res.status+'). <b>아직 배포되지 않았어요.</b><br>먼저 <b>mangoiweb(last) 폴더에서 deploy.bat 실행</b> 후 다시 시도하세요. (지금까지 실제로 저장된 은행: '+okBooks+'개)';
+        startBtn.disabled=false; stopBtn.style.display='none';
+        return;
       }
       doneBooks++;
+      if (res.size >= 10) okBooks++; else failedBooks++;
       var pct = Math.round(doneBooks/total*100);
       bar.style.width = pct+'%';
+      bar.style.background = failedBooks ? 'linear-gradient(90deg,#f59e0b,#fbbf24)' : 'linear-gradient(90deg,#10b981,#34d399)';
       msg.style.color='#047857';
-      msg.textContent='🏗️ '+doneBooks+'/'+total+' 교재 ('+pct+'%) — 최근: '+bk.book+' · '+size+'/40문제';
+      msg.textContent='🏗️ '+doneBooks+'/'+total+' 교재 ('+pct+'%) · 성공 '+okBooks+' · 실패 '+failedBooks+' — 최근: '+bk.book+' ('+res.size+'/40)';
       await sleep(120);
     }
-    if (!window.__rqBankStop){
+    if (aborted){
+      msg.style.color='#b45309';
+      msg.textContent='⏹ 중단됨 — 성공 '+okBooks+' · 실패 '+failedBooks+' / '+total+' 교재. 다시 시작하면 이어서 진행돼요.';
+    } else {
       bar.style.width='100%';
-      msg.textContent='✅ 완료: '+doneBooks+'/'+total+' 교재 은행 생성'+(failed?(' · 일부 '+failed+'건 재시도 필요'):'')+'. 학생 복습퀴즈에서 교재별 랜덤 10문제로 출제됩니다.';
+      if (failedBooks === 0){
+        msg.style.color='#047857';
+        msg.textContent='✅ 완료: '+okBooks+'/'+total+' 교재 은행 생성. 학생 복습퀴즈에서 교재별 랜덤 10문제로 출제됩니다.';
+      } else {
+        msg.style.color='#b45309';
+        msg.textContent='⚠️ 완료: 성공 '+okBooks+' · 실패 '+failedBooks+' / '+total+' 교재. 실패분은 버튼을 다시 눌러 재시도하세요 (이미 된 교재는 건너뜀).';
+      }
     }
     startBtn.disabled=false; stopBtn.style.display='none';
     if (window.rqLoad) try{ rqLoad(); }catch(e){}
@@ -12927,6 +12954,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script>
 let chartAtt = null, chartRwd = null;
 var adminLang = 'ko';
+// i18n-sweep.js 가 현재 언어를 인식하도록 노출
+try { window.getLang = function(){ return adminLang; }; } catch(e){}
 // currentLang — 학생관리 load 함수들이 사용. adminLang 와 동기화.
 var currentLang = adminLang;
 try { window.currentLang = currentLang; } catch{}
@@ -13006,6 +13035,8 @@ function toggleAdminLang() {
   adminLang = (adminLang === 'ko') ? 'en' : 'ko';
   currentLang = adminLang;
   try { window.currentLang = currentLang; } catch{}
+  // i18n-sweep 트리거 (data-en 없는 한국어 텍스트 자동 영어화)
+  try { document.documentElement.lang = adminLang; } catch(e){}
   var newLabel = (adminLang === 'ko') ? 'EN' : 'KO';
   var lbl = document.getElementById('admin-lang-label');
   if (lbl) lbl.textContent = newLabel;
@@ -21019,7 +21050,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260613160317 -->
+        <!-- BUILD:20260613161554 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -36470,5 +36501,6 @@ button.chip:hover,
     line-height: 1.5 !important;
   }
 </style>
+<script defer src="/js/i18n-sweep.js?v=3"></script>
 </body>
 </html>
