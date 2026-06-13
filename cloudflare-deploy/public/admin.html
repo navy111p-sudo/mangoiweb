@@ -20952,7 +20952,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260613151958 -->
+        <!-- BUILD:20260613153257 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -25682,13 +25682,14 @@ button.chip:hover,
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-textbooks,card-microlearn,card-mini-toeic,card-pronunciation,card-video-dict,card-voice-diary,card-level-tests,card-battle-mgmt,card-recording-storage,card-homework">
+  <div class="ph85-group" data-cards="card-review-quiz,card-textbooks,card-microlearn,card-mini-toeic,card-pronunciation,card-video-dict,card-voice-diary,card-level-tests,card-battle-mgmt,card-recording-storage,card-homework">
     <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#0ea5e9,#0369a1)">📚</div>
       <div class="ph85-title">교육 / 콘텐츠</div>
       <div class="ph85-arrow">›</div>
     </div>
     <div class="ph85-subs">
+      <div class="ph85-sub" data-card="card-review-quiz" onclick="event.stopPropagation();var c=document.getElementById('card-review-quiz');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-review-quiz');}">🧠 복습퀴즈 출제</div>
       <div class="ph85-sub" data-card="card-textbooks" onclick="event.stopPropagation();var c=document.getElementById('card-textbooks');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-textbooks');}">교재 콘텐츠</div>
       <div class="ph85-sub" data-card="card-microlearn" onclick="event.stopPropagation();var c=document.getElementById('card-microlearn');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-microlearn');}">📖 마이크로러닝</div>
       <div class="ph85-sub" data-card="card-mini-toeic" onclick="event.stopPropagation();var c=document.getElementById('card-mini-toeic');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-mini-toeic');}">🎯 미니 토익</div>
