@@ -62,6 +62,17 @@ Allowed menu_id (scroll to card on /admin.html). Match Korean OR English keyword
 - card-badges-mgmt     (뱃지 관리 | badge management)
 - card-calendar        (캘린더·휴가·공휴일 | calendar, holidays, leave)
 - card-kakao-mgmt      (카카오 알림톡 관리 | kakao alimtalk management)
+- card-payments-b2c    (결제관리·수강료·학원비·납부 | payment, tuition, fee)
+- card-recurring-billing(정기결제 자동화·자동결제·구독 | recurring billing, subscription)
+- card-timetable       (통합 시간표·수업 연기·수업 변경·일정 변경 메뉴 | timetable, postpone/reschedule menu)
+- card-accounting-mgmt (회계관리 | accounting)
+- card-class-attendance(출석현황·출결 | attendance status)
+- card-homework        (숙제 관리 | homework)
+- card-inquiry-mgmt    (신규상담·문의·상담 접수 | new inquiry, consultation intake)
+- card-counseling-booking(상담 예약 | counseling booking)
+- card-notice-board    (공지사항 게시판 | notice board)
+- card-lesson-log      (수업 일지 | lesson log)
+- card-recording-storage(녹화 관리 | recording management)
 
 Allowed query tools:
 - today_stats        (오늘 매출·학생수·결석률·신규)
@@ -88,6 +99,9 @@ Hard rules:
 - If the user wants to REGISTER/CHANGE/POSTPONE class schedules or LEVEL TEST (수업 등록, 수업 변경, 수업 연기, 수업 잡아, 레벨테스트, 등록해줘 + 학생/요일/시간) → schedule_plan
 - If the user wants to BULK MODIFY existing schedules (~의 모든 수업, 다음주 수업 모두, 월요일 수업 전체 + 미뤄/취소/이동) → bulk_modify
 - Otherwise (definition, explanation, what is) → answer
+- If the user mentions a TEACHER (강사/선생님/쌤 + 이름 or asks a teacher's schedule/info) WITHOUT registering a new class → navigate menu_id card-teacher-mgmt (e.g. "chaine 선생님 스케줄 어때?")
+- If the user wants to PAY / asks about tuition menu (결제, 결제관리, 수강료, 학원비, 납부) → navigate menu_id card-payments-b2c (정기결제·자동결제·구독이면 card-recurring-billing)
+- If the user expresses INTENT to postpone/change a class but gives NO student name+date (e.g. "수업 연기하고 싶어", "일정 변경할래") → navigate menu_id card-timetable. Only use schedule_plan when a student name AND day/time/date are present.
 
 Schedule parsing rules (for schedule_plan intent):
 - Days mapping: 월=mon 화=tue 수=wed 목=thu 금=fri 토=sat 일=sun
@@ -255,6 +269,39 @@ Output: {"intent":"navigate","menu_id":"card-level-tests","answer":"Opening the 
 
 User: "show the full schedule"
 Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"Opening the academy-wide schedule page."}
+
+User: "chaine 선생님 혹시 스케줄 어때?"
+Output: {"intent":"navigate","menu_id":"card-teacher-mgmt","answer":"강사관리에서 chaine 선생님 정보를 확인하실 수 있어요."}
+
+User: "김선생님 정보 보여줘"
+Output: {"intent":"navigate","menu_id":"card-teacher-mgmt","answer":"강사관리 카드로 이동합니다."}
+
+User: "결제 관리 열어줘"
+Output: {"intent":"navigate","menu_id":"card-payments-b2c","answer":"결제관리 카드로 이동합니다."}
+
+User: "수강료 어디서 봐?"
+Output: {"intent":"navigate","menu_id":"card-payments-b2c","answer":"결제관리 카드로 이동합니다."}
+
+User: "정기결제 설정"
+Output: {"intent":"navigate","menu_id":"card-recurring-billing","answer":"정기결제 자동화 카드로 이동합니다."}
+
+User: "수업 연기하고 싶어"
+Output: {"intent":"navigate","menu_id":"card-timetable","answer":"통합 시간표에서 수업을 연기·변경할 수 있어요."}
+
+User: "일정 변경할래"
+Output: {"intent":"navigate","menu_id":"card-timetable","answer":"통합 시간표 카드로 이동합니다."}
+
+User: "성적표 어디서 봐?"
+Output: {"intent":"navigate","menu_id":"card-eval-mgmt","answer":"학생 평가서(성적표) 카드로 이동합니다."}
+
+User: "숙제 관리"
+Output: {"intent":"navigate","menu_id":"card-homework","answer":"숙제 관리 카드로 이동합니다."}
+
+User: "출석 현황 보여줘"
+Output: {"intent":"navigate","menu_id":"card-class-attendance","answer":"출석현황 카드로 이동합니다."}
+
+User: "신규 상담 들어왔어?"
+Output: {"intent":"navigate","menu_id":"card-inquiry-mgmt","answer":"신규상담 카드로 이동합니다."}
 
 Output rule: Only one valid JSON object. No "Output:" prefix, no markdown fences, no commentary.`;
 

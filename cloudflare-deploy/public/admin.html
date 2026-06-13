@@ -21117,7 +21117,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260613210247 -->
+        <!-- BUILD:20260613212924 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -36507,26 +36507,94 @@ button.chip:hover,
   }
   function fbKey(q){ if(/평가서|피드백|리포트|초안|eval|report|feedback|draft/i.test(q))return 'eval'; if(/이상|침묵|네트워크|고스트|참관|귓속말|감지|anomaly|alert|ghost|whisper|monitor/i.test(q))return 'alert'; if(/미납|수강료|정산|급여|알림톡|카톡|환전|overdue|unpaid|settle|payroll|salary/i.test(q))return 'settle'; return 'base'; }
 
+  // 🔁 결정적 키워드 라우터 — 서버 AI 실패/뉴런 소진 시에도 올바른 메뉴로 이동 (무료·즉시·안정)
+  var MI_ROUTES=[
+    {re:/발음|스피킹|speaking|pronunc/i, external_url:'https://mangoi-speech.pages.dev/practice', ko:'발음 연습 도구를 새 탭에서 열어드릴게요.', en:'Opening the pronunciation practice tool in a new tab.'},
+    {re:/연기|미루|미룸|변경|일정\s*변경|스케줄\s*변경|날짜\s*변경|시간\s*변경|reschedul|postpon/i, menu_id:'card-timetable', ko:'통합 시간표에서 수업을 연기·변경할 수 있어요.', en:'You can postpone or reschedule classes in the timetable.'},
+    {re:/시간표|타임테이블|timetable/i, menu_id:'card-timetable', ko:'통합 시간표 카드로 이동할게요.', en:'Opening the timetable card.'},
+    {re:/정기\s*결제|자동\s*결제|구독|recurring/i, menu_id:'card-recurring-billing', ko:'정기결제 자동화 카드로 이동할게요.', en:'Opening the recurring billing card.'},
+    {re:/결제|수강료|학원비|등록비|납부|카드\s*결제|payment|tuition/i, menu_id:'card-payments-b2c', ko:'결제관리 카드로 이동할게요.', en:'Opening the payment management card.'},
+    {re:/성적표|평가표|평가서|성적|점수|리포트\s*카드|report\s*card|grade|evaluation/i, menu_id:'card-eval-mgmt', ko:'학생 평가서(성적표) 카드로 이동할게요.', en:'Opening the student evaluation card.'},
+    {re:/급여|월급|페이롤|payroll|salary/i, menu_id:'card-payroll', ko:'강사 급여 카드로 이동할게요.', en:'Opening the teacher payroll card.'},
+    {re:/선생님|쌤|강사|teacher|tutor/i, menu_id:'card-teacher-mgmt', ko:'강사관리 카드에서 선생님 정보를 확인하세요.', en:'Opening the teacher management card.'},
+    {re:/미납|독촉|연체|overdue|unpaid|dunning/i, menu_id:'card-auto-dunning', ko:'미납 자동 추적 카드로 이동할게요.', en:'Opening the overdue auto-tracking card.'},
+    {re:/정산|settle/i, menu_id:'card-settlement-stats', ko:'정산통계 카드로 이동할게요.', en:'Opening the settlement stats card.'},
+    {re:/회계|account/i, menu_id:'card-accounting-mgmt', ko:'회계관리 카드로 이동할게요.', en:'Opening the accounting card.'},
+    {re:/출석|출결|attendance/i, menu_id:'card-class-attendance', ko:'출석현황 카드로 이동할게요.', en:'Opening the attendance card.'},
+    {re:/레벨\s*테스트|레벨테스트|level\s*test/i, menu_id:'card-level-tests', ko:'레벨 테스트 카드로 이동할게요.', en:'Opening the level test card.'},
+    {re:/수강\s*신청|수강신청|enroll/i, menu_id:'card-enrollments', ko:'수강신청 관리 카드로 이동할게요.', en:'Opening the enrollment card.'},
+    {re:/복습\s*퀴즈|퀴즈|quiz/i, menu_id:'card-review-quiz', ko:'복습퀴즈 출제 카드로 이동할게요.', en:'Opening the review quiz card.'},
+    {re:/숙제|homework/i, menu_id:'card-homework', ko:'숙제 관리 카드로 이동할게요.', en:'Opening the homework card.'},
+    {re:/교재|textbook/i, menu_id:'card-textbooks', ko:'교재 콘텐츠 카드로 이동할게요.', en:'Opening the textbook content card.'},
+    {re:/포인트|point/i, menu_id:'card-points-mgmt', ko:'포인트 관리 카드로 이동할게요.', en:'Opening the points card.'},
+    {re:/배지|뱃지|badge/i, menu_id:'card-badges-mgmt', ko:'학생 배지 카드로 이동할게요.', en:'Opening the badges card.'},
+    {re:/캘린더|휴가|공휴일|calendar|holiday/i, menu_id:'card-calendar', ko:'캘린더 관리 카드로 이동할게요.', en:'Opening the calendar card.'},
+    {re:/상담\s*예약/i, menu_id:'card-counseling-booking', ko:'상담 예약 카드로 이동할게요.', en:'Opening the counseling booking card.'},
+    {re:/신규\s*상담|상담|문의|inquiry|counsel/i, menu_id:'card-inquiry-mgmt', ko:'신규상담 카드로 이동할게요.', en:'Opening the new inquiry card.'},
+    {re:/공지|게시판|notice|board/i, menu_id:'card-notice-board', ko:'공지사항 게시판 카드로 이동할게요.', en:'Opening the notice board card.'},
+    {re:/카카오|알림톡|kakao/i, menu_id:'card-kakao-mgmt', ko:'카카오 알림톡 카드로 이동할게요.', en:'Opening the KakaoTalk card.'},
+    {re:/가맹점|franchise/i, menu_id:'card-franchises', ko:'가맹점 관리 카드로 이동할게요.', en:'Opening the franchises card.'},
+    {re:/교육\s*센터|센터|center/i, menu_id:'card-centers', ko:'교육센터 카드로 이동할게요.', en:'Opening the education centers card.'},
+    {re:/이상\s*감지|이상감지|알림\s*센터|모니터링|anomaly|alert|monitor/i, menu_id:'card-admin-alerts', ko:'실시간 알림 센터 카드로 이동할게요.', en:'Opening the real-time alert center card.'},
+    {re:/랭킹|순위|ranking/i, menu_id:'card-rankings', ko:'학생 랭킹 카드로 이동할게요.', en:'Opening the rankings card.'},
+    {re:/매출|차트|일자별|revenue|chart/i, menu_id:'card-daily-charts', ko:'일자별 차트 카드로 이동할게요.', en:'Opening the daily charts card.'},
+    {re:/녹화|recording/i, menu_id:'card-recording-storage', ko:'녹화 관리 카드로 이동할게요.', en:'Opening the recording storage card.'},
+    {re:/수업\s*일지|일지|lesson\s*log/i, menu_id:'card-lesson-log', ko:'수업 일지 카드로 이동할게요.', en:'Opening the lesson log card.'},
+    {re:/학생\s*관리|학생관리|학생\s*목록|student\s*manage/i, url:'/admin/students.html', ko:'학생관리 페이지로 이동할게요.', en:'Opening the student management page.'},
+    {re:/전체\s*스케줄|학원\s*전체|all\s*schedule/i, url:'/admin/all-schedules.html', ko:'학원 전체 스케줄 페이지로 이동할게요.', en:'Opening the academy-wide schedule page.'},
+    {re:/마이\s*페이지|마이페이지|내\s*정보|mypage|profile/i, url:'/admin/mypage.html', ko:'마이페이지로 이동할게요.', en:'Opening my page.'}
+  ];
+  function localRoute(q){
+    var s=String(q||'');
+    for(var i=0;i<MI_ROUTES.length;i++){ if(MI_ROUTES[i].re.test(s)) return MI_ROUTES[i]; }
+    return null;
+  }
+  // 네비게이션 실행 — menu_id(같은 페이지 카드) / external_url(새 탭) / url(이동). 성공 시 true
+  function doNav(o){
+    if(!o) return false;
+    if(o.menu_id){
+      var card=document.getElementById(o.menu_id);
+      if(card){ setTimeout(function(){ goCard(o.menu_id); },650); return true; }
+      return false;
+    }
+    if(o.external_url){
+      bubble('ai','🔗 <a href="'+esc(o.external_url)+'" target="_blank" rel="noopener" style="color:#93c5fd;font-weight:700">'+L('새 탭에서 열기','Open in new tab')+'</a> '+L('(자동으로 안 열리면 클릭)','(click if it does not open automatically)'));
+      setTimeout(function(){ try{ window.open(o.external_url,'_blank','noopener'); }catch(e){} },300);
+      return true;
+    }
+    if(o.url){ setTimeout(function(){ window.location.href=o.url; },650); return true; }
+    return false;
+  }
+
   async function ask(q){
     bubble('me',esc(q)); typing();
+    var res=null;
     try{
       var r=await fetch('/api/admin/ai-command',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({command:q, lang:curLang()})});
-      var res=await r.json(); untype();
-      if(res && res.ok!==false && res.answer){ bubble('ai', esc(res.answer).replace(/\n/g,'<br>')); }
-      else { bubble('ai', FB(fbKey(q))); }
-      if(res && res.ok!==false && res.intent==='navigate'){
-        if(res.menu_id){
-          var card=document.getElementById(res.menu_id);
-          if(card){ setTimeout(function(){ goCard(res.menu_id); },650); }
-          else { bubble('ai', L('⚠️ 해당 메뉴 카드를 찾지 못했어요: ','⚠️ Could not find that menu card: ')+esc(res.menu_id)); }
-        } else if(res.external_url){
-          bubble('ai','🔗 <a href="'+esc(res.external_url)+'" target="_blank" rel="noopener" style="color:#93c5fd;font-weight:700">'+L('새 탭에서 열기','Open in new tab')+'</a> '+L('(자동으로 안 열리면 클릭)','(click if it does not open automatically)'));
-          setTimeout(function(){ try{ window.open(res.external_url,'_blank','noopener'); }catch(e){} },300);
-        } else if(res.url){
-          setTimeout(function(){ window.location.href=res.url; },650);
+      res=await r.json();
+    }catch(e){ res=null; }
+    untype();
+
+    // 1) 서버 AI 정상 응답 — 답변 표시 + 네비게이션
+    if(res && res.ok!==false && (res.answer || res.intent==='navigate')){
+      if(res.answer){ bubble('ai', esc(res.answer).replace(/\n/g,'<br>')); }
+      if(res.intent==='navigate'){
+        if(!doNav(res)){
+          var alt=localRoute(q);
+          if(!(alt && doNav(alt)) && res.menu_id){
+            bubble('ai', L('⚠️ 해당 메뉴 카드를 찾지 못했어요: ','⚠️ Could not find that menu card: ')+esc(res.menu_id));
+          }
         }
       }
-    }catch(e){ untype(); bubble('ai', FB(fbKey(q))); }
+      return;
+    }
+
+    // 2) 서버 실패/빈 응답 — 결정적 키워드 라우터로 폴백 (질문에 맞는 메뉴로 이동)
+    var lr=localRoute(q);
+    if(lr){ bubble('ai', isEn()?lr.en:lr.ko); doNav(lr); return; }
+
+    // 3) 그래도 못 찾으면 기존 도메인별 안내 폴백
+    bubble('ai', FB(fbKey(q)));
   }
   window.miAsstAsk=ask;
 
