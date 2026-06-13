@@ -21117,7 +21117,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260613204556 -->
+        <!-- BUILD:20260613210247 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -36472,10 +36472,24 @@ button.chip:hover,
     w.innerHTML=role==='me'
       ? '<div style="max-width:80%;padding:10px 13px;border-radius:14px 14px 4px 14px;background:#2563eb;color:#fff;font-size:13.5px;line-height:1.55">'+html+'</div>'
       : '<div style="display:flex;gap:8px;max-width:92%"><img src="/img/Mangoi_Character.png" alt="" style="width:30px;height:26px;object-fit:contain;flex:none;filter:drop-shadow(0 1px 3px rgba(0,0,0,.35))"><div class="mi-bubble-content" style="padding:10px 13px;border-radius:14px 14px 14px 4px;background:#1e293b;color:#e6ecff;font-size:13.5px;line-height:1.6">'+html+'</div></div>';
-    body.appendChild(w); body.scrollTop=body.scrollHeight; return w;
+    body.appendChild(w); body.scrollTop=body.scrollHeight;
+    try{ Array.prototype.forEach.call(w.querySelectorAll('.mi-nav-item'),function(el){ el.onclick=function(){ goCard(el.getAttribute('data-card')); }; }); }catch(e){}
+    return w;
   }
   function typing(){ var w=bubble('ai','<span class="mi-dot"></span><span class="mi-dot"></span><span class="mi-dot"></span>'); w.id='mi-asst-typing'; return w; }
   function untype(){ var t=document.getElementById('mi-asst-typing'); if(t)t.remove(); }
+
+  // 인사말/폴백 공용 — 클릭 시 해당 메뉴 카드로 이동하는 1·2·3 항목
+  var GREET_NAV=[
+    {ko:'✍️ AI 평가서·학습 리포트 초안', en:'✍️ AI evaluation / learning report draft', card:'card-ai-eval-draft'},
+    {ko:'🚨 실시간 이상감지 대응',       en:'🚨 Real-time anomaly response',          card:'card-admin-alerts'},
+    {ko:'💸 미납 알림·지점/강사 정산',    en:'💸 Overdue alerts · branch/teacher settlement', card:'card-auto-dunning'}
+  ];
+  function menuListHtml(){
+    return GREET_NAV.map(function(it,i){
+      return '<div class="mi-nav-item" data-card="'+it.card+'"><b>'+(i+1)+'.</b> '+(isEn()?it.en:it.ko)+'</div>';
+    }).join('');
+  }
 
   // 폴백 응답 (서버 AI 실패 시) — 한/영
   function FB(key){
@@ -36486,8 +36500,8 @@ button.chip:hover,
              en:'I can help you respond to anomalies 🚨<br><br>• <b>GHOST observe</b> — join silently to check<br>• <b>Whisper to teacher</b> — guide the teacher only<br>• 20s silence, network drops and banned words trigger real-time alerts.'},
       settle:{ko:'정산·알림 업무 도와드릴게요 💸<br><br>• <b>미납 카톡</b> — D+1·D+3 자동 발송<br>• <b>지점 정산</b> — 본사 수수료 자동 계산<br>• <b>강사 급여</b> — 수업×단가, 환전 처리',
               en:'I can help with settlement & alerts 💸<br><br>• <b>Overdue KakaoTalk</b> — auto-send on D+1 / D+3<br>• <b>Branch settlement</b> — auto-calculate HQ fees<br>• <b>Teacher payroll</b> — sessions × rate, FX handling'},
-      base:{ko:'무엇이든 도와드릴게요 매니저님!<br><br>1. ✍️ AI 평가서·학습 리포트 초안<br>2. 🚨 실시간 이상감지 대응<br>3. 💸 미납 알림·지점/강사 정산<br><br>아래 버튼을 누르거나 자유롭게 질문해 주세요!',
-            en:'I can help with anything!<br><br>1. ✍️ AI evaluation / learning report draft<br>2. 🚨 Real-time anomaly response<br>3. 💸 Overdue alerts · branch/teacher settlement<br><br>Tap a button below or just ask me anything!'}
+      base:{ko:'무엇이든 도와드릴게요 매니저님! 아래 항목을 누르면 바로 이동해요 👇<br><br>'+menuListHtml()+'<br>또는 자유롭게 질문해 주세요!',
+            en:'I can help with anything! Tap an item below to jump straight there 👇<br><br>'+menuListHtml()+'<br>Or just ask me anything!'}
     };
     return T[key][curLang()];
   }
@@ -36516,19 +36530,10 @@ button.chip:hover,
   }
   window.miAsstAsk=ask;
 
-  // 인사말의 1·2·3 항목 → 클릭 시 해당 메뉴 카드로 이동
-  var GREET_NAV=[
-    {ko:'✍️ AI 평가서·학습 리포트 초안', en:'✍️ AI evaluation / learning report draft', card:'card-ai-eval-draft'},
-    {ko:'🚨 실시간 이상감지 대응',       en:'🚨 Real-time anomaly response',          card:'card-admin-alerts'},
-    {ko:'💸 미납 알림·지점/강사 정산',    en:'💸 Overdue alerts · branch/teacher settlement', card:'card-auto-dunning'}
-  ];
   function greetHtml(){
     var head=L('안녕하세요 매니저님! 저는 망고아이 <b>AI 운영 비서</b>예요','Hello, manager! I am the Mangoi <b>AI Ops Assistant</b>');
     var sub=L('평가서 작성·실시간 이상감지 대응·정산/알림까지 도와드릴게요.<br>아래 항목을 누르면 바로 해당 메뉴로 이동해요 👇','I help with evaluations, real-time anomaly response, settlement & alerts.<br>Tap an item below to jump straight to that menu 👇');
-    var items=GREET_NAV.map(function(it,i){
-      return '<div class="mi-nav-item" data-card="'+it.card+'"><b>'+(i+1)+'.</b> '+(isEn()?it.en:it.ko)+'</div>';
-    }).join('');
-    return head+' <img src="/img/Mangoi_Character.png" alt="" style="width:20px;height:17px;object-fit:contain;display:inline-block;vertical-align:-3px"><br>'+sub+'<br><br>'+items;
+    return head+' <img src="/img/Mangoi_Character.png" alt="" style="width:20px;height:17px;object-fit:contain;display:inline-block;vertical-align:-3px"><br>'+sub+'<br><br>'+menuListHtml();
   }
   function wireGreet(w){
     if(!w) return;
