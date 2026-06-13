@@ -28,6 +28,9 @@
   .pill.scope{background:rgba(59,130,246,.16);color:#93c5fd}
   header.top .btn{padding:7px 12px;border-radius:9px;border:1px solid var(--bd);background:var(--panel);color:var(--fg);font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:.15s}
   header.top .btn:hover{background:var(--panel2);border-color:#3a4a68}
+  header.top .backbtn{width:36px;height:36px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid rgba(251,191,36,.5);background:rgba(20,33,59,.92);color:#fbbf24;font-size:18px;font-weight:800;line-height:1;cursor:pointer;transition:.15s;padding:0;-webkit-tap-highlight-color:transparent}
+  header.top .backbtn:hover{background:rgba(251,191,36,.22)}
+  @media(max-width:520px){header.top .backbtn{width:32px;height:32px;font-size:16px}}
   select#scopeSel{padding:6px 9px;border-radius:9px;border:1px solid var(--bd);background:var(--panel);color:var(--fg);font-size:12px;max-width:60vw}
   main{max-width:1140px;margin:0 auto;padding:16px 16px 96px}
   .as-of{color:var(--dim);font-size:12px;margin:6px 2px 16px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
@@ -113,13 +116,14 @@
 </head>
 <body>
 <header class="top">
+  <button class="backbtn" type="button" title="뒤로 가기" aria-label="뒤로 가기 (이전 페이지)" onclick="if(history.length>1){history.back()}else{location.href='/admin.html'}">←</button>
   <h1>📊 경영진 대시보드</h1>
   <span class="pill date" id="brandDate">—</span>
   <span class="pill scope" id="scopeBadge">—</span>
   <select id="scopeSel" style="display:none"></select>
   <span class="grow"></span>
   <a class="btn" href="/admin/finance-realtime">💸 실시간 재무</a>
-  <a class="btn" href="/admin">← 관리자</a>
+  <a class="btn" href="/admin">🏠 관리자</a>
   <button class="btn" id="refreshBtn">↻ 새로고침</button>
 </header>
 
@@ -463,6 +467,7 @@ boot();
   var btnX= document.getElementById('exec-greet-close');
   var btnS= document.getElementById('exec-greet-sound');
   if (!pop || !v) return;
+  pop.style.transition = 'opacity .55s ease';
   var started = false, closed = false;
   function syncMute(){ if(!btnM)return; btnM.textContent=v.muted?'🔇':'🔊'; btnM.title=v.muted?'소리 켜기':'무음'; }
   if (btnM) btnM.addEventListener('click', function(){ v.muted=!v.muted; if(!v.muted)btnS.style.display='none'; syncMute(); });
@@ -471,11 +476,20 @@ boot();
   btnP.addEventListener('click', function(){ if(v.paused){v.play();}else{v.pause();} });
   v.addEventListener('play',  function(){ btnP.textContent='⏸️'; btnP.title='멈춤'; });
   v.addEventListener('pause', function(){ btnP.textContent='▶️'; btnP.title='재생'; });
-  v.addEventListener('ended', function(){ btnP.textContent='▶️'; btnP.title='다시 재생'; });
+  v.addEventListener('ended', function(){ btnP.textContent='▶️'; btnP.title='다시 재생'; fadeOut(); });
   btnX.addEventListener('click', function(){ closed=true; try{v.pause();}catch(e){} pop.style.display='none'; });
+  function fadeIn(){
+    pop.style.display = 'block';
+    pop.style.opacity = '0';
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ pop.style.opacity = '1'; }); });
+  }
+  function fadeOut(){
+    pop.style.opacity = '0';
+    setTimeout(function(){ pop.style.display = 'none'; }, 650);
+  }
   function showAndPlay(){
     if (started || closed) return; started = true;
-    pop.style.display = 'block';
+    fadeIn();
     v.muted = false;
     var p = v.play();
     if (p && p.catch) p.catch(function(){
@@ -489,7 +503,7 @@ boot();
   // 🔑 대리점(agency) 계정일 때만 노출. 지사·본사 등은 숨김.
   window.__agencyGreet = {
     apply: function(scopeType){
-      if (scopeType === 'agency') { showAndPlay(); if(!closed) pop.style.display='block'; }
+      if (scopeType === 'agency') { if(!closed){ if(started){ fadeIn(); } else { showAndPlay(); } } }
       else { if(!closed){ try{v.pause();}catch(e){} pop.style.display='none'; } }
     }
   };
@@ -529,6 +543,7 @@ boot();
   var btnX= document.getElementById('exec-branch-greet-close');
   var btnS= document.getElementById('exec-branch-greet-sound');
   if (!pop || !v) return;
+  pop.style.transition = 'opacity .55s ease';
   var started = false, closed = false;
   function syncMute(){ if(!btnM)return; btnM.textContent=v.muted?'🔇':'🔊'; btnM.title=v.muted?'소리 켜기':'무음'; }
   if (btnM) btnM.addEventListener('click', function(){ v.muted=!v.muted; if(!v.muted)btnS.style.display='none'; syncMute(); });
@@ -537,11 +552,20 @@ boot();
   btnP.addEventListener('click', function(){ if(v.paused){v.play();}else{v.pause();} });
   v.addEventListener('play',  function(){ btnP.textContent='⏸️'; btnP.title='멈춤'; });
   v.addEventListener('pause', function(){ btnP.textContent='▶️'; btnP.title='재생'; });
-  v.addEventListener('ended', function(){ btnP.textContent='▶️'; btnP.title='다시 재생'; });
+  v.addEventListener('ended', function(){ btnP.textContent='▶️'; btnP.title='다시 재생'; fadeOut(); });
   btnX.addEventListener('click', function(){ closed=true; try{v.pause();}catch(e){} pop.style.display='none'; });
+  function fadeIn(){
+    pop.style.display = 'block';
+    pop.style.opacity = '0';
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ pop.style.opacity = '1'; }); });
+  }
+  function fadeOut(){
+    pop.style.opacity = '0';
+    setTimeout(function(){ pop.style.display = 'none'; }, 650);
+  }
   function showAndPlay(){
     if (started || closed) return; started = true;
-    pop.style.display = 'block';
+    fadeIn();
     v.muted = false;
     var p = v.play();
     if (p && p.catch) p.catch(function(){
@@ -555,7 +579,7 @@ boot();
   // 🔑 지사(branch) 계정일 때만 노출. 대리점·본사 등은 숨김.
   window.__branchGreet = {
     apply: function(scopeType){
-      if (scopeType === 'branch') { showAndPlay(); if(!closed) pop.style.display='block'; }
+      if (scopeType === 'branch') { if(!closed){ if(started){ fadeIn(); } else { showAndPlay(); } } }
       else { if(!closed){ try{v.pause();}catch(e){} pop.style.display='none'; } }
     }
   };
