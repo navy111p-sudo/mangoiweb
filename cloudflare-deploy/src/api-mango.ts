@@ -3069,10 +3069,17 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       const ai = (env as any).AI;
       if (!ai) return json({ ok: false, error: 'workers_ai_not_bound' }, 503);
       const audioHeaders = { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'public, max-age=86400', 'Access-Control-Allow-Origin': '*' };
+      // fix: AI 에러 Response 를 음성으로 내보내지 않도록 ok+audio 확인. 429(무료뉴런 소진) 는 quota 로 구분.
+      const isQuota = (m: any) => /429|neuron|allocation|free allocation/i.test(String(m || ''));
+      let quota = false;
       try {
         const raw: any = await ai.run('@cf/deepgram/aura-1', { text, speaker: 'asteria' }, { returnRawResponse: true });
-        if (raw instanceof Response) return new Response(raw.body, { headers: audioHeaders });
-      } catch {}
+        if (raw instanceof Response) {
+          const ct = raw.headers.get('content-type') || '';
+          if (raw.ok && /audio/i.test(ct)) return new Response(raw.body, { headers: audioHeaders });
+          if (raw.status === 429) quota = true;
+        }
+      } catch (e: any) { if (isQuota(e?.message)) quota = true; }
       try {
         const r: any = await ai.run('@cf/myshell-ai/melotts', { prompt: text, lang: 'en' });
         const b64 = typeof r === 'string' ? r : (r?.audio || '');
@@ -3081,8 +3088,8 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
           for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
           return new Response(u8, { headers: audioHeaders });
         }
-      } catch {}
-      return json({ ok: false, error: 'tts_failed' }, 500);
+      } catch (e: any) { if (isQuota(e?.message)) quota = true; }
+      return json({ ok: false, error: quota ? 'ai_quota_exceeded' : 'tts_failed', quota }, quota ? 503 : 500);
     }
 
     // ── POST /api/review-quiz/auto — 화상수업: 교재/레벨/레슨 자동 매칭 (+없으면 AI 즉석 출제 후 저장) ──

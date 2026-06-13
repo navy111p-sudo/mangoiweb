@@ -209,14 +209,18 @@
       try {
         var idx=(state.quiz.questions[i] && state.quiz.questions[i].idx!=null ? state.quiz.questions[i].idx : i);
         var resp = await fetch('/api/review-quiz/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ quiz_id:state.quiz.id, idx:idx }) });
-        if(!resp.ok) throw new Error('http_'+resp.status);
+        if(!resp.ok){ var q=false; try{ var j=await resp.clone().json(); q=!!(j&&j.quota); }catch(e){} throw new Error(q?'quota':('http_'+resp.status)); }
         var blob = await resp.blob();
         if(!blob || blob.size < 200 || /json|text/i.test(blob.type||'')) throw new Error('empty_audio');
         a.muted=false; a.src=URL.createObjectURL(blob);
         await a.play();
         if(btn){ btn.disabled=false; btn.textContent='🔊 '+(isEn()?'Play again':'다시 듣기'); }
       } catch(e){
-        if(btn){ btn.disabled=false; btn.textContent = auto ? ('🔊 '+(isEn()?'Play audio':'음성 듣기')) : ('🔁 '+(isEn()?'Tap to retry':'다시 눌러 듣기')); }
+        var quota = (e && e.message)==='quota';
+        if(btn){ btn.disabled=false;
+          btn.textContent = quota ? ('🔇 '+(isEn()?'Audio paused — tap Next':'음성 잠시 제한 · 다음으로'))
+                            : auto ? ('🔊 '+(isEn()?'Play audio':'음성 듣기'))
+                                   : ('🔁 '+(isEn()?'Tap to retry':'다시 눌러 듣기')); }
       }
     };
     window.micToggle = async function(i){
@@ -318,7 +322,7 @@
 
     loadList();
   </script>
-<!-- BUILD:20260613195956 -->
+<!-- BUILD:20260613200842 -->
 <!-- ━━━ 복습퀴즈 선생님 영상 메시지 팝업 (1회만 표시) ━━━ -->
 <div id="rq-video-pop" style="display:none;position:fixed;top:64px;right:14px;z-index:99998;width:220px;background:rgba(13,20,40,0.97);border:1px solid rgba(251,191,36,0.45);border-radius:18px;box-shadow:0 14px 40px -6px rgba(0,0,0,0.6);overflow:hidden;font-family:'Noto Sans KR',-apple-system,sans-serif;backdrop-filter:blur(8px)">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px 6px;border-bottom:1px solid rgba(255,255,255,0.08)">
