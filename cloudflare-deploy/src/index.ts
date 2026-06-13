@@ -455,10 +455,13 @@ export default {
         path === '/api/review-quiz/list' ||
         path === '/api/review-quiz/get' ||
         path === '/api/review-quiz/submit' ||
+        path === '/api/review-quiz/auto' ||
+        path === '/api/review-quiz/tts' ||
         path === '/api/admin/review-quiz/list' ||
         path === '/api/admin/review-quiz/save' ||
         path === '/api/admin/review-quiz/toggle' ||
         path === '/api/admin/review-quiz/results' ||
+        path === '/api/admin/review-quiz/ai-generate' ||
         /^\/api\/admin\/review-quiz\/\d+$/.test(path) ||
         path === '/api/admin/students/list' ||
         path === '/api/admin/students/unified' ||

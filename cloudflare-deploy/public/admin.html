@@ -12284,9 +12284,45 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <input class="rq-in" id="rq-title" placeholder="예: 5월 2주차 복습 — 동물 단어" />
       <label data-ko="설명 (선택)" data-en="Description (optional)">설명 (선택)</label>
       <input class="rq-in" id="rq-desc" placeholder="예: 이번 주 수업에서 배운 단어를 복습해요" />
+
+      <!-- 🎯 교재/레벨/레슨 매칭 메타 (화상수업 [🧠 복습퀴즈] 자동 매칭에 사용) -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 90px;gap:8px;margin-top:6px">
+        <div><label data-ko="교재명 (자동매칭)" data-en="Textbook">교재명 (자동매칭)</label><input class="rq-in" id="rq-textbook" placeholder="예: SIU 1, MES 2" /></div>
+        <div><label data-ko="레벨" data-en="Level">레벨</label><input class="rq-in" id="rq-level" placeholder="예: Lv.3, A1" /></div>
+        <div><label data-ko="레슨" data-en="Lesson">레슨</label><input class="rq-in" id="rq-lesson" type="number" min="0" placeholder="예: 5" /></div>
+      </div>
+      <div style="font-size:11px;color:#6b7280;margin:4px 0 2px;line-height:1.5"
+           data-ko="💡 교재명·레벨·레슨을 채우면 화상수업 [🧠 복습퀴즈] 탭에서 학생에게 자동으로 매칭돼요. 비워두면 공통 퀴즈로 전체 학생에게 노출됩니다."
+           data-en="💡 Fill these so the in-class [🧠 Review Quiz] tab auto-matches by textbook/level/lesson. Leave blank for a shared quiz.">
+        💡 교재명·레벨·레슨을 채우면 화상수업 <b>[🧠 복습퀴즈]</b> 탭에서 학생에게 자동 매칭돼요. 비워두면 공통 퀴즈로 노출됩니다.
+      </div>
+
+      <!-- 🤖 AI 자동 출제 -->
+      <details style="margin:12px 0;border:1px solid rgba(99,102,241,0.35);border-radius:10px;background:rgba(99,102,241,0.06)">
+        <summary style="cursor:pointer;font-weight:800;font-size:13px;color:#4338ca;padding:10px 12px">🤖 AI 자동 출제 (교재·레벨·레슨 기반 듣기/쓰기/말하기)</summary>
+        <div style="padding:4px 12px 12px">
+          <label data-ko="핵심 단어·주제 (선택, AI 정확도↑)" data-en="Key vocab/topic (optional)">핵심 단어·주제 (선택, AI 정확도↑)</label>
+          <textarea class="rq-in" id="rq-ai-topic" rows="2" placeholder="예: animals, colors, present continuous / 이번 레슨 핵심 단어를 적어주면 더 정확해요"></textarea>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px">
+            <div><label>🎧 듣기</label><input class="rq-in" id="rq-ai-listen" type="number" min="0" max="5" value="2" /></div>
+            <div><label>✍️ 쓰기</label><input class="rq-in" id="rq-ai-write" type="number" min="0" max="5" value="2" /></div>
+            <div><label>🎤 말하기</label><input class="rq-in" id="rq-ai-speak" type="number" min="0" max="5" value="2" /></div>
+            <div><label>📝 객관식</label><input class="rq-in" id="rq-ai-choice" type="number" min="0" max="5" value="2" /></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
+            <button class="rq-btn" style="background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff" onclick="rqAiGen()">🤖 AI로 문항 생성</button>
+            <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;margin:0"><input type="checkbox" id="rq-ai-replace" /> <span data-ko="기존 문항 비우고 채우기" data-en="Replace existing">기존 문항 비우고 채우기</span></label>
+            <span id="rq-ai-msg" style="font-size:12px;color:#4338ca"></span>
+          </div>
+        </div>
+      </details>
+
       <div id="rq-qlist"></div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        <button class="rq-btn add" onclick="rqAddQ()">➕ 문항 추가</button>
+        <button class="rq-btn add" onclick="rqAddQ({type:'choice'})">➕ 📝 객관식</button>
+        <button class="rq-btn add" onclick="rqAddQ({type:'listen'})">➕ 🎧 듣기</button>
+        <button class="rq-btn add" onclick="rqAddQ({type:'write'})">➕ ✍️ 쓰기</button>
+        <button class="rq-btn add" onclick="rqAddQ({type:'speak'})">➕ 🎤 말하기</button>
         <button class="rq-btn save" id="rq-save-btn" onclick="rqSave()">💾 퀴즈 저장</button>
       </div>
       <div id="rq-form-msg" style="font-size:12px;margin-top:8px;color:#059669"></div>
@@ -12310,33 +12346,55 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   function rqEsc(v){ return String(v==null?'':v).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
   var RQ_ABC = ['A','B','C','D'];
 
+  var RQ_TYPE_LABEL = { choice:'📝 객관식', listen:'🎧 듣기', write:'✍️ 쓰기', speak:'🎤 말하기' };
   window.rqAddQ = function(data){
     data = data || {};
+    var type = ['choice','listen','write','speak'].indexOf(data.type)>=0 ? data.type : 'choice';
     var list = document.getElementById('rq-qlist');
     var n = list.children.length;
     if (n >= 30) { alert('문항은 최대 30개까지예요.'); return; }
     var div = document.createElement('div');
     div.className = 'rq-qblock';
-    var opts = (data.opts && data.opts.length) ? data.opts : ['','','',''];
-    var optHtml = '';
-    for (var k=0; k<4; k++) {
-      optHtml += '<div class="rq-opt-row"><b>'+RQ_ABC[k]+'</b><input class="rq-in rq-opt" placeholder="보기 '+RQ_ABC[k]+(k>1?' (선택)':' *')+'" value="'+rqEsc(opts[k]||'')+'" /></div>';
+    div.setAttribute('data-type', type);
+    var explain = '<input class="rq-in rq-explain" style="margin-top:6px" placeholder="해설 (선택) — 정답 공개 시 학생에게 보여요" value="'+rqEsc(data.explain||'')+'" />';
+    var inner = '';
+    if (type==='choice' || type==='listen') {
+      var opts = (data.opts && data.opts.length) ? data.opts : ['','','',''];
+      var optHtml='';
+      for (var k=0;k<4;k++) optHtml += '<div class="rq-opt-row"><b>'+RQ_ABC[k]+'</b><input class="rq-in rq-opt" placeholder="보기 '+RQ_ABC[k]+(k>1?' (선택)':' *')+'" value="'+rqEsc(opts[k]||'')+'" /></div>';
+      var audioRow = (type==='listen')
+        ? '<label style="color:#3b82f6">🔊 듣기 음성 문장 * (학생에게 TTS로 읽어줌, 정답 원문은 비공개)</label>'
+          + '<input class="rq-in rq-audio" placeholder="예: The cat is sleeping on the bed." value="'+rqEsc(data.audio_text||'')+'" />'
+        : '';
+      inner = audioRow
+        + '<input class="rq-in rq-q" style="margin-top:6px" placeholder="'+(type==='listen'?'질문 (선택, 비우면 🎧 잘 듣고 고르세요)':'문제를 입력하세요 *')+'" value="'+rqEsc(data.q||'')+'" />'
+        + optHtml
+        + '<div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap"><span style="font-size:12px;font-weight:700">정답:</span>'
+        + '<select class="rq-in rq-ans" style="width:auto;padding:6px 10px">'
+        + '<option value="0"'+(data.answer===0||data.answer==null?' selected':'')+'>A</option>'
+        + '<option value="1"'+(data.answer===1?' selected':'')+'>B</option>'
+        + '<option value="2"'+(data.answer===2?' selected':'')+'>C</option>'
+        + '<option value="3"'+(data.answer===3?' selected':'')+'>D</option></select></div>'
+        + explain;
+    } else if (type==='write') {
+      inner = '<input class="rq-in rq-q" style="margin-top:6px" placeholder="문제(한국어 지시문) * 예: 다음 뜻의 영어 문장을 쓰세요 — 나는 사과를 좋아해요" value="'+rqEsc(data.q||'')+'" />'
+        + '<label style="color:#059669">✍️ 정답 문장 *</label>'
+        + '<input class="rq-in rq-answer-text" placeholder="예: I like apples." value="'+rqEsc(data.answer_text||'')+'" />'
+        + '<label>✅ 추가 정답 (선택, 쉼표로 구분)</label>'
+        + '<input class="rq-in rq-accept" placeholder="예: I love apples., I like apple" value="'+rqEsc((data.accept||[]).join(', '))+'" />'
+        + explain;
+    } else { // speak
+      inner = '<input class="rq-in rq-q" style="margin-top:6px" placeholder="안내문 (선택, 비우면 🎤 또박또박 읽어보세요)" value="'+rqEsc(data.q||'')+'" />'
+        + '<label style="color:#d97706">🎤 학생이 읽을(말할) 문장 *</label>'
+        + '<input class="rq-in rq-answer-text" placeholder="예: How are you today?" value="'+rqEsc(data.answer_text||'')+'" />'
+        + '<div style="font-size:11px;color:#6b7280;margin-top:3px">학생이 마이크로 말하면 음성인식으로 자동 채점돼요 (60% 이상 일치 시 정답).</div>'
+        + explain;
     }
     div.innerHTML =
       '<button class="rq-del-q" onclick="this.parentNode.remove();rqRenum()">✕ 삭제</button>' +
       '<b class="rq-qnum" style="font-size:12.5px;color:#0369a1">Q'+(n+1)+'</b>' +
-      '<input class="rq-in rq-q" style="margin-top:6px" placeholder="문제를 입력하세요 *" value="'+rqEsc(data.q||'')+'" />' +
-      optHtml +
-      '<div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap">' +
-      '<span style="font-size:12px;font-weight:700">정답:</span>' +
-      '<select class="rq-in rq-ans" style="width:auto;padding:6px 10px">' +
-        '<option value="0"'+(data.answer===0||data.answer==null?' selected':'')+'>A</option>' +
-        '<option value="1"'+(data.answer===1?' selected':'')+'>B</option>' +
-        '<option value="2"'+(data.answer===2?' selected':'')+'>C</option>' +
-        '<option value="3"'+(data.answer===3?' selected':'')+'>D</option>' +
-      '</select>' +
-      '<input class="rq-in rq-explain" style="flex:1;min-width:180px" placeholder="해설 (선택) — 정답 공개 시 학생에게 보여요" value="'+rqEsc(data.explain||'')+'" />' +
-      '</div>';
+      '<span class="rq-type-badge" style="margin-left:8px;font-size:11px;font-weight:800;padding:2px 9px;border-radius:99px;background:rgba(99,102,241,0.12);color:#4338ca">'+RQ_TYPE_LABEL[type]+'</span>' +
+      inner;
     list.appendChild(div);
   };
   window.rqRenum = function(){
@@ -12351,18 +12409,73 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     var questions = [];
     for (var i=0; i<blocks.length; i++) {
       var b = blocks[i];
-      var q = b.querySelector('.rq-q').value.trim();
-      if (!q) { alert('Q'+(i+1)+' 문제를 입력하세요.'); return null; }
-      var optEls = b.querySelectorAll('.rq-opt');
-      var opts = [];
-      for (var k=0; k<optEls.length; k++) { var v = optEls[k].value.trim(); if (v) opts.push(v); }
-      if (opts.length < 2) { alert('Q'+(i+1)+' 보기를 2개 이상 입력하세요.'); return null; }
-      var ans = parseInt(b.querySelector('.rq-ans').value, 10) || 0;
-      if (ans >= opts.length) { alert('Q'+(i+1)+' 정답으로 고른 보기가 비어 있어요.'); return null; }
-      questions.push({ q:q, opts:opts, answer:ans, explain: b.querySelector('.rq-explain').value.trim() });
+      var type = b.getAttribute('data-type') || 'choice';
+      var qEl = b.querySelector('.rq-q'); var q = qEl ? qEl.value.trim() : '';
+      var explain = (b.querySelector('.rq-explain')||{}).value ? b.querySelector('.rq-explain').value.trim() : '';
+      if (type==='choice' || type==='listen') {
+        if (type==='choice' && !q) { alert('Q'+(i+1)+' 문제를 입력하세요.'); return null; }
+        var optEls = b.querySelectorAll('.rq-opt'); var opts=[];
+        for (var k=0;k<optEls.length;k++){ var v=optEls[k].value.trim(); if(v) opts.push(v); }
+        if (opts.length<2){ alert('Q'+(i+1)+' 보기를 2개 이상 입력하세요.'); return null; }
+        var ans = parseInt(b.querySelector('.rq-ans').value,10)||0;
+        if (ans>=opts.length){ alert('Q'+(i+1)+' 정답으로 고른 보기가 비어 있어요.'); return null; }
+        var item = { type:type, q:q, opts:opts, answer:ans, explain:explain };
+        if (type==='listen') {
+          var at = (b.querySelector('.rq-audio')||{}).value ? b.querySelector('.rq-audio').value.trim() : '';
+          if (!at){ alert('Q'+(i+1)+' 듣기 음성 문장을 입력하세요.'); return null; }
+          item.audio_text = at;
+        }
+        questions.push(item);
+      } else {
+        var atxt = (b.querySelector('.rq-answer-text')||{}).value ? b.querySelector('.rq-answer-text').value.trim() : '';
+        if (!atxt){ alert('Q'+(i+1)+' 정답 문장을 입력하세요.'); return null; }
+        if (type==='write' && !q){ alert('Q'+(i+1)+' 문제(지시문)를 입력하세요.'); return null; }
+        var accept = [];
+        var acEl = b.querySelector('.rq-accept');
+        if (acEl && acEl.value.trim()) accept = acEl.value.split(',').map(function(s){return s.trim();}).filter(Boolean);
+        questions.push({ type:type, q:q, answer_text:atxt, accept:accept, explain:explain });
+      }
     }
-    return { title:title, description: document.getElementById('rq-desc').value.trim(), questions:questions };
+    var lessonV = parseInt(document.getElementById('rq-lesson').value,10);
+    return {
+      title:title,
+      description: document.getElementById('rq-desc').value.trim(),
+      textbook: document.getElementById('rq-textbook').value.trim(),
+      level: document.getElementById('rq-level').value.trim(),
+      lesson_no: (lessonV>0?lessonV:0),
+      questions:questions
+    };
   }
+  // 🤖 AI 자동 출제
+  window.rqAiGen = async function(){
+    var msg = document.getElementById('rq-ai-msg');
+    var counts = {
+      listen: parseInt(document.getElementById('rq-ai-listen').value,10)||0,
+      write:  parseInt(document.getElementById('rq-ai-write').value,10)||0,
+      speak:  parseInt(document.getElementById('rq-ai-speak').value,10)||0,
+      choice: parseInt(document.getElementById('rq-ai-choice').value,10)||0
+    };
+    if (counts.listen+counts.write+counts.speak+counts.choice === 0){ msg.textContent='⚠️ 문항 수를 1개 이상 지정하세요.'; return; }
+    msg.style.color='#4338ca'; msg.textContent='🤖 AI가 문항을 만드는 중… (약 10초)';
+    var lessonV = parseInt(document.getElementById('rq-lesson').value,10);
+    try {
+      var r = await fetch('/api/admin/review-quiz/ai-generate', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          textbook: document.getElementById('rq-textbook').value.trim(),
+          level: document.getElementById('rq-level').value.trim(),
+          lesson_no: (lessonV>0?lessonV:0),
+          topic: document.getElementById('rq-ai-topic').value.trim(),
+          counts: counts
+        }) }).then(function(x){return x.json();});
+      if (!r.ok) throw new Error(r.error||'ai_fail');
+      var qs = r.questions||[];
+      if (!qs.length) throw new Error('생성된 문항 없음');
+      if (document.getElementById('rq-ai-replace').checked) document.getElementById('rq-qlist').innerHTML='';
+      qs.forEach(function(qq){ rqAddQ(qq); });
+      rqRenum();
+      msg.style.color='#059669'; msg.textContent='✅ '+qs.length+'개 문항이 추가됐어요. 내용을 검토·수정 후 저장하세요.';
+    } catch(e){ msg.style.color='#b91c1c'; msg.textContent='⚠️ 생성 실패: '+e.message+' (Workers AI 응답 문제일 수 있어요. 다시 시도하거나 수동 입력하세요.)'; }
+  };
   window.rqSave = async function(){
     var body = rqCollect(); if (!body) return;
     if (rqEditing) body.id = rqEditing;
@@ -12382,8 +12495,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     rqEditing = 0;
     document.getElementById('rq-title').value = '';
     document.getElementById('rq-desc').value = '';
+    document.getElementById('rq-textbook').value = '';
+    document.getElementById('rq-level').value = '';
+    document.getElementById('rq-lesson').value = '';
+    document.getElementById('rq-ai-msg').textContent = '';
     document.getElementById('rq-qlist').innerHTML = '';
-    rqAddQ();
+    rqAddQ({type:'choice'});
     document.getElementById('rq-form-title').textContent = '➕ 새 퀴즈 만들기';
     document.getElementById('rq-cancel-edit').style.display = 'none';
   };
@@ -12394,6 +12511,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     rqEditing = id;
     document.getElementById('rq-title').value = q.title || '';
     document.getElementById('rq-desc').value = q.description || '';
+    document.getElementById('rq-textbook').value = q.textbook || '';
+    document.getElementById('rq-level').value = q.level || '';
+    document.getElementById('rq-lesson').value = (q.lesson_no!=null && q.lesson_no>0) ? q.lesson_no : '';
     var list = document.getElementById('rq-qlist'); list.innerHTML = '';
     (q.questions || []).forEach(function(qq){ rqAddQ(qq); });
     document.getElementById('rq-form-title').textContent = '✏️ 퀴즈 수정 — #' + id;
@@ -12436,10 +12556,20 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       var r = await fetch('/api/admin/review-quiz/list', { credentials:'include' }).then(function(x){ return x.json(); });
       rqCache = (r && r.quizzes) || [];
       if (!rqCache.length) { box.innerHTML = '<div style="padding:8px 0">아직 만든 퀴즈가 없어요. 위에서 첫 퀴즈를 만들어보세요!</div>'; return; }
-      box.innerHTML = '<table><thead><tr><th>제목</th><th>문항</th><th>응시</th><th>상태</th><th>관리</th></tr></thead><tbody>' +
+      box.innerHTML = '<table><thead><tr><th>제목</th><th>문항 구성</th><th>응시</th><th>상태</th><th>관리</th></tr></thead><tbody>' +
         rqCache.map(function(q){
-          return '<tr><td><b>' + rqEsc(q.title) + '</b>' + (q.description ? '<div style="font-size:11px;color:#6b7280">' + rqEsc(q.description) + '</div>' : '') + '</td>' +
-            '<td>' + (q.questions||[]).length + '</td>' +
+          var qs = q.questions||[];
+          var cnt = { choice:0, listen:0, write:0, speak:0 };
+          qs.forEach(function(x){ var t=(x&&x.type)||'choice'; if(cnt[t]!=null) cnt[t]++; });
+          var comp = [];
+          if (cnt.choice) comp.push('📝'+cnt.choice); if (cnt.listen) comp.push('🎧'+cnt.listen);
+          if (cnt.write) comp.push('✍️'+cnt.write); if (cnt.speak) comp.push('🎤'+cnt.speak);
+          var srcB = q.source==='ai' ? ' <span style="font-size:10px;background:#ede9fe;color:#6d28d9;padding:1px 6px;border-radius:99px;font-weight:800">AI</span>' : '';
+          var metaTags = [];
+          if (q.textbook) metaTags.push('📚'+rqEsc(q.textbook)); if (q.level) metaTags.push('📊'+rqEsc(q.level)); if (q.lesson_no) metaTags.push('L'+q.lesson_no);
+          var metaLine = metaTags.length ? '<div style="font-size:10.5px;color:#4338ca;margin-top:2px">'+metaTags.join(' · ')+'</div>' : '';
+          return '<tr><td><b>' + rqEsc(q.title) + '</b>' + srcB + (q.description ? '<div style="font-size:11px;color:#6b7280">' + rqEsc(q.description) + '</div>' : '') + metaLine + '</td>' +
+            '<td>' + (comp.length?comp.join(' '):qs.length) + '</td>' +
             '<td>' + (q.attempt_count||0) + '회</td>' +
             '<td><button class="rq-pill ' + (q.active?'on':'off') + '" onclick="rqToggle(' + q.id + ',' + (q.active?0:1) + ')">' + (q.active?'활성':'숨김') + '</button></td>' +
             '<td><button class="rq-mini" onclick="rqEdit(' + q.id + ')">✏️ 수정</button>' +
@@ -12449,7 +12579,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     } catch(e) { box.innerHTML = '<div style="color:#b91c1c">목록 불러오기 실패: ' + rqEsc(e.message) + '</div>'; }
   };
   var card = document.getElementById('card-review-quiz');
-  if (card) { card.addEventListener('toggle', function(){ if (card.open && !card._rqInit) { card._rqInit = true; rqAddQ(); rqLoad(); } }); }
+  if (card) { card.addEventListener('toggle', function(){ if (card.open && !card._rqInit) { card._rqInit = true; rqAddQ({type:'choice'}); rqLoad(); } }); }
 })();
 </script>
 
@@ -20822,7 +20952,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260612184055 -->
+        <!-- BUILD:20260613142018 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

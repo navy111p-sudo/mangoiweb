@@ -2785,8 +2785,15 @@ export async function handleMangoApi(
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS review_quiz_results (id INTEGER PRIMARY KEY AUTOINCREMENT, quiz_id INTEGER NOT NULL, user_id TEXT NOT NULL, user_name TEXT, score INTEGER NOT NULL, total INTEGER NOT NULL, answers TEXT, created_at INTEGER NOT NULL);`);
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_rq_results_quiz ON review_quiz_results(quiz_id, created_at DESC);`); } catch {}
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_rq_results_user ON review_quiz_results(user_id, created_at DESC);`); } catch {}
+      // Phase RQ2 — 레벨/교재/레슨 매칭 + AI 자동출제 메타 컬럼
+      for (const col of ['level TEXT', 'textbook TEXT', 'lesson_no INTEGER', "source TEXT DEFAULT 'manual'"]) {
+        try { await env.DB.exec(`ALTER TABLE review_quizzes ADD COLUMN ${col};`); } catch {}
+      }
     };
-    // 문항 검증: [{ q, opts:[2~6개], answer:정답index, explain? }]
+    // 문항 검증 (Phase RQ2 — 유형: choice 객관식 / listen 듣기 / write 쓰기 / speak 말하기)
+    //   choice/listen: { type, q, opts:[2~6], answer:index, explain?, audio_text(listen 필수) }
+    //   write        : { type, q, answer_text, accept?:string[], explain? }
+    //   speak        : { type, q?, answer_text(말할 문장), explain? }
     const rqParseQuestions = (raw: any): { ok: boolean; error?: string; list?: any[] } => {
       let list: any[] = [];
       if (Array.isArray(raw)) list = raw;
@@ -2794,26 +2801,141 @@ export async function handleMangoApi(
       if (!Array.isArray(list) || list.length === 0) return { ok: false, error: 'questions_required' };
       const clean: any[] = [];
       for (const q of list) {
-        const text = String(q?.q || '').trim();
-        const opts = Array.isArray(q?.opts) ? q.opts.map((o: any) => String(o || '').trim()) : [];
-        const answer = Number(q?.answer);
-        if (!text) return { ok: false, error: 'question_text_required' };
-        if (opts.length < 2 || opts.length > 6 || opts.some((o: string) => !o)) return { ok: false, error: 'options_required' };
-        if (!Number.isInteger(answer) || answer < 0 || answer >= opts.length) return { ok: false, error: 'answer_index_invalid' };
-        clean.push({ q: text, opts, answer, explain: String(q?.explain || '').trim() });
+        const type = ['choice', 'listen', 'write', 'speak'].includes(String(q?.type)) ? String(q.type) : 'choice';
+        const explain = String(q?.explain || '').trim();
+        let text = String(q?.q || '').trim();
+        if (type === 'choice' || type === 'listen') {
+          const opts = Array.isArray(q?.opts) ? q.opts.map((o: any) => String(o || '').trim()) : [];
+          const answer = Number(q?.answer);
+          if (type === 'listen' && !text) text = '🎧 잘 듣고 알맞은 답을 고르세요.';
+          if (!text) return { ok: false, error: 'question_text_required' };
+          if (opts.length < 2 || opts.length > 6 || opts.some((o: string) => !o)) return { ok: false, error: 'options_required' };
+          if (!Number.isInteger(answer) || answer < 0 || answer >= opts.length) return { ok: false, error: 'answer_index_invalid' };
+          const audioText = String(q?.audio_text || '').trim();
+          if (type === 'listen' && !audioText) return { ok: false, error: 'audio_text_required' };
+          const item: any = { type, q: text, opts, answer, explain };
+          if (type === 'listen') item.audio_text = audioText.slice(0, 300);
+          clean.push(item);
+        } else {
+          const answerText = String(q?.answer_text || '').trim();
+          if (!answerText) return { ok: false, error: 'answer_text_required' };
+          if (type === 'speak' && !text) text = '🎤 아래 문장을 또박또박 읽어보세요.';
+          if (type === 'write' && !text) return { ok: false, error: 'question_text_required' };
+          const accept = (Array.isArray(q?.accept) ? q.accept : []).map((a: any) => String(a || '').trim()).filter((a: string) => !!a).slice(0, 8);
+          clean.push({ type, q: text, answer_text: answerText.slice(0, 300), accept, explain });
+        }
       }
       return { ok: true, list: clean };
+    };
+    // 채점 보조 — 텍스트 정규화 + 단어 일치율
+    const rqNorm = (s: any) => String(s || '').toLowerCase().replace(/[^a-z0-9가-힣\s']/g, ' ').replace(/\s+/g, ' ').trim();
+    const rqWordAcc = (target: string, said: string) => {
+      const t = rqNorm(target).split(' ').filter(Boolean);
+      const s = rqNorm(said).split(' ').filter(Boolean);
+      if (!t.length) return 0;
+      const pool = s.slice();
+      let hit = 0;
+      for (const w of t) { const i = pool.indexOf(w); if (i >= 0) { hit++; pool.splice(i, 1); } }
+      return hit / t.length;
+    };
+    // 학생에게 안전한 문항 형태 (정답/듣기 원문 제외)
+    const rqSafeQuestions = (qs: any[]) => qs.map((q: any, i: number) => {
+      const type = q.type || 'choice';
+      const out: any = { idx: i, type, q: q.q };
+      if (type === 'choice' || type === 'listen') out.opts = q.opts;
+      if (type === 'speak') out.target = q.answer_text;
+      if (type === 'listen') out.has_audio = true;
+      return out;
+    });
+    // 채점 (유형별) — answers[i]: choice/listen=보기 index, write/speak=텍스트
+    const rqGrade = (qs: any[], answers: any[]) => {
+      let score = 0;
+      const detail = qs.map((q: any, i: number) => {
+        const type = q.type || 'choice';
+        const a = answers[i];
+        if (type === 'choice' || type === 'listen') {
+          const ans = Number(a);
+          const correct = Number.isInteger(ans) && ans === Number(q.answer);
+          if (correct) score++;
+          const d: any = { idx: i, type, correct, your_answer: Number.isInteger(ans) ? ans : null, answer: Number(q.answer), explain: q.explain || '' };
+          if (type === 'listen') d.audio_text = q.audio_text || '';
+          return d;
+        }
+        const said = String(a == null ? '' : a).slice(0, 500);
+        let accuracy = Math.round(rqWordAcc(q.answer_text, said) * 100);
+        let correct = false;
+        if (type === 'write') {
+          const cands = [rqNorm(q.answer_text), ...((q.accept || []).map((x: string) => rqNorm(x)))].filter(Boolean);
+          correct = !!said.trim() && (cands.includes(rqNorm(said)) || accuracy >= 85);
+          if (correct) accuracy = Math.max(accuracy, 100 * Number(cands.includes(rqNorm(said))) || accuracy);
+        } else {
+          correct = accuracy >= 60;
+        }
+        if (correct) score++;
+        return { idx: i, type, correct, accuracy, your_text: said, answer_text: q.answer_text, explain: q.explain || '' };
+      });
+      return { score, detail };
+    };
+    // 🤖 AI 자동 출제 — 교재/레벨/레슨 기반 (Workers AI llama-3.3-70b)
+    const rqAiGenerate = async (o: { level?: string; textbook?: string; lesson_no?: number | null; topic?: string; counts?: any }) => {
+      const ai = (env as any).AI;
+      if (!ai) return { ok: false as const, error: 'workers_ai_not_bound' };
+      const c = o.counts || {};
+      const lim = (v: any, dft: number) => Math.min(Math.max(Number(v ?? dft) || 0, 0), 5);
+      const nListen = lim(c.listen, 2), nWrite = lim(c.write, 2), nSpeak = lim(c.speak, 2), nChoice = lim(c.choice, 0);
+      if (nListen + nWrite + nSpeak + nChoice === 0) return { ok: false as const, error: 'counts_required' };
+      const ctx = [
+        o.textbook ? `Textbook: ${o.textbook}` : '',
+        o.level ? `Level: ${o.level}` : '',
+        (o.lesson_no != null && o.lesson_no > 0) ? `Lesson number: ${o.lesson_no}` : '',
+        o.topic ? `Key vocabulary / topic from this lesson: ${o.topic}` : '',
+      ].filter(Boolean).join('\n');
+      const prompt = `You are an English quiz writer for a Korean kids' English academy (망고아이).
+Create a review quiz for this class:
+${ctx || 'General elementary English'}
+
+Difficulty must match the textbook level and lesson (younger learners = very short, simple sentences).
+Make exactly:
+- ${nChoice} "choice" questions: {"type":"choice","q":"<Korean question>","opts":["..","..","..",".."],"answer":<correct index 0-3>,"explain":"<short Korean explanation>"}
+- ${nListen} "listen" questions: {"type":"listen","q":"🎧 잘 듣고 알맞은 답을 고르세요.","audio_text":"<short English sentence to be spoken aloud>","opts":["..","..","..",".."],"answer":<index>,"explain":"<Korean>"}
+- ${nWrite} "write" questions: {"type":"write","q":"<Korean prompt, e.g. 다음 뜻의 영어 문장을 쓰세요: ...>","answer_text":"<correct English sentence>","accept":["<acceptable variation>"],"explain":"<Korean>"}
+- ${nSpeak} "speak" questions: {"type":"speak","q":"🎤 아래 문장을 또박또박 읽어보세요.","answer_text":"<short English sentence to read aloud>","explain":"<Korean>"}
+
+Rules: English sentences max 8 words. Korean for instructions/explanations. Vocabulary must fit the textbook/lesson. The "listen" options must include the audio sentence itself as the correct option.
+Reply with a JSON array ONLY. No markdown, no commentary.`;
+      try {
+        const resp: any = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+          messages: [
+            { role: 'system', content: 'You write JSON quizzes for Korean children learning English. Output a raw JSON array only.' },
+            { role: 'user', content: prompt }
+          ],
+          max_tokens: 2400,
+        });
+        let text = '';
+        if (typeof resp === 'string') text = resp;
+        else if (resp && typeof resp.response === 'string') text = resp.response;
+        else if (resp && resp.response) text = JSON.stringify(resp.response);
+        const m = String(text || '').match(/\[[\s\S]*\]/);
+        if (!m) return { ok: false as const, error: 'ai_no_json' };
+        let arr: any[] = [];
+        try { arr = JSON.parse(m[0]); } catch { return { ok: false as const, error: 'ai_bad_json' }; }
+        const parsed = rqParseQuestions(arr);
+        if (!parsed.ok || !parsed.list || !parsed.list.length) return { ok: false as const, error: parsed.error || 'ai_invalid_questions' };
+        return { ok: true as const, questions: parsed.list };
+      } catch (e: any) {
+        return { ok: false as const, error: 'ai_failed: ' + (e?.message || 'unknown') };
+      }
     };
 
     // ── GET /api/review-quiz/list?user_id=xxx — 학생: 활성 퀴즈 목록 (+내 최고점/시도수) ──
     if (method === 'GET' && path === '/api/review-quiz/list') {
       await ensureReviewQuizTables();
       const userId = (url.searchParams.get('user_id') || '').trim();
-      const rs = await env.DB.prepare(`SELECT id, title, description, questions, created_at FROM review_quizzes WHERE active = 1 ORDER BY id DESC`).all();
+      const rs = await env.DB.prepare(`SELECT id, title, description, questions, level, textbook, lesson_no, source, created_at FROM review_quizzes WHERE active = 1 ORDER BY id DESC`).all();
       const quizzes: any[] = [];
       for (const row of (((rs.results as any[]) || []))) {
         let count = 0; try { count = (JSON.parse(row.questions) || []).length; } catch {}
-        const item: any = { id: row.id, title: row.title, description: row.description || '', question_count: count, created_at: row.created_at, best_score: null, attempts: 0 };
+        const item: any = { id: row.id, title: row.title, description: row.description || '', question_count: count, level: row.level || '', textbook: row.textbook || '', lesson_no: row.lesson_no, source: row.source || 'manual', created_at: row.created_at, best_score: null, attempts: 0 };
         if (userId) {
           const best: any = await env.DB.prepare(`SELECT MAX(score) AS best, COUNT(*) AS n FROM review_quiz_results WHERE quiz_id = ? AND user_id = ?`).bind(row.id, userId).first();
           if (best && Number(best.n) > 0) { item.best_score = best.best; item.attempts = Number(best.n); }
@@ -2828,11 +2950,11 @@ export async function handleMangoApi(
       await ensureReviewQuizTables();
       const id = parseInt(url.searchParams.get('id') || '0', 10);
       if (!id) return json({ ok: false, error: 'id_required' }, 400);
-      const row: any = await env.DB.prepare(`SELECT id, title, description, questions, active FROM review_quizzes WHERE id = ?`).bind(id).first();
+      const row: any = await env.DB.prepare(`SELECT id, title, description, questions, active, level, textbook, lesson_no, source FROM review_quizzes WHERE id = ?`).bind(id).first();
       if (!row || !row.active) return json({ ok: false, error: 'quiz_not_found' }, 404);
       let qs: any[] = []; try { qs = JSON.parse(row.questions) || []; } catch {}
-      const safe = qs.map((q: any, i: number) => ({ idx: i, q: q.q, opts: q.opts }));
-      return json({ ok: true, quiz: { id: row.id, title: row.title, description: row.description || '', questions: safe } });
+      const safe = rqSafeQuestions(qs);
+      return json({ ok: true, quiz: { id: row.id, title: row.title, description: row.description || '', level: row.level || '', textbook: row.textbook || '', lesson_no: row.lesson_no, source: row.source || 'manual', questions: safe } });
     }
 
     // ── POST /api/review-quiz/submit — 학생: 답안 제출 → 서버 채점 + 기록 저장 ──
@@ -2849,16 +2971,93 @@ export async function handleMangoApi(
       if (!row) return json({ ok: false, error: 'quiz_not_found' }, 404);
       let qs: any[] = []; try { qs = JSON.parse(row.questions) || []; } catch {}
       if (!qs.length) return json({ ok: false, error: 'quiz_empty' }, 400);
-      let score = 0;
-      const detail = qs.map((q: any, i: number) => {
-        const ans = Number(answers[i]);
-        const correct = Number.isInteger(ans) && ans === Number(q.answer);
-        if (correct) score++;
-        return { idx: i, correct, your_answer: Number.isInteger(ans) ? ans : null, answer: Number(q.answer), explain: q.explain || '' };
-      });
+      const { score, detail } = rqGrade(qs, answers);
       await env.DB.prepare(`INSERT INTO review_quiz_results (quiz_id, user_id, user_name, score, total, answers, created_at) VALUES (?,?,?,?,?,?,?)`)
         .bind(quizId, userId, userName, score, qs.length, JSON.stringify(answers.slice(0, qs.length)), Date.now()).run();
       return json({ ok: true, score, total: qs.length, percent: Math.round((score / qs.length) * 100), detail });
+    }
+
+    // ── POST /api/review-quiz/tts — 듣기 문항 음성 (정답 원문 비공개, 서버 TTS) ──
+    if (method === 'POST' && path === '/api/review-quiz/tts') {
+      await ensureReviewQuizTables();
+      const b: any = await request.json().catch(() => ({}));
+      const quizId = Number(b.quiz_id) || 0;
+      const idx = Number(b.idx);
+      if (!quizId || !Number.isInteger(idx) || idx < 0) return json({ ok: false, error: 'quiz_id_and_idx_required' }, 400);
+      const row: any = await env.DB.prepare(`SELECT questions FROM review_quizzes WHERE id = ? AND active = 1`).bind(quizId).first();
+      if (!row) return json({ ok: false, error: 'quiz_not_found' }, 404);
+      let qs: any[] = []; try { qs = JSON.parse(row.questions) || []; } catch {}
+      const q = qs[idx];
+      const text = (q && q.type === 'listen') ? String(q.audio_text || '').trim().slice(0, 300) : '';
+      if (!text) return json({ ok: false, error: 'not_a_listen_question' }, 400);
+      const ai = (env as any).AI;
+      if (!ai) return json({ ok: false, error: 'workers_ai_not_bound' }, 503);
+      const audioHeaders = { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'public, max-age=86400', 'Access-Control-Allow-Origin': '*' };
+      try {
+        const raw: any = await ai.run('@cf/deepgram/aura-1', { text, speaker: 'asteria' }, { returnRawResponse: true });
+        if (raw instanceof Response) return new Response(raw.body, { headers: audioHeaders });
+      } catch {}
+      try {
+        const r: any = await ai.run('@cf/myshell-ai/melotts', { prompt: text, lang: 'en' });
+        const b64 = typeof r === 'string' ? r : (r?.audio || '');
+        if (b64) {
+          const bin = atob(b64); const u8 = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+          return new Response(u8, { headers: audioHeaders });
+        }
+      } catch {}
+      return json({ ok: false, error: 'tts_failed' }, 500);
+    }
+
+    // ── POST /api/review-quiz/auto — 화상수업: 교재/레벨/레슨 자동 매칭 (+없으면 AI 즉석 출제 후 저장) ──
+    if (method === 'POST' && path === '/api/review-quiz/auto') {
+      await ensureReviewQuizTables();
+      const b: any = await request.json().catch(() => ({}));
+      const level = String(b.level || '').trim();
+      const textbook = String(b.textbook || '').trim();
+      const lessonNo = Number(b.lesson_no) > 0 ? Number(b.lesson_no) : null;
+      const topic = String(b.topic || '').trim().slice(0, 300);
+      const allowGenerate = b.auto_generate !== 0 && b.auto_generate !== false;
+      const pickSafe = (row: any) => {
+        let qs: any[] = []; try { qs = JSON.parse(row.questions) || []; } catch {}
+        return { id: row.id, title: row.title, description: row.description || '', level: row.level || '', textbook: row.textbook || '', lesson_no: row.lesson_no, source: row.source || 'manual', questions: rqSafeQuestions(qs) };
+      };
+      // 1) 교재+레슨 → 2) 교재 전체용 → 3) 레벨 전체용 순서로 매칭
+      const tries: Array<{ sql: string; binds: any[] }> = [];
+      if (textbook && lessonNo) tries.push({ sql: `SELECT * FROM review_quizzes WHERE active=1 AND textbook IS NOT NULL AND LOWER(textbook)=LOWER(?) AND lesson_no=? ORDER BY id DESC LIMIT 1`, binds: [textbook, lessonNo] });
+      if (textbook) tries.push({ sql: `SELECT * FROM review_quizzes WHERE active=1 AND textbook IS NOT NULL AND LOWER(textbook)=LOWER(?) AND lesson_no IS NULL ORDER BY id DESC LIMIT 1`, binds: [textbook] });
+      if (level) tries.push({ sql: `SELECT * FROM review_quizzes WHERE active=1 AND level IS NOT NULL AND LOWER(level)=LOWER(?) AND (textbook IS NULL OR textbook='') ORDER BY id DESC LIMIT 1`, binds: [level] });
+      for (const t of tries) {
+        const row: any = await env.DB.prepare(t.sql).bind(...t.binds).first();
+        if (row) return json({ ok: true, matched: true, quiz: pickSafe(row) });
+      }
+      if (!allowGenerate || (!textbook && !level && !topic)) return json({ ok: true, matched: false, quiz: null });
+      // 🤖 매칭 퀴즈가 없으면 AI 가 교재/레벨/레슨에 맞춰 즉석 출제 → 저장 (관리자 페이지에서 확인·조정 가능)
+      const gen = await rqAiGenerate({ level, textbook, lesson_no: lessonNo, topic, counts: { listen: 2, write: 2, speak: 2 } });
+      if (!gen.ok) return json({ ok: false, error: gen.error }, 502);
+      const title = `[AI] ${textbook || level || '오늘의 수업'}${lessonNo ? ` Lesson ${lessonNo}` : ''} 복습퀴즈`;
+      const desc = `AI 자동 출제 (듣기/쓰기/말하기) — ${new Date().toISOString().slice(0, 10)}`;
+      const now = Date.now();
+      const ins = await env.DB.prepare(`INSERT INTO review_quizzes (title, description, questions, active, level, textbook, lesson_no, source, created_at, updated_at) VALUES (?,?,?,1,?,?,?,'ai',?,?)`)
+        .bind(title, desc, JSON.stringify(gen.questions), level || null, textbook || null, lessonNo, now, now).run();
+      const newId = (ins as any).meta?.last_row_id;
+      const nrow: any = await env.DB.prepare(`SELECT * FROM review_quizzes WHERE id=?`).bind(newId).first();
+      return json({ ok: true, matched: false, generated: true, quiz: pickSafe(nrow) });
+    }
+
+    // ── POST /api/admin/review-quiz/ai-generate — 관리자: AI 자동 출제 (저장 전 미리보기) ──
+    if (method === 'POST' && path === '/api/admin/review-quiz/ai-generate') {
+      await ensureReviewQuizTables();
+      const b: any = await request.json().catch(() => ({}));
+      const gen = await rqAiGenerate({
+        level: String(b.level || '').trim(),
+        textbook: String(b.textbook || '').trim(),
+        lesson_no: Number(b.lesson_no) > 0 ? Number(b.lesson_no) : null,
+        topic: String(b.topic || '').trim().slice(0, 300),
+        counts: b.counts || { listen: 2, write: 2, speak: 2, choice: 2 },
+      });
+      if (!gen.ok) return json({ ok: false, error: gen.error }, 502);
+      return json({ ok: true, questions: gen.questions });
     }
 
     // ── GET /api/admin/review-quiz/list — 관리자: 전체 퀴즈 (정답 포함 + 응시수) ──
@@ -2882,16 +3081,20 @@ export async function handleMangoApi(
       const parsed = rqParseQuestions(b.questions);
       if (!parsed.ok) return json({ ok: false, error: parsed.error }, 400);
       const active = (b.active === 0 || b.active === false) ? 0 : 1;
+      const level = String(b.level || '').trim() || null;
+      const textbook = String(b.textbook || '').trim() || null;
+      const lessonNo = Number(b.lesson_no) > 0 ? Number(b.lesson_no) : null;
+      const source = b.source === 'ai' ? 'ai' : 'manual';
       const now = Date.now();
       const id = Number(b.id) || 0;
       if (id) {
-        const r = await env.DB.prepare(`UPDATE review_quizzes SET title=?, description=?, questions=?, active=?, updated_at=? WHERE id=?`)
-          .bind(title, description, JSON.stringify(parsed.list), active, now, id).run();
+        const r = await env.DB.prepare(`UPDATE review_quizzes SET title=?, description=?, questions=?, active=?, level=?, textbook=?, lesson_no=?, updated_at=? WHERE id=?`)
+          .bind(title, description, JSON.stringify(parsed.list), active, level, textbook, lessonNo, now, id).run();
         if (!((r as any).meta && (r as any).meta.changes)) return json({ ok: false, error: 'quiz_not_found' }, 404);
         return json({ ok: true, id });
       }
-      const ins = await env.DB.prepare(`INSERT INTO review_quizzes (title, description, questions, active, created_at, updated_at) VALUES (?,?,?,?,?,?)`)
-        .bind(title, description, JSON.stringify(parsed.list), active, now, now).run();
+      const ins = await env.DB.prepare(`INSERT INTO review_quizzes (title, description, questions, active, level, textbook, lesson_no, source, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)`)
+        .bind(title, description, JSON.stringify(parsed.list), active, level, textbook, lessonNo, source, now, now).run();
       return json({ ok: true, id: (ins as any).meta?.last_row_id });
     }
 

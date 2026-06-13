@@ -153,27 +153,87 @@
         window.scrollTo(0,0);
       } catch(e) { alert(isEn()?'Could not open this quiz.':'퀴즈를 열 수 없어요. 잠시 후 다시 시도해주세요.'); }
     }
+    var TYPE_ICON = { choice:'📝', listen:'🎧', write:'✍️', speak:'🎤' };
+    var TYPE_KO = { choice:'객관식', listen:'듣기', write:'쓰기', speak:'말하기' };
+    var rec = { mr:null, chunks:[], idx:-1 };
+    function answered(i){ var a = state.answers[i]; return !(a==null || a===''); }
     function renderQ() {
       var qz = state.quiz, i = state.idx, q = qz.questions[i], total = qz.questions.length;
+      var typ = q.type || 'choice';
       var pct = Math.round((i / total) * 100);
+      var inner = '';
+      if (typ==='choice' || typ==='listen') {
+        if (typ==='listen') {
+          inner += '<div style="text-align:center;margin-bottom:16px"><button id="playBtn" type="button" onclick="playAudio('+i+')" style="padding:14px 26px;border:0;border-radius:99px;background:linear-gradient(135deg,#3b82f6,#6366f1);color:#fff;font-size:15px;font-weight:800;cursor:pointer">🔊 '+(isEn()?'Play audio':'음성 듣기')+'</button>'
+            + '<div style="font-size:11.5px;color:var(--text2);margin-top:7px">'+(isEn()?'Listen and choose (replayable)':'잘 듣고 정답을 고르세요 (여러 번 가능)')+'</div></div>';
+        }
+        inner += '<div class="q-text">' + esc(q.q) + '</div>'
+          + q.opts.map(function(o,k){ return '<button class="opt'+(state.answers[i]===k?' sel':'')+'" onclick="pick('+k+')"><span class="opt-prefix">'+ABC[k]+'</span>'+esc(o)+'</button>'; }).join('');
+      } else if (typ==='write') {
+        inner += '<div class="q-text">' + esc(q.q) + '</div>'
+          + '<input id="writeIn" value="'+esc(state.answers[i]||'')+'" oninput="setText(this.value)" placeholder="'+(isEn()?'Type the English sentence':'영어 문장을 입력하세요')+'" autocomplete="off" style="width:100%;padding:14px 16px;border-radius:10px;border:1px solid rgba(148,163,184,0.35);background:rgba(255,255,255,0.96);color:#111;font-size:15px;font-family:inherit" />';
+      } else { // speak
+        inner += '<div style="font-size:14px;color:var(--text2);margin-bottom:8px">'+esc(q.q)+'</div>'
+          + '<div style="font-size:20px;font-weight:800;color:#fff;background:rgba(251,191,36,0.10);border:1px dashed rgba(251,191,36,0.4);border-radius:12px;padding:18px;text-align:center;margin-bottom:14px;line-height:1.4">'+esc(q.target||'')+'</div>'
+          + '<div style="text-align:center"><button id="micBtn" type="button" onclick="micToggle('+i+')" style="padding:14px 26px;border:0;border-radius:99px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:15px;font-weight:800;cursor:pointer">🎤 '+(isEn()?'Record':'녹음하고 말하기')+'</button>'
+          + '<div id="micStatus" style="font-size:12px;color:var(--text2);margin-top:10px">'+(state.answers[i]?('🗣 '+esc(state.answers[i])):(isEn()?'Tap to record':'버튼을 누르고 또박또박 말해보세요'))+'</div></div>';
+      }
+      var dis = answered(i) ? '' : 'disabled';
       var html = '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
         '<div class="quiz-card">' +
-        '<div class="q-num">' + esc(qz.title) + ' — Q' + (i+1) + ' / ' + total + '</div>' +
-        '<div class="q-text">' + esc(q.q) + '</div>' +
-        q.opts.map(function(o, k){
-          return '<button class="opt' + (state.answers[i]===k?' sel':'') + '" onclick="pick(' + k + ')">' +
-            '<span class="opt-prefix">' + ABC[k] + '</span>' + esc(o) + '</button>';
-        }).join('') +
+        '<div class="q-num">' + esc(qz.title) + ' — ' + TYPE_ICON[typ] + ' ' + (isEn()?typ:TYPE_KO[typ]) + ' · Q' + (i+1) + ' / ' + total + '</div>' +
+        inner +
         '<div class="nav-btns">' +
         (i > 0 ? '<button class="nav-btn" onclick="moveQ(-1)">← ' + (isEn()?'Prev':'이전') + '</button>' : '') +
         (i < total-1
-          ? '<button class="nav-btn primary" id="nextBtn" ' + (state.answers[i]==null?'disabled':'') + ' onclick="moveQ(1)">' + (isEn()?'Next':'다음') + ' →</button>'
-          : '<button class="nav-btn primary" id="nextBtn" ' + (state.answers[i]==null?'disabled':'') + ' onclick="submitQuiz()">✅ ' + (isEn()?'Submit':'제출하기') + '</button>') +
+          ? '<button class="nav-btn primary" id="nextBtn" ' + dis + ' onclick="moveQ(1)">' + (isEn()?'Next':'다음') + ' →</button>'
+          : '<button class="nav-btn primary" id="nextBtn" ' + dis + ' onclick="submitQuiz()">✅ ' + (isEn()?'Submit':'제출하기') + '</button>') +
         '</div>' +
         '<div style="margin-top:10px;text-align:center"><button class="nav-btn" style="flex:none;padding:9px 18px;font-size:12px" onclick="backToList()">' + (isEn()?'Quit':'그만두기') + '</button></div>' +
         '</div>';
       document.getElementById('playView').innerHTML = html;
+      if (typ==='listen') setTimeout(function(){ playAudio(i); }, 350);
     }
+    function refreshNext(){ var n=document.getElementById('nextBtn'); if(n) n.disabled = !answered(state.idx); }
+    window.setText = function(v){ state.answers[state.idx]=v; refreshNext(); };
+    window.playAudio = async function(i){
+      var btn=document.getElementById('playBtn'); if(btn){ btn.disabled=true; btn.textContent='🔊 …'; }
+      try {
+        var resp = await fetch('/api/review-quiz/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ quiz_id:state.quiz.id, idx:i }) });
+        if(!resp.ok) throw new Error('tts');
+        var blob = await resp.blob(); new Audio(URL.createObjectURL(blob)).play().catch(function(){});
+      } catch(e){ if(btn) btn.textContent='⚠️ '+(isEn()?'audio failed':'음성 실패'); }
+      finally { if(btn) setTimeout(function(){ btn.disabled=false; btn.textContent='🔊 '+(isEn()?'Play again':'다시 듣기'); }, 700); }
+    };
+    window.micToggle = async function(i){
+      var btn=document.getElementById('micBtn'), stt=document.getElementById('micStatus');
+      if (rec.mr && rec.idx===i){ try{ rec.mr.stop(); }catch(e){} return; }
+      if (!navigator.mediaDevices || !window.MediaRecorder){ if(stt) stt.textContent=isEn()?'Mic not supported':'이 기기는 녹음을 지원하지 않아요'; return; }
+      try {
+        var stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+        rec.chunks=[]; rec.idx=i;
+        var mime = MediaRecorder.isTypeSupported('audio/webm')?'audio/webm':'';
+        rec.mr = new MediaRecorder(stream, mime?{mimeType:mime}:undefined);
+        rec.mr.ondataavailable=function(e){ if(e.data&&e.data.size) rec.chunks.push(e.data); };
+        rec.mr.onstop=async function(){
+          try{ stream.getTracks().forEach(function(t){t.stop();}); }catch(e){}
+          if(btn){ btn.textContent='🎤 '+(isEn()?'Record':'녹음하고 말하기'); btn.style.background='linear-gradient(135deg,#10b981,#059669)'; }
+          if(stt) stt.textContent='🧠 '+(isEn()?'Recognizing…':'음성 인식 중…');
+          var blob=new Blob(rec.chunks,{type:'audio/webm'}); rec.mr=null; rec.idx=-1;
+          if(blob.size<600){ if(stt) stt.textContent=isEn()?'Too short, try again':'너무 짧아요. 다시 시도해주세요'; return; }
+          try {
+            var fd=new FormData(); fd.append('audio',blob,'speak.webm');
+            var r=await fetch('/api/voice/transcribe',{method:'POST',body:fd}).then(function(x){return x.json();});
+            var text=(r&&r.ok&&r.text)?String(r.text).trim():'';
+            if(!text){ if(stt) stt.textContent=isEn()?'Could not hear you':'잘 못 들었어요. 다시 말해볼까요?'; return; }
+            state.answers[i]=text; if(stt) stt.innerHTML='🗣 '+esc(text); refreshNext();
+          } catch(e){ if(stt) stt.textContent=isEn()?'Recognition failed':'인식 실패. 다시 시도해주세요'; }
+        };
+        rec.mr.start();
+        if(btn){ btn.textContent='⏹ '+(isEn()?'Stop':'정지'); btn.style.background='linear-gradient(135deg,#ef4444,#dc2626)'; }
+        if(stt) stt.textContent='🔴 '+(isEn()?'Recording… tap Stop':'녹음 중… 끝나면 정지');
+      } catch(e){ if(stt) stt.textContent=isEn()?'Mic permission needed':'마이크 권한이 필요해요'; }
+    };
     function pick(k) { state.answers[state.idx] = k; renderQ(); }
     function moveQ(d) { state.idx += d; renderQ(); window.scrollTo(0,0); }
     function backToList() {
@@ -208,13 +268,21 @@
       else if (r.percent >= 50) msg = isEn()?'💪 Good try! Review the ones you missed.':'💪 잘했어요! 틀린 문제를 한 번 더 복습해봐요.';
       else msg = isEn()?'📚 Keep going! Try again after reviewing.':'📚 괜찮아요! 복습하고 다시 도전해봐요.';
       var review = r.detail.map(function(d, i){
-        var q = qz.questions[i];
-        var your = (d.your_answer!=null && q.opts[d.your_answer]!=null) ? (ABC[d.your_answer] + '. ' + q.opts[d.your_answer]) : (isEn()?'(no answer)':'(무응답)');
-        var ans = ABC[d.answer] + '. ' + (q.opts[d.answer]!=null?q.opts[d.answer]:'');
+        var q = qz.questions[i]; var typ = d.type||'choice';
+        var body='';
+        if (typ==='choice' || typ==='listen') {
+          var your = (d.your_answer!=null && q.opts && q.opts[d.your_answer]!=null) ? (ABC[d.your_answer] + '. ' + q.opts[d.your_answer]) : (isEn()?'(no answer)':'(무응답)');
+          var ans = (q.opts && q.opts[d.answer]!=null) ? (ABC[d.answer] + '. ' + q.opts[d.answer]) : '';
+          body = '<div class="rq-a ' + (d.correct?'rq-ok':'rq-no') + '">' + (isEn()?'My answer: ':'내 답: ') + esc(your) + '</div>' +
+            (!d.correct ? '<div class="rq-a rq-ok">' + (isEn()?'Answer: ':'정답: ') + esc(ans) + '</div>' : '') +
+            (typ==='listen' && d.audio_text ? '<div class="rq-a" style="color:var(--text2)">🎧 ' + esc(d.audio_text) + '</div>' : '');
+        } else {
+          body = '<div class="rq-a ' + (d.correct?'rq-ok':'rq-no') + '">' + (isEn()?'You said/wrote: ':'내 답: ') + esc(d.your_text||'-') + (d.accuracy!=null?' ('+d.accuracy+'%)':'') + '</div>' +
+            '<div class="rq-a rq-ok">' + (isEn()?'Target: ':'정답: ') + esc(d.answer_text||'') + '</div>';
+        }
         return '<div class="review-q">' +
-          '<div class="rq-t">' + (d.correct?'<span class="badge-ok">⭕</span>':'<span class="badge-no">❌</span>') + ' Q' + (i+1) + '. ' + esc(q.q) + '</div>' +
-          '<div class="rq-a ' + (d.correct?'rq-ok':'rq-no') + '">' + (isEn()?'My answer: ':'내 답: ') + esc(your) + '</div>' +
-          (!d.correct ? '<div class="rq-a rq-ok">' + (isEn()?'Answer: ':'정답: ') + esc(ans) + '</div>' : '') +
+          '<div class="rq-t">' + (d.correct?'<span class="badge-ok">⭕</span>':'<span class="badge-no">❌</span>') + ' ' + (TYPE_ICON[typ]||'') + ' Q' + (i+1) + '. ' + esc(q.q) + '</div>' +
+          body +
           (d.explain ? '<div class="rq-explain">💡 ' + esc(d.explain) + '</div>' : '') +
           '</div>';
       }).join('');
@@ -236,7 +304,7 @@
 
     loadList();
   </script>
-<!-- BUILD:20260612184055 -->
+<!-- BUILD:20260613142018 -->
 <!-- ━━━ 복습퀴즈 선생님 영상 메시지 팝업 (1회만 표시) ━━━ -->
 <div id="rq-video-pop" style="display:none;position:fixed;top:64px;right:14px;z-index:99998;width:220px;background:rgba(13,20,40,0.97);border:1px solid rgba(251,191,36,0.45);border-radius:18px;box-shadow:0 14px 40px -6px rgba(0,0,0,0.6);overflow:hidden;font-family:'Noto Sans KR',-apple-system,sans-serif;backdrop-filter:blur(8px)">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px 6px;border-bottom:1px solid rgba(255,255,255,0.08)">

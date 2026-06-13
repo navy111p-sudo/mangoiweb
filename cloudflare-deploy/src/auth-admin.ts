@@ -162,12 +162,15 @@ export async function ensureAuthSchema(env: AuthEnv): Promise<void> {
     for (const acc of demoAccounts) {
       const u = acc[0], pw = acc[1], nm = acc[2];
       const ex = await env.DB.prepare(`SELECT id FROM admin_account WHERE username = ? LIMIT 1`).bind(u).first();
+      const h = await hashPassword(pw);
       if (!ex) {
-        const h = await hashPassword(pw);
         await env.DB.prepare(
           `INSERT INTO admin_account (username, password_hash, name, email, phone, created_at, updated_at) VALUES (?, ?, ?, NULL, NULL, ?, ?)`
         ).bind(u, h, nm, nowD, nowD).run();
         console.warn('[auth-admin] demo account seeded:', u);
+      } else {
+        // 데모 계정 비번을 항상 안내값과 일치시킨다(재발 방지). 비데모 계정(jeong 등)은 건드리지 않음.
+        await env.DB.prepare(`UPDATE admin_account SET password_hash = ? WHERE username = ?`).bind(h, u).run();
       }
     }
   } catch (e) {
