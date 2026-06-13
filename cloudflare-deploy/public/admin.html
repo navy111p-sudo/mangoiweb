@@ -21117,7 +21117,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260613204014 -->
+        <!-- BUILD:20260613204400 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -36579,6 +36579,102 @@ button.chip:hover,
   applyStaticLang();
 })();
 </script>
+
+<!-- 🎥 AI 운영비서 영상 메시지 — 클릭 시 fade-in → 말하기 → fade-out (자동재생, 🔇 무음 / ❌ 닫기) -->
+<style>
+#mi-asst-vid-pop{
+  position:fixed;top:16px;left:16px;z-index:100001;
+  width:min(230px,60vw);background:rgba(15,23,42,0.94);
+  border:1.5px solid rgba(251,191,36,0.55);border-radius:18px;
+  box-shadow:0 18px 44px -10px rgba(0,0,0,0.65);overflow:hidden;
+  display:none;opacity:0;transform:translateY(-8px) scale(.97);
+  transition:opacity .45s ease, transform .45s ease;
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+}
+#mi-asst-vid-pop.show{opacity:1;transform:translateY(0) scale(1)}
+#mi-asst-vid-pop .miv-bar{display:flex;align-items:center;justify-content:space-between;padding:7px 9px;background:rgba(251,191,36,0.13)}
+#mi-asst-vid-pop .miv-title{font-size:12px;font-weight:800;color:#fde68a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#mi-asst-vid-pop .miv-btns{display:flex;gap:5px;flex:none}
+#mi-asst-vid-pop .miv-btn{width:28px;height:28px;border-radius:50%;border:1px solid rgba(148,163,184,0.4);background:rgba(30,41,59,0.9);font-size:13px;line-height:1;cursor:pointer;padding:0}
+#mi-asst-vid-pop video{display:block;width:100%;aspect-ratio:1/1;object-fit:cover;background:#000}
+@media (max-width:768px){
+  #mi-asst-vid-pop{width:min(150px,40vw);top:10px;left:10px;border-radius:13px}
+  #mi-asst-vid-pop .miv-bar{padding:4px 6px}
+  #mi-asst-vid-pop .miv-title{font-size:9px}
+  #mi-asst-vid-pop .miv-btn{width:21px;height:21px;font-size:10px}
+}
+@media (prefers-reduced-motion: reduce){
+  #mi-asst-vid-pop{transition:opacity .2s linear}
+  #mi-asst-vid-pop.show{transform:none}
+}
+</style>
+<div id="mi-asst-vid-pop" role="dialog" aria-label="AI 운영비서 영상 메시지">
+  <div class="miv-bar">
+    <span class="miv-title" data-ko="🤖 AI 운영비서" data-en="🤖 AI Ops Assistant">🤖 AI 운영비서</span>
+    <span class="miv-btns">
+      <button id="mi-asst-vid-mute" class="miv-btn" type="button" title="무음" aria-label="무음/소리 전환">🔇</button>
+      <button id="mi-asst-vid-close" class="miv-btn" type="button" title="닫기" aria-label="닫기">❌</button>
+    </span>
+  </div>
+  <video id="mi-asst-vid" src="/video/ai-ops-greeting.mp4" playsinline preload="auto"></video>
+</div>
+<script>
+(function(){
+  var pop=document.getElementById('mi-asst-vid-pop');
+  var v=document.getElementById('mi-asst-vid');
+  var btnM=document.getElementById('mi-asst-vid-mute');
+  var btnX=document.getElementById('mi-asst-vid-close');
+  if(!pop||!v) return;
+  var hideTimer=null, fadeTimer=null;
+
+  function syncMute(){
+    btnM.textContent=v.muted?'🔇':'🔊';
+    btnM.title=v.muted?'소리 켜기':'무음';
+  }
+  function fadeOut(){
+    if(fadeTimer){clearTimeout(fadeTimer);fadeTimer=null;}
+    pop.classList.remove('show');
+    fadeTimer=setTimeout(function(){ pop.style.display='none'; },480);
+    try{ v.pause(); }catch(e){}
+  }
+  function playVideo(){
+    if(hideTimer){clearTimeout(hideTimer);hideTimer=null;}
+    if(fadeTimer){clearTimeout(fadeTimer);fadeTimer=null;}
+    // fade-in
+    pop.style.display='block';
+    try{ v.currentTime=0; }catch(e){}
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ pop.classList.add('show'); }); });
+    // 자동재생: 소리 포함 시도 → 차단되면 음소거로 재생
+    v.muted=false;
+    var p=v.play();
+    if(p&&p.catch) p.catch(function(){
+      v.muted=true; syncMute();
+      var p2=v.play(); if(p2&&p2.catch) p2.catch(function(){});
+    });
+    syncMute();
+  }
+  window.miAsstPlayVideo=playVideo;
+
+  btnM.addEventListener('click',function(){ v.muted=!v.muted; syncMute(); });
+  v.addEventListener('volumechange',syncMute);
+  btnX.addEventListener('click',fadeOut);
+  // 말 끝나면 fade-out
+  v.addEventListener('ended',function(){ hideTimer=setTimeout(fadeOut,300); });
+
+  // AI 운영비서 열기에 영상 재생 연결 (채팅 패널은 그대로 열림)
+  function hook(){
+    if(typeof window.miAsstOpen!=='function') return false;
+    if(window.miAsstOpen.__vidHooked) return true;
+    var orig=window.miAsstOpen;
+    var wrapped=function(){ try{ orig.apply(this,arguments); }finally{ try{ playVideo(); }catch(e){} } };
+    wrapped.__vidHooked=true;
+    window.miAsstOpen=wrapped;
+    return true;
+  }
+  if(!hook()){ var tries=0,iv=setInterval(function(){ if(hook()||++tries>40) clearInterval(iv); },150); }
+})();
+</script>
+
 
 <!-- ♿ P4-a 접근성 개선 (가산적·비파괴): 키보드 포커스 링 + 모션 최소화 존중 -->
 <style id="mi-a11y">
