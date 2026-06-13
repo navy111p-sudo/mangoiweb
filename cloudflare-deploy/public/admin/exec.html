@@ -93,6 +93,22 @@
   .mini .val{font-size:17px;font-weight:850;margin-top:3px}
   .dgrp{margin-top:18px}
   .dgrp h4{margin:0 0 9px;font-size:12px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+  /* 💬 상담 FAB (우하단) */
+  .consult-fab{position:fixed;right:16px;bottom:18px;z-index:70;display:inline-flex;align-items:center;gap:8px;
+    padding:9px 15px 9px 11px;border-radius:30px;border:1px solid rgba(0,0,0,.12);
+    background:linear-gradient(135deg,#fee500,#ffd400);color:#171717;font-weight:800;font-size:13px;
+    box-shadow:0 8px 22px -6px rgba(245,200,0,.55),0 2px 6px rgba(0,0,0,.25);cursor:pointer;
+    transition:transform .18s cubic-bezier(.3,1,.4,1),box-shadow .18s;animation:fabIn .5s ease both}
+  .consult-fab:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 12px 28px -6px rgba(245,200,0,.7),0 3px 8px rgba(0,0,0,.3)}
+  .consult-fab:active{transform:translateY(0) scale(.97)}
+  .consult-fab .ico{width:24px;height:24px;border-radius:50%;background:#171717;display:flex;align-items:center;justify-content:center;flex-shrink:0;animation:fabFloat 2.6s ease-in-out infinite}
+  .consult-fab .ico svg{width:14px;height:14px;display:block}
+  .consult-fab .txt{letter-spacing:-.3px;white-space:nowrap}
+  @keyframes fabIn{from{opacity:0;transform:translateY(14px) scale(.9)}to{opacity:1;transform:none}}
+  @keyframes fabFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.5px)}}
+  @media(max-width:520px){.consult-fab{right:12px;bottom:14px;padding:8px 13px 8px 9px;font-size:12px}
+    .consult-fab .ico{width:21px;height:21px}.consult-fab .ico svg{width:12px;height:12px}}
+  @media(prefers-reduced-motion:reduce){.consult-fab,.consult-fab .ico{animation:none}}
 </style>
 </head>
 <body>
@@ -401,5 +417,15 @@ async function reload(){
 async function boot(){ await loadScopes(); await reload(); }
 boot();
 </script>
+
+<!-- 💬 상담 버튼 (우하단, 카카오상담) -->
+<a class="consult-fab" href="https://pf.kakao.com/_mangoi" target="_blank" rel="noopener" aria-label="카카오 상담">
+  <span class="ico" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 4C7 4 3 7.2 3 11.2c0 2.5 1.7 4.7 4.2 6-.2.8-.7 2.3-.8 2.6-.1.4.2.4.4.3.2-.1 2.5-1.7 3.5-2.4.5.1 1.1.1 1.7.1 5 0 9-3.2 9-7.2S17 4 12 4Z" fill="#fee500"/>
+    </svg>
+  </span>
+  <span class="txt">상담</span>
+</a>
 </body>
 </html>
