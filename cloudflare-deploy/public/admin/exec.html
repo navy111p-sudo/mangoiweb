@@ -116,14 +116,14 @@
 </head>
 <body>
 <header class="top">
-  <button class="backbtn" type="button" title="뒤로 가기" aria-label="뒤로 가기 (이전 페이지)" onclick="if(history.length>1){history.back()}else{location.href='/admin.html'}">←</button>
+  <button class="backbtn" type="button" title="홈으로" aria-label="홈페이지로 이동" onclick="location.href='/'">←</button>
   <h1>📊 경영진 대시보드</h1>
   <span class="pill date" id="brandDate">—</span>
   <span class="pill scope" id="scopeBadge">—</span>
   <select id="scopeSel" style="display:none"></select>
   <span class="grow"></span>
   <a class="btn" href="/admin/finance-realtime">💸 실시간 재무</a>
-  <a class="btn" href="/admin">🏠 관리자</a>
+  <a class="btn" href="/admin.html">🏠 관리자</a>
   <button class="btn" id="refreshBtn">↻ 새로고침</button>
 </header>
 
@@ -438,7 +438,7 @@ boot();
 <style>
 #exec-greet-pop .greet-btn:hover{background:rgba(51,65,85,0.95)}
 @media (max-width:768px){
-  #exec-greet-pop{width:min(120px,32vw) !important;top:8px !important;right:8px !important;border-radius:12px !important}
+  #exec-greet-pop{width:min(120px,32vw) !important;top:64px !important;right:8px !important;border-radius:12px !important}
   #exec-greet-pop .greet-bar{padding:4px 5px !important}
   #exec-greet-pop .greet-title{font-size:8.5px !important}
   #exec-greet-pop .greet-btns{gap:3px !important}
@@ -446,7 +446,7 @@ boot();
   #exec-greet-pop #exec-greet-sound{font-size:9px !important;padding:5px 0 !important}
 }
 </style>
-<div id="exec-greet-pop" style="position:fixed;top:14px;right:14px;z-index:99999;width:min(232px,62vw);background:rgba(15,23,42,0.94);border:1.5px solid rgba(251,191,36,0.55);border-radius:18px;box-shadow:0 18px 44px -10px rgba(0,0,0,0.65);overflow:hidden;display:none;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)">
+<div id="exec-greet-pop" style="position:fixed;top:72px;right:14px;z-index:99999;width:min(232px,62vw);background:rgba(15,23,42,0.94);border:1.5px solid rgba(251,191,36,0.55);border-radius:18px;box-shadow:0 18px 44px -10px rgba(0,0,0,0.65);overflow:hidden;display:none;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)">
   <div class="greet-bar" style="display:flex;align-items:center;justify-content:space-between;padding:7px 9px;background:rgba(251,191,36,0.13)">
     <span class="greet-title" style="font-size:12px;font-weight:800;color:#fde68a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">💁‍♀️ 대리점 안내</span>
     <span class="greet-btns" style="display:flex;gap:5px;flex:none">
@@ -514,7 +514,7 @@ boot();
 <style>
 #exec-branch-greet-pop .greet-btn:hover{background:rgba(51,65,85,0.95)}
 @media (max-width:768px){
-  #exec-branch-greet-pop{width:min(120px,32vw) !important;top:8px !important;right:8px !important;border-radius:12px !important}
+  #exec-branch-greet-pop{width:min(120px,32vw) !important;top:64px !important;right:8px !important;border-radius:12px !important}
   #exec-branch-greet-pop .greet-bar{padding:4px 5px !important}
   #exec-branch-greet-pop .greet-title{font-size:8.5px !important}
   #exec-branch-greet-pop .greet-btns{gap:3px !important}
@@ -522,7 +522,7 @@ boot();
   #exec-branch-greet-pop #exec-branch-greet-sound{font-size:9px !important;padding:5px 0 !important}
 }
 </style>
-<div id="exec-branch-greet-pop" style="position:fixed;top:14px;right:14px;z-index:99999;width:min(232px,62vw);background:rgba(15,23,42,0.94);border:1.5px solid rgba(96,165,250,0.55);border-radius:18px;box-shadow:0 18px 44px -10px rgba(0,0,0,0.65);overflow:hidden;display:none;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)">
+<div id="exec-branch-greet-pop" style="position:fixed;top:72px;right:14px;z-index:99999;width:min(232px,62vw);background:rgba(15,23,42,0.94);border:1.5px solid rgba(96,165,250,0.55);border-radius:18px;box-shadow:0 18px 44px -10px rgba(0,0,0,0.65);overflow:hidden;display:none;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)">
   <div class="greet-bar" style="display:flex;align-items:center;justify-content:space-between;padding:7px 9px;background:rgba(96,165,250,0.14)">
     <span class="greet-title" style="font-size:12px;font-weight:800;color:#bfdbfe;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📢 지사장님 메시지</span>
     <span class="greet-btns" style="display:flex;gap:5px;flex:none">
