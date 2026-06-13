@@ -3069,6 +3069,21 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       const ai = (env as any).AI;
       if (!ai) return json({ ok: false, error: 'workers_ai_not_bound' }, 503);
       const audioHeaders = { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'public, max-age=86400', 'Access-Control-Allow-Origin': '*' };
+      // 🔁 R2 캐시: 같은 듣기 문항은 1회만 생성 → 이후엔 뉴런 소모 없이 즉시 제공 (무료 뉴런 절약 + quota 소진 후에도 캐시본 재생)
+      let cacheKey = '';
+      try {
+        const enc = new TextEncoder().encode('aura-asteria|' + text);
+        const dig = await crypto.subtle.digest('SHA-256', enc);
+        cacheKey = 'tts/' + [...new Uint8Array(dig)].map((x) => x.toString(16).padStart(2, '0')).join('') + '.mp3';
+      } catch {}
+      const r2: any = (env as any).RECORDINGS;
+      if (cacheKey && r2) {
+        try { const hit = await r2.get(cacheKey); if (hit) return new Response(hit.body, { headers: audioHeaders }); } catch {}
+      }
+      const putCache = async (bytes: ArrayBuffer | Uint8Array) => {
+        if (!cacheKey || !r2) return;
+        try { await r2.put(cacheKey, bytes, { httpMetadata: { contentType: 'audio/mpeg' } }); } catch {}
+      };
       // fix: AI 에러 Response 를 음성으로 내보내지 않도록 ok+audio 확인. 429(무료뉴런 소진) 는 quota 로 구분.
       const isQuota = (m: any) => /429|neuron|allocation|free allocation/i.test(String(m || ''));
       let quota = false;
@@ -3076,7 +3091,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         const raw: any = await ai.run('@cf/deepgram/aura-1', { text, speaker: 'asteria' }, { returnRawResponse: true });
         if (raw instanceof Response) {
           const ct = raw.headers.get('content-type') || '';
-          if (raw.ok && /audio/i.test(ct)) return new Response(raw.body, { headers: audioHeaders });
+          if (raw.ok && /audio/i.test(ct)) { const buf = await raw.arrayBuffer(); await putCache(buf); return new Response(buf, { headers: audioHeaders }); }
           if (raw.status === 429) quota = true;
         }
       } catch (e: any) { if (isQuota(e?.message)) quota = true; }
@@ -3086,6 +3101,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         if (b64) {
           const bin = atob(b64); const u8 = new Uint8Array(bin.length);
           for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+          await putCache(u8);
           return new Response(u8, { headers: audioHeaders });
         }
       } catch (e: any) { if (isQuota(e?.message)) quota = true; }
