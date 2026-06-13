@@ -18,3 +18,6 @@ test-harness/.build/
 
 # 정리 보관함 (확인 후 비우세요)
 _trash_*/
+
+# 서빙 자산 폴더에 백업(.bak) 재유입 방지 (2026-06)
+cloudflare-deploy/public/**/*.bak*
