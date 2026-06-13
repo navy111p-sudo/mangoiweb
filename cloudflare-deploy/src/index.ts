@@ -462,6 +462,8 @@ export default {
         path === '/api/admin/review-quiz/toggle' ||
         path === '/api/admin/review-quiz/results' ||
         path === '/api/admin/review-quiz/ai-generate' ||
+        path === '/api/admin/review-quiz/build-bank' ||
+        path === '/api/i18n/translate' ||
         /^\/api\/admin\/review-quiz\/\d+$/.test(path) ||
         path === '/api/admin/students/list' ||
         path === '/api/admin/students/unified' ||
