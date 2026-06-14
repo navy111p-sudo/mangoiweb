@@ -2939,6 +2939,9 @@
 @media (max-width:640px){
   #mango-promo-video{ top:5.8rem!important; right:12px!important; }
 }
+/* 홍보 영상: 부드러운 페이드 인/아웃 */
+#mango-promo-video{ transition:opacity .4s ease, transform .4s ease; opacity:0; transform:translateY(-8px); }
+#mango-promo-video.promo-in{ opacity:1; transform:translateY(0); }
 </style>
 <!-- 🎬 우상단 홍보 영상 (망고아이 콜센터 교사) — 자동재생(무음) + 무음 토글 -->
 <div id="mango-promo-video" style="position:fixed;top:68px;right:22px;z-index:100050;width:min(190px,40vw);aspect-ratio:1/1;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px -8px rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.18);background:#000;display:none">
@@ -2956,34 +2959,61 @@
       cb=document.getElementById('mango-promo-close'), box=document.getElementById('mango-promo-video');
   if(!box) return;
   var KEY='mango_promo_dismissed';
-  function killBox(){
+  var fading=false;
+  function detachListeners(){
+    document.removeEventListener('click', onAnyClick, true);
+    window.removeEventListener('hashchange', fadeOut);
+    window.removeEventListener('popstate', fadeOut);
+    window.removeEventListener('message', onMsg);
+    var hi=document.getElementById('ai-home-input');
+    if(hi){ hi.removeEventListener('focus', fadeOut); hi.removeEventListener('input', fadeOut); }
+  }
+  function killBox(){                          // 최종 제거(페이드 후)
     try{ sessionStorage.setItem(KEY,'1'); }catch(e){}
     try{ v&&v.pause(); }catch(e){}
-    document.removeEventListener('click', onAnyClick, true);
-    window.removeEventListener('hashchange', killBox);
-    window.removeEventListener('popstate', killBox);
+    detachListeners();
     if(box&&box.parentNode) box.parentNode.removeChild(box);
+  }
+  function fadeOut(){                          // 부드럽게 사라짐(타이핑/클릭/이동/자동)
+    if(fading) return; fading=true;
+    box.classList.remove('promo-in');
+    box.style.opacity='0'; box.style.transform='translateY(-8px)';
+    try{ v&&v.pause(); }catch(e){}
+    setTimeout(killBox, 450);                  // .4s 트랜지션 후 DOM 제거
   }
   try{ if(sessionStorage.getItem(KEY)==='1'){ if(box.parentNode)box.parentNode.removeChild(box); return; } }catch(e){}
   function onAnyClick(e){
     if(mb && (e.target===mb || mb.contains(e.target))) return; // 🔇 음소거 토글만 예외
-    killBox();
+    fadeOut();
+  }
+  function onMsg(e){                           // iframe(아바타)/패널 열림 → 질문 의도 → 페이드아웃
+    var d=e.data;
+    if(d && typeof d==='object' && (d.type==='mangoi-typing' || d.type==='mangoi-open')) fadeOut();
   }
   function upd(){ if(mb) mb.textContent = v.muted ? '🔇' : '🔊'; }
   if(mb) mb.onclick=function(e){ e.stopPropagation(); v.muted=!v.muted; if(!v.muted){ var p=v.play(); if(p&&p.catch)p.catch(function(){}); } upd(); };
-  if(cb) cb.onclick=function(e){ e.stopPropagation(); killBox(); };
+  if(cb) cb.onclick=function(e){ e.stopPropagation(); fadeOut(); };
   upd();
   var shown=false;
   function showBox(){
     if(shown) return; shown=true;
     box.style.display='block';
     box.style.cursor='pointer';
-    if(v){ var p=v.play(); if(p&&p.catch)p.catch(function(){}); }
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ box.classList.add('promo-in'); }); }); // fade in
+    if(v){
+      try{ v.loop=false; }catch(e){}                       // 끝나면 ended 발생하도록 loop 해제
+      var p=v.play(); if(p&&p.catch)p.catch(function(){});
+      v.addEventListener('ended', fadeOut);                 // 재생 끝 → 자동 페이드아웃
+    }
     setTimeout(function(){
-      document.addEventListener('click', onAnyClick, true);   // 아무 곳 클릭 → 즉시 제거
-      window.addEventListener('hashchange', killBox);          // 페이지/메뉴 전환 → 제거
-      window.addEventListener('popstate', killBox);
+      document.addEventListener('click', onAnyClick, true);  // 아무 곳 클릭 → 페이드아웃
+      window.addEventListener('hashchange', fadeOut);         // 페이지/메뉴 전환
+      window.addEventListener('popstate', fadeOut);
+      window.addEventListener('message', onMsg);             // 아바타 타이핑/패널 열림
+      var hi=document.getElementById('ai-home-input');       // 홈 AI 질문 입력 → 페이드아웃
+      if(hi){ hi.addEventListener('focus', fadeOut); hi.addEventListener('input', fadeOut); }
     },0);
+    setTimeout(fadeOut, 8000);                                // 폴백: 약 8초 후 자동
   }
   function introGone(){
     var ov=document.getElementById('mango-intro-overlay');
@@ -27705,7 +27735,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       w.classList.toggle("flip-left", (r.left + fw) > (window.innerWidth-6)); // 오른쪽 부족 → 왼쪽으로
     }
     function setOpen(open){
-      if(open) positionPanel();
+      if(open){ positionPanel(); try{ window.postMessage({type:"mangoi-typing"},"*"); }catch(e){} } // 열림 → 홍보영상 페이드아웃
       else mangoiStopVoice();                 // 패널 닫힐 때 아바타 음성 즉시 정지
       w.classList.toggle("open", open);
       t.setAttribute("aria-label", open ? "AI 상담사 닫기" : "AI 상담사 열기");
