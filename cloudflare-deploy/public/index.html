@@ -25171,7 +25171,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260614223228 -->
+<!-- BUILD:20260614224559 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -27728,8 +27728,27 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     t.addEventListener("mousedown",onDown);
     t.addEventListener("touchstart",onDown,{passive:false});
 
+    // 아바타가 보내는 '페이지 열기' 요청 처리 (화이트리스트만 허용)
+    function mangoiOpenPage(go){
+      var map={
+        "lesson-change": function(){ if(window.mgGo) window.mgGo("lesson-change"); },
+        "report":        function(){ if(window.mgGo) window.mgGo("report"); },
+        "mypage":        function(){ location.href="/parent.html"; },
+        "payment":       function(){ if(window.mgGo) window.mgGo("payment"); },
+        "booking":       function(){ if(window.mgGo) window.mgGo("booking"); },
+        "precheck":      function(){ if(window.mgGo) window.mgGo("precheck"); },
+        "teachers":      function(){ if(window.gridActions&&window.gridActions.teachers) window.gridActions.teachers(); },
+        "review-quiz":   function(){ location.href="/review-quiz.html"; },
+        "all-menu":      function(){ if(window.openAllMenuOverlay) window.openAllMenuOverlay(); }
+      };
+      var fn=map[go]; if(!fn) return;
+      setOpen(false);
+      setTimeout(function(){ try{ fn(); }catch(e){} }, 150);
+    }
     window.addEventListener("message", function(e){
-      if(e.data === "mangoi-avatar-close") setOpen(false);
+      var d=e.data;
+      if(d === "mangoi-avatar-close"){ setOpen(false); return; }
+      if(d && typeof d==="object" && d.type==="mangoi-open" && typeof d.go==="string"){ mangoiOpenPage(d.go); }
     });
     window.addEventListener("resize", function(){ if(w.classList.contains("open")) positionPanel(); });
   })();

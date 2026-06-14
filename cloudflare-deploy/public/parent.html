@@ -118,36 +118,43 @@
 </head>
 <body>
 
-<!-- 상단 우측: 음성 / 번역 / 홈 (이모지 원형, 간격 띄움) -->
-<div class="top-icons">
-  <button id="parent-audio-toggle" class="icon-btn audio-btn" onclick="toggleParentAudio()" title="음성 켜기/끄기" aria-label="음성 켜기/끄기"><span id="parent-audio-icon">🔊</span></button>
-  <button class="icon-btn lang-btn" onclick="toggleLang()" title="한국어 / English" aria-label="언어 변경">🌐</button>
-  <a class="icon-btn home-btn" href="/" title="홈으로" aria-label="홈">🏠</a>
-</div>
+<!-- 상단 우측 버튼: 홈(🏠)·언어(🌐)는 공용 전역 바(mango-i18n.js)가 자동 표시.
+     음성(🔊) 버튼만 그 전역 바에 끼워넣어 한 줄로 정렬 → 버튼 겹침 방지. (아래 스크립트에서 처리) -->
 <!-- 우하단: 카카오 상담 (이모지 원형) -->
 <button class="kakao-fab" onclick="shareToKakao()" title="카카오톡 상담/공유" aria-label="카카오 상담">💬</button>
 <script>
-// 🔊 음성 토글 상태 초기화
+// 🔊 음성 토글 — 공용 전역 바(🏠/🌐)에 끼워넣어 한 줄로 정렬 (버튼 겹침 방지)
 (function(){
   function updateBtn() {
     const muted = localStorage.getItem('mangoi_parent_audio_muted') === '1';
     const icon = document.getElementById('parent-audio-icon');
-    const label = document.getElementById('parent-audio-label');
     const btn = document.getElementById('parent-audio-toggle');
     if (!icon || !btn) return;
-    if (muted) {
-      icon.textContent = '🔇';
-      if (label) { label.textContent = (window.getLang && window.getLang() === 'en') ? 'Unmute' : '음성 켜기'; label.setAttribute('data-ko', '음성 켜기'); label.setAttribute('data-en', 'Unmute'); }
-      btn.style.opacity = '0.7';
-    } else {
-      icon.textContent = '🔊';
-      if (label) { label.textContent = (window.getLang && window.getLang() === 'en') ? 'Mute Audio' : '음성 끄기'; label.setAttribute('data-ko', '음성 끄기'); label.setAttribute('data-en', 'Mute Audio'); }
-      btn.style.opacity = '1';
-    }
+    if (muted) { icon.textContent = '🔇'; btn.style.opacity = '0.7'; }
+    else { icon.textContent = '🔊'; btn.style.opacity = '1'; }
   }
-  document.addEventListener('DOMContentLoaded', updateBtn);
-  if (document.readyState !== 'loading') updateBtn();
+  window.refreshParentAudioBtn = updateBtn;
   window.addEventListener('mangoi:lang-changed', updateBtn);
+
+  // 전역 바에 🔊 버튼 주입 (mangoiAddBarButton API 사용 — 자동 gap 간격)
+  function addAudioBtn(tries){
+    tries = tries || 0;
+    if (typeof window.mangoiAddBarButton !== 'function') {
+      if (tries < 60) return setTimeout(function(){ addAudioBtn(tries + 1); }, 100);
+      return;
+    }
+    window.mangoiAddBarButton({
+      id: 'parent-audio-toggle',
+      text: '<span id="parent-audio-icon">🔊</span>',
+      title: '음성 켜기/끄기',
+      color: '#fbbf24',
+      borderColor: 'rgba(251,191,36,0.45)',
+      onclick: window.toggleParentAudio
+    });
+    setTimeout(updateBtn, 120);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ addAudioBtn(0); });
+  else addAudioBtn(0);
 })();
 
 window.toggleParentAudio = function() {
@@ -604,20 +611,35 @@ function pdRender(d){
   audio.addEventListener('ended', () => { try { toast.remove(); } catch(e){} });
 })();
 
-// 초기화 — URL ?uid= 또는 저장된 ID 로 자동 로드
+// 초기화 — URL ?uid= → 저장된 ID → 로그인한 학생 계정 순으로 자동 로드
+// (학생이 로그인한 상태로 들어오면 ID 입력 없이 바로 대시보드가 뜸)
 (function(){
+  // 로그인한 사용자(학생 등)의 uid 추출
+  function loggedInUid(){
+    try {
+      const raw = localStorage.getItem('mangoi_logged_user');
+      if (raw) { const u = JSON.parse(raw); if (u && u.uid) return u.uid; }
+    } catch(e){}
+    try { const alt = localStorage.getItem('mangoi_uid'); if (alt) return alt; } catch(e){}
+    return null;
+  }
+
   const fromUrl = getQueryParam('uid');
   let saved = null;
   try { saved = localStorage.getItem('mangoi_parent_uid'); } catch(e){}
-  const uid = fromUrl || saved;
+  const uid = fromUrl || saved || loggedInUid();
   if (uid) {
     _currentUid = uid;
-    document.getElementById('uid-input').value = uid;
+    // 다음 방문에도 자동으로 뜨도록 저장
+    try { localStorage.setItem('mangoi_parent_uid', uid); } catch(e){}
+    const inp = document.getElementById('uid-input');
+    if (inp) inp.value = uid;
     pdLoad();
   }
 })();
 </script>
-<!-- BUILD:20260614223228 -->
+<!-- BUILD:20260614-autologin-barfix -->
 <script defer src="/js/back-nav.js"></script>
+<!-- BUILD:20260614224559 -->
 </body>
 </html>
