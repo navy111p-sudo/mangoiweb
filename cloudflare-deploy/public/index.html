@@ -25170,7 +25170,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260614210312 -->
+<!-- BUILD:20260614211035 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -27643,16 +27643,19 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   <button id="mangoi-toggle" aria-label="AI 상담직원 열기">💁‍♀️</button>
 </div>
 <style>
-  /* 30% 축소 + 드래그 이동 가능 위젯 */
-  #mangoi-widget { position:fixed; left:20px; bottom:20px; z-index:2147483000; }
-  #mangoi-frame { display:none; width:294px; height:504px; max-width:calc(100vw - 24px);
-    max-height:calc(100vh - 80px); border:none; border-radius:18px;
-    box-shadow:0 12px 40px rgba(0,0,0,0.35); background:#111; }
-  #mangoi-widget.open #mangoi-frame { display:block; }
-  #mangoi-toggle { margin-top:8px; margin-right:auto; display:block; width:44px; height:44px;
+  /* 30% 축소 + 드래그 이동 가능 위젯 (버튼은 작게 고정, 챗봇창은 항상 화면 안쪽으로 열림) */
+  #mangoi-widget { position:fixed; left:20px; bottom:20px; width:44px; height:44px; z-index:2147483000; }
+  #mangoi-toggle { position:absolute; left:0; bottom:0; width:44px; height:44px;
     border:none; border-radius:50%; background:#ffcc00; color:#1a1a1a; font-size:22px;
-    cursor:grab; box-shadow:0 6px 18px rgba(0,0,0,0.3); touch-action:none; user-select:none; }
+    cursor:grab; box-shadow:0 6px 18px rgba(0,0,0,0.3); touch-action:none; user-select:none;
+    display:flex; align-items:center; justify-content:center; }
   #mangoi-toggle.dragging { cursor:grabbing; }
+  #mangoi-frame { display:none; position:absolute; left:0; bottom:52px;
+    width:294px; height:504px; max-width:calc(100vw - 24px); max-height:calc(100vh - 80px);
+    border:none; border-radius:18px; box-shadow:0 12px 40px rgba(0,0,0,0.35); background:#111; }
+  #mangoi-widget.open #mangoi-frame { display:block; }
+  #mangoi-widget.flip-down #mangoi-frame { bottom:auto; top:52px; }
+  #mangoi-widget.flip-left #mangoi-frame { left:auto; right:0; }
   @media (max-width:480px){
     #mangoi-frame{ width:calc(100vw - 24px); height:72vh; }
   }
@@ -27661,22 +27664,30 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   (function(){
     var w=document.getElementById("mangoi-widget"),
         t=document.getElementById("mangoi-toggle");
+    function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+
+    // 버튼 위치를 보고 챗봇창이 화면 안쪽으로 열리도록 방향 결정
+    function positionPanel(){
+      var r=t.getBoundingClientRect();
+      var fw=Math.min(294, window.innerWidth-24);
+      var fh=Math.min(504, window.innerHeight-80);
+      w.classList.toggle("flip-down", r.top < fh+12);                       // 위 공간 부족 → 아래로
+      w.classList.toggle("flip-left", (r.left + fw) > (window.innerWidth-6)); // 오른쪽 부족 → 왼쪽으로
+    }
     function setOpen(open){
+      if(open) positionPanel();
       w.classList.toggle("open", open);
       t.textContent = open ? "✖️" : "💁‍♀️";
       t.setAttribute("aria-label", open ? "AI 상담직원 닫기" : "AI 상담직원 열기");
     }
-    function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 
-    // === 마우스/터치로 끌어서 이동 (이동 안 했으면 클릭=열기/닫기) ===
+    // === 끌어서 이동 (4px 넘게 움직이면 드래그, 아니면 클릭=열기/닫기) ===
     var dragging=false, moved=false, sx=0, sy=0, ox=0, oy=0;
     function point(e){ return (e.touches && e.touches[0]) ? e.touches[0] : e; }
     function onDown(e){
       var p=point(e);
       dragging=true; moved=false; sx=p.clientX; sy=p.clientY;
       var r=w.getBoundingClientRect(); ox=r.left; oy=r.top;
-      // 위치 기준을 top/left(px)로 전환 → 화면 어디든 자유 이동
-      w.style.left=ox+"px"; w.style.top=oy+"px"; w.style.right="auto"; w.style.bottom="auto";
       t.classList.add("dragging");
       document.addEventListener("mousemove",onMove);
       document.addEventListener("mouseup",onUp);
@@ -27686,11 +27697,16 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     function onMove(e){
       if(!dragging) return;
       var p=point(e), dx=p.clientX-sx, dy=p.clientY-sy;
-      if(Math.abs(dx)>4 || Math.abs(dy)>4) moved=true;
-      if(moved && e.cancelable) e.preventDefault();
-      var nx=clamp(ox+dx, 6, window.innerWidth  - w.offsetWidth  - 6);
-      var ny=clamp(oy+dy, 6, window.innerHeight - w.offsetHeight - 6);
+      if(!moved && (Math.abs(dx)>4 || Math.abs(dy)>4)){
+        moved=true;  // 실제 이동 시작 → top/left 기준으로 전환
+        w.style.left=ox+"px"; w.style.top=oy+"px"; w.style.right="auto"; w.style.bottom="auto";
+      }
+      if(!moved) return;
+      if(e.cancelable) e.preventDefault();
+      var nx=clamp(ox+dx, 6, window.innerWidth  - t.offsetWidth  - 6);
+      var ny=clamp(oy+dy, 6, window.innerHeight - t.offsetHeight - 6);
       w.style.left=nx+"px"; w.style.top=ny+"px";
+      if(w.classList.contains("open")) positionPanel();
     }
     function onUp(){
       dragging=false; t.classList.remove("dragging");
@@ -27698,7 +27714,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       document.removeEventListener("mouseup",onUp);
       document.removeEventListener("touchmove",onMove);
       document.removeEventListener("touchend",onUp);
-      if(!moved){ setOpen(!w.classList.contains("open")); }  // 이동 안 했으면 클릭으로 처리
+      if(!moved){ setOpen(!w.classList.contains("open")); }
     }
     t.addEventListener("mousedown",onDown);
     t.addEventListener("touchstart",onDown,{passive:false});
@@ -27706,6 +27722,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     window.addEventListener("message", function(e){
       if(e.data === "mangoi-avatar-close") setOpen(false);
     });
+    window.addEventListener("resize", function(){ if(w.classList.contains("open")) positionPanel(); });
   })();
 </script>
 </body>
