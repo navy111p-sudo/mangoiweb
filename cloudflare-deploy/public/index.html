@@ -25171,7 +25171,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260614225055 -->
+<!-- BUILD:20260614225226 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -25898,7 +25898,7 @@ document.addEventListener('keydown', function(e){
     // 🎬 우상단 안내 동영상 — 전체메뉴 열 때 음성+영상 자동재생(1회만), 클릭하면 즉시 사라짐
     (function(){
       var vw = document.createElement('div');
-      vw.style.cssText = 'position:fixed;top:12px;right:12px;z-index:6;width:min(240px,46vw);aspect-ratio:1/1;border-radius:16px;overflow:hidden;box-shadow:0 12px 30px -8px rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.2);background:#000;cursor:pointer';
+      vw.style.cssText = 'position:fixed;top:12px;right:12px;z-index:6;width:min(240px,46vw);aspect-ratio:1/1;border-radius:16px;overflow:hidden;box-shadow:0 12px 30px -8px rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.2);background:#000;cursor:pointer;opacity:0;transition:opacity .55s ease';
       vw.innerHTML = '<video id="mgam-vid" src="/video/langedu-female.mp4" autoplay playsinline preload="auto" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none"></video>'
         + '<button type="button" id="mgam-vid-mute" title="소리 켜기/끄기" aria-label="소리 켜기/끄기" style="position:absolute;right:6px;bottom:6px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">🔊</button>'
         + '<button type="button" id="mgam-vid-x" title="닫기" aria-label="닫기" style="position:absolute;left:6px;top:6px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.5);color:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">✕</button>';
@@ -25915,6 +25915,11 @@ document.addEventListener('keydown', function(e){
       vx.addEventListener('click', function(e){ e.stopPropagation(); killVid(); });
       // 🖱 영상 클릭하면 바로 사라짐
       vw.addEventListener('click', killVid);
+      // ✨ fade-in (천천히 등장)
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ vw.style.opacity = '1'; }); });
+      // 🎬 영상(말)이 끝나면 fade-out 후 자연스럽게 사라짐
+      function fadeOutVid(){ if(!vw) return; vw.style.opacity = '0'; setTimeout(function(){ try{ vid.pause(); }catch(_){ } if(vw && vw.parentNode) vw.remove(); }, 650); }
+      vid.addEventListener('ended', fadeOutVid);
     })();
 
     // 💬 좌하단 카카오 상담 (작은 이모지)
