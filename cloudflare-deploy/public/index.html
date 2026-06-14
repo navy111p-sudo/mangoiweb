@@ -4125,6 +4125,7 @@
         btn.style.borderColor = (currentLang === 'ko') ? 'rgba(148,163,184,0.2)' : 'rgba(56,189,248,0.4)';
         btn.style.color = (currentLang === 'ko') ? '#cbd5e1' : '#38bdf8';
       }
+      mangoiSendLang();   // A.i 상담사 iframe 에 현재 언어 전달
     }
 
     function toggleLang() {
@@ -4154,6 +4155,15 @@
     window.setLang = function(l){ if (LANG_CYCLE.indexOf(l) >= 0 && l !== currentLang) { currentLang = l; applyLang(); } };
     window.getLang = function(){ return currentLang; };
     window.applyI18n = function(){ applyLang(); };
+    // A.i 상담사 iframe 에 현재 언어 전달 (언어 변경 시 applyLang 안에서 호출 + iframe 로드 시)
+    function mangoiSendLang(){
+      try{ var fr=document.getElementById('mangoi-frame');
+        if(fr && fr.contentWindow) fr.contentWindow.postMessage({type:'mangoi-lang', lang: currentLang}, '*'); }catch(e){}
+    }
+    window.addEventListener('load', function(){
+      var fr=document.getElementById('mangoi-frame');
+      if(fr){ fr.addEventListener('load', mangoiSendLang); mangoiSendLang(); }
+    });
 
     // ═══════ 🚀 우주선 워프 비행 (60초 간격 자동 발사 + 첫 8초 후 시범 비행) ═══════
     function launchStarship() {
