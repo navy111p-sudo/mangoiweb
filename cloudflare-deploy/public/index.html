@@ -27673,7 +27673,17 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   #mangoi-widget.flip-down #mangoi-frame { bottom:auto; top:74px; }
   #mangoi-widget.flip-left #mangoi-frame { left:auto; right:0; }
   @media (max-width:480px){
-    #mangoi-frame{ width:calc(100vw - 24px); height:72vh; }
+    /* 상담 패널: 모바일은 전체화면 + 동적 뷰포트(dvh)로 띄워 헤더·아바타·자막·입력창을 모두 표시 */
+    #mangoi-widget.open #mangoi-frame{
+      position: fixed !important;
+      top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      height: 100dvh !important;
+      max-width: none !important;
+      max-height: none !important;
+      border-radius: 0 !important;
+    }
   }
 </style>
 <script>
