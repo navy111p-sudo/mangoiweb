@@ -24044,7 +24044,7 @@ window.closeRulesModal = function() {
 <style id="ph52-overrides">
   .ph52-cache-fab {
     position: fixed;
-    bottom: 82px;
+    bottom: 210px;
     right: 16px;
     z-index: 9991;
     width: 44px;
@@ -24090,7 +24090,7 @@ window.closeRulesModal = function() {
       width: 36px;
       height: 36px;
       font-size: 16px;
-      bottom: 60px;
+      bottom: 190px;
       right: 12px;
     }
     .ph52-cache-fab .ph52-cache-label {
@@ -24104,7 +24104,7 @@ window.closeRulesModal = function() {
       width: 32px;
       height: 32px;
       font-size: 14px;
-      bottom: 52px;
+      bottom: 185px;
     }
   }
   /* fix (2026-06-02) — 수업 중 새로고침(↻)은 최대한 작게 + 배경 투명 (글리프만 보이게) */
@@ -24134,7 +24134,7 @@ window.closeRulesModal = function() {
     body:not(.vc-in-call) .ph52-cache-fab {
       width: 30px !important; height: 30px !important; font-size: 17px !important;
       background: transparent !important; box-shadow: none !important; color: #93c5fd !important;
-      bottom: 66px !important; right: 22px !important;
+      bottom: 190px !important; right: 22px !important;
     }
   }
 </style>
@@ -25170,7 +25170,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260614215538 -->
+<!-- BUILD:20260614220659 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -27636,25 +27636,34 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 <script src="/js/i18n-sweep.js?v=2"></script>
 <!-- 🥭 망고아이 AI 상담직원 위젯 (Cloudflare Worker: mangoi-ai-avatar-cf) -->
 <div id="mangoi-widget">
+  <div id="mangoi-label">A.i 상담사</div>
   <iframe id="mangoi-frame"
     src="https://mangoi-ai-avatar-cf.navy111p.workers.dev"
     allow="autoplay; microphone"
     title="망고아이 AI 상담직원"></iframe>
-  <button id="mangoi-toggle" aria-label="AI 상담직원 열기">💁‍♀️</button>
+  <button id="mangoi-toggle" aria-label="AI 상담사 열기"></button>
 </div>
 <style>
   /* 30% 축소 + 드래그 이동 가능 위젯 (버튼은 작게 고정, 챗봇창은 항상 화면 안쪽으로 열림) */
-  #mangoi-widget { position:fixed; right:20px; bottom:20px; width:44px; height:44px; z-index:2147483000; }
-  #mangoi-toggle { position:absolute; left:0; bottom:0; width:44px; height:44px;
-    border:none; border-radius:50%; background:#ffcc00; color:#1a1a1a; font-size:22px;
-    cursor:grab; box-shadow:0 6px 18px rgba(0,0,0,0.3); touch-action:none; user-select:none;
-    display:flex; align-items:center; justify-content:center; }
+  #mangoi-widget { position:fixed; right:16px; bottom:88px; width:64px; height:64px; z-index:2147483000; }
+  #mangoi-label { position:absolute; left:50%; bottom:72px; transform:translateX(-50%);
+    background:#1a1a1a; color:#ffcc00; font-weight:800; font-size:12px; padding:4px 11px;
+    border-radius:999px; white-space:nowrap; box-shadow:0 3px 10px rgba(0,0,0,0.4);
+    border:1px solid rgba(255,204,0,0.55); pointer-events:none; }
+  #mangoi-widget.open #mangoi-label { display:none; }
+  #mangoi-toggle { position:absolute; left:0; bottom:0; width:64px; height:64px;
+    border:3px solid #ffcc00; border-radius:50%; padding:0; font-size:0; color:transparent;
+    background:#ffcc00 url('/img/avatar-face.jpg') center 22% / cover no-repeat;
+    cursor:grab; box-shadow:0 6px 18px rgba(0,0,0,0.35); touch-action:none; user-select:none; }
   #mangoi-toggle.dragging { cursor:grabbing; }
-  #mangoi-frame { display:none; position:absolute; left:0; bottom:52px;
+  #mangoi-widget.open #mangoi-toggle::after { content:"✕"; position:absolute; top:-6px; right:-6px;
+    width:22px; height:22px; background:#1a1a1a; color:#fff; border:2px solid #fff; border-radius:50%;
+    font-size:13px; line-height:1; display:flex; align-items:center; justify-content:center; }
+  #mangoi-frame { display:none; position:absolute; left:0; bottom:74px;
     width:294px; height:504px; max-width:calc(100vw - 24px); max-height:calc(100vh - 80px);
     border:none; border-radius:18px; box-shadow:0 12px 40px rgba(0,0,0,0.35); background:#111; }
   #mangoi-widget.open #mangoi-frame { display:block; }
-  #mangoi-widget.flip-down #mangoi-frame { bottom:auto; top:52px; }
+  #mangoi-widget.flip-down #mangoi-frame { bottom:auto; top:74px; }
   #mangoi-widget.flip-left #mangoi-frame { left:auto; right:0; }
   @media (max-width:480px){
     #mangoi-frame{ width:calc(100vw - 24px); height:72vh; }
@@ -27677,8 +27686,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     function setOpen(open){
       if(open) positionPanel();
       w.classList.toggle("open", open);
-      t.textContent = open ? "✖️" : "💁‍♀️";
-      t.setAttribute("aria-label", open ? "AI 상담직원 닫기" : "AI 상담직원 열기");
+      t.setAttribute("aria-label", open ? "AI 상담사 닫기" : "AI 상담사 열기");
     }
 
     // === 끌어서 이동 (4px 넘게 움직이면 드래그, 아니면 클릭=열기/닫기) ===
