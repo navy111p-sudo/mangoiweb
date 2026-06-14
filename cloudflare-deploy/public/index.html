@@ -365,7 +365,7 @@
         .astronaut-wrap {
             position: absolute;
             top: 15%;
-            right: 2%;
+            left: 2%;
             width: 900px;
             height: 1175px;
             z-index: 3;
@@ -409,11 +409,11 @@
         }
         /* 태블릿 */
         @media (max-width: 980px) and (min-width: 641px) {
-            .astronaut-wrap { width: 320px; height: 420px; right: 1%; top: 6%; }
+            .astronaut-wrap { width: 320px; height: 420px; left: 1%; top: 6%; }
         }
         /* 모바일 — 강아지 우주비행사 완전 숨김 (사용자 요청: 모바일 너무 복잡) */
         @media (max-width: 640px) {
-            .astronaut-wrap { width: 92px; height: 122px; right: 1%; top: 4%; opacity: 0.96; }
+            .astronaut-wrap { width: 92px; height: 122px; left: 1%; top: 4%; opacity: 0.96; }
         }
 
         /* ═══════ 🛸 망고 UFO — 왼쪽 멀리서 작게 → 오른쪽으로 크게 가로지름 (2026-06-09) ═══════ */
@@ -25170,7 +25170,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260614211035 -->
+<!-- BUILD:20260614215538 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -27644,7 +27644,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 </div>
 <style>
   /* 30% 축소 + 드래그 이동 가능 위젯 (버튼은 작게 고정, 챗봇창은 항상 화면 안쪽으로 열림) */
-  #mangoi-widget { position:fixed; left:20px; bottom:20px; width:44px; height:44px; z-index:2147483000; }
+  #mangoi-widget { position:fixed; right:20px; bottom:20px; width:44px; height:44px; z-index:2147483000; }
   #mangoi-toggle { position:absolute; left:0; bottom:0; width:44px; height:44px;
     border:none; border-radius:50%; background:#ffcc00; color:#1a1a1a; font-size:22px;
     cursor:grab; box-shadow:0 6px 18px rgba(0,0,0,0.3); touch-action:none; user-select:none;
