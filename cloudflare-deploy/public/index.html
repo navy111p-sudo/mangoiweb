@@ -27847,7 +27847,9 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
         "review-quiz":   function(){ location.href="/review-quiz.html"; },
         "all-menu":      function(){ if(window.openAllMenuOverlay) window.openAllMenuOverlay(); }
       };
-      var fn=map[go]; if(!fn) return;
+      var fn=map[go];
+      if(!fn && go && window.mgGo) fn=function(){ window.mgGo(go); };   // 매핑에 없는 타깃도 mgGo 로 열기 폴백
+      if(!fn) return;
       setOpen(false);
       setTimeout(function(){ try{ fn(); }catch(e){} }, 150);
     }
