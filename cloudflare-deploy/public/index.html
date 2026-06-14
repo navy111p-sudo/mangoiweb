@@ -25170,7 +25170,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260614194037 -->
+<!-- BUILD:20260614203559 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -27634,6 +27634,42 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 })();
 </script>
 <script src="/js/i18n-sweep.js?v=2"></script>
-<!-- 🥭 Mango AI 아바타 제거됨 (새 아바타는 별도 작업 예정) -->
+<!-- 🥭 망고아이 AI 상담직원 위젯 (Cloudflare Worker: mangoi-ai-avatar-cf) -->
+<div id="mangoi-widget">
+  <iframe id="mangoi-frame"
+    src="https://mangoi-ai-avatar-cf.navy111p.workers.dev"
+    allow="autoplay; microphone"
+    title="망고아이 AI 상담직원"></iframe>
+  <button id="mangoi-toggle" aria-label="AI 상담직원 열기">💁‍♀️</button>
+</div>
+<style>
+  #mangoi-widget { position:fixed; right:20px; bottom:20px; z-index:2147483000; }
+  #mangoi-frame { display:none; width:380px; height:620px; max-width:calc(100vw - 40px);
+    max-height:calc(100vh - 100px); border:none; border-radius:20px;
+    box-shadow:0 12px 40px rgba(0,0,0,0.35); background:#111; }
+  #mangoi-widget.open #mangoi-frame { display:block; }
+  #mangoi-toggle { margin-top:10px; margin-left:auto; display:block; width:60px; height:60px;
+    border:none; border-radius:50%; background:#ffcc00; color:#1a1a1a; font-size:28px;
+    cursor:pointer; box-shadow:0 6px 18px rgba(0,0,0,0.3); }
+  @media (max-width:480px){
+    #mangoi-frame{ width:calc(100vw - 24px); height:75vh; }
+    #mangoi-widget{ right:12px; bottom:12px; }
+  }
+</style>
+<script>
+  (function(){
+    var w=document.getElementById("mangoi-widget"),
+        t=document.getElementById("mangoi-toggle");
+    function setOpen(open){
+      w.classList.toggle("open", open);
+      t.textContent = open ? "✖️" : "💁‍♀️";
+      t.setAttribute("aria-label", open ? "AI 상담직원 닫기" : "AI 상담직원 열기");
+    }
+    t.addEventListener("click", function(){ setOpen(!w.classList.contains("open")); });
+    window.addEventListener("message", function(e){
+      if(e.data === "mangoi-avatar-close") setOpen(false);
+    });
+  })();
+</script>
 </body>
 </html>
