@@ -21326,7 +21326,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260614151720 -->
+        <!-- BUILD:20260614152032 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -36641,7 +36641,7 @@ button.chip:hover,
     +'#mi-asst-fab:hover{transform:scale(1.06)}'
     +'.mi-nav-item{cursor:pointer;border-radius:8px;padding:3px 6px;margin:1px -6px;transition:background .15s ease}'
     +'.mi-nav-item:hover{background:rgba(99,102,241,.22)}'
-    +'.mi-nav-item:after{content:" ↗";opacity:.55;font-size:11px}';
+    +'.mi-nav-item:after{content:" ↗";opacity:.55;font-size:11px}'+'.mi-kw{color:#93c5fd;cursor:pointer;border-bottom:1px dashed rgba(147,197,253,.6);font-weight:600}'+'.mi-kw:hover{color:#bfdbfe;background:rgba(99,102,241,.18);border-radius:4px}';
   document.head.appendChild(st);
 
   var box=document.createElement('div');
@@ -36682,7 +36682,7 @@ button.chip:hover,
       ? '<div style="max-width:80%;padding:10px 13px;border-radius:14px 14px 4px 14px;background:#2563eb;color:#fff;font-size:13.5px;line-height:1.55">'+html+'</div>'
       : '<div style="display:flex;gap:8px;max-width:92%"><img src="/img/Mangoi_Character.png" alt="" style="width:30px;height:26px;object-fit:contain;flex:none;filter:drop-shadow(0 1px 3px rgba(0,0,0,.35))"><div class="mi-bubble-content" style="padding:10px 13px;border-radius:14px 14px 14px 4px;background:#1e293b;color:#e6ecff;font-size:13.5px;line-height:1.6">'+html+'</div></div>';
     body.appendChild(w); body.scrollTop=body.scrollHeight;
-    try{ Array.prototype.forEach.call(w.querySelectorAll('.mi-nav-item'),function(el){ el.onclick=function(){ goCard(el.getAttribute('data-card')); }; }); }catch(e){}
+    try{ Array.prototype.forEach.call(w.querySelectorAll('.mi-nav-item,.mi-kw'),function(el){ el.onclick=function(){ var c=el.getAttribute('data-card'),u=el.getAttribute('data-url'),x=el.getAttribute('data-ext'); if(c){goCard(c);} else if(x){ try{window.open(x,'_blank','noopener');}catch(e){} } else if(u){ window.location.href=u; } }; }); }catch(e){}
     return w;
   }
   function typing(){ var w=bubble('ai','<span class="mi-dot"></span><span class="mi-dot"></span><span class="mi-dot"></span>'); w.id='mi-asst-typing'; return w; }
@@ -36784,6 +36784,42 @@ button.chip:hover,
     return false;
   }
 
+  // 🔗 AI 답변 속 메뉴 키워드를 클릭 가능한 링크로 변환 — 클릭 시 해당 메뉴로 이동
+  //    MI_ROUTES 의 정규식을 재사용. HTML 태그(<br> 등)는 건드리지 않음.
+  function linkify(html){
+    try{
+      if(!html) return html;
+      var parts=String(html).split(/(<[^>]+>)/);
+      for(var p=0;p<parts.length;p++){
+        var seg=parts[p];
+        if(!seg || seg.charAt(0)==='<') continue;
+        var hits=[];
+        for(var i=0;i<MI_ROUTES.length;i++){
+          var r=MI_ROUTES[i];
+          if(!r || (!r.menu_id && !r.url && !r.external_url)) continue;
+          var re=new RegExp(r.re.source,'gi'), m;
+          while((m=re.exec(seg))){ if(m[0]){ hits.push({s:m.index,e:m.index+m[0].length,route:r,pri:i}); } if(re.lastIndex===m.index){ re.lastIndex++; } }
+        }
+        if(!hits.length) continue;
+        hits.sort(function(a,b){ return (a.s-b.s) || (a.pri-b.pri) || (b.e-a.e); });
+        var chosen=[], lastEnd=-1;
+        for(var h=0;h<hits.length;h++){ if(hits[h].s>=lastEnd){ chosen.push(hits[h]); lastEnd=hits[h].e; } }
+        var out='', cur=0;
+        for(var c=0;c<chosen.length;c++){
+          var ch=chosen[c], rt=ch.route, attr='';
+          if(rt.menu_id) attr='data-card="'+rt.menu_id+'"';
+          else if(rt.external_url) attr='data-ext="'+esc(rt.external_url)+'"';
+          else if(rt.url) attr='data-url="'+esc(rt.url)+'"';
+          out+=seg.slice(cur,ch.s)+'<span class="mi-kw" '+attr+'>'+seg.slice(ch.s,ch.e)+'</span>';
+          cur=ch.e;
+        }
+        out+=seg.slice(cur);
+        parts[p]=out;
+      }
+      return parts.join('');
+    }catch(e){ return html; }
+  }
+
   async function ask(q){
     bubble('me',esc(q)); typing();
     var res=null;
@@ -36795,7 +36831,7 @@ button.chip:hover,
 
     // 1) 서버 AI 정상 응답 — 답변 표시 + 네비게이션
     if(res && res.ok!==false && (res.answer || res.intent==='navigate')){
-      if(res.answer){ bubble('ai', esc(res.answer).replace(/\n/g,'<br>')); }
+      if(res.answer){ bubble('ai', linkify(esc(res.answer).replace(/\n/g,'<br>'))); }
       if(res.intent==='navigate'){
         if(!doNav(res)){
           var alt=localRoute(q);
@@ -36809,7 +36845,7 @@ button.chip:hover,
 
     // 2) 서버 실패/빈 응답 — 결정적 키워드 라우터로 폴백 (질문에 맞는 메뉴로 이동)
     var lr=localRoute(q);
-    if(lr){ bubble('ai', isEn()?lr.en:lr.ko); doNav(lr); return; }
+    if(lr){ bubble('ai', linkify(esc(isEn()?lr.en:lr.ko))); doNav(lr); return; }
 
     // 3) 그래도 못 찾으면 기존 도메인별 안내 폴백
     bubble('ai', FB(fbKey(q)));
