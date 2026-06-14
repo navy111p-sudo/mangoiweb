@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>레벨테스트 신청 — 망고아이</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Noto Sans KR','Apple SD Gothic Neo',-apple-system,BlinkMacSystemFont,sans-serif;
+    color:#e6ecff;min-height:100vh;background-color:#070a16;
+    background-image:radial-gradient(ellipse at 50% -10%,rgba(59,77,160,.45),rgba(11,16,32,0) 60%);}
+  .wrap{max-width:760px;margin:0 auto;padding:22px 16px 60px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  .back{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);
+    color:#cbd5e1;text-decoration:none;padding:8px 14px;border-radius:99px;font-size:13px;font-weight:700}
+  .brand{font-size:15px;font-weight:800;color:#fbbf24}
+  .hero{text-align:center;margin:10px 0 22px}
+  .hero h1{font-size:26px;font-weight:900;letter-spacing:.3px;margin-bottom:8px;
+    background:linear-gradient(90deg,#fbbf24,#fde68a);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{color:#a8b3cf;font-size:14px;line-height:1.6}
+  .card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.13);border-radius:18px;
+    padding:20px;margin-bottom:16px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+  .card h2{font-size:16px;font-weight:800;margin-bottom:14px;display:flex;align-items:center;gap:8px;color:#fff}
+  /* 2-step 설명 */
+  .steps{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:520px){.steps{grid-template-columns:1fr}}
+  .step{background:rgba(255,255,255,.04);border:1px solid rgba(251,191,36,.25);border-radius:14px;padding:16px}
+  .step .em{font-size:30px}
+  .step b{display:block;margin:8px 0 5px;font-size:15px;color:#fde68a}
+  .step span{font-size:12.5px;color:#a8b3cf;line-height:1.55}
+  .badge{display:inline-block;margin-top:9px;font-size:11px;font-weight:800;padding:3px 9px;border-radius:99px}
+  .badge.now{background:rgba(46,204,113,.16);color:#34d399;border:1px solid rgba(46,204,113,.4)}
+  .badge.book{background:rgba(96,165,250,.16);color:#93c5fd;border:1px solid rgba(96,165,250,.4)}
+  /* 폼 */
+  label{display:block;font-size:13px;font-weight:700;color:#fbbf24;margin:14px 0 7px}
+  input,select{width:100%;background:rgba(255,255,255,.95);border:1px solid rgba(251,191,36,.45);
+    border-radius:11px;padding:12px 13px;font-size:15px;color:#1a1a1a;outline:none}
+  .slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px;margin-top:7px}
+  .slot{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:#e6ecff;
+    border-radius:10px;padding:10px 6px;font-size:13.5px;font-weight:700;cursor:pointer;text-align:center;transition:.15s}
+  .slot:hover{border-color:rgba(251,191,36,.6)}
+  .slot.on{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;border-color:#fbbf24}
+  .submit{width:100%;margin-top:20px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;
+    border:0;border-radius:13px;padding:15px;font-size:16px;font-weight:900;cursor:pointer;box-shadow:0 8px 22px rgba(245,158,11,.4)}
+  .submit:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+  /* 완료 카드 */
+  #done{display:none}
+  #done.show{display:block;animation:rise .35s ease}
+  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  .ok-icon{font-size:46px;text-align:center}
+  .ok-title{text-align:center;font-size:20px;font-weight:900;color:#34d399;margin:6px 0 4px}
+  .sched{background:rgba(46,204,113,.10);border:1px solid rgba(46,204,113,.35);border-radius:12px;padding:14px 16px;
+    text-align:center;font-size:15px;font-weight:800;color:#a7f3d0;margin:14px 0}
+  .cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .cta a{flex:1 1 46%;text-align:center;text-decoration:none;border-radius:12px;padding:14px 10px;font-weight:800;font-size:14px}
+  .cta .ai{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff}
+  .cta .voice{background:rgba(255,255,255,.08);color:#e6ecff;border:1px solid rgba(255,255,255,.2)}
+  .cta .kakao{background:linear-gradient(135deg,#fee500,#f6cc00);color:#191919}
+  .note{font-size:12px;color:#7c88a8;text-align:center;margin-top:16px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <a class="back" href="/">← 홈으로</a>
+    <span class="brand">🥭 망고아이</span>
+  </div>
+
+  <div class="hero">
+    <h1>🎯 레벨테스트 신청</h1>
+    <p>선생님 1:1 평가와 AI 자동 진단을 <b style="color:#fde68a">함께</b> 진행해<br>정확한 내 영어 레벨을 찾아드려요.</p>
+  </div>
+
+  <!-- 2단계 설명 -->
+  <div class="card">
+    <h2>📝 이렇게 진행돼요</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="em">🤖</div>
+        <b>① AI 자동 진단</b>
+        <span>지금 바로 5분! 단어·문장·발음을 AI가 자동으로 분석해 기초 레벨을 잡아줘요.</span>
+        <span class="badge now">지금 바로 가능</span>
+      </div>
+      <div class="step">
+        <div class="em">👩‍🏫</div>
+        <b>② 선생님 1:1 평가</b>
+        <span>예약한 날짜·시간에 원어민 선생님과 직접 회화하며 말하기 실력을 평가받아요.</span>
+        <span class="badge book">예약 필요</span>
+      </div>
+    </div>
+    <p style="font-size:12.5px;color:#a8b3cf;margin-top:12px;line-height:1.6">
+      👉 두 결과를 합쳐 <b style="color:#fde68a">정확한 레벨과 맞춤 커리큘럼</b>을 추천해 드립니다.</p>
+  </div>
+
+  <!-- 신청 폼 -->
+  <div class="card" id="form-card">
+    <h2>👩‍🏫 선생님 평가 일정 예약</h2>
+    <label for="lt-name">이름 (또는 학생 ID)</label>
+    <input id="lt-name" type="text" placeholder="예: 김망고 / mango123" autocomplete="off" />
+
+    <label for="lt-date">날짜 선택</label>
+    <select id="lt-date"></select>
+
+    <label>시간 선택</label>
+    <div class="slots" id="lt-slots"></div>
+
+    <button class="submit" id="lt-submit" disabled>레벨테스트 신청하기</button>
+  </div>
+
+  <!-- 완료 -->
+  <div class="card" id="done">
+    <div class="ok-icon">🎉</div>
+    <div class="ok-title">신청이 완료됐어요!</div>
+    <div class="sched" id="lt-sched"></div>
+    <p style="text-align:center;font-size:13.5px;color:#cbd5e1;line-height:1.6">
+      예약한 시간에 <b style="color:#fde68a">선생님 1:1 평가</b>가 진행됩니다.<br>
+      그 전에 <b style="color:#a5b4fc">AI 자동 진단</b>을 먼저 해두면 더 정확해요!</p>
+    <div class="cta">
+      <a class="ai" href="/micro-quiz.html">🧠 AI 자동 진단 시작</a>
+      <a class="voice" href="/speech-coach.html">🎤 발음 평가</a>
+      <a class="kakao" href="https://pf.kakao.com/_mangoi/chat" target="_blank" rel="noopener">💬 카톡 문의</a>
+    </div>
+    <p class="note">예약 변경이 필요하면 '수업 연기/변경' 또는 하단 카톡 상담을 이용해 주세요.</p>
+  </div>
+
+  <p class="note" id="bottom-note">
+    레벨테스트는 무료로 진행됩니다 · 소요 시간 약 20분 (AI 5분 + 선생님 15분)<br>
+    문의: 화면 하단 '카톡 상담' 또는 navy111p@gmail.com</p>
+</div>
+
+<script>
+  var WEEK=['일','월','화','수','목','금','토'];
+  var TIMES=['16:00','17:00','18:00','19:00','20:00','21:00'];
+  var sel={ date:null, time:null };
+
+  // 날짜 옵션: 내일부터 14일
+  (function(){
+    var dd=document.getElementById('lt-date'), today=new Date();
+    for(var i=1;i<=14;i++){
+      var d=new Date(today.getFullYear(),today.getMonth(),today.getDate()+i);
+      var val=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+      var label=(d.getMonth()+1)+'월 '+d.getDate()+'일 ('+WEEK[d.getDay()]+')';
+      var o=document.createElement('option'); o.value=val; o.textContent=label; dd.appendChild(o);
+    }
+    sel.date=dd.value;
+    dd.addEventListener('change',function(){ sel.date=dd.value; refresh(); });
+  })();
+
+  // 시간 슬롯
+  (function(){
+    var box=document.getElementById('lt-slots');
+    TIMES.forEach(function(t){
+      var b=document.createElement('div'); b.className='slot'; b.textContent=t;
+      b.addEventListener('click',function(){
+        sel.time=t;
+        box.querySelectorAll('.slot').forEach(function(x){x.classList.remove('on');});
+        b.classList.add('on'); refresh();
+      });
+      box.appendChild(b);
+    });
+  })();
+
+  var nameEl=document.getElementById('lt-name'), submit=document.getElementById('lt-submit');
+  nameEl.addEventListener('input',refresh);
+  function refresh(){ submit.disabled = !(sel.date && sel.time && nameEl.value.trim()); }
+
+  function fmtDate(v){ var p=v.split('-'); var d=new Date(+p[0],+p[1]-1,+p[2]);
+    return (d.getMonth()+1)+'월 '+d.getDate()+'일 ('+WEEK[d.getDay()]+')'; }
+
+  submit.addEventListener('click',function(){
+    if(submit.disabled) return;
+    var rec={ name:nameEl.value.trim(), date:sel.date, time:sel.time, ts:Date.now() };
+    try{ localStorage.setItem('mangoi_leveltest_booking', JSON.stringify(rec)); }catch(e){}
+    document.getElementById('lt-sched').innerHTML =
+      '📅 '+fmtDate(sel.date)+' '+sel.time+'<br><span style="font-size:13px;color:#86efac;font-weight:700">'+rec.name+' 님, 이 시간에 선생님과 만나요!</span>';
+    document.getElementById('form-card').style.display='none';
+    document.getElementById('bottom-note').style.display='none';
+    var done=document.getElementById('done'); done.classList.add('show');
+    window.scrollTo({top:0,behavior:'smooth'});
+  });
+</script>
+<!-- BUILD:20260614230935 -->
+</body>
+</html>

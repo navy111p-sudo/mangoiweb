@@ -3018,6 +3018,7 @@
     <button onclick="mgGo('inquiry')" data-ko="💬 신규상담" data-en="💬 New Inquiry">💬 신규상담</button>
     <button onclick="mgGo('precheck')" data-ko="🎥 수업 진단" data-en="🎥 PreCheck">🎥 수업 진단</button>
     <button onclick="mgGo('booking')" data-ko="📝 수업 신청" data-en="📝 Book Class">📝 수업 신청</button>
+    <button onclick="mgGo('leveltest')" data-ko="🎯 레벨테스트" data-en="🎯 Level Test">🎯 레벨테스트</button>
     <button onclick="mgDrawerClose();if(window.gridActions&&window.gridActions.teachers)window.gridActions.teachers();" data-ko="👨‍🏫 교사 소개" data-en="👨‍🏫 Teachers">👨‍🏫 교사 소개</button>
     <button id="mg-faq-btn" onclick="event.preventDefault();if(window.mgDrawerClose)mgDrawerClose();if(window.openFaqOverlay)openFaqOverlay();return false;" data-ko="❓ 자주 묻는 질문" data-en="❓ FAQ">❓ 자주 묻는 질문</button>
     <button onclick="mgDrawerClose();location.href='/review-quiz.html';" data-ko="🧠 복습퀴즈" data-en="🧠 Review Quiz">🧠 복습퀴즈</button>
@@ -25171,7 +25172,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260614230009 -->
+<!-- BUILD:20260614230935 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -27738,6 +27739,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       var map={
         "lesson-enter":  function(){ if(window.showView) window.showView("view-videocall-lobby"); },
         "lesson-change": function(){ if(window.mgGo) window.mgGo("lesson-change"); },
+        "leveltest":     function(){ if(window.mgGo) window.mgGo("leveltest"); else location.href="/level-test.html"; },
         "library":       function(){ if(window.mgGo) window.mgGo("library"); },
         "report":        function(){ if(window.mgGo) window.mgGo("report"); },
         "mypage":        function(){ location.href="/parent.html"; },
