@@ -10,7 +10,7 @@
 // === fix v14 (2026-05-26): 카테고리 카드 깨끗한 새 함수 ===
 (function(){
   var URLS = {
-    'admin':'/admin.html','adminmgr':'/admin.html','mypage':'/admin/mypage.html',
+    'admin':'/admin.html','adminmgr':'/admin.html','mypage':'/parent.html',
     'payment':'/payment.html','franchise':'/franchise.html','teachers':'/teachers.html',
     'contact':'/contact.html','notice':'/notice.html','curriculum':'/curriculum.html',
     'homepage':'/','features':'/features.html','vocab':'/vocab.html','enroll':'/enroll.html',
@@ -3011,6 +3011,7 @@
     <button onclick="mgGo('about')"><img src="/img/Mangoi_Character.png" alt="" style="height:20px;width:20px;object-fit:contain;vertical-align:middle;margin-right:6px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))"><span data-ko="망고아이란?" data-en="About Mangoi">망고아이란?</span></button>
     <button onclick="mgGo('admin')" data-ko="📊 관리자" data-en="📊 Admin">📊 관리자</button>
     <button onclick="mgGo('mypage')" data-ko="👤 마이페이지" data-en="👤 My Page">👤 마이페이지</button>
+    <button onclick="mgGo('report')" data-ko="📋 평가표(성적표)" data-en="📋 Report Card">📋 평가표(성적표)</button>
     <button onclick="mgGo('points-shop')" data-ko="🎁 포인트상점" data-en="🎁 Point Shop">🎁 포인트상점</button>
     <button onclick="mgGo('speech')" data-ko="🎤 단계별 발음" data-en="🎤 Curriculum Pronunciation">🎤 단계별 발음</button>
     <button onclick="mgGo('lesson-change')" data-ko="📅 연기/변경" data-en="📅 Postpone/Change">📅 연기/변경</button>
@@ -11803,7 +11804,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // ph158: 교재 뷰어 (단독 진입은 라이브러리 통해)
     { kws: ['교재보기', '교재 보기', '교재뷰어', '교재 뷰어', 'viewer', 'textbook viewer'], action: () => location.href = '/textbook-uploader.html', label: '📖 교재 라이브러리 (보기)' },
     // 학생 페이지들
-    { kws: ['마이페이지', 'my page', 'mypage', '내정보', '내 정보', '프로필'], action: () => location.href = '/admin/mypage.html', label: '👤 마이페이지' },
+    { kws: ['마이페이지', 'my page', 'mypage', '내정보', '내 정보', '프로필'], action: () => location.href = '/parent.html', label: '👤 마이페이지' },
 
     // ═══ 그리드 카드 자동 매칭 (히트맵 메뉴 20개) ═══
     { kws: ['특장점', '특징', '장점', '왜 망고', '왜 망고아이', '망고아이 특장점', '소개', 'features'], action: () => window.gridActions && window.gridActions.features(), label: '🌟 망고아이 특장점' },
@@ -11842,7 +11843,7 @@ window.addEventListener('DOMContentLoaded', () => {
     'trial':         () => window.openInquiryModal(),
     'enroll':        () => window.openInquiryModal(),
     'speech':        () => { location.href = '/speech-coach.html'; },
-    'mypage':        () => location.href = '/admin/mypage.html',
+    'mypage':        () => location.href = '/parent.html',
     'admin':         () => location.href = '/admin.html',
     'payment':       () => { if (window.gridActions && typeof window.gridActions.payment === 'function') window.gridActions.payment(); else alert('결제 기능을 불러올 수 없습니다.'); },
   };
@@ -11884,7 +11885,7 @@ window.addEventListener('DOMContentLoaded', () => {
       } catch(e){}
       if (_myName && _myName.replace(/\s/g,'') === text.replace(/\s/g,'')) {
         showSuggest(`<b>👤 ${text} 마이페이지</b> 로 이동합니다...`, true);
-        setTimeout(() => { location.href = '/admin/mypage.html'; }, 400);
+        setTimeout(() => { location.href = '/parent.html'; }, 400);
         return;
       }
       showSuggest(`<b>👤 '${text}' 학생 정보</b> 로 이동합니다...`, true);
@@ -19201,7 +19202,7 @@ window.closeRulesModal = function() {
     menu.innerHTML =
       '<div class="um-header">'+(L?'로그인됨':'Signed in')+'<br><b>'+u.name+'</b> <span style="color:#64748b;font-size:11px">('+u.uid+')</span></div>'+
       '<div class="um-item" onclick="openLessonChangeModal();document.getElementById(&quot;user-menu&quot;).classList.remove(&quot;show&quot;)">📅 '+(L?'내 수업 연기/변경':'My Classes')+'</div>'+
-      '<div class="um-item" onclick="location.href=&quot;/admin/mypage.html&quot;">👤 '+(L?'마이페이지':'My Page')+'</div>'+
+      '<div class="um-item" onclick="location.href=&quot;/parent.html&quot;">👤 '+(L?'마이페이지':'My Page')+'</div>'+
       '<div class="um-divider"></div>'+
       '<div class="um-item danger" onclick="logout()">🚪 '+(L?'로그아웃':'Logout')+'</div>';
     menu.classList.add('show');
@@ -25170,7 +25171,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260614220659 -->
+<!-- BUILD:20260614222910 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -25398,7 +25399,7 @@ document.addEventListener('keydown', function(e){
   'use strict';
 
   var URLS = {
-    'admin':'/admin.html','adminmgr':'/admin.html','mypage':'/admin/mypage.html',
+    'admin':'/admin.html','adminmgr':'/admin.html','mypage':'/parent.html',
     'payment':'/payment.html','franchise':'/franchise.html','teachers':'/teachers.html',
     'contact':'/contact.html','notice':'/notice.html','curriculum':'/curriculum.html',
     'homepage':'/','features':'/features.html','vocab':'/vocab.html','enroll':'/enroll.html',
@@ -25531,7 +25532,7 @@ document.addEventListener('keydown', function(e){
   'use strict';
 
   var URLS = {
-    'admin':'/admin.html','adminmgr':'/admin.html','mypage':'/admin/mypage.html',
+    'admin':'/admin.html','adminmgr':'/admin.html','mypage':'/parent.html',
     'payment':'/payment.html','franchise':'/franchise.html','teachers':'/teachers.html',
     'contact':'/contact.html','notice':'/notice.html','curriculum':'/curriculum.html',
     'homepage':'/','features':'/features.html','vocab':'/vocab.html','enroll':'/enroll.html',
@@ -25817,7 +25818,7 @@ document.addEventListener('keydown', function(e){
   //   새 오버레이를 만들어 띄운다 → 휴대폰에서 100% 표시.
   var ALLMENU_ITEMS = [
     {emoji:'🛠', name:'관리자 페이지', url:'/admin.html'},
-    {emoji:'👤', name:'마이페이지', url:'/admin/mypage.html'},
+    {emoji:'👤', name:'마이페이지', url:'/parent.html'},
     {emoji:'👨‍🎓', name:'학생 관리', url:'/admin/students.html'},
     {emoji:'📅', name:'내 주간 스케줄', url:'/admin/weekly-schedule.html?role=student'},
     {emoji:'📞', name:'고객센터', url:'/contact.html'},
@@ -26532,7 +26533,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 
   var FALLBACK_MAP = {
     'admin':            { href: '/admin.html' },
-    'mypage':           { href: '/admin/mypage.html' },
+    'mypage':           { href: '/parent.html' },
     'points-shop':      { fn: function(){ if (window.showPointsShop) window.showPointsShop(); else location.href = '/streak.html'; } },
     'speech':           { href: '/speech-coach.html' },
     'speech-coach':     { href: '/speech-coach.html' },
