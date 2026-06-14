@@ -27706,6 +27706,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     }
     function setOpen(open){
       if(open) positionPanel();
+      else mangoiStopVoice();                 // 패널 닫힐 때 아바타 음성 즉시 정지
       w.classList.toggle("open", open);
       t.setAttribute("aria-label", open ? "AI 상담사 닫기" : "AI 상담사 열기");
     }
@@ -27777,6 +27778,29 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       if(d && typeof d==="object" && d.type==="mangoi-open" && typeof d.go==="string"){ mangoiOpenPage(d.go); }
     });
     window.addEventListener("resize", function(){ if(w.classList.contains("open")) positionPanel(); });
+
+    // === 아바타 음성 정지: iframe 으로 'mangoi-stop' 전송 ===
+    function mangoiStopVoice(){
+      try{
+        var fr=document.getElementById("mangoi-frame");
+        if(fr && fr.contentWindow) fr.contentWindow.postMessage("mangoi-stop","*");
+      }catch(e){}
+    }
+    // 패널 열린 상태에서 위젯 바깥을 누르면 닫기(+정지). 위젯 내부/입력은 무시(iframe 내부 이벤트는 부모에 안 옴)
+    document.addEventListener("pointerdown", function(e){
+      if(!w.classList.contains("open")) return;
+      if(w.contains(e.target)) return;
+      setOpen(false);
+    }, true);
+    // 페이지 뷰 전환/이동 함수 진입 시 음성 정지
+    ["showView","mgGo"].forEach(function(name){
+      var orig=window[name];
+      if(typeof orig==="function"){
+        window[name]=function(){ mangoiStopVoice(); return orig.apply(this, arguments); };
+      }
+    });
+    document.addEventListener("visibilitychange", function(){ if(document.hidden) mangoiStopVoice(); });
+    window.addEventListener("pagehide", mangoiStopVoice);
   })();
 </script>
 </body>
