@@ -27784,7 +27784,13 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       w.classList.toggle("flip-left", (r.left + fw) > (window.innerWidth-6)); // 오른쪽 부족 → 왼쪽으로
     }
     function setOpen(open){
-      if(open){ positionPanel(); try{ window.postMessage({type:"mangoi-typing"},"*"); }catch(e){} } // 열림 → 홍보영상 페이드아웃
+      if(open){
+        positionPanel();
+        try{ window.postMessage({type:"mangoi-typing"},"*"); }catch(e){}   // 열림 → 홍보영상 페이드아웃
+        // 열 때 현재 사이트 언어를 채팅 iframe 에 동기화(헤더·인사말·입력창 일치)
+        try{ var lg=(window.getLang?window.getLang():'ko'); var fr=document.getElementById('mangoi-frame');
+          if(fr&&fr.contentWindow) fr.contentWindow.postMessage({type:'mangoi-lang', lang:lg}, '*'); }catch(e){}
+      }
       else mangoiStopVoice();                 // 패널 닫힐 때 아바타 음성 즉시 정지
       w.classList.toggle("open", open);
       t.setAttribute("aria-label", open ? "AI 상담사 닫기" : "AI 상담사 열기");
