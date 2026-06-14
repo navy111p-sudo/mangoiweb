@@ -27685,6 +27685,10 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       border-radius: 0 !important;
     }
   }
+  /* 우측 하단 플로팅 버튼 겹침 정리 */
+  #ph49-kakao-fab, .ph49-kakao-fab { bottom: 16px !important; right: 16px !important; }
+  #mangoi-widget { bottom: 104px !important; right: 16px !important; }
+  #ph52-cache-fab, .ph52-cache-fab { left: 16px !important; right: auto !important; bottom: 16px !important; top: auto !important; }
 </style>
 <script>
   (function(){
@@ -27710,6 +27714,9 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     var dragging=false, moved=false, sx=0, sy=0, ox=0, oy=0;
     function point(e){ return (e.touches && e.touches[0]) ? e.touches[0] : e; }
     function onDown(e){
+      var now = Date.now();
+      if (e.type === "touchstart") { window.__mgLastTouch = now; if (e.cancelable) e.preventDefault(); }
+      else if (now - (window.__mgLastTouch || 0) < 700) { return; }
       var p=point(e);
       dragging=true; moved=false; sx=p.clientX; sy=p.clientY;
       var r=w.getBoundingClientRect(); ox=r.left; oy=r.top;
