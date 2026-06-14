@@ -3009,9 +3009,8 @@
   }
   function armGreeting(){                    // unmute 재생 차단 → 사용자 제스처 대기(모바일 주 경로)
     if(greetingArmed) return; greetingArmed=true;
-    var at=setTimeout(function(){ disarm(); fadeOut(); }, 15000); // 제스처 없으면 15초 후 닫기
     function disarm(){
-      clearTimeout(at); greetingArmed=false; disarmGreeting=null;
+      greetingArmed=false; disarmGreeting=null;
       document.removeEventListener('pointerdown',onArm,true);
       document.removeEventListener('keydown',onArm,true);
       document.removeEventListener('touchstart',onArm,true);
@@ -3026,7 +3025,7 @@
   }
   function onVidEnded(){
     if(phase==='intro'){ phase='greeting'; playGreeting(); return; }  // 무음 인트로 끝 → 소리 인사
-    if(phase==='greeting'){ phase='done'; fadeOut(); }               // 소리 인사 끝 → 페이드아웃
+    if(phase==='greeting'){ phase='done'; }                          // 소리 인사 끝 → 표시 유지(자동 숨김 없음)
   }
   function showBox(){
     if(shown) return; shown=true;
@@ -3045,8 +3044,6 @@
       };
       if(v.readyState>=1 && v.duration) setSafety();
       else v.addEventListener('loadedmetadata', setSafety, {once:true});
-    } else {
-      setTimeout(fadeOut, 8000);                            // 영상 없으면 폴백
     }
     setTimeout(function(){
       document.addEventListener('click', onAnyClick, true);  // 클릭(인트로/인사 중 제외) → 페이드아웃
