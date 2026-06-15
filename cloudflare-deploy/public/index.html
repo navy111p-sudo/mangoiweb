@@ -26886,7 +26886,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260616025230 -->
+<!-- BUILD:20260616025719 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -29502,6 +29502,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
         "precheck":      function(){ if(window.mgGo) window.mgGo("precheck"); },
         "teachers":      function(){ if(window.gridActions&&window.gridActions.teachers) window.gridActions.teachers(); },
         "review-quiz":   function(){ location.href="/review-quiz.html"; },
+        "refund":        function(){ try{ if(window.mgDrawerClose) window.mgDrawerClose(); }catch(e){} location.href="/refund.html"; },
         "all-menu":      function(){ if(window.openAllMenuOverlay) window.openAllMenuOverlay(); }
       };
       var fn=map[go];
