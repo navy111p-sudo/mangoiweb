@@ -3258,8 +3258,8 @@
   /* ✨ "열림" 탭: 홈 진입 시 fade-in + 천천히 은은하게 깜박이는 테두리 광채 */
   @keyframes mgTabFadeIn{from{opacity:0}to{opacity:1}}
   @keyframes mgTabGlow{
-    0%,100%{ box-shadow:0 0 8px rgba(245,158,11,.5),0 0 18px rgba(245,158,11,.28); border-color:rgba(245,158,11,.6); }
-    50%{ box-shadow:0 0 20px rgba(251,191,36,.95),0 0 38px rgba(251,191,36,.6); border-color:rgba(251,191,36,1); }
+    0%,100%{ box-shadow:0 0 12px rgba(251,191,36,.75),0 0 26px rgba(245,158,11,.45); border-color:rgba(251,191,36,.85); }
+    50%{ box-shadow:0 0 26px rgba(255,214,90,1),0 0 52px rgba(251,191,36,.9),0 0 72px rgba(251,191,36,.5); border-color:#ffe07a; }
   }
   /* fade-in(1회) 후 곧바로 느린 글로우(2.8초 주기, 무한)로 — 항상 보이되 천천히 밝아졌다 어두워짐 */
   #mg-drawer-tab{opacity:0;animation:mgTabFadeIn .9s ease-out 2s forwards, mgTabGlow 2.8s ease-in-out 2.9s infinite}
@@ -25400,7 +25400,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260615164541 -->
+<!-- BUILD:20260615164808 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
