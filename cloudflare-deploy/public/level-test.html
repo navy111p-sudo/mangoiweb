@@ -167,8 +167,10 @@
   function fmtDate(v){ var p=v.split('-'); var d=new Date(+p[0],+p[1]-1,+p[2]);
     return (d.getMonth()+1)+'월 '+d.getDate()+'일 ('+WEEK[d.getDay()]+')'; }
 
+  var submitted=false;
   submit.addEventListener('click',function(){
-    if(submit.disabled) return;
+    if(submit.disabled || submitted) return;
+    submitted=true; submit.disabled=true;
     var rec={ name:nameEl.value.trim(), date:sel.date, time:sel.time, ts:Date.now() };
     try{ localStorage.setItem('mangoi_leveltest_booking', JSON.stringify(rec)); }catch(e){}
     document.getElementById('lt-sched').innerHTML =
@@ -179,6 +181,6 @@
     window.scrollTo({top:0,behavior:'smooth'});
   });
 </script>
-<!-- BUILD:20260614230935 -->
+<!-- BUILD:20260615154300 -->
 </body>
 </html>
