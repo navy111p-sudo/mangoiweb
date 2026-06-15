@@ -1408,22 +1408,9 @@ function attachHandlers(){
   /* X 버튼으로 즉시 닫기 */
   if(closeBtn) closeBtn.addEventListener('click',function(e){ e.stopPropagation(); dismiss(); });
 
-  /* 소리 자동재생 시도 → 차단되면 음소거 재생 + 첫 터치에서 소리 켜고 처음부터 */
-  gv.muted=false;
-  gv.play().then(function(){ btn.textContent='🔊'; }).catch(function(){
-    gv.muted=true; btn.textContent='🔇';
-    gv.play().catch(function(){});
-    var unmute=function(e){
-      if(done||!gv.muted){ document.removeEventListener('pointerdown',unmute,true); return; }
-      /* X 닫기·음소거 버튼 클릭은 소리 켜기로 취급하지 않음 (닫는 순간 소리 튐 방지) */
-      if(e&&e.target&&((closeBtn&&closeBtn.contains(e.target))||btn.contains(e.target))) return;
-      document.removeEventListener('pointerdown',unmute,true);
-      gv.muted=false; btn.textContent='🔊';
-      gv.currentTime=0;
-      gv.play().catch(function(){});
-    };
-    document.addEventListener('pointerdown',unmute,true);
-  });
+  /* 🔊 음소거로 시작 — 음성은 🔊 버튼 클릭 시에만 (자동 음성재생 금지) */
+  gv.muted=true; btn.textContent='🔇';
+  gv.play().catch(function(){});
 
   btn.addEventListener('click',function(e){
     e.stopPropagation();
@@ -1444,7 +1431,7 @@ function attachHandlers(){
   new MutationObserver(syncVis).observe(main,{attributes:true,attributeFilter:['class']});
 })();
 </script>
-<!-- BUILD:20260615160038 -->
+<!-- BUILD:20260615161828 -->
 <script src="/js/i18n-sweep.js?v=2"></script>
 <script defer src="/js/back-nav.js"></script>
 </body>

@@ -21326,7 +21326,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260615160038 -->
+        <!-- BUILD:20260615161828 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -36985,14 +36985,10 @@ button.chip:hover,
     pop.style.display='block';
     try{ v.currentTime=0; }catch(e){}
     requestAnimationFrame(function(){ requestAnimationFrame(function(){ pop.classList.add('show'); }); });
-    // 자동재생: 소리 포함 시도 → 차단되면 음소거로 재생
-    v.muted=false;
+    // 🔊 음소거로 시작 — 음성은 🔊 버튼 클릭 시에만 (자동 음성재생 금지)
+    v.muted=true; syncMute();
     var p=v.play();
-    if(p&&p.catch) p.catch(function(){
-      v.muted=true; syncMute();
-      var p2=v.play(); if(p2&&p2.catch) p2.catch(function(){});
-    });
-    syncMute();
+    if(p&&p.catch) p.catch(function(){});
     // 클릭(영상/사이드바/카드 등 어디든)·페이지 이동·사이드바 닫기 시 자동으로 사라지게
     armDismiss();
   }

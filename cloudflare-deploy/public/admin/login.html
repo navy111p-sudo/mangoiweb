@@ -284,17 +284,17 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
     btnM.textContent = v.muted ? '🔇' : '🔊';
     btnM.title = v.muted ? '소리 켜기' : '무음';
   }
-  // 자동 재생: 소리 포함 시도 → 차단되면 음소거 재생 + "소리 켜기" 버튼
-  v.muted = false;
-  var p = v.play();
-  if (p && p.catch) p.catch(function(){
-    v.muted = true;
-    syncMute();
-    var p2 = v.play();
-    if (p2 && p2.catch) p2.catch(function(){ btnP.textContent = '▶️'; btnP.title = '재생'; });
-    btnS.style.display = 'block';
-  });
+  // 🔊 음성은 '클릭'해야만 재생 — 자동으로 목소리가 나오지 않음.
+  v.muted = true;                         // 항상 음소거로 시작(음성 자동재생 금지)
   syncMute();
+  btnS.style.display = 'block';           // "소리 켜고 듣기" 버튼 항상 노출
+  var p = v.play();                       // 무음 영상만 표시(소리 없음). 차단되면 첫 프레임.
+  if (p && p.catch) p.catch(function(){ btnP.textContent = '▶️'; btnP.title = '재생'; });
+  // 영상 아무 곳이나 클릭해도 소리 켜고 처음부터 재생
+  v.addEventListener('click', function(){
+    v.muted = false; try { v.currentTime = 0; } catch(e){}
+    v.play(); btnS.style.display = 'none'; syncMute();
+  });
   if (btnM) btnM.addEventListener('click', function(){
     v.muted = !v.muted;
     if (!v.muted) btnS.style.display = 'none';

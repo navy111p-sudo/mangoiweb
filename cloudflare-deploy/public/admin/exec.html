@@ -490,15 +490,10 @@ boot();
   function showAndPlay(){
     if (started || closed) return; started = true;
     fadeIn();
-    v.muted = false;
-    var p = v.play();
-    if (p && p.catch) p.catch(function(){
-      v.muted = true; syncMute();
-      var p2 = v.play();
-      if (p2 && p2.catch) p2.catch(function(){ btnP.textContent='▶️'; btnP.title='재생'; });
-      btnS.style.display='block';
-    });
-    syncMute();
+    v.muted = true; syncMute();          // 음소거로 시작(음성 자동재생 금지)
+    btnS.style.display='block';           // "소리 켜고 듣기" 버튼 노출 — 클릭 시에만 음성
+    var p = v.play();                     // 무음 영상만 표시(소리 없음)
+    if (p && p.catch) p.catch(function(){ btnP.textContent='▶️'; btnP.title='재생'; });
   }
   // 🔑 대리점(agency) 계정일 때만 노출. 지사·본사 등은 숨김.
   window.__agencyGreet = {
@@ -566,15 +561,10 @@ boot();
   function showAndPlay(){
     if (started || closed) return; started = true;
     fadeIn();
-    v.muted = false;
-    var p = v.play();
-    if (p && p.catch) p.catch(function(){
-      v.muted = true; syncMute();
-      var p2 = v.play();
-      if (p2 && p2.catch) p2.catch(function(){ btnP.textContent='▶️'; btnP.title='재생'; });
-      btnS.style.display='block';
-    });
-    syncMute();
+    v.muted = true; syncMute();          // 음소거로 시작(음성 자동재생 금지)
+    btnS.style.display='block';           // "소리 켜고 듣기" 버튼 노출 — 클릭 시에만 음성
+    var p = v.play();                     // 무음 영상만 표시(소리 없음)
+    if (p && p.catch) p.catch(function(){ btnP.textContent='▶️'; btnP.title='재생'; });
   }
   // 🔑 지사(branch) 계정일 때만 노출. 대리점·본사 등은 숨김.
   window.__branchGreet = {

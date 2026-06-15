@@ -2934,6 +2934,131 @@
 
 </head>
 <body>
+<!-- ============================================================
+     수업 종료 → 복습퀴즈 안내 모달 (학생 전용)
+     · 트리거 1: ✕/나가기 버튼 클릭 (기존 v31/v32/v34 캡처보다 먼저 등록 → 가로채기)
+     · 트리거 2: 상대(강사) 퇴장 자동 감지 (vcRemovePeer 후 원격 피어 0명)
+     · 예  → 복습퀴즈 탭 전환 + 이 수업 맞춤 자동 출제(rqvAuto)
+     · 아니오 → 정상 종료(홈)
+     · 학생만 / 통화중(body.vc-in-call) 에서만 작동
+     ============================================================ -->
+<script id="vc-review-quiz-on-end">
+(function(){
+  'use strict';
+  var STATE = { done:false, open:false };
+
+  function isStudentInClass(){
+    try {
+      if (!document.body || !document.body.classList.contains('vc-in-call')) return false;
+      if (typeof vcIsObserver !== 'undefined' && vcIsObserver) return false;
+      var u = (typeof getCurrentUser==='function') ? getCurrentUser() : null;
+      var role = (u && u.role) || (function(){ try { return localStorage.getItem('mangoi_user_role'); } catch(e){ return null; } })() || 'student';
+      if (role === 'teacher' || role === 'admin') return false;
+      return true;
+    } catch(e){ return false; }
+  }
+
+  function remotePeerCount(){
+    try { return Object.keys(vcPeerConnections || {}).length; } catch(e){}
+    try { return Object.keys(window.vcPeerConnections || {}).length; } catch(e){}
+    return -1;
+  }
+
+  // 실제 종료(홈 이동) — 기존 강제 종료 경로 재사용
+  function reallyExit(){
+    STATE.done = true;
+    try { if (typeof window.__v34_FORCE_HOME === 'function') { window.__v34_FORCE_HOME(); return; } } catch(e){}
+    try { if (typeof window.__forceExit_v32 === 'function') { window.__forceExit_v32(); return; } } catch(e){}
+    try { if (typeof window.vcLeaveRoom === 'function') window.vcLeaveRoom(); } catch(e){}
+    try { location.replace('/?_e=' + Date.now()); } catch(e){ try { location.href = '/'; } catch(_){} }
+  }
+
+  // 예 → 복습퀴즈 탭 + 이 수업 맞춤 자동 출제
+  function goReviewQuiz(){
+    STATE.done = true;
+    try { if (typeof vcSwitchTab === 'function') vcSwitchTab('review-quiz'); } catch(e){}
+    setTimeout(function(){ try { if (typeof rqvAuto === 'function') rqvAuto(true); } catch(e){} }, 250);
+  }
+
+  function closeModal(){
+    STATE.open = false;
+    var m = document.getElementById('vc-rq-end-modal');
+    if (m) m.remove();
+  }
+
+  // 모달 표시 — 표시했으면 true, 조건 안 맞아 패스하면 false
+  window.vcReviewQuizPrompt = function(){
+    if (STATE.done || STATE.open) return true;
+    if (!isStudentInClass()) return false;
+    if (typeof rqvAuto !== 'function') return false;
+    STATE.open = true;
+    var en = (document.documentElement.lang === 'en');
+    var ov = document.createElement('div');
+    ov.id = 'vc-rq-end-modal';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:20px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-family:"Noto Sans KR",-apple-system,sans-serif';
+    ov.innerHTML =
+      '<div style="background:linear-gradient(135deg,#13234a,#0c1733);border:1px solid rgba(251,191,36,0.4);border-radius:18px;padding:30px 26px;max-width:380px;width:100%;text-align:center;box-shadow:0 24px 60px -10px rgba(0,0,0,0.7);color:#e6ecff">'
+      + '<div style="font-size:46px;margin-bottom:12px">🧠</div>'
+      + '<h2 style="font-size:19px;font-weight:800;color:#fbbf24;margin-bottom:8px">' + (en?'Take the review quiz?':'복습퀴즈를 하시겠습니까?') + '</h2>'
+      + '<p style="font-size:13px;color:#a3b3d1;line-height:1.6;margin-bottom:22px">' + (en?'Review today\'s lesson with a quiz matched to this class.':'오늘 수업 내용에 맞춰 준비된 복습퀴즈를 바로 풀 수 있어요.') + '</p>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+      + '<button id="vc-rq-yes" style="padding:13px;border:0;border-radius:11px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-size:15px;font-weight:800;cursor:pointer">' + (en?'Yes':'예') + '</button>'
+      + '<button id="vc-rq-no" style="padding:13px;border:1px solid rgba(148,163,184,0.4);border-radius:11px;background:rgba(255,255,255,0.06);color:#cbd5e1;font-size:15px;font-weight:800;cursor:pointer">' + (en?'No':'아니오') + '</button>'
+      + '</div></div>';
+    document.body.appendChild(ov);
+    var yes = document.getElementById('vc-rq-yes');
+    var no  = document.getElementById('vc-rq-no');
+    if (yes) yes.addEventListener('click', function(){ closeModal(); goReviewQuiz(); });
+    if (no)  no.addEventListener('click', function(){ closeModal(); reallyExit(); });
+    return true;
+  };
+
+  // ── 트리거 1: ✕/나가기 버튼 클릭 가로채기 ──
+  function isExitBtn(el){
+    if (!el || !el.closest) return false;
+    return !!el.closest('a#vc-exit-btn-v34, a#vc-exit-btn-v33, #vc-exit-btn-v32, button.ctrl-btn.danger, a.ctrl-btn.danger');
+  }
+  ['pointerdown','mousedown','touchend','click'].forEach(function(ev){
+    window.addEventListener(ev, function(e){
+      try {
+        if (!isExitBtn(e.target)) return;
+        if (STATE.done) return;                 // 이미 결정됨 → 기존 종료 진행
+        if (!isStudentInClass()) return;         // 학생/통화중 아니면 기존 동작 유지
+        if (typeof rqvAuto !== 'function') return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+        if (ev === 'pointerdown' || ev === 'click') window.vcReviewQuizPrompt();
+      } catch(err){}
+    }, true);
+  });
+
+  // ── 트리거 2: 상대(강사) 퇴장 자동 감지 ──
+  function hookAutoEnd(tries){
+    tries = tries || 0;
+    if (typeof window.vcRemovePeer !== 'function') {
+      if (tries < 80) return setTimeout(function(){ hookAutoEnd(tries + 1); }, 150);
+      return;
+    }
+    if (window.__vcRemovePeerHooked) return;
+    window.__vcRemovePeerHooked = true;
+    var orig = window.vcRemovePeer;
+    window.vcRemovePeer = function(){
+      var r = orig.apply(this, arguments);
+      try {
+        setTimeout(function(){
+          if (STATE.done || STATE.open) return;
+          if (!isStudentInClass()) return;
+          if (remotePeerCount() === 0) window.vcReviewQuizPrompt();   // 혼자 남음 = 수업 종료
+        }, 1200);
+      } catch(e){}
+      return r;
+    };
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ hookAutoEnd(0); });
+  else hookAutoEnd(0);
+})();
+</script>
 <style>
 /* 교사 영상: 모바일에선 칩 2줄(로그인+EN, top 3rem) 아래로 내림 */
 @media (max-width:640px){
@@ -16925,10 +17050,10 @@ window.addEventListener('DOMContentLoaded', () => {
     var vmb = vw.querySelector('#pay-guide-vid-mute');
     var vx  = vw.querySelector('#pay-guide-vid-x');
     function vupd(){ vmb.textContent = vid.muted ? '🔇' : '🔊'; }
-    // 음성+영상 자동재생 (1회). 브라우저가 막으면 무음으로라도 재생.
-    vid.muted = false;
+    // 🔊 음소거로 시작 — 음성은 🔊 버튼 클릭 시에만 (자동 음성재생 금지)
+    vid.muted = true;
     var p0 = vid.play();
-    if (p0 && p0.catch) p0.catch(function(){ vid.muted = true; vupd(); var p1 = vid.play(); if (p1 && p1.catch) p1.catch(function(){}); });
+    if (p0 && p0.catch) p0.catch(function(){});
     vupd();
     vid.addEventListener('ended', killPayGuideVideo);           // 끝나면 자동으로 사라짐
     vmb.addEventListener('click', function(e){ e.stopPropagation(); vid.muted = !vid.muted; if (!vid.muted) { var pp = vid.play(); if (pp && pp.catch) pp.catch(function(){}); } vupd(); });
@@ -25269,7 +25394,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260615160038 -->
+<!-- BUILD:20260615161828 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -26004,10 +26129,10 @@ document.addEventListener('keydown', function(e){
       var vid=vw.querySelector('#mgam-vid'), vmb=vw.querySelector('#mgam-vid-mute'), vx=vw.querySelector('#mgam-vid-x');
       function vupd(){ vmb.textContent = vid.muted ? '🔇' : '🔊'; }
       function killVid(){ try{ vid.pause(); }catch(_){ } if(vw && vw.parentNode) vw.remove(); }
-      // 음성+영상 자동재생 (소리 ON, 1회 — loop 없음). 브라우저가 막으면 무음으로라도 재생.
-      vid.muted = false;
+      // 🔊 음소거로 시작 — 음성은 🔊 버튼 클릭 시에만 (자동 음성재생 금지)
+      vid.muted = true;
       var p0 = vid.play();
-      if (p0 && p0.catch) p0.catch(function(){ vid.muted = true; vupd(); var p1=vid.play(); if(p1&&p1.catch)p1.catch(function(){}); });
+      if (p0 && p0.catch) p0.catch(function(){});
       vupd();
       vmb.addEventListener('click', function(e){ e.stopPropagation(); vid.muted=!vid.muted; if(!vid.muted){ var pp=vid.play(); if(pp&&pp.catch)pp.catch(function(){}); } vupd(); });
       vx.addEventListener('click', function(e){ e.stopPropagation(); killVid(); });
