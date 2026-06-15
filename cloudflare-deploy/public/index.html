@@ -4679,8 +4679,8 @@
         if(!document.getElementById('abm-style')){
           var st=document.createElement('style'); st.id='abm-style';
           st.textContent =
-            '#about-mangoi-ov{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(6,12,27,.48);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}'
-          + '.abm-card{position:relative;width:100%;max-width:760px;max-height:88vh;overflow-y:auto;background:transparent;border:1px solid rgba(96,165,250,.18);border-radius:24px;box-shadow:0 30px 80px -20px rgba(0,0,0,.55);padding:30px 26px 24px;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);animation:abmIn .28s cubic-bezier(.34,1.56,.64,1)}'
+            '#about-mangoi-ov{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(4,9,20,.98);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}'
+          + '.abm-card{position:relative;width:100%;max-width:760px;max-height:88vh;overflow-y:auto;background:linear-gradient(160deg,#0e1730,#0a1124);border:1px solid rgba(96,165,250,.28);border-radius:24px;box-shadow:0 30px 80px -20px rgba(0,0,0,.7);padding:30px 26px 24px;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);animation:abmIn .28s cubic-bezier(.34,1.56,.64,1)}'
           + '@keyframes abmIn{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}'
           + '.abm-close{position:absolute;top:14px;right:14px;width:34px;height:34px;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#aebfd6;font-size:16px;cursor:pointer;z-index:5}'
           + '.abm-close:hover{color:#93c5fd;background:rgba(255,255,255,.18)}'
@@ -17178,6 +17178,8 @@ window.addEventListener('DOMContentLoaded', () => {
       <button id="payment-close" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.1);border:0;color:#cbd5e1;font-size:20px;cursor:pointer;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center">✕</button>
       <h2 style="color:#fbbf24;font-size:24px;margin:0 0 4px;font-weight:900;letter-spacing:-0.5px" id="pay-modal-title">💳 결제하기</h2>
       <p style="color:#cbd5e1;font-size:13px;line-height:1.5;margin:0" id="pay-modal-subtitle">신규/연장을 선택해 주세요. 1분이면 끝나요!</p>
+      <!-- ✅ 로그인 상태 안내 배너 (로그인 시에만 표시) -->
+      <div id="pay-login-pill" style="display:none;margin-top:10px;align-items:center;gap:8px;background:rgba(34,197,94,0.12);border:1px solid rgba(74,222,128,0.4);border-radius:999px;padding:7px 14px;width:fit-content;max-width:100%"></div>
       <!-- 4단계 진행 표시 -->
       <div id="pay-steps" style="display:flex;gap:6px;margin-top:14px">
         <div class="pay-step pay-step-active" data-step="0">결제 종류</div>
@@ -18058,6 +18060,22 @@ window.addEventListener('DOMContentLoaded', () => {
     // 즉석결제 패널 초기화
     const ipp = document.getElementById('instant-pay-panel');
     if (ipp) ipp.style.display = 'none';
+    // ✅ 로그인 상태면 상단 안내 배너 표시 (정보 입력 없이 바로 결제 안내)
+    try {
+      var _pill = document.getElementById('pay-login-pill');
+      if (_pill) {
+        var _u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+        if (_u && (_u.uid || _u.name)) {
+          _pill.style.display = 'flex';
+          _pill.innerHTML = '<span style="font-size:14px">✅</span>'
+            + '<span style="color:#86efac;font-size:12px;font-weight:700">'
+            + escapeHtml(_u.name || _u.uid) + '님 · 로그인됨 — 정보 입력 없이 바로 결제돼요</span>';
+        } else {
+          _pill.style.display = 'none';
+          _pill.innerHTML = '';
+        }
+      }
+    } catch (e) {}
     payGoStep(0);
     result.style.display = 'none';
     modal.style.display = 'flex';
@@ -18535,6 +18553,24 @@ window.addEventListener('DOMContentLoaded', () => {
       setTimeout(function(){ try { payGoStep(2); } catch(_){} }, 150);   // 바로 연장옵션으로
     } catch(e){ console.warn('[pay-auto-verify]', e); }
   }
+
+  // 🆕 신규 결제 — 로그인 학생이면 결제자/학생/연락처를 세션값으로 자동채움.
+  //   · 반환값 true = 로그인됨(정보 입력 단계 생략 가능), false = 비로그인(수동 입력).
+  window.payAutofillNewIfLoggedIn = function(){
+    try {
+      var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+      if (!u) { try { u = JSON.parse(localStorage.getItem('mangoi_logged_user') || localStorage.getItem('mango_user') || 'null'); } catch(_){} }
+      if (!u) return false;
+      var uid  = u.uid || u.id || u.user_id || '';
+      var name = u.name || u.user_name || uid;
+      if (!uid && !name) return false;
+      var setV = function(id, v){ var el = document.getElementById(id); if (el && !el.value.trim()) el.value = v; };
+      setV('pay-payer',   name);
+      setV('pay-student', name);
+      setV('pay-contact', uid || name);   // 로그인 ID로 본인 인증 대체
+      return true;
+    } catch(e){ return false; }
+  };
 
   function renderExtStudentCard(s) {
     const studCard = document.getElementById('ext-student-card');
@@ -26431,9 +26467,9 @@ window.closeRulesModal = function() {
     { id:'crown',    ko:'왕관',     en:'Crown',       emoji:'👑', anchor:'hat',  scale:1.45, yOff:0.22, rotate:true },
     { id:'grad',     ko:'학사모',   en:'Grad Cap',    emoji:'🎓', anchor:'hat',  scale:1.80, yOff:0.10, rotate:true },
     { id:'helmet',   ko:'안전모',   en:'Helmet',      emoji:'⛑️', anchor:'hat',  scale:1.70, yOff:0.14, rotate:true },
-    { id:'sun',      ko:'썬글라스', en:'Sunglasses',  emoji:'🕶️', anchor:'eyes', scale:1.62, yOff:0.04, rotate:true },
-    { id:'glasses',  ko:'안경',     en:'Glasses',     emoji:'👓', anchor:'eyes', scale:1.62, yOff:0.04, rotate:true },
-    { id:'goggles',  ko:'물안경',   en:'Goggles',     emoji:'🥽', anchor:'eyes', scale:1.62, yOff:0.04, rotate:true },
+    { id:'sun',      ko:'썬글라스', en:'Sunglasses',  emoji:'🕶️', anchor:'eyes', scale:1.55, yOff:0.04, rotate:true, draw:'glasses', gl:'sun' },
+    { id:'glasses',  ko:'안경',     en:'Glasses',     emoji:'👓', anchor:'eyes', scale:1.55, yOff:0.04, rotate:true, draw:'glasses', gl:'glasses' },
+    { id:'goggles',  ko:'물안경',   en:'Goggles',     emoji:'🥽', anchor:'eyes', scale:1.55, yOff:0.04, rotate:true, draw:'glasses', gl:'goggles' },
     { id:'mask',     ko:'가면',     en:'Mask',        emoji:'🎭', anchor:'face', scale:1.70, yOff:0.00, rotate:true },
     { id:'fox',      ko:'여우',     en:'Fox',         emoji:'🦊', anchor:'face', scale:1.75, yOff:-0.02, rotate:true },
     { id:'cat',      ko:'고양이',   en:'Cat',         emoji:'🐱', anchor:'face', scale:1.75, yOff:-0.02, rotate:true },
@@ -26478,10 +26514,13 @@ window.closeRulesModal = function() {
       'style="aspect-ratio:1/1;border:2px solid #a78bfa;border-radius:12px;background:linear-gradient(135deg,#1e293b,#0f172a);color:#e2e8f0;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px;font-size:11px;font-weight:700">'+
       '<span style="font-size:26px">🚫</span><span data-ko="없음" data-en="None">'+(en?'None':'없음')+'</span></button>';
     FX_ITEMS.forEach(function(it){
-      var disp = it.emoji || (it.draw==='mustache' ? '〰️' : '✨');
+      // 안경류는 옆다리 없는 앞면 전용 SVG 아이콘으로 표시
+      var icon = (it.draw==='glasses')
+        ? '<span style="display:flex;align-items:center;justify-content:center;height:34px">'+fxGlassesSVG(it.gl)+'</span>'
+        : '<span style="font-size:30px;line-height:1">'+(it.emoji || (it.draw==='mustache' ? '〰️' : '✨'))+'</span>';
       html += '<button class="vc-fx-tile" data-fx="'+it.id+'" onclick="vcSetFace(\''+it.id+'\')" '+
         'style="aspect-ratio:1/1;border:2px solid #334155;border-radius:12px;background:#0f172a;color:#e2e8f0;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px;font-size:11px;font-weight:700">'+
-        '<span style="font-size:30px;line-height:1">'+disp+'</span>'+
+        icon+
         '<span data-ko="'+it.ko+'" data-en="'+it.en+'">'+(en?it.en:it.ko)+'</span></button>';
     });
     grid.innerHTML = html;
@@ -26563,6 +26602,58 @@ window.closeRulesModal = function() {
     vcFx.lastLM = cur;
   }
 
+  // 안경 앞면 전용 아이콘(SVG) — 옆다리(귀걸이) 없이 렌즈 2개 + 브릿지만
+  function fxGlassesSVG(kind){
+    var frame = (kind==='goggles') ? '#3b9eff' : '#cbd5e1';
+    var fill  = (kind==='sun') ? '#0b0b10' : (kind==='goggles' ? 'rgba(90,180,255,0.30)' : 'rgba(200,220,255,0.10)');
+    var lens;
+    if (kind==='goggles'){
+      lens = '<ellipse cx="30" cy="25" rx="20" ry="17"/><ellipse cx="70" cy="25" rx="20" ry="17"/>';
+    } else {
+      lens = '<rect x="9" y="9" width="36" height="32" rx="9"/><rect x="55" y="9" width="36" height="32" rx="9"/>';
+    }
+    return '<svg width="46" height="24" viewBox="0 0 100 50" fill="'+fill+'" stroke="'+frame+'" stroke-width="5" stroke-linejoin="round">'+
+           lens+'<line x1="45" y1="20" x2="55" y2="20"/></svg>';
+  }
+
+  // 안경 앞면 전용 그리기(캔버스) — 원점 중심, size = 전체 폭. 옆다리 없음.
+  function fxDrawGlasses(ctx, kind, size){
+    var lw = size*0.42, lh = size*0.40, gap = size*0.10;
+    var cxL = -(gap/2 + lw/2), cxR = (gap/2 + lw/2);
+    var r = Math.min(lw, lh)*0.30;
+    var frame = (kind==='goggles') ? '#1e88e5' : '#1f2937';
+    var lineW = Math.max(1, size*0.05);
+    function lensPath(cx){
+      ctx.beginPath();
+      if (kind==='goggles'){
+        ctx.ellipse(cx, 0, lw/2, lh/2, 0, 0, Math.PI*2);
+      } else {
+        var x = cx-lw/2, y = -lh/2;
+        ctx.moveTo(x+r, y);
+        ctx.arcTo(x+lw, y,    x+lw, y+lh, r);
+        ctx.arcTo(x+lw, y+lh, x,    y+lh, r);
+        ctx.arcTo(x,    y+lh, x,    y,    r);
+        ctx.arcTo(x,    y,    x+lw, y,    r);
+        ctx.closePath();
+      }
+    }
+    // 렌즈 채움
+    ctx.fillStyle = (kind==='sun') ? 'rgba(18,18,24,0.92)'
+                  : (kind==='goggles') ? 'rgba(120,200,255,0.32)'
+                  : 'rgba(190,215,255,0.16)';
+    lensPath(cxL); ctx.fill();
+    lensPath(cxR); ctx.fill();
+    // 프레임 외곽선
+    ctx.lineWidth = lineW; ctx.strokeStyle = frame; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    lensPath(cxL); ctx.stroke();
+    lensPath(cxR); ctx.stroke();
+    // 브릿지(코걸이)
+    ctx.beginPath();
+    ctx.moveTo(cxL + lw/2, -lh*0.10);
+    ctx.lineTo(cxR - lw/2, -lh*0.10);
+    ctx.lineWidth = lineW*0.9; ctx.stroke();
+  }
+
   // 액세서리 한 개 그리기 — FaceMesh 랜드마크 기준 정밀 배치
   function fxDrawItem(ctx, it, lm, W, H){
     if (!lm) return;
@@ -26629,6 +26720,8 @@ window.closeRulesModal = function() {
       ctx.bezierCurveTo( mw*0.2,mh*0.45,  mw*0.45,mh*0.5,  mw*0.5,mh*0.1);
       ctx.bezierCurveTo( mw*0.45,-mh*0.5, mw*0.15,-mh*0.5, 0,-mh*0.15);
       ctx.fill();
+    } else if (it.draw==='glasses'){
+      fxDrawGlasses(ctx, it.gl, size);
     } else {
       ctx.textAlign='center'; ctx.textBaseline='middle';
       try { ctx.filter = 'saturate(1.35) contrast(1.06)'; } catch(_){}
@@ -26762,7 +26855,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260616014124 -->
+<!-- BUILD:20260616020116 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
