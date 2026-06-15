@@ -7608,7 +7608,17 @@ function vcResumeAllVideos() {
     document.querySelectorAll('video').forEach(v => {
         if (v.srcObject && v.paused) {
             const p = v.play();
-            if (p && p.catch) p.catch(err => console.warn('[resume] video.play() 실패:', err && err.name));
+            if (p && p.catch) p.catch(err => {
+                console.warn('[resume] video.play() 실패:', err && err.name);
+                // 모바일 무음 자동재생 차단 → 일단 muted 로라도 재생해 검은 화면 방지,
+                // 첫 화면 터치 시 원격 음소거 해제(소리 복구)
+                try {
+                    v.muted = true;
+                    const p2 = v.play();
+                    if (p2 && p2.catch) p2.catch(()=>{});
+                    if (typeof vcArmGestureUnmute === 'function') vcArmGestureUnmute();
+                } catch(_) {}
+            });
         }
     });
 }
@@ -7639,12 +7649,14 @@ async function vcOnAppResume(reason) {
         }
     } catch(_) {}
 
-    // 4) 피어 연결 중 disconnected/failed 상태면 ICE 재시작
-    for (const pc of Object.values(vcPeerConnections)) {
+    // 4) 피어 연결 중 disconnected/failed 면 실제 재연결(PC 재생성 + offer 재전송)
+    for (const userId of Object.keys(vcPeerConnections)) {
+        const pc = vcPeerConnections[userId];
         const s = pc.iceConnectionState;
-        if (s === 'disconnected' || s === 'failed' || s === 'closed') {
-            console.log('[app-resume] ICE 재시작:', s);
+        if (s === 'disconnected' || s === 'failed') {
+            console.log('[app-resume] 피어 재연결:', s, userId);
             try { pc.restartIce(); } catch(_) {}
+            vcReconnectPeer(userId);
         }
     }
 
@@ -7665,6 +7677,94 @@ window.addEventListener('pageshow', (e) => {
 // ★ 모바일 Chrome/Safari의 tab freeze 해제 이벤트
 window.addEventListener('resume', () => vcOnAppResume('resume'));
 window.addEventListener('focus',  () => vcResumeAllVideos());
+
+/* ──────────────────────────────────────────────────────────────
+   📶 이동 중(운전·지하철 등) 끊김 자동 복구
+   문제: LTE 기지국 전환/터널 등으로 P2P가 disconnected/failed 되면
+         restartIce() 만으로는 새 offer 재협상이 안 일어나 영영 복구 안 됨
+         → 화면이 검게/소리 끊김. 아래에서 "PC 재생성 + offer 재전송"으로 복구.
+   glare 방지: userId 가 작은 쪽만 offer 주체, 큰 쪽은 잠시 대기 후 백업 offer.
+   ────────────────────────────────────────────────────────────── */
+const __vcReconnectAt = {};   // userId → 마지막 재연결 시각(쿨다운)
+function vcReconnectPeer(userId) {
+    if (!userId) return;
+    if (!document.body.classList.contains('vc-in-call')) return;   // 수업 중일 때만
+    const now = Date.now();
+    if (__vcReconnectAt[userId] && now - __vcReconnectAt[userId] < 8000) return;  // 8초 쿨다운
+    __vcReconnectAt[userId] = now;
+
+    const old = vcPeerConnections[userId];
+    let username = (old && old.__username) || '참가자';
+    try {
+        const lbl = document.querySelector('#vc-video-' + userId + ' .video-label');
+        if (lbl && lbl.textContent) username = lbl.textContent;
+    } catch(_) {}
+
+    console.warn('[vc-recover] 피어 재연결 시도:', userId, username);
+    try { if (old) old.close(); } catch(_) {}
+    delete vcPeerConnections[userId];
+
+    // 두 단말이 동시에 offer 를 보내면 glare → ID 작은 쪽만 즉시 offer
+    const iAmOfferer = (vcUserId && userId) ? (String(vcUserId) < String(userId)) : true;
+    if (iAmOfferer) {
+        try { vcCreatePeerAndOffer(userId, username); } catch(e) { console.warn('[vc-recover] offer 실패:', e); }
+    } else {
+        // 상대(작은 ID)가 offer 를 보낼 것 → 4초 대기, 그래도 복구 안 되면 내가 백업 offer
+        setTimeout(() => {
+            if (!vcPeerConnections[userId] && document.body.classList.contains('vc-in-call')) {
+                console.warn('[vc-recover] 상대 offer 미수신 → 백업 offer:', userId);
+                try { vcCreatePeerAndOffer(userId, username); } catch(_) {}
+            }
+        }, 4000);
+    }
+}
+
+/* 원격 비디오 음소거 해제 — 첫 화면 터치 시 호출(모바일 무음 자동재생 차단 대응).
+   로컬 자기화면은 제외(에코 방지) → vcPeerConnections(원격)만 대상. */
+function vcUnmuteRemotes() {
+    Object.keys(vcPeerConnections).forEach(id => {
+        const v = document.querySelector('#vc-video-' + id + ' video');
+        if (v) { v.muted = false; const p = v.play(); if (p && p.catch) p.catch(()=>{}); }
+    });
+}
+let __vcGestureArmed = false;
+function vcArmGestureUnmute() {
+    if (__vcGestureArmed) return; __vcGestureArmed = true;
+    const h = () => {
+        __vcGestureArmed = false;
+        vcUnmuteRemotes();
+        ['touchstart','pointerdown','click','keydown'].forEach(e => document.removeEventListener(e, h));
+    };
+    ['touchstart','pointerdown','click','keydown'].forEach(e => document.addEventListener(e, h, { passive: true }));
+}
+
+/* 주기적 감시: 끊긴 피어 재연결 + 일시정지된 영상 재생 (수업 중에만) */
+setInterval(() => {
+    if (!document.body.classList.contains('vc-in-call')) return;
+    Object.keys(vcPeerConnections).forEach(id => {
+        const pc = vcPeerConnections[id]; if (!pc) return;
+        const s = pc.iceConnectionState;
+        if (s === 'failed') { vcReconnectPeer(id); pc.__discSince = 0; }
+        else if (s === 'disconnected') {
+            pc.__discSince = pc.__discSince || Date.now();
+            if (Date.now() - pc.__discSince > 6000) { vcReconnectPeer(id); pc.__discSince = 0; }
+        } else { pc.__discSince = 0; }
+    });
+    try { vcResumeAllVideos(); } catch(_) {}
+}, 5000);
+
+/* 네트워크 복귀(online) — 이동 중 끊겼다 돌아올 때 즉시 복구 */
+window.addEventListener('online', () => {
+    console.warn('[vc-recover] 네트워크 복귀(online)');
+    if (!document.body.classList.contains('vc-in-call')) return;
+    try { if (vcConn && vcConn.ws && vcConn.ws.readyState !== WebSocket.OPEN && typeof vcConn.reconnectNow === 'function') vcConn.reconnectNow(); } catch(_) {}
+    Object.keys(vcPeerConnections).forEach(id => {
+        const st = vcPeerConnections[id] && vcPeerConnections[id].iceConnectionState;
+        if (st !== 'connected' && st !== 'completed') vcReconnectPeer(id);
+    });
+    try { vcResumeAllVideos(); } catch(_) {}
+});
+window.addEventListener('offline', () => { console.warn('[vc-recover] 네트워크 끊김(offline) — 복귀 대기'); });
 
 /** WebSocket 재연결 시 기존 PeerConnection 모두 정리 (전역 함수 — createWebSocket에서 호출) */
 function vcCleanupAllPeers() {
@@ -8994,6 +9094,7 @@ function vcCreatePeer(userId, username) {
     console.log('[vc-webrtc] createPeer:', userId, username, 'ICE서버:', ICE_SERVERS.iceServers.length, '개');
     const pc = new RTCPeerConnection(ICE_SERVERS);
     vcPeerConnections[userId] = pc;
+    pc.__username = username;   // 이동 중 끊김 → 재연결 시 이름 복원용
 
     if (vcIsObserver) {
         // 관찰자: 미디어 전송 안 함, recvonly transceiver 추가
@@ -9037,15 +9138,17 @@ function vcCreatePeer(userId, username) {
             console.log('[vc-webrtc] ✅ ICE 연결 성공:', userId);
         }
         if (st === 'failed') {
-            console.warn('[vc-webrtc] ❌ ICE 실패 → restartIce:', userId);
-            pc.restartIce();
+            console.warn('[vc-webrtc] ❌ ICE 실패 → 재연결:', userId);
+            try { pc.restartIce(); } catch(_) {}      // 가벼운 시도 먼저
+            vcReconnectPeer(userId);                   // 실제 복구(PC 재생성 + offer 재전송)
         }
         if (st === 'disconnected') {
             console.warn('[vc-webrtc] ⚠ ICE 끊김:', userId, '5초 후 재시도');
+            try { pc.restartIce(); } catch(_) {}      // 일시적 끊김은 restartIce 로 회복될 수도
             setTimeout(() => {
                 if (vcPeerConnections[userId] === pc && pc.iceConnectionState === 'disconnected') {
-                    console.warn('[vc-webrtc] ICE 여전히 끊김 → restartIce:', userId);
-                    pc.restartIce();
+                    console.warn('[vc-webrtc] ICE 여전히 끊김 → 재연결:', userId);
+                    vcReconnectPeer(userId);
                 }
             }, 5000);
         }
@@ -25460,7 +25563,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260615175931 -->
+<!-- BUILD:20260615183608 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
