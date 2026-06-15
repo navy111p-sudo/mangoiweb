@@ -4044,12 +4044,13 @@
          onerror="this.style.display='none'" />
     <img class="deco-saturn-left" src="/img/saturn-left.png" alt="" aria-hidden="true"
          onerror="this.style.display='none'" />
-    <div class="deco-mini-galaxies" aria-hidden="true">
+    <!-- 우하단 작은 은하(동그란 공) 4개 — 사용자 요청으로 제거 (2026-06-16) -->
+    <!-- <div class="deco-mini-galaxies" aria-hidden="true">
       <div class="mg mg-1"></div>
       <div class="mg mg-2"></div>
       <div class="mg mg-3"></div>
       <div class="mg mg-4"></div>
-    </div>
+    </div> -->
 
     <!-- 🚀 USS 망고아이 NCC-2026 — 영화 수준 vivid 우주선 -->
     <div id="starship" class="starship-wrap" aria-hidden="true">
@@ -26954,7 +26955,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260616044751 -->
+<!-- BUILD:20260616051022 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -29486,6 +29487,13 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   #ph49-kakao-fab, .ph49-kakao-fab { bottom: 16px !important; right: 16px !important; }
   #mangoi-widget { bottom: 104px !important; right: 16px !important; }
   #ph52-cache-fab, .ph52-cache-fab { left: 16px !important; right: auto !important; bottom: 16px !important; top: auto !important; }
+  /* 💻 PC(데스크톱) 전용 — A.i 상담사 위젯 30% 크게 (모바일은 기존 크기 그대로 유지) (2026-06-16) */
+  @media (min-width:481px){
+    #mangoi-widget { width:83px; height:83px; }
+    #mangoi-toggle { width:83px; height:83px; border-width:4px; }
+    #mangoi-label  { bottom:91px; font-size:15px; padding:5px 13px; }
+    #mangoi-frame  { width:382px; height:655px; bottom:93px; }
+  }
 </style>
 <script>
   (function(){
