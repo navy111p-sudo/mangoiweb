@@ -139,6 +139,7 @@ try {
         # 1-d) 수정된 파일만 정확하게 스테이징 (절대경로 기반)
         $rel_targets = @(
             'cloudflare-deploy\public\index.html',
+            'cloudflare-deploy\src\video-call-room.ts',
             'cloudflare-deploy\public\admin.html',
             'cloudflare-deploy\public\js\mango-rec.js',
             'cloudflare-deploy\schema.sql',
