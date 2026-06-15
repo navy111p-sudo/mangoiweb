@@ -145,6 +145,18 @@ export class VideoCallRoom {
         case 'video-stop-share':
           this.broadcast(userId, { type: 'video-stop-share', data: {} });
           break;
+        // ✍️ 교재(PDF) 위 실시간 양방향 판서 — 모든 참가자(교사·학생)가 그린 획/텍스트/지우기/되돌리기를
+        //    다른 참가자에게 그대로 중계. pdf-pointer = 레이저 포인터, whiteboard-text = 칠판 텍스트.
+        //    (그리기 권한 제한 없음 → 교사·학생 모두 송신 가능. 색상으로 필기자 구분.)
+        case 'pdf-anno-start':
+        case 'pdf-anno-point':
+        case 'pdf-anno-text':
+        case 'pdf-anno-clear':
+        case 'pdf-anno-undo':
+        case 'pdf-pointer':
+        case 'whiteboard-text':
+          this.broadcast(userId, { type: msg.type, data: msg.data });
+          break;
         case 'offer':
           this.handleOffer(userId, msg.data as any);
           break;

@@ -6670,12 +6670,16 @@
                 <div class="pdf-anno-bar">
                     <button id="pdf-tool-none" class="active" onclick="pdfSetDrawTool('none', this)" title="그리기 끔" data-ko="🖱 보기" data-en="🖱 View">🖱 보기</button>
                     <button id="pdf-tool-pen" onclick="pdfSetDrawTool('pen', this)" title="펜" data-ko="✏️ 펜" data-en="✏️ Pen">✏️ 펜</button>
+                    <button id="pdf-tool-highlighter" onclick="pdfSetDrawTool('highlighter', this)" title="형광펜" data-ko="🖍 형광펜" data-en="🖍 Marker">🖍 형광펜</button>
                     <button id="pdf-tool-eraser" onclick="pdfSetDrawTool('eraser', this)" title="지우개" data-ko="🧽 지우개" data-en="🧽 Eraser">🧽 지우개</button>
                     <!-- ph265: 키보드 텍스트 도구 -->
                     <button id="pdf-tool-text" onclick="pdfSetDrawTool('text', this)" title="텍스트 (키보드 타자)" data-ko="📝 텍스트" data-en="📝 Text">📝 텍스트</button>
                     <input type="color" id="pdf-anno-color" value="#ef4444" title="색상" style="width:32px;height:26px;border:none;cursor:pointer;" />
                     <input type="range" id="pdf-anno-size" min="1" max="20" value="3" title="굵기" style="width:80px;" />
+                    <button onclick="pdfAnnoUndo()" title="마지막 필기 되돌리기 (Ctrl+Z)" data-ko="↩ 되돌리기" data-en="↩ Undo">↩ 되돌리기</button>
                     <button onclick="pdfClearAnno()" title="이 페이지 주석 모두 지우기" data-ko="🗑 지우기" data-en="🗑 Clear">🗑 지우기</button>
+                    <!-- 필기자 색 구분 범례 (역할별 기본색) -->
+                    <span id="pdf-anno-legend" style="display:inline-flex;gap:8px;align-items:center;font-size:0.72rem;color:#cbd5e1;margin-left:4px;"></span>
                 </div>
                 <!-- ph249: 팬 화살표 버튼 모두 제거 → native 스크롤바로 대체 -->
                 <div class="pdf-main-row">
@@ -6822,6 +6826,14 @@
               <button class="vc-bg-tile" data-bg="antarctica" onclick="vcSetBackground('antarctica')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/antarctica.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
                 <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
                 <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🐧 남극" data-en="🐧 Antarctica">🐧 남극</span>
+              </button>
+              <button class="vc-bg-tile" data-bg="folkvillage" onclick="vcSetBackground('folkvillage')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/%EB%AF%BC%EC%86%8D%EC%B4%8C.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+                <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
+                <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🏯 민속촌" data-en="🏯 Folk Village">🏯 민속촌</span>
+              </button>
+              <button class="vc-bg-tile" data-bg="spacegame" onclick="vcSetBackground('spacegame')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/%EC%9A%B0%EC%A3%BC%EA%B2%8C%EC%9E%84.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+                <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
+                <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🚀 우주게임" data-en="🚀 Space Game">🚀 우주게임</span>
               </button>
             </div>
             <div style="margin-top:18px;padding:12px 14px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:10px;font-size:12px;color:#fde68a;line-height:1.6">
@@ -8961,6 +8973,29 @@ function vcHandleMessage(msg) {
         case 'whiteboard-clear':
             wbReceiveClear();
             break;
+        case 'whiteboard-text':
+            wbReceiveText(msg.data);
+            break;
+
+        // 교재(PDF) 위 실시간 양방향 판서
+        case 'pdf-anno-start':
+            pdfReceiveAnnoStart(msg.data);
+            break;
+        case 'pdf-anno-point':
+            pdfReceiveAnnoPoint(msg.data);
+            break;
+        case 'pdf-anno-text':
+            pdfReceiveAnnoText(msg.data);
+            break;
+        case 'pdf-anno-clear':
+            pdfReceiveAnnoClear(msg.data);
+            break;
+        case 'pdf-anno-undo':
+            pdfReceiveAnnoUndo(msg.data);
+            break;
+        case 'pdf-pointer':
+            pdfReceivePointer(msg.data);
+            break;
 
         // PDF
         case 'pdf-sync':
@@ -9981,6 +10016,8 @@ const VC_BG_IMAGES = {
   tajmahal:   '/img/bg/tajmahal.jpg',   // 타지마할 - 인도
   pyramid:    '/img/bg/pyramid.jpg',    // 피라미드 - 기자
   antarctica: '/img/bg/antarctica.jpg', // 남극 - 빙하 + 펭귄
+  folkvillage:'/img/bg/%EB%AF%BC%EC%86%8D%EC%B4%8C.jpg', // 민속촌 - 한국 전통 마을
+  spacegame:  '/img/bg/%EC%9A%B0%EC%A3%BC%EA%B2%8C%EC%9E%84.jpg', // 우주게임 - 우주선 전투 콕핏
 };
 const _vcBgCache = {}; // theme → HTMLImageElement (loaded)
 
@@ -11157,6 +11194,20 @@ function wbReceiveClear() {
     canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 }
 
+/** 다른 참가자의 칠판 텍스트를 수신하여 그립니다 (송신만 있고 수신 누락이던 버그 수정) */
+function wbReceiveText(data) {
+    if (!data || !data.text) return;
+    const canvas = document.getElementById('wb-canvas');
+    const ctx = canvas.getContext('2d');
+    const fontSize = data.fontSize || 24;
+    ctx.save();
+    ctx.font = '700 ' + fontSize + 'px -apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif';
+    ctx.fillStyle = data.color || '#000000';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(data.text, data.x * canvas.width, data.y * canvas.height);
+    ctx.restore();
+}
+
 function wbClear() {
     wbReceiveClear();
     if (vcConn) vcConn.send({ type: 'whiteboard-clear', data: {} });
@@ -11403,6 +11454,7 @@ function pdfSyncAnnoCanvas(annoId, pdfCanvas, pageNum) {
     anno.dataset.page = pageNum;
     pdfRedrawAnno(anno, pageNum);
     pdfBindAnnoEvents(annoId);
+    pdfApplyIdentity();   // 역할별 기본색 + 필기자 범례 (1회)
 }
 
 function pdfRedrawAnno(anno, pageNum) {
@@ -11433,8 +11485,14 @@ function pdfDrawStroke(ctx, w, h, s) {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.globalCompositeOperation = s.tool === 'eraser' ? 'destination-out' : 'source-over';
+    // 🖍 형광펜 — 반투명·굵게 (글자가 비쳐 보이도록)
+    if (s.tool === 'highlighter') {
+        ctx.globalAlpha = 0.32;
+        ctx.lineWidth = s.size * 5;
+    } else {
+        ctx.lineWidth = s.size;
+    }
     ctx.strokeStyle = s.color;
-    ctx.lineWidth = s.size;
     ctx.beginPath();
     s.points.forEach((p, i) => {
         const x = p[0] * w, y = p[1] * h;
@@ -11458,13 +11516,18 @@ function pdfSetDrawTool(t, btn) {
     document.querySelectorAll('.pdf-anno').forEach(a => a.classList.toggle('active', t !== 'none'));
 }
 
-function pdfClearAnno() {
-    const pages = pdfPagesPerView === 2 ? [pdfPageNum, pdfPageNum + 1] : [pdfPageNum];
+function pdfApplyClear(pages) {
     pages.forEach(p => { delete pdfAnnotations[p]; });
     document.querySelectorAll('.pdf-anno').forEach(anno => {
         const p = parseInt(anno.dataset.page);
         if (pages.includes(p)) anno.getContext('2d').clearRect(0, 0, anno.width, anno.height);
     });
+}
+function pdfClearAnno() {
+    const pages = pdfPagesPerView === 2 ? [pdfPageNum, pdfPageNum + 1] : [pdfPageNum];
+    pdfApplyClear(pages);
+    // 🔄 상대에게 지우기 전송
+    pdfAnnoSend('pdf-anno-clear', { pages });
 }
 
 // 주석 캔버스 그리기 이벤트
@@ -11504,8 +11567,11 @@ function pdfBindAnnoEvents(annoId) {
                 inp.remove();
                 if (!txt) return;
                 if (!pdfAnnotations[pageNum]) pdfAnnotations[pageNum] = [];
-                pdfAnnotations[pageNum].push({ tool:'text', text:txt, color:color, size:size, x:px, y:py, fontSize:fontSize });
+                const tstroke = { tool:'text', text:txt, color:color, size:size, x:px, y:py, fontSize:fontSize };
+                pdfAnnotations[pageNum].push(tstroke);
                 pdfRedrawAnno(anno, pageNum);
+                // 🔄 상대에게 텍스트 주석 전송
+                pdfAnnoSend('pdf-anno-text', { page: pageNum, stroke: tstroke });
             }
             inp.addEventListener('keydown', (ev) => {
                 if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
@@ -11516,20 +11582,196 @@ function pdfBindAnnoEvents(annoId) {
         }
         drawing = true;
         anno.setPointerCapture(e.pointerId);
-        currentStroke = { tool: pdfDrawTool, color, size, points: [pos(e)] };
+        const sid = pdfNewStrokeId();
+        const p0 = pos(e);
+        currentStroke = { tool: pdfDrawTool, color, size, points: [p0], _id: sid };
         if (!pdfAnnotations[pageNum]) pdfAnnotations[pageNum] = [];
         pdfAnnotations[pageNum].push(currentStroke);
+        // 🔄 상대에게 획 시작 전송 (id 로 이어붙임)
+        pdfAnnoSend('pdf-anno-start', { page: pageNum, id: sid, tool: pdfDrawTool, color, size, point: p0 });
     });
     anno.addEventListener('pointermove', (e) => {
         if (!drawing || !currentStroke) return;
-        currentStroke.points.push(pos(e));
+        const pt = pos(e);
+        currentStroke.points.push(pt);
         const pageNum = parseInt(anno.dataset.page);
         pdfRedrawAnno(anno, pageNum);
+        // 🔄 상대에게 좌표 추가 전송
+        pdfAnnoSend('pdf-anno-point', { page: pageNum, id: currentStroke._id, point: pt });
     });
     function endDraw() { drawing = false; currentStroke = null; }
     anno.addEventListener('pointerup', endDraw);
     anno.addEventListener('pointerleave', endDraw);
     anno.addEventListener('pointercancel', endDraw);
+    // 🔴 레이저 포인터 — '보기' 모드에서 마우스 위치를 상대에게 점으로 표시
+    pdfBindLaser(anno);
+}
+
+/* ================================================================
+   7a. 교재 위 양방향 판서 — 실시간 동기화 (교사·학생 모두 그리기 가능)
+   ──────────────────────────────────────────────────────────────────
+   - pdf-anno-start/point/text/clear/undo : 그리기 동기화
+   - pdf-pointer : 레이저 포인터(보기 모드)
+   - 필기자 구분 : 역할별 기본 색(교사=빨강, 학생=파랑)
+================================================================ */
+function pdfAnnoSend(type, data) {
+    try { if (typeof vcConn !== 'undefined' && vcConn) vcConn.send({ type, data }); } catch(_){}
+}
+function pdfNewStrokeId() {
+    return (vcUsername || 'u') + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+}
+// 현재 사용자 식별(역할/이름/색)
+function pdfMyIdentity() {
+    var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+    var role = (u && u.role) || localStorage.getItem('mangoi_user_role') || 'student';
+    var name = vcUsername || (u && u.name) || '참가자';
+    var color = (role === 'teacher' || role === 'admin') ? '#ef4444' : '#2563eb';
+    return { role: role, name: name, color: color };
+}
+// 역할별 기본 필기색 적용 + 범례 표시 (입장 시 1회)
+let _pdfIdentityApplied = false;
+function pdfApplyIdentity() {
+    if (_pdfIdentityApplied) return;
+    var me = pdfMyIdentity();
+    var colorInput = document.getElementById('pdf-anno-color');
+    // 사용자가 아직 색을 바꾸지 않았으면(=기본 빨강) 역할 색으로 초기화
+    if (colorInput && colorInput.value.toLowerCase() === '#ef4444') colorInput.value = me.color;
+    var legend = document.getElementById('pdf-anno-legend');
+    if (legend) {
+        legend.innerHTML =
+            '<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:50%;background:#ef4444;display:inline-block"></span>선생님</span>' +
+            '<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:50%;background:#2563eb;display:inline-block"></span>학생</span>';
+    }
+    // ↩ Ctrl+Z / Cmd+Z 되돌리기 (텍스트 입력 중이 아닐 때만)
+    document.addEventListener('keydown', function(e){
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+            var tag = (e.target && e.target.tagName) || '';
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+            if (!pdfDoc) return;   // 교재가 떠 있을 때만 되돌리기
+            e.preventDefault();
+            pdfAnnoUndo();
+        }
+    });
+    _pdfIdentityApplied = true;
+}
+
+// 페이지 번호 → 현재 표시 중인 주석 캔버스 element
+function pdfAnnoElForPage(page) {
+    var el = null;
+    document.querySelectorAll('.pdf-anno').forEach(function(a){
+        if (parseInt(a.dataset.page) === page) el = a;
+    });
+    return el;
+}
+// 원격 진행 중인 획을 id 로 빠르게 잇기 위한 캐시
+let _pdfRemoteStrokes = {};
+
+function pdfReceiveAnnoStart(d) {
+    if (!pdfAnnotations[d.page]) pdfAnnotations[d.page] = [];
+    var stroke = { tool: d.tool, color: d.color, size: d.size, points: [d.point], _id: d.id };
+    pdfAnnotations[d.page].push(stroke);
+    _pdfRemoteStrokes[d.id] = stroke;
+    var el = pdfAnnoElForPage(d.page);
+    if (el) pdfRedrawAnno(el, d.page);
+}
+function pdfReceiveAnnoPoint(d) {
+    var stroke = _pdfRemoteStrokes[d.id];
+    if (!stroke) {
+        // start 를 놓친 경우 보강 생성
+        if (!pdfAnnotations[d.page]) pdfAnnotations[d.page] = [];
+        stroke = { tool: 'pen', color: '#ef4444', size: 3, points: [], _id: d.id };
+        pdfAnnotations[d.page].push(stroke);
+        _pdfRemoteStrokes[d.id] = stroke;
+    }
+    stroke.points.push(d.point);
+    var el = pdfAnnoElForPage(d.page);
+    if (el) pdfRedrawAnno(el, d.page);
+}
+function pdfReceiveAnnoText(d) {
+    if (!pdfAnnotations[d.page]) pdfAnnotations[d.page] = [];
+    pdfAnnotations[d.page].push(d.stroke);
+    var el = pdfAnnoElForPage(d.page);
+    if (el) pdfRedrawAnno(el, d.page);
+}
+function pdfReceiveAnnoClear(d) {
+    pdfApplyClear(d.pages || []);
+}
+function pdfReceiveAnnoUndo(d) {
+    pdfApplyUndo(d.page);
+}
+
+// 되돌리기 — 현재 페이지의 마지막 획 제거(로컬) + 전송
+function pdfApplyUndo(page) {
+    var arr = pdfAnnotations[page];
+    if (!arr || arr.length === 0) return;
+    arr.pop();
+    var el = pdfAnnoElForPage(page);
+    if (el) pdfRedrawAnno(el, page);
+}
+function pdfAnnoUndo() {
+    var pages = pdfPagesPerView === 2 ? [pdfPageNum + 1, pdfPageNum] : [pdfPageNum];
+    // 내용이 있는 가장 최근 페이지부터 1개 되돌림
+    for (var i = 0; i < pages.length; i++) {
+        var p = pages[i];
+        if (pdfAnnotations[p] && pdfAnnotations[p].length > 0) {
+            pdfApplyUndo(p);
+            pdfAnnoSend('pdf-anno-undo', { page: p });
+            return;
+        }
+    }
+}
+
+/* ── 레이저 포인터 ───────────────────────────────────────────────── */
+let _pdfLaserSend = 0;
+function pdfBindLaser(anno) {
+    if (!anno || anno._laserBound) return;
+    anno._laserBound = true;
+    var wrap = anno.parentElement;
+    // '보기' 모드에서는 anno 가 pointer-events:none 이라 wrap 에서 마우스를 추적
+    wrap.addEventListener('mousemove', function(e){
+        if (pdfDrawTool !== 'none') return;            // 그리기 중엔 레이저 끔
+        if (typeof vcConn === 'undefined' || !vcConn) return;
+        var now = Date.now();
+        if (now - _pdfLaserSend < 45) return;          // 송신 스로틀
+        _pdfLaserSend = now;
+        var r = anno.getBoundingClientRect();
+        if (r.width === 0) return;
+        var x = (e.clientX - r.left) / r.width;
+        var y = (e.clientY - r.top) / r.height;
+        if (x < 0 || x > 1 || y < 0 || y > 1) return;
+        var me = pdfMyIdentity();
+        pdfAnnoSend('pdf-pointer', { page: parseInt(anno.dataset.page), x: x, y: y, name: me.name, color: me.color });
+    });
+    wrap.addEventListener('mouseleave', function(){
+        if (typeof vcConn === 'undefined' || !vcConn) return;
+        pdfAnnoSend('pdf-pointer', { page: parseInt(anno.dataset.page), hide: true, name: pdfMyIdentity().name });
+    });
+}
+let _pdfLaserTimers = {};
+function pdfReceivePointer(d) {
+    var page = d.page;
+    var el = pdfAnnoElForPage(page);
+    if (!el) return;
+    var wrap = el.parentElement;
+    var key = 'laser_' + String(d.name || 'x').replace(/[^a-zA-Z0-9가-힣]/g, '_');
+    var dot = document.getElementById(key);
+    if (d.hide) { if (dot) dot.remove(); return; }
+    if (!dot) {
+        dot = document.createElement('div');
+        dot.id = key;
+        dot.style.cssText = 'position:absolute;z-index:50;pointer-events:none;transform:translate(-50%,-50%);transition:left .05s linear,top .05s linear;';
+        dot.innerHTML = '<span class="laser-core"></span><span class="laser-name"></span>';
+        wrap.appendChild(dot);
+        dot.querySelector('.laser-core').style.cssText = 'display:block;width:16px;height:16px;border-radius:50%;background:' + (d.color||'#ef4444') + ';box-shadow:0 0 10px 3px ' + (d.color||'#ef4444') + ';opacity:.85;';
+        dot.querySelector('.laser-name').style.cssText = 'position:absolute;left:14px;top:-2px;white-space:nowrap;font-size:11px;font-weight:700;color:#fff;background:' + (d.color||'#ef4444') + ';padding:1px 6px;border-radius:8px;';
+        dot.querySelector('.laser-name').textContent = d.name || '';
+    }
+    // wrap 이 anno 캔버스와 같은 크기라고 가정(top:0,left:0 오버레이)
+    dot.style.left = (d.x * el.clientWidth) + 'px';
+    dot.style.top  = (d.y * el.clientHeight) + 'px';
+    // 일정 시간 갱신 없으면 사라짐
+    if (_pdfLaserTimers[key]) clearTimeout(_pdfLaserTimers[key]);
+    _pdfLaserTimers[key] = setTimeout(function(){ var x = document.getElementById(key); if (x) x.remove(); }, 1600);
 }
 
 // 한 번에 보일 페이지 수 변경 (1 또는 2)
@@ -25637,7 +25879,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260615190259 -->
+<!-- BUILD:20260615192101 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
