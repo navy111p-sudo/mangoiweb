@@ -2997,6 +2997,20 @@
   if(mb) mb.onclick=function(e){ e.stopPropagation(); v.muted=!v.muted; if(!v.muted){ var p=v.play(); if(p&&p.catch)p.catch(function(){}); } upd(); };
   if(cb) cb.onclick=function(e){ e.stopPropagation(); fadeOut(); };
   upd();
+  // 🔒 AI 상담사(#mangoi-widget)를 누르는 순간 — 단계/대기상태와 무관하게 —
+  //    홍보영상 음성을 즉시 차단(음소거+정지)하고 숨김. (가장 먼저 등록해 경쟁 방지)
+  function killOnCounselor(e){
+    try{
+      var t=e&&e.target;
+      if(t&&t.closest&&t.closest('#mangoi-widget')){
+        if(v){ try{ v.muted=true; }catch(_){} try{ v.pause(); }catch(_){} }
+        fadeOut();
+      }
+    }catch(_){}
+  }
+  document.addEventListener('pointerdown', killOnCounselor, true);
+  document.addEventListener('touchstart', killOnCounselor, true);
+  document.addEventListener('click', killOnCounselor, true);
   var shown=false;
   // 인트로(무음) 끝 → 인사를 '소리'로 1회 재생. 자동재생 차단되면 첫 제스처에서 재생.
   function playGreeting(){
@@ -25255,7 +25269,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260615155306 -->
+<!-- BUILD:20260615160038 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
