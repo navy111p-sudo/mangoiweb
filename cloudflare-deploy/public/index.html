@@ -201,7 +201,7 @@
             position: absolute; inset: 0;
             z-index: 0;
             pointer-events: none;
-            background: url('/img/bg/space.jpg') center center / cover no-repeat;
+            background: url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/space.jpg') center center / cover no-repeat;
             filter: blur(4px) brightness(0.62) saturate(0.92);
             transform: scale(1.08);
         }
@@ -801,7 +801,7 @@
             /* 학생 홈페이지와 동일한 우주 배경 (space.jpg 못 찾으면 그라데이션 폴백) */
             background:
               radial-gradient(ellipse at center, rgba(11,15,30,0.35) 0%, rgba(8,11,24,0.92) 100%),
-              url('/img/bg/space.jpg') center center / cover no-repeat,
+              url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/space.jpg') center center / cover no-repeat,
               radial-gradient(ellipse at 20% 30%, rgba(124,58,237,0.18), transparent 55%),
               radial-gradient(ellipse at 80% 70%, rgba(56,189,248,0.16), transparent 55%),
               #050714;
@@ -6629,7 +6629,7 @@
                     <input type="color" id="wb-color" value="#000000" title="색상" style="width:32px;height:28px;border:none;cursor:pointer;" />
                     <input type="range" id="wb-size" min="1" max="30" value="3" title="굵기" style="width:80px;" />
                     <!-- ✨ AI 도형 정리 토글 (켜면 펜 자유선이 자동으로 깔끔한 도형/축으로 정리됨) -->
-                    <button id="wb-ai-btn" class="active" onclick="wbToggleAi(this)" title="펜으로 그린 선/사각형/원/삼각형/축을 자동으로 정리" data-ko="✨ AI 도형" data-en="✨ AI Shapes">✨ AI 도형</button>
+                    <button id="wb-ai-btn" onclick="wbToggleAi(this)" title="펜으로 그린 선/사각형/원/삼각형/축을 자동으로 정리 (켜기)" data-ko="✨ AI 도형" data-en="✨ AI Shapes">✨ AI 도형</button>
                     <button id="wb-ocr-btn" onclick="wbToggleOcr(this)" title="손글씨를 AI가 읽어 디지털 글자로 변환 (실험적·잠시 후 자동 변환)" data-ko="✍️ AI 글자" data-en="✍️ AI Text">✍️ AI 글자</button>
                     <button onclick="wbClear()" data-ko="🗑️ 전체 지우기" data-en="🗑️ Clear All">🗑️ 전체 지우기</button>
                     <button onclick="wbSave()" data-ko="💾 저장" data-en="💾 Save">💾 저장</button>
@@ -6678,7 +6678,7 @@
                     <button id="pdf-tool-eraser" onclick="pdfSetDrawTool('eraser', this)" title="지우개" data-ko="🧽 지우개" data-en="🧽 Eraser">🧽 지우개</button>
                     <!-- ph265: 키보드 텍스트 도구 -->
                     <button id="pdf-tool-text" onclick="pdfSetDrawTool('text', this)" title="텍스트 (키보드 타자)" data-ko="📝 텍스트" data-en="📝 Text">📝 텍스트</button>
-                    <button id="pdf-ai-btn" class="active" onclick="wbToggleAi(this)" title="펜 자유선을 직선·사각형·원·삼각형·축으로 자동 정리" data-ko="✨ AI 도형" data-en="✨ AI Shapes">✨ AI 도형</button>
+                    <button id="pdf-ai-btn" onclick="wbToggleAi(this)" title="펜 자유선을 직선·사각형·원·삼각형·축으로 자동 정리 (켜기)" data-ko="✨ AI 도형" data-en="✨ AI Shapes">✨ AI 도형</button>
                     <input type="color" id="pdf-anno-color" value="#ef4444" title="색상" style="width:32px;height:26px;border:none;cursor:pointer;" />
                     <input type="range" id="pdf-anno-size" min="1" max="20" value="3" title="굵기" style="width:80px;" />
                     <button onclick="pdfAnnoUndo()" title="마지막 필기 되돌리기 (Ctrl+Z)" data-ko="↩ 되돌리기" data-en="↩ Undo">↩ 되돌리기</button>
@@ -6776,73 +6776,81 @@
               <button class="vc-bg-tile vc-bg-active" data-bg="off" onclick="vcSetBackground('off')" style="aspect-ratio:16/10;border:2px solid #fbbf24;border-radius:12px;background:linear-gradient(135deg,#1e293b,#0f172a);color:#e2e8f0;cursor:pointer;font-size:13px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px">
                 <span style="font-size:32px">🚫</span><span data-ko="배경 끄기" data-en="None">배경 끄기</span>
               </button>
-              <button class="vc-bg-tile" data-bg="galaxy" onclick="vcSetBackground('galaxy')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/galaxy.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+              <button class="vc-bg-tile" data-bg="galaxy" onclick="vcSetBackground('galaxy')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/galaxy.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
                 <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
                 <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🌌 우주" data-en="🌌 Space">🌌 우주</span>
               </button>
-              <button class="vc-bg-tile" data-bg="desert" onclick="vcSetBackground('desert')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/desert.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+              <button class="vc-bg-tile" data-bg="desert" onclick="vcSetBackground('desert')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/desert.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
                 <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
                 <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🐪 사막" data-en="🐪 Desert">🐪 사막</span>
               </button>
-              <button class="vc-bg-tile" data-bg="underwater" onclick="vcSetBackground('underwater')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/underwater.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+              <button class="vc-bg-tile" data-bg="underwater" onclick="vcSetBackground('underwater')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/underwater.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
                 <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
                 <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🐠 바닷속" data-en="🐠 Underwater">🐠 바닷속</span>
               </button>
-              <button class="vc-bg-tile" data-bg="beach" onclick="vcSetBackground('beach')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/beach.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+              <button class="vc-bg-tile" data-bg="beach" onclick="vcSetBackground('beach')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/beach.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
                 <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
                 <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🏖️ 바닷가" data-en="🏖️ Beach">🏖️ 바닷가</span>
               </button>
-              <button class="vc-bg-tile" data-bg="jungle" onclick="vcSetBackground('jungle')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/jungle.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+              <button class="vc-bg-tile" data-bg="jungle" onclick="vcSetBackground('jungle')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/jungle.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
                 <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
                 <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🌴 정글" data-en="🌴 Jungle">🌴 정글</span>
               </button>
-              <button class="vc-bg-tile" data-bg="fireplace" onclick="vcSetBackground('fireplace')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/fireplace.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+              <button class="vc-bg-tile" data-bg="fireplace" onclick="vcSetBackground('fireplace')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/fireplace.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
                 <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
                 <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🔥 벽난로" data-en="🔥 Fireplace">🔥 벽난로</span>
               </button>
-              <button class="vc-bg-tile" data-bg="angkor" onclick="vcSetBackground('angkor')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/angkor.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+              <button class="vc-bg-tile" data-bg="angkor" onclick="vcSetBackground('angkor')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/angkor.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
                 <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
                 <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🛕 앙코르와트" data-en="🛕 Angkor Wat">🛕 앙코르와트</span>
               </button>
-              <button class="vc-bg-tile" data-bg="planet" onclick="vcSetBackground('planet')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/planet.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+              <button class="vc-bg-tile" data-bg="planet" onclick="vcSetBackground('planet')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/planet.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
                 <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
                 <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🪐 외계행성" data-en="🪐 Alien Planet">🪐 외계행성</span>
               </button>
-              <button class="vc-bg-tile" data-bg="spaceship" onclick="vcSetBackground('spaceship')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/spaceship.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+              <button class="vc-bg-tile" data-bg="spaceship" onclick="vcSetBackground('spaceship')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/spaceship.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
                 <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
                 <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🚀 우주선" data-en="🚀 Spaceship">🚀 우주선</span>
               </button>
-              <button class="vc-bg-tile" data-bg="disney" onclick="vcSetBackground('disney')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/disney.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+              <button class="vc-bg-tile" data-bg="disney" onclick="vcSetBackground('disney')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/disney.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
                 <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
                 <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🏰 디즈니랜드" data-en="🏰 Disneyland">🏰 디즈니랜드</span>
               </button>
-              <button class="vc-bg-tile" data-bg="library" onclick="vcSetBackground('library')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/library.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+              <button class="vc-bg-tile" data-bg="library" onclick="vcSetBackground('library')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/library.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
                 <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
                 <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="📚 서재" data-en="📚 Library">📚 서재</span>
               </button>
-              <button class="vc-bg-tile" data-bg="tajmahal" onclick="vcSetBackground('tajmahal')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/tajmahal.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+              <button class="vc-bg-tile" data-bg="tajmahal" onclick="vcSetBackground('tajmahal')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/tajmahal.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
                 <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
                 <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🕌 타지마할" data-en="🕌 Taj Mahal">🕌 타지마할</span>
               </button>
-              <button class="vc-bg-tile" data-bg="pyramid" onclick="vcSetBackground('pyramid')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/pyramid.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+              <button class="vc-bg-tile" data-bg="pyramid" onclick="vcSetBackground('pyramid')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/pyramid.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
                 <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
                 <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🔺 피라미드" data-en="🔺 Pyramids">🔺 피라미드</span>
               </button>
-              <button class="vc-bg-tile" data-bg="antarctica" onclick="vcSetBackground('antarctica')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/antarctica.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+              <button class="vc-bg-tile" data-bg="antarctica" onclick="vcSetBackground('antarctica')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/antarctica.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
                 <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
                 <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🐧 남극" data-en="🐧 Antarctica">🐧 남극</span>
               </button>
-              <button class="vc-bg-tile" data-bg="folkvillage" onclick="vcSetBackground('folkvillage')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/%EB%AF%BC%EC%86%8D%EC%B4%8C.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+              <button class="vc-bg-tile" data-bg="folkvillage" onclick="vcSetBackground('folkvillage')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/%EB%AF%BC%EC%86%8D%EC%B4%8C.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
                 <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
                 <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🏯 민속촌" data-en="🏯 Folk Village">🏯 민속촌</span>
               </button>
-              <button class="vc-bg-tile" data-bg="spacegame" onclick="vcSetBackground('spacegame')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/%EC%9A%B0%EC%A3%BC%EA%B2%8C%EC%9E%84.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+              <button class="vc-bg-tile" data-bg="spacegame" onclick="vcSetBackground('spacegame')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/%EC%9A%B0%EC%A3%BC%EA%B2%8C%EC%9E%84.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
                 <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
                 <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🚀 우주게임" data-en="🚀 Space Game">🚀 우주게임</span>
               </button>
-              <button class="vc-bg-tile" data-bg="roman" onclick="vcSetBackground('roman')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/%EA%B3%A0%EB%8C%80%EB%A1%9C%EB%A7%88.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+              <button class="vc-bg-tile" data-bg="roman" onclick="vcSetBackground('roman')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/%EA%B3%A0%EB%8C%80%EB%A1%9C%EB%A7%88.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
                 <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
                 <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🏛️ 로마 거리" data-en="🏛️ Roman Street">🏛️ 로마 거리</span>
+              </button>
+              <button class="vc-bg-tile" data-bg="versailles" onclick="vcSetBackground('versailles')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/%EB%B2%A0%EB%A5%B4%EC%82%AC%EC%9D%B4%EC%9C%A0%EA%B6%81%EC%A0%84.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+                <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
+                <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="👑 베르사이유 궁전" data-en="👑 Versailles">👑 베르사이유 궁전</span>
+              </button>
+              <button class="vc-bg-tile" data-bg="mythhero" onclick="vcSetBackground('mythhero')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/%EC%8B%A0%ED%99%94%EC%98%81%EC%9B%85.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+                <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
+                <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="⚔️ 신화 영웅" data-en="⚔️ Myth Hero">⚔️ 신화 영웅</span>
               </button>
             </div>
             <div style="margin-top:18px;padding:12px 14px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:10px;font-size:12px;color:#fde68a;line-height:1.6">
@@ -10020,23 +10028,25 @@ function vcBgCaptureFps(){ return vcIsMobileDevice() ? 12 : 20; }
 
 // --- 1) 테마별 배경 이미지 (실제 사진 파일 → 한 번 로드 후 캐시) ---
 const VC_BG_IMAGES = {
-  galaxy:     '/img/bg/galaxy.jpg',     // 우주 - 안드로메다 은하
-  desert:     '/img/bg/desert.jpg',     // 사막 - 낙타와 석양
-  underwater: '/img/bg/underwater.jpg', // 바닷속 - 산호초 + 거북이
-  beach:      '/img/bg/beach.jpg',      // 바닷가 - 석양과 조개
-  jungle:     '/img/bg/jungle.jpg',     // 정글 - 열대우림 + 새 + 원숭이
-  fireplace:  '/img/bg/fireplace.jpg',  // 벽난로 - 따뜻한 거실
-  angkor:     '/img/bg/angkor.jpg',     // 앙코르와트 - 캄보디아 유적
-  planet:     '/img/bg/planet.jpg',     // 외계행성 - 장가계풍 우주 풍경
-  spaceship:  '/img/bg/spaceship.jpg',  // 우주선 조종실
-  disney:     '/img/bg/disney.jpg',     // 디즈니랜드 - 메인스트리트 + 성
-  library:    '/img/bg/library.jpg',    // 서재 - 원목 책장
-  tajmahal:   '/img/bg/tajmahal.jpg',   // 타지마할 - 인도
-  pyramid:    '/img/bg/pyramid.jpg',    // 피라미드 - 기자
-  antarctica: '/img/bg/antarctica.jpg', // 남극 - 빙하 + 펭귄
-  folkvillage:'/img/bg/%EB%AF%BC%EC%86%8D%EC%B4%8C.jpg', // 민속촌 - 한국 전통 마을
-  spacegame:  '/img/bg/%EC%9A%B0%EC%A3%BC%EA%B2%8C%EC%9E%84.jpg', // 우주게임 - 우주선 전투 콕핏
-  roman:      '/img/bg/%EA%B3%A0%EB%8C%80%EB%A1%9C%EB%A7%88.jpg', // 고대 로마 거리 - 시장·신전·병사
+  galaxy:     '/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/galaxy.jpg',     // 우주 - 안드로메다 은하
+  desert:     '/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/desert.jpg',     // 사막 - 낙타와 석양
+  underwater: '/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/underwater.jpg', // 바닷속 - 산호초 + 거북이
+  beach:      '/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/beach.jpg',      // 바닷가 - 석양과 조개
+  jungle:     '/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/jungle.jpg',     // 정글 - 열대우림 + 새 + 원숭이
+  fireplace:  '/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/fireplace.jpg',  // 벽난로 - 따뜻한 거실
+  angkor:     '/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/angkor.jpg',     // 앙코르와트 - 캄보디아 유적
+  planet:     '/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/planet.jpg',     // 외계행성 - 장가계풍 우주 풍경
+  spaceship:  '/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/spaceship.jpg',  // 우주선 조종실
+  disney:     '/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/disney.jpg',     // 디즈니랜드 - 메인스트리트 + 성
+  library:    '/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/library.jpg',    // 서재 - 원목 책장
+  tajmahal:   '/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/tajmahal.jpg',   // 타지마할 - 인도
+  pyramid:    '/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/pyramid.jpg',    // 피라미드 - 기자
+  antarctica: '/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/antarctica.jpg', // 남극 - 빙하 + 펭귄
+  folkvillage:'/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/%EB%AF%BC%EC%86%8D%EC%B4%8C.jpg', // 민속촌 - 한국 전통 마을
+  spacegame:  '/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/%EC%9A%B0%EC%A3%BC%EA%B2%8C%EC%9E%84.jpg', // 우주게임 - 우주선 전투 콕핏
+  roman:      '/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/%EA%B3%A0%EB%8C%80%EB%A1%9C%EB%A7%88.jpg', // 고대 로마 거리 - 시장·신전·병사
+  versailles: '/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/%EB%B2%A0%EB%A5%B4%EC%82%AC%EC%9D%B4%EC%9C%A0%EA%B6%81%EC%A0%84.jpg', // 베르사이유 궁전 - 거울의 방, 궁정 인물
+  mythhero:   '/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/%EC%8B%A0%ED%99%94%EC%98%81%EC%9B%85.jpg', // 신화 영웅 - 설원의 전투
 };
 const _vcBgCache = {}; // theme → HTMLImageElement (loaded)
 
@@ -11030,8 +11040,8 @@ let wbTool = 'pen';
 let wbDrawing = false;
 let wbLastX = 0, wbLastY = 0;
 let wbSnapshot = null;
-// ✨ AI 도형 정리: 펜 자유선을 깔끔한 도형/축으로 자동 변환 (켜짐 기본값)
-let wbAiMode = true;
+// ✨ AI 도형 정리: 펜 자유선을 깔끔한 도형/축으로 자동 변환 (기본 꺼짐 — 펜은 기존대로, 버튼으로 켬)
+let wbAiMode = false;
 let wbAiPoints = null;   // 현재 펜 획의 점 배열 [[x,y],...] (AI 모드)
 // ✍️ AI 글자(손글씨 인식): 기본 꺼짐(정확도 편차 큼). 켜면 멈춘 뒤 자동 OCR.
 let wbOcrMode = false;
@@ -26319,7 +26329,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260615204723 -->
+<!-- BUILD:20260615211247 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -27021,7 +27031,7 @@ document.addEventListener('keydown', function(e){
 
     // 🪟 투명 글래스 모달 박스
     var h = sf;
-    h += '<div id="mgam-bg" style="position:absolute;inset:-40px;z-index:0;background:url(\'/img/bg/space.jpg\') center center / cover no-repeat;filter:blur(13px) brightness(0.5) saturate(1.1);transform:scale(1.06)"></div>';
+    h += '<div id="mgam-bg" style="position:absolute;inset:-40px;z-index:0;background:url(\'/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/space.jpg\') center center / cover no-repeat;filter:blur(13px) brightness(0.5) saturate(1.1);transform:scale(1.06)"></div>';
     h += '<div id="mgam-box" style="position:relative;z-index:2;width:100%;max-width:680px;min-height:74vh;max-height:92vh;display:flex;flex-direction:column;background:rgba(255,255,255,0.05);backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);border:1px solid rgba(255,255,255,0.16);border-radius:22px;box-shadow:0 24px 70px -20px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.14);overflow:hidden;animation:mgAmRise .32s cubic-bezier(.2,.8,.2,1)">';
 
     // 헤더
