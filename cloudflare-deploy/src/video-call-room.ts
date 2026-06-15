@@ -155,6 +155,9 @@ export class VideoCallRoom {
         case 'pdf-anno-undo':
         case 'pdf-pointer':
         case 'whiteboard-text':
+        // ✨ AI 도형 정리: 정리된 도형 / 원본 자유선 동기화
+        case 'whiteboard-shape':
+        case 'whiteboard-stroke':
           this.broadcast(userId, { type: msg.type, data: msg.data });
           break;
         case 'offer':

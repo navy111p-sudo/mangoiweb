@@ -6628,11 +6628,14 @@
                     <button onclick="wbSetTool('text')" data-ko="📝 텍스트" data-en="📝 Text" title="키보드 타자">📝 텍스트</button>
                     <input type="color" id="wb-color" value="#000000" title="색상" style="width:32px;height:28px;border:none;cursor:pointer;" />
                     <input type="range" id="wb-size" min="1" max="30" value="3" title="굵기" style="width:80px;" />
+                    <!-- ✨ AI 도형 정리 토글 (켜면 펜 자유선이 자동으로 깔끔한 도형/축으로 정리됨) -->
+                    <button id="wb-ai-btn" class="active" onclick="wbToggleAi(this)" title="펜으로 그린 선/사각형/원/삼각형/축을 자동으로 정리" data-ko="✨ AI 도형" data-en="✨ AI Shapes">✨ AI 도형</button>
                     <button onclick="wbClear()" data-ko="🗑️ 전체 지우기" data-en="🗑️ Clear All">🗑️ 전체 지우기</button>
                     <button onclick="wbSave()" data-ko="💾 저장" data-en="💾 Save">💾 저장</button>
                 </div>
                 <div class="wb-canvas-wrap">
                     <canvas id="wb-canvas"></canvas>
+                    <canvas id="wb-ai-layer" style="pointer-events:none;z-index:5;"></canvas>
                 </div>
             </div>
         </div>
@@ -8980,6 +8983,12 @@ function vcHandleMessage(msg) {
         case 'whiteboard-text':
             wbReceiveText(msg.data);
             break;
+        case 'whiteboard-shape':
+            wbReceiveShape(msg.data);
+            break;
+        case 'whiteboard-stroke':
+            wbReceiveStroke(msg.data);
+            break;
 
         // 교재(PDF) 위 실시간 양방향 판서
         case 'pdf-anno-start':
@@ -11016,6 +11025,9 @@ let wbTool = 'pen';
 let wbDrawing = false;
 let wbLastX = 0, wbLastY = 0;
 let wbSnapshot = null;
+// ✨ AI 도형 정리: 펜 자유선을 깔끔한 도형/축으로 자동 변환 (켜짐 기본값)
+let wbAiMode = true;
+let wbAiPoints = null;   // 현재 펜 획의 점 배열 [[x,y],...] (AI 모드)
 
 function wbSetTool(tool) {
     wbTool = tool;
@@ -11028,6 +11040,9 @@ function wbResize() {
     const wrap = canvas.parentElement;
     canvas.width = wrap.clientWidth;
     canvas.height = wrap.clientHeight;
+    // AI 프리뷰 레이어도 같은 크기로
+    const ai = document.getElementById('wb-ai-layer');
+    if (ai) { ai.width = wrap.clientWidth; ai.height = wrap.clientHeight; }
 }
 
 function wbInit() {
@@ -11087,6 +11102,8 @@ function wbInit() {
         if (['line','rect','circle'].includes(wbTool)) {
             wbSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
         }
+        // ✨ AI 모드 펜: 점 수집 시작 (메인 캔버스/전송은 mouseup 에서 정리 후 한 번에)
+        if (wbTool === 'pen' && wbAiMode) { wbAiPoints = [[wbLastX, wbLastY]]; }
     });
 
     canvas.addEventListener('mousemove', e => {
@@ -11096,6 +11113,14 @@ function wbInit() {
         const y = e.clientY - rect.top;
         const color = document.getElementById('wb-color').value;
         const size = parseInt(document.getElementById('wb-size').value);
+
+        // ✨ AI 모드 펜: 메인 캔버스에 그리지 않고 점만 모아 프리뷰 레이어에 표시
+        if (wbTool === 'pen' && wbAiMode && wbAiPoints) {
+            wbAiPoints.push([x, y]);
+            wbAiPreview(color, size);
+            wbLastX = x; wbLastY = y;
+            return;
+        }
 
         if (wbTool === 'pen' || wbTool === 'eraser') {
             ctx.beginPath();
@@ -11141,6 +11166,12 @@ function wbInit() {
     });
 
     canvas.addEventListener('mouseup', e => {
+        // ✨ AI 모드 펜: 모은 점을 도형/축으로 인식해 정리 후 메인 캔버스에 그리고 공유
+        if (wbDrawing && wbTool === 'pen' && wbAiMode && wbAiPoints) {
+            try { wbFinalizeAiStroke(); } catch (err) { console.warn('[wb-ai] finalize 실패, 원본 잉크로 폴백', err); try { wbCommitRawStroke(); } catch(_){} }
+            wbDrawing = false; wbAiPoints = null; wbSnapshot = null;
+            return;
+        }
         if (wbDrawing && ['line','rect','circle'].includes(wbTool) && vcConn) {
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
@@ -11167,6 +11198,232 @@ function wbInit() {
 
     window.addEventListener('resize', wbResize);
     window.addEventListener('resize', () => { if (pdfDoc && pdfPagesPerView === 2) pdfRender(); });
+}
+
+/* ================================================================
+   ✨ 칠판 AI 도형/축 정리 (1단계 — 클라이언트 기하 인식)
+   ──────────────────────────────────────────────────────────────────
+   펜으로 그린 자유선을 직선·사각형·원/타원·삼각형·좌표축으로 자동 변환.
+   인식 실패(곡선/글씨)는 원본 잉크 그대로 유지. AI 끄면 기존 동작과 동일.
+   결과는 whiteboard-shape / whiteboard-stroke 로 상대에게 동기화.
+================================================================ */
+function wbToggleAi(btn){
+  wbAiMode = !wbAiMode;
+  if (btn) btn.classList.toggle('active', wbAiMode);
+  try { if (typeof showToast === 'function') showToast(wbAiMode ? '✨ AI 도형 정리 켜짐' : 'AI 도형 정리 꺼짐 (자유 필기)'); } catch(_){}
+}
+
+// 진행 중 펜 획을 프리뷰 레이어에 반투명으로 표시
+function wbAiPreview(color, size){
+  const ai = document.getElementById('wb-ai-layer');
+  if (!ai || !wbAiPoints) return;
+  const c = ai.getContext('2d');
+  c.clearRect(0, 0, ai.width, ai.height);
+  c.save();
+  c.strokeStyle = color; c.globalAlpha = 0.45;
+  c.lineWidth = size; c.lineCap = 'round'; c.lineJoin = 'round';
+  c.beginPath();
+  wbAiPoints.forEach((p, i) => { if (i === 0) c.moveTo(p[0], p[1]); else c.lineTo(p[0], p[1]); });
+  c.stroke();
+  c.restore();
+}
+
+// 인식 실패 시: 원본 자유선을 메인 캔버스에 그리고 상대에게 전송
+function wbCommitRawStroke(){
+  const canvas = document.getElementById('wb-canvas');
+  const ctx = canvas.getContext('2d');
+  const ai = document.getElementById('wb-ai-layer');
+  if (ai) ai.getContext('2d').clearRect(0, 0, ai.width, ai.height);
+  if (!wbAiPoints || wbAiPoints.length === 0) return;
+  const color = document.getElementById('wb-color').value;
+  const size = parseInt(document.getElementById('wb-size').value) || 3;
+  ctx.save();
+  ctx.strokeStyle = color; ctx.lineWidth = size; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  wbAiPoints.forEach((p, i) => { if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); });
+  ctx.stroke();
+  ctx.restore();
+  const pn = wbAiPoints.map(p => [p[0] / canvas.width, p[1] / canvas.height]);
+  if (vcConn) { try { vcConn.send({ type: 'whiteboard-stroke', data: { points: pn, color, size } }); } catch(_){} }
+}
+
+// 펜 획 마무리 — 도형 인식 후 정리 그리기 + 동기화
+function wbFinalizeAiStroke(){
+  const canvas = document.getElementById('wb-canvas');
+  const ctx = canvas.getContext('2d');
+  const color = document.getElementById('wb-color').value;
+  const size = parseInt(document.getElementById('wb-size').value) || 3;
+  const shape = wbDetectShape(wbAiPoints, canvas.width, canvas.height);
+  const ai = document.getElementById('wb-ai-layer');
+  if (ai) ai.getContext('2d').clearRect(0, 0, ai.width, ai.height);
+  if (shape) {
+    wbRenderShape(ctx, shape, canvas.width, canvas.height, color, size);
+    if (vcConn) { try { vcConn.send({ type: 'whiteboard-shape', data: { shape, color, size } }); } catch(_){} }
+    const names = { line:'직선', rect:'사각형', ellipse:'원', triangle:'삼각형', axes:'좌표축' };
+    try { if (typeof showToast === 'function') showToast('✨ ' + (names[shape.t] || '도형') + '(으)로 정리했어요'); } catch(_){}
+  } else {
+    wbCommitRawStroke();
+  }
+}
+
+// ── 기하 헬퍼 ──
+function wbDist(a, b){ return Math.hypot(a[0]-b[0], a[1]-b[1]); }
+function wbPerp(p, a, b){
+  const dx = b[0]-a[0], dy = b[1]-a[1];
+  const L2 = dx*dx + dy*dy;
+  if (L2 === 0) return wbDist(p, a);
+  let t = ((p[0]-a[0])*dx + (p[1]-a[1])*dy) / L2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(p[0]-(a[0]+t*dx), p[1]-(a[1]+t*dy));
+}
+function wbRDP(pts, eps){
+  if (pts.length < 3) return pts.slice();
+  let dmax = 0, idx = 0;
+  for (let i = 1; i < pts.length-1; i++){
+    const d = wbPerp(pts[i], pts[0], pts[pts.length-1]);
+    if (d > dmax){ dmax = d; idx = i; }
+  }
+  if (dmax > eps){
+    const left = wbRDP(pts.slice(0, idx+1), eps);
+    const right = wbRDP(pts.slice(idx), eps);
+    return left.slice(0, -1).concat(right);
+  }
+  return [pts[0], pts[pts.length-1]];
+}
+function wbAngleDeg(a, b, c){
+  const v1 = [a[0]-b[0], a[1]-b[1]], v2 = [c[0]-b[0], c[1]-b[1]];
+  const m1 = Math.hypot(v1[0], v1[1]), m2 = Math.hypot(v2[0], v2[1]);
+  if (m1 === 0 || m2 === 0) return 0;
+  let cos = (v1[0]*v2[0] + v1[1]*v2[1]) / (m1*m2);
+  cos = Math.max(-1, Math.min(1, cos));
+  return Math.acos(cos) * 180 / Math.PI;
+}
+function wbLooksRect(simp){
+  const c = simp.slice(0, simp.length-1); // 닫힘 중복 제거
+  if (c.length < 4) return false;
+  let ok = 0;
+  for (let i = 0; i < c.length; i++){
+    const a = c[(i-1+c.length)%c.length], b = c[i], d = c[(i+1)%c.length];
+    if (Math.abs(wbAngleDeg(a, b, d) - 90) < 25) ok++;
+  }
+  return ok >= Math.min(4, c.length);
+}
+
+// 점 배열 → 정규화된 도형 객체(또는 null)
+function wbDetectShape(pts, W, H){
+  if (!pts || pts.length < 5) return null;
+  let minX=1e9, minY=1e9, maxX=-1e9, maxY=-1e9;
+  for (const p of pts){
+    if (p[0]<minX) minX=p[0]; if (p[1]<minY) minY=p[1];
+    if (p[0]>maxX) maxX=p[0]; if (p[1]>maxY) maxY=p[1];
+  }
+  const w = maxX-minX, h = maxY-minY, diag = Math.hypot(w, h);
+  if (diag < 24) return null;
+  const start = pts[0], end = pts[pts.length-1];
+  const closed = wbDist(start, end) < diag*0.25;
+  const simp = wbRDP(pts, diag*0.06);
+  const N = simp.length;
+  const norm = (x, y) => [x/W, y/H];
+
+  if (!closed){
+    let dev = 0; for (const p of pts){ const d = wbPerp(p, start, end); if (d > dev) dev = d; }
+    if (dev/diag < 0.10){
+      const a = norm(start[0], start[1]), b = norm(end[0], end[1]);
+      return { t:'line', x1:a[0], y1:a[1], x2:b[0], y2:b[1] };
+    }
+    // 좌표축 (ㄱ/L자: 코너 1개, 각 ~90°)
+    if (N === 3){
+      const ang = wbAngleDeg(simp[0], simp[1], simp[2]);
+      if (Math.abs(ang - 90) < 28){
+        const o = simp[1], arm1 = simp[0], arm2 = simp[2];
+        const horiz = Math.abs(arm1[0]-o[0]) > Math.abs(arm2[0]-o[0]) ? arm1 : arm2;
+        const vert  = horiz === arm1 ? arm2 : arm1;
+        const oo = norm(o[0], o[1]);
+        return { t:'axes', ox:oo[0], oy:oo[1], hx:horiz[0]/W, vy:vert[1]/H };
+      }
+    }
+    return null;
+  }
+
+  const corners = N - 1;
+  const cx = (minX+maxX)/2, cy = (minY+maxY)/2;
+  const rxh = (w/2) || 1, ryh = (h/2) || 1;
+  let mean = 0; const rs = [];
+  for (const p of pts){ const r = Math.hypot((p[0]-cx)/rxh, (p[1]-cy)/ryh); rs.push(r); mean += r; }
+  mean /= rs.length;
+  let varr = 0; for (const r of rs) varr += (r-mean)*(r-mean); varr /= rs.length;
+  const roundish = varr < 0.06 && Math.abs(mean - 1) < 0.35;
+
+  if (corners >= 4 && corners <= 5 && !roundish && wbLooksRect(simp)){
+    const o = norm(minX, minY);
+    return { t:'rect', x:o[0], y:o[1], w:w/W, h:h/H };
+  }
+  if (corners === 3 && !roundish){
+    const p0 = norm(simp[0][0], simp[0][1]), p1 = norm(simp[1][0], simp[1][1]), p2 = norm(simp[2][0], simp[2][1]);
+    return { t:'triangle', pts:[p0, p1, p2] };
+  }
+  if (roundish){
+    const o = norm(cx, cy);
+    return { t:'ellipse', cx:o[0], cy:o[1], rx:(w/2)/W, ry:(h/2)/H };
+  }
+  return null;
+}
+
+// 정규화 도형 객체를 캔버스에 렌더 (로컬/원격 공통)
+function wbRenderShape(ctx, s, W, H, color, size){
+  ctx.save();
+  ctx.strokeStyle = color || '#000'; ctx.lineWidth = size || 3;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  if (s.t === 'line'){
+    ctx.beginPath(); ctx.moveTo(s.x1*W, s.y1*H); ctx.lineTo(s.x2*W, s.y2*H); ctx.stroke();
+  } else if (s.t === 'rect'){
+    ctx.strokeRect(s.x*W, s.y*H, s.w*W, s.h*H);
+  } else if (s.t === 'ellipse'){
+    ctx.beginPath(); ctx.ellipse(s.cx*W, s.cy*H, Math.max(1, s.rx*W), Math.max(1, s.ry*H), 0, 0, Math.PI*2); ctx.stroke();
+  } else if (s.t === 'triangle'){
+    ctx.beginPath();
+    ctx.moveTo(s.pts[0][0]*W, s.pts[0][1]*H);
+    ctx.lineTo(s.pts[1][0]*W, s.pts[1][1]*H);
+    ctx.lineTo(s.pts[2][0]*W, s.pts[2][1]*H);
+    ctx.closePath(); ctx.stroke();
+  } else if (s.t === 'axes'){
+    const ox = s.ox*W, oy = s.oy*H, hx = s.hx*W, vy = s.vy*H;
+    ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(hx, oy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox, vy); ctx.stroke();
+    wbArrowHead(ctx, ox, oy, hx, oy, size || 3);
+    wbArrowHead(ctx, ox, oy, ox, vy, size || 3);
+  }
+  ctx.restore();
+}
+function wbArrowHead(ctx, fx, fy, tx, ty, size){
+  const ang = Math.atan2(ty-fy, tx-fx);
+  const len = Math.max(9, size*3);
+  ctx.beginPath();
+  ctx.moveTo(tx, ty);
+  ctx.lineTo(tx - len*Math.cos(ang-0.42), ty - len*Math.sin(ang-0.42));
+  ctx.moveTo(tx, ty);
+  ctx.lineTo(tx - len*Math.cos(ang+0.42), ty - len*Math.sin(ang+0.42));
+  ctx.stroke();
+}
+
+// 상대가 정리한 도형 수신
+function wbReceiveShape(data){
+  const canvas = document.getElementById('wb-canvas');
+  if (!canvas || !data || !data.shape) return;
+  wbRenderShape(canvas.getContext('2d'), data.shape, canvas.width, canvas.height, data.color || '#000', data.size || 3);
+}
+// 상대의 원본 자유선 수신
+function wbReceiveStroke(data){
+  const canvas = document.getElementById('wb-canvas');
+  if (!canvas || !data || !data.points) return;
+  const ctx = canvas.getContext('2d');
+  ctx.save();
+  ctx.strokeStyle = data.color || '#000'; ctx.lineWidth = data.size || 3;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  data.points.forEach((p, i) => { const x = p[0]*canvas.width, y = p[1]*canvas.height; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+  ctx.stroke();
+  ctx.restore();
 }
 
 /** 다른 참가자의 드로잉을 수신하여 그립니다 */
@@ -25884,7 +26141,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260615195048 -->
+<!-- BUILD:20260615200647 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
