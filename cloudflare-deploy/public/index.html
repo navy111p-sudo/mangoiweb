@@ -9951,6 +9951,20 @@ const vcBg = {
 };
 try { window.vcBg = vcBg; } catch(_){}  // 절전 핸들러(백그라운드 정지)에서 참조하도록 노출
 
+// 모바일 판별 (경량화 분기에서 공용으로 사용) — 한 번 계산 후 캐시
+function vcIsMobileDevice(){
+  if (vcBg._mobile === undefined) {
+    vcBg._mobile = window.matchMedia('(max-width: 920px)').matches
+      || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+  }
+  return vcBg._mobile;
+}
+// 처리 캔버스 목표 가로폭 — 카메라가 720p여도 여기로 축소해서 CPU·인코딩 부하↓
+//   세그멘테이션 모델 입력은 256px라 캔버스를 키워도 화질 이득이 거의 없고 부하만 늘어남
+function vcBgTargetWidth(){ return vcIsMobileDevice() ? 480 : 640; }
+// 가상배경 출력(캔버스) 트랙에 적용할 캡처 fps — 실제 처리 fps와 맞춰 중복 프레임 인코딩 방지
+function vcBgCaptureFps(){ return vcIsMobileDevice() ? 12 : 20; }
+
 // --- 1) 테마별 배경 이미지 (실제 사진 파일 → 한 번 로드 후 캐시) ---
 const VC_BG_IMAGES = {
   galaxy:     '/img/bg/galaxy.jpg',     // 우주 - 안드로메다 은하
@@ -10015,7 +10029,8 @@ async function vcInitBgEngine(){
   });
   // Phase 7m: 가장자리 품질 우선 - modelSelection 0 (general, 256x256, 정밀한 edge)
   //   ↳ 멈춤 방지는 vcBgRenderLoop 의 프레임 throttle (skipNext) 로 해결
-  vcBg.segmenter.setOptions({ modelSelection: 0, selfieMode: false });
+  // 🔋 모바일은 경량 landscape 모델(1, 144x256)로 전환해 발열·CPU 절감 → 연결 안정
+  vcBg.segmenter.setOptions({ modelSelection: vcIsMobileDevice() ? 1 : 0, selfieMode: false });
   vcBg.segmenter.onResults(vcOnSegResults);
   await vcBg.segmenter.initialize();
   // 합성 캔버스
@@ -10055,10 +10070,13 @@ function vcOnSegResults(results){
   //    겹치는 부분만 살아남아 가장자리가 안쪽으로 1px 잠식됨 → halo 제거
   mctx.globalCompositeOperation = 'destination-in';
   mctx.filter = 'contrast(2.4) brightness(1.08)';
+  // 🔋 모바일은 가로 2방향만 erosion (4→2 패스, drawImage 비용 절반) → 발열·끊김 완화
   mctx.drawImage(results.segmentationMask, -1, 0, w, h);
   mctx.drawImage(results.segmentationMask, 1, 0, w, h);
-  mctx.drawImage(results.segmentationMask, 0, -1, w, h);
-  mctx.drawImage(results.segmentationMask, 0, 1, w, h);
+  if (!vcIsMobileDevice()) {
+    mctx.drawImage(results.segmentationMask, 0, -1, w, h);
+    mctx.drawImage(results.segmentationMask, 0, 1, w, h);
+  }
   mctx.filter = 'none';
   mctx.globalCompositeOperation = 'source-over';
   mctx.restore();
@@ -10165,10 +10183,15 @@ async function vcEnsureHiddenVideo(){
       setTimeout(resolve, 2500); // 안전 타임아웃 2.5초
     });
   }
-  // 캔버스 사이즈를 카메라 해상도에 맞춤
+  // 캔버스 사이즈 = 카메라 비율 유지하되 목표 가로폭(PC 640 / 모바일 480)으로 축소
+  //   → 720p 그대로 합성/인코딩하던 것 대비 픽셀 수 1/4~1/9 로 줄어 CPU·전력·대역폭 대폭 절감
   if (vcBg.canvas && vcBg.hiddenVideo.videoWidth > 0) {
-    vcBg.canvas.width = vcBg.hiddenVideo.videoWidth;
-    vcBg.canvas.height = vcBg.hiddenVideo.videoHeight;
+    const vw = vcBg.hiddenVideo.videoWidth, vh = vcBg.hiddenVideo.videoHeight;
+    const target = vcBgTargetWidth();
+    const cw = Math.min(vw, target);
+    const ch = Math.round(cw * vh / vw);
+    vcBg.canvas.width = cw;   vcBg.canvas.height = ch;
+    if (vcBg.maskCanvas) { vcBg.maskCanvas.width = cw; vcBg.maskCanvas.height = ch; }
   }
 }
 
@@ -25597,7 +25620,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260615185411 -->
+<!-- BUILD:20260615185631 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
