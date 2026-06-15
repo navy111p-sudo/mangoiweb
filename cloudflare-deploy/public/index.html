@@ -3105,6 +3105,40 @@
       cb=document.getElementById('mango-promo-close'), box=document.getElementById('mango-promo-video');
   if(!box) return;
   var KEY='mango_promo_dismissed';
+
+  // ═══════════════════════════════════════════════════════════════════
+  // 🔇 (2026-06-15) 사용자 요청 — 상담직원 홍보영상 음성 "영구" 차단
+  //   ① 영상은 항상 무음 유지: 어떤 코드가 unmute 해도 즉시 다시 무음 처리
+  //   ② 화면 아무 곳이나 한 번이라도 클릭/터치/키입력 → 영구 숨김(localStorage 기억)
+  //   ③ 한 번 끈 적 있으면 다음 방문에도 아예 표시 안 함(다시는 소리 안 남)
+  // ═══════════════════════════════════════════════════════════════════
+  var HARD_KEY = 'mango_promo_voice_off';
+  function forceMute(){ try{ v.muted = true; v.volume = 0; }catch(_){ } }
+  forceMute();
+  try{
+    v.addEventListener('volumechange', forceMute);
+    v.addEventListener('play', forceMute);
+    v.addEventListener('playing', forceMute);
+    v.addEventListener('loadeddata', forceMute);
+  }catch(_){}
+  // 이전에 영구 차단한 적 있으면 아예 표시조차 안 함
+  try{ if(localStorage.getItem(HARD_KEY)==='1'){ if(box.parentNode) box.parentNode.removeChild(box); return; } }catch(_){}
+  var _killedForever = false;
+  function killForever(){
+    if(_killedForever) return; _killedForever = true;
+    try{ localStorage.setItem(HARD_KEY,'1'); }catch(_){}
+    try{ v.muted = true; v.volume = 0; v.pause(); }catch(_){}
+    try{ if(box.parentNode) box.parentNode.removeChild(box); }catch(_){}
+    document.removeEventListener('pointerdown', killForever, true);
+    document.removeEventListener('touchstart', killForever, true);
+    document.removeEventListener('click', killForever, true);
+    document.removeEventListener('keydown', killForever, true);
+  }
+  // 가장 먼저 등록 → 첫 사용자 동작에서 즉시 차단(다른 핸들러보다 우선)
+  document.addEventListener('pointerdown', killForever, true);
+  document.addEventListener('touchstart', killForever, true);
+  document.addEventListener('click', killForever, true);
+  document.addEventListener('keydown', killForever, true);
   var fading=false, phase='intro', greetingArmed=false, disarmGreeting=null;
   function detachListeners(){
     if(disarmGreeting){ try{ disarmGreeting(); }catch(e){} }
@@ -3161,7 +3195,7 @@
   // 인트로(무음) 끝 → 인사를 '소리'로 1회 재생. 자동재생 차단되면 첫 제스처에서 재생.
   function playGreeting(){
     try{
-      v.muted=false; upd();                 // 🔊
+      v.muted=true; v.volume=0; upd();       // 🔇 (2026-06-15) 인사 음성도 무음 — 소리 절대 재생 안 함
       v.currentTime=0;
       var p=v.play();
       if(p&&p.then){ p.then(function(){ greetingArmed=false; }).catch(function(){ armGreeting(); }); }
@@ -25563,7 +25597,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260615184608 -->
+<!-- BUILD:20260615185411 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
