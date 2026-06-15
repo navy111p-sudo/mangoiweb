@@ -1229,30 +1229,52 @@ async function handleTurnConfig(env: Env): Promise<Response> {
   });
 }
 
-// ✨ 칠판 손글씨 이미지 → 텍스트 (Workers AI 비전 모델 llava). 인식 실패/빈 결과면 text:'' 반환.
+// ✨ 칠판 손글씨 이미지 → 텍스트 (Workers AI 비전). 영어 대/소문자·숫자 위주.
+//   1순위: llama-3.2-11b-vision (글자 인식 우수, 라이선스 동의 1회 필요) → 실패 시 llava 폴백.
 async function handleWbOcr(request: Request, env: Env): Promise<Response> {
   const J = (o: any, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { 'Content-Type': 'application/json' } });
+  const AI = (env as any).AI;
   try {
-    if (!(env as any).AI) return J({ ok: false, text: '', error: 'AI_binding_missing' }, 503);
+    if (!AI) return J({ ok: false, text: '', error: 'AI_binding_missing' }, 503);
     const buf = await request.arrayBuffer();
     if (!buf || buf.byteLength === 0) return J({ ok: false, text: '', error: 'empty' }, 400);
-    if (buf.byteLength > 1_500_000) return J({ ok: false, text: '', error: 'too_large' }, 413);
+    if (buf.byteLength > 3_000_000) return J({ ok: false, text: '', error: 'too_large' }, 413);
     const bytes = [...new Uint8Array(buf)];
-    // 영어·숫자 위주 (한글 손글씨는 이 모델로 신뢰도 낮음). 짧고 엄격하게.
-    const prompt = 'This image shows handwriting on a white background — English letters, a word, or numbers. Transcribe EXACTLY what is written, preserving uppercase/lowercase. Reply with ONLY the transcription on a single line: no quotes, no description, no extra words. If nothing is legible, reply exactly: NONE';
-    let out = '';
+    const prompt = 'You are a precise OCR engine. The image shows HANDWRITTEN English letters/words/numbers in black on a white background. Read it character by character and output the exact text, preserving UPPERCASE vs lowercase and digits. Output ONLY the text on one line — no quotes, no labels, no explanation. If unreadable, output exactly: NONE';
+
+    const clean = (raw: any): string => {
+      let t = String(raw ?? '').trim();
+      // 첫 줄만, 따옴표/머리말 제거
+      t = t.split(/\r?\n/)[0].trim();
+      t = t.replace(/^(the\s+(text|image|handwriting)[^:]*:|answer:|transcription:|output:)\s*/i, '').trim();
+      t = t.replace(/^["'`]+|["'`.]+$/g, '').trim();
+      if (/^none$/i.test(t)) t = '';
+      if (t.length > 40) t = '';           // 설명문 토하면 신뢰 안 함
+      return t;
+    };
+
+    // 1) llama-3.2-11b-vision (라이선스 1회 동의 후 사용)
+    let text = '';
     try {
-      const r: any = await (env as any).AI.run('@cf/llava-hf/llava-1.5-7b-hf', { image: bytes, prompt, max_tokens: 64 });
-      out = (r && (r.description ?? r.response ?? r.text ?? '')) || '';
-    } catch (e: any) {
-      return J({ ok: false, text: '', error: 'ai_error:' + (e?.message || e) }, 200);
+      try {
+        const agreed = env.SESSION_STATE ? await env.SESSION_STATE.get('wbocr:llama32v_agreed') : '1';
+        if (!agreed) {
+          try { await AI.run('@cf/meta/llama-3.2-11b-vision-instruct', { prompt: 'agree' }); } catch (_){}
+          try { if (env.SESSION_STATE) await env.SESSION_STATE.put('wbocr:llama32v_agreed', '1'); } catch (_){}
+        }
+      } catch (_){}
+      const r: any = await AI.run('@cf/meta/llama-3.2-11b-vision-instruct', { image: bytes, prompt, max_tokens: 48 });
+      text = clean(r && (r.response ?? r.description ?? r.text));
+    } catch (_){ text = ''; }
+
+    // 2) 실패하면 llava 폴백
+    if (!text) {
+      try {
+        const r2: any = await AI.run('@cf/llava-hf/llava-1.5-7b-hf', { image: bytes, prompt, max_tokens: 48 });
+        text = clean(r2 && (r2.description ?? r2.response ?? r2.text));
+      } catch (_){ text = ''; }
     }
-    // 정리: 모델이 붙이는 따옴표/머리말 제거
-    let text = String(out).trim();
-    text = text.replace(/^["'`]+|["'`]+$/g, '').trim();
-    if (/^none$/i.test(text) || text.length === 0) text = '';
-    // 모델이 설명문을 토하면(너무 길면) 신뢰 안 함
-    if (text.length > 60) text = '';
+
     return J({ ok: true, text });
   } catch (e: any) {
     return J({ ok: false, text: '', error: String(e?.message || e) }, 200);

@@ -11348,17 +11348,20 @@ async function wbRunOcr(){
   const pad = 14;
   minX-=pad; minY-=pad; maxX+=pad; maxY+=pad;
   const bw = Math.max(1, maxX-minX), bh = Math.max(1, maxY-minY);
-  const scale = 2;
+  // 정규화 렌더: 글씨 높이를 일정(220px)하게 키우고 여백·굵은 획으로 가독성↑ → 인식률↑
+  const targetH = 220;
+  let isc = targetH / bh;
+  if (bw*isc > 1700) isc = 1700 / bw;        // 가로가 너무 길면 제한
+  const padPx = Math.round(targetH*0.18);
   const off = document.createElement('canvas');
-  off.width = Math.min(1600, Math.round(bw*scale));
-  off.height = Math.min(1600, Math.round(bh*scale));
+  off.width = Math.round(bw*isc) + padPx*2;
+  off.height = Math.round(bh*isc) + padPx*2;
   const oc = off.getContext('2d');
   oc.fillStyle = '#ffffff'; oc.fillRect(0, 0, off.width, off.height);
-  oc.strokeStyle = '#000000'; oc.lineWidth = Math.max(2, 3*scale); oc.lineCap = 'round'; oc.lineJoin = 'round';
-  const sx = off.width / bw, sy = off.height / bh;
+  oc.strokeStyle = '#000000'; oc.lineWidth = Math.max(7, targetH*0.05); oc.lineCap = 'round'; oc.lineJoin = 'round';
   for (const s of pending){
     oc.beginPath();
-    s.points.forEach((p, i) => { const x=(p[0]-minX)*sx, y=(p[1]-minY)*sy; if (i===0) oc.moveTo(x,y); else oc.lineTo(x,y); });
+    s.points.forEach((p, i) => { const x = padPx + (p[0]-minX)*isc, y = padPx + (p[1]-minY)*isc; if (i===0) oc.moveTo(x,y); else oc.lineTo(x,y); });
     oc.stroke();
   }
   let text = '';
@@ -26395,7 +26398,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260615224022 -->
+<!-- BUILD:20260615224936 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
