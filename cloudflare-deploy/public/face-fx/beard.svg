@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="210" viewBox="0 0 240 210">
+  <defs>
+    <linearGradient id="bdHair" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5a3d23"/>
+      <stop offset="0.5" stop-color="#3d2613"/>
+      <stop offset="1" stop-color="#251509"/>
+    </linearGradient>
+  </defs>
+  <!-- main beard mass (U shape around jaw/chin) -->
+  <path d="M20 18
+           Q14 110 60 170
+           Q90 206 120 206
+           Q150 206 180 170
+           Q226 110 220 18
+           Q200 50 170 56
+           Q150 86 120 86
+           Q90 86 70 56
+           Q40 50 20 18 Z" fill="url(#bdHair)"/>
+  <!-- mustache -->
+  <path d="M120 64
+           Q104 44 78 46 Q52 48 44 64 Q66 60 90 66 Q108 72 120 78
+           Q132 72 150 66 Q174 60 196 64 Q188 48 162 46 Q136 44 120 64 Z"
+        fill="url(#bdHair)"/>
+  <!-- strand texture -->
+  <g stroke="#1c0f06" stroke-width="2" opacity="0.5" fill="none" stroke-linecap="round">
+    <path d="M40 40 Q50 110 84 168"/>
+    <path d="M70 60 Q74 130 104 188"/>
+    <path d="M120 92 L120 200"/>
+    <path d="M170 60 Q166 130 136 188"/>
+    <path d="M200 40 Q190 110 156 168"/>
+  </g>
+  <g stroke="#6e4d2e" stroke-width="1.6" opacity="0.55" fill="none" stroke-linecap="round">
+    <path d="M55 50 Q62 120 92 176"/>
+    <path d="M150 50 Q158 120 148 176"/>
+    <path d="M185 50 Q176 118 150 172"/>
+  </g>
+</svg>

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200">
+  <defs>
+    <linearGradient id="fdCrown" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6b4a2b"/>
+      <stop offset="0.5" stop-color="#4e3318"/>
+      <stop offset="1" stop-color="#39250f"/>
+    </linearGradient>
+    <radialGradient id="fdBrim" cx="0.5" cy="0.35" r="0.75">
+      <stop offset="0" stop-color="#5c3d20"/>
+      <stop offset="0.7" stop-color="#43290f"/>
+      <stop offset="1" stop-color="#2c1a08"/>
+    </radialGradient>
+    <linearGradient id="fdBand" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#241008"/>
+      <stop offset="1" stop-color="#120703"/>
+    </linearGradient>
+  </defs>
+  <!-- brim -->
+  <ellipse cx="150" cy="150" rx="146" ry="40" fill="url(#fdBrim)"/>
+  <ellipse cx="150" cy="146" rx="146" ry="36" fill="#6b4a2b" opacity="0.5"/>
+  <ellipse cx="150" cy="150" rx="96" ry="22" fill="#1d1208" opacity="0.55"/>
+  <!-- crown -->
+  <path d="M70 150 Q66 44 150 40 Q234 44 230 150 Q200 134 150 134 Q100 134 70 150 Z" fill="url(#fdCrown)"/>
+  <!-- crown center dent -->
+  <path d="M150 44 Q142 90 150 132 Q158 90 150 44 Z" fill="#2c1a0b" opacity="0.45"/>
+  <!-- highlight on crown -->
+  <path d="M96 132 Q88 70 122 50 Q104 92 112 132 Z" fill="#7d5630" opacity="0.55"/>
+  <!-- hat band -->
+  <path d="M70 138 Q150 122 230 138 L228 154 Q150 138 72 154 Z" fill="url(#fdBand)"/>
+</svg>

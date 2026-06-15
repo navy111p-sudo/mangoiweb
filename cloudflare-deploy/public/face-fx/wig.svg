@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="260" viewBox="0 0 300 260">
+  <defs>
+    <linearGradient id="wgHair" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6a4a2c"/>
+      <stop offset="0.5" stop-color="#46301a"/>
+      <stop offset="1" stop-color="#2a1b0c"/>
+    </linearGradient>
+  </defs>
+  <!-- hair mass: top dome + side locks framing a face opening -->
+  <path d="M150 8
+           Q40 8 26 110
+           Q18 180 44 246
+           Q58 200 60 150
+           Q66 120 86 104
+           Q120 86 150 88
+           Q180 86 214 104
+           Q234 120 240 150
+           Q242 200 256 246
+           Q282 180 274 110
+           Q260 8 150 8 Z" fill="url(#wgHair)"/>
+  <!-- center part + fringe over forehead -->
+  <path d="M150 88 Q120 96 100 122 Q132 108 150 110 Q168 108 200 122 Q180 96 150 88 Z" fill="#2a1b0c" opacity="0.55"/>
+  <!-- wave strands -->
+  <g stroke="#1d1207" stroke-width="2.4" opacity="0.5" fill="none" stroke-linecap="round">
+    <path d="M52 60 Q34 140 50 226"/>
+    <path d="M90 36 Q70 130 78 210"/>
+    <path d="M150 24 Q150 90 150 120"/>
+    <path d="M210 36 Q230 130 222 210"/>
+    <path d="M248 60 Q266 140 250 226"/>
+  </g>
+  <g stroke="#82603a" stroke-width="1.8" opacity="0.6" fill="none" stroke-linecap="round">
+    <path d="M70 48 Q52 130 60 214"/>
+    <path d="M120 28 Q108 100 112 150"/>
+    <path d="M180 28 Q192 100 188 150"/>
+    <path d="M230 48 Q248 130 240 214"/>
+  </g>
+</svg>

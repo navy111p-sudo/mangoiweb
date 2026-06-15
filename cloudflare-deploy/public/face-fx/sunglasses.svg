@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="104" viewBox="0 0 240 104">
+  <defs>
+    <linearGradient id="sgLens" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#3a4a52"/>
+      <stop offset="0.45" stop-color="#161c22"/>
+      <stop offset="1" stop-color="#05080b"/>
+    </linearGradient>
+    <linearGradient id="sgGlare" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="sgMetal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6e3a8"/>
+      <stop offset="0.5" stop-color="#d8b25c"/>
+      <stop offset="1" stop-color="#8a6a26"/>
+    </linearGradient>
+  </defs>
+  <!-- aviator teardrop lenses -->
+  <g stroke="url(#sgMetal)" stroke-width="6" stroke-linejoin="round">
+    <path d="M18 30 H104 Q108 30 107 38 Q104 86 64 90 Q24 92 18 50 Q16 36 18 30 Z" fill="url(#sgLens)"/>
+    <path d="M222 30 H136 Q132 30 133 38 Q136 86 176 90 Q216 92 222 50 Q224 36 222 30 Z" fill="url(#sgLens)"/>
+  </g>
+  <!-- glare highlights -->
+  <path d="M28 36 H88 Q72 60 40 64 Q26 50 28 36 Z" fill="url(#sgGlare)"/>
+  <path d="M152 36 H212 Q196 60 164 64 Q150 50 152 36 Z" fill="url(#sgGlare)"/>
+  <!-- bridge + top bar -->
+  <path d="M104 34 Q120 26 136 34" fill="none" stroke="url(#sgMetal)" stroke-width="7" stroke-linecap="round"/>
+  <path d="M107 40 Q120 33 133 40" fill="none" stroke="url(#sgMetal)" stroke-width="4" stroke-linecap="round"/>
+</svg>

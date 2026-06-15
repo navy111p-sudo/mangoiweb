@@ -2287,7 +2287,7 @@ export async function handleMangoApi(
       await ensurePointTables();
       const now = Date.now();
       const seeds = [
-        ['🥭 망고아이','수업료 전환 (5,000원)','tuition',5000,5000,5,'모은 포인트로 다음 수업료 즉시 차감','/img/gifts/mangoi.svg'],
+        ['🥭 망고아이','수업료 전환 (5,000원)','tuition',5000,5000,5,'모은 포인트로 다음 수업료 즉시 차감','/img/Mangoi_Character.png'],
         ['메가커피','아메리카노 (ICE)','cafe',1500,1500,10,'가성비 1위, 시원한 한 잔','/img/gifts/megacoffee.svg'],
         ['배스킨라빈스','파인트 (1개)','cafe',9800,9800,20,'취향대로 골라먹는 31','/img/gifts/baskinrobbins.svg'],
         ['배달의민족','e쿠폰 5,000원','food',5000,5000,25,'배달 음식 주문 시 즉시 차감','/img/gifts/baemin.svg'],

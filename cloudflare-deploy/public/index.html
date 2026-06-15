@@ -3950,6 +3950,23 @@
         background: linear-gradient(135deg, rgba(251,191,36,0.15), rgba(245,158,11,0.08));
         color: rgba(251,191,36,0.5);
       }
+      /* 🥭 망고아이(수업료 전환) 카드 — 3D 캐릭터 + 브랜드 주황 배경 */
+      .ps-thumb-mango{
+        display:flex; align-items:center; justify-content:center;
+        background: linear-gradient(135deg, #FCD34D 0%, #F59E0B 100%);
+        overflow:hidden; position:relative;
+      }
+      .ps-thumb-mango::after{
+        content:""; position:absolute; top:-24px; right:-24px;
+        width:96px; height:96px; border-radius:50%;
+        background:rgba(255,255,255,0.18);
+      }
+      .ps-thumb-mango img{
+        position:relative; z-index:1;
+        height:104px; width:auto; max-width:88%;
+        object-fit:contain;
+        filter: drop-shadow(0 5px 10px rgba(120,70,0,0.35));
+      }
       .ps-card-body{ padding: 12px 14px; flex: 1; }
       .ps-brand{
         display: inline-block;
@@ -20356,8 +20373,13 @@ window.closeRulesModal = function() {
       var cards = rows.map(function(g){
         var brandTag = g.brand ? '<div class="ps-brand">'+escapeLT(g.brand)+'</div>' : '';
         var stockTag = (g.stock != null) ? ('<div class="ps-stock">'+(L?'남은 수량':'Stock')+' '+g.stock+'</div>') : '';
-        var thumb = g.thumbnail_url ? '<img class="ps-thumb" src="'+escapeLT(g.thumbnail_url)+'" alt="">' :
-          '<div class="ps-thumb ps-thumb-fallback">🎁</div>';
+        // 🥭 망고아이(수업료 전환) 카드는 3D 캐릭터 이미지로 표시
+        var isMango = (g.brand && g.brand.indexOf('망고아이') >= 0) || g.category === 'tuition'
+          || (g.thumbnail_url && g.thumbnail_url.indexOf('/img/gifts/mangoi.svg') >= 0);
+        var thumb = isMango
+          ? '<div class="ps-thumb ps-thumb-mango"><img src="/img/Mangoi_Character.png" alt="망고아이"></div>'
+          : (g.thumbnail_url ? '<img class="ps-thumb" src="'+escapeLT(g.thumbnail_url)+'" alt="">' :
+             '<div class="ps-thumb ps-thumb-fallback">🎁</div>');
         return '<div class="ps-card">'+
           thumb +
           '<div class="ps-card-body">'+
@@ -26513,7 +26535,14 @@ window.closeRulesModal = function() {
     { id:'robot',    ko:'로봇',     en:'Robot',       emoji:'🤖', anchor:'face', scale:1.62, yOff:-0.02, rotate:true },
     { id:'pumpkin',  ko:'호박',     en:'Pumpkin',     emoji:'🎃', anchor:'face', scale:1.70, yOff:-0.02, rotate:true },
     { id:'nose',     ko:'빨간코',   en:'Clown Nose',  emoji:'🔴', anchor:'nose', scale:0.42, yOff:0.00, rotate:false },
-    { id:'mustache', ko:'콧수염',   en:'Mustache',    emoji:'',   anchor:'stache', scale:1.0, yOff:0.0, rotate:true, draw:'mustache' }
+    { id:'mustache', ko:'콧수염',   en:'Mustache',    emoji:'',   anchor:'stache', scale:1.0, yOff:0.0, rotate:true, draw:'mustache' },
+    // === 실사풍 이미지 액세서리 (투명 이미지 오버레이) — img 경로만 진짜 사진 PNG로 바꾸면 즉시 교체됨 ===
+    { id:'rsun',    ko:'실사 선글라스', en:'Sunglasses (Real)', anchor:'eyes', scale:1.66, yOff:0.05, rotate:true, draw:'image', img:'/face-fx/sunglasses.svg' },
+    { id:'rglass',  ko:'실사 안경',     en:'Glasses (Real)',    anchor:'eyes', scale:1.62, yOff:0.05, rotate:true, draw:'image', img:'/face-fx/glasses.svg' },
+    { id:'rfedora', ko:'실사 중절모',   en:'Fedora (Real)',     anchor:'hat',  scale:2.05, yOff:0.30, rotate:true, draw:'image', img:'/face-fx/fedora.svg', imgYOff:-0.10 },
+    { id:'rbeard',  ko:'실사 수염',     en:'Beard (Real)',      anchor:'chin', scale:1.30, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/beard.svg', imgYOff:0.14 },
+    { id:'rmask',   ko:'실사 가면',     en:'Mask (Real)',       anchor:'eyes', scale:2.00, yOff:0.12, rotate:true, draw:'image', img:'/face-fx/mask.svg' },
+    { id:'rwig',    ko:'실사 가발',     en:'Wig (Real)',        anchor:'hat',  scale:2.30, yOff:0.55, rotate:true, draw:'image', img:'/face-fx/wig.svg', imgYOff:0.10 }
   ];
 
   var vcFx = window.vcFx = {
@@ -26527,6 +26556,20 @@ window.closeRulesModal = function() {
     lastLM:null,       // 보간된 FaceMesh 랜드마크(떨림 완화)
     frameTick:0
   };
+
+  // 이미지 액세서리 프리로드 캐시 (.svg/.png 동일 처리, same-origin 이라 canvas taint 없음)
+  vcFx._imgCache = vcFx._imgCache || {};
+  function fxImg(src){
+    if (!src) return null;
+    var c = vcFx._imgCache[src];
+    if (c) return c;
+    var im = new Image();
+    im.decoding = 'async';
+    im.src = src;
+    vcFx._imgCache[src] = im;
+    return im;
+  }
+  function fxPreloadImages(){ FX_ITEMS.forEach(function(it){ if (it.img) fxImg(it.img); }); }
 
   function fxMobile(){ return (typeof vcIsMobileDevice === 'function') ? vcIsMobileDevice() : (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'')); }
   function fxLang(){ try { return (localStorage.getItem('mango_lang')==='en' || document.documentElement.lang==='en') ? 'en' : 'ko'; } catch(_) { return 'ko'; } }
@@ -26546,7 +26589,9 @@ window.closeRulesModal = function() {
       '<span style="font-size:26px">🚫</span><span data-ko="없음" data-en="None">'+(en?'None':'없음')+'</span></button>';
     FX_ITEMS.forEach(function(it){
       // 안경류는 옆다리 없는 앞면 전용 SVG 아이콘으로 표시
-      var icon = (it.draw==='glasses')
+      var icon = (it.draw==='image')
+        ? '<span style="display:flex;align-items:center;justify-content:center;height:36px"><img src="'+it.img+'" alt="" style="max-height:36px;max-width:46px;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))"></span>'
+        : (it.draw==='glasses')
         ? '<span style="display:flex;align-items:center;justify-content:center;height:34px">'+fxGlassesSVG(it.gl)+'</span>'
         : '<span style="font-size:30px;line-height:1">'+(it.emoji || (it.draw==='mustache' ? '〰️' : '✨'))+'</span>';
       html += '<button class="vc-fx-tile" data-fx="'+it.id+'" onclick="vcSetFace(\''+it.id+'\')" '+
@@ -26727,6 +26772,13 @@ window.closeRulesModal = function() {
       px = a0.x + (b0.x-a0.x)*0.4;
       py = a0.y + (b0.y-a0.y)*0.4;
       size = faceW;
+    } else if (it.anchor==='chin'){
+      // 콧밑~턱끝 사이(턱 쪽으로) — 수염 등 하관 액세서리
+      var cn = noseBot || noseTip || forehead;
+      var ch2 = chin || noseBot || forehead;
+      px = cn.x + (ch2.x-cn.x)*0.55 + up.x*(-it.yOff*faceW);
+      py = cn.y + (ch2.y-cn.y)*0.55 + up.y*(-it.yOff*faceW);
+      size = faceW * it.scale;
     } else { // face — 얼굴 전체 덮기
       var bot = chin || noseBot || forehead;
       px = (forehead.x+bot.x)/2 + up.x*(-it.yOff*faceW);
@@ -26753,6 +26805,15 @@ window.closeRulesModal = function() {
       ctx.fill();
     } else if (it.draw==='glasses'){
       fxDrawGlasses(ctx, it.gl, size);
+    } else if (it.draw==='image'){
+      // 실사풍 투명 이미지 오버레이 — 폭=size, 높이=원본 비율 유지
+      var im = fxImg(it.img);
+      if (im && im.complete && im.naturalWidth){
+        var iw = size;
+        var ih = size * (im.naturalHeight / im.naturalWidth || 1);
+        var oy = (it.imgYOff || 0) * size;   // 이미지 내부 세로 미세조정(+면 아래로)
+        try { ctx.drawImage(im, -iw/2, -ih/2 + oy, iw, ih); } catch(_){}
+      }
     } else {
       ctx.textAlign='center'; ctx.textBaseline='middle';
       try { ctx.filter = 'saturate(1.35) contrast(1.06)'; } catch(_){}
@@ -26874,6 +26935,7 @@ window.closeRulesModal = function() {
 
   // 그리드 빌드 (탭 진입 시 + 초기)
   function fxInit(){
+    fxPreloadImages();
     fxBuildGrid();
     // 배경 탭 버튼 클릭 시에도 빌드 보장
     document.addEventListener('click', function(e){
@@ -26886,7 +26948,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260616031318 -->
+<!-- BUILD:20260616032627 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

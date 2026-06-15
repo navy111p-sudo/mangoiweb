@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="96" viewBox="0 0 240 96">
+  <defs>
+    <linearGradient id="ggGlass" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="#cfe2f2" stop-opacity="0.42"/>
+      <stop offset="0.5" stop-color="#9fb6c8" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#6c8092" stop-opacity="0.20"/>
+    </linearGradient>
+    <linearGradient id="ggFrame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4a4a4f"/>
+      <stop offset="0.5" stop-color="#1c1c20"/>
+      <stop offset="1" stop-color="#0a0a0c"/>
+    </linearGradient>
+  </defs>
+  <!-- rounded rectangular lenses -->
+  <g stroke="url(#ggFrame)" stroke-width="7" stroke-linejoin="round">
+    <rect x="16" y="20" width="92" height="60" rx="20" fill="url(#ggGlass)"/>
+    <rect x="132" y="20" width="92" height="60" rx="20" fill="url(#ggGlass)"/>
+  </g>
+  <!-- subtle reflection -->
+  <path d="M30 30 L58 30 L34 64 L24 50 Z" fill="#ffffff" opacity="0.30"/>
+  <path d="M146 30 L174 30 L150 64 L140 50 Z" fill="#ffffff" opacity="0.30"/>
+  <!-- bridge -->
+  <path d="M108 36 Q120 30 132 36" fill="none" stroke="url(#ggFrame)" stroke-width="7" stroke-linecap="round"/>
+  <!-- temple hints -->
+  <path d="M16 36 L4 30" stroke="url(#ggFrame)" stroke-width="7" stroke-linecap="round"/>
+  <path d="M224 36 L236 30" stroke="url(#ggFrame)" stroke-width="7" stroke-linecap="round"/>
+</svg>

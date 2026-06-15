@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="280" height="150" viewBox="0 0 280 150">
+  <defs>
+    <linearGradient id="mkGold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe9a8"/>
+      <stop offset="0.45" stop-color="#e6b94e"/>
+      <stop offset="1" stop-color="#a9791f"/>
+    </linearGradient>
+    <linearGradient id="mkGold2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff4cf"/>
+      <stop offset="1" stop-color="#caa033"/>
+    </linearGradient>
+  </defs>
+  <!-- mask body -->
+  <path d="M140 14
+           Q66 6 22 34 Q6 56 16 92 Q40 132 86 126 Q118 120 140 96
+           Q162 120 194 126 Q240 132 264 92 Q274 56 258 34 Q214 6 140 14 Z"
+        fill="url(#mkGold)" stroke="#7a5410" stroke-width="3"/>
+  <!-- eye holes -->
+  <path d="M52 64 Q78 44 108 60 Q86 84 60 80 Q48 74 52 64 Z" fill="#0a0a0c"/>
+  <path d="M228 64 Q202 44 172 60 Q194 84 220 80 Q232 74 228 64 Z" fill="#0a0a0c"/>
+  <!-- ornamental filigree -->
+  <g fill="none" stroke="url(#mkGold2)" stroke-width="3" stroke-linecap="round" opacity="0.95">
+    <path d="M140 16 Q140 38 140 52"/>
+    <path d="M120 22 Q108 36 112 50"/>
+    <path d="M160 22 Q172 36 168 50"/>
+    <path d="M30 40 Q40 30 56 32"/>
+    <path d="M250 40 Q240 30 224 32"/>
+    <path d="M28 96 Q44 108 64 104"/>
+    <path d="M252 96 Q236 108 216 104"/>
+  </g>
+  <!-- crown points on top -->
+  <path d="M140 14 L132 -2 L148 -2 Z M112 18 L102 4 L120 6 Z M168 18 L178 4 L160 6 Z" fill="url(#mkGold2)"/>
+  <!-- highlight -->
+  <path d="M40 40 Q90 22 140 28 Q120 40 90 44 Q60 46 40 40 Z" fill="#fff6d6" opacity="0.5"/>
+</svg>
