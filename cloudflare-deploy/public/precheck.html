@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
 <meta name="theme-color" content="#0F172A" />
 <title>🎥 수업 입장 전 자가진단 · 망고아이 PreCheck</title>
-<!-- BUILD:20260616021041 -->
+<!-- BUILD:20260616021429 -->
 <!-- 카카오톡/인앱 브라우저 대응: 카메라 차단 시 외부 브라우저로 전환 -->
 <script>window.MANGO_VIDEO_PAGE = true;</script>
 <script src="/js/inapp-escape.js"></script>
@@ -107,9 +107,13 @@
   #guide-video-box video { display: block; width: 100%; height: 100%; object-fit: cover; }
   #guide-mute { position: absolute; right: 6px; bottom: 6px; width: 30px; height: 30px; border-radius: 50%; border: 0; background: rgba(15,23,42,0.6); font-size: 15px; line-height: 30px; text-align: center; cursor: pointer; padding: 0; }
   #guide-mute:active { transform: scale(0.92); }
+  /* 시작 전: 상담 시작 버튼(작게) — 클릭 시 음성 안내 시작 */
+  #guide-start { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; border: 0; border-radius: 999px; background: rgba(37,99,235,0.92); color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.4); white-space: nowrap; }
+  #guide-start:active { transform: translateX(-50%) scale(0.94); }
+  #guide-video-box.paused video { filter: brightness(0.78); }
   @keyframes gvIn { to { opacity: 1; transform: none; } }
   @keyframes gvOut { to { opacity: 0; transform: translateY(-10px); } }
-  @media (max-width: 640px) { #guide-video-box { width: 118px; height: 118px; top: 58px; right: 10px; border-radius: 14px; } #guide-mute { width: 26px; height: 26px; font-size: 13px; line-height: 26px; } }
+  @media (max-width: 640px) { #guide-video-box { width: 118px; height: 118px; top: 58px; right: 10px; border-radius: 14px; } #guide-mute { width: 26px; height: 26px; font-size: 13px; line-height: 26px; } #guide-start { font-size: 11px; padding: 4px 10px; bottom: 6px; } }
 </style>
 </head>
 <body>
@@ -696,35 +700,37 @@ window.addEventListener('load', () => {
 });
 </script>
 
-<!-- 진단 안내 영상 메시지: 자동재생 + 무음 토글 이모지 -->
-<div id="guide-video-box">
-  <video id="guide-video" src="/video/precheck-guide.mp4" autoplay playsinline preload="auto"></video>
-  <button id="guide-mute" type="button" aria-label="sound">🔊</button>
+<!-- 진단 안내 영상 메시지: 자동시작 안 함 — '▶ 상담' 버튼 클릭 시 음성 안내 시작 -->
+<div id="guide-video-box" class="paused">
+  <video id="guide-video" src="/video/precheck-guide.mp4" playsinline preload="auto"></video>
+  <button id="guide-start" type="button" data-ko="▶ 상담" data-en="▶ Talk" aria-label="상담 시작">▶ 상담</button>
+  <button id="guide-mute" type="button" aria-label="sound" style="display:none">🔊</button>
 </div>
 <script>
 (function(){
   var box = document.getElementById('guide-video-box');
   var v = document.getElementById('guide-video');
-  var btn = document.getElementById('guide-mute');
-  if (!box || !v || !btn) return;
-  function setIcon(){ btn.textContent = v.muted ? '\uD83D\uDD07' : '\uD83D\uDD0A'; }
-  var armed = false;
-  function armUnmute(){
-    if (armed) return; armed = true;
-    var h = function(e){
-      if (btn.contains(e.target)) return;
-      v.muted = false; v.play().catch(function(){}); setIcon();
-      document.removeEventListener('pointerdown', h, true);
-    };
-    document.addEventListener('pointerdown', h, true);
-  }
-  function tryPlay(){
-    v.muted = true;            // 🔊 음소거로 시작 — 음성은 🔊 버튼 클릭 시에만
-    var p = v.play();          // 무음 영상만 표시(소리 없음)
-    if (p && p.catch) p.catch(function(){});
+  var startBtn = document.getElementById('guide-start');
+  var muteBtn = document.getElementById('guide-mute');
+  if (!box || !v || !startBtn || !muteBtn) return;
+  function setIcon(){ muteBtn.textContent = v.muted ? '\uD83D\uDD07' : '\uD83D\uDD0A'; }
+  // \uC815\uC9C0 \uC0C1\uD0DC\uB85C \uCCAB \uD504\uB808\uC784\uB9CC \uD45C\uC2DC \u2014 \uC790\uB3D9\uC7AC\uC0DD/\uC790\uB3D9\uC74C\uC131 \uC5C6\uC74C(\uC0C1\uB2F4 \uBC84\uD2BC \uD074\uB9AD \uC2DC \uC2DC\uC791)
+  try { v.pause(); } catch(e){}
+  v.addEventListener('loadeddata', function(){ try{ if (v.paused) v.currentTime = 0.05; }catch(e){} });
+  var started = false;
+  function startGuide(){
+    if (started) return; started = true;
+    startBtn.style.display = 'none';
+    muteBtn.style.display = '';
+    box.classList.remove('paused');
+    v.muted = false;
+    try { v.currentTime = 0; } catch(e){}
+    var p = v.play();
+    if (p && p.catch) p.catch(function(){ v.muted = true; v.play().catch(function(){}); setIcon(); });
     setIcon();
   }
-  btn.addEventListener('click', function(e){
+  startBtn.addEventListener('click', function(e){ e.stopPropagation(); startGuide(); });
+  muteBtn.addEventListener('click', function(e){
     e.stopPropagation();
     v.muted = !v.muted;
     if (!v.muted) v.play().catch(function(){});
@@ -735,8 +741,6 @@ window.addEventListener('load', () => {
     setTimeout(function(){ box.style.display = 'none'; }, 500);
   });
   v.addEventListener('error', function(){ box.style.display = 'none'; });
-  if (document.readyState === 'complete') tryPlay();
-  else window.addEventListener('load', tryPlay);
 })();
 </script>
 <script src="/js/i18n-sweep.js?v=2"></script>
