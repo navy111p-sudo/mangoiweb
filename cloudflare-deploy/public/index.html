@@ -3252,13 +3252,19 @@
   .mg-drawer-cta{padding:12px;display:flex;flex-direction:column;gap:8px;border-top:1px solid rgba(255,255,255,.08)}
   .mg-cta{border:0;border-radius:12px;padding:13px;font-size:15px;font-weight:800;cursor:pointer;color:#1a1a1a;background:linear-gradient(135deg,#fde68a,#f59e0b)}
   .mg-cta.enter{background:linear-gradient(135deg,#fbbf24,#d97706)}
-  #mg-drawer-tab{position:absolute;right:-46px;top:50%;transform:translateY(-50%);width:44px;height:78px;border:1px solid rgba(245,158,11,0.30);border-left:0;border-radius:0 14px 14px 0;background:transparent;color:#f59e0b;font-size:14px;font-weight:800;cursor:pointer;box-shadow:2px 1px 8px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;padding:0;-webkit-tap-highlight-color:transparent}
+  #mg-drawer-tab{position:absolute;right:-46px;top:50%;transform:translateY(-50%);width:44px;height:78px;border:1.5px solid rgba(245,158,11,0.7);border-left:0;border-radius:0 14px 14px 0;background:rgba(18,12,2,0.42);color:#fbbf24;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 0 10px rgba(245,158,11,.45);display:flex;align-items:center;justify-content:center;padding:0;-webkit-tap-highlight-color:transparent}
   #mg-drawer-tab #mg-tab-label{writing-mode:vertical-rl;text-orientation:upright;font-size:14px;font-weight:800;letter-spacing:1px;line-height:1.15}
   .ai-quick{display:none !important}
-  /* ✨ "열림" 탭도 홈 진입 시 검색창과 같은 속도로 fade-in (위치 유지: opacity만) */
+  /* ✨ "열림" 탭: 홈 진입 시 fade-in + 천천히 은은하게 깜박이는 테두리 광채 */
   @keyframes mgTabFadeIn{from{opacity:0}to{opacity:1}}
-  #mg-drawer-tab{opacity:0;animation:mgTabFadeIn .9s ease-out 2s forwards}
-  @media (prefers-reduced-motion: reduce){#mg-drawer-tab{animation:none !important;opacity:1 !important}}
+  @keyframes mgTabGlow{
+    0%,100%{ box-shadow:0 0 8px rgba(245,158,11,.5),0 0 18px rgba(245,158,11,.28); border-color:rgba(245,158,11,.6); }
+    50%{ box-shadow:0 0 20px rgba(251,191,36,.95),0 0 38px rgba(251,191,36,.6); border-color:rgba(251,191,36,1); }
+  }
+  /* fade-in(1회) 후 곧바로 느린 글로우(2.8초 주기, 무한)로 — 항상 보이되 천천히 밝아졌다 어두워짐 */
+  #mg-drawer-tab{opacity:0;animation:mgTabFadeIn .9s ease-out 2s forwards, mgTabGlow 2.8s ease-in-out 2.9s infinite}
+  /* 모션 최소화 선호 시: 깜박임 없이 '항상 켜진' 또렷한 광채로 고정 */
+  @media (prefers-reduced-motion: reduce){#mg-drawer-tab{animation:none !important;opacity:1 !important;box-shadow:0 0 16px rgba(251,191,36,.85),0 0 30px rgba(251,191,36,.5) !important;border-color:rgba(251,191,36,.95) !important}}
 </style>
 <script>
 /* ✨ "열림" 탭 fade-in 은 세션당 1회만: 한 번 나타난 뒤에는 항상 즉시 표시 */
@@ -25394,7 +25400,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260615164015 -->
+<!-- BUILD:20260615164541 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
