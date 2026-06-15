@@ -1229,8 +1229,46 @@ async function handleTurnConfig(env: Env): Promise<Response> {
   });
 }
 
-// ✨ 칠판 손글씨 이미지 → 텍스트 (Workers AI 비전). 영어 대/소문자·숫자 위주.
-//   1순위: llama-3.2-11b-vision (글자 인식 우수, 라이선스 동의 1회 필요) → 실패 시 llava 폴백.
+// ArrayBuffer → base64 (Workers 호환, 청크 처리)
+function abToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)) as any);
+  }
+  return btoa(bin);
+}
+// 네이버 CLOVA OCR (General, V2). 성공=문자열, 호출 실패=null(→ 무료모델 폴백), 글자없음=''
+async function clovaOcr(buf: ArrayBuffer, url: string, secret: string): Promise<string | null> {
+  try {
+    const body = {
+      version: 'V2',
+      requestId: (crypto as any).randomUUID ? crypto.randomUUID() : ('r' + Date.now()),
+      timestamp: Date.now(),
+      lang: 'ko',
+      images: [{ format: 'png', name: 'wb', data: abToBase64(buf) }]
+    };
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-OCR-SECRET': secret },
+      body: JSON.stringify(body)
+    });
+    if (!resp.ok) return null;
+    const j: any = await resp.json();
+    const fields = j && j.images && j.images[0] && j.images[0].fields;
+    if (!Array.isArray(fields)) return '';
+    let t = '';
+    for (const f of fields) { t += (f.inferText || ''); if (f.lineBreak) t += ' '; }
+    t = t.replace(/\s+/g, ' ').trim();
+    if (t.length > 60) t = t.slice(0, 60);
+    return t;
+  } catch (_) { return null; }
+}
+
+// ✨ 칠판 손글씨 이미지 → 텍스트.
+//   0순위: 네이버 CLOVA OCR (CLOVA_OCR_URL+CLOVA_OCR_SECRET 설정 시, 한글·영어 고정확)
+//   1순위: llama-3.2-11b-vision → 2순위 llava (무료 폴백)
 async function handleWbOcr(request: Request, env: Env): Promise<Response> {
   const J = (o: any, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { 'Content-Type': 'application/json' } });
   const AI = (env as any).AI;
@@ -1239,6 +1277,15 @@ async function handleWbOcr(request: Request, env: Env): Promise<Response> {
     const buf = await request.arrayBuffer();
     if (!buf || buf.byteLength === 0) return J({ ok: false, text: '', error: 'empty' }, 400);
     if (buf.byteLength > 3_000_000) return J({ ok: false, text: '', error: 'too_large' }, 413);
+
+    // 0) 전용 OCR(네이버 CLOVA) 설정돼 있으면 우선 — 한글·영어 고정확
+    const clovaUrl = (env as any).CLOVA_OCR_URL, clovaSecret = (env as any).CLOVA_OCR_SECRET;
+    if (clovaUrl && clovaSecret) {
+      const ct = await clovaOcr(buf, clovaUrl, clovaSecret);
+      if (ct !== null) return J({ ok: true, text: ct, engine: 'clova' });
+      // null = 호출 실패 → 아래 무료 모델로 폴백
+    }
+
     const bytes = [...new Uint8Array(buf)];
     const prompt = 'You are a precise OCR engine. The black-on-white image contains a SINGLE handwritten English letter, a short word, or a number. Identify it and output the exact characters, preserving UPPERCASE vs lowercase and digits. If it is one isolated letter, output just that single letter. Output ONLY the characters on one line — no quotes, no spaces around it, no labels, no explanation, no sentences. If you truly cannot read it, output exactly: NONE';
 
