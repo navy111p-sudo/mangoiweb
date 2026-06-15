@@ -18251,7 +18251,12 @@ window.addEventListener('DOMContentLoaded', () => {
       card.classList.add('selected');
       selectedProgram = card.dataset.program;
       selectedPrice = Number(card.dataset.price) || 0;
-      setTimeout(() => payGoStep(2), 300);
+      // 🆕 로그인 + 유료 상품이면 정보 입력 단계(step2)를 건너뛰고 바로 결제수단(step3)으로.
+      //    무료체험(trial)·상담형(other/b2b)은 연락 정보가 필요하므로 기존대로 step2 유지.
+      var _logged   = window.payAutofillNewIfLoggedIn && window.payAutofillNewIfLoggedIn();
+      var _skipInfo = _logged && selectedPrice > 0
+                      && selectedProgram !== 'other' && selectedProgram !== 'b2b' && selectedProgram !== 'trial';
+      setTimeout(() => payGoStep(_skipInfo ? 3 : 2), 300);
     });
   });
 
@@ -26855,7 +26860,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260616020116 -->
+<!-- BUILD:20260616020157 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
