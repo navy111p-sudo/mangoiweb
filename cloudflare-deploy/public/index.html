@@ -16405,6 +16405,14 @@ window.addEventListener('DOMContentLoaded', () => {
             <div class="prod-price">₩480,000</div>
             <div class="prod-perclass">집중 12주</div>
           </button>
+          <button class="product-card" data-program="b2b" data-price="0">
+            <div class="badge-best" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">🏫 단체</div>
+            <div class="prod-icon">🏢</div>
+            <div class="prod-name">B2B / 학원</div>
+            <div class="prod-detail">기업·학원 단체 도입</div>
+            <div class="prod-price">맞춤 견적</div>
+            <div class="prod-perclass">상담 후 결정</div>
+          </button>
           <button class="product-card other" data-program="other" data-price="0">
             <div class="prod-icon">❓</div>
             <div class="prod-name">기타 / 상담</div>
@@ -17035,6 +17043,7 @@ window.addEventListener('DOMContentLoaded', () => {
     'business': { icon: '💼', name: '비즈니스 영어', detail: '실전 회의·이메일', price: 580000 },
     'kids': { icon: '👶', name: '키즈 영어', detail: '놀이형 4-12세', price: 320000 },
     'exam': { icon: '📝', name: '시험 영어', detail: 'TOEIC·OPIc·IELTS', price: 480000 },
+    'b2b': { icon: '🏢', name: 'B2B / 학원', detail: '기업·학원 단체 도입', price: 0 },
     'other': { icon: '❓', name: '기타 / 상담', detail: '맞춤 코스', price: 0 },
   };
 
@@ -17169,6 +17178,31 @@ window.addEventListener('DOMContentLoaded', () => {
       const payer = document.getElementById('pay-payer')?.value || '';
       const contact = document.getElementById('pay-contact')?.value || '';
       setIfExists('sb-payer-3', payer && contact ? `${payer} · ${contact}` : '결제자 정보');
+
+      // 💬 '기타 / 상담' 코스: 요약 카드를 누르면 카카오 상담으로 바로 연결
+      const sb2 = document.querySelector('#pay-step2 .selected-banner');
+      if (sb2) {
+        const isOther = (selectedProgram === 'other');
+        sb2.style.cursor = isOther ? 'pointer' : '';
+        sb2.title = isOther ? '카카오 상담으로 바로가기' : '';
+        if (!sb2.dataset.kakaoHooked) {
+          sb2.dataset.kakaoHooked = '1';
+          sb2.addEventListener('click', function(ev){
+            if (ev.target.closest('.sb-change')) return;      // '변경' 버튼은 제외
+            if (selectedProgram === 'other' && window.openKakao) window.openKakao();
+          });
+        }
+        let hint = document.getElementById('sb-kakao-hint');
+        if (isOther) {
+          if (!hint) {
+            hint = document.createElement('div');
+            hint.id = 'sb-kakao-hint';
+            hint.style.cssText = 'font-size:11px;color:#FEE500;font-weight:700;margin:6px 2px 0';
+            sb2.insertAdjacentElement('afterend', hint);
+          }
+          hint.textContent = '💬 위 카드를 누르면 카카오 상담으로 바로 연결돼요';
+        } else if (hint) { hint.remove(); }
+      }
     }
 
     // 연장 모드 — Step 3 진입 시 결제수단 카드 위에 연장 요약 배너
@@ -25400,7 +25434,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260615165357 -->
+<!-- BUILD:20260615170315 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
