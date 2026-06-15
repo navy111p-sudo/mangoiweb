@@ -6470,7 +6470,12 @@ Respond in JSON ONLY:
           <script>
             try {
               const u = ${userPayload};
-              localStorage.setItem('mango_user', JSON.stringify(u));
+              // 🔑 헤더 표시 로직이 읽는 키(mangoi_logged_user, uid)도 함께 저장 — 소셜 로그인 인식
+              const lu = { uid: u.user_id, user_id: u.user_id, name: u.user_name, user_name: u.user_name, role: u.role || 'student', email: u.email, profile_image: u.profile_image, provider: u.provider };
+              localStorage.setItem('mango_user', JSON.stringify(lu));
+              localStorage.setItem('mangoi_logged_user', JSON.stringify(lu));
+              if (lu.uid) localStorage.setItem('mangoi_uid', lu.uid);
+              if (lu.name) localStorage.setItem('mangoi_vc_uid', lu.name);
             } catch(e){}
             setTimeout(() => { location.href = '/'; }, 1500);
           </script>
