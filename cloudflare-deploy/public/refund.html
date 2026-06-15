@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- BUILD:20260616044522 -->
+<!-- BUILD:20260616044723 -->
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
@@ -238,5 +238,79 @@
     </div>
     <p class="updated" data-ko="최종 업데이트: 2026년 6월" data-en="Last updated: June 2026">최종 업데이트: 2026년 6월</p>
   </div>
+
+  <!-- 🎬 환불규정 안내 영상 (우상단) — 시작 버튼 클릭 시 재생, 말이 끝나거나 아무 곳이나 클릭하면 사라짐 -->
+  <style>
+    #refund-guide-box{ position:fixed; top:70px; right:20px; z-index:100050; width:min(190px,42vw);
+      display:flex; flex-direction:column; gap:8px; opacity:0; transform:translateY(-10px);
+      animation:rgIn .5s ease .3s forwards; }
+    #refund-guide-box.gone{ animation:rgOut .5s ease forwards; }
+    #refund-guide-vid{ width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:16px; background:#000;
+      border:1px solid rgba(255,255,255,.18); box-shadow:0 12px 30px -8px rgba(0,0,0,.6); display:block; }
+    #refund-guide-box.paused #refund-guide-vid{ filter:brightness(.8); }
+    #refund-guide-ctrls{ display:flex; align-items:center; justify-content:center; gap:8px; }
+    #refund-guide-start{ display:inline-flex; align-items:center; gap:4px; padding:7px 16px; border:0;
+      border-radius:999px; background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a1a;
+      font-size:13px; font-weight:800; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,.35); white-space:nowrap; }
+    #refund-guide-start:active{ transform:scale(.95); }
+    #refund-guide-mute{ width:36px; height:36px; border-radius:50%; border:0; background:rgba(15,23,42,.75);
+      color:#fff; font-size:16px; cursor:pointer; padding:0; line-height:1; display:flex; align-items:center; justify-content:center; }
+    #refund-guide-mute:active{ transform:scale(.92); }
+    @keyframes rgIn{ to{ opacity:1; transform:none; } }
+    @keyframes rgOut{ to{ opacity:0; transform:translateY(-10px); } }
+    @media (max-width:640px){ #refund-guide-box{ width:140px; top:60px; right:10px; }
+      #refund-guide-start{ font-size:12px; padding:6px 12px; } #refund-guide-mute{ width:32px; height:32px; font-size:14px; } }
+  </style>
+  <div id="refund-guide-box" class="paused">
+    <video id="refund-guide-vid" src="/video/typecast_한불규정남자.mp4" poster="/video/한불규정남자.jpg" playsinline preload="auto"></video>
+    <div id="refund-guide-ctrls">
+      <button id="refund-guide-start" type="button" data-ko="▶ 안내 듣기" data-en="▶ Play guide">▶ 안내 듣기</button>
+      <button id="refund-guide-mute" type="button" aria-label="음소거" title="음소거" style="display:none">🔊</button>
+    </div>
+  </div>
+  <script>
+  (function(){
+    var box=document.getElementById('refund-guide-box');
+    var v=document.getElementById('refund-guide-vid');
+    var startBtn=document.getElementById('refund-guide-start');
+    var muteBtn=document.getElementById('refund-guide-mute');
+    if(!box||!v||!startBtn||!muteBtn) return;
+    function setIcon(){ muteBtn.textContent = v.muted ? '🔇' : '🔊'; }
+    // 자동재생/자동음성 없음 — 첫 프레임만 표시
+    try{ v.pause(); }catch(e){}
+    v.addEventListener('loadeddata', function(){ try{ if(v.paused) v.currentTime=0.05; }catch(e){} });
+    var started=false, dismissed=false;
+    function dismiss(){
+      if(dismissed) return; dismissed=true;
+      try{ v.pause(); v.muted=true; }catch(e){}
+      document.removeEventListener('click', onDocClick, true);
+      box.classList.add('gone');
+      setTimeout(function(){ box.style.display='none'; }, 520);
+    }
+    function onDocClick(e){
+      // 시작·음소거 버튼은 영상 조작용이라 제외, 그 외 아무 곳이나 클릭 시 종료
+      if(e.target.closest('#refund-guide-start') || e.target.closest('#refund-guide-mute')) return;
+      dismiss();
+    }
+    function startGuide(){
+      if(started) return; started=true;
+      startBtn.style.display='none';
+      muteBtn.style.display='';
+      box.classList.remove('paused');
+      v.muted=false;
+      try{ v.currentTime=0; }catch(e){}
+      var p=v.play();
+      if(p&&p.catch) p.catch(function(){ v.muted=true; v.play().catch(function(){}); setIcon(); });
+      setIcon();
+      // 재생 시작 후, 페이지 어디든 클릭하면 영상·음성 즉시 종료
+      setTimeout(function(){ document.addEventListener('click', onDocClick, true); }, 0);
+    }
+    startBtn.addEventListener('click', function(e){ e.stopPropagation(); startGuide(); });
+    muteBtn.addEventListener('click', function(e){ e.stopPropagation(); v.muted=!v.muted; if(!v.muted) v.play().catch(function(){}); setIcon(); });
+    // 말이 다 끝나면 자동 fade-out
+    v.addEventListener('ended', dismiss);
+    v.addEventListener('error', function(){ box.style.display='none'; });
+  })();
+  </script>
 </body>
 </html>
