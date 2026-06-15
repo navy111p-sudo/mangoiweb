@@ -6835,6 +6835,10 @@
                 <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
                 <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🚀 우주게임" data-en="🚀 Space Game">🚀 우주게임</span>
               </button>
+              <button class="vc-bg-tile" data-bg="roman" onclick="vcSetBackground('roman')" style="aspect-ratio:16/10;border:2px solid #334155;border-radius:12px;background:url('/img/bg/%EA%B3%A0%EB%8C%80%EB%A1%9C%EB%A7%88.jpg') center/cover;color:#fff;cursor:pointer;font-size:13px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0;overflow:hidden;position:relative">
+                <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 50%,rgba(0,0,0,0.65) 100%);pointer-events:none"></span>
+                <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="🏛️ 로마 거리" data-en="🏛️ Roman Street">🏛️ 로마 거리</span>
+              </button>
             </div>
             <div style="margin-top:18px;padding:12px 14px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:10px;font-size:12px;color:#fde68a;line-height:1.6">
               💡 <span data-ko="가상 배경은 모든 참가자에게 적용된 모습으로 보입니다. 카메라가 켜져 있어야 작동합니다." data-en="Virtual background is visible to all participants. Camera must be on.">가상 배경은 모든 참가자에게 적용된 모습으로 보입니다. 카메라가 켜져 있어야 작동합니다.</span>
@@ -10018,6 +10022,7 @@ const VC_BG_IMAGES = {
   antarctica: '/img/bg/antarctica.jpg', // 남극 - 빙하 + 펭귄
   folkvillage:'/img/bg/%EB%AF%BC%EC%86%8D%EC%B4%8C.jpg', // 민속촌 - 한국 전통 마을
   spacegame:  '/img/bg/%EC%9A%B0%EC%A3%BC%EA%B2%8C%EC%9E%84.jpg', // 우주게임 - 우주선 전투 콕핏
+  roman:      '/img/bg/%EA%B3%A0%EB%8C%80%EB%A1%9C%EB%A7%88.jpg', // 고대 로마 거리 - 시장·신전·병사
 };
 const _vcBgCache = {}; // theme → HTMLImageElement (loaded)
 
@@ -25879,7 +25884,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260615192637 -->
+<!-- BUILD:20260615194006 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
