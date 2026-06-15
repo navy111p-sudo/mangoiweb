@@ -18024,23 +18024,36 @@ window.addEventListener('DOMContentLoaded', () => {
     var vw = document.createElement('div');
     vw.id = 'pay-guide-vid-wrap';
     vw.style.cssText = 'position:fixed;top:12px;right:12px;z-index:10001;width:min(220px,44vw);aspect-ratio:1/1;border-radius:16px;overflow:hidden;box-shadow:0 12px 30px -8px rgba(0,0,0,.7);border:1px solid rgba(251,191,36,.45);background:#000;cursor:pointer;animation:fadeIn .25s';
-    vw.innerHTML = '<video id="pay-guide-vid" src="/video/payment-guide-male.mp4" autoplay playsinline preload="auto" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none"></video>'
-      + '<button type="button" id="pay-guide-vid-mute" title="소리 켜기/끄기" aria-label="소리 켜기/끄기" style="position:absolute;right:6px;bottom:6px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">🔊</button>'
-      + '<button type="button" id="pay-guide-vid-x" title="닫기" aria-label="닫기" style="position:absolute;left:6px;top:6px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.5);color:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">✕</button>';
+    vw.innerHTML = '<video id="pay-guide-vid" src="/video/payment-guide-male.mp4" playsinline preload="auto" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none"></video>'
+      + '<button type="button" id="pay-guide-vid-mute" title="소리 켜기/끄기" aria-label="소리 켜기/끄기" style="position:absolute;right:6px;bottom:6px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:2">🔊</button>'
+      + '<button type="button" id="pay-guide-vid-x" title="닫기" aria-label="닫기" style="position:absolute;left:6px;top:6px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.5);color:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;z-index:4">✕</button>'
+      + '<button type="button" id="pay-guide-vid-start" title="시작" aria-label="안내 영상 시작" style="position:absolute;inset:0;border:0;background:rgba(0,0,0,.38);color:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:0;z-index:3">'
+        + '<span style="width:54px;height:54px;border-radius:50%;background:rgba(251,191,36,.97);color:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:23px;padding-left:3px;box-shadow:0 4px 14px rgba(0,0,0,.55)">▶</span>'
+        + '<span style="font-size:13px;font-weight:800;letter-spacing:1px;text-shadow:0 1px 3px rgba(0,0,0,.7)">시작</span>'
+      + '</button>';
     document.body.appendChild(vw);
     var vid = vw.querySelector('#pay-guide-vid');
     var vmb = vw.querySelector('#pay-guide-vid-mute');
     var vx  = vw.querySelector('#pay-guide-vid-x');
+    var vst = vw.querySelector('#pay-guide-vid-start');
     function vupd(){ vmb.textContent = vid.muted ? '🔇' : '🔊'; }
-    // 🔊 음소거로 시작 — 음성은 🔊 버튼 클릭 시에만 (자동 음성재생 금지)
-    vid.muted = true;
-    var p0 = vid.play();
-    if (p0 && p0.catch) p0.catch(function(){});
+    // 🔇 시작 전에는 재생하지 않고 ▶ 시작 버튼만 노출 (브라우저 자동 음성재생 금지 정책 대응)
+    vid.muted = false;
     vupd();
+    // ▶ 시작: 누르면 안내 영상이 '소리와 함께' 처음부터 재생
+    vst.addEventListener('click', function(e){
+      e.stopPropagation();
+      try { vid.currentTime = 0; } catch(_){}
+      vid.muted = false; vupd();
+      var pp = vid.play();
+      if (pp && pp.catch) pp.catch(function(){ vid.muted = true; vupd(); var p2 = vid.play(); if (p2 && p2.catch) p2.catch(function(){}); });
+      vst.style.display = 'none';        // 시작 버튼 숨김
+      vmb.style.display = 'flex';        // 음소거 토글 버튼 노출
+    });
     vid.addEventListener('ended', killPayGuideVideo);           // 끝나면 자동으로 사라짐
     vmb.addEventListener('click', function(e){ e.stopPropagation(); vid.muted = !vid.muted; if (!vid.muted) { var pp = vid.play(); if (pp && pp.catch) pp.catch(function(){}); } vupd(); });
     vx.addEventListener('click', function(e){ e.stopPropagation(); killPayGuideVideo(); });
-    vw.addEventListener('click', killPayGuideVideo);            // 영상 클릭해도 바로 사라짐
+    vw.addEventListener('click', killPayGuideVideo);            // 재생 후 영상 클릭하면 바로 사라짐
   }
 
   window.openPaymentModal = function(){
@@ -26873,7 +26886,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260616025048 -->
+<!-- BUILD:20260616025230 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
