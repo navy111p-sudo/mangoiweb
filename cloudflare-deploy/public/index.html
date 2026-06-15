@@ -18044,9 +18044,8 @@ window.addEventListener('DOMContentLoaded', () => {
     vw.innerHTML = '<video id="pay-guide-vid" src="/video/payment-guide-male.mp4" playsinline preload="auto" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none"></video>'
       + '<button type="button" id="pay-guide-vid-mute" title="소리 켜기/끄기" aria-label="소리 켜기/끄기" style="position:absolute;right:6px;bottom:6px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:2">🔊</button>'
       + '<button type="button" id="pay-guide-vid-x" title="닫기" aria-label="닫기" style="position:absolute;left:6px;top:6px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.5);color:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;z-index:4">✕</button>'
-      + '<button type="button" id="pay-guide-vid-start" title="시작" aria-label="안내 영상 시작" style="position:absolute;inset:0;border:0;background:rgba(0,0,0,.38);color:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:0;z-index:3">'
-        + '<span style="width:54px;height:54px;border-radius:50%;background:rgba(251,191,36,.97);color:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:23px;padding-left:3px;box-shadow:0 4px 14px rgba(0,0,0,.55)">▶</span>'
-        + '<span style="font-size:13px;font-weight:800;letter-spacing:1px;text-shadow:0 1px 3px rgba(0,0,0,.7)">시작</span>'
+      + '<button type="button" id="pay-guide-vid-start" title="시작" aria-label="안내 영상 시작" style="position:absolute;left:50%;bottom:10px;transform:translateX(-50%);border:0;background:rgba(251,191,36,.97);color:#1a1a1a;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;padding:6px 14px;border-radius:999px;font-size:12px;font-weight:800;letter-spacing:.5px;box-shadow:0 3px 10px rgba(0,0,0,.5);z-index:3">'
+        + '<span style="font-size:11px;line-height:1;padding-left:1px">▶</span><span>시작</span>'
       + '</button>';
     document.body.appendChild(vw);
     var vid = vw.querySelector('#pay-guide-vid');
@@ -26515,9 +26514,9 @@ window.closeRulesModal = function() {
   // anchor: 'hat'(이마 위) | 'eyes'(두 눈) | 'nose'(코끝) | 'stache'(코밑) | 'face'(얼굴 전체 덮기)
   // scale: 얼굴 폭 기준 크기   yOff: 세로 미세조정(얼굴폭 비율, +면 아래로)
   var FX_ITEMS = [
-    { id:'tophat',   ko:'중절모',   en:'Top Hat',     emoji:'🎩', anchor:'hat',  scale:1.70, yOff:0.00, rotate:true },
+    { id:'tophat',   ko:'중절모',   en:'Top Hat',     emoji:'🎩', anchor:'hat',  scale:1.35, yOff:-0.40, rotate:true },
     { id:'cap',      ko:'야구모자', en:'Cap',         emoji:'🧢', anchor:'hat',  scale:1.75, yOff:0.16, rotate:true },
-    { id:'crown',    ko:'왕관',     en:'Crown',       emoji:'👑', anchor:'hat',  scale:1.45, yOff:0.22, rotate:true },
+    { id:'crown',    ko:'왕관',     en:'Crown',       emoji:'👑', anchor:'hat',  scale:1.15, yOff:-0.30, rotate:true },
     { id:'grad',     ko:'학사모',   en:'Grad Cap',    emoji:'🎓', anchor:'hat',  scale:1.80, yOff:0.10, rotate:true },
     { id:'helmet',   ko:'안전모',   en:'Helmet',      emoji:'⛑️', anchor:'hat',  scale:1.70, yOff:0.14, rotate:true },
     { id:'sun',      ko:'썬글라스', en:'Sunglasses',  emoji:'🕶️', anchor:'eyes', scale:1.55, yOff:0.04, rotate:true, draw:'glasses', gl:'sun' },
@@ -26955,7 +26954,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260616040851 -->
+<!-- BUILD:20260616041537 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
