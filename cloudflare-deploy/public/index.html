@@ -2980,7 +2980,7 @@
     if(disarmGreeting){ try{ disarmGreeting(); }catch(e){} }
     box.classList.remove('promo-in');
     box.style.opacity='0'; box.style.transform='translateY(-8px)';
-    try{ v&&v.pause(); }catch(e){}
+    try{ if(v){ v.muted=true; v.pause(); } }catch(e){}   // 즉시 음소거(재생 중이던 음성도 차단)
     setTimeout(killBox, 450);                  // .4s 트랜지션 후 DOM 제거
   }
   try{ if(sessionStorage.getItem(KEY)==='1'){ if(box.parentNode)box.parentNode.removeChild(box); return; } }catch(e){}
@@ -3016,7 +3016,11 @@
       document.removeEventListener('touchstart',onArm,true);
       window.removeEventListener('scroll',onArm,true);
     }
-    function onArm(){ disarm(); playGreeting(); }
+    function onArm(e){ disarm();
+      // 첫 동작이 'AI 상담사' 위젯이면 인사 음성 없이 즉시 숨김(목소리 안 새어나오게)
+      try{ var tg=e&&e.target; if(tg&&tg.closest&&tg.closest('#mangoi-widget')){ fadeOut(); return; } }catch(_){}
+      playGreeting();
+    }
     disarmGreeting=disarm;
     document.addEventListener('pointerdown',onArm,true);
     document.addEventListener('keydown',onArm,true);
@@ -25251,7 +25255,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260615154300 -->
+<!-- BUILD:20260615155306 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -27787,6 +27791,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       if(open){
         positionPanel();
         try{ window.postMessage({type:"mangoi-typing"},"*"); }catch(e){}   // 열림 → 홍보영상 페이드아웃
+        try{ var __pv=document.getElementById('mango-promo-vid'); if(__pv){ __pv.muted=true; __pv.pause(); } }catch(e){}  // 홍보영상 즉시 음소거(안전망)
         // 열 때 현재 사이트 언어를 채팅 iframe 에 동기화(헤더·인사말·입력창 일치)
         try{ var lg=(window.getLang?window.getLang():'ko'); var fr=document.getElementById('mangoi-frame');
           if(fr&&fr.contentWindow) fr.contentWindow.postMessage({type:'mangoi-lang', lang:lg}, '*'); }catch(e){}
