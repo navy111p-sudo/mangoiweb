@@ -26423,31 +26423,30 @@ window.closeRulesModal = function() {
 (function(){
   'use strict';
 
-  // 액세서리 정의 — emoji 를 얼굴 landmark 에 맞춰 그린다.
-  //  anchor: 어디에 붙일지   scale: 얼굴 폭 대비 크기   yOff: 세로 미세조정(얼굴폭 비율)
-  //  rotate: 고개 기울기(eye roll)에 맞춰 회전할지
+  // anchor: 'hat'(이마 위) | 'eyes'(두 눈) | 'nose'(코끝) | 'stache'(코밑) | 'face'(얼굴 전체 덮기)
+  // scale: 얼굴 폭 기준 크기   yOff: 세로 미세조정(얼굴폭 비율, +면 아래로)
   var FX_ITEMS = [
-    { id:'tophat',   label:'중절모',   ko:'중절모',   en:'Top Hat',     emoji:'🎩', anchor:'hat',  scale:1.45, yOff:-0.10, rotate:true },
-    { id:'cap',      label:'모자',     ko:'야구모자', en:'Cap',         emoji:'🧢', anchor:'hat',  scale:1.45, yOff:-0.02, rotate:true },
-    { id:'crown',    label:'왕관',     ko:'왕관',     en:'Crown',       emoji:'👑', anchor:'hat',  scale:1.30, yOff:0.02,  rotate:true },
-    { id:'grad',     label:'학사모',   ko:'학사모',   en:'Grad Cap',    emoji:'🎓', anchor:'hat',  scale:1.45, yOff:0.00,  rotate:true },
-    { id:'helmet',   label:'안전모',   ko:'안전모',   en:'Helmet',      emoji:'⛑️', anchor:'hat',  scale:1.45, yOff:0.02,  rotate:true },
-    { id:'sun',      label:'썬글라스', ko:'썬글라스', en:'Sunglasses',  emoji:'🕶️', anchor:'eyes', scale:1.05, yOff:0.00,  rotate:true },
-    { id:'glasses',  label:'안경',     ko:'안경',     en:'Glasses',     emoji:'👓', anchor:'eyes', scale:1.05, yOff:0.00,  rotate:true },
-    { id:'goggles',  label:'고글',     ko:'물안경',   en:'Goggles',     emoji:'🥽', anchor:'eyes', scale:1.05, yOff:0.00,  rotate:true },
-    { id:'mask',     label:'가면',     ko:'가면',     en:'Mask',        emoji:'🎭', anchor:'face', scale:1.25, yOff:0.00,  rotate:true },
-    { id:'fox',      label:'여우',     ko:'여우',     en:'Fox',         emoji:'🦊', anchor:'face', scale:1.30, yOff:-0.02, rotate:true },
-    { id:'cat',      label:'고양이',   ko:'고양이',   en:'Cat',         emoji:'🐱', anchor:'face', scale:1.30, yOff:-0.02, rotate:true },
-    { id:'dog',      label:'강아지',   ko:'강아지',   en:'Dog',         emoji:'🐶', anchor:'face', scale:1.30, yOff:-0.02, rotate:true },
-    { id:'rabbit',   label:'토끼',     ko:'토끼',     en:'Rabbit',      emoji:'🐰', anchor:'face', scale:1.30, yOff:-0.02, rotate:true },
-    { id:'panda',    label:'판다',     ko:'판다',     en:'Panda',       emoji:'🐼', anchor:'face', scale:1.30, yOff:-0.02, rotate:true },
-    { id:'tiger',    label:'호랑이',   ko:'호랑이',   en:'Tiger',       emoji:'🐯', anchor:'face', scale:1.30, yOff:-0.02, rotate:true },
-    { id:'clown',    label:'광대',     ko:'광대',     en:'Clown',       emoji:'🤡', anchor:'face', scale:1.25, yOff:-0.02, rotate:true },
-    { id:'alien',    label:'외계인',   ko:'외계인',   en:'Alien',       emoji:'👽', anchor:'face', scale:1.20, yOff:-0.02, rotate:true },
-    { id:'robot',    label:'로봇',     ko:'로봇',     en:'Robot',       emoji:'🤖', anchor:'face', scale:1.20, yOff:-0.02, rotate:true },
-    { id:'pumpkin',  label:'호박',     ko:'호박',     en:'Pumpkin',     emoji:'🎃', anchor:'face', scale:1.25, yOff:-0.02, rotate:true },
-    { id:'nose',     label:'광대코',   ko:'빨간코',   en:'Clown Nose',  emoji:'🔴', anchor:'nose', scale:0.34, yOff:0.00,  rotate:false },
-    { id:'mustache', label:'콧수염',   ko:'콧수염',   en:'Mustache',    emoji:'',   anchor:'stache', scale:1.0, yOff:0.0, rotate:true, draw:'mustache' }
+    { id:'tophat',   ko:'중절모',   en:'Top Hat',     emoji:'🎩', anchor:'hat',  scale:1.70, yOff:0.00, rotate:true },
+    { id:'cap',      ko:'야구모자', en:'Cap',         emoji:'🧢', anchor:'hat',  scale:1.75, yOff:0.16, rotate:true },
+    { id:'crown',    ko:'왕관',     en:'Crown',       emoji:'👑', anchor:'hat',  scale:1.45, yOff:0.22, rotate:true },
+    { id:'grad',     ko:'학사모',   en:'Grad Cap',    emoji:'🎓', anchor:'hat',  scale:1.80, yOff:0.10, rotate:true },
+    { id:'helmet',   ko:'안전모',   en:'Helmet',      emoji:'⛑️', anchor:'hat',  scale:1.70, yOff:0.14, rotate:true },
+    { id:'sun',      ko:'썬글라스', en:'Sunglasses',  emoji:'🕶️', anchor:'eyes', scale:1.62, yOff:0.04, rotate:true },
+    { id:'glasses',  ko:'안경',     en:'Glasses',     emoji:'👓', anchor:'eyes', scale:1.62, yOff:0.04, rotate:true },
+    { id:'goggles',  ko:'물안경',   en:'Goggles',     emoji:'🥽', anchor:'eyes', scale:1.62, yOff:0.04, rotate:true },
+    { id:'mask',     ko:'가면',     en:'Mask',        emoji:'🎭', anchor:'face', scale:1.70, yOff:0.00, rotate:true },
+    { id:'fox',      ko:'여우',     en:'Fox',         emoji:'🦊', anchor:'face', scale:1.75, yOff:-0.02, rotate:true },
+    { id:'cat',      ko:'고양이',   en:'Cat',         emoji:'🐱', anchor:'face', scale:1.75, yOff:-0.02, rotate:true },
+    { id:'dog',      ko:'강아지',   en:'Dog',         emoji:'🐶', anchor:'face', scale:1.75, yOff:-0.02, rotate:true },
+    { id:'rabbit',   ko:'토끼',     en:'Rabbit',      emoji:'🐰', anchor:'face', scale:1.75, yOff:-0.04, rotate:true },
+    { id:'panda',    ko:'판다',     en:'Panda',       emoji:'🐼', anchor:'face', scale:1.75, yOff:-0.02, rotate:true },
+    { id:'tiger',    ko:'호랑이',   en:'Tiger',       emoji:'🐯', anchor:'face', scale:1.75, yOff:-0.02, rotate:true },
+    { id:'clown',    ko:'광대',     en:'Clown',       emoji:'🤡', anchor:'face', scale:1.70, yOff:-0.02, rotate:true },
+    { id:'alien',    ko:'외계인',   en:'Alien',       emoji:'👽', anchor:'face', scale:1.62, yOff:-0.02, rotate:true },
+    { id:'robot',    ko:'로봇',     en:'Robot',       emoji:'🤖', anchor:'face', scale:1.62, yOff:-0.02, rotate:true },
+    { id:'pumpkin',  ko:'호박',     en:'Pumpkin',     emoji:'🎃', anchor:'face', scale:1.70, yOff:-0.02, rotate:true },
+    { id:'nose',     ko:'빨간코',   en:'Clown Nose',  emoji:'🔴', anchor:'nose', scale:0.42, yOff:0.00, rotate:false },
+    { id:'mustache', ko:'콧수염',   en:'Mustache',    emoji:'',   anchor:'stache', scale:1.0, yOff:0.0, rotate:true, draw:'mustache' }
   ];
 
   var vcFx = window.vcFx = {
@@ -26488,16 +26487,17 @@ window.closeRulesModal = function() {
     grid.innerHTML = html;
   }
 
-  // --- MediaPipe Face Detection lazy 로드 ---
+  // --- MediaPipe FaceMesh(468점 정밀 랜드마크) lazy 로드 ---
+  //   6점 FaceDetection 보다 위치가 훨씬 정확 → 액세서리가 얼굴에 딱 맞음
   function fxLoadMP(){
     if (vcFx.mpLoaded) return Promise.resolve();
     if (vcFx.mpLoading) return vcFx.mpLoading;
     vcFx.mpLoading = new Promise(function(resolve, reject){
       var s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js';
+      s.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js';
       s.crossOrigin = 'anonymous';
       s.onload = function(){ vcFx.mpLoaded = true; resolve(); };
-      s.onerror = function(){ reject(new Error('FaceDetection 로드 실패')); };
+      s.onerror = function(){ reject(new Error('FaceMesh 로드 실패')); };
       document.head.appendChild(s);
     });
     return vcFx.mpLoading;
@@ -26505,11 +26505,16 @@ window.closeRulesModal = function() {
 
   function fxInitDetector(){
     if (vcFx.detector) return Promise.resolve();
-    if (typeof FaceDetection === 'undefined') return Promise.reject(new Error('FaceDetection 미로드'));
-    vcFx.detector = new FaceDetection({
-      locateFile: function(f){ return 'https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/' + f; }
+    if (typeof FaceMesh === 'undefined') return Promise.reject(new Error('FaceMesh 미로드'));
+    vcFx.detector = new FaceMesh({
+      locateFile: function(f){ return 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/' + f; }
     });
-    vcFx.detector.setOptions({ model: 'short', minDetectionConfidence: 0.5 });
+    vcFx.detector.setOptions({
+      maxNumFaces: 1,
+      refineLandmarks: false,   // 경량(눈동자 정밀화 끔) → 발열·부하 절감
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
     vcFx.detector.onResults(fxOnResults);
     if (!vcFx.canvas){
       vcFx.canvas = document.createElement('canvas');
@@ -26535,31 +26540,27 @@ window.closeRulesModal = function() {
     return vcFx.hiddenVideo;
   }
 
-  // 검출 결과 → 보간 저장 (그리기는 렌더 루프에서)
+  // 우리가 쓰는 FaceMesh 랜드마크 인덱스만 추려서 저장(468 전부 보간하면 낭비)
+  //   10=이마중앙위, 152=턱끝, 234/454=얼굴 좌/우폭, 1=코끝, 2=코밑,
+  //   13=윗입술중앙, 33=오른눈 바깥, 263=왼눈 바깥, 133=오른눈 안쪽, 362=왼눈 안쪽, 168=미간
+  var FX_IDX = [10,152,234,454,1,2,13,33,263,133,362,168];
+
   function fxOnResults(res){
-    var dets = res && res.detections;
-    if (!dets || !dets.length){ vcFx._missCount = (vcFx._missCount||0)+1; if (vcFx._missCount>12) vcFx.lastFace=null; return; }
+    var faces = res && res.multiFaceLandmarks;
+    if (!faces || !faces.length){ vcFx._missCount=(vcFx._missCount||0)+1; if (vcFx._missCount>10) vcFx.lastLM=null; return; }
     vcFx._missCount = 0;
-    var d = dets[0];
-    // landmarks: [rightEye,leftEye,noseTip,mouthCenter,rightEar,leftEar] (정규화 0~1, 비미러)
-    var lm = d.landmarks || (d.keypoints) || [];
-    var bb = d.boundingBox || {};
-    function pt(p){ return p ? { x:(p.x!==undefined?p.x:p[0]), y:(p.y!==undefined?p.y:p[1]) } : null; }
-    var face = {
-      rEye: pt(lm[0]), lEye: pt(lm[1]), nose: pt(lm[2]), mouth: pt(lm[3]),
-      cx: bb.xCenter, cy: bb.yCenter, w: bb.width, h: bb.height
-    };
+    var src = faces[0];
+    var cur = {};
+    FX_IDX.forEach(function(i){ var p=src[i]; if(p) cur[i]={x:p.x,y:p.y}; });
     // 보간(lerp) 으로 떨림 완화
-    var prev = vcFx.lastFace;
+    var prev = vcFx.lastLM, a = 0.5;
     if (prev){
-      var a = 0.45;
-      function L(o,n){ if(!o||!n) return n||o; return { x:o.x+(n.x-o.x)*a, y:o.y+(n.y-o.y)*a }; }
-      face.rEye=L(prev.rEye,face.rEye); face.lEye=L(prev.lEye,face.lEye);
-      face.nose=L(prev.nose,face.nose); face.mouth=L(prev.mouth,face.mouth);
-      face.cx=prev.cx+(face.cx-prev.cx)*a; face.cy=prev.cy+(face.cy-prev.cy)*a;
-      face.w=prev.w+(face.w-prev.w)*a;     face.h=prev.h+(face.h-prev.h)*a;
+      FX_IDX.forEach(function(i){
+        var o=prev[i], n=cur[i];
+        if (o && n){ cur[i]={ x:o.x+(n.x-o.x)*a, y:o.y+(n.y-o.y)*a }; }
+      });
     }
-    vcFx.lastFace = face;
+    vcFx.lastLM = cur;
   }
 
   // 액세서리 한 개 그리기
@@ -26743,7 +26744,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260615230519 -->
+<!-- BUILD:20260615230927 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
