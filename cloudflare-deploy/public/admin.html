@@ -21326,7 +21326,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260615171817 -->
+        <!-- BUILD:20260615172853 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -36641,13 +36641,15 @@ button.chip:hover,
     +'#mi-asst-fab:hover{transform:scale(1.06)}'
     +'.mi-nav-item{cursor:pointer;border-radius:8px;padding:3px 6px;margin:1px -6px;transition:background .15s ease}'
     +'.mi-nav-item:hover{background:rgba(99,102,241,.22)}'
-    +'.mi-nav-item:after{content:" ↗";opacity:.55;font-size:11px}'+'.mi-kw{color:#93c5fd;cursor:pointer;border-bottom:1px dashed rgba(147,197,253,.6);font-weight:600}'+'.mi-kw:hover{color:#bfdbfe;background:rgba(99,102,241,.18);border-radius:4px}';
+    +'.mi-nav-item:after{content:" ↗";opacity:.55;font-size:11px}'+'.mi-kw{color:#93c5fd;cursor:pointer;border-bottom:1px dashed rgba(147,197,253,.6);font-weight:600}'+'.mi-kw:hover{color:#bfdbfe;background:rgba(99,102,241,.18);border-radius:4px}'
+    +'@keyframes miAsstGlow{0%,100%{box-shadow:-2px 0 20px rgba(99,102,241,.7),-10px 0 52px rgba(56,189,248,.45),-12px 0 40px -12px rgba(0,0,0,.6)}50%{box-shadow:-3px 0 34px rgba(129,140,248,1),-18px 0 90px rgba(56,189,248,.9),-12px 0 40px -12px rgba(0,0,0,.6)}}'
+    +'@media (prefers-reduced-motion:reduce){#mi-asst-panel{box-shadow:-3px 0 30px rgba(129,140,248,.95),-16px 0 80px rgba(56,189,248,.75),-12px 0 40px -12px rgba(0,0,0,.6) !important}}';
   document.head.appendChild(st);
 
   var box=document.createElement('div');
   box.innerHTML=''
    +'<div id="mi-asst-back" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(2,6,23,.5);backdrop-filter:blur(2px)"></div>'
-   +'<aside id="mi-asst-panel" role="dialog" aria-label="AI Ops Assistant" style="display:none;position:fixed;top:0;right:0;z-index:9999;height:100vh;width:390px;max-width:94vw;background:#0f172a;border-left:1px solid rgba(99,102,241,.25);box-shadow:-12px 0 40px -12px rgba(0,0,0,.6);flex-direction:column;animation:miAsstSlide .28s ease both">'
+   +'<aside id="mi-asst-panel" role="dialog" aria-label="AI Ops Assistant" style="display:none;position:fixed;top:0;right:0;z-index:9999;height:100vh;width:390px;max-width:94vw;background:#0f172a;border-left:2px solid rgba(129,140,248,.9);box-shadow:-3px 0 26px rgba(99,102,241,.85),-14px 0 70px rgba(56,189,248,.55),-12px 0 40px -12px rgba(0,0,0,.6);flex-direction:column;animation:miAsstSlide .28s ease both, miAsstGlow 2.6s ease-in-out .35s infinite">'
    +'  <div style="display:flex;align-items:center;gap:10px;padding:0 16px;height:60px;border-bottom:1px solid rgba(99,102,241,.18)">'
    +'    <img src="/img/Mangoi_Character.png" alt="Mangoi AI Ops Assistant" style="width:40px;height:34px;object-fit:contain;flex:none;filter:drop-shadow(0 2px 5px rgba(0,0,0,.4))">'
    +'    <div style="line-height:1.2"><div id="mi-asst-title" style="font-weight:800;color:#e6ecff"></div><div id="mi-asst-status" style="font-size:11px;color:#34d399"></div></div>'
@@ -36985,16 +36987,16 @@ button.chip:hover,
     pop.style.display='block';
     try{ v.currentTime=0; }catch(e){}
     requestAnimationFrame(function(){ requestAnimationFrame(function(){ pop.classList.add('show'); }); });
-    // 🔊 음소거로 시작 — 음성은 🔊 버튼 클릭 시에만 (자동 음성재생 금지)
-    v.muted=true; syncMute();
+    // 🔊 'AI 운영비서'는 직접 눌러서 여는 것 → 열면(클릭) 곧바로 음성 재생. 차단 시 음소거로라도 재생.
+    v.muted=false; syncMute();
     var p=v.play();
-    if(p&&p.catch) p.catch(function(){});
+    if(p&&p.catch) p.catch(function(){ v.muted=true; syncMute(); var p2=v.play(); if(p2&&p2.catch)p2.catch(function(){}); });
     // 클릭(영상/사이드바/카드 등 어디든)·페이지 이동·사이드바 닫기 시 자동으로 사라지게
     armDismiss();
   }
   window.miAsstPlayVideo=playVideo;
 
-  btnM.addEventListener('click',function(){ v.muted=!v.muted; syncMute(); });
+  btnM.addEventListener('click',function(){ v.muted=!v.muted; if(!v.muted){ if(hideTimer){clearTimeout(hideTimer);hideTimer=null;} try{v.currentTime=0;}catch(e){} var pp=v.play(); if(pp&&pp.catch)pp.catch(function(){}); } syncMute(); });
   v.addEventListener('volumechange',syncMute);
   btnX.addEventListener('click',fadeOut);
   // 말 끝나면 fade-out

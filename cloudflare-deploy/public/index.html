@@ -3008,8 +3008,29 @@
     document.body.appendChild(ov);
     var yes = document.getElementById('vc-rq-yes');
     var no  = document.getElementById('vc-rq-no');
-    if (yes) yes.addEventListener('click', function(){ closeModal(); goReviewQuiz(); });
-    if (no)  no.addEventListener('click', function(){ closeModal(); reallyExit(); });
+
+    // 🎬 복습퀴즈 안내 음성영상 메시지 — 모달과 동시에 우상단에 표시(fade-in), 영상 끝/닫기 시 fade-out
+    (function(){
+      var old=document.getElementById('vc-rq-guide-vid'); if(old&&old.parentNode) old.parentNode.removeChild(old);
+      var vw=document.createElement('div'); vw.id='vc-rq-guide-vid';
+      vw.style.cssText='position:fixed;top:12px;right:12px;z-index:2147483601;width:min(220px,44vw);aspect-ratio:1/1;border-radius:16px;overflow:hidden;box-shadow:0 12px 30px -8px rgba(0,0,0,.7);border:1px solid rgba(251,191,36,.45);background:#000;cursor:pointer;opacity:0;transition:opacity .5s ease';
+      vw.innerHTML='<video id="vc-rq-vid" src="/video/review-quiz-teacher.mp4" autoplay playsinline preload="auto" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none"></video>'
+        +'<button type="button" id="vc-rq-vid-mute" aria-label="소리 켜기/끄기" style="position:absolute;right:6px;bottom:6px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">🔊</button>'
+        +'<button type="button" id="vc-rq-vid-x" aria-label="닫기" style="position:absolute;left:6px;top:6px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.5);color:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">✕</button>';
+      document.body.appendChild(vw);
+      var vid=vw.querySelector('#vc-rq-vid'), vmb=vw.querySelector('#vc-rq-vid-mute'), vx=vw.querySelector('#vc-rq-vid-x');
+      function vupd(){ vmb.textContent=vid.muted?'🔇':'🔊'; }
+      window._vcRqKillVid=function(){ if(!vw) return; vw.style.opacity='0'; var t=vw; setTimeout(function(){ try{vid.pause();}catch(_){ } if(t&&t.parentNode) t.parentNode.removeChild(t); },500); vw=null; };
+      vid.muted=false; var p0=vid.play(); if(p0&&p0.catch)p0.catch(function(){ vid.muted=true; vupd(); var p1=vid.play(); if(p1&&p1.catch)p1.catch(function(){}); }); vupd();
+      vid.addEventListener('error', function(){ if(window._vcRqKillVid)window._vcRqKillVid(); });
+      vid.addEventListener('ended', function(){ if(window._vcRqKillVid)window._vcRqKillVid(); });
+      vmb.addEventListener('click', function(e){ e.stopPropagation(); vid.muted=!vid.muted; if(!vid.muted){ var pp=vid.play(); if(pp&&pp.catch)pp.catch(function(){}); } vupd(); });
+      vx.addEventListener('click', function(e){ e.stopPropagation(); if(window._vcRqKillVid)window._vcRqKillVid(); });
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ if(vw) vw.style.opacity='1'; }); });
+    })();
+
+    if (yes) yes.addEventListener('click', function(){ if(window._vcRqKillVid)window._vcRqKillVid(); closeModal(); goReviewQuiz(); });
+    if (no)  no.addEventListener('click', function(){ if(window._vcRqKillVid)window._vcRqKillVid(); closeModal(); reallyExit(); });
     return true;
   };
 
@@ -25439,7 +25460,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260615171817 -->
+<!-- BUILD:20260615172853 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
