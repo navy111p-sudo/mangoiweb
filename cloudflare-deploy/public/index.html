@@ -26761,7 +26761,7 @@ window.closeRulesModal = function() {
 
     if (it.anchor==='hat'){
       size = faceW * it.scale;
-      var lift = size*0.42 - it.yOff*faceW;   // yOff 클수록 이마쪽으로 내려옴
+      var lift = size*0.20 - it.yOff*faceW;   // 머리 위 띄움 대폭 축소 → 모자가 머리에 얹힘. yOff 클수록 더 내려옴
       px = forehead.x + up.x*lift;
       py = forehead.y + up.y*lift;
     } else if (it.anchor==='eyes'){
@@ -26955,7 +26955,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260616034845 -->
+<!-- BUILD:20260616040851 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
