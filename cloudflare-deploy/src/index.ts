@@ -1240,7 +1240,7 @@ async function handleWbOcr(request: Request, env: Env): Promise<Response> {
     if (!buf || buf.byteLength === 0) return J({ ok: false, text: '', error: 'empty' }, 400);
     if (buf.byteLength > 3_000_000) return J({ ok: false, text: '', error: 'too_large' }, 413);
     const bytes = [...new Uint8Array(buf)];
-    const prompt = 'You are a precise OCR engine. The image shows HANDWRITTEN English letters/words/numbers in black on a white background. Read it character by character and output the exact text, preserving UPPERCASE vs lowercase and digits. Output ONLY the text on one line — no quotes, no labels, no explanation. If unreadable, output exactly: NONE';
+    const prompt = 'You are a precise OCR engine. The black-on-white image contains a SINGLE handwritten English letter, a short word, or a number. Identify it and output the exact characters, preserving UPPERCASE vs lowercase and digits. If it is one isolated letter, output just that single letter. Output ONLY the characters on one line — no quotes, no spaces around it, no labels, no explanation, no sentences. If you truly cannot read it, output exactly: NONE';
 
     const clean = (raw: any): string => {
       let t = String(raw ?? '').trim();

@@ -6853,6 +6853,20 @@
                 <span style="position:relative;padding:8px 12px;text-shadow:0 1px 6px rgba(0,0,0,0.9)" data-ko="⚔️ 신화 영웅" data-en="⚔️ Myth Hero">⚔️ 신화 영웅</span>
               </button>
             </div>
+
+            <!-- 🎭 얼굴 꾸미기 (마스크·액세서리) — MediaPipe Face Detection -->
+            <div style="margin-top:26px;padding-top:18px;border-top:1px dashed rgba(148,163,184,0.25)">
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+                <span style="font-size:14px;font-weight:700;color:#a78bfa">🎭 <span data-ko="얼굴 꾸미기 (마스크·액세서리)" data-en="Face Decorations (Masks & Accessories)">얼굴 꾸미기 (마스크·액세서리)</span></span>
+                <span id="vc-fx-status" style="font-size:11.5px;color:#94a3b8" data-ko="원하는 아이템을 클릭하면 얼굴에 따라다녀요" data-en="Click an item — it follows your face">원하는 아이템을 클릭하면 얼굴에 따라다녀요</span>
+                <span style="margin-left:auto;font-size:11px;color:#64748b" data-ko="첫 적용 시 얼굴인식 모델 로드(약 2MB)" data-en="First use downloads ~2MB face model">첫 적용 시 얼굴인식 모델 로드(약 2MB)</span>
+              </div>
+              <div id="vc-fx-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px"></div>
+              <div style="margin-top:16px;padding:12px 14px;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.25);border-radius:10px;font-size:12px;color:#ddd6fe;line-height:1.6">
+                💡 <span data-ko="모자·썬글라스·가면 등을 얼굴 위치·각도에 맞춰 실시간으로 씌워 모든 참가자에게 보여줍니다. 가상 배경과 함께 쓸 수도 있어요." data-en="Hats, sunglasses, masks and more track your face in real time and are visible to all participants. Works together with virtual backgrounds.">모자·썬글라스·가면 등을 얼굴 위치·각도에 맞춰 실시간으로 씌워 모든 참가자에게 보여줍니다. 가상 배경과 함께 쓸 수도 있어요.</span>
+              </div>
+            </div>
+
             <div style="margin-top:18px;padding:12px 14px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:10px;font-size:12px;color:#fde68a;line-height:1.6">
               💡 <span data-ko="가상 배경은 모든 참가자에게 적용된 모습으로 보입니다. 카메라가 켜져 있어야 작동합니다." data-en="Virtual background is visible to all participants. Camera must be on.">가상 배경은 모든 참가자에게 적용된 모습으로 보입니다. 카메라가 켜져 있어야 작동합니다.</span>
             </div>
@@ -10263,6 +10277,10 @@ async function vcEnsureHiddenVideo(){
 
 // --- 6) 캔버스 → MediaStreamTrack → 모든 peer 의 sender 에 replaceTrack ---
 function vcSwapVideoTrack(newTrack){
+  // 🎭 얼굴 액세서리(vcFx)가 활성화돼 있으면, fx 캔버스가 최종 송신 소스다.
+  //   이때 vcBg(가상배경)가 자체적으로 부르는 트랙 교체는 무시 → fx가 sender 를 계속 점유.
+  //   (fx 가 vcBg.canvas 를 읽어 합성하므로 배경 변경은 그대로 반영됨)
+  if (window.vcFx && window.vcFx.active && !window.__vcFxInternalSwap) return;
   // 가상배경 캔버스 트랙은 카메라 원본보다 인코딩이 무겁다 → 교체 직후 sender 파라미터 재적용
   //   · degradationPreference 'maintain-framerate' : 부하 시 화질·해상도를 먼저 낮춰 끊김(프레임 드랍) 방지 = 실시간성 우선
   //   · maxBitrate / maxFramerate 상한 : 인코더 풀가동 차단 → CPU·전력·대역폭 절감
@@ -11319,7 +11337,7 @@ function wbToggleOcr(btn){
 }
 function wbScheduleOcr(){
   if (wbOcrTimer) clearTimeout(wbOcrTimer);
-  wbOcrTimer = setTimeout(function(){ wbRunOcr().catch(()=>{}); }, 1300);
+  wbOcrTimer = setTimeout(function(){ wbRunOcr().catch(()=>{}); }, 1700);
 }
 // 대기 획들을 원본 잉크로 확정(메인 캔버스) + 상대 전송
 function wbCommitPendingAsInk(pending){
@@ -11348,10 +11366,10 @@ async function wbRunOcr(){
   const pad = 14;
   minX-=pad; minY-=pad; maxX+=pad; maxY+=pad;
   const bw = Math.max(1, maxX-minX), bh = Math.max(1, maxY-minY);
-  // 정규화 렌더: 글씨 높이를 일정(220px)하게 키우고 여백·굵은 획으로 가독성↑ → 인식률↑
-  const targetH = 220;
+  // 정규화 렌더: 글씨 높이를 일정(280px)하게 키우고 여백·굵은 획으로 가독성↑ → 인식률↑
+  const targetH = 280;
   let isc = targetH / bh;
-  if (bw*isc > 1700) isc = 1700 / bw;        // 가로가 너무 길면 제한
+  if (bw*isc > 2000) isc = 2000 / bw;        // 가로가 너무 길면 제한
   const padPx = Math.round(targetH*0.18);
   const off = document.createElement('canvas');
   off.width = Math.round(bw*isc) + padPx*2;
@@ -26398,7 +26416,334 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260615224936 -->
+<!-- 🎭 얼굴 꾸미기(마스크·액세서리) 엔진 — MediaPipe Face Detection -->
+<!--    카메라(또는 가상배경 합성 캔버스) → 얼굴 landmark 검출 → 액세서리 오버레이 합성 →
+        captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
+<script id="vc-face-fx">
+(function(){
+  'use strict';
+
+  // 액세서리 정의 — emoji 를 얼굴 landmark 에 맞춰 그린다.
+  //  anchor: 어디에 붙일지   scale: 얼굴 폭 대비 크기   yOff: 세로 미세조정(얼굴폭 비율)
+  //  rotate: 고개 기울기(eye roll)에 맞춰 회전할지
+  var FX_ITEMS = [
+    { id:'tophat',   label:'중절모',   ko:'중절모',   en:'Top Hat',     emoji:'🎩', anchor:'hat',  scale:1.45, yOff:-0.10, rotate:true },
+    { id:'cap',      label:'모자',     ko:'야구모자', en:'Cap',         emoji:'🧢', anchor:'hat',  scale:1.45, yOff:-0.02, rotate:true },
+    { id:'crown',    label:'왕관',     ko:'왕관',     en:'Crown',       emoji:'👑', anchor:'hat',  scale:1.30, yOff:0.02,  rotate:true },
+    { id:'grad',     label:'학사모',   ko:'학사모',   en:'Grad Cap',    emoji:'🎓', anchor:'hat',  scale:1.45, yOff:0.00,  rotate:true },
+    { id:'helmet',   label:'안전모',   ko:'안전모',   en:'Helmet',      emoji:'⛑️', anchor:'hat',  scale:1.45, yOff:0.02,  rotate:true },
+    { id:'sun',      label:'썬글라스', ko:'썬글라스', en:'Sunglasses',  emoji:'🕶️', anchor:'eyes', scale:1.05, yOff:0.00,  rotate:true },
+    { id:'glasses',  label:'안경',     ko:'안경',     en:'Glasses',     emoji:'👓', anchor:'eyes', scale:1.05, yOff:0.00,  rotate:true },
+    { id:'goggles',  label:'고글',     ko:'물안경',   en:'Goggles',     emoji:'🥽', anchor:'eyes', scale:1.05, yOff:0.00,  rotate:true },
+    { id:'mask',     label:'가면',     ko:'가면',     en:'Mask',        emoji:'🎭', anchor:'face', scale:1.25, yOff:0.00,  rotate:true },
+    { id:'fox',      label:'여우',     ko:'여우',     en:'Fox',         emoji:'🦊', anchor:'face', scale:1.30, yOff:-0.02, rotate:true },
+    { id:'cat',      label:'고양이',   ko:'고양이',   en:'Cat',         emoji:'🐱', anchor:'face', scale:1.30, yOff:-0.02, rotate:true },
+    { id:'dog',      label:'강아지',   ko:'강아지',   en:'Dog',         emoji:'🐶', anchor:'face', scale:1.30, yOff:-0.02, rotate:true },
+    { id:'rabbit',   label:'토끼',     ko:'토끼',     en:'Rabbit',      emoji:'🐰', anchor:'face', scale:1.30, yOff:-0.02, rotate:true },
+    { id:'panda',    label:'판다',     ko:'판다',     en:'Panda',       emoji:'🐼', anchor:'face', scale:1.30, yOff:-0.02, rotate:true },
+    { id:'tiger',    label:'호랑이',   ko:'호랑이',   en:'Tiger',       emoji:'🐯', anchor:'face', scale:1.30, yOff:-0.02, rotate:true },
+    { id:'clown',    label:'광대',     ko:'광대',     en:'Clown',       emoji:'🤡', anchor:'face', scale:1.25, yOff:-0.02, rotate:true },
+    { id:'alien',    label:'외계인',   ko:'외계인',   en:'Alien',       emoji:'👽', anchor:'face', scale:1.20, yOff:-0.02, rotate:true },
+    { id:'robot',    label:'로봇',     ko:'로봇',     en:'Robot',       emoji:'🤖', anchor:'face', scale:1.20, yOff:-0.02, rotate:true },
+    { id:'pumpkin',  label:'호박',     ko:'호박',     en:'Pumpkin',     emoji:'🎃', anchor:'face', scale:1.25, yOff:-0.02, rotate:true },
+    { id:'nose',     label:'광대코',   ko:'빨간코',   en:'Clown Nose',  emoji:'🔴', anchor:'nose', scale:0.34, yOff:0.00,  rotate:false },
+    { id:'mustache', label:'콧수염',   ko:'콧수염',   en:'Mustache',    emoji:'',   anchor:'stache', scale:1.0, yOff:0.0, rotate:true, draw:'mustache' }
+  ];
+
+  var vcFx = window.vcFx = {
+    active:false, mode:'off',
+    mpLoaded:false, mpLoading:null,
+    detector:null,
+    canvas:null, ctx:null,
+    hiddenVideo:null,
+    rafId:null, sending:false,
+    processedStream:null,
+    lastFace:null,     // 보간된 얼굴(떨림 완화)
+    frameTick:0
+  };
+
+  function fxMobile(){ return (typeof vcIsMobileDevice === 'function') ? vcIsMobileDevice() : (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'')); }
+  function fxLang(){ try { return (localStorage.getItem('mango_lang')==='en' || document.documentElement.lang==='en') ? 'en' : 'ko'; } catch(_) { return 'ko'; } }
+
+  function fxStatus(msg){ var el=document.getElementById('vc-fx-status'); if(el) el.textContent=msg; }
+
+  // --- 그리드 UI 생성 ---
+  function fxBuildGrid(){
+    var grid = document.getElementById('vc-fx-grid');
+    if (!grid || grid.dataset.built==='1') return;
+    grid.dataset.built='1';
+    var en = fxLang()==='en';
+    var html = '';
+    // 끄기 타일
+    html += '<button class="vc-fx-tile vc-fx-active" data-fx="off" onclick="vcSetFace(\'off\')" '+
+      'style="aspect-ratio:1/1;border:2px solid #a78bfa;border-radius:12px;background:linear-gradient(135deg,#1e293b,#0f172a);color:#e2e8f0;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px;font-size:11px;font-weight:700">'+
+      '<span style="font-size:26px">🚫</span><span data-ko="없음" data-en="None">'+(en?'None':'없음')+'</span></button>';
+    FX_ITEMS.forEach(function(it){
+      var disp = it.emoji || (it.draw==='mustache' ? '〰️' : '✨');
+      html += '<button class="vc-fx-tile" data-fx="'+it.id+'" onclick="vcSetFace(\''+it.id+'\')" '+
+        'style="aspect-ratio:1/1;border:2px solid #334155;border-radius:12px;background:#0f172a;color:#e2e8f0;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px;font-size:11px;font-weight:700">'+
+        '<span style="font-size:30px;line-height:1">'+disp+'</span>'+
+        '<span data-ko="'+it.ko+'" data-en="'+it.en+'">'+(en?it.en:it.ko)+'</span></button>';
+    });
+    grid.innerHTML = html;
+  }
+
+  // --- MediaPipe Face Detection lazy 로드 ---
+  function fxLoadMP(){
+    if (vcFx.mpLoaded) return Promise.resolve();
+    if (vcFx.mpLoading) return vcFx.mpLoading;
+    vcFx.mpLoading = new Promise(function(resolve, reject){
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js';
+      s.crossOrigin = 'anonymous';
+      s.onload = function(){ vcFx.mpLoaded = true; resolve(); };
+      s.onerror = function(){ reject(new Error('FaceDetection 로드 실패')); };
+      document.head.appendChild(s);
+    });
+    return vcFx.mpLoading;
+  }
+
+  function fxInitDetector(){
+    if (vcFx.detector) return Promise.resolve();
+    if (typeof FaceDetection === 'undefined') return Promise.reject(new Error('FaceDetection 미로드'));
+    vcFx.detector = new FaceDetection({
+      locateFile: function(f){ return 'https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/' + f; }
+    });
+    vcFx.detector.setOptions({ model: 'short', minDetectionConfidence: 0.5 });
+    vcFx.detector.onResults(fxOnResults);
+    if (!vcFx.canvas){
+      vcFx.canvas = document.createElement('canvas');
+      vcFx.canvas.width = 640; vcFx.canvas.height = 480;
+      vcFx.ctx = vcFx.canvas.getContext('2d');
+    }
+    return vcFx.detector.initialize ? vcFx.detector.initialize() : Promise.resolve();
+  }
+
+  // 숨겨진 카메라 비디오 (검출 입력) — vcBg 의 것을 재사용, 없으면 자체 생성
+  function fxEnsureHiddenVideo(){
+    if (typeof vcBg !== 'undefined' && vcBg.hiddenVideo) { vcFx.hiddenVideo = vcBg.hiddenVideo; }
+    if (!vcFx.hiddenVideo){
+      var hv = document.createElement('video');
+      hv.autoplay=true; hv.muted=true; hv.playsInline=true; hv.setAttribute('playsinline','');
+      hv.style.cssText='position:fixed;left:-9999px;top:-9999px;width:320px;height:240px;visibility:hidden;pointer-events:none';
+      document.body.appendChild(hv);
+      vcFx.hiddenVideo = hv;
+    }
+    var stream = (typeof vcLocalStream !== 'undefined') ? vcLocalStream : null;
+    if (stream && vcFx.hiddenVideo.srcObject !== stream) vcFx.hiddenVideo.srcObject = stream;
+    try { vcFx.hiddenVideo.play(); } catch(_){}
+    return vcFx.hiddenVideo;
+  }
+
+  // 검출 결과 → 보간 저장 (그리기는 렌더 루프에서)
+  function fxOnResults(res){
+    var dets = res && res.detections;
+    if (!dets || !dets.length){ vcFx._missCount = (vcFx._missCount||0)+1; if (vcFx._missCount>12) vcFx.lastFace=null; return; }
+    vcFx._missCount = 0;
+    var d = dets[0];
+    // landmarks: [rightEye,leftEye,noseTip,mouthCenter,rightEar,leftEar] (정규화 0~1, 비미러)
+    var lm = d.landmarks || (d.keypoints) || [];
+    var bb = d.boundingBox || {};
+    function pt(p){ return p ? { x:(p.x!==undefined?p.x:p[0]), y:(p.y!==undefined?p.y:p[1]) } : null; }
+    var face = {
+      rEye: pt(lm[0]), lEye: pt(lm[1]), nose: pt(lm[2]), mouth: pt(lm[3]),
+      cx: bb.xCenter, cy: bb.yCenter, w: bb.width, h: bb.height
+    };
+    // 보간(lerp) 으로 떨림 완화
+    var prev = vcFx.lastFace;
+    if (prev){
+      var a = 0.45;
+      function L(o,n){ if(!o||!n) return n||o; return { x:o.x+(n.x-o.x)*a, y:o.y+(n.y-o.y)*a }; }
+      face.rEye=L(prev.rEye,face.rEye); face.lEye=L(prev.lEye,face.lEye);
+      face.nose=L(prev.nose,face.nose); face.mouth=L(prev.mouth,face.mouth);
+      face.cx=prev.cx+(face.cx-prev.cx)*a; face.cy=prev.cy+(face.cy-prev.cy)*a;
+      face.w=prev.w+(face.w-prev.w)*a;     face.h=prev.h+(face.h-prev.h)*a;
+    }
+    vcFx.lastFace = face;
+  }
+
+  // 액세서리 한 개 그리기
+  function fxDrawItem(ctx, it, face, W, H){
+    if (!face) return;
+    var rE=face.rEye, lE=face.lEye, nose=face.nose, mouth=face.mouth;
+    var faceWpx = (face.w||0.3) * W;
+    // 양 눈 픽셀좌표
+    var angle = 0, eyeMid=null, eyeDist=faceWpx*0.45;
+    if (rE && lE){
+      var ex1=rE.x*W, ey1=rE.y*H, ex2=lE.x*W, ey2=lE.y*H;
+      eyeMid = { x:(ex1+ex2)/2, y:(ey1+ey2)/2 };
+      eyeDist = Math.hypot(ex2-ex1, ey2-ey1) || eyeDist;
+      angle = Math.atan2(ey2-ey1, ex2-ex1);
+    }
+    var cx = (face.cx!==undefined?face.cx:0.5)*W;
+    var cy = (face.cy!==undefined?face.cy:0.5)*H;
+    var topY = cy - (face.h||0.3)*H/2;
+
+    var px, py, size;
+    if (it.anchor==='hat'){
+      px = eyeMid?eyeMid.x:cx; py = topY + (it.yOff*faceWpx);
+      size = faceWpx * it.scale;
+      py -= size*0.30; // 모자는 머리 위로
+    } else if (it.anchor==='eyes'){
+      px = eyeMid?eyeMid.x:cx; py = (eyeMid?eyeMid.y:cy) + it.yOff*faceWpx;
+      size = (eyeDist*2.3) * it.scale;
+    } else if (it.anchor==='nose'){
+      px = nose?nose.x*W:cx; py = nose?nose.y*H:cy; size = faceWpx*it.scale;
+    } else if (it.anchor==='stache'){
+      var mx = nose? nose.x*W : cx;
+      var myTop = nose? nose.y*H : cy;
+      var myBot = mouth? mouth.y*H : (cy+faceWpx*0.4);
+      px = mx; py = myTop + (myBot-myTop)*0.45; size=faceWpx;
+    } else { // face
+      px = cx; py = cy + it.yOff*faceWpx; size = faceWpx * it.scale;
+    }
+
+    ctx.save();
+    ctx.translate(px, py);
+    if (it.rotate) ctx.rotate(angle);
+    if (it.draw==='mustache'){
+      // 벡터 콧수염
+      var w = faceWpx*0.55, h = faceWpx*0.22;
+      ctx.fillStyle = '#3b2415';
+      ctx.beginPath();
+      ctx.moveTo(0,-h*0.15);
+      ctx.bezierCurveTo(-w*0.15,-h*0.5, -w*0.45,-h*0.5, -w*0.5,h*0.1);
+      ctx.bezierCurveTo(-w*0.45,h*0.5, -w*0.2,h*0.45, 0,h*0.05);
+      ctx.bezierCurveTo( w*0.2,h*0.45,  w*0.45,h*0.5,  w*0.5,h*0.1);
+      ctx.bezierCurveTo( w*0.45,-h*0.5, w*0.15,-h*0.5, 0,-h*0.15);
+      ctx.fill();
+    } else {
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.font = size + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","EmojiOne Color",sans-serif';
+      ctx.fillText(it.emoji, 0, 0);
+    }
+    ctx.restore();
+  }
+
+  // 렌더 루프 — 매 프레임 base 영상 그리고, 검출은 N프레임마다, 액세서리는 매 프레임(보간된 얼굴로)
+  function fxLoop(){
+    if (!vcFx.active){ vcFx.rafId=null; return; }
+    var ctx = vcFx.ctx, cv = vcFx.canvas;
+    // base 프레임 결정: 가상배경 처리중이면 그 합성 캔버스, 아니면 원본 카메라
+    var bgActive = (typeof vcBg!=='undefined' && vcBg.isProcessing && vcBg.canvas && vcBg.canvas.width>0);
+    var base = bgActive ? vcBg.canvas : vcFx.hiddenVideo;
+    var bw = bgActive ? vcBg.canvas.width  : (vcFx.hiddenVideo? vcFx.hiddenVideo.videoWidth :0);
+    var bh = bgActive ? vcBg.canvas.height : (vcFx.hiddenVideo? vcFx.hiddenVideo.videoHeight:0);
+    if (bw>0 && bh>0){
+      // 캔버스 크기를 base 에 맞춤(과대 인코딩 방지: 가로 상한)
+      var target = (typeof vcBgTargetWidth==='function') ? vcBgTargetWidth() : (fxMobile()?480:640);
+      var cw = Math.min(bw, target), ch = Math.round(cw*bh/bw);
+      if (cv.width!==cw || cv.height!==ch){ cv.width=cw; cv.height=ch; }
+      try { ctx.drawImage(base, 0, 0, cv.width, cv.height); } catch(_){}
+      // 액세서리
+      if (vcFx.mode!=='off'){
+        var it = null; for (var i=0;i<FX_ITEMS.length;i++){ if (FX_ITEMS[i].id===vcFx.mode){ it=FX_ITEMS[i]; break; } }
+        if (it) fxDrawItem(ctx, it, vcFx.lastFace, cv.width, cv.height);
+      }
+    }
+    // 검출 송신 (throttle)
+    vcFx.frameTick++;
+    var everyN = fxMobile()?5:3;
+    var hv = vcFx.hiddenVideo;
+    if (vcFx.frameTick % everyN === 0 && hv && hv.readyState>=2 && hv.videoWidth>0 && vcFx.detector && !vcFx.sending){
+      vcFx.sending=true;
+      vcFx.detector.send({ image: hv }).catch(function(){}).finally(function(){ vcFx.sending=false; });
+    }
+    vcFx.rafId = requestAnimationFrame(fxLoop);
+  }
+
+  // fx 내부에서 트랙 교체 (가드 우회 플래그)
+  function fxInternalSwap(track){
+    window.__vcFxInternalSwap = true;
+    try { if (typeof vcSwapVideoTrack==='function') vcSwapVideoTrack(track); }
+    finally { window.__vcFxInternalSwap = false; }
+  }
+
+  // 액세서리 끄고 적절한 소스로 복귀
+  function fxRestoreSource(){
+    var localV = document.getElementById('vc-local-video');
+    var bgActive = (typeof vcBg!=='undefined' && vcBg.isProcessing && vcBg.processedStream);
+    if (bgActive){
+      if (localV) localV.srcObject = vcBg.processedStream;
+      var t = vcBg.processedStream.getVideoTracks()[0];
+      if (t) fxInternalSwap(t);
+    } else {
+      var ls = (typeof vcLocalStream!=='undefined') ? vcLocalStream : null;
+      if (localV && ls) localV.srcObject = ls;
+      var ct = ls && ls.getVideoTracks()[0];
+      if (ct) fxInternalSwap(ct);
+    }
+  }
+
+  // === 메인 진입점 ===
+  window.vcSetFace = async function(mode){
+    // 활성 타일 표시
+    document.querySelectorAll('.vc-fx-tile').forEach(function(t){
+      var on = t.getAttribute('data-fx')===mode;
+      t.classList.toggle('vc-fx-active', on);
+      t.style.borderColor = on ? '#a78bfa' : '#334155';
+    });
+    var en = fxLang()==='en';
+
+    if (mode==='off'){
+      vcFx.mode='off'; vcFx.active=false;
+      if (vcFx.rafId){ cancelAnimationFrame(vcFx.rafId); vcFx.rafId=null; }
+      fxRestoreSource();
+      fxStatus(en?'Off':'꺼짐');
+      return;
+    }
+
+    var ls = (typeof vcLocalStream!=='undefined') ? vcLocalStream : null;
+    var camTrack = ls && ls.getVideoTracks()[0];
+    if (!camTrack){ fxStatus(en?'⚠ Turn on camera first':'⚠ 카메라를 먼저 켜주세요'); return; }
+
+    vcFx.mode = mode;
+    fxStatus(en?'Loading face model…':'얼굴인식 모델 로딩 중…');
+    try {
+      await fxLoadMP();
+      await fxInitDetector();
+      fxEnsureHiddenVideo();
+    } catch(e){
+      console.warn('[vc-fx] init fail', e);
+      fxStatus(en?'⚠ Failed to load (check network)':'⚠ 로드 실패 (네트워크 확인)');
+      return;
+    }
+
+    vcFx.active = true;
+    vcFx.frameTick = 0;
+    if (!vcFx.rafId) fxLoop();
+
+    // 캔버스 스트림 → 송신 + 로컬 미리보기
+    if (!vcFx.processedStream){
+      var fps = (typeof vcBgCaptureFps==='function') ? vcBgCaptureFps() : (fxMobile()?12:20);
+      vcFx.processedStream = vcFx.canvas.captureStream(fps);
+      var audio = ls.getAudioTracks()[0];
+      if (audio) vcFx.processedStream.addTrack(audio);
+    }
+    var localV = document.getElementById('vc-local-video');
+    if (localV) localV.srcObject = vcFx.processedStream;
+    var outTrack = vcFx.processedStream.getVideoTracks()[0];
+    if (outTrack) fxInternalSwap(outTrack);
+
+    var name = en ? (FX_ITEMS.filter(function(x){return x.id===mode;})[0]||{}).en : (FX_ITEMS.filter(function(x){return x.id===mode;})[0]||{}).ko;
+    fxStatus('✅ ' + (name||mode) + (en?' applied — visible to everyone':' 적용됨 — 모든 참가자에게 보임'));
+  };
+
+  // 그리드 빌드 (탭 진입 시 + 초기)
+  function fxInit(){
+    fxBuildGrid();
+    // 배경 탭 버튼 클릭 시에도 빌드 보장
+    document.addEventListener('click', function(e){
+      var b = e.target.closest && e.target.closest('.tab-btn');
+      if (b) setTimeout(fxBuildGrid, 60);
+    });
+  }
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', fxInit);
+  else fxInit();
+})();
+</script>
+
+<!-- BUILD:20260615230138 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
