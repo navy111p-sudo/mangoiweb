@@ -26860,7 +26860,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260616021429 -->
+<!-- BUILD:20260616023017 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -29349,7 +29349,20 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   #mangoi-toggle { position:absolute; left:0; bottom:0; width:64px; height:64px;
     border:3px solid #ffcc00; border-radius:50%; padding:0; font-size:0; color:transparent;
     background:#ffcc00 url('/img/avatar-face.jpg') center 22% / cover no-repeat;
-    cursor:grab; box-shadow:0 6px 18px rgba(0,0,0,0.35); touch-action:none; user-select:none; }
+    cursor:grab; box-shadow:0 6px 18px rgba(0,0,0,0.35); touch-action:none; user-select:none;
+    animation: mangoiGlowPulse 1.8s ease-in-out infinite; }
+  /* ✨ 회전하는 후광 링 (테두리 바깥에서 반짝반짝) */
+  #mangoi-toggle::before { content:""; position:absolute; inset:-6px; border-radius:50%; z-index:-1;
+    background:conic-gradient(from 0deg, #ffcc00, #fff7c2, #ffae00, #fff7c2, #ffcc00);
+    filter:blur(4px); opacity:.9; animation: mangoiHaloSpin 3s linear infinite; }
+  @keyframes mangoiHaloSpin { to { transform:rotate(360deg); } }
+  @keyframes mangoiGlowPulse {
+    0%,100% { box-shadow:0 6px 18px rgba(0,0,0,0.35), 0 0 8px 2px rgba(255,204,0,0.65), 0 0 20px 5px rgba(255,204,0,0.4); }
+    50%     { box-shadow:0 6px 18px rgba(0,0,0,0.35), 0 0 16px 5px rgba(255,204,0,0.95), 0 0 36px 11px rgba(255,204,0,0.6); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #mangoi-toggle, #mangoi-toggle::before { animation:none; }
+  }
   #mangoi-toggle.dragging { cursor:grabbing; }
   #mangoi-widget.open #mangoi-toggle::after { content:"✕"; position:absolute; top:-6px; right:-6px;
     width:22px; height:22px; background:#1a1a1a; color:#fff; border:2px solid #fff; border-radius:50%;
