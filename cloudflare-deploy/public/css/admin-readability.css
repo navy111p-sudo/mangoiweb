@@ -1,0 +1,83 @@
+/* ════════════════════════════════════════════════════════════════════
+   망고아이 관리자 — 공용 가독성(Readability) 레이어
+   목적: 기존 색/구조/레이아웃은 그대로 두고, "글자가 잘 보이게"
+         타이포그래피만 보강한다. (라이트·다크 테마 모두 안전)
+   적용: 각 관리자 페이지 <head> 의 가장 마지막에 link 로 주입
+         → 기존 내부 <style> 보다 나중에 로드되어 본문 기본값을 덮어씀.
+   참고: Pretendard(토스·당근·뱅크샐러드 등 가독성 좋은 국내 서비스 표준 폰트)
+   ════════════════════════════════════════════════════════════════════ */
+
+/* 1) 본문용 한글 웹폰트 — Pretendard 가변폰트(동적 서브셋, 가볍게 로드) */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css');
+
+/* ── 타이포 토큰 ───────────────────────────────────────────── */
+:root {
+  --mg-font-sans: 'Pretendard Variable', Pretendard, 'Noto Sans KR',
+    -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo',
+    'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
+  --mg-line: 1.65;          /* 본문 줄간격 — 빽빽함 해소 */
+  --mg-line-tight: 1.32;    /* 제목용 줄간격 */
+  --mg-track: -0.003em;     /* 한글에 과하지 않은 자간 */
+}
+
+/* 2) 폰트 적용 — 폼 요소는 폰트를 상속하지 않으므로 함께 지정.
+      코드/모노스페이스 인라인 스타일은 우선순위가 높아 그대로 유지된다. */
+html, body,
+button, input, select, textarea,
+h1, h2, h3, h4, h5, h6,
+p, span, div, a, li, td, th, label, summary, strong, em {
+  font-family: var(--mg-font-sans);
+}
+
+/* 3) 본문 기본값 — 줄간격 정상화 + 한글 줄바꿈 + 렌더링 품질 */
+body {
+  line-height: var(--mg-line);
+  letter-spacing: var(--mg-track);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'kern' 1;
+  word-break: keep-all;        /* 단어 중간에서 끊기지 않게 (한글 가독성 ↑) */
+  overflow-wrap: break-word;   /* 긴 영문/URL 만 안전하게 줄바꿈 */
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* 4) 제목 위계 — 또렷하고 정돈된 제목 (line-height:1 빽빽함 해소) */
+h1, h2, h3, h4, h5, h6 {
+  line-height: var(--mg-line-tight);
+  letter-spacing: -0.02em;
+  word-break: keep-all;
+}
+h1 { font-weight: 800; }
+h2 { font-weight: 800; }
+h3 { font-weight: 700; }
+h4, h5, h6 { font-weight: 700; }
+
+/* 5) 본문 텍스트 블록 — 편안한 줄간격 보장 */
+p, li, td, label,
+.card-label, .card-sub, .chart-title, .badge, .empty {
+  line-height: 1.55;
+}
+
+/* 6) 표 가독성 — 머리글 자간 정상화, 본문 줄간격 확보 */
+th {
+  letter-spacing: 0;          /* uppercase + 음수 자간 → 답답함 해소 */
+  line-height: 1.4;
+}
+td { line-height: 1.5; }
+
+/* 7) 라이트 대시보드(admin.html) 저대비 보조 텍스트 대비 강화
+      ─ 다크 페이지에는 해당 클래스가 거의 없어 영향이 없고,
+        있어도 색만 약간 진해질 뿐 레이아웃은 그대로다. */
+.card-label { color: #4b5563; font-weight: 600; }   /* was #6b7280 */
+.card-sub   { color: #6b7280; }                     /* was #9ca3af (저대비) */
+th          { color: #4b5563; }                     /* was #6b7280 (저대비) */
+.empty      { color: #6b7280; }                     /* was #9ca3af */
+
+/* 8) 아주 작아 읽기 힘든 본문 글자 최소 크기 살짝 확보
+      (아이콘/배지 등 의도적으로 작은 인라인 요소는 인라인 우선이라 영향 없음) */
+.card-sub, .empty { font-size: 12.5px; }
+
+/* 9) 링크는 색을 바꾸지 않되, 포커스/가독 시 또렷하게 */
+a { text-underline-offset: 2px; }

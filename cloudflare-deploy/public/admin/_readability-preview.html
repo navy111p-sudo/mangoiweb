@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>관리자 가독성 — 변경 전/후 비교</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: linear-gradient(180deg,#fffbf5 0%,#fef7ed 50%,#fff7ed 100%);
+    min-height: 100vh; padding: 28px 20px;
+    font-family: 'Noto Sans KR', sans-serif; color:#1c1917;
+  }
+  .page-title { max-width: 1180px; margin: 0 auto 6px; font-size: 26px; font-weight: 900; letter-spacing:-0.02em; }
+  .page-desc  { max-width: 1180px; margin: 0 auto 22px; color:#78716c; font-size: 14px; }
+  .compare { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  @media (max-width: 920px){ .compare{ grid-template-columns:1fr; } }
+  .col-head { display:flex; align-items:center; gap:8px; margin-bottom:12px; font-weight:800; font-size:15px; }
+  .tag { font-size:11.5px; font-weight:800; padding:3px 10px; border-radius:99px; }
+  .tag.before { background:#fee2e2; color:#991b1b; }
+  .tag.after  { background:#d1fae5; color:#065f46; }
+  .panel { border-radius:16px; padding:18px; }
+  .panel.before { background:#fff; border:1.5px dashed #e5e7eb; }
+  .panel.after  { background:#fff; border:1.5px solid #fcd34d; box-shadow:0 10px 30px -12px rgba(245,158,11,0.35); }
+
+  /* 카드/표 공통 마크업 (실제 admin.html 클래스 재현) */
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+  .card { background:rgba(255,255,255,0.85); border-radius:14px; padding:16px; box-shadow:0 6px 16px -6px rgba(120,53,15,0.12), 0 1px 3px rgba(0,0,0,0.03); }
+  .card-value { font-size:30px; font-weight:700; color:#111827; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th,td { padding:10px 12px; text-align:left; border-bottom:1px solid #f3f4f6; }
+  th { background:#f9fafb; font-weight:600; font-size:12px; text-transform:uppercase; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:12px; font-weight:500; }
+  .badge.warn { background:#fef3c7; color:#92400e; }
+  .badge.ok { background:#d1fae5; color:#065f46; }
+  .chart-title { font-size:16px; font-weight:600; margin-bottom:10px; }
+  .para { margin-top:14px; font-size:14px; }
+
+  /* ───────── 변경 전(BEFORE): 기존 admin.html 본문 설정 그대로 ───────── */
+  .before .scope { font-family:'Noto Sans KR',sans-serif; line-height:1; letter-spacing:-0.5px; }
+  .before .scope .card-label { font-size:13px; color:#6b7280; margin-bottom:8px; font-weight:500; }
+  .before .scope .card-sub   { font-size:12px; color:#9ca3af; margin-top:4px; }
+  .before .scope th          { color:#6b7280; }
+  .before .scope .para       { color:#44403c; }
+
+  /* ───────── 변경 후(AFTER): 공용 가독성 레이어 적용 ───────── */
+  .after .scope { font-family:'Pretendard Variable',Pretendard,'Noto Sans KR',sans-serif;
+    line-height:1.65; letter-spacing:-0.003em; word-break:keep-all;
+    -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; text-rendering:optimizeLegibility; }
+  .after .scope h3, .after .scope .chart-title { line-height:1.32; letter-spacing:-0.02em; font-weight:800; }
+  .after .scope .card-label { font-size:13px; color:#4b5563; margin-bottom:8px; font-weight:600; }
+  .after .scope .card-sub   { font-size:12.5px; color:#6b7280; margin-top:4px; line-height:1.55; }
+  .after .scope th          { color:#4b5563; letter-spacing:0; line-height:1.4; }
+  .after .scope td          { line-height:1.5; }
+  .after .scope .para       { color:#44403c; line-height:1.7; }
+</style>
+</head>
+<body>
+  <div class="page-title">🥭 망고아이 관리자 — 글자 가독성 개선 비교</div>
+  <div class="page-desc">같은 화면을 <b>변경 전(기존)</b>과 <b>변경 후(개선)</b>로 나란히 보여줍니다. 폰트(Pretendard), 줄간격, 자간, 한글 줄바꿈, 보조 글자 대비가 달라집니다. 색·레이아웃은 그대로 유지됩니다.</div>
+
+  <div class="compare">
+    <!-- BEFORE -->
+    <div>
+      <div class="col-head"><span class="tag before">변경 전</span> 기존 화면</div>
+      <div class="panel before">
+        <div class="scope">
+          <div class="grid">
+            <div class="card"><div class="card-label">이번 달 신규 등록</div><div class="card-value">128명</div><div class="card-sub">지난달 대비 +12% 증가했습니다</div></div>
+            <div class="card"><div class="card-label">출석률</div><div class="card-value">94.2%</div><div class="card-sub">최근 7일 평균 기준 수치입니다</div></div>
+          </div>
+          <h3 class="chart-title">최근 상담 신청 학생 목록</h3>
+          <table>
+            <thead><tr><th>학생</th><th>지점</th><th>상태</th></tr></thead>
+            <tbody>
+              <tr><td>김민준</td><td>부산 해운대점</td><td><span class="badge warn">상담대기</span></td></tr>
+              <tr><td>이서연</td><td>강남 본원</td><td><span class="badge ok">완료</span></td></tr>
+              <tr><td>박도윤</td><td>대전 둔산점</td><td><span class="badge warn">상담대기</span></td></tr>
+            </tbody>
+          </table>
+          <p class="para">망고아이 화상영어는 학생 한 명 한 명의 학습 데이터를 분석하여 맞춤형 커리큘럼을 제공합니다. 관리자 페이지에서는 지점별 등록 현황과 출석률, 상담 신청 내역을 한눈에 확인할 수 있습니다.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div>
+      <div class="col-head"><span class="tag after">변경 후</span> 개선 화면</div>
+      <div class="panel after">
+        <div class="scope">
+          <div class="grid">
+            <div class="card"><div class="card-label">이번 달 신규 등록</div><div class="card-value">128명</div><div class="card-sub">지난달 대비 +12% 증가했습니다</div></div>
+            <div class="card"><div class="card-label">출석률</div><div class="card-value">94.2%</div><div class="card-sub">최근 7일 평균 기준 수치입니다</div></div>
+          </div>
+          <h3 class="chart-title">최근 상담 신청 학생 목록</h3>
+          <table>
+            <thead><tr><th>학생</th><th>지점</th><th>상태</th></tr></thead>
+            <tbody>
+              <tr><td>김민준</td><td>부산 해운대점</td><td><span class="badge warn">상담대기</span></td></tr>
+              <tr><td>이서연</td><td>강남 본원</td><td><span class="badge ok">완료</span></td></tr>
+              <tr><td>박도윤</td><td>대전 둔산점</td><td><span class="badge warn">상담대기</span></td></tr>
+            </tbody>
+          </table>
+          <p class="para">망고아이 화상영어는 학생 한 명 한 명의 학습 데이터를 분석하여 맞춤형 커리큘럼을 제공합니다. 관리자 페이지에서는 지점별 등록 현황과 출석률, 상담 신청 내역을 한눈에 확인할 수 있습니다.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
