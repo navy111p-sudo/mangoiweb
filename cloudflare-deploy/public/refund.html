@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- BUILD:20260616023505 -->
+<!-- BUILD:20260616023803 -->
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
@@ -71,6 +71,15 @@
 
     .note { font-size:12px; color:var(--text2); margin-top:20px; padding:14px 16px;
       background:rgba(255,255,255,0.03); border:1px dashed rgba(148,163,184,0.3); border-radius:12px; line-height:1.7; }
+    /* ── 상담 연결 ── */
+    .consult { background:linear-gradient(135deg,rgba(254,229,0,0.10),rgba(251,191,36,0.05));
+      border:1px solid rgba(254,229,0,0.30); border-radius:14px; padding:18px 20px; margin-top:6px; text-align:center; }
+    .consult > p { margin:0 0 14px; font-size:13.5px; line-height:1.75; color:var(--text); text-align:left; }
+    .kakao-consult { display:inline-block; background:#FEE500; color:#191600; font-weight:800; font-size:15px;
+      text-decoration:none; padding:14px 30px; border-radius:12px; box-shadow:0 4px 14px -4px rgba(254,229,0,0.5); transition:transform .12s; }
+    .kakao-consult:active { transform:scale(.97); }
+    .consult-sub { margin:10px 0 0; font-size:11.5px; color:var(--text2); }
+
     .cta { margin-top:22px; text-align:center; }
     .cta a { display:inline-block; background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a1a;
       font-weight:800; font-size:14px; text-decoration:none; padding:13px 26px; border-radius:12px; }
@@ -92,8 +101,8 @@
   <div class="wrap">
     <div class="intro">
       <h2 data-ko="💰 수강료 환불규정 안내" data-en="💰 Tuition Refund Policy">💰 수강료 환불규정 안내</h2>
-      <p data-ko="망고아이는 「학원의 설립·운영 및 과외교습에 관한 법률」 및 공정거래위원회 「소비자분쟁해결기준」에 따라 아래와 같이 환불규정을 운영합니다. 환불은 수업 진행 정도(경과 비율)를 기준으로 산정됩니다."
-         data-en="Mangoi operates the following refund policy in accordance with Korea's Academy Act and the Fair Trade Commission's Consumer Dispute Resolution Standards. Refunds are calculated based on the proportion of the course already completed.">망고아이는 「학원의 설립·운영 및 과외교습에 관한 법률」 및 공정거래위원회 「소비자분쟁해결기준」에 따라 아래와 같이 환불규정을 운영합니다. 환불은 수업 진행 정도(경과 비율)를 기준으로 산정됩니다.</p>
+      <p data-ko="환불은 교육청(교육지원청) 환불규정에 의거하여 진행되며, 「학원의 설립·운영 및 과외교습에 관한 법률」 및 공정거래위원회 「소비자분쟁해결기준」을 함께 따릅니다. 환불 금액은 수업 진행 정도(경과 비율)를 기준으로 산정됩니다."
+         data-en="Refunds are processed in accordance with the District Office of Education's refund regulations, together with Korea's Academy Act and the Fair Trade Commission's Consumer Dispute Resolution Standards. The refund amount is calculated based on the proportion of the course already completed.">환불은 <b>교육청(교육지원청) 환불규정에 의거</b>하여 진행되며, 「학원의 설립·운영 및 과외교습에 관한 법률」 및 공정거래위원회 「소비자분쟁해결기준」을 함께 따릅니다. 환불 금액은 수업 진행 정도(경과 비율)를 기준으로 산정됩니다.</p>
     </div>
 
     <!-- ═══ 1. 환불 기준표 ═══ -->
@@ -213,6 +222,16 @@
     <p class="note"
        data-ko="※ 본 환불규정은 관계 법령(학원법, 전자상거래법, 소비자분쟁해결기준)을 따르며, 법령과 본 규정이 상충하는 경우 소비자에게 유리한 기준을 적용합니다. 개별 프로모션·패키지 상품은 상품별 별도 약관이 우선 적용될 수 있습니다. 자세한 사항은 고객센터로 문의해주세요."
        data-en="※ This policy follows applicable laws (Academy Act, E-Commerce Act, Consumer Dispute Resolution Standards); where they conflict, the standard more favorable to the consumer applies. Individual promotions/packages may be governed first by their own terms. For details, please contact customer support.">※ 본 환불규정은 관계 법령(학원법, 전자상거래법, 소비자분쟁해결기준)을 따르며, 법령과 본 규정이 상충하는 경우 소비자에게 유리한 기준을 적용합니다. 개별 프로모션·패키지 상품은 상품별 별도 약관이 우선 적용될 수 있습니다. 자세한 사항은 고객센터로 문의해주세요.</p>
+
+    <!-- ═══ 4. 환불 신청 / 상담 ═══ -->
+    <h3 class="sec" data-ko="4. 환불 신청 및 상담" data-en="4. Requesting a Refund & Support">4. 환불 신청 및 상담</h3>
+    <div class="consult">
+      <p data-ko="저희는 학부모님(학생)이 수업을 중단하시는 것이 못내 안타깝습니다. 그래도 피치 못할 사정으로 환불을 원하시는 경우, 아래 '상담원 연결'을 눌러 카카오톡으로 환불 사유를 간단히 남겨 주시면 확인 후 신속히 연락드리겠습니다."
+         data-en="We are always sorry to see a student pause their lessons. Still, if you need a refund for unavoidable reasons, please tap 'Connect to an Agent' below and leave a brief reason via KakaoTalk — we'll review it and get back to you promptly.">저희는 학부모님(학생)이 수업을 중단하시는 것이 못내 안타깝습니다. 그래도 피치 못할 사정으로 환불을 원하시는 경우, 아래 '상담원 연결'을 눌러 <b>카카오톡으로 환불 사유</b>를 간단히 남겨 주시면 확인 후 신속히 연락드리겠습니다.</p>
+      <a class="kakao-consult" href="https://pf.kakao.com/_mangoi/chat" target="_blank" rel="noopener"
+         data-ko="💬 상담원 연결 (카카오톡 상담)" data-en="💬 Connect to an Agent (KakaoTalk)">💬 상담원 연결 (카카오톡 상담)</a>
+      <p class="consult-sub" data-ko="카카오톡 채널 @망고아이 · 평일 상담 가능" data-en="KakaoTalk channel @Mangoi · Weekday support">카카오톡 채널 @망고아이 · 평일 상담 가능</p>
+    </div>
 
     <div class="cta">
       <a href="/" data-ko="🏠 홈으로 돌아가기" data-en="🏠 Back to Home">🏠 홈으로 돌아가기</a>
