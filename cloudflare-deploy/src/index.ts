@@ -1238,7 +1238,8 @@ async function handleWbOcr(request: Request, env: Env): Promise<Response> {
     if (!buf || buf.byteLength === 0) return J({ ok: false, text: '', error: 'empty' }, 400);
     if (buf.byteLength > 1_500_000) return J({ ok: false, text: '', error: 'too_large' }, 413);
     const bytes = [...new Uint8Array(buf)];
-    const prompt = 'You are an OCR engine. Transcribe ONLY the handwritten text in this image exactly as written. The text may be Korean, English, or numbers. Output just the transcribed text on a single line with no quotes, no explanation, no extra words. If you cannot read any text, output exactly: NONE';
+    // 영어·숫자 위주 (한글 손글씨는 이 모델로 신뢰도 낮음). 짧고 엄격하게.
+    const prompt = 'This image shows handwriting on a white background — English letters, a word, or numbers. Transcribe EXACTLY what is written, preserving uppercase/lowercase. Reply with ONLY the transcription on a single line: no quotes, no description, no extra words. If nothing is legible, reply exactly: NONE';
     let out = '';
     try {
       const r: any = await (env as any).AI.run('@cf/llava-hf/llava-1.5-7b-hf', { image: bytes, prompt, max_tokens: 64 });
