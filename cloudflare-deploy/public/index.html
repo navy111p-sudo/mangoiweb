@@ -10197,12 +10197,28 @@ async function vcEnsureHiddenVideo(){
 
 // --- 6) 캔버스 → MediaStreamTrack → 모든 peer 의 sender 에 replaceTrack ---
 function vcSwapVideoTrack(newTrack){
+  // 가상배경 캔버스 트랙은 카메라 원본보다 인코딩이 무겁다 → 교체 직후 sender 파라미터 재적용
+  //   · degradationPreference 'maintain-framerate' : 부하 시 화질·해상도를 먼저 낮춰 끊김(프레임 드랍) 방지 = 실시간성 우선
+  //   · maxBitrate / maxFramerate 상한 : 인코더 풀가동 차단 → CPU·전력·대역폭 절감
+  const isBgTrack = !!(vcBg.processedStream && newTrack
+    && vcBg.processedStream.getVideoTracks()[0] === newTrack);
+  const mobile = vcIsMobileDevice();
   // 모든 PeerConnection 의 video sender 교체
   if (typeof vcPeerConnections === 'object' && vcPeerConnections) {
     Object.values(vcPeerConnections).forEach(pc => {
       try {
         const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-        if (sender) sender.replaceTrack(newTrack);
+        if (!sender) return;
+        sender.replaceTrack(newTrack);
+        if (sender.getParameters) {
+          const params = sender.getParameters();
+          if (!params.encodings || !params.encodings.length) params.encodings = [{}];
+          params.encodings[0].maxBitrate   = (mobile ? 500 : 1000) * 1000;
+          params.encodings[0].maxFramerate = isBgTrack ? (mobile ? 12 : 20) : (mobile ? 15 : 24);
+          // 가상배경일 때만 프레임 우선(끊김 방지), 원본 복귀 시엔 균형
+          params.degradationPreference = isBgTrack ? 'maintain-framerate' : 'balanced';
+          sender.setParameters(params).catch(e => console.warn('[vc-bg] setParameters:', e));
+        }
       } catch(e){ console.warn('[vc-bg] replaceTrack 실패:', e); }
     });
   }
@@ -10307,7 +10323,8 @@ window.vcSetBackground = async function(mode){
 
   // 캔버스 스트림 생성 → 로컬 비디오에 연결 + sender 교체
   if (!vcBg.processedStream) {
-    vcBg.processedStream = vcBg.canvas.captureStream(30);
+    // 🔋 캡처 fps 상한(PC 20 / 모바일 12) — 실제 처리 fps와 맞춰 같은 프레임 중복 인코딩 방지
+    vcBg.processedStream = vcBg.canvas.captureStream(vcBgCaptureFps());
     // 오디오 트랙도 합쳐서 보내야 함 (영상만 바꿈, 오디오는 원본 유지)
     const audioTrack = vcLocalStream.getAudioTracks()[0];
     if (audioTrack) vcBg.processedStream.addTrack(audioTrack);
@@ -25620,7 +25637,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260615185631 -->
+<!-- BUILD:20260615185820 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
