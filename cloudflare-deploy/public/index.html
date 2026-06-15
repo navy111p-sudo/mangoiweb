@@ -26627,7 +26627,7 @@ window.closeRulesModal = function() {
     vcFx.detector.setOptions({
       maxNumFaces: 1,
       refineLandmarks: false,   // 경량(눈동자 정밀화 끔) → 발열·부하 절감
-      minDetectionConfidence: 0.5,
+      minDetectionConfidence: 0.4,  // 살짝 낮춰 얼굴을 더 민감하게 잡음(측면·일부 가림에도 부착 유지)
       minTrackingConfidence: 0.5
     });
     vcFx.detector.onResults(fxOnResults);
@@ -26667,12 +26667,17 @@ window.closeRulesModal = function() {
     var src = faces[0];
     var cur = {};
     FX_IDX.forEach(function(i){ var p=src[i]; if(p) cur[i]={x:p.x,y:p.y}; });
-    // 보간(lerp) 으로 떨림 완화
-    var prev = vcFx.lastLM, a = 0.5;
+    // 적응형 보간 — 움직임이 크면 즉각 따라붙고(최대 0.92), 정지 시엔 강하게 떨림 억제(0.45)
+    //   → "빠른 반응(신속)"과 "흔들림 없는 정밀 부착"을 동시에 만족
+    var prev = vcFx.lastLM;
     if (prev){
       FX_IDX.forEach(function(i){
         var o=prev[i], n=cur[i];
-        if (o && n){ cur[i]={ x:o.x+(n.x-o.x)*a, y:o.y+(n.y-o.y)*a }; }
+        if (o && n){
+          var d = Math.hypot(n.x-o.x, n.y-o.y);   // 정규화 좌표 기준 이동량
+          var a = d>0.06 ? 0.92 : d>0.025 ? 0.72 : 0.45;
+          cur[i]={ x:o.x+(n.x-o.x)*a, y:o.y+(n.y-o.y)*a };
+        }
       });
     }
     vcFx.lastLM = cur;
@@ -26845,9 +26850,10 @@ window.closeRulesModal = function() {
         if (it) fxDrawItem(ctx, it, vcFx.lastLM, cv.width, cv.height);
       }
     }
-    // 검출 송신 (throttle)
+    // 검출 송신 — !sending 가드가 모델 처리속도에 맞춰 자동 페이싱하므로
+    //   데스크톱은 매 프레임(가능한 최대 빈도)으로 즉각 추적, 모바일은 격프레임(발열·부하 절감)
     vcFx.frameTick++;
-    var everyN = fxMobile()?5:3;
+    var everyN = fxMobile()?2:1;
     var hv = vcFx.hiddenVideo;
     if (vcFx.frameTick % everyN === 0 && hv && hv.readyState>=2 && hv.videoWidth>0 && vcFx.detector && !vcFx.sending){
       vcFx.sending=true;
@@ -26919,7 +26925,8 @@ window.closeRulesModal = function() {
 
     // 캔버스 스트림 → 송신 + 로컬 미리보기
     if (!vcFx.processedStream){
-      var fps = (typeof vcBgCaptureFps==='function') ? vcBgCaptureFps() : (fxMobile()?12:20);
+      var baseFps = (typeof vcBgCaptureFps==='function') ? vcBgCaptureFps() : (fxMobile()?12:20);
+      var fps = Math.max(baseFps, fxMobile()?15:24);   // 출력 영상 fps 상향 → 액세서리 움직임이 더 부드럽고 즉각적
       vcFx.processedStream = vcFx.canvas.captureStream(fps);
       var audio = ls.getAudioTracks()[0];
       if (audio) vcFx.processedStream.addTrack(audio);
@@ -26948,7 +26955,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260616033239 -->
+<!-- BUILD:20260616034845 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

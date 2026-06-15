@@ -814,6 +814,12 @@ header {
 .gv-close{bottom:auto;top:6px;left:6px;right:auto;width:30px;height:30px;font-size:15px}
 .guide-video-wrap{transition:opacity .5s}
 .guide-video-wrap.gv-fade{opacity:0;pointer-events:none}
+/* ▶ 시작 버튼: 영상 위 오버레이 — 누르기 전엔 영상 정지·무음 (2026-06-16) */
+.gv-start{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:0;background:rgba(0,0,0,.45);color:#fff;font-size:15px;font-weight:800;letter-spacing:1px;cursor:pointer;transition:background .15s}
+.gv-start::before{content:'▶';display:flex;align-items:center;justify-content:center;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.94);color:#111;font-size:21px;padding-left:4px;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+.gv-start:hover{background:rgba(0,0,0,.55)}
+.gv-start:active{transform:scale(.98)}
+.guide-video-wrap.gv-started .gv-start{display:none}
 
 /* ── 상담 FAB (오른쪽 아래, 2026-06-12) ── */
 .consult-fab{position:fixed;right:16px;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:70;width:58px;height:58px;border-radius:50%;background:linear-gradient(135deg,#FEE500,#F6CC00);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;text-decoration:none;box-shadow:0 8px 22px rgba(0,0,0,.45);transition:transform .15s}
@@ -901,7 +907,8 @@ header {
 </div>
 <!-- 안내 동영상 + 상담 FAB : body 레벨(screen transform 영향 회피, 2026-06-12) -->
 <div class="guide-video-wrap" id="guide-video-wrap">
-  <video id="guide-video" src="/video/postpone-guide.mp4" autoplay muted playsinline></video>
+  <video id="guide-video" src="/video/postpone-guide.mp4" muted playsinline preload="auto"></video>
+  <button class="gv-start" id="gv-start" aria-label="안내 영상 시작">시작</button>
   <button class="gv-btn gv-close" id="gv-close" title="닫기" aria-label="안내 영상 닫기">✕</button>
   <button class="gv-btn" id="gv-mute" title="소리 켜기/끄기" aria-label="음소거 전환">🔇</button>
 </div>
@@ -1408,12 +1415,26 @@ function attachHandlers(){
   /* X 버튼으로 즉시 닫기 */
   if(closeBtn) closeBtn.addEventListener('click',function(e){ e.stopPropagation(); dismiss(); });
 
-  /* 🔊 음소거로 시작 — 음성은 🔊 버튼 클릭 시에만 (자동 음성재생 금지) */
+  /* 진입 시: 영상 정지·무음·첫 프레임 고정 (움직임/음성 없음) — 시작 버튼 누를 때까지 대기 (2026-06-16) */
+  var started=false;
+  var startBtn=document.getElementById('gv-start');
   gv.muted=true; btn.textContent='🔇';
-  gv.play().catch(function(){});
+  try{ gv.pause(); gv.currentTime=0; }catch(e){}
+  gv.addEventListener('loadeddata',function(){ if(!started){ try{ gv.pause(); gv.currentTime=0; }catch(e){} } });
+
+  /* ▶ 시작 버튼: 누르면 그때부터 음성 켜고 재생 (움직임 + 말하기 시작) */
+  function startGuide(){
+    if(started) return;
+    started=true;
+    wrap.classList.add('gv-started');
+    gv.muted=false; btn.textContent='🔊';
+    gv.play().catch(function(){ gv.muted=true; btn.textContent='🔇'; gv.play().catch(function(){}); });
+  }
+  if(startBtn) startBtn.addEventListener('click',function(e){ e.stopPropagation(); startGuide(); });
 
   btn.addEventListener('click',function(e){
     e.stopPropagation();
+    if(!started){ startGuide(); return; }   /* 시작 전 🔊 누르면 시작으로 처리 */
     gv.muted=!gv.muted;
     btn.textContent=gv.muted?'🔇':'🔊';
     if(!gv.muted) gv.play().catch(function(){});
@@ -1425,13 +1446,15 @@ function attachHandlers(){
     if(fab) fab.classList.toggle('gv-hidden',!on);
     if(done){ wrap.classList.add('gv-hidden'); return; }
     wrap.classList.toggle('gv-hidden',!on);
-    if(on){ gv.play().catch(function(){}); } else { gv.pause(); }
+    /* 시작 버튼 누르기 전엔 자동재생 금지 — 시작 후에만 화면 전환에 따라 재생/정지 */
+    if(started){ if(on){ gv.play().catch(function(){}); } else { gv.pause(); } }
+    else { try{ gv.pause(); }catch(e){} }
   }
   syncVis();
   new MutationObserver(syncVis).observe(main,{attributes:true,attributeFilter:['class']});
 })();
 </script>
-<!-- BUILD:20260616033239 -->
+<!-- BUILD:20260616034845 -->
 <script src="/js/i18n-sweep.js?v=2"></script>
 <script defer src="/js/back-nav.js"></script>
 </body>
