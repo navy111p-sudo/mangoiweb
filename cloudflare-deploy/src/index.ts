@@ -154,6 +154,11 @@ export default {
       return await handlePdfUpload(request, env);
     }
 
+    // ✨ 칠판 손글씨 OCR (Workers AI 비전) — PNG 바이트(raw)를 받아 텍스트로 변환
+    if (path === '/api/wb-ocr' && request.method === 'POST') {
+      return await handleWbOcr(request, env);
+    }
+
     // PDF list endpoint
     if (path === '/api/video-call/pdf-list' && request.method === 'GET') {
       return await handlePdfList(env);
@@ -1222,6 +1227,35 @@ async function handleTurnConfig(env: Env): Promise<Response> {
     status: 200,
     headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
   });
+}
+
+// ✨ 칠판 손글씨 이미지 → 텍스트 (Workers AI 비전 모델 llava). 인식 실패/빈 결과면 text:'' 반환.
+async function handleWbOcr(request: Request, env: Env): Promise<Response> {
+  const J = (o: any, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { 'Content-Type': 'application/json' } });
+  try {
+    if (!(env as any).AI) return J({ ok: false, text: '', error: 'AI_binding_missing' }, 503);
+    const buf = await request.arrayBuffer();
+    if (!buf || buf.byteLength === 0) return J({ ok: false, text: '', error: 'empty' }, 400);
+    if (buf.byteLength > 1_500_000) return J({ ok: false, text: '', error: 'too_large' }, 413);
+    const bytes = [...new Uint8Array(buf)];
+    const prompt = 'You are an OCR engine. Transcribe ONLY the handwritten text in this image exactly as written. The text may be Korean, English, or numbers. Output just the transcribed text on a single line with no quotes, no explanation, no extra words. If you cannot read any text, output exactly: NONE';
+    let out = '';
+    try {
+      const r: any = await (env as any).AI.run('@cf/llava-hf/llava-1.5-7b-hf', { image: bytes, prompt, max_tokens: 64 });
+      out = (r && (r.description ?? r.response ?? r.text ?? '')) || '';
+    } catch (e: any) {
+      return J({ ok: false, text: '', error: 'ai_error:' + (e?.message || e) }, 200);
+    }
+    // 정리: 모델이 붙이는 따옴표/머리말 제거
+    let text = String(out).trim();
+    text = text.replace(/^["'`]+|["'`]+$/g, '').trim();
+    if (/^none$/i.test(text) || text.length === 0) text = '';
+    // 모델이 설명문을 토하면(너무 길면) 신뢰 안 함
+    if (text.length > 60) text = '';
+    return J({ ok: true, text });
+  } catch (e: any) {
+    return J({ ok: false, text: '', error: String(e?.message || e) }, 200);
+  }
 }
 
 async function handlePdfUpload(request: Request, env: Env): Promise<Response> {

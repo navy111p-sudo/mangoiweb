@@ -153,6 +153,7 @@ export class VideoCallRoom {
         case 'pdf-anno-text':
         case 'pdf-anno-clear':
         case 'pdf-anno-undo':
+        case 'pdf-anno-shape':
         case 'pdf-pointer':
         case 'whiteboard-text':
         // ✨ AI 도형 정리: 정리된 도형 / 원본 자유선 동기화
