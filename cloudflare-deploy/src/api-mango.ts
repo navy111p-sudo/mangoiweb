@@ -2287,21 +2287,21 @@ export async function handleMangoApi(
       await ensurePointTables();
       const now = Date.now();
       const seeds = [
-        ['🥭 망고아이','수업료 전환 (5,000원)','tuition',5000,5000,5,'모은 포인트로 다음 수업료 즉시 차감'],
-        ['메가커피','아메리카노 (ICE)','cafe',1500,1500,10,'가성비 1위, 시원한 한 잔'],
-        ['배스킨라빈스','파인트 (1개)','cafe',9800,9800,20,'취향대로 골라먹는 31'],
-        ['배달의민족','e쿠폰 5,000원','food',5000,5000,25,'배달 음식 주문 시 즉시 차감'],
-        ['CGV','영화 1매 (전 지점)','movie',14000,14000,40,'평일 일반관 1회 사용'],
-        ['교보문고','도서상품권 5,000원','book',5000,5000,50,'온/오프라인 사용 가능'],
-        ['컬쳐랜드','문화상품권 5,000원','voucher',5000,5000,55,'쿠팡·게임·도서·OTT 등 어디든'],
-        ['GS25','편의점 금액권 5,000원','voucher',5000,5000,60,'전국 GS25에서 사용'],
+        ['🥭 망고아이','수업료 전환 (5,000원)','tuition',5000,5000,5,'모은 포인트로 다음 수업료 즉시 차감','/img/gifts/mangoi.svg'],
+        ['메가커피','아메리카노 (ICE)','cafe',1500,1500,10,'가성비 1위, 시원한 한 잔','/img/gifts/megacoffee.svg'],
+        ['배스킨라빈스','파인트 (1개)','cafe',9800,9800,20,'취향대로 골라먹는 31','/img/gifts/baskinrobbins.svg'],
+        ['배달의민족','e쿠폰 5,000원','food',5000,5000,25,'배달 음식 주문 시 즉시 차감','/img/gifts/baemin.svg'],
+        ['CGV','영화 1매 (전 지점)','movie',14000,14000,40,'평일 일반관 1회 사용','/img/gifts/cgv.svg'],
+        ['교보문고','도서상품권 5,000원','book',5000,5000,50,'온/오프라인 사용 가능','/img/gifts/kyobo.svg'],
+        ['컬쳐랜드','문화상품권 5,000원','voucher',5000,5000,55,'쿠팡·게임·도서·OTT 등 어디든','/img/gifts/cultureland.svg'],
+        ['GS25','편의점 금액권 5,000원','voucher',5000,5000,60,'전국 GS25에서 사용','/img/gifts/gs25.svg'],
       ];
       let n = 0;
-      for (const [brand,name,cat,fv,pp,sort,desc] of seeds) {
+      for (const [brand,name,cat,fv,pp,sort,desc,thumb] of seeds) {
         const exists = await env.DB.prepare(`SELECT id FROM gift_catalog WHERE brand=? AND name=?`).bind(brand,name).first();
         if (exists) continue;
-        await env.DB.prepare(`INSERT INTO gift_catalog (brand,name,category,face_value,point_price,enabled,sort_order,description,created_at,updated_at) VALUES (?,?,?,?,?,1,?,?,?,?)`)
-          .bind(brand,name,cat,fv,pp,sort,desc,now,now).run();
+        await env.DB.prepare(`INSERT INTO gift_catalog (brand,name,category,face_value,point_price,enabled,sort_order,description,thumbnail_url,created_at,updated_at) VALUES (?,?,?,?,?,1,?,?,?,?,?)`)
+          .bind(brand,name,cat,fv,pp,sort,desc,thumb,now,now).run();
         n++;
       }
       return json({ ok: true, seeded: n });
