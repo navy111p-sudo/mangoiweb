@@ -6859,7 +6859,7 @@
               <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
                 <span style="font-size:14px;font-weight:700;color:#a78bfa">🎭 <span data-ko="얼굴 꾸미기 (마스크·액세서리)" data-en="Face Decorations (Masks & Accessories)">얼굴 꾸미기 (마스크·액세서리)</span></span>
                 <span id="vc-fx-status" style="font-size:11.5px;color:#94a3b8" data-ko="원하는 아이템을 클릭하면 얼굴에 따라다녀요" data-en="Click an item — it follows your face">원하는 아이템을 클릭하면 얼굴에 따라다녀요</span>
-                <span style="margin-left:auto;font-size:11px;color:#64748b" data-ko="첫 적용 시 얼굴인식 모델 로드(약 2MB)" data-en="First use downloads ~2MB face model">첫 적용 시 얼굴인식 모델 로드(약 2MB)</span>
+                <span style="margin-left:auto;font-size:11px;color:#64748b" data-ko="첫 적용 시 정밀 얼굴인식 모델 로드(약 3MB)" data-en="First use downloads ~3MB face model">첫 적용 시 정밀 얼굴인식 모델 로드(약 3MB)</span>
               </div>
               <div id="vc-fx-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px"></div>
               <div style="margin-top:16px;padding:12px 14px;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.25);border-radius:10px;font-size:12px;color:#ddd6fe;line-height:1.6">
@@ -26457,7 +26457,7 @@ window.closeRulesModal = function() {
     hiddenVideo:null,
     rafId:null, sending:false,
     processedStream:null,
-    lastFace:null,     // 보간된 얼굴(떨림 완화)
+    lastLM:null,       // 보간된 FaceMesh 랜드마크(떨림 완화)
     frameTick:0
   };
 
@@ -26563,60 +26563,78 @@ window.closeRulesModal = function() {
     vcFx.lastLM = cur;
   }
 
-  // 액세서리 한 개 그리기
-  function fxDrawItem(ctx, it, face, W, H){
-    if (!face) return;
-    var rE=face.rEye, lE=face.lEye, nose=face.nose, mouth=face.mouth;
-    var faceWpx = (face.w||0.3) * W;
-    // 양 눈 픽셀좌표
-    var angle = 0, eyeMid=null, eyeDist=faceWpx*0.45;
-    if (rE && lE){
-      var ex1=rE.x*W, ey1=rE.y*H, ex2=lE.x*W, ey2=lE.y*H;
-      eyeMid = { x:(ex1+ex2)/2, y:(ey1+ey2)/2 };
-      eyeDist = Math.hypot(ex2-ex1, ey2-ey1) || eyeDist;
-      angle = Math.atan2(ey2-ey1, ex2-ex1);
-    }
-    var cx = (face.cx!==undefined?face.cx:0.5)*W;
-    var cy = (face.cy!==undefined?face.cy:0.5)*H;
-    var topY = cy - (face.h||0.3)*H/2;
+  // 액세서리 한 개 그리기 — FaceMesh 랜드마크 기준 정밀 배치
+  function fxDrawItem(ctx, it, lm, W, H){
+    if (!lm) return;
+    function P(i){ var p=lm[i]; return p ? { x:p.x*W, y:p.y*H } : null; }
+    var forehead=P(10), chin=P(152), faceLp=P(234), faceRp=P(454),
+        noseTip=P(1), noseBot=P(2), lipTop=P(13),
+        eyeR=P(33), eyeL=P(263), brow=P(168);
+    if (!forehead || !faceLp || !faceRp) return;
 
-    var px, py, size;
+    var faceW = Math.hypot(faceRp.x-faceLp.x, faceRp.y-faceLp.y);
+    // 고개 기울기(roll): 두 눈 바깥 코너 기준, 없으면 얼굴 좌우폭 기준
+    var angle = 0;
+    if (eyeR && eyeL) angle = Math.atan2(eyeL.y-eyeR.y, eyeL.x-eyeR.x);
+    else angle = Math.atan2(faceRp.y-faceLp.y, faceRp.x-faceLp.x);
+
+    var px, py, size, eyeMid=null, eyeSpan=faceW*0.46;
+    if (eyeR && eyeL){
+      eyeMid = { x:(eyeR.x+eyeL.x)/2, y:(eyeR.y+eyeL.y)/2 };
+      eyeSpan = Math.hypot(eyeL.x-eyeR.x, eyeL.y-eyeR.y) || eyeSpan;
+    }
+
+    // 위 방향 단위벡터(고개 기울기 반영) — 모자를 머리 위로 정확히 올리기 위함
+    var up = { x:Math.sin(angle), y:-Math.cos(angle) };
+
     if (it.anchor==='hat'){
-      px = eyeMid?eyeMid.x:cx; py = topY + (it.yOff*faceWpx);
-      size = faceWpx * it.scale;
-      py -= size*0.30; // 모자는 머리 위로
+      size = faceW * it.scale;
+      var lift = size*0.42 - it.yOff*faceW;   // yOff 클수록 이마쪽으로 내려옴
+      px = forehead.x + up.x*lift;
+      py = forehead.y + up.y*lift;
     } else if (it.anchor==='eyes'){
-      px = eyeMid?eyeMid.x:cx; py = (eyeMid?eyeMid.y:cy) + it.yOff*faceWpx;
-      size = (eyeDist*2.3) * it.scale;
+      px = (eyeMid?eyeMid.x:forehead.x) + up.x*(-it.yOff*faceW);
+      py = (eyeMid?eyeMid.y:forehead.y) + up.y*(-it.yOff*faceW);
+      size = eyeSpan * it.scale;
     } else if (it.anchor==='nose'){
-      px = nose?nose.x*W:cx; py = nose?nose.y*H:cy; size = faceWpx*it.scale;
+      var n = noseTip || brow || forehead;
+      px = n.x; py = n.y; size = faceW * it.scale;
     } else if (it.anchor==='stache'){
-      var mx = nose? nose.x*W : cx;
-      var myTop = nose? nose.y*H : cy;
-      var myBot = mouth? mouth.y*H : (cy+faceWpx*0.4);
-      px = mx; py = myTop + (myBot-myTop)*0.45; size=faceWpx;
-    } else { // face
-      px = cx; py = cy + it.yOff*faceWpx; size = faceWpx * it.scale;
+      var a0 = noseBot || noseTip || forehead;
+      var b0 = lipTop || chin || forehead;
+      px = a0.x + (b0.x-a0.x)*0.4;
+      py = a0.y + (b0.y-a0.y)*0.4;
+      size = faceW;
+    } else { // face — 얼굴 전체 덮기
+      var bot = chin || noseBot || forehead;
+      px = (forehead.x+bot.x)/2 + up.x*(-it.yOff*faceW);
+      py = (forehead.y+bot.y)/2 + up.y*(-it.yOff*faceW);
+      size = faceW * it.scale;
     }
 
     ctx.save();
     ctx.translate(px, py);
     if (it.rotate) ctx.rotate(angle);
+    // 입체감/또렷함을 위한 그림자
+    ctx.shadowColor = 'rgba(0,0,0,0.45)';
+    ctx.shadowBlur = Math.max(2, size*0.05);
+    ctx.shadowOffsetY = Math.max(1, size*0.025);
     if (it.draw==='mustache'){
-      // 벡터 콧수염
-      var w = faceWpx*0.55, h = faceWpx*0.22;
-      ctx.fillStyle = '#3b2415';
+      var mw = faceW*0.6, mh = faceW*0.24;
+      ctx.fillStyle = '#2b1a0e';
       ctx.beginPath();
-      ctx.moveTo(0,-h*0.15);
-      ctx.bezierCurveTo(-w*0.15,-h*0.5, -w*0.45,-h*0.5, -w*0.5,h*0.1);
-      ctx.bezierCurveTo(-w*0.45,h*0.5, -w*0.2,h*0.45, 0,h*0.05);
-      ctx.bezierCurveTo( w*0.2,h*0.45,  w*0.45,h*0.5,  w*0.5,h*0.1);
-      ctx.bezierCurveTo( w*0.45,-h*0.5, w*0.15,-h*0.5, 0,-h*0.15);
+      ctx.moveTo(0,-mh*0.15);
+      ctx.bezierCurveTo(-mw*0.15,-mh*0.5, -mw*0.45,-mh*0.5, -mw*0.5,mh*0.1);
+      ctx.bezierCurveTo(-mw*0.45,mh*0.5, -mw*0.2,mh*0.45, 0,mh*0.05);
+      ctx.bezierCurveTo( mw*0.2,mh*0.45,  mw*0.45,mh*0.5,  mw*0.5,mh*0.1);
+      ctx.bezierCurveTo( mw*0.45,-mh*0.5, mw*0.15,-mh*0.5, 0,-mh*0.15);
       ctx.fill();
     } else {
       ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.font = size + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","EmojiOne Color",sans-serif';
+      try { ctx.filter = 'saturate(1.35) contrast(1.06)'; } catch(_){}
+      ctx.font = size + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla","EmojiOne Color",sans-serif';
       ctx.fillText(it.emoji, 0, 0);
+      try { ctx.filter = 'none'; } catch(_){}
     }
     ctx.restore();
   }
@@ -26639,7 +26657,7 @@ window.closeRulesModal = function() {
       // 액세서리
       if (vcFx.mode!=='off'){
         var it = null; for (var i=0;i<FX_ITEMS.length;i++){ if (FX_ITEMS[i].id===vcFx.mode){ it=FX_ITEMS[i]; break; } }
-        if (it) fxDrawItem(ctx, it, vcFx.lastFace, cv.width, cv.height);
+        if (it) fxDrawItem(ctx, it, vcFx.lastLM, cv.width, cv.height);
       }
     }
     // 검출 송신 (throttle)
@@ -26744,7 +26762,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260615230927 -->
+<!-- BUILD:20260616014124 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
