@@ -14869,6 +14869,7 @@ async function calcPayrollAll() {
 
 // ── 평가 모달 ──
 function openEvalModal(teacherId, teacherName, year, month) {
+  if (_payrollTeacherView()) { try{ window._payrollGuardToast(adminLang==='en'?'Read-only. Evaluation is HQ-only.':'본인 급여는 열람 전용입니다. 평가 수정은 본사 관리자·경영진만 가능합니다.'); }catch(e){} return; } // 🔐
   // 기존 데이터 채우기
   const row = (_lastPayrollRows || []).find(r => r.teacher_id === teacherId) || {};
   const e = row.evaluation || {};
@@ -14958,6 +14959,7 @@ async function saveEvalAndClasses() {
 
 function downloadPayrollCSV() {
   const _L = adminLang === 'en';
+  if (_payrollTeacherView()) { try{ window._payrollGuardToast(_L?'Only HQ managers/executives can export payroll.':'전체 급여 내보내기는 본사 관리자·경영진만 가능합니다.'); }catch(e){} return; } // 🔐
   const year  = parseInt(document.getElementById('payroll-year').value, 10);
   const month = parseInt(document.getElementById('payroll-month').value, 10);
   if (!year || !month) { alert(_L ? 'Enter year/month' : '연도/월을 입력하세요'); return; }
@@ -14966,6 +14968,7 @@ function downloadPayrollCSV() {
 
 async function finalizePayroll() {
   const _L = adminLang === 'en';
+  if (_payrollTeacherView()) { try{ window._payrollGuardToast(_L?'Only HQ managers/executives can close payroll.':'급여 마감은 본사 관리자·경영진만 가능합니다.'); }catch(e){} return; } // 🔐
   const year  = parseInt(document.getElementById('payroll-year').value, 10);
   const month = parseInt(document.getElementById('payroll-month').value, 10);
   if (!year || !month) return;
@@ -14990,6 +14993,7 @@ async function finalizePayroll() {
 
 async function registerTeacher() {
   const _L = adminLang === 'en';
+  if (_payrollTeacherView()) { try{ window._payrollGuardToast(_L?'Not allowed.':'권한이 없습니다.'); }catch(e){} return; } // 🔐
   const name   = (document.getElementById('t-new-name').value || '').trim();
   const status = document.getElementById('t-new-status').value;
   const years  = parseInt(document.getElementById('t-new-years').value, 10);
@@ -21460,7 +21464,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260616171610 -->
+        <!-- BUILD:20260616171712 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -26170,8 +26174,8 @@ button.chip:hover,
     </div>
     <div class="ph85-subs">
       <div class="ph85-sub" data-card="card-teacher-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-teacher-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-teacher-mgmt');}">강사 관리</div>
-      <div class="ph85-sub" data-card="card-payroll-auto" onclick="event.stopPropagation();var c=document.getElementById('card-payroll-auto');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-payroll-auto');}">자동 급여</div>
-      <div class="ph85-sub" data-card="card-payroll" onclick="event.stopPropagation();var c=document.getElementById('card-payroll');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-payroll');}">급여 관리</div>
+      <div class="ph85-sub" data-card="card-payroll-auto" onclick="event.stopPropagation();if(typeof jumpToMenu==='function'){jumpToMenu('card-payroll-auto');}">자동 급여</div>
+      <div class="ph85-sub" data-card="card-payroll" onclick="event.stopPropagation();if(typeof jumpToMenu==='function'){jumpToMenu('card-payroll');}">급여 관리</div>
       <div class="ph85-sub" data-card="card-mbti-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-mbti-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-mbti-mgmt');}">MBTI</div>
       <div class="ph85-sub" data-card="card-praise-stats" onclick="event.stopPropagation();var c=document.getElementById('card-praise-stats');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-praise-stats');}">칭찬 통계</div>
       <div class="ph85-sub" data-card="card-supervisor" onclick="event.stopPropagation();var c=document.getElementById('card-supervisor');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-supervisor');}">👁 강사 슈퍼바이저</div>
