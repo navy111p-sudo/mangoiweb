@@ -21447,7 +21447,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260616155825 -->
+        <!-- BUILD:20260616161643 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -28004,6 +28004,61 @@ button.chip:hover,
 })();
 </script>
 
+<!-- 🎨 아이보리 테마 전용 — 카드 안 하드코딩 다크 배경을 파스텔로 (ph103/ph105 의 역(逆)) -->
+<script id="ivory-lighten-painter">
+(function(){
+  'use strict';
+  // 회색/네이비 계열의 "어두운" 배경인지 (채도 낮음 → 버튼/컬러칩 제외)
+  function isDarkGray(str){
+    var m = str.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+    if (!m) return false;
+    var r=+m[1], g=+m[2], b=+m[3], a=(m[4]!==undefined)?+m[4]:1;
+    if (a < 0.28) return false;
+    var avg=(r+g+b)/3, sat=Math.max(r,g,b)-Math.min(r,g,b);
+    return avg < 150 && sat < 130;   // 네이비/차콜/슬레이트 패널 (#0f172a, #1e293b, #1e3a8a 등)
+  }
+  var EXCLUDE = 'button,a,.badge,.ph85-head,.ph85-classroom,.ph86-action-btn,[class*="btn"],[class*="chip"],[class*="pill"],[class*="tag"],[class*="bar"],[class*="fill"],[class*="badge"],.hub-icon,.hub-card,.kpi-tile,.kpi-tile *,.kpi-icon,svg,svg *,img,input,textarea,select,option';
+  function ivoryLighten(){
+    if (document.documentElement.getAttribute('data-admin-theme') !== 'ivory') return;
+    document.querySelectorAll('[id^="card-"]').forEach(function(card){
+      card.querySelectorAll('*').forEach(function(el){
+        if (el.__ivLit) return;
+        if (el.matches(EXCLUDE)) return;
+        if (el.closest('#admin-theme-wrap') || el.closest('button') || el.closest('a')) return;
+        var cs = window.getComputedStyle(el);
+        var hit = isDarkGray(cs.backgroundColor);
+        if (!hit) {
+          var bi = cs.backgroundImage;
+          if (bi && bi !== 'none') {
+            var stops = bi.match(/rgba?\([^)]*\)/g);
+            if (stops && stops.some(isDarkGray) && stops.every(function(c){ return isDarkGray(c) || /,\s*0(\.0+)?\)/.test(c); })) hit = true;
+          }
+        }
+        if (hit) {
+          el.__ivLit = true;
+          el.style.setProperty('background', 'linear-gradient(135deg,#fbf8f1,#f4f0ff)', 'important');
+          el.style.setProperty('color', '#3a352c', 'important');
+          el.style.setProperty('border-color', 'rgba(150,120,70,0.18)', 'important');
+        }
+      });
+      // 입력창은 흰 배경 + 진한 글자
+      card.querySelectorAll('input, textarea, select').forEach(function(el){
+        if (el.type === 'checkbox' || el.type === 'radio' || el.__ivLitIn) return;
+        el.__ivLitIn = true;
+        el.style.setProperty('background', '#ffffff', 'important');
+        el.style.setProperty('color', '#3a352c', 'important');
+        el.style.setProperty('border-color', 'rgba(150,120,70,0.3)', 'important');
+      });
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ivoryLighten);
+  else ivoryLighten();
+  setInterval(ivoryLighten, 1500);
+  if (window.MutationObserver) {
+    new MutationObserver(function(){ ivoryLighten(); }).observe(document.body, { childList: true, subtree: true });
+  }
+})();
+</script>
 
 <!-- Phase 106 admin (2026-05-25) — BtoB/BtoC 결제관리 카드 (벤치마킹 6가지 적용) -->
 <style id="ph106-payments">
@@ -36878,8 +36933,8 @@ button.chip:hover,
   var ava=document.getElementById('mi-asst-ava');
   try{ if(face){ face.addEventListener('loadeddata',function(){ try{ face.pause(); face.currentTime=0.05; }catch(e){} }); face.addEventListener('error',function(){ if(ava)ava.style.opacity='0.85'; }); } }catch(e){}
   var voiceOn=true; try{ voiceOn=(localStorage.getItem('mi_asst_voice')!=='off'); }catch(e){}
-  // 홈페이지와 동일한 한국어 서버음성(아바타 Worker, CORS:*) — 실패 시 브라우저 음성으로 폴백
-  var TTS_URL='https://mangoi-ai-avatar-cf.navy111p.workers.dev/api/tts';
+  // 한국어 서버음성 — 같은 도메인 프록시(/api/ops-tts → 아바타 Worker /api/tts). 실패 시 브라우저 음성 폴백
+  var TTS_URL='/api/ops-tts';
   var audioEl=new Audio(); audioEl.preload='auto';
   try{ audioEl.addEventListener('playing',function(){ mouthOn(); }); audioEl.addEventListener('ended',function(){ mouthOff(); }); audioEl.addEventListener('pause',function(){ mouthOff(); }); audioEl.addEventListener('error',function(){ mouthOff(); }); }catch(e){}
   // 첫 사용자 제스처에서 오디오/음성엔진 잠금해제 → 비동기 응답 뒤에도 소리가 남(무음 방지)
@@ -37157,7 +37212,12 @@ button.chip:hover,
     greetBubble=bubble('ai', greetHtml()); wireGreet(greetBubble);
     renderChips();
   }
-  function open(){ try{ primeVoice(); }catch(e){} boot(); panel.style.display='flex'; back.style.display='block'; }
+  var _greeted=false;
+  function open(){
+    try{ primeVoice(); }catch(e){}
+    boot(); panel.style.display='flex'; back.style.display='block';
+    if(!_greeted){ _greeted=true; setTimeout(function(){ try{ speak(L('안녕하세요 매니저님! 무엇이든 물어보세요.','Hello manager! Ask me anything.')); }catch(e){} }, 450); }
+  }
   function close(){ stopSpeak(); panel.style.display='none'; back.style.display='none'; }
   window.miAsstOpen=open;
   document.getElementById('mi-asst-close').onclick=close;
@@ -37272,17 +37332,8 @@ button.chip:hover,
   // 말 끝나면 fade-out
   v.addEventListener('ended',function(){ hideTimer=setTimeout(fadeOut,300); });
 
-  // AI 운영비서 열기에 영상 재생 연결 (채팅 패널은 그대로 열림)
-  function hook(){
-    if(typeof window.miAsstOpen!=='function') return false;
-    if(window.miAsstOpen.__vidHooked) return true;
-    var orig=window.miAsstOpen;
-    var wrapped=function(){ try{ orig.apply(this,arguments); }finally{ try{ playVideo(); }catch(e){} } };
-    wrapped.__vidHooked=true;
-    window.miAsstOpen=wrapped;
-    return true;
-  }
-  if(!hook()){ var tries=0,iv=setInterval(function(){ if(hook()||++tries>40) clearInterval(iv); },150); }
+  // 좌상단 영상 팝업 자동표시 비활성화 — 누르면 채팅 패널(말하는 원형 아바타)만 열리게.
+  // (영상 인사는 이제 패널 아바타가 음성으로 직접 함. 팝업은 수동 window.miAsstPlayVideo() 로만 표시.)
 })();
 </script>
 
@@ -37588,8 +37639,83 @@ button.chip:hover,
   html[data-admin-theme="ivory"] [id^="card-"] select {
     background: #ffffff !important; color: #3a352c !important; border-color: rgba(150,120,70,0.30) !important;
   }
+
+  /* 12) 카드 헤더 바(접힌 카드 제목 줄) + 표 헤더 — 파란(--bg-header:#1E3A8A) → 파스텔 */
+  html[data-admin-theme="ivory"] { --bg-header: #e9edff; }   /* 변수 자체도 파스텔로 */
+  html[data-admin-theme="ivory"] details.menu-card > summary,
+  html[data-admin-theme="ivory"] details.table-card.menu-card > summary,
+  html[data-admin-theme="ivory"] details.menu-card details > summary,
+  html[data-admin-theme="ivory"] details.table-card.menu-card details > summary {
+    background: linear-gradient(135deg, #eaeeff 0%, #f5f0ff 100%) !important;
+    color: #2f2a40 !important;
+    border-bottom: 1px solid rgba(150,120,70,0.16) !important;
+  }
+  html[data-admin-theme="ivory"] details.menu-card > summary *,
+  html[data-admin-theme="ivory"] details.table-card.menu-card > summary * { color: #2f2a40 !important; }
+  /* 표 헤더 행 (이름/출석일/D-DAY 등) — 파란 → 연한 라벤더 + 진한 글자 */
+  html[data-admin-theme="ivory"] [id^="card-"] table th,
+  html[data-admin-theme="ivory"] [id^="card-"] thead th,
+  html[data-admin-theme="ivory"] [id^="card-"] thead td {
+    background: #eaeeff !important; color: #3a3550 !important; border-bottom: 1px solid rgba(150,120,70,0.2) !important;
+  }
+  html[data-admin-theme="ivory"] [id^="card-"] table th * { color: #3a3550 !important; }
+
+  /* 13) 상단 히어로 배너 + 검색바 — 다크 블루 → 파스텔 */
+  html[data-admin-theme="ivory"] .hero {
+    background: linear-gradient(135deg,#eaf0ff 0%,#f3edff 50%,#fdeef4 100%) !important;
+    border: 1px solid rgba(150,120,70,0.16) !important;
+    box-shadow: 0 10px 30px -14px rgba(120,80,20,0.18) !important;
+  }
+  html[data-admin-theme="ivory"] .hero::before,
+  html[data-admin-theme="ivory"] .hero::after { opacity: 0.5 !important; }
+  html[data-admin-theme="ivory"] .hero .hero-sub { color: #5a5347 !important; }
+  html[data-admin-theme="ivory"] .hero-search {
+    background: #ffffff !important; border: 1px solid rgba(150,120,70,0.25) !important;
+  }
+  html[data-admin-theme="ivory"] .hero-search input,
+  html[data-admin-theme="ivory"] .hero-search { color: #3a352c !important; }
+  html[data-admin-theme="ivory"] .hero-search input::placeholder { color: #a8a090 !important; }
 </style>
 
 <script defer src="/js/i18n-sweep.js?v=3"></script>
+
+<!-- 🤖 AI 운영비서 = 학생용 홈페이지와 '동일한 아바타 시스템'(아바타 Worker iframe). 말·글·얼굴·음성·마이크 모두 그 안에서 동작 → 음성 확실히 작동. 기존 커스텀 슬라이드 패널은 사용 안 함(miAsstOpen 교체). (2026-06-16) -->
+<div id="mi-ops-av-back" style="display:none;position:fixed;inset:0;z-index:2147483000;background:rgba(2,6,23,.55);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)"></div>
+<div id="mi-ops-av" role="dialog" aria-label="AI 운영비서" style="display:none;position:fixed;right:16px;bottom:16px;z-index:2147483001;width:390px;max-width:94vw;height:660px;max-height:88vh;border-radius:18px;overflow:hidden;background:#111;box-shadow:0 22px 64px -12px rgba(0,0,0,.6),0 0 0 2px rgba(251,191,36,.55)">
+  <button id="mi-ops-av-close" type="button" aria-label="닫기" title="닫기" style="position:absolute;top:8px;right:8px;z-index:3;width:30px;height:30px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;line-height:1;cursor:pointer">✕</button>
+  <iframe id="mi-ops-av-frame" title="AI 운영비서" allow="autoplay; microphone" style="width:100%;height:100%;border:0;display:block;background:#111"></iframe>
+</div>
+<style>
+  @media (max-width:480px){
+    #mi-ops-av{ right:0!important; bottom:0!important; width:100vw!important; height:100vh!important; height:100dvh!important; max-width:none!important; max-height:none!important; border-radius:0!important; }
+  }
+</style>
+<script>
+(function(){
+  var SRC='https://mangoi-ai-avatar-cf.navy111p.workers.dev';   // 학생용 홈페이지와 동일한 아바타 Worker
+  var back=document.getElementById('mi-ops-av-back'),
+      wrap=document.getElementById('mi-ops-av'),
+      frame=document.getElementById('mi-ops-av-frame'),
+      xbtn=document.getElementById('mi-ops-av-close');
+  function openAv(){
+    try{ if(!frame.getAttribute('src')){ frame.setAttribute('src', SRC); } }catch(e){}
+    wrap.style.display='block'; back.style.display='block';
+    // 현재 관리자 언어를 아바타에 전달(학생용과 동일 프로토콜)
+    try{ var lg=(window.adminLang==='en')?'en':'ko'; setTimeout(function(){ try{ frame.contentWindow.postMessage({type:'mangoi-lang', lang:lg}, '*'); }catch(e){} }, 600); }catch(e){}
+  }
+  function closeAv(){
+    wrap.style.display='none'; back.style.display='none';
+    try{ frame.contentWindow && frame.contentWindow.postMessage('mangoi-stop','*'); }catch(e){}   // 닫으면 음성 정지
+  }
+  if(xbtn) xbtn.onclick=closeAv;
+  if(back) back.onclick=closeAv;
+  // 아바타(iframe) → 부모: 닫기 신호 처리(학생용과 동일)
+  window.addEventListener('message', function(ev){ var d=ev&&ev.data; if(d==='mangoi-avatar-close'){ closeAv(); } });
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape' && wrap.style.display==='block') closeAv(); });
+  // ✅ AI 운영비서(우하단 버튼·사이드바 항목)의 기존 호출을 이 아바타로 연결 → 커스텀 슬라이드 창은 안 열림
+  window.miAsstOpen=openAv;
+  window.miOpsAvatarOpen=openAv;
+})();
+</script>
 </body>
 </html>

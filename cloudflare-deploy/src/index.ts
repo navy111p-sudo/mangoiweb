@@ -351,6 +351,26 @@ export default {
       return await handleRecordingComplete(request, env);
     }
 
+    // 🔊 AI 운영비서 한국어 음성 프록시 — 아바타 Worker(/api/tts)를 같은 도메인에서 받아 CORS/무음 회피
+    if (path === '/api/ops-tts' && request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' } });
+    }
+    if (path === '/api/ops-tts' && request.method === 'POST') {
+      try {
+        const reqBody = await request.text();
+        const up = await fetch('https://mangoi-ai-avatar-cf.navy111p.workers.dev/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: reqBody,
+        });
+        if (!up.ok || !up.body) return new Response('tts_upstream_' + up.status, { status: 502 });
+        const ct = up.headers.get('Content-Type') || 'audio/mpeg';
+        return new Response(up.body, { status: 200, headers: { 'Content-Type': ct, 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
+      } catch (e: any) {
+        return new Response('tts_proxy_error: ' + (e?.message || ''), { status: 502 });
+      }
+    }
+
     // R2 녹화 블롭 저장소 (MediaRecorder → POST /api/recordings/blob/upload)
     // Mango DB API(`/api/recordings`)와 공존하도록 `/blob/` 서브경로 사용
     if (path === '/api/recordings/blob/upload' && request.method === 'POST') {
