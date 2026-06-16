@@ -21508,7 +21508,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260616205504 -->
+        <!-- BUILD:20260616213100 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -38171,21 +38171,22 @@ button.chip:hover,
   }
   if(xbtn) xbtn.onclick=closeAv;
   if(back) back.onclick=closeAv;
+  // 범용 메뉴 라우터 — 대상 id(카드/손자)와 그 모든 상위 <details> 를 펼치고 스크롤
+  function miOpsNavigate(targetId){
+    var el=document.getElementById(targetId);
+    if(!el) return false;
+    var node=el;
+    while(node){ if(node.tagName==='DETAILS'){ node.open=true; } node=node.parentElement; }
+    setTimeout(function(){ try{ el.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} }, 120);
+    return true;
+  }
   // 아바타(iframe) → 부모: 닫기 신호 처리(학생용과 동일)
   window.addEventListener('message', function(ev){
     var d=ev&&ev.data;
     if(d==='mangoi-avatar-close'){ closeAv(); return; }
-    // 운영비서 메뉴 4번 → 회계 관리 섹션 열기
-    if(d && d.type==='mangoi-open' && d.go==='accounting'){
-      closeAv();
-      try{
-        if(window.hubJump){ hubJump('acc', ['card-accounting-mgmt','card-points-mgmt']); }
-        else { var c=document.getElementById('card-accounting-mgmt'); if(c){ if(c.tagName==='DETAILS') c.open=true; c.scrollIntoView({behavior:'smooth',block:'start'}); } }
-      }catch(e){}
-      return;
-    }
+    if(!(d && d.type==='mangoi-open' && d.go)) return;
     // '포인트' 질문 → 「🎁 포인트 & 기프티콘 → 💰 학생 포인트 잔액」 열고, 언급된 학생을 검색
-    if(d && d.type==='mangoi-open' && d.go==='points'){
+    if(d.go==='points' || d.go==='sub-points-balances'){
       closeAv();
       try{
         if(window.hubJump){ hubJump('acc', ['card-accounting-mgmt','card-points-mgmt']); }
@@ -38207,6 +38208,12 @@ button.chip:hover,
       }catch(e){}
       return;
     }
+    // 회계 alias → 카드 id 로 변환
+    var tid = (d.go==='accounting') ? 'card-accounting-mgmt' : d.go;
+    // 그 외 모든 메뉴: 대상 id 로 펼치고 이동(손자 메뉴면 상위 카드까지 자동 펼침)
+    closeAv();
+    try{ miOpsNavigate(tid); }catch(e){}
+    return;
   });
   document.addEventListener('keydown', function(e){ if(e.key==='Escape' && wrap.style.display==='block') closeAv(); });
   // 🔁 AI 운영비서 = 아바타 Worker iframe 사용(입력창·전송 화살표·🎤마이크·음성·인사영상 모두 동작, 음성='재선').
