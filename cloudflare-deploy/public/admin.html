@@ -21508,7 +21508,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260616202450 -->
+        <!-- BUILD:20260616204013 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -24949,15 +24949,60 @@ button.chip:hover,
   };
 
   let _caInited = false;
+  async function caEnsureInit() {
+    if (_caInited) return;
+    _caInited = true;
+    initDateSelects();
+    await loadTeachers();
+    await loadRecords();
+    caRender();
+  }
   document.getElementById('card-class-attendance')?.addEventListener('toggle', async function(e) {
-    if (this.open && !_caInited) {
-      _caInited = true;
-      initDateSelects();
-      await loadTeachers();
-      await loadRecords();
-      caRender();
-    }
+    if (this.open && !_caInited) { await caEnsureInit(); }
   });
+
+  // 🔎 AI 운영비서 딥링크 — 질문에서 강사명·모드를 읽어 출석현황(수업당 출결) 카드를
+  //    열고 + 해당 강사 자동선택 + 알맞은 보기(강사별/날짜별/강사·날짜별/그래프)로 전환한다.
+  //    반환: {teacher, mode, modeLabel, modeLabelEn, found}
+  window.caAttendanceFromQuery = async function(q) {
+    q = String(q || '');
+    const card = document.getElementById('card-class-attendance');
+    if (card && card.tagName === 'DETAILS' && !card.open) { card.open = true; }
+    await caEnsureInit();
+
+    // 1) 보기 모드 판정 (그래프/날짜별/강사·날짜별/강사별)
+    let mode = 'byTeacher', modeLabel = '강사별', modeLabelEn = 'By Teacher';
+    if (/그래프|차트|chart|graph/i.test(q)) { mode = 'chart'; modeLabel = '그래프'; modeLabelEn = 'Chart'; }
+    else if (/강사[\s·\-]*날짜|날짜[\s·\-]*강사|teacher[\s·\-]*date/i.test(q)) { mode = 'byTeacherDate'; modeLabel = '강사·날짜별'; modeLabelEn = 'By Teacher·Date'; }
+    else if (/날짜별|일자별|by\s*date|daily/i.test(q)) { mode = 'byDate'; modeLabel = '날짜별'; modeLabelEn = 'By Date'; }
+
+    // 2) 강사명 매칭 (로드된 강사 목록과 대조, 대소문자 무시·부분일치)
+    const sel = document.getElementById('ca-teacher');
+    const lc = q.toLowerCase();
+    let found = null;
+    for (let i = 0; i < _caTeachers.length; i++) {
+      const nm = String(_caTeachers[i].name || '').trim();
+      if (nm && lc.indexOf(nm.toLowerCase()) >= 0) { found = _caTeachers[i]; break; }
+    }
+    if (found) {
+      if (sel) sel.value = found.id;
+      if (mode === 'byDate') { mode = 'byTeacher'; modeLabel = '강사별'; modeLabelEn = 'By Teacher'; }
+    } else if (sel) {
+      sel.value = '';
+    }
+
+    // 3) 렌더 + 카드로 스크롤 + 하이라이트
+    if (typeof window.caSetMode === 'function') { window.caSetMode(mode); }
+    else { _caMode = mode; caRender(); }
+    try { card.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
+    try {
+      const prev = card.style.boxShadow;
+      card.style.boxShadow = '0 0 0 3px rgba(168,85,247,0.6)';
+      setTimeout(function(){ card.style.boxShadow = prev; }, 1800);
+    } catch (e) {}
+
+    return { teacher: found ? found.name : null, mode: mode, modeLabel: modeLabel, modeLabelEn: modeLabelEn, found: !!found };
+  };
 })();
 </script>
 
@@ -37364,6 +37409,42 @@ button.chip:hover,
       }
       return;
     }
+
+    // 📋 출결/출석/지각/결강 문의 — 강사명·보기모드까지 읽어 '출석현황(수업당 출결)' 카드로 세부 이동.
+    //    학생 출결은 개별 출결 카드(card-attendance-status)로 분기. (자식→손자 메뉴까지 자동 연결)
+    if(/출결|출석|지각|결강|결석|attendance/i.test(q) && !/급여|월급|봉급|payroll|salary/i.test(q)){
+      bubble('me',esc(q));
+      // 강사명이 안 보이고 '학생' 맥락이면 개별(학생) 출결로
+      var hasStudentCtx = /학생/.test(q) && !/강사|선생|쌤|teacher|tutor/i.test(q);
+      var info=null;
+      if(window.caAttendanceFromQuery){ try{ info=await window.caAttendanceFromQuery(q); }catch(e){} }
+      if(hasStudentCtx && (!info || !info.found)){
+        var ms=L('학생 개별 출결 상태 카드로 이동했어요. 학생을 선택하면 자세히 볼 수 있어요.','Opened the per-student attendance status card. Pick a student to see details.');
+        bubble('ai', linkify(esc(ms))); speak(ms);
+        setTimeout(function(){ goCard('card-attendance-status'); }, 700);
+        return;
+      }
+      var amsg;
+      if(info && info.found){
+        amsg=L(info.teacher+' 강사의 출석현황(수업당 출결)으로 이동했어요. '+info.modeLabel+' 보기로 보여드릴게요. 상단에서 기간도 바꿀 수 있어요.',
+               'Opened the class attendance for teacher '+info.teacher+' ('+info.modeLabelEn+' view). You can change the period at the top.');
+      } else if(info){
+        amsg=L('출석현황(수업당 출결) 카드로 이동했어요'+(info.mode==='chart'?' (그래프 보기)':'')+'. 상단에서 강사·기간을 선택하면 자세히 볼 수 있어요.',
+               'Opened the class attendance card'+(info.mode==='chart'?' (chart view)':'')+'. Pick a teacher and period at the top for details.');
+      } else {
+        amsg=L('출석현황(수업당 출결) 카드로 이동할게요.','Opening the class attendance card.');
+        setTimeout(function(){ goCard('card-class-attendance'); }, 600);
+      }
+      bubble('ai', linkify(esc(amsg))); speak(amsg);
+      setTimeout(function(){
+        try{ close(); }catch(e){}
+        var c=document.getElementById('card-class-attendance');
+        if(c){ try{ c.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){}
+          try{ var pv=c.style.boxShadow; c.style.boxShadow='0 0 0 3px rgba(168,85,247,0.6)'; setTimeout(function(){c.style.boxShadow=pv;},1600); }catch(e){} }
+      }, 1300);
+      return;
+    }
+
     bubble('me',esc(q)); typing();
     var res=null;
     try{
