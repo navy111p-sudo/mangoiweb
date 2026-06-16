@@ -21508,7 +21508,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260616200731 -->
+        <!-- BUILD:20260616202450 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -37958,7 +37958,9 @@ button.chip:hover,
   function greetPing(){ try{ frame.contentWindow && frame.contentWindow.postMessage({type:'mangoi-greet'}, '*'); }catch(e){} }  // 아바타가 인사말 먼저 음성으로
   function openAv(){
     var fresh=false;
-    try{ if(!frame.getAttribute('src')){ frame.setAttribute('src', SRC); fresh=true;
+    try{ if(!frame.getAttribute('src')){
+          var dev=(window.matchMedia && window.matchMedia('(min-width:481px)').matches) ? 'pc' : 'mobile';  // PC면 얼굴 30% 확대
+          frame.setAttribute('src', SRC + '/?dev=' + dev); fresh=true;
           frame.addEventListener('load', function(){ sendLang(); setTimeout(greetPing, 150); }); } }catch(e){}
     wrap.style.display='block'; back.style.display='block';
     if(!fresh){ sendLang(); greetPing(); }                              // 이미 로드됨(재오픈) → 즉시 인사
@@ -37971,7 +37973,18 @@ button.chip:hover,
   if(xbtn) xbtn.onclick=closeAv;
   if(back) back.onclick=closeAv;
   // 아바타(iframe) → 부모: 닫기 신호 처리(학생용과 동일)
-  window.addEventListener('message', function(ev){ var d=ev&&ev.data; if(d==='mangoi-avatar-close'){ closeAv(); } });
+  window.addEventListener('message', function(ev){
+    var d=ev&&ev.data;
+    if(d==='mangoi-avatar-close'){ closeAv(); return; }
+    // 운영비서 메뉴 4번 → 회계 관리 섹션 열기
+    if(d && d.type==='mangoi-open' && d.go==='accounting'){
+      closeAv();
+      try{
+        if(window.hubJump){ hubJump('acc', ['card-accounting-mgmt','card-points-mgmt']); }
+        else { var c=document.getElementById('card-accounting-mgmt'); if(c){ if(c.tagName==='DETAILS') c.open=true; c.scrollIntoView({behavior:'smooth',block:'start'}); } }
+      }catch(e){}
+    }
+  });
   document.addEventListener('keydown', function(e){ if(e.key==='Escape' && wrap.style.display==='block') closeAv(); });
   // 🔁 AI 운영비서 = 아바타 Worker iframe 사용(입력창·전송 화살표·🎤마이크·음성·인사영상 모두 동작, 음성='재선').
   //    FAB/메뉴가 호출하는 miAsstOpen 을 이 iframe 오픈으로 교체(입력창 없는 옛 커스텀 패널 대체). (2026-06-16)
