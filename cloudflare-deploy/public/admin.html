@@ -21508,7 +21508,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260617022032 -->
+        <!-- BUILD:20260617024114 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -38230,7 +38230,8 @@ button.chip:hover,
   // 🔁 AI 운영비서 = 아바타 Worker iframe 사용(입력창·전송 화살표·🎤마이크·음성·인사영상 모두 동작, 음성='재선').
   //    FAB/메뉴가 호출하는 miAsstOpen 을 이 iframe 오픈으로 교체(입력창 없는 옛 커스텀 패널 대체). (2026-06-16)
   window.miOpsAvatarOpen=openAv;
-  // (제거됨) 학생용 iframe 아바타가 miAsstOpen 을 덮어쓰던 줄 삭제 — 관리자 커스텀 패널(miAsstOpen=open)이 급여 권한 게이트와 함께 유지됨. iframe 아바타는 miOpsAvatarOpen 으로 수동 호출만. (test-harness 4-c 통과)
+  // ✅ FAB/메뉴의 miAsstOpen = 새 아바타 iframe(성우 '재선' 녹음 음성 + 검색/입력창 + 🎤마이크 + 인사영상 + 메뉴 라우팅). 옛 커스텀 슬라이드 패널(#mi-asst-panel, 기계음·입력창 없음)을 대체. (2026-06-17 복구)
+  window.miAsstOpen=openAv;
 })();
 </script>
 </body>
