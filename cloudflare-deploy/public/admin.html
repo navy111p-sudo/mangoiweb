@@ -1980,7 +1980,7 @@
 <style id="admin-refresh-fab-css">
   .adm-refresh-fab {
     position: fixed;
-    bottom: 82px;
+    bottom: 196px;   /* 우하단 스택: AI 운영비서(코너)·카톡상담(150px) 위 */
     right: 16px;
     z-index: 9991;
     width: 44px;
@@ -2022,11 +2022,11 @@
     transform: translateX(0);
   }
   @media (max-width: 720px) {
-    .adm-refresh-fab { width: 36px; height: 36px; font-size: 16px; bottom: 60px; right: 12px; }
+    .adm-refresh-fab { width: 36px; height: 36px; font-size: 16px; bottom: 188px; right: 14px; }
     .adm-refresh-fab .adm-refresh-label { right: 42px; font-size: 10px; padding: 3px 7px; }
   }
   @media (max-width: 420px) {
-    .adm-refresh-fab { width: 32px; height: 32px; font-size: 14px; bottom: 52px; }
+    .adm-refresh-fab { width: 32px; height: 32px; font-size: 14px; bottom: 184px; }
   }
 </style>
 <button type="button" class="adm-refresh-fab" id="adm-refresh-fab"
@@ -2221,7 +2221,7 @@
 
     <!-- 💬 카톡상담 — 우하단 floating 작은 말풍선 -->
     <a href="https://pf.kakao.com/_mango_i/chat" target="_blank" rel="noopener" id="kakao-chat-fab"
-       style="position:fixed;right:14px;bottom:14px;z-index:9990;display:flex;align-items:center;gap:5px;padding:5px 9px 5px 6px;background:linear-gradient(135deg,#FEE500,#FBBF24);color:#3C1E1E;text-decoration:none;border-radius:14px 14px 4px 14px;box-shadow:0 4px 10px -3px rgba(254,229,0,0.55),inset 0 1px 0 rgba(255,255,255,0.55);font-weight:800;font-size:11px;transition:transform .2s,box-shadow .2s"
+       style="position:fixed;right:16px;bottom:150px;z-index:9990;display:flex;align-items:center;gap:5px;padding:5px 9px 5px 6px;background:linear-gradient(135deg,#FEE500,#FBBF24);color:#3C1E1E;text-decoration:none;border-radius:14px 14px 4px 14px;box-shadow:0 4px 10px -3px rgba(254,229,0,0.55),inset 0 1px 0 rgba(255,255,255,0.55);font-weight:800;font-size:11px;transition:transform .2s,box-shadow .2s"
        onmouseover="this.style.transform='translateY(-2px) scale(1.03)'"
        onmouseout="this.style.transform=''">
       <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:#3C1E1E;border-radius:50%;flex-shrink:0">
@@ -2240,9 +2240,9 @@
       <span id="mi-ops-fab-btn" aria-hidden="true"></span>
     </div>
     <style>
-      /* 홈페이지 #mangoi-widget(A.i 상담사) 와 동일한 룩 — 단, 좌하단·클릭 시 AI 운영비서 패널 오픈 */
-      /* z-index 는 좌측 사이드바(#ph85-sidebar:9999)·손잡이(#ph85-handle:10001) 보다 높아야 가려지지 않음 (안 그러면 로드 직후 잠깐 보였다 사이드바에 덮임) */
-      #mi-ops-fab{ position:fixed; left:16px; bottom:16px; width:64px; height:64px; z-index:10002; cursor:pointer; }
+      /* 홈페이지 #mangoi-widget(A.i 상담사) 와 동일한 룩 — 우하단 코너, 클릭 시 AI 운영비서 패널 오픈 */
+      /* 우하단 플로팅 스택(아래→위): AI 운영비서(코너) → 카톡상담 → 새로고침. 우측이라 좌측 사이드바와 안 겹침 */
+      #mi-ops-fab{ position:fixed; right:16px; bottom:16px; width:64px; height:64px; z-index:9992; cursor:pointer; }
       #mi-ops-fab-label{ position:absolute; left:50%; bottom:72px; transform:translateX(-50%);
         background:#1a1a1a; color:#ffcc00; font-weight:800; font-size:12px; padding:4px 11px;
         border-radius:999px; white-space:nowrap; box-shadow:0 3px 10px rgba(0,0,0,0.4);
@@ -21398,7 +21398,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260616150057 -->
+        <!-- BUILD:20260616150615 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
