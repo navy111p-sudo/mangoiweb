@@ -2200,6 +2200,44 @@
       <span data-ko="카톡상담" data-en="Kakao Chat" style="white-space:nowrap;letter-spacing:0.3px">카톡상담</span>
     </a>
 
+    <!-- 🤖 AI 운영비서 — 좌하단 플로팅 아바타 버튼 (홈페이지 A.i 상담사와 동일 스타일) (2026-06-16) -->
+    <div id="mi-ops-fab" role="button" tabindex="0" aria-label="AI 운영비서 열기"
+         onclick="if(window.miAsstOpen){window.miAsstOpen();}else{alert('AI 운영비서를 불러오는 중입니다. 잠시 후 다시 눌러주세요.');}"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+      <span id="mi-ops-fab-label" data-ko="AI 운영비서" data-en="AI Ops Assistant">AI 운영비서</span>
+      <span id="mi-ops-fab-btn" aria-hidden="true"></span>
+    </div>
+    <style>
+      /* 홈페이지 #mangoi-widget(A.i 상담사) 와 동일한 룩 — 단, 좌하단·클릭 시 AI 운영비서 패널 오픈 */
+      #mi-ops-fab{ position:fixed; left:16px; bottom:16px; width:64px; height:64px; z-index:9991; cursor:pointer; }
+      #mi-ops-fab-label{ position:absolute; left:50%; bottom:72px; transform:translateX(-50%);
+        background:#1a1a1a; color:#ffcc00; font-weight:800; font-size:12px; padding:4px 11px;
+        border-radius:999px; white-space:nowrap; box-shadow:0 3px 10px rgba(0,0,0,0.4);
+        border:1px solid rgba(255,204,0,0.55); pointer-events:none; }
+      #mi-ops-fab-btn{ position:absolute; left:0; bottom:0; width:64px; height:64px;
+        border:3px solid #ffcc00; border-radius:50%;
+        background:#ffcc00 url('/img/avatar-face.jpg') center 22% / cover no-repeat;
+        box-shadow:0 6px 18px rgba(0,0,0,0.35); animation: miOpsGlowPulse 1.8s ease-in-out infinite; }
+      /* ✨ 회전하는 후광 링 */
+      #mi-ops-fab-btn::before{ content:""; position:absolute; inset:-6px; border-radius:50%; z-index:-1;
+        background:conic-gradient(from 0deg, #ffcc00, #fff7c2, #ffae00, #fff7c2, #ffcc00);
+        filter:blur(4px); opacity:.9; animation: miOpsHaloSpin 3s linear infinite; }
+      @keyframes miOpsHaloSpin{ to{ transform:rotate(360deg); } }
+      @keyframes miOpsGlowPulse{
+        0%,100%{ box-shadow:0 6px 18px rgba(0,0,0,0.35), 0 0 8px 2px rgba(255,204,0,0.65), 0 0 20px 5px rgba(255,204,0,0.4); }
+        50%    { box-shadow:0 6px 18px rgba(0,0,0,0.35), 0 0 16px 5px rgba(255,204,0,0.95), 0 0 36px 11px rgba(255,204,0,0.6); }
+      }
+      #mi-ops-fab:hover #mi-ops-fab-btn{ transform:scale(1.05); }
+      #mi-ops-fab-btn{ transition:transform .18s ease; }
+      @media (prefers-reduced-motion: reduce){ #mi-ops-fab-btn, #mi-ops-fab-btn::before{ animation:none; } }
+      /* 💻 PC(데스크톱) 전용 — 30% 크게 (홈페이지 A.i 상담사와 동일) */
+      @media (min-width:481px){
+        #mi-ops-fab{ width:83px; height:83px; }
+        #mi-ops-fab-btn{ width:83px; height:83px; border-width:4px; }
+        #mi-ops-fab-label{ bottom:91px; font-size:15px; padding:5px 13px; }
+      }
+    </style>
+
     <!-- 메뉴 토글 바 — legacy-cards 보이기/숨기기 + 펼치기/접기 -->
     <div class="menu-toggle-bar">
       <button id="legacy-toggle" class="primary" type="button" data-ko="📋 모든 메뉴 보기" data-en="📋 Show all menus">📋 모든 메뉴 보기</button>
@@ -21327,7 +21365,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260616051959 -->
+        <!-- BUILD:20260616145410 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
