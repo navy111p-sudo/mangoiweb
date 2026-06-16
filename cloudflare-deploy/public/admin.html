@@ -1943,7 +1943,7 @@
     <!-- 🎨 화면 색상 토글 (밝게 ↔ 어둡게) — inline onclick 자체 완결: 클릭=즉시 전환 보장 -->
     <button id="admin-theme-btn" type="button" class="th-btn th-btn-ghost"
             title="화면 색상 전환 (밝게/어둡게)" data-ko-title="화면 색상 전환 (밝게/어둡게)" data-en-title="Toggle light / dark"
-            onclick="(function(){try{var k='mangoi_admin_theme';var s=localStorage.getItem(k);var c=(s==='ivory')?'ivory':'dark';var n=(c==='ivory')?'dark':'ivory';localStorage.setItem(k,n);}catch(e){}location.reload();})()">
+            onclick="(function(){var k='mangoi_admin_theme';var c='dark';try{c=(localStorage.getItem(k)==='ivory')?'ivory':'dark';}catch(e){}var n=(c==='ivory')?'dark':'ivory';if(window.applyAdminColor){window.applyAdminColor(n);}else{try{localStorage.setItem(k,n);}catch(e){}location.reload();}})()">
       🎨 <span data-ko="색상" data-en="Color">색상</span> · <span id="admin-theme-label" style="font-weight:800">어둡게</span>
     </button>
     <button class="th-btn th-btn-ghost" onclick="toggleAdminLang()">
@@ -14563,6 +14563,37 @@ const EVAL_WEIGHTS_FRONT = { instruction: 0.25, retention: 0.30, punctuality: 0.
 let _payrollSettings = { php_to_krw: 24.34 };
 let _lastPayrollRows = [];
 
+// 🔐 교사 본인 급여 보기 모드 — 전체 급여/관리 기능은 숨기고 본인 명세서만 노출
+function _payrollTeacherView() {
+  var s = window._adminSession;
+  return !!(s && s.role === 'hq_teacher');
+}
+// 카드가 보일 때 교사용으로 관리 컨트롤 숨김 + 안내 배너 + 본인 데이터 자동 로드
+function _applyPayrollTeacherUI() {
+  if (!_payrollTeacherView()) return;
+  try {
+    // 관리 전용 버튼 숨김 (CSV·마감·그래프·시드)
+    ['payroll-csv-btn','payroll-finalize-btn','payroll-charts-btn','payroll-seed-btn'].forEach(function(id){
+      var el = document.getElementById(id); if (el) el.style.display = 'none';
+    });
+    // 신규 강사 등록 폼 숨김
+    var tnew = document.getElementById('t-new-btn');
+    if (tnew) { var d = tnew.closest('details'); if (d) d.style.display = 'none'; }
+    // 안내 배너 1회 삽입
+    var card = document.getElementById('card-payroll');
+    if (card && !document.getElementById('payroll-teacher-note')) {
+      var note = document.createElement('div');
+      note.id = 'payroll-teacher-note';
+      note.style.cssText = 'background:#eef6ff;border:1px solid #bfdbfe;color:#1e3a8a;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12.5px;line-height:1.6;font-weight:600';
+      note.textContent = (typeof adminLang!=='undefined' && adminLang==='en')
+        ? '👤 Teacher view — you can only see your own payslip.'
+        : '👤 교사 보기 — 본인 급여명세서만 확인할 수 있어요.';
+      var body = card.querySelector('.menu-body') || card;
+      body.insertBefore(note, body.firstChild);
+    }
+  } catch(e){}
+}
+
 async function loadPayrollRates() {
   try {
     const r = await fetch('/api/admin/payroll/rates', { cache: 'no-store', credentials: 'include' });
@@ -14697,12 +14728,24 @@ function _updateSortArrows() {
 function renderPayrollTable() {
   const tb = document.getElementById('payroll-table');
   if (!tb) return;
-  const rows = _lastPayrollRows ? _lastPayrollRows.slice() : [];
+  let rows = _lastPayrollRows ? _lastPayrollRows.slice() : [];
+  // 🔐 교사(hq_teacher)는 본인 급여명세서 행만 — 진입 경로와 무관하게 항상 강제
+  const _sessPR = window._adminSession;
+  const _teacherView = !!(_sessPR && _sessPR.role === 'hq_teacher');
+  if (_teacherView && typeof window._payrollIsOwnRow === 'function') {
+    rows = rows.filter(r => window._payrollIsOwnRow(r, _sessPR));
+    _applyPayrollTeacherUI();
+  }
   if (_payrollSort.length > 0) {
     rows.sort(_comparePayrollMulti);
   }
   const _L = adminLang === 'en';
   if (rows.length === 0) {
+    if (_sessPR && _sessPR.role === 'hq_teacher') {
+      tb.innerHTML = '<tr><td colspan="14" class="empty">' + (_L ? 'No payslip found for your account this month.' : '이번 달 본인 급여명세서를 찾을 수 없습니다.') + '</td></tr>';
+      _updateSortArrows();
+      return;
+    }
     const empty = _L ? 'No active teachers. Add one above or click 🌱 Seed.' : '활성 강사가 없습니다. 위에서 강사를 먼저 등록하거나 🌱 시드 버튼을 사용하세요.';
     tb.innerHTML = '<tr><td colspan="14" class="empty">' + empty + '</td></tr>';
     _updateSortArrows();
@@ -14716,7 +14759,8 @@ function renderPayrollTable() {
     const gClass = gradeClass(p.grade);
     const krw = p.monthly_salary_krw || 0;
     const safeName = String(p.teacher_name || '').replace(/'/g, '&#39;');
-    return `<tr style="cursor:pointer;" onclick="openEvalModal(${p.teacher_id}, '${safeName}', ${year}, ${month})">
+    const _rowClick = _teacherView ? '' : ` style="cursor:pointer;" onclick="openEvalModal(${p.teacher_id}, '${safeName}', ${year}, ${month})"`;
+    return `<tr${_rowClick}>
       <td style="font-weight:700;">${safeName}</td>
       <td><span style="font-size:11px;color:#6b7280;">${p.status === 'office' ? 'OFFICE' : (p.status === 'home' ? 'HOME' : '—')}</span></td>
       <td>${p.years != null ? (p.years + yearsSuffix) : '—'}</td>
@@ -14739,9 +14783,22 @@ function renderPayrollTable() {
 // 상단 카운터 (월·인원·합계·등급분포) 라벨도 한/영 — 마지막 d 데이터를 보관해 재사용
 let _lastPayrollSummary = null;
 function refreshPayrollSummary() {
-  const d = _lastPayrollSummary;
   const el = document.getElementById('payroll-counts');
-  if (!el || !d) return;
+  if (!el) return;
+  // 🔐 교사 본인 보기 — 전체 합계/인원 노출 금지, 본인 급여만 요약
+  if (_payrollTeacherView()) {
+    const own = (_lastPayrollRows || []).filter(r => window._payrollIsOwnRow(r, window._adminSession));
+    if (own.length) {
+      const r0 = own[0];
+      const ym = _lastPayrollContext.year ? `${_lastPayrollContext.year}-${String(_lastPayrollContext.month).padStart(2,'0')} · ` : '';
+      el.textContent = (adminLang==='en')
+        ? `${ym}My salary: PHP ${fmtNum(Math.round(r0.monthly_salary_php||0))} ≈ ₩${fmtNum(r0.monthly_salary_krw||0)}`
+        : `${ym}내 급여: PHP ${fmtNum(Math.round(r0.monthly_salary_php||0))} ≈ ₩${fmtNum(r0.monthly_salary_krw||0)}`;
+    } else { el.textContent = '—'; }
+    return;
+  }
+  const d = _lastPayrollSummary;
+  if (!d) return;
   const _L = adminLang === 'en';
   const gc = d.grade_counts || {};
   const ym = `${d.year}-${String(d.month).padStart(2,'0')}`;
@@ -14964,6 +15021,7 @@ function _gradeColor(g) {
 }
 
 function renderPayrollCharts() {
+  if (_payrollTeacherView()) return; // 🔐 교사는 전체 비교 차트 불가
   if (!_lastPayrollRows || _lastPayrollRows.length === 0) return;
   if (typeof Chart === 'undefined') return;
   const _L = adminLang === 'en';
@@ -19693,6 +19751,12 @@ window.filterSidebar = function(q) {
 function _escSb(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 function jumpToMenu(id, opts) {
+  // 🔐 강사 급여 카드 접근 제어 — 어떤 경로(사이드바·검색·AI)로 와도 차단
+  if ((id === 'card-payroll' || id === 'card-payroll-auto') && typeof window.payrollAccess === 'function') {
+    var _pa = window.payrollAccess(id);
+    if (!_pa.ok) { try { window._payrollGuardToast(_pa.message); } catch(e){} return; }
+    window._payrollOwnOnly = !!_pa.ownOnly;   // 교사=본인만 (renderPayrollTable 에서 필터)
+  }
   const el = document.getElementById(id);
   if (!el) return;
   // Phase 14: 대상 카드가 .legacy-cards 안이면 먼저 영역 자동 표시
@@ -21396,7 +21460,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260616170651 -->
+        <!-- BUILD:20260616171610 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -21698,7 +21762,7 @@ window.rebuildGlobalSearchIndex = function() {
     ]},
     { group_ko: '🧑‍🏫 강사 관리', group_en: '🧑‍🏫 Teacher Management', items: [
       { id: 'teachers_list',   name_ko: '강사 목록·평가',     name_en: 'Teacher List · Evaluation', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'✅', agency:'❌', parent:'❌', student:'❌' } },
-      { id: 'teacher_payroll', name_ko: '강사 급여·정산',     name_en: 'Teacher Payroll · Settle',  def: { hq_exec:'✅', hq_mgr:'👁️', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'teacher_payroll', name_ko: '강사 급여·정산 (교사=본인만)', name_en: 'Teacher Payroll · Settle (teacher=own only)',  def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
     ]},
     { group_ko: '💰 회계 관리', group_en: '💰 Accounting', items: [
       { id: 'student_payments', name_ko: '학생 결제 내역',     name_en: 'Student Payment History',   def: { hq_exec:'✅', hq_mgr:'👁️', hq_teacher:'❌', branch:'✅', agency:'👁️', parent:'❌', student:'❌' } },
@@ -22000,6 +22064,49 @@ window.rebuildGlobalSearchIndex = function() {
   }
   window._adminSession = _loadSession();
 
+  // ━━━ 🔐 강사 급여 접근 정책 (요청: 2026-06-16) ━━━
+  //  • 본사 경영진(hq_exec)·관리자(hq_mgr) = 전체 급여 열람 (로그인 시에만)
+  //  • 교사(hq_teacher)               = 본인 급여명세서만 (card-payroll, 렌더에서 본인 행만 필터)
+  //  • 지사(branch)·대리점(agency)·기타·비로그인 = 차단 + 거절 메시지
+  //  반환: { ok, ownOnly, message }
+  window.PAYROLL_DENY_MSG = '죄송합니다. 경영자와 관리자가 아니라서 열어드릴 수 없네요.';
+  window.payrollAccess = function(cardId) {
+    var s = window._adminSession;
+    var NEED = '🔒 로그인 후 이용해 주세요. 강사 급여는 본사 관리자·경영진(전체)과 교사 본인(본인 급여)만 볼 수 있습니다.';
+    if (!s || !s.role) return { ok:false, ownOnly:false, message: NEED };
+    if (s.role === 'hq_exec' || s.role === 'hq_mgr') return { ok:true, ownOnly:false, message:'' };
+    if (s.role === 'hq_teacher') {
+      // 교사는 본인 급여명세서(card-payroll)만 — 전체 자동정산(card-payroll-auto)은 불가
+      if (cardId === 'card-payroll') return { ok:true, ownOnly:true, message:'' };
+      return { ok:false, ownOnly:false, message:'본인 급여명세서만 확인할 수 있어요. 전체 급여·자동정산은 본사 관리자·경영진만 볼 수 있습니다.' };
+    }
+    // branch / agency / parent / student / 기타
+    return { ok:false, ownOnly:false, message: window.PAYROLL_DENY_MSG };
+  };
+  // 차단 메시지 토스트 (중앙 상단, 3.2초)
+  window._payrollGuardToast = function(msg) {
+    try {
+      var t = document.createElement('div');
+      t.setAttribute('role','alert');
+      t.style.cssText = 'position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:99999;max-width:340px;'
+        + 'background:#1f2937;color:#fff;padding:14px 18px;border-radius:12px;font-size:14px;line-height:1.6;'
+        + 'font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.08);text-align:center';
+      t.innerHTML = '🔒 ' + String(msg || window.PAYROLL_DENY_MSG).replace(/</g,'&lt;');
+      document.body.appendChild(t);
+      setTimeout(function(){ try{ t.style.transition='opacity .4s'; t.style.opacity='0'; }catch(e){} }, 2800);
+      setTimeout(function(){ try{ t.remove(); }catch(e){} }, 3300);
+    } catch(e) { try { alert(msg); } catch(_){} }
+  };
+  // 교사 본인 급여 행 판별 (로그인 uid/이름 매칭)
+  window._payrollIsOwnRow = function(r, s) {
+    if (!r || !s) return false;
+    var uid = String(s.uid || '').toLowerCase();
+    var nm  = String(s.name || '').trim();
+    return (r.teacher_uid != null && String(r.teacher_uid).toLowerCase() === uid) ||
+           (r.teacher_id  != null && String(r.teacher_id).toLowerCase()  === uid) ||
+           (nm && String(r.teacher_name || '').trim() === nm);
+  };
+
   function _renderSessionBanner() {
     const banner = document.getElementById('admin-session-banner');
     const overlay = document.getElementById('admin-login-overlay');
@@ -22152,7 +22259,8 @@ window.rebuildGlobalSearchIndex = function() {
     'card-accounting-reports':'mgrOrUp',
     // 본사 전용 (교사 포함)
     'card-settlement-stats':  'hq',       // 정산통계관리
-    'card-payroll':           'mgrOrUp',  // 강사 급여·평가
+    'card-payroll':           'mgrOrUp',  // 강사 급여·평가 (교사는 본인만 — _applyMenuVisibility 특례 + 렌더 필터)
+    'card-payroll-auto':      'mgrOrUp',  // 강사 급여 자동 정산 (전체 — 교사 불가)
     'card-notifications':     'mgrOrUp',  // 알림 큐
     // 본사 + 지사
     'card-teacher-mgmt':      'branch',   // 강사관리
@@ -22189,10 +22297,17 @@ window.rebuildGlobalSearchIndex = function() {
       if (lvl === 'agency')    return isAgencyUp;
       return true; // 'all' 기본
     }
+    const isTeacher = role === 'hq_teacher';
     document.querySelectorAll('details.menu-card').forEach(el => {
       if (!el.id) return;
-      const policy = CARD_POLICY[el.id];
-      const visible = policy ? levelOK(policy) : isHQ; // 정책 미등록 카드는 본사 전용
+      let visible;
+      if (el.id === 'card-payroll') {
+        // 강사 급여·평가: 경영진/관리자 전체 + 교사 본인만(렌더에서 필터). 지사·대리점·기타 차단.
+        visible = isMgrOrUp || isTeacher;
+      } else {
+        const policy = CARD_POLICY[el.id];
+        visible = policy ? levelOK(policy) : isHQ; // 정책 미등록 카드는 본사 전용
+      }
       el.style.display = visible ? '' : 'none';
     });
     // 사이드바 즉시 재인덱싱 (display:none 카드 제외됨)
@@ -27619,6 +27734,7 @@ button.chip:hover,
       });
     });
   }
+  window.__ph103Run = ph103DarkifyWhites;   /* 🎨 즉시 테마 전환에서 호출 */
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph103DarkifyWhites);
   else ph103DarkifyWhites();
   // 새 카드/결과 생성될 때마다 재검사
@@ -27943,6 +28059,7 @@ button.chip:hover,
       });
     });
   }
+  window.__ph105Run = ph105ForceUniversal;   /* 🎨 즉시 테마 전환에서 호출 */
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph105ForceUniversal);
   else ph105ForceUniversal();
   setInterval(ph105ForceUniversal, 2000);
@@ -28000,12 +28117,33 @@ button.chip:hover,
       });
     });
   }
+  window.__ivoryLighten = ivoryLighten;   /* 🎨 즉시 테마 전환에서 호출 */
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ivoryLighten);
   else ivoryLighten();
   setInterval(ivoryLighten, 1500);
   if (window.MutationObserver) {
     new MutationObserver(function(){ ivoryLighten(); }).observe(document.body, { childList: true, subtree: true });
   }
+
+  /* 🎨 즉시(새로고침 없이) 밝게↔어둡게 전환 — 페인터가 칠한 인라인 스타일을 즉시 다시 칠함 */
+  window.applyAdminColor = function(theme){
+    if (theme !== 'ivory' && theme !== 'dark') theme = 'dark';
+    document.documentElement.setAttribute('data-admin-theme', theme);
+    try { localStorage.setItem('mangoi_admin_theme', theme); } catch(e){}
+    /* 페인트 플래그 초기화 → 페인터가 다시 처리하도록 */
+    try {
+      document.querySelectorAll('[id^="card-"] *').forEach(function(el){
+        el.__ivLit = false; el.__ivLitIn = false; el.__ph103 = false; el.__ph105 = false;
+      });
+    } catch(e){}
+    if (theme === 'ivory') {
+      if (window.__ivoryLighten) window.__ivoryLighten();
+    } else {
+      if (window.__ph103Run) window.__ph103Run();
+      if (window.__ph105Run) window.__ph105Run();
+    }
+    if (window.__refreshThemeLabel) window.__refreshThemeLabel();
+  };
 })();
 </script>
 
@@ -37046,6 +37184,16 @@ button.chip:hover,
   function doNav(o){
     if(!o) return false;
     if(o.menu_id){
+      // 🔐 강사 급여 접근 제어 — 역할별 안내/거절
+      if((o.menu_id==='card-payroll'||o.menu_id==='card-payroll-auto') && typeof window.payrollAccess==='function'){
+        var pa=window.payrollAccess(o.menu_id);
+        if(!pa.ok){ bubble('ai', esc(pa.message)); try{speak(pa.message);}catch(e){} return true; }
+        if(pa.ownOnly){
+          bubble('ai', L('교사 본인 급여명세서로 안내할게요. (본인 것만 표시됩니다)','Opening your own payslip only.'));
+        } else {
+          bubble('ai', L('교사 급여에 대한 부분은 본사 관리자와 경영진만 볼 수 있습니다. 관리자·경영진이시면 강사 급여 카드로 안내해 드릴게요.','Teacher payroll is visible to HQ managers and executives only. Opening the payroll card for you.'));
+        }
+      }
       var card=document.getElementById(o.menu_id);
       if(card){ setTimeout(function(){ goCard(o.menu_id); },650); return true; }
       return false;
