@@ -21508,7 +21508,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260616204013 -->
+        <!-- BUILD:20260616205307 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -25134,6 +25134,18 @@ button.chip:hover,
       (x.user_id||'').toLowerCase().includes(q)
     );
     ptRenderBalances(filtered);
+  };
+  // AI 운영비서가 보낸 질문 원문에서 실제 학생명/아이디를 찾아 반환(없으면 '')
+  window.ptGuessStudentFromText = function(text){
+    text = (text||'').toLowerCase();
+    if (!text) return '';
+    for (let i=0; i<_ptBalances.length; i++){
+      const nm  = (_ptBalances[i].student_name||'').toLowerCase();
+      const uid = (_ptBalances[i].user_id||'').toLowerCase();
+      if (nm  && nm.length  >= 2 && text.indexOf(nm)  >= 0) return _ptBalances[i].student_name;
+      if (uid && uid.length >= 2 && text.indexOf(uid) >= 0) return _ptBalances[i].user_id;
+    }
+    return '';
   };
   window.ptSeedRules = async function(){
     if (!confirm('기본 적립 규칙 6개(출석/숙제/제시간/레벨업/월간우수/생일)를 시드하시겠습니까?\n이미 있으면 건너뜁니다.')) return;
@@ -37389,8 +37401,96 @@ button.chip:hover,
     return 'denied';                                                 // 지사·대리점·기타 = 거부
   }
 
+  // ════════ "열어 드릴까요?" 확인형 오픈 — 관리자·경영진 전용 ════════
+  // 직전에 제안한 메뉴/대상을 보관했다가, 사용자가 '예/응/그래/좋아/오케이' 등으로 답하면 실제로 연다.
+  var _miPending = null;
+  function miIsYes(q){ return /^(응응?|ㅇㅇ|어|네|넵|예|옙|그래|그러자|그렇게|좋아|좋다|좋습니다|오케이|오키|콜|당연|열어|열어줘|보여|보여줘|해줘|부탁|이동|가자|가줘|그래요|좋아요|예스|yes|yeah|yep|ok|okay|sure|go|open)([\s\.!~요줘죠]|$)/i.test(String(q||'').trim()); }
+  function miIsNo(q){ return /^(아니|아니요|아니오|아뇨|노|싫어|싫다|괜찮|관둬|취소|됐어|됐다|안열|nope|no|cancel|stop)([\s\.!~요]|$)/i.test(String(q||'').trim()); }
+
+  // 질문에서 강사 이름 토큰 추출 (한글/영문 + 선생님·강사·쌤·교사·teacher)
+  function miNameToken(q){
+    var m=String(q||'').match(/([A-Za-z][A-Za-z .]{1,19}|[가-힣]{2,4})\s*(선생님|선생|쌤|강사|교사|teacher|tutor)/i);
+    return m ? m[1].trim() : null;
+  }
+  // card-teacher-mgmt 강사목록에서 해당 이름 행을 찾아 스크롤+하이라이트
+  function miHighlightTeacherRow(name){
+    var tries=0, lc=String(name||'').toLowerCase();
+    var iv=setInterval(function(){
+      tries++;
+      var body=document.getElementById('tp-list-body');
+      if(body){
+        var rows=body.querySelectorAll('tr'), hit=null;
+        for(var i=0;i<rows.length;i++){ if((rows[i].textContent||'').toLowerCase().indexOf(lc)>=0){ hit=rows[i]; break; } }
+        if(hit){ try{hit.scrollIntoView({behavior:'smooth',block:'center'});}catch(e){}
+          try{ var o=hit.style.background; hit.style.background='rgba(251,191,36,0.40)'; setTimeout(function(){hit.style.background=o;},2400); }catch(e){}
+          clearInterval(iv); return; }
+      }
+      if(tries>14) clearInterval(iv);
+    },220);
+  }
+  function miTeacherInfoTarget(name){
+    return {
+      label: name+' 선생님 정보', labelEn: "teacher "+name+"'s info",
+      answerKo:'강사관리 카드의 강사 목록에서 '+name+' 선생님의 이름·연락처·그룹·활동지역·인사평가 등을 확인할 수 있어요.',
+      answerEn:'In the Teacher Management card you can check '+name+"'s name, contact, group, region and HR score.",
+      exec:function(){ goCard('card-teacher-mgmt'); miHighlightTeacherRow(name); }
+    };
+  }
+  function miRouteLabel(r){
+    var t=(r&&r.ko)||''; t=t.replace(/(으로|로)?\s*(이동할게요|이동할게요\.|안내해\s*드릴게요|열어드릴게요)\.?$/,'').trim();
+    return t || '해당 메뉴';
+  }
+  // 질문 → 관리자 메뉴/대상 결정 (가능한 한 메뉴 안에서 찾는다)
+  function miResolveTarget(q){
+    var s=String(q||''), name=miNameToken(s);
+    var otherIntent=/출결|출석|지각|결강|결석|급여|월급|평가|성적|정산|스케줄|시간표|수업|랭킹|순위|매출|녹화/i;
+    // A) 강사 정보/프로필 (이름 + 정보성 키워드, 다른 의도 없음)
+    if(name && /정보|프로필|연락처|전화|이력|소개|누구|어떤|상세|프로파일|info|profile|contact/i.test(s) && !otherIntent.test(s)){
+      return miTeacherInfoTarget(name);
+    }
+    // B) 이름 + 선생님/강사 만 (다른 의도 없음) → 기본 강사 정보
+    if(name && !otherIntent.test(s)){
+      return miTeacherInfoTarget(name);
+    }
+    // C) 출결/출석 → 출석현황(수업당 출결) 딥링크 (강사명·보기모드 자동)
+    if(/출결|출석|지각|결강|결석|attendance/i.test(s) && !/급여|월급|봉급|payroll|salary/i.test(s)){
+      var lbl = name ? (name+' 강사 출석현황(수업당 출결)') : '출석현황(수업당 출결)';
+      return {
+        label:lbl, labelEn:(name? name+' class attendance' : 'class attendance'),
+        answerKo:'강사의 수업당 출결(지각·결강·별점)은 출석현황 카드에서 확인할 수 있어요.',
+        answerEn:'Per-class attendance (late/absent/penalty) is in the class attendance card.',
+        exec:function(){ try{ if(window.caAttendanceFromQuery) window.caAttendanceFromQuery(s); }catch(e){}
+          setTimeout(function(){ try{close();}catch(e){} var c=document.getElementById('card-class-attendance'); if(c){try{c.scrollIntoView({behavior:'smooth',block:'start'});}catch(e){}} },900); }
+      };
+    }
+    // D) 그 외 — MI_ROUTES(모든 관리자 카드/페이지) 매칭
+    var r=localRoute(s);
+    if(r){ return { label:miRouteLabel(r), labelEn:(r.en||miRouteLabel(r)), answerKo:(r.ko||''), answerEn:(r.en||''), exec:function(){ doNav(r); } }; }
+    return null;
+  }
+
   async function ask(q){
     try{ primeVoice(); }catch(e){}
+
+    // ⓪ 직전 "열어 드릴까요?" 제안에 대한 응답 — 예/응/그래/좋아/오케이 → 실제로 연다 (관리자·경영진 전용)
+    if(_miPending){
+      if(miIsYes(q)){
+        bubble('me',esc(q));
+        var pend=_miPending; _miPending=null;
+        var okMsg=L(pend.label+' 열어 드릴게요. 😊','Opening '+(pend.labelEn||pend.label)+'. 😊');
+        bubble('ai', linkify(esc(okMsg))); speak(okMsg);
+        try{ pend.exec(); }catch(e){}
+        return;
+      }
+      if(miIsNo(q)){
+        bubble('me',esc(q)); _miPending=null;
+        var noMsg=L('네, 열지 않을게요. 다른 도움이 필요하시면 말씀해 주세요.','Okay, I won’t open it. Let me know if you need anything else.');
+        bubble('ai', esc(noMsg)); speak(noMsg);
+        return;
+      }
+      _miPending=null; // 그 외 입력은 새 질문으로 처리
+    }
+
     // 🔐 '급여' 문의는 수강료가 아니라 급여 메뉴로. 본사 관리자·경영진만(로그인 시), 교사는 본인만, 그 외 거부.
     if(/급여|월급|봉급|페이롤|payroll|salary/i.test(q) && !/수강료|학원비|등록비|tuition/i.test(q)){
       bubble('me',esc(q));
@@ -37410,9 +37510,27 @@ button.chip:hover,
       return;
     }
 
-    // 📋 출결/출석/지각/결강 문의 — 강사명·보기모드까지 읽어 '출석현황(수업당 출결)' 카드로 세부 이동.
-    //    학생 출결은 개별 출결 카드(card-attendance-status)로 분기. (자식→손자 메뉴까지 자동 연결)
-    if(/출결|출석|지각|결강|결석|attendance/i.test(q) && !/급여|월급|봉급|payroll|salary/i.test(q)){
+    // 📋 모든 질문을 관리자 메뉴 안에서 찾아 답하고, 마지막에 "○○ 열어 드릴까요?"로 제안 → 확인 시 오픈.
+    //    이 확인형 오픈은 '관리자·경영진'(또는 역할 미확인)만. 교사·지사·대리점 등 식별된 비관리자는 제외.
+    try{ await miEnsureRole(); }catch(e){}
+    var _gate=miSalaryGate();
+    if(_gate==='admin' || _gate==='guest'){
+      var tgt=miResolveTarget(q);
+      if(tgt){
+        bubble('me',esc(q));
+        var ans=(isEn()? tgt.answerEn : tgt.answerKo) || '';
+        var offer=L(tgt.label+' 열어 드릴까요? (예/아니오)','Shall I open '+(tgt.labelEn||tgt.label)+'? (yes/no)');
+        var full=ans ? (ans+'\n\n'+offer) : offer;
+        bubble('ai', linkify(esc(full).replace(/\n/g,'<br>')));
+        speak(full.replace(/\n+/g,' '));
+        _miPending={ label:tgt.label, labelEn:tgt.labelEn, exec:tgt.exec };
+        return;
+      }
+      // 매칭 실패 시에는 아래 서버 AI 경로로 진행
+    }
+
+    // (구) 직접-오픈 출결 인터셉트 — 확인형 오픈으로 대체됨. 비관리자/역할상이 시 보조 경로로만 유지.
+    if(false && /출결|출석|지각|결강|결석|attendance/i.test(q) && !/급여|월급|봉급|payroll|salary/i.test(q)){
       bubble('me',esc(q));
       // 강사명이 안 보이고 '학생' 맥락이면 개별(학생) 출결로
       var hasStudentCtx = /학생/.test(q) && !/강사|선생|쌤|teacher|tutor/i.test(q);
@@ -38064,6 +38182,30 @@ button.chip:hover,
         if(window.hubJump){ hubJump('acc', ['card-accounting-mgmt','card-points-mgmt']); }
         else { var c=document.getElementById('card-accounting-mgmt'); if(c){ if(c.tagName==='DETAILS') c.open=true; c.scrollIntoView({behavior:'smooth',block:'start'}); } }
       }catch(e){}
+      return;
+    }
+    // '포인트' 질문 → 「🎁 포인트 & 기프티콘 → 💰 학생 포인트 잔액」 열고, 언급된 학생을 검색
+    if(d && d.type==='mangoi-open' && d.go==='points'){
+      closeAv();
+      try{
+        if(window.hubJump){ hubJump('acc', ['card-accounting-mgmt','card-points-mgmt']); }
+        var card=document.getElementById('card-points-mgmt');
+        if(card && card.tagName==='DETAILS') card.open=true;
+        var sub=document.getElementById('sub-points-balances');
+        if(sub && sub.tagName==='DETAILS') sub.open=true;
+        if(card) card.scrollIntoView({behavior:'smooth',block:'start'});
+        var qmsg=(d.q||'').toString();
+        Promise.resolve(window.ptLoadBalances ? window.ptLoadBalances() : null).then(function(){
+          var name = window.ptGuessStudentFromText ? window.ptGuessStudentFromText(qmsg) : '';
+          if(name){
+            var s=document.getElementById('pt-search');
+            if(s) s.value=name;
+            if(window.ptFilterBalances) window.ptFilterBalances(name);
+            setTimeout(function(){ if(sub) sub.scrollIntoView({behavior:'smooth',block:'start'}); }, 250);
+          }
+        }).catch(function(){});
+      }catch(e){}
+      return;
     }
   });
   document.addEventListener('keydown', function(e){ if(e.key==='Escape' && wrap.style.display==='block') closeAv(); });
