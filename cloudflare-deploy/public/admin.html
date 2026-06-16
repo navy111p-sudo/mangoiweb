@@ -21475,7 +21475,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260616172129 -->
+        <!-- BUILD:20260616173407 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -27087,6 +27087,40 @@ button.chip:hover,
   details.table-card.menu-card summary *,
   details.menu-card summary * {
     color: var(--text-on-dark-strong) !important;
+  }
+
+  /* ============================================
+     🎨 [요청] 특정 3개 카드 헤더만 파스텔 배경 + 어두운 글자
+       대상: 보관기간 자동 파기 / 실시간 수업 현황 / 신규상담→등록 전환
+       - 배경은 'gradient(background-image)' 라서 ph103/ph105 다크 페인터
+         (backgroundColor 만 검사)가 다시 칠하지 못함.
+       - ID 스코프 + !important 로 위 인디고 그라데이션 규칙을 덮음.
+     ============================================ */
+  #card-retention > summary,
+  #card-active-rooms > summary,
+  #card-inquiry-mgmt > summary {
+    background: linear-gradient(135deg, #e6ecff 0%, #f0eaff 100%) !important;
+    color: #1e293b !important;
+    border: 1px solid rgba(99,102,241,0.30) !important;
+  }
+  #card-retention > summary > span,
+  #card-active-rooms > summary > span,
+  #card-inquiry-mgmt > summary > span {
+    color: #1e293b !important;
+  }
+  /* 펼침 화살표(▶/▼)도 어두운색으로 */
+  #card-retention > summary::after,
+  #card-active-rooms > summary::after,
+  #card-inquiry-mgmt > summary::after {
+    color: #334155 !important;
+  }
+  /* 헤더 안 액션 버튼(지금 실행 / 새로고침)은 파스텔 위에서 또렷한 톤 유지 */
+  #card-retention > summary > button,
+  #card-active-rooms > summary > button,
+  #card-inquiry-mgmt > summary > button {
+    background: #4f46e5 !important;
+    color: #ffffff !important;
+    border: none !important;
   }
 
   /* 안쪽 details (sub-item) */
@@ -37258,8 +37292,44 @@ button.chip:hover,
     }catch(e){ return html; }
   }
 
+  // 🔐 급여 접근 권한 — /api/admin/me(쿠키 세션) 역할 기준. 본사 관리자/경영진=full, 교사=본인만, 그 외=거부
+  var __miLogged=false, __miRole='', __miRoleP=null;
+  function miEnsureRole(){
+    if(__miRoleP) return __miRoleP;
+    __miRoleP=fetch('/api/admin/me',{credentials:'include'}).then(function(r){return r.ok?r.json():null;}).then(function(j){
+      if(j&&j.ok&&j.user){ __miLogged=true; __miRole=((j.user.role||j.user.role_key||j.user.type||j.user.grade||'')+'').toLowerCase(); }
+    }).catch(function(){});
+    return __miRoleP;
+  }
+  try{ miEnsureRole(); }catch(e){}
+  function miSalaryGate(){
+    if(!__miLogged) return 'guest';                                  // 로그인 안 됨
+    var r=__miRole;
+    if(/teacher|교사|강사|hq_teacher/.test(r)) return 'teacher';      // 교사 = 본인만
+    if((/exec|mgr|admin|owner|ceo|cfo|hq_exec|hq_mgr|경영|관리|본사/.test(r)) && !/branch|agency|지사|대리/.test(r)) return 'admin';
+    return 'denied';                                                 // 지사·대리점·기타 = 거부
+  }
+
   async function ask(q){
     try{ primeVoice(); }catch(e){}
+    // 🔐 '급여' 문의는 수강료가 아니라 급여 메뉴로. 본사 관리자·경영진만(로그인 시), 교사는 본인만, 그 외 거부.
+    if(/급여|월급|봉급|페이롤|payroll|salary/i.test(q) && !/수강료|학원비|등록비|tuition/i.test(q)){
+      bubble('me',esc(q));
+      try{ await miEnsureRole(); }catch(e){}
+      var gate=miSalaryGate();
+      if(gate==='admin'){
+        var ma=L('네, 관리자·경영진 확인됐습니다. 강사 급여 메뉴로 안내해 드릴게요. 😊','Confirmed (HQ admin/executive). Opening the teacher payroll menu. 😊');
+        bubble('ai', linkify(esc(ma))); speak(ma); setTimeout(function(){ goCard('card-payroll'); }, 800);
+      } else if(gate==='teacher'){
+        var mt=L('교사님은 본인 급여만 조회하실 수 있어요. 마이페이지로 안내해 드릴게요.','Teachers can view only their own salary. Opening My Page.');
+        bubble('ai', linkify(esc(mt))); speak(mt);
+        setTimeout(function(){ try{ close(); }catch(e){} try{ window.location.href='/admin/mypage.html'; }catch(e){} }, 900);
+      } else {
+        var md=L('교사 급여는 본사 관리자와 경영진만 볼 수 있어요. 죄송합니다, 경영자와 관리자가 아니라서 열어드릴 수 없네요.','Teacher salary is for HQ admins/executives only. Sorry — I cannot open it because you are not an admin/executive.');
+        bubble('ai', esc(md)); speak(md);
+      }
+      return;
+    }
     bubble('me',esc(q)); typing();
     var res=null;
     try{
@@ -37621,6 +37691,13 @@ button.chip:hover,
   html[data-admin-theme="ivory"] .card-label,
   html[data-admin-theme="ivory"] .chart-title { color:#6f6557 !important; }
   html[data-admin-theme="ivory"] .card-sub { color:#9c9384 !important; }
+  /* 상단 KPI 8박스(#kpi·#kpi-today): 파스텔 배경에서 흰 글자가 안 보이던 문제 — ID 스코프로 어둡게 강제(흰색 규칙 덮어씀) */
+  html[data-admin-theme="ivory"] #kpi .card-label,
+  html[data-admin-theme="ivory"] #kpi-today .card-label { color:#334155 !important; text-shadow:none !important; }
+  html[data-admin-theme="ivory"] #kpi .card-value,
+  html[data-admin-theme="ivory"] #kpi-today .card-value { color:#0f172a !important; text-shadow:none !important; }
+  html[data-admin-theme="ivory"] #kpi .card-sub,
+  html[data-admin-theme="ivory"] #kpi-today .card-sub { color:#475569 !important; }
   html[data-admin-theme="ivory"] .menu-card > summary { color:#3a352c !important; }
   html[data-admin-theme="ivory"] h2,
   html[data-admin-theme="ivory"] h3,
@@ -37862,8 +37939,8 @@ button.chip:hover,
   // 아바타(iframe) → 부모: 닫기 신호 처리(학생용과 동일)
   window.addEventListener('message', function(ev){ var d=ev&&ev.data; if(d==='mangoi-avatar-close'){ closeAv(); } });
   document.addEventListener('keydown', function(e){ if(e.key==='Escape' && wrap.style.display==='block') closeAv(); });
-  // ✅ AI 운영비서(우하단 버튼·사이드바 항목)의 기존 호출을 이 아바타로 연결 → 커스텀 슬라이드 창은 안 열림
-  window.miAsstOpen=openAv;
+  // 🔁 관리자 페이지 아바타는 '커스텀 패널'(같은 토킹헤드 얼굴 + 음성 + 관리자 콘텐츠)을 사용.
+  //    학생용 iframe 아바타는 자동 연결하지 않음(필요 시 window.miOpsAvatarOpen() 수동 호출).
   window.miOpsAvatarOpen=openAv;
 })();
 </script>
