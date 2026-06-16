@@ -41,7 +41,7 @@ binding = "AI"
 MAX_RECORDING_MB = "500"
 ALLOWED_RECORDING_MIME = "video/webm,video/mp4,audio/webm,audio/mp4"
 # /admin/health "Last Deploy" tile identifier - auto-updated by fix-and-deploy.ps1
-BUILD_STAMP = "2026-06-16T22:12:09Z"
+BUILD_STAMP = "2026-06-17T00:46:58Z"
 
 [assets]
 directory = "./public"
@@ -104,7 +104,7 @@ binding = "AI"
 [env.production.vars]
 MAX_RECORDING_MB = "500"
 ALLOWED_RECORDING_MIME = "video/webm,video/mp4,audio/webm,audio/mp4"
-BUILD_STAMP = "2026-06-16T22:12:09Z"
+BUILD_STAMP = "2026-06-17T00:46:58Z"
 
 [env.production.assets]
 directory = "./public"
@@ -113,6 +113,9 @@ run_worker_first = true
 not_found_handling = "none"
 html_handling = "none"
 
-# Production 환경도 동일하게 cron 등록 필요
+# 스테이징(-prod)에는 cron 미등록.
+#   - 이유1: 계정 cron 한도(5개) — 메인이 4개를 쓰므로 스테이징까지 4개면 초과(code 10072).
+#   - 이유2: 스테이징이 cron 을 돌리면 미납독촉/NPS/정기결제/브리핑이 "중복 발송"됨.
+#   운영 cron 은 메인(webrtc-unified-platform) 에서만 동작합니다.
 [env.production.triggers]
-crons = ["0 18 * * *", "0 0 * * *", "0 1 * * *", "0 10 * * *"]
+crons = []

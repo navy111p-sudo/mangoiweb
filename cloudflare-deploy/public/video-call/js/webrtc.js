@@ -78,6 +78,20 @@ function handleIceCandidateMessage(data) {
   }
 }
 
+// ── 송신 비트레이트 상한 (버벅임/대역폭 절감) ──
+function capSenderBitrate(pc) {
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const maxKbps = isMobile ? 600 : 1200;
+  pc.getSenders().forEach((sender) => {
+    if (!sender.track || sender.track.kind !== 'video') return;
+    const params = sender.getParameters();
+    if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
+    params.encodings[0].maxBitrate = maxKbps * 1000;
+    params.encodings[0].maxFramerate = 30;
+    sender.setParameters(params).catch((e) => console.warn('[webrtc] 비트레이트 설정 실패:', e));
+  });
+}
+
 function createPeerConnection(userId, peerName, isInitiator) {
   if (peerConnections.has(userId)) return peerConnections.get(userId);
   console.log('[webrtc] createPC:', userId, peerName, 'initiator:', isInitiator);
@@ -175,6 +189,7 @@ function createPeerConnection(userId, peerName, isInitiator) {
     const tracks = localStream.getTracks();
     console.log('[webrtc] 로컬 트랙 추가:', tracks.length, '개');
     tracks.forEach(track => pc.addTrack(track, localStream));
+    capSenderBitrate(pc); // [수정] 송신 비트레이트 상한 → 버벅임/대역폭 절감
   } else {
     console.warn('[webrtc] localStream 없음!');
   }

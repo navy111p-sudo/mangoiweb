@@ -2,14 +2,20 @@
  * signaling-room.ts - Durable Object for 1:1 WebRTC signaling
  * Handles: join, offer, answer, ice-candidate, leave
  * Max 2 peers per room
+ *
+ * 🛡️ Hibernation API 사용 (2026-06 전환)
+ *   - state.acceptWebSocket() + webSocketMessage/Close/Error 핸들러 사용.
+ *   - 소켓 식별/룸 정보는 ws.serializeAttachment() 에 저장 → DO 가
+ *     재기동(배포·유휴 종료)되어도 진행 중 연결이 끊기지 않는다.
+ *   - 활성 소켓 열거는 항상 state.getWebSockets() 로 (메모리 Map 비의존).
  */
 
-import { WebSocketMessage, ConnectionInfo } from './types';
+import { WebSocketMessage } from './types';
 
 const MAX_PEERS = 2;
 
-interface RoomState {
-  connections: Map<string, ConnectionInfo>;
+interface SigAttachment {
+  socketId: string;
   roomId: string;
 }
 
@@ -17,7 +23,6 @@ export class SignalingRoom {
   private state: DurableObjectState;
   private env: any;
   private roomId: string;
-  private connections: Map<string, ConnectionInfo> = new Map();
 
   constructor(state: DurableObjectState, env?: any) {
     this.state = state;
@@ -25,14 +30,12 @@ export class SignalingRoom {
     this.roomId = '';
   }
 
-  // 🔐 Phase RT-4 — 토큰 검증 헬퍼 (옵셔널, 환경변수 REQUIRE_ROOM_TOKEN 이 'true' 일 때만 활성)
-  //   기본 OFF: 토큰 없어도 기존 화상수업 그대로 작동 (호환성 우선)
-  //   ON: ?token=... 쿼리 파라미터가 있으면 검증, 없거나 검증 실패 시 401
+  // 🔐 Phase RT-4 — 토큰 검증 헬퍼 (옵셔널, REQUIRE_ROOM_TOKEN==='true' 일 때만)
   private async verifyTokenIfRequired(request: Request): Promise<{ ok: boolean; role?: string; userId?: string; error?: string }> {
     const requireToken = this.env && this.env.REQUIRE_ROOM_TOKEN === 'true';
     const url = new URL(request.url);
     const token = url.searchParams.get('token');
-    if (!requireToken) return { ok: true };  // 검증 미강제
+    if (!requireToken) return { ok: true };
     if (!token) return { ok: false, error: 'token_required' };
     try {
       const secret = this.env.ROOM_JWT_SECRET || ('mangoi-fallback-' + (this.env.BUILD_STAMP || 'dev'));
@@ -54,14 +57,11 @@ export class SignalingRoom {
   }
 
   async fetch(request: Request): Promise<Response> {
-    // Durable Object ID는 hex 문자열이므로 URL로 파싱할 수 없습니다.
-    // roomId는 요청 URL의 쿼리 파라미터에서 가져옵니다.
     const url = new URL(request.url);
     const roomIdParam = url.searchParams.get('roomId');
     if (roomIdParam) this.roomId = roomIdParam;
 
     if (request.headers.get('Upgrade') === 'websocket') {
-      // 🔐 Phase RT-4 안전 토큰 검증 (옵셔널)
       const verify = await this.verifyTokenIfRequired(request);
       if (!verify.ok) {
         console.warn('[SignalingRoom] token verification failed:', verify.error);
@@ -69,52 +69,43 @@ export class SignalingRoom {
           status: 401, headers: { 'Content-Type': 'application/json' }
         });
       }
-      return this.handleWebSocket(request);
+
+      const socketId = this.generateSocketId();
+      const { 0: client, 1: server } = new WebSocketPair();
+
+      // 🛡️ Hibernation: accept + 식별정보를 attachment 에 저장
+      server.serializeAttachment({ socketId, roomId: this.roomId } as SigAttachment);
+      this.state.acceptWebSocket(server);
+
+      return new Response(null, { status: 101, webSocket: client });
     }
     return new Response('Invalid request', { status: 400 });
   }
 
-  private handleWebSocket(request: Request): Response {
-    const socketId = this.generateSocketId();
-    const { 0: client, 1: server } = new WebSocketPair();
-
-    server.accept();
-    server.addEventListener('message', (event: MessageEvent) => {
-      this.onMessage(socketId, event.data);
-    });
-    server.addEventListener('close', () => {
-      this.onClose(socketId);
-    });
-    server.addEventListener('error', () => {
-      this.onClose(socketId);
-    });
-
-    this.connections.set(socketId, { socketId, roomId: this.roomId, ws: server });
-
-    return new Response(null, { status: 101, webSocket: client });
-  }
-
-  private onMessage(socketId: string, rawData: string): void {
+  // ── Hibernation 핸들러 ──
+  async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
     try {
-      const msg: WebSocketMessage = JSON.parse(rawData);
-      const conn = this.connections.get(socketId);
-      if (!conn) return;
+      const att = this.attOf(ws);
+      if (!att) return;
+      if (att.roomId) this.roomId = att.roomId;
+      const text = typeof message === 'string' ? message : new TextDecoder().decode(message);
+      const msg: WebSocketMessage = JSON.parse(text);
 
       switch (msg.type) {
         case 'join':
-          this.handleJoin(socketId);
+          this.handleJoin(ws, att.socketId);
           break;
         case 'offer':
-          this.handleOffer(socketId, msg.data as any);
+          this.handleOffer(ws, att.socketId, msg.data as any);
           break;
         case 'answer':
-          this.handleAnswer(socketId, msg.data as any);
+          this.handleAnswer(ws, att.socketId, msg.data as any);
           break;
         case 'ice-candidate':
-          this.handleIceCandidate(socketId, msg.data as any);
+          this.handleIceCandidate(ws, att.socketId, msg.data as any);
           break;
         case 'leave':
-          this.handleLeave(socketId);
+          this.handleLeave(att.socketId, ws);
           break;
         default:
           console.warn(`Unknown message type: ${msg.type}`);
@@ -124,102 +115,91 @@ export class SignalingRoom {
     }
   }
 
-  private handleJoin(socketId: string): void {
-    // 주의: handleWebSocket에서 이미 connections.set()이 호출되어 자신도 포함되어 있음
-    // 따라서 size > MAX_PEERS 일 때만 room-full 처리 (>= 아님)
-    if (this.connections.size > MAX_PEERS) {
-      this.send(socketId, { type: 'room-full', data: { roomId: this.roomId } });
-      this.connections.delete(socketId);
+  async webSocketClose(ws: WebSocket, code: number, reason: string): Promise<void> {
+    const att = this.attOf(ws);
+    if (att) this.handleLeave(att.socketId, ws);
+    try { ws.close(code, reason); } catch {}
+  }
+
+  async webSocketError(ws: WebSocket): Promise<void> {
+    const att = this.attOf(ws);
+    if (att) this.handleLeave(att.socketId, ws);
+  }
+
+  // ── 비즈니스 로직 (기존과 동일, 열거만 getWebSockets 기반) ──
+  private handleJoin(ws: WebSocket, socketId: string): void {
+    const sockets = this.state.getWebSockets();
+    // 자신 포함 정원 초과면 거부 (기존 size > MAX_PEERS 와 동일 의미)
+    if (sockets.length > MAX_PEERS) {
+      this.sendWs(ws, { type: 'room-full', data: { roomId: this.roomId } });
+      try { ws.close(1000, 'room-full'); } catch {}
       return;
     }
 
-    // Get existing peers
-    const existingPeers = Array.from(this.connections.keys()).filter(id => id !== socketId);
+    const existingPeers = sockets
+      .map(s => this.attOf(s)?.socketId)
+      .filter((id): id is string => !!id && id !== socketId);
     const isInitiator = existingPeers.length > 0;
 
-    this.send(socketId, {
-      type: 'room-joined',
-      data: { roomId: this.roomId, peers: existingPeers, isInitiator }
-    });
-
-    // Notify others
+    this.sendWs(ws, { type: 'room-joined', data: { roomId: this.roomId, peers: existingPeers, isInitiator } });
     this.broadcast(socketId, { type: 'peer-joined', data: { peerId: socketId } });
-
-    console.log(`[Signaling] Peer ${socketId} joined room ${this.roomId} (total: ${this.connections.size})`);
+    console.log(`[Signaling] Peer ${socketId} joined room ${this.roomId} (total: ${sockets.length})`);
   }
 
-  private handleOffer(socketId: string, data: any): void {
-    const { targetId, sdp } = data;
+  private handleOffer(ws: WebSocket, socketId: string, data: any): void {
+    const { targetId, sdp } = data || {};
     if (!targetId || !sdp) {
-      this.send(socketId, { type: 'error-msg', data: { message: 'offer requires targetId and sdp' } });
+      this.sendWs(ws, { type: 'error-msg', data: { message: 'offer requires targetId and sdp' } });
       return;
     }
-
-    this.sendTo(targetId, {
-      type: 'offer',
-      data: { senderId: socketId, sdp }
-    });
-
-    console.log(`[Signaling] Offer from ${socketId} to ${targetId}`);
+    this.sendTo(targetId, { type: 'offer', data: { senderId: socketId, sdp } });
   }
 
-  private handleAnswer(socketId: string, data: any): void {
-    const { targetId, sdp } = data;
+  private handleAnswer(ws: WebSocket, socketId: string, data: any): void {
+    const { targetId, sdp } = data || {};
     if (!targetId || !sdp) {
-      this.send(socketId, { type: 'error-msg', data: { message: 'answer requires targetId and sdp' } });
+      this.sendWs(ws, { type: 'error-msg', data: { message: 'answer requires targetId and sdp' } });
       return;
     }
-
-    this.sendTo(targetId, {
-      type: 'answer',
-      data: { senderId: socketId, sdp }
-    });
-
-    console.log(`[Signaling] Answer from ${socketId} to ${targetId}`);
+    this.sendTo(targetId, { type: 'answer', data: { senderId: socketId, sdp } });
   }
 
-  private handleIceCandidate(socketId: string, data: any): void {
-    const { targetId, candidate } = data;
+  private handleIceCandidate(ws: WebSocket, socketId: string, data: any): void {
+    const { targetId, candidate } = data || {};
     if (!targetId || !candidate) {
-      this.send(socketId, { type: 'error-msg', data: { message: 'ice-candidate requires targetId and candidate' } });
+      this.sendWs(ws, { type: 'error-msg', data: { message: 'ice-candidate requires targetId and candidate' } });
       return;
     }
-
-    this.sendTo(targetId, {
-      type: 'ice-candidate',
-      data: { senderId: socketId, candidate }
-    });
+    this.sendTo(targetId, { type: 'ice-candidate', data: { senderId: socketId, candidate } });
   }
 
-  private handleLeave(socketId: string): void {
-    this.connections.delete(socketId);
-    this.broadcast(socketId, { type: 'peer-left', data: { peerId: socketId } });
+  private handleLeave(socketId: string, exclude?: WebSocket): void {
+    this.broadcast(socketId, { type: 'peer-left', data: { peerId: socketId } }, exclude);
     console.log(`[Signaling] Peer ${socketId} left room ${this.roomId}`);
   }
 
-  private onClose(socketId: string): void {
-    this.handleLeave(socketId);
+  // ── 전송 헬퍼 ──
+  private attOf(ws: WebSocket): SigAttachment | null {
+    try { return ws.deserializeAttachment() as SigAttachment; } catch { return null; }
   }
 
-  private send(socketId: string, msg: WebSocketMessage): void {
-    const conn = this.connections.get(socketId);
-    if (conn && conn.ws.readyState === WebSocket.OPEN) {
-      conn.ws.send(JSON.stringify(msg));
-    }
+  private sendWs(ws: WebSocket, msg: WebSocketMessage): void {
+    try { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg)); } catch {}
   }
 
   private sendTo(targetId: string, msg: WebSocketMessage): void {
-    const conn = this.connections.get(targetId);
-    if (conn && conn.ws.readyState === WebSocket.OPEN) {
-      conn.ws.send(JSON.stringify(msg));
+    for (const s of this.state.getWebSockets()) {
+      if (this.attOf(s)?.socketId === targetId) { this.sendWs(s, msg); return; }
     }
   }
 
-  private broadcast(excludeId: string, msg: WebSocketMessage): void {
+  private broadcast(excludeId: string, msg: WebSocketMessage, excludeWs?: WebSocket): void {
     const jsonMsg = JSON.stringify(msg);
-    for (const [id, conn] of this.connections) {
-      if (id !== excludeId && conn.ws.readyState === WebSocket.OPEN) {
-        conn.ws.send(jsonMsg);
+    for (const s of this.state.getWebSockets()) {
+      if (s === excludeWs) continue;
+      const att = this.attOf(s);
+      if (att && att.socketId !== excludeId) {
+        try { if (s.readyState === WebSocket.OPEN) s.send(jsonMsg); } catch {}
       }
     }
   }

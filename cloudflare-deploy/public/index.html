@@ -10387,7 +10387,12 @@ window.vcSetBackground = async function(mode){
     if (audioTrack) vcBg.processedStream.addTrack(audioTrack);
   }
   const v = document.getElementById('vc-local-video');
-  if (v) v.srcObject = vcBg.processedStream;
+  if (v) {
+    v.srcObject = vcBg.processedStream;
+    // 모바일 자동재생 정책: srcObject 교체 후 play() 필수 (안 하면 정지 프레임)
+    v.muted = true; v.setAttribute('playsinline','');
+    try { const _p=v.play(); if(_p&&_p.catch) _p.catch(()=>{}); } catch(_){}
+  }
   const newVideoTrack = vcBg.processedStream.getVideoTracks()[0];
   if (newVideoTrack) vcSwapVideoTrack(newVideoTrack);
 
@@ -26525,6 +26530,30 @@ window.closeRulesModal = function() {
   }
   function fxPreloadImages(){ FX_ITEMS.forEach(function(it){ if (it.img) fxImg(it.img); }); }
 
+  // 🔬 진단 오버레이 — URL 에 ?fxdebug 가 있을 때만 표시(일반 사용자 영향 없음)
+  function fxDbg(){
+    try {
+      if ((location.search||'').indexOf('fxdebug') < 0) return;
+      var el = document.getElementById('fx-dbg');
+      if (!el){
+        el = document.createElement('div'); el.id='fx-dbg';
+        el.style.cssText='position:fixed;left:6px;bottom:6px;z-index:2147483647;background:rgba(0,0,0,.82);color:#0f0;font:11px/1.45 monospace;padding:6px 8px;border-radius:6px;max-width:86vw;white-space:pre-wrap;pointer-events:none';
+        document.body.appendChild(el);
+      }
+      var hv=vcFx.hiddenVideo, lv=document.getElementById('vc-local-video');
+      var ps=vcFx.processedStream, pt=ps&&ps.getVideoTracks()[0];
+      el.textContent =
+        'mode='+vcFx.mode+' active='+vcFx.active+'\n'+
+        'MP='+!!vcFx.mpLoaded+' detector='+!!vcFx.detector+' sending='+!!vcFx.sending+'\n'+
+        'hv: rs='+(hv&&hv.readyState)+' '+(hv&&hv.videoWidth)+'x'+(hv&&hv.videoHeight)+' paused='+(hv&&hv.paused)+'\n'+
+        'lastLM='+!!vcFx.lastLM+' miss='+(vcFx._missCount||0)+'\n'+
+        'canvas='+(vcFx.canvas&&vcFx.canvas.width)+'x'+(vcFx.canvas&&vcFx.canvas.height)+'\n'+
+        'pTrack='+(pt?(pt.readyState+'/en='+pt.enabled):'none')+'\n'+
+        'localV: paused='+(lv&&lv.paused)+' rs='+(lv&&lv.readyState)+' bound='+(lv&&lv.srcObject===ps)+'\n'+
+        'err='+(vcFx._lastErr?((vcFx._lastErr.name||'')+':'+(vcFx._lastErr.message||String(vcFx._lastErr))):'-');
+    } catch(_){}
+  }
+
   function fxMobile(){ return (typeof vcIsMobileDevice === 'function') ? vcIsMobileDevice() : (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'')); }
   function fxLang(){ try { return (localStorage.getItem('mango_lang')==='en' || document.documentElement.lang==='en') ? 'en' : 'ko'; } catch(_) { return 'ko'; } }
 
@@ -26563,7 +26592,7 @@ window.closeRulesModal = function() {
     if (vcFx.mpLoading) return vcFx.mpLoading;
     vcFx.mpLoading = new Promise(function(resolve, reject){
       var s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js';
+      s.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js';
       s.crossOrigin = 'anonymous';
       s.onload = function(){ vcFx.mpLoaded = true; resolve(); };
       s.onerror = function(){ reject(new Error('FaceMesh 로드 실패')); };
@@ -26576,7 +26605,7 @@ window.closeRulesModal = function() {
     if (vcFx.detector) return Promise.resolve();
     if (typeof FaceMesh === 'undefined') return Promise.reject(new Error('FaceMesh 미로드'));
     vcFx.detector = new FaceMesh({
-      locateFile: function(f){ return 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/' + f; }
+      locateFile: function(f){ return 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/' + f; }
     });
     vcFx.detector.setOptions({
       maxNumFaces: 1,
@@ -26809,10 +26838,18 @@ window.closeRulesModal = function() {
     vcFx.frameTick++;
     var everyN = fxMobile()?2:1;
     var hv = vcFx.hiddenVideo;
+    // 워치독: send 가 2초 넘게 안 끝나면(WASM 멈춤) 풀어줘 파이프라인이 영구히 죽지 않게
+    if (vcFx.sending && vcFx._sendStart && (performance.now()-vcFx._sendStart > 2000)) vcFx.sending=false;
     if (vcFx.frameTick % everyN === 0 && hv && hv.readyState>=2 && hv.videoWidth>0 && vcFx.detector && !vcFx.sending){
-      vcFx.sending=true;
-      vcFx.detector.send({ image: hv }).catch(function(){}).finally(function(){ vcFx.sending=false; });
+      // 📱 모바일 안정화: 720p 원본 대신 축소 프레임을 모델에 입력 (WASM/GPU 중단·발열 방지)
+      var iw = fxMobile()?256:480, ih = Math.max(1, Math.round(iw*hv.videoHeight/(hv.videoWidth||1)));
+      if (!vcFx.inCanvas){ vcFx.inCanvas=document.createElement('canvas'); vcFx.inCtx=vcFx.inCanvas.getContext('2d'); }
+      if (vcFx.inCanvas.width!==iw || vcFx.inCanvas.height!==ih){ vcFx.inCanvas.width=iw; vcFx.inCanvas.height=ih; }
+      try { vcFx.inCtx.drawImage(hv,0,0,iw,ih); } catch(_){}
+      vcFx.sending=true; vcFx._sendStart=performance.now();
+      vcFx.detector.send({ image: vcFx.inCanvas }).catch(function(err){ vcFx._lastErr = err; }).finally(function(){ vcFx.sending=false; });
     }
+    fxDbg();
     vcFx.rafId = requestAnimationFrame(fxLoop);
   }
 
@@ -26886,12 +26923,28 @@ window.closeRulesModal = function() {
       if (audio) vcFx.processedStream.addTrack(audio);
     }
     var localV = document.getElementById('vc-local-video');
-    if (localV) localV.srcObject = vcFx.processedStream;
+    if (localV){
+      localV.srcObject = vcFx.processedStream;
+      // 모바일(안드로이드 Chrome) 자동재생 정책: srcObject 교체 후 명시적 play() 안 하면
+      //   이전 프레임에 멈춰 장식이 안 보임 → 반드시 재생 호출
+      localV.muted = true; localV.setAttribute('playsinline','');
+      try { var _p=localV.play(); if(_p&&_p.catch) _p.catch(function(){}); } catch(_){}
+    }
     var outTrack = vcFx.processedStream.getVideoTracks()[0];
     if (outTrack) fxInternalSwap(outTrack);
 
     var name = en ? (FX_ITEMS.filter(function(x){return x.id===mode;})[0]||{}).en : (FX_ITEMS.filter(function(x){return x.id===mode;})[0]||{}).ko;
     fxStatus('✅ ' + (name||mode) + (en?' applied — visible to everyone':' 적용됨 — 모든 참가자에게 보임'));
+
+    // 진단: 3초 내 얼굴 랜드마크가 한 번도 안 잡히면 원인을 화면에 알림
+    //   (모바일에서 분장이 "안 나타나는" 경우 원인 파악용 — 조용한 실패 방지)
+    setTimeout(function(){
+      if (vcFx.mode!==mode || !vcFx.active) return;
+      if (!vcFx.lastLM){
+        var why = vcFx._lastErr ? (' ('+(vcFx._lastErr.message||vcFx._lastErr)+')') : '';
+        fxStatus((en?'⚠ Face not detected — face the camera in bright light':'⚠ 얼굴 인식 안됨 — 밝은 곳에서 정면을 봐주세요')+why);
+      }
+    }, 3000);
   };
 
   // 그리드 빌드 (탭 진입 시 + 초기)
@@ -26909,7 +26962,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260616221210 -->
+<!-- BUILD:20260617004658 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -29384,7 +29437,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 <div id="mangoi-widget">
   <div id="mangoi-label" data-ko="A.i 상담사" data-en="A.i Consultant">A.i 상담사</div>
   <iframe id="mangoi-frame"
-    src="https://mangoi-ai-avatar-cf.navy111p.workers.dev"
+    src="https://mangoi-ai-avatar-cf.navy111p.workers.dev/student.html"
     allow="autoplay; microphone"
     title="망고아이 AI 상담직원"></iframe>
   <button id="mangoi-toggle" aria-label="AI 상담사 열기"></button>
