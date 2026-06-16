@@ -21447,7 +21447,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260616153946 -->
+        <!-- BUILD:20260616155825 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -36878,6 +36878,17 @@ button.chip:hover,
   var ava=document.getElementById('mi-asst-ava');
   try{ if(face){ face.addEventListener('loadeddata',function(){ try{ face.pause(); face.currentTime=0.05; }catch(e){} }); face.addEventListener('error',function(){ if(ava)ava.style.opacity='0.85'; }); } }catch(e){}
   var voiceOn=true; try{ voiceOn=(localStorage.getItem('mi_asst_voice')!=='off'); }catch(e){}
+  // 홈페이지와 동일한 한국어 서버음성(아바타 Worker, CORS:*) — 실패 시 브라우저 음성으로 폴백
+  var TTS_URL='https://mangoi-ai-avatar-cf.navy111p.workers.dev/api/tts';
+  var audioEl=new Audio(); audioEl.preload='auto';
+  try{ audioEl.addEventListener('playing',function(){ mouthOn(); }); audioEl.addEventListener('ended',function(){ mouthOff(); }); audioEl.addEventListener('pause',function(){ mouthOff(); }); audioEl.addEventListener('error',function(){ mouthOff(); }); }catch(e){}
+  // 첫 사용자 제스처에서 오디오/음성엔진 잠금해제 → 비동기 응답 뒤에도 소리가 남(무음 방지)
+  var _primed=false;
+  function primeVoice(){ if(_primed) return; _primed=true;
+    try{ var p=audioEl.play(); if(p&&p.then)p.then(function(){ try{audioEl.pause();audioEl.currentTime=0;}catch(e){} }).catch(function(){}); }catch(e){}
+    try{ if(window.speechSynthesis){ speechSynthesis.resume(); var w=new SpeechSynthesisUtterance(' '); w.volume=0; speechSynthesis.speak(w); } }catch(e){}
+  }
+  window.miAsstPrimeVoice=primeVoice;
   var koVoice=null,enVoice=null;
   function pickVoice(){ try{ var vs=window.speechSynthesis?speechSynthesis.getVoices():[]; koVoice=vs.filter(function(v){return /ko/i.test(v.lang);})[0]||null; enVoice=vs.filter(function(v){return /^en/i.test(v.lang);})[0]||null; }catch(e){} }
   if(window.speechSynthesis){ pickVoice(); try{ speechSynthesis.onvoiceschanged=pickVoice; }catch(e){} }
@@ -36885,19 +36896,35 @@ button.chip:hover,
   function mouthOn(){ if(ava)ava.classList.add('mi-speaking'); try{ if(face){ face.currentTime=0; var p=face.play(); if(p&&p.catch)p.catch(function(){}); } }catch(e){} setStatus(true); }
   function mouthOff(){ if(ava)ava.classList.remove('mi-speaking'); try{ if(face)face.pause(); }catch(e){} setStatus(false); }
   function stripText(html){ try{ var d=document.createElement('div'); d.innerHTML=String(html==null?'':html).replace(/<br\s*\/?>/gi,' ').replace(/<[^>]+>/g,' '); return (d.textContent||d.innerText||'').replace(/\s+/g,' ').trim(); }catch(e){ return ''; } }
-  var lastSpoken='';
-  function speak(html){
-    var text=stripText(html); if(!text) return; lastSpoken=text;
-    if(!voiceOn) return;
+  var lastSpoken='', _utts=[], speakSeq=0;
+  // 브라우저 내장 음성(폴백) — Chrome 무음 버그 대비: 발화 객체 참조 유지(GC 방지) + resume
+  function speakBrowser(text){
     if(!window.speechSynthesis){ mouthOn(); setTimeout(mouthOff, Math.min(8000,Math.max(1500,text.length*80))); return; }
-    try{ speechSynthesis.cancel(); }catch(e){}
+    try{ speechSynthesis.resume(); }catch(e){}
     var u=new SpeechSynthesisUtterance(text.slice(0,600));
     if(/[가-힣]/.test(text)){ u.lang='ko-KR'; if(koVoice)u.voice=koVoice; u.rate=1.03; u.pitch=1.06; }
     else { u.lang='en-US'; if(enVoice)u.voice=enVoice; u.rate=1.0; u.pitch=1.0; }
-    u.onstart=mouthOn; u.onend=mouthOff; u.onerror=mouthOff;
+    u.onstart=mouthOn; u.onend=function(){ mouthOff(); var i=_utts.indexOf(u); if(i>=0)_utts.splice(i,1); }; u.onerror=u.onend;
+    _utts.push(u);
     try{ speechSynthesis.speak(u); }catch(e){ mouthOff(); }
   }
-  function stopSpeak(){ try{ if(window.speechSynthesis)speechSynthesis.cancel(); }catch(e){} mouthOff(); }
+  function speak(html){
+    var text=stripText(html); if(!text) return; lastSpoken=text;
+    if(!voiceOn) return;
+    var mySeq=++speakSeq, served=false;
+    // 1순위: 한국어 서버음성(홈페이지와 동일). 실패/지연/CORS 차단 시 브라우저 음성.
+    try{
+      fetch(TTS_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text.slice(0,600)})})
+        .then(function(r){ if(!r.ok) throw new Error('tts '+r.status); return r.blob(); })
+        .then(function(b){ if(mySeq!==speakSeq) return; if(!b||b.size<200) throw new Error('empty'); served=true;
+          try{ if(audioEl.src&&audioEl.src.indexOf('blob:')===0){ URL.revokeObjectURL(audioEl.src); } }catch(e){}
+          audioEl.src=URL.createObjectURL(b);
+          var p=audioEl.play(); if(p&&p.catch)p.catch(function(){ if(mySeq===speakSeq) speakBrowser(text); });
+        })
+        .catch(function(){ if(mySeq===speakSeq && !served) speakBrowser(text); });
+    }catch(e){ speakBrowser(text); }
+  }
+  function stopSpeak(){ speakSeq++; try{ if(window.speechSynthesis)speechSynthesis.cancel(); }catch(e){} try{ audioEl.pause(); }catch(e){} mouthOff(); }
   window.miAsstStopSpeak=stopSpeak;
   // 헤더 버튼: 음성 켜기/끄기 + 다시 듣기
   (function(){
@@ -37065,6 +37092,7 @@ button.chip:hover,
   }
 
   async function ask(q){
+    try{ primeVoice(); }catch(e){}
     bubble('me',esc(q)); typing();
     var res=null;
     try{
@@ -37129,7 +37157,7 @@ button.chip:hover,
     greetBubble=bubble('ai', greetHtml()); wireGreet(greetBubble);
     renderChips();
   }
-  function open(){ boot(); panel.style.display='flex'; back.style.display='block'; }
+  function open(){ try{ primeVoice(); }catch(e){} boot(); panel.style.display='flex'; back.style.display='block'; }
   function close(){ stopSpeak(); panel.style.display='none'; back.style.display='none'; }
   window.miAsstOpen=open;
   document.getElementById('mi-asst-close').onclick=close;
@@ -37542,6 +37570,24 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile.kpi-inquiry    { background: linear-gradient(135deg,#ffe9f3,#fff6fa) !important; }
   /* 7일 매출 추세 박스 (이미 흰색 inline) 텍스트 보정 */
   html[data-admin-theme="ivory"] #card-kpi-dashboard #kpi-spark-wrap { background:#ffffff !important; border:1px solid rgba(150,120,70,0.16) !important; }
+
+  /* 11) 카드 안 글자 가독성 — 다크용 밝은 글자(#F8FAFC 등)를 진한색으로.
+        버튼/링크/뱃지/칩/KPI 타일은 자기 색 유지(흰 글자 보존) */
+  html[data-admin-theme="ivory"] [id^="card-"] :is(p,span,div,li,td,th,dt,dd,small,b,strong,em,h1,h2,h3,h4,h5,label,summary):not(button):not(button *):not(a):not(.badge):not([class*="btn"]):not([class*="chip"]):not([class*="pill"]):not([class*="tag"]):not(.kpi-tile):not(.kpi-tile *) {
+    color: #3a352c !important;
+  }
+  /* sub-body 안 옅은 회색/하늘색 본문도 진하게 (ID 스코프 다크 규칙까지 덮도록 !important) */
+  html[data-admin-theme="ivory"] [id^="card-"] .sub-body :is(p,span,div,li,small,b,strong) { color: #3a352c !important; }
+  /* KPI 값/추세 색은 위 규칙보다 우선 유지 */
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile .kpi-value,
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile .card-value { color: #92400e !important; }
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile .kpi-trend { color: #16a34a !important; }
+  /* 흰 배경으로 강제됐던 입력창도 아이보리에서 밝게+진한 글자 */
+  html[data-admin-theme="ivory"] [id^="card-"] input:not([type="checkbox"]):not([type="radio"]),
+  html[data-admin-theme="ivory"] [id^="card-"] textarea,
+  html[data-admin-theme="ivory"] [id^="card-"] select {
+    background: #ffffff !important; color: #3a352c !important; border-color: rgba(150,120,70,0.30) !important;
+  }
 </style>
 
 <script defer src="/js/i18n-sweep.js?v=3"></script>
