@@ -1892,70 +1892,27 @@
 </head>
 <body>
 <script>
-/* 🎨 관리자 페이지 색상(테마) — 다크(기본) ↔ 아이보리·파스텔
-   · 이 스크립트는 body 최상단에서 즉시 실행 → 깜빡임 없이 저장된 테마 적용
-   · 클릭은 document 위임(delegation)으로 처리 → 버튼/옵션이 나중에 그려져도 동작 */
+/* 🎨 관리자 페이지 색상 — 밝게(ivory) ↔ 어둡게(dark) 단순 토글
+   · body 최상단에서 즉시 실행 → 깜빡임 없이 저장된 색상 적용
+   · 실제 전환은 버튼의 inline onclick(자체 완결) 이 담당 → 어떤 환경에서도 클릭=동작 보장 */
 (function(){
   "use strict";
   var KEY = 'mangoi_admin_theme';
-  function applyTheme(t){
-    if (t !== 'ivory' && t !== 'dark') t = 'dark';
-    document.documentElement.setAttribute('data-admin-theme', t);
-    try { localStorage.setItem(KEY, t); } catch(e){}
-    syncMenu();
-  }
-  function syncMenu(){
-    var menu = document.getElementById('admin-theme-menu');
-    if (!menu) return;
-    var cur = document.documentElement.getAttribute('data-admin-theme') || 'dark';
-    menu.querySelectorAll('.atm-opt').forEach(function(o){
-      o.classList.toggle('atm-sel', o.getAttribute('data-theme') === cur);
-    });
-  }
-  function closeMenu(){
-    var menu = document.getElementById('admin-theme-menu');
-    if (menu) { menu.classList.remove('open'); menu.setAttribute('aria-hidden','true'); }
-  }
-  function openMenu(){
-    var menu = document.getElementById('admin-theme-menu');
-    if (menu) { menu.classList.add('open'); menu.setAttribute('aria-hidden','false'); syncMenu(); }
-  }
-  window.setAdminTheme = function(t){
-    if (t !== 'ivory' && t !== 'dark') t = 'dark';
-    var cur = document.documentElement.getAttribute('data-admin-theme') || 'dark';
-    try { localStorage.setItem(KEY, t); } catch(e){}
-    closeMenu();
-    /* 다크↔아이보리 전환 시 새로고침: 다크화 페인터(ph103/ph105)가
-       이미 칠해 놓은 인라인 스타일을 깨끗이 초기화하기 위함 (저장값은 유지되어 깜빡임 없음) */
-    if (t !== cur) { location.reload(); return; }
-    applyTheme(t);
+  function cur(){ try { var s = localStorage.getItem(KEY); return (s === 'ivory' || s === 'dark') ? s : 'dark'; } catch(e){ return 'dark'; } }
+  /* 1) 깜빡임 방지: 저장된 색상 즉시 적용 */
+  document.documentElement.setAttribute('data-admin-theme', cur());
+  /* 2) 버튼 라벨을 현재 색상으로 표시 (밝게/어둡게) */
+  window.__refreshThemeLabel = function(){
+    var el = document.getElementById('admin-theme-label');
+    if (el) el.textContent = (cur() === 'ivory') ? '밝게' : '어둡게';
   };
-  window.toggleAdminThemeMenu = function(){
-    var menu = document.getElementById('admin-theme-menu');
-    if (!menu) return;
-    if (menu.classList.contains('open')) closeMenu(); else openMenu();
+  /* 3) 토글 함수 (백업용 — 버튼 onclick 이 직접 동일 동작 수행) */
+  window.toggleAdminColor = function(){
+    var next = (cur() === 'ivory') ? 'dark' : 'ivory';
+    try { localStorage.setItem(KEY, next); } catch(e){}
+    location.reload();
   };
-  /* 클릭 위임 (캡처 단계 — 다른 핸들러가 막아도 먼저 동작): 버튼 토글 / 옵션 선택 / 바깥 클릭 닫기 */
-  document.addEventListener('click', function(e){
-    if (!e.target.closest) return;
-    var btn = e.target.closest('#admin-theme-btn');
-    if (btn) { e.preventDefault(); e.stopPropagation(); window.toggleAdminThemeMenu(); return; }
-    var opt = e.target.closest('#admin-theme-menu .atm-opt');
-    if (opt) { e.preventDefault(); e.stopPropagation(); window.setAdminTheme(opt.getAttribute('data-theme')); return; }
-    if (!e.target.closest('#admin-theme-wrap')) closeMenu();
-  }, true);
-  /* 저장된 테마 즉시 적용 */
-  try {
-    var saved = localStorage.getItem(KEY);
-    document.documentElement.setAttribute('data-admin-theme', (saved === 'ivory' || saved === 'dark') ? saved : 'dark');
-  } catch(e){ document.documentElement.setAttribute('data-admin-theme', 'dark'); }
-  /* 메뉴가 그려진 뒤 선택 표시 동기화 + 첫 방문이면 색상 메뉴를 열어 선택 유도 */
-  document.addEventListener('DOMContentLoaded', function(){
-    syncMenu();
-    var hasPref = false;
-    try { var sv = localStorage.getItem(KEY); hasPref = (sv === 'ivory' || sv === 'dark'); } catch(e){}
-    if (!hasPref) { setTimeout(function(){ try { openMenu(); } catch(e){} }, 600); }
-  });
+  document.addEventListener('DOMContentLoaded', window.__refreshThemeLabel);
 })();
 </script>
 
@@ -1983,26 +1940,12 @@
       <option value="90" data-ko="최근 90일" data-en="Last 90 days">최근 90일</option>
     </select>
     <a class="th-btn th-btn-amber" href="/admin/health" title="셀프 진단" data-ko="🩺 셀프 진단" data-en="🩺 Health">🩺 셀프 진단</a>
-    <!-- 🎨 관리자 페이지 색상(테마) 선택 -->
-    <div id="admin-theme-wrap" style="position:relative">
-      <button id="admin-theme-btn" type="button" class="th-btn th-btn-ghost"
-              title="관리자 페이지 색상 선택" data-ko-title="관리자 페이지 색상 선택" data-en-title="Choose admin page color">
-        🎨 <span data-ko="색상" data-en="Theme">색상</span>
-      </button>
-      <div id="admin-theme-menu" role="menu" aria-hidden="true">
-        <div class="atm-title" data-ko="화면 색상" data-en="Theme">화면 색상</div>
-        <button type="button" class="atm-opt" data-theme="ivory">
-          <span class="atm-swatch atm-sw-ivory"></span>
-          <span class="atm-label"><b data-ko="밝게" data-en="Light">밝게</b><small data-ko="아이보리·파스텔" data-en="Ivory · pastel">아이보리·파스텔</small></span>
-          <span class="atm-check">✓</span>
-        </button>
-        <button type="button" class="atm-opt" data-theme="dark">
-          <span class="atm-swatch atm-sw-dark"></span>
-          <span class="atm-label"><b data-ko="어둡게" data-en="Dark">어둡게</b><small data-ko="네이비·코발트" data-en="Navy · cobalt">네이비·코발트</small></span>
-          <span class="atm-check">✓</span>
-        </button>
-      </div>
-    </div>
+    <!-- 🎨 화면 색상 토글 (밝게 ↔ 어둡게) — inline onclick 자체 완결: 클릭=즉시 전환 보장 -->
+    <button id="admin-theme-btn" type="button" class="th-btn th-btn-ghost"
+            title="화면 색상 전환 (밝게/어둡게)" data-ko-title="화면 색상 전환 (밝게/어둡게)" data-en-title="Toggle light / dark"
+            onclick="(function(){try{var k='mangoi_admin_theme';var s=localStorage.getItem(k);var c=(s==='ivory')?'ivory':'dark';var n=(c==='ivory')?'dark':'ivory';localStorage.setItem(k,n);}catch(e){}location.reload();})()">
+      🎨 <span data-ko="색상" data-en="Color">색상</span> · <span id="admin-theme-label" style="font-weight:800">어둡게</span>
+    </button>
     <button class="th-btn th-btn-ghost" onclick="toggleAdminLang()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
       <span id="admin-lang-label">EN</span>
@@ -21453,7 +21396,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260616165029 -->
+        <!-- BUILD:20260616165504 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -37737,11 +37680,15 @@ button.chip:hover,
       wrap=document.getElementById('mi-ops-av'),
       frame=document.getElementById('mi-ops-av-frame'),
       xbtn=document.getElementById('mi-ops-av-close');
+  function sendLang(){ try{ var lg=(window.adminLang==='en')?'en':'ko'; frame.contentWindow.postMessage({type:'mangoi-lang', lang:lg}, '*'); }catch(e){} }
+  function greetPing(){ try{ frame.contentWindow && frame.contentWindow.postMessage({type:'mangoi-greet'}, '*'); }catch(e){} }  // 아바타가 인사말 먼저 음성으로
   function openAv(){
-    try{ if(!frame.getAttribute('src')){ frame.setAttribute('src', SRC); } }catch(e){}
+    var fresh=false;
+    try{ if(!frame.getAttribute('src')){ frame.setAttribute('src', SRC); fresh=true;
+          frame.addEventListener('load', function(){ sendLang(); setTimeout(greetPing, 150); }); } }catch(e){}
     wrap.style.display='block'; back.style.display='block';
-    // 현재 관리자 언어를 아바타에 전달(학생용과 동일 프로토콜)
-    try{ var lg=(window.adminLang==='en')?'en':'ko'; setTimeout(function(){ try{ frame.contentWindow.postMessage({type:'mangoi-lang', lang:lg}, '*'); }catch(e){} }, 600); }catch(e){}
+    if(!fresh){ sendLang(); greetPing(); }                              // 이미 로드됨(재오픈) → 즉시 인사
+    else { setTimeout(function(){ sendLang(); greetPing(); }, 900); }   // 최초 로드 보강(load 이벤트 누락 대비)
   }
   function closeAv(){
     wrap.style.display='none'; back.style.display='none';
