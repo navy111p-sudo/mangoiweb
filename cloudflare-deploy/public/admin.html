@@ -1971,18 +1971,17 @@
     <!-- 🎨 관리자 페이지 색상(테마) 선택 -->
     <div id="admin-theme-wrap" style="position:relative">
       <button id="admin-theme-btn" type="button" class="th-btn th-btn-ghost"
-              title="관리자 페이지 색상 선택" data-ko-title="관리자 페이지 색상 선택" data-en-title="Choose admin page color"
-              onclick="window.toggleAdminThemeMenu && window.toggleAdminThemeMenu()">
+              title="관리자 페이지 색상 선택" data-ko-title="관리자 페이지 색상 선택" data-en-title="Choose admin page color">
         🎨 <span data-ko="색상" data-en="Theme">색상</span>
       </button>
       <div id="admin-theme-menu" role="menu" aria-hidden="true">
         <div class="atm-title" data-ko="배경 색상 선택" data-en="Background color">배경 색상 선택</div>
-        <button type="button" class="atm-opt" data-theme="dark" onclick="window.setAdminTheme && window.setAdminTheme('dark')">
+        <button type="button" class="atm-opt" data-theme="dark">
           <span class="atm-swatch atm-sw-dark"></span>
           <span class="atm-label"><b data-ko="네이비 (현재)" data-en="Navy (current)">네이비 (현재)</b><small data-ko="어두운 코발트 배경" data-en="Dark cobalt background">어두운 코발트 배경</small></span>
           <span class="atm-check">✓</span>
         </button>
-        <button type="button" class="atm-opt" data-theme="ivory" onclick="window.setAdminTheme && window.setAdminTheme('ivory')">
+        <button type="button" class="atm-opt" data-theme="ivory">
           <span class="atm-swatch atm-sw-ivory"></span>
           <span class="atm-label"><b data-ko="아이보리 + 파스텔" data-en="Ivory + Pastel">아이보리 + 파스텔</b><small data-ko="밝은 아이보리 배경·파스텔 카드" data-en="Light ivory bg, pastel cards">밝은 아이보리 배경·파스텔 카드</small></span>
           <span class="atm-check">✓</span>
@@ -21439,7 +21438,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260616152659 -->
+        <!-- BUILD:20260616153129 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -37481,53 +37480,59 @@ button.chip:hover,
   html[data-admin-theme="ivory"] code { background: rgba(99,102,241,0.10) !important; color:#5b21b6 !important; }
   html[data-admin-theme="ivory"] ::-webkit-scrollbar-track { background: #f4ede0; }
   html[data-admin-theme="ivory"] ::-webkit-scrollbar-thumb { background: rgba(150,120,70,0.28); }
+
+  /* 9) 좌측 사이드바 (#ph85-sidebar) — 아이보리/크림 (ID 스코프로 다크 규칙 확실히 덮음) */
+  html[data-admin-theme="ivory"] #ph85-sidebar {
+    background: linear-gradient(180deg,#fffaf0 0%,#fdf1df 100%) !important;
+    border-right: 1px solid rgba(150,120,70,0.20) !important;
+    color: #44403c !important;
+    box-shadow: 2px 0 16px -6px rgba(120,80,20,0.18) !important;
+  }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-brand-text { color: #b45309 !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-brand { border-bottom-color: rgba(150,120,70,0.18) !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-search {
+    background: #ffffff !important; border: 1px solid rgba(150,120,70,0.25) !important; color: #3a352c !important;
+  }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-search::placeholder { color: #a8a090 !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-group {
+    background: rgba(255,255,255,0.72) !important; border: 1px solid rgba(150,120,70,0.16) !important;
+  }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-group:hover { border-color: rgba(245,158,11,0.4) !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-group.open {
+    background: rgba(251,191,36,0.12) !important; border-color: rgba(245,158,11,0.45) !important;
+  }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-head:hover { background: rgba(245,158,11,0.10) !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-title { color: #44403c !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-arrow { color: #9c9384 !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-group.open .ph85-arrow { color: #d97706 !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-subs { background: rgba(120,80,20,0.04) !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-sub { color: #6f6557 !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-sub:hover { background: rgba(245,158,11,0.16) !important; color: #7c2d12 !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-count-badge { color: #6f6557 !important; }
+
+  /* 10) KPI 타일 — #card-kpi-dashboard ID 스코프로 다크 레이어 확실히 덮음 */
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile { background: #fffdf8 !important; }
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile,
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile * { color: #475467 !important; }
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile .kpi-label,
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile .card-label { color: #64748b !important; }
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile .kpi-value,
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile .card-value { color: #92400e !important; }
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile .kpi-sub,
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile .card-sub { color: #94a3b8 !important; }
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile .kpi-trend { color: #16a34a !important; }
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile.kpi-students   { background: linear-gradient(135deg,#eaf2ff,#f6faff) !important; }
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile.kpi-revenue    { background: linear-gradient(135deg,#e6f7ee,#f5fcf8) !important; }
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile.kpi-attendance { background: linear-gradient(135deg,#fff3e0,#fffaf2) !important; }
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile.kpi-eval       { background: linear-gradient(135deg,#f3ecff,#faf7ff) !important; }
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile.kpi-overdue    { background: linear-gradient(135deg,#ffece9,#fff6f5) !important; }
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile.kpi-points     { background: linear-gradient(135deg,#fff6da,#fffdf3) !important; }
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile.kpi-chat       { background: linear-gradient(135deg,#e3f6fb,#f4fcfe) !important; }
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile.kpi-inquiry    { background: linear-gradient(135deg,#ffe9f3,#fff6fa) !important; }
+  /* 7일 매출 추세 박스 (이미 흰색 inline) 텍스트 보정 */
+  html[data-admin-theme="ivory"] #card-kpi-dashboard #kpi-spark-wrap { background:#ffffff !important; border:1px solid rgba(150,120,70,0.16) !important; }
 </style>
 
-<script id="admin-theme-toggle-js">
-/* 🎨 관리자 페이지 색상(테마) 토글 — 다크(기본) ↔ 아이보리·파스텔 */
-(function(){
-  "use strict";
-  var KEY = 'mangoi_admin_theme';
-  function apply(t){
-    if (t !== 'ivory' && t !== 'dark') t = 'dark';
-    document.documentElement.setAttribute('data-admin-theme', t);
-    try { localStorage.setItem(KEY, t); } catch(e){}
-  }
-  window.setAdminTheme = function(t){
-    apply(t);
-    closeMenu();
-  };
-  function openMenu(){
-    var m = document.getElementById('admin-theme-menu');
-    if (!m) return;
-    m.classList.add('open');
-    m.setAttribute('aria-hidden','false');
-    setTimeout(function(){ document.addEventListener('click', onDocClick, true); }, 0);
-  }
-  function closeMenu(){
-    var m = document.getElementById('admin-theme-menu');
-    if (!m) return;
-    m.classList.remove('open');
-    m.setAttribute('aria-hidden','true');
-    document.removeEventListener('click', onDocClick, true);
-  }
-  function onDocClick(e){
-    var wrap = document.getElementById('admin-theme-wrap');
-    if (wrap && !wrap.contains(e.target)) closeMenu();
-  }
-  window.toggleAdminThemeMenu = function(){
-    var m = document.getElementById('admin-theme-menu');
-    if (!m) return;
-    if (m.classList.contains('open')) closeMenu(); else openMenu();
-  };
-  // 초기 상태 동기화 (head 의 사전 적용 스크립트가 이미 attribute 설정함)
-  try {
-    var cur = localStorage.getItem(KEY);
-    if (cur !== 'ivory' && cur !== 'dark') cur = 'dark';
-    document.documentElement.setAttribute('data-admin-theme', cur);
-  } catch(e){}
-})();
-</script>
 <script defer src="/js/i18n-sweep.js?v=3"></script>
 </body>
 </html>
