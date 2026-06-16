@@ -1935,21 +1935,27 @@
     if (!menu) return;
     if (menu.classList.contains('open')) closeMenu(); else openMenu();
   };
-  /* 클릭 위임: 버튼 토글 / 옵션 선택 / 바깥 클릭 닫기 */
+  /* 클릭 위임 (캡처 단계 — 다른 핸들러가 막아도 먼저 동작): 버튼 토글 / 옵션 선택 / 바깥 클릭 닫기 */
   document.addEventListener('click', function(e){
-    var btn = e.target.closest && e.target.closest('#admin-theme-btn');
-    if (btn) { e.preventDefault(); window.toggleAdminThemeMenu(); return; }
-    var opt = e.target.closest && e.target.closest('#admin-theme-menu .atm-opt');
-    if (opt) { e.preventDefault(); window.setAdminTheme(opt.getAttribute('data-theme')); return; }
-    if (e.target.closest && !e.target.closest('#admin-theme-wrap')) closeMenu();
-  }, false);
+    if (!e.target.closest) return;
+    var btn = e.target.closest('#admin-theme-btn');
+    if (btn) { e.preventDefault(); e.stopPropagation(); window.toggleAdminThemeMenu(); return; }
+    var opt = e.target.closest('#admin-theme-menu .atm-opt');
+    if (opt) { e.preventDefault(); e.stopPropagation(); window.setAdminTheme(opt.getAttribute('data-theme')); return; }
+    if (!e.target.closest('#admin-theme-wrap')) closeMenu();
+  }, true);
   /* 저장된 테마 즉시 적용 */
   try {
     var saved = localStorage.getItem(KEY);
     document.documentElement.setAttribute('data-admin-theme', (saved === 'ivory' || saved === 'dark') ? saved : 'dark');
   } catch(e){ document.documentElement.setAttribute('data-admin-theme', 'dark'); }
-  /* 메뉴가 그려진 뒤 선택 표시 동기화 */
-  document.addEventListener('DOMContentLoaded', syncMenu);
+  /* 메뉴가 그려진 뒤 선택 표시 동기화 + 첫 방문이면 색상 메뉴를 열어 선택 유도 */
+  document.addEventListener('DOMContentLoaded', function(){
+    syncMenu();
+    var hasPref = false;
+    try { var sv = localStorage.getItem(KEY); hasPref = (sv === 'ivory' || sv === 'dark'); } catch(e){}
+    if (!hasPref) { setTimeout(function(){ try { openMenu(); } catch(e){} }, 600); }
+  });
 })();
 </script>
 
@@ -1984,15 +1990,15 @@
         🎨 <span data-ko="색상" data-en="Theme">색상</span>
       </button>
       <div id="admin-theme-menu" role="menu" aria-hidden="true">
-        <div class="atm-title" data-ko="배경 색상 선택" data-en="Background color">배경 색상 선택</div>
-        <button type="button" class="atm-opt" data-theme="dark">
-          <span class="atm-swatch atm-sw-dark"></span>
-          <span class="atm-label"><b data-ko="네이비 (현재)" data-en="Navy (current)">네이비 (현재)</b><small data-ko="어두운 코발트 배경" data-en="Dark cobalt background">어두운 코발트 배경</small></span>
-          <span class="atm-check">✓</span>
-        </button>
+        <div class="atm-title" data-ko="화면 색상" data-en="Theme">화면 색상</div>
         <button type="button" class="atm-opt" data-theme="ivory">
           <span class="atm-swatch atm-sw-ivory"></span>
-          <span class="atm-label"><b data-ko="아이보리 + 파스텔" data-en="Ivory + Pastel">아이보리 + 파스텔</b><small data-ko="밝은 아이보리 배경·파스텔 카드" data-en="Light ivory bg, pastel cards">밝은 아이보리 배경·파스텔 카드</small></span>
+          <span class="atm-label"><b data-ko="밝게" data-en="Light">밝게</b><small data-ko="아이보리·파스텔" data-en="Ivory · pastel">아이보리·파스텔</small></span>
+          <span class="atm-check">✓</span>
+        </button>
+        <button type="button" class="atm-opt" data-theme="dark">
+          <span class="atm-swatch atm-sw-dark"></span>
+          <span class="atm-label"><b data-ko="어둡게" data-en="Dark">어둡게</b><small data-ko="네이비·코발트" data-en="Navy · cobalt">네이비·코발트</small></span>
           <span class="atm-check">✓</span>
         </button>
       </div>
@@ -21447,7 +21453,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260616163324 -->
+        <!-- BUILD:20260616165029 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -37675,6 +37681,40 @@ button.chip:hover,
   html[data-admin-theme="ivory"] .hero-search input,
   html[data-admin-theme="ivory"] .hero-search { color: #3a352c !important; }
   html[data-admin-theme="ivory"] .hero-search input::placeholder { color: #a8a090 !important; }
+
+  /* 14) 상단 헤더 버튼 가지런히 한 줄 정렬 (테마 무관) */
+  .top-header .th-controls { flex-wrap: wrap; align-items: center; gap: 8px; row-gap: 8px; }
+  .top-header .th-controls > *, #admin-theme-wrap { margin: 0 !important; }
+  #admin-theme-wrap { display: inline-flex; align-items: center; }
+  .top-header .th-controls .th-btn,
+  .top-header #admin-theme-btn,
+  .top-header .th-user {
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    height: 34px; line-height: 1; white-space: nowrap; box-sizing: border-box;
+  }
+
+  /* 15) 사이드바 손잡이(#ph85-handle) 투명 (테마 무관) */
+  #ph85-handle {
+    background: transparent !important;
+    -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+    border-color: rgba(148,163,184,0.20) !important; box-shadow: none !important;
+  }
+  #ph85-handle:hover { background: rgba(148,163,184,0.14) !important; }
+  html[data-admin-theme="ivory"] #ph85-handle { color: #c08a3a !important; border-color: rgba(150,120,70,0.25) !important; }
+
+  /* 16) AI 인사이트 허브 카드 (실시간 재무/학습/마케팅) — 아이보리 파스텔 + 진한 글자 */
+  html[data-admin-theme="ivory"] #card-ai-insights .ai-hub-card.fin { background: linear-gradient(135deg,#eaf2ff,#f6faff) !important; }
+  html[data-admin-theme="ivory"] #card-ai-insights .ai-hub-card.lrn { background: linear-gradient(135deg,#e6f7ee,#f5fcf8) !important; }
+  html[data-admin-theme="ivory"] #card-ai-insights .ai-hub-card.mkt { background: linear-gradient(135deg,#fff3e0,#fffaf2) !important; }
+  html[data-admin-theme="ivory"] #card-ai-insights .ai-hub-card,
+  html[data-admin-theme="ivory"] #card-ai-insights .ai-hub-card * { color: #3a352c !important; }
+  html[data-admin-theme="ivory"] #card-ai-insights .ai-hub-card .ico { background: rgba(120,80,20,0.08) !important; }
+
+  /* 17) KPI 라벨/보조설명 더 진하게 (옅은 흰 글자 → 또렷) */
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile .kpi-label,
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile .card-label { color: #475467 !important; }
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile .kpi-sub,
+  html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile .card-sub { color: #6b7280 !important; }
 </style>
 
 <script defer src="/js/i18n-sweep.js?v=3"></script>
