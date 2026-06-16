@@ -26962,7 +26962,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260617004658 -->
+<!-- BUILD:20260617005819 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -29494,12 +29494,12 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   #ph49-kakao-fab, .ph49-kakao-fab { bottom: 16px !important; right: 16px !important; }
   #mangoi-widget { bottom: 104px !important; right: 16px !important; }
   #ph52-cache-fab, .ph52-cache-fab { left: 16px !important; right: auto !important; bottom: 16px !important; top: auto !important; }
-  /* 💻 PC(데스크톱) 전용 — A.i 상담사 위젯 30% 크게 (모바일은 기존 크기 그대로 유지) (2026-06-16) */
+  /* 💻 PC(데스크톱) 전용 — A.i 상담사 위젯 2배 크게 (모바일은 기존 크기 그대로 유지) (2026-06-17) */
   @media (min-width:481px){
-    #mangoi-widget { width:83px; height:83px; }
-    #mangoi-toggle { width:83px; height:83px; border-width:4px; }
-    #mangoi-label  { bottom:91px; font-size:15px; padding:5px 13px; }
-    #mangoi-frame  { width:382px; height:655px; bottom:93px; }
+    #mangoi-widget { width:128px; height:128px; }
+    #mangoi-toggle { width:128px; height:128px; border-width:6px; }
+    #mangoi-label  { bottom:140px; font-size:22px; padding:8px 20px; }
+    #mangoi-frame  { width:588px; height:1008px; bottom:140px; }
   }
 </style>
 <script>
@@ -29511,10 +29511,10 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     // 버튼 위치를 보고 챗봇창이 화면 안쪽으로 열리도록 방향 결정
     function positionPanel(){
       var r=t.getBoundingClientRect();
-      // PC(≥481px)에서는 패널이 30% 커지므로(382×655) CSS 와 동일한 크기로 가장자리 판정 — 안 그러면 확대된 창이 화면 밖으로 열림
+      // PC(≥481px)에서는 패널이 2배 커지므로(588×1008) CSS 와 동일한 크기로 가장자리 판정 — 안 그러면 확대된 창이 화면 밖으로 열림
       var isPC=window.innerWidth>=481;
-      var fw=Math.min(isPC?382:294, window.innerWidth-24);
-      var fh=Math.min(isPC?655:504, window.innerHeight-80);
+      var fw=Math.min(isPC?588:294, window.innerWidth-24);
+      var fh=Math.min(isPC?1008:504, window.innerHeight-80);
       w.classList.toggle("flip-down", r.top < fh+12);                       // 위 공간 부족 → 아래로
       w.classList.toggle("flip-left", (r.left + fw) > (window.innerWidth-6)); // 오른쪽 부족 → 왼쪽으로
     }
@@ -29526,8 +29526,12 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
         // 열 때 현재 사이트 언어를 채팅 iframe 에 동기화(헤더·인사말·입력창 일치)
         try{ var lg=(window.getLang?window.getLang():'ko'); var fr=document.getElementById('mangoi-frame');
           if(fr&&fr.contentWindow) fr.contentWindow.postMessage({type:'mangoi-lang', lang:lg}, '*'); }catch(e){}
+        // 열 때 "무엇을 도와 드릴까요?" 인사를 말+글로 (iframe 표시 직후 2회 발동해 누락 방지)
+        try{ var frG=document.getElementById('mangoi-frame');
+          if(frG&&frG.contentWindow){ frG.contentWindow.postMessage({type:'mangoi-greet'},'*');
+            setTimeout(function(){ try{ frG.contentWindow.postMessage({type:'mangoi-greet'},'*'); }catch(e){} }, 400); } }catch(e){}
       }
-      else mangoiStopVoice();                 // 패널 닫힐 때 아바타 음성 즉시 정지
+      else { mangoiStopVoice(); mangoiResetWidget(); }   // 닫힐 때 음성 정지 + 위젯 초기화(다음에 깨끗하게 시작)
       w.classList.toggle("open", open);
       t.setAttribute("aria-label", open ? "AI 상담사 닫기" : "AI 상담사 열기");
     }
@@ -29608,6 +29612,13 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       try{
         var fr=document.getElementById("mangoi-frame");
         if(fr && fr.contentWindow) fr.contentWindow.postMessage("mangoi-stop","*");
+      }catch(e){}
+    }
+    // === 위젯 초기화: 닫을 때 iframe 으로 'mangoi-reset' 전송 → 다시 열면 처음부터 깨끗하게 ===
+    function mangoiResetWidget(){
+      try{
+        var fr=document.getElementById("mangoi-frame");
+        if(fr && fr.contentWindow) fr.contentWindow.postMessage("mangoi-reset","*");
       }catch(e){}
     }
     // 패널 열린 상태에서 위젯 바깥을 누르면 닫기(+정지). 위젯 내부/입력은 무시(iframe 내부 이벤트는 부모에 안 옴)
