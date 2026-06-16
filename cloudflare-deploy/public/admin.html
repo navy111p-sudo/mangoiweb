@@ -21506,7 +21506,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260616194931 -->
+        <!-- BUILD:20260616195608 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -37971,9 +37971,10 @@ button.chip:hover,
   // 아바타(iframe) → 부모: 닫기 신호 처리(학생용과 동일)
   window.addEventListener('message', function(ev){ var d=ev&&ev.data; if(d==='mangoi-avatar-close'){ closeAv(); } });
   document.addEventListener('keydown', function(e){ if(e.key==='Escape' && wrap.style.display==='block') closeAv(); });
-  // 🔁 관리자 페이지 아바타는 '커스텀 패널'(같은 토킹헤드 얼굴 + 음성 + 관리자 콘텐츠)을 사용.
-  //    학생용 iframe 아바타는 자동 연결하지 않음(필요 시 window.miOpsAvatarOpen() 수동 호출).
+  // 🔁 AI 운영비서 = 아바타 Worker iframe 사용(입력창·전송 화살표·🎤마이크·음성·인사영상 모두 동작, 음성='재선').
+  //    FAB/메뉴가 호출하는 miAsstOpen 을 이 iframe 오픈으로 교체(입력창 없는 옛 커스텀 패널 대체). (2026-06-16)
   window.miOpsAvatarOpen=openAv;
+  window.miAsstOpen=openAv;
 })();
 </script>
 </body>
