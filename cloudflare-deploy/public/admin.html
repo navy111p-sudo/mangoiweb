@@ -21508,7 +21508,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260616215657 -->
+        <!-- BUILD:20260616220648 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -33183,9 +33183,9 @@ button.chip:hover,
     overflow: hidden !important;
     transition: max-height 0.5s cubic-bezier(0.4,0,0.2,1) !important;
     margin-left: 18px !important;
-    border-left: 2px solid rgba(96,165,250,0.4) !important;
+    border-left: 2px solid rgba(96,165,250,0.55) !important;
     padding-left: 0 !important;
-    background: rgba(0,0,0,0.25) !important;
+    background: rgba(15,23,42,0.92) !important;
     border-radius: 0 0 6px 0 !important;
   }
   #ph85-sidebar .ph85-sub.ph125-open + .ph125-grandchildren {
@@ -33196,25 +33196,26 @@ button.chip:hover,
     display: flex !important;
     align-items: center !important;
     gap: 8px !important;
-    padding: 7px 10px 7px 14px !important;
-    color: #CBD5E1 !important;
-    font-size: 11.5px !important;
+    padding: 8px 10px 8px 14px !important;
+    color: #F1F5F9 !important;
+    font-size: 13.5px !important;
+    font-weight: 600 !important;
     cursor: pointer !important;
     border-radius: 4px !important;
     margin: 2px 4px !important;
     transition: all 0.12s !important;
   }
   #ph85-sidebar .ph125-gc:hover {
-    background: rgba(37,99,235,0.3) !important;
-    color: #DBEAFE !important;
+    background: rgba(37,99,235,0.45) !important;
+    color: #ffffff !important;
     padding-left: 18px !important;
   }
   #ph85-sidebar .ph125-gc .ph125-num {
-    background: rgba(96,165,250,0.25) !important;
-    color: #93C5FD !important;
-    font-size: 9.5px !important;
+    background: rgba(96,165,250,0.45) !important;
+    color: #ffffff !important;
+    font-size: 10.5px !important;
     font-weight: 800 !important;
-    width: 16px !important; height: 16px !important;
+    width: 17px !important; height: 17px !important;
     border-radius: 50% !important;
     display: inline-flex !important;
     align-items: center !important;
@@ -38021,6 +38022,16 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #ph85-sidebar .ph85-sub { color: #6f6557 !important; }
   html[data-admin-theme="ivory"] #ph85-sidebar .ph85-sub:hover { background: rgba(245,158,11,0.16) !important; color: #7c2d12 !important; }
   html[data-admin-theme="ivory"] #ph85-sidebar .ph85-count-badge { color: #6f6557 !important; }
+  /* 손자메뉴(ph125) — 아이보리 테마: 밝은 패널 + 진한 글자로 가독성 확보 */
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph125-grandchildren {
+    background: #fffdf8 !important;
+    border-left: 2px solid rgba(217,119,6,0.5) !important;
+    box-shadow: inset 0 1px 0 rgba(150,120,70,0.12) !important;
+  }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph125-gc { color: #44403c !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph125-gc:hover { background: rgba(245,158,11,0.18) !important; color: #7c2d12 !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph125-gc .ph125-num { background: rgba(217,119,6,0.22) !important; color: #92400e !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-sub .ph125-toggle { color: #d97706 !important; }
 
   /* 10) KPI 타일 — #card-kpi-dashboard ID 스코프로 다크 레이어 확실히 덮음 */
   html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile { background: #fffdf8 !important; }
