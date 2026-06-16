@@ -19100,6 +19100,17 @@ async function seedDemoTeachers() {
   ['ev-instruction', 'ev-retention', 'ev-punctuality', 'ev-admin', 'ev-contribution'].forEach(id => {
     if (e(id)) e(id).addEventListener('input', updateEvalPreview);
   });
+  // 🔐 강사 급여·평가 카드가 열릴 때: 교사 보기면 관리 컨트롤 숨김 + 본인 급여 자동 로드
+  const _pcard = e('card-payroll');
+  if (_pcard && !_pcard.__teacherBound) {
+    _pcard.__teacherBound = true;
+    _pcard.addEventListener('toggle', () => {
+      if (!_pcard.open || !_payrollTeacherView()) return;
+      _applyPayrollTeacherUI();
+      if (!_lastPayrollRows || _lastPayrollRows.length === 0) { try { calcPayrollAll(); } catch(e){} }
+      else { renderPayrollTable(); refreshPayrollSummary(); }
+    });
+  }
 })();
 
 // 📥 Phase 6: CSV 다운로드 (window.location 으로 GET 다운로드 — Authorization 자동 첨부됨)
@@ -21464,7 +21475,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260616171712 -->
+        <!-- BUILD:20260616171922 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
