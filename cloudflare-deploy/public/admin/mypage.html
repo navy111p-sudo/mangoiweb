@@ -519,11 +519,13 @@
 <body>
   <header class="top">
     <a href="/" target="_blank" rel="noopener" class="brand" title="학생 홈페이지로 이동">🥭 망고아이</a>
-    <span class="crumb">관리자 · 마이페이지</span>
+    <span class="crumb" data-ko="관리자 · 마이페이지" data-en="Admin · My Page">관리자 · 마이페이지</span>
     <div class="right">
-      <a class="btn-back" href="/" title="학생 홈페이지로 이동">🏠 홈페이지</a>
-      <a href="/admin.html" class="btn-back" style="background:rgba(255,255,255,0.06);border-color:var(--border);color:var(--text-secondary)" title="관리자 대시보드">📊 대시보드</a>
-      <a class="btn-logout" id="logoutBtn" href="#">로그아웃</a>
+      <button type="button" onclick="toggleLang()" title="언어 전환 / Switch language"
+              style="padding:8px 14px;border-radius:99px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer;border:0;display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,var(--amber-1),var(--amber-2));color:#1a1a1a;box-shadow:0 4px 14px -2px rgba(245,158,11,0.45)">🌐 <span class="lang-label-sync">EN</span></button>
+      <a class="btn-back" href="/" title="학생 홈페이지로 이동"><span data-ko="🏠 홈페이지" data-en="🏠 Home">🏠 홈페이지</span></a>
+      <a href="/admin.html" class="btn-back" style="background:rgba(255,255,255,0.06);border-color:var(--border);color:var(--text-secondary)" title="관리자 대시보드"><span data-ko="📊 대시보드" data-en="📊 Dashboard">📊 대시보드</span></a>
+      <a class="btn-logout" id="logoutBtn" href="#"><span data-ko="로그아웃" data-en="Logout">로그아웃</span></a>
     </div>
   </header>
 
@@ -535,21 +537,21 @@
              onerror="this.style.display='none';this.parentNode.textContent='M'" />
       </div>
       <div class="profile-info">
-        <div class="greet">환영합니다</div>
+        <div class="greet" data-ko="환영합니다" data-en="Welcome">환영합니다</div>
         <h1 id="heroName">로딩 중…</h1>
         <span class="user-id" id="heroUserId">@admin</span>
       </div>
       <div class="profile-stats">
         <div class="stat-chip" title="총 로그인 횟수">
-          <div class="stat-label">로그인</div>
+          <div class="stat-label" data-ko="로그인" data-en="Logins">로그인</div>
           <div class="stat-value" id="statLogins">—</div>
         </div>
         <div class="stat-chip" title="현재 활성 세션 수">
-          <div class="stat-label">세션</div>
+          <div class="stat-label" data-ko="세션" data-en="Sessions">세션</div>
           <div class="stat-value" id="statSessions">—</div>
         </div>
         <div class="stat-chip" title="마지막 로그인 시각">
-          <div class="stat-label">최근 접속</div>
+          <div class="stat-label" data-ko="최근 접속" data-en="Last seen">최근 접속</div>
           <div class="stat-value" id="statLast" style="font-size:13px">—</div>
         </div>
       </div>
@@ -562,8 +564,8 @@
               box-shadow:0 10px 24px -8px rgba(37,99,235,0.6);cursor:pointer">
       <span style="font-size:30px">🎥</span>
       <span style="flex:1">
-        <span style="display:block;font-size:17px;font-weight:800">수업 입장</span>
-        <span style="display:block;font-size:12.5px;opacity:0.9;margin-top:2px">화상수업 방에 교사로 바로 입장 · 교재 띄우기/업로드</span>
+        <span style="display:block;font-size:17px;font-weight:800" data-ko="수업 입장" data-en="Enter Class">수업 입장</span>
+        <span style="display:block;font-size:12.5px;opacity:0.9;margin-top:2px" data-ko="화상수업 방에 교사로 바로 입장 · 교재 띄우기/업로드" data-en="Join the video class as teacher · open/upload materials">화상수업 방에 교사로 바로 입장 · 교재 띄우기/업로드</span>
       </span>
       <span style="font-size:9.5px;font-weight:900;letter-spacing:0.6px;background:#ef4444;padding:3px 9px;border-radius:99px">LIVE ▶</span>
     </a>
@@ -582,106 +584,107 @@
 
     <!-- 페이지 메타 -->
     <div class="page-meta">
-      <h2>⚙ 계정 설정</h2>
-      <p>프로필 정보, 비밀번호, 로그인 보안 — 한 곳에서 관리합니다.</p>
+      <h2><span data-ko="⚙ 계정 설정" data-en="⚙ Account Settings">⚙ 계정 설정</span></h2>
+      <p data-ko="프로필 정보, 비밀번호, 로그인 보안 — 한 곳에서 관리합니다." data-en="Manage your profile, password and login security in one place.">프로필 정보, 비밀번호, 로그인 보안 — 한 곳에서 관리합니다.</p>
     </div>
 
     <!-- 탭 -->
     <nav class="tabs" role="tablist">
-      <button class="tab active" data-tab="profile">👤 프로필</button>
-      <button class="tab" data-tab="lessons">📚 내 수업</button>
-      <button class="tab" data-tab="password">🔑 비밀번호</button>
-      <button class="tab" data-tab="history">📋 로그인 이력</button>
-      <button class="tab" data-tab="sessions">💻 세션 관리</button>
+      <button class="tab active" data-tab="profile" data-ko="👤 프로필" data-en="👤 Profile">👤 프로필</button>
+      <button class="tab" data-tab="lessons" data-ko="📚 내 수업" data-en="📚 My Classes">📚 내 수업</button>
+      <button class="tab" data-tab="salary" data-ko="💰 급여" data-en="💰 Salary">💰 급여</button>
+      <button class="tab" data-tab="password" data-ko="🔑 비밀번호" data-en="🔑 Password">🔑 비밀번호</button>
+      <button class="tab" data-tab="history" data-ko="📋 로그인 이력" data-en="📋 Login History">📋 로그인 이력</button>
+      <button class="tab" data-tab="sessions" data-ko="💻 세션 관리" data-en="💻 Sessions">💻 세션 관리</button>
     </nav>
 
     <!-- ───── 프로필 ───── -->
     <section class="panel active" data-panel="profile">
       <div class="form-grid">
         <div class="field">
-          <label>👤 아이디</label>
+          <label><span data-ko="👤 아이디" data-en="👤 Username">👤 아이디</span></label>
           <input id="profUsername" type="text" disabled>
-          <div class="hint">단일 admin 계정 — 아이디 변경 불가</div>
+          <div class="hint" data-ko="단일 admin 계정 — 아이디 변경 불가" data-en="Single admin account — username cannot be changed">단일 admin 계정 — 아이디 변경 불가</div>
         </div>
         <div class="field">
-          <label>✏️ 이름 <span class="req">*</span></label>
-          <input id="profName" type="text" placeholder="예: 정우영">
+          <label><span data-ko="✏️ 이름" data-en="✏️ Name">✏️ 이름</span> <span class="req">*</span></label>
+          <input id="profName" type="text" placeholder="예: 정우영" data-ko-ph="예: 정우영" data-en-ph="e.g. Jane Doe">
         </div>
         <div class="field">
-          <label>📧 이메일</label>
+          <label><span data-ko="📧 이메일" data-en="📧 Email">📧 이메일</span></label>
           <input id="profEmail" type="email" placeholder="example@mangoi.co.kr">
         </div>
         <div class="field">
-          <label>📞 연락처</label>
+          <label><span data-ko="📞 연락처" data-en="📞 Phone">📞 연락처</span></label>
           <input id="profPhone" type="tel" placeholder="010-1234-5678">
         </div>
       </div>
-      <button class="btn-primary" id="profSaveBtn">💾 변경사항 저장</button>
+      <button class="btn-primary" id="profSaveBtn" data-ko="💾 변경사항 저장" data-en="💾 Save changes">💾 변경사항 저장</button>
     </section>
 
     <!-- ───── 내 수업 (ph210) ───── -->
     <section class="panel" data-panel="lessons">
       <div class="info-box" style="background:linear-gradient(135deg,rgba(56,189,248,0.12),rgba(37,99,235,0.06));border:1px solid rgba(56,189,248,0.35);color:#bae6fd">
-        📚 <b>내 수업 한눈에 보기</b> — 정기 일정·다음 수업·진도·교사 정보를 모아 둡니다.
+        📚 <b data-ko="내 수업 한눈에 보기" data-en="My classes at a glance">내 수업 한눈에 보기</b><span data-ko=" — 정기 일정·다음 수업·진도·교사 정보를 모아 둡니다." data-en=" — Your schedule, next class, progress and teacher info in one place."> — 정기 일정·다음 수업·진도·교사 정보를 모아 둡니다.</span>
       </div>
 
       <!-- 다음 수업 카운트다운 -->
       <div style="background:linear-gradient(135deg,#1E40AF,#1E3A8A);border-radius:14px;padding:18px 20px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;color:#fff">
         <div>
-          <div style="font-size:11.5px;color:#bfdbfe;font-weight:700;letter-spacing:0.3px">⏰ 다음 수업까지</div>
-          <div id="lesson-countdown" style="font-size:26px;font-weight:900;margin-top:4px">--시간 --분</div>
-          <div id="lesson-next-info" style="font-size:11.5px;color:#dbeafe;margin-top:3px">로딩 중…</div>
+          <div style="font-size:11.5px;color:#bfdbfe;font-weight:700;letter-spacing:0.3px" data-ko="⏰ 다음 수업까지" data-en="⏰ Until next class">⏰ 다음 수업까지</div>
+          <div id="lesson-countdown" style="font-size:26px;font-weight:900;margin-top:4px">--:--</div>
+          <div id="lesson-next-info" style="font-size:11.5px;color:#dbeafe;margin-top:3px" data-ko="로딩 중…" data-en="Loading…">로딩 중…</div>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button onclick="location.href='/?menu=videocall-lobby'" style="padding:9px 16px;background:#fbbf24;color:#1a1a1a;border:0;border-radius:99px;font-weight:800;font-size:12.5px;cursor:pointer">🎬 수업 입장</button>
-          <button onclick="location.href='/lesson-postpone-demo.html'" style="padding:9px 14px;background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:99px;font-weight:700;font-size:12px;cursor:pointer">📅 연기/변경</button>
+          <button onclick="location.href='/?menu=videocall-lobby'" style="padding:9px 16px;background:#fbbf24;color:#1a1a1a;border:0;border-radius:99px;font-weight:800;font-size:12.5px;cursor:pointer" data-ko="🎬 수업 입장" data-en="🎬 Enter class">🎬 수업 입장</button>
+          <button onclick="location.href='/lesson-postpone-demo.html'" style="padding:9px 14px;background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:99px;font-weight:700;font-size:12px;cursor:pointer" data-ko="📅 연기/변경" data-en="📅 Postpone/change">📅 연기/변경</button>
         </div>
       </div>
 
       <!-- KPI 4개 -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:14px">
         <div style="padding:12px 14px;background:rgba(56,189,248,0.10);border:1px solid rgba(56,189,248,0.35);border-radius:10px">
-          <div style="font-size:10.5px;color:#7dd3fc;font-weight:700">📅 이번 주 수업</div>
-          <div style="font-size:18px;font-weight:900;color:#fff;margin-top:2px">3 / 3회</div>
+          <div style="font-size:10.5px;color:#7dd3fc;font-weight:700" data-ko="📅 이번 주 수업" data-en="📅 This week">📅 이번 주 수업</div>
+          <div style="font-size:18px;font-weight:900;color:#fff;margin-top:2px" data-ko="3 / 3회" data-en="3 / 3">3 / 3회</div>
         </div>
         <div style="padding:12px 14px;background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.35);border-radius:10px">
-          <div style="font-size:10.5px;color:#86efac;font-weight:700">✅ 출석률</div>
+          <div style="font-size:10.5px;color:#86efac;font-weight:700" data-ko="✅ 출석률" data-en="✅ Attendance">✅ 출석률</div>
           <div style="font-size:18px;font-weight:900;color:#fff;margin-top:2px">96%</div>
         </div>
         <div style="padding:12px 14px;background:rgba(251,191,36,0.10);border:1px solid rgba(251,191,36,0.35);border-radius:10px">
-          <div style="font-size:10.5px;color:#fcd34d;font-weight:700">📊 누적 수업</div>
-          <div style="font-size:18px;font-weight:900;color:#fff;margin-top:2px">48회</div>
+          <div style="font-size:10.5px;color:#fcd34d;font-weight:700" data-ko="📊 누적 수업" data-en="📊 Total classes">📊 누적 수업</div>
+          <div style="font-size:18px;font-weight:900;color:#fff;margin-top:2px" data-ko="48회" data-en="48">48회</div>
         </div>
         <div style="padding:12px 14px;background:rgba(167,139,250,0.10);border:1px solid rgba(167,139,250,0.35);border-radius:10px">
-          <div style="font-size:10.5px;color:#c4b5fd;font-weight:700">🎫 남은 회차</div>
-          <div style="font-size:18px;font-weight:900;color:#fff;margin-top:2px">12회</div>
+          <div style="font-size:10.5px;color:#c4b5fd;font-weight:700" data-ko="🎫 남은 회차" data-en="🎫 Remaining">🎫 남은 회차</div>
+          <div style="font-size:18px;font-weight:900;color:#fff;margin-top:2px" data-ko="12회" data-en="12">12회</div>
         </div>
       </div>
 
       <!-- 정기 수업 일정 -->
       <div style="background:#1A2548;border-radius:12px;padding:14px 16px;margin-bottom:14px;border:1px solid rgba(96,165,250,0.18)">
-        <div style="font-weight:800;font-size:13px;color:#fbbf24;margin-bottom:10px">🗓 정기 수업 일정</div>
+        <div style="font-weight:800;font-size:13px;color:#fbbf24;margin-bottom:10px" data-ko="🗓 정기 수업 일정" data-en="🗓 Regular schedule">🗓 정기 수업 일정</div>
         <div style="display:flex;flex-direction:column;gap:8px">
           <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(15,23,42,0.5);border-radius:10px;border-left:3px solid #38BDF8">
             <div>
-              <div style="font-weight:700;font-size:13px;color:#fff">월요일 · 19:00 ~ 19:40</div>
-              <div style="font-size:11px;color:#94a3b8;margin-top:2px">🇺🇸 박지윤 선생님 · 1:1 마스터</div>
+              <div style="font-weight:700;font-size:13px;color:#fff" data-ko="월요일 · 19:00 ~ 19:40" data-en="Mon · 19:00 ~ 19:40">월요일 · 19:00 ~ 19:40</div>
+              <div style="font-size:11px;color:#94a3b8;margin-top:2px" data-ko="🇺🇸 박지윤 선생님 · 1:1 마스터" data-en="🇺🇸 Ms. Park · 1:1 Master">🇺🇸 박지윤 선생님 · 1:1 마스터</div>
             </div>
-            <span style="padding:3px 9px;background:rgba(16,185,129,0.18);color:#86efac;border-radius:99px;font-size:10.5px;font-weight:700">진행 중</span>
+            <span style="padding:3px 9px;background:rgba(16,185,129,0.18);color:#86efac;border-radius:99px;font-size:10.5px;font-weight:700" data-ko="진행 중" data-en="Ongoing">진행 중</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(15,23,42,0.5);border-radius:10px;border-left:3px solid #38BDF8">
             <div>
-              <div style="font-weight:700;font-size:13px;color:#fff">수요일 · 19:00 ~ 19:40</div>
-              <div style="font-size:11px;color:#94a3b8;margin-top:2px">🇺🇸 박지윤 선생님 · 1:1 마스터</div>
+              <div style="font-weight:700;font-size:13px;color:#fff" data-ko="수요일 · 19:00 ~ 19:40" data-en="Wed · 19:00 ~ 19:40">수요일 · 19:00 ~ 19:40</div>
+              <div style="font-size:11px;color:#94a3b8;margin-top:2px" data-ko="🇺🇸 박지윤 선생님 · 1:1 마스터" data-en="🇺🇸 Ms. Park · 1:1 Master">🇺🇸 박지윤 선생님 · 1:1 마스터</div>
             </div>
-            <span style="padding:3px 9px;background:rgba(16,185,129,0.18);color:#86efac;border-radius:99px;font-size:10.5px;font-weight:700">진행 중</span>
+            <span style="padding:3px 9px;background:rgba(16,185,129,0.18);color:#86efac;border-radius:99px;font-size:10.5px;font-weight:700" data-ko="진행 중" data-en="Ongoing">진행 중</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(15,23,42,0.5);border-radius:10px;border-left:3px solid #f59e0b">
             <div>
-              <div style="font-weight:700;font-size:13px;color:#fff">금요일 · 20:00 ~ 20:40</div>
-              <div style="font-size:11px;color:#94a3b8;margin-top:2px">🇬🇧 Emma 선생님 · 그룹 토론 (3명)</div>
+              <div style="font-weight:700;font-size:13px;color:#fff" data-ko="금요일 · 20:00 ~ 20:40" data-en="Fri · 20:00 ~ 20:40">금요일 · 20:00 ~ 20:40</div>
+              <div style="font-size:11px;color:#94a3b8;margin-top:2px" data-ko="🇬🇧 Emma 선생님 · 그룹 토론 (3명)" data-en="🇬🇧 Ms. Emma · Group discussion (3)">🇬🇧 Emma 선생님 · 그룹 토론 (3명)</div>
             </div>
-            <span style="padding:3px 9px;background:rgba(251,191,36,0.18);color:#fcd34d;border-radius:99px;font-size:10.5px;font-weight:700">신규 추가</span>
+            <span style="padding:3px 9px;background:rgba(251,191,36,0.18);color:#fcd34d;border-radius:99px;font-size:10.5px;font-weight:700" data-ko="신규 추가" data-en="New">신규 추가</span>
           </div>
         </div>
       </div>
@@ -689,37 +692,37 @@
       <!-- 현재 진도 + 교재 -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
         <div style="background:#1A2548;border-radius:12px;padding:14px;border:1px solid rgba(96,165,250,0.18)">
-          <div style="font-weight:800;font-size:12.5px;color:#fbbf24;margin-bottom:8px">📖 현재 교재</div>
+          <div style="font-weight:800;font-size:12.5px;color:#fbbf24;margin-bottom:8px" data-ko="📖 현재 교재" data-en="📖 Current textbook">📖 현재 교재</div>
           <div style="font-size:13px;color:#fff;font-weight:700">Master 3 — Lesson 4</div>
-          <div style="font-size:11px;color:#94a3b8;margin-top:3px">다락원 중국어 마스터 시리즈</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:3px" data-ko="다락원 중국어 마스터 시리즈" data-en="Darakwon Chinese Master Series">다락원 중국어 마스터 시리즈</div>
           <div style="height:8px;background:rgba(15,23,42,0.6);border-radius:99px;margin-top:10px;overflow:hidden">
             <div style="width:35%;height:100%;background:linear-gradient(90deg,#3B82F6,#60A5FA);border-radius:99px"></div>
           </div>
-          <div style="font-size:10.5px;color:#94a3b8;margin-top:5px">진도율 35% (Lesson 4/12)</div>
+          <div style="font-size:10.5px;color:#94a3b8;margin-top:5px" data-ko="진도율 35% (Lesson 4/12)" data-en="Progress 35% (Lesson 4/12)">진도율 35% (Lesson 4/12)</div>
         </div>
         <div style="background:#1A2548;border-radius:12px;padding:14px;border:1px solid rgba(96,165,250,0.18)">
-          <div style="font-weight:800;font-size:12.5px;color:#fbbf24;margin-bottom:8px">⭐ 학습 점수</div>
-          <div style="font-size:13px;color:#fff;font-weight:700">발음 92 · 회화 88 · 청해 85</div>
-          <div style="font-size:11px;color:#94a3b8;margin-top:3px">최근 4주 평균</div>
+          <div style="font-weight:800;font-size:12.5px;color:#fbbf24;margin-bottom:8px" data-ko="⭐ 학습 점수" data-en="⭐ Scores">⭐ 학습 점수</div>
+          <div style="font-size:13px;color:#fff;font-weight:700" data-ko="발음 92 · 회화 88 · 청해 85" data-en="Pron. 92 · Speaking 88 · Listening 85">발음 92 · 회화 88 · 청해 85</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:3px" data-ko="최근 4주 평균" data-en="4-week average">최근 4주 평균</div>
           <div style="height:8px;background:rgba(15,23,42,0.6);border-radius:99px;margin-top:10px;overflow:hidden">
             <div style="width:88%;height:100%;background:linear-gradient(90deg,#10b981,#34d399);border-radius:99px"></div>
           </div>
-          <div style="font-size:10.5px;color:#94a3b8;margin-top:5px">종합 88점 (상위 12%)</div>
+          <div style="font-size:10.5px;color:#94a3b8;margin-top:5px" data-ko="종합 88점 (상위 12%)" data-en="Overall 88 (top 12%)">종합 88점 (상위 12%)</div>
         </div>
       </div>
 
       <!-- 담당 교사 카드 -->
       <div style="background:#1A2548;border-radius:12px;padding:14px 16px;border:1px solid rgba(96,165,250,0.18)">
-        <div style="font-weight:800;font-size:12.5px;color:#fbbf24;margin-bottom:10px">👨‍🏫 담당 교사</div>
+        <div style="font-weight:800;font-size:12.5px;color:#fbbf24;margin-bottom:10px" data-ko="👨‍🏫 담당 교사" data-en="👨‍🏫 Your teacher">👨‍🏫 담당 교사</div>
         <div style="display:flex;gap:12px;align-items:center;padding:10px;background:rgba(15,23,42,0.4);border-radius:10px">
           <div style="width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,#3B82F6,#2563EB);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;flex-shrink:0">박</div>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:800;font-size:14px;color:#fff">박지윤 선생님</div>
-            <div style="font-size:11.5px;color:#94a3b8;margin-top:2px">🇺🇸 미국 · TESOL · 경력 7년 · ⭐ 4.9 (학생 47명)</div>
+            <div style="font-weight:800;font-size:14px;color:#fff" data-ko="박지윤 선생님" data-en="Ms. Park Jiyoon">박지윤 선생님</div>
+            <div style="font-size:11.5px;color:#94a3b8;margin-top:2px" data-ko="🇺🇸 미국 · TESOL · 경력 7년 · ⭐ 4.9 (학생 47명)" data-en="🇺🇸 USA · TESOL · 7 yrs · ⭐ 4.9 (47 students)">🇺🇸 미국 · TESOL · 경력 7년 · ⭐ 4.9 (학생 47명)</div>
             <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-              <button onclick="alert('카톡으로 박지윤 선생님과 1:1 채팅 시작')" style="padding:5px 11px;background:#fee500;color:#3c1e1e;border:0;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">💬 카톡</button>
-              <button onclick="alert('박지윤 선생님 프로필 보기')" style="padding:5px 11px;background:rgba(96,165,250,0.18);color:#60a5fa;border:1px solid rgba(96,165,250,0.35);border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">👤 프로필</button>
-              <button onclick="alert('선생님 변경 요청 — 사유 입력 후 상담사 배정')" style="padding:5px 11px;background:rgba(167,139,250,0.18);color:#a78bfa;border:1px solid rgba(167,139,250,0.35);border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">🔄 선생님 변경</button>
+              <button onclick="alert(window.getLang&&window.getLang()==='en'?'Start a 1:1 KakaoTalk chat with Ms. Park':'카톡으로 박지윤 선생님과 1:1 채팅 시작')" style="padding:5px 11px;background:#fee500;color:#3c1e1e;border:0;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer" data-ko="💬 카톡" data-en="💬 KakaoTalk">💬 카톡</button>
+              <button onclick="alert(window.getLang&&window.getLang()==='en'?'View Ms. Park profile':'박지윤 선생님 프로필 보기')" style="padding:5px 11px;background:rgba(96,165,250,0.18);color:#60a5fa;border:1px solid rgba(96,165,250,0.35);border-radius:99px;font-size:11px;font-weight:700;cursor:pointer" data-ko="👤 프로필" data-en="👤 Profile">👤 프로필</button>
+              <button onclick="alert(window.getLang&&window.getLang()==='en'?'Change teacher request — enter a reason, a counselor will be assigned':'선생님 변경 요청 — 사유 입력 후 상담사 배정')" style="padding:5px 11px;background:rgba(167,139,250,0.18);color:#a78bfa;border:1px solid rgba(167,139,250,0.35);border-radius:99px;font-size:11px;font-weight:700;cursor:pointer" data-ko="🔄 선생님 변경" data-en="🔄 Change teacher">🔄 선생님 변경</button>
             </div>
           </div>
         </div>
@@ -727,23 +730,24 @@
 
       <!-- 빠른 액션 행 -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:14px">
-        <button onclick="location.href='/lesson-booking-demo.html'" style="padding:12px;background:linear-gradient(135deg,#3B82F6,#2563EB);color:#fff;border:0;border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer">📝 수업 추가 신청</button>
-        <button onclick="location.href='/?menu=payment'" style="padding:12px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;border:0;border-radius:10px;font-weight:800;font-size:12.5px;cursor:pointer">💳 회차 추가 결제</button>
-        <button onclick="location.href='/report.html'" style="padding:12px;background:rgba(15,23,42,0.6);color:#cbd5e1;border:1px solid rgba(96,165,250,0.25);border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer">📊 학습 리포트</button>
+        <button onclick="location.href='/lesson-booking-demo.html'" style="padding:12px;background:linear-gradient(135deg,#3B82F6,#2563EB);color:#fff;border:0;border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer" data-ko="📝 수업 추가 신청" data-en="📝 Book more classes">📝 수업 추가 신청</button>
+        <button onclick="location.href='/?menu=payment'" style="padding:12px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;border:0;border-radius:10px;font-weight:800;font-size:12.5px;cursor:pointer" data-ko="💳 회차 추가 결제" data-en="💳 Buy more sessions">💳 회차 추가 결제</button>
+        <button onclick="location.href='/report.html'" style="padding:12px;background:rgba(15,23,42,0.6);color:#cbd5e1;border:1px solid rgba(96,165,250,0.25);border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer" data-ko="📊 학습 리포트" data-en="📊 Learning report">📊 학습 리포트</button>
       </div>
 
       <script>
       (function(){
+        function EN(){ return window.getLang && window.getLang() === 'en'; }
         // 다음 수업 카운트다운 (월/수/금 19:00 또는 20:00)
         var SCHEDULE = [
-          { day: 1, hour: 19, min: 0, label: '월요일 19:00 박지윤 선생님' },
-          { day: 3, hour: 19, min: 0, label: '수요일 19:00 박지윤 선생님' },
-          { day: 5, hour: 20, min: 0, label: '금요일 20:00 Emma 선생님' }
+          { day: 1, hour: 19, min: 0, ko: '월요일 19:00 박지윤 선생님', en: 'Mon 19:00 Ms. Park' },
+          { day: 3, hour: 19, min: 0, ko: '수요일 19:00 박지윤 선생님', en: 'Wed 19:00 Ms. Park' },
+          { day: 5, hour: 20, min: 0, ko: '금요일 20:00 Emma 선생님',   en: 'Fri 20:00 Ms. Emma' }
         ];
         function tick() {
           var now = new Date();
           var soonest = null;
-          var soonestLabel = '';
+          var soonestItem = null;
           for (var add = 0; add < 8; add++) {
             for (var i = 0; i < SCHEDULE.length; i++) {
               var s = SCHEDULE[i];
@@ -751,7 +755,7 @@
               var diff = d.getTime() - now.getTime();
               if (diff > 0 && d.getDay() === s.day && (!soonest || diff < soonest)) {
                 soonest = diff;
-                soonestLabel = s.label;
+                soonestItem = s;
               }
             }
             if (soonest) break;
@@ -759,59 +763,121 @@
           var el = document.getElementById('lesson-countdown');
           var info = document.getElementById('lesson-next-info');
           if (!el || !info) return;
-          if (!soonest) { el.textContent = '예정 없음'; info.textContent = '정기 수업이 끝났어요. 다음 학기 신청해주세요.'; return; }
+          if (!soonest) {
+            el.textContent = EN() ? 'None scheduled' : '예정 없음';
+            info.textContent = EN() ? 'Regular classes have ended. Please book next term.' : '정기 수업이 끝났어요. 다음 학기 신청해주세요.';
+            return;
+          }
           var h = Math.floor(soonest / 3600000);
           var m = Math.floor((soonest % 3600000) / 60000);
           var d = Math.floor(h / 24);
-          if (d > 0) el.textContent = d + '일 ' + (h % 24) + '시간 ' + m + '분';
-          else el.textContent = h + '시간 ' + m + '분';
-          info.textContent = '🎓 ' + soonestLabel;
+          if (EN()) {
+            el.textContent = (d > 0 ? d + 'd ' + (h % 24) + 'h ' + m + 'm' : h + 'h ' + m + 'm');
+          } else {
+            el.textContent = (d > 0 ? d + '일 ' + (h % 24) + '시간 ' + m + '분' : h + '시간 ' + m + '분');
+          }
+          info.textContent = '🎓 ' + (EN() ? soonestItem.en : soonestItem.ko);
         }
         tick();
         setInterval(tick, 30000); // 30초마다 갱신
+        window.addEventListener('mangoi:lang-changed', tick);
       })();
       </script>
+    </section>
+
+    <!-- ───── 급여 (간단 요약) ───── -->
+    <section class="panel" data-panel="salary">
+      <div class="info-box" style="background:linear-gradient(135deg,rgba(251,191,36,0.12),rgba(245,158,11,0.06));border:1px solid rgba(251,191,36,0.35);border-left:4px solid var(--amber-1);color:#fde68a">
+        💰 <b data-ko="이번 달 급여 요약" data-en="This month's salary summary">이번 달 급여 요약</b><span data-ko=" — 기본급·수업 수당·상여를 한눈에 확인하세요. 자세한 내역과 그래프는 아래 ‘상세 급여정보’에서 볼 수 있습니다." data-en=" — Base pay, class allowance and bonuses at a glance. See full details and graphs in 'Salary Details' below."> — 기본급·수업 수당·상여를 한눈에 확인하세요. 자세한 내역과 그래프는 아래 ‘상세 급여정보’에서 볼 수 있습니다.</span>
+      </div>
+
+      <!-- 이번 달 실수령액 메인 -->
+      <div style="background:linear-gradient(135deg,#1E40AF,#1E3A8A);border-radius:16px;padding:20px 22px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;color:#fff">
+        <div>
+          <div style="font-size:11.5px;color:#bfdbfe;font-weight:700;letter-spacing:0.3px" data-ko="📅 2026년 6월 · 실수령 예상액" data-en="📅 Jun 2026 · Estimated net pay">📅 2026년 6월 · 실수령 예상액</div>
+          <div id="sal-net" style="font-size:30px;font-weight:900;margin-top:4px">₩ 3,182,400</div>
+          <div style="font-size:11.5px;color:#dbeafe;margin-top:3px" data-ko="지급 예정일 · 2026-06-25 (금)" data-en="Pay date · 2026-06-25 (Fri)">지급 예정일 · 2026-06-25 (금)</div>
+        </div>
+        <a href="/admin/salary.html" class="btn-primary" style="text-decoration:none;background:linear-gradient(135deg,#fbbf24,#f59e0b)" data-ko="📊 상세 급여정보 →" data-en="📊 Salary Details →">📊 상세 급여정보 →</a>
+      </div>
+
+      <!-- KPI 4개 -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:14px">
+        <div style="padding:12px 14px;background:rgba(56,189,248,0.10);border:1px solid rgba(56,189,248,0.35);border-radius:10px">
+          <div style="font-size:10.5px;color:#7dd3fc;font-weight:700" data-ko="💵 기본급" data-en="💵 Base pay">💵 기본급</div>
+          <div style="font-size:17px;font-weight:900;color:#fff;margin-top:2px">₩ 2,400,000</div>
+        </div>
+        <div style="padding:12px 14px;background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.35);border-radius:10px">
+          <div style="font-size:10.5px;color:#86efac;font-weight:700" data-ko="🎓 수업 수당" data-en="🎓 Class allowance">🎓 수업 수당</div>
+          <div style="font-size:17px;font-weight:900;color:#fff;margin-top:2px">₩ 840,000</div>
+        </div>
+        <div style="padding:12px 14px;background:rgba(251,191,36,0.10);border:1px solid rgba(251,191,36,0.35);border-radius:10px">
+          <div style="font-size:10.5px;color:#fcd34d;font-weight:700" data-ko="🎁 상여·인센티브" data-en="🎁 Bonus · Incentive">🎁 상여·인센티브</div>
+          <div style="font-size:17px;font-weight:900;color:#fff;margin-top:2px">₩ 350,000</div>
+        </div>
+        <div style="padding:12px 14px;background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.35);border-radius:10px">
+          <div style="font-size:10.5px;color:#fca5a5;font-weight:700" data-ko="➖ 공제 (세금·4대보험)" data-en="➖ Deductions (tax · insurance)">➖ 공제 (세금·4대보험)</div>
+          <div style="font-size:17px;font-weight:900;color:#fff;margin-top:2px">- ₩ 407,600</div>
+        </div>
+      </div>
+
+      <!-- 최근 지급 내역 -->
+      <div style="background:#1A2548;border-radius:12px;padding:14px 16px;border:1px solid rgba(96,165,250,0.18)">
+        <div style="font-weight:800;font-size:12.5px;color:#fbbf24;margin-bottom:10px" data-ko="🧾 최근 지급 내역" data-en="🧾 Recent payments">🧾 최근 지급 내역</div>
+        <table class="list">
+          <thead><tr><th data-ko="지급월" data-en="Month">지급월</th><th data-ko="지급총액" data-en="Gross">지급총액</th><th data-ko="공제" data-en="Deduction">공제</th><th data-ko="실수령액" data-en="Net pay">실수령액</th><th data-ko="상태" data-en="Status">상태</th></tr></thead>
+          <tbody>
+            <tr><td>2026-05</td><td>₩ 3,520,000</td><td>- ₩ 398,200</td><td><b style="color:#fde68a">₩ 3,121,800</b></td><td><span class="ok-badge s" data-ko="지급완료" data-en="Paid">지급완료</span></td></tr>
+            <tr><td>2026-04</td><td>₩ 3,410,000</td><td>- ₩ 385,300</td><td><b style="color:#fde68a">₩ 3,024,700</b></td><td><span class="ok-badge s" data-ko="지급완료" data-en="Paid">지급완료</span></td></tr>
+            <tr><td>2026-03</td><td>₩ 3,290,000</td><td>- ₩ 371,800</td><td><b style="color:#fde68a">₩ 2,918,200</b></td><td><span class="ok-badge s" data-ko="지급완료" data-en="Paid">지급완료</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="text-align:center;margin-top:16px">
+        <a href="/admin/salary.html" class="btn-primary" style="text-decoration:none" data-ko="📊 상세 급여·상여·그래프 전체 보기 →" data-en="📊 View full salary · bonus · graphs →">📊 상세 급여·상여·그래프 전체 보기 →</a>
+      </div>
     </section>
 
     <!-- ───── 비밀번호 변경 ───── -->
     <section class="panel" data-panel="password">
       <div class="info-box">
-        🔒 <b>보안 안내</b> — 비밀번호 변경 시 다른 모든 기기에서 자동 로그아웃됩니다. 영문 + 숫자 + 특수문자를 조합하면 더 안전합니다.
+        🔒 <b data-ko="보안 안내" data-en="Security notice">보안 안내</b><span data-ko=" — 비밀번호 변경 시 다른 모든 기기에서 자동 로그아웃됩니다. 영문 + 숫자 + 특수문자를 조합하면 더 안전합니다." data-en=" — Changing your password signs you out of all other devices. Mix letters, numbers and symbols for stronger security."> — 비밀번호 변경 시 다른 모든 기기에서 자동 로그아웃됩니다. 영문 + 숫자 + 특수문자를 조합하면 더 안전합니다.</span>
       </div>
       <div class="form-grid">
         <div class="field full">
-          <label>🔓 현재 비밀번호 <span class="req">*</span></label>
-          <input id="pwCur" type="password" autocomplete="current-password" placeholder="현재 사용 중인 비밀번호">
+          <label><span data-ko="🔓 현재 비밀번호" data-en="🔓 Current password">🔓 현재 비밀번호</span> <span class="req">*</span></label>
+          <input id="pwCur" type="password" autocomplete="current-password" placeholder="현재 사용 중인 비밀번호" data-ko-ph="현재 사용 중인 비밀번호" data-en-ph="Your current password">
         </div>
         <div class="field">
-          <label>🆕 새 비밀번호 <span class="req">*</span></label>
-          <input id="pwNew" type="password" autocomplete="new-password" minlength="6" placeholder="6자 이상">
+          <label><span data-ko="🆕 새 비밀번호" data-en="🆕 New password">🆕 새 비밀번호</span> <span class="req">*</span></label>
+          <input id="pwNew" type="password" autocomplete="new-password" minlength="6" placeholder="6자 이상" data-ko-ph="6자 이상" data-en-ph="At least 6 characters">
         </div>
         <div class="field">
-          <label>✅ 새 비밀번호 확인 <span class="req">*</span></label>
-          <input id="pwNew2" type="password" autocomplete="new-password" minlength="6" placeholder="다시 한 번 입력">
+          <label><span data-ko="✅ 새 비밀번호 확인" data-en="✅ Confirm new password">✅ 새 비밀번호 확인</span> <span class="req">*</span></label>
+          <input id="pwNew2" type="password" autocomplete="new-password" minlength="6" placeholder="다시 한 번 입력" data-ko-ph="다시 한 번 입력" data-en-ph="Enter it again">
         </div>
       </div>
-      <button class="btn-primary" id="pwSaveBtn">🔐 비밀번호 변경</button>
+      <button class="btn-primary" id="pwSaveBtn" data-ko="🔐 비밀번호 변경" data-en="🔐 Change password">🔐 비밀번호 변경</button>
     </section>
 
     <!-- ───── 로그인 이력 ───── -->
     <section class="panel" data-panel="history">
       <div class="info-box">
-        📋 <b>최근 로그인 이력</b> — 모르는 IP·기기에서 로그인 시 즉시 비밀번호 변경 + 활성 세션 종료를 권장합니다.
+        📋 <b data-ko="최근 로그인 이력" data-en="Recent login history">최근 로그인 이력</b><span data-ko=" — 모르는 IP·기기에서 로그인 시 즉시 비밀번호 변경 + 활성 세션 종료를 권장합니다." data-en=" — If you see an unknown IP or device, change your password and end active sessions right away."> — 모르는 IP·기기에서 로그인 시 즉시 비밀번호 변경 + 활성 세션 종료를 권장합니다.</span>
       </div>
       <div id="historyBox">
-        <div class="empty">📥 로딩 중…</div>
+        <div class="empty" data-ko="📥 로딩 중…" data-en="📥 Loading…">📥 로딩 중…</div>
       </div>
     </section>
 
     <!-- ───── 세션 관리 ───── -->
     <section class="panel" data-panel="sessions">
       <div class="info-box">
-        💻 <b>활성 세션 목록</b> — 사용하지 않는 기기는 즉시 종료할 수 있습니다. 현재 사용 중인 세션은 종료 버튼이 표시되지 않습니다.
+        💻 <b data-ko="활성 세션 목록" data-en="Active sessions">활성 세션 목록</b><span data-ko=" — 사용하지 않는 기기는 즉시 종료할 수 있습니다. 현재 사용 중인 세션은 종료 버튼이 표시되지 않습니다." data-en=" — End sessions on devices you no longer use. The session you're currently on has no end button."> — 사용하지 않는 기기는 즉시 종료할 수 있습니다. 현재 사용 중인 세션은 종료 버튼이 표시되지 않습니다.</span>
       </div>
       <div id="sessionsBox">
-        <div class="empty">📥 로딩 중…</div>
+        <div class="empty" data-ko="📥 로딩 중…" data-en="📥 Loading…">📥 로딩 중…</div>
       </div>
     </section>
 
@@ -838,31 +904,38 @@
   if (el('profEmail'))    el('profEmail').value = 'navy11@naver.com';
   if (el('profPhone'))    el('profPhone').value = '';
 
+  var EN = function(){ return window.getLang && window.getLang() === 'en'; };
   if (el('profSaveBtn')) el('profSaveBtn').addEventListener('click', function(){
-    alert('✅ 변경사항이 저장됐어요.\n\n' + (el('profName')?.value || '') + ' · ' + (el('profEmail')?.value || ''));
+    var msg = EN() ? '✅ Changes saved.\n\n' : '✅ 변경사항이 저장됐어요.\n\n';
+    alert(msg + (el('profName')?.value || '') + ' · ' + (el('profEmail')?.value || ''));
   });
   if (el('pwSaveBtn')) el('pwSaveBtn').addEventListener('click', function(){
     var cur = el('pwCur')?.value || '';
     var nw = el('pwNew')?.value || '';
     var nw2 = el('pwNew2')?.value || '';
-    if (!cur || !nw || !nw2) { alert('⚠️ 모든 항목을 입력해 주세요.'); return; }
-    if (nw !== nw2)          { alert('⚠️ 새 비밀번호가 일치하지 않습니다.'); return; }
-    if (nw.length < 6)       { alert('⚠️ 새 비밀번호는 6자 이상이어야 합니다.'); return; }
-    alert('🔐 비밀번호가 변경됐어요. 다른 기기에서 자동 로그아웃됩니다.');
+    if (!cur || !nw || !nw2) { alert(EN()?'⚠️ Please fill in all fields.':'⚠️ 모든 항목을 입력해 주세요.'); return; }
+    if (nw !== nw2)          { alert(EN()?'⚠️ New passwords do not match.':'⚠️ 새 비밀번호가 일치하지 않습니다.'); return; }
+    if (nw.length < 6)       { alert(EN()?'⚠️ New password must be at least 6 characters.':'⚠️ 새 비밀번호는 6자 이상이어야 합니다.'); return; }
+    alert(EN()?'🔐 Password changed. You will be signed out of other devices.':'🔐 비밀번호가 변경됐어요. 다른 기기에서 자동 로그아웃됩니다.');
   });
 
-  // 로그인 이력 / 세션 데모 채우기
-  var hBox = el('historyBox');
-  if (hBox) hBox.innerHTML = [
-    '<div style="padding:10px 14px;background:rgba(15,23,42,0.5);border-radius:10px;margin-bottom:6px;font-size:12.5px">🟢 <b>현재 세션</b> · Chrome · Seoul, KR · 2026-05-30 14:22</div>',
-    '<div style="padding:10px 14px;background:rgba(15,23,42,0.5);border-radius:10px;margin-bottom:6px;font-size:12.5px">📱 iPhone Safari · Seoul, KR · 2026-05-29 21:14</div>',
-    '<div style="padding:10px 14px;background:rgba(15,23,42,0.5);border-radius:10px;font-size:12.5px">💻 Chrome · Daegu, KR · 2026-05-28 09:03</div>'
-  ].join('');
-  var sBox = el('sessionsBox');
-  if (sBox) sBox.innerHTML = [
-    '<div style="padding:10px 14px;background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.35);border-radius:10px;margin-bottom:6px;font-size:12.5px;display:flex;justify-content:space-between;align-items:center"><span>🟢 <b>현재 사용 중</b> · Chrome · Seoul</span><span style="color:#86efac;font-size:10.5px;font-weight:700">활성</span></div>',
-    '<div style="padding:10px 14px;background:rgba(15,23,42,0.5);border-radius:10px;font-size:12.5px;display:flex;justify-content:space-between;align-items:center"><span>📱 iPhone Safari · Seoul</span><button onclick="alert(\'세션 종료됨\')" style="padding:4px 10px;background:#ef4444;color:#fff;border:0;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">종료</button></div>'
-  ].join('');
+  // 로그인 이력 / 세션 데모 채우기 (언어 연동)
+  function renderDemo(){
+    var en = EN();
+    var hBox = el('historyBox');
+    if (hBox) hBox.innerHTML = [
+      '<div style="padding:10px 14px;background:rgba(15,23,42,0.5);border-radius:10px;margin-bottom:6px;font-size:12.5px">🟢 <b>' + (en?'Current session':'현재 세션') + '</b> · Chrome · Seoul, KR · 2026-05-30 14:22</div>',
+      '<div style="padding:10px 14px;background:rgba(15,23,42,0.5);border-radius:10px;margin-bottom:6px;font-size:12.5px">📱 iPhone Safari · Seoul, KR · 2026-05-29 21:14</div>',
+      '<div style="padding:10px 14px;background:rgba(15,23,42,0.5);border-radius:10px;font-size:12.5px">💻 Chrome · Daegu, KR · 2026-05-28 09:03</div>'
+    ].join('');
+    var sBox = el('sessionsBox');
+    if (sBox) sBox.innerHTML = [
+      '<div style="padding:10px 14px;background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.35);border-radius:10px;margin-bottom:6px;font-size:12.5px;display:flex;justify-content:space-between;align-items:center"><span>🟢 <b>' + (en?'In use now':'현재 사용 중') + '</b> · Chrome · Seoul</span><span style="color:#86efac;font-size:10.5px;font-weight:700">' + (en?'Active':'활성') + '</span></div>',
+      '<div style="padding:10px 14px;background:rgba(15,23,42,0.5);border-radius:10px;font-size:12.5px;display:flex;justify-content:space-between;align-items:center"><span>📱 iPhone Safari · Seoul</span><button onclick="alert(\'' + (en?'Session ended':'세션 종료됨') + '\')" style="padding:4px 10px;background:#ef4444;color:#fff;border:0;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">' + (en?'End':'종료') + '</button></div>'
+    ].join('');
+  }
+  renderDemo();
+  window.addEventListener('mangoi:lang-changed', renderDemo);
 })();
 </script>
 
@@ -870,14 +943,14 @@
 <!-- 🎥 상담직원 인사말 팝업 — 우상단 휴대폰 크기, 자동 재생 (⏸️ 멈춤 / ❌ 나가기) -->
 <div id="greet-pop" style="position:fixed;top:14px;right:14px;z-index:99999;width:min(232px,62vw);background:rgba(15,23,42,0.94);border:1.5px solid rgba(251,191,36,0.55);border-radius:18px;box-shadow:0 18px 44px -10px rgba(0,0,0,0.65);overflow:hidden;display:none;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 9px;background:rgba(251,191,36,0.13)">
-    <span style="font-size:12px;font-weight:800;color:#fde68a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">💁‍♀️ 상담직원 인사말</span>
+    <span style="font-size:12px;font-weight:800;color:#fde68a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" data-ko="💁‍♀️ 상담직원 인사말" data-en="💁‍♀️ Counselor greeting">💁‍♀️ 상담직원 인사말</span>
     <span style="display:flex;gap:5px;flex:none">
       <button id="greet-pause" type="button" title="멈춤" aria-label="멈춤/재생" style="width:28px;height:28px;border-radius:50%;border:1px solid rgba(148,163,184,0.4);background:rgba(30,41,59,0.9);font-size:14px;line-height:1;cursor:pointer;padding:0">⏸️</button>
       <button id="greet-close" type="button" title="나가기" aria-label="나가기" style="width:28px;height:28px;border-radius:50%;border:1px solid rgba(148,163,184,0.4);background:rgba(30,41,59,0.9);font-size:13px;line-height:1;cursor:pointer;padding:0">❌</button>
     </span>
   </div>
   <video id="greet-video" src="/video/counselor-greeting.mp4" playsinline preload="auto" style="display:block;width:100%;aspect-ratio:1/1;object-fit:cover;background:#000"></video>
-  <button id="greet-sound" type="button" style="display:none;width:100%;border:none;padding:8px 0;background:#fbbf24;color:#1a1a1a;font-weight:900;font-size:12.5px;cursor:pointer">🔊 소리 켜고 다시 듣기</button>
+  <button id="greet-sound" type="button" style="display:none;width:100%;border:none;padding:8px 0;background:#fbbf24;color:#1a1a1a;font-weight:900;font-size:12.5px;cursor:pointer" data-ko="🔊 소리 켜고 다시 듣기" data-en="🔊 Turn on sound & replay">🔊 소리 켜고 다시 듣기</button>
 </div>
 <script>
 (function(){

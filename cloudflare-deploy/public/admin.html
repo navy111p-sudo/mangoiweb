@@ -8907,76 +8907,89 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   <div class="menu-body">
     <!-- 🎨 외부는 진한 톤, 안의 통계/박스는 연한 흰빛 — 명도 반전 -->
     <style>
+      /* 🎨 라이트 통일 — 다른 메뉴 카드와 동일한 흰 바탕 + 진한 글자 */
       #card-inquiry-mgmt details.sub-item {
-        background: linear-gradient(180deg, #0b1426 0%, #131c30 100%) !important;
-        border-color: rgba(99,102,241,0.30) !important;
+        background: #f8fafc !important;
+        border-color: #e5e7eb !important;
       }
-      #card-inquiry-mgmt details.sub-item > summary { color: #e0e7ff !important; }
-      #card-inquiry-mgmt details.sub-item > summary:hover { background: rgba(99,102,241,0.18) !important; color: #fbbf24 !important; }
-      #card-inquiry-mgmt details.sub-item[open] > summary { background: rgba(99,102,241,0.25) !important; color: #fde68a !important; }
+      #card-inquiry-mgmt details.sub-item > summary { color: #1f2937 !important; }
+      #card-inquiry-mgmt details.sub-item > summary:hover { background: #eef2ff !important; color: #4338ca !important; }
+      #card-inquiry-mgmt details.sub-item[open] > summary { background: #eef2ff !important; color: #1e3a8a !important; }
       #card-inquiry-mgmt details.sub-item > .sub-body { background: transparent !important; padding: 16px 18px !important; }
 
-      /* 외부 카드 자체 — 더 진한 파랑 */
+      /* 외부 카드 자체 — 흰색 */
       #card-inquiry-mgmt {
-        background: linear-gradient(180deg, #0a1330 0%, #131f3d 100%) !important;
-        border: 1px solid rgba(99,102,241,0.45) !important;
+        background: #ffffff !important;
+        border: 1px solid #e5e7eb !important;
       }
-      #card-inquiry-mgmt > summary {
-        background: linear-gradient(135deg, rgba(30,58,138,0.6), rgba(67,56,202,0.4)) !important;
-        color: #e0e7ff !important;
+      html body #card-inquiry-mgmt > summary {
+        background: #ffffff !important;
+        color: #1f2937 !important;
+        border: 1px solid #e5e7eb !important;
       }
-      #card-inquiry-mgmt > summary span { color: #fde68a !important; }
+      html body #card-inquiry-mgmt > summary > span { color: #1f2937 !important; }
+      html body #card-inquiry-mgmt > summary::after { color: #334155 !important; }
+      /* 헤더 안 버튼(새로고침 등) — 환한 파랑 → 파스텔 + 진한 글자 */
+      html body #card-inquiry-mgmt > summary > button {
+        background: #e6ecff !important;
+        color: #1e3a8a !important;
+        border: 1px solid #c7d2fe !important;
+      }
+      html body #card-inquiry-mgmt > summary > button:hover {
+        background: #d7defb !important;
+        color: #1e3a8a !important;
+      }
 
-      /* 통계 타일 4개 — 다크 네이비 + 밝은 파란 글자 (다른 대시보드와 톤 통일) */
+      /* 통계 타일 4개 — 흰 바탕 + 진한 글자 */
       html body #card-inquiry-mgmt #iq-stats-grid > div {
-        background: linear-gradient(180deg, #1A2548, #14213b) !important;
-        color: #dbeafe !important;
-        border: 1px solid rgba(96,165,250,0.45) !important;
-        box-shadow: 0 6px 16px -4px rgba(0,0,0,0.4) !important;
+        background: #ffffff !important;
+        color: #334155 !important;
+        border: 1px solid #e5e7eb !important;
+        box-shadow: 0 4px 12px -6px rgba(0,0,0,0.12) !important;
       }
-      html body #card-inquiry-mgmt #iq-stats-grid > div * { color: #dbeafe !important; }
-      html body #card-inquiry-mgmt #iq-stats-grid > div > div:nth-child(1) { color: #93c5fd !important; font-weight: 700 !important; }
-      html body #card-inquiry-mgmt #iq-stats-grid > div > div:nth-child(2) { color: #fbbf24 !important; font-weight: 900 !important; font-size: 22px !important; }
-      html body #card-inquiry-mgmt #iq-stats-grid > div > div:nth-child(3) { color: #cbd5e1 !important; font-size: 11.5px !important; }
+      html body #card-inquiry-mgmt #iq-stats-grid > div * { color: #334155 !important; }
+      html body #card-inquiry-mgmt #iq-stats-grid > div > div:nth-child(1) { color: #475569 !important; font-weight: 700 !important; }
+      html body #card-inquiry-mgmt #iq-stats-grid > div > div:nth-child(2) { color: #1d4ed8 !important; font-weight: 900 !important; font-size: 22px !important; }
+      html body #card-inquiry-mgmt #iq-stats-grid > div > div:nth-child(3) { color: #64748b !important; font-size: 11.5px !important; }
 
-      /* 상태별 분포 박스 — 다크 네이비 + 밝은 파란 텍스트 */
+      /* 상태별 분포 박스 — 흰 바탕 */
       html body #card-inquiry-mgmt #iq-status-bars {
-        background: linear-gradient(180deg, #1A2548, #14213b) !important;
-        color: #dbeafe !important;
-        border: 1px solid rgba(96,165,250,0.45) !important;
-        box-shadow: 0 6px 16px -4px rgba(0,0,0,0.4) !important;
+        background: #ffffff !important;
+        color: #334155 !important;
+        border: 1px solid #e5e7eb !important;
+        box-shadow: 0 4px 12px -6px rgba(0,0,0,0.12) !important;
         padding: 14px 16px !important;
         border-radius: 12px !important;
       }
       html body #card-inquiry-mgmt #iq-status-bars,
       html body #card-inquiry-mgmt #iq-status-bars * {
-        color: #dbeafe !important;
+        color: #334155 !important;
       }
       html body #card-inquiry-mgmt #iq-status-bars b,
-      html body #card-inquiry-mgmt #iq-status-bars strong { color: #fbbf24 !important; font-weight: 800 !important; }
+      html body #card-inquiry-mgmt #iq-status-bars strong { color: #1d4ed8 !important; font-weight: 800 !important; }
       /* 막대 그래프 트랙 (배경) */
       html body #card-inquiry-mgmt #iq-status-bars [style*="background"] {
-        background-color: rgba(15,23,42,0.5) !important;
+        background-color: #eef2f7 !important;
       }
       /* 막대 그래프 채워진 부분은 별도 색상 유지 (linear-gradient 등) — 위 규칙으로 인해 덮어쓰지 않음 */
 
-      /* 상담 목록 컨테이너 — 다크 톤 */
+      /* 상담 목록 컨테이너 — 흰 바탕 */
       html body #card-inquiry-mgmt #iq-list {
-        background: linear-gradient(180deg, #1A2548, #14213b) !important;
-        border: 1px solid rgba(96,165,250,0.35) !important;
+        background: #ffffff !important;
+        border: 1px solid #e5e7eb !important;
         border-radius: 12px !important;
         padding: 14px !important;
-        box-shadow: 0 6px 16px -4px rgba(0,0,0,0.4) !important;
+        box-shadow: 0 4px 12px -6px rgba(0,0,0,0.12) !important;
         min-height: 80px;
       }
-      html body #card-inquiry-mgmt #iq-list * { color: #dbeafe !important; }
+      html body #card-inquiry-mgmt #iq-list * { color: #334155 !important; }
       html body #card-inquiry-mgmt #iq-list b,
-      html body #card-inquiry-mgmt #iq-list strong { color: #fbbf24 !important; font-weight: 700 !important; }
+      html body #card-inquiry-mgmt #iq-list strong { color: #1d4ed8 !important; font-weight: 700 !important; }
       /* 필터 select / 버튼 / 카운트 */
       #card-inquiry-mgmt #iq-filter {
-        background: #1A2548 !important; color: #dbeafe !important; border: 1px solid rgba(96,165,250,0.45) !important;
+        background: #ffffff !important; color: #334155 !important; border: 1px solid #cbd5e1 !important;
       }
-      #card-inquiry-mgmt #iq-count { color: #cbd5e1 !important; font-weight: 600 !important; }
+      #card-inquiry-mgmt #iq-count { color: #64748b !important; font-weight: 600 !important; }
     </style>
     <div class="sub-menu">
 
@@ -21475,7 +21488,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260616173407 -->
+        <!-- BUILD:20260616181442 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -27097,30 +27110,26 @@ button.chip:hover,
        - ID 스코프 + !important 로 위 인디고 그라데이션 규칙을 덮음.
      ============================================ */
   #card-retention > summary,
-  #card-active-rooms > summary,
-  #card-inquiry-mgmt > summary {
+  #card-active-rooms > summary {
     background: linear-gradient(135deg, #e6ecff 0%, #f0eaff 100%) !important;
     color: #1e293b !important;
     border: 1px solid rgba(99,102,241,0.30) !important;
   }
   #card-retention > summary > span,
-  #card-active-rooms > summary > span,
-  #card-inquiry-mgmt > summary > span {
+  #card-active-rooms > summary > span {
     color: #1e293b !important;
   }
   /* 펼침 화살표(▶/▼)도 어두운색으로 */
   #card-retention > summary::after,
-  #card-active-rooms > summary::after,
-  #card-inquiry-mgmt > summary::after {
+  #card-active-rooms > summary::after {
     color: #334155 !important;
   }
-  /* 헤더 안 액션 버튼(지금 실행 / 새로고침)은 파스텔 위에서 또렷한 톤 유지 */
+  /* 헤더 안 액션 버튼(지금 실행 / 새로고침) — 파스텔 배경 + 진한 글자 */
   #card-retention > summary > button,
-  #card-active-rooms > summary > button,
-  #card-inquiry-mgmt > summary > button {
-    background: #4f46e5 !important;
-    color: #ffffff !important;
-    border: none !important;
+  #card-active-rooms > summary > button {
+    background: #e6ecff !important;
+    color: #1e3a8a !important;
+    border: 1px solid #c7d2fe !important;
   }
 
   /* 안쪽 details (sub-item) */
@@ -27760,6 +27769,8 @@ button.chip:hover,
         // 폼/버튼/input 류는 ph102 이미 처리 — skip
         if (el.matches('input, textarea, select, button, option, label')) return;
         if (el.matches('.ph85-head, .ph85-sub, .ph86-action-btn')) return;
+        // 🎨 신규상담 카드는 흰 배경 유지(다크화 제외)
+        if (el.closest('#card-inquiry-mgmt')) return;
 
         var cs = window.getComputedStyle(el);
         var bg = cs.backgroundColor;
@@ -28065,6 +28076,8 @@ button.chip:hover,
       card.querySelectorAll('div, section, article, form, fieldset').forEach(function(el){
         // ph85 사이드바, action btn 제외
         if (el.matches('.ph85-head, .ph85-sub, .ph86-action-btn, #ph85-sidebar, #ph85-sidebar *')) return;
+        // 🎨 신규상담 카드는 흰 배경 유지(다크화 제외)
+        if (el.closest('#card-inquiry-mgmt')) return;
         if (el.__ph105) return;
 
         var cs = window.getComputedStyle(el);
@@ -28100,6 +28113,7 @@ button.chip:hover,
       });
 
       // 카드 내부 모든 input 강제 다크 (마지막 안전망)
+      if (card.id === 'card-inquiry-mgmt') return; // 🎨 신규상담 카드는 흰 배경 유지
       card.querySelectorAll('input, textarea, select').forEach(function(el){
         if (el.type === 'checkbox' || el.type === 'radio') return;
         el.style.setProperty('background', 'rgba(15,23,42,0.85)', 'important');
