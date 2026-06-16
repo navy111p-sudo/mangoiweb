@@ -38,7 +38,14 @@
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     font-size: 32px; letter-spacing: 1px; display: block; line-height: 1;
   }
-  .brand-sub { color: #94a3b8; font-size: 12px; margin-top: 4px; }
+  .brand-sub {
+    font-family: 'Noto Sans KR', -apple-system, sans-serif;
+    font-weight: 800;
+    font-size: 16px; letter-spacing: -0.4px; margin-top: 6px;
+    background: linear-gradient(135deg,#fde68a 0%,#fbbf24 35%,#f59e0b 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+  }
 
   .child-card {
     background: linear-gradient(135deg, rgba(251,191,36,0.12), rgba(245,158,11,0.06));
@@ -224,7 +231,7 @@ function showKakaoShareDialog(url) {
 <div class="wrap">
   <div class="brand">
     <span class="brand-logo">Mangoi</span>
-    <div class="brand-sub" data-ko="학부모 대시보드 — 자녀의 학습 한눈에" data-en="Parent Dashboard — Track your child's progress">학부모 대시보드 — 자녀의 학습 한눈에</div>
+    <div class="brand-sub" data-ko="마이 페이지 (My Page)" data-en="My Page">마이 페이지 (My Page)</div>
   </div>
 
   <div id="entry">
@@ -639,6 +646,6 @@ function pdRender(d){
 })();
 </script>
 <script defer src="/js/back-nav.js"></script>
-<!-- BUILD:20260617013607 -->
+<!-- BUILD:20260617020146 -->
 </body>
 </html>
