@@ -2235,7 +2235,7 @@
          onclick="if(window.miAsstOpen){window.miAsstOpen();}else{alert('AI 운영비서를 불러오는 중입니다. 잠시 후 다시 눌러주세요.');}"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
       <span id="mi-ops-fab-label" data-ko="AI 운영비서" data-en="AI Ops Assistant">AI 운영비서</span>
-      <span id="mi-ops-fab-btn" aria-hidden="true"></span>
+      <span id="mi-ops-fab-btn" aria-hidden="true"><video id="mi-ops-fab-vid" src="/video/ai-ops-greeting.mp4" muted loop autoplay playsinline preload="auto"></video></span>
     </div>
     <style>
       /* 홈페이지 #mangoi-widget(A.i 상담사) 와 동일한 룩 — 우하단 코너, 클릭 시 AI 운영비서 패널 오픈 */
@@ -2246,9 +2246,11 @@
         border-radius:999px; white-space:nowrap; box-shadow:0 3px 10px rgba(0,0,0,0.4);
         border:1px solid rgba(255,204,0,0.55); pointer-events:none; }
       #mi-ops-fab-btn{ position:absolute; left:0; bottom:0; width:64px; height:64px;
-        border:3px solid #ffcc00; border-radius:50%;
-        background:#ffcc00 url('/img/avatar-face.jpg') center 22% / cover no-repeat;
+        border:3px solid #ffcc00; border-radius:50%; background:#111;
         box-shadow:0 6px 18px rgba(0,0,0,0.35); animation: miOpsGlowPulse 1.8s ease-in-out infinite; }
+      /* 답변하는 서양인 여자 상담사 얼굴(아바타 영상과 동일) — 원형 클립 */
+      #mi-ops-fab-vid{ position:absolute; inset:0; width:100%; height:100%; border-radius:50%;
+        object-fit:cover; object-position:center 18%; display:block; pointer-events:none; }
       /* ✨ 회전하는 후광 링 */
       #mi-ops-fab-btn::before{ content:""; position:absolute; inset:-6px; border-radius:50%; z-index:-1;
         background:conic-gradient(from 0deg, #ffcc00, #fff7c2, #ffae00, #fff7c2, #ffcc00);
@@ -21506,7 +21508,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260616195608 -->
+        <!-- BUILD:20260616200731 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
