@@ -1920,7 +1920,16 @@
     var menu = document.getElementById('admin-theme-menu');
     if (menu) { menu.classList.add('open'); menu.setAttribute('aria-hidden','false'); syncMenu(); }
   }
-  window.setAdminTheme = function(t){ applyTheme(t); closeMenu(); };
+  window.setAdminTheme = function(t){
+    if (t !== 'ivory' && t !== 'dark') t = 'dark';
+    var cur = document.documentElement.getAttribute('data-admin-theme') || 'dark';
+    try { localStorage.setItem(KEY, t); } catch(e){}
+    closeMenu();
+    /* 다크↔아이보리 전환 시 새로고침: 다크화 페인터(ph103/ph105)가
+       이미 칠해 놓은 인라인 스타일을 깨끗이 초기화하기 위함 (저장값은 유지되어 깜빡임 없음) */
+    if (t !== cur) { location.reload(); return; }
+    applyTheme(t);
+  };
   window.toggleAdminThemeMenu = function(){
     var menu = document.getElementById('admin-theme-menu');
     if (!menu) return;
@@ -21438,7 +21447,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260616153129 -->
+        <!-- BUILD:20260616153743 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -27630,6 +27639,7 @@ button.chip:hover,
   'use strict';
   // ph103: getComputedStyle 로 흰색 배경 element 찾아서 자동 다크화
   function ph103DarkifyWhites(){
+    if (document.documentElement.getAttribute('data-admin-theme') === 'ivory') return; // 🎨 아이보리 테마에서는 다크화 중지
     var cards = document.querySelectorAll('details.menu-card, details.table-card.menu-card');
     cards.forEach(function(card){
       // 카드 내부 모든 element 검사
@@ -27934,6 +27944,7 @@ button.chip:hover,
   'use strict';
   // ph105: 모든 카드 안의 흰 컴퓨티드 배경 element 강력 감지 + 다크화
   function ph105ForceUniversal(){
+    if (document.documentElement.getAttribute('data-admin-theme') === 'ivory') return; // 🎨 아이보리 테마에서는 다크화 중지
     // 모든 카드
     document.querySelectorAll('[id^="card-"]').forEach(function(card){
       // 카드 내부 모든 element
