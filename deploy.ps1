@@ -82,22 +82,30 @@ git commit -m "deploy: $(Get-Date -Format 'yyyy-MM-dd HH:mm') (build $buildTs)" 
 git push origin main 2>&1 | Out-Null
 Write-Host "  완료" -ForegroundColor Green
 
-# [6] Cloudflare deploy
-Write-Step "6/7" "Cloudflare Workers 배포"
+# [6] Cloudflare deploy — 기본(webrtc-unified-platform) + 프로덕션(webrtc-unified-platform-prod) 둘 다
+# 주의: 실제 운영 도메인이 '-prod' 라서, 프로덕션 env 까지 배포해야 변경이 사용자 화면에 반영됨.
+Write-Step "6/7" "Cloudflare Workers 배포 (기본 + 프로덕션 -prod)"
 # 비대화형 모드 — wrangler 최신 버전의 "skills 설치?" 등 프롬프트로 멈추지 않게
 $env:CI = "true"
 $env:WRANGLER_SEND_METRICS = "false"
 Push-Location cloudflare-deploy
 try {
-    & npx --yes wrangler@latest deploy --config wrangler.toml 2>&1 | ForEach-Object {
-        $line = $_
-        if     ($line -match 'Uploaded webrtc-unified-platform') { Write-Host $line -ForegroundColor Green }
-        elseif ($line -match 'Found \d+|Uploaded \d+|Success!') { Write-Host $line -ForegroundColor Cyan }
-        elseif ($line -match 'ERROR|error|failed')              { Write-Host $line -ForegroundColor Red }
-        elseif ($line -match 'WARNING|warning')                 { Write-Host $line -ForegroundColor Yellow }
-        else { Write-Host $line -ForegroundColor Gray }
+    function Invoke-WranglerDeploy {
+        param([string]$Label, [string[]]$Extra)
+        Write-Host ""; Write-Host "  >>> $Label 배포 중..." -ForegroundColor Cyan
+        & npx --yes wrangler@latest deploy --config wrangler.toml @Extra 2>&1 | ForEach-Object {
+            $line = $_
+            if     ($line -match 'Uploaded webrtc-unified-platform') { Write-Host $line -ForegroundColor Green }
+            elseif ($line -match 'Found \d+|Uploaded \d+|Success!') { Write-Host $line -ForegroundColor Cyan }
+            elseif ($line -match 'ERROR|error|failed')              { Write-Host $line -ForegroundColor Red }
+            elseif ($line -match 'WARNING|warning')                 { Write-Host $line -ForegroundColor Yellow }
+            else { Write-Host $line -ForegroundColor Gray }
+        }
+        return $LASTEXITCODE
     }
-    $deployExit = $LASTEXITCODE
+    $exitMain = Invoke-WranglerDeploy -Label "기본(webrtc-unified-platform)" -Extra @()
+    $exitProd = Invoke-WranglerDeploy -Label "프로덕션(webrtc-unified-platform-prod)" -Extra @('--env','production')
+    if ($exitMain -ne 0) { $deployExit = $exitMain } else { $deployExit = $exitProd }
 } finally { Pop-Location }
 
 # [7] 결과
