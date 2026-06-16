@@ -26962,7 +26962,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260617012348 -->
+<!-- BUILD:20260617013258 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -29499,7 +29499,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     #mangoi-widget { width:128px; height:128px; }
     #mangoi-toggle { width:128px; height:128px; border-width:6px; }
     #mangoi-label  { bottom:140px; font-size:22px; padding:8px 20px; }
-    #mangoi-frame  { width:588px; height:1008px; bottom:140px; }
+    #mangoi-frame  { width:588px; height:660px; bottom:140px; }
   }
 </style>
 <script>
@@ -29514,7 +29514,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       // PC(≥481px)에서는 패널이 2배 커지므로(588×1008) CSS 와 동일한 크기로 가장자리 판정 — 안 그러면 확대된 창이 화면 밖으로 열림
       var isPC=window.innerWidth>=481;
       var fw=Math.min(isPC?588:294, window.innerWidth-24);
-      var fh=Math.min(isPC?1008:504, window.innerHeight-80);
+      var fh=Math.min(isPC?660:504, window.innerHeight-80);
       w.classList.toggle("flip-down", r.top < fh+12);                       // 위 공간 부족 → 아래로
       w.classList.toggle("flip-left", (r.left + fw) > (window.innerWidth-6)); // 오른쪽 부족 → 왼쪽으로
     }
