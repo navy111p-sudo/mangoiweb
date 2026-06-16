@@ -1891,6 +1891,17 @@
 <link rel="stylesheet" href="/css/admin-readability.css"><!-- 가독성 보강: Pretendard 폰트·줄간격·자간·대비 (기존 내부 style 다음에 로드) -->
 </head>
 <body>
+<script>
+/* 🎨 관리자 테마 — 페이지 그려지기 전에 저장된 테마 적용 (깜빡임 방지)
+   'dark' = 기존 다크(기본), 'ivory' = 아이보리 배경 + 파스텔 카드 */
+(function(){
+  try {
+    var t = localStorage.getItem('mangoi_admin_theme');
+    if (t !== 'ivory' && t !== 'dark') t = 'dark';
+    document.documentElement.setAttribute('data-admin-theme', t);
+  } catch(e){ document.documentElement.setAttribute('data-admin-theme', 'dark'); }
+})();
+</script>
 
 <!-- (2026-06-01) 관리자 페이지 수업입장 배너 제거 — 교사 마이페이지에서만 입장 -->
 
@@ -1916,6 +1927,27 @@
       <option value="90" data-ko="최근 90일" data-en="Last 90 days">최근 90일</option>
     </select>
     <a class="th-btn th-btn-amber" href="/admin/health" title="셀프 진단" data-ko="🩺 셀프 진단" data-en="🩺 Health">🩺 셀프 진단</a>
+    <!-- 🎨 관리자 페이지 색상(테마) 선택 -->
+    <div id="admin-theme-wrap" style="position:relative">
+      <button id="admin-theme-btn" type="button" class="th-btn th-btn-ghost"
+              title="관리자 페이지 색상 선택" data-ko-title="관리자 페이지 색상 선택" data-en-title="Choose admin page color"
+              onclick="window.toggleAdminThemeMenu && window.toggleAdminThemeMenu()">
+        🎨 <span data-ko="색상" data-en="Theme">색상</span>
+      </button>
+      <div id="admin-theme-menu" role="menu" aria-hidden="true">
+        <div class="atm-title" data-ko="배경 색상 선택" data-en="Background color">배경 색상 선택</div>
+        <button type="button" class="atm-opt" data-theme="dark" onclick="window.setAdminTheme && window.setAdminTheme('dark')">
+          <span class="atm-swatch atm-sw-dark"></span>
+          <span class="atm-label"><b data-ko="네이비 (현재)" data-en="Navy (current)">네이비 (현재)</b><small data-ko="어두운 코발트 배경" data-en="Dark cobalt background">어두운 코발트 배경</small></span>
+          <span class="atm-check">✓</span>
+        </button>
+        <button type="button" class="atm-opt" data-theme="ivory" onclick="window.setAdminTheme && window.setAdminTheme('ivory')">
+          <span class="atm-swatch atm-sw-ivory"></span>
+          <span class="atm-label"><b data-ko="아이보리 + 파스텔" data-en="Ivory + Pastel">아이보리 + 파스텔</b><small data-ko="밝은 아이보리 배경·파스텔 카드" data-en="Light ivory bg, pastel cards">밝은 아이보리 배경·파스텔 카드</small></span>
+          <span class="atm-check">✓</span>
+        </button>
+      </div>
+    </div>
     <button class="th-btn th-btn-ghost" onclick="toggleAdminLang()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
       <span id="admin-lang-label">EN</span>
@@ -2209,7 +2241,8 @@
     </div>
     <style>
       /* 홈페이지 #mangoi-widget(A.i 상담사) 와 동일한 룩 — 단, 좌하단·클릭 시 AI 운영비서 패널 오픈 */
-      #mi-ops-fab{ position:fixed; left:16px; bottom:16px; width:64px; height:64px; z-index:9991; cursor:pointer; }
+      /* z-index 는 좌측 사이드바(#ph85-sidebar:9999)·손잡이(#ph85-handle:10001) 보다 높아야 가려지지 않음 (안 그러면 로드 직후 잠깐 보였다 사이드바에 덮임) */
+      #mi-ops-fab{ position:fixed; left:16px; bottom:16px; width:64px; height:64px; z-index:10002; cursor:pointer; }
       #mi-ops-fab-label{ position:absolute; left:50%; bottom:72px; transform:translateX(-50%);
         background:#1a1a1a; color:#ffcc00; font-weight:800; font-size:12px; padding:4px 11px;
         border-radius:999px; white-space:nowrap; box-shadow:0 3px 10px rgba(0,0,0,0.4);
@@ -21365,7 +21398,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260616145410 -->
+        <!-- BUILD:20260616150057 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -37177,6 +37210,234 @@ button.chip:hover,
     line-height: 1.5 !important;
   }
 </style>
+<!-- ════════════════════════════════════════════════════════════════
+     🎨 관리자 페이지 색상 선택 (테마) — 다크(기본) / 아이보리·파스텔
+     · html[data-admin-theme="ivory"] 일 때만 아래 규칙이 적용됨
+     · 기존 다크 테마는 --da-* 변수 기반이라, 변수만 재정의해도 대부분 밝아짐
+     · 우상단 "🎨 색상" 버튼으로 전환, 선택은 localStorage 에 저장
+     ════════════════════════════════════════════════════════════════ -->
+<style id="ivory-theme-css">
+  /* ── 색상 선택 드롭다운 메뉴 (테마와 무관하게 항상 적용) ── */
+  #admin-theme-menu {
+    position: absolute; top: calc(100% + 8px); right: 0; z-index: 10000;
+    width: 244px; padding: 8px; display: none;
+    background: #ffffff; border: 1px solid rgba(99,102,241,0.25);
+    border-radius: 14px; box-shadow: 0 18px 44px -12px rgba(15,23,42,0.45);
+  }
+  #admin-theme-menu.open { display: block; }
+  #admin-theme-menu .atm-title {
+    font-size: 11px; font-weight: 800; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: 1px; padding: 4px 8px 8px;
+  }
+  #admin-theme-menu .atm-opt {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    padding: 9px 10px; margin: 0; border: 1px solid transparent;
+    border-radius: 10px; background: transparent; cursor: pointer; text-align: left;
+  }
+  #admin-theme-menu .atm-opt:hover { background: #f1f5f9; }
+  #admin-theme-menu .atm-swatch {
+    width: 30px; height: 30px; border-radius: 8px; flex: 0 0 auto;
+    border: 1px solid rgba(0,0,0,0.12);
+  }
+  #admin-theme-menu .atm-sw-dark {
+    background: linear-gradient(135deg,#0a1530 0%,#142950 60%,#4f7cff 130%);
+  }
+  #admin-theme-menu .atm-sw-ivory {
+    background: linear-gradient(135deg,#fffdf7 0%,#fde7c8 55%,#cfe6ff 130%);
+  }
+  #admin-theme-menu .atm-label { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  #admin-theme-menu .atm-label b { font-size: 13px; color: #1f2937; font-weight: 800; }
+  #admin-theme-menu .atm-label small { font-size: 11px; color: #94a3b8; }
+  #admin-theme-menu .atm-check { color: #6366f1; font-weight: 900; opacity: 0; font-size: 15px; }
+  /* 현재 선택된 옵션에 체크 표시 + 강조 */
+  html[data-admin-theme="dark"]  #admin-theme-menu .atm-opt[data-theme="dark"],
+  html[data-admin-theme="ivory"] #admin-theme-menu .atm-opt[data-theme="ivory"] {
+    background: #eef2ff; border-color: rgba(99,102,241,0.35);
+  }
+  html[data-admin-theme="dark"]  #admin-theme-menu .atm-opt[data-theme="dark"]  .atm-check,
+  html[data-admin-theme="ivory"] #admin-theme-menu .atm-opt[data-theme="ivory"] .atm-check { opacity: 1; }
+
+  /* ════════════════════════════════════════════════════════════════
+     아이보리 + 파스텔 테마
+     ════════════════════════════════════════════════════════════════ */
+  /* 1) 다크 테마가 쓰는 --da-* 변수를 밝은 값으로 재정의 → var() 기반 규칙 일괄 변환 */
+  html[data-admin-theme="ivory"] {
+    --da-bg:        #fdf6ea;
+    --da-bg-2:      #fbf1e1;
+    --da-card:      #ffffff;
+    --da-card-2:    #fbf6ec;
+    --da-input:     #ffffff;
+    --da-border:    rgba(150,120,70,0.18);
+    --da-border-strong: rgba(150,120,70,0.30);
+    --da-text:      #3a352c;
+    --da-text-2:    #6f6557;
+    --da-text-3:    #9c9384;
+    --da-accent:    #e0892f;
+  }
+
+  /* 2) 페이지 배경 — 따뜻한 아이보리 + 은은한 파스텔 블롭 */
+  html[data-admin-theme="ivory"] body {
+    color: #3a352c !important;
+    background:
+      radial-gradient(circle at 0% 0%,   rgba(255,214,153,0.30) 0%, transparent 36%),
+      radial-gradient(circle at 100% 0%, rgba(186,221,255,0.28) 0%, transparent 34%),
+      radial-gradient(circle at 100% 100%, rgba(214,196,255,0.26) 0%, transparent 34%),
+      radial-gradient(circle at 0% 100%, rgba(190,240,214,0.26) 0%, transparent 34%),
+      linear-gradient(180deg, #fffdf7 0%, #fdf6ea 50%, #fbf1e1 100%) !important;
+    background-attachment: fixed !important;
+  }
+
+  /* 3) 상단 헤더 — 밝은 글래스 톤 + 어두운 글자 */
+  html[data-admin-theme="ivory"] .top-header {
+    background: linear-gradient(135deg, rgba(255,255,255,0.92), rgba(255,247,237,0.86)) !important;
+    border: 1px solid rgba(150,120,70,0.18) !important;
+    box-shadow: 0 10px 30px -12px rgba(120,80,20,0.22) !important;
+  }
+  html[data-admin-theme="ivory"] .th-title,
+  html[data-admin-theme="ivory"] .th-subtitle,
+  html[data-admin-theme="ivory"] h1 { color: #3a352c !important; }
+  html[data-admin-theme="ivory"] .th-btn { color: #44403c !important; background: rgba(255,255,255,0.7) !important; border:1px solid rgba(150,120,70,0.2) !important; }
+
+  /* 4) 사이드바 — 크림/피치 글래스 */
+  html[data-admin-theme="ivory"] .admin-sidebar {
+    background: linear-gradient(180deg, rgba(255,251,235,0.92) 0%, rgba(255,237,213,0.78) 50%, rgba(254,226,197,0.7) 100%) !important;
+    border: 1px solid rgba(150,120,70,0.16) !important;
+    box-shadow: 0 16px 40px -14px rgba(120,80,20,0.18) !important;
+  }
+  html[data-admin-theme="ivory"] .admin-sidebar h4 { color: #b45309 !important; }
+  html[data-admin-theme="ivory"] .sb-cat { background: rgba(255,255,255,0.6) !important; border:1px solid rgba(150,120,70,0.16) !important; }
+  html[data-admin-theme="ivory"] .sb-cat:hover { background: rgba(255,255,255,0.95) !important; box-shadow:0 4px 12px rgba(120,80,20,0.12) !important; }
+  html[data-admin-theme="ivory"] .sb-cat-head,
+  html[data-admin-theme="ivory"] .sb-cat-label { color: #44403c !important; }
+  html[data-admin-theme="ivory"] .sb-cat-count { color:#6f6557 !important; background: rgba(150,120,70,0.12) !important; }
+  html[data-admin-theme="ivory"] .sb-cat-arrow { color:#9c9384 !important; }
+  html[data-admin-theme="ivory"] .sb-cat .sb-sub-panel { background:#fffdf8 !important; border:1px solid rgba(150,120,70,0.2) !important; box-shadow:0 20px 50px -10px rgba(120,80,20,0.22) !important; }
+  html[data-admin-theme="ivory"] .sb-sub-item,
+  html[data-admin-theme="ivory"] .sb-subsub-item { color:#6f6557 !important; }
+  html[data-admin-theme="ivory"] .sb-sub-item:hover,
+  html[data-admin-theme="ivory"] .sb-subsub-item:hover { background: rgba(99,102,241,0.10) !important; color:#3a352c !important; }
+
+  /* 5) 카드/표/메뉴카드 — 흰 카드 + 부드러운 그림자 */
+  html[data-admin-theme="ivory"] .card,
+  html[data-admin-theme="ivory"] .chart-card,
+  html[data-admin-theme="ivory"] .table-card,
+  html[data-admin-theme="ivory"] .menu-card {
+    background: #ffffff !important;
+    border: 1px solid rgba(150,120,70,0.16) !important;
+    box-shadow: 0 8px 24px -10px rgba(120,80,20,0.16), 0 1px 3px rgba(0,0,0,0.04) !important;
+  }
+  html[data-admin-theme="ivory"] .card-value { color:#1f2937 !important; }
+  html[data-admin-theme="ivory"] .card-label,
+  html[data-admin-theme="ivory"] .chart-title { color:#6f6557 !important; }
+  html[data-admin-theme="ivory"] .card-sub { color:#9c9384 !important; }
+  html[data-admin-theme="ivory"] .menu-card > summary { color:#3a352c !important; }
+  html[data-admin-theme="ivory"] h2,
+  html[data-admin-theme="ivory"] h3,
+  html[data-admin-theme="ivory"] h4,
+  html[data-admin-theme="ivory"] label,
+  html[data-admin-theme="ivory"] small { color:#44403c !important; }
+
+  /* 표 */
+  html[data-admin-theme="ivory"] table { color:#3a352c !important; }
+  html[data-admin-theme="ivory"] table th { background:#faf6ee !important; color:#6f6557 !important; border-bottom:1px solid rgba(150,120,70,0.18) !important; }
+  html[data-admin-theme="ivory"] table td { color:#3a352c !important; border-bottom:1px solid rgba(150,120,70,0.12) !important; }
+  html[data-admin-theme="ivory"] table tbody tr:hover { background: rgba(99,102,241,0.05) !important; }
+
+  /* 6) KPI 타일 — 카테고리별 파스텔 카드 (좌측 컬러 막대는 유지) */
+  html[data-admin-theme="ivory"] .kpi-tile {
+    border: 1px solid rgba(150,120,70,0.14) !important;
+    box-shadow: 0 6px 18px -10px rgba(120,80,20,0.18) !important;
+  }
+  html[data-admin-theme="ivory"] .kpi-tile,
+  html[data-admin-theme="ivory"] .kpi-tile * { color:#475467 !important; }
+  html[data-admin-theme="ivory"] .kpi-tile .kpi-label,
+  html[data-admin-theme="ivory"] .kpi-tile .card-label { color:#64748b !important; }
+  html[data-admin-theme="ivory"] .kpi-tile .kpi-value,
+  html[data-admin-theme="ivory"] .kpi-tile .card-value { color:#92400e !important; }
+  html[data-admin-theme="ivory"] .kpi-tile .kpi-sub,
+  html[data-admin-theme="ivory"] .kpi-tile .card-sub { color:#94a3b8 !important; }
+  html[data-admin-theme="ivory"] .kpi-tile .kpi-trend { color:#16a34a !important; }
+  html[data-admin-theme="ivory"] .kpi-tile.kpi-students   { background: linear-gradient(135deg,#eaf2ff,#f6faff) !important; }
+  html[data-admin-theme="ivory"] .kpi-tile.kpi-revenue    { background: linear-gradient(135deg,#e6f7ee,#f5fcf8) !important; }
+  html[data-admin-theme="ivory"] .kpi-tile.kpi-attendance { background: linear-gradient(135deg,#fff3e0,#fffaf2) !important; }
+  html[data-admin-theme="ivory"] .kpi-tile.kpi-eval       { background: linear-gradient(135deg,#f3ecff,#faf7ff) !important; }
+  html[data-admin-theme="ivory"] .kpi-tile.kpi-overdue    { background: linear-gradient(135deg,#ffece9,#fff6f5) !important; }
+  html[data-admin-theme="ivory"] .kpi-tile.kpi-points     { background: linear-gradient(135deg,#fff6da,#fffdf3) !important; }
+  html[data-admin-theme="ivory"] .kpi-tile.kpi-chat       { background: linear-gradient(135deg,#e3f6fb,#f4fcfe) !important; }
+  html[data-admin-theme="ivory"] .kpi-tile.kpi-inquiry    { background: linear-gradient(135deg,#ffe9f3,#fff6fa) !important; }
+
+  /* 7) 하드코딩된 다크 카드/패널 (네이비 #0b1426·#0f172a) → 밝은 톤 복원 */
+  html[data-admin-theme="ivory"] #card-students-mgmt,
+  html[data-admin-theme="ivory"] #card-attendance-status,
+  html[data-admin-theme="ivory"] #card-class-attendance,
+  html[data-admin-theme="ivory"] #card-popups-mgmt {
+    background: #ffffff !important;
+    border: 1px solid rgba(150,120,70,0.16) !important;
+  }
+  html[data-admin-theme="ivory"] #card-teacher-mgmt details.sub-item > .sub-body,
+  html[data-admin-theme="ivory"] .menu-card .menu-form,
+  html[data-admin-theme="ivory"] .sub-item,
+  html[data-admin-theme="ivory"] .sub-body {
+    background: #fbf7ef !important;
+    border-color: rgba(150,120,70,0.18) !important;
+    color: #3a352c !important;
+  }
+  /* 다크 배경 위에서 골드(#fbbf24)로 강제됐던 라벨 → 밝은 배경용 진한 앰버 */
+  html[data-admin-theme="ivory"] #card-students-mgmt .menu-body label,
+  html[data-admin-theme="ivory"] #card-popups-mgmt .menu-body label,
+  html[data-admin-theme="ivory"] .menu-card .menu-form label { color:#b45309 !important; }
+
+  /* 8) 코드/배지 가독성 */
+  html[data-admin-theme="ivory"] code { background: rgba(99,102,241,0.10) !important; color:#5b21b6 !important; }
+  html[data-admin-theme="ivory"] ::-webkit-scrollbar-track { background: #f4ede0; }
+  html[data-admin-theme="ivory"] ::-webkit-scrollbar-thumb { background: rgba(150,120,70,0.28); }
+</style>
+
+<script id="admin-theme-toggle-js">
+/* 🎨 관리자 페이지 색상(테마) 토글 — 다크(기본) ↔ 아이보리·파스텔 */
+(function(){
+  "use strict";
+  var KEY = 'mangoi_admin_theme';
+  function apply(t){
+    if (t !== 'ivory' && t !== 'dark') t = 'dark';
+    document.documentElement.setAttribute('data-admin-theme', t);
+    try { localStorage.setItem(KEY, t); } catch(e){}
+  }
+  window.setAdminTheme = function(t){
+    apply(t);
+    closeMenu();
+  };
+  function openMenu(){
+    var m = document.getElementById('admin-theme-menu');
+    if (!m) return;
+    m.classList.add('open');
+    m.setAttribute('aria-hidden','false');
+    setTimeout(function(){ document.addEventListener('click', onDocClick, true); }, 0);
+  }
+  function closeMenu(){
+    var m = document.getElementById('admin-theme-menu');
+    if (!m) return;
+    m.classList.remove('open');
+    m.setAttribute('aria-hidden','true');
+    document.removeEventListener('click', onDocClick, true);
+  }
+  function onDocClick(e){
+    var wrap = document.getElementById('admin-theme-wrap');
+    if (wrap && !wrap.contains(e.target)) closeMenu();
+  }
+  window.toggleAdminThemeMenu = function(){
+    var m = document.getElementById('admin-theme-menu');
+    if (!m) return;
+    if (m.classList.contains('open')) closeMenu(); else openMenu();
+  };
+  // 초기 상태 동기화 (head 의 사전 적용 스크립트가 이미 attribute 설정함)
+  try {
+    var cur = localStorage.getItem(KEY);
+    if (cur !== 'ivory' && cur !== 'dark') cur = 'dark';
+    document.documentElement.setAttribute('data-admin-theme', cur);
+  } catch(e){}
+})();
+</script>
 <script defer src="/js/i18n-sweep.js?v=3"></script>
 </body>
 </html>
