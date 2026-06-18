@@ -4500,14 +4500,15 @@
     <div class="ai-search-wrap" style="position:relative;z-index:1;width:100%;max-width:680px;margin:0 auto">
       <div class="ai-search-box">
         <span class="ai-search-icon" aria-hidden="true">
-          <span style="display:inline-flex;width:1.7em;height:1.7em;border-radius:50%;overflow:hidden;vertical-align:middle;flex:0 0 auto;">
-            <video src="/video/ai-ops-greeting.mp4" muted loop autoplay playsinline preload="auto" style="width:100%;height:100%;object-fit:cover;"></video>
-          </span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
+            <circle cx="11" cy="11" r="7"></circle>
+            <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
+          </svg>
         </span>
         <input id="ai-home-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="ai-home-q-nofill" readonly onfocus="this.removeAttribute('readonly')"
-               placeholder="AI에게 물어보기 - 원하시는 것을 알려주세요."
-               data-ko-placeholder="AI에게 물어보기 - 원하시는 것을 알려주세요."
-               data-en-placeholder="Ask AI - tell me what you need." value="" />
+               placeholder="🤖 AI에게 물어보기 - 원하시는 것을 알려주세요."
+               data-ko-placeholder="🤖 AI에게 물어보기 - 원하시는 것을 알려주세요."
+               data-en-placeholder="🤖 Ask AI - tell me what you need." value="" />
         <button class="ai-search-mic" id="ai-home-mic" type="button" title="음성 검색 — 클릭 후 말하세요" data-ko-title="음성 검색 — 클릭 후 말하세요" data-en-title="Voice search — click then speak" aria-label="Voice search">
           <span class="mic-ring mic-ring-1"></span>
           <span class="mic-ring mic-ring-2"></span>
@@ -21509,8 +21510,8 @@ window.closeRulesModal = function() {
 <!-- 🤖 AI 검색창 placeholder 강제 보장 — 새로고침/언어전환/탭복귀에도 무조건 표시 -->
 <script>
 (function(){
-  const KO_PH = 'AI에게 물어보기 - 원하시는 것을 알려주세요.';
-  const EN_PH = 'Ask AI - tell me what you need.';
+  const KO_PH = '🤖 AI에게 물어보기 - 원하시는 것을 알려주세요.';
+  const EN_PH = '🤖 Ask AI - tell me what you need.';
 
   function enforceAiSearchPlaceholder(opts){
     const input = document.getElementById('ai-home-input');
