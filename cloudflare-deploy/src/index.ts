@@ -488,6 +488,8 @@ export default {
         path === '/api/admin/review-quiz/results' ||
         path === '/api/admin/review-quiz/ai-generate' ||
         path === '/api/admin/review-quiz/build-bank' ||
+        // 📚 Phase HW — 숙제 관리 (출제/목록/삭제)
+        path.startsWith('/api/admin/homework/') ||
         path === '/api/i18n/translate' ||
         /^\/api\/admin\/review-quiz\/\d+$/.test(path) ||
         path === '/api/admin/students/list' ||
@@ -2020,6 +2022,8 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/students/list') return true;
   if (path === '/api/admin/students/unified') return true;
   if (path === '/api/admin/students/erp-list' || path === '/api/admin/students/erp' || path === '/api/admin/students/erp-seed') return true;
+  // 📚 Phase HW — 숙제 관리 (출제/목록/삭제) — 관리자 전용
+  if (path.startsWith('/api/admin/homework/')) return true;
   // 대시보드·활성 방·방 상태 — 모두 관리자 전용
   if (path === '/api/dashboard') return true;
   if (path === '/api/active-rooms') return true;

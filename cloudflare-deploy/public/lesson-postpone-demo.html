@@ -503,19 +503,23 @@ header {
    Sticky 하단 바 (Slide-up)
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 .sticky-bar {
-  position: absolute;
-  left: 0; right: 0; bottom: 0;
+  /* fix (2026-06-18) — #app 가 130vh 라 absolute bottom:0 는 화면 밖(아래)으로 밀려
+     모바일에서 확정/연기 버튼이 장바구니 밑에 가려 안 보임 → 뷰포트 하단 고정으로 변경.
+     #app(max-width:645px, 가운데정렬)에 맞춰 가로 중앙 정렬 + 슬라이드업 유지. */
+  position: fixed;
+  left: 50%; bottom: 0;
+  width: 100%; max-width: 645px;
   padding: 14px 14px env(safe-area-inset-bottom);
   background: rgba(6,26,44,0.92);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(12px);
   border-top: 1px solid var(--border);
-  transform: translateY(120%);
+  transform: translateX(-50%) translateY(120%);
   transition: transform 0.32s cubic-bezier(0.32,0.72,0,1);
   z-index: 100;
   box-shadow: 0 -8px 24px rgba(15,23,42,0.08);
 }
-.sticky-bar.show { transform: translateY(0); }
+.sticky-bar.show { transform: translateX(-50%) translateY(0); }
 .sticky-summary {
   font-size: 15.3px; color: var(--text);
   padding: 6px 4px 10px;
@@ -879,11 +883,6 @@ header {
     </div>
 
     <div class="detail-body" id="detail-body"></div>
-
-    <div class="sticky-bar" id="sticky-bar">
-      <div class="sticky-summary" id="sticky-summary"></div>
-      <button class="confirm-btn" id="confirm-btn">확정</button>
-    </div>
   </section>
 
   <!-- ━━━━━━━━━━ Step 4: 완료 ━━━━━━━━━━ -->
@@ -915,6 +914,11 @@ header {
 <a class="consult-fab" id="consult-fab" href="https://pf.kakao.com/_mangoi/chat" target="_blank" rel="noopener" title="카카오톡 상담" aria-label="상담">
   <span class="cf-ico">💬</span><span class="cf-txt">상담</span>
 </a>
+<!-- 하단 확정/연기 바 : body 레벨(screen transform 이 fixed 를 가두는 문제 회피, 2026-06-18) -->
+<div class="sticky-bar" id="sticky-bar">
+  <div class="sticky-summary" id="sticky-summary"></div>
+  <button class="confirm-btn" id="confirm-btn">확정</button>
+</div>
 <div id="toast" class="toast"></div>
 
 <script>
@@ -1053,6 +1057,7 @@ function showCompletion(){
   $('#done-title').textContent = '✅ ' + v + ' 완료되었습니다';
   $('#done-sub').innerHTML = '기존: ' + beforeList + '<br>↓ 아래 일정으로 ' + v + '되었습니다';
   $('#done-list').innerHTML = list;
+  $('#sticky-bar').classList.remove('show'); // fix(2026-06-18): fixed 바 — 화면 이탈 시 직접 숨김
   $('#screen-detail').classList.remove('active');
   $('#screen-done').classList.add('active');
 }
@@ -1078,6 +1083,7 @@ function enterDetail(){
 }
 
 $('#btn-back').addEventListener('click', () => {
+  $('#sticky-bar').classList.remove('show'); // fix(2026-06-18): fixed 바 — 뒤로가기 시 직접 숨김
   $('#screen-detail').classList.remove('active');
   $('#screen-main').classList.remove('exit-up'); $('#screen-main').classList.add('active');
 });
@@ -1454,7 +1460,7 @@ function attachHandlers(){
   new MutationObserver(syncVis).observe(main,{attributes:true,attributeFilter:['class']});
 })();
 </script>
-<!-- BUILD:20260617024221 -->
+<!-- BUILD:20260618142435 -->
 <script src="/js/i18n-sweep.js?v=2"></script>
 <script defer src="/js/back-nav.js"></script>
 </body>

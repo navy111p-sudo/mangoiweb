@@ -26543,8 +26543,8 @@ window.closeRulesModal = function() {
       var hv=vcFx.hiddenVideo, lv=document.getElementById('vc-local-video');
       var ps=vcFx.processedStream, pt=ps&&ps.getVideoTracks()[0];
       el.textContent =
-        'mode='+vcFx.mode+' active='+vcFx.active+'\n'+
-        'MP='+!!vcFx.mpLoaded+' detector='+!!vcFx.detector+' sending='+!!vcFx.sending+'\n'+
+        'mode='+vcFx.mode+' active='+vcFx.active+' engine='+(vcFx.engine||'-')+'\n'+
+        'MP='+!!vcFx.mpLoaded+' detector='+(!!vcFx.detector||!!vcFx.fl)+' sending='+!!vcFx.sending+'\n'+
         'hv: rs='+(hv&&hv.readyState)+' '+(hv&&hv.videoWidth)+'x'+(hv&&hv.videoHeight)+' paused='+(hv&&hv.paused)+'\n'+
         'lastLM='+!!vcFx.lastLM+' miss='+(vcFx._missCount||0)+'\n'+
         'canvas='+(vcFx.canvas&&vcFx.canvas.width)+'x'+(vcFx.canvas&&vcFx.canvas.height)+'\n'+
@@ -26585,8 +26585,69 @@ window.closeRulesModal = function() {
     grid.innerHTML = html;
   }
 
-  // --- MediaPipe FaceMesh(468점 정밀 랜드마크) lazy 로드 ---
-  //   6점 FaceDetection 보다 위치가 훨씬 정확 → 액세서리가 얼굴에 딱 맞음
+  // === [신규 1순위 엔진] MediaPipe Tasks-Vision FaceLandmarker ===
+  //   레거시 face_mesh(2021, WASM solutions)는 모바일 브라우저에서 얼굴을 자주 못 잡음
+  //   (detector 는 돌지만 multiFaceLandmarks 가 비어 분장이 안 붙음 = miss 계속 증가).
+  //   tasks-vision 의 FaceLandmarker 는 모바일 최적화 + GPU 가속 + 비디오 직접입력이라 훨씬 안정적.
+  //   랜드마크 토폴로지(468점 인덱스)는 face_mesh 와 동일 → FX_IDX/그리기 코드 그대로 재사용.
+  function fxInitFaceLandmarker(){
+    if (vcFx.fl) return Promise.resolve();
+    if (vcFx._flLoading) return vcFx._flLoading;
+    vcFx._flLoading = (async function(){
+      var V = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35';
+      var vision = await import(V + '/vision_bundle.mjs');
+      var fileset = await vision.FilesetResolver.forVisionTasks(V + '/wasm');
+      var mk = function(delegate){
+        return vision.FaceLandmarker.createFromOptions(fileset, {
+          baseOptions: {
+            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+            delegate: delegate
+          },
+          runningMode: 'VIDEO',
+          numFaces: 1,
+          minFaceDetectionConfidence: 0.3,   // 모바일·측면·일부 가림에도 잘 잡도록 민감하게
+          minFacePresenceConfidence: 0.3,
+          minTrackingConfidence: 0.3
+        });
+      };
+      // 일부 모바일 GPU 는 WebGL 델리게이트가 실패 → CPU 폴백
+      try { vcFx.fl = await mk('GPU'); }
+      catch(e){ vcFx._lastErr = e; vcFx.fl = await mk('CPU'); }
+      vcFx.engine = 'fl';
+      vcFx.mpLoaded = true;
+      if (!vcFx.canvas){
+        vcFx.canvas = document.createElement('canvas');
+        vcFx.canvas.width = 640; vcFx.canvas.height = 480;
+        vcFx.ctx = vcFx.canvas.getContext('2d');
+      }
+    })();
+    return vcFx._flLoading;
+  }
+
+  // 두 엔진(FaceLandmarker / 레거시 FaceMesh) 공통 — 원시 랜드마크 배열을 받아 보간 후 저장
+  //   src: 랜드마크 배열(src[i] = {x,y[,z]} 정규화 0~1) 또는 null(미검출)
+  function fxApplyRawLandmarks(src){
+    if (!src){ vcFx._missCount=(vcFx._missCount||0)+1; if (vcFx._missCount>10) vcFx.lastLM=null; return; }
+    vcFx._missCount = 0;
+    var cur = {};
+    FX_IDX.forEach(function(i){ var p=src[i]; if(p) cur[i]={x:p.x,y:p.y}; });
+    // 적응형 보간 — 움직임이 크면 즉각 따라붙고(최대 0.92), 정지 시엔 강하게 떨림 억제(0.45)
+    var prev = vcFx.lastLM;
+    if (prev){
+      FX_IDX.forEach(function(i){
+        var o=prev[i], n=cur[i];
+        if (o && n){
+          var d = Math.hypot(n.x-o.x, n.y-o.y);
+          var a = d>0.06 ? 0.92 : d>0.025 ? 0.72 : 0.45;
+          cur[i]={ x:o.x+(n.x-o.x)*a, y:o.y+(n.y-o.y)*a };
+        }
+      });
+    }
+    vcFx.lastLM = cur;
+  }
+
+  // --- [폴백 2순위 엔진] MediaPipe FaceMesh(468점 정밀 랜드마크) lazy 로드 ---
+  //   신규 엔진 로드 실패 시에만 사용(네트워크/구형 브라우저 대비)
   function fxLoadMP(){
     if (vcFx.mpLoaded) return Promise.resolve();
     if (vcFx.mpLoading) return vcFx.mpLoading;
@@ -26643,27 +26704,10 @@ window.closeRulesModal = function() {
   //   13=윗입술중앙, 33=오른눈 바깥, 263=왼눈 바깥, 133=오른눈 안쪽, 362=왼눈 안쪽, 168=미간
   var FX_IDX = [10,152,234,454,1,2,13,33,263,133,362,168];
 
+  // 레거시 FaceMesh 콜백 — 공통 핸들러로 위임
   function fxOnResults(res){
     var faces = res && res.multiFaceLandmarks;
-    if (!faces || !faces.length){ vcFx._missCount=(vcFx._missCount||0)+1; if (vcFx._missCount>10) vcFx.lastLM=null; return; }
-    vcFx._missCount = 0;
-    var src = faces[0];
-    var cur = {};
-    FX_IDX.forEach(function(i){ var p=src[i]; if(p) cur[i]={x:p.x,y:p.y}; });
-    // 적응형 보간 — 움직임이 크면 즉각 따라붙고(최대 0.92), 정지 시엔 강하게 떨림 억제(0.45)
-    //   → "빠른 반응(신속)"과 "흔들림 없는 정밀 부착"을 동시에 만족
-    var prev = vcFx.lastLM;
-    if (prev){
-      FX_IDX.forEach(function(i){
-        var o=prev[i], n=cur[i];
-        if (o && n){
-          var d = Math.hypot(n.x-o.x, n.y-o.y);   // 정규화 좌표 기준 이동량
-          var a = d>0.06 ? 0.92 : d>0.025 ? 0.72 : 0.45;
-          cur[i]={ x:o.x+(n.x-o.x)*a, y:o.y+(n.y-o.y)*a };
-        }
-      });
-    }
-    vcFx.lastLM = cur;
+    fxApplyRawLandmarks(faces && faces.length ? faces[0] : null);
   }
 
   // 안경 앞면 전용 아이콘(SVG) — 옆다리(귀걸이) 없이 렌즈 2개 + 브릿지만
@@ -26833,21 +26877,31 @@ window.closeRulesModal = function() {
         if (it) fxDrawItem(ctx, it, vcFx.lastLM, cv.width, cv.height);
       }
     }
-    // 검출 송신 — !sending 가드가 모델 처리속도에 맞춰 자동 페이싱하므로
-    //   데스크톱은 매 프레임(가능한 최대 빈도)으로 즉각 추적, 모바일은 격프레임(발열·부하 절감)
+    // 검출 — 데스크톱 매 프레임, 모바일 격프레임(발열·부하 절감)
     vcFx.frameTick++;
     var everyN = fxMobile()?2:1;
     var hv = vcFx.hiddenVideo;
-    // 워치독: send 가 2초 넘게 안 끝나면(WASM 멈춤) 풀어줘 파이프라인이 영구히 죽지 않게
+    // 워치독: 레거시 send 가 2초 넘게 안 끝나면(WASM 멈춤) 풀어줘 파이프라인이 영구히 죽지 않게
     if (vcFx.sending && vcFx._sendStart && (performance.now()-vcFx._sendStart > 2000)) vcFx.sending=false;
-    if (vcFx.frameTick % everyN === 0 && hv && hv.readyState>=2 && hv.videoWidth>0 && vcFx.detector && !vcFx.sending){
-      // 📱 모바일 안정화: 720p 원본 대신 축소 프레임을 모델에 입력 (WASM/GPU 중단·발열 방지)
-      var iw = fxMobile()?256:480, ih = Math.max(1, Math.round(iw*hv.videoHeight/(hv.videoWidth||1)));
-      if (!vcFx.inCanvas){ vcFx.inCanvas=document.createElement('canvas'); vcFx.inCtx=vcFx.inCanvas.getContext('2d'); }
-      if (vcFx.inCanvas.width!==iw || vcFx.inCanvas.height!==ih){ vcFx.inCanvas.width=iw; vcFx.inCanvas.height=ih; }
-      try { vcFx.inCtx.drawImage(hv,0,0,iw,ih); } catch(_){}
-      vcFx.sending=true; vcFx._sendStart=performance.now();
-      vcFx.detector.send({ image: vcFx.inCanvas }).catch(function(err){ vcFx._lastErr = err; }).finally(function(){ vcFx.sending=false; });
+    if (vcFx.frameTick % everyN === 0 && hv && hv.readyState>=2 && hv.videoWidth>0){
+      if (vcFx.engine==='fl' && vcFx.fl){
+        // 🟢 신규 엔진: 비디오 프레임을 직접 입력(동기 호출). 타임스탬프는 단조 증가 필수.
+        var ts = performance.now();
+        if (vcFx._lastTs!=null && ts<=vcFx._lastTs) ts = vcFx._lastTs+1;
+        vcFx._lastTs = ts;
+        try {
+          var r = vcFx.fl.detectForVideo(hv, ts);
+          fxApplyRawLandmarks(r && r.faceLandmarks && r.faceLandmarks.length ? r.faceLandmarks[0] : null);
+        } catch(err){ vcFx._lastErr = err; }
+      } else if (vcFx.detector && !vcFx.sending){
+        // 🟡 폴백 레거시 FaceMesh(WASM send) — 축소 프레임 입력
+        var iw = fxMobile()?384:480, ih = Math.max(1, Math.round(iw*hv.videoHeight/(hv.videoWidth||1)));
+        if (!vcFx.inCanvas){ vcFx.inCanvas=document.createElement('canvas'); vcFx.inCtx=vcFx.inCanvas.getContext('2d'); }
+        if (vcFx.inCanvas.width!==iw || vcFx.inCanvas.height!==ih){ vcFx.inCanvas.width=iw; vcFx.inCanvas.height=ih; }
+        try { vcFx.inCtx.drawImage(hv,0,0,iw,ih); } catch(_){}
+        vcFx.sending=true; vcFx._sendStart=performance.now();
+        vcFx.detector.send({ image: vcFx.inCanvas }).catch(function(err){ vcFx._lastErr = err; }).finally(function(){ vcFx.sending=false; });
+      }
     }
     fxDbg();
     vcFx.rafId = requestAnimationFrame(fxLoop);
@@ -26901,8 +26955,15 @@ window.closeRulesModal = function() {
     vcFx.mode = mode;
     fxStatus(en?'Loading face model…':'얼굴인식 모델 로딩 중…');
     try {
-      await fxLoadMP();
-      await fxInitDetector();
+      // 1순위: 모바일에서도 잘 잡는 FaceLandmarker. 실패 시에만 레거시 FaceMesh 폴백(데스크톱 회귀 방지).
+      try {
+        await fxInitFaceLandmarker();
+      } catch(e0){
+        vcFx._lastErr = e0; vcFx.engine = 'mesh';
+        console.warn('[vc-fx] FaceLandmarker 초기화 실패 → 레거시 FaceMesh 폴백', e0);
+        await fxLoadMP();
+        await fxInitDetector();
+      }
       fxEnsureHiddenVideo();
     } catch(e){
       console.warn('[vc-fx] init fail', e);
@@ -26962,7 +27023,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260617024221 -->
+<!-- BUILD:20260618142435 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -29638,5 +29699,52 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     window.addEventListener("pagehide", mangoiStopVoice);
   })();
 </script>
+
+<!-- ✨ UI 폴리시 패치 (2026-06-18) — 타이틀 가독성·곡률 통일·열림탭 여백·배너 겹침 -->
+<style id="ui-polish-2026">
+  /* ① MANGO AI 타이틀 가독성 — 네온 외곽선은 유지하되, 글자 안을 아주 옅게 채우고
+        뒤에 은은한 글로우+대비 그림자를 깔아 우주 배경에서도 또렷하게 보이도록 */
+  .ht-glass {
+    -webkit-text-fill-color: rgba(255,255,255,0.12) !important;  /* 글자 안 살짝 채움 */
+    color: rgba(255,255,255,0.12) !important;
+    text-shadow:
+      0 0 16px rgba(94,234,212,0.45),   /* 청록 네온 후광 */
+      0 2px 12px rgba(0,0,0,0.60),       /* 어두운 별 배경 대비 */
+      0 0 2px rgba(0,0,0,0.55) !important;
+    paint-order: stroke fill;            /* 외곽선이 채움 위에 그려져 선이 또렷 */
+  }
+
+  /* ② 곡률(border-radius) 통일 — 검색창과 두 CTA(결제/수업입장)를 18px로 맞추고,
+        내부 액션 버튼(마이크/검색)은 한 단계 작은 14px로 통일감 부여 */
+  .ai-search-box { border-radius: 18px !important; }
+  .ai-search-mic, .ai-search-go { border-radius: 14px !important; }
+  .ai-cta-row > * { border-radius: 18px !important; }
+  .ai-cta-row > *::before { border-radius: 18px 18px 0 0 !important; }
+  @media (max-width: 640px) {
+    .ai-cta-row > * { border-radius: 18px !important; }   /* 모바일도 14px→18px 통일 */
+  }
+
+  /* ③ 좌측 '열림' 탭 — 화면 왼쪽 끝에서 살짝 띄우고(겉돌지 않게),
+        상단 검색창 영역과 겹치지 않도록 아래로 내림 + 곡률 통일 */
+  #mg-drawer-tab {
+    right: -54px !important;                 /* 왼쪽 모서리에서 약 10px 여백 */
+    top: 62% !important;                     /* 검색창 라인 아래로 이동 */
+    border-radius: 0 16px 16px 0 !important; /* 다른 요소와 곡률 톤 맞춤 */
+  }
+  @media (max-width: 640px) {
+    #mg-drawer-tab { top: 64% !important; }
+  }
+
+  /* ④ 'Mangoi 앱 추가' 배너 — 우하단 '상담'·좌하단 FAB 위로 올려서
+        새로고침 아이콘/캐릭터 아이콘과 겹치지 않게 분리 */
+  #pwa-install-bar {
+    left: 12px !important;
+    right: 12px !important;
+    bottom: 92px !important;   /* 코너 FAB(≈bottom:14~16px) 위로 올림 */
+  }
+  @media (max-width: 600px) {
+    #pwa-install-bar { bottom: 84px !important; }
+  }
+</style>
 </body>
 </html>

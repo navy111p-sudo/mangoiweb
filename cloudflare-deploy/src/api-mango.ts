@@ -3268,6 +3268,90 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // 📚 Phase HW — 숙제 관리 (출제 → 제출 → 채점 → 피드백)
+    //   대상 지정: 전체(all) / 특정 학원(academy) / 특정 학생들(students)
+    //   학원 선택 후 그 학원 소속 학생을 다중 선택해 출제할 수 있음.
+    // ═══════════════════════════════════════════════════════════════
+    const ensureHomeworkTables = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS homework (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        description TEXT,
+        answer_type TEXT DEFAULT 'text',
+        due_date TEXT,
+        target_type TEXT NOT NULL DEFAULT 'all',
+        target_academy TEXT,
+        target_student_ids TEXT,
+        target_student_names TEXT,
+        target_count INTEGER DEFAULT 0,
+        created_by TEXT,
+        active INTEGER DEFAULT 1,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );`);
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_homework_created ON homework(created_at DESC);`); } catch {}
+    };
+
+    // ── POST /api/admin/homework/save — 관리자: 숙제 출제(생성/수정) ──
+    if (method === 'POST' && path === '/api/admin/homework/save') {
+      await ensureHomeworkTables();
+      const b: any = await request.json().catch(() => ({}));
+      const title = String(b.title || '').trim();
+      if (!title) return json({ ok: false, error: 'title_required' }, 400);
+      const description = String(b.description || '').trim() || null;
+      const answerType = ['text', 'choice', 'voice', 'video'].includes(String(b.answer_type)) ? String(b.answer_type) : 'text';
+      const dueDate = String(b.due_date || '').trim() || null;
+      // 대상 타입: all(전체) | academy(특정 학원) | students(특정 학생들)
+      let targetType = String(b.target_type || 'all');
+      if (!['all', 'academy', 'students'].includes(targetType)) targetType = 'all';
+      const targetAcademy = String(b.target_academy || '').trim() || null;
+      let ids: string[] = [];
+      let names: string[] = [];
+      if (Array.isArray(b.target_student_ids)) ids = b.target_student_ids.map((x: any) => String(x)).filter(Boolean);
+      if (Array.isArray(b.target_student_names)) names = b.target_student_names.map((x: any) => String(x)).filter(Boolean);
+      // 유효성: academy 면 학원명 필수, students 면 학생 1명 이상 필수
+      if (targetType === 'academy' && !targetAcademy) return json({ ok: false, error: 'academy_required' }, 400);
+      if (targetType === 'students' && ids.length === 0) return json({ ok: false, error: 'students_required' }, 400);
+      const targetCount = targetType === 'students' ? ids.length : (b.target_count != null ? Number(b.target_count) : 0);
+      const now = Date.now();
+      const id = Number(b.id) || 0;
+      if (id) {
+        const r = await env.DB.prepare(`UPDATE homework SET title=?, description=?, answer_type=?, due_date=?, target_type=?, target_academy=?, target_student_ids=?, target_student_names=?, target_count=?, updated_at=? WHERE id=?`)
+          .bind(title, description, answerType, dueDate, targetType, targetAcademy, JSON.stringify(ids), JSON.stringify(names), targetCount, now, id).run();
+        if (!((r as any).meta && (r as any).meta.changes)) return json({ ok: false, error: 'homework_not_found' }, 404);
+        return json({ ok: true, id });
+      }
+      const ins = await env.DB.prepare(`INSERT INTO homework (title, description, answer_type, due_date, target_type, target_academy, target_student_ids, target_student_names, target_count, active, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,1,?,?)`)
+        .bind(title, description, answerType, dueDate, targetType, targetAcademy, JSON.stringify(ids), JSON.stringify(names), targetCount, now, now).run();
+      return json({ ok: true, id: (ins as any).meta?.last_row_id });
+    }
+
+    // ── GET /api/admin/homework/list — 관리자: 숙제 목록 ──
+    if (method === 'GET' && path === '/api/admin/homework/list') {
+      await ensureHomeworkTables();
+      const lim = Math.max(1, Math.min(500, parseInt(url.searchParams.get('limit') || '100', 10)));
+      try {
+        const rs = await env.DB.prepare(`SELECT * FROM homework WHERE active=1 ORDER BY created_at DESC LIMIT ?`).bind(lim).all<any>();
+        const items = (rs.results || []).map((r: any) => {
+          try { r.target_student_ids = JSON.parse(r.target_student_ids || '[]'); } catch { r.target_student_ids = []; }
+          try { r.target_student_names = JSON.parse(r.target_student_names || '[]'); } catch { r.target_student_names = []; }
+          return r;
+        });
+        return json({ ok: true, items });
+      } catch (e: any) {
+        return json({ ok: true, items: [], warning: String(e?.message || e) });
+      }
+    }
+
+    // ── DELETE /api/admin/homework/:id — 관리자: 숙제 삭제(소프트) ──
+    if (method === 'DELETE' && /^\/api\/admin\/homework\/\d+$/.test(path)) {
+      await ensureHomeworkTables();
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      await env.DB.prepare(`UPDATE homework SET active=0, updated_at=? WHERE id=?`).bind(Date.now(), id).run();
+      return json({ ok: true, id });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // 💬 Phase K1 — 화상수업 채팅 영속화
     // ═══════════════════════════════════════════════════════════════
     const ensureChatTable = async () => {

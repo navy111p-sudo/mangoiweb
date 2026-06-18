@@ -1974,64 +1974,7 @@
   </div>
 </div>
 
-<!-- ↻ 새로고침 FAB — 학생 홈페이지와 동일 (우측 하단 꺽은 화살표, 캐시 비우고 최신 새로고침) -->
-<style id="admin-refresh-fab-css">
-  .adm-refresh-fab {
-    position: fixed;
-    bottom: 196px;   /* 우하단 스택: AI 운영비서(코너)·카톡상담(150px) 위 */
-    right: 16px;
-    z-index: 9991;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: linear-gradient(135deg,#3b82f6,#1d4ed8);
-    border: 0;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.1);
-    color: #fff;
-    font-size: 20px;
-    font-weight: 900;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    -webkit-tap-highlight-color: transparent;
-    transition: transform .15s ease, box-shadow .15s ease;
-  }
-  .adm-refresh-fab:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0,0,0,0.4); }
-  .adm-refresh-fab:active { transform: scale(0.93); }
-  .adm-refresh-fab .adm-refresh-label {
-    position: absolute;
-    right: 52px;
-    background: rgba(15,23,42,0.92);
-    color: #93c5fd;
-    font-size: 11px;
-    font-weight: 700;
-    padding: 4px 9px;
-    border-radius: 999px;
-    white-space: nowrap;
-    opacity: 0;
-    transform: translateX(6px);
-    pointer-events: none;
-    transition: opacity .18s, transform .18s;
-  }
-  .adm-refresh-fab:hover .adm-refresh-label,
-  .adm-refresh-fab.adm-show-label .adm-refresh-label {
-    opacity: 1;
-    transform: translateX(0);
-  }
-  @media (max-width: 720px) {
-    .adm-refresh-fab { width: 36px; height: 36px; font-size: 16px; bottom: 188px; right: 14px; }
-    .adm-refresh-fab .adm-refresh-label { right: 42px; font-size: 10px; padding: 3px 7px; }
-  }
-  @media (max-width: 420px) {
-    .adm-refresh-fab { width: 32px; height: 32px; font-size: 14px; bottom: 184px; }
-  }
-</style>
-<button type="button" class="adm-refresh-fab" id="adm-refresh-fab"
-   title="새로고침 (캐시 비우고 최신)" aria-label="Refresh"
-   data-ko-title="새로고침 (캐시 비우고 최신)" data-en-title="Refresh (clear cache)">
-  <span>&#8635;</span><span class="adm-refresh-label" data-ko="새로고침" data-en="Refresh">새로고침</span>
-</button>
+<!-- ↻ 새로고침 동작(window.admRefresh) 정의만 유지 — 버튼/스타일은 아래 통합 Speed Dial(#mi-speed-dial) 안으로 이동됨 (2026-06-18) -->
 <script>
 (function(){
   'use strict';
@@ -2197,7 +2140,7 @@
         <div class="ai-panel" id="ai-panel" style="display:none">
           <div class="ai-panel-head">
             <span class="ai-panel-badge">🤖 AI</span>
-            <span class="ai-panel-title" id="ai-panel-title">AI 응답</span>
+            <span class="ai-panel-title" id="ai-panel-title" data-ko="AI 응답" data-en="AI Response">AI 응답</span>
             <button class="ai-panel-close" id="ai-panel-close" type="button" aria-label="닫기">✕</button>
           </div>
           <div class="ai-panel-body" id="ai-panel-body">
@@ -2217,41 +2160,132 @@
       </div>
     </section>
 
-    <!-- 💬 카톡상담 — 우하단 floating 작은 말풍선 -->
-    <a href="https://pf.kakao.com/_mango_i/chat" target="_blank" rel="noopener" id="kakao-chat-fab"
-       style="position:fixed;right:16px;bottom:150px;z-index:9990;display:flex;align-items:center;gap:5px;padding:5px 9px 5px 6px;background:linear-gradient(135deg,#FEE500,#FBBF24);color:#3C1E1E;text-decoration:none;border-radius:14px 14px 4px 14px;box-shadow:0 4px 10px -3px rgba(254,229,0,0.55),inset 0 1px 0 rgba(255,255,255,0.55);font-weight:800;font-size:11px;transition:transform .2s,box-shadow .2s"
-       onmouseover="this.style.transform='translateY(-2px) scale(1.03)'"
-       onmouseout="this.style.transform=''">
-      <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:#3C1E1E;border-radius:50%;flex-shrink:0">
-        <svg width="11" height="11" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path fill="#FEE500" d="M128 32C70.6 32 24 68.4 24 113.4c0 28.4 18.6 53.3 46.7 67.6l-9.4 34.5c-1.4 5.1 4.2 9.2 8.7 6.3l40.6-26.6c5.7 0.7 11.5 1 17.4 1c57.4 0 104-36.4 104-81.4S185.4 32 128 32z"/>
-        </svg>
-      </span>
-      <span data-ko="카톡상담" data-en="Kakao Chat" style="white-space:nowrap;letter-spacing:0.3px">카톡상담</span>
-    </a>
+    <!-- ============================================================
+         🟡 통합 Speed Dial FAB (2026-06-18)
+         · 평소엔 '상담원 아바타' 트리거 1개만 노출 (브랜드감 유지)
+         · 탭하면 위로 [AI 상담 → 카톡상담 → 새로고침] 이 부드럽게 펼쳐짐
+         · 우하단 코너에서 16px(좁은 화면 14px) 여백, 동일 크기 원형 + 라벨칩으로 스타일 통일
+         · 기존 동작 보존: AI상담=window.miAsstOpen(), 카톡=pf.kakao.com, 새로고침=window.admRefresh()(#adm-refresh-fab)
+         ============================================================ -->
+    <div id="mi-sd-backdrop" aria-hidden="true"></div>
+    <div id="mi-speed-dial" data-open="false">
 
-    <!-- 🤖 AI 운영비서 — 좌하단 플로팅 아바타 버튼 (홈페이지 A.i 상담사와 동일 스타일) (2026-06-16) -->
-    <div id="mi-ops-fab" role="button" tabindex="0" aria-label="AI 운영비서 열기"
-         onclick="if(window.miAsstOpen){window.miAsstOpen();}else{alert('AI 운영비서를 불러오는 중입니다. 잠시 후 다시 눌러주세요.');}"
-         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
-      <span id="mi-ops-fab-label" data-ko="AI 운영비서" data-en="AI Ops Assistant">AI 운영비서</span>
-      <span id="mi-ops-fab-btn" aria-hidden="true"><video id="mi-ops-fab-vid" src="/video/ai-ops-greeting.mp4" muted loop autoplay playsinline preload="auto"></video></span>
+      <!-- 펼쳐지는 액션들 (DOM 첫 항목이 트리거에 가장 가깝게=아래에 위치) -->
+      <div id="mi-sd-actions" role="menu" aria-label="빠른 작업">
+
+        <!-- 🤖 AI 상담 (운영비서) — 트리거에 가장 가까움 -->
+        <button type="button" id="mi-sd-ai" class="mi-sd-action mi-sd-ai" role="menuitem"
+                aria-label="AI 상담"
+                onclick="if(window.miAsstOpen){window.miAsstOpen();}else{alert('AI 운영비서를 불러오는 중입니다. 잠시 후 다시 눌러주세요.');} if(window.miSdClose)window.miSdClose();">
+          <span class="mi-sd-ico" aria-hidden="true">🤖</span>
+          <span class="mi-sd-chip" data-ko="AI 상담" data-en="AI Assistant">AI 상담</span>
+        </button>
+
+        <!-- 💬 카톡상담 -->
+        <a id="kakao-chat-fab" class="mi-sd-action mi-sd-kakao" role="menuitem"
+           href="https://pf.kakao.com/_mango_i/chat" target="_blank" rel="noopener"
+           aria-label="카톡상담"
+           onclick="if(window.miSdClose)window.miSdClose();">
+          <span class="mi-sd-ico" aria-hidden="true">
+            <span class="mi-sd-kakao-bubble">
+              <svg width="14" height="14" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path fill="#FEE500" d="M128 32C70.6 32 24 68.4 24 113.4c0 28.4 18.6 53.3 46.7 67.6l-9.4 34.5c-1.4 5.1 4.2 9.2 8.7 6.3l40.6-26.6c5.7 0.7 11.5 1 17.4 1c57.4 0 104-36.4 104-81.4S185.4 32 128 32z"/>
+              </svg>
+            </span>
+          </span>
+          <span class="mi-sd-chip" data-ko="카톡상담" data-en="Kakao Chat">카톡상담</span>
+        </a>
+
+        <!-- ↻ 새로고침 (맨 위) — id 유지로 기존 admRefresh 바인딩 그대로 동작 -->
+        <button type="button" id="adm-refresh-fab" class="mi-sd-action mi-sd-refresh" role="menuitem"
+                title="새로고침 (캐시 비우고 최신)" aria-label="Refresh"
+                data-ko-title="새로고침 (캐시 비우고 최신)" data-en-title="Refresh (clear cache)">
+          <span class="mi-sd-ico" aria-hidden="true">&#8635;</span>
+          <span class="mi-sd-chip adm-refresh-label" data-ko="새로고침" data-en="Refresh">새로고침</span>
+        </button>
+
+      </div>
+
+      <!-- 메인 트리거 = 상담원 아바타 (#mi-ops-fab). 탭하면 Speed Dial 토글 -->
+      <div id="mi-ops-fab" role="button" tabindex="0" aria-label="빠른 메뉴 열기" aria-expanded="false"
+           onclick="if(window.miSdToggle)window.miSdToggle();"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+        <span id="mi-ops-fab-label" data-ko="AI 운영비서" data-en="AI Ops Assistant">AI 운영비서</span>
+        <span id="mi-ops-fab-btn" aria-hidden="true">
+          <video id="mi-ops-fab-vid" src="/video/ai-ops-greeting.mp4" muted loop autoplay playsinline preload="auto"></video>
+          <span class="mi-ops-fab-close" aria-hidden="true">✕</span>
+        </span>
+      </div>
     </div>
-    <style>
-      /* 홈페이지 #mangoi-widget(A.i 상담사) 와 동일한 룩 — 우하단 코너, 클릭 시 AI 운영비서 패널 오픈 */
-      /* 우하단 플로팅 스택(아래→위): AI 운영비서(코너) → 카톡상담 → 새로고침. 우측이라 좌측 사이드바와 안 겹침 */
-      #mi-ops-fab{ position:fixed; right:16px; bottom:16px; width:64px; height:64px; z-index:9992; cursor:pointer; }
-      #mi-ops-fab-label{ position:absolute; left:50%; bottom:72px; transform:translateX(-50%);
+
+    <style id="mi-speed-dial-css">
+      /* ── 통합 Speed Dial — 스타일 통일(원형·그림자·라벨칩) + 부드러운 펼침 애니메이션 ── */
+      #mi-sd-backdrop{ position:fixed; inset:0; z-index:9991;
+        background:rgba(15,23,42,0.28); backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px);
+        opacity:0; visibility:hidden; transition:opacity .25s ease, visibility .25s ease; }
+      #mi-sd-backdrop.is-open{ opacity:1; visibility:visible; }
+
+      /* 컨테이너: 우하단 코너 고정, 세로 정렬(액션 위 / 트리거 아래), 중심선 일치 */
+      #mi-speed-dial{ position:fixed; right:16px; bottom:16px; z-index:9992;
+        display:flex; flex-direction:column; align-items:center; gap:14px; }
+
+      /* 액션 묶음: column-reverse → DOM 첫 항목(AI)이 트리거 바로 위(아래쪽)에 옴 */
+      #mi-sd-actions{ display:flex; flex-direction:column-reverse; align-items:center; gap:14px; }
+
+      /* 공통 액션 버튼 — 동일 크기 원형 + 통일된 그림자 */
+      .mi-sd-action{ position:relative; display:flex; align-items:center; justify-content:center;
+        width:54px; height:54px; border-radius:50%; border:0; cursor:pointer; text-decoration:none;
+        background:#ffffff; color:#1f2937;
+        box-shadow:0 6px 18px -4px rgba(0,0,0,0.28), 0 2px 6px -2px rgba(0,0,0,0.20);
+        -webkit-tap-highlight-color:transparent;
+        opacity:0; transform:translateY(14px) scale(0.6); transform-origin:center bottom;
+        pointer-events:none;
+        transition:opacity .22s ease, transform .26s cubic-bezier(0.34,1.4,0.5,1), box-shadow .15s ease; }
+      #mi-speed-dial.is-open .mi-sd-action{ opacity:1; transform:translateY(0) scale(1); pointer-events:auto; }
+      /* 아래→위 순차 등장(스태거) */
+      #mi-speed-dial.is-open .mi-sd-action:nth-child(1){ transition-delay:0s; }
+      #mi-speed-dial.is-open .mi-sd-action:nth-child(2){ transition-delay:.05s; }
+      #mi-speed-dial.is-open .mi-sd-action:nth-child(3){ transition-delay:.1s; }
+      .mi-sd-action:hover{ transform:translateY(-2px) scale(1.06); box-shadow:0 12px 26px -6px rgba(0,0,0,0.36); }
+      .mi-sd-action:active{ transform:scale(0.92); }
+
+      /* 기능별 배경(통일된 형태·그림자 위에 색만 구분) */
+      .mi-sd-action.mi-sd-ai{ background:linear-gradient(135deg,#1a1a1a,#2b2b2b); border:2px solid #ffcc00; }
+      .mi-sd-action.mi-sd-kakao{ background:linear-gradient(135deg,#FEE500,#FBBF24); }
+      .mi-sd-action.mi-sd-refresh{ background:linear-gradient(135deg,#3b82f6,#1d4ed8); }
+
+      .mi-sd-ico{ display:flex; align-items:center; justify-content:center; width:30px; height:30px;
+        font-size:22px; line-height:1; }
+      .mi-sd-ai .mi-sd-ico{ font-size:24px; }
+      .mi-sd-refresh .mi-sd-ico{ color:#fff; font-weight:900; font-size:24px; }
+      .mi-sd-kakao .mi-sd-kakao-bubble{ display:inline-flex; align-items:center; justify-content:center;
+        width:30px; height:30px; background:#3C1E1E; border-radius:50%; }
+
+      /* 좌측 라벨 칩 — 펼쳤을 때만 표시 */
+      .mi-sd-chip{ position:absolute; right:64px; top:50%;
+        transform:translateY(-50%) translateX(6px);
+        background:#1a1a1a; color:#fff; font-size:12px; font-weight:800; letter-spacing:0.2px;
+        padding:5px 11px; border-radius:999px; white-space:nowrap;
+        box-shadow:0 3px 10px rgba(0,0,0,0.3); opacity:0; pointer-events:none;
+        transition:opacity .2s ease, transform .2s ease; }
+      #mi-speed-dial.is-open .mi-sd-chip{ opacity:1; transform:translateY(-50%) translateX(0); }
+      .mi-sd-kakao .mi-sd-chip{ color:#FEE500; }
+      .mi-sd-ai .mi-sd-chip{ color:#ffcc00; border:1px solid rgba(255,204,0,0.5); }
+
+      /* 메인 트리거 = 상담원 아바타 */
+      #mi-ops-fab{ position:relative; width:64px; height:64px; cursor:pointer; }
+      #mi-ops-fab-label{ position:absolute; right:0; left:auto; bottom:72px; transform:none; max-width:60vw;
         background:#1a1a1a; color:#ffcc00; font-weight:800; font-size:12px; padding:4px 11px;
         border-radius:999px; white-space:nowrap; box-shadow:0 3px 10px rgba(0,0,0,0.4);
-        border:1px solid rgba(255,204,0,0.55); pointer-events:none; }
+        border:1px solid rgba(255,204,0,0.55); pointer-events:none; transition:opacity .2s ease; }
+      #mi-speed-dial.is-open #mi-ops-fab-label{ opacity:0; }
       #mi-ops-fab-btn{ position:absolute; left:0; bottom:0; width:64px; height:64px;
-        border:3px solid #ffcc00; border-radius:50%; background:#111;
-        box-shadow:0 6px 18px rgba(0,0,0,0.35); animation: miOpsGlowPulse 1.8s ease-in-out infinite; }
-      /* 답변하는 서양인 여자 상담사 얼굴(아바타 영상과 동일) — 원형 클립 */
+        border:3px solid #ffcc00; border-radius:50%; background:#111; overflow:hidden;
+        box-shadow:0 6px 18px rgba(0,0,0,0.35); animation: miOpsGlowPulse 1.8s ease-in-out infinite;
+        transition:transform .18s ease; }
       #mi-ops-fab-vid{ position:absolute; inset:0; width:100%; height:100%; border-radius:50%;
-        object-fit:cover; object-position:center 18%; display:block; pointer-events:none; }
-      /* ✨ 회전하는 후광 링 */
+        object-fit:cover; object-position:center 18%; display:block; pointer-events:none;
+        transition:filter .2s ease; }
       #mi-ops-fab-btn::before{ content:""; position:absolute; inset:-6px; border-radius:50%; z-index:-1;
         background:conic-gradient(from 0deg, #ffcc00, #fff7c2, #ffae00, #fff7c2, #ffcc00);
         filter:blur(4px); opacity:.9; animation: miOpsHaloSpin 3s linear infinite; }
@@ -2261,15 +2295,65 @@
         50%    { box-shadow:0 6px 18px rgba(0,0,0,0.35), 0 0 16px 5px rgba(255,204,0,0.95), 0 0 36px 11px rgba(255,204,0,0.6); }
       }
       #mi-ops-fab:hover #mi-ops-fab-btn{ transform:scale(1.05); }
-      #mi-ops-fab-btn{ transition:transform .18s ease; }
-      @media (prefers-reduced-motion: reduce){ #mi-ops-fab-btn, #mi-ops-fab-btn::before{ animation:none; } }
-      /* 💻 PC(데스크톱) 전용 — 30% 크게 (홈페이지 A.i 상담사와 동일) */
+      /* 닫기(✕) 오버레이 — 펼쳤을 때 표시 */
+      .mi-ops-fab-close{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+        border-radius:50%; background:rgba(17,17,17,0.62); color:#ffcc00; font-size:26px; font-weight:700;
+        opacity:0; transform:rotate(-90deg) scale(0.6); pointer-events:none;
+        transition:opacity .22s ease, transform .26s cubic-bezier(0.34,1.4,0.5,1); }
+      #mi-speed-dial.is-open .mi-ops-fab-close{ opacity:1; transform:rotate(0deg) scale(1); }
+      #mi-speed-dial.is-open #mi-ops-fab-vid{ filter:brightness(0.55); }
+      #mi-speed-dial.is-open #mi-ops-fab-btn{ animation:none; }
+
+      @media (prefers-reduced-motion: reduce){
+        #mi-ops-fab-btn, #mi-ops-fab-btn::before{ animation:none; }
+        .mi-sd-action, .mi-sd-chip, .mi-ops-fab-close{ transition:opacity .12s ease; transform:none; }
+        #mi-speed-dial.is-open .mi-sd-action{ transform:none; }
+      }
+
+      /* 💻 PC(≥481px) — 트리거 30% 크게(기존 룩 유지), 액션도 약간 크게 */
       @media (min-width:481px){
         #mi-ops-fab{ width:83px; height:83px; }
         #mi-ops-fab-btn{ width:83px; height:83px; border-width:4px; }
         #mi-ops-fab-label{ bottom:91px; font-size:15px; padding:5px 13px; }
+        .mi-sd-action{ width:60px; height:60px; }
+        .mi-sd-chip{ right:70px; font-size:13px; }
+        .mi-ops-fab-close{ font-size:30px; }
+      }
+      /* 📱 아주 좁은 화면 — 여백만 살짝 축소 */
+      @media (max-width:380px){
+        #mi-speed-dial{ right:14px; bottom:14px; }
       }
     </style>
+
+    <script id="mi-speed-dial-js">
+    (function(){
+      'use strict';
+      function init(){
+        var dial = document.getElementById('mi-speed-dial');
+        if(!dial || dial.__sdBound) return;
+        dial.__sdBound = true;
+        var backdrop = document.getElementById('mi-sd-backdrop');
+        var trigger  = document.getElementById('mi-ops-fab');
+        function setOpen(open){
+          dial.classList.toggle('is-open', open);
+          dial.setAttribute('data-open', open ? 'true' : 'false');
+          if(backdrop) backdrop.classList.toggle('is-open', open);
+          if(trigger){
+            trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+            trigger.setAttribute('aria-label', open ? '빠른 메뉴 닫기' : '빠른 메뉴 열기');
+          }
+        }
+        window.miSdOpen   = function(){ setOpen(true); };
+        window.miSdClose  = function(){ setOpen(false); };
+        window.miSdToggle = function(){ setOpen(!dial.classList.contains('is-open')); };
+        if(backdrop) backdrop.addEventListener('click', window.miSdClose);
+        document.addEventListener('keydown', function(e){ if(e.key === 'Escape') window.miSdClose(); });
+      }
+      if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+      else init();
+      setTimeout(init, 1000);
+    })();
+    </script>
 
     <!-- 메뉴 토글 바 — legacy-cards 보이기/숨기기 + 펼치기/접기 -->
     <div class="menu-toggle-bar">
@@ -2731,7 +2815,7 @@
       <span style="flex:1"></span>
       <span style="font-size:11px;color:#9ca3af">학생/매출/출석/평가/미납/포인트/채팅/상담 — 8개 핵심 지표</span>
     </div>
-    <div id="kpi-grid-wrap"><div class="kpi-grid" id="kpi-grid"><div style="grid-column:1/-1;padding:30px;text-align:center;color:#6b7280">📥 KPI 로딩 중…</div></div></div>
+    <div id="kpi-grid-wrap"><div class="kpi-grid" id="kpi-grid"><div style="grid-column:1/-1;padding:30px;text-align:center;color:#6b7280" data-ko="📥 KPI 로딩 중…" data-en="📥 Loading KPIs…">📥 KPI 로딩 중…</div></div></div>
     <div id="kpi-spark-wrap" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 18px;margin-top:6px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <h4 style="margin:0;font-size:13px;font-weight:800;color:#374151">📈 최근 7일 매출 추세</h4>
@@ -2756,21 +2840,22 @@
   window.kpiLoad = async function(){
     const wrap = document.getElementById('kpi-grid');
     if (!wrap) return;
-    wrap.innerHTML = '<div style="grid-column:1/-1;padding:30px;text-align:center;color:#6b7280">📥 KPI 로딩 중…</div>';
+    const isEn = (window.adminLang === 'en');
+    wrap.innerHTML = '<div style="grid-column:1/-1;padding:30px;text-align:center;color:#6b7280">'+(isEn?'📥 Loading KPIs…':'📥 KPI 로딩 중…')+'</div>';
     try {
       const r = await fetch('/api/admin/kpi/dashboard');
       const d = await r.json();
-      if (!d.ok) throw new Error(d.error || 'KPI 로드 실패');
+      if (!d.ok) throw new Error(d.error || (isEn?'Failed to load KPIs':'KPI 로드 실패'));
       const k = d.kpi || {};
       const tiles = [
-        { cls:'kpi-students', icon:'👥', label:'활동 학생', value:fmt(k.students.total), sub:`이번 달 신규 +${fmt(k.students.new_this_month)}명`, trend:fmtTrend(k.students.trend) },
-        { cls:'kpi-revenue', icon:'💰', label:'이번 달 매출', value:fmtWon(k.revenue.this_month), sub:`결제 ${fmt(k.revenue.this_month_count)}건`, trend:fmtTrend(k.revenue.trend) },
-        { cls:'kpi-attendance', icon:'📍', label:'이번 달 출석', value:fmt(k.attendance.this_month), sub:`전월 ${fmt(k.attendance.last_month)}회`, trend:fmtTrend(k.attendance.trend) },
-        { cls:'kpi-eval', icon:'📝', label:'평가서 평균', value:(k.evaluation.avg_score||0).toFixed(1)+'<span class="kpi-unit">/5</span>', sub:`${fmt(k.evaluation.count)}건 작성 · ${fmt(k.evaluation.notified)}건 카톡`, trend:'' },
-        { cls:'kpi-overdue', icon:'🔔', label:'미납 학생', value:fmt(k.overdue.count), sub:`알림 ${fmt(k.overdue.notified_this_month)}건 발송 (이번 달)`, trend:'' },
-        { cls:'kpi-points', icon:'🎁', label:'이번 달 포인트', value:fmt(k.points.earned_this_month)+'<span class="kpi-unit">P</span>', sub:`사용 ${fmt(k.points.spent_this_month)}P`, trend:'' },
-        { cls:'kpi-chat', icon:'💬', label:'채팅 메시지', value:fmt(k.chat.messages_this_month), sub:'이번 달 누적', trend:'' },
-        { cls:'kpi-inquiry', icon:'💌', label:'신규 상담', value:fmt(k.inquiry.last_30_days), sub:'최근 30일', trend:'' },
+        { cls:'kpi-students', icon:'👥', label:(isEn?'Active Students':'활동 학생'), value:fmt(k.students.total), sub:(isEn?`+${fmt(k.students.new_this_month)} new this month`:`이번 달 신규 +${fmt(k.students.new_this_month)}명`), trend:fmtTrend(k.students.trend) },
+        { cls:'kpi-revenue', icon:'💰', label:(isEn?"This Month's Revenue":'이번 달 매출'), value:fmtWon(k.revenue.this_month), sub:(isEn?`${fmt(k.revenue.this_month_count)} payments`:`결제 ${fmt(k.revenue.this_month_count)}건`), trend:fmtTrend(k.revenue.trend) },
+        { cls:'kpi-attendance', icon:'📍', label:(isEn?"This Month's Attendance":'이번 달 출석'), value:fmt(k.attendance.this_month), sub:(isEn?`${fmt(k.attendance.last_month)} last month`:`전월 ${fmt(k.attendance.last_month)}회`), trend:fmtTrend(k.attendance.trend) },
+        { cls:'kpi-eval', icon:'📝', label:(isEn?'Avg Evaluation':'평가서 평균'), value:(k.evaluation.avg_score||0).toFixed(1)+'<span class="kpi-unit">/5</span>', sub:(isEn?`${fmt(k.evaluation.count)} written · ${fmt(k.evaluation.notified)} via KakaoTalk`:`${fmt(k.evaluation.count)}건 작성 · ${fmt(k.evaluation.notified)}건 카톡`), trend:'' },
+        { cls:'kpi-overdue', icon:'🔔', label:(isEn?'Overdue Students':'미납 학생'), value:fmt(k.overdue.count), sub:(isEn?`${fmt(k.overdue.notified_this_month)} reminders sent (this month)`:`알림 ${fmt(k.overdue.notified_this_month)}건 발송 (이번 달)`), trend:'' },
+        { cls:'kpi-points', icon:'🎁', label:(isEn?"This Month's Points":'이번 달 포인트'), value:fmt(k.points.earned_this_month)+'<span class="kpi-unit">P</span>', sub:(isEn?`${fmt(k.points.spent_this_month)}P spent`:`사용 ${fmt(k.points.spent_this_month)}P`), trend:'' },
+        { cls:'kpi-chat', icon:'💬', label:(isEn?'Chat Messages':'채팅 메시지'), value:fmt(k.chat.messages_this_month), sub:(isEn?'Cumulative this month':'이번 달 누적'), trend:'' },
+        { cls:'kpi-inquiry', icon:'💌', label:(isEn?'New Inquiries':'신규 상담'), value:fmt(k.inquiry.last_30_days), sub:(isEn?'Last 30 days':'최근 30일'), trend:'' },
       ];
       wrap.innerHTML = tiles.map(t => `
         <div class="kpi-tile ${t.cls}">
@@ -2780,13 +2865,13 @@
           <div class="kpi-sub">${t.sub}</div>
           ${t.trend}
         </div>`).join('');
-      document.getElementById('kpi-updated').textContent = '최종 업데이트: ' + new Date(d.ts).toLocaleTimeString('ko-KR');
+      document.getElementById('kpi-updated').textContent = (isEn?'Updated: ':'최종 업데이트: ') + new Date(d.ts).toLocaleTimeString(isEn?'en-US':'ko-KR');
 
       // 7일 매출 미니 차트
       const dr = d.daily_revenue || [];
       const max = Math.max(1, ...dr.map(x => x.revenue || 0));
       const total = dr.reduce((s,x)=>s+(x.revenue||0), 0);
-      document.getElementById('kpi-spark-total').textContent = '합계 ' + fmtWon(total);
+      document.getElementById('kpi-spark-total').textContent = (isEn?'Total ':'합계 ') + fmtWon(total);
       const spark = document.getElementById('kpi-spark');
       spark.innerHTML = dr.map(x => {
         const h = max > 0 ? Math.max(2, (x.revenue/max)*100) : 2;
@@ -3032,7 +3117,7 @@
               <th class="sortable" data-sort-key="end_date" data-sort-default-dir="desc" data-ko="수강 종료일" data-en="End">수강 종료일<span class="sort-indicator"></span></th>
               <th data-ko="요약" data-en="Summary">요약</th>
               <th class="sortable" data-sort-key="created_at" data-sort-default-dir="desc" data-ko="가입일" data-en="Joined">가입일<span class="sort-indicator"></span></th>
-              <th data-ko="수업회수(주)" data-en="Wk">수업회수(주)</th>
+              <th data-ko="수업회수(주)" data-en="Sessions/wk">수업회수(주)</th>
               <th class="sortable" data-sort-key="points" data-sort-default-dir="desc" data-ko="포인트" data-en="Points">포인트<span class="sort-indicator"></span></th>
               <th data-ko="수강신청" data-en="Enroll">수강신청</th>
               <th data-ko="학생 번호" data-en="Stu Phone">학생 번호</th>
@@ -3040,7 +3125,7 @@
               <th data-ko="대리점 연락처" data-en="Agency Tel">대리점 연락처</th>
               <th data-ko="대리점명" data-en="Agency">대리점명</th>
               <th data-ko="본사명" data-en="HQ">본사명</th>
-              <th data-ko="지사명" data-en="Branch2">지사명</th>
+              <th data-ko="지사명" data-en="Branch">지사명</th>
               <th class="sortable" data-sort-key="session_count" data-sort-default-dir="desc" data-ko="세션 수" data-en="Sessions">세션 수<span class="sort-indicator"></span></th>
               <th data-ko="상태" data-en="Status">상태</th>
             </tr></thead>
@@ -3363,7 +3448,7 @@
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
             <input id="acc-fx-month" type="month" value="2026-05" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db" />
             <button id="acc-fx-load" class="primary" onclick="accLoadForex()" style="padding:5px 12px;font-size:12px;" data-ko="🧮 불러오기" data-en="🧮 Load">🧮 불러오기</button>
-            <button id="acc-fx-rates" onclick="alert('환율 갱신: PHP 24.34 / USD 1,365 / GBP 1,720 (수동 설정)')" style="padding:5px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="💱 환율 갱신" data-en="💱 Update FX">💱 환율 갱신</button>
+            <button id="acc-fx-rates" onclick="alert(window.adminLang==='en'?'FX update: PHP 24.34 / USD 1,365 / GBP 1,720 (manual setting)':'환율 갱신: PHP 24.34 / USD 1,365 / GBP 1,720 (수동 설정)')" style="padding:5px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="💱 환율 갱신" data-en="💱 Update FX">💱 환율 갱신</button>
             <span style="font-size:11px;color:#6b7280" data-ko="PHP 24.34 / USD 1,365 / GBP 1,720" data-en="PHP 24.34 / USD 1,365 / GBP 1,720">PHP 24.34 / USD 1,365 / GBP 1,720</span>
           </div>
           <table>
@@ -3389,32 +3474,32 @@
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
             <span style="font-size:12px;color:#6b7280" data-ko="📅 정산 월:" data-en="📅 Month:">📅 정산 월:</span>
             <input id="acc-fr-month" type="month" value="2026-05" style="padding:6px 10px;font-size:13px;border-radius:8px;border:1px solid #d1d5db;font-weight:600" />
-            <button id="acc-fr-load" onclick="accLoadFranchise()" style="padding:7px 14px;font-size:12.5px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:700">🧮 새로고침</button>
-            <button id="acc-fr-transfer" onclick="alert('💸 일괄 송금 안내\n\n각 지점 정산액을 일괄 송금하시려면:\n1. 📥 정산서 다운로드 → 검토\n2. 은행 인터넷뱅킹 또는 펌뱅킹 일괄 이체\n3. 송금 완료 후 상태 업데이트')" style="padding:7px 14px;font-size:12.5px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:700">💸 일괄 송금하기</button>
-            <button onclick="alert('📥 정산서 Excel 다운로드 (전체 지점)')" style="padding:7px 14px;font-size:12.5px;background:#f8fafc;color:#334155;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;font-weight:700">📥 Excel 다운로드</button>
+            <button id="acc-fr-load" onclick="accLoadFranchise()" style="padding:7px 14px;font-size:12.5px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:700" data-ko="🧮 새로고침" data-en="🧮 Refresh">🧮 새로고침</button>
+            <button id="acc-fr-transfer" onclick="alert(window.adminLang==='en'?'💸 Bulk Transfer Guide\n\nTo transfer each branch settlement at once:\n1. 📥 Download statement → review\n2. Bulk transfer via internet/firm banking\n3. Update status after transfer is complete':'💸 일괄 송금 안내\n\n각 지점 정산액을 일괄 송금하시려면:\n1. 📥 정산서 다운로드 → 검토\n2. 은행 인터넷뱅킹 또는 펌뱅킹 일괄 이체\n3. 송금 완료 후 상태 업데이트')" style="padding:7px 14px;font-size:12.5px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:700" data-ko="💸 일괄 송금하기" data-en="💸 Bulk Transfer">💸 일괄 송금하기</button>
+            <button onclick="alert(window.adminLang==='en'?'📥 Download settlement Excel (all branches)':'📥 정산서 Excel 다운로드 (전체 지점)')" style="padding:7px 14px;font-size:12.5px;background:#f8fafc;color:#334155;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;font-weight:700" data-ko="📥 Excel 다운로드" data-en="📥 Excel Download">📥 Excel 다운로드</button>
           </div>
 
           <!-- 4개 KPI 카드 (한눈에 보이는 핵심 숫자) -->
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">
             <div style="padding:14px 16px;background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-radius:12px;border:1px solid #93c5fd">
-              <div style="font-size:11px;color:#1e40af;font-weight:700;margin-bottom:4px">💰 이번 달 총 매출</div>
+              <div style="font-size:11px;color:#1e40af;font-weight:700;margin-bottom:4px" data-ko="💰 이번 달 총 매출" data-en="💰 This Month's Gross Revenue">💰 이번 달 총 매출</div>
               <div id="ph204-kpi-gross" style="font-size:22px;font-weight:900;color:#1e3a8a">₩48,500,000</div>
-              <div style="font-size:10.5px;color:#3b82f6;margin-top:2px">전월 대비 ▲ 8.2%</div>
+              <div style="font-size:10.5px;color:#3b82f6;margin-top:2px" data-ko="전월 대비 ▲ 8.2%" data-en="▲ 8.2% vs last month">전월 대비 ▲ 8.2%</div>
             </div>
             <div style="padding:14px 16px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:12px;border:1px solid #fcd34d">
-              <div style="font-size:11px;color:#92400e;font-weight:700;margin-bottom:4px">🏦 본사 수수료 (수수료)</div>
+              <div style="font-size:11px;color:#92400e;font-weight:700;margin-bottom:4px" data-ko="🏦 본사 수수료" data-en="🏦 HQ Commission">🏦 본사 수수료</div>
               <div id="ph204-kpi-hq" style="font-size:22px;font-weight:900;color:#78350f">₩7,275,000</div>
-              <div style="font-size:10.5px;color:#b45309;margin-top:2px">평균 수수료율 15%</div>
+              <div style="font-size:10.5px;color:#b45309;margin-top:2px" data-ko="평균 수수료율 15%" data-en="Avg fee rate 15%">평균 수수료율 15%</div>
             </div>
             <div style="padding:14px 16px;background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-radius:12px;border:1px solid #93c5fd">
-              <div style="font-size:11px;color:#1e40af;font-weight:700;margin-bottom:4px">📤 지점에 보낼 돈</div>
+              <div style="font-size:11px;color:#1e40af;font-weight:700;margin-bottom:4px" data-ko="📤 지점에 보낼 돈" data-en="📤 Payable to Branches">📤 지점에 보낼 돈</div>
               <div id="ph204-kpi-payout" style="font-size:22px;font-weight:900;color:#1e3a8a">₩41,225,000</div>
-              <div style="font-size:10.5px;color:#2563eb;margin-top:2px">6개 지점 합계</div>
+              <div style="font-size:10.5px;color:#2563eb;margin-top:2px" data-ko="6개 지점 합계" data-en="6 branches total">6개 지점 합계</div>
             </div>
             <div style="padding:14px 16px;background:linear-gradient(135deg,#fee2e2,#fecaca);border-radius:12px;border:1px solid #fca5a5">
-              <div style="font-size:11px;color:#991b1b;font-weight:700;margin-bottom:4px">⏰ 송금 대기</div>
-              <div id="ph204-kpi-pending" style="font-size:22px;font-weight:900;color:#7f1d1d">3 개</div>
-              <div style="font-size:10.5px;color:#dc2626;margin-top:2px">5월 31일까지 송금 필요</div>
+              <div style="font-size:11px;color:#991b1b;font-weight:700;margin-bottom:4px" data-ko="⏰ 송금 대기" data-en="⏰ Transfer Pending">⏰ 송금 대기</div>
+              <div id="ph204-kpi-pending" style="font-size:22px;font-weight:900;color:#7f1d1d" data-ko="3 개" data-en="3">3 개</div>
+              <div style="font-size:10.5px;color:#dc2626;margin-top:2px" data-ko="5월 31일까지 송금 필요" data-en="Transfer due by May 31">5월 31일까지 송금 필요</div>
             </div>
           </div>
 
@@ -3423,103 +3508,103 @@
             <!-- 부산 지점 -->
             <div style="padding:14px 16px;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <div style="font-weight:800;font-size:14.5px;color:#0f172a">🏬 부산 지점</div>
-                <span style="padding:3px 8px;background:#fee2e2;color:#991b1b;font-size:10.5px;font-weight:700;border-radius:99px">⏰ 송금 대기</span>
+                <div style="font-weight:800;font-size:14.5px;color:#0f172a" data-ko="🏬 부산 지점" data-en="🏬 Busan Branch">🏬 부산 지점</div>
+                <span style="padding:3px 8px;background:#fee2e2;color:#991b1b;font-size:10.5px;font-weight:700;border-radius:99px" data-ko="⏰ 송금 대기" data-en="⏰ Transfer Pending">⏰ 송금 대기</span>
               </div>
-              <div style="font-size:11px;color:#6b7280;margin-bottom:8px">학생 42명 · 강사 6명</div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>매출</span><b style="color:#1f2937">₩12,000,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>본사 수수료 (15%)</span><b style="color:#b45309">- ₩1,800,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534">→ 지점에 송금</b><b style="color:#15803d;font-size:15px">₩10,200,000</b></div>
+              <div style="font-size:11px;color:#6b7280;margin-bottom:8px" data-ko="학생 42명 · 강사 6명" data-en="42 students · 6 teachers">학생 42명 · 강사 6명</div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="매출" data-en="Revenue">매출</span><b style="color:#1f2937">₩12,000,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="본사 수수료 (15%)" data-en="HQ fee (15%)">본사 수수료 (15%)</span><b style="color:#b45309">- ₩1,800,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534" data-ko="→ 지점에 송금" data-en="→ Send to branch">→ 지점에 송금</b><b style="color:#15803d;font-size:15px">₩10,200,000</b></div>
               <div style="display:flex;gap:6px;margin-top:10px">
-                <button onclick="alert('💸 부산 지점에 ₩10,200,000 송금 처리')" style="flex:1;padding:7px;background:#10b981;color:#fff;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer">💸 송금하기</button>
-                <button onclick="alert('📥 부산 지점 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
+                <button onclick="alert(window.adminLang==='en'?'💸 Transfer ₩10,200,000 to Busan Branch':'💸 부산 지점에 ₩10,200,000 송금 처리')" style="flex:1;padding:7px;background:#10b981;color:#fff;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer" data-ko="💸 송금하기" data-en="💸 Transfer">💸 송금하기</button>
+                <button onclick="alert(window.adminLang==='en'?'📥 Download Busan Branch statement PDF':'📥 부산 지점 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
               </div>
             </div>
 
             <!-- 대구 지점 -->
             <div style="padding:14px 16px;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <div style="font-weight:800;font-size:14.5px;color:#0f172a">🏬 대구 지점</div>
-                <span style="padding:3px 8px;background:#dcfce7;color:#166534;font-size:10.5px;font-weight:700;border-radius:99px">✅ 송금 완료</span>
+                <div style="font-weight:800;font-size:14.5px;color:#0f172a" data-ko="🏬 대구 지점" data-en="🏬 Daegu Branch">🏬 대구 지점</div>
+                <span style="padding:3px 8px;background:#dcfce7;color:#166534;font-size:10.5px;font-weight:700;border-radius:99px" data-ko="✅ 송금 완료" data-en="✅ Transferred">✅ 송금 완료</span>
               </div>
-              <div style="font-size:11px;color:#6b7280;margin-bottom:8px">학생 38명 · 강사 5명</div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>매출</span><b style="color:#1f2937">₩9,500,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>본사 수수료 (15%)</span><b style="color:#b45309">- ₩1,425,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534">→ 지점에 송금</b><b style="color:#15803d;font-size:15px">₩8,075,000</b></div>
+              <div style="font-size:11px;color:#6b7280;margin-bottom:8px" data-ko="학생 38명 · 강사 5명" data-en="38 students · 5 teachers">학생 38명 · 강사 5명</div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="매출" data-en="Revenue">매출</span><b style="color:#1f2937">₩9,500,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="본사 수수료 (15%)" data-en="HQ fee (15%)">본사 수수료 (15%)</span><b style="color:#b45309">- ₩1,425,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534" data-ko="→ 지점에 송금" data-en="→ Send to branch">→ 지점에 송금</b><b style="color:#15803d;font-size:15px">₩8,075,000</b></div>
               <div style="display:flex;gap:6px;margin-top:10px">
-                <button disabled style="flex:1;padding:7px;background:#e5e7eb;color:#9ca3af;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:not-allowed">✅ 송금 완료 (5/15)</button>
-                <button onclick="alert('📥 대구 지점 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
+                <button disabled style="flex:1;padding:7px;background:#e5e7eb;color:#9ca3af;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:not-allowed" data-ko="✅ 송금 완료 (5/15)" data-en="✅ Transferred (5/15)">✅ 송금 완료 (5/15)</button>
+                <button onclick="alert(window.adminLang==='en'?'📥 Download Daegu Branch statement PDF':'📥 대구 지점 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
               </div>
             </div>
 
             <!-- 강남 대리점 -->
             <div style="padding:14px 16px;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <div style="font-weight:800;font-size:14.5px;color:#0f172a">🤝 강남 대리점</div>
-                <span style="padding:3px 8px;background:#fee2e2;color:#991b1b;font-size:10.5px;font-weight:700;border-radius:99px">⏰ 송금 대기</span>
+                <div style="font-weight:800;font-size:14.5px;color:#0f172a" data-ko="🤝 강남 대리점" data-en="🤝 Gangnam Agency">🤝 강남 대리점</div>
+                <span style="padding:3px 8px;background:#fee2e2;color:#991b1b;font-size:10.5px;font-weight:700;border-radius:99px" data-ko="⏰ 송금 대기" data-en="⏰ Transfer Pending">⏰ 송금 대기</span>
               </div>
-              <div style="font-size:11px;color:#6b7280;margin-bottom:8px">학생 28명 · 강사 4명</div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>매출</span><b style="color:#1f2937">₩8,200,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>본사 수수료 (18%)</span><b style="color:#b45309">- ₩1,476,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534">→ 대리점에 송금</b><b style="color:#15803d;font-size:15px">₩6,724,000</b></div>
+              <div style="font-size:11px;color:#6b7280;margin-bottom:8px" data-ko="학생 28명 · 강사 4명" data-en="28 students · 4 teachers">학생 28명 · 강사 4명</div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="매출" data-en="Revenue">매출</span><b style="color:#1f2937">₩8,200,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="본사 수수료 (18%)" data-en="HQ fee (18%)">본사 수수료 (18%)</span><b style="color:#b45309">- ₩1,476,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534" data-ko="→ 대리점에 송금" data-en="→ Send to agency">→ 대리점에 송금</b><b style="color:#15803d;font-size:15px">₩6,724,000</b></div>
               <div style="display:flex;gap:6px;margin-top:10px">
-                <button onclick="alert('💸 강남 대리점에 ₩6,724,000 송금 처리')" style="flex:1;padding:7px;background:#10b981;color:#fff;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer">💸 송금하기</button>
-                <button onclick="alert('📥 강남 대리점 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
+                <button onclick="alert(window.adminLang==='en'?'💸 Transfer ₩6,724,000 to Gangnam Agency':'💸 강남 대리점에 ₩6,724,000 송금 처리')" style="flex:1;padding:7px;background:#10b981;color:#fff;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer" data-ko="💸 송금하기" data-en="💸 Transfer">💸 송금하기</button>
+                <button onclick="alert(window.adminLang==='en'?'📥 Download Gangnam Agency statement PDF':'📥 강남 대리점 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
               </div>
             </div>
 
             <!-- 송파 대리점 -->
             <div style="padding:14px 16px;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <div style="font-weight:800;font-size:14.5px;color:#0f172a">🤝 송파 대리점</div>
-                <span style="padding:3px 8px;background:#fef3c7;color:#92400e;font-size:10.5px;font-weight:700;border-radius:99px">📝 검토 중</span>
+                <div style="font-weight:800;font-size:14.5px;color:#0f172a" data-ko="🤝 송파 대리점" data-en="🤝 Songpa Agency">🤝 송파 대리점</div>
+                <span style="padding:3px 8px;background:#fef3c7;color:#92400e;font-size:10.5px;font-weight:700;border-radius:99px" data-ko="📝 검토 중" data-en="📝 Reviewing">📝 검토 중</span>
               </div>
-              <div style="font-size:11px;color:#6b7280;margin-bottom:8px">학생 22명 · 강사 3명</div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>매출</span><b style="color:#1f2937">₩6,800,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>본사 수수료 (18%)</span><b style="color:#b45309">- ₩1,224,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534">→ 대리점에 송금</b><b style="color:#15803d;font-size:15px">₩5,576,000</b></div>
+              <div style="font-size:11px;color:#6b7280;margin-bottom:8px" data-ko="학생 22명 · 강사 3명" data-en="22 students · 3 teachers">학생 22명 · 강사 3명</div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="매출" data-en="Revenue">매출</span><b style="color:#1f2937">₩6,800,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="본사 수수료 (18%)" data-en="HQ fee (18%)">본사 수수료 (18%)</span><b style="color:#b45309">- ₩1,224,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534" data-ko="→ 대리점에 송금" data-en="→ Send to agency">→ 대리점에 송금</b><b style="color:#15803d;font-size:15px">₩5,576,000</b></div>
               <div style="display:flex;gap:6px;margin-top:10px">
-                <button onclick="alert('💸 송파 대리점에 ₩5,576,000 송금 처리')" style="flex:1;padding:7px;background:#10b981;color:#fff;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer">💸 송금하기</button>
-                <button onclick="alert('📥 송파 대리점 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
+                <button onclick="alert(window.adminLang==='en'?'💸 Transfer ₩5,576,000 to Songpa Agency':'💸 송파 대리점에 ₩5,576,000 송금 처리')" style="flex:1;padding:7px;background:#10b981;color:#fff;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer" data-ko="💸 송금하기" data-en="💸 Transfer">💸 송금하기</button>
+                <button onclick="alert(window.adminLang==='en'?'📥 Download Songpa Agency statement PDF':'📥 송파 대리점 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
               </div>
             </div>
 
             <!-- 마닐라 직영 -->
             <div style="padding:14px 16px;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <div style="font-weight:800;font-size:14.5px;color:#0f172a">🌏 마닐라 직영</div>
-                <span style="padding:3px 8px;background:#dcfce7;color:#166534;font-size:10.5px;font-weight:700;border-radius:99px">✅ 송금 완료</span>
+                <div style="font-weight:800;font-size:14.5px;color:#0f172a" data-ko="🌏 마닐라 직영" data-en="🌏 Manila (Direct)">🌏 마닐라 직영</div>
+                <span style="padding:3px 8px;background:#dcfce7;color:#166534;font-size:10.5px;font-weight:700;border-radius:99px" data-ko="✅ 송금 완료" data-en="✅ Transferred">✅ 송금 완료</span>
               </div>
-              <div style="font-size:11px;color:#6b7280;margin-bottom:8px">강사 12명 · 인건비</div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>매출 분배</span><b style="color:#1f2937">₩7,000,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>본사 수수료 (12%)</span><b style="color:#b45309">- ₩840,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534">→ 직영에 송금</b><b style="color:#15803d;font-size:15px">₩6,160,000 (≈$4,510)</b></div>
+              <div style="font-size:11px;color:#6b7280;margin-bottom:8px" data-ko="강사 12명 · 인건비" data-en="12 teachers · Payroll">강사 12명 · 인건비</div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="매출 분배" data-en="Revenue share">매출 분배</span><b style="color:#1f2937">₩7,000,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="본사 수수료 (12%)" data-en="HQ fee (12%)">본사 수수료 (12%)</span><b style="color:#b45309">- ₩840,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534" data-ko="→ 직영에 송금" data-en="→ Send to direct branch">→ 직영에 송금</b><b style="color:#15803d;font-size:15px">₩6,160,000 (≈$4,510)</b></div>
               <div style="display:flex;gap:6px;margin-top:10px">
-                <button disabled style="flex:1;padding:7px;background:#e5e7eb;color:#9ca3af;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:not-allowed">✅ 송금 완료 (5/20)</button>
-                <button onclick="alert('📥 마닐라 직영 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
+                <button disabled style="flex:1;padding:7px;background:#e5e7eb;color:#9ca3af;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:not-allowed" data-ko="✅ 송금 완료 (5/20)" data-en="✅ Transferred (5/20)">✅ 송금 완료 (5/20)</button>
+                <button onclick="alert(window.adminLang==='en'?'📥 Download Manila (Direct) statement PDF':'📥 마닐라 직영 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
               </div>
             </div>
 
             <!-- 광주 대리점 -->
             <div style="padding:14px 16px;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <div style="font-weight:800;font-size:14.5px;color:#0f172a">🤝 광주 대리점</div>
-                <span style="padding:3px 8px;background:#fee2e2;color:#991b1b;font-size:10.5px;font-weight:700;border-radius:99px">⏰ 송금 대기</span>
+                <div style="font-weight:800;font-size:14.5px;color:#0f172a" data-ko="🤝 광주 대리점" data-en="🤝 Gwangju Agency">🤝 광주 대리점</div>
+                <span style="padding:3px 8px;background:#fee2e2;color:#991b1b;font-size:10.5px;font-weight:700;border-radius:99px" data-ko="⏰ 송금 대기" data-en="⏰ Transfer Pending">⏰ 송금 대기</span>
               </div>
-              <div style="font-size:11px;color:#6b7280;margin-bottom:8px">학생 18명 · 강사 3명</div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>매출</span><b style="color:#1f2937">₩5,000,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>본사 수수료 (18%)</span><b style="color:#b45309">- ₩900,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534">→ 대리점에 송금</b><b style="color:#15803d;font-size:15px">₩4,100,000</b></div>
+              <div style="font-size:11px;color:#6b7280;margin-bottom:8px" data-ko="학생 18명 · 강사 3명" data-en="18 students · 3 teachers">학생 18명 · 강사 3명</div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="매출" data-en="Revenue">매출</span><b style="color:#1f2937">₩5,000,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="본사 수수료 (18%)" data-en="HQ fee (18%)">본사 수수료 (18%)</span><b style="color:#b45309">- ₩900,000</b></div>
+              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534" data-ko="→ 대리점에 송금" data-en="→ Send to agency">→ 대리점에 송금</b><b style="color:#15803d;font-size:15px">₩4,100,000</b></div>
               <div style="display:flex;gap:6px;margin-top:10px">
-                <button onclick="alert('💸 광주 대리점에 ₩4,100,000 송금 처리')" style="flex:1;padding:7px;background:#10b981;color:#fff;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer">💸 송금하기</button>
-                <button onclick="alert('📥 광주 대리점 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
+                <button onclick="alert(window.adminLang==='en'?'💸 Transfer ₩4,100,000 to Gwangju Agency':'💸 광주 대리점에 ₩4,100,000 송금 처리')" style="flex:1;padding:7px;background:#10b981;color:#fff;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer" data-ko="💸 송금하기" data-en="💸 Transfer">💸 송금하기</button>
+                <button onclick="alert(window.adminLang==='en'?'📥 Download Gwangju Agency statement PDF':'📥 광주 대리점 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
               </div>
             </div>
           </div>
 
           <!-- 매출 비교 막대 그래프 (간단 CSS) -->
           <div style="margin-top:18px;padding:14px 16px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0">
-            <div style="font-weight:800;font-size:13px;color:#0f172a;margin-bottom:12px">📊 지점별 매출 비교 (이번 달)</div>
+            <div style="font-weight:800;font-size:13px;color:#0f172a;margin-bottom:12px" data-ko="📊 지점별 매출 비교 (이번 달)" data-en="📊 Revenue by Branch (this month)">📊 지점별 매출 비교 (이번 달)</div>
             <div style="display:flex;flex-direction:column;gap:9px">
               <div style="display:grid;grid-template-columns:90px 1fr 100px;gap:10px;align-items:center;font-size:12px"><span>🏬 부산</span><div style="background:#e2e8f0;border-radius:99px;height:18px;overflow:hidden"><div style="width:100%;height:100%;background:linear-gradient(90deg,#3b82f6,#1d4ed8);border-radius:99px"></div></div><b style="text-align:right;color:#1e3a8a">₩12,000,000</b></div>
               <div style="display:grid;grid-template-columns:90px 1fr 100px;gap:10px;align-items:center;font-size:12px"><span>🏬 대구</span><div style="background:#e2e8f0;border-radius:99px;height:18px;overflow:hidden"><div style="width:79%;height:100%;background:linear-gradient(90deg,#3b82f6,#1d4ed8);border-radius:99px"></div></div><b style="text-align:right;color:#1e3a8a">₩9,500,000</b></div>
@@ -3528,7 +3613,7 @@
               <div style="display:grid;grid-template-columns:90px 1fr 100px;gap:10px;align-items:center;font-size:12px"><span>🤝 송파</span><div style="background:#e2e8f0;border-radius:99px;height:18px;overflow:hidden"><div style="width:56%;height:100%;background:linear-gradient(90deg,#10b981,#059669);border-radius:99px"></div></div><b style="text-align:right;color:#166534">₩6,800,000</b></div>
               <div style="display:grid;grid-template-columns:90px 1fr 100px;gap:10px;align-items:center;font-size:12px"><span>🤝 광주</span><div style="background:#e2e8f0;border-radius:99px;height:18px;overflow:hidden"><div style="width:42%;height:100%;background:linear-gradient(90deg,#10b981,#059669);border-radius:99px"></div></div><b style="text-align:right;color:#166534">₩5,000,000</b></div>
             </div>
-            <div style="margin-top:10px;font-size:11px;color:#64748b;text-align:center">💡 막대 길이는 부산 지점 (최고 매출) 기준</div>
+            <div style="margin-top:10px;font-size:11px;color:#64748b;text-align:center" data-ko="💡 막대 길이는 부산 지점 (최고 매출) 기준" data-en="💡 Bar length is relative to Busan Branch (top revenue)">💡 막대 길이는 부산 지점 (최고 매출) 기준</div>
           </div>
 
           <!-- 기존 표 (상세 보기) — 접힘 -->
@@ -12657,6 +12742,19 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
     <!-- 목록 -->
     <b style="font-size:14px" data-ko="📋 저장된 퀴즈" data-en="📋 Saved Quizzes">📋 저장된 퀴즈</b>
+    <!-- 🔎 검색 (교재명 · 레벨 · 레슨 · 제목) -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:7px 0 2px">
+      <div style="position:relative;flex:1;min-width:180px">
+        <span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:12px;color:#94a3b8;pointer-events:none">🔎</span>
+        <input id="rq-search" type="text" oninput="rqFilter()" autocomplete="off"
+          placeholder="교재명 · 레벨 · 레슨 · 제목 검색…"
+          data-ko-ph="교재명 · 레벨 · 레슨 · 제목 검색…" data-en-ph="Search textbook · level · lesson · title…"
+          style="width:100%;box-sizing:border-box;padding:7px 28px 7px 26px;border:1px solid #d1d5db;border-radius:8px;font-size:12.5px;outline:none">
+        <button type="button" id="rq-search-clear" onclick="rqClearSearch()" title="지우기"
+          style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:transparent;cursor:pointer;font-size:13px;color:#94a3b8;padding:2px">✕</button>
+      </div>
+      <span id="rq-search-count" style="font-size:11.5px;color:#6b7280;white-space:nowrap"></span>
+    </div>
     <div id="rq-list" style="margin-top:4px;font-size:12.5px;color:#6b7280" data-ko="⏳ 불러오는 중…" data-en="⏳ Loading…">⏳ 불러오는 중…</div>
 
     <!-- 결과 -->
@@ -13003,14 +13101,42 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     return '<div style="padding:6px 2px 10px">'+summary+(out.join('')||'<div style="color:#6b7280">문항이 없습니다.</div>')+'</div>';
   }
 
-  window.rqLoad = async function(){
+  // 🔎 검색: 교재명·레벨·레슨·제목(+설명) 부분일치 필터
+  function rqMatch(q, kw){
+    if (!kw) return true;
+    var hay = [ q.title, q.description, q.textbook, q.level,
+                (q.lesson_no!=null ? ('L'+q.lesson_no+' '+q.lesson_no+'강 lesson'+q.lesson_no) : ''),
+                (q.source==='ai' ? 'AI 자동출제' : '') ].join(' ').toLowerCase();
+    return kw.split(/\s+/).every(function(tok){ return !tok || hay.indexOf(tok) !== -1; });
+  }
+  window.rqFilter = function(){
+    var inp = document.getElementById('rq-search');
+    var clr = document.getElementById('rq-search-clear');
+    if (clr) clr.style.display = (inp && inp.value) ? 'block' : 'none';
+    rqRender();
+  };
+  window.rqClearSearch = function(){
+    var inp = document.getElementById('rq-search'); if (inp) inp.value='';
+    rqFilter(); if (inp) inp.focus();
+  };
+  function rqRender(){
     var box = document.getElementById('rq-list');
-    try {
-      var r = await fetch('/api/admin/review-quiz/list', { credentials:'include' }).then(function(x){ return x.json(); });
-      rqCache = (r && r.quizzes) || [];
-      if (!rqCache.length) { box.innerHTML = '<div style="padding:8px 0">아직 만든 퀴즈가 없어요. 위에서 첫 퀴즈를 만들어보세요!</div>'; return; }
-      box.innerHTML = '<table><thead><tr><th>제목</th><th>문항 구성</th><th>응시</th><th>상태</th><th>관리</th></tr></thead><tbody>' +
-        rqCache.map(function(q){
+    if (!box) return;
+    var cntEl = document.getElementById('rq-search-count');
+    if (!rqCache.length) {
+      box.innerHTML = '<div style="padding:8px 0">아직 만든 퀴즈가 없어요. 위에서 첫 퀴즈를 만들어보세요!</div>';
+      if (cntEl) cntEl.textContent = ''; return;
+    }
+    var inp = document.getElementById('rq-search');
+    var kw = (inp ? inp.value : '').trim().toLowerCase();
+    var list = kw ? rqCache.filter(function(q){ return rqMatch(q, kw); }) : rqCache;
+    if (cntEl) cntEl.textContent = kw ? (list.length + ' / ' + rqCache.length + '개') : (rqCache.length + '개');
+    if (!list.length) {
+      box.innerHTML = '<div style="padding:10px 0;color:#6b7280">🔎 “' + rqEsc(inp.value) + '” 검색 결과가 없습니다.</div>';
+      return;
+    }
+    box.innerHTML = '<table><thead><tr><th>제목</th><th>문항 구성</th><th>응시</th><th>상태</th><th>관리</th></tr></thead><tbody>' +
+        list.map(function(q){
           var qs = q.questions||[];
           var cnt = { choice:0, listen:0, write:0, speak:0 };
           qs.forEach(function(x){ var t=(x&&x.type)||'choice'; if(cnt[t]!=null) cnt[t]++; });
@@ -13031,7 +13157,16 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
             '<button class="rq-mini" style="color:#b91c1c" onclick="rqDel(' + q.id + ')">🗑</button></td></tr>' +
             '<tr id="rqprev-row-' + q.id + '" style="display:none"><td colspan="5" style="background:rgba(2,6,23,0.04);padding:4px 12px"><div id="rqprev-' + q.id + '"></div></td></tr>';
         }).join('') + '</tbody></table>';
-    } catch(e) { box.innerHTML = '<div style="color:#b91c1c">목록 불러오기 실패: ' + rqEsc(e.message) + '</div>'; }
+  }
+  window.rqRender = rqRender;
+
+  window.rqLoad = async function(){
+    var box = document.getElementById('rq-list');
+    try {
+      var r = await fetch('/api/admin/review-quiz/list', { credentials:'include' }).then(function(x){ return x.json(); });
+      rqCache = (r && r.quizzes) || [];
+      rqRender();
+    } catch(e) { if (box) box.innerHTML = '<div style="color:#b91c1c">목록 불러오기 실패: ' + rqEsc(e.message) + '</div>'; }
   };
   var card = document.getElementById('card-review-quiz');
   if (card) { card.addEventListener('toggle', function(){ if (card.open && !card._rqInit) { card._rqInit = true; rqAddQ({type:'choice'}); rqLoad(); } }); }
@@ -21508,7 +21643,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260617024221 -->
+        <!-- BUILD:20260618142435 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -29824,9 +29959,236 @@ button.chip:hover,
       <div class="pl-feature-card"><b>💬 1:1 피드백</b><span>강사 코멘트 + 음성</span></div>
       <div class="pl-feature-card"><b>🏆 점수/뱃지</b><span>완료 시 자동 포인트 + 뱃지</span></div>
     </div>
-    <button class="pl-cta-btn" onclick="alert('숙제 출제 폼 (다음 phase 구현)')">📝 새 숙제 출제</button>
+    <button class="pl-cta-btn" onclick="hwOpenForm()">📝 새 숙제 출제</button>
+    <div id="hw-list-wrap" style="margin-top:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <b style="font-size:13.5px">📋 출제된 숙제</b>
+        <button onclick="hwLoadList()" style="padding:4px 10px;font-size:11.5px;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">↻ 새로고침</button>
+      </div>
+      <div id="hw-list" style="font-size:12.5px;color:#94a3b8">아직 불러오지 않음 — ↻ 새로고침을 눌러 주세요.</div>
+    </div>
   </div>
 </details>
+
+<!-- 📚 Phase HW — 새 숙제 출제 모달 (학원 → 학생 단계 선택) -->
+<div id="hw-modal" style="display:none;position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.62);align-items:flex-start;justify-content:center;overflow:auto;padding:24px 12px;">
+  <div style="background:#fff;color:#1e293b;width:100%;max-width:560px;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.4);overflow:hidden;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:linear-gradient(135deg,#2563EB,#1E40AF);color:#fff;">
+      <b style="font-size:16px">📝 새 숙제 출제</b>
+      <button onclick="hwCloseForm()" style="background:transparent;border:none;color:#fff;font-size:22px;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="padding:18px 20px;max-height:72vh;overflow:auto;">
+      <label style="display:block;font-size:12.5px;font-weight:700;margin-bottom:4px;">제목 *</label>
+      <input id="hw-title" type="text" placeholder="예) Unit 5 단어 시험 준비" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13.5px;margin-bottom:12px;">
+
+      <div style="display:flex;gap:10px;margin-bottom:12px;">
+        <div style="flex:1">
+          <label style="display:block;font-size:12.5px;font-weight:700;margin-bottom:4px;">답변 형식</label>
+          <select id="hw-type" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13.5px;">
+            <option value="text">주관식</option>
+            <option value="choice">객관식</option>
+            <option value="voice">음성</option>
+            <option value="video">영상</option>
+          </select>
+        </div>
+        <div style="flex:1">
+          <label style="display:block;font-size:12.5px;font-weight:700;margin-bottom:4px;">마감 기한</label>
+          <input id="hw-due" type="date" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13.5px;">
+        </div>
+      </div>
+
+      <!-- 🎯 대상 선택: 학원 → 학생 단계 -->
+      <div style="border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:12px;background:#f8fafc;">
+        <label style="display:block;font-size:12.5px;font-weight:800;margin-bottom:6px;color:#1e40af;">🎯 숙제 대상 선택</label>
+
+        <label style="display:block;font-size:12px;font-weight:700;margin:4px 0;">① 학원 선택</label>
+        <select id="hw-academy" onchange="hwOnAcademyChange()" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13.5px;margin-bottom:10px;">
+          <option value="__ALL__">🏫 전체 학원 (모든 학생)</option>
+        </select>
+
+        <div id="hw-student-area" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0;">
+            <label style="font-size:12px;font-weight:700;">② 학생 선택</label>
+            <label style="font-size:11.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;">
+              <input id="hw-all-students" type="checkbox" checked onchange="hwToggleAllStudents()"> 이 학원 전체
+            </label>
+          </div>
+          <div id="hw-students" style="max-height:180px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px;background:#fff;font-size:12.5px;color:#475569;">학원을 선택하면 학생이 표시됩니다.</div>
+          <div id="hw-target-summary" style="font-size:11.5px;color:#2563eb;font-weight:700;margin-top:6px;"></div>
+        </div>
+      </div>
+
+      <label style="display:block;font-size:12.5px;font-weight:700;margin-bottom:4px;">내용 / 안내</label>
+      <textarea id="hw-desc" rows="3" placeholder="숙제 설명, 범위, 제출 방법 등" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13.5px;resize:vertical;margin-bottom:14px;"></textarea>
+
+      <div style="display:flex;gap:10px;">
+        <button onclick="hwCloseForm()" style="flex:1;padding:11px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:9px;font-weight:700;font-size:14px;cursor:pointer;">취소</button>
+        <button id="hw-save-btn" onclick="hwSave()" style="flex:2;padding:11px;border:none;background:linear-gradient(135deg,#2563EB,#1E40AF);color:#fff;border-radius:9px;font-weight:800;font-size:14px;cursor:pointer;">📤 출제하기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* 📚 Phase HW — 숙제 관리: 학원→학생 대상 선택 + 출제/목록 (2026-06-18) */
+(function(){
+  var HW = { erp: [], byAcademy: {}, academies: [] };
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+  function acadOf(s){ return (String(s.shop_name||'').trim()) || (String(s.branch1_name||'').trim()) || (String(s.hq_name||'').trim()) || '미지정 학원'; }
+  function uidOf(s){ return String(s.student_id||s.login_id||s.user_id||s.username||''); }
+  function nameOf(s){ return String(s.username||s.korean_name||s.english_name||s.user_id||'(이름없음)'); }
+
+  async function loadErp(){
+    if (HW.erp.length) return HW.erp;
+    try{
+      var r = await fetch('/api/admin/students/erp-list?limit=2000',{credentials:'include',cache:'no-store'});
+      var j = await r.json();
+      HW.erp = (j && j.ok && j.items) ? j.items : (j.items||[]);
+    }catch(e){ HW.erp = []; }
+    HW.byAcademy = {};
+    HW.erp.forEach(function(s){
+      var a = acadOf(s);
+      (HW.byAcademy[a] = HW.byAcademy[a] || []).push(s);
+    });
+    HW.academies = Object.keys(HW.byAcademy).sort();
+    return HW.erp;
+  }
+
+  window.hwOpenForm = async function(){
+    document.getElementById('hw-title').value='';
+    document.getElementById('hw-desc').value='';
+    document.getElementById('hw-due').value='';
+    document.getElementById('hw-type').value='text';
+    var modal = document.getElementById('hw-modal');
+    modal.style.display='flex';
+    var sel = document.getElementById('hw-academy');
+    sel.innerHTML = '<option value="__ALL__">🏫 전체 학원 (모든 학생)</option><option disabled>불러오는 중…</option>';
+    await loadErp();
+    var opts = ['<option value="__ALL__">🏫 전체 학원 (모든 학생) · '+HW.erp.length+'명</option>'];
+    HW.academies.forEach(function(a){
+      opts.push('<option value="'+esc(a)+'">'+esc(a)+' · '+HW.byAcademy[a].length+'명</option>');
+    });
+    sel.innerHTML = opts.join('');
+    document.getElementById('hw-student-area').style.display='none';
+    document.getElementById('hw-target-summary').textContent='';
+  };
+  window.hwCloseForm = function(){ document.getElementById('hw-modal').style.display='none'; };
+
+  window.hwOnAcademyChange = function(){
+    var a = document.getElementById('hw-academy').value;
+    var area = document.getElementById('hw-student-area');
+    if (a === '__ALL__'){ area.style.display='none'; hwUpdateSummary(); return; }
+    area.style.display='block';
+    document.getElementById('hw-all-students').checked = true;
+    var list = HW.byAcademy[a] || [];
+    var html = list.map(function(s){
+      var id = esc(uidOf(s)), nm = esc(nameOf(s));
+      return '<label style="display:flex;align-items:center;gap:7px;padding:3px 2px;cursor:pointer;">'
+        +'<input type="checkbox" class="hw-stu-cb" value="'+id+'" data-name="'+nm+'" onchange="hwOnStudentToggle()">'
+        +'<span>'+nm+' <span style="color:#94a3b8">'+id+'</span></span></label>';
+    }).join('') || '<div style="color:#94a3b8">이 학원에 등록된 학생이 없습니다.</div>';
+    document.getElementById('hw-students').innerHTML = html;
+    hwToggleAllStudents();
+  };
+
+  window.hwToggleAllStudents = function(){
+    var all = document.getElementById('hw-all-students').checked;
+    if (all){ document.querySelectorAll('.hw-stu-cb').forEach(function(c){ c.checked=false; }); }
+    hwUpdateSummary();
+  };
+  window.hwOnStudentToggle = function(){
+    var anyChecked = !!document.querySelector('.hw-stu-cb:checked');
+    if (anyChecked) document.getElementById('hw-all-students').checked = false;
+    hwUpdateSummary();
+  };
+
+  function hwTarget(){
+    var a = document.getElementById('hw-academy').value;
+    if (a === '__ALL__') return { target_type:'all', target_academy:null, ids:[], names:[], count:HW.erp.length, label:'전체 학생 '+HW.erp.length+'명' };
+    var checked = Array.prototype.slice.call(document.querySelectorAll('.hw-stu-cb:checked'));
+    var allBox = document.getElementById('hw-all-students').checked;
+    var total = (HW.byAcademy[a]||[]).length;
+    if (allBox || checked.length===0){
+      return { target_type:'academy', target_academy:a, ids:[], names:[], count:total, label:a+' 전체 '+total+'명' };
+    }
+    return {
+      target_type:'students', target_academy:a,
+      ids: checked.map(function(c){return c.value;}),
+      names: checked.map(function(c){return c.getAttribute('data-name');}),
+      count: checked.length, label:a+' · 학생 '+checked.length+'명 선택'
+    };
+  }
+  function hwUpdateSummary(){
+    var el = document.getElementById('hw-target-summary');
+    if (el) el.textContent = '대상: ' + hwTarget().label;
+  }
+
+  window.hwSave = async function(){
+    var title = document.getElementById('hw-title').value.trim();
+    if (!title){ alert('제목을 입력해 주세요.'); return; }
+    var t = hwTarget();
+    var btn = document.getElementById('hw-save-btn');
+    btn.disabled=true; var old=btn.textContent; btn.textContent='저장 중…';
+    try{
+      var r = await fetch('/api/admin/homework/save',{
+        method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          title: title,
+          description: document.getElementById('hw-desc').value.trim(),
+          answer_type: document.getElementById('hw-type').value,
+          due_date: document.getElementById('hw-due').value || null,
+          target_type: t.target_type,
+          target_academy: t.target_academy,
+          target_student_ids: t.ids,
+          target_student_names: t.names,
+          target_count: t.count
+        })
+      });
+      var j = await r.json();
+      if (j && j.ok){ alert('숙제가 출제되었습니다.\n대상: '+t.label); hwCloseForm(); hwLoadList(); }
+      else { alert('출제 실패: '+((j&&j.error)||'알 수 없는 오류')); }
+    }catch(e){ alert('출제 중 오류: '+e.message); }
+    finally{ btn.disabled=false; btn.textContent=old; }
+  };
+
+  var TYPE_LABEL = { text:'주관식', choice:'객관식', voice:'음성', video:'영상' };
+  window.hwLoadList = async function(){
+    var wrap = document.getElementById('hw-list');
+    wrap.innerHTML = '불러오는 중…';
+    try{
+      var r = await fetch('/api/admin/homework/list?limit=100',{credentials:'include',cache:'no-store'});
+      var j = await r.json();
+      var items = (j && j.items) || [];
+      if (!items.length){ wrap.innerHTML='<span style="color:#94a3b8">아직 출제된 숙제가 없습니다.</span>'; return; }
+      wrap.innerHTML = items.map(function(h){
+        var tgt = h.target_type==='all' ? ('🏫 전체 학생'+(h.target_count?' '+h.target_count+'명':''))
+                : h.target_type==='academy' ? ('🏫 '+esc(h.target_academy||'')+' 전체'+(h.target_count?' '+h.target_count+'명':''))
+                : ('👥 '+esc(h.target_academy||'')+' · '+(h.target_count||0)+'명');
+        return '<div style="border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;margin-bottom:6px;background:#fff;color:#334155;">'
+          +'<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">'
+          +'<b style="font-size:13px">'+esc(h.title)+'</b>'
+          +'<button onclick="hwDelete('+h.id+')" style="background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:12px;">삭제</button></div>'
+          +'<div style="font-size:11.5px;color:#64748b;margin-top:3px;">'+tgt
+          +' · '+(TYPE_LABEL[h.answer_type]||h.answer_type)
+          +(h.due_date?(' · 마감 '+esc(h.due_date)):'')+'</div>'
+          +(h.description?('<div style="font-size:11.5px;color:#475569;margin-top:4px;">'+esc(h.description)+'</div>'):'')
+          +'</div>';
+      }).join('');
+    }catch(e){ wrap.innerHTML='<span style="color:#ef4444">목록 로드 오류: '+esc(e.message)+'</span>'; }
+  };
+  window.hwDelete = async function(id){
+    if (!confirm('이 숙제를 삭제할까요?')) return;
+    try{
+      await fetch('/api/admin/homework/'+id,{method:'DELETE',credentials:'include'});
+      hwLoadList();
+    }catch(e){ alert('삭제 오류: '+e.message); }
+  };
+
+  document.addEventListener('click', function(e){
+    if (e.target && e.target.id === 'hw-modal') window.hwCloseForm();
+  });
+})();
+</script>
 
 
 <!-- Phase 111 admin (2026-05-25) — 사용자 드롭다운 강화: 역할 뱃지 + 로그인/로그아웃 + 다크 테마 -->
@@ -37635,7 +37997,15 @@ button.chip:hover,
     if(!_greeted){ _greeted=true; setTimeout(function(){ try{ speak(L('안녕하세요 매니저님! 무엇이든 물어보세요.','Hello manager! Ask me anything.')); }catch(e){} }, 450); }
   }
   function close(){ stopSpeak(); panel.style.display='none'; back.style.display='none'; }
-  window.miAsstOpen=open;
+  // 🚫 (2026-06-18) 옛 커스텀 패널(#mi-asst-panel)을 전역 런처에 연결하지 않음.
+  //    예전: 이 줄(window.miAsstOpen=open)이 페이지 위쪽에서 먼저 실행돼, 거대한 admin.html 이
+  //    끝까지 로드되기 전(특히 모바일)에 FAB 를 누르면 '옛 비서'가 떴다가, 아래쪽 38xxx 줄의
+  //    window.miAsstOpen=openAv(현재 아바타 iframe)로 덮어써지며 '현재 비서'로 바뀌는 깜빡임 발생.
+  //    → 옛 패널은 절대 열지 않고 항상 현재 아바타 iframe(miOpsAvatarOpen)으로 위임. 준비 전이면 안내만.
+  window.miAsstOpen=function(){
+    if(window.miOpsAvatarOpen){ window.miOpsAvatarOpen(); }
+    else { try{ alert('AI 운영비서를 불러오는 중입니다. 잠시 후 다시 눌러주세요.'); }catch(e){} }
+  };
   document.getElementById('mi-asst-close').onclick=close;
   back.onclick=close;
   document.getElementById('mi-asst-form').addEventListener('submit',function(e){ e.preventDefault(); var v=document.getElementById('mi-asst-input').value.trim(); if(!v)return; ask(v); document.getElementById('mi-asst-input').value=''; });
@@ -38188,7 +38558,15 @@ button.chip:hover,
     if(!el) return false;
     var node=el;
     while(node){ if(node.tagName==='DETAILS'){ node.open=true; } node=node.parentElement; }
-    setTimeout(function(){ try{ el.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} }, 120);
+    setTimeout(function(){
+      try{
+        el.scrollIntoView({behavior:'smooth',block:'start'});
+        // ✅ 정확히 열렸음을 보이도록 잠깐 강조(사이드바 ph85-sub 와 동일한 노란 테두리 플래시)
+        var o=el.style.boxShadow;
+        el.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';
+        setTimeout(function(){ el.style.boxShadow=o; }, 1800);
+      }catch(e){}
+    }, 120);
     return true;
   }
   // 아바타(iframe) → 부모: 닫기 신호 처리(학생용과 동일)
@@ -38234,5 +38612,64 @@ button.chip:hover,
   window.miAsstOpen=openAv;
 })();
 </script>
+
+<!-- 🧹 (2026-06-18) 상단 헤더 컨트롤 가지런히 정리 — 기존 충돌 반응형 규칙(720 flex-wrap / 720 nowrap-scroll / 900 grid)을 정리하는 최종 권위 스타일. 모든 칩 높이·정렬 통일, 좁은 화면은 2열 그리드. -->
+<style id="th-tidy-2026-06-18">
+  /* ── 모든 폭: 컨트롤 칩 높이·세로정렬 통일 (실제 사용자 버튼 = #ph115-user) ── */
+  .top-header .th-controls{ align-items:center !important; }
+  .top-header .th-controls .th-btn,
+  .top-header .th-controls .th-select,
+  .top-header .th-controls #ph115-user{
+    height:38px !important;
+    box-sizing:border-box !important;
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    line-height:1 !important;
+    white-space:nowrap !important;
+  }
+  /* 숨겨진 옛 사용자 버튼/FAB(ph115 가 #ph115-user 로 대체)은 그리드 자리도 차지하지 않게 */
+  .top-header #topUserBtn,
+  .top-header #topUserPopup,
+  #ph114-user-fab{ display:none !important; }
+
+  /* ── 좁은 화면(≤900px): 위=브랜드 / 아래=컨트롤 2열 그리드로 가지런히 ── */
+  @media (max-width:900px){
+    .top-header{
+      display:flex !important;
+      flex-direction:column !important;
+      align-items:stretch !important;
+      grid-template-columns:none !important;   /* ph80 의 3열 grid 무효화 */
+      flex-wrap:wrap !important;
+      overflow:visible !important;
+      gap:10px !important;
+      padding:10px 12px !important;
+    }
+    .top-header .th-brand{ justify-content:flex-start !important; width:100% !important; }
+    .top-header .th-controls{
+      display:grid !important;
+      grid-template-columns:1fr 1fr !important;
+      gap:8px !important;
+      width:100% !important;
+    }
+    .top-header .th-controls > *{ width:100% !important; margin:0 !important; }
+    .top-header .th-controls .th-btn,
+    .top-header .th-controls .th-select,
+    .top-header .th-controls #ph115-user{
+      width:100% !important;
+      height:42px !important;
+      margin:0 !important;
+      padding:8px 10px !important;
+      font-size:12.5px !important;
+      border-radius:12px !important;
+      text-overflow:ellipsis !important;
+      overflow:hidden !important;
+    }
+    /* 파란 계정 버튼(#ph115-user): 자체 margin-left·작은 높이를 무효화하고 셀에 꽉 차게 가운데 정렬 */
+    .top-header .th-controls #ph115-user{ margin-left:0 !important; justify-content:center !important; }
+    /* ▲ 접기 버튼은 모바일에서 숨김 */
+    .top-header #th-collapse-btn{ display:none !important; }
+  }
+</style>
 </body>
 </html>
