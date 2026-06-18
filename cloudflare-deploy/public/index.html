@@ -21452,8 +21452,8 @@ window.closeRulesModal = function() {
         <div style="font-size:13.5px;font-weight:800;color:#fff;line-height:1.3">${isKo?'Mangoi 앱 추가':'Install Mangoi App'}</div>
         <div style="font-size:11.5px;color:#cbd5e1;margin-top:2px">${isKo?'홈화면에 추가해 빠르게 접속':'Add to home screen for faster access'}</div>
       </div>
-      <button onclick="pwaInstall()" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;border:0;padding:8px 14px;border-radius:99px;font-size:12.5px;font-weight:800;cursor:pointer;flex-shrink:0">${isKo?'설치':'Install'}</button>
-      <button onclick="pwaDismiss()" style="background:transparent;border:0;color:#94a3b8;font-size:18px;cursor:pointer;flex-shrink:0;padding:4px 6px">✕</button>`;
+      <button onclick="pwaInstall()" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;border:0;padding:7px 12px;border-radius:99px;font-size:12px;font-weight:800;cursor:pointer;flex-shrink:0">${isKo?'설치':'Install'}</button>
+      <button class="pwa-x" onclick="pwaDismiss()" style="background:transparent;border:0;color:#94a3b8;font-size:18px;cursor:pointer;flex-shrink:0;padding:4px 6px">✕</button>`;
     document.body.appendChild(bar);
   }
 
@@ -21470,7 +21470,7 @@ window.closeRulesModal = function() {
           <div style="font-size:13.5px;font-weight:800;color:#fff">${isKo?'Mangoi 앱 추가 — iPhone/iPad':'Add Mangoi to iPhone/iPad'}</div>
           <div style="font-size:11.5px;color:#cbd5e1;margin-top:2px">${isKo?'홈화면에 추가하면 앱처럼 사용 가능':'Add to home screen to use like an app'}</div>
         </div>
-        <button onclick="pwaDismiss()" style="background:transparent;border:0;color:#94a3b8;font-size:18px;cursor:pointer">✕</button>
+        <button class="pwa-x" onclick="pwaDismiss()" style="background:transparent;border:0;color:#94a3b8;font-size:18px;cursor:pointer">✕</button>
       </div>
       <div style="background:rgba(251,191,36,0.10);border:1px solid rgba(251,191,36,0.30);border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.7;color:#fde68a">
         ${isKo
@@ -27023,7 +27023,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260618143937 -->
+<!-- BUILD:20260618145727 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -29739,11 +29739,26 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
         새로고침 아이콘/캐릭터 아이콘과 겹치지 않게 분리 */
   #pwa-install-bar {
     left: 12px !important;
-    right: 12px !important;
-    bottom: 92px !important;   /* 코너 FAB(≈bottom:14~16px) 위로 올림 */
+    right: 160px !important;    /* 우하단 AI 얼굴(데스크톱 128px) 앞에서 끝나게 → ✕ 가림 방지 */
+    bottom: 92px !important;    /* 코너 FAB(≈bottom:14~16px) 위로 올림 */
+    padding: 7px 11px !important;   /* 낮고 얇게 */
+    gap: 8px !important;
+    border-radius: 12px !important;
   }
-  @media (max-width: 600px) {
-    #pwa-install-bar { bottom: 84px !important; }
+  /* +(앱 아이콘) — 작고 투명하게 해서 겹쳐도 거슬리지 않게 */
+  #pwa-install-bar > img {
+    width: 24px !important;
+    height: 24px !important;
+    border-radius: 6px !important;
+    opacity: 0.45 !important;
+  }
+  #pwa-install-bar .pwa-x {   /* ✕ 버튼 살짝 작게 */
+    font-size: 16px !important;
+    padding: 2px 4px !important;
+  }
+  @media (max-width: 480px) {
+    /* 모바일 AI 얼굴은 64px(right:16) → 그 앞에서 카드가 끝나게 */
+    #pwa-install-bar { right: 92px !important; bottom: 84px !important; }
   }
 </style>
 
