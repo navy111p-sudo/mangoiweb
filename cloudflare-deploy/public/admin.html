@@ -2177,7 +2177,11 @@
         <button type="button" id="mi-sd-ai" class="mi-sd-action mi-sd-ai" role="menuitem"
                 aria-label="AI 상담"
                 onclick="if(window.miAsstOpen){window.miAsstOpen();}else{alert('AI 운영비서를 불러오는 중입니다. 잠시 후 다시 눌러주세요.');} if(window.miSdClose)window.miSdClose();">
-          <span class="mi-sd-ico" aria-hidden="true">🤖</span>
+          <span class="mi-sd-ico" aria-hidden="true">
+            <span style="display:inline-flex;width:100%;height:100%;border-radius:50%;overflow:hidden;">
+              <video src="/video/ai-ops-greeting.mp4" muted loop autoplay playsinline preload="auto" style="width:100%;height:100%;object-fit:cover;object-position:center 20%;"></video>
+            </span>
+          </span>
           <span class="mi-sd-chip" data-ko="AI 상담" data-en="AI Assistant">AI 상담</span>
         </button>
 
