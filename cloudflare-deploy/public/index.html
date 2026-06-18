@@ -27023,7 +27023,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260619044057 -->
+<!-- BUILD:20260619044719 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -29822,10 +29822,10 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   /* 통합 FAB — 왼쪽 아래(오른쪽 AI 얼굴과 분리해 겹치지 않게) */
   #mg-fab-wrap{position:fixed;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));
     z-index:2147483200;display:flex;flex-direction:column-reverse;align-items:flex-start;gap:12px}
-  #mg-fab{width:40px;height:40px;border-radius:50%;border:none;cursor:pointer;
-    background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a0f08;display:grid;place-items:center;
-    opacity:.5;
-    box-shadow:0 6px 16px -4px rgba(245,158,11,.35);transition:transform .25s,opacity .25s}
+  #mg-fab{width:40px;height:40px;border-radius:50%;cursor:pointer;
+    background:transparent;border:2px solid #fbbf24;color:#fbbf24;display:grid;place-items:center;
+    opacity:.55;
+    box-shadow:none;transition:transform .25s,opacity .25s}
   #mg-fab:hover,#mg-fab:focus-visible{opacity:1}
   #mg-fab-wrap.open #mg-fab{opacity:1}
   #mg-fab:active{transform:scale(.93)}
