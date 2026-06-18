@@ -27023,7 +27023,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260618143327 -->
+<!-- BUILD:20260618143937 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -29746,5 +29746,87 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     #pwa-install-bar { bottom: 84px !important; }
   }
 </style>
+
+<!-- ===== 통합 FAB 패치 (카카오 + 새로고침만 통합 / AI 상담사 얼굴은 그대로 유지) — 2026-06-18 ===== -->
+<style id="mg-unified-fab-css">
+  /* 메인에서 카카오·새로고침 기존 버튼만 숨김 — #mangoi-widget(AI 얼굴)은 건드리지 않음 */
+  body:not(.vc-in-call) .ph49-kakao-fab,
+  body:not(.vc-in-call) #ph49-kakao-fab,
+  body:not(.vc-in-call) .ph52-cache-fab,
+  body:not(.vc-in-call) #ph52-cache-fab { display:none !important; }
+  body.vc-in-call #mg-fab-wrap { display:none !important; }
+
+  /* 통합 FAB — 왼쪽 아래(오른쪽 AI 얼굴과 분리해 겹치지 않게) */
+  #mg-fab-wrap{position:fixed;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));
+    z-index:2147483200;display:flex;flex-direction:column-reverse;align-items:flex-start;gap:12px}
+  #mg-fab{width:54px;height:54px;border-radius:50%;border:none;cursor:pointer;
+    background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a0f08;display:grid;place-items:center;
+    box-shadow:0 10px 26px -4px rgba(245,158,11,.6);transition:transform .25s}
+  #mg-fab:active{transform:scale(.93)}
+  #mg-fab .mg-ic{font-size:28px;line-height:1;transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+  #mg-fab-wrap.open #mg-fab .mg-ic{transform:rotate(135deg)}
+  .mg-fab-items{display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+  .mg-fab-item{display:flex;align-items:center;gap:9px;opacity:0;transform:translateY(12px) scale(.8);
+    pointer-events:none;transition:opacity .22s,transform .3s cubic-bezier(.34,1.56,.64,1)}
+  #mg-fab-wrap.open .mg-fab-item{opacity:1;transform:none;pointer-events:auto}
+  #mg-fab-wrap.open .mg-fab-item:nth-child(1){transition-delay:.02s}
+  #mg-fab-wrap.open .mg-fab-item:nth-child(2){transition-delay:.07s}
+  .mg-fab-item .mg-lb{font-size:12.5px;font-weight:700;color:#fff;background:rgba(15,23,42,.92);
+    padding:5px 11px;border-radius:9px;border:1px solid rgba(255,255,255,.12);white-space:nowrap}
+  .mg-mini{width:44px;height:44px;border-radius:50%;border:none;cursor:pointer;font-size:19px;
+    display:grid;place-items:center;box-shadow:0 8px 20px -4px rgba(0,0,0,.5)}
+  .mg-mini.k{background:#fee500;color:#191919}
+  .mg-mini.r{background:#1f2937;color:#93c5fd}
+  #mg-fab-scrim{position:fixed;inset:0;background:rgba(0,0,0,.3);opacity:0;pointer-events:none;
+    transition:opacity .2s;z-index:2147483100}
+  #mg-fab-scrim.show{opacity:1;pointer-events:auto}
+  @media(prefers-reduced-motion:reduce){#mg-fab-wrap *{transition:none!important}}
+</style>
+
+<div id="mg-fab-scrim"></div>
+<div id="mg-fab-wrap">
+  <div class="mg-fab-items">
+    <div class="mg-fab-item">
+      <button class="mg-mini r" type="button" data-act="refresh" aria-label="새로고침">&#8635;</button>
+      <span class="mg-lb" data-ko="새로고침" data-en="Refresh">새로고침</span>
+    </div>
+    <div class="mg-fab-item">
+      <button class="mg-mini k" type="button" data-act="kakao" aria-label="카카오 상담">💬</button>
+      <span class="mg-lb" data-ko="카카오 상담" data-en="Kakao Chat">카카오 상담</span>
+    </div>
+  </div>
+  <button id="mg-fab" type="button" aria-label="메뉴 열기" aria-expanded="false"><span class="mg-ic">+</span></button>
+</div>
+
+<script>
+(function(){
+  var wrap=document.getElementById('mg-fab-wrap'),
+      fab=document.getElementById('mg-fab'),
+      scrim=document.getElementById('mg-fab-scrim');
+  if(!wrap||!fab) return;
+  function set(o){
+    wrap.classList.toggle('open',o);
+    scrim.classList.toggle('show',o);
+    fab.setAttribute('aria-expanded',o);
+    fab.setAttribute('aria-label', o ? '메뉴 닫기' : '메뉴 열기');
+  }
+  fab.addEventListener('click',function(){ set(!wrap.classList.contains('open')); });
+  scrim.addEventListener('click',function(){ set(false); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape') set(false); });
+  wrap.addEventListener('click',function(e){
+    var b=e.target.closest('[data-act]'); if(!b) return;
+    var a=b.getAttribute('data-act'); set(false);
+    if(a==='kakao'){
+      if(window.gridActions&&window.gridActions.kakao) return window.gridActions.kakao();
+      var k=document.querySelector('.ph49-kakao-fab,#ph49-kakao-fab'); if(k) return k.click();
+      window.open('https://pf.kakao.com/_mangoi/chat','_blank','noopener');
+    } else if(a==='refresh'){
+      if(window.ph52ClearCache) return window.ph52ClearCache();
+      var r=document.querySelector('.ph52-cache-fab,#ph52-cache-fab'); if(r) return r.click();
+      location.reload();
+    }
+  });
+})();
+</script>
 </body>
 </html>
