@@ -21647,7 +21647,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260619134133 -->
+        <!-- BUILD:20260619164601 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -38516,6 +38516,37 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile .card-label { color: #475467 !important; }
   html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile .kpi-sub,
   html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile .card-sub { color: #6b7280 !important; }
+
+  /* 18) 보고서 양식 카드 — 밝게(ivory) 모드: 밝은 배경 + 어두운 글자 */
+  html[data-admin-theme="ivory"] #card-report-forms .rf-info { color: #1E293B !important; }
+  html[data-admin-theme="ivory"] #card-report-forms .rf-info b { color: #1D4ED8 !important; }
+  html[data-admin-theme="ivory"] #card-report-forms .rf-table { background: #FFFFFF !important; }
+  html[data-admin-theme="ivory"] #card-report-forms .rf-table thead th { color: #FFFFFF !important; }
+  html[data-admin-theme="ivory"] #card-report-forms .rf-table tbody td { color: #1E293B !important; }
+  html[data-admin-theme="ivory"] #card-report-forms .rf-table tbody tr:nth-child(even) td { background: rgba(226,232,240,0.55) !important; }
+  html[data-admin-theme="ivory"] #card-report-forms .rf-table tbody tr:hover td { background: rgba(37,99,235,0.12) !important; }
+  html[data-admin-theme="ivory"] #card-report-forms .rf-form-name { color: #1D4ED8 !important; }
+  html[data-admin-theme="ivory"] #card-report-forms .rf-form-name:hover { color: #1E40AF !important; }
+  html[data-admin-theme="ivory"] #card-report-forms .rf-badge.active { background: rgba(34,197,94,0.18) !important; color: #15803D !important; }
+  html[data-admin-theme="ivory"] #card-report-forms .rf-badge.inactive { background: rgba(148,163,184,0.22) !important; color: #475569 !important; }
+
+  /* 19) 학원별 학생 수업현황 카드 — 밝게(ivory) 모드: 밝은 배경 + 어두운 글자 */
+  html[data-admin-theme="ivory"] #card-school-attendance-stats .sa-info { color: #1E293B !important; }
+  html[data-admin-theme="ivory"] #card-school-attendance-stats .sa-info b { color: #047857 !important; }
+  html[data-admin-theme="ivory"] #card-school-attendance-stats .sa-info a { color: #1D4ED8 !important; font-weight: 700; }
+  html[data-admin-theme="ivory"] #card-school-attendance-stats .sa-table { background: #FFFFFF !important; }
+  html[data-admin-theme="ivory"] #card-school-attendance-stats .sa-table thead th { color: #FFFFFF !important; }
+  html[data-admin-theme="ivory"] #card-school-attendance-stats .sa-table tbody td { color: #1E293B !important; }
+  html[data-admin-theme="ivory"] #card-school-attendance-stats .sa-table tbody tr:nth-child(even) td { background: rgba(226,232,240,0.55) !important; }
+  html[data-admin-theme="ivory"] #card-school-attendance-stats .sa-table tbody tr:hover td { background: rgba(37,99,235,0.12) !important; }
+  html[data-admin-theme="ivory"] #card-school-attendance-stats .sa-table tbody td:first-child { color: #1D4ED8 !important; }
+  html[data-admin-theme="ivory"] #card-school-attendance-stats .sa-table tbody td .sa-sub { color: #64748B !important; }
+  html[data-admin-theme="ivory"] #card-school-attendance-stats .sa-table tbody td .sa-result.excellent { background: rgba(34,197,94,0.18) !important; color: #15803D !important; }
+  html[data-admin-theme="ivory"] #card-school-attendance-stats .sa-table tbody td .sa-result.warning { background: rgba(250,204,21,0.22) !important; color: #92400E !important; }
+  html[data-admin-theme="ivory"] #card-school-attendance-stats .sa-table tbody td .sa-result.fail { background: rgba(239,68,68,0.18) !important; color: #B91C1C !important; }
+  /* KPI 4카드는 진한 파란 그라데이션 배경 유지 → 글자는 밝게 유지(대비 충분) */
+  html[data-admin-theme="ivory"] #card-school-attendance-stats .sa-kpi-label { color: #FFFFFF !important; font-weight: 800; }
+  html[data-admin-theme="ivory"] #card-school-attendance-stats .sa-kpi-sub { color: #E0F2FE !important; }
 </style>
 
 <script defer src="/js/i18n-sweep.js?v=3"></script>

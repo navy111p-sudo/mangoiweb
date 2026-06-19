@@ -8500,21 +8500,28 @@ async function vcJoinRoom(skipUI) {
       if (sheet) sheet.classList.remove('show');
     };
 
-    // 폴더 시스템용 헬퍼들 — 안전한 폴백
-    window.vcCanvasTool = window.vcCanvasTool || function(tool){
-      const btn = document.querySelector(`[onclick*="${tool}"], [data-tool="${tool}"]`);
-      if (btn) try { btn.click(); } catch(e){}
+    // 폴더 시스템용 헬퍼들 — (2026-06-19) 모바일 칠판 도구가 안 먹던 문제 수정.
+    //   기존엔 [onclick*="clear"] 처럼 소문자로 찾아 wbClear()(대문자 C)와 매칭 실패 → 동작 안 함.
+    //   이제 전역 함수(wbSetTool/wbClear/wbSave)를 직접 호출하고, 실패 시에만 버튼 클릭으로 폴백.
+    window.vcCanvasTool = function(tool){
+      // wbSetTool 은 event.target 을 쓰므로 직접 호출 대신 정확한 칠판 버튼을 클릭(이벤트 제공)
+      var btn = document.querySelector(`.wb-toolbar button[onclick*="'${tool}'"]`)
+             || document.querySelector(`[onclick*="wbSetTool('${tool}')"]`);
+      if (btn) { try { btn.click(); return; } catch(e){} }
+      try { if (typeof wbSetTool === 'function') wbSetTool(tool); } catch(e){}
     };
-    window.vcCanvasColor = window.vcCanvasColor || function(color){
-      const input = document.querySelector('input[type="color"]');
+    window.vcCanvasColor = function(color){
+      const input = document.getElementById('wb-color') || document.querySelector('input[type="color"]');
       if (input) { input.value = color; input.dispatchEvent(new Event('input', {bubbles:true})); }
     };
-    window.vcCanvasClear = window.vcCanvasClear || function(){
-      const btn = document.querySelector('[onclick*="clear"], [onclick*="전체"]');
+    window.vcCanvasClear = function(){
+      try { if (typeof wbClear === 'function') { wbClear(); return; } } catch(e){}
+      const btn = document.querySelector('[onclick*="wbClear"], [onclick*="전체"]');
       if (btn) try { btn.click(); } catch(e){}
     };
-    window.vcCanvasSave = window.vcCanvasSave || function(){
-      const btn = document.querySelector('[onclick*="save"], [onclick*="저장"]');
+    window.vcCanvasSave = function(){
+      try { if (typeof wbSave === 'function') { wbSave(); return; } } catch(e){}
+      const btn = document.querySelector('[onclick*="wbSave"], [onclick*="저장"]');
       if (btn) try { btn.click(); } catch(e){}
     };
     // 🔧 화면 분할 — 모바일 PIP 모드 6종 + 데스크탑 호환
@@ -11225,10 +11232,26 @@ function wbInit() {
         wbSnapshot = null;
     });
 
-    // 터치 지원 (모바일) — passive:false 로 등록해야 preventDefault 가 먹어 스크롤 대신 그리기가 됨
-    canvas.addEventListener('touchstart', e => { if(!e.touches[0])return; e.preventDefault(); const t = e.touches[0]; canvas.dispatchEvent(new MouseEvent('mousedown', {clientX:t.clientX,clientY:t.clientY})); }, {passive:false});
-    canvas.addEventListener('touchmove', e => { if(!e.touches[0])return; e.preventDefault(); const t = e.touches[0]; canvas.dispatchEvent(new MouseEvent('mousemove', {clientX:t.clientX,clientY:t.clientY})); }, {passive:false});
-    canvas.addEventListener('touchend', e => { e.preventDefault(); canvas.dispatchEvent(new MouseEvent('mouseup', {})); }, {passive:false});
+    // 모바일/펜 입력 — (2026-06-19) 합성 마우스 이벤트(touch→mouse)가 폰에서 불안정해 칠판 필기가 안 되던 문제 수정.
+    //   Pointer Events 로 통일(터치·펜만 처리, 마우스는 위의 네이티브 mouse 핸들러가 담당 → 데스크톱 중복 방지).
+    canvas.addEventListener('pointerdown', e => {
+      if (e.pointerType === 'mouse') return;
+      e.preventDefault();
+      try { canvas.setPointerCapture(e.pointerId); } catch(_){}
+      canvas.dispatchEvent(new MouseEvent('mousedown', { clientX:e.clientX, clientY:e.clientY }));
+    }, {passive:false});
+    canvas.addEventListener('pointermove', e => {
+      if (e.pointerType === 'mouse') return;
+      if (!wbDrawing) return;
+      e.preventDefault();
+      canvas.dispatchEvent(new MouseEvent('mousemove', { clientX:e.clientX, clientY:e.clientY }));
+    }, {passive:false});
+    canvas.addEventListener('pointerup', e => {
+      if (e.pointerType === 'mouse') return;
+      e.preventDefault();
+      canvas.dispatchEvent(new MouseEvent('mouseup', {}));
+    }, {passive:false});
+    canvas.addEventListener('pointercancel', () => { canvas.dispatchEvent(new MouseEvent('mouseup', {})); });
 
     window.addEventListener('resize', wbResize);
     window.addEventListener('resize', () => { if (pdfDoc && pdfPagesPerView === 2) pdfRender(); });
@@ -27085,7 +27108,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260619134133 -->
+<!-- BUILD:20260619164601 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
