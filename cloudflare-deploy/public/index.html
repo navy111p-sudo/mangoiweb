@@ -4711,12 +4711,14 @@
         </button>
       </div>
       <!-- 안내문구 (수업입장 정보) -->
-      <div style="text-align:center;margin-top:14px;font-size:11.5px;color:#94a3b8;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <div id="lesson-enter-hint" style="text-align:center;margin-top:14px;font-size:11.5px;color:#94a3b8;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
         <span data-ko="🎥 화상수업 로비로 입장" data-en="🎥 Enter video class lobby">🎥 화상수업 로비로 입장</span>
         <span style="opacity:.5">|</span>
         <span data-ko="📹 마이크 / 카메라 사용" data-en="📹 Mic / Camera required">📹 마이크 / 카메라 사용</span>
       </div>
       <style>
+      /* 모바일(≤480px)에서는 '화상수업 로비로 입장 | 마이크/카메라 사용' 안내문구 숨김 */
+      @media (max-width:480px){ #lesson-enter-hint{display:none!important;} }
       @keyframes lessonPulse{0%,100%{box-shadow:0 8px 24px rgba(245,158,11,.45),0 0 0 0 rgba(251,191,36,.4)}50%{box-shadow:0 8px 24px rgba(245,158,11,.45),0 0 0 14px rgba(251,191,36,0)}}
       #btn-enter-class:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 12px 30px rgba(245,158,11,.6)!important}
       /* 수업 연기/변경 모달 */
@@ -13387,8 +13389,20 @@ window.addEventListener('DOMContentLoaded', () => {
         fd.append('rms', String(audioRMS));
         fd.append('peak', String(audioPeak));
         const t0 = performance.now();
-        const r = await fetch('/api/student/voice', { method: 'POST', body: fd, credentials: 'include' });
-        const d = await r.json();
+        // 라우트 수정(2026-06-20): /api/student/voice 는 서버에 없어 빈 응답→'Unexpected end of JSON input'.
+        //   실제 동작하는 Whisper 엔드포인트 /api/voice/transcribe 로 호출.
+        const r = await fetch('/api/voice/transcribe', { method: 'POST', body: fd, credentials: 'include' });
+        // 방어 파싱: 빈 본문/HTML 응답이어도 JSON 파싱 예외로 죽지 않도록 text 먼저 읽고 안전 처리(모바일 대응).
+        const raw = await r.text();
+        let d;
+        try { d = raw ? JSON.parse(raw) : {}; } catch (_) { d = {}; }
+        if (typeof d !== 'object' || d === null) d = {};
+        if (!d.ok && !d.text) {
+          d.ok = false;
+          if (!d.error) d.error = r.ok ? '서버가 빈 응답을 보냈어요' : ('서버 오류 ' + r.status);
+        } else if (d.text && d.ok === undefined) {
+          d.ok = true;
+        }
         const ms = Math.round(performance.now() - t0);
         listening.style.display = 'none';
         console.log('[voice] response (' + ms + 'ms):', d);
@@ -27108,7 +27122,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260619164601 -->
+<!-- BUILD:20260620002652 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -29814,15 +29828,26 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     .ai-cta-row > * { border-radius: 18px !important; }   /* 모바일도 14px→18px 통일 */
   }
 
-  /* ③ 좌측 '열림' 탭 — 화면 왼쪽 끝에서 살짝 띄우고(겉돌지 않게),
-        상단 검색창 영역과 겹치지 않도록 아래로 내림 + 곡률 통일 */
+  /* ③ 좌측 '열림' 탭 — 결제하기 CTA '위로' 올려 겹치지 않게,
+        모바일에서는 손잡이를 더 작고 은은하게(약하게) */
   #mg-drawer-tab {
-    right: -54px !important;                 /* 왼쪽 모서리에서 약 10px 여백 */
-    top: 62% !important;                     /* 검색창 라인 아래로 이동 */
+    right: -50px !important;
+    top: 46% !important;                     /* 결제하기 CTA 위로 이동 */
     border-radius: 0 16px 16px 0 !important; /* 다른 요소와 곡률 톤 맞춤 */
   }
   @media (max-width: 640px) {
-    #mg-drawer-tab { top: 64% !important; }
+    #mg-drawer-tab {
+      top: 41% !important;                   /* 제목과 검색창 사이로 — 결제하기와 안 겹침 */
+      width: 34px !important;                /* 더 작게 */
+      height: 60px !important;
+      border-width: 1px !important;
+      opacity: .82 !important;               /* 더 약하게(은은) */
+      box-shadow: 0 0 7px rgba(245,158,11,.35) !important;  /* 광채 약하게 */
+    }
+    #mg-drawer-tab #mg-tab-label {
+      font-size: 12px !important;            /* 글자도 작게 */
+      letter-spacing: .5px !important;
+    }
   }
 
   /* ④ 'Mangoi 앱 추가' 배너 — 우하단 '상담'·좌하단 FAB 위로 올려서

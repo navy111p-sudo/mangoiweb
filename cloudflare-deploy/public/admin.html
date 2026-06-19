@@ -8998,53 +8998,55 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   <div class="menu-body">
     <!-- 🎨 외부는 진한 톤, 안의 통계/박스는 연한 흰빛 — 명도 반전 -->
     <style>
-      /* 🎨 라이트 통일 — 다른 메뉴 카드와 동일한 흰 바탕 + 진한 글자 */
-      #card-inquiry-mgmt details.sub-item {
+      /* 🎨 흰 바탕+진한 글자는 '아이보리(밝게)' 테마에서만 적용.
+         다크 테마에서는 ph103/ph105 페인터 + 기본 다크 카드 스타일이
+         자동으로 어두운 바탕+밝은 글자로 처리하도록 둔다. (요청: 다크=어두운 바탕/밝은 글자) */
+      html[data-admin-theme="ivory"] #card-inquiry-mgmt details.sub-item {
         background: #f8fafc !important;
         border-color: #e5e7eb !important;
       }
-      #card-inquiry-mgmt details.sub-item > summary { color: #1f2937 !important; }
-      #card-inquiry-mgmt details.sub-item > summary:hover { background: #eef2ff !important; color: #4338ca !important; }
-      #card-inquiry-mgmt details.sub-item[open] > summary { background: #eef2ff !important; color: #1e3a8a !important; }
-      #card-inquiry-mgmt details.sub-item > .sub-body { background: transparent !important; padding: 16px 18px !important; }
+      html[data-admin-theme="ivory"] #card-inquiry-mgmt details.sub-item > summary { color: #1f2937 !important; }
+      html[data-admin-theme="ivory"] #card-inquiry-mgmt details.sub-item > summary:hover { background: #eef2ff !important; color: #4338ca !important; }
+      html[data-admin-theme="ivory"] #card-inquiry-mgmt details.sub-item[open] > summary { background: #eef2ff !important; color: #1e3a8a !important; }
+      html[data-admin-theme="ivory"] #card-inquiry-mgmt details.sub-item > .sub-body { background: transparent !important; padding: 16px 18px !important; }
 
-      /* 외부 카드 자체 — 흰색 */
-      #card-inquiry-mgmt {
+      /* 외부 카드 자체 — 흰색 (아이보리 전용) */
+      html[data-admin-theme="ivory"] #card-inquiry-mgmt {
         background: #ffffff !important;
         border: 1px solid #e5e7eb !important;
       }
-      html body #card-inquiry-mgmt > summary {
+      html[data-admin-theme="ivory"] body #card-inquiry-mgmt > summary {
         background: #ffffff !important;
         color: #1f2937 !important;
         border: 1px solid #e5e7eb !important;
       }
-      html body #card-inquiry-mgmt > summary > span { color: #1f2937 !important; }
-      html body #card-inquiry-mgmt > summary::after { color: #334155 !important; }
+      html[data-admin-theme="ivory"] body #card-inquiry-mgmt > summary > span { color: #1f2937 !important; }
+      html[data-admin-theme="ivory"] body #card-inquiry-mgmt > summary::after { color: #334155 !important; }
       /* 헤더 안 버튼(새로고침 등) — 환한 파랑 → 파스텔 + 진한 글자 */
-      html body #card-inquiry-mgmt > summary > button {
+      html[data-admin-theme="ivory"] body #card-inquiry-mgmt > summary > button {
         background: #e6ecff !important;
         color: #1e3a8a !important;
         border: 1px solid #c7d2fe !important;
       }
-      html body #card-inquiry-mgmt > summary > button:hover {
+      html[data-admin-theme="ivory"] body #card-inquiry-mgmt > summary > button:hover {
         background: #d7defb !important;
         color: #1e3a8a !important;
       }
 
-      /* 통계 타일 4개 — 흰 바탕 + 진한 글자 */
-      html body #card-inquiry-mgmt #iq-stats-grid > div {
+      /* 통계 타일 4개 — 흰 바탕 + 진한 글자 (아이보리 전용) */
+      html[data-admin-theme="ivory"] body #card-inquiry-mgmt #iq-stats-grid > div {
         background: #ffffff !important;
         color: #334155 !important;
         border: 1px solid #e5e7eb !important;
         box-shadow: 0 4px 12px -6px rgba(0,0,0,0.12) !important;
       }
-      html body #card-inquiry-mgmt #iq-stats-grid > div * { color: #334155 !important; }
-      html body #card-inquiry-mgmt #iq-stats-grid > div > div:nth-child(1) { color: #475569 !important; font-weight: 700 !important; }
-      html body #card-inquiry-mgmt #iq-stats-grid > div > div:nth-child(2) { color: #1d4ed8 !important; font-weight: 900 !important; font-size: 22px !important; }
-      html body #card-inquiry-mgmt #iq-stats-grid > div > div:nth-child(3) { color: #64748b !important; font-size: 11.5px !important; }
+      html[data-admin-theme="ivory"] body #card-inquiry-mgmt #iq-stats-grid > div * { color: #334155 !important; }
+      html[data-admin-theme="ivory"] body #card-inquiry-mgmt #iq-stats-grid > div > div:nth-child(1) { color: #475569 !important; font-weight: 700 !important; }
+      html[data-admin-theme="ivory"] body #card-inquiry-mgmt #iq-stats-grid > div > div:nth-child(2) { color: #1d4ed8 !important; font-weight: 900 !important; font-size: 22px !important; }
+      html[data-admin-theme="ivory"] body #card-inquiry-mgmt #iq-stats-grid > div > div:nth-child(3) { color: #64748b !important; font-size: 11.5px !important; }
 
-      /* 상태별 분포 박스 — 흰 바탕 */
-      html body #card-inquiry-mgmt #iq-status-bars {
+      /* 상태별 분포 박스 — 흰 바탕 (아이보리 전용) */
+      html[data-admin-theme="ivory"] body #card-inquiry-mgmt #iq-status-bars {
         background: #ffffff !important;
         color: #334155 !important;
         border: 1px solid #e5e7eb !important;
@@ -9052,20 +9054,20 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
         padding: 14px 16px !important;
         border-radius: 12px !important;
       }
-      html body #card-inquiry-mgmt #iq-status-bars,
-      html body #card-inquiry-mgmt #iq-status-bars * {
+      html[data-admin-theme="ivory"] body #card-inquiry-mgmt #iq-status-bars,
+      html[data-admin-theme="ivory"] body #card-inquiry-mgmt #iq-status-bars * {
         color: #334155 !important;
       }
-      html body #card-inquiry-mgmt #iq-status-bars b,
-      html body #card-inquiry-mgmt #iq-status-bars strong { color: #1d4ed8 !important; font-weight: 800 !important; }
+      html[data-admin-theme="ivory"] body #card-inquiry-mgmt #iq-status-bars b,
+      html[data-admin-theme="ivory"] body #card-inquiry-mgmt #iq-status-bars strong { color: #1d4ed8 !important; font-weight: 800 !important; }
       /* 막대 그래프 트랙 (배경) */
-      html body #card-inquiry-mgmt #iq-status-bars [style*="background"] {
+      html[data-admin-theme="ivory"] body #card-inquiry-mgmt #iq-status-bars [style*="background"] {
         background-color: #eef2f7 !important;
       }
       /* 막대 그래프 채워진 부분은 별도 색상 유지 (linear-gradient 등) — 위 규칙으로 인해 덮어쓰지 않음 */
 
-      /* 상담 목록 컨테이너 — 흰 바탕 */
-      html body #card-inquiry-mgmt #iq-list {
+      /* 상담 목록 컨테이너 — 흰 바탕 (아이보리 전용) */
+      html[data-admin-theme="ivory"] body #card-inquiry-mgmt #iq-list {
         background: #ffffff !important;
         border: 1px solid #e5e7eb !important;
         border-radius: 12px !important;
@@ -9073,14 +9075,14 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
         box-shadow: 0 4px 12px -6px rgba(0,0,0,0.12) !important;
         min-height: 80px;
       }
-      html body #card-inquiry-mgmt #iq-list * { color: #334155 !important; }
-      html body #card-inquiry-mgmt #iq-list b,
-      html body #card-inquiry-mgmt #iq-list strong { color: #1d4ed8 !important; font-weight: 700 !important; }
-      /* 필터 select / 버튼 / 카운트 */
-      #card-inquiry-mgmt #iq-filter {
+      html[data-admin-theme="ivory"] body #card-inquiry-mgmt #iq-list * { color: #334155 !important; }
+      html[data-admin-theme="ivory"] body #card-inquiry-mgmt #iq-list b,
+      html[data-admin-theme="ivory"] body #card-inquiry-mgmt #iq-list strong { color: #1d4ed8 !important; font-weight: 700 !important; }
+      /* 필터 select / 버튼 / 카운트 (아이보리 전용) */
+      html[data-admin-theme="ivory"] #card-inquiry-mgmt #iq-filter {
         background: #ffffff !important; color: #334155 !important; border: 1px solid #cbd5e1 !important;
       }
-      #card-inquiry-mgmt #iq-count { color: #64748b !important; font-weight: 600 !important; }
+      html[data-admin-theme="ivory"] #card-inquiry-mgmt #iq-count { color: #64748b !important; font-weight: 600 !important; }
     </style>
     <div class="sub-menu">
 
@@ -13309,20 +13311,21 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         #card-recording-storage .rs-kpi .label { font-size: 10.5px !important; }
         #card-recording-storage .rs-kpi .value { font-size: 18px !important; }
       }
-      /* 🎨 [요청] 새로고침·진단 버튼 — 파란 강제규칙(27236) + 흰글자 강제(27080) 를 덮어 파스텔 배경 + 어두운 글자 */
-      #card-recording-storage #rs-refresh-btn,
-      #card-recording-storage #rs-diag-btn {
+      /* 🎨 [요청] 새로고침·진단 버튼 — 아이보리(밝게) 테마에서만 파스텔 배경 + 어두운 글자.
+         다크 테마에서는 기본 파란 버튼(어두운 바탕+흰 글자) 유지. */
+      html[data-admin-theme="ivory"] #card-recording-storage #rs-refresh-btn,
+      html[data-admin-theme="ivory"] #card-recording-storage #rs-diag-btn {
         background: #e6ecff !important;
         border: 1px solid #c7d2fe !important;
       }
-      #card-recording-storage #rs-refresh-btn,
-      #card-recording-storage #rs-refresh-btn *,
-      #card-recording-storage #rs-diag-btn,
-      #card-recording-storage #rs-diag-btn * {
+      html[data-admin-theme="ivory"] #card-recording-storage #rs-refresh-btn,
+      html[data-admin-theme="ivory"] #card-recording-storage #rs-refresh-btn *,
+      html[data-admin-theme="ivory"] #card-recording-storage #rs-diag-btn,
+      html[data-admin-theme="ivory"] #card-recording-storage #rs-diag-btn * {
         color: #1e3a8a !important;
       }
-      #card-recording-storage #rs-refresh-btn:hover,
-      #card-recording-storage #rs-diag-btn:hover {
+      html[data-admin-theme="ivory"] #card-recording-storage #rs-refresh-btn:hover,
+      html[data-admin-theme="ivory"] #card-recording-storage #rs-diag-btn:hover {
         background: #d7defb !important;
         box-shadow: none !important;
         transform: none !important;
@@ -21647,7 +21650,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260619164601 -->
+        <!-- BUILD:20260620002652 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -27325,24 +27328,25 @@ button.chip:hover,
          (backgroundColor 만 검사)가 다시 칠하지 못함.
        - ID 스코프 + !important 로 위 인디고 그라데이션 규칙을 덮음.
      ============================================ */
-  #card-retention > summary,
-  #card-active-rooms > summary {
+  /* 🎨 아이보리(밝게) 테마에서만 파스텔. 다크 테마에서는 기본 다크 카드 헤더(어두운 바탕+밝은 글자) 유지. */
+  html[data-admin-theme="ivory"] #card-retention > summary,
+  html[data-admin-theme="ivory"] #card-active-rooms > summary {
     background: linear-gradient(135deg, #e6ecff 0%, #f0eaff 100%) !important;
     color: #1e293b !important;
     border: 1px solid rgba(99,102,241,0.30) !important;
   }
-  #card-retention > summary > span,
-  #card-active-rooms > summary > span {
+  html[data-admin-theme="ivory"] #card-retention > summary > span,
+  html[data-admin-theme="ivory"] #card-active-rooms > summary > span {
     color: #1e293b !important;
   }
   /* 펼침 화살표(▶/▼)도 어두운색으로 */
-  #card-retention > summary::after,
-  #card-active-rooms > summary::after {
+  html[data-admin-theme="ivory"] #card-retention > summary::after,
+  html[data-admin-theme="ivory"] #card-active-rooms > summary::after {
     color: #334155 !important;
   }
   /* 헤더 안 액션 버튼(지금 실행 / 새로고침) — 파스텔 배경 + 진한 글자 */
-  #card-retention > summary > button,
-  #card-active-rooms > summary > button {
+  html[data-admin-theme="ivory"] #card-retention > summary > button,
+  html[data-admin-theme="ivory"] #card-active-rooms > summary > button {
     background: #e6ecff !important;
     color: #1e3a8a !important;
     border: 1px solid #c7d2fe !important;
@@ -27985,8 +27989,7 @@ button.chip:hover,
         // 폼/버튼/input 류는 ph102 이미 처리 — skip
         if (el.matches('input, textarea, select, button, option, label')) return;
         if (el.matches('.ph85-head, .ph85-sub, .ph86-action-btn')) return;
-        // 🎨 신규상담 카드는 흰 배경 유지(다크화 제외)
-        if (el.closest('#card-inquiry-mgmt')) return;
+        // (다크 모드: 신규상담 카드도 다른 카드처럼 어둡게 — 예외처리 제거)
 
         var cs = window.getComputedStyle(el);
         var bg = cs.backgroundColor;
@@ -28292,8 +28295,7 @@ button.chip:hover,
       card.querySelectorAll('div, section, article, form, fieldset').forEach(function(el){
         // ph85 사이드바, action btn 제외
         if (el.matches('.ph85-head, .ph85-sub, .ph86-action-btn, #ph85-sidebar, #ph85-sidebar *')) return;
-        // 🎨 신규상담 카드는 흰 배경 유지(다크화 제외)
-        if (el.closest('#card-inquiry-mgmt')) return;
+        // (다크 모드: 신규상담 카드도 다른 카드처럼 어둡게 — 예외처리 제거)
         if (el.__ph105) return;
 
         var cs = window.getComputedStyle(el);
@@ -28329,7 +28331,6 @@ button.chip:hover,
       });
 
       // 카드 내부 모든 input 강제 다크 (마지막 안전망)
-      if (card.id === 'card-inquiry-mgmt') return; // 🎨 신규상담 카드는 흰 배경 유지
       card.querySelectorAll('input, textarea, select').forEach(function(el){
         if (el.type === 'checkbox' || el.type === 'radio') return;
         el.style.setProperty('background', 'rgba(15,23,42,0.85)', 'important');
