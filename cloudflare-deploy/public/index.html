@@ -3026,6 +3026,14 @@
   function goReviewQuiz(){
     STATE.done = true;
     try { if (typeof vcSwitchTab === 'function') vcSwitchTab('review-quiz'); } catch(e){}
+    // 🧠 '예' 선택 시: 상단 수업 영상/카메라 화면을 완전히 숨기고 복습퀴즈만 화면 전체에 보이게 (확실히 보장)
+    try {
+      var _row = document.getElementById('vc-main-row');
+      if (_row) {
+        _row.classList.remove('video-quarter','video-half','video-threequarter','video-full','video-pip','video-solo');
+        _row.classList.add('content-full');
+      }
+    } catch(e){}
     setTimeout(function(){ try { if (typeof rqvAuto === 'function') rqvAuto(true); } catch(e){} }, 250);
   }
 
@@ -27216,7 +27224,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260620034228 -->
+<!-- BUILD:20260620035322 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
