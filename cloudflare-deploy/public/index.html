@@ -1432,6 +1432,7 @@
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
+            touch-action: none;   /* 모바일: 칠판 위 터치를 스크롤/줌이 아닌 '그리기'로 (펜 안 써지던 문제 수정) */
         }
 
         /* PDF 뷰어 */
@@ -11064,7 +11065,25 @@ function wbInit() {
     const canvas = document.getElementById('wb-canvas');
     const ctx = canvas.getContext('2d');
 
+    // 🩹 (2026-06-19) 펜이 안 그려지는 문제 수정:
+    //   canvas 에 width/height 속성이 없어 드로잉 버퍼가 기본 300x150 으로 남으면,
+    //   화면엔 크게 보여도 좌표가 버퍼 밖이라 잉크가 안 보임. 표시 크기에 맞춰 자동 보정(내용 보존).
+    function wbFitCanvas() {
+        const wrap = canvas.parentElement; if (!wrap) return;
+        const w = wrap.clientWidth, h = wrap.clientHeight;
+        if (w > 0 && h > 0 && (canvas.width !== w || canvas.height !== h)) {
+            let snap = null;
+            try { if (canvas.width > 0 && canvas.height > 0) snap = ctx.getImageData(0, 0, canvas.width, canvas.height); } catch (_) {}
+            canvas.width = w; canvas.height = h;
+            const ai = document.getElementById('wb-ai-layer'); if (ai) { ai.width = w; ai.height = h; }
+            if (snap) { try { ctx.putImageData(snap, 0, 0); } catch (_) {} }
+        }
+    }
+    try { new ResizeObserver(() => wbFitCanvas()).observe(canvas.parentElement); } catch (_) {}
+    wbFitCanvas();
+
     canvas.addEventListener('mousedown', e => {
+        wbFitCanvas();   // 그리기 직전 버퍼 크기 보정(불일치 시에만 → 내용 유지)
         // ph268: 텍스트 도구 — 클릭 위치에 input 띄우기
         if (wbTool === 'text') {
             e.preventDefault();
@@ -11206,10 +11225,10 @@ function wbInit() {
         wbSnapshot = null;
     });
 
-    // 터치 지원
-    canvas.addEventListener('touchstart', e => { e.preventDefault(); const t = e.touches[0]; canvas.dispatchEvent(new MouseEvent('mousedown', {clientX:t.clientX,clientY:t.clientY})); });
-    canvas.addEventListener('touchmove', e => { e.preventDefault(); const t = e.touches[0]; canvas.dispatchEvent(new MouseEvent('mousemove', {clientX:t.clientX,clientY:t.clientY})); });
-    canvas.addEventListener('touchend', e => { e.preventDefault(); canvas.dispatchEvent(new MouseEvent('mouseup', {})); });
+    // 터치 지원 (모바일) — passive:false 로 등록해야 preventDefault 가 먹어 스크롤 대신 그리기가 됨
+    canvas.addEventListener('touchstart', e => { if(!e.touches[0])return; e.preventDefault(); const t = e.touches[0]; canvas.dispatchEvent(new MouseEvent('mousedown', {clientX:t.clientX,clientY:t.clientY})); }, {passive:false});
+    canvas.addEventListener('touchmove', e => { if(!e.touches[0])return; e.preventDefault(); const t = e.touches[0]; canvas.dispatchEvent(new MouseEvent('mousemove', {clientX:t.clientX,clientY:t.clientY})); }, {passive:false});
+    canvas.addEventListener('touchend', e => { e.preventDefault(); canvas.dispatchEvent(new MouseEvent('mouseup', {})); }, {passive:false});
 
     window.addEventListener('resize', wbResize);
     window.addEventListener('resize', () => { if (pdfDoc && pdfPagesPerView === 2) pdfRender(); });
@@ -25133,18 +25152,19 @@ window.closeRulesModal = function() {
     opacity: 1;
     transform: translateX(0);
   }
-  /* fix (2026-06-02) — 수업 중 상담 버튼 '절반 크기'로 축소 (44→24px). 하단 3버튼 겹침 정리 */
+  /* 수업 중 상담 버튼 — (2026-06-19) 사용자 요청으로 30% 확대 (24→31px) */
   body.vc-in-call .ph49-kakao-fab {
-    width: 24px !important; height: 24px !important; font-size: 12px !important;
+    width: 31px !important; height: 31px !important; font-size: 16px !important;
     bottom: 8px !important; right: 8px !important;
-    gap: 0 !important;
+    gap: 1px !important;
     background: rgba(254,229,0,0.5) !important;   /* fix (2026-06-02) 반투명 노랑 */
     box-shadow: 0 2px 8px rgba(0,0,0,0.28) !important;
     opacity: 0.9;
   }
-  body.vc-in-call .ph49-kakao-fab .ph49-kakao-ico { font-size: 12px !important; }
-  /* 너무 작아 '상담' 글자는 숨기고 카톡 아이콘만 (탭 영역은 유지) */
-  body.vc-in-call .ph49-kakao-fab .ph49-kakao-intext { display: none !important; }
+  body.vc-in-call .ph49-kakao-fab .ph49-kakao-ico { font-size: 16px !important; }
+  /* '상담' 글자도 30% 확대해서 함께 표시(ph271 보다 높은 우선순위) */
+  body.vc-in-call #ph49-kakao-fab .ph49-kakao-intext,
+  body.vc-in-call .ph49-kakao-fab .ph49-kakao-intext { display: inline-block !important; font-size: 13px !important; }
   body.vc-in-call .ph49-kakao-fab:hover { opacity: 1; }
 
   @media (max-width: 900px) {
@@ -27065,7 +27085,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260619132313 -->
+<!-- BUILD:20260619134133 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -29607,6 +29627,8 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   /* 🎓 수업 중(vc-in-call): A.i 상담사 위젯(아바타/+ 런처) 전체 숨김.
      홈 화면에서는 기존 아바타 그대로 유지. (2026-06-19) */
   body.vc-in-call #mangoi-widget { display:none !important; }
+  /* 수업 중에는 좌측 '열림' 메뉴 손잡이도 숨김 (2026-06-19) */
+  body.vc-in-call #mg-drawer-tab { display:none !important; }
 </style>
 <script>
   (function(){
