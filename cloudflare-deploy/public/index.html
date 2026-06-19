@@ -26501,7 +26501,7 @@ window.closeRulesModal = function() {
     { id:'rfedora', ko:'실사 중절모',   en:'Fedora (Real)',     anchor:'hat',  scale:2.05, yOff:0.30, rotate:true, draw:'image', img:'/face-fx/fedora.svg', imgYOff:-0.10 },
     { id:'rbeard',  ko:'실사 수염',     en:'Beard (Real)',      anchor:'chin', scale:1.30, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/beard.svg', imgYOff:0.14 },
     { id:'rmask',   ko:'실사 가면',     en:'Mask (Real)',       anchor:'eyes', scale:2.00, yOff:0.12, rotate:true, draw:'image', img:'/face-fx/mask.svg' },
-    { id:'rwig',    ko:'실사 가발',     en:'Wig (Real)',        anchor:'hat',  scale:1.38, yOff:0.55, rotate:true, draw:'image', img:'/face-fx/wig.svg', imgYOff:0.10 }
+    { id:'rwig',    ko:'실사 가발',     en:'Wig (Real)',        anchor:'hat',  scale:1.52, yOff:0.55, rotate:true, draw:'image', img:'/face-fx/wig.svg', imgYOff:0.10 }
   ];
 
   var vcFx = window.vcFx = {
@@ -27065,7 +27065,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260619130706 -->
+<!-- BUILD:20260619132313 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -29604,34 +29604,9 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     #mangoi-label  { bottom:140px; font-size:22px; padding:8px 20px; }
     #mangoi-frame  { width:588px; height:660px; bottom:140px; }
   }
-  /* 🎓 수업 중(vc-in-call): 큰 A.i 상담사 아바타를 숨기고, 왼쪽 하단에 작은 "+" 원형 런처로 대체.
-     (+ 를 누르면 동일하게 상담사 패널이 열림. 홈 화면에서는 기존 아바타 그대로 유지) (2026-06-19) */
-  body.vc-in-call #mangoi-widget {
-    left:16px !important; right:auto !important; bottom:88px !important;
-    width:52px !important; height:52px !important;
-  }
-  body.vc-in-call #mangoi-label { display:none !important; }
-  body.vc-in-call #mangoi-toggle {
-    width:52px !important; height:52px !important; border-width:2px !important;
-    background:#ffcc00 !important;          /* 얼굴 사진 대신 단색 골드 원 */
-    animation:none !important;
-  }
-  body.vc-in-call #mangoi-toggle::before { display:none !important; }   /* 회전 후광 끔 */
-  /* 닫혀있을 때만 "+" 표시(열리면 기존 ✕ 닫기 배지 유지) */
-  body.vc-in-call #mangoi-widget:not(.open) #mangoi-toggle::after {
-    content:"+" !important;
-    position:absolute !important; inset:0 !important;
-    top:auto !important; right:auto !important; width:auto !important; height:auto !important;
-    background:none !important; border:none !important; border-radius:0 !important;
-    display:flex !important; align-items:center !important; justify-content:center !important;
-    color:#1a1a1a !important; font-size:34px !important; font-weight:800 !important; line-height:1 !important;
-  }
-  @media (min-width:481px){
-    /* PC 에서도 수업 중에는 작은 + 런처 유지 */
-    body.vc-in-call #mangoi-widget { width:60px !important; height:60px !important; }
-    body.vc-in-call #mangoi-toggle { width:60px !important; height:60px !important; border-width:3px !important; }
-    body.vc-in-call #mangoi-widget:not(.open) #mangoi-toggle::after { font-size:40px !important; }
-  }
+  /* 🎓 수업 중(vc-in-call): A.i 상담사 위젯(아바타/+ 런처) 전체 숨김.
+     홈 화면에서는 기존 아바타 그대로 유지. (2026-06-19) */
+  body.vc-in-call #mangoi-widget { display:none !important; }
 </style>
 <script>
   (function(){

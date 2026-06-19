@@ -1,37 +1,47 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="300" height="260" viewBox="0 0 300 260">
   <defs>
-    <linearGradient id="wgHair" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#6a4a2c"/>
-      <stop offset="0.5" stop-color="#46301a"/>
-      <stop offset="1" stop-color="#2a1b0c"/>
-    </linearGradient>
+    <radialGradient id="wgCurl" cx="0.36" cy="0.30" r="0.85">
+      <stop offset="0" stop-color="#7d562f"/>
+      <stop offset="0.55" stop-color="#4a3119"/>
+      <stop offset="1" stop-color="#291a0b"/>
+    </radialGradient>
   </defs>
-  <!-- hair mass: top dome + side locks framing a face opening -->
-  <path d="M150 8
-           Q40 8 26 110
-           Q18 180 44 246
-           Q58 200 60 150
-           Q66 120 86 104
-           Q120 86 150 88
-           Q180 86 214 104
-           Q234 120 240 150
-           Q242 200 256 246
-           Q282 180 274 110
-           Q260 8 150 8 Z" fill="url(#wgHair)"/>
-  <!-- center part + fringe over forehead -->
-  <path d="M150 88 Q120 96 100 122 Q132 108 150 110 Q168 108 200 122 Q180 96 150 88 Z" fill="#2a1b0c" opacity="0.55"/>
-  <!-- wave strands -->
-  <g stroke="#1d1207" stroke-width="2.4" opacity="0.5" fill="none" stroke-linecap="round">
-    <path d="M52 60 Q34 140 50 226"/>
-    <path d="M90 36 Q70 130 78 210"/>
-    <path d="M150 24 Q150 90 150 120"/>
-    <path d="M210 36 Q230 130 222 210"/>
-    <path d="M248 60 Q266 140 250 226"/>
+  <!-- base hair mass (curved silhouette) prevents gaps between curls -->
+  <path d="M150 6 Q40 6 28 112 Q20 184 48 250 Q66 196 64 150 Q70 124 92 108
+           Q122 92 150 94 Q178 92 208 108 Q230 124 236 150 Q234 196 252 250
+           Q280 184 272 112 Q260 6 150 6 Z" fill="#34220f"/>
+  <!-- bubbly perm curls -->
+  <g fill="url(#wgCurl)" stroke="#241607" stroke-width="1.2">
+    <circle cx="150" cy="18" r="21"/>
+    <circle cx="118" cy="22" r="18"/><circle cx="182" cy="22" r="18"/>
+    <circle cx="88" cy="32" r="18"/><circle cx="212" cy="32" r="18"/>
+    <circle cx="150" cy="42" r="18"/>
+    <circle cx="120" cy="48" r="16"/><circle cx="180" cy="48" r="16"/>
+    <circle cx="60" cy="48" r="17"/><circle cx="240" cy="48" r="17"/>
+    <circle cx="96" cy="56" r="16"/><circle cx="204" cy="56" r="16"/>
+    <circle cx="150" cy="72" r="15"/>
+    <circle cx="128" cy="74" r="14"/><circle cx="172" cy="74" r="14"/>
+    <circle cx="108" cy="84" r="13"/><circle cx="192" cy="84" r="13"/>
+    <circle cx="46" cy="74" r="16"/><circle cx="254" cy="74" r="16"/>
+    <circle cx="50" cy="102" r="16"/><circle cx="250" cy="102" r="16"/>
+    <circle cx="52" cy="130" r="16"/><circle cx="248" cy="130" r="16"/>
+    <circle cx="54" cy="158" r="16"/><circle cx="246" cy="158" r="16"/>
+    <circle cx="56" cy="186" r="15"/><circle cx="244" cy="186" r="15"/>
+    <circle cx="58" cy="213" r="15"/><circle cx="242" cy="213" r="15"/>
+    <circle cx="56" cy="238" r="14"/><circle cx="244" cy="238" r="14"/>
+    <circle cx="80" cy="98" r="15"/><circle cx="220" cy="98" r="15"/>
+    <circle cx="82" cy="126" r="14"/><circle cx="218" cy="126" r="14"/>
+    <circle cx="84" cy="154" r="14"/><circle cx="216" cy="154" r="14"/>
+    <circle cx="86" cy="182" r="13"/><circle cx="214" cy="182" r="13"/>
   </g>
-  <g stroke="#82603a" stroke-width="1.8" opacity="0.6" fill="none" stroke-linecap="round">
-    <path d="M70 48 Q52 130 60 214"/>
-    <path d="M120 28 Q108 100 112 150"/>
-    <path d="M180 28 Q192 100 188 150"/>
-    <path d="M230 48 Q248 130 240 214"/>
+  <!-- highlights -->
+  <g fill="#a06f3e" opacity="0.55">
+    <circle cx="144" cy="13" r="6"/><circle cx="112" cy="17" r="5"/><circle cx="176" cy="17" r="5"/>
+    <circle cx="82" cy="27" r="5"/><circle cx="206" cy="27" r="5"/>
+    <circle cx="54" cy="43" r="5"/><circle cx="234" cy="43" r="5"/>
+    <circle cx="44" cy="96" r="5"/><circle cx="244" cy="96" r="5"/>
+    <circle cx="46" cy="152" r="5"/><circle cx="240" cy="152" r="5"/>
+    <circle cx="50" cy="207" r="4"/><circle cx="236" cy="207" r="4"/>
+    <circle cx="122" cy="68" r="4"/><circle cx="166" cy="68" r="4"/>
   </g>
 </svg>
