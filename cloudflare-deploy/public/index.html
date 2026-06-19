@@ -10078,6 +10078,14 @@ function vcSwitchTab(tabName, evt) {
     // 🧠 복습퀴즈일 때는 얼굴(비디오) 영역을 숨기고 퀴즈가 화면 전체를 차지하게
     const _mainRow = document.getElementById('vc-main-row');
     if (_mainRow) _mainRow.classList.toggle('content-full', tabName === 'review-quiz');
+    // 어떤 화면 크기·레이아웃에서도 확실히 숨기도록 상단 영상 패널에 인라인 강제 적용
+    try {
+      var _vp = document.getElementById('vc-video-pane');
+      if (_vp) {
+        if (tabName === 'review-quiz') _vp.style.setProperty('display', 'none', 'important');
+        else _vp.style.removeProperty('display');
+      }
+    } catch(e){}
     // 🧠 복습퀴즈 탭 진입 시 자동 로드 (이 수업 교재/레벨/레슨 매칭)
     if (tabName === 'review-quiz' && typeof rqvOnEnter === 'function') rqvOnEnter();
 }
@@ -27224,7 +27232,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260620035706 -->
+<!-- BUILD:20260620042116 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
