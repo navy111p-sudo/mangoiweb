@@ -593,6 +593,7 @@
       <button class="tab active" data-tab="profile" data-ko="👤 프로필" data-en="👤 Profile">👤 프로필</button>
       <button class="tab" data-tab="lessons" data-ko="📚 내 수업" data-en="📚 My Classes">📚 내 수업</button>
       <button class="tab" data-tab="salary" data-ko="💰 급여" data-en="💰 Salary">💰 급여</button>
+      <button class="tab" id="tab-capitown" data-tab="capitown" data-ko="🏢 캐피타운 정산" data-en="🏢 Capitown Settlement" style="display:none">🏢 캐피타운 정산</button>
       <button class="tab" data-tab="password" data-ko="🔑 비밀번호" data-en="🔑 Password">🔑 비밀번호</button>
       <button class="tab" data-tab="history" data-ko="📋 로그인 이력" data-en="📋 Login History">📋 로그인 이력</button>
       <button class="tab" data-tab="sessions" data-ko="💻 세션 관리" data-en="💻 Sessions">💻 세션 관리</button>
@@ -839,6 +840,30 @@
       </div>
     </section>
 
+    <!-- ───── 캐피타운 프랜차이즈 정산 (캐피타운 본사·본사 경영진 전용) ───── -->
+    <section class="panel" data-panel="capitown">
+      <div class="info-box">
+        🏢 <b data-ko="캐피타운 프랜차이즈 정산" data-en="Capitown Franchise Settlement">캐피타운 프랜차이즈 정산</b><span data-ko=" — 지사·대리점(학원)별 입금액, 커미션, 원천징수 세금, 최종 지급 수수료를 한눈에 확인하세요." data-en=" — Branch/agency deposits, commissions, withholding tax and final payouts at a glance."> — 지사·대리점(학원)별 입금액, 커미션, 원천징수 세금, 최종 지급 수수료를 한눈에 확인하세요.</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:16px 0">
+        <div style="background:rgba(99,102,241,0.10);border:1px solid rgba(99,102,241,0.28);border-radius:12px;padding:14px 16px">
+          <div style="font-size:11.5px;color:var(--text-muted);font-weight:700" data-ko="지사" data-en="Branches">지사</div>
+          <div style="font-size:20px;font-weight:800;color:#a5b4fc;margin-top:2px">10<span style="font-size:12px;color:var(--text-muted)"> 곳</span></div>
+        </div>
+        <div style="background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.28);border-radius:12px;padding:14px 16px">
+          <div style="font-size:11.5px;color:var(--text-muted);font-weight:700" data-ko="사용 학원" data-en="Active academies">사용 학원</div>
+          <div style="font-size:20px;font-weight:800;color:#fbbf24;margin-top:2px">10<span style="font-size:12px;color:var(--text-muted)"> 곳</span></div>
+        </div>
+        <div style="background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.28);border-radius:12px;padding:14px 16px">
+          <div style="font-size:11.5px;color:var(--text-muted);font-weight:700" data-ko="정산 기준" data-en="Basis">정산 기준</div>
+          <div style="font-size:14px;font-weight:800;color:#6ee7b7;margin-top:6px" data-ko="세금 3.3% 공제" data-en="3.3% tax">세금 3.3% 공제</div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:6px">
+        <a href="/admin/capitown-settlement.html" class="btn-primary" style="text-decoration:none;background:linear-gradient(135deg,#6366f1,#4338ca)" data-ko="🏢 캐피타운 정산 대시보드 열기 →" data-en="🏢 Open Capitown Settlement →">🏢 캐피타운 정산 대시보드 열기 →</a>
+      </div>
+    </section>
+
     <!-- ───── 비밀번호 변경 ───── -->
     <section class="panel" data-panel="password">
       <div class="info-box">
@@ -896,6 +921,21 @@
       panels.forEach(function(p){ p.classList.toggle('active', p.getAttribute('data-panel') === name); });
     });
   });
+
+  // 🏢 캐피타운 정산 탭 — 캐피타운 본사·본사 경영진만 노출
+  (function(){
+    var role = '', uid = '';
+    try { var s = JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}'); role = s.role || ''; uid = s.uid || ''; } catch(e){}
+    if (!role) {
+      uid = String(uid || '');
+      if (uid === 'capitown' || uid.indexOf('capi') === 0) role = 'capitown';
+      else if (uid === 'admin' || uid === 'hq_exec' || uid === 'exec') role = 'hq_exec';
+    }
+    if (role === 'capitown' || role === 'hq_exec') {
+      var tb = document.getElementById('tab-capitown');
+      if (tb) tb.style.display = '';
+    }
+  })();
 
   // 프로필 데모 로드
   var el = function(id){ return document.getElementById(id); };

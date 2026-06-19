@@ -26590,9 +26590,12 @@ window.closeRulesModal = function() {
   // 🔬 진단 오버레이 — URL 에 ?fxdebug 가 있을 때만 표시(일반 사용자 영향 없음)
   function fxDbg(){
     try {
-      var on = (location.search||'').indexOf('fxdebug') >= 0;
+      // (2026-06-19) URL ?fxdebug 로는 더 이상 안 켜짐 — 저장된 링크에 fxdebug 가 붙어
+      //   일반 사용자에게 녹색 진단 글자가 계속 보이던 문제 방지. 진단은 localStorage 로만 켬.
+      //   (켜기:  localStorage.setItem('fx_debug','1')  /  끄기: removeItem)
+      var on = false; try { on = localStorage.getItem('fx_debug') === '1'; } catch(_){}
       var el = document.getElementById('fx-dbg');
-      // 플래그가 없으면(일반 사용) 남아있는 진단 오버레이까지 제거하고 종료
+      // 꺼져 있으면 남아있는 진단 오버레이까지 제거하고 종료
       if (!on){ if (el && el.parentNode) el.parentNode.removeChild(el); return; }
       if (!el){
         el = document.createElement('div'); el.id='fx-dbg';
@@ -27122,7 +27125,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260620010543 -->
+<!-- BUILD:20260620012014 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

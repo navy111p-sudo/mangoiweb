@@ -157,6 +157,7 @@ export async function ensureAuthSchema(env: AuthEnv): Promise<void> {
       ['agency_gn001', 'gn001', '강남 대리점'],
       ['agency_sc002', 'sc002', '서초 대리점'],
       ['hq_t_001', 'teacher', '교사'],
+      ['capitown', 'capi2026!', '캐피타운 본사'],   // 프랜차이즈 본사 정산 전용 계정
     ];
     const nowD = Date.now();
     for (const acc of demoAccounts) {
@@ -168,8 +169,9 @@ export async function ensureAuthSchema(env: AuthEnv): Promise<void> {
           `INSERT INTO admin_account (username, password_hash, name, email, phone, created_at, updated_at) VALUES (?, ?, ?, NULL, NULL, ?, ?)`
         ).bind(u, h, nm, nowD, nowD).run();
         console.warn('[auth-admin] demo account seeded:', u);
-      } else {
+      } else if (u !== 'capitown') {
         // 데모 계정 비번을 항상 안내값과 일치시킨다(재발 방지). 비데모 계정(jeong 등)은 건드리지 않음.
+        // 단, 'capitown'(본사 실계정)은 최초 1회만 생성하고 이후 사용자가 바꾼 비번을 유지한다.
         await env.DB.prepare(`UPDATE admin_account SET password_hash = ? WHERE username = ?`).bind(h, u).run();
       }
     }

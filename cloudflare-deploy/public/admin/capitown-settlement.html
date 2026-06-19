@@ -380,7 +380,10 @@
 </div>
 
 <script>
-/* ===================== 데이터 (3단계 / 검증된 계산) ===================== */
+/* ===================== 데이터 (3단계 / 검증된 계산) =====================
+   ⚠️ 내장 샘플 데이터. 추후 실데이터 연동 시 이 배열을 D1/API 응답으로 교체:
+   예) const agencies = await fetch('/api/admin/capitown/agencies',{credentials:'include'}).then(r=>r.json());
+   필드 스키마: {id,name,loginId,manager,branch,status('사용'|'미사용'|'해지'),type('직영'|'가맹'),margin(0~1),base:{students,online,book}} */
 const agencies=[
  {id:44,name:'강남캐피타운학원',loginId:'jsatc', manager:'윤은아',branch:'캐피 강남',status:'사용', type:'직영',margin:0.00, base:{students:30,online:12500000,book:526474}},
  {id:43,name:'전주 JNK',       loginId:'kqyt02',manager:'이소현',branch:'캐피 전북',status:'사용', type:'가맹',margin:0.53, base:{students:22,online:8200000, book:552314}},
@@ -657,7 +660,7 @@ function exportCSV(){
 }
 
 /* ===================== 초기화 ===================== */
-(function(){
+function initSettlement(){
   [['y1',YEAR],['y2',YEAR]].forEach(([id,y])=>{const s=document.getElementById(id);
     for(let yy=2024;yy<=2026;yy++)s.add(new Option(yy+'년',yy,false,yy===y));});
   [['m1',1],['m2',6]].forEach(([id,d])=>{const s=document.getElementById(id);
@@ -665,7 +668,54 @@ function exportCSV(){
   const fb=document.getElementById('fBranch');
   [...new Set(agencies.map(a=>a.branch))].forEach(b=>fb.add(new Option(b,b)));
   render();
+}
+
+/* ===================== 인증 가드 (캐피타운 본사 + 본사 경영진만) =====================
+   - 서버 세션(/api/admin/me, 쿠키)로 로그인 여부 확인 → 미로그인 시 admin 로그인 페이지로.
+   - 역할은 login.html과 동일 규칙으로 아이디에서 유도(capitown / hq_exec 만 허용).
+   - 데이터는 현재 내장 샘플(아래 agencies). 추후 D1 연동 시 loadSettlementData() 한 곳만 교체. */
+function deriveRole(uid){
+  uid=String(uid||'');
+  if(uid==='capitown'||uid.indexOf('capi')===0) return 'capitown';
+  if(uid==='admin'||uid==='hq_exec'||uid==='exec') return 'hq_exec';
+  if(uid.indexOf('hq_t')===0) return 'hq_teacher';
+  if(uid.indexOf('hq_')===0) return 'hq_mgr';
+  if(uid.indexOf('branch_')===0) return 'branch';
+  if(uid.indexOf('agency_')===0) return 'agency';
+  return '';
+}
+const ROLE_LABEL={capitown:'캐피타운 본사',hq_exec:'본사 경영진'};
+(async function authGuard(){
+  let role='',uid='',name='';
+  try{const s=JSON.parse(localStorage.getItem('mangoi_admin_session')||'{}');role=s.role||'';uid=s.uid||'';name=s.name||'';}catch(e){}
+  let serverOk=false;
+  try{
+    const r=await fetch('/api/admin/me',{credentials:'include'});
+    const j=await r.json().catch(()=>null);
+    if(j&&j.ok&&j.user){serverOk=true;uid=j.user.username||uid;if(!name)name=j.user.name||uid;}
+  }catch(e){}
+  if(!serverOk){location.replace('/admin/login.html?next='+encodeURIComponent(location.pathname));return;}
+  if(!role) role=deriveRole(uid);
+  const allowed=['capitown','hq_exec'];
+  if(!allowed.includes(role)){
+    document.getElementById('denyGate').style.display='grid';
+    document.querySelector('.adm-top .who').style.display='none';
+    return;
+  }
+  // 통과 → 화면 노출 + 헤더 표시 + 초기화
+  const who=document.getElementById('admWho');
+  if(who) who.innerHTML='<span class="who-txt">'+(ROLE_LABEL[role]||'본사')+(name?(' · '+name):'')+'</span>';
+  document.getElementById('appWrap').style.display='flex';
+  initSettlement();
 })();
+
+// 로그아웃
+document.getElementById('admLogout').addEventListener('click',async function(e){
+  e.preventDefault();
+  try{await fetch('/api/admin/logout',{method:'POST',credentials:'include'});}catch(_){}
+  try{localStorage.removeItem('mangoi_admin_session');}catch(_){}
+  location.replace('/admin/login.html');
+});
 </script>
 </body>
 </html>

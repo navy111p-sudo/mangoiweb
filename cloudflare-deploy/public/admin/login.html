@@ -191,7 +191,8 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
           var role = 'hq_mgr';
           var branch = '', branch_id = null, agency_id = null;
           var name = uid;
-          if (uid === 'admin' || uid === 'hq_exec' || uid === 'exec') { role = 'hq_exec'; name = '본사 경영진'; }
+          if (uid === 'capitown' || uid.indexOf('capi') === 0) { role = 'capitown'; name = '캐피타운 본사'; }
+          else if (uid === 'admin' || uid === 'hq_exec' || uid === 'exec') { role = 'hq_exec'; name = '본사 경영진'; }
           else if (uid.indexOf('hq_t') === 0) { role = 'hq_teacher'; name = '본사 교사'; }
           else if (uid.indexOf('hq_') === 0) { role = 'hq_mgr'; name = '본사 관리자'; }
           else if (uid.indexOf('branch_') === 0) {
@@ -221,6 +222,10 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
           localStorage.setItem('mangoi_admin_session', JSON.stringify(session));
         } catch(e) { console.warn('[ph239] session inject failed', e); }
         var clean = nextUrl.replace(/[?&]login=1/g,'').replace(/\?$/,'');
+        // 캐피타운 본사 계정은 전용 정산 화면을 기본 홈으로 (next 미지정 시)
+        if ((uid === 'capitown' || uid.indexOf('capi') === 0) && (!clean || clean === '/admin.html')) {
+          clean = '/admin/capitown-settlement.html';
+        }
         setTimeout(function(){ location.href = clean || '/admin.html'; }, 400);
       } else {
         var msg = (data && (data.error || data.message)) || '아이디 또는 비밀번호가 올바르지 않습니다.';
