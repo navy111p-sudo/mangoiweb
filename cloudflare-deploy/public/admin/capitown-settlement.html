@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<!-- BUILD:1 -->
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>캐피타운 정산 — 망고아이 관리자</title>
+<!-- 🚫 글로벌 [🏠 Home][🌐 EN] 자동 inject 차단(자체 헤더 사용) -->
+<meta name="mangoi-no-global-bar" content="1">
+<link rel="icon" type="image/png" href="/img/icon-192.png">
+<link rel="icon" href="data:," />
+<style>
+  #mangoi-global-bar,#mangoi-global-home,#mangoi-global-lang-toggle{display:none!important}
+  :root{
+    --bg:#eef1f7; --surface:#ffffff; --surface-2:#f8fafc;
+    --ink:#0f172a; --ink-2:#334155; --muted:#7c879b; --faint:#aab3c5;
+    --line:#e7ebf3; --line-2:#f0f3f9;
+    --nav:#0e1626; --nav-2:#1a2438; --nav-ink:#aeb9d0; --nav-ink-2:#67738d;
+    --gold:#f5b528; --gold-d:#c98a08;
+    --indigo:#4f46e5; --indigo-l:#eef0fe;
+    --sky:#0ea5e9; --green:#10b981; --red:#ef4444; --slate:#94a3b8; --violet:#8b5cf6;
+    --sh-sm:0 1px 2px rgba(15,23,42,.05),0 1px 3px rgba(15,23,42,.05);
+    --sh-md:0 4px 12px rgba(15,23,42,.06),0 2px 4px rgba(15,23,42,.04);
+    --r:14px; --topbar-h:54px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif;
+    background:var(--bg);color:var(--ink);font-size:13.5px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+  /* 관리자 공통 상단바 (mypage/salary 톤) */
+  .adm-top{position:fixed;top:0;left:0;right:0;height:var(--topbar-h);z-index:60;display:flex;align-items:center;gap:14px;
+    padding:0 20px;background:linear-gradient(135deg,#141a2b,#1a2238);border-bottom:1px solid #232b40;box-shadow:0 2px 14px rgba(0,0,0,.28)}
+  .adm-top .brand{display:flex;align-items:center;gap:7px;font-weight:800;font-size:15px;color:#fbbf24;text-decoration:none;white-space:nowrap}
+  .adm-top .crumb{color:#94a3b8;font-size:12.5px;display:flex;align-items:center;gap:8px}
+  .adm-top .crumb::before{content:'›';color:#2d3654;font-size:16px}
+  .adm-top .right{margin-left:auto;display:flex;align-items:center;gap:8px}
+  .adm-top .ab{display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:9px;border:1px solid #2d3654;
+    background:rgba(255,255,255,.04);color:#cbd5e1;font-size:12.5px;font-weight:700;text-decoration:none;cursor:pointer;transition:.15s;font-family:inherit}
+  .adm-top .ab:hover{background:rgba(251,191,36,.14);color:#fde68a;border-color:rgba(251,191,36,.4)}
+  .adm-top .ab.logout{border-color:rgba(239,68,68,.4);color:#fca5a5}
+  .adm-top .ab.logout:hover{background:rgba(239,68,68,.16);color:#fecaca}
+  .adm-top .who{color:#cbd5e1;font-size:12px;font-weight:700;background:rgba(251,191,36,.13);border:1px solid rgba(251,191,36,.3);
+    padding:5px 11px;border-radius:99px;white-space:nowrap}
+  @media(max-width:860px){.adm-top .crumb,.adm-top .who-txt{display:none}.adm-top{padding:0 12px;gap:8px}}
+
+  /* 권한 없음 게이트 */
+  #denyGate{position:fixed;inset:var(--topbar-h) 0 0 0;z-index:55;display:none;place-items:center;background:var(--bg);padding:24px}
+  #denyGate .box{max-width:440px;text-align:center;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--sh-md);padding:38px 30px}
+  #denyGate .ico{font-size:46px;margin-bottom:12px}
+  #denyGate h2{font-size:19px;font-weight:800;margin-bottom:8px}
+  #denyGate p{color:var(--muted);font-size:13.5px;line-height:1.6;margin-bottom:20px}
+  #denyGate a{display:inline-block;background:var(--indigo);color:#fff;font-weight:700;text-decoration:none;padding:11px 20px;border-radius:10px;font-size:13.5px}
+  #appWrap{display:none}
+
+  /* layout */
+  .app{display:flex;min-height:calc(100vh - var(--topbar-h))}
+  .side{width:236px;background:var(--nav);color:var(--nav-ink);position:fixed;top:var(--topbar-h);bottom:0;left:0;display:flex;flex-direction:column;padding:20px 14px;z-index:20}
+  .brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px}
+  .brand .logo{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--gold),var(--gold-d));display:grid;place-items:center;font-size:20px;box-shadow:0 4px 10px rgba(201,138,8,.35)}
+  .brand .t1{font-size:15px;font-weight:800;color:#fff;letter-spacing:-.2px}
+  .brand .t2{font-size:11px;color:var(--nav-ink-2)}
+  .navsec{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--nav-ink-2);padding:14px 10px 7px;font-weight:700}
+  .nav{display:flex;align-items:center;gap:11px;padding:10px 11px;border-radius:10px;cursor:pointer;color:var(--nav-ink);font-weight:600;font-size:13.5px;transition:.15s}
+  .nav:hover{background:var(--nav-2);color:#fff}
+  .nav.on{background:linear-gradient(90deg,rgba(245,181,40,.16),rgba(245,181,40,.03));color:#fff;box-shadow:inset 2px 0 0 var(--gold)}
+  .nav svg{width:17px;height:17px;flex:none;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  .side .foot{margin-top:auto;border-top:1px solid var(--nav-2);padding:14px 10px 4px;font-size:11.5px;color:var(--nav-ink-2);line-height:1.6}
+  .side .foot b{color:var(--nav-ink)}
+
+  .main{margin-left:236px;margin-top:var(--topbar-h);flex:1;min-width:0;padding:22px 26px 40px}
+  .head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .head h1{font-size:20px;font-weight:800;letter-spacing:-.3px}
+  .head .scope{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .head .scope b{color:var(--indigo)}
+  .note-pg{font-size:11.5px;color:var(--muted);background:var(--surface);border:1px solid var(--line);padding:7px 12px;border-radius:9px}
+
+  /* toolbar */
+  .toolbar{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh-sm);
+    padding:13px 16px;display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;margin-bottom:18px}
+  .fg{display:flex;flex-direction:column;gap:5px}
+  .fg label{font-size:10.5px;color:var(--muted);font-weight:700;letter-spacing:.02em}
+  select,input[type=text]{appearance:none;border:1px solid var(--line);border-radius:9px;padding:8px 11px;font-size:13px;
+    background:var(--surface-2);color:var(--ink);font-family:inherit;outline:none;transition:.15s}
+  select:focus,input:focus{border-color:var(--indigo);background:#fff;box-shadow:0 0 0 3px var(--indigo-l)}
+  input[type=text]{min-width:210px}
+  .dual{display:flex;gap:6px;align-items:center;color:var(--muted)}
+  .btn{border:0;border-radius:9px;padding:9px 15px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;transition:.15s}
+  .btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .btn.p{background:var(--indigo);color:#fff}.btn.p:hover{filter:brightness(1.07)}
+  .btn.x{background:#fff;color:var(--green);border:1px solid #c8efdd}.btn.x:hover{background:#f0fdf6}
+  .spacer{flex:1}
+
+  /* KPI cards */
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:18px}
+  .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh-sm);padding:16px 17px;position:relative;overflow:hidden}
+  .kpi .ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;margin-bottom:12px}
+  .kpi .ic svg{width:18px;height:18px;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .kpi .l{font-size:12px;color:var(--muted);font-weight:600}
+  .kpi .v{font-size:21px;font-weight:800;margin-top:3px;letter-spacing:-.4px}
+  .kpi .u{font-size:12px;color:var(--faint);font-weight:600}
+  .i-indigo{background:var(--indigo-l);color:var(--indigo)}
+  .i-gold{background:#fdf3da;color:var(--gold-d)}
+  .i-green{background:#e6f8f1;color:var(--green)}
+  .i-sky{background:#e4f5fd;color:var(--sky)}
+  .i-slate{background:#eef1f6;color:var(--slate)}
+
+  /* panels & grid */
+  .row{display:grid;gap:18px;margin-bottom:18px}
+  .row.c2{grid-template-columns:1.55fr 1fr}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh-sm)}
+  .card .hd{padding:16px 20px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .card .hd h2{font-size:15px;font-weight:800;letter-spacing:-.2px}
+  .card .hd .sub{font-size:12px;color:var(--muted);margin-top:2px}
+  .card .bd{padding:16px 20px 20px}
+
+  /* table */
+  .tw{overflow:auto;border-radius:11px;border:1px solid var(--line)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead th{background:var(--surface-2);color:var(--muted);font-weight:700;font-size:11px;letter-spacing:.02em;
+    padding:11px 13px;text-align:right;white-space:nowrap;cursor:pointer;user-select:none;position:sticky;top:0;border-bottom:1px solid var(--line)}
+  thead th:first-child,thead th.l{text-align:left}
+  thead th:hover{color:var(--ink)}
+  thead th .s{margin-left:3px;font-size:9px;color:var(--indigo)}
+  tbody td{padding:11px 13px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line-2)}
+  tbody td:first-child,tbody td.l{text-align:left}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr.click{cursor:pointer;transition:.12s}
+  tbody tr.click:hover{background:var(--indigo-l)}
+  tfoot td{padding:12px 13px;text-align:right;font-weight:800;background:#fffdf6;border-top:2px solid var(--gold)}
+  tfoot td:first-child,tfoot td.l{text-align:left}
+  .org{font-weight:700}.org .ar{color:var(--faint);margin-left:4px}
+
+  .badge{font-size:10.5px;padding:2.5px 9px;border-radius:20px;font-weight:700;white-space:nowrap;display:inline-block}
+  .s-use{background:#e6f8f1;color:#0a8a5f}.s-non{background:#eef1f6;color:#74808f}.s-end{background:#fdecec;color:#d23a3a}
+  .t-dir{background:#fdf3da;color:var(--gold-d)}.t-fr{background:var(--indigo-l);color:var(--indigo)}
+  .mg{font-weight:800;color:var(--violet)}
+  .pos{color:var(--indigo);font-weight:700}.zero{color:var(--faint)}
+  .fin{font-weight:800}
+
+  /* donut + legend */
+  .donutwrap{display:flex;flex-direction:column;align-items:center;gap:14px}
+  .legend{width:100%;display:flex;flex-direction:column;gap:8px}
+  .lg{display:grid;grid-template-columns:12px 1fr auto;align-items:center;gap:9px;font-size:12.5px;cursor:pointer;padding:3px 4px;border-radius:7px}
+  .lg:hover{background:var(--surface-2)}
+  .lg .dot{width:11px;height:11px;border-radius:4px}
+  .lg .nm{color:var(--ink-2);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lg .vl{font-weight:700;color:var(--ink)}
+
+  /* trend legend */
+  .clegend{display:flex;gap:16px;font-size:12px;color:var(--muted);font-weight:600}
+  .clegend span{display:inline-flex;align-items:center;gap:6px}
+  .clegend i{width:14px;height:4px;border-radius:3px;display:inline-block}
+
+  /* hint / drill */
+  .hint{display:flex;gap:10px;align-items:flex-start;background:linear-gradient(90deg,#fffaf0,#ffffff);border:1px solid #f3e3bd;
+    border-radius:12px;padding:13px 15px;font-size:12.5px;color:var(--ink-2);margin-bottom:16px}
+  .hint .ic{flex:none;color:var(--gold-d)}
+  .hint b{color:var(--ink)} .link{color:var(--indigo);font-weight:700;cursor:pointer;text-decoration:none;border-bottom:1px solid transparent}
+  .link:hover{border-color:var(--indigo)}
+  .crumb{font-size:12.5px;color:var(--muted);margin-bottom:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .chip{background:var(--indigo-l);color:var(--indigo);font-weight:700;padding:4px 11px;border-radius:20px;display:inline-flex;align-items:center;gap:6px}
+  .chip .x{cursor:pointer;font-weight:800}
+
+  /* detail / 정산서 */
+  .calc{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .box{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .box .bh{background:var(--surface-2);padding:11px 15px;font-size:12.5px;font-weight:800;color:var(--ink);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+  .box .bh .n{width:20px;height:20px;border-radius:6px;background:var(--indigo);color:#fff;display:grid;place-items:center;font-size:11px}
+  .box .bb{padding:6px 15px 12px}
+  .kv{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:13px}
+  .kv:last-child{border:0}
+  .kv .k{color:var(--muted)} .kv .k.sub{padding-left:14px;font-size:12.5px}
+  .kv .v{font-weight:700}.kv .v.minus{color:var(--red)}
+  .kv.tot{border-top:2px solid var(--gold);margin-top:3px;padding-top:11px}
+  .kv.tot .k{color:var(--ink);font-weight:800}.kv.tot .v{color:var(--gold-d);font-size:16px}
+  .summary{margin-top:16px;background:var(--surface-2);border-radius:12px;border-left:4px solid var(--indigo);padding:14px 16px;font-size:13px;color:var(--ink-2);line-height:1.65}
+  .summary b{color:var(--ink)}
+  .dirnote{margin-top:8px;color:var(--gold-d);font-weight:600}
+
+  .empty{text-align:center;color:var(--muted);padding:54px 20px}
+  .empty svg{width:42px;height:42px;stroke:var(--faint);fill:none;stroke-width:1.6;margin-bottom:10px}
+  .hide{display:none}
+
+  @media(max-width:1080px){.kpis{grid-template-columns:repeat(3,1fr)}.row.c2{grid-template-columns:1fr}}
+  @media(max-width:860px){
+    .side{position:static;top:auto;width:100%;flex-direction:row;flex-wrap:wrap;padding:12px;gap:6px;align-items:center;margin-top:var(--topbar-h)}
+    .brand{padding:0 10px 0 4px} .navsec,.side .foot{display:none}
+    .nav{padding:8px 12px} .main{margin-left:0;margin-top:0;padding:16px}
+    .kpis{grid-template-columns:repeat(2,1fr)}.calc{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<!-- ───── 관리자 공통 상단바 ───── -->
+<header class="adm-top">
+  <a href="/admin.html" class="brand" title="망고아이 관리자 대시보드">🥭 망고아이</a>
+  <span class="crumb">관리자 · 캐피타운 프랜차이즈 정산</span>
+  <div class="right">
+    <span class="who" id="admWho" title="로그인 계정"><span class="who-txt">캐피타운 본사</span></span>
+    <a href="/admin/mypage.html" class="ab">← 마이페이지</a>
+    <a href="/admin.html" class="ab">📊 대시보드</a>
+    <a href="#" class="ab logout" id="admLogout">로그아웃</a>
+  </div>
+</header>
+
+<!-- ───── 권한 없음 게이트 ───── -->
+<div id="denyGate">
+  <div class="box">
+    <div class="ico">🔒</div>
+    <h2>접근 권한이 없습니다</h2>
+    <p>캐피타운 정산 시스템은 <b>캐피타운 본사</b>와 <b>망고아이 본사 경영진</b>만 열람할 수 있습니다.<br>권한이 필요하면 본사 관리자에게 문의해 주세요.</p>
+    <a href="/admin/mypage.html">← 마이페이지로 돌아가기</a>
+  </div>
+</div>
+
+<div class="app" id="appWrap">
+  <!-- 사이드바 -->
+  <aside class="side">
+    <div class="brand">
+      <div class="logo">🥭</div>
+      <div><div class="t1">캐피타운 정산</div><div class="t2">Settlement System</div></div>
+    </div>
+    <div class="navsec">정산 관리</div>
+    <div class="nav on" data-tab="branch" onclick="switchTab('branch')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      지사별 합계
+    </div>
+    <div class="nav" data-tab="agency" onclick="switchTab('agency')">
+      <svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M15 9h.01M9 13h.01M15 13h.01M9 17h6"/></svg>
+      대리점(학원) 정산
+    </div>
+    <div class="nav" data-tab="detail" onclick="switchTab('detail')">
+      <svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 13h6M9 17h4"/></svg>
+      정산 근거 상세
+    </div>
+    <div class="nav" data-tab="trend" onclick="switchTab('trend')">
+      <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M19 9l-5 5-4-4-4 4"/></svg>
+      월별 추이
+    </div>
+    <div class="foot">
+      <b>총지사</b> 캐피타운<br>3단계 · 지사 → 대리점<br>
+      <span style="color:var(--green)">●</span> 결제(PG)수수료 제외 기준
+    </div>
+  </aside>
+
+  <!-- 메인 -->
+  <main class="main">
+    <div class="head">
+      <div>
+        <h1 id="pageTitle">지사별 합계</h1>
+        <div class="scope" id="scope"></div>
+      </div>
+      <div class="note-pg">세금 3.3% = 소득세 3% + 지방소득세 0.3% · 금액은 PG수수료 제외</div>
+    </div>
+
+    <!-- 툴바 -->
+    <div class="toolbar">
+      <div class="fg"><label>조회 기간</label>
+        <div class="dual"><select id="y1"></select><select id="m1"></select><span>~</span><select id="y2"></select><select id="m2"></select></div>
+      </div>
+      <div class="fg"><label>지사(본부)</label><select id="fBranch"><option value="">전체 지사</option></select></div>
+      <div class="fg"><label>학원 상태</label>
+        <select id="fStatus">
+          <option value="사용">사용 학원</option>
+          <option value="전체">전체 (사용+미사용+해지)</option>
+          <option value="미사용">미사용</option>
+          <option value="해지">해지</option>
+        </select>
+      </div>
+      <div class="fg"><label>검색</label><input type="text" id="fKw" placeholder="학원명 · 관리자 · 아이디"></div>
+      <div class="fg"><label>&nbsp;</label>
+        <button class="btn p" onclick="render()"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>검색</button>
+      </div>
+      <div class="spacer"></div>
+      <div class="fg"><label>&nbsp;</label>
+        <button class="btn x" onclick="exportCSV()"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>엑셀(CSV) 다운로드</button>
+      </div>
+    </div>
+
+    <!-- KPI -->
+    <div class="kpis" id="kpis"></div>
+
+    <!-- TAB: 지사별 -->
+    <div id="tab-branch">
+      <div class="row c2">
+        <div class="card">
+          <div class="hd"><div><h2>지사별 정산 합계</h2><div class="sub">행을 클릭하면 소속 대리점 목록으로 드릴다운됩니다</div></div></div>
+          <div class="bd">
+            <div class="tw" style="max-height:460px">
+              <table>
+                <thead><tr>
+                  <th class="l" data-s="branch:name">지사구분</th>
+                  <th data-s="branch:count">학원수</th>
+                  <th data-s="branch:students">재학생</th>
+                  <th data-s="branch:sales">입금액</th>
+                  <th data-s="branch:commission">커미션</th>
+                  <th data-s="branch:tax">세금</th>
+                  <th data-s="branch:final">최종 수수료</th>
+                </tr></thead>
+                <tbody id="branchBody"></tbody>
+                <tfoot id="branchFoot"></tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="hd"><div><h2>입금액 비중</h2><div class="sub">지사별 매출 점유</div></div></div>
+          <div class="bd"><div class="donutwrap"><div id="donut"></div><div class="legend" id="donutLegend"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: 대리점 -->
+    <div id="tab-agency" class="hide">
+      <div class="hint">
+        <span class="ic"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg></span>
+        <div><b>커미션이 학원마다 다른 이유</b> — 커미션 = <b>입금액 × 마진율</b>이며 마진율은 학원별 계약 조건입니다.
+        예: 전주 JNK(53%)와 UBCK(10.5%)는 입금액이 비슷해도 커미션 차이가 큽니다. <b>직영점(강남캐피타운)은 마진율 0%라 커미션 0</b>입니다.
+        <span class="link" onclick="switchTab('detail')">산출 근거 상세 보기 →</span></div>
+      </div>
+      <div class="card">
+        <div class="hd"><div><h2>대리점(학원) 정산</h2><div class="sub" id="agencyCrumb"></div></div></div>
+        <div class="bd">
+          <div class="tw" style="max-height:560px">
+            <table>
+              <thead><tr>
+                <th data-s="agency:id">No</th>
+                <th class="l" data-s="agency:name">학원(대리점)명</th>
+                <th class="l" data-s="agency:branch">지사</th>
+                <th class="l" data-s="agency:loginId">아이디</th>
+                <th class="l" data-s="agency:manager">관리자</th>
+                <th data-s="agency:status">상태</th>
+                <th data-s="agency:students">재학생</th>
+                <th data-s="agency:sales">입금액</th>
+                <th data-s="agency:margin">마진율</th>
+                <th data-s="agency:commission">커미션</th>
+                <th data-s="agency:tax">세금</th>
+                <th data-s="agency:final">최종 수수료</th>
+              </tr></thead>
+              <tbody id="agencyBody"></tbody>
+              <tfoot id="agencyFoot"></tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: 상세 -->
+    <div id="tab-detail" class="hide">
+      <div class="card"><div class="bd" id="detailPanel">
+        <div class="empty">
+          <svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></svg>
+          <div><b>대리점(학원) 정산</b> 탭에서 학원을 클릭하면<br>매출 산출 근거와 세금 분개가 표시됩니다.</div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- TAB: 월별 추이 -->
+    <div id="tab-trend" class="hide">
+      <div class="card">
+        <div class="hd">
+          <div><h2>월별 입금액 · 커미션 추이</h2><div class="sub">선택한 지사/상태 기준 · 2026년 매월 (누적 아님)</div></div>
+          <div class="clegend"><span><i style="background:var(--indigo)"></i>입금액</span><span><i style="background:var(--gold)"></i>커미션</span></div>
+        </div>
+        <div class="bd">
+          <div id="trendChart"></div>
+          <div class="tw" style="margin-top:16px">
+            <table>
+              <thead><tr><th class="l">월</th><th>재학생</th><th>입금액</th><th>커미션</th><th>세금</th><th>최종 수수료</th></tr></thead>
+              <tbody id="trendBody"></tbody>
+              <tfoot id="trendFoot"></tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ===================== 데이터 (3단계 / 검증된 계산) ===================== */
+const agencies=[
+ {id:44,name:'강남캐피타운학원',loginId:'jsatc', manager:'윤은아',branch:'캐피 강남',status:'사용', type:'직영',margin:0.00, base:{students:30,online:12500000,book:526474}},
+ {id:43,name:'전주 JNK',       loginId:'kqyt02',manager:'이소현',branch:'캐피 전북',status:'사용', type:'가맹',margin:0.53, base:{students:22,online:8200000, book:552314}},
+ {id:42,name:'UBCK어학원',     loginId:'ubckt00',manager:'김수희',branch:'캐피 충북',status:'사용', type:'가맹',margin:0.105,base:{students:20,online:8000000, book:394353}},
+ {id:41,name:'랭클어학원',     loginId:'lnct00',manager:'신수연',branch:'캐피 부천',status:'사용', type:'가맹',margin:0.387,base:{students:18,online:7000000, book:474923}},
+ {id:40,name:'앤해피잉글리쉬', loginId:'aht00', manager:'부예슬',branch:'캐피 강서',status:'사용', type:'가맹',margin:0.387,base:{students:17,online:6800000, book:354361}},
+ {id:39,name:'다온캐피타운',   loginId:'bnmt00',manager:'강순정',branch:'캐피 강서',status:'사용', type:'가맹',margin:0.40, base:{students:14,online:5000000, book:230989}},
+ {id:31,name:'예티어학원',     loginId:'yeti00',manager:'한지민',branch:'캐피 충북',status:'사용', type:'가맹',margin:0.40, base:{students:12,online:5300000, book:300000}},
+ {id:22,name:'서울 두드림',    loginId:'ddr00', manager:'오세훈',branch:'캐피 강서',status:'사용', type:'가맹',margin:0.35, base:{students:4, online:1200000, book:80000}},
+ {id:15,name:'N SYPO어학원',   loginId:'sypo00',manager:'정유진',branch:'캐피 대구',status:'사용', type:'가맹',margin:0.38, base:{students:5, online:1500000, book:100000}},
+ {id:9, name:'탑키즈영어학원', loginId:'topk00',manager:'문가영',branch:'캐피 제주',status:'사용', type:'가맹',margin:0.36, base:{students:2, online:700000,  book:50000}},
+ {id:7, name:'은여울캐피타운', loginId:'eyu00', manager:'배수지',branch:'캐피 강서',status:'미사용',type:'가맹',margin:0.40, base:{students:0, online:0,       book:0}},
+ {id:5, name:'위즈쿡 캐피타운',loginId:'wzc00', manager:'손나은',branch:'캐피 고양',status:'미사용',type:'가맹',margin:0.40, base:{students:0, online:0,       book:0}},
+ {id:3, name:'큰숲캐츠학원',   loginId:'ksf00', manager:'김태리',branch:'캐피 충북',status:'해지', type:'가맹',margin:0.40, base:{students:0, online:0,       book:0}},
+ {id:2, name:'잉글리쉬고고',   loginId:'eg00',  manager:'박소담',branch:'캐피 대전',status:'해지', type:'가맹',margin:0.40, base:{students:0, online:0,       book:0}},
+];
+const YEAR=2026, MONTHS=[1,2,3,4,5,6];
+const PALETTE=['#4f46e5','#f5b528','#0ea5e9','#10b981','#8b5cf6','#ef4444','#f97316','#14b8a6','#ec4899','#64748b'];
+
+const won=n=>Math.round(n).toLocaleString('ko-KR');
+const short=n=>{n=Math.round(n);if(n>=1e8)return (n/1e8).toFixed(n%1e8?1:0)+'억';if(n>=1e4)return Math.round(n/1e4).toLocaleString()+'만';return n.toLocaleString();};
+const rnd=s=>{const x=Math.sin(s)*43758.5453;return x-Math.floor(x);};
+
+function monthData(a,m){
+  if(a.status!=='사용')return{students:0,online:0,book:0};
+  const f=0.78+0.44*rnd(a.id*7.13+m*3.7);
+  return{students:Math.round(a.base.students*(0.9+0.2*rnd(a.id+m))),
+    online:Math.round(a.base.online*f/100)*100, book:Math.round(a.base.book*f/100)*100};
+}
+function calcMonth(a,m){
+  const d=monthData(a,m); const sales=d.online+d.book;
+  const commission=Math.round(sales*a.margin);
+  const incomeTax=Math.round(commission*0.03);
+  const localTax=Math.round(incomeTax*0.10);
+  const tax=incomeTax+localTax;
+  return{...d,sales,commission,incomeTax,localTax,tax,final:commission-tax};
+}
+function calcRange(a,m1,m2){
+  let o={students:0,online:0,book:0,sales:0,commission:0,incomeTax:0,localTax:0,tax:0,final:0};
+  for(let m=m1;m<=m2;m++){const c=calcMonth(a,m);
+    o.online+=c.online;o.book+=c.book;o.sales+=c.sales;o.commission+=c.commission;
+    o.incomeTax+=c.incomeTax;o.localTax+=c.localTax;o.tax+=c.tax;o.final+=c.final;o.students=c.students;}
+  return o;
+}
+
+/* ===================== 상태 ===================== */
+let sort={branch:{k:'sales',dir:-1},agency:{k:'sales',dir:-1}};
+let curTab='branch', detailId=null;
+const TITLES={branch:'지사별 합계',agency:'대리점(학원) 정산',detail:'정산 근거 상세',trend:'월별 추이'};
+
+function filtered(){
+  const br=val('fBranch'),st=val('fStatus'),kw=val('fKw').trim().toLowerCase();
+  return agencies.filter(a=>{
+    if(br&&a.branch!==br)return false;
+    if(st!=='전체'&&a.status!==st)return false;
+    if(kw&&!(a.name.toLowerCase().includes(kw)||a.manager.toLowerCase().includes(kw)||a.loginId.toLowerCase().includes(kw)))return false;
+    return true;
+  });
+}
+const val=id=>document.getElementById(id).value;
+const range=()=>[+val('m1'),+val('m2')];
+
+/* ===================== 차트 헬퍼 (SVG) ===================== */
+function donutSVG(data){
+  const size=170,thick=24,r=(size-thick)/2,cx=size/2,cy=size/2,C=2*Math.PI*r;
+  const total=data.reduce((s,d)=>s+d.value,0)||1;let off=0,segs='';
+  data.forEach(d=>{const len=d.value/total*C;
+    segs+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${d.color}" stroke-width="${thick}" stroke-dasharray="${len-2} ${C-len+2}" stroke-dashoffset="${-off}" transform="rotate(-90 ${cx} ${cy})" stroke-linecap="round"/>`;
+    off+=len;});
+  return `<svg viewBox="0 0 ${size} ${size}" width="170" height="170">${segs}
+    <text x="${cx}" y="${cy-3}" text-anchor="middle" font-size="11" fill="#7c879b">총 입금액</text>
+    <text x="${cx}" y="${cy+15}" text-anchor="middle" font-size="16" font-weight="800" fill="#0f172a">${short(total)}</text></svg>`;
+}
+function trendSVG(pts){ // pts:[{m, sales, comm}]
+  const w=760,h=240,pad={l:54,r:16,t:16,b:30};
+  const iw=w-pad.l-pad.r,ih=h-pad.t-pad.b;
+  const max=Math.max(1,...pts.map(p=>p.sales));
+  const X=i=>pad.l+(pts.length<=1?iw/2:i/(pts.length-1)*iw);
+  const Y=v=>pad.t+ih-v/max*ih;
+  let grid='',xl='';
+  for(let g=0;g<=4;g++){const y=pad.t+ih-g/4*ih,v=max*g/4;
+    grid+=`<line x1="${pad.l}" y1="${y}" x2="${w-pad.r}" y2="${y}" stroke="#eef1f7"/>`+
+          `<text x="${pad.l-8}" y="${y+4}" text-anchor="end" font-size="10.5" fill="#aab3c5">${short(v)}</text>`;}
+  pts.forEach((p,i)=>xl+=`<text x="${X(i)}" y="${h-9}" text-anchor="middle" font-size="11" fill="#7c879b">${p.m}월</text>`);
+  const lineS=pts.map((p,i)=>`${X(i)},${Y(p.sales)}`).join(' ');
+  const lineC=pts.map((p,i)=>`${X(i)},${Y(p.comm)}`).join(' ');
+  const area=`${X(0)},${pad.t+ih} ${lineS} ${X(pts.length-1)},${pad.t+ih}`;
+  let dots='';
+  pts.forEach((p,i)=>{dots+=`<circle cx="${X(i)}" cy="${Y(p.sales)}" r="4" fill="#fff" stroke="#4f46e5" stroke-width="2.5"/>`+
+    `<circle cx="${X(i)}" cy="${Y(p.comm)}" r="3.5" fill="#fff" stroke="#f5b528" stroke-width="2.5"/>`;});
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block">
+    <defs><linearGradient id="ar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4f46e5" stop-opacity=".18"/><stop offset="1" stop-color="#4f46e5" stop-opacity="0"/></linearGradient></defs>
+    ${grid}<polygon points="${area}" fill="url(#ar)"/>
+    <polyline points="${lineC}" fill="none" stroke="#f5b528" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <polyline points="${lineS}" fill="none" stroke="#4f46e5" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}${xl}</svg>`;
+}
+
+/* ===================== 렌더 ===================== */
+function render(){
+  const [m1,m2]=range();
+  const list=filtered().map(a=>({a,c:calcRange(a,m1,m2)}));
+
+  document.getElementById('scope').innerHTML=
+    `${YEAR}.${String(m1).padStart(2,'0')} ~ ${YEAR}.${String(m2).padStart(2,'0')} · `+
+    `${val('fBranch')||'전체 지사'} · 상태 <b>${val('fStatus')}</b>`;
+
+  // KPI
+  let T={students:0,sales:0,commission:0,tax:0,final:0,n:0};
+  list.forEach(x=>{T.sales+=x.c.sales;T.commission+=x.c.commission;T.tax+=x.c.tax;T.final+=x.c.final;
+    if(x.a.status==='사용'){T.students+=x.c.students;T.n++;}});
+  const ic={
+    n:'<svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M15 9h.01M9 13h.01M15 13h.01"/></svg>',
+    s:'<svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>',
+    m:'<svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+    c:'<svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>',
+    f:'<svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>'};
+  document.getElementById('kpis').innerHTML=`
+    <div class="kpi"><div class="ic i-slate">${ic.n}</div><div class="l">사용 학원 수</div><div class="v num">${T.n}<span class="u"> 곳</span></div></div>
+    <div class="kpi"><div class="ic i-sky">${ic.s}</div><div class="l">재학생 수</div><div class="v num">${won(T.students)}<span class="u"> 명</span></div></div>
+    <div class="kpi"><div class="ic i-indigo">${ic.c}</div><div class="l">총 입금액(매출)</div><div class="v num" style="color:var(--indigo)">${won(T.sales)}<span class="u"> 원</span></div></div>
+    <div class="kpi"><div class="ic i-gold">${ic.m}</div><div class="l">총 커미션</div><div class="v num" style="color:var(--gold-d)">${won(T.commission)}<span class="u"> 원</span></div></div>
+    <div class="kpi"><div class="ic i-green">${ic.f}</div><div class="l">총 지급 수수료</div><div class="v num" style="color:var(--green)">${won(T.final)}<span class="u"> 원</span></div></div>`;
+
+  renderBranch(list); renderAgency(list); renderTrend();
+  if(detailId)renderDetail(detailId);
+  markSort();
+}
+
+function branchAgg(list){
+  const m={};
+  list.forEach(x=>{const b=x.a.branch;
+    m[b]=m[b]||{name:b,count:0,students:0,sales:0,commission:0,tax:0,final:0};
+    m[b].count++;m[b].students+=(x.a.status==='사용'?x.c.students:0);
+    m[b].sales+=x.c.sales;m[b].commission+=x.c.commission;m[b].tax+=x.c.tax;m[b].final+=x.c.final;});
+  return Object.values(m);
+}
+function renderBranch(list){
+  let rows=branchAgg(list);const s=sort.branch;
+  rows.sort((a,b)=>(a[s.k]>b[s.k]?1:-1)*s.dir);
+  let F={count:0,students:0,sales:0,commission:0,tax:0,final:0};
+  document.getElementById('branchBody').innerHTML=rows.map(r=>{
+    ['count','students','sales','commission','tax','final'].forEach(k=>F[k]+=r[k]);
+    return `<tr class="click" onclick="drill('${r.name}')">
+      <td class="l org">${r.name}<span class="ar">›</span></td>
+      <td class="num">${r.count}</td><td class="num">${won(r.students)}</td>
+      <td class="num">${won(r.sales)}</td><td class="num ${r.commission?'pos':'zero'}">${won(r.commission)}</td>
+      <td class="num">${won(r.tax)}</td><td class="num fin">${won(r.final)}</td></tr>`;}).join('')
+    || `<tr><td colspan="7" class="empty">데이터 없음</td></tr>`;
+  document.getElementById('branchFoot').innerHTML=
+    `<tr><td class="l">합계</td><td class="num">${F.count}</td><td class="num">${won(F.students)}</td>
+     <td class="num">${won(F.sales)}</td><td class="num">${won(F.commission)}</td><td class="num">${won(F.tax)}</td><td class="num">${won(F.final)}</td></tr>`;
+  // donut
+  const dd=rows.filter(r=>r.sales>0).sort((a,b)=>b.sales-a.sales)
+    .map((r,i)=>({name:r.name,value:r.sales,color:PALETTE[i%PALETTE.length]}));
+  document.getElementById('donut').innerHTML=dd.length?donutSVG(dd):'<div class="empty" style="padding:30px">매출 없음</div>';
+  const tot=dd.reduce((s,d)=>s+d.value,0)||1;
+  document.getElementById('donutLegend').innerHTML=dd.map(d=>`
+    <div class="lg" onclick="drill('${d.name}')"><span class="dot" style="background:${d.color}"></span>
+      <span class="nm">${d.name}</span><span class="vl num">${(d.value/tot*100).toFixed(1)}%</span></div>`).join('');
+}
+
+function renderAgency(list){
+  const s=sort.agency;
+  const sorted=[...list].sort((x,y)=>{
+    const inC=s.k in x.c;let av=inC?x.c[s.k]:x.a[s.k],bv=inC?y.c[s.k]:y.a[s.k];
+    return (av>bv?1:-1)*s.dir;});
+  const br=val('fBranch');
+  document.getElementById('agencyCrumb').innerHTML=br
+    ? `<span class="chip">${br} <span class="x" onclick="event.stopPropagation();clearBranch()">✕</span></span> ${sorted.length}개 학원 · 행 클릭 시 정산서 상세`
+    : `전체 지사 · ${sorted.length}개 학원 · 행 클릭 시 정산서 상세`;
+  const sb={'사용':'s-use','미사용':'s-non','해지':'s-end'};
+  let F={students:0,sales:0,commission:0,tax:0,final:0};
+  document.getElementById('agencyBody').innerHTML=sorted.map(({a,c})=>{
+    F.students+=(a.status==='사용'?c.students:0);F.sales+=c.sales;F.commission+=c.commission;F.tax+=c.tax;F.final+=c.final;
+    return `<tr class="click" onclick="openDetail(${a.id})">
+      <td class="num">${a.id}</td>
+      <td class="l"><b>${a.name}</b> <span class="badge ${a.type==='직영'?'t-dir':'t-fr'}">${a.type}</span></td>
+      <td class="l">${a.branch}</td><td class="l">${a.loginId}</td><td class="l">${a.manager}</td>
+      <td><span class="badge ${sb[a.status]}">${a.status}</span></td>
+      <td class="num">${won(c.students)}</td>
+      <td class="num">${won(c.sales)}</td>
+      <td class="num mg">${(a.margin*100).toFixed(1)}%</td>
+      <td class="num ${c.commission?'pos':'zero'}">${won(c.commission)}</td>
+      <td class="num">${won(c.tax)}</td><td class="num fin">${won(c.final)}</td></tr>`;}).join('')
+    || `<tr><td colspan="12" class="empty"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><div>조건에 맞는 학원이 없습니다.</div></td></tr>`;
+  document.getElementById('agencyFoot').innerHTML=sorted.length?
+    `<tr><td colspan="6" class="l">합계 · ${sorted.length}곳</td><td class="num">${won(F.students)}</td>
+     <td class="num">${won(F.sales)}</td><td class="num">–</td><td class="num">${won(F.commission)}</td><td class="num">${won(F.tax)}</td><td class="num">${won(F.final)}</td></tr>`:'';
+}
+
+function renderTrend(){
+  const br=val('fBranch'),st=val('fStatus'),kw=val('fKw').trim().toLowerCase();
+  const pool=agencies.filter(a=>(!br||a.branch===br)&&(st==='전체'||a.status===st)&&
+    (!kw||a.name.toLowerCase().includes(kw)||a.manager.toLowerCase().includes(kw)||a.loginId.toLowerCase().includes(kw)));
+  const months=MONTHS.map(m=>{let o={m,students:0,sales:0,commission:0,tax:0,final:0};
+    pool.forEach(a=>{const c=calcMonth(a,m);o.students+=c.students;o.sales+=c.sales;o.commission+=c.commission;o.tax+=c.tax;o.final+=c.final;});return o;});
+  document.getElementById('trendChart').innerHTML=trendSVG(months.map(x=>({m:x.m,sales:x.sales,comm:x.commission})));
+  document.getElementById('trendBody').innerHTML=months.map(x=>`
+    <tr><td class="l">${YEAR}년 ${x.m}월</td><td class="num">${won(x.students)}</td><td class="num">${won(x.sales)}</td>
+    <td class="num">${won(x.commission)}</td><td class="num">${won(x.tax)}</td><td class="num fin">${won(x.final)}</td></tr>`).join('');
+  const S=months.reduce((a,x)=>({students:a.students+x.students,sales:a.sales+x.sales,commission:a.commission+x.commission,tax:a.tax+x.tax,final:a.final+x.final}),{students:0,sales:0,commission:0,tax:0,final:0});
+  document.getElementById('trendFoot').innerHTML=`<tr><td class="l">합계</td><td class="num">${won(S.students)}</td><td class="num">${won(S.sales)}</td><td class="num">${won(S.commission)}</td><td class="num">${won(S.tax)}</td><td class="num">${won(S.final)}</td></tr>`;
+}
+
+function renderDetail(id){
+  const a=agencies.find(x=>x.id===id);if(!a)return;
+  const [m1,m2]=range();const c=calcRange(a,m1,m2);
+  const onComm=Math.round(c.online*a.margin),bkComm=Math.round(c.book*a.margin);
+  const per=c.students?Math.round(c.online/c.students):0;
+  const sb=a.status==='사용'?'s-use':(a.status==='미사용'?'s-non':'s-end');
+  document.getElementById('detailPanel').innerHTML=`
+    <div class="hd" style="padding:0 0 4px"><div>
+      <h2>${a.name} <span class="badge ${a.type==='직영'?'t-dir':'t-fr'}">${a.type}</span> <span class="badge ${sb}">${a.status}</span></h2>
+      <div class="sub">${a.branch} · 관리자 ${a.manager} · 아이디 ${a.loginId} · ${YEAR}.${m1}~${m2}</div>
+    </div><button class="btn p" onclick="switchTab('agency')" style="background:#eef1f7;color:var(--ink-2)">← 목록</button></div>
+    <div class="calc" style="margin-top:14px">
+      <div class="box">
+        <div class="bh"><span class="n">1</span>매출(입금액) 산출 근거</div>
+        <div class="bb">
+          <div class="kv"><span class="k">재학생 수 (종료월 기준)</span><span class="v num">${won(c.students)} 명</span></div>
+          <div class="kv"><span class="k">온라인 매출 (1인 평균 ${won(per)}원)</span><span class="v num">${won(c.online)} 원</span></div>
+          <div class="kv"><span class="k">교재 매출</span><span class="v num">${won(c.book)} 원</span></div>
+          <div class="kv tot"><span class="k">입금액 합계</span><span class="v num">${won(c.sales)} 원</span></div>
+        </div>
+      </div>
+      <div class="box">
+        <div class="bh"><span class="n">2</span>커미션 → 원천징수 → 지급액</div>
+        <div class="bb">
+          <div class="kv"><span class="k">적용 마진율</span><span class="v mg">${(a.margin*100).toFixed(1)}%</span></div>
+          <div class="kv"><span class="k sub">온라인 ${won(c.online)} × ${(a.margin*100).toFixed(1)}%</span><span class="v num">${won(onComm)} 원</span></div>
+          <div class="kv"><span class="k sub">교재 ${won(c.book)} × ${(a.margin*100).toFixed(1)}%</span><span class="v num">${won(bkComm)} 원</span></div>
+          <div class="kv"><span class="k">커미션 합계</span><span class="v num">${won(c.commission)} 원</span></div>
+          <div class="kv"><span class="k sub">소득세 (3%)</span><span class="v num minus">- ${won(c.incomeTax)} 원</span></div>
+          <div class="kv"><span class="k sub">지방소득세 (소득세의 10%)</span><span class="v num minus">- ${won(c.localTax)} 원</span></div>
+          <div class="kv tot"><span class="k">최종 지급 수수료</span><span class="v num">${won(c.final)} 원</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="summary">📌 <b>요약</b> · ${a.name}의 ${m1}~${m2}월 입금액 <b>${won(c.sales)}원</b>에 계약 마진율 <b>${(a.margin*100).toFixed(1)}%</b>를 적용해
+      커미션 <b>${won(c.commission)}원</b>이 산출되고, 원천징수 3.3%(<b>${won(c.tax)}원</b>)를 제외한 <b style="color:var(--green)">${won(c.final)}원</b>이 지급됩니다.
+      ${a.type==='직영'?`<div class="dirnote">※ 본사 <b>직영점</b>이라 마진율 0% → 커미션이 발생하지 않습니다(강남캐피타운 커미션 0의 이유).</div>`:''}</div>`;
+}
+
+/* ===================== 인터랙션 ===================== */
+function switchTab(t){
+  curTab=t;
+  document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('on',x.dataset.tab===t));
+  ['branch','agency','detail','trend'].forEach(x=>document.getElementById('tab-'+x).classList.toggle('hide',x!==t));
+  document.getElementById('pageTitle').textContent=TITLES[t];
+}
+function drill(b){document.getElementById('fBranch').value=b;switchTab('agency');render();}
+function clearBranch(){document.getElementById('fBranch').value='';render();}
+function openDetail(id){detailId=id;renderDetail(id);switchTab('detail');}
+function sortBy(tbl,k){const s=sort[tbl];s.dir=(s.k===k?-s.dir:-1);s.k=k;render();}
+function markSort(){
+  document.querySelectorAll('th[data-s]').forEach(th=>{
+    const[t,k]=th.dataset.s.split(':');const s=sort[t];
+    th.querySelector('.s')?.remove();
+    if(s.k===k){const sp=document.createElement('span');sp.className='s';sp.textContent=s.dir<0?'▼':'▲';th.appendChild(sp);}
+  });
+}
+document.addEventListener('click',e=>{const th=e.target.closest('th[data-s]');if(th){const[t,k]=th.dataset.s.split(':');sortBy(t,k);}});
+
+/* ===================== CSV ===================== */
+function exportCSV(){
+  const [m1,m2]=range();const list=filtered().map(a=>({a,c:calcRange(a,m1,m2)}));
+  const head=['No','학원명','지사','아이디','관리자','상태','구분','재학생','입금액','마진율(%)','커미션','소득세','지방소득세','세금합계','최종수수료'];
+  const rows=list.map(({a,c})=>[a.id,a.name,a.branch,a.loginId,a.manager,a.status,a.type,c.students,c.sales,(a.margin*100).toFixed(1),c.commission,c.incomeTax,c.localTax,c.tax,c.final]);
+  const csv='﻿'+[head,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download=`캐피타운_정산_${YEAR}.${m1}-${m2}.csv`;a.click();
+}
+
+/* ===================== 초기화 ===================== */
+(function(){
+  [['y1',YEAR],['y2',YEAR]].forEach(([id,y])=>{const s=document.getElementById(id);
+    for(let yy=2024;yy<=2026;yy++)s.add(new Option(yy+'년',yy,false,yy===y));});
+  [['m1',1],['m2',6]].forEach(([id,d])=>{const s=document.getElementById(id);
+    MONTHS.forEach(m=>s.add(new Option(m+'월',m,false,m===d)));});
+  const fb=document.getElementById('fBranch');
+  [...new Set(agencies.map(a=>a.branch))].forEach(b=>fb.add(new Option(b,b)));
+  render();
+})();
+</script>
+</body>
+</html>
