@@ -23,6 +23,30 @@
     --sh-md:0 4px 12px rgba(15,23,42,.06),0 2px 4px rgba(15,23,42,.04);
     --r:14px; --topbar-h:54px;
   }
+  html[data-admin-theme="dark"]{
+    --bg:#0a0e1a; --surface:#141a2b; --surface-2:#1a2238;
+    --ink:#f1f5f9; --ink-2:#cbd5e1; --muted:#94a3b8; --faint:#64748b;
+    --line:#232b40; --line-2:#1e2740;
+    --indigo:#818cf8; --indigo-l:rgba(99,102,241,.16);
+    --gold-d:#fbbf24;
+    --sh-sm:0 1px 2px rgba(0,0,0,.3); --sh-md:0 6px 18px rgba(0,0,0,.4);
+  }
+  html[data-admin-theme="dark"] select:focus,html[data-admin-theme="dark"] input:focus{background:var(--surface)}
+  html[data-admin-theme="dark"] .btn.x{background:var(--surface-2);color:var(--green);border-color:rgba(16,185,129,.4)}
+  html[data-admin-theme="dark"] .btn.x:hover{background:rgba(16,185,129,.12)}
+  html[data-admin-theme="dark"] tfoot td{background:rgba(251,191,36,.07)}
+  html[data-admin-theme="dark"] .hint{background:rgba(251,191,36,.06);border-color:rgba(251,191,36,.22);color:var(--ink-2)}
+  html[data-admin-theme="dark"] .hint b{color:var(--ink)}
+  html[data-admin-theme="dark"] .badge.s-use{background:rgba(16,185,129,.16);color:#6ee7b7}
+  html[data-admin-theme="dark"] .badge.s-non{background:rgba(148,163,184,.16);color:#cbd5e1}
+  html[data-admin-theme="dark"] .badge.s-end{background:rgba(239,68,68,.16);color:#fca5a5}
+  html[data-admin-theme="dark"] .badge.t-dir{background:rgba(245,181,40,.16);color:#fcd34d}
+  html[data-admin-theme="dark"] .badge.t-fr{background:rgba(99,102,241,.18);color:#c7d2fe}
+  html[data-admin-theme="dark"] .i-gold{background:rgba(245,181,40,.16)}
+  html[data-admin-theme="dark"] .i-green{background:rgba(16,185,129,.16)}
+  html[data-admin-theme="dark"] .i-sky{background:rgba(14,165,233,.16)}
+  html[data-admin-theme="dark"] .i-slate{background:rgba(148,163,184,.16)}
+  html[data-admin-theme="dark"] .i-indigo{background:rgba(99,102,241,.18)}
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif;
@@ -196,12 +220,14 @@
 <!-- ───── 관리자 공통 상단바 ───── -->
 <header class="adm-top">
   <a href="/admin.html" class="brand" title="망고아이 관리자 대시보드">🥭 망고아이</a>
-  <span class="crumb">관리자 · 캐피타운 프랜차이즈 정산</span>
+  <span class="crumb" data-i="crumb">관리자 · 캐피타운 프랜차이즈 정산</span>
   <div class="right">
+    <button class="ab" id="langBtn" type="button" onclick="capToggleLang()" title="한국어 / English">🌐 <span id="langLbl">EN</span></button>
+    <button class="ab" id="themeBtn" type="button" onclick="capToggleTheme()" title="밝게 / 어둡게">🎨 <span id="themeLbl">어둡게</span></button>
     <span class="who" id="admWho" title="로그인 계정"><span class="who-txt">캐피타운 본사</span></span>
-    <a href="/admin/mypage.html" class="ab">← 마이페이지</a>
-    <a href="/admin.html" class="ab">📊 대시보드</a>
-    <a href="#" class="ab logout" id="admLogout">로그아웃</a>
+    <a href="/admin/mypage.html" class="ab" data-i="mypage">← 마이페이지</a>
+    <a href="/admin.html" class="ab" data-i="dash">📊 대시보드</a>
+    <a href="#" class="ab logout" id="admLogout" data-i="logout">로그아웃</a>
   </div>
 </header>
 
@@ -209,9 +235,9 @@
 <div id="denyGate">
   <div class="box">
     <div class="ico">🔒</div>
-    <h2>접근 권한이 없습니다</h2>
-    <p>캐피타운 정산 시스템은 <b>캐피타운 본사</b>와 <b>망고아이 본사 경영진</b>만 열람할 수 있습니다.<br>권한이 필요하면 본사 관리자에게 문의해 주세요.</p>
-    <a href="/admin/mypage.html">← 마이페이지로 돌아가기</a>
+    <h2 data-i="deny_h2">접근 권한이 없습니다</h2>
+    <p data-i="deny_p"></p>
+    <a href="/admin/mypage.html" data-i="deny_back">← 마이페이지로 돌아가기</a>
   </div>
 </div>
 
@@ -220,29 +246,26 @@
   <aside class="side">
     <div class="brand">
       <div class="logo">🥭</div>
-      <div><div class="t1">캐피타운 정산</div><div class="t2">Settlement System</div></div>
+      <div><div class="t1" data-i="side_t1">캐피타운 정산</div><div class="t2">Settlement System</div></div>
     </div>
-    <div class="navsec">정산 관리</div>
+    <div class="navsec" data-i="side_sec">정산 관리</div>
     <div class="nav on" data-tab="branch" onclick="switchTab('branch')">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-      지사별 합계
+      <span data-i="nav_branch">지사별 합계</span>
     </div>
     <div class="nav" data-tab="agency" onclick="switchTab('agency')">
       <svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M15 9h.01M9 13h.01M15 13h.01M9 17h6"/></svg>
-      대리점(학원) 정산
+      <span data-i="nav_agency">대리점(학원) 정산</span>
     </div>
     <div class="nav" data-tab="detail" onclick="switchTab('detail')">
       <svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 13h6M9 17h4"/></svg>
-      정산 근거 상세
+      <span data-i="nav_detail">정산 근거 상세</span>
     </div>
     <div class="nav" data-tab="trend" onclick="switchTab('trend')">
       <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M19 9l-5 5-4-4-4 4"/></svg>
-      월별 추이
+      <span data-i="nav_trend">월별 추이</span>
     </div>
-    <div class="foot">
-      <b>총지사</b> 캐피타운<br>3단계 · 지사 → 대리점<br>
-      <span style="color:var(--green)">●</span> 결제(PG)수수료 제외 기준
-    </div>
+    <div class="foot" data-i="foot"></div>
   </aside>
 
   <!-- 메인 -->
@@ -252,30 +275,30 @@
         <h1 id="pageTitle">지사별 합계</h1>
         <div class="scope" id="scope"></div>
       </div>
-      <div class="note-pg">세금 3.3% = 소득세 3% + 지방소득세 0.3% · 금액은 PG수수료 제외</div>
+      <div class="note-pg" data-i="note">세금 3.3% = 소득세 3% + 지방소득세 0.3% · 금액은 PG수수료 제외</div>
     </div>
 
     <!-- 툴바 -->
     <div class="toolbar">
-      <div class="fg"><label>조회 기간</label>
+      <div class="fg"><label data-i="tb_period">조회 기간</label>
         <div class="dual"><select id="y1"></select><select id="m1"></select><span>~</span><select id="y2"></select><select id="m2"></select></div>
       </div>
-      <div class="fg"><label>지사(본부)</label><select id="fBranch"><option value="">전체 지사</option></select></div>
-      <div class="fg"><label>학원 상태</label>
+      <div class="fg"><label data-i="tb_branch">지사(본부)</label><select id="fBranch"><option value="" data-i="opt_all_branch">전체 지사</option></select></div>
+      <div class="fg"><label data-i="tb_status">학원 상태</label>
         <select id="fStatus">
-          <option value="사용">사용 학원</option>
-          <option value="전체">전체 (사용+미사용+해지)</option>
-          <option value="미사용">미사용</option>
-          <option value="해지">해지</option>
+          <option value="사용" data-i="opt_active">사용 학원</option>
+          <option value="전체" data-i="opt_all">전체 (사용+미사용+해지)</option>
+          <option value="미사용" data-i="opt_inactive">미사용</option>
+          <option value="해지" data-i="opt_terminated">해지</option>
         </select>
       </div>
-      <div class="fg"><label>검색</label><input type="text" id="fKw" placeholder="학원명 · 관리자 · 아이디"></div>
+      <div class="fg"><label data-i="tb_search">검색</label><input type="text" id="fKw" data-iph="ph_kw" placeholder="학원명 · 관리자 · 아이디"></div>
       <div class="fg"><label>&nbsp;</label>
-        <button class="btn p" onclick="render()"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>검색</button>
+        <button class="btn p" onclick="render()"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span data-i="btn_search">검색</span></button>
       </div>
       <div class="spacer"></div>
       <div class="fg"><label>&nbsp;</label>
-        <button class="btn x" onclick="exportCSV()"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>엑셀(CSV) 다운로드</button>
+        <button class="btn x" onclick="exportCSV()"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg><span data-i="btn_csv">엑셀(CSV) 다운로드</span></button>
       </div>
     </div>
 
@@ -286,18 +309,18 @@
     <div id="tab-branch">
       <div class="row c2">
         <div class="card">
-          <div class="hd"><div><h2>지사별 정산 합계</h2><div class="sub">행을 클릭하면 소속 대리점 목록으로 드릴다운됩니다</div></div></div>
+          <div class="hd"><div><h2 data-i="b_h2">지사별 정산 합계</h2><div class="sub" data-i="b_sub">행을 클릭하면 소속 대리점 목록으로 드릴다운됩니다</div></div></div>
           <div class="bd">
             <div class="tw" style="max-height:460px">
               <table>
                 <thead><tr>
-                  <th class="l" data-s="branch:name">지사구분</th>
-                  <th data-s="branch:count">학원수</th>
-                  <th data-s="branch:students">재학생</th>
-                  <th data-s="branch:sales">입금액</th>
-                  <th data-s="branch:commission">커미션</th>
-                  <th data-s="branch:tax">세금</th>
-                  <th data-s="branch:final">최종 수수료</th>
+                  <th class="l" data-s="branch:name" data-i="th_branch">지사구분</th>
+                  <th data-s="branch:count" data-i="th_count">학원수</th>
+                  <th data-s="branch:students" data-i="th_students">재학생</th>
+                  <th data-s="branch:sales" data-i="th_sales">입금액</th>
+                  <th data-s="branch:commission" data-i="th_comm">커미션</th>
+                  <th data-s="branch:tax" data-i="th_tax">세금</th>
+                  <th data-s="branch:final" data-i="th_final">최종 수수료</th>
                 </tr></thead>
                 <tbody id="branchBody"></tbody>
                 <tfoot id="branchFoot"></tfoot>
@@ -306,7 +329,7 @@
           </div>
         </div>
         <div class="card">
-          <div class="hd"><div><h2>입금액 비중</h2><div class="sub">지사별 매출 점유</div></div></div>
+          <div class="hd"><div><h2 data-i="donut_h2">입금액 비중</h2><div class="sub" data-i="donut_sub">지사별 매출 점유</div></div></div>
           <div class="bd"><div class="donutwrap"><div id="donut"></div><div class="legend" id="donutLegend"></div></div></div>
         </div>
       </div>
@@ -316,28 +339,26 @@
     <div id="tab-agency" class="hide">
       <div class="hint">
         <span class="ic"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg></span>
-        <div><b>커미션이 학원마다 다른 이유</b> — 커미션 = <b>입금액 × 마진율</b>이며 마진율은 학원별 계약 조건입니다.
-        예: 전주 JNK(53%)와 UBCK(10.5%)는 입금액이 비슷해도 커미션 차이가 큽니다. <b>직영점(강남캐피타운)은 마진율 0%라 커미션 0</b>입니다.
-        <span class="link" onclick="switchTab('detail')">산출 근거 상세 보기 →</span></div>
+        <div data-i="hint"></div>
       </div>
       <div class="card">
-        <div class="hd"><div><h2>대리점(학원) 정산</h2><div class="sub" id="agencyCrumb"></div></div></div>
+        <div class="hd"><div><h2 data-i="ag_h2">대리점(학원) 정산</h2><div class="sub" id="agencyCrumb"></div></div></div>
         <div class="bd">
           <div class="tw" style="max-height:560px">
             <table>
               <thead><tr>
-                <th data-s="agency:id">No</th>
-                <th class="l" data-s="agency:name">학원(대리점)명</th>
-                <th class="l" data-s="agency:branch">지사</th>
-                <th class="l" data-s="agency:loginId">아이디</th>
-                <th class="l" data-s="agency:manager">관리자</th>
-                <th data-s="agency:status">상태</th>
-                <th data-s="agency:students">재학생</th>
-                <th data-s="agency:sales">입금액</th>
-                <th data-s="agency:margin">마진율</th>
-                <th data-s="agency:commission">커미션</th>
-                <th data-s="agency:tax">세금</th>
-                <th data-s="agency:final">최종 수수료</th>
+                <th data-s="agency:id" data-i="ath_no">No</th>
+                <th class="l" data-s="agency:name" data-i="ath_name">학원(대리점)명</th>
+                <th class="l" data-s="agency:branch" data-i="ath_branch">지사</th>
+                <th class="l" data-s="agency:loginId" data-i="ath_id">아이디</th>
+                <th class="l" data-s="agency:manager" data-i="ath_mgr">관리자</th>
+                <th data-s="agency:status" data-i="ath_status">상태</th>
+                <th data-s="agency:students" data-i="ath_students">재학생</th>
+                <th data-s="agency:sales" data-i="ath_sales">입금액</th>
+                <th data-s="agency:margin" data-i="ath_margin">마진율</th>
+                <th data-s="agency:commission" data-i="ath_comm">커미션</th>
+                <th data-s="agency:tax" data-i="ath_tax">세금</th>
+                <th data-s="agency:final" data-i="ath_final">최종 수수료</th>
               </tr></thead>
               <tbody id="agencyBody"></tbody>
               <tfoot id="agencyFoot"></tfoot>
@@ -352,7 +373,7 @@
       <div class="card"><div class="bd" id="detailPanel">
         <div class="empty">
           <svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></svg>
-          <div><b>대리점(학원) 정산</b> 탭에서 학원을 클릭하면<br>매출 산출 근거와 세금 분개가 표시됩니다.</div>
+          <div data-i="detail_empty"></div>
         </div>
       </div></div>
     </div>
@@ -361,14 +382,14 @@
     <div id="tab-trend" class="hide">
       <div class="card">
         <div class="hd">
-          <div><h2>월별 입금액 · 커미션 추이</h2><div class="sub">선택한 지사/상태 기준 · 2026년 매월 (누적 아님)</div></div>
-          <div class="clegend"><span><i style="background:var(--indigo)"></i>입금액</span><span><i style="background:var(--gold)"></i>커미션</span></div>
+          <div><h2 data-i="tr_h2">월별 입금액 · 커미션 추이</h2><div class="sub" data-i="tr_sub">선택한 지사/상태 기준 · 2026년 매월 (누적 아님)</div></div>
+          <div class="clegend"><span><i style="background:var(--indigo)"></i><span data-i="leg_sales">입금액</span></span><span><i style="background:var(--gold)"></i><span data-i="leg_comm">커미션</span></span></div>
         </div>
         <div class="bd">
           <div id="trendChart"></div>
           <div class="tw" style="margin-top:16px">
             <table>
-              <thead><tr><th class="l">월</th><th>재학생</th><th>입금액</th><th>커미션</th><th>세금</th><th>최종 수수료</th></tr></thead>
+              <thead><tr><th class="l" data-i="trh_month">월</th><th data-i="trh_students">재학생</th><th data-i="trh_sales">입금액</th><th data-i="trh_comm">커미션</th><th data-i="trh_tax">세금</th><th data-i="trh_final">최종 수수료</th></tr></thead>
               <tbody id="trendBody"></tbody>
               <tfoot id="trendFoot"></tfoot>
             </table>
@@ -382,8 +403,7 @@
 <script>
 /* ===================== 데이터 (3단계 / 검증된 계산) =====================
    ⚠️ 내장 샘플 데이터. 추후 실데이터 연동 시 이 배열을 D1/API 응답으로 교체:
-   예) const agencies = await fetch('/api/admin/capitown/agencies',{credentials:'include'}).then(r=>r.json());
-   필드 스키마: {id,name,loginId,manager,branch,status('사용'|'미사용'|'해지'),type('직영'|'가맹'),margin(0~1),base:{students,online,book}} */
+   예) const agencies = await fetch('/api/admin/capitown/agencies',{credentials:'include'}).then(r=>r.json()); */
 const agencies=[
  {id:44,name:'강남캐피타운학원',loginId:'jsatc', manager:'윤은아',branch:'캐피 강남',status:'사용', type:'직영',margin:0.00, base:{students:30,online:12500000,book:526474}},
  {id:43,name:'전주 JNK',       loginId:'kqyt02',manager:'이소현',branch:'캐피 전북',status:'사용', type:'가맹',margin:0.53, base:{students:22,online:8200000, book:552314}},
@@ -401,11 +421,89 @@ const agencies=[
  {id:2, name:'잉글리쉬고고',   loginId:'eg00',  manager:'박소담',branch:'캐피 대전',status:'해지', type:'가맹',margin:0.40, base:{students:0, online:0,       book:0}},
 ];
 const YEAR=2026, MONTHS=[1,2,3,4,5,6];
+const MONTHS_EN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const PALETTE=['#4f46e5','#f5b528','#0ea5e9','#10b981','#8b5cf6','#ef4444','#f97316','#14b8a6','#ec4899','#64748b'];
 
-const won=n=>Math.round(n).toLocaleString('ko-KR');
-const short=n=>{n=Math.round(n);if(n>=1e8)return (n/1e8).toFixed(n%1e8?1:0)+'억';if(n>=1e4)return Math.round(n/1e4).toLocaleString()+'만';return n.toLocaleString();};
+/* ===================== i18n ===================== */
+let LANG=(function(){try{return localStorage.getItem('mangoi_lang')==='en'?'en':'ko';}catch(e){return 'ko';}})();
+const DICT={
+ crumb:{ko:'관리자 · 캐피타운 프랜차이즈 정산',en:'Admin · Capitown Franchise Settlement'},
+ mypage:{ko:'← 마이페이지',en:'← My Page'},
+ dash:{ko:'📊 대시보드',en:'📊 Dashboard'},
+ logout:{ko:'로그아웃',en:'Logout'},
+ deny_h2:{ko:'접근 권한이 없습니다',en:'Access denied'},
+ deny_p:{ko:`캐피타운 정산 시스템은 <b>캐피타운 본사</b>와 <b>망고아이 본사 경영진</b>만 열람할 수 있습니다.<br>권한이 필요하면 본사 관리자에게 문의해 주세요.`,en:`Only <b>Capitown HQ</b> and <b>Mangoi HQ executives</b> can view this settlement system.<br>Contact your HQ admin if you need access.`},
+ deny_back:{ko:'← 마이페이지로 돌아가기',en:'← Back to My Page'},
+ side_t1:{ko:'캐피타운 정산',en:'Capitown Settlement'},
+ side_sec:{ko:'정산 관리',en:'Settlement'},
+ nav_branch:{ko:'지사별 합계',en:'Branch Totals'},
+ nav_agency:{ko:'대리점(학원) 정산',en:'Agency Settlement'},
+ nav_detail:{ko:'정산 근거 상세',en:'Settlement Basis'},
+ nav_trend:{ko:'월별 추이',en:'Monthly Trend'},
+ foot:{ko:`<b>총지사</b> 캐피타운<br>3단계 · 지사 → 대리점<br><span style="color:var(--green)">●</span> 결제(PG)수수료 제외 기준`,en:`<b>HQ</b> Capitown<br>3-tier · Branch → Agency<br><span style="color:var(--green)">●</span> Excludes PG fees`},
+ note:{ko:'세금 3.3% = 소득세 3% + 지방소득세 0.3% · 금액은 PG수수료 제외',en:'Tax 3.3% = income 3% + local 0.3% · amounts exclude PG fees'},
+ tb_period:{ko:'조회 기간',en:'Period'},
+ tb_branch:{ko:'지사(본부)',en:'Branch (HQ)'},
+ tb_status:{ko:'학원 상태',en:'Academy status'},
+ tb_search:{ko:'검색',en:'Search'},
+ opt_all_branch:{ko:'전체 지사',en:'All branches'},
+ opt_active:{ko:'사용 학원',en:'Active academies'},
+ opt_all:{ko:'전체 (사용+미사용+해지)',en:'All (active+inactive+terminated)'},
+ opt_inactive:{ko:'미사용',en:'Inactive'},
+ opt_terminated:{ko:'해지',en:'Terminated'},
+ ph_kw:{ko:'학원명 · 관리자 · 아이디',en:'Academy · manager · ID'},
+ btn_search:{ko:'검색',en:'Search'},
+ btn_csv:{ko:'엑셀(CSV) 다운로드',en:'Export CSV'},
+ b_h2:{ko:'지사별 정산 합계',en:'Branch Settlement Totals'},
+ b_sub:{ko:'행을 클릭하면 소속 대리점 목록으로 드릴다운됩니다',en:'Click a row to drill into its agencies'},
+ th_branch:{ko:'지사구분',en:'Branch'},th_count:{ko:'학원수',en:'Academies'},th_students:{ko:'재학생',en:'Students'},th_sales:{ko:'입금액',en:'Deposits'},th_comm:{ko:'커미션',en:'Commission'},th_tax:{ko:'세금',en:'Tax'},th_final:{ko:'최종 수수료',en:'Net payout'},
+ donut_h2:{ko:'입금액 비중',en:'Deposit Share'},donut_sub:{ko:'지사별 매출 점유',en:'Revenue share by branch'},
+ hint:{ko:`<b>커미션이 학원마다 다른 이유</b> — 커미션 = <b>입금액 × 마진율</b>이며 마진율은 학원별 계약 조건입니다. 예: 전주 JNK(53%)와 UBCK(10.5%)는 입금액이 비슷해도 커미션 차이가 큽니다. <b>직영점(강남캐피타운)은 마진율 0%라 커미션 0</b>입니다. <span class="link" onclick="switchTab('detail')">산출 근거 상세 보기 →</span>`,en:`<b>Why commission differs by academy</b> — Commission = <b>deposits × margin</b>, and the margin is each academy's contract term. e.g. 전주 JNK (53%) vs UBCK (10.5%) have similar deposits but very different commission. <b>The direct branch (강남캐피타운) has 0% margin → 0 commission</b>. <span class="link" onclick="switchTab('detail')">See the basis →</span>`},
+ ag_h2:{ko:'대리점(학원) 정산',en:'Agency Settlement'},
+ ath_no:{ko:'No',en:'No'},ath_name:{ko:'학원(대리점)명',en:'Academy'},ath_branch:{ko:'지사',en:'Branch'},ath_id:{ko:'아이디',en:'ID'},ath_mgr:{ko:'관리자',en:'Manager'},ath_status:{ko:'상태',en:'Status'},ath_students:{ko:'재학생',en:'Students'},ath_sales:{ko:'입금액',en:'Deposits'},ath_margin:{ko:'마진율',en:'Margin'},ath_comm:{ko:'커미션',en:'Commission'},ath_tax:{ko:'세금',en:'Tax'},ath_final:{ko:'최종 수수료',en:'Net payout'},
+ detail_empty:{ko:`<b>대리점(학원) 정산</b> 탭에서 학원을 클릭하면<br>매출 산출 근거와 세금 분개가 표시됩니다.`,en:`Click an academy in the <b>Agency Settlement</b> tab<br>to see its revenue basis and tax breakdown.`},
+ tr_h2:{ko:'월별 입금액 · 커미션 추이',en:'Monthly Deposits · Commission'},
+ tr_sub:{ko:'선택한 지사/상태 기준 · 2026년 매월 (누적 아님)',en:'By selected branch/status · monthly 2026 (non-cumulative)'},
+ leg_sales:{ko:'입금액',en:'Deposits'},leg_comm:{ko:'커미션',en:'Commission'},
+ trh_month:{ko:'월',en:'Month'},trh_students:{ko:'재학생',en:'Students'},trh_sales:{ko:'입금액',en:'Deposits'},trh_comm:{ko:'커미션',en:'Commission'},trh_tax:{ko:'세금',en:'Tax'},trh_final:{ko:'최종 수수료',en:'Net payout'},
+ title_branch:{ko:'지사별 합계',en:'Branch Totals'},title_agency:{ko:'대리점(학원) 정산',en:'Agency Settlement'},title_detail:{ko:'정산 근거 상세',en:'Settlement Basis'},title_trend:{ko:'월별 추이',en:'Monthly Trend'},
+ kpi_n:{ko:'사용 학원 수',en:'Active academies'},kpi_s:{ko:'재학생 수',en:'Enrolled students'},kpi_sales:{ko:'총 입금액(매출)',en:'Total deposits'},kpi_comm:{ko:'총 커미션',en:'Total commission'},kpi_final:{ko:'총 지급 수수료',en:'Total net payout'},
+ all_branch:{ko:'전체 지사',en:'All branches'},status_word:{ko:'상태',en:'Status'},
+ 'st_사용':{ko:'사용',en:'Active'},'st_미사용':{ko:'미사용',en:'Inactive'},'st_해지':{ko:'해지',en:'Terminated'},'st_전체':{ko:'전체',en:'All'},
+ type_dir:{ko:'직영',en:'Direct'},type_fr:{ko:'가맹',en:'Franchise'},
+ total:{ko:'합계',en:'Total'},nodata:{ko:'데이터 없음',en:'No data'},norev:{ko:'매출 없음',en:'No revenue'},donut_center:{ko:'총 입금액',en:'Total deposits'},
+ ag_crumb:{ko:'{n}개 학원 · 행 클릭 시 정산서 상세',en:'{n} academies · click a row for the statement'},
+ ag_none:{ko:'조건에 맞는 학원이 없습니다.',en:'No academies match the filters.'},
+ d_basis1:{ko:'매출(입금액) 산출 근거',en:'Revenue (deposit) basis'},
+ d_basis2:{ko:'커미션 → 원천징수 → 지급액',en:'Commission → withholding → payout'},
+ d_students:{ko:'재학생 수 (종료월 기준)',en:'Students (end-month)'},
+ d_online:{ko:'온라인 매출 (1인 평균 {p}원)',en:'Online revenue (avg {p}/student)'},
+ d_book:{ko:'교재 매출',en:'Textbook revenue'},
+ d_deposit_total:{ko:'입금액 합계',en:'Total deposits'},
+ d_margin:{ko:'적용 마진율',en:'Applied margin'},
+ d_comm_total:{ko:'커미션 합계',en:'Total commission'},
+ d_income_tax:{ko:'소득세 (3%)',en:'Income tax (3%)'},
+ d_local_tax:{ko:'지방소득세 (소득세의 10%)',en:'Local tax (10% of income tax)'},
+ d_final:{ko:'최종 지급 수수료',en:'Final net payout'},
+ d_list:{ko:'← 목록',en:'← List'},d_mgr:{ko:'관리자',en:'Manager'},d_id:{ko:'아이디',en:'ID'},
+ summary:{ko:`📌 <b>요약</b> · {name}의 {m1}~{m2}월 입금액 <b>{sales}원</b>에 계약 마진율 <b>{mg}%</b>를 적용해 커미션 <b>{comm}원</b>이 산출되고, 원천징수 3.3%(<b>{tax}원</b>)를 제외한 <b style="color:var(--green)">{final}원</b>이 지급됩니다.`,en:`📌 <b>Summary</b> · For {name}, applying the contract margin <b>{mg}%</b> to the {m1}–{m2} deposits of <b>{sales} KRW</b> yields <b>{comm} KRW</b> commission; after 3.3% withholding (<b>{tax} KRW</b>), <b style="color:var(--green)">{final} KRW</b> is paid out.`},
+ dirnote:{ko:`※ 본사 <b>직영점</b>이라 마진율 0% → 커미션이 발생하지 않습니다(강남캐피타운 커미션 0의 이유).`,en:`※ HQ <b>direct-run branch</b>, margin 0% → no commission (why 강남캐피타운's commission is 0).`},
+ role_capitown:{ko:'캐피타운 본사',en:'Capitown HQ'},role_hq_exec:{ko:'본사 경영진',en:'HQ Executive'},who_default:{ko:'본사',en:'HQ'},
+ theme_light:{ko:'밝게',en:'Light'},theme_dark:{ko:'어둡게',en:'Dark'}
+};
+function tt(k){const e=DICT[k];if(!e)return k;return (e[LANG]!=null)?e[LANG]:(e.ko||k);}
+const U={won:{ko:' 원',en:' KRW'},ppl:{ko:' 명',en:''},cnt:{ko:' 곳',en:''}};
+const uu=k=>U[k][LANG];
+function tpl(k,o){let s=tt(k);for(const p in o)s=s.split('{'+p+'}').join(o[p]);return s;}
+function stLabel(v){return tt('st_'+v)||v;}
+function typeLabel(t){return tt(t==='직영'?'type_dir':'type_fr');}
+function pad2(n){return String(n).padStart(2,'0');}
+function monthLabel(m){return LANG==='en'?(MONTHS_EN[m-1]+' '+YEAR):(YEAR+'년 '+m+'월');}
+
+const won=n=>Math.round(n).toLocaleString('en-US');
+const short=n=>{n=Math.round(n);if(LANG==='en'){if(n>=1e8)return (n/1e8).toFixed(n%1e8?1:0)+'00M';if(n>=1e6)return (n/1e6).toFixed(n%1e6?1:0)+'M';if(n>=1e3)return Math.round(n/1e3)+'K';return String(n);}if(n>=1e8)return (n/1e8).toFixed(n%1e8?1:0)+'억';if(n>=1e4)return Math.round(n/1e4).toLocaleString()+'만';return n.toLocaleString();};
 const rnd=s=>{const x=Math.sin(s)*43758.5453;return x-Math.floor(x);};
+const cssv=k=>{try{const v=getComputedStyle(document.documentElement).getPropertyValue(k).trim();return v||'';}catch(e){return '';}};
 
 function monthData(a,m){
   if(a.status!=='사용')return{students:0,online:0,book:0};
@@ -429,10 +527,8 @@ function calcRange(a,m1,m2){
   return o;
 }
 
-/* ===================== 상태 ===================== */
 let sort={branch:{k:'sales',dir:-1},agency:{k:'sales',dir:-1}};
 let curTab='branch', detailId=null;
-const TITLES={branch:'지사별 합계',agency:'대리점(학원) 정산',detail:'정산 근거 상세',trend:'월별 추이'};
 
 function filtered(){
   const br=val('fBranch'),st=val('fStatus'),kw=val('fKw').trim().toLowerCase();
@@ -446,34 +542,35 @@ function filtered(){
 const val=id=>document.getElementById(id).value;
 const range=()=>[+val('m1'),+val('m2')];
 
-/* ===================== 차트 헬퍼 (SVG) ===================== */
 function donutSVG(data){
   const size=170,thick=24,r=(size-thick)/2,cx=size/2,cy=size/2,C=2*Math.PI*r;
   const total=data.reduce((s,d)=>s+d.value,0)||1;let off=0,segs='';
+  const cMuted=cssv('--muted')||'#7c879b',cInk=cssv('--ink')||'#0f172a';
   data.forEach(d=>{const len=d.value/total*C;
     segs+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${d.color}" stroke-width="${thick}" stroke-dasharray="${len-2} ${C-len+2}" stroke-dashoffset="${-off}" transform="rotate(-90 ${cx} ${cy})" stroke-linecap="round"/>`;
     off+=len;});
   return `<svg viewBox="0 0 ${size} ${size}" width="170" height="170">${segs}
-    <text x="${cx}" y="${cy-3}" text-anchor="middle" font-size="11" fill="#7c879b">총 입금액</text>
-    <text x="${cx}" y="${cy+15}" text-anchor="middle" font-size="16" font-weight="800" fill="#0f172a">${short(total)}</text></svg>`;
+    <text x="${cx}" y="${cy-3}" text-anchor="middle" font-size="11" fill="${cMuted}">${tt('donut_center')}</text>
+    <text x="${cx}" y="${cy+15}" text-anchor="middle" font-size="16" font-weight="800" fill="${cInk}">${short(total)}</text></svg>`;
 }
-function trendSVG(pts){ // pts:[{m, sales, comm}]
+function trendSVG(pts){
   const w=760,h=240,pad={l:54,r:16,t:16,b:30};
   const iw=w-pad.l-pad.r,ih=h-pad.t-pad.b;
   const max=Math.max(1,...pts.map(p=>p.sales));
   const X=i=>pad.l+(pts.length<=1?iw/2:i/(pts.length-1)*iw);
   const Y=v=>pad.t+ih-v/max*ih;
+  const cGrid=cssv('--line')||'#eef1f7',cFaint=cssv('--faint')||'#aab3c5',cMuted=cssv('--muted')||'#7c879b',cSurf=cssv('--surface')||'#fff';
   let grid='',xl='';
   for(let g=0;g<=4;g++){const y=pad.t+ih-g/4*ih,v=max*g/4;
-    grid+=`<line x1="${pad.l}" y1="${y}" x2="${w-pad.r}" y2="${y}" stroke="#eef1f7"/>`+
-          `<text x="${pad.l-8}" y="${y+4}" text-anchor="end" font-size="10.5" fill="#aab3c5">${short(v)}</text>`;}
-  pts.forEach((p,i)=>xl+=`<text x="${X(i)}" y="${h-9}" text-anchor="middle" font-size="11" fill="#7c879b">${p.m}월</text>`);
+    grid+=`<line x1="${pad.l}" y1="${y}" x2="${w-pad.r}" y2="${y}" stroke="${cGrid}"/>`+
+          `<text x="${pad.l-8}" y="${y+4}" text-anchor="end" font-size="10.5" fill="${cFaint}">${short(v)}</text>`;}
+  pts.forEach((p,i)=>xl+=`<text x="${X(i)}" y="${h-9}" text-anchor="middle" font-size="11" fill="${cMuted}">${LANG==='en'?MONTHS_EN[p.m-1]:(p.m+'월')}</text>`);
   const lineS=pts.map((p,i)=>`${X(i)},${Y(p.sales)}`).join(' ');
   const lineC=pts.map((p,i)=>`${X(i)},${Y(p.comm)}`).join(' ');
   const area=`${X(0)},${pad.t+ih} ${lineS} ${X(pts.length-1)},${pad.t+ih}`;
   let dots='';
-  pts.forEach((p,i)=>{dots+=`<circle cx="${X(i)}" cy="${Y(p.sales)}" r="4" fill="#fff" stroke="#4f46e5" stroke-width="2.5"/>`+
-    `<circle cx="${X(i)}" cy="${Y(p.comm)}" r="3.5" fill="#fff" stroke="#f5b528" stroke-width="2.5"/>`;});
+  pts.forEach((p,i)=>{dots+=`<circle cx="${X(i)}" cy="${Y(p.sales)}" r="4" fill="${cSurf}" stroke="#4f46e5" stroke-width="2.5"/>`+
+    `<circle cx="${X(i)}" cy="${Y(p.comm)}" r="3.5" fill="${cSurf}" stroke="#f5b528" stroke-width="2.5"/>`;});
   return `<svg viewBox="0 0 ${w} ${h}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block">
     <defs><linearGradient id="ar" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#4f46e5" stop-opacity=".18"/><stop offset="1" stop-color="#4f46e5" stop-opacity="0"/></linearGradient></defs>
@@ -483,16 +580,12 @@ function trendSVG(pts){ // pts:[{m, sales, comm}]
     ${dots}${xl}</svg>`;
 }
 
-/* ===================== 렌더 ===================== */
 function render(){
   const [m1,m2]=range();
   const list=filtered().map(a=>({a,c:calcRange(a,m1,m2)}));
-
   document.getElementById('scope').innerHTML=
-    `${YEAR}.${String(m1).padStart(2,'0')} ~ ${YEAR}.${String(m2).padStart(2,'0')} · `+
-    `${val('fBranch')||'전체 지사'} · 상태 <b>${val('fStatus')}</b>`;
-
-  // KPI
+    `${YEAR}.${pad2(m1)} ~ ${YEAR}.${pad2(m2)} · `+
+    `${val('fBranch')||tt('all_branch')} · ${tt('status_word')} <b>${stLabel(val('fStatus'))}</b>`;
   let T={students:0,sales:0,commission:0,tax:0,final:0,n:0};
   list.forEach(x=>{T.sales+=x.c.sales;T.commission+=x.c.commission;T.tax+=x.c.tax;T.final+=x.c.final;
     if(x.a.status==='사용'){T.students+=x.c.students;T.n++;}});
@@ -503,12 +596,11 @@ function render(){
     c:'<svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>',
     f:'<svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>'};
   document.getElementById('kpis').innerHTML=`
-    <div class="kpi"><div class="ic i-slate">${ic.n}</div><div class="l">사용 학원 수</div><div class="v num">${T.n}<span class="u"> 곳</span></div></div>
-    <div class="kpi"><div class="ic i-sky">${ic.s}</div><div class="l">재학생 수</div><div class="v num">${won(T.students)}<span class="u"> 명</span></div></div>
-    <div class="kpi"><div class="ic i-indigo">${ic.c}</div><div class="l">총 입금액(매출)</div><div class="v num" style="color:var(--indigo)">${won(T.sales)}<span class="u"> 원</span></div></div>
-    <div class="kpi"><div class="ic i-gold">${ic.m}</div><div class="l">총 커미션</div><div class="v num" style="color:var(--gold-d)">${won(T.commission)}<span class="u"> 원</span></div></div>
-    <div class="kpi"><div class="ic i-green">${ic.f}</div><div class="l">총 지급 수수료</div><div class="v num" style="color:var(--green)">${won(T.final)}<span class="u"> 원</span></div></div>`;
-
+    <div class="kpi"><div class="ic i-slate">${ic.n}</div><div class="l">${tt('kpi_n')}</div><div class="v num">${T.n}<span class="u">${uu('cnt')}</span></div></div>
+    <div class="kpi"><div class="ic i-sky">${ic.s}</div><div class="l">${tt('kpi_s')}</div><div class="v num">${won(T.students)}<span class="u">${uu('ppl')}</span></div></div>
+    <div class="kpi"><div class="ic i-indigo">${ic.c}</div><div class="l">${tt('kpi_sales')}</div><div class="v num" style="color:var(--indigo)">${won(T.sales)}<span class="u">${uu('won')}</span></div></div>
+    <div class="kpi"><div class="ic i-gold">${ic.m}</div><div class="l">${tt('kpi_comm')}</div><div class="v num" style="color:var(--gold-d)">${won(T.commission)}<span class="u">${uu('won')}</span></div></div>
+    <div class="kpi"><div class="ic i-green">${ic.f}</div><div class="l">${tt('kpi_final')}</div><div class="v num" style="color:var(--green)">${won(T.final)}<span class="u">${uu('won')}</span></div></div>`;
   renderBranch(list); renderAgency(list); renderTrend();
   if(detailId)renderDetail(detailId);
   markSort();
@@ -533,14 +625,13 @@ function renderBranch(list){
       <td class="num">${r.count}</td><td class="num">${won(r.students)}</td>
       <td class="num">${won(r.sales)}</td><td class="num ${r.commission?'pos':'zero'}">${won(r.commission)}</td>
       <td class="num">${won(r.tax)}</td><td class="num fin">${won(r.final)}</td></tr>`;}).join('')
-    || `<tr><td colspan="7" class="empty">데이터 없음</td></tr>`;
+    || `<tr><td colspan="7" class="empty">${tt('nodata')}</td></tr>`;
   document.getElementById('branchFoot').innerHTML=
-    `<tr><td class="l">합계</td><td class="num">${F.count}</td><td class="num">${won(F.students)}</td>
+    `<tr><td class="l">${tt('total')}</td><td class="num">${F.count}</td><td class="num">${won(F.students)}</td>
      <td class="num">${won(F.sales)}</td><td class="num">${won(F.commission)}</td><td class="num">${won(F.tax)}</td><td class="num">${won(F.final)}</td></tr>`;
-  // donut
   const dd=rows.filter(r=>r.sales>0).sort((a,b)=>b.sales-a.sales)
     .map((r,i)=>({name:r.name,value:r.sales,color:PALETTE[i%PALETTE.length]}));
-  document.getElementById('donut').innerHTML=dd.length?donutSVG(dd):'<div class="empty" style="padding:30px">매출 없음</div>';
+  document.getElementById('donut').innerHTML=dd.length?donutSVG(dd):`<div class="empty" style="padding:30px">${tt('norev')}</div>`;
   const tot=dd.reduce((s,d)=>s+d.value,0)||1;
   document.getElementById('donutLegend').innerHTML=dd.map(d=>`
     <div class="lg" onclick="drill('${d.name}')"><span class="dot" style="background:${d.color}"></span>
@@ -553,26 +644,27 @@ function renderAgency(list){
     const inC=s.k in x.c;let av=inC?x.c[s.k]:x.a[s.k],bv=inC?y.c[s.k]:y.a[s.k];
     return (av>bv?1:-1)*s.dir;});
   const br=val('fBranch');
+  const tip=tpl('ag_crumb',{n:sorted.length});
   document.getElementById('agencyCrumb').innerHTML=br
-    ? `<span class="chip">${br} <span class="x" onclick="event.stopPropagation();clearBranch()">✕</span></span> ${sorted.length}개 학원 · 행 클릭 시 정산서 상세`
-    : `전체 지사 · ${sorted.length}개 학원 · 행 클릭 시 정산서 상세`;
+    ? `<span class="chip">${br} <span class="x" onclick="event.stopPropagation();clearBranch()">✕</span></span> ${tip}`
+    : `${tt('all_branch')} · ${tip}`;
   const sb={'사용':'s-use','미사용':'s-non','해지':'s-end'};
   let F={students:0,sales:0,commission:0,tax:0,final:0};
   document.getElementById('agencyBody').innerHTML=sorted.map(({a,c})=>{
     F.students+=(a.status==='사용'?c.students:0);F.sales+=c.sales;F.commission+=c.commission;F.tax+=c.tax;F.final+=c.final;
     return `<tr class="click" onclick="openDetail(${a.id})">
       <td class="num">${a.id}</td>
-      <td class="l"><b>${a.name}</b> <span class="badge ${a.type==='직영'?'t-dir':'t-fr'}">${a.type}</span></td>
+      <td class="l"><b>${a.name}</b> <span class="badge ${a.type==='직영'?'t-dir':'t-fr'}">${typeLabel(a.type)}</span></td>
       <td class="l">${a.branch}</td><td class="l">${a.loginId}</td><td class="l">${a.manager}</td>
-      <td><span class="badge ${sb[a.status]}">${a.status}</span></td>
+      <td><span class="badge ${sb[a.status]}">${stLabel(a.status)}</span></td>
       <td class="num">${won(c.students)}</td>
       <td class="num">${won(c.sales)}</td>
       <td class="num mg">${(a.margin*100).toFixed(1)}%</td>
       <td class="num ${c.commission?'pos':'zero'}">${won(c.commission)}</td>
       <td class="num">${won(c.tax)}</td><td class="num fin">${won(c.final)}</td></tr>`;}).join('')
-    || `<tr><td colspan="12" class="empty"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><div>조건에 맞는 학원이 없습니다.</div></td></tr>`;
+    || `<tr><td colspan="12" class="empty"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><div>${tt('ag_none')}</div></td></tr>`;
   document.getElementById('agencyFoot').innerHTML=sorted.length?
-    `<tr><td colspan="6" class="l">합계 · ${sorted.length}곳</td><td class="num">${won(F.students)}</td>
+    `<tr><td colspan="6" class="l">${tt('total')} · ${sorted.length}${uu('cnt')}</td><td class="num">${won(F.students)}</td>
      <td class="num">${won(F.sales)}</td><td class="num">–</td><td class="num">${won(F.commission)}</td><td class="num">${won(F.tax)}</td><td class="num">${won(F.final)}</td></tr>`:'';
 }
 
@@ -584,10 +676,10 @@ function renderTrend(){
     pool.forEach(a=>{const c=calcMonth(a,m);o.students+=c.students;o.sales+=c.sales;o.commission+=c.commission;o.tax+=c.tax;o.final+=c.final;});return o;});
   document.getElementById('trendChart').innerHTML=trendSVG(months.map(x=>({m:x.m,sales:x.sales,comm:x.commission})));
   document.getElementById('trendBody').innerHTML=months.map(x=>`
-    <tr><td class="l">${YEAR}년 ${x.m}월</td><td class="num">${won(x.students)}</td><td class="num">${won(x.sales)}</td>
+    <tr><td class="l">${monthLabel(x.m)}</td><td class="num">${won(x.students)}</td><td class="num">${won(x.sales)}</td>
     <td class="num">${won(x.commission)}</td><td class="num">${won(x.tax)}</td><td class="num fin">${won(x.final)}</td></tr>`).join('');
   const S=months.reduce((a,x)=>({students:a.students+x.students,sales:a.sales+x.sales,commission:a.commission+x.commission,tax:a.tax+x.tax,final:a.final+x.final}),{students:0,sales:0,commission:0,tax:0,final:0});
-  document.getElementById('trendFoot').innerHTML=`<tr><td class="l">합계</td><td class="num">${won(S.students)}</td><td class="num">${won(S.sales)}</td><td class="num">${won(S.commission)}</td><td class="num">${won(S.tax)}</td><td class="num">${won(S.final)}</td></tr>`;
+  document.getElementById('trendFoot').innerHTML=`<tr><td class="l">${tt('total')}</td><td class="num">${won(S.students)}</td><td class="num">${won(S.sales)}</td><td class="num">${won(S.commission)}</td><td class="num">${won(S.tax)}</td><td class="num">${won(S.final)}</td></tr>`;
 }
 
 function renderDetail(id){
@@ -596,45 +688,44 @@ function renderDetail(id){
   const onComm=Math.round(c.online*a.margin),bkComm=Math.round(c.book*a.margin);
   const per=c.students?Math.round(c.online/c.students):0;
   const sb=a.status==='사용'?'s-use':(a.status==='미사용'?'s-non':'s-end');
+  const W=uu('won'),P=uu('ppl');
   document.getElementById('detailPanel').innerHTML=`
     <div class="hd" style="padding:0 0 4px"><div>
-      <h2>${a.name} <span class="badge ${a.type==='직영'?'t-dir':'t-fr'}">${a.type}</span> <span class="badge ${sb}">${a.status}</span></h2>
-      <div class="sub">${a.branch} · 관리자 ${a.manager} · 아이디 ${a.loginId} · ${YEAR}.${m1}~${m2}</div>
-    </div><button class="btn p" onclick="switchTab('agency')" style="background:#eef1f7;color:var(--ink-2)">← 목록</button></div>
+      <h2>${a.name} <span class="badge ${a.type==='직영'?'t-dir':'t-fr'}">${typeLabel(a.type)}</span> <span class="badge ${sb}">${stLabel(a.status)}</span></h2>
+      <div class="sub">${a.branch} · ${tt('d_mgr')} ${a.manager} · ${tt('d_id')} ${a.loginId} · ${YEAR}.${m1}~${m2}</div>
+    </div><button class="btn p" onclick="switchTab('agency')" style="background:var(--surface-2);color:var(--ink-2)">${tt('d_list')}</button></div>
     <div class="calc" style="margin-top:14px">
       <div class="box">
-        <div class="bh"><span class="n">1</span>매출(입금액) 산출 근거</div>
+        <div class="bh"><span class="n">1</span>${tt('d_basis1')}</div>
         <div class="bb">
-          <div class="kv"><span class="k">재학생 수 (종료월 기준)</span><span class="v num">${won(c.students)} 명</span></div>
-          <div class="kv"><span class="k">온라인 매출 (1인 평균 ${won(per)}원)</span><span class="v num">${won(c.online)} 원</span></div>
-          <div class="kv"><span class="k">교재 매출</span><span class="v num">${won(c.book)} 원</span></div>
-          <div class="kv tot"><span class="k">입금액 합계</span><span class="v num">${won(c.sales)} 원</span></div>
+          <div class="kv"><span class="k">${tt('d_students')}</span><span class="v num">${won(c.students)}${P}</span></div>
+          <div class="kv"><span class="k">${tpl('d_online',{p:won(per)+(LANG==='en'?' KRW':'원')})}</span><span class="v num">${won(c.online)}${W}</span></div>
+          <div class="kv"><span class="k">${tt('d_book')}</span><span class="v num">${won(c.book)}${W}</span></div>
+          <div class="kv tot"><span class="k">${tt('d_deposit_total')}</span><span class="v num">${won(c.sales)}${W}</span></div>
         </div>
       </div>
       <div class="box">
-        <div class="bh"><span class="n">2</span>커미션 → 원천징수 → 지급액</div>
+        <div class="bh"><span class="n">2</span>${tt('d_basis2')}</div>
         <div class="bb">
-          <div class="kv"><span class="k">적용 마진율</span><span class="v mg">${(a.margin*100).toFixed(1)}%</span></div>
-          <div class="kv"><span class="k sub">온라인 ${won(c.online)} × ${(a.margin*100).toFixed(1)}%</span><span class="v num">${won(onComm)} 원</span></div>
-          <div class="kv"><span class="k sub">교재 ${won(c.book)} × ${(a.margin*100).toFixed(1)}%</span><span class="v num">${won(bkComm)} 원</span></div>
-          <div class="kv"><span class="k">커미션 합계</span><span class="v num">${won(c.commission)} 원</span></div>
-          <div class="kv"><span class="k sub">소득세 (3%)</span><span class="v num minus">- ${won(c.incomeTax)} 원</span></div>
-          <div class="kv"><span class="k sub">지방소득세 (소득세의 10%)</span><span class="v num minus">- ${won(c.localTax)} 원</span></div>
-          <div class="kv tot"><span class="k">최종 지급 수수료</span><span class="v num">${won(c.final)} 원</span></div>
+          <div class="kv"><span class="k">${tt('d_margin')}</span><span class="v mg">${(a.margin*100).toFixed(1)}%</span></div>
+          <div class="kv"><span class="k sub">${LANG==='en'?'Online':'온라인'} ${won(c.online)} × ${(a.margin*100).toFixed(1)}%</span><span class="v num">${won(onComm)}${W}</span></div>
+          <div class="kv"><span class="k sub">${LANG==='en'?'Textbook':'교재'} ${won(c.book)} × ${(a.margin*100).toFixed(1)}%</span><span class="v num">${won(bkComm)}${W}</span></div>
+          <div class="kv"><span class="k">${tt('d_comm_total')}</span><span class="v num">${won(c.commission)}${W}</span></div>
+          <div class="kv"><span class="k sub">${tt('d_income_tax')}</span><span class="v num minus">- ${won(c.incomeTax)}${W}</span></div>
+          <div class="kv"><span class="k sub">${tt('d_local_tax')}</span><span class="v num minus">- ${won(c.localTax)}${W}</span></div>
+          <div class="kv tot"><span class="k">${tt('d_final')}</span><span class="v num">${won(c.final)}${W}</span></div>
         </div>
       </div>
     </div>
-    <div class="summary">📌 <b>요약</b> · ${a.name}의 ${m1}~${m2}월 입금액 <b>${won(c.sales)}원</b>에 계약 마진율 <b>${(a.margin*100).toFixed(1)}%</b>를 적용해
-      커미션 <b>${won(c.commission)}원</b>이 산출되고, 원천징수 3.3%(<b>${won(c.tax)}원</b>)를 제외한 <b style="color:var(--green)">${won(c.final)}원</b>이 지급됩니다.
-      ${a.type==='직영'?`<div class="dirnote">※ 본사 <b>직영점</b>이라 마진율 0% → 커미션이 발생하지 않습니다(강남캐피타운 커미션 0의 이유).</div>`:''}</div>`;
+    <div class="summary">${tpl('summary',{name:a.name,m1:m1,m2:m2,sales:won(c.sales),mg:(a.margin*100).toFixed(1),comm:won(c.commission),tax:won(c.tax),final:won(c.final)})}
+      ${a.type==='직영'?`<div class="dirnote">${tt('dirnote')}</div>`:''}</div>`;
 }
 
-/* ===================== 인터랙션 ===================== */
 function switchTab(t){
   curTab=t;
   document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('on',x.dataset.tab===t));
   ['branch','agency','detail','trend'].forEach(x=>document.getElementById('tab-'+x).classList.toggle('hide',x!==t));
-  document.getElementById('pageTitle').textContent=TITLES[t];
+  document.getElementById('pageTitle').textContent=tt('title_'+t);
 }
 function drill(b){document.getElementById('fBranch').value=b;switchTab('agency');render();}
 function clearBranch(){document.getElementById('fBranch').value='';render();}
@@ -649,31 +740,62 @@ function markSort(){
 }
 document.addEventListener('click',e=>{const th=e.target.closest('th[data-s]');if(th){const[t,k]=th.dataset.s.split(':');sortBy(t,k);}});
 
-/* ===================== CSV ===================== */
 function exportCSV(){
   const [m1,m2]=range();const list=filtered().map(a=>({a,c:calcRange(a,m1,m2)}));
-  const head=['No','학원명','지사','아이디','관리자','상태','구분','재학생','입금액','마진율(%)','커미션','소득세','지방소득세','세금합계','최종수수료'];
-  const rows=list.map(({a,c})=>[a.id,a.name,a.branch,a.loginId,a.manager,a.status,a.type,c.students,c.sales,(a.margin*100).toFixed(1),c.commission,c.incomeTax,c.localTax,c.tax,c.final]);
+  const head=LANG==='en'
+    ?['No','Academy','Branch','ID','Manager','Status','Type','Students','Deposits','Margin(%)','Commission','IncomeTax','LocalTax','TotalTax','NetPayout']
+    :['No','학원명','지사','아이디','관리자','상태','구분','재학생','입금액','마진율(%)','커미션','소득세','지방소득세','세금합계','최종수수료'];
+  const rows=list.map(({a,c})=>[a.id,a.name,a.branch,a.loginId,a.manager,stLabel(a.status),typeLabel(a.type),c.students,c.sales,(a.margin*100).toFixed(1),c.commission,c.incomeTax,c.localTax,c.tax,c.final]);
   const csv='﻿'+[head,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
-  a.download=`캐피타운_정산_${YEAR}.${m1}-${m2}.csv`;a.click();
+  a.download=`capitown_settlement_${YEAR}.${m1}-${m2}.csv`;a.click();
 }
 
-/* ===================== 초기화 ===================== */
+/* ===================== i18n / 테마 적용 ===================== */
+function relabelDates(){
+  ['y1','y2'].forEach(id=>{const s=document.getElementById(id);if(s)[...s.options].forEach(o=>{o.text=LANG==='en'?o.value:(o.value+'년');});});
+  ['m1','m2'].forEach(id=>{const s=document.getElementById(id);if(s)[...s.options].forEach(o=>{const m=+o.value;o.text=LANG==='en'?MONTHS_EN[m-1]:(m+'월');});});
+}
+function applyI18n(){
+  document.documentElement.setAttribute('lang',LANG);
+  document.querySelectorAll('[data-i]').forEach(el=>{const v=tt(el.getAttribute('data-i'));if(v!=null)el.innerHTML=v;});
+  document.querySelectorAll('[data-iph]').forEach(el=>{el.setAttribute('placeholder',tt(el.getAttribute('data-iph')));});
+  const ll=document.getElementById('langLbl');if(ll)ll.textContent=LANG==='ko'?'EN':'한국어';
+  relabelDates();
+  setWho();
+  const pt=document.getElementById('pageTitle');if(pt)pt.textContent=tt('title_'+curTab);
+}
+function capToggleLang(){LANG=LANG==='ko'?'en':'ko';try{localStorage.setItem('mangoi_lang',LANG);}catch(e){}applyI18n();render();}
+
+function curTheme(){try{const s=localStorage.getItem('mangoi_admin_theme');return s==='ivory'?'ivory':'dark';}catch(e){return 'dark';}}
+function applyTheme(t){
+  document.documentElement.setAttribute('data-admin-theme',t);
+  const el=document.getElementById('themeLbl');if(el)el.textContent=tt(t==='ivory'?'theme_light':'theme_dark');
+  try{localStorage.setItem('mangoi_admin_theme',t);}catch(e){}
+}
+function capToggleTheme(){const n=curTheme()==='ivory'?'dark':'ivory';applyTheme(n);render();}
+window.applyAdminColor=function(t){applyTheme(t);render();};
+window.capToggleLang=capToggleLang;window.capToggleTheme=capToggleTheme;
+window.addEventListener('storage',e=>{
+  if(e.key==='mangoi_admin_theme'){applyTheme(curTheme());render();}
+  if(e.key==='mangoi_lang'){LANG=(localStorage.getItem('mangoi_lang')==='en')?'en':'ko';applyI18n();render();}
+});
+
+let _role='',_name='';
+function setWho(){const who=document.getElementById('admWho');if(!who||!_role)return;const rl=tt('role_'+_role)||tt('who_default');who.innerHTML='<span class="who-txt">'+rl+(_name?(' · '+_name):'')+'</span>';}
+
 function initSettlement(){
   [['y1',YEAR],['y2',YEAR]].forEach(([id,y])=>{const s=document.getElementById(id);
-    for(let yy=2024;yy<=2026;yy++)s.add(new Option(yy+'년',yy,false,yy===y));});
+    for(let yy=2024;yy<=2026;yy++)s.add(new Option(LANG==='en'?String(yy):(yy+'년'),yy,false,yy===y));});
   [['m1',1],['m2',6]].forEach(([id,d])=>{const s=document.getElementById(id);
-    MONTHS.forEach(m=>s.add(new Option(m+'월',m,false,m===d)));});
+    MONTHS.forEach(m=>s.add(new Option(LANG==='en'?MONTHS_EN[m-1]:(m+'월'),m,false,m===d)));});
   const fb=document.getElementById('fBranch');
   [...new Set(agencies.map(a=>a.branch))].forEach(b=>fb.add(new Option(b,b)));
   render();
 }
 
-/* ===================== 인증 가드 (캐피타운 본사 + 본사 경영진만) =====================
-   - 서버 세션(/api/admin/me, 쿠키)로 로그인 여부 확인 → 미로그인 시 admin 로그인 페이지로.
-   - 역할은 login.html과 동일 규칙으로 아이디에서 유도(capitown / hq_exec 만 허용).
-   - 데이터는 현재 내장 샘플(아래 agencies). 추후 D1 연동 시 loadSettlementData() 한 곳만 교체. */
+/* ===================== 인증 가드 (캐피타운 본사 + 본사 경영진만) ===================== */
+applyTheme(curTheme());
 function deriveRole(uid){
   uid=String(uid||'');
   if(uid==='capitown'||uid.indexOf('capi')===0) return 'capitown';
@@ -684,7 +806,6 @@ function deriveRole(uid){
   if(uid.indexOf('agency_')===0) return 'agency';
   return '';
 }
-const ROLE_LABEL={capitown:'캐피타운 본사',hq_exec:'본사 경영진'};
 (async function authGuard(){
   let role='',uid='',name='';
   try{const s=JSON.parse(localStorage.getItem('mangoi_admin_session')||'{}');role=s.role||'';uid=s.uid||'';name=s.name||'';}catch(e){}
@@ -698,18 +819,17 @@ const ROLE_LABEL={capitown:'캐피타운 본사',hq_exec:'본사 경영진'};
   if(!role) role=deriveRole(uid);
   const allowed=['capitown','hq_exec'];
   if(!allowed.includes(role)){
+    applyI18n();
     document.getElementById('denyGate').style.display='grid';
     document.querySelector('.adm-top .who').style.display='none';
     return;
   }
-  // 통과 → 화면 노출 + 헤더 표시 + 초기화
-  const who=document.getElementById('admWho');
-  if(who) who.innerHTML='<span class="who-txt">'+(ROLE_LABEL[role]||'본사')+(name?(' · '+name):'')+'</span>';
+  _role=role;_name=name;
   document.getElementById('appWrap').style.display='flex';
   initSettlement();
+  applyI18n();
 })();
 
-// 로그아웃
 document.getElementById('admLogout').addEventListener('click',async function(e){
   e.preventDefault();
   try{await fetch('/api/admin/logout',{method:'POST',credentials:'include'});}catch(_){}
