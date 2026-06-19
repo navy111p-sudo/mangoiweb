@@ -1246,6 +1246,16 @@
         .vc-main-row.video-full          .video-pane { width: 100%; }
         .vc-main-row.video-full          .content-pane { display: none; }
 
+        /* 🧠 복습퀴즈 모드 — 얼굴(비디오) 영역을 완전히 숨기고 퀴즈가 화면 전체를 차지 */
+        .vc-main-row.content-full .video-pane { display: none !important; }
+        .vc-main-row.content-full .content-pane {
+            display: flex !important;
+            width: 100% !important;
+            max-width: none !important;
+            flex: 1 1 100% !important;
+            height: 100% !important;
+        }
+
         /* 영상 사이즈 조절 바 */
         .video-size-bar {
             display: flex;
@@ -10057,6 +10067,9 @@ function vcSwitchTab(tabName, evt) {
     if (tabName === 'game' && typeof gameInit === 'function') {
       if (!_gameState.started) gameInit();
     }
+    // 🧠 복습퀴즈일 때는 얼굴(비디오) 영역을 숨기고 퀴즈가 화면 전체를 차지하게
+    const _mainRow = document.getElementById('vc-main-row');
+    if (_mainRow) _mainRow.classList.toggle('content-full', tabName === 'review-quiz');
     // 🧠 복습퀴즈 탭 진입 시 자동 로드 (이 수업 교재/레벨/레슨 매칭)
     if (tabName === 'review-quiz' && typeof rqvOnEnter === 'function') rqvOnEnter();
 }
@@ -27203,7 +27216,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260620024524 -->
+<!-- BUILD:20260620031515 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

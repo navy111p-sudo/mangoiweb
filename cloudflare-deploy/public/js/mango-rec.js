@@ -453,10 +453,27 @@
     recBadge = document.createElement('div');
     recBadge.id = 'mango-rec-badge';
     // 기본(데스크탑) 스타일: CSS 클래스로 위임해 모바일 media query로 축소 가능하게 함
-    recBadge.innerHTML = '<span class="mango-rec-dot"></span><span id="mango-rec-time" class="mango-rec-time-text">REC 00:00</span>';
-    // 모바일 최소화 시 클릭하면 펼쳤다 접었다 하는 토글
-    recBadge.addEventListener('click', () => {
-      recBadge.classList.toggle('mango-rec-expanded');
+    recBadge.innerHTML = '<span class="mango-rec-dot"></span><span id="mango-rec-time" class="mango-rec-time-text">REC 00:00</span><span class="mango-rec-stop" aria-hidden="true">⏹</span>';
+    recBadge.title = '자동녹화 중 — 눌러서 정지';
+    // 클릭(탭): 모바일에서 접혀 있으면 먼저 펼쳐 시간을 보여주고,
+    // 펼친 상태(또는 데스크탑)에서 다시 누르면 확인 후 자동녹화를 '중지'한다.
+    recBadge.addEventListener('click', async () => {
+      const isMobile = window.matchMedia('(max-width: 900px)').matches;
+      if (isMobile && !recBadge.classList.contains('mango-rec-expanded')) {
+        recBadge.classList.add('mango-rec-expanded');
+        return;
+      }
+      if (!isRecording) { recBadge.classList.remove('mango-rec-expanded'); return; }
+      const ok = window.confirm('자동녹화를 중지할까요?\n지금까지 녹화된 영상은 저장됩니다.');
+      if (!ok) return;
+      const timeEl = recBadge.querySelector('.mango-rec-time-text');
+      if (timeEl) timeEl.textContent = '저장 중…';
+      recBadge.style.pointerEvents = 'none';
+      try {
+        await stopRecording();
+      } catch (e) {
+        console.warn('[mango-rec] 수동 중지 예외:', e);
+      }
     });
     document.body.appendChild(recBadge);
  
@@ -469,13 +486,16 @@
         '#mango-rec-badge{position:fixed;top:60px;right:16px;background:#dc2626;color:#fff;padding:8px 14px;border-radius:20px;font-weight:600;font-size:13px;z-index:9999;box-shadow:0 4px 12px rgba(220,38,38,0.4);display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;transition:all 0.2s ease;}',
         '#mango-rec-badge .mango-rec-dot{width:8px;height:8px;background:#fff;border-radius:50%;animation:mango-rec-blink 1s infinite;display:inline-block;}',
         '#mango-rec-badge .mango-rec-time-text{display:inline;}',
-        // 모바일: 작은 원형 점으로 축소 (시간 텍스트 숨김), 탭하면 확장
+        '#mango-rec-badge .mango-rec-stop{display:inline;font-size:13px;line-height:1;}',
+        // 모바일: 작은 원형 점으로 축소 (시간/정지 숨김), 탭하면 확장
         '@media (max-width: 900px){' +
           // fix (2026-06-02 v2) — 녹화 빨간 원을 상단 우측 ✕ 버튼 바로 옆으로 (헤더 안)
           '#mango-rec-badge{top:calc(env(safe-area-inset-top, 0) + 10px) !important;bottom:auto !important;right:52px !important;padding:0;border-radius:50%;width:30px;height:30px;background:#ef4444 !important;box-shadow:0 2px 8px rgba(0,0,0,0.30);gap:0;opacity:1;display:flex;align-items:center;justify-content:center;}' +
           '#mango-rec-badge .mango-rec-time-text{display:none;}' +
+          '#mango-rec-badge .mango-rec-stop{display:none;}' +
           '#mango-rec-badge.mango-rec-expanded{width:auto;height:auto;border-radius:20px;padding:6px 12px;opacity:1;gap:6px;}' +
           '#mango-rec-badge.mango-rec-expanded .mango-rec-time-text{display:inline;font-size:12px;}' +
+          '#mango-rec-badge.mango-rec-expanded .mango-rec-stop{display:inline;font-size:13px;}' +
           // 툴바 REC 버튼도 모바일에서는 컴팩트
           '#mango-rec-btn{padding:4px 8px !important;font-size:14px !important;min-width:auto !important;}' +
         '}'
@@ -942,3 +962,4 @@
   M.startRecording = startRecording;
   M.stopRecording = stopRecording;
 })();
+// end mango-rec.js
