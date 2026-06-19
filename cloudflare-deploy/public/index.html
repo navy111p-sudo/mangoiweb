@@ -26533,8 +26533,10 @@ window.closeRulesModal = function() {
   // 🔬 진단 오버레이 — URL 에 ?fxdebug 가 있을 때만 표시(일반 사용자 영향 없음)
   function fxDbg(){
     try {
-      if ((location.search||'').indexOf('fxdebug') < 0) return;
+      var on = (location.search||'').indexOf('fxdebug') >= 0;
       var el = document.getElementById('fx-dbg');
+      // 플래그가 없으면(일반 사용) 남아있는 진단 오버레이까지 제거하고 종료
+      if (!on){ if (el && el.parentNode) el.parentNode.removeChild(el); return; }
       if (!el){
         el = document.createElement('div'); el.id='fx-dbg';
         el.style.cssText='position:fixed;left:6px;bottom:6px;z-index:2147483647;background:rgba(0,0,0,.82);color:#0f0;font:11px/1.45 monospace;padding:6px 8px;border-radius:6px;max-width:86vw;white-space:pre-wrap;pointer-events:none';
@@ -27063,7 +27065,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260619122344 -->
+<!-- BUILD:20260619125648 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -29883,4 +29885,57 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   .mg-mini{width:44px;height:44px;border-radius:50%;border:none;cursor:pointer;font-size:19px;
     display:grid;place-items:center;box-shadow:0 8px 20px -4px rgba(0,0,0,.5)}
   .mg-mini.k{background:#fee500;color:#191919}
-  .mg-mini.r{background:#1f2937;colo
+  .mg-mini.r{background:#1f2937;color:#93c5fd}
+  #mg-fab-scrim{position:fixed;inset:0;background:rgba(0,0,0,.3);opacity:0;pointer-events:none;
+    transition:opacity .2s;z-index:2147483100}
+  #mg-fab-scrim.show{opacity:1;pointer-events:auto}
+  @media(prefers-reduced-motion:reduce){#mg-fab-wrap *{transition:none!important}}
+</style>
+
+<div id="mg-fab-scrim"></div>
+<div id="mg-fab-wrap">
+  <div class="mg-fab-items">
+    <div class="mg-fab-item">
+      <button class="mg-mini r" type="button" data-act="refresh" aria-label="새로고침">&#8635;</button>
+      <span class="mg-lb" data-ko="새로고침" data-en="Refresh">새로고침</span>
+    </div>
+    <div class="mg-fab-item">
+      <button class="mg-mini k" type="button" data-act="kakao" aria-label="카카오 상담">💬</button>
+      <span class="mg-lb" data-ko="카카오 상담" data-en="Kakao Chat">카카오 상담</span>
+    </div>
+  </div>
+  <button id="mg-fab" type="button" aria-label="메뉴 열기" aria-expanded="false"><span class="mg-ic">+</span></button>
+</div>
+
+<script>
+(function(){
+  var wrap=document.getElementById('mg-fab-wrap'),
+      fab=document.getElementById('mg-fab'),
+      scrim=document.getElementById('mg-fab-scrim');
+  if(!wrap||!fab) return;
+  function set(o){
+    wrap.classList.toggle('open',o);
+    scrim.classList.toggle('show',o);
+    fab.setAttribute('aria-expanded',o);
+    fab.setAttribute('aria-label', o ? '메뉴 닫기' : '메뉴 열기');
+  }
+  fab.addEventListener('click',function(){ set(!wrap.classList.contains('open')); });
+  scrim.addEventListener('click',function(){ set(false); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape') set(false); });
+  wrap.addEventListener('click',function(e){
+    var b=e.target.closest('[data-act]'); if(!b) return;
+    var a=b.getAttribute('data-act'); set(false);
+    if(a==='kakao'){
+      if(window.gridActions&&window.gridActions.kakao) return window.gridActions.kakao();
+      var k=document.querySelector('.ph49-kakao-fab,#ph49-kakao-fab'); if(k) return k.click();
+      window.open('https://pf.kakao.com/_mangoi/chat','_blank','noopener');
+    } else if(a==='refresh'){
+      if(window.ph52ClearCache) return window.ph52ClearCache();
+      var r=document.querySelector('.ph52-cache-fab,#ph52-cache-fab'); if(r) return r.click();
+      location.reload();
+    }
+  });
+})();
+</script>
+</body>
+</html>
