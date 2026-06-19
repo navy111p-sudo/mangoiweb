@@ -27023,7 +27023,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260619051254 -->
+<!-- BUILD:20260619122344 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -29824,12 +29824,13 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     z-index:2147483200;display:flex;flex-direction:column-reverse;align-items:flex-start;gap:12px}
   #mg-fab{width:40px;height:40px;border-radius:50%;cursor:pointer;
     background:transparent;border:2px solid #fbbf24;color:#fbbf24;display:grid;place-items:center;
-    opacity:.55;
-    box-shadow:none;transition:transform .25s,opacity .25s}
-  #mg-fab:hover,#mg-fab:focus-visible{opacity:1}
+    opacity:.85;
+    box-shadow:0 0 14px 2px rgba(251,191,36,.75), inset 0 0 8px rgba(251,191,36,.35);
+    transition:transform .25s,opacity .25s,box-shadow .25s}
+  #mg-fab:hover,#mg-fab:focus-visible{opacity:1;box-shadow:0 0 22px 4px rgba(251,191,36,.95), inset 0 0 12px rgba(251,191,36,.5)}
   #mg-fab-wrap.open #mg-fab{opacity:1}
   #mg-fab:active{transform:scale(.93)}
-  #mg-fab .mg-ic{font-size:20px;line-height:1;transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+  #mg-fab .mg-ic{font-size:30px;line-height:1;font-weight:700;text-shadow:0 0 8px rgba(251,191,36,.85);transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
   #mg-fab-wrap.open #mg-fab .mg-ic{transform:rotate(135deg)}
   .mg-fab-items{display:flex;flex-direction:column;align-items:flex-start;gap:12px}
   .mg-fab-item{display:flex;align-items:center;gap:9px;opacity:0;transform:translateY(12px) scale(.8);
