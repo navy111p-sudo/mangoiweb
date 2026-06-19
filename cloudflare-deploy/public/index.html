@@ -2037,11 +2037,86 @@
             .home-title { font-size: 1.8rem; }
             .home-subtitle { font-size: 0.9rem; }
             .home-cards { grid-template-columns: 1fr; gap:10px; }
-            .toolbar { flex-wrap:wrap; padding:4px 6px; gap:4px; }
-            .toolbar-left, .toolbar-center, .toolbar-right { gap:4px; }
-            .ctrl-btn { padding:6px 8px; font-size:0.9rem; }
-            .ctrl-select { max-width:130px; height:36px; font-size:0.76rem; padding:0 26px 0 10px; }
-            .room-info { font-size:0.8rem; }
+            /* ── 📱 모바일 세로 상단 바: 한 줄·작고 심플하게, 공간 최대 활용 ── */
+            .toolbar {
+                flex-wrap: nowrap;
+                justify-content: space-between;
+                gap: 10px;
+                padding: 7px 12px;
+                background: linear-gradient(180deg, rgba(18,28,52,0.98), rgba(12,19,37,0.98));
+                border-bottom: 1px solid rgba(148,163,184,0.16);
+            }
+            /* 방정보 — 한 줄 유지를 위해 압축·말줄임, 버전은 숨겨 공간 확보 */
+            .toolbar-left {
+                flex: 0 1 auto;
+                min-width: 0;
+                gap: 0;
+            }
+            .room-info {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                max-width: 150px;
+                font-size: 0.74rem;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .room-info strong { color: #5cc8ff; }
+            #vc-ice-status { display: none !important; }
+            /* 장치 버튼 묶음 — 줄바꿈 없이 작게 */
+            .toolbar-center {
+                flex: 1 1 auto;
+                min-width: 0;
+                gap: 12px;
+                align-items: center;
+                justify-content: flex-start;
+                flex-wrap: nowrap;
+            }
+            .toolbar-right {
+                flex: 0 0 auto;
+                gap: 10px;
+                align-items: center;
+            }
+            /* 작고 통일된 원형 버튼 */
+            .ctrl-btn {
+                width: 36px; height: 36px;
+                padding: 0;
+                font-size: 1rem;
+                flex: 0 0 auto;
+            }
+            /* 빨간 나가기(✕) — 더 작게 + X를 원 정중앙에.
+               ID 전용 v33/v34 스타일(36px·line-height)을 이기도록 specificity 높임 */
+            body .toolbar-right a#vc-exit-btn-v34.ctrl-btn.danger,
+            body .toolbar-right a#vc-exit-btn-v33.ctrl-btn.danger,
+            body .toolbar-right .ctrl-btn.danger {
+                width: 30px !important;
+                height: 30px !important;
+                line-height: 1 !important;
+                font-size: 13px !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+            /* 핵심만 남기고 비우기 — 보조 버튼(마이크 진단 🛠 / 언어 🌐) 숨김.
+               채팅(💬)도 우하단 상담과 중복이라 모바일 상단에서 제거 */
+            .toolbar-center .ctrl-btn[onclick*="vcDiagnoseMic"],
+            .toolbar-center #vc-btn-chat,
+            .toolbar-center #vc-btn-cam,
+            .toolbar-right [onclick*="toggleLang"] {
+                display: none !important;
+            }
+            /* 장치 선택 — 남는 폭을 넉넉히 차지하되 긴 이름은 말줄임 */
+            .ctrl-select {
+                flex: 1 1 90px;
+                min-width: 64px;
+                max-width: none;
+                height: 34px;
+                font-size: 0.74rem;
+                padding: 0 24px 0 12px;
+                border-radius: 17px;
+                background-position: right 8px center;
+            }
             .lobby-box { padding:1.8rem 1.2rem 1.4rem; width:92%; border-radius:20px; }
             .lobby-box h1 { font-size:1.55rem; }
             .lobby-box .desc { font-size:0.82rem; margin-bottom:1.2rem; }
@@ -27125,7 +27200,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260620014925 -->
+<!-- BUILD:20260620021127 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
