@@ -4078,7 +4078,7 @@
               letter-spacing:0.4px;
             }
           </style>
-          <p style="margin:0 0 10px;font-size:12.5px;color:#374151">5개 역할 + 본사 3개 직급 — 각 메뉴/기능의 접근 권한을 설정합니다. 셀을 클릭하면 ✅ → 👁️ → ❌ 순환·즉시 저장됩니다.</p>
+          <p style="margin:0 0 10px;font-size:12.5px;color:#374151">6개 역할 (본사 3개 직급 + 지사본사 + 지사 + 대리점) — 각 메뉴/기능의 접근 권한을 설정합니다. 셀을 클릭하면 ✅ → 👁️ → ❌ 순환·즉시 저장됩니다.</p>
           <!-- 🆕 내 역할 시뮬레이션 — 학생용 페이지에서 수업 연기/변경 시간 제한이 어떻게 적용되는지 테스트 -->
           <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;line-height:1.6;color:#78350f">
             <b>🎭 내 역할 시뮬레이션</b> — 학생용 홈페이지에서 사용할 역할을 선택. 「📅 수업 연기/변경」 시 위 권한 설정 따라 시간 제한이 자동 적용됩니다.
@@ -4088,6 +4088,7 @@
                 <option value="hq_exec">🏛 본사 임원 (hq_exec)</option>
                 <option value="hq_mgr">🏛 본사 매니저 (hq_mgr)</option>
                 <option value="hq_teacher">🧑‍🏫 강사 (hq_teacher)</option>
+                <option value="franchise">🏢 지사본사 (franchise)</option>
                 <option value="branch">🏢 지사 (branch)</option>
                 <option value="agency">🏪 대리점 (agency)</option>
                 <option value="parent">👪 학부모 (parent)</option>
@@ -4231,6 +4232,7 @@
               <option value="hq_exec">👑 본사 · 경영진</option>
               <option value="hq_mgr">🛠️ 본사 · 관리자</option>
               <option value="hq_teacher">👨‍🏫 본사 · 교사</option>
+              <option value="franchise">🏢 지사본사</option>
               <option value="branch">🏬 지사</option>
               <option value="agency">🤝 대리점</option>
               <option value="parent">👨‍👩 학부모</option>
@@ -18593,7 +18595,7 @@ function mangoiGetDataScope(){
   try {
     var role;
     var sim = localStorage.getItem('mangoi_user_role');
-    if (sim){ var M={hq_exec:'exec',hq_mgr:'mgr',hq_teacher:'teacher',branch:'branch',agency:'agency',parent:'parent',student:'student'}; role=M[sim]||sim; }
+    if (sim){ var M={hq_exec:'exec',hq_mgr:'mgr',hq_teacher:'teacher',franchise:'franchise',branch:'branch',agency:'agency',parent:'parent',student:'student'}; role=M[sim]||sim; }
     else {
       var u=null; try{ u=JSON.parse(localStorage.getItem('admin_session')||'null'); }catch(_){}
       var U={hq_t_001:'teacher',hq_teacher:'teacher',hq_exec:'exec',hq_mgr:'mgr',admin:'exec',cfo01:'mgr',ops_lead:'mgr',branch_busan:'branch',branch_daegu:'branch',agency_gn001:'agency',agency_sc002:'agency',parent_001:'parent',student_001:'student'};
@@ -21989,15 +21991,31 @@ window.rebuildGlobalSearchIndex = function() {
     { group_ko: '🔐 시스템', group_en: '🔐 System', items: [
       { id: 'permissions',     name_ko: '권한 설정',           name_en: 'Permission Settings',       def: { hq_exec:'✅', hq_mgr:'❌', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
       { id: 'audit_log',       name_ko: '감사 로그 조회',      name_en: 'Audit Log View',            def: { hq_exec:'✅', hq_mgr:'👁️', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
-      { id: 'franchise_mgmt',  name_ko: '가맹점·지사 관리',    name_en: 'Franchise · Branch Mgmt',   def: { hq_exec:'✅', hq_mgr:'❌', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'franchise_mgmt',  name_ko: '가맹점·지사 관리',    name_en: 'Franchise · Branch Mgmt',   def: { hq_exec:'✅', hq_mgr:'❌', hq_teacher:'❌', franchise:'👁️', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
     ]},
   ];
+
+  // 🆕 '지사본사(franchise)' 역할 — 각 기능의 기본 권한을 자동 주입.
+  //    명시값이 없으면 지사(branch) 권한을 상속(지사본부 = 지사 총괄 성격).
+  PERM_FEATURES.forEach(g => g.items.forEach(it => {
+    if (it.def && it.def.franchise === undefined) {
+      it.def.franchise = (it.def.branch !== undefined) ? it.def.branch : '❌';
+    }
+  }));
 
   let _permMatrix = null;
   function loadPermMatrix() {
     try {
       const saved = localStorage.getItem('mangoi_perm_matrix');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // 🆕 이전에 저장된 매트릭스에 franchise 키가 없으면 기본값으로 backfill
+        PERM_FEATURES.forEach(g => g.items.forEach(it => {
+          if (!parsed[it.id]) parsed[it.id] = { ...it.def };
+          else if (parsed[it.id].franchise === undefined) parsed[it.id].franchise = it.def.franchise;
+        }));
+        return parsed;
+      }
     } catch {}
     // 기본값
     const m = {};
@@ -22024,7 +22042,7 @@ window.rebuildGlobalSearchIndex = function() {
     let html = '';
     PERM_FEATURES.forEach(g => {
       const groupLabel = en ? (g.group_en || g.group_ko || g.group || '') : (g.group_ko || g.group_en || g.group || '');
-      html += `<tr class="group-row"><td colspan="6">${groupLabel}</td></tr>`;
+      html += `<tr class="group-row"><td colspan="7">${groupLabel}</td></tr>`;
       g.items.forEach(it => {
         const itemName = en ? (it.name_en || it.name_ko || it.name || '') : (it.name_ko || it.name_en || it.name || '');
         const state = _permMatrix[it.id] || it.def;
@@ -22107,6 +22125,7 @@ window.rebuildGlobalSearchIndex = function() {
     hq_mgr:     { icon:'🛠️', name:'본사·관리자', name_en:'HQ · Manager',   color:'#ef4444' },
     hq_teacher: { icon:'👨‍🏫', name:'본사·교사',   name_en:'HQ · Teacher',   color:'#f87171' },
     hq:         { icon:'🏢', name:'본사',         name_en:'HQ',             color:'#ef4444' }, // 레거시 호환
+    franchise:  { icon:'🏢', name:'지사본사',     name_en:'Franchise',      color:'#d97706' },
     branch:     { icon:'🏬', name:'지사',         name_en:'Branch',         color:'#f59e0b' },
     agency:     { icon:'🤝', name:'대리점',       name_en:'Agency',         color:'#10b981' },
     parent:     { icon:'👨‍👩', name:'학부모',       name_en:'Parent',         color:'#3b82f6' },
@@ -38677,39 +38696,4 @@ button.chip:hover,
   @media (max-width:900px){
     .top-header{
       display:flex !important;
-      flex-direction:column !important;
-      align-items:stretch !important;
-      grid-template-columns:none !important;   /* ph80 의 3열 grid 무효화 */
-      flex-wrap:wrap !important;
-      overflow:visible !important;
-      gap:10px !important;
-      padding:10px 12px !important;
-    }
-    .top-header .th-brand{ justify-content:flex-start !important; width:100% !important; }
-    .top-header .th-controls{
-      display:grid !important;
-      grid-template-columns:1fr 1fr !important;
-      gap:8px !important;
-      width:100% !important;
-    }
-    .top-header .th-controls > *{ width:100% !important; margin:0 !important; }
-    .top-header .th-controls .th-btn,
-    .top-header .th-controls .th-select,
-    .top-header .th-controls #ph115-user{
-      width:100% !important;
-      height:42px !important;
-      margin:0 !important;
-      padding:8px 10px !important;
-      font-size:12.5px !important;
-      border-radius:12px !important;
-      text-overflow:ellipsis !important;
-      overflow:hidden !important;
-    }
-    /* 파란 계정 버튼(#ph115-user): 자체 margin-left·작은 높이를 무효화하고 셀에 꽉 차게 가운데 정렬 */
-    .top-header .th-controls #ph115-user{ margin-left:0 !important; justify-content:center !important; }
-    /* ▲ 접기 버튼은 모바일에서 숨김 */
-    .top-header #th-collapse-btn{ display:none !important; }
-  }
-</style>
-</body>
-</html>
+      flex-direction:colum
