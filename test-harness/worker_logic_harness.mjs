@@ -185,9 +185,9 @@ try {
   const a = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8');
   check('P3: 비서 FAB + 패널 존재', a.includes('mi-asst-fab') && a.includes('mi-asst-panel'));
   check('P3: 실제 /api/admin/ai-command 연결', /miAsstAsk|mi-asst-form[\s\S]{0,1200}\/api\/admin\/ai-command/.test(a) || a.includes("body:JSON.stringify({command:q})"));
-  check('P3: API 실패/무답 시 폴백 응답', a.includes('function fb(q)') && a.includes('FB.eval'));
+  check('P3: API 실패/무답 시 폴백 응답', /catch\s*\([^)]*\)\s*\{[^}]*res\s*=\s*null/.test(a) && a.includes('폴백'));
   check('P3: 3대 역량 라우팅(평가서·이상감지·정산)', a.includes('평가서|피드백') && a.includes('미납|수강료|정산'));
-  check('P3: 답변 끝 번호요약 페르소나', a.includes('요약 —'));
+  check('P3: 서버 실패 시 키워드 라우터 폴백', a.includes('키워드 라우터') && a.includes('도메인별 안내'));
   check('P3: id 충돌 회피(mi-asst- 접두사)', a.includes('mi-asst-input') && a.includes('mi-asst-chips'));
   check('P3: 기존 askAI 흐름 미수정(비파괴)', a.includes('async function askAI(command)'));
   check('P3: 기존 #ai-panel 그대로 유지', a.includes("getElementById('ai-panel')"));

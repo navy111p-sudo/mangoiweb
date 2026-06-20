@@ -1,25 +1,25 @@
-# Change-set QA report (2026-06-13T18:17:11.417Z)
+# Change-set QA report (2026-06-20T10:45:11.888Z)
 
 PASS=78 FAIL=0
 
-PASS  integrity:cloudflare-deploy/public/index.html delta  — HEAD=27636 WORK=27636 delta=0 (expect 0)
+PASS  integrity:cloudflare-deploy/public/index.html delta  — HEAD=30256 WORK=30256 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/index.html tail  — tail="</html>"
-PASS  integrity:cloudflare-deploy/src/api-mango.ts delta  — HEAD=11518 WORK=11518 delta=0 (expect 0)
+PASS  integrity:cloudflare-deploy/src/api-mango.ts delta  — HEAD=11607 WORK=11607 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/src/api-mango.ts tail  — tail="}"
 PASS  integrity:cloudflare-deploy/src/api-mango.ts brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  integrity:cloudflare-deploy/src/index.ts delta  — HEAD=1964 WORK=1964 delta=0 (expect 0)
+PASS  integrity:cloudflare-deploy/src/index.ts delta  — HEAD=2092 WORK=2092 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/src/index.ts tail  — tail="}"
 PASS  integrity:cloudflare-deploy/src/index.ts brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html delta  — HEAD=1451 WORK=1451 delta=0 (expect 0)
+PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html delta  — HEAD=1467 WORK=1467 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  integrity:cloudflare-deploy/public/admin.html delta  — HEAD=37042 WORK=37042 delta=0 (expect 0)
+PASS  integrity:cloudflare-deploy/public/admin.html delta  — HEAD=38778 WORK=38778 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/admin.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/public/admin.html brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  syntax:cloudflare-deploy/public/index.html  — 59 inline scripts, 0 errors
+PASS  syntax:cloudflare-deploy/public/index.html  — 64 inline scripts, 0 errors
 PASS  syntax:cloudflare-deploy/public/lesson-postpone-demo.html  — 1 inline scripts, 0 errors
-PASS  syntax:cloudflare-deploy/public/admin.html  — 80 inline scripts, 0 errors
-PASS  syntax:mangoi-speech-patch/mangoi_Speech/practice.html  — 8 inline scripts, 0 errors
+PASS  syntax:cloudflare-deploy/public/admin.html  — 87 inline scripts, 0 errors
+PASS  syntax:mangoiweb(last)/mangoi-speech-patch/mangoi_Speech/practice.html  — 8 inline scripts, 0 errors
 PASS  wiring:gate registered in index.ts
 PASS  wiring:handler present in api-mango.ts
 PASS  wiring:frontend calls endpoint
@@ -57,7 +57,7 @@ PASS  promo:starts hidden
 PASS  promo:session dismiss key
 PASS  promo:global capture click kills
 PASS  promo:gated by intro overlay
-PASS  promo:hashchange/popstate kill
+PASS  promo:hashchange/popstate dismiss
 PASS  promo:old box-only click handler removed
 PASS  promo:mute button exception kept
 PASS  lp:guide video fixed (not absolute)

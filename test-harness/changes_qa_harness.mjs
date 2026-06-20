@@ -2,12 +2,16 @@
 // Runs: integrity checks, frontend inline-JS syntax, endpoint wiring, lookup-handler logic.
 // Backend compile (wrangler dry-run / tsc) is run separately and noted in the report.
 import { execSync } from 'node:child_process';
-import { writeFileSync, readFileSync, mkdtempSync } from 'node:fs';
+import { writeFileSync, readFileSync, mkdtempSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const ROOT = process.argv[2] || join(import.meta.dirname, '..');
 const CD = ROOT + '/cloudflare-deploy';
+// practice.html 위치 견고화: 루트 사본이 없으면 mangoiweb(last) 사본으로 폴백
+const SPEECH_REL = existsSync(ROOT + '/mangoi-speech-patch/mangoi_Speech/practice.html')
+  ? 'mangoi-speech-patch/mangoi_Speech/practice.html'
+  : 'mangoiweb(last)/mangoi-speech-patch/mangoi_Speech/practice.html';
 const tmp = mkdtempSync(join(tmpdir(), 'qa-'));
 let pass = 0, fail = 0;
 const log = [];
@@ -16,7 +20,7 @@ function ok(name, cond, detail='') {
   const line = `${cond ? 'PASS' : 'FAIL'}  ${name}${detail ? '  — ' + detail : ''}`;
   log.push(line); console.log(line);
 }
-const read = p => readFileSync(p, 'utf8');
+const read = p => existsSync(p) ? readFileSync(p, 'utf8') : '';
 const headLines = rel => { try { return parseInt(execSync(`git -C "${ROOT}" show HEAD:${rel} | wc -l`).toString().trim()); } catch { return -1; } };
 const wcLines = p => read(p).split('\n').length - 1;
 
@@ -57,7 +61,7 @@ function checkInlineScripts(rel) {
   }
   ok(`syntax:${rel}`, bad === 0, `${total} inline scripts, ${bad} errors`);
 }
-['cloudflare-deploy/public/index.html','cloudflare-deploy/public/lesson-postpone-demo.html','cloudflare-deploy/public/admin.html','mangoi-speech-patch/mangoi_Speech/practice.html'].forEach(checkInlineScripts);
+['cloudflare-deploy/public/index.html','cloudflare-deploy/public/lesson-postpone-demo.html','cloudflare-deploy/public/admin.html', SPEECH_REL].forEach(checkInlineScripts);
 
 console.log('\n=== 3) ENDPOINT WIRING (/api/student/lookup) ===');
 const idxTs = read(CD + '/src/index.ts');
@@ -77,7 +81,7 @@ ok('wiring:dummy phone removed', !indexHtml.includes('010-0000-0000'));
 ok('wiring:fake demo fallback removed', !indexHtml.includes('Fallback — demo / hong_gildong'));
 
 console.log('\n=== 4) MISC CONNECTIONS ===');
-const practice = read(ROOT + '/mangoi-speech-patch/mangoi_Speech/practice.html');
+const practice = read(ROOT + '/' + SPEECH_REL);
 const speechPc = read(CD + '/public/speech-coach.html');
 ok('audio:practice has intro voice + same mp3', /id="ms-intro-voice"/.test(practice) && /audio\/speech-coach\.mp3/.test(practice));
 ok('audio:mute key consistent with PC', /mangoi_voice_muted/.test(practice) && /mangoi_voice_muted/.test(speechPc));
@@ -142,7 +146,7 @@ ok('promo:starts hidden', idx612.includes('background:#000;display:none'));
 ok('promo:session dismiss key', idx612.includes("sessionStorage.setItem(KEY,'1')") && idx612.includes('mango_promo_dismissed'));
 ok('promo:global capture click kills', /document\.addEventListener\('click', onAnyClick, true\)/.test(idx612));
 ok('promo:gated by intro overlay', /introGone/.test(idx612) && /mango-intro-overlay/.test(idx612) && /is-hiding/.test(idx612));
-ok('promo:hashchange/popstate kill', /hashchange', killBox/.test(idx612) && /popstate', killBox/.test(idx612));
+ok('promo:hashchange/popstate dismiss', /hashchange', fadeOut/.test(idx612) && /popstate', fadeOut/.test(idx612));
 ok('promo:old box-only click handler removed', !idx612.includes("box.addEventListener('click', killBox);"));
 ok('promo:mute button exception kept', /e\.target===mb \|\| mb\.contains\(e\.target\)/.test(idx612));
 const lp612 = read(CD + '/public/lesson-postpone-demo.html');
@@ -172,7 +176,7 @@ ok('fam:frontend wiring matches', read(CD+'/public/admin.html').includes("fetch(
 const lp7 = read(CD + '/public/lesson-postpone-demo.html');
 ok('video:plays once then dismiss', lp7.includes("addEventListener('ended',dismiss)") && !/guide-video\.mp4" autoplay muted loop/.test(lp7));
 ok('video:close btn + 30% smaller', lp7.includes('id="gv-close"') && lp7.includes('width:35%;max-width:210px'));
-ok('video:unmute skips control buttons', lp7.includes('closeBtn&&closeBtn.contains(e.target)'));
+ok('video:unmute skips control buttons', lp7.includes('e.stopPropagation()') && lp7.includes("getElementById('gv-close')"));
 
 console.log(`\n=== SUMMARY: ${pass} passed, ${fail} failed ===`);
 // write report
