@@ -4135,6 +4135,7 @@
                 <tr>
                   <th rowspan="2" style="padding:10px 12px;text-align:left;border-bottom:2px solid #f59e0b;width:230px;color:#78350f;vertical-align:bottom">기능 / 메뉴</th>
                   <th colspan="3" style="padding:8px 8px;text-align:center;border-bottom:1px solid #f59e0b;color:#78350f;background:rgba(239,68,68,0.10)">🏢 본사 <span style="font-size:10px;font-weight:400">(HQ — 직급별)</span></th>
+                  <th rowspan="2" style="padding:10px 8px;text-align:center;border-bottom:2px solid #f59e0b;color:#78350f;vertical-align:bottom;background:rgba(245,158,11,0.08)">🏢 지사본사<br/><span style="font-size:10px;font-weight:400">Franchise</span></th>
                   <th rowspan="2" style="padding:10px 8px;text-align:center;border-bottom:2px solid #f59e0b;color:#78350f;vertical-align:bottom">🏬 지사<br/><span style="font-size:10px;font-weight:400">Branch</span></th>
                   <th rowspan="2" style="padding:10px 8px;text-align:center;border-bottom:2px solid #f59e0b;color:#78350f;vertical-align:bottom">🤝 대리점<br/><span style="font-size:10px;font-weight:400">Agency</span></th>
                 </tr>
@@ -21650,7 +21651,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260620152315 -->
+        <!-- BUILD:20260620152844 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -21930,7 +21931,7 @@ window.rebuildGlobalSearchIndex = function() {
   };
 
   // ━━━━━━━━━━ 🔐 권한 설정 (역할별 매트릭스) ━━━━━━━━━━
-  const ROLE_KEYS = ['hq_exec','hq_mgr','hq_teacher','branch','agency'];
+  const ROLE_KEYS = ['hq_exec','hq_mgr','hq_teacher','franchise','branch','agency'];
   // 기능 그룹 → 각 행
   const PERM_FEATURES = [
     { group_ko: '🏠 대시보드', group_en: '🏠 Dashboard', items: [
