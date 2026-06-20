@@ -21653,7 +21653,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260620152844 -->
+        <!-- BUILD:20260620153623 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -38696,4 +38696,39 @@ button.chip:hover,
   @media (max-width:900px){
     .top-header{
       display:flex !important;
-      flex-direction:colum
+      flex-direction:column !important;
+      align-items:stretch !important;
+      grid-template-columns:none !important;   /* ph80 의 3열 grid 무효화 */
+      flex-wrap:wrap !important;
+      overflow:visible !important;
+      gap:10px !important;
+      padding:10px 12px !important;
+    }
+    .top-header .th-brand{ justify-content:flex-start !important; width:100% !important; }
+    .top-header .th-controls{
+      display:grid !important;
+      grid-template-columns:1fr 1fr !important;
+      gap:8px !important;
+      width:100% !important;
+    }
+    .top-header .th-controls > *{ width:100% !important; margin:0 !important; }
+    .top-header .th-controls .th-btn,
+    .top-header .th-controls .th-select,
+    .top-header .th-controls #ph115-user{
+      width:100% !important;
+      height:42px !important;
+      margin:0 !important;
+      padding:8px 10px !important;
+      font-size:12.5px !important;
+      border-radius:12px !important;
+      text-overflow:ellipsis !important;
+      overflow:hidden !important;
+    }
+    /* 파란 계정 버튼(#ph115-user): 자체 margin-left·작은 높이를 무효화하고 셀에 꽉 차게 가운데 정렬 */
+    .top-header .th-controls #ph115-user{ margin-left:0 !important; justify-content:center !important; }
+    /* ▲ 접기 버튼은 모바일에서 숨김 */
+    .top-header #th-collapse-btn{ display:none !important; }
+  }
+</style>
+</body>
+</html>
