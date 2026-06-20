@@ -1044,6 +1044,30 @@
     to   { opacity: 1; transform: translateY(0); }
   }
 
+  /* 🎤 마이크 안내 말풍선 — 마이크 클릭 시 위로 떠서 마이크를 가리킴 */
+  #menu-mic-tip {
+    position: absolute; right: 8px; bottom: calc(100% + 14px);
+    max-width: 270px; text-align: left;
+    background: #1e293b; color: #e2e8f0;
+    border: 1px solid rgba(148,163,184,0.30); border-radius: 14px;
+    padding: 12px 15px; font-size: 13.5px; font-weight: 600; line-height: 1.55;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.40);
+    opacity: 0; transform: translateY(8px) scale(0.96); transform-origin: bottom right;
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none; z-index: 60;
+  }
+  #menu-mic-tip.show { opacity: 1; transform: translateY(0) scale(1); }
+  #menu-mic-tip .hot { color: #ff6b6b; font-weight: 800; }
+  #menu-mic-tip b { color: #ffd24a; }
+  #menu-mic-tip::after {
+    content: ""; position: absolute; right: 30px; bottom: -9px;
+    border: 9px solid transparent; border-top-color: #1e293b; border-bottom: 0;
+  }
+  @media (max-width: 640px) {
+    #menu-mic-tip { max-width: 220px; font-size: 12.5px; padding: 10px 12px; right: 4px; }
+    #menu-mic-tip::after { right: 24px; }
+  }
+
   /* 🔎 SVG 검색 아이콘 — 망고 그라데이션 + 글래스 배경 + 펄스 (이모지 대신) */
   .hero .hero-search-icon {
     position: absolute;
@@ -2131,8 +2155,22 @@
             </svg>
           </button>
           <div class="hero-search-dropdown menu-search-dropdown" id="menu-search-dropdown"></div>
+          <div id="menu-mic-tip" data-ko-html="🎤 <b>마이크</b>를 누르고 <span class=&quot;hot&quot;>빨간불</span>일 때 질문하세요. 다시 누르면 답변합니다." data-en-html="🎤 Press the <b>mic</b> and ask while the <span class=&quot;hot&quot;>red light</span> is on. Press again to get an answer.">🎤 <b>마이크</b>를 누르고 <span class="hot">빨간불</span>일 때 질문하세요. 다시 누르면 답변합니다.</div>
         </div>
         <div class="voice-hint" id="voice-hint" data-ko="🎙 듣고 있습니다… 말씀해주세요" data-en="🎙 Listening… speak now" style="display:none">🎙 듣고 있습니다… 말씀해주세요</div>
+        <script>
+        (function(){
+          var mic = document.getElementById('menu-search-mic');
+          var tip = document.getElementById('menu-mic-tip');
+          if (!mic || !tip) return;
+          var hideT;
+          mic.addEventListener('click', function(){
+            tip.classList.add('show');
+            clearTimeout(hideT);
+            hideT = setTimeout(function(){ tip.classList.remove('show'); }, 5000);
+          });
+        })();
+        </script>
 
         <!-- 🥭 Phase 21 — AI 응답 패널 (검색창 Enter → AI 명령 결과 표시)
              - 기본 숨김, AI 호출 시 펼침
@@ -18520,12 +18558,19 @@ document.getElementById('legacy-toggle')?.addEventListener('click', toggleLegacy
         fd.append('original', origBlob, 'voice.webm');
         fd.append('rms', String(audioRMS));
         fd.append('peak', String(audioPeak));
-        const r = await fetch('/api/student/voice', { method: 'POST', body: fd, credentials: 'include' });
-        const d = await r.json();
+        // 라우트 수정(2026-06-20): '/api/student/voice' 는 서버에 없어 빈 응답→'Unexpected end of JSON input'.
+        //   실제 동작하는 Whisper 엔드포인트 '/api/voice/transcribe' 로 호출.
+        const r = await fetch('/api/voice/transcribe', { method: 'POST', body: fd, credentials: 'include' });
+        // 방어 파싱: 빈 본문/HTML 응답이어도 JSON 파싱 예외로 죽지 않도록 text 먼저 읽고 안전 처리.
+        const raw = await r.text();
+        let d;
+        try { d = raw ? JSON.parse(raw) : {}; } catch (_) { d = {}; }
+        if (typeof d !== 'object' || d === null) d = {};
+        if (d.text && d.ok === undefined) d.ok = true;
         console.log('[voice] response:', d);
         restorePlaceholder();
         if (!d.ok) {
-          alert('음성 인식 실패\n\n' + (d.error || 'unknown'));
+          alert('음성 인식 실패\n\n' + (d.error || (r.ok ? '서버가 빈 응답을 보냈어요' : '서버 오류 ' + r.status)));
           return;
         }
         inputEl.value = d.text;
@@ -21653,7 +21698,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260620153623 -->
+        <!-- BUILD:20260620154304 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
