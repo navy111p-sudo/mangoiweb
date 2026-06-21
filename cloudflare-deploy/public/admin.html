@@ -1934,6 +1934,13 @@
 <script src="/js/pii-mask.js"></script><!-- 🔒 PII 마스킹 유틸 -->
 <script src="/js/media-guard.js?v=1"></script><!-- 전역 미디어 가드: 메뉴/페이지 전환 시 음성·동영상 자동 정지 -->
 <link rel="stylesheet" href="/css/admin-readability.css"><!-- 가독성 보강: Pretendard 폰트·줄간격·자간·대비 (기존 내부 style 다음에 로드) -->
+<!-- 🧹 옛 메뉴바(모두 펼치기/접기/메뉴 보기) — 첫 렌더부터 숨겨 '잠깐 떴다 사라지는' 깜빡임 제거 (2026-06-21).
+     기존에도 PC(≥1024)·모바일에서 숨기던 레거시 UI인데, 숨김 규칙이 파일 한참 아래에 있어 로드 초반 잠깐 보였음.
+     head 에서 전역 즉시 숨김 → 어떤 화면폭/속도에서도 처음부터 안 보임. -->
+<style id="legacy-bars-instant-hide">
+  .menu-toggle-bar,
+  .legacy-toggle-wrap { display: none !important; }
+</style>
 </head>
 <body>
 <script>
@@ -1958,6 +1965,21 @@
     location.reload();
   };
   document.addEventListener('DOMContentLoaded', window.__refreshThemeLabel);
+})();
+</script>
+
+<script>
+/* 🎚 상단 헤더 = 첫 렌더부터 '접힘(컴팩트)' 상태로 시작 — 펼친 툴바(색상·EN·셀프진단 등)가
+   잠깐 떴다가 접히던 깜빡임 제거 (2026-06-21).
+   · 이 스크립트는 .top-header 가 파싱되기 '전'(<body> 바로 위)에서 즉시 실행 → 처음부터 컴팩트 헤더.
+   · 사용자가 직접 ▼ 로 펼쳐둔 경우(localStorage '0')에만 펼친 채 유지. (그 외 신규/캐시삭제 = 접힘) */
+(function(){
+  try{
+    var v = localStorage.getItem('mangoi_admin_topheader_collapsed');
+    if (v !== '0') document.body.classList.add('th-collapsed');
+  }catch(e){
+    try{ document.body.classList.add('th-collapsed'); }catch(_){}
+  }
 })();
 </script>
 
@@ -21760,7 +21782,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260621224050 -->
+        <!-- BUILD:20260621225828 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
