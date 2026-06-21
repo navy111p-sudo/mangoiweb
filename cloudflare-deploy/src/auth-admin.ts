@@ -16,9 +16,25 @@
  *    - 즉, 기존 운영자는 변경 없이 그대로 로그인 가능 (이후 마이페이지에서 비번 변경 권장).
  */
 
+import { getScope } from './scope';
+
 export interface AuthEnv {
   DB: D1Database;
   ADMIN_PASSWORD?: string;
+}
+
+// 로그인 계정의 scope(쿠키세션 기준)를 마이페이지용 역할/표시라벨로 환산.
+//   scope.type: hq | franchise | branch | agency | none
+//   none 은 교사(hq_t_* · 이름에 교사/강사/선생)와 일반 직원으로 세분.
+function resolveRole(scopeType: string, username: string, name: string): { role: string; roleLabel: string } {
+  const u = String(username || '');
+  const nm = String(name || '');
+  if (scopeType === 'franchise') return { role: 'franchise', roleLabel: '프랜차이즈 본사' };
+  if (scopeType === 'branch')    return { role: 'branch',    roleLabel: '지사' };
+  if (scopeType === 'agency')    return { role: 'agency',    roleLabel: '대리점' };
+  if (scopeType === 'hq')        return { role: 'hq',        roleLabel: '본사 · 경영진' };
+  if (/^hq_t/i.test(u) || /교사|강사|선생|teacher/i.test(nm)) return { role: 'teacher', roleLabel: '교사' };
+  return { role: 'staff', roleLabel: nm || '직원' };
 }
 
 const json = (data: any, status = 200, extraHeaders: Record<string, string> = {}): Response =>
@@ -293,7 +309,18 @@ export async function handleAdminAuthApi(
       const row = await env.DB.prepare(
         `SELECT username, name, email, phone, created_at, updated_at FROM admin_account WHERE username = ? LIMIT 1`
       ).bind(me).first();
-      return json({ ok: true, user: row || null });
+      // 🪪 쿠키세션 기준 권위 역할/스코프 — 휴대폰·모바일·PC 모두 동일하게 본인 역할로 일치.
+      let scope: { type: string; value: string | null; label: string } | null = null;
+      let role = 'staff', roleLabel = '직원';
+      try {
+        const sc = await getScope(env as any, request);
+        scope = { type: sc.type, value: sc.value, label: sc.label };
+        const rr = resolveRole(sc.type, me, (row as any)?.name || '');
+        role = rr.role; roleLabel = rr.roleLabel;
+      } catch (e) {
+        console.warn('[auth-admin] /me scope err:', (e as any)?.message);
+      }
+      return json({ ok: true, user: row || null, role, roleLabel, scope });
     }
 
     // ── 프로필 업데이트 ──

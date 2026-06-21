@@ -1,21 +1,28 @@
 // -*- coding: utf-8 -*-
 // 🧪 R2 고아 파일 청소 로직 — 실제 실행 통합 테스트 (가짜 D1/R2 주입)
 //   실행:  node test-harness/recordings_cleanup_harness.mjs
-//   방식:  src/recordings-cleanup.ts 를 Node 22 네이티브 타입 스트리핑으로 직접 import → 실제 호출
-//          (스펙 미러가 아니라 진짜 코드 경로를 태워 버그를 잡는다 · 외부 의존성 0)
-import { fileURLToPath, pathToFileURL } from 'node:url';
+//   방식:  src/recordings-cleanup.ts 를 esbuild 로 즉석 트랜스파일 → import → 실제 호출
+//          (스펙 미러가 아니라 진짜 코드 경로를 태워 버그를 잡는다)
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { mkdirSync, rmSync } from 'node:fs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const SRC = resolve(__dir, '../cloudflare-deploy/src/recordings-cleanup.ts');
+const OUTDIR = resolve(__dir, '.build');
+const OUT = resolve(OUTDIR, 'recordings-cleanup.mjs');
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function check(name, cond) { if (cond) PASS++; else { FAIL++; FAILS.push(name); }
   console.log(`  ${cond ? '✅' : '❌'} ${name}`); }
 function eq(name, a, b){ check(`${name} (got ${JSON.stringify(a)}, want ${JSON.stringify(b)})`, JSON.stringify(a)===JSON.stringify(b)); }
 
-// ── 0) 실제 TS 소스를 직접 import (Node 22 type-stripping, 빌드 단계 없음) ──
-const { purgeOrphanedRecordings } = await import(pathToFileURL(SRC).href);
+// ── 0) TS → ESM 트랜스파일 ────────────────────────────────────────────
+mkdirSync(OUTDIR, { recursive: true });
+const esbuild = resolve(__dir, '../cloudflare-deploy/node_modules/.bin/esbuild');
+execFileSync(esbuild, [SRC, '--format=esm', '--platform=node', '--log-level=warning', `--outfile=${OUT}`]);
+const { purgeOrphanedRecordings } = await import('file://' + OUT + '?t=' + Date.now());
 
 // ── 가짜 D1 / R2 / KV 팩토리 ──────────────────────────────────────────
 const HOUR = 3600 * 1000, DAY = 24 * HOUR;
@@ -185,6 +192,9 @@ console.log('\n[8] prefix 한정 + KV last_run 기록');
   const saved = await kv.get('recordings-cleanup:last_run');
   check('KV last_run 저장됨', !!saved && JSON.parse(saved).deleted_count === 1);
 }
+
+// ── 정리 ──────────────────────────────────────────────────────────────
+try { rmSync(OUTDIR, { recursive: true, force: true }); } catch {}
 
 console.log('\n' + '='.repeat(52));
 console.log(`🎯 총 ${PASS+FAIL}건 중 ✅ ${PASS} 통과 / ❌ ${FAIL} 실패`);

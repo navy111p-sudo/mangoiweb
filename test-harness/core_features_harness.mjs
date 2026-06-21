@@ -51,8 +51,8 @@ check('🔒 회귀가드: 정원 비교는 > 이며 >= 아님(2명 정상입장 
 {
   const sig = readSrc('signaling-room.ts');
   check('소스 일치: MAX_PEERS = 2', /MAX_PEERS\s*=\s*2/.test(sig));
-  check('소스 일치: room-full 은 size > MAX_PEERS (hibernation: sockets.length)', /(this\.connections\.size|sockets\.length)\s*>\s*MAX_PEERS/.test(sig));
-  check('소스 일치: room-full 시 소켓 close (hibernation 자동정리)', /room-full[\s\S]{0,200}ws\.close\(1000, ?['"]room-full['"]\)/.test(sig));
+  check('소스 일치: room-full 은 size > MAX_PEERS', /this\.connections\.size\s*>\s*MAX_PEERS/.test(sig));
+  check('소스 일치: room-full 시 자신 connection 제거', /room-full[\s\S]{0,160}connections\.delete/.test(sig));
 }
 
 // 1-B) 입장 토큰 만료 — exp(초) 검증
@@ -338,7 +338,7 @@ eq('번호 없음 → 0건(발송 안함)', pickRecipients({}).length, 0);
   check('소스 일치: 키 없으면 disabled', /!env\.SOLAPI_API_KEY\s*\|\|\s*!env\.SOLAPI_API_SECRET\)\s*return\s*'disabled'/.test(sol));
   check('소스 일치: TEST_MODE=true → mock', /SOLAPI_TEST_MODE\s*===\s*'true'\)\s*return\s*'mock'/.test(sol));
   check('소스 일치: 키 미설정 발송 → skipped', /status:\s*'skipped'/.test(sol));
-  check('소스 일치: 번호 10자리 미만 → invalid_phone', /phone\.length\s*<\s*10[\s\S]{0,160}invalid_phone/.test(sol));
+  check('소스 일치: 번호 10자리 미만 → invalid_phone', /phone\.length\s*<\s*10[\s\S]{0,60}invalid_phone/.test(sol));
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -467,7 +467,7 @@ section('[6] 스키마 드리프트 회귀 가드');
 {
   // 6-E) VideoCallRoom 정원 초과 시 유령 연결 정리(거부된 참가자가 broadcastAll 수신 방지)
   const vcr = readFileSync(resolve(__dir, '../cloudflare-deploy/src/video-call-room.ts'), 'utf8');
-  check('VideoCallRoom: 정원초과 가드 (hibernation: joinedUsers >= MAX_USERS)', /joinedUsers\(\)\.length\s*>=\s*MAX_USERS/.test(vcr));
+  check('VideoCallRoom: room-full 시 connections.delete(userId)', /room-full[\s\S]{0,400}this\.connections\.delete\(userId\)/.test(vcr));
   check('VideoCallRoom: room-full 시 소켓 close()', /room-full[\s\S]{0,400}ws\.close\(1000, 'room-full'\)/.test(vcr));
 }
 

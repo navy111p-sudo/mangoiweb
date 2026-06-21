@@ -10,13 +10,19 @@
  */
 import { checkAdminSession } from './auth-admin';
 
-export type Scope = { type: 'hq' | 'branch' | 'agency' | 'none'; value: string | null; label: string };
+export type Scope = { type: 'hq' | 'branch' | 'agency' | 'none' | 'franchise'; value: string | null; label: string };
 interface ScopeEnv { DB: D1Database; }
 
 async function s_safe<T>(fn: () => Promise<T>, fb: T): Promise<T> { try { return await fn(); } catch { return fb; } }
 
+// franchise(지사본사) 소유 지사 목록 — admin_scope.scope_value 에 콤마구분으로 저장
+export function franchiseList(value: string | null): string[] {
+  return String(value || '').split(',').map(s => s.trim()).filter(Boolean);
+}
+
 export function scopeLabel(type: string, value: string | null): string {
   if (type === 'hq') return '본사 (전체)';
+  if (type === 'franchise') { const n = franchiseList(value).length; return n ? `지사본사 (${n}개 지사)` : '지사본사'; }
   if (type === 'branch') return `${value} 지사`;
   if (type === 'agency') return String(value || '대리점');
   return '권한 없음';
@@ -26,13 +32,18 @@ export function scopeLabel(type: string, value: string | null): string {
 export function stuCond(scope: Scope): { clause: string; binds: any[] } {
   if (scope.type === 'agency') return { clause: `shop_name = ?`, binds: [scope.value] };
   if (scope.type === 'branch') return { clause: `franchise LIKE ?`, binds: [scope.value + '%'] };
-  // 'none'(내부직원·교사) = 제한 없음 — agency/branch만 격리
+  if (scope.type === 'franchise') {
+    const list = franchiseList(scope.value);
+    if (!list.length) return { clause: '1=0', binds: [] };
+    return { clause: `franchise IN (${list.map(() => '?').join(',')})`, binds: list };
+  }
+  // 'none'(내부직원·교사) = 제한 없음 — agency/branch/franchise만 격리
   return { clause: '', binds: [] };
 }
 
 // student_payments(매출) 필터용 ' AND user_id IN (...)' 조각. hq면 빈 조각.
 export function paymentScopeSql(scope?: Scope): { sql: string; binds: any[] } {
-  if (scope && (scope.type === 'agency' || scope.type === 'branch')) {
+  if (scope && (scope.type === 'agency' || scope.type === 'branch' || scope.type === 'franchise')) {
     const c = stuCond(scope);
     if (c.clause) return { sql: ` AND user_id IN (SELECT user_id FROM students_erp WHERE ${c.clause})`, binds: c.binds };
   }
@@ -52,7 +63,13 @@ async function autoSeedOne(env: ScopeEnv, username: string): Promise<Scope> {
   const acc = await s_safe(async () => await env.DB.prepare(`SELECT name FROM admin_account WHERE username=? LIMIT 1`).bind(username).first<{ name: string }>(), null as any);
   const name = acc?.name || '';
   let type = 'none', value: string | null = null;
-  if (username === 'admin' || /본사/.test(name)) { type = 'hq'; }
+  if (/^capi/.test(username) || /지사본사/.test(name)) {
+    // 지사본사(franchise) — 소유 지사 미지정 시 기본값으로 전체 지사 부여(관리자가 admin_scope에서 조정)
+    type = 'franchise';
+    const fr = await s_safe(async () => (await env.DB.prepare(`SELECT DISTINCT franchise FROM students_erp WHERE franchise IS NOT NULL AND franchise<>''`).all()).results as any[], []);
+    value = fr.map((r: any) => r.franchise).join(',') || null;
+  }
+  else if (username === 'admin' || /본사/.test(name)) { type = 'hq'; }
   else if (/지사/.test(name)) { type = 'branch'; value = name.replace('지사', '').trim().split(/\s+/)[0] || null; }
   else if (/대리점/.test(name)) {
     type = 'agency';
@@ -91,7 +108,12 @@ export function scopeStudentCond(scope: Scope, alias = ''): { cond: string; bind
   const a = alias ? alias + '.' : '';
   if (scope.type === 'agency') return { cond: `${a}shop_name = ?`, binds: [scope.value] };
   if (scope.type === 'branch') return { cond: `${a}franchise LIKE ?`, binds: [scope.value + '%'] };
-  // 'none'(내부직원·교사) = 제한 없음 — agency/branch만 격리
+  if (scope.type === 'franchise') {
+    const list = franchiseList(scope.value);
+    if (!list.length) return { cond: '1=0', binds: [] };
+    return { cond: `${a}franchise IN (${list.map(() => '?').join(',')})`, binds: list };
+  }
+  // 'none'(내부직원·교사) = 제한 없음 — agency/branch/franchise만 격리
   return { cond: '', binds: [] };
 }
 

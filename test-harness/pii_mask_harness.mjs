@@ -1,16 +1,16 @@
 // -*- coding: utf-8 -*-
 // 🧪 PII 마스킹 보안 하니스 (실제 코드 실행 + 소스 와이어링 검증)
-//   실행:  node test-harness/pii_mask_harness.mjs   (사전 빌드 불필요 · 외부 의존성 0)
-//   방식:  Node 22 네이티브 타입 스트리핑으로 src/pii-mask.ts 를 직접 import
+//   실행:  node test-harness/pii_mask_harness.mjs
+//   사전:  npx tsc 로 src/pii-mask.ts → test-harness/.build/pii2/pii-mask.js 컴파일됨
 //
 //   검증 범위:
-//     [1] 백엔드(실제 pii-mask.ts) 함수 동작
+//     [1] 백엔드(컴파일된 실제 pii-mask.js) 함수 동작
 //     [2] 프런트(public/js/pii-mask.js) 함수 동작
 //     [3] TS ↔ JS 출력 패리티 (두 구현이 같은 결과를 내는가)
 //     [4] 보안 불변식: 권한 판정 / 마스킹 누락 0 / 원본 불변
 //     [5] 소스 와이어링: api-mango.ts · admin.html 에 실제로 연결됐는가
 import { readFileSync } from 'node:fs';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -22,8 +22,7 @@ function check(name, cond) { if (cond) PASS++; else { FAIL++; FAILS.push(name); 
 function eq(name, a, b){ check(`${name}  => ${JSON.stringify(a)}`, JSON.stringify(a) === JSON.stringify(b)); }
 
 // ── 실제 코드 로드 ──────────────────────────────────────────────────
-// Node 22 네이티브 타입 스트리핑으로 백엔드 TS 를 직접 import (사전 tsc 빌드 불필요)
-const BE = await import(pathToFileURL(resolve(__dir, '../cloudflare-deploy/src/pii-mask.ts')).href);
+const BE = await import(resolve(__dir, '.build/pii2/pii-mask.js'));   // 컴파일된 백엔드
 const winSandbox = {}; global.window = winSandbox;
 require(resolve(__dir, '../cloudflare-deploy/public/js/pii-mask.js')); // 프런트 → window.PIIMask
 const FE = winSandbox.PIIMask;
@@ -155,4 +154,6 @@ check('html: 단체톡짹톡 학부모전화 마스킹', /_piiPhone\(s\.parent_p
 console.log('\n====================================================');
 console.log(`🎯 총 ${PASS+FAIL}건 중 ✅ ${PASS} 통과 / ❌ ${FAIL} 실패`);
 if (FAIL) { console.log('❌ 실패 항목:'); FAILS.forEach(f => console.log('   - ' + f)); }
-else console.log('🎉 PII 마스킹 — 모든 보안 불변식 통과');
+else console.log('🎉 PII 마스킹 — 동작·패리티·보안불변식·와이어링 모두 정상');
+console.log('====================================================');
+process.exit(FAIL ? 1 : 0);
