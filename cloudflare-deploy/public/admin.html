@@ -1969,17 +1969,13 @@
 </script>
 
 <script>
-/* 🎚 상단 헤더 = 첫 렌더부터 '접힘(컴팩트)' 상태로 시작 — 펼친 툴바(색상·EN·셀프진단 등)가
-   잠깐 떴다가 접히던 깜빡임 제거 (2026-06-21).
-   · 이 스크립트는 .top-header 가 파싱되기 '전'(<body> 바로 위)에서 즉시 실행 → 처음부터 컴팩트 헤더.
-   · 사용자가 직접 ▼ 로 펼쳐둔 경우(localStorage '0')에만 펼친 채 유지. (그 외 신규/캐시삭제 = 접힘) */
+/* 🎚 상단 헤더 = 첫 렌더부터 '펼침'(툴바 버튼 = 셀프진단·색상·EN·계정 모두 보임)으로 시작 (2026-06-21).
+   · 옛 메뉴바(모두 펼치기/접기) 깜빡임은 head 의 legacy-bars-instant-hide 로 따로 제거됨.
+   · 여기서는 헤더가 '접힘(th-collapsed)'으로 시작해 버튼이 사라지지 않도록, 저장된 접힘상태를
+     무시하고 항상 펼침으로 시작(접힘은 사용자가 ▼ 버튼으로 그 자리에서만 토글). */
 (function(){
-  try{
-    var v = localStorage.getItem('mangoi_admin_topheader_collapsed');
-    if (v !== '0') document.body.classList.add('th-collapsed');
-  }catch(e){
-    try{ document.body.classList.add('th-collapsed'); }catch(_){}
-  }
+  try{ localStorage.removeItem('mangoi_admin_topheader_collapsed'); }catch(e){}
+  try{ document.body.classList.remove('th-collapsed'); }catch(e){}
 })();
 </script>
 
@@ -21782,7 +21778,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260621230718 -->
+        <!-- BUILD:20260621233047 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
