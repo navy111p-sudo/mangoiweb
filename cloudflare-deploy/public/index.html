@@ -27333,7 +27333,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260621222707 -->
+<!-- BUILD:20260621224050 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -29876,6 +29876,9 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      라벨이 위젯보다 72px 위에 뜨므로 위젯을 충분히 내려야 라벨이 CTA 버튼과 안 겹침. 이 규칙은 위쪽 bottom:104px 전역 override 보다 뒤에 와서 모바일에서만 이김. */
   @media (max-width:480px){
     #mangoi-widget { bottom: 18px !important; right: 14px !important; }
+    /* 상담창이 열리면(전체화면) 아바타 얼굴 버튼을 입력창(전송/마이크) 위로 올려 겹침 방지 (2026-06-21).
+       닫혀 있을 땐 기존대로 우하단 코너. 닫기는 헤더 ✕ 또는 이 얼굴(✕) 둘 다 가능. */
+    #mangoi-widget.open #mangoi-toggle { bottom: 96px !important; }
   }
   /* 🎓 수업 중(vc-in-call): A.i 상담사 위젯(아바타/+ 런처) 전체 숨김.
      홈 화면에서는 기존 아바타 그대로 유지. (2026-06-19) */
@@ -30177,17 +30180,18 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   body:not(.vc-in-call) #ph52-cache-fab { display:none !important; }
   body.vc-in-call #mg-fab-wrap { display:none !important; }
 
-  /* 통합 FAB — 왼쪽(결제 버튼과 안 겹치게), 같은 높이로 배치 (2026-06-21 수정).
-     기존 우측 → 좌측으로 이동. 결제하기 버튼/우하단 A.i 상담사와 겹치지 않게. */
-  #mg-fab-wrap{position:fixed;left:16px;right:auto;bottom:calc(124px + env(safe-area-inset-bottom,0px));
-    z-index:2147483200;display:flex;flex-direction:column-reverse;align-items:flex-start;gap:12px}
-  /* 📱 모바일(≤480px): 좌측, 결제/메뉴 버튼 위로 올려 겹침 방지 */
+  /* 통합 FAB — 좌하단 코너(결제하기 '아래', 닿지 않게). 우하단 A.i 얼굴·중앙 설치배너와 분리 (2026-06-21 수정).
+     wrap 은 '+' 버튼 크기로만 잡고, 펼침 메뉴는 절대배치로 위에 띄워 wrap 높이를 부풀리지 않음
+     → '+' 가 위로 밀려 결제 버튼에 닿던 문제 해결. 말풍선도 '+' 바로 옆에 붙음. */
+  #mg-fab-wrap{position:fixed;left:16px;right:auto;bottom:calc(20px + env(safe-area-inset-bottom,0px));
+    z-index:2147483200;width:32px;height:32px}
+  /* 📱 모바일(≤480px): 좌하단 코너(설치배너 left:68 보다 왼쪽, 우하단 AI 얼굴과 좌우 분리) */
   @media (max-width:480px){
-    #mg-fab-wrap{left:14px;right:auto;bottom:calc(128px + env(safe-area-inset-bottom,0px))}
+    #mg-fab-wrap{left:14px;right:auto;bottom:calc(18px + env(safe-area-inset-bottom,0px))}
   }
-  /* 💻 PC(≥481px): A.i 얼굴이 2배(128px·bottom:104px)+큰 라벨 → 그 위로 충분히 올림 */
+  /* 💻 PC(≥481px): 좌하단 코너 유지(아바타는 우하단이라 안 겹침) */
   @media (min-width:481px){
-    #mg-fab-wrap{bottom:calc(300px + env(safe-area-inset-bottom,0px))}
+    #mg-fab-wrap{bottom:calc(24px + env(safe-area-inset-bottom,0px))}
   }
   /* A.i 상담사 채팅이 열리면 '+' 숨김(전체화면 패널 위에 안 뜨게) */
   #mangoi-widget.open ~ #mg-fab-wrap{display:none !important}
@@ -30201,7 +30205,8 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   #mg-fab:active{transform:scale(.93)}
   #mg-fab .mg-ic{font-size:24px;line-height:1;font-weight:700;text-shadow:0 0 8px rgba(251,191,36,.85);transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
   #mg-fab-wrap.open #mg-fab .mg-ic{transform:rotate(135deg)}
-  .mg-fab-items{display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+  /* 펼침 메뉴 = '+' 바로 위로 절대배치(접혔을 땐 공간 차지 안 함 → wrap 은 '+' 크기 유지) */
+  .mg-fab-items{position:absolute;left:0;bottom:calc(100% + 12px);display:flex;flex-direction:column;align-items:flex-start;gap:12px}
   .mg-fab-item{display:flex;flex-direction:row;align-items:center;gap:9px;opacity:0;transform:translateY(12px) scale(.8);
     pointer-events:none;transition:opacity .22s,transform .3s cubic-bezier(.34,1.56,.64,1)}
   #mg-fab-wrap.open .mg-fab-item{opacity:1;transform:none;pointer-events:auto}
@@ -30220,7 +30225,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 
   /* 💬 '+' 버튼 말풍선 — 마우스를 대면(또는 포커스/첫 로드) 안에 든 메뉴를 미리 알려줌 (2026-06-21) */
   /* 동그란 '+' 버튼(40px) 바로 오른쪽 옆에 붙이고, 버튼 중앙 높이에 세로 정렬 */
-  #mg-fab-hint{position:absolute;left:45px;bottom:20px;display:flex;align-items:center;gap:9px;
+  #mg-fab-hint{position:absolute;left:45px;bottom:16px;display:flex;align-items:center;gap:9px;
     background:rgba(15,23,42,.96);color:#fff;border:1px solid rgba(251,191,36,.55);border-radius:12px;
     padding:8px 12px;font-size:12.5px;font-weight:700;white-space:nowrap;
     box-shadow:0 8px 22px -4px rgba(0,0,0,.55);pointer-events:none;z-index:1;
@@ -30272,21 +30277,19 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   }
   fab.addEventListener('click',function(){ set(!wrap.classList.contains('open')); });
   scrim.addEventListener('click',function(){ set(false); });
-  // 첫 로드 시 '+' 안에 든 메뉴(재설정·상담)를 말풍선으로 잠깐 안내 — 터치 기기에서도 내용 미리보기.
-  // hover 가 없는 태블릿/폰을 위해 처음 몇 번만 자동 표시(localStorage 카운트).
-  try{
-    var hk='mg_fab_hint_seen', seen=parseInt(localStorage.getItem(hk)||'0',10);
-    if(seen<3 && !wrap.classList.contains('open')){
-      setTimeout(function(){
-        if(wrap.classList.contains('open')) return;
-        wrap.classList.add('hint-on');
-        setTimeout(function(){ wrap.classList.remove('hint-on'); }, 4200);
-        try{ localStorage.setItem(hk, String(seen+1)); }catch(e){}
-      }, 1200);
-    }
-  }catch(e){}
-  // 메뉴를 한 번 열면 자동 안내는 더 표시하지 않음
-  fab.addEventListener('click',function(){ wrap.classList.remove('hint-on'); try{ localStorage.setItem('mg_fab_hint_seen','3'); }catch(e){} }, {once:true});
+  // 말풍선 안내(메뉴: 재설정·상담)는 '상시 자동 표시'하지 않고,
+  // '+' 버튼에 손가락을 대거나(터치) 마우스를 올릴 때(hover/focus)만 바로 옆에 표시.
+  var hintT=null;
+  function showHint(){
+    if(wrap.classList.contains('open')) return;
+    wrap.classList.add('hint-on');
+    clearTimeout(hintT);
+    hintT=setTimeout(function(){ wrap.classList.remove('hint-on'); }, 1800);
+  }
+  fab.addEventListener('pointerdown', showHint);   // 터치/클릭 직전 — 손가락 대면 바로 옆에 안내
+  fab.addEventListener('mouseenter', showHint);    // 데스크톱 hover 보조
+  // 메뉴가 열리면 말풍선은 숨김(.open 규칙) + 타이머 정리
+  fab.addEventListener('click',function(){ clearTimeout(hintT); wrap.classList.remove('hint-on'); });
   document.addEventListener('keydown',function(e){ if(e.key==='Escape') set(false); });
   wrap.addEventListener('click',function(e){
     var b=e.target.closest('[data-act]'); if(!b) return;
