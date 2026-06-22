@@ -1272,11 +1272,13 @@
         .vc-main-row.video-free .video-size-bar { cursor: move; touch-action: none; }
         .vp-free-grip { display: none; }
         .vc-main-row.video-free .vp-free-grip {
-            display: block; position: absolute; right: 2px; bottom: 2px;
-            width: 30px; height: 30px; cursor: nwse-resize; z-index: 6;
-            touch-action: none; border-radius: 0 0 10px 0;
+            display: block; position: absolute; right: 3px; top: 36px;
+            width: 34px; height: 34px; cursor: nesw-resize; z-index: 7;
+            touch-action: none; border-radius: 8px;
             background:
-              linear-gradient(135deg, transparent 0 44%, rgba(245,158,11,0.95) 44% 54%, transparent 54% 66%, rgba(245,158,11,0.95) 66% 76%, transparent 76%);
+              linear-gradient(45deg, transparent 0 42%, rgba(245,158,11,0.97) 42% 52%, transparent 52% 64%, rgba(245,158,11,0.97) 64% 74%, transparent 74%),
+              rgba(15,23,42,0.55);
+            box-shadow: 0 2px 8px rgba(0,0,0,.45);
         }
 
         /* 🧠 복습퀴즈 모드 — 얼굴(비디오) 영역을 완전히 숨기고 퀴즈가 화면 전체를 차지 */
@@ -11136,8 +11138,9 @@ function vcAttachFreeHandlers(){
     function move(e){
         if (!mode) return;
         const dx = e.clientX - sx, dy = e.clientY - sy;
-        if (mode === 'move') vcApplyFreeBox({ left: sLeft + dx, top: sTop + dy, width: sW, height: sH });
-        else                 vcApplyFreeBox({ left: sLeft, top: sTop, width: sW + dx, height: sH + dy });
+        if (mode === 'move')           vcApplyFreeBox({ left: sLeft + dx, top: sTop + dy, width: sW, height: sH });
+        else if (mode === 'resize-ne') vcApplyFreeBox({ left: sLeft, top: sTop + dy, width: sW + dx, height: sH - dy }); // 우상단 그립: 위로 끌면 커짐
+        else                           vcApplyFreeBox({ left: sLeft, top: sTop, width: sW + dx, height: sH + dy });
         e.preventDefault();
     }
     function end(){
@@ -11148,7 +11151,7 @@ function vcAttachFreeHandlers(){
         document.removeEventListener('pointercancel', end);
     }
 
-    if (grip) grip.addEventListener('pointerdown', e => start(e, 'resize'));
+    if (grip) grip.addEventListener('pointerdown', e => start(e, 'resize-ne'));
     if (bar)  bar.addEventListener('pointerdown', e => {
         if (e.target.closest('button')) return; // 버튼 클릭은 이동으로 가로채지 않음
         start(e, 'move');
@@ -27478,7 +27481,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260622192129 -->
+<!-- BUILD:20260622192939 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
