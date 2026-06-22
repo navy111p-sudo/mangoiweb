@@ -21778,7 +21778,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260623015116 -->
+        <!-- BUILD:20260623020109 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -26294,6 +26294,8 @@ button.chip:hover,
     gap: 3px !important;
   }
   .top-header svg { width: 12px !important; height: 12px !important; }
+  /* 상단바 가운데 빈 기간 셀렉트(#period) 숨김 — 데스크톱(2026-06-23) */
+  @media (min-width:901px){ .top-header .th-controls #period{ display:none !important; } }
 </style>
 
 <script>
