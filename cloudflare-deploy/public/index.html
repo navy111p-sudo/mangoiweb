@@ -1286,6 +1286,27 @@
         body.vc-in-call .vp-free-grip:hover { background:
               linear-gradient(45deg, transparent 0 40%, #fbbf24 40% 50%, transparent 50% 62%, #fbbf24 62% 72%, transparent 72%),
               rgba(15,23,42,0.9); }
+        /* 크기조절 그립 호버/터치 말풍선 — 마우스 올리거나 손 대면 나오고 떼면 사라짐 */
+        .vp-free-grip .vp-grip-tip {
+            position: absolute; top: calc(100% + 8px); right: 0;
+            background: rgba(15,23,42,0.96); color: #fde68a;
+            font-size: 0.72rem; font-weight: 700; white-space: nowrap;
+            padding: 5px 9px; border-radius: 8px;
+            border: 1px solid rgba(245,158,11,0.6);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+            opacity: 0; transform: translateY(-4px);
+            transition: opacity 0.14s ease, transform 0.14s ease;
+            pointer-events: none; z-index: 41;
+        }
+        .vp-free-grip .vp-grip-tip::before {
+            content: ''; position: absolute; top: -5px; right: 12px;
+            border-left: 5px solid transparent; border-right: 5px solid transparent;
+            border-bottom: 5px solid rgba(245,158,11,0.6);
+        }
+        body.vc-in-call .vp-free-grip:hover .vp-grip-tip,
+        body.vc-in-call .vp-free-grip.tip-show .vp-grip-tip {
+            opacity: 1; transform: translateY(0);
+        }
 
         /* 🧠 복습퀴즈 모드 — 얼굴(비디오) 영역을 완전히 숨기고 퀴즈가 화면 전체를 차지 */
         .vc-main-row.content-full .video-pane { display: none !important; }
@@ -6812,7 +6833,7 @@
                 <!-- 다른 참가자의 비디오는 JS로 동적 추가됩니다 -->
             </div>
             <!-- ⤡ 자유 크기 모드 — 우하단 모서리 드래그 그립 (마우스/터치) -->
-            <div class="vp-free-grip" id="vc-vp-grip" title="모서리를 끌어 가로·세로 크기 조절"></div>
+            <div class="vp-free-grip" id="vc-vp-grip" ontouchstart="this.classList.add('tip-show')" ontouchend="this.classList.remove('tip-show')" ontouchcancel="this.classList.remove('tip-show')"><span class="vp-grip-tip" data-ko="크기 조절 기능" data-en="Resize">크기 조절 기능</span></div>
         </div>
 
         <!-- 우측: 탭(칠판/PDF) 콘텐츠 -->
@@ -27508,7 +27529,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260622195045 -->
+<!-- BUILD:20260622201213 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
