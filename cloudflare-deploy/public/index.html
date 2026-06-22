@@ -15083,7 +15083,7 @@ window.addEventListener('DOMContentLoaded', () => {
         return Array.isArray(items) ? items : null;
       } catch (e) { return null; }
     }
-    let teachers = await tryFetch('/api/teacher-profiles?limit=30');
+    let teachers = await tryFetch('/api/teacher-profiles?limit=100');
     if (!teachers || !teachers.length) {
       teachers = await tryFetch('/api/admin/teacher-profiles');
     }
@@ -15092,8 +15092,19 @@ window.addEventListener('DOMContentLoaded', () => {
     const GRADS = ['#fcd34d,#f59e0b','#86efac,#10b981','#f9a8d4,#ec4899','#93c5fd,#3b82f6','#c4b5fd,#8b5cf6','#fda4af,#f43f5e','#a7f3d0,#06b6d4','#fde68a,#ea580c'];
     const EMOJIS = ['👩🏻‍🏫','👨🏻‍🏫','👩🏻‍🎓','🧑🏻‍🏫','👩🏻‍💼','👨🏻‍🎓'];
 
+    function teacherCat(t){ var o=((t.origin_region||t.active_region||'')+''); if(/미국|캐나다|usa|canada/i.test(o))return 'us'; if(/영국|호주|영연방|uk|britain|australia/i.test(o))return 'gb'; if(/중국|중화|china|chin/i.test(o))return 'cn'; return 'ph'; }
+    var FLAG={ph:'🇵🇭',us:'🇺🇸',gb:'🇬🇧',cn:'🇨🇳'};
+    var CATLABEL={all:'🌏 전체 강사진',ph:'🇵🇭 필리핀 강사진',us:'🇺🇸 미국·캐나다 강사진',gb:'🇬🇧 영국·호주 강사진',cn:'🇨🇳 중국어 강사진'};
+    window.__teacherCat = teacherCat;
+    window.__renderTeacherGallery = function(cat){
+    cat = cat || 'all';
+    var list = (cat==='all') ? teachers : teachers.filter(function(t){ return teacherCat(t)===cat; });
+    var hd = document.getElementById('ph-gallery-heading');
+    if (hd) hd.textContent = (CATLABEL[cat]||CATLABEL.all) + ' (' + list.length + '명)';
+    document.querySelectorAll('.info-tile[data-cat]').forEach(function(el){ el.style.outline = (el.getAttribute('data-cat')===cat) ? '2px solid #fbbf24' : ''; el.style.cursor='pointer'; });
     box.innerHTML = '';
-    teachers.slice(0, 12).forEach((t, i) => {
+    if (!list.length) { var emp=document.createElement('div'); emp.style.cssText='grid-column:1/-1;text-align:center;color:#94a3b8;font-size:13px;padding:18px'; emp.textContent='해당 국적의 강사가 아직 없습니다.'; box.appendChild(emp); }
+    list.forEach((t, i) => {
       const card = document.createElement('div');
       card.className = 'ph-card';
       card.style.cursor = 'pointer';
@@ -15117,7 +15128,7 @@ window.addEventListener('DOMContentLoaded', () => {
       }
       const flag = document.createElement('span');
       flag.className = 'ph-flag';
-      flag.textContent = '🇵🇭';
+      flag.textContent = FLAG[teacherCat(t)] || '🇵🇭';
       photo.appendChild(flag);
 
       if (t.intro_video_url) {
@@ -15149,8 +15160,11 @@ window.addEventListener('DOMContentLoaded', () => {
     // ERP 표시 뱃지
     const badge = document.createElement('div');
     badge.style.cssText = 'grid-column:1/-1;text-align:center;font-size:11px;color:#10b981;margin-top:6px';
-    badge.textContent = '✓ 본사 ERP 등록 강사 ' + teachers.length + '명 표시';
+    badge.textContent = '✓ 본사 ERP 등록 강사 ' + teachers.length + '명' + (cat==='all' ? ' 전체 표시' : ' 중 ' + list.length + '명 표시');
     box.appendChild(badge);
+    };  // end __renderTeacherGallery
+    window.__filterTeacherCat = function(cat){ if (window.__renderTeacherGallery) window.__renderTeacherGallery(cat); };
+    window.__renderTeacherGallery('all');
   };
 
   // 강사 카드 클릭 시 상세 모달 (사진·학력·경력·자격증·영상)
@@ -15192,7 +15206,7 @@ window.addEventListener('DOMContentLoaded', () => {
     headInfo.appendChild(nameDiv);
     const specDiv = document.createElement('div');
     specDiv.style.cssText = 'font-size:13px;color:#94a3b8;margin-top:4px';
-    specDiv.textContent = '🇵🇭 ' + (t.group_name || '영어 회화');
+    (function(){ var _f={ph:'🇵🇭',us:'🇺🇸',gb:'🇬🇧',cn:'🇨🇳'}; var _c=(window.__teacherCat?window.__teacherCat(t):'ph'); specDiv.textContent = (_f[_c]||'🇵🇭') + ' ' + (t.group_name || '영어 회화'); })();
     headInfo.appendChild(specDiv);
     const statDiv = document.createElement('div');
     statDiv.style.cssText = 'font-size:12px;color:#10b981;margin-top:2px';
@@ -15783,13 +15797,14 @@ window.addEventListener('DOMContentLoaded', () => {
     <p>1,000명+ 검증된 강사들이 매일 7,000건+의 수업을 진행합니다.</p>
     <h3>🌍 강사 구성</h3>
     <div class="info-grid">
-      <div class="info-tile"><b>🇵🇭 필리핀</b><span>현지 원어민 강사</span></div>
-      <div class="info-tile"><b>🇺🇸 미국·캐나다</b><span>원어민</span></div>
-      <div class="info-tile"><b>🇬🇧 영국·호주</b><span>원어민 <em style="display:inline-block;margin-left:4px;padding:1px 7px;border-radius:999px;background:#fef3c7;color:#b45309;font-size:10px;font-weight:800;font-style:normal;vertical-align:middle;border:1px solid #fcd34d;white-space:nowrap">준비중</em></span></div>
-      <div class="info-tile"><b>🇨🇳 중국어</b><span>이중언어</span></div>
+      <div class="info-tile" data-cat="all" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('all')"><b>🌏 전체</b><span>모든 강사</span></div>
+      <div class="info-tile" data-cat="ph" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('ph')"><b>🇵🇭 필리핀</b><span>현지 원어민 강사</span></div>
+      <div class="info-tile" data-cat="us" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('us')"><b>🇺🇸 미국·캐나다</b><span>원어민</span></div>
+      <div class="info-tile" data-cat="gb" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('gb')"><b>🇬🇧 영국·호주</b><span>원어민 <em style="display:inline-block;margin-left:4px;padding:1px 7px;border-radius:999px;background:#fef3c7;color:#b45309;font-size:10px;font-weight:800;font-style:normal;vertical-align:middle;border:1px solid #fcd34d;white-space:nowrap">준비중</em></span></div>
+      <div class="info-tile" data-cat="cn" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('cn')"><b>🇨🇳 중국어</b><span>이중언어</span></div>
     </div>
 
-    <h3 style="margin-top:14px">🌴 필리핀 강사진 미리보기</h3>
+    <h3 id="ph-gallery-heading" style="margin-top:14px">🌏 전체 강사진</h3>
     <div class="ph-gallery" id="ph-gallery-dynamic">
       <div class="ph-card">
         <div class="ph-photo" style="background:linear-gradient(135deg,#fcd34d,#f59e0b)">
@@ -27529,7 +27544,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260623003613 -->
+<!-- BUILD:20260623014909 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
