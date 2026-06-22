@@ -146,6 +146,9 @@ export default {
 
     // TURN/STUN config endpoint
     if (path === '/api/turn-config') {
+      if (url.searchParams.get('debug') === '1') {
+        return await handleTurnConfigDebug(env);
+      }
       return await handleTurnConfig(env);
     }
 
@@ -1198,6 +1201,41 @@ async function handleHealth(): Promise<Response> {
   return new Response(JSON.stringify(response), {
     status: 200,
     headers: { 'Content-Type': 'application/json' }
+  });
+}
+
+// 임시 진단용: 비밀값을 노출하지 않고 Cloudflare TURN 호출 결과만 리턴
+async function handleTurnConfigDebug(env: Env): Promise<Response> {
+  const diag: any = {
+    hasKeyId: !!env.TURN_KEY_ID,
+    keyIdLen: (env.TURN_KEY_ID || '').length,
+    hasApiToken: !!env.TURN_KEY_API_TOKEN,
+    apiTokenLen: (env.TURN_KEY_API_TOKEN || '').length,
+  };
+  if (env.TURN_KEY_ID && env.TURN_KEY_API_TOKEN) {
+    try {
+      const cfResp = await fetch(
+        `https://rtc.live.cloudflare.com/v1/turn/keys/${env.TURN_KEY_ID}/credentials/generate-ice-servers`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${env.TURN_KEY_API_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ ttl: 86400 })
+        }
+      );
+      diag.cfStatus = cfResp.status;
+      diag.cfOk = cfResp.ok;
+      const txt = await cfResp.text();
+      diag.cfBody = txt.slice(0, 500);
+    } catch (err: any) {
+      diag.fetchError = String(err && err.message || err);
+    }
+  }
+  return new Response(JSON.stringify(diag, null, 2), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' }
   });
 }
 
