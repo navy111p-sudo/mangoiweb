@@ -1244,7 +1244,18 @@
         .vc-main-row.video-half          .video-pane { width: 50%; }
         .vc-main-row.video-threequarter  .video-pane { width: 75%; }
         .vc-main-row.video-full          .video-pane { width: 100%; }
-        .vc-main-row.video-full          .content-pane { display: none; }
+        /* fix — 전체(Full) 모드에서도 도구(칠판·교재·펜 등)를 우측 오버레이로 유지.
+           영상은 패널 폭 100%로 꽉, 도구 패널은 비어있던 우측 위에 떠 있게 함. */
+        .vc-main-row.video-full          { position: relative; }
+        .vc-main-row.video-full          .content-pane {
+            display: flex !important;
+            position: absolute; top: 0; right: 0; bottom: 0;
+            width: 38%; min-width: 320px; max-width: 620px;
+            z-index: 40;
+            background: rgba(15,23,42,0.97);
+            box-shadow: -10px 0 30px -6px rgba(0,0,0,0.55);
+            border-left: 1px solid rgba(148,163,184,0.25);
+        }
 
         /* 🧠 복습퀴즈 모드 — 얼굴(비디오) 영역을 완전히 숨기고 퀴즈가 화면 전체를 차지 */
         .vc-main-row.content-full .video-pane { display: none !important; }
@@ -27335,7 +27346,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260622182619 -->
+<!-- BUILD:20260622190925 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
