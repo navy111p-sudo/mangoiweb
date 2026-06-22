@@ -1,8 +1,8 @@
 // 🌐 Mangoi Service Worker — PWA 오프라인 캐시 + 빠른 로딩
 // 버전 갱신 시 CACHE_NAME 의 숫자만 바꾸면 모든 사용자에게 즉시 새 버전 전파
 
-const CACHE_NAME = 'mangoi-v15-always-fresh';
-const RUNTIME_CACHE = 'mangoi-v14-always-fresh';
+const CACHE_NAME = 'mangoi-v16-always-fresh';
+const RUNTIME_CACHE = 'mangoi-v16-always-fresh';
 
 // 첫 설치 때 미리 캐시할 핵심 자산 (필수 only — 너무 많으면 install 실패)
 const PRECACHE_URLS = [
@@ -71,12 +71,25 @@ self.addEventListener('fetch', (event) => {
       } catch (e) {
         const cached = await caches.match('/');
         if (cached) return cached;
+        // 오프라인 폴백 — 데드엔드 방지: 네트워크 복구 시 스스로 SW 해제 후 새로고침
         return new Response(
-          '<!doctype html><meta charset=utf-8><title>오프라인</title>' +
-          '<div style="padding:40px;font-family:sans-serif;text-align:center;color:#333">' +
-          '<h1>📡 네트워크 연결 안 됨</h1><p>잠시 후 다시 시도해주세요.</p>' +
-          '<button onclick=location.reload() style="padding:10px 20px;background:#fbbf24;color:#000;border:0;border-radius:8px;font-weight:700;cursor:pointer">새로고침</button>' +
-          '</div>',
+          `<!doctype html><meta charset="utf-8"><title>오프라인</title>
+<div style="padding:40px;font-family:sans-serif;text-align:center;color:#333">
+<h1>📡 네트워크 연결 안 됨</h1>
+<p id="m">연결을 확인하는 중입니다…</p>
+<button onclick="recover()" style="padding:10px 20px;background:#fbbf24;color:#000;border:0;border-radius:8px;font-weight:700;cursor:pointer">새로고침</button>
+</div>
+<script>
+async function recover(){
+  try{ if(navigator.serviceWorker){ var rs=await navigator.serviceWorker.getRegistrations(); await Promise.all(rs.map(function(r){return r.unregister();})); } }catch(e){}
+  location.replace('/?_swkill='+Date.now());
+}
+var _n=0,_t=setInterval(async function(){
+  _n++;
+  try{ var r=await fetch('/?_ping='+Date.now(),{cache:'no-store'}); if(r&&r.ok){ clearInterval(_t); recover(); return; } }catch(e){}
+  if(_n>20){ clearInterval(_t); var m=document.getElementById('m'); if(m) m.textContent='잠시 후 다시 시도해주세요.'; }
+},3000);
+</script>`,
           { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
         );
       }
