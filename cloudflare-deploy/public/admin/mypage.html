@@ -973,7 +973,7 @@
     var canSettle = (role === 'franchise' || role === 'branch' || role === 'hq');
 
     // 교사 전용: 수업 입장 카드 · 내 수업 · 내 급여
-    var teCard = el('teacher-enter-class'); if (teCard) teCard.style.display = isTeacher ? '' : 'none';
+    var teCard = el('teacher-enter-class'); if (teCard) teCard.style.display = isTeacher ? 'flex' : 'none';
     var tLessons = qsTab('lessons'); if (tLessons) tLessons.style.display = isTeacher ? '' : 'none';
     var tSalary  = qsTab('salary');  if (tSalary)  tSalary.style.display  = isTeacher ? '' : 'none';
 
