@@ -911,71 +911,226 @@
 <script>
 (function(){
   "use strict";
-  // 탭 토글
+  var el = function(id){ return document.getElementById(id); };
+  var EN = function(){ return window.getLang && window.getLang() === 'en'; };
+  function qsTab(name){ return document.querySelector('.tab[data-tab="' + name + '"]'); }
+
+  // ── 탭 토글 ──
   var tabs = document.querySelectorAll('.tab');
   var panels = document.querySelectorAll('.panel');
-  tabs.forEach(function(t){
-    t.addEventListener('click', function(){
-      var name = t.getAttribute('data-tab');
-      tabs.forEach(function(x){ x.classList.toggle('active', x === t); });
-      panels.forEach(function(p){ p.classList.toggle('active', p.getAttribute('data-panel') === name); });
-    });
-  });
-
-  // 🏢 캐피타운 정산 탭 — 캐피타운 본사·본사 경영진만 노출
-  (function(){
-    var role = '', uid = '';
-    try { var s = JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}'); role = s.role || ''; uid = s.uid || ''; } catch(e){}
-    if (!role) {
-      uid = String(uid || '');
-      if (uid === 'capitown' || uid.indexOf('capi') === 0) role = 'capitown';
-      else if (uid === 'admin' || uid === 'hq_exec' || uid === 'exec') role = 'hq_exec';
-    }
-    if (role === 'capitown' || role === 'hq_exec') {
-      var tb = document.getElementById('tab-capitown');
-      if (tb) tb.style.display = '';
-    }
-  })();
-
-  // 프로필 데모 로드
-  var el = function(id){ return document.getElementById(id); };
-  if (el('profUsername')) el('profUsername').value = 'admin';
-  if (el('profName'))     el('profName').value = '정우영';
-  if (el('profEmail'))    el('profEmail').value = 'navy11@naver.com';
-  if (el('profPhone'))    el('profPhone').value = '';
-
-  var EN = function(){ return window.getLang && window.getLang() === 'en'; };
-  if (el('profSaveBtn')) el('profSaveBtn').addEventListener('click', function(){
-    var msg = EN() ? '✅ Changes saved.\n\n' : '✅ 변경사항이 저장됐어요.\n\n';
-    alert(msg + (el('profName')?.value || '') + ' · ' + (el('profEmail')?.value || ''));
-  });
-  if (el('pwSaveBtn')) el('pwSaveBtn').addEventListener('click', function(){
-    var cur = el('pwCur')?.value || '';
-    var nw = el('pwNew')?.value || '';
-    var nw2 = el('pwNew2')?.value || '';
-    if (!cur || !nw || !nw2) { alert(EN()?'⚠️ Please fill in all fields.':'⚠️ 모든 항목을 입력해 주세요.'); return; }
-    if (nw !== nw2)          { alert(EN()?'⚠️ New passwords do not match.':'⚠️ 새 비밀번호가 일치하지 않습니다.'); return; }
-    if (nw.length < 6)       { alert(EN()?'⚠️ New password must be at least 6 characters.':'⚠️ 새 비밀번호는 6자 이상이어야 합니다.'); return; }
-    alert(EN()?'🔐 Password changed. You will be signed out of other devices.':'🔐 비밀번호가 변경됐어요. 다른 기기에서 자동 로그아웃됩니다.');
-  });
-
-  // 로그인 이력 / 세션 데모 채우기 (언어 연동)
-  function renderDemo(){
-    var en = EN();
-    var hBox = el('historyBox');
-    if (hBox) hBox.innerHTML = [
-      '<div style="padding:10px 14px;background:rgba(15,23,42,0.5);border-radius:10px;margin-bottom:6px;font-size:12.5px">🟢 <b>' + (en?'Current session':'현재 세션') + '</b> · Chrome · Seoul, KR · 2026-05-30 14:22</div>',
-      '<div style="padding:10px 14px;background:rgba(15,23,42,0.5);border-radius:10px;margin-bottom:6px;font-size:12.5px">📱 iPhone Safari · Seoul, KR · 2026-05-29 21:14</div>',
-      '<div style="padding:10px 14px;background:rgba(15,23,42,0.5);border-radius:10px;font-size:12.5px">💻 Chrome · Daegu, KR · 2026-05-28 09:03</div>'
-    ].join('');
-    var sBox = el('sessionsBox');
-    if (sBox) sBox.innerHTML = [
-      '<div style="padding:10px 14px;background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.35);border-radius:10px;margin-bottom:6px;font-size:12.5px;display:flex;justify-content:space-between;align-items:center"><span>🟢 <b>' + (en?'In use now':'현재 사용 중') + '</b> · Chrome · Seoul</span><span style="color:#86efac;font-size:10.5px;font-weight:700">' + (en?'Active':'활성') + '</span></div>',
-      '<div style="padding:10px 14px;background:rgba(15,23,42,0.5);border-radius:10px;font-size:12.5px;display:flex;justify-content:space-between;align-items:center"><span>📱 iPhone Safari · Seoul</span><button onclick="alert(\'' + (en?'Session ended':'세션 종료됨') + '\')" style="padding:4px 10px;background:#ef4444;color:#fff;border:0;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">' + (en?'End':'종료') + '</button></div>'
-    ].join('');
+  function activateTab(name){
+    tabs.forEach(function(x){ x.classList.toggle('active', x.getAttribute('data-tab') === name); });
+    panels.forEach(function(p){ p.classList.toggle('active', p.getAttribute('data-panel') === name); });
   }
-  renderDemo();
-  window.addEventListener('mangoi:lang-changed', renderDemo);
+  tabs.forEach(function(t){
+    t.addEventListener('click', function(){ activateTab(t.getAttribute('data-tab')); });
+  });
+
+  // ── 공통 포맷 ──
+  function fmtTime(ms){
+    if (!ms) return '—';
+    try {
+      var d = new Date(Number(ms));
+      var p = function(n){ return (n<10?'0':'')+n; };
+      return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    } catch(e){ return '—'; }
+  }
+  function deviceOf(ua){
+    ua = String(ua || '');
+    var os = /iPhone|iPad|iOS/i.test(ua) ? '📱 iPhone' : /Android/i.test(ua) ? '📱 Android'
+           : /Windows/i.test(ua) ? '💻 Windows' : /Mac/i.test(ua) ? '💻 Mac' : '🖥 기기';
+    var br = /Edg/i.test(ua) ? 'Edge' : /Chrome/i.test(ua) ? 'Chrome' : /Safari/i.test(ua) ? 'Safari'
+           : /Firefox/i.test(ua) ? 'Firefox' : '';
+    return (os + (br ? ' · ' + br : '')).trim();
+  }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]); }); }
+
+  // ── 역할별 UI 분기 (서버 세션이 권위 → 휴대폰·모바일·PC 모두 동일) ──
+  // role: hq | franchise | branch | agency | teacher | staff
+  function applyRole(role, roleLabel, scope){
+    role = role || 'staff';
+    var en = EN();
+    // 상단 빵부스러기 + 역할 배지
+    var crumb = document.querySelector('header.top .crumb');
+    if (crumb){ crumb.setAttribute('data-ko', roleLabel + ' · 마이페이지'); crumb.setAttribute('data-en', roleLabel + ' · My Page'); crumb.textContent = roleLabel + (en?' · My Page':' · 마이페이지'); }
+    var badge = el('heroRole');
+    if (!badge){
+      var info = document.querySelector('.profile-hero .profile-info');
+      if (info){ badge = document.createElement('div'); badge.id = 'heroRole'; badge.style.cssText = 'margin-top:8px;display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:99px;font-size:11.5px;font-weight:800'; info.appendChild(badge); }
+    }
+    if (badge){
+      var colors = { hq:'#fbbf24', franchise:'#a78bfa', branch:'#38bdf8', agency:'#34d399', teacher:'#f472b6', staff:'#94a3b8' };
+      var ico = { hq:'🏢', franchise:'🏢', branch:'🏬', agency:'🏪', teacher:'👨‍🏫', staff:'👤' };
+      var c = colors[role] || '#94a3b8';
+      var detail = (scope && scope.label && scope.label !== '권한 없음') ? (' · ' + scope.label) : '';
+      badge.style.background = 'rgba(148,163,184,0.12)';
+      badge.style.color = c;
+      badge.style.border = '1px solid ' + c + '55';
+      badge.textContent = (ico[role]||'👤') + ' ' + roleLabel + detail;
+    }
+
+    var isTeacher = role === 'teacher';
+    var canSettle = (role === 'franchise' || role === 'branch' || role === 'hq');
+
+    // 교사 전용: 수업 입장 카드 · 내 수업 · 내 급여
+    var teCard = el('teacher-enter-class'); if (teCard) teCard.style.display = isTeacher ? '' : 'none';
+    var tLessons = qsTab('lessons'); if (tLessons) tLessons.style.display = isTeacher ? '' : 'none';
+    var tSalary  = qsTab('salary');  if (tSalary)  tSalary.style.display  = isTeacher ? '' : 'none';
+
+    // 정산: 본사·프랜차이즈·지사만. 라벨을 역할에 맞게.
+    var tCap = el('tab-capitown');
+    if (tCap){
+      if (canSettle){
+        tCap.style.display = '';
+        var capKo = role==='franchise' ? '🏢 프랜차이즈 정산' : role==='branch' ? '🏬 지사 정산' : '🏢 전체 정산';
+        var capEn = role==='franchise' ? '🏢 Franchise Settlement' : role==='branch' ? '🏬 Branch Settlement' : '🏢 Settlement';
+        tCap.setAttribute('data-ko', capKo); tCap.setAttribute('data-en', capEn);
+        tCap.textContent = en ? capEn : capKo;
+      } else {
+        tCap.style.display = 'none';
+      }
+    }
+
+    // 활성 탭이 숨겨졌으면 프로필로 되돌림
+    var act = document.querySelector('.tab.active');
+    if (act && act.style.display === 'none') activateTab('profile');
+  }
+
+  // ── 본인 정보 로드 ──
+  function loadMe(){
+    fetch('/api/admin/me', { credentials:'include' })
+      .then(function(r){ if (r.status === 401){ location.href = '/admin/login.html'; throw new Error('auth'); } return r.json(); })
+      .then(function(j){
+        if (!j || !j.ok) return;
+        var u = j.user || {};
+        var name = u.name || u.username || (EN()?'User':'사용자');
+        if (el('heroName'))   el('heroName').textContent = name;
+        if (el('heroUserId')) el('heroUserId').textContent = '@' + (u.username || 'user');
+        if (el('profUsername')) el('profUsername').value = u.username || '';
+        if (el('profName'))     el('profName').value = u.name || '';
+        if (el('profEmail'))    el('profEmail').value = u.email || '';
+        if (el('profPhone'))    el('profPhone').value = u.phone || '';
+        applyRole(j.role, j.roleLabel || (EN()?'User':'사용자'), j.scope);
+        window.__myRole = j.role; window.__myRoleLabel = j.roleLabel; window.__myScope = j.scope;
+      })
+      .catch(function(){});
+  }
+
+  // ── 로그인 이력 + 통계 ──
+  function loadHistory(){
+    fetch('/api/admin/login-history', { credentials:'include' })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        var items = (j && j.items) || [];
+        var ok = items.filter(function(x){ return x.success; });
+        if (el('statLogins')) el('statLogins').textContent = ok.length >= 10 ? '10+' : String(ok.length);
+        if (el('statLast'))   el('statLast').textContent = ok.length ? fmtTime(ok[0].login_at) : '—';
+        renderHistory(items);
+        window.__hist = items;
+      })
+      .catch(function(){});
+  }
+  function renderHistory(items){
+    var hBox = el('historyBox'); if (!hBox) return;
+    var en = EN();
+    if (!items || !items.length){ hBox.innerHTML = '<div class="empty">' + (en?'No history yet.':'아직 이력이 없습니다.') + '</div>'; return; }
+    hBox.innerHTML = items.map(function(x, i){
+      var okBadge = x.success
+        ? '<span style="color:#86efac;font-size:10.5px;font-weight:700">' + (en?'Success':'성공') + '</span>'
+        : '<span style="color:#fca5a5;font-size:10.5px;font-weight:700">' + (en?'Failed':'실패') + (x.reason?(' ('+esc(x.reason)+')'):'') + '</span>';
+      var dot = i === 0 && x.success ? '🟢 ' : (x.success ? '· ' : '⚠️ ');
+      return '<div style="padding:10px 14px;background:rgba(15,23,42,0.5);border-radius:10px;margin-bottom:6px;font-size:12.5px;display:flex;justify-content:space-between;align-items:center;gap:10px">'
+           + '<span>' + dot + esc(deviceOf(x.user_agent)) + ' · ' + esc(x.ip||'-') + ' · ' + fmtTime(x.login_at) + '</span>' + okBadge + '</div>';
+    }).join('');
+  }
+
+  // ── 활성 세션 ──
+  function loadSessions(){
+    fetch('/api/admin/sessions', { credentials:'include' })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        var items = (j && j.items) || [];
+        if (el('statSessions')) el('statSessions').textContent = String(items.length);
+        renderSessions(items);
+        window.__sess = items;
+      })
+      .catch(function(){});
+  }
+  function renderSessions(items){
+    var sBox = el('sessionsBox'); if (!sBox) return;
+    var en = EN();
+    if (!items || !items.length){ sBox.innerHTML = '<div class="empty">' + (en?'No active sessions.':'활성 세션이 없습니다.') + '</div>'; return; }
+    sBox.innerHTML = items.map(function(x){
+      var left = '<span>' + (x.is_current ? '🟢 <b>' + (en?'In use now':'현재 사용 중') + '</b> · ' : '') + esc(deviceOf(x.user_agent)) + ' · ' + esc(x.ip||'-') + ' · ' + fmtTime(x.last_seen_at) + '</span>';
+      var right = x.is_current
+        ? '<span style="color:#86efac;font-size:10.5px;font-weight:700">' + (en?'Active':'활성') + '</span>'
+        : '<button data-revoke="' + esc(x.token_full) + '" style="padding:4px 10px;background:#ef4444;color:#fff;border:0;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">' + (en?'End':'종료') + '</button>';
+      var bg = x.is_current ? 'rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.35)' : 'rgba(15,23,42,0.5)';
+      return '<div style="padding:10px 14px;background:' + bg + ';border-radius:10px;margin-bottom:6px;font-size:12.5px;display:flex;justify-content:space-between;align-items:center;gap:10px">' + left + right + '</div>';
+    }).join('');
+    sBox.querySelectorAll('[data-revoke]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var tok = btn.getAttribute('data-revoke');
+        if (!confirm(EN()?'End this session?':'이 세션을 종료할까요?')) return;
+        fetch('/api/admin/sessions/revoke', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: tok }) })
+          .then(function(r){ return r.json(); }).then(function(){ loadSessions(); }).catch(function(){});
+      });
+    });
+  }
+
+  // ── 프로필 저장 ──
+  if (el('profSaveBtn')) el('profSaveBtn').addEventListener('click', function(){
+    var en = EN();
+    var body = { name: (el('profName')&&el('profName').value)||'', email: (el('profEmail')&&el('profEmail').value)||'', phone: (el('profPhone')&&el('profPhone').value)||'' };
+    el('profSaveBtn').disabled = true;
+    fetch('/api/admin/profile', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (j && j.ok){ if (el('heroName')) el('heroName').textContent = body.name || (el('heroName').textContent); alert(en?'✅ Changes saved.':'✅ 변경사항이 저장됐어요.'); }
+        else alert(en?'⚠️ Save failed.':'⚠️ 저장에 실패했어요.');
+      })
+      .catch(function(){ alert(EN()?'⚠️ Network error.':'⚠️ 네트워크 오류.'); })
+      .finally(function(){ el('profSaveBtn').disabled = false; });
+  });
+
+  // ── 비밀번호 변경 ──
+  if (el('pwSaveBtn')) el('pwSaveBtn').addEventListener('click', function(){
+    var en = EN();
+    var cur = (el('pwCur')&&el('pwCur').value)||'', nw = (el('pwNew')&&el('pwNew').value)||'', nw2 = (el('pwNew2')&&el('pwNew2').value)||'';
+    if (!cur || !nw || !nw2) { alert(en?'⚠️ Please fill in all fields.':'⚠️ 모든 항목을 입력해 주세요.'); return; }
+    if (nw !== nw2)          { alert(en?'⚠️ New passwords do not match.':'⚠️ 새 비밀번호가 일치하지 않습니다.'); return; }
+    if (nw.length < 6)       { alert(en?'⚠️ New password must be at least 6 characters.':'⚠️ 새 비밀번호는 6자 이상이어야 합니다.'); return; }
+    el('pwSaveBtn').disabled = true;
+    fetch('/api/admin/change-password', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ current_password: cur, new_password: nw }) })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (j && j.ok){ alert(en?'🔐 Password changed. Other devices were signed out.':'🔐 비밀번호가 변경됐어요. 다른 기기에서 자동 로그아웃됐습니다.'); if(el('pwCur'))el('pwCur').value=''; if(el('pwNew'))el('pwNew').value=''; if(el('pwNew2'))el('pwNew2').value=''; loadSessions(); }
+        else if (j && j.error === 'wrong_current_password') alert(en?'⚠️ Current password is incorrect.':'⚠️ 현재 비밀번호가 올바르지 않습니다.');
+        else alert(en?'⚠️ Change failed.':'⚠️ 변경에 실패했어요.');
+      })
+      .catch(function(){ alert(EN()?'⚠️ Network error.':'⚠️ 네트워크 오류.'); })
+      .finally(function(){ el('pwSaveBtn').disabled = false; });
+  });
+
+  // ── 로그아웃 ──
+  if (el('logoutBtn')) el('logoutBtn').addEventListener('click', function(e){
+    e.preventDefault();
+    fetch('/api/admin/logout', { method:'POST', credentials:'include' })
+      .then(function(){ location.href = '/admin/login.html'; })
+      .catch(function(){ location.href = '/admin/login.html'; });
+  });
+
+  // 언어 전환 시 목록 다시 그림 + 역할 라벨 갱신
+  window.addEventListener('mangoi:lang-changed', function(){
+    if (window.__hist) renderHistory(window.__hist);
+    if (window.__sess) renderSessions(window.__sess);
+    if (window.__myRole) applyRole(window.__myRole, window.__myRoleLabel, window.__myScope);
+  });
+
+  // 시작
+  loadMe();
+  loadHistory();
+  loadSessions();
 })();
 </script>
 

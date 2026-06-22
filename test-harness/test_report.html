@@ -1,1 +1,44 @@
-<div style='font-family:Noto Sans KR,sans-serif;max-width:640px;color:#e2e8f0'><h3 style='color:#fbbf24'>🎓 강의실 입장·장비 점검 결과</h3><div style='padding:10px 12px;border-left:4px solid #10b981;background:#0f172a;border-radius:8px;margin:6px 0'><b style='color:#e2e8f0'>[1] 정상: 강사 입장 + 장비 정상</b><span style='float:right;color:#10b981;font-weight:800'>✅ 통과</span></div><div style='padding:10px 12px;border-left:4px solid #10b981;background:#0f172a;border-radius:8px;margin:6px 0'><b style='color:#e2e8f0'>[2] 오류1: 학생 입장 — 마이크 꺼짐</b><span style='float:right;color:#10b981;font-weight:800'>✅ 통과</span><div style='font-size:12px;color:#94a3b8'>🔎 마이크가 꺼져 있습니다.</div></div><div style='padding:10px 12px;border-left:4px solid #10b981;background:#0f172a;border-radius:8px;margin:6px 0'><b style='color:#e2e8f0'>[3] 오류2: 강사 입장 — 카메라 연결 실패</b><span style='float:right;color:#10b981;font-weight:800'>✅ 통과</span><div style='font-size:12px;color:#94a3b8'>🔎 카메라(웹캠) 연결에 실패했습니다.</div></div><div style='margin-top:10px;padding:10px;border-radius:8px;background:#1e293b;font-weight:800;color:#10b981;text-align:center'>[총 3개 중 3개 성공]</div></div>
+<div style="font-family:'Noto Sans KR',-apple-system,sans-serif;max-width:760px;color:#e2e8f0;background:#0a1530;padding:22px;border-radius:14px">
+<h2 style="color:#a78bfa;margin:0 0 4px">👁 라이브 참관(Ghost Monitor) 테스트 리포트</h2>
+<div style="font-size:12px;color:#94a3b8;margin-bottom:14px">test-harness/ghost_monitor_harness.mjs · 2026. 6. 9. 오후 12:36:20</div>
+<div style="display:flex;gap:10px;margin-bottom:16px">
+  <div style="flex:1;background:linear-gradient(135deg,#065f46,#10b981);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:900">43</div><div style="font-size:11px">통과</div></div>
+  <div style="flex:1;background:linear-gradient(135deg,#1e293b,#334155);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:900">0</div><div style="font-size:11px">실패</div></div>
+  <div style="flex:1;background:linear-gradient(135deg,#5b21b6,#8b5cf6);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:900">100%</div><div style="font-size:11px">정상</div></div>
+</div>
+<div style="padding:10px 12px;border-left:4px solid #10b981;background:#0f172a;border-radius:8px;margin:8px 0">
+  <b style="color:#e2e8f0;font-size:13px">URL 파라미터 배선 (참관 진입점들이 올바른 파라미터를 쓰는가)</b>
+  <div style="font-size:12px;color:#86efac;margin-top:4px">✅ ghost-view 는 room_id 파라미터를 읽는다</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ ghStart 진입점이 ?room_id= 로 연다 (정상)</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 🐞 supOpenGhost 가 잘못된 ?room= 을 쓰지 않는다</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 모든 참관 진입점은 첫 파라미터로 room_id 만 사용</div>
+</div><div style="padding:10px 12px;border-left:4px solid #10b981;background:#0f172a;border-radius:8px;margin:8px 0">
+  <b style="color:#e2e8f0;font-size:13px">사일런트 참관 보장 (학생·강사에게 알림 X)</b>
+  <div style="font-size:12px;color:#86efac;margin-top:4px">✅ start 응답에 notice_sent_to_others:false (다른 참가자 알림 X)</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 참관 사유(reason) 필수 — 미입력 시 400</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ start 시 감사 로그 ghost_join 기록</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ end 시 감사 로그 ghost_leave 기록</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ admin_observations 테이블에 joined_at/left_at 기록</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 시그널링룸은 1:1 제한(MAX_PEERS=2) — 참관자 미디어 피어 진입 불가 구조</div>
+</div><div style="padding:10px 12px;border-left:4px solid #10b981;background:#0f172a;border-radius:8px;margin:8px 0">
+  <b style="color:#e2e8f0;font-size:13px">서버 ghost API 규칙 (검증 로직 미러)</b>
+  <div style="font-size:12px;color:#86efac;margin-top:4px">✅ admin_uid 없으면 400</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ room_id 없으면 400</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ reason 없으면 400(사생활 보호)</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 정상 입력이면 ok + 사일런트</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 종료 시 duration_sec 정확(90초)</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 이미 종료된 세션 재종료 거부</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 없는 세션 종료 404</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ observation_id 없으면 400</div>
+</div><div style="padding:10px 12px;border-left:4px solid #10b981;background:#0f172a;border-radius:8px;margin:8px 0">
+  <b style="color:#e2e8f0;font-size:13px">발화 비율 · 참여도 점수 수학 (ghost-view.html 공식)</b>
+  <div style="font-size:12px;color:#86efac;margin-top:4px">✅ 소스에 발화비율 공식 존재</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 소스에 참여도 공식 존재</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 강사2/학생2 → 강사 50%</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 강사2/학생2 → 학생 50%</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 빈 채팅 → 0으로 나눔 방지(강사 0%)</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 빈 채팅 → NaN/Infinity 없음</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 역할 미상 메시지는 학생으로 집계</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 참여도 점수 0~100 범위 클램프</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 빈 수업 참여도 유한값</div>
+</div><div style="padding:10px 12px;border-left:4px solid #10b981;background:#0f172a;border-radius:8px;margin:8px 0">
+  <b style="color:#e2e8f0;font-size:13px">보안 — XSS 이스케이프</b>
+  <div style="font-size:12px;color:#86efac;margin-top:4px">✅ 소스에 esc() 정의 존재</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ <script> 이스케이프</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 따옴표/앰퍼샌드 이스케이프</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 채팅 메시지 렌더에 esc(m.message) 사용</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 참가자 이름 렌더에 esc 사용</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 알림 detail 렌더에 esc 사용</div>
+</div><div style="padding:10px 12px;border-left:4px solid #10b981;background:#0f172a;border-radius:8px;margin:8px 0">
+  <b style="color:#e2e8f0;font-size:13px">연결 · 폴링 안정성</b>
+  <div style="font-size:12px;color:#86efac;margin-top:4px">✅ loadChat/Members/Alerts 3개 폴러 존재</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 각 폴러가 try/catch 로 실패 격리</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 자가 스케줄러(setTimeout 체인, 겹침·폭주 방지) 존재</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ Promise.allSettled 로 패널 동시 갱신(부분 실패 허용)</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ [강화] 폴링 요청 타임아웃/Abort 처리</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ [강화] 연속 실패 시 백오프(폭주 방지)</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ [강화] 탭 숨김 시 폴링 일시정지(배터리·서버부하)</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ [강화] 연결 상태 시각 표시(끊김/재연결)</div>
+</div><div style="padding:10px 12px;border-left:4px solid #10b981;background:#0f172a;border-radius:8px;margin:8px 0">
+  <b style="color:#e2e8f0;font-size:13px">화상 스트림 경로 (정직한 현황)</b>
+  <div style="font-size:12px;color:#86efac;margin-top:4px">✅ 현재 비디오 영역은 placeholder(메타데이터만 라이브)임을 명시</div><div style="font-size:12px;color:#86efac;margin-top:4px">✅ 녹화는 html2canvas DOM 캡처 방식임(실영상 아님)</div>
+</div>
+<div style="margin-top:16px;padding:12px;background:#1e293b;border-radius:8px;font-size:12px;line-height:1.7">
+<b style="color:#fbbf24">🔧 이번에 고친 것</b><br>
+· <b>파라미터 버그</b>: 멘토 강사용 참관 진입점이 <code>?room=</code>(빈 화면)을 쓰던 것을 <code>?room_id=</code>로 통일<br>
+· <b>요청 타임아웃/Abort</b>: 8초 안에 응답 없으면 강제 취소 — 멈춘 요청이 쌓여 느려지는 현상 제거<br>
+· <b>지수 백오프</b>: 연속 실패 시 3→6→12→24→30초로 간격을 늘려 서버 폭주 방지<br>
+· <b>탭 숨김 일시정지 + 복귀 즉시 갱신</b>: 배터리·서버부하 절감<br>
+· <b>연결 상태 칩</b>: 🟢실시간 / 🟡재연결 / 🔴끊김 / ⏸일시정지 시각 표시<br>
+· <b>겹침 방지</b>: setInterval → setTimeout 자가 스케줄러(이전 폴링이 끝난 뒤 다음 예약)
+</div>
+<div style="margin-top:12px;padding:12px;background:rgba(245,158,11,0.12);border:1px solid #f59e0b;border-radius:8px;font-size:12px;line-height:1.7">
+<b style="color:#fbbf24">⚠ 정직한 한계 — 실제 화상(영상) 스트림</b><br>
+현재 참관 화면은 <b>채팅·참가자·알림·발화비율</b>을 3초마다 라이브로 보여주지만, <b>실제 학생/강사 영상</b>은 아직 흐르지 않습니다(코드의 GM-4 단계 미구현). 강의실은 1:1 메시 WebRTC(최대 2피어)라, 참관자가 끼면 사일런트 원칙이 깨집니다. <b>진짜 영상 참관</b>은 LiveKit "숨은 구독자(hidden subscriber)" 또는 다자 메시(VideoCallRoom) 수신전용 옵저버로 별도 구현이 필요합니다. 원하시면 다음 단계로 진행하겠습니다.
+</div>
+</div>

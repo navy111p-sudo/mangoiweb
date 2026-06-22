@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- BUILD:20260620203939 -->
+<!-- BUILD:20260622141601 -->
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
@@ -248,6 +248,12 @@
     #refund-guide-vid{ width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:16px; background:#000;
       border:1px solid rgba(255,255,255,.18); box-shadow:0 12px 30px -8px rgba(0,0,0,.6); display:block; }
     #refund-guide-box.paused #refund-guide-vid{ filter:brightness(.8); }
+    #refund-guide-close{ position:absolute; top:6px; right:6px; z-index:2; width:30px; height:30px;
+      border-radius:50%; border:1px solid rgba(255,255,255,.35); background:rgba(15,23,42,.7);
+      color:#fff; font-size:15px; font-weight:700; line-height:1; cursor:pointer; padding:0;
+      display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,.4); }
+    #refund-guide-close:hover{ background:rgba(220,38,38,.85); border-color:rgba(255,255,255,.6); }
+    #refund-guide-close:active{ transform:scale(.9); }
     #refund-guide-ctrls{ display:flex; align-items:center; justify-content:center; gap:8px; }
     #refund-guide-start{ display:inline-flex; align-items:center; gap:4px; padding:7px 16px; border:0;
       border-radius:999px; background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a1a;
@@ -262,6 +268,7 @@
       #refund-guide-start{ font-size:12px; padding:6px 12px; } #refund-guide-mute{ width:32px; height:32px; font-size:14px; } }
   </style>
   <div id="refund-guide-box" class="paused">
+    <button id="refund-guide-close" type="button" aria-label="닫기" title="닫기">✕</button>
     <video id="refund-guide-vid" src="/video/typecast_한불규정남자.mp4" poster="/video/한불규정남자.jpg" playsinline preload="auto"></video>
     <div id="refund-guide-ctrls">
       <button id="refund-guide-start" type="button" data-ko="▶ 안내 듣기" data-en="▶ Play guide">▶ 안내 듣기</button>
@@ -274,6 +281,7 @@
     var v=document.getElementById('refund-guide-vid');
     var startBtn=document.getElementById('refund-guide-start');
     var muteBtn=document.getElementById('refund-guide-mute');
+    var closeBtn=document.getElementById('refund-guide-close');
     if(!box||!v||!startBtn||!muteBtn) return;
     function setIcon(){ muteBtn.textContent = v.muted ? '🔇' : '🔊'; }
     // 자동재생/자동음성 없음 — 첫 프레임만 표시
@@ -305,6 +313,7 @@
       // 재생 시작 후, 페이지 어디든 클릭하면 영상·음성 즉시 종료
       setTimeout(function(){ document.addEventListener('click', onDocClick, true); }, 0);
     }
+    if(closeBtn) closeBtn.addEventListener('click', function(e){ e.stopPropagation(); dismiss(); });
     startBtn.addEventListener('click', function(e){ e.stopPropagation(); startGuide(); });
     muteBtn.addEventListener('click', function(e){ e.stopPropagation(); v.muted=!v.muted; if(!v.muted) v.play().catch(function(){}); setIcon(); });
     // 말이 다 끝나면 자동 fade-out
@@ -312,5 +321,6 @@
     v.addEventListener('error', function(){ box.style.display='none'; });
   })();
   </script>
+<script defer src="/js/mg-sidebar.js"></script>
 </body>
 </html>

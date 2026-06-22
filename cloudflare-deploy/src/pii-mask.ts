@@ -81,7 +81,8 @@ export function maskKakaoId(id: string | null | undefined): string {
  */
 export function canViewPII(scope: Scope | null | undefined): boolean {
   if (!scope) return false;
-  return scope.type === 'hq' || scope.type === 'none';
+  // 지사본사(franchise)는 자기 소속 지사 학생만 조회되며 그 학생의 원본 PII는 열람 허용
+  return scope.type === 'hq' || scope.type === 'none' || scope.type === 'franchise';
 }
 
 // 마스킹 대상 컬럼

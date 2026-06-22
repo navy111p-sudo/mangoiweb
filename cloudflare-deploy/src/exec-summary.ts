@@ -42,17 +42,31 @@ function fmtMan(n: number): string { n = n || 0; if (Math.abs(n) >= 10000) { con
 async function safe<T>(fn: () => Promise<T>, fb: T): Promise<T> { try { return await fn(); } catch { return fb; } }
 
 // ════════ 대리점 스코프 ════════
-type Scope = { type: 'hq' | 'branch' | 'agency' | 'none'; value: string | null; label: string };
+type Scope = { type: 'hq' | 'branch' | 'agency' | 'none' | 'franchise'; value: string | null; label: string };
+
+// 지사본사 소유 지사 목록 + 비용(재무) 노출 여부(본사·지사본사만)
+function franchiseList(value: string | null): string[] {
+  return String(value || '').split(',').map(s => s.trim()).filter(Boolean);
+}
+function costVisible(scope: Scope): boolean {
+  return scope.type === 'hq' || scope.type === 'franchise';
+}
 
 // 학생 필터 조건(students_erp 기준). hq → 조건 없음.
 function stuCond(scope: Scope): { clause: string; binds: any[] } {
   if (scope.type === 'agency') return { clause: `shop_name = ?`, binds: [scope.value] };
   if (scope.type === 'branch') return { clause: `franchise LIKE ?`, binds: [scope.value + '%'] };
+  if (scope.type === 'franchise') {
+    const list = franchiseList(scope.value);
+    if (!list.length) return { clause: `1=0`, binds: [] };
+    return { clause: `franchise IN (${list.map(() => '?').join(',')})`, binds: list };
+  }
   if (scope.type === 'none') return { clause: `1=0`, binds: [] }; // 권한 없음 → 빈 결과
   return { clause: '', binds: [] }; // hq
 }
 function scopeLabel(type: string, value: string | null): string {
   if (type === 'hq') return '본사 (전체)';
+  if (type === 'franchise') { const n = franchiseList(value).length; return n ? `지사본사 (${n}개 지사)` : '지사본사'; }
   if (type === 'branch') return `${value} 지사`;
   if (type === 'agency') return String(value || '대리점');
   return '권한 없음';
@@ -120,7 +134,7 @@ async function income(env: Env, a: number, b: number, scope: Scope) {
 }
 // 비용은 본사(hq)만. 대리점/지사는 0 + hqOnly 플래그.
 async function expense(env: Env, a: number, b: number, scope: Scope) {
-  if (scope.type !== 'hq') return { manual: 0, payroll: 0, total: 0, hqOnly: true };
+  if (!costVisible(scope)) return { manual: 0, payroll: 0, total: 0, hqOnly: true };
   const manual = await safe(async () => { const r = await env.DB.prepare(`SELECT COALESCE(SUM(amount_krw),0) s FROM finance_expenses WHERE spent_at>=? AND spent_at<?`).bind(a, b).first<{ s: number }>(); return r?.s || 0; }, 0);
   const payroll = await safe(async () => { const r = await env.DB.prepare(`SELECT COALESCE(SUM(payment_krw),0) s FROM payslips WHERE paid=1 AND finalized_at>=? AND finalized_at<?`).bind(a, b).first<{ s: number }>(); return r?.s || 0; }, 0);
   return { manual, payroll, total: manual + payroll, hqOnly: false };
@@ -169,7 +183,7 @@ async function summary(env: Env, scope: Scope): Promise<Response> {
   return j({
     ok: true, as_of: new Date(now).toISOString(),
     scope: { type: scope.type, value: scope.value, label: scope.label },
-    cost_hq_only: scope.type !== 'hq', fee_rate: HQ_FEE_RATE,
+    cost_hq_only: !costVisible(scope), fee_rate: HQ_FEE_RATE,
     students: { active, new_today: newToday, new_this_month: newMonth },
     today: { date: today, ...tdy, income_trend: trend(tdy.income, yday.income), net_trend: trend(tdy.net, yday.net) },
     this_week: { start: wk, ...week, income_trend: trend(week.income, lastWeek.income), net_trend: trend(week.net, lastWeek.net) },
@@ -190,7 +204,7 @@ async function series(env: Env, url: URL, scope: Scope): Promise<Response> {
      FROM student_payments WHERE status='paid' AND paid_at>=?` + inWhere + ` GROUP BY d`).bind(startMs, ...c.binds).all()).results as any[], []);
   // 비용: 본사만
   let expRows: any[] = [], payRows: any[] = [];
-  if (scope.type === 'hq') {
+  if (costVisible(scope)) {
     expRows = await safe(async () => (await env.DB.prepare(`SELECT strftime('%Y-%m-%d', datetime((spent_at/1000)+32400,'unixepoch')) d, COALESCE(SUM(amount_krw),0) s FROM finance_expenses WHERE spent_at>=? GROUP BY d`).bind(startMs).all()).results as any[], []);
     payRows = await safe(async () => (await env.DB.prepare(`SELECT strftime('%Y-%m-%d', datetime((finalized_at/1000)+32400,'unixepoch')) d, COALESCE(SUM(payment_krw),0) s FROM payslips WHERE paid=1 AND finalized_at>=? GROUP BY d`).bind(startMs).all()).results as any[], []);
   }
@@ -217,7 +231,7 @@ async function series(env: Env, url: URL, scope: Scope): Promise<Response> {
     cum += nw;
     out.push({ date: d, new_students: nw, cum_students: cum, income: inc, pay_count: incMap[d]?.c || 0, expense: exp, net: inc - exp });
   }
-  return j({ ok: true, days, from: start, to: today, cost_hq_only: scope.type !== 'hq', series: out });
+  return j({ ok: true, days, from: start, to: today, cost_hq_only: !costVisible(scope), series: out });
 }
 
 async function detail(env: Env, url: URL, scope: Scope): Promise<Response> {
@@ -233,7 +247,7 @@ async function detail(env: Env, url: URL, scope: Scope): Promise<Response> {
      WHERE sp.status='paid' AND sp.paid_at>=? AND sp.paid_at<?` + inWhere + ` ORDER BY sp.paid_at DESC LIMIT 200`).bind(a, b, ...c.binds).all()).results as any[], []);
 
   let expenses: any[] = [], payroll: any = { s: 0, c: 0 };
-  if (scope.type === 'hq') {
+  if (costVisible(scope)) {
     expenses = await safe(async () => (await env.DB.prepare(`SELECT id, category, amount_krw, spent_at, memo FROM finance_expenses WHERE spent_at>=? AND spent_at<? ORDER BY amount_krw DESC LIMIT 200`).bind(a, b).all()).results as any[], []);
     payroll = await safe(async () => await env.DB.prepare(`SELECT COALESCE(SUM(payment_krw),0) s, COUNT(*) c FROM payslips WHERE paid=1 AND finalized_at>=? AND finalized_at<?`).bind(a, b).first<{ s: number; c: number }>(), { s: 0, c: 0 });
   }
@@ -243,7 +257,7 @@ async function detail(env: Env, url: URL, scope: Scope): Promise<Response> {
   const incomeTotal = payments.reduce((s, r) => s + (r.amount_krw || 0), 0);
   const manualTotal = expenses.reduce((s, r) => s + (r.amount_krw || 0), 0);
   return j({
-    ok: true, date, cost_hq_only: scope.type !== 'hq',
+    ok: true, date, cost_hq_only: !costVisible(scope),
     income_total: incomeTotal, expense_total: manualTotal + (payroll?.s || 0),
     payroll_total: payroll?.s || 0, payroll_count: payroll?.c || 0,
     payments, expenses, new_students: newStu,
@@ -356,7 +370,7 @@ async function breakdown(env: Env, url: URL, scope: Scope): Promise<Response> {
 
   // 대리점별 비교 — 본사(전체) + 지사(자기 지역 대리점들로 구분). 대리점(단일매장)은 미표시.
   let branches: any[] = [];
-  if (scope.type === 'hq' || scope.type === 'branch') {
+  if (scope.type === 'hq' || scope.type === 'branch' || scope.type === 'franchise') {
     const bc = stuCond(scope); // hq→조건없음, branch→franchise LIKE '지역%'
     const bWhere = bc.clause ? ` AND ${bc.clause}` : '';
     branches = await safe(async () => (await env.DB.prepare(
@@ -374,7 +388,7 @@ async function breakdown(env: Env, url: URL, scope: Scope): Promise<Response> {
   const collectRate = active ? Math.round((paidStudents / active) * 1000) / 10 : 0;
 
   return j({
-    ok: true, period: mo, cost_hq_only: scope.type !== 'hq',
+    ok: true, period: mo, cost_hq_only: !costVisible(scope),
     methods: methods.map((m: any) => ({ method: m.method, count: m.c, sum: m.s })),
     status_breakdown: statusRows.map((s: any) => ({ status: s.status, count: s.c })),
     billing: { active, paid: paidStudents, unpaid, collect_rate: collectRate },

@@ -252,7 +252,7 @@ async function summary(env: Env, scope?: Scope): Promise<Response> {
   return json({
     ok: true,
     scope: scope ? { type: scope.type, value: scope.value, label: scope.label } : null,
-    cost_hq_only: !!(scope && scope.type !== 'hq'),
+    cost_hq_only: !expenseVisible(scope),
     as_of: new Date(now).toISOString(),
     today: { date: today, ...tdy, income_trend: trend(tdy.income, yday.income), net_trend: trend(tdy.net, yday.net) },
     this_week: { start: wkStart, ...wk, income_trend: trend(wk.income, lastWk.income), net_trend: trend(wk.net, lastWk.net) },
@@ -398,7 +398,7 @@ async function deleteExpense(env: Env, id: number): Promise<Response> {
 // ── 7) 스냅샷 목록 ────────────────────────────────────────────────────────
 async function listSnapshots(env: Env, url: URL, scope?: Scope): Promise<Response> {
   const limit = Math.min(366, Math.max(1, parseInt(url.searchParams.get('limit') || '60', 10)));
-  if (scope && scope.type !== 'hq') {
+  if (scope && !expenseVisible(scope)) {
     const today = todayKST();
     const startMs = kstDayStartMs(shiftDate(today, -(limit - 1)));
     const endMs = kstDayStartMs(shiftDate(today, 1));
