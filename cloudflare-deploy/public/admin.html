@@ -2006,12 +2006,7 @@
           title="툴바 펼치기/접기" data-ko-title="툴바 펼치기/접기" data-en-title="Show / hide toolbar"
           onclick="document.body.classList.toggle('th-m-open')">▾</button>
   <div class="th-controls">
-    <select id="period" class="th-select" style="display:none" aria-hidden="true">
-      <option value="1"  data-ko="최근 1일"  data-en="Last 1 day">최근 1일</option>
-      <option value="7" selected data-ko="최근 7일" data-en="Last 7 days">최근 7일</option>
-      <option value="30" data-ko="최근 30일" data-en="Last 30 days">최근 30일</option>
-      <option value="90" data-ko="최근 90일" data-en="Last 90 days">최근 90일</option>
-    </select>
+    <!-- 🗑️ (2026-06-23) 기간 셀렉트(#period) 제거 — 헤더 중앙 빈 박스 원인. 기본 7일 보기는 JS에서 상수로 유지 -->
     <a class="th-btn th-btn-amber" href="/admin/health" title="셀프 진단" data-ko="🩺 셀프 진단" data-en="🩺 Health">🩺 셀프 진단</a>
     <!-- 🎨 화면 색상 토글 (밝게 ↔ 어둡게) — inline onclick 자체 완결: 클릭=즉시 전환 보장 -->
     <button id="admin-theme-btn" type="button" class="th-btn th-btn-ghost"
@@ -13725,7 +13720,8 @@ function fmtMs(ms) {
 }
 
 async function load() {
-  const days = document.getElementById('period').value;
+  const _pe = document.getElementById('period');
+  const days = (_pe && _pe.value) || '7';   // #period 제거됨 → 기본 7일
   let data;
   let httpStatus = null;
   let rawBody = '';
@@ -19645,7 +19641,7 @@ if (_adminRefreshEl) _adminRefreshEl.onclick = async function() {
   btn.disabled = false;
   btn.textContent = adminLang==='en'?'🔄 Refresh':'🔄 새로고침';
 };
-document.getElementById('period').onchange = load;
+{ const _pe = document.getElementById('period'); if (_pe) _pe.onchange = load; }   // #period 제거됨 → null 가드
 // 초기 로드 (각각 독립적으로)
 Promise.allSettled([
   load(), loadRecordings(), loadRetention(), loadActiveRooms(), loadNotifications(), loadStorageStats(), loadPayrollRates(),
@@ -21808,7 +21804,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260623040049 -->
+        <!-- BUILD:20260623040607 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
