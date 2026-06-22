@@ -15555,7 +15555,7 @@ async function loadTeacherProfiles() {
   const group  = document.getElementById('tp-filter-group')?.value || '';
   const params = new URLSearchParams();
   if (status) params.set('status', status);
-  if (group)  params.set('group', group);
+  // ⚠️ group(home/office) 필터는 서버가 'home'/'office' 정확매칭이라 'Home-based'/'Office Teacher' 를 못 거름 → 클라이언트에서 부분일치 처리(아래)
   let res;
   try {
     const r = await fetch('/api/admin/teacher-profiles?' + params, { credentials:'include', cache:'no-store' });
@@ -15564,7 +15564,15 @@ async function loadTeacherProfiles() {
   const tbody = document.getElementById('tp-list-body');
   const cnt   = document.getElementById('tp-count');
   if (!tbody) return;
-  const items = (res && res.ok && res.items) ? res.items : [];
+  let items = (res && res.ok && res.items) ? res.items : [];
+  if (group) {
+    items = items.filter(function(t){
+      var g = ((t.group_name || '') + '').toLowerCase();
+      if (group === 'home')   return g.indexOf('home') >= 0;
+      if (group === 'office') return g.indexOf('office') >= 0 || g.indexOf('head') >= 0;
+      return true;
+    });
+  }
   if (cnt) cnt.textContent = items.length + '명';
   if (items.length === 0) {
     tbody.innerHTML = '<tr><td colspan="13" class="empty">강사 데이터 없음 — 위에서 신규 등록</td></tr>';
@@ -21791,7 +21799,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260623025542 -->
+        <!-- BUILD:20260623030313 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
