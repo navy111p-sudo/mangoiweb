@@ -28082,6 +28082,11 @@ document.addEventListener('keydown', function(e){
       // 🎬 영상(말)이 끝나면 fade-out 후 자연스럽게 사라짐
       function fadeOutVid(){ if(!vw) return; vw.style.opacity = '0'; setTimeout(function(){ try{ vid.pause(); }catch(_){ } if(vw && vw.parentNode) vw.remove(); }, 650); }
       vid.addEventListener('ended', fadeOutVid);
+      // 🛡 fix (2026-06-22) — 로딩 실패/지연 시 우상단 검은 박스 영구 잔류 방지.
+      //    파일 로드 에러, stalled, 또는 4초 내 재생 불가(readyState<2) 시 박스 자동 제거.
+      vid.addEventListener('error', killVid);
+      vid.addEventListener('stalled', function(){ setTimeout(function(){ if (vid.readyState < 2) killVid(); }, 1500); });
+      setTimeout(function(){ if (vw && vw.parentNode && vid.readyState < 2) killVid(); }, 4000);
     })();
 
     // 💬 좌하단 카카오 상담 (작은 이모지)
