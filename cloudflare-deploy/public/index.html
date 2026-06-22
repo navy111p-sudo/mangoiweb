@@ -1257,6 +1257,28 @@
             border-left: 1px solid rgba(148,163,184,0.25);
         }
 
+        /* ⤡ 자유 크기 모드 — 영상 패널을 떠다니는 창으로: 가로·세로 모두 드래그로 조절.
+           제목줄(.video-size-bar) 드래그=이동, 우하단 그립 드래그=크기. 마우스/터치 공용. */
+        .vc-main-row.video-free .content-pane { display: flex !important; width: 100% !important; }
+        .vc-main-row.video-free .video-pane {
+            position: fixed; top: 90px; left: 12px;
+            width: 300px; height: 230px;
+            z-index: 60;
+            border: 2px solid rgba(245,158,11,0.7);
+            border-radius: 12px;
+            box-shadow: 0 10px 32px rgba(0,0,0,0.55);
+            overflow: hidden;
+        }
+        .vc-main-row.video-free .video-size-bar { cursor: move; touch-action: none; }
+        .vp-free-grip { display: none; }
+        .vc-main-row.video-free .vp-free-grip {
+            display: block; position: absolute; right: 2px; bottom: 2px;
+            width: 30px; height: 30px; cursor: nwse-resize; z-index: 6;
+            touch-action: none; border-radius: 0 0 10px 0;
+            background:
+              linear-gradient(135deg, transparent 0 44%, rgba(245,158,11,0.95) 44% 54%, transparent 54% 66%, rgba(245,158,11,0.95) 66% 76%, transparent 76%);
+        }
+
         /* 🧠 복습퀴즈 모드 — 얼굴(비디오) 영역을 완전히 숨기고 퀴즈가 화면 전체를 차지 */
         .vc-main-row.content-full .video-pane { display: none !important; }
         .vc-main-row.content-full .content-pane {
@@ -6772,6 +6794,7 @@
                 <button onclick="vcSetVideoSize('full', this)" title="전체화면" data-ko="전체" data-en="Full">전체</button>
                 <button onclick="vcTogglePip(this)" id="vc-pip-btn" title="참가자 비디오 띄우기 (콘텐츠 위에 오버레이)" data-ko="📌 PIP" data-en="📌 PIP" style="background:rgba(245,158,11,.25);color:#fcd34d">📌 PIP</button>
                 <button onclick="vcToggleSolo(this)" id="vc-solo-btn" title="내 화면만 보기 (다른 참가자 숨김)" data-ko="👤 솔로" data-en="👤 Solo" style="background:rgba(168,85,247,.25);color:#d8b4fe">👤 솔로</button>
+                <button onclick="vcToggleFreeResize(this)" id="vc-free-btn" title="가로·세로 자유 크기 조절 (제목줄 드래그=이동, 우하단 모서리 드래그=크기)" data-ko="⤡ 자유" data-en="⤡ Free" style="background:rgba(34,197,94,.22);color:#86efac">⤡ 자유</button>
             </div>
             <div class="video-strip" id="vc-video-grid">
                 <div class="video-box" id="vc-local-box">
@@ -6780,6 +6803,8 @@
                 </div>
                 <!-- 다른 참가자의 비디오는 JS로 동적 추가됩니다 -->
             </div>
+            <!-- ⤡ 자유 크기 모드 — 우하단 모서리 드래그 그립 (마우스/터치) -->
+            <div class="vp-free-grip" id="vc-vp-grip" title="모서리를 끌어 가로·세로 크기 조절"></div>
         </div>
 
         <!-- 우측: 탭(칠판/PDF) 콘텐츠 -->
@@ -11038,7 +11063,12 @@ function gameBalloonPop(bl) {
 function vcSetVideoSize(size, btn) {
     const row = document.getElementById('vc-main-row');
     if (!row) return;
-    row.classList.remove('video-quarter', 'video-half', 'video-threequarter', 'video-full');
+    row.classList.remove('video-quarter', 'video-half', 'video-threequarter', 'video-full', 'video-free');
+    // 자유 크기 모드에서 빠져나올 때 떠있던 인라인 위치/크기 제거 → 기본 분할 레이아웃 복귀
+    try {
+        const _vp = document.getElementById('vc-video-pane');
+        if (_vp) ['top','left','width','height'].forEach(p => _vp.style.removeProperty(p));
+    } catch(_){}
     row.classList.add('video-' + size);
     document.querySelectorAll('.video-size-bar button').forEach(b => {
       // PIP 버튼은 active 토글에서 제외
@@ -11048,6 +11078,108 @@ function vcSetVideoSize(size, btn) {
     // 칠판 캔버스가 보이면 새 폭에 맞춰 크기 조정
     setTimeout(() => { if (typeof wbResize === 'function') wbResize(); }, 280);
 }
+
+/* ⤡ 자유 크기 모드 — 영상 패널을 떠다니는 창으로 만들어 가로·세로 모두 드래그로 조절.
+   - 제목줄(.video-size-bar) 드래그 = 이동
+   - 우하단 그립(#vc-vp-grip) 드래그 = 크기 조절
+   - 마우스/터치 공용(pointer 이벤트), 위치·크기 localStorage 저장 */
+function vcClampNum(v, min, max){ return Math.max(min, Math.min(max, v)); }
+
+function vcApplyFreeBox(box){
+    const pane = document.getElementById('vc-video-pane');
+    if (!pane) return;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const w = Math.round(vcClampNum(box.width, 150, vw * 0.96));
+    const h = Math.round(vcClampNum(box.height, 120, vh * 0.90));
+    const left = Math.round(vcClampNum(box.left, 0, Math.max(0, vw - w)));
+    const top  = Math.round(vcClampNum(box.top, 56, Math.max(56, vh - h)));
+    // inline + important 로 적용해 모바일 미디어쿼리의 !important 규칙까지 확실히 덮어씀
+    pane.style.setProperty('width',  w + 'px', 'important');
+    pane.style.setProperty('height', h + 'px', 'important');
+    pane.style.setProperty('left',   left + 'px', 'important');
+    pane.style.setProperty('top',    top + 'px', 'important');
+}
+
+function vcRestoreFreeBox(){
+    let box = { top: 90, left: 12, width: 300, height: 230 };
+    try { const s = JSON.parse(localStorage.getItem('vc_free_box') || 'null'); if (s && s.width) box = s; } catch(_){}
+    vcApplyFreeBox(box);
+}
+
+function vcSaveFreeBox(){
+    const pane = document.getElementById('vc-video-pane');
+    if (!pane) return;
+    const r = pane.getBoundingClientRect();
+    try { localStorage.setItem('vc_free_box', JSON.stringify({ top: Math.round(r.top), left: Math.round(r.left), width: Math.round(r.width), height: Math.round(r.height) })); } catch(_){}
+}
+
+let _vcFreeBound = false;
+function vcAttachFreeHandlers(){
+    if (_vcFreeBound) return; _vcFreeBound = true;
+    const row  = document.getElementById('vc-main-row');
+    const pane = document.getElementById('vc-video-pane');
+    if (!pane || !row) return;
+    const bar  = pane.querySelector('.video-size-bar');
+    const grip = document.getElementById('vc-vp-grip');
+    let mode = null, sx = 0, sy = 0, sLeft = 0, sTop = 0, sW = 0, sH = 0;
+
+    function start(e, m){
+        if (!row.classList.contains('video-free')) return;
+        mode = m; sx = e.clientX; sy = e.clientY;
+        const r = pane.getBoundingClientRect();
+        sLeft = r.left; sTop = r.top; sW = r.width; sH = r.height;
+        e.preventDefault();
+        document.addEventListener('pointermove', move);
+        document.addEventListener('pointerup', end);
+        document.addEventListener('pointercancel', end);
+    }
+    function move(e){
+        if (!mode) return;
+        const dx = e.clientX - sx, dy = e.clientY - sy;
+        if (mode === 'move') vcApplyFreeBox({ left: sLeft + dx, top: sTop + dy, width: sW, height: sH });
+        else                 vcApplyFreeBox({ left: sLeft, top: sTop, width: sW + dx, height: sH + dy });
+        e.preventDefault();
+    }
+    function end(){
+        if (!mode) return;
+        mode = null; vcSaveFreeBox();
+        document.removeEventListener('pointermove', move);
+        document.removeEventListener('pointerup', end);
+        document.removeEventListener('pointercancel', end);
+    }
+
+    if (grip) grip.addEventListener('pointerdown', e => start(e, 'resize'));
+    if (bar)  bar.addEventListener('pointerdown', e => {
+        if (e.target.closest('button')) return; // 버튼 클릭은 이동으로 가로채지 않음
+        start(e, 'move');
+    });
+    // 브라우저 창 크기가 바뀌면 화면 밖으로 나간 창 보정
+    window.addEventListener('resize', () => {
+        if (!row.classList.contains('video-free')) return;
+        const r = pane.getBoundingClientRect();
+        vcApplyFreeBox({ left: r.left, top: r.top, width: r.width, height: r.height });
+    });
+}
+
+window.vcToggleFreeResize = function(btn){
+    const row = document.getElementById('vc-main-row');
+    const pane = document.getElementById('vc-video-pane');
+    if (!row || !pane) return;
+    const turnOn = !row.classList.contains('video-free');
+    row.classList.remove('video-quarter', 'video-half', 'video-threequarter', 'video-full', 'video-free');
+    document.querySelectorAll('.video-size-bar button').forEach(b => { if (b.id !== 'vc-pip-btn') b.classList.remove('active'); });
+    if (turnOn){
+        row.classList.add('video-free');
+        if (btn) btn.classList.add('active');
+        vcRestoreFreeBox();
+        vcAttachFreeHandlers();
+    } else {
+        ['top','left','width','height'].forEach(p => pane.style.removeProperty(p));
+        const hb = document.querySelector('.video-size-bar button[onclick*="half"]');
+        vcSetVideoSize('half', hb);
+    }
+    setTimeout(() => { if (typeof wbResize === 'function') wbResize(); }, 280);
+};
 
 // fix (2026-06-02) — 휴대폰 가로(landscape)로 들어오면 기본 영상 크기를 '3/4'로.
 //   세로/PC 또는 사용자가 전체·솔로를 고른 경우는 건드리지 않음.
@@ -27346,7 +27478,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260622190925 -->
+<!-- BUILD:20260622192129 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
