@@ -928,6 +928,16 @@ export default {
       return assetResp;
     }
 
+    // 🚧 fix (2026-06-22) — 매칭되지 않은 /api/* 경로는 SPA(index.html)로 흘려보내지 않고 404 JSON 반환.
+    //    잘못된 API 호출이 200 + HTML 로 가려져 디버깅이 어려워지던 문제 방지.
+    //    (정상 API 핸들러·확장자 정적자원·WS/시그널링 경로는 모두 이 지점 이전에 처리됨)
+    if (path.startsWith('/api/')) {
+      return new Response(JSON.stringify({ error: 'Not Found', path }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
+      });
+    }
+
     // SPA 라우팅: API/WS가 아닌 모든 경로에서 index.html 반환
     // (예: /signaling, /video-call 등 → SPA가 클라이언트에서 처리)
     // ⚠ html_handling = "none" 이라 `/` 가 index.html 로 자동 매핑되지 않음 → 명시적으로 /index.html 요청.
