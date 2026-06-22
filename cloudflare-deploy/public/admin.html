@@ -4666,6 +4666,7 @@
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="이름" data-en="Name">이름</th>
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="상태" data-en="Status">상태</th>
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="그룹" data-en="Group">그룹</th>
+                  <th style="padding:6px;border:1px solid #e5e7eb" data-ko="근무지" data-en="Workplace">근무지</th>
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="활동지역" data-en="Region">활동지역</th>
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="10분 수수료" data-en="Fee/10min">10분 수수료</th>
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="연락처" data-en="Contact">연락처</th>
@@ -4676,7 +4677,7 @@
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="액션" data-en="Actions">액션</th>
                 </tr>
               </thead>
-              <tbody id="tp-list-body"><tr><td colspan="12" class="empty">—</td></tr></tbody>
+              <tbody id="tp-list-body"><tr><td colspan="13" class="empty">—</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -15481,9 +15482,20 @@ function _tpStatusBadge(status) {
     s.emoji + ' ' + (L ? s.en : s.ko) + '</span>';
 }
 function _tpGroupBadge(group) {
-  if (group === 'home') return '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:999px;font-size:11px">🏠 Home</span>';
-  if (group === 'office') return '<span style="background:#f3e8ff;color:#6b21a8;padding:2px 8px;border-radius:999px;font-size:11px">🏢 Office</span>';
-  return '—';
+  var g = (group == null ? '' : String(group)).trim();
+  if (!g) return '—';
+  var gl = g.toLowerCase();
+  if (gl.indexOf('home') >= 0) return '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:999px;font-size:11px">🏠 ' + _aiEsc(g) + '</span>';
+  if (gl.indexOf('office') >= 0) return '<span style="background:#f3e8ff;color:#6b21a8;padding:2px 8px;border-radius:999px;font-size:11px">🏢 ' + _aiEsc(g) + '</span>';
+  if (gl.indexOf('head') >= 0) return '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:999px;font-size:11px">👑 ' + _aiEsc(g) + '</span>';
+  return '<span style="background:#e5e7eb;color:#374151;padding:2px 8px;border-radius:999px;font-size:11px">' + _aiEsc(g) + '</span>';
+}
+// 🏠/🏢 근무지(재택/오피스) 배지 — group_name 으로 판별
+function _tpWorkplaceBadge(group) {
+  var gl = (group == null ? '' : String(group)).toLowerCase();
+  if (gl.indexOf('home') >= 0) return '<span style="background:#cffafe;color:#0e7490;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700">🏠 재택(Home)</span>';
+  if (gl.indexOf('office') >= 0 || gl.indexOf('head') >= 0) return '<span style="background:#ffedd5;color:#9a3412;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700">🏢 오피스(Office)</span>';
+  return '<span style="color:#9ca3af;font-size:11px">—</span>';
 }
 // HR 인사평가 헬퍼 (5 카테고리 가중평균)
 function _hrSeed(t) {
@@ -15555,7 +15567,7 @@ async function loadTeacherProfiles() {
   const items = (res && res.ok && res.items) ? res.items : [];
   if (cnt) cnt.textContent = items.length + '명';
   if (items.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="12" class="empty">강사 데이터 없음 — 위에서 신규 등록</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="13" class="empty">강사 데이터 없음 — 위에서 신규 등록</td></tr>';
     return;
   }
   // 인사평가 점수·순위 미리 계산
@@ -15581,6 +15593,7 @@ async function loadTeacherProfiles() {
         (t.english_name ? '<br><span style="font-size:11px;color:#6b7280">' + _aiEsc(t.english_name) + '</span>' : '') + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + (_tpStatusBadge(t.status)) + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + (_tpGroupBadge(t.group_name)) + '</td>' +
+      '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + (_tpWorkplaceBadge(t.group_name)) + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb">' + _aiEsc(t.active_region||'—') + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:right">' + fee + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb">' + _aiEsc(phone) + '</td>' +
@@ -21778,7 +21791,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260623024423 -->
+        <!-- BUILD:20260623025321 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
