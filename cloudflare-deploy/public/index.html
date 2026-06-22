@@ -1232,6 +1232,7 @@
             transition: width 0.25s ease;
             flex-shrink: 0;
             min-width: 200px;
+            position: relative; /* 우상단 크기조절 그립 기준 */
         }
         .content-pane {
             flex: 1;
@@ -1270,16 +1271,21 @@
             overflow: hidden;
         }
         .vc-main-row.video-free .video-size-bar { cursor: move; touch-action: none; }
+        /* 크기조절 그립 — 영상 패널 '우상단'에 항상 표시. 끌면 크기 조절(위로=커짐).
+           통화 중일 때만 보이게(body.vc-in-call). */
         .vp-free-grip { display: none; }
-        .vc-main-row.video-free .vp-free-grip {
-            display: block; position: absolute; right: 3px; top: 36px;
-            width: 34px; height: 34px; cursor: nesw-resize; z-index: 7;
+        body.vc-in-call .vp-free-grip {
+            display: block; position: absolute; right: 6px; top: 40px;
+            width: 36px; height: 36px; cursor: nesw-resize; z-index: 30;
             touch-action: none; border-radius: 8px;
             background:
-              linear-gradient(45deg, transparent 0 42%, rgba(245,158,11,0.97) 42% 52%, transparent 52% 64%, rgba(245,158,11,0.97) 64% 74%, transparent 74%),
-              rgba(15,23,42,0.55);
-            box-shadow: 0 2px 8px rgba(0,0,0,.45);
+              linear-gradient(45deg, transparent 0 40%, rgba(245,158,11,0.98) 40% 50%, transparent 50% 62%, rgba(245,158,11,0.98) 62% 72%, transparent 72%),
+              rgba(15,23,42,0.72);
+            box-shadow: 0 2px 10px rgba(0,0,0,.5);
         }
+        body.vc-in-call .vp-free-grip:hover { background:
+              linear-gradient(45deg, transparent 0 40%, #fbbf24 40% 50%, transparent 50% 62%, #fbbf24 62% 72%, transparent 72%),
+              rgba(15,23,42,0.9); }
 
         /* 🧠 복습퀴즈 모드 — 얼굴(비디오) 영역을 완전히 숨기고 퀴즈가 화면 전체를 차지 */
         .vc-main-row.content-full .video-pane { display: none !important; }
@@ -1339,11 +1345,11 @@
             isolation: isolate;
             transform: translateZ(0);
         }
-        /* 비디오 박스 우측 상단 '분리/복귀' 버튼 */
+        /* 비디오 박스 '분리/복귀' 버튼 — 좌상단(우상단은 크기조절 그립 자리) */
         .video-detach-btn {
             position: absolute;
             top: 6px;
-            right: 6px;
+            left: 6px;
             z-index: 5;
             width: 26px;
             height: 26px;
@@ -11115,6 +11121,20 @@ function vcSaveFreeBox(){
     try { localStorage.setItem('vc_free_box', JSON.stringify({ top: Math.round(r.top), left: Math.round(r.left), width: Math.round(r.width), height: Math.round(r.height) })); } catch(_){}
 }
 
+// 현재 보이는 크기/위치 그대로 '자유(떠있는 창)' 모드로 전환 (점프 방지)
+function vcEnterFreeFromCurrent(){
+    const row = document.getElementById('vc-main-row');
+    const pane = document.getElementById('vc-video-pane');
+    if (!row || !pane) return;
+    const r = pane.getBoundingClientRect();
+    row.classList.remove('video-quarter','video-half','video-threequarter','video-full');
+    row.classList.add('video-free');
+    document.querySelectorAll('.video-size-bar button').forEach(b => { if (b.id !== 'vc-pip-btn') b.classList.remove('active'); });
+    const fb = document.getElementById('vc-free-btn'); if (fb) fb.classList.add('active');
+    vcApplyFreeBox({ left: r.left, top: r.top, width: r.width, height: r.height });
+    setTimeout(() => { if (typeof wbResize === 'function') wbResize(); }, 280);
+}
+
 let _vcFreeBound = false;
 function vcAttachFreeHandlers(){
     if (_vcFreeBound) return; _vcFreeBound = true;
@@ -11126,7 +11146,6 @@ function vcAttachFreeHandlers(){
     let mode = null, sx = 0, sy = 0, sLeft = 0, sTop = 0, sW = 0, sH = 0;
 
     function start(e, m){
-        if (!row.classList.contains('video-free')) return;
         mode = m; sx = e.clientX; sy = e.clientY;
         const r = pane.getBoundingClientRect();
         sLeft = r.left; sTop = r.top; sW = r.width; sH = r.height;
@@ -11151,9 +11170,15 @@ function vcAttachFreeHandlers(){
         document.removeEventListener('pointercancel', end);
     }
 
-    if (grip) grip.addEventListener('pointerdown', e => start(e, 'resize-ne'));
+    // 그립(우상단)은 어느 모드에서나 동작 — 자유 모드가 아니면 현재 크기 그대로 자유 모드로 전환 후 리사이즈
+    if (grip) grip.addEventListener('pointerdown', e => {
+        if (!row.classList.contains('video-free')) vcEnterFreeFromCurrent();
+        start(e, 'resize-ne');
+    });
+    // 제목줄 드래그 이동은 자유 모드일 때만
     if (bar)  bar.addEventListener('pointerdown', e => {
         if (e.target.closest('button')) return; // 버튼 클릭은 이동으로 가로채지 않음
+        if (!row.classList.contains('video-free')) return;
         start(e, 'move');
     });
     // 브라우저 창 크기가 바뀌면 화면 밖으로 나간 창 보정
@@ -11163,6 +11188,8 @@ function vcAttachFreeHandlers(){
         vcApplyFreeBox({ left: r.left, top: r.top, width: r.width, height: r.height });
     });
 }
+// 그립은 정적 DOM이므로 즉시 바인딩(통화 진입 전이라도 안전)
+try { vcAttachFreeHandlers(); } catch(_){}
 
 window.vcToggleFreeResize = function(btn){
     const row = document.getElementById('vc-main-row');
@@ -27481,7 +27508,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260622193710 -->
+<!-- BUILD:20260622194821 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

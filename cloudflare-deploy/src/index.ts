@@ -1206,11 +1206,14 @@ async function handleHealth(): Promise<Response> {
 
 // 임시 진단용: 비밀값을 노출하지 않고 Cloudflare TURN 호출 결과만 리턴
 async function handleTurnConfigDebug(env: Env): Promise<Response> {
+  let envKeys: string[] = [];
+  try { envKeys = Object.keys(env as any).sort(); } catch {}
   const diag: any = {
     hasKeyId: !!env.TURN_KEY_ID,
     keyIdLen: (env.TURN_KEY_ID || '').length,
     hasApiToken: !!env.TURN_KEY_API_TOKEN,
     apiTokenLen: (env.TURN_KEY_API_TOKEN || '').length,
+    envKeys, // 값이 아닌 '키 이름'만 — 런타임이 보는 바인딩/시크릿 목록
   };
   if (env.TURN_KEY_ID && env.TURN_KEY_API_TOKEN) {
     try {
