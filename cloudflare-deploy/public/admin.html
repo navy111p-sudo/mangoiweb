@@ -1456,8 +1456,14 @@
     z-index: 1000;
     /* 더 투명한 흰색 + 흐림 — 콘텐츠가 비치게 */
     background: rgba(255, 255, 255, 0.42);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    /* 🩹 떨림(shimmer) 방지: sticky + backdrop-filter 떨림 → GPU 레이어 승격 (2026-06-23) */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    will-change: transform;
     border: 0;
     border-radius: 16px;
     /* 길이 짧게 — 패딩·여백 축소 */
@@ -13595,6 +13601,9 @@ try {
 //   4) 클릭/포커스 안에 있으면 숨기지 않음 (드롭다운 사용 중 보호)
 // ════════════════════════════════════════════════
 (function thAutoHide() {
+  // 🩹 자동 숨김 비활성화 (2026-06-23): 헤더 위아래 들썩임 제거. sticky 라 항상 고정됨.
+  var AUTO_HIDE_ENABLED = false;
+  if (!AUTO_HIDE_ENABLED) return;
   document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.add('th-auto-hide');
     const trigger = document.getElementById('th-hover-trigger');
@@ -21799,7 +21808,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260623034456 -->
+        <!-- BUILD:20260623035545 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
