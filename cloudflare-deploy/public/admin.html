@@ -21804,7 +21804,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260623202445 -->
+        <!-- BUILD:20260623203245 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -30671,14 +30671,14 @@ button.chip:hover,
   <div class="menu-body">
     <div class="pl-info">💡 <b>강사·학생·강의실 통합 시간표</b> — 충돌 감지 + 드래그&드롭 배정.</div>
     <div class="pl-feature-list">
-      <div class="pl-feature-card"><b>📆 주간/월간 뷰</b><span>구글 캘린더 스타일 그리드</span></div>
-      <div class="pl-feature-card"><b>👨‍🏫 강사별 필터</b><span>강사 선택 → 모든 수업</span></div>
-      <div class="pl-feature-card"><b>👨‍🎓 학생별 필터</b><span>학생 선택 → 시간표</span></div>
-      <div class="pl-feature-card"><b>🚪 강의실 배정</b><span>점유율 + 충돌 자동 감지</span></div>
-      <div class="pl-feature-card"><b>🔄 드래그 이동</b><span>드래그&드롭으로 시간 변경</span></div>
-      <div class="pl-feature-card"><b>📲 변경 알림</b><span>이동/취소 시 학부모 자동 알림</span></div>
+      <div class="pl-feature-card" style="cursor:pointer" onclick="location.href='/admin/weekly-schedule.html'"><b>📆 주간/월간 뷰</b><span>구글 캘린더 스타일 그리드</span></div>
+      <div class="pl-feature-card" style="cursor:pointer" onclick="location.href='/admin/weekly-schedule.html'"><b>👨‍🏫 강사별 필터</b><span>강사 선택 → 모든 수업</span></div>
+      <div class="pl-feature-card" style="cursor:pointer" onclick="location.href='/admin/weekly-schedule.html'"><b>👨‍🎓 학생별 필터</b><span>학생 선택 → 시간표</span></div>
+      <div class="pl-feature-card" style="cursor:pointer" onclick="location.href='/admin/weekly-schedule.html'"><b>🚪 강의실 배정</b><span>점유율 + 충돌 자동 감지</span></div>
+      <div class="pl-feature-card" style="cursor:pointer" onclick="location.href='/admin/weekly-schedule.html'"><b>🔄 드래그 이동</b><span>드래그&드롭으로 시간 변경</span></div>
+      <div class="pl-feature-card" style="cursor:pointer" onclick="location.href='/admin/weekly-schedule.html'"><b>📲 변경 알림</b><span>이동/취소 시 학부모 자동 알림</span></div>
     </div>
-    <button class="pl-cta-btn" onclick="alert('시간표 그리드 (FullCalendar.js 통합 예정)')">📆 시간표 보기</button>
+    <button class="pl-cta-btn" data-ko="📆 시간표 보기" data-en="📆 Open Timetable" onclick="location.href='/admin/weekly-schedule.html'">📆 시간표 보기</button>
   </div>
 </details>
 
