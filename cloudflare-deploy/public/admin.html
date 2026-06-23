@@ -21803,7 +21803,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260623184211 -->
+        <!-- BUILD:20260623184658 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -39536,15 +39536,15 @@ button.chip:hover,
 <!-- PH85-TOOLTIPS v1 -->
 <style>
 #ph85tip{position:fixed;z-index:2147483600;max-width:244px;padding:9px 12px;border-radius:12px;
-  background:rgba(17,24,39,.62);-webkit-backdrop-filter:blur(10px) saturate(1.2);backdrop-filter:blur(10px) saturate(1.2);
+  background:rgba(17,24,39,.92);-webkit-backdrop-filter:blur(10px) saturate(1.2);backdrop-filter:blur(10px) saturate(1.2);
   color:#fff;font-size:12.5px;line-height:1.55;font-weight:500;letter-spacing:-.1px;
   box-shadow:0 10px 30px rgba(0,0,0,.30);border:1px solid rgba(255,255,255,.16);
   pointer-events:none;opacity:0;transform:translateY(5px);transition:opacity .15s ease,transform .15s ease;}
 #ph85tip.on{opacity:1;transform:translateY(0);}
 #ph85tip::after{content:"";position:absolute;top:var(--ty,13px);left:-7px;width:0;height:0;
-  border:7px solid transparent;border-right-color:rgba(17,24,39,.62);border-left:0;}
-#ph85tip.left::after{left:auto;right:-7px;border-right:0;border-left-color:rgba(17,24,39,.62);}
-@media (hover:none){#ph85tip{display:none!important;}}
+  border:7px solid transparent;border-right-color:rgba(17,24,39,.92);border-left:0;}
+#ph85tip.left::after{left:auto;right:-7px;border-right:0;border-left-color:rgba(17,24,39,.92);}
+/* mobile enabled: tooltip shows on tap */
 </style>
 <script>
 (function(){
@@ -39593,30 +39593,94 @@ button.chip:hover,
 })();
 </script>
 
-<!-- PH85-CARDTIPS v1 -->
+<!-- PH85-CARDTIPS v2 (hover left bubble + mobile tap) -->
+<style id="ph85tip-mobile-css">
+  /* mobile/touch: bottom-centered toast */
+  #ph85tip.mobile{left:50%!important;right:auto!important;top:auto!important;
+    bottom:calc(env(safe-area-inset-bottom,0px) + 18px)!important;
+    transform:translateX(-50%) translateY(8px);
+    max-width:min(92vw,440px);width:max-content;font-size:14px;line-height:1.5;
+    padding:13px 17px;border-radius:14px;background:rgba(17,24,39,.96);}
+  #ph85tip.mobile.on{transform:translateX(-50%) translateY(0);}
+  #ph85tip.notail::after{display:none!important;}
+</style>
 <script>
 (function(){
   var CARD={"card-eval-mgmt": "학생 한 명 한 명의 성적·태도를 적어 평가서를 만들어요.", "card-bulk-eval": "여러 학생의 평가서를 한 번에 모아서 작성해요.", "card-ai-lesson-report": "AI가 수업 내용을 자동으로 정리해 리포트로 만들어요.", "card-ai-eval-draft": "AI가 평가서 초안을 먼저 써 주고 선생님이 다듬어요.", "card-monthly-report": "한 달 동안의 학습·성적을 한눈에 보는 보고서예요.", "card-comparison-report": "지난달과 이번 달, 반끼리 성적을 나란히 비교해요.", "card-webpush-mgmt": "브라우저로 '띵!' 하고 알림을 보내는 기능이에요.", "card-kakao-mgmt": "카카오톡으로 안내 메시지를 보내요.", "card-popups-mgmt": "화면에 뜨는 공지 팝업창을 만들고 관리해요.", "card-notifications": "이벤트·소식을 자동 알림으로 보내는 설정이에요.", "card-notice-board": "모두에게 알리는 공지글을 올리는 게시판이에요.", "card-teacher-mgmt": "선생님 정보와 담당 반을 등록·관리해요.", "card-payroll-auto": "수업 기록을 바탕으로 급여를 자동으로 계산해요.", "card-payroll": "선생님 급여를 확인하고 정산하는 곳이에요.", "card-mbti-mgmt": "강사·학생의 성향(MBTI)을 모아 보는 곳이에요.", "card-praise-stats": "누가 칭찬을 많이 주고받았는지 통계로 봐요.", "card-supervisor": "선생님들의 수업을 점검하고 지도하는 화면이에요.", "card-room-invite": "화상수업 방에 학생을 초대하는 링크를 관리해요.", "card-timetable": "수업 시간표를 짜고 보는 곳이에요.", "card-lesson-log": "오늘 무엇을 가르쳤는지 수업 기록을 남겨요.", "card-report-forms": "보고서에 쓰는 기본 양식(템플릿)을 관리해요.", "card-kpi-dashboard": "매출·학생 수 같은 핵심 숫자를 한 화면에 모아 봐요.", "card-daily-charts": "날짜별 변화를 그래프로 보는 곳이에요.", "card-rankings": "성적·활동 순위를 매겨서 보여 줘요.", "card-retention-risk": "곧 그만둘 것 같은 학생을 미리 찾아 줘요.", "card-retention": "오래된 데이터를 정해진 기간에 맞춰 자동 삭제해요.", "card-active-rooms": "지금 진행 중인 수업 방을 실시간으로 확인해요.", "card-nps-monthly": "서비스를 추천할 만한지(만족도)를 매달 측정해요.", "card-ai-forecast": "AI가 앞으로의 매출·학생 수를 예측해요.", "card-voice-stats": "학생들이 말한 양·발음 점수를 통계로 봐요.", "card-accounting-mgmt": "수입·지출 같은 돈의 흐름을 정리하는 곳이에요.", "card-payments-b2b": "기업·학원 간(B2B) 결제 내역을 관리해요.", "card-payments-b2c": "학생·학부모(B2C) 결제 내역을 관리해요.", "card-recurring-billing": "매달 자동으로 결제되도록 설정해요.", "card-auto-dunning": "안 낸 돈(미납)을 자동으로 알려 받아내요.", "card-settlement-stats": "지사·대리점에 줄 돈을 정산하는 통계예요.", "card-points-mgmt": "학생에게 주는 포인트를 관리해요.", "card-students-mgmt": "학생 정보를 등록·수정·관리해요.", "card-school-attendance-stats": "학원마다 학생들이 수업을 얼마나 듣는지 봐요.", "card-family-mgmt": "형제·부모 등 가족 단위로 묶어서 관리해요.", "card-inquiry-mgmt": "들어온 문의·질문에 답하는 곳이에요.", "card-enrollments": "수강 신청·등록을 받고 처리해요.", "card-badges-mgmt": "잘한 학생에게 주는 뱃지(배지)를 관리해요.", "card-community": "학생·학부모가 글을 나누는 공간이에요.", "card-counseling-booking": "상담 날짜·시간을 예약받는 곳이에요.", "card-parent-digest": "학부모에게 보내는 한 주 요약 소식이에요.", "card-parent-faq-bot": "자주 묻는 질문에 챗봇이 자동으로 답해요.", "card-referral": "친구를 소개하면 혜택을 주는 추천 이벤트예요.", "card-alumni": "졸업한 학생들이 모이는 공간이에요.", "card-gallery": "수업 사진·영상을 모아 두는 갤러리예요.", "card-review-quiz": "배운 내용을 복습하는 퀴즈를 내요.", "card-textbooks": "수업에 쓰는 교재·자료를 관리해요.", "card-microlearn": "짧고 가볍게 배우는 미니 학습 콘텐츠예요.", "card-mini-toeic": "짧게 풀어 보는 토익 연습 문제예요.", "card-pronunciation": "AI가 발음을 듣고 고쳐 줘요.", "card-video-dict": "단어를 영상으로 보여 주는 사전이에요.", "card-voice-diary": "말로 녹음해서 쓰는 영어 일기예요.", "card-level-tests": "실력을 확인하는 레벨 테스트예요.", "card-battle-mgmt": "학생끼리 겨루는 영어 대결 게임이에요.", "card-recording-storage": "수업 녹화 영상을 저장·관리해요.", "card-homework": "숙제를 내주고 제출을 확인해요.", "card-calendar": "일정·행사를 달력으로 관리해요.", "card-permissions": "누가 어떤 메뉴를 볼 수 있는지 정해요.", "card-franchises": "가맹점(지사·대리점)을 등록·관리해요.", "card-centers": "학습 센터(지점)를 관리해요.", "card-data-export": "필요한 자료를 엑셀 등으로 내려받아요.", "card-admin-alerts": "관리자에게 오는 중요한 알림 모음이에요.", "card-admin-ghost": "학생 화면을 살짝 들여다보는 기능이에요.", "card-admin-whisper": "수업 중 학생에게만 살짝 메시지를 전달해요.", "card-attendance-status": "누가 왔는지(출석/결석)를 확인해요.", "card-auto-attendance": "QR코드를 찍어 자동으로 출석 체크해요.", "card-class-attendance": "수업별로 출석을 기록해요.", "card-ai-insights": "AI가 찾아낸 중요한 흐름·경고를 모아 보는 곳이에요.", "card-auto-schedule": "AI가 일주일 수업 시간표를 자동으로 짜 줘요.", "card-classroom-test": "수업 전에 카메라·마이크가 잘 되는지 점검해요.", "card-daily-briefing": "매일 아침 중요한 소식을 자동으로 정리해 줘요.", "card-monthly-ai-report": "한 달 학습을 AI가 분석해 레포트로 만들어요."};
-  function ready(fn){ if(document.readyState!=='loading')fn(); else document.addEventListener('DOMContentLoaded',fn); }
+  function ready(fn){ if(document.readyState!=='loading'){fn();} else {document.addEventListener('DOMContentLoaded',fn);} }
   ready(function(){
     var el=document.getElementById('ph85tip');
     if(!el){ el=document.createElement('div'); el.id='ph85tip'; document.body.appendChild(el); }
-    function show(t,txt){
-      el.textContent=txt; el.style.left='-9999px'; el.style.top='0px'; el.classList.add('on');
-      var r=t.getBoundingClientRect(), w=el.offsetWidth, h=el.offsetHeight, m=8, left=false, x=r.right+8;
-      if(x+w>window.innerWidth-m){ x=r.left-8-w; left=true; }
-      if(x<m) x=m;
-      var cy=r.top + Math.min(r.height/2,18), y=cy - h/2;
-      if(y<m) y=m;
-      if(y+h>window.innerHeight-m) y=window.innerHeight-m-h;
-      el.classList.toggle('left',left); el.style.left=x+'px'; el.style.top=y+'px';
-      el.style.setProperty('--ty', Math.max(8, Math.min(cy-y-7, h-15))+'px');
+    var isTouch = (window.matchMedia && window.matchMedia('(hover:none),(pointer:coarse)').matches) || ('ontouchstart' in window);
+
+    // top-level menu card summary only (details#card-* > summary)
+    function topCard(target){
+      if(!target || !target.closest) return null;
+      var sm = target.closest('summary'); if(!sm) return null;
+      var d = sm.parentElement;
+      if(!d || d.tagName!=='DETAILS') return null;
+      if(!d.id || d.id.indexOf('card-')!==0) return null;
+      var first = d.querySelector(':scope > summary');
+      if(first !== sm) return null;
+      return CARD[d.id] ? {sm:sm, d:d, txt:CARD[d.id]} : null;
     }
+
     function hide(){ el.classList.remove('on'); }
-    function cardOf(e){
-      var sm=e.target.closest ? e.target.closest('summary') : null; if(!sm)return null;
-      var d=sm.closest('details'); if(!d||!d.id||d.id.indexOf('card-')!==0)return null;
-      return CARD[d.id] ? {sm:sm,txt:CARD[d.id]} : null;
+
+    // ===== Desktop: bubble follows cursor, shown on the LEFT side =====
+    function showAtCursor(txt, mx, my){
+      el.classList.remove('mobile');
+      el.textContent = txt;
+      el.style.left='-9999px'; el.style.top='0px'; el.classList.add('on'); el.classList.remove('notail');
+      var w=el.offsetWidth, h=el.offsetHeight, m=10, left=true;
+      var x = mx - 16 - w;               // place bubble to the LEFT of the cursor
+      if(x < m){ x = mx + 16; left=false; } // fallback: right of cursor
+      var y = my - h/2;
+      if(y < m) y = m;
+      if(y + h > window.innerHeight - m) y = window.innerHeight - m - h;
+      el.classList.toggle('left', left);
+      el.style.left = Math.round(x)+'px';
+      el.style.top  = Math.round(y)+'px';
+      el.style.setProperty('--ty', Math.max(8, Math.min(my - y - 7, h-15))+'px');
     }
-    document.addEventListener('mouseover',function(e){ var c=cardOf(e); if(c) show(c.sm,c.txt); },true);
-    document.addEventListener('mouseout',function(e){ if(e.target.closest && e.target.closest('summary')) hid
+
+    if(!isTouch){
+      var cur=null;
+      document.addEventListener('mouseover', function(e){ var c=topCard(e.target); cur = c?c.d:null; }, true);
+      document.addEventListener('mousemove', function(e){
+        if(!cur) return;
+        var c=topCard(e.target);
+        if(!c){ cur=null; hide(); return; }
+        showAtCursor(c.txt, e.clientX, e.clientY);
+      }, true);
+      document.addEventListener('mouseout', function(e){
+        if(e.target.closest && e.target.closest('summary')){ cur=null; hide(); }
+      }, true);
+      window.addEventListener('scroll', hide, true);
+    } else {
+      // ===== Mobile/Touch: 1st tap shows explanation, 2nd tap on same bar opens it =====
+      var armed=null, t=null;
+      function toast(txt){
+        el.textContent=txt; el.classList.add('on','mobile','notail');
+        el.style.left=''; el.style.top='';
+        clearTimeout(t); t=setTimeout(hide, 3200);
+      }
+      document.addEventListener('click', function(e){
+        var c=topCard(e.target);
+        if(!c) return;
+        if(armed !== c.d){            // first tap
+          e.preventDefault(); e.stopImmediatePropagation();
+          armed = c.d; toast(c.txt);
+        } else {                      // second tap -> allow toggle
+          armed=null; clearTimeout(t); hide();
+        }
+      }, true);
+      document.addEventListener('click', function(e){
+        if(!topCard(e.target)) armed=null; // tapping elsewhere resets
+      }, false);
+    }
+  });
+})();
+</script>
+</body>
+</html>
