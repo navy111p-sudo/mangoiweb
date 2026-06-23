@@ -21804,7 +21804,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260623205625 -->
+        <!-- BUILD:20260623212505 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -25940,65 +25940,72 @@ button.chip:hover,
      2. 강사 목록 테이블 각 행 액션 컬럼에 📅 버튼 추가
         → 해당 강사만 캘린더에 표시하고 자동으로 카드 펼침/스크롤 -->
 <style id="ph54-admin-schedule">
-  #card-teacher-schedule { margin-top: 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; overflow: hidden; }
+  /* 🌙 다크 테마 — 바탕 어둡게 / 글자 밝게 */
+  #card-teacher-schedule { margin-top: 12px; border: 1px solid #334155; border-radius: 10px; background: #0f172a; overflow: hidden; }
   #card-teacher-schedule > summary {
     padding: 12px 16px; cursor: pointer;
-    background: linear-gradient(135deg, rgba(16,185,129,0.10), rgba(5,150,105,0.06));
-    font-weight: 700; color: #064e3b; font-size: 14px;
+    background: linear-gradient(135deg, rgba(16,185,129,0.22), rgba(5,150,105,0.12));
+    font-weight: 700; color: #a7f3d0; font-size: 14px;
   }
   #card-teacher-schedule[open] > summary {
-    background: linear-gradient(135deg, rgba(16,185,129,0.18), rgba(5,150,105,0.12));
+    background: linear-gradient(135deg, rgba(16,185,129,0.32), rgba(5,150,105,0.18));
   }
-  #ph54-sched-wrap { padding: 14px 16px; }
+  #ph54-sched-wrap { padding: 14px 16px; background:#0f172a; color:#e2e8f0; }
   #ph54-sched-controls {
     display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
     margin-bottom: 12px; padding: 10px 12px;
-    background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px;
+    background: #1e293b; border: 1px solid #334155; border-radius: 10px;
   }
   #ph54-sched-controls button, #ph54-sched-controls select {
-    padding: 6px 12px; font-size: 13px; border: 1px solid #d1d5db;
-    border-radius: 6px; background: #fff; cursor: pointer;
+    padding: 6px 12px; font-size: 13px; border: 1px solid #475569;
+    border-radius: 6px; background: #334155; color:#e2e8f0; cursor: pointer;
   }
+  #ph54-sched-controls label { color:#cbd5e1 !important; }
   #ph54-sched-controls button.primary {
     background: linear-gradient(135deg,#10b981,#059669); color: #fff; border: 0; font-weight: 700;
   }
   #ph54-sched-controls .ph54-week-label {
-    font-weight: 700; color: #1f2937; padding: 4px 10px;
-    background: #fff; border-radius: 6px; border: 1px solid #e5e7eb;
+    font-weight: 700; color: #e2e8f0; padding: 4px 10px;
+    background: #0f172a; border-radius: 6px; border: 1px solid #334155;
   }
   #ph54-sched-grid {
-    width: 100%; border-collapse: collapse; background: #fff;
-    border: 1px solid #e5e7eb; font-size: 12px;
+    width: 100%; border-collapse: collapse; background: #0f172a;
+    border: 1px solid #334155; font-size: 12px; color:#e2e8f0;
   }
   #ph54-sched-grid th {
     padding: 8px 6px; background: linear-gradient(135deg,#10b981,#059669); color: #fff;
     font-weight: 700; border: 1px solid #047857; text-align: center; position: sticky; top: 0;
   }
-  #ph54-sched-grid th.ph54-th-teacher { background: #1f2937; min-width: 110px; text-align: left; padding-left: 12px; }
+  #ph54-sched-grid th.ph54-th-teacher { background: #1e293b; min-width: 110px; text-align: left; padding-left: 12px; color:#e2e8f0; }
   #ph54-sched-grid td {
-    padding: 6px 4px; border: 1px solid #e5e7eb; vertical-align: top;
-    min-width: 80px; min-height: 50px;
+    padding: 5px 4px; border: 1px solid #1e293b; vertical-align: top;
+    min-width: 90px; color:#e2e8f0;
   }
   #ph54-sched-grid td.ph54-td-teacher {
-    font-weight: 800; background: #f3f4f6; color: #1f2937;
+    font-weight: 800; background: #1e293b; color: #fde68a;
     padding-left: 12px; text-align: left; white-space: nowrap;
   }
-  #ph54-sched-grid td.ph54-td-weekend { background: #fef3c7; }
-  #ph54-sched-grid td.ph54-td-today { background: #dbeafe; box-shadow: inset 0 0 0 2px #3b82f6; }
+  #ph54-sched-grid td.ph54-td-weekend { background: rgba(245,158,11,0.06); }
+  #ph54-sched-grid td.ph54-td-today { background: rgba(59,130,246,0.12); box-shadow: inset 0 0 0 2px #3b82f6; }
   .ph54-slot {
     display: inline-block; margin: 1px; padding: 2px 6px; font-size: 11px; font-weight: 700;
     border-radius: 4px; color: #fff;
   }
+  /* 수업 블록(강사의 실제 수업) */
+  .ph54-slot.ph54-class { display:block; margin:2px 0; padding:4px 7px; text-align:left; line-height:1.3; box-shadow:0 1px 4px rgba(0,0,0,.35); }
+  .ph54-slot.ph54-class b { font-size:9.5px; opacity:.9; font-weight:700; }
+  .ph54-slot.ph54-class .ph54-dur { font-size:9px; opacity:.75; }
+  .ph54-slot.ph54-class .ph54-stu { font-size:11px; font-weight:700; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:130px; }
   .ph54-slot.ontime { background: #10b981; }
   .ph54-slot.late   { background: #f59e0b; }
   .ph54-slot.bigLate{ background: #ef4444; }
-  .ph54-slot.empty  { background: #e5e7eb; color: #9ca3af; }
+  .ph54-slot.empty  { background: transparent; color: #475569; font-weight:600; }
   /* 강사 행 액션 컬럼에 추가된 📅 버튼 */
   .ph54-row-cal-btn {
-    padding: 3px 8px; font-size: 10px; background: #10b981; color: #fff;
+    padding: 3px 8px; font-size: 10px; background: #0ea5e9; color: #fff;
     border: 0; border-radius: 4px; cursor: pointer; margin-left: 2px;
   }
-  .ph54-row-cal-btn:hover { background: #047857; }
+  .ph54-row-cal-btn:hover { background: #0369a1; }
 
   @media (max-width: 720px) {
     #ph54-sched-grid { font-size: 10px; }
@@ -26056,40 +26063,41 @@ button.chip:hover,
   }
 
   async function ph54LoadRecords(){
+    // 🗓 강사 '수업 스케줄'(class_schedules)을 로드한다.
+    //    - /api/admin/schedules?week=<해당 주 월요일> 가 그 주(월~일)로 펼친 슬롯 배열을 돌려줌.
+    //    - 각 슬롯의 teacher_id 는 teacher_profiles.id 와 동일하므로 강사 행과 그대로 매칭된다.
+    //    - 표시 중인 주(weekOffset)에 맞춰 매번 다시 불러온다.
+    var monday = ph54FmtDate(ph54GetWeekDays()[0]);   // 현재 보고 있는 주의 월요일
     try {
-      var r = await fetch('/api/admin/teacher-attendance?limit=1000', { credentials:'include' });
+      var r = await fetch('/api/admin/schedules?week=' + monday, { credentials:'include', cache:'no-store' });
       if (r.ok) {
         var j = await r.json();
-        var rows = j.rows || j.items || (Array.isArray(j) ? j : []);
-        if (Array.isArray(rows) && rows.length) { ph54State.records = rows; return; }
+        var arr = (j && (j.schedules || j.items)) || [];
+        ph54State.records = Array.isArray(arr) ? arr : [];
+        return;
       }
-    } catch(e){}
-    // fallback: 시드 데이터 (이번 주 + 지난 주 자동 생성)
-    var seed = [];
-    var today = new Date();
-    for (var off = -14; off <= 7; off++) {
-      var d = new Date(today); d.setDate(d.getDate() + off);
-      var dow = d.getDay(); if (dow === 0 || dow === 6) continue;
-      var dStr = ph54FmtDate(d);
-      ph54State.teachers.forEach(function(t){
-        var s = (String(t.id)+dStr).split('').reduce(function(a,c){return a+c.charCodeAt(0);}, 0);
-        var lateMin = (s % 9 === 0) ? Math.floor(s%30) : (s % 4 === 0 ? (s%7) : 0);
-        seed.push({
-          teacher_id: t.id, teacher_name: t.name,
-          date: dStr, scheduled: '09:00',
-          actual: '09:'+ph54Pad(lateMin), late_min: lateMin
-        });
-      });
-    }
-    ph54State.records = seed;
+    } catch(e){ console.warn('[ph54] schedules load', e); }
+    ph54State.records = [];   // 실패 시 빈 상태(가짜 데이터로 채우지 않음)
   }
 
-  function ph54SlotForRecord(rec){
-    if (!rec) return '<span class="ph54-slot empty">—</span>';
-    var lm = Number(rec.late_min || 0);
-    var cls = lm === 0 ? 'ontime' : (lm <= 5 ? 'late' : 'bigLate');
-    var label = (rec.actual || rec.scheduled || '09:00');
-    return '<span class="ph54-slot '+cls+'" title="예정 '+(rec.scheduled||'-')+' / 실제 '+(rec.actual||'-')+(lm?' / +'+lm+'분':'')+'">'+label+'</span>';
+  // HTML 이스케이프 (학생 이름 등 안전 출력)
+  function ph54Esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  // 수업 유형별 색/라벨
+  var PH54_TYPE_COLOR = { '1on1':'#7c3aed', 'group':'#2563eb', 'temp':'#f59e0b', 'blocked':'#475569' };
+  var PH54_TYPE_LABEL = { '1on1':'1:1', 'group':'그룹', 'temp':'대체', 'blocked':'휴무' };
+
+  // 한 개 수업 슬롯 → 캘린더 블록 HTML (시간 · 인원 + 학생 이름)
+  function ph54ClassBlock(s){
+    var c   = PH54_TYPE_COLOR[s.type] || '#7c3aed';
+    var stu = (s.students || []).map(function(x){ return x && x.name; }).filter(Boolean).join(', ');
+    var lbl = stu || PH54_TYPE_LABEL[s.type] || '수업';
+    var time= s.start_time || (s.hour != null ? (ph54Pad(s.hour)+':00') : '');
+    var dur = s.duration_min ? (' · ' + s.duration_min + '분') : '';
+    return '<span class="ph54-slot ph54-class" style="background:'+c+'" title="'
+        + ph54Esc(time+' '+(PH54_TYPE_LABEL[s.type]||'')+(stu?(' · '+stu):'')) + '">'
+      + '<b>'+ph54Esc(time)+'</b><span class="ph54-dur">'+ph54Esc(dur)+'</span>'
+      + '<span class="ph54-stu">'+ph54Esc(lbl)+'</span>'
+      + '</span>';
   }
 
   function ph54Render(){
@@ -26141,31 +26149,38 @@ button.chip:hover,
                     var isToday = dStr === todayStr;
                     var recs = ph54State.records.filter(function(r){
                       return String(r.teacher_id) === String(t.id) && r.date === dStr;
+                    }).sort(function(a,b){
+                      return ((a.hour||0)-(b.hour||0)) || String(a.start_time||'').localeCompare(String(b.start_time||''));
                     });
                     var cellClass = '';
                     if (isToday) cellClass = 'ph54-td-today';
                     else if (isWeekend) cellClass = 'ph54-td-weekend';
                     var inner = recs.length
-                      ? recs.map(ph54SlotForRecord).join(' ')
-                      : (isWeekend ? '<span style="color:#9ca3af;font-size:10px">휴무</span>' : '<span class="ph54-slot empty">—</span>');
+                      ? recs.map(ph54ClassBlock).join('')
+                      : '<span class="ph54-slot empty">—</span>';
                     return '<td class="'+cellClass+'">'+inner+'</td>';
                   }).join('')
                 + '</tr>';
             }).join(''))
       + '</tbody></table></div>'
-      + '<div style="margin-top:10px;display:flex;gap:14px;font-size:11px;color:#6b7280;flex-wrap:wrap">'
-      +   '<span><span class="ph54-slot ontime">09:00</span> 정시 도착</span>'
-      +   '<span><span class="ph54-slot late">09:03</span> 5분 이내 지각</span>'
-      +   '<span><span class="ph54-slot bigLate">09:12</span> 5분 초과 지각</span>'
-      +   '<span><span class="ph54-slot empty">—</span> 기록 없음</span>'
+      + '<div style="margin-top:10px;display:flex;gap:14px;font-size:11px;color:#94a3b8;flex-wrap:wrap;align-items:center">'
+      +   '<span><span class="ph54-slot" style="background:#7c3aed">1:1</span> 1:1 수업</span>'
+      +   '<span><span class="ph54-slot" style="background:#2563eb">그룹</span> 그룹 수업</span>'
+      +   '<span><span class="ph54-slot" style="background:#f59e0b">대체</span> 대체</span>'
+      +   '<span><span class="ph54-slot" style="background:#475569">휴무</span> 휴무</span>'
+      +   '<span style="margin-left:auto;color:#cbd5e1;font-weight:700">총 '
+      +     ph54State.records.filter(function(r){ return r.type!=='blocked' && filteredTeachers.some(function(t){ return String(t.id)===String(r.teacher_id); }); }).length
+      +     '개 수업 · 매주 반복</span>'
       + '</div>';
 
     wrap.innerHTML = html;
 
     // 이벤트 바인딩
-    document.getElementById('ph54-prev-week').addEventListener('click', function(){ ph54State.weekOffset--; ph54Render(); });
-    document.getElementById('ph54-this-week').addEventListener('click', function(){ ph54State.weekOffset = 0; ph54Render(); });
-    document.getElementById('ph54-next-week').addEventListener('click', function(){ ph54State.weekOffset++; ph54Render(); });
+    // 주 이동 시에는 해당 주 스케줄을 다시 불러온 뒤 렌더(주마다 데이터가 다름)
+    document.getElementById('ph54-prev-week').addEventListener('click', async function(){ ph54State.weekOffset--; await ph54LoadRecords(); ph54Render(); });
+    document.getElementById('ph54-this-week').addEventListener('click', async function(){ ph54State.weekOffset = 0; await ph54LoadRecords(); ph54Render(); });
+    document.getElementById('ph54-next-week').addEventListener('click', async function(){ ph54State.weekOffset++; await ph54LoadRecords(); ph54Render(); });
+    // 강사 필터는 이미 로드된 주 데이터에서 거르므로 재로딩 불필요(즉시 렌더)
     document.getElementById('ph54-teacher-filter').addEventListener('change', function(e){
       ph54State.teacherFilter = e.target.value; ph54Render();
     });
@@ -26198,10 +26213,8 @@ button.chip:hover,
     // 펼침 시 1회 로드
     sched.addEventListener('toggle', async function(){
       if (!sched.open) return;
-      if (!ph54State.teachers.length) {
-        await ph54LoadTeachers();
-        await ph54LoadRecords();
-      }
+      if (!ph54State.teachers.length) await ph54LoadTeachers();
+      await ph54LoadRecords();   // 펼칠 때마다 현재 주 수업을 다시 로드
       ph54Render();
     });
   }
@@ -26235,14 +26248,12 @@ button.chip:hover,
         var sched = document.getElementById('card-teacher-schedule');
         if (!sched) return;
         sched.open = true;
-        // 2) 데이터 로드 (필요 시) + 필터 설정 + 렌더
+        // 2) 이번 주로 + 이 강사만 필터 + 수업 데이터 로드 후 렌더
         (async function(){
-          if (!ph54State.teachers.length) {
-            await ph54LoadTeachers();
-            await ph54LoadRecords();
-          }
-          ph54State.teacherFilter = String(tid);
-          ph54State.weekOffset = 0;
+          ph54State.weekOffset = 0;                  // 이번 주
+          ph54State.teacherFilter = String(tid);     // 클릭한 강사(teacher_profiles.id)만
+          if (!ph54State.teachers.length) await ph54LoadTeachers();
+          await ph54LoadRecords();                   // ← 항상 현재 주 수업 로드(이게 빠져서 빈 화면이었음)
           ph54Render();
           // 3) 카드로 스크롤
           setTimeout(function(){ sched.scrollIntoView({ behavior:'smooth', block:'start' }); }, 100);
