@@ -21803,7 +21803,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260623184211 -->
+        <!-- BUILD:20260623191127 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -27257,23 +27257,26 @@ button.chip:hover,
         if(!txt) return;
         if(!window.matchMedia('(min-width:1024px)').matches) return; // 데스크톱만
         var e=ensure(); e.textContent=txt; e.classList.add('on');
-        // 글자 요소 우선 → 최대한 글자에 가깝게
-        var anchor=(target.querySelector && (target.querySelector('.ph125-text')||target.querySelector('.ph85-title')))||target;
+        // 글자 요소 우선 → 실제 렌더된 '글자'의 끝(Range)에 앵커해 제목 바로 오른쪽에 붙임
+        var lblEl=(target.querySelector && (target.querySelector('.ph125-text')||target.querySelector('.ph85-title')))||target;
+        var ir=null;
+        try{ var rg=document.createRange(); rg.selectNodeContents(lblEl); var rr=rg.getBoundingClientRect(); if(rr&&rr.width>0&&rr.height>0) ir=rr; }catch(_e){}
+        if(!ir) ir=lblEl.getBoundingClientRect();   // Range 실패 시 요소 박스로 폴백
         var zoom=parseFloat((getComputedStyle(document.body).zoom)||''); if(!zoom||!isFinite(zoom)||zoom<=0) zoom=(window.innerWidth>=1024?1.3:1); // 데스크톱 body{zoom:1.3}
         var k=slopeK(e); var vpr=zoom/k;                 // rect→시각 변환계수
-        var ir=anchor.getBoundingClientRect();
-        var iL=ir.left*vpr, iR=ir.right*vpr, iT=ir.top*vpr, iH=ir.height*vpr; // 항목 시각좌표
+        var iR=ir.right*vpr, iT=ir.top*vpr, iH=ir.height*vpr; // 글자 시각좌표
         var tw=e.offsetWidth*zoom, th=e.offsetHeight*zoom;                    // 말풍선 시각크기
-        var vw=window.innerWidth, vh=window.innerHeight, m=8, gap=7;
-        var left=false, tx=iR+gap;
-        if(tx+tw>vw-m){ tx=iL-gap-tw; left=true; }       // 오른쪽 공간 없으면 왼쪽
+        var vw=window.innerWidth, vh=window.innerHeight, m=8, gap=8;
+        // ★ 항상 제목 글자 '바로 오른쪽'에 수평 배치 — 좌측 플립/하단 드롭 없음
+        var tx=iR+gap;
+        if(tx+tw>vw-m) tx=vw-m-tw;                        // 화면 밖이면 오른쪽 끝에 붙이되(좌측 플립 X)
         if(tx<m) tx=m;
-        var cyV=iT+iH/2, ty=cyV-th/2;                    // 세로 가운데
-        if(ty+th>vh-m) ty=vh-m-th;                       // 아래로 넘치면 위로 올림
+        var cyV=iT+iH/2, ty=cyV-th/2;                    // 제목 행과 세로 가운데 정렬(수평 옆)
+        if(ty+th>vh-m) ty=vh-m-th;                       // 화면 아래 살짝 넘칠 때만 최소 보정
         if(ty<m) ty=m;
-        e.classList.toggle('left',left);
+        e.classList.remove('left');                      // 꼬리는 항상 왼쪽(=제목을 가리킴)
         e.style.left=(tx/zoom)+'px'; e.style.top=(ty/zoom)+'px';  // 시각→스타일(body zoom 역보정)
-        // 꼬리는 항목 중앙을 가리키되 말풍선(레이아웃) 범위 안으로 제한
+        // 꼬리는 제목 중앙을 가리키되 말풍선(레이아웃) 범위 안으로 제한
         e.style.setProperty('--ty', Math.max(8, Math.min((cyV-ty)/zoom-6, e.offsetHeight-13))+'px');
       }
       function hide(){ if(el) el.classList.remove('on'); }
