@@ -1454,8 +1454,8 @@
     position: sticky;
     top: 0;
     z-index: 1000;
-    /* 더 투명한 흰색 + 흐림 — 콘텐츠가 비치게 (2026-06-24 더 투명하게 0.42→0.18) */
-    background: rgba(255, 255, 255, 0.18);
+    /* 더 투명한 흰색 + 흐림 — 콘텐츠가 비치게 (2026-06-24 더 투명하게 0.42→0.18→0.10→0.04) */
+    background: rgba(255, 255, 255, 0.04);
     backdrop-filter: blur(14px) saturate(160%);
     -webkit-backdrop-filter: blur(14px) saturate(160%);
     /* 🩹 떨림(shimmer) 방지: sticky + backdrop-filter 떨림 → GPU 레이어 승격 (2026-06-23) */
@@ -21867,7 +21867,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260624041146 -->
+        <!-- BUILD:20260624041706 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
