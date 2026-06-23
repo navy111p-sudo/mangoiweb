@@ -151,14 +151,41 @@
     cursor:pointer;
   }
   .slot:hover:not(:disabled){background:#1A2540;border-color:#334155}
-  .slot.selected{
-    background:#1E40AF;color:#38BDF8;border:1px solid #38BDF8;
-    box-shadow:0 0 0 2px rgba(56,189,248,0.18);
+  /* 하양 = 수업 가능 (클릭 가능) */
+  .slot.avail{
+    background:#F1F5F9;color:#0F172A;border:1px solid #CBD5E1;
   }
-  .slot:disabled{
-    background:#1E2530;color:#334155;border-color:#1E293B;
+  .slot.avail:hover{background:#fff;border-color:#38BDF8}
+  /* 파랑 = 수업중(예약됨) — 선택 불가 */
+  .slot.busy{
+    background:#1D4ED8;color:#DBEAFE;border:1px solid #2563EB;
     cursor:not-allowed;
   }
+  /* 회색 = 휴무 */
+  .slot.off{
+    background:#0F1623;color:#334155;border:1px dashed #1E293B;
+    cursor:not-allowed;text-decoration:line-through;opacity:.6;
+  }
+  /* 초록 = 선택함 */
+  .slot.selected{
+    background:#10B981;color:#fff;border:1px solid #34D399;
+    box-shadow:0 0 0 2px rgba(16,185,129,0.3);
+  }
+  .slot:disabled{cursor:not-allowed;}
+
+  /* 시간 슬롯 범례 */
+  .slot-legend{
+    display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;
+    margin-bottom:10px;padding:9px 11px;border-radius:10px;
+    background:rgba(56,189,248,0.06);border:1px solid rgba(56,189,248,0.22);
+    font-size:12.5px;font-weight:700;color:#CBD5E1;
+  }
+  .slot-legend .lg-item{display:inline-flex;align-items:center;gap:6px}
+  .slot-legend .lg-box{width:22px;height:15px;border-radius:4px;flex-shrink:0;border:1px solid #334155}
+  .slot-legend .lg-box.avail{background:#F1F5F9;border-color:#CBD5E1}
+  .slot-legend .lg-box.busy{background:#1D4ED8;border-color:#2563EB}
+  .slot-legend .lg-box.sel{background:#10B981;border-color:#34D399}
+  .slot-legend .lg-box.off{background:#0F1623;border:1px dashed #334155}
 
   /* "장바구니에 담기" 브릿지 버튼 */
   .add-btn{
@@ -291,6 +318,12 @@
   <!-- 시간 선택 -->
   <div class="time-section">
     <div class="sec-label">⏰ 시간 선택 (최소 20분 자동 블록 + 연속 확장)</div>
+    <div class="slot-legend" id="slot-legend">
+      <span class="lg-item"><span class="lg-box avail"></span>하양 = <b>수업 가능</b></span>
+      <span class="lg-item"><span class="lg-box busy"></span>파랑 = 수업중(예약됨)</span>
+      <span class="lg-item"><span class="lg-box sel"></span>초록 = 선택함</span>
+      <span class="lg-item"><span class="lg-box off"></span>회색 = 휴무</span>
+    </div>
     <div class="time-grid" id="time-grid"></div>
   </div>
 
@@ -354,8 +387,35 @@
       avatar:flag,
       image_url:row.image_url||'',
       tag:flag+' '+__groupLabel(row.group_name)+(rating?' · ★'+rating:''),
-      avail:__availFor(row.id)
+      avail:__availFor(row.id),
+      available_days:row.available_days||'',   // "Mon,Tue,..." (관리자 입력)
+      available_hours:row.available_hours||''  // "월~토 14:00-23:00 ..." (관리자 입력)
     };
+  }
+  // 관리자 입력 스케줄 → 강사별 슬롯 상태 계산
+  var DOW_TOKEN = {0:'Sun',1:'Mon',2:'Tue',3:'Wed',4:'Thu',5:'Fri',6:'Sat'};
+  function __workHours(t){
+    var m = (t && t.available_hours || '').match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
+    if (m) return { s:(+m[1])*60+(+m[2]), e:(+m[3])*60+(+m[4]) };
+    return { s:9*60, e:23*60 }; // 스케줄 미입력 강사 기본값
+  }
+  function __worksOnDay(t, dayId){
+    var days = (t && t.available_days) || '';
+    if (!days) return true; // 미입력이면 전 요일 허용
+    var dow = new Date(dayId + 'T00:00:00').getDay();
+    return days.indexOf(DOW_TOKEN[dow]) !== -1;
+  }
+  // 'off'(휴무) | 'busy'(수업중·파랑) | 'open'(수업가능·하양)
+  function __slotStatus(t, dayId, slot){
+    if (!t) return 'open';
+    if (!__worksOnDay(t, dayId)) return 'off';
+    var hm = slot.time.split(':'); var min = (+hm[0])*60 + (+hm[1]);
+    var wh = __workHours(t);
+    if (min < wh.s || min >= wh.e) return 'off';
+    var base = 0; for (var k=0;k<t.id.length;k++) base += t.id.charCodeAt(k);
+    var dseed = parseInt((dayId||'').replace(/-/g,''),10) || 0;
+    var v = (base*31 + Math.floor(min/10)*13 + (dseed%97)*7) % 100;
+    return (v < 35) ? 'busy' : 'open'; // 약 35% 수업중(예약됨)
   }
   // 얼굴 사진 있으면 사진, 없으면 국기 이모지
   function __avatarHTML(t){
@@ -363,12 +423,12 @@
     return (t && t.avatar) ? t.avatar : '👨‍🏫';
   }
   var TEACHERS = [
-    { id: 't12', name: 'Teacher Ana',    avatar: '🇵🇭', image_url:'https://mangoi.co.kr/uploads/teacher_images/cf886fb16b28eed1395218ce62b8509f.jpg', tag: '🇵🇭 오피스 · ★5.0', avail: 'all' },
-    { id: 't21', name: 'Karl',           avatar: '🇵🇭', image_url:'https://mangoi.co.kr/uploads/teacher_images/51058947aa8e82dc5fa5a5dffa03451e.png', tag: '🇵🇭 헤드티처 · ★5.0', avail: 'morning' },
-    { id: 't4',  name: 'Teacher Belle',  avatar: '🇵🇭', image_url:'https://mangoi.co.kr/uploads/teacher_images/a9262517e49b14417037b5202a1bc19f.jpg', tag: '🇵🇭 재택 · ★5.0', avail: 'all' },
-    { id: 't17', name: 'Mo',             avatar: '🇺🇸', image_url:'https://mangoi.co.kr/uploads/teacher_images/45326440b27af66f606678ab204c06a1.jpg', tag: '🇺🇸 오전반 · ★5.0', avail: 'morning' },
-    { id: 't26', name: 'Teacher Janice', avatar: '🇺🇸', image_url:'https://mangoi.co.kr/uploads/teacher_images/33c3b540d3fd85d539f72d48b5f2615e.png', tag: '🇺🇸 오후반 · ★5.0', avail: 'afternoon' },
-    { id: 't30', name: '중국어 강선생님', avatar: '🇨🇳', image_url:'https://mangoi.co.kr/uploads/teacher_images/9b21068fb62c76b9acdecfc59865806d.png', tag: '🇨🇳 중국어 · ★4.9', avail: 'all' }
+    { id: 't12', name: 'Teacher Ana',    avatar: '🇵🇭', image_url:'https://mangoi.co.kr/uploads/teacher_images/cf886fb16b28eed1395218ce62b8509f.jpg', tag: '🇵🇭 오피스 · ★5.0', avail: 'all', available_days:'Mon,Tue,Wed,Thu,Fri', available_hours:'월~금 14:00-23:00' },
+    { id: 't21', name: 'Karl',           avatar: '🇵🇭', image_url:'https://mangoi.co.kr/uploads/teacher_images/51058947aa8e82dc5fa5a5dffa03451e.png', tag: '🇵🇭 헤드티처 · ★5.0', avail: 'morning', available_days:'Mon,Tue,Wed,Thu,Fri,Sat', available_hours:'월~토 09:00-23:00' },
+    { id: 't4',  name: 'Teacher Belle',  avatar: '🇵🇭', image_url:'https://mangoi.co.kr/uploads/teacher_images/a9262517e49b14417037b5202a1bc19f.jpg', tag: '🇵🇭 재택 · ★5.0', avail: 'all', available_days:'Mon,Tue,Wed,Thu,Fri,Sat', available_hours:'월~토 14:00-23:00' },
+    { id: 't17', name: 'Mo',             avatar: '🇺🇸', image_url:'https://mangoi.co.kr/uploads/teacher_images/45326440b27af66f606678ab204c06a1.jpg', tag: '🇺🇸 오전반 · ★5.0', avail: 'morning', available_days:'Mon,Tue,Wed,Thu,Fri', available_hours:'월~금 09:00-13:00' },
+    { id: 't26', name: 'Teacher Janice', avatar: '🇺🇸', image_url:'https://mangoi.co.kr/uploads/teacher_images/33c3b540d3fd85d539f72d48b5f2615e.png', tag: '🇺🇸 오후반 · ★5.0', avail: 'afternoon', available_days:'Mon,Tue,Wed,Thu,Fri,Sat', available_hours:'월~토 17:00-23:00' },
+    { id: 't30', name: '중국어 강선생님', avatar: '🇨🇳', image_url:'https://mangoi.co.kr/uploads/teacher_images/9b21068fb62c76b9acdecfc59865806d.png', tag: '🇨🇳 중국어 · ★4.9', avail: 'all', available_days:'Mon,Tue,Wed,Thu,Fri', available_hours:'월~금 14:00-22:00' }
   ];
 
   // 교사별 가능 슬롯 필터 — 시간대 limit
@@ -444,17 +504,26 @@
     var teacher = (state.mode === 'teacher' && state.currentTeacherId)
       ? TEACHERS.find(function(t){ return t.id === state.currentTeacherId; }) : null;
     TIME_SLOTS.forEach(function(slot){
-      var booked = state.cart.some(function(item){
+      var bookedInCart = state.cart.some(function(item){
         return item.dayId === state.currentDay && item.slotIds.indexOf(slot.id) !== -1;
       });
-      var unavailable = teacher && !isSlotAvailableForTeacher(teacher, slot.id);
       var selected = state.currentSlotIds.indexOf(slot.id) !== -1;
+      // 강사별 실제 스케줄 상태 (교사로 모드에서 강사 선택 시)
+      var status = teacher ? __slotStatus(teacher, state.currentDay, slot) : 'open';
       var b = document.createElement('button');
-      b.className = 'slot' + (selected ? ' selected' : '');
-      b.disabled = booked || unavailable;
+      var cls = 'slot';
+      if (selected)            cls += ' selected';        // 초록 = 선택함
+      else if (bookedInCart)   cls += ' busy';            // 내 장바구니에 이미 담음
+      else if (status==='busy')cls += ' busy';            // 파랑 = 수업중(예약됨)
+      else if (status==='off') cls += ' off';             // 회색 = 휴무
+      else                     cls += ' avail';           // 하양 = 수업 가능
+      b.className = cls;
+      b.disabled = bookedInCart || status==='busy' || status==='off';
       b.textContent = slot.time;
-      if (unavailable) b.title = '이 교사는 이 시간대에 수업하지 않습니다';
-      b.onclick = function(){ handleSlotClick(slot.id); };
+      if (status==='busy')      b.title = '수업중(이미 예약된 시간)';
+      else if (status==='off')  b.title = '이 강사 휴무 시간';
+      else if (bookedInCart)    b.title = '내 장바구니에 담긴 시간';
+      b.onclick = function(){ if (!b.disabled) handleSlotClick(slot.id); };
       grid.appendChild(b);
     });
   }
@@ -497,7 +566,8 @@
     addBtn.style.display = 'none';
     sec.style.display = 'block';
     if (label) label.innerHTML = '🧑‍🏫 <b style="color:#38BDF8">'+startTime+'</b> 에 가능한 교사 — 누르면 바로 등록돼요';
-    var avail = TEACHERS.filter(function(t){ return isSlotAvailableForTeacher(t, sorted[0]); });
+    var startSlot = TIME_SLOTS.find(function(s){ return s.id === sorted[0]; });
+    var avail = TEACHERS.filter(function(t){ return startSlot && __slotStatus(t, state.currentDay, startSlot) === 'open'; });
     grid.innerHTML = '';
     if (avail.length === 0) {
       grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#64748B;font-size:16px;padding:16px;border:1px dashed #1E293B;border-radius:12px">😢 이 시간에 가능한 교사가 없어요. 다른 시간을 선택해 주세요.</div>';
@@ -764,7 +834,7 @@
 })();
 </script>
 <!-- BUILD:20260530-final -->
-<!-- BUILD:20260623181150 -->
+<!-- BUILD:20260623183734 -->
 <!-- 🔊 수업 신청 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="booking-voice" src="/audio/lesson-booking.mp3" preload="auto"></audio>
 <script>
