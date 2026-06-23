@@ -21804,7 +21804,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260623174335 -->
+        <!-- BUILD:20260623174916 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -39482,17 +39482,18 @@ button.chip:hover,
   @media (min-width:901px){ .top-header .th-controls #period{ display:none !important; } }
 
   @media (max-width:900px){
-    /* ── ① 회색 바탕 더 투명하게 ── */
+    /* ── ① 회색 박스 완전 제거 → 투명 얇은 바 (2026-06-23) ── */
     .top-header{
-      background:rgba(255,255,255,0.16) !important;
-      backdrop-filter:blur(18px) saturate(160%) !important;
-      -webkit-backdrop-filter:blur(18px) saturate(160%) !important;
-      box-shadow:0 6px 18px -8px rgba(0,0,0,.18) !important;
+      background:transparent !important;
+      backdrop-filter:blur(10px) !important;
+      -webkit-backdrop-filter:blur(10px) !important;
+      box-shadow:none !important;
+      border:0 !important;
     }
-    html[data-admin-theme="ivory"] .top-header{ background:rgba(255,255,255,0.50) !important; }
+    html[data-admin-theme="ivory"] .top-header{ background:transparent !important; }
 
-    /* ── ② 절반 크기(컴팩트) ── */
-    .top-header{ padding:9px 12px !important; gap:8px !important; border-radius:14px !important; position:relative !important; }
+    /* ── ② 얇은 바(컴팩트) · 박스 라운드 제거하고 화면 상단에 밀착 ── */
+    .top-header{ padding:8px 12px !important; gap:8px !important; border-radius:0 !important; margin-bottom:8px !important; position:relative !important; }
     .top-header .th-brand{ gap:8px !important; }
     .top-header .th-brand .th-logo{ width:32px !important; height:32px !important; }
     .top-header .th-brand .th-title{ font-size:16px !important; }
