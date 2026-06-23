@@ -21803,7 +21803,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260623184658 -->
+        <!-- BUILD:20260623185106 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -39595,7 +39595,6 @@ button.chip:hover,
 
 <!-- PH85-CARDTIPS v2 (hover left bubble + mobile tap) -->
 <style id="ph85tip-mobile-css">
-  /* mobile/touch: bottom-centered toast */
   #ph85tip.mobile{left:50%!important;right:auto!important;top:auto!important;
     bottom:calc(env(safe-area-inset-bottom,0px) + 18px)!important;
     transform:translateX(-50%) translateY(8px);
@@ -39612,29 +39611,23 @@ button.chip:hover,
     var el=document.getElementById('ph85tip');
     if(!el){ el=document.createElement('div'); el.id='ph85tip'; document.body.appendChild(el); }
     var isTouch = (window.matchMedia && window.matchMedia('(hover:none),(pointer:coarse)').matches) || ('ontouchstart' in window);
-
-    // top-level menu card summary only (details#card-* > summary)
     function topCard(target){
       if(!target || !target.closest) return null;
       var sm = target.closest('summary'); if(!sm) return null;
       var d = sm.parentElement;
       if(!d || d.tagName!=='DETAILS') return null;
       if(!d.id || d.id.indexOf('card-')!==0) return null;
-      var first = d.querySelector(':scope > summary');
-      if(first !== sm) return null;
+      if(d.querySelector(':scope > summary') !== sm) return null;
       return CARD[d.id] ? {sm:sm, d:d, txt:CARD[d.id]} : null;
     }
-
     function hide(){ el.classList.remove('on'); }
-
-    // ===== Desktop: bubble follows cursor, shown on the LEFT side =====
     function showAtCursor(txt, mx, my){
       el.classList.remove('mobile');
       el.textContent = txt;
       el.style.left='-9999px'; el.style.top='0px'; el.classList.add('on'); el.classList.remove('notail');
       var w=el.offsetWidth, h=el.offsetHeight, m=10, left=true;
-      var x = mx - 16 - w;               // place bubble to the LEFT of the cursor
-      if(x < m){ x = mx + 16; left=false; } // fallback: right of cursor
+      var x = mx - 16 - w;
+      if(x < m){ x = mx + 16; left=false; }
       var y = my - h/2;
       if(y < m) y = m;
       if(y + h > window.innerHeight - m) y = window.innerHeight - m - h;
@@ -39643,7 +39636,6 @@ button.chip:hover,
       el.style.top  = Math.round(y)+'px';
       el.style.setProperty('--ty', Math.max(8, Math.min(my - y - 7, h-15))+'px');
     }
-
     if(!isTouch){
       var cur=null;
       document.addEventListener('mouseover', function(e){ var c=topCard(e.target); cur = c?c.d:null; }, true);
@@ -39658,7 +39650,6 @@ button.chip:hover,
       }, true);
       window.addEventListener('scroll', hide, true);
     } else {
-      // ===== Mobile/Touch: 1st tap shows explanation, 2nd tap on same bar opens it =====
       var armed=null, t=null;
       function toast(txt){
         el.textContent=txt; el.classList.add('on','mobile','notail');
@@ -39668,15 +39659,15 @@ button.chip:hover,
       document.addEventListener('click', function(e){
         var c=topCard(e.target);
         if(!c) return;
-        if(armed !== c.d){            // first tap
+        if(armed !== c.d){
           e.preventDefault(); e.stopImmediatePropagation();
           armed = c.d; toast(c.txt);
-        } else {                      // second tap -> allow toggle
+        } else {
           armed=null; clearTimeout(t); hide();
         }
       }, true);
       document.addEventListener('click', function(e){
-        if(!topCard(e.target)) armed=null; // tapping elsewhere resets
+        if(!topCard(e.target)) armed=null;
       }, false);
     }
   });
