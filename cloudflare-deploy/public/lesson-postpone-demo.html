@@ -382,7 +382,39 @@ header {
   border-color: var(--indigo);
   box-shadow: 0 4px 10px rgba(16,185,129,0.35);
 }
-.hour-chip.disabled { opacity: 0.3; pointer-events: none; }
+.hour-chip.disabled {
+  opacity: 0.45;
+  pointer-events: none;
+  background: repeating-linear-gradient(135deg, rgba(100,116,139,0.10) 0 6px, rgba(100,116,139,0.02) 6px 12px);
+  color: var(--text-dim);
+  border-style: dashed;
+  border-color: rgba(100,116,139,0.35);
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
+/* 🟢 시간표 범례 (가능/불가 설명) */
+.hour-legend {
+  display: flex; flex-wrap: wrap; gap: 8px 16px;
+  align-items: center;
+  margin: 2px 2px 12px;
+  padding: 10px 12px;
+  background: rgba(16,185,129,0.06);
+  border: 1px solid rgba(16,185,129,0.22);
+  border-radius: 10px;
+  font-size: 13px; font-weight: 700; color: var(--text);
+}
+.hour-legend .lg-item { display: inline-flex; align-items: center; gap: 7px; }
+.hour-legend .lg-swatch {
+  width: 26px; height: 18px; border-radius: 6px; flex-shrink: 0;
+  border: 1.5px solid var(--border); background: var(--bg-card);
+}
+.hour-legend .lg-swatch.off {
+  background: repeating-linear-gradient(135deg, rgba(100,116,139,0.18) 0 4px, rgba(100,116,139,0.04) 4px 8px);
+  border-style: dashed; border-color: rgba(100,116,139,0.45); opacity: 0.7;
+}
+.hour-legend .lg-swatch.sel { background: var(--indigo); border-color: var(--indigo); }
+.hour-legend .lg-dim { color: var(--text-dim); font-weight: 600; }
 
 /* ── 스켈레톤 로더 ── */
 .skeleton {
@@ -437,6 +469,13 @@ header {
   display: flex; align-items: center; justify-content: center;
   font-size: 28.3px;
   flex-shrink: 0;
+  overflow: hidden;
+}
+.teacher-card .t-avatar img {
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
 }
 .teacher-card .t-info { flex: 1; min-width: 0; }
 .teacher-card .t-name {
@@ -951,12 +990,12 @@ function __mapTeacher(row){
 }
 
 let TEACHERS = [
-  { id:'t12', name:'Teacher Ana',     ico:'🇵🇭', tag:'원어민', tagClass:'native', rating:5.0, reviews:4, exp:'오피스' },
-  { id:'t21', name:'Karl',            ico:'🇵🇭', tag:'원어민', tagClass:'native', rating:5.0, reviews:3, exp:'헤드티처' },
-  { id:'t4',  name:'Teacher Belle',   ico:'🇵🇭', tag:'원어민', tagClass:'native', rating:5.0, reviews:4, exp:'재택' },
-  { id:'t17', name:'Mo',              ico:'🇺🇸', tag:'원어민', tagClass:'native', rating:5.0, reviews:3, exp:'오전반' },
-  { id:'t26', name:'Teacher Janice',  ico:'🇺🇸', tag:'원어민', tagClass:'native', rating:5.0, reviews:3, exp:'오후반' },
-  { id:'t30', name:'중국어 강선생님',  ico:'🇨🇳', tag:'중국어', tagClass:'native', rating:4.9, reviews:0, exp:'중국어' },
+  { id:'t12', name:'Teacher Ana',     ico:'🇵🇭', tag:'원어민', tagClass:'native', rating:5.0, reviews:4, exp:'오피스',  image_url:'https://mangoi.co.kr/uploads/teacher_images/cf886fb16b28eed1395218ce62b8509f.jpg' },
+  { id:'t21', name:'Karl',            ico:'🇵🇭', tag:'원어민', tagClass:'native', rating:5.0, reviews:3, exp:'헤드티처', image_url:'https://mangoi.co.kr/uploads/teacher_images/51058947aa8e82dc5fa5a5dffa03451e.png' },
+  { id:'t4',  name:'Teacher Belle',   ico:'🇵🇭', tag:'원어민', tagClass:'native', rating:5.0, reviews:4, exp:'재택',   image_url:'https://mangoi.co.kr/uploads/teacher_images/a9262517e49b14417037b5202a1bc19f.jpg' },
+  { id:'t17', name:'Mo',              ico:'🇺🇸', tag:'원어민', tagClass:'native', rating:5.0, reviews:3, exp:'오전반',  image_url:'https://mangoi.co.kr/uploads/teacher_images/45326440b27af66f606678ab204c06a1.jpg' },
+  { id:'t26', name:'Teacher Janice',  ico:'🇺🇸', tag:'원어민', tagClass:'native', rating:5.0, reviews:3, exp:'오후반',  image_url:'https://mangoi.co.kr/uploads/teacher_images/33c3b540d3fd85d539f72d48b5f2615e.png' },
+  { id:'t30', name:'중국어 강선생님',  ico:'🇨🇳', tag:'중국어', tagClass:'native', rating:4.9, reviews:0, exp:'중국어',  image_url:'https://mangoi.co.kr/uploads/teacher_images/9b21068fb62c76b9acdecfc59865806d.png' },
 ];
 
 let SCHEDULE = {};
@@ -1285,16 +1324,28 @@ function renderTimeTab(){
     </div>
     ${state.date ? `
       <div class="section-label">🕐 시간 선택</div>
+      <div class="hour-legend">
+        <span class="lg-item"><span class="lg-swatch"></span>또렷한 칸 = <b>예약 가능</b></span>
+        <span class="lg-item"><span class="lg-swatch off"></span><span class="lg-dim">흐린 칸(취소선) = 예약 불가(마감)</span></span>
+        <span class="lg-item"><span class="lg-swatch sel"></span>초록 = 선택한 시간</span>
+      </div>
       <div class="hour-grid">${hoursHtml}</div>
     ` : '<div style="padding:30px 10px;color:var(--text-dim);text-align:center;font-size:15.3px">👆 먼저 날짜를 선택해 주세요</div>'}
     ${resultHtml}
   `;
 }
 
+/* 얼굴 사진(image_url) 있으면 사진, 없으면 국기 이모지 */
+function avatarHTML(t){
+  if (t && t.image_url){
+    return '<img src="'+t.image_url+'" alt="'+(t.name||'')+'" loading="lazy" onerror="this.outerHTML=\''+(t.ico||'👨‍🏫')+'\'">';
+  }
+  return (t && t.ico) ? t.ico : '👨‍🏫';
+}
 function teacherCardHTML(t, active){
   return `
     <div class="teacher-card ${active?'active':''}" data-teacher="${t.id}">
-      <div class="t-avatar">${t.ico}</div>
+      <div class="t-avatar">${avatarHTML(t)}</div>
       <div class="t-info">
         <div class="t-name">${t.name} <span class="t-tag ${t.tagClass}">${t.tag}</span></div>
         <div class="t-meta">
@@ -1332,7 +1383,7 @@ function renderTeacherTab(){
     return `
       <div class="teacher-card ${expanded?'expanded':''}" data-expand="${t.id}">
         <div class="tc-row">
-          <div class="t-avatar">${t.ico}</div>
+          <div class="t-avatar">${avatarHTML(t)}</div>
           <div class="t-info">
             <div class="t-name">${t.name} <span class="t-tag ${t.tagClass}">${t.tag}</span></div>
             <div class="t-meta">
@@ -1508,7 +1559,7 @@ function attachHandlers(){
   new MutationObserver(syncVis).observe(main,{attributes:true,attributeFilter:['class']});
 })();
 </script>
-<!-- BUILD:20260623160702 -->
+<!-- BUILD:20260623165509 -->
 <script src="/js/i18n-sweep.js?v=2"></script>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>

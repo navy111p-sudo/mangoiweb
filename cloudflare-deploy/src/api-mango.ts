@@ -1660,6 +1660,108 @@ export async function handleMangoApi(
     }
 
     // ────────────────────────────────────────────────
+    // 🥭 Phase WS — GET /api/admin/schedules?week=YYYY-MM-DD
+    //   주간 전체 스케줄 그리드(admin/weekly-schedule.html)용.
+    //   class_schedules 를 요청 주(월~일)로 펼쳐 강사별 슬롯 배열로 반환.
+    //   반환 슬롯: { teacher_id, date, hour, start_time, type, students[], duration_min, note, start_date, end_date }
+    // ────────────────────────────────────────────────
+    if (method === 'GET' && path === '/api/admin/schedules') {
+      try {
+        await env.DB.exec(
+          `CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`
+        );
+      } catch {}
+
+      const mondayOf = (d: Date): Date => {
+        const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+        const wd = (x.getUTCDay() + 6) % 7; // Mon=0 … Sun=6
+        x.setUTCDate(x.getUTCDate() - wd);
+        return x;
+      };
+      const isoOf = (d: Date) => d.toISOString().slice(0, 10);
+      const weekParam = url.searchParams.get('week');
+      const start = (weekParam && /^\d{4}-\d{2}-\d{2}$/.test(weekParam))
+        ? mondayOf(new Date(weekParam + 'T00:00:00Z'))
+        : mondayOf(new Date());
+      const dowKey = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const weekDates: string[] = [];
+      const dateToDow: Record<string, string> = {};
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(start); d.setUTCDate(d.getUTCDate() + i);
+        const s = isoOf(d); weekDates.push(s); dateToDow[s] = dowKey[i];
+      }
+      const weekStartISO = weekDates[0], weekEndISO = weekDates[6];
+
+      const mapType = (ct: string): string => {
+        const c = String(ct || '').toLowerCase();
+        if (c === 'group' || c === '1:2' || c === 'g' || c === '그룹') return 'group';
+        if (c === 'temp' || c === 'substitute' || c === '대체') return 'temp';
+        if (c === 'blocked' || c === 'off' || c === '휴무') return 'blocked';
+        return '1on1';
+      };
+      const hourOf = (t: string): number => {
+        const m = String(t || '').match(/(\d{1,2})/);
+        return m ? parseInt(m[1], 10) : 0;
+      };
+      const normDow = (s: string): string => {
+        const v = String(s || '').trim().toLowerCase();
+        const map: Record<string, string> = {
+          'mon': 'Mon', 'monday': 'Mon', '월': 'Mon', '월요일': 'Mon',
+          'tue': 'Tue', 'tuesday': 'Tue', '화': 'Tue', '화요일': 'Tue',
+          'wed': 'Wed', 'wednesday': 'Wed', '수': 'Wed', '수요일': 'Wed',
+          'thu': 'Thu', 'thursday': 'Thu', '목': 'Thu', '목요일': 'Thu',
+          'fri': 'Fri', 'friday': 'Fri', '금': 'Fri', '금요일': 'Fri',
+          'sat': 'Sat', 'saturday': 'Sat', '토': 'Sat', '토요일': 'Sat',
+          'sun': 'Sun', 'sunday': 'Sun', '일': 'Sun', '일요일': 'Sun',
+        };
+        return map[v] || '';
+      };
+
+      let rows: any[] = [];
+      try {
+        const rs: any = await env.DB.prepare(
+          `SELECT id, user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, notes FROM class_schedules WHERE (status IS NULL OR status='active')`
+        ).all();
+        rows = rs.results || [];
+      } catch (e: any) {
+        return json({ ok: true, week: weekStartISO, count: 0, items: [], schedules: [], _err: String(e?.message || e) });
+      }
+
+      const items: any[] = [];
+      for (const r of rows) {
+        if (r.teacher_id == null || r.teacher_id === '') continue;
+        const tnum = Number(r.teacher_id);
+        const teacher_id = Number.isFinite(tnum) ? tnum : r.teacher_id;
+        const students = r.student_name ? [{ name: r.student_name, uid: r.user_id || '' }] : [];
+        const base = {
+          teacher_id,
+          hour: hourOf(r.start_time),
+          start_time: r.start_time,
+          type: mapType(r.class_type),
+          students,
+          duration_min: r.duration_min || 30,
+          note: r.notes || '',
+        };
+        const kind = String(r.schedule_kind || 'recurring');
+        if (kind === 'one_off' || r.scheduled_date) {
+          const d = String(r.scheduled_date || '');
+          if (d >= weekStartISO && d <= weekEndISO) {
+            items.push({ ...base, date: d, start_date: d, end_date: d });
+          }
+        } else {
+          const want = normDow(r.day_of_week);
+          if (!want) continue;
+          for (const d of weekDates) {
+            if (dateToDow[d] === want) {
+              items.push({ ...base, date: d, start_date: weekStartISO, end_date: weekEndISO });
+            }
+          }
+        }
+      }
+
+      return json({ ok: true, week: weekStartISO, count: items.length, items, schedules: items });
+    }
+
     // 🥭 Phase 22 — GET /api/admin/class-schedules
     //   학생별/기간별 수업 스케줄 조회 (학생 상세 페이지에서 호출)
     //   query: ?user_id=X&from_date=YYYY-MM-DD&to_date=YYYY-MM-DD&kind=recurring|one_off|all

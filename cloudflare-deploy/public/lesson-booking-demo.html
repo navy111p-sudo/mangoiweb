@@ -69,8 +69,9 @@
     width:48px;height:48px;border-radius:50%;margin:0 auto 6px;
     background:linear-gradient(135deg,#3B82F6,#2563EB);
     display:flex;align-items:center;justify-content:center;
-    font-size:31px;color:#fff;font-weight:900;
+    font-size:31px;color:#fff;font-weight:900;overflow:hidden;
   }
+  .teacher-card .avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
   .teacher-card .tname{font-size:18px;font-weight:800;color:#fff;margin-bottom:2px}
   .teacher-card .ttag{font-size:10.5px;color:#94A3B8;line-height:1.4}
   .teacher-card.active{
@@ -351,17 +352,23 @@
       id:'t'+row.id,
       name:(row.english_name||row.korean_name||'강사'),
       avatar:flag,
+      image_url:row.image_url||'',
       tag:flag+' '+__groupLabel(row.group_name)+(rating?' · ★'+rating:''),
       avail:__availFor(row.id)
     };
   }
+  // 얼굴 사진 있으면 사진, 없으면 국기 이모지
+  function __avatarHTML(t){
+    if (t && t.image_url) return '<img src="'+t.image_url+'" alt="'+(t.name||'')+'" loading="lazy" onerror="this.outerHTML=\''+(t.avatar||'👨‍🏫')+'\'">';
+    return (t && t.avatar) ? t.avatar : '👨‍🏫';
+  }
   var TEACHERS = [
-    { id: 't12', name: 'Teacher Ana',    avatar: '🇵🇭', tag: '🇵🇭 오피스 · ★5.0', avail: 'all' },
-    { id: 't21', name: 'Karl',           avatar: '🇵🇭', tag: '🇵🇭 헤드티처 · ★5.0', avail: 'morning' },
-    { id: 't4',  name: 'Teacher Belle',  avatar: '🇵🇭', tag: '🇵🇭 재택 · ★5.0', avail: 'all' },
-    { id: 't17', name: 'Mo',             avatar: '🇺🇸', tag: '🇺🇸 오전반 · ★5.0', avail: 'morning' },
-    { id: 't26', name: 'Teacher Janice', avatar: '🇺🇸', tag: '🇺🇸 오후반 · ★5.0', avail: 'afternoon' },
-    { id: 't30', name: '중국어 강선생님', avatar: '🇨🇳', tag: '🇨🇳 중국어 · ★4.9', avail: 'all' }
+    { id: 't12', name: 'Teacher Ana',    avatar: '🇵🇭', image_url:'https://mangoi.co.kr/uploads/teacher_images/cf886fb16b28eed1395218ce62b8509f.jpg', tag: '🇵🇭 오피스 · ★5.0', avail: 'all' },
+    { id: 't21', name: 'Karl',           avatar: '🇵🇭', image_url:'https://mangoi.co.kr/uploads/teacher_images/51058947aa8e82dc5fa5a5dffa03451e.png', tag: '🇵🇭 헤드티처 · ★5.0', avail: 'morning' },
+    { id: 't4',  name: 'Teacher Belle',  avatar: '🇵🇭', image_url:'https://mangoi.co.kr/uploads/teacher_images/a9262517e49b14417037b5202a1bc19f.jpg', tag: '🇵🇭 재택 · ★5.0', avail: 'all' },
+    { id: 't17', name: 'Mo',             avatar: '🇺🇸', image_url:'https://mangoi.co.kr/uploads/teacher_images/45326440b27af66f606678ab204c06a1.jpg', tag: '🇺🇸 오전반 · ★5.0', avail: 'morning' },
+    { id: 't26', name: 'Teacher Janice', avatar: '🇺🇸', image_url:'https://mangoi.co.kr/uploads/teacher_images/33c3b540d3fd85d539f72d48b5f2615e.png', tag: '🇺🇸 오후반 · ★5.0', avail: 'afternoon' },
+    { id: 't30', name: '중국어 강선생님', avatar: '🇨🇳', image_url:'https://mangoi.co.kr/uploads/teacher_images/9b21068fb62c76b9acdecfc59865806d.png', tag: '🇨🇳 중국어 · ★4.9', avail: 'all' }
   ];
 
   // 교사별 가능 슬롯 필터 — 시간대 limit
@@ -500,7 +507,7 @@
       var c = document.createElement('div');
       c.className = 'teacher-card';
       c.innerHTML =
-        '<div class="avatar">'+t.avatar+'</div>'+
+        '<div class="avatar">'+__avatarHTML(t)+'</div>'+
         '<div class="tname">'+t.name+'</div>'+
         '<div class="ttag">'+t.tag+'</div>';
       c.onclick = function(){ registerBooking(t.id); };
@@ -517,7 +524,7 @@
       var c = document.createElement('div');
       c.className = 'teacher-card' + (state.currentTeacherId === t.id ? ' active' : '');
       c.innerHTML =
-        '<div class="avatar">'+t.avatar+'</div>'+
+        '<div class="avatar">'+__avatarHTML(t)+'</div>'+
         '<div class="tname">'+t.name+'</div>'+
         '<div class="ttag">'+t.tag+'</div>';
       c.onclick = function(){
@@ -752,7 +759,7 @@
 })();
 </script>
 <!-- BUILD:20260530-final -->
-<!-- BUILD:20260623160702 -->
+<!-- BUILD:20260623165509 -->
 <!-- 🔊 수업 신청 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="booking-voice" src="/audio/lesson-booking.mp3" preload="auto"></audio>
 <script>
