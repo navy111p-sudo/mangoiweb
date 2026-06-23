@@ -598,6 +598,11 @@
   }
 
   function handleSlotClick(clickedId) {
+    // 🟢 이미 선택된(초록=수업중) 시간은 다시 누르면 작동 안 함
+    if (state.currentSlotIds.indexOf(clickedId) !== -1) {
+      showAlert('🟢 이미 수업중입니다');
+      return;
+    }
     if (clickedId === TIME_SLOTS.length) {
       showAlert('⚠️ 최소 20분(2개 블록) 예약을 위해 앞 시간대를 선택해 주세요.');
       return;
@@ -759,7 +764,7 @@
 })();
 </script>
 <!-- BUILD:20260530-final -->
-<!-- BUILD:20260623175641 -->
+<!-- BUILD:20260623180646 -->
 <!-- 🔊 수업 신청 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="booking-voice" src="/audio/lesson-booking.mp3" preload="auto"></audio>
 <script>

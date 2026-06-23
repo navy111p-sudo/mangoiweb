@@ -1480,6 +1480,8 @@ function attachHandlers(){
     renderBody(); updateSticky();
   }));
   $$('#detail-body .hour-chip[data-hour]:not([data-tdate])').forEach(el => el.addEventListener('click', () => {
+    // 🟢 이미 선택된(초록=수업중) 시간은 다시 누르면 작동 안 함
+    if (el.classList.contains('active')) { showToast('🟢 이미 수업중입니다'); return; }
     state.hour = el.dataset.hour; state.teacher=null;
     state.loading = true; renderBody();
     setTimeout(() => { state.loading = false; renderBody(); updateSticky(); }, 450);
@@ -1610,7 +1612,7 @@ function attachHandlers(){
   new MutationObserver(syncVis).observe(main,{attributes:true,attributeFilter:['class']});
 })();
 </script>
-<!-- BUILD:20260623175641 -->
+<!-- BUILD:20260623180646 -->
 <script src="/js/i18n-sweep.js?v=2"></script>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
