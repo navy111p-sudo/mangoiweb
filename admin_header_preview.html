@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>admin 헤더 모바일 미리보기</title>
+<style>
+  body{margin:0;font-family:-apple-system,'Segoe UI',sans-serif;
+    background:radial-gradient(1000px 600px at 70% 0%,#2a1c4a,transparent 60%),
+      radial-gradient(900px 600px at 10% 30%,#102046,transparent 55%),
+      linear-gradient(180deg,#0a0e1a,#070912);
+    min-height:100vh;color:#fff;padding:18px;}
+  .wrap{max-width:380px;margin:0 auto}
+  .cap{font-size:12px;color:#9aa6b2;margin:14px 4px 6px}
+
+  /* ===== admin.html 헤더 스타일 발췌 ===== */
+  .top-header{position:relative;background:rgba(255,255,255,0.42);
+    backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);
+    border-radius:16px;padding:7px 16px;display:flex;align-items:center;justify-content:space-between;
+    flex-wrap:wrap;gap:8px;box-shadow:0 12px 32px -10px rgba(120,53,15,.14)}
+  .th-brand{display:flex;align-items:center;gap:14px;min-width:0;text-decoration:none}
+  .th-logo{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#ffb547);
+    display:grid;place-items:center;font-weight:800;color:#1a1206;border:2px solid rgba(245,158,11,.6)}
+  .th-title{font-weight:900;font-size:22px;background:linear-gradient(135deg,#c2410c,#f59e0b);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .th-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .th-btn,.th-select{padding:8px 14px;font-size:13px;font-weight:700;border:1px solid rgba(255,255,255,.7);
+    border-radius:999px;background:rgba(255,255,255,.6);color:#7c2d12;cursor:pointer}
+  .th-btn-amber{background:linear-gradient(135deg,#f59e0b,#ffb547);color:#1a1206;border:none}
+  #ph115-user{padding:8px 14px;border-radius:999px;background:linear-gradient(135deg,#2563eb,#3b82f6);
+    color:#fff;font-weight:800;border:none;cursor:pointer}
+  #th-m-toggle{display:none}
+
+  /* ===== 새 모바일 규칙(절반 크기 + 탭 펼침 + 투명) ===== */
+  @media (max-width:900px){
+    .top-header{background:rgba(255,255,255,0.16)!important;backdrop-filter:blur(18px) saturate(160%)!important;
+      padding:9px 12px!important;gap:8px!important;border-radius:14px!important;position:relative!important}
+    .th-brand{gap:8px!important}
+    .th-logo{width:32px!important;height:32px!important}
+    .th-title{font-size:16px!important}
+    .th-controls{gap:7px!important}
+    .th-controls .th-btn,.th-controls .th-select,.th-controls #ph115-user{
+      height:36px!important;min-height:36px!important;padding:0 10px!important;font-size:12.5px!important;
+      border-radius:11px!important;font-weight:700!important;display:inline-flex;align-items:center;justify-content:center}
+    .th-controls #ph115-user{height:42px!important;font-size:13.5px!important}
+    body:not(.th-m-open) .top-header .th-controls{display:none!important}
+    body.th-m-open .top-header .th-controls{display:grid!important;grid-template-columns:1fr 1fr!important;width:100%}
+    body.th-m-open .top-header{flex-direction:column;align-items:stretch}
+    body.th-m-open .top-header #ph115-user{grid-column:1/-1}
+    #th-m-toggle{display:inline-flex!important;align-items:center;justify-content:center;position:absolute!important;
+      top:8px!important;right:12px!important;width:34px;height:34px;border-radius:999px;
+      border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.22);color:#fff;font-size:16px;
+      font-weight:800;cursor:pointer;backdrop-filter:blur(6px);transition:transform .25s ease}
+    body.th-m-open #th-m-toggle{transform:rotate(180deg)}
+  }
+</style></head>
+<body>
+  <div class="wrap">
+    <div class="cap">평소(접힘) — 절반 크기 · 회색 바탕 더 투명. 우상단 ▾ 를 탭하면 펼쳐집니다.</div>
+    <div class="top-header">
+      <a class="th-brand"><span class="th-logo">🥭</span><span class="th-title">망고아이</span></a>
+      <button id="th-m-toggle" onclick="document.body.classList.toggle('th-m-open')">▾</button>
+      <div class="th-controls">
+        <select class="th-select"><option>최근 7일</option></select>
+        <a class="th-btn th-btn-amber">🩺 셀프 진단</a>
+        <button class="th-btn">🎨 색상 · 어둡게</button>
+        <button class="th-btn">🌐 EN</button>
+        <button id="ph115-user">👤 정우영 ▾</button>
+      </div>
+    </div>
+    <p class="cap">👆 위 ▾ 버튼을 눌러 펼침/접힘을 확인하세요.</p>
+  </div>
+</body></html>

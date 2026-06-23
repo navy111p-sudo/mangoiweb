@@ -85,7 +85,13 @@ function registerVideoCall(io) {
     console.log(`[화상통화+·연결] ${socket.id}`);
 
     // ── 방 참가 ──
-    socket.on('join-room', ({ roomId, username }) => {
+    socket.on('join-room', ({ roomId, username } = {}) => {
+      // [버그 B] roomId 검증이 없으면 모두 'undefined' 단일 방에 묶여
+      // 모르는 사람의 영상/채팅이 보이는 통신 사고가 난다.
+      if (!roomId || typeof roomId !== 'string') {
+        socket.emit('error-msg', { message: 'roomId는 비어 있지 않은 문자열이어야 합니다.' });
+        return;
+      }
       socket.join(roomId);
       socket.roomId = roomId;
       socket.username = username || `사용자${socket.id.slice(0, 4)}`;
@@ -139,7 +145,10 @@ function registerVideoCall(io) {
     });
 
     // ── 채팅 ──
+    // [버그 A] 미입장(socket.roomId 없음) 상태에서 보낸 이벤트는
+    // 'undefined' 방으로 새어나가므로 모두 무시한다.
     socket.on('chat-message', (message) => {
+      if (!socket.roomId) return;
       nsp.to(socket.roomId).emit('chat-message', {
         username: socket.username,
         message,
@@ -150,21 +159,25 @@ function registerVideoCall(io) {
 
     // ── 칠판 (Whiteboard) ──
     socket.on('whiteboard-draw', (data) => {
+      if (!socket.roomId) return;
       socket.to(socket.roomId).emit('whiteboard-draw', data);
     });
 
     socket.on('whiteboard-clear', () => {
+      if (!socket.roomId) return;
       nsp.to(socket.roomId).emit('whiteboard-clear');
     });
 
     // ── PDF 공유 ──
     socket.on('pdf-share', (pdfState) => {
+      if (!socket.roomId) return;
       const room = rooms.get(socket.roomId);
       if (room) room.pdfState = pdfState;
       socket.to(socket.roomId).emit('pdf-sync', pdfState);
     });
 
     socket.on('pdf-page-change', (pageNum) => {
+      if (!socket.roomId) return;
       const room = rooms.get(socket.roomId);
       if (room && room.pdfState) {
         room.pdfState.currentPage = pageNum;
@@ -173,6 +186,7 @@ function registerVideoCall(io) {
     });
 
     socket.on('pdf-stop-share', () => {
+      if (!socket.roomId) return;
       const room = rooms.get(socket.roomId);
       if (room) room.pdfState = null;
       socket.to(socket.roomId).emit('pdf-stop-share');
@@ -188,7 +202,9 @@ function registerVideoCall(io) {
         }
       }
 
-      socket.to(socket.roomId).emit('user-left', { userId: socket.id });
+      if (socket.roomId) {
+        socket.to(socket.roomId).emit('user-left', { userId: socket.id });
+      }
 
       if (socket.username && socket.roomId) {
         nsp.to(socket.roomId).emit('chat-message', {
@@ -206,4 +222,4 @@ function registerVideoCall(io) {
   return { rooms, nsp };
 }
 
-module.exports = { registerRoutes, registerVideoCall };
+module.exports = { registerRoutes, registerVideoCall, rooms };

@@ -86,16 +86,17 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-// TURN 릴레이 프록시 정보
-app.get('/api/turn-config', (_req, res) => {
-  res.json({
-    turnRelayUrl: process.env.TURN_RELAY_URL || null,
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-    ],
-    info: 'TURN 중계 서버는 Cloudflare Workers에 별도 배포하세요 (npm run turn:deploy)',
-  });
+// ICE/TURN 설정 발급 (Cloudflare 동적 자격증명 → 폴백)
+// 비밀키(TURN_KEY_API_TOKEN)는 서버에만 두고, 클라이언트엔 단기 자격증명만 내려준다.
+app.get('/api/turn-config', async (_req, res) => {
+  try {
+    const cfg = await buildTurnConfig(process.env, fetch);
+    // 브라우저가 매 통화마다 갱신할 수 있도록 캐시 금지
+    res.set('Cache-Control', 'no-store');
+    res.json(cfg);
+  } catch (err) {
+    res.status(500).json({ source: 'error', error: String(err && err.message || err) });
+  }
 });
 
 // ── 클라이언트 페이지 라우팅 ──

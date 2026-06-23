@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>망고아이 · AI 도형 인식 테스트</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif; background:#0f172a; color:#e2e8f0; }
+  header { padding:12px 16px; background:#1e293b; display:flex; align-items:center; gap:12px; flex-wrap:wrap; border-bottom:1px solid #334155; }
+  header h1 { font-size:16px; margin:0; color:#fbbf24; }
+  .badge { font-size:12px; color:#94a3b8; }
+  .ctrl { display:flex; gap:8px; align-items:center; margin-left:auto; flex-wrap:wrap; }
+  button { padding:7px 12px; border:0; border-radius:8px; background:#334155; color:#e2e8f0; font-weight:700; cursor:pointer; font-size:13px; }
+  button.on { background:#2563eb; }
+  .result { font-size:14px; font-weight:800; color:#34d399; min-width:120px; }
+  .wrap { position:relative; margin:12px; border-radius:12px; overflow:hidden; background:#fff; box-shadow:0 8px 30px rgba(0,0,0,.4); }
+  canvas { display:block; width:100%; height:70vh; touch-action:none; }
+  #ink { position:absolute; inset:0; }
+  .hint { padding:0 16px 12px; font-size:12.5px; color:#94a3b8; line-height:1.7; }
+  .legend { display:inline-flex; gap:4px; align-items:center; }
+  .sw { width:12px; height:12px; border-radius:3px; display:inline-block; }
+</style>
+</head>
+<body>
+<header>
+  <h1>✨ AI 도형 인식 테스트</h1>
+  <span class="badge">펜으로 천천히 그려보세요 — 손 떼면 정리됩니다</span>
+  <div class="ctrl">
+    <span class="result" id="result">—</span>
+    <button id="snapBtn" class="on" onclick="toggleSnap(this)">정리 켜짐</button>
+    <button onclick="clearAll()">전체 지우기</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <canvas id="board"></canvas>
+  <canvas id="ink"></canvas>
+</div>
+
+<div class="hint">
+  <b>인식 대상</b>: 직선 · 화살표 · 사각형 · 삼각형 · 원/타원 · 좌표축(ㄱ자) &nbsp; |
+  &nbsp; <span class="legend"><span class="sw" style="background:#cbd5e1"></span> 원본(회색)</span>
+  &nbsp; <span class="legend"><span class="sw" style="background:#2563eb"></span> 정리 결과(파랑)</span><br>
+  잘 되는 것/안 되는 것을 알려주시면 알고리즘을 칠판에 맞춰 더 다듬겠습니다. (이 페이지는 인터넷 없이 동작합니다.)
+</div>
+
+<script>
+const board = document.getElementById('board');
+const ink = document.getElementById('ink');
+let bctx, ictx;
+let snap = true;
+let drawing = false;
+let pts = [];
+
+function fit(){
+  const r = board.parentElement.getBoundingClientRect();
+  for (const c of [board, ink]) { c.width = r.width; c.height = r.height; }
+  bctx = board.getContext('2d');
+  ictx = ink.getContext('2d');
+}
+window.addEventListener('resize', () => { const img = board.toDataURL(); fit(); const i = new Image(); i.onload=()=>bctx.drawImage(i,0,0); i.src=img; });
+fit();
+
+function pos(e){
+  const r = ink.getBoundingClientRect();
+  const t = e.touches ? e.touches[0] : e;
+  return [ (t.clientX - r.left) * (ink.width / r.width), (t.clientY - r.top) * (ink.height / r.height) ];
+}
+function down(e){ e.preventDefault(); drawing = true; pts = [pos(e)]; }
+function move(e){
+  if (!drawing) return; e.preventDefault();
+  pts.push(pos(e));
+  ictx.clearRect(0,0,ink.width,ink.height);
+  ictx.strokeStyle = '#94a3b8'; ictx.lineWidth = 2.5; ictx.lineCap='round'; ictx.lineJoin='round';
+  ictx.beginPath(); pts.forEach((p,i)=> i?ictx.lineTo(p[0],p[1]):ictx.moveTo(p[0],p[1])); ictx.stroke();
+}
+function up(e){
+  if (!drawing) return; e.preventDefault(); drawing = false;
+  ictx.clearRect(0,0,ink.width,ink.height);
+  const shape = snap ? detectShape(pts) : { type:'ink' };
+  document.getElementById('result').textContent = ({line:'직선',arrow:'화살표',rect:'사각형',triangle:'삼각형',ellipse:'타원',circle:'원',axes:'좌표축',ink:'자유선(인식 안 됨)'})[shape.type] || shape.type;
+  if (shape.type === 'ink') drawRaw(bctx, pts, '#334155', 3);
+  else renderShape(bctx, shape, '#2563eb', 3);
+}
+ink.addEventListener('mousedown', down); ink.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
+ink.addEventListener('touchstart', down, {passive:false}); ink.addEventListener('touchmove', move, {passive:false}); ink.addEventListener('touchend', up, {passive:false});
+
+function toggleSnap(b){ snap = !snap; b.classList.toggle('on', snap); b.textContent = snap ? '정리 켜짐' : '정리 꺼짐(원본)'; }
+function clearAll(){ bctx.clearRect(0,0,board.width,board.height); ictx.clearRect(0,0,ink.width,ink.height); document.getElementById('result').textContent='—'; }
+
+function drawRaw(ctx, p, color, size){
+  ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=size; ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.beginPath(); p.forEach((q,i)=> i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1])); ctx.stroke(); ctx.restore();
+}
+
+/* ===================== 인식 알고리즘 (개선판) ===================== */
+function dist(a,b){ return Math.hypot(a[0]-b[0], a[1]-b[1]); }
+function perp(p,a,b){
+  const dx=b[0]-a[0], dy=b[1]-a[1], L2=dx*dx+dy*dy;
+  if (L2===0) return dist(p,a);
+  let t=((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L2; t=Math.max(0,Math.min(1,t));
+  return Math.hypot(p[0]-(a[0]+t*dx), p[1]-(a[1]+t*dy));
+}
+function pathLen(p){ let L=0; for(let i=1;i<p.length;i++) L+=dist(p[i-1],p[i]); return L; }
+function resample(p, n){
+  if (p.length < 2) return p.slice();
+  const L = pathLen(p), step = L/(n-1);
+  if (L === 0) return p.slice();
+  const out=[p[0]]; let d=0;
+  for (let i=1;i<p.length;i++){
+    let seg = dist(p[i-1],p[i]);
+    while (d+seg >= step && out.length < n){
+      const t=(step-d)/seg;
+      const nx=p[i-1][0]+t*(p[i][0]-p[i-1][0]), ny=p[i-1][1]+t*(p[i][1]-p[i-1][1]);
+      out.push([nx,ny]); p[i-1]=[nx,ny]; seg=dist(p[i-1],p[i]); d=0;
+    }
+    d+=seg;
+  }
+  while (out.length < n) out.push(p[p.length-1]);
+  return out;
+}
+function rdp(p, eps){
+  if (p.length < 3) return p.slice();
+  let dmax=0, idx=0;
+  for (let i=1;i<p.length-1;i++){ const d=perp(p[i],p[0],p[p.length-1]); if(d>dmax){dmax=d;idx=i;} }
+  if (dmax>eps){ const l=rdp(p.slice(0,idx+1),eps), r=rdp(p.slice(idx),eps); return l.slice(0,-1).concat(r); }
+  return [p[0], p[p.length-1]];
+}
+function angleDeg(a,b,c){
+  const v1=[a[0]-b[0],a[1]-b[1]], v2=[c[0]-b[0],c[1]-b[1]];
+  const m1=Math.hypot(v1[0],v1[1]), m2=Math.hypot(v2[0],v2[1]); if(!m1||!m2) return 0;
+  let cos=(v1[0]*v2[0]+v1[1]*v2[1])/(m1*m2); cos=Math.max(-1,Math.min(1,cos));
+  return Math.acos(cos)*180/Math.PI;
+}
+function polyArea(p){ let a=0; for(let i=0;i<p.length;i++){ const j=(i+1)%p.length; a+=p[i][0]*p[j][1]-p[j][0]*p[i][1]; } return Math.abs(a)/2; }
+
+function detectShape(raw){
+  if (!raw || raw.length < 6) return {type:'ink'};
+  const pts = resample(raw.slice(), 64);
+  let minX=1e9,minY=1e9,maxX=-1e9,maxY=-1e9;
+  for (const p of pts){ if(p[0]<minX)minX=p[0]; if(p[1]<minY)minY=p[1]; if(p[0]>maxX)maxX=p[0]; if(p[1]>maxY)maxY=p[1]; }
+  const w=maxX-minX, h=maxY-minY, diag=Math.hypot(w,h);
+  if (diag < 32) return {type:'ink'};
+  const aspect = Math.min(w,h)/Math.max(w,h);
+  const cx=(minX+maxX)/2, cy=(minY+maxY)/2;
+  const start=pts[0], end=pts[pts.length-1];
+  const gap = dist(start,end);
+  const closed = gap < diag*0.30;
+
+  // 직선/화살표 (열림 + 직선성)
+  let dev=0; for (const p of pts){ const d=perp(p,start,end); if(d>dev)dev=d; }
+  if (!closed && dev/diag < 0.11){
+    const arrow = detectArrowHead(raw, start, end, diag);
+    if (arrow) return { type:'arrow', x1:start[0], y1:start[1], x2:end[0], y2:end[1] };
+    return { type:'line', x1:start[0], y1:start[1], x2:end[0], y2:end[1] };
+  }
+
+  const eps = diag*0.045;
+  const simp = rdp(pts, eps);
+
+  if (!closed){
+    // 좌표축(ㄱ/L자): 코너 1개 + ~90°, 두 팔 충분히 김
+    if (simp.length === 3){
+      const ang = angleDeg(simp[0], simp[1], simp[2]);
+      const l1 = dist(simp[0],simp[1]), l2 = dist(simp[1],simp[2]);
+      if (Math.abs(ang-90) < 32 && l1 > diag*0.3 && l2 > diag*0.3){
+        const o=simp[1], a1=simp[0], a2=simp[2];
+        const horiz = Math.abs(a1[0]-o[0]) > Math.abs(a2[0]-o[0]) ? a1 : a2;
+        const vert  = horiz===a1 ? a2 : a1;
+        return { type:'axes', ox:o[0], oy:o[1], hx:horiz[0], vy:vert[1] };
+      }
+    }
+    return {type:'ink'};
+  }
+
+  // 닫힌 도형: "실제 꺾이는 코너(예각) 개수"로 분류 (사각형이 원으로 오인되지 않게)
+  const area = polyArea(pts), peri = pathLen(pts);
+  const circ = peri>0 ? (4*Math.PI*area)/(peri*peri) : 0;
+  const poly = simp.slice(0, Math.max(1, simp.length-1));
+  const sharp = sharpCorners(poly, 150);
+  const sc = sharp.length;
+
+  // 삼각형
+  if (sc === 3) return { type:'triangle', pts:[sharp[0], sharp[1], sharp[2]] };
+  // 사각형 (직각이면 bbox, 아니면 기울어진 4각형)
+  if (sc === 4){
+    let ok=0;
+    for (let i=0;i<4;i++){ const a=sharp[(i+3)%4],b=sharp[i],c=sharp[(i+1)%4]; if(Math.abs(angleDeg(a,b,c)-90)<30) ok++; }
+    if (ok>=3) return { type:'rect', x:minX, y:minY, w, h };
+    return { type:'quad', pts:[sharp[0],sharp[1],sharp[2],sharp[3]] };
+  }
+  // 원/타원 (날카로운 코너 거의 없음)
+  if (sc <= 2 && circ > 0.62){
+    if (aspect > 0.80){ const r=(w+h)/4; return { type:'circle', cx, cy, r }; }
+    return { type:'ellipse', cx, cy, rx:w/2, ry:h/2 };
+  }
+  if (sc >= 5 && circ > 0.74) return { type:'ellipse', cx, cy, rx:w/2, ry:h/2 };
+  return {type:'ink'};
+}
+function sharpCorners(poly, maxAngle){
+  const out=[]; const n=poly.length;
+  if (n < 3) return poly.slice();
+  for (let i=0;i<n;i++){ const a=poly[(i-1+n)%n], b=poly[i], c=poly[(i+1)%n]; if (angleDeg(a,b,c) < maxAngle) out.push(b); }
+  return out;
+}
+function looksRect(simp){
+  const c = simp.slice(0, simp.length-1);
+  if (c.length < 4) return false;
+  let ok=0;
+  for (let i=0;i<c.length;i++){
+    const a=c[(i-1+c.length)%c.length], b=c[i], d=c[(i+1)%c.length];
+    if (Math.abs(angleDeg(a,b,d)-90) < 28) ok++;
+  }
+  return ok >= Math.min(4, c.length) - 1; // 한 코너 정도는 허용
+}
+function detectArrowHead(raw, start, end, diag){
+  // 끝점 부근에서 본선과 반대로 작게 꺾이는 갈고리 2개가 있으면 화살표로 간주(간이)
+  const n = raw.length; if (n < 8) return false;
+  const tail = raw.slice(Math.max(0, n - Math.round(n*0.22)));
+  let maxOff = 0;
+  for (const p of tail){ const d = perp(p, start, end); if (d > maxOff) maxOff = d; }
+  return maxOff > diag*0.06 && maxOff < diag*0.30;
+}
+
+/* ===================== 정리 결과 그리기 ===================== */
+function arrowHead(ctx, fx,fy,tx,ty,size){
+  const ang=Math.atan2(ty-fy,tx-fx), len=Math.max(10,size*4);
+  ctx.beginPath(); ctx.moveTo(tx,ty); ctx.lineTo(tx-len*Math.cos(ang-0.42), ty-len*Math.sin(ang-0.42));
+  ctx.moveTo(tx,ty); ctx.lineTo(tx-len*Math.cos(ang+0.42), ty-len*Math.sin(ang+0.42)); ctx.stroke();
+}
+function renderShape(ctx, s, color, size){
+  ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=size; ctx.lineCap='round'; ctx.lineJoin='round';
+  if (s.type==='line'){ ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke(); }
+  else if (s.type==='arrow'){ ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke(); arrowHead(ctx,s.x1,s.y1,s.x2,s.y2,size); }
+  else if (s.type==='rect'){ ctx.strokeRect(s.x,s.y,s.w,s.h); }
+  else if (s.type==='quad'){ ctx.beginPath(); ctx.moveTo(s.pts[0][0],s.pts[0][1]); for(let i=1;i<4;i++) ctx.lineTo(s.pts[i][0],s.pts[i][1]); ctx.closePath(); ctx.stroke(); }
+  else if (s.type==='triangle'){ ctx.beginPath(); ctx.moveTo(s.pts[0][0],s.pts[0][1]); ctx.lineTo(s.pts[1][0],s.pts[1][1]); ctx.lineTo(s.pts[2][0],s.pts[2][1]); ctx.closePath(); ctx.stroke(); }
+  else if (s.type==='circle'){ ctx.beginPath(); ctx.arc(s.cx,s.cy,Math.max(2,s.r),0,Math.PI*2); ctx.stroke(); }
+  else if (s.type==='ellipse'){ ctx.beginPath(); ctx.ellipse(s.cx,s.cy,Math.max(2,s.rx),Math.max(2,s.ry),0,0,Math.PI*2); ctx.stroke(); }
+  else if (s.type==='axes'){ ctx.beginPath(); ctx.moveTo(s.ox,s.oy); ctx.lineTo(s.hx,s.oy); ctx.stroke(); ctx.beginPath(); ctx.moveTo(s.ox,s.oy); ctx.lineTo(s.ox,s.vy); ctx.stroke(); arrowHead(ctx,s.ox,s.oy,s.hx,s.oy,size); arrowHead(ctx,s.ox,s.oy,s.ox,s.vy,size); }
+  ctx.restore();
+}
+</script>
+</body>
+</html>

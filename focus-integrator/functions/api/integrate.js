@@ -17,22 +17,38 @@ function clip(v, lo = 0, hi = 100) {
   return Math.max(lo, Math.min(hi, n));
 }
 
+// 유효한 숫자만 인정한다. null / "" / boolean / object / NaN → null(무효).
+// (문자열 숫자 "90" 은 허용)
+function toValidNumber(v) {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v))) return Number(v);
+  return null;
+}
+
 function extractScore(obj, keys) {
   if (!obj || typeof obj !== "object") {
     throw new Error("입력 데이터는 JSON(object) 이어야 합니다.");
   }
+  // [버그 D] 예전엔 값이 null/""/객체여도 clip() 이 조용히 0 점으로 만들었다.
+  // 이제는 "필드는 있는데 값이 비정상"이면 건너뛰고, 끝까지 없으면 에러를 던진다.
   for (const k of keys) {
-    if (k in obj) return clip(obj[k]);
+    if (k in obj) {
+      const n = toValidNumber(obj[k]);
+      if (n !== null) return clip(n);
+    }
   }
   // 중첩 한 단계
   for (const v of Object.values(obj)) {
-    if (v && typeof v === "object") {
+    if (v && typeof v === "object" && !Array.isArray(v)) {
       for (const k of keys) {
-        if (k in v) return clip(v[k]);
+        if (k in v) {
+          const n = toValidNumber(v[k]);
+          if (n !== null) return clip(n);
+        }
       }
     }
   }
-  throw new Error(`점수 필드(${keys.join(", ")}) 를 JSON 에서 찾지 못했습니다.`);
+  throw new Error(`점수 필드(${keys.join(", ")}) 에서 유효한 숫자를 찾지 못했습니다.`);
 }
 
 function integrate(agent1, agent2) {
@@ -97,3 +113,5 @@ export async function onRequestOptions() {
     },
   });
 }
+
+export { clip, toValidNumber, extractScore, integrate };

@@ -1,6 +1,7 @@
 /**
  * app.js – 메인 진입점: 로비, 탭 전환, 소켓 연결
  * [통합] /video-call 네임스페이스 사용
+ * 미디어 제약/폴백 헬퍼는 media-utils.js 에 분리 (테스트 가능)
  */
 const socket = io('/video-call');
 let localStream = null;
@@ -26,14 +27,24 @@ async function joinRoom() {
   roomId = $roomInput.value.trim() || generateRoomId();
 
   try {
-    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    // [버그 E] 에코 제거/노이즈 억제 + 영상 상한 (하울링·버벅임 방지)
+    localStream = await navigator.mediaDevices.getUserMedia(buildMediaConstraints());
   } catch (err) {
-    console.warn('미디어 장치 접근 실패:', err.message);
-    localStream = new MediaStream();
+    console.warn('카메라/마이크 접근 실패, 오디오만 재시도:', err.message);
+    try {
+      // 카메라가 거부돼도 오디오만이라도 확보 (에코 제거 옵션 유지)
+      localStream = await navigator.mediaDevices.getUserMedia(buildAudioOnlyConstraints());
+    } catch (e2) {
+      console.warn('오디오 확보도 실패:', e2.message);
+      localStream = new MediaStream();
+    }
   }
 
   document.getElementById('local-video').srcObject = localStream;
   document.getElementById('local-label').textContent = username + ' (나)';
+
+  // [TURN] 서버에서 단기 자격증명 기반 ICE 설정을 받아 적용 (실패 시 정적 폴백)
+  try { ICE_SERVERS = await loadIceServers(); } catch (_) { /* 폴백 유지 */ }
 
   socket.emit('join-room', { roomId, username });
 

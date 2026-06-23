@@ -94,7 +94,16 @@
 <script>
 const $ = (s) => document.querySelector(s);
 let ws = null, myPeerId = '', peers = new Map(), localStream = null, peerConnections = new Map();
-const ICE_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
+const ICE_CONFIG = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+  ]
+};
 
 function log(msg, type = 'info') {
   const el = $('#log');
@@ -144,7 +153,10 @@ function handleMessage(msg) {
 
 $('#btnStartMedia').onclick = async () => {
   try {
-    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    localStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280, max: 1280 }, height: { ideal: 720, max: 720 }, frameRate: { ideal: 24, max: 30 } },
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    });
     $('#localVideo').srcObject = localStream;
     log('로컬 미디어 시작됨', 'success'); $('#btnCall').disabled = false;
   } catch (e) { log(`미디어 오류: ${e.message}`, 'error'); }
