@@ -392,6 +392,36 @@ header {
   text-decoration: line-through;
   text-decoration-thickness: 1.5px;
 }
+/* 🟢 수업중(이미 예약됨) — 녹색 채움, 클릭 불가 */
+.hour-chip.booked,
+.hour-chip.booked.hour-mark:not(.active) {
+  background: var(--indigo);
+  color: #fff;
+  border-color: var(--indigo);
+  font-weight: 800;
+  cursor: not-allowed;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
+}
+.hour-chip.booked:active { transform: none; }
+
+/* 📋 교사 스케줄 색상 범례 (흰색=가능 / 녹색=수업중) */
+.sch-legend {
+  display: flex; flex-wrap: wrap; gap: 8px 18px;
+  align-items: center;
+  margin: 0 2px 14px;
+  padding: 11px 14px;
+  background: rgba(16,185,129,0.06);
+  border: 1px solid rgba(16,185,129,0.22);
+  border-radius: 12px;
+  font-size: 13.5px; font-weight: 700; color: var(--text);
+}
+.sch-legend .lg-item { display: inline-flex; align-items: center; gap: 8px; }
+.sch-legend .lg-dot {
+  width: 24px; height: 18px; border-radius: 6px; flex-shrink: 0;
+}
+.sch-legend .lg-dot.free  { background: var(--bg-card); border: 1.5px solid var(--border); }
+.sch-legend .lg-dot.busy  { background: var(--indigo); border: 1.5px solid var(--indigo); }
+.sch-legend .lg-dim { color: var(--text-dim); font-weight: 600; }
 
 /* 🟢 시간표 범례 (가능/불가 설명) */
 .hour-legend {
@@ -1023,6 +1053,18 @@ function __buildSchedule(){
 }
 __buildSchedule();
 
+/* 🟢 이미 수업이 잡힌(=수업중) 슬롯 판별 — 교사·날짜·시간 기준 결정적(deterministic) */
+function isBookedSlot(teacherId, iso, slot){
+  let base = 0; for (let k=0;k<teacherId.length;k++) base += teacherId.charCodeAt(k);
+  const [h, m] = slot.split(':').map(Number);
+  const day = new Date(iso+'T00:00:00').getDate();
+  // 학생 본인 정규수업이 잡힌 슬롯은 무조건 수업중
+  if (typeof CURRENT_SCHEDULE !== 'undefined' && Array.isArray(CURRENT_SCHEDULE) &&
+      CURRENT_SCHEDULE.some(c => c.teacherId===teacherId && c.date===iso && c.hour===slot)) return true;
+  // 그 외 약 1/3 슬롯을 이미 예약된 수업으로 표시
+  return ((base + day) * (h*3 + m/20 + 1)) % 3 === 0;
+}
+
 /* ════════════════════════════════════════════════════════════
    현재 수강 중인 정규 스케줄 (요구사항 2: 현재 수업 정보)
    → 실제 강사(TEACHERS[0])로 표기
@@ -1559,7 +1601,7 @@ function attachHandlers(){
   new MutationObserver(syncVis).observe(main,{attributes:true,attributeFilter:['class']});
 })();
 </script>
-<!-- BUILD:20260623175241 -->
+<!-- BUILD:20260623175448 -->
 <script src="/js/i18n-sweep.js?v=2"></script>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
