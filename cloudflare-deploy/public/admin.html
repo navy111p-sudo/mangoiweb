@@ -156,15 +156,15 @@
   select, button { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; cursor: pointer; font-size: 14px; }
   button.primary { background: #f59e0b; color: #fff; border-color: #f59e0b; font-weight: 600; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 24px; }
-  .card { background: rgba(255,255,255,0.85); backdrop-filter: blur(8px); border-radius: 14px; padding: 20px; box-shadow: 0 6px 16px -6px rgba(120,53,15,0.12), 0 1px 3px rgba(0,0,0,0.03); border: 0; }
+  .card { background: rgba(255,255,255,0.85); border-radius: 14px; padding: 20px; box-shadow: 0 6px 16px -6px rgba(120,53,15,0.12), 0 1px 3px rgba(0,0,0,0.03); border: 0; }
   .card-label { font-size: 13px; color: #6b7280; margin-bottom: 8px; font-weight: 500; }
   .card-value { font-size: 32px; font-weight: 700; color: #111827; }
   .card-sub { font-size: 12px; color: #9ca3af; margin-top: 4px; }
   .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
-  .chart-card { background: rgba(255,255,255,0.85); backdrop-filter: blur(8px); border-radius: 14px; padding: 20px; box-shadow: 0 6px 16px -6px rgba(120,53,15,0.12), 0 1px 3px rgba(0,0,0,0.03); border: 0; }
+  .chart-card { background: rgba(255,255,255,0.85); border-radius: 14px; padding: 20px; box-shadow: 0 6px 16px -6px rgba(120,53,15,0.12), 0 1px 3px rgba(0,0,0,0.03); border: 0; }
   .chart-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
   .chart-wrapper { position: relative; height: 280px; }
-  .table-card { background: rgba(255,255,255,0.85); backdrop-filter: blur(8px); border-radius: 14px; padding: 20px; box-shadow: 0 6px 16px -6px rgba(120,53,15,0.12), 0 1px 3px rgba(0,0,0,0.03); border: 0; }
+  .table-card { background: rgba(255,255,255,0.85); border-radius: 14px; padding: 20px; box-shadow: 0 6px 16px -6px rgba(120,53,15,0.12), 0 1px 3px rgba(0,0,0,0.03); border: 0; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #f3f4f6; }
   th { background: #f9fafb; font-weight: 600; color: #6b7280; font-size: 12px; text-transform: uppercase; }
@@ -10882,7 +10882,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   /* ── KPI / Chart / Table 카드 (메인 영역) ── */
   .card, .chart-card, .table-card {
     background: var(--da-card) !important;
-    backdrop-filter: blur(12px) !important;
+    /* 🩹 (2026-06-23) backdrop-filter 끔 — 배경 위 리페인트로 카드가 '떨리던' 원인 */
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
     border: 1px solid var(--da-border) !important;
     box-shadow: 0 12px 32px -10px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.2) !important;
   }
@@ -21803,7 +21805,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260623185106 -->
+        <!-- BUILD:20260623185633 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -38133,11 +38135,10 @@ button.chip:hover,
     content: ""; position: absolute; inset: 0; z-index: 0;
     background: var(--kpi-grad, transparent);
   }
-  /* 상단 글로우 컬러바 */
+  /* 상단 컬러바 (🩹 2026-06-23: 후광 글로우 box-shadow 제거 — 광채·깜빡임 원인) */
   #kpi .card::after, #kpi-today .card::after {
     content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px; z-index: 2;
     background: var(--kpi-bar, transparent);
-    box-shadow: 0 0 14px 1px var(--kpi-glow, transparent);
   }
   #kpi .card > *, #kpi-today .card > * { position: relative; z-index: 1; }
 
