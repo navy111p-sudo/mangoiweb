@@ -39610,7 +39610,7 @@ button.chip:hover,
   ready(function(){
     var el=document.getElementById('ph85tip');
     if(!el){ el=document.createElement('div'); el.id='ph85tip'; document.body.appendChild(el); }
-    var isTouch = (window.matchMedia && window.matchMedia('(hover:none),(pointer:coarse)').matches) || ('ontouchstart' in window);
+    var isTouch = window.matchMedia ? window.matchMedia('(hover:none), (pointer:coarse)').matches : (('ontouchstart' in window) && window.innerWidth < 1024);
     function topCard(target){
       if(!target || !target.closest) return null;
       var sm = target.closest('summary'); if(!sm) return null;
