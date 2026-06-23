@@ -3305,6 +3305,28 @@
         </div>
       </details>
 
+      <!-- 📅 전체 스케줄 집중 모드 — 스케줄을 열면 그 아래(연속출석 랭킹 이하)를 모두 숨기고 캘린더를 풀화면으로 -->
+      <style>
+        body.sched-focus #sm-all-schedules ~ details.sub-item { display: none !important; }
+        body.sched-focus #card-students-mgmt ~ * { display: none !important; }
+        body.sched-focus #sm-all-schedules .sub-body > div:first-child { display: none !important; }
+        body.sched-focus #sm-schedule-iframe { height: 88vh !important; }
+      </style>
+      <script>
+      (function(){
+        var sch = document.getElementById('sm-all-schedules');
+        if(!sch) return;
+        function sync(){ document.body.classList.toggle('sched-focus', sch.hasAttribute('open')); }
+        sch.addEventListener('toggle', function(){
+          sync();
+          if(sch.hasAttribute('open')){
+            setTimeout(function(){ sch.scrollIntoView({behavior:'smooth', block:'start'}); }, 60);
+          }
+        });
+        sync();
+      })();
+      </script>
+
       <!-- 🏆 연속 출석 랭킹 -->
       <details class="sub-item">
         <summary data-ko="🏆 연속 출석 랭킹" data-en="🏆 Streak Ranking">🏆 연속 출석 랭킹</summary>
@@ -21845,7 +21867,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260624032301 -->
+        <!-- BUILD:20260624034417 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
