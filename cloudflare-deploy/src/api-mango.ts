@@ -1763,6 +1763,79 @@ export async function handleMangoApi(
       return json({ ok: true, week: weekStartISO, count: items.length, items, schedules: items });
     }
 
+    // 🥭 Phase WS-2 — GET /api/admin/unassigned-students
+    //   아직 어떤 수업(class_schedules)에도 배정되지 않은 '재학중' 학생 목록.
+    //   weekly-schedule.html 좌측 '미배정 학생 대기 풀'이 호출.
+    //   반환: { ok, count, students:[{uid,name,level}], items:[…동일] }
+    // ────────────────────────────────────────────────
+    if (method === 'GET' && path === '/api/admin/unassigned-students') {
+      // class_schedules 테이블이 없으면 모든 학생이 미배정이므로, 안전하게 생성만 보장
+      try {
+        await env.DB.exec(
+          `CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`
+        );
+      } catch {}
+      const limit = Math.min(parseInt(url.searchParams.get('limit') || '200', 10), 500);
+      try {
+        // 재학생(status 정상/미지정) 중, 활성 수업이 한 건도 없는 학생만 추림.
+        // user_id 매칭 + 동명(korean_name) 매칭 모두 고려해 누락/중복 방지.
+        const rs: any = await env.DB.prepare(
+          `SELECT s.user_id AS uid,
+                  COALESCE(s.korean_name, s.english_name, s.user_id) AS name
+             FROM students_erp s
+            WHERE (s.status = '정상' OR s.status IS NULL OR s.status = '')
+              AND NOT EXISTS (
+                    SELECT 1 FROM class_schedules cs
+                     WHERE (cs.status IS NULL OR cs.status = 'active')
+                       AND (cs.user_id = s.user_id OR cs.student_name = s.korean_name)
+                  )
+            ORDER BY name ASC
+            LIMIT ?`
+        ).bind(limit).all();
+        const students = (rs.results || []).map((r: any) => ({
+          uid: r.uid, name: r.name, level: ''
+        }));
+        return json({ ok: true, count: students.length, students, items: students });
+      } catch (e: any) {
+        // 테이블 미존재 등 → 빈 목록(프론트는 데모 폴백)
+        return json({ ok: true, count: 0, students: [], items: [], _err: String(e?.message || e) });
+      }
+    }
+
+    // 🥭 Phase WS-3 — POST /api/admin/notify-queue
+    //   드래그 배정/이동 시 '학부모 알림톡'을 발송 대기 큐에 적재.
+    //   실제 발송은 별도 큐 워커(SOLAPI)가 처리. 여기서는 영구 기록만.
+    //   body: { uid, name, teacher_id, date, hour, kind? }
+    // ────────────────────────────────────────────────
+    if (method === 'POST' && path === '/api/admin/notify-queue') {
+      try {
+        await env.DB.exec(
+          `CREATE TABLE IF NOT EXISTS parent_notify_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, student_name TEXT, teacher_id TEXT, scheduled_date TEXT, hour INTEGER, kind TEXT DEFAULT 'schedule_assigned', status TEXT DEFAULT 'queued', payload TEXT, created_at INTEGER NOT NULL, sent_at INTEGER)`
+        );
+      } catch {}
+      let body: any = {};
+      try { body = await request.json(); } catch {}
+      try {
+        const now = Date.now();
+        const r: any = await env.DB.prepare(
+          `INSERT INTO parent_notify_queue (user_id, student_name, teacher_id, scheduled_date, hour, kind, status, payload, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?)`
+        ).bind(
+          body.uid || null,
+          body.name || null,
+          (body.teacher_id != null) ? String(body.teacher_id) : null,
+          body.date || null,
+          (body.hour != null && body.hour !== '') ? Number(body.hour) : null,
+          body.kind || 'schedule_assigned',
+          JSON.stringify(body || {}),
+          now
+        ).run();
+        return json({ ok: true, queued: true, id: r?.meta?.last_row_id ?? null });
+      } catch (e: any) {
+        return json({ ok: false, queued: false, error: String(e?.message || e) }, 200);
+      }
+    }
+
     // 🥭 Phase 22 — GET /api/admin/class-schedules
     //   학생별/기간별 수업 스케줄 조회 (학생 상세 페이지에서 호출)
     //   query: ?user_id=X&from_date=YYYY-MM-DD&to_date=YYYY-MM-DD&kind=recurring|one_off|all

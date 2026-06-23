@@ -426,6 +426,8 @@ export default {
         path === '/api/admin/class-schedules' ||
         path === '/api/admin/class-schedules/seed-demo' ||
         path === '/api/admin/schedules' ||
+        path === '/api/admin/unassigned-students' ||
+        path === '/api/admin/notify-queue' ||
         path === '/api/admin/students/merge-duplicates' ||
         /^\/api\/admin\/class-schedules\/\d+$/.test(path) ||
         path === '/api/admin/teacher-profiles' ||
@@ -2001,6 +2003,8 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/omnisearch') return true;
   if (path === '/api/admin/class-schedules' || path === '/api/admin/class-schedules/seed-demo' || /^\/api\/admin\/class-schedules\/\d+$/.test(path)) return true;
   if (path === '/api/admin/schedules') return true;
+  if (path === '/api/admin/unassigned-students') return true;
+  if (path === '/api/admin/notify-queue') return true;
   if (path === '/api/admin/students/merge-duplicates') return true;
   // 💼 강사 급여·평가 (Phase 8) — 관리자 전용
   if (path === '/api/admin/teachers' || /^\/api\/admin\/teachers\/\d+$/.test(path)) return true;
