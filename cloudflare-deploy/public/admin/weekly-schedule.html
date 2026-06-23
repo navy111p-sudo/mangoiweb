@@ -104,12 +104,20 @@ h1 .sub{font-size:13px;color:var(--tx2);font-weight:500;margin-left:4px}
 .mini-cal td.slot:hover{filter:brightness(1.3);outline:2px solid var(--ac);outline-offset:-2px;z-index:5}
 .slot-empty{background:rgba(255,255,255,.02)}
 .slot-weekend{background:rgba(255,255,255,.015)}
-.slot-blocked{background:repeating-linear-gradient(45deg,#ef4444,#ef4444 4px,#dc2626 4px,#dc2626 8px)}
-.slot-1on1{background:var(--c-1)}
-.slot-group{background:var(--c-g)}
-.slot-temp{background:repeating-linear-gradient(135deg,#3b82f6,#3b82f6 4px,#2563eb 4px,#2563eb 8px)}
-.slot-text{color:#fff;font-size:9.5px;font-weight:700;line-height:22px;padding:0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.4)}
-.slot.now::before{content:'';position:absolute;left:0;right:0;top:0;height:2px;background:var(--ac);z-index:2;box-shadow:0 0 8px var(--ac)}
+/* 🛑 휴무(수업 불가) — 회색 사선 패턴으로 차단 느낌 */
+.slot-blocked{background:repeating-linear-gradient(45deg,rgba(148,163,184,.30),rgba(148,163,184,.30) 5px,rgba(100,116,139,.45) 5px,rgba(100,116,139,.45) 10px)}
+/* 🎨 파스텔톤 수업 셀 (다크모드 눈 피로 완화) */
+.slot-1on1{background:#bcaef0}   /* 라벤더 — 1:1 */
+.slot-group{background:#f4abce}  /* 소프트 핑크 — 그룹 */
+.slot-temp{background:#8cc3f0} /* 스카이블루 단색 — 대체 (체크무늬 제거) */
+/* 파스텔 배경 위 가독성: 어두운 글자 + 굵기 + 밝은 외곽 그림자 */
+.slot-text{color:#1e293b;font-size:9.5px;font-weight:800;line-height:22px;padding:0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 1px rgba(255,255,255,.4)}
+/* ⏱ 현재 시간 가이드선 — 붉은색 */
+.slot.now::before{content:'';position:absolute;left:0;right:0;top:0;height:2px;background:#ef4444;z-index:3;box-shadow:0 0 8px rgba(239,68,68,.95)}
+.slot.now::after{content:'';position:absolute;left:0;top:0;width:5px;height:5px;border-radius:0 0 4px 0;background:#ef4444;z-index:4}
+/* 📅 오늘 요일 열 — 미세 하이라이트 + 양옆 가이드 라인 */
+.mini-cal td.slot.col-today{box-shadow:inset 1px 0 0 rgba(251,191,36,.35),inset -1px 0 0 rgba(251,191,36,.35),inset 0 0 0 9999px rgba(251,191,36,.055)}
+.mini-cal td.slot.slot-empty.col-today,.mini-cal td.slot.slot-weekend.col-today{background:rgba(251,191,36,.08)}
 .tooltip{position:fixed;background:linear-gradient(180deg,var(--bg3) 0%,var(--bg2) 100%);border:2px solid var(--ac);border-radius:12px;padding:12px 14px;color:var(--tx);font-size:12.5px;box-shadow:var(--shL);pointer-events:none;z-index:9999;max-width:320px;min-width:240px;opacity:0;visibility:hidden;transition:opacity .2s ease,visibility .2s ease;line-height:1.55}
 .tooltip.show{opacity:1;visibility:visible}
 .tooltip-title{font-weight:800;color:#fff;font-size:13.5px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:6px}
@@ -157,7 +165,7 @@ h1 .sub{font-size:13px;color:var(--tx2);font-weight:500;margin-left:4px}
 .mini-cal td.col-time.row10.hour-mark{border-top:1.5px solid var(--bd);padding-top:2px;font-weight:700;color:var(--tx2)}
 .mini-cal td.col-time.row10:not(.hour-mark){color:var(--tx3);font-weight:400;opacity:.6;font-size:7.5px}
 .mini-cal td.slot.row10.slot-start{position:relative;border-top:2px solid rgba(0,0,0,.3)!important}
-.mini-cal td.slot.row10 .slot-text10{position:absolute;left:0;right:0;top:0;text-align:center;font-size:9px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5);line-height:1.1;padding:1px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;z-index:1}
+.mini-cal td.slot.row10 .slot-text10{position:absolute;left:0;right:0;top:0;text-align:center;font-size:9px;font-weight:800;color:#1f2937;text-shadow:0 1px 1px rgba(255,255,255,.45);line-height:1.1;padding:1px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;z-index:1}
 .mini-cal td.slot.row10.slot-cont{border-top-color:transparent!important}
 
 /* Compact 모드 더 작게 */
@@ -820,11 +828,12 @@ function renderTeacher(t){
         var nowCls=(isTd&&hour===nowH&&m<=nowM&&nowM<m+10)?' now':'';
         // 이 셀이 어떤 슬롯에 속하는지 찾기
         var slotInfo=findSlotForCell(t.id,dateISO,hour,m);
+        var tdToday=(isTd?' col-today':'');
         if(!slotInfo){
-          html+='<td class="slot row10'+(isHourMark?' hour-mark':' boundary')+' '+(isWk?'slot-weekend':'slot-empty')+nowCls+'" data-hour="'+hour+'" data-min="'+m+'"></td>';
+          html+='<td class="slot row10'+(isHourMark?' hour-mark':' boundary')+' '+(isWk?'slot-weekend':'slot-empty')+nowCls+tdToday+'" data-hour="'+hour+'" data-min="'+m+'"></td>';
         } else {
           var slot=slotInfo.slot, isStart=slotInfo.isStart;
-          var cls='slot row10 slot-'+slot.type+(isHourMark?' hour-mark':'')+(isStart?' slot-start':' slot-cont')+nowCls;
+          var cls='slot row10 slot-'+slot.type+(isHourMark?' hour-mark':'')+(isStart?' slot-start':' slot-cont')+nowCls+tdToday;
           var attrs='';
           if(isStart){
             var payload=encodeURIComponent(JSON.stringify({teacher:name,date:dateISO,hour:hour,slot:slot,minute:m}));
