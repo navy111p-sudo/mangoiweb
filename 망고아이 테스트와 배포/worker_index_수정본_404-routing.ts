@@ -69,37 +69,6 @@ export default {
       });
     }
 
-    // 🔗 Digital Asset Links — /.well-known/assetlinks.json (TWA 전체화면 검증)
-    //   안드로이드 TWA(Trusted Web Activity)가 주소창 없이 전체화면으로 실행되려면
-    //   이 도메인에서 앱 패키지명 + 서명키 SHA-256 지문을 공개 검증 파일로 노출해야 함.
-    //   - package_name : PWABuilder 생성 패키지(AndroidManifest)의 applicationId
-    //   - sha256_cert_fingerprints : 해당 APK/AAB 를 서명한 키스토어(mangoi-release.keystore)의 지문
-    //   ⚠️ Google Play 앱 서명(Play App Signing) 사용 시, Play Console 의 "앱 서명 키" SHA-256 을
-    //      배열에 '추가'해야 정식(www) 출시 후에도 전체화면이 유지됨.
-    //   CF Assets 의 dot-directory 처리에 의존하지 않도록 워커가 직접 응답한다.
-    if (path === '/.well-known/assetlinks.json') {
-      const assetlinks = [
-        {
-          relation: ['delegate_permission/common.handle_all_urls'],
-          target: {
-            namespace: 'android_app',
-            package_name: 'dev.workers.navy111p.webrtc_unified_platform.twa',
-            sha256_cert_fingerprints: [
-              'D3:8E:1B:5A:C3:CE:F1:8C:F3:FE:C0:49:F1:AB:D0:14:47:2A:89:AA:91:78:6D:00:C6:74:57:96:0A:9C:77:11'
-            ]
-          }
-        }
-      ];
-      return new Response(JSON.stringify(assetlinks, null, 2), {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json; charset=utf-8',
-          'Cache-Control': 'public, max-age=3600',
-          'Access-Control-Allow-Origin': '*'
-        }
-      });
-    }
-
     // 🔒 관리자 세션 쿠키 미들웨어 (Phase 11)
     //   - HttpOnly 쿠키 mango_admin_session 으로 인증
     //   - 미인증 페이지 요청 → 302 /admin/login 리다이렉트
@@ -456,9 +425,6 @@ export default {
         path === '/api/admin/ai-action' ||
         path === '/api/admin/class-schedules' ||
         path === '/api/admin/class-schedules/seed-demo' ||
-        path === '/api/admin/schedules' ||
-        path === '/api/admin/unassigned-students' ||
-        path === '/api/admin/notify-queue' ||
         path === '/api/admin/students/merge-duplicates' ||
         /^\/api\/admin\/class-schedules\/\d+$/.test(path) ||
         path === '/api/admin/teacher-profiles' ||
@@ -2043,9 +2009,6 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/ai-command' || path === '/api/admin/ai-action') return true;
   if (path === '/api/admin/omnisearch') return true;
   if (path === '/api/admin/class-schedules' || path === '/api/admin/class-schedules/seed-demo' || /^\/api\/admin\/class-schedules\/\d+$/.test(path)) return true;
-  if (path === '/api/admin/schedules') return true;
-  if (path === '/api/admin/unassigned-students') return true;
-  if (path === '/api/admin/notify-queue') return true;
   if (path === '/api/admin/students/merge-duplicates') return true;
   // 💼 강사 급여·평가 (Phase 8) — 관리자 전용
   if (path === '/api/admin/teachers' || /^\/api\/admin\/teachers\/\d+$/.test(path)) return true;

@@ -1,0 +1,42 @@
+From 18d807952e1e6b5b1f9ccd77b8bd9966130c44f3 Mon Sep 17 00:00:00 2001
+From: Jeong Wooyoung <navy111p@gmail.com>
+Date: Mon, 22 Jun 2026 06:05:35 +0000
+Subject: [PATCH 2/2] =?UTF-8?q?fix(routing):=20=EB=A7=A4=EC=B9=AD=20?=
+ =?UTF-8?q?=EC=95=88=20=EB=90=9C=20/api/*=20=EA=B2=BD=EB=A1=9C=EB=A5=BC=20?=
+ =?UTF-8?q?200(index.html)=20=EB=8C=80=EC=8B=A0=20404=20JSON=20=EB=B0=98?=
+ =?UTF-8?q?=ED=99=98?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- 잘못된 API 호출이 SPA HTML 로 가려져 디버깅이 어렵던 문제 방지
+- 정상 API 핸들러·확장자 정적자원·WS/시그널링은 모두 이전 단계에서 처리되어 영향 없음
+- tsc --noEmit 통과(에러 0)
+---
+ cloudflare-deploy/src/index.ts | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/cloudflare-deploy/src/index.ts b/cloudflare-deploy/src/index.ts
+index 1e87a15a..aadc6bf5 100644
+--- a/cloudflare-deploy/src/index.ts
++++ b/cloudflare-deploy/src/index.ts
+@@ -928,6 +928,16 @@ export default {
+       return assetResp;
+     }
+ 
++    // 🚧 fix (2026-06-22) — 매칭되지 않은 /api/* 경로는 SPA(index.html)로 흘려보내지 않고 404 JSON 반환.
++    //    잘못된 API 호출이 200 + HTML 로 가려져 디버깅이 어려워지던 문제 방지.
++    //    (정상 API 핸들러·확장자 정적자원·WS/시그널링 경로는 모두 이 지점 이전에 처리됨)
++    if (path.startsWith('/api/')) {
++      return new Response(JSON.stringify({ error: 'Not Found', path }), {
++        status: 404,
++        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
++      });
++    }
++
+     // SPA 라우팅: API/WS가 아닌 모든 경로에서 index.html 반환
+     // (예: /signaling, /video-call 등 → SPA가 클라이언트에서 처리)
+     // ⚠ html_handling = "none" 이라 `/` 가 index.html 로 자동 매핑되지 않음 → 명시적으로 /index.html 요청.
+-- 
+2.34.1
+

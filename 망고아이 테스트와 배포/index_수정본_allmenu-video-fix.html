@@ -1232,7 +1232,6 @@
             transition: width 0.25s ease;
             flex-shrink: 0;
             min-width: 200px;
-            position: relative; /* 우상단 크기조절 그립 기준 */
         }
         .content-pane {
             flex: 1;
@@ -1245,68 +1244,7 @@
         .vc-main-row.video-half          .video-pane { width: 50%; }
         .vc-main-row.video-threequarter  .video-pane { width: 75%; }
         .vc-main-row.video-full          .video-pane { width: 100%; }
-        /* fix — 전체(Full) 모드에서도 도구(칠판·교재·펜 등)를 우측 오버레이로 유지.
-           영상은 패널 폭 100%로 꽉, 도구 패널은 비어있던 우측 위에 떠 있게 함. */
-        .vc-main-row.video-full          { position: relative; }
-        .vc-main-row.video-full          .content-pane {
-            display: flex !important;
-            position: absolute; top: 0; right: 0; bottom: 0;
-            width: 38%; min-width: 320px; max-width: 620px;
-            z-index: 40;
-            background: rgba(15,23,42,0.97);
-            box-shadow: -10px 0 30px -6px rgba(0,0,0,0.55);
-            border-left: 1px solid rgba(148,163,184,0.25);
-        }
-
-        /* ⤡ 자유 크기 모드 — 영상 패널을 떠다니는 창으로: 가로·세로 모두 드래그로 조절.
-           제목줄(.video-size-bar) 드래그=이동, 우하단 그립 드래그=크기. 마우스/터치 공용. */
-        .vc-main-row.video-free .content-pane { display: flex !important; width: 100% !important; }
-        .vc-main-row.video-free .video-pane {
-            position: fixed; top: 90px; left: 12px;
-            width: 300px; height: 230px;
-            z-index: 60;
-            border: 2px solid rgba(245,158,11,0.7);
-            border-radius: 12px;
-            box-shadow: 0 10px 32px rgba(0,0,0,0.55);
-            overflow: hidden;
-        }
-        .vc-main-row.video-free .video-size-bar { cursor: move; touch-action: none; }
-        /* 크기조절 그립 — 영상 패널 '우상단'에 항상 표시. 끌면 크기 조절(위로=커짐).
-           통화 중일 때만 보이게(body.vc-in-call). */
-        .vp-free-grip { display: none; }
-        body.vc-in-call .vp-free-grip {
-            display: block; position: absolute; right: 6px; top: 40px;
-            width: 36px; height: 36px; cursor: nesw-resize; z-index: 30;
-            touch-action: none; border-radius: 8px;
-            background:
-              linear-gradient(45deg, transparent 0 40%, rgba(245,158,11,0.98) 40% 50%, transparent 50% 62%, rgba(245,158,11,0.98) 62% 72%, transparent 72%),
-              rgba(15,23,42,0.72);
-            box-shadow: 0 2px 10px rgba(0,0,0,.5);
-        }
-        body.vc-in-call .vp-free-grip:hover { background:
-              linear-gradient(45deg, transparent 0 40%, #fbbf24 40% 50%, transparent 50% 62%, #fbbf24 62% 72%, transparent 72%),
-              rgba(15,23,42,0.9); }
-        /* 크기조절 그립 호버/터치 말풍선 — 마우스 올리거나 손 대면 나오고 떼면 사라짐 */
-        .vp-free-grip .vp-grip-tip {
-            position: absolute; top: calc(100% + 8px); right: 0;
-            background: rgba(15,23,42,0.96); color: #fde68a;
-            font-size: 0.72rem; font-weight: 700; white-space: nowrap;
-            padding: 5px 9px; border-radius: 8px;
-            border: 1px solid rgba(245,158,11,0.6);
-            box-shadow: 0 6px 18px rgba(0,0,0,0.5);
-            opacity: 0; transform: translateY(-4px);
-            transition: opacity 0.14s ease, transform 0.14s ease;
-            pointer-events: none; z-index: 41;
-        }
-        .vp-free-grip .vp-grip-tip::before {
-            content: ''; position: absolute; top: -5px; right: 12px;
-            border-left: 5px solid transparent; border-right: 5px solid transparent;
-            border-bottom: 5px solid rgba(245,158,11,0.6);
-        }
-        body.vc-in-call .vp-free-grip:hover .vp-grip-tip,
-        body.vc-in-call .vp-free-grip.tip-show .vp-grip-tip {
-            opacity: 1; transform: translateY(0);
-        }
+        .vc-main-row.video-full          .content-pane { display: none; }
 
         /* 🧠 복습퀴즈 모드 — 얼굴(비디오) 영역을 완전히 숨기고 퀴즈가 화면 전체를 차지 */
         .vc-main-row.content-full .video-pane { display: none !important; }
@@ -1366,11 +1304,11 @@
             isolation: isolate;
             transform: translateZ(0);
         }
-        /* 비디오 박스 '분리/복귀' 버튼 — 좌상단(우상단은 크기조절 그립 자리) */
+        /* 비디오 박스 우측 상단 '분리/복귀' 버튼 */
         .video-detach-btn {
             position: absolute;
             top: 6px;
-            left: 6px;
+            right: 6px;
             z-index: 5;
             width: 26px;
             height: 26px;
@@ -3209,10 +3147,10 @@
 #mango-promo-video.promo-in{ opacity:1; transform:translateY(0); }
 </style>
 <!-- 🎬 우상단 홍보 영상 (망고아이 콜센터 교사) — 자동재생(무음) + 무음 토글 -->
-<div id="mango-promo-video" style="position:fixed;top:68px;right:22px;z-index:100050;width:min(190px,40vw);aspect-ratio:1/1;border-radius:50%;overflow:hidden;box-shadow:0 10px 30px -8px rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.18);background:#000;display:none">
+<div id="mango-promo-video" style="position:fixed;top:68px;right:22px;z-index:100050;width:min(190px,40vw);aspect-ratio:1/1;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px -8px rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.18);background:#000;display:none">
   <video id="mango-promo-vid" src="/video/callcenter-teacher.mp4" autoplay muted loop playsinline preload="auto" style="width:100%;height:100%;object-fit:cover;display:block"></video>
-  <button id="mango-promo-mute" type="button" aria-label="소리 켜기/끄기" title="소리 켜기/끄기" style="position:absolute;left:50%;transform:translateX(-50%);bottom:8px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)">🔇</button>
-  <button id="mango-promo-close" type="button" aria-label="닫기" title="닫기" style="position:absolute;left:50%;transform:translateX(-50%);top:8px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.5);color:#fff;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">✕</button>
+  <button id="mango-promo-mute" type="button" aria-label="소리 켜기/끄기" title="소리 켜기/끄기" style="position:absolute;right:6px;bottom:6px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)">🔇</button>
+  <button id="mango-promo-close" type="button" aria-label="닫기" title="닫기" style="position:absolute;right:6px;top:6px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.5);color:#fff;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">✕</button>
 </div>
 <script>
 /* 홍보 영상 정책 (2026-06-12)
@@ -6823,7 +6761,6 @@
                 <button onclick="vcSetVideoSize('full', this)" title="전체화면" data-ko="전체" data-en="Full">전체</button>
                 <button onclick="vcTogglePip(this)" id="vc-pip-btn" title="참가자 비디오 띄우기 (콘텐츠 위에 오버레이)" data-ko="📌 PIP" data-en="📌 PIP" style="background:rgba(245,158,11,.25);color:#fcd34d">📌 PIP</button>
                 <button onclick="vcToggleSolo(this)" id="vc-solo-btn" title="내 화면만 보기 (다른 참가자 숨김)" data-ko="👤 솔로" data-en="👤 Solo" style="background:rgba(168,85,247,.25);color:#d8b4fe">👤 솔로</button>
-                <button onclick="vcToggleFreeResize(this)" id="vc-free-btn" title="가로·세로 자유 크기 조절 (제목줄 드래그=이동, 우하단 모서리 드래그=크기)" data-ko="⤡ 자유" data-en="⤡ Free" style="background:rgba(34,197,94,.22);color:#86efac">⤡ 자유</button>
             </div>
             <div class="video-strip" id="vc-video-grid">
                 <div class="video-box" id="vc-local-box">
@@ -6832,8 +6769,6 @@
                 </div>
                 <!-- 다른 참가자의 비디오는 JS로 동적 추가됩니다 -->
             </div>
-            <!-- ⤡ 자유 크기 모드 — 우하단 모서리 드래그 그립 (마우스/터치) -->
-            <div class="vp-free-grip" id="vc-vp-grip" ontouchstart="this.classList.add('tip-show')" ontouchend="this.classList.remove('tip-show')" ontouchcancel="this.classList.remove('tip-show')"><span class="vp-grip-tip" data-ko="크기 조절 기능" data-en="Resize">크기 조절 기능</span></div>
         </div>
 
         <!-- 우측: 탭(칠판/PDF) 콘텐츠 -->
@@ -7270,7 +7205,6 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
             }
 
             if (onOpen) onOpen(ws);
-            try { if (typeof vcEvalReconnecting === 'function') vcEvalReconnecting(); } catch(_) {}
         };
 
         // ── 메시지 수신 시 ──
@@ -7292,7 +7226,6 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
 
             // 의도적 종료가 아니면 자동 재연결 시도
             if (!intentionalClose && reconnectAttempts < MAX_RECONNECT) {
-                try { if (document.body.classList.contains('vc-in-call') && typeof vcShowReconnecting === 'function') vcShowReconnecting(); } catch(_) {}
                 reconnectAttempts++;
                 const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 16000);
                 console.log(`[WebSocket] ${delay/1000}초 후 재연결 시도... (${reconnectAttempts}/${MAX_RECONNECT})`);
@@ -8000,59 +7933,6 @@ window.addEventListener('focus',  () => vcResumeAllVideos());
          → 화면이 검게/소리 끊김. 아래에서 "PC 재생성 + offer 재전송"으로 복구.
    glare 방지: userId 가 작은 쪽만 offer 주체, 큰 쪽은 잠시 대기 후 백업 offer.
    ────────────────────────────────────────────────────────────── */
-/* ──────────────────────────────────────────────────────────────
-   "재연결 중…" 배너 — 이동 중 끊김 시 사용자 안심용 표시
-   show: P2P/WebSocket 끊김 감지 시  ·  hide: 연결 복구되면 자동
-   ────────────────────────────────────────────────────────────── */
-(function ensureReconnectBanner(){
-    if (document.getElementById('vc-reconnect-banner')) return;
-    var add = function(){
-        if (document.getElementById('vc-reconnect-banner')) return;
-        var style = document.createElement('style');
-        style.textContent =
-            '#vc-reconnect-banner{position:fixed;top:14px;left:50%;transform:translateX(-50%) translateY(-140%);'
-          + 'z-index:2147483646;display:flex;align-items:center;gap:9px;padding:9px 16px;border-radius:999px;'
-          + 'background:rgba(15,23,42,.92);color:#fde68a;border:1px solid #fbbf24;font-size:14px;font-weight:600;'
-          + 'box-shadow:0 8px 28px rgba(0,0,0,.45);opacity:0;pointer-events:none;'
-          + 'transition:transform .35s ease,opacity .35s ease;backdrop-filter:blur(4px);}'
-          + '#vc-reconnect-banner.show{transform:translateX(-50%) translateY(0);opacity:1;}'
-          + '#vc-reconnect-banner .spin{width:15px;height:15px;border:2px solid rgba(251,191,36,.35);'
-          + 'border-top-color:#fbbf24;border-radius:50%;animation:vcReconnSpin .8s linear infinite;}'
-          + '@keyframes vcReconnSpin{to{transform:rotate(360deg);}}';
-        document.head.appendChild(style);
-        var el = document.createElement('div');
-        el.id = 'vc-reconnect-banner';
-        el.innerHTML = '<span class="spin"></span><span>재연결 중… 잠시만요</span>';
-        document.body.appendChild(el);
-    };
-    if (document.body) add(); else document.addEventListener('DOMContentLoaded', add);
-})();
-function vcShowReconnecting(){
-    if (!document.body.classList.contains('vc-in-call')) return;  // 수업 중에만
-    var el = document.getElementById('vc-reconnect-banner');
-    if (el) el.classList.add('show');
-}
-function vcHideReconnecting(){
-    var el = document.getElementById('vc-reconnect-banner');
-    if (el) el.classList.remove('show');
-}
-/* 전체 연결 상태를 보고 배너 표시/숨김을 결정 */
-function vcEvalReconnecting(){
-    if (!document.body.classList.contains('vc-in-call')) { vcHideReconnecting(); return; }
-    var recovering = false;
-    try {
-        var ws = vcConn && vcConn.ws;
-        if (ws && (ws.readyState === WebSocket.CLOSING || ws.readyState === WebSocket.CLOSED)) recovering = true;
-    } catch(_){}
-    try {
-        Object.keys(vcPeerConnections).forEach(function(id){
-            var s = vcPeerConnections[id] && vcPeerConnections[id].iceConnectionState;
-            if (s === 'failed' || s === 'disconnected') recovering = true;
-        });
-    } catch(_){}
-    if (recovering) vcShowReconnecting(); else vcHideReconnecting();
-}
-
 const __vcReconnectAt = {};   // userId → 마지막 재연결 시각(쿨다운)
 function vcReconnectPeer(userId) {
     if (!userId) return;
@@ -8060,7 +7940,6 @@ function vcReconnectPeer(userId) {
     const now = Date.now();
     if (__vcReconnectAt[userId] && now - __vcReconnectAt[userId] < 8000) return;  // 8초 쿨다운
     __vcReconnectAt[userId] = now;
-    vcShowReconnecting();   // "재연결 중…" 배너 노출
 
     const old = vcPeerConnections[userId];
     let username = (old && old.__username) || '참가자';
@@ -8120,7 +7999,6 @@ setInterval(() => {
         } else { pc.__discSince = 0; }
     });
     try { vcResumeAllVideos(); } catch(_) {}
-    try { vcEvalReconnecting(); } catch(_) {}   // 배너 상태 갱신(복구되면 자동 숨김)
 }, 5000);
 
 /* 네트워크 복귀(online) — 이동 중 끊겼다 돌아올 때 즉시 복구 */
@@ -8134,7 +8012,7 @@ window.addEventListener('online', () => {
     });
     try { vcResumeAllVideos(); } catch(_) {}
 });
-window.addEventListener('offline', () => { console.warn('[vc-recover] 네트워크 끊김(offline) — 복귀 대기'); try { vcShowReconnecting(); } catch(_) {} });
+window.addEventListener('offline', () => { console.warn('[vc-recover] 네트워크 끊김(offline) — 복귀 대기'); });
 
 /** WebSocket 재연결 시 기존 PeerConnection 모두 정리 (전역 함수 — createWebSocket에서 호출) */
 function vcCleanupAllPeers() {
@@ -9696,8 +9574,6 @@ function vcAddRemoteVideo(userId, username, stream) {
     vid.onloadedmetadata = () => { vid.play().catch(()=>{}); };
     grid.appendChild(box);
     vcUpdateGridCount();
-    // fix — 솔로 모드 중 새로 입장한 참가자도 숨겨, "솔로인데 일부만 보이는" 반쪽 상태 방지
-    if (window.vcSoloMode) box.style.display = 'none';
     // 모바일 자동재생 정책 대응: muted로 시작 → 재생 후 unmute
     vid.play().then(() => {
         // 재생 시작 후 음소거 해제
@@ -9983,7 +9859,6 @@ async function vcLeaveRoom() {
         if (cm) cm.innerHTML = '';
     } catch(e){ console.warn('[vcLeaveRoom] chat clear:', e); }
     document.body.classList.remove('vc-in-call');
-    try { vcHideReconnecting(); } catch(_) {}   // 통화 종료 시 재연결 배너 정리
 
     // 관찰자 모드 해제 시 UI 복원
     if (vcIsObserver) {
@@ -11150,12 +11025,7 @@ function gameBalloonPop(bl) {
 function vcSetVideoSize(size, btn) {
     const row = document.getElementById('vc-main-row');
     if (!row) return;
-    row.classList.remove('video-quarter', 'video-half', 'video-threequarter', 'video-full', 'video-free');
-    // 자유 크기 모드에서 빠져나올 때 떠있던 인라인 위치/크기 제거 → 기본 분할 레이아웃 복귀
-    try {
-        const _vp = document.getElementById('vc-video-pane');
-        if (_vp) ['top','left','width','height'].forEach(p => _vp.style.removeProperty(p));
-    } catch(_){}
+    row.classList.remove('video-quarter', 'video-half', 'video-threequarter', 'video-full');
     row.classList.add('video-' + size);
     document.querySelectorAll('.video-size-bar button').forEach(b => {
       // PIP 버튼은 active 토글에서 제외
@@ -11165,130 +11035,6 @@ function vcSetVideoSize(size, btn) {
     // 칠판 캔버스가 보이면 새 폭에 맞춰 크기 조정
     setTimeout(() => { if (typeof wbResize === 'function') wbResize(); }, 280);
 }
-
-/* ⤡ 자유 크기 모드 — 영상 패널을 떠다니는 창으로 만들어 가로·세로 모두 드래그로 조절.
-   - 제목줄(.video-size-bar) 드래그 = 이동
-   - 우하단 그립(#vc-vp-grip) 드래그 = 크기 조절
-   - 마우스/터치 공용(pointer 이벤트), 위치·크기 localStorage 저장 */
-function vcClampNum(v, min, max){ return Math.max(min, Math.min(max, v)); }
-
-function vcApplyFreeBox(box){
-    const pane = document.getElementById('vc-video-pane');
-    if (!pane) return;
-    const vw = window.innerWidth, vh = window.innerHeight;
-    const w = Math.round(vcClampNum(box.width, 150, vw * 0.96));
-    const h = Math.round(vcClampNum(box.height, 120, vh * 0.90));
-    const left = Math.round(vcClampNum(box.left, 0, Math.max(0, vw - w)));
-    const top  = Math.round(vcClampNum(box.top, 56, Math.max(56, vh - h)));
-    // inline + important 로 적용해 모바일 미디어쿼리의 !important 규칙까지 확실히 덮어씀
-    pane.style.setProperty('width',  w + 'px', 'important');
-    pane.style.setProperty('height', h + 'px', 'important');
-    pane.style.setProperty('left',   left + 'px', 'important');
-    pane.style.setProperty('top',    top + 'px', 'important');
-}
-
-function vcRestoreFreeBox(){
-    let box = { top: 90, left: 12, width: 300, height: 230 };
-    try { const s = JSON.parse(localStorage.getItem('vc_free_box') || 'null'); if (s && s.width) box = s; } catch(_){}
-    vcApplyFreeBox(box);
-}
-
-function vcSaveFreeBox(){
-    const pane = document.getElementById('vc-video-pane');
-    if (!pane) return;
-    const r = pane.getBoundingClientRect();
-    try { localStorage.setItem('vc_free_box', JSON.stringify({ top: Math.round(r.top), left: Math.round(r.left), width: Math.round(r.width), height: Math.round(r.height) })); } catch(_){}
-}
-
-// 현재 보이는 크기/위치 그대로 '자유(떠있는 창)' 모드로 전환 (점프 방지)
-function vcEnterFreeFromCurrent(){
-    const row = document.getElementById('vc-main-row');
-    const pane = document.getElementById('vc-video-pane');
-    if (!row || !pane) return;
-    const r = pane.getBoundingClientRect();
-    row.classList.remove('video-quarter','video-half','video-threequarter','video-full');
-    row.classList.add('video-free');
-    document.querySelectorAll('.video-size-bar button').forEach(b => { if (b.id !== 'vc-pip-btn') b.classList.remove('active'); });
-    const fb = document.getElementById('vc-free-btn'); if (fb) fb.classList.add('active');
-    vcApplyFreeBox({ left: r.left, top: r.top, width: r.width, height: r.height });
-    setTimeout(() => { if (typeof wbResize === 'function') wbResize(); }, 280);
-}
-
-let _vcFreeBound = false;
-function vcAttachFreeHandlers(){
-    if (_vcFreeBound) return; _vcFreeBound = true;
-    const row  = document.getElementById('vc-main-row');
-    const pane = document.getElementById('vc-video-pane');
-    if (!pane || !row) return;
-    const bar  = pane.querySelector('.video-size-bar');
-    const grip = document.getElementById('vc-vp-grip');
-    let mode = null, sx = 0, sy = 0, sLeft = 0, sTop = 0, sW = 0, sH = 0;
-
-    function start(e, m){
-        mode = m; sx = e.clientX; sy = e.clientY;
-        const r = pane.getBoundingClientRect();
-        sLeft = r.left; sTop = r.top; sW = r.width; sH = r.height;
-        e.preventDefault();
-        document.addEventListener('pointermove', move);
-        document.addEventListener('pointerup', end);
-        document.addEventListener('pointercancel', end);
-    }
-    function move(e){
-        if (!mode) return;
-        const dx = e.clientX - sx, dy = e.clientY - sy;
-        if (mode === 'move')           vcApplyFreeBox({ left: sLeft + dx, top: sTop + dy, width: sW, height: sH });
-        else if (mode === 'resize-ne') vcApplyFreeBox({ left: sLeft, top: sTop + dy, width: sW + dx, height: sH - dy }); // 우상단 그립: 위로 끌면 커짐
-        else                           vcApplyFreeBox({ left: sLeft, top: sTop, width: sW + dx, height: sH + dy });
-        e.preventDefault();
-    }
-    function end(){
-        if (!mode) return;
-        mode = null; vcSaveFreeBox();
-        document.removeEventListener('pointermove', move);
-        document.removeEventListener('pointerup', end);
-        document.removeEventListener('pointercancel', end);
-    }
-
-    // 그립(우상단)은 어느 모드에서나 동작 — 자유 모드가 아니면 현재 크기 그대로 자유 모드로 전환 후 리사이즈
-    if (grip) grip.addEventListener('pointerdown', e => {
-        if (!row.classList.contains('video-free')) vcEnterFreeFromCurrent();
-        start(e, 'resize-ne');
-    });
-    // 제목줄 드래그 이동은 자유 모드일 때만
-    if (bar)  bar.addEventListener('pointerdown', e => {
-        if (e.target.closest('button')) return; // 버튼 클릭은 이동으로 가로채지 않음
-        if (!row.classList.contains('video-free')) return;
-        start(e, 'move');
-    });
-    // 브라우저 창 크기가 바뀌면 화면 밖으로 나간 창 보정
-    window.addEventListener('resize', () => {
-        if (!row.classList.contains('video-free')) return;
-        const r = pane.getBoundingClientRect();
-        vcApplyFreeBox({ left: r.left, top: r.top, width: r.width, height: r.height });
-    });
-}
-// 그립은 정적 DOM이므로 즉시 바인딩(통화 진입 전이라도 안전)
-try { vcAttachFreeHandlers(); } catch(_){}
-
-window.vcToggleFreeResize = function(btn){
-    const row = document.getElementById('vc-main-row');
-    const pane = document.getElementById('vc-video-pane');
-    if (!row || !pane) return;
-    const turnOn = !row.classList.contains('video-free');
-    row.classList.remove('video-quarter', 'video-half', 'video-threequarter', 'video-full', 'video-free');
-    document.querySelectorAll('.video-size-bar button').forEach(b => { if (b.id !== 'vc-pip-btn') b.classList.remove('active'); });
-    if (turnOn){
-        row.classList.add('video-free');
-        if (btn) btn.classList.add('active');
-        vcRestoreFreeBox();
-        vcAttachFreeHandlers();
-    } else {
-        ['top','left','width','height'].forEach(p => pane.style.removeProperty(p));
-        const hb = document.querySelector('.video-size-bar button[onclick*="half"]');
-        vcSetVideoSize('half', hb);
-    }
-    setTimeout(() => { if (typeof wbResize === 'function') wbResize(); }, 280);
-};
 
 // fix (2026-06-02) — 휴대폰 가로(landscape)로 들어오면 기본 영상 크기를 '3/4'로.
 //   세로/PC 또는 사용자가 전체·솔로를 고른 경우는 건드리지 않음.
@@ -15141,7 +14887,7 @@ window.addEventListener('DOMContentLoaded', () => {
         return Array.isArray(items) ? items : null;
       } catch (e) { return null; }
     }
-    let teachers = await tryFetch('/api/teacher-profiles?limit=100');
+    let teachers = await tryFetch('/api/teacher-profiles?limit=30');
     if (!teachers || !teachers.length) {
       teachers = await tryFetch('/api/admin/teacher-profiles');
     }
@@ -15150,19 +14896,8 @@ window.addEventListener('DOMContentLoaded', () => {
     const GRADS = ['#fcd34d,#f59e0b','#86efac,#10b981','#f9a8d4,#ec4899','#93c5fd,#3b82f6','#c4b5fd,#8b5cf6','#fda4af,#f43f5e','#a7f3d0,#06b6d4','#fde68a,#ea580c'];
     const EMOJIS = ['👩🏻‍🏫','👨🏻‍🏫','👩🏻‍🎓','🧑🏻‍🏫','👩🏻‍💼','👨🏻‍🎓'];
 
-    function teacherCat(t){ var o=((t.origin_region||t.active_region||'')+''); if(/미국|캐나다|usa|canada/i.test(o))return 'us'; if(/영국|호주|영연방|uk|britain|australia/i.test(o))return 'gb'; if(/중국|중화|china|chin/i.test(o))return 'cn'; return 'ph'; }
-    var FLAG={ph:'🇵🇭',us:'🇺🇸',gb:'🇬🇧',cn:'🇨🇳'};
-    var CATLABEL={all:'🌏 전체 강사진',ph:'🇵🇭 필리핀 강사진',us:'🇺🇸 미국·캐나다 강사진',gb:'🇬🇧 영국·호주 강사진',cn:'🇨🇳 중국어 강사진'};
-    window.__teacherCat = teacherCat;
-    window.__renderTeacherGallery = function(cat){
-    cat = cat || 'all';
-    var list = (cat==='all') ? teachers : teachers.filter(function(t){ return teacherCat(t)===cat; });
-    var hd = document.getElementById('ph-gallery-heading');
-    if (hd) hd.textContent = (CATLABEL[cat]||CATLABEL.all) + ' (' + list.length + '명)';
-    document.querySelectorAll('.info-tile[data-cat]').forEach(function(el){ el.style.outline = (el.getAttribute('data-cat')===cat) ? '2px solid #fbbf24' : ''; el.style.cursor='pointer'; });
     box.innerHTML = '';
-    if (!list.length) { var emp=document.createElement('div'); emp.style.cssText='grid-column:1/-1;text-align:center;color:#94a3b8;font-size:13px;padding:18px'; emp.textContent='해당 국적의 강사가 아직 없습니다.'; box.appendChild(emp); }
-    list.forEach((t, i) => {
+    teachers.slice(0, 12).forEach((t, i) => {
       const card = document.createElement('div');
       card.className = 'ph-card';
       card.style.cursor = 'pointer';
@@ -15186,7 +14921,7 @@ window.addEventListener('DOMContentLoaded', () => {
       }
       const flag = document.createElement('span');
       flag.className = 'ph-flag';
-      flag.textContent = FLAG[teacherCat(t)] || '🇵🇭';
+      flag.textContent = '🇵🇭';
       photo.appendChild(flag);
 
       if (t.intro_video_url) {
@@ -15218,11 +14953,8 @@ window.addEventListener('DOMContentLoaded', () => {
     // ERP 표시 뱃지
     const badge = document.createElement('div');
     badge.style.cssText = 'grid-column:1/-1;text-align:center;font-size:11px;color:#10b981;margin-top:6px';
-    badge.textContent = '✓ 본사 ERP 등록 강사 ' + teachers.length + '명' + (cat==='all' ? ' 전체 표시' : ' 중 ' + list.length + '명 표시');
+    badge.textContent = '✓ 본사 ERP 등록 강사 ' + teachers.length + '명 표시';
     box.appendChild(badge);
-    };  // end __renderTeacherGallery
-    window.__filterTeacherCat = function(cat){ if (window.__renderTeacherGallery) window.__renderTeacherGallery(cat); };
-    window.__renderTeacherGallery('all');
   };
 
   // 강사 카드 클릭 시 상세 모달 (사진·학력·경력·자격증·영상)
@@ -15264,7 +14996,7 @@ window.addEventListener('DOMContentLoaded', () => {
     headInfo.appendChild(nameDiv);
     const specDiv = document.createElement('div');
     specDiv.style.cssText = 'font-size:13px;color:#94a3b8;margin-top:4px';
-    (function(){ var _f={ph:'🇵🇭',us:'🇺🇸',gb:'🇬🇧',cn:'🇨🇳'}; var _c=(window.__teacherCat?window.__teacherCat(t):'ph'); specDiv.textContent = (_f[_c]||'🇵🇭') + ' ' + (t.group_name || '영어 회화'); })();
+    specDiv.textContent = '🇵🇭 ' + (t.group_name || '영어 회화');
     headInfo.appendChild(specDiv);
     const statDiv = document.createElement('div');
     statDiv.style.cssText = 'font-size:12px;color:#10b981;margin-top:2px';
@@ -15855,14 +15587,13 @@ window.addEventListener('DOMContentLoaded', () => {
     <p>1,000명+ 검증된 강사들이 매일 7,000건+의 수업을 진행합니다.</p>
     <h3>🌍 강사 구성</h3>
     <div class="info-grid">
-      <div class="info-tile" data-cat="all" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('all')"><b>🌏 전체</b><span>모든 강사</span></div>
-      <div class="info-tile" data-cat="ph" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('ph')"><b>🇵🇭 필리핀</b><span>현지 원어민 강사</span></div>
-      <div class="info-tile" data-cat="us" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('us')"><b>🇺🇸 미국·캐나다</b><span>원어민</span></div>
-      <div class="info-tile" data-cat="gb" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('gb')"><b>🇬🇧 영국·호주</b><span>원어민 <em style="display:inline-block;margin-left:4px;padding:1px 7px;border-radius:999px;background:#fef3c7;color:#b45309;font-size:10px;font-weight:800;font-style:normal;vertical-align:middle;border:1px solid #fcd34d;white-space:nowrap">준비중</em></span></div>
-      <div class="info-tile" data-cat="cn" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('cn')"><b>🇨🇳 중국어</b><span>이중언어</span></div>
+      <div class="info-tile"><b>🇵🇭 필리핀</b><span>현지 원어민 강사</span></div>
+      <div class="info-tile"><b>🇺🇸 미국·캐나다</b><span>원어민</span></div>
+      <div class="info-tile"><b>🇬🇧 영국·호주</b><span>원어민 <em style="display:inline-block;margin-left:4px;padding:1px 7px;border-radius:999px;background:#fef3c7;color:#b45309;font-size:10px;font-weight:800;font-style:normal;vertical-align:middle;border:1px solid #fcd34d;white-space:nowrap">준비중</em></span></div>
+      <div class="info-tile"><b>🇨🇳 중국어</b><span>이중언어</span></div>
     </div>
 
-    <h3 id="ph-gallery-heading" style="margin-top:14px">🌏 전체 강사진</h3>
+    <h3 style="margin-top:14px">🌴 필리핀 강사진 미리보기</h3>
     <div class="ph-gallery" id="ph-gallery-dynamic">
       <div class="ph-card">
         <div class="ph-photo" style="background:linear-gradient(135deg,#fcd34d,#f59e0b)">
@@ -19762,25 +19493,16 @@ window.closeRulesModal = function() {
 
   // ═══ 새 시간/강사 선택 위저드 ═══
   var lcPicker = null;
-  // 관리자(D1 teacher_profiles) 실제 강사 — /api/teacher-profiles 로 채움. 실패 시 아래 FALLBACK.
   var demoTeachers = [
-    { id:'t12', name:'Teacher Ana',    category:'office', ico:'🇵🇭' },
-    { id:'t21', name:'Karl',           category:'native', ico:'🇵🇭' },
-    { id:'t4',  name:'Teacher Belle',  category:'home',   ico:'🇵🇭' },
-    { id:'t17', name:'Mo',             category:'native', ico:'🇺🇸' },
-    { id:'t26', name:'Teacher Janice', category:'native', ico:'🇺🇸' },
-    { id:'t30', name:'중국어 강선생님', category:'native', ico:'🇨🇳' }
+    { id:'t01', name:'박지윤',       category:'home',   ico:'🏠' },
+    { id:'t02', name:'김민서',       category:'home',   ico:'🏠' },
+    { id:'t03', name:'이서연',       category:'home',   ico:'🏠' },
+    { id:'t04', name:'정수아',       category:'office', ico:'🏢' },
+    { id:'t05', name:'강하은',       category:'office', ico:'🏢' },
+    { id:'t07', name:'Maria Santos', category:'native', ico:'🌍' },
+    { id:'t08', name:'James Cruz',   category:'native', ico:'🌍' },
+    { id:'t09', name:'Anna Reyes',   category:'native', ico:'🌍' }
   ];
-  (function(){
-    function gl(g){ g=g||''; if(/head/i.test(g))return'native'; if(/office/i.test(g))return'office'; if(/home/i.test(g))return'home'; return'native'; }
-    function fl(r){ r=r||''; if(/미국|캐나다|미주|북미|us|usa|canada/i.test(r))return'🇺🇸'; if(/중국|중화|china|cn|대만/i.test(r))return'🇨🇳'; if(/영국|호주|uk|gb|au/i.test(r))return'🇬🇧'; return'🇵🇭'; }
-    fetch('/api/teacher-profiles?limit=50',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){
-      var items=(j&&(j.items||j.rows))||[];
-      var mapped=items.map(function(row){ return { id:'t'+row.id, name:(row.english_name||row.korean_name||'강사'), category:gl(row.group_name), ico:fl(row.origin_region) }; }).filter(function(t){return t.name&&t.name!=='강사';});
-      if(mapped.length){ demoTeachers = mapped; window.demoTeachers = mapped; }
-    }).catch(function(){});
-  })();
-  try{ window.demoTeachers = demoTeachers; }catch(e){}
 
   window.openLessonPickerModal = function(cls, mode){
     lcPicker = {
@@ -25118,10 +24840,10 @@ window.closeRulesModal = function() {
     }
     if (!teachers.length) {
       teachers = [
-        { id:'t12', name:'Teacher Ana',    ico:'🇵🇭' },
-        { id:'t21', name:'Karl',           ico:'🇵🇭' },
-        { id:'t17', name:'Mo',             ico:'🇺🇸' },
-        { id:'t30', name:'중국어 강선생님', ico:'🇨🇳' },
+        { id:'t01', name:'박지윤',       ico:'🏠' },
+        { id:'t03', name:'이서연',       ico:'🏠' },
+        { id:'t04', name:'정수아',       ico:'🏢' },
+        { id:'t07', name:'Maria Santos', ico:'🌍' },
       ];
     }
 
@@ -27611,7 +27333,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260623223824 -->
+<!-- BUILD:20260622141601 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -28728,7 +28450,6 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      ============================================================ -->
 <script src="/js/mango.js?v=33" defer></script>
 <script src="/js/mango-rec.js?v=35" defer></script>
-<script src="/js/mango-class-time.js?v=1" defer></script><!-- 수업 시간(시작~종료) 표시: REC 배지 옆 -->
 <script src="/js/mango-attendance.js?v=33" defer></script>
 <script src="/js/mango-gaze.js?v=33" defer></script>
 <script src="/js/mango-i18n.js?v=33" defer></script>
@@ -30598,4 +30319,129 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      · 더블클릭 / 더블탭 = 원래 자리(상단)로 복귀
      · 옮긴 위치는 저장되어 다음 입장에도 유지
      · 인라인 !important 로 적용 → 어떤 화면크기/레이아웃 CSS 보다 우선 (확실히 동작)
-     ========
+     ============================================================ -->
+<style id="vc-cam-drag-style">
+  #vc-video-pane.vc-cam-floating{
+    box-shadow:0 12px 34px -8px rgba(0,0,0,.75) !important;
+    border-radius:14px !important;
+    overflow:hidden !important;
+    outline:2px solid rgba(251,191,36,.55) !important;
+  }
+</style>
+<script id="vc-cam-drag">
+(function(){
+  'use strict';
+  var PANE_ID='vc-video-pane', KEY='mangoi_cam_pos_v1';
+  var pane=null, dragging=false, moved=false, sx=0, sy=0, ox=0, oy=0, pw=0, ph=0, pid=null;
+
+  function imp(el,prop,val){ try{ el.style.setProperty(prop,val,'important'); }catch(_){ } }
+  function clr(el,prop){ try{ el.style.removeProperty(prop); }catch(_){ } }
+
+  function onBtn(t){
+    return !!(t && ((t.tagName==='BUTTON') || (t.closest && (t.closest('button')||t.closest('.video-size-bar')||t.closest('input')||t.closest('select')||t.closest('a')))));
+  }
+
+  function floatPane(){
+    var r=pane.getBoundingClientRect();
+    pw=r.width; ph=r.height;
+    pane.classList.add('vc-cam-floating');
+    imp(pane,'position','fixed');
+    imp(pane,'width',pw+'px');
+    imp(pane,'height',ph+'px');
+    imp(pane,'min-width','0');
+    imp(pane,'max-height','none');
+    imp(pane,'margin','0');
+    imp(pane,'z-index','60');
+    imp(pane,'right','auto');
+    imp(pane,'bottom','auto');
+    imp(pane,'left',r.left+'px');
+    imp(pane,'top',r.top+'px');
+    imp(pane,'cursor','grabbing');
+  }
+  function place(x,y){
+    var maxX=Math.max(4, window.innerWidth - pw - 4);
+    var maxY=Math.max(4, window.innerHeight - ph - 4);
+    x=Math.max(4, Math.min(maxX,x));
+    y=Math.max(4, Math.min(maxY,y));
+    imp(pane,'left',x+'px');
+    imp(pane,'top',y+'px');
+  }
+  function save(){
+    try{ localStorage.setItem(KEY, JSON.stringify({left:pane.style.left, top:pane.style.top, w:pw, h:ph})); }catch(_){ }
+  }
+  function reset(){
+    if(!pane) return;
+    pane.classList.remove('vc-cam-floating');
+    ['position','width','height','min-width','max-height','margin','z-index','left','top','right','bottom','cursor'].forEach(function(p){ clr(pane,p); });
+    try{ localStorage.removeItem(KEY); }catch(_){ }
+  }
+
+  function onDown(e){
+    if(!pane || onBtn(e.target)) return;
+    var t=(e.touches&&e.touches[0])||e;
+    dragging=true; moved=false;
+    sx=t.clientX; sy=t.clientY;
+    if(!pane.classList.contains('vc-cam-floating')) floatPane();
+    var r=pane.getBoundingClientRect();
+    ox=r.left; oy=r.top; pw=r.width; ph=r.height;
+    if(e.pointerId!=null){ pid=e.pointerId; try{ pane.setPointerCapture(pid); }catch(_){ } }
+  }
+  function onMove(e){
+    if(!dragging) return;
+    var t=(e.touches&&e.touches[0])||e;
+    var dx=t.clientX-sx, dy=t.clientY-sy;
+    if(!moved && (Math.abs(dx)+Math.abs(dy))<4) return;
+    moved=true;
+    place(ox+dx, oy+dy);
+    try{ e.preventDefault(); }catch(_){ }
+  }
+  function onUp(){
+    if(!dragging) return;
+    dragging=false;
+    if(pid!=null){ try{ pane.releasePointerCapture(pid); }catch(_){ } pid=null; }
+    if(moved){ imp(pane,'cursor','grab'); save(); }
+  }
+
+  function restore(){
+    try{
+      var raw=localStorage.getItem(KEY); if(!raw) return;
+      var p=JSON.parse(raw); if(!p) return;
+      floatPane();
+      if(p.w){ pw=parseFloat(p.w)||pw; imp(pane,'width',pw+'px'); }
+      if(p.h){ ph=parseFloat(p.h)||ph; imp(pane,'height',ph+'px'); }
+      place(parseFloat(p.left)||4, parseFloat(p.top)||4);
+      imp(pane,'cursor','grab');
+    }catch(_){ }
+  }
+
+  function init(){
+    pane=document.getElementById(PANE_ID);
+    if(!pane || pane.dataset.camDrag==='1') return;
+    pane.dataset.camDrag='1';
+    imp(pane,'touch-action','none');
+    imp(pane,'cursor','grab');
+    if(window.PointerEvent){
+      pane.addEventListener('pointerdown', onDown);
+      document.addEventListener('pointermove', onMove, {passive:false});
+      document.addEventListener('pointerup', onUp);
+      document.addEventListener('pointercancel', onUp);
+    } else {
+      pane.addEventListener('mousedown', onDown);
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+      pane.addEventListener('touchstart', onDown, {passive:false});
+      document.addEventListener('touchmove', onMove, {passive:false});
+      document.addEventListener('touchend', onUp);
+    }
+    pane.addEventListener('dblclick', function(e){ if(onBtn(e.target)) return; reset(); });
+    window.addEventListener('resize', function(){ if(pane && pane.classList.contains('vc-cam-floating')){ var r=pane.getBoundingClientRect(); pw=r.width; ph=r.height; place(r.left, r.top); } });
+    restore();
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+
+</body>
+</html>

@@ -53,6 +53,23 @@ if (Test-Path $tomlPath) {
     Write-Host "  -> $stamp" -ForegroundColor Green
 }
 
+# [3b] Service Worker(sw.js) 캐시 버전 자동 증가
+#   - PWA 서비스워커가 JS/CSS/이미지를 cache-first 로 제공하므로,
+#     CACHE_NAME 이 안 바뀌면 배포해도 브라우저가 옛 버전을 계속 보여줌.
+#   - 매 배포마다 버전을 빌드 타임스탬프로 교체 -> activate 시 옛 캐시 전부 삭제 -> 즉시 새 버전 전파.
+Write-Step "3b/7" "sw.js 서비스워커 캐시 버전 갱신"
+$swPath = Join-Path $scriptDir "cloudflare-deploy\public\sw.js"
+if (Test-Path $swPath) {
+    $swVer = "mangoi-$(Get-Date -Format 'yyyyMMddHHmmss')-fresh"
+    $swc = Get-Content $swPath -Raw -Encoding UTF8
+    $swc = $swc -replace "const CACHE_NAME\s*=\s*'[^']*';",   "const CACHE_NAME = '$swVer';"
+    $swc = $swc -replace "const RUNTIME_CACHE\s*=\s*'[^']*';", "const RUNTIME_CACHE = '$swVer-rt';"
+    [System.IO.File]::WriteAllText($swPath, $swc, [System.Text.UTF8Encoding]::new($false))
+    Write-Host "  -> CACHE_NAME = $swVer" -ForegroundColor Green
+} else {
+    Write-Host "  [!] sw.js 없음 — 건너뜀" -ForegroundColor Yellow
+}
+
 # [4] HTML hash 강제 변경 — 모든 .html 파일에 timestamp 주석 삽입/갱신
 Write-Step "4/7" "HTML hash 강제 변경 (wrangler가 무조건 새 파일 인식하도록)"
 $buildTs = Get-Date -Format 'yyyyMMddHHmmss'
