@@ -7270,6 +7270,7 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
             }
 
             if (onOpen) onOpen(ws);
+            try { if (typeof vcEvalReconnecting === 'function') vcEvalReconnecting(); } catch(_) {}
         };
 
         // ── 메시지 수신 시 ──
@@ -7291,6 +7292,7 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
 
             // 의도적 종료가 아니면 자동 재연결 시도
             if (!intentionalClose && reconnectAttempts < MAX_RECONNECT) {
+                try { if (document.body.classList.contains('vc-in-call') && typeof vcShowReconnecting === 'function') vcShowReconnecting(); } catch(_) {}
                 reconnectAttempts++;
                 const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 16000);
                 console.log(`[WebSocket] ${delay/1000}초 후 재연결 시도... (${reconnectAttempts}/${MAX_RECONNECT})`);
@@ -7998,6 +8000,59 @@ window.addEventListener('focus',  () => vcResumeAllVideos());
          → 화면이 검게/소리 끊김. 아래에서 "PC 재생성 + offer 재전송"으로 복구.
    glare 방지: userId 가 작은 쪽만 offer 주체, 큰 쪽은 잠시 대기 후 백업 offer.
    ────────────────────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────────
+   "재연결 중…" 배너 — 이동 중 끊김 시 사용자 안심용 표시
+   show: P2P/WebSocket 끊김 감지 시  ·  hide: 연결 복구되면 자동
+   ────────────────────────────────────────────────────────────── */
+(function ensureReconnectBanner(){
+    if (document.getElementById('vc-reconnect-banner')) return;
+    var add = function(){
+        if (document.getElementById('vc-reconnect-banner')) return;
+        var style = document.createElement('style');
+        style.textContent =
+            '#vc-reconnect-banner{position:fixed;top:14px;left:50%;transform:translateX(-50%) translateY(-140%);'
+          + 'z-index:2147483646;display:flex;align-items:center;gap:9px;padding:9px 16px;border-radius:999px;'
+          + 'background:rgba(15,23,42,.92);color:#fde68a;border:1px solid #fbbf24;font-size:14px;font-weight:600;'
+          + 'box-shadow:0 8px 28px rgba(0,0,0,.45);opacity:0;pointer-events:none;'
+          + 'transition:transform .35s ease,opacity .35s ease;backdrop-filter:blur(4px);}'
+          + '#vc-reconnect-banner.show{transform:translateX(-50%) translateY(0);opacity:1;}'
+          + '#vc-reconnect-banner .spin{width:15px;height:15px;border:2px solid rgba(251,191,36,.35);'
+          + 'border-top-color:#fbbf24;border-radius:50%;animation:vcReconnSpin .8s linear infinite;}'
+          + '@keyframes vcReconnSpin{to{transform:rotate(360deg);}}';
+        document.head.appendChild(style);
+        var el = document.createElement('div');
+        el.id = 'vc-reconnect-banner';
+        el.innerHTML = '<span class="spin"></span><span>재연결 중… 잠시만요</span>';
+        document.body.appendChild(el);
+    };
+    if (document.body) add(); else document.addEventListener('DOMContentLoaded', add);
+})();
+function vcShowReconnecting(){
+    if (!document.body.classList.contains('vc-in-call')) return;  // 수업 중에만
+    var el = document.getElementById('vc-reconnect-banner');
+    if (el) el.classList.add('show');
+}
+function vcHideReconnecting(){
+    var el = document.getElementById('vc-reconnect-banner');
+    if (el) el.classList.remove('show');
+}
+/* 전체 연결 상태를 보고 배너 표시/숨김을 결정 */
+function vcEvalReconnecting(){
+    if (!document.body.classList.contains('vc-in-call')) { vcHideReconnecting(); return; }
+    var recovering = false;
+    try {
+        var ws = vcConn && vcConn.ws;
+        if (ws && (ws.readyState === WebSocket.CLOSING || ws.readyState === WebSocket.CLOSED)) recovering = true;
+    } catch(_){}
+    try {
+        Object.keys(vcPeerConnections).forEach(function(id){
+            var s = vcPeerConnections[id] && vcPeerConnections[id].iceConnectionState;
+            if (s === 'failed' || s === 'disconnected') recovering = true;
+        });
+    } catch(_){}
+    if (recovering) vcShowReconnecting(); else vcHideReconnecting();
+}
+
 const __vcReconnectAt = {};   // userId → 마지막 재연결 시각(쿨다운)
 function vcReconnectPeer(userId) {
     if (!userId) return;
@@ -8005,6 +8060,7 @@ function vcReconnectPeer(userId) {
     const now = Date.now();
     if (__vcReconnectAt[userId] && now - __vcReconnectAt[userId] < 8000) return;  // 8초 쿨다운
     __vcReconnectAt[userId] = now;
+    vcShowReconnecting();   // "재연결 중…" 배너 노출
 
     const old = vcPeerConnections[userId];
     let username = (old && old.__username) || '참가자';
@@ -8064,6 +8120,7 @@ setInterval(() => {
         } else { pc.__discSince = 0; }
     });
     try { vcResumeAllVideos(); } catch(_) {}
+    try { vcEvalReconnecting(); } catch(_) {}   // 배너 상태 갱신(복구되면 자동 숨김)
 }, 5000);
 
 /* 네트워크 복귀(online) — 이동 중 끊겼다 돌아올 때 즉시 복구 */
@@ -8077,7 +8134,7 @@ window.addEventListener('online', () => {
     });
     try { vcResumeAllVideos(); } catch(_) {}
 });
-window.addEventListener('offline', () => { console.warn('[vc-recover] 네트워크 끊김(offline) — 복귀 대기'); });
+window.addEventListener('offline', () => { console.warn('[vc-recover] 네트워크 끊김(offline) — 복귀 대기'); try { vcShowReconnecting(); } catch(_) {} });
 
 /** WebSocket 재연결 시 기존 PeerConnection 모두 정리 (전역 함수 — createWebSocket에서 호출) */
 function vcCleanupAllPeers() {
@@ -9926,6 +9983,7 @@ async function vcLeaveRoom() {
         if (cm) cm.innerHTML = '';
     } catch(e){ console.warn('[vcLeaveRoom] chat clear:', e); }
     document.body.classList.remove('vc-in-call');
+    try { vcHideReconnecting(); } catch(_) {}   // 통화 종료 시 재연결 배너 정리
 
     // 관찰자 모드 해제 시 UI 복원
     if (vcIsObserver) {
@@ -27553,7 +27611,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260623155200 -->
+<!-- BUILD:20260623160702 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
