@@ -1938,6 +1938,7 @@
 </style>
 <script src="/js/pii-mask.js"></script><!-- 🔒 PII 마스킹 유틸 -->
 <script src="/js/media-guard.js?v=1"></script><!-- 전역 미디어 가드: 메뉴/페이지 전환 시 음성·동영상 자동 정지 -->
+<script src="/js/admin-tip-i18n.js?v=1"></script><!-- 🌐 사이드바·카드 말풍선 영어 사전(EN 토글 시 자동 번역): TIP_EN/GRP_EN/GC_DESC_EN -->
 <link rel="stylesheet" href="/css/admin-readability.css"><!-- 가독성 보강: Pretendard 폰트·줄간격·자간·대비 (기존 내부 style 다음에 로드) -->
 <!-- 🧹 옛 메뉴바(모두 펼치기/접기/메뉴 보기) — 첫 렌더부터 숨겨 '잠깐 떴다 사라지는' 깜빡임 제거 (2026-06-21).
      기존에도 PC(≥1024)·모바일에서 숨기던 레거시 UI인데, 숨김 규칙이 파일 한참 아래에 있어 로드 초반 잠깐 보였음.
@@ -21803,7 +21804,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260623193840 -->
+        <!-- BUILD:20260623200754 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -27213,8 +27214,13 @@ button.chip:hover,
   // ===== 인라인 손자 메뉴(.ph125-gc) hover 시 바로 옆에 설명 말풍선 =====
   function descOf(name){
     name=(name||'').replace(/\s+/g,' ').trim();
-    if(window.GC_DESC && window.GC_DESC[name]) return window.GC_DESC[name];
     var k=name.replace(/^[^가-힣A-Za-z0-9]+/,'').trim();
+    // 🌐 EN 토글 시 영어 설명 우선(없으면 한국어로 폴백)
+    if(window.adminLang && window.adminLang!=='ko' && window.GC_DESC_EN){
+      if(window.GC_DESC_EN[name]) return window.GC_DESC_EN[name];
+      if(window.GC_DESC_EN[k]) return window.GC_DESC_EN[k];
+    }
+    if(window.GC_DESC && window.GC_DESC[name]) return window.GC_DESC[name];
     if(window.GC_DESC && window.GC_DESC[k]) return window.GC_DESC[k];
     if(typeof window.miDescribe==='function') return window.miDescribe(name,null);
     return '';
@@ -34789,11 +34795,13 @@ button.chip:hover,
   };
 
   function ph127ApplyTips(){
+    // 🌐 EN 토글 시 영어 data-tip 으로 교체(언어 바뀌면 다음 주기에 자동 갱신)
+    var en = (window.adminLang && window.adminLang!=='ko');
     document.querySelectorAll('#ph85-sidebar .ph85-sub').forEach(function(sub){
       var cardId = sub.dataset.card;
       if (!cardId) return;
-      var tip = TIPS[cardId];
-      if (tip && !sub.hasAttribute('data-tip')) {
+      var tip = (en && window.TIP_EN && window.TIP_EN[cardId]) ? window.TIP_EN[cardId] : TIPS[cardId];
+      if (tip && sub.getAttribute('data-tip') !== tip) {
         sub.setAttribute('data-tip', tip);
       }
     });
@@ -39558,8 +39566,10 @@ button.chip:hover,
     function show(t,txt){ if(window.__sbTip) window.__sbTip.show(t,txt); }
     function hide(){ if(window.__sbTip) window.__sbTip.hide(); }
     function tipFor(t){
-      var key=t.getAttribute('data-card');
-      return (key && TIP[key]) ? TIP[key] : null;
+      var key=t.getAttribute('data-card'); if(!key) return null;
+      // 🌐 EN 토글 시 영어 설명 우선
+      if(window.adminLang && window.adminLang!=='ko' && window.TIP_EN && window.TIP_EN[key]) return window.TIP_EN[key];
+      return TIP[key] ? TIP[key] : null;
     }
     document.addEventListener('mouseover',function(e){
       var t=e.target.closest ? e.target.closest('.ph85-sub') : null; if(!t)return;
@@ -39587,7 +39597,10 @@ button.chip:hover,
     document.addEventListener('mouseover',function(e){
       var t=e.target.closest ? e.target.closest('.ph85-head') : null; if(!t)return;
       var tt=t.querySelector('.ph85-title'); var name=tt?(tt.textContent||'').trim():'';
-      var txt=GRP[name]; if(txt) show(t,txt);
+      var txt=GRP[name];
+      // 🌐 EN 토글 시 영어 그룹 설명 우선
+      if(window.adminLang && window.adminLang!=='ko' && window.GRP_EN && window.GRP_EN[name]) txt=window.GRP_EN[name];
+      if(txt) show(t,txt);
     },true);
     document.addEventListener('mouseout',function(e){
       var t=e.target.closest ? e.target.closest('.ph85-head') : null; if(t) hide();
@@ -39622,7 +39635,10 @@ button.chip:hover,
       if(!d || d.tagName!=='DETAILS') return null;
       if(!d.id || d.id.indexOf('card-')!==0) return null;
       if(d.querySelector(':scope > summary') !== sm) return null;
-      return CARD[d.id] ? {sm:sm, d:d, txt:CARD[d.id]} : null;
+      if(!CARD[d.id]) return null;
+      // 🌐 EN 토글 시 영어 카드 설명 우선
+      var txt = (window.adminLang && window.adminLang!=='ko' && window.CARD_EN && window.CARD_EN[d.id]) ? window.CARD_EN[d.id] : CARD[d.id];
+      return {sm:sm, d:d, txt:txt};
     }
     function hide(){ el.classList.remove('on'); }
     function showAtCursor(txt, mx, my){
