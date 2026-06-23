@@ -14,6 +14,7 @@ import { handleRecordingUpload as handleR2MultipartUpload } from './recordings-r
 import { handleAdminAuthApi, checkAdminSession } from './auth-admin';
 import { reportsRouter } from './accounting-reports';
 import { realtimeRouter, runFinanceSnapshot } from './accounting-realtime';
+import { modulesRouter } from './modules-ext';
 import { execRouter } from './exec-summary';
 import { getScope } from './scope';
 import { learningRouter, runLearningSnapshot } from './learning-insights';
@@ -825,6 +826,12 @@ export default {
     //   기존 reports 와 prefix 분리 + 자체 try/catch 로 독립 동작
     if (path.startsWith('/api/admin/realtime/')) {
       return realtimeRouter(request, env);
+    }
+
+    // 🧩 신규 운영 인프라 4모듈 (정산분개·위험군큐·공휴일·교재비디오) — 2026-06-24
+    //   /api/admin/mod/* — 기존 라우트와 prefix 완전 분리 + 자체 try/catch 독립 동작
+    if (path.startsWith('/api/admin/mod/')) {
+      return modulesRouter(request, env);
     }
 
     // 🧹 R2 고아 파일(기록 없음) 청소 — 관리자 수동 트리거 / 미리보기
@@ -2014,6 +2021,8 @@ function isAdminPath(path: string, method: string): boolean {
   // 💸 실시간 재무 대시보드 + API (2026-06-03) — 관리자 전용
   if (path === '/admin/finance-realtime' || path === '/admin/finance-realtime/' || path === '/admin/finance-realtime.html') return true;
   if (path.startsWith('/api/admin/realtime/')) return true;
+  // 🧩 신규 운영 인프라 4모듈 API (2026-06-24) — 관리자 전용
+  if (path.startsWith('/api/admin/mod/')) return true;
   // 📊 경영진 대시보드 + API (2026-06-09) — 관리자 전용
   if (path === '/admin/exec' || path === '/admin/exec/' || path === '/admin/exec.html') return true;
   if (path.startsWith('/api/admin/exec/')) return true;
