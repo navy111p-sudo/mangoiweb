@@ -110,7 +110,8 @@ h1 .sub{font-size:13px;color:var(--tx2);font-weight:500;margin-left:4px}
 .slot-temp{background:repeating-linear-gradient(135deg,#3b82f6,#3b82f6 4px,#2563eb 4px,#2563eb 8px)}
 .slot-text{color:#fff;font-size:9.5px;font-weight:700;line-height:22px;padding:0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.4)}
 .slot.now::before{content:'';position:absolute;left:0;right:0;top:0;height:2px;background:var(--ac);z-index:2;box-shadow:0 0 8px var(--ac)}
-.tooltip{position:fixed;background:linear-gradient(180deg,var(--bg3) 0%,var(--bg2) 100%);border:2px solid var(--ac);border-radius:12px;padding:12px 14px;color:var(--tx);font-size:12.5px;box-shadow:var(--shL);pointer-events:none;z-index:9999;max-width:320px;min-width:240px;display:none;line-height:1.55}
+.tooltip{position:fixed;background:linear-gradient(180deg,var(--bg3) 0%,var(--bg2) 100%);border:2px solid var(--ac);border-radius:12px;padding:12px 14px;color:var(--tx);font-size:12.5px;box-shadow:var(--shL);pointer-events:none;z-index:9999;max-width:320px;min-width:240px;opacity:0;visibility:hidden;transition:opacity .2s ease,visibility .2s ease;line-height:1.55}
+.tooltip.show{opacity:1;visibility:visible}
 .tooltip-title{font-weight:800;color:#fff;font-size:13.5px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:6px}
 .tooltip-row{display:flex;justify-content:space-between;gap:12px;font-size:11.5px;margin-top:3px}
 .tooltip-row .k{color:var(--tx2)}
@@ -126,6 +127,19 @@ h1 .sub{font-size:13px;color:var(--tx2);font-weight:500;margin-left:4px}
 .tooltip-date .dval{font-size:12px;color:#fff;font-weight:700;margin-top:2px}
 .tooltip-date.start{border-left:3px solid #10b981}
 .tooltip-date.end{border-left:3px solid #ef4444}
+/* ═══ [기능1] 교사 스크롤 내비게이션 바 ═══ */
+.teacher-nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:7px;overflow-x:auto;padding:9px 28px;background:linear-gradient(180deg,var(--bg2) 0%,rgba(19,24,38,.96) 100%);backdrop-filter:blur(6px);border-bottom:1px solid var(--bd);scrollbar-width:thin}
+.teacher-nav::-webkit-scrollbar{height:6px}
+.teacher-nav::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
+.tnav-label{font-size:11px;color:var(--tx3);white-space:nowrap;margin-right:3px;flex-shrink:0}
+.tnav-chip{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;cursor:pointer;white-space:nowrap;background:var(--bg3);border:1px solid var(--bd);color:var(--tx);font-weight:700;font-size:12px;transition:transform .15s,border-color .15s,background .15s;user-select:none}
+.tnav-chip .tnav-ava{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:800;flex-shrink:0}
+.tnav-chip:hover{border-color:var(--ac);transform:translateY(-1px)}
+.tnav-chip.active{background:var(--ac);border-color:var(--ac);color:#1a1a1a}
+.teacher-card{scroll-margin-top:86px}
+@media(max-width:768px){.teacher-nav{padding-left:14px;padding-right:14px}}
+/* ═══ [기능2] 드래그 시 빈 수업가능 셀 강조 (녹색 점선 + 은은한 글로우) ═══ */
+.mini-cal td.slot.drop-ready{outline:2px dashed #10b981;outline-offset:-2px;background:rgba(16,185,129,.10)!important;box-shadow:inset 0 0 9px rgba(16,185,129,.35)}
 .empty-msg{text-align:center;padding:48px 20px;color:var(--tx3);font-size:14px;background:var(--bg2);border:1px dashed var(--bd);border-radius:14px}
 .skeleton{background:linear-gradient(90deg,var(--bg2) 0%,var(--bg3) 50%,var(--bg2) 100%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:14px;height:280px}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
@@ -480,6 +494,7 @@ body.dragging{cursor:crosshair}
   <span class="legend-item"><span class="legend-chip" style="background:repeating-linear-gradient(135deg,#3b82f6,#3b82f6 3px,#2563eb 3px,#2563eb 6px)"></span><span data-ko="🔵 임시 수업" data-en="🔵 Temporary">🔵 임시 수업</span></span>
   <span style="margin-left:auto;color:var(--tx3);font-size:11px" data-ko="💡 셀에 마우스를 올리면 자세히 보입니다" data-en="💡 Hover a cell for details">💡 셀에 마우스를 올리면 자세히 보입니다</span>
 </div>
+<nav class="teacher-nav" id="teacher-nav" style="display:none"><span class="tnav-label" data-ko="교사 이동:" data-en="Jump to:">교사 이동:</span></nav>
 <main class="main" id="main"><div class="teacher-grid"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div></main>
 <!-- ═══ FAB + 컨텍스트 메뉴 ═══ -->
 <button class="fab" id="fab-enroll" onclick="openEnrollWizard()" title="신규 학생 등록">
@@ -732,13 +747,41 @@ function render(){
   });
   if(!any){html='<div class="empty-msg">'+(currentLang==='ko'?'조건에 맞는 교사가 없습니다. 필터를 조정하거나 다른 키워드로 검색해보세요.':'No teachers match. Adjust the filter or try another keyword.')+'</div>';}
   main.innerHTML=html;
+  buildTeacherNav();
+}
+
+// [기능1] 교사 칩 내비게이션 바 구성 (현재 보이는 교사 기준, 클릭 시 smooth scroll)
+function buildTeacherNav(){
+  var nav=document.getElementById('teacher-nav');if(!nav)return;
+  nav.querySelectorAll('.tnav-chip').forEach(function(c){c.remove();});
+  var cards=document.querySelectorAll('.teacher-card');
+  if(cards.length===0){nav.style.display='none';return;}
+  nav.style.display='flex';
+  var catColor={home:'#10b981',office:'#3b82f6',native:'#8b5cf6',manager:'#f97316'};
+  cards.forEach(function(card){
+    var nameEl=card.querySelector('.teacher-name');
+    var avaEl=card.querySelector('.avatar');
+    var name=nameEl?nameEl.textContent:card.id;
+    var ini=avaEl?avaEl.textContent:'?';
+    var cat=(avaEl&&(avaEl.className.match(/avatar\s+(\w+)/)||[])[1])||'';
+    var chip=document.createElement('button');
+    chip.className='tnav-chip';chip.dataset.target=card.id;
+    chip.innerHTML='<span class="tnav-ava" style="background:'+(catColor[cat]||'#64748b')+'">'+escapeHtml(ini)+'</span>'+escapeHtml(name);
+    chip.onclick=function(){
+      nav.querySelectorAll('.tnav-chip').forEach(function(c){c.classList.remove('active');});
+      chip.classList.add('active');
+      var tgt=document.getElementById(card.id);
+      if(tgt)tgt.scrollIntoView({behavior:'smooth',block:'start'});
+    };
+    nav.appendChild(chip);
+  });
 }
 
 function renderTeacher(t){
   var name=(currentLang==='en'&&t.name_en)?t.name_en:t.name;
   var initial=(name.match(/[A-Za-z가-힣]/)||['?'])[0];
   var st=teacherWeekStats(t.id);var today=new Date();
-  var html='<div class="teacher-card"><div class="teacher-head">';
+  var html='<div class="teacher-card" id="tcard-'+t.id+'"><div class="teacher-head">';
   html+='<div class="avatar '+t.category+'">'+escapeHtml(initial)+'</div>';
   html+='<div class="teacher-info"><div class="teacher-name">'+escapeHtml(name)+'</div><div class="teacher-meta">';
   html+='<span class="cat-badge '+t.category+'" style="font-size:9.5px;padding:1px 7px">'+t.category+'</span>';
@@ -829,7 +872,7 @@ function findSlotForCell(teacherId,dateISO,hour,minute){
 var tooltip=document.getElementById('tooltip');
 document.addEventListener('mousemove',function(e){
   var t=e.target.closest('.slot');
-  if(!t||!t.dataset.slot){tooltip.style.display='none';return;}
+  if(!t||!t.dataset.slot){tooltip.classList.remove('show');return;}
   var data=JSON.parse(decodeURIComponent(t.dataset.slot));var s=data.slot;
   var typeL=({blocked:currentLang==='ko'?'🚫 수업 불가':'🚫 Blocked','1on1':currentLang==='ko'?'🟣 1대1 수업':'🟣 1-on-1 Class',group:currentLang==='ko'?'💗 그룹 수업':'💗 Group Class',temp:currentLang==='ko'?'🔵 임시 수업':'🔵 Temporary'})[s.type]||s.type;
   var L=currentLang==='ko';
@@ -845,15 +888,15 @@ document.addEventListener('mousemove',function(e){
   if(s.start_date||s.end_date){
     html+='<div class="tooltip-dates"><div class="tooltip-date start"><div class="dlbl">📅 '+(L?'시작일':'Start')+'</div><div class="dval">'+(s.start_date||'-')+'</div></div><div class="tooltip-date end"><div class="dlbl">🏁 '+(L?'종료일':'End')+'</div><div class="dval">'+(s.end_date||'-')+'</div></div></div>';
   }
-  tooltip.innerHTML=html;tooltip.style.display='block';
+  tooltip.innerHTML=html;tooltip.classList.add('show');
   var tw=tooltip.offsetWidth,th=tooltip.offsetHeight;
   var x=e.clientX+16,y=e.clientY+12;
   if(x+tw>window.innerWidth-8)x=e.clientX-tw-16;
   if(y+th>window.innerHeight-8)y=e.clientY-th-12;
   tooltip.style.left=Math.max(8,x)+'px';tooltip.style.top=Math.max(8,y)+'px';
 });
-document.addEventListener('scroll',function(){tooltip.style.display='none';},true);
-document.addEventListener('mouseleave',function(){tooltip.style.display='none';});
+document.addEventListener('scroll',function(){tooltip.classList.remove('show');},true);
+document.addEventListener('mouseleave',function(){tooltip.classList.remove('show');});
 
 document.getElementById('prev-week').onclick=function(){currentWeekStart.setDate(currentWeekStart.getDate()-7);reloadAndRender();
 
@@ -970,6 +1013,8 @@ document.addEventListener('mousemove', function(e){
     var sub=(slot.students&&slot.students.length>0)?(slot.students.length===1?slot.students[0].name:(L?'그룹 ':'G ')+slot.students.length):(slot.note||'');
     dnd.ghost.innerHTML='<div class="gh-ico">'+icon+'</div><div class="gh-info"><div class="gh-title">'+title+'</div><div class="gh-sub">'+escapeHtml(sub)+' • '+(L?'끌어서 놓기':'Drop to move')+'</div></div>';
     document.body.appendChild(dnd.ghost);
+    // [기능2] 비어있는 '수업 가능' 셀들을 녹색 점선으로 강조
+    document.querySelectorAll('.mini-cal td.slot-empty, .mini-cal td.slot-weekend').forEach(function(c){c.classList.add('drop-ready');});
   }
   if(!dnd.active)return;
   // Ghost 위치 업데이트
@@ -999,6 +1044,7 @@ document.addEventListener('mouseup', function(e){
   if(dnd.sourceEl)dnd.sourceEl.classList.remove('dragging-source');
   if(dnd.lastTarget)dnd.lastTarget.classList.remove('drop-target-ok','drop-target-bad');
   document.body.classList.remove('cell-dragging');
+  document.querySelectorAll('.drop-ready').forEach(function(c){c.classList.remove('drop-ready');});
   if(dnd.ghost){ dnd.ghost.remove(); dnd.ghost=null; }
   
   if(!wasActive){
@@ -1130,6 +1176,7 @@ document.addEventListener('keydown', function(e){
     if(dnd.lastTarget)dnd.lastTarget.classList.remove('drop-target-ok','drop-target-bad');
     if(dnd.ghost){dnd.ghost.remove();dnd.ghost=null;}
     document.body.classList.remove('cell-dragging');
+    document.querySelectorAll('.drop-ready').forEach(function(c){c.classList.remove('drop-ready');});
     dnd.sourceEl=null;dnd.sourceData=null;dnd.lastTarget=null;
     dnd.active=false;dnd.moved=false;
     showDndToast((currentLang==='ko'?'드래그 취소됨':'Drag cancelled'),'');
@@ -2477,12 +2524,15 @@ reloadAndRender();
   var css = document.createElement('style');
   css.textContent = [
     /* 대기 풀 토글 버튼 (좌측 세로) */
-    '.pool-toggle-btn{position:fixed;left:0;top:46%;transform:translateY(-50%);z-index:6500;',
-    '  writing-mode:vertical-rl;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;',
-    '  border:none;border-radius:0 12px 12px 0;padding:14px 9px;font-weight:800;font-size:12.5px;',
-    '  cursor:pointer;box-shadow:0 6px 18px rgba(79,70,229,.45);letter-spacing:1px}',
-    '.pool-toggle-btn .badge{display:block;margin-top:6px;background:#fff;color:#4f46e5;',
-    '  border-radius:99px;font-size:11px;padding:1px 6px;writing-mode:horizontal-tb;text-align:center}',
+    /* 좌하단 가로 알약형 — 시간표 그리드와 겹치지 않음(우하단 FAB·우측 탐색버튼과도 분리) */
+    '.pool-toggle-btn{position:fixed;left:16px;bottom:20px;z-index:6500;',
+    '  background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;',
+    '  border:none;border-radius:99px;padding:12px 18px;font-weight:800;font-size:13px;',
+    '  cursor:pointer;box-shadow:0 8px 24px rgba(79,70,229,.5);',
+    '  display:flex;align-items:center;gap:8px;white-space:nowrap}',
+    '.pool-toggle-btn:hover{filter:brightness(1.1)}',
+    '.pool-toggle-btn .badge{background:#fff;color:#4f46e5;border-radius:99px;',
+    '  font-size:11px;font-weight:800;padding:1px 7px;text-align:center}',
     /* 대기 풀 패널 */
     '.pool-panel{position:fixed;left:-340px;top:0;bottom:0;width:320px;z-index:6600;',
     '  background:linear-gradient(180deg,#161b2e 0%,#0f1320 100%);border-right:2px solid #4f46e5;',
@@ -2635,6 +2685,8 @@ reloadAndRender();
         '<div class="gh-title">'+escapeHtml(pdnd.data.name)+'</div>'+
         '<div class="gh-sub">'+(L?'빈 셀에 놓아 배정':'Drop on empty slot')+'</div></div>';
       document.body.appendChild(pdnd.ghost);
+      // [기능2] 비어있는 '수업 가능' 셀들을 녹색 점선으로 강조
+      document.querySelectorAll('.mini-cal td.slot-empty, .mini-cal td.slot-weekend').forEach(function(c){c.classList.add('drop-ready');});
     }
     if(!pdnd.active) return;
     if(pdnd.ghost){ pdnd.ghost.style.left = e.clientX+'px'; pdnd.ghost.style.top = (e.clientY-10)+'px'; }
@@ -2661,6 +2713,7 @@ reloadAndRender();
     if(pdnd.chip) pdnd.chip.classList.remove('is-dragging');
     if(pdnd.lastTarget) pdnd.lastTarget.classList.remove('drop-target-ok','drop-target-bad');
     document.body.classList.remove('cell-dragging');
+    document.querySelectorAll('.drop-ready').forEach(function(c){c.classList.remove('drop-ready');});
     if(pdnd.ghost){ pdnd.ghost.remove(); pdnd.ghost = null; }
     var stu = pdnd.data, lastT = pdnd.lastTarget;
     pdnd.chip=null; pdnd.data=null; pdnd.lastTarget=null; pdnd.active=false;
