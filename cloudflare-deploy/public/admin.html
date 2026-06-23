@@ -21804,7 +21804,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260623174916 -->
+        <!-- BUILD:20260623175241 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -39513,27 +39513,13 @@ button.chip:hover,
       height:42px !important; min-height:42px !important; font-size:13.5px !important;
     }
 
-    /* ── ③ 평소엔 접힘 → 토글 탭하면 컨트롤 펼침 ── */
-    body:not(.th-m-open) .top-header .th-controls{ display:none !important; }
-    body.th-m-open .top-header .th-controls{
+    /* ── ③ 항상 펼침: 컨트롤 버튼 모두 노출 (2026-06-23) ── */
+    .top-header .th-controls{
       display:grid !important; grid-template-columns:1fr 1fr !important;
     }
 
-    /* ── 펼침 토글 버튼(헤더 우상단) ── */
-    #th-m-toggle{
-      display:inline-flex !important; align-items:center; justify-content:center;
-      position:absolute !important; top:8px !important; right:12px !important;
-      width:34px; height:34px; border-radius:999px;
-      border:1px solid rgba(255,255,255,.35);
-      background:rgba(255,255,255,.22); color:#fff;
-      font-size:16px; font-weight:800; line-height:1; cursor:pointer;
-      -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
-      transition:transform .25s ease;
-    }
-    html[data-admin-theme="ivory"] #th-m-toggle{
-      color:#7c2d12; background:rgba(255,255,255,.6); border-color:rgba(245,158,11,.4);
-    }
-    body.th-m-open #th-m-toggle{ transform:rotate(180deg); }
+    /* ── 펼침 토글 버튼 숨김(더 이상 불필요) ── */
+    #th-m-toggle{ display:none !important; }
   }
 </style>
 <!-- PH85-TOOLTIPS v1 -->
