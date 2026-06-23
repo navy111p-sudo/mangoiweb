@@ -2146,8 +2146,8 @@
 
   <!-- 메인 영역 -->
   <div id="admin-main-scale">
-    <!-- 🥭 히어로 랜딩 (망고 캐릭터 + 거대 검색창) — 2026-06-20 새로고침 시 숨김(바로 관리 메뉴 표시) -->
-    <section class="hero" style="display:none!important">
+    <!-- 🥭 히어로 랜딩 (망고 캐릭터 + 거대 검색창) — 2026-06-24 중앙 AI 검색창 복구(다시 표시) -->
+    <section class="hero">
       <div class="hero-text">
         <!-- 🥭 Phase 19f — 배너 이미지 우선, 실패 시 CSS h1 fallback -->
         <img src="/img/hero-greeting-gold.png" alt="안녕하세요, MANGO-AI" class="hero-banner-img"
@@ -21845,7 +21845,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260624010530 -->
+        <!-- BUILD:20260624011835 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -26710,16 +26710,29 @@ button.chip:hover,
   #ph85-sidebar .ph85-brand-ico { font-size: 28px; }
   #ph85-sidebar .ph85-brand-text { font-size: 18px; font-weight: 800; color: #fbbf24; }
 
+  .ph85-search-wrap { position: relative; margin-bottom: 12px; }
   .ph85-search {
-    width: 100%; padding: 11px 13px;
+    width: 100%; padding: 11px 40px 11px 13px;
     background: rgba(15,23,42,0.6);
     border: 1px solid rgba(148,163,184,0.25);
     border-radius: 8px;
     color: #fff; font-size: 15px;
-    margin-bottom: 12px;
     box-sizing: border-box;
   }
   .ph85-search::placeholder { color: #64748b; }
+  /* 검색창 오른쪽 '위로' 화살표 — 클릭 시 검색에서 빠져나옴 */
+  .ph85-search-exit {
+    position: absolute; top: 50%; right: 6px;
+    transform: translateY(-50%);
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    border: none; border-radius: 7px;
+    background: rgba(99,102,241,0.18); color: #cbd5e1;
+    font-size: 16px; line-height: 1; cursor: pointer;
+    transition: background .18s, color .18s, transform .18s;
+  }
+  .ph85-search-exit:hover { background: rgba(251,191,36,0.25); color: #fde68a; transform: translateY(-50%) translateY(-1px); }
+  .ph85-search-exit:active { transform: translateY(-50%); }
 
   /* fix (2026-06-01) — 🎥 수업입장 카드 (평가서 통합 위 고정) */
   .ph85-classroom {
@@ -26825,7 +26838,11 @@ button.chip:hover,
     <span class="ph85-brand-ico"><img src="/img/mango-ufo.png" alt="Mangoi" style="width:40px;height:auto;object-fit:contain;vertical-align:middle;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.35))"></span>
     <span class="ph85-brand-text">망고아이 관리</span>
   </div>
-  <input class="ph85-search" id="ph85-search" type="search" placeholder="🔍 메뉴 검색...">
+  <div class="ph85-search-wrap">
+    <input class="ph85-search" id="ph85-search" type="search" placeholder="🔍 메뉴 검색...">
+    <button type="button" class="ph85-search-exit" id="ph85-search-exit" title="검색에서 나가기" aria-label="검색에서 나가기"
+            onclick="(function(){var s=document.getElementById('ph85-search');if(!s)return;s.value='';s.dispatchEvent(new Event('input',{bubbles:true}));s.blur();})()">↑</button>
+  </div>
 
   <!-- AI 운영비서 진입 (플로팅 대체) -->
   <a id="ph85-ai-asst" role="button" tabindex="0"
