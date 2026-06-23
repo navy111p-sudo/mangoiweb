@@ -1734,6 +1734,7 @@ export async function handleMangoApi(
         const teacher_id = Number.isFinite(tnum) ? tnum : r.teacher_id;
         const students = r.student_name ? [{ name: r.student_name, uid: r.user_id || '' }] : [];
         const base = {
+          id: r.id,                       // ← 드래그 이동 영구 저장(PATCH)에 필요
           teacher_id,
           hour: hourOf(r.start_time),
           start_time: r.start_time,
@@ -1993,6 +1994,53 @@ export async function handleMangoApi(
         return json({ ok: true, id, status: 'cancelled' });
       } catch (e: any) {
         return json({ ok: false, error: 'delete_failed', detail: String(e?.message || e) }, 500);
+      }
+    }
+
+    // 🥭 Phase WS — PATCH/PUT /api/admin/class-schedules/:id (드래그 이동: 요일/시간/지속/날짜 수정)
+    //   body: { day_of_week?, start_time?('HH:MM'), duration_min?, scheduled_date?('YYYY-MM-DD') }
+    //   허용된 필드만 동적으로 UPDATE → 캘린더 드래그앤드롭 영구 저장에 사용.
+    if ((method === 'PATCH' || method === 'PUT') && /^\/api\/admin\/class-schedules\/\d+$/.test(path)) {
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      if (!id) return json({ ok: false, error: 'invalid_id' }, 400);
+      const body: any = await request.json().catch(() => ({}));
+      // 요일 표기 정규화(월/Mon/monday → 'Mon' …)
+      const normDow = (v: string): string => {
+        const k = String(v || '').trim().toLowerCase();
+        const map: Record<string, string> = {
+          'mon': 'Mon', 'monday': 'Mon', '월': 'Mon', '월요일': 'Mon',
+          'tue': 'Tue', 'tuesday': 'Tue', '화': 'Tue', '화요일': 'Tue',
+          'wed': 'Wed', 'wednesday': 'Wed', '수': 'Wed', '수요일': 'Wed',
+          'thu': 'Thu', 'thursday': 'Thu', '목': 'Thu', '목요일': 'Thu',
+          'fri': 'Fri', 'friday': 'Fri', '금': 'Fri', '금요일': 'Fri',
+          'sat': 'Sat', 'saturday': 'Sat', '토': 'Sat', '토요일': 'Sat',
+          'sun': 'Sun', 'sunday': 'Sun', '일': 'Sun', '일요일': 'Sun',
+        };
+        return map[k] || '';
+      };
+      const sets: string[] = [];
+      const binds: any[] = [];
+      if (body.day_of_week != null) {
+        const d = normDow(body.day_of_week);
+        if (d) { sets.push('day_of_week = ?'); binds.push(d); }
+      }
+      if (body.start_time != null && /^\d{1,2}:\d{2}$/.test(String(body.start_time))) {
+        sets.push('start_time = ?'); binds.push(String(body.start_time));
+      }
+      if (body.duration_min != null && Number.isFinite(Number(body.duration_min))) {
+        sets.push('duration_min = ?'); binds.push(Number(body.duration_min));
+      }
+      if (body.scheduled_date != null && /^\d{4}-\d{2}-\d{2}$/.test(String(body.scheduled_date))) {
+        sets.push('scheduled_date = ?'); binds.push(String(body.scheduled_date));
+      }
+      if (!sets.length) return json({ ok: false, error: 'no_valid_fields' }, 400);
+      sets.push('updated_at = ?'); binds.push(Date.now());
+      binds.push(id);
+      try {
+        await env.DB.prepare(`UPDATE class_schedules SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+        return json({ ok: true, id, updated_fields: sets.length - 1 });
+      } catch (e: any) {
+        return json({ ok: false, error: 'update_failed', detail: String(e?.message || e) }, 500);
       }
     }
 

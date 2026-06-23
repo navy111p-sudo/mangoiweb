@@ -4763,6 +4763,10 @@
               <button type="button" data-mode="byTeacherDate" onclick="caSetMode('byTeacherDate')" class="ca-mode-btn" style="padding:6px 12px;font-size:12px;background:#fff;color:#a855f7;border:1px solid #a855f7;border-radius:6px;cursor:pointer;font-weight:600" data-ko="강사·날짜별" data-en="By Teacher·Date">강사·날짜별</button>
               <button type="button" data-mode="chart" onclick="caSetMode('chart')" class="ca-mode-btn" style="padding:6px 12px;font-size:12px;background:#fff;color:#a855f7;border:1px solid #a855f7;border-radius:6px;cursor:pointer;font-weight:600" data-ko="그래프" data-en="Chart">그래프</button>
               <button type="button" onclick="caExportExcel()" style="padding:6px 12px;font-size:12px;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700" data-ko="엑셀 다운로드" data-en="Export Excel">엑셀 다운로드</button>
+              <!-- ✅ 선택 항목 일괄 정상 처리(별점 복구) — 체크된 행이 없으면 비활성화 -->
+              <button type="button" id="ca-bulk-btn" onclick="caBulkReset()" disabled
+                style="padding:6px 12px;font-size:12px;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700;transition:opacity .15s"
+                data-ko="✅ 선택 일괄 정상처리" data-en="✅ Bulk reset to normal">✅ 선택 일괄 정상처리 <span class="ca-bulk-count" style="opacity:.85">(0)</span></button>
             </div>
           </div>
 
@@ -21804,7 +21808,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260623214231 -->
+        <!-- BUILD:20260623214852 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -24936,6 +24940,8 @@ button.chip:hover,
       // 메인 테이블
       html += '<div style="overflow-x:auto;flex:1"><table style="width:100%;font-size:11px;border-collapse:separate;border-spacing:0">';
       html += '<thead><tr style="background:#f8fafc">';
+      // ✅ 일괄 선택용 체크박스 컬럼(맨 왼쪽) — 그룹(표) 단위 전체 선택
+      html += '<th style="padding:7px 4px;width:30px;min-width:30px;border-bottom:1px solid #e5e7eb;text-align:center"><input type="checkbox" onchange="caToggleGroup(this)" title="이 표 전체 선택" style="cursor:pointer;width:14px;height:14px"></th>';
       ['date','start','clsmin','actual','elapsed','penaltyTime','penalty','reason','answer','delete'].forEach((k, i) => {
         const w = ['76px','76px','60px','76px','60px','60px','46px','110px','110px','60px'][i];
         html += '<th style="padding:7px 4px;font-size:9.5px;font-weight:700;color:#475569;border-bottom:1px solid #e5e7eb;text-align:center;line-height:1.4;min-width:' + w + ';width:' + w + '">' + L[k] + '<br><span style="font-weight:400;color:#94a3b8;font-size:8.5px">(' + ({date:'date',start:'start work time',clsmin:'Class minute',actual:'Actual enter time',elapsed:'elapsed time',penaltyTime:'penalty time',penalty:'Penalty',reason:'Reason',answer:'Answer',delete:'Delete'}[k]) + ')</span></th>';
@@ -24945,10 +24951,16 @@ button.chip:hover,
       items.forEach((r, i) => {
         const c = rowColor(r);
         const stripe = i % 2 === 0 ? '#ffffff' : '#fafbfc';
+        // ── [별점→행 배경] 0점=기본 / -1~-3=연노랑 / -4이하·결강=연빨강 ──
+        const rowBg = (!r.actual || r.penalty <= -4) ? '#fef2f2'      // red-50 (중대/결강)
+                    : (r.penalty <= -1)              ? '#fefce8'      // yellow-50 (경미 지각)
+                    : stripe;                                         // 정상: 기본 줄무늬 유지
         const elapsed = !r.actual ? '결강' : (r.late_min === 0 ? '0m' : (r.late_min > 0 ? '+' + r.late_min + 'm' : r.late_min + 'm'));
         const penaltyTime = r.penalty < 0 ? Math.abs(r.penalty) + 'm' : '0m';
         const penaltyStars = r.penalty <= -10 ? '🚫' : (r.penalty < 0 ? '⭐'.repeat(Math.min(Math.abs(r.penalty), 5)) + (r.penalty < -5 ? '+' : '') : '');
-        html += '<tr style="background:' + stripe + '">';
+        html += '<tr style="background:' + rowBg + '">';
+        // ✅ 행 선택 체크박스(data-id로 일괄 처리 시 레코드 식별)
+        html += '<td style="padding:6px 4px;text-align:center;border-bottom:1px solid #f1f5f9"><input type="checkbox" class="ca-rowcheck" data-id="' + r.id + '" onchange="caSyncBulk()" style="cursor:pointer;width:14px;height:14px"></td>';
         html += '<td style="padding:6px 4px;text-align:center;color:#1e293b;font-weight:600;border-bottom:1px solid #f1f5f9;font-size:11px">' + r.date + '</td>';
         html += '<td style="padding:6px 4px;text-align:center;color:#475569;border-bottom:1px solid #f1f5f9;font-variant-numeric:tabular-nums">' + (r.scheduled || '-') + '</td>';
         html += '<td style="padding:6px 4px;text-align:center;color:#475569;border-bottom:1px solid #f1f5f9">' + (r.class_min || 20) + 'm</td>';
@@ -24956,7 +24968,7 @@ button.chip:hover,
         html += '<td style="padding:6px 4px;text-align:center;color:' + c + ';border-bottom:1px solid #f1f5f9;font-size:10.5px">' + elapsed + '</td>';
         html += '<td style="padding:6px 4px;text-align:center;color:' + c + ';border-bottom:1px solid #f1f5f9;font-size:10.5px">' + penaltyTime + '</td>';
         html += '<td style="padding:6px 4px;text-align:center;border-bottom:1px solid #f1f5f9;color:' + c + ';font-weight:700">' + (r.penalty || 0) + '</td>';
-        html += '<td style="padding:6px 4px;border-bottom:1px solid #f1f5f9"><input type="text" data-id="' + r.id + '" data-field="reason" oninput="caUpdateField(this)" value="' + (r.reason||'').replace(/"/g,'&quot;') + '" placeholder="-" style="width:100%;border:1px solid #e5e7eb;border-radius:4px;padding:3px 5px;font-size:10.5px;background:#fff" /></td>';
+        html += '<td style="padding:6px 4px;border-bottom:1px solid #f1f5f9;position:relative"><input type="text" data-id="' + r.id + '" data-field="reason" oninput="caUpdateField(this)" onfocus="caShowReasonTips(this)" value="' + (r.reason||'').replace(/"/g,'&quot;') + '" placeholder="-" style="width:100%;border:1px solid #e5e7eb;border-radius:4px;padding:3px 5px;font-size:10.5px;background:#fff" /></td>';
         html += '<td style="padding:6px 4px;border-bottom:1px solid #f1f5f9"><input type="text" data-id="' + r.id + '" data-field="answer" oninput="caUpdateField(this)" value="' + (r.answer||'').replace(/"/g,'&quot;') + '" placeholder="-" style="width:100%;border:1px solid #e5e7eb;border-radius:4px;padding:3px 5px;font-size:10.5px;background:#fff" /></td>';
         html += '<td style="padding:6px 4px;text-align:center;border-bottom:1px solid #f1f5f9"><button onclick="caResetPenalty(\'' + r.id + '\')" style="padding:2px 6px;font-size:10px;background:#fee2e2;border:1px solid #fca5a5;color:#b91c1c;border-radius:4px;cursor:pointer">' + (r.penalty === 0 ? '✓' : '↺') + '</button></td>';
         html += '</tr>';
@@ -25190,6 +25202,7 @@ button.chip:hover,
       return;
     }
     tableWrap.innerHTML = renderClassTable(rows, _caMode);
+    if (typeof caSyncBulk === 'function') caSyncBulk();   // 재렌더 후 선택 카운트/버튼 초기화
   }
 
   window.caSetMode = function(mode) {
@@ -25213,6 +25226,71 @@ button.chip:hover,
     if (!confirm(isEn()?'Reset penalty to 0?':'별점을 0으로 초기화하시겠습니까?')) return;
     r.penalty = 0; localStorage.setItem(CA_LS_KEY, JSON.stringify(_caRecords));
     caRender();
+  };
+
+  // ───────────────────────────────────────────────────────────────
+  // [기능 2] 지각사유 자주 쓰는 사유 팝업 팁
+  //   입력칸 포커스 시 칩 목록을 띄우고, 칩을 누르면 자동 입력된다.
+  // ───────────────────────────────────────────────────────────────
+  const CA_QUICK_REASONS = ['네트워크 지연', '개인 사정', '이전 수업 연장', '기기 문제', '학생 요청'];
+  function caCloseReasonTips() { document.querySelectorAll('.ca-reason-tips').forEach(el => el.remove()); }
+  window.caShowReasonTips = function(input) {
+    caCloseReasonTips();                                  // 다른 셀에 열린 팝업 정리
+    const td = input.closest('td'); if (!td) return;
+    const box = document.createElement('div');
+    box.className = 'ca-reason-tips';
+    box.style.cssText = 'position:absolute;z-index:60;left:4px;top:100%;margin-top:2px;display:flex;flex-wrap:wrap;gap:3px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:5px;box-shadow:0 6px 18px -6px rgba(0,0,0,.28);max-width:230px';
+    CA_QUICK_REASONS.forEach(text => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.textContent = text;
+      chip.style.cssText = 'font-size:10px;border:0;border-radius:999px;background:#ede9fe;color:#6b21a8;padding:2px 8px;cursor:pointer;white-space:nowrap';
+      // mousedown: input의 blur보다 먼저 실행돼야 팝업이 닫히기 전에 값이 입력됨
+      chip.addEventListener('mousedown', e => {
+        e.preventDefault();
+        input.value = text;
+        caUpdateField(input);                             // 변경 즉시 저장
+        caCloseReasonTips();
+      });
+      box.appendChild(chip);
+    });
+    td.appendChild(box);
+    input.addEventListener('blur', () => setTimeout(caCloseReasonTips, 150), { once:true });
+  };
+
+  // ───────────────────────────────────────────────────────────────
+  // [기능 3] 일괄 처리 — 체크박스 선택 + 선택 항목 별점 일괄 복구
+  // ───────────────────────────────────────────────────────────────
+  // (3-a) 표 헤더 전체선택 → 해당 표의 모든 행 체크박스 동기화
+  window.caToggleGroup = function(master) {
+    const table = master.closest('table'); if (!table) return;
+    table.querySelectorAll('.ca-rowcheck').forEach(cb => { cb.checked = master.checked; });
+    caSyncBulk();
+  };
+  // (3-b) 선택 개수에 따라 일괄 버튼 라벨/활성 상태 갱신
+  window.caSyncBulk = function() {
+    const n = document.querySelectorAll('.ca-rowcheck:checked').length;
+    const btn = document.getElementById('ca-bulk-btn');
+    if (!btn) return;
+    btn.disabled = (n === 0);
+    btn.style.opacity = (n === 0) ? '0.45' : '1';
+    const cnt = btn.querySelector('.ca-bulk-count');
+    if (cnt) cnt.textContent = '(' + n + ')';
+  };
+  // (3-c) 선택 항목 일괄 정상 처리 — 별점 0 복구 후 저장·재렌더
+  window.caBulkReset = function() {
+    const checked = Array.from(document.querySelectorAll('.ca-rowcheck:checked'));
+    if (!checked.length) return;
+    const msg = isEn() ? ('Reset ' + checked.length + ' selected rows to normal (penalty 0)?')
+                       : ('선택한 ' + checked.length + '건을 정상(별점 0)으로 복구할까요?');
+    if (!confirm(msg)) return;
+    checked.forEach(cb => {
+      const r = _caRecords.find(x => x.id === cb.dataset.id);
+      if (r) { r.penalty = 0; }                           // 별점 0으로 복구
+    });
+    // TODO(실서비스): 변경분을 서버에 저장 (PATCH /api/admin/class-attendance)
+    localStorage.setItem(CA_LS_KEY, JSON.stringify(_caRecords));
+    caRender();                                           // 재렌더 → 배경 하이라이트 자동 갱신
   };
 
   window.caExportExcel = function() {
@@ -26324,10 +26402,25 @@ button.chip:hover,
         var newDate = ph54FmtDate(days[newCol]);
         var newTime = ph54FmtMin(newMin);
         rec.date = newDate; rec.start_time = newTime; rec.hour = Math.floor(newMin/60); rec.day_of_week = dowKeyByIdx[newCol];
-        ph54Render();   // 다시 그리기
-        // 변경 알림(토스트 + 콘솔)
-        ph54Toast('📌 이동: ' + dayLabel[newCol] + '요일 ' + newTime + ' (' + dur + '분)');
-        console.log('[ph54] 일정 이동 →', { idx: idx, day: dowKeyByIdx[newCol], date: newDate, start_time: newTime, duration_min: dur });
+        ph54Render();   // 즉시 다시 그리기(낙관적 업데이트)
+        console.log('[ph54] 일정 이동 →', { id: rec.id, day: dowKeyByIdx[newCol], date: newDate, start_time: newTime, duration_min: dur });
+        // 🔒 서버에 영구 저장(PATCH /api/admin/class-schedules/:id). id 없으면 화면 이동만.
+        if (rec.id != null) {
+          ph54Toast('💾 저장 중… ' + dayLabel[newCol] + '요일 ' + newTime);
+          fetch('/api/admin/class-schedules/' + rec.id, {
+            method: 'PATCH', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ day_of_week: dowKeyByIdx[newCol], start_time: newTime })
+          })
+          .then(function(r){ return r.json().catch(function(){ return {}; }); })
+          .then(function(res){
+            if (res && res.ok) ph54Toast('✅ 저장됨: ' + dayLabel[newCol] + '요일 ' + newTime + ' (' + dur + '분)');
+            else ph54Toast('⚠️ 저장 실패(화면만 이동): ' + ((res && res.error) || '서버 오류'));
+          })
+          .catch(function(){ ph54Toast('⚠️ 저장 실패(네트워크). 화면만 이동됨'); });
+        } else {
+          ph54Toast('📌 이동(임시): ' + dayLabel[newCol] + '요일 ' + newTime + ' — 저장 불가(id 없음)');
+        }
       });
     }
   }
