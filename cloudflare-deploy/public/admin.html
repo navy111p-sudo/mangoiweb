@@ -38621,7 +38621,17 @@ button.chip:hover,
   }
   window.miAsstPrimeVoice=primeVoice;
   var koVoice=null,enVoice=null;
-  function pickVoice(){ try{ var vs=window.speechSynthesis?speechSynthesis.getVoices():[]; koVoice=vs.filter(function(v){return /ko/i.test(v.lang);})[0]||null; enVoice=vs.filter(function(v){return /^en/i.test(v.lang);})[0]||null; }catch(e){} }
+  // 🎀 관리자 비서는 항상 '여성' 목소리로. 폴백 브라우저 음성도 여성 한국어 음성을 우선 선택하고 남성 음성은 회피.
+  function pickVoice(){ try{
+    var vs=window.speechSynthesis?speechSynthesis.getVoices():[];
+    var ko=vs.filter(function(v){return /ko/i.test(v.lang);});
+    var FEMALE=/heami|sun\s*-?hi|sunhi|yuna|seoyeon|jiyoung|ji\s*-?won|jiwon|nara|kyuri|female|여성|woman|google\s*한국/i;
+    var MALE=/in\s*-?joon|injoon|minsang|male|남성|man/i;
+    koVoice = ko.filter(function(v){return FEMALE.test(v.name);})[0]
+           || ko.filter(function(v){return !MALE.test(v.name);})[0]
+           || ko[0] || null;
+    enVoice=vs.filter(function(v){return /^en/i.test(v.lang);})[0]||null;
+  }catch(e){} }
   if(window.speechSynthesis){ pickVoice(); try{ speechSynthesis.onvoiceschanged=pickVoice; }catch(e){} }
   function setStatus(speaking){ var s=document.getElementById('mi-asst-status'); if(!s)return; s.textContent= speaking ? L('🔊 말하는 중…','🔊 Speaking…') : L('● 온라인','● Online'); s.style.color= speaking ? '#fbbf24' : '#34d399'; }
   function mouthOn(){ if(ava)ava.classList.add('mi-speaking'); try{ if(face){ face.currentTime=0; var p=face.play(); if(p&&p.catch)p.catch(function(){}); } }catch(e){} setStatus(true); }
@@ -38753,7 +38763,7 @@ button.chip:hover,
     {re:/녹화|recording/i, menu_id:'card-recording-storage', ko:'녹화 관리 카드로 이동할게요.', en:'Opening the recording storage card.'},
     {re:/수업\s*일지|일지|lesson\s*log/i, menu_id:'card-lesson-log', ko:'수업 일지 카드로 이동할게요.', en:'Opening the lesson log card.'},
     {re:/학생\s*관리|학생관리|학생\s*목록|student\s*manage/i, url:'/admin/students.html', ko:'학생관리 페이지로 이동할게요.', en:'Opening the student management page.'},
-    {re:/전체\s*스케줄|학원\s*전체|all\s*schedule/i, url:'/admin/all-schedules.html', ko:'학원 전체 스케줄 페이지로 이동할게요.', en:'Opening the academy-wide schedule page.'},
+    {re:/전체\s*학생\s*스케줄|전체학생\s*스케줄|전교생\s*스케줄|모든\s*학생\s*스케줄|전체\s*학생\s*일정|전체\s*스케줄|전체\s*일정|학원\s*전체|all\s*(student\s*)?schedule/i, url:'/admin/all-schedules.html', ko:'학원 전체 학생 스케줄 페이지로 이동할게요.', en:'Opening the academy-wide student schedule page.'},
     {re:/마이\s*페이지|마이페이지|내\s*정보|mypage|profile/i, url:'/admin/mypage.html', ko:'마이페이지로 이동할게요.', en:'Opening my page.'},
     {re:/단체\s*등록|단체등록|일괄\s*등록|대량\s*등록|bulk\s*regist/i, menu_id:'card-enrollments', ko:'수강신청 관리에서 일괄(단체) 등록을 할 수 있어요.', en:'You can bulk-register in the enrollment card.'},
     {re:/알림\s*큐|푸시\s*알림|알림\s*설정|알림/i, menu_id:'card-notifications', ko:'알림 큐 카드로 이동할게요.', en:'Opening the notifications card.'}

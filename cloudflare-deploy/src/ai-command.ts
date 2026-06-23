@@ -101,6 +101,8 @@ Hard rules:
 - If the user wants to REGISTER/CHANGE/POSTPONE class schedules or LEVEL TEST (수업 등록, 수업 변경, 수업 연기, 수업 잡아, 레벨테스트, 등록해줘 + 학생/요일/시간) → schedule_plan
 - If the user wants to BULK MODIFY existing schedules (~의 모든 수업, 다음주 수업 모두, 월요일 수업 전체 + 미뤄/취소/이동) → bulk_modify
 - Otherwise (definition, explanation, what is) → answer
+- 전체 학생 스케줄 / 전체학생 스케줄 / 전교생 스케줄 / 모든 학생 스케줄 / 전체 스케줄 / 전체 일정 / 학원 전체 일정 (열어줘·보여줘·open·show) → navigate url /admin/all-schedules.html
+- NEVER reply to an OPEN/SHOW/GO-TO request (열어줘, 열어, 보여줘, 가줘, 이동, open, show, go to, take me to) with step-by-step manual instructions such as "1. 로그인 2. 메뉴 선택 3. 클릭". Such requests are ALWAYS navigate (or query). Keep every "answer" to ONE short sentence and never invent UI steps, button names, or menu paths.
 - If the user mentions a TEACHER (강사/선생님/쌤 + 이름 or asks a teacher's schedule/info) WITHOUT registering a new class → navigate menu_id card-teacher-mgmt (e.g. "chaine 선생님 스케줄 어때?")
 - If the user wants to PAY / asks about tuition menu (결제, 결제관리, 수강료, 학원비, 납부) → navigate menu_id card-payments-b2c (정기결제·자동결제·구독이면 card-recurring-billing)
 - If the user expresses INTENT to postpone/change a class but gives NO student name+date (e.g. "수업 연기하고 싶어", "일정 변경할래") → navigate menu_id card-timetable. Only use schedule_plan when a student name AND day/time/date are present.
@@ -202,6 +204,18 @@ Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"학원 
 
 User: "학원 전체 일정"
 Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"학원 전체 스케줄 페이지로 이동합니다."}
+
+User: "전체학생 스케줄 열어줘"
+Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"학원 전체 학생 스케줄 페이지로 이동합니다."}
+
+User: "전체 학생 스케줄 보여줘"
+Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"학원 전체 학생 스케줄 페이지로 이동합니다."}
+
+User: "전교생 스케줄"
+Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"학원 전체 스케줄 페이지로 이동합니다."}
+
+User: "show all student schedules"
+Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"Opening the academy-wide student schedule page."}
 
 User: "안민서 학생 월수금 3시40분 정우영 학생 화목 4시 등록하고 홍길동 학생 다음주 월요일 오후 5시에 레벨테스트 할 수 있게 해줘"
 Output: {"intent":"schedule_plan","answer":"3개의 스케줄을 파싱했습니다. 확인 후 등록해 주세요.","confirm_text":"3건의 수업 스케줄을 모두 등록할까요?","items":[{"action":"register_recurring","student_name":"안민서","days":["mon","wed","fri"],"date":null,"time":"15:40","type":"regular","label":"안민서 - 월/수/금 15:40 정규수업"},{"action":"register_recurring","student_name":"정우영","days":["tue","thu"],"date":null,"time":"16:00","type":"regular","label":"정우영 - 화/목 16:00 정규수업"},{"action":"schedule_one_off","student_name":"홍길동","days":null,"date":"<NEXT_MONDAY>","time":"17:00","type":"level_test","label":"홍길동 - 다음주 월요일 17:00 레벨테스트"}]}
