@@ -19704,16 +19704,25 @@ window.closeRulesModal = function() {
 
   // ═══ 새 시간/강사 선택 위저드 ═══
   var lcPicker = null;
+  // 관리자(D1 teacher_profiles) 실제 강사 — /api/teacher-profiles 로 채움. 실패 시 아래 FALLBACK.
   var demoTeachers = [
-    { id:'t01', name:'박지윤',       category:'home',   ico:'🏠' },
-    { id:'t02', name:'김민서',       category:'home',   ico:'🏠' },
-    { id:'t03', name:'이서연',       category:'home',   ico:'🏠' },
-    { id:'t04', name:'정수아',       category:'office', ico:'🏢' },
-    { id:'t05', name:'강하은',       category:'office', ico:'🏢' },
-    { id:'t07', name:'Maria Santos', category:'native', ico:'🌍' },
-    { id:'t08', name:'James Cruz',   category:'native', ico:'🌍' },
-    { id:'t09', name:'Anna Reyes',   category:'native', ico:'🌍' }
+    { id:'t12', name:'Teacher Ana',    category:'office', ico:'🇵🇭' },
+    { id:'t21', name:'Karl',           category:'native', ico:'🇵🇭' },
+    { id:'t4',  name:'Teacher Belle',  category:'home',   ico:'🇵🇭' },
+    { id:'t17', name:'Mo',             category:'native', ico:'🇺🇸' },
+    { id:'t26', name:'Teacher Janice', category:'native', ico:'🇺🇸' },
+    { id:'t30', name:'중국어 강선생님', category:'native', ico:'🇨🇳' }
   ];
+  (function(){
+    function gl(g){ g=g||''; if(/head/i.test(g))return'native'; if(/office/i.test(g))return'office'; if(/home/i.test(g))return'home'; return'native'; }
+    function fl(r){ r=r||''; if(/미국|캐나다|미주|북미|us|usa|canada/i.test(r))return'🇺🇸'; if(/중국|중화|china|cn|대만/i.test(r))return'🇨🇳'; if(/영국|호주|uk|gb|au/i.test(r))return'🇬🇧'; return'🇵🇭'; }
+    fetch('/api/teacher-profiles?limit=50',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){
+      var items=(j&&(j.items||j.rows))||[];
+      var mapped=items.map(function(row){ return { id:'t'+row.id, name:(row.english_name||row.korean_name||'강사'), category:gl(row.group_name), ico:fl(row.origin_region) }; }).filter(function(t){return t.name&&t.name!=='강사';});
+      if(mapped.length){ demoTeachers = mapped; window.demoTeachers = mapped; }
+    }).catch(function(){});
+  })();
+  try{ window.demoTeachers = demoTeachers; }catch(e){}
 
   window.openLessonPickerModal = function(cls, mode){
     lcPicker = {
@@ -25051,10 +25060,10 @@ window.closeRulesModal = function() {
     }
     if (!teachers.length) {
       teachers = [
-        { id:'t01', name:'박지윤',       ico:'🏠' },
-        { id:'t03', name:'이서연',       ico:'🏠' },
-        { id:'t04', name:'정수아',       ico:'🏢' },
-        { id:'t07', name:'Maria Santos', ico:'🌍' },
+        { id:'t12', name:'Teacher Ana',    ico:'🇵🇭' },
+        { id:'t21', name:'Karl',           ico:'🇵🇭' },
+        { id:'t17', name:'Mo',             ico:'🇺🇸' },
+        { id:'t30', name:'중국어 강선생님', ico:'🇨🇳' },
       ];
     }
 
@@ -27544,7 +27553,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260623040825 -->
+<!-- BUILD:20260623155200 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

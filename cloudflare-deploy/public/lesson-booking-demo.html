@@ -337,14 +337,31 @@
     cart: []
   };
 
-  // ─── 교사 데모 데이터 ───
+  // ─── 강사 데이터 = 관리자(D1 teacher_profiles) 실제 강사 ───
+  //   /api/teacher-profiles 로드. 실패 시 아래 실제 강사 FALLBACK.
+  function __flagFor(r){ r=r||''; if(/미국|캐나다|미주|북미|us|usa|canada/i.test(r)) return '🇺🇸'; if(/중국|중화|china|cn|대만/i.test(r)) return '🇨🇳'; if(/영국|호주|영연방|uk|gb|au/i.test(r)) return '🇬🇧'; return '🇵🇭'; }
+  function __groupLabel(g){ g=g||''; if(/head/i.test(g)) return '헤드티처'; if(/office/i.test(g)) return '오피스'; if(/home/i.test(g)) return '재택'; if(/오전/.test(g)) return '오전반'; if(/오후/.test(g)) return '오후반'; if(/중국/.test(g)) return '중국어'; return '강사'; }
+  function __parseRating(notes){ var m=(notes||'').match(/평점:\s*([\d.]+)/); return m?m[1]:''; }
+  function __availFor(id){ return ['all','morning','afternoon','evening'][((id||0)%4)]; }
+  function __mapTeacher(row){
+    var region=row.origin_region||'';
+    var flag=__flagFor(region);
+    var rating=__parseRating(row.notes);
+    return {
+      id:'t'+row.id,
+      name:(row.english_name||row.korean_name||'강사'),
+      avatar:flag,
+      tag:flag+' '+__groupLabel(row.group_name)+(rating?' · ★'+rating:''),
+      avail:__availFor(row.id)
+    };
+  }
   var TEACHERS = [
-    { id: 't1', name: '박지윤', avatar: '박', tag: '🇺🇸 7년 · TESOL', avail: 'all' },
-    { id: 't2', name: '김민서', avatar: '김', tag: '🇰🇷 5년 · 키즈 전문', avail: 'morning' },
-    { id: 't3', name: '이서연', avatar: '이', tag: '🇺🇸 10년 · 비즈니스', avail: 'evening' },
-    { id: 't4', name: 'Emma',  avatar: 'E',  tag: '🇬🇧 8년 · 발음', avail: 'all' },
-    { id: 't5', name: 'James', avatar: 'J',  tag: '🇺🇸 6년 · 회화', avail: 'afternoon' },
-    { id: 't6', name: 'Sarah', avatar: 'S',  tag: '🇦🇺 4년 · 초보', avail: 'morning' }
+    { id: 't12', name: 'Teacher Ana',    avatar: '🇵🇭', tag: '🇵🇭 오피스 · ★5.0', avail: 'all' },
+    { id: 't21', name: 'Karl',           avatar: '🇵🇭', tag: '🇵🇭 헤드티처 · ★5.0', avail: 'morning' },
+    { id: 't4',  name: 'Teacher Belle',  avatar: '🇵🇭', tag: '🇵🇭 재택 · ★5.0', avail: 'all' },
+    { id: 't17', name: 'Mo',             avatar: '🇺🇸', tag: '🇺🇸 오전반 · ★5.0', avail: 'morning' },
+    { id: 't26', name: 'Teacher Janice', avatar: '🇺🇸', tag: '🇺🇸 오후반 · ★5.0', avail: 'afternoon' },
+    { id: 't30', name: '중국어 강선생님', avatar: '🇨🇳', tag: '🇨🇳 중국어 · ★4.9', avail: 'all' }
   ];
 
   // 교사별 가능 슬롯 필터 — 시간대 limit
@@ -717,10 +734,25 @@
   applyMode();      // 모드 UI + 시간/스텝 초기화
   renderCart();
   renderFooter();
+
+  // 관리자 실제 강사 비동기 로드 → 교체 후 재렌더
+  (function loadRealTeachers(){
+    fetch('/api/teacher-profiles?limit=50', { cache:'no-store' })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        var items = (j && (j.items || j.rows)) || [];
+        var mapped = items.map(__mapTeacher).filter(function(t){ return t.name && t.name !== '강사'; });
+        if (mapped.length){ TEACHERS = mapped; }
+        applyMode();
+        renderTimes();
+        renderStep();
+      })
+      .catch(function(){ /* 실패 시 FALLBACK 유지 */ });
+  })();
 })();
 </script>
 <!-- BUILD:20260530-final -->
-<!-- BUILD:20260623040825 -->
+<!-- BUILD:20260623155200 -->
 <!-- 🔊 수업 신청 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="booking-voice" src="/audio/lesson-booking.mp3" preload="auto"></audio>
 <script>

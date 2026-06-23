@@ -925,24 +925,51 @@ header {
 /* ════════════════════════════════════════════════════════════
    Mock Data
    ════════════════════════════════════════════════════════════ */
-const TEACHERS = [
-  { id:'t01', name:'박지윤',       ico:'🇰🇷', tag:'교포',  tagClass:'tag', rating:4.9, reviews:128, exp:'5년차' },
-  { id:'t02', name:'이서연',       ico:'🇰🇷', tag:'교포',  tagClass:'tag', rating:4.8, reviews: 96, exp:'3년차' },
-  { id:'t03', name:'정수아',       ico:'🇰🇷', tag:'교포',  tagClass:'tag', rating:4.7, reviews: 64, exp:'2년차' },
-  { id:'t04', name:'Maria Santos', ico:'🇵🇭', tag:'원어민', tagClass:'native', rating:4.9, reviews:212, exp:'7년차' },
-  { id:'t05', name:'James Cruz',   ico:'🇺🇸', tag:'원어민', tagClass:'native', rating:5.0, reviews:178, exp:'6년차' },
-  { id:'t06', name:'Anna Reyes',   ico:'🇬🇧', tag:'원어민', tagClass:'native', rating:4.8, reviews:142, exp:'4년차' },
+/* ────────────────────────────────────────────────────────────
+   강사 데이터 = 관리자(D1 teacher_profiles) 실제 강사
+   /api/teacher-profiles 에서 불러와 매핑. 실패 시 아래 실제 강사
+   FALLBACK(필리핀·미국·중국)으로 동작. — 더미(박지윤 등) 제거
+   ──────────────────────────────────────────────────────────── */
+function __flagFor(r){ r=r||''; if(/미국|캐나다|미주|북미|us|usa|canada/i.test(r)) return '🇺🇸'; if(/중국|중화|china|cn|대만/i.test(r)) return '🇨🇳'; if(/영국|호주|영연방|uk|gb|au/i.test(r)) return '🇬🇧'; return '🇵🇭'; }
+function __tagFor(r){ r=r||''; return /중국|중화|china|cn/i.test(r) ? '중국어' : '원어민'; }
+function __groupLabel(g){ g=g||''; if(/head/i.test(g)) return '헤드티처'; if(/office/i.test(g)) return '오피스'; if(/home/i.test(g)) return '재택'; if(/오전/.test(g)) return '오전반'; if(/오후/.test(g)) return '오후반'; if(/중국/.test(g)) return '중국어'; return '강사'; }
+function __parseRating(notes){ var m=(notes||'').match(/평점:\s*([\d.]+)/); return m?parseFloat(m[1]):4.8; }
+function __parseReviews(notes){ var m=(notes||'').match(/\((\d+)\s*reviews?\)/i); return m?parseInt(m[1],10):0; }
+function __mapTeacher(row){
+  var region=row.origin_region||'';
+  return {
+    id:'t'+row.id,
+    name:(row.english_name||row.korean_name||'강사'),
+    ico:__flagFor(region),
+    tag:__tagFor(region),
+    tagClass:'native',
+    rating:__parseRating(row.notes),
+    reviews:__parseReviews(row.notes),
+    exp:__groupLabel(row.group_name),
+    image_url:row.image_url||''
+  };
+}
+
+let TEACHERS = [
+  { id:'t12', name:'Teacher Ana',     ico:'🇵🇭', tag:'원어민', tagClass:'native', rating:5.0, reviews:4, exp:'오피스' },
+  { id:'t21', name:'Karl',            ico:'🇵🇭', tag:'원어민', tagClass:'native', rating:5.0, reviews:3, exp:'헤드티처' },
+  { id:'t4',  name:'Teacher Belle',   ico:'🇵🇭', tag:'원어민', tagClass:'native', rating:5.0, reviews:4, exp:'재택' },
+  { id:'t17', name:'Mo',              ico:'🇺🇸', tag:'원어민', tagClass:'native', rating:5.0, reviews:3, exp:'오전반' },
+  { id:'t26', name:'Teacher Janice',  ico:'🇺🇸', tag:'원어민', tagClass:'native', rating:5.0, reviews:3, exp:'오후반' },
+  { id:'t30', name:'중국어 강선생님',  ico:'🇨🇳', tag:'중국어', tagClass:'native', rating:4.9, reviews:0, exp:'중국어' },
 ];
 
-const SCHEDULE = (function(){
-  const data = {};
+let SCHEDULE = {};
+function __buildSchedule(){
+  SCHEDULE = {};
   const today = new Date();
   TEACHERS.forEach(t => {
-    data[t.id] = {};
+    SCHEDULE[t.id] = {};
+    let base = 0; for (let k=0;k<t.id.length;k++) base += t.id.charCodeAt(k);
     for (let i = 0; i < 14; i++) {
       const d = new Date(today); d.setDate(d.getDate() + i);
       const iso = d.toISOString().slice(0,10);
-      const seed = t.id.charCodeAt(2) + i;
+      const seed = base + i;
       const slots = [];
       for (let h = 9; h <= 22; h++) {
         for (let m = 0; m < 60; m += 20) {
@@ -951,22 +978,43 @@ const SCHEDULE = (function(){
           }
         }
       }
-      data[t.id][iso] = slots;
+      SCHEDULE[t.id][iso] = slots;
     }
   });
-  return data;
-})();
+}
+__buildSchedule();
 
 /* ════════════════════════════════════════════════════════════
    현재 수강 중인 정규 스케줄 (요구사항 2: 현재 수업 정보)
+   → 실제 강사(TEACHERS[0])로 표기
    ════════════════════════════════════════════════════════════ */
-const CURRENT_SCHEDULE = (function(){
+function __buildCurrentSchedule(){
   const t = new Date();
   const plus = (n)=>{ const d=new Date(t); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
+  const a = TEACHERS[0] || { id:'t0', name:'강사', ico:'🇵🇭' };
   return [
-    { teacherId:'t01', teacherName:'박지윤', ico:'🇰🇷', date: plus(2), hour:'11:20' },
-    { teacherId:'t01', teacherName:'박지윤', ico:'🇰🇷', date: plus(5), hour:'14:00' },
+    { teacherId:a.id, teacherName:a.name, ico:a.ico, date: plus(2), hour:'11:20' },
+    { teacherId:a.id, teacherName:a.name, ico:a.ico, date: plus(5), hour:'14:00' },
   ];
+}
+let CURRENT_SCHEDULE = __buildCurrentSchedule();
+
+/* 관리자 실제 강사 비동기 로드 */
+(async function __loadRealTeachers(){
+  try{
+    const r = await fetch('/api/teacher-profiles?limit=50', { cache:'no-store' });
+    const j = await r.json();
+    const items = (j && (j.items || j.rows)) || [];
+    const mapped = items.map(__mapTeacher).filter(t => t.name && t.name !== '강사');
+    if (mapped.length){ TEACHERS = mapped; }
+  }catch(e){ /* 네트워크 실패 시 FALLBACK 유지 */ }
+  __buildSchedule();
+  CURRENT_SCHEDULE = __buildCurrentSchedule();
+  try{ if (typeof state !== 'undefined' && !state.mode){ state.weeklyTarget = CURRENT_SCHEDULE.length; } }catch(e){}
+  try{
+    const sd = document.getElementById('screen-detail');
+    if (sd && sd.classList.contains('active') && typeof renderBody === 'function'){ renderBody(); updateSticky(); }
+  }catch(e){}
 })();
 
 /* ════════════════════════════════════════════════════════════
@@ -1460,7 +1508,7 @@ function attachHandlers(){
   new MutationObserver(syncVis).observe(main,{attributes:true,attributeFilter:['class']});
 })();
 </script>
-<!-- BUILD:20260623040825 -->
+<!-- BUILD:20260623155200 -->
 <script src="/js/i18n-sweep.js?v=2"></script>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
