@@ -21803,7 +21803,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260623192832 -->
+        <!-- BUILD:20260623193840 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -39639,19 +39639,21 @@ button.chip:hover,
       el.style.left = Math.round(x)+'px';
       el.style.top  = Math.round(y)+'px';
     }
+    function hideAll(){ hide(); if(window.__sbTip) window.__sbTip.hide(); }
     if(!isTouch){
-      var cur=null;
-      document.addEventListener('mouseover', function(e){ var c=topCard(e.target); cur = c?c.d:null; }, true);
-      document.addEventListener('mousemove', function(e){
-        if(!cur) return;
+      // ★ 커서 추적 대신 카드 '제목 바로 오른쪽'에 수평으로 붙임(__sbTip 공용 헬퍼 재사용: zoom보정+글자 Range앵커+우측 고정)
+      var curSm=null;
+      document.addEventListener('mouseover', function(e){
         var c=topCard(e.target);
-        if(!c){ cur=null; hide(); return; }
-        showAtCursor(c.txt, e.clientX, e.clientY);
+        if(!c) return;
+        curSm=c.sm;
+        if(window.__sbTip){ window.__sbTip.show(c.sm, c.txt); }
+        else { showAtCursor(c.txt, e.clientX, e.clientY); } // 폴백
       }, true);
       document.addEventListener('mouseout', function(e){
-        if(e.target.closest && e.target.closest('summary')){ cur=null; hide(); }
+        if(e.target.closest && e.target.closest('summary')){ curSm=null; hideAll(); }
       }, true);
-      window.addEventListener('scroll', hide, true);
+      window.addEventListener('scroll', hideAll, true);
     } else {
       var armed=null, t=null;
       function toast(txt){
