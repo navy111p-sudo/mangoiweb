@@ -1413,10 +1413,14 @@ function renderTeacherTab(){
           <div class="tc-day">
             <div class="tc-day-label">${fmtMD(iso)} (${fmtDOW(iso)})</div>
             <div class="hour-grid">
-              ${slots.map(s => `
-                <button class="hour-chip ${state.teacher===t.id && state.date===iso && state.hour===s ? 'active' : ''} ${s.endsWith(':00')?'hour-mark':''}"
-                  data-tdate="${iso}" data-thour="${s}" data-tteacher="${t.id}">${s}</button>
-              `).join('')}
+              ${slots.map(s => {
+                const booked = isBookedSlot(t.id, iso, s);
+                const sel = !booked && state.teacher===t.id && state.date===iso && state.hour===s;
+                return `
+                <button class="hour-chip ${booked?'booked':''} ${sel?'active':''} ${s.endsWith(':00')?'hour-mark':''}"
+                  data-tdate="${iso}" data-thour="${s}" data-tteacher="${t.id}"
+                  ${booked?'data-booked="1" aria-disabled="true" title="수업중"':''}>${s}</button>`;
+              }).join('')}
             </div>
           </div>`;
       });
@@ -1442,6 +1446,10 @@ function renderTeacherTab(){
 
   return `
     <div class="section-label">👨‍🏫 교사 선택 · 카드를 탭하면 시간이 펼쳐집니다</div>
+    <div class="sch-legend">
+      <span class="lg-item"><span class="lg-dot free"></span>흰색 = <b>수업 가능</b></span>
+      <span class="lg-item"><span class="lg-dot busy"></span>녹색 = <b>수업중</b><span class="lg-dim"> (예약 불가)</span></span>
+    </div>
     <div class="teacher-feed">${cards}</div>
   `;
 }
@@ -1492,6 +1500,7 @@ function attachHandlers(){
   // 펼쳐진 시간 선택 → 장바구니 담기
   $$('#detail-body .hour-chip[data-tdate]').forEach(el => el.addEventListener('click', (e) => {
     e.stopPropagation();
+    if (el.dataset.booked === '1') { showToast('수업중'); return; }  // 🟢 이미 예약된 수업 — 담기 불가
     addToCart(el.getAttribute('data-tteacher'), el.getAttribute('data-tdate'), el.getAttribute('data-thour'));
   }));
 }
@@ -1601,7 +1610,7 @@ function attachHandlers(){
   new MutationObserver(syncVis).observe(main,{attributes:true,attributeFilter:['class']});
 })();
 </script>
-<!-- BUILD:20260623175448 -->
+<!-- BUILD:20260623175641 -->
 <script src="/js/i18n-sweep.js?v=2"></script>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
