@@ -611,14 +611,14 @@ async function loadData(){
     var tRes=await fetch('/api/admin/teachers',{credentials:'include'});
     if(tRes.ok){
       var data=await tRes.json();
-      var list=Array.isArray(data)?data:(data.teachers||data.data||[]);
+      var list=Array.isArray(data)?data:(data.teachers||data.data||data.items||[]);
       if(list&&list.length>0){
         TEACHERS=list.map(function(t){return{id:t.id||t.teacher_id||t.uid,name:t.name||t.name_ko||t.full_name||'?',name_en:t.name_en||t.english_name||t.name,category:(t.category||t.type||'office').toLowerCase()};});
         try{
           var sRes=await fetch('/api/admin/schedules?week='+fmtISO(currentWeekStart),{credentials:'include'});
           if(sRes.ok){
             var sd=await sRes.json();
-            var slots=Array.isArray(sd)?sd:(sd.schedules||sd.data||[]);
+            var slots=Array.isArray(sd)?sd:(sd.schedules||sd.data||sd.items||[]);
             SLOTS={};
             slots.forEach(function(s){
               var hh=(s.hour!==undefined)?s.hour:new Date(s.start_time).getHours();

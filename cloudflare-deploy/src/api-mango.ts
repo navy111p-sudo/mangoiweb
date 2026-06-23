@@ -7191,7 +7191,9 @@ Respond in JSON ONLY:
         ? `SELECT * FROM teachers ORDER BY active DESC, name ASC`
         : `SELECT * FROM teachers WHERE active = 1 ORDER BY name ASC`;
       const rs = await env.DB.prepare(sql).all();
-      return json({ ok: true, items: rs.results || [] });
+      const teacherRows = rs.results || [];
+      // items/teachers/data 별칭 모두 제공(프론트 호환: weekly-schedule.html 등)
+      return json({ ok: true, items: teacherRows, teachers: teacherRows, data: teacherRows });
     }
 
     // 강사 등록 (새 모델: name + status + years + rate_per_10min_php)
