@@ -2452,6 +2452,282 @@ reloadAndRender();
     patchUI();
   }
 })();
+
+/* ════════════════════════════════════════════════════════════════════════
+   [신규] 미배정 학생 대기 풀 → 그리드 드래그 배정 모듈
+   - 기존 셀↔셀 DnD(dnd 객체)와 충돌하지 않도록 독립 상태(pdnd)로 동작
+   - 좌측 대기 풀 패널의 학생 칩을 빈 셀로 끌어 놓으면 수업이 배정됨
+   - 점유/휴가/공휴일 셀에는 배정 거부(빨간 경고)
+   - 배정 시 "학부모 알림톡 대기 큐" 적재 + 토스트 안내
+   - 전역 재사용: TEACHERS, SLOTS, addSlot, getSlot, render, escapeHtml,
+     fmtISO, currentWeekStart, currentLang, getCellTeacher, HOLIDAY_MAP
+   ════════════════════════════════════════════════════════════════════════ */
+(function(){
+  'use strict';
+
+  // ── 1) 상태 ──────────────────────────────────────────────────────────
+  var POOL = [];                 // 미배정 학생 목록 [{uid,name,level}]
+  var notifyQueue = [];          // 학부모 알림톡 대기 큐
+  var pdnd = {                   // 풀 드래그 전용 상태 (기존 dnd와 분리)
+    active:false, chip:null, data:null,
+    startX:0, startY:0, ghost:null, lastTarget:null
+  };
+
+  // ── 2) 스타일 주입 ────────────────────────────────────────────────────
+  var css = document.createElement('style');
+  css.textContent = [
+    /* 대기 풀 토글 버튼 (좌측 세로) */
+    '.pool-toggle-btn{position:fixed;left:0;top:46%;transform:translateY(-50%);z-index:6500;',
+    '  writing-mode:vertical-rl;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;',
+    '  border:none;border-radius:0 12px 12px 0;padding:14px 9px;font-weight:800;font-size:12.5px;',
+    '  cursor:pointer;box-shadow:0 6px 18px rgba(79,70,229,.45);letter-spacing:1px}',
+    '.pool-toggle-btn .badge{display:block;margin-top:6px;background:#fff;color:#4f46e5;',
+    '  border-radius:99px;font-size:11px;padding:1px 6px;writing-mode:horizontal-tb;text-align:center}',
+    /* 대기 풀 패널 */
+    '.pool-panel{position:fixed;left:-340px;top:0;bottom:0;width:320px;z-index:6600;',
+    '  background:linear-gradient(180deg,#161b2e 0%,#0f1320 100%);border-right:2px solid #4f46e5;',
+    '  box-shadow:8px 0 32px rgba(0,0,0,.5);transition:left .28s cubic-bezier(.4,0,.2,1);',
+    '  display:flex;flex-direction:column}',
+    '.pool-panel.open{left:0}',
+    '.pool-head{padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.08);',
+    '  display:flex;align-items:center;justify-content:space-between}',
+    '.pool-head h3{margin:0;font-size:14.5px;color:#e0e7ff;font-weight:800}',
+    '.pool-head .x{background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer}',
+    '.pool-sub{padding:8px 18px;font-size:11.5px;color:#94a3b8;line-height:1.5;',
+    '  border-bottom:1px solid rgba(255,255,255,.06)}',
+    '.pool-list{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}',
+    /* 학생 칩 (드래그 소스) */
+    '.pool-chip{user-select:none;cursor:grab;background:linear-gradient(135deg,#6366f1,#7c3aed);',
+    '  color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:9px 12px;',
+    '  display:flex;align-items:center;gap:9px;box-shadow:0 3px 10px rgba(0,0,0,.3);',
+    '  transition:transform .12s,filter .12s}',
+    '.pool-chip:hover{filter:brightness(1.12);transform:translateY(-1px)}',
+    '.pool-chip:active{cursor:grabbing}',
+    '.pool-chip.is-dragging{opacity:.35}',
+    '.pool-chip .pc-ava{width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.18);',
+    '  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0}',
+    '.pool-chip .pc-name{font-weight:700;font-size:13px;line-height:1.2}',
+    '.pool-chip .pc-meta{font-size:10.5px;opacity:.8}',
+    '.pool-empty{color:#64748b;font-size:12.5px;text-align:center;padding:30px 10px}',
+    '.pool-queue{padding:10px 18px;border-top:1px solid rgba(255,255,255,.08);',
+    '  font-size:11.5px;color:#a5b4fc;display:flex;align-items:center;justify-content:space-between}',
+    '.pool-queue b{color:#fde68a}'
+  ].join('');
+  document.head.appendChild(css);
+
+  // ── 3) DOM 생성 (토글 버튼 + 패널) ───────────────────────────────────
+  var toggleBtn = document.createElement('button');
+  toggleBtn.className = 'pool-toggle-btn';
+  toggleBtn.innerHTML = '🎒 미배정 학생<span class="badge" id="pool-badge">0</span>';
+  document.body.appendChild(toggleBtn);
+
+  var panel = document.createElement('aside');
+  panel.className = 'pool-panel';
+  panel.innerHTML =
+    '<div class="pool-head"><h3>🎒 미배정 학생 (대기 풀)</h3>'+
+    '<button class="x" id="pool-close">✕</button></div>'+
+    '<div class="pool-sub">학생 칩을 오른쪽 시간표의 <b style="color:#c7d2fe">빈 셀</b>로 끌어 놓으면 수업이 배정됩니다. '+
+    '점유·휴가·공휴일 셀은 자동으로 거부됩니다.</div>'+
+    '<div class="pool-list" id="pool-list"></div>'+
+    '<div class="pool-queue">📲 학부모 알림톡 대기 큐 <b><span id="pool-queue-count">0</span>건</b></div>';
+  document.body.appendChild(panel);
+
+  toggleBtn.addEventListener('click', function(){ panel.classList.toggle('open'); });
+  panel.querySelector('#pool-close').addEventListener('click', function(){ panel.classList.remove('open'); });
+
+  // ── 4) 미배정 학생 로드 (API 우선, 실패 시 데모) ─────────────────────
+  async function loadPool(){
+    try{
+      var r = await fetch('/api/admin/unassigned-students', {credentials:'include'});
+      if(r.ok){
+        var d = await r.json();
+        var list = Array.isArray(d)?d:(d.students||d.data||d.items||[]);
+        if(list && list.length){
+          POOL = list.map(function(s){return {uid:s.uid||s.id, name:s.name||s.name_ko||'?', level:s.level||''};});
+          renderPool(); return;
+        }
+      }
+    }catch(e){/* 무시하고 데모로 */}
+    // 데모 미배정 학생 (실데이터 없을 때만)
+    POOL = [
+      {uid:'wait_01', name:'김도윤', level:'A2'},
+      {uid:'wait_02', name:'이서아', level:'B1'},
+      {uid:'wait_03', name:'박지호', level:'A1'},
+      {uid:'wait_04', name:'최유나', level:'B2'},
+      {uid:'wait_05', name:'정시우', level:'A2'}
+    ];
+    renderPool();
+  }
+
+  // ── 5) 대기 풀 렌더 ──────────────────────────────────────────────────
+  function renderPool(){
+    var listEl = document.getElementById('pool-list');
+    document.getElementById('pool-badge').textContent = POOL.length;
+    if(!POOL.length){
+      listEl.innerHTML = '<div class="pool-empty">🎉 미배정 학생이 없습니다.<br>모든 학생이 배정되었어요.</div>';
+      return;
+    }
+    listEl.innerHTML = '';
+    POOL.forEach(function(stu){
+      var chip = document.createElement('div');
+      chip.className = 'pool-chip';
+      chip.dataset.uid = stu.uid;
+      var initial = (stu.name.match(/[A-Za-z가-힣]/)||['?'])[0];
+      chip.innerHTML =
+        '<div class="pc-ava">'+escapeHtml(initial)+'</div>'+
+        '<div><div class="pc-name">'+escapeHtml(stu.name)+'</div>'+
+        '<div class="pc-meta">'+escapeHtml(stu.uid)+(stu.level?' · Lv.'+escapeHtml(stu.level):'')+'</div></div>';
+      listEl.appendChild(chip);
+    });
+  }
+
+  // ── 6) 셀 좌표/충돌 판정 헬퍼 ────────────────────────────────────────
+  // 빈 셀은 data-hour/col 위치로 (교사, 날짜, 시각) 해석. 시각은 정시(:00)로 스냅.
+  function resolveCell(td){
+    if(!td || !td.classList.contains('slot')) return null;
+    var tr = td.parentElement; if(!tr) return null;
+    var cells = Array.prototype.slice.call(tr.children);
+    var colIdx = cells.indexOf(td);
+    if(colIdx < 1) return null;                       // 시간 라벨 열 제외
+    var hour = parseInt(td.dataset.hour, 10);
+    if(isNaN(hour)) return null;
+    var teacher = (typeof getCellTeacher === 'function') ? getCellTeacher(td) : null;
+    if(!teacher) return null;
+    var d = new Date(currentWeekStart); d.setDate(d.getDate() + (colIdx - 1));
+    return { teacher:teacher, dateISO:fmtISO(d), hour:hour, dow:(colIdx-1) };
+  }
+  // 충돌 사유 반환: null = 배정 가능 / 문자열 = 거부 사유
+  function conflictReason(td, info){
+    if(td.dataset.slot || td.dataset.cont) return (currentLang==='ko'?'이미 예약된':'occupied');
+    if(getSlot(info.teacher.id, info.dateISO, info.hour)) return (currentLang==='ko'?'이미 예약된':'occupied');
+    if(typeof HOLIDAY_MAP!=='undefined' && HOLIDAY_MAP[info.dateISO] && HOLIDAY_MAP[info.dateISO].length)
+      return (currentLang==='ko'?'휴가/공휴일':'holiday');
+    return null;
+  }
+
+  // ── 7) 풀 칩 드래그 (마우스 기반, 독립 동작) ─────────────────────────
+  document.addEventListener('mousedown', function(e){
+    if(e.button !== 0) return;
+    var chip = e.target.closest('.pool-chip');
+    if(!chip) return;
+    var stu = POOL.find(function(s){return s.uid === chip.dataset.uid;});
+    if(!stu) return;
+    pdnd.chip = chip; pdnd.data = stu;
+    pdnd.startX = e.clientX; pdnd.startY = e.clientY;
+    pdnd.active = false;
+    e.preventDefault(); // 칩 텍스트 선택 방지
+  }, true);
+
+  document.addEventListener('mousemove', function(e){
+    if(!pdnd.chip) return;
+    var dx = e.clientX - pdnd.startX, dy = e.clientY - pdnd.startY;
+    // 8px 이상 움직이면 드래그 시작
+    if(!pdnd.active && (dx*dx + dy*dy) > 64){
+      pdnd.active = true;
+      pdnd.chip.classList.add('is-dragging');
+      document.body.classList.add('cell-dragging');
+      // 기존 .drag-ghost 스타일 재사용
+      pdnd.ghost = document.createElement('div');
+      pdnd.ghost.className = 'drag-ghost';
+      var L = currentLang==='ko';
+      pdnd.ghost.innerHTML =
+        '<div class="gh-ico">🎒</div><div class="gh-info">'+
+        '<div class="gh-title">'+escapeHtml(pdnd.data.name)+'</div>'+
+        '<div class="gh-sub">'+(L?'빈 셀에 놓아 배정':'Drop on empty slot')+'</div></div>';
+      document.body.appendChild(pdnd.ghost);
+    }
+    if(!pdnd.active) return;
+    if(pdnd.ghost){ pdnd.ghost.style.left = e.clientX+'px'; pdnd.ghost.style.top = (e.clientY-10)+'px'; }
+    // 드롭 후보 하이라이트
+    var over = document.elementFromPoint(e.clientX, e.clientY);
+    var cell = over ? over.closest('.slot') : null;
+    if(pdnd.lastTarget && pdnd.lastTarget !== cell){
+      pdnd.lastTarget.classList.remove('drop-target-ok','drop-target-bad');
+      pdnd.lastTarget = null;
+    }
+    if(cell){
+      var info = resolveCell(cell);
+      var bad = !info || conflictReason(cell, info);
+      cell.classList.add(bad ? 'drop-target-bad' : 'drop-target-ok');
+      pdnd.lastTarget = cell;
+    }
+    e.preventDefault();
+  }, true);
+
+  document.addEventListener('mouseup', function(e){
+    if(!pdnd.chip) return;
+    var wasActive = pdnd.active;
+    // 정리
+    if(pdnd.chip) pdnd.chip.classList.remove('is-dragging');
+    if(pdnd.lastTarget) pdnd.lastTarget.classList.remove('drop-target-ok','drop-target-bad');
+    document.body.classList.remove('cell-dragging');
+    if(pdnd.ghost){ pdnd.ghost.remove(); pdnd.ghost = null; }
+    var stu = pdnd.data, lastT = pdnd.lastTarget;
+    pdnd.chip=null; pdnd.data=null; pdnd.lastTarget=null; pdnd.active=false;
+    if(!wasActive) return; // 단순 클릭
+
+    var over = document.elementFromPoint(e.clientX, e.clientY);
+    var cell = over ? over.closest('.slot') : null;
+    if(!cell){ return; }
+    var info = resolveCell(cell);
+    if(!info){ showDndToast((currentLang==='ko'?'⚠️ 배정할 수 없는 위치입니다':'⚠️ Invalid drop'),'bad'); return; }
+    var reason = conflictReason(cell, info);
+    if(reason){
+      showDndToast((currentLang==='ko'?('⛔ '+reason+' 시간대입니다'):('⛔ '+reason)),'bad');
+      return;
+    }
+    assignStudent(stu, info);
+  }, true);
+
+  // ── 8) 배정 처리 + 학부모 알림톡 큐 적재 + 토스트 ────────────────────
+  function assignStudent(stu, info){
+    // 슬롯 생성 (1대1, 정시 시작, 50분 기본)
+    addSlot(info.teacher.id, info.dateISO, info.hour, {
+      type:'1on1',
+      students:[{name:stu.name, uid:stu.uid}],
+      duration_min:50,
+      start_date:info.dateISO,
+      note:(currentLang==='ko'?'대기 풀에서 배정':'Assigned from pool')
+    });
+    // 대기 풀에서 제거
+    POOL = POOL.filter(function(s){return s.uid !== stu.uid;});
+
+    // 학부모 알림톡 대기 큐 적재 (실제 발송은 백엔드 큐 워커가 처리)
+    var dayKo = ['일','월','화','수','목','금','토'][new Date(info.dateISO).getDay()];
+    var when = dayKo + '요일 ' + info.hour + '시';
+    notifyQueue.push({
+      uid:stu.uid, name:stu.name, teacher_id:info.teacher.id,
+      date:info.dateISO, hour:info.hour, queued_at:new Date().toISOString()
+    });
+    document.getElementById('pool-queue-count').textContent = notifyQueue.length;
+    // (선택) 백엔드 큐 적재 시도 — 실패해도 UI는 진행
+    try{
+      fetch('/api/admin/notify-queue', {
+        method:'POST', credentials:'include',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(notifyQueue[notifyQueue.length-1])
+      }).catch(function(){});
+    }catch(e){}
+
+    // 재렌더
+    renderPool();
+    if(typeof window.render === 'function') window.render();
+
+    // 요청 사양 토스트 메시지
+    var msg = '✅ <b>'+escapeHtml(stu.name)+'</b> 수업이 <b>'+when+'</b>로 조정되었으며, '+
+              '학부모 알림톡이 대기 큐에 적재되었습니다';
+    showDndToast(msg, 'ok');
+  }
+
+  // ── 9) 초기화 ────────────────────────────────────────────────────────
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', loadPool);
+  } else {
+    loadPool();
+  }
+  // 외부에서 갱신할 수 있도록 노출
+  window.reloadUnassignedPool = loadPool;
+})();
 </script>
 
 <!-- 🏠 글로벌 홈페이지 FAB (헤더 EN 옆으로 이동되어 hidden) -->
