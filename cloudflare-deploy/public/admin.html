@@ -21804,7 +21804,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260623212505 -->
+        <!-- BUILD:20260623214231 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -26007,10 +26007,48 @@ button.chip:hover,
   }
   .ph54-row-cal-btn:hover { background: #0369a1; }
 
+  /* ─────────── 구글 캘린더 스타일 주간 타임라인 (Tailwind 미사용 페이지라 동등 CSS로 작성) ─────────── */
+  #ph54-cal { border:1px solid #334155; border-radius:10px; overflow:hidden; background:#0f172a; }
+  #ph54-cal-body { max-height:560px; overflow:auto; }            /* 세로 스크롤 + 헤더 sticky */
+  #ph54-cal-inner { min-width:720px; }                            /* 좁은 화면에선 가로 스크롤 */
+  #ph54-cal-head { display:grid; grid-template-columns:56px repeat(7,1fr); position:sticky; top:0; z-index:6; background:#1e293b; border-bottom:1px solid #334155; }
+  .ph54-cal-corner { border-right:1px solid #334155; }
+  .ph54-cal-dayhead { padding:6px 2px; text-align:center; font-size:12px; font-weight:800; color:#cbd5e1; border-left:1px solid #334155; }
+  .ph54-cal-dayhead.today { background:rgba(59,130,246,.22); color:#fff; }
+  .ph54-cal-date { font-size:10px; font-weight:600; color:#94a3b8; }
+  .ph54-cal-dayhead.today .ph54-cal-date { color:#dbeafe; }
+  #ph54-cal-track { display:grid; grid-template-columns:56px repeat(7,1fr); }
+  .ph54-cal-gutter { border-right:1px solid #334155; }
+  .ph54-cal-hourlabel { font-size:10px; color:#64748b; text-align:right; padding:1px 6px 0 0; box-sizing:border-box; border-top:1px solid #1e293b; }
+  /* 각 요일 컬럼 — 1시간마다 가로줄(background-size로 반복) + 이벤트 카드의 절대위치 기준 */
+  .ph54-cal-col { position:relative; border-left:1px solid #1e293b;
+     background-image:linear-gradient(to bottom, #1e293b 1px, transparent 1px); background-repeat:repeat-y; }
+  .ph54-cal-col.today { background-color:rgba(59,130,246,.05); }
+  .ph54-cal-col.ph54-col-over { background-color:rgba(59,130,246,.14); }   /* 드래그 오버 하이라이트 */
+  /* 수업(이벤트) 카드 — top/height로 절대배치, 내부 3줄: 시간 / 학생이름 / 유형 */
+  .ph54-ev { position:absolute; left:3px; right:3px; border-radius:6px; padding:3px 6px;
+     color:#fff; overflow:hidden; cursor:grab; box-sizing:border-box;
+     box-shadow:0 1px 5px rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.18); }
+  .ph54-ev:hover { filter:brightness(1.08); z-index:3; }
+  .ph54-ev:active { cursor:grabbing; }
+  .ph54-ev.dragging { opacity:.4; }
+  .ph54-ev-time { font-size:10px; font-weight:800; opacity:.95; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  /* 학생 이름 — 시간보다 약간 큰 굵은 글씨, 길면 말줄임(...) 처리 */
+  .ph54-ev-name { font-size:11px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ph54-ev-type { font-size:9px; font-weight:600; opacity:.8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ph54-hint { margin:8px 0; padding:8px 12px; background:rgba(59,130,246,.10); border:1px solid rgba(59,130,246,.3); border-radius:8px; color:#bfdbfe; font-size:12px; }
+  .ph54-legend { margin-top:10px; display:flex; gap:14px; flex-wrap:wrap; align-items:center; font-size:11px; color:#94a3b8; }
+  .ph54-legend i { display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:5px; vertical-align:middle; }
+  .ph54-legend-count { margin-left:auto; color:#cbd5e1; font-weight:700; }
+  /* 드래그 이동 결과 토스트 */
+  #ph54-toast { position:fixed; right:18px; bottom:18px; z-index:2147483646; background:rgba(15,23,42,.96); color:#e2e8f0; border:1px solid #334155; border-radius:10px; padding:11px 16px; font-size:13px; font-weight:700; box-shadow:0 12px 30px rgba(0,0,0,.5); opacity:0; transform:translateY(8px); transition:opacity .18s, transform .18s; pointer-events:none; }
+  #ph54-toast.show { opacity:1; transform:translateY(0); }
+
   @media (max-width: 720px) {
     #ph54-sched-grid { font-size: 10px; }
     #ph54-sched-grid th, #ph54-sched-grid td { padding: 4px 2px; min-width: 50px; }
     .ph54-slot { font-size: 9px; padding: 1px 4px; }
+    #ph54-cal-inner { min-width:640px; }
   }
 </style>
 
@@ -26100,19 +26138,79 @@ button.chip:hover,
       + '</span>';
   }
 
+  // ───────────────────────────────────────────────────────────────
+  // 🗓 구글 캘린더 스타일 '주간 타임라인' 렌더
+  //   · 세로축 = 06:00~24:00 (30분 스냅), 가로축 = 월~일
+  //   · 수업(이벤트) 카드는 시작시간/지속시간에 따라 절대위치(top/height)로 배치
+  //   · 카드 내부 = [시간·지속] + [학생 이름(말줄임)] + [수업유형]
+  //   · HTML5 Drag&Drop 으로 다른 요일/시간으로 이동 → 토스트+콘솔로 변경 알림
+  // ───────────────────────────────────────────────────────────────
+  var PH54_START_H = 6, PH54_END_H = 24, PH54_HOUR_PX = 50, PH54_SNAP = 30; // 1시간=50px, 30분=25px
+
+  // 'HH:MM' → 자정 기준 분. start_time 없으면 hour 사용.
+  function ph54MinOf(s){
+    var m = String(s.start_time||'').match(/(\d{1,2}):(\d{2})/);
+    if (m) return (+m[1])*60 + (+m[2]);
+    return (s.hour!=null ? s.hour : PH54_START_H) * 60;
+  }
+  // 분 → 'HH:MM'
+  function ph54FmtMin(mins){ return ph54Pad(Math.floor(mins/60))+':'+ph54Pad(mins%60); }
+
+  // 우하단 토스트(드래그 이동 결과 안내)
+  function ph54Toast(msg){
+    var t = document.getElementById('ph54-toast');
+    if (!t){ t = document.createElement('div'); t.id = 'ph54-toast'; document.body.appendChild(t); }
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(ph54Toast._t); ph54Toast._t = setTimeout(function(){ t.classList.remove('show'); }, 2600);
+  }
+
+  // 수업 슬롯 1개 → 캘린더 이벤트 카드 HTML (시작시간/지속에 따른 절대위치 top/height)
+  //   item 예시: { teacher_id:5, date:'2026-06-24', start_time:'15:00', duration_min:60,
+  //               type:'1on1', students:[{name:'홍길동'}] }
+  function ph54EventCard(idx, s){
+    var c        = PH54_TYPE_COLOR[s.type] || '#7c3aed';
+    var startMin = ph54MinOf(s);
+    var dur      = s.duration_min || 30;
+    var top      = Math.max(0, (startMin - PH54_START_H*60) / 60 * PH54_HOUR_PX);   // 절대 y
+    var height   = Math.max(dur / 60 * PH54_HOUR_PX, 22);                            // 지속시간 높이
+    var timeTxt  = ph54FmtMin(startMin) + ' · ' + dur + '분';
+    // 학생 이름: students[].name 우선, 없으면 유형 라벨로 폴백
+    var student  = (s.students || []).map(function(x){ return x && x.name; }).filter(Boolean).join(', ');
+    var nameTxt  = student || (s.type==='blocked' ? '휴무' : (PH54_TYPE_LABEL[s.type] || '수업'));
+    var typeTxt  = PH54_TYPE_LABEL[s.type] || '';
+    return '<div class="ph54-ev" draggable="true" data-idx="'+idx+'" '
+      + 'style="top:'+top+'px;height:'+height+'px;background:'+c+'" '
+      + 'title="'+ph54Esc(timeTxt+' · '+typeTxt+(student?(' · '+student):''))+'">'
+      +   '<div class="ph54-ev-time">'+ph54Esc(timeTxt)+'</div>'
+      +   '<div class="ph54-ev-name">'+ph54Esc(nameTxt)+'</div>'   /* ← 학생 이름 (말줄임 처리) */
+      +   '<div class="ph54-ev-type">'+ph54Esc(typeTxt)+'</div>'
+      + '</div>';
+  }
+
   function ph54Render(){
     var wrap = document.getElementById('ph54-sched-wrap');
     if (!wrap) return;
     var days = ph54GetWeekDays();
     var todayStr = ph54FmtDate(new Date());
     var dayLabel = ['월','화','수','목','금','토','일'];
-
-    var filteredTeachers = ph54State.teacherFilter
-      ? ph54State.teachers.filter(function(t){ return String(t.id) === String(ph54State.teacherFilter); })
-      : ph54State.teachers;
-
+    var dowKeyByIdx = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    var filterId = ph54State.teacherFilter;
+    var bodyH = (PH54_END_H - PH54_START_H) * PH54_HOUR_PX;
     var weekLabel = ph54FmtDate(days[0]) + ' ~ ' + ph54FmtDate(days[6]);
 
+    // 날짜 → 요일 컬럼 인덱스
+    var dateToCol = {};
+    days.forEach(function(d,i){ dateToCol[ph54FmtDate(d)] = i; });
+
+    // 표시할 이벤트(현재 필터 강사 + 이번 주). 원본 배열 인덱스를 카드에 심어 드래그 후 갱신.
+    var events = [];
+    ph54State.records.forEach(function(r, idx){
+      if (filterId && String(r.teacher_id) !== String(filterId)) return;
+      if (!(r.date in dateToCol)) return;
+      events.push({ idx: idx, rec: r, col: dateToCol[r.date] });
+    });
+
+    // ── 컨트롤 바
     var html = ''
       + '<div id="ph54-sched-controls">'
       +   '<button id="ph54-prev-week">◀ 이전 주</button>'
@@ -26120,73 +26218,118 @@ button.chip:hover,
       +   '<button id="ph54-next-week">다음 주 ▶</button>'
       +   '<span class="ph54-week-label" id="ph54-week-label">'+weekLabel+'</span>'
       +   '<span style="flex:1"></span>'
-      +   '<label style="font-size:12px;color:#374151">강사 필터: '
+      +   '<label>강사 필터: '
       +     '<select id="ph54-teacher-filter" style="min-width:140px;margin-left:4px">'
       +       '<option value="">전체 강사 ('+ph54State.teachers.length+'명)</option>'
       +       ph54State.teachers.map(function(t){
-                return '<option value="'+t.id+'"'+(String(ph54State.teacherFilter)===String(t.id)?' selected':'')+'>'+t.name+'</option>';
+                return '<option value="'+t.id+'"'+(String(filterId)===String(t.id)?' selected':'')+'>'+ph54Esc(t.name)+'</option>';
               }).join('')
       +     '</select>'
       +   '</label>'
       +   '<button id="ph54-clear-filter">전체 보기</button>'
-      + '</div>'
-      + '<div style="overflow-x:auto"><table id="ph54-sched-grid"><thead><tr>'
-      +   '<th class="ph54-th-teacher">강사 / 날짜</th>'
-      +   days.map(function(d, i){
-            var isToday = ph54FmtDate(d) === todayStr;
-            return '<th'+(isToday?' style="background:#3b82f6"':'')+'>'+dayLabel[i]+'<br><span style="font-size:10px;font-weight:600">'+ph54Pad(d.getMonth()+1)+'/'+ph54Pad(d.getDate())+'</span></th>';
-          }).join('')
-      + '</tr></thead><tbody>'
-      + (filteredTeachers.length === 0
-          ? '<tr><td colspan="8" style="padding:20px;text-align:center;color:#6b7280">강사 데이터 없음</td></tr>'
-          : filteredTeachers.map(function(t){
-              return '<tr>'
-                + '<td class="ph54-td-teacher">'+t.name+'</td>'
-                + days.map(function(d){
-                    var dStr = ph54FmtDate(d);
-                    var dow = d.getDay();
-                    var isWeekend = (dow === 0 || dow === 6);
-                    var isToday = dStr === todayStr;
-                    var recs = ph54State.records.filter(function(r){
-                      return String(r.teacher_id) === String(t.id) && r.date === dStr;
-                    }).sort(function(a,b){
-                      return ((a.hour||0)-(b.hour||0)) || String(a.start_time||'').localeCompare(String(b.start_time||''));
-                    });
-                    var cellClass = '';
-                    if (isToday) cellClass = 'ph54-td-today';
-                    else if (isWeekend) cellClass = 'ph54-td-weekend';
-                    var inner = recs.length
-                      ? recs.map(ph54ClassBlock).join('')
-                      : '<span class="ph54-slot empty">—</span>';
-                    return '<td class="'+cellClass+'">'+inner+'</td>';
-                  }).join('')
-                + '</tr>';
-            }).join(''))
-      + '</tbody></table></div>'
-      + '<div style="margin-top:10px;display:flex;gap:14px;font-size:11px;color:#94a3b8;flex-wrap:wrap;align-items:center">'
-      +   '<span><span class="ph54-slot" style="background:#7c3aed">1:1</span> 1:1 수업</span>'
-      +   '<span><span class="ph54-slot" style="background:#2563eb">그룹</span> 그룹 수업</span>'
-      +   '<span><span class="ph54-slot" style="background:#f59e0b">대체</span> 대체</span>'
-      +   '<span><span class="ph54-slot" style="background:#475569">휴무</span> 휴무</span>'
-      +   '<span style="margin-left:auto;color:#cbd5e1;font-weight:700">총 '
-      +     ph54State.records.filter(function(r){ return r.type!=='blocked' && filteredTeachers.some(function(t){ return String(t.id)===String(r.teacher_id); }); }).length
-      +     '개 수업 · 매주 반복</span>'
+      + '</div>';
+
+    if (!filterId) {
+      html += '<div class="ph54-hint">💡 특정 강사를 선택하면 그 강사의 주간 수업만 깔끔하게 볼 수 있어요. (강사 목록의 📅 버튼으로도 열립니다)</div>';
+    }
+
+    // ── 타임라인: 헤더(요일) + 시간 거터 + 7일 컬럼
+    var headCells = '<div class="ph54-cal-corner"></div>';
+    days.forEach(function(d,i){
+      var isToday = ph54FmtDate(d) === todayStr;
+      headCells += '<div class="ph54-cal-dayhead'+(isToday?' today':'')+'">'+dayLabel[i]
+        + '<br><span class="ph54-cal-date">'+ph54Pad(d.getMonth()+1)+'/'+ph54Pad(d.getDate())+'</span></div>';
+    });
+
+    var gutter = '<div class="ph54-cal-gutter" style="height:'+bodyH+'px">';
+    for (var h=PH54_START_H; h<PH54_END_H; h++){
+      gutter += '<div class="ph54-cal-hourlabel" style="height:'+PH54_HOUR_PX+'px">'+ph54Pad(h)+':00</div>';
+    }
+    gutter += '</div>';
+
+    var cols = '';
+    for (var ci=0; ci<7; ci++){
+      var isToday2 = ph54FmtDate(days[ci]) === todayStr;
+      var cardsHtml = events.filter(function(e){ return e.col === ci; })
+                            .map(function(e){ return ph54EventCard(e.idx, e.rec); }).join('');
+      cols += '<div class="ph54-cal-col'+(isToday2?' today':'')+'" data-day="'+ci+'" '
+        + 'style="height:'+bodyH+'px;background-size:100% '+PH54_HOUR_PX+'px">'
+        + cardsHtml + '</div>';
+    }
+
+    html += '<div id="ph54-cal"><div id="ph54-cal-body"><div id="ph54-cal-inner">'
+      + '<div id="ph54-cal-head">'+headCells+'</div>'
+      + '<div id="ph54-cal-track">'+gutter+cols+'</div>'
+      + '</div></div></div>';
+
+    // ── 범례 + 카운트
+    html += '<div class="ph54-legend">'
+      +   '<span><i style="background:#7c3aed"></i>1:1 수업</span>'
+      +   '<span><i style="background:#2563eb"></i>그룹 수업</span>'
+      +   '<span><i style="background:#f59e0b"></i>대체</span>'
+      +   '<span><i style="background:#475569"></i>휴무</span>'
+      +   '<span class="ph54-legend-count">총 '+events.filter(function(e){ return e.rec.type!=='blocked'; }).length+'개 수업 · 카드를 드래그해 이동</span>'
       + '</div>';
 
     wrap.innerHTML = html;
 
-    // 이벤트 바인딩
-    // 주 이동 시에는 해당 주 스케줄을 다시 불러온 뒤 렌더(주마다 데이터가 다름)
+    // ── 컨트롤 바인딩
     document.getElementById('ph54-prev-week').addEventListener('click', async function(){ ph54State.weekOffset--; await ph54LoadRecords(); ph54Render(); });
     document.getElementById('ph54-this-week').addEventListener('click', async function(){ ph54State.weekOffset = 0; await ph54LoadRecords(); ph54Render(); });
     document.getElementById('ph54-next-week').addEventListener('click', async function(){ ph54State.weekOffset++; await ph54LoadRecords(); ph54Render(); });
-    // 강사 필터는 이미 로드된 주 데이터에서 거르므로 재로딩 불필요(즉시 렌더)
-    document.getElementById('ph54-teacher-filter').addEventListener('change', function(e){
-      ph54State.teacherFilter = e.target.value; ph54Render();
-    });
-    document.getElementById('ph54-clear-filter').addEventListener('click', function(){
-      ph54State.teacherFilter = ''; ph54Render();
-    });
+    document.getElementById('ph54-teacher-filter').addEventListener('change', function(e){ ph54State.teacherFilter = e.target.value; ph54Render(); });
+    document.getElementById('ph54-clear-filter').addEventListener('click', function(){ ph54State.teacherFilter = ''; ph54Render(); });
+
+    // ── HTML5 Drag & Drop: 카드를 다른 요일/시간으로 이동 ──
+    var track = document.getElementById('ph54-cal-track');
+    if (track){
+      // (1) 드래그 시작 — 어떤 레코드를 잡았는지 ph54State._drag 에 기억
+      track.addEventListener('dragstart', function(ev){
+        var card = ev.target.closest && ev.target.closest('.ph54-ev'); if(!card) return;
+        ph54State._drag = { idx: parseInt(card.dataset.idx, 10) };
+        card.classList.add('dragging');
+        try { ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', card.dataset.idx); } catch(e){}
+      });
+      track.addEventListener('dragend', function(ev){
+        var card = ev.target.closest && ev.target.closest('.ph54-ev'); if(card) card.classList.remove('dragging');
+        Array.prototype.forEach.call(track.querySelectorAll('.ph54-col-over'), function(c){ c.classList.remove('ph54-col-over'); });
+      });
+      // (2) 컬럼 위로 드래그 — preventDefault 해야 drop 이 발생, 하이라이트 표시
+      track.addEventListener('dragover', function(ev){
+        var col = ev.target.closest && ev.target.closest('.ph54-cal-col'); if(!col) return;
+        ev.preventDefault(); try { ev.dataTransfer.dropEffect = 'move'; } catch(e){}
+      });
+      track.addEventListener('dragenter', function(ev){
+        var col = ev.target.closest && ev.target.closest('.ph54-cal-col'); if(col) col.classList.add('ph54-col-over');
+      });
+      track.addEventListener('dragleave', function(ev){
+        var col = ev.target.closest && ev.target.closest('.ph54-cal-col'); if(!col) return;
+        if (!col.contains(ev.relatedTarget)) col.classList.remove('ph54-col-over');
+      });
+      // (3) 드롭 — 드롭한 컬럼(요일) + Y좌표(시간, 30분 스냅)로 레코드 갱신 → 재렌더 + 알림
+      track.addEventListener('drop', function(ev){
+        var col = ev.target.closest && ev.target.closest('.ph54-cal-col');
+        if (!col || !ph54State._drag) return;
+        ev.preventDefault();
+        var idx = ph54State._drag.idx; ph54State._drag = null;
+        var rec = ph54State.records[idx]; if(!rec) return;
+        var newCol = parseInt(col.dataset.day, 10);
+        // 드롭 Y → 30분 칸 인덱스 → 분
+        var rect = col.getBoundingClientRect();
+        var rowIdx = Math.round((ev.clientY - rect.top) / (PH54_HOUR_PX * PH54_SNAP / 60));
+        var dur = rec.duration_min || 30;
+        var newMin = PH54_START_H*60 + rowIdx*PH54_SNAP;
+        newMin = Math.max(PH54_START_H*60, Math.min(newMin, PH54_END_H*60 - dur));  // 06:00~24:00 범위 클램프
+        // 레코드 갱신(요일/날짜/시간/시)
+        var newDate = ph54FmtDate(days[newCol]);
+        var newTime = ph54FmtMin(newMin);
+        rec.date = newDate; rec.start_time = newTime; rec.hour = Math.floor(newMin/60); rec.day_of_week = dowKeyByIdx[newCol];
+        ph54Render();   // 다시 그리기
+        // 변경 알림(토스트 + 콘솔)
+        ph54Toast('📌 이동: ' + dayLabel[newCol] + '요일 ' + newTime + ' (' + dur + '분)');
+        console.log('[ph54] 일정 이동 →', { idx: idx, day: dowKeyByIdx[newCol], date: newDate, start_time: newTime, duration_min: dur });
+      });
+    }
   }
 
   async function ph54Init(){
