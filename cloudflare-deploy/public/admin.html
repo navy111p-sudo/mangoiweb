@@ -21804,7 +21804,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260623200754 -->
+        <!-- BUILD:20260623202445 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -26636,7 +26636,7 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-auto-dunning" onclick="event.stopPropagation();var c=document.getElementById('card-auto-dunning');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-auto-dunning');}">💸 자동 수금</div>
       <div class="ph85-sub" data-card="card-settlement-stats" onclick="event.stopPropagation();var c=document.getElementById('card-settlement-stats');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-settlement-stats');}">📊 정산 통계</div>
       <div class="ph85-sub" data-card="card-points-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-points-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-points-mgmt');}">포인트 관리</div>
-      <div class="ph85-sub" id="ph85-capitown" style="display:none" onclick="event.stopPropagation();location.href='/admin/capitown-settlement.html';">🏢 캐피타운 정산 ⭐신규</div>
+      <div class="ph85-sub" id="ph85-capitown" data-ko="🏢 캐피타운 정산 ⭐신규" data-en="🏢 Capitown Settlement ⭐New" data-tip-ko="캐피타운 프랜차이즈 지점들의 정산을 한곳에서 관리해요." data-tip-en="Manage settlement for Capitown franchise branches in one place." style="display:none" onclick="event.stopPropagation();location.href='/admin/capitown-settlement.html';">🏢 캐피타운 정산 ⭐신규</div>
     </div>
   </div>
   <!-- 🏢 캐피타운 정산 메뉴 노출 게이트 — 본사 경영진·캐피타운 본사만 -->
@@ -27297,7 +27297,8 @@ button.chip:hover,
     bar.addEventListener('mouseover',function(e){
       var gc=e.target.closest ? e.target.closest('.ph125-gc') : null; if(!gc||!bar.contains(gc)) return;
       var t=gc.querySelector('.ph125-text');
-      var name=(t?t.textContent:gc.textContent)||'';
+      // 🌐 data-gc-name(원본 한국어) 우선 — 영어 스윕 후에도 설명 사전 키가 맞음
+      var name=gc.getAttribute('data-gc-name')||(t?t.textContent:gc.textContent)||'';
       var d=descOf(name); if(d) showTip(gc,d);
     },true);
     bar.addEventListener('mouseout',function(e){
@@ -27357,9 +27358,14 @@ button.chip:hover,
   }
   function gcDesc(name){
     name=(name||'').replace(/\s+/g,' ').trim(); if(!name) return '';
+    var k=name.replace(/^[^가-힣A-Za-z0-9]+/,'').trim();
+    // 🌐 EN 토글 시 영어 설명 우선(없으면 한국어 폴백)
+    if(window.adminLang && window.adminLang!=='ko' && window.GC_DESC_EN){
+      if(window.GC_DESC_EN[name]) return window.GC_DESC_EN[name];
+      if(window.GC_DESC_EN[k]) return window.GC_DESC_EN[k];
+    }
     if(window.GC_DESC){
       if(window.GC_DESC[name]) return window.GC_DESC[name];
-      var k=name.replace(/^[^가-힣A-Za-z0-9]+/,'').trim();
       if(window.GC_DESC[k]) return window.GC_DESC[k];
     }
     return '';
@@ -27367,7 +27373,7 @@ button.chip:hover,
   function descFor(item){
     if(item.classList.contains('ph125-gc')){
       var t=item.querySelector('.ph125-text');
-      return gcDesc(t?t.textContent:item.textContent);
+      return gcDesc(item.getAttribute('data-gc-name')||(t?t.textContent:item.textContent));
     }
     var d=item.getAttribute('data-tip');
     return d?d.replace(/\s+/g,' ').trim():'';
@@ -34469,7 +34475,9 @@ button.chip:hover,
         gcContainer.dataset.parent = cardId;
         gcContainer.innerHTML = children.map(function(t, i){
           var safe = String(t).replace(/'/g, "\\'");
-          return '<div class="ph125-gc" onclick="event.stopPropagation();ph125Jump(\'' + cardId + '\',' + i + ',\'' + safe + '\')">' +
+          // 🌐 원본 한국어 이름을 data-gc-name 으로 보존(i18n 영어 스윕은 보이는 텍스트만 바꾸므로 설명 사전 조회 키가 안 깨짐)
+          var attr = String(t).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          return '<div class="ph125-gc" data-gc-name="' + attr + '" onclick="event.stopPropagation();ph125Jump(\'' + cardId + '\',' + i + ',\'' + safe + '\')">' +
             '<span class="ph125-num">' + (i + 1) + '</span>' +
             '<span class="ph125-text">' + t + '</span>' +
           '</div>';
@@ -39566,10 +39574,15 @@ button.chip:hover,
     function show(t,txt){ if(window.__sbTip) window.__sbTip.show(t,txt); }
     function hide(){ if(window.__sbTip) window.__sbTip.hide(); }
     function tipFor(t){
-      var key=t.getAttribute('data-card'); if(!key) return null;
-      // 🌐 EN 토글 시 영어 설명 우선
-      if(window.adminLang && window.adminLang!=='ko' && window.TIP_EN && window.TIP_EN[key]) return window.TIP_EN[key];
-      return TIP[key] ? TIP[key] : null;
+      var en = (window.adminLang && window.adminLang!=='ko');
+      var key=t.getAttribute('data-card');
+      if(key){
+        // 🌐 EN 토글 시 영어 설명 우선
+        if(en && window.TIP_EN && window.TIP_EN[key]) return window.TIP_EN[key];
+        return TIP[key] ? TIP[key] : null;
+      }
+      // data-card 없는 특수 항목(예: 캐피타운 정산) — data-tip-ko/en 직접 사용
+      return t.getAttribute(en?'data-tip-en':'data-tip-ko') || t.getAttribute('data-tip-ko') || null;
     }
     document.addEventListener('mouseover',function(e){
       var t=e.target.closest ? e.target.closest('.ph85-sub') : null; if(!t)return;

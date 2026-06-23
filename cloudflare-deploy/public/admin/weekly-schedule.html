@@ -628,14 +628,13 @@ async function loadData(){
             if(Object.keys(SLOTS).length>0)return;
           }
         }catch(e){}
-        // TEACHERS는 있는데 SLOTS 비어있으면 -> 데모 슬롯 채우기
-        if(Object.keys(SLOTS).length===0){ generateDemoSlots(); return; }
+        // 실데이터만 표시 정책: SLOTS 가 비어도 데모로 채우지 않음(빈 칸=수업 없음)
         return;
       }
     }
   }catch(e){}
-  // 모든 경로 실패 시 -> 무조건 데모
-  loadDemoData();
+  // 실데이터 로드 실패 시: 데모 대신 빈 상태 유지(?demo=1 일 때만 데모)
+  if(!TEACHERS||TEACHERS.length===0){ TEACHERS=[]; SLOTS={}; }
 }
 
 // TEACHERS는 실제, SLOTS만 데모로 채울 때
