@@ -1,6 +1,6 @@
 /**
  * mango-theme.js — 화상수업 화면 라이트/다크 테마 토글 [초안]
- *  - 토글 버튼(☀/🌙)을 상단 툴바(.toolbar-right)에 주입
+ *  - 토글 버튼(☀/🌙)을 수업 상단 툴바(#view-videocall-call .toolbar-right)에 주입
  *  - 클릭 시 body 에 'vc-theme-light' 클래스 on/off
  *  - 선택값은 localStorage('mango-theme')에 저장 → 다음에도 유지
  *  - 기본값: 다크 (저장값 없으면 다크)
@@ -48,18 +48,24 @@
   }
 
   function ensureButton() {
-    if (btn) return;
+    if (btn && document.body.contains(btn)) return;
     btn = document.createElement('button');
     btn.id = 'mango-theme-toggle';
     btn.type = 'button';
     btn.addEventListener('click', toggle);
 
-    // 상단 툴바 우측에 넣기 (없으면 좌측, 그것도 없으면 body 상단 고정)
-    var host = document.querySelector('.toolbar-right')
-            || document.querySelector('.toolbar-left')
+    // 수업(다자간) 뷰의 상단 툴바 우측을 정확히 지정.
+    //  - DOM 에 .toolbar-right 가 여러 개(안 쓰는 1:1 테스트 뷰 포함) 있어,
+    //    반드시 #view-videocall-call 안의 것을 골라야 함.
+    var host = document.querySelector('#view-videocall-call .toolbar-right')
+            || document.querySelector('.toolbar-right')
             || document.querySelector('.toolbar');
     if (host) {
-      host.insertBefore(btn, host.firstChild);
+      // 나가기(✕, .danger) 버튼 '앞'에 삽입 → [EN][테마][✕] 순서.
+      //  (first-child 로 넣으면 body.vc-in-call .toolbar-right>button:first-child{display:none} 에 걸려 숨겨짐)
+      var exitBtn = host.querySelector('.danger, [id*="exit"], [onclick*="Leave"]');
+      if (exitBtn) host.insertBefore(btn, exitBtn);
+      else host.appendChild(btn);
     } else {
       btn.style.position = 'fixed';
       btn.style.top = '12px';
@@ -73,6 +79,8 @@
   function init() {
     apply(load());   // 저장된 테마 반영 (기본 다크)
     ensureButton();
+    // 뷰 전환(SPA)으로 툴바가 늦게 그려질 수 있어, 잠시 재확인
+    setInterval(ensureButton, 2000);
   }
 
   if (document.readyState === 'loading') {
