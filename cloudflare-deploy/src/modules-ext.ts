@@ -396,13 +396,13 @@ async function textbookResources(env: Env, url: URL): Promise<Response> {
      JOIN mod_videos    v ON v.id = m.video_id
      WHERE m.textbook_id=? ORDER BY m.unit_no, v.lesson_no`).bind(tid).all<any>();
   const rows = r.results || [];
-  const mod_videos = rows.map(x => ({
+  const videos = rows.map(x => ({
     video_id: x.video_id, youtube_id: x.youtube_id, youtube_url: x.youtube_url,
     title: x.video_title, lesson_no: x.lesson_no, unit_no: x.unit_no, quiz_id: x.quiz_id,
   }));
   return json({
     ok: true, textbook_id: tid,
     textbook_title: rows[0]?.textbook_title ?? null, level: rows[0]?.level ?? null,
-    mod_videos, quizzes: mod_videos.filter(v => v.quiz_id).map(v => v.quiz_id),
+    videos, quizzes: videos.filter(v => v.quiz_id).map(v => v.quiz_id),
   });
 }

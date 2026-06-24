@@ -3,6 +3,7 @@
  *  - 우측 상단 REC 배지(#mango-rec-badge) 바로 왼쪽에 ⏰ 22:00 ~ 22:25 형태로 표시
  *  - 서버(class_schedules)에서 오늘 수업의 start_time + duration_min 을 받아 종료시간 계산
  *  - 다크 모드 / 모바일·태블릿·데스크탑 반응형
+ *  - 수업(통화) 중(body.vc-in-call)에만 노출 — 로비/메인 화면에서는 숨김
  *  - mango.js(MangoV3) 이후에 로드되어야 함
  */
 (function () {
@@ -65,6 +66,7 @@
     elWrap = document.createElement('div');
     elWrap.id = 'mango-class-time';
     elWrap.className = 'is-loading';
+    elWrap.style.display = 'none'; // 기본 숨김 — 수업(body.vc-in-call) 중에만 표시
     elWrap.innerHTML = '<span class="mct-clock">⏰</span><span id="mango-class-time-text">불러오는 중…</span>';
     document.body.appendChild(elWrap);
     elText = document.getElementById('mango-class-time-text');
@@ -151,12 +153,36 @@
     }
   }
 
-  // ───────────────────────── 4) 초기화 ─────────────────────────
+  // ───────────────────────── 4) 표시 조건 (수업/통화 중에만) ─────────────────────────
+
+  /** 화상 수업(통화) 중인지 — 다른 스크립트(mango-rec/attendance)와 동일한 신호 사용 */
+  function isInClass() {
+    return !!(document.body && document.body.classList.contains('vc-in-call'));
+  }
+
+  var wasInClass = false;
+
+  /** vc-in-call 상태에 따라 배지를 보이거나 숨김. 수업 진입 시 1회 일정 로드 */
+  function applyVisibility() {
+    var inClass = isInClass();
+    if (inClass && !wasInClass) {        // 로비 → 수업 진입
+      ensureUI();
+      elWrap.style.display = 'flex';
+      loadClassTime();
+    } else if (!inClass && wasInClass) { // 수업 → 로비/메인 이탈
+      if (elWrap) elWrap.style.display = 'none';
+    }
+    wasInClass = inClass;
+  }
+
+  // ───────────────────────── 5) 초기화 ─────────────────────────
 
   function init() {
-    ensureUI();
-    loadClassTime();
-    setInterval(loadClassTime, 5 * 60 * 1000); // 자정 넘김/일정 변경 대비 5분마다 갱신
+    applyVisibility();                 // 현재 상태 반영 (메인이면 숨김)
+    setInterval(applyVisibility, 2000); // vc-in-call 진입/이탈 감지 (mango-rec와 동일 주기)
+    setInterval(function () {            // 수업 중일 때만 5분마다 일정 갱신
+      if (isInClass()) loadClassTime();
+    }, 5 * 60 * 1000);
   }
 
   if (typeof document !== 'undefined') {
