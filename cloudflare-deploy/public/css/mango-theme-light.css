@@ -1,0 +1,180 @@
+/* ============================================================
+ * mango-theme-light.css — 화상수업(수업입장) 화면 "라이트(파스텔)" 테마 [초안]
+ *  - 기본(다크)은 그대로 두고, body.vc-theme-light 일 때만 색을 덮어씀
+ *  - 하얀 바탕 + 파스텔 톤 버튼/장치
+ *  - 카메라 영상(video) 자체는 건드리지 않음
+ *  - 토글: mango-theme.js 가 body 에 vc-theme-light 클래스를 on/off
+ * ============================================================ */
+
+/* 파스텔 팔레트 (참고용 변수) */
+body.vc-theme-light {
+  --mlt-bg:        #f4f7fc;   /* 전체 배경 (아주 옅은 하늘) */
+  --mlt-surface:   #ffffff;   /* 툴바·패널 표면 */
+  --mlt-surface-2: #eef2fb;   /* 보조 표면 */
+  --mlt-border:    #dbe3f0;   /* 테두리 */
+  --mlt-text:      #334155;   /* 본문 글자 */
+  --mlt-text-sub:  #64748b;   /* 보조 글자 */
+  --mlt-sky:       #bae6fd;   /* 파스텔 하늘 */
+  --mlt-sky-deep:  #0ea5e9;   /* 강조(액티브) */
+  --mlt-mint:      #d1fae5;   /* 파스텔 민트 */
+  --mlt-lav:       #e0e7ff;   /* 파스텔 라벤더 */
+  --mlt-peach:     #ffedd5;   /* 파스텔 복숭아 */
+  --mlt-pink:      #fde2e7;   /* 파스텔 핑크(위험) */
+  --mlt-shadow:    0 4px 14px rgba(100,116,139,0.14);
+}
+
+/* ── 전체 배경 ───────────────────────────────────────────── */
+body.vc-theme-light,
+body.vc-theme-light #view-videocall-call,
+body.vc-theme-light .video-area {
+  background: var(--mlt-bg) !important;
+  color: var(--mlt-text);
+}
+
+/* ── 상단 툴바 / 탭바 ─────────────────────────────────────── */
+body.vc-theme-light .toolbar,
+body.vc-theme-light .tab-bar {
+  background: var(--mlt-surface) !important;
+  border-bottom: 1px solid var(--mlt-border) !important;
+  box-shadow: var(--mlt-shadow);
+}
+body.vc-theme-light .room-info       { color: var(--mlt-text-sub) !important; }
+body.vc-theme-light .room-info strong { color: var(--mlt-sky-deep) !important; }
+
+/* 탭(질판·교재·동영상·발음 등) */
+body.vc-theme-light .tab-btn          { color: var(--mlt-text-sub) !important; }
+body.vc-theme-light .tab-btn:hover    { color: var(--mlt-text) !important; }
+body.vc-theme-light .tab-btn.active {
+  color: var(--mlt-sky-deep) !important;
+  border-bottom-color: var(--mlt-sky-deep) !important;
+}
+
+/* ── 좌(영상)/우(콘텐츠) 패널 ────────────────────────────── */
+body.vc-theme-light .video-pane {
+  background: var(--mlt-surface) !important;
+  border-right: 1px solid var(--mlt-border) !important;
+}
+body.vc-theme-light .vc-main-row.video-full .content-pane {
+  background: var(--mlt-surface) !important;
+  border-left: 1px solid var(--mlt-border) !important;
+  box-shadow: -10px 0 30px -10px rgba(100,116,139,0.25) !important;
+}
+body.vc-theme-light .video-box        { background: var(--mlt-surface-2) !important; }
+body.vc-theme-light .video-placeholder { color: var(--mlt-text-sub) !important; }
+
+/* ── 미디어 컨트롤 버튼(마이크/카메라 등) ───────────────────── */
+body.vc-theme-light .ctrl-btn.on {
+  background: var(--mlt-sky) !important;
+  color: #0c4a6e !important;
+}
+body.vc-theme-light .ctrl-btn.off {
+  background: var(--mlt-pink) !important;
+  color: #b91c1c !important;
+}
+/* 종료(danger) 버튼은 시인성 위해 채도 유지(부드러운 빨강) */
+body.vc-theme-light .ctrl-btn.danger {
+  background: #f87171 !important;
+  color: #fff !important;
+}
+
+/* 셀렉트(마이크/카메라 선택) */
+body.vc-theme-light .ctrl-select {
+  background-color: var(--mlt-surface-2) !important;
+  border: 1px solid var(--mlt-border) !important;
+  color: var(--mlt-text) !important;
+}
+body.vc-theme-light .ctrl-select:hover { background-color: #e2e8f5 !important; }
+body.vc-theme-light .ctrl-select option { background: #fff !important; color: var(--mlt-text) !important; }
+
+/* ── 교재 툴바(TOOLS 줄 / 주석 줄) ─────────────────────────── */
+body.vc-theme-light .pdf-controls,
+body.vc-theme-light .pdf-anno-bar {
+  background: var(--mlt-surface) !important;
+  border: 1px solid var(--mlt-border) !important;
+  box-shadow: var(--mlt-shadow) !important;
+}
+/* 일반 pill 버튼 — 파스텔 라벤더 */
+body.vc-theme-light .pdf-controls > button,
+body.vc-theme-light .pdf-controls > label,
+body.vc-theme-light .pdf-controls > span > button,
+body.vc-theme-light .pdf-anno-bar > button {
+  background: var(--mlt-surface-2) !important;
+  color: var(--mlt-text) !important;
+  border: 1px solid var(--mlt-border) !important;
+}
+body.vc-theme-light .pdf-controls > button:hover,
+body.vc-theme-light .pdf-controls > label:hover,
+body.vc-theme-light .pdf-controls > span > button:hover,
+body.vc-theme-light .pdf-anno-bar > button:hover {
+  background: var(--mlt-sky) !important;
+  border-color: var(--mlt-sky-deep) !important;
+  color: #0c4a6e !important;
+}
+/* 활성(선택) 버튼 — 파스텔 하늘 강조 */
+body.vc-theme-light .pdf-controls button.active,
+body.vc-theme-light .pdf-anno-bar button.active,
+body.vc-theme-light .pdf-controls .pdf-view-btn.active {
+  background: linear-gradient(135deg, #7dd3fc, #38bdf8) !important;
+  color: #0c4a6e !important;
+  border-color: transparent !important;
+  box-shadow: 0 3px 10px rgba(56,189,248,0.35) !important;
+}
+/* 라이브러리(primary) — 파스텔 라벤더 그라데이션 */
+body.vc-theme-light .pdf-controls button[onclick*="openTextbookLibrary"] {
+  background: linear-gradient(135deg, #c7d2fe, #a5b4fc) !important;
+  color: #3730a3 !important;
+  border-color: transparent !important;
+  box-shadow: 0 3px 10px rgba(165,180,252,0.45) !important;
+}
+/* 공유 중지(danger) — 파스텔 핑크 */
+body.vc-theme-light .pdf-controls button[onclick*="pdfStopShare"] {
+  background: linear-gradient(135deg, #fecdd3, #fda4af) !important;
+  color: #be123c !important;
+  border-color: transparent !important;
+  box-shadow: 0 3px 10px rgba(253,164,175,0.45) !important;
+}
+/* 페이지/줌 정보 pill */
+body.vc-theme-light #pdf-page-info,
+body.vc-theme-light #pdf-zoom-info {
+  background: var(--mlt-surface-2) !important;
+  color: var(--mlt-text) !important;
+}
+body.vc-theme-light .pdf-controls > span { border-left-color: var(--mlt-border) !important; }
+body.vc-theme-light .pdf-anno-bar input[type="color"] {
+  border: 2px solid var(--mlt-border) !important;
+  background: #fff !important;
+}
+
+/* ── 수업 시간 배지(#mango-class-time) ────────────────────── */
+body.vc-theme-light #mango-class-time {
+  background: var(--mlt-surface) !important;
+  color: var(--mlt-text) !important;
+  border: 1px solid var(--mlt-border) !important;
+  box-shadow: var(--mlt-shadow) !important;
+}
+body.vc-theme-light #mango-class-time.is-loading { color: var(--mlt-text-sub) !important; }
+
+/* ── 테마 토글 버튼 (mango-theme.js 가 생성) ───────────────── */
+#mango-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(148,163,184,0.35);
+  background: rgba(148,163,184,0.15);
+  color: #e2e8f0;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+#mango-theme-toggle:hover { background: rgba(148,163,184,0.28); }
+body.vc-theme-light #mango-theme-toggle {
+  background: var(--mlt-surface-2);
+  border: 1px solid var(--mlt-border);
+  color: var(--mlt-text);
+}
+body.vc-theme-light #mango-theme-toggle:hover { background: #e2e8f5; }
