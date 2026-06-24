@@ -881,6 +881,80 @@ header {
 @media (min-width:1024px){
   .guide-video-wrap{top:50%;right:auto;left:calc(75vw + 161px);transform:translate(-50%,-50%);width:min(224px,calc(50vw - 348px));max-width:none}
 }
+
+/* ════════ PC(≥1024px) 좌우 2단 분할 — 수업 연기·변경 공용 ════════ */
+@media (min-width:1024px){
+  /* 앱 컨테이너를 넓혀 2단 공간 확보 */
+  #app{ max-width: 1180px; }
+
+  /* 본문: 좌(설정·고정) 35% / 우(콘텐츠) 65% 2단 그리드 */
+  #screen-detail .detail-body{
+    display: grid;
+    grid-template-columns: 35fr 65fr;
+    column-gap: 30px;
+    align-items: start;
+    padding-left: 32px;
+    padding-right: 32px;
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+  /* 왼쪽 설정 메뉴: 스크롤해도 화면에 고정 */
+  .lp-col-left{
+    position: sticky;
+    top: 16px;
+    align-self: start;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .lp-col-left > *{ margin-bottom: 0 !important; }
+  .lp-col-right{ min-width: 0; }
+
+  /* 좌측으로 옮겨진 탭(segment) — 칼럼 폭 풀폭, 두 버튼 나란히 */
+  .lp-col-left .segment{ margin: 0 0 2px; width: 100%; }
+  .lp-seg-slot:empty{ display: none; }
+
+  /* 가독성 향상(폰트 약간 키움) */
+  #screen-detail .section-label{ font-size: 15.6px; }
+  .cur-lesson{ padding: 14px 16px; }
+  .cur-lesson .cl-tag{ font-size: 14px; }
+  .cur-lesson .cl-item{ font-size: 16.8px; }
+  .wk-tabs .wk{ font-size: 15px; padding: 11px 0; }
+
+  /* 오른쪽 상단: 전체 밀기 버튼 넓게·또렷하게 */
+  .lp-col-right .push-btn{ font-size: 16.2px; padding: 14px; }
+
+  /* 날짜 칩 — 더 크고 한눈에 많이, 마우스로 누르기 편하게 */
+  .lp-col-right .date-chip{ min-width: 80px; padding: 14px 10px; }
+  .lp-col-right .date-chip .dc-day{ font-size: 22.5px; }
+  .lp-col-right .date-chip .dc-dow{ font-size: 13.6px; }
+
+  /* 교사 카드 — 상하 여백 축소(컴팩트) */
+  .lp-col-right .teacher-feed .tc-row{ padding: 10px 14px; }
+  .lp-col-right .teacher-result .teacher-card{ padding: 10px 14px; }
+  .lp-col-right .teacher-card .t-name{ font-size: 18px; }
+  /* 프로필 사진은 60px 유지(절대 축소 금지) */
+  .teacher-card .t-avatar{ width: 60px !important; height: 60px !important; flex-shrink: 0 !important; }
+
+  /* 마우스 오버(hover) — PC 전용 부드러운 강조 */
+  .lp-col-right .teacher-card:hover,
+  .lp-col-right .teacher-feed .teacher-card:hover{
+    border-color: var(--green);
+    background: rgba(16,185,129,0.10);
+    box-shadow: 0 4px 16px rgba(16,185,129,0.18);
+  }
+  .lp-col-right .date-chip:hover{
+    border-color: var(--green);
+    background: rgba(16,185,129,0.10);
+  }
+
+  /* 장바구니 — 우측 칼럼 하단 */
+  .lp-col-right .cart-box{ margin-top: 18px; }
+
+  /* 확정/완료 바 — 우측(65%) 칼럼 아래로 정렬 */
+  .sticky-bar{ max-width: 1180px; padding-left: calc(35% + 30px); }
+}
+
 .guide-video-wrap video{display:block;width:100%;height:auto}
 .gv-btn{position:absolute;bottom:6px;right:6px;width:36px;height:36px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .gv-btn:active{transform:scale(.92)}
@@ -1291,14 +1365,36 @@ function renderCartBox(){
   }).join('');
   return '<div class="cart-box"><div class="cart-head">🛒 ' + v + ' 장바구니 <span class="cnt">' + state.cart.length + ' / ' + state.weeklyTarget + '</span></div>' + inner + '</div>';
 }
+/* ── PC(≥1024px) 좌우 2단: 탭(segment)을 좌측 칼럼으로 이동/복귀 ── */
+function lpSegHome(){
+  var seg = document.getElementById('segment');
+  var screen = document.getElementById('screen-detail');
+  var body = document.getElementById('detail-body');
+  if (seg && screen && body && seg.parentElement !== screen) screen.insertBefore(seg, body);
+}
+function lpPlaceSeg(){
+  var seg = document.getElementById('segment');
+  if (!seg) return;
+  var slot = document.querySelector('#detail-body .lp-seg-slot');
+  if (window.matchMedia('(min-width:1024px)').matches && slot){
+    if (seg.parentElement !== slot) slot.appendChild(seg);
+  } else {
+    lpSegHome();
+  }
+}
+window.addEventListener('resize', lpPlaceSeg);
+
 function renderBody(){
   const body = $('#detail-body');
-  var html = renderCurrentLesson() + renderWeekly();
-  if (state.tab === 'time') html += renderPushBtn() + renderTimeTab();
-  else html += renderTeacherTab();
-  html += renderCartBox();
-  body.innerHTML = html;
+  lpSegHome(); // 본문 초기화 전, 탭(segment)을 안전한 위치로 회수
+  var leftHtml = '<div class="lp-col-left"><div class="lp-seg-slot"></div>'
+               + renderCurrentLesson() + renderWeekly() + '</div>';
+  var rightInner;
+  if (state.tab === 'time') rightInner = renderPushBtn() + renderTimeTab() + renderCartBox();
+  else rightInner = renderTeacherTab() + renderCartBox();
+  body.innerHTML = leftHtml + '<div class="lp-col-right">' + rightInner + '</div>';
   attachHandlers();
+  lpPlaceSeg(); // 데스크탑이면 탭을 좌측 칼럼 상단으로 이동
 }
 
 /* ── 시간 탭 — 링글 스타일: 가로 스크롤 날짜 + 시간 + 교사 필터 ── */
@@ -1612,7 +1708,7 @@ function attachHandlers(){
   new MutationObserver(syncVis).observe(main,{attributes:true,attributeFilter:['class']});
 })();
 </script>
-<!-- BUILD:20260624175723 -->
+<!-- BUILD:20260624183015 -->
 <script src="/js/i18n-sweep.js?v=2"></script>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
