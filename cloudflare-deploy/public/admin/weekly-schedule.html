@@ -106,6 +106,8 @@ h1 .sub{font-size:13px;color:var(--tx2);font-weight:500;margin-left:4px}
 .slot-weekend{background:rgba(255,255,255,.015)}
 /* 🛑 휴무(수업 불가) — 회색 사선 패턴으로 차단 느낌 */
 .slot-blocked{background:repeating-linear-gradient(45deg,rgba(148,163,184,.30),rgba(148,163,184,.30) 5px,rgba(100,116,139,.45) 5px,rgba(100,116,139,.45) 10px)}
+/* 공휴일/휴가 종일 차단 — 빈 셀에 빨강 사선 + 배정 금지 커서 */
+.slot-blocked-day{background:repeating-linear-gradient(45deg,rgba(239,68,68,.14),rgba(239,68,68,.14) 5px,rgba(239,68,68,.26) 5px,rgba(239,68,68,.26) 10px)!important;cursor:not-allowed!important}
 /* 🎨 파스텔톤 수업 셀 (다크모드 눈 피로 완화) */
 .slot-1on1{background:#bcaef0}   /* 라벤더 — 1:1 */
 .slot-group{background:#f4abce}  /* 소프트 핑크 — 그룹 */
@@ -560,17 +562,33 @@ function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c
 var currentWeekStart=startOfWeek(new Date());
 // 📅 Phase CAL — 캘린더(휴가/공휴일) 주간 표시
 var HOLIDAY_MAP={};
+var BLOCKED_DATES={};   // {iso:true} — 종일 차단(공휴일/휴가) 날짜. 셀 배정 검증에 사용.
 async function loadHolidays(){
-  HOLIDAY_MAP={};
+  HOLIDAY_MAP={};BLOCKED_DATES={};
+  var from=fmtISO(currentWeekStart);
+  var endD=new Date(currentWeekStart);endD.setDate(endD.getDate()+6);
+  // (1) 기존 통합 캘린더(휴가+수동 공휴일)
   try{
-    var from=fmtISO(currentWeekStart);
-    var endD=new Date(currentWeekStart);endD.setDate(endD.getDate()+6);
     var res=await fetch('/api/calendar/events?from='+from+'&to='+fmtISO(endD),{credentials:'include',cache:'no-store'});
     var j=await res.json();
     (j&&j.events||[]).forEach(function(ev){
       var d=new Date((ev.date)+'T00:00:00');var ed=new Date(((ev.end_date||ev.date))+'T00:00:00');
       var guard=0;
-      while(d<=ed && guard<400){var iso=fmtISO(d);(HOLIDAY_MAP[iso]=HOLIDAY_MAP[iso]||[]).push(ev);d.setDate(d.getDate()+1);guard++;}
+      while(d<=ed && guard<400){var iso=fmtISO(d);(HOLIDAY_MAP[iso]=HOLIDAY_MAP[iso]||[]).push(ev);BLOCKED_DATES[iso]=true;d.setDate(d.getDate()+1);guard++;}
+    });
+  }catch(e){}
+  // (2) 신규 모듈 KR/PH 공휴일(/api/admin/mod/holidays) 병합 — 중복 날짜는 합산만
+  try{
+    var yr=currentWeekStart.getFullYear();
+    var hres=await fetch('/api/admin/mod/holidays/list?year='+yr,{credentials:'include',cache:'no-store'});
+    var hj=await hres.json();
+    var fromISO=from, toISO=fmtISO(endD);
+    (hj&&hj.rows||[]).forEach(function(h){
+      if(h.date<fromISO||h.date>toISO)return;        // 이번 주 범위만
+      var already=(HOLIDAY_MAP[h.date]||[]).some(function(e){return (e.title||e.name)===h.name;});
+      if(already)return;
+      (HOLIDAY_MAP[h.date]=HOLIDAY_MAP[h.date]||[]).push({title:(h.country==='PH'?'🇵🇭 ':'🇰🇷 ')+h.name,color:'#ef4444',event_type:'holiday'});
+      BLOCKED_DATES[h.date]=true;
     });
   }catch(e){}
 }
@@ -826,11 +844,12 @@ function renderTeacher(t){
         var dateISO=fmtISO(d);
         var isWk=(di>=5),isTd=isSameDate(d,today);
         var nowCls=(isTd&&hour===nowH&&m<=nowM&&nowM<m+10)?' now':'';
+        var _blk=!!BLOCKED_DATES[dateISO];   // 공휴일/휴가 종일 차단 날짜
         // 이 셀이 어떤 슬롯에 속하는지 찾기
         var slotInfo=findSlotForCell(t.id,dateISO,hour,m);
         var tdToday=(isTd?' col-today':'');
         if(!slotInfo){
-          html+='<td class="slot row10'+(isHourMark?' hour-mark':' boundary')+' '+(isWk?'slot-weekend':'slot-empty')+nowCls+tdToday+'" data-hour="'+hour+'" data-min="'+m+'"></td>';
+          html+='<td class="slot row10'+(isHourMark?' hour-mark':' boundary')+' '+(isWk?'slot-weekend':'slot-empty')+(_blk?' slot-blocked-day':'')+nowCls+tdToday+'" data-hour="'+hour+'" data-min="'+m+'"'+(_blk?' data-blockdate="'+dateISO+'" title="공휴일·휴가 — 배정 불가"':'')+'></td>';
         } else {
           var slot=slotInfo.slot, isStart=slotInfo.isStart;
           var cls='slot row10 slot-'+slot.type+(isHourMark?' hour-mark':'')+(isStart?' slot-start':' slot-cont')+nowCls+tdToday;
@@ -1167,6 +1186,23 @@ window.confirmMoveDo=function(){
   render();
 };
 window.showMoveConfirm=showMoveConfirm;
+
+// 🚫 공휴일/휴가 종일 차단 — 빈 셀 배정 시도(클릭·드래그)를 capture 단계에서 가로채 경고
+(function(){
+  function holidayGuard(e){
+    var cell=e.target&&e.target.closest&&e.target.closest('.slot-blocked-day');
+    if(!cell)return;
+    if(cell.classList.contains('slot-start')||cell.classList.contains('slot-cont'))return; // 기존 수업 조회는 허용
+    e.stopImmediatePropagation();e.preventDefault();
+    if(e.type==='click'){
+      var iso=cell.getAttribute('data-blockdate')||'';
+      var names=((HOLIDAY_MAP[iso]||[]).map(function(x){return x.title;}).join(', '))||'공휴일/휴가';
+      alert('🚫 배정 불가\n\n'+iso+' 은(는) '+names+' 입니다.\n이 날짜에는 수업을 배정할 수 없습니다.');
+    }
+  }
+  document.addEventListener('mousedown',holidayGuard,true);
+  document.addEventListener('click',holidayGuard,true);
+})();
 
 // Click 이벤트에서 드래그 직후는 무시 (모달 안 열리도록)
 document.addEventListener('click', function(e){

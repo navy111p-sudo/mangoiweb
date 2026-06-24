@@ -25,8 +25,11 @@
  *     GET  /api/admin/mod/textbook/resources?textbook_id=   관련 영상+퀴즈 일괄 로딩
  */
 
-interface Env {
+import { sendKakaoAlimtalk, getSolapiMode, type SolapiEnv } from './solapi-client';
+
+interface Env extends SolapiEnv {
   DB: D1Database;
+  SOLAPI_TEMPLATE_ATTENDANCE_RISK?: string;   // 위험군 알림톡 템플릿 코드(선택)
 }
 
 // ── 응답 헬퍼 (모듈 독립) ──────────────────────────────────────────────
@@ -122,6 +125,7 @@ export async function modulesRouter(request: Request, env: Env): Promise<Respons
     if (p === 'risk/scan'        && method === 'GET')  return riskScan(env);
     if (p === 'risk/enqueue'     && method === 'POST') return riskEnqueue(request, env);
     if (p === 'queue/list'       && method === 'GET')  return queueList(env);
+    if (p === 'queue/send'       && method === 'POST') return queueSend(request, env);
     // 모듈3
     if (p === 'holidays/sync'    && method === 'POST') return holidaysSync(request, env);
     if (p === 'holidays/list'    && method === 'GET')  return holidaysList(env, url);
@@ -192,17 +196,38 @@ async function settlementPay(request: Request, env: Env): Promise<Response> {
 
 /* ═════════ 모듈2) 위험군 + 알림 큐 ═════════ */
 async function riskScan(env: Env): Promise<Response> {
-  // class_attendance(기존) 재사용: actual 비어있으면 결강. 학생별 출석률.
-  const q = `SELECT student_id,
-                    MAX(student_name) student_name, MAX(parent_phone) parent_phone,
-                    AVG(CASE WHEN actual IS NOT NULL AND actual<>'' THEN 1.0 ELSE 0.0 END) rate,
-                    COUNT(*) total
-             FROM class_attendance
-             GROUP BY student_id
-             HAVING rate <= 0.70 AND total >= 4
-             ORDER BY rate ASC`;
-  const r = await env.DB.prepare(q).all<any>().catch(() => ({ results: [] as any[] }));
-  const students = (r.results || []).map(s => ({ ...s, segment: s.rate <= 0.5 ? 'Fail' : 'Warning' }));
+  // 실데이터 연동: students_erp(학생 마스터) ⋈ attendance(세션 기록, role='student').
+  //   최근 30일 출석일수 / (주당수업 × 4.3주) = 출석률. ≤70% 위험군(≤50% Fail).
+  //   classes_per_week 미설정시 3회로 보정. parent_phone 있는 정상 학생만 대상.
+  const real = `WITH att AS (
+      SELECT e.user_id AS student_id,
+             COALESCE(e.student_name, e.korean_name, e.english_name, e.user_id) AS student_name,
+             e.parent_phone,
+             COALESCE(NULLIF(e.classes_per_week,0),3) AS cpw,
+             (SELECT COUNT(DISTINCT a.date) FROM attendance a
+                WHERE a.user_id=e.user_id AND a.role='student' AND a.date>=date('now','-30 day')) AS attended
+      FROM students_erp e
+      WHERE e.status='정상' AND e.parent_phone IS NOT NULL AND e.parent_phone<>'')
+    SELECT student_id, student_name, parent_phone,
+           MIN(1.0, attended*1.0/(cpw*4.3)) AS rate
+    FROM att
+    WHERE (attended*1.0/(cpw*4.3)) <= 0.70
+    ORDER BY rate ASC`;
+  let rows: any[] = [];
+  try {
+    const r = await env.DB.prepare(real).all<any>();
+    rows = r.results || [];
+  } catch {
+    // 폴백: 구버전 class_attendance 가 있는 환경
+    try {
+      const r = await env.DB.prepare(
+        `SELECT student_id, MAX(student_name) student_name, MAX(parent_phone) parent_phone,
+                AVG(CASE WHEN actual IS NOT NULL AND actual<>'' THEN 1.0 ELSE 0.0 END) rate, COUNT(*) total
+         FROM class_attendance GROUP BY student_id HAVING rate <= 0.70 AND total >= 4 ORDER BY rate ASC`).all<any>();
+      rows = r.results || [];
+    } catch { rows = []; }
+  }
+  const students = rows.map(s => ({ ...s, segment: s.rate <= 0.5 ? 'Fail' : 'Warning' }));
   return json({ ok: true, count: students.length, students });
 }
 
@@ -225,6 +250,53 @@ async function queueList(env: Env): Promise<Response> {
   const r = await env.DB.prepare(
     `SELECT * FROM notification_queue WHERE status='pending' ORDER BY created_at DESC LIMIT 500`).all();
   return json({ ok: true, rows: r.results });
+}
+
+// 알림 큐 → Solapi(카카오 알림톡/SMS) 발송.
+//   안전장치: dryRun(기본 true)=미리보기만. 실제 발송은 {dryRun:false} 명시 필요.
+//   SOLAPI 키 미설정이면 'disabled' 로 보고 발송하지 않고 큐를 그대로 둔다.
+async function queueSend(request: Request, env: Env): Promise<Response> {
+  const { ids, dryRun = true } = await request.json<any>().catch(() => ({}));
+  const where = Array.isArray(ids) && ids.length
+    ? `id IN (${ids.map(() => '?').join(',')})` : `status='pending'`;
+  const sel = `SELECT * FROM notification_queue WHERE ${where} ORDER BY created_at DESC LIMIT 200`;
+  const q = Array.isArray(ids) && ids.length
+    ? await env.DB.prepare(sel).bind(...ids).all<any>()
+    : await env.DB.prepare(sel).all<any>();
+  const rows = q.results || [];
+  const mode = getSolapiMode(env);
+
+  // 미리보기 또는 키 미설정 → 발송하지 않음(큐 유지)
+  if (dryRun || mode === 'disabled') {
+    return json({
+      ok: true, dryRun: dryRun || mode === 'disabled', mode,
+      pending: rows.length,
+      note: mode === 'disabled'
+        ? 'SOLAPI 키 미설정 — 발송 보류(큐 유지). 미리보기만 제공.'
+        : '미리보기(dryRun). 실제 발송하려면 dryRun:false 로 호출하세요.',
+      preview: rows.slice(0, 20).map((r: any) => ({ student_name: r.student_name, parent_phone: r.parent_phone, segment: r.segment, message: r.message })),
+    });
+  }
+
+  // 실제 발송 (mode = mock | real)
+  let sent = 0, failed = 0;
+  for (const r of rows) {
+    const res = await sendKakaoAlimtalk(env, {
+      templateCode: env.SOLAPI_TEMPLATE_ATTENDANCE_RISK || '',
+      recipientPhone: r.parent_phone,
+      recipientName: r.student_name,
+      variables: { '#{학생명}': r.student_name || '', '#{출석률}': String(Math.round((r.attend_rate || 0) * 100)) },
+      fallbackSmsText: r.message,    // 템플릿 미설정 환경에선 SMS 폴백 문구로 사용
+    });
+    if (res.ok) {
+      sent++;
+      await env.DB.prepare(`UPDATE notification_queue SET status='sent', sent_at=datetime('now') WHERE id=?`).bind(r.id).run();
+    } else {
+      failed++;
+      await env.DB.prepare(`UPDATE notification_queue SET status='failed' WHERE id=?`).bind(r.id).run();
+    }
+  }
+  return json({ ok: true, dryRun: false, mode, sent, failed });
 }
 
 /* ═════════ 모듈3) 공휴일 + 휴가 + 검증 ═════════ */

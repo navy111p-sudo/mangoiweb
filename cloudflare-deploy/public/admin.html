@@ -4841,6 +4841,7 @@
               <button onclick="modxRiskScan()" style="padding:5px 10px;font-size:11.5px;background:#fff;color:#dc2626;border:1px solid #dc2626;border-radius:6px;cursor:pointer;font-weight:600">🔎 위험군 스캔</button>
               <button id="modx-risk-enq" onclick="modxRiskEnqueue()" disabled style="padding:5px 10px;font-size:11.5px;background:#dc2626;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700;opacity:.45">📲 위험군 학부모 알림</button>
               <button onclick="modxQueueLoad()" style="padding:5px 10px;font-size:11.5px;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:600">📥 알림 큐</button>
+              <button onclick="modxQueueSend()" style="padding:5px 10px;font-size:11.5px;background:#f59e0b;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">📤 큐 발송</button>
             </div>
             <div id="modx-risk-body" style="padding:10px 14px;font-size:12px;color:#64748b">‘위험군 스캔’을 눌러 출석률 70% 이하 학생을 조회하세요.</div>
           </div>
@@ -4989,6 +4990,19 @@
                <div style="font-weight:700;color:#991b1b;font-size:11.5px">${q.student_name||q.student_id} · ${q.segment||''} · ${q.parent_phone||''} <span style="float:right;color:#f59e0b">${q.status}</span></div>
                <div style="color:#475569;margin-top:3px;font-size:11px;line-height:1.5">${(q.message||'').replace(/</g,'&lt;')}</div></div>`).join('') + '</div>'; }
           body.innerHTML = h;
+        };
+        // 큐 발송: 먼저 미리보기(dryRun) → 확인 시 실제 발송(dryRun:false)
+        window.modxQueueSend = async function(){
+          const prev = await api('queue/send', { method:'POST', body:JSON.stringify({ dryRun:true }) });
+          if(!prev.pending){ modxToast('발송할 대기 알림이 없습니다.'); modxQueueLoad(); return; }
+          if(prev.mode==='disabled'){
+            alert(`📤 발송 보류\n\n대기 ${prev.pending}건이 있으나 SOLAPI 발신 키가 설정되지 않아 실제 발송할 수 없습니다.\n(키 설정 시 동일 버튼으로 발송됩니다. 큐는 그대로 유지됩니다.)`);
+            modxQueueLoad(); return;
+          }
+          if(!confirm(`📤 대기 ${prev.pending}건을 실제 발송할까요?\n발신 모드: ${prev.mode==='mock'?'테스트(mock)':'실제(real)'}`)) return;
+          const r = await api('queue/send', { method:'POST', body:JSON.stringify({ dryRun:false }) });
+          modxToast(`발송 완료 — 성공 ${r.sent||0} / 실패 ${r.failed||0} (${r.mode})`);
+          modxQueueLoad();
         };
 
         // ── ③ 공휴일 + 검증 ─────────────────────────────────
@@ -22116,7 +22130,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260624053943 -->
+        <!-- BUILD:20260624150328 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
