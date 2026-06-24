@@ -3045,6 +3045,8 @@
 
 <!-- 화상수업 라이트(파스텔) 테마 [초안] — body.vc-theme-light 일 때 적용 -->
 <link rel="stylesheet" href="/css/mango-theme-light.css?v=1">
+<!-- 복습퀴즈 옆 교재도구/필기도구 토글 도킹 [초안] -->
+<link rel="stylesheet" href="/css/mango-tools-dock.css?v=1">
 </head>
 <body>
 <!-- ============================================================
@@ -6848,6 +6850,9 @@
                 <button class="tab-btn" onclick="vcSwitchTab('game')" data-ko="🎮 학생게임" data-en="🎮 Game">🎮 학생게임</button>
                 <button class="tab-btn" onclick="vcSwitchTab('bg')" data-ko="🎨 배경화면" data-en="🎨 Background">🎨 배경화면</button>
                 <button class="tab-btn rqv-tab-btn" onclick="vcSwitchTab('review-quiz')" data-ko="🧠 복습퀴즈" data-en="🧠 Review Quiz" title="이 수업 교재·레벨·레슨에 맞는 복습퀴즈 (AI 자동 출제)">🧠 복습퀴즈</button>
+                <!-- 복습퀴즈 옆: 교재도구 / 필기도구 토글 칩 (클릭 시 아래로 세로 드롭다운, 배경 투명) -->
+                <button class="mango-tool-chip" data-tool="materials" type="button" onclick="mangoToggleToolDock('materials', this)" title="교재도구 펼치기/접기">📚 교재도구 ▾</button>
+                <button class="mango-tool-chip" data-tool="write" type="button" onclick="mangoToggleToolDock('write', this)" title="필기도구 펼치기/접기">✍️ 필기도구 ▾</button>
             </div>
 
             <!-- 탭 콘텐츠 -->
@@ -26791,21 +26796,31 @@ window.closeRulesModal = function() {
   }
 
   function ph49AddWhiteboardToggle(){
-    var bars = document.querySelectorAll('.wb-toolbar, .pdf-controls, .pdf-anno-bar');
-    bars.forEach(function(bar){
+    // 교재도구(.pdf-controls)·필기도구(.pdf-anno-bar)는 상단 탭바의 칩(mango-tool-chip)이 제어.
+    //  → 인라인 토글을 넣지 않고, 기본 '접힘(드롭다운 숨김)' 상태로 시작.
+    document.querySelectorAll('.pdf-controls, .pdf-anno-bar').forEach(function(bar){
+      bar.classList.add('ph49-collapsed');
+    });
+    // 칠판 도구바(.wb-toolbar)는 기존처럼 인라인 토글 유지(이름: 칠판도구).
+    document.querySelectorAll('.wb-toolbar').forEach(function(bar){
       if (bar.querySelector('.ph49-tool-toggle')) return;
+      var name = '칠판도구';
       var btn = document.createElement('button');
       btn.className = 'ph49-tool-toggle active';
       btn.type = 'button';
-      btn.title = 'Toggle tools';
-      btn.textContent = 'TOOLS';
+      btn.title = name + ' 펼치기/접기';
+      function sync(){
+        var collapsed = bar.classList.contains('ph49-collapsed');
+        btn.textContent = name + (collapsed ? ' ▾' : ' ▴');
+        btn.classList.toggle('active', !collapsed);
+      }
       btn.addEventListener('click', function(e){
         e.preventDefault(); e.stopPropagation();
         bar.classList.toggle('ph49-collapsed');
-        btn.classList.toggle('active');
-        btn.textContent = bar.classList.contains('ph49-collapsed') ? 'TOOLS+' : 'TOOLS';
+        sync();
       });
       bar.insertBefore(btn, bar.firstChild);
+      sync();
     });
   }
 
@@ -27613,7 +27628,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260624164136 -->
+<!-- BUILD:20260624165719 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -28732,6 +28747,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 <script src="/js/mango-rec.js?v=35" defer></script>
 <script src="/js/mango-class-time.js?v=2" defer></script><!-- 수업 시간(시작~종료) 표시: REC 배지 옆 (수업 중에만 노출) -->
 <script src="/js/mango-theme.js?v=2" defer></script><!-- 라이트/다크 테마 토글 [초안] -->
+<script src="/js/mango-tools-dock.js?v=1" defer></script><!-- 교재도구/필기도구 칩 토글 [초안] -->
 <script src="/js/mango-attendance.js?v=33" defer></script>
 <script src="/js/mango-gaze.js?v=33" defer></script>
 <script src="/js/mango-i18n.js?v=33" defer></script>

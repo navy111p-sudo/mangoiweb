@@ -1,0 +1,84 @@
+/* ============================================================
+ * mango-tools-dock.css — 복습퀴즈 옆 "교재도구 / 필기도구" 토글 칩
+ *   클릭 시 해당 도구바가 그 아래로 '세로(아래로)' 드롭다운,
+ *   드롭다운 배경은 '투명'.
+ *  - 수업 중(body.vc-in-call)에만 도킹 적용
+ *  - 기존 버튼/기능은 그대로, 배치만 변경
+ * ============================================================ */
+
+/* 콘텐츠 영역을 절대배치 기준으로 */
+body.vc-in-call #vc-content-pane { position: relative !important; }
+
+/* ── 탭바 칩 버튼 (복습퀴즈 바로 옆) ───────────────────────── */
+.mango-tool-chip {
+  align-self: center;
+  margin-left: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,0.35);
+  background: linear-gradient(135deg, #fbbf24, #f59e0b); /* 교재도구: 앰버 */
+  color: #1a0f08;
+  font-size: 12.5px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  transition: filter .12s ease, transform .12s ease;
+}
+.mango-tool-chip:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.mango-tool-chip[data-tool="write"] {
+  background: linear-gradient(135deg, #60a5fa, #3b82f6); /* 필기도구: 스카이 */
+  color: #06203f;
+}
+.mango-tool-chip.open { box-shadow: 0 0 0 2px rgba(16,185,129,0.7); }
+
+/* 라이트(파스텔) 테마일 때 칩 톤 */
+body.vc-theme-light .mango-tool-chip {
+  background: linear-gradient(135deg, #fde68a, #fcd34d);
+  color: #7c5310;
+}
+body.vc-theme-light .mango-tool-chip[data-tool="write"] {
+  background: linear-gradient(135deg, #bae6fd, #7dd3fc);
+  color: #0c4a6e;
+}
+
+/* ── 교재/필기 도구바 = 세로 드롭다운(아래로) + 배경 투명 ──── */
+body.vc-in-call #tab-pdf .pdf-controls,
+body.vc-in-call #tab-pdf .pdf-anno-bar {
+  position: absolute !important;
+  top: 46px !important;            /* JS 가 칩 아래로 재배치(미실행 시 기본값) */
+  right: 12px !important;
+  left: auto !important;
+  z-index: 47 !important;
+  display: flex !important;
+  flex-direction: column !important;   /* ⬇ 세로(아래로) */
+  align-items: flex-start !important;
+  gap: 6px !important;
+  width: auto !important;
+  max-width: 300px !important;
+  max-height: calc(100% - 54px) !important;
+  overflow-y: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;  /* 🫥 드롭다운 바탕 투명 */
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  flex-wrap: nowrap !important;
+}
+body.vc-in-call #tab-pdf .pdf-controls > *,
+body.vc-in-call #tab-pdf .pdf-anno-bar > * {
+  width: auto !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  flex: 0 0 auto !important;
+}
+/* 내부 그룹(span: 페이지뷰/줌, 범례)도 줄바꿈 없이 한 줄씩 */
+body.vc-in-call #tab-pdf .pdf-controls > span,
+body.vc-in-call #tab-pdf .pdf-anno-bar > span {
+  border-left: 0 !important;
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+}
