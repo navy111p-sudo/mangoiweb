@@ -882,52 +882,72 @@ header {
   .guide-video-wrap{top:50%;right:auto;left:calc(75vw + 161px);transform:translate(-50%,-50%);width:min(224px,calc(50vw - 348px));max-width:none}
 }
 
+/* 부드러운 스크롤 + 스크롤바 숨김 (가로 날짜·세로 본문) — 모든 화면 공통 */
+.date-scroller, .detail-body{ scroll-behavior: smooth; }
+
+/* ════════ 태블릿(700~1023px) — 모바일보다 한 단계 시원하게 ════════ */
+@media (min-width:700px) and (max-width:1023px){
+  #app{ max-width: 760px; }
+  .section-label{ font-size: 15.2px; }
+  .wk-tabs .wk{ font-size: 15.4px; padding: 12px 0; }
+  .push-btn{ font-size: 16px; padding: 14px; }
+  .date-chip{ min-width: 80px; padding: 14px 9px; }
+  .date-chip .dc-day{ font-size: 22px; }
+  .date-chip .dc-dow{ font-size: 13.4px; }
+  .date-scroller{ gap: 10px; }
+}
+
 /* ════════ PC(≥1024px) 좌우 2단 분할 — 수업 연기·변경 공용 ════════ */
 @media (min-width:1024px){
-  /* 앱 컨테이너를 넓혀 2단 공간 확보 */
-  #app{ max-width: 1180px; }
+  /* 앱 컨테이너를 넓혀 2단 공간 확보 + 중앙 정렬 */
+  #app{ max-width: 1280px; }
 
-  /* 본문: 좌(설정·고정) 35% / 우(콘텐츠) 65% 2단 그리드 */
+  /* 본문: 좌(설정·고정) 35% / 우(콘텐츠) 65% 2단 그리드, 화면 균형 배치 */
   #screen-detail .detail-body{
     display: grid;
     grid-template-columns: 35fr 65fr;
-    column-gap: 30px;
+    column-gap: 34px;
     align-items: start;
-    padding-left: 32px;
-    padding-right: 32px;
-    max-width: 1180px;
+    padding-left: 36px;
+    padding-right: 36px;
+    max-width: 1280px;
     margin: 0 auto;
   }
   /* 왼쪽 설정 메뉴: 스크롤해도 화면에 고정 */
   .lp-col-left{
     position: sticky;
-    top: 16px;
+    top: 18px;
     align-self: start;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 16px;
   }
   .lp-col-left > *{ margin-bottom: 0 !important; }
   .lp-col-right{ min-width: 0; }
 
-  /* 좌측으로 옮겨진 탭(segment) — 칼럼 폭 풀폭, 두 버튼 나란히 */
+  /* 좌측으로 옮겨진 탭(segment) — 칼럼 폭 풀폭, 두 버튼 나란히, 크게 */
   .lp-col-left .segment{ margin: 0 0 2px; width: 100%; }
+  .lp-col-left .segment .seg{ font-size: 16px; padding: 13px 0; }
   .lp-seg-slot:empty{ display: none; }
 
-  /* 가독성 향상(폰트 약간 키움) */
-  #screen-detail .section-label{ font-size: 15.6px; }
-  .cur-lesson{ padding: 14px 16px; }
-  .cur-lesson .cl-tag{ font-size: 14px; }
-  .cur-lesson .cl-item{ font-size: 16.8px; }
-  .wk-tabs .wk{ font-size: 15px; padding: 11px 0; }
+  /* 가독성 향상(폰트 키움) */
+  #screen-detail .section-label{ font-size: 16.4px; }
+  .cur-lesson{ padding: 16px 18px; }
+  .cur-lesson .cl-tag{ font-size: 14.6px; }
+  .cur-lesson .cl-item{ font-size: 17.6px; }
+
+  /* 주간 횟수 버튼 — 시원하게 키우고 누르기 편하게 */
+  .wk-tabs{ padding: 6px; gap: 8px; }
+  .wk-tabs .wk{ font-size: 16.6px; padding: 14px 0; border-radius: 11px; }
 
   /* 오른쪽 상단: 전체 밀기 버튼 넓게·또렷하게 */
-  .lp-col-right .push-btn{ font-size: 16.2px; padding: 14px; }
+  .lp-col-right .push-btn{ font-size: 17px; padding: 16px; }
 
-  /* 날짜 칩 — 더 크고 한눈에 많이, 마우스로 누르기 편하게 */
-  .lp-col-right .date-chip{ min-width: 80px; padding: 14px 10px; }
-  .lp-col-right .date-chip .dc-day{ font-size: 22.5px; }
-  .lp-col-right .date-chip .dc-dow{ font-size: 13.6px; }
+  /* 날짜 칩 — 크게·시원한 터치 영역, 요일/날짜 텍스트 확대 */
+  .lp-col-right .date-scroller{ gap: 12px; }
+  .lp-col-right .date-chip{ min-width: 94px; padding: 17px 12px; border-radius: 16px; }
+  .lp-col-right .date-chip .dc-day{ font-size: 25px; }
+  .lp-col-right .date-chip .dc-dow{ font-size: 15px; }
 
   /* 교사 카드 — 상하 여백 축소(컴팩트) */
   .lp-col-right .teacher-feed .tc-row{ padding: 10px 14px; }
@@ -946,13 +966,27 @@ header {
   .lp-col-right .date-chip:hover{
     border-color: var(--green);
     background: rgba(16,185,129,0.10);
+    box-shadow: 0 4px 14px rgba(16,185,129,0.18);
   }
 
   /* 장바구니 — 우측 칼럼 하단 */
-  .lp-col-right .cart-box{ margin-top: 18px; }
+  .lp-col-right .cart-box{ margin-top: 20px; }
 
   /* 확정/완료 바 — 우측(65%) 칼럼 아래로 정렬 */
-  .sticky-bar{ max-width: 1180px; padding-left: calc(35% + 30px); }
+  .sticky-bar{ max-width: 1280px; padding-left: calc(35% + 34px); }
+}
+
+/* ════════ 초광폭(≥1440px) — 더 시원하게 ════════ */
+@media (min-width:1440px){
+  #app{ max-width: 1360px; }
+  #screen-detail .detail-body{ max-width: 1360px; }
+  .sticky-bar{ max-width: 1360px; }
+  .lp-col-right .date-chip{ min-width: 104px; padding: 18px 12px; }
+  .lp-col-right .date-chip .dc-day{ font-size: 26.5px; }
+  .lp-col-right .date-chip .dc-dow{ font-size: 15.6px; }
+  .wk-tabs .wk{ font-size: 17.4px; }
+  #screen-detail .section-label{ font-size: 17px; }
+  .cur-lesson .cl-item{ font-size: 18.4px; }
 }
 
 .guide-video-wrap video{display:block;width:100%;height:auto}
@@ -1708,7 +1742,7 @@ function attachHandlers(){
   new MutationObserver(syncVis).observe(main,{attributes:true,attributeFilter:['class']});
 })();
 </script>
-<!-- BUILD:20260624183015 -->
+<!-- BUILD:20260624190717 -->
 <script src="/js/i18n-sweep.js?v=2"></script>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
