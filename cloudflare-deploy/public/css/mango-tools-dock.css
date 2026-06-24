@@ -9,39 +9,49 @@
 /* 콘텐츠 영역을 절대배치 기준으로 */
 body.vc-in-call #vc-content-pane { position: relative !important; }
 
-/* ── 탭바 칩 버튼 (복습퀴즈 바로 옆) ───────────────────────── */
+/* ── 탭바 칩 버튼 (복습퀴즈 바로 옆) — 깔끔한 라인(아웃라인) 스타일 ── */
 .mango-tool-chip {
   align-self: center;
   margin-left: 8px;
-  padding: 6px 12px;
+  padding: 6px 14px;
   border-radius: 999px;
-  border: 1px solid rgba(148,163,184,0.35);
-  background: linear-gradient(135deg, #fbbf24, #f59e0b); /* 교재도구: 앰버 */
-  color: #1a0f08;
+  background: transparent;            /* 꽉 찬 배경 제거 → 투명 */
+  border: 1px solid #FBBF24;          /* 기본(교재도구): 파스텔 노랑 */
+  color: #FBBF24;                     /* 글자색 = 테두리색 */
   font-size: 12.5px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1;
   cursor: pointer;
   white-space: nowrap;
   flex: 0 0 auto;
-  transition: filter .12s ease, transform .12s ease;
+  transition: background-color .18s ease, color .18s ease, box-shadow .18s ease;
 }
-.mango-tool-chip:hover { filter: brightness(1.06); transform: translateY(-1px); }
-.mango-tool-chip[data-tool="write"] {
-  background: linear-gradient(135deg, #60a5fa, #3b82f6); /* 필기도구: 스카이 */
-  color: #06203f;
-}
-.mango-tool-chip.open { box-shadow: 0 0 0 2px rgba(16,185,129,0.7); }
 
-/* 라이트(파스텔) 테마일 때 칩 톤 */
-body.vc-theme-light .mango-tool-chip {
-  background: linear-gradient(135deg, #fde68a, #fcd34d);
-  color: #7c5310;
+/* 교재도구 = 노랑 라인 */
+.mango-tool-chip[data-tool="materials"] { border-color: #FBBF24; color: #FBBF24; }
+.mango-tool-chip[data-tool="materials"]:hover {
+  background: rgba(251, 191, 36, 0.15);   /* hover 시에만 은은히 채움 */
+  color: #FCD34D;
 }
-body.vc-theme-light .mango-tool-chip[data-tool="write"] {
-  background: linear-gradient(135deg, #bae6fd, #7dd3fc);
-  color: #0c4a6e;
+.mango-tool-chip[data-tool="materials"].open {
+  background: rgba(251, 191, 36, 0.20);   /* 펼쳐진 동안 약하게 채워 활성 표시 */
 }
+
+/* 필기도구 = 파랑 라인 */
+.mango-tool-chip[data-tool="write"] { border-color: #60A5FA; color: #60A5FA; }
+.mango-tool-chip[data-tool="write"]:hover {
+  background: rgba(96, 165, 250, 0.15);
+  color: #93C5FD;
+}
+.mango-tool-chip[data-tool="write"].open {
+  background: rgba(96, 165, 250, 0.20);
+}
+
+/* 라이트(파스텔) 테마 — 흰 배경 위 가독성 위해 글자만 약간 진하게 */
+body.vc-theme-light .mango-tool-chip[data-tool="materials"] { color: #D97706; border-color: #FBBF24; }
+body.vc-theme-light .mango-tool-chip[data-tool="materials"]:hover { color: #B45309; background: rgba(251,191,36,0.18); }
+body.vc-theme-light .mango-tool-chip[data-tool="write"] { color: #2563EB; border-color: #60A5FA; }
+body.vc-theme-light .mango-tool-chip[data-tool="write"]:hover { color: #1D4ED8; background: rgba(96,165,250,0.18); }
 
 /* ── 교재/필기 도구바 = 세로 드롭다운(아래로) + 배경 투명 ──── */
 body.vc-in-call #tab-pdf .pdf-controls,
