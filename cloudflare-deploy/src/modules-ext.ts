@@ -85,7 +85,7 @@ async function ensureTables(env: Env): Promise<void> {
       status TEXT NOT NULL DEFAULT 'pending', paid_at TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')));`),
     env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_ledger_branch ON settlement_ledger(branch_id, period);`),
-    env.DB.prepare(`CREATE TABLE IF NOT EXISTS notification_queue (
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS mod_notify_queue (
       id INTEGER PRIMARY KEY AUTOINCREMENT, event_type TEXT NOT NULL, dedup_key TEXT UNIQUE,
       student_id TEXT NOT NULL, student_name TEXT, segment TEXT, attend_rate REAL,
       parent_phone TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
@@ -97,13 +97,13 @@ async function ensureTables(env: Env): Promise<void> {
       id INTEGER PRIMARY KEY AUTOINCREMENT, teacher_id TEXT NOT NULL, teacher_name TEXT,
       start_date TEXT NOT NULL, end_date TEXT NOT NULL, type TEXT DEFAULT 'vacation', memo TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(teacher_id, start_date, end_date));`),
-    env.DB.prepare(`CREATE TABLE IF NOT EXISTS textbooks (
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS mod_textbooks (
       id TEXT PRIMARY KEY, title TEXT NOT NULL, isbn TEXT, level TEXT,
       unit_count INTEGER DEFAULT 0, meta_json TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')));`),
-    env.DB.prepare(`CREATE TABLE IF NOT EXISTS videos (
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS mod_videos (
       id TEXT PRIMARY KEY, youtube_url TEXT NOT NULL, youtube_id TEXT, title TEXT,
       lesson_no INTEGER, created_at TEXT NOT NULL DEFAULT (datetime('now')));`),
-    env.DB.prepare(`CREATE TABLE IF NOT EXISTS textbook_video_map (
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS mod_tb_video_map (
       id INTEGER PRIMARY KEY AUTOINCREMENT, textbook_id TEXT NOT NULL, video_id TEXT NOT NULL,
       unit_no INTEGER, quiz_id TEXT, UNIQUE(textbook_id, video_id, unit_no));`),
   ]);
@@ -235,7 +235,7 @@ async function riskEnqueue(request: Request, env: Env): Promise<Response> {
   const { students } = await request.json<any>().catch(() => ({ students: [] }));
   const month = new Date().toISOString().slice(0, 7);
   const stmt = env.DB.prepare(
-    `INSERT INTO notification_queue
+    `INSERT INTO mod_notify_queue
        (event_type,dedup_key,student_id,student_name,segment,attend_rate,parent_phone,message,status)
      VALUES ('attendance_risk',?,?,?,?,?,?,?,'pending')
      ON CONFLICT(dedup_key) DO NOTHING`);
@@ -248,7 +248,7 @@ async function riskEnqueue(request: Request, env: Env): Promise<Response> {
 
 async function queueList(env: Env): Promise<Response> {
   const r = await env.DB.prepare(
-    `SELECT * FROM notification_queue WHERE status='pending' ORDER BY created_at DESC LIMIT 500`).all();
+    `SELECT * FROM mod_notify_queue WHERE status='pending' ORDER BY created_at DESC LIMIT 500`).all();
   return json({ ok: true, rows: r.results });
 }
 
@@ -259,7 +259,7 @@ async function queueSend(request: Request, env: Env): Promise<Response> {
   const { ids, dryRun = true } = await request.json<any>().catch(() => ({}));
   const where = Array.isArray(ids) && ids.length
     ? `id IN (${ids.map(() => '?').join(',')})` : `status='pending'`;
-  const sel = `SELECT * FROM notification_queue WHERE ${where} ORDER BY created_at DESC LIMIT 200`;
+  const sel = `SELECT * FROM mod_notify_queue WHERE ${where} ORDER BY created_at DESC LIMIT 200`;
   const q = Array.isArray(ids) && ids.length
     ? await env.DB.prepare(sel).bind(...ids).all<any>()
     : await env.DB.prepare(sel).all<any>();
@@ -290,10 +290,10 @@ async function queueSend(request: Request, env: Env): Promise<Response> {
     });
     if (res.ok) {
       sent++;
-      await env.DB.prepare(`UPDATE notification_queue SET status='sent', sent_at=datetime('now') WHERE id=?`).bind(r.id).run();
+      await env.DB.prepare(`UPDATE mod_notify_queue SET status='sent', sent_at=datetime('now') WHERE id=?`).bind(r.id).run();
     } else {
       failed++;
-      await env.DB.prepare(`UPDATE notification_queue SET status='failed' WHERE id=?`).bind(r.id).run();
+      await env.DB.prepare(`UPDATE mod_notify_queue SET status='failed' WHERE id=?`).bind(r.id).run();
     }
   }
   return json({ ok: true, dryRun: false, mode, sent, failed });
@@ -355,7 +355,7 @@ async function textbookUpsert(request: Request, env: Env): Promise<Response> {
   const t = await request.json<any>().catch(() => ({}));
   if (!t.id || !t.title) return err('id/title 필요');
   await env.DB.prepare(
-    `INSERT INTO textbooks (id,title,isbn,level,unit_count,meta_json) VALUES (?,?,?,?,?,?)
+    `INSERT INTO mod_textbooks (id,title,isbn,level,unit_count,meta_json) VALUES (?,?,?,?,?,?)
      ON CONFLICT(id) DO UPDATE SET title=excluded.title, isbn=excluded.isbn,
         level=excluded.level, unit_count=excluded.unit_count, meta_json=excluded.meta_json`)
     .bind(t.id, t.title, t.isbn ?? null, t.level ?? null, t.unit_count ?? 0, t.meta_json ?? null).run();
@@ -367,7 +367,7 @@ async function videoUpsert(request: Request, env: Env): Promise<Response> {
   if (!v.id || !v.youtube_url) return err('id/youtube_url 필요');
   const yid = extractYoutubeId(v.youtube_url);
   await env.DB.prepare(
-    `INSERT INTO videos (id,youtube_url,youtube_id,title,lesson_no) VALUES (?,?,?,?,?)
+    `INSERT INTO mod_videos (id,youtube_url,youtube_id,title,lesson_no) VALUES (?,?,?,?,?)
      ON CONFLICT(id) DO UPDATE SET youtube_url=excluded.youtube_url, youtube_id=excluded.youtube_id,
         title=excluded.title, lesson_no=excluded.lesson_no`)
     .bind(v.id, v.youtube_url, yid, v.title ?? null, v.lesson_no ?? null).run();
@@ -378,7 +378,7 @@ async function textbookMap(request: Request, env: Env): Promise<Response> {
   const { textbook_id, video_id, unit_no, quiz_id } = await request.json<any>().catch(() => ({}));
   if (!textbook_id || !video_id) return err('textbook_id/video_id 필요');
   await env.DB.prepare(
-    `INSERT INTO textbook_video_map (textbook_id,video_id,unit_no,quiz_id) VALUES (?,?,?,?)
+    `INSERT INTO mod_tb_video_map (textbook_id,video_id,unit_no,quiz_id) VALUES (?,?,?,?)
      ON CONFLICT(textbook_id,video_id,unit_no) DO NOTHING`)
     .bind(textbook_id, video_id, unit_no ?? null, quiz_id ?? null).run();
   return json({ ok: true });
@@ -391,18 +391,18 @@ async function textbookResources(env: Env, url: URL): Promise<Response> {
   const r = await env.DB.prepare(
     `SELECT m.unit_no, m.quiz_id, t.title textbook_title, t.level,
             v.id video_id, v.youtube_id, v.youtube_url, v.title video_title, v.lesson_no
-     FROM textbook_video_map m
-     JOIN textbooks t ON t.id = m.textbook_id
-     JOIN videos    v ON v.id = m.video_id
+     FROM mod_tb_video_map m
+     JOIN mod_textbooks t ON t.id = m.textbook_id
+     JOIN mod_videos    v ON v.id = m.video_id
      WHERE m.textbook_id=? ORDER BY m.unit_no, v.lesson_no`).bind(tid).all<any>();
   const rows = r.results || [];
-  const videos = rows.map(x => ({
+  const mod_videos = rows.map(x => ({
     video_id: x.video_id, youtube_id: x.youtube_id, youtube_url: x.youtube_url,
     title: x.video_title, lesson_no: x.lesson_no, unit_no: x.unit_no, quiz_id: x.quiz_id,
   }));
   return json({
     ok: true, textbook_id: tid,
     textbook_title: rows[0]?.textbook_title ?? null, level: rows[0]?.level ?? null,
-    videos, quizzes: videos.filter(v => v.quiz_id).map(v => v.quiz_id),
+    mod_videos, quizzes: mod_videos.filter(v => v.quiz_id).map(v => v.quiz_id),
   });
 }
