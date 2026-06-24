@@ -82,3 +82,26 @@ body.vc-in-call #tab-pdf .pdf-anno-bar > span {
   padding-left: 0 !important;
   margin-left: 0 !important;
 }
+
+/* ============================================================
+ * "시간 정보 없음" 배지 ↔ REC 녹화 배지 크기 동일하게 (데스크탑)
+ *  - 모바일(REC 원형)은 건드리지 않도록 데스크탑 폭에서만 적용
+ * ============================================================ */
+@media (min-width: 901px) {
+  #mango-class-time,
+  #mango-rec-badge {
+    height: 34px !important;
+    box-sizing: border-box !important;
+    padding: 0 14px !important;
+    border-radius: 20px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    line-height: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+  /* 아이콘/점 크기도 맞춰 동일한 높이감 */
+  #mango-class-time .mct-clock { font-size: 14px !important; line-height: 1 !important; }
+  #mango-rec-badge .mango-rec-stop { font-size: 13px !important; line-height: 1 !important; }
+}

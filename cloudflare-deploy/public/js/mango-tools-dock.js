@@ -1,7 +1,7 @@
 /**
  * mango-tools-dock.js — 복습퀴즈 옆 "교재도구/필기도구" 칩 동작 [초안]
  *  - 칩 클릭 → 교재(pdf) 탭으로 전환 + 해당 도구바를 칩 아래로 세로 드롭다운(투명)
- *  - 다시 클릭 → 접기
+ *  - 하나 열면 다른 하나는 자동으로 닫힘 (상호 배타)
  *  - mango-tools-dock.css 와 짝으로 동작
  */
 (function () {
@@ -25,7 +25,6 @@
     chip.classList.toggle('open', open);
   }
 
-  /** 드롭다운을 칩 바로 아래에 위치시킴 (콘텐츠 영역 기준 절대좌표) */
   function positionDock(which) {
     var bar = barOf(which), chip = chipOf(which);
     var pane = document.getElementById('vc-content-pane');
@@ -38,13 +37,19 @@
   }
 
   window.mangoToggleToolDock = function (which, el) {
-    // 도구는 교재(pdf) 탭에 있으므로 먼저 그 탭으로 전환
     try { if (typeof vcSwitchTab === 'function') vcSwitchTab('pdf'); } catch (_) {}
     var bar = barOf(which);
     if (!bar) return;
     var willOpen = bar.classList.contains('ph49-collapsed');
-    bar.classList.toggle('ph49-collapsed');
-    if (willOpen) positionDock(which);
+    if (willOpen) {
+      var other = which === 'materials' ? 'write' : 'materials';
+      var ob = barOf(other);
+      if (ob) ob.classList.add('ph49-collapsed');
+      bar.classList.remove('ph49-collapsed');
+      positionDock(which);
+    } else {
+      bar.classList.add('ph49-collapsed');
+    }
     syncChip('materials');
     syncChip('write');
   };
@@ -59,7 +64,6 @@
   } else {
     init();
   }
-  // 뷰 전환/리사이즈 대비: 열려있는 도크는 위치 재계산, 라벨 동기화
   setInterval(function () {
     ['materials', 'write'].forEach(function (w) {
       var bar = barOf(w);
