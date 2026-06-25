@@ -1,0 +1,58 @@
+/* ============================================================
+   vc-refresh.css  -  수업 중(in-call) 화면 비주얼 리프레시 (Phase 1)
+   - body.vc-in-call 에만 적용 = 로비/홈 화면에는 영향 없음
+   - 색/모양(라운드·글래스·그림자)만 정제. 레이아웃/기능/자동녹화는 그대로
+   - 문제가 생기면 index.html 에서 이 <link> 한 줄만 빼면 즉시 원복
+   ============================================================ */
+
+/* 상단 툴바 - 글래스 톤 */
+body.vc-in-call .toolbar{
+  background:linear-gradient(180deg,rgba(20,28,44,.92),rgba(16,22,36,.9)) !important;
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(255,255,255,.07) !important;
+  box-shadow:0 2px 16px rgba(0,0,0,.28);
+}
+body.vc-in-call .toolbar .room-info{font-weight:600;letter-spacing:-.1px}
+
+/* 컨트롤 버튼 - 둥글고 정제된 느낌 */
+body.vc-in-call .ctrl-btn{
+  border-radius:12px !important;
+  transition:transform .12s ease, background .15s ease, box-shadow .15s ease;
+}
+body.vc-in-call .ctrl-btn:hover{transform:translateY(-1px)}
+body.vc-in-call .ctrl-btn.on{
+  background:rgba(59,130,246,.92) !important;color:#fff !important;border:none !important;
+  box-shadow:0 4px 12px rgba(59,130,246,.32);
+}
+body.vc-in-call .ctrl-btn.danger,
+body.vc-in-call #vc-exit-btn-v34{
+  background:rgba(239,68,68,.95) !important;color:#fff !important;border:none !important;
+  border-radius:12px !important;box-shadow:0 4px 12px rgba(239,68,68,.32);
+}
+body.vc-in-call .ctrl-select{border-radius:12px !important}
+
+/* 탭바 - pill 정제 + 활성 앰버 */
+body.vc-in-call .tab-bar .tab-btn{
+  border-radius:10px !important;transition:background .12s ease, color .12s ease;
+}
+body.vc-in-call .tab-bar .tab-btn:hover{background:rgba(255,255,255,.06)}
+body.vc-in-call .tab-bar .tab-btn.active{
+  background:rgba(251,191,36,.18) !important;color:#fcd34d !important;
+  box-shadow:inset 0 0 0 1px rgba(251,191,36,.45);
+}
+
+/* 영상/콘텐츠 - 라운드 카드 + 그림자 */
+body.vc-in-call .video-box{
+  border-radius:14px !important;overflow:hidden;
+  box-shadow:0 6px 20px rgba(0,0,0,.30);
+}
+body.vc-in-call .video-label{
+  background:rgba(10,14,22,.6) !important;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  border-radius:8px !important;font-weight:600;
+}
+body.vc-in-call .content-pane{border-radius:14px}
+
+/* 수업시간/경과 배지 - 살짝 더 정제 (mango-class-time.js 와 조화) */
+body.vc-in-call #mango-class-time{
+  border-radius:14px !important;box-shadow:0 6px 16px rgba(0,0,0,.28) !important;
+}
