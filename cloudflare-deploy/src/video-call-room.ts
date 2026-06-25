@@ -18,6 +18,7 @@ interface VcAttachment {
   userId: string;
   roomId: string;
   username?: string;
+  role?: string;
   joined?: boolean;
 }
 
@@ -137,7 +138,7 @@ export class VideoCallRoom {
 
   // ── 비즈니스 로직 ──
   private handleJoinRoom(ws: WebSocket, userId: string, data: any): void {
-    const { username } = data || {};
+    const { username, role } = data || {};
     if (!username) {
       this.send(userId, { type: 'error-msg', data: { message: 'username required' } });
       return;
@@ -151,7 +152,7 @@ export class VideoCallRoom {
 
     // attachment 에 사용자명/joined 기록 (재기동에도 유지)
     const att = this.attOf(ws) || { userId, roomId: this.roomId };
-    ws.serializeAttachment({ ...att, userId, roomId: this.roomId, username, joined: true } as VcAttachment);
+    ws.serializeAttachment({ ...att, userId, roomId: this.roomId, username, role: role || 'student', joined: true } as VcAttachment);
 
     const userCount = this.joinedUsers().length;
 
@@ -163,7 +164,7 @@ export class VideoCallRoom {
     const existingUsers = this.joinedUsers().filter(u => u.userId !== userId);
     this.send(userId, { type: 'existing-users', data: { users: existingUsers, pdfState: this.pdfState } });
 
-    this.broadcast(userId, { type: 'user-joined', data: { userId, username, userCount } });
+    this.broadcast(userId, { type: 'user-joined', data: { userId, username, role: role || 'student', userCount } });
 
     if (this.pdfState) this.send(userId, { type: 'pdf-sync', data: this.pdfState });
 
@@ -270,12 +271,12 @@ export class VideoCallRoom {
     try { return ws.deserializeAttachment() as VcAttachment; } catch { return null; }
   }
 
-  private joinedUsers(exclude?: WebSocket): { userId: string; username: string }[] {
-    const out: { userId: string; username: string }[] = [];
+  private joinedUsers(exclude?: WebSocket): { userId: string; username: string; role?: string }[] {
+    const out: { userId: string; username: string; role?: string }[] = [];
     for (const ws of this.state.getWebSockets()) {
       if (ws === exclude) continue;
       const att = this.attOf(ws);
-      if (att && att.joined && att.username) out.push({ userId: att.userId, username: att.username });
+      if (att && att.joined && att.username) out.push({ userId: att.userId, username: att.username, role: att.role });
     }
     return out;
   }

@@ -8968,7 +8968,7 @@ async function vcJoinRoom(skipUI) {
         vcHandleMessage,
         (ws) => {
             setStatusDot('vc-status-dot', 'connected');
-            ws.send(JSON.stringify({ type: 'join-room', data: { username: vcUsername } }));
+            ws.send(JSON.stringify({ type: 'join-room', data: { username: vcUsername, role: (window.vcMyRole || 'student') } }));
         },
         () => setStatusDot('vc-status-dot', 'disconnected')
     );
@@ -9239,9 +9239,11 @@ function vcHandleMessage(msg) {
             // 기존 사용자 각각에 대해 P2P 연결 시작 (내가 Offer를 보냄)
             console.log('[vc] existing-users:', msg.data.users.length, '명');
             msg.data.users.forEach((user, idx) => {
+                try { (window.vcPeerRoles = window.vcPeerRoles || {})[user.userId] = user.role || 'student'; } catch(e){}
                 // 각 사용자에 대해 약간의 지연을 주어 동시 offer 폭주 방지
                 setTimeout(() => vcCreatePeerAndOffer(user.userId, user.username), idx * 300);
             });
+            try { window.vcApplySpotlight && window.vcApplySpotlight(); } catch(e){}
             // PDF/이미지 공유 동기화 (늦게 입장한 학생도 현재 교재가 보이게)
             // fix (2026-06-01) — 서버/절대 URL 은 직접 로드 (예전 pdfLoadRemote 는 라이브러리 교재 흰화면 원인)
             if (msg.data.pdfState && msg.data.pdfState.url) {
@@ -9268,6 +9270,7 @@ function vcHandleMessage(msg) {
 
         case 'user-joined':
             console.log('[vc] user-joined:', msg.data.userId, msg.data.username);
+            try { (window.vcPeerRoles = window.vcPeerRoles || {})[msg.data.userId] = msg.data.role || 'student'; window.vcApplySpotlight && window.vcApplySpotlight(); } catch(e){}
             updateUserCount(msg.data.userCount);
             vcAddChatSystem(`${msg.data.username} 님이 입장했습니다.`);
             // 새 사용자가 offer를 보내오면 vcHandleOffer에서 PC 생성됨
@@ -9696,6 +9699,7 @@ function vcAddRemoteVideo(userId, username, stream) {
     const box = document.createElement('div');
     box.className = 'video-box';
     box.id = `vc-video-${userId}`;
+    try { box.dataset.role = (window.vcPeerRoles && window.vcPeerRoles[userId]) || 'student'; } catch(e){}
     box.innerHTML = `<video autoplay playsinline muted></video><span class="video-label">${escHtml(username)}</span>`;
     const vid = box.querySelector('video');
     vid.srcObject = stream;
@@ -9703,6 +9707,7 @@ function vcAddRemoteVideo(userId, username, stream) {
     vid.onloadedmetadata = () => { vid.play().catch(()=>{}); };
     grid.appendChild(box);
     vcUpdateGridCount();
+    try { window.vcApplySpotlight && window.vcApplySpotlight(); } catch(e){}
     // fix — 솔로 모드 중 새로 입장한 참가자도 숨겨, "솔로인데 일부만 보이는" 반쪽 상태 방지
     if (window.vcSoloMode) box.style.display = 'none';
     // 모바일 자동재생 정책 대응: muted로 시작 → 재생 후 unmute
@@ -27628,7 +27633,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260626001953 -->
+<!-- BUILD:20260626004220 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -28743,7 +28748,8 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      · mango-gaze.js (시선)
      · mango-i18n.js (다국어)
      ============================================================ -->
-<link rel="stylesheet" href="/css/vc-refresh.css?v=3"><!-- 수업 중 화면 비주얼 리프레시 Phase3: 하단 플로팅 독+1:1 선생님 메인+내화면 PIP (추가형, body.vc-in-call 한정 / 빼면 즉시 원복) -->
+<link rel="stylesheet" href="/css/vc-refresh.css?v=4"><!-- 수업 중 화면 비주얼 리프레시 Phase4: 하단 독+1:1 PIP+1:3 스포트라이트(플래그) (추가형, body.vc-in-call 한정 / 빼면 즉시 원복) -->
+<script src="/js/vc-spotlight.js?v=1" defer></script><!-- 1:3 선생님 스포트라이트 (플래그 게이트 기본 OFF: ?spotlight=1) -->
 <script src="/js/mango.js?v=33" defer></script>
 <script src="/js/mango-rec.js?v=35" defer></script>
 <script src="/js/mango-class-time.js?v=4" defer></script><!-- 수업 시간(시작~종료)+경과 타이머(+일정없을때 입장시각 폴백): REC 배지 옆 (수업 중에만 노출) -->
