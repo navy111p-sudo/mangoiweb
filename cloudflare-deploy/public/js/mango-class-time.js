@@ -149,6 +149,20 @@
     classStartMs = null;
   }
 
+  /** 일정이 없을 때 폴백: 입장 시각(window.__vcStartedAt)부터, 없으면 표시 시점부터 경과 */
+  function startElapsedFromEntry() {
+    var base = (window.__vcStartedAt && isFinite(window.__vcStartedAt)) ? window.__vcStartedAt : Date.now();
+    if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
+    classStartMs = base;
+    function upd() {
+      if (!elElapsed) return;
+      var diff = Date.now() - classStartMs;
+      elElapsed.textContent = '· 경과 ' + formatElapsed(diff < 0 ? 0 : diff);
+    }
+    upd();
+    elapsedTimer = setInterval(upd, 1000);
+  }
+
   function render(startTime, endTime) {
     ensureUI();
     elText.textContent = formatTime(startTime) + ' ~ ' + formatTime(endTime);
@@ -158,8 +172,9 @@
 
   function renderFail(msg) {
     ensureUI();
-    elText.textContent = msg || '시간 정보 없음';
-    stopElapsed();                          // 일정 없으면 경과 표시 제거
+    elText.textContent = '수업 중';          // 일정 정보가 없어도 '수업 중' + 경과 표시
+    elWrap.classList.remove('is-loading');
+    startElapsedFromEntry();                 // 입장 시각부터 흐르는 경과 타이머
   }
 
   // ===== 3) 서버 데이터 연동 =====
