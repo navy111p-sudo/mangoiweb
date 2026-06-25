@@ -91,21 +91,21 @@ body.vc-in-call .video-label{
 body.vc-in-call .content-pane{border-radius:16px}
 body.vc-in-call .video-size-bar button{border-radius:10px !important}
 
-/* ---------- 1:3 그룹 스포트라이트 (body.vc-spotlight 플래그 ON 일 때만) ----------
+/* ---------- 1:3 그룹 스포트라이트 (선생님 감지 시에만: #vc-video-grid.vc-has-teacher) ----------
    선생님(data-role=teacher) = 위쪽 큰 메인, 학생들 = 아래 가로 줄로 작게.
-   플래그 OFF(기본)면 이 블록은 적용 안 됨 → 기존 그리드 그대로. */
+   선생님 미감지면 .vc-has-teacher 가 안 붙어 기존 그리드 그대로(안전). */
 @media (min-width:1024px){
-  body.vc-spotlight.vc-in-call #vc-video-grid[data-count="3"],
-  body.vc-spotlight.vc-in-call #vc-video-grid[data-count="4"]{
+  body.vc-in-call #vc-video-grid.vc-has-teacher[data-count="3"],
+  body.vc-in-call #vc-video-grid.vc-has-teacher[data-count="4"]{
     display:flex !important;flex-wrap:wrap !important;gap:8px !important;align-content:stretch !important;
     grid-template-columns:none !important;
   }
-  body.vc-spotlight.vc-in-call #vc-video-grid[data-count="3"] .video-box[data-role="teacher"],
-  body.vc-spotlight.vc-in-call #vc-video-grid[data-count="4"] .video-box[data-role="teacher"]{
+  body.vc-in-call #vc-video-grid.vc-has-teacher[data-count="3"] .video-box[data-role="teacher"],
+  body.vc-in-call #vc-video-grid.vc-has-teacher[data-count="4"] .video-box[data-role="teacher"]{
     flex:0 0 100% !important;height:60% !important;max-width:none !important;order:0 !important;border-radius:14px !important;
   }
-  body.vc-spotlight.vc-in-call #vc-video-grid[data-count="3"] .video-box:not([data-role="teacher"]),
-  body.vc-spotlight.vc-in-call #vc-video-grid[data-count="4"] .video-box:not([data-role="teacher"]){
+  body.vc-in-call #vc-video-grid.vc-has-teacher[data-count="3"] .video-box:not([data-role="teacher"]),
+  body.vc-in-call #vc-video-grid.vc-has-teacher[data-count="4"] .video-box:not([data-role="teacher"]){
     flex:1 1 0 !important;height:calc(40% - 8px) !important;min-width:0 !important;order:1 !important;border-radius:12px !important;
   }
 }
