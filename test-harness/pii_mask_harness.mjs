@@ -9,7 +9,8 @@
 //     [3] TS ↔ JS 출력 패리티 (두 구현이 같은 결과를 내는가)
 //     [4] 보안 불변식: 권한 판정 / 마스킹 누락 0 / 원본 불변
 //     [5] 소스 와이어링: api-mango.ts · admin.html 에 실제로 연결됐는가
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdirSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { createRequire } from 'node:module';
@@ -22,7 +23,16 @@ function check(name, cond) { if (cond) PASS++; else { FAIL++; FAILS.push(name); 
 function eq(name, a, b){ check(`${name}  => ${JSON.stringify(a)}`, JSON.stringify(a) === JSON.stringify(b)); }
 
 // ── 실제 코드 로드 ──────────────────────────────────────────────────
-const BE = await import(resolve(__dir, '.build/pii2/pii-mask.js'));   // 컴파일된 백엔드
+// 백엔드(src/pii-mask.ts) 자동 컴파일 → .build/pii2/pii-mask.js (사전 tsc 불필요)
+const __BE_OUT = resolve(__dir, '.build/pii2/pii-mask.js');
+try {
+  mkdirSync(dirname(__BE_OUT), { recursive: true });
+  execSync('npx --yes esbuild "' + resolve(__dir, '../cloudflare-deploy/src/pii-mask.ts') + '" --bundle --format=esm --platform=node --outfile="' + __BE_OUT + '"', { stdio: 'pipe' });
+} catch (e) {
+  console.error('  ⚠ pii-mask.ts 컴파일 실패 — esbuild 필요(npx esbuild):', (e && e.message ? String(e.message).split('\n')[0] : e));
+  process.exit(1);
+}
+const BE = await import(__BE_OUT);   // 컴파일된 백엔드
 const winSandbox = {}; global.window = winSandbox;
 require(resolve(__dir, '../cloudflare-deploy/public/js/pii-mask.js')); // 프런트 → window.PIIMask
 const FE = winSandbox.PIIMask;
