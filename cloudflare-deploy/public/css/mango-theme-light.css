@@ -49,6 +49,18 @@ body.vc-theme-light .tab-btn.active {
   border-bottom-color: var(--mlt-sky-deep) !important;
 }
 
+/* 화면크기(레이아웃) 버튼 1/4·1/2·3/4·전체·PIP·솔로·자유 — 라이트 모드 글자 가독성 */
+body.vc-theme-light .video-size-bar { background: var(--mlt-surface) !important; }
+body.vc-theme-light .video-size-bar button { color: #1e293b !important; }       /* 어두운 글자 → 흰 배경에서 또렷 */
+body.vc-theme-light .video-size-bar button:not([id]):not(.active) {            /* 색 없는 기본칸(1/4·1/2·3/4·전체) */
+  background: var(--mlt-surface-2) !important;
+  border: 1px solid var(--mlt-border) !important;
+}
+body.vc-theme-light .video-size-bar button:not([id]):hover { background: #e2e8f5 !important; }
+body.vc-theme-light .video-size-bar button.active {                            /* 활성칸은 강조색 유지 */
+  background: var(--mlt-sky-deep) !important; color: #ffffff !important;
+}
+
 /* ── 좌(영상)/우(콘텐츠) 패널 ────────────────────────────── */
 body.vc-theme-light .video-pane {
   background: var(--mlt-surface) !important;
