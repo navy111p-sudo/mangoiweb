@@ -151,6 +151,37 @@ body.vc-in-call .video-size-bar button{border-radius:10px !important}
   }
 }
 
+/* ---------- 수업 컨트롤 버튼: 이모지 → 라인 아이콘 (CSS mask, JS 텍스트 토글에도 안전) ---------- */
+body.vc-in-call{
+  --ic-mic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='3' width='6' height='11' rx='3'/%3E%3Cpath d='M5 11a7 7 0 0 0 14 0'/%3E%3Cline x1='12' y1='18' x2='12' y2='21'/%3E%3C/svg%3E");
+  --ic-micoff:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='3' width='6' height='8' rx='3'/%3E%3Cpath d='M5 11a7 7 0 0 0 11 5'/%3E%3Cline x1='12' y1='18' x2='12' y2='21'/%3E%3Cline x1='4' y1='4' x2='20' y2='20'/%3E%3C/svg%3E");
+  --ic-cam:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='6' width='12' height='12' rx='2.5'/%3E%3Cpath d='M15 10.5l6-3v9l-6-3z'/%3E%3C/svg%3E");
+  --ic-camoff:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 6h4a2.5 2.5 0 0 1 2 1.5M15 13.5V18H5a2 2 0 0 1-2-2V8'/%3E%3Cpath d='M15 10.5l6-3v9'/%3E%3Cline x1='4' y1='4' x2='20' y2='20'/%3E%3C/svg%3E");
+  --ic-chat:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 11.5a8 8 0 0 1-11.5 7.2L4 20l1.3-4.3A8 8 0 1 1 21 11.5z'/%3E%3C/svg%3E");
+  --ic-exit:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='6' y1='6' x2='18' y2='18'/%3E%3Cline x1='6' y1='18' x2='18' y2='6'/%3E%3C/svg%3E");
+}
+body.vc-in-call #vc-btn-mic,
+body.vc-in-call #vc-btn-cam,
+body.vc-in-call #vc-btn-chat,
+body.vc-in-call #vc-exit-btn-v34{ font-size:0 !important;position:relative; }
+body.vc-in-call #vc-btn-mic::before,
+body.vc-in-call #vc-btn-cam::before,
+body.vc-in-call #vc-btn-chat::before,
+body.vc-in-call #vc-exit-btn-v34::before{
+  content:"";display:inline-block;width:21px;height:21px;background:currentColor;
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;
+  -webkit-mask-size:21px 21px;mask-size:21px 21px;
+}
+body.vc-in-call #vc-btn-mic::before{ -webkit-mask-image:var(--ic-mic);mask-image:var(--ic-mic); }
+body.vc-in-call #vc-btn-mic.off::before{ -webkit-mask-image:var(--ic-micoff);mask-image:var(--ic-micoff); }
+body.vc-in-call #vc-btn-cam::before{ -webkit-mask-image:var(--ic-cam);mask-image:var(--ic-cam); }
+body.vc-in-call #vc-btn-cam.off::before{ -webkit-mask-image:var(--ic-camoff);mask-image:var(--ic-camoff); }
+body.vc-in-call #vc-btn-chat::before{ -webkit-mask-image:var(--ic-chat);mask-image:var(--ic-chat); }
+body.vc-in-call #vc-exit-btn-v34::before{ -webkit-mask-image:var(--ic-exit);mask-image:var(--ic-exit); }
+/* 채팅 배지 글자는 다시 보이게, 음소거/카메라 끔은 빨강 */
+body.vc-in-call #vc-btn-chat .chat-badge{ font-size:10px !important; }
+body.vc-in-call .ctrl-btn.off{ background:rgba(239,68,68,.92) !important;color:#fff !important;border:none !important; }
+
 /* ---------- 수업시간/경과 배지 정제 ---------- */
 body.vc-in-call #mango-class-time{
   border-radius:14px !important;box-shadow:0 6px 16px rgba(0,0,0,.30) !important;
