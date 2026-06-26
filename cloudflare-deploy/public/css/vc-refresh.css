@@ -110,6 +110,38 @@ body.vc-in-call .video-size-bar button{border-radius:10px !important}
   }
 }
 
+/* ---------- 📱 휴대폰 가로(Landscape) 수업화면 새 톤 ----------
+   기존 '칠판 중앙 + 우측 정사각 영상 + 하단 액션바' 구조는 유지하고
+   글래스·라운드·앰버 링·정제 버튼만 입힘 (추가형, 되돌리기 쉬움). */
+@media (max-width:920px) and (orientation:landscape){
+  /* 상단바 글래스 */
+  body.vc-in-call .toolbar{
+    background:linear-gradient(180deg,rgba(20,28,44,.94),rgba(14,20,34,.92)) !important;
+    -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+    border-bottom:1px solid rgba(255,255,255,.08) !important;
+  }
+  /* 우측 영상 타일 — 라운드 + 그림자, 내 화면(나)은 앰버 링 */
+  body.vc-in-call #vc-video-grid .video-box{
+    border-radius:12px !important;box-shadow:0 4px 14px rgba(0,0,0,.38) !important;
+  }
+  body.vc-in-call #vc-video-grid #vc-local-box{
+    box-shadow:0 0 0 2px rgba(251,191,36,.6),0 4px 14px rgba(0,0,0,.38) !important;
+  }
+  body.vc-in-call #vc-video-grid .video-label{
+    background:rgba(10,14,22,.62) !important;border-radius:7px !important;font-weight:600 !important;
+  }
+  /* 하단 액션바 — 글래스 플로팅 톤 + 둥근 버튼 */
+  body.vc-in-call .vc-bottom-actions{
+    background:linear-gradient(180deg,rgba(20,28,44,.92),rgba(12,18,30,.96)) !important;
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    border-top:1px solid rgba(255,255,255,.10) !important;
+  }
+  body.vc-in-call .vc-bottom-actions button{ border-radius:14px !important;transition:transform .1s ease; }
+  body.vc-in-call .vc-bottom-actions button:active{ transform:scale(.95) !important; }
+  body.vc-in-call .vc-bottom-actions button.primary{ background:rgba(251,191,36,.16) !important; }
+  body.vc-in-call #vc-bottom-grip .grip-bar{ background:rgba(251,191,36,.55) !important; }
+}
+
 /* ---------- 수업시간/경과 배지 정제 ---------- */
 body.vc-in-call #mango-class-time{
   border-radius:14px !important;box-shadow:0 6px 16px rgba(0,0,0,.30) !important;
