@@ -8820,6 +8820,12 @@ async function vcJoinRoom(skipUI) {
       const grid = document.getElementById('vc-folder-grid');
       const title = document.getElementById('vc-folder-title');
       if (!sheet || !grid || !title) return;
+      // 토글: 같은 버튼(폴더)이 이미 열려 있으면 다시 누르면 닫힘
+      if (sheet.classList.contains('show') && sheet.dataset.folderKey === key) {
+        vcFolderClose();
+        return;
+      }
+      sheet.dataset.folderKey = key;
       title.textContent = folder.title;
       grid.innerHTML = folder.items.map(it => `
         <button onclick="${it.onclick};vcFolderClose()">
@@ -8830,7 +8836,7 @@ async function vcJoinRoom(skipUI) {
     };
     window.vcFolderClose = function() {
       const sheet = document.getElementById('vc-folder-sheet');
-      if (sheet) sheet.classList.remove('show');
+      if (sheet) { sheet.classList.remove('show'); sheet.dataset.folderKey = ''; }
     };
 
     // 폴더 시스템용 헬퍼들 — (2026-06-19) 모바일 칠판 도구가 안 먹던 문제 수정.
@@ -27662,7 +27668,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260626232413 -->
+<!-- BUILD:20260626233152 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
