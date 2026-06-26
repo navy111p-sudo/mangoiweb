@@ -37,16 +37,36 @@ jobs:
           gradle-version: '8.9'
 
       - name: Build signed release APK
-        run: gradle assembleRelease --no-daemon --stacktrace
+        id: build
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          gradle assembleRelease --no-daemon --stacktrace --warning-mode all 2>&1 | tee /tmp/build.log
 
-      - name: Rename APK
+      - name: Publish build log to summary
+        if: always()
+        run: |
+          echo "## Gradle build result: ${{ steps.build.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 200 /tmp/build.log >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "(no build log)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Prepare APK
+        if: steps.build.outcome == 'success'
         run: |
           mkdir -p out
           cp app/build/outputs/apk/release/app-release.apk out/mangoi-test-signed.apk
 
       - name: Upload APK artifact
+        if: steps.build.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: mangoi-test-signed-apk
           path: mobile-app/out/mangoi-test-signed.apk
           if-no-files-found: error
+
+      - name: Fail job if build failed
+        if: steps.build.outcome != 'success'
+        run: |
+          echo "Gradle build failed — see the run Summary for the full log."
+          exit 1
