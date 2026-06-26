@@ -10306,7 +10306,7 @@ function vcSwitchTab(tabName, evt) {
     if (panel) panel.classList.add('active');
     // 클릭 이벤트가 있으면 그 버튼을, 없으면 onclick 속성 매칭으로 active 처리
     const e = evt || (typeof event !== 'undefined' ? event : null);
-    if (e && e.target) {
+    if (e && e.target && e.target.classList && e.target.classList.contains('tab-btn')) {
         e.target.classList.add('active');
     } else {
         document.querySelectorAll('.tab-btn').forEach(b => {
@@ -27662,7 +27662,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260626224555 -->
+<!-- BUILD:20260626225452 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
