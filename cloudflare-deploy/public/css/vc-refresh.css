@@ -1,8 +1,8 @@
 /* ============================================================
-   vc-refresh.css  -  수업 중(in-call) 화면 비주얼 리프레시 (Phase 2)
+   vc-refresh.css  -  수업 중(in-call) 화면 비주얼 리프레시
    - body.vc-in-call 에만 적용 = 로비/홈 화면에는 영향 없음
-   - 색/모양 + 데스크톱 하단 플로팅 컨트롤 독 (추가형, 되돌리기 쉬움)
-   - 문제가 생기면 index.html 에서 이 <link> 한 줄만 빼면 즉시 원복
+   - 색/모양 + 데스크톱 플로팅 독 + 휴대폰 세로/가로 새 톤 (추가형, 되돌리기 쉬움)
+   - 문제 시 index.html 에서 이 <link> 한 줄만 빼면 즉시 원복
    ============================================================ */
 
 /* ---------- 상단 툴바: 글래스 ---------- */
@@ -59,7 +59,6 @@ body.vc-in-call .ctrl-select{
     position:absolute !important;inset:0 !important;width:100% !important;height:100% !important;
     max-width:none !important;border-radius:0 !important;box-shadow:none !important;
   }
-  /* 내 화면(나) = 우하단 작은 셀프뷰 PIP (앰버 테두리) */
   body.vc-in-call #vc-video-grid[data-count="2"] #vc-local-box{
     inset:auto 14px 14px auto !important;width:24% !important;max-width:210px !important;
     height:auto !important;aspect-ratio:4/3 !important;border-radius:14px !important;overflow:hidden;z-index:40 !important;
@@ -91,9 +90,7 @@ body.vc-in-call .video-label{
 body.vc-in-call .content-pane{border-radius:16px}
 body.vc-in-call .video-size-bar button{border-radius:10px !important}
 
-/* ---------- 1:3 그룹 스포트라이트 (선생님 감지 시에만: #vc-video-grid.vc-has-teacher) ----------
-   선생님(data-role=teacher) = 위쪽 큰 메인, 학생들 = 아래 가로 줄로 작게.
-   선생님 미감지면 .vc-has-teacher 가 안 붙어 기존 그리드 그대로(안전). */
+/* ---------- 1:3 그룹 스포트라이트 (선생님 감지 시에만: #vc-video-grid.vc-has-teacher) ---------- */
 @media (min-width:1024px){
   body.vc-in-call #vc-video-grid.vc-has-teacher[data-count="3"],
   body.vc-in-call #vc-video-grid.vc-has-teacher[data-count="4"]{
@@ -110,17 +107,17 @@ body.vc-in-call .video-size-bar button{border-radius:10px !important}
   }
 }
 
-/* ---------- 📱 휴대폰 가로(Landscape) 수업화면 새 톤 ----------
-   기존 '칠판 중앙 + 우측 정사각 영상 + 하단 액션바' 구조는 유지하고
-   글래스·라운드·앰버 링·정제 버튼만 입힘 (추가형, 되돌리기 쉬움). */
+/* ---------- 📱 휴대폰 가로(Landscape): 영상 왼쪽 + 새 톤 ---------- */
 @media (max-width:920px) and (orientation:landscape){
+  /* 영상 왼쪽 + 콘텐츠 오른쪽 (목업처럼) */
+  body.vc-in-call .vc-main-row{ flex-direction:row !important; }
   /* 상단바 글래스 */
   body.vc-in-call .toolbar{
     background:linear-gradient(180deg,rgba(20,28,44,.94),rgba(14,20,34,.92)) !important;
     -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
     border-bottom:1px solid rgba(255,255,255,.08) !important;
   }
-  /* 우측 영상 타일 — 라운드 + 그림자, 내 화면(나)은 앰버 링 */
+  /* 영상 타일 — 라운드 + 그림자, 내 화면(나)은 앰버 링 */
   body.vc-in-call #vc-video-grid .video-box{
     border-radius:12px !important;box-shadow:0 4px 14px rgba(0,0,0,.38) !important;
   }
@@ -140,6 +137,18 @@ body.vc-in-call .video-size-bar button{border-radius:10px !important}
   body.vc-in-call .vc-bottom-actions button:active{ transform:scale(.95) !important; }
   body.vc-in-call .vc-bottom-actions button.primary{ background:rgba(251,191,36,.16) !important; }
   body.vc-in-call #vc-bottom-grip .grip-bar{ background:rgba(251,191,36,.55) !important; }
+}
+
+/* ---------- 📱 휴대폰 세로(Portrait): 선생님 메인 + 내 화면 작은 PIP ---------- */
+@media (max-width:900px) and (orientation:portrait){
+  body.vc-in-call #vc-video-grid[data-count="2"]{ position:relative !important; }
+  body.vc-in-call #vc-video-grid[data-count="2"] .video-box{ border-radius:12px !important; }
+  body.vc-in-call #vc-video-grid[data-count="2"] #vc-local-box{
+    display:block !important;position:absolute !important;right:10px;bottom:10px;top:auto !important;left:auto !important;
+    width:34% !important;max-width:130px !important;aspect-ratio:4/3 !important;height:auto !important;min-height:0 !important;
+    z-index:30 !important;border-radius:12px !important;overflow:hidden;
+    box-shadow:0 0 0 2px rgba(251,191,36,.6),0 6px 16px rgba(0,0,0,.45) !important;
+  }
 }
 
 /* ---------- 수업시간/경과 배지 정제 ---------- */
