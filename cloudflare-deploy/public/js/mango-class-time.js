@@ -89,7 +89,7 @@
       var s = document.createElement('style');
       s.id = 'mango-class-time-style';
       s.textContent = [
-        '#mango-class-time{position:fixed;top:60px;right:120px;z-index:9998;',
+        '#mango-class-time{position:fixed;top:104px;right:120px;z-index:9998;',
         '  display:flex;align-items:center;gap:6px;',
         '  color:#ffffff;font-size:14px;font-weight:500;line-height:1;',
         '  padding:6px 12px;background:rgba(15,23,42,0.72);backdrop-filter:blur(4px);',

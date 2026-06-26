@@ -16,7 +16,7 @@
     camoff:'<path d="M9 6h4a2.5 2.5 0 0 1 2 1.5M15 13.5V18H5a2 2 0 0 1-2-2V8"/><path d="M15 10.5l6-3v9"/><line x1="4" y1="4" x2="20" y2="20"/>',
     share:'<rect x="3" y="4" width="18" height="13" rx="2.5"/><line x1="9" y1="21" x2="15" y2="21"/><path d="M12 8v5"/><path d="M9.5 10.5L12 8l2.5 2.5"/>',
     chat:'<path d="M21 11.5a8 8 0 0 1-11.5 7.2L4 20l1.3-4.3A8 8 0 1 1 21 11.5z"/>',
-    consult:'<path d="M21 11.5a8 8 0 0 1-11.5 7.2L4 20l1.3-4.3A8 8 0 1 1 21 11.5z"/>',
+    consult:'<path d="M4 4.5h16a1.2 1.2 0 0 1 1.2 1.2v9a1.2 1.2 0 0 1-1.2 1.2h-9.2L6 20.5v-4.6H4a1.2 1.2 0 0 1-1.2-1.2v-9A1.2 1.2 0 0 1 4 4.5Z"/>',
     settings:'<line x1="4" y1="8" x2="20" y2="8"/><circle cx="9" cy="8" r="2.3"/><line x1="4" y1="16" x2="20" y2="16"/><circle cx="15" cy="16" r="2.3"/>',
     leave:'<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M9 16l4-4-4-4"/><line x1="13" y1="12" x2="3" y2="12"/>'
   };
@@ -26,7 +26,7 @@
   var STYLE = [
     '#vc-dock{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:none;z-index:99990;',
     '  align-items:center;gap:6px;padding:8px 10px;border-radius:18px;',
-    '  background:linear-gradient(180deg,rgba(20,28,44,.95),rgba(12,18,30,.97));',
+    '  background:rgba(64,68,76,0.50);',
     '  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);',
     '  border:1px solid rgba(255,255,255,.12);box-shadow:0 16px 44px rgba(0,0,0,.5);max-width:96vw;flex-wrap:nowrap;}',
     'body.vc-in-call #vc-dock{display:inline-flex;}',
@@ -69,7 +69,7 @@
     btnCam.onclick = function(){ call('vcToggleCam'); setTimeout(sync, 60); };
     bShare.onclick = function(){ call('vcFolderOpen','screen'); };
     bChat.onclick = function(){ call('vcToggleChat'); };
-    bConsult.onclick = function(){ call('openInquiryModal'); };
+    bConsult.onclick = function(){ window.open('https://pf.kakao.com/_mangoi/chat','_blank','noopener'); };
     bSet.onclick = function(){ call('vcMobileToggleMore'); };
     bLeave.onclick = function(){ call('vcLeaveRoom'); };
 

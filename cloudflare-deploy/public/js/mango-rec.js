@@ -483,7 +483,7 @@
       s.textContent = [
         '@keyframes mango-rec-blink{0%,100%{opacity:1}50%{opacity:0.3}}',
         // 기본(데스크탑) 풀 배지
-        '#mango-rec-badge{position:fixed;top:60px;right:16px;background:#dc2626;color:#fff;padding:8px 14px;border-radius:20px;font-weight:600;font-size:13px;z-index:9999;box-shadow:0 4px 12px rgba(220,38,38,0.4);display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;transition:all 0.2s ease;}',
+        '#mango-rec-badge{position:fixed;top:104px;right:16px;background:#dc2626;color:#fff;padding:8px 14px;border-radius:20px;font-weight:600;font-size:13px;z-index:9999;box-shadow:0 4px 12px rgba(220,38,38,0.4);display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;transition:all 0.2s ease;}',
         '#mango-rec-badge .mango-rec-dot{width:8px;height:8px;background:#fff;border-radius:50%;animation:mango-rec-blink 1s infinite;display:inline-block;}',
         '#mango-rec-badge .mango-rec-time-text{display:inline;}',
         '#mango-rec-badge .mango-rec-stop{display:inline;font-size:13px;line-height:1;}',
