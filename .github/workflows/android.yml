@@ -9,7 +9,7 @@ on:
       - '.github/workflows/android.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -43,13 +43,18 @@ jobs:
           set -o pipefail
           gradle assembleRelease --no-daemon --stacktrace --warning-mode all 2>&1 | tee /tmp/build.log
 
-      - name: Publish build log to summary
+      - name: Commit build log to repo (for diagnosis)
         if: always()
+        working-directory: ${{ github.workspace }}
         run: |
-          echo "## Gradle build result: ${{ steps.build.outcome }}" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          tail -n 200 /tmp/build.log >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "(no build log)" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cp /tmp/build.log ci-build.log 2>/dev/null || echo "(no /tmp/build.log produced)" > ci-build.log
+          echo "" >> ci-build.log
+          echo "BUILD_OUTCOME=${{ steps.build.outcome }}" >> ci-build.log
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ci-build.log
+          git commit -m "ci: build log [skip ci]" || echo "nothing to commit"
+          git push origin HEAD:main
 
       - name: Prepare APK
         if: steps.build.outcome == 'success'
@@ -68,5 +73,5 @@ jobs:
       - name: Fail job if build failed
         if: steps.build.outcome != 'success'
         run: |
-          echo "Gradle build failed — see the run Summary for the full log."
+          echo "Gradle build failed — see ci-build.log committed to the repo."
           exit 1
