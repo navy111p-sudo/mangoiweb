@@ -185,9 +185,11 @@ try {
   const a = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8');
   check('P3: 비서 FAB + 패널 존재', a.includes('mi-asst-fab') && a.includes('mi-asst-panel'));
   check('P3: 실제 /api/admin/ai-command 연결', /miAsstAsk|mi-asst-form[\s\S]{0,1200}\/api\/admin\/ai-command/.test(a) || a.includes("body:JSON.stringify({command:q})"));
-  check('P3: API 실패/무답 시 폴백 응답', a.includes('function fb(q)') && a.includes('FB.eval'));
+  // 2026-06-27: 폴백 구현이 fb(q)/FB.eval → FB(key)+fbKey(q)+localRoute/MI_ROUTES(결정적 키워드 라우터)로 강화됨. 두 형태 모두 인정.
+  check('P3: API 실패/무답 시 폴백 응답', (a.includes('function fb(q)') && a.includes('FB.eval')) || (a.includes('function FB(key)') && a.includes('function fbKey(q)')));
   check('P3: 3대 역량 라우팅(평가서·이상감지·정산)', a.includes('평가서|피드백') && a.includes('미납|수강료|정산'));
-  check('P3: 답변 끝 번호요약 페르소나', a.includes('요약 —'));
+  // 2026-06-27: '요약 —' 꼬리 페르소나 대신 구조화 답변([잘한 점]/[보완할 점]/[다음 목표]) 페르소나로 변경됨. 둘 다 인정.
+  check('P3: 구조화 답변 페르소나', a.includes('요약 —') || (a.includes('[다음 목표]') && a.includes('[보완할 점]')));
   check('P3: id 충돌 회피(mi-asst- 접두사)', a.includes('mi-asst-input') && a.includes('mi-asst-chips'));
   check('P3: 기존 askAI 흐름 미수정(비파괴)', a.includes('async function askAI(command)'));
   check('P3: 기존 #ai-panel 그대로 유지', a.includes("getElementById('ai-panel')"));

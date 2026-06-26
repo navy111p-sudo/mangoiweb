@@ -142,7 +142,8 @@ ok('promo:starts hidden', idx612.includes('background:#000;display:none'));
 ok('promo:session dismiss key', idx612.includes("sessionStorage.setItem(KEY,'1')") && idx612.includes('mango_promo_dismissed'));
 ok('promo:global capture click kills', /document\.addEventListener\('click', onAnyClick, true\)/.test(idx612));
 ok('promo:gated by intro overlay', /introGone/.test(idx612) && /mango-intro-overlay/.test(idx612) && /is-hiding/.test(idx612));
-ok('promo:hashchange/popstate kill', /hashchange', killBox/.test(idx612) && /popstate', killBox/.test(idx612));
+// 2026-06-27: 프로모 종료를 killBox→fadeOut(부드러운 페이드)로 교체. 두 방식 모두 인정.
+ok('promo:hashchange/popstate kill', /hashchange',\s*(killBox|fadeOut)/.test(idx612) && /popstate',\s*(killBox|fadeOut)/.test(idx612));
 ok('promo:old box-only click handler removed', !idx612.includes("box.addEventListener('click', killBox);"));
 ok('promo:mute button exception kept', /e\.target===mb \|\| mb\.contains\(e\.target\)/.test(idx612));
 const lp612 = read(CD + '/public/lesson-postpone-demo.html');
@@ -172,7 +173,8 @@ ok('fam:frontend wiring matches', read(CD+'/public/admin.html').includes("fetch(
 const lp7 = read(CD + '/public/lesson-postpone-demo.html');
 ok('video:plays once then dismiss', lp7.includes("addEventListener('ended',dismiss)") && !/guide-video\.mp4" autoplay muted loop/.test(lp7));
 ok('video:close btn + 30% smaller', lp7.includes('id="gv-close"') && lp7.includes('width:35%;max-width:210px'));
-ok('video:unmute skips control buttons', lp7.includes('closeBtn&&closeBtn.contains(e.target)'));
+// 2026-06-27: 닫기버튼 가드를 인라인 contains 체크 → 전용 click 핸들러(e.stopPropagation)로 교체. 둘 다 인정.
+ok('video:unmute skips control buttons', lp7.includes('closeBtn&&closeBtn.contains(e.target)') || (lp7.includes("closeBtn.addEventListener('click'") && lp7.includes('e.stopPropagation()')));
 
 console.log(`\n=== SUMMARY: ${pass} passed, ${fail} failed ===`);
 // write report

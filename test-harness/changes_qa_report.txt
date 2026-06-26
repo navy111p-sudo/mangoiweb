@@ -1,9 +1,9 @@
-# Change-set QA report (2026-06-25T15:56:12.554Z)
+# Change-set QA report (2026-06-26T16:52:22.044Z)
 
-PASS=72 FAIL=6
+PASS=73 FAIL=5
 
-FAIL  integrity:cloudflare-deploy/public/index.html delta  — HEAD=30626 WORK=30608 delta=-18 (expect 0)
-FAIL  integrity:cloudflare-deploy/public/index.html tail  — tail="      var k=document.querySelector("
+FAIL  integrity:cloudflare-deploy/public/index.html delta  — HEAD=30662 WORK=30656 delta=-6 (expect 0)
+FAIL  integrity:cloudflare-deploy/public/index.html tail  — tail="     📹 카메라 영상 화면 드래그 이동 (마우�"
 PASS  integrity:cloudflare-deploy/src/api-mango.ts delta  — HEAD=11832 WORK=11832 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/src/api-mango.ts tail  — tail="}"
 PASS  integrity:cloudflare-deploy/src/api-mango.ts brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
@@ -16,7 +16,7 @@ PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html brace-balance
 PASS  integrity:cloudflare-deploy/public/admin.html delta  — HEAD=40308 WORK=40308 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/admin.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/public/admin.html brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  syntax:cloudflare-deploy/public/index.html  — 63 inline scripts, 0 errors
+PASS  syntax:cloudflare-deploy/public/index.html  — 64 inline scripts, 0 errors
 PASS  syntax:cloudflare-deploy/public/lesson-postpone-demo.html  — 1 inline scripts, 0 errors
 PASS  syntax:cloudflare-deploy/public/admin.html  — 96 inline scripts, 0 errors
 PASS  syntax:mangoi-speech-patch/mangoi_Speech/practice.html  — 8 inline scripts, 0 errors
@@ -44,7 +44,7 @@ PASS  about:intro player defined+called
 PASS  about:reuses abm_muted mute key
 PASS  about:intro mp3 file present
 FAIL  htmlvalid:index ends with </html>
-FAIL  htmlvalid:index <script> balanced
+PASS  htmlvalid:index <script> balanced
 PASS  feature:lesson-video IIFE closed + defined
 PASS  logic:no user_id → 400  — status=400 user_id_required
 PASS  logic:not found → 404  — status=404 user_not_found
