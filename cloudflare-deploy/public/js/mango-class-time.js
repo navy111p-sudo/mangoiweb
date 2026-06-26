@@ -117,8 +117,14 @@
       if (rec) {
         var r = rec.getBoundingClientRect();
         if (r.width > 0) {
-          elWrap.style.right = Math.max(8, (window.innerWidth - r.left + 10)) + 'px';
+          // REC 배지 왼쪽에 16px 띄움 → 시간·녹화 절대 안 겹침
+          elWrap.style.right = Math.max(8, (window.innerWidth - r.left + 16)) + 'px';
           elWrap.style.top = r.top + 'px';
+          // 남는 가로폭을 넘지 않게 폭 제한(좁은 화면에서 REC 밑으로 안 파고듦)
+          var avail = Math.max(80, r.left - 16 - 8);
+          elWrap.style.maxWidth = avail + 'px';
+          elWrap.style.overflow = 'hidden';
+          elWrap.style.textOverflow = 'ellipsis';
         }
       }
       requestAnimationFrame(tick);
