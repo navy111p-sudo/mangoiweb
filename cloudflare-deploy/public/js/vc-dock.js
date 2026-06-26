@@ -23,7 +23,7 @@
   function call(name, arg){ try { if (typeof window[name] === 'function') return window[name](arg); } catch(e){ console.warn('[vc-dock]', name, e); } }
 
   var STYLE = [
-    '#vc-dock{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:none;z-index:99990;',
+    '#vc-dock{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:none;z-index:99993;',
     '  align-items:center;gap:6px;padding:8px 10px;border-radius:18px;',
     '  background:rgba(64,68,76,0.50);',
     '  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);',
@@ -42,18 +42,29 @@
     '/* 설정 배경막 — 열려 있을 때 바깥 클릭을 가로채 닫기만 함(다른 버튼 오클릭 방지) */',
     '#vc-dock-backdrop{position:fixed;inset:0;z-index:99991;display:none;background:transparent;}',
     '#vc-dock-backdrop.open{display:block;}',
-    '/* 설정 팝업 — 독 위로 떠서 열림 */',
-    '#vc-dock-settings{position:fixed;z-index:99992;display:none;flex-direction:column;gap:2px;',
-    '  min-width:200px;padding:8px;border-radius:14px;background:rgba(20,26,34,0.98);',
-    '  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);',
+    '/* 설정 팝업 — 독 위로 떠서 열림 (장치·영상/녹화·표시 전체 패널) */',
+    '#vc-dock-settings{position:fixed;z-index:99994;display:none;flex-direction:column;',
+    '  width:330px;max-width:92vw;max-height:70vh;overflow-y:auto;padding:14px;border-radius:14px;',
+    '  background:rgba(11,15,20,0.98);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);',
     '  border:1px solid rgba(255,255,255,.14);box-shadow:0 14px 40px rgba(0,0,0,.6);}',
     '#vc-dock-settings.open{display:flex;}',
-    '#vc-dock-settings .sg-title{color:#8b97a8;font-size:10px;font-weight:700;padding:4px 8px 2px;}',
-    '#vc-dock-settings button{display:flex;align-items:center;justify-content:space-between;width:100%;gap:10px;',
-    '  background:rgba(255,255,255,.05);border:none;color:#e6ecf5;border-radius:9px;',
-    '  padding:11px 12px;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;text-align:left;}',
-    '#vc-dock-settings button:hover{background:rgba(251,191,36,.16);}',
-    '#vc-dock-settings button .val{color:#fbbf24;font-size:11.5px;font-weight:700;}',
+    '#vc-dock-settings .sg-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}',
+    '#vc-dock-settings .sg-head h3{margin:0;font-size:14px;color:#e6ebf2;font-weight:700;}',
+    '#vc-dock-settings .sg-head .sg-x{background:none;border:none;color:#9aa4b2;font-size:16px;cursor:pointer;padding:2px 6px;width:auto;height:auto;}',
+    '#vc-dock-settings .sg-group{margin-bottom:12px;}',
+    '#vc-dock-settings .sg-gtitle{font-size:11px;color:#ffd24d;margin-bottom:6px;letter-spacing:.02em;font-weight:700;}',
+    '#vc-dock-settings .sg-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;font-size:13px;}',
+    '#vc-dock-settings .sg-row > label{color:#9aa4b2;white-space:nowrap;}',
+    '#vc-dock-settings select{background:#1c2530;color:#e6ebf2;border:1px solid #283140;border-radius:7px;font-size:12px;padding:5px 8px;max-width:170px;}',
+    '#vc-dock-settings input[type=range]{width:120px;accent-color:#ffd24d;}',
+    '#vc-dock-settings .sg-seg{display:inline-flex;background:#161d26;border-radius:7px;padding:2px;}',
+    '#vc-dock-settings .sg-seg button{background:transparent;border:none;color:#9aa4b2;font-size:12px;padding:4px 10px;border-radius:5px;cursor:pointer;width:auto;height:auto;font-family:inherit;}',
+    '#vc-dock-settings .sg-seg button.on{background:#ffd24d;color:#1a1300;font-weight:600;}',
+    '#vc-dock-settings .sg-sw{position:relative;width:38px;height:21px;background:#1c2530;border-radius:999px;cursor:pointer;border:1px solid #283140;flex:0 0 auto;}',
+    '#vc-dock-settings .sg-sw::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#8a94a3;transition:.18s;}',
+    '#vc-dock-settings .sg-sw.on{background:#ffd24d;border-color:#ffd24d;}',
+    '#vc-dock-settings .sg-sw.on::after{left:19px;background:#1a1300;}',
+    '#vc-dock-settings .sg-test{background:#1c2530;border:1px solid #283140;color:#e6ebf2;font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;width:auto;height:auto;font-family:inherit;}',
     '/* 기존 중복 컨트롤 숨김 */',
     'body.vc-in-call.vc-dock-on .toolbar-center{display:none !important;}',
     'body.vc-in-call.vc-dock-on #vc-exit-btn-v34{display:none !important;}',
@@ -73,6 +84,45 @@
   function themeLabel(){ try { return (window.MangoTheme && MangoTheme.get()==='light') ? '라이트' : '다크'; } catch(e){ return '—'; } }
   function langLabel(){ try { return (typeof window.getLang==='function' && window.getLang()==='en') ? 'EN' : '한국어'; } catch(e){ return '—'; } }
 
+  function isLight(){ try { return (window.MangoTheme && MangoTheme.get()==='light'); } catch(e){ return false; } }
+  function isEn(){ try { return (typeof window.getLang==='function' && window.getLang()==='en'); } catch(e){ return false; } }
+  function setTheme(light){
+    try {
+      if (window.MangoTheme && typeof MangoTheme.set==='function') MangoTheme.set(light?'light':'dark');
+      else if (window.MangoTheme && isLight()!==light) MangoTheme.toggle();
+    } catch(_){ }
+  }
+  function setLang(en){
+    if (isEn()===en) return;
+    if (typeof window.setLang==='function') { try{ window.setLang(en?'en':'ko'); return; }catch(_){ } }
+    call('toggleLang');
+  }
+  function beep(){
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+      var ac = new AC(), o = ac.createOscillator(), g = ac.createGain();
+      o.type='sine'; o.frequency.value=660; o.connect(g); g.connect(ac.destination);
+      g.gain.setValueAtTime(0.0001, ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.25, ac.currentTime+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime+0.4);
+      o.start(); o.stop(ac.currentTime+0.42);
+    } catch(_){ }
+  }
+  function fillDevices(){
+    if (!setPop || !navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    navigator.mediaDevices.enumerateDevices().then(function(list){
+      var micSel = setPop.querySelector('#sg-mic-dev'), camSel = setPop.querySelector('#sg-cam-dev');
+      if (micSel) micSel.innerHTML = ''; if (camSel) camSel.innerHTML = '';
+      var mc=0, cc=0;
+      list.forEach(function(d){
+        if (d.kind==='audioinput' && micSel){ var o=document.createElement('option'); o.value=d.deviceId; o.textContent=d.label||('마이크 '+(++mc)); micSel.appendChild(o); }
+        if (d.kind==='videoinput' && camSel){ var o2=document.createElement('option'); o2.value=d.deviceId; o2.textContent=d.label||('카메라 '+(++cc)); camSel.appendChild(o2); }
+      });
+      if (micSel && !micSel.children.length){ var om=document.createElement('option'); om.textContent='기본 마이크'; micSel.appendChild(om); }
+      if (camSel && !camSel.children.length){ var oc=document.createElement('option'); oc.textContent='기본 카메라'; camSel.appendChild(oc); }
+    }).catch(function(){ });
+  }
+
   function buildSettings(){
     if (setPop) return setPop;
     backdrop = document.createElement('div'); backdrop.id = 'vc-dock-backdrop';
@@ -81,22 +131,68 @@
 
     setPop = document.createElement('div'); setPop.id = 'vc-dock-settings';
     setPop.innerHTML =
-      '<div class="sg-title">설정</div>' +
-      '<button data-act="theme">테마 <span class="val" id="sg-theme"></span></button>' +
-      '<button data-act="lang">언어 <span class="val" id="sg-lang"></span></button>' +
-      '<button data-act="full">전체화면 <span class="val" id="sg-full"></span></button>';
+      '<div class="sg-head"><h3>⚙️ 설정</h3><button class="sg-x" data-act="close">✕</button></div>' +
+      '<div class="sg-group">' +
+        '<div class="sg-gtitle">장치</div>' +
+        '<div class="sg-row"><label>마이크</label><select id="sg-mic-dev"><option>기본 마이크</option></select></div>' +
+        '<div class="sg-row"><label>마이크 음량</label><input type="range" id="sg-mic-vol" min="0" max="100" value="70"></div>' +
+        '<div class="sg-row"><label>스피커</label><button class="sg-test" data-act="spk">테스트 ▶</button></div>' +
+        '<div class="sg-row"><label>카메라</label><select id="sg-cam-dev"><option>기본 카메라</option></select></div>' +
+        '<div class="sg-row"><label>잡음 제거</label><div class="sg-sw on" data-act="noise"></div></div>' +
+      '</div>' +
+      '<div class="sg-group">' +
+        '<div class="sg-gtitle">영상 · 녹화</div>' +
+        '<div class="sg-row"><label>영상 화질</label><div class="sg-seg" id="sg-quality"><button data-q="auto" class="on">자동</button><button data-q="high">고</button><button data-q="low">저</button></div></div>' +
+        '<div class="sg-row"><label>자동 녹화</label><div class="sg-sw on" data-act="autorec"></div></div>' +
+        '<div class="sg-row"><label>배경 흐림</label><div class="sg-sw" data-act="blur"></div></div>' +
+      '</div>' +
+      '<div class="sg-group" style="margin-bottom:2px;">' +
+        '<div class="sg-gtitle">표시</div>' +
+        '<div class="sg-row"><label>언어</label><div class="sg-seg" id="sg-lang"><button data-l="ko">한국어</button><button data-l="en">EN</button></div></div>' +
+        '<div class="sg-row"><label>테마</label><div class="sg-seg" id="sg-theme"><button data-t="light">라이트</button><button data-t="dark">다크</button></div></div>' +
+        '<div class="sg-row"><label>전체화면</label><div class="sg-sw" data-act="full"></div></div>' +
+      '</div>';
     setPop.addEventListener('click', function(e){ e.stopPropagation(); });
-    setPop.querySelector('[data-act="theme"]').onclick = function(){ try{ window.MangoTheme && MangoTheme.toggle(); }catch(_){} refreshSettings(); };
-    setPop.querySelector('[data-act="lang"]').onclick  = function(){ call('toggleLang'); setTimeout(refreshSettings, 40); };
-    setPop.querySelector('[data-act="full"]').onclick  = function(){ toggleFullscreen(); setTimeout(refreshSettings, 80); };
+
+    // 닫기
+    setPop.querySelector('[data-act="close"]').onclick = closeSettings;
+    // 장치
+    var micDev = setPop.querySelector('#sg-mic-dev');
+    micDev.onchange = function(){ call('vcSetMicDevice', micDev.value); };
+    var camDev = setPop.querySelector('#sg-cam-dev');
+    camDev.onchange = function(){ call('vcSetCamDevice', camDev.value); };
+    var vol = setPop.querySelector('#sg-mic-vol');
+    vol.oninput = function(){ call('vcSetMicVolume', +vol.value); };
+    setPop.querySelector('[data-act="spk"]').onclick = beep;
+    setPop.querySelector('[data-act="noise"]').onclick = function(){ this.classList.toggle('on'); call('vcSetNoiseSuppression', this.classList.contains('on')); };
+    // 영상·녹화
+    setPop.querySelectorAll('#sg-quality button').forEach(function(b){
+      b.onclick = function(){ setPop.querySelectorAll('#sg-quality button').forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); call('vcSetQuality', b.getAttribute('data-q')); };
+    });
+    setPop.querySelector('[data-act="autorec"]').onclick = function(){ this.classList.toggle('on'); call('vcSetAutoRecord', this.classList.contains('on')); };
+    setPop.querySelector('[data-act="blur"]').onclick = function(){ this.classList.toggle('on'); call('vcSetBackgroundBlur', this.classList.contains('on')); };
+    // 표시
+    setPop.querySelectorAll('#sg-lang button').forEach(function(b){
+      b.onclick = function(){ setLang(b.getAttribute('data-l')==='en'); setTimeout(refreshSettings, 40); };
+    });
+    setPop.querySelectorAll('#sg-theme button').forEach(function(b){
+      b.onclick = function(){ setTheme(b.getAttribute('data-t')==='light'); setTimeout(refreshSettings, 20); };
+    });
+    setPop.querySelector('[data-act="full"]').onclick = function(){ toggleFullscreen(); setTimeout(refreshSettings, 80); };
+
     document.body.appendChild(setPop);
+    fillDevices();
     return setPop;
+  }
+  function setSeg(sel, attr, val){
+    if (!setPop) return;
+    setPop.querySelectorAll(sel+' button').forEach(function(b){ b.classList.toggle('on', b.getAttribute(attr)===val); });
   }
   function refreshSettings(){
     if (!setPop) return;
-    var t = setPop.querySelector('#sg-theme'); if (t) t.textContent = themeLabel();
-    var l = setPop.querySelector('#sg-lang');  if (l) l.textContent = langLabel();
-    var f = setPop.querySelector('#sg-full');  if (f) f.textContent = fullscreenOn() ? '켜짐' : '꺼짐';
+    setSeg('#sg-theme', 'data-t', isLight()?'light':'dark');
+    setSeg('#sg-lang', 'data-l', isEn()?'en':'ko');
+    var f = setPop.querySelector('[data-act="full"]'); if (f) f.classList.toggle('on', fullscreenOn());
   }
   function openSettings(){
     buildSettings();
@@ -167,3 +263,4 @@
   if (document.readyState !== 'loading') { tick(); } else { document.addEventListener('DOMContentLoaded', tick); }
   setInterval(tick, 1500);
 })();
+/* settings panel: 장치·영상/녹화·표시 (v2) */
