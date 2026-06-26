@@ -43,31 +43,30 @@ jobs:
           set -o pipefail
           gradle assembleRelease --no-daemon --stacktrace --warning-mode all 2>&1 | tee /tmp/build.log
 
-      - name: Commit build log to repo (for diagnosis)
+      - name: Publish results to repo
         if: always()
         working-directory: ${{ github.workspace }}
         run: |
-          cp /tmp/build.log ci-build.log 2>/dev/null || echo "(no /tmp/build.log produced)" > ci-build.log
+          cp /tmp/build.log ci-build.log 2>/dev/null || echo "(no /tmp/build.log)" > ci-build.log
           echo "" >> ci-build.log
           echo "BUILD_OUTCOME=${{ steps.build.outcome }}" >> ci-build.log
+          mkdir -p dist
+          if [ "${{ steps.build.outcome }}" = "success" ]; then
+            cp mobile-app/app/build/outputs/apk/release/app-release.apk dist/mangoi-test-signed.apk
+            echo "APK committed to dist/mangoi-test-signed.apk" >> ci-build.log
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ci-build.log
-          git commit -m "ci: build log [skip ci]" || echo "nothing to commit"
+          git add ci-build.log dist 2>/dev/null || true
+          git commit -m "ci: publish build results [skip ci]" || echo "nothing to commit"
           git push origin HEAD:main
-
-      - name: Prepare APK
-        if: steps.build.outcome == 'success'
-        run: |
-          mkdir -p out
-          cp app/build/outputs/apk/release/app-release.apk out/mangoi-test-signed.apk
 
       - name: Upload APK artifact
         if: steps.build.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: mangoi-test-signed-apk
-          path: mobile-app/out/mangoi-test-signed.apk
+          path: mobile-app/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
 
       - name: Fail job if build failed
