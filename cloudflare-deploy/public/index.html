@@ -3785,6 +3785,13 @@
   skip.addEventListener('click', function(ev){ ev.stopPropagation(); dismiss(); });
   video.addEventListener('ended', dismiss);
 
+  // 🔧 (2026-06-26 FIX) 안전장치: 영상이 로드/재생에 실패해도 인트로가 검은 화면으로
+  //   영구히 남지 않도록 자동으로 닫는다. (정상 동작에는 영향 없음)
+  video.addEventListener('error', dismiss);
+  var _introSrc = video.querySelector('source');
+  if (_introSrc) _introSrc.addEventListener('error', dismiss);
+  setTimeout(function(){ if(!dismissed) dismiss(); }, 8000);
+
   // 첫 사용자 제스처(mousemove·휠·키·터치·스크롤) → muted 폴백된 영상 자동 unmute
   function autoUnmuteOnce(){
     if (dismissed || explicitlyMuted || !video.muted) return;
@@ -26209,11 +26216,25 @@ window.closeRulesModal = function() {
   [200, 800, 2000, 5000].forEach(function(d){ setTimeout(ph51Init, d); });
 
   // SPA view 전환 시 — 로비 컨트롤 재노출 즉시 차단 + 자동 채움 재시도
+  // 🔧 (2026-06-26 FIX) 무한 재트리거(화면 멈춤) 버그 차단.
+  //   기존: 옵저버 콜백이 ph51RestoreLogin()(→updateLoginUI 등)을 동기 실행하면서
+  //   body 를 다시 변경 → 이 옵저버가 또 호출 → 또 변경 … MutationObserver 콜백은
+  //   마이크로태스크라 한 번 시작되면 메인 스레드를 통째로 점유, 페이지가 검은 채 완전히 멈춤.
+  //   (mango-theme.js 가 로드 시 body 클래스를 토글하면서 이 폭주가 시작됨)
+  //   → 콜백은 DOM 을 직접 만지지 않고 플래그만 세우고, 실제 작업은 setTimeout(매크로태스크)
+  //     으로 200ms 디바운스 실행. 변경이 쏟아져도 200ms 당 최대 한 번만 실행돼 폭주 불가.
   if (typeof MutationObserver !== 'undefined') {
-    var mo = new MutationObserver(function(){
+    var ph51Scheduled = false;
+    function ph51RunDeferred(){
+      ph51Scheduled = false;
       ph51HideLobbyBar();
       ph51RestoreLogin();
       ph51FixVcLoginBtn();
+    }
+    var mo = new MutationObserver(function(){
+      if (ph51Scheduled) return;
+      ph51Scheduled = true;
+      setTimeout(ph51RunDeferred, 200);
     });
     mo.observe(document.body, { childList: true, subtree: false, attributes: true, attributeFilter: ['class'] });
   }
@@ -26406,6 +26427,14 @@ window.closeRulesModal = function() {
   [200, 800, 2000, 5000, 10000].forEach(function(d){ setTimeout(ph50MoveChips, d); });
 
   if (typeof MutationObserver !== 'undefined') {
+    // 🔧 (2026-06-26 FIX) 무한 폭주(화면 멈춤) 차단.
+    //   ph50MoveChips() 가 body 를 다시 변경(dismiss 클래스 정리·chip-row append 등)하면서
+    //   body class 를 감시하는 이 옵저버를 재트리거 → ph51 옵저버·mango-theme 의 클래스
+    //   토글과 얽혀 MutationObserver 콜백이 무한 반복(마이크로태스크 폭주) → 메인 스레드 정지.
+    //   → 콜백은 직접 작업하지 않고 플래그만, 실제 ph50MoveChips 는 setTimeout 으로 200ms
+    //     디바운스 실행. 변경이 쏟아져도 200ms 당 최대 한 번만 실행돼 폭주 불가.
+    var ph50Scheduled = false;
+    function ph50RunDeferred(){ ph50Scheduled = false; ph50MoveChips(); }
     var mo = new MutationObserver(function(muts){
       var needsMove = false;
       muts.forEach(function(m){
@@ -26424,7 +26453,7 @@ window.closeRulesModal = function() {
           }
         }
       });
-      if (needsMove) ph50MoveChips();
+      if (needsMove && !ph50Scheduled) { ph50Scheduled = true; setTimeout(ph50RunDeferred, 200); }
     });
     mo.observe(document.body, { childList: true, subtree: false, attributes: true, attributeFilter: ['class'] });
     CHIP_IDS.forEach(function(id){
@@ -27633,7 +27662,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260626012454 -->
+<!-- BUILD:20260626143025 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
