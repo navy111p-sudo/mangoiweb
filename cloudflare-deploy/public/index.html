@@ -11743,7 +11743,30 @@ function wbInit() {
     canvas.addEventListener('pointercancel', () => { canvas.dispatchEvent(new MouseEvent('mouseup', {})); });
 
     window.addEventListener('resize', wbResize);
-    window.addEventListener('resize', () => { if (pdfDoc && pdfPagesPerView === 2) pdfRender(); });
+    // 교재 자동 fit — 패널 크기가 바뀌면(가로 회전·영상폭 1/4·1/2·3/4 변경·인콜 진입 등)
+    // 1·2페이지 모드 모두 화면에 꽉 차게 다시 렌더. (기존엔 2페이지 모드에서만 재렌더돼 작게 남았음)
+    (function(){
+      var t = null, lastW = 0, lastH = 0;
+      function refit(force){
+        if (!pdfDoc) return;
+        var w = document.getElementById('pdf-scroll-wrap');
+        if (!w) return;
+        var cw = w.clientWidth, ch = w.clientHeight;
+        if (!force && cw === lastW && ch === lastH) return;   // 실제 크기 변화 없으면 무시(루프 방지)
+        lastW = cw; lastH = ch;
+        clearTimeout(t);
+        t = setTimeout(function(){ try { pdfRender(); } catch(_){} }, 120);
+      }
+      window.pdfRefit = refit;
+      window.addEventListener('resize', function(){ refit(); });
+      window.addEventListener('orientationchange', function(){ setTimeout(function(){ refit(true); }, 250); });
+      if (window.ResizeObserver) {
+        try {
+          var wrapEl = document.getElementById('pdf-scroll-wrap');
+          if (wrapEl) new ResizeObserver(function(){ refit(); }).observe(wrapEl);
+        } catch(_){}
+      }
+    })();
 }
 
 /* ================================================================
@@ -27691,7 +27714,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260627225550 -->
+<!-- BUILD:20260627230553 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
