@@ -6996,6 +6996,12 @@
                       style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🔤 <span data-ko="빈칸 채우기" data-en="Fill Blank">빈칸 채우기</span></button>
               <button id="game-mode-balloon" type="button" onclick="gameSwitchMode('balloon')"
                       style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🎈 <span data-ko="풍선 터뜨리기" data-en="Balloon Pop">풍선 터뜨리기</span></button>
+              <button id="game-mode-shoot" type="button" onclick="gameSwitchMode('shoot')"
+                      style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🚀 <span data-ko="슈팅+말하기" data-en="Shooter">슈팅+말하기</span></button>
+              <button id="game-mode-fish" type="button" onclick="gameSwitchMode('fish')"
+                      style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🎣 <span data-ko="낚시+말하기" data-en="Fishing">낚시+말하기</span></button>
+              <button id="game-mode-shooter" type="button" onclick="gameSwitchMode('shooter')"
+                      style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🔫 <span data-ko="영어 슈팅" data-en="Word Shooter">영어 슈팅</span></button>
             </div>
             <button onclick="gameNextRound()"
                     style="padding:6px 12px;font-size:12px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:600"
@@ -10851,8 +10857,8 @@ function gameSwitchMode(mode) {
   _gameState.mode = mode;
   // 풍선 게임 정지 (전환 시 타이머 클리어)
   if (_gameState.balloonTimer) { clearInterval(_gameState.balloonTimer); _gameState.balloonTimer = null; }
-  // 4개 모드 토글 활성화 표시
-  ['brick','match','fill','balloon'].forEach(m => {
+  // 모드 토글 활성화 표시
+  ['brick','match','fill','balloon','shoot','fish','shooter'].forEach(m => {
     const btn = document.getElementById('game-mode-' + m);
     if (!btn) return;
     btn.style.background = mode === m ? '#10b981' : 'transparent';
@@ -10867,11 +10873,75 @@ function gameNextRound() {
   // 🥭 Phase 48 — 수업 중이면 차단
   if (_gameIsClassActive()) { _gameRenderBlocked(); return; }
   document.getElementById('game-feedback').textContent = '';
+  // 슈팅/낚시(iframe)는 패딩 0, 카드형 모드는 기본 패딩 복원
+  const _ga = document.getElementById('game-area');
+  if (_ga) _ga.style.padding = (_gameState.mode === 'shoot' || _gameState.mode === 'fish' || _gameState.mode === 'shooter') ? '0' : '24px';
   if (_gameState.mode === 'brick') gameRenderBrick();
   else if (_gameState.mode === 'match') gameRenderMatch();
   else if (_gameState.mode === 'fill') gameRenderFill();
   else if (_gameState.mode === 'balloon') gameRenderBalloon();
+  else if (_gameState.mode === 'shoot') _gameRenderSuite('shoot');
+  else if (_gameState.mode === 'fish') _gameRenderSuite('fish');
+  else if (_gameState.mode === 'shooter') _gameRenderShooter();
 }
+
+// 🥭 슈팅+말하기 / 낚시+말하기 — english-mastery-suite.html 를 iframe 으로 임베드.
+// 오늘의 교재 문장을 URL 파라미터로 주입하고, 미션 완료 시 점수를 공유 풋터에 반영.
+function _gameRenderSuite(which) {
+  // ⚠ 이 모드는 '교사 주도 발음 드릴'(Audio→말하기 3회→Admin Pass)이므로 수업 중에도 사용 가능 — 일반 미니게임의 수업 차단을 적용하지 않음.
+  const v = (_gameState.current && _gameState.current.sentence)
+            || _GAME_VOCAB[Math.floor(Math.random() * _GAME_VOCAB.length)];
+  _gameState.current = { sentence: v, picked: [] };
+  const lang = (window.currentLang === 'en') ? 'en' : 'ko';
+  const src = '/english-mastery-suite.html?game=' + which
+            + '&sentence=' + encodeURIComponent(v.en)
+            + '&lang=' + lang;
+  const area = document.getElementById('game-area');
+  if (!area) return;
+  // mic/autoplay 권한 위임 필수 — 말하기 미션(webkitSpeechRecognition)과 TTS 동작에 필요
+  area.style.padding = '0';
+  area.innerHTML =
+    '<iframe id="game-suite-frame" src="' + src + '" ' +
+    'allow="microphone; autoplay; speaker-selection" ' +
+    'style="width:100%;height:100%;min-height:440px;border:0;display:block;background:#081227"></iframe>';
+  const fb = document.getElementById('game-feedback');
+  if (fb) fb.innerHTML = (lang === 'en')
+    ? '<span style="color:#94a3b8">🎤 Order the words → listen → speak 3×</span>'
+    : '<span style="color:#94a3b8">🎤 단어 순서 → 발음 듣기 → 3번 말하기</span>';
+}
+
+// 🔫 영어 슈팅 — student-game-shooter.html 임베드. 오늘 교재 문장 주입 + 원어민 음성 + 총별 효과음.
+function _gameRenderShooter() {
+  const v = (_gameState.current && _gameState.current.sentence)
+            || _GAME_VOCAB[Math.floor(Math.random() * _GAME_VOCAB.length)];
+  _gameState.current = { sentence: v, picked: [] };
+  const lang = (window.currentLang === 'en') ? 'en' : 'ko';
+  const src = '/student-game-shooter.html?sentence=' + encodeURIComponent(v.en) + '&lang=' + lang;
+  const area = document.getElementById('game-area');
+  if (!area) return;
+  area.style.padding = '0';
+  area.innerHTML =
+    '<iframe id="game-suite-frame" src="' + src + '" ' +
+    'allow="microphone; autoplay; speaker-selection" ' +
+    'style="width:100%;height:100%;min-height:440px;border:0;display:block;background:#081227"></iframe>';
+  const fb = document.getElementById('game-feedback');
+  if (fb) fb.innerHTML = (lang === 'en')
+    ? '<span style="color:#94a3b8">🔫 Shoot the words in order to build the sentence!</span>'
+    : '<span style="color:#94a3b8">🔫 단어를 순서대로 쏴서 문장 완성! (총·소리 선택 가능)</span>';
+}
+
+// iframe(영어 마스터리 게임) → 부모: 미션 완료 시 공유 점수 반영
+window.addEventListener('message', function (ev) {
+  const d = ev && ev.data;
+  if (!d || typeof d !== 'object' || !d.type) return;
+  if (d.type === 'mangoi-game-complete') {
+    _gameState.score += (d.score || 0);
+    _gameState.correct += 1;
+    if (typeof _gameUpdateScore === 'function') _gameUpdateScore();
+    const fb = document.getElementById('game-feedback');
+    if (fb) fb.innerHTML = '<span style="color:#10b981;font-weight:700">🌟 미션 완료! +' + (d.score || 0) + '</span>';
+  }
+});
 
 function _gameShuffle(arr) {
   const a = arr.slice();
@@ -27714,7 +27784,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260627234817 -->
+<!-- BUILD:20260628000030 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
