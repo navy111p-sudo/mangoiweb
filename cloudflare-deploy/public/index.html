@@ -11253,11 +11253,33 @@ function gameRenderBalloon() {
   }, 50);
 }
 
+// 🎈 풍선 터지는 효과음 — 날카로운 노이즈 버스트 + 저음 펀치("펑!")
+function gameBalloonPopSound(){
+  try{
+    var AC = window.AudioContext||window.webkitAudioContext; if(!AC) return;
+    if(!window._gameAC) window._gameAC = new AC();
+    var ac = window._gameAC; if(ac.state==='suspended'){ try{ ac.resume(); }catch(_){} }
+    var t = ac.currentTime;
+    // (1) 날카로운 노이즈 버스트
+    var dur=0.18, len=Math.floor(ac.sampleRate*dur), buf=ac.createBuffer(1,len,ac.sampleRate), d=buf.getChannelData(0);
+    for(var i=0;i<len;i++){ d[i]=(Math.random()*2-1)*Math.pow(1-i/len,1.5); }
+    var src=ac.createBufferSource(); src.buffer=buf;
+    var hp=ac.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=600;
+    var ng=ac.createGain(); ng.gain.setValueAtTime(0.0001,t); ng.gain.exponentialRampToValueAtTime(0.9,t+0.005); ng.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    src.connect(hp); hp.connect(ng); ng.connect(ac.destination); src.start(t); src.stop(t+dur);
+    // (2) 저음 '툭' 펀치(피치 다운)
+    var o=ac.createOscillator(), og=ac.createGain();
+    o.type='sine'; o.frequency.setValueAtTime(420,t); o.frequency.exponentialRampToValueAtTime(70,t+0.12);
+    og.gain.setValueAtTime(0.0001,t); og.gain.exponentialRampToValueAtTime(0.7,t+0.005); og.gain.exponentialRampToValueAtTime(0.0001,t+0.16);
+    o.connect(og); og.connect(ac.destination); o.start(t); o.stop(t+0.18);
+  }catch(_){}
+}
 function gameBalloonPop(bl) {
   if (_gameState.current.popped) return;
   _gameState.current.popped = true;
   const en = bl.dataset.en;
-  try{ window.gameSpeak && gameSpeak(en); }catch(_){}
+  gameBalloonPopSound();                                                  // ① 먼저 크게 "펑!" 터지는 소리
+  setTimeout(function(){ try{ window.gameSpeak && gameSpeak(en); }catch(_){} }, 320);  // ② 그다음 원어민 발음
   const correct = en === _gameState.current.answer;
   bl.style.transform = 'scale(1.3)';
   bl.style.opacity = '0';
@@ -27815,7 +27837,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260628012409 -->
+<!-- BUILD:20260628013405 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
