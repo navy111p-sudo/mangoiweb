@@ -586,11 +586,13 @@
 
   function handleAttempt(heard, confidence, matchedFlag){
     var matched = (typeof matchedFlag==='boolean') ? matchedFlag : matchSpoken(heard, targetSentence);
-    var confPct = Math.round(confidence*100);
-    // 정확도 필터: confidence > 0.70 AND 문장 일치(관대) 해야 성공
-    var pass = confidence > CONFIDENCE_THRESHOLD && matched;
+    // 일부 브라우저(모바일/Edge 등)는 confidence 를 0 으로 반환 → 0이면 신뢰도 필터를 건너뛰고 문장 일치로만 판정
+    var confOk = (confidence === 0) || (confidence > CONFIDENCE_THRESHOLD);
+    var pass = matched && confOk;
+    // 표시 '정확도' = 문장 일치율(들린 말이 목표에 얼마나 가까운지) — confidence 0 기기에서도 의미있게
+    var confPct = Math.round(simRatio(heard, targetSentence) * 100);
 
-    var line = '들린 말: <span class="heard">"'+ (heard||'…') +'"</span><br>정확도 <span class="conf '+(confidence>CONFIDENCE_THRESHOLD?'ok':'no')+'">'+confPct+'%</span>';
+    var line = '들린 말: <span class="heard">"'+ (heard||'…') +'"</span><br>정확도 <span class="conf '+(matched?'ok':'no')+'">'+confPct+'%</span>';
 
     if(pass){
       speakCount++; renderStars(); awardSpeak();            // ★ 말할 때마다 +점수
@@ -1057,6 +1059,6 @@
 
 })();
 </script>
-<!-- BUILD:20260628005848 -->
+<!-- BUILD:20260628010244 -->
 </body>
 </html>
