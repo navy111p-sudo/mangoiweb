@@ -1,8 +1,8 @@
-# Change-set QA report (2026-06-27T05:21:25.618Z)
+# Change-set QA report (2026-06-27T05:44:13.467Z)
 
 PASS=78 FAIL=0
 
-PASS  integrity:cloudflare-deploy/public/index.html delta  — HEAD=30665 WORK=30666 delta=1 (expect 1)
+PASS  integrity:cloudflare-deploy/public/index.html delta  — HEAD=30666 WORK=30668 delta=2 (expect 2)
 PASS  integrity:cloudflare-deploy/public/index.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/src/api-mango.ts delta  — HEAD=11832 WORK=11832 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/src/api-mango.ts tail  — tail="}"
