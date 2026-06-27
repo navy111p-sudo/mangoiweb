@@ -474,17 +474,15 @@
   }
   function speakSentence(cb){ speak(targetSentence.replace(/[.?!]/g,''), 0.95, cb); }   // 문장은 또렷하되 자연스럽게
 
-  // 오답 버저(짧은 비음성)
-  var actx=null;
-  function buzz(){
-    try{
-      if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)();
-      var o=actx.createOscillator(), g=actx.createGain();
-      o.type='sawtooth'; o.frequency.value=150; o.connect(g); g.connect(actx.destination);
-      var t=actx.currentTime; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.16,t+0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001,t+0.25); o.start(t); o.stop(t+0.27);
-    }catch(e){}
-  }
+  // 효과음 (WebAudio 합성) — 발사음 / 명중·폭발음 / 오답 버저
+  var actx=null, _master=null;
+  function _ac(){ if(!actx){ try{ actx=new (window.AudioContext||window.webkitAudioContext)(); _master=actx.createGain(); _master.gain.value=0.9; _master.connect(actx.destination); }catch(e){} } if(actx&&actx.state==='suspended'){ try{ actx.resume(); }catch(e){} } }
+  function _noise(d){ var L=Math.max(1,Math.floor(actx.sampleRate*d)),b=actx.createBuffer(1,L,actx.sampleRate),z=b.getChannelData(0); for(var i=0;i<L;i++)z[i]=Math.random()*2-1; var s=actx.createBufferSource(); s.buffer=b; return s; }
+  function _ck(t,v,h,d){ var n=_noise(d),f=actx.createBiquadFilter(),g=actx.createGain(); f.type='highpass'; f.frequency.value=h; n.connect(f); f.connect(g); g.connect(_master); g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.001,t+d); n.start(t); n.stop(t+d+0.02); }
+  function _tp(t,v,a,b,d){ var o=actx.createOscillator(),g=actx.createGain(); o.type='sine'; o.frequency.setValueAtTime(a,t); o.frequency.exponentialRampToValueAtTime(b,t+d); o.connect(g); g.connect(_master); g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.001,t+d); o.start(t); o.stop(t+d+0.02); }
+  function sfxFire(){ try{ _ac(); if(!actx)return; var t=actx.currentTime; _ck(t,0.45,2200,0.02); _ck(t,0.5,1000,0.1); _tp(t,0.35,200,65,0.09); }catch(e){} }   // 발사 '탕'
+  function sfxHit(){ try{ _ac(); if(!actx)return; var t=actx.currentTime; var n=_noise(0.4),f=actx.createBiquadFilter(),g=actx.createGain(); f.type='lowpass'; f.frequency.setValueAtTime(1500,t); f.frequency.exponentialRampToValueAtTime(120,t+0.35); n.connect(f); f.connect(g); g.connect(_master); g.gain.setValueAtTime(0.55,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.4); n.start(t); n.stop(t+0.42); _tp(t,0.5,150,40,0.35); }catch(e){} }   // 명중/폭발음
+  function buzz(){ try{ _ac(); if(!actx)return; var o=actx.createOscillator(), g=actx.createGain(); o.type='sawtooth'; o.frequency.value=150; o.connect(g); g.connect(_master); var t=actx.currentTime; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.16,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+0.25); o.start(t); o.stop(t+0.27); }catch(e){} }
 
   /* =========================================================================
      2) 토스트
@@ -720,6 +718,7 @@
       var ex=r2.left+r2.width/2-f2.left, ey=r2.top+r2.height/2-f2.top;
       muzzle.classList.remove('flash'); void muzzle.offsetWidth; muzzle.classList.add('flash');
       barrel.classList.remove('recoil'); void barrel.offsetWidth; barrel.classList.add('recoil');
+      sfxFire();                                          // ★ 발사음
       var b=document.createElement('div'); b.className='bullet'; b.style.left=sx+'px'; b.style.top=sy+'px'; SH.field.appendChild(b);
       requestAnimationFrame(function(){ b.style.left=ex+'px'; b.style.top=ey+'px'; });
       setTimeout(function(){ if(b.parentNode) b.remove(); shootResolve(m,ex,ey); }, 150);
@@ -731,6 +730,7 @@
     if(norm(m.word) === norm(required)){
       SH.score += 100; shootScoreVal.textContent=SH.score;
       var now=performance.now(); SH.combo=(now-SH.lastHit<COMBO_WINDOW)?SH.combo+1:1; SH.lastHit=now; SH.idx++;
+      sfxHit();                                           // ★ 명중/폭발음
       speak(m.word.replace(/[.?!]/g,''));
       // pop
       var i=SH.monsters.indexOf(m); if(i>=0) SH.monsters.splice(i,1);
@@ -1059,6 +1059,6 @@
 
 })();
 </script>
-<!-- BUILD:20260628010244 -->
+<!-- BUILD:20260628010757 -->
 </body>
 </html>

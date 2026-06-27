@@ -479,10 +479,12 @@
     //   데스크탑에서는 상단 툴바의 EN(언어) 버튼 바로 왼쪽에 끼워넣어 "맨 위"에 노출.
     //   (기존: top:104px 고정 오버레이가 게임 버튼 위를 덮어 겹쳐 보였음.)
     //   모바일(<=900px)은 통합 바(mango-topbar-unified)가 이 배지를 숨기고 따로 미러링하므로 폴백 유지.
-    var _toolbarRight = document.querySelector('.toolbar .toolbar-right');
-    var _langBtn = _toolbarRight ? _toolbarRight.querySelector('[onclick*="toggleLang"]') : null;
+    // ⚠️ .toolbar .toolbar-right 는 2개(view-signaling-call / view-videocall-call) 존재 →
+    //    EN(언어) 버튼이 들어있는 실제 수업 툴바를 버튼의 부모로 직접 잡아야 한다.
+    var _langBtn = document.querySelector('.toolbar .toolbar-right [onclick*="toggleLang"]');
+    var _toolbarRight = _langBtn ? _langBtn.parentNode : null;
     var _isMobileMQ = window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
-    if (!_isMobileMQ && _toolbarRight && _langBtn && _langBtn.parentNode === _toolbarRight) {
+    if (!_isMobileMQ && _toolbarRight && _langBtn) {
       _toolbarRight.insertBefore(recBadge, _langBtn);   // EN 왼쪽에 배치
       recBadge.setAttribute('data-docked', '1');
     } else {

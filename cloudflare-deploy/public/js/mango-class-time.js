@@ -89,9 +89,11 @@
     //   데스크탑에서만 도킹한다. (모바일에서 div를 끼우면 toolbar-right>button:first-child
     //   로 EN 버튼을 숨기는 규칙이 깨져 EN이 다시 보이는 부작용이 있음.)
     var isMobileMQ = window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
-    var toolbarRight = document.querySelector('.toolbar .toolbar-right');
-    var langBtn = toolbarRight ? toolbarRight.querySelector('[onclick*="toggleLang"]') : null;
-    if (!isMobileMQ && toolbarRight && langBtn && langBtn.parentNode === toolbarRight) {
+    // ⚠️ .toolbar .toolbar-right 는 2개(view-signaling-call / view-videocall-call) 존재 →
+    //    EN(언어) 버튼이 들어있는 실제 수업 툴바를 버튼의 부모로 직접 잡아야 한다.
+    var langBtn = document.querySelector('.toolbar .toolbar-right [onclick*="toggleLang"]');
+    var toolbarRight = langBtn ? langBtn.parentNode : null;
+    if (!isMobileMQ && toolbarRight && langBtn) {
       toolbarRight.insertBefore(elWrap, langBtn);   // EN 왼쪽에 배치
       elWrap.setAttribute('data-docked', '1');
     } else {
