@@ -26838,8 +26838,15 @@ window.closeRulesModal = function() {
   function ph49AddWhiteboardToggle(){
     // 교재도구(.pdf-controls)·필기도구(.pdf-anno-bar)는 상단 탭바의 칩(mango-tool-chip)이 제어.
     //  → 인라인 토글을 넣지 않고, 기본 '접힘(드롭다운 숨김)' 상태로 시작.
+    // 🔧 (2026-06-27 FIX) 깜빡임 근본 원인 차단:
+    //   이 함수는 body class 가 바뀔 때마다(MutationObserver) 반복 호출된다.
+    //   매번 ph49-collapsed 를 다시 붙이면, 칩으로 펼쳐둔 드롭다운이 강제로 접혔다가
+    //   dock.js 폴링이 다시 펴는 일이 반복 → 끊임없는 깜빡임.
+    //   → '최초 1회'만 기본 접힘을 적용하고, 이후 열림/접힘 상태는 칩(dock.js)에 일임한다.
     document.querySelectorAll('.pdf-controls, .pdf-anno-bar').forEach(function(bar){
-      bar.classList.add('ph49-collapsed');
+      if (bar.dataset.ph49Init) return;      // 이미 초기화된 바는 절대 건드리지 않음
+      bar.dataset.ph49Init = '1';
+      bar.classList.add('ph49-collapsed');   // 최초 1회만 기본 접힘
     });
     // 칠판 도구바(.wb-toolbar)는 기존처럼 인라인 토글 유지(이름: 칠판도구).
     document.querySelectorAll('.wb-toolbar').forEach(function(bar){
@@ -27668,7 +27675,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260627151501 -->
+<!-- BUILD:20260627182939 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
