@@ -158,6 +158,13 @@
   .splash{position:absolute;z-index:9;pointer-events:none;font-size:24px;animation:splashUp .55s ease-out forwards}
   @keyframes splashUp{0%{opacity:0;transform:translate(-50%,8px) scale(.5)}30%{opacity:1}100%{opacity:0;transform:translate(-50%,-26px) scale(1.25)}}
   .droplet{position:absolute;width:5px;height:5px;border-radius:50%;background:rgba(205,242,255,.95);z-index:9;pointer-events:none;box-shadow:0 0 5px rgba(190,235,255,.8)}
+  .ripple{position:absolute;z-index:8;border:2px solid rgba(200,240,255,.7);border-radius:50%;pointer-events:none;animation:rippleE .6s ease-out forwards}
+  @keyframes rippleE{0%{opacity:.85;width:6px;height:6px;margin:-3px 0 0 -3px}100%{opacity:0;width:64px;height:64px;margin:-32px 0 0 -32px}}
+  /* 물고기가 단어를 '말하는' 말풍선 */
+  .saybubble{position:absolute;z-index:14;background:#fff;color:#06223a;font-weight:800;font-size:15px;padding:4px 13px;border-radius:999px;
+    border:2px solid #fbbf24;box-shadow:0 4px 14px rgba(0,0,0,.4);pointer-events:none;white-space:nowrap;animation:sayPop 1s ease-out forwards}
+  .saybubble::after{content:'';position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#fbbf24}
+  @keyframes sayPop{0%{opacity:0;transform:translate(-50%,6px) scale(.6)}22%{opacity:1;transform:translate(-50%,0) scale(1.05)}38%{transform:translate(-50%,0) scale(1)}82%{opacity:1}100%{opacity:0;transform:translate(-50%,-34px) scale(1)}}
   .bubble{position:absolute;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.6),rgba(180,235,255,.08));
     border:1px solid rgba(255,255,255,.2);pointer-events:none;z-index:2;animation:rise linear infinite}
   @keyframes rise{from{transform:translateY(0)}to{transform:translateY(-100vh)}}
@@ -372,6 +379,7 @@
   ========================================================================= */
   var CONFIDENCE_THRESHOLD = 0.70;   // 정확도 필터: 이 값 "초과"여야 성공
   var SPEAK_TARGET = 3;              // 3회 말하기 성공해야 완료
+  var SPEAK_POINTS = 100;           // 말하기 1회 성공 시 점수(회당 라이브로 가산)
   var COMBO_WINDOW = 2500;
 
   var PRESETS = [
@@ -468,7 +476,7 @@
   ========================================================================= */
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
   var recog=null, recogActive=false;
-  var speakCount=0, onMissionDone=null, audioPlayed=false;
+  var speakCount=0, speakAwarded=0, onMissionDone=null, onSpeakSuccess=null, audioPlayed=false;
 
   var speakOverlay=$('#speakOverlay'), micBtn=$('#micBtn'), starsEl=$('#stars'),
       missionStatus=$('#missionStatus'), speakTextEl=$('#speakText'), speakKoEl=$('#speakKo');
@@ -476,8 +484,8 @@
   function renderStars(){
     $$('.s', starsEl).forEach(function(s,i){ s.classList.toggle('on', i<speakCount); });
   }
-  function startMission(done){
-    onMissionDone = done; speakCount=0; audioPlayed=false;
+  function startMission(done, onScore){
+    onMissionDone = done; onSpeakSuccess = onScore || null; speakCount=0; speakAwarded=0; audioPlayed=false;
     speakTextEl.firstChild.nodeValue = targetSentence;
     speakKoEl.textContent = KO[targetSentence] || '';
     renderStars();
@@ -521,6 +529,9 @@
     return r;
   }
 
+  // 말하기 1회 성공 → 점수 가산(게임 점수에 라이브 반영)
+  function awardSpeak(){ if(onSpeakSuccess) onSpeakSuccess(SPEAK_POINTS); speakAwarded++; }
+
   function handleAttempt(heard, confidence){
     var matched = norm(heard) === norm(targetSentence);
     var confPct = Math.round(confidence*100);
@@ -530,15 +541,15 @@
     var line = '들린 말: <span class="heard">"'+ (heard||'…') +'"</span><br>정확도 <span class="conf '+(confidence>CONFIDENCE_THRESHOLD?'ok':'no')+'">'+confPct+'%</span>';
 
     if(pass){
-      speakCount++; renderStars();
+      speakCount++; renderStars(); awardSpeak();            // ★ 말할 때마다 +점수
       if(speakCount>=SPEAK_TARGET){
-        missionStatus.innerHTML = line + '<br>🎉 <b>완벽해요!</b> 3회 모두 성공!';
+        missionStatus.innerHTML = line + '<br>🎉 <b>완벽해요!</b> 3회 모두 성공! <b>+'+SPEAK_POINTS+'점</b>';
         micBtn.disabled=true; micBtn.classList.remove('listening'); micBtn.innerHTML='✅ 미션 완료';
-        toast('🌟 말하기 미션 완료!', 'good');
+        toast('🌟 +'+SPEAK_POINTS+'점 · 말하기 미션 완료!', 'good');
         setTimeout(finishMission, 900);
       } else {
-        missionStatus.innerHTML = line + '<br>👍 <b>성공!</b> ('+speakCount+'/'+SPEAK_TARGET+') 다시 한 번!';
-        toast('👍 성공! '+speakCount+'/'+SPEAK_TARGET, 'good');
+        missionStatus.innerHTML = line + '<br>👍 <b>성공! +'+SPEAK_POINTS+'점</b> ('+speakCount+'/'+SPEAK_TARGET+') 다시 한 번!';
+        toast('👍 +'+SPEAK_POINTS+'점! '+speakCount+'/'+SPEAK_TARGET, 'good');
       }
     } else {
       // Fail State: confidence 미달 또는 문장 불일치 → 카운트 미증가
@@ -548,8 +559,10 @@
   }
 
   function finishMission(){
+    // Admin Pass 등으로 점수가 덜 반영됐으면 3회분까지 보정
+    while(speakAwarded < SPEAK_TARGET){ awardSpeak(); }
     closeOverlay('#speakOverlay');
-    var cb = onMissionDone; onMissionDone=null;
+    var cb = onMissionDone; onMissionDone=null; onSpeakSuccess=null;
     if(cb) cb();
   }
 
@@ -685,10 +698,8 @@
     showCombo(shootCombo, '문장 완성! 🎯');
     // → Mastery Loop (TTS 1회 → 말하기 3회)
     setTimeout(function(){
-      startMission(function(){
-        SH.score += 300; shootScoreVal.textContent=SH.score;
-        shootResult();
-      });
+      startMission(function(){ shootResult(); },
+        function(pts){ SH.score += pts; shootScoreVal.textContent=SH.score; });   // 말할 때마다 +pts
     }, 700);
   }
   function shootResult(){
@@ -775,14 +786,39 @@
   }
   function fishClear(){ FI.fish.forEach(function(f){ if(f.el&&f.el.parentNode) f.el.remove(); }); FI.fish=[]; }
   function updateCatch(){ catchCnt.textContent = FI.idx + ' / ' + FI.words.length; }
-  // 물 위로 끌어올릴 때 물보라 + 물방울
+  // 🔊 첨벙 물소리 (WebAudio — 감쇠하는 밴드패스 노이즈)
+  function splashSound(){
+    try{
+      if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)();
+      var dur=0.34, len=Math.floor(actx.sampleRate*dur), buf=actx.createBuffer(1,len,actx.sampleRate), d=buf.getChannelData(0);
+      for(var i=0;i<len;i++){ d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2); }   // 감쇠 노이즈
+      var src=actx.createBufferSource(); src.buffer=buf;
+      var bp=actx.createBiquadFilter(); bp.type='bandpass'; bp.Q.value=0.8;
+      var t=actx.currentTime; bp.frequency.setValueAtTime(1300,t); bp.frequency.exponentialRampToValueAtTime(380,t+dur);
+      var g=actx.createGain(); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.5,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+      src.connect(bp); bp.connect(g); g.connect(actx.destination); src.start(t); src.stop(t+dur);
+    }catch(e){}
+  }
+  // 물결 파동 링
+  function rippleAt(x,y){
+    var rp=document.createElement('div'); rp.className='ripple'; rp.style.left=x+'px'; rp.style.top=y+'px'; FI.field.appendChild(rp);
+    setTimeout(function(){ if(rp.parentNode) rp.remove(); }, 620);
+  }
+  // 물고기가 영어 단어를 '말하는' 말풍선 (TTS와 함께)
+  function sayWord(x,y,word){
+    var d=document.createElement('div'); d.className='saybubble'; d.textContent='🔊 '+word.replace(/[.?!]/g,'');
+    d.style.left=x+'px'; d.style.top=y+'px'; FI.field.appendChild(d);
+    setTimeout(function(){ if(d.parentNode) d.remove(); }, 1000);
+  }
+  // 물 위로 끌어올릴 때 물보라 + 물방울 + 물결 + 첨벙 소리
   function splashAt(x,y){
+    splashSound(); rippleAt(x,y);
     var s=document.createElement('div'); s.className='splash'; s.textContent='💦';
     s.style.left=x+'px'; s.style.top=y+'px'; FI.field.appendChild(s);
     setTimeout(function(){ if(s.parentNode) s.remove(); }, 580);
-    for(var i=0;i<8;i++){ (function(){
+    for(var i=0;i<10;i++){ (function(){
       var d=document.createElement('div'); d.className='droplet'; d.style.left=x+'px'; d.style.top=y+'px'; FI.field.appendChild(d);
-      var ang=-Math.PI/2+(Math.random()-0.5)*1.7, dist=18+Math.random()*32;
+      var ang=-Math.PI/2+(Math.random()-0.5)*1.7, dist=20+Math.random()*36;
       d.animate([{transform:'translate(0,0)',opacity:1},{transform:'translate('+Math.cos(ang)*dist+'px,'+Math.sin(ang)*dist+'px)',opacity:0}],
         {duration:480+Math.random()*240,easing:'cubic-bezier(.2,.7,.3,1)'});
       setTimeout(function(){ if(d.parentNode) d.remove(); }, 740);
@@ -798,10 +834,12 @@
       // 정답 → 낚싯줄로 걸어 배(낚싯대)로 끌어올림
       FI.score += 100; fishScoreVal.textContent=FI.score;
       var now=performance.now(); FI.combo=(now-FI.lastHit<COMBO_WINDOW)?FI.combo+1:1; FI.lastHit=now; FI.idx++;
-      speak(f.word.replace(/[.?!]/g,''));
+      speak(f.word.replace(/[.?!]/g,''));                       // 🔊 물고기가 영어 단어를 소리냄
+      sayWord(cx, cy-34, f.word);                               // 단어 말풍선
       var i=FI.fish.indexOf(f); if(i>=0) FI.fish.splice(i,1);   // 헤엄 정지(걸림)
       var rt=rodTipPos();
       setLine(cx, cy);                                          // ① 캐스팅: 줄이 물고기까지 뻗어 바늘이 걸림
+      rippleAt(cx, cy);                                         // 걸릴 때 물결
       burst(FI.field, cx, cy); floatScore(FI.field,'+100',cx,cy,true);
       if(FI.combo>=2) showCombo(fishCombo, FI.combo+' COMBO!');
       setTimeout(function(){                                    // ② 릴 감기: 물고기를 배로 끌어올림
@@ -832,10 +870,8 @@
     FI.running=false; cancelAnimationFrame(FI.raf); fishClear();
     showCombo(fishCombo, '문장 완성! 🎣');
     setTimeout(function(){
-      startMission(function(){
-        FI.score += 300; fishScoreVal.textContent=FI.score;
-        showResult('fish', FI.score);
-      });
+      startMission(function(){ showResult('fish', FI.score); },
+        function(pts){ FI.score += pts; fishScoreVal.textContent=FI.score; });   // 말할 때마다 +pts
     }, 700);
   }
   function fishLoop(ts){
@@ -969,6 +1005,6 @@
 
 })();
 </script>
-<!-- BUILD:20260628002510 -->
+<!-- BUILD:20260628003706 -->
 </body>
 </html>

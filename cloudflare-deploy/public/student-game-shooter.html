@@ -295,15 +295,22 @@
   var enVoice = null;
   function pickVoice(){
     if(!synth) return;
-    var vs = synth.getVoices();
-    if(!vs.length) return;
-    // 자연스러운 원어민 음성 우선순위
-    var prefer = ['Google US English','Microsoft Aria','Microsoft Jenny','Microsoft Guy','Samantha','Microsoft Zira','Microsoft David'];
-    for(var i=0;i<prefer.length;i++){
-      var v = vs.find(function(x){ return x.name.indexOf(prefer[i])>=0; });
-      if(v){ enVoice=v; break; }
+    var vs = synth.getVoices(); if(!vs.length) return;
+    var en = vs.filter(function(v){ return /^en[-_]?/i.test(v.lang||'') || /English/i.test(v.name||''); });
+    if(!en.length){ enVoice=null; return; }
+    function score(v){               // '자연스러움' 점수 — 로봇 음성 회피, 자연 음성 우대
+      var n=(v.name||''), l=(v.lang||''), s=0;
+      if(/en[-_]US/i.test(l)) s+=3; else if(/^en/i.test(l)) s+=1;
+      if(/Google/i.test(n)) s+=7;                                          // Chrome Google US (자연)
+      if(/Natural|Online/i.test(n)) s+=7;                                  // MS 자연 음성
+      if(/Aria|Jenny|Guy|Ava|Emma|Michelle|Andrew|Brian/i.test(n)) s+=4;  // MS 신형
+      if(/Samantha|Karen|Daniel|Moira|Allison|Tom/i.test(n)) s+=3;        // Apple 자연
+      if(v.localService===false) s+=2;                                     // 네트워크=고품질
+      if(/Desktop|eSpeak|Zira|David|Mark|compact|robot/i.test(n)) s-=5;    // 옛 로봇 음성 회피
+      return s;
     }
-    if(!enVoice) enVoice = vs.find(function(x){ return x.lang==='en-US'; }) || vs.find(function(x){ return (x.lang||'').slice(0,2)==='en'; }) || null;
+    en.sort(function(a,b){ return score(b)-score(a); });
+    enVoice = en[0];
     voiceBadge.textContent = enVoice ? ('🔊 ' + enVoice.name) : '🔊 영어 음성 없음';
   }
   if(synth){ pickVoice(); synth.onvoiceschanged = pickVoice; }
@@ -312,7 +319,7 @@
     try{
       synth.cancel();
       var u = new SpeechSynthesisUtterance(text);
-      u.lang='en-US'; u.rate=rate||0.95; u.pitch=1; u.volume=1;
+      u.lang='en-US'; u.rate=rate||0.9; u.pitch=1.0; u.volume=1;
       if(enVoice) u.voice=enVoice;
       synth.speak(u);
     }catch(e){}
@@ -585,6 +592,6 @@
   window.addEventListener('resize', function(){ var w=field.clientWidth; monsters.forEach(function(m){ if(m.x>w-66){ m.x=Math.max(8,w-86); m.el.style.left=m.x+'px'; } }); });
 })();
 </script>
-<!-- BUILD:20260628002510 -->
+<!-- BUILD:20260628003706 -->
 </body>
 </html>
