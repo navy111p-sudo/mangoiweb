@@ -407,6 +407,14 @@
   function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
   function cleanWords(s){ return s.trim().replace(/\s+/g,' ').split(' '); }
   function norm(s){ return (s||'').toLowerCase().replace(/[^a-z0-9' ]/g,'').replace(/\s+/g,' ').trim(); }
+  // 관대한 문장 일치 — 공백/구두점/대소문자 무시 + 글자 유사도(Levenshtein).
+  //   "every day" vs "everyday", 마침표 유무 등 사소한 차이를 통과시킨다.
+  function _clean(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+  function _lev(a,b){ var m=a.length,n=b.length; if(!m)return n; if(!n)return m;
+    var prev=[],cur=[],i,j; for(j=0;j<=n;j++)prev[j]=j;
+    for(i=1;i<=m;i++){ cur[0]=i; for(j=1;j<=n;j++){ var c=a.charAt(i-1)===b.charAt(j-1)?0:1; cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+c); } var t=prev;prev=cur;cur=t; }
+    return prev[n]; }
+  function simRatio(a,b){ a=_clean(a); b=_clean(b); if(!a||!b)return 0; if(a===b)return 1; var L=Math.max(a.length,b.length); return L?(1-_lev(a,b)/L):0; }
 
   /* =========================================================================
      1) 🔊 TTS (SpeechSynthesis) — 원어민 음성
@@ -549,12 +557,15 @@
     r.onend = function(){ recogActive=false; micBtn.classList.remove('listening'); if(speakCount<SPEAK_TARGET){ micBtn.innerHTML='🎤 다시 말하기'; micBtn.disabled=false; } };
     r.onresult = function(ev){
       var res = ev.results[0];
-      // 여러 후보 중 최고 confidence 채택
-      var best = res[0];
-      for(var i=1;i<res.length;i++){ if(res[i].confidence > best.confidence) best=res[i]; }
+      // 최고 confidence 후보 + 여러 후보 중 하나라도 목표와 일치하는지(everyday=every day 등 허용)
+      var best = res[0], anyMatch = false;
+      for(var i=0;i<res.length;i++){
+        if(res[i].confidence > best.confidence) best = res[i];
+        if(matchSpoken(res[i].transcript||'', targetSentence)) anyMatch = true;
+      }
       var heard = best.transcript || '';
       var conf = (typeof best.confidence==='number' && best.confidence>0) ? best.confidence : 0;
-      handleAttempt(heard, conf);
+      handleAttempt(heard, conf, anyMatch);
     };
     return r;
   }
@@ -562,10 +573,21 @@
   // 말하기 1회 성공 → 점수 가산(게임 점수에 라이브 반영)
   function awardSpeak(){ if(onSpeakSuccess) onSpeakSuccess(SPEAK_POINTS); speakAwarded++; }
 
-  function handleAttempt(heard, confidence){
-    var matched = norm(heard) === norm(targetSentence);
+  // 말한 문장 일치 판정 — 공백/합성어('every day'='everyday') 차이와 사소한 단어 차이 허용
+  function matchSpoken(heard, target){
+    var h = norm(heard), t = norm(target);
+    if(!h || !t) return false;
+    if(h === t) return true;
+    if(h.replace(/ /g,'') === t.replace(/ /g,'')) return true;        // 'every day' ↔ 'everyday'
+    var ht = h.split(' '), tt = t.split(' '), m = 0;
+    tt.forEach(function(w){ var k = ht.indexOf(w); if(k>=0){ ht.splice(k,1); m++; } });
+    return tt.length>0 && (m/tt.length) >= 0.8;                       // 단어 8할 이상 일치하면 통과
+  }
+
+  function handleAttempt(heard, confidence, matchedFlag){
+    var matched = (typeof matchedFlag==='boolean') ? matchedFlag : matchSpoken(heard, targetSentence);
     var confPct = Math.round(confidence*100);
-    // 정확도 필터: confidence > 0.70 AND 문장 일치해야 성공
+    // 정확도 필터: confidence > 0.70 AND 문장 일치(관대) 해야 성공
     var pass = confidence > CONFIDENCE_THRESHOLD && matched;
 
     var line = '들린 말: <span class="heard">"'+ (heard||'…') +'"</span><br>정확도 <span class="conf '+(confidence>CONFIDENCE_THRESHOLD?'ok':'no')+'">'+confPct+'%</span>';
@@ -1035,6 +1057,6 @@
 
 })();
 </script>
-<!-- BUILD:20260628005007 -->
+<!-- BUILD:20260628005848 -->
 </body>
 </html>
