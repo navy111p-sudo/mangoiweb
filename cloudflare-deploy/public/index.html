@@ -2158,10 +2158,13 @@
                 flex: 0 0 auto;
             }
             /* 빨간 나가기(✕) — 더 작게 + X를 원 정중앙에.
-               ID 전용 v33/v34 스타일(36px·line-height)을 이기도록 specificity 높임 */
-            body .toolbar-right a#vc-exit-btn-v34.ctrl-btn.danger,
-            body .toolbar-right a#vc-exit-btn-v33.ctrl-btn.danger,
-            body .toolbar-right .ctrl-btn.danger {
+               ID 전용 v33/v34 스타일(36px·line-height)을 이기도록 specificity 높임.
+               🥭 (2026-06-28) 통합 바(mango-topbar-unified) 가 켜진 세로 화면에서는
+               이 규칙이 display:inline-flex!important 로 상단 ✕ 를 되살려 통합 바의
+               ✕ 와 '2개'로 겹쳐 보였음 → body:not(.mg-uni-on) 로 제외해 통합 바 ✕ 1개만 남김. */
+            body:not(.mg-uni-on) .toolbar-right a#vc-exit-btn-v34.ctrl-btn.danger,
+            body:not(.mg-uni-on) .toolbar-right a#vc-exit-btn-v33.ctrl-btn.danger,
+            body:not(.mg-uni-on) .toolbar-right .ctrl-btn.danger {
                 width: 30px !important;
                 height: 30px !important;
                 line-height: 1 !important;
@@ -27784,7 +27787,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260628000030 -->
+<!-- BUILD:20260628001005 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
