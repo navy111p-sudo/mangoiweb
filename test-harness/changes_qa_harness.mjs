@@ -22,7 +22,7 @@ const wcLines = p => read(p).split('\n').length - 1;
 
 console.log('=== 1) INTEGRITY ===');
 const files = [   // 2026-06-12: 배포 완료 직후 기준 — worktree == HEAD (delta 0)
-  ['cloudflare-deploy/public/index.html', 0, '</html>'],
+  ['cloudflare-deploy/public/index.html', 1, '</html>'],  // 2026-06-27: 휴대폰 통합 상단바 mango-topbar-unified.js 연결(+1줄)
   ['cloudflare-deploy/src/api-mango.ts', 0, '}'],
   ['cloudflare-deploy/src/index.ts', 0, '}'],
   ['cloudflare-deploy/public/lesson-postpone-demo.html', 0, '</html>'],  // 06-12 정리: dead --vh 세터 12줄 제거 + 100dvh 3줄 추가

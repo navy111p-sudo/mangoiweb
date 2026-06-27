@@ -1,9 +1,9 @@
-# Change-set QA report (2026-06-26T16:52:22.044Z)
+# Change-set QA report (2026-06-27T05:21:25.618Z)
 
-PASS=73 FAIL=5
+PASS=78 FAIL=0
 
-FAIL  integrity:cloudflare-deploy/public/index.html delta  — HEAD=30662 WORK=30656 delta=-6 (expect 0)
-FAIL  integrity:cloudflare-deploy/public/index.html tail  — tail="     📹 카메라 영상 화면 드래그 이동 (마우�"
+PASS  integrity:cloudflare-deploy/public/index.html delta  — HEAD=30665 WORK=30666 delta=1 (expect 1)
+PASS  integrity:cloudflare-deploy/public/index.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/src/api-mango.ts delta  — HEAD=11832 WORK=11832 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/src/api-mango.ts tail  — tail="}"
 PASS  integrity:cloudflare-deploy/src/api-mango.ts brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
@@ -43,7 +43,7 @@ PASS  about:intro mp3 referenced
 PASS  about:intro player defined+called
 PASS  about:reuses abm_muted mute key
 PASS  about:intro mp3 file present
-FAIL  htmlvalid:index ends with </html>
+PASS  htmlvalid:index ends with </html>
 PASS  htmlvalid:index <script> balanced
 PASS  feature:lesson-video IIFE closed + defined
 PASS  logic:no user_id → 400  — status=400 user_id_required
@@ -57,7 +57,7 @@ PASS  promo:starts hidden
 PASS  promo:session dismiss key
 PASS  promo:global capture click kills
 PASS  promo:gated by intro overlay
-FAIL  promo:hashchange/popstate kill
+PASS  promo:hashchange/popstate kill
 PASS  promo:old box-only click handler removed
 PASS  promo:mute button exception kept
 PASS  lp:guide video fixed (not absolute)
@@ -79,4 +79,4 @@ PASS  fam:null body guarded
 PASS  fam:frontend wiring matches
 PASS  video:plays once then dismiss
 PASS  video:close btn + 30% smaller
-FAIL  video:unmute skips control buttons
+PASS  video:unmute skips control buttons
