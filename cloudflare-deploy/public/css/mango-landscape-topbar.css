@@ -1,0 +1,32 @@
+/* =========================================================================
+   mango-landscape-topbar.css  (2026-06-27)
+   휴대폰·태블릿 "가로(landscape)" 수업화면 상단 정리.
+   - 목적: 가로에서 '수업 중·경과'(#mango-class-time)와 녹화 배지(#mango-rec-badge)가
+     슬라이드 위에 떠서 가리던 문제를 해결 → 상단 우측 EN 버튼 옆(왼쪽)으로 이동.
+   - #mango-class-time 은 자체 JS가 매 프레임 'REC 배지 왼쪽'으로 정렬하므로,
+     REC 배지 위치만 잡아주면 수업중 타이머도 함께 따라온다.
+   - 추가형 파일. <link> 한 줄만 빼면 즉시 원복.
+   - 세로(portrait)에는 영향 없음(통합 바 #mg-unibar 가 담당).
+   ========================================================================= */
+
+/* 휴대폰 가로(낮은 높이) + 터치 태블릿 가로 모두 커버, 데스크탑은 제외 */
+@media (orientation: landscape) and (max-height: 600px),
+       (orientation: landscape) and (max-width: 1366px) and (pointer: coarse) {
+
+  /* 녹화 배지 — 상단 우측, EN·✕ 버튼 왼쪽으로 (슬라이드 위 안 가림) */
+  #mango-rec-badge {
+    top: 10px !important;
+    right: 150px !important;
+    bottom: auto !important;
+    z-index: 9999 !important;
+  }
+
+  /* 수업중·경과 타이머 — JS가 REC 왼쪽으로 자동 정렬되므로 상단으로 함께 이동.
+     혹시 JS 미동작 시에도 슬라이드를 가리지 않도록 상단에 고정. */
+  #mango-class-time {
+    top: 10px !important;
+    z-index: 9998 !important;
+    font-size: 12px !important;
+    padding: 4px 10px !important;
+  }
+}
