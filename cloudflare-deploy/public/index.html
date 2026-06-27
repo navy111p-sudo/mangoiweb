@@ -6991,20 +6991,20 @@
             <span style="font-size:13px;color:#fbbf24;font-weight:700">🎮 <span data-ko="학생게임" data-en="Student Game">학생게임</span></span>
             <span style="font-size:11px;color:#94a3b8" data-ko="오늘의 교재 단어/문장 기반" data-en="Based on today's textbook">오늘의 교재 단어/문장 기반</span>
             <div style="margin-left:auto;display:inline-flex;border:1px solid #475569;border-radius:6px;overflow:hidden;flex-wrap:wrap">
+              <button id="game-mode-fish" type="button" onclick="gameSwitchMode('fish')"
+                      style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;cursor:pointer;font-size:12px;font-weight:600">🎣 <span data-ko="낚시+말하기" data-en="Fishing">낚시+말하기</span></button>
+              <button id="game-mode-shoot" type="button" onclick="gameSwitchMode('shoot')"
+                      style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🚀 <span data-ko="슈팅+말하기" data-en="Shooter">슈팅+말하기</span></button>
+              <button id="game-mode-shooter" type="button" onclick="gameSwitchMode('shooter')"
+                      style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🔫 <span data-ko="영어 슈팅" data-en="Word Shooter">영어 슈팅</span></button>
               <button id="game-mode-brick" type="button" onclick="gameSwitchMode('brick')"
-                      style="padding:6px 14px;background:#10b981;color:#fff;border:0;cursor:pointer;font-size:12px;font-weight:600">🧱 <span data-ko="문장 벽돌" data-en="Sentence Brick">문장 벽돌</span></button>
+                      style="padding:6px 14px;background:#10b981;color:#fff;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🧱 <span data-ko="문장 벽돌" data-en="Sentence Brick">문장 벽돌</span></button>
               <button id="game-mode-match" type="button" onclick="gameSwitchMode('match')"
                       style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🧩 <span data-ko="단어 매칭" data-en="Word Match">단어 매칭</span></button>
               <button id="game-mode-fill" type="button" onclick="gameSwitchMode('fill')"
                       style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🔤 <span data-ko="빈칸 채우기" data-en="Fill Blank">빈칸 채우기</span></button>
               <button id="game-mode-balloon" type="button" onclick="gameSwitchMode('balloon')"
                       style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🎈 <span data-ko="풍선 터뜨리기" data-en="Balloon Pop">풍선 터뜨리기</span></button>
-              <button id="game-mode-shoot" type="button" onclick="gameSwitchMode('shoot')"
-                      style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🚀 <span data-ko="슈팅+말하기" data-en="Shooter">슈팅+말하기</span></button>
-              <button id="game-mode-fish" type="button" onclick="gameSwitchMode('fish')"
-                      style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🎣 <span data-ko="낚시+말하기" data-en="Fishing">낚시+말하기</span></button>
-              <button id="game-mode-shooter" type="button" onclick="gameSwitchMode('shooter')"
-                      style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🔫 <span data-ko="영어 슈팅" data-en="Word Shooter">영어 슈팅</span></button>
             </div>
             <button onclick="gameNextRound()"
                     style="padding:6px 12px;font-size:12px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:600"
@@ -27815,7 +27815,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260628010757 -->
+<!-- BUILD:20260628010913 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
