@@ -126,6 +126,17 @@
   #game.gun-minigun .barrel{width:20px;height:44px;border-radius:6px;background:linear-gradient(90deg,#161b22,#3a4452 40%,#6b7686 50%,#2a323c 60%,#161b22);border-color:#39424f}
   #game.gun-minigun .muzzle{width:24px;height:24px}
   #game.gun-minigun .bullet{width:9px;height:9px;background:radial-gradient(circle at 40% 35%,#fff,#fbbf24 60%,#b45309);box-shadow:0 0 10px 3px rgba(251,191,36,.7)}
+  /* 레일건 — 길고 가는 사이파이 청록 */
+  #game.gun-railgun .barrel{height:58px;width:11px;background:linear-gradient(90deg,#0b2a3a,#0891b2 46%,#67e8f9 50%,#0e7490 58%,#0b2a3a);border-color:#155e75;box-shadow:0 0 10px rgba(34,211,238,.55)}
+  #game.gun-railgun .muzzle{background:radial-gradient(circle,#fff,#67e8f9 35%,rgba(34,211,238,.55) 60%,transparent 72%)}
+  #game.gun-railgun .bullet{width:9px;height:20px;background:radial-gradient(circle at 40% 35%,#fff,#22d3ee 60%,#0e7490);box-shadow:0 0 16px 5px rgba(34,211,238,.9)}
+  /* 유탄발사기 — 두껍고 군용 그린 */
+  #game.gun-grenade .barrel{height:34px;width:19px;border-radius:8px 8px 4px 4px;background:linear-gradient(90deg,#1f2415,#4a5a2a 46%,#6b7d38 50%,#2a3418 58%,#1f2415);border-color:#3a4a24}
+  #game.gun-grenade .bullet{width:15px;height:15px;background:radial-gradient(circle at 40% 35%,#fff,#84cc16 55%,#3f6212);box-shadow:0 0 14px 4px rgba(132,204,22,.7)}
+  /* 화염방사기 — 주황빛 */
+  #game.gun-flame .barrel{height:40px;width:16px;background:linear-gradient(90deg,#2a1108,#7c2d12 46%,#ea580c 50%,#9a3412 58%,#2a1108);border-color:#7c2d12}
+  #game.gun-flame .muzzle{background:radial-gradient(circle,#fff,#fdba74 35%,rgba(234,88,12,.6) 60%,transparent 72%)}
+  #game.gun-flame .bullet{width:13px;height:13px;background:radial-gradient(circle at 40% 35%,#fff,#fb923c 50%,#c2410c);box-shadow:0 0 14px 4px rgba(251,146,60,.8)}
 
   /* 무기 선택 UI */
   .gunlabel{font-size:12px;color:var(--sub);font-weight:700;margin:2px 0 4px}
@@ -224,7 +235,17 @@
     "The cat is sleeping on the bed.",
     "Let us play in the park.",
     "He is doing his homework.",
-    "I brush my teeth every morning."
+    "I brush my teeth every morning.",
+    "The teacher is writing on the board.",
+    "We are learning English together.",
+    "He bought a new soccer ball.",
+    "My sister likes to draw pictures.",
+    "The baby is laughing happily.",
+    "They are riding bikes in the park.",
+    "I can swim in the blue sea.",
+    "She made a delicious chocolate cake.",
+    "We will visit the zoo on Saturday.",
+    "The little bird sang a sweet song."
   ];
   // 오늘의 교재 문장 주입(학생게임 탭 임베드 시 ?sentence= 로 전달) → 맨 앞에 배치
   try{
@@ -243,7 +264,10 @@
     {id:'tank',    name:'전차포', icon:'💣'},
     {id:'revolver',name:'리볼버', icon:'🤠'},
     {id:'ar',      name:'돌격소총',icon:'🎖️'},
-    {id:'minigun', name:'미니건', icon:'🌀'}
+    {id:'minigun', name:'미니건', icon:'🌀'},
+    {id:'railgun', name:'레일건', icon:'⚡'},
+    {id:'grenade', name:'유탄',   icon:'🧨'},
+    {id:'flame',   name:'화염방사',icon:'🔥'}
   ];
   var curGun = localStorage.getItem('ess_gun') || 'pistol';
 
@@ -311,6 +335,24 @@
       var rg=actx.createGain(); rg.gain.value=0.42; conv.connect(rg); rg.connect(master); revBus=conv;
     }catch(e){} }
     if(actx && actx.state==='suspended'){ try{ actx.resume(); }catch(e){} }
+    loadSamples();
+  }
+  // (선택) 실총 mp3 — SOUND_URLS 를 채우면 합성음 대신 그 파일을 재생, 비우면 합성음 사용.
+  //   예: var SOUND_URLS = { pistol:'/sfx/pistol.mp3', rifle:'/sfx/rifle.mp3', hit:'/sfx/explosion.mp3' };
+  var SOUND_URLS = {};
+  var SBUF = {}, _samplesTried=false;
+  function loadSamples(){
+    if(_samplesTried || !actx) return; _samplesTried=true;
+    Object.keys(SOUND_URLS).forEach(function(k){
+      fetch(SOUND_URLS[k]).then(function(r){ return r.arrayBuffer(); })
+        .then(function(ab){ return actx.decodeAudioData(ab); })
+        .then(function(buf){ SBUF[k]=buf; }).catch(function(){});
+    });
+  }
+  function playSample(key){
+    if(!actx || !SBUF[key]) return false;
+    try{ var s=actx.createBufferSource(); s.buffer=SBUF[key]; var g=actx.createGain(); g.gain.value=0.9;
+      s.connect(g); g.connect(master||actx.destination); if(revBus) g.connect(revBus); s.start(); return true; }catch(e){ return false; }
   }
   function noise(dur){
     var len=Math.max(1,Math.floor(actx.sampleRate*dur)); var buf=actx.createBuffer(1,len,actx.sampleRate); var dch=buf.getChannelData(0);
@@ -335,11 +377,14 @@
     tank:    function(t){ crack(t,0.4,1200,0.03); crack(t,0.62,160,0.5); thump(t,0.78,90,26,0.55); },      // 거대한 포성
     revolver:function(t){ crack(t,0.5,2500,0.02); crack(t,0.6,580,0.14); thump(t,0.5,190,52,0.11); },      // 리볼버
     ar:      function(t){ for(var i=0;i<2;i++){ crack(t+i*0.06,0.5,2400,0.02); crack(t+i*0.06,0.42,950,0.07); thump(t+i*0.06,0.3,200,68,0.07);} }, // 돌격소총 점사
-    minigun: function(t){ for(var i=0;i<5;i++){ crack(t+i*0.035,0.42,2300,0.018); crack(t+i*0.035,0.3,1200,0.04); thump(t+i*0.035,0.2,240,100,0.04);} } // 미니건 난사
+    minigun: function(t){ for(var i=0;i<5;i++){ crack(t+i*0.035,0.42,2300,0.018); crack(t+i*0.035,0.3,1200,0.04); thump(t+i*0.035,0.2,240,100,0.04);} }, // 미니건 난사
+    railgun: function(t){ var o=actx.createOscillator(); o.type='sawtooth'; o.frequency.setValueAtTime(1900,t); o.frequency.exponentialRampToValueAtTime(120,t+0.28); var g=actx.createGain(); o.connect(g); g.connect(master); if(revBus)g.connect(revBus); g.gain.setValueAtTime(0.4,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.3); o.start(t); o.stop(t+0.32); crack(t,0.45,600,0.28); thump(t,0.5,120,38,0.3); }, // 사이파이 차징 발사
+    grenade: function(t){ crack(t,0.35,800,0.04); thump(t,0.82,80,24,0.6); crack(t,0.6,180,0.5); },  // 둔탁한 '퐁' + 폭발
+    flame:   function(t){ var n=noise(0.45), f=actx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=700; f.Q.value=0.6; var g=actx.createGain(); n.connect(f); f.connect(g); g.connect(master); if(revBus)g.connect(revBus); g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(0.5,t+0.05); g.gain.exponentialRampToValueAtTime(0.001,t+0.45); n.start(t); n.stop(t+0.47); } // 화염 '화아악'
   };
-  function fireSound(){ try{ ensureCtx(); if(actx && FIRE[curGun]) FIRE[curGun](actx.currentTime); }catch(e){} }
+  function fireSound(){ try{ ensureCtx(); if(playSample(curGun)) return; if(actx && FIRE[curGun]) FIRE[curGun](actx.currentTime); }catch(e){} }
   function sndHit(){ try{ // 표적 명중/폭발음
-    ensureCtx(); if(!actx) return; var t=actx.currentTime;
+    ensureCtx(); if(playSample('hit')) return; if(!actx) return; var t=actx.currentTime;
     var n=noise(0.4), f=actx.createBiquadFilter(), g=actx.createGain();
     f.type='lowpass'; f.frequency.setValueAtTime(1500,t); f.frequency.exponentialRampToValueAtTime(120,t+0.35);
     n.connect(f); f.connect(g); g.connect(master||actx.destination); if(revBus) g.connect(revBus);
@@ -540,6 +585,6 @@
   window.addEventListener('resize', function(){ var w=field.clientWidth; monsters.forEach(function(m){ if(m.x>w-66){ m.x=Math.max(8,w-86); m.el.style.left=m.x+'px'; } }); });
 })();
 </script>
-<!-- BUILD:20260628001005 -->
+<!-- BUILD:20260628002510 -->
 </body>
 </html>

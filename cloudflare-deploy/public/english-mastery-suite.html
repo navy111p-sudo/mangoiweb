@@ -141,28 +141,59 @@
     border-radius:50%;opacity:0;transition:opacity .2s;pointer-events:none;z-index:7;box-shadow:0 0 8px rgba(251,191,36,.45)}
 
   /* ===================== Game B : Fishing ===================== */
-  #fish .field{background:linear-gradient(180deg,#0e4d6b 0%,#0a3550 40%,#06223a 100%)}
-  #fish .field::before{content:'';position:absolute;inset:0;pointer-events:none;
-    background:radial-gradient(60% 40% at 50% -8%,rgba(180,235,255,.25),transparent 70%)}
-  .bubble{position:absolute;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.55),rgba(180,235,255,.08));
-    border:1px solid rgba(255,255,255,.18);pointer-events:none;z-index:2;animation:rise linear infinite}
+  #fish .field{background:linear-gradient(180deg,#1782a8 0%,#0e5d80 22%,#0a3a58 52%,#062236 80%,#03131f 100%)}
+  #fish .field::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:1;
+    background:radial-gradient(72% 48% at 50% -10%,rgba(190,240,255,.42),rgba(190,240,255,.06) 55%,transparent 73%)}
+  /* 햇살(god rays) */
+  #fish .rays{position:absolute;top:-12%;left:-12%;right:-12%;height:80%;z-index:1;pointer-events:none;opacity:.42;mix-blend-mode:screen;
+    background:repeating-linear-gradient(102deg,rgba(195,240,255,.13) 0 26px,transparent 26px 90px);
+    animation:rays 9s ease-in-out infinite alternate}
+  @keyframes rays{from{transform:translateX(-26px) skewX(-5deg)}to{transform:translateX(26px) skewX(5deg)}}
+  /* 바닥 해초/산호 */
+  .weed{position:absolute;bottom:-6px;z-index:2;pointer-events:none;transform-origin:bottom center;
+    filter:drop-shadow(0 0 6px rgba(0,0,0,.45));animation:weed 3.6s ease-in-out infinite alternate}
+  .weed:nth-of-type(even){animation-duration:4.6s;animation-delay:-1.2s}
+  @keyframes weed{from{transform:rotate(-9deg)}to{transform:rotate(9deg)}}
+  /* 물보라(splash) */
+  .splash{position:absolute;z-index:9;pointer-events:none;font-size:24px;animation:splashUp .55s ease-out forwards}
+  @keyframes splashUp{0%{opacity:0;transform:translate(-50%,8px) scale(.5)}30%{opacity:1}100%{opacity:0;transform:translate(-50%,-26px) scale(1.25)}}
+  .droplet{position:absolute;width:5px;height:5px;border-radius:50%;background:rgba(205,242,255,.95);z-index:9;pointer-events:none;box-shadow:0 0 5px rgba(190,235,255,.8)}
+  .bubble{position:absolute;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.6),rgba(180,235,255,.08));
+    border:1px solid rgba(255,255,255,.2);pointer-events:none;z-index:2;animation:rise linear infinite}
   @keyframes rise{from{transform:translateY(0)}to{transform:translateY(-100vh)}}
   .fish{position:absolute;display:flex;flex-direction:column;align-items:center;gap:1px;border:none;background:none;
     cursor:pointer;font-family:inherit;will-change:transform;z-index:5;padding:2px}
   .fish .face{font-size:30px;line-height:1;filter:drop-shadow(0 3px 5px rgba(0,0,0,.45))}
   .fish.flip .face{transform:scaleX(-1)}
   .fish .word{font-size:14px;font-weight:800;color:#06223a;background:#fde68a;border:2px solid #fbbf24;
-    border-radius:999px;padding:2px 11px;white-space:nowrap;box-shadow:0 4px 10px rgba(0,0,0,.35)}
-  .fish.distractor .word{background:#bfe3ff;border-color:#7fd1ff}
+    border-radius:999px;padding:2px 11px;white-space:nowrap;box-shadow:0 0 9px rgba(253,230,138,.55),0 4px 10px rgba(0,0,0,.35)}
+  .fish.distractor .word{background:#bfe3ff;border-color:#7fd1ff;box-shadow:0 0 9px rgba(127,209,255,.5),0 4px 10px rgba(0,0,0,.35)}
   .fish.hooked{animation:reelUp .5s cubic-bezier(.5,0,.5,1) forwards;pointer-events:none}
   @keyframes reelUp{to{transform:translate(var(--bx),var(--by)) scale(.55);opacity:.2}}
   .fish.escape{animation:escape .5s ease-in forwards;pointer-events:none}
   @keyframes escape{60%{transform:translateX(0) rotate(0)}100%{transform:translateX(-40px) translateY(20px) rotate(-25deg);opacity:0}}
-  .basket{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);z-index:9;text-align:center;pointer-events:none}
-  .basket .b-ic{font-size:46px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.5))}
-  .basket .b-cnt{font-size:11px;font-weight:800;color:var(--gold);margin-top:-6px}
-  .basket.catch{animation:basketBounce .4s}
-  @keyframes basketBounce{50%{transform:translateX(-50%) translateY(-8px) scale(1.08)}}
+  .fish.hooked .face{animation:wriggle .25s linear infinite}
+  @keyframes wriggle{0%,100%{transform:rotate(-12deg)}50%{transform:rotate(12deg)}}
+  /* ===== 어부 · 배 · 낚싯대 ===== */
+  .surface{position:absolute;left:0;right:0;top:58px;height:3px;z-index:1;pointer-events:none;
+    background:linear-gradient(90deg,transparent,rgba(180,235,255,.55),transparent)}
+  .boat{position:absolute;top:4px;left:50%;transform:translateX(-50%);z-index:10;pointer-events:none;width:128px;height:62px;
+    animation:boatBob 3.2s ease-in-out infinite alternate}
+  @keyframes boatBob{from{transform:translateX(-50%) translateY(0) rotate(-1.6deg)}to{transform:translateX(-50%) translateY(3px) rotate(1.6deg)}}
+  .boat .fisher{position:absolute;left:40px;bottom:21px;font-size:27px;z-index:2;filter:drop-shadow(0 2px 4px rgba(0,0,0,.55))}
+  .boat .hull{position:absolute;left:50%;bottom:0;transform:translateX(-50%);font-size:50px;z-index:1;filter:drop-shadow(0 4px 7px rgba(0,0,0,.55))}
+  .boat .rod{position:absolute;left:62px;bottom:33px;width:66px;height:3px;border-radius:3px;z-index:11;
+    background:linear-gradient(90deg,#7c4a21,#caa05a);transform-origin:0 50%;transform:rotate(-44deg);box-shadow:0 1px 2px rgba(0,0,0,.5)}
+  .boat .rod #rodTip{position:absolute;right:-1px;top:0;width:2px;height:3px}
+  .boat.tug{animation:tug .35s}
+  @keyframes tug{0%,100%{transform:translateX(-50%) translateY(2px) rotate(0)}50%{transform:translateX(-50%) translateY(-5px) rotate(-2deg)}}
+  .fline{position:absolute;left:0;top:0;height:2px;width:0;z-index:8;pointer-events:none;transform-origin:0 50%;
+    background:linear-gradient(90deg,rgba(255,255,255,.75),rgba(255,255,255,.3));box-shadow:0 0 3px rgba(255,255,255,.5);
+    transition:left .18s linear,top .18s linear,width .18s linear,transform .18s linear}
+  .hook{position:absolute;left:0;top:0;z-index:9;font-size:17px;pointer-events:none;transform:translate(-50%,-12%);
+    filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));transition:left .18s linear,top .18s linear}
+  .catch-cnt{position:absolute;top:10px;right:12px;z-index:10;font-size:11px;font-weight:800;color:var(--gold);
+    background:rgba(8,16,34,.6);border:1px solid var(--line);border-radius:8px;padding:3px 9px;pointer-events:none}
 
   /* ===================== 공유 이펙트 ===================== */
   .spark{position:absolute;width:7px;height:7px;border-radius:50%;background:var(--gold);pointer-events:none;z-index:9}
@@ -294,7 +325,20 @@
     </div>
     <div class="field" id="fishField">
       <div class="combo" id="fishCombo"></div>
-      <div class="basket" id="basket"><div class="b-ic">🧺</div><div class="b-cnt" id="basketCnt">0 / 0</div></div>
+      <div class="rays"></div>
+      <span class="weed" style="left:5%;font-size:42px">🪸</span>
+      <span class="weed" style="left:17%;font-size:30px">🌿</span>
+      <span class="weed" style="right:7%;font-size:38px">🪸</span>
+      <span class="weed" style="right:19%;font-size:28px">🌿</span>
+      <div class="surface"></div>
+      <div class="boat" id="boat">
+        <span class="fisher">🧑</span>
+        <span class="hull">🛶</span>
+        <div class="rod"><span id="rodTip"></span></div>
+      </div>
+      <div class="fline" id="fishLine"></div>
+      <div class="hook" id="hook">🪝</div>
+      <div class="catch-cnt" id="catchCnt">0 / 0</div>
     </div>
   </section>
 
@@ -676,7 +720,19 @@
     field:$('#fishField'), score:0, idx:0, words:[], fish:[], running:false,
     combo:0, lastHit:0, lastTs:0, raf:null
   };
-  var basket=$('#basket'), basketCnt=$('#basketCnt'), fishCombo=$('#fishCombo'), fishScoreVal=$('#fishScore .val');
+  var boatEl=$('#boat'), fishLine=$('#fishLine'), hookEl=$('#hook'), catchCnt=$('#catchCnt'), fishCombo=$('#fishCombo'), fishScoreVal=$('#fishScore .val');
+
+  // 낚싯대 끝(릴 기준점) 위치 — 회전된 막대 끝 #rodTip 의 실제 화면 좌표
+  function rodTipPos(){ var fr=FI.field.getBoundingClientRect(), t=$('#rodTip').getBoundingClientRect();
+    return { x:t.left+t.width/2-fr.left, y:t.top+t.height/2-fr.top }; }
+  // 낚싯줄을 (toX,toY) 까지 그리고 바늘을 그 끝에 둠
+  function setLine(toX,toY){
+    var rt=rodTipPos(), dx=toX-rt.x, dy=toY-rt.y, len=Math.hypot(dx,dy), ang=Math.atan2(dy,dx)*180/Math.PI;
+    fishLine.style.left=rt.x+'px'; fishLine.style.top=rt.y+'px';
+    fishLine.style.width=len+'px'; fishLine.style.transform='rotate('+ang+'deg)';
+    hookEl.style.left=toX+'px'; hookEl.style.top=toY+'px';
+  }
+  function resetLine(){ var rt=rodTipPos(); setLine(rt.x, rt.y+118); }   // 평소: 바늘이 물속에 드리워짐
 
   function fishStart(){
     FI.score=0; FI.combo=0; FI.lastHit=0; FI.lastTs=0; FI.running=true;
@@ -688,7 +744,7 @@
   }
   function makeBubbles(){
     if($('.bubble', FI.field)) return; // 한 번만
-    for(var i=0;i<10;i++){
+    for(var i=0;i<16;i++){
       var b=document.createElement('div'); b.className='bubble';
       var sz=rand(6,16); b.style.width=sz+'px'; b.style.height=sz+'px';
       b.style.left=rand(2,96)+'%'; b.style.bottom='-20px';
@@ -705,7 +761,7 @@
       el.innerHTML='<span class="face">'+FISHES[Math.floor(Math.random()*FISHES.length)]+'</span><span class="word">'+it.word+'</span>';
       var dir = Math.random()<0.5?1:-1;
       var f={ el:el, word:it.word, isTarget:it.isTarget,
-        x:rand(10,Math.max(50,fw-100)), y:rand(10,Math.max(50,fh*0.62)),
+        x:rand(10,Math.max(50,fw-100)), y:rand(86,Math.max(130,fh*0.72)),
         vx:dir*rand(14,34), vy:rand(-8,8), home:null };
       f.home={x:f.x,y:f.y};
       el.style.left=f.x+'px'; el.style.top=f.y+'px';
@@ -714,11 +770,24 @@
       FI.field.appendChild(el); FI.fish.push(f);
     });
     renderSentenceStrip('#fish', FI.words, FI.idx);
-    updateBasket();
+    updateCatch(); resetLine();
     setTimeout(function(){ if(FI.running) speakSentence(); }, 250);
   }
   function fishClear(){ FI.fish.forEach(function(f){ if(f.el&&f.el.parentNode) f.el.remove(); }); FI.fish=[]; }
-  function updateBasket(){ basketCnt.textContent = FI.idx + ' / ' + FI.words.length; }
+  function updateCatch(){ catchCnt.textContent = FI.idx + ' / ' + FI.words.length; }
+  // 물 위로 끌어올릴 때 물보라 + 물방울
+  function splashAt(x,y){
+    var s=document.createElement('div'); s.className='splash'; s.textContent='💦';
+    s.style.left=x+'px'; s.style.top=y+'px'; FI.field.appendChild(s);
+    setTimeout(function(){ if(s.parentNode) s.remove(); }, 580);
+    for(var i=0;i<8;i++){ (function(){
+      var d=document.createElement('div'); d.className='droplet'; d.style.left=x+'px'; d.style.top=y+'px'; FI.field.appendChild(d);
+      var ang=-Math.PI/2+(Math.random()-0.5)*1.7, dist=18+Math.random()*32;
+      d.animate([{transform:'translate(0,0)',opacity:1},{transform:'translate('+Math.cos(ang)*dist+'px,'+Math.sin(ang)*dist+'px)',opacity:0}],
+        {duration:480+Math.random()*240,easing:'cubic-bezier(.2,.7,.3,1)'});
+      setTimeout(function(){ if(d.parentNode) d.remove(); }, 740);
+    })(); }
+  }
 
   function fishHook(f){
     if(!FI.running || !f.el.isConnected) return;
@@ -726,22 +795,26 @@
     var fr=FI.field.getBoundingClientRect(), r=f.el.getBoundingClientRect();
     var cx=r.left-fr.left+r.width/2, cy=r.top-fr.top+r.height/2;
     if(norm(f.word) === norm(required)){
-      // 정답 → 바구니로 릴인
+      // 정답 → 낚싯줄로 걸어 배(낚싯대)로 끌어올림
       FI.score += 100; fishScoreVal.textContent=FI.score;
       var now=performance.now(); FI.combo=(now-FI.lastHit<COMBO_WINDOW)?FI.combo+1:1; FI.lastHit=now; FI.idx++;
       speak(f.word.replace(/[.?!]/g,''));
-      var i=FI.fish.indexOf(f); if(i>=0) FI.fish.splice(i,1);
-      var br=basket.getBoundingClientRect();
-      var bx=(br.left+br.width/2-fr.left)-(r.left-fr.left+r.width/2);
-      var by=(br.top+10-fr.top)-(r.top-fr.top+r.height/2);
-      f.el.style.setProperty('--bx', bx+'px'); f.el.style.setProperty('--by', by+'px');
-      f.el.classList.add('hooked');
-      burst(FI.field, cx, cy);
-      floatScore(FI.field,'+100',cx,cy,true);
-      basket.classList.remove('catch'); void basket.offsetWidth; basket.classList.add('catch');
+      var i=FI.fish.indexOf(f); if(i>=0) FI.fish.splice(i,1);   // 헤엄 정지(걸림)
+      var rt=rodTipPos();
+      setLine(cx, cy);                                          // ① 캐스팅: 줄이 물고기까지 뻗어 바늘이 걸림
+      burst(FI.field, cx, cy); floatScore(FI.field,'+100',cx,cy,true);
       if(FI.combo>=2) showCombo(fishCombo, FI.combo+' COMBO!');
-      setTimeout(function(){ if(f.el.parentNode) f.el.remove(); }, 520);
-      renderSentenceStrip('#fish', FI.words, FI.idx); updateBasket();
+      setTimeout(function(){                                    // ② 릴 감기: 물고기를 배로 끌어올림
+        var bx=rt.x-(r.left-fr.left+r.width/2), by=rt.y-(r.top-fr.top+r.height/2);
+        f.el.style.setProperty('--bx', bx+'px'); f.el.style.setProperty('--by', by+'px');
+        f.el.classList.add('hooked');
+        setLine(rt.x, rt.y+10);                                 // 줄 되감김
+        boatEl.classList.remove('tug'); void boatEl.offsetWidth; boatEl.classList.add('tug');
+        setTimeout(function(){ boatEl.classList.remove('tug'); }, 380);   // 흔들림 후 다시 둥실둥실
+      }, 200);
+      setTimeout(function(){ splashAt(rt.x, 56); }, 560);        // 물 위로 튀어나올 때 물보라
+      setTimeout(function(){ if(f.el.parentNode) f.el.remove(); resetLine(); }, 770);
+      renderSentenceStrip('#fish', FI.words, FI.idx); updateCatch();
       if(FI.idx>=FI.words.length) fishSequenceDone();
     } else {
       // Fail State: 순서 틀림 → 물고기가 도망쳐 시작 위치로 리셋
@@ -773,7 +846,7 @@
       f.x+=f.vx*dt; f.y+=f.vy*dt;
       if(f.x<6){ f.x=6; f.vx=Math.abs(f.vx); f.el.classList.add('flip'); }
       if(f.x>w-96){ f.x=w-96; f.vx=-Math.abs(f.vx); f.el.classList.remove('flip'); }
-      if(f.y<6){ f.y=6; f.vy=Math.abs(f.vy); }
+      if(f.y<84){ f.y=84; f.vy=Math.abs(f.vy); }   // 수면/배 아래로만 헤엄
       if(f.y>h-110){ f.y=h-110; f.vy=-Math.abs(f.vy); }
       if(Math.random()<0.01) f.vy=rand(-10,10);
       f.el.style.left=f.x+'px'; f.el.style.top=f.y+'px';
@@ -896,6 +969,6 @@
 
 })();
 </script>
-<!-- BUILD:20260628001005 -->
+<!-- BUILD:20260628002510 -->
 </body>
 </html>
