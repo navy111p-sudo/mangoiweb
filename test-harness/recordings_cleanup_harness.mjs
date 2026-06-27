@@ -3,8 +3,8 @@
 //   실행:  node test-harness/recordings_cleanup_harness.mjs
 //   방식:  src/recordings-cleanup.ts 를 esbuild 로 즉석 트랜스파일 → import → 실제 호출
 //          (스펙 미러가 아니라 진짜 코드 경로를 태워 버그를 잡는다)
-import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { execSync } from 'node:child_process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { mkdirSync, rmSync } from 'node:fs';
 
@@ -20,9 +20,8 @@ function eq(name, a, b){ check(`${name} (got ${JSON.stringify(a)}, want ${JSON.s
 
 // ── 0) TS → ESM 트랜스파일 ────────────────────────────────────────────
 mkdirSync(OUTDIR, { recursive: true });
-const esbuild = resolve(__dir, '../cloudflare-deploy/node_modules/.bin/esbuild');
-execFileSync(esbuild, [SRC, '--format=esm', '--platform=node', '--log-level=warning', `--outfile=${OUT}`]);
-const { purgeOrphanedRecordings } = await import('file://' + OUT + '?t=' + Date.now());
+execSync('npx --yes esbuild "' + SRC + '" --bundle --format=esm --platform=node --log-level=warning --outfile="' + OUT + '"', { stdio: 'pipe' });
+const { purgeOrphanedRecordings } = await import(pathToFileURL(OUT).href + '?t=' + Date.now());
 
 // ── 가짜 D1 / R2 / KV 팩토리 ──────────────────────────────────────────
 const HOUR = 3600 * 1000, DAY = 24 * HOUR;

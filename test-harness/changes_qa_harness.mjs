@@ -22,7 +22,7 @@ const wcLines = p => read(p).split('\n').length - 1;
 
 console.log('=== 1) INTEGRITY ===');
 const files = [   // 2026-06-12: 배포 완료 직후 기준 — worktree == HEAD (delta 0)
-  ['cloudflare-deploy/public/index.html', 2, '</html>'],  // 2026-06-27: 카카오상담 FAB 숨김(+1) + 자유크기 그립 축소 스타일(+1)
+  ['cloudflare-deploy/public/index.html', 0, '</html>'],  // 2026-06-28: 이전 편집(카카오 FAB 숨김·그립 축소) 커밋 완료 → worktree==HEAD (delta 0)
   ['cloudflare-deploy/src/api-mango.ts', 0, '}'],
   ['cloudflare-deploy/src/index.ts', 0, '}'],
   ['cloudflare-deploy/public/lesson-postpone-demo.html', 0, '</html>'],  // 06-12 정리: dead --vh 세터 12줄 제거 + 100dvh 3줄 추가

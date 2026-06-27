@@ -11,7 +11,7 @@
 //     [5] 소스 와이어링: api-mango.ts · admin.html 에 실제로 연결됐는가
 import { readFileSync, mkdirSync } from 'node:fs';
 import { execSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -32,7 +32,7 @@ try {
   console.error('  ⚠ pii-mask.ts 컴파일 실패 — esbuild 필요(npx esbuild):', (e && e.message ? String(e.message).split('\n')[0] : e));
   process.exit(1);
 }
-const BE = await import(__BE_OUT);   // 컴파일된 백엔드
+const BE = await import(pathToFileURL(__BE_OUT).href);   // 컴파일된 백엔드
 const winSandbox = {}; global.window = winSandbox;
 require(resolve(__dir, '../cloudflare-deploy/public/js/pii-mask.js')); // 프런트 → window.PIIMask
 const FE = winSandbox.PIIMask;
