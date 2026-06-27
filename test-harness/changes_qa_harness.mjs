@@ -2,7 +2,7 @@
 // Runs: integrity checks, frontend inline-JS syntax, endpoint wiring, lookup-handler logic.
 // Backend compile (wrangler dry-run / tsc) is run separately and noted in the report.
 import { execSync } from 'node:child_process';
-import { writeFileSync, readFileSync, mkdtempSync } from 'node:fs';
+import { writeFileSync, readFileSync, mkdtempSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -62,7 +62,13 @@ function checkInlineScripts(rel) {
 console.log('\n=== 3) ENDPOINT WIRING (/api/student/lookup) ===');
 const idxTs = read(CD + '/src/index.ts');
 const apiTs = read(CD + '/src/api-mango.ts');
-const indexHtml = read(CD + '/public/index.html');
+// index.html + 분할추출된 외부 idx-*.js 합본 — 콘텐츠 검사가 코드 위치(인라인/외부)에 무관하게 통과
+//   (2026-06-28: index.html 경량화로 일부 와이어링 코드가 /js/idx-*.js 로 이동 → 합본으로 추적)
+const indexHtml = (() => {
+  let s = read(CD + '/public/index.html');
+  try { for (const fn of readdirSync(CD + '/public/js')) if (/^idx-.*\.js$/.test(fn)) s += '\n' + read(CD + '/public/js/' + fn); } catch {}
+  return s;
+})();
 ok('wiring:gate registered in index.ts', /path === '\/api\/student\/lookup'/.test(idxTs));
 ok('wiring:handler present in api-mango.ts', /path === '\/api\/student\/lookup'/.test(apiTs) && /SELECT \* FROM students_erp WHERE user_id/.test(apiTs));
 ok('wiring:frontend calls endpoint', /fetch\('\/api\/student\/lookup'/.test(indexHtml));
@@ -86,12 +92,12 @@ ok('layout:postpone has 100dvh', (postpone.match(/100dvh/g)||[]).length >= 1);
 ok('layout:postpone dead --vh setter removed', !postpone.includes("setProperty('--vh'"));
 ok('layout:postpone detail-body bottom padding fix', /padding-bottom: calc\(120px \+ env\(safe-area-inset-bottom\)\) !important/.test(postpone));
 ok('layout:admin sidebar fix present', /remove\('mga-open','ph134-sidebar-open'/.test(read(CD+'/public/admin.html')));
-ok('badge:영국·호주 준비중 present', /영국·호주[\s\S]{0,400}준비중<\/em>/.test(read(CD+'/public/index.html')));
-const ixCard = read(CD+'/public/index.html');
+ok('badge:영국·호주 준비중 present', /영국·호주[\s\S]{0,400}준비중<\/em>/.test(indexHtml));
+const ixCard = indexHtml;
 ok('cardfix:no false 0회/Bronze (graceful —)', ixCard.includes('s.remaining!=null?') && ixCard.includes("'미등록'") && !ixCard.includes('${s.remaining||0}<span style="font-size:11px'));
 ok('cardfix:avatar initial escaped', !/ext-stud-avatar">\$\{\(s\.name\|\|'\?'\)\.slice/.test(ixCard));
 ok('cleanup:no .bak served under public/', (()=>{ try{ return execSync(`find "${CD}/public" -iname '*.bak*' | wc -l`).toString().trim()==='0'; }catch{ return false; } })());
-const idxHtml2 = read(CD+'/public/index.html');
+const idxHtml2 = indexHtml;
 ok('about:intro mp3 referenced', idxHtml2.includes('/audio/mangoi-intro.mp3'));
 ok('about:intro player defined+called', /__abmPlayIntro = function/.test(idxHtml2) && (idxHtml2.match(/window\.__abmPlayIntro\(\)/g)||[]).length>=2);
 ok('about:reuses abm_muted mute key', idxHtml2.includes("localStorage.getItem('abm_muted')"));

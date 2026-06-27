@@ -1,8 +1,8 @@
-# Change-set QA report (2026-06-27T05:44:13.467Z)
+# Change-set QA report (2026-06-27T17:46:52.279Z)
 
-PASS=78 FAIL=0
+PASS=77 FAIL=1
 
-PASS  integrity:cloudflare-deploy/public/index.html delta  — HEAD=30666 WORK=30668 delta=2 (expect 2)
+FAIL  integrity:cloudflare-deploy/public/index.html delta  — HEAD=30837 WORK=25497 delta=-5340 (expect 0)
 PASS  integrity:cloudflare-deploy/public/index.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/src/api-mango.ts delta  — HEAD=11832 WORK=11832 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/src/api-mango.ts tail  — tail="}"
@@ -13,10 +13,10 @@ PASS  integrity:cloudflare-deploy/src/index.ts brace-balance preserved  — work
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html delta  — HEAD=1750 WORK=1750 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  integrity:cloudflare-deploy/public/admin.html delta  — HEAD=40308 WORK=40308 delta=0 (expect 0)
+PASS  integrity:cloudflare-deploy/public/admin.html delta  — HEAD=40342 WORK=40342 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/admin.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/public/admin.html brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  syntax:cloudflare-deploy/public/index.html  — 64 inline scripts, 0 errors
+PASS  syntax:cloudflare-deploy/public/index.html  — 63 inline scripts, 0 errors
 PASS  syntax:cloudflare-deploy/public/lesson-postpone-demo.html  — 1 inline scripts, 0 errors
 PASS  syntax:cloudflare-deploy/public/admin.html  — 96 inline scripts, 0 errors
 PASS  syntax:mangoi-speech-patch/mangoi_Speech/practice.html  — 8 inline scripts, 0 errors
