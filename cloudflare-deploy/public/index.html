@@ -21800,6 +21800,20 @@ window.closeRulesModal = function() {
         _swReloaded = true;
         location.reload();
       });
+      // 🔧 (2026-06-27) 설치형 PWA가 계속 열려 있어도 새 배포를 자동 수신하도록
+      //   업데이트 확인 주기 강화: ①앱을 다시 볼 때(visibilitychange) ②60초마다.
+      //   새 버전이 있으면 위 updatefound→SKIP_WAITING→controllerchange→reload 로 자동 적용.
+      function _swCheckUpdate(){
+        navigator.serviceWorker.getRegistration().then(function(reg){
+          if (!reg) return;
+          reg.update().catch(function(){});
+          if (reg.waiting) reg.waiting.postMessage('SKIP_WAITING');
+        }).catch(function(){});
+      }
+      document.addEventListener('visibilitychange', function(){
+        if (document.visibilityState === 'visible') _swCheckUpdate();
+      });
+      setInterval(_swCheckUpdate, 60 * 1000);
     });
   }
 
@@ -27675,7 +27689,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260627185051 -->
+<!-- BUILD:20260627190925 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
