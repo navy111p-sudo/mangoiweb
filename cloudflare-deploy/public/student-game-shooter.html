@@ -314,7 +314,8 @@
     voiceBadge.textContent = enVoice ? ('🔊 ' + enVoice.name) : '🔊 영어 음성 없음';
   }
   if(synth){ pickVoice(); synth.onvoiceschanged = pickVoice; }
-  function speak(text, rate){
+  // 브라우저 TTS (폴백용)
+  function synthSpeak(text, rate){
     if(!synth) return;
     try{
       synth.cancel();
@@ -323,6 +324,21 @@
       if(enVoice) u.voice=enVoice;
       synth.speak(u);
     }catch(e){}
+  }
+  // ★ 클라우드 TTS (원어민급 Deepgram Aura-1) — 사이트의 /api/voice/tts 사용.
+  //   기기에 상관없이 동일한 고품질 발음. 실패(오프라인/standalone)하면 브라우저 TTS 폴백.
+  var TTS_URL='/api/voice/tts', ttsCache={}, ttsAudio=null;
+  function ttsFetch(text){
+    return fetch(TTS_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text,lang:'en'})})
+      .then(function(r){ var ct=r.headers.get('content-type')||''; if(!r.ok || ct.indexOf('audio')<0) throw new Error('tts'); return r.blob(); })
+      .then(function(b){ var u=URL.createObjectURL(b); ttsCache[text]=u; return u; });
+  }
+  function prefetchTTS(text){ text=(text||'').trim(); if(!text || ttsCache[text]) return; ttsFetch(text).catch(function(){}); }
+  function playUrl(u){ try{ if(!ttsAudio) ttsAudio=new Audio(); ttsAudio.src=u; ttsAudio.play().catch(function(){}); }catch(e){} }
+  function speak(text, rate){
+    text=(text||'').trim(); if(!text) return;
+    if(ttsCache[text]){ playUrl(ttsCache[text]); return; }              // 미리받은 음성 즉시 재생
+    ttsFetch(text).then(playUrl).catch(function(){ synthSpeak(text, rate); }); // 클라우드 우선 → 실패 시 브라우저
   }
   function speakSentence(){ speak(targetWords.join(' ').replace(/[.?!]/g,''), 0.92); }
 
@@ -410,6 +426,8 @@
     clearMonsters();
     targetWords = SENTENCES[level % SENTENCES.length].split(' ');
     currentIndex = 0;
+    targetWords.forEach(function(w){ prefetchTTS(w.replace(/[.?!]/g,'')); });          // 원어민 음성 미리받기(즉시 재생)
+    prefetchTTS(targetWords.join(' ').replace(/[.?!]/g,''));
     lvlPill.textContent = '문장 ' + (level+1);
     var pool = DISTRACTORS.filter(function(w){ return targetWords.indexOf(w)<0; });
     shuffle(pool);
@@ -592,6 +610,6 @@
   window.addEventListener('resize', function(){ var w=field.clientWidth; monsters.forEach(function(m){ if(m.x>w-66){ m.x=Math.max(8,w-86); m.el.style.left=m.x+'px'; } }); });
 })();
 </script>
-<!-- BUILD:20260628003706 -->
+<!-- BUILD:20260628004423 -->
 </body>
 </html>

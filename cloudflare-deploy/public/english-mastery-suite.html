@@ -413,13 +413,42 @@
   ========================================================================= */
   var synth = ('speechSynthesis' in window) ? window.speechSynthesis : null;
   var enVoice = null;
+  // 음성 품질 점수화 — 자연스러운 음성 우선, 옛 로봇 음성 회피
+  function scoreVoice(v){
+    var n=(v.name||'').toLowerCase(), lang=(v.lang||'').toLowerCase(), s=0;
+    // 언어 (en-US > en-GB > 기타 en)
+    if(lang==='en-us') s+=40; else if(lang==='en-gb'||lang==='en-au') s+=28;
+    else if(lang.slice(0,2)==='en') s+=18; else s-=120;
+    // 자연스러운/신경망 음성 강한 가산
+    if(/natural|neural/.test(n)) s+=70;
+    if(/google/.test(n)) s+=60;                                  // Chrome: Google US/UK English
+    if(/\b(aria|jenny|guy|ava|emma|libby|michelle|jane|nova|sara|brian|christopher)\b/.test(n)) s+=48; // MS Online(Natural) 계열
+    if(/\b(samantha|alex|allison|ava|tom|siri|nicky|evan|joelle|nathan)\b/.test(n)) s+=46;             // Apple 고품질
+    if(/online/.test(n)) s+=24;
+    if(/premium|enhanced|plus/.test(n)) s+=24;
+    if(v.localService===false) s+=30;                            // 클라우드 음성 = 보통 고품질
+    // 옛 로봇/저품질 음성 회피
+    if(/zira|david|mark|hazel|george|susan|catherine|linda|richard|sean|heera|ravi/.test(n)) s-=55;
+    if(/desktop|compact|espeak|pico|microsoft server/.test(n)) s-=45;
+    // Apple 노벨티(장난) 음성 강한 회피
+    if(/zarvox|albert|bahh|bells|boing|bubbles|cellos|trinoids|whisper|wobble|jester|organ|superstar|bad news|good news|deranged|hysterical|pipe|ralph|fred|junior|kathy/.test(n)) s-=90;
+    return s;
+  }
   function pickVoice(){
     if(!synth) return;
     var vs = synth.getVoices(); if(!vs.length) return;
-    var prefer = ['Google US English','Microsoft Aria','Microsoft Jenny','Microsoft Guy','Samantha','Microsoft Zira','Microsoft David'];
-    for(var i=0;i<prefer.length;i++){ var v=vs.find(function(x){return x.name.indexOf(prefer[i])>=0;}); if(v){ enVoice=v; break; } }
-    if(!enVoice) enVoice = vs.find(function(x){return x.lang==='en-US';}) || vs.find(function(x){return (x.lang||'').slice(0,2)==='en';}) || null;
-    var label = enVoice ? ('🔊 '+enVoice.name) : '🔊 영어 음성 없음';
+    var en = vs.filter(function(v){ return (v.lang||'').slice(0,2).toLowerCase()==='en'; });
+    var label;
+    if(en.length){
+      var best=null, bestScore=-1e9;
+      en.forEach(function(v){ var sc=scoreVoice(v); if(sc>bestScore){ bestScore=sc; best=v; } });
+      enVoice = best;
+      label = '🔊 '+enVoice.name;
+    } else {
+      // 영어 음성이 없으면 비영어 음성을 강제하지 않고 시스템 en-US 기본에 맡김(한국어 음성으로 영어 읽기 방지)
+      enVoice = null;
+      label = '🔊 영어 음성 없음 · 시스템 기본';
+    }
     $('#shootVoice').textContent = label; $('#fishVoice').textContent = label;
   }
   if(synth){ pickVoice(); synth.onvoiceschanged = pickVoice; }
@@ -428,13 +457,14 @@
     try{
       synth.cancel();
       var u = new SpeechSynthesisUtterance(text);
-      u.lang='en-US'; u.rate=rate||0.95; u.pitch=1; u.volume=1;
-      if(enVoice) u.voice=enVoice;
+      u.lang='en-US'; u.rate=rate||0.96; u.pitch=1.02; u.volume=1;   // 약간 자연스러운 속도·피치
+      if(enVoice){ u.voice=enVoice; u.lang=enVoice.lang||'en-US'; }   // 선택된 음성의 언어로 일치
+
       if(cb){ var done=false; u.onend=function(){ if(!done){done=true;cb();} }; setTimeout(function(){ if(!done){done=true;cb();} }, 3500); }
       synth.speak(u);
     }catch(e){ if(cb) cb(); }
   }
-  function speakSentence(cb){ speak(targetSentence.replace(/[.?!]/g,''), 0.9, cb); }
+  function speakSentence(cb){ speak(targetSentence.replace(/[.?!]/g,''), 0.95, cb); }   // 문장은 또렷하되 자연스럽게
 
   // 오답 버저(짧은 비음성)
   var actx=null;
@@ -1005,6 +1035,6 @@
 
 })();
 </script>
-<!-- BUILD:20260628003706 -->
+<!-- BUILD:20260628004423 -->
 </body>
 </html>
