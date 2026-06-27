@@ -25,8 +25,12 @@
     var chip = chipOf(which);
     if (!chip) return;
     var name = which === 'materials' ? '📚 교재도구' : '✍️ 필기도구';
-    chip.textContent = name + (openState[which] ? ' ▴' : ' ▾');
-    chip.classList.toggle('open', openState[which]);
+    var text = name + (openState[which] ? ' ▴' : ' ▾');
+    // 🔧 깜박임 방지: 값이 실제로 바뀔 때만 DOM 갱신 (매 틱 textContent 재작성 금지)
+    if (chip.textContent !== text) chip.textContent = text;
+    if (chip.classList.contains('open') !== openState[which]) {
+      chip.classList.toggle('open', openState[which]);
+    }
   }
 
   function positionDock(which) {
@@ -35,20 +39,24 @@
     if (!bar || !chip || !pane) return;
     var pr = pane.getBoundingClientRect();
     var cr = chip.getBoundingClientRect();
-    bar.style.left = Math.max(8, Math.round(cr.left - pr.left)) + 'px';
-    bar.style.top = Math.round(cr.bottom - pr.top + 6) + 'px';
-    bar.style.right = 'auto';
+    var left = Math.max(8, Math.round(cr.left - pr.left)) + 'px';
+    var top = Math.round(cr.bottom - pr.top + 6) + 'px';
+    // 🔧 깜박임 방지: 위치가 실제로 달라졌을 때만 inline 스타일 갱신 (매 틱 재설정 금지)
+    if (bar.style.left !== left) bar.style.left = left;
+    if (bar.style.top !== top) bar.style.top = top;
+    if (bar.style.right !== 'auto') bar.style.right = 'auto';
   }
 
-  // openState 기준으로 실제 DOM(접힘 클래스)을 맞춤
+  // openState 기준으로 실제 DOM(접힘 클래스)을 맞춤 — 변경이 있을 때만 건드림
   function applyState(which) {
     var bar = barOf(which);
     if (bar) {
+      var collapsed = bar.classList.contains('ph49-collapsed');
       if (openState[which]) {
-        bar.classList.remove('ph49-collapsed');
+        if (collapsed) bar.classList.remove('ph49-collapsed');
         positionDock(which);
       } else {
-        bar.classList.add('ph49-collapsed');
+        if (!collapsed) bar.classList.add('ph49-collapsed');
       }
     }
     syncChip(which);
