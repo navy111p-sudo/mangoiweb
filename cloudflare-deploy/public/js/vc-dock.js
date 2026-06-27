@@ -244,8 +244,8 @@
     else openSettings();
   }
 
-  // 가로(라벨 숨김) 상태인지 — 이름먼저 표시는 이때만
-  function isCL(){ try { return window.matchMedia('(orientation:landscape) and (max-width:920px)').matches; } catch(e){ return false; } }
+  // 가로(라벨 숨김) 상태인지 — CSS 압축 조건과 동일(max-height:600 포함). 이름먼저 표시는 이때만
+  function isCL(){ try { return window.matchMedia('(orientation:landscape) and (max-width:920px) and (max-height:600px)').matches; } catch(e){ return false; } }
   function showHint(text){
     if (!hint){ hint = document.createElement('div'); hint.id = 'vc-dock-hint'; document.body.appendChild(hint); }
     hint.textContent = text;
