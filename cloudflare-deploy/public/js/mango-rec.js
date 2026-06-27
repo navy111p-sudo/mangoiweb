@@ -475,8 +475,20 @@
         console.warn('[mango-rec] 수동 중지 예외:', e);
       }
     });
-    document.body.appendChild(recBadge);
- 
+    // 🥭 (2026-06-27) 콘텐츠(우측 게임 탭의 문장벽돌/단어배정 버튼)를 가리지 않도록 —
+    //   데스크탑에서는 상단 툴바의 EN(언어) 버튼 바로 왼쪽에 끼워넣어 "맨 위"에 노출.
+    //   (기존: top:104px 고정 오버레이가 게임 버튼 위를 덮어 겹쳐 보였음.)
+    //   모바일(<=900px)은 통합 바(mango-topbar-unified)가 이 배지를 숨기고 따로 미러링하므로 폴백 유지.
+    var _toolbarRight = document.querySelector('.toolbar .toolbar-right');
+    var _langBtn = _toolbarRight ? _toolbarRight.querySelector('[onclick*="toggleLang"]') : null;
+    var _isMobileMQ = window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
+    if (!_isMobileMQ && _toolbarRight && _langBtn && _langBtn.parentNode === _toolbarRight) {
+      _toolbarRight.insertBefore(recBadge, _langBtn);   // EN 왼쪽에 배치
+      recBadge.setAttribute('data-docked', '1');
+    } else {
+      document.body.appendChild(recBadge);              // 폴백: 기존 고정 오버레이
+    }
+
     if (!document.getElementById('mango-rec-style')) {
       const s = document.createElement('style');
       s.id = 'mango-rec-style';
@@ -484,6 +496,8 @@
         '@keyframes mango-rec-blink{0%,100%{opacity:1}50%{opacity:0.3}}',
         // 기본(데스크탑) 풀 배지
         '#mango-rec-badge{position:fixed;top:104px;right:16px;background:#dc2626;color:#fff;padding:8px 14px;border-radius:20px;font-weight:600;font-size:13px;z-index:9999;box-shadow:0 4px 12px rgba(220,38,38,0.4);display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;transition:all 0.2s ease;}',
+        // 🥭 툴바에 도킹된 경우: 고정 위치 해제, 인라인 칩으로 EN 왼쪽에 흐르게 (모바일 media query의 !important 무력화)
+        '#mango-rec-badge[data-docked]{position:static !important;top:auto !important;right:auto !important;bottom:auto !important;left:auto !important;width:auto !important;height:auto !important;border-radius:20px !important;padding:6px 12px !important;align-self:center;margin-right:8px;box-shadow:none;}',
         '#mango-rec-badge .mango-rec-dot{width:8px;height:8px;background:#fff;border-radius:50%;animation:mango-rec-blink 1s infinite;display:inline-block;}',
         '#mango-rec-badge .mango-rec-time-text{display:inline;}',
         '#mango-rec-badge .mango-rec-stop{display:inline;font-size:13px;line-height:1;}',

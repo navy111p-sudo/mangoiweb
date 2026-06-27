@@ -81,7 +81,23 @@
     elWrap.style.display = 'none'; // 기본 숨김 - 수업(body.vc-in-call) 중에만 표시
     elWrap.innerHTML = '<span class="mct-clock">⏰</span><span id="mango-class-time-text">불러오는 중…</span>'
       + '<span id="mango-class-elapsed" class="mct-elapsed"></span>';
-    document.body.appendChild(elWrap);
+
+    // 🥭 (2026-06-27) 콘텐츠(우측 탭/버튼)를 가리지 않도록 — 우측 상단 툴바의
+    //   EN(언어) 버튼 바로 왼쪽에 끼워넣어 "맨 위"에 노출. (기존: REC 배지 옆 고정 오버레이가
+    //   탭 영역을 덮어 뒤쪽이 안 보였음.)
+    //   모바일(<=900px)은 통합 바(mango-topbar-unified)가 이 배지를 숨기고 따로 미러링하므로
+    //   데스크탑에서만 도킹한다. (모바일에서 div를 끼우면 toolbar-right>button:first-child
+    //   로 EN 버튼을 숨기는 규칙이 깨져 EN이 다시 보이는 부작용이 있음.)
+    var isMobileMQ = window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
+    var toolbarRight = document.querySelector('.toolbar .toolbar-right');
+    var langBtn = toolbarRight ? toolbarRight.querySelector('[onclick*="toggleLang"]') : null;
+    if (!isMobileMQ && toolbarRight && langBtn && langBtn.parentNode === toolbarRight) {
+      toolbarRight.insertBefore(elWrap, langBtn);   // EN 왼쪽에 배치
+      elWrap.setAttribute('data-docked', '1');
+    } else {
+      document.body.appendChild(elWrap);            // 폴백: 기존 고정 오버레이
+    }
+
     elText = document.getElementById('mango-class-time-text');
     elElapsed = document.getElementById('mango-class-elapsed');
 
@@ -98,15 +114,20 @@
         '#mango-class-time .mct-clock{font-size:14px;line-height:1;}',
         '#mango-class-time .mct-elapsed{color:#fbbf24;font-weight:700;font-variant-numeric:tabular-nums;}',
         '#mango-class-time .mct-elapsed:empty{display:none;}',
+        '#mango-class-time #mango-class-time-text:empty{display:none;}',
         '#mango-class-time.is-loading{color:#cbd5e1;}',
+        // 🥭 툴바에 도킹된 경우: 고정 위치 해제, 인라인 칩으로 EN 왼쪽에 흐르게
+        '#mango-class-time[data-docked]{position:static;top:auto;right:auto;left:auto;',
+        '  z-index:auto;align-self:center;margin-right:8px;box-shadow:none;}',
         '@media (max-width:900px){',
         '  #mango-class-time{top:calc(env(safe-area-inset-top,0) + 10px);right:90px;',
         '   font-size:12px;padding:4px 9px;}',
+        '  #mango-class-time[data-docked]{font-size:11px;padding:4px 8px;margin-right:4px;}',
         '}'
       ].join('');
       document.head.appendChild(s);
     }
-    repositionLoop();
+    if (!elWrap.hasAttribute('data-docked')) repositionLoop(); // 폴백일 때만 REC 옆 추적
   }
 
   /** REC 배지가 나타나면 그 왼쪽에 딱 붙도록 위치 보정 (배지 폭이 녹화시간에 따라 변함) */
@@ -143,7 +164,8 @@
     function upd() {
       if (!elElapsed) return;
       var diff = Date.now() - classStartMs;
-      elElapsed.textContent = (diff < 0) ? '· 시작 전' : ('· 경과 ' + formatElapsed(diff));
+      // 🥭 (2026-06-27) '경과' 단어 제거 — 시계 이모지 + 시간만 표시
+      elElapsed.textContent = (diff < 0) ? '시작 전' : formatElapsed(diff);
     }
     upd();
     elapsedTimer = setInterval(upd, 1000);
@@ -163,7 +185,8 @@
     function upd() {
       if (!elElapsed) return;
       var diff = Date.now() - classStartMs;
-      elElapsed.textContent = '· 경과 ' + formatElapsed(diff < 0 ? 0 : diff);
+      // 🥭 (2026-06-27) '경과' 단어 제거 — 시계 이모지 + 시간만 표시
+      elElapsed.textContent = formatElapsed(diff < 0 ? 0 : diff);
     }
     upd();
     elapsedTimer = setInterval(upd, 1000);
@@ -178,7 +201,7 @@
 
   function renderFail(msg) {
     ensureUI();
-    elText.textContent = '수업 중';          // 일정 정보가 없어도 '수업 중' + 경과 표시
+    elText.textContent = '';                 // 🥭 '수업 중' 단어 제거 — 시계 이모지 + 시간만 표시
     elWrap.classList.remove('is-loading');
     startElapsedFromEntry();                 // 입장 시각부터 흐르는 경과 타이머
   }
