@@ -22,12 +22,12 @@
 (function () {
   'use strict';
 
-  // 🔧 (2026-06-27) 세로(portrait) 전용으로 제한.
-  //   가로(landscape)에서는 기존 상단 툴바가 그대로 보이는데 이 통합 바까지 겹쳐 떠서
-  //   화면이 지저분해졌음 → 가로에선 통합 바를 끄고, 대신 수업중·녹화 배지를
-  //   CSS(가로 전용)로 EN 옆 상단에 깔끔히 배치한다.
+  // 🔧 (2026-06-27 v2) 휴대폰 세로 + 휴대폰 가로 모두에서 통합 바를 띄운다.
+  //   - 세로: (max-width:900px) and (portrait)
+  //   - 가로(휴대폰): (landscape) and (max-height:600px)  ← 휴대폰만(태블릿/데스크탑 제외)
+  //   가로 위치/겹침 정리는 mango-landscape-topbar.css 가 담당(좌상단 컴팩트 + 방정보 숨김).
   var MQ = (typeof window !== 'undefined' && window.matchMedia)
-    ? window.matchMedia('(max-width: 900px) and (orientation: portrait)')
+    ? window.matchMedia('(max-width: 900px) and (orientation: portrait), (orientation: landscape) and (max-height: 600px)')
     : { matches: false, addEventListener: function () {}, addListener: function () {} };
   var bar, elInfo, elRoom, elCount, elElapsed, elRecDot, styleEl;
   var built = false;

@@ -1,32 +1,33 @@
 /* =========================================================================
-   mango-landscape-topbar.css  (2026-06-27)
-   휴대폰·태블릿 "가로(landscape)" 수업화면 상단 정리.
-   - 목적: 가로에서 '수업 중·경과'(#mango-class-time)와 녹화 배지(#mango-rec-badge)가
-     슬라이드 위에 떠서 가리던 문제를 해결 → 상단 우측 EN 버튼 옆(왼쪽)으로 이동.
-   - #mango-class-time 은 자체 JS가 매 프레임 'REC 배지 왼쪽'으로 정렬하므로,
-     REC 배지 위치만 잡아주면 수업중 타이머도 함께 따라온다.
-   - 추가형 파일. <link> 한 줄만 빼면 즉시 원복.
-   - 세로(portrait)에는 영향 없음(통합 바 #mg-unibar 가 담당).
+   mango-landscape-topbar.css  (2026-06-27 v2)
+   휴대폰 "가로(landscape)" 수업화면 상단 정리.
+   - 목적: 가로에서도 세로와 동일한 '새 통합 바(#mg-unibar)'를 보여주되,
+     기존 상단 툴바(마이크/카메라/EN)와 겹치지 않게 좌상단에 컴팩트 배치.
+   - 통합 바가 정보·녹화·나가기(✕)를 담당하므로, 중복되는 옛 방정보(.room-info)는 숨김.
+   - 떠다니던 수업중/녹화 배지는 통합 바 활성 시(body.mg-uni-on) 이미 숨겨짐.
+   - 추가형 파일. <link> 한 줄만 빼면 즉시 원복. 세로/데스크탑/태블릿엔 영향 없음.
+   - !important 사용: 통합 바 스타일이 JS로 런타임 주입(나중에 삽입)되어 우선순위가 높기 때문.
    ========================================================================= */
 
-/* 휴대폰 가로(낮은 높이) + 터치 태블릿 가로 모두 커버, 데스크탑은 제외 */
-@media (orientation: landscape) and (max-height: 600px),
-       (orientation: landscape) and (max-width: 1366px) and (pointer: coarse) {
+/* 휴대폰 가로(낮은 높이)만 — 태블릿/데스크탑 제외 */
+@media (orientation: landscape) and (max-height: 600px) {
 
-  /* 녹화 배지 — 상단 우측, EN·✕ 버튼 왼쪽으로 (슬라이드 위 안 가림) */
-  #mango-rec-badge {
-    top: 10px !important;
-    right: 150px !important;
-    bottom: auto !important;
-    z-index: 9999 !important;
+  /* 통합 바: 가운데 전체폭 → 좌상단 컴팩트로 (가운데 마이크·우측 EN 안 가림) */
+  #mg-unibar {
+    left: 8px !important;
+    right: auto !important;
+    transform: none !important;
+    width: auto !important;
+    max-width: 62vw !important;
+    top: calc(env(safe-area-inset-top, 0px) + 6px) !important;
+    padding: 4px 8px 4px 10px !important;
   }
+  #mg-unibar .uni-info { font-size: 11.5px !important; }
 
-  /* 수업중·경과 타이머 — JS가 REC 왼쪽으로 자동 정렬되므로 상단으로 함께 이동.
-     혹시 JS 미동작 시에도 슬라이드를 가리지 않도록 상단에 고정. */
-  #mango-class-time {
-    top: 10px !important;
-    z-index: 9998 !important;
-    font-size: 12px !important;
-    padding: 4px 10px !important;
-  }
+  /* 통합 바와 중복되는 옛 방정보 텍스트는 숨김(겹쳐 보이던 "방: …" 제거) */
+  body.mg-uni-on .toolbar-left .room-info { visibility: hidden !important; }
+
+  /* 혹시 통합 바가 안 떠도 옛 떠다니는 배지가 슬라이드를 가리지 않도록 안전망 */
+  #mango-rec-badge { top: 8px !important; right: 150px !important; bottom: auto !important; }
+  #mango-class-time { top: 8px !important; }
 }
