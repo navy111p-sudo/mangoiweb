@@ -718,3 +718,23 @@ input { border: none; padding: 8px 12px; border-radius: 6px; }
   .video-item video { object-fit: cover; }
   .video-label { font-size: 0.7rem; padding: 2px 6px; bottom: 4px; left: 4px; }
 }
+
+/* ===== 소형 폰: 상단 툴바를 납작하게 (영상·칠판 공간 확보) ===== */
+@media (max-width: 400px) {
+  .toolbar { padding: 6px 8px; gap: 6px 8px; }
+  .toolbar-left, .toolbar-center, .toolbar-right { gap: 6px; }
+  .room-badge { padding: 4px 8px; font-size: 0.75rem; }
+  .user-count { font-size: 0.78rem; }
+  .tab-btn { padding: 5px 9px; font-size: 0.78rem; }
+  .icon-btn { padding: 5px; font-size: 1.05rem; }
+}
+
+/* ===== 가로 짧은 화면: 툴바 더 납작하게 (영상 영역 최대화) ===== */
+@media (max-height: 430px) and (orientation: landscape) {
+  .toolbar { padding: 4px 8px; gap: 6px 10px; }
+  .toolbar-center { gap: 4px; }
+  .tab-btn { padding: 4px 9px; font-size: 0.78rem; }
+  .icon-btn { padding: 5px; font-size: 1.05rem; }
+  .room-badge { padding: 4px 8px; font-size: 0.75rem; }
+  .user-count { font-size: 0.78rem; }
+}

@@ -25,25 +25,31 @@
   var STYLE = [
     '#vc-dock{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:none;z-index:99993;',
     '  align-items:center;gap:6px;padding:8px 10px;border-radius:18px;',
-    '  background:rgba(64,68,76,0.50);',
+    '  background:rgba(28,32,40,0.34);',
     '  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);',
     '  border:1px solid rgba(255,255,255,.12);box-shadow:0 16px 44px rgba(0,0,0,.5);max-width:96vw;flex-wrap:nowrap;}',
     'body.vc-in-call #vc-dock{display:inline-flex;}',
     '#vc-dock button{background:rgba(255,255,255,.08);border:none;color:#dbe3ee;border-radius:13px;',
     '  width:58px;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;',
     '  cursor:pointer;font-family:inherit;font-size:9.5px;font-weight:600;transition:background .12s,transform .1s;flex:0 0 auto;}',
-    '#vc-dock button .lbl{color:#aebacc;font-size:9px;line-height:1;}',
+    '#vc-dock button .lbl{color:#aebacc;font-size:9px;line-height:1;text-shadow:0 1px 2px rgba(0,0,0,.5);}',
+    '#vc-dock button svg{filter:drop-shadow(0 1px 2px rgba(0,0,0,.45));}', /* 밝은 배경에서도 아이콘 또렷(다크/라이트 공통) */
     '#vc-dock button:hover{background:rgba(255,255,255,.15);}',
     '#vc-dock button:active{transform:scale(.95);}',
     '#vc-dock button.active{background:#3b82f6;color:#fff;}#vc-dock button.active .lbl{color:#dbe7ff;}',
     '#vc-dock button.off{background:#ef4444;color:#fff;}#vc-dock button.off .lbl{color:#ffe0e0;}',
     '#vc-dock button.leave{background:rgba(239,68,68,.18);color:#ff9a9a;}#vc-dock button.leave .lbl{color:#ffb4b4;}',
     '#vc-dock button.leave:hover{background:#ef4444;color:#fff;}',
+    '/* 화면공유 아이콘 강조 — 라인 아이콘이라 stroke를 굵게+밝게 */',
+    '#vc-dock-share svg{stroke-width:2.5;color:#fff;}',
+    '/* 이름 먼저 표시용 힌트(가로에서 라벨 숨김일 때 도크 위로 잠깐) */',
+    '#vc-dock-hint{position:fixed;left:50%;transform:translateX(-50%) translateY(6px);z-index:99995;background:rgba(11,15,20,.92);color:#fff;font-size:11px;font-weight:600;padding:4px 12px;border-radius:999px;white-space:nowrap;opacity:0;visibility:hidden;transition:.16s;pointer-events:none;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);box-shadow:0 6px 18px rgba(0,0,0,.4);}',
+    '#vc-dock-hint.show{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0);}',
     '/* 설정 배경막 — 열려 있을 때 바깥 클릭을 가로채 닫기만 함(다른 버튼 오클릭 방지) */',
     '#vc-dock-backdrop{position:fixed;inset:0;z-index:99991;display:none;background:transparent;}',
     '#vc-dock-backdrop.open{display:block;}',
     '/* 설정 팝업 — 독 위로 떠서 열림 (장치·영상/녹화·표시 전체 패널) */',
-    '#vc-dock-settings{position:fixed;z-index:99994;display:none;flex-direction:column;',
+    '#vc-dock-settings{position:fixed;z-index:99994;display:none;flex-direction:column;box-sizing:border-box;',
     '  width:330px;max-width:92vw;max-height:70vh;overflow-y:auto;padding:14px;border-radius:14px;',
     '  background:rgba(11,15,20,0.98);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);',
     '  border:1px solid rgba(255,255,255,.14);box-shadow:0 14px 40px rgba(0,0,0,.6);}',
@@ -69,10 +75,24 @@
     'body.vc-in-call.vc-dock-on .toolbar-center{display:none !important;}',
     'body.vc-in-call.vc-dock-on #vc-exit-btn-v34{display:none !important;}',
     '@media (max-width:560px){#vc-dock{gap:4px;padding:6px 8px;bottom:12px;}#vc-dock button{width:48px;height:48px;font-size:9px;}}',
-    '@media (max-width:920px) and (orientation:landscape){#vc-dock{display:none !important;}body.vc-in-call.vc-dock-on .toolbar-center{display:flex !important;}}'
+    '/* 갤럭시 Z 폴드 접힘(커버) 등 매우 좁은 화면: 버튼 7개가 한 줄에 들어오도록 축소 */',
+    '@media (max-width:430px){#vc-dock{gap:3px;padding:5px 6px;max-width:99vw;}#vc-dock button{width:42px;height:46px;font-size:8.5px;}#vc-dock button svg{width:20px;height:20px;}}',
+    '/* 모바일 가로(낮은 화면): 도크를 숨기지 않고 납작·아이콘 위주로. 폴드 펼침처럼 높은 화면은 제외 → 풀 도크 유지 */',
+    '@media (max-width:920px) and (orientation:landscape) and (max-height:600px){',
+    '  #vc-dock{bottom:max(8px,env(safe-area-inset-bottom));gap:3px;padding:5px 8px;border-radius:15px;}',
+    '  #vc-dock button{width:44px;height:38px;gap:0;font-size:0;}',
+    '  #vc-dock button .lbl{display:none;}',
+    '  #vc-dock button svg{width:20px;height:20px;}',
+    '}',
+    '/* 가로 화면이 매우 낮을 때(작은 폰) 한 단계 더 축소 */',
+    '@media (max-height:380px) and (orientation:landscape){',
+    '  #vc-dock{bottom:6px;padding:4px 7px;}',
+    '  #vc-dock button{width:40px;height:34px;}',
+    '  #vc-dock button svg{width:18px;height:18px;}',
+    '}'
   ].join('\n');
 
-  var dock, btnMic, btnCam, bSet, setPop, backdrop;
+  var dock, btnMic, btnCam, bSet, setPop, backdrop, hint, hintT;
 
   function fullscreenOn(){ return !!(document.fullscreenElement || document.webkitFullscreenElement); }
   function toggleFullscreen(){
@@ -194,18 +214,25 @@
     setSeg('#sg-lang', 'data-l', isEn()?'en':'ko');
     var f = setPop.querySelector('[data-act="full"]'); if (f) f.classList.toggle('on', fullscreenOn());
   }
+  // 설정 팝업 위치 — 도크 위, 화면 중앙 정렬 + 양옆 8px 안으로 클램프(모든 폰 폭에서 안 잘림)
+  function positionSettings(){
+    if (!setPop) return;
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var pw = setPop.getBoundingClientRect().width || 330;
+    var left = Math.max(8, Math.min(Math.round((vw - pw) / 2), vw - pw - 8));
+    setPop.style.left = left + 'px';
+    setPop.style.right = 'auto';
+    var dr = dock ? dock.getBoundingClientRect() : null;
+    setPop.style.bottom = (dr ? (vh - dr.top + 10) : 80) + 'px';
+    setPop.style.top = 'auto';
+  }
   function openSettings(){
     buildSettings();
-    if (bSet) {
-      var r = bSet.getBoundingClientRect();
-      setPop.style.right = Math.max(8, (window.innerWidth - r.right)) + 'px';
-      setPop.style.bottom = (window.innerHeight - r.top + 12) + 'px';
-      setPop.style.left = 'auto'; setPop.style.top = 'auto';
-    }
     refreshSettings();
     backdrop.classList.add('open');
-    setPop.classList.add('open');
+    setPop.classList.add('open');       // 먼저 표시해야 폭을 측정할 수 있음
     if (bSet) bSet.classList.add('active');
+    positionSettings();                  // 화면 안으로 중앙정렬 + 클램프
   }
   function closeSettings(){
     if (setPop) setPop.classList.remove('open');
@@ -216,6 +243,18 @@
     if (setPop && setPop.classList.contains('open')) closeSettings();
     else openSettings();
   }
+
+  // 가로(라벨 숨김) 상태인지 — 이름먼저 표시는 이때만
+  function isCL(){ try { return window.matchMedia('(orientation:landscape) and (max-width:920px)').matches; } catch(e){ return false; } }
+  function showHint(text){
+    if (!hint){ hint = document.createElement('div'); hint.id = 'vc-dock-hint'; document.body.appendChild(hint); }
+    hint.textContent = text;
+    if (dock){ var r = dock.getBoundingClientRect(); hint.style.bottom = (window.innerHeight - r.top + 8) + 'px'; }
+    hint.classList.add('show');
+    clearTimeout(hintT); hintT = setTimeout(function(){ hint.classList.remove('show'); }, 1300);
+  }
+  // 가로에선 이름이 먼저 보이도록 동작을 잠깐 미룸 / 세로에선 즉시(기존 동작 유지)
+  function openDelayed(fn){ if (isCL()) setTimeout(fn, 230); else fn(); }
 
   function build(){
     if (dock) return;
@@ -233,13 +272,13 @@
     bSet = mk('settings','설정','settings');
     var bLeave = mk('leave','나가기','leave','leave');
 
-    btnMic.onclick = function(){ closeSettings(); call('vcToggleMic'); setTimeout(sync, 60); };
-    btnCam.onclick = function(){ closeSettings(); call('vcToggleCam'); setTimeout(sync, 60); };
-    bShare.onclick = function(){ closeSettings(); call('vcFolderOpen','screen'); };
-    bChat.onclick = function(){ closeSettings(); call('vcToggleChat'); };
-    bConsult.onclick = function(){ closeSettings(); window.open('https://pf.kakao.com/_mangoi/chat','_blank','noopener'); };
-    bSet.onclick = function(e){ if(e&&e.stopPropagation) e.stopPropagation(); toggleSettings(); };
-    bLeave.onclick = function(){ closeSettings(); call('vcLeaveRoom'); };
+    btnMic.onclick = function(){ if(isCL())showHint('마이크'); closeSettings(); call('vcToggleMic'); setTimeout(sync, 60); };
+    btnCam.onclick = function(){ if(isCL())showHint('카메라'); closeSettings(); call('vcToggleCam'); setTimeout(sync, 60); };
+    bShare.onclick = function(){ if(isCL())showHint('화면공유'); closeSettings(); call('vcFolderOpen','screen'); };
+    bChat.onclick = function(){ if(isCL())showHint('채팅'); closeSettings(); openDelayed(function(){ call('vcToggleChat'); }); };
+    bConsult.onclick = function(){ if(isCL())showHint('상담'); closeSettings(); window.open('https://pf.kakao.com/_mangoi/chat','_blank','noopener'); }; // 외부 링크: 지연 없이 즉시(팝업차단 방지)
+    bSet.onclick = function(e){ if(e&&e.stopPropagation) e.stopPropagation(); if(isCL())showHint('설정'); openDelayed(toggleSettings); };
+    bLeave.onclick = function(){ if(isCL())showHint('나가기'); closeSettings(); call('vcLeaveRoom'); };
 
     [btnMic, btnCam, bShare, bChat, bConsult, bSet, bLeave].forEach(function(b){ dock.appendChild(b); });
     document.body.appendChild(dock);
@@ -262,5 +301,7 @@
   }
   if (document.readyState !== 'loading') { tick(); } else { document.addEventListener('DOMContentLoaded', tick); }
   setInterval(tick, 1500);
+  // 회전/리사이즈 시 설정 팝업이 열려 있으면 화면 안으로 재배치
+  window.addEventListener('resize', function(){ if (setPop && setPop.classList.contains('open')) positionSettings(); });
 })();
 /* settings panel: 장치·영상/녹화·표시 (v2) */
