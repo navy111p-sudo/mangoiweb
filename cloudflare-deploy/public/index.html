@@ -6852,7 +6852,7 @@
             <!-- 탭 메뉴 -->
             <div class="tab-bar">
                 <button class="tab-btn active" onclick="vcSwitchTab('whiteboard')" data-ko="🖊 칠판" data-en="🖊 Board">🖊 칠판</button>
-                <button class="tab-btn" onclick="vcSwitchTab('pdf')" data-ko="📄 교재" data-en="📄 Materials">📄 교재</button>
+                <!-- 🔧 (2026-06-27) '📄 교재' 탭 버튼 제거 — 중복. PDF는 '📚 교재도구' 칩으로 접근(클릭 시 vcSwitchTab('pdf') 자동 호출). -->
                 <button class="tab-btn" onclick="vcSwitchTab('video')" data-ko="📹 동영상" data-en="📹 Video">📹 동영상</button>
                 <button class="tab-btn" onclick="vcSwitchTab('game')" data-ko="🎮 학생게임" data-en="🎮 Game">🎮 학생게임</button>
                 <button class="tab-btn" onclick="vcSwitchTab('bg')" data-ko="🎨 배경화면" data-en="🎨 Background">🎨 배경화면</button>
@@ -27675,7 +27675,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260627182939 -->
+<!-- BUILD:20260627185051 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
