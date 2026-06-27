@@ -10961,8 +10961,36 @@ function _gameUpdateScore() {
   document.getElementById('game-wrong').textContent = _gameState.wrong;
 }
 
-// 🔊 원어민 발음 (TTS)
-window.gameSpeak = function(text){ try{ if(!text) return; var u=new SpeechSynthesisUtterance(String(text)); u.lang='en-US'; u.rate=0.85; u.pitch=1.0; window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);}catch(_){} };
+// 🔊 원어민 발음 (TTS) — 자연스러운 음성 우선, 옛 로봇 음성 회피 (english-mastery-suite 와 동일 로직)
+var _gameEnVoice = null;
+function _gameScoreVoice(v){
+  var n=(v.name||'').toLowerCase(), lang=(v.lang||'').toLowerCase(), s=0;
+  if(lang==='en-us') s+=40; else if(lang==='en-gb'||lang==='en-au') s+=28;
+  else if(lang.slice(0,2)==='en') s+=18; else s-=120;
+  if(/natural|neural/.test(n)) s+=70;
+  if(/google/.test(n)) s+=60;
+  if(/\b(aria|jenny|guy|ava|emma|libby|michelle|jane|nova|sara|brian|christopher)\b/.test(n)) s+=48;
+  if(/\b(samantha|alex|allison|ava|tom|siri|nicky|evan|joelle|nathan)\b/.test(n)) s+=46;
+  if(/online/.test(n)) s+=24;
+  if(/premium|enhanced|plus/.test(n)) s+=24;
+  if(v.localService===false) s+=30;
+  if(/zira|david|mark|hazel|george|susan|catherine|linda|richard|sean|heera|ravi/.test(n)) s-=55;
+  if(/desktop|compact|espeak|pico|microsoft server/.test(n)) s-=45;
+  if(/zarvox|albert|bahh|bells|boing|bubbles|cellos|trinoids|whisper|wobble|jester|organ|superstar|bad news|good news|deranged|hysterical|pipe|ralph|fred|junior|kathy/.test(n)) s-=90;
+  return s;
+}
+function _gamePickVoice(){
+  try{
+    var vs=window.speechSynthesis.getVoices(); if(!vs.length) return;
+    var en=vs.filter(function(v){ return (v.lang||'').slice(0,2).toLowerCase()==='en'; });
+    if(!en.length){ _gameEnVoice=null; return; }   // 영어 음성 없으면 시스템 en-US 기본에 맡김
+    var best=null, bs=-1e9;
+    en.forEach(function(v){ var sc=_gameScoreVoice(v); if(sc>bs){ bs=sc; best=v; } });
+    _gameEnVoice=best;
+  }catch(_){}
+}
+try{ if(window.speechSynthesis){ _gamePickVoice(); window.speechSynthesis.onvoiceschanged=_gamePickVoice; } }catch(_){}
+window.gameSpeak = function(text){ try{ if(!text) return; if(!_gameEnVoice) _gamePickVoice(); var u=new SpeechSynthesisUtterance(String(text)); u.lang=(_gameEnVoice&&_gameEnVoice.lang)||'en-US'; u.rate=0.95; u.pitch=1.02; if(_gameEnVoice) u.voice=_gameEnVoice; window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);}catch(_){} };
 window.gameSpeakBuilt = function(){ try{ var pk=(_gameState.current&&_gameState.current.picked)||[]; if(pk.length) gameSpeak(pk.join(' ')); }catch(_){} };
 
 // 🧱 게임 1: 문장 벽돌 — 영어 단어 브릭을 순서대로 클릭해서 문장 완성
@@ -27787,7 +27815,7 @@ window.closeRulesModal = function() {
 })();
 </script>
 
-<!-- BUILD:20260628004423 -->
+<!-- BUILD:20260628004807 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
