@@ -73,6 +73,30 @@
   var elWrap, elText, elElapsed;
   var elapsedTimer = null, classStartMs = null;
 
+  /**
+   * 🥭 (2026-06-28) 배지를 우측 상단 수업 툴바의 EN(언어) 버튼 왼쪽으로 이동(도킹).
+   *  - 콘텐츠(게임 카드/버튼) 위에 떠서 가리는 문제 해결.
+   *  - host 셀렉터는 mango-theme.js 와 동일하게 '#view-videocall-call .toolbar-right' 로 정확히 지정
+   *    (.toolbar .toolbar-right 가 2개라 첫 번째=signaling 뷰를 잘못 잡던 버그 방지).
+   *  - 멱등(idempotent): 이미 도킹돼 있으면 아무 것도 안 함 → applyVisibility 에서 매 주기 재시도 가능
+   *    (defer 로드/뷰 전환 타이밍에 툴바가 늦게 생겨도 결국 도킹됨).
+   *  - 모바일(<=900px)은 통합 바(mango-topbar-unified)가 따로 처리하므로 도킹하지 않음.
+   */
+  function dockBadge() {
+    if (!elWrap) return;
+    var isMobileMQ = window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
+    if (isMobileMQ) return;                                  // 모바일: 통합 바가 담당
+    if (elWrap.getAttribute('data-docked') === '1' && elWrap.parentNode &&
+        elWrap.parentNode.closest && elWrap.parentNode.closest('#view-videocall-call')) return; // 이미 도킹됨
+    var host = document.querySelector('#view-videocall-call .toolbar-right')
+            || document.querySelector('.toolbar-right');
+    if (!host) return;                                       // 툴바 아직 없음 → 다음 주기에 재시도
+    var enBtn = host.querySelector('[onclick*="toggleLang"]') || host.querySelector('button, a');
+    if (enBtn) host.insertBefore(elWrap, enBtn);             // EN 왼쪽
+    else host.appendChild(elWrap);
+    elWrap.setAttribute('data-docked', '1');
+  }
+
   function ensureUI() {
     if (elWrap) return;
     elWrap = document.createElement('div');
@@ -82,23 +106,8 @@
     elWrap.innerHTML = '<span class="mct-clock">⏰</span><span id="mango-class-time-text">불러오는 중…</span>'
       + '<span id="mango-class-elapsed" class="mct-elapsed"></span>';
 
-    // 🥭 (2026-06-27) 콘텐츠(우측 탭/버튼)를 가리지 않도록 — 우측 상단 툴바의
-    //   EN(언어) 버튼 바로 왼쪽에 끼워넣어 "맨 위"에 노출. (기존: REC 배지 옆 고정 오버레이가
-    //   탭 영역을 덮어 뒤쪽이 안 보였음.)
-    //   모바일(<=900px)은 통합 바(mango-topbar-unified)가 이 배지를 숨기고 따로 미러링하므로
-    //   데스크탑에서만 도킹한다. (모바일에서 div를 끼우면 toolbar-right>button:first-child
-    //   로 EN 버튼을 숨기는 규칙이 깨져 EN이 다시 보이는 부작용이 있음.)
-    var isMobileMQ = window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
-    // ⚠️ .toolbar .toolbar-right 는 2개(view-signaling-call / view-videocall-call) 존재 →
-    //    EN(언어) 버튼이 들어있는 실제 수업 툴바를 버튼의 부모로 직접 잡아야 한다.
-    var langBtn = document.querySelector('.toolbar .toolbar-right [onclick*="toggleLang"]');
-    var toolbarRight = langBtn ? langBtn.parentNode : null;
-    if (!isMobileMQ && toolbarRight && langBtn) {
-      toolbarRight.insertBefore(elWrap, langBtn);   // EN 왼쪽에 배치
-      elWrap.setAttribute('data-docked', '1');
-    } else {
-      document.body.appendChild(elWrap);            // 폴백: 기존 고정 오버레이
-    }
+    document.body.appendChild(elWrap);   // 일단 body에 — 이후 dockBadge()가 툴바로 이동
+    dockBadge();                          // 즉시 1차 도킹 시도 (실패해도 applyVisibility가 재시도)
 
     elText = document.getElementById('mango-class-time-text');
     elElapsed = document.getElementById('mango-class-elapsed');
@@ -260,6 +269,7 @@
       if (elWrap) elWrap.style.display = 'none';
       stopElapsed();                     // 경과 타이머 정지
     }
+    if (inClass) dockBadge();            // 매 주기 재시도(멱등) — 툴바가 늦게 생겨도 결국 EN 왼쪽 도킹
     wasInClass = inClass;
   }
 

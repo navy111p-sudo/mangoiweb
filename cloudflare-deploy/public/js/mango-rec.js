@@ -448,6 +448,29 @@
     return audioDest.stream;
   }
  
+  /**
+   * 🥭 (2026-06-28) REC 배지를 수업 툴바의 EN(언어) 버튼 왼쪽으로 이동(도킹).
+   *  - host 셀렉터는 mango-theme.js / mango-class-time.js 와 동일하게
+   *    '#view-videocall-call .toolbar-right' 로 정확히 지정 (.toolbar .toolbar-right 가 2개라
+   *    첫 번째=signaling 뷰를 잘못 잡던 버그 방지).
+   *  - 멱등(idempotent) + 갱신 인터벌에서 매초 재시도 → 툴바가 늦게 생겨도 결국 도킹됨.
+   *  - 모바일(<=900px)은 통합 바(mango-topbar-unified)가 따로 처리하므로 도킹하지 않음.
+   */
+  function recDockBadge() {
+    if (!recBadge) return;
+    var isMobileMQ = window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
+    if (isMobileMQ) return;
+    if (recBadge.getAttribute('data-docked') === '1' && recBadge.parentNode &&
+        recBadge.parentNode.closest && recBadge.parentNode.closest('#view-videocall-call')) return;
+    var host = document.querySelector('#view-videocall-call .toolbar-right')
+            || document.querySelector('.toolbar-right');
+    if (!host) return;
+    var enBtn = host.querySelector('[onclick*="toggleLang"]') || host.querySelector('button, a');
+    if (enBtn) host.insertBefore(recBadge, enBtn);   // EN 왼쪽
+    else host.appendChild(recBadge);
+    recBadge.setAttribute('data-docked', '1');
+  }
+
   function showRecBadge() {
     if (recBadge) return;
     recBadge = document.createElement('div');
@@ -475,21 +498,8 @@
         console.warn('[mango-rec] 수동 중지 예외:', e);
       }
     });
-    // 🥭 (2026-06-27) 콘텐츠(우측 게임 탭의 문장벽돌/단어배정 버튼)를 가리지 않도록 —
-    //   데스크탑에서는 상단 툴바의 EN(언어) 버튼 바로 왼쪽에 끼워넣어 "맨 위"에 노출.
-    //   (기존: top:104px 고정 오버레이가 게임 버튼 위를 덮어 겹쳐 보였음.)
-    //   모바일(<=900px)은 통합 바(mango-topbar-unified)가 이 배지를 숨기고 따로 미러링하므로 폴백 유지.
-    // ⚠️ .toolbar .toolbar-right 는 2개(view-signaling-call / view-videocall-call) 존재 →
-    //    EN(언어) 버튼이 들어있는 실제 수업 툴바를 버튼의 부모로 직접 잡아야 한다.
-    var _langBtn = document.querySelector('.toolbar .toolbar-right [onclick*="toggleLang"]');
-    var _toolbarRight = _langBtn ? _langBtn.parentNode : null;
-    var _isMobileMQ = window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
-    if (!_isMobileMQ && _toolbarRight && _langBtn) {
-      _toolbarRight.insertBefore(recBadge, _langBtn);   // EN 왼쪽에 배치
-      recBadge.setAttribute('data-docked', '1');
-    } else {
-      document.body.appendChild(recBadge);              // 폴백: 기존 고정 오버레이
-    }
+    document.body.appendChild(recBadge);  // 일단 body에 — 이후 recDockBadge()가 툴바로 이동
+    recDockBadge();                       // 즉시 1차 도킹 시도 (실패해도 갱신 인터벌이 재시도)
 
     if (!document.getElementById('mango-rec-style')) {
       const s = document.createElement('style');
@@ -520,6 +530,7 @@
     }
     setInterval(() => {
       if (!isRecording) return;
+      recDockBadge();   // 매초 재시도(멱등) — 툴바가 늦게 생겨도 결국 EN 왼쪽 도킹
       const t = document.getElementById('mango-rec-time');
       if (t) {
         const e = Math.floor((Date.now() - startedAt) / 1000);
