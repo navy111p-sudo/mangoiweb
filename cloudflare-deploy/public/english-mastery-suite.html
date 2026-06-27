@@ -133,6 +133,11 @@
   .barrel::after{content:'';position:absolute;top:2px;left:50%;transform:translateX(-50%);width:5px;height:6px;background:#0b0f18;border-radius:3px}
   .barrel.recoil{animation:recoil .18s}
   @keyframes recoil{0%{transform:translateY(0)}35%{transform:translateY(6px)}100%{transform:translateY(0)}}
+  /* 무기별 총신 (#shoot 에 gun-XXX 클래스) — 권총=기본 */
+  #shoot.gun-mg .barrel{height:46px;width:15px;background:repeating-linear-gradient(0deg,#2b3340 0 4px,#1a212c 4px 7px);border-color:#3b4452}
+  #shoot.gun-sniper .barrel{height:60px;width:10px;background:linear-gradient(90deg,#15171c,#3b4250 46%,#5b6473 50%,#262b34 58%,#15171c)}
+  #shoot.gun-tank .barrel{width:22px;height:48px;border-radius:7px 7px 4px 4px;background:linear-gradient(90deg,#1c2415,#3f5128 46%,#5b7038 50%,#2a3a1c 58%,#1c2415);border-color:#3a4a24}
+  #shoot.gun-tank .bullet{width:16px;height:16px}
   .muzzle{position:absolute;top:-10px;left:50%;transform:translateX(-50%);width:22px;height:22px;opacity:0;pointer-events:none;
     background:radial-gradient(circle,#fff 0%,#fde68a 32%,rgba(251,191,36,.55) 58%,transparent 72%)}
   .muzzle.flash{animation:flash .16s}
@@ -299,6 +304,7 @@
       <button class="home" data-home>🏠</button>
       <div class="stat" id="shootScore"><span class="lab">점수</span><span class="val">0</span></div>
       <span class="lvlpill" id="shootStage">우주 임무</span>
+      <button class="lvlpill" id="shootGun" title="무기 바꾸기 (총마다 발사음 다름)" style="cursor:pointer;border:0;font-family:inherit">🔫 권총</button>
       <div class="voice-badge" id="shootVoice">🔊 음성 준비 중…</div>
     </div>
     <div class="target">
@@ -480,7 +486,27 @@
   function _noise(d){ var L=Math.max(1,Math.floor(actx.sampleRate*d)),b=actx.createBuffer(1,L,actx.sampleRate),z=b.getChannelData(0); for(var i=0;i<L;i++)z[i]=Math.random()*2-1; var s=actx.createBufferSource(); s.buffer=b; return s; }
   function _ck(t,v,h,d){ var n=_noise(d),f=actx.createBiquadFilter(),g=actx.createGain(); f.type='highpass'; f.frequency.value=h; n.connect(f); f.connect(g); g.connect(_master); g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.001,t+d); n.start(t); n.stop(t+d+0.02); }
   function _tp(t,v,a,b,d){ var o=actx.createOscillator(),g=actx.createGain(); o.type='sine'; o.frequency.setValueAtTime(a,t); o.frequency.exponentialRampToValueAtTime(b,t+d); o.connect(g); g.connect(_master); g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.001,t+d); o.start(t); o.stop(t+d+0.02); }
-  function sfxFire(){ try{ _ac(); if(!actx)return; var t=actx.currentTime; _ck(t,0.45,2200,0.02); _ck(t,0.5,1000,0.1); _tp(t,0.35,200,65,0.09); }catch(e){} }   // 발사 '탕'
+  // ── 무기 시스템 (총마다 다른 발사음) + 실총 mp3 드롭인 ──
+  var EM_GUNS=[{id:'pistol',n:'권총',i:'🔫'},{id:'mg',n:'기관총',i:'💥'},{id:'sniper',n:'저격총',i:'🔭'},{id:'tank',n:'전차포',i:'💣'}];
+  var emGun=(function(){ try{ return localStorage.getItem('ems_gun')||'pistol'; }catch(e){ return 'pistol'; } })();
+  var EM_SOUND_URLS={};   // 실총 mp3 넣으면 합성음 대신 재생 (예: { pistol:'/sfx/pistol.mp3' })
+  var emSBUF={}, _emTried=false;
+  function _emLoad(){ if(_emTried||!actx)return; _emTried=true; Object.keys(EM_SOUND_URLS).forEach(function(k){ fetch(EM_SOUND_URLS[k]).then(function(r){return r.arrayBuffer();}).then(function(a){return actx.decodeAudioData(a);}).then(function(buf){emSBUF[k]=buf;}).catch(function(){}); }); }
+  function _emPlay(k){ if(!actx||!emSBUF[k])return false; try{ var s=actx.createBufferSource();s.buffer=emSBUF[k];var g=actx.createGain();g.gain.value=0.9;s.connect(g);g.connect(_master);s.start();return true;}catch(e){return false;} }
+  var EM_FIRE={
+    pistol:  function(t){ _ck(t,0.45,2400,0.02); _ck(t,0.5,1000,0.1); _tp(t,0.35,200,65,0.09); },
+    mg:      function(t){ for(var i=0;i<3;i++){ _ck(t+i*0.05,0.5,2200,0.02); _ck(t+i*0.05,0.4,1100,0.05); _tp(t+i*0.05,0.25,230,90,0.05);} },
+    sniper:  function(t){ _ck(t,0.6,3000,0.02); _ck(t,0.7,520,0.33); _tp(t,0.5,150,46,0.13); },
+    tank:    function(t){ _ck(t,0.4,1200,0.03); _ck(t,0.62,160,0.5); _tp(t,0.78,90,26,0.55); }
+  };
+  function sfxFire(){ try{ _ac(); _emLoad(); if(_emPlay(emGun))return; if(actx && EM_FIRE[emGun]) EM_FIRE[emGun](actx.currentTime); }catch(e){} }   // 무기별 발사음
+  function emSetGun(id){
+    if(!EM_GUNS.some(function(g){return g.id===id;})) id=EM_GUNS[0].id;
+    emGun=id; try{ localStorage.setItem('ems_gun',id); }catch(e){}
+    var sec=document.getElementById('shoot'); if(sec){ EM_GUNS.forEach(function(g){ sec.classList.remove('gun-'+g.id); }); sec.classList.add('gun-'+id); }
+    var btn=document.getElementById('shootGun'), g=EM_GUNS.find(function(x){return x.id===id;}); if(btn&&g) btn.textContent=g.i+' '+g.n;
+  }
+  (function(){ var btn=document.getElementById('shootGun'); if(btn){ btn.addEventListener('click',function(){ _ac(); var i=EM_GUNS.findIndex(function(g){return g.id===emGun;}); emSetGun(EM_GUNS[(i+1)%EM_GUNS.length].id); }); } emSetGun(emGun); })();
   function sfxHit(){ try{ _ac(); if(!actx)return; var t=actx.currentTime; var n=_noise(0.4),f=actx.createBiquadFilter(),g=actx.createGain(); f.type='lowpass'; f.frequency.setValueAtTime(1500,t); f.frequency.exponentialRampToValueAtTime(120,t+0.35); n.connect(f); f.connect(g); g.connect(_master); g.gain.setValueAtTime(0.55,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.4); n.start(t); n.stop(t+0.42); _tp(t,0.5,150,40,0.35); }catch(e){} }   // 명중/폭발음
   function buzz(){ try{ _ac(); if(!actx)return; var o=actx.createOscillator(), g=actx.createGain(); o.type='sawtooth'; o.frequency.value=150; o.connect(g); g.connect(_master); var t=actx.currentTime; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.16,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+0.25); o.start(t); o.stop(t+0.27); }catch(e){} }
 
@@ -1059,6 +1085,6 @@
 
 })();
 </script>
-<!-- BUILD:20260628011941 -->
+<!-- BUILD:20260628012409 -->
 </body>
 </html>
