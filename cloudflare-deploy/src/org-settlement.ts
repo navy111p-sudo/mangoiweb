@@ -127,15 +127,26 @@ async function rebuildTree(env: Env): Promise<{ created: number; total: number }
   const now = Date.now();
 
   // 1) 라벨 distinct 수집 (대리점이 최소 단위)
+  //    HQ fallback 은 하드코딩 대신 "이미 가장 많이 쓰인 실제 hq_name" 으로 정해
+  //    NULL/공백 hq 학생이 별도 stray HQ 노드를 만들지 않게 한다(공백차이 등 변종 흡수).
+  const canonHq = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT TRIM(hq_name) AS hq, COUNT(*) c FROM students_erp
+      WHERE hq_name IS NOT NULL AND TRIM(hq_name)<>''
+      GROUP BY hq ORDER BY c DESC LIMIT 1
+    `).first<{ hq: string }>();
+    return r?.hq || '망고아이 본사';
+  }, '망고아이 본사');
+
   const labels = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT
-        COALESCE(NULLIF(TRIM(hq_name),''), '망고아이본사') AS hq,
-        NULLIF(TRIM(franchise),'')                        AS branch,
-        NULLIF(TRIM(shop_name),'')                        AS agency
+        COALESCE(NULLIF(TRIM(hq_name),''), ?) AS hq,
+        NULLIF(TRIM(franchise),'')            AS branch,
+        NULLIF(TRIM(shop_name),'')            AS agency
       FROM students_erp
       GROUP BY hq, branch, agency
-    `).all<{ hq: string; branch: string | null; agency: string | null }>();
+    `).bind(canonHq).all<{ hq: string; branch: string | null; agency: string | null }>();
     return r.results || [];
   }, [] as Array<{ hq: string; branch: string | null; agency: string | null }>);
 
