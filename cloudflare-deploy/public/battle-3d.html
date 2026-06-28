@@ -273,9 +273,11 @@
        예: hero.url='/models/knight.glb' , boss.url='/models/monster.glb'
        idle/attack 에는 그 모델에 들어있는 애니메이션 클립 이름을 적으세요.
        레슨별로 다른 보스 모델을 쓰려면 LESSONS[i].model={url,scale,idle,attack} 추가. */
+    // 무료 실사형 스탠드인(텍스처 입은 군인) — 여러분의 실사 .glb 로 url 만 바꾸면 교체됨
+    var SOLDIER='https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/models/gltf/Soldier.glb';
     var MODELS = {
-      hero: { url:'', scale:'auto', idle:'Idle', attack:'Punch' },
-      boss: { url:'', scale:'auto', idle:'Idle', attack:'Punch' }
+      hero: { url:SOLDIER, scale:'auto', idle:'Idle', attack:'Run' },
+      boss: { url:SOLDIER, scale:'auto', idle:'Idle', attack:'Run', tint:0x7a1414 }
     };
     var _mixers=[];
     function attachModel(G, conf, faceDir){
@@ -287,7 +289,7 @@
         box.setFromObject(root); root.position.y=-box.min.y;
         var orient=new THREE.Group(); orient.rotation.y=(faceDir>0?-Math.PI/2:Math.PI/2); orient.add(root);
         G.traverse(function(o){ if(o.isMesh) o.visible=false; });            // 절차적 메시 숨김
-        root.traverse(function(o){ if(o.isMesh){ o.castShadow=true; o.frustumCulled=false; } });
+        root.traverse(function(o){ if(o.isMesh){ o.castShadow=true; o.frustumCulled=false; if(conf.tint&&o.material){ o.material=o.material.clone(); o.material.emissive=new THREE.Color(conf.tint); o.material.emissiveIntensity=0.7; } } });
         G.add(orient);
         if(gltf.animations && gltf.animations.length){
           var mixer=new THREE.AnimationMixer(root), actions={};
@@ -477,6 +479,6 @@
     window.addEventListener('resize',function(){ W=wrap.clientWidth; H=wrap.clientHeight; camera.aspect=W/H; camera.updateProjectionMatrix(); renderer.setSize(W,H); camBase=camera.position.clone(); });
   })();
   </script>
-<!-- BUILD:20260629024727 -->
+<!-- BUILD:20260629030205 -->
 </body>
 </html>

@@ -93,14 +93,14 @@ const SQL_SUBTREE = `
   ORDER BY s.depth, s.id
 `;
 const SQL_ANCESTOR = `
-  WITH RECURSIVE anc(id, parent_id, type, name, match_key, commission_rate, path, depth, active) AS (
-    SELECT id, parent_id, type, name, match_key, commission_rate, path, depth, active
+  WITH RECURSIVE anc(id, parent_id, type, name, match_key, commission_rate, path, depth, active, hop) AS (
+    SELECT id, parent_id, type, name, match_key, commission_rate, path, depth, active, 0
       FROM org_nodes WHERE id = ?
     UNION ALL
-    SELECT o.id, o.parent_id, o.type, o.name, o.match_key, o.commission_rate, o.path, o.depth, o.active
+    SELECT o.id, o.parent_id, o.type, o.name, o.match_key, o.commission_rate, o.path, o.depth, o.active, a.hop + 1
       FROM org_nodes o JOIN anc a ON o.id = a.parent_id
   )
-  SELECT * FROM anc ORDER BY depth ASC
+  SELECT id, parent_id, type, name, match_key, commission_rate, path, depth, active FROM anc ORDER BY hop ASC
 `;
 const SQL_LEDGER_UPSERT = `
   INSERT INTO org_settlement_ledger

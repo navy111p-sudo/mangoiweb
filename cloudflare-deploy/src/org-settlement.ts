@@ -237,14 +237,16 @@ async function subtreeNodeRevenue(env: Env, rootId: number, startMs: number, end
 async function ancestorChain(env: Env, nodeId: number): Promise<OrgRow[]> {
   return await safe(async () => {
     const r = await env.DB.prepare(`
-      WITH RECURSIVE anc(id, parent_id, type, name, match_key, commission_rate, path, depth, active) AS (
-        SELECT id, parent_id, type, name, match_key, commission_rate, path, depth, active
+      WITH RECURSIVE anc(id, parent_id, type, name, match_key, commission_rate, path, depth, active, hop) AS (
+        SELECT id, parent_id, type, name, match_key, commission_rate, path, depth, active, 0
           FROM org_nodes WHERE id = ?
         UNION ALL
-        SELECT o.id, o.parent_id, o.type, o.name, o.match_key, o.commission_rate, o.path, o.depth, o.active
+        SELECT o.id, o.parent_id, o.type, o.name, o.match_key, o.commission_rate, o.path, o.depth, o.active, a.hop + 1
           FROM org_nodes o JOIN anc a ON o.id = a.parent_id
       )
-      SELECT * FROM anc ORDER BY depth ASC
+      -- 정산주체(hop=0) → … → 본사 순서. 저장된 depth 컬럼이 아닌 재귀 홉으로 정렬해
+      -- depth 가 어긋나도 항상 "주체 먼저, 상위 나중"을 보장(traceback 역할 라벨 정확성).
+      SELECT id, parent_id, type, name, match_key, commission_rate, path, depth, active FROM anc ORDER BY hop ASC
     `).bind(nodeId).all<OrgRow>();
     return r.results || [];
   }, [] as OrgRow[]);

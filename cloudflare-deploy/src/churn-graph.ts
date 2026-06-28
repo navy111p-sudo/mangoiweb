@@ -346,7 +346,8 @@ function computeChainRisk(
 
   let finalScore = score;
   const reasons: string[] = [];
-  if (longest >= 2) reasons.push(`부정 행동 사슬 ${longest}연속(${best.map(e => e.type).join('→')})`);
+  // 사유에는 화면에 보여주는 best(최고점) 사슬과 동일한 길이를 표기(longest 와 다를 수 있음).
+  if (best.length >= 2) reasons.push(`부정 행동 사슬 ${best.length}연속(${best.map(e => e.type).join('→')})`);
   if (ignored.length) reasons.push(`알림톡 미열람 ${ignored.length}건`);
   if (missed.length >= W.teacherConcentrationMinMiss && concentration >= W.teacherConcentration && dominantTeacher) {
     finalScore *= 1.15;
