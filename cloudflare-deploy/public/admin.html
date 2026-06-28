@@ -5397,6 +5397,16 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
         </div>
       </details>
       <details class="sub-item">
+        <summary data-ko="🕹️ 3D 배틀 & 입체 배지 보상" data-en="🕹️ 3D Battle & Reward Badges">🕹️ 3D 배틀 & 입체 배지 보상</summary>
+        <div class="sub-body">
+          <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:10px;margin-bottom:12px;font-size:12px;color:#92400e">
+            💡 <span data-ko="레슨 보스를 이기면 회전하는 3D 배지(별·보석·트로피)를 획득하는 게이미피케이션 배틀 게임." data-en="Win lesson bosses to earn spinning 3D badges (star·gem·trophy).">레슨 보스를 이기면 회전하는 3D 배지(별·보석·트로피)를 획득하는 게이미피케이션 배틀 게임.</span>
+          </div>
+          <a href="/battle-3d.html" target="_blank" rel="noopener" style="background:#f43f5e;color:#fff;border-radius:8px;padding:8px 16px;font-size:12.5px;font-weight:700;text-decoration:none;display:inline-block">
+            <span data-ko="↗ 3D 배틀 열기" data-en="↗ Open 3D Battle">↗ 3D 배틀 열기</span></a>
+        </div>
+      </details>
+      <details class="sub-item">
         <summary data-ko="🧪 학생 배지 자동 검사 (수동 실행)" data-en="🧪 Manual Award Check">🧪 학생 배지 자동 검사 (수동 실행)</summary>
         <div class="sub-body">
           <input id="bg-check-uid" type="text" placeholder="학생 user_id" style="padding:7px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;margin-right:6px" />
@@ -9037,6 +9047,27 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
          data-en="💡 Friend-vs-Friend English battle — challenge → accept/decline → both play → auto-score → reward points.">
       💡 비동기 P2P 배틀 — 도전장 + 폴링 + 자동 채점 + 보상
     </div>
+
+    <!-- 🕹️ 3D 영어 배틀 (레슨 보스전) — battle-3d.html -->
+    <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
+      <div style="font-size:13px;color:#fbbf24;font-weight:700;margin-bottom:6px" data-ko="🕹️ 3D 영어 배틀 (레슨 보스전)" data-en="🕹️ 3D English Battle (Boss Lessons)">🕹️ 3D 영어 배틀 (레슨 보스전)</div>
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:10px" data-ko="레슨별 보스와 단어·문장 퀴즈 대결 → 3D 캐릭터 공격 + 배지 보상 (교재 단어 기반)" data-en="Quiz duel vs lesson bosses → 3D character attacks + badge rewards (from textbook words)">레슨별 보스와 단어·문장 퀴즈 대결 → 3D 캐릭터 공격 + 배지 보상 (교재 단어 기반)</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button type="button" onclick="btl3dPreview(this)" style="background:#f43f5e;color:#fff;border:0;border-radius:10px;padding:9px 15px;font-weight:700;cursor:pointer">
+          <span data-ko="▶ 여기서 미리보기" data-en="▶ Preview here">▶ 여기서 미리보기</span></button>
+        <a href="/battle-3d.html" target="_blank" rel="noopener" style="background:#475569;color:#fff;border-radius:10px;padding:9px 15px;font-weight:700;text-decoration:none;display:inline-block">
+          <span data-ko="↗ 새 탭에서 열기" data-en="↗ Open in new tab">↗ 새 탭에서 열기</span></a>
+      </div>
+      <div id="btl3d-wrap" style="margin-top:12px"></div>
+    </div>
+    <script>
+    window.btl3dPreview = function(b){
+      var w = document.getElementById('btl3d-wrap'); if(!w) return; var en = (window.adminLang==='en');
+      if(w.getAttribute('data-on')){ w.innerHTML=''; w.removeAttribute('data-on'); b.querySelector('span').textContent = en?'▶ Preview here':'▶ 여기서 미리보기'; return; }
+      w.innerHTML = '<iframe src="/battle-3d.html" loading="lazy" style="width:100%;height:540px;border:0;border-radius:10px;background:#070b16" allow="autoplay; microphone"></iframe>';
+      w.setAttribute('data-on','1'); b.querySelector('span').textContent = en?'✕ Close':'✕ 닫기';
+    };
+    </script>
 
     <div id="btl-stats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px"></div>
 
@@ -22164,7 +22195,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260629030205 -->
+        <!-- BUILD:20260629030836 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

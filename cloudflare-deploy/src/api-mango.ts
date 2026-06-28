@@ -189,6 +189,42 @@ const today = (ts: number = Date.now()) => {
   return kst.toISOString().slice(0, 10);
 };
 
+// ── 🔥 연속 출석(Streak) 그래프 DFS — 출결의 단일 권위(source of truth) ──────
+// attendance 의 날짜들을 (수업)<-[:NEXT_LESSON]-(이전수업) 연결 리스트로 간주하고,
+// 가장 최근 출석일(anchor)을 기점으로 하루씩 역방향으로 사슬을 타며
+// (학생)-[:ATTENDED]->(수업) 엣지(EXISTS)가 끊길 때까지의 깊이를 잰다.
+//   · 재귀 1스텝 = NEXT_LESSON 1홉, EXISTS = ATTENDED 엣지 확인, n<30 = 깊이(Depth) 캡
+//   · idx_attendance_user_date(user_id,date) 를 그대로 타므로 전체 로그 풀스캔이 아니라
+//     O(streak) 인덱스 시크(최대 30회)로 끝난다 → 7/30일 배지·status 판정에 충분.
+//   · COUNT(DISTINCT date) 류와 달리 "진짜 연속(consecutive)" 을 계산한다.
+// 배지 판정(checkAndAwardBadges)과 /api/streak/status 가 공유하는 단일 함수.
+async function computeAttendanceStreak(env: { DB: D1Database }, userId: string): Promise<number> {
+  if (!userId) return 0;
+  try {
+    const row: any = await env.DB.prepare(`
+      WITH RECURSIVE
+        anchor(d) AS (
+          SELECT MAX(date) FROM attendance
+          WHERE user_id = ? AND date IS NOT NULL AND date <> ''
+        ),
+        walk(d, n) AS (
+          SELECT (SELECT d FROM anchor), 1
+          WHERE (SELECT d FROM anchor) IS NOT NULL
+          UNION ALL
+          SELECT date(walk.d, '-1 day'), walk.n + 1
+          FROM walk
+          WHERE walk.n < 30
+            AND EXISTS (
+              SELECT 1 FROM attendance
+              WHERE user_id = ? AND date = date(walk.d, '-1 day')
+            )
+        )
+      SELECT COALESCE(MAX(n), 0) AS streak FROM walk
+    `).bind(userId, userId).first();
+    return Number(row?.streak || 0);
+  } catch { return 0; }
+}
+
 /**
  * 빈/잘못된 JSON body 를 안전하게 파싱.
  * 🩺 셀프 진단 페이지가 빈 POST 로 self-ping 할 때 500 대신 400 이 나오도록 하는 공통 방어막.
@@ -5450,41 +5486,6 @@ Respond in JSON ONLY:
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_attendance_user_date ON attendance(user_id, date)`); } catch {}
     };
 
-    // ── 🔥 연속 출석(Streak) 그래프 DFS ──────────────────────────────
-    // attendance 의 날짜들을 (수업)<-[:NEXT_LESSON]-(이전수업) 연결 리스트로 간주하고,
-    // 가장 최근 출석일(anchor)을 기점으로 하루씩 역방향으로 사슬을 타며
-    // (학생)-[:ATTENDED]->(수업) 엣지(EXISTS)가 끊길 때까지의 깊이를 잰다.
-    //   · 재귀 1스텝 = NEXT_LESSON 1홉, EXISTS = ATTENDED 엣지 확인, n<30 = 깊이 캡
-    //   · idx_attendance_user_date(user_id,date) 를 그대로 타므로 전체 로그 풀스캔이 아니라
-    //     O(streak) 인덱스 시크(최대 30회)로 끝난다. → 7/30일 배지 판정에 충분.
-    //   · 기존 COUNT(DISTINCT date) 방식과 달리 "진짜 연속(consecutive)" 을 계산한다.
-    const computeAttendanceStreak = async (userId: string): Promise<number> => {
-      if (!userId) return 0;
-      try {
-        const row: any = await env.DB.prepare(`
-          WITH RECURSIVE
-            anchor(d) AS (
-              SELECT MAX(date) FROM attendance
-              WHERE user_id = ? AND date IS NOT NULL AND date <> ''
-            ),
-            walk(d, n) AS (
-              SELECT (SELECT d FROM anchor), 1
-              WHERE (SELECT d FROM anchor) IS NOT NULL
-              UNION ALL
-              SELECT date(walk.d, '-1 day'), walk.n + 1
-              FROM walk
-              WHERE walk.n < 30
-                AND EXISTS (
-                  SELECT 1 FROM attendance
-                  WHERE user_id = ? AND date = date(walk.d, '-1 day')
-                )
-            )
-          SELECT COALESCE(MAX(n), 0) AS streak FROM walk
-        `).bind(userId, userId).first();
-        return Number(row?.streak || 0);
-      } catch { return 0; }
-    };
-
     // 배지 자동 검사 + 부여 (다른 액션에서도 호출 가능)
     const checkAndAwardBadges = async (userId: string): Promise<string[]> => {
       if (!userId) return [];
@@ -5511,7 +5512,7 @@ Respond in JSON ONLY:
         if ((att?.days || 0) >= 1) await award('attendance_1');
         if ((att?.days || 0) >= 1) await award('first_class');
         // 연속 출석 — 날짜 연결 리스트를 역방향 DFS(재귀 CTE)로 "진짜 연속"을 계산 (풀스캔 X)
-        const streakDays = await computeAttendanceStreak(userId);
+        const streakDays = await computeAttendanceStreak(env, userId);
         if (streakDays >= 7) await award('streak_7');
         if (streakDays >= 30) await award('streak_30');
       } catch {}
@@ -9299,6 +9300,8 @@ Respond in JSON ONLY:
       // D1 의 exec() 는 멀티라인 SQL 미지원 — 반드시 한 줄로
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_streaks (student_uid TEXT PRIMARY KEY, current_streak INTEGER DEFAULT 0, longest_streak INTEGER DEFAULT 0, last_check_date TEXT, gems INTEGER DEFAULT 0, total_gems_earned INTEGER DEFAULT 0, updated_at INTEGER);`);
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS gem_transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, amount INTEGER NOT NULL, reason TEXT NOT NULL, balance_after INTEGER, created_at INTEGER NOT NULL);`);
+      // 출결 기반 streak DFS 가 인덱스 시크로 끝나도록 보장 (멱등)
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_attendance_user_date ON attendance(user_id, date)`); } catch {}
     };
 
     // 오늘 날짜 (KST, YYYY-MM-DD)
@@ -9391,25 +9394,48 @@ Respond in JSON ONLY:
       await ensureStreakSchema();
       const uid = String(url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      const today = todayKST();
+      const now = Date.now();
+
+      // 🔗 단일 권위: 실제 출결(attendance)을 역방향 DFS 로 계산 → 게이미피케이션
+      //    student_streaks 와 "두 수치"가 어긋나지 않도록 여기서 일원화한다.
+      const attStreak = await computeAttendanceStreak(env, uid);
+      const at: any = await env.DB.prepare(
+        `SELECT 1 FROM attendance WHERE user_id = ? AND date = ? LIMIT 1`
+      ).bind(uid, today).first();
+      const attended_today = !!at;
+
       const row: any = await env.DB.prepare(
         `SELECT current_streak, longest_streak, last_check_date, gems, total_gems_earned FROM student_streaks WHERE student_uid = ?`
       ).bind(uid).first();
-      const today = todayKST();
-      if (!row) return json({ ok: true, current_streak: 0, longest_streak: 0, gems: 0, total_gems_earned: 0, checked_today: false, today });
-      const checked_today = row.last_check_date === today;
-      // 연속 끊김 감지 — 마지막 출석이 어제도 아니면 streak 리셋 표시 (DB 는 다음 체크인 때 갱신)
-      let display_streak = row.current_streak;
-      if (!checked_today && row.last_check_date && dayDiff(row.last_check_date, today) > 1) {
-        display_streak = 0; // UI 만 0으로
+
+      // gems 는 체크인 보상 레이어이므로 보존. streak 수치만 출결 기준으로 동기화.
+      const longest = Math.max(Number(row?.longest_streak || 0), attStreak);
+      if (!row) {
+        // 출결은 있는데 게임 row 가 없던 학생 → 리더보드 일관성 위해 streak row 생성 (gems=0)
+        if (attStreak > 0) {
+          await env.DB.prepare(
+            `INSERT INTO student_streaks (student_uid, current_streak, longest_streak, last_check_date, gems, total_gems_earned, updated_at) VALUES (?,?,?,?,?,?,?)`
+          ).bind(uid, attStreak, longest, attended_today ? today : null, 0, 0, now).run();
+        }
+      } else if (row.current_streak !== attStreak || row.longest_streak !== longest) {
+        // 저장된 수치가 출결과 다르면 출결 기준으로 정합화 (gems/체크인일은 건드리지 않음)
+        await env.DB.prepare(
+          `UPDATE student_streaks SET current_streak = ?, longest_streak = ?, updated_at = ? WHERE student_uid = ?`
+        ).bind(attStreak, longest, now, uid).run();
       }
+
       return json({
         ok: true,
-        current_streak: display_streak,
-        longest_streak: row.longest_streak,
-        gems: row.gems,
-        total_gems_earned: row.total_gems_earned,
-        last_check_date: row.last_check_date,
-        checked_today, today,
+        current_streak: attStreak,           // 출결 기반 "진짜 연속" (단일 권위)
+        longest_streak: longest,
+        gems: Number(row?.gems || 0),
+        total_gems_earned: Number(row?.total_gems_earned || 0),
+        last_check_date: row?.last_check_date || null,
+        attended_today,                       // 오늘 실제 출석 여부 (출결 기준)
+        checked_today: attended_today,        // 하위호환: 기존 필드명 유지
+        source: 'attendance',
+        today,
       });
     }
 

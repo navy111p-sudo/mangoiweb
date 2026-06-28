@@ -21,6 +21,7 @@ import { getScope } from './scope';
 import { learningRouter, runLearningSnapshot } from './learning-insights';
 import { runAbsenceSweep } from './churn-graph';
 import { marketingRouter } from './marketing-studio';
+import { teacherMatchRouter } from './teacher-match';
 
 interface Env {
   SIGNALING_ROOM: DurableObjectNamespace;
@@ -51,6 +52,11 @@ interface Env {
   //   - wrangler.toml 의 [ai] binding = "AI" 로 주입
   //   - Llama 3.3 70B Instruct fp8-fast 사용 (한국어 + function calling)
   AI?: any;
+  // 🎯 강사 매칭(teacher-match.ts) — Neo4j Aura HTTP Query API 자격증명
+  //   wrangler secret put 으로 설정. 미설정 시 해당 API 만 503 으로 graceful degrade.
+  NEO4J_QUERY_URL?: string;
+  NEO4J_USER?: string;
+  NEO4J_PASSWORD?: string;
 }
 
 export { SignalingRoom, VideoCallRoom };
@@ -212,6 +218,11 @@ export default {
     // ✨ 칠판 손글씨 OCR (Workers AI 비전) — PNG 바이트(raw)를 받아 텍스트로 변환
     if (path === '/api/wb-ocr' && request.method === 'POST') {
       return await handleWbOcr(request, env);
+    }
+
+    // 🎙️ (임시) 음성 전사 — Workers AI Whisper. 인트로 자막 대본 추출용. 추출 후 제거.
+    if (path === '/api/transcribe' && request.method === 'POST') {
+      return await handleTranscribe(request, env);
     }
 
     // PDF list endpoint
@@ -930,6 +941,13 @@ export default {
       return marketingRouter(request, env);
     }
 
+    // 🎯 강사 매칭: 학생 관심사 + MBTI 궁합 기반 강사 추천 (Neo4j Aura HTTP Query API)
+    //   /api/admin/teacher-match/recommend?student_id=...&limit=5
+    //   '강사관리 > MBTI' RDB 조건문 매칭을 그래프 점수 정렬로 대체. 자체 try/catch 독립 동작.
+    if (path.startsWith('/api/admin/teacher-match/')) {
+      return teacherMatchRouter(request, env);
+    }
+
     // 📣 /admin/marketing-studio — 마케팅 스튜디오 페이지 (관리자 전용)
     if (path === '/admin/marketing-studio' || path === '/admin/marketing-studio/') {
       const r = new Request(new URL('/admin/marketing-studio.html' + url.search, request.url).toString(), request);
@@ -1443,6 +1461,27 @@ async function handleWbOcr(request: Request, env: Env): Promise<Response> {
     return J({ ok: true, text });
   } catch (e: any) {
     return J({ ok: false, text: '', error: String(e?.message || e) }, 200);
+  }
+}
+
+// 🎙️ (임시) 음성→텍스트 전사. Workers AI Whisper large-v3-turbo. 인트로 자막 대본 추출 1회용.
+async function handleTranscribe(request: Request, env: Env): Promise<Response> {
+  const J = (o: any, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+  const AI = (env as any).AI;
+  try {
+    if (!AI) return J({ ok: false, error: 'AI_binding_missing' }, 503);
+    const buf = await request.arrayBuffer();
+    if (!buf || buf.byteLength === 0) return J({ ok: false, error: 'empty' }, 400);
+    if (buf.byteLength > 25_000_000) return J({ ok: false, error: 'too_large' }, 413);
+    const u8 = new Uint8Array(buf);
+    let bin = '';
+    const CH = 0x8000;
+    for (let i = 0; i < u8.length; i += CH) bin += String.fromCharCode.apply(null, u8.subarray(i, i + CH) as any);
+    const b64 = btoa(bin);
+    const r: any = await AI.run('@cf/openai/whisper-large-v3-turbo', { audio: b64, task: 'transcribe', language: 'ko' });
+    return J({ ok: true, result: r });
+  } catch (e: any) {
+    return J({ ok: false, error: String(e?.message || e) }, 200);
   }
 }
 

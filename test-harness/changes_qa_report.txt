@@ -1,13 +1,13 @@
-# Change-set QA report (2026-06-28T17:51:42.668Z)
+# Change-set QA report (2026-06-28T18:04:23.367Z)
 
-PASS=78 FAIL=0
+PASS=77 FAIL=1
 
 PASS  integrity:cloudflare-deploy/public/index.html delta  — HEAD=25506 WORK=25506 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/index.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/src/api-mango.ts delta  — HEAD=11868 WORK=11868 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/src/api-mango.ts tail  — tail="}"
 PASS  integrity:cloudflare-deploy/src/api-mango.ts brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  integrity:cloudflare-deploy/src/index.ts delta  — HEAD=2193 WORK=2193 delta=0 (expect 0)
+FAIL  integrity:cloudflare-deploy/src/index.ts delta  — HEAD=2193 WORK=2219 delta=26 (expect 0)
 PASS  integrity:cloudflare-deploy/src/index.ts tail  — tail="}"
 PASS  integrity:cloudflare-deploy/src/index.ts brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html delta  — HEAD=1750 WORK=1750 delta=0 (expect 0)
