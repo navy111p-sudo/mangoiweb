@@ -3417,6 +3417,7 @@
     <button class="mg-s2" onclick="mgGo('booking')" data-ko="📝 수업 신청" data-en="📝 Book Class">📝 수업 신청</button>
     <button onclick="mgDrawerClose();if(window.gridActions&&window.gridActions.teachers)window.gridActions.teachers();" data-ko="👨‍🏫 교사 소개" data-en="👨‍🏫 Teachers">👨‍🏫 교사 소개</button>
     <button id="mg-faq-btn" class="mg-hl mg-s2" onclick="event.preventDefault();if(window.mgDrawerClose)mgDrawerClose();if(window.openFaqOverlay)openFaqOverlay();return false;" data-ko="❓ 자주 묻는 질문" data-en="❓ FAQ">❓ 자주 묻는 질문</button>
+    <button class="mg-hl mg-s2" onclick="mgDrawerClose();location.href='/english-mastery-suite.html';" data-ko="🎮 학생게임" data-en="🎮 Student Game">🎮 학생게임</button>
     <button onclick="mgDrawerClose();location.href='/review-quiz.html';" data-ko="🧠 복습퀴즈" data-en="🧠 Review Quiz">🧠 복습퀴즈</button>
     <button class="mg-s3" onclick="mgGo('all-menu')" data-ko="🏠 전체메뉴" data-en="🏠 All Menu">🏠 전체메뉴</button>
   </nav>
@@ -3512,6 +3513,7 @@
     '수업 신청':'원하는 수업 예약하기',
     '교사 소개':'원어민·전문 강사 보기',
     '자주 묻는':'자주 묻는 질문(FAQ)',
+    '학생게임':'재미있는 게임을 통해 다시 예복습합니다',
     '복습퀴즈':'배운 내용 복습 퀴즈',
     '전체메뉴':'모든 메뉴 한눈에 보기'
   };
@@ -22497,7 +22499,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260628025024 -->
+<!-- BUILD:20260628132250 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

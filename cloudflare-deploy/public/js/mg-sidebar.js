@@ -29,6 +29,7 @@
     'booking':'/lesson-booking-demo.html',
     'teachers':'/teachers.html',
     'faq':'/faq.html',
+    'student-game':'/english-mastery-suite.html',
     'review-quiz':'/review-quiz.html'
   };
 
@@ -48,6 +49,7 @@
     { go:'booking',     cls:'mg-s2',       ko:'📝 수업 신청',        en:'📝 Book Class' },
     { go:'teachers',    cls:'',            ko:'👨‍🏫 교사 소개',       en:'👨‍🏫 Teachers' },
     { go:'faq',         cls:'mg-hl mg-s2', ko:'❓ 자주 묻는 질문',    en:'❓ FAQ' },
+    { go:'student-game',cls:'mg-hl mg-s2', ko:'🎮 학생게임',         en:'🎮 Student Game' },
     { go:'review-quiz', cls:'',            ko:'🧠 복습퀴즈',         en:'🧠 Review Quiz' },
     { go:'all-menu',    cls:'mg-s3',       ko:'🏠 전체메뉴',         en:'🏠 All Menu' }
   ];
