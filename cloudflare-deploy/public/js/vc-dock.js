@@ -89,6 +89,21 @@
     '  #vc-dock{bottom:6px;padding:4px 7px;}',
     '  #vc-dock button{width:40px;height:34px;}',
     '  #vc-dock button svg{width:18px;height:18px;}',
+    '}',
+    '/* 🥭 (2026-06-28) 휴대폰 가로 전용: 하단 도크가 카메라 얼굴을 가려서 문고리(핸들)로 접었다 폈다 */',
+    '/* 트랜지션은 두지 않음 — bottom의 env()/calc()/max() 혼합값, svg transform:none→rotate 는 브라우저가 보간하지 못해 시작값에 멈추는 버그가 있어 즉시 토글로 처리 */',
+    '#vc-dock-handle{display:none;position:fixed;left:50%;transform:translateX(-50%);z-index:99994;',
+    '  align-items:center;justify-content:center;gap:6px;cursor:pointer;padding:0;width:58px;height:22px;',
+    '  background:rgba(18,22,30,0.72);-webkit-backdrop-filter:blur(16px) saturate(1.2);backdrop-filter:blur(16px) saturate(1.2);',
+    '  border:1px solid rgba(255,255,255,.18);color:#cdd6e4;border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.45);}',
+    '#vc-dock-handle .vdh-grip{width:20px;height:3px;border-radius:2px;background:rgba(255,255,255,.55);}',
+    '#vc-dock-handle svg{width:13px;height:13px;}',
+    '#vc-dock-handle:active{transform:translateX(-50%) scale(.94);}',
+    '@media (max-width:920px) and (orientation:landscape) and (max-height:600px){',
+    '  body.vc-in-call.vc-dock-on #vc-dock-handle{display:inline-flex;bottom:calc(env(safe-area-inset-bottom,0px) + 56px);}',
+    '  body.vc-in-call.vc-dock-collapsed #vc-dock{transform:translateX(-50%) translateY(180%) !important;opacity:0;pointer-events:none;}',
+    '  body.vc-in-call.vc-dock-collapsed #vc-dock-handle{bottom:max(6px,env(safe-area-inset-bottom,0px));}',
+    '  body.vc-in-call.vc-dock-collapsed #vc-dock-handle svg{transform:rotate(180deg);}',
     '}'
   ].join('\n');
 
@@ -282,6 +297,15 @@
 
     [btnMic, btnCam, bShare, bChat, bConsult, bSet, bLeave].forEach(function(b){ dock.appendChild(b); });
     document.body.appendChild(dock);
+
+    // 🥭 (2026-06-28) 문고리(핸들) — 휴대폰 가로에서 도크를 아래로 접었다/폈다 (카메라 얼굴 가림 해소)
+    var handle = document.createElement('button');
+    handle.id = 'vc-dock-handle'; handle.type = 'button';
+    handle.setAttribute('aria-label', '수업 메뉴 접기/펴기');
+    handle.innerHTML = '<span class="vdh-grip"></span>' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+    handle.onclick = function(e){ if(e&&e.stopPropagation) e.stopPropagation(); closeSettings(); document.body.classList.toggle('vc-dock-collapsed'); };
+    document.body.appendChild(handle);
   }
 
   function sync(){
@@ -297,7 +321,7 @@
   function tick(){
     var inCall = !!(document.body && document.body.classList.contains('vc-in-call'));
     if (inCall) { build(); document.body.classList.add('vc-dock-on'); sync(); }
-    else if (document.body) { document.body.classList.remove('vc-dock-on'); closeSettings(); }
+    else if (document.body) { document.body.classList.remove('vc-dock-on'); document.body.classList.remove('vc-dock-collapsed'); closeSettings(); }
   }
   if (document.readyState !== 'loading') { tick(); } else { document.addEventListener('DOMContentLoaded', tick); }
   setInterval(tick, 1500);
