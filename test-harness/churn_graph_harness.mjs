@@ -48,12 +48,12 @@ function expandExpectedSessions(schedules, sinceMs, today) {
     const createdMs = s.created_at || 0;
     if (s.scheduled_date) {
       const ms = dateToMs(s.scheduled_date);
-      if (ms >= sinceMs && ms <= todayMs) out.push({ date: s.scheduled_date, teacherId: s.teacher_id });
+      if (ms >= sinceMs && ms < todayMs) out.push({ date: s.scheduled_date, teacherId: s.teacher_id });
       continue;
     }
     const dows = (s.day_of_week || '').toLowerCase(); if (!dows) continue;
     const days = WEEKDAY.filter(w => dows.includes(w)); if (!days.length) continue;
-    for (let ms = Math.max(sinceMs, alignToDay(sinceMs)); ms <= todayMs; ms += DAY_MS) {
+    for (let ms = alignToDay(sinceMs); ms < todayMs; ms += DAY_MS) {
       const d = kstDateStr(ms);
       if (createdMs && ms < alignToDay(createdMs)) continue;
       if (days.includes(dayOfWeek(d))) out.push({ date: d, teacherId: s.teacher_id });

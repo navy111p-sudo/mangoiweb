@@ -195,18 +195,18 @@ function expandExpectedSessions(schedules: ScheduleRow[], sinceMs: number, today
   const todayMs = dateToMs(today);
   for (const s of schedules) {
     const createdMs = s.created_at || 0;
-    // 일회성/특정일자
+    // 일회성/특정일자 (오늘은 제외 — 수업이 아직 안 끝났을 수 있어 결석으로 보지 않음)
     if (s.scheduled_date) {
       const ms = dateToMs(s.scheduled_date);
-      if (ms >= sinceMs && ms <= todayMs) out.push({ date: s.scheduled_date, teacherId: s.teacher_id });
+      if (ms >= sinceMs && ms < todayMs) out.push({ date: s.scheduled_date, teacherId: s.teacher_id });
       continue;
     }
-    // 반복: day_of_week 토큰(mon/tue/…)을 윈도 내 해당 요일마다 전개
+    // 반복: day_of_week 토큰(mon/tue/…)을 윈도 내 해당 요일마다 전개 (오늘 미포함)
     const dows = (s.day_of_week || '').toLowerCase();
     if (!dows) continue;
     const days = WEEKDAY.filter(w => dows.includes(w));
     if (!days.length) continue;
-    for (let ms = Math.max(sinceMs, alignToDay(sinceMs)); ms <= todayMs; ms += DAY_MS) {
+    for (let ms = alignToDay(sinceMs); ms < todayMs; ms += DAY_MS) {
       const d = kstDateStr(ms);
       // 스케줄 등록 이전 날짜는 결석으로 보지 않음(데이터 왜곡 방지)
       if (createdMs && ms < alignToDay(createdMs)) continue;
