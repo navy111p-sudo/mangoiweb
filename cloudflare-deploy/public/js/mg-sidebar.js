@@ -29,7 +29,7 @@
     'booking':'/lesson-booking-demo.html',
     'teachers':'/teachers.html',
     'faq':'/faq.html',
-    'student-game':'/english-mastery-suite.html',
+    'student-game':'/student-games.html',
     'review-quiz':'/review-quiz.html'
   };
 

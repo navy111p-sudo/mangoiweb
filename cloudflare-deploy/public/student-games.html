@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>영어 학습 게임 — Mangoi 화상영어</title>
+<!--
+  ============================================================================
+   🎮 학생게임 허브 (Student Games Hub)  — single-file HTML + CSS + JS
+   ----------------------------------------------------------------------------
+   수업 입장 화면(index.html)의 🎮 학생게임 탭에 있는 7가지 게임을 한 페이지에
+   카드로 모아 누르면 바로 플레이하게 한다.
+     1) 🎣 낚시+말하기    → english-mastery-suite.html?game=fish  (iframe)
+     2) 🚀 슈팅+말하기    → english-mastery-suite.html?game=shoot (iframe)
+     3) 🔫 영어 슈팅      → student-game-shooter.html             (iframe)
+     4) 🧱 문장 벽돌      → 인라인 렌더 (gameRenderBrick)
+     5) 🧩 단어 매칭      → 인라인 렌더 (gameRenderMatch)
+     6) 🔤 빈칸 채우기    → 인라인 렌더 (gameRenderFill)
+     7) 🎈 풍선 터뜨리기  → 인라인 렌더 (gameRenderBalloon)
+   인라인 게임 4종은 index.html 게임 탭에서 그대로 가져온 로직. 점수/원어민
+   발음(TTS)/효과음 공유. iframe 게임 3종은 미션 완료 시 postMessage 로 점수 반영.
+  ============================================================================
+-->
+<style>
+  :root{
+    --deepblue:#0b1b3a; --emerald:#10b981; --gold:#fbbf24;
+    --good:#22c55e; --bad:#ef4444; --blue:#3b82f6;
+    --tx:#e8f0ff; --sub:#9fb3d6; --line:rgba(255,255,255,.12); --panel:rgba(10,18,38,.72);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{font-family:'Noto Sans KR','Segoe UI',sans-serif;color:var(--tx);min-height:100dvh;
+    background:radial-gradient(120% 90% at 50% 0%,#1c3566 0%,#081227 70%)}
+  #app{position:relative;width:100%;min-height:100dvh;display:flex;flex-direction:column}
+
+  /* ===== 헤더 ===== */
+  .hub-head{text-align:center;padding:26px 16px 10px}
+  .hub-head .brand{font-size:12px;font-weight:800;letter-spacing:2px;color:var(--gold);margin-bottom:6px}
+  .hub-head h1{font-size:25px;font-weight:900;line-height:1.25}
+  .hub-head h1 .em{color:var(--emerald)}
+  .hub-head .sub{font-size:13px;color:var(--sub);margin-top:8px;line-height:1.6}
+
+  /* ===== 메뉴(카드 그리드) ===== */
+  #hub-menu{flex:1;display:flex;flex-direction:column;align-items:center;padding:14px 16px 40px}
+  .game-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:16px;
+    width:min(960px,100%);margin-top:10px}
+  @media(max-width:430px){.game-grid{grid-template-columns:1fr 1fr;gap:12px}}
+  .game-card{position:relative;cursor:pointer;border:1px solid var(--line);border-radius:18px;
+    padding:20px 16px;text-align:center;color:var(--tx);background:rgba(255,255,255,.05);
+    transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;overflow:hidden;
+    display:flex;flex-direction:column;align-items:center;gap:8px;min-height:168px;justify-content:center}
+  .game-card::before{content:'';position:absolute;inset:0;background:var(--cardbg);opacity:.16;pointer-events:none}
+  .game-card:hover{transform:translateY(-4px) scale(1.02);border-color:var(--gold);
+    box-shadow:0 12px 30px rgba(0,0,0,.45)}
+  .game-card:active{transform:scale(.98)}
+  .game-card .ico{font-size:46px;line-height:1;filter:drop-shadow(0 3px 8px rgba(0,0,0,.45));position:relative}
+  .game-card .ttl{font-size:16px;font-weight:800;position:relative}
+  .game-card .dsc{font-size:11.5px;color:var(--sub);line-height:1.45;position:relative}
+  .game-card .badge{position:absolute;top:10px;right:10px;font-size:9.5px;font-weight:800;letter-spacing:.5px;
+    padding:3px 8px;border-radius:999px;background:rgba(16,185,129,.2);color:#6ee7b7;border:1px solid rgba(16,185,129,.4)}
+
+  /* ===== 게임 화면 ===== */
+  #hub-game{display:none;flex:1;flex-direction:column;min-height:100dvh}
+  #hub-game.active{display:flex}
+  .game-topbar{display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(10,18,38,.85);
+    border-bottom:1px solid var(--line);flex-wrap:wrap;flex-shrink:0}
+  .game-topbar .back{background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--tx);
+    padding:9px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+  .game-topbar .back:hover{background:rgba(251,191,36,.16);border-color:var(--gold)}
+  .game-topbar .gname{font-size:15px;font-weight:800;color:var(--gold)}
+  .game-topbar .next{margin-left:auto;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:0;
+    padding:9px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+  .game-scorebar{display:flex;gap:14px;align-items:center;padding:8px 14px;background:rgba(10,18,38,.7);
+    border-bottom:1px solid var(--line);font-size:13px;color:#cbd5e1;flex-shrink:0;flex-wrap:wrap}
+  #game-area{flex:1;min-height:0;overflow:auto;background:linear-gradient(135deg,#0f172a,#1e293b);
+    padding:24px;color:#f1f5f9}
+  #game-area iframe{width:100%;height:100%;min-height:60vh;border:0;display:block;background:#081227}
+  .game-iframewrap #game-area{padding:0}
+  .brick-btn:hover{transform:scale(1.05)}
+  .match-card:hover{transform:scale(1.04)}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===== 메뉴 ===== -->
+  <div id="hub-menu">
+    <div class="hub-head">
+      <div class="brand">MANGOI · LEARNING GAMES</div>
+      <h1>영어 <span class="em">학습 게임</span> 🎮</h1>
+      <div class="sub">재미있는 게임을 통해 오늘 배운 단어·문장을 다시 예복습해요!<br>원하는 게임을 눌러 바로 플레이하세요.</div>
+    </div>
+    <div class="game-grid" id="game-grid"><!-- JS 렌더 --></div>
+  </div>
+
+  <!-- ===== 게임 화면 ===== -->
+  <div id="hub-game">
+    <div class="game-topbar">
+      <button class="back" onclick="hubBackToMenu()">← 게임 선택</button>
+      <span class="gname" id="hub-gname">게임</span>
+      <button class="next" id="hub-next" onclick="gameNextRound()">🔄 다음 문제</button>
+    </div>
+    <div class="game-scorebar" id="hub-scorebar">
+      <span>🏆 점수: <b id="game-score" style="color:var(--gold)">0</b></span>
+      <span>✅ 정답: <b id="game-correct" style="color:var(--emerald)">0</b></span>
+      <span>❌ 오답: <b id="game-wrong" style="color:var(--bad)">0</b></span>
+      <span id="game-feedback" style="margin-left:auto;font-weight:700">&nbsp;</span>
+    </div>
+    <div id="game-area"><!-- 게임 본체 --></div>
+  </div>
+
+</div>
+
+<script>
+/* ============================================================
+   게임 데이터 + 상태 (index.html 게임 탭과 동일)
+   ============================================================ */
+const _GAME_VOCAB = [
+  { en: 'I love mango fruit.',           ko: '나는 망고 과일을 좋아해요.',         words: ['I','love','mango','fruit'] },
+  { en: 'She is reading a book.',        ko: '그녀는 책을 읽고 있어요.',           words: ['She','is','reading','a','book'] },
+  { en: 'We go to school every day.',    ko: '우리는 매일 학교에 가요.',           words: ['We','go','to','school','every','day'] },
+  { en: 'My dog is very cute.',          ko: '내 강아지는 매우 귀여워요.',         words: ['My','dog','is','very','cute'] },
+  { en: 'The sun is shining brightly.',  ko: '태양이 밝게 빛나고 있어요.',         words: ['The','sun','is','shining','brightly'] },
+  { en: 'He plays soccer on Sundays.',   ko: '그는 일요일에 축구를 해요.',         words: ['He','plays','soccer','on','Sundays'] },
+  { en: 'I like to eat pizza.',          ko: '나는 피자 먹는 것을 좋아해요.',     words: ['I','like','to','eat','pizza'] },
+  { en: 'They are good friends.',        ko: '그들은 좋은 친구입니다.',           words: ['They','are','good','friends'] }
+];
+const _GAME_WORDS = [
+  { en:'apple', ko:'사과' }, { en:'book', ko:'책' }, { en:'cat', ko:'고양이' },
+  { en:'dog', ko:'강아지' }, { en:'flower', ko:'꽃' }, { en:'hello', ko:'안녕' },
+  { en:'school', ko:'학교' }, { en:'water', ko:'물' }, { en:'sun', ko:'태양' },
+  { en:'moon', ko:'달' }, { en:'star', ko:'별' }, { en:'love', ko:'사랑' }
+];
+const _gameState = { mode: 'brick', score: 0, correct: 0, wrong: 0, current: null, started: false, balloonTimer: null };
+
+// 7개 게임 정의 — kind: 'inline' (이 페이지 내 렌더) | 'iframe'
+const HUB_GAMES = [
+  { mode:'fish',    kind:'iframe', ico:'🎣', ttl:'낚시+말하기',   dsc:'문장 단어를 순서대로 낚아 발음까지!', bg:'#0ea5e9', badge:'말하기',
+    src:s=>'/english-mastery-suite.html?game=fish&sentence='+encodeURIComponent(s)+'&lang=ko' },
+  { mode:'shoot',   kind:'iframe', ico:'🚀', ttl:'슈팅+말하기',   dsc:'우주에서 단어를 순서대로 쏘고 말하기!', bg:'#6366f1', badge:'말하기',
+    src:s=>'/english-mastery-suite.html?game=shoot&sentence='+encodeURIComponent(s)+'&lang=ko' },
+  { mode:'shooter', kind:'iframe', ico:'🔫', ttl:'영어 슈팅',     dsc:'총·효과음 골라 단어를 쏴서 문장 완성!', bg:'#ef4444', badge:'슈팅',
+    src:s=>'/student-game-shooter.html?sentence='+encodeURIComponent(s)+'&lang=ko' },
+  { mode:'brick',   kind:'inline', ico:'🧱', ttl:'문장 벽돌',     dsc:'단어 브릭을 순서대로 쌓아 문장 완성!', bg:'#3b82f6', badge:'문장' },
+  { mode:'match',   kind:'inline', ico:'🧩', ttl:'단어 매칭',     dsc:'한국어와 영어 카드 짝을 찾아요!',      bg:'#a855f7', badge:'단어' },
+  { mode:'fill',    kind:'inline', ico:'🔤', ttl:'빈칸 채우기',   dsc:'문장 빈칸에 알맞은 단어를 골라요!',    bg:'#8b5cf6', badge:'문장' },
+  { mode:'balloon', kind:'inline', ico:'🎈', ttl:'풍선 터뜨리기', dsc:'뜻에 맞는 영어 풍선을 터뜨려요!',      bg:'#f59e0b', badge:'단어' }
+];
+
+/* ============================================================
+   허브 네비게이션
+   ============================================================ */
+function hubRenderMenu(){
+  document.getElementById('game-grid').innerHTML = HUB_GAMES.map(function(g){
+    return '<div class="game-card" style="--cardbg:'+g.bg+'" onclick="hubOpenGame(\''+g.mode+'\')">'
+      + '<span class="badge">'+g.badge+'</span>'
+      + '<span class="ico">'+g.ico+'</span>'
+      + '<span class="ttl">'+g.ttl+'</span>'
+      + '<span class="dsc">'+g.dsc+'</span>'
+      + '</div>';
+  }).join('');
+}
+
+function _hubGame(mode){ return HUB_GAMES.find(function(g){ return g.mode===mode; }); }
+
+function hubOpenGame(mode){
+  var g = _hubGame(mode); if(!g) return;
+  _gameState.mode = mode;
+  document.getElementById('hub-menu').style.display = 'none';
+  document.getElementById('hub-game').classList.add('active');
+  document.getElementById('hub-gname').textContent = g.ico+' '+g.ttl;
+  var hubGameEl = document.getElementById('hub-game');
+
+  if(g.kind === 'iframe'){
+    // iframe 게임 — 점수바/다음버튼 숨기고 게임 페이지가 화면을 채움
+    hubGameEl.classList.add('game-iframewrap');
+    document.getElementById('hub-scorebar').style.display = 'none';
+    document.getElementById('hub-next').style.display = 'none';
+    var sentence = _GAME_VOCAB[Math.floor(Math.random()*_GAME_VOCAB.length)].en;
+    document.getElementById('game-area').innerHTML =
+      '<iframe src="'+g.src(sentence)+'" allow="microphone; autoplay; speaker-selection"></iframe>';
+  } else {
+    // 인라인 미니게임 — 점수바/다음버튼 표시 후 시작
+    hubGameEl.classList.remove('game-iframewrap');
+    document.getElementById('hub-scorebar').style.display = 'flex';
+    document.getElementById('hub-next').style.display = (mode==='match') ? 'none' : 'inline-block';
+    gameInit();
+  }
+}
+
+function hubBackToMenu(){
+  // 진행 중이던 타이머/음성 정리
+  if(_gameState.balloonTimer){ clearInterval(_gameState.balloonTimer); _gameState.balloonTimer = null; }
+  try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(_){}
+  document.getElementById('game-area').innerHTML = '';
+  document.getElementById('hub-game').classList.remove('active');
+  document.getElementById('hub-menu').style.display = 'flex';
+}
+
+function gameInit(){
+  _gameState.started = true;
+  _gameState.score = 0; _gameState.correct = 0; _gameState.wrong = 0;
+  _gameUpdateScore();
+  gameNextRound();
+}
+
+function gameNextRound(){
+  var fb = document.getElementById('game-feedback'); if(fb) fb.textContent = '';
+  if(_gameState.balloonTimer){ clearInterval(_gameState.balloonTimer); _gameState.balloonTimer = null; }
+  if (_gameState.mode === 'brick')   gameRenderBrick();
+  else if (_gameState.mode === 'match') gameRenderMatch();
+  else if (_gameState.mode === 'fill')  gameRenderFill();
+  else if (_gameState.mode === 'balloon') gameRenderBalloon();
+}
+
+/* ============================================================
+   공용 유틸 (index.html 게임 탭과 동일)
+   ============================================================ */
+function _gameShuffle(arr){
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function _gameUpdateScore(){
+  document.getElementById('game-score').textContent = _gameState.score;
+  document.getElementById('game-correct').textContent = _gameState.correct;
+  document.getElementById('game-wrong').textContent = _gameState.wrong;
+}
+
+/* ===== 🔊 원어민 발음 (TTS) — index.html 과 동일 로직 ===== */
+var _gameEnVoice = null;
+function _gameScoreVoice(v){
+  var n=(v.name||'').toLowerCase(), lang=(v.lang||'').toLowerCase(), s=0;
+  if(lang==='en-us') s+=40; else if(lang==='en-gb'||lang==='en-au') s+=28;
+  else if(lang.slice(0,2)==='en') s+=18; else s-=120;
+  if(/natural|neural/.test(n)) s+=70;
+  if(/google/.test(n)) s+=60;
+  if(/\b(aria|jenny|guy|ava|emma|libby|michelle|jane|nova|sara|brian|christopher)\b/.test(n)) s+=48;
+  if(/\b(samantha|alex|allison|ava|tom|siri|nicky|evan|joelle|nathan)\b/.test(n)) s+=46;
+  if(/online/.test(n)) s+=24;
+  if(/premium|enhanced|plus/.test(n)) s+=24;
+  if(v.localService===false) s+=30;
+  if(/zira|david|mark|hazel|george|susan|catherine|linda|richard|sean|heera|ravi/.test(n)) s-=55;
+  if(/desktop|compact|espeak|pico|microsoft server/.test(n)) s-=45;
+  if(/zarvox|albert|bahh|bells|boing|bubbles|cellos|trinoids|whisper|wobble|jester|organ|superstar|bad news|good news|deranged|hysterical|pipe|ralph|fred|junior|kathy/.test(n)) s-=90;
+  return s;
+}
+function _gamePickVoice(){
+  try{
+    var vs=window.speechSynthesis.getVoices(); if(!vs.length) return;
+    var en=vs.filter(function(v){ return (v.lang||'').slice(0,2).toLowerCase()==='en'; });
+    if(!en.length){ _gameEnVoice=null; return; }
+    var best=null, bs=-1e9;
+    en.forEach(function(v){ var sc=_gameScoreVoice(v); if(sc>bs){ bs=sc; best=v; } });
+    _gameEnVoice=best;
+  }catch(_){}
+}
+try{ if(window.speechSynthesis){ _gamePickVoice(); window.speechSynthesis.onvoiceschanged=_gamePickVoice; } }catch(_){}
+window.gameSpeak = function(text){ try{ if(!text) return; if(!_gameEnVoice) _gamePickVoice(); var u=new SpeechSynthesisUtterance(String(text)); u.lang=(_gameEnVoice&&_gameEnVoice.lang)||'en-US'; u.rate=0.95; u.pitch=1.02; if(_gameEnVoice) u.voice=_gameEnVoice; window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);}catch(_){} };
+window.gameSpeakBuilt = function(){ try{ var pk=(_gameState.current&&_gameState.current.picked)||[]; if(pk.length) gameSpeak(pk.join(' ')); }catch(_){} };
+
+/* ============================================================
+   게임 1: 🧱 문장 벽돌
+   ============================================================ */
+function gameRenderBrick(){
+  const sentence = _GAME_VOCAB[Math.floor(Math.random() * _GAME_VOCAB.length)];
+  _gameState.current = { sentence, picked: [] };
+  const shuffled = _gameShuffle(sentence.words);
+  let html =
+    '<div style="text-align:center;margin-bottom:24px">' +
+      '<div style="font-size:13px;color:#94a3b8;margin-bottom:6px">📝 한국어 번역</div>' +
+      '<div style="font-size:22px;font-weight:700;color:#fbbf24;padding:12px 20px;background:rgba(251,191,36,0.12);border-radius:12px;display:inline-block">' + sentence.ko + '</div>' +
+    '</div>' +
+    '<div style="text-align:center;margin-bottom:18px">' +
+      '<div style="font-size:13px;color:#94a3b8;margin-bottom:8px">🎯 영어로 만들어보세요 (단어 클릭)</div>' +
+      '<div id="brick-built" style="min-height:54px;background:rgba(15,23,42,0.7);border:2px dashed #475569;border-radius:12px;padding:12px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center">' +
+        '<span style="color:#64748b;font-size:14px" id="brick-empty">아래 단어 브릭을 클릭하세요...</span>' +
+      '</div>' +
+    '</div>' +
+    '<div id="brick-pool" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:18px">';
+  shuffled.forEach((w, i) => {
+    html += '<button class="brick-btn" data-word="' + w + '" data-idx="' + i + '" onclick="gameBrickPick(this)" ' +
+      'style="padding:10px 18px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:0;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(59,130,246,0.4);transition:transform 0.15s">' + w + '</button>';
+  });
+  html += '</div>' +
+    '<div style="text-align:center;display:flex;gap:10px;justify-content:center">' +
+      '<button onclick="gameBrickReset()" style="padding:8px 18px;background:rgba(148,163,184,0.2);color:#cbd5e1;border:0;border-radius:8px;cursor:pointer;font-size:13px">↩ 다시</button>' +
+      '<button onclick="gameSpeakBuilt()" style="padding:10px 20px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border:0;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(139,92,246,0.4)">🔊 발음 듣기</button>' +
+      '<button onclick="gameBrickCheck()" style="padding:10px 24px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(16,185,129,0.4)">✅ 확인</button>' +
+    '</div>';
+  document.getElementById('game-area').innerHTML = html;
+}
+function gameBrickPick(btn){
+  const word = btn.dataset.word;
+  _gameState.current.picked.push(word);
+  try{ window.gameSpeak && gameSpeak(word); }catch(_){}
+  btn.style.opacity = '0.3'; btn.disabled = true;
+  const built = document.getElementById('brick-built');
+  const empty = document.getElementById('brick-empty');
+  if (empty) empty.remove();
+  const span = document.createElement('span');
+  span.textContent = word;
+  span.style.cssText = 'padding:8px 16px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1f2937;border-radius:8px;font-size:15px;font-weight:700';
+  built.appendChild(span);
+}
+function gameBrickReset(){ gameRenderBrick(); }
+function gameBrickCheck(){
+  const sent = _gameState.current.sentence;
+  const picked = _gameState.current.picked;
+  const correct = picked.length === sent.words.length &&
+                  picked.every((w, i) => w === sent.words[i]);
+  const fb = document.getElementById('game-feedback');
+  if (correct){
+    _gameState.score += 10; _gameState.correct++;
+    fb.innerHTML = '<span style="color:#10b981">✅ 정답! +10점</span>';
+    try{ window.gameSpeak && gameSpeak(sent.en); }catch(_){}
+    setTimeout(gameNextRound, 2200);
+  } else {
+    _gameState.wrong++;
+    fb.innerHTML = '<span style="color:#ef4444">❌ 다시 시도! 정답: ' + sent.en + '</span>';
+  }
+  _gameUpdateScore();
+}
+
+/* ============================================================
+   게임 2: 🧩 단어 매칭
+   ============================================================ */
+function gameRenderMatch(){
+  const pool = _gameShuffle(_GAME_WORDS).slice(0, 6);
+  const cards = [];
+  pool.forEach((w, i) => {
+    cards.push({ id: 'k' + i, type: 'ko', text: w.ko, pairId: i });
+    cards.push({ id: 'e' + i, type: 'en', text: w.en, pairId: i });
+  });
+  const shuffled = _gameShuffle(cards);
+  _gameState.current = { cards: shuffled, flipped: [], matched: new Set() };
+  let html =
+    '<div style="text-align:center;margin-bottom:18px">' +
+      '<div style="font-size:13px;color:#94a3b8">🧩 한국어와 영어 카드 짝을 찾으세요!</div>' +
+    '</div>' +
+    '<div id="match-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;max-width:600px;margin:0 auto">';
+  shuffled.forEach((c, i) => {
+    const bg = c.type === 'ko' ? 'linear-gradient(135deg,#a855f7,#7c3aed)' : 'linear-gradient(135deg,#f59e0b,#ea580c)';
+    html += '<div class="match-card" data-idx="' + i + '" data-pair="' + c.pairId + '" data-type="' + c.type + '" data-text="' + c.text + '" onclick="gameMatchFlip(this)" ' +
+      'style="aspect-ratio:1.4;background:' + bg + ';border-radius:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,0.3);transition:transform 0.2s">' +
+      '<span style="font-size:28px">?</span></div>';
+  });
+  html += '</div>' +
+    '<div style="text-align:center;margin-top:18px;font-size:12px;color:#94a3b8">남은 페어: <b id="match-remaining" style="color:#fbbf24">' + pool.length + '</b></div>';
+  document.getElementById('game-area').innerHTML = html;
+}
+function gameMatchFlip(card){
+  if (card.dataset.flipped === '1' || card.dataset.matched === '1') return;
+  if (_gameState.current.flipped.length >= 2) return;
+  card.dataset.flipped = '1';
+  card.innerHTML = '<span style="font-size:18px;padding:8px;text-align:center">' + card.dataset.text + '</span>';
+  card.style.transform = 'scale(1.05)';
+  if (card.dataset.type === 'en'){ try{ window.gameSpeak && gameSpeak(card.dataset.text); }catch(_){} }
+  _gameState.current.flipped.push(card);
+  if (_gameState.current.flipped.length === 2){
+    const [a, b] = _gameState.current.flipped;
+    if (a.dataset.pair === b.dataset.pair && a.dataset.type !== b.dataset.type){
+      setTimeout(() => {
+        a.dataset.matched = '1'; b.dataset.matched = '1';
+        a.style.opacity = '0.5'; b.style.opacity = '0.5';
+        a.style.transform = ''; b.style.transform = '';
+        _gameState.current.matched.add(a.dataset.pair);
+        _gameState.score += 5; _gameState.correct++;
+        _gameState.current.flipped = [];
+        _gameUpdateScore();
+        const total = _gameState.current.cards.length / 2;
+        const remEl = document.getElementById('match-remaining');
+        if (remEl) remEl.textContent = (total - _gameState.current.matched.size);
+        document.getElementById('game-feedback').innerHTML = '<span style="color:#10b981">✅ 매치! +5점</span>';
+        if (_gameState.current.matched.size === total){
+          document.getElementById('game-feedback').innerHTML = '<span style="color:#fbbf24">🏆 완료! 다음 게임으로...</span>';
+          setTimeout(gameNextRound, 2000);
+        }
+      }, 400);
+    } else {
+      _gameState.wrong++;
+      _gameUpdateScore();
+      document.getElementById('game-feedback').innerHTML = '<span style="color:#ef4444">❌ 다시</span>';
+      setTimeout(() => {
+        a.dataset.flipped = '0'; b.dataset.flipped = '0';
+        a.innerHTML = '<span style="font-size:28px">?</span>';
+        b.innerHTML = '<span style="font-size:28px">?</span>';
+        a.style.transform = ''; b.style.transform = '';
+        _gameState.current.flipped = [];
+      }, 800);
+    }
+  }
+}
+
+/* ============================================================
+   게임 3: 🔤 빈칸 채우기
+   ============================================================ */
+function gameRenderFill(){
+  const sent = _GAME_VOCAB[Math.floor(Math.random() * _GAME_VOCAB.length)];
+  const meaningfulIdx = sent.words.findIndex(w => w.length > 2 && !['the','is','are','am','was','were','to','on','in','at','of'].includes(w.toLowerCase()));
+  const blankIdx = meaningfulIdx >= 0 ? meaningfulIdx : Math.floor(sent.words.length / 2);
+  const answer = sent.words[blankIdx];
+  const allWords = _GAME_VOCAB.flatMap(s => s.words).filter(w => w.toLowerCase() !== answer.toLowerCase() && w.length > 2);
+  const wrongs = _gameShuffle(allWords).slice(0, 3);
+  const options = _gameShuffle([answer, ...wrongs]);
+  _gameState.current = { answer, sentence: sent };
+  const masked = sent.words.map((w, i) => i === blankIdx ? '___' : w).join(' ');
+  let html =
+    '<div style="text-align:center;margin-bottom:20px">' +
+      '<div style="font-size:13px;color:#94a3b8;margin-bottom:6px">📝 한국어</div>' +
+      '<div style="font-size:18px;color:#fbbf24;padding:10px 18px;background:rgba(251,191,36,0.1);border-radius:10px;display:inline-block">' + sent.ko + '</div>' +
+    '</div>' +
+    '<div style="text-align:center;margin-bottom:24px">' +
+      '<div style="font-size:13px;color:#94a3b8;margin-bottom:8px">🎯 빈칸에 들어갈 단어를 고르세요</div>' +
+      '<div style="font-size:24px;font-weight:700;color:#f1f5f9;padding:18px 24px;background:rgba(15,23,42,0.7);border:2px solid #475569;border-radius:12px;display:inline-block;line-height:1.6">' +
+        masked.replace('___', '<span style="background:#dc2626;color:#fff;padding:2px 16px;border-radius:6px;letter-spacing:2px;margin:0 4px">___</span>') +
+      '</div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;max-width:560px;margin:0 auto">';
+  options.forEach(opt => {
+    html += '<button onclick="gameFillCheck(\'' + opt + '\', this)" ' +
+      'style="padding:18px 14px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border:0;border-radius:12px;font-size:18px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(139,92,246,0.4);transition:all 0.15s">' + opt + '</button>';
+  });
+  html += '</div>';
+  document.getElementById('game-area').innerHTML = html;
+}
+function gameFillCheck(picked, btn){
+  const correct = picked.toLowerCase() === _gameState.current.answer.toLowerCase();
+  const fb = document.getElementById('game-feedback');
+  if (correct){
+    btn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+    btn.style.transform = 'scale(1.05)';
+    _gameState.score += 8; _gameState.correct++;
+    fb.innerHTML = '<span style="color:#10b981">✅ 정답! +8점</span>';
+    try{ window.gameSpeak && _gameState.current.sentence && gameSpeak(_gameState.current.sentence.en); }catch(_){}
+    setTimeout(gameNextRound, 1900);
+  } else {
+    btn.style.background = 'linear-gradient(135deg,#dc2626,#991b1b)';
+    btn.style.opacity = '0.4';
+    btn.disabled = true;
+    _gameState.wrong++;
+    try{ window.gameSpeak && gameSpeak(picked); }catch(_){}
+    fb.innerHTML = '<span style="color:#ef4444">❌ 오답! 정답은: ' + _gameState.current.answer + '</span>';
+  }
+  _gameUpdateScore();
+}
+
+/* ============================================================
+   게임 4: 🎈 풍선 터뜨리기
+   ============================================================ */
+function gameRenderBalloon(){
+  const word = _GAME_WORDS[Math.floor(Math.random() * _GAME_WORDS.length)];
+  const wrongs = _gameShuffle(_GAME_WORDS.filter(w => w.en !== word.en)).slice(0, 3);
+  const balloons = _gameShuffle([word, ...wrongs]);
+  _gameState.current = { answer: word.en, popped: false };
+  let html =
+    '<div style="text-align:center;margin-bottom:14px">' +
+      '<div style="font-size:13px;color:#94a3b8">🎈 한국어 뜻에 맞는 영어 풍선을 클릭!</div>' +
+      '<div style="font-size:34px;font-weight:700;color:#fbbf24;padding:14px 24px;background:rgba(251,191,36,0.12);border-radius:12px;display:inline-block;margin-top:10px">' + word.ko + '</div>' +
+    '</div>' +
+    '<div id="balloon-stage" style="position:relative;height:380px;background:linear-gradient(180deg,#0c4a6e 0%,#0f172a 100%);border-radius:14px;overflow:hidden;border:2px solid #475569">';
+  const colors = [
+    {bg:'linear-gradient(135deg,#ef4444,#b91c1c)', shadow:'rgba(239,68,68,0.6)'},
+    {bg:'linear-gradient(135deg,#3b82f6,#1d4ed8)', shadow:'rgba(59,130,246,0.6)'},
+    {bg:'linear-gradient(135deg,#10b981,#047857)', shadow:'rgba(16,185,129,0.6)'},
+    {bg:'linear-gradient(135deg,#f59e0b,#d97706)', shadow:'rgba(245,158,11,0.6)'}
+  ];
+  balloons.forEach((b, i) => {
+    const left = 5 + i * 22;
+    const startTop = -80 - (i * 60);
+    const c = colors[i];
+    html += '<div class="balloon" data-en="' + b.en + '" onclick="gameBalloonPop(this)" ' +
+      'style="position:absolute;top:' + startTop + 'px;left:' + left + '%;width:90px;height:110px;' +
+      'background:' + c.bg + ';border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;' +
+      'box-shadow:0 8px 30px ' + c.shadow + ', inset -10px -10px 30px rgba(0,0,0,0.2);' +
+      'display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px;cursor:pointer;' +
+      'transition:transform 0.2s">' +
+      b.en +
+      '<div style="position:absolute;bottom:-30px;left:50%;width:2px;height:30px;background:rgba(255,255,255,0.3);transform:translateX(-50%)"></div>' +
+      '</div>';
+  });
+  html += '</div>' +
+    '<div style="text-align:center;margin-top:10px;font-size:12px;color:#94a3b8">⏱ 풍선이 바닥에 닿기 전에 정답을 클릭!</div>';
+  document.getElementById('game-area').innerHTML = html;
+
+  let elapsed = 0;
+  const SPEED = 1.5;
+  if (_gameState.balloonTimer) clearInterval(_gameState.balloonTimer);
+  _gameState.balloonTimer = setInterval(() => {
+    if (_gameState.current.popped) return;
+    elapsed += 50;
+    const stage = document.getElementById('balloon-stage');
+    if (!stage){ clearInterval(_gameState.balloonTimer); return; }
+    const balloons = stage.querySelectorAll('.balloon');
+    let allFell = false;
+    balloons.forEach(bl => {
+      const top = parseFloat(bl.style.top);
+      const newTop = top + SPEED;
+      bl.style.top = newTop + 'px';
+      if (newTop > 320) allFell = true;
+    });
+    if (allFell && !_gameState.current.popped){
+      _gameState.current.popped = true;
+      _gameState.wrong++;
+      _gameUpdateScore();
+      document.getElementById('game-feedback').innerHTML = '<span style="color:#ef4444">❌ 시간 초과! 정답: ' + _gameState.current.answer + '</span>';
+      clearInterval(_gameState.balloonTimer);
+      setTimeout(gameNextRound, 1500);
+    }
+  }, 50);
+}
+function gameBalloonPopSound(){
+  try{
+    var AC = window.AudioContext||window.webkitAudioContext; if(!AC) return;
+    if(!window._gameAC) window._gameAC = new AC();
+    var ac = window._gameAC; if(ac.state==='suspended'){ try{ ac.resume(); }catch(_){} }
+    var t = ac.currentTime;
+    var dur=0.18, len=Math.floor(ac.sampleRate*dur), buf=ac.createBuffer(1,len,ac.sampleRate), d=buf.getChannelData(0);
+    for(var i=0;i<len;i++){ d[i]=(Math.random()*2-1)*Math.pow(1-i/len,1.5); }
+    var src=ac.createBufferSource(); src.buffer=buf;
+    var hp=ac.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=600;
+    var ng=ac.createGain(); ng.gain.setValueAtTime(0.0001,t); ng.gain.exponentialRampToValueAtTime(0.9,t+0.005); ng.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    src.connect(hp); hp.connect(ng); ng.connect(ac.destination); src.start(t); src.stop(t+dur);
+    var o=ac.createOscillator(), og=ac.createGain();
+    o.type='sine'; o.frequency.setValueAtTime(420,t); o.frequency.exponentialRampToValueAtTime(70,t+0.12);
+    og.gain.setValueAtTime(0.0001,t); og.gain.exponentialRampToValueAtTime(0.7,t+0.005); og.gain.exponentialRampToValueAtTime(0.0001,t+0.16);
+    o.connect(og); og.connect(ac.destination); o.start(t); o.stop(t+0.18);
+  }catch(_){}
+}
+function gameBalloonPop(bl){
+  if (_gameState.current.popped) return;
+  _gameState.current.popped = true;
+  const en = bl.dataset.en;
+  gameBalloonPopSound();
+  setTimeout(function(){ try{ window.gameSpeak && gameSpeak(en); }catch(_){} }, 320);
+  const correct = en === _gameState.current.answer;
+  bl.style.transform = 'scale(1.3)';
+  bl.style.opacity = '0';
+  if (_gameState.balloonTimer) clearInterval(_gameState.balloonTimer);
+  if (correct){
+    _gameState.score += 7; _gameState.correct++;
+    document.getElementById('game-feedback').innerHTML = '<span style="color:#10b981">🎉 풍! +7점</span>';
+    setTimeout(gameNextRound, 1200);
+  } else {
+    _gameState.wrong++;
+    document.getElementById('game-feedback').innerHTML = '<span style="color:#ef4444">❌ 틀림! 정답: ' + _gameState.current.answer + '</span>';
+    setTimeout(gameNextRound, 1500);
+  }
+  _gameUpdateScore();
+}
+
+/* ============================================================
+   iframe(슈팅/낚시) 게임 → 점수 반영
+   ============================================================ */
+window.addEventListener('message', function (ev){
+  const d = ev && ev.data;
+  if (!d || typeof d !== 'object' || !d.type) return;
+  if (d.type === 'mangoi-game-complete'){
+    _gameState.score += (d.score || 0);
+    _gameState.correct += 1;
+  }
+});
+
+// ESC 키로 메뉴 복귀
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape' && document.getElementById('hub-game').classList.contains('active')) hubBackToMenu();
+});
+
+hubRenderMenu();
+</script>
+<!-- BUILD:20260628134247 -->
+</body>
+</html>

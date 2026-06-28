@@ -67,10 +67,11 @@
       /* ▼ 통합 바가 켜진 동안(body.mg-uni-on)만 기존 겹침/중복 요소 숨김 (휴대폰 한정) */
       'body.mg-uni-on #mango-class-time{display:none !important;}',
       'body.mg-uni-on #mango-rec-badge{display:none !important;}',
-      /* 🥭 (2026-06-28) 통합 바와 중복되는 옛 네이티브 방정보(방: …·참여자) 숨김.
-         가로는 mango-landscape-topbar.css 가 처리했으나 '세로'엔 규칙이 없어
-         "mangoi-class" 가 통합 바와 2번 겹쳐 보였음 → 세로/가로 공통으로 보강. */
-      'body.mg-uni-on .toolbar-left .room-info{display:none !important;}',
+      /* 🥭 (2026-06-28) 통합 바와 중복되는 옛 네이티브 좌측부(상태점 + 방정보) 통째 숨김.
+         - 방이름("mangoi-class")이 통합 바와 2번 겹쳐 보이던 문제,
+         - 방이름만 숨기니 연결상태 점(#vc-status-dot)이 왼쪽에 외톨이 '불'로 남던 문제
+         를 한 번에 해결. 통합 바의 초록 점(.uni-live)·이름만 남김. 세로/가로 공통. */
+      'body.mg-uni-on .toolbar-left{display:none !important;}',
       'body.mg-uni-on .toolbar-right .ctrl-btn.danger,',
       'body.mg-uni-on a#vc-exit-btn-v34,body.mg-uni-on a#vc-exit-btn-v33,body.mg-uni-on #vc-exit-btn-v32,',
       'body.mg-uni-on #view-signaling-call .toolbar-right .ctrl-btn.danger{display:none !important;}'
