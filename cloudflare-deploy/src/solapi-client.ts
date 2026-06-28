@@ -32,7 +32,21 @@ export interface SolapiEnv {
   SOLAPI_TEMPLATE_MENTION?: string;
   SOLAPI_TEMPLATE_PAYMENT_OVERDUE?: string;
   SOLAPI_TEST_MODE?: string;
+  DB?: D1Database;            // 있으면 발송을 alimtalk_log 에 기록(이탈위험 그래프 IGNORED 엣지 소스)
+  PUBLIC_BASE_URL?: string;   // 클릭추적 리다이렉트 베이스(미설정 시 기본 워커 도메인)
+  ALIMTALK_TRACK?: string;    // 'on' 일 때만 버튼 URL 을 클릭추적 링크로 감쌈(기본 off=URL 원본 유지·안전)
 }
+
+/** 알림톡 발송을 alimtalk_log 에 남길 때의 맥락(학생/사유) */
+export interface AlimtalkLogContext {
+  userId: string;            // 대상 학생 uid
+  reason?: string;           // 'monthly_report' | 'absence' | 'payment' | 'lesson' | ...
+  refRoomId?: string;        // 연관 수업 room_id
+  refDate?: string;          // 연관 날짜 'YYYY-MM-DD'
+}
+
+// 클릭추적 리다이렉트 기본 도메인(헬퍼들의 기존 fallback URL 과 동일)
+const WORKER_BASE = 'https://webrtc-unified-platform-prod.navy111p.workers.dev';
 
 export type SolapiMode = 'real' | 'mock' | 'disabled';
 
@@ -48,6 +62,7 @@ export interface SendKakaoParams {
   recipientName?: string;
   variables: Record<string, string>;     // 템플릿 변수 (예: { #{학생명}: "홍길동" })
   fallbackSmsText?: string;              // 알림톡 실패 시 SMS 로 보낼 문구
+  logContext?: AlimtalkLogContext;       // 있으면 발송을 alimtalk_log 에 기록(+클릭추적)
 }
 
 export interface SendKakaoResult {
@@ -99,11 +114,27 @@ export async function sendKakaoAlimtalk(
     return { ok: false, mode, status: 'failed', error: 'invalid_phone' };
   }
 
+  // 이탈위험 그래프용 발송 기록은 항상(아래 logAlimtalkSend). 클릭추적 URL 래핑은
+  // ALIMTALK_TRACK='on' 일 때만 — 카카오 검수 템플릿의 버튼 URL 을 함부로 바꾸지 않기 위함.
+  // (래핑 꺼져도 무반응→IGNORED 추론은 그대로 동작 → 안전 기본값)
+  let trackToken: string | null = null;
+  if (env.DB && params.logContext && String(env.ALIMTALK_TRACK || '').toLowerCase() === 'on') {
+    trackToken = crypto.randomUUID().replace(/-/g, '').slice(0, 24);
+    const base = env.PUBLIC_BASE_URL || WORKER_BASE;
+    for (const k of Object.keys(params.variables)) {
+      const v = params.variables[k];
+      if (typeof v === 'string' && /^https?:\/\//i.test(v))
+        params.variables[k] = `${base}/api/alimtalk/r?t=${trackToken}&to=${encodeURIComponent(v)}`;
+    }
+  }
+
   if (mode === 'mock') {
     console.log('[solapi MOCK]', { template: params.templateCode, to: phone, vars: params.variables });
+    const messageId = 'mock_' + Date.now().toString(36);
+    await logAlimtalkSend(env, params, phone, messageId, 'sent', trackToken);
     return {
       ok: true, mode: 'mock',
-      messageId: 'mock_' + Date.now().toString(36),
+      messageId,
       status: 'sent',
       message: '[TEST MODE] 실제 발송 안 함 (콘솔 로그만)',
     };
@@ -145,6 +176,7 @@ export async function sendKakaoAlimtalk(
     try { parsed = JSON.parse(text); } catch { parsed = { raw: text }; }
 
     if (resp.status >= 200 && resp.status < 300 && parsed?.statusCode === '2000') {
+      await logAlimtalkSend(env, params, phone, parsed?.messageId, 'sent', trackToken);
       return {
         ok: true, mode: 'real',
         messageId: parsed?.messageId,
@@ -163,6 +195,53 @@ export async function sendKakaoAlimtalk(
   } catch (e: any) {
     return { ok: false, mode: 'real', status: 'failed', error: 'network_error', message: String(e?.message || e) };
   }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  알림톡 발송 로그 (이탈위험 그래프 IGNORED 엣지 소스)
+//  - sendKakaoAlimtalk 가 logContext+DB 있을 때 자동 호출
+//  - 테이블 없으면 1회 생성 후 재시도(멱등). 실패해도 발송엔 영향 없음.
+// ─────────────────────────────────────────────────────────────
+export async function ensureAlimtalkLog(env: SolapiEnv): Promise<void> {
+  if (!env.DB) return;
+  await env.DB.exec(
+    `CREATE TABLE IF NOT EXISTS alimtalk_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, parent_phone TEXT, template TEXT, reason TEXT, ref_room_id TEXT, ref_date TEXT, message_id TEXT, track_token TEXT, send_status TEXT DEFAULT 'sent', sent_at INTEGER NOT NULL, read_at INTEGER, responded_at INTEGER, created_at INTEGER NOT NULL);`
+  );
+  try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_alimtalk_log_user_sent ON alimtalk_log(user_id, sent_at);`); } catch {}
+  try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_alimtalk_log_token ON alimtalk_log(track_token);`); } catch {}
+}
+
+async function logAlimtalkSend(
+  env: SolapiEnv, params: SendKakaoParams, phone: string,
+  messageId: string | undefined, status: string, token: string | null
+): Promise<void> {
+  if (!env.DB || !params.logContext) return;
+  const lc = params.logContext;
+  const now = Date.now();
+  const insert = () => env.DB!.prepare(
+    `INSERT INTO alimtalk_log (user_id, parent_phone, template, reason, ref_room_id, ref_date, message_id, track_token, send_status, sent_at, created_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?)`
+  ).bind(lc.userId, phone, params.templateCode || null, lc.reason || null, lc.refRoomId || null, lc.refDate || null, messageId || null, token, status, now, now).run();
+  try {
+    await insert();
+  } catch {
+    // 테이블 미생성 등 → 1회 생성 후 재시도
+    try { await ensureAlimtalkLog(env); await insert(); }
+    catch (e: any) { console.warn('[alimtalk_log] insert skipped:', e?.message || e); }
+  }
+}
+
+/**
+ * 클릭추적 열람 기록: /api/alimtalk/r?t=<token> 가 호출.
+ * 토큰에 해당하는 알림톡의 read_at 을 처음 1회 기록하고, 원래 목적지 URL 을 반환.
+ */
+export async function markAlimtalkRead(env: SolapiEnv, token: string): Promise<void> {
+  if (!env.DB || !token) return;
+  try {
+    await env.DB.prepare(
+      `UPDATE alimtalk_log SET read_at = ? WHERE track_token = ? AND read_at IS NULL`
+    ).bind(Date.now(), token).run();
+  } catch (e: any) { console.warn('[alimtalk_log] read mark skipped:', e?.message || e); }
 }
 
 // ─────────────────────────────────────────────────────────────

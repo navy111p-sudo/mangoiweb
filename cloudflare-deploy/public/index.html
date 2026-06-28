@@ -3797,7 +3797,14 @@
   video.addEventListener('error', dismiss);
   var _introSrc = video.querySelector('source');
   if (_introSrc) _introSrc.addEventListener('error', dismiss);
-  setTimeout(function(){ if(!dismissed) dismiss(); }, 8000);
+  // 안전장치: 정상 종료는 'ended' 이벤트가 처리. 스톨/로드 실패 대비 영상 길이+3초(기본 45초) 뒤 강제 닫기
+  var _introSafety = setTimeout(function(){ if(!dismissed) dismiss(); }, 45000);
+  video.addEventListener('loadedmetadata', function(){
+    if (isFinite(video.duration) && video.duration > 1) {
+      clearTimeout(_introSafety);
+      _introSafety = setTimeout(function(){ if(!dismissed) dismiss(); }, Math.ceil(video.duration*1000) + 3000);
+    }
+  });
 
   // 첫 사용자 제스처(mousemove·휠·키·터치·스크롤) → muted 폴백된 영상 자동 unmute
   function autoUnmuteOnce(){
@@ -22499,7 +22506,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260628143902 -->
+<!-- BUILD:20260629024717 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

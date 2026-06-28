@@ -21,6 +21,8 @@
  * 모든 핸들러 try/catch + safe() 격리 → 기존 라우트에 영향 없음(독립 오류 처리).
  */
 
+import { computeChainRiskMap, analyzeStudentPath, buildCareList, type ChainRisk } from './churn-graph';
+
 interface Env {
   DB: D1Database;
 }
@@ -168,11 +170,18 @@ interface Seg {
   gaze: number | null; eval_count: number; eval_avg: number | null;
   eval_trend: number | null; voice: number | null; ai_risk: string | null;
   risk: 'high' | 'medium' | 'low'; score: number; reasons: string[];
+  // ── 그래프 사슬(Path) 차원 (churn-graph.ts 가 산출) ──
+  chain_score: number;          // 부정 행동 사슬 위험 점수(가산됨)
+  chain_len: number;            // 최장 연속 부정 사슬 길이
+  missed: number;               // 예정 수업 결석 수
+  ignored: number;              // 알림톡 미열람 수
+  chain_path: string | null;    // 최고점 사슬 경로 요약(MISSED→IGNORED→…)
 }
 
 function computeSegment(s: {
   user_id: string; name: string; days: number;
   att: any; ev: any; voice: number | undefined; aiRisk: string | undefined; today: string;
+  chain?: ChainRisk;
 }): Seg {
   const att = s.att || {};
   const ev = s.ev || {};
@@ -202,6 +211,16 @@ function computeSegment(s: {
   // 4) AI risk_level 참고 가중
   if (s.aiRisk === 'high') { score += 1; reasons.push('AI 분석: 고위험'); }
 
+  // 5) 그래프 행동 사슬(Path) 가중 — 평면 합산을 넘어 인과 연쇄를 반영
+  //    chainScore 는 0~수십 범위라 평면 점수 스케일(0~10대)에 맞춰 클램프 가산.
+  const chain = s.chain;
+  const chain_score = chain ? chain.chainScore : 0;
+  const chain_len = chain ? chain.longestChainLen : 0;
+  if (chain && chain_score > 0) {
+    score += Math.min(5, Math.round(chain_score / 2)); // 사슬 위험을 0~5점으로 가산
+    for (const r of chain.reasons) if (!reasons.includes(r)) reasons.push(r);
+  }
+
   const risk: 'high' | 'medium' | 'low' = score >= 4 ? 'high' : score >= 2 ? 'medium' : 'low';
   if (reasons.length === 0) reasons.push('안정적');
 
@@ -211,6 +230,10 @@ function computeSegment(s: {
     eval_count: ev.count || 0, eval_avg, eval_trend,
     voice: s.voice != null ? s.voice : null, ai_risk: s.aiRisk || null,
     risk, score, reasons,
+    chain_score, chain_len,
+    missed: chain ? chain.missedCount : 0,
+    ignored: chain ? chain.ignoredCount : 0,
+    chain_path: chain && chain.path.length ? chain.path.map(e => e.type).join('→') : null,
   };
 }
 
@@ -220,13 +243,15 @@ async function buildSegments(env: Env, days: number): Promise<Seg[]> {
   const sinceMs = Date.now() - days * DAY_MS;
   const midMs = Date.now() - Math.floor(days / 2) * DAY_MS;
 
-  const [students, att, ev, voice, ai] = await Promise.all([
+  const [students, att, ev, voice, ai, chain] = await Promise.all([
     activeStudents(env), attendanceAgg(env, sinceMs), evalAgg(env, sinceMs, midMs), voiceAgg(env, sinceMs), aiRiskAgg(env),
+    safe(() => computeChainRiskMap(env, days), new Map<string, ChainRisk>()),
   ]);
 
   return students.map(st => computeSegment({
     user_id: st.user_id, name: st.name, days,
     att: att[st.user_id], ev: ev[st.user_id], voice: voice[st.user_id], aiRisk: ai[st.user_id], today,
+    chain: chain.get(st.user_id),
   })).sort((a, b) => b.score - a.score);
 }
 
@@ -244,6 +269,9 @@ export async function learningRouter(request: Request, env: Env): Promise<Respon
 
     if (p === 'overview' && method === 'GET') return await overview(env, url);
     if (p === 'segments' && method === 'GET') return await segments(env, url, fmt);
+    if (p === 'churn' && method === 'GET') return await churnScan(env, url);
+    if (p === 'churn-path' && method === 'GET') return await churnPath(env, url);
+    if (p === 'care-today' && method === 'GET') return await careToday(env, url);
     if (p === 'trends' && method === 'GET') return await trends(env, url);
     if (p === 'risk-history' && method === 'GET') return await riskHistory(env, url);
     if (p === 'snapshots' && method === 'GET') return await listSnapshots(env, url);
@@ -292,13 +320,61 @@ async function segments(env: Env, url: URL, fmt: string): Promise<Response> {
   if (filter === 'high' || filter === 'medium' || filter === 'low') segs = segs.filter(s => s.risk === filter);
 
   if (fmt === 'csv') {
-    const rows: (string | number)[][] = [['학생', 'user_id', '위험도', '점수', '출석일', '마지막출석(일전)', '집중도', '평가수', '평가평균', '평가추세', '음성', 'AI위험', '사유']];
-    for (const s of segs) rows.push([s.name, s.user_id, s.risk, s.score, s.attendance_days, s.days_since_last ?? '', s.gaze ?? '', s.eval_count, s.eval_avg ?? '', s.eval_trend ?? '', s.voice ?? '', s.ai_risk ?? '', s.reasons.join(' / ')]);
+    const rows: (string | number)[][] = [['학생', 'user_id', '위험도', '점수', '사슬점수', '사슬길이', '결석', '알림톡미열람', '사슬경로', '출석일', '마지막출석(일전)', '집중도', '평가수', '평가평균', '평가추세', '음성', 'AI위험', '사유']];
+    for (const s of segs) rows.push([s.name, s.user_id, s.risk, s.score, s.chain_score, s.chain_len, s.missed, s.ignored, s.chain_path ?? '', s.attendance_days, s.days_since_last ?? '', s.gaze ?? '', s.eval_count, s.eval_avg ?? '', s.eval_trend ?? '', s.voice ?? '', s.ai_risk ?? '', s.reasons.join(' / ')]);
     return csv(`learning-segments-${todayKST()}.csv`, rows);
   }
   const dist = { high: 0, medium: 0, low: 0 };
   for (const s of segs) dist[s.risk]++;
   return json({ ok: true, range_days: days, count: segs.length, distribution: dist, students: segs });
+}
+
+// ── 2b) 그래프 사슬 스캔(이탈 위험 행동 Path 랭킹) ────────────────────────
+async function churnScan(env: Env, url: URL): Promise<Response> {
+  const days = clampInt(url.searchParams.get('days'), 60, 7, 180);
+  const map = await computeChainRiskMap(env, days);
+  const rows = [...map.values()].filter(r => r.chainScore > 0).sort((a, b) => b.chainScore - a.chainScore);
+  const limit = clampInt(url.searchParams.get('limit'), 100, 1, 1000);
+  return json({
+    ok: true, range_days: days, count: rows.length,
+    students: rows.slice(0, limit).map(r => ({
+      user_id: r.uid, chain_score: r.chainScore, chain_len: r.longestChainLen,
+      missed: r.missedCount, ignored: r.ignoredCount,
+      dominant_teacher: r.dominantTeacher, teacher_concentration: r.teacherConcentration,
+      path: r.path.map(e => ({ type: e.type, date: e.date, label: e.label })),
+      reasons: r.reasons,
+    })),
+  });
+}
+
+// ── 2c) 단일 학생 그래프/사슬 경로 상세 (설명·시각화용) ────────────────────
+async function churnPath(env: Env, url: URL): Promise<Response> {
+  const uid = url.searchParams.get('uid');
+  if (!uid) return err('uid required');
+  const days = clampInt(url.searchParams.get('days'), 60, 7, 180);
+  const detail = await analyzeStudentPath(env, uid, days);
+  return json({ ok: true, ...detail });
+}
+
+// ── 2d) 오늘의 케어 대상(어제 결석 + 고위험 사슬) — 감지 전용, 발송 안 함 ──
+async function careToday(env: Env, url: URL): Promise<Response> {
+  const days = clampInt(url.searchParams.get('days'), 60, 7, 180);
+  const list = await buildCareList(env, days);
+  const absentees = list.filter(c => c.absent_yesterday);
+  return json({
+    ok: true,
+    absent_count: absentees.length,
+    care_count: list.length,
+    // 어제 결석자 우선, 그다음 고위험 사슬. 개인정보(parent_phone)는 노출 안 함.
+    items: list.slice(0, 100).map(c => ({
+      user_id: c.uid, name: c.name,
+      absent_yesterday: c.absent_yesterday,
+      consecutive_misses: c.consecutive_misses,
+      dormant: c.dormant, chain_score: c.chain_score,
+      has_parent_contact: !!c.parent_phone,
+      reasons: c.reasons,
+    })),
+  });
 }
 
 // ── 3) 학생 장기 트렌드 ──────────────────────────────────────────────────

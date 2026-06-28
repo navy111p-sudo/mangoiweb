@@ -13,11 +13,13 @@ import { handleLivekit, ensureLivekitSchema } from './livekit-bridge';
 import { handleRecordingUpload as handleR2MultipartUpload } from './recordings-r2';
 import { handleAdminAuthApi, checkAdminSession } from './auth-admin';
 import { reportsRouter } from './accounting-reports';
+import { settlementRouter } from './org-settlement';
 import { realtimeRouter, runFinanceSnapshot } from './accounting-realtime';
 import { modulesRouter } from './modules-ext';
 import { execRouter } from './exec-summary';
 import { getScope } from './scope';
 import { learningRouter, runLearningSnapshot } from './learning-insights';
+import { runAbsenceSweep } from './churn-graph';
 import { marketingRouter } from './marketing-studio';
 
 interface Env {
@@ -144,6 +146,27 @@ export default {
     // Health check endpoint
     if (path === '/api/health') {
       return handleHealth();
+    }
+
+    // 📩 알림톡 클릭추적 (공개·학부모용) — 버튼 클릭 시 read_at 기록 후 원래 URL 로 리다이렉트.
+    //    이탈위험 그래프의 (학부모)-[:IGNORED]->(알림톡) 판정을 정밀화한다.
+    if (path === '/api/alimtalk/r') {
+      const t = url.searchParams.get('t') || '';
+      const to = url.searchParams.get('to') || '/';
+      if (t) {
+        try { const { markAlimtalkRead } = await import('./solapi-client'); await markAlimtalkRead(env as any, t); } catch {}
+      }
+      // open-redirect 방지: 자체 도메인(또는 *.workers.dev) 절대 URL · 상대경로만 허용
+      let dest = new URL('/', request.url).toString();
+      try {
+        if (/^https?:\/\//i.test(to)) {
+          const u = new URL(to);
+          if (u.host === url.host || u.host.endsWith('.workers.dev')) dest = u.toString();
+        } else if (to.startsWith('/')) {
+          dest = new URL(to, request.url).toString();
+        }
+      } catch {}
+      return Response.redirect(dest, 302);
     }
 
     // 🩺 /admin/health 페이지가 호출하는 서버측 자가진단 API
@@ -821,6 +844,15 @@ export default {
       return reportsRouter(request, env);
     }
 
+    // 🌳 조직 그래프 트리 정산 엔진 (2026-06-29 추가)
+    //   /api/admin/settlement/{tree|rollup|node/:id|rates|close|ledger|rebuild}
+    //   (:HQ)-[:PARENT_OF]->(지사)->(대리점)->(학생)-[:PAID]->(:Payment) 그래프를
+    //   D1 WITH RECURSIVE 로 순회해 하위집계·상위역추적·수수료(15~18%) 정확 산출.
+    //   기존 reports/franchise 의 "균등분배 추정"을 정확 정산으로 대체. scope 격리.
+    if (path.startsWith('/api/admin/settlement/') || path === '/api/admin/settlement') {
+      return settlementRouter(request, env);
+    }
+
     // 💸 실시간 수입·지출 분석 & 재무 스냅샷 (2026-06-03 추가)
     //   /api/admin/realtime/{summary|daily|weekly|expenses|snapshots|snapshot}
     //   기존 reports 와 prefix 분리 + 자체 try/catch 로 독립 동작
@@ -1070,6 +1102,19 @@ export default {
           console.log('[learning-snapshot] cron ran', JSON.stringify(rl));
         } catch (err) {
           console.error('[learning-snapshot] error', err);
+        }
+
+        // 🚨 이탈위험 — 어제 결석 감지 + 케어 대상 집계 (KST 03:00)
+        //   감지는 항상 수행. 학부모 알림톡 발송은 게이트(AUTO_ALIMTALK='on' + SOLAPI_TEMPLATE_ABSENCE)
+        //   가 켜진 경우에만. 기본값(플래그 미설정)은 '발송 안 함' → 안전.
+        try {
+          const sweep = await runAbsenceSweep(env as any, { send: true });
+          console.log('[absence-sweep] cron ran', JSON.stringify({
+            date: sweep.date, detected: sweep.detected, care: sweep.care_total,
+            sending: sweep.sending, sent: sweep.sent, skipped: sweep.skipped,
+          }));
+        } catch (err) {
+          console.error('[absence-sweep] error', err);
         }
 
         // 📅 Weekly schedule auto-generation — every Sunday only (KST Monday 03:00)

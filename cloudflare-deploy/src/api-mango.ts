@@ -145,8 +145,8 @@ async function sendMonthlyReportKakao(env: MangoEnv, uid: string, period: string
   const out: any = { url, mode: getSolapiMode(env), student: null, parent: null };
   const sPhone = stu && stu.phone;
   const pPhone = stu && stu.parent_phone;
-  if (sPhone) out.student = await sendKakaoAlimtalk(env, { templateCode: tmpl, recipientPhone: sPhone, recipientName: name, variables: vars, fallbackSmsText: fallback });
-  if (pPhone) out.parent = await sendKakaoAlimtalk(env, { templateCode: tmpl, recipientPhone: pPhone, recipientName: (stu && stu.parent_name) || name, variables: vars, fallbackSmsText: fallback });
+  if (sPhone) out.student = await sendKakaoAlimtalk(env, { templateCode: tmpl, recipientPhone: sPhone, recipientName: name, variables: { ...vars }, fallbackSmsText: fallback, logContext: { userId: uid, reason: 'monthly_report' } });
+  if (pPhone) out.parent = await sendKakaoAlimtalk(env, { templateCode: tmpl, recipientPhone: pPhone, recipientName: (stu && stu.parent_name) || name, variables: { ...vars }, fallbackSmsText: fallback, logContext: { userId: uid, reason: 'monthly_report' } });
   const sentStudent = out.student && out.student.ok ? 1 : 0;
   const sentParent = out.parent && out.parent.ok ? 1 : 0;
   try {
@@ -5446,6 +5446,43 @@ Respond in JSON ONLY:
     const ensureBadgeTables = async () => {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_badges (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, badge_code TEXT NOT NULL, awarded_at INTEGER NOT NULL, UNIQUE(user_id, badge_code));`);
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_badges_user ON student_badges(user_id, awarded_at DESC)`); } catch {}
+      // Streak DFS(재귀 CTE)가 풀스캔 대신 인덱스 시크로 끝나도록 보장 (멱등)
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_attendance_user_date ON attendance(user_id, date)`); } catch {}
+    };
+
+    // ── 🔥 연속 출석(Streak) 그래프 DFS ──────────────────────────────
+    // attendance 의 날짜들을 (수업)<-[:NEXT_LESSON]-(이전수업) 연결 리스트로 간주하고,
+    // 가장 최근 출석일(anchor)을 기점으로 하루씩 역방향으로 사슬을 타며
+    // (학생)-[:ATTENDED]->(수업) 엣지(EXISTS)가 끊길 때까지의 깊이를 잰다.
+    //   · 재귀 1스텝 = NEXT_LESSON 1홉, EXISTS = ATTENDED 엣지 확인, n<30 = 깊이 캡
+    //   · idx_attendance_user_date(user_id,date) 를 그대로 타므로 전체 로그 풀스캔이 아니라
+    //     O(streak) 인덱스 시크(최대 30회)로 끝난다. → 7/30일 배지 판정에 충분.
+    //   · 기존 COUNT(DISTINCT date) 방식과 달리 "진짜 연속(consecutive)" 을 계산한다.
+    const computeAttendanceStreak = async (userId: string): Promise<number> => {
+      if (!userId) return 0;
+      try {
+        const row: any = await env.DB.prepare(`
+          WITH RECURSIVE
+            anchor(d) AS (
+              SELECT MAX(date) FROM attendance
+              WHERE user_id = ? AND date IS NOT NULL AND date <> ''
+            ),
+            walk(d, n) AS (
+              SELECT (SELECT d FROM anchor), 1
+              WHERE (SELECT d FROM anchor) IS NOT NULL
+              UNION ALL
+              SELECT date(walk.d, '-1 day'), walk.n + 1
+              FROM walk
+              WHERE walk.n < 30
+                AND EXISTS (
+                  SELECT 1 FROM attendance
+                  WHERE user_id = ? AND date = date(walk.d, '-1 day')
+                )
+            )
+          SELECT COALESCE(MAX(n), 0) AS streak FROM walk
+        `).bind(userId, userId).first();
+        return Number(row?.streak || 0);
+      } catch { return 0; }
     };
 
     // 배지 자동 검사 + 부여 (다른 액션에서도 호출 가능)
@@ -5473,11 +5510,10 @@ Respond in JSON ONLY:
         const att: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS days FROM attendance WHERE user_id = ?`).bind(userId).first();
         if ((att?.days || 0) >= 1) await award('attendance_1');
         if ((att?.days || 0) >= 1) await award('first_class');
-        // 연속 출석 (간단 추정: 최근 30일 중 출석 일수)
-        const since30 = Date.now() - 30 * 86400000;
-        const r30: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ?`).bind(userId, since30).first();
-        if ((r30?.d || 0) >= 7) await award('streak_7');
-        if ((r30?.d || 0) >= 30) await award('streak_30');
+        // 연속 출석 — 날짜 연결 리스트를 역방향 DFS(재귀 CTE)로 "진짜 연속"을 계산 (풀스캔 X)
+        const streakDays = await computeAttendanceStreak(userId);
+        if (streakDays >= 7) await award('streak_7');
+        if (streakDays >= 30) await award('streak_30');
       } catch {}
 
       // 평가서 만점
