@@ -3367,6 +3367,7 @@
         <div class="sub-body">
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
             <button id="sm-streak-load" class="primary" style="padding:5px 12px;font-size:12px;" data-ko="🧮 불러오기" data-en="🧮 Load">🧮 불러오기</button>
+            <button id="sm-streak-reconcile" class="primary" style="padding:5px 12px;font-size:12px;background:#7c3aed;" data-ko="🔁 일괄 재계산" data-en="🔁 Recompute all" title="전 학생 출결 기준으로 연속 출석을 일괄 재계산해 리더보드를 갱신합니다 (cron 야간 배치와 동일)">🔁 일괄 재계산</button>
             <span style="font-size:11px;color:#6b7280;" id="sm-streak-count"></span>
           </div>
           <table>
@@ -19552,59 +19553,76 @@ async function loadTodayAttend() {
 }
 
 // ────── 🏆 연속 출석 랭킹 ──────
+// 출결(attendance) 기반 그래프 DFS(서버 재귀 CTE)를 단일 권위로 사용.
+//   · 불러오기  → GET  /api/streak/leaderboard (서버가 이미 정합화한 student_streaks 읽기, 즉시)
+//   · 일괄 재계산 → POST /api/admin/streak/reconcile (전 학생 출결 기준 재산출 후 갱신 리더보드 반환)
+// 예전처럼 학생마다 /full?days=180 을 N번 호출해 클라에서 streak 를 계산하지 않는다(부하 제거).
+async function _streakNameMap() {
+  try {
+    const erp = await getErpList();
+    const m = {};
+    (erp || []).forEach(s => { try { const u = uidOfErp(s); if (u) m[u] = s.username; } catch {} });
+    return m;
+  } catch { return {}; }
+}
+function _renderStreakRows(items, nameMap) {
+  const tb = document.getElementById('sm-streak-tbody');
+  if (!items || !items.length) {
+    tb.innerHTML = '<tr><td colspan="5" class="empty">'+(currentLang==='en'?'No data — run 🔁 Recompute all first':'데이터 없음 — 🔁 일괄 재계산을 먼저 실행하세요')+'</td></tr>';
+    return;
+  }
+  tb.innerHTML = items.map((r, i) => {
+    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i+1)+'.';
+    const uid = r.student_uid || r.uid;
+    const name = (nameMap && nameMap[uid]) || uid;
+    return `<tr>
+      <td>${medal}</td>
+      <td>${escSm(name)}</td>
+      <td><strong style="color:#f59e0b">${r.current_streak||0}</strong>${currentLang==='en'?'d':'일'}</td>
+      <td>${r.longest_streak||0}${currentLang==='en'?'d':'일'}</td>
+      <td>${drillBtn(uid, 'streak')}</td>
+    </tr>`;
+  }).join('');
+}
 async function loadStreakRanking() {
   const tb = document.getElementById('sm-streak-tbody');
   const cnt = document.getElementById('sm-streak-count');
-  tb.innerHTML = '<tr><td colspan="5" class="empty">'+(currentLang==='en'?'Computing…':'계산 중…')+'</td></tr>';
-
-  const erp = await getErpList();
-  // 각 학생별로 /full 호출하면 너무 무거움 → 처음 30명만 (TOP 10 후보)
-  const sample = erp.slice(0, 30);
-  const results = [];
-  for (const s of sample) {
-    const uid = uidOfErp(s);
-    try {
-      const r = await fetch('/api/admin/student/'+encodeURIComponent(uid)+'/full?days=180', { credentials:'include' });
-      const j = await r.json();
-      if (!j.ok) continue;
-      const dates = Array.from(new Set((j.sessions||[]).map(x => x.date).filter(Boolean))).sort();
-      // streak 계산 (평일 기준)
-      function nextWeekday(dStr) {
-        const d = new Date(dStr+'T00:00:00');
-        do { d.setDate(d.getDate()+1); } while (d.getDay()===0 || d.getDay()===6);
-        return d.toISOString().slice(0,10);
-      }
-      let streaks = [], cur = null;
-      dates.forEach(d => {
-        if (!cur) { cur = { start:d, end:d, len:1 }; return; }
-        if (nextWeekday(cur.end) === d) { cur.end = d; cur.len++; }
-        else { streaks.push(cur); cur = { start:d, end:d, len:1 }; }
-      });
-      if (cur) streaks.push(cur);
-      const longest = streaks.reduce((m, x) => x.len > m.len ? x : m, { len:0 });
-      let current = 0;
-      if (streaks.length) {
-        const last = streaks[streaks.length-1];
-        const dayDiff = Math.floor((new Date() - new Date(last.end+'T00:00:00')) / 86400000);
-        if (dayDiff <= 3) current = last.len;
-      }
-      if (longest.len > 0) results.push({ name: s.username, uid, current, longest: longest.len });
-    } catch {}
+  tb.innerHTML = '<tr><td colspan="5" class="empty">'+(currentLang==='en'?'Loading…':'불러오는 중…')+'</td></tr>';
+  try {
+    const [lb, nameMap] = await Promise.all([
+      fetch('/api/streak/leaderboard', { credentials:'include' }).then(x=>x.json()).catch(()=>({ ok:false })),
+      _streakNameMap(),
+    ]);
+    const items = (lb && lb.items) || [];
+    cnt.textContent = (currentLang==='en'?'Top ':'상위 ') + items.length + (currentLang==='en'?'':'명');
+    _renderStreakRows(items, nameMap);
+  } catch {
+    tb.innerHTML = '<tr><td colspan="5" class="empty">'+(currentLang==='en'?'Load failed':'불러오기 실패')+'</td></tr>';
   }
-  results.sort((a,b) => b.current - a.current || b.longest - a.longest);
-  cnt.textContent = (currentLang==='en'?'Top ':'상위 ') + Math.min(10, results.length) + (currentLang==='en'?' / sampled ':'명 / 샘플 ') + sample.length;
-  const top = results.slice(0, 10);
-  if (top.length === 0) { tb.innerHTML = '<tr><td colspan="5" class="empty">'+(currentLang==='en'?'No streak data':'연속 출석 데이터 없음')+'</td></tr>'; return; }
-  tb.innerHTML = top.map((r, i) => {
-    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i+1)+'.';
-    return `<tr>
-      <td>${medal}</td>
-      <td>${escSm(r.name)}</td>
-      <td><strong style="color:#f59e0b">${r.current}</strong>${currentLang==='en'?'d':'일'}</td>
-      <td>${r.longest}${currentLang==='en'?'d':'일'}</td>
-      <td>${drillBtn(r.uid, 'streak')}</td>
-    </tr>`;
-  }).join('');
+}
+async function reconcileStreaks() {
+  const tb = document.getElementById('sm-streak-tbody');
+  const cnt = document.getElementById('sm-streak-count');
+  const btn = document.getElementById('sm-streak-reconcile');
+  const label = currentLang==='en' ? '🔁 Recompute all' : '🔁 일괄 재계산';
+  if (btn) { btn.disabled = true; btn.textContent = currentLang==='en'?'Recomputing…':'재계산 중…'; }
+  tb.innerHTML = '<tr><td colspan="5" class="empty">'+(currentLang==='en'?'Recomputing all students…':'전 학생 재계산 중…')+'</td></tr>';
+  try {
+    const [rc, nameMap] = await Promise.all([
+      fetch('/api/admin/streak/reconcile', { method:'POST', credentials:'include' }).then(x=>x.json()).catch(()=>({ ok:false })),
+      _streakNameMap(),
+    ]);
+    if (!rc || !rc.ok) {
+      tb.innerHTML = '<tr><td colspan="5" class="empty">'+(currentLang==='en'?'Reconcile failed (admin only)':'재계산 실패 (관리자 전용)')+'</td></tr>';
+      return;
+    }
+    const items = rc.leaderboard || [];
+    const n = rc.reconciled ? rc.reconciled.updated : items.length;
+    cnt.textContent = (currentLang==='en'?'Reconciled ':'정합화 ') + n + (currentLang==='en'?' · Top ':'명 · 상위 ') + items.length;
+    _renderStreakRows(items, nameMap);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+  }
 }
 
 // ────── 📞 최근 상담 통합 ──────
@@ -19693,6 +19711,7 @@ window.bulkCopyContacts = function() {
   if (e('sm-expiring-window')) e('sm-expiring-window').addEventListener('change', loadExpiring);
   if (e('sm-today-load')) e('sm-today-load').addEventListener('click', loadTodayAttend);
   if (e('sm-streak-load')) e('sm-streak-load').addEventListener('click', loadStreakRanking);
+  if (e('sm-streak-reconcile')) e('sm-streak-reconcile').addEventListener('click', reconcileStreaks);
   if (e('sm-consult-load')) e('sm-consult-load').addEventListener('click', loadRecentConsult);
   if (e('sm-consult-window')) e('sm-consult-window').addEventListener('change', loadRecentConsult);
   if (e('sm-bulk-load')) e('sm-bulk-load').addEventListener('click', loadBulkList);
@@ -22195,7 +22214,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260629173114 -->
+        <!-- BUILD:20260629180325 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
