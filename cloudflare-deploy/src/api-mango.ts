@@ -9513,6 +9513,18 @@ Respond in JSON ONLY:
       ).all();
       return json({ ok: true, items: rs.results || [] });
     }
+
+    // 🔁 관리자 수동 트리거 — 전 학생 streak 일괄 정합화 (출결 기준)
+    //   야간 cron(KST 03:00)과 동일한 reconcileAllStreaks 를 즉시 1회 실행.
+    //   인증: 상단 /api/admin/* 관리자 세션 미들웨어가 이미 401 게이트.
+    //   POST = 실행, 실행 후 갱신된 리더보드 상위 20명을 함께 반환해 효과 확인.
+    if (method === 'POST' && path === '/api/admin/streak/reconcile') {
+      const rc = await reconcileAllStreaks(env);
+      const rs = await env.DB.prepare(
+        `SELECT student_uid, current_streak, longest_streak, gems FROM student_streaks ORDER BY current_streak DESC, gems DESC LIMIT 20`
+      ).all();
+      return json({ ok: true, reconciled: rc, leaderboard: rs.results || [] });
+    }
     // ═══════════════════════════════════════════════════════════════
     // 🔥 Phase ST 끝
     // ═══════════════════════════════════════════════════════════════

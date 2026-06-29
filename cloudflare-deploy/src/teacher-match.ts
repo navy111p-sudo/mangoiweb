@@ -90,6 +90,14 @@ UNWIND $teachers AS t
     MERGE (tn)-[:INTERESTED_IN]->(i)
 `;
 
+// 현재 소스에 없는 강사는 active=false 로 내려 추천 후보에서 제외(노드는 보존).
+const DEACTIVATE_STALE_TEACHERS_QUERY = `
+MATCH (t:Teacher)
+WHERE NOT t.teacher_id IN $activeIds
+SET t.active = false
+RETURN count(t) AS deactivated
+`;
+
 const LOAD_STUDENTS_QUERY = `
 UNWIND $students AS s
   MERGE (sn:Student {student_id: s.student_id})
@@ -133,7 +141,7 @@ const isValidMbti = (s: string) => /^[IE][NS][TF][JP]$/.test(s);
  */
 export async function runTeacherGraphSync(
   env: TeacherMatchEnv,
-): Promise<{ teachers: number; students: number; compatPairs: number; studentInterests: boolean }> {
+): Promise<{ teachers: number; students: number; compatPairs: number; studentInterests: boolean; deactivated: number }> {
   if (!env.DB) throw new Error('D1 바인딩(DB)이 없어 ETL을 실행할 수 없습니다.');
 
   // 1) 강사: teacher_mbti (hobby → 관심사, teaching_style → style)
@@ -181,7 +189,67 @@ export async function runTeacherGraphSync(
   if (teachers.length) await runCypher(env, LOAD_TEACHERS_QUERY, { teachers }, 'WRITE');
   if (students.length) await runCypher(env, LOAD_STUDENTS_QUERY, { students }, 'WRITE');
 
-  return { teachers: teachers.length, students: students.length, compatPairs: COMPAT_PAIRS.length, studentInterests };
+  // 4) 소스에서 사라진 강사 비활성화(노드 보존). 강사 0건이면 전체 비활성화 사고 방지로 skip.
+  let deactivated = 0;
+  if (teachers.length) {
+    const res = await runCypher(
+      env,
+      DEACTIVATE_STALE_TEACHERS_QUERY,
+      { activeIds: teachers.map((t) => t.teacher_id) },
+      'WRITE',
+    );
+    deactivated = toNumber(res.values?.[0]?.[0]);
+  }
+
+  return { teachers: teachers.length, students: students.length, compatPairs: COMPAT_PAIRS.length, studentInterests, deactivated };
+}
+
+/**
+ * 학생 프로필(MBTI·관심사) upsert — students_erp 에 mbti/interests 컬럼을 보장하고 저장.
+ * 저장 후 해당 학생 1명을 Neo4j 그래프에 즉시 반영(전체 sync 없이 추천에 바로 사용 가능).
+ * @returns 저장된 정규화 값(neo4j 반영 여부 포함)
+ */
+export async function upsertStudentProfile(
+  env: TeacherMatchEnv,
+  input: { student_id: string; mbti?: string; interests?: string | string[]; name?: string },
+): Promise<{ student_id: string; mbti: string; interests: string[]; graphSynced: boolean }> {
+  if (!env.DB) throw new Error('D1 바인딩(DB)이 없어 학생 프로필을 저장할 수 없습니다.');
+  const studentId = String(input.student_id || '').trim();
+  if (!studentId) throw new TypeError('student_id 는 필수입니다.');
+
+  const mbti = isValidMbti(String(input.mbti || '').toUpperCase()) ? String(input.mbti).toUpperCase() : '';
+  const interests = Array.isArray(input.interests)
+    ? Array.from(new Set(input.interests.map((s) => String(s).trim()).filter(Boolean)))
+    : splitInterests(input.interests);
+
+  // students_erp 존재 + 컬럼 보장(멱등). 신규 학생이면 행 생성.
+  await env.DB.exec(
+    `CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, status TEXT, created_at INTEGER)`,
+  );
+  try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN mbti TEXT`); } catch {}
+  try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN interests TEXT`); } catch {}
+
+  await env.DB
+    .prepare(
+      `INSERT INTO students_erp (user_id, mbti, interests) VALUES (?, ?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET mbti = excluded.mbti, interests = excluded.interests`,
+    )
+    .bind(studentId, mbti, interests.join('/'))
+    .run();
+
+  // Neo4j 즉시 반영(설정 시). 미설정이면 graphSynced=false 로 degrade.
+  let graphSynced = false;
+  if (env.NEO4J_QUERY_URL) {
+    await runCypher(
+      env,
+      LOAD_STUDENTS_QUERY,
+      { students: [{ student_id: studentId, name: input.name || studentId, mbti, interests }] },
+      'WRITE',
+    );
+    graphSynced = true;
+  }
+
+  return { student_id: studentId, mbti, interests, graphSynced };
 }
 
 // ── 공통 JSON 응답 헬퍼 (프로젝트 라우터 컨벤션과 동일) ───────────────────────
@@ -326,6 +394,18 @@ export async function teacherMatchRouter(request: Request, env: TeacherMatchEnv)
         count: teachers.length,
         teachers,
         ...(teachers.length === 0 ? { message: '추천 가능한 강사가 없습니다(접점 없음).' } : {}),
+      });
+    }
+
+    // POST /api/admin/teacher-match/student-profile — 학생 MBTI·관심사 저장 + 그래프 즉시 반영
+    //   body: { student_id, mbti?, interests?(문자열 '여행/음악' 또는 배열), name? }
+    if (p === 'student-profile' && method === 'POST') {
+      const body: any = await request.json().catch(() => ({}));
+      const saved = await upsertStudentProfile(env, body);
+      return json({
+        ok: true,
+        saved,
+        ...(saved.graphSynced ? {} : { note: 'Neo4j 미설정 — D1 에만 저장됨. 동기화 후 추천에 반영됩니다.' }),
       });
     }
 

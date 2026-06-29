@@ -943,6 +943,12 @@ export default {
       return teacherMatchRouter(request, env);
     }
 
+    // 🎯 /admin/teacher-match — 강사 매칭 추천 페이지 (관리자 전용)
+    if (path === '/admin/teacher-match' || path === '/admin/teacher-match/') {
+      const r = new Request(new URL('/admin/teacher-match.html' + url.search, request.url).toString(), request);
+      return env.ASSETS.fetch(r);
+    }
+
     // 📣 /admin/marketing-studio — 마케팅 스튜디오 페이지 (관리자 전용)
     if (path === '/admin/marketing-studio' || path === '/admin/marketing-studio/') {
       const r = new Request(new URL('/admin/marketing-studio.html' + url.search, request.url).toString(), request);
@@ -2160,6 +2166,8 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/students/erp-list' || path === '/api/admin/students/erp' || path === '/api/admin/students/erp-seed') return true;
   // 📚 Phase HW — 숙제 관리 (출제/목록/삭제) — 관리자 전용
   if (path.startsWith('/api/admin/homework/')) return true;
+  // 🔁 Streak 일괄 정합화 수동 트리거 — HQ 관리자 전용 (agency 허용목록에 없어 403)
+  if (path === '/api/admin/streak/reconcile') return true;
   // 대시보드·활성 방·방 상태 — 모두 관리자 전용
   if (path === '/api/dashboard') return true;
   if (path === '/api/active-rooms') return true;

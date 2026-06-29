@@ -275,9 +275,10 @@
        레슨별로 다른 보스 모델을 쓰려면 LESSONS[i].model={url,scale,idle,attack} 추가. */
     // 무료 실사형 스탠드인(텍스처 입은 군인) — 여러분의 실사 .glb 로 url 만 바꾸면 교체됨
     var SOLDIER='https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/models/gltf/Soldier.glb';
+    var ROBOT='https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
     var MODELS = {
       hero: { url:SOLDIER, scale:'auto', idle:'Idle', attack:'Run' },
-      boss: { url:SOLDIER, scale:'auto', idle:'Idle', attack:'Run', tint:0x7a1414 }
+      boss: { url:ROBOT,   scale:'auto', idle:'Idle', attack:'Punch', tint:0x7a1414 }
     };
     var _mixers=[];
     function attachModel(G, conf, faceDir){
@@ -479,6 +480,6 @@
     window.addEventListener('resize',function(){ W=wrap.clientWidth; H=wrap.clientHeight; camera.aspect=W/H; camera.updateProjectionMatrix(); renderer.setSize(W,H); camBase=camera.position.clone(); });
   })();
   </script>
-<!-- BUILD:20260629153834 -->
+<!-- BUILD:20260629154428 -->
 </body>
 </html>

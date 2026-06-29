@@ -3605,6 +3605,27 @@
     font:500 12px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
     letter-spacing:.04em;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.6);
   }
+  /* 🆕 인트로 자막 (EN/KO) + 언어 토글 버튼 */
+  #mango-intro-cc{
+    position:absolute;left:50%;bottom:62px;transform:translateX(-50%);
+    max-width:86%;width:max-content;text-align:center;
+    padding:10px 18px;border-radius:14px;
+    background:rgba(0,0,0,.46);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+    color:#fff;font:600 19px/1.45 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
+    letter-spacing:.01em;text-shadow:0 2px 6px rgba(0,0,0,.7);
+    pointer-events:none;opacity:0;transition:opacity .2s ease;
+  }
+  #mango-intro-cc.show{opacity:1}
+  #mango-intro-lang{
+    position:absolute;top:18px;left:18px;
+    padding:9px 14px;border:1px solid rgba(255,255,255,.55);
+    background:rgba(0,0,0,.35);color:#fff;
+    font:700 13px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
+    border-radius:999px;cursor:pointer;letter-spacing:.04em;
+    backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+    transition:background .15s,border-color .15s,transform .15s;
+  }
+  #mango-intro-lang:hover{background:rgba(0,0,0,.6);border-color:#fff;transform:scale(1.04)}
   /* 🆕 모바일 — 인트로 동영상: 우주인 4명 모두 보이게 (contain) + 우주 배경
      - contain 으로 좌우 잘림 방지 → 양옆 우주인 2명도 보임
      - 위아래 여백은 우주 그라데이션으로 자연스럽게
@@ -3639,6 +3660,8 @@
     #mango-intro-skip{top:12px;right:12px;padding:7px 12px;font-size:12px}
     #mango-intro-mute{top:12px;right:96px;width:32px;height:32px;font-size:15px}
     #mango-intro-hint{font-size:11px;bottom:20px}
+    #mango-intro-lang{top:12px;left:12px;padding:7px 11px;font-size:12px}
+    #mango-intro-cc{bottom:50px;font-size:14px;padding:7px 12px;max-width:92%}
   }
 </style>
 <div id="mango-intro-overlay" role="dialog" aria-label="인트로 영상" hidden>
@@ -3648,7 +3671,9 @@
   </video>
   <button id="mango-intro-mute" type="button" aria-label="음소거 켜기/끄기" aria-pressed="true">🔇</button>
   <button id="mango-intro-skip" type="button" aria-label="인트로 건너뛰기">건너뛰기 ›</button>
+  <button id="mango-intro-lang" type="button" aria-label="English subtitles" title="자막 언어 / Subtitle language">🌐 EN</button>
   <div id="mango-intro-hint">화면을 클릭하면 시작합니다</div>
+  <div id="mango-intro-cc" aria-live="polite"></div>
 </div>
 <script>
 (function(){
@@ -3712,6 +3737,43 @@
   var skip  = document.getElementById('mango-intro-skip');
   var mute  = document.getElementById('mango-intro-mute');
   var hint  = document.getElementById('mango-intro-hint');
+  // 🆕 EN/KO 자막 시스템 — 음성에 싱크. 영상 음성(1.4배속·끝 20% 트림) 타임라인 기준.
+  var ccEl   = document.getElementById('mango-intro-cc');
+  var langBtn= document.getElementById('mango-intro-lang');
+  var INTRO_CC = [
+    { t0:0.00,  t1:2.11,  ko:'안녕하세요, 친구들 그리고 학부모님!', en:'Hello, kids and parents!' },
+    { t0:2.14,  t1:4.17,  ko:'우주에서 가장 신나는 공부 모험,', en:'The most exciting study adventure in the universe—' },
+    { t0:4.21,  t1:6.94,  ko:'망고아이에 오신 것을 진심으로 환영합니다!', en:'a heartfelt welcome to MangoI!' },
+    { t0:7.00,  t1:9.19,  ko:'망고아이에서는 매일매일이 즐겁습니다.', en:'At MangoI, every single day is fun.' },
+    { t0:9.21,  t1:12.10, ko:'똑똑한 AI 친구와 함께 재미있는 게임을 즐기고,', en:'Enjoy fun games with your smart AI friend,' },
+    { t0:12.21, t1:16.51, ko:'팡팡 터지는 퀴즈를 풀다 보면 우리 아이 실력이 마법처럼 쑥쑥 자라납니다.', en:"and as the quizzes pop, your child's skills grow like magic." },
+    { t0:16.71, t1:21.45, ko:'친절한 외국인 선생님과 직접 만나 생생하게 대화하는 화상 수업까지 준비되어 있습니다.', en:'There are even live video lessons to meet friendly foreign teachers and chat face to face.' },
+    { t0:21.71, t1:24.70, ko:'이제 모두 함께 망고 우주선에 탑승해 볼까요?', en:'Now, shall we all board the Mango spaceship together?' }
+  ];
+  var capLang = 'ko';
+  try { var _cl = localStorage.getItem('mango_intro_caplang'); if (_cl==='en'||_cl==='ko') capLang=_cl; } catch(e){}
+  function renderCap(){
+    if(!ccEl) return;
+    var t = video.currentTime || 0, cur = null;
+    for(var i=0;i<INTRO_CC.length;i++){ if(t>=INTRO_CC[i].t0 && t<INTRO_CC[i].t1){ cur=INTRO_CC[i]; break; } }
+    if(cur){ ccEl.textContent = (capLang==='en'? cur.en : cur.ko); ccEl.classList.add('show'); }
+    else { ccEl.classList.remove('show'); }
+  }
+  function syncLangBtn(){
+    if(!langBtn) return;
+    langBtn.textContent = (capLang==='en' ? '🌐 KO' : '🌐 EN');   // 누르면 전환될 언어 표시
+    langBtn.setAttribute('aria-label', capLang==='en' ? '한국어 자막 보기' : 'Show English subtitles');
+  }
+  if(langBtn){
+    langBtn.addEventListener('click', function(ev){
+      ev.stopPropagation();
+      capLang = (capLang==='en' ? 'ko' : 'en');
+      try{ localStorage.setItem('mango_intro_caplang', capLang); }catch(e){}
+      syncLangBtn(); renderCap();
+    });
+  }
+  video.addEventListener('timeupdate', renderCap);
+  syncLangBtn(); renderCap();
   var dismissed = false;
 
   // explicitlyMuted: 사용자가 🔇 명시적 음소거 누른 적 있으면 true
@@ -22522,7 +22584,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260629153834 -->
+<!-- BUILD:20260629154428 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

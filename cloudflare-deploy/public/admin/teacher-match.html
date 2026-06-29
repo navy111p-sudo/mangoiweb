@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🎯 강사 매칭 — 망고아이</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#263449;
+    --fg:#e2e8f0; --mut:#94a3b8; --dim:#64748b; --bd:#334155;
+    --y:#f59e0b; --g:#10b981; --r:#ef4444; --b:#3b82f6; --p:#a855f7;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo",sans-serif;font-size:14px}
+  a{color:#fde68a;text-decoration:none}
+
+  header.top{min-height:56px;display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;padding:8px 14px;border-bottom:1px solid var(--bd);background:#0b1220;position:sticky;top:0;z-index:50}
+  header.top .brand{font-weight:800;color:#fbbf24;white-space:nowrap;flex-shrink:0}
+  header.top .crumb{color:var(--mut);font-size:13px;white-space:nowrap;flex-shrink:0}
+  header.top .right{margin-left:auto;display:flex;flex-wrap:wrap;gap:8px;flex-shrink:0}
+  header.top a.btn,header.top button.btn{padding:6px 12px;border-radius:6px;border:1px solid var(--bd);background:var(--panel);color:var(--fg);font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0}
+  header.top a.btn:hover,header.top button.btn:hover{background:var(--panel2)}
+  @media(max-width:480px){
+    header.top{gap:6px 8px;padding:8px 10px}
+    header.top .crumb{display:none}
+    header.top .right{width:100%;margin-left:0;justify-content:flex-start}
+  }
+
+  main{max-width:1100px;margin:0 auto;padding:18px}
+  section{margin-bottom:22px}
+  h2.sec{font-size:13px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;margin:0 0 10px}
+
+  .grid{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
+  @media(max-width:820px){ .grid{grid-template-columns:1fr} }
+  .card{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:16px}
+  .card h3{margin:0 0 12px;font-size:13px;font-weight:700;color:#fcd34d}
+  .form-row{display:flex;flex-direction:column;gap:4px;margin-bottom:11px}
+  .form-row label{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+  .form-row input{padding:9px 11px;border-radius:7px;border:1px solid var(--bd);background:var(--panel2);color:var(--fg);font-size:14px;width:100%;font-family:inherit}
+  .form-row input:focus{outline:none;border-color:var(--y)}
+  .prow{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+  .prow .form-row{flex:1;min-width:130px;margin-bottom:0}
+  @media(max-width:820px){ .prow{flex-direction:column;align-items:stretch} .prow button{width:100%!important} }
+  button.primary{width:100%;padding:12px;border-radius:8px;border:0;background:linear-gradient(135deg,var(--y),#d97706);color:#1e293b;font-weight:800;font-size:14px;cursor:pointer}
+  button.primary:hover{filter:brightness(1.06)} button.primary:disabled{opacity:.55;cursor:not-allowed}
+  button.ghost{width:100%;margin-top:8px;padding:10px;border-radius:8px;border:1px solid var(--bd);background:var(--panel2);color:var(--fg);font-size:13px;cursor:pointer}
+  button.ghost:hover{background:#2f3f57} button.ghost:disabled{opacity:.55;cursor:not-allowed}
+  .hint{font-size:12px;color:var(--mut);background:var(--panel2);border:1px solid var(--bd);border-radius:8px;padding:9px 11px;margin-top:11px;line-height:1.5}
+  .hint b{color:#fcd34d}
+
+  /* 추천 결과 카드 */
+  .result{min-height:160px}
+  .placeholder{color:var(--mut);text-align:center;padding:48px 10px}
+  .rec{display:flex;align-items:center;gap:14px;background:var(--panel2);border:1px solid var(--bd);border-radius:12px;padding:14px 16px;margin-bottom:11px}
+  .rec .rank{font-size:20px;font-weight:800;color:var(--dim);width:30px;text-align:center;flex-shrink:0}
+  .rec .rank.top{color:#fbbf24}
+  .rec .body{flex:1;min-width:0}
+  .rec .name{font-size:16px;font-weight:800;color:#fde68a}
+  .rec .name .style{font-size:12px;font-weight:500;color:var(--mut);margin-left:8px}
+  .rec .chips{margin-top:6px;display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font-size:11px;padding:2px 9px;border-radius:10px;border:1px solid var(--bd);background:rgba(59,130,246,.14);color:#93c5fd}
+  .chip.mbti{background:rgba(168,85,247,.16);color:#d8b4fe}
+  .rec .score{text-align:right;flex-shrink:0}
+  .rec .score .total{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;color:#34d399}
+  .rec .score .total small{font-size:12px;color:var(--mut);font-weight:600}
+  .rec .score .break{font-size:11px;color:var(--dim);margin-top:2px;white-space:nowrap}
+
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0b1220;border:1px solid var(--bd);color:var(--fg);padding:11px 18px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:99}
+  .toast.show{opacity:1}.toast.err{border-color:#991b1b;color:#fca5a5}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(30,41,59,.4);border-top-color:#1e293b;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+<link rel="stylesheet" href="/css/admin-readability.css"><!-- 가독성 보강 -->
+</head>
+<body>
+<header class="top">
+  <span class="brand">🥭 망고아이</span>
+  <span class="crumb">／ 강사 매칭 (그래프)</span>
+  <div class="right">
+    <a class="btn" href="/admin/learning-insights">🎓 학습</a>
+    <a class="btn" href="/admin/marketing-studio">📣 마케팅</a>
+    <a class="btn" href="/admin">← 관리자</a>
+  </div>
+</header>
+
+<main>
+  <!-- 학생 프로필 입력 (관심사·MBTI) — students_erp 에 저장 + 그래프 즉시 반영 -->
+  <section>
+    <h2 class="sec">👤 학생 프로필 입력</h2>
+    <div class="card">
+      <div class="prow">
+        <div class="form-row">
+          <label>학생 ID</label>
+          <input id="pStudent" type="text" placeholder="예: demo_student_01" autocomplete="off">
+        </div>
+        <div class="form-row">
+          <label>MBTI (4자, 선택)</label>
+          <input id="pMbti" type="text" placeholder="예: ENFP" maxlength="4" autocomplete="off" style="text-transform:uppercase">
+        </div>
+        <div class="form-row" style="flex:2">
+          <label>관심사 (쉼표/슬래시 구분)</label>
+          <input id="pInterests" type="text" placeholder="예: 여행, 음악, 요리" autocomplete="off">
+        </div>
+        <button class="primary" id="saveBtn" style="width:auto;align-self:flex-end;padding:9px 18px">저장</button>
+      </div>
+      <div class="hint" style="margin-top:6px">저장하면 <b>students_erp</b>에 기록되고 Neo4j 그래프에 즉시 반영되어 바로 아래에서 추천에 사용됩니다.</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="grid">
+      <!-- 조회 폼 -->
+      <div class="card">
+        <h3>🎯 학생별 최적 강사 추천</h3>
+        <div class="form-row">
+          <label>학생 ID (student_id)</label>
+          <input id="fStudent" type="text" placeholder="예: demo_student_01" autocomplete="off">
+        </div>
+        <div class="form-row">
+          <label>추천 인원 (limit)</label>
+          <input id="fLimit" type="number" value="5" min="1" max="50">
+        </div>
+        <button class="primary" id="goBtn">추천 받기</button>
+        <button class="ghost" id="syncBtn" title="D1(강사·학생) → Neo4j 그래프 재적재">⟳ 그래프 동기화 (ETL)</button>
+        <div class="hint">
+          점수 = <b>공통 관심사 ×10</b> + <b>MBTI 궁합 20</b>.<br>
+          강사 관심사는 <b>강사관리 &gt; MBTI</b>의 취미/관심사에서, 궁합은 Neo4j
+          <code>COMPATIBLE_WITH</code> 그래프에서 계산됩니다. 데이터 변경 후
+          <b>동기화</b>를 눌러 그래프를 최신화하세요(매일 새벽 자동 동기화도 동작).
+        </div>
+      </div>
+
+      <!-- 결과 -->
+      <div class="card">
+        <h3>📋 추천 결과</h3>
+        <div class="result" id="result">
+          <div class="placeholder">학생 ID를 입력하고 <b>추천 받기</b>를 누르세요.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const resultEl = $('result'), goBtn = $('goBtn'), syncBtn = $('syncBtn');
+
+function toast(msg, isErr){
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isErr ? ' err' : '');
+  setTimeout(() => { t.className = 'toast'; }, 2600);
+}
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function renderRecommendations(list){
+  if (!list || !list.length){
+    resultEl.innerHTML = '<div class="placeholder">접점이 있는 강사가 없습니다.<br>공통 관심사·MBTI 궁합이 있는 강사가 없거나, 그래프 동기화가 필요할 수 있습니다.</div>';
+    return;
+  }
+  resultEl.innerHTML = list.map((t, i) => {
+    const sharedChips = t.sharedInterests > 0
+      ? `<span class="chip">🔗 공통 관심사 ${t.sharedInterests}개</span>` : '';
+    const mbtiChip = t.mbtiScore > 0
+      ? '<span class="chip mbti">🧬 MBTI 궁합</span>' : '';
+    const style = t.teachingStyle ? `<span class="style">· ${esc(t.teachingStyle)}</span>` : '';
+    return `
+    <div class="rec">
+      <div class="rank ${i === 0 ? 'top' : ''}">${i + 1}</div>
+      <div class="body">
+        <div class="name">${esc(t.teacherName)}${style}</div>
+        <div class="chips">${sharedChips}${mbtiChip}${!sharedChips && !mbtiChip ? '<span class="chip">접점 없음</span>' : ''}</div>
+      </div>
+      <div class="score">
+        <div class="total">${t.totalScore}<small>점</small></div>
+        <div class="break">관심사 ${t.interestScore} + 궁합 ${t.mbtiScore}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function recommend(){
+  const sid = $('fStudent').value.trim();
+  const limit = Math.min(Math.max(parseInt($('fLimit').value, 10) || 5, 1), 50);
+  if (!sid){ toast('학생 ID를 입력하세요.', true); return; }
+
+  goBtn.disabled = true;
+  const orig = goBtn.textContent;
+  goBtn.innerHTML = '<span class="spin"></span>조회 중…';
+  try {
+    const r = await fetch(`/api/admin/teacher-match/recommend?student_id=${encodeURIComponent(sid)}&limit=${limit}`);
+    const data = await r.json();
+    if (!r.ok || !data.ok){
+      const msg = data.error || ('HTTP ' + r.status);
+      resultEl.innerHTML = `<div class="placeholder">조회 실패<br><span style="color:#fca5a5">${esc(msg)}</span></div>`;
+      toast(msg, true);
+      return;
+    }
+    renderRecommendations(data.teachers);
+    toast(`${data.count}명 추천 완료`);
+  } catch (e){
+    toast('네트워크 오류: ' + e.message, true);
+  } finally {
+    goBtn.disabled = false; goBtn.textContent = orig;
+  }
+}
+
+async function sync(){
+  syncBtn.disabled = true;
+  const orig = syncBtn.textContent;
+  syncBtn.innerHTML = '<span class="spin" style="border-top-color:#e2e8f0"></span>동기화 중…';
+  try {
+    const r = await fetch('/api/admin/teacher-match/sync', { method: 'POST' });
+    const data = await r.json();
+    if (!r.ok || !data.ok){ toast(data.error || ('HTTP ' + r.status), true); return; }
+    const s = data.synced || {};
+    const deact = s.deactivated ? `, 비활성 ${s.deactivated}` : '';
+    toast(`동기화 완료 — 강사 ${s.teachers||0}, 학생 ${s.students||0}, 궁합쌍 ${s.compatPairs||0}${deact}`);
+    if (data.note) console.warn('[teacher-match]', data.note);
+  } catch (e){
+    toast('네트워크 오류: ' + e.message, true);
+  } finally {
+    syncBtn.disabled = false; syncBtn.textContent = orig;
+  }
+}
+
+goBtn.addEventListener('click', recommend);
+syncBtn.addEventListener('click', sync);
+$('fStudent').addEventListener('keydown', (e) => { if (e.key === 'Enter') recommend(); });
+</script>
+</body>
+</html>
