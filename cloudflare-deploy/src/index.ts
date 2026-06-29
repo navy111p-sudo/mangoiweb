@@ -6,7 +6,7 @@
 import { SignalingRoom } from './signaling-room';
 import { VideoCallRoom } from './video-call-room';
 import { HealthResponse, TurnConfigResponse, PdfUploadResponse } from './types';
-import { handleMangoApi, runMonthlyReports } from './api-mango';
+import { handleMangoApi, runMonthlyReports, reconcileAllStreaks } from './api-mango';
 import { purgeExpired } from './retention';
 import { purgeOrphanedRecordings } from './recordings-cleanup';
 import { handleLivekit, ensureLivekitSchema } from './livekit-bridge';
@@ -218,11 +218,6 @@ export default {
     // ✨ 칠판 손글씨 OCR (Workers AI 비전) — PNG 바이트(raw)를 받아 텍스트로 변환
     if (path === '/api/wb-ocr' && request.method === 'POST') {
       return await handleWbOcr(request, env);
-    }
-
-    // 🎙️ (임시) 음성 전사 — Workers AI Whisper. 인트로 자막 대본 추출용. 추출 후 제거.
-    if (path === '/api/transcribe' && request.method === 'POST') {
-      return await handleTranscribe(request, env);
     }
 
     // PDF list endpoint
@@ -1042,7 +1037,7 @@ export default {
   },
 
   // Cron Trigger
-  //   - UTC 18:00 (KST 03:00) : 보관기간 만료 데이터 자동 파기
+  //   - UTC 18:00 (KST 03:00) : 보관기간 만료 데이터 자동 파기 + streak 일괄 정합화
   //   - UTC 10:00 (KST 19:00) : 학생 일일 streak/참여 푸시 알림
   //   - UTC 10:00 + 금요일      : 학부모 위클리 다이제스트 일괄 발송 (Phase WD)
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
@@ -1133,6 +1128,17 @@ export default {
           }));
         } catch (err) {
           console.error('[absence-sweep] error', err);
+        }
+
+        // 🔥 Streak 일괄 정합화 (KST 03:00) — 출결(attendance) 기준 단일 권위로
+        //   student_streaks 의 current/longest 를 동기화(gems 보존). gaps-and-islands
+        //   윈도우 쿼리 1방 + 배치 UPSERT 라 학생 수가 많아도 부하가 작다.
+        //   → 리더보드를 한 번도 status/체크인을 안 거친 학생까지 일관화.
+        try {
+          const rc = await reconcileAllStreaks(env as any);
+          console.log('[streak-reconcile] cron ran', JSON.stringify(rc));
+        } catch (err) {
+          console.error('[streak-reconcile] error', err);
         }
 
         // 📅 Weekly schedule auto-generation — every Sunday only (KST Monday 03:00)
@@ -1461,27 +1467,6 @@ async function handleWbOcr(request: Request, env: Env): Promise<Response> {
     return J({ ok: true, text });
   } catch (e: any) {
     return J({ ok: false, text: '', error: String(e?.message || e) }, 200);
-  }
-}
-
-// 🎙️ (임시) 음성→텍스트 전사. Workers AI Whisper large-v3-turbo. 인트로 자막 대본 추출 1회용.
-async function handleTranscribe(request: Request, env: Env): Promise<Response> {
-  const J = (o: any, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
-  const AI = (env as any).AI;
-  try {
-    if (!AI) return J({ ok: false, error: 'AI_binding_missing' }, 503);
-    const buf = await request.arrayBuffer();
-    if (!buf || buf.byteLength === 0) return J({ ok: false, error: 'empty' }, 400);
-    if (buf.byteLength > 25_000_000) return J({ ok: false, error: 'too_large' }, 413);
-    const u8 = new Uint8Array(buf);
-    let bin = '';
-    const CH = 0x8000;
-    for (let i = 0; i < u8.length; i += CH) bin += String.fromCharCode.apply(null, u8.subarray(i, i + CH) as any);
-    const b64 = btoa(bin);
-    const r: any = await AI.run('@cf/openai/whisper-large-v3-turbo', { audio: b64, task: 'transcribe', language: 'ko' });
-    return J({ ok: true, result: r });
-  } catch (e: any) {
-    return J({ ok: false, error: String(e?.message || e) }, 200);
   }
 }
 
