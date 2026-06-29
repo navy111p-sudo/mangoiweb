@@ -22214,7 +22214,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260629180325 -->
+        <!-- BUILD:20260629182210 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -24092,28 +24092,12 @@ window.rebuildGlobalSearchIndex = function() {
       if (todaySum) todaySum.textContent = '오늘 총 세션: ' + Math.floor(enriched.length*0.6) + ' · 전체 학생: ' + enriched.length;
     }
 
-    // ── 3) 연속 출석 랭킹 (sm-streak-tbody) ──
+    // ── 3) 연속 출석 랭킹 (sm-streak-tbody) — 출결 기준 실데이터(권위 리더보드)로 로드.
+    //    예전엔 여기서 랜덤 TEST 값을 채웠으나, /api/streak/leaderboard 단일 권위로 대체.
+    //    (비어 있으면 loadStreakRanking 이 "🔁 일괄 재계산 먼저" 힌트를 표시)
     const streakTb = document.getElementById('sm-streak-tbody');
-    const streakCnt = document.getElementById('sm-streak-count');
     if (streakTb && (streakTb.textContent.includes('로딩') || streakTb.textContent.includes('계산') || streakTb.children.length === 0 || streakTb.children.length === 1)) {
-      // 이름순 정렬 후 deterministic streak 부여
-      const ranked = enriched.slice(0, 10).map((s, i) => ({
-        name: s.name,
-        uid: s.user_id,
-        current: Math.max(1, 12 - i + Math.floor(Math.random()*3)),
-        longest: 15 + Math.floor(Math.random()*10) - i,
-      })).sort((a,b) => b.current - a.current || b.longest - a.longest);
-      streakTb.innerHTML = ranked.map((r, i) => {
-        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i+1)+'.';
-        return '<tr>'
-             + '<td>'+medal+'</td>'
-             + '<td>'+_esc(r.name)+' <span style="background:#dcfce7;color:#15803d;font-size:9px;padding:1px 6px;border-radius:99px;font-weight:700">TEST</span></td>'
-             + '<td><strong style="color:#f59e0b">'+r.current+'</strong>일</td>'
-             + '<td>'+r.longest+'일</td>'
-             + '<td>'+drill(r.uid,'streak')+'</td>'
-             + '</tr>';
-      }).join('');
-      if (streakCnt) streakCnt.textContent = '상위 ' + ranked.length + '명 / 샘플 ' + enriched.length;
+      try { loadStreakRanking(); } catch {}
     }
 
     // ── 4) 최근 상담 (sm-consult-tbody) ──

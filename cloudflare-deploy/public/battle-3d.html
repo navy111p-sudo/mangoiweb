@@ -88,6 +88,7 @@
         <div class="tag">⚔️ 3D 영어 배틀 · 레슨 보스전 ⚔️</div>
         <h1>워드 <span class="em">배틀</span> 마스터</h1>
         <p>레슨을 골라 <b>보스(왕)</b>와 대결! 단어·문장 퀴즈를 맞히면 기사가 공격하고, 틀리면 보스가 반격합니다. 보스를 쓰러뜨리면 <b>3D 배지</b>를 획득해요. 🔊 소리를 켜고 즐기세요!</p>
+        <div id="badgeCollection" style="margin:0 0 12px;font-size:13px;font-weight:800;color:#c7d3ea"></div>
         <div class="lessonpick" id="lessonPick"></div>
       </div>
     </div>
@@ -469,7 +470,11 @@
     window.hideReward=rewardHide;
 
     /* 버튼 */
-    (function(){ var p=document.getElementById('lessonPick'); LESSONS.forEach(function(L,i){ var b=document.createElement('button'); b.innerHTML='<span>'+L.name+'</span><span class="b">'+L.boss+'</span>'; b.onclick=function(){ startLesson(i); }; p.appendChild(b); }); })();
+    function badgeIcon(t){ return t==='gem'?'💎':t==='trophy'?'🏆':'⭐'; }
+    function renderCollection(){ var el=document.getElementById('badgeCollection'); if(!el) return; var earned=[]; try{ earned=JSON.parse(localStorage.getItem('wf_badges')||'[]'); }catch(e){}
+      var icons=LESSONS.map(function(L,i){ var on=earned.indexOf(i)>=0; return '<span style="opacity:'+(on?1:0.28)+';filter:'+(on?'none':'grayscale(1)')+';font-size:18px" title="'+L.name+'">'+badgeIcon(L.badge)+'</span>'; }).join(' ');
+      el.innerHTML='🏅 내 배지 컬렉션 '+earned.length+'/'+LESSONS.length+' &nbsp;'+icons; }
+    (function(){ var p=document.getElementById('lessonPick'); LESSONS.forEach(function(L,i){ var b=document.createElement('button'); b.innerHTML='<span>'+L.name+'</span><span class="b">'+L.boss+'</span>'; b.onclick=function(){ startLesson(i); }; p.appendChild(b); }); renderCollection(); })();
     document.getElementById('nextBtn').onclick=function(){ var n=state.lesson<LESSONS.length-1?state.lesson+1:0; rewardHide(); startLesson(n); };
     document.getElementById('retryBtn').onclick=function(){ rewardHide(); startLesson(state.lesson); };
     document.getElementById('qListen').onclick=function(){ if(state.current) speak(state.current.type==='문장'? state.current.q.replace('___',state.current.a):state.current.a); };
@@ -490,6 +495,6 @@
     window.addEventListener('resize',function(){ W=wrap.clientWidth; H=wrap.clientHeight; camera.aspect=W/H; camera.updateProjectionMatrix(); renderer.setSize(W,H); camBase=camera.position.clone(); });
   })();
   </script>
-<!-- BUILD:20260629180325 -->
+<!-- BUILD:20260629182210 -->
 </body>
 </html>
