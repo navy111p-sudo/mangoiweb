@@ -21,7 +21,7 @@ import { getScope } from './scope';
 import { learningRouter, runLearningSnapshot } from './learning-insights';
 import { runAbsenceSweep } from './churn-graph';
 import { marketingRouter } from './marketing-studio';
-import { teacherMatchRouter } from './teacher-match';
+import { teacherMatchRouter, runTeacherGraphSync } from './teacher-match';
 
 interface Env {
   SIGNALING_ROOM: DurableObjectNamespace;
@@ -1139,6 +1139,17 @@ export default {
           console.log('[streak-reconcile] cron ran', JSON.stringify(rc));
         } catch (err) {
           console.error('[streak-reconcile] error', err);
+        }
+
+        // 🎯 강사 매칭 그래프 동기화 (KST 03:00) — D1(teacher_mbti·students_erp) → Neo4j Aura
+        //   Neo4j 미설정(NEO4J_QUERY_URL 없음)이면 조용히 건너뜀. 멱등 MERGE 라 반복 안전.
+        if (env.NEO4J_QUERY_URL) {
+          try {
+            const ts = await runTeacherGraphSync(env as any);
+            console.log('[teacher-match-sync] cron ran', JSON.stringify(ts));
+          } catch (err) {
+            console.error('[teacher-match-sync] error', err);
+          }
         }
 
         // 📅 Weekly schedule auto-generation — every Sunday only (KST Monday 03:00)

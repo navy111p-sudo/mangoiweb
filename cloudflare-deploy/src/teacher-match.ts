@@ -23,6 +23,7 @@
  */
 
 export interface TeacherMatchEnv {
+  DB?: D1Database;            // ETL 소스(teacher_mbti · students_erp). 추천 자체엔 불필요
   NEO4J_QUERY_URL?: string;
   NEO4J_USER?: string;
   NEO4J_PASSWORD?: string;
@@ -69,6 +70,120 @@ ORDER BY totalScore DESC, sharedInterests DESC
 LIMIT $limit
 `;
 
+// ── ETL 적재 Cypher (../teacher-match.cypher 의 2)·3) 과 동일) ─────────────────
+const SEED_COMPAT_QUERY = `
+UNWIND $compatPairs AS pair
+  MERGE (a:Mbti {type: pair.a})
+  MERGE (b:Mbti {type: pair.b})
+  MERGE (a)-[:COMPATIBLE_WITH]->(b)
+`;
+
+const LOAD_TEACHERS_QUERY = `
+UNWIND $teachers AS t
+  MERGE (tn:Teacher {teacher_id: t.teacher_id})
+    SET tn.name = t.name, tn.style = t.style, tn.active = coalesce(t.active, true)
+  MERGE (tm:Mbti {type: t.mbti})
+  MERGE (tn)-[:HAS_MBTI]->(tm)
+  WITH tn, t
+  UNWIND t.interests AS topic
+    MERGE (i:Interest {name: topic})
+    MERGE (tn)-[:INTERESTED_IN]->(i)
+`;
+
+const LOAD_STUDENTS_QUERY = `
+UNWIND $students AS s
+  MERGE (sn:Student {student_id: s.student_id})
+    SET sn.name = s.name
+  WITH sn, s WHERE s.mbti IS NOT NULL AND s.mbti <> ''
+  MERGE (sm:Mbti {type: s.mbti})
+  MERGE (sn)-[:HAS_MBTI]->(sm)
+  WITH sn, s
+  UNWIND s.interests AS topic
+    MERGE (i:Interest {name: topic})
+    MERGE (sn)-[:INTERESTED_IN]->(i)
+`;
+
+// MBTI 궁합 정책(기본값) — 무방향 의미. 서비스 정책에 맞게 조정 가능.
+const COMPAT_PAIRS: Array<{ a: string; b: string }> = [
+  { a: 'INTJ', b: 'ENFP' }, { a: 'INTJ', b: 'ENTP' },
+  { a: 'INTP', b: 'ENTJ' }, { a: 'INTP', b: 'ESTJ' },
+  { a: 'ENTJ', b: 'INFP' }, { a: 'ENTP', b: 'INFJ' },
+  { a: 'INFJ', b: 'ENFP' }, { a: 'INFP', b: 'ENFJ' },
+  { a: 'ENFJ', b: 'ISFP' }, { a: 'ISTJ', b: 'ESFP' },
+  { a: 'ISTJ', b: 'ESTP' }, { a: 'ISFJ', b: 'ESFP' },
+  { a: 'ISFJ', b: 'ESTP' }, { a: 'ESTJ', b: 'ISTP' },
+  { a: 'ESFJ', b: 'ISFP' }, { a: 'ESFJ', b: 'ISTP' },
+  { a: 'ISFP', b: 'ESFJ' }, { a: 'ESFP', b: 'ISFJ' },
+];
+
+/** '드라마/요리/여행' · '독서, 체스' 등 자유텍스트 → 관심사 배열(중복·공백 제거) */
+function splitInterests(raw: unknown): string[] {
+  if (!raw || typeof raw !== 'string') return [];
+  const parts = raw.split(/[\/,，、;·|]+/).map((s) => s.trim()).filter(Boolean);
+  return Array.from(new Set(parts));
+}
+
+const isValidMbti = (s: string) => /^[IE][NS][TF][JP]$/.test(s);
+
+/**
+ * D1(teacher_mbti · students_erp) → Neo4j 그래프 적재(ETL).
+ * 멱등(MERGE) — 반복 실행해도 중복 노드/관계가 생기지 않는다.
+ * @returns 적재 카운트 요약
+ * @throws Neo4jNotConfiguredError(미설정) / Error(D1·연결·쿼리 오류)
+ */
+export async function runTeacherGraphSync(
+  env: TeacherMatchEnv,
+): Promise<{ teachers: number; students: number; compatPairs: number; studentInterests: boolean }> {
+  if (!env.DB) throw new Error('D1 바인딩(DB)이 없어 ETL을 실행할 수 없습니다.');
+
+  // 1) 강사: teacher_mbti (hobby → 관심사, teaching_style → style)
+  const trs = await env.DB
+    .prepare(`SELECT teacher_uid, teacher_name, mbti, hobby, teaching_style FROM teacher_mbti WHERE mbti IS NOT NULL AND mbti != ''`)
+    .all<{ teacher_uid: string; teacher_name: string; mbti: string; hobby: string; teaching_style: string }>();
+  const teachers = (trs.results || [])
+    .map((r) => ({
+      teacher_id: String(r.teacher_uid),
+      name: r.teacher_name || String(r.teacher_uid),
+      style: r.teaching_style || null,
+      active: true,
+      mbti: String(r.mbti || '').toUpperCase().slice(0, 4),
+      interests: splitInterests(r.hobby),
+    }))
+    .filter((t) => isValidMbti(t.mbti));
+
+  // 2) 학생: students_erp — 컬럼이 가변적이라 PRAGMA 로 동적 탐지(없으면 graceful)
+  let students: Array<{ student_id: string; name: string; mbti: string; interests: string[] }> = [];
+  let studentInterests = false;
+  try {
+    const cols = await env.DB.prepare(`PRAGMA table_info(students_erp)`).all<{ name: string }>();
+    const names = (cols.results || []).map((c) => c.name);
+    const nameCol = ['student_name', 'korean_name', 'name'].find((c) => names.includes(c)) || 'user_id';
+    const mbtiCol = names.includes('mbti') ? 'mbti' : `'' AS mbti`;
+    const interestSrc = ['interests', 'hobby', 'interest', '관심사'].find((c) => names.includes(c));
+    studentInterests = !!interestSrc;
+    const interestCol = interestSrc ? `"${interestSrc}" AS interests` : `'' AS interests`;
+
+    const srs = await env.DB
+      .prepare(`SELECT user_id, ${nameCol} AS student_name, ${mbtiCol}, ${interestCol} FROM students_erp WHERE status = '정상' OR status IS NULL OR status = '' LIMIT 2000`)
+      .all<{ user_id: string; student_name: string; mbti: string; interests: string }>();
+    students = (srs.results || []).map((r) => ({
+      student_id: String(r.user_id),
+      name: r.student_name || String(r.user_id),
+      mbti: isValidMbti(String(r.mbti || '').toUpperCase()) ? String(r.mbti).toUpperCase() : '',
+      interests: splitInterests(r.interests),
+    }));
+  } catch {
+    // students_erp 미존재/스키마 상이 → 학생 0건으로 degrade (강사 그래프만 적재)
+  }
+
+  // 3) Neo4j 적재 (순차 — Query API 는 호출당 단일 statement)
+  await runCypher(env, SEED_COMPAT_QUERY, { compatPairs: COMPAT_PAIRS }, 'WRITE');
+  if (teachers.length) await runCypher(env, LOAD_TEACHERS_QUERY, { teachers }, 'WRITE');
+  if (students.length) await runCypher(env, LOAD_STUDENTS_QUERY, { students }, 'WRITE');
+
+  return { teachers: teachers.length, students: students.length, compatPairs: COMPAT_PAIRS.length, studentInterests };
+}
+
 // ── 공통 JSON 응답 헬퍼 (프로젝트 라우터 컨벤션과 동일) ───────────────────────
 const json = (data: unknown, status = 200): Response =>
   new Response(JSON.stringify(data, null, 2), {
@@ -82,13 +197,15 @@ const err = (msg: string, status = 400) => json({ ok: false, error: msg }, statu
 class Neo4jNotConfiguredError extends Error {}
 
 /**
- * Neo4j Aura HTTP Query API 호출 (단발 트랜잭션, READ).
+ * Neo4j Aura HTTP Query API 호출 (단발 트랜잭션).
+ * @param accessMode 'READ'(추천 조회) | 'WRITE'(ETL 적재)
  * 반환: { fields: string[], values: any[][] } — Query API v2 의 data 블록.
  */
 async function runCypher(
   env: TeacherMatchEnv,
   statement: string,
   parameters: Record<string, unknown>,
+  accessMode: 'READ' | 'WRITE' = 'READ',
 ): Promise<{ fields: string[]; values: any[][] }> {
   const { NEO4J_QUERY_URL, NEO4J_USER, NEO4J_PASSWORD } = env;
   if (!NEO4J_QUERY_URL || !NEO4J_USER || !NEO4J_PASSWORD) {
@@ -108,7 +225,7 @@ async function runCypher(
         'Content-Type': 'application/json',
         Accept: 'application/json',
       },
-      body: JSON.stringify({ statement, parameters, accessMode: 'READ' }),
+      body: JSON.stringify({ statement, parameters, accessMode }),
     });
   } catch (e: any) {
     // 네트워크/DNS/타임아웃 — 상위에서 503 으로 매핑
@@ -209,6 +326,18 @@ export async function teacherMatchRouter(request: Request, env: TeacherMatchEnv)
         count: teachers.length,
         teachers,
         ...(teachers.length === 0 ? { message: '추천 가능한 강사가 없습니다(접점 없음).' } : {}),
+      });
+    }
+
+    // POST /api/admin/teacher-match/sync — D1 → Neo4j 그래프 수동 재적재(ETL)
+    if (p === 'sync' && method === 'POST') {
+      const summary = await runTeacherGraphSync(env);
+      return json({
+        ok: true,
+        synced: summary,
+        ...(summary.studentInterests
+          ? {}
+          : { note: 'students_erp 에 관심사 컬럼이 없어 학생 관심사는 적재되지 않았습니다(MBTI 궁합만 반영). 관심사 컬럼(interests/hobby) 추가 시 자동 반영됩니다.' }),
       });
     }
 

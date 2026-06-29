@@ -133,8 +133,10 @@ const _GAME_WORDS = [
 ];
 const _gameState = { mode: 'brick', score: 0, correct: 0, wrong: 0, current: null, started: false, balloonTimer: null };
 
-// 7개 게임 정의 — kind: 'inline' (이 페이지 내 렌더) | 'iframe'
+// 8개 게임 정의 — kind: 'inline' (이 페이지 내 렌더) | 'iframe'
 const HUB_GAMES = [
+  { mode:'battle3d',kind:'iframe', ico:'⚔️', ttl:'3D 배틀',      dsc:'레슨 보스와 퀴즈 대결! 3D 캐릭터 공격+배지', bg:'#f43f5e', badge:'3D',
+    src:function(){ return '/battle-3d.html'; } },
   { mode:'fish',    kind:'iframe', ico:'🎣', ttl:'낚시+말하기',   dsc:'문장 단어를 순서대로 낚아 발음까지!', bg:'#0ea5e9', badge:'말하기',
     src:s=>'/english-mastery-suite.html?game=fish&sentence='+encodeURIComponent(s)+'&lang=ko' },
   { mode:'shoot',   kind:'iframe', ico:'🚀', ttl:'슈팅+말하기',   dsc:'우주에서 단어를 순서대로 쏘고 말하기!', bg:'#6366f1', badge:'말하기',
@@ -571,6 +573,6 @@ document.addEventListener('keydown', function(e){
 
 hubRenderMenu();
 </script>
-<!-- BUILD:20260629153330 -->
+<!-- BUILD:20260629153834 -->
 </body>
 </html>
