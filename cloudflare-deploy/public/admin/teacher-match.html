@@ -226,9 +226,37 @@ async function sync(){
   }
 }
 
+async function saveProfile(){
+  const sid = $('pStudent').value.trim();
+  if (!sid){ toast('학생 ID를 입력하세요.', true); return; }
+  const mbti = $('pMbti').value.trim().toUpperCase();
+  const interests = $('pInterests').value.trim();
+  const btn = $('saveBtn'), orig = btn.textContent;
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>저장 중…';
+  try {
+    const r = await fetch('/api/admin/teacher-match/student-profile', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ student_id: sid, mbti, interests }),
+    });
+    const data = await r.json();
+    if (!r.ok || !data.ok){ toast(data.error || ('HTTP ' + r.status), true); return; }
+    const sv = data.saved || {};
+    toast(`저장 완료 — MBTI ${sv.mbti||'(없음)'}, 관심사 ${(sv.interests||[]).length}개`);
+    // 저장한 학생으로 조회 폼 자동 채우고 바로 추천
+    $('fStudent').value = sid;
+    recommend();
+  } catch (e){
+    toast('네트워크 오류: ' + e.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+
 goBtn.addEventListener('click', recommend);
 syncBtn.addEventListener('click', sync);
+$('saveBtn').addEventListener('click', saveProfile);
 $('fStudent').addEventListener('keydown', (e) => { if (e.key === 'Enter') recommend(); });
+$('pInterests').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveProfile(); });
 </script>
 </body>
 </html>

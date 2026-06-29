@@ -98,17 +98,19 @@ SET t.active = false
 RETURN count(t) AS deactivated
 `;
 
+// MBTI 가 없어도 관심사는 적재되어야 함(관심사 기반 추천 유지).
+// MBTI 연결은 FOREACH 로 조건부 적재 → mbti 필터(WITH..WHERE)가 행을 떨어뜨려
+// 관심사(INTERESTED_IN) 적재를 누락시키던 버그 수정.
 const LOAD_STUDENTS_QUERY = `
 UNWIND $students AS s
   MERGE (sn:Student {student_id: s.student_id})
     SET sn.name = s.name
-  WITH sn, s WHERE s.mbti IS NOT NULL AND s.mbti <> ''
-  MERGE (sm:Mbti {type: s.mbti})
-  MERGE (sn)-[:HAS_MBTI]->(sm)
-  WITH sn, s
-  UNWIND s.interests AS topic
+  FOREACH (_ IN CASE WHEN s.mbti IS NOT NULL AND s.mbti <> '' THEN [1] ELSE [] END |
+    MERGE (sm:Mbti {type: s.mbti})
+    MERGE (sn)-[:HAS_MBTI]->(sm))
+  FOREACH (topic IN s.interests |
     MERGE (i:Interest {name: topic})
-    MERGE (sn)-[:INTERESTED_IN]->(i)
+    MERGE (sn)-[:INTERESTED_IN]->(i))
 `;
 
 // MBTI 궁합 정책(기본값) — 무방향 의미. 서비스 정책에 맞게 조정 가능.

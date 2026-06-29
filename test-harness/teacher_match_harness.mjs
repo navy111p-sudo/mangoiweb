@@ -44,7 +44,7 @@ console.log('\n[1] splitInterests — 자유텍스트 → 관심사 배열');
 eq('슬래시 구분', splitInterests('드라마/요리/여행'), ['드라마', '요리', '여행']);
 eq('콤마+공백', splitInterests('독서, 체스 , 등산'), ['독서', '체스', '등산']);
 eq('중복 제거', splitInterests('게임/게임/코딩'), ['게임', '코딩']);
-eq('중점·전각콤마·세미콜론 혼합', splitInterests('A·B，C；D'), ['A', 'B', 'C', 'D']);
+eq('중점·전각콤마·이데오그래픽콤마·세미콜론 혼합', splitInterests('A·B，C、D;E'), ['A', 'B', 'C', 'D', 'E']);
 eq('빈/널 → 빈배열', splitInterests(''), []);
 eq('비문자열 → 빈배열', splitInterests(null), []);
 

@@ -151,6 +151,15 @@
           {type:'문장', q:'My ___ is very cute.',        hint:'(강아지)', a:'dog',    ch:['dog','cat','flower','sun']},
           {type:'문장', q:'He plays ___ on Sundays.',    hint:'(축구)',   a:'soccer', ch:['soccer','tennis','music','games']},
           {type:'문장', q:'I like to eat ___ .',         hint:'(피자)',   a:'pizza',  ch:['pizza','apple','bread','rice']}
+        ]},
+      { name:'레슨 4 · 혼합 복습 왕', boss:'👑 마스터 왕 (Master King)', color:0x14b8a6, color2:0x0f5e57, badge:'trophy',
+        items:[
+          {type:'단어', q:'별',   a:'star',  ch:['star','sun','moon','book']},
+          {type:'문장', q:'The ___ is shining brightly.', hint:'(태양)',   a:'sun',     ch:['sun','moon','star','water']},
+          {type:'단어', q:'사랑', a:'love',  ch:['love','hello','flower','cat']},
+          {type:'문장', q:'They are good ___ .',          hint:'(친구들)', a:'friends', ch:['friends','books','dogs','cats']},
+          {type:'단어', q:'학교', a:'school',ch:['school','water','moon','apple']},
+          {type:'문장', q:'My ___ is very cute.',         hint:'(강아지)', a:'dog',     ch:['dog','cat','sun','book']}
         ]}
     ];
 
@@ -441,9 +450,10 @@
     }
     function victory(){ el.quiz.style.display='none'; bgmStop(); sfx.win();
       var L=LESSONS[state.lesson]; setBadge(L.badge); rewardPop(); confetti(); setTimeout(function(){ sfx.badge(); },450);
+      var _earned=0; try{ var _b=JSON.parse(localStorage.getItem('wf_badges')||'[]'); if(_b.indexOf(state.lesson)<0) _b.push(state.lesson); localStorage.setItem('wf_badges',JSON.stringify(_b)); _earned=_b.length; }catch(e){}
       var stars=state.heroHP>=80?'⭐⭐⭐':(state.heroHP>=40?'⭐⭐':'⭐'); document.getElementById('winStars').textContent=stars;
       var hasNext=state.lesson<LESSONS.length-1;
-      document.getElementById('winMsg').innerHTML='보스를 물리쳤어요! 점수 <b>'+state.score+'</b><br>'+(hasNext?'다음 레슨의 왕이 기다립니다.':'모든 레슨을 클리어했습니다! 🎉');
+      document.getElementById('winMsg').innerHTML='보스를 물리쳤어요! 점수 <b>'+state.score+'</b> · 🏅 모은 배지 <b>'+_earned+'/'+LESSONS.length+'</b><br>'+(hasNext?'다음 레슨의 왕이 기다립니다.':'모든 레슨을 클리어했습니다! 🎉');
       document.getElementById('nextBtn').textContent=hasNext?'다음 레슨 ▶':'처음부터 ↻';
       setTimeout(function(){ overlay('winOverlay',true); },750);
       try{ if(window.parent&&window.parent!==window) window.parent.postMessage({type:'mangoi-game-complete',score:state.score},'*'); }catch(e){}
@@ -480,6 +490,6 @@
     window.addEventListener('resize',function(){ W=wrap.clientWidth; H=wrap.clientHeight; camera.aspect=W/H; camera.updateProjectionMatrix(); renderer.setSize(W,H); camBase=camera.position.clone(); });
   })();
   </script>
-<!-- BUILD:20260629154428 -->
+<!-- BUILD:20260629154925 -->
 </body>
 </html>

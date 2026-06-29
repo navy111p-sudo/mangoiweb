@@ -2115,6 +2115,9 @@ function isAdminPath(path: string, method: string): boolean {
   // 🎓 학습 인사이트 대시보드 + API (2026-06-03) — 관리자 전용
   if (path === '/admin/learning-insights' || path === '/admin/learning-insights/' || path === '/admin/learning-insights.html') return true;
   if (path.startsWith('/api/admin/learning/')) return true;
+  // 🎯 강사 매칭 추천 대시보드 + API (teacher-match) — 관리자 전용 (인증 필수)
+  if (path === '/admin/teacher-match' || path === '/admin/teacher-match/' || path === '/admin/teacher-match.html') return true;
+  if (path.startsWith('/api/admin/teacher-match/')) return true;
   // 📣 마케팅 스튜디오 대시보드 + API (2026-06-03) — 관리자 전용
   if (path === '/admin/marketing-studio' || path === '/admin/marketing-studio/' || path === '/admin/marketing-studio.html') return true;
   if (path.startsWith('/api/admin/marketing/')) return true;
