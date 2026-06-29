@@ -173,7 +173,7 @@
     var scene=new THREE.Scene(); scene.background=new THREE.Color(0x070b16); scene.fog=new THREE.Fog(0x070b16,20,60);
     var camera=new THREE.PerspectiveCamera(46,W/H,0.1,200); camera.position.set(0,4.2,15.5); camera.lookAt(0,2.1,0); scene.add(camera);
     var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true}); renderer.setPixelRatio(Math.min(window.devicePixelRatio,2)); renderer.setSize(W,H,false); renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-    renderer.outputEncoding=THREE.sRGBEncoding; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.06;
+    renderer.outputEncoding=THREE.sRGBEncoding; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.16;
 
     // 사실적 반사용 환경맵 (절차적 그라디언트 → PMREM): 갑옷/검/배지 금속이 실제로 반사됨
     (function(){ var c=document.createElement('canvas'); c.width=32; c.height=96; var x=c.getContext('2d'); var g=x.createLinearGradient(0,0,0,96);
@@ -181,8 +181,8 @@
       var tex=new THREE.CanvasTexture(c); tex.mapping=THREE.EquirectangularReflectionMapping; var pm=new THREE.PMREMGenerator(renderer);
       try{ scene.environment=pm.fromEquirectangular(tex).texture; }catch(e){} tex.dispose(); pm.dispose(); })();
 
-    scene.add(new THREE.AmbientLight(0x8090c0,0.5));
-    scene.add(new THREE.HemisphereLight(0x9fc0ff,0x101830,0.5));
+    scene.add(new THREE.AmbientLight(0x8090c0,0.64));
+    scene.add(new THREE.HemisphereLight(0x9fc0ff,0x182238,0.68));
     var key=new THREE.DirectionalLight(0xffffff,1.15); key.position.set(6,12,8); key.castShadow=true; key.shadow.mapSize.set(2048,2048); key.shadow.camera.left=-12; key.shadow.camera.right=12; key.shadow.camera.top=12; key.shadow.camera.bottom=-12; scene.add(key);
     var rim=new THREE.DirectionalLight(0x5577ff,0.5); rim.position.set(-8,5,-6); scene.add(rim);
     var spot=new THREE.PointLight(0xff6a3a,0,30); spot.position.set(0,8,2); scene.add(spot);
@@ -294,6 +294,30 @@
       boss: { url:'',      scale:'auto', idle:'Idle', attack:'Punch', tint:0x7a1414 }
     };
     var _mixers=[];
+    // ===== 영웅(GLB) 암부 영구 제거 =====
+    // 임계값 없이 강제 적용: 모든 mesh material을 순회하며 (1) color 각 채널 바닥값,
+    // (2) 텍스처 맵과 무관한 '플랫 emissive 바닥값'으로 검은 픽셀까지 self-illuminate,
+    // (3) metalness 낮춤 + roughness 0.6~0.8 → 어떤 픽셀도 검게 죽지 않음.
+    // attachModel 의 load 콜백에서 호출 → 캐릭터가 (재)생성될 때마다 항상 재적용됨.
+    function brightenHeroModel(root){
+      if(!root) return;
+      root.traverse(function(o){
+        if(!o.isMesh||!o.material) return;
+        o.castShadow=true; o.frustumCulled=false;
+        var mm=Array.isArray(o.material)?o.material:[o.material];
+        mm.forEach(function(m){
+          if(!m) return;
+          // (1) base color 채널 바닥값(맵 없는 머티리얼이 검게 보이는 것 방지 + 맵 있는 곳은 밝은 틴트)
+          if(m.color){ m.color.r=Math.max(m.color.r,0.58); m.color.g=Math.max(m.color.g,0.58); m.color.b=Math.max(m.color.b,0.62); }
+          // (2) 플랫 emissive 바닥값: emissiveMap 제거 후 상수 emissive → 텍스처가 새까매도 최소 밝기 보장
+          if(m.emissive!==undefined){ if('emissiveMap' in m) m.emissiveMap=null; m.emissive=new THREE.Color(0.46,0.48,0.56); m.emissiveIntensity=0.4; }
+          // (3) 금속 반사로 인한 암부 죽음 방지 + 적당한 거칠기
+          if(m.metalness!=null) m.metalness=Math.min(m.metalness,0.15);
+          if(m.roughness!=null) m.roughness=Math.max(0.6,Math.min(0.8,m.roughness||0.7));
+          m.toneMapped=true; m.needsUpdate=true;
+        });
+      });
+    }
     function attachModel(G, conf, faceDir){
       if(!conf || !conf.url || !THREE.GLTFLoader) return;
       try{ new THREE.GLTFLoader().load(conf.url, function(gltf){
@@ -303,12 +327,8 @@
         box.setFromObject(root); root.position.y=-box.min.y;
         var orient=new THREE.Group(); orient.rotation.y=(faceDir>0?-Math.PI/2:Math.PI/2); orient.add(root);
         G.traverse(function(o){ if(o.isMesh) o.visible=false; });            // 절차적 메시 숨김
-        root.traverse(function(o){ if(o.isMesh){ o.castShadow=true; o.frustumCulled=false; if(conf.tint&&o.material){ o.material=o.material.clone(); o.material.emissive=new THREE.Color(conf.tint); o.material.emissiveIntensity=0.7; }
-          if(conf.brighten&&o.material){ var mm=Array.isArray(o.material)?o.material:[o.material]; mm.forEach(function(m){
-            if(m.color){ var hsl={}; m.color.getHSL(hsl); if(hsl.l<0.34) m.color.setHSL(hsl.h,Math.min(0.55,hsl.s),Math.max(0.38,hsl.l+0.24)); }   // 검게 죽는 부분 밝게
-            if(m.emissive!==undefined&&m.color) m.emissive=m.color.clone().multiplyScalar(0.13);                                                   // 약한 self-glow 로 암부 보강
-            if(m.metalness!=null&&m.metalness>0.6) m.metalness=0.5;
-            m.needsUpdate=true; }); } } });
+        root.traverse(function(o){ if(o.isMesh){ o.castShadow=true; o.frustumCulled=false; if(conf.tint&&o.material){ o.material=o.material.clone(); o.material.emissive=new THREE.Color(conf.tint); o.material.emissiveIntensity=0.7; } } });
+        if(conf.brighten) brightenHeroModel(root);   // 임계값 없이 강제 밝게 — (재)생성 시마다 항상 재적용
         G.add(orient);
         if(gltf.animations && gltf.animations.length){
           var mixer=new THREE.AnimationMixer(root), actions={};
@@ -330,8 +350,11 @@
     var bossRim=new THREE.DirectionalLight(0x9b4dff,1.0); bossRim.position.set(GAP+3.5,4,-7); scene.add(bossRim);
     var bossUnder=new THREE.PointLight(0x8a2be2,0.6,10); bossUnder.position.set(GAP,1.2,1.2); scene.add(bossUnder);
     // 영웅(GLB Soldier) 암부 보강 필 라이트 — 범위 한정(거리<보스까지의 거리)이라 보스엔 영향 없음
-    var heroFillA=new THREE.PointLight(0xfff0d6,0.95,8.5); heroFillA.position.set(-GAP,1.3,3.0); scene.add(heroFillA);
-    var heroFillB=new THREE.PointLight(0xcfe0ff,0.6,8.5); heroFillB.position.set(-GAP-2.2,3.4,1.4); scene.add(heroFillB);
+    var heroFillA=new THREE.PointLight(0xfff0d6,1.55,9.0); heroFillA.position.set(-GAP,1.3,3.0); scene.add(heroFillA);
+    var heroFillB=new THREE.PointLight(0xcfe0ff,1.05,9.0); heroFillB.position.set(-GAP-2.2,3.4,1.4); scene.add(heroFillB);
+    // 하반신(허리/정강이/부츠) 전용 정면-아래 필 라이트 — 거리 한정(distance 7)이라 보스(+GAP)엔 도달 안 함
+    var heroFillLow=new THREE.PointLight(0xfff2dc,1.6,7.0); heroFillLow.position.set(-GAP,0.55,3.2); scene.add(heroFillLow);
+    var heroFillBack=new THREE.PointLight(0xbcd2ff,0.7,7.0); heroFillBack.position.set(-GAP+0.4,1.6,-2.6); scene.add(heroFillBack);
     var hero=buildCharacter({skin:0xf1c27d,armor:0x3b6bdb,trim:0xfbbf24,eye:0x113355,face:+1,weapon:'sword'});
     hero.position.set(-GAP,0,0); hero.rotation.y=0.18; hero.userData.home.set(-GAP,0,0); scene.add(hero); attachModel(hero, MODELS.hero, +1);
     var boss=null;
