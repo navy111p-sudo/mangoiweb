@@ -157,9 +157,10 @@
     background:rgba(8,16,34,.6);border:1px solid var(--line);border-radius:8px;padding:3px 7px;pointer-events:none;max-width:60%;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-  .overlay{position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
+  .overlay{position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+    overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 0;
     background:rgba(4,9,22,.88);backdrop-filter:blur(5px)}
-  .card{width:min(92%,400px);background:linear-gradient(180deg,#16233f,#0d1730);border:1px solid var(--line);
+  .card{width:min(92%,400px);margin:auto 0;background:linear-gradient(180deg,#16233f,#0d1730);border:1px solid var(--line);
     border-radius:18px;padding:22px 20px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.6)}
   .card h1{font-size:22px;font-weight:900;margin-bottom:6px}
   .card h1 .em{color:var(--accent)}
