@@ -448,23 +448,40 @@
       var noseBridge=new THREE.Mesh(new THREE.SphereGeometry(0.2,18,16),bodyM); noseBridge.position.set(0,2.62,0.94); noseBridge.scale.set(0.62,1.05,0.85); noseBridge.rotation.x=0.32; add(noseBridge);
       var noseTip=new THREE.Mesh(new THREE.SphereGeometry(0.14,16,14),bodyM); noseTip.position.set(0,2.49,1.03); noseTip.scale.set(1.1,0.72,0.95); add(noseTip);
       [-0.083,0.083].forEach(function(nx){ var nostril=new THREE.Mesh(new THREE.SphereGeometry(0.043,12,10),rimM); nostril.position.set(nx,2.46,1.09); nostril.scale.set(1,1.3,0.85); add(nostril); });
-      // 8개 다리(촉수): 방사형 휨 + 끝으로 테이퍼 + 마디 + 빨판(작은 원형 돌기 반복)
+      // 빨간 권투 글러브(빨강 가죽 주먹 + 엄지 + 흰 손목밴드), 로컬 +z = 주먹 방향
+      var gloveR=new THREE.MeshStandardMaterial({color:0xd91f1f,roughness:0.32,metalness:0.08,emissive:new THREE.Color(0x3a0606),emissiveIntensity:0.28});
+      var gloveW=new THREE.MeshStandardMaterial({color:0xf3f3f3,roughness:0.5,metalness:0.05});
+      function buildGlove(){ var gg=new THREE.Group();
+        var band=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.19,0.16,16),gloveW); band.rotation.x=Math.PI/2; band.position.z=-0.03; gg.add(band);
+        var stripe=new THREE.Mesh(new THREE.TorusGeometry(0.185,0.032,8,18),gloveR); stripe.position.z=0.05; gg.add(stripe);
+        var fist=new THREE.Mesh(new THREE.SphereGeometry(0.27,20,16),gloveR); fist.position.z=0.25; fist.scale.set(1,0.95,1.08); fist.castShadow=true; gg.add(fist);
+        var thumb=new THREE.Mesh(new THREE.SphereGeometry(0.12,14,12),gloveR); thumb.position.set(0.2,-0.03,0.18); gg.add(thumb);
+        var ridge=new THREE.Mesh(new THREE.SphereGeometry(0.1,12,10),gloveR); ridge.position.set(0,0.13,0.34); gg.add(ridge);
+        return gg; }
+      // 8개 다리(촉수): 각 촉수를 base 피벗 그룹에 담아(끝에 글러브) idle 웨이브로 계속 부드럽게 움직이게
+      var tentacles=[];
       for(var i=0;i<8;i++){
         var a=(i/8)*Math.PI*2+0.25;
         var inR=0.5, outR=1.85+0.45*Math.sin(i*1.7), midY=1.05+0.5*Math.sin(i*2.1);
         var bx=Math.cos(a)*inR, bz=Math.sin(a)*inR, ox=Math.cos(a)*outR, oz=Math.sin(a)*outR;
-        var c=new THREE.CatmullRomCurve3([new THREE.Vector3(bx,1.95,bz),new THREE.Vector3(bx*1.5,midY+0.7,bz*1.5),new THREE.Vector3((bx+ox)/2,midY-0.25,(bz+oz)/2),new THREE.Vector3(ox,0.16,oz)]);
-        var TS=44, RS=14, tg=new THREE.TubeGeometry(c,TS,0.3,RS,false); taperTube(tg,c,TS,RS,1.0,0.26); add(new THREE.Mesh(tg,bodyM));
+        var base=new THREE.Vector3(bx,1.95,bz);
+        var Pr=[new THREE.Vector3(bx,1.95,bz),new THREE.Vector3(bx*1.5,midY+0.7,bz*1.5),new THREE.Vector3((bx+ox)/2,midY-0.25,(bz+oz)/2),new THREE.Vector3(ox,0.16,oz)].map(function(v){return v.clone().sub(base);});
+        var c=new THREE.CatmullRomCurve3(Pr);
+        var grp=new THREE.Group(); grp.position.copy(base);
+        var gadd=function(m){ m.castShadow=true; grp.add(m); return m; };
+        var TS=44, RS=14, tg=new THREE.TubeGeometry(c,TS,0.3,RS,false); taperTube(tg,c,TS,RS,1.0,0.26); gadd(new THREE.Mesh(tg,bodyM));
         var pp=c.getPoints(16);
-        // 마디 돌기(테이퍼에 맞춰 크기 감소)
-        for(var k=3;k<pp.length;k++){ var tf=1-(k/(pp.length-1)); var kn=new THREE.Mesh(new THREE.SphereGeometry(0.07+0.16*tf,10,8),bodyM); kn.position.copy(pp[k]); add(kn); }
-        // 빨판: 아랫면에 작은 원형 돌기 + 어두운 테두리 홈, 끝으로 갈수록 작아짐
+        for(var k=3;k<pp.length;k++){ var tf=1-(k/(pp.length-1)); var kn=new THREE.Mesh(new THREE.SphereGeometry(0.07+0.16*tf,10,8),bodyM); kn.position.copy(pp[k]); gadd(kn); }
         for(var j=2;j<pp.length;j++){ var sf=1-(j/(pp.length-1)); var sr=0.035+0.075*sf;
-          var rmm=new THREE.Mesh(new THREE.TorusGeometry(sr*1.15,sr*0.34,6,12),rimM); rmm.position.copy(pp[j]); rmm.position.y-=0.2*(0.4+sf); rmm.rotation.x=Math.PI*0.5; add(rmm);
-          var sc=new THREE.Mesh(new THREE.SphereGeometry(sr,10,8),suckerM); sc.position.copy(pp[j]); sc.position.y-=0.2*(0.4+sf); sc.scale.set(1,0.6,1); add(sc); }
-        // 가늘어진 촉수 끝
-        add(new THREE.Mesh(new THREE.ConeGeometry(0.06,0.4,10),bodyM)).position.set(ox,0.08,oz);
+          var rmm=new THREE.Mesh(new THREE.TorusGeometry(sr*1.15,sr*0.34,6,12),rimM); rmm.position.copy(pp[j]); rmm.position.y-=0.2*(0.4+sf); rmm.rotation.x=Math.PI*0.5; gadd(rmm);
+          var sc=new THREE.Mesh(new THREE.SphereGeometry(sr,10,8),suckerM); sc.position.copy(pp[j]); sc.position.y-=0.2*(0.4+sf); sc.scale.set(1,0.6,1); gadd(sc); }
+        // 촉수 끝에 빨간 권투 글러브: 끝점 위치 + 끝 접선 방향 정렬 → 촉수가 흔들리면 글러브도 같이 움직임
+        var tip=pp[pp.length-1], tan=tip.clone().sub(pp[pp.length-2]); if(tan.lengthSq()<1e-6)tan.set(0,-1,0); tan.normalize();
+        var glove=buildGlove(); glove.position.copy(tip); glove.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),tan); grp.add(glove);
+        boss.add(grp);
+        tentacles.push({grp:grp, ph:i*0.8, sa:1.25+i*0.06, sb:0.95+i*0.05});
       }
+      boss.userData.tentacles=tentacles;
       // hit-flash 가 문어 몸 전체에 보이도록 body 머티리얼 참조 교체 + 눈 발광 펄스 대상 교체
       boss.userData.body=bodyM;
       boss.userData.eyeMat=irisM;
@@ -583,11 +600,12 @@
       correct:function(){ if(!AC||muted)return; var t=AC.currentTime; [523,659,784].forEach(function(f,i){ tone(sfxG,'triangle',f,t+i*0.06,0.2,0.5); }); },
       win:function(){ if(!AC||muted)return; var t=AC.currentTime; [523,659,784,1047,1319].forEach(function(f,i){ tone(sfxG,'triangle',f,t+i*0.12,0.4,0.55); }); },
       badge:function(){ if(!AC||muted)return; var t=AC.currentTime; [1047,1319,1568,2093].forEach(function(f,i){ tone(sfxG,'sine',f,t+i*0.08,0.5,0.4); }); },
-      // "펑!" 큰 폭발음 — 저주파 붐 + 노이즈 버스트, 리미터(컴프레서)로 충분히 크되 클리핑 없이
+      // "펑!" 훨씬 큰 폭발음 — 강하게 구동 + 리미터(컴프레서)로 클리핑 막고 메이크업 게인으로 체감 음량 대폭 ↑
       boom:function(){ if(!AC||muted)return; var t=AC.currentTime;
-        var comp=AC.createDynamicsCompressor(); try{comp.threshold.value=-8;comp.knee.value=10;comp.ratio.value=14;comp.attack.value=0.002;comp.release.value=0.28;}catch(e){} comp.connect(sfxG);
-        tone(comp,'sine',150,t,0.55,0.95,30); tone(comp,'sine',82,t,0.62,0.9,24); tone(comp,'triangle',220,t,0.16,0.5,55);
-        noiseB(comp,t,0.42,1.0,'lowpass',1100); noiseB(comp,t,0.1,0.75,'highpass',3500); }
+        var comp=AC.createDynamicsCompressor(); try{comp.threshold.value=-14;comp.knee.value=6;comp.ratio.value=18;comp.attack.value=0.001;comp.release.value=0.26;}catch(e){}
+        var mk=AC.createGain(); mk.gain.value=2.7; comp.connect(mk); mk.connect(sfxG);   // 리미터 뒤 메이크업 게인(클리핑은 리미터가 방지)
+        tone(comp,'sine',165,t,0.6,1.6,28); tone(comp,'sine',84,t,0.72,1.5,22); tone(comp,'triangle',240,t,0.18,0.9,55);
+        noiseB(comp,t,0.5,1.7,'lowpass',1300); noiseB(comp,t,0.12,1.1,'highpass',3200); }
     };
     var bgmTimer=null,step=0,ROOT=[55,55,49,52],ARP=[220,261.6,329.6,392,220,329.6,261.6,392];
     function bgmStop(){ if(bgmTimer){ clearInterval(bgmTimer); bgmTimer=null; } }
@@ -682,6 +700,7 @@
       badge.rotation.y+=dt*1.7; badge.rotation.x=Math.sin(clock.elapsedTime*0.8)*0.18; badgeGroup.position.y=2.3+Math.sin(clock.elapsedTime*1.6)*0.13;
       [hero,boss].forEach(function(c){ if(!c)return; if(Math.abs(c.position.x-c.userData.home.x)<0.001){ c.position.y=Math.abs(Math.sin(clock.elapsedTime*1.8+c.userData.dir))*0.04; } if(c.userData.cape) waveCape(c.userData.cape,clock.elapsedTime,c.userData.dir); });
       if(boss) boss.userData.eyeMat.emissiveIntensity=1.2+Math.sin(clock.elapsedTime*4)*0.4;
+      if(boss&&boss.userData.tentacles){ var te=boss.userData.tentacles,et=clock.elapsedTime; for(var ti=0;ti<te.length;ti++){ var TT=te[ti]; TT.grp.rotation.y=Math.sin(et*TT.sa+TT.ph)*0.13; TT.grp.rotation.x=Math.sin(et*TT.sb+TT.ph*1.7)*0.09; TT.grp.rotation.z=Math.sin(et*1.05+TT.ph*0.6)*0.05; } }   // 촉수 idle 웨이브(각 다리 위상 다름) — 글러브도 자식이라 같이 흔들림
       for(var i=anims.length-1;i>=0;i--){ if(anims[i](dt)) anims.splice(i,1); }
       if(shakeT<shakeDur){ shakeT+=dt; var k=(1-shakeT/shakeDur)*shakeMag; camera.position.set(camBase.x+(Math.random()-0.5)*k,camBase.y+(Math.random()-0.5)*k,camBase.z); } else camera.position.copy(camBase);
       if(_twinkle){ var tw=_twinkle,tt=clock.elapsedTime; for(var s=0;s<tw.N;s++){ var tf=tw.base[s]*(0.6+0.4*Math.sin(tt*tw.speed[s]+tw.phase[s])); tw.cAttr.setXYZ(s,tw.hr[s]*tf,tw.hg[s]*tf,tw.hb[s]*tf); } tw.cAttr.needsUpdate=true; }   // 별 반짝임
