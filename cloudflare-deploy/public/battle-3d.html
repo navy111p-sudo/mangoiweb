@@ -204,16 +204,17 @@
     (function(){
       // 토성다운 가로 띠(밴드) 텍스처 + 약한 경도 얼룩(자전 가시화)
       var CS=128,cc=document.createElement('canvas'); cc.width=cc.height=CS; var cx=cc.getContext('2d');
-      for(var y=0;y<CS;y++){ var v=y/CS, band=0.5+0.5*Math.sin(v*Math.PI*9+Math.sin(v*7)), rr=200+band*42, gg=176+band*40, bb=120+band*32;
-        for(var xx=0;xx<CS;xx++){ var u=xx/CS, mott=0.9+0.1*Math.sin(u*Math.PI*6+v*5); cx.fillStyle='rgb('+(rr*mott|0)+','+(gg*mott|0)+','+(bb*mott|0)+')'; cx.fillRect(xx,y,1,1); } }
+      // 진한 황갈/burnt-amber 톤: 밝은 띠=amber, 어두운 띠=갈색 (전반적으로 어둡고 진하게)
+      for(var y=0;y<CS;y++){ var v=y/CS, band=0.5+0.5*Math.sin(v*Math.PI*9+Math.sin(v*7)), rr=150+band*52, gg=84+band*42, bb=34+band*24;
+        for(var xx=0;xx<CS;xx++){ var u=xx/CS, mott=0.88+0.12*Math.sin(u*Math.PI*6+v*5); cx.fillStyle='rgb('+(rr*mott|0)+','+(gg*mott|0)+','+(bb*mott|0)+')'; cx.fillRect(xx,y,1,1); } }
       var ptex=new THREE.CanvasTexture(cc); ptex.anisotropy=4;
       var g=new THREE.Group(); g.position.set(-9.5,13.5,-34); g.rotation.set(-0.42,0,0.34);   // 좌상단·먼 배경, 고리 기울임
       var spin=new THREE.Group(); g.add(spin);
       var planet=new THREE.Mesh(new THREE.SphereGeometry(2.5,40,32),
-        new THREE.MeshStandardMaterial({map:ptex,color:0xe9d6ab,roughness:0.95,metalness:0.0,emissive:new THREE.Color(0x2c2614),emissiveIntensity:0.55,fog:false}));
+        new THREE.MeshStandardMaterial({map:ptex,color:0xcf8a3a,roughness:0.95,metalness:0.0,emissive:new THREE.Color(0x281603),emissiveIntensity:0.42,fog:false}));
       spin.add(planet);
       var ring=new THREE.Mesh(new THREE.RingGeometry(3.1,4.7,72,1),
-        new THREE.MeshStandardMaterial({color:0xd9c39a,roughness:0.9,metalness:0.0,emissive:new THREE.Color(0x2a2414),emissiveIntensity:0.42,side:THREE.DoubleSide,transparent:true,opacity:0.72,fog:false}));
+        new THREE.MeshStandardMaterial({color:0xae7a36,roughness:0.9,metalness:0.0,emissive:new THREE.Color(0x231507),emissiveIntensity:0.4,side:THREE.DoubleSide,transparent:true,opacity:0.8,fog:false}));
       ring.rotation.x=Math.PI/2; spin.add(ring);                                              // 링을 적도면(수평) → 그룹 기울기로 타원처럼 보임
       scene.add(g); saturnSpin=spin;
     })();
