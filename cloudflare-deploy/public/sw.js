@@ -1,8 +1,8 @@
 // 🌐 Mangoi Service Worker — PWA 오프라인 캐시 + 빠른 로딩
 // 버전 갱신 시 CACHE_NAME 의 숫자만 바꾸면 모든 사용자에게 즉시 새 버전 전파
 
-const CACHE_NAME = 'mangoi-20260629182258-fresh-battlefix6-knightbright1-reptileboss1-koanim1-saturn1-nose1-saturndark1-mobilelayout1';
-const RUNTIME_CACHE = 'mangoi-20260629182258-fresh-battlefix6-knightbright1-reptileboss1-koanim1-saturn1-nose1-saturndark1-mobilelayout1-rt';
+const CACHE_NAME = 'mangoi-20260629182258-fresh-battlefix6-knightbright1-reptileboss1-koanim1-saturn1-nose1-saturndark1-mobilelayout1-bossboom1';
+const RUNTIME_CACHE = 'mangoi-20260629182258-fresh-battlefix6-knightbright1-reptileboss1-koanim1-saturn1-nose1-saturndark1-mobilelayout1-bossboom1-rt';
 
 // 첫 설치 때 미리 캐시할 핵심 자산 (필수 only — 너무 많으면 install 실패)
 const PRECACHE_URLS = [

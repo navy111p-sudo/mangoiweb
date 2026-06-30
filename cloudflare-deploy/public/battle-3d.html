@@ -542,6 +542,30 @@
       for(var i=0;i<N;i++){ pos[i*3]=(rnd()-0.5)*16; pos[i*3+1]=9+rnd()*4; pos[i*3+2]=(rnd()-0.5)*6; var c=pal[i%pal.length]; col[i*3]=c[0];col[i*3+1]=c[1];col[i*3+2]=c[2]; vel.push(new THREE.Vector3((rnd()-0.5)*1.2,-(2+rnd()*2),(rnd()-0.5)*1.2)); }
       var g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('color',new THREE.BufferAttribute(col,3)); var m=new THREE.Points(g,new THREE.PointsMaterial({size:0.3,vertexColors:true,transparent:true,opacity:1})); scene.add(m); var t=0,attr=g.getAttribute('position');
       addAnim(function(dt){ t+=dt; var p=Math.min(1,t/2.6); for(var i=0;i<N;i++){ attr.array[i*3]+=vel[i].x*dt; attr.array[i*3+1]+=vel[i].y*dt; attr.array[i*3+2]+=vel[i].z*dt; } attr.needsUpdate=true; m.material.opacity=Math.max(0,1-p); if(p>=1){ scene.remove(m); g.dispose(); m.material.dispose(); return true; } return false; }); }
+    // 승리 시 문어 보스 폭발: 가루(올리브-황록)+스파크 파티클이 사방으로 터져 중력으로 흩날리며 페이드아웃 + 본체는 팽창→붕괴→사라짐 + 플래시/셰이크 + "펑!"
+    function explodeBoss(){
+      if(!boss) return;
+      var bx=boss.position.x, by=2.4, bz=boss.position.z;            // 폭발 중심(문어 몸통). 전투 캔버스 안이라 패널/레이아웃 영향 없음
+      var N=340,pos=new Float32Array(N*3),col=new Float32Array(N*3),vel=[],seed=12347; function rnd(){seed=(seed*9301+49297)%233280;return seed/233280;}  // 정수 LCG(고르게 분산)
+      for(var i=0;i<N;i++){
+        var a=rnd()*Math.PI*2,b=(rnd()-0.5)*Math.PI,r0=rnd()*1.3;
+        pos[i*3]=bx+Math.cos(a)*Math.cos(b)*r0; pos[i*3+1]=by+(rnd()-0.4)*2.3; pos[i*3+2]=bz+Math.sin(a)*Math.cos(b)*r0;
+        var sp=4+rnd()*9; vel.push(new THREE.Vector3(Math.cos(a)*Math.cos(b)*sp,Math.abs(Math.sin(b))*sp+rnd()*5+1.5,Math.sin(a)*Math.cos(b)*sp));
+        if(rnd()<0.22){ col[i*3]=1.0; col[i*3+1]=0.95+rnd()*0.05; col[i*3+2]=0.5+rnd()*0.3; }      // 밝은 스파크
+        else { var gg=0.5+rnd()*0.45; col[i*3]=0.30*gg+0.08; col[i*3+1]=0.55*gg+0.12; col[i*3+2]=0.12*gg; } // 올리브-황록 가루
+      }
+      var g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('color',new THREE.BufferAttribute(col,3));
+      var m=new THREE.Points(g,new THREE.PointsMaterial({size:0.19,vertexColors:true,transparent:true,opacity:1,depthWrite:false})); scene.add(m);
+      var t=0,attr=g.getAttribute('position');
+      addAnim(function(dt){ t+=dt; var p=Math.min(1,t/1.15);
+        for(var i=0;i<N;i++){ vel[i].y-=11*dt; vel[i].multiplyScalar(0.985); attr.array[i*3]+=vel[i].x*dt; attr.array[i*3+1]+=vel[i].y*dt; attr.array[i*3+2]+=vel[i].z*dt; }
+        attr.needsUpdate=true; m.material.opacity=Math.max(0,1-p*p); m.material.size=0.19*(1-0.4*p);
+        if(p>=1){ scene.remove(m); g.dispose(); m.material.dispose(); return true; } return false; });
+      // 본체: 살짝 팽창했다 0으로 붕괴 후 숨김(다음 레슨엔 spawnBoss가 새로 생성)
+      var st=0, baseS=boss.scale.x||1.32;
+      addAnim(function(dt){ st+=dt; var q=Math.min(1,st/0.32); var s=baseS*(1+0.28*Math.sin(q*Math.PI*0.5))*(1-q); if(s<0.001)s=0.001; boss.scale.set(s,s,s); if(q>=1){ boss.visible=false; return true; } return false; });
+      shockwave(bx,by,bz); shockwave(bx,by+0.5,bz); cameraShake(0.95,0.55); screenFlash(0.95); sfx.boom();
+    }
     var toastEl=document.getElementById('toast'),toastTimer=null;
     function toast(text,color){ toastEl.textContent=text; toastEl.style.color=color||'#ffd34d'; toastEl.style.opacity=1; toastEl.style.transform='translateX(-50%) scale(1)'; clearTimeout(toastTimer); toastTimer=setTimeout(function(){ toastEl.style.opacity=0; toastEl.style.transform='translateX(-50%) scale(.8)'; },1100); }
 
@@ -558,7 +582,12 @@
       roar:function(){ if(!AC||muted)return; var t=AC.currentTime; tone(sfxG,'sawtooth',70,t,0.8,0.85,36); noiseB(sfxG,t,0.65,0.55,'lowpass',480); },
       correct:function(){ if(!AC||muted)return; var t=AC.currentTime; [523,659,784].forEach(function(f,i){ tone(sfxG,'triangle',f,t+i*0.06,0.2,0.5); }); },
       win:function(){ if(!AC||muted)return; var t=AC.currentTime; [523,659,784,1047,1319].forEach(function(f,i){ tone(sfxG,'triangle',f,t+i*0.12,0.4,0.55); }); },
-      badge:function(){ if(!AC||muted)return; var t=AC.currentTime; [1047,1319,1568,2093].forEach(function(f,i){ tone(sfxG,'sine',f,t+i*0.08,0.5,0.4); }); }
+      badge:function(){ if(!AC||muted)return; var t=AC.currentTime; [1047,1319,1568,2093].forEach(function(f,i){ tone(sfxG,'sine',f,t+i*0.08,0.5,0.4); }); },
+      // "펑!" 큰 폭발음 — 저주파 붐 + 노이즈 버스트, 리미터(컴프레서)로 충분히 크되 클리핑 없이
+      boom:function(){ if(!AC||muted)return; var t=AC.currentTime;
+        var comp=AC.createDynamicsCompressor(); try{comp.threshold.value=-8;comp.knee.value=10;comp.ratio.value=14;comp.attack.value=0.002;comp.release.value=0.28;}catch(e){} comp.connect(sfxG);
+        tone(comp,'sine',150,t,0.55,0.95,30); tone(comp,'sine',82,t,0.62,0.9,24); tone(comp,'triangle',220,t,0.16,0.5,55);
+        noiseB(comp,t,0.42,1.0,'lowpass',1100); noiseB(comp,t,0.1,0.75,'highpass',3500); }
     };
     var bgmTimer=null,step=0,ROOT=[55,55,49,52],ARP=[220,261.6,329.6,392,220,329.6,261.6,392];
     function bgmStop(){ if(bgmTimer){ clearInterval(bgmTimer); bgmTimer=null; } }
@@ -615,14 +644,14 @@
           setTimeout(function(){ if(state.heroHP<=0){ defeat(); return; } el.quiz.style.display='none'; state.busy=false; setTimeout(nextQuestion,300); },720); },500);
       }
     }
-    function victory(){ el.quiz.style.display='none'; bgmStop(); sfx.win();
+    function victory(){ el.quiz.style.display='none'; bgmStop(); explodeBoss(); sfx.win();
       var L=LESSONS[state.lesson]; setBadge(L.badge); rewardPop(); confetti(); setTimeout(function(){ sfx.badge(); },450);
       var _earned=0; try{ var _b=JSON.parse(localStorage.getItem('wf_badges')||'[]'); if(_b.indexOf(state.lesson)<0) _b.push(state.lesson); localStorage.setItem('wf_badges',JSON.stringify(_b)); _earned=_b.length; }catch(e){}
       var stars=state.heroHP>=80?'⭐⭐⭐':(state.heroHP>=40?'⭐⭐':'⭐'); document.getElementById('winStars').textContent=stars;
       var hasNext=state.lesson<LESSONS.length-1;
       document.getElementById('winMsg').innerHTML='보스를 물리쳤어요! 점수 <b>'+state.score+'</b> · 🏅 모은 배지 <b>'+_earned+'/'+LESSONS.length+'</b><br>'+(hasNext?'다음 레슨의 왕이 기다립니다.':'모든 레슨을 클리어했습니다! 🎉');
       document.getElementById('nextBtn').textContent=hasNext?'다음 레슨 ▶':'처음부터 ↻';
-      setTimeout(function(){ overlay('winOverlay',true); },750);
+      setTimeout(function(){ overlay('winOverlay',true); },1150);   // 폭발 연출이 보이도록 승리 카드 표시를 약간 지연
       try{ if(window.parent&&window.parent!==window) window.parent.postMessage({type:'mangoi-game-complete',score:state.score},'*'); }catch(e){}
     }
     function defeat(){ el.quiz.style.display='none'; bgmStop(); overlay('loseOverlay',true); }
