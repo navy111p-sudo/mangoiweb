@@ -173,6 +173,13 @@
     font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 8px 20px rgba(251,191,36,.35)}
   .btn:active{transform:scale(.96)}
   .warn{font-size:11px;color:#fca5a5;margin-top:10px}
+
+  /* ===== 모바일 세로 화면 최대 확대 — #field 가 남는 세로공간 전부, 몬스터 크게, 상단바 슬림 ===== */
+  .hud{padding:7px 11px;gap:7px}
+  .target{padding:7px 11px}
+  .target .hint{display:none}          /* 안내문 숨겨 게임영역 확대(판정/조준 로직 그대로) */
+  .monster .face{font-size:42px}       /* 단어 몬스터 크게 */
+  .monster .word{font-size:16px;padding:3px 13px}
 </style>
 </head>
 <body>
@@ -611,6 +618,6 @@
   window.addEventListener('resize', function(){ var w=field.clientWidth; monsters.forEach(function(m){ if(m.x>w-66){ m.x=Math.max(8,w-86); m.el.style.left=m.x+'px'; } }); });
 })();
 </script>
-<!-- BUILD:20260629182258 -->
+<!-- BUILD:20260629182258 gamesbig1 -->
 </body>
 </html>
