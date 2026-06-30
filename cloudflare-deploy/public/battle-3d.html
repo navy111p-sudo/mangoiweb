@@ -479,7 +479,7 @@
         var tip=pp[pp.length-1], tan=tip.clone().sub(pp[pp.length-2]); if(tan.lengthSq()<1e-6)tan.set(0,-1,0); tan.normalize();
         var glove=buildGlove(); glove.position.copy(tip); glove.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),tan); grp.add(glove);
         boss.add(grp);
-        tentacles.push({grp:grp, ph:i*0.8, sa:1.25+i*0.06, sb:0.95+i*0.05});
+        tentacles.push({grp:grp, ph:i*0.8, sa:1.8+i*0.11, sb:1.4+i*0.09, am:0.82+0.42*((i*7)%5)/4});  // 다리마다 위상·속도·진폭 다르게
       }
       boss.userData.tentacles=tentacles;
       // hit-flash 가 문어 몸 전체에 보이도록 body 머티리얼 참조 교체 + 눈 발광 펄스 대상 교체
@@ -700,7 +700,7 @@
       badge.rotation.y+=dt*1.7; badge.rotation.x=Math.sin(clock.elapsedTime*0.8)*0.18; badgeGroup.position.y=2.3+Math.sin(clock.elapsedTime*1.6)*0.13;
       [hero,boss].forEach(function(c){ if(!c)return; if(Math.abs(c.position.x-c.userData.home.x)<0.001){ c.position.y=Math.abs(Math.sin(clock.elapsedTime*1.8+c.userData.dir))*0.04; } if(c.userData.cape) waveCape(c.userData.cape,clock.elapsedTime,c.userData.dir); });
       if(boss) boss.userData.eyeMat.emissiveIntensity=1.2+Math.sin(clock.elapsedTime*4)*0.4;
-      if(boss&&boss.userData.tentacles){ var te=boss.userData.tentacles,et=clock.elapsedTime; for(var ti=0;ti<te.length;ti++){ var TT=te[ti]; TT.grp.rotation.y=Math.sin(et*TT.sa+TT.ph)*0.13; TT.grp.rotation.x=Math.sin(et*TT.sb+TT.ph*1.7)*0.09; TT.grp.rotation.z=Math.sin(et*1.05+TT.ph*0.6)*0.05; } }   // 촉수 idle 웨이브(각 다리 위상 다름) — 글러브도 자식이라 같이 흔들림
+      if(boss&&boss.userData.tentacles){ var te=boss.userData.tentacles,et=clock.elapsedTime; for(var ti=0;ti<te.length;ti++){ var TT=te[ti],am=TT.am||1; TT.grp.rotation.y=Math.sin(et*TT.sa+TT.ph)*0.30*am; TT.grp.rotation.x=Math.sin(et*TT.sb+TT.ph*1.7)*0.22*am; TT.grp.rotation.z=Math.sin(et*1.5+TT.ph*0.6)*0.13*am; } }   // 촉수 idle 웨이브: 항상 자동, 다리마다 위상·진폭 다르게 크게(글러브도 자식이라 같이 흔들림)
       for(var i=anims.length-1;i>=0;i--){ if(anims[i](dt)) anims.splice(i,1); }
       if(shakeT<shakeDur){ shakeT+=dt; var k=(1-shakeT/shakeDur)*shakeMag; camera.position.set(camBase.x+(Math.random()-0.5)*k,camBase.y+(Math.random()-0.5)*k,camBase.z); } else camera.position.copy(camBase);
       if(_twinkle){ var tw=_twinkle,tt=clock.elapsedTime; for(var s=0;s<tw.N;s++){ var tf=tw.base[s]*(0.6+0.4*Math.sin(tt*tw.speed[s]+tw.phase[s])); tw.cAttr.setXYZ(s,tw.hr[s]*tf,tw.hg[s]*tf,tw.hb[s]*tf); } tw.cAttr.needsUpdate=true; }   // 별 반짝임
