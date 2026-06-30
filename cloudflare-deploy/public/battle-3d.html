@@ -82,7 +82,7 @@
       <div class="q" id="qText"></div>
       <div class="qhint" id="qHint"></div>
       <div class="choices" id="choices"></div>
-      <button class="listen" id="qListen">🔊 정답 발음 듣기</button>
+      <button class="listen" id="qListen">🔊 다시 듣기</button>
     </div>
 
     <div class="overlay on" id="startOverlay">
@@ -644,11 +644,14 @@
       overlay('startOverlay',false); overlay('winOverlay',false); overlay('loseOverlay',false); rewardHide();
       audioInit(); bgmStart(); spawnBoss(L); setTimeout(nextQuestion,950);
     }
+    function speakCurrent(){ var it=state.current; if(!it) return; speak(it.type==='문장' ? it.q.replace('___', it.a) : it.a); }   // 정답 단어/문장 원어민 음성
     function nextQuestion(){ var L=LESSONS[state.lesson]; if(state.idx>=L.items.length) return; var it=L.items[state.idx]; state.current=it;
       el.quiz.style.display='block'; el.qType.textContent=it.type;
-      el.qText.innerHTML = it.type==='문장' ? it.q.replace('___','<span class="bl">_____</span>') : it.q;
-      el.qHint.textContent = it.hint || (it.type==='단어' ? '알맞은 영어 단어를 고르세요' : '빈칸에 알맞은 단어를 고르세요');
+      // 듣기 평가: 한국어 뜻/힌트 숨김 — 단어=스피커 아이콘만, 문장=영어 문장(빈칸)만 표시
+      el.qText.innerHTML = it.type==='문장' ? it.q.replace('___','<span class="bl">_____</span>') : '<span style="font-size:34px;line-height:1.15">🔊</span>';
+      el.qHint.textContent = it.type==='문장' ? '잘 듣고 빈칸에 알맞은 단어를 고르세요' : '잘 듣고 알맞은 단어를 고르세요';
       el.choices.innerHTML=''; shuffle(it.ch.slice()).forEach(function(c){ var b=document.createElement('button'); b.className='ch'; b.textContent=c; b.onclick=function(){ answer(b,c,it); }; el.choices.appendChild(b); });
+      speakCurrent();   // 문제 표시 시 정답 발음 자동 1회 재생(듣기 문제)
     }
     function answer(btn,choice,it){ if(state.busy)return; state.busy=true;
       if(choice===it.a){
@@ -690,7 +693,7 @@
     (function(){ var p=document.getElementById('lessonPick'); LESSONS.forEach(function(L,i){ var b=document.createElement('button'); b.innerHTML='<span>'+L.name+'</span><span class="b">'+L.boss+'</span>'; b.onclick=function(){ startLesson(i); }; p.appendChild(b); }); renderCollection(); })();
     document.getElementById('nextBtn').onclick=function(){ var n=state.lesson<LESSONS.length-1?state.lesson+1:0; rewardHide(); startLesson(n); };
     document.getElementById('retryBtn').onclick=function(){ rewardHide(); startLesson(state.lesson); };
-    document.getElementById('qListen').onclick=function(){ if(state.current) speak(state.current.type==='문장'? state.current.q.replace('___',state.current.a):state.current.a); };
+    document.getElementById('qListen').onclick=function(){ speakCurrent(); };
     document.getElementById('muteBtn').onclick=function(){ muted=!muted; this.textContent=muted?'🔇':'🔊'; if(master) master.gain.value=muted?0:0.9; };
 
     /* 렌더 루프 */
@@ -719,6 +722,6 @@
     })();
   })();
   </script>
-<!-- BUILD:20260629182258 -->
+<!-- BUILD:20260629182258 listenquiz1 -->
 </body>
 </html>
