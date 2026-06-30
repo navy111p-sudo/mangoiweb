@@ -178,8 +178,8 @@
   .hud{padding:7px 11px;gap:7px}
   .target{padding:7px 11px}
   .target .hint{display:none}          /* 안내문 숨겨 게임영역 확대(판정/조준 로직 그대로) */
-  .monster .face{font-size:42px}       /* 단어 몬스터 크게 */
-  .monster .word{font-size:16px;padding:3px 13px}
+  .monster .face{font-size:clamp(40px,6.2vmin,80px)}   /* 화면 크기에 따라 커짐(가로/태블릿/PC) */
+  .monster .word{font-size:clamp(15px,2.3vmin,28px);padding:3px 13px}
 </style>
 </head>
 <body>
@@ -361,7 +361,9 @@
   function ensureCtx(){
     if(!actx){ try{
       actx=new (window.AudioContext||window.webkitAudioContext)();
-      master=actx.createGain(); master.gain.value=0.85; master.connect(actx.destination);
+      master=actx.createGain(); master.gain.value=1.4;
+      var comp=actx.createDynamicsCompressor(); try{comp.threshold.value=-10;comp.knee.value=8;comp.ratio.value=12;comp.attack.value=0.003;comp.release.value=0.25;}catch(_){}
+      master.connect(comp); comp.connect(actx.destination);   // 마스터 게인↑ + 리미터로 클리핑 방지(체감 볼륨↑)
       var conv=actx.createConvolver(); conv.buffer=makeImpulse(0.55,2.6);   // 합성 리버브(총성 공간감)
       var rg=actx.createGain(); rg.gain.value=0.42; conv.connect(rg); rg.connect(master); revBus=conv;
     }catch(e){} }
@@ -618,6 +620,6 @@
   window.addEventListener('resize', function(){ var w=field.clientWidth; monsters.forEach(function(m){ if(m.x>w-66){ m.x=Math.max(8,w-86); m.el.style.left=m.x+'px'; } }); });
 })();
 </script>
-<!-- BUILD:20260629182258 gamesbig1 -->
+<!-- BUILD:20260629182258 gamesbig1 responsive1 -->
 </body>
 </html>

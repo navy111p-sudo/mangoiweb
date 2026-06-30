@@ -213,8 +213,8 @@
   #shoot .hud{padding:7px 11px;gap:7px}
   #shoot .target{padding:7px 11px}
   #shoot .target .hint{display:none}                       /* 안내문 숨겨 게임영역 확대(규칙은 그대로) */
-  #shoot .monster .face{font-size:42px}                    /* 단어 외계인 크게 */
-  #shoot .monster .word{font-size:16px;padding:3px 13px}
+  #shoot .monster .face{font-size:clamp(40px,6.2vmin,80px)}    /* 화면 크기에 따라 커짐(가로/태블릿/PC) */
+  #shoot .monster .word{font-size:clamp(15px,2.3vmin,28px);padding:3px 13px}
 
   /* ===== 낚시 화면 최대 확대 (모바일 세로) — 캔버스가 남는 세로공간 전부 차지, 물고기/배/산호 크게 ===== */
   #fish.scene{flex-direction:column}
@@ -222,8 +222,8 @@
   #fish .hud{padding:7px 11px;gap:7px}                      /* 상단바 슬림화로 게임영역 확대 */
   #fish .target{padding:7px 11px}
   #fish .target .hint{display:none}                         /* 안내문 숨겨 세로공간 회수(규칙은 그대로 동작) */
-  #fish .fish .face{font-size:42px}                         /* 물고기 더 크게 */
-  #fish .fish .word{font-size:16px;padding:3px 13px}
+  #fish .fish .face{font-size:clamp(40px,6.2vmin,80px)}     /* 물고기 — 화면 크기에 따라 커짐 */
+  #fish .fish .word{font-size:clamp(15px,2.3vmin,28px);padding:3px 13px}
   #fish .boat{width:150px;height:74px}
   #fish .boat .hull{font-size:58px}
   #fish .boat .fisher{font-size:31px;left:46px;bottom:24px}
@@ -548,7 +548,7 @@
 
   // 효과음 (WebAudio 합성) — 발사음 / 명중·폭발음 / 오답 버저
   var actx=null, _master=null;
-  function _ac(){ if(!actx){ try{ actx=new (window.AudioContext||window.webkitAudioContext)(); _master=actx.createGain(); _master.gain.value=(typeof SOUND_ON==='undefined'||SOUND_ON)?0.9:0.0; _master.connect(actx.destination); }catch(e){} } if(actx&&actx.state==='suspended'){ try{ actx.resume(); }catch(e){} } }
+  function _ac(){ if(!actx){ try{ actx=new (window.AudioContext||window.webkitAudioContext)(); _master=actx.createGain(); _master.gain.value=(typeof SOUND_ON==='undefined'||SOUND_ON)?1.5:0.0; var _comp=actx.createDynamicsCompressor(); try{_comp.threshold.value=-10;_comp.knee.value=8;_comp.ratio.value=12;_comp.attack.value=0.003;_comp.release.value=0.25;}catch(_){} _master.connect(_comp); _comp.connect(actx.destination); }catch(e){} } if(actx&&actx.state==='suspended'){ try{ actx.resume(); }catch(e){} } }   // 마스터 게인↑ + 리미터로 클리핑 방지(체감 볼륨↑)
   function _noise(d){ var L=Math.max(1,Math.floor(actx.sampleRate*d)),b=actx.createBuffer(1,L,actx.sampleRate),z=b.getChannelData(0); for(var i=0;i<L;i++)z[i]=Math.random()*2-1; var s=actx.createBufferSource(); s.buffer=b; return s; }
   function _ck(t,v,h,d){ var n=_noise(d),f=actx.createBiquadFilter(),g=actx.createGain(); f.type='highpass'; f.frequency.value=h; n.connect(f); f.connect(g); g.connect(_master); g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.001,t+d); n.start(t); n.stop(t+d+0.02); }
   function _tp(t,v,a,b,d){ var o=actx.createOscillator(),g=actx.createGain(); o.type='sine'; o.frequency.setValueAtTime(a,t); o.frequency.exponentialRampToValueAtTime(b,t+d); o.connect(g); g.connect(_master); g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.001,t+d); o.start(t); o.stop(t+d+0.02); }
@@ -583,7 +583,7 @@
         라우팅: bgm.gain → _master → destination  (그래서 🔊 off 면 BGM도 같이 꺼짐)
   ========================================================================= */
   var SOUND_ON = (function(){ try{ return localStorage.getItem('ems_sound')!=='0'; }catch(e){ return true; } })();
-  function applyMasterGain(){ if(_master&&actx){ try{ _master.gain.value = SOUND_ON ? 0.9 : 0.0; }catch(e){} } }
+  function applyMasterGain(){ if(_master&&actx){ try{ _master.gain.value = SOUND_ON ? 1.5 : 0.0; }catch(e){} } }
 
   // ── 배경음악 (파일 없이 Web Audio 합성) : 잔잔한 바닷속 패드 + 펜타토닉 물방울 ──
   //    시간이 부족해질수록 urgency↑ → 템포 빨라지고 베이스 쿵쿵(위기감)
@@ -1020,14 +1020,14 @@
   // 🔊 첨벙 물소리 (WebAudio — 감쇠하는 밴드패스 노이즈)
   function splashSound(){
     try{
-      if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)();
+      _ac(); if(!actx) return;
       var dur=0.34, len=Math.floor(actx.sampleRate*dur), buf=actx.createBuffer(1,len,actx.sampleRate), d=buf.getChannelData(0);
       for(var i=0;i<len;i++){ d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2); }   // 감쇠 노이즈
       var src=actx.createBufferSource(); src.buffer=buf;
       var bp=actx.createBiquadFilter(); bp.type='bandpass'; bp.Q.value=0.8;
       var t=actx.currentTime; bp.frequency.setValueAtTime(1300,t); bp.frequency.exponentialRampToValueAtTime(380,t+dur);
-      var g=actx.createGain(); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.5,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
-      src.connect(bp); bp.connect(g); g.connect(actx.destination); src.start(t); src.stop(t+dur);
+      var g=actx.createGain(); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.75,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+      src.connect(bp); bp.connect(g); g.connect(_master||actx.destination); src.start(t); src.stop(t+dur);   // 마스터(리미터) 경유로 더 크게
     }catch(e){}
   }
   // 물결 파동 링
@@ -1351,6 +1351,6 @@
 
 })();
 </script>
-<!-- BUILD:20260629182258 fishbig1 shootbig1 -->
+<!-- BUILD:20260629182258 fishbig1 shootbig1 responsive1 -->
 </body>
 </html>
