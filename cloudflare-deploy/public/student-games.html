@@ -465,16 +465,16 @@ function gameRenderBalloon(){
     '</div>' +
     '<div id="balloon-stage" style="position:relative;height:380px;background:linear-gradient(180deg,#0c4a6e 0%,#0f172a 100%);border-radius:14px;overflow:hidden;border:2px solid #475569">';
   const colors = [
-    {bg:'linear-gradient(135deg,#ef4444,#b91c1c)', shadow:'rgba(239,68,68,0.6)'},
-    {bg:'linear-gradient(135deg,#3b82f6,#1d4ed8)', shadow:'rgba(59,130,246,0.6)'},
-    {bg:'linear-gradient(135deg,#10b981,#047857)', shadow:'rgba(16,185,129,0.6)'},
-    {bg:'linear-gradient(135deg,#f59e0b,#d97706)', shadow:'rgba(245,158,11,0.6)'}
+    {bg:'linear-gradient(135deg,#ef4444,#b91c1c)', shadow:'rgba(239,68,68,0.6)', solid:'#ef4444'},
+    {bg:'linear-gradient(135deg,#3b82f6,#1d4ed8)', shadow:'rgba(59,130,246,0.6)', solid:'#3b82f6'},
+    {bg:'linear-gradient(135deg,#10b981,#047857)', shadow:'rgba(16,185,129,0.6)', solid:'#10b981'},
+    {bg:'linear-gradient(135deg,#f59e0b,#d97706)', shadow:'rgba(245,158,11,0.6)', solid:'#f59e0b'}
   ];
   balloons.forEach((b, i) => {
     const left = 5 + i * 22;
     const startTop = -80 - (i * 60);
     const c = colors[i];
-    html += '<div class="balloon" data-en="' + b.en + '" onclick="gameBalloonPop(this)" ' +
+    html += '<div class="balloon" data-en="' + b.en + '" data-color="' + c.solid + '" onclick="gameBalloonPop(this)" ' +
       'style="position:absolute;top:' + startTop + 'px;left:' + left + '%;width:90px;height:110px;' +
       'background:' + c.bg + ';border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;' +
       'box-shadow:0 8px 30px ' + c.shadow + ', inset -10px -10px 30px rgba(0,0,0,0.2);' +
@@ -489,7 +489,7 @@ function gameRenderBalloon(){
   document.getElementById('game-area').innerHTML = html;
 
   let elapsed = 0;
-  const SPEED = 1.5;
+  const SPEED = 3.5;   // 더 빠르게 떨어짐(난이도↑, 체감되게)
   if (_gameState.balloonTimer) clearInterval(_gameState.balloonTimer);
   _gameState.balloonTimer = setInterval(() => {
     if (_gameState.current.popped) return;
@@ -520,16 +520,45 @@ function gameBalloonPopSound(){
     if(!window._gameAC) window._gameAC = new AC();
     var ac = window._gameAC; if(ac.state==='suspended'){ try{ ac.resume(); }catch(_){} }
     var t = ac.currentTime;
-    var dur=0.18, len=Math.floor(ac.sampleRate*dur), buf=ac.createBuffer(1,len,ac.sampleRate), d=buf.getChannelData(0);
-    for(var i=0;i<len;i++){ d[i]=(Math.random()*2-1)*Math.pow(1-i/len,1.5); }
+    // 리미터(컴프레서)+메이크업 게인 → 훨씬 크되 클리핑 방지
+    var comp=ac.createDynamicsCompressor(); try{comp.threshold.value=-12;comp.knee.value=6;comp.ratio.value=16;comp.attack.value=0.001;comp.release.value=0.25;}catch(_){}
+    var mk=ac.createGain(); mk.gain.value=2.5; comp.connect(mk); mk.connect(ac.destination);
+    var dur=0.2, len=Math.floor(ac.sampleRate*dur), buf=ac.createBuffer(1,len,ac.sampleRate), d=buf.getChannelData(0);
+    for(var i=0;i<len;i++){ d[i]=(Math.random()*2-1)*Math.pow(1-i/len,1.4); }
     var src=ac.createBufferSource(); src.buffer=buf;
-    var hp=ac.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=600;
-    var ng=ac.createGain(); ng.gain.setValueAtTime(0.0001,t); ng.gain.exponentialRampToValueAtTime(0.9,t+0.005); ng.gain.exponentialRampToValueAtTime(0.0001,t+dur);
-    src.connect(hp); hp.connect(ng); ng.connect(ac.destination); src.start(t); src.stop(t+dur);
+    var hp=ac.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=500;
+    var ng=ac.createGain(); ng.gain.setValueAtTime(0.0001,t); ng.gain.exponentialRampToValueAtTime(1.7,t+0.004); ng.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    src.connect(hp); hp.connect(ng); ng.connect(comp); src.start(t); src.stop(t+dur);
     var o=ac.createOscillator(), og=ac.createGain();
-    o.type='sine'; o.frequency.setValueAtTime(420,t); o.frequency.exponentialRampToValueAtTime(70,t+0.12);
-    og.gain.setValueAtTime(0.0001,t); og.gain.exponentialRampToValueAtTime(0.7,t+0.005); og.gain.exponentialRampToValueAtTime(0.0001,t+0.16);
-    o.connect(og); og.connect(ac.destination); o.start(t); o.stop(t+0.18);
+    o.type='sine'; o.frequency.setValueAtTime(440,t); o.frequency.exponentialRampToValueAtTime(60,t+0.13);
+    og.gain.setValueAtTime(0.0001,t); og.gain.exponentialRampToValueAtTime(1.5,t+0.004); og.gain.exponentialRampToValueAtTime(0.0001,t+0.17);
+    o.connect(og); og.connect(comp); o.start(t); o.stop(t+0.2);
+    var o2=ac.createOscillator(), og2=ac.createGain();
+    o2.type='triangle'; o2.frequency.setValueAtTime(900,t); o2.frequency.exponentialRampToValueAtTime(180,t+0.08);
+    og2.gain.setValueAtTime(0.0001,t); og2.gain.exponentialRampToValueAtTime(0.9,t+0.004); og2.gain.exponentialRampToValueAtTime(0.0001,t+0.1);
+    o2.connect(og2); og2.connect(comp); o2.start(t); o2.stop(t+0.12);
+  }catch(_){}
+}
+// 🎈 풍선 터질 때 산산조각: 고무 조각+가루 파편이 사방으로 흩어지며 페이드아웃 + 살짝 플래시
+function gameBalloonBurst(stage, cx, cy, color){
+  try{
+    if(!stage) return; var frags=[], N=22;
+    for(var i=0;i<N;i++){
+      var el=document.createElement('div'), shard=(i%3!==0), sz=shard?(6+Math.random()*11):(3+Math.random()*4);
+      el.style.cssText='position:absolute;left:'+cx+'px;top:'+cy+'px;width:'+sz+'px;height:'+(shard?(sz*0.66):sz)+'px;background:'+color+';'+(shard?('border-radius:'+(Math.random()<0.5?'2px':'50% 50% 0 50%')):'border-radius:50%')+';pointer-events:none;will-change:transform,opacity;box-shadow:0 0 5px '+color+';z-index:6';
+      stage.appendChild(el);
+      var ang=Math.random()*Math.PI*2, sp=3.5+Math.random()*8.5;
+      frags.push({el:el,x:cx,y:cy,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-2.5,rot:Math.random()*360,vrot:(Math.random()-0.5)*44});
+    }
+    var fr=0, MAX=44;
+    (function step(){ fr++; var p=fr/MAX;
+      for(var i=0;i<frags.length;i++){ var f=frags[i]; f.vy+=0.6; f.x+=f.vx; f.y+=f.vy; f.rot+=f.vrot;
+        f.el.style.transform='translate('+(f.x-cx)+'px,'+(f.y-cy)+'px) rotate('+f.rot+'deg)'; f.el.style.opacity=String(Math.max(0,1-p*1.05)); }
+      if(fr<MAX){ requestAnimationFrame(step); } else { for(var j=0;j<frags.length;j++){ var e=frags[j].el; if(e.parentNode) e.parentNode.removeChild(e); } }
+    })();
+    var fl=document.createElement('div'); fl.style.cssText='position:absolute;left:'+(cx-45)+'px;top:'+(cy-45)+'px;width:90px;height:90px;border-radius:50%;background:radial-gradient(circle,'+color+'cc,transparent 70%);pointer-events:none;z-index:5;opacity:0.85';
+    stage.appendChild(fl); var ff=0;
+    (function flStep(){ ff++; fl.style.opacity=String(Math.max(0,0.85*(1-ff/14))); fl.style.transform='scale('+(1+ff*0.14)+')'; if(ff<14){ requestAnimationFrame(flStep); } else if(fl.parentNode){ fl.parentNode.removeChild(fl); } })();
   }catch(_){}
 }
 function gameBalloonPop(bl){
@@ -539,6 +568,7 @@ function gameBalloonPop(bl){
   gameBalloonPopSound();
   setTimeout(function(){ try{ window.gameSpeak && gameSpeak(en); }catch(_){} }, 320);
   const correct = en === _gameState.current.answer;
+  try{ var _bst=document.getElementById('balloon-stage'); if(_bst){ var _cx=bl.offsetLeft+bl.offsetWidth/2, _cy=bl.offsetTop+bl.offsetHeight/2; gameBalloonBurst(_bst,_cx,_cy,bl.dataset.color||'#ef4444'); } }catch(_){}  // 산산조각 파편
   bl.style.transform = 'scale(1.3)';
   bl.style.opacity = '0';
   if (_gameState.balloonTimer) clearInterval(_gameState.balloonTimer);
