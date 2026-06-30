@@ -8,43 +8,42 @@
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%}
   body{background:#070b16;font-family:'Noto Sans KR','Segoe UI',sans-serif;color:#eaf2ff;overflow:hidden}
-  #mango-battle-3d{position:relative;width:100%;height:100vh;height:100dvh;overflow:hidden;background:#070b16}
-  #battleCanvas{display:block;width:100%;height:100%}
-  /* 퀴즈가 뜨면 3D 캔버스를 화면 상단으로만 한정(하단 42dvh는 퀴즈 바 전용) → 캐릭터와 패널이 절대 겹치지 않음 */
-  #mango-battle-3d.quiz-open #battleCanvas{height:58dvh;height:58vh}
+  #mango-battle-3d{position:relative;width:100%;height:100vh;height:100dvh;overflow:hidden;background:#070b16;display:flex;flex-direction:column}
+  #battleCanvas{display:block;width:100%;flex:1 1 auto;min-height:0}
+  /* 퀴즈 바는 flex 흐름의 맨 아래에 컴팩트하게(내용 높이만), 나머지 세로 공간은 전부 3D 캔버스가 차지 → 빈 검은 공간 0 */
   #mango-battle-3d.quiz-open .voicebadge{display:none}
   .flash{position:absolute;inset:0;z-index:4;pointer-events:none;opacity:0;background:radial-gradient(120% 90% at 50% 55%,rgba(255,255,255,.55),transparent 60%)}
 
-  .hud{position:absolute;top:12px;left:0;right:0;z-index:5;display:flex;justify-content:space-between;align-items:flex-start;padding:0 16px;pointer-events:none}
-  .nameplate{background:rgba(8,14,30,.6);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:7px 12px;backdrop-filter:blur(4px);text-shadow:0 1px 2px #000;min-width:152px}
-  .nameplate .nm{font-size:13px;font-weight:800}
+  .hud{position:absolute;top:4px;left:0;right:0;z-index:5;display:flex;justify-content:space-between;align-items:flex-start;padding:0 8px;pointer-events:none}
+  .nameplate{background:rgba(8,14,30,.55);border:1px solid rgba(255,255,255,.13);border-radius:9px;padding:3px 8px;backdrop-filter:blur(4px);text-shadow:0 1px 2px #000;min-width:104px;max-width:38vw}
+  .nameplate .nm{font-size:10px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .nameplate.p .nm{color:#7fb0ff} .nameplate.e .nm{color:#ff8a8a}
-  .nameplate .hp{margin-top:5px;height:9px;border-radius:999px;background:rgba(255,255,255,.14);overflow:hidden}
+  .nameplate .hp{margin-top:3px;height:6px;border-radius:999px;background:rgba(255,255,255,.14);overflow:hidden}
   .nameplate .hp i{display:block;height:100%;border-radius:999px;transition:width .35s ease}
   .nameplate.p .hp i{background:linear-gradient(90deg,#3b82f6,#60a5fa)}
   .nameplate.e .hp i{background:linear-gradient(90deg,#ef4444,#f87171)}
-  .topmid{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:5;text-align:center;pointer-events:none}
-  .topmid .lesson{font-size:12px;font-weight:800;color:#fbbf24;text-shadow:0 1px 3px #000}
-  .topmid .score{font-size:11px;color:#9fb3d6;font-weight:700;margin-top:2px}
-  .iconbtn{position:absolute;top:12px;right:16px;z-index:8;background:rgba(8,14,30,.7);border:1px solid rgba(255,255,255,.16);color:#eaf2ff;border-radius:10px;width:38px;height:38px;font-size:16px;cursor:pointer}
+  .topmid{position:absolute;top:3px;left:50%;transform:translateX(-50%);z-index:5;text-align:center;pointer-events:none;max-width:38vw}
+  .topmid .lesson{font-size:10px;font-weight:800;color:#fbbf24;text-shadow:0 1px 3px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .topmid .score{font-size:9.5px;color:#9fb3d6;font-weight:700;margin-top:1px;white-space:nowrap}
+  .iconbtn{position:absolute;top:3px;right:8px;z-index:8;background:rgba(8,14,30,.7);border:1px solid rgba(255,255,255,.16);color:#eaf2ff;border-radius:9px;width:30px;height:30px;font-size:14px;cursor:pointer}
   .iconbtn:active{transform:scale(.94)}
 
   #toast{position:absolute;top:70px;left:50%;transform:translateX(-50%) scale(.8);z-index:6;font-weight:900;font-size:22px;letter-spacing:.5px;opacity:0;pointer-events:none;text-shadow:0 2px 10px rgba(0,0,0,.6);transition:transform .25s ease,opacity .25s ease;white-space:nowrap}
 
-  #quiz{position:fixed;left:0;right:0;bottom:0;z-index:20;width:100%;height:42dvh;height:42vh;overflow:auto;background:rgba(8,12,24,.92);border-top:1px solid rgba(255,255,255,.16);border-radius:16px 16px 0 0;padding:10px 14px calc(14px + env(safe-area-inset-bottom));backdrop-filter:blur(7px);box-shadow:0 -10px 30px rgba(0,0,0,.5);display:none}
-  #quiz .qrow{display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:4px}
+  #quiz{position:relative;z-index:20;width:100%;flex:0 0 auto;max-height:50dvh;overflow:auto;background:rgba(8,12,24,.92);border-top:1px solid rgba(255,255,255,.16);border-radius:16px 16px 0 0;padding:7px 14px calc(8px + env(safe-area-inset-bottom));backdrop-filter:blur(7px);box-shadow:0 -10px 30px rgba(0,0,0,.5);display:none}
+  #quiz .qrow{display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:3px}
   #quiz .qtype{font-size:10.5px;font-weight:800;color:#0b1020;background:#fbbf24;border-radius:999px;padding:2px 9px}
-  #quiz .q{font-size:16px;font-weight:900;text-align:center;line-height:1.3;margin:1px 0 3px}
+  #quiz .q{font-size:15.5px;font-weight:900;text-align:center;line-height:1.25;margin:0 0 2px}
   #quiz .q .bl{color:#fbbf24}
-  #quiz .qhint{text-align:center;font-size:11.5px;color:#9fb3d6;margin-bottom:6px}
+  #quiz .qhint{text-align:center;font-size:11px;color:#9fb3d6;margin-bottom:5px}
   #quiz .choices{display:grid;grid-template-columns:1fr 1fr;gap:6px;max-width:560px;margin:0 auto}
-  #quiz .ch{font-family:inherit;font-size:15px;font-weight:800;color:#eaf2ff;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.18);border-radius:12px;padding:9px 10px;cursor:pointer;transition:.12s}
+  #quiz .ch{font-family:inherit;font-size:14.5px;font-weight:800;color:#eaf2ff;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.18);border-radius:11px;padding:8px 10px;cursor:pointer;transition:.12s}
   #quiz .ch:hover{background:rgba(255,255,255,.14)}
   #quiz .ch:active{transform:scale(.97)}
   #quiz .ch.right{background:#22c55e;border-color:#22c55e;color:#04220f}
   #quiz .ch.wrong{background:#ef4444;border-color:#ef4444;color:#fff;animation:qshake .35s}
   @keyframes qshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
-  #quiz .listen{display:block;margin:6px auto 0;background:rgba(34,197,94,.2);border:1px solid rgba(34,197,94,.5);color:#bdf3cf;font-size:12px;font-weight:800;padding:6px 14px;border-radius:999px;cursor:pointer;font-family:inherit}
+  #quiz .listen{display:block;margin:5px auto 0;background:rgba(34,197,94,.2);border:1px solid rgba(34,197,94,.5);color:#bdf3cf;font-size:12px;font-weight:800;padding:5px 14px;border-radius:999px;cursor:pointer;font-family:inherit}
 
   .overlay{position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;background:rgba(3,5,12,.84);backdrop-filter:blur(6px);padding:16px;text-align:center}
   .overlay.on{display:flex}
@@ -171,7 +170,7 @@
     var canvas=document.getElementById('battleCanvas'), wrap=document.getElementById('mango-battle-3d');
     var W=canvas.clientWidth, H=canvas.clientHeight||wrap.clientHeight;
     var scene=new THREE.Scene(); scene.background=new THREE.Color(0x070b16); scene.fog=new THREE.Fog(0x070b16,20,60);
-    var camera=new THREE.PerspectiveCamera(46,W/H,0.1,200); camera.position.set(0,4.2,15.5); camera.lookAt(0,2.1,0); scene.add(camera);
+    var camera=new THREE.PerspectiveCamera(56,W/H,0.1,200); camera.position.set(0,4.7,17); camera.lookAt(0,2.82,0); scene.add(camera); // 세로 화면용: 줌아웃+시선 상향으로 캐릭터 전체가 HUD 아래·패널 위에 들어오게
     var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true}); renderer.setPixelRatio(Math.min(window.devicePixelRatio,2)); renderer.setSize(W,H,false); renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
     renderer.outputEncoding=THREE.sRGBEncoding; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.16;
 
