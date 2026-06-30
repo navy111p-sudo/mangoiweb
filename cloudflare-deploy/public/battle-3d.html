@@ -444,6 +444,10 @@
         var slit=new THREE.Mesh(new THREE.SphereGeometry(0.15,18,16),slitM); slit.position.set(ex,2.94,0.97); slit.scale.set(0.36,1.7,1); add(slit); // 세로동공
         var gl=new THREE.Mesh(new THREE.SphereGeometry(0.04,10,8),glintM); gl.position.set(ex+0.07,3.05,1.0); add(gl);
         boss.userData.irisM=irisM; });
+      // 코(nose): 두 눈 중앙 아래·머리 표면에 돌출 — 콧등 + 콧등 끝 + 콧구멍 2개(같은 비늘 피부 bodyM, 콧구멍은 짙은 올리브 rimM). add()로 머리 그룹 자식이라 회전/쓰러짐 애니에 같이 따라감
+      var noseBridge=new THREE.Mesh(new THREE.SphereGeometry(0.2,18,16),bodyM); noseBridge.position.set(0,2.62,0.94); noseBridge.scale.set(0.62,1.05,0.85); noseBridge.rotation.x=0.32; add(noseBridge);
+      var noseTip=new THREE.Mesh(new THREE.SphereGeometry(0.14,16,14),bodyM); noseTip.position.set(0,2.49,1.03); noseTip.scale.set(1.1,0.72,0.95); add(noseTip);
+      [-0.083,0.083].forEach(function(nx){ var nostril=new THREE.Mesh(new THREE.SphereGeometry(0.043,12,10),rimM); nostril.position.set(nx,2.46,1.09); nostril.scale.set(1,1.3,0.85); add(nostril); });
       // 8개 다리(촉수): 방사형 휨 + 끝으로 테이퍼 + 마디 + 빨판(작은 원형 돌기 반복)
       for(var i=0;i<8;i++){
         var a=(i/8)*Math.PI*2+0.25;
