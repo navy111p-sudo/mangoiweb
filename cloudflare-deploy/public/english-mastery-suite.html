@@ -207,6 +207,51 @@
   .catch-cnt{position:absolute;top:10px;right:12px;z-index:10;font-size:11px;font-weight:800;color:var(--gold);
     background:rgba(8,16,34,.6);border:1px solid var(--line);border-radius:8px;padding:3px 9px;pointer-events:none}
 
+  /* ===== 낚시 화면 최대 확대 (모바일 세로) — 캔버스가 남는 세로공간 전부 차지, 물고기/배/산호 크게 ===== */
+  #fish.scene{flex-direction:column}
+  #fish .field{flex:1 1 auto;min-height:0}                 /* 빈 공간 0 — 필드가 남는 높이 전부 차지 */
+  #fish .hud{padding:7px 11px;gap:7px}                      /* 상단바 슬림화로 게임영역 확대 */
+  #fish .target{padding:7px 11px}
+  #fish .target .hint{display:none}                         /* 안내문 숨겨 세로공간 회수(규칙은 그대로 동작) */
+  #fish .fish .face{font-size:42px}                         /* 물고기 더 크게 */
+  #fish .fish .word{font-size:16px;padding:3px 13px}
+  #fish .boat{width:150px;height:74px}
+  #fish .boat .hull{font-size:58px}
+  #fish .boat .fisher{font-size:31px;left:46px;bottom:24px}
+  #fish .boat .rod{left:70px;bottom:38px;width:74px}
+  #fish .weed{filter:drop-shadow(0 0 7px rgba(0,0,0,.5))}
+  #fish .hook{font-size:20px}
+  /* HUD 아이콘 토글 버튼 (🔊 전체 소리 / 🎵 배경음악) */
+  .iconbtn{background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:9px;color:var(--tx);
+    font-size:15px;line-height:1;padding:6px 8px;cursor:pointer;font-family:inherit}
+  .iconbtn:active{transform:scale(.93)}
+  .iconbtn.off{opacity:.38;text-decoration:line-through}
+  #fishTimer{font-variant-numeric:tabular-nums}
+  #fishTimer.low{background:rgba(239,68,68,.22);border-color:rgba(239,68,68,.55);color:#fecaca;animation:pulse 1s infinite}
+  /* 상어 (난이도별 출몰) */
+  #fish .shark{position:absolute;z-index:6;font-size:48px;pointer-events:none;will-change:transform;
+    filter:drop-shadow(0 5px 9px rgba(0,0,0,.55))}
+  #fish .shark.flip{transform:scaleX(-1)}
+  /* 집중모드(Focus) 화면 연출 */
+  #fish .field.focus::after{content:'';position:absolute;inset:0;z-index:3;pointer-events:none;
+    box-shadow:inset 0 0 130px 34px rgba(251,191,36,.28);animation:focusPulse 1.2s ease-in-out infinite}
+  @keyframes focusPulse{0%,100%{opacity:.55}50%{opacity:1}}
+  /* 난이도 선택 (시작 화면) */
+  .diff-pick{display:flex;flex-direction:column;gap:7px;background:rgba(255,255,255,.05);border:1px solid var(--line);
+    border-radius:12px;padding:11px 12px;margin-bottom:14px;text-align:left}
+  .diff-pick .lab{font-size:11px;font-weight:700;color:var(--sub)}
+  .diff-pick .diffs{display:flex;gap:7px}
+  .diff-pick .diffs button{flex:1;background:rgba(16,185,129,.12);border:1px solid var(--line);color:var(--sub);
+    font-size:13px;font-weight:800;border-radius:9px;padding:9px 6px;cursor:pointer;font-family:inherit;transition:.15s}
+  .diff-pick .diffs button:active{transform:scale(.96)}
+  .diff-pick .diffs button.on{background:rgba(16,185,129,.28);border-color:var(--emerald);color:#bbf7d0;
+    box-shadow:0 0 0 1px var(--emerald) inset}
+  /* 일시정지 베일 (앱 전환 시) */
+  .pause-veil{position:absolute;inset:0;z-index:55;display:none;flex-direction:column;align-items:center;justify-content:center;
+    gap:6px;background:rgba(4,9,22,.82);backdrop-filter:blur(4px);color:var(--tx);font-size:26px;font-weight:900;text-align:center}
+  .pause-veil.show{display:flex}
+  .pause-veil small{font-size:13px;font-weight:600;color:var(--sub)}
+
   /* ===================== 공유 이펙트 ===================== */
   .spark{position:absolute;width:7px;height:7px;border-radius:50%;background:var(--gold);pointer-events:none;z-index:9}
   .floatscore{position:absolute;font-weight:900;font-size:20px;pointer-events:none;z-index:12;animation:floatup .8s forwards;text-shadow:0 2px 6px rgba(0,0,0,.6)}
@@ -286,6 +331,15 @@
         <div class="presets" id="presets"></div>
       </div>
 
+      <div class="diff-pick" id="diffPick">
+        <span class="lab">⚙️ 난이도 (Difficulty) · 낚시 게임</span>
+        <div class="diffs">
+          <button data-diff="easy">🐢 쉬움</button>
+          <button data-diff="normal" class="on">🐟 보통</button>
+          <button data-diff="hard">🦈 어려움</button>
+        </div>
+      </div>
+
       <div class="game-grid">
         <button class="game-btn shoot" data-game="shoot">
           <span class="ic">👽</span><span class="nm">Galactic Word Hunter</span><span class="en">우주 단어 슈팅</span>
@@ -328,7 +382,9 @@
     <div class="hud">
       <button class="home" data-home>🏠</button>
       <div class="stat" id="fishScore"><span class="lab">점수</span><span class="val">0</span></div>
-      <span class="lvlpill" id="fishStage">심해 임무</span>
+      <span class="lvlpill" id="fishTimer">⏱ 1:10</span>
+      <button class="iconbtn" id="fishSound" title="전체 소리 켜기/끄기">🔊</button>
+      <button class="iconbtn" id="fishMusic" title="배경음악 켜기/끄기">🎵</button>
       <div class="voice-badge" id="fishVoice">🔊 음성 준비 중…</div>
     </div>
     <div class="target">
@@ -352,6 +408,7 @@
       <div class="fline" id="fishLine"></div>
       <div class="hook" id="hook">🪝</div>
       <div class="catch-cnt" id="catchCnt">0 / 0</div>
+      <div class="pause-veil" id="fishPause">⏸ 일시정지<small>화면으로 돌아오면 이어서 진행돼요</small></div>
     </div>
   </section>
 
@@ -467,7 +524,7 @@
   }
   if(synth){ pickVoice(); synth.onvoiceschanged = pickVoice; }
   function speak(text, rate, cb){
-    if(!synth){ if(cb) cb(); return; }
+    if(!synth || !SOUND_ON){ if(cb) cb(); return; }   // 🔊 off → TTS 음소거(흐름은 유지)
     try{
       synth.cancel();
       var u = new SpeechSynthesisUtterance(text);
@@ -482,7 +539,7 @@
 
   // 효과음 (WebAudio 합성) — 발사음 / 명중·폭발음 / 오답 버저
   var actx=null, _master=null;
-  function _ac(){ if(!actx){ try{ actx=new (window.AudioContext||window.webkitAudioContext)(); _master=actx.createGain(); _master.gain.value=0.9; _master.connect(actx.destination); }catch(e){} } if(actx&&actx.state==='suspended'){ try{ actx.resume(); }catch(e){} } }
+  function _ac(){ if(!actx){ try{ actx=new (window.AudioContext||window.webkitAudioContext)(); _master=actx.createGain(); _master.gain.value=(typeof SOUND_ON==='undefined'||SOUND_ON)?0.9:0.0; _master.connect(actx.destination); }catch(e){} } if(actx&&actx.state==='suspended'){ try{ actx.resume(); }catch(e){} } }
   function _noise(d){ var L=Math.max(1,Math.floor(actx.sampleRate*d)),b=actx.createBuffer(1,L,actx.sampleRate),z=b.getChannelData(0); for(var i=0;i<L;i++)z[i]=Math.random()*2-1; var s=actx.createBufferSource(); s.buffer=b; return s; }
   function _ck(t,v,h,d){ var n=_noise(d),f=actx.createBiquadFilter(),g=actx.createGain(); f.type='highpass'; f.frequency.value=h; n.connect(f); f.connect(g); g.connect(_master); g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.001,t+d); n.start(t); n.stop(t+d+0.02); }
   function _tp(t,v,a,b,d){ var o=actx.createOscillator(),g=actx.createGain(); o.type='sine'; o.frequency.setValueAtTime(a,t); o.frequency.exponentialRampToValueAtTime(b,t+d); o.connect(g); g.connect(_master); g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.001,t+d); o.start(t); o.stop(t+d+0.02); }
@@ -509,6 +566,75 @@
   (function(){ var btn=document.getElementById('shootGun'); if(btn){ btn.addEventListener('click',function(){ _ac(); var i=EM_GUNS.findIndex(function(g){return g.id===emGun;}); emSetGun(EM_GUNS[(i+1)%EM_GUNS.length].id); }); } emSetGun(emGun); })();
   function sfxHit(){ try{ _ac(); if(!actx)return; var t=actx.currentTime; var n=_noise(0.4),f=actx.createBiquadFilter(),g=actx.createGain(); f.type='lowpass'; f.frequency.setValueAtTime(1500,t); f.frequency.exponentialRampToValueAtTime(120,t+0.35); n.connect(f); f.connect(g); g.connect(_master); g.gain.setValueAtTime(0.55,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.4); n.start(t); n.stop(t+0.42); _tp(t,0.5,150,40,0.35); }catch(e){} }   // 명중/폭발음
   function buzz(){ try{ _ac(); if(!actx)return; var o=actx.createOscillator(), g=actx.createGain(); o.type='sawtooth'; o.frequency.value=150; o.connect(g); g.connect(_master); var t=actx.currentTime; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.16,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+0.25); o.start(t); o.stop(t+0.27); }catch(e){} }
+
+  /* =========================================================================
+     1b) 🔊 전체 소리(SFX+TTS) / 🎵 배경음악 — 분리 제어
+        · SOUND_ON  : 전체 소리. off → _master 게인 0 + TTS 음소거 (BGM 포함)
+        · BGM_ON    : 배경음악만. off → bgm 게인 0 (효과음/발음은 유지)
+        라우팅: bgm.gain → _master → destination  (그래서 🔊 off 면 BGM도 같이 꺼짐)
+  ========================================================================= */
+  var SOUND_ON = (function(){ try{ return localStorage.getItem('ems_sound')!=='0'; }catch(e){ return true; } })();
+  function applyMasterGain(){ if(_master&&actx){ try{ _master.gain.value = SOUND_ON ? 0.9 : 0.0; }catch(e){} } }
+
+  // ── 배경음악 (파일 없이 Web Audio 합성) : 잔잔한 바닷속 패드 + 펜타토닉 물방울 ──
+  //    시간이 부족해질수록 urgency↑ → 템포 빨라지고 베이스 쿵쿵(위기감)
+  var BGM_ON = (function(){ try{ return localStorage.getItem('ems_bgm')!=='0'; }catch(e){ return true; } })();
+  var bgm = { gain:null, playing:false, paused:false, pad:[], beatTid:null, step:0, urgency:0 };
+  var BG_SCALE = [220.00, 261.63, 293.66, 329.63, 392.00, 440.00, 329.63, 261.63]; // A펜타토닉
+  function bgmEnsure(){ if(!actx) return false; if(!bgm.gain){ bgm.gain=actx.createGain(); bgm.gain.gain.value=0.0; bgm.gain.connect(_master); } return true; }
+  function bgmVol(){ return BGM_ON ? 0.9 : 0.0; }
+  function bgmPluck(freq,vol){ if(!actx)return; var t=actx.currentTime; var o=actx.createOscillator(),g=actx.createGain(),lp=actx.createBiquadFilter();
+    o.type='triangle'; o.frequency.value=freq; lp.type='lowpass'; lp.frequency.value=1700;
+    o.connect(lp); lp.connect(g); g.connect(bgm.gain); g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(vol,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+0.55); o.start(t); o.stop(t+0.6); }
+  function bgmBass(freq,vol){ if(!actx)return; var t=actx.currentTime; var o=actx.createOscillator(),g=actx.createGain();
+    o.type='sine'; o.frequency.setValueAtTime(freq*1.7,t); o.frequency.exponentialRampToValueAtTime(freq,t+0.12);
+    o.connect(g); g.connect(bgm.gain); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+0.32); o.start(t); o.stop(t+0.36); }
+  function bgmSchedule(){
+    if(!bgm.playing || bgm.paused) return;
+    var u = Math.max(0, Math.min(1, bgm.urgency));
+    bgmPluck(BG_SCALE[bgm.step % BG_SCALE.length], 0.05 + u*0.04);
+    if(u>0.45 && bgm.step%2===0) bgmBass(55, 0.12 + u*0.16);   // 위기: 베이스 쿵쿵
+    bgm.step++;
+    var interval = 620 - u*340;                                // 잔잔(620ms) → 긴박(280ms)
+    bgm.beatTid = setTimeout(bgmSchedule, interval);
+  }
+  function bgmStart(){
+    _ac(); if(!bgmEnsure()) return; if(bgm.playing) return;
+    bgm.playing=true; bgm.paused=false; bgm.step=0; bgm.urgency=0;
+    var pad=actx.createGain(), lp=actx.createBiquadFilter();
+    pad.gain.value=0.05; lp.type='lowpass'; lp.frequency.value=620; pad.connect(lp); lp.connect(bgm.gain);
+    [110, 164.81, 220].forEach(function(f){                    // 잔잔한 Am 패드(디튠)
+      var o=actx.createOscillator(), d=actx.createOscillator();
+      o.type='sine'; o.frequency.value=f; d.type='sine'; d.frequency.value=f*1.004;
+      o.connect(pad); d.connect(pad); o.start(); d.start(); bgm.pad.push(o,d);
+    });
+    bgm.gain.gain.cancelScheduledValues(actx.currentTime);
+    bgm.gain.gain.setValueAtTime(0.0001, actx.currentTime);
+    bgm.gain.gain.linearRampToValueAtTime(bgmVol(), actx.currentTime+1.2);
+    bgmSchedule();
+  }
+  function bgmStop(){
+    bgm.playing=false; bgm.paused=false; clearTimeout(bgm.beatTid); bgm.beatTid=null;
+    if(bgm.gain&&actx){ try{ bgm.gain.gain.cancelScheduledValues(actx.currentTime); bgm.gain.gain.linearRampToValueAtTime(0.0001, actx.currentTime+0.3); }catch(e){} }
+    bgm.pad.forEach(function(o){ try{ o.stop(actx.currentTime+0.4); }catch(e){} }); bgm.pad=[];
+  }
+  function bgmPause(){ if(!bgm.playing||bgm.paused)return; bgm.paused=true; clearTimeout(bgm.beatTid); bgm.beatTid=null;
+    if(bgm.gain&&actx){ try{ bgm.gain.gain.cancelScheduledValues(actx.currentTime); bgm.gain.gain.linearRampToValueAtTime(0.0001, actx.currentTime+0.2); }catch(e){} } }
+  function bgmResume(){ if(!bgm.playing||!bgm.paused)return; bgm.paused=false;
+    if(bgm.gain&&actx){ try{ bgm.gain.gain.cancelScheduledValues(actx.currentTime); bgm.gain.gain.linearRampToValueAtTime(bgmVol(), actx.currentTime+0.3); }catch(e){} }
+    bgmSchedule(); }
+  function bgmSetVol(){ if(bgm.gain&&actx&&!bgm.paused){ try{ bgm.gain.gain.cancelScheduledValues(actx.currentTime); bgm.gain.gain.linearRampToValueAtTime(bgmVol(), actx.currentTime+0.25); }catch(e){} } }
+
+  /* ── 난이도 (낚시 게임) ── 제한시간·상어 빈도·물고기 속도·집중모드 발동 콤보 ── */
+  var FISH_DIFFS = {
+    easy:   { label:'쉬움',   time:90, sharkEvery:15000, speed:[10,24], focusCombo:3 },
+    normal: { label:'보통',   time:70, sharkEvery:9000,  speed:[16,36], focusCombo:4 },
+    hard:   { label:'어려움', time:50, sharkEvery:5500,  speed:[24,50], focusCombo:5 }
+  };
+  var fishDiff = (function(){ try{ var d=localStorage.getItem('ems_diff'); return FISH_DIFFS[d]?d:'normal'; }catch(e){ return 'normal'; } })();
+  function fishCfg(){ return FISH_DIFFS[fishDiff] || FISH_DIFFS.normal; }
 
   /* =========================================================================
      2) 토스트
@@ -809,9 +935,17 @@
   ========================================================================= */
   var FI = {
     field:$('#fishField'), score:0, idx:0, words:[], fish:[], running:false,
-    combo:0, lastHit:0, lastTs:0, raf:null
+    combo:0, lastHit:0, lastTs:0, raf:null,
+    timeLeft:70, totalTime:70, secShown:-1, paused:false,
+    sharks:[], sharkAcc:0, focusActive:false, focusLeft:0
   };
   var boatEl=$('#boat'), fishLine=$('#fishLine'), hookEl=$('#hook'), catchCnt=$('#catchCnt'), fishCombo=$('#fishCombo'), fishScoreVal=$('#fishScore .val');
+  var fishTimerEl=$('#fishTimer'), fishPauseEl=$('#fishPause');
+  function fmtTime(s){ s=Math.max(0,Math.ceil(s)); var m=Math.floor(s/60); var r=s%60; return m+':'+(r<10?'0':'')+r; }
+  function updateTimer(){
+    var s=Math.max(0,FI.timeLeft); fishTimerEl.textContent='⏱ '+fmtTime(s);
+    fishTimerEl.classList.toggle('low', s<=15);
+  }
 
   // 낚싯대 끝(릴 기준점) 위치 — 회전된 막대 끝 #rodTip 의 실제 화면 좌표
   function rodTipPos(){ var fr=FI.field.getBoundingClientRect(), t=$('#rodTip').getBoundingClientRect();
@@ -826,13 +960,20 @@
   function resetLine(){ var rt=rodTipPos(); setLine(rt.x, rt.y+118); }   // 평소: 바늘이 물속에 드리워짐
 
   function fishStart(){
-    FI.score=0; FI.combo=0; FI.lastHit=0; FI.lastTs=0; FI.running=true;
-    fishScoreVal.textContent='0';
+    var cfg=fishCfg();
+    FI.score=0; FI.combo=0; FI.lastHit=0; FI.lastTs=0; FI.running=true; FI.paused=false;
+    FI.totalTime=cfg.time; FI.timeLeft=cfg.time; FI.secShown=-1;
+    FI.sharkAcc=0; FI.focusActive=false; FI.focusLeft=0;
+    clearSharks();
+    FI.field.classList.remove('focus'); fishPauseEl.classList.remove('show');
+    fishScoreVal.textContent='0'; updateTimer();
     if(synth){ try{ speak(' '); }catch(e){} }
+    _ac(); if(BGM_ON) bgmStart();        // 배경음악 시작(잔잔 → 시간 부족 시 긴박)
     makeBubbles();
     fishRound();
     cancelAnimationFrame(FI.raf); FI.raf=requestAnimationFrame(fishLoop);
   }
+  function clearSharks(){ FI.sharks.forEach(function(s){ if(s.el&&s.el.parentNode) s.el.remove(); }); FI.sharks=[]; }
   function makeBubbles(){
     if($('.bubble', FI.field)) return; // 한 번만
     for(var i=0;i<16;i++){
@@ -851,9 +992,10 @@
       el.className='fish'+(it.isTarget?'':' distractor');
       el.innerHTML='<span class="face">'+FISHES[Math.floor(Math.random()*FISHES.length)]+'</span><span class="word">'+it.word+'</span>';
       var dir = Math.random()<0.5?1:-1;
+      var sp = fishCfg().speed;
       var f={ el:el, word:it.word, isTarget:it.isTarget,
-        x:rand(10,Math.max(50,fw-100)), y:rand(86,Math.max(130,fh*0.72)),
-        vx:dir*rand(14,34), vy:rand(-8,8), home:null };
+        x:rand(10,Math.max(50,fw-100)), y:rand(90,Math.max(160,fh-130)),   // 세로 전체로 분산(아래 빈공간 제거)
+        vx:dir*rand(sp[0],sp[1]), vy:rand(-9,9), home:null };
       f.home={x:f.x,y:f.y};
       el.style.left=f.x+'px'; el.style.top=f.y+'px';
       if(dir<0) el.classList.add('flip');
@@ -922,6 +1064,7 @@
       rippleAt(cx, cy);                                         // 걸릴 때 물결
       burst(FI.field, cx, cy); floatScore(FI.field,'+100',cx,cy,true);
       if(FI.combo>=2) showCombo(fishCombo, FI.combo+' COMBO!');
+      maybeFocus();                                            // 콤보가 난이도 기준 도달 → 집중모드
       setTimeout(function(){                                    // ② 릴 감기: 물고기를 배로 끌어올림
         var bx=rt.x-(r.left-fr.left+r.width/2), by=rt.y-(r.top-fr.top+r.height/2);
         f.el.style.setProperty('--bx', bx+'px'); f.el.style.setProperty('--by', by+'px');
@@ -946,8 +1089,36 @@
       }, 520);
     }
   }
+  // 집중모드: 콤보가 난이도 기준 도달 시 발동(약 6초) — 시간 천천히, 물고기 느려짐
+  function maybeFocus(){
+    if(FI.focusActive || !FI.running) return;
+    if(FI.combo >= fishCfg().focusCombo){
+      FI.focusActive=true; FI.focusLeft=6;
+      FI.field.classList.add('focus');
+      showCombo(fishCombo, '🎯 집중모드!');
+      toast('🎯 집중모드! 시간이 천천히 흘러요', 'good');
+    }
+  }
+  // 상어 출몰(난이도별 빈도) — 다음 목표 물고기 근처를 지나가면 놀라서 도망
+  function spawnShark(){
+    if(!FI.running || FI.paused) return;
+    var fw=FI.field.clientWidth, fh=FI.field.clientHeight;
+    var dir=Math.random()<0.5?1:-1;
+    var el=document.createElement('div'); el.className='shark'+(dir>0?' flip':''); el.textContent='🦈';
+    var sh={ el:el, x: dir>0? -90 : fw+90, y:rand(120, Math.max(170, fh-150)), vx:dir*rand(130,190) };
+    el.style.left=sh.x+'px'; el.style.top=sh.y+'px';
+    FI.field.appendChild(el); FI.sharks.push(sh);
+  }
+  function fishTimeUp(){
+    if(!FI.running) return;
+    FI.running=false; cancelAnimationFrame(FI.raf); fishClear(); clearSharks(); bgmStop();
+    FI.field.classList.remove('focus');
+    showCombo(fishCombo, '⏰ 시간 종료!');
+    setTimeout(function(){ showResult('fish', FI.score, 'time'); }, 700);
+  }
   function fishSequenceDone(){
-    FI.running=false; cancelAnimationFrame(FI.raf); fishClear();
+    FI.running=false; cancelAnimationFrame(FI.raf); fishClear(); clearSharks(); bgmStop();
+    FI.field.classList.remove('focus');
     showCombo(fishCombo, '문장 완성! 🎣');
     setTimeout(function(){
       startMission(function(){ showResult('fish', FI.score); },
@@ -956,16 +1127,48 @@
   }
   function fishLoop(ts){
     if(!FI.running) return;
+    if(FI.paused){ FI.lastTs=ts; FI.raf=requestAnimationFrame(fishLoop); return; }  // 일시정지: 시간/물고기 정지
     if(!FI.lastTs) FI.lastTs=ts; var dt=Math.min(0.05,(ts-FI.lastTs)/1000); FI.lastTs=ts;
     var w=FI.field.clientWidth, h=FI.field.clientHeight;
+    var sMul = FI.focusActive ? 0.45 : 1;                       // 집중모드: 물고기 느려짐
+
+    // ── 제한시간 (집중모드 땐 천천히) + BGM 긴박도 ──
+    FI.timeLeft -= dt * (FI.focusActive ? 0.5 : 1);
+    var frac = FI.timeLeft / Math.max(1,FI.totalTime);          // 1 → 0
+    bgm.urgency = Math.max(0, Math.min(1, (0.5 - frac) / 0.5)); // 남은시간 50%부터 긴박↑
+    var sec=Math.ceil(Math.max(0,FI.timeLeft));
+    if(sec!==FI.secShown){ FI.secShown=sec; updateTimer(); }
+    if(FI.timeLeft<=0){ fishTimeUp(); return; }
+
+    // ── 집중모드 카운트다운 ──
+    if(FI.focusActive){ FI.focusLeft-=dt; if(FI.focusLeft<=0){ FI.focusActive=false; FI.field.classList.remove('focus'); } }
+
+    // ── 물고기 이동 ── (세로 전체 활용: 바닥 근처까지)
     for(var i=0;i<FI.fish.length;i++){ var f=FI.fish[i];
-      f.x+=f.vx*dt; f.y+=f.vy*dt;
+      f.x+=f.vx*dt*sMul; f.y+=f.vy*dt*sMul;
       if(f.x<6){ f.x=6; f.vx=Math.abs(f.vx); f.el.classList.add('flip'); }
       if(f.x>w-96){ f.x=w-96; f.vx=-Math.abs(f.vx); f.el.classList.remove('flip'); }
-      if(f.y<84){ f.y=84; f.vy=Math.abs(f.vy); }   // 수면/배 아래로만 헤엄
-      if(f.y>h-110){ f.y=h-110; f.vy=-Math.abs(f.vy); }
-      if(Math.random()<0.01) f.vy=rand(-10,10);
+      if(f.y<84){ f.y=84; f.vy=Math.abs(f.vy); }                // 수면/배 아래로만 헤엄
+      if(f.y>h-86){ f.y=h-86; f.vy=-Math.abs(f.vy); }           // 바닥 가까이까지(확대)
+      if(Math.random()<0.01) f.vy=rand(-11,11);
       f.el.style.left=f.x+'px'; f.el.style.top=f.y+'px';
+    }
+
+    // ── 상어 출몰 & 이동 ──
+    FI.sharkAcc += dt*1000;
+    if(FI.sharkAcc >= fishCfg().sharkEvery){ FI.sharkAcc=0; spawnShark(); }
+    for(var k=FI.sharks.length-1;k>=0;k--){ var sh=FI.sharks[k];
+      sh.x += sh.vx*dt; sh.el.style.left=sh.x+'px';
+      // 근처 물고기 놀래키기(도망 후 제자리 복귀)
+      for(var j=0;j<FI.fish.length;j++){ var ff=FI.fish[j];
+        if(Math.abs(ff.x-sh.x)<54 && Math.abs(ff.y-sh.y)<46 && !ff.el.classList.contains('escape')){
+          (function(fx){ fx.el.classList.add('escape');
+            setTimeout(function(){ if(!fx.el.isConnected)return; fx.el.classList.remove('escape');
+              fx.x=Math.max(8,Math.min(w-96,fx.home.x)); fx.y=fx.home.y; fx.el.style.left=fx.x+'px'; fx.el.style.top=fx.y+'px'; }, 520);
+          })(ff);
+        }
+      }
+      if(sh.x < -120 || sh.x > w+120){ if(sh.el.parentNode) sh.el.remove(); FI.sharks.splice(k,1); }
     }
     FI.raf=requestAnimationFrame(fishLoop);
   }
@@ -973,27 +1176,30 @@
   /* =========================================================================
      8) 결과 화면
   ========================================================================= */
-  function showResult(game, score){
+  function showResult(game, score, reason){
     var key = 'ems_best_'+game;
     var best = +(localStorage.getItem(key)||0);
     if(score>best){ best=score; try{ localStorage.setItem(key,best); }catch(e){} }
     // 수업 패널에 완료 보고(단어 순서 + 발음 + 말하기 3회 모두 통과)
-    toParent({type:'mangoi-game-complete', game:game, score:score, best:best, sentence:targetSentence});
-    var title = game==='shoot' ? '🚀 우주 임무 완료!' : '🌊 심해 임무 완료!';
+    toParent({type:'mangoi-game-complete', game:game, score:score, best:best, sentence:targetSentence, reason:reason||'clear'});
+    var timeUp = (reason==='time');
+    var title = timeUp ? '⏰ 시간 종료!' : (game==='shoot' ? '🚀 우주 임무 완료!' : '🌊 심해 임무 완료!');
+    var line2 = timeUp ? ('🏆 최고 '+best+'점 · 난이도 '+fishCfg().label) : ('🏆 최고 '+best+'점 · ✅ 말하기 3회 마스터');
+    var line3 = timeUp ? '• 제한시간 안에 더 많이 낚아보세요! 🎣' : '• 단어 순서 + 원어민 발음 + 말하기 3회를 모두 완료했어요!';
     $('#resultCard').innerHTML =
       '<h2>'+title+'</h2>'+
       '<div class="big">'+score+'점</div>'+
-      '<div class="best">🏆 최고 '+best+'점 · ✅ 말하기 3회 마스터</div>'+
+      '<div class="best">'+line2+'</div>'+
       '<div class="rules">'+
         '• <b>'+targetSentence+'</b><br>'+
-        '• 단어 순서 + 원어민 발음 + 말하기 3회를 모두 완료했어요!'+
+        line3+
       '</div>'+
       '<div class="row">'+
         '<button class="btn ghost" id="rsMenu">메뉴 🏠</button>'+
         '<button class="btn" id="rsAgain">다시 하기 ↻</button>'+
       '</div>';
     openOverlay('#resultOverlay');
-    $('#rsMenu').addEventListener('click', function(){ showScene('menu'); });
+    $('#rsMenu').addEventListener('click', function(){ closeOverlay('#resultOverlay'); goMenu(); });
     $('#rsAgain').addEventListener('click', function(){
       closeOverlay('#resultOverlay');
       if(game==='shoot') shootStart(); else fishStart();
@@ -1028,13 +1234,64 @@
     commitSentence();
     showScene(g); if(g==='fish') fishStart(); else shootStart();
   }
-  function goMenu(){ SH.running=false; FI.running=false; cancelAnimationFrame(SH.raf); cancelAnimationFrame(FI.raf); if(synth) synth.cancel(); showScene('menu'); }
+  function goMenu(){ SH.running=false; FI.running=false; FI.paused=false; cancelAnimationFrame(SH.raf); cancelAnimationFrame(FI.raf);
+    clearSharks(); bgmStop(); FI.field.classList.remove('focus'); fishPauseEl.classList.remove('show');
+    if(synth) synth.cancel(); showScene('menu'); }
 
   $$('.game-btn').forEach(function(btn){
     btn.addEventListener('click', function(){ launchGame(btn.getAttribute('data-game')); });
   });
   $$('[data-home]').forEach(function(b){ b.addEventListener('click', goMenu); });
   $$('[data-listen]').forEach(function(b){ b.addEventListener('click', function(){ speakSentence(); }); });
+
+  /* ----- 난이도 선택 (낚시) ----- */
+  (function(){
+    var wrap=$('#diffPick'); if(!wrap) return;
+    function paint(){ $$('button',wrap).forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-diff')===fishDiff); }); }
+    $$('button',wrap).forEach(function(b){
+      b.addEventListener('click', function(){
+        fishDiff=b.getAttribute('data-diff'); if(!FISH_DIFFS[fishDiff]) fishDiff='normal';
+        try{ localStorage.setItem('ems_diff',fishDiff); }catch(e){}
+        paint();
+      });
+    });
+    paint();
+  })();
+
+  /* ----- 🔊 전체 소리 / 🎵 배경음악 토글 (분리 제어) ----- */
+  function paintAudioBtns(){
+    var sb=$('#fishSound'), mb=$('#fishMusic');
+    if(sb) sb.classList.toggle('off', !SOUND_ON);
+    if(mb) mb.classList.toggle('off', !BGM_ON);
+  }
+  (function(){
+    var sb=$('#fishSound'), mb=$('#fishMusic');
+    if(sb) sb.addEventListener('click', function(){
+      SOUND_ON=!SOUND_ON; try{ localStorage.setItem('ems_sound', SOUND_ON?'1':'0'); }catch(e){}
+      _ac(); applyMasterGain();                       // _master 0/0.9 (SFX+BGM 동시) + TTS는 speak()에서 게이트
+      if(!SOUND_ON && synth) synth.cancel();
+      toast(SOUND_ON?'🔊 소리 켜짐':'🔇 소리 꺼짐', SOUND_ON?'good':'');
+      paintAudioBtns();
+    });
+    if(mb) mb.addEventListener('click', function(){
+      BGM_ON=!BGM_ON; try{ localStorage.setItem('ems_bgm', BGM_ON?'1':'0'); }catch(e){}
+      _ac();
+      if(BGM_ON){ if(FI.running && !bgm.playing) bgmStart(); else bgmSetVol(); }
+      else bgmSetVol();                                // 음악만 0 (효과음/발음 유지)
+      toast(BGM_ON?'🎵 배경음악 켜짐':'🎵 배경음악 꺼짐', BGM_ON?'good':'');
+      paintAudioBtns();
+    });
+    paintAudioBtns();
+  })();
+
+  /* ----- 앱/탭 전환 시 자동 일시정지 (visibilitychange) ----- */
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden){
+      if(FI.running && !FI.paused){ FI.paused=true; fishPauseEl.classList.add('show'); bgmPause(); if(synth) synth.cancel(); }
+    } else {
+      if(FI.running && FI.paused){ FI.paused=false; FI.lastTs=0; fishPauseEl.classList.remove('show'); if(BGM_ON) bgmResume(); }
+    }
+  });
 
   /* ----- 클래스/수업 연동 (Mangoi iframe 규약: {type:'mangoi-*'}) -----
      문장 소스 우선순위: ① URL 파라미터 → ② postMessage → ③ 입력칸(기본값)
@@ -1085,6 +1342,6 @@
 
 })();
 </script>
-<!-- BUILD:20260629182258 -->
+<!-- BUILD:20260629182258 fishbig1 -->
 </body>
 </html>
