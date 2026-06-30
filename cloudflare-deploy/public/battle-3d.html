@@ -479,9 +479,23 @@
       sfx.whoosh(); playAttackClip(node);
     }
     function impact(target){ var body=target.userData.body,dir=target.userData.dir,home=target.userData.home; var t1=0,baseE=body.emissive.getHex();
+      // 이 타격으로 체력이 0이 됐으면 KO(완전히 쓰러짐), 아니면 휘청(빠르게 복귀)
+      var ko=((target===hero)?state.heroHP:state.bossHP)<=0;
       addAnim(function(dt){ t1+=dt; var p=Math.min(1,t1/0.3); var k=(1-p); body.emissive.setRGB(k,k,k); if(p>=1){ body.emissive.setHex(baseE); return true; } return false; });
-      var t2=0; addAnim(function(dt){ t2+=dt; var p=Math.min(1,t2/0.34); target.position.x=home.x+(-dir)*Math.sin(p*Math.PI)*0.9; if(p>=1){ target.position.x=home.x; return true; } return false; });
-      shockwave(target.position.x,2.2,0); burst(target.position.x,2.2,0, target.userData.dir===-1?0xff8a5a:0x6ab0ff); cameraShake(0.35,0.22); screenFlash(0.5); sfx.hit();
+      // 넉백(뒤로 밀림) — KO가 아닐 때만 홈으로 복귀(KO는 아래 쓰러짐 모션이 위치를 잡음)
+      var t2=0; addAnim(function(dt){ t2+=dt; var p=Math.min(1,t2/0.34); if(!ko) target.position.x=home.x+(-dir)*Math.sin(p*Math.PI)*0.9; return p>=1; });
+      // 휘청/쓰러짐: 상대 반대쪽으로 기울기(rotation.z) — 발(그룹 원점)을 축으로 회전
+      if(ko){
+        var k3=0,kd=0.55, fz=target.rotation.z, tz=dir*(target===boss?0.5:0.72),     // 큰 보스는 덜 기울여 화면 밖 방지
+            bSY=target.scale.y, tSY=bSY*0.58,                                         // 슬럼프(세로 수축)로 '쓰러져 눕는' 느낌
+            fy=target.position.y, ty=-0.1, fx=target.position.x, tx=home.x+dir*0.4;   // 살짝 중앙쪽으로 당겨 화면 안 유지
+        addAnim(function(dt){ k3+=dt; var p=Math.min(1,k3/kd), e=1-Math.pow(1-p,3);
+          target.rotation.z=fz+(tz-fz)*e; target.scale.y=bSY+(tSY-bSY)*e; target.position.y=fy+(ty-fy)*e; target.position.x=fx+(tx-fx)*e;
+          return p>=1; });                                                            // 끝나도 값 유지(그대로 쓰러져 있음)
+      } else {
+        var s3=0,sd=0.5,peak=dir*0.45; addAnim(function(dt){ s3+=dt; var p=Math.min(1,s3/sd); target.rotation.z=peak*Math.sin(p*Math.PI); if(p>=1){ target.rotation.z=0; return true; } return false; });
+      }
+      shockwave(target.position.x,2.2,0); burst(target.position.x,2.2,0, target.userData.dir===-1?0xff8a5a:0x6ab0ff); cameraShake(ko?0.6:0.35,ko?0.42:0.22); screenFlash(ko?0.7:0.5); sfx.hit();
     }
     function shockwave(x,y,z){ var m=new THREE.Mesh(new THREE.TorusGeometry(0.4,0.07,10,40),new THREE.MeshBasicMaterial({color:0xffe08a,transparent:true,opacity:0.95})); m.position.set(x,y,z); m.lookAt(camera.getWorldPosition(new THREE.Vector3())); scene.add(m); var t=0;
       addAnim(function(dt){ t+=dt; var p=Math.min(1,t/0.5); var s=0.4+p*5.5; m.scale.set(s,s,s); m.material.opacity=0.95*(1-p); if(p>=1){ scene.remove(m); m.geometry.dispose(); m.material.dispose(); return true; } return false; }); }
@@ -547,6 +561,8 @@
     function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
 
     function startLesson(i){ state.lesson=i; state.idx=0; state.heroHP=100; state.bossHP=100; state.combo=0; state.busy=false;
+      // 이전 패배로 기사가 쓰러져 있었으면 다시 일으켜 세움(자세/스케일/위치 초기화)
+      hero.rotation.set(0,0.18,0); hero.scale.set(1,1,1); hero.position.set(-GAP,0,0); hero.userData.home.set(-GAP,0,0);
       var L=LESSONS[i]; el.eName.textContent=L.boss; el.lessonTxt.textContent=L.name; updateHUD();
       overlay('startOverlay',false); overlay('winOverlay',false); overlay('loseOverlay',false); rewardHide();
       audioInit(); bgmStart(); spawnBoss(L); setTimeout(nextQuestion,950);
