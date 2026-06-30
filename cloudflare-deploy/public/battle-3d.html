@@ -358,39 +358,86 @@
     var hero=buildCharacter({skin:0xf1c27d,armor:0x3b6bdb,trim:0xfbbf24,eye:0x113355,face:+1,weapon:'sword'});
     hero.position.set(-GAP,0,0); hero.rotation.y=0.18; hero.userData.home.set(-GAP,0,0); scene.add(hero); attachModel(hero, MODELS.hero, +1);
     var boss=null;
-    // ===== 보스를 '무서운 우주 괴물'로: 음산한 PBR + 촉수 + 다중 발광 눈 + 아가리(이빨) + 외골격 돌기 + 척추 가시 =====
+    // ===== 절차적 파충류(비늘) 텍스처: canvas 로 비늘/도트 패턴 → map + bumpMap (1회 생성 후 캐시) =====
+    var _reptileTex=null;
+    function reptileTextures(){
+      if(_reptileTex) return _reptileTex;
+      var S=256, cols=11, rows=13, cw=S/cols, ch=S/rows;
+      function build(mode){ // 'color' | 'bump' — 비늘 위치는 동일(범프와 색이 정렬)
+        var c=document.createElement('canvas'); c.width=c.height=S; var x=c.getContext('2d');
+        x.fillStyle=(mode==='color')?'#2c3a1a':'#7c7c7c'; x.fillRect(0,0,S,S);
+        for(var r=-1;r<=rows;r++){ for(var ci=-1;ci<=cols;ci++){
+          var ox=(r&1)*cw*0.5, cx=ci*cw+ox+cw*0.5, cy=r*ch+ch*0.55, rx=cw*0.62, ry=ch*0.74;
+          var g=x.createRadialGradient(cx,cy-ry*0.25,1,cx,cy,ry*1.05);
+          if(mode==='color'){ var lv=120+((r*7+ci*13)%48); // 의사난수(결정적) 밝기 변주
+            g.addColorStop(0,'rgb('+(lv-34)+','+(lv+22)+',38)'); g.addColorStop(0.55,'rgb(74,94,36)'); g.addColorStop(1,'rgb(26,38,16)');
+          } else { g.addColorStop(0,'#ededed'); g.addColorStop(0.68,'#9a9a9a'); g.addColorStop(1,'#242424'); }
+          x.fillStyle=g; x.beginPath(); x.ellipse(cx,cy,rx,ry,0,0,Math.PI*2); x.fill();
+          x.strokeStyle=(mode==='color')?'rgba(14,22,9,0.72)':'rgba(0,0,0,0.6)'; x.lineWidth=1.4; x.stroke();
+        }}
+        if(mode==='color'){ for(var s=0;s<70;s++){ var sx=(s*53%S), sy=((s*97+s*s*7)%S), pr=1+(s*29%3); // 결정적 황록 점박이
+          x.fillStyle='rgba('+(178+(s*31%50))+','+(186+(s*17%44))+',46,'+(0.22+(s%5)*0.06)+')'; x.beginPath(); x.arc(sx,sy,pr,0,Math.PI*2); x.fill(); } }
+        var t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.anisotropy=4; return t;
+      }
+      _reptileTex={ map:build('color'), bump:build('bump') }; return _reptileTex;
+    }
+    // 촉수 끝으로 갈수록 가늘어지는 테이퍼(버텍스를 중심선 쪽으로 수축, 지오메트리만 변형 — 리그/위치 영향 없음)
+    function taperTube(geo,curve,tubular,radial,baseF,tipF){
+      var pts=curve.getPoints(tubular), pos=geo.attributes.position, ringV=radial+1;
+      for(var i=0;i<pos.count;i++){ var ring=Math.min(tubular,Math.floor(i/ringV)); var f=baseF+(tipF-baseF)*(ring/tubular); var ct=pts[ring];
+        pos.setX(i,ct.x+(pos.getX(i)-ct.x)*f); pos.setY(i,ct.y+(pos.getY(i)-ct.y)*f); pos.setZ(i,ct.z+(pos.getZ(i)-ct.z)*f); }
+      pos.needsUpdate=true; geo.computeVertexNormals();
+    }
+    // ===== 보스 = 파충류 우주괴물(문어형): PBR 비늘 피부 + 굴곡/돌기 + 마디·테이퍼 촉수 + 빨판 + 세로동공 발광 눈 =====
     function enhanceBossMonster(boss, cfg){
       // 휴머노이드 메시 숨김(리그·위치·애니는 유지) → 문어 외형으로 교체
       boss.traverse(function(o){ if(o.isMesh) o.visible=false; });
-      var skinC=new THREE.Color(0x7a2b9e).lerp(new THREE.Color(cfg.color),0.22);
-      var bodyM =new THREE.MeshStandardMaterial({color:skinC,roughness:0.62,metalness:0.12,emissive:new THREE.Color(0x2a0838),emissiveIntensity:0.5});
-      var suckerM=new THREE.MeshStandardMaterial({color:0xffb3d9,roughness:0.6,metalness:0.05});
-      var whiteM=new THREE.MeshStandardMaterial({color:0xfff4d8,roughness:0.35,emissive:0x554400,emissiveIntensity:0.45});
-      var pupilM=new THREE.MeshStandardMaterial({color:0x0a0010,roughness:0.3,emissive:0x3a0a4a,emissiveIntensity:0.9});
-      var glintM=new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:1.6});
+      var tex=reptileTextures();
+      // 파충류 톤: 어두운 올리브-녹 + 보스색(짙은 보라 등) 살짝 혼합
+      var skinC=new THREE.Color(0x4a5a24).lerp(new THREE.Color(cfg.color),0.26);
+      // 비늘 PBR 피부(공유) — bumpMap 으로 표면 요철, 약한 emissive 로 subsurface 느낌
+      var bodyM=new THREE.MeshStandardMaterial({color:skinC,map:tex.map,bumpMap:tex.bump,bumpScale:0.55,roughness:0.82,metalness:0.08,emissive:new THREE.Color(0x0c1a06),emissiveIntensity:0.32});
+      bodyM.map.repeat.set(5,4); bodyM.bumpMap.repeat.set(5,4);
+      var suckerM=new THREE.MeshStandardMaterial({color:0xc8d27a,roughness:0.55,metalness:0.05,emissive:new THREE.Color(0x141a04),emissiveIntensity:0.25});
+      var rimM   =new THREE.MeshStandardMaterial({color:0x26310f,roughness:0.7,metalness:0.05}); // 빨판 테두리 홈
+      var irisM  =new THREE.MeshStandardMaterial({color:0xc4e02a,emissive:new THREE.Color(0xb6d800),emissiveIntensity:1.2,roughness:0.35,metalness:0.1}); // 황록 파충류 홍채(발광)
+      var slitM  =new THREE.MeshStandardMaterial({color:0x040805,roughness:0.25,metalness:0.0,emissive:new THREE.Color(0x0a1400),emissiveIntensity:0.2}); // 세로동공
+      var glintM =new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:1.6});
       var add=function(mesh){ mesh.castShadow=true; boss.add(mesh); return mesh; };
-      // 둥글고 큰 머리(맨틀)
-      var mantle=new THREE.Mesh(new THREE.SphereGeometry(1.05,40,32),bodyM); mantle.position.y=3.05; mantle.scale.set(1,1.26,1); add(mantle);
-      for(var b=0;b<7;b++){ var ba=(b/7)*Math.PI*2; var bump=new THREE.Mesh(new THREE.SphereGeometry(0.13+0.04*Math.sin(b*1.5),12,10),bodyM); bump.position.set(Math.cos(ba)*0.72,3.5+0.18*Math.cos(b),Math.sin(ba)*0.72); add(bump); }
-      // 큰 눈 2개 (앞쪽=카메라 방향, 약간 발광)
+      // 둥글고 큰 머리(맨틀) — 세그먼트 상향으로 매끄러운 실루엣
+      var mantle=new THREE.Mesh(new THREE.SphereGeometry(1.05,52,40),bodyM); mantle.position.y=3.05; mantle.scale.set(1,1.26,1); add(mantle);
+      // 머리 표면 굴곡/돌기(비늘 피부 공유) — 결정적 배치
+      for(var b=0;b<11;b++){ var ba=(b/11)*Math.PI*2; var rr=0.1+0.05*Math.sin(b*1.7); var bump=new THREE.Mesh(new THREE.SphereGeometry(rr,14,12),bodyM);
+        var by=3.35+0.42*Math.cos(b*0.9), brad=0.68+0.06*Math.sin(b*2.3); bump.position.set(Math.cos(ba)*brad,by,Math.sin(ba)*brad*0.92+0.05); bump.scale.set(1,1.3,1); add(bump); }
+      // 눈두덩(브로우) 능선 — 파충류 느낌
+      [-0.44,0.44].forEach(function(ex){ var brow=new THREE.Mesh(new THREE.SphereGeometry(0.2,16,10),bodyM); brow.position.set(ex,3.18,0.5); brow.scale.set(1.5,0.5,1.1); add(brow); });
+      // 큰 눈 2개: 황록 발광 홍채 + 세로동공 슬릿 + 하이라이트(앞=카메라 방향)
       [-0.44,0.44].forEach(function(ex){
-        var sock=new THREE.Mesh(new THREE.SphereGeometry(0.33,24,18),bodyM); sock.position.set(ex,2.92,0.62); sock.scale.set(1,1,0.7); add(sock);
-        var wh=new THREE.Mesh(new THREE.SphereGeometry(0.26,22,18),whiteM); wh.position.set(ex,2.95,0.78); add(wh);
-        var pu=new THREE.Mesh(new THREE.SphereGeometry(0.135,18,14),pupilM); pu.position.set(ex,2.95,0.95); pu.scale.set(1,1.35,1); add(pu);
-        var gl=new THREE.Mesh(new THREE.SphereGeometry(0.04,10,8),glintM); gl.position.set(ex+0.06,3.04,1.0); add(gl); });
-      // 8개 다리(촉수): 머리 아래에서 방사형으로 휘어져 바닥까지 + 빨판
+        var sock=new THREE.Mesh(new THREE.SphereGeometry(0.34,24,18),bodyM); sock.position.set(ex,2.92,0.6); sock.scale.set(1,1,0.7); add(sock);
+        var iris=new THREE.Mesh(new THREE.SphereGeometry(0.27,28,22),irisM); iris.position.set(ex,2.94,0.78); add(iris);
+        var slit=new THREE.Mesh(new THREE.SphereGeometry(0.15,18,16),slitM); slit.position.set(ex,2.94,0.97); slit.scale.set(0.36,1.7,1); add(slit); // 세로동공
+        var gl=new THREE.Mesh(new THREE.SphereGeometry(0.04,10,8),glintM); gl.position.set(ex+0.07,3.05,1.0); add(gl);
+        boss.userData.irisM=irisM; });
+      // 8개 다리(촉수): 방사형 휨 + 끝으로 테이퍼 + 마디 + 빨판(작은 원형 돌기 반복)
       for(var i=0;i<8;i++){
         var a=(i/8)*Math.PI*2+0.25;
         var inR=0.5, outR=1.85+0.45*Math.sin(i*1.7), midY=1.05+0.5*Math.sin(i*2.1);
         var bx=Math.cos(a)*inR, bz=Math.sin(a)*inR, ox=Math.cos(a)*outR, oz=Math.sin(a)*outR;
         var c=new THREE.CatmullRomCurve3([new THREE.Vector3(bx,1.95,bz),new THREE.Vector3(bx*1.5,midY+0.7,bz*1.5),new THREE.Vector3((bx+ox)/2,midY-0.25,(bz+oz)/2),new THREE.Vector3(ox,0.16,oz)]);
-        add(new THREE.Mesh(new THREE.TubeGeometry(c,26,0.25,9,false),bodyM));
-        var pp=c.getPoints(9);
-        for(var j=2;j<pp.length;j++){ var sc=new THREE.Mesh(new THREE.SphereGeometry(0.06,7,6),suckerM); sc.position.copy(pp[j]); sc.position.y-=0.17; add(sc); }
-        add(new THREE.Mesh(new THREE.ConeGeometry(0.1,0.42,9),bodyM)).position.set(ox,0.1,oz);
+        var TS=44, RS=14, tg=new THREE.TubeGeometry(c,TS,0.3,RS,false); taperTube(tg,c,TS,RS,1.0,0.26); add(new THREE.Mesh(tg,bodyM));
+        var pp=c.getPoints(16);
+        // 마디 돌기(테이퍼에 맞춰 크기 감소)
+        for(var k=3;k<pp.length;k++){ var tf=1-(k/(pp.length-1)); var kn=new THREE.Mesh(new THREE.SphereGeometry(0.07+0.16*tf,10,8),bodyM); kn.position.copy(pp[k]); add(kn); }
+        // 빨판: 아랫면에 작은 원형 돌기 + 어두운 테두리 홈, 끝으로 갈수록 작아짐
+        for(var j=2;j<pp.length;j++){ var sf=1-(j/(pp.length-1)); var sr=0.035+0.075*sf;
+          var rmm=new THREE.Mesh(new THREE.TorusGeometry(sr*1.15,sr*0.34,6,12),rimM); rmm.position.copy(pp[j]); rmm.position.y-=0.2*(0.4+sf); rmm.rotation.x=Math.PI*0.5; add(rmm);
+          var sc=new THREE.Mesh(new THREE.SphereGeometry(sr,10,8),suckerM); sc.position.copy(pp[j]); sc.position.y-=0.2*(0.4+sf); sc.scale.set(1,0.6,1); add(sc); }
+        // 가늘어진 촉수 끝
+        add(new THREE.Mesh(new THREE.ConeGeometry(0.06,0.4,10),bodyM)).position.set(ox,0.08,oz);
       }
-      // hit-flash 가 문어에 보이도록 body 머티리얼 참조 교체
+      // hit-flash 가 문어 몸 전체에 보이도록 body 머티리얼 참조 교체 + 눈 발광 펄스 대상 교체
       boss.userData.body=bodyM;
+      boss.userData.eyeMat=irisM;
     }
     function spawnBoss(cfg){ if(boss) scene.remove(boss);
       boss=buildCharacter({skin:cfg.color,armor:cfg.color,trim:cfg.color2,eye:0xfff04a,face:-1,weapon:'claw',isBoss:true});
