@@ -56,12 +56,35 @@
   .settings summary{cursor:pointer;font-weight:700;color:var(--accent)}
   .settings input{width:100%;margin-top:8px;background:var(--card);border:1px solid var(--border);
     border-radius:8px;color:var(--text);padding:8px 10px;font-size:13px}
+  /* 🔊 AI 메시지 '다시 듣기' 버튼 */
+  .replay-btn{display:inline-flex;align-items:center;gap:4px;margin-top:8px;
+    background:rgba(56,189,248,.14);border:1px solid var(--border);color:var(--accent);
+    border-radius:999px;padding:4px 11px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit}
+  .replay-btn:hover{background:rgba(56,189,248,.26)}
+  .replay-btn:active{transform:scale(.96)}
+  .replay-btn.playing{background:rgba(56,189,248,.32);border-color:var(--accent)}
+  /* 🔊 상단 음성 on/off 토글 */
+  .spk-toggle{flex:0 0 auto;background:rgba(56,189,248,.14);border:1px solid var(--border);color:var(--accent);
+    border-radius:999px;padding:6px 11px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .spk-toggle.off{background:rgba(148,163,184,.14);color:var(--text2);border-color:rgba(148,163,184,.3)}
+  /* 🎤 마이크 버튼 (입력창 옆) */
+  .inbar .mic-btn{flex:0 0 auto;background:linear-gradient(135deg,#22c55e,#16a34a);color:#04240f;
+    border:0;border-radius:12px;padding:0 15px;font-size:19px;line-height:1;cursor:pointer;font-family:inherit}
+  .inbar .mic-btn:active{transform:scale(.95)}
+  .inbar .mic-btn.rec{background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;animation:micpulse 1s infinite}
+  @keyframes micpulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.55)}70%{box-shadow:0 0 0 8px rgba(239,68,68,0)}}
+  /* 🎙️ '듣는 중' 표시 (입력창 위) */
+  #listening{display:none;align-items:center;justify-content:center;gap:9px;
+    padding:9px 16px;background:rgba(239,68,68,.12);border-top:1px solid rgba(239,68,68,.3);
+    color:#fca5a5;font-size:13px;font-weight:700}
+  #listening .dot{width:9px;height:9px;border-radius:50%;background:#ef4444;animation:micpulse 1s infinite}
 </style>
 </head>
 <body>
   <div class="top">
     <a href="/">← <span>홈</span></a>
     <h1>🗣️ 수업 전 AI 웜업</h1>
+    <button id="spkToggle" class="spk-toggle" type="button" onclick="toggleSpeech()" title="AI 답변 음성 켜기/끄기">🔊 음성 켜짐</button>
   </div>
 
   <div class="wrap">
@@ -73,12 +96,14 @@
 
     <div id="log"></div>
 
+    <div id="listening"><span class="dot"></span> 🎙️ 듣는 중… 영어로 말해보세요</div>
     <div class="inbar">
       <input id="inp" type="text" placeholder="영어로 말해보세요! (한국어로 '이거 영어로 어떻게 해?'도 OK)"
         autocomplete="off" onkeydown="if(event.key==='Enter')sendMsg()" />
+      <button id="micBtn" class="mic-btn" type="button" onclick="toggleMic()" title="마이크로 말하기">🎤</button>
       <button id="sendBtn" onclick="sendMsg()">보내기</button>
     </div>
-    <div class="hint">💡 수업 10분 전, AI 친구와 2~3문장씩 가볍게 대화하며 입을 풀어보세요.</div>
+    <div class="hint">💡 🎤 를 눌러 <b>영어로 말하면</b> AI가 듣고 <b>음성으로 답</b>해줘요. 텍스트 입력도 가능합니다.</div>
 
     <details class="settings">
       <summary>⚙️ 웜업 서버 설정 (선택)</summary>
@@ -122,10 +147,129 @@ function addMsg(text, who){
   d.className = 'msg ' + who;
   var label = who==='ai' ? 'AI 친구' : who==='me' ? '나' : '';
   d.innerHTML = (label ? '<span class="who">'+label+'</span>' : '') + escapeHtml(text);
+  if(who==='ai'){
+    // 각 AI 메시지에 🔊 다시 듣기 버튼
+    var rb = document.createElement('button');
+    rb.className = 'replay-btn'; rb.type = 'button';
+    rb.textContent = '🔊 다시 듣기';
+    rb.onclick = function(){ speak(text, rb); };
+    d.appendChild(document.createElement('br'));
+    d.appendChild(rb);
+  }
   log.appendChild(d); log.scrollTop = log.scrollHeight;
+  if(who==='ai'){ speak(text); }   // AI 답변/첫 인사 자동 낭독(원어민 음성)
   return d;
 }
 function escapeHtml(s){ return String(s).replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); }
+
+/* ══════════════════════════════════════════════════════════════════
+   🔊 듣기(TTS) — 브라우저 speechSynthesis 로 AI 답변을 원어민 음성 낭독
+   ══════════════════════════════════════════════════════════════════ */
+var _enVoice = null, _speechOn = true, _audioUnlocked = false;
+// 영어 원어민 보이스 점수화(en-US/en-GB 자연스러운 보이스 우선) — 게임/아바타와 동일 취지
+function _scoreVoice(v){
+  var n=(v.name||'').toLowerCase(), lang=(v.lang||'').toLowerCase(), s=0;
+  if(lang==='en-us') s+=40; else if(lang==='en-gb'||lang==='en-au') s+=28;
+  else if(lang.slice(0,2)==='en') s+=18; else s-=120;
+  if(/natural|neural/.test(n)) s+=70;
+  if(/google/.test(n)) s+=60;
+  if(/\b(aria|jenny|guy|ava|emma|libby|michelle|jane|nova|sara|samantha|alex|allison)\b/.test(n)) s+=46;
+  if(/online|premium|enhanced|plus/.test(n)) s+=24;
+  if(v.localService===false) s+=30;
+  if(/zira|david|mark|hazel|george|desktop|compact|espeak/.test(n)) s-=50;
+  return s;
+}
+function pickVoice(){
+  try{
+    var vs=window.speechSynthesis.getVoices(); if(!vs.length) return;
+    var en=vs.filter(function(v){ return (v.lang||'').slice(0,2).toLowerCase()==='en'; });
+    if(!en.length){ _enVoice=null; return; }
+    var best=null, bs=-1e9;
+    en.forEach(function(v){ var sc=_scoreVoice(v); if(sc>bs){ bs=sc; best=v; } });
+    _enVoice=best;
+  }catch(e){}
+}
+try{ if(window.speechSynthesis){ pickVoice(); window.speechSynthesis.onvoiceschanged=pickVoice; } }catch(e){}
+
+function speak(text, btn){
+  try{
+    if(!window.speechSynthesis || !_speechOn || !text) return;
+    if(!_enVoice) pickVoice();
+    var u=new SpeechSynthesisUtterance(String(text));
+    u.lang=(_enVoice&&_enVoice.lang)||'en-US'; u.rate=0.95; u.pitch=1.02;
+    if(_enVoice) u.voice=_enVoice;
+    if(btn){ btn.classList.add('playing'); u.onend=function(){ btn.classList.remove('playing'); }; u.onerror=function(){ btn.classList.remove('playing'); }; }
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+// 모바일 자동재생 정책: 첫 사용자 제스처에서 speechSynthesis 를 깨워둔다(무음 발화)
+function unlockAudio(){
+  if(_audioUnlocked) return; _audioUnlocked=true;
+  try{ if(window.speechSynthesis){ var u=new SpeechSynthesisUtterance(' '); u.volume=0; window.speechSynthesis.speak(u); } }catch(e){}
+}
+document.addEventListener('pointerdown', unlockAudio, { once:false, passive:true });
+document.addEventListener('touchstart', unlockAudio, { once:false, passive:true });
+
+// 상단 🔊 음성 켜기/끄기 토글
+function toggleSpeech(){
+  _speechOn = !_speechOn;
+  var b=document.getElementById('spkToggle');
+  if(b){ b.textContent = _speechOn ? '🔊 음성 켜짐' : '🔇 음성 꺼짐'; b.classList.toggle('off', !_speechOn); }
+  if(!_speechOn){ try{ window.speechSynthesis.cancel(); }catch(e){} }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   🎤 말하기(STT) — webkitSpeechRecognition 으로 영어 발화 인식 → 자동 전송
+   ══════════════════════════════════════════════════════════════════ */
+var _recog=null, _recognizing=false;
+function sttSupported(){ return !!(window.SpeechRecognition || window.webkitSpeechRecognition); }
+function setMicState(on){
+  _recognizing=on;
+  var b=document.getElementById('micBtn');
+  if(b){ b.classList.toggle('rec', on); b.textContent = on ? '⏹' : '🎤'; b.title = on ? '멈추기' : '마이크로 말하기'; }
+  var ind=document.getElementById('listening');
+  if(ind) ind.style.display = on ? 'flex' : 'none';
+}
+function toggleMic(){
+  unlockAudio();                       // 마이크 탭 = 사용자 제스처 → 이후 음성 재생 허용
+  try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}  // AI 낭독 중이면 멈추고 듣기
+  if(_recognizing){ try{ _recog && _recog.stop(); }catch(e){} return; }
+  if(!sttSupported()){
+    addMsg('이 브라우저는 음성 인식을 지원하지 않아요 😢 크롬(안드로이드/PC)이나 Safari(iOS)에서 사용하거나, 아래에 텍스트로 입력해 주세요.', 'sys');
+    return;
+  }
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  _recog=new SR();
+  _recog.lang='en-US';                 // 기본은 영어 연습 (한국어 질문도 대부분 인식됨)
+  _recog.interimResults=true;
+  _recog.maxAlternatives=1;
+  _recog.continuous=false;
+  var finalText='';
+  _recog.onstart=function(){ setMicState(true); };
+  _recog.onresult=function(e){
+    var interim='';
+    for(var i=e.resultIndex;i<e.results.length;i++){
+      var t=e.results[i][0].transcript;
+      if(e.results[i].isFinal) finalText+=t; else interim+=t;
+    }
+    document.getElementById('inp').value=(finalText+' '+interim).trim();
+  };
+  _recog.onerror=function(e){
+    setMicState(false);
+    if(e.error==='not-allowed'||e.error==='service-not-allowed'){
+      addMsg('🎤 마이크 권한이 꺼져 있어요. 주소창의 자물쇠(🔒) → 마이크 "허용" 후 다시 🎤 를 눌러 주세요. (텍스트 입력은 계속 가능)', 'sys');
+    } else if(e.error==='no-speech'){
+      addMsg('🎤 소리가 잘 안 들렸어요. 다시 🎤 를 누르고 또박또박 말해 주세요.', 'sys');
+    }
+  };
+  _recog.onend=function(){
+    setMicState(false);
+    var v=(document.getElementById('inp').value||'').trim();
+    if(v){ sendMsg(); }                // 인식이 끝나면 자동 전송 → AI가 텍스트+음성으로 답
+  };
+  try{ _recog.start(); }catch(e){ setMicState(false); }
+}
 
 /* ── 4. 첫 안내 메시지 ──────────────────────────────────────────── */
 addMsg('Hi! I\'m your Mangoi AI friend 🥭 ' + (LESSON_TOPIC ? ('Today\'s topic is "'+LESSON_TOPIC+'". ') : '') + 'Let\'s warm up before class. How are you today?', 'ai');
@@ -174,7 +318,7 @@ async function sendMsg(){
   }
 }
 </script>
-<!-- BUILD:warmup1 -->
+<!-- BUILD:warmup2-voice -->
 <script defer src="/js/back-nav.js"></script>
 </body>
 </html>
