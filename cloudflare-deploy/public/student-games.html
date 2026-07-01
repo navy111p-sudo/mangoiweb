@@ -98,6 +98,8 @@
       <div class="brand">MANGOI · LEARNING GAMES</div>
       <h1>영어 <span class="em">학습 게임</span> 🎮</h1>
       <div class="sub">재미있는 게임을 통해 오늘 배운 단어·문장을 다시 예복습해요!<br>원하는 게임을 눌러 바로 플레이하세요.</div>
+      <!-- 🔥 학습 불꽃 배지: 게임 하나라도 정답/클리어하면 오늘 달성으로 켜진다 -->
+      <div id="streak-badge-hub" style="margin-top:14px"></div>
     </div>
     <div class="game-grid" id="game-grid"><!-- JS 렌더 --></div>
   </div>
@@ -107,6 +109,8 @@
     <div class="game-topbar">
       <button class="back" onclick="hubBackToMenu()">← 게임 선택</button>
       <span class="gname" id="hub-gname">게임</span>
+      <!-- 게임 중에도 작게 불꽃 상태 노출 -->
+      <span id="streak-badge-game" style="margin-left:8px"></span>
       <button class="next" id="hub-next" onclick="gameNextRound()">🔄 다음 문제</button>
     </div>
     <div class="game-scorebar" id="hub-scorebar">
@@ -330,6 +334,7 @@ function gameBrickCheck(){
   const fb = document.getElementById('game-feedback');
   if (correct){
     _gameState.score += 10; _gameState.correct++;
+    try{ window.MangoiStreak && MangoiStreak.complete('brick'); }catch(_){}  // 🔥 오늘 학습 달성
     fb.innerHTML = '<span style="color:#10b981">✅ 정답! +10점</span>';
     try{ window.gameSpeak && gameSpeak(sent.en); }catch(_){}
     setTimeout(gameNextRound, 2200);
@@ -384,6 +389,7 @@ function gameMatchFlip(card){
         a.style.transform = ''; b.style.transform = '';
         _gameState.current.matched.add(a.dataset.pair);
         _gameState.score += 5; _gameState.correct++;
+        try{ window.MangoiStreak && MangoiStreak.complete('match'); }catch(_){}  // 🔥 오늘 학습 달성
         _gameState.current.flipped = [];
         _gameUpdateScore();
         const total = _gameState.current.cards.length / 2;
@@ -449,6 +455,7 @@ function gameFillCheck(picked, btn){
     btn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
     btn.style.transform = 'scale(1.05)';
     _gameState.score += 8; _gameState.correct++;
+    try{ window.MangoiStreak && MangoiStreak.complete('fill'); }catch(_){}  // 🔥 오늘 학습 달성
     fb.innerHTML = '<span style="color:#10b981">✅ 정답! +8점</span>';
     try{ window.gameSpeak && _gameState.current.sentence && gameSpeak(_gameState.current.sentence.en); }catch(_){}
     setTimeout(gameNextRound, 1900);
@@ -588,6 +595,7 @@ function gameBalloonPop(bl){
   if (_gameState.balloonTimer) clearInterval(_gameState.balloonTimer);
   if (correct){
     _gameState.score += 7; _gameState.correct++;
+    try{ window.MangoiStreak && MangoiStreak.complete('balloon'); }catch(_){}  // 🔥 오늘 학습 달성
     document.getElementById('game-feedback').innerHTML = '<span style="color:#10b981">🎉 풍! +7점</span>';
     setTimeout(gameNextRound, 1200);
   } else {
@@ -607,6 +615,7 @@ window.addEventListener('message', function (ev){
   if (d.type === 'mangoi-game-complete'){
     _gameState.score += (d.score || 0);
     _gameState.correct += 1;
+    try{ window.MangoiStreak && MangoiStreak.complete('iframe'); }catch(_){}  // 🔥 오늘 학습 달성(배틀/낚시/슈팅 미션 완료)
   }
 });
 
@@ -616,7 +625,22 @@ document.addEventListener('keydown', function(e){
 });
 
 hubRenderMenu();
+
+/* ── 🔥 학습 불꽃 배지 부착(허브 헤더 + 게임 중 컴팩트) ──
+   streak.js 가 로드되면 두 곳에 배지를 그리고, complete() 호출 시 자동 갱신된다. */
+function _mountStreakBadges(){
+  if(!window.MangoiStreak) return;
+  MangoiStreak.mountBadge('#streak-badge-hub', { compact:false });
+  MangoiStreak.mountBadge('#streak-badge-game', { compact:true });
+}
+if(window.MangoiStreak){ _mountStreakBadges(); }
+else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 </script>
-<!-- BUILD:20260629182258 gamesbig1 responsive1 -->
+<script defer src="/js/streak.js"></script>
+<script>
+// streak.js(defer) 로드 이후 배지를 확실히 부착
+window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
+</script>
+<!-- BUILD:20260629182258 gamesbig1 responsive1 streak1 -->
 </body>
 </html>

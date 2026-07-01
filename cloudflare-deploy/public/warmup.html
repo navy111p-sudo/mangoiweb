@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes,viewport-fit=cover" />
+<title>🗣️ 수업 전 AI 웜업 — Mangoi</title>
+<link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
+<meta name="theme-color" content="#0a1530" />
+<!--
+  ============================================================================
+   🗣️ 수업 전 AI 웜업(Pre-Class Warm-up) 채팅 UI
+   ----------------------------------------------------------------------------
+   원어민 수업 10분 전, 학생이 입을 풀도록 AI 대화 친구와 짧게 영어로 대화한다.
+   FastAPI 백엔드(PreClassAIEngine)의 POST {API_BASE}/api/warmup/chat 를 호출한다.
+
+   [수업 예약 데이터 연동 포인트]
+     - session_id : URL 파라미터 ?room=<수업 room_id> 로 넘기면 수업방과 1:1 매칭.
+                    (없으면 로그인 유저 id / 날짜 기반으로 자동 생성)
+     - lesson_topic: URL 파라미터 ?unit=<교재 unit> 로 넘기면 워밍업이 실제 레슨과 이어짐.
+       예) /warmup.html?room=room_20260701_0930&unit=My%20Weekend
+     - api        : URL ?api=https://내백엔드주소  또는 localStorage 'mangoi_api_base' 로 지정.
+                    (미설정/서버 꺼짐 → "웜업 서버 연결 필요" 안내만 뜨고 화면은 안 깨짐)
+  ============================================================================
+-->
+<style>
+  :root{ --bg:#0a1530; --card:#14213b; --text:#e6ecff; --text2:#a3b3d1;
+    --accent:#38bdf8; --accent2:#0ea5e9; --border:rgba(56,189,248,.18); --me:#0ea5e9; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif}
+  .top{display:flex;align-items:center;gap:12px;padding:14px 18px;background:rgba(20,33,59,.95);
+    position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+  .top a{color:var(--text);text-decoration:none;font-weight:700;font-size:14px}
+  .top h1{margin:0;font-size:16px;font-weight:800;flex:1}
+  .wrap{max-width:720px;margin:0 auto;display:flex;flex-direction:column;height:calc(100dvh - 52px)}
+  .meta{display:flex;gap:8px;flex-wrap:wrap;padding:10px 16px;font-size:12px;color:var(--text2)}
+  .meta .chip{background:var(--card);border:1px solid var(--border);border-radius:999px;padding:4px 10px}
+  .meta .chip b{color:var(--accent)}
+  #log{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+  .msg{max-width:82%;padding:11px 14px;border-radius:14px;font-size:14px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+  .msg.ai{align-self:flex-start;background:var(--card);border:1px solid var(--border);border-bottom-left-radius:4px}
+  .msg.me{align-self:flex-end;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;border-bottom-right-radius:4px}
+  .msg.sys{align-self:center;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.35);
+    color:#fcd34d;font-size:12.5px;text-align:center;max-width:92%}
+  .msg .who{display:block;font-size:11px;opacity:.7;margin-bottom:3px;font-weight:700}
+  .typing{align-self:flex-start;color:var(--text2);font-size:13px;padding:6px 12px}
+  .inbar{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border);background:rgba(20,33,59,.9)}
+  .inbar input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;
+    color:var(--text);padding:12px 14px;font-size:15px;font-family:inherit;outline:none}
+  .inbar input:focus{border-color:var(--accent)}
+  .inbar button{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#04283a;border:0;
+    border-radius:12px;padding:0 18px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit}
+  .inbar button:disabled{opacity:.5;cursor:not-allowed}
+  .hint{padding:0 16px 10px;font-size:11.5px;color:var(--text2)}
+  .settings{padding:10px 16px;border-top:1px dashed var(--border);font-size:12px;color:var(--text2)}
+  .settings summary{cursor:pointer;font-weight:700;color:var(--accent)}
+  .settings input{width:100%;margin-top:8px;background:var(--card);border:1px solid var(--border);
+    border-radius:8px;color:var(--text);padding:8px 10px;font-size:13px}
+</style>
+</head>
+<body>
+  <div class="top">
+    <a href="/">← <span>홈</span></a>
+    <h1>🗣️ 수업 전 AI 웜업</h1>
+  </div>
+
+  <div class="wrap">
+    <div class="meta">
+      <span class="chip">세션 <b id="m-session">—</b></span>
+      <span class="chip">주제 <b id="m-topic">자유 대화</b></span>
+      <span class="chip">서버 <b id="m-server">미연결</b></span>
+    </div>
+
+    <div id="log"></div>
+
+    <div class="inbar">
+      <input id="inp" type="text" placeholder="영어로 말해보세요! (한국어로 '이거 영어로 어떻게 해?'도 OK)"
+        autocomplete="off" onkeydown="if(event.key==='Enter')sendMsg()" />
+      <button id="sendBtn" onclick="sendMsg()">보내기</button>
+    </div>
+    <div class="hint">💡 수업 10분 전, AI 친구와 2~3문장씩 가볍게 대화하며 입을 풀어보세요.</div>
+
+    <details class="settings">
+      <summary>⚙️ 웜업 서버 설정</summary>
+      <div style="margin-top:6px">백엔드(FastAPI) 주소를 입력하면 실제 AI 대화가 연결됩니다.<br>
+        예: <code>http://127.0.0.1:8010</code> (로컬) — 비워두면 안내만 표시됩니다.</div>
+      <input id="apiInput" type="text" placeholder="https://내-웜업-백엔드-주소" onchange="saveApi(this.value)" />
+    </details>
+  </div>
+
+<script>
+/* ── 1. URL 파라미터 / 저장값에서 설정 읽기 ─────────────────────── */
+var Q = new URLSearchParams(location.search);
+function getLoginId(){
+  try{ var u=JSON.parse(localStorage.getItem('mango_user')||'null'); if(u&&u.user_id) return u.user_id; }catch(e){}
+  return '';
+}
+// session_id: ?room 우선 → ?session → 로그인 유저 → 날짜 기반
+var SESSION_ID = Q.get('room') || Q.get('session') ||
+  (getLoginId() ? ('user_'+getLoginId()) : ('warmup_'+new Date().toISOString().slice(0,10)));
+// lesson_topic: ?unit 또는 ?topic (없으면 null=자유 대화)
+var LESSON_TOPIC = Q.get('unit') || Q.get('topic') || '';
+// API_BASE: ?api → localStorage
+var API_BASE = (Q.get('api') || localStorage.getItem('mangoi_api_base') || '').replace(/\/$/,'');
+if(Q.get('api')){ try{ localStorage.setItem('mangoi_api_base', API_BASE); }catch(e){} }
+
+/* ── 2. 상단 메타 표시 ──────────────────────────────────────────── */
+document.getElementById('m-session').textContent = SESSION_ID.slice(0,22);
+document.getElementById('m-topic').textContent = LESSON_TOPIC || '자유 대화';
+document.getElementById('m-server').textContent = API_BASE ? '연결됨' : '미연결';
+document.getElementById('m-server').style.color = API_BASE ? '#34d399' : '#fca5a5';
+var apiInput = document.getElementById('apiInput'); if(apiInput) apiInput.value = API_BASE;
+
+/* ── 3. 메시지 렌더 ─────────────────────────────────────────────── */
+var log = document.getElementById('log');
+function addMsg(text, who){
+  var d = document.createElement('div');
+  d.className = 'msg ' + who;
+  var label = who==='ai' ? 'AI 친구' : who==='me' ? '나' : '';
+  d.innerHTML = (label ? '<span class="who">'+label+'</span>' : '') + escapeHtml(text);
+  log.appendChild(d); log.scrollTop = log.scrollHeight;
+  return d;
+}
+function escapeHtml(s){ return String(s).replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); }
+
+/* ── 4. 첫 안내 메시지 ──────────────────────────────────────────── */
+if(!API_BASE){
+  addMsg('👋 웜업 서버가 아직 연결되지 않았어요.\n아래 ⚙️ 설정에서 백엔드(FastAPI) 주소를 넣거나, 관리자에게 문의해 주세요.\n(서버가 준비되면 여기서 AI 친구와 바로 영어로 대화할 수 있어요!)', 'sys');
+} else {
+  addMsg('Hi! I\'m your Mangoi AI friend 🥭 ' + (LESSON_TOPIC ? ('Today\'s topic is "'+LESSON_TOPIC+'". ') : '') + 'Let\'s warm up before class. How are you today?', 'ai');
+}
+
+/* ── 5. 전송 ────────────────────────────────────────────────────── */
+var sending = false;
+function saveApi(v){
+  API_BASE = (v||'').trim().replace(/\/$/,'');
+  try{ localStorage.setItem('mangoi_api_base', API_BASE); }catch(e){}
+  location.reload();   // 설정 반영을 위해 새로고침(연결 상태/첫 인사 갱신)
+}
+async function sendMsg(){
+  var inp = document.getElementById('inp');
+  var text = (inp.value||'').trim();
+  if(!text || sending) return;
+
+  if(!API_BASE){
+    addMsg('먼저 ⚙️ 설정에서 웜업 서버(FastAPI) 주소를 입력해 주세요. 서버가 있어야 AI가 답할 수 있어요.', 'sys');
+    return;
+  }
+  addMsg(text, 'me'); inp.value = '';
+  sending = true; document.getElementById('sendBtn').disabled = true;
+
+  var typing = document.createElement('div');
+  typing.className = 'typing'; typing.textContent = 'AI 친구가 입력 중…';
+  log.appendChild(typing); log.scrollTop = log.scrollHeight;
+
+  try{
+    var body = { session_id: SESSION_ID, student_input: text };
+    if(LESSON_TOPIC) body.lesson_topic = LESSON_TOPIC;
+    var r = await fetch(API_BASE + '/api/warmup/chat', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    typing.remove();
+    if(!r.ok){
+      var errTxt = '';
+      try{ var ej = await r.json(); errTxt = ej.detail || ''; }catch(e){}
+      addMsg('⚠️ 서버 응답 오류('+r.status+')' + (errTxt ? (': '+errTxt) : '') +
+             '\n(백엔드가 켜져 있고 OPENAI_API_KEY 가 설정됐는지 확인해 주세요.)', 'sys');
+    } else {
+      var d = await r.json();
+      addMsg(d.ai_response || '(응답이 비어 있어요)', 'ai');
+    }
+  }catch(e){
+    typing.remove();
+    addMsg('⚠️ 웜업 서버에 연결할 수 없어요.\n주소가 맞는지, 백엔드(uvicorn)가 실행 중인지 확인해 주세요.', 'sys');
+  }finally{
+    sending = false; document.getElementById('sendBtn').disabled = false;
+    document.getElementById('inp').focus();
+  }
+}
+</script>
+<!-- BUILD:warmup1 -->
+<script defer src="/js/back-nav.js"></script>
+</body>
+</html>
