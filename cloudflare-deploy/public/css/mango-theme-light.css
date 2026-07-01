@@ -190,3 +190,68 @@ body.vc-theme-light #mango-theme-toggle {
   color: var(--mlt-text);
 }
 body.vc-theme-light #mango-theme-toggle:hover { background: #e2e8f5; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   🔆 (2026-07-01) 상단 헤더 바 + 탭 툴바 라이트 확장
+   ─────────────────────────────────────────────────────────────────────
+   [문제] 라이트로 바꿔도 상단(헤더 바 + 탭 툴바)이 어두운 남색으로 남음.
+          특히 가로(landscape)에서, 가로 전용 규칙
+          `body.vc-in-call .content-pane .tab-bar`(특이도 0,3,1) !important 가
+          라이트(0,2,1)를 이겨 탭바가 다크로 고정됐고,
+          휴대폰 상단 통합바 #mg-unibar 는 색이 하드코딩(다크)이라 테마 무시됨.
+   [해결] 라이트 규칙 특이도를 (0,4,1)로 높여(body.vc-theme-light.vc-in-call …)
+          가로 다크 규칙을 이기고, #mg-unibar 도 라이트에서 밝게 덮는다.
+          다크 모드에선 이 블록이 적용 안 되므로(회귀 없음) 원래대로 어둡게 유지.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ① 상단 헤더 바 (.toolbar) — 데스크톱/세로. 수업 중에도 확실히 라이트 */
+body.vc-theme-light .toolbar,
+body.vc-theme-light.vc-in-call .toolbar {
+  background: var(--mlt-surface) !important;
+  border-bottom: 1px solid var(--mlt-border) !important;
+  box-shadow: var(--mlt-shadow) !important;
+}
+body.vc-theme-light .toolbar .toolbar-left,
+body.vc-theme-light .toolbar .room-info,
+body.vc-theme-light .toolbar #vc-user-count,
+body.vc-theme-light .toolbar #vc-room-name { color: var(--mlt-text) !important; }
+body.vc-theme-light .toolbar-center .ctrl-btn,
+body.vc-theme-light .toolbar-right .ctrl-btn { color: var(--mlt-text) !important; }
+
+/* ② 휴대폰 통합 상단바 #mg-unibar (가로/세로) — 방이름·타이머·참가자·닫기(X) */
+body.vc-theme-light #mg-unibar {
+  background: rgba(255,255,255,0.96) !important;
+  border: 1px solid var(--mlt-border) !important;
+  box-shadow: var(--mlt-shadow) !important;
+}
+body.vc-theme-light #mg-unibar .uni-info { color: var(--mlt-text-sub) !important; }
+body.vc-theme-light #mg-unibar .uni-room { color: var(--mlt-sky-deep) !important; }
+body.vc-theme-light #mg-unibar .uni-elapsed { color: #b45309 !important; }
+body.vc-theme-light #mg-unibar .uni-clock,
+body.vc-theme-light #mg-unibar .uni-ico { color: #d97706 !important; }
+body.vc-theme-light #mg-unibar .uni-sep { color: var(--mlt-border) !important; }
+body.vc-theme-light #mg-unibar .uni-live { background: #16a34a !important; }
+/* 닫기(X)·녹화점은 빨강 유지(밝은 배경에서도 잘 보임) */
+
+/* ③ 탭 툴바 (칠판·동영상·게임·배경·복습퀴즈·교재도구·필기도구) —
+      가로 다크규칙(0,3,1)을 (0,4,1)로 이겨 라이트 배경 적용 */
+body.vc-theme-light.vc-in-call .content-pane .tab-bar,
+body.vc-theme-light.vc-in-call .tab-bar,
+body.vc-theme-light .content-pane .tab-bar,
+body.vc-theme-light .tab-bar {
+  background: var(--mlt-surface) !important;
+  border-bottom: 1px solid var(--mlt-border) !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+body.vc-theme-light.vc-in-call .tab-bar .tab-btn,
+body.vc-theme-light .tab-bar .tab-btn { color: var(--mlt-text-sub) !important; }
+body.vc-theme-light.vc-in-call .tab-bar .tab-btn.active,
+body.vc-theme-light .tab-bar .tab-btn.active {
+  color: var(--mlt-sky-deep) !important;
+  border-bottom-color: var(--mlt-sky-deep) !important;
+}
+/* 교재도구/필기도구 칩 — 밝은 배경 위 가독성(어두운 글자) */
+body.vc-theme-light.vc-in-call .tab-bar .mango-tool-chip,
+body.vc-theme-light .tab-bar .mango-tool-chip,
+body.vc-theme-light.vc-in-call .tab-bar .ph49-tool-toggle,
+body.vc-theme-light .tab-bar .ph49-tool-toggle { color: #1e293b !important; }
