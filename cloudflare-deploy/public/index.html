@@ -24488,14 +24488,24 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
             않는 상단 흐름에 배치된다. 세로/PC 및 영상·오디오·화면공유엔 영향 없음.
      (이 <style> 한 블록만 빼면 즉시 원복) */
   @media (max-width:920px) and (orientation:landscape){
-    /* 1) 탭바(모드 전환 + 교재도구/필기도구 칩) 재노출 — 상단, 컴팩트, 가로 스크롤 */
+    /* 1) 탭바(모드 전환 + 교재도구/필기도구 칩) 재노출 — 상단, 한 줄, 좌우 스와이프 스크롤.
+       버튼이 많아 한 줄에 다 안 들어와도 손가락으로 가로로 밀어 모두 접근(스냅 + 끝 여백). */
     body.vc-in-call .content-pane .tab-bar,
     body.vc-in-call .tab-bar{
-      display:flex !important; flex-wrap:nowrap !important; overflow-x:auto !important;
-      -webkit-overflow-scrolling:touch !important; gap:4px !important;
-      padding:3px 6px !important; max-width:100% !important; min-height:0 !important;
+      display:flex !important; flex-wrap:nowrap !important;
+      overflow-x:auto !important; overflow-y:hidden !important;
+      -webkit-overflow-scrolling:touch !important;
+      scroll-snap-type:x proximity !important; overscroll-behavior-x:contain !important;
+      gap:6px !important; padding:5px 16px 5px 10px !important;
+      max-width:100% !important; min-height:0 !important; scrollbar-width:thin !important;
     }
-    body.vc-in-call .tab-bar > *{ flex:0 0 auto !important; font-size:12px !important; }
+    body.vc-in-call .tab-bar > *{
+      flex:0 0 auto !important; scroll-snap-align:start !important;
+      font-size:12.5px !important; white-space:nowrap !important;
+    }
+    /* 스크롤바 얇게(콘텐츠/칩 안 가리게) */
+    body.vc-in-call .tab-bar::-webkit-scrollbar{ height:4px !important; }
+    body.vc-in-call .tab-bar::-webkit-scrollbar-thumb{ background:rgba(148,163,184,.5) !important; border-radius:4px !important; }
     /* 2) 교재/필기/칠판 툴바 컨테이너 재노출 — 접힘 시 토글칩만, 펼침 시 전체(기존 동작 유지) */
     body.vc-in-call .pdf-controls,
     body.vc-in-call .pdf-anno-bar,
@@ -24511,7 +24521,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     body.vc-in-call .wb-toolbar button,
     body.vc-in-call .ph49-tool-toggle,
     body.vc-in-call .mango-tool-chip{
-      min-height:32px !important; padding:5px 10px !important;
+      min-height:40px !important; padding:8px 13px !important;
     }
     /* 4) 탭바가 어떤 변형 선택자(id 스코프 포함)로도 숨지 않도록 확실히 노출 */
     body.vc-in-call #vc-content-pane .tab-bar{ display:flex !important; }
@@ -24522,6 +24532,21 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     }
     body.vc-in-call .content-pane .tab-panel.active{
       display:flex !important; min-height:0 !important;
+    }
+    /* 6) 🎥 얼굴 영상이 칠판/콘텐츠를 가리지 않게 — 떠 있는 PIP(position:absolute, 좌상단,
+       32~44%)가 칠판 필기영역을 덮던 문제. 영상 스트림은 그대로 보이되, 측면 세로 컬럼으로
+       '나란히' 배치해 콘텐츠(칠판·교재 등)와 절대 겹치지 않게 한다.
+       (전체화면/솔로/자유창/PIP/콘텐츠풀 특수 모드는 기존 동작 그대로 유지) */
+    body.vc-in-call .vc-main-row:not(.video-full):not(.video-solo):not(.video-free):not(.video-pip):not(.content-full) .video-pane{
+      position:relative !important;
+      top:auto !important; left:auto !important; right:auto !important; bottom:auto !important;
+      width:150px !important; min-width:118px !important; max-width:172px !important;
+      height:auto !important; flex:0 0 150px !important;
+      z-index:auto !important; box-shadow:none !important;
+      border-left:1px solid rgba(148,163,184,0.18) !important;
+    }
+    body.vc-in-call .vc-main-row:not(.video-full):not(.video-solo):not(.video-free):not(.video-pip):not(.content-full) .content-pane{
+      width:auto !important; flex:1 1 auto !important; min-width:0 !important;
     }
   }
 </style>
