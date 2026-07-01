@@ -154,6 +154,31 @@ export default {
       return handleHealth();
     }
 
+    // 🔥 학습 불꽃(스픽식 연속학습) — Cloudflare 네이티브 (KV: SESSION_STATE)
+    //   ⚠️ 기존 '출석 스트릭'(/api/streak/status·check-in·leaderboard, api-mango.ts)과는
+    //      별개 개념. 여기서는 게임/퀴즈 완료 기반의 '학습 불꽃'만 처리한다.
+    //   - POST /api/streak/complete-quiz  {student_id}
+    //   - GET  /api/streak/:student_id     (단, 예약어 status/leaderboard/check-in 은 제외 → 아래 게이트로 통과)
+    if (path === '/api/streak/complete-quiz' && request.method === 'POST') {
+      return handleLearnStreakComplete(request, env);
+    }
+    {
+      const _sm = path.match(/^\/api\/streak\/([^\/]+)$/);
+      if (_sm && request.method === 'GET') {
+        const _seg = _sm[1];
+        // 기존 출석 스트릭 예약 경로는 건드리지 않고 그대로 흘려보낸다.
+        if (_seg !== 'status' && _seg !== 'leaderboard' && _seg !== 'check-in' && _seg !== 'complete-quiz') {
+          return handleLearnStreakGet(decodeURIComponent(_seg), env);
+        }
+      }
+    }
+
+    // 🗣️ 수업 전 AI 웜업 — Cloudflare Workers AI(Llama 3.3 70B)로 실제 대화 (키 불필요)
+    //   - POST /api/warmup/chat  {session_id, student_input, lesson_topic?}
+    if (path === '/api/warmup/chat' && request.method === 'POST') {
+      return handleWarmupChat(request, env);
+    }
+
     // 📩 알림톡 클릭추적 (공개·학부모용) — 버튼 클릭 시 read_at 기록 후 원래 URL 로 리다이렉트.
     //    이탈위험 그래프의 (학부모)-[:IGNORED]->(알림톡) 판정을 정밀화한다.
     if (path === '/api/alimtalk/r') {
@@ -1336,6 +1361,158 @@ async function handleHealth(): Promise<Response> {
     status: 200,
     headers: { 'Content-Type': 'application/json' }
   });
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ *  🔥 학습 불꽃(스픽식 연속학습) — Cloudflare 네이티브 구현
+ *    저장: KV(SESSION_STATE), 키 prefix 'learnstreak:'
+ *    로직: FastAPI(app/routers/streak.py)와 동일 — 자정(KST) 기준
+ *          어제 활동→+1 / 오늘 이미→유지 / 끊김→1 리셋 / longest 갱신
+ * ════════════════════════════════════════════════════════════════════════ */
+const _MS_JSON = { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' };
+
+// 한국 시간(KST, UTC+9) 기준 'YYYY-MM-DD' — offsetDays 로 어제 계산
+function kstDateStr(offsetDays: number = 0): string {
+  const now = Date.now() + 9 * 3600 * 1000 + offsetDays * 86400 * 1000;
+  return new Date(now).toISOString().slice(0, 10);
+}
+
+async function handleLearnStreakGet(studentId: string, env: Env): Promise<Response> {
+  try {
+    const raw = env.SESSION_STATE ? await env.SESSION_STATE.get('learnstreak:' + studentId) : null;
+    const today = kstDateStr(0);
+    if (!raw) {
+      return new Response(JSON.stringify({
+        student_id: studentId, current_streak: 0, longest_streak: 0,
+        last_activity_date: null, is_quiz_completed_today: false
+      }), { status: 200, headers: _MS_JSON });
+    }
+    const s = JSON.parse(raw);
+    return new Response(JSON.stringify({
+      student_id: studentId,
+      current_streak: s.current || 0,
+      longest_streak: s.longest || 0,
+      last_activity_date: s.last || null,
+      is_quiz_completed_today: s.last === today
+    }), { status: 200, headers: _MS_JSON });
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: 'streak_get_failed', detail: String(e?.message || e) }),
+      { status: 500, headers: _MS_JSON });
+  }
+}
+
+async function handleLearnStreakComplete(request: Request, env: Env): Promise<Response> {
+  try {
+    let body: any = {};
+    try { body = await request.json(); } catch { /* 빈 본문 방어 */ }
+    const studentId = (body && typeof body.student_id === 'string') ? body.student_id.trim() : '';
+    if (!studentId) {
+      return new Response(JSON.stringify({ error: 'student_id_required', detail: 'student_id 는 비어 있을 수 없습니다.' }),
+        { status: 422, headers: _MS_JSON });
+    }
+    if (!env.SESSION_STATE) {
+      return new Response(JSON.stringify({ error: 'kv_unavailable' }), { status: 500, headers: _MS_JSON });
+    }
+
+    const key = 'learnstreak:' + studentId;
+    const today = kstDateStr(0);
+    const yesterday = kstDateStr(-1);
+    const raw = await env.SESSION_STATE.get(key);
+    let s = raw ? JSON.parse(raw) : { current: 0, longest: 0, last: null };
+
+    if (s.last === today) {
+      // 오늘 이미 달성 → 유지(중복 카운트 방지)
+    } else if (s.last === yesterday) {
+      s.current = (s.current || 0) + 1;   // 어제 활동 → 연속 성공
+    } else {
+      s.current = 1;                       // 처음이거나 끊김 → 1로 리셋
+    }
+    s.last = today;
+    if (s.current > (s.longest || 0)) s.longest = s.current;
+
+    await env.SESSION_STATE.put(key, JSON.stringify(s));
+
+    return new Response(JSON.stringify({
+      student_id: studentId,
+      current_streak: s.current,
+      longest_streak: s.longest,
+      last_activity_date: s.last,
+      is_quiz_completed_today: true
+    }), { status: 200, headers: _MS_JSON });
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: 'streak_complete_failed', detail: String(e?.message || e) }),
+      { status: 500, headers: _MS_JSON });
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ *  🗣️ 수업 전 AI 웜업 — Cloudflare Workers AI(Llama 3.3 70B)로 실제 대화
+ *    시스템 프롬프트는 FastAPI(app/services/ai_warmup.py)와 동일 취지.
+ *    대화 문맥: session_id 별 최근 N턴을 KV(SESSION_STATE, 'warmup:' prefix)에 6시간 보관.
+ * ════════════════════════════════════════════════════════════════════════ */
+const WARMUP_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+const WARMUP_SYSTEM = "너는 망고아이의 AI 대화 친구야. 학생의 레벨에 맞춰 최대 2문장 이내로 친절하게 질문해줘. 만약 학생이 한국어로 '이걸 영어로 어떻게 해?'라고 물어보면 자연스러운 영어 문장으로 교정해주고 영어로 다시 말하도록 유도해줘.";
+const WARMUP_MAX_TURNS = 12;   // 저장할 최근 대화(사용자/AI) 최대 개수
+
+async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
+  try {
+    let body: any = {};
+    try { body = await request.json(); } catch {}
+    const sessionId = (body && typeof body.session_id === 'string') ? body.session_id.trim() : '';
+    const studentInput = (body && typeof body.student_input === 'string') ? body.student_input.trim() : '';
+    const lessonTopic = (body && typeof body.lesson_topic === 'string') ? body.lesson_topic.trim() : '';
+
+    // ── 입력 검증(Pydantic 대응) ──
+    if (!sessionId) {
+      return new Response(JSON.stringify({ detail: 'session_id 가 비어 있습니다.' }), { status: 422, headers: _MS_JSON });
+    }
+    if (!studentInput) {
+      return new Response(JSON.stringify({ detail: 'student_input 가 비어 있습니다.' }), { status: 422, headers: _MS_JSON });
+    }
+    if (!env.AI) {
+      return new Response(JSON.stringify({ detail: 'Workers AI(AI 바인딩)를 사용할 수 없습니다.' }), { status: 502, headers: _MS_JSON });
+    }
+
+    // ── 이전 대화 히스토리 불러오기 ──
+    const hkey = 'warmup:' + sessionId;
+    let history: any[] = [];
+    try {
+      const raw = env.SESSION_STATE ? await env.SESSION_STATE.get(hkey) : null;
+      if (raw) history = JSON.parse(raw);
+    } catch {}
+
+    // ── 시스템 프롬프트(주제 반영) + 히스토리 + 이번 발화로 messages 구성 ──
+    let sys = WARMUP_SYSTEM;
+    if (lessonTopic) sys += ` 오늘의 대화 주제는 '${lessonTopic}' 이야.`;
+    const messages = [{ role: 'system', content: sys }]
+      .concat(history)
+      .concat([{ role: 'user', content: studentInput }]);
+
+    // ── Workers AI 호출 ──
+    let aiText = '';
+    try {
+      const result: any = await env.AI.run(WARMUP_MODEL, { messages, max_tokens: 200, temperature: 0.7 });
+      aiText = (result && (result.response || result.result || '')).toString().trim();
+    } catch (e: any) {
+      return new Response(JSON.stringify({ detail: 'AI 응답 생성 실패: ' + String(e?.message || e) }), { status: 502, headers: _MS_JSON });
+    }
+    if (!aiText) aiText = "Let's try again! Tell me about your day. 😊";
+
+    // ── 히스토리 갱신(최근 N턴만) + 6시간 TTL 저장 ──
+    try {
+      const updated = history.concat([
+        { role: 'user', content: studentInput },
+        { role: 'assistant', content: aiText }
+      ]).slice(-WARMUP_MAX_TURNS * 2);
+      if (env.SESSION_STATE) await env.SESSION_STATE.put(hkey, JSON.stringify(updated), { expirationTtl: 6 * 3600 });
+    } catch {}
+
+    const turnCount = Math.floor(history.length / 2) + 1;
+    return new Response(JSON.stringify({ session_id: sessionId, ai_response: aiText, turn_count: turnCount }),
+      { status: 200, headers: _MS_JSON });
+  } catch (e: any) {
+    return new Response(JSON.stringify({ detail: 'warmup_failed: ' + String(e?.message || e) }), { status: 500, headers: _MS_JSON });
+  }
 }
 
 async function handleTurnConfig(env: Env): Promise<Response> {

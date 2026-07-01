@@ -77,26 +77,28 @@
     };
   }
 
-  /* ── API_BASE 결정: window 전역 또는 localStorage 설정 ──────────── */
+  /* ── API_BASE 결정: window 전역 또는 localStorage 설정 ──────────────
+     기본값은 '' (빈 문자열) = 같은 오리진 상대경로. 라이브(test.mangoi.co.kr)에서는
+     정적 페이지와 API 를 같은 워커가 서빙하므로 별도 설정 없이 서버 동기화가 동작한다.
+     (백엔드가 없는 환경이면 fetch 가 조용히 실패 → localStorage 로만 동작) */
   function getApiBase() {
     if (global.MANGOI_API_BASE) return String(global.MANGOI_API_BASE).replace(/\/$/, '');
     try {
       var b = localStorage.getItem('mangoi_api_base');
       if (b) return String(b).replace(/\/$/, '');
     } catch (e) {}
-    return '';
+    return '';                         // '' = 같은 오리진(/api/streak/...)
   }
 
-  /* ── 서버 동기화(선택): API_BASE 있을 때만 조용히 POST ──────────── */
+  /* ── 서버 동기화: 같은 오리진(또는 지정 API_BASE)으로 조용히 POST ── */
   function syncToServer() {
-    var base = getApiBase();
-    if (!base) return;                 // 서버 미설정 → 로컬만, 조용히 종료
+    var base = getApiBase();           // '' 이면 상대경로 = 같은 오리진
     try {
       fetch(base + '/api/streak/complete-quiz', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ student_id: getStudentId() })
-      }).catch(function () { /* 서버 꺼져 있어도 무시 */ });
+      }).catch(function () { /* 서버 없거나 꺼져 있어도 무시(로컬로 동작) */ });
     } catch (e) {}
   }
 
