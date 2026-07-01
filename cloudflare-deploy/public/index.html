@@ -24540,13 +24540,27 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     body.vc-in-call .vc-main-row:not(.video-full):not(.video-solo):not(.video-free):not(.video-pip):not(.content-full) .video-pane{
       position:relative !important;
       top:auto !important; left:auto !important; right:auto !important; bottom:auto !important;
-      width:150px !important; min-width:118px !important; max-width:172px !important;
-      height:auto !important; flex:0 0 150px !important;
+      width:132px !important; min-width:110px !important; max-width:150px !important;
+      height:auto !important; flex:0 0 132px !important;
       z-index:auto !important; box-shadow:none !important;
       border-left:1px solid rgba(148,163,184,0.18) !important;
     }
     body.vc-in-call .vc-main-row:not(.video-full):not(.video-solo):not(.video-free):not(.video-pip):not(.content-full) .content-pane{
       width:auto !important; flex:1 1 auto !important; min-width:0 !important;
+    }
+    /* 7) 🚫 영상 컬럼의 '불필요한 빈(흰) 박스' 제거 — 카메라를 정사각(1/1)으로 고정해 아래에
+       큰 빈 공간이 남던 것을(2322줄 aspect-ratio:1/1), 컬럼을 꽉 채우도록 바꿔 없앤다.
+       영상 스트림은 그대로 보이되(object-fit:cover) 컬럼 폭도 좁혀 칠판/콘텐츠를 넓힌다. */
+    body.vc-in-call .vc-main-row:not(.video-full):not(.video-solo):not(.video-free):not(.video-pip):not(.content-full) .video-pane #vc-video-grid,
+    body.vc-in-call .vc-main-row:not(.video-full):not(.video-solo):not(.video-free):not(.video-pip):not(.content-full) .video-pane .video-strip{
+      height:100% !important; grid-auto-rows:1fr !important; align-content:stretch !important; gap:2px !important;
+    }
+    body.vc-in-call .vc-main-row:not(.video-full):not(.video-solo):not(.video-free):not(.video-pip):not(.content-full) .video-pane #vc-video-grid .video-box{
+      aspect-ratio:auto !important; height:100% !important; min-height:0 !important;
+    }
+    body.vc-in-call .vc-main-row:not(.video-full):not(.video-solo):not(.video-free):not(.video-pip):not(.content-full) .video-pane #vc-video-grid .video-box video,
+    body.vc-in-call .vc-main-row:not(.video-full):not(.video-solo):not(.video-free):not(.video-pip):not(.content-full) .video-pane #vc-video-grid video{
+      height:100% !important; width:100% !important; object-fit:cover !important;
     }
   }
 </style>
