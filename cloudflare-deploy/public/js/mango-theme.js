@@ -2,14 +2,22 @@
  * mango-theme.js — 화상수업 라이트/다크 테마 [초안]
  *  - 한국시간(KST) 기준 자동 전환: 18:00 이전 = 라이트(파스텔), 18:00 이후 = 다크
  *  - 매 분 재평가하여 18시 경계에서 자동으로 바뀜
- *  - 상단 툴바의 ☀/🌙 버튼으로 수동 전환도 가능 (이번 세션 한정, 새로고침하면 자동 복귀)
+ *  - 상단 툴바의 ☀/🌙 버튼으로 수동 전환 가능 → localStorage 에 저장되어 다음 접속에도 유지되고,
+ *    수동 선택이 있으면 시간 자동규칙보다 '항상 우선'한다. (자동으로 되돌리려면 MangoTheme.auto())
  *  - mango-theme-light.css 와 짝으로 동작
  */
 (function () {
   'use strict';
 
   var LIGHT_CLASS = 'vc-theme-light';
-  var manualOverride = null; // null = 자동(시간 기준), 'light'/'dark' = 이번 세션 수동
+  var LS_KEY = 'mango_theme_manual';   // 수동 선택 저장 키 ('light'/'dark'). 있으면 자동보다 우선
+  // null = 자동(18시 기준 시간규칙). 저장된 수동 선택이 있으면 불러와 우선 적용.
+  var manualOverride = null;
+  try { var _saved = localStorage.getItem(LS_KEY); if (_saved === 'light' || _saved === 'dark') manualOverride = _saved; } catch (e) {}
+  // 수동 선택을 localStorage 에 저장/삭제 (null 이면 삭제 = 자동으로 복귀)
+  function persistManual() {
+    try { if (manualOverride) localStorage.setItem(LS_KEY, manualOverride); else localStorage.removeItem(LS_KEY); } catch (e) {}
+  }
 
   function isLight() { return document.body.classList.contains(LIGHT_CLASS); }
 
@@ -47,8 +55,9 @@
   function refresh() { apply(target()); }
 
   function toggle() {
-    // 수동 전환 → 이번 세션 동안 자동 일시중지
+    // 수동 전환 → localStorage 에 저장(자동 시간규칙보다 우선, 다음 접속에도 유지)
     manualOverride = isLight() ? 'dark' : 'light';
+    persistManual();
     apply(manualOverride);
   }
 
@@ -93,9 +102,10 @@
   // 외부 제어용
   window.MangoTheme = {
     toggle: toggle,
-    auto: function () { manualOverride = null; refresh(); }, // 자동으로 복귀
-    set: function (t) { manualOverride = t; apply(t); },
+    auto: function () { manualOverride = null; persistManual(); refresh(); }, // 자동(18시 시간규칙)으로 복귀
+    set: function (t) { manualOverride = t; persistManual(); apply(t); },
     get: function () { return isLight() ? 'light' : 'dark'; },
+    isManual: function () { return !!manualOverride; },
     kstHour: kstHour
   };
 })();
