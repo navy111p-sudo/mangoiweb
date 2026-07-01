@@ -16,6 +16,7 @@
     share:'<rect x="3" y="4" width="18" height="13" rx="2.5"/><line x1="9" y1="21" x2="15" y2="21"/><path d="M12 8v5"/><path d="M9.5 10.5L12 8l2.5 2.5"/>',
     chat:'<path d="M21 11.5a8 8 0 0 1-11.5 7.2L4 20l1.3-4.3A8 8 0 1 1 21 11.5z"/>',
     consult:'<path d="M4 4.5h16a1.2 1.2 0 0 1 1.2 1.2v9a1.2 1.2 0 0 1-1.2 1.2h-9.2L6 20.5v-4.6H4a1.2 1.2 0 0 1-1.2-1.2v-9A1.2 1.2 0 0 1 4 4.5Z"/>',
+    warm:'<path d="M4 5h16a1.3 1.3 0 0 1 1.3 1.3v8a1.3 1.3 0 0 1-1.3 1.3h-9l-4 3v-3H4a1.3 1.3 0 0 1-1.3-1.3v-8A1.3 1.3 0 0 1 4 5Z"/><circle cx="8.5" cy="10.3" r="1"/><circle cx="12" cy="10.3" r="1"/><circle cx="15.5" cy="10.3" r="1"/>',
     settings:'<line x1="4" y1="8" x2="20" y2="8"/><circle cx="9" cy="8" r="2.3"/><line x1="4" y1="16" x2="20" y2="16"/><circle cx="15" cy="16" r="2.3"/>',
     leave:'<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M9 16l4-4-4-4"/><line x1="13" y1="12" x2="3" y2="12"/>'
   };
@@ -77,6 +78,8 @@
     '@media (max-width:560px){#vc-dock{gap:4px;padding:6px 8px;bottom:12px;}#vc-dock button{width:48px;height:48px;font-size:9px;}}',
     '/* 갤럭시 Z 폴드 접힘(커버) 등 매우 좁은 화면: 버튼 7개가 한 줄에 들어오도록 축소 */',
     '@media (max-width:430px){#vc-dock{gap:3px;padding:5px 6px;max-width:99vw;}#vc-dock button{width:42px;height:46px;font-size:8.5px;}#vc-dock button svg{width:20px;height:20px;}}',
+    '/* 버튼 8개(웜업 포함)가 아주 좁은 폰(<=400px)에서도 한 줄에 들어오도록 한 단계 더 축소 */',
+    '@media (max-width:400px){#vc-dock{gap:2px;padding:4px 5px;}#vc-dock button{width:38px;height:44px;font-size:8px;}#vc-dock button svg{width:18px;height:18px;}}',
     '/* 모바일 가로(낮은 화면): 도크를 숨기지 않고 납작·아이콘 위주로. 폴드 펼침처럼 높은 화면은 제외 → 풀 도크 유지 */',
     '@media (max-width:920px) and (orientation:landscape) and (max-height:600px){',
     '  #vc-dock{bottom:max(8px,env(safe-area-inset-bottom));gap:3px;padding:5px 8px;border-radius:15px;}',
@@ -273,6 +276,28 @@
   // 가로에선 이름이 먼저 보이도록 동작을 잠깐 미룸 / 세로에선 즉시(기존 동작 유지)
   function openDelayed(fn){ if (isCL()) setTimeout(fn, 230); else fn(); }
 
+  // 🗣️ 웜업 링크용 파라미터: 현재 수업방(room)·교재 파일명(unit)을 화면에서 best-effort 로 읽는다.
+  //   - room: 통합바/신호서버가 쓰는 #vc-room-name / #sig-room-name, 없으면 window.vcRoomName
+  //   - unit: 교재 라이브러리 시퀀스(window._libSequence[_libSeqIdx].name) 또는 페이지정보 텍스트
+  //   값이 없으면 해당 파라미터를 생략(그래도 warmup.html 은 정상 동작).
+  function warmupParams(){
+    var room = '', unit = '';
+    try {
+      var rn = document.getElementById('vc-room-name') || document.getElementById('sig-room-name');
+      room = (rn && rn.textContent ? rn.textContent : (window.vcRoomName || '')).trim();
+    } catch(_){}
+    try {
+      if (window._libSequence && window._libSequence.length) {
+        var it = window._libSequence[window._libSeqIdx || 0];
+        if (it && it.name) unit = String(it.name).trim();
+      }
+    } catch(_){}
+    var q = [];
+    if (room) q.push('room=' + encodeURIComponent(room));
+    if (unit) q.push('unit=' + encodeURIComponent(unit));
+    return q.length ? ('?' + q.join('&')) : '';
+  }
+
   function build(){
     if (dock) return;
     var st = document.createElement('style'); st.id = 'vc-dock-style'; st.textContent = STYLE; document.head.appendChild(st);
@@ -285,6 +310,7 @@
     btnCam = mk('cam','카메라','cam');
     var bShare = mk('share','화면공유','share');
     var bChat = mk('chat','채팅','chat');
+    var bWarm = mk('warm','웜업','warm');
     var bConsult = mk('consult','상담','consult');
     bSet = mk('settings','설정','settings');
     var bLeave = mk('leave','나가기','leave','leave');
@@ -293,11 +319,14 @@
     btnCam.onclick = function(){ if(isCL())showHint('카메라'); closeSettings(); call('vcToggleCam'); setTimeout(sync, 60); };
     bShare.onclick = function(){ if(isCL())showHint('화면공유'); closeSettings(); call('vcFolderOpen','screen'); };
     bChat.onclick = function(){ if(isCL())showHint('채팅'); closeSettings(); openDelayed(function(){ call('vcToggleChat'); }); };
+    // 🗣️ 수업 전 AI 웜업 — 새 탭으로 warmup.html 열기(수업 통화는 그대로 유지).
+    //   현재 수업방 이름(room)과 교재 파일명(unit)을 얻을 수 있으면 파라미터로 넘긴다.
+    bWarm.onclick = function(){ if(isCL())showHint('웜업'); closeSettings(); window.open('/warmup.html'+warmupParams(),'_blank','noopener'); }; // 외부 페이지: 지연 없이 즉시(팝업차단 방지)
     bConsult.onclick = function(){ if(isCL())showHint('상담'); closeSettings(); window.open('https://pf.kakao.com/_mangoi/chat','_blank','noopener'); }; // 외부 링크: 지연 없이 즉시(팝업차단 방지)
     bSet.onclick = function(e){ if(e&&e.stopPropagation) e.stopPropagation(); if(isCL())showHint('설정'); openDelayed(toggleSettings); };
     bLeave.onclick = function(){ if(isCL())showHint('나가기'); closeSettings(); call('vcLeaveRoom'); };
 
-    [btnMic, btnCam, bShare, bChat, bConsult, bSet, bLeave].forEach(function(b){ dock.appendChild(b); });
+    [btnMic, btnCam, bShare, bChat, bWarm, bConsult, bSet, bLeave].forEach(function(b){ dock.appendChild(b); });
     document.body.appendChild(dock);
 
     // 🥭 (2026-06-28) 문고리(핸들) — 휴대폰 가로에서 도크를 아래로 접었다/폈다 (카메라 얼굴 가림 해소)
