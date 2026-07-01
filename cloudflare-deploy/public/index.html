@@ -24513,6 +24513,16 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     body.vc-in-call .mango-tool-chip{
       min-height:32px !important; padding:5px 10px !important;
     }
+    /* 4) 탭바가 어떤 변형 선택자(id 스코프 포함)로도 숨지 않도록 확실히 노출 */
+    body.vc-in-call #vc-content-pane .tab-bar{ display:flex !important; }
+    /* 5) 5개 탭 콘텐츠(동영상·학생게임·배경화면·복습퀴즈·교재)가 짧은 가로 높이에서
+       잘리지 않게: 콘텐츠 영역을 채우고 스크롤 허용, 활성 패널은 확실히 표시 */
+    body.vc-in-call .content-pane .tab-content{
+      display:flex !important; flex:1 1 auto !important; min-height:0 !important; overflow:auto !important;
+    }
+    body.vc-in-call .content-pane .tab-panel.active{
+      display:flex !important; min-height:0 !important;
+    }
   }
 </style>
 <style id="consult-fab-transparent">
