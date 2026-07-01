@@ -1,0 +1,12 @@
+# 망고아이 FastAPI 백엔드 (app/) 실행에 필요한 패키지
+# 설치:  pip install -r requirements.txt
+
+fastapi>=0.110,<1.0          # 웹 프레임워크 (API 서버)
+uvicorn[standard]>=0.29      # ASGI 서버 (개발/운영 실행기)
+SQLAlchemy>=2.0,<3.0         # ORM (DB 모델/세션)
+pydantic>=2.6,<3.0           # 입력 검증/직렬화
+openai>=1.30                 # AI 웜업 롤플레이용 OpenAI 클라이언트
+
+# (선택) SQLite 이외의 DB 사용 시 아래 드라이버 중 하나를 주석 해제하세요.
+# PyMySQL>=1.1               # MySQL 사용 시
+# psycopg2-binary>=2.9       # PostgreSQL 사용 시

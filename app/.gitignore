@@ -1,0 +1,4 @@
+# 파이썬 백엔드 산출물 — 커밋 대상 아님
+__pycache__/
+*.pyc
+mangoi_backend.db
