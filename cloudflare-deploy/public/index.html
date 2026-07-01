@@ -25273,6 +25273,13 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   #ph49-kakao-fab, .ph49-kakao-fab { bottom: 16px !important; right: 16px !important; }
   #mangoi-widget { bottom: 104px !important; right: 16px !important; }
   #ph52-cache-fab, .ph52-cache-fab { left: 16px !important; right: auto !important; bottom: 16px !important; top: auto !important; }
+  /* 🔄 (2026-07-01) 수업 중(vc-in-call)엔 리셋(↻ 캐시) 버튼을 하단 컨트롤 독 '위'로 올려
+     겹침 방지 — 세로에선 가운데 독(폭이 넓어 좌하단까지 닿음)에 반쯤 가려지던 문제,
+     가로에서도 독/문고리와 세로로 분리. 좌측 하단은 유지하되 y만 독 높이만큼 위로. */
+  body.vc-in-call #ph52-cache-fab, body.vc-in-call .ph52-cache-fab {
+    left: 16px !important; right: auto !important; top: auto !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 92px) !important;
+  }
   /* 💻 PC(데스크톱) 전용 — A.i 상담사 위젯 2배 크게 (모바일은 기존 크기 그대로 유지) (2026-06-17) */
   @media (min-width:481px){
     #mangoi-widget { width:128px; height:128px; }
