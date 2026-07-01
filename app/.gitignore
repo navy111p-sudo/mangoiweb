@@ -2,3 +2,7 @@
 __pycache__/
 *.pyc
 mangoi_backend.db
+
+# 실제 비밀값 파일(.env)은 커밋 금지 — .env.example 만 커밋
+.env
+

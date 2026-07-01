@@ -1,0 +1,35 @@
+# ── 도커 이미지에 넣지 않을 것들(이미지 경량화 + 비밀 유출 방지) ──
+
+# 파이썬 캐시/빌드 산출물
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# 로컬 DB 파일(운영에서는 DATABASE_URL 로 별도 DB 사용)
+*.db
+app/mangoi_backend.db
+
+# 환경변수/비밀 (절대 이미지에 포함 금지)
+.env
+.env.*
+!.env.example
+
+# git / 에디터
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# 이 백엔드와 무관한 프론트/워커/모바일 자산 (이미지에 불필요)
+cloudflare-deploy/
+mobile-app/
+node_modules/
+dist/
+public/
+docs/
+*.apk
+*.zip
+*.mp4
+*.keystore

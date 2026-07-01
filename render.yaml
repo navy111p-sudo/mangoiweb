@@ -1,0 +1,41 @@
+# ============================================================================
+#  render.yaml — Render.com 배포 설정 (Infrastructure as Code)
+# ----------------------------------------------------------------------------
+#  이 파일이 레포에 있으면 Render 에서 "Blueprint" 로 원클릭에 가깝게 배포됩니다.
+#  Render 대시보드 → New → Blueprint → 이 레포 선택 → 아래 설정대로 생성.
+#
+#  - Docker 이미지를 그대로 사용(위 Dockerfile).
+#  - Render 가 $PORT 를 자동 주입 → Dockerfile 의 CMD 가 그 포트로 실행.
+#  - 헬스체크 /health 로 정상 기동 확인.
+#  - 비밀값(OPENAI_API_KEY 등)은 여기 값을 넣지 말고 대시보드에서 입력(sync:false).
+# ============================================================================
+services:
+  - type: web
+    name: mangoi-backend
+    runtime: docker            # Dockerfile 사용 (구버전 Render 는 env: docker)
+    dockerfilePath: ./Dockerfile
+    plan: free                 # 무료 플랜(슬립 있음). 상시가동은 유료로 변경.
+    region: singapore          # 한국에서 가까운 리전(오리건=oregon 등으로 변경 가능)
+    healthCheckPath: /health
+    autoDeploy: true           # main 브랜치 푸시 시 자동 재배포
+    envVars:
+      # 🔑 OpenAI 키 — 대시보드에서 직접 입력(코드/깃에 남기지 않음)
+      - key: OPENAI_API_KEY
+        sync: false
+      # 🗄️ DB 주소 — 비워두면 컨테이너 내부 SQLite 사용(재배포 시 초기화됨).
+      #    영구 저장하려면 아래 databases 블록의 Postgres 를 쓰거나 직접 입력.
+      - key: DATABASE_URL
+        sync: false
+      # 🌐 CORS 허용 오리진(콤마 구분). 프론트 도메인에 맞게 조정.
+      - key: CORS_ALLOW_ORIGINS
+        value: https://test.mangoi.co.kr,https://mangoi.co.kr,https://www.mangoi.co.kr
+
+# ── (선택) 관리형 Postgres 를 함께 만들고 싶으면 아래 주석을 해제하세요. ──
+# databases:
+#   - name: mangoi-db
+#     plan: free
+# 그리고 위 web 서비스의 DATABASE_URL 을 아래처럼 연결로 바꾸면 자동 주입됩니다:
+#       - key: DATABASE_URL
+#         fromDatabase:
+#           name: mangoi-db
+#           property: connectionString

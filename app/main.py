@@ -15,6 +15,8 @@ main.py — 망고아이 FastAPI 백엔드의 진입점(entry point)
   - 대화형 API 문서:  http://127.0.0.1:8010/docs
 """
 
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -34,12 +36,38 @@ app = FastAPI(
 )
 
 # ── 3. CORS 설정 ───────────────────────────────────────────────
-# 망고아이 웹(Cloudflare Workers/브라우저)에서 이 API 를 fetch 로 부를 수 있게 허용.
-# 운영 시에는 allow_origins 를 실제 도메인(예: https://test.mangoi.co.kr)으로 좁히세요.
+# 망고아이 웹(브라우저)에서 이 API 를 fetch 로 부를 수 있게 허용 오리진을 지정합니다.
+#
+# [설정 방법]
+#   - 환경변수 CORS_ALLOW_ORIGINS 에 콤마(,)로 구분해 도메인을 넣으면 그 목록을 사용합니다.
+#       예) CORS_ALLOW_ORIGINS="https://test.mangoi.co.kr,https://mangoi.co.kr"
+#   - 지정하지 않으면 아래 기본값(망고아이 프론트 도메인 + 로컬 개발)을 사용합니다.
+#   - 모든 오리진을 열려면 CORS_ALLOW_ORIGINS="*" (개발용, 운영에서는 권장하지 않음).
+#
+# [주의] 브라우저 규칙상 allow_origins="*" 와 allow_credentials=True 는 함께 못 씁니다.
+#        우리 프론트는 쿠키/인증정보를 보내지 않으므로 credentials 는 False 로 둡니다.
+_DEFAULT_ORIGINS = [
+    "https://test.mangoi.co.kr",
+    "https://mangoi.co.kr",
+    "https://www.mangoi.co.kr",
+    "https://webrtc-unified-platform.navy111p.workers.dev",
+    "https://webrtc-unified-platform-prod.navy111p.workers.dev",
+    "http://localhost:8010",
+    "http://127.0.0.1:8010",
+]
+_cors_env = os.getenv("CORS_ALLOW_ORIGINS", "").strip()
+if _cors_env == "*":
+    _allow_origins = ["*"]
+elif _cors_env:
+    # 콤마로 구분된 목록 → 공백 제거 후 리스트로
+    _allow_origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
+else:
+    _allow_origins = _DEFAULT_ORIGINS
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_allow_origins,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

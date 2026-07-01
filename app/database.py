@@ -26,6 +26,12 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 _DEFAULT_SQLITE = "sqlite:///" + os.path.join(os.path.dirname(__file__), "mangoi_backend.db")
 DATABASE_URL = os.getenv("DATABASE_URL", _DEFAULT_SQLITE)
 
+# [Postgres 호환] Render/Railway/Heroku 등이 주는 주소는 'postgres://' 로 시작하는데,
+# SQLAlchemy 2.0 은 'postgresql://' 만 인식합니다. 자동으로 바꿔줍니다.
+# (psycopg2-binary 가 설치돼 있으면 postgresql://... 는 그대로 접속됩니다.)
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
 # ── 2. 엔진 생성 ────────────────────────────────────────────────
 # SQLite 는 기본적으로 '한 스레드'만 접근을 허용하므로,
 # FastAPI(여러 요청 동시 처리)에서 쓰려면 check_same_thread=False 가 필요합니다.
