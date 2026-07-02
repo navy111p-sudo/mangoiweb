@@ -485,9 +485,19 @@
     "My family went to the beach last summer.":"우리 가족은 지난여름 해변에 갔어요.",
     "She wants to be a famous scientist someday.":"그녀는 언젠가 유명한 과학자가 되고 싶어해요."
   };
-  var DISTRACTORS = ["cat","run","blue","apple","green","quickly","does","happy","jump","red","water","table","want","under","they","big","milk"];
+  // 🌐 게임 언어(허브 전달 ?glang= 또는 localStorage) — 중국어면 문장/보기/발음을 중국어로
+  var GLANG = (function(){ try{ var g=(new URLSearchParams(location.search).get('glang')||'').toLowerCase(); if(g==='zh'||g==='en') return g; var l=localStorage.getItem('mangoi_game_lang'); return (l==='zh')?'zh':'en'; }catch(e){ return 'en'; } })();
+  try{ if(window.MangoiTTS) MangoiTTS.setLang(GLANG); }catch(e){}
+  var DISTRACTORS = (GLANG==='zh')
+    ? ["猫","跑","蓝","苹果","绿","快","做","高兴","跳","红","水","桌子","想","下面","他们","大","牛奶"]
+    : ["cat","run","blue","apple","green","quickly","does","happy","jump","red","water","table","want","under","they","big","milk"];
   var ALIENS = ['👽','👾','🤖','🧟','👹','😈','🦠','👻'];
   var FISHES = ['🐟','🐠','🐡','🦈','🐬','🦑','🐙','🦐'];
+  // 중국어 문장 세트(단어 단위 공백 분절) — PRESETS 대체 (다락원 중국어 마스터 수준)
+  var ZH_PRESETS = [
+    "我 爱 你", "你 好 吗", "我 是 学生", "今天 天气 很 好", "我 喜欢 吃 苹果",
+    "他 每天 去 学校", "这 是 我的 朋友", "我 想 喝 水", "我们 一起 学习 汉语"
+  ];
 
   /* ── 🎯 목표: 정답 단어 10개 → 결과 화면 (문장을 이어가며 채움) ── */
   var GOAL = (function(){ try{ var g=parseInt(new URLSearchParams(location.search).get('goal'),10); return (g>=3&&g<=50)?g:10; }catch(e){ return 10; } })();
@@ -509,7 +519,7 @@
   }
   /* ── 📚 로그인 학생의 교재/레벨 맞춤 문장 큐 (game-vocab.js — 실패 시 PRESETS 순환)
         난이도 구간: 문장을 짧은→긴 순으로 정렬해 현재 단계 구간에서 순환 출제 ── */
-  var STUDENT_SENTENCES = null, _queueIdx = 0;
+  var STUDENT_SENTENCES = (GLANG==='zh') ? ZH_PRESETS.slice() : null, _queueIdx = 0;
   function nextQueueSentence(){
     var q = (STUDENT_SENTENCES && STUDENT_SENTENCES.length) ? STUDENT_SENTENCES : PRESETS;
     var sorted = q.slice().sort(function(a,b){ return a.split(' ').length - b.split(' ').length || a.length - b.length; });
@@ -521,7 +531,7 @@
     return s;
   }
   try{
-    if(window.MangoiGameVocab){
+    if(window.MangoiGameVocab && GLANG!=='zh'){   // 중국어 모드에선 영어 학생 맞춤 문장으로 덮어쓰지 않음
       MangoiGameVocab.load().then(function(d){
         if(d && d.sentences && d.sentences.length >= 2){
           STUDENT_SENTENCES = d.sentences.map(function(s){ return s.en; });
@@ -800,7 +810,7 @@
   function setupRecognition(){
     if(!SR) return null;
     var r = new SR();
-    r.lang='en-US'; r.interimResults=false; r.maxAlternatives=3; r.continuous=false;
+    r.lang=(GLANG==='zh'?'zh-CN':'en-US'); r.interimResults=false; r.maxAlternatives=3; r.continuous=false;   // 🌐 중국어 모드는 중국어 인식
     r.onstart = function(){ recogActive=true; micBtn.classList.add('listening'); micBtn.innerHTML='🔴 듣는 중… 말하세요'; };
     r.onerror = function(ev){
       recogActive=false; micBtn.classList.remove('listening'); micBtn.innerHTML='🎤 누르고 말하기'; micBtn.disabled=false;
@@ -1363,14 +1373,16 @@
      9) 메뉴 / 진입
   ========================================================================= */
   var presetsEl=$('#presets'), sentenceInput=$('#sentenceInput');
-  PRESETS.forEach(function(s){
+  // 중국어 모드면 프리셋 버튼도 중국어 문장으로
+  (GLANG==='zh' ? ZH_PRESETS : PRESETS).forEach(function(s){
     var b=document.createElement('button'); b.textContent=s;
     b.addEventListener('click', function(){ sentenceInput.value=s; });
     presetsEl.appendChild(b);
   });
+  if(GLANG==='zh' && sentenceInput && !sentenceInput.value.trim()){ sentenceInput.value = ZH_PRESETS[0]; }
   function commitSentence(){
     var v = sentenceInput.value.trim();
-    if(cleanWords(v).length < 1 || !v){ v = "He plays soccer on Sundays."; sentenceInput.value=v; }
+    if(cleanWords(v).length < 1 || !v){ v = (GLANG==='zh' ? ZH_PRESETS[0] : "He plays soccer on Sundays."); sentenceInput.value=v; }
     targetSentence = v;
   }
   // 외부(클래스/수업 데이터)에서 목표 문장 주입 — 입력칸에도 반영해 fallback 유지

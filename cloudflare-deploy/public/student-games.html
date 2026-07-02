@@ -95,6 +95,14 @@
   }
   /* brick/fill: 내용 세로 가운데 정렬 (위/아래 빈공간 균형) · match/balloon: 자식이 flex:1 로 채움 */
   #game-area.area-center{justify-content:center}
+  /* ===== 🌐 언어 선택(영어/중국어) ===== */
+  .lang-pick{display:flex;gap:8px;align-items:center;justify-content:center}
+  .lang-pick .lg{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--sub);
+    border-radius:999px;padding:7px 16px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;transition:.15s}
+  .lang-pick .lg.on{background:rgba(56,189,248,.22);border-color:#38bdf8;color:#bae6fd;box-shadow:0 0 0 1px #38bdf8 inset}
+  .lang-pick .lg:active{transform:scale(.95)}
+  /* 병음(pinyin) 표시 */
+  .pinyin{color:#7dd3fc;font-weight:600;letter-spacing:.3px}
 </style>
 </head>
 <body>
@@ -104,8 +112,13 @@
   <div id="hub-menu">
     <div class="hub-head">
       <div class="brand">MANGOI · LEARNING GAMES</div>
-      <h1>영어 <span class="em">학습 게임</span> 🎮</h1>
-      <div class="sub">재미있는 게임을 통해 오늘 배운 단어·문장을 다시 예복습해요!<br>원하는 게임을 눌러 바로 플레이하세요.</div>
+      <h1 id="hub-title">영어 <span class="em">학습 게임</span> 🎮</h1>
+      <div class="sub" id="hub-sub">재미있는 게임을 통해 오늘 배운 단어·문장을 다시 예복습해요!<br>원하는 게임을 눌러 바로 플레이하세요.</div>
+      <!-- 🌐 언어 선택: 영어 / 중국어 (같은 게임을 선택 언어로 플레이) -->
+      <div class="lang-pick" id="lang-pick" style="margin-top:14px">
+        <button class="lg" data-lang="en" onclick="setGameLang('en')">🇬🇧 영어</button>
+        <button class="lg" data-lang="zh" onclick="setGameLang('zh')">🇨🇳 중국어</button>
+      </div>
       <!-- 🔥 학습 불꽃 배지: 게임 하나라도 정답/클리어하면 오늘 달성으로 켜진다 -->
       <div id="streak-badge-hub" style="margin-top:14px"></div>
       <!-- ⚡ 게임 속도(난이도) 5단계 — 모든 게임에 공통 적용 -->
@@ -150,7 +163,8 @@
    · 아래 기본 어휘는 폴백 — 로그인 학생이면 game-vocab.js 가
      교재/레벨 맞춤 문장·단어로 내용을 교체한다.
    ============================================================ */
-const _GAME_VOCAB = [
+/* 🇬🇧 영어 기본 어휘(폴백) */
+const _EN_VOCAB = [
   { en: 'I love mango fruit.',           ko: '나는 망고 과일을 좋아해요.',         words: ['I','love','mango','fruit'] },
   { en: 'She is reading a book.',        ko: '그녀는 책을 읽고 있어요.',           words: ['She','is','reading','a','book'] },
   { en: 'We go to school every day.',    ko: '우리는 매일 학교에 가요.',           words: ['We','go','to','school','every','day'] },
@@ -165,7 +179,7 @@ const _GAME_VOCAB = [
   { en: 'We should always be kind to our friends.',       ko: '우리는 친구들에게 항상 친절해야 해요.',     words: ['We','should','always','be','kind','to','our','friends'] },
   { en: 'The students are studying English together now.',ko: '학생들은 지금 함께 영어를 공부하고 있어요.', words: ['The','students','are','studying','English','together','now'] }
 ];
-const _GAME_WORDS = [
+const _EN_WORDS = [
   { en:'apple', ko:'사과' }, { en:'book', ko:'책' }, { en:'cat', ko:'고양이' },
   { en:'dog', ko:'강아지' }, { en:'flower', ko:'꽃' }, { en:'hello', ko:'안녕' },
   { en:'school', ko:'학교' }, { en:'water', ko:'물' }, { en:'sun', ko:'태양' },
@@ -174,6 +188,49 @@ const _GAME_WORDS = [
   { en:'beautiful', ko:'아름다운' }, { en:'delicious', ko:'맛있는' }, { en:'important', ko:'중요한' },
   { en:'together', ko:'함께' }, { en:'adventure', ko:'모험' }, { en:'vacation', ko:'방학' }
 ];
+
+/* 🇨🇳 중국어(다락원 중국어 마스터 수준) 어휘 — en 필드에 한자, pinyin 병음, ko 한국어 뜻.
+   문장의 words[] 는 한자를 단어 단위로 미리 분절(중국어는 띄어쓰기가 없으므로). */
+const _ZH_VOCAB = [
+  { en:'我爱你。',        pinyin:'Wǒ ài nǐ.',              ko:'나는 너를 사랑해.',        words:['我','爱','你'] },
+  { en:'你好吗？',        pinyin:'Nǐ hǎo ma?',             ko:'잘 지내니?',              words:['你','好','吗'] },
+  { en:'我是学生。',      pinyin:'Wǒ shì xuésheng.',       ko:'나는 학생이에요.',        words:['我','是','学生'] },
+  { en:'今天天气很好。',  pinyin:'Jīntiān tiānqì hěn hǎo.',ko:'오늘 날씨가 좋아요.',      words:['今天','天气','很','好'] },
+  { en:'我喜欢吃苹果。',  pinyin:'Wǒ xǐhuan chī píngguǒ.', ko:'나는 사과 먹는 걸 좋아해요.',words:['我','喜欢','吃','苹果'] },
+  { en:'他每天去学校。',  pinyin:'Tā měitiān qù xuéxiào.', ko:'그는 매일 학교에 가요.',    words:['他','每天','去','学校'] },
+  { en:'这是我的朋友。',  pinyin:'Zhè shì wǒ de péngyou.', ko:'이 사람은 내 친구예요.',    words:['这','是','我的','朋友'] },
+  { en:'我想喝水。',      pinyin:'Wǒ xiǎng hē shuǐ.',      ko:'나는 물을 마시고 싶어요.',  words:['我','想','喝','水'] },
+  // 🎢 상위 난이도(6~7단계)용 — 더 길고 어려운 문장
+  { en:'昨天我和家人去了海边。',   pinyin:'Zuótiān wǒ hé jiārén qùle hǎibiān.', ko:'어제 나는 가족과 바닷가에 갔어요.', words:['昨天','我','和','家人','去了','海边'] },
+  { en:'她将来想当医生。',         pinyin:'Tā jiānglái xiǎng dāng yīshēng.',    ko:'그녀는 장래에 의사가 되고 싶어해요.', words:['她','将来','想','当','医生'] },
+  { en:'我们应该对朋友友好。',     pinyin:'Wǒmen yīnggāi duì péngyou yǒuhǎo.',  ko:'우리는 친구에게 친절해야 해요.',   words:['我们','应该','对','朋友','友好'] },
+  { en:'学生们正在一起学习汉语。', pinyin:'Xuéshengmen zhèngzài yìqǐ xuéxí Hànyǔ.', ko:'학생들은 지금 함께 중국어를 공부하고 있어요.', words:['学生们','正在','一起','学习','汉语'] }
+];
+const _ZH_WORDS = [
+  { en:'苹果', pinyin:'píngguǒ', ko:'사과' }, { en:'书',  pinyin:'shū',  ko:'책' },   { en:'猫', pinyin:'māo', ko:'고양이' },
+  { en:'狗',   pinyin:'gǒu',     ko:'강아지' }, { en:'花', pinyin:'huā',  ko:'꽃' },   { en:'你好', pinyin:'nǐ hǎo', ko:'안녕' },
+  { en:'学校', pinyin:'xuéxiào', ko:'학교' },   { en:'水',  pinyin:'shuǐ', ko:'물' },   { en:'太阳', pinyin:'tàiyáng', ko:'태양' },
+  { en:'月亮', pinyin:'yuèliang',ko:'달' },     { en:'星星',pinyin:'xīngxing',ko:'별' },{ en:'爱', pinyin:'ài', ko:'사랑' },
+  // 🎢 상위 난이도(6~7단계)용 — 더 길고 어려운 단어
+  { en:'漂亮', pinyin:'piàoliang', ko:'예쁜' }, { en:'好吃', pinyin:'hǎochī', ko:'맛있는' }, { en:'重要', pinyin:'zhòngyào', ko:'중요한' },
+  { en:'一起', pinyin:'yìqǐ',      ko:'함께' }, { en:'旅行', pinyin:'lǚxíng', ko:'여행' },   { en:'假期', pinyin:'jiàqī',   ko:'방학' }
+];
+
+// 활성 어휘(게임이 실제로 읽는 배열) — 언어에 따라 _EN_* / _ZH_* 로 채운다.
+const _GAME_VOCAB = [];
+const _GAME_WORDS = [];
+// 🌐 현재 게임 언어: 'en'(기본) | 'zh'(중국어) — localStorage 로 페이지 간 공유
+var GAME_LANG = (function(){ try{ var l=localStorage.getItem('mangoi_game_lang'); return (l==='zh')?'zh':'en'; }catch(_){ return 'en'; } })();
+function _fillActive(vocab, words){
+  _GAME_VOCAB.length = 0; vocab.forEach(function(v){ _GAME_VOCAB.push(v); });
+  _GAME_WORDS.length = 0; words.forEach(function(w){ _GAME_WORDS.push(w); });
+}
+function _applyLangVocab(){
+  if(GAME_LANG==='zh') _fillActive(_ZH_VOCAB, _ZH_WORDS);
+  else _fillActive(_EN_VOCAB, _EN_WORDS);
+  try{ if(window.MangoiTTS) MangoiTTS.setLang(GAME_LANG); }catch(_){}
+}
+_applyLangVocab();   // 시작 시 현재 언어 어휘 적용
 const _gameState = { mode: 'brick', score: 0, correct: 0, wrong: 0, current: null, started: false, balloonTimer: null, roundTimer: null };
 
 /* ============================================================
@@ -254,6 +311,7 @@ if (window.MangoiGameVocab){
   MangoiGameVocab.load().then(function(d){
     if(!d) return;
     window._STUDENT_VOCAB = d;
+    if(GAME_LANG !== 'en') return;   // 중국어 모드에서는 영어 학생 맞춤 어휘로 덮어쓰지 않음
     if(d.sentences.length >= 3){ _GAME_VOCAB.length = 0; d.sentences.forEach(function(s){ _GAME_VOCAB.push(s); }); }
     if(d.words.length >= 6){ _GAME_WORDS.length = 0; d.words.forEach(function(w){ _GAME_WORDS.push(w); }); }
     var el = document.getElementById('vocab-src-badge');
@@ -262,6 +320,41 @@ if (window.MangoiGameVocab){
       el.style.display = 'block';
     }
   });
+}
+
+/* ============================================================
+   🌐 언어 전환(영어 ↔ 중국어) — 같은 게임을 선택 언어로 플레이
+   ============================================================ */
+function renderLangPicks(){
+  var box = document.getElementById('lang-pick'); if(!box) return;
+  [].forEach.call(box.querySelectorAll('.lg'), function(b){
+    b.classList.toggle('on', b.getAttribute('data-lang') === GAME_LANG);
+  });
+}
+function setGameLang(lang){
+  lang = (lang === 'zh') ? 'zh' : 'en';
+  GAME_LANG = lang;
+  try{ localStorage.setItem('mangoi_game_lang', lang); }catch(_){}
+  _applyLangVocab();                       // 활성 어휘 교체 + TTS 언어 전환
+  renderLangPicks();
+  // 헤더 문구 갱신
+  var t = document.getElementById('hub-title'), s = document.getElementById('hub-sub');
+  if(t) t.innerHTML = (lang==='zh' ? '중국어 <span class="em">학습 게임</span> 🀄' : '영어 <span class="em">학습 게임</span> 🎮');
+  if(s) s.innerHTML = (lang==='zh'
+    ? '재미있는 게임으로 중국어 단어·문장을 익혀요! (다락원 중국어 마스터 어휘)<br>원하는 게임을 눌러 바로 플레이하세요.'
+    : '재미있는 게임을 통해 오늘 배운 단어·문장을 다시 예복습해요!<br>원하는 게임을 눌러 바로 플레이하세요.');
+  hubRenderMenu();   // 언어에 따라 카드 목록 갱신(중국어는 3D배틀 숨김)
+  // 게임 진행 중이면 새 언어 어휘로 다시 시작(iframe 은 재로딩)
+  var gameOpen = document.getElementById('hub-game').classList.contains('active');
+  if(gameOpen){
+    var g = _hubGame(_gameState.mode);
+    if(g && g.kind === 'iframe'){
+      document.getElementById('game-area').innerHTML =
+        '<iframe src="'+_hubIframeSrc(g)+'" allow="microphone; autoplay; speaker-selection"></iframe>';
+    } else if(_gameState.started){
+      gameInit();
+    }
+  }
 }
 
 /* ============================================================
@@ -314,11 +407,13 @@ function setGameSpeed(lvl){
     gameNextRound();
   }
 }
-// iframe 게임 src 에 속도/학생/목표 파라미터 부착 — 게임 쪽에서 교재 맞춤 문장 로드 + 10개 정답 결과에 사용
+// iframe 게임 src 에 속도/학생/목표/언어 파라미터 부착 — 게임 쪽에서 교재 맞춤 문장 로드 + 10개 정답 결과에 사용
 function _hubIframeSrc(g){
-  var sentence = _GAME_VOCAB[Math.floor(Math.random()*_GAME_VOCAB.length)].en;
+  var pick = _GAME_VOCAB[Math.floor(Math.random()*_GAME_VOCAB.length)];
+  // 중국어는 띄어쓰기가 없으므로 분절된 words[] 를 공백으로 이어 전달(게임이 단어 단위로 분할)
+  var sentence = (GAME_LANG==='zh' && pick.words && pick.words.length) ? pick.words.join(' ') : pick.en;
   var src = g.src(sentence);
-  src += (src.indexOf('?')>=0?'&':'?') + 'speed=' + _speedLvl + '&goal=10&stage=' + GAME_STAGE;
+  src += (src.indexOf('?')>=0?'&':'?') + 'speed=' + _speedLvl + '&goal=10&stage=' + GAME_STAGE + '&glang=' + GAME_LANG;
   try{ var uid = window.MangoiGameVocab && MangoiGameVocab.getUserId(); if(uid) src += '&uid=' + encodeURIComponent(uid); }catch(_){}
   return src;
 }
@@ -370,7 +465,9 @@ const HUB_GAMES = [
    허브 네비게이션
    ============================================================ */
 function hubRenderMenu(){
-  document.getElementById('game-grid').innerHTML = HUB_GAMES.map(function(g){
+  // 중국어 모드: 영어 전용 콘텐츠(3D 배틀 — 자체 영어 퀴즈)는 숨김
+  var list = HUB_GAMES.filter(function(g){ return !(GAME_LANG==='zh' && g.mode==='battle3d'); });
+  document.getElementById('game-grid').innerHTML = list.map(function(g){
     return '<div class="game-card" style="--cardbg:'+g.bg+'" onclick="hubOpenGame(\''+g.mode+'\')">'
       + '<span class="badge">'+g.badge+'</span>'
       + '<span class="ico">'+g.ico+'</span>'
@@ -489,7 +586,7 @@ try{ if(window.speechSynthesis){ _gamePickVoice(); window.speechSynthesis.onvoic
 window.gameSpeak = function(text){ try{ if(!text) return;
   if(window.MangoiTTS){ MangoiTTS.speak(text); return; }
   if(!_gameEnVoice) _gamePickVoice(); var u=new SpeechSynthesisUtterance(String(text)); u.lang=(_gameEnVoice&&_gameEnVoice.lang)||'en-US'; u.rate=0.95; u.pitch=1.02; if(_gameEnVoice) u.voice=_gameEnVoice; window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);}catch(_){} };
-window.gameSpeakBuilt = function(){ try{ var pk=(_gameState.current&&_gameState.current.picked)||[]; if(pk.length) gameSpeak(pk.join(' ')); }catch(_){} };
+window.gameSpeakBuilt = function(){ try{ var pk=(_gameState.current&&_gameState.current.picked)||[]; if(pk.length) gameSpeak(pk.join(GAME_LANG==='zh'?'':' ')); }catch(_){} };   // 중국어는 붙여쓰기로 발음
 window.gameSpeakTarget = function(){ try{ var s=_gameState.current&&_gameState.current.sentence; if(s&&s.en) gameSpeak(s.en); }catch(_){} };   // 🎧 듣기형(번역 없음) 문제의 문장 듣기
 
 /* ============================================================
@@ -509,7 +606,7 @@ function gameRenderBrick(){
   let html =
     '<div style="text-align:center;margin-bottom:24px">' + promptBlock + '</div>' +
     '<div style="text-align:center;margin-bottom:18px">' +
-      '<div style="font-size:13px;color:#94a3b8;margin-bottom:8px">🎯 영어로 만들어보세요 (단어 클릭)</div>' +
+      '<div style="font-size:13px;color:#94a3b8;margin-bottom:8px">🎯 ' + (GAME_LANG==='zh'?'중국어':'영어') + '로 만들어보세요 (단어 클릭)</div>' +
       '<div id="brick-built" style="min-height:64px;background:rgba(15,23,42,0.7);border:2px dashed #475569;border-radius:12px;padding:14px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center">' +
         '<span style="color:#64748b;font-size:14px" id="brick-empty">아래 단어 브릭을 클릭하세요...</span>' +
       '</div>' +
@@ -568,19 +665,19 @@ function gameRenderMatch(){
   const pool = _gameShuffle(_stageWords()).slice(0, 6);   // 🎢 난이도 구간 단어
   const cards = [];
   pool.forEach((w, i) => {
-    cards.push({ id: 'k' + i, type: 'ko', text: w.ko, pairId: i });
-    cards.push({ id: 'e' + i, type: 'en', text: w.en, pairId: i });
+    cards.push({ id: 'k' + i, type: 'ko', text: w.ko, pairId: i, pin: '' });
+    cards.push({ id: 'e' + i, type: 'en', text: w.en, pairId: i, pin: w.pinyin || '' });
   });
   const shuffled = _gameShuffle(cards);
   _gameState.current = { cards: shuffled, flipped: [], matched: new Set() };
   let html =
     '<div style="text-align:center;margin-bottom:18px">' +
-      '<div style="font-size:13px;color:#94a3b8">🧩 한국어와 영어 카드 짝을 찾으세요!</div>' +
+      '<div style="font-size:13px;color:#94a3b8">🧩 한국어와 ' + (GAME_LANG==='zh'?'중국어':'영어') + ' 카드 짝을 찾으세요!</div>' +
     '</div>' +
     '<div id="match-grid" style="display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,1fr);gap:clamp(8px,1.4vmin,18px);width:100%;max-width:1200px;margin:0 auto;flex:1;min-height:0">';
   shuffled.forEach((c, i) => {
     const bg = c.type === 'ko' ? 'linear-gradient(135deg,#a855f7,#7c3aed)' : 'linear-gradient(135deg,#f59e0b,#ea580c)';
-    html += '<div class="match-card" data-idx="' + i + '" data-pair="' + c.pairId + '" data-type="' + c.type + '" data-text="' + c.text + '" onclick="gameMatchFlip(this)" ' +
+    html += '<div class="match-card" data-idx="' + i + '" data-pair="' + c.pairId + '" data-type="' + c.type + '" data-text="' + c.text + '" data-pinyin="' + c.pin + '" onclick="gameMatchFlip(this)" ' +
       'style="background:' + bg + ';border-radius:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;font-size:clamp(20px,3.4vmin,40px);font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,0.3);transition:transform 0.2s;min-height:0">' +
       '<span style="font-size:clamp(32px,5vmin,60px)">?</span></div>';
   });
@@ -592,7 +689,8 @@ function gameMatchFlip(card){
   if (card.dataset.flipped === '1' || card.dataset.matched === '1') return;
   if (_gameState.current.flipped.length >= 2) return;
   card.dataset.flipped = '1';
-  card.innerHTML = '<span style="font-size:clamp(18px,3vmin,36px);padding:8px;text-align:center">' + card.dataset.text + '</span>';
+  var _pin = card.dataset.pinyin ? '<div class="pinyin" style="font-size:clamp(11px,1.6vmin,16px);margin-top:2px">' + card.dataset.pinyin + '</div>' : '';
+  card.innerHTML = '<div style="padding:8px;text-align:center"><span style="font-size:clamp(18px,3vmin,36px)">' + card.dataset.text + '</span>' + _pin + '</div>';
   card.style.transform = 'scale(1.05)';
   if (card.dataset.type === 'en'){ try{ window.gameSpeak && gameSpeak(card.dataset.text); }catch(_){} }
   _gameState.current.flipped.push(card);
@@ -640,18 +738,29 @@ function gameMatchFlip(card){
 function gameRenderFill(){
   const _pool = _stageVocab();   // 🎢 난이도 구간(쉬움→어려움)에서 출제
   const sent = _pool[Math.floor(Math.random() * _pool.length)];
-  const meaningfulIdx = sent.words.findIndex(w => w.length > 2 && !['the','is','are','am','was','were','to','on','in','at','of'].includes(w.toLowerCase()));
+  const isZh = (GAME_LANG === 'zh');
+  // 빈칸 후보: 영어=길이>2 실질단어, 중국어=조사/기능어 제외한 한자 단어
+  const ZH_STOP = ['的','了','吗','是','很','和','对','我','你','他','她','们'];
+  const EN_STOP = ['the','is','are','am','was','were','to','on','in','at','of'];
+  const isContent = (w) => isZh
+    ? (ZH_STOP.indexOf(w) < 0)
+    : (w.length > 2 && EN_STOP.indexOf(w.toLowerCase()) < 0);
+  let meaningfulIdx = sent.words.findIndex(isContent);
   const blankIdx = meaningfulIdx >= 0 ? meaningfulIdx : Math.floor(sent.words.length / 2);
   const answer = sent.words[blankIdx];
-  const allWords = _GAME_VOCAB.flatMap(s => s.words).filter(w => w.toLowerCase() !== answer.toLowerCase() && w.length > 2);
-  const wrongs = _gameShuffle(allWords).slice(0, 3);
+  // 오답 보기: 전체 어휘에서 정답과 다른 단어들 (영어는 길이>2, 중국어는 제한 없음)
+  const eq = (a,b) => isZh ? (a===b) : (a.toLowerCase()===b.toLowerCase());
+  const allWords = _GAME_VOCAB.flatMap(s => s.words).concat(_GAME_WORDS.map(w=>w.en))
+    .filter(w => !eq(w, answer) && (isZh ? true : w.length > 2));
+  const wrongs = _gameShuffle(Array.from(new Set(allWords))).slice(0, 3);
   const options = _gameShuffle([answer, ...wrongs]);
   _gameState.current = { answer, sentence: sent };
-  const masked = sent.words.map((w, i) => i === blankIdx ? '___' : w).join(' ');
-  // 교재 문장에 한국어 번역이 없으면 힌트 대신 🔊 문장 듣기 버튼 제공
+  const masked = sent.words.map((w, i) => i === blankIdx ? '___' : w).join(isZh ? ' ' : ' ');
+  // 힌트: 한국어 번역 + (있으면) 병음. 번역 없으면 🔊 문장 듣기 버튼.
+  const pinLine = sent.pinyin ? '<div class="pinyin" style="font-size:14px;margin-top:5px">' + sent.pinyin + '</div>' : '';
   const fillHint = sent.ko
     ? '<div style="font-size:13px;color:#94a3b8;margin-bottom:6px">📝 한국어</div>' +
-      '<div style="font-size:18px;color:#fbbf24;padding:10px 18px;background:rgba(251,191,36,0.1);border-radius:10px;display:inline-block">' + sent.ko + '</div>'
+      '<div style="font-size:18px;color:#fbbf24;padding:10px 18px;background:rgba(251,191,36,0.1);border-radius:10px;display:inline-block">' + sent.ko + '</div>' + pinLine
     : '<button onclick="gameSpeakTarget()" style="font-size:16px;font-weight:700;color:#fbbf24;padding:10px 20px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,.4);border-radius:10px;cursor:pointer;font-family:inherit">🔊 문장 듣기 (힌트)</button>';
   let html =
     '<div style="text-align:center;margin-bottom:20px">' + fillHint + '</div>' +
@@ -703,7 +812,7 @@ function gameRenderBalloon(){
   _gameState.current = { answer: word.en, popped: false };
   let html =
     '<div style="text-align:center;margin-bottom:14px">' +
-      '<div style="font-size:13px;color:#94a3b8">🎈 한국어 뜻에 맞는 영어 풍선을 클릭!</div>' +
+      '<div style="font-size:13px;color:#94a3b8">🎈 한국어 뜻에 맞는 ' + (GAME_LANG==='zh'?'중국어':'영어') + ' 풍선을 클릭!</div>' +
       '<div style="font-size:34px;font-weight:700;color:#fbbf24;padding:14px 24px;background:rgba(251,191,36,0.12);border-radius:12px;display:inline-block;margin-top:10px">' + word.ko + '</div>' +
     '</div>' +
     '<div id="balloon-stage" style="position:relative;flex:1;min-height:200px;background:linear-gradient(180deg,#0c4a6e 0%,#0f172a 100%);border-radius:14px;overflow:hidden;border:2px solid #475569">';
@@ -717,13 +826,14 @@ function gameRenderBalloon(){
     const left = 5 + i * 22;
     const startTop = -80 - (i * 60);
     const c = colors[i];
+    var _bpin = b.pinyin ? '<div class="pinyin" style="font-size:clamp(11px,1.6vmin,15px);color:#e0f2fe;margin-top:2px">' + b.pinyin + '</div>' : '';
     html += '<div class="balloon" data-en="' + b.en + '" data-color="' + c.solid + '" onclick="gameBalloonPop(this)" ' +
       'style="position:absolute;top:' + startTop + 'px;left:' + left + '%;width:clamp(96px,15vmin,168px);height:clamp(116px,18vmin,200px);' +
       'background:' + c.bg + ';border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;' +
       'box-shadow:0 8px 30px ' + c.shadow + ', inset -10px -10px 30px rgba(0,0,0,0.2);' +
-      'display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:clamp(18px,2.6vmin,30px);cursor:pointer;' +
-      'transition:transform 0.2s">' +
-      b.en +
+      'display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:clamp(18px,2.6vmin,30px);cursor:pointer;' +
+      'transition:transform 0.2s"><div style="text-align:center">' +
+      b.en + _bpin + '</div>' +
       '<div style="position:absolute;bottom:-30px;left:50%;width:2px;height:30px;background:rgba(255,255,255,0.3);transform:translateX(-50%)"></div>' +
       '</div>';
   });
@@ -850,6 +960,7 @@ document.addEventListener('keydown', function(e){
 
 hubRenderMenu();
 renderSpeedPicks();   // ⚡ 속도(난이도) 선택 UI (허브 헤더 + 게임 상단바)
+setGameLang(GAME_LANG);   // 🌐 언어 UI 초기화(저장된 언어로 헤더/버튼/TTS 반영)
 
 /* ── 🔥 학습 불꽃 배지 부착(허브 헤더 + 게임 중 컴팩트) ──
    streak.js 가 로드되면 두 곳에 배지를 그리고, complete() 호출 시 자동 갱신된다. */

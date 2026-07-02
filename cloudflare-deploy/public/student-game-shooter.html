@@ -270,9 +270,21 @@
     var _qp=new URLSearchParams(location.search), _inj=(_qp.get('sentence')||'').trim();
     if(_inj){ SENTENCES=[_inj].concat(SENTENCES.filter(function(s){return s!==_inj;})); }
   }catch(e){}
-  // 📚 로그인 학생의 교재/레벨 맞춤 문장으로 교체 (game-vocab.js — 실패/비로그인 시 기본 문장 유지)
+  // 🌐 게임 언어(허브 전달 ?glang= 또는 localStorage) — 중국어면 TTS/문장/보기단어를 중국어로
+  var GLANG = (function(){ try{ var g=(new URLSearchParams(location.search).get('glang')||'').toLowerCase(); if(g==='zh'||g==='en') return g; var l=localStorage.getItem('mangoi_game_lang'); return (l==='zh')?'zh':'en'; }catch(e){ return 'en'; } })();
+  // 중국어 모드: 문장 세트를 중국어(단어 단위 공백 분절)로 교체 (다락원 중국어 마스터 수준)
+  if(GLANG==='zh'){
+    SENTENCES = [
+      "我 爱 你", "你 好 吗", "我 是 学生", "今天 天气 很 好", "我 喜欢 吃 苹果",
+      "他 每天 去 学校", "这 是 我的 朋友", "我 想 喝 水", "我们 一起 学习 汉语",
+      "昨天 我 和 家人 去了 海边", "她 将来 想 当 医生", "我 有 两 只 小狗"
+    ];
+    var _injZ=(new URLSearchParams(location.search).get('sentence')||'').trim();
+    if(_injZ){ SENTENCES=[_injZ].concat(SENTENCES.filter(function(s){return s!==_injZ;})); }
+  }
+  // 📚 로그인 학생의 교재/레벨 맞춤 문장으로 교체 (영어 모드에서만 — 중국어는 허브가 넘긴 중국어 문장 사용)
   try{
-    if(window.MangoiGameVocab){
+    if(window.MangoiGameVocab && GLANG!=='zh'){
       MangoiGameVocab.load().then(function(d){
         if(d && d.sentences && d.sentences.length >= 3){
           var head = (typeof _inj==='string' && _inj) ? [_inj] : [];
@@ -307,7 +319,9 @@
     while(hi-lo < need){ if(lo>0) lo--; if(hi<n) hi++; }
     return sorted.slice(lo,hi);
   }
-  var DISTRACTORS = ["cat","run","blue","apple","green","quickly","does","happy","jump","red","water","table","want","under","they","big","milk"];
+  var DISTRACTORS = (GLANG==='zh')
+    ? ["猫","跑","蓝","苹果","绿","快","做","高兴","跳","红","水","桌子","想","下面","他们","大","牛奶"]
+    : ["cat","run","blue","apple","green","quickly","does","happy","jump","red","water","table","want","under","they","big","milk"];
   var FACES = ['👾','👹','👻','🤖','🐲','😈','🦠','👽'];
   var COMBO_WINDOW = 2500;
   var GUNS = [
@@ -388,7 +402,9 @@
   function pickVoice(){
     if(!synth) return;
     var vs = synth.getVoices(); if(!vs.length) return;
-    var en = vs.filter(function(v){ return /^en[-_]?/i.test(v.lang||'') || /English/i.test(v.name||''); });
+    var en = (GLANG==='zh')
+      ? vs.filter(function(v){ return /^zh/i.test(v.lang||'') || /Chinese|Mandarin|中文|普通话/i.test(v.name||''); })
+      : vs.filter(function(v){ return /^en[-_]?/i.test(v.lang||'') || /English/i.test(v.name||''); });
     if(!en.length){ enVoice=null; return; }
     function score(v){               // '자연스러움' 점수 — 로봇 음성 회피, 자연 음성 우대
       var n=(v.name||''), l=(v.lang||''), s=0;
@@ -412,7 +428,7 @@
     try{
       synth.cancel();
       var u = new SpeechSynthesisUtterance(text);
-      u.lang='en-US'; u.rate=rate||0.9; u.pitch=1.0; u.volume=1;
+      u.lang=(enVoice&&enVoice.lang)||(GLANG==='zh'?'zh-CN':'en-US'); u.rate=rate||0.9; u.pitch=1.0; u.volume=1;
       if(enVoice) u.voice=enVoice;
       synth.speak(u);
     }catch(e){}
@@ -421,7 +437,7 @@
   //   기기에 상관없이 동일한 고품질 발음. 실패(오프라인/standalone)하면 브라우저 TTS 폴백.
   var TTS_URL='/api/voice/tts', ttsCache={}, ttsAudio=null;
   function ttsFetch(text){
-    return fetch(TTS_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text,lang:'en'})})
+    return fetch(TTS_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text,lang:GLANG})})
       .then(function(r){ var ct=r.headers.get('content-type')||''; if(!r.ok || ct.indexOf('audio')<0) throw new Error('tts'); return r.blob(); })
       .then(function(b){ var u=URL.createObjectURL(b); ttsCache[text]=u; return u; });
   }
