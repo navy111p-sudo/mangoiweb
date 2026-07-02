@@ -231,6 +231,30 @@ function _applyLangVocab(){
   try{ if(window.MangoiTTS) MangoiTTS.setLang(GAME_LANG); }catch(_){}
 }
 _applyLangVocab();   // 시작 시 현재 언어 어휘 적용
+
+/* 🀄 다락원 교재에서 추출한 실제 중국어 어휘(zh_vocab)를 불러와 내장 세트를 대체.
+   실패/데이터부족 시 위 내장 _ZH_VOCAB/_ZH_WORDS 로 폴백. sessionStorage 10분 캐시. */
+var _ZH_LOADED = false;
+function loadDarakwonZh(){
+  if(_ZH_LOADED) return; _ZH_LOADED = true;
+  var CK = 'mangoi_zhvocab_darakwon_v1';
+  function apply(d){
+    if(!d || !d.ok) return;
+    var sents = (d.sentences||[]).filter(function(s){ return s && s.en && s.words && s.words.length>=2; });
+    var wds = (d.words||[]).filter(function(w){ return w && w.en && w.ko; });
+    if(sents.length >= 3){ _ZH_VOCAB.length=0; sents.forEach(function(s){ _ZH_VOCAB.push(s); }); }
+    if(wds.length >= 6){ _ZH_WORDS.length=0; wds.forEach(function(w){ _ZH_WORDS.push(w); }); }
+    if(GAME_LANG==='zh'){ _applyLangVocab();   // 중국어 모드면 활성 어휘 즉시 교체
+      var el=document.getElementById('vocab-src-badge');
+      if(el){ el.textContent='📚 다락원 중국어 마스터 3 교재 어휘'; el.style.display='block'; } }
+  }
+  try{ var c=JSON.parse(sessionStorage.getItem(CK)||'null'); if(c && (Date.now()-c.at)<600000){ apply(c.d); return; } }catch(_){}
+  fetch('/api/games/zh-vocab?textbook=' + encodeURIComponent('다락원') + '&level=' + encodeURIComponent('Lv 3'))
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){ if(d){ try{ sessionStorage.setItem(CK, JSON.stringify({at:Date.now(), d:d})); }catch(_){} apply(d); } })
+    .catch(function(){});
+}
+loadDarakwonZh();
 const _gameState = { mode: 'brick', score: 0, correct: 0, wrong: 0, current: null, started: false, balloonTimer: null, roundTimer: null };
 
 /* ============================================================

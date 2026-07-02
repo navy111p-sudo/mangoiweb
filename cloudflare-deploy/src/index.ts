@@ -188,6 +188,10 @@ export default {
     if (path === '/api/games/vocab' && request.method === 'GET') {
       return handleGamesVocab(request, env);
     }
+    // 🀄 중국어 게임 어휘 — GET /api/games/zh-vocab?textbook=&level=&lesson=  → 다락원 교재 추출 한자+병음+뜻(zh_vocab)
+    if (path === '/api/games/zh-vocab' && request.method === 'GET') {
+      return handleGamesZhVocab(request, env);
+    }
 
     // 📩 알림톡 클릭추적 (공개·학부모용) — 버튼 클릭 시 read_at 기록 후 원래 URL 로 리다이렉트.
     //    이탈위험 그래프의 (학부모)-[:IGNORED]->(알림톡) 판정을 정밀화한다.
@@ -594,6 +598,7 @@ export default {
         path === '/api/admin/students/list' ||
         path === '/api/admin/students/unified' ||
         path === '/api/admin/students/graph-list' ||
+        path === '/api/admin/students/import-cafe24' ||
         path === '/api/admin/students/erp-list' ||
         path === '/api/admin/students/erp' ||
         path === '/api/admin/students/erp-seed' ||
@@ -1655,6 +1660,50 @@ async function handleGamesVocab(request: Request, env: Env): Promise<Response> {
   }
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+ *  🀄 중국어 게임 어휘 — GET /api/games/zh-vocab?textbook=&level=&lesson=
+ *  다락원 교재 스캔에서 추출해 zh_vocab 에 저장한 한자+병음+한국어뜻(+문장 분절)을
+ *  게임이 쓰는 형태로 반환한다. (없으면 게임은 내장 기본 중국어 어휘로 폴백)
+ *  응답: { ok, textbook, level, sentences:[{en,pinyin,ko,words[]}], words:[{en,pinyin,ko}] }
+ *    · en 필드에 한자(게임 호환), pinyin 병음, ko 한국어 뜻.
+ * ════════════════════════════════════════════════════════════════════════ */
+async function handleGamesZhVocab(request: Request, env: Env): Promise<Response> {
+  try {
+    const u = new URL(request.url);
+    const textbook = (u.searchParams.get('textbook') || '').trim();
+    const level = (u.searchParams.get('level') || '').trim();
+    const lesson = parseInt(u.searchParams.get('lesson') || '0', 10) || 0;
+    const conds: string[] = ['active=1'];
+    const binds: any[] = [];
+    if (textbook) { conds.push('LOWER(textbook)=LOWER(?)'); binds.push(textbook); }
+    if (level) { conds.push('LOWER(level)=LOWER(?)'); binds.push(level); }
+    if (lesson > 0) { conds.push('lesson_no=?'); binds.push(lesson); }
+    let rows: any[] = [];
+    try {
+      const rs = await env.DB.prepare(
+        `SELECT type, hanzi, pinyin, ko, words FROM zh_vocab WHERE ${conds.join(' AND ')} ORDER BY id ASC LIMIT 400`
+      ).bind(...binds).all();
+      rows = (rs.results as any[]) || [];
+    } catch { rows = []; }
+    const sentences: Array<{ en: string; pinyin: string; ko: string; words: string[] }> = [];
+    const words: Array<{ en: string; pinyin: string; ko: string }> = [];
+    for (const r of rows) {
+      const hanzi = String(r.hanzi || '').trim(); if (!hanzi) continue;
+      const pinyin = String(r.pinyin || '').trim();
+      const ko = String(r.ko || '').trim();
+      if (r.type === 'sentence') {
+        let ws: string[] = []; try { ws = JSON.parse(r.words || '[]') || []; } catch {}
+        if (ws.length >= 2) sentences.push({ en: hanzi, pinyin, ko, words: ws });
+      } else {
+        if (ko) words.push({ en: hanzi, pinyin, ko });
+      }
+    }
+    return new Response(JSON.stringify({ ok: true, textbook, level, sentences, words }), { status: 200, headers: _MS_JSON });
+  } catch (e: any) {
+    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
+  }
+}
+
 async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
   try {
     let body: any = {};
@@ -2585,6 +2634,7 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/students/list') return true;
   if (path === '/api/admin/students/unified') return true;
   if (path === '/api/admin/students/graph-list') return true;   // 🕸️ Neo4j 그래프 학생 명부
+  if (path === '/api/admin/students/import-cafe24') return true; // 👨‍🎓 카페24 학생 이관(쓰기) — 반드시 인증 뒤
   if (path === '/api/admin/payments/import-cafe24') return true; // 💰 카페24 결제 이관(쓰기) — 반드시 인증 뒤
   if (path === '/api/admin/students/erp-list' || path === '/api/admin/students/erp' || path === '/api/admin/students/erp-seed') return true;
   // 📚 Phase HW — 숙제 관리 (출제/목록/삭제) — 관리자 전용
