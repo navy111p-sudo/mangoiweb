@@ -19136,11 +19136,26 @@ async function loadStudentList() {
   tb.innerHTML = '<tr><td colspan="19" class="empty">' + (_L?'Loading...':'불러오는 중...') + '</td></tr>';
   let seedStudents = [];
   let apiItems = [];
+  let _dataSource = 'D1';
+  let d = null;
+  // 1차: Neo4j 그래프 DB 실데이터 (/api/admin/students/graph-list)
+  //   미설정(503)·연결 실패(502)·빈 결과·비본사 403 이면 조용히 D1(unified)로 폴백
   try {
-    const _scope = (typeof mangoiGetDataScope==='function') ? mangoiGetDataScope() : null;
-    const _su = '/api/admin/students/unified' + (_scope ? ('?scope_field='+encodeURIComponent(_scope.field)+'&scope_value='+encodeURIComponent(_scope.value)) : '');
-    const r = await fetch(_su, { cache: 'no-store', credentials: 'include' });
-    const d = await r.json();
+    const rg = await fetch('/api/admin/students/graph-list?limit=1000', { cache: 'no-store', credentials: 'include' });
+    const dg = await rg.json();
+    if (rg.ok && dg && dg.ok && Array.isArray(dg.students) && dg.students.length) {
+      d = dg; _dataSource = 'Neo4j';
+    } else if (dg && dg.error) {
+      console.warn('[students] 그래프DB 폴백 (D1 사용):', dg.error);
+    }
+  } catch (e) { console.warn('[students] 그래프DB 접속 실패 — D1 폴백:', e); }
+  try {
+    if (!d) {
+      const _scope = (typeof mangoiGetDataScope==='function') ? mangoiGetDataScope() : null;
+      const _su = '/api/admin/students/unified' + (_scope ? ('?scope_field='+encodeURIComponent(_scope.field)+'&scope_value='+encodeURIComponent(_scope.value)) : '');
+      const r = await fetch(_su, { cache: 'no-store', credentials: 'include' });
+      d = await r.json();
+    }
     if (window.PIIMask && d && typeof d.can_view_pii !== 'undefined') PIIMask.setCanView(d.can_view_pii);  // 🔒 PII 권한 반영
     const rows = (d && d.ok && Array.isArray(d.students)) ? d.students : (Array.isArray(d && d.items) ? d.items : []);
     apiItems = rows.map(s => ({
@@ -19182,7 +19197,8 @@ async function loadStudentList() {
     session_count: Number(s.sessions || 0),
     _username_lc: String(s.username || s.user_id || '').toLowerCase()
   }));
-  if (cnt) cnt.textContent = (_L ? _smStudents.length + ' students' : _smStudents.length + '명') + (seedStudents.length ? (_L ? ' (' + seedStudents.length + ' seeded)' : ' (시드 ' + seedStudents.length + '명)') : '');
+  if (cnt) cnt.textContent = (_L ? _smStudents.length + ' students' : _smStudents.length + '명')
+    + (_dataSource === 'Neo4j' ? (_L ? ' · 🕸️ Graph DB' : ' · 🕸️ 그래프DB 실데이터') : (_L ? ' · D1' : ' · D1'));
   renderStudentTable();
 }
 
@@ -22214,7 +22230,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260702154547 -->
+        <!-- BUILD:20260702194936 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -23122,47 +23138,11 @@ window.rebuildGlobalSearchIndex = function() {
     }
   });
 
-  // ━━━━━━━━━━ 🌱 테스트 데이터 시드 (학생·지사·대리점) ━━━━━━━━━━
-  // 데이터 풀
-  const KO_FIRST = ['지민','서윤','하준','수아','시우','예준','지유','하은','도윤','채원','민서','지호','서연','준우','유나','은우','시아','이준','유진','건우','민준','서아','우진','윤서','지안','서현','태윤','다은','하린','승현','수빈','지원','시현','연우','유빈','다인','정우','채윤','수민','지율'];
-  const KO_LAST = ['김','이','박','최','정','강','조','윤','장','임','한','오','서','신','권','황','안','송','전','홍'];
-  const SI_DO = [
-    { name:'서울 강남',  city:'서울',   dist:'강남구' },
-    { name:'서울 서초',  city:'서울',   dist:'서초구' },
-    { name:'서울 송파',  city:'서울',   dist:'송파구' },
-    { name:'서울 마포',  city:'서울',   dist:'마포구' },
-    { name:'경기 분당',  city:'경기',   dist:'성남시' },
-    { name:'경기 일산',  city:'경기',   dist:'고양시' },
-    { name:'경기 수원',  city:'경기',   dist:'수원시' },
-    { name:'경기 광명',  city:'경기',   dist:'광명시' },
-    { name:'인천 송도',  city:'인천',   dist:'연수구' },
-    { name:'인천 부평',  city:'인천',   dist:'부평구' },
-    { name:'부산 해운대', city:'부산',   dist:'해운대구' },
-    { name:'부산 서면',  city:'부산',   dist:'부산진구' },
-    { name:'대구 수성',  city:'대구',   dist:'수성구' },
-    { name:'대전 둔산',  city:'대전',   dist:'서구' },
-    { name:'광주 상무',  city:'광주',   dist:'서구' },
-    { name:'울산 남구',  city:'울산',   dist:'남구' },
-    { name:'세종 어진',  city:'세종',   dist:'어진동' },
-    { name:'청주 분평',  city:'충북',   dist:'청주시' },
-    { name:'전주 효자',  city:'전북',   dist:'전주시' },
-    { name:'제주 노형',  city:'제주',   dist:'제주시' },
-  ];
-  const COURSE_LV = [
-    { course:'1on1-4',  classes:4,  amt:220000, lvl:'A1' },
-    { course:'1on1-8',  classes:8,  amt:400000, lvl:'A2' },
-    { course:'1on1-12', classes:12, amt:560000, lvl:'B1' },
-    { course:'1on1-24', classes:24, amt:980000, lvl:'B2' },
-    { course:'group-12', classes:12, amt:280000, lvl:'A2' },
-    { course:'business', classes:16, amt:580000, lvl:'B2' },
-    { course:'kids',     classes:12, amt:320000, lvl:'A1' },
-    { course:'exam',     classes:12, amt:480000, lvl:'B1' },
-  ];
-  const TEACHERS_PH = ['Maria Santos','James Cruz','Anna Reyes','Carlos Lim','Sofia Garcia','Daniel Tan'];
-
-  function rand(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
-  function randInt(min, max) { return Math.floor(min + Math.random()*(max-min+1)); }
-  function pad(n, len=2) { return String(n).padStart(len, '0'); }
+  // ━━━━━━━━━━ 🌱 테스트 데이터 시드 — 생성기 완전 제거 (2026-07-02) ━━━━━━━━━━
+  // 가짜 학생/지사/대리점을 만들던 하드코딩 데이터 풀(KO_FIRST·KO_LAST·SI_DO·
+  // COURSE_LV·TEACHERS_PH)과 랜덤 생성 로직은 삭제됐다. 학생 목록은 항상
+  // 실제 서버 데이터(Neo4j graph-list → D1 unified 폴백)만 사용한다.
+  // 아래 seedTest* 함수들은 예전 localStorage 시드 잔재 정리 + 재조회 스텁만 남긴다.
 
   function _seedLog(html, ok=true) {
     const box = document.getElementById('seed-result');
@@ -23174,153 +23154,28 @@ window.rebuildGlobalSearchIndex = function() {
     box.insertBefore(div, box.firstChild);
   }
 
-  // ── 1. 학생 20명 시드 ──
+  // ── 1. 학생 시드 — 생성기 제거됨. localStorage 잔재 정리 + 실데이터 재조회만 ──
   window.seedTestStudents = async function() {
     try { localStorage.removeItem('mangoi_test_students'); localStorage.removeItem('mangoi_test_branches'); localStorage.removeItem('mangoi_test_agencies'); } catch{}
     if (typeof loadStudentList === 'function') loadStudentList();
-    return; // 🚫 테스트 시드 생성 영구 비활성화 — 실제 학생 데이터만 사용
-    const btn = document.getElementById('seed-students-btn');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ 생성 중…'; }
-    const items = [];
-    for (let i = 0; i < 20; i++) {
-      const last = rand(KO_LAST);
-      const first = rand(KO_FIRST);
-      const name = last + first;
-      const c = rand(COURSE_LV);
-      const grade = rand(['초3','초4','초5','초6','중1','중2','중3','고1','고2','성인']);
-      const phoneEnd = pad(randInt(1000,9999), 4);
-      // 🔐 RBAC: 학생을 랜덤 대리점에 분배 (test_ag_0 ~ test_ag_19)
-      const agIdx = randInt(0, 19);
-      const brIdx = agIdx % 20;  // 대리점 i 의 부모 지사 = SI_DO[i % SI_DO.length]
-      items.push({
-        user_id: 'test_st_' + (Date.now() % 100000) + '_' + i,
-        username: 'test_st_' + i,
-        name,
-        phone: '010-' + pad(randInt(1000,9999), 4) + '-' + phoneEnd,
-        email: 'test_student_' + i + '@mangoi-test.kr',
-        program: c.course,
-        program_label: c.course,
-        amount: c.amt,
-        classes_total: c.classes,
-        classes_used: randInt(0, c.classes - 1),
-        level: c.lvl,
-        grade,
-        teacher: rand(TEACHERS_PH),
-        franchise: rand(SI_DO).name,
-        agency_id: 'test_ag_' + agIdx,        // 어느 대리점 소속
-        branch_id: 'test_br_' + brIdx,        // 어느 지사 소속
-        parent_branch_id: 'test_br_' + brIdx, // 호환용
-        is_test: true,
-      });
-    }
-    try {
-      // 백엔드 호출 (있으면)
-      const r = await fetch('/api/admin/seed/students', {
-        method: 'POST', credentials: 'include',
-        headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify({ items, count: 20 })
-      });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-    } catch (e) {
-      // 백엔드 없으면 로컬에 저장 (UI 데모용)
-      try {
-        const cur = JSON.parse(localStorage.getItem('mangoi_test_students') || '[]');
-        localStorage.setItem('mangoi_test_students', JSON.stringify(cur.concat(items)));
-      } catch {}
-    }
-    _seedLog(`<b>🎓 학생 20명 생성 완료</b><br>예시: ${items.slice(0,5).map(s=>s.name+' ('+s.grade+'·'+s.level+')').join(', ')} ... 외 15명`);
-    if (btn) { btn.textContent = '✅ 학생 20명 생성됨'; setTimeout(()=>{btn.textContent='🎓 학생 20명 추가 생성';btn.disabled=false;}, 2000); }
   };
 
-  // ── 2. 지사 20개 시드 ──
+  // ── 2. 지사 시드 — 생성기 제거됨. localStorage 잔재 정리만 ──
   window.seedTestBranches = async function() {
     try { localStorage.removeItem('mangoi_test_branches'); } catch{}
-    return; // 🚫 테스트 시드(지사) 생성 영구 비활성화
-    const btn = document.getElementById('seed-branches-btn');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ 생성 중…'; }
-    const items = SI_DO.map((b, i) => ({
-      branch_id: 'test_br_' + i,
-      name: '망고아이 ' + b.name + ' 지사',
-      city: b.city,
-      district: b.dist,
-      manager_name: rand(KO_LAST) + rand(KO_FIRST),
-      manager_phone: '010-' + pad(randInt(1000,9999),4) + '-' + pad(randInt(1000,9999),4),
-      address: b.city + ' ' + b.dist + ' ' + rand(['테헤란로','강남대로','중앙로','학원로','공원로']) + ' ' + randInt(10,500) + '번지',
-      students_count: randInt(8, 60),
-      teachers_count: randInt(2, 12),
-      monthly_revenue: randInt(5000000, 35000000),
-      open_date: '2024-' + pad(randInt(1,12)) + '-' + pad(randInt(1,28)),
-      status: Math.random() < 0.85 ? 'active' : 'pending',
-      is_test: true,
-    }));
-    try {
-      const r = await fetch('/api/admin/seed/branches', {
-        method:'POST', credentials:'include',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ items, count: 20 })
-      });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-    } catch {
-      try {
-        localStorage.setItem('mangoi_test_branches', JSON.stringify(items));
-      } catch {}
-    }
-    _seedLog(`<b>🏬 지사 20개 생성 완료</b><br>지역: 서울 4 · 경기 4 · 인천 2 · 부산 2 · 광역시 5 · 도 3<br>예시: ${items.slice(0,4).map(b=>b.name).join(', ')} ...`);
-    if (btn) { btn.textContent = '✅ 지사 20개 생성됨'; setTimeout(()=>{btn.textContent='🏬 지사 20개 추가 생성';btn.disabled=false;}, 2000); }
   };
 
-  // ── 3. 대리점 20개 시드 ──
+  // ── 3. 대리점 시드 — 생성기 제거됨. localStorage 잔재 정리만 ──
   window.seedTestAgencies = async function() {
     try { localStorage.removeItem('mangoi_test_agencies'); } catch{}
-    return; // 🚫 테스트 시드(대리점) 생성 영구 비활성화
-    const btn = document.getElementById('seed-agencies-btn');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ 생성 중…'; }
-    const items = [];
-    for (let i = 0; i < 20; i++) {
-      const branch = SI_DO[i % SI_DO.length];
-      const last = rand(KO_LAST);
-      const first = rand(KO_FIRST);
-      items.push({
-        agency_id: 'test_ag_' + i,
-        name: '망고아이 ' + branch.name + ' ' + rand(['1호점','2호점','3호점','중앙점','파크점','센터점']),
-        parent_branch: '망고아이 ' + branch.name + ' 지사',
-        parent_branch_id: 'test_br_' + (i % SI_DO.length),  // 🔐 RBAC: 부모 지사 ID
-        owner_name: last + first,
-        owner_phone: '010-' + pad(randInt(1000,9999),4) + '-' + pad(randInt(1000,9999),4),
-        address: branch.city + ' ' + branch.dist + ' ' + rand(['상가','오피스텔','센터','빌딩']) + ' ' + randInt(1,30) + '층',
-        students_count: randInt(3, 25),
-        commission_rate: randInt(8, 18) + '%',
-        contract_date: '2024-' + pad(randInt(1,12)) + '-' + pad(randInt(1,28)),
-        contract_end: '2026-' + pad(randInt(1,12)) + '-' + pad(randInt(1,28)),
-        monthly_revenue: randInt(1500000, 12000000),
-        status: Math.random() < 0.8 ? 'active' : (Math.random() < 0.5 ? 'pending' : 'expired'),
-        is_test: true,
-      });
-    }
-    try {
-      const r = await fetch('/api/admin/seed/agencies', {
-        method:'POST', credentials:'include',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ items, count: 20 })
-      });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-    } catch {
-      try {
-        localStorage.setItem('mangoi_test_agencies', JSON.stringify(items));
-      } catch {}
-    }
-    _seedLog(`<b>🤝 대리점 20개 생성 완료</b><br>수수료율: 8~18% · 활성: ~80% · 대기/만료: ~20%<br>예시: ${items.slice(0,4).map(a=>a.name).join(', ')} ...`);
-    if (btn) { btn.textContent = '✅ 대리점 20개 생성됨'; setTimeout(()=>{btn.textContent='🤝 대리점 20개 추가 생성';btn.disabled=false;}, 2000); }
   };
 
-  // ── 4. 전체 일괄 ──
+  // ── 4. 전체 일괄 — 생성기 제거됨. 잔재 정리 + 실데이터 재조회만 ──
   window.seedTestAll = async function() {
-    if (!confirm('학생 20명 + 지사 20개 + 대리점 20개를 한 번에 생성합니다. 계속하시겠습니까?')) return;
-    _seedLog('<b>🚀 전체 시드 시작...</b>', true);
     await seedTestStudents();
     await seedTestBranches();
     await seedTestAgencies();
-    _seedLog(`<b>🎉 전체 시드 완료!</b><br>학생 20명 · 지사 20개 · 대리점 20개 (총 60개 데이터)<br>학생관리·가맹점관리·지사관리 메뉴에서 즉시 확인 가능`, true);
+    _seedLog('<b>ℹ️ 테스트 시드 생성 기능은 제거되었습니다</b><br>학생 목록은 실제 서버 데이터(Neo4j 그래프DB → D1 폴백)만 표시합니다.', true);
   };
 
   // ── 5. 전체 삭제 ──
@@ -23667,169 +23522,9 @@ window.rebuildGlobalSearchIndex = function() {
   // 페이지 로드 즉시 시드 보장
   ensureSeed();
 
-  // JSON 응답 헬퍼
-  function jsonRes(obj) {
-    return new Response(JSON.stringify(obj), { status:200, headers:{'Content-Type':'application/json'} });
-  }
-
-  const origFetch = window.fetch;
-  window.fetch = async function(input, init) {
-    return origFetch.apply(this, arguments); // 🚫 가짜 시드 주입 비활성화 — 항상 실제 서버 사용
-    const url = typeof input === 'string' ? input : (input && input.url) || '';
-    const data = ensureSeed();
-
-    try {
-      // ━━━ 학생 목록 (list, erp-list 모두 — 학생관리의 모든 섹션이 사용) ━━━
-      if (/\/api\/admin\/students(\/list|\/erp-list)?(\?|$)/.test(url)) {
-        const today = new Date();
-        const seedRows = data.students.map((s, i) => {
-          // end_date: 일부는 만료 임박, 일부는 정상 (테스트용)
-          const endOffset = (i < 3) ? -3 + i : (i < 6) ? 5 + (i-3)*3 : 30 + (i-6)*5;
-          const endDate = new Date(today.getTime() + endOffset*86400000).toISOString().slice(0,10);
-          const startDate = new Date(today.getTime() - 60*86400000).toISOString().slice(0,10);
-          return {
-            id: s.user_id, user_id: s.user_id, username: s.name,
-            student_id: s.user_id, login_id: s.user_id,
-            name: s.name, phone: s.phone, email: s.email,
-            level: s.level, grade: s.grade,
-            program: s.program, classes_per_week: 2 + (i % 5),
-            role: 'student',
-            franchise: s.franchise || '강남점',
-            shop_name: s.franchise || '강남점',
-            shop: s.franchise || '강남점',
-            start_date: startDate,
-            end_date: endDate,
-            first_seen_at: Date.now()-86400000*30,
-            last_seen_at: Date.now()-86400000*Math.floor(Math.random()*7),
-            session_count: s.classes_used || 0,
-            classes_used: s.classes_used || 0,
-            classes_total: s.classes_total || 8,
-            teacher: s.teacher,
-            is_test: true,
-          };
-        });
-        return jsonRes({ ok:true, items: seedRows, count: seedRows.length });
-      }
-      // ━━━ 대시보드 (오늘 출결 카운트) ━━━
-      if (/\/api\/dashboard/.test(url)) {
-        return jsonRes({
-          ok: true,
-          attendance: { total: Math.floor(data.students.length * 0.6), by_day: [] },
-          revenue: { total: 0 },
-          students: { total: data.students.length },
-        });
-      }
-      // ━━━ 학생별 상담 기록 (최근 상담 통합) ━━━
-      if (/\/api\/admin\/student\/[^/]+\/consultations/.test(url)) {
-        const m = url.match(/\/student\/([^/]+)\/consultations/);
-        const uid = m ? decodeURIComponent(m[1]) : '';
-        const seedSt = data.students.find(s => s.user_id === uid);
-        if (!seedSt) return jsonRes({ ok:true, items:[] });
-        // 40% 확률로 1~3개 상담 기록 생성
-        const items = [];
-        if (Math.random() < 0.4) {
-          const count = 1 + Math.floor(Math.random()*2);
-          const channels = ['phone','kakao','visit','email','online'];
-          const topics = ['진도 상담','결제 문의','시간 변경 요청','강사 변경 요청','휴학 상담','만족도 피드백','수업 분량 상담'];
-          const statuses = ['open','resolved','escalated'];
-          for (let i=0; i<count; i++) {
-            items.push({
-              id: 9000 + i,
-              consult_at: Date.now() - Math.floor(Math.random()*7*86400000),
-              channel: channels[Math.floor(Math.random()*channels.length)],
-              counselor: ['관리자','김상담','이매니저'][Math.floor(Math.random()*3)],
-              topic: topics[Math.floor(Math.random()*topics.length)],
-              content: 'TEST 상담 내용 — ' + seedSt.name + ' 학생',
-              status: statuses[Math.floor(Math.random()*statuses.length)],
-              follow_up_at: null,
-            });
-          }
-        }
-        return jsonRes({ ok:true, items });
-      }
-      // ━━━ 학생별 출석/Full (연속 출석 랭킹용) ━━━
-      if (/\/api\/admin\/student\/[^/]+\/attendance/.test(url) || /\/api\/admin\/student\/[^/]+\/full/.test(url)) {
-        const m = url.match(/\/student\/([^/]+)\//);
-        const uid = m ? decodeURIComponent(m[1]) : '';
-        const seedSt = data.students.find(s => s.user_id === uid);
-        if (!seedSt) return jsonRes({ ok:true, sessions:[], evaluations:[], rewards:[], enrollments:[], feedbacks:[], payments:[], consultations:[], profile:{}, summary:{} });
-        // 가짜 출석 데이터 — 최근 30일 중 60% 출석 (시드 학생별로 일관된 패턴)
-        const sessions = [];
-        for (let d = 0; d < 30; d++) {
-          // uid 기반 deterministic seed (날짜 기준 시드 fallback)
-          const r = ((uid.charCodeAt(uid.length-1) || 0) * 7 + d * 11) % 10;
-          if (r < 6) {
-            const dt = new Date(Date.now() - d*86400000);
-            sessions.push({
-              date: dt.toISOString().slice(0,10),
-              joined_at: Math.floor(dt.getTime()/1000),
-              active_ms: 1800000 + Math.floor(Math.random()*600000),
-              session_ms: 2400000,
-              gaze_score: 70 + Math.floor(Math.random()*25),
-              teacher: seedSt.teacher,
-              topic: 'TEST Lesson '+(d+1),
-            });
-          }
-        }
-        return jsonRes({
-          ok: true,
-          profile: { username: seedSt.name, level: seedSt.level, classes_per_week: 3 },
-          summary: { total_active_ms: sessions.reduce((s,x)=>s+x.active_ms,0), total_session_ms: sessions.reduce((s,x)=>s+x.session_ms,0), avg_gaze_score: 82, gaze_score_count: sessions.length },
-          sessions, evaluations:[], rewards:[], enrollments:[], feedbacks:[], payments:[], consultations:[],
-        });
-      }
-      // ━━━ 가맹점/지사 목록 ━━━
-      if (/\/api\/admin\/(franchises|branches|agencies)/.test(url)) {
-        const branchRows = (data.branches||[]).map(b => ({
-          id: b.branch_id, branch_id: b.branch_id, name: b.name,
-          city: b.city, district: b.district,
-          manager_name: b.manager_name, manager_phone: b.manager_phone,
-          address: b.address, students_count: b.students_count,
-          teachers_count: b.teachers_count, monthly_revenue: b.monthly_revenue,
-          open_date: b.open_date, status: b.status, type: 'branch',
-          is_test: true,
-        }));
-        const agencyRows = (data.agencies||[]).map(a => ({
-          id: a.agency_id, agency_id: a.agency_id, name: a.name,
-          parent_branch: a.parent_branch, owner_name: a.owner_name,
-          owner_phone: a.owner_phone, address: a.address,
-          students_count: a.students_count, commission_rate: a.commission_rate,
-          monthly_revenue: a.monthly_revenue, contract_end: a.contract_end,
-          status: a.status, type: 'agency',
-          is_test: true,
-        }));
-        let items = branchRows.concat(agencyRows);
-        // 🔐 RBAC 스코프 필터 — 지사는 산하 대리점·자기 지사만, 대리점은 자기 대리점만
-        if (typeof window.adminScopeFilter === 'function') {
-          const sess = window._adminSession;
-          if (sess && !sess.role.startsWith('hq')) {
-            const kept = [];
-            const branches = items.filter(x => x.type === 'branch');
-            const agencies = items.filter(x => x.type === 'agency');
-            const fBranches = window.adminScopeFilter(branches, 'branches');
-            const fAgencies = window.adminScopeFilter(agencies, 'agencies');
-            items = fBranches.concat(fAgencies);
-          }
-        }
-        return jsonRes({ ok:true, items, count: items.length });
-      }
-      // ━━━ 학생 결제 내역 ━━━
-      if (/\/api\/admin\/payments\/student/.test(url) || /\/api\/admin\/student-payments/.test(url) || /\/api\/admin\/payments(\?|$)/.test(url)) {
-        const seedPayments = data.students.map((s, i) => ({
-          id: 9000 + i, user_id: s.user_id, student_name: s.name,
-          program: s.program, program_label: s.program_label || s.program,
-          amount_krw: s.amount, method: ['card','bank','kakao','toss'][i%4],
-          status: 'paid', paid_at: Math.floor((Date.now()-86400000*Math.floor(Math.random()*30))/1000),
-          memo: '[TEST] '+s.name+' '+s.program, franchise: s.franchise,
-          is_test: true,
-        }));
-        return jsonRes({ ok:true, items: seedPayments, rows: seedPayments, count: seedPayments.length });
-      }
-    } catch (e) { console.warn('[seed-intercept]', e); }
-
-    // 그 외 모든 요청은 원래 fetch 로 통과
-    return origFetch.apply(this, arguments);
-  };
+  // 🚫 가짜 시드 fetch 인터셉터 완전 제거 (2026-07-02)
+  //    예전엔 /api/admin/students·/api/dashboard 등의 응답을 가짜 시드 데이터로
+  //    바꿔치기했으나, 이제 window.fetch 를 건드리지 않고 항상 실제 서버 응답을 쓴다.
 
   // ━━━ DOM 직접 주입 (인터셉터로 안 잡히는 경우 안전망) ━━━
   function injectStudents() {

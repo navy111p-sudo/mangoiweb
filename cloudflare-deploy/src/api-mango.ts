@@ -8,6 +8,7 @@
  */
 
 import { processAiCommand, executeAction, processStudentCommand } from './ai-command';
+import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프 학생 명부
 import { scopeFragments, studentScopeWhere, getScope } from './scope';
 import { applyPIIScope, canViewPII, maskRecordPII, isMaskedValue } from './pii-mask';  // 🔒 PII 권한별 마스킹
 import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook, type GiftishowEnv } from './giftishow-client';
@@ -24,6 +25,10 @@ import {
 export interface MangoEnv extends GiftishowEnv, SolapiEnv {
   DB: D1Database;
   SESSION_STATE: KVNamespace;
+  // 🕸️ Neo4j 그래프 DB (teacher-match.ts runCypher 공용 시크릿)
+  NEO4J_QUERY_URL?: string;
+  NEO4J_USER?: string;
+  NEO4J_PASSWORD?: string;
   // 🥭 Phase 21 — Workers AI 바인딩 (검색창 AI 명령)
   AI?: any;
   // 🎁 Phase P4 — 기프티쇼 비즈 환경변수 (giftishow-client.ts)
@@ -7976,6 +7981,64 @@ Respond in JSON ONLY:
          LIMIT ?`
       ).bind(..._sfList.binds, lim).all();
       return json({ ok: true, items: rs.results || [] });
+    }
+
+    // 🕸️ 그래프 학생 명부 — Neo4j 실데이터 조회 (자체 호스팅 bolt 서버/Aura 공용)
+    //   GET /api/admin/students/graph-list?limit=1000&q=검색어
+    //   (:Student) 노드 + 가족(FAMILY_OF)·학부모(:Parent) 관계를 MATCH 로 읽어
+    //   /students/unified 와 동일한 필드 모양(students:[...])으로 반환한다.
+    //   프론트(admin.html loadStudentList)는 이 API 를 1차로 호출하고,
+    //   미설정(503)/연결 실패(502)면 D1(unified)로 폴백한다.
+    if (method === 'GET' && path === '/api/admin/students/graph-list') {
+      const limitG = Math.max(1, Math.min(2000, parseInt(url.searchParams.get('limit') || '1000', 10)));
+      const qG = (url.searchParams.get('q') || '').trim().toLowerCase();
+      const GRAPH_STUDENT_LIST_QUERY = `
+MATCH (s:Student)
+WHERE $q = ''
+   OR toLower(coalesce(s.name, s.korean_name, ''))       CONTAINS $q
+   OR toLower(coalesce(s.student_id, s.user_id, ''))     CONTAINS $q
+OPTIONAL MATCH (s)-[:FAMILY_OF]-(fam:Student)
+OPTIONAL MATCH (par:Parent)-[]->(s)
+WITH s,
+     collect(DISTINCT coalesce(fam.name, fam.student_id)) AS family,
+     collect(DISTINCT coalesce(par.name, par.parent_id))[0] AS parent_name,
+     collect(DISTINCT par.phone)[0]                         AS parent_phone_g
+RETURN coalesce(s.student_id, s.user_id)                         AS user_id,
+       coalesce(s.name, s.korean_name, s.student_id, s.user_id)  AS name,
+       s.english_name                                            AS english_name,
+       s.grade                                                   AS grade,
+       s.level                                                   AS level,
+       coalesce(s.status, 'active')                              AS status,
+       s.student_phone                                           AS student_phone,
+       coalesce(parent_phone_g, s.parent_phone)                  AS parent_phone,
+       parent_name                                               AS parent_name,
+       s.teacher_phone                                           AS teacher_phone,
+       s.shop_name                                               AS shop_name,
+       s.hq_name                                                 AS hq_name,
+       s.branch1_name                                            AS branch1_name,
+       s.branch2_name                                            AS branch2_name,
+       s.franchise                                               AS franchise,
+       s.payment_type                                            AS payment_type,
+       s.signup_date                                             AS signup_date,
+       s.end_date                                                AS end_date,
+       s.classes_per_week                                        AS classes_per_week,
+       s.points                                                  AS points,
+       family                                                    AS family
+ORDER BY name
+LIMIT $limit`;
+      try {
+        const { fields, values } = await runCypher(
+          env, GRAPH_STUDENT_LIST_QUERY, { q: qG, limit: limitG }, 'READ',
+        );
+        const students = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
+        return json({ ok: true, source: 'neo4j', count: students.length, students });
+      } catch (e: any) {
+        if (e instanceof Neo4jNotConfiguredError) {
+          return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
+        }
+        console.warn('[graph-list] Neo4j 조회 실패:', e?.message || e);
+        return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
+      }
     }
 
     // 🧑‍🎓 통합 학생관리 — students_erp(ERP 명부) + attendance(세션·최근방문) 단일 합본

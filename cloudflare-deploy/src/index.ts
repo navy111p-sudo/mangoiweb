@@ -593,6 +593,7 @@ export default {
         /^\/api\/admin\/review-quiz\/\d+$/.test(path) ||
         path === '/api/admin/students/list' ||
         path === '/api/admin/students/unified' ||
+        path === '/api/admin/students/graph-list' ||
         path === '/api/admin/students/erp-list' ||
         path === '/api/admin/students/erp' ||
         path === '/api/admin/students/erp-seed' ||
@@ -2582,6 +2583,7 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/mango-videos' || /^\/api\/admin\/mango-videos\/\d+$/.test(path)) return true;
   if (path === '/api/admin/students/list') return true;
   if (path === '/api/admin/students/unified') return true;
+  if (path === '/api/admin/students/graph-list') return true;   // 🕸️ Neo4j 그래프 학생 명부
   if (path === '/api/admin/students/erp-list' || path === '/api/admin/students/erp' || path === '/api/admin/students/erp-seed') return true;
   // 📚 Phase HW — 숙제 관리 (출제/목록/삭제) — 관리자 전용
   if (path.startsWith('/api/admin/homework/')) return true;

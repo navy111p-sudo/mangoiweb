@@ -12,9 +12,11 @@
  *   대신 Neo4j Aura의 HTTP "Query API"(/db/{db}/query/v2)로 같은 Cypher를 전송한다.
  *
  * 환경변수(wrangler secret put 으로 설정 — 미설정 시 503 으로 graceful degrade)
- *   NEO4J_QUERY_URL : 예) https://<dbid>.databases.neo4j.io/db/neo4j/query/v2
+ *   NEO4J_QUERY_URL : 예) https://<dbid>.databases.neo4j.io/db/neo4j/query/v2 (Aura)
+ *                     예) http://118.219.234.180:7474/db/neo4j/query/v2 (자체 호스팅)
+ *                     bolt://host:7687 로 넣어도 runCypher 가 HTTP(7474)로 자동 변환
  *   NEO4J_USER      : 예) neo4j
- *   NEO4J_PASSWORD  : Aura 인스턴스 비밀번호
+ *   NEO4J_PASSWORD  : Neo4j 비밀번호
  *
  * 외부 공개(서비스 레이어)
  *   recommendTeachers(env, studentId, limit) : 점수 내림차순 강사 배열
@@ -267,9 +269,33 @@ const err = (msg: string, status = 400) => json({ ok: false, error: msg }, statu
 export class Neo4jNotConfiguredError extends Error {}
 
 /**
- * Neo4j Aura HTTP Query API 호출 (단발 트랜잭션).
- * @param accessMode 'READ'(추천 조회) | 'WRITE'(ETL 적재)
- * 반환: { fields: string[], values: any[][] } — Query API v2 의 data 블록.
+ * NEO4J_QUERY_URL 정규화 — Workers 런타임은 fetch(HTTP)만 가능하고 Bolt(TCP)는
+ * 불가하므로, bolt:// 로 설정돼 있으면 같은 호스트의 HTTP Query API 주소로
+ * 자동 변환한다(자체 호스팅 Neo4j 는 7474 포트가 HTTP).
+ *   bolt://118.219.234.180:7687      → http://118.219.234.180:7474/db/neo4j/query/v2
+ *   http://118.219.234.180:7474      → http://118.219.234.180:7474/db/neo4j/query/v2
+ *   https://<id>.databases.neo4j.io/db/neo4j/query/v2  → 그대로 (Aura)
+ *   http://host:7474/db/neo4j/tx/commit                → 그대로 (구버전 4.x 직접 지정)
+ */
+export function normalizeNeo4jUrl(raw: string): string {
+  let u = raw.trim();
+  const bolt = u.match(/^(?:bolt|neo4j)(?:\+s(?:sc)?)?:\/\/([^/:?#]+)(?::\d+)?/i);
+  if (bolt) return `http://${bolt[1]}:7474/db/neo4j/query/v2`;
+  if (!/\/db\//.test(u)) u = u.replace(/\/+$/, '') + '/db/neo4j/query/v2';
+  return u;
+}
+
+/** Query API v2 주소를 구버전(Neo4j 4.x) 트랜잭션 커밋 주소로 변환 */
+function legacyTxUrl(queryUrl: string): string {
+  return queryUrl.replace(/\/db\/([^/]+)\/query\/v2\/?$/, '/db/$1/tx/commit');
+}
+
+/**
+ * Neo4j HTTP 호출 (단발 트랜잭션) — Aura·자체 호스팅(카페24 서버 등) 공용.
+ * 기본은 HTTP Query API(/db/{db}/query/v2, Neo4j 5.x/Aura)로 호출하고,
+ * 404/405(구버전 4.x — Query API 없음)면 레거시 트랜잭션 엔드포인트
+ * (/db/{db}/tx/commit)로 자동 폴백해 동일한 {fields, values} 로 정규화한다.
+ * @param accessMode 'READ'(조회) | 'WRITE'(ETL 적재)
  * (warmup-graph.ts 등 다른 그래프 모듈에서도 재사용하도록 export)
  */
 export async function runCypher(
@@ -286,32 +312,60 @@ export async function runCypher(
   }
 
   const auth = btoa(`${NEO4J_USER}:${NEO4J_PASSWORD}`);
+  const headers = {
+    Authorization: `Basic ${auth}`,
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  const endpoint = normalizeNeo4jUrl(NEO4J_QUERY_URL);
+  const isLegacy = /\/tx\/commit\/?$/.test(endpoint) || /\/transaction\/commit\/?$/.test(endpoint);
 
-  let resp: Response;
-  try {
-    resp = await fetch(NEO4J_QUERY_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${auth}`,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify({ statement, parameters, accessMode }),
-    });
-  } catch (e: any) {
-    // 네트워크/DNS/타임아웃 — 상위에서 503 으로 매핑
-    throw new Error(`Neo4j 연결 실패: ${e?.message || e}`);
+  const post = async (url: string, body: unknown): Promise<Response> => {
+    try {
+      return await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+    } catch (e: any) {
+      // 네트워크/DNS/타임아웃 — 상위에서 503 으로 매핑
+      throw new Error(`Neo4j 연결 실패(${url}): ${e?.message || e}`);
+    }
+  };
+
+  const parseJson = async (resp: Response): Promise<any> => {
+    const text = await resp.text();
+    try {
+      return text ? JSON.parse(text) : {};
+    } catch {
+      throw new Error(`Neo4j 응답 파싱 실패(status ${resp.status}): ${text.slice(0, 300)}`);
+    }
+  };
+
+  // ── 레거시(4.x) 트랜잭션 API — 요청/응답 포맷이 Query API 와 다름 ──
+  const runLegacy = async (url: string): Promise<{ fields: string[]; values: any[][] }> => {
+    const resp = await post(url, { statements: [{ statement, parameters }] });
+    if (resp.status === 401 || resp.status === 403) {
+      throw new Error('Neo4j 인증 실패: 자격 증명(NEO4J_USER/PASSWORD)을 확인하세요.');
+    }
+    const payload = await parseJson(resp);
+    const legacyErr = payload?.errors?.[0];
+    if (legacyErr) throw new Error(`Neo4j 쿼리 오류: ${legacyErr.message || legacyErr.code}`);
+    if (!resp.ok) throw new Error(`Neo4j 쿼리 오류: HTTP ${resp.status}`);
+    const result = payload?.results?.[0] ?? {};
+    return {
+      fields: result.columns ?? [],
+      values: (result.data ?? []).map((d: any) => d.row ?? []),
+    };
+  };
+
+  if (isLegacy) return runLegacy(endpoint);
+
+  // ── 기본: HTTP Query API v2 (Neo4j 5.x / Aura) ──
+  const resp = await post(endpoint, { statement, parameters, accessMode });
+
+  // 404/405 = Query API 미지원 서버(자체 호스팅 4.x) → 레거시 엔드포인트로 폴백
+  if ((resp.status === 404 || resp.status === 405) && legacyTxUrl(endpoint) !== endpoint) {
+    return runLegacy(legacyTxUrl(endpoint));
   }
 
-  // 본문을 먼저 안전하게 파싱(에러 응답도 JSON 본문에 errors 배열을 담아 옴)
-  const text = await resp.text();
-  let payload: any = {};
-  try {
-    payload = text ? JSON.parse(text) : {};
-  } catch {
-    throw new Error(`Neo4j 응답 파싱 실패(status ${resp.status}): ${text.slice(0, 300)}`);
-  }
-
+  const payload = await parseJson(resp);
   if (!resp.ok) {
     if (resp.status === 401 || resp.status === 403) {
       throw new Error('Neo4j 인증 실패: 자격 증명(NEO4J_USER/PASSWORD)을 확인하세요.');
