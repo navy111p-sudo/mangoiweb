@@ -21,7 +21,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine
-from app.routers import streak, warmup
+from app.routers import graph, streak, warmup
 
 # ── 1. DB 테이블 생성 ───────────────────────────────────────────
 # 모델(StudentStreak 등)에 해당하는 표가 DB에 없으면 자동으로 만들어줍니다.
@@ -75,6 +75,7 @@ app.add_middleware(
 # ── 4. 라우터 연결 ─────────────────────────────────────────────
 app.include_router(streak.router)   # /api/streak/...
 app.include_router(warmup.router)   # /api/warmup/...
+app.include_router(graph.router)    # /api/graph/...  (Neo4j 학생·강사·피드백)
 
 
 # ── 5. 기본/헬스체크 엔드포인트 ────────────────────────────────
@@ -83,7 +84,7 @@ def root():
     """서비스가 살아있는지 + 어떤 기능이 있는지 간단 안내."""
     return {
         "service": "mangoi-learning-backend",
-        "features": ["streak(연속학습 불꽃)", "warmup(수업 전 AI 웜업)"],
+        "features": ["streak(연속학습 불꽃)", "warmup(수업 전 AI 웜업)", "graph(Neo4j 학생·강사·피드백)"],
         "docs": "/docs",
     }
 

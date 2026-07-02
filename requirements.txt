@@ -7,6 +7,7 @@ SQLAlchemy>=2.0,<3.0         # ORM (DB 모델/세션)
 pydantic>=2.6,<3.0           # 입력 검증/직렬화
 openai>=1.30                 # AI 웜업 롤플레이용 OpenAI 클라이언트
 psycopg2-binary>=2.9         # PostgreSQL 드라이버 (프로덕션 DB 권장 / SQLite만 쓰면 미사용)
+neo4j>=5.14                  # Neo4j 그래프 DB 드라이버 (학생·강사·피드백 그래프)
 
 # (선택) 다른 DB 사용 시 아래 드라이버를 주석 해제하세요.
 # PyMySQL>=1.1               # MySQL 사용 시
