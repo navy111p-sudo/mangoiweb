@@ -133,7 +133,7 @@
       <span>🏆 점수: <b id="game-score" style="color:var(--gold)">0</b></span>
       <span>✅ 정답: <b id="game-correct" style="color:var(--emerald)">0</b><span style="opacity:.6">/10</span></span>
       <span>❌ 오답: <b id="game-wrong" style="color:var(--bad)">0</b></span>
-      <span title="10문제를 깨면 다음 난이도로 올라가요!">⭐ 난이도: <b id="game-stage" style="color:#f472b6">1</b><span style="opacity:.6">/5</span></span>
+      <span title="10문제를 깨면 다음 난이도로 올라가요!">⭐ 난이도: <b id="game-stage" style="color:#f472b6">1</b><span style="opacity:.6">/7</span></span>
       <span id="game-timer-wrap" style="display:none">⏱ <b id="game-timer" style="color:#7fd1ff">0</b>초</span>
       <span id="game-feedback" style="margin-left:auto;font-weight:700">&nbsp;</span>
     </div>
@@ -143,6 +143,7 @@
 </div>
 
 <script src="/js/game-vocab.js"></script>
+<script src="/js/game-tts.js"></script>
 <script>
 /* ============================================================
    게임 데이터 + 상태 (index.html 게임 탭과 동일)
@@ -157,13 +158,21 @@ const _GAME_VOCAB = [
   { en: 'The sun is shining brightly.',  ko: '태양이 밝게 빛나고 있어요.',         words: ['The','sun','is','shining','brightly'] },
   { en: 'He plays soccer on Sundays.',   ko: '그는 일요일에 축구를 해요.',         words: ['He','plays','soccer','on','Sundays'] },
   { en: 'I like to eat pizza.',          ko: '나는 피자 먹는 것을 좋아해요.',     words: ['I','like','to','eat','pizza'] },
-  { en: 'They are good friends.',        ko: '그들은 좋은 친구입니다.',           words: ['They','are','good','friends'] }
+  { en: 'They are good friends.',        ko: '그들은 좋은 친구입니다.',           words: ['They','are','good','friends'] },
+  // 🎢 상위 난이도(6~7단계)용 — 더 길고 어려운 문장
+  { en: 'My family went to the beach last summer.',       ko: '우리 가족은 지난여름 해변에 갔어요.',       words: ['My','family','went','to','the','beach','last','summer'] },
+  { en: 'She wants to be a famous scientist someday.',    ko: '그녀는 언젠가 유명한 과학자가 되고 싶어해요.', words: ['She','wants','to','be','a','famous','scientist','someday'] },
+  { en: 'We should always be kind to our friends.',       ko: '우리는 친구들에게 항상 친절해야 해요.',     words: ['We','should','always','be','kind','to','our','friends'] },
+  { en: 'The students are studying English together now.',ko: '학생들은 지금 함께 영어를 공부하고 있어요.', words: ['The','students','are','studying','English','together','now'] }
 ];
 const _GAME_WORDS = [
   { en:'apple', ko:'사과' }, { en:'book', ko:'책' }, { en:'cat', ko:'고양이' },
   { en:'dog', ko:'강아지' }, { en:'flower', ko:'꽃' }, { en:'hello', ko:'안녕' },
   { en:'school', ko:'학교' }, { en:'water', ko:'물' }, { en:'sun', ko:'태양' },
-  { en:'moon', ko:'달' }, { en:'star', ko:'별' }, { en:'love', ko:'사랑' }
+  { en:'moon', ko:'달' }, { en:'star', ko:'별' }, { en:'love', ko:'사랑' },
+  // 🎢 상위 난이도(6~7단계)용 — 더 길고 어려운 단어
+  { en:'beautiful', ko:'아름다운' }, { en:'delicious', ko:'맛있는' }, { en:'important', ko:'중요한' },
+  { en:'together', ko:'함께' }, { en:'adventure', ko:'모험' }, { en:'vacation', ko:'방학' }
 ];
 const _gameState = { mode: 'brick', score: 0, correct: 0, wrong: 0, current: null, started: false, balloonTimer: null, roundTimer: null };
 
@@ -173,13 +182,14 @@ const _gameState = { mode: 'brick', score: 0, correct: 0, wrong: 0, current: nul
 const GAME_GOAL = 10;
 
 /* ============================================================
-   🎢 난이도(스테이지) 1~5 — 10문제 클리어 시 자동 상승
-   · 난이도 ↔ ⚡속도 5단계 연동(풍선 낙하·라운드 제한시간 빨라짐)
+   🎢 난이도(스테이지) 1~7 — 10문제 클리어 시 자동 상승
+   · 난이도 ↔ ⚡속도 7단계 연동(풍선 낙하·라운드 제한시간 빨라짐, 6~7단계는 훨씬 빠름)
    · 출제도 어려워짐: 단계가 오를수록 더 길고 어려운 문장/단어 구간에서 출제
    ============================================================ */
-var GAME_STAGE = (function(){ try{ var v=parseInt(localStorage.getItem('mangoi_game_stage'),10); return (v>=1&&v<=5)?v:1; }catch(_){ return 1; } })();
+const GAME_STAGE_MAX = 7;
+var GAME_STAGE = (function(){ try{ var v=parseInt(localStorage.getItem('mangoi_game_stage'),10); return (v>=1&&v<=GAME_STAGE_MAX)?v:1; }catch(_){ return 1; } })();
 function setGameStage(st){
-  if(!(st>=1&&st<=5)) st=1;
+  if(!(st>=1&&st<=GAME_STAGE_MAX)) st=1;
   GAME_STAGE = st;
   try{ localStorage.setItem('mangoi_game_stage', String(st)); }catch(_){}
   var el=document.getElementById('game-stage'); if(el) el.textContent = st;
@@ -188,7 +198,7 @@ function setGameStage(st){
 // 난이도 구간 출제: 배열을 쉬움→어려움으로 정렬해 현재 단계 구간만 뽑는다 (부족하면 이웃 구간으로 확장)
 function _stagePool(arr, key, minN){
   var sorted = arr.slice().sort(function(a,b){ return key(a)-key(b); });
-  var n = sorted.length, lo = Math.floor((GAME_STAGE-1)/5*n), hi = Math.ceil(GAME_STAGE/5*n);
+  var n = sorted.length, lo = Math.floor((GAME_STAGE-1)/GAME_STAGE_MAX*n), hi = Math.ceil(GAME_STAGE/GAME_STAGE_MAX*n);
   var need = Math.min(minN||4, n);
   while(hi-lo < need){ if(lo>0) lo--; if(hi<n) hi++; }
   return sorted.slice(lo,hi);
@@ -212,8 +222,8 @@ function _gameShowResult(){
   var stars = acc >= 90 ? '⭐⭐⭐' : acc >= 70 ? '⭐⭐' : '⭐';
   var src = window._STUDENT_VOCAB && (_STUDENT_VOCAB.textbook || _STUDENT_VOCAB.level)
     ? '<div style="font-size:13px;color:#94a3b8;margin-top:8px">📚 ' + (_STUDENT_VOCAB.textbook || '') + (_STUDENT_VOCAB.level ? ' · ' + _STUDENT_VOCAB.level : '') + ' 맞춤 문제</div>' : '';
-  // 🎢 다음 난이도 도전 버튼 — 최고 단계(5)면 처음부터
-  var nextStageBtn = GAME_STAGE < 5
+  // 🎢 다음 난이도 도전 버튼 — 최고 단계(7)면 처음부터
+  var nextStageBtn = GAME_STAGE < GAME_STAGE_MAX
     ? '<button onclick="setGameStage(' + (GAME_STAGE+1) + ');gameInit()" style="padding:14px 28px;background:linear-gradient(135deg,#f43f5e,#be123c);color:#fff;border:0;border-radius:12px;font-size:17px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(244,63,94,.45)">🔥 다음 난이도 ⭐' + (GAME_STAGE+1) + ' 도전!</button>'
     : '<button onclick="setGameStage(1);gameInit()" style="padding:14px 28px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border:0;border-radius:12px;font-size:17px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(139,92,246,.45)">👑 전 단계 클리어! ⭐1부터 다시</button>';
   document.getElementById('game-area').innerHTML =
@@ -264,9 +274,11 @@ const SPEED_LEVELS = [
   { lvl:2, ico:'🚶', name:'천천히',     mult:0.75 },
   { lvl:3, ico:'🙂', name:'보통',       mult:1    },
   { lvl:4, ico:'🏃', name:'빨리',       mult:1.4  },
-  { lvl:5, ico:'🚀', name:'아주 빨리',  mult:1.9  }
+  { lvl:5, ico:'🚀', name:'아주 빨리',  mult:1.9  },
+  { lvl:6, ico:'⚡', name:'초고속',     mult:2.5  },
+  { lvl:7, ico:'🔥', name:'극한',       mult:3.2  }
 ];
-var _speedLvl = (function(){ try{ var v=parseInt(localStorage.getItem('mangoi_game_speed'),10); return (v>=1&&v<=5)?v:3; }catch(_){ return 3; } })();
+var _speedLvl = (function(){ try{ var v=parseInt(localStorage.getItem('mangoi_game_speed'),10); return (v>=1&&v<=7)?v:3; }catch(_){ return 3; } })();
 function _speedMult(){ return SPEED_LEVELS[_speedLvl-1].mult; }
 // 라운드 제한시간(초) — 보통(🙂) 기준. 속도 빠를수록 시간 짧아짐(난이도↑)
 const ROUND_TIME = { brick:50, fill:25, match:80 };
@@ -283,7 +295,7 @@ function renderSpeedPicks(){
   });
 }
 function setGameSpeed(lvl){
-  if(!(lvl>=1&&lvl<=5)) lvl=3;
+  if(!(lvl>=1&&lvl<=7)) lvl=3;
   _speedLvl = lvl;
   try{ localStorage.setItem('mangoi_game_speed', String(lvl)); }catch(_){}
   renderSpeedPicks();
@@ -469,7 +481,10 @@ function _gamePickVoice(){
   }catch(_){}
 }
 try{ if(window.speechSynthesis){ _gamePickVoice(); window.speechSynthesis.onvoiceschanged=_gamePickVoice; } }catch(_){}
-window.gameSpeak = function(text){ try{ if(!text) return; if(!_gameEnVoice) _gamePickVoice(); var u=new SpeechSynthesisUtterance(String(text)); u.lang=(_gameEnVoice&&_gameEnVoice.lang)||'en-US'; u.rate=0.95; u.pitch=1.02; if(_gameEnVoice) u.voice=_gameEnVoice; window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);}catch(_){} };
+// 🔊 원어민 발음: 클라우드 TTS(Deepgram Aura-1, game-tts.js) 우선 → 실패 시 브라우저 보이스 폴백
+window.gameSpeak = function(text){ try{ if(!text) return;
+  if(window.MangoiTTS){ MangoiTTS.speak(text); return; }
+  if(!_gameEnVoice) _gamePickVoice(); var u=new SpeechSynthesisUtterance(String(text)); u.lang=(_gameEnVoice&&_gameEnVoice.lang)||'en-US'; u.rate=0.95; u.pitch=1.02; if(_gameEnVoice) u.voice=_gameEnVoice; window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);}catch(_){} };
 window.gameSpeakBuilt = function(){ try{ var pk=(_gameState.current&&_gameState.current.picked)||[]; if(pk.length) gameSpeak(pk.join(' ')); }catch(_){} };
 window.gameSpeakTarget = function(){ try{ var s=_gameState.current&&_gameState.current.sentence; if(s&&s.en) gameSpeak(s.en); }catch(_){} };   // 🎧 듣기형(번역 없음) 문제의 문장 듣기
 
@@ -848,6 +863,6 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260702203939 -->
+<!-- BUILD:20260703001553 -->
 </body>
 </html>

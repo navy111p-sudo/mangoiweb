@@ -257,7 +257,13 @@
     "I can swim in the blue sea.",
     "She made a delicious chocolate cake.",
     "We will visit the zoo on Saturday.",
-    "The little bird sang a sweet song."
+    "The little bird sang a sweet song.",
+    "My family went to the beach last summer.",
+    "She wants to be a famous scientist someday.",
+    "We should always be kind to our friends.",
+    "The students are studying English together now.",
+    "He practiced the piano for two hours yesterday.",
+    "They planted beautiful flowers in the garden together."
   ];
   // 오늘의 교재 문장 주입(학생게임 탭 임베드 시 ?sentence= 로 전달) → 맨 앞에 배치
   try{
@@ -278,24 +284,25 @@
   // 🎯 목표: 정답 단어 10개 명중 → 결과 화면 (?goal= 로 조정 가능)
   var GOAL = (function(){ try{ var g=parseInt(new URLSearchParams(location.search).get('goal'),10); return (g>=3&&g<=50)?g:10; }catch(e){ return 10; } })();
   var correctWords = 0;
-  // 🎢 난이도(스테이지) 1~5 — 클리어 시 자동 상승: 속도↑ + 더 긴 문장 출제 (허브와 localStorage 공유)
+  // 🎢 난이도(스테이지) 1~7 — 클리어 시 자동 상승: 속도↑ + 더 긴 문장 출제 (허브와 localStorage 공유)
+  var STAGE_MAX = 7;
   var stageLvl = (function(){
     try{
       var q = parseInt(new URLSearchParams(location.search).get('stage'),10);
-      if(q>=1&&q<=5) return q;
+      if(q>=1&&q<=STAGE_MAX) return q;
       var v = parseInt(localStorage.getItem('mangoi_game_stage'),10);
-      return (v>=1&&v<=5)?v:1;
+      return (v>=1&&v<=STAGE_MAX)?v:1;
     }catch(e){ return 1; }
   })();
   function setStage(st){
-    if(!(st>=1&&st<=5)) st=1;
+    if(!(st>=1&&st<=STAGE_MAX)) st=1;
     stageLvl = st;
     try{ localStorage.setItem('mangoi_game_stage', String(st)); }catch(e){}
   }
   // 난이도 구간 문장 풀: 단어 수(→길이) 기준 정렬 후 현재 단계 구간에서 출제
   function stagePool(){
     var sorted = SENTENCES.slice().sort(function(a,b){ return a.split(' ').length - b.split(' ').length || a.length - b.length; });
-    var n = sorted.length, lo = Math.floor((stageLvl-1)/5*n), hi = Math.ceil(stageLvl/5*n);
+    var n = sorted.length, lo = Math.floor((stageLvl-1)/STAGE_MAX*n), hi = Math.ceil(stageLvl/STAGE_MAX*n);
     var need = Math.min(3, n);
     while(hi-lo < need){ if(lo>0) lo--; if(hi<n) hi++; }
     return sorted.slice(lo,hi);
@@ -325,19 +332,21 @@
     { lvl:2, ico:'🚶', name:'천천히',     mult:0.75 },
     { lvl:3, ico:'🙂', name:'보통',       mult:1    },
     { lvl:4, ico:'🏃', name:'빨리',       mult:1.4  },
-    { lvl:5, ico:'🚀', name:'아주 빨리',  mult:1.9  }
+    { lvl:5, ico:'🚀', name:'아주 빨리',  mult:1.9  },
+    { lvl:6, ico:'⚡', name:'초고속',     mult:2.5  },
+    { lvl:7, ico:'🔥', name:'극한',       mult:3.2  }
   ];
   var speedLvl = (function(){
     try{
       var q = parseInt(new URLSearchParams(location.search).get('speed'),10);
-      if(q>=1&&q<=5) return q;
+      if(q>=1&&q<=7) return q;
       var v = parseInt(localStorage.getItem('mangoi_game_speed'),10);
-      return (v>=1&&v<=5)?v:3;
+      return (v>=1&&v<=7)?v:3;
     }catch(e){ return 3; }
   })();
   function spdMult(){ return SPEED_LEVELS[speedLvl-1].mult; }
   function setSpeed(l){
-    if(!(l>=1&&l<=5)) l=3;
+    if(!(l>=1&&l<=7)) l=3;
     speedLvl=l; try{ localStorage.setItem('mangoi_game_speed',String(l)); }catch(e){}
     var picker=document.getElementById('speedPicker');
     if(picker) [].forEach.call(picker.children, function(b){ b.classList.toggle('sel', +b.getAttribute('data-spd')===l); });
@@ -658,7 +667,7 @@
     running=false; clearInterval(timerId); cancelAnimationFrame(rafId); clearMonsters(); if(synth) synth.cancel();
     var best=+(localStorage.getItem('ess_best')||0); if(score>best){ best=score; localStorage.setItem('ess_best',best); }
     try{ if(window.parent && window.parent!==window) window.parent.postMessage({type:'mangoi-game-complete', score:score, reason:'goal'}, '*'); }catch(e){}
-    var nextBtn = stageLvl < 5
+    var nextBtn = stageLvl < STAGE_MAX
       ? '<button class="btn" id="nextStageBtn" style="background:linear-gradient(135deg,#f43f5e,#be123c);color:#fff">🔥 다음 난이도 ⭐'+(stageLvl+1)+' 도전!</button>'
       : '<button class="btn" id="nextStageBtn" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff">👑 전 단계 클리어! ⭐1부터</button>';
     card.innerHTML='<h1>🏆 난이도 ⭐'+stageLvl+' 클리어!</h1><div class="big">'+score+'점</div>'
@@ -668,7 +677,7 @@
     overlay.style.display='flex';
     document.getElementById('restartBtn').addEventListener('click', startGame);
     document.getElementById('nextStageBtn').addEventListener('click', function(){
-      setStage(stageLvl < 5 ? stageLvl+1 : 1);
+      setStage(stageLvl < STAGE_MAX ? stageLvl+1 : 1);
       setSpeed(stageLvl);        // 🎢 난이도 = 속도 단계 연동 (몬스터 더 빨라짐)
       startGame();
     });
@@ -728,6 +737,6 @@
 })();
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 -->
-<!-- BUILD:20260702203939 -->
+<!-- BUILD:20260703001553 -->
 </body>
 </html>

@@ -454,6 +454,7 @@
 </div>
 
 <script src="/js/game-vocab.js"></script>
+<script src="/js/game-tts.js"></script>
 <script>
 (function(){
   'use strict';
@@ -471,14 +472,18 @@
     "She is reading a book now.",
     "We go to school by bus.",
     "I have two cute dogs.",
-    "They like to eat pizza."
+    "They like to eat pizza.",
+    "My family went to the beach last summer.",       // 🎢 상위 난이도용 긴 문장
+    "She wants to be a famous scientist someday."
   ];
   var KO = {
     "He plays soccer on Sundays.":"그는 일요일마다 축구를 해요.",
     "She is reading a book now.":"그녀는 지금 책을 읽고 있어요.",
     "We go to school by bus.":"우리는 버스로 학교에 가요.",
     "I have two cute dogs.":"나는 귀여운 강아지 두 마리가 있어요.",
-    "They like to eat pizza.":"그들은 피자 먹는 걸 좋아해요."
+    "They like to eat pizza.":"그들은 피자 먹는 걸 좋아해요.",
+    "My family went to the beach last summer.":"우리 가족은 지난여름 해변에 갔어요.",
+    "She wants to be a famous scientist someday.":"그녀는 언젠가 유명한 과학자가 되고 싶어해요."
   };
   var DISTRACTORS = ["cat","run","blue","apple","green","quickly","does","happy","jump","red","water","table","want","under","they","big","milk"];
   var ALIENS = ['👽','👾','🤖','🧟','👹','😈','🦠','👻'];
@@ -487,17 +492,18 @@
   /* ── 🎯 목표: 정답 단어 10개 → 결과 화면 (문장을 이어가며 채움) ── */
   var GOAL = (function(){ try{ var g=parseInt(new URLSearchParams(location.search).get('goal'),10); return (g>=3&&g<=50)?g:10; }catch(e){ return 10; } })();
   var correctHits = 0;
-  /* ── 🎢 난이도(스테이지) 1~5 — 클리어 시 자동 상승: 속도↑ + 더 긴 문장 (허브와 localStorage 공유) ── */
+  /* ── 🎢 난이도(스테이지) 1~7 — 클리어 시 자동 상승: 속도↑ + 더 긴 문장 (허브와 localStorage 공유) ── */
+  var STAGE_MAX = 7;
   var stageLvl = (function(){
     try{
       var q = parseInt(new URLSearchParams(location.search).get('stage'),10);
-      if(q>=1&&q<=5) return q;
+      if(q>=1&&q<=STAGE_MAX) return q;
       var v = parseInt(localStorage.getItem('mangoi_game_stage'),10);
-      return (v>=1&&v<=5)?v:1;
+      return (v>=1&&v<=STAGE_MAX)?v:1;
     }catch(e){ return 1; }
   })();
   function setStage(st){
-    if(!(st>=1&&st<=5)) st=1;
+    if(!(st>=1&&st<=STAGE_MAX)) st=1;
     stageLvl = st;
     try{ localStorage.setItem('mangoi_game_stage', String(st)); }catch(e){}
   }
@@ -507,7 +513,7 @@
   function nextQueueSentence(){
     var q = (STUDENT_SENTENCES && STUDENT_SENTENCES.length) ? STUDENT_SENTENCES : PRESETS;
     var sorted = q.slice().sort(function(a,b){ return a.split(' ').length - b.split(' ').length || a.length - b.length; });
-    var n = sorted.length, lo = Math.floor((stageLvl-1)/5*n), hi = Math.ceil(stageLvl/5*n);
+    var n = sorted.length, lo = Math.floor((stageLvl-1)/STAGE_MAX*n), hi = Math.ceil(stageLvl/STAGE_MAX*n);
     var need = Math.min(2, n);
     while(hi-lo < need){ if(lo>0) lo--; if(hi<n) hi++; }
     var pool = sorted.slice(lo,hi);
@@ -599,7 +605,10 @@
   }
   if(synth){ pickVoice(); synth.onvoiceschanged = pickVoice; }
   function speak(text, rate, cb){
-    if(!synth || !SOUND_ON){ if(cb) cb(); return; }   // 🔊 off → TTS 음소거(흐름은 유지)
+    if(!SOUND_ON){ if(cb) cb(); return; }   // 🔊 off → TTS 음소거(흐름은 유지)
+    // 🔊 원어민 발음: 클라우드 TTS(Deepgram Aura-1, game-tts.js) 우선 → 실패 시 브라우저 보이스 폴백
+    if(window.MangoiTTS){ MangoiTTS.speak(text, 1, cb); return; }
+    if(!synth){ if(cb) cb(); return; }
     try{
       synth.cancel();
       var u = new SpeechSynthesisUtterance(text);
@@ -719,14 +728,16 @@
     { lvl:2, ico:'🚶', name:'천천히',     mult:0.75 },
     { lvl:3, ico:'🙂', name:'보통',       mult:1    },
     { lvl:4, ico:'🏃', name:'빨리',       mult:1.4  },
-    { lvl:5, ico:'🚀', name:'아주 빨리',  mult:1.9  }
+    { lvl:5, ico:'🚀', name:'아주 빨리',  mult:1.9  },
+    { lvl:6, ico:'⚡', name:'초고속',     mult:2.5  },
+    { lvl:7, ico:'🔥', name:'극한',       mult:3.2  }
   ];
   var speedLvl = (function(){
     try{
       var q = parseInt(new URLSearchParams(location.search).get('speed'),10);
-      if(q>=1&&q<=5) return q;
+      if(q>=1&&q<=7) return q;
       var v = parseInt(localStorage.getItem('mangoi_game_speed'),10);
-      return (v>=1&&v<=5)?v:3;
+      return (v>=1&&v<=7)?v:3;
     }catch(e){ return 3; }
   })();
   function spdMult(){ return SPEED_LEVELS[speedLvl-1].mult; }
@@ -1317,7 +1328,7 @@
         line3+
       '</div>'+
       '<div class="row">'+
-        (goalDone ? '<button class="btn" id="rsNext" style="background:linear-gradient(135deg,#f43f5e,#be123c);color:#fff">'+(stageLvl<5?('🔥 다음 난이도 ⭐'+(stageLvl+1)):'👑 ⭐1부터 다시')+'</button>' : '')+
+        (goalDone ? '<button class="btn" id="rsNext" style="background:linear-gradient(135deg,#f43f5e,#be123c);color:#fff">'+(stageLvl<STAGE_MAX?('🔥 다음 난이도 ⭐'+(stageLvl+1)):'👑 ⭐1부터 다시')+'</button>' : '')+
         '<button class="btn ghost" id="rsMenu">메뉴 🏠</button>'+
         '<button class="btn" id="rsAgain">다시 하기 ↻</button>'+
       '</div>';
@@ -1331,7 +1342,7 @@
     var rsNext = $('#rsNext');
     if(rsNext) rsNext.addEventListener('click', function(){
       closeOverlay('#resultOverlay');
-      setStage(stageLvl < 5 ? stageLvl+1 : 1);
+      setStage(stageLvl < STAGE_MAX ? stageLvl+1 : 1);
       speedLvl = stageLvl; try{ localStorage.setItem('mangoi_game_speed', String(stageLvl)); }catch(e){}
       applySentence(nextQueueSentence());   // 새 난이도 구간의 문장으로 시작
       if(game==='shoot') shootStart(); else fishStart();
@@ -1502,6 +1513,6 @@
 })();
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
-<!-- BUILD:20260702203939 -->
+<!-- BUILD:20260703001553 -->
 </body>
 </html>

@@ -304,7 +304,11 @@ export async function runCypher(
   parameters: Record<string, unknown>,
   accessMode: 'READ' | 'WRITE' = 'READ',
 ): Promise<{ fields: string[]; values: any[][] }> {
-  const { NEO4J_QUERY_URL, NEO4J_USER, NEO4J_PASSWORD } = env;
+  // 시크릿 값의 앞뒤 공백·개행 제거 — `echo "…" | wrangler secret put` 처럼
+  // 실수로 개행이 섞여도 인증(Basic auth)/URL 이 깨지지 않도록 방어.
+  const NEO4J_QUERY_URL = (env.NEO4J_QUERY_URL || '').trim();
+  const NEO4J_USER = (env.NEO4J_USER || '').trim();
+  const NEO4J_PASSWORD = (env.NEO4J_PASSWORD || '').trim();
   if (!NEO4J_QUERY_URL || !NEO4J_USER || !NEO4J_PASSWORD) {
     throw new Neo4jNotConfiguredError(
       'Neo4j 미설정: NEO4J_QUERY_URL / NEO4J_USER / NEO4J_PASSWORD 시크릿을 설정하세요.',

@@ -691,21 +691,23 @@
       fetch(TTS_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text,lang:'en'})}).then(function(r){var ct=r.headers.get('content-type')||''; if(!r.ok||ct.indexOf('audio')<0)throw 0; return r.blob();}).then(function(b){var u=URL.createObjectURL(b); ttsCache[text]=u; play(u);}).catch(function(){ if(synth){try{synth.cancel();var u=new SpeechSynthesisUtterance(text); u.lang='en-US'; u.rate=0.92; if(enVoice)u.voice=enVoice; synth.speak(u);}catch(e){}} }); }
     function play(u){ try{ if(!ttsA)ttsA=new Audio(); ttsA.src=u; ttsA.play().catch(function(){}); }catch(e){} }
 
-    /* ===== ⚡ 게임 속도(난이도) 5단계 — 답변 제한시간 =====
-       우선순위: ?speed=1..5 (허브 전달) > localStorage('mangoi_game_speed') > 보통(3) */
+    /* ===== ⚡ 게임 속도(난이도) 7단계 — 답변 제한시간 =====
+       우선순위: ?speed=1..7 (허브 전달) > localStorage('mangoi_game_speed') > 보통(3) */
     var SPEED_LEVELS=[
       { lvl:1, ico:'🐢', name:'아주 천천히', secs:30 },
       { lvl:2, ico:'🚶', name:'천천히',     secs:22 },
       { lvl:3, ico:'🙂', name:'보통',       secs:15 },
       { lvl:4, ico:'🏃', name:'빨리',       secs:10 },
-      { lvl:5, ico:'🚀', name:'아주 빨리',  secs:6  }
+      { lvl:5, ico:'🚀', name:'아주 빨리',  secs:6  },
+      { lvl:6, ico:'⚡', name:'초고속',     secs:4  },
+      { lvl:7, ico:'🔥', name:'극한',       secs:3  }
     ];
     var speedLvl=(function(){
       try{
         var q=parseInt(new URLSearchParams(location.search).get('speed'),10);
-        if(q>=1&&q<=5) return q;
+        if(q>=1&&q<=7) return q;
         var v=parseInt(localStorage.getItem('mangoi_game_speed'),10);
-        return (v>=1&&v<=5)?v:3;
+        return (v>=1&&v<=7)?v:3;
       }catch(e){ return 3; }
     })();
     function qSecs(){ return SPEED_LEVELS[speedLvl-1].secs; }
@@ -822,7 +824,7 @@
     document.getElementById('nextBtn').onclick=function(){
       var n=state.lesson<LESSONS.length-1?state.lesson+1:0;
       // 🎢 다음 레슨 = 난이도 상승: 답변 제한시간 한 단계 짧게 (최고 5단계, 처음부터 돌면 1로 리셋)
-      speedLvl = (n===0) ? 1 : Math.min(5, speedLvl+1);
+      speedLvl = (n===0) ? 1 : Math.min(7, speedLvl+1);
       try{ localStorage.setItem('mangoi_game_speed', String(speedLvl)); }catch(e){}
       try{ var _sr=document.getElementById('speedRow'); if(_sr) [].forEach.call(_sr.children,function(b){ b.classList.toggle('on', +b.getAttribute('data-spd')===speedLvl); }); }catch(e){}
       rewardHide(); startLesson(n);
@@ -858,6 +860,6 @@
   })();
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
-<!-- BUILD:20260702203939 -->
+<!-- BUILD:20260703001553 -->
 </body>
 </html>
