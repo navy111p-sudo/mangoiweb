@@ -23,6 +23,7 @@ import { runAbsenceSweep } from './churn-graph';
 import { marketingRouter } from './marketing-studio';
 import { teacherMatchRouter, runTeacherGraphSync } from './teacher-match';
 import { warmupGraphRouter, runWarmupGraphSync, getWeakSentences } from './warmup-graph';
+import { churnContagionRouter, runContagionGraphSync } from './churn-contagion';
 
 interface Env {
   SIGNALING_ROOM: DurableObjectNamespace;
@@ -983,6 +984,12 @@ export default {
       return warmupGraphRouter(request, env);
     }
 
+    // 🕸 이탈 전염 위험: 가족·동반수업·추천 관계망 기반 (Neo4j Aura)
+    //   POST /sync · GET /risk · GET /student?uid= · GET /stats. 자체 try/catch 독립 동작.
+    if (path.startsWith('/api/admin/churn-contagion/')) {
+      return churnContagionRouter(request, env);
+    }
+
     // 🎯 /admin/teacher-match — 강사 매칭 추천 페이지 (관리자 전용)
     if (path === '/admin/teacher-match' || path === '/admin/teacher-match/') {
       const r = new Request(new URL('/admin/teacher-match.html' + url.search, request.url).toString(), request);
@@ -1206,6 +1213,17 @@ export default {
             console.log('[warmup-graph-sync] cron ran', JSON.stringify(ws));
           } catch (err) {
             console.error('[warmup-graph-sync] error', err);
+          }
+        }
+
+        // 🕸 이탈 전염 그래프 동기화 (KST 03:00) — D1(students_erp·family_members·attendance) → Neo4j Aura
+        //   가족·동반수업·추천 관계망. Neo4j 미설정이면 조용히 건너뜀. 멱등 MERGE 라 반복 안전.
+        if (env.NEO4J_QUERY_URL) {
+          try {
+            const cs = await runContagionGraphSync(env as any);
+            console.log('[churn-contagion-sync] cron ran', JSON.stringify(cs));
+          } catch (err) {
+            console.error('[churn-contagion-sync] error', err);
           }
         }
 
@@ -2514,6 +2532,8 @@ function isAdminPath(path: string, method: string): boolean {
   if (path.startsWith('/api/admin/teacher-match/')) return true;
   // 🗣️ 웜업 개인화 그래프 ETL/디버그 (warmup-graph) — 관리자 전용 (인증 필수)
   if (path.startsWith('/api/admin/warmup-graph/')) return true;
+  // 🕸 이탈 전염 위험 그래프 (churn-contagion) — 관리자 전용 (인증 필수)
+  if (path.startsWith('/api/admin/churn-contagion/')) return true;
   // 📣 마케팅 스튜디오 대시보드 + API (2026-06-03) — 관리자 전용
   if (path === '/admin/marketing-studio' || path === '/admin/marketing-studio/' || path === '/admin/marketing-studio.html') return true;
   if (path.startsWith('/api/admin/marketing/')) return true;
