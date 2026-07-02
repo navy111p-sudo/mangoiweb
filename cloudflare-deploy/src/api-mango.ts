@@ -8041,6 +8041,60 @@ LIMIT $limit`;
       }
     }
 
+    // 💰 카페24 결제 이관 — Neo4j (:Payment) → D1 student_payments 일괄 복사
+    //   GET /api/admin/payments/import-cafe24  (관리자 전용, 브라우저에서 1회 호출)
+    //   카페24 MySQL → (서버내 ETL) → Neo4j → 이 엔드포인트 → D1. 클라우드간 직행이라
+    //   개인정보가 로컬 PC 를 경유하지 않는다. 멱등: [cafe24] memo 행 삭제 후 재삽입.
+    //   이관되면 수강료/회계/경영요약/KPI 메뉴가 즉시 실데이터로 동작.
+    if (method === 'GET' && path === '/api/admin/payments/import-cafe24') {
+      try {
+        const { fields, values } = await runCypher(
+          env,
+          `MATCH (p:Payment)
+           RETURN p.user_id AS user_id, p.paid_at AS paid_at,
+                  p.period_start AS period_start, p.period_end AS period_end,
+                  p.amount_krw AS amount_krw, p.method AS method,
+                  p.memo AS memo, p.status AS status
+           ORDER BY p.pay_id`,
+          {}, 'READ',
+        );
+        const col: Record<string, number> = Object.fromEntries(fields.map((f, i) => [f, i]));
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, period_start TEXT, period_end TEXT, amount_krw INTEGER NOT NULL, method TEXT, memo TEXT, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`);
+        await env.DB.prepare(`DELETE FROM student_payments WHERE memo LIKE '[cafe24]%'`).run();
+        const nowMs = Date.now();
+        const ins = env.DB.prepare(
+          `INSERT INTO student_payments (user_id, paid_at, period_start, period_end, amount_krw, method, memo, status, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        );
+        let imported = 0;
+        for (let i = 0; i < values.length; i += 500) {
+          const batch = values.slice(i, i + 500).map(row => ins.bind(
+            String(row[col.user_id] ?? ''),
+            Number(row[col.paid_at]) || null,
+            row[col.period_start] || null,
+            row[col.period_end] || null,
+            Number(row[col.amount_krw]) || 0,
+            row[col.method] || 'card',
+            row[col.memo] || '[cafe24]',
+            row[col.status] || 'paid',
+            nowMs,
+          ));
+          await env.DB.batch(batch);
+          imported += batch.length;
+        }
+        const sum = await env.DB.prepare(
+          `SELECT COUNT(*) AS cnt, COALESCE(SUM(amount_krw),0) AS total FROM student_payments WHERE memo LIKE '[cafe24]%' AND status='paid'`,
+        ).first<any>();
+        return json({ ok: true, imported, graph_rows: values.length, d1_paid_count: sum?.cnt || 0, d1_paid_total_krw: sum?.total || 0 });
+      } catch (e: any) {
+        if (e instanceof Neo4jNotConfiguredError) {
+          return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
+        }
+        console.warn('[import-cafe24] 실패:', e?.message || e);
+        return json({ ok: false, code: 'IMPORT_FAILED', error: String(e?.message || e) }, 502);
+      }
+    }
+
     // 🧑‍🎓 통합 학생관리 — students_erp(ERP 명부) + attendance(세션·최근방문) 단일 합본
     //   GET /api/admin/students/unified?q=  → {ok, count, students:[...]}
     if (method === 'GET' && path === '/api/admin/students/unified') {
