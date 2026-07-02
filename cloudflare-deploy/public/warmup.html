@@ -18,6 +18,9 @@
                     (없으면 로그인 유저 id / 날짜 기반으로 자동 생성)
      - lesson_topic: URL 파라미터 ?unit=<교재 unit> 로 넘기면 워밍업이 실제 레슨과 이어짐.
        예) /warmup.html?room=room_20260701_0930&unit=My%20Weekend
+     - 오늘 교재  : ?textbook=<교재명>&level=<레벨>&lesson=<레슨번호> 로 직접 지정하거나,
+                    로그인 학생이면 /api/warmup/context 가 students_erp 배정 교재를 자동 조회.
+                    AI가 그 교재의 핵심 문장(review_quizzes 은행)으로 워밍업 질문을 한다.
      - api        : URL ?api=https://내백엔드주소  또는 localStorage 'mangoi_api_base' 로 지정.
                     (미설정/서버 꺼짐 → "웜업 서버 연결 필요" 안내만 뜨고 화면은 안 깨짐)
   ============================================================================
@@ -136,9 +139,17 @@
 /* ── 1. URL 파라미터 / 저장값에서 설정 읽기 ─────────────────────── */
 var Q = new URLSearchParams(location.search);
 function getLoginId(){
-  try{ var u=JSON.parse(localStorage.getItem('mango_user')||'null'); if(u&&u.user_id) return u.user_id; }catch(e){}
+  try{ var u=JSON.parse(localStorage.getItem('mango_user')||'null'); if(u&&(u.user_id||u.uid||u.id)) return u.user_id||u.uid||u.id; }catch(e){}
+  try{ var a=JSON.parse(localStorage.getItem('mangoi_logged_user')||'null'); if(a&&(a.user_id||a.uid||a.id)) return a.user_id||a.uid||a.id; }catch(e){}
   return '';
 }
+// 🗓️ 오늘 배울 교재 컨텍스트 — ?textbook/&level/&lesson 파라미터 우선, 없으면 로그인 학생의 배정 교재를 서버에서 조회
+var WCTX = {
+  textbook: (Q.get('textbook')||'').trim(),
+  level: (Q.get('level')||'').trim(),
+  lesson_no: parseInt(Q.get('lesson')||'0',10)||0,
+  sentences: []
+};
 // session_id: ?room 우선 → ?session → 로그인 유저 → 날짜 기반
 var SESSION_ID = Q.get('room') || Q.get('session') ||
   (getLoginId() ? ('user_'+getLoginId()) : ('warmup_'+new Date().toISOString().slice(0,10)));
@@ -307,8 +318,66 @@ function toggleMic(){
   try{ _recog.start(); }catch(e){ setMicState(false); }
 }
 
-/* ── 4. 첫 안내 메시지 ──────────────────────────────────────────── */
-addMsg('Hi! I\'m your Mangoi AI friend 🥭 ' + (LESSON_TOPIC ? ('Today\'s topic is "'+LESSON_TOPIC+'". ') : '') + 'Let\'s warm up before class. How are you today?', 'ai');
+/* ── 4. 첫 안내 메시지 — 오늘 배울 교재와 연동 ─────────────────────
+   ① /api/warmup/context 로 로그인 학생의 오늘 교재/레벨/핵심 문장을 조회
+   ② 교재가 있으면 AI가 그 교재 내용으로 첫 워밍업 질문을 하며 시작
+   ③ 조회/AI 실패 시 기존 자유 대화 인사로 폴백 (화면은 절대 안 깨짐) */
+function fallbackGreeting(){
+  addMsg('Hi! I\'m your Mangoi AI friend 🥭 ' + (LESSON_TOPIC ? ('Today\'s topic is "'+LESSON_TOPIC+'". ') : '') + 'Let\'s warm up before class. How are you today?', 'ai');
+}
+function withCtx(body){
+  var uid = getLoginId(); if(uid) body.user_id = uid;
+  if(WCTX.textbook) body.textbook = WCTX.textbook;
+  if(WCTX.level) body.level = WCTX.level;
+  if(WCTX.lesson_no) body.lesson_no = WCTX.lesson_no;
+  if(LESSON_TOPIC) body.lesson_topic = LESSON_TOPIC;
+  return body;
+}
+function updateTopicChip(){
+  var t = document.getElementById('m-topic');
+  if(!t) return;
+  if(WCTX.textbook) t.textContent = '📚 ' + WCTX.textbook + (WCTX.lesson_no ? (' L' + WCTX.lesson_no) : '');
+  else t.textContent = LESSON_TOPIC || '자유 대화';
+}
+(async function initGreeting(){
+  try{
+    var qs = new URLSearchParams();
+    var uid = getLoginId(); if(uid) qs.set('user_id', uid);
+    if(WCTX.textbook) qs.set('textbook', WCTX.textbook);
+    if(WCTX.level) qs.set('level', WCTX.level);
+    if(WCTX.lesson_no) qs.set('lesson', String(WCTX.lesson_no));
+    if(uid || WCTX.textbook || WCTX.level){
+      var r = await fetch((API_BASE||'') + '/api/warmup/context?' + qs.toString());
+      if(r.ok){
+        var d = await r.json();
+        if(d && d.ok){
+          if(d.textbook) WCTX.textbook = d.textbook;
+          if(d.level) WCTX.level = d.level;
+          if(d.lesson_no) WCTX.lesson_no = d.lesson_no;
+          if(d.sentences && d.sentences.length) WCTX.sentences = d.sentences;
+        }
+      }
+    }
+  }catch(e){}
+  updateTopicChip();
+  // 오늘 교재가 확인되면 → AI가 교재 기반 첫 질문으로 시작
+  if(WCTX.textbook || WCTX.sentences.length){
+    var typing = document.createElement('div');
+    typing.className = 'typing'; typing.textContent = 'AI 친구가 오늘 배울 교재를 확인하는 중…';
+    log.appendChild(typing); log.scrollTop = log.scrollHeight;
+    try{
+      var body = withCtx({ session_id: SESSION_ID,
+        student_input: "Let's start today's pre-class warm-up! Greet me briefly in English and ask me ONE very easy question about today's lesson." });
+      var kr = await fetch(warmupEndpoint(), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      typing.remove();
+      if(kr.ok){
+        var kd = await kr.json();
+        if(kd && kd.ai_response){ addMsg(kd.ai_response, 'ai'); return; }
+      }
+    }catch(e){ try{ typing.remove(); }catch(_){} }
+  }
+  fallbackGreeting();
+})();
 
 /* ── 5. 전송 ────────────────────────────────────────────────────── */
 var sending = false;
@@ -330,8 +399,7 @@ async function sendMsg(){
   log.appendChild(typing); log.scrollTop = log.scrollHeight;
 
   try{
-    var body = { session_id: SESSION_ID, student_input: text };
-    if(LESSON_TOPIC) body.lesson_topic = LESSON_TOPIC;
+    var body = withCtx({ session_id: SESSION_ID, student_input: text });
     var r = await fetch(warmupEndpoint(), {
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
     });
@@ -356,6 +424,6 @@ async function sendMsg(){
 </script>
 <!-- BUILD:warmup3-bigtext-ratebar -->
 <script defer src="/js/back-nav.js"></script>
-<!-- BUILD:20260702140957 -->
+<!-- BUILD:20260702142951 -->
 </body>
 </html>

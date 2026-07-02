@@ -10432,13 +10432,17 @@ function vcSwitchTab(tabName, evt) {
     } catch(e){}
     // 🧠 복습퀴즈 탭 진입 시 자동 로드 (이 수업 교재/레벨/레슨 매칭)
     if (tabName === 'review-quiz' && typeof rqvOnEnter === 'function') rqvOnEnter();
-    // 🗣️ AI 웜업 탭 — 첫 진입 시에만 iframe 로드 (수업방 room id 연동)
+    // 🗣️ AI 웜업 탭 — 첫 진입 시에만 iframe 로드 (수업방 room id + 오늘 교재/레벨/레슨 연동)
     if (tabName === 'warmup') {
         const wf = document.getElementById('vc-warmup-frame');
         if (wf && !wf.getAttribute('src')) {
-            let src = '/warmup.html';
-            try { if (vcRoomId) src += '?room=' + encodeURIComponent(vcRoomId); } catch(e){}
-            wf.src = src;
+            const wp = new URLSearchParams();
+            try { if (vcRoomId) wp.set('room', vcRoomId); } catch(e){}
+            try { const bk = window.__mangoiCurrentBookId || window.__mangoiLastVideoBook || ''; if (bk) wp.set('textbook', String(bk)); } catch(e){}
+            try { const lv = localStorage.getItem('mangoi_current_level') || ''; if (lv) wp.set('level', lv); } catch(e){}
+            try { const ln = parseInt(localStorage.getItem('mangoi_current_lesson')||'0',10); if (ln) wp.set('lesson', String(ln)); } catch(e){}
+            const wq = wp.toString();
+            wf.src = '/warmup.html' + (wq ? '?' + wq : '');
         }
     }
 }
@@ -22635,7 +22639,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260702140957 -->
+<!-- BUILD:20260702142951 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

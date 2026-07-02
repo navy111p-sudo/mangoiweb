@@ -174,9 +174,17 @@ export default {
     }
 
     // 🗣️ 수업 전 AI 웜업 — Cloudflare Workers AI(Llama 3.3 70B)로 실제 대화 (키 불필요)
-    //   - POST /api/warmup/chat  {session_id, student_input, lesson_topic?}
+    //   - POST /api/warmup/chat     {session_id, student_input, lesson_topic?, user_id?, textbook?, level?, lesson_no?}
+    //   - GET  /api/warmup/context  ?user_id=&textbook=&level=&lesson=  → 오늘 배울 교재/문장 (students_erp + review_quizzes)
     if (path === '/api/warmup/chat' && request.method === 'POST') {
       return handleWarmupChat(request, env);
+    }
+    if (path === '/api/warmup/context' && request.method === 'GET') {
+      return handleWarmupContext(request, env);
+    }
+    // 🎮 학생게임 맞춤 출제 — GET /api/games/vocab?user_id=  → 학생 배정 교재/레벨의 문장+단어(en/ko)
+    if (path === '/api/games/vocab' && request.method === 'GET') {
+      return handleGamesVocab(request, env);
     }
 
     // 📩 알림톡 클릭추적 (공개·학부모용) — 버튼 클릭 시 read_at 기록 후 원래 URL 로 리다이렉트.
@@ -1454,6 +1462,155 @@ const WARMUP_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const WARMUP_SYSTEM = "너는 망고아이의 AI 대화 친구야. 학생의 레벨에 맞춰 최대 2문장 이내로 친절하게 질문해줘. 만약 학생이 한국어로 '이걸 영어로 어떻게 해?'라고 물어보면 자연스러운 영어 문장으로 교정해주고 영어로 다시 말하도록 유도해줘.";
 const WARMUP_MAX_TURNS = 12;   // 저장할 최근 대화(사용자/AI) 최대 개수
 
+/* 오늘 배울 교재 컨텍스트 — students_erp(학생 배정 교재/레벨) + review_quizzes(그 교재의 실제 영어 문장)
+ * textbook/level 을 직접 넘기면 그 값을 우선, 없으면 user_id 로 학생 명부에서 조회.
+ * 문장 샘플은 해당 교재(→레벨) 복습퀴즈 은행의 audio_text/answer_text 에서 추출. */
+async function warmupLessonContext(env: Env, o: { userId?: string; textbook?: string; level?: string; lessonNo?: number | null }) {
+  let textbook = String(o.textbook || '').trim();
+  let level = String(o.level || '').trim();
+  const lessonNo = (Number(o.lessonNo) > 0) ? Number(o.lessonNo) : null;
+  let studentName = '';
+  if (o.userId) {
+    try {
+      const s: any = await env.DB.prepare(`SELECT english_name, korean_name, level, textbook FROM students_erp WHERE user_id = ? LIMIT 1`).bind(o.userId).first();
+      if (s) {
+        if (!textbook && s.textbook) textbook = String(s.textbook).trim();
+        if (!level && s.level) level = String(s.level).trim();
+        studentName = String(s.english_name || s.korean_name || '').trim();
+      }
+    } catch {}
+  }
+  const sentences: string[] = [];
+  try {
+    if (textbook || level) {
+      const tries: Array<{ sql: string; binds: any[] }> = [];
+      if (textbook && lessonNo) tries.push({ sql: `SELECT questions FROM review_quizzes WHERE active=1 AND LOWER(textbook)=LOWER(?) AND lesson_no=? ORDER BY id DESC LIMIT 2`, binds: [textbook, lessonNo] });
+      if (textbook) tries.push({ sql: `SELECT questions FROM review_quizzes WHERE active=1 AND LOWER(textbook)=LOWER(?) ORDER BY id DESC LIMIT 2`, binds: [textbook] });
+      if (level) tries.push({ sql: `SELECT questions FROM review_quizzes WHERE active=1 AND LOWER(level)=LOWER(?) AND (textbook IS NULL OR textbook='') ORDER BY id DESC LIMIT 2`, binds: [level] });
+      for (const t of tries) {
+        const rs = await env.DB.prepare(t.sql).bind(...t.binds).all();
+        for (const row of (((rs.results as any[]) || []))) {
+          let qs: any[] = []; try { qs = JSON.parse(row.questions) || []; } catch {}
+          for (const q of qs) {
+            for (const c of [q.audio_text, q.answer_text, q.target]) {
+              const s = String(c || '').trim();
+              if (s && /[a-zA-Z]/.test(s) && s.length <= 80 && !sentences.includes(s)) sentences.push(s);
+            }
+          }
+        }
+        if (sentences.length >= 4) break;   // 교재 매칭에서 충분히 얻었으면 레벨 폴백 생략
+      }
+    }
+  } catch {}
+  return { textbook, level, lesson_no: lessonNo, student_name: studentName, sentences: sentences.slice(0, 8) };
+}
+
+/* GET /api/warmup/context — 웜업 페이지가 첫 화면에서 '오늘 교재'를 표시할 때 사용 */
+async function handleWarmupContext(request: Request, env: Env): Promise<Response> {
+  try {
+    const u = new URL(request.url);
+    const ctx = await warmupLessonContext(env, {
+      userId: (u.searchParams.get('user_id') || '').trim(),
+      textbook: (u.searchParams.get('textbook') || '').trim(),
+      level: (u.searchParams.get('level') || '').trim(),
+      lessonNo: parseInt(u.searchParams.get('lesson') || '0', 10) || null,
+    });
+    return new Response(JSON.stringify({ ok: true, ...ctx }), { status: 200, headers: _MS_JSON });
+  } catch (e: any) {
+    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ *  🎮 학생게임 맞춤 출제 — GET /api/games/vocab?user_id=
+ *  로그인 학생의 배정 교재/레벨(students_erp) → 그 교재의 복습퀴즈 은행(review_quizzes)에서
+ *  영어 문장(+가능하면 한국어 뜻)과, 학생 단어장(vocabulary)의 en/ko 단어쌍을 반환한다.
+ *  게임(문장벽돌·빈칸·매칭·풍선·낚시·슈팅·3D배틀)이 이 데이터로 맞춤 출제한다.
+ *  응답: { ok, textbook, level, student_name, sentences:[{en,ko}], words:[{en,ko}] }
+ * ════════════════════════════════════════════════════════════════════════ */
+async function handleGamesVocab(request: Request, env: Env): Promise<Response> {
+  try {
+    const u = new URL(request.url);
+    const userId = (u.searchParams.get('user_id') || '').trim();
+    let textbook = (u.searchParams.get('textbook') || '').trim();
+    let level = (u.searchParams.get('level') || '').trim();
+    let studentName = '';
+    if (userId) {
+      try {
+        const s: any = await env.DB.prepare(`SELECT english_name, korean_name, level, textbook FROM students_erp WHERE user_id = ? LIMIT 1`).bind(userId).first();
+        if (s) {
+          if (!textbook && s.textbook) textbook = String(s.textbook).trim();
+          if (!level && s.level) level = String(s.level).trim();
+          studentName = String(s.english_name || s.korean_name || '').trim();
+        }
+      } catch {}
+    }
+
+    // ── 문장: 교재(→레벨 폴백) 복습퀴즈 은행에서 추출. write형 "…: 한국어" 프롬프트에서 ko 짝 확보(있을 때만)
+    const sentences: Array<{ en: string; ko: string }> = [];
+    const seenEn = new Set<string>();
+    const pushSentence = (en: any, ko: string) => {
+      const s = String(en || '').trim();
+      if (!s || !/[a-zA-Z]/.test(s) || s.length > 90) return;
+      const key = s.toLowerCase();
+      if (seenEn.has(key)) return;
+      seenEn.add(key);
+      sentences.push({ en: s, ko });
+    };
+    const koFromPrompt = (q: any): string => {
+      // "다음 뜻의 영어 문장을 쓰세요: 나는 망고를 좋아해요." → 콜론 뒤 한국어만 채택
+      const t = String(q || '');
+      const i = Math.max(t.lastIndexOf(':'), t.lastIndexOf('：'));
+      if (i < 0) return '';
+      const tail = t.slice(i + 1).trim();
+      return (/[가-힣]/.test(tail) && tail.length >= 2 && tail.length <= 60) ? tail : '';
+    };
+    try {
+      if (textbook || level) {
+        const tries: Array<{ sql: string; binds: any[] }> = [];
+        if (textbook) tries.push({ sql: `SELECT questions FROM review_quizzes WHERE active=1 AND LOWER(textbook)=LOWER(?) ORDER BY id DESC LIMIT 4`, binds: [textbook] });
+        if (level) tries.push({ sql: `SELECT questions FROM review_quizzes WHERE active=1 AND LOWER(level)=LOWER(?) ORDER BY id DESC LIMIT 4`, binds: [level] });
+        for (const t of tries) {
+          const rs = await env.DB.prepare(t.sql).bind(...t.binds).all();
+          for (const row of (((rs.results as any[]) || []))) {
+            let qs: any[] = []; try { qs = JSON.parse((row as any).questions) || []; } catch {}
+            for (const q of qs) {
+              const ko = koFromPrompt(q?.q);
+              pushSentence(q?.answer_text || q?.audio_text || q?.target, ko);
+            }
+          }
+          if (sentences.length >= 6) break;   // 교재 매칭에서 충분하면 레벨 폴백 생략
+        }
+      }
+    } catch {}
+
+    // ── 단어(en/ko 쌍): 학생 단어장(vocabulary) 최근 30개 — 매칭/풍선 게임용
+    const words: Array<{ en: string; ko: string }> = [];
+    try {
+      if (userId) {
+        const rs = await env.DB.prepare(`SELECT word, korean FROM vocabulary WHERE user_id = ? ORDER BY id DESC LIMIT 30`).bind(userId).all();
+        const seenW = new Set<string>();
+        for (const row of (((rs.results as any[]) || []))) {
+          const en = String((row as any).word || '').trim();
+          const ko = String((row as any).korean || '').trim();
+          if (!en || !ko || !/[a-zA-Z]/.test(en) || en.length > 30) continue;
+          const key = en.toLowerCase();
+          if (seenW.has(key)) continue;
+          seenW.add(key);
+          words.push({ en, ko });
+        }
+      }
+    } catch {}
+
+    return new Response(JSON.stringify({
+      ok: true, textbook, level, student_name: studentName,
+      sentences: sentences.slice(0, 20), words: words.slice(0, 24),
+    }), { status: 200, headers: _MS_JSON });
+  } catch (e: any) {
+    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
+  }
+}
+
 async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
   try {
     let body: any = {};
@@ -1461,6 +1618,10 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     const sessionId = (body && typeof body.session_id === 'string') ? body.session_id.trim() : '';
     const studentInput = (body && typeof body.student_input === 'string') ? body.student_input.trim() : '';
     const lessonTopic = (body && typeof body.lesson_topic === 'string') ? body.lesson_topic.trim() : '';
+    const ctxUserId = (body && typeof body.user_id === 'string') ? body.user_id.trim().slice(0, 100) : '';
+    const ctxTextbook = (body && typeof body.textbook === 'string') ? body.textbook.trim().slice(0, 200) : '';
+    const ctxLevel = (body && typeof body.level === 'string') ? body.level.trim().slice(0, 100) : '';
+    const ctxLessonNo = Number(body && body.lesson_no) > 0 ? Number(body.lesson_no) : null;
 
     // ── 입력 검증(Pydantic 대응) ──
     if (!sessionId) {
@@ -1481,9 +1642,21 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
       if (raw) history = JSON.parse(raw);
     } catch {}
 
-    // ── 시스템 프롬프트(주제 반영) + 히스토리 + 이번 발화로 messages 구성 ──
+    // ── 시스템 프롬프트(주제 + 오늘 배울 교재 반영) + 히스토리 + 이번 발화로 messages 구성 ──
     let sys = WARMUP_SYSTEM;
     if (lessonTopic) sys += ` 오늘의 대화 주제는 '${lessonTopic}' 이야.`;
+    // 🗓️ 오늘 배울 교재 연동: 학생 배정 교재(students_erp) + 그 교재의 실제 문장(review_quizzes)으로 워밍업 질문
+    if (ctxUserId || ctxTextbook || ctxLevel) {
+      try {
+        const lc = await warmupLessonContext(env, { userId: ctxUserId, textbook: ctxTextbook, level: ctxLevel, lessonNo: ctxLessonNo });
+        if (lc.textbook || lc.level || lc.sentences.length) {
+          if (lc.student_name) sys += ` 학생 이름은 '${lc.student_name}' 이야.`;
+          sys += ` [오늘 수업 정보] 학생이 오늘 수업에서 배울 교재: '${lc.textbook || '미지정'}'${lc.level ? ` (레벨 ${lc.level})` : ''}${lc.lesson_no ? `, Lesson ${lc.lesson_no}` : ''}.`;
+          if (lc.sentences.length) sys += ` 오늘 배울 핵심 영어 문장 예시: ${lc.sentences.map((s) => `"${s}"`).join(' / ')}.`;
+          sys += " 웜업 방식: 이 교재 내용(위 문장들의 단어·표현·주제)을 활용해서 아주 쉬운 영어 질문을 한 번에 하나만 물어봐. 학생이 답하면 1문장으로 칭찬하거나 자연스럽게 교정해 주고, 이어서 교재와 관련된 다음 질문을 해줘.";
+        }
+      } catch {}
+    }
     const messages = [{ role: 'system', content: sys }]
       .concat(history)
       .concat([{ role: 'user', content: studentInput }]);

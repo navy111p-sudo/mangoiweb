@@ -110,6 +110,10 @@
       <div id="streak-badge-hub" style="margin-top:14px"></div>
       <!-- ⚡ 게임 속도(난이도) 5단계 — 모든 게임에 공통 적용 -->
       <div class="speed-pick" id="speed-pick-hub" style="margin-top:14px"></div>
+      <!-- 📚 로그인 학생의 교재/레벨 맞춤 출제 표시 (game-vocab.js 로드 성공 시) -->
+      <div id="vocab-src-badge" style="display:none;margin:10px auto 0;padding:6px 16px;border-radius:999px;
+        background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.4);color:#34d399;
+        font-size:13px;font-weight:700;width:fit-content"></div>
     </div>
     <div class="game-grid" id="game-grid"><!-- JS 렌더 --></div>
   </div>
@@ -127,7 +131,7 @@
     </div>
     <div class="game-scorebar" id="hub-scorebar">
       <span>🏆 점수: <b id="game-score" style="color:var(--gold)">0</b></span>
-      <span>✅ 정답: <b id="game-correct" style="color:var(--emerald)">0</b></span>
+      <span>✅ 정답: <b id="game-correct" style="color:var(--emerald)">0</b><span style="opacity:.6">/10</span></span>
       <span>❌ 오답: <b id="game-wrong" style="color:var(--bad)">0</b></span>
       <span id="game-timer-wrap" style="display:none">⏱ <b id="game-timer" style="color:#7fd1ff">0</b>초</span>
       <span id="game-feedback" style="margin-left:auto;font-weight:700">&nbsp;</span>
@@ -137,9 +141,12 @@
 
 </div>
 
+<script src="/js/game-vocab.js"></script>
 <script>
 /* ============================================================
    게임 데이터 + 상태 (index.html 게임 탭과 동일)
+   · 아래 기본 어휘는 폴백 — 로그인 학생이면 game-vocab.js 가
+     교재/레벨 맞춤 문장·단어로 내용을 교체한다.
    ============================================================ */
 const _GAME_VOCAB = [
   { en: 'I love mango fruit.',           ko: '나는 망고 과일을 좋아해요.',         words: ['I','love','mango','fruit'] },
@@ -158,6 +165,63 @@ const _GAME_WORDS = [
   { en:'moon', ko:'달' }, { en:'star', ko:'별' }, { en:'love', ko:'사랑' }
 ];
 const _gameState = { mode: 'brick', score: 0, correct: 0, wrong: 0, current: null, started: false, balloonTimer: null, roundTimer: null };
+
+/* ============================================================
+   🎯 목표: 10개 정답 → 결과 화면 (모든 인라인 게임 공통)
+   ============================================================ */
+const GAME_GOAL = 10;
+function _gameCheckGoal(){
+  // 정답 처리 직후 호출 — 10개 채우면 결과 화면으로 (true 반환 = 다음 라운드 중단)
+  if(_gameState.correct < GAME_GOAL) return false;
+  setTimeout(_gameShowResult, 1100);
+  return true;
+}
+function _gameShowResult(){
+  _stopRoundTimer();
+  if(_gameState.balloonTimer){ clearInterval(_gameState.balloonTimer); _gameState.balloonTimer = null; }
+  try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(_){}
+  _gameState.started = false;
+  var tot = _gameState.correct + _gameState.wrong;
+  var acc = tot > 0 ? Math.round(100 * _gameState.correct / tot) : 100;
+  var stars = acc >= 90 ? '⭐⭐⭐' : acc >= 70 ? '⭐⭐' : '⭐';
+  var src = window._STUDENT_VOCAB && (_STUDENT_VOCAB.textbook || _STUDENT_VOCAB.level)
+    ? '<div style="font-size:13px;color:#94a3b8;margin-top:8px">📚 ' + (_STUDENT_VOCAB.textbook || '') + (_STUDENT_VOCAB.level ? ' · ' + _STUDENT_VOCAB.level : '') + ' 맞춤 문제</div>' : '';
+  document.getElementById('game-area').innerHTML =
+    '<div style="text-align:center;max-width:520px;margin:0 auto;padding:20px">' +
+      '<div style="font-size:56px;margin-bottom:6px">🏆</div>' +
+      '<div style="font-size:30px;font-weight:800;color:#fbbf24;margin-bottom:4px">10문제 완료!</div>' +
+      '<div style="font-size:26px;margin-bottom:14px">' + stars + '</div>' +
+      '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:6px">' +
+        '<div style="background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.35);border-radius:12px;padding:12px 20px"><div style="font-size:12px;color:#94a3b8">점수</div><div style="font-size:26px;font-weight:800;color:#fbbf24">' + _gameState.score + '</div></div>' +
+        '<div style="background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.35);border-radius:12px;padding:12px 20px"><div style="font-size:12px;color:#94a3b8">정답</div><div style="font-size:26px;font-weight:800;color:#10b981">' + _gameState.correct + '</div></div>' +
+        '<div style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);border-radius:12px;padding:12px 20px"><div style="font-size:12px;color:#94a3b8">오답</div><div style="font-size:26px;font-weight:800;color:#ef4444">' + _gameState.wrong + '</div></div>' +
+        '<div style="background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.35);border-radius:12px;padding:12px 20px"><div style="font-size:12px;color:#94a3b8">정확도</div><div style="font-size:26px;font-weight:800;color:#38bdf8">' + acc + '%</div></div>' +
+      '</div>' + src +
+      '<div style="display:flex;gap:12px;justify-content:center;margin-top:20px">' +
+        '<button onclick="gameInit()" style="padding:14px 28px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:12px;font-size:17px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(16,185,129,.4)">🔄 다시 하기</button>' +
+        '<button onclick="hubBackToMenu()" style="padding:14px 28px;background:rgba(148,163,184,.2);color:#e2e8f0;border:0;border-radius:12px;font-size:17px;font-weight:700;cursor:pointer">🎮 게임 목록</button>' +
+      '</div>' +
+    '</div>';
+  var fb = document.getElementById('game-feedback'); if(fb) fb.innerHTML = '<span style="color:#fbbf24">🏆 10문제 달성!</span>';
+  var tw = document.getElementById('game-timer-wrap'); if(tw) tw.style.display = 'none';
+}
+
+/* ============================================================
+   📚 로그인 학생의 교재/레벨 맞춤 어휘 로드 (실패/비로그인 → 기본 어휘 유지)
+   ============================================================ */
+if (window.MangoiGameVocab){
+  MangoiGameVocab.load().then(function(d){
+    if(!d) return;
+    window._STUDENT_VOCAB = d;
+    if(d.sentences.length >= 3){ _GAME_VOCAB.length = 0; d.sentences.forEach(function(s){ _GAME_VOCAB.push(s); }); }
+    if(d.words.length >= 6){ _GAME_WORDS.length = 0; d.words.forEach(function(w){ _GAME_WORDS.push(w); }); }
+    var el = document.getElementById('vocab-src-badge');
+    if(el && (d.textbook || d.level)){
+      el.textContent = '📚 ' + (d.textbook || '') + (d.level ? ' · ' + d.level : '') + ' 맞춤 출제 중';
+      el.style.display = 'block';
+    }
+  });
+}
 
 /* ============================================================
    ⚡ 게임 속도(난이도) 5단계 — 모든 게임 공통
@@ -203,11 +267,13 @@ function setGameSpeed(lvl){
     gameNextRound();
   }
 }
-// iframe 게임 src 에 속도 파라미터 부착
+// iframe 게임 src 에 속도/학생/목표 파라미터 부착 — 게임 쪽에서 교재 맞춤 문장 로드 + 10개 정답 결과에 사용
 function _hubIframeSrc(g){
   var sentence = _GAME_VOCAB[Math.floor(Math.random()*_GAME_VOCAB.length)].en;
   var src = g.src(sentence);
-  return src + (src.indexOf('?')>=0?'&':'?') + 'speed=' + _speedLvl;
+  src += (src.indexOf('?')>=0?'&':'?') + 'speed=' + _speedLvl + '&goal=10';
+  try{ var uid = window.MangoiGameVocab && MangoiGameVocab.getUserId(); if(uid) src += '&uid=' + encodeURIComponent(uid); }catch(_){}
+  return src;
 }
 
 /* ── 라운드 제한시간 타이머 (벽돌/빈칸/매칭) ── */
@@ -739,6 +805,6 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260702140957 -->
+<!-- BUILD:20260702142951 -->
 </body>
 </html>
