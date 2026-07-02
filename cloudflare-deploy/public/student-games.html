@@ -298,6 +298,10 @@ function setGameSpeed(lvl){
   if(!(lvl>=1&&lvl<=7)) lvl=3;
   _speedLvl = lvl;
   try{ localStorage.setItem('mangoi_game_speed', String(lvl)); }catch(_){}
+  // 🔗 속도 = 난이도 통합: 상단 속도 버튼을 누르면 난이도(스테이지)도 같은 값으로 맞춤
+  GAME_STAGE = lvl;
+  try{ localStorage.setItem('mangoi_game_stage', String(lvl)); }catch(_){}
+  var _sg = document.getElementById('game-stage'); if(_sg) _sg.textContent = lvl;
   renderSpeedPicks();
   // 게임 중이면 즉시 반영: iframe 게임은 새 속도로 재시작, 인라인은 새 라운드부터
   var gameOpen = document.getElementById('hub-game').classList.contains('active');
