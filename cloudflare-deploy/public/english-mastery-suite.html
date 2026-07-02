@@ -950,7 +950,10 @@
       var el=document.createElement('button');
       el.className='monster'+(it.isTarget?'':' distractor');
       el.innerHTML='<span class="face">'+ALIENS[Math.floor(Math.random()*ALIENS.length)]+'</span><span class="word">'+it.word+'</span>';
-      var m={ el:el, word:it.word, isTarget:it.isTarget, x:rand(8,Math.max(40,fw-90)), y:rand(6,Math.max(40,fh*0.32)), vy:rand(7,18)*spdMult() };   // ⚡ 속도(난이도) 반영
+      // ⚡ base 속도(스폰 시 고정) — 루프에서 spdMult() 를 매 프레임 곱해 속도 변경이 즉시 반영됨.
+      //   세로 낙하 + 좌우 드리프트(우주인이 더 활발히 빨리빨리 움직임). 상위 속도일수록 훨씬 빠름.
+      var m={ el:el, word:it.word, isTarget:it.isTarget, x:rand(8,Math.max(40,fw-90)), y:rand(6,Math.max(40,fh*0.32)),
+              vyBase:rand(26,54), vxBase:rand(-46,46) };
       el.style.left=m.x+'px'; el.style.top=m.y+'px';
       el.style.animationDuration=rand(1.4,3).toFixed(2)+'s'; el.style.animationDelay=(-rand(0,2)).toFixed(2)+'s';
       el.addEventListener('click', function(){ shootFire(m); });
@@ -1029,9 +1032,14 @@
   function shootLoop(ts){
     if(!SH.running) return;
     if(!SH.lastTs) SH.lastTs=ts; var dt=Math.min(0.05,(ts-SH.lastTs)/1000); SH.lastTs=ts;
-    var h=SH.field.clientHeight, w=SH.field.clientWidth;
-    for(var i=0;i<SH.monsters.length;i++){ var m=SH.monsters[i]; m.y+=m.vy*dt;
-      if(m.y>h-70){ m.y=-6; m.x=rand(8,Math.max(40,w-90)); m.el.style.left=m.x+'px'; } m.el.style.top=m.y+'px'; }
+    var h=SH.field.clientHeight, w=SH.field.clientWidth, sm=spdMult();   // ⚡ 매 프레임 현재 속도 반영(변경 즉시)
+    for(var i=0;i<SH.monsters.length;i++){ var m=SH.monsters[i];
+      m.y+=m.vyBase*sm*dt;
+      m.x+=m.vxBase*sm*dt;
+      if(m.x<4){ m.x=4; m.vxBase=Math.abs(m.vxBase); } else if(m.x>w-84){ m.x=w-84; m.vxBase=-Math.abs(m.vxBase); }  // 좌우 벽에서 튕김
+      if(m.y>h-70){ m.y=-6; m.x=rand(8,Math.max(40,w-90)); }
+      m.el.style.left=m.x+'px'; m.el.style.top=m.y+'px';
+    }
     SH.raf=requestAnimationFrame(shootLoop);
   }
   // 조준 추적
@@ -1108,9 +1116,10 @@
       el.innerHTML='<span class="face">'+FISHES[Math.floor(Math.random()*FISHES.length)]+'</span><span class="word">'+it.word+'</span>';
       var dir = Math.random()<0.5?1:-1;
       var sp = fishCfg().speed;
+      // ⚡ base 속도(스폰 시 고정) — 루프에서 spdMult() 를 매 프레임 곱함 → 속도 변경 즉시 반영, 상위 속도일수록 빨리빨리 헤엄
       var f={ el:el, word:it.word, isTarget:it.isTarget,
         x:rand(10,Math.max(50,fw-100)), y:rand(90,Math.max(160,fh-130)),   // 세로 전체로 분산(아래 빈공간 제거)
-        vx:dir*rand(sp[0],sp[1])*spdMult(), vy:rand(-9,9)*spdMult(), home:null };   // ⚡ 속도(난이도) 반영
+        vxBase:dir*rand(sp[0],sp[1]), vyBase:rand(-14,14), home:null };
       f.home={x:f.x,y:f.y};
       el.style.left=f.x+'px'; el.style.top=f.y+'px';
       if(dir<0) el.classList.add('flip');
@@ -1270,14 +1279,15 @@
     // ── 집중모드 카운트다운 ──
     if(FI.focusActive){ FI.focusLeft-=dt; if(FI.focusLeft<=0){ FI.focusActive=false; FI.field.classList.remove('focus'); } }
 
-    // ── 물고기 이동 ── (세로 전체 활용: 바닥 근처까지)
+    // ── 물고기 이동 ── (세로 전체 활용: 바닥 근처까지) · sm=현재 속도(변경 즉시 반영, 상위 속도일수록 빨리빨리)
+    var sm=spdMult();
     for(var i=0;i<FI.fish.length;i++){ var f=FI.fish[i];
-      f.x+=f.vx*dt*sMul; f.y+=f.vy*dt*sMul;
-      if(f.x<6){ f.x=6; f.vx=Math.abs(f.vx); f.el.classList.add('flip'); }
-      if(f.x>w-96){ f.x=w-96; f.vx=-Math.abs(f.vx); f.el.classList.remove('flip'); }
-      if(f.y<84){ f.y=84; f.vy=Math.abs(f.vy); }                // 수면/배 아래로만 헤엄
-      if(f.y>h-86){ f.y=h-86; f.vy=-Math.abs(f.vy); }           // 바닥 가까이까지(확대)
-      if(Math.random()<0.01) f.vy=rand(-11,11);
+      f.x+=f.vxBase*sm*dt*sMul; f.y+=f.vyBase*sm*dt*sMul;
+      if(f.x<6){ f.x=6; f.vxBase=Math.abs(f.vxBase); f.el.classList.add('flip'); }
+      if(f.x>w-96){ f.x=w-96; f.vxBase=-Math.abs(f.vxBase); f.el.classList.remove('flip'); }
+      if(f.y<84){ f.y=84; f.vyBase=Math.abs(f.vyBase); }        // 수면/배 아래로만 헤엄
+      if(f.y>h-86){ f.y=h-86; f.vyBase=-Math.abs(f.vyBase); }   // 바닥 가까이까지(확대)
+      if(Math.random()<0.01) f.vyBase=rand(-16,16);
       f.el.style.left=f.x+'px'; f.el.style.top=f.y+'px';
     }
 

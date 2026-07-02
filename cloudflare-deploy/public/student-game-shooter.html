@@ -350,7 +350,7 @@
     speedLvl=l; try{ localStorage.setItem('mangoi_game_speed',String(l)); }catch(e){}
     var picker=document.getElementById('speedPicker');
     if(picker) [].forEach.call(picker.children, function(b){ b.classList.toggle('sel', +b.getAttribute('data-spd')===l); });
-    monsters.forEach(function(m){ m.vy = rand(7,20)*spdMult(); });   // 진행 중 몬스터에도 즉시 반영
+    // 진행 중 몬스터는 loop() 가 매 프레임 spdMult() 를 곱하므로 속도 변경이 자동 즉시 반영됨(별도 처리 불필요)
   }
   function buildSpeedPicker(){
     var picker=document.getElementById('speedPicker'); if(!picker) return;
@@ -538,7 +538,10 @@
     el.className='monster'+(isTarget?'':' distractor');
     el.innerHTML='<span class="face">'+FACES[Math.floor(Math.random()*FACES.length)]+'</span><span class="word">'+word+'</span>';
     var fw=field.clientWidth, fh=field.clientHeight;
-    var m={ el:el, word:word, isTarget:isTarget, x:rand(8,Math.max(40,fw-86)), y:rand(6,Math.max(40,fh*0.30)), vy:rand(7,20)*spdMult() };   // ⚡ 속도(난이도) 반영
+    // ⚡ base 속도(스폰 시 고정) — 루프에서 spdMult() 를 매 프레임 곱함 → 속도 변경 즉시 반영.
+    //   세로 낙하 + 좌우 드리프트로 몬스터가 더 활발히 빨리빨리 움직임. 상위 속도일수록 훨씬 빠름.
+    var m={ el:el, word:word, isTarget:isTarget, x:rand(8,Math.max(40,fw-86)), y:rand(6,Math.max(40,fh*0.30)),
+            vyBase:rand(28,58), vxBase:rand(-48,48) };
     el.style.left=m.x+'px'; el.style.top=m.y+'px';
     el.style.animationDuration=rand(1.4,3).toFixed(2)+'s'; el.style.animationDelay=(-rand(0,2)).toFixed(2)+'s';
     el.addEventListener('click', function(){ fireAt(m); });
@@ -641,9 +644,14 @@
   function loop(ts){
     if(!running) return;
     if(!lastTs) lastTs=ts; var dt=Math.min(0.05,(ts-lastTs)/1000); lastTs=ts;
-    var h=field.clientHeight, w=field.clientWidth;
-    for(var i=0;i<monsters.length;i++){ var m=monsters[i]; m.y+=m.vy*dt;
-      if(m.y>h-66){ m.y=-6; m.x=rand(8,Math.max(40,w-86)); m.el.style.left=m.x+'px'; } m.el.style.top=m.y+'px'; }
+    var h=field.clientHeight, w=field.clientWidth, sm=spdMult();   // ⚡ 매 프레임 현재 속도 반영(변경 즉시)
+    for(var i=0;i<monsters.length;i++){ var m=monsters[i];
+      m.y+=m.vyBase*sm*dt;
+      m.x+=m.vxBase*sm*dt;
+      if(m.x<4){ m.x=4; m.vxBase=Math.abs(m.vxBase); } else if(m.x>w-80){ m.x=w-80; m.vxBase=-Math.abs(m.vxBase); }  // 좌우 벽에서 튕김
+      if(m.y>h-66){ m.y=-6; m.x=rand(8,Math.max(40,w-86)); }
+      m.el.style.left=m.x+'px'; m.el.style.top=m.y+'px';
+    }
     rafId=requestAnimationFrame(loop);
   }
 
