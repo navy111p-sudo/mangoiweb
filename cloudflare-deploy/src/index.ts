@@ -22,6 +22,7 @@ import { learningRouter, runLearningSnapshot } from './learning-insights';
 import { runAbsenceSweep } from './churn-graph';
 import { marketingRouter } from './marketing-studio';
 import { teacherMatchRouter, runTeacherGraphSync } from './teacher-match';
+import { warmupGraphRouter, runWarmupGraphSync, getWeakSentences } from './warmup-graph';
 
 interface Env {
   SIGNALING_ROOM: DurableObjectNamespace;
@@ -976,6 +977,12 @@ export default {
       return teacherMatchRouter(request, env);
     }
 
+    // 🗣️ 웜업 개인화 그래프: 학생 오답 문장 ⇄ 교재 (Neo4j Aura) — ETL/디버그 조회
+    //   POST /api/admin/warmup-graph/sync · GET /api/admin/warmup-graph/weak?student_id=
+    if (path.startsWith('/api/admin/warmup-graph/')) {
+      return warmupGraphRouter(request, env);
+    }
+
     // 🎯 /admin/teacher-match — 강사 매칭 추천 페이지 (관리자 전용)
     if (path === '/admin/teacher-match' || path === '/admin/teacher-match/') {
       const r = new Request(new URL('/admin/teacher-match.html' + url.search, request.url).toString(), request);
@@ -1188,6 +1195,17 @@ export default {
             console.log('[teacher-match-sync] cron ran', JSON.stringify(ts));
           } catch (err) {
             console.error('[teacher-match-sync] error', err);
+          }
+        }
+
+        // 🗣️ 웜업 개인화 그래프 동기화 (KST 03:00) — D1(students_erp·review_quizzes·review_quiz_results) → Neo4j Aura
+        //   학생별 오답 문장 ⇄ 교재 그래프. Neo4j 미설정이면 조용히 건너뜀. 멱등 MERGE(count 절대값 SET).
+        if (env.NEO4J_QUERY_URL) {
+          try {
+            const ws = await runWarmupGraphSync(env as any);
+            console.log('[warmup-graph-sync] cron ran', JSON.stringify(ws));
+          } catch (err) {
+            console.error('[warmup-graph-sync] error', err);
           }
         }
 
@@ -1509,13 +1527,19 @@ async function warmupLessonContext(env: Env, o: { userId?: string; textbook?: st
 async function handleWarmupContext(request: Request, env: Env): Promise<Response> {
   try {
     const u = new URL(request.url);
+    const userId = (u.searchParams.get('user_id') || '').trim();
     const ctx = await warmupLessonContext(env, {
-      userId: (u.searchParams.get('user_id') || '').trim(),
+      userId,
       textbook: (u.searchParams.get('textbook') || '').trim(),
       level: (u.searchParams.get('level') || '').trim(),
       lessonNo: parseInt(u.searchParams.get('lesson') || '0', 10) || null,
     });
-    return new Response(JSON.stringify({ ok: true, ...ctx }), { status: 200, headers: _MS_JSON });
+    // 🕸️ 개인화(Neo4j): 자주 틀린 문장 — 미설정/장애 시 빈 배열 (페이지 로드당 1회 호출이라 캐시 불필요)
+    let weak: Array<{ text: string; wrongCount: number; inTodayTextbook: boolean }> = [];
+    if (userId && env.NEO4J_QUERY_URL) {
+      try { weak = await getWeakSentences(env as any, userId, ctx.textbook || '', 5); } catch {}
+    }
+    return new Response(JSON.stringify({ ok: true, ...ctx, weak_sentences: weak }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }
@@ -1654,6 +1678,26 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
           sys += ` [오늘 수업 정보] 학생이 오늘 수업에서 배울 교재: '${lc.textbook || '미지정'}'${lc.level ? ` (레벨 ${lc.level})` : ''}${lc.lesson_no ? `, Lesson ${lc.lesson_no}` : ''}.`;
           if (lc.sentences.length) sys += ` 오늘 배울 핵심 영어 문장 예시: ${lc.sentences.map((s) => `"${s}"`).join(' / ')}.`;
           sys += " 웜업 방식: 이 교재 내용(위 문장들의 단어·표현·주제)을 활용해서 아주 쉬운 영어 질문을 한 번에 하나만 물어봐. 학생이 답하면 1문장으로 칭찬하거나 자연스럽게 교정해 주고, 이어서 교재와 관련된 다음 질문을 해줘.";
+        }
+        // 🕸️ 개인화(Neo4j): 이 학생이 복습퀴즈에서 자주 틀린 문장 → 우선 복습 질문.
+        //    Aura 는 외부 HTTP 라 세션당 1회만 조회하고 KV 에 30분 캐시(매 메시지 호출 방지).
+        //    Neo4j 미설정/장애 시 빈 배열로 조용히 degrade — 기본 교재 연동은 그대로 동작.
+        if (ctxUserId && env.NEO4J_QUERY_URL) {
+          let weak: Array<{ text: string; wrongCount: number; inTodayTextbook: boolean }> = [];
+          const wkey = 'warmupweak:' + sessionId + ':' + ctxUserId;
+          let cached = false;
+          try {
+            const raw = env.SESSION_STATE ? await env.SESSION_STATE.get(wkey) : null;
+            if (raw != null) { weak = JSON.parse(raw); cached = true; }
+          } catch {}
+          if (!cached) {
+            try { weak = await getWeakSentences(env as any, ctxUserId, ctxTextbook || lc.textbook || '', 5); } catch { weak = []; }
+            try { if (env.SESSION_STATE) await env.SESSION_STATE.put(wkey, JSON.stringify(weak), { expirationTtl: 1800 }); } catch {}
+          }
+          if (weak.length) {
+            const list = weak.map((w) => `"${w.text}"(${w.wrongCount}회 틀림${w.inTodayTextbook ? '·오늘 교재' : ''})`).join(' / ');
+            sys += ` [개인화] 이 학생이 복습퀴즈에서 자주 틀린 문장: ${list}. 웜업 질문을 만들 때 이 표현들을 우선으로 자연스럽게 섞어서 다시 연습시켜줘. 단, 틀렸다는 사실은 언급하지 말고 격려하는 톤을 유지해.`;
+          }
         }
       } catch {}
     }
@@ -2468,6 +2512,8 @@ function isAdminPath(path: string, method: string): boolean {
   // 🎯 강사 매칭 추천 대시보드 + API (teacher-match) — 관리자 전용 (인증 필수)
   if (path === '/admin/teacher-match' || path === '/admin/teacher-match/' || path === '/admin/teacher-match.html') return true;
   if (path.startsWith('/api/admin/teacher-match/')) return true;
+  // 🗣️ 웜업 개인화 그래프 ETL/디버그 (warmup-graph) — 관리자 전용 (인증 필수)
+  if (path.startsWith('/api/admin/warmup-graph/')) return true;
   // 📣 마케팅 스튜디오 대시보드 + API (2026-06-03) — 관리자 전용
   if (path === '/admin/marketing-studio' || path === '/admin/marketing-studio/' || path === '/admin/marketing-studio.html') return true;
   if (path.startsWith('/api/admin/marketing/')) return true;

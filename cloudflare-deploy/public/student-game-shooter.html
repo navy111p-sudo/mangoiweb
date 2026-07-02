@@ -228,6 +228,7 @@
   </div>
 </div>
 
+<script src="/js/game-vocab.js"></script>
 <script>
 (function(){
   'use strict';
@@ -263,6 +264,20 @@
     var _qp=new URLSearchParams(location.search), _inj=(_qp.get('sentence')||'').trim();
     if(_inj){ SENTENCES=[_inj].concat(SENTENCES.filter(function(s){return s!==_inj;})); }
   }catch(e){}
+  // 📚 로그인 학생의 교재/레벨 맞춤 문장으로 교체 (game-vocab.js — 실패/비로그인 시 기본 문장 유지)
+  try{
+    if(window.MangoiGameVocab){
+      MangoiGameVocab.load().then(function(d){
+        if(d && d.sentences && d.sentences.length >= 3){
+          var head = (typeof _inj==='string' && _inj) ? [_inj] : [];
+          SENTENCES = head.concat(d.sentences.map(function(s){ return s.en; }).filter(function(s){ return head.indexOf(s)<0; }));
+        }
+      });
+    }
+  }catch(e){}
+  // 🎯 목표: 정답 단어 10개 명중 → 결과 화면 (?goal= 로 조정 가능)
+  var GOAL = (function(){ try{ var g=parseInt(new URLSearchParams(location.search).get('goal'),10); return (g>=3&&g<=50)?g:10; }catch(e){ return 10; } })();
+  var correctWords = 0;
   var DISTRACTORS = ["cat","run","blue","apple","green","quickly","does","happy","jump","red","water","table","want","under","they","big","milk"];
   var FACES = ['👾','👹','👻','🤖','🐲','😈','🦠','👽'];
   var COMBO_WINDOW = 2500;
@@ -476,7 +491,7 @@
     currentIndex = 0;
     targetWords.forEach(function(w){ prefetchTTS(w.replace(/[.?!]/g,'')); });          // 원어민 음성 미리받기(즉시 재생)
     prefetchTTS(targetWords.join(' ').replace(/[.?!]/g,''));
-    lvlPill.textContent = '문장 ' + (level+1);
+    lvlPill.textContent = '문장 ' + (level+1) + ' · ✅ ' + correctWords + '/' + GOAL;
     var pool = DISTRACTORS.filter(function(w){ return targetWords.indexOf(w)<0; });
     shuffle(pool);
     var items = targetWords.map(function(w){ return {word:w,isTarget:true}; })
@@ -544,7 +559,9 @@
       speak(m.word.replace(/[.?!]/g,''));            // ★ 맞힌 단어를 원어민 발음으로 재생
       popMonster(m); floatScore('+100',x,y,true);
       if(combo>=2) showCombo(combo+' COMBO!');
+      correctWords++;
       renderSentence(); updateHUD();
+      if(correctWords>=GOAL){ setTimeout(winGame, 700); return; }   // 🎯 10개 정답 → 결과
       if(currentIndex>=targetWords.length) roundComplete();
     } else {
       score=Math.max(0,score-50); combo=0; sndMiss();
@@ -585,7 +602,7 @@
   function showCombo(txt){ comboEl.textContent=txt; comboEl.classList.remove('show'); void comboEl.offsetWidth; comboEl.classList.add('show'); }
   function shake(){ gameEl.classList.remove('shake'); void gameEl.offsetWidth; gameEl.classList.add('shake'); setTimeout(function(){ gameEl.classList.remove('shake'); }, 420); }
 
-  function updateHUD(){ scoreVal.textContent=score; }
+  function updateHUD(){ scoreVal.textContent=score; try{ lvlPill.textContent='문장 '+(level+1)+' · ✅ '+correctWords+'/'+GOAL; }catch(e){} }
   function updateTimer(){ timerVal.textContent=timeLeft; timerBox.classList.toggle('low', timeLeft<=10); }
   function tick(){ if(!running) return; timeLeft--; updateTimer(); if(timeLeft<=0) endGame(); }
 
@@ -602,7 +619,7 @@
     ensureCtx();
     if(synth) pickVoice();
     if(synth){ try{ speak(' '); }catch(e){} }     // 모바일 음성 잠금 해제(사용자 제스처)
-    score=0; timeLeft=60; combo=0; level=0; lastHit=0; lastTs=0; running=true;
+    score=0; timeLeft=60; combo=0; level=0; lastHit=0; lastTs=0; correctWords=0; running=true;
     overlay.style.display='none'; updateHUD(); updateTimer(); startRound();
     clearInterval(timerId); timerId=setInterval(tick,1000);
     cancelAnimationFrame(rafId); rafId=requestAnimationFrame(loop);
@@ -611,6 +628,16 @@
     running=false; clearInterval(timerId); cancelAnimationFrame(rafId); clearMonsters(); if(synth) synth.cancel();
     var best=+(localStorage.getItem('ess_best')||0); if(score>best){ best=score; localStorage.setItem('ess_best',best); }
     card.innerHTML='<h1>⏰ 시간 종료!</h1><div class="big">'+score+'점</div><div class="best">🏆 최고 '+best+'점</div><button class="btn" id="restartBtn">다시 시작 ↻</button>';
+    overlay.style.display='flex'; document.getElementById('restartBtn').addEventListener('click', startGame);
+  }
+  // 🎯 정답 단어 10개 명중 달성 → 결과 화면 + 허브에 점수 전달
+  function winGame(){
+    running=false; clearInterval(timerId); cancelAnimationFrame(rafId); clearMonsters(); if(synth) synth.cancel();
+    var best=+(localStorage.getItem('ess_best')||0); if(score>best){ best=score; localStorage.setItem('ess_best',best); }
+    try{ if(window.parent && window.parent!==window) window.parent.postMessage({type:'mangoi-game-complete', score:score, reason:'goal'}, '*'); }catch(e){}
+    card.innerHTML='<h1>🏆 '+GOAL+'개 명중 완료!</h1><div class="big">'+score+'점</div>'
+      +'<div class="best">✅ 정답 '+correctWords+'개 · 🏆 최고 '+best+'점</div>'
+      +'<button class="btn" id="restartBtn">다시 시작 ↻</button>';
     overlay.style.display='flex'; document.getElementById('restartBtn').addEventListener('click', startGame);
   }
 
@@ -668,6 +695,6 @@
 })();
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 -->
-<!-- BUILD:20260702142951 -->
+<!-- BUILD:20260702144946 -->
 </body>
 </html>

@@ -131,6 +131,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <!-- glTF 로더 (실사 .glb 캐릭터용) -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <!-- 📚 로그인 학생 교재/레벨 맞춤 출제 로더 -->
+  <script src="/js/game-vocab.js"></script>
   <script>
   (function(){
     'use strict';
@@ -177,6 +179,55 @@
           {type:'문장', q:'My ___ is very cute.',         hint:'(강아지)', a:'dog',     ch:['dog','cat','sun','book']}
         ]}
     ];
+
+    /* ===== 📚 로그인 학생의 교재/레벨 맞춤 보스전 (10문제 = 정답 10개로 보스 처치) =====
+       game-vocab.js 가 학생 단어장(en/ko)·교재 문장을 주면 '오늘의 교재 배틀' 레슨을
+       만들어 맨 앞에 추가한다. 보스 데미지는 문제 수에 비례하므로 10문제면 10개 정답 시 승리. */
+    function _shuf(a){ a=a.slice(); for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
+    function buildStudentLesson(d){
+      var items=[], STOP=['the','is','are','am','was','were','a','an','to','on','in','at','of','and','it','he','she','we','they','you','i'];
+      var allEn=(d.words||[]).map(function(w){ return w.en; });
+      (d.words||[]).forEach(function(w){
+        var wrongs=_shuf(allEn.filter(function(e){ return e!==w.en; })).slice(0,3);
+        while(wrongs.length<3){ wrongs.push(['book','water','star','cat','sun','moon'][wrongs.length]); }
+        items.push({ type:'단어', q:w.ko, a:w.en, ch:_shuf([w.en].concat(wrongs)) });
+      });
+      var sentWords=[];
+      (d.sentences||[]).forEach(function(s){ (s.words||[]).forEach(function(w){ if(w.length>2) sentWords.push(w); }); });
+      (d.sentences||[]).forEach(function(s){
+        var ws=s.words||[]; if(ws.length<3) return;
+        var cand=ws.filter(function(w){ return w.length>2 && STOP.indexOf(w.toLowerCase())<0; });
+        var ans=cand.length?cand[Math.floor(Math.random()*cand.length)]:ws[Math.floor(ws.length/2)];
+        var q=s.en.split(ans).join('___');
+        var wrongs=_shuf(sentWords.filter(function(w){ return w.toLowerCase()!==ans.toLowerCase(); })).slice(0,3);
+        while(wrongs.length<3){ wrongs.push(['soccer','pizza','friends','happy'][wrongs.length]); }
+        items.push({ type:'문장', q:q, hint:(s.ko?'('+s.ko+')':''), a:ans, ch:_shuf([ans].concat(wrongs)) });
+      });
+      if(items.length<5) return null;              // 데이터가 너무 적으면 기본 레슨 유지
+      items=_shuf(items);
+      while(items.length<10) items=items.concat(_shuf(items)); // 부족하면 순환해 10문제 채움
+      var name='📚 오늘의 교재 배틀'+((d.textbook||d.level)?(' · '+(d.textbook||d.level)):'');
+      return { name:name, boss:'👑 교재 왕 (Textbook King)', color:0x10b981, color2:0x065f46, badge:'trophy',
+               items:items.slice(0,10) };
+    }
+    try{
+      if(window.MangoiGameVocab){
+        MangoiGameVocab.load().then(function(d){
+          if(!d) return;
+          var L=buildStudentLesson(d); if(!L) return;
+          LESSONS.push(L);                          // 기존 레슨 버튼들의 인덱스 유지를 위해 뒤에 추가
+          var li=LESSONS.length-1;
+          // 레슨 선택 버튼은 맨 앞에 노출 (메뉴가 이미 그려진 뒤 도착하므로 직접 삽입)
+          try{
+            var p=document.getElementById('lessonPick');
+            if(p){ var b=document.createElement('button');
+              b.innerHTML='<span>'+L.name+'</span><span class="b">'+L.boss+'</span>';
+              b.onclick=function(){ startLesson(li); };
+              p.insertBefore(b, p.firstChild); }
+          }catch(e){}
+        });
+      }
+    }catch(e){}
 
     /* ===== Three.js 기본 ===== */
     var canvas=document.getElementById('battleCanvas'), wrap=document.getElementById('mango-battle-3d');
@@ -800,6 +851,6 @@
   })();
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
-<!-- BUILD:20260702142951 -->
+<!-- BUILD:20260702144946 -->
 </body>
 </html>

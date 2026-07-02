@@ -453,6 +453,7 @@
   <div id="toast"></div>
 </div>
 
+<script src="/js/game-vocab.js"></script>
 <script>
 (function(){
   'use strict';
@@ -482,6 +483,40 @@
   var DISTRACTORS = ["cat","run","blue","apple","green","quickly","does","happy","jump","red","water","table","want","under","they","big","milk"];
   var ALIENS = ['👽','👾','🤖','🧟','👹','😈','🦠','👻'];
   var FISHES = ['🐟','🐠','🐡','🦈','🐬','🦑','🐙','🦐'];
+
+  /* ── 🎯 목표: 정답 단어 10개 → 결과 화면 (문장을 이어가며 채움) ── */
+  var GOAL = (function(){ try{ var g=parseInt(new URLSearchParams(location.search).get('goal'),10); return (g>=3&&g<=50)?g:10; }catch(e){ return 10; } })();
+  var correctHits = 0;
+  /* ── 📚 로그인 학생의 교재/레벨 맞춤 문장 큐 (game-vocab.js — 실패 시 PRESETS 순환) ── */
+  var STUDENT_SENTENCES = null, _queueIdx = 0;
+  function nextQueueSentence(){
+    var q = (STUDENT_SENTENCES && STUDENT_SENTENCES.length) ? STUDENT_SENTENCES : PRESETS;
+    var s = q[_queueIdx % q.length]; _queueIdx++;
+    return s;
+  }
+  try{
+    if(window.MangoiGameVocab){
+      MangoiGameVocab.load().then(function(d){
+        if(d && d.sentences && d.sentences.length >= 2){
+          STUDENT_SENTENCES = d.sentences.map(function(s){ return s.en; });
+          d.sentences.forEach(function(s){ if(s.ko) KO[s.en]=s.ko; });
+          // 메뉴 프리셋 버튼도 교재 문장으로 교체
+          try{
+            var pe = document.getElementById('presets'), si = document.getElementById('sentenceInput');
+            if(pe){
+              pe.innerHTML='';
+              STUDENT_SENTENCES.slice(0,5).forEach(function(s){
+                var b=document.createElement('button'); b.textContent=s;
+                b.addEventListener('click', function(){ if(si) si.value=s; });
+                pe.appendChild(b);
+              });
+            }
+            if(si) si.value = STUDENT_SENTENCES[0];
+          }catch(e){}
+        }
+      });
+    }
+  }catch(e){}
 
   var targetSentence = "He plays soccer on Sundays.";
   var $ = function(s,r){ return (r||document).querySelector(s); };
@@ -871,7 +906,7 @@
       shootCombo=$('#shootCombo'), shootScoreVal=$('#shootScore .val');
 
   function shootStart(){
-    SH.score=0; SH.combo=0; SH.lastHit=0; SH.lastTs=0; SH.running=true;
+    SH.score=0; SH.combo=0; SH.lastHit=0; SH.lastTs=0; SH.running=true; correctHits=0;
     shootScoreVal.textContent='0';
     if(synth){ try{ speak(' '); }catch(e){} } // 모바일 음성 잠금 해제
     shootRound();
@@ -921,7 +956,7 @@
     var required = SH.words[SH.idx];
     if(norm(m.word) === norm(required)){
       SH.score += 100; shootScoreVal.textContent=SH.score;
-      var now=performance.now(); SH.combo=(now-SH.lastHit<COMBO_WINDOW)?SH.combo+1:1; SH.lastHit=now; SH.idx++;
+      var now=performance.now(); SH.combo=(now-SH.lastHit<COMBO_WINDOW)?SH.combo+1:1; SH.lastHit=now; SH.idx++; correctHits++;
       sfxHit();                                           // ★ 명중/폭발음
       speak(m.word.replace(/[.?!]/g,''));
       // pop
@@ -941,15 +976,24 @@
   }
   function shootSequenceDone(){
     SH.running=false; cancelAnimationFrame(SH.raf); shootClear();
-    showCombo(shootCombo, '문장 완성! 🎯');
-    // → Mastery Loop (TTS 1회 → 말하기 3회)
+    showCombo(shootCombo, '문장 완성! 🎯 ✅ '+Math.min(correctHits,GOAL)+'/'+GOAL);
+    // → Mastery Loop (TTS 1회 → 말하기 3회) → 🎯 10개 정답 채우면 결과, 아니면 다음 문장으로
     setTimeout(function(){
-      startMission(function(){ shootResult(); },
+      startMission(function(){
+        if(correctHits >= GOAL){ shootResult(); }
+        else { applySentence(nextQueueSentence()); shootContinue(); }
+      },
         function(pts){ SH.score += pts; shootScoreVal.textContent=SH.score; });   // 말할 때마다 +pts
     }, 700);
   }
+  // 점수를 유지한 채 다음 교재 문장으로 계속 (10개 정답 목표 채우기)
+  function shootContinue(){
+    SH.running=true; SH.lastTs=0;
+    shootRound();
+    cancelAnimationFrame(SH.raf); SH.raf=requestAnimationFrame(shootLoop);
+  }
   function shootResult(){
-    showResult('shoot', SH.score);
+    showResult('shoot', SH.score, correctHits>=GOAL ? 'goal' : undefined);
   }
   function shootLoop(ts){
     if(!SH.running) return;
@@ -1001,7 +1045,7 @@
 
   function fishStart(){
     var cfg=fishCfg();
-    FI.score=0; FI.combo=0; FI.lastHit=0; FI.lastTs=0; FI.running=true; FI.paused=false;
+    FI.score=0; FI.combo=0; FI.lastHit=0; FI.lastTs=0; FI.running=true; FI.paused=false; correctHits=0;
     FI.totalTime=cfg.time; FI.timeLeft=cfg.time; FI.secShown=-1;
     FI.sharkAcc=0; FI.focusActive=false; FI.focusLeft=0;
     clearSharks();
@@ -1095,7 +1139,7 @@
     if(norm(f.word) === norm(required)){
       // 정답 → 낚싯줄로 걸어 배(낚싯대)로 끌어올림
       FI.score += 100; fishScoreVal.textContent=FI.score;
-      var now=performance.now(); FI.combo=(now-FI.lastHit<COMBO_WINDOW)?FI.combo+1:1; FI.lastHit=now; FI.idx++;
+      var now=performance.now(); FI.combo=(now-FI.lastHit<COMBO_WINDOW)?FI.combo+1:1; FI.lastHit=now; FI.idx++; correctHits++;
       speak(f.word.replace(/[.?!]/g,''));                       // 🔊 물고기가 영어 단어를 소리냄
       sayWord(cx, cy-34, f.word);                               // 단어 말풍선
       var i=FI.fish.indexOf(f); if(i>=0) FI.fish.splice(i,1);   // 헤엄 정지(걸림)
@@ -1159,11 +1203,23 @@
   function fishSequenceDone(){
     FI.running=false; cancelAnimationFrame(FI.raf); fishClear(); clearSharks(); bgmStop();
     FI.field.classList.remove('focus');
-    showCombo(fishCombo, '문장 완성! 🎣');
+    showCombo(fishCombo, '문장 완성! 🎣 ✅ '+Math.min(correctHits,GOAL)+'/'+GOAL);
     setTimeout(function(){
-      startMission(function(){ showResult('fish', FI.score); },
+      startMission(function(){
+        if(correctHits >= GOAL){ showResult('fish', FI.score, 'goal'); }
+        else { applySentence(nextQueueSentence()); fishContinue(); }   // 🎯 10개 채울 때까지 다음 문장
+      },
         function(pts){ FI.score += pts; fishScoreVal.textContent=FI.score; });   // 말할 때마다 +pts
     }, 700);
+  }
+  // 점수를 유지한 채 다음 교재 문장으로 계속 — 제한시간은 문장마다 새로 준다
+  function fishContinue(){
+    var cfg=fishCfg();
+    FI.running=true; FI.paused=false; FI.lastTs=0;
+    FI.totalTime=cfg.time; FI.timeLeft=cfg.time; FI.secShown=-1; updateTimer();
+    if(BGM_ON) bgmStart();
+    fishRound();
+    cancelAnimationFrame(FI.raf); FI.raf=requestAnimationFrame(fishLoop);
   }
   function fishLoop(ts){
     if(!FI.running) return;
@@ -1222,10 +1278,16 @@
     if(score>best){ best=score; try{ localStorage.setItem(key,best); }catch(e){} }
     // 수업 패널에 완료 보고(단어 순서 + 발음 + 말하기 3회 모두 통과)
     toParent({type:'mangoi-game-complete', game:game, score:score, best:best, sentence:targetSentence, reason:reason||'clear'});
-    var timeUp = (reason==='time');
-    var title = timeUp ? '⏰ 시간 종료!' : (game==='shoot' ? '🚀 우주 임무 완료!' : '🌊 심해 임무 완료!');
-    var line2 = timeUp ? ('🏆 최고 '+best+'점 · 난이도 '+fishCfg().label) : ('🏆 최고 '+best+'점 · ✅ 말하기 3회 마스터');
-    var line3 = timeUp ? '• 제한시간 안에 더 많이 낚아보세요! 🎣' : '• 단어 순서 + 원어민 발음 + 말하기 3회를 모두 완료했어요!';
+    var timeUp = (reason==='time'), goalDone = (reason==='goal');
+    var title = timeUp ? '⏰ 시간 종료!'
+      : goalDone ? ('🏆 정답 '+GOAL+'개 달성!')
+      : (game==='shoot' ? '🚀 우주 임무 완료!' : '🌊 심해 임무 완료!');
+    var line2 = timeUp ? ('🏆 최고 '+best+'점 · 난이도 '+fishCfg().label)
+      : goalDone ? ('🏆 최고 '+best+'점 · ✅ 정답 '+correctHits+'개 완료')
+      : ('🏆 최고 '+best+'점 · ✅ 말하기 3회 마스터');
+    var line3 = timeUp ? '• 제한시간 안에 더 많이 낚아보세요! 🎣'
+      : goalDone ? ('• 목표 '+GOAL+'개 정답을 모두 채웠어요! 원어민 발음 + 말하기까지 완벽!')
+      : '• 단어 순서 + 원어민 발음 + 말하기 3회를 모두 완료했어요!';
     $('#resultCard').innerHTML =
       '<h2>'+title+'</h2>'+
       '<div class="big">'+score+'점</div>'+
@@ -1410,6 +1472,6 @@
 })();
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
-<!-- BUILD:20260702142951 -->
+<!-- BUILD:20260702144946 -->
 </body>
 </html>

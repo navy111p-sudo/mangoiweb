@@ -264,14 +264,15 @@ const json = (data: unknown, status = 200): Response =>
 const err = (msg: string, status = 400) => json({ ok: false, error: msg }, status);
 
 /** Neo4j 미설정 등 "설정 부재" 상태를 명시적으로 구분하기 위한 에러 타입 */
-class Neo4jNotConfiguredError extends Error {}
+export class Neo4jNotConfiguredError extends Error {}
 
 /**
  * Neo4j Aura HTTP Query API 호출 (단발 트랜잭션).
  * @param accessMode 'READ'(추천 조회) | 'WRITE'(ETL 적재)
  * 반환: { fields: string[], values: any[][] } — Query API v2 의 data 블록.
+ * (warmup-graph.ts 등 다른 그래프 모듈에서도 재사용하도록 export)
  */
-async function runCypher(
+export async function runCypher(
   env: TeacherMatchEnv,
   statement: string,
   parameters: Record<string, unknown>,

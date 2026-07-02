@@ -10915,6 +10915,54 @@ const _GAME_WORDS = [
 ];
 const _gameState = { mode: 'brick', score: 0, correct: 0, wrong: 0, current: null, started: false, balloonTimer: null };
 
+// 🎯 목표: 10개 정답 → 결과 화면 (student-games.html 허브와 동일 규칙)
+const GAME_GOAL = 10;
+function _gameCheckGoal() {
+  if (_gameState.correct < GAME_GOAL) return false;
+  setTimeout(_gameShowResult, 1100);
+  return true;
+}
+function _gameShowResult() {
+  if (_gameState.balloonTimer) { clearInterval(_gameState.balloonTimer); _gameState.balloonTimer = null; }
+  try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(_){}
+  const tot = _gameState.correct + _gameState.wrong;
+  const acc = tot > 0 ? Math.round(100 * _gameState.correct / tot) : 100;
+  const stars = acc >= 90 ? '⭐⭐⭐' : acc >= 70 ? '⭐⭐' : '⭐';
+  const area = document.getElementById('game-area');
+  if (area) area.innerHTML =
+    '<div style="text-align:center;max-width:520px;margin:0 auto;padding:20px">' +
+      '<div style="font-size:52px;margin-bottom:6px">🏆</div>' +
+      '<div style="font-size:26px;font-weight:800;color:#fbbf24;margin-bottom:4px">10문제 완료!</div>' +
+      '<div style="font-size:22px;margin-bottom:14px">' + stars + '</div>' +
+      '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">' +
+        '<div style="background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.35);border-radius:12px;padding:10px 18px"><div style="font-size:12px;color:#94a3b8">점수</div><div style="font-size:22px;font-weight:800;color:#fbbf24">' + _gameState.score + '</div></div>' +
+        '<div style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.35);border-radius:12px;padding:10px 18px"><div style="font-size:12px;color:#94a3b8">정답</div><div style="font-size:22px;font-weight:800;color:#10b981">' + _gameState.correct + '</div></div>' +
+        '<div style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);border-radius:12px;padding:10px 18px"><div style="font-size:12px;color:#94a3b8">오답</div><div style="font-size:22px;font-weight:800;color:#ef4444">' + _gameState.wrong + '</div></div>' +
+        '<div style="background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.35);border-radius:12px;padding:10px 18px"><div style="font-size:12px;color:#94a3b8">정확도</div><div style="font-size:22px;font-weight:800;color:#38bdf8">' + acc + '%</div></div>' +
+      '</div>' +
+      '<button onclick="gameInit()" style="margin-top:20px;padding:12px 26px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(16,185,129,0.4)">🔄 다시 하기</button>' +
+    '</div>';
+  const fb = document.getElementById('game-feedback');
+  if (fb) fb.innerHTML = '<span style="color:#fbbf24">🏆 10문제 달성!</span>';
+}
+
+// 📚 로그인 학생의 교재/레벨 맞춤 어휘로 교체 (game-vocab.js 동적 로드 — 실패/비로그인 시 기본 어휘 유지)
+(function(){
+  try{
+    var s = document.createElement('script'); s.src = '/js/game-vocab.js'; s.async = true;
+    s.onload = function(){
+      if(!window.MangoiGameVocab) return;
+      MangoiGameVocab.load().then(function(d){
+        if(!d) return;
+        window._STUDENT_VOCAB = d;
+        if(d.sentences.length >= 3){ _GAME_VOCAB.length = 0; d.sentences.forEach(function(x){ _GAME_VOCAB.push(x); }); }
+        if(d.words.length >= 6){ _GAME_WORDS.length = 0; d.words.forEach(function(x){ _GAME_WORDS.push(x); }); }
+      });
+    };
+    document.head.appendChild(s);
+  }catch(_){}
+})();
+
 // 🥭 Phase 48 — 수업 중(2명 이상) 인지 체크 → 게임 차단
 function _gameIsClassActive() {
   const el = document.getElementById('vc-user-count');
@@ -11103,17 +11151,21 @@ function _gamePickVoice(){
 try{ if(window.speechSynthesis){ _gamePickVoice(); window.speechSynthesis.onvoiceschanged=_gamePickVoice; } }catch(_){}
 window.gameSpeak = function(text){ try{ if(!text) return; if(!_gameEnVoice) _gamePickVoice(); var u=new SpeechSynthesisUtterance(String(text)); u.lang=(_gameEnVoice&&_gameEnVoice.lang)||'en-US'; u.rate=0.95; u.pitch=1.02; if(_gameEnVoice) u.voice=_gameEnVoice; window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);}catch(_){} };
 window.gameSpeakBuilt = function(){ try{ var pk=(_gameState.current&&_gameState.current.picked)||[]; if(pk.length) gameSpeak(pk.join(' ')); }catch(_){} };
+window.gameSpeakTarget = function(){ try{ var s=_gameState.current&&_gameState.current.sentence; if(s&&s.en) gameSpeak(s.en); }catch(_){} };   // 🎧 듣기형(번역 없음) 문제의 문장 듣기
 
 // 🧱 게임 1: 문장 벽돌 — 영어 단어 브릭을 순서대로 클릭해서 문장 완성
 function gameRenderBrick() {
   const sentence = _GAME_VOCAB[Math.floor(Math.random() * _GAME_VOCAB.length)];
   _gameState.current = { sentence, picked: [] };
   const shuffled = _gameShuffle(sentence.words);
+  // 교재 문장에 한국어 번역이 없으면 듣기 문제로 전환 (🔊 버튼으로 문장 듣고 순서 조립)
+  const promptBlock = sentence.ko
+    ? '<div style="font-size:13px;color:#94a3b8;margin-bottom:6px">📝 한국어 번역</div>' +
+      '<div style="font-size:22px;font-weight:700;color:#fbbf24;padding:12px 20px;background:rgba(251,191,36,0.12);border-radius:12px;display:inline-block">' + sentence.ko + '</div>'
+    : '<div style="font-size:13px;color:#94a3b8;margin-bottom:6px">🎧 오늘 교재 문장을 듣고 순서대로 만들어 보세요</div>' +
+      '<button onclick="gameSpeakTarget()" style="font-size:18px;font-weight:700;color:#fbbf24;padding:12px 22px;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.4);border-radius:12px;cursor:pointer;font-family:inherit">🔊 문장 듣기</button>';
   let html =
-    '<div style="text-align:center;margin-bottom:24px">' +
-      '<div style="font-size:13px;color:#94a3b8;margin-bottom:6px">📝 한국어 번역</div>' +
-      '<div style="font-size:22px;font-weight:700;color:#fbbf24;padding:12px 20px;background:rgba(251,191,36,0.12);border-radius:12px;display:inline-block">' + sentence.ko + '</div>' +
-    '</div>' +
+    '<div style="text-align:center;margin-bottom:24px">' + promptBlock + '</div>' +
     '<div style="text-align:center;margin-bottom:18px">' +
       '<div style="font-size:13px;color:#94a3b8;margin-bottom:8px">🎯 영어로 만들어보세요 (단어 클릭)</div>' +
       '<div id="brick-built" style="min-height:54px;background:rgba(15,23,42,0.7);border:2px dashed #475569;border-radius:12px;padding:12px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center">' +
@@ -11162,7 +11214,7 @@ function gameBrickCheck() {
     _gameState.score += 10; _gameState.correct++;
     fb.innerHTML = '<span style="color:#10b981">✅ 정답! +10점</span>';
     try{ window.gameSpeak && gameSpeak(sent.en); }catch(_){}
-    setTimeout(gameNextRound, 2200);
+    if(!_gameCheckGoal()) setTimeout(gameNextRound, 2200);   // 🎯 10개 정답 → 결과 화면
   } else {
     _gameState.wrong++;
     fb.innerHTML = '<span style="color:#ef4444">❌ 다시 시도! 정답: ' + sent.en + '</span>';
@@ -11220,6 +11272,7 @@ function gameMatchFlip(card) {
         const remEl = document.getElementById('match-remaining');
         if (remEl) remEl.textContent = (total - _gameState.current.matched.size);
         document.getElementById('game-feedback').innerHTML = '<span style="color:#10b981">✅ 매치! +5점</span>';
+        if (_gameCheckGoal()) return;                         // 🎯 10개 정답 → 결과 화면
         if (_gameState.current.matched.size === total) {
           document.getElementById('game-feedback').innerHTML = '<span style="color:#fbbf24">🏆 완료! 다음 게임으로...</span>';
           setTimeout(gameNextRound, 2000);
@@ -11256,11 +11309,13 @@ function gameRenderFill() {
   _gameState.current = { answer, sentence: sent };
   // 빈칸 표시 문장
   const masked = sent.words.map((w, i) => i === blankIdx ? '___' : w).join(' ');
+  // 교재 문장에 한국어 번역이 없으면 힌트 대신 🔊 문장 듣기 버튼 제공
+  const fillHint = sent.ko
+    ? '<div style="font-size:13px;color:#94a3b8;margin-bottom:6px">📝 한국어</div>' +
+      '<div style="font-size:18px;color:#fbbf24;padding:10px 18px;background:rgba(251,191,36,0.1);border-radius:10px;display:inline-block">' + sent.ko + '</div>'
+    : '<button onclick="gameSpeakTarget()" style="font-size:15px;font-weight:700;color:#fbbf24;padding:10px 18px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.4);border-radius:10px;cursor:pointer;font-family:inherit">🔊 문장 듣기 (힌트)</button>';
   let html =
-    '<div style="text-align:center;margin-bottom:20px">' +
-      '<div style="font-size:13px;color:#94a3b8;margin-bottom:6px">📝 한국어</div>' +
-      '<div style="font-size:18px;color:#fbbf24;padding:10px 18px;background:rgba(251,191,36,0.1);border-radius:10px;display:inline-block">' + sent.ko + '</div>' +
-    '</div>' +
+    '<div style="text-align:center;margin-bottom:20px">' + fillHint + '</div>' +
     '<div style="text-align:center;margin-bottom:24px">' +
       '<div style="font-size:13px;color:#94a3b8;margin-bottom:8px">🎯 빈칸에 들어갈 단어를 고르세요</div>' +
       '<div style="font-size:24px;font-weight:700;color:#f1f5f9;padding:18px 24px;background:rgba(15,23,42,0.7);border:2px solid #475569;border-radius:12px;display:inline-block;line-height:1.6">' +
@@ -11285,7 +11340,7 @@ function gameFillCheck(picked, btn) {
     _gameState.score += 8; _gameState.correct++;
     fb.innerHTML = '<span style="color:#10b981">✅ 정답! +8점</span>';
     try{ window.gameSpeak && _gameState.current.sentence && gameSpeak(_gameState.current.sentence.en); }catch(_){}
-    setTimeout(gameNextRound, 1900);
+    if(!_gameCheckGoal()) setTimeout(gameNextRound, 1900);   // 🎯 10개 정답 → 결과 화면
   } else {
     btn.style.background = 'linear-gradient(135deg,#dc2626,#991b1b)';
     btn.style.opacity = '0.4';
@@ -11429,7 +11484,7 @@ function gameBalloonPop(bl) {
   if (correct) {
     _gameState.score += 7; _gameState.correct++;
     document.getElementById('game-feedback').innerHTML = '<span style="color:#10b981">🎉 풍! +7점</span>';
-    setTimeout(gameNextRound, 1200);
+    if(!_gameCheckGoal()) setTimeout(gameNextRound, 1200);   // 🎯 10개 정답 → 결과 화면
   } else {
     _gameState.wrong++;
     document.getElementById('game-feedback').innerHTML = '<span style="color:#ef4444">❌ 틀림! 정답: ' + _gameState.current.answer + '</span>';
@@ -22639,7 +22694,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260702142951 -->
+<!-- BUILD:20260702144946 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

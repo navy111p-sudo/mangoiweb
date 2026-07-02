@@ -3162,6 +3162,8 @@ export async function handleMangoApi(
       for (const col of ['level TEXT', 'textbook TEXT', 'lesson_no INTEGER', "source TEXT DEFAULT 'manual'", 'draw TEXT']) {
         try { await env.DB.exec(`ALTER TABLE review_quizzes ADD COLUMN ${col};`); } catch {}
       }
+      // 웜업 개인화(warmup-graph.ts) — 제출 시 채점 상세(JSON)를 보존해 오답 문장을 정확히 추출
+      try { await env.DB.exec(`ALTER TABLE review_quiz_results ADD COLUMN detail TEXT;`); } catch {}
     };
     // 문항 검증 (Phase RQ2 — 유형: choice 객관식 / listen 듣기 / write 쓰기 / speak 말하기)
     //   choice/listen: { type, q, opts:[2~6], answer:index, explain?, audio_text(listen 필수) }
@@ -3376,8 +3378,8 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       const gradeQs = (served && served.length) ? served.map((i: number) => qs[i]) : qs;
       const { score, detail } = rqGrade(gradeQs, answers);
       const total = gradeQs.length;
-      await env.DB.prepare(`INSERT INTO review_quiz_results (quiz_id, user_id, user_name, score, total, answers, created_at) VALUES (?,?,?,?,?,?,?)`)
-        .bind(quizId, userId, userName, score, total, JSON.stringify(answers.slice(0, total)), Date.now()).run();
+      await env.DB.prepare(`INSERT INTO review_quiz_results (quiz_id, user_id, user_name, score, total, answers, detail, created_at) VALUES (?,?,?,?,?,?,?,?)`)
+        .bind(quizId, userId, userName, score, total, JSON.stringify(answers.slice(0, total)), JSON.stringify(detail), Date.now()).run();
       return json({ ok: true, score, total, percent: total ? Math.round((score / total) * 100) : 0, detail });
     }
 
