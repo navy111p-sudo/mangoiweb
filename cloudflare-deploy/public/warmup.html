@@ -30,43 +30,52 @@
     font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif}
   .top{display:flex;align-items:center;gap:12px;padding:14px 18px;background:rgba(20,33,59,.95);
     position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
-  .top a{color:var(--text);text-decoration:none;font-weight:700;font-size:14px}
-  .top h1{margin:0;font-size:16px;font-weight:800;flex:1}
-  .wrap{max-width:720px;margin:0 auto;display:flex;flex-direction:column;height:calc(100dvh - 52px)}
-  .meta{display:flex;gap:8px;flex-wrap:wrap;padding:10px 16px;font-size:12px;color:var(--text2)}
+  .top a{color:var(--text);text-decoration:none;font-weight:700;font-size:16px}
+  .top h1{margin:0;font-size:22px;font-weight:800;flex:1}
+  .wrap{max-width:860px;margin:0 auto;display:flex;flex-direction:column;height:calc(100dvh - 52px)}
+  .meta{display:flex;gap:8px;flex-wrap:wrap;padding:10px 16px;font-size:14px;color:var(--text2)}
   .meta .chip{background:var(--card);border:1px solid var(--border);border-radius:999px;padding:4px 10px}
   .meta .chip b{color:var(--accent)}
   #log{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:10px}
-  .msg{max-width:82%;padding:11px 14px;border-radius:14px;font-size:14px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+  .msg{max-width:82%;padding:14px 18px;border-radius:16px;font-size:28px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
   .msg.ai{align-self:flex-start;background:var(--card);border:1px solid var(--border);border-bottom-left-radius:4px}
   .msg.me{align-self:flex-end;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;border-bottom-right-radius:4px}
   .msg.sys{align-self:center;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.35);
-    color:#fcd34d;font-size:12.5px;text-align:center;max-width:92%}
-  .msg .who{display:block;font-size:11px;opacity:.7;margin-bottom:3px;font-weight:700}
-  .typing{align-self:flex-start;color:var(--text2);font-size:13px;padding:6px 12px}
+    color:#fcd34d;font-size:17px;text-align:center;max-width:92%}
+  .msg .who{display:block;font-size:15px;opacity:.7;margin-bottom:4px;font-weight:700}
+  .typing{align-self:flex-start;color:var(--text2);font-size:18px;padding:6px 12px}
   .inbar{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border);background:rgba(20,33,59,.9)}
   .inbar input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;
-    color:var(--text);padding:12px 14px;font-size:15px;font-family:inherit;outline:none}
+    color:var(--text);padding:14px 16px;font-size:19px;font-family:inherit;outline:none}
   .inbar input:focus{border-color:var(--accent)}
   .inbar button{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#04283a;border:0;
-    border-radius:12px;padding:0 18px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit}
+    border-radius:12px;padding:0 20px;font-size:18px;font-weight:800;cursor:pointer;font-family:inherit}
   .inbar button:disabled{opacity:.5;cursor:not-allowed}
-  .hint{padding:0 16px 10px;font-size:11.5px;color:var(--text2)}
+  .hint{padding:0 16px 10px;font-size:14px;color:var(--text2)}
   .settings{padding:10px 16px;border-top:1px dashed var(--border);font-size:12px;color:var(--text2)}
   .settings summary{cursor:pointer;font-weight:700;color:var(--accent)}
   .settings input{width:100%;margin-top:8px;background:var(--card);border:1px solid var(--border);
     border-radius:8px;color:var(--text);padding:8px 10px;font-size:13px}
   /* 🔊 AI 메시지 '다시 듣기' 버튼 */
-  .replay-btn{display:inline-flex;align-items:center;gap:4px;margin-top:8px;
+  .replay-btn{display:inline-flex;align-items:center;gap:4px;margin-top:10px;
     background:rgba(56,189,248,.14);border:1px solid var(--border);color:var(--accent);
-    border-radius:999px;padding:4px 11px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit}
+    border-radius:999px;padding:6px 14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit}
   .replay-btn:hover{background:rgba(56,189,248,.26)}
   .replay-btn:active{transform:scale(.96)}
   .replay-btn.playing{background:rgba(56,189,248,.32);border-color:var(--accent)}
   /* 🔊 상단 음성 on/off 토글 */
   .spk-toggle{flex:0 0 auto;background:rgba(56,189,248,.14);border:1px solid var(--border);color:var(--accent);
-    border-radius:999px;padding:6px 11px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
+    border-radius:999px;padding:6px 11px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
   .spk-toggle.off{background:rgba(148,163,184,.14);color:var(--text2);border-color:rgba(148,163,184,.3)}
+  /* 🐢🐇 선생님(AI) 음성 듣기 속도 조절 바 (1~5단계) */
+  .rate-bar{display:flex;align-items:center;gap:10px;margin:2px 16px 8px;padding:9px 14px;
+    background:var(--card);border:1px solid var(--border);border-radius:14px;font-size:14px;color:var(--text2)}
+  .rate-bar .rate-title{font-weight:800;color:var(--text);white-space:nowrap;font-size:15px}
+  .rate-bar .rate-side{white-space:nowrap;font-weight:700}
+  .rate-bar input[type=range]{flex:1;min-width:80px;accent-color:var(--accent);height:26px;cursor:pointer}
+  .rate-bar .rate-val{min-width:64px;text-align:center;background:rgba(56,189,248,.14);
+    border:1px solid var(--border);border-radius:999px;padding:4px 10px;color:var(--accent);
+    font-weight:800;font-size:14px;white-space:nowrap}
   /* 🎤 마이크 버튼 (입력창 옆) */
   .inbar .mic-btn{flex:0 0 auto;background:linear-gradient(135deg,#22c55e,#16a34a);color:#04240f;
     border:0;border-radius:12px;padding:0 15px;font-size:19px;line-height:1;cursor:pointer;font-family:inherit}
@@ -92,6 +101,16 @@
       <span class="chip">세션 <b id="m-session">—</b></span>
       <span class="chip">주제 <b id="m-topic">자유 대화</b></span>
       <span class="chip">서버 <b id="m-server">미연결</b></span>
+    </div>
+
+    <!-- 🐢🐇 선생님(AI) 음성 듣기 속도: 1(천천히) ~ 5(빠르게) -->
+    <div class="rate-bar">
+      <span class="rate-title">🗣️ 듣기 속도</span>
+      <span class="rate-side">🐢 천천히</span>
+      <input id="rateSlider" type="range" min="1" max="5" step="1" value="3"
+        oninput="setRate(this.value)" title="선생님 음성 속도 (1 천천히 ~ 5 빠르게)" />
+      <span class="rate-side">빠르게 🐇</span>
+      <span class="rate-val" id="rateVal">3 · 보통</span>
     </div>
 
     <div id="log"></div>
@@ -166,6 +185,23 @@ function escapeHtml(s){ return String(s).replace(/[&<>]/g, function(c){ return {
    🔊 듣기(TTS) — 브라우저 speechSynthesis 로 AI 답변을 원어민 음성 낭독
    ══════════════════════════════════════════════════════════════════ */
 var _enVoice = null, _speechOn = true, _audioUnlocked = false;
+
+/* 🐢🐇 듣기 속도: 1(천천히)~5(빠르게) → speechSynthesis rate 값 매핑 */
+var RATE_STEPS = { 1:0.6, 2:0.8, 3:0.95, 4:1.15, 5:1.4 };
+var RATE_NAMES = { 1:'아주 천천히', 2:'천천히', 3:'보통', 4:'빠르게', 5:'아주 빠르게' };
+var _rateLevel = 3;
+try{
+  var savedRate = parseInt(localStorage.getItem('mangoi_warmup_rate')||'3',10);
+  if(savedRate>=1 && savedRate<=5) _rateLevel = savedRate;
+}catch(e){}
+function setRate(lv){
+  lv = parseInt(lv,10); if(!(lv>=1 && lv<=5)) lv = 3;
+  _rateLevel = lv;
+  try{ localStorage.setItem('mangoi_warmup_rate', String(lv)); }catch(e){}
+  var s=document.getElementById('rateSlider'); if(s && String(s.value)!==String(lv)) s.value=lv;
+  var v=document.getElementById('rateVal'); if(v) v.textContent = lv + ' · ' + RATE_NAMES[lv];
+}
+setRate(_rateLevel);   // 저장된 속도로 슬라이더/표시 초기화
 // 영어 원어민 보이스 점수화(en-US/en-GB 자연스러운 보이스 우선) — 게임/아바타와 동일 취지
 function _scoreVoice(v){
   var n=(v.name||'').toLowerCase(), lang=(v.lang||'').toLowerCase(), s=0;
@@ -196,7 +232,7 @@ function speak(text, btn){
     if(!window.speechSynthesis || !_speechOn || !text) return;
     if(!_enVoice) pickVoice();
     var u=new SpeechSynthesisUtterance(String(text));
-    u.lang=(_enVoice&&_enVoice.lang)||'en-US'; u.rate=0.95; u.pitch=1.02;
+    u.lang=(_enVoice&&_enVoice.lang)||'en-US'; u.rate=RATE_STEPS[_rateLevel]||0.95; u.pitch=1.02;
     if(_enVoice) u.voice=_enVoice;
     if(btn){ btn.classList.add('playing'); u.onend=function(){ btn.classList.remove('playing'); }; u.onerror=function(){ btn.classList.remove('playing'); }; }
     window.speechSynthesis.cancel();
@@ -318,7 +354,7 @@ async function sendMsg(){
   }
 }
 </script>
-<!-- BUILD:warmup2-voice -->
+<!-- BUILD:warmup3-bigtext-ratebar -->
 <script defer src="/js/back-nav.js"></script>
 </body>
 </html>
