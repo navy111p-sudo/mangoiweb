@@ -487,11 +487,31 @@
   /* ── 🎯 목표: 정답 단어 10개 → 결과 화면 (문장을 이어가며 채움) ── */
   var GOAL = (function(){ try{ var g=parseInt(new URLSearchParams(location.search).get('goal'),10); return (g>=3&&g<=50)?g:10; }catch(e){ return 10; } })();
   var correctHits = 0;
-  /* ── 📚 로그인 학생의 교재/레벨 맞춤 문장 큐 (game-vocab.js — 실패 시 PRESETS 순환) ── */
+  /* ── 🎢 난이도(스테이지) 1~5 — 클리어 시 자동 상승: 속도↑ + 더 긴 문장 (허브와 localStorage 공유) ── */
+  var stageLvl = (function(){
+    try{
+      var q = parseInt(new URLSearchParams(location.search).get('stage'),10);
+      if(q>=1&&q<=5) return q;
+      var v = parseInt(localStorage.getItem('mangoi_game_stage'),10);
+      return (v>=1&&v<=5)?v:1;
+    }catch(e){ return 1; }
+  })();
+  function setStage(st){
+    if(!(st>=1&&st<=5)) st=1;
+    stageLvl = st;
+    try{ localStorage.setItem('mangoi_game_stage', String(st)); }catch(e){}
+  }
+  /* ── 📚 로그인 학생의 교재/레벨 맞춤 문장 큐 (game-vocab.js — 실패 시 PRESETS 순환)
+        난이도 구간: 문장을 짧은→긴 순으로 정렬해 현재 단계 구간에서 순환 출제 ── */
   var STUDENT_SENTENCES = null, _queueIdx = 0;
   function nextQueueSentence(){
     var q = (STUDENT_SENTENCES && STUDENT_SENTENCES.length) ? STUDENT_SENTENCES : PRESETS;
-    var s = q[_queueIdx % q.length]; _queueIdx++;
+    var sorted = q.slice().sort(function(a,b){ return a.split(' ').length - b.split(' ').length || a.length - b.length; });
+    var n = sorted.length, lo = Math.floor((stageLvl-1)/5*n), hi = Math.ceil(stageLvl/5*n);
+    var need = Math.min(2, n);
+    while(hi-lo < need){ if(lo>0) lo--; if(hi<n) hi++; }
+    var pool = sorted.slice(lo,hi);
+    var s = pool[_queueIdx % pool.length]; _queueIdx++;
     return s;
   }
   try{
@@ -1280,7 +1300,7 @@
     toParent({type:'mangoi-game-complete', game:game, score:score, best:best, sentence:targetSentence, reason:reason||'clear'});
     var timeUp = (reason==='time'), goalDone = (reason==='goal');
     var title = timeUp ? '⏰ 시간 종료!'
-      : goalDone ? ('🏆 정답 '+GOAL+'개 달성!')
+      : goalDone ? ('🏆 난이도 ⭐'+stageLvl+' 클리어! (정답 '+GOAL+'개)')
       : (game==='shoot' ? '🚀 우주 임무 완료!' : '🌊 심해 임무 완료!');
     var line2 = timeUp ? ('🏆 최고 '+best+'점 · 난이도 '+fishCfg().label)
       : goalDone ? ('🏆 최고 '+best+'점 · ✅ 정답 '+correctHits+'개 완료')
@@ -1297,6 +1317,7 @@
         line3+
       '</div>'+
       '<div class="row">'+
+        (goalDone ? '<button class="btn" id="rsNext" style="background:linear-gradient(135deg,#f43f5e,#be123c);color:#fff">'+(stageLvl<5?('🔥 다음 난이도 ⭐'+(stageLvl+1)):'👑 ⭐1부터 다시')+'</button>' : '')+
         '<button class="btn ghost" id="rsMenu">메뉴 🏠</button>'+
         '<button class="btn" id="rsAgain">다시 하기 ↻</button>'+
       '</div>';
@@ -1304,6 +1325,15 @@
     $('#rsMenu').addEventListener('click', function(){ closeOverlay('#resultOverlay'); goMenu(); });
     $('#rsAgain').addEventListener('click', function(){
       closeOverlay('#resultOverlay');
+      if(game==='shoot') shootStart(); else fishStart();
+    });
+    // 🎢 다음 난이도: 단계↑ + 속도 단계 연동(물고기/외계인 더 빨라짐) + 더 긴 문장 구간
+    var rsNext = $('#rsNext');
+    if(rsNext) rsNext.addEventListener('click', function(){
+      closeOverlay('#resultOverlay');
+      setStage(stageLvl < 5 ? stageLvl+1 : 1);
+      speedLvl = stageLvl; try{ localStorage.setItem('mangoi_game_speed', String(stageLvl)); }catch(e){}
+      applySentence(nextQueueSentence());   // 새 난이도 구간의 문장으로 시작
       if(game==='shoot') shootStart(); else fishStart();
     });
   }

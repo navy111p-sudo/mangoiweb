@@ -10917,6 +10917,26 @@ const _gameState = { mode: 'brick', score: 0, correct: 0, wrong: 0, current: nul
 
 // 🎯 목표: 10개 정답 → 결과 화면 (student-games.html 허브와 동일 규칙)
 const GAME_GOAL = 10;
+
+// 🎢 난이도(스테이지) 1~5 — 10문제 클리어 시 자동 상승 (허브와 동일 규칙, localStorage 공유)
+// 단계가 오를수록: 풍선 낙하 빨라짐 + 더 길고 어려운 문장/단어 구간에서 출제
+const GAME_STAGE_MULT = { 1:0.5, 2:0.75, 3:1, 4:1.4, 5:1.9 };
+var GAME_STAGE = (function(){ try{ var v=parseInt(localStorage.getItem('mangoi_game_stage'),10); return (v>=1&&v<=5)?v:1; }catch(_){ return 1; } })();
+function setGameStage(st){
+  if(!(st>=1&&st<=5)) st=1;
+  GAME_STAGE = st;
+  try{ localStorage.setItem('mangoi_game_stage', String(st)); }catch(_){}
+  var el=document.getElementById('game-stage'); if(el) el.textContent = st;
+}
+function _stagePool(arr, key, minN){
+  var sorted = arr.slice().sort(function(a,b){ return key(a)-key(b); });
+  var n = sorted.length, lo = Math.floor((GAME_STAGE-1)/5*n), hi = Math.ceil(GAME_STAGE/5*n);
+  var need = Math.min(minN||4, n);
+  while(hi-lo < need){ if(lo>0) lo--; if(hi<n) hi++; }
+  return sorted.slice(lo,hi);
+}
+function _stageVocab(){ return _stagePool(_GAME_VOCAB, function(v){ return (v.words?v.words.length:0)*100 + v.en.length; }, 3); }
+function _stageWords(){ return _stagePool(_GAME_WORDS, function(w){ return w.en.length*10 + ((w.ko&&w.ko.length)||0); }, 6); }
 function _gameCheckGoal() {
   if (_gameState.correct < GAME_GOAL) return false;
   setTimeout(_gameShowResult, 1100);
@@ -10928,11 +10948,15 @@ function _gameShowResult() {
   const tot = _gameState.correct + _gameState.wrong;
   const acc = tot > 0 ? Math.round(100 * _gameState.correct / tot) : 100;
   const stars = acc >= 90 ? '⭐⭐⭐' : acc >= 70 ? '⭐⭐' : '⭐';
+  // 🎢 다음 난이도 도전 버튼 — 최고 단계(5)면 처음부터
+  const nextStageBtn = GAME_STAGE < 5
+    ? '<button onclick="setGameStage(' + (GAME_STAGE+1) + ');gameInit()" style="margin-top:20px;padding:12px 26px;background:linear-gradient(135deg,#f43f5e,#be123c);color:#fff;border:0;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(244,63,94,0.45)">🔥 다음 난이도 ⭐' + (GAME_STAGE+1) + ' 도전!</button>'
+    : '<button onclick="setGameStage(1);gameInit()" style="margin-top:20px;padding:12px 26px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border:0;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(139,92,246,0.45)">👑 전 단계 클리어! ⭐1부터 다시</button>';
   const area = document.getElementById('game-area');
   if (area) area.innerHTML =
     '<div style="text-align:center;max-width:520px;margin:0 auto;padding:20px">' +
       '<div style="font-size:52px;margin-bottom:6px">🏆</div>' +
-      '<div style="font-size:26px;font-weight:800;color:#fbbf24;margin-bottom:4px">10문제 완료!</div>' +
+      '<div style="font-size:26px;font-weight:800;color:#fbbf24;margin-bottom:4px">난이도 ⭐' + GAME_STAGE + ' 클리어!</div>' +
       '<div style="font-size:22px;margin-bottom:14px">' + stars + '</div>' +
       '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">' +
         '<div style="background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.35);border-radius:12px;padding:10px 18px"><div style="font-size:12px;color:#94a3b8">점수</div><div style="font-size:22px;font-weight:800;color:#fbbf24">' + _gameState.score + '</div></div>' +
@@ -10940,10 +10964,11 @@ function _gameShowResult() {
         '<div style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);border-radius:12px;padding:10px 18px"><div style="font-size:12px;color:#94a3b8">오답</div><div style="font-size:22px;font-weight:800;color:#ef4444">' + _gameState.wrong + '</div></div>' +
         '<div style="background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.35);border-radius:12px;padding:10px 18px"><div style="font-size:12px;color:#94a3b8">정확도</div><div style="font-size:22px;font-weight:800;color:#38bdf8">' + acc + '%</div></div>' +
       '</div>' +
-      '<button onclick="gameInit()" style="margin-top:20px;padding:12px 26px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(16,185,129,0.4)">🔄 다시 하기</button>' +
+      '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">' + nextStageBtn +
+      '<button onclick="gameInit()" style="margin-top:20px;padding:12px 26px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(16,185,129,0.4)">🔄 같은 단계 다시</button></div>' +
     '</div>';
   const fb = document.getElementById('game-feedback');
-  if (fb) fb.innerHTML = '<span style="color:#fbbf24">🏆 10문제 달성!</span>';
+  if (fb) fb.innerHTML = '<span style="color:#fbbf24">🏆 ⭐' + GAME_STAGE + ' 단계 달성!</span>';
 }
 
 // 📚 로그인 학생의 교재/레벨 맞춤 어휘로 교체 (game-vocab.js 동적 로드 — 실패/비로그인 시 기본 어휘 유지)
@@ -10995,6 +11020,7 @@ function _gameRenderBlocked() {
 function gameInit() {
   // 🥭 Phase 48 — 수업 중이면 차단
   if (_gameIsClassActive()) { _gameRenderBlocked(); return; }
+  setGameStage(GAME_STAGE);            // 🎢 난이도 표시 동기화
   _gameState.started = true;
   _gameState.score = 0; _gameState.correct = 0; _gameState.wrong = 0;
   _gameUpdateScore();
@@ -11155,7 +11181,8 @@ window.gameSpeakTarget = function(){ try{ var s=_gameState.current&&_gameState.c
 
 // 🧱 게임 1: 문장 벽돌 — 영어 단어 브릭을 순서대로 클릭해서 문장 완성
 function gameRenderBrick() {
-  const sentence = _GAME_VOCAB[Math.floor(Math.random() * _GAME_VOCAB.length)];
+  const _pool = _stageVocab();   // 🎢 난이도 구간(쉬움→어려움)에서 출제
+  const sentence = _pool[Math.floor(Math.random() * _pool.length)];
   _gameState.current = { sentence, picked: [] };
   const shuffled = _gameShuffle(sentence.words);
   // 교재 문장에 한국어 번역이 없으면 듣기 문제로 전환 (🔊 버튼으로 문장 듣고 순서 조립)
@@ -11224,7 +11251,7 @@ function gameBrickCheck() {
 
 // 🧩 게임 2: 단어 매칭 — 한영 카드 페어 매칭
 function gameRenderMatch() {
-  const pool = _gameShuffle(_GAME_WORDS).slice(0, 6); // 6개 페어 = 12개 카드
+  const pool = _gameShuffle(_stageWords()).slice(0, 6); // 🎢 난이도 구간 단어 · 6개 페어 = 12개 카드
   const cards = [];
   pool.forEach((w, i) => {
     cards.push({ id: 'k' + i, type: 'ko', text: w.ko, pairId: i });
@@ -11297,7 +11324,8 @@ function gameMatchFlip(card) {
 // 🥭 Phase 46 — 게임 3: 🔤 빈칸 채우기 (Fill the Blank)
 //   문장의 한 단어를 빈칸으로 만들고, 4개 옵션 중 정답 클릭
 function gameRenderFill() {
-  const sent = _GAME_VOCAB[Math.floor(Math.random() * _GAME_VOCAB.length)];
+  const _pool = _stageVocab();   // 🎢 난이도 구간(쉬움→어려움)에서 출제
+  const sent = _pool[Math.floor(Math.random() * _pool.length)];
   // 무작위 단어 하나를 빈칸 ___ 으로 (관사·be동사 빼고 의미 단어 우선)
   const meaningfulIdx = sent.words.findIndex(w => w.length > 2 && !['the','is','are','am','was','were','to','on','in','at','of'].includes(w.toLowerCase()));
   const blankIdx = meaningfulIdx >= 0 ? meaningfulIdx : Math.floor(sent.words.length / 2);
@@ -11355,7 +11383,8 @@ function gameFillCheck(picked, btn) {
 // 🥭 Phase 46 — 게임 4: 🎈 풍선 터뜨리기 (Balloon Pop)
 //   한국어 단어 표시 → 영어 풍선 4개가 위에서 아래로 떨어짐 → 정답 클릭
 function gameRenderBalloon() {
-  const word = _GAME_WORDS[Math.floor(Math.random() * _GAME_WORDS.length)];
+  const _pool = _stageWords();   // 🎢 난이도 구간 단어
+  const word = _pool[Math.floor(Math.random() * _pool.length)];
   // 오답 3개
   const wrongs = _gameShuffle(_GAME_WORDS.filter(w => w.en !== word.en)).slice(0, 3);
   const balloons = _gameShuffle([word, ...wrongs]);
@@ -11393,7 +11422,7 @@ function gameRenderBalloon() {
 
   // 풍선 애니메이션 — 매 50ms 마다 top + 1.5px
   let elapsed = 0;
-  const SPEED = 3.5;   // 더 빠르게 떨어짐(난이도↑, 체감되게)
+  const SPEED = 3.5 * (GAME_STAGE_MULT[GAME_STAGE] || 1);   // 🎢 난이도 단계에 따라 낙하 속도 변화
   if (_gameState.balloonTimer) clearInterval(_gameState.balloonTimer);
   _gameState.balloonTimer = setInterval(() => {
     if (_gameState.current.popped) return;

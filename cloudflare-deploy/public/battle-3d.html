@@ -779,7 +779,7 @@
       var _earned=0; try{ var _b=JSON.parse(localStorage.getItem('wf_badges')||'[]'); if(_b.indexOf(state.lesson)<0) _b.push(state.lesson); localStorage.setItem('wf_badges',JSON.stringify(_b)); _earned=_b.length; }catch(e){}
       var stars=state.heroHP>=80?'⭐⭐⭐':(state.heroHP>=40?'⭐⭐':'⭐'); document.getElementById('winStars').textContent=stars;
       var hasNext=state.lesson<LESSONS.length-1;
-      document.getElementById('winMsg').innerHTML='보스를 물리쳤어요! 점수 <b>'+state.score+'</b> · 🏅 모은 배지 <b>'+_earned+'/'+LESSONS.length+'</b><br>'+(hasNext?'다음 레슨의 왕이 기다립니다.':'모든 레슨을 클리어했습니다! 🎉');
+      document.getElementById('winMsg').innerHTML='보스를 물리쳤어요! 점수 <b>'+state.score+'</b> · 🏅 모은 배지 <b>'+_earned+'/'+LESSONS.length+'</b><br>'+(hasNext?'다음 레슨의 왕이 기다립니다. 🎢 답변 시간이 더 짧아져요!':'모든 레슨을 클리어했습니다! 🎉');
       document.getElementById('nextBtn').textContent=hasNext?'다음 레슨 ▶':'처음부터 ↻';
       setTimeout(function(){ overlay('winOverlay',true); },1150);   // 폭발 연출이 보이도록 승리 카드 표시를 약간 지연
       try{ if(window.parent&&window.parent!==window) window.parent.postMessage({type:'mangoi-game-complete',score:state.score},'*'); }catch(e){}
@@ -819,7 +819,14 @@
       }catch(e){}
       if(history.length>1) history.back(); else location.href='/student-games.html';
     };
-    document.getElementById('nextBtn').onclick=function(){ var n=state.lesson<LESSONS.length-1?state.lesson+1:0; rewardHide(); startLesson(n); };
+    document.getElementById('nextBtn').onclick=function(){
+      var n=state.lesson<LESSONS.length-1?state.lesson+1:0;
+      // 🎢 다음 레슨 = 난이도 상승: 답변 제한시간 한 단계 짧게 (최고 5단계, 처음부터 돌면 1로 리셋)
+      speedLvl = (n===0) ? 1 : Math.min(5, speedLvl+1);
+      try{ localStorage.setItem('mangoi_game_speed', String(speedLvl)); }catch(e){}
+      try{ var _sr=document.getElementById('speedRow'); if(_sr) [].forEach.call(_sr.children,function(b){ b.classList.toggle('on', +b.getAttribute('data-spd')===speedLvl); }); }catch(e){}
+      rewardHide(); startLesson(n);
+    };
     document.getElementById('retryBtn').onclick=function(){ rewardHide(); startLesson(state.lesson); };
     document.getElementById('qListen').onclick=function(){ speakCurrent(); };
     document.getElementById('muteBtn').onclick=function(){ muted=!muted; this.textContent=muted?'🔇':'🔊'; if(master) master.gain.value=muted?0:0.9; };

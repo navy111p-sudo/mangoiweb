@@ -278,6 +278,28 @@
   // 🎯 목표: 정답 단어 10개 명중 → 결과 화면 (?goal= 로 조정 가능)
   var GOAL = (function(){ try{ var g=parseInt(new URLSearchParams(location.search).get('goal'),10); return (g>=3&&g<=50)?g:10; }catch(e){ return 10; } })();
   var correctWords = 0;
+  // 🎢 난이도(스테이지) 1~5 — 클리어 시 자동 상승: 속도↑ + 더 긴 문장 출제 (허브와 localStorage 공유)
+  var stageLvl = (function(){
+    try{
+      var q = parseInt(new URLSearchParams(location.search).get('stage'),10);
+      if(q>=1&&q<=5) return q;
+      var v = parseInt(localStorage.getItem('mangoi_game_stage'),10);
+      return (v>=1&&v<=5)?v:1;
+    }catch(e){ return 1; }
+  })();
+  function setStage(st){
+    if(!(st>=1&&st<=5)) st=1;
+    stageLvl = st;
+    try{ localStorage.setItem('mangoi_game_stage', String(st)); }catch(e){}
+  }
+  // 난이도 구간 문장 풀: 단어 수(→길이) 기준 정렬 후 현재 단계 구간에서 출제
+  function stagePool(){
+    var sorted = SENTENCES.slice().sort(function(a,b){ return a.split(' ').length - b.split(' ').length || a.length - b.length; });
+    var n = sorted.length, lo = Math.floor((stageLvl-1)/5*n), hi = Math.ceil(stageLvl/5*n);
+    var need = Math.min(3, n);
+    while(hi-lo < need){ if(lo>0) lo--; if(hi<n) hi++; }
+    return sorted.slice(lo,hi);
+  }
   var DISTRACTORS = ["cat","run","blue","apple","green","quickly","does","happy","jump","red","water","table","want","under","they","big","milk"];
   var FACES = ['👾','👹','👻','🤖','🐲','😈','🦠','👽'];
   var COMBO_WINDOW = 2500;
@@ -487,11 +509,12 @@
   // ===== 라운드 =====
   function startRound(){
     clearMonsters();
-    targetWords = SENTENCES[level % SENTENCES.length].split(' ');
+    var _pool = stagePool();   // 🎢 난이도 구간(짧은 문장→긴 문장)에서 출제
+    targetWords = _pool[level % _pool.length].split(' ');
     currentIndex = 0;
     targetWords.forEach(function(w){ prefetchTTS(w.replace(/[.?!]/g,'')); });          // 원어민 음성 미리받기(즉시 재생)
     prefetchTTS(targetWords.join(' ').replace(/[.?!]/g,''));
-    lvlPill.textContent = '문장 ' + (level+1) + ' · ✅ ' + correctWords + '/' + GOAL;
+    lvlPill.textContent = '⭐' + stageLvl + ' · 문장 ' + (level+1) + ' · ✅ ' + correctWords + '/' + GOAL;
     var pool = DISTRACTORS.filter(function(w){ return targetWords.indexOf(w)<0; });
     shuffle(pool);
     var items = targetWords.map(function(w){ return {word:w,isTarget:true}; })
@@ -602,7 +625,7 @@
   function showCombo(txt){ comboEl.textContent=txt; comboEl.classList.remove('show'); void comboEl.offsetWidth; comboEl.classList.add('show'); }
   function shake(){ gameEl.classList.remove('shake'); void gameEl.offsetWidth; gameEl.classList.add('shake'); setTimeout(function(){ gameEl.classList.remove('shake'); }, 420); }
 
-  function updateHUD(){ scoreVal.textContent=score; try{ lvlPill.textContent='문장 '+(level+1)+' · ✅ '+correctWords+'/'+GOAL; }catch(e){} }
+  function updateHUD(){ scoreVal.textContent=score; try{ lvlPill.textContent='⭐'+stageLvl+' · 문장 '+(level+1)+' · ✅ '+correctWords+'/'+GOAL; }catch(e){} }
   function updateTimer(){ timerVal.textContent=timeLeft; timerBox.classList.toggle('low', timeLeft<=10); }
   function tick(){ if(!running) return; timeLeft--; updateTimer(); if(timeLeft<=0) endGame(); }
 
@@ -630,15 +653,25 @@
     card.innerHTML='<h1>⏰ 시간 종료!</h1><div class="big">'+score+'점</div><div class="best">🏆 최고 '+best+'점</div><button class="btn" id="restartBtn">다시 시작 ↻</button>';
     overlay.style.display='flex'; document.getElementById('restartBtn').addEventListener('click', startGame);
   }
-  // 🎯 정답 단어 10개 명중 달성 → 결과 화면 + 허브에 점수 전달
+  // 🎯 정답 단어 10개 명중 달성 → 결과 화면(난이도 단계 클리어) + 허브에 점수 전달
   function winGame(){
     running=false; clearInterval(timerId); cancelAnimationFrame(rafId); clearMonsters(); if(synth) synth.cancel();
     var best=+(localStorage.getItem('ess_best')||0); if(score>best){ best=score; localStorage.setItem('ess_best',best); }
     try{ if(window.parent && window.parent!==window) window.parent.postMessage({type:'mangoi-game-complete', score:score, reason:'goal'}, '*'); }catch(e){}
-    card.innerHTML='<h1>🏆 '+GOAL+'개 명중 완료!</h1><div class="big">'+score+'점</div>'
+    var nextBtn = stageLvl < 5
+      ? '<button class="btn" id="nextStageBtn" style="background:linear-gradient(135deg,#f43f5e,#be123c);color:#fff">🔥 다음 난이도 ⭐'+(stageLvl+1)+' 도전!</button>'
+      : '<button class="btn" id="nextStageBtn" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff">👑 전 단계 클리어! ⭐1부터</button>';
+    card.innerHTML='<h1>🏆 난이도 ⭐'+stageLvl+' 클리어!</h1><div class="big">'+score+'점</div>'
       +'<div class="best">✅ 정답 '+correctWords+'개 · 🏆 최고 '+best+'점</div>'
-      +'<button class="btn" id="restartBtn">다시 시작 ↻</button>';
-    overlay.style.display='flex'; document.getElementById('restartBtn').addEventListener('click', startGame);
+      +nextBtn
+      +'<button class="btn" id="restartBtn" style="margin-top:8px">같은 단계 다시 ↻</button>';
+    overlay.style.display='flex';
+    document.getElementById('restartBtn').addEventListener('click', startGame);
+    document.getElementById('nextStageBtn').addEventListener('click', function(){
+      setStage(stageLvl < 5 ? stageLvl+1 : 1);
+      setSpeed(stageLvl);        // 🎢 난이도 = 속도 단계 연동 (몬스터 더 빨라짐)
+      startGame();
+    });
   }
 
   // ===== 무기 전환 =====
