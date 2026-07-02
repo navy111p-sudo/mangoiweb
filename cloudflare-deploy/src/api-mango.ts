@@ -4082,48 +4082,57 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
 
       // 각 학생의 마지막 paid 결제 + 미납일수 계산
       const _sw = await studentScopeWhere(env, request, 's');  // 🔒 지사/대리점 격리
-      const rs = await env.DB.prepare(
-        `SELECT s.user_id, s.name AS student_name, s.parent_phone, s.phone AS student_phone,
-                (SELECT MAX(paid_at) FROM student_payments WHERE user_id = s.user_id AND status='paid') AS last_paid_at,
-                (SELECT amount_krw FROM student_payments WHERE user_id = s.user_id AND status='paid' ORDER BY paid_at DESC LIMIT 1) AS last_amount
+      // 🥭 fix(2026-07): 스키마에 s.name 없어 항상 에러였던 것 + 2.9만 학생 규모 대응.
+      //   기존: 학생당 상관 서브쿼리 → 수억 행 read 로 D1 한도 초과 실패.
+      //   개선: student_payments 를 user_id 인덱스로 1회 GROUP BY 집계(결제자만) 후
+      //         students_erp 와 매칭. 상세 리스트는 성능/응답크기 위해 카테고리별 500건 캡,
+      //         summary 카운트는 정확값. (결제자 ~수천명이라 overdue/up_to_date 는 전량)
+      const CAP = 500;
+      const activeWhere = `(s.status IN ('정상','활동','active') OR s.status IS NULL OR s.status = '')${_sw.cond ? ' AND ' + _sw.cond : ''}`;
+      // 활동 학생 총수
+      const totalActiveRow = await env.DB.prepare(
+        `SELECT COUNT(*) AS c FROM students_erp s WHERE ${activeWhere}`
+      ).bind(..._sw.binds).first<any>().catch(() => ({ c: 0 }));
+      const totalActive = totalActiveRow?.c || 0;
+      // 결제 이력 있는 활동 학생(마지막 결제일 + 마지막 금액) — 인덱스 GROUP BY
+      const paidRs = await env.DB.prepare(
+        `SELECT s.user_id,
+                COALESCE(s.korean_name, s.student_name, s.username, s.user_id) AS student_name,
+                s.parent_phone, s.student_phone,
+                MAX(p.paid_at) AS last_paid_at
            FROM students_erp s
-          WHERE (s.status = '정상' OR s.status = '활동' OR s.status IS NULL OR s.status = '')${_sw.cond ? ' AND ' + _sw.cond : ''}
-          ORDER BY s.name`
-      ).bind(..._sw.binds).all().catch(() => ({ results: [] } as any));
+           JOIN student_payments p ON p.user_id = s.user_id AND p.status = 'paid'
+          WHERE ${activeWhere}
+          GROUP BY s.user_id`
+      ).bind(..._sw.binds).all<any>().catch(() => ({ results: [] } as any));
       const overdue: any[] = [];
       const upToDate: any[] = [];
-      const neverPaid: any[] = [];
-      for (const r of (rs.results || [])) {
-        const row: any = r;
-        if (!row.last_paid_at) {
-          neverPaid.push({
-            ...row,
-            days_overdue: null,
-            amount_krw: defaultMonthlyFee,
-          });
-        } else if (row.last_paid_at < cutoff) {
-          const daysOverdue = Math.floor((now - row.last_paid_at) / (86400*1000)) - graceDays;
-          overdue.push({
-            ...row,
-            days_overdue: daysOverdue,
-            amount_krw: row.last_amount || defaultMonthlyFee,
-          });
+      let paidCount = 0;
+      for (const row of (paidRs.results || [])) {
+        paidCount++;
+        if (row.last_paid_at < cutoff) {
+          const daysOverdue = Math.floor((now - row.last_paid_at) / (86400 * 1000)) - graceDays;
+          if (overdue.length < CAP) overdue.push({ ...row, days_overdue: daysOverdue, amount_krw: defaultMonthlyFee });
         } else {
-          upToDate.push({
-            ...row,
-            days_overdue: 0,
-          });
+          if (upToDate.length < CAP) upToDate.push({ ...row, days_overdue: 0 });
         }
       }
+      // 미결제 = 활동학생 - 결제이력학생. 상세는 표시하지 않음(대규모라 카운트만).
+      const neverPaidCount = Math.max(0, totalActive - paidCount);
+      const overdueCount = (paidRs.results || []).filter((r: any) => r.last_paid_at < cutoff).length;
+      const upToDateCount = paidCount - overdueCount;
       return json({
         ok: true,
         grace_days: graceDays,
         default_fee: defaultMonthlyFee,
-        overdue, never_paid: neverPaid, up_to_date: upToDate,
+        overdue, never_paid: [], up_to_date: upToDate,
+        capped: CAP,
         summary: {
-          total_overdue: overdue.length,
-          total_never_paid: neverPaid.length,
-          total_up_to_date: upToDate.length,
+          total_active: totalActive,
+          total_paid_students: paidCount,
+          total_overdue: overdueCount,
+          total_never_paid: neverPaidCount,
+          total_up_to_date: upToDateCount,
         }
       });
     }
@@ -7981,6 +7990,64 @@ Respond in JSON ONLY:
          LIMIT ?`
       ).bind(..._sfList.binds, lim).all();
       return json({ ok: true, items: rs.results || [] });
+    }
+
+    // 👨‍🎓 카페24 학생 이관 — Neo4j (:Student) → D1 students_erp 일괄 복사
+    //   GET /api/admin/students/import-cafe24?offset=0&limit=5000  (관리자 전용)
+    //   결제 이관과 동일한 클라우드↔클라우드 방식(개인정보 로컬 미경유).
+    //   페이지네이션(offset/limit)으로 대량(2.9만) 분할 적재. 멱등: created_at 센티넬로 재삽입.
+    //   이관되면 students_erp JOIN 하는 미납관리·회계·학생상세가 실데이터로 동작.
+    if (method === 'GET' && path === '/api/admin/students/import-cafe24') {
+      const CAFE24_SENTINEL = 1751500000000;  // 이 배치 식별용 created_at 고정값
+      const off = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10));
+      const lim = Math.max(1, Math.min(5000, parseInt(url.searchParams.get('limit') || '5000', 10)));
+      try {
+        // 스키마 보장 + 누락 컬럼 보강 (erp-list 와 동일 셋)
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (id INTEGER PRIMARY KEY AUTOINCREMENT, student_id TEXT, username TEXT, login_id TEXT, payment_type TEXT, end_date TEXT, signup_date TEXT, classes_per_week INTEGER, points INTEGER DEFAULT 0, student_phone TEXT, parent_phone TEXT, teacher_phone TEXT, shop_name TEXT, hq_name TEXT, branch1_name TEXT, branch2_name TEXT, franchise TEXT, status TEXT DEFAULT '정상', created_at INTEGER, updated_at INTEGER, korean_name TEXT, english_name TEXT, user_id TEXT, grade TEXT, school TEXT, level TEXT);`);
+        for (const [c, t] of [['korean_name','TEXT'],['user_id','TEXT'],['grade','TEXT'],['school','TEXT'],['status','TEXT'],['signup_date','TEXT'],['end_date','TEXT'],['shop_name','TEXT'],['parent_phone','TEXT']] as [string,string][]) {
+          try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN ${c} ${t}`); } catch {}
+        }
+        // 첫 페이지(offset 0)에서만 이전 cafe24 배치 제거 → 멱등
+        if (off === 0) {
+          await env.DB.prepare(`DELETE FROM students_erp WHERE created_at = ?`).bind(CAFE24_SENTINEL).run();
+        }
+        const { fields, values } = await runCypher(
+          env,
+          `MATCH (s:Student)
+           RETURN coalesce(s.student_id, s.user_id) AS user_id,
+                  coalesce(s.name, s.student_id) AS korean_name,
+                  s.grade AS grade, s.school AS school,
+                  coalesce(s.status,'active') AS status,
+                  s.signup_date AS signup_date, s.end_date AS end_date,
+                  s.shop_name AS shop_name, s.parent_name AS parent_name
+           ORDER BY user_id SKIP $off LIMIT $lim`,
+          { off, lim }, 'READ',
+        );
+        const col: Record<string, number> = Object.fromEntries(fields.map((f, i) => [f, i]));
+        // user_id 가 PK 인 스키마 변형 대비 — OR REPLACE 로 중복(페이지경계·기존행) 멱등 처리
+        const ins = env.DB.prepare(
+          `INSERT OR REPLACE INTO students_erp (user_id, student_id, login_id, username, korean_name, grade, school, status, signup_date, end_date, shop_name, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        );
+        let imported = 0;
+        for (let i = 0; i < values.length; i += 400) {
+          const batch = values.slice(i, i + 400).map(r => {
+            const uid = String(r[col.user_id] ?? '');
+            const kname = r[col.korean_name] || uid;
+            return ins.bind(uid, uid, uid, kname, kname, r[col.grade] || null, r[col.school] || null,
+              r[col.status] || 'active', r[col.signup_date] || null, r[col.end_date] || null,
+              r[col.shop_name] || null, CAFE24_SENTINEL, CAFE24_SENTINEL);
+          });
+          if (batch.length) { await env.DB.batch(batch); imported += batch.length; }
+        }
+        const totalNow = await env.DB.prepare(`SELECT COUNT(*) AS c FROM students_erp WHERE created_at = ?`).bind(CAFE24_SENTINEL).first<any>();
+        const done = values.length < lim;
+        return json({ ok: true, imported_this_page: imported, offset: off, next_offset: done ? null : off + lim, done, d1_cafe24_total: totalNow?.c || 0 });
+      } catch (e: any) {
+        if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
+        console.warn('[students/import-cafe24] 실패:', e?.message || e);
+        return json({ ok: false, code: 'IMPORT_FAILED', error: String(e?.message || e) }, 502);
+      }
     }
 
     // 🕸️ 그래프 학생 명부 — Neo4j 실데이터 조회 (자체 호스팅 bolt 서버/Aura 공용)
