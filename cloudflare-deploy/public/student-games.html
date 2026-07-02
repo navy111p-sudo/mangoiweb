@@ -78,6 +78,14 @@
   .game-iframewrap #game-area{padding:0}
   .brick-btn:hover{transform:scale(1.05)}
   .match-card:hover{transform:scale(1.04)}
+  /* ===== ⚡ 게임 속도(난이도) 5단계 선택 ===== */
+  .speed-pick{display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap}
+  .speed-pick .slab{font-size:11px;color:var(--sub);font-weight:700}
+  .speed-pick .sp{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--sub);
+    border-radius:999px;padding:5px 11px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit;transition:.15s}
+  .speed-pick .sp.on{background:rgba(16,185,129,.25);border-color:var(--emerald);color:#bbf7d0;box-shadow:0 0 0 1px var(--emerald) inset}
+  .speed-pick .sp:active{transform:scale(.95)}
+  @media (max-width:560px),(max-height:560px){ .speed-pick .sp{padding:4px 8px;font-size:10.5px} .speed-pick .slab{display:none} }
   /* ===== 좁거나(세로폰) 낮은(가로폰) 화면: 상단바 컴팩트 + 패딩 축소 → 인라인 게임 최대 확대 ===== */
   @media (max-width:560px),(max-height:560px){
     .game-topbar{padding:6px 12px;gap:8px}
@@ -100,6 +108,8 @@
       <div class="sub">재미있는 게임을 통해 오늘 배운 단어·문장을 다시 예복습해요!<br>원하는 게임을 눌러 바로 플레이하세요.</div>
       <!-- 🔥 학습 불꽃 배지: 게임 하나라도 정답/클리어하면 오늘 달성으로 켜진다 -->
       <div id="streak-badge-hub" style="margin-top:14px"></div>
+      <!-- ⚡ 게임 속도(난이도) 5단계 — 모든 게임에 공통 적용 -->
+      <div class="speed-pick" id="speed-pick-hub" style="margin-top:14px"></div>
     </div>
     <div class="game-grid" id="game-grid"><!-- JS 렌더 --></div>
   </div>
@@ -111,12 +121,15 @@
       <span class="gname" id="hub-gname">게임</span>
       <!-- 게임 중에도 작게 불꽃 상태 노출 -->
       <span id="streak-badge-game" style="margin-left:8px"></span>
+      <!-- ⚡ 게임 중 속도(난이도) 변경 — 인라인 게임은 다음 라운드부터, iframe 게임은 재시작 적용 -->
+      <span class="speed-pick" id="speed-pick-game" style="margin-left:8px"></span>
       <button class="next" id="hub-next" onclick="gameNextRound()">🔄 다음 문제</button>
     </div>
     <div class="game-scorebar" id="hub-scorebar">
       <span>🏆 점수: <b id="game-score" style="color:var(--gold)">0</b></span>
       <span>✅ 정답: <b id="game-correct" style="color:var(--emerald)">0</b></span>
       <span>❌ 오답: <b id="game-wrong" style="color:var(--bad)">0</b></span>
+      <span id="game-timer-wrap" style="display:none">⏱ <b id="game-timer" style="color:#7fd1ff">0</b>초</span>
       <span id="game-feedback" style="margin-left:auto;font-weight:700">&nbsp;</span>
     </div>
     <div id="game-area"><!-- 게임 본체 --></div>
@@ -144,7 +157,85 @@ const _GAME_WORDS = [
   { en:'school', ko:'학교' }, { en:'water', ko:'물' }, { en:'sun', ko:'태양' },
   { en:'moon', ko:'달' }, { en:'star', ko:'별' }, { en:'love', ko:'사랑' }
 ];
-const _gameState = { mode: 'brick', score: 0, correct: 0, wrong: 0, current: null, started: false, balloonTimer: null };
+const _gameState = { mode: 'brick', score: 0, correct: 0, wrong: 0, current: null, started: false, balloonTimer: null, roundTimer: null };
+
+/* ============================================================
+   ⚡ 게임 속도(난이도) 5단계 — 모든 게임 공통
+   · localStorage('mangoi_game_speed') 에 저장, iframe 게임엔 ?speed=1..5 로 전달
+   · 인라인: 벽돌/빈칸/매칭 = 라운드 제한시간, 풍선 = 낙하 속도
+   ============================================================ */
+const SPEED_LEVELS = [
+  { lvl:1, ico:'🐢', name:'아주 천천히', mult:0.5  },
+  { lvl:2, ico:'🚶', name:'천천히',     mult:0.75 },
+  { lvl:3, ico:'🙂', name:'보통',       mult:1    },
+  { lvl:4, ico:'🏃', name:'빨리',       mult:1.4  },
+  { lvl:5, ico:'🚀', name:'아주 빨리',  mult:1.9  }
+];
+var _speedLvl = (function(){ try{ var v=parseInt(localStorage.getItem('mangoi_game_speed'),10); return (v>=1&&v<=5)?v:3; }catch(_){ return 3; } })();
+function _speedMult(){ return SPEED_LEVELS[_speedLvl-1].mult; }
+// 라운드 제한시간(초) — 보통(🙂) 기준. 속도 빠를수록 시간 짧아짐(난이도↑)
+const ROUND_TIME = { brick:50, fill:25, match:80 };
+
+function renderSpeedPicks(){
+  ['speed-pick-hub','speed-pick-game'].forEach(function(id){
+    var el = document.getElementById(id); if(!el) return;
+    var compact = (id==='speed-pick-game');
+    el.innerHTML = (compact?'':'<span class="slab">⚡ 게임 속도</span>')
+      + SPEED_LEVELS.map(function(s){
+        return '<button class="sp'+(s.lvl===_speedLvl?' on':'')+'" onclick="setGameSpeed('+s.lvl+')" title="'+s.name+'">'
+          + s.ico + (compact?'':' '+s.name) + '</button>';
+      }).join('');
+  });
+}
+function setGameSpeed(lvl){
+  if(!(lvl>=1&&lvl<=5)) lvl=3;
+  _speedLvl = lvl;
+  try{ localStorage.setItem('mangoi_game_speed', String(lvl)); }catch(_){}
+  renderSpeedPicks();
+  // 게임 중이면 즉시 반영: iframe 게임은 새 속도로 재시작, 인라인은 새 라운드부터
+  var gameOpen = document.getElementById('hub-game').classList.contains('active');
+  if(!gameOpen) return;
+  var g = _hubGame(_gameState.mode); if(!g) return;
+  if(g.kind === 'iframe'){
+    document.getElementById('game-area').innerHTML =
+      '<iframe src="'+_hubIframeSrc(g)+'" allow="microphone; autoplay; speaker-selection"></iframe>';
+  } else if(_gameState.started){
+    gameNextRound();
+  }
+}
+// iframe 게임 src 에 속도 파라미터 부착
+function _hubIframeSrc(g){
+  var sentence = _GAME_VOCAB[Math.floor(Math.random()*_GAME_VOCAB.length)].en;
+  var src = g.src(sentence);
+  return src + (src.indexOf('?')>=0?'&':'?') + 'speed=' + _speedLvl;
+}
+
+/* ── 라운드 제한시간 타이머 (벽돌/빈칸/매칭) ── */
+function _stopRoundTimer(){
+  if(_gameState.roundTimer){ clearInterval(_gameState.roundTimer); _gameState.roundTimer = null; }
+}
+function _startRoundTimer(){
+  _stopRoundTimer();
+  var wrap = document.getElementById('game-timer-wrap');
+  var base = ROUND_TIME[_gameState.mode];
+  if(!base){ if(wrap) wrap.style.display='none'; return; }   // 풍선 등: 시간제한 없음(낙하속도가 난이도)
+  var secs = Math.max(5, Math.round(base / _speedMult()));
+  var tEl = document.getElementById('game-timer');
+  if(wrap) wrap.style.display='inline';
+  if(tEl) tEl.textContent = secs;
+  _gameState.roundTimer = setInterval(function(){
+    secs--;
+    if(tEl) tEl.textContent = Math.max(0,secs);
+    if(tEl) tEl.style.color = secs<=5 ? 'var(--bad)' : '#7fd1ff';
+    if(secs<=0){
+      _stopRoundTimer();
+      _gameState.wrong++; _gameUpdateScore();
+      var fb=document.getElementById('game-feedback');
+      if(fb) fb.innerHTML='<span style="color:#ef4444">⏰ 시간 초과! 다음 문제로…</span>';
+      setTimeout(gameNextRound, 1500);
+    }
+  }, 1000);
+}
 
 // 8개 게임 정의 — kind: 'inline' (이 페이지 내 렌더) | 'iframe'
 const HUB_GAMES = [
@@ -191,9 +282,8 @@ function hubOpenGame(mode){
     hubGameEl.classList.add('game-iframewrap');
     document.getElementById('hub-scorebar').style.display = 'none';
     document.getElementById('hub-next').style.display = 'none';
-    var sentence = _GAME_VOCAB[Math.floor(Math.random()*_GAME_VOCAB.length)].en;
     document.getElementById('game-area').innerHTML =
-      '<iframe src="'+g.src(sentence)+'" allow="microphone; autoplay; speaker-selection"></iframe>';
+      '<iframe src="'+_hubIframeSrc(g)+'" allow="microphone; autoplay; speaker-selection"></iframe>';
   } else {
     // 인라인 미니게임 — 점수바/다음버튼 표시 후 시작
     hubGameEl.classList.remove('game-iframewrap');
@@ -206,6 +296,7 @@ function hubOpenGame(mode){
 function hubBackToMenu(){
   // 진행 중이던 타이머/음성 정리
   if(_gameState.balloonTimer){ clearInterval(_gameState.balloonTimer); _gameState.balloonTimer = null; }
+  _stopRoundTimer();
   try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(_){}
   document.getElementById('game-area').innerHTML = '';
   document.getElementById('hub-game').classList.remove('active');
@@ -230,6 +321,7 @@ function gameNextRound(){
   else if (_gameState.mode === 'match') gameRenderMatch();
   else if (_gameState.mode === 'fill')  gameRenderFill();
   else if (_gameState.mode === 'balloon') gameRenderBalloon();
+  _startRoundTimer();   // ⚡ 속도(난이도)에 따른 라운드 제한시간 시작 (해당 게임만)
 }
 
 /* ============================================================
@@ -333,6 +425,7 @@ function gameBrickCheck(){
                   picked.every((w, i) => w === sent.words[i]);
   const fb = document.getElementById('game-feedback');
   if (correct){
+    _stopRoundTimer();
     _gameState.score += 10; _gameState.correct++;
     try{ window.MangoiStreak && MangoiStreak.complete('brick'); }catch(_){}  // 🔥 오늘 학습 달성
     fb.innerHTML = '<span style="color:#10b981">✅ 정답! +10점</span>';
@@ -397,6 +490,7 @@ function gameMatchFlip(card){
         if (remEl) remEl.textContent = (total - _gameState.current.matched.size);
         document.getElementById('game-feedback').innerHTML = '<span style="color:#10b981">✅ 매치! +5점</span>';
         if (_gameState.current.matched.size === total){
+          _stopRoundTimer();
           document.getElementById('game-feedback').innerHTML = '<span style="color:#fbbf24">🏆 완료! 다음 게임으로...</span>';
           setTimeout(gameNextRound, 2000);
         }
@@ -452,6 +546,7 @@ function gameFillCheck(picked, btn){
   const correct = picked.toLowerCase() === _gameState.current.answer.toLowerCase();
   const fb = document.getElementById('game-feedback');
   if (correct){
+    _stopRoundTimer();
     btn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
     btn.style.transform = 'scale(1.05)';
     _gameState.score += 8; _gameState.correct++;
@@ -509,7 +604,7 @@ function gameRenderBalloon(){
   document.getElementById('game-area').innerHTML = html;
 
   let elapsed = 0;
-  const SPEED = 3.5;   // 더 빠르게 떨어짐(난이도↑, 체감되게)
+  const SPEED = 3.5 * _speedMult();   // ⚡ 속도(난이도) 5단계에 따라 낙하 속도 변화
   if (_gameState.balloonTimer) clearInterval(_gameState.balloonTimer);
   _gameState.balloonTimer = setInterval(() => {
     if (_gameState.current.popped) return;
@@ -612,6 +707,7 @@ function gameBalloonPop(bl){
 window.addEventListener('message', function (ev){
   const d = ev && ev.data;
   if (!d || typeof d !== 'object' || !d.type) return;
+  if (d.type === 'mangoi-game-back'){ hubBackToMenu(); return; }   // ← 게임 내부 뒤로가기 버튼
   if (d.type === 'mangoi-game-complete'){
     _gameState.score += (d.score || 0);
     _gameState.correct += 1;
@@ -625,6 +721,7 @@ document.addEventListener('keydown', function(e){
 });
 
 hubRenderMenu();
+renderSpeedPicks();   // ⚡ 속도(난이도) 선택 UI (허브 헤더 + 게임 상단바)
 
 /* ── 🔥 학습 불꽃 배지 부착(허브 헤더 + 게임 중 컴팩트) ──
    streak.js 가 로드되면 두 곳에 배지를 그리고, complete() 호출 시 자동 갱신된다. */
@@ -641,6 +738,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 // streak.js(defer) 로드 이후 배지를 확실히 부착
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
-<!-- BUILD:20260629182258 gamesbig1 responsive1 streak1 -->
+<!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
+<!-- BUILD:20260702140957 -->
 </body>
 </html>

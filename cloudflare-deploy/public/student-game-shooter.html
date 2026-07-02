@@ -185,6 +185,7 @@
 <body>
 <div id="game">
   <div class="hud">
+    <button class="gunbtn" id="backBtn" title="뒤로 가기">←</button>
     <div class="stat"><span class="lab">점수</span><span class="val" id="scoreVal">0</span></div>
     <span class="lvlpill" id="lvlPill">문장 1</span>
     <button class="gunbtn" id="gunBtn" title="무기 바꾸기">🔫</button>
@@ -217,6 +218,8 @@
         • 오답(순서 틀림) → <b>−50점</b> & 안 터짐<br>
         • 빠른 연속 정답 → <b>콤보!</b> · 제한시간 <b>60초</b>
       </div>
+      <div class="gunlabel">⚡ 게임 속도 (5단계 난이도)</div>
+      <div class="gunpick" id="speedPicker"></div>
       <div class="gunlabel">🔫 무기 선택 (게임 중에도 상단 버튼으로 변경 가능)</div>
       <div class="gunpick" id="gunPicker"></div>
       <button class="btn" id="startBtn">게임 시작 ▶</button>
@@ -278,6 +281,41 @@
     {id:'flame',   name:'화염방사',icon:'🔥'}
   ];
   var curGun = localStorage.getItem('ess_gun') || 'pistol';
+
+  // ⚡ 게임 속도(난이도) 5단계 — ?speed=1..5 (허브 전달) > localStorage > 보통(3)
+  var SPEED_LEVELS = [
+    { lvl:1, ico:'🐢', name:'아주 천천히', mult:0.5  },
+    { lvl:2, ico:'🚶', name:'천천히',     mult:0.75 },
+    { lvl:3, ico:'🙂', name:'보통',       mult:1    },
+    { lvl:4, ico:'🏃', name:'빨리',       mult:1.4  },
+    { lvl:5, ico:'🚀', name:'아주 빨리',  mult:1.9  }
+  ];
+  var speedLvl = (function(){
+    try{
+      var q = parseInt(new URLSearchParams(location.search).get('speed'),10);
+      if(q>=1&&q<=5) return q;
+      var v = parseInt(localStorage.getItem('mangoi_game_speed'),10);
+      return (v>=1&&v<=5)?v:3;
+    }catch(e){ return 3; }
+  })();
+  function spdMult(){ return SPEED_LEVELS[speedLvl-1].mult; }
+  function setSpeed(l){
+    if(!(l>=1&&l<=5)) l=3;
+    speedLvl=l; try{ localStorage.setItem('mangoi_game_speed',String(l)); }catch(e){}
+    var picker=document.getElementById('speedPicker');
+    if(picker) [].forEach.call(picker.children, function(b){ b.classList.toggle('sel', +b.getAttribute('data-spd')===l); });
+    monsters.forEach(function(m){ m.vy = rand(7,20)*spdMult(); });   // 진행 중 몬스터에도 즉시 반영
+  }
+  function buildSpeedPicker(){
+    var picker=document.getElementById('speedPicker'); if(!picker) return;
+    picker.innerHTML='';
+    SPEED_LEVELS.forEach(function(s){
+      var b=document.createElement('button'); b.className='gp'; b.setAttribute('data-spd',s.lvl);
+      b.innerHTML='<span class="ic">'+s.ico+'</span><span class="nm">'+s.name+'</span>';
+      b.addEventListener('click', function(){ setSpeed(s.lvl); });
+      picker.appendChild(b);
+    });
+  }
 
   var score=0, timeLeft=60, combo=0, level=0, currentIndex=0;
   var targetWords=[], monsters=[], running=false, lastHit=0, lastTs=0, rafId=null, timerId=null;
@@ -453,7 +491,7 @@
     el.className='monster'+(isTarget?'':' distractor');
     el.innerHTML='<span class="face">'+FACES[Math.floor(Math.random()*FACES.length)]+'</span><span class="word">'+word+'</span>';
     var fw=field.clientWidth, fh=field.clientHeight;
-    var m={ el:el, word:word, isTarget:isTarget, x:rand(8,Math.max(40,fw-86)), y:rand(6,Math.max(40,fh*0.30)), vy:rand(7,20) };
+    var m={ el:el, word:word, isTarget:isTarget, x:rand(8,Math.max(40,fw-86)), y:rand(6,Math.max(40,fh*0.30)), vy:rand(7,20)*spdMult() };   // ⚡ 속도(난이도) 반영
     el.style.left=m.x+'px'; el.style.top=m.y+'px';
     el.style.animationDuration=rand(1.4,3).toFixed(2)+'s'; el.style.animationDelay=(-rand(0,2)).toFixed(2)+'s';
     el.addEventListener('click', function(){ fireAt(m); });
@@ -602,6 +640,15 @@
     setGun(GUNS[(i+1)%GUNS.length].id);
   });
   buildGunPicker(); setGun(curGun);
+  buildSpeedPicker(); setSpeed(speedLvl);
+
+  // ← 뒤로가기: 허브(iframe) 안이면 부모에 알리고, 단독 실행이면 게임 목록으로
+  document.getElementById('backBtn').addEventListener('click', function(){
+    try{
+      if(window.parent && window.parent!==window){ window.parent.postMessage({type:'mangoi-game-back'},'*'); return; }
+    }catch(e){}
+    if(history.length>1) history.back(); else location.href='/student-games.html';
+  });
 
   document.getElementById('startBtn').addEventListener('click', startGame);
   document.getElementById('listenBtn').addEventListener('click', function(){ if(running) speakSentence(); });
@@ -620,6 +667,7 @@
   window.addEventListener('resize', function(){ var w=field.clientWidth; monsters.forEach(function(m){ if(m.x>w-66){ m.x=Math.max(8,w-86); m.el.style.left=m.x+'px'; } }); });
 })();
 </script>
-<!-- BUILD:20260629182258 gamesbig1 responsive1 -->
+<!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 -->
+<!-- BUILD:20260702140957 -->
 </body>
 </html>

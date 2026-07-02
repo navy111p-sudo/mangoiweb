@@ -66,6 +66,11 @@
   .game-btn.fish{background:linear-gradient(180deg,rgba(16,185,129,.22),rgba(15,23,42,.4))}
   .game-btn.fish:hover{border-color:var(--emerald)}
   .voice-warn{font-size:11px;color:#fca5a5;margin-top:14px;min-height:14px}
+  /* ← 메뉴 화면 뒤로가기(허브로) */
+  #backHub{background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:9px;color:var(--tx);cursor:pointer;font-family:inherit}
+  #backHub:active{transform:scale(.95)}
+  /* ⚡ 속도 5단계 버튼(diff-pick 재사용, 5개라 좁게) */
+  #speedPick .diffs button{font-size:11.5px;padding:8px 4px;min-width:0}
 
   /* ===================== HUD (공유) ===================== */
   .hud{position:relative;z-index:20;display:flex;align-items:center;gap:10px;padding:9px 13px;
@@ -173,8 +178,8 @@
   .bubble{position:absolute;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.6),rgba(180,235,255,.08));
     border:1px solid rgba(255,255,255,.2);pointer-events:none;z-index:2;animation:rise linear infinite}
   @keyframes rise{from{transform:translateY(0)}to{transform:translateY(-100vh)}}
-  .fish{position:absolute;display:flex;flex-direction:column;align-items:center;gap:1px;border:none;background:none;
-    cursor:pointer;font-family:inherit;will-change:transform;z-index:5;padding:2px}
+  #fish .fish{position:absolute;display:flex;flex-direction:column;align-items:center;gap:1px;border:none;background:none;
+    cursor:pointer;font-family:inherit;will-change:transform;z-index:5;padding:2px}   /* #fish 스코프: 메뉴의 .game-btn.fish 오염 방지 */
   .fish .face{font-size:30px;line-height:1;filter:drop-shadow(0 3px 5px rgba(0,0,0,.45))}
   .fish.flip .face{transform:scaleX(-1)}
   .fish .word{font-size:14px;font-weight:800;color:#06223a;background:#fde68a;border:2px solid #fbbf24;
@@ -329,6 +334,7 @@
 
   <!-- ===================== 메뉴 ===================== -->
   <section class="scene active" id="menu">
+    <button class="home" id="backHub" style="position:absolute;top:10px;left:10px;z-index:5;font-size:13px;font-weight:700;padding:7px 13px">← 뒤로</button>
     <div class="menu-card">
       <div class="brand">MANGOI · ENGLISH MASTERY</div>
       <h1>영어 마스터리 <span class="em">학습 게임</span> 🎮</h1>
@@ -347,6 +353,11 @@
           <button data-diff="normal" class="on">🐟 보통</button>
           <button data-diff="hard">🦈 어려움</button>
         </div>
+      </div>
+
+      <div class="diff-pick" id="speedPick">
+        <span class="lab">⚡ 게임 속도 (Speed) · 5단계 난이도 · 슈팅/낚시 공통</span>
+        <div class="diffs" id="speedBtns" style="flex-wrap:wrap"></div>
       </div>
 
       <div class="game-grid">
@@ -645,6 +656,26 @@
   var fishDiff = (function(){ try{ var d=localStorage.getItem('ems_diff'); return FISH_DIFFS[d]?d:'normal'; }catch(e){ return 'normal'; } })();
   function fishCfg(){ return FISH_DIFFS[fishDiff] || FISH_DIFFS.normal; }
 
+  /* ── ⚡ 게임 속도(난이도) 5단계 · 슈팅/낚시 공통 ──
+     우선순위: ?speed=1..5 (허브 전달) > localStorage('mangoi_game_speed') > 보통(3)
+     외계인 낙하/물고기 헤엄/상어 속도에 배수 적용 (낚시 3단계 난이도와는 곱연산) */
+  var SPEED_LEVELS = [
+    { lvl:1, ico:'🐢', name:'아주 천천히', mult:0.5  },
+    { lvl:2, ico:'🚶', name:'천천히',     mult:0.75 },
+    { lvl:3, ico:'🙂', name:'보통',       mult:1    },
+    { lvl:4, ico:'🏃', name:'빨리',       mult:1.4  },
+    { lvl:5, ico:'🚀', name:'아주 빨리',  mult:1.9  }
+  ];
+  var speedLvl = (function(){
+    try{
+      var q = parseInt(new URLSearchParams(location.search).get('speed'),10);
+      if(q>=1&&q<=5) return q;
+      var v = parseInt(localStorage.getItem('mangoi_game_speed'),10);
+      return (v>=1&&v<=5)?v:3;
+    }catch(e){ return 3; }
+  })();
+  function spdMult(){ return SPEED_LEVELS[speedLvl-1].mult; }
+
   /* =========================================================================
      2) 토스트
   ========================================================================= */
@@ -853,7 +884,7 @@
       var el=document.createElement('button');
       el.className='monster'+(it.isTarget?'':' distractor');
       el.innerHTML='<span class="face">'+ALIENS[Math.floor(Math.random()*ALIENS.length)]+'</span><span class="word">'+it.word+'</span>';
-      var m={ el:el, word:it.word, isTarget:it.isTarget, x:rand(8,Math.max(40,fw-90)), y:rand(6,Math.max(40,fh*0.32)), vy:rand(7,18) };
+      var m={ el:el, word:it.word, isTarget:it.isTarget, x:rand(8,Math.max(40,fw-90)), y:rand(6,Math.max(40,fh*0.32)), vy:rand(7,18)*spdMult() };   // ⚡ 속도(난이도) 반영
       el.style.left=m.x+'px'; el.style.top=m.y+'px';
       el.style.animationDuration=rand(1.4,3).toFixed(2)+'s'; el.style.animationDelay=(-rand(0,2)).toFixed(2)+'s';
       el.addEventListener('click', function(){ shootFire(m); });
@@ -1004,7 +1035,7 @@
       var sp = fishCfg().speed;
       var f={ el:el, word:it.word, isTarget:it.isTarget,
         x:rand(10,Math.max(50,fw-100)), y:rand(90,Math.max(160,fh-130)),   // 세로 전체로 분산(아래 빈공간 제거)
-        vx:dir*rand(sp[0],sp[1]), vy:rand(-9,9), home:null };
+        vx:dir*rand(sp[0],sp[1])*spdMult(), vy:rand(-9,9)*spdMult(), home:null };   // ⚡ 속도(난이도) 반영
       f.home={x:f.x,y:f.y};
       el.style.left=f.x+'px'; el.style.top=f.y+'px';
       if(dir<0) el.classList.add('flip');
@@ -1114,7 +1145,7 @@
     var fw=FI.field.clientWidth, fh=FI.field.clientHeight;
     var dir=Math.random()<0.5?1:-1;
     var el=document.createElement('div'); el.className='shark'+(dir>0?' flip':''); el.textContent='🦈';
-    var sh={ el:el, x: dir>0? -90 : fw+90, y:rand(120, Math.max(170, fh-150)), vx:dir*rand(130,190) };
+    var sh={ el:el, x: dir>0? -90 : fw+90, y:rand(120, Math.max(170, fh-150)), vx:dir*rand(130,190)*spdMult() };   // ⚡ 속도(난이도) 반영
     el.style.left=sh.x+'px'; el.style.top=sh.y+'px';
     FI.field.appendChild(el); FI.sharks.push(sh);
   }
@@ -1267,6 +1298,33 @@
     paint();
   })();
 
+  /* ----- ⚡ 게임 속도(난이도) 5단계 선택 ----- */
+  (function(){
+    var box=$('#speedBtns'); if(!box) return;
+    function paint(){ $$('button',box).forEach(function(b){ b.classList.toggle('on', +b.getAttribute('data-spd')===speedLvl); }); }
+    SPEED_LEVELS.forEach(function(s){
+      var b=document.createElement('button'); b.setAttribute('data-spd',s.lvl);
+      b.textContent=s.ico+' '+s.name;
+      b.addEventListener('click', function(){
+        speedLvl=s.lvl; try{ localStorage.setItem('mangoi_game_speed',String(s.lvl)); }catch(e){}
+        paint();
+      });
+      box.appendChild(b);
+    });
+    paint();
+  })();
+
+  /* ----- ← 뒤로가기: 허브(iframe) 안이면 부모에 알리고, 단독 실행이면 게임 목록으로 ----- */
+  (function(){
+    var b=$('#backHub'); if(!b) return;
+    b.addEventListener('click', function(){
+      try{
+        if(window.parent && window.parent!==window){ window.parent.postMessage({type:'mangoi-game-back'},'*'); return; }
+      }catch(e){}
+      if(history.length>1) history.back(); else location.href='/student-games.html';
+    });
+  })();
+
   /* ----- 🔊 전체 소리 / 🎵 배경음악 토글 (분리 제어) ----- */
   function paintAudioBtns(){
     var sb=$('#fishSound'), mb=$('#fishMusic');
@@ -1351,6 +1409,7 @@
 
 })();
 </script>
-<!-- BUILD:20260629182258 fishbig1 shootbig1 responsive1 -->
+<!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
+<!-- BUILD:20260702140957 -->
 </body>
 </html>

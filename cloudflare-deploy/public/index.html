@@ -3742,14 +3742,16 @@
   var ccEl   = document.getElementById('mango-intro-cc');
   var langBtn= document.getElementById('mango-intro-lang');
   var INTRO_CC = [
-    { t0:0.00,  t1:2.11,  ko:'안녕하세요, 친구들 그리고 학부모님!', en:'Hello, kids and parents!' },
-    { t0:2.14,  t1:4.17,  ko:'우주에서 가장 신나는 공부 모험,', en:'The most exciting study adventure in the universe—' },
-    { t0:4.21,  t1:6.94,  ko:'망고아이에 오신 것을 진심으로 환영합니다!', en:'a heartfelt welcome to MangoI!' },
-    { t0:7.00,  t1:9.19,  ko:'망고아이에서는 매일매일이 즐겁습니다.', en:'At MangoI, every single day is fun.' },
-    { t0:9.21,  t1:12.10, ko:'똑똑한 AI 친구와 함께 재미있는 게임을 즐기고,', en:'Enjoy fun games with your smart AI friend,' },
-    { t0:12.21, t1:16.51, ko:'팡팡 터지는 퀴즈를 풀다 보면 우리 아이 실력이 마법처럼 쑥쑥 자라납니다.', en:"and as the quizzes pop, your child's skills grow like magic." },
-    { t0:16.71, t1:21.45, ko:'친절한 외국인 선생님과 직접 만나 생생하게 대화하는 화상 수업까지 준비되어 있습니다.', en:'There are even live video lessons to meet friendly foreign teachers and chat face to face.' },
-    { t0:21.71, t1:24.70, ko:'이제 모두 함께 망고 우주선에 탑승해 볼까요?', en:'Now, shall we all board the Mango spaceship together?' }
+    { t0:0.0, t1:2.04, ko:'안녕하세요, 친구들 그리고 학부모님!', en:'Hello, kids and parents!' },
+    { t0:2.04, t1:3.95, ko:'우주에서 가장 신나는 공부 모험,', en:'The most exciting study adventure in the universe—' },
+    { t0:3.95, t1:6.56, ko:'망고아이에 오신 것을 진심으로 환영합니다!', en:'a heartfelt welcome to MangoI!' },
+    { t0:6.56, t1:8.66, ko:'망고아이에서는 매일매일이 즐겁습니다.', en:'At MangoI, every single day is fun.' },
+    { t0:8.66, t1:11.41, ko:'똑똑한 AI 친구와 함께 재미있는 게임을 즐기고,', en:'Enjoy fun games with your smart AI friend,' },
+    { t0:11.41, t1:15.59, ko:'팡팡 터지는 퀴즈를 풀다 보면 우리 아이 실력이 마법처럼 쑥쑥 자라납니다.', en:'and as the quizzes pop, your child\'s skills grow like magic.' },
+    { t0:15.59, t1:20.19, ko:'친절한 외국인 선생님과 직접 만나 생생하게 대화하는 화상 수업까지 준비되어 있습니다.', en:'There are even live video lessons to meet friendly foreign teachers and chat face to face.' },
+    { t0:20.19, t1:22.89, ko:'이제 모두 함께 망고 우주선에 탑승해 볼까요?', en:'Now, shall we all board the Mango spaceship together?' },
+    { t0:22.89, t1:25.23, ko:'지금 바로 화면에 수업 입장 버튼을 꾹 누르시고,', en:'Tap the \'Enter Class\' button on your screen right now,' },
+    { t0:25.23, t1:28.5, ko:'설레는 우주 탐험을 시작해 보세요. 자, 출발합니다!', en:'and begin your thrilling space adventure. Ready — let\'s blast off!' }
   ];
   var capLang = 'ko';
   try { var _cl = localStorage.getItem('mango_intro_caplang'); if (_cl==='en'||_cl==='ko') capLang=_cl; } catch(e){}
@@ -6933,6 +6935,7 @@
                 <button class="tab-btn" onclick="vcSwitchTab('video')" data-ko="📹 동영상" data-en="📹 Video">📹 동영상</button>
                 <button class="tab-btn" onclick="vcSwitchTab('game')" data-ko="🎮 학생게임" data-en="🎮 Game">🎮 학생게임</button>
                 <button class="tab-btn" onclick="vcSwitchTab('bg')" data-ko="🎨 배경화면" data-en="🎨 Background">🎨 배경화면</button>
+                <button class="tab-btn" onclick="vcSwitchTab('warmup')" data-ko="🗣️ AI 웜업" data-en="🗣️ AI Warm-up" title="수업 전 AI 웜업 — 학생 사이드바와 동일 (영어로 입 풀기)">🗣️ AI 웜업</button>
                 <button class="tab-btn rqv-tab-btn" onclick="vcSwitchTab('review-quiz')" data-ko="🧠 복습퀴즈" data-en="🧠 Review Quiz" title="이 수업 교재·레벨·레슨에 맞는 복습퀴즈 (AI 자동 출제)">🧠 복습퀴즈</button>
                 <!-- 복습퀴즈 옆: 교재도구 / 필기도구 토글 칩 (클릭 시 아래로 세로 드롭다운, 배경 투명) -->
                 <button class="mango-tool-chip" data-tool="materials" type="button" onclick="mangoToggleToolDock('materials', this)" title="교재도구 펼치기/접기">📚 교재도구 ▾</button>
@@ -7206,6 +7209,12 @@
               💡 <span data-ko="가상 배경은 모든 참가자에게 적용된 모습으로 보입니다. 카메라가 켜져 있어야 작동합니다." data-en="Virtual background is visible to all participants. Camera must be on.">가상 배경은 모든 참가자에게 적용된 모습으로 보입니다. 카메라가 켜져 있어야 작동합니다.</span>
             </div>
           </div>
+        </div>
+
+        <!-- 🗣️ AI 웜업 탭 (학생 사이드바의 /warmup.html 을 iframe으로 — 탭 첫 진입 시 lazy-load, ?room= 으로 수업방 연동) -->
+        <div class="tab-panel" id="tab-warmup" style="flex-direction:column;background:#0a1530;color:#e6ecff">
+          <iframe id="vc-warmup-frame" title="수업 전 AI 웜업" allow="microphone; autoplay"
+                  style="flex:1;min-height:0;width:100%;border:0;background:#0a1530"></iframe>
         </div>
 
         <!-- 🧠 복습퀴즈 탭 (학생 사이드바와 동일한 퀴즈 + AI 자동 출제) -->
@@ -8615,7 +8624,7 @@ async function vcJoinRoom(skipUI) {
     // 📱 모바일 가로모드 액션 헬퍼들 (안전한 폴백 — 기존 함수가 있으면 그것을 호출)
     window.vcMobileTabSwitch = window.vcMobileTabSwitch || function(name){
       // 기존 탭 시스템 검색해서 클릭 시뮬레이트
-      const map = { whiteboard:'칠판', material:'교재', video:'동영상', pronunciation:'발음연습', game:'학생게임', bg:'배경화면' };
+      const map = { whiteboard:'칠판', material:'교재', video:'동영상', pronunciation:'발음연습', game:'학생게임', bg:'배경화면', warmup:'AI 웜업' };
       const ko = map[name] || name;
       const tabs = document.querySelectorAll('.tab-bar > *, .vc-tab, [data-tab]');
       for (const t of tabs) {
@@ -8880,6 +8889,7 @@ async function vcJoinRoom(skipUI) {
           { icon:'🎬', label:'동영상', onclick:`vcMobileTabSwitch('video')` },
           { icon:'🎲', label:'학생게임', onclick:`vcMobileTabSwitch('game')` },
           { icon:'🎨', label:'배경화면', onclick:`vcMobileTabSwitch('bg')` },
+          { icon:'🗣️', label:'AI 웜업', onclick:`vcMobileTabSwitch('warmup')` },
           { icon:'📝', label:'칠판', onclick:`vcMobileTabSwitch('whiteboard')` },
         ],
       },
@@ -10422,6 +10432,15 @@ function vcSwitchTab(tabName, evt) {
     } catch(e){}
     // 🧠 복습퀴즈 탭 진입 시 자동 로드 (이 수업 교재/레벨/레슨 매칭)
     if (tabName === 'review-quiz' && typeof rqvOnEnter === 'function') rqvOnEnter();
+    // 🗣️ AI 웜업 탭 — 첫 진입 시에만 iframe 로드 (수업방 room id 연동)
+    if (tabName === 'warmup') {
+        const wf = document.getElementById('vc-warmup-frame');
+        if (wf && !wf.getAttribute('src')) {
+            let src = '/warmup.html';
+            try { if (vcRoomId) src += '?room=' + encodeURIComponent(vcRoomId); } catch(e){}
+            wf.src = src;
+        }
+    }
 }
 
 /* ============================================================
@@ -22616,7 +22635,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260629182258 -->
+<!-- BUILD:20260702140957 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
