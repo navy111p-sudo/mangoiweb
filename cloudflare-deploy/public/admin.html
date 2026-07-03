@@ -3785,6 +3785,27 @@
         </div>
       </details>
 
+      <!-- 🆕 카페24 회계 실데이터 (장부·급여·지출·세금·예치금) -->
+      <details class="sub-item" id="sub-c24-finance" ontoggle="if(this.open)c24FinLoad('ledger')">
+        <summary data-ko="🧾 카페24 회계 실데이터 (장부·급여·지출·세금·예치금)" data-en="🧾 Cafe24 Finance (real data)">🧾 카페24 회계 실데이터 (장부·급여·지출·세금·예치금)</summary>
+        <div class="sub-body">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="c24fin-tabs">
+            <button class="c24fin-tab" data-k="ledger" onclick="c24FinLoad('ledger')" style="padding:6px 12px;font-size:12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700">📒 회계장부</button>
+            <button class="c24fin-tab" data-k="payroll" onclick="c24FinLoad('payroll')" style="padding:6px 12px;font-size:12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700">💵 급여명세</button>
+            <button class="c24fin-tab" data-k="expenses" onclick="c24FinLoad('expenses')" style="padding:6px 12px;font-size:12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700">🧾 지출결의</button>
+            <button class="c24fin-tab" data-k="tax" onclick="c24FinLoad('tax')" style="padding:6px 12px;font-size:12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700">🏛 세금계산서</button>
+            <button class="c24fin-tab" data-k="deposits" onclick="c24FinLoad('deposits')" style="padding:6px 12px;font-size:12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700">💳 예치금</button>
+            <span id="c24fin-count" style="font-size:12px;color:#6b7280;align-self:center"></span>
+          </div>
+          <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:auto;max-height:560px">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:720px" id="c24fin-table">
+              <thead id="c24fin-head" style="background:#f9fafb;position:sticky;top:0"></thead>
+              <tbody id="c24fin-body"><tr><td style="padding:24px;text-align:center;color:#9ca3af">탭을 선택하세요</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
       <!-- 8. 회계 전표 -->
       <details class="sub-item">
         <summary data-ko="📒 회계 전표 / 분개장" data-en="📒 Journal Entries">📒 회계 전표 / 분개장</summary>
@@ -4355,6 +4376,51 @@
                 <th style="padding:9px 10px;text-align:center;border-bottom:2px solid #e5e7eb" data-ko="상태" data-en="Status">상태</th>
               </tr></thead>
               <tbody id="tr-rows"><tr><td colspan="8" style="padding:24px;text-align:center;color:#9ca3af">불러오는 중…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
+      <!-- 🧑‍💼 직원 명부 (카페24 실데이터) -->
+      <details class="sub-item" id="sub-staff-roster" ontoggle="if(this.open)loadStaffRoster()">
+        <summary data-ko="🧑‍💼 직원 명부 (실데이터)" data-en="🧑‍💼 Staff Roster (real data)">🧑‍💼 직원 명부 (실데이터)</summary>
+        <div class="sub-body">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+            <input id="sr-q" type="text" placeholder="이름/닉네임 검색" onkeydown="if(event.key==='Enter')loadStaffRoster()" style="padding:7px 12px;font-size:13px;border-radius:8px;border:1px solid #d1d5db;min-width:180px" />
+            <button onclick="loadStaffRoster()" class="primary" style="padding:7px 14px;font-size:12.5px;font-weight:700">🔍 조회</button>
+            <span id="sr-count" style="font-size:12px;color:#6b7280"></span>
+          </div>
+          <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:auto;max-height:520px">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:640px">
+              <thead style="background:#f9fafb;position:sticky;top:0"><tr>
+                <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb">직원</th>
+                <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb">이메일</th>
+                <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb">소개</th>
+                <th style="padding:9px 10px;text-align:center;border-bottom:2px solid #e5e7eb">상태</th>
+              </tr></thead>
+              <tbody id="sr-rows"><tr><td colspan="4" style="padding:24px;text-align:center;color:#9ca3af">불러오는 중…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
+      <!-- 📚 교재 명부 (카페24 실데이터) -->
+      <details class="sub-item" id="sub-book-roster" ontoggle="if(this.open)loadBookRoster()">
+        <summary data-ko="📚 교재 명부 (실데이터)" data-en="📚 Book List (real data)">📚 교재 명부 (실데이터)</summary>
+        <div class="sub-body">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+            <input id="br-q" type="text" placeholder="교재명 검색" onkeydown="if(event.key==='Enter')loadBookRoster()" style="padding:7px 12px;font-size:13px;border-radius:8px;border:1px solid #d1d5db;min-width:180px" />
+            <button onclick="loadBookRoster()" class="primary" style="padding:7px 14px;font-size:12.5px;font-weight:700">🔍 조회</button>
+            <span id="br-count" style="font-size:12px;color:#6b7280"></span>
+          </div>
+          <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:auto;max-height:520px">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:520px">
+              <thead style="background:#f9fafb;position:sticky;top:0"><tr>
+                <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb">교재명</th>
+                <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb">메모</th>
+                <th style="padding:9px 10px;text-align:center;border-bottom:2px solid #e5e7eb">상태</th>
+              </tr></thead>
+              <tbody id="br-rows"><tr><td colspan="3" style="padding:24px;text-align:center;color:#9ca3af">불러오는 중…</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -22217,6 +22283,46 @@ window.rebuildGlobalSearchIndex = function() {
   // ──────────────────────────────────────────────────────────
   // 3. 가맹점 정산
   // ──────────────────────────────────────────────────────────
+  // 🧾 카페24 회계 실데이터 (5종 탭) — Neo4j finance-cafe24
+  window.c24FinLoad = async function(kind){
+    const en = (window.adminLang==='en');
+    const head = document.getElementById('c24fin-head');
+    const body = document.getElementById('c24fin-body');
+    const cnt = document.getElementById('c24fin-count');
+    if (!body) return;
+    document.querySelectorAll('.c24fin-tab').forEach(function(b){ b.style.background = (b.getAttribute('data-k')===kind)?'#f59e0b':'#fff'; b.style.color=(b.getAttribute('data-k')===kind)?'#fff':'#334155'; });
+    const esc = function(s){ return String(s==null?'':s).replace(/[<>&"]/g,function(c){return({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]);}); };
+    const won = function(n){ try{ return '₩'+Number(n||0).toLocaleString('ko-KR'); }catch(e){ return n; } };
+    // 컬럼 정의 (kind별)
+    const COLS = {
+      ledger:   [['date','일자'],['acc_type','구분'],['subject','계정과목'],['money','금액',won],['store','거래처'],['memo','적요'],['month','귀속월']],
+      payroll:  [['user_id','대상'],['month','월'],['base','기본급',won],['total','지급계',won],['deduction','공제계',won],['actual','실지급',won],['work_day','근무일']],
+      expenses: [['reg_date','일자'],['name','제목'],['organ','거래처'],['method','결제'],['content','내용'],['pay_date','지급일']],
+      tax:      [['date','작성일'],['supplier','공급자'],['receiver','공급받는자'],['supply','공급가',won],['tax','세액',won],['total','합계',won],['tax_type','과세']],
+      deposits: [['date','일자'],['center_id','센터ID'],['amount','금액',won],['method','결제']],
+    };
+    const cols = COLS[kind] || COLS.ledger;
+    head.innerHTML = '<tr>'+cols.map(function(c){ return '<th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb">'+esc(c[1])+'</th>'; }).join('')+'</tr>';
+    body.innerHTML = '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#9ca3af">'+(en?'Loading…':'불러오는 중…')+'</td></tr>';
+    try {
+      const r = await fetch('/api/admin/finance-cafe24/'+kind+'?limit=1000', { credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error||d.code||'API error');
+      const rows = d.rows||[];
+      if (cnt) cnt.textContent = (en? rows.length+' rows' : '총 '+rows.length+'건');
+      body.innerHTML = rows.length ? rows.map(function(row){
+        return '<tr style="border-bottom:1px solid #f1f5f9">'+cols.map(function(c){
+          var v = row[c[0]]; var disp = c[2] ? c[2](v) : esc(v==null||v===''?'—':v);
+          var align = c[2] ? 'text-align:right;font-family:Consolas,monospace' : '';
+          var wrap = (c[0]==='content'||c[0]==='memo'||c[0]==='subject') ? 'max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' : '';
+          return '<td style="padding:7px 10px;'+align+';'+wrap+'" title="'+esc(v)+'">'+disp+'</td>';
+        }).join('')+'</tr>';
+      }).join('') : '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#9ca3af">'+(en?'No data':'데이터 없음')+'</td></tr>';
+    } catch(e){
+      body.innerHTML = '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#dc2626">'+(en?'Load failed: ':'불러오기 실패: ')+esc(String(e&&e.message||e))+'</td></tr>';
+    }
+  };
+
   window.accLoadFranchise = async function(){
     const month = document.getElementById('acc-fr-month').value || _today().slice(0,7);
     const tbody = document.getElementById('acc-fr-tbody');
@@ -22515,7 +22621,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260704014027 -->
+        <!-- BUILD:20260704034446 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -24236,6 +24342,46 @@ window.rebuildGlobalSearchIndex = function() {
 
   // 👩‍🏫 강사 명부 (카페24 실데이터) — Neo4j graph-list
   let _trLoaded = false;
+  // 🧑‍💼 직원 명부 (카페24 실데이터)
+  window.loadStaffRoster = async function(){
+    const tb = document.getElementById('sr-rows'); const cnt = document.getElementById('sr-count');
+    if (!tb) return;
+    const esc = function(s){ return String(s==null?'':s).replace(/[<>&"]/g,function(c){return({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]);}); };
+    const q = (document.getElementById('sr-q')||{}).value || '';
+    tb.innerHTML = '<tr><td colspan="4" style="padding:24px;text-align:center;color:#9ca3af">불러오는 중…</td></tr>';
+    try {
+      const d = await (await fetch('/api/admin/staff/graph-list?q='+encodeURIComponent(q), { credentials:'include' })).json();
+      if (!d.ok) throw new Error(d.error||d.code||'error');
+      const rows = d.staff||[];
+      if (cnt) cnt.textContent = '총 '+rows.length+'명';
+      tb.innerHTML = rows.length ? rows.map(function(s){ var a=s.status==='active';
+        return '<tr style="border-bottom:1px solid #f1f5f9"><td style="padding:8px 10px"><b>'+esc(s.name)+'</b>'+(s.nickname?' <span style="color:#94a3b8">('+esc(s.nickname)+')</span>':'')+'</td>'
+          +'<td style="padding:8px 10px;color:#475569">'+esc(s.email||'—')+'</td>'
+          +'<td style="padding:8px 10px;color:#64748b;max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+esc(s.intro)+'">'+esc(s.intro||'—')+'</td>'
+          +'<td style="padding:8px 10px;text-align:center"><span style="padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;background:'+(a?'#dcfce7;color:#15803d':'#f1f5f9;color:#94a3b8')+'">'+(a?'재직':'퇴사')+'</span></td></tr>';
+      }).join('') : '<tr><td colspan="4" style="padding:24px;text-align:center;color:#9ca3af">직원 없음</td></tr>';
+    } catch(e){ tb.innerHTML = '<tr><td colspan="4" style="padding:20px;text-align:center;color:#dc2626">불러오기 실패: '+esc(String(e&&e.message||e))+'</td></tr>'; }
+  };
+  // 📚 교재 명부 (카페24 실데이터)
+  window.loadBookRoster = async function(){
+    const tb = document.getElementById('br-rows'); const cnt = document.getElementById('br-count');
+    if (!tb) return;
+    const esc = function(s){ return String(s==null?'':s).replace(/[<>&"]/g,function(c){return({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]);}); };
+    const q = (document.getElementById('br-q')||{}).value || '';
+    tb.innerHTML = '<tr><td colspan="3" style="padding:24px;text-align:center;color:#9ca3af">불러오는 중…</td></tr>';
+    try {
+      const d = await (await fetch('/api/admin/books/graph-list?q='+encodeURIComponent(q), { credentials:'include' })).json();
+      if (!d.ok) throw new Error(d.error||d.code||'error');
+      const rows = d.books||[];
+      if (cnt) cnt.textContent = '총 '+rows.length+'권';
+      tb.innerHTML = rows.length ? rows.map(function(b){ var a=b.status==='active';
+        return '<tr style="border-bottom:1px solid #f1f5f9"><td style="padding:8px 10px"><b>'+esc(b.name)+'</b></td>'
+          +'<td style="padding:8px 10px;color:#64748b;max-width:360px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+esc(b.memo)+'">'+esc(b.memo||'—')+'</td>'
+          +'<td style="padding:8px 10px;text-align:center"><span style="padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;background:'+(a?'#dcfce7;color:#15803d':'#f1f5f9;color:#94a3b8')+'">'+(a?'사용':'중지')+'</span></td></tr>';
+      }).join('') : '<tr><td colspan="3" style="padding:24px;text-align:center;color:#9ca3af">교재 없음</td></tr>';
+    } catch(e){ tb.innerHTML = '<tr><td colspan="3" style="padding:20px;text-align:center;color:#dc2626">불러오기 실패: '+esc(String(e&&e.message||e))+'</td></tr>'; }
+  };
+
   window.loadTeacherRoster = async function(force) {
     if (_trLoaded && !force && !(document.getElementById('tr-q')||{}).value) { /* 이미 로드됨 */ }
     const tb = document.getElementById('tr-rows');
