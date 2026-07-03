@@ -143,10 +143,12 @@
       <button class="next" id="hub-next" onclick="gameNextRound()">🔄 다음 문제</button>
     </div>
     <div class="game-scorebar" id="hub-scorebar">
+      <span id="game-hearts" title="하트를 다 잃기 전에 10문제 정답!" style="letter-spacing:1px">❤️❤️❤️</span>
       <span>🏆 점수: <b id="game-score" style="color:var(--gold)">0</b></span>
       <span>✅ 정답: <b id="game-correct" style="color:var(--emerald)">0</b><span style="opacity:.6">/10</span></span>
       <span>❌ 오답: <b id="game-wrong" style="color:var(--bad)">0</b></span>
       <span title="10문제를 깨면 다음 난이도로 올라가요!">⭐ 난이도: <b id="game-stage" style="color:#f472b6">1</b><span style="opacity:.6">/7</span></span>
+      <span id="game-combo" style="display:none;color:#fb7185;font-weight:800"></span>
       <span id="game-timer-wrap" style="display:none">⏱ <b id="game-timer" style="color:#7fd1ff">0</b>초</span>
       <span id="game-feedback" style="margin-left:auto;font-weight:700">&nbsp;</span>
     </div>
@@ -255,7 +257,244 @@ function loadDarakwonZh(){
     .catch(function(){});
 }
 loadDarakwonZh();
-const _gameState = { mode: 'brick', score: 0, correct: 0, wrong: 0, current: null, started: false, balloonTimer: null, roundTimer: null };
+const _gameState = { mode: 'brick', score: 0, correct: 0, wrong: 0, current: null, started: false, balloonTimer: null, roundTimer: null, _queued: null };
+
+/* ════════════════════════════════════════════════════════════════════
+   🧠 학습 강화 엔진 — 오답 재노출(간격 반복)·콤보·하트·이중부호화·선학습
+   · 4개 인라인 게임(벽돌·매칭·빈칸·풍선)이 공용으로 사용
+   ════════════════════════════════════════════════════════════════════ */
+// ── 숙련도(약점) 저장: 언어별 localStorage 영구 기록 + 세션 즉시 재출제 큐 ──
+function _MKEY(){ return 'mangoi_game_mastery_' + GAME_LANG; }
+function _loadMastery(){ try{ return JSON.parse(localStorage.getItem(_MKEY())||'{}')||{}; }catch(_){ return {}; } }
+function _saveMastery(m){ try{ localStorage.setItem(_MKEY(), JSON.stringify(m)); }catch(_){} }
+var _missQueue = [];    // 이번 세션 오답 [{kind,id,item}] — 다음 라운드에 우선 재출제
+var _seenItems = {};    // 이번 세션에 선학습(미리보기)까지 마친 항목 id
+function _itemId(kind, item){ try{ return String((item&&item.en)||''); }catch(_){ return ''; } }
+
+// 정오답 기록 → 약점이면 미스큐에 넣고, 재노출해서 맞히면 졸업
+function _recordResult(kind, item, correct){
+  try{
+    if(!item) return;
+    var id = _itemId(kind, item); if(!id) return;
+    var m = _loadMastery(); var rec = m[id] || { w:0, r:0 };
+    if(correct){
+      rec.r++;
+      var qi = _missQueue.findIndex(function(x){ return x.id===id; });
+      if(qi>=0) _missQueue.splice(qi,1);   // 재노출 후 1회 정답 → 졸업(큐에서 제거)
+    } else {
+      rec.w++;
+      if(!_missQueue.some(function(x){ return x.id===id; })) _missQueue.push({ kind:kind, id:id, item:item });
+    }
+    m[id]=rec; _saveMastery(m);
+  }catch(_){}
+}
+// 약점 우선 선택: 45% 확률로 미스큐에서, 아니면 스테이지 풀에서 무작위
+function _pickFrom(pool, kind){
+  try{
+    if(!pool || !pool.length) return null;
+    var q = _missQueue.filter(function(x){ return x.kind===kind; });
+    if(q.length && Math.random()<0.45){
+      var pk = q[Math.floor(Math.random()*q.length)];
+      var found = pool.find(function(p){ return _itemId(kind,p)===pk.id; });
+      return found || pk.item;
+    }
+  }catch(_){}
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+function _nextVocab(){ return _pickFrom(_stageVocab(), 'sent'); }
+function _nextWord(){ return _pickFrom(_stageWords(), 'word'); }
+// 매칭용: 약점 단어를 최대 절반 우선 포함하고 나머지는 스테이지 풀로 채움
+function _pickWords(n){
+  var pool = _stageWords(), picks = [];
+  var q = _missQueue.filter(function(x){ return x.kind==='word'; });
+  _gameShuffle(q).slice(0, Math.ceil(n/2)).forEach(function(pk){
+    var f = pool.find(function(p){ return _itemId('word',p)===pk.id; }) || pk.item;
+    if(f && f.ko && f.en && !picks.some(function(p){ return p.en===f.en; })) picks.push(f);
+  });
+  _gameShuffle(pool).forEach(function(w){ if(picks.length<n && !picks.some(function(p){ return p.en===w.en; })) picks.push(w); });
+  return picks.slice(0,n);
+}
+
+// ── 콤보 ──
+var _combo = 0, _comboBest = 0;
+function _comboMult(){ return _combo>=6?3:_combo>=3?2:1; }
+function _bumpCombo(){
+  _combo++; if(_combo>_comboBest) _comboBest=_combo;
+  var el=document.getElementById('game-combo');
+  if(el){ if(_combo>=2){ el.style.display=''; el.textContent='🔥'+_combo+(_comboMult()>1?(' ×'+_comboMult()):''); } else el.style.display='none'; }
+  if(_combo>=3){ _comboPopup(_combo); _comboSound(_combo); }
+  return _comboMult();
+}
+function _resetCombo(){ _combo=0; var el=document.getElementById('game-combo'); if(el) el.style.display='none'; }
+function _comboSound(n){
+  try{ var AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+    if(!window._gameAC) window._gameAC=new AC(); var ac=window._gameAC; if(ac.state==='suspended'){ try{ac.resume();}catch(_){} }
+    var t=ac.currentTime, base=440+Math.min(n,10)*55;
+    var o=ac.createOscillator(), g=ac.createGain(); o.type='triangle';
+    o.frequency.setValueAtTime(base,t); o.frequency.exponentialRampToValueAtTime(base*1.5,t+0.12);
+    g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.45,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+0.22);
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+0.24);
+  }catch(_){}
+}
+function _comboPopup(n){
+  try{ var area=document.getElementById('game-area'); if(!area) return;
+    if(getComputedStyle(area).position==='static') area.style.position='relative';
+    var el=document.createElement('div'); el.textContent='🔥 '+n+' COMBO'+(_comboMult()>1?(' ×'+_comboMult()):'');
+    el.style.cssText='position:absolute;top:15%;left:50%;transform:translate(-50%,-50%) scale(.5);z-index:40;font-size:clamp(22px,5vmin,46px);font-weight:900;font-style:italic;color:#fff;text-shadow:0 0 14px #fb7185,0 3px 8px rgba(0,0,0,.6);-webkit-text-stroke:1.5px #be123c;pointer-events:none;transition:transform .18s,opacity .5s';
+    area.appendChild(el);
+    requestAnimationFrame(function(){ el.style.transform='translate(-50%,-50%) scale(1.12)'; });
+    setTimeout(function(){ el.style.opacity='0'; el.style.transform='translate(-50%,-95%) scale(1)'; }, 480);
+    setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 1050);
+  }catch(_){}
+}
+
+// ── 하트(생명) ──
+var _HEARTS_MAX = 3, _hearts = _HEARTS_MAX;
+function _renderHearts(){
+  var el=document.getElementById('game-hearts'); if(!el) return;
+  var s=''; for(var i=0;i<_HEARTS_MAX;i++) s += (i<_hearts?'❤️':'🤍'); el.textContent=s;
+}
+function _loseHeart(){ _hearts=Math.max(0,_hearts-1); _renderHearts(); return _hearts<=0; }
+
+// ── 정답/오답 공용 처리 (점수·콤보·하트·기록 일원화) ──
+function _onCorrect(kind, item, base){
+  _recordResult(kind, item, true);
+  var mult=_bumpCombo();
+  var gain=base*mult;
+  _gameState.score += gain; _gameState.correct++;
+  _renderHearts();
+  return { gain:gain, mult:mult };
+}
+// 반환 true = 하트 소진(부활 진입) → 호출측은 다음 문제로 넘어가지 말 것
+// oncePerRound=true 면 같은 문제에서 여러 번 틀려도 하트는 1개만 차감(재시도 허용 게임: 벽돌·빈칸)
+function _onWrong(kind, item, oncePerRound){
+  _recordResult(kind, item, false);
+  _resetCombo();
+  _gameState.wrong++;
+  if(oncePerRound && _gameState.current){
+    if(_gameState.current._penalized) return false;   // 이미 이 문제에서 하트 차감함 → 콤보만 리셋
+    _gameState.current._penalized = true;
+  }
+  var dead=_loseHeart();
+  if(dead){ setTimeout(_reviveChance, 700); return true; }
+  return false;
+}
+
+// ── 이모지 이중부호화(구체 명사) ──
+var _EMOJI = {
+  'apple':'🍎','banana':'🍌','dog':'🐶','cat':'🐱','book':'📖','sun':'☀️','moon':'🌙','star':'⭐','water':'💧',
+  'pizza':'🍕','soccer':'⚽','school':'🏫','flower':'🌸','fruit':'🍑','mango':'🥭','car':'🚗','fish':'🐟','bird':'🐦',
+  'tree':'🌳','house':'🏠','friend':'🧑‍🤝‍🧑','friends':'🧑‍🤝‍🧑','rain':'🌧️','snow':'❄️','milk':'🥛','egg':'🥚','rice':'🍚',
+  'ball':'⚽','love':'❤️','happy':'😊','run':'🏃','eat':'🍽️','pig':'🐷','cake':'🍰','sea':'🌊','mountain':'⛰️',
+  '苹果':'🍎','狗':'🐶','猫':'🐱','书':'📖','太阳':'☀️','月亮':'🌙','星星':'⭐','水':'💧','花':'🌸','学校':'🏫',
+  '爱':'❤️','鱼':'🐟','牛奶':'🥛','海边':'🌊','朋友':'🧑‍🤝‍🧑','家人':'👨‍👩‍👧'
+};
+function _emojiFor(item, kind){
+  try{
+    if(!item) return '';
+    if(kind==='word'){ var k=String(item.en||'').toLowerCase(); return _EMOJI[item.en]||_EMOJI[k]||''; }
+    var ws=item.words||[]; for(var i=0;i<ws.length;i++){ var e=_EMOJI[ws[i]]||_EMOJI[String(ws[i]).toLowerCase()]; if(e) return e; }
+  }catch(_){}
+  return '';
+}
+// 정답 순간 뜻+발음+이모지 동시 제시(이중부호화) — feedback 옆 미니 카드
+function _celebrateItem(item, kind){
+  try{
+    if(item && item.en){ window.gameSpeak && gameSpeak(item.en); }
+  }catch(_){}
+}
+
+// ── 선학습(새 항목 미리보기 플래시) ──
+function _isNew(item, kind){
+  try{ if(!item) return false; var id=_itemId(kind,item); if(_seenItems[id]) return false; var rec=_loadMastery()[id]; return !rec || (rec.r||0)<1; }catch(_){ return false; }
+}
+function _preteachThen(item, kind, cb){
+  try{
+    if(!item || !_isNew(item, kind)){ cb(); return; }
+    _seenItems[_itemId(kind,item)] = 1;
+    var area=document.getElementById('game-area'); if(!area){ cb(); return; }
+    var em=_emojiFor(item, kind);
+    var pin=item.pinyin ? '<div class="pinyin" style="font-size:16px;margin-top:6px">'+item.pinyin+'</div>' : '';
+    var sub=item.ko ? '<div style="font-size:18px;color:#e2e8f0;margin-top:10px">'+item.ko+'</div>' : '';
+    area.innerHTML='<div style="text-align:center;max-width:600px;margin:auto;padding:24px">'
+      +'<div style="display:inline-block;background:rgba(56,189,248,.14);border:1px solid rgba(56,189,248,.5);color:#7dd3fc;font-size:13px;font-weight:700;padding:4px 14px;border-radius:999px;margin-bottom:16px">✨ 새 '+(kind==='sent'?'문장':'단어')+' 미리보기</div>'
+      +(em?'<div style="font-size:54px;margin-bottom:8px">'+em+'</div>':'')
+      +'<div style="font-size:clamp(24px,4vmin,44px);font-weight:800;color:#fbbf24">'+item.en+'</div>'+pin+sub
+      +'<div style="font-size:12px;color:#64748b;margin-top:16px">🔊 듣고 기억해요 · 잠시 후 시작!</div></div>';
+    try{ window.gameSpeak && gameSpeak(item.en); }catch(_){}
+    setTimeout(cb, 1800);
+  }catch(_){ cb(); }
+}
+
+// ── 부활 찬스 & 게임오버 ──
+function _say(enc){ try{ window.gameSpeak && gameSpeak(decodeURIComponent(enc)); }catch(_){} }
+function _reviveChance(){
+  _stopRoundTimer();
+  if(_gameState.balloonTimer){ clearInterval(_gameState.balloonTimer); _gameState.balloonTimer=null; }
+  var q=_missQueue.filter(function(x){ return x.kind==='word' && x.item && x.item.ko; });
+  var target = q.length ? q[Math.floor(Math.random()*q.length)].item
+                        : (_stageWords().filter(function(w){return w.ko;})[0] || null);
+  if(!target){ _hearts=1; _renderHearts(); gameNextRound(); return; }
+  window._reviveTarget=target;
+  var wrongs=_gameShuffle(_GAME_WORDS.filter(function(w){ return w.en!==target.en && w.ko; })).slice(0,3);
+  var opts=_gameShuffle([target].concat(wrongs));
+  var em=_emojiFor(target,'word');
+  try{ window.gameSpeak && gameSpeak(target.en); }catch(_){}
+  var html='<div style="text-align:center;max-width:520px;margin:0 auto;padding:20px">'
+    +'<div style="font-size:44px;margin-bottom:4px">💗</div>'
+    +'<div style="font-size:22px;font-weight:800;color:#fb7185;margin-bottom:4px">부활 찬스!</div>'
+    +'<div style="font-size:14px;color:#94a3b8;margin-bottom:16px">이 단어의 뜻을 맞히면 하트가 부활해요</div>'
+    +'<div style="font-size:34px;font-weight:800;color:#fbbf24;margin-bottom:4px">'+(em?em+' ':'')+target.en+'</div>'
+    +(target.pinyin?'<div class="pinyin" style="margin-bottom:14px">'+target.pinyin+'</div>':'<div style="margin-bottom:14px"></div>')
+    +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;max-width:440px;margin:0 auto">';
+  opts.forEach(function(o){ html+='<button onclick="_reviveAnswer(\''+encodeURIComponent(o.en)+'\')" style="padding:16px 12px;background:linear-gradient(135deg,#f43f5e,#be123c);color:#fff;border:0;border-radius:12px;font-size:17px;font-weight:700;cursor:pointer">'+o.ko+'</button>'; });
+  html+='</div></div>';
+  var area=document.getElementById('game-area'); if(area) area.innerHTML=html;
+}
+function _reviveAnswer(enc){
+  var picked=decodeURIComponent(enc), t=window._reviveTarget||{};
+  var fb=document.getElementById('game-feedback');
+  if(picked===t.en){
+    _hearts=1; _renderHearts(); _recordResult('word', t, true);
+    if(fb) fb.innerHTML='<span style="color:#10b981">💗 부활! 하트 회복</span>';
+    try{ window.gameSpeak && gameSpeak(t.en); }catch(_){}
+    setTimeout(gameNextRound, 900);
+  } else { _gameOver(); }
+}
+function _reviewPanelHtml(){
+  try{
+    var seen={}, items=[];
+    _missQueue.forEach(function(x){ if(x.kind==='word' && x.item && !seen[x.item.en]){ seen[x.item.en]=1; items.push(x.item); } });
+    _missQueue.forEach(function(x){ if(x.kind==='sent' && x.item && !seen[x.item.en]){ seen[x.item.en]=1; items.push({ en:x.item.en, ko:x.item.ko||'', pinyin:x.item.pinyin||'', _sent:true }); } });
+    if(!items.length) return '';
+    var rows=items.slice(0,6).map(function(w){
+      var em=w._sent?'📝':(_emojiFor(w,'word')||'🔤');
+      return '<div style="display:flex;align-items:center;gap:10px;background:rgba(15,23,42,.6);border:1px solid #334155;border-radius:10px;padding:8px 12px;margin:5px 0">'
+        +'<button onclick="_say(\''+encodeURIComponent(w.en)+'\')" style="background:rgba(16,185,129,.2);border:1px solid rgba(16,185,129,.5);color:#86efac;border-radius:8px;padding:6px 11px;cursor:pointer;font-size:16px">🔊</button>'
+        +'<div style="text-align:left;flex:1"><div style="font-weight:700;color:#f1f5f9">'+em+' '+w.en+'</div>'
+        +(w.pinyin?'<div class="pinyin" style="font-size:12px">'+w.pinyin+'</div>':'')
+        +(w.ko?'<div style="font-size:12px;color:#94a3b8">'+w.ko+'</div>':'')+'</div></div>';
+    }).join('');
+    return '<div style="margin-top:12px;text-align:left"><div style="font-size:13px;color:#fbbf24;font-weight:700;margin-bottom:6px;text-align:center">📚 오늘 복습할 항목 (🔊 눌러 다시 들어요)</div>'+rows+'</div>';
+  }catch(_){ return ''; }
+}
+function _gameOver(){
+  _stopRoundTimer();
+  if(_gameState.balloonTimer){ clearInterval(_gameState.balloonTimer); _gameState.balloonTimer=null; }
+  _gameState.started=false;
+  var tot=_gameState.correct+_gameState.wrong, acc=tot>0?Math.round(100*_gameState.correct/tot):0;
+  var area=document.getElementById('game-area'); if(area) area.innerHTML=
+    '<div style="text-align:center;max-width:560px;margin:0 auto;padding:20px">'
+    +'<div style="font-size:52px;margin-bottom:6px">💪</div>'
+    +'<div style="font-size:26px;font-weight:800;color:#fbbf24;margin-bottom:4px">아깝다! 다시 도전해요</div>'
+    +'<div style="font-size:14px;color:#94a3b8;margin-bottom:6px">정답 '+_gameState.correct+'개 · 점수 '+_gameState.score+' · 정확도 '+acc+'% · 최고 콤보 🔥'+_comboBest+'</div>'
+    + _reviewPanelHtml()
+    +'<div style="display:flex;gap:12px;justify-content:center;margin-top:18px;flex-wrap:wrap">'
+    +'<button onclick="gameInit()" style="padding:14px 28px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:12px;font-size:17px;font-weight:800;cursor:pointer">🔄 다시 도전</button>'
+    +'<button onclick="hubBackToMenu()" style="padding:14px 28px;background:rgba(148,163,184,.2);color:#e2e8f0;border:0;border-radius:12px;font-size:17px;font-weight:700;cursor:pointer">🎮 게임 목록</button>'
+    +'</div></div>';
+  var tw=document.getElementById('game-timer-wrap'); if(tw) tw.style.display='none';
+}
 
 /* ============================================================
    🎯 목표: 10개 정답 → 결과 화면 (모든 인라인 게임 공통)
@@ -318,6 +557,8 @@ function _gameShowResult(){
         '<div style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);border-radius:12px;padding:12px 20px"><div style="font-size:12px;color:#94a3b8">오답</div><div style="font-size:26px;font-weight:800;color:#ef4444">' + _gameState.wrong + '</div></div>' +
         '<div style="background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.35);border-radius:12px;padding:12px 20px"><div style="font-size:12px;color:#94a3b8">정확도</div><div style="font-size:26px;font-weight:800;color:#38bdf8">' + acc + '%</div></div>' +
       '</div>' + src +
+      (_comboBest>=3 ? '<div style="margin-top:10px;font-size:15px;color:#fb7185;font-weight:800">🔥 최고 콤보 ' + _comboBest + '연속!</div>' : '') +
+      _reviewPanelHtml() +
       '<div style="display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap">' +
         nextStageBtn +
         '<button onclick="gameInit()" style="padding:14px 28px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:12px;font-size:17px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(16,185,129,.4)">🔄 같은 단계 다시</button>' +
@@ -461,10 +702,14 @@ function _startRoundTimer(){
     if(tEl) tEl.style.color = secs<=5 ? 'var(--bad)' : '#7fd1ff';
     if(secs<=0){
       _stopRoundTimer();
-      _gameState.wrong++; _gameUpdateScore();
+      // 현재 문제 항목을 오답으로 기록(약점 재노출) + 콤보/하트 처리
+      var _it = _gameState.current && (_gameState.current.sentence || _gameState.current.word);
+      var _kd = (_gameState.mode==='balloon') ? 'word' : 'sent';
+      var dead = _onWrong(_kd, _it);
+      _gameUpdateScore();
       var fb=document.getElementById('game-feedback');
-      if(fb) fb.innerHTML='<span style="color:#ef4444">⏰ 시간 초과! 다음 문제로…</span>';
-      setTimeout(gameNextRound, 1500);
+      if(fb) fb.innerHTML='<span style="color:#ef4444">⏰ 시간 초과!' + (dead?'':' 다음 문제로…') + '</span>';
+      if(!dead) setTimeout(gameNextRound, 1500);
     }
   }, 1000);
 }
@@ -542,6 +787,8 @@ function gameInit(){
   setGameStage(GAME_STAGE);            // 🎢 난이도 표시 + 속도 동기화
   _gameState.started = true;
   _gameState.score = 0; _gameState.correct = 0; _gameState.wrong = 0;
+  _hearts = _HEARTS_MAX; _renderHearts();   // 💗 하트 리셋
+  _combo = 0; _comboBest = 0; _resetCombo();  // 🔥 콤보 리셋 (미스큐는 세션 유지 = 약점 이어짐)
   // 모바일 세로 화면 채움: match/balloon 은 플레이영역이 세로공간 전부, brick/fill 은 가운데 정렬
   var area = document.getElementById('game-area');
   if(area){ area.classList.remove('area-center','area-fill');
@@ -553,11 +800,18 @@ function gameInit(){
 function gameNextRound(){
   var fb = document.getElementById('game-feedback'); if(fb) fb.textContent = '';
   if(_gameState.balloonTimer){ clearInterval(_gameState.balloonTimer); _gameState.balloonTimer = null; }
-  if (_gameState.mode === 'brick')   gameRenderBrick();
-  else if (_gameState.mode === 'match') gameRenderMatch();
-  else if (_gameState.mode === 'fill')  gameRenderFill();
-  else if (_gameState.mode === 'balloon') gameRenderBalloon();
-  _startRoundTimer();   // ⚡ 속도(난이도)에 따른 라운드 제한시간 시작 (해당 게임만)
+  var mode = _gameState.mode;
+  // 다음 항목을 미리 뽑아(약점 우선) → 새 항목이면 선학습 플래시 후 렌더 + 타이머 시작
+  if(mode === 'brick' || mode === 'fill'){
+    var s = _nextVocab(); _gameState._queued = s;
+    _preteachThen(s, 'sent', function(){ if(mode==='brick') gameRenderBrick(); else gameRenderFill(); _startRoundTimer(); });
+  } else if(mode === 'balloon'){
+    var w = _nextWord(); _gameState._queued = w;
+    _preteachThen(w, 'word', function(){ gameRenderBalloon(); _startRoundTimer(); });
+  } else {   // match — 6쌍 보드라 선학습 생략
+    _gameState._queued = null;
+    gameRenderMatch(); _startRoundTimer();
+  }
 }
 
 /* ============================================================
@@ -618,8 +872,8 @@ window.gameSpeakTarget = function(){ try{ var s=_gameState.current&&_gameState.c
    게임 1: 🧱 문장 벽돌
    ============================================================ */
 function gameRenderBrick(){
-  const _pool = _stageVocab();   // 🎢 난이도 구간(쉬움→어려움)에서 출제
-  const sentence = _pool[Math.floor(Math.random() * _pool.length)];
+  const sentence = _gameState._queued || _nextVocab();   // 🧠 약점 우선 출제(선학습은 gameNextRound 에서)
+  _gameState._queued = null;
   _gameState.current = { sentence, picked: [] };
   const shuffled = _gameShuffle(sentence.words);
   // 교재 문장에 한국어 번역이 없으면 듣기 문제로 전환 (🔊 버튼으로 문장 듣고 순서 조립)
@@ -663,38 +917,72 @@ function gameBrickPick(btn){
   built.appendChild(span);
 }
 function gameBrickReset(){ gameRenderBrick(); }
+// built 영역 다시 그리기 — 앞의 goodCount 개는 초록(확정), 나머지는 노랑
+function _brickRedrawBuilt(goodCount){
+  var built=document.getElementById('brick-built'); if(!built) return;
+  var picked=_gameState.current.picked;
+  built.innerHTML='';
+  if(!picked.length){
+    var e=document.createElement('span'); e.id='brick-empty'; e.style.cssText='color:#64748b;font-size:14px';
+    e.textContent='아래 단어 브릭을 클릭하세요...'; built.appendChild(e); return;
+  }
+  picked.forEach(function(w,i){
+    var sp=document.createElement('span'); sp.textContent=w;
+    var ok=(i<goodCount);
+    sp.style.cssText='padding:10px 18px;border-radius:8px;font-size:clamp(16px,2.4vmin,30px);font-weight:700;'
+      + (ok ? 'background:linear-gradient(135deg,#10b981,#059669);color:#fff'
+            : 'background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1f2937');
+    built.appendChild(sp);
+  });
+}
 function gameBrickCheck(){
   const sent = _gameState.current.sentence;
   const picked = _gameState.current.picked;
-  const correct = picked.length === sent.words.length &&
-                  picked.every((w, i) => w === sent.words[i]);
+  const target = sent.words;
   const fb = document.getElementById('game-feedback');
-  if (correct){
+  const full = picked.length === target.length && picked.every((w, i) => w === target[i]);
+  if (full){
     _stopRoundTimer();
-    _gameState.score += 10; _gameState.correct++;
+    const r = _onCorrect('sent', sent, 10);
     try{ window.MangoiStreak && MangoiStreak.complete('brick'); }catch(_){}  // 🔥 오늘 학습 달성
-    fb.innerHTML = '<span style="color:#10b981">✅ 정답! +10점</span>';
+    fb.innerHTML = '<span style="color:#10b981">✅ 정답! +' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</span>';
+    _brickRedrawBuilt(picked.length);   // 전부 초록으로 확정 표시
     try{ window.gameSpeak && gameSpeak(sent.en); }catch(_){}
+    _gameUpdateScore();
     if(!_gameCheckGoal()) setTimeout(gameNextRound, 2200);   // 🎯 10개 정답 → 결과 화면
-  } else {
-    _gameState.wrong++;
-    fb.innerHTML = '<span style="color:#ef4444">❌ 다시 시도! 정답: ' + sent.en + '</span>';
+    return;
   }
+  // ── 부드러운 오답: 맞은 접두부는 초록으로 남기고, 첫 오답부터 되돌려 그 부분만 다시 ──
+  let good = 0;
+  while(good < picked.length && good < target.length && picked[good] === target[good]) good++;
+  const removed = picked.slice(good);
+  _gameState.current.picked = picked.slice(0, good);
+  // 되돌린 단어의 브릭 버튼 재활성화(각 단어당 하나씩)
+  removed.forEach(function(w){
+    var btns=document.querySelectorAll('.brick-btn');
+    for(var i=0;i<btns.length;i++){ if(btns[i].disabled && btns[i].dataset.word===w){ btns[i].disabled=false; btns[i].style.opacity='1'; break; } }
+  });
+  _brickRedrawBuilt(good);
+  const dead = _onWrong('sent', sent, true);   // 재시도 허용 → 하트는 문제당 1개만
   _gameUpdateScore();
+  if(dead) return;   // 하트 소진 → 부활 화면으로
+  fb.innerHTML = good>0
+    ? '<span style="color:#f59e0b">거의 다 왔어요! 초록은 그대로, 다음 칸을 다시 골라보세요</span>'
+    : '<span style="color:#f59e0b">첫 단어부터 다시 생각해볼까요? 🔊 발음 듣기가 힌트!</span>';
 }
 
 /* ============================================================
    게임 2: 🧩 단어 매칭
    ============================================================ */
 function gameRenderMatch(){
-  const pool = _gameShuffle(_stageWords()).slice(0, 6);   // 🎢 난이도 구간 단어
+  const pool = _pickWords(6);   // 🧠 약점 단어 우선 포함 + 스테이지 구간
   const cards = [];
   pool.forEach((w, i) => {
     cards.push({ id: 'k' + i, type: 'ko', text: w.ko, pairId: i, pin: '' });
     cards.push({ id: 'e' + i, type: 'en', text: w.en, pairId: i, pin: w.pinyin || '' });
   });
   const shuffled = _gameShuffle(cards);
-  _gameState.current = { cards: shuffled, flipped: [], matched: new Set() };
+  _gameState.current = { cards: shuffled, flipped: [], matched: new Set(), pool: pool };
   let html =
     '<div style="text-align:center;margin-bottom:18px">' +
       '<div style="font-size:13px;color:#94a3b8">🧩 한국어와 ' + (GAME_LANG==='zh'?'중국어':'영어') + ' 카드 짝을 찾으세요!</div>' +
@@ -722,19 +1010,20 @@ function gameMatchFlip(card){
   if (_gameState.current.flipped.length === 2){
     const [a, b] = _gameState.current.flipped;
     if (a.dataset.pair === b.dataset.pair && a.dataset.type !== b.dataset.type){
+      const _witem = (_gameState.current.pool && _gameState.current.pool[parseInt(a.dataset.pair,10)]) || { en: (a.dataset.type==='en'?a.dataset.text:b.dataset.text) };
       setTimeout(() => {
         a.dataset.matched = '1'; b.dataset.matched = '1';
         a.style.opacity = '0.5'; b.style.opacity = '0.5';
         a.style.transform = ''; b.style.transform = '';
         _gameState.current.matched.add(a.dataset.pair);
-        _gameState.score += 5; _gameState.correct++;
+        const r = _onCorrect('word', _witem, 5);   // 🧠 점수·콤보·하트·기록 일원화
         try{ window.MangoiStreak && MangoiStreak.complete('match'); }catch(_){}  // 🔥 오늘 학습 달성
         _gameState.current.flipped = [];
         _gameUpdateScore();
         const total = _gameState.current.cards.length / 2;
         const remEl = document.getElementById('match-remaining');
         if (remEl) remEl.textContent = (total - _gameState.current.matched.size);
-        document.getElementById('game-feedback').innerHTML = '<span style="color:#10b981">✅ 매치! +5점</span>';
+        document.getElementById('game-feedback').innerHTML = '<span style="color:#10b981">✅ 매치! +' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</span>';
         if (_gameCheckGoal()) return;                         // 🎯 10개 정답 → 결과 화면
         if (_gameState.current.matched.size === total){
           _stopRoundTimer();
@@ -743,8 +1032,11 @@ function gameMatchFlip(card){
         }
       }, 400);
     } else {
-      _gameState.wrong++;
+      const _enCard = (a.dataset.type==='en') ? a : b;
+      const _wwitem = (_gameState.current.pool && _gameState.current.pool[parseInt(_enCard.dataset.pair,10)]) || { en:_enCard.dataset.text };
+      const _dead = _onWrong('word', _wwitem);   // 🧠 콤보 리셋·하트 차감·약점 기록
       _gameUpdateScore();
+      if(_dead){ _gameState.current.flipped = []; return; }   // 하트 소진 → 부활 화면
       document.getElementById('game-feedback').innerHTML = '<span style="color:#ef4444">❌ 다시</span>';
       setTimeout(() => {
         a.dataset.flipped = '0'; b.dataset.flipped = '0';
@@ -761,8 +1053,8 @@ function gameMatchFlip(card){
    게임 3: 🔤 빈칸 채우기
    ============================================================ */
 function gameRenderFill(){
-  const _pool = _stageVocab();   // 🎢 난이도 구간(쉬움→어려움)에서 출제
-  const sent = _pool[Math.floor(Math.random() * _pool.length)];
+  const sent = _gameState._queued || _nextVocab();   // 🧠 약점 우선 출제(선학습은 gameNextRound 에서)
+  _gameState._queued = null;
   const isZh = (GAME_LANG === 'zh');
   // 빈칸 후보: 영어=길이>2 실질단어, 중국어=조사/기능어 제외한 한자 단어
   const ZH_STOP = ['的','了','吗','是','很','和','对','我','你','他','她','们'];
@@ -806,39 +1098,44 @@ function gameRenderFill(){
 function gameFillCheck(picked, btn){
   const correct = picked.toLowerCase() === _gameState.current.answer.toLowerCase();
   const fb = document.getElementById('game-feedback');
+  const sent = _gameState.current.sentence;
   if (correct){
     _stopRoundTimer();
     btn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
     btn.style.transform = 'scale(1.05)';
-    _gameState.score += 8; _gameState.correct++;
+    const r = _onCorrect('sent', sent, 8);
     try{ window.MangoiStreak && MangoiStreak.complete('fill'); }catch(_){}  // 🔥 오늘 학습 달성
-    fb.innerHTML = '<span style="color:#10b981">✅ 정답! +8점</span>';
-    try{ window.gameSpeak && _gameState.current.sentence && gameSpeak(_gameState.current.sentence.en); }catch(_){}
+    const em = _emojiFor(sent, 'sent');
+    fb.innerHTML = '<span style="color:#10b981">' + (em?em+' ':'') + '✅ 정답! +' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</span>';
+    try{ window.gameSpeak && sent && gameSpeak(sent.en); }catch(_){}
+    _gameUpdateScore();
     if(!_gameCheckGoal()) setTimeout(gameNextRound, 1900);   // 🎯 10개 정답 → 결과 화면
   } else {
     btn.style.background = 'linear-gradient(135deg,#dc2626,#991b1b)';
     btn.style.opacity = '0.4';
     btn.disabled = true;
-    _gameState.wrong++;
     try{ window.gameSpeak && gameSpeak(picked); }catch(_){}
-    fb.innerHTML = '<span style="color:#ef4444">❌ 오답! 정답은: ' + _gameState.current.answer + '</span>';
+    const dead = _onWrong('sent', sent, true);   // 재시도 허용 → 하트는 문제당 1개만
+    _gameUpdateScore();
+    if(dead) return;   // 하트 소진 → 부활 화면
+    fb.innerHTML = '<span style="color:#ef4444">❌ 다시! 다른 단어를 골라보세요</span>';
   }
-  _gameUpdateScore();
 }
 
 /* ============================================================
    게임 4: 🎈 풍선 터뜨리기
    ============================================================ */
 function gameRenderBalloon(){
-  const _pool = _stageWords();   // 🎢 난이도 구간 단어
-  const word = _pool[Math.floor(Math.random() * _pool.length)];
+  const word = _gameState._queued || _nextWord();   // 🧠 약점 우선 출제
+  _gameState._queued = null;
   const wrongs = _gameShuffle(_GAME_WORDS.filter(w => w.en !== word.en)).slice(0, 3);
   const balloons = _gameShuffle([word, ...wrongs]);
-  _gameState.current = { answer: word.en, popped: false };
+  _gameState.current = { answer: word.en, popped: false, word: word };
+  const _em = _emojiFor(word, 'word');
   let html =
     '<div style="text-align:center;margin-bottom:14px">' +
       '<div style="font-size:13px;color:#94a3b8">🎈 한국어 뜻에 맞는 ' + (GAME_LANG==='zh'?'중국어':'영어') + ' 풍선을 클릭!</div>' +
-      '<div style="font-size:34px;font-weight:700;color:#fbbf24;padding:14px 24px;background:rgba(251,191,36,0.12);border-radius:12px;display:inline-block;margin-top:10px">' + word.ko + '</div>' +
+      '<div style="font-size:34px;font-weight:700;color:#fbbf24;padding:14px 24px;background:rgba(251,191,36,0.12);border-radius:12px;display:inline-block;margin-top:10px">' + (_em?_em+' ':'') + word.ko + '</div>' +
     '</div>' +
     '<div id="balloon-stage" style="position:relative;flex:1;min-height:200px;background:linear-gradient(180deg,#0c4a6e 0%,#0f172a 100%);border-radius:14px;overflow:hidden;border:2px solid #475569">';
   const colors = [
@@ -885,11 +1182,11 @@ function gameRenderBalloon(){
     });
     if (allFell && !_gameState.current.popped){
       _gameState.current.popped = true;
-      _gameState.wrong++;
-      _gameUpdateScore();
-      document.getElementById('game-feedback').innerHTML = '<span style="color:#ef4444">❌ 시간 초과! 정답: ' + _gameState.current.answer + '</span>';
       clearInterval(_gameState.balloonTimer);
-      setTimeout(gameNextRound, 1500);
+      const dead = _onWrong('word', _gameState.current.word);   // 🧠 콤보 리셋·하트 차감·약점 기록
+      _gameUpdateScore();
+      document.getElementById('game-feedback').innerHTML = '<span style="color:#ef4444">❌ 놓쳤어요! 정답: ' + _gameState.current.answer + '</span>';
+      if(!dead) setTimeout(gameNextRound, 1500);
     }
   }, 50);
 }
@@ -952,16 +1249,17 @@ function gameBalloonPop(bl){
   bl.style.opacity = '0';
   if (_gameState.balloonTimer) clearInterval(_gameState.balloonTimer);
   if (correct){
-    _gameState.score += 7; _gameState.correct++;
+    const r = _onCorrect('word', _gameState.current.word, 7);
     try{ window.MangoiStreak && MangoiStreak.complete('balloon'); }catch(_){}  // 🔥 오늘 학습 달성
-    document.getElementById('game-feedback').innerHTML = '<span style="color:#10b981">🎉 풍! +7점</span>';
+    document.getElementById('game-feedback').innerHTML = '<span style="color:#10b981">🎉 풍! +' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</span>';
+    _gameUpdateScore();
     if(!_gameCheckGoal()) setTimeout(gameNextRound, 1200);   // 🎯 10개 정답 → 결과 화면
   } else {
-    _gameState.wrong++;
-    document.getElementById('game-feedback').innerHTML = '<span style="color:#ef4444">❌ 틀림! 정답: ' + _gameState.current.answer + '</span>';
-    setTimeout(gameNextRound, 1500);
+    const dead = _onWrong('word', _gameState.current.word);   // 🧠 콤보 리셋·하트 차감·약점 기록
+    _gameUpdateScore();
+    document.getElementById('game-feedback').innerHTML = '<span style="color:#ef4444">❌ 아쉬워요! 정답: ' + _gameState.current.answer + '</span>';
+    if(!dead) setTimeout(gameNextRound, 1500);
   }
-  _gameUpdateScore();
 }
 
 /* ============================================================
@@ -1003,6 +1301,6 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260703125738 -->
+<!-- BUILD:20260703130820 -->
 </body>
 </html>

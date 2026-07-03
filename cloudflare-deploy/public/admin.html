@@ -2757,7 +2757,7 @@
     </button>
 
     <!-- 👨‍🏫 강사 통합 -->
-    <button class="hub-btn" onclick="hubJump('teacher', ['card-teacher-mgmt','card-payroll-auto','card-payroll','card-mbti-mgmt','card-praise-stats'])" data-hub="teacher">
+    <button class="hub-btn" onclick="hubJump('teacher', ['card-teacher-mgmt','card-payroll-auto','card-class-ratings','card-payroll','card-mbti-mgmt','card-praise-stats'])" data-hub="teacher">
       <div class="hub-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">👨‍🏫</div>
       <div>
         <div class="hub-title" data-ko="강사 통합" data-en="Teacher Hub">강사 통합</div>
@@ -10924,6 +10924,134 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   document.addEventListener('mangoi:lang-changed', function(){
     const parent = document.getElementById('card-payroll-auto');
     if (parent && parent.open && (_prRows && _prRows.length)) prCalculate();
+  });
+})();
+</script>
+
+<!-- ⭐ 학생 수업 평가 — 수업 종료 직후 학생이 남긴 별 7개 평가 + 건의사항 -->
+<details class="table-card menu-card" id="card-class-ratings">
+  <summary><span data-ko="⭐ 학생 수업 평가 (수업 직후 별 7개)" data-en="⭐ Student Class Ratings (7-star)">⭐ 학생 수업 평가 (수업 직후 별 7개)</span></summary>
+  <div class="menu-body">
+    <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;color:#78350f;line-height:1.7"
+         data-ko="💡 학생이 화상수업 종료 직후 별 7개(1~7점, 가운데=보통)로 강사를 평가하고 태그·건의사항을 남깁니다. 강사별 평균·응답수·주요 태그를 집계하고, 강사를 클릭하면 개별 평가와 건의사항 원문을 볼 수 있습니다."
+         data-en="💡 Right after each video class, students rate the teacher with 7 stars (middle = okay) plus tags and feedback. See per-teacher averages, counts and top tags; click a teacher to read individual feedback.">
+      💡 학생이 화상수업 종료 직후 <b>별 7개(1~7점, 가운데=보통)</b>로 강사를 평가하고 태그·건의사항을 남깁니다. 강사별 평균·응답수·주요 태그를 집계하고, 강사를 클릭하면 개별 평가와 건의사항 원문을 볼 수 있습니다.
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px">
+      <label style="font-size:12px;font-weight:700;color:#374151" data-ko="📅 기간" data-en="📅 Period">📅 기간</label>
+      <select id="cr-days" onchange="crLoadSummary()" style="padding:6px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px">
+        <option value="7">7일</option>
+        <option value="30" selected>30일</option>
+        <option value="90">90일</option>
+        <option value="365">1년</option>
+      </select>
+      <button class="primary" onclick="crLoadSummary()" style="padding:7px 14px;font-size:12.5px;font-weight:800;background:linear-gradient(135deg,#3b82f6,#1e40af);color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+      <span id="cr-summary" style="margin-left:auto;font-size:11.5px;color:#6b7280"></span>
+    </div>
+    <div id="cr-table" style="overflow-x:auto"></div>
+    <div id="cr-detail" style="margin-top:14px"></div>
+  </div>
+</details>
+<script>
+(function(){
+  const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+  const stars7 = (avg) => {
+    const full = Math.round(avg);
+    let h = '';
+    for (let i = 1; i <= 7; i++) h += `<span style="color:${i <= full ? '#f59e0b' : '#d1d5db'};font-size:13px">★</span>`;
+    return h;
+  };
+  const scoreColor = (avg) => avg >= 5.5 ? '#10b981' : (avg >= 4 ? '#f59e0b' : '#ef4444');
+
+  window.crLoadSummary = async function(){
+    const isEn = (window.adminLang === 'en');
+    const days = document.getElementById('cr-days').value;
+    const box = document.getElementById('cr-table');
+    document.getElementById('cr-detail').innerHTML = '';
+    box.innerHTML = `<div style="padding:20px;color:#6b7280;text-align:center">${isEn?'Loading…':'불러오는 중…'}</div>`;
+    try {
+      const r = await fetch(`/api/admin/ratings/summary?days=${days}`);
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'load_failed');
+      document.getElementById('cr-summary').innerHTML = isEn
+        ? `Last ${d.days} days · <b>${d.total}</b> ratings · <b>${d.rows.length}</b> teachers`
+        : `최근 ${d.days}일 · 평가 <b>${d.total}</b>건 · 강사 <b>${d.rows.length}</b>명`;
+      if (!d.rows.length) {
+        box.innerHTML = `<div style="padding:30px;text-align:center;color:#6b7280;background:#f9fafb;border-radius:10px">${isEn?'No ratings in this period yet.':'아직 이 기간의 평가가 없습니다. 학생이 수업을 마치면 여기에 쌓입니다.'}</div>`;
+        return;
+      }
+      const H = isEn
+        ? { teacher:'Teacher', count:'Ratings', avg:'Average (of 7)', low:'Low (≤2)', tags:'Top tags', detail:'Feedback' }
+        : { teacher:'강사', count:'응답 수', avg:'평균 (7점 만점)', low:'낮은 점수(≤2)', tags:'주요 태그', detail:'건의사항' };
+      box.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border-radius:8px;overflow:hidden">
+        <thead style="background:linear-gradient(135deg,#fef3c7,#fde68a)"><tr>
+          <th style="text-align:left;padding:10px 12px;color:#78350f">${H.teacher}</th>
+          <th style="text-align:center;padding:10px 12px;color:#78350f">${H.count}</th>
+          <th style="text-align:left;padding:10px 12px;color:#78350f">${H.avg}</th>
+          <th style="text-align:center;padding:10px 12px;color:#78350f">${H.low}</th>
+          <th style="text-align:left;padding:10px 12px;color:#78350f">${H.tags}</th>
+          <th style="text-align:center;padding:10px 12px;color:#78350f">${H.detail}</th>
+        </tr></thead>
+        <tbody>${d.rows.map(r => `
+          <tr style="border-bottom:1px solid #e5e7eb">
+            <td style="padding:9px 12px"><b>${esc(r.teacher_name)}</b></td>
+            <td style="padding:9px 12px;text-align:center;font-weight:700">${r.count}</td>
+            <td style="padding:9px 12px;white-space:nowrap">${stars7(r.avg_score)} <b style="color:${scoreColor(r.avg_score)};margin-left:4px">${r.avg_score.toFixed(1)}</b></td>
+            <td style="padding:9px 12px;text-align:center;${r.low_count ? 'color:#ef4444;font-weight:800' : 'color:#9ca3af'}">${r.low_count}</td>
+            <td style="padding:9px 12px">${(r.top_tags||[]).map(t => `<span style="display:inline-block;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:999px;padding:2px 8px;font-size:11px;color:#374151;margin:1px 2px">${esc(t.tag)} ${t.count}</span>`).join('') || '<span style="color:#9ca3af">-</span>'}</td>
+            <td style="padding:9px 12px;text-align:center"><button onclick="crLoadDetail('${esc(r.teacher_name).replace(/'/g,"\\'")}')" style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #d1d5db;border-radius:5px;cursor:pointer">${isEn?'View':'보기'}</button></td>
+          </tr>`).join('')}</tbody>
+      </table>`;
+    } catch(e) {
+      box.innerHTML = '<div style="padding:20px;color:#ef4444">불러오기 실패: '+esc(e.message)+'</div>';
+    }
+  };
+
+  window.crLoadDetail = async function(teacherName){
+    const isEn = (window.adminLang === 'en');
+    const days = document.getElementById('cr-days').value;
+    const box = document.getElementById('cr-detail');
+    box.innerHTML = `<div style="padding:14px;color:#6b7280">${isEn?'Loading…':'불러오는 중…'}</div>`;
+    try {
+      const r = await fetch(`/api/admin/ratings/list?days=${days}&limit=100&teacher_name=${encodeURIComponent(teacherName)}`);
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'load_failed');
+      const fmtDt = (ms) => new Date(ms).toLocaleString(isEn?'en-US':'ko-KR', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+      box.innerHTML = `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px">
+        <div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:10px">💬 ${esc(teacherName)} — ${isEn?'individual ratings':'개별 평가'} (${d.rows.length})</div>
+        ${d.rows.map(row => {
+          let tags = [];
+          try { tags = JSON.parse(row.tags||'[]'); } catch(e){}
+          return `<div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;margin-bottom:8px">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="white-space:nowrap">${stars7(row.score)}</span>
+              <b style="color:${scoreColor(row.score)};font-size:12.5px">${row.score}/7</b>
+              <span style="font-size:12px;color:#374151">${esc(row.student_name||'익명')}</span>
+              <span style="font-size:11px;color:#9ca3af;margin-left:auto">${fmtDt(row.created_at)} · ${esc(row.room_id)}</span>
+            </div>
+            ${tags.length ? `<div style="margin-top:5px">${tags.map(t=>`<span style="display:inline-block;background:#fef3c7;border:1px solid #fde68a;border-radius:999px;padding:2px 8px;font-size:11px;color:#78350f;margin:1px 2px">${esc(t)}</span>`).join('')}</div>` : ''}
+            ${row.feedback ? `<div style="margin-top:6px;font-size:12.5px;color:#374151;background:#f9fafb;border-radius:6px;padding:7px 10px;line-height:1.6">💬 ${esc(row.feedback)}</div>` : ''}
+          </div>`;
+        }).join('') || `<div style="color:#9ca3af;font-size:12.5px">${isEn?'No ratings.':'평가가 없습니다.'}</div>`}
+      </div>`;
+      box.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    } catch(e) {
+      box.innerHTML = '<div style="padding:14px;color:#ef4444">불러오기 실패: '+esc(e.message)+'</div>';
+    }
+  };
+
+  function bindCrOpen(){
+    const parent = document.getElementById('card-class-ratings');
+    if (parent && !parent.__crBound) {
+      parent.__crBound = true;
+      parent.addEventListener('toggle', () => { if (parent.open) crLoadSummary(); });
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindCrOpen);
+  else bindCrOpen();
+  document.addEventListener('mangoi:lang-changed', function(){
+    const parent = document.getElementById('card-class-ratings');
+    if (parent && parent.open) crLoadSummary();
   });
 })();
 </script>
@@ -22262,7 +22390,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260703125738 -->
+        <!-- BUILD:20260703130820 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

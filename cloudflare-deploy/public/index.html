@@ -3208,6 +3208,227 @@
   else hookAutoEnd(0);
 })();
 </script>
+<!-- ============================================================
+     ⭐ 수업 종료 → 강사 평가 모달 (학생 전용, 복습퀴즈 모달보다 먼저)
+     · vcReviewQuizPrompt 를 래핑 → 평가 모달 먼저 → 제출/건너뛰기 후 복습퀴즈 안내
+     · 별 7개(1~7점, 가운데=보통) + 별마다 의미 설명 + 태그 칩 + 건의사항
+     · 제출 시 /api/ratings 저장 + 10P 적립 · 같은 방은 하루 1회(sessionStorage+서버 UNIQUE)
+     · 빼면 즉시 원복: 이 블록만 삭제하면 기존 복습퀴즈 흐름 그대로
+     ============================================================ -->
+<script id="vc-teacher-rating-on-end">
+(function(){
+  'use strict';
+  var STATE = { done:false, open:false };
+  var PEERS = {};   // userId → username (원격 피어 = 1:1 수업에선 강사)
+
+  // 원격 피어 이름 수집 — vcCreatePeerAndOffer(userId, username) 래핑
+  function hookPeerNames(tries){
+    tries = tries || 0;
+    if (typeof window.vcCreatePeerAndOffer !== 'function') {
+      if (tries < 80) return setTimeout(function(){ hookPeerNames(tries + 1); }, 150);
+      return;
+    }
+    if (window.__vcRatePeerHooked) return;
+    window.__vcRatePeerHooked = true;
+    var orig = window.vcCreatePeerAndOffer;
+    window.vcCreatePeerAndOffer = function(userId, username){
+      try { if (username) PEERS[userId] = String(username); } catch(e){}
+      return orig.apply(this, arguments);
+    };
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ hookPeerNames(0); });
+  else hookPeerNames(0);
+
+  function isStudentInClass(){
+    try {
+      if (!document.body || !document.body.classList.contains('vc-in-call')) return false;
+      if (typeof vcIsObserver !== 'undefined' && vcIsObserver) return false;
+      var u = (typeof getCurrentUser==='function') ? getCurrentUser() : null;
+      var role = (u && u.role) || (function(){ try { return localStorage.getItem('mangoi_user_role'); } catch(e){ return null; } })() || 'student';
+      if (role === 'teacher' || role === 'admin') return false;
+      return true;
+    } catch(e){ return false; }
+  }
+
+  function kstDate(){
+    return new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10);
+  }
+  function ratedKey(){
+    var room = (typeof vcRoomId !== 'undefined' && vcRoomId) ? vcRoomId : (window.vcRoomId || '');
+    return 'mangoi_rated_' + room + '_' + kstDate();
+  }
+  function alreadyRated(){
+    try { return sessionStorage.getItem(ratedKey()) === '1'; } catch(e){ return false; }
+  }
+  function markRated(){
+    try { sessionStorage.setItem(ratedKey(), '1'); } catch(e){}
+  }
+
+  function guessTeacherName(){
+    try {
+      var ids = Object.keys(PEERS);
+      if (ids.length) return PEERS[ids[0]];
+    } catch(e){}
+    try {
+      var u = (typeof getCurrentUser==='function') ? getCurrentUser() : null;
+      var s = (u && u.uid && typeof demoStudents !== 'undefined') ? demoStudents[u.uid] : null;
+      if (s && s.teacher) return s.teacher;
+    } catch(e){}
+    return '';
+  }
+
+  // 강제 종료 폴백 (복습퀴즈 모달이 조건 미달로 안 뜰 때)
+  function fallbackExit(){
+    try { if (typeof window.__v34_FORCE_HOME === 'function') { window.__v34_FORCE_HOME(); return; } } catch(e){}
+    try { if (typeof window.__forceExit_v32 === 'function') { window.__forceExit_v32(); return; } } catch(e){}
+    try { if (typeof window.vcLeaveRoom === 'function') window.vcLeaveRoom(); } catch(e){}
+    try { location.replace('/?_e=' + Date.now()); } catch(e){ try { location.href = '/'; } catch(_){} }
+  }
+
+  function closeModal(){
+    STATE.open = false;
+    var m = document.getElementById('vc-rate-modal');
+    if (m) m.remove();
+  }
+
+  var STAR_LABELS_KO = ['속상해요','별로예요','아쉬워요','보통이에요','좋아요','참 좋아요','최고예요!'];
+  var STAR_LABELS_EN = ['Upset','Bad','Not great','Okay','Good','Very good','The best!'];
+  var TAGS_KO = ['재미있었어요','설명이 쉬웠어요','칭찬을 많이 해줬어요','소리가 끊겼어요','너무 어려웠어요','말할 기회가 적었어요'];
+  var TAGS_EN = ['It was fun','Easy to understand','Lots of praise','Audio kept cutting out','Too difficult','Not enough time to speak'];
+
+  // 평가 모달 — after: 닫힌 뒤 이어서 할 일(복습퀴즈 안내)
+  function showRatingModal(after){
+    STATE.open = true;
+    var en = (document.documentElement.lang === 'en');
+    var LB = en ? STAR_LABELS_EN : STAR_LABELS_KO;
+    var TG = en ? TAGS_EN : TAGS_KO;
+    var teacher = guessTeacherName();
+    var score = 0, picked = {};
+
+    var ov = document.createElement('div');
+    ov.id = 'vc-rate-modal';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483602;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:16px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-family:"Noto Sans KR",-apple-system,sans-serif;overflow-y:auto';
+    var starsHtml = '';
+    for (var i = 1; i <= 7; i++) {
+      starsHtml += '<div class="vc-rate-star" data-v="' + i + '" style="text-align:center;cursor:pointer;padding:2px 0">'
+        + '<div style="font-size:clamp(22px,7vw,30px);line-height:1.2;color:#475569;transition:color .15s,transform .15s">★</div>'
+        + '<div class="vc-rate-cap" style="font-size:10px;line-height:1.3;color:' + (i===4?'#a3b3d1':'#64748b') + ';font-weight:' + (i===4?'700':'400') + '">' + LB[i-1] + '</div>'
+        + '</div>';
+    }
+    var tagsHtml = TG.map(function(t, idx){
+      return '<button type="button" class="vc-rate-tag" data-i="' + idx + '" style="padding:6px 11px;border-radius:999px;border:1px solid rgba(148,163,184,0.4);background:rgba(255,255,255,0.06);color:#cbd5e1;font-size:12px;cursor:pointer">' + t + '</button>';
+    }).join('');
+    ov.innerHTML =
+      '<div style="background:linear-gradient(135deg,#13234a,#0c1733);border:1px solid rgba(251,191,36,0.4);border-radius:18px;padding:24px 20px;max-width:420px;width:100%;text-align:center;box-shadow:0 24px 60px -10px rgba(0,0,0,0.7);color:#e6ecff;margin:auto">'
+      + '<div style="font-size:38px;margin-bottom:8px">⭐</div>'
+      + '<h2 style="font-size:18px;font-weight:800;color:#fbbf24;margin-bottom:4px">' + (en?'How was today\'s class?':'오늘 수업은 어땠나요?') + '</h2>'
+      + (teacher ? '<p style="font-size:13px;color:#a3b3d1;margin-bottom:2px">' + (en ? teacher + ' — rate today\'s class' : teacher + ' 선생님의 오늘 수업을 평가해 주세요') + '</p>' : '')
+      + '<p id="vc-rate-label" style="font-size:13px;color:#94a3b8;margin:6px 0 10px;min-height:18px">' + (en?'Tap a star · the middle star is "okay"':'별을 눌러 주세요 · 가운데 별이 보통이에요') + '</p>'
+      + '<div id="vc-rate-stars" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px">' + starsHtml + '</div>'
+      + '<p id="vc-rate-score" style="font-size:12px;color:#94a3b8;margin:4px 0 14px">— / 7</p>'
+      + '<p style="font-size:12px;color:#a3b3d1;text-align:left;margin:0 0 6px">' + (en?'What made it that way? (optional)':'어떤 점이 그랬나요? (선택)') + '</p>'
+      + '<div id="vc-rate-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;justify-content:flex-start">' + tagsHtml + '</div>'
+      + '<textarea id="vc-rate-fb" maxlength="1000" placeholder="' + (en?'Anything you want to tell your teacher? (optional)':'선생님이나 수업에 바라는 점이 있다면 적어 주세요 (선택)') + '" style="width:100%;min-height:60px;border-radius:10px;border:1px solid rgba(148,163,184,0.35);background:rgba(255,255,255,0.06);color:#e6ecff;font-size:13px;padding:10px;resize:none;box-sizing:border-box;font-family:inherit"></textarea>'
+      + '<button id="vc-rate-submit" disabled style="width:100%;margin-top:12px;padding:13px;border:0;border-radius:11px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-size:15px;font-weight:800;cursor:pointer;opacity:.45">' + (en?'Send rating & get +10P':'평가 보내고 +10 포인트 받기') + '</button>'
+      + '<button id="vc-rate-skip" style="margin-top:10px;background:none;border:0;color:#94a3b8;font-size:12.5px;cursor:pointer;text-decoration:underline">' + (en?'Skip for now':'다음에 할게요') + '</button>'
+      + '</div>';
+    document.body.appendChild(ov);
+
+    function paint(n){
+      var cols = ov.querySelectorAll('.vc-rate-star');
+      cols.forEach(function(c, i){
+        var st = c.children[0], cap = c.children[1];
+        var on = i < n;
+        st.style.color = on ? '#fbbf24' : '#475569';
+        st.style.transform = on ? 'scale(1.08)' : 'scale(1)';
+        cap.style.color = on ? '#fcd34d' : (i === 3 ? '#a3b3d1' : '#64748b');
+      });
+    }
+    ov.querySelectorAll('.vc-rate-star').forEach(function(c){
+      c.addEventListener('click', function(){
+        score = parseInt(c.getAttribute('data-v'), 10);
+        paint(score);
+        document.getElementById('vc-rate-label').textContent = LB[score-1];
+        document.getElementById('vc-rate-score').textContent = score + ' / 7';
+        var btn = document.getElementById('vc-rate-submit');
+        btn.disabled = false; btn.style.opacity = '1';
+      });
+    });
+    ov.querySelectorAll('.vc-rate-tag').forEach(function(b){
+      b.addEventListener('click', function(){
+        var i = b.getAttribute('data-i');
+        picked[i] = !picked[i];
+        b.style.background = picked[i] ? 'rgba(251,191,36,0.18)' : 'rgba(255,255,255,0.06)';
+        b.style.borderColor = picked[i] ? 'rgba(251,191,36,0.6)' : 'rgba(148,163,184,0.4)';
+        b.style.color = picked[i] ? '#fcd34d' : '#cbd5e1';
+      });
+    });
+
+    function finish(){
+      STATE.done = true;
+      closeModal();
+      try { if (typeof after === 'function') after(); } catch(e){ fallbackExit(); }
+    }
+
+    document.getElementById('vc-rate-skip').addEventListener('click', finish);
+    document.getElementById('vc-rate-submit').addEventListener('click', function(){
+      if (!score) return;
+      var btn = this;
+      btn.disabled = true; btn.style.opacity = '.7';
+      btn.textContent = en ? 'Sending…' : '보내는 중…';
+      var u = (typeof getCurrentUser==='function') ? getCurrentUser() : null;
+      var tags = [];
+      Object.keys(picked).forEach(function(i){ if (picked[i]) tags.push(TG[parseInt(i,10)]); });
+      var payload = {
+        room_id: (typeof vcRoomId !== 'undefined' && vcRoomId) ? vcRoomId : (window.vcRoomId || ''),
+        student_uid: (u && (u.uid || u.id)) || 'anonymous',
+        student_name: (u && u.name) || '',
+        teacher_name: teacher || '',
+        score: score,
+        tags: tags,
+        feedback: (document.getElementById('vc-rate-fb').value || '').trim()
+      };
+      markRated();
+      fetch('/api/ratings', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).then(function(r){ return r.json(); }).catch(function(){ return {}; })
+      .then(function(d){
+        var p = (d && d.points_awarded) || 0;
+        btn.textContent = en
+          ? ('Thank you!' + (p ? ' +' + p + 'P' : ''))
+          : ('감사합니다!' + (p ? ' +' + p + 'P 적립' : ''));
+        setTimeout(finish, 700);
+      });
+    });
+  }
+
+  // ── vcReviewQuizPrompt 래핑: 평가 모달 먼저 → 이후 복습퀴즈 안내 ──
+  function hookPrompt(tries){
+    tries = tries || 0;
+    if (typeof window.vcReviewQuizPrompt !== 'function') {
+      if (tries < 80) return setTimeout(function(){ hookPrompt(tries + 1); }, 150);
+      return;
+    }
+    if (window.__vcRatePromptHooked) return;
+    window.__vcRatePromptHooked = true;
+    var orig = window.vcReviewQuizPrompt;
+    window.vcReviewQuizPrompt = function(){
+      if (STATE.open) return true;                              // 평가 모달 표시 중 → 중복 호출 무시
+      if (STATE.done || alreadyRated() || !isStudentInClass()) return orig.apply(this, arguments);
+      var self = this, args = arguments;
+      showRatingModal(function(){
+        var handled = false;
+        try { handled = orig.apply(self, args); } catch(e){}
+        if (!handled) fallbackExit();                           // 복습퀴즈 조건 미달 → 정상 종료
+      });
+      return true;
+    };
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ hookPrompt(0); });
+  else hookPrompt(0);
+})();
+</script>
 <style>
 /* 교사 영상: 모바일에선 칩 2줄(로그인+EN, top 3rem) 아래로 내림 */
 @media (max-width:640px){
@@ -22738,7 +22959,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260703125738 -->
+<!-- BUILD:20260703130820 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
