@@ -9129,33 +9129,37 @@ LIMIT $limit`;
         const _erpRow: any = pick(0);
         const _fullErpPII = (_erpRow && !canViewPII(_fullScope)) ? maskRecordPII(_erpRow) : _erpRow;
 
-        // 🎓 카페24 성적(그래프DB) — 월별·일별 점수 + 교재퀴즈. Neo4j 미연결 시 조용히 빈배열.
-        let cafe24Scores: any = { monthly: [], daily: [], quiz: [], points: [], points_balance: 0 };
+        // 🎓 카페24 성적(그래프DB) — 월말평가(상세 코멘트5)·일별·교재퀴즈·레벨테스트·포인트. Neo4j 미연결 시 조용히 빈배열.
+        let cafe24Scores: any = { monthly: [], daily: [], quiz: [], points: [], points_balance: 0, leveltest: [] };
         try {
           const { fields, values } = await runCypher(env, `
             OPTIONAL MATCH (m:MonthlyScore {user_id: $uid})
             WITH m ORDER BY m.year DESC, m.month DESC
-            WITH collect(m { year: m.year, month: m.month, subject: m.subject, level: m.level, comment: m.comment })[0..24] AS monthly
+            WITH collect(m { year: m.year, month: m.month, subject: m.subject, level: m.level, comment: m.comment, c1: m.c1, c2: m.c2, c3: m.c3, c4: m.c4, c5: m.c5 })[0..24] AS monthly
             OPTIONAL MATCH (d:DailyScore {user_id: $uid})
             WITH monthly, d ORDER BY d.date DESC
             WITH monthly, collect(d { date: d.date, s1: d.s1, s2: d.s2, s3: d.s3, s4: d.s4, s5: d.s5, comment: d.comment })[0..90] AS daily
+            OPTIONAL MATCH (lt:LevelTest {user_id: $uid})
+            WITH monthly, daily, lt ORDER BY lt.year DESC, lt.month DESC, lt.day DESC
+            WITH monthly, daily, collect(lt { year: lt.year, month: lt.month, day: lt.day, level: lt.level, pass: lt.pass, s1: lt.s1, s2: lt.s2, s3: lt.s3, s4: lt.s4, s5: lt.s5, comment: lt.comment })[0..20] AS leveltest
             OPTIONAL MATCH (c:Class {user_id: $uid})
-            WITH monthly, daily, collect(DISTINCT c.class_id) AS classIds
+            WITH monthly, daily, leveltest, collect(DISTINCT c.class_id) AS classIds
             OPTIONAL MATCH (q:QuizResult) WHERE q.class_id IN classIds
-            WITH monthly, daily, q ORDER BY q.date DESC
-            WITH monthly, daily, collect(q { quiz_id: q.quiz_id, state: q.state, page: q.page, date: q.date, q_total: q.q_total, correct: q.correct, score_pct: q.score_pct })[0..60] AS quiz
+            WITH monthly, daily, leveltest, q ORDER BY q.date DESC
+            WITH monthly, daily, leveltest, collect(q { quiz_id: q.quiz_id, state: q.state, page: q.page, date: q.date, q_total: q.q_total, correct: q.correct, score_pct: q.score_pct })[0..60] AS quiz
             OPTIONAL MATCH (pt:PointTx {user_id: $uid})
-            WITH monthly, daily, quiz, pt ORDER BY pt.ts DESC
-            WITH monthly, daily, quiz,
+            WITH monthly, daily, leveltest, quiz, pt ORDER BY pt.ts DESC
+            WITH monthly, daily, leveltest, quiz,
                  collect(pt { amount: pt.amount, name: pt.name, date: pt.date, ts: pt.ts })[0..100] AS points,
                  sum(pt.amount) AS points_balance
-            RETURN monthly AS monthly, daily AS daily, quiz AS quiz, points AS points, points_balance AS points_balance
+            RETURN monthly AS monthly, daily AS daily, leveltest AS leveltest, quiz AS quiz, points AS points, points_balance AS points_balance
           `, { uid }, 'READ');
           if (values.length) {
             const idx = (n: string) => fields.indexOf(n);
             cafe24Scores = {
               monthly: values[0][idx('monthly')] || [],
               daily: values[0][idx('daily')] || [],
+              leveltest: values[0][idx('leveltest')] || [],
               quiz: values[0][idx('quiz')] || [],
               points: values[0][idx('points')] || [],
               points_balance: values[0][idx('points_balance')] || 0,

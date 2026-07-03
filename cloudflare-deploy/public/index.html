@@ -3269,15 +3269,19 @@
     try { sessionStorage.setItem(ratedKey(), '1'); } catch(e){}
   }
 
+  // 이름 끝의 "선생님/쌤/T" 중복 접미사 제거 (뒤에서 다시 "선생님"을 붙이므로)
+  function normTeacher(name){
+    return String(name || '').replace(/\s*(선생님|쌤)\s*$/,'').trim();
+  }
   function guessTeacherName(){
     try {
       var ids = Object.keys(PEERS);
-      if (ids.length) return PEERS[ids[0]];
+      if (ids.length) return normTeacher(PEERS[ids[0]]);
     } catch(e){}
     try {
       var u = (typeof getCurrentUser==='function') ? getCurrentUser() : null;
       var s = (u && u.uid && typeof demoStudents !== 'undefined') ? demoStudents[u.uid] : null;
-      if (s && s.teacher) return s.teacher;
+      if (s && s.teacher) return normTeacher(s.teacher);
     } catch(e){}
     return '';
   }
@@ -23369,7 +23373,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260704004223 -->
+<!-- BUILD:20260704004523 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

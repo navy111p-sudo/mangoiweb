@@ -542,6 +542,126 @@ function _celebrate(kind){
   else { _confettiBurst(10, false); if(Math.random()<0.5) _mascot('good'); }   // 일반 정답: 폭죽 + 가끔 마스코트
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   🪙 코인 지갑 · 🎡 룰렛 · 🛍️ 상점(스킨) · 🏆 주간 랭킹
+   ════════════════════════════════════════════════════════════════════ */
+function _lsGet(k,d){ try{ var v=localStorage.getItem(k); return v===null?d:v; }catch(_){ return d; } }
+function _lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(_){} }
+function _coinsEarned(){ return parseInt(_lsGet('mangoi_coins_earned','0'),10)||0; }
+function _coinsSpent(){ return parseInt(_lsGet('mangoi_coins_spent','0'),10)||0; }
+function _coinBal(){ return Math.max(0, _coinsEarned()-_coinsSpent()); }
+function _renderCoins(){ var el=document.getElementById('coin-count'); if(el) el.textContent=_coinBal(); }
+var _coinPending=0, _coinTimer=null;
+function _flushCoins(useBeacon){
+  try{ var uid=_gameUid(); if(!uid || _coinPending<=0) return;
+    var add=_coinPending; _coinPending=0;
+    var body=JSON.stringify({ user_id:uid, nickname:_nick(), add:add });
+    if(useBeacon && navigator.sendBeacon){ navigator.sendBeacon('/api/games/coins', new Blob([body],{type:'application/json'})); }
+    else fetch('/api/games/coins',{method:'POST',headers:{'Content-Type':'application/json'},body:body,keepalive:true}).catch(function(){});
+  }catch(_){}
+}
+function _addCoins(n, x, y){
+  if(n<=0) return;
+  _lsSet('mangoi_coins_earned', String(_coinsEarned()+n));
+  _coinPending += n; _renderCoins();
+  if(_coinTimer) clearTimeout(_coinTimer); _coinTimer=setTimeout(function(){ _flushCoins(false); }, 4000);
+  _coinFly(n, x, y);
+}
+function _spendCoins(n){ if(_coinBal()<n) return false; _lsSet('mangoi_coins_spent', String(_coinsSpent()+n)); _renderCoins(); return true; }
+function _coinFly(n, x, y){
+  try{ var wal=document.getElementById('coin-wallet'); var r=wal?wal.getBoundingClientRect():{left:innerWidth-60,top:70};
+    var el=document.createElement('div'); el.id='coin-fly'; el.textContent='+'+n+' 🪙';
+    var sx=(x!=null?x:innerWidth/2), sy=(y!=null?y:innerHeight/2);
+    el.style.left=sx+'px'; el.style.top=sy+'px'; el.style.transition='transform .8s cubic-bezier(.3,.7,.3,1),opacity .8s'; document.body.appendChild(el);
+    requestAnimationFrame(function(){ el.style.transform='translate('+((r.left+10)-sx)+'px,'+((r.top+4)-sy)+'px) scale(.7)'; el.style.opacity='0.2'; });
+    setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 850);
+  }catch(_){}
+}
+function _nick(){ return _lsGet('mangoi_nick',''); }
+setInterval(function(){ if(_coinPending>0) _flushCoins(false); }, 20000);
+window.addEventListener('pagehide', function(){ _flushCoins(true); });
+
+function closeModal(){ var b=document.getElementById('modal-back'); if(b) b.classList.remove('on'); }
+function _openModal(html){ var b=document.getElementById('modal-back'), body=document.getElementById('modal-body'); if(!b||!body) return; body.innerHTML=html; b.classList.add('on'); }
+function _ensureNick(){ var n=_nick(); if(n) return n; var v=(prompt('랭킹에 표시할 닉네임을 정해줘! (2~12자)','')||'').trim().slice(0,12); if(!v) v='꼬마'+Math.floor(100+Math.random()*900); _lsSet('mangoi_nick', v); return v; }
+
+// 🎡 룰렛 (하루 1회 무료)
+var _WHEEL=[10,50,20,100,30,200,20,50];
+function openRoulette(){
+  var today=new Date().toISOString().slice(0,10), used=_lsGet('mangoi_spin_date','')===today;
+  var segs=_WHEEL.map(function(v,i){ var hue=[350,45,160,205,280,15,120,320][i];
+    return '<div class="seg" style="transform:rotate('+(i*45)+'deg);background:hsl('+hue+',70%,60%)"><span>'+v+'</span></div>'; }).join('');
+  _openModal('<h2>🎡 행운의 룰렛</h2><div class="msub">'+(used?'오늘은 이미 돌렸어요! 내일 또 와요 🌙':'하루 한 번 무료로 돌려 코인을 받아요!')+'</div>'
+    +'<div class="wheel-pin"></div><div id="wheel">'+segs+'</div>'
+    +'<div id="spin-result" style="text-align:center;font-weight:800;color:#fbbf24;height:22px;margin-top:8px"></div>'
+    +'<button class="mclose" id="spin-go" '+(used?'disabled style="opacity:.5"':'')+' onclick="doSpin()">🎯 돌리기!</button>'
+    +'<button class="mclose" onclick="closeModal()" style="margin-top:8px">닫기</button>');
+}
+var _spinning=false;
+function doSpin(){
+  if(_spinning) return; var today=new Date().toISOString().slice(0,10);
+  if(_lsGet('mangoi_spin_date','')===today) return;
+  _spinning=true; _lsSet('mangoi_spin_date', today);
+  var idx=Math.floor(Math.random()*_WHEEL.length), prize=_WHEEL[idx];
+  var wheel=document.getElementById('wheel'); if(wheel) wheel.style.transform='rotate('+(5*360 + (360-(idx*45) - 22.5))+'deg)';
+  var go=document.getElementById('spin-go'); if(go){ go.disabled=true; go.style.opacity='.5'; }
+  setTimeout(function(){ _addCoins(prize, innerWidth/2, innerHeight/2);
+    var r=document.getElementById('spin-result'); if(r) r.textContent='🎉 '+prize+' 코인 획득!';
+    try{ _confettiBurst(30,true); }catch(_){} _spinning=false; }, 3700);
+}
+
+// 🛍️ 상점 (코인으로 스킨 잠금해제)
+var _SKINS={
+  balloon:[{id:'default',nm:'기본',price:0,prev:'🎈',pal:['#ef4444','#3b82f6','#10b981','#f59e0b']},
+    {id:'candy',nm:'캔디',price:80,prev:'🍬',pal:['#f472b6','#c084fc','#fb7185','#facc15']},
+    {id:'ocean',nm:'바다',price:120,prev:'🌊',pal:['#22d3ee','#38bdf8','#2dd4bf','#818cf8']},
+    {id:'neon',nm:'네온',price:200,prev:'💜',pal:['#a3e635','#22d3ee','#f0abfc','#fb7185']}],
+  brick:[{id:'default',nm:'기본',price:0,prev:'🧱',grad:'linear-gradient(135deg,#3b82f6,#1d4ed8)'},
+    {id:'gold',nm:'황금',price:100,prev:'🟨',grad:'linear-gradient(135deg,#fbbf24,#b45309)'},
+    {id:'grape',nm:'포도',price:150,prev:'🟪',grad:'linear-gradient(135deg,#a855f7,#6d28d9)'},
+    {id:'mint',nm:'민트',price:180,prev:'🟩',grad:'linear-gradient(135deg,#34d399,#0f766e)'}]
+};
+function _owned(cat){ try{ return JSON.parse(_lsGet('mangoi_owned_'+cat,'["default"]'))||['default']; }catch(_){ return ['default']; } }
+function _selSkin(cat){ return _lsGet('mangoi_skin_'+cat, 'default'); }
+function _balloonPal(){ var s=_SKINS.balloon.find(function(x){return x.id===_selSkin('balloon');})||_SKINS.balloon[0]; return s.pal; }
+function _brickGrad(){ var s=_SKINS.brick.find(function(x){return x.id===_selSkin('brick');})||_SKINS.brick[0]; return s.grad; }
+function openShop(){
+  function grid(cat, title){
+    return '<div style="font-weight:800;margin:10px 0 6px">'+title+'</div><div class="shop-grid">'+_SKINS[cat].map(function(s){
+      var owned=_owned(cat).indexOf(s.id)>=0, sel=_selSkin(cat)===s.id;
+      var btn = sel ? '<button class="skin-sel" disabled>✔ 사용 중</button>'
+        : owned ? '<button class="skin-use" onclick="useSkin(\''+cat+'\',\''+s.id+'\')">사용하기</button>'
+        : '<button class="skin-buy" onclick="buySkin(\''+cat+'\',\''+s.id+'\','+s.price+')">🪙 '+s.price+'</button>';
+      return '<div class="skin-card'+(sel?' sel':'')+'"><div class="prev">'+s.prev+'</div><div class="nm">'+s.nm+'</div>'+btn+'</div>';
+    }).join('')+'</div>';
+  }
+  _openModal('<h2>🛍️ 스킨 상점</h2><div class="msub">코인으로 풍선·벽돌 스킨을 잠금해제! (지금 코인 🪙 '+_coinBal()+')</div>'
+    + grid('balloon','🎈 풍선 색') + grid('brick','🧱 벽돌 테마') + '<button class="mclose" onclick="closeModal()">닫기</button>');
+}
+function buySkin(cat,id,price){
+  if(!_spendCoins(price)){ alert('코인이 부족해요! 게임을 더 해서 코인을 모아요 🪙'); return; }
+  var o=_owned(cat); if(o.indexOf(id)<0){ o.push(id); _lsSet('mangoi_owned_'+cat, JSON.stringify(o)); }
+  _lsSet('mangoi_skin_'+cat, id); try{ _confettiBurst(20,false); }catch(_){} openShop();
+}
+function useSkin(cat,id){ _lsSet('mangoi_skin_'+cat, id); openShop(); }
+
+// 🏆 주간 랭킹
+function openLeaderboard(){
+  _ensureNick();
+  _openModal('<h2>🏆 이번 주 랭킹</h2><div class="msub">이번 주에 코인을 가장 많이 모은 친구들!</div><div id="lb-list" style="min-height:80px">불러오는 중…</div><button class="mclose" onclick="closeModal()">닫기</button>');
+  try{ _flushCoins(false); }catch(_){}
+  setTimeout(function(){
+    fetch('/api/games/leaderboard?limit=20').then(function(r){ return r.ok?r.json():null; }).then(function(d){
+      var el=document.getElementById('lb-list'); if(!el) return;
+      if(!d||!d.ok||!d.top||!d.top.length){ el.innerHTML='<div style="text-align:center;color:#94a3b8;padding:20px">아직 랭킹이 없어요.<br>게임을 하고 코인을 모으면 1등이 될 수 있어요! 🥇</div>'; return; }
+      var me=_nick(), medal=['🥇','🥈','🥉'];
+      el.innerHTML=d.top.map(function(t){ var isMe=(t.nickname===me);
+        return '<div class="lb-row'+(isMe?' me':'')+'"><span class="lb-rank">'+(medal[t.rank-1]||t.rank)+'</span><span class="lb-name">'+String(t.nickname).replace(/[<>]/g,'')+(isMe?' (나)':'')+'</span><span class="lb-coins">🪙 '+t.coins+'</span></div>'; }).join('');
+    }).catch(function(){ var el=document.getElementById('lb-list'); if(el) el.innerHTML='<div style="text-align:center;color:#94a3b8;padding:20px">연결 오류</div>'; });
+  }, 500);
+}
+_renderCoins();
+
 // ── 정답/오답 공용 처리 (점수·콤보·하트·기록 일원화) ──
 function _onCorrect(kind, item, base){
   _recordResult(kind, item, true);
@@ -552,6 +672,7 @@ function _onCorrect(kind, item, base){
   _gameState.score += gain; _gameState.correct++;
   _renderHearts();
   _celebrate(boss ? 'boss' : (_combo>=3 ? 'combo' : 'good'));   // 🎉 축하 연출
+  _addCoins((boss?15:3) + (mult>1?(mult*2):0));                 // 🪙 코인 적립(콤보·보스 보너스)
   return { gain:gain, mult:mult, boss:boss };
 }
 // 👹 보스용 — 가장 긴(어려운) 문장 상위 3개 중 무작위
@@ -1205,9 +1326,10 @@ function gameRenderBrick(){
       '</div>' +
     '</div>' +
     '<div id="brick-pool" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:18px">';
+  var _bkGrad = _brickGrad();   // 🛍️ 선택한 벽돌 스킨
   shuffled.forEach((w, i) => {
-    // 🎨 내용어=선명한 파랑 / 기능어=흐린 회색 → 문장에서 어떤 단어가 뜻을 나르는지 보이게
-    var _bg = _isContentWord(w) ? 'linear-gradient(135deg,#3b82f6,#1d4ed8);box-shadow:0 4px 12px rgba(59,130,246,0.4)'
+    // 🎨 내용어=선택 스킨 색 / 기능어=흐린 회색 → 문장에서 어떤 단어가 뜻을 나르는지 보이게
+    var _bg = _isContentWord(w) ? _bkGrad+';box-shadow:0 4px 12px rgba(59,130,246,0.4)'
                                 : 'linear-gradient(135deg,#64748b,#475569);box-shadow:0 4px 12px rgba(100,116,139,0.3)';
     html += '<button class="brick-btn" data-word="' + w + '" data-idx="' + i + '" onclick="gameBrickPick(this)" ' +
       'style="padding:clamp(12px,1.8vmin,22px) clamp(18px,2.6vmin,34px);background:' + _bg + ';color:#fff;border:0;border-radius:10px;font-size:clamp(18px,2.6vmin,34px);font-weight:600;cursor:pointer;transition:transform 0.15s">' + w + '</button>';
@@ -1468,12 +1590,9 @@ function gameRenderBalloon(){
       '<div style="font-size:34px;font-weight:700;color:#fbbf24;padding:14px 24px;background:rgba(251,191,36,0.12);border-radius:12px;display:inline-block;margin-top:10px">' + (_em?_em+' ':'') + word.ko + '</div>' +
     '</div>' +
     '<div id="balloon-stage" style="position:relative;flex:1;min-height:200px;background:linear-gradient(180deg,#0c4a6e 0%,#0f172a 100%);border-radius:14px;overflow:hidden;border:2px solid #475569">';
-  const colors = [
-    {bg:'linear-gradient(135deg,#ef4444,#b91c1c)', shadow:'rgba(239,68,68,0.6)', solid:'#ef4444'},
-    {bg:'linear-gradient(135deg,#3b82f6,#1d4ed8)', shadow:'rgba(59,130,246,0.6)', solid:'#3b82f6'},
-    {bg:'linear-gradient(135deg,#10b981,#047857)', shadow:'rgba(16,185,129,0.6)', solid:'#10b981'},
-    {bg:'linear-gradient(135deg,#f59e0b,#d97706)', shadow:'rgba(245,158,11,0.6)', solid:'#f59e0b'}
-  ];
+  // 🛍️ 선택한 풍선 스킨 색상 적용
+  const _pal = _balloonPal();
+  const colors = _pal.map(function(hex){ return {bg:'linear-gradient(135deg,'+hex+','+hex+')', shadow:hex+'99', solid:hex}; });
   balloons.forEach((b, i) => {
     const left = 5 + i * 22;
     const startTop = -80 - (i * 60);
@@ -1631,6 +1750,6 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260704004223 -->
+<!-- BUILD:20260704004523 -->
 </body>
 </html>
