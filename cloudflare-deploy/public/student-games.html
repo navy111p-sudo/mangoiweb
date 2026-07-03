@@ -973,13 +973,55 @@ function _shadowScore(said, target){
     if(!tw.length) return 0; var h=0; tw.forEach(function(w){ if(sw.indexOf(w)>=0) h++; }); return h/tw.length;
   }catch(_){ return 0; }
 }
+// 발음 점수(0~100)를 서버에 저장 → 교사가 학생별 발음 향상 확인(game_progress.pron_*)
+function _saveShadowScore(item, ko, score){
+  try{
+    var uid=_gameUid(); if(!uid || !item) return;
+    fetch('/api/games/shadow', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ user_id:uid, lang:GAME_LANG, item:item, ko:ko||'', score:Math.round(score*100) }), keepalive:true }).catch(function(){});
+  }catch(_){}
+}
+function _shadowResult(sc, text){
+  var fb=document.getElementById('game-feedback');
+  if(fb) fb.innerHTML = sc>=0.6
+    ? '<span style="color:#10b981">👍 발음 좋아요! ('+Math.round(sc*100)+'점)</span>'
+    : '<span style="color:#f59e0b">🔁 거의 됐어요! ('+Math.round(sc*100)+'점) 🔊 다시 도전</span>';
+  try{ var s=_gameState.current&&_gameState.current.sentence; _saveShadowScore(text, (s&&s.ko)||'', sc); }catch(_){}
+  _gameState._advTimer=setTimeout(gameNextRound,1700);
+}
+// MediaRecorder → 서버 Whisper 전사 → 채점 (SpeechRecognition 미지원 브라우저: 사파리/iOS 등)
+function _shadowViaWhisper(text, fb){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder){
+    if(fb) fb.innerHTML='<span style="color:#38bdf8">🔊 잘 듣고 소리내어 따라 말해보세요!</span>'; _gameState._advTimer=setTimeout(gameNextRound,2400); return;
+  }
+  navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
+    var mr, chunks=[]; try{ mr=new MediaRecorder(stream); }catch(_){ mr=new MediaRecorder(stream,{mimeType:'audio/webm'}); }
+    if(fb) fb.innerHTML='<span style="color:#fbbf24">🎤 따라 말해보세요… (녹음 중)</span>';
+    mr.ondataavailable=function(e){ if(e.data && e.data.size) chunks.push(e.data); };
+    mr.onstop=function(){
+      try{ stream.getTracks().forEach(function(t){ t.stop(); }); }catch(_){}
+      var blob=new Blob(chunks, {type:(chunks[0]&&chunks[0].type)||'audio/webm'});
+      if(!blob.size){ _gameState._advTimer=setTimeout(gameNextRound,1500); return; }
+      if(fb) fb.innerHTML='<span style="color:#94a3b8">🎧 발음 확인 중…</span>';
+      var fd=new FormData(); fd.append('audio', blob, 'shadow.webm');
+      fetch('/api/voice/transcribe', { method:'POST', body:fd })
+        .then(function(r){ return r.ok?r.json():null; })
+        .then(function(d){
+          if(!d || !d.ok){ if(fb) fb.innerHTML='<span style="color:#94a3b8">🎤 다음 문제로…</span>'; _gameState._advTimer=setTimeout(gameNextRound,1400); return; }
+          _shadowResult(_shadowScore(d.text||'', text), text);
+        }).catch(function(){ _gameState._advTimer=setTimeout(gameNextRound,1400); });
+    };
+    mr.start(); setTimeout(function(){ try{ mr.stop(); }catch(_){} }, 4200);
+  }).catch(function(){ if(fb) fb.innerHTML='<span style="color:#94a3b8">🎤 마이크 권한이 필요해요 — 다음 문제로…</span>'; _gameState._advTimer=setTimeout(gameNextRound,1600); });
+}
 function gameShadow(enc){
   var text=decodeURIComponent(enc);
   var fb=document.getElementById('game-feedback');
   if(_gameState._advTimer){ clearTimeout(_gameState._advTimer); _gameState._advTimer=null; }   // 자동 넘어감 취소
   try{ window.gameSpeak && gameSpeak(text); }catch(_){}
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){ if(fb) fb.innerHTML='<span style="color:#38bdf8">🔊 잘 듣고 소리내어 따라 말해보세요!</span>'; _gameState._advTimer=setTimeout(gameNextRound,2400); return; }
+  // 미지원 브라우저(사파리/iOS 등) → MediaRecorder + 서버 Whisper 로 채점
+  if(!SR){ setTimeout(function(){ _shadowViaWhisper(text, fb); }, 850); return; }
   setTimeout(function(){
     try{
       var rec=new SR(); rec.lang=(GAME_LANG==='zh'?'zh-CN':'en-US'); rec.interimResults=false; rec.maxAlternatives=3;
@@ -987,11 +1029,7 @@ function gameShadow(enc){
       var done=false;
       rec.onresult=function(e){ done=true;
         var said=''; for(var i=0;i<e.results.length;i++) said+=e.results[i][0].transcript+' ';
-        var sc=_shadowScore(said, text);
-        if(fb) fb.innerHTML = sc>=0.6
-          ? '<span style="color:#10b981">👍 발음 좋아요! ('+Math.round(sc*100)+'점)</span>'
-          : '<span style="color:#f59e0b">🔁 거의 됐어요! 🔊 다시 듣고 도전</span>';
-        _gameState._advTimer=setTimeout(gameNextRound,1700);
+        _shadowResult(_shadowScore(said, text), text);
       };
       rec.onerror=function(){ if(!done){ if(fb) fb.innerHTML='<span style="color:#94a3b8">🎤 마이크를 못 썼어요 — 다음 문제로…</span>'; _gameState._advTimer=setTimeout(gameNextRound,1500); } };
       rec.onend=function(){ if(!done && !_gameState._advTimer) _gameState._advTimer=setTimeout(gameNextRound,1500); };

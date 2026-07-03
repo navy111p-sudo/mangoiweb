@@ -201,6 +201,10 @@ export default {
     if (path === '/api/games/weak' && request.method === 'GET') {
       return handleGamesWeak(request, env);
     }
+    // 🎤 발음 점수 — POST /api/games/shadow {user_id,lang,item,ko,score} → 따라말하기 발음 점수 누적(game_progress)
+    if (path === '/api/games/shadow' && request.method === 'POST') {
+      return handleGamesShadow(request, env);
+    }
 
     // 📩 알림톡 클릭추적 (공개·학부모용) — 버튼 클릭 시 read_at 기록 후 원래 URL 로 리다이렉트.
     //    이탈위험 그래프의 (학부모)-[:IGNORED]->(알림톡) 판정을 정밀화한다.
@@ -1738,7 +1742,7 @@ async function handleGamesZhVocab(request: Request, env: Env): Promise<Response>
  *      교사 대시보드 + 웜업/복습 맞춤 재출제에 사용.
  * ════════════════════════════════════════════════════════════════════════ */
 async function _ensureGameProgressTable(env: Env) {
-  await env.DB.exec(`CREATE TABLE IF NOT EXISTS game_progress (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, lang TEXT NOT NULL, item TEXT NOT NULL, ko TEXT, wrong_count INTEGER DEFAULT 0, correct_count INTEGER DEFAULT 0, last_seen INTEGER, updated_at INTEGER, UNIQUE(user_id, lang, item));`);
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS game_progress (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, lang TEXT NOT NULL, item TEXT NOT NULL, ko TEXT, wrong_count INTEGER DEFAULT 0, correct_count INTEGER DEFAULT 0, pron_best INTEGER DEFAULT 0, pron_last INTEGER DEFAULT 0, pron_count INTEGER DEFAULT 0, last_seen INTEGER, updated_at INTEGER, UNIQUE(user_id, lang, item));`);
 }
 async function handleGamesProgress(request: Request, env: Env): Promise<Response> {
   try {
@@ -1782,14 +1786,43 @@ async function handleGamesWeak(request: Request, env: Env): Promise<Response> {
     await _ensureGameProgressTable(env);
     // 약점 = 오답이 있고 (오답 ≥ 정답) 인 항목, 오답 많은 순
     const rs = await env.DB.prepare(
-      `SELECT item, ko, wrong_count, correct_count FROM game_progress
+      `SELECT item, ko, wrong_count, correct_count, pron_best, pron_count FROM game_progress
        WHERE user_id = ? AND lang = ? AND wrong_count > 0 AND wrong_count >= correct_count
        ORDER BY wrong_count DESC, (wrong_count - correct_count) DESC LIMIT ?`
     ).bind(userId, lang, limit).all();
     const weak = ((rs.results as any[]) || []).map((r) => ({
-      item: r.item, ko: r.ko || '', wrong: r.wrong_count || 0, correct: r.correct_count || 0
+      item: r.item, ko: r.ko || '', wrong: r.wrong_count || 0, correct: r.correct_count || 0,
+      pron_best: r.pron_best || 0, pron_count: r.pron_count || 0
     }));
     return new Response(JSON.stringify({ ok: true, lang, weak }), { status: 200, headers: _MS_JSON });
+  } catch (e: any) {
+    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
+  }
+}
+// 🎤 따라말하기 발음 점수 저장 — game_progress 에 발음 지표(최고/최근/횟수) 누적
+async function handleGamesShadow(request: Request, env: Env): Promise<Response> {
+  try {
+    let body: any = {};
+    try { body = await request.json(); } catch {}
+    const userId = String(body?.user_id || '').trim().slice(0, 100);
+    const lang = (String(body?.lang || 'en').toLowerCase() === 'zh') ? 'zh' : 'en';
+    const item = String(body?.item || '').trim().slice(0, 200);
+    const ko = String(body?.ko || '').trim().slice(0, 200);
+    let score = Math.round(Number(body?.score) || 0); if (score < 0) score = 0; if (score > 100) score = 100;
+    if (!userId || !item) return new Response(JSON.stringify({ ok: false, error: 'missing' }), { status: 400, headers: _MS_JSON });
+    await _ensureGameProgressTable(env);
+    const now = Date.now();
+    await env.DB.prepare(
+      `INSERT INTO game_progress (user_id, lang, item, ko, wrong_count, correct_count, pron_best, pron_last, pron_count, last_seen, updated_at)
+       VALUES (?, ?, ?, ?, 0, 0, ?, ?, 1, ?, ?)
+       ON CONFLICT(user_id, lang, item) DO UPDATE SET
+         pron_best = MAX(pron_best, excluded.pron_best),
+         pron_last = excluded.pron_last,
+         pron_count = pron_count + 1,
+         ko = COALESCE(NULLIF(excluded.ko,''), ko),
+         last_seen = excluded.last_seen, updated_at = excluded.updated_at`
+    ).bind(userId, lang, item, ko, score, score, now, now).run();
+    return new Response(JSON.stringify({ ok: true, score }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }

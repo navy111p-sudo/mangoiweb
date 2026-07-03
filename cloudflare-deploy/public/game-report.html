@@ -117,10 +117,14 @@ function loadReport(){
       summary.innerHTML='<b>'+escapeHtml(uid)+'</b> 학생 · '+langName+' 약점 단어 <b>'+weak.length+'</b>개 (자주 틀린 순). 🔊 를 눌러 원어민 발음을 함께 지도하세요.';
       content.innerHTML = '<div class="grid">' + weak.map(function(w){
         var hz = escapeHtml(w.item);
+        var pron = (w.pron_count>0)
+          ? '<div class="stat">🎤 발음 최고 <b style="color:'+(w.pron_best>=60?'#34d399':'#f59e0b')+'">'+w.pron_best+'점</b> <span style="color:#64748b">('+w.pron_count+'회 시도)</span></div>'
+          : '';
         return '<div class="wcard">'
           + '<div class="hz">'+hz+'</div>'
           + '<div class="ko">'+ (w.ko?escapeHtml(w.ko):'<span style="color:#64748b">(뜻 미기록)</span>') +'</div>'
           + '<div class="stat">❌ 오답 <span class="w">'+w.wrong+'</span> · ✅ 정답 <span class="r">'+w.correct+'</span></div>'
+          + pron
           + '<button class="spk" onclick="speak('+JSON.stringify(w.item).replace(/"/g,'&quot;')+',\''+LANG+'\')">🔊 발음 듣기</button>'
           + '</div>';
       }).join('') + '</div>';
