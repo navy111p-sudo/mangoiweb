@@ -4333,8 +4333,35 @@
   <div class="menu-body">
     <div class="sub-menu">
 
+      <!-- 👩‍🏫 강사 명부 (카페24 실데이터) -->
+      <details class="sub-item" id="sub-teacher-roster" open ontoggle="if(this.open)loadTeacherRoster()">
+        <summary data-ko="👩‍🏫 강사 명부 (실데이터)" data-en="👩‍🏫 Teacher Roster (real data)">👩‍🏫 강사 명부 (실데이터)</summary>
+        <div class="sub-body">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+            <input id="tr-q" type="text" placeholder="이름/닉네임/그룹 검색" onkeydown="if(event.key==='Enter')loadTeacherRoster()" style="padding:7px 12px;font-size:13px;border-radius:8px;border:1px solid #d1d5db;min-width:200px" />
+            <button onclick="loadTeacherRoster()" class="primary" style="padding:7px 14px;font-size:12.5px;font-weight:700" data-ko="🔍 조회" data-en="🔍 Search">🔍 조회</button>
+            <span id="tr-count" style="font-size:12px;color:#6b7280"></span>
+          </div>
+          <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:auto;max-height:600px">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:900px">
+              <thead style="background:#f9fafb;position:sticky;top:0;z-index:1"><tr>
+                <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb" data-ko="강사" data-en="Teacher">강사</th>
+                <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb" data-ko="그룹" data-en="Group">그룹</th>
+                <th style="padding:9px 10px;text-align:right;border-bottom:2px solid #e5e7eb" data-ko="담당 수업" data-en="Classes">담당 수업</th>
+                <th style="padding:9px 10px;text-align:right;border-bottom:2px solid #e5e7eb" data-ko="담당 학생" data-en="Students">담당 학생</th>
+                <th style="padding:9px 10px;text-align:right;border-bottom:2px solid #e5e7eb" data-ko="근무일수" data-en="Work days">근무일수</th>
+                <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb" data-ko="근무시간" data-en="Hours">근무시간</th>
+                <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb" data-ko="학력·경력" data-en="Edu/Career">학력·경력</th>
+                <th style="padding:9px 10px;text-align:center;border-bottom:2px solid #e5e7eb" data-ko="상태" data-en="Status">상태</th>
+              </tr></thead>
+              <tbody id="tr-rows"><tr><td colspan="8" style="padding:24px;text-align:center;color:#9ca3af">불러오는 중…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
       <!-- 🆕 하위 0 — 결석 강사 자동 대체 시스템 -->
-      <details class="sub-item" id="sub-auto-sub" open>
+      <details class="sub-item" id="sub-auto-sub">
         <summary data-ko="🔄 결석 강사 자동 대체 (AI 매칭)" data-en="🔄 Auto Substitute Teacher (AI Match)">🔄 결석 강사 자동 대체 (AI 매칭)</summary>
         <div class="sub-body">
           <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:12px;padding:14px 16px;margin-bottom:12px">
@@ -22325,7 +22352,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260704004523 -->
+        <!-- BUILD:20260704005855 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -24043,6 +24070,46 @@ window.rebuildGlobalSearchIndex = function() {
   }
 
   let _absentClasses = [];
+
+  // 👩‍🏫 강사 명부 (카페24 실데이터) — Neo4j graph-list
+  let _trLoaded = false;
+  window.loadTeacherRoster = async function(force) {
+    if (_trLoaded && !force && !(document.getElementById('tr-q')||{}).value) { /* 이미 로드됨 */ }
+    const tb = document.getElementById('tr-rows');
+    const cnt = document.getElementById('tr-count');
+    if (!tb) return;
+    const _en = (window.adminLang==='en');
+    const q = (document.getElementById('tr-q')||{}).value || '';
+    const esc = s => String(s==null?'':s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+    const num = n => (Number(n)||0).toLocaleString();
+    tb.innerHTML = '<tr><td colspan="8" style="padding:24px;text-align:center;color:#9ca3af">'+(_en?'Loading…':'불러오는 중…')+'</td></tr>';
+    try {
+      const r = await fetch('/api/admin/teachers/graph-list?q=' + encodeURIComponent(q), { credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'API error');
+      const rows = d.teachers || [];
+      _trLoaded = true;
+      if (cnt) cnt.textContent = (_en? rows.length+' teachers' : '총 '+rows.length+'명');
+      tb.innerHTML = rows.length ? rows.map(t => {
+        const mgr = Number(t.is_manager) ? '<span style="padding:1px 6px;background:#ede9fe;color:#6d28d9;font-size:10px;border-radius:99px;margin-left:4px;font-weight:700">매니저</span>' : '';
+        const hours = (t.start_hour && t.end_hour) ? (esc(t.start_hour)+'~'+esc(t.end_hour)) : '—';
+        const edu = [t.edu, t.spec].filter(Boolean).map(esc).join(' · ') || '—';
+        const active = t.status==='active';
+        return '<tr style="border-bottom:1px solid #f1f5f9">'
+          + '<td style="padding:8px 10px"><b>'+esc(t.name)+'</b>'+(t.nickname?' <span style="color:#94a3b8">('+esc(t.nickname)+')</span>':'')+mgr+'</td>'
+          + '<td style="padding:8px 10px;color:#475569">'+esc(t.group_name||'—')+'</td>'
+          + '<td style="padding:8px 10px;text-align:right;font-weight:700;color:#1e3a8a">'+num(t.class_count)+'</td>'
+          + '<td style="padding:8px 10px;text-align:right">'+num(t.student_count)+'</td>'
+          + '<td style="padding:8px 10px;text-align:right">'+num(t.work_days)+'</td>'
+          + '<td style="padding:8px 10px;color:#475569">'+hours+'</td>'
+          + '<td style="padding:8px 10px;color:#64748b;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+edu+'">'+edu+'</td>'
+          + '<td style="padding:8px 10px;text-align:center"><span style="padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;background:'+(active?'#dcfce7;color:#15803d':'#f1f5f9;color:#94a3b8')+'">'+(active?(_en?'Active':'재직'):(_en?'Inactive':'퇴사'))+'</span></td>'
+          + '</tr>';
+      }).join('') : '<tr><td colspan="8" style="padding:24px;text-align:center;color:#9ca3af">'+(_en?'No teachers':'강사 없음')+'</td></tr>';
+    } catch(e) {
+      tb.innerHTML = '<tr><td colspan="8" style="padding:20px;text-align:center;color:#dc2626">'+(_en?'Load failed: ':'불러오기 실패: ')+esc(String(e&&e.message||e))+'</td></tr>';
+    }
+  };
 
   window.loadAbsentTeachers = function() {
     const date = document.getElementById('sub-date').value || new Date().toISOString().slice(0,10);

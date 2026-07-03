@@ -1138,16 +1138,23 @@ function renderPoints(){
 // 🎓 카페24 성적(그래프DB) HTML 조각 — 월별 리포트 + 최근 일별 점수
 function cafe24ScoresHtml(){
   const cs = (_state.full && _state.full.cafe24_scores) || {};
-  const monthly = cs.monthly || [], daily = cs.daily || [];
+  const monthly = cs.monthly || [], daily = cs.daily || [], leveltest = cs.leveltest || [];
   const quizAll = (cs.quiz || []).filter(function(q){ return q && q.q_total; });
-  if (!monthly.length && !daily.length && !quizAll.length) return '';
+  if (!monthly.length && !daily.length && !quizAll.length && !leveltest.length) return '';
   const en = _lang==='en';
   let h = '<div style="margin-bottom:18px">';
-  h += '<h3 style="margin:0 0 10px;font-size:15px;color:#34d399">🎓 '+(en?'Cafe24 Report Cards (real data)':'카페24 성적 (실데이터)')+'</h3>';
+  h += '<h3 style="margin:0 0 10px;font-size:15px;color:#34d399">🎓 '+(en?'Cafe24 Report Cards (real data)':'카페24 성적표·리포트카드 (실데이터)')+'</h3>';
+  // 🏅 레벨테스트 성적표
+  if (leveltest.length){
+    h += '<div style="font-size:12.5px;color:var(--mut);margin:6px 0 4px">🏅 '+(en?'Level Tests':'레벨테스트 성적표')+' ('+leveltest.length+')</div>';
+    h += '<table class="list"><thead><tr><th>'+(en?'Date':'일자')+'</th><th>'+(en?'Level':'레벨')+'</th><th>'+(en?'Pass':'합격')+'</th><th>S1</th><th>S2</th><th>S3</th><th>S4</th><th>S5</th><th>'+(en?'Comment':'코멘트')+'</th></tr></thead><tbody>'+
+      leveltest.map(function(l){ var pass = Number(l.pass)? '<span style="color:#34d399;font-weight:700">'+(en?'PASS':'합격')+'</span>':'<span style="color:#f87171">'+(en?'—':'재응시')+'</span>'; return '<tr><td style="white-space:nowrap">'+esc(String(l.year||''))+'-'+String(l.month||'').padStart(2,'0')+'-'+String(l.day||'').padStart(2,'0')+'</td><td>'+esc(String(l.level||'—'))+'</td><td>'+pass+'</td><td>'+esc(String(l.s1||0))+'</td><td>'+esc(String(l.s2||0))+'</td><td>'+esc(String(l.s3||0))+'</td><td>'+esc(String(l.s4||0))+'</td><td>'+esc(String(l.s5||0))+'</td><td style="white-space:pre-wrap;max-width:360px">'+esc(l.comment||'—')+'</td></tr>'; }).join('')+'</tbody></table>';
+  }
   if (monthly.length){
-    h += '<div style="font-size:12.5px;color:var(--mut);margin:6px 0 4px">📆 '+(en?'Monthly Reports':'월별 리포트')+' ('+monthly.length+')</div>';
-    h += '<table class="list"><thead><tr><th>'+(en?'Year/Mo':'연/월')+'</th><th>'+(en?'Subject':'과목')+'</th><th>'+(en?'Level':'레벨')+'</th><th>'+(en?'Comment':'코멘트')+'</th></tr></thead><tbody>'+
-      monthly.map(function(m){ return '<tr><td style="white-space:nowrap">'+esc(String(m.year||''))+'-'+String(m.month||'').padStart(2,'0')+'</td><td>'+esc(m.subject||'—')+'</td><td>'+esc(String(m.level||'—'))+'</td><td style="white-space:pre-wrap;max-width:420px">'+esc(m.comment||'—')+'</td></tr>'; }).join('')+'</tbody></table>';
+    var mcmt = function(m){ var parts=[m.c1,m.c2,m.c3,m.c4,m.c5].filter(function(x){return x && String(x).trim();}); var body = m.comment||''; var extra = parts.length? '<div style="margin-top:4px;color:#94a3b8;font-size:11px">'+parts.map(esc).join('<br>')+'</div>':''; return '<div style="white-space:pre-wrap">'+esc(body||'—')+'</div>'+extra; };
+    h += '<div style="font-size:12.5px;color:var(--mut);margin:14px 0 4px">📆 '+(en?'Monthly Report Cards':'월말평가 리포트카드')+' ('+monthly.length+')</div>';
+    h += '<table class="list"><thead><tr><th>'+(en?'Year/Mo':'연/월')+'</th><th>'+(en?'Subject':'과목')+'</th><th>'+(en?'Level':'레벨')+'</th><th>'+(en?'Comment (5 sections)':'평가 (5개 영역)')+'</th></tr></thead><tbody>'+
+      monthly.map(function(m){ return '<tr><td style="white-space:nowrap">'+esc(String(m.year||''))+'-'+String(m.month||'').padStart(2,'0')+'</td><td>'+esc(m.subject||'—')+'</td><td>'+esc(String(m.level||'—'))+'</td><td style="max-width:460px">'+mcmt(m)+'</td></tr>'; }).join('')+'</tbody></table>';
   }
   if (daily.length){
     var avg = function(d){ var a=[d.s1,d.s2,d.s3,d.s4,d.s5].map(Number).filter(function(x){return !isNaN(x)&&x>0;}); return a.length?Math.round(a.reduce(function(p,c){return p+c;},0)/a.length*10)/10:'—'; };

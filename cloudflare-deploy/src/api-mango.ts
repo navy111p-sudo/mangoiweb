@@ -8189,6 +8189,33 @@ Respond in JSON ONLY:
       }
     }
 
+    // 👩‍🏫 카페24 강사 명부 (그래프DB) — 학력·경력·소개·근무시간·시급·출퇴근집계·담당수업수
+    //   GET /api/admin/teachers/graph-list?q=검색어  → {ok, source:'neo4j', count, teachers:[...]}
+    //   Neo4j 미설정/실패 시 503/502. 강사관리 화면이 실데이터로 뜨게 함.
+    if (method === 'GET' && path === '/api/admin/teachers/graph-list') {
+      const qT = (url.searchParams.get('q') || '').trim().toLowerCase();
+      try {
+        // 담당수업수(class_count)·학생수(student_count)는 노드에 미리 계산돼 있음(대량 Class 스캔 회피)
+        const { fields, values } = await runCypher(env, `
+          MATCH (t:Teacher) WHERE t.name IS NOT NULL
+            AND ($q = '' OR toLower(coalesce(t.name,'')) CONTAINS $q OR toLower(coalesce(t.nickname,'')) CONTAINS $q OR toLower(coalesce(t.group_name,'')) CONTAINS $q)
+          RETURN t.teacher_id AS teacher_id, t.name AS name, t.nickname AS nickname,
+                 t.is_manager AS is_manager, t.email AS email, t.group_name AS group_name,
+                 t.edu AS edu, t.spec AS spec, t.intro AS intro,
+                 t.start_hour AS start_hour, t.end_hour AS end_hour, t.pay_per_time AS pay_per_time,
+                 t.video_type AS video_type, t.status AS status, t.reg_date AS reg_date,
+                 coalesce(t.work_days,0) AS work_days, coalesce(t.total_hours,0.0) AS total_hours, t.last_work AS last_work,
+                 coalesce(t.class_count,0) AS class_count, coalesce(t.student_count,0) AS student_count
+          ORDER BY coalesce(t.class_count,0) DESC, t.name`, { q: qT }, 'READ');
+        const teachers = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
+        return json({ ok: true, source: 'neo4j', count: teachers.length, teachers });
+      } catch (e: any) {
+        if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
+        console.warn('[teachers/graph-list] 실패:', e?.message || e);
+        return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
+      }
+    }
+
     // 🕸️ 그래프 학생 명부 — Neo4j 실데이터 조회 (자체 호스팅 bolt 서버/Aura 공용)
     //   GET /api/admin/students/graph-list?limit=1000&q=검색어
     //   (:Student) 노드 + 가족(FAMILY_OF)·학부모(:Parent) 관계를 MATCH 로 읽어
