@@ -1140,7 +1140,8 @@ function cafe24ScoresHtml(){
   const cs = (_state.full && _state.full.cafe24_scores) || {};
   const monthly = cs.monthly || [], daily = cs.daily || [], leveltest = cs.leveltest || [];
   const quizAll = (cs.quiz || []).filter(function(q){ return q && q.q_total; });
-  if (!monthly.length && !daily.length && !quizAll.length && !leveltest.length) return '';
+  const anyExtra = (cs.enroll||[]).length || (cs.counsel||[]).length || (cs.review||[]).length || cs.teacher_score || cs.self_avg != null;
+  if (!monthly.length && !daily.length && !quizAll.length && !leveltest.length && !anyExtra) return '';
   const en = _lang==='en';
   let h = '<div style="margin-bottom:18px">';
   h += '<h3 style="margin:0 0 10px;font-size:15px;color:#34d399">🎓 '+(en?'Cafe24 Report Cards (real data)':'카페24 성적표·리포트카드 (실데이터)')+'</h3>';
@@ -1167,6 +1168,34 @@ function cafe24ScoresHtml(){
     h += '<div style="font-size:12.5px;color:var(--mut);margin:14px 0 4px">🧩 '+(en?'Book Quizzes (recent)':'교재 퀴즈 (최근)')+' ('+quiz.length+')</div>';
     h += '<table class="list"><thead><tr><th>'+(en?'Date':'날짜')+'</th><th>'+(en?'Questions':'문항수')+'</th><th>'+(en?'Correct':'정답')+'</th><th>'+(en?'Score':'정답률')+'</th></tr></thead><tbody>'+
       quiz.map(function(q){ return '<tr><td style="white-space:nowrap">'+esc(q.date||'—')+'</td><td>'+esc(String(q.q_total||0))+'</td><td>'+esc(String(q.correct||0))+'</td><td>'+scoreBadge(q.score_pct)+'</td></tr>'; }).join('')+'</tbody></table>';
+  }
+  // 🧾 수강신청 이력 (ClassOrders)
+  var enroll = cs.enroll || [];
+  if (enroll.length){
+    var stateKo = {1:'대기',2:'진행중',3:'종료',4:'취소'};
+    h += '<div style="font-size:12.5px;color:var(--mut);margin:14px 0 4px">🧾 '+(en?'Enrollments':'수강신청 이력')+' ('+enroll.length+')</div>';
+    h += '<table class="list"><thead><tr><th>'+(en?'Start':'시작')+'</th><th>'+(en?'End':'종료')+'</th><th>'+(en?'Progress':'진도')+'</th><th>'+(en?'Status':'상태')+'</th></tr></thead><tbody>'+
+      enroll.map(function(e){ return '<tr><td style="white-space:nowrap">'+esc(e.start_date||'—')+'</td><td style="white-space:nowrap">'+esc(e.end_date||'—')+'</td><td>'+esc(String(e.progress||0))+'</td><td>'+esc(stateKo[Number(e.state)]||String(e.state||'—'))+'</td></tr>'; }).join('')+'</tbody></table>';
+  }
+  // 📞 상담 내역 (Counsels)
+  var counsel = cs.counsel || [];
+  if (counsel.length){
+    h += '<div style="font-size:12.5px;color:var(--mut);margin:14px 0 4px">📞 '+(en?'Counseling':'상담 내역')+' ('+counsel.length+')</div>';
+    h += '<table class="list"><thead><tr><th>'+(en?'Date':'날짜')+'</th><th>'+(en?'Counselor':'상담자')+'</th><th>'+(en?'Title':'제목')+'</th><th>'+(en?'Content':'내용')+'</th></tr></thead><tbody>'+
+      counsel.map(function(c){ var body=(c.content||'')+(c.answer?(' → '+c.answer):''); return '<tr><td style="white-space:nowrap">'+esc(c.date||'—')+'</td><td>'+esc(c.counselor||'—')+'</td><td>'+esc(c.title||'—')+'</td><td style="white-space:pre-wrap;max-width:420px">'+esc(body||'—')+'</td></tr>'; }).join('')+'</tbody></table>';
+  }
+  // ⭐ 강사평가·자가평가·수업후기 요약
+  var ts = cs.teacher_score, sa = cs.self_avg, review = cs.review || [];
+  if (ts || sa != null || review.length){
+    h += '<div style="font-size:12.5px;color:var(--mut);margin:14px 0 4px">⭐ '+(en?'Ratings & Reviews':'평가·후기')+'</div>';
+    h += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px">';
+    if (ts) h += '<div style="background:var(--panel2);border-radius:8px;padding:8px 12px;font-size:12px"><span style="color:var(--mut)">'+(en?'Teacher rating (by student)':'강사 평가(학생→강사)')+'</span> <b style="color:#fbbf24">'+esc(String(ts.avg))+'/5</b> <span style="color:var(--mut)">('+esc(String(ts.count))+')</span></div>';
+    if (sa != null) h += '<div style="background:var(--panel2);border-radius:8px;padding:8px 12px;font-size:12px"><span style="color:var(--mut)">'+(en?'Self assessment avg':'자가평가 평균')+'</span> <b style="color:#34d399">'+esc(String(sa))+'</b> <span style="color:var(--mut)">('+esc(String(cs.self_count||0))+')</span></div>';
+    h += '</div>';
+    if (review.length){
+      h += '<table class="list"><thead><tr><th>'+(en?'Date':'날짜')+'</th><th>'+(en?'Rating':'별점')+'</th><th>'+(en?'Review':'후기')+'</th></tr></thead><tbody>'+
+        review.map(function(r){ var stars = '★'.repeat(Math.max(0,Math.min(5,Number(r.rating)||0))); return '<tr><td style="white-space:nowrap">'+esc(r.date||'—')+'</td><td style="color:#fbbf24">'+stars+'</td><td style="white-space:pre-wrap;max-width:420px">'+esc(r.content||'—')+'</td></tr>'; }).join('')+'</tbody></table>';
+    }
   }
   h += '</div>';
   return h;

@@ -8216,6 +8216,41 @@ Respond in JSON ONLY:
       }
     }
 
+    // 🧑‍💼 카페24 직원 명부 (그래프DB) — 지사 직원
+    if (method === 'GET' && path === '/api/admin/staff/graph-list') {
+      const qS = (url.searchParams.get('q') || '').trim().toLowerCase();
+      try {
+        const { fields, values } = await runCypher(env, `
+          MATCH (s:Staff) WHERE s.name IS NOT NULL
+            AND ($q = '' OR toLower(coalesce(s.name,'')) CONTAINS $q OR toLower(coalesce(s.nickname,'')) CONTAINS $q)
+          RETURN s.staff_id AS staff_id, s.name AS name, s.nickname AS nickname, s.email AS email,
+                 s.intro AS intro, s.status AS status, s.retire_date AS retire_date, s.franchise_id AS franchise_id
+          ORDER BY s.status, s.name`, { q: qS }, 'READ');
+        const staff = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
+        return json({ ok: true, source: 'neo4j', count: staff.length, staff });
+      } catch (e: any) {
+        if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
+        return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
+      }
+    }
+
+    // 📚 카페24 교재 명부 (그래프DB)
+    if (method === 'GET' && path === '/api/admin/books/graph-list') {
+      const qB = (url.searchParams.get('q') || '').trim().toLowerCase();
+      try {
+        const { fields, values } = await runCypher(env, `
+          MATCH (b:Book) WHERE b.name IS NOT NULL
+            AND ($q = '' OR toLower(coalesce(b.name,'')) CONTAINS $q)
+          RETURN b.book_id AS book_id, b.name AS name, b.memo AS memo, b.status AS status, b.group_id AS group_id
+          ORDER BY b.status, b.name`, { q: qB }, 'READ');
+        const books = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
+        return json({ ok: true, source: 'neo4j', count: books.length, books });
+      } catch (e: any) {
+        if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
+        return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
+      }
+    }
+
     // 🕸️ 그래프 학생 명부 — Neo4j 실데이터 조회 (자체 호스팅 bolt 서버/Aura 공용)
     //   GET /api/admin/students/graph-list?limit=1000&q=검색어
     //   (:Student) 노드 + 가족(FAMILY_OF)·학부모(:Parent) 관계를 MATCH 로 읽어
@@ -9157,7 +9192,7 @@ LIMIT $limit`;
         const _fullErpPII = (_erpRow && !canViewPII(_fullScope)) ? maskRecordPII(_erpRow) : _erpRow;
 
         // 🎓 카페24 성적(그래프DB) — 월말평가(상세 코멘트5)·일별·교재퀴즈·레벨테스트·포인트. Neo4j 미연결 시 조용히 빈배열.
-        let cafe24Scores: any = { monthly: [], daily: [], quiz: [], points: [], points_balance: 0, leveltest: [] };
+        let cafe24Scores: any = { monthly: [], daily: [], quiz: [], points: [], points_balance: 0, leveltest: [], enroll: [], counsel: [], teacher_score: null, review: [], self_avg: null, self_count: 0 };
         try {
           const { fields, values } = await runCypher(env, `
             OPTIONAL MATCH (m:MonthlyScore {user_id: $uid})
@@ -9169,27 +9204,41 @@ LIMIT $limit`;
             OPTIONAL MATCH (lt:LevelTest {user_id: $uid})
             WITH monthly, daily, lt ORDER BY lt.year DESC, lt.month DESC, lt.day DESC
             WITH monthly, daily, collect(lt { year: lt.year, month: lt.month, day: lt.day, level: lt.level, pass: lt.pass, s1: lt.s1, s2: lt.s2, s3: lt.s3, s4: lt.s4, s5: lt.s5, comment: lt.comment })[0..20] AS leveltest
+            OPTIONAL MATCH (en:Enrollment {user_id: $uid})
+            WITH monthly, daily, leveltest, en ORDER BY en.start_date DESC
+            WITH monthly, daily, leveltest, collect(en { start_date: en.start_date, end_date: en.end_date, state: en.state, progress: en.progress, reg_date: en.reg_date })[0..30] AS enroll
+            OPTIONAL MATCH (cn:Counsel {user_id: $uid})
+            WITH monthly, daily, leveltest, enroll, cn ORDER BY cn.date DESC
+            WITH monthly, daily, leveltest, enroll, collect(cn { date: cn.date, counselor: cn.counselor, title: cn.title, content: cn.content, answer: cn.answer })[0..40] AS counsel
+            OPTIONAL MATCH (rv:Review {user_id: $uid})
+            WITH monthly, daily, leveltest, enroll, counsel, rv ORDER BY rv.date DESC
+            WITH monthly, daily, leveltest, enroll, counsel, collect(rv { rating: rv.rating, content: rv.content, date: rv.date, teacher_id: rv.teacher_id })[0..30] AS review
+            OPTIONAL MATCH (ts:TeacherScore {user_id: $uid})
+            WITH monthly, daily, leveltest, enroll, counsel, review, count(ts) AS ts_count, avg((coalesce(ts.s1,0)+coalesce(ts.s2,0)+coalesce(ts.s3,0)+coalesce(ts.s4,0)+coalesce(ts.s5,0))/5.0) AS ts_avg
             OPTIONAL MATCH (c:Class {user_id: $uid})
-            WITH monthly, daily, leveltest, collect(DISTINCT c.class_id) AS classIds
+            WITH monthly, daily, leveltest, enroll, counsel, review, ts_count, ts_avg, collect(DISTINCT c.class_id) AS classIds
             OPTIONAL MATCH (q:QuizResult) WHERE q.class_id IN classIds
-            WITH monthly, daily, leveltest, q ORDER BY q.date DESC
-            WITH monthly, daily, leveltest, collect(q { quiz_id: q.quiz_id, state: q.state, page: q.page, date: q.date, q_total: q.q_total, correct: q.correct, score_pct: q.score_pct })[0..60] AS quiz
+            WITH monthly, daily, leveltest, enroll, counsel, review, ts_count, ts_avg, q ORDER BY q.date DESC
+            WITH monthly, daily, leveltest, enroll, counsel, review, ts_count, ts_avg, collect(q { quiz_id: q.quiz_id, state: q.state, page: q.page, date: q.date, q_total: q.q_total, correct: q.correct, score_pct: q.score_pct })[0..60] AS quiz
             OPTIONAL MATCH (pt:PointTx {user_id: $uid})
-            WITH monthly, daily, leveltest, quiz, pt ORDER BY pt.ts DESC
-            WITH monthly, daily, leveltest, quiz,
+            WITH monthly, daily, leveltest, enroll, counsel, review, ts_count, ts_avg, quiz, pt ORDER BY pt.ts DESC
+            WITH monthly, daily, leveltest, enroll, counsel, review, ts_count, ts_avg, quiz,
                  collect(pt { amount: pt.amount, name: pt.name, date: pt.date, ts: pt.ts })[0..100] AS points,
                  sum(pt.amount) AS points_balance
-            RETURN monthly AS monthly, daily AS daily, leveltest AS leveltest, quiz AS quiz, points AS points, points_balance AS points_balance
+            OPTIONAL MATCH (st:Student {student_id: $uid})
+            RETURN monthly, daily, leveltest, enroll, counsel, review, ts_count, ts_avg, quiz, points, points_balance,
+                   st.self_avg AS self_avg, st.self_count AS self_count
           `, { uid }, 'READ');
           if (values.length) {
             const idx = (n: string) => fields.indexOf(n);
+            const g = (n: string) => values[0][idx(n)];
             cafe24Scores = {
-              monthly: values[0][idx('monthly')] || [],
-              daily: values[0][idx('daily')] || [],
-              leveltest: values[0][idx('leveltest')] || [],
-              quiz: values[0][idx('quiz')] || [],
-              points: values[0][idx('points')] || [],
-              points_balance: values[0][idx('points_balance')] || 0,
+              monthly: g('monthly') || [], daily: g('daily') || [], leveltest: g('leveltest') || [],
+              quiz: g('quiz') || [], points: g('points') || [], points_balance: g('points_balance') || 0,
+              enroll: g('enroll') || [], counsel: g('counsel') || [], review: g('review') || [],
+              teacher_score: (Number(g('ts_count'))>0) ? { count: g('ts_count'), avg: Math.round((Number(g('ts_avg'))||0)*10)/10 } : null,
+              self_avg: g('self_avg') != null ? Math.round(Number(g('self_avg'))*10)/10 : null,
+              self_count: g('self_count') || 0,
             };
           }
         } catch (e: any) {
