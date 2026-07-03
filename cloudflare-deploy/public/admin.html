@@ -3659,116 +3659,16 @@
             </div>
           </div>
 
-          <!-- 지점별 카드 그리드 -->
+          <!-- 지점별 카드 그리드 (동적 렌더 — accLoadFranchise) -->
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px" id="ph204-branch-cards">
-            <!-- 부산 지점 -->
-            <div style="padding:14px 16px;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <div style="font-weight:800;font-size:14.5px;color:#0f172a" data-ko="🏬 부산 지점" data-en="🏬 Busan Branch">🏬 부산 지점</div>
-                <span style="padding:3px 8px;background:#fee2e2;color:#991b1b;font-size:10.5px;font-weight:700;border-radius:99px" data-ko="⏰ 송금 대기" data-en="⏰ Transfer Pending">⏰ 송금 대기</span>
-              </div>
-              <div style="font-size:11px;color:#6b7280;margin-bottom:8px" data-ko="학생 42명 · 강사 6명" data-en="42 students · 6 teachers">학생 42명 · 강사 6명</div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="매출" data-en="Revenue">매출</span><b style="color:#1f2937">₩12,000,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="본사 수수료 (15%)" data-en="HQ fee (15%)">본사 수수료 (15%)</span><b style="color:#b45309">- ₩1,800,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534" data-ko="→ 지점에 송금" data-en="→ Send to branch">→ 지점에 송금</b><b style="color:#15803d;font-size:15px">₩10,200,000</b></div>
-              <div style="display:flex;gap:6px;margin-top:10px">
-                <button onclick="alert(window.adminLang==='en'?'💸 Transfer ₩10,200,000 to Busan Branch':'💸 부산 지점에 ₩10,200,000 송금 처리')" style="flex:1;padding:7px;background:#10b981;color:#fff;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer" data-ko="💸 송금하기" data-en="💸 Transfer">💸 송금하기</button>
-                <button onclick="alert(window.adminLang==='en'?'📥 Download Busan Branch statement PDF':'📥 부산 지점 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
-              </div>
-            </div>
-
-            <!-- 대구 지점 -->
-            <div style="padding:14px 16px;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <div style="font-weight:800;font-size:14.5px;color:#0f172a" data-ko="🏬 대구 지점" data-en="🏬 Daegu Branch">🏬 대구 지점</div>
-                <span style="padding:3px 8px;background:#dcfce7;color:#166534;font-size:10.5px;font-weight:700;border-radius:99px" data-ko="✅ 송금 완료" data-en="✅ Transferred">✅ 송금 완료</span>
-              </div>
-              <div style="font-size:11px;color:#6b7280;margin-bottom:8px" data-ko="학생 38명 · 강사 5명" data-en="38 students · 5 teachers">학생 38명 · 강사 5명</div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="매출" data-en="Revenue">매출</span><b style="color:#1f2937">₩9,500,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="본사 수수료 (15%)" data-en="HQ fee (15%)">본사 수수료 (15%)</span><b style="color:#b45309">- ₩1,425,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534" data-ko="→ 지점에 송금" data-en="→ Send to branch">→ 지점에 송금</b><b style="color:#15803d;font-size:15px">₩8,075,000</b></div>
-              <div style="display:flex;gap:6px;margin-top:10px">
-                <button disabled style="flex:1;padding:7px;background:#e5e7eb;color:#9ca3af;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:not-allowed" data-ko="✅ 송금 완료 (5/15)" data-en="✅ Transferred (5/15)">✅ 송금 완료 (5/15)</button>
-                <button onclick="alert(window.adminLang==='en'?'📥 Download Daegu Branch statement PDF':'📥 대구 지점 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
-              </div>
-            </div>
-
-            <!-- 강남 대리점 -->
-            <div style="padding:14px 16px;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <div style="font-weight:800;font-size:14.5px;color:#0f172a" data-ko="🤝 강남 대리점" data-en="🤝 Gangnam Agency">🤝 강남 대리점</div>
-                <span style="padding:3px 8px;background:#fee2e2;color:#991b1b;font-size:10.5px;font-weight:700;border-radius:99px" data-ko="⏰ 송금 대기" data-en="⏰ Transfer Pending">⏰ 송금 대기</span>
-              </div>
-              <div style="font-size:11px;color:#6b7280;margin-bottom:8px" data-ko="학생 28명 · 강사 4명" data-en="28 students · 4 teachers">학생 28명 · 강사 4명</div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="매출" data-en="Revenue">매출</span><b style="color:#1f2937">₩8,200,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="본사 수수료 (18%)" data-en="HQ fee (18%)">본사 수수료 (18%)</span><b style="color:#b45309">- ₩1,476,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534" data-ko="→ 대리점에 송금" data-en="→ Send to agency">→ 대리점에 송금</b><b style="color:#15803d;font-size:15px">₩6,724,000</b></div>
-              <div style="display:flex;gap:6px;margin-top:10px">
-                <button onclick="alert(window.adminLang==='en'?'💸 Transfer ₩6,724,000 to Gangnam Agency':'💸 강남 대리점에 ₩6,724,000 송금 처리')" style="flex:1;padding:7px;background:#10b981;color:#fff;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer" data-ko="💸 송금하기" data-en="💸 Transfer">💸 송금하기</button>
-                <button onclick="alert(window.adminLang==='en'?'📥 Download Gangnam Agency statement PDF':'📥 강남 대리점 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
-              </div>
-            </div>
-
-            <!-- 송파 대리점 -->
-            <div style="padding:14px 16px;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <div style="font-weight:800;font-size:14.5px;color:#0f172a" data-ko="🤝 송파 대리점" data-en="🤝 Songpa Agency">🤝 송파 대리점</div>
-                <span style="padding:3px 8px;background:#fef3c7;color:#92400e;font-size:10.5px;font-weight:700;border-radius:99px" data-ko="📝 검토 중" data-en="📝 Reviewing">📝 검토 중</span>
-              </div>
-              <div style="font-size:11px;color:#6b7280;margin-bottom:8px" data-ko="학생 22명 · 강사 3명" data-en="22 students · 3 teachers">학생 22명 · 강사 3명</div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="매출" data-en="Revenue">매출</span><b style="color:#1f2937">₩6,800,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="본사 수수료 (18%)" data-en="HQ fee (18%)">본사 수수료 (18%)</span><b style="color:#b45309">- ₩1,224,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534" data-ko="→ 대리점에 송금" data-en="→ Send to agency">→ 대리점에 송금</b><b style="color:#15803d;font-size:15px">₩5,576,000</b></div>
-              <div style="display:flex;gap:6px;margin-top:10px">
-                <button onclick="alert(window.adminLang==='en'?'💸 Transfer ₩5,576,000 to Songpa Agency':'💸 송파 대리점에 ₩5,576,000 송금 처리')" style="flex:1;padding:7px;background:#10b981;color:#fff;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer" data-ko="💸 송금하기" data-en="💸 Transfer">💸 송금하기</button>
-                <button onclick="alert(window.adminLang==='en'?'📥 Download Songpa Agency statement PDF':'📥 송파 대리점 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
-              </div>
-            </div>
-
-            <!-- 마닐라 직영 -->
-            <div style="padding:14px 16px;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <div style="font-weight:800;font-size:14.5px;color:#0f172a" data-ko="🌏 마닐라 직영" data-en="🌏 Manila (Direct)">🌏 마닐라 직영</div>
-                <span style="padding:3px 8px;background:#dcfce7;color:#166534;font-size:10.5px;font-weight:700;border-radius:99px" data-ko="✅ 송금 완료" data-en="✅ Transferred">✅ 송금 완료</span>
-              </div>
-              <div style="font-size:11px;color:#6b7280;margin-bottom:8px" data-ko="강사 12명 · 인건비" data-en="12 teachers · Payroll">강사 12명 · 인건비</div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="매출 분배" data-en="Revenue share">매출 분배</span><b style="color:#1f2937">₩7,000,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="본사 수수료 (12%)" data-en="HQ fee (12%)">본사 수수료 (12%)</span><b style="color:#b45309">- ₩840,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534" data-ko="→ 직영에 송금" data-en="→ Send to direct branch">→ 직영에 송금</b><b style="color:#15803d;font-size:15px">₩6,160,000 (≈$4,510)</b></div>
-              <div style="display:flex;gap:6px;margin-top:10px">
-                <button disabled style="flex:1;padding:7px;background:#e5e7eb;color:#9ca3af;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:not-allowed" data-ko="✅ 송금 완료 (5/20)" data-en="✅ Transferred (5/20)">✅ 송금 완료 (5/20)</button>
-                <button onclick="alert(window.adminLang==='en'?'📥 Download Manila (Direct) statement PDF':'📥 마닐라 직영 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
-              </div>
-            </div>
-
-            <!-- 광주 대리점 -->
-            <div style="padding:14px 16px;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <div style="font-weight:800;font-size:14.5px;color:#0f172a" data-ko="🤝 광주 대리점" data-en="🤝 Gwangju Agency">🤝 광주 대리점</div>
-                <span style="padding:3px 8px;background:#fee2e2;color:#991b1b;font-size:10.5px;font-weight:700;border-radius:99px" data-ko="⏰ 송금 대기" data-en="⏰ Transfer Pending">⏰ 송금 대기</span>
-              </div>
-              <div style="font-size:11px;color:#6b7280;margin-bottom:8px" data-ko="학생 18명 · 강사 3명" data-en="18 students · 3 teachers">학생 18명 · 강사 3명</div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="매출" data-en="Revenue">매출</span><b style="color:#1f2937">₩5,000,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span data-ko="본사 수수료 (18%)" data-en="HQ fee (18%)">본사 수수료 (18%)</span><b style="color:#b45309">- ₩900,000</b></div>
-              <div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534" data-ko="→ 대리점에 송금" data-en="→ Send to agency">→ 대리점에 송금</b><b style="color:#15803d;font-size:15px">₩4,100,000</b></div>
-              <div style="display:flex;gap:6px;margin-top:10px">
-                <button onclick="alert(window.adminLang==='en'?'💸 Transfer ₩4,100,000 to Gwangju Agency':'💸 광주 대리점에 ₩4,100,000 송금 처리')" style="flex:1;padding:7px;background:#10b981;color:#fff;border:0;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer" data-ko="💸 송금하기" data-en="💸 Transfer">💸 송금하기</button>
-                <button onclick="alert(window.adminLang==='en'?'📥 Download Gwangju Agency statement PDF':'📥 광주 대리점 정산서 PDF 다운로드')" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer">📥 PDF</button>
-              </div>
-            </div>
+            <div class="empty" style="grid-column:1/-1;padding:20px;text-align:center;color:#94a3b8" data-ko="🧮 새로고침을 누르면 실제 정산 데이터가 표시됩니다." data-en="Click Refresh to load real settlement data.">🧮 새로고침을 누르면 실제 정산 데이터가 표시됩니다.</div>
           </div>
 
           <!-- 매출 비교 막대 그래프 (간단 CSS) -->
           <div style="margin-top:18px;padding:14px 16px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0">
             <div style="font-weight:800;font-size:13px;color:#0f172a;margin-bottom:12px" data-ko="📊 지점별 매출 비교 (이번 달)" data-en="📊 Revenue by Branch (this month)">📊 지점별 매출 비교 (이번 달)</div>
-            <div style="display:flex;flex-direction:column;gap:9px">
-              <div style="display:grid;grid-template-columns:90px 1fr 100px;gap:10px;align-items:center;font-size:12px"><span>🏬 부산</span><div style="background:#e2e8f0;border-radius:99px;height:18px;overflow:hidden"><div style="width:100%;height:100%;background:linear-gradient(90deg,#3b82f6,#1d4ed8);border-radius:99px"></div></div><b style="text-align:right;color:#1e3a8a">₩12,000,000</b></div>
-              <div style="display:grid;grid-template-columns:90px 1fr 100px;gap:10px;align-items:center;font-size:12px"><span>🏬 대구</span><div style="background:#e2e8f0;border-radius:99px;height:18px;overflow:hidden"><div style="width:79%;height:100%;background:linear-gradient(90deg,#3b82f6,#1d4ed8);border-radius:99px"></div></div><b style="text-align:right;color:#1e3a8a">₩9,500,000</b></div>
-              <div style="display:grid;grid-template-columns:90px 1fr 100px;gap:10px;align-items:center;font-size:12px"><span>🤝 강남</span><div style="background:#e2e8f0;border-radius:99px;height:18px;overflow:hidden"><div style="width:68%;height:100%;background:linear-gradient(90deg,#10b981,#059669);border-radius:99px"></div></div><b style="text-align:right;color:#166534">₩8,200,000</b></div>
-              <div style="display:grid;grid-template-columns:90px 1fr 100px;gap:10px;align-items:center;font-size:12px"><span>🌏 마닐라</span><div style="background:#e2e8f0;border-radius:99px;height:18px;overflow:hidden"><div style="width:58%;height:100%;background:linear-gradient(90deg,#f59e0b,#d97706);border-radius:99px"></div></div><b style="text-align:right;color:#92400e">₩7,000,000</b></div>
-              <div style="display:grid;grid-template-columns:90px 1fr 100px;gap:10px;align-items:center;font-size:12px"><span>🤝 송파</span><div style="background:#e2e8f0;border-radius:99px;height:18px;overflow:hidden"><div style="width:56%;height:100%;background:linear-gradient(90deg,#10b981,#059669);border-radius:99px"></div></div><b style="text-align:right;color:#166534">₩6,800,000</b></div>
-              <div style="display:grid;grid-template-columns:90px 1fr 100px;gap:10px;align-items:center;font-size:12px"><span>🤝 광주</span><div style="background:#e2e8f0;border-radius:99px;height:18px;overflow:hidden"><div style="width:42%;height:100%;background:linear-gradient(90deg,#10b981,#059669);border-radius:99px"></div></div><b style="text-align:right;color:#166534">₩5,000,000</b></div>
-            </div>
+            <div style="display:flex;flex-direction:column;gap:9px" id="ph204-bars"><div class="empty" style="color:#94a3b8;font-size:12px" data-ko="새로고침 대기" data-en="Awaiting refresh">새로고침 대기</div></div>
+            
             <div style="margin-top:10px;font-size:11px;color:#64748b;text-align:center" data-ko="💡 막대 길이는 부산 지점 (최고 매출) 기준" data-en="💡 Bar length is relative to Busan Branch (top revenue)">💡 막대 길이는 부산 지점 (최고 매출) 기준</div>
           </div>
 
@@ -22130,20 +22030,55 @@ window.rebuildGlobalSearchIndex = function() {
   window.accLoadFranchise = async function(){
     const month = document.getElementById('acc-fr-month').value || _today().slice(0,7);
     const tbody = document.getElementById('acc-fr-tbody');
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">불러오는 중…</td></tr>';
+    const cards = document.getElementById('ph204-branch-cards');
+    const bars  = document.getElementById('ph204-bars');
+    const _en = (window.adminLang==='en');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty">'+(_en?'Loading…':'불러오는 중…')+'</td></tr>';
+    if (cards) cards.innerHTML = '<div class="empty" style="grid-column:1/-1;padding:16px;text-align:center;color:#94a3b8">'+(_en?'Loading…':'불러오는 중…')+'</div>';
     try {
-      const r = await fetch('/api/admin/reports/franchise?period=' + encodeURIComponent(month), { credentials:'include' });
+      // 🕸️ 실제 정산 = 지사별 직접 집계 (students_erp.franchise ⨝ student_payments, 월별)
+      const r = await fetch('/api/admin/settlement/branch-summary?period=' + encodeURIComponent(month), { credentials:'include' });
       const d = await r.json();
       if (!d.ok) throw new Error(d.error||'API error');
-      tbody.innerHTML = (d.rows||[]).map(r => `
-        <tr><td><b>${_esc(r.franchise_name)}</b></td>
-            <td style="text-align:right">${_fmt(r.gross_revenue)}</td>
-            <td style="text-align:right;color:#dc2626">${_fmt(r.hq_fee)}</td>
-            <td style="text-align:right"><b>${_fmt(r.net_settlement)}</b></td>
-            <td>${_esc(r.due_date)}</td>
-            <td>${_badge(r.status, r.status==='ok'?'ok':r.status==='hold'?'warn':'info')}</td></tr>`).join('') ||
-        '<tr><td colspan="6" class="empty">가맹점 데이터 없음</td></tr>';
-    } catch(e) { _showErr(tbody, e, 6); }
+      const rows = (d.rows||[]).filter(x => (x.gross_revenue||0) > 0);
+      const T = d.totals || { gross:0, fee:0, net:0 };
+      const setTxt = (id, v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+      setTxt('ph204-kpi-gross', _fmt(T.gross));
+      setTxt('ph204-kpi-hq', _fmt(T.fee));
+      setTxt('ph204-kpi-payout', _fmt(T.net));
+      setTxt('ph204-kpi-pending', rows.length + (_en?'':' 개'));
+      if (cards) {
+        cards.innerHTML = rows.length ? rows.map(x => {
+          const rate = Math.round((x.commission_rate||0)*1000)/10;
+          const typeIcon = x.type==='agency' ? '🤝' : '🏬';
+          return '<div style="padding:14px 16px;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:800;font-size:14px;color:#0f172a">'+typeIcon+' '+_esc(x.franchise_name)+'</div>'
+            + '<span style="padding:3px 8px;background:#fee2e2;color:#991b1b;font-size:10.5px;font-weight:700;border-radius:99px">'+(_en?'⏰ Pending':'⏰ 송금 대기')+'</span></div>'
+            + '<div style="font-size:11px;color:#6b7280;margin-bottom:8px">'+(_en?'Payments':'결제 건수')+' '+(x.pay_count||0)+'</div>'
+            + '<div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>'+(_en?'Revenue':'매출')+'</span><b style="color:#1f2937">'+_fmt(x.gross_revenue)+'</b></div>'
+            + '<div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>'+(_en?'HQ fee':'본사 수수료')+' ('+rate+'%)</span><b style="color:#b45309">- '+_fmt(x.hq_fee)+'</b></div>'
+            + '<div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534">'+(_en?'→ Payout':'→ 지점에 송금')+'</b><b style="color:#15803d;font-size:15px">'+_fmt(x.net_settlement)+'</b></div>'
+            + '</div>';
+        }).join('') : '<div class="empty" style="grid-column:1/-1;padding:20px;text-align:center;color:#94a3b8">'+(_en?'No settlement data for this month':'이번 달 정산 데이터 없음')+'</div>';
+      }
+      if (bars) {
+        const top = rows.slice(0,12);
+        const max = top.length ? top[0].gross_revenue : 1;
+        bars.innerHTML = top.length ? top.map(x => {
+          const pct = Math.max(2, Math.round((x.gross_revenue/max)*100));
+          const col = x.type==='agency' ? '#10b981,#059669' : '#3b82f6,#1d4ed8';
+          return '<div style="display:grid;grid-template-columns:130px 1fr 110px;gap:10px;align-items:center;font-size:12px"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_esc(x.franchise_name)+'</span><div style="background:#e2e8f0;border-radius:99px;height:18px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:linear-gradient(90deg,'+col+');border-radius:99px"></div></div><b style="text-align:right;color:#1e3a8a">'+_fmt(x.gross_revenue)+'</b></div>';
+        }).join('') : '<div class="empty" style="color:#94a3b8;font-size:12px">'+(_en?'No data':'데이터 없음')+'</div>';
+      }
+      if (tbody) tbody.innerHTML = rows.map(x => `
+        <tr><td><b>${_esc(x.franchise_name)}</b></td>
+            <td style="text-align:right">${_fmt(x.gross_revenue)}</td>
+            <td style="text-align:right;color:#dc2626">${_fmt(x.hq_fee)}</td>
+            <td style="text-align:right"><b>${_fmt(x.net_settlement)}</b></td>
+            <td>${_esc(x.due_date||'-')}</td>
+            <td>${_badge(x.status||'pending','warn')}</td></tr>`).join('') ||
+        ('<tr><td colspan="6" class="empty">'+(_en?'No data':'가맹점 데이터 없음')+'</td></tr>');
+    } catch(e) { if(tbody) _showErr(tbody, e, 6); if(cards) cards.innerHTML='<div class="empty" style="grid-column:1/-1;color:#dc2626;padding:16px">'+(_en?'Load failed':'불러오기 실패')+': '+_esc(String(e&&e.message||e))+'</div>'; }
   };
 
   // ──────────────────────────────────────────────────────────
@@ -22390,7 +22325,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260703200126 -->
+        <!-- BUILD:20260704004223 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

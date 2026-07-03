@@ -103,6 +103,48 @@
   .lang-pick .lg:active{transform:scale(.95)}
   /* 병음(pinyin) 표시 */
   .pinyin{color:#7dd3fc;font-weight:600;letter-spacing:.3px}
+  /* ===== 🪙 코인/룰렛/상점/랭킹 ===== */
+  .fun-bar{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}
+  .coin-wallet{background:rgba(251,191,36,.16);border:1px solid rgba(251,191,36,.5);color:#fde68a;
+    border-radius:999px;padding:6px 14px;font-size:14px;font-weight:800}
+  .coin-wallet b{color:#fbbf24}
+  .fun-btn{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--tx);
+    border-radius:999px;padding:6px 14px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;transition:.15s}
+  .fun-btn:hover{background:rgba(56,189,248,.18);border-color:var(--emerald)}
+  .fun-btn:active{transform:scale(.95)}
+  #coin-fly{position:fixed;pointer-events:none;z-index:70;font-size:20px;font-weight:900;color:#fbbf24;text-shadow:0 2px 6px rgba(0,0,0,.6)}
+  /* 모달 */
+  .modal-back{position:fixed;inset:0;background:rgba(4,10,26,.72);z-index:80;display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(3px)}
+  .modal-back.on{display:flex}
+  .modal{background:linear-gradient(160deg,#16294d,#0b1b3a);border:1px solid var(--line);border-radius:20px;
+    max-width:440px;width:100%;max-height:86vh;overflow:auto;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  .modal h2{margin:0 0 4px;font-size:20px;font-weight:900;text-align:center}
+  .modal .msub{text-align:center;color:var(--sub);font-size:13px;margin-bottom:14px}
+  .modal .mclose{display:block;margin:16px auto 0;background:rgba(255,255,255,.1);border:1px solid var(--line);
+    color:var(--tx);border-radius:12px;padding:11px 26px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit}
+  /* 룰렛 */
+  #wheel{width:210px;height:210px;border-radius:50%;margin:6px auto;position:relative;border:6px solid #fbbf24;
+    box-shadow:0 0 0 4px #7c5b12,0 8px 26px rgba(0,0,0,.5);transition:transform 3.6s cubic-bezier(.16,.84,.3,1)}
+  #wheel .seg{position:absolute;inset:0;clip-path:polygon(50% 50%,50% 0,100% 0);transform-origin:50% 50%;display:flex;justify-content:center;padding-top:14px}
+  #wheel .seg span{color:#0b1b3a;font-weight:900;font-size:15px;transform:rotate(22.5deg)}
+  .wheel-pin{width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-top:20px solid #ef4444;margin:0 auto -6px;position:relative;z-index:3;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}
+  /* 상점 스킨 카드 */
+  .shop-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .skin-card{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center}
+  .skin-card.sel{border-color:var(--emerald);box-shadow:0 0 0 1px var(--emerald) inset}
+  .skin-card .prev{font-size:30px;margin-bottom:6px}
+  .skin-card .nm{font-size:13px;font-weight:800;margin-bottom:6px}
+  .skin-card button{width:100%;border:0;border-radius:9px;padding:7px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit}
+  .skin-buy{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#3a2e05}
+  .skin-sel{background:rgba(16,185,129,.25);color:#bbf7d0;border:1px solid var(--emerald)!important}
+  .skin-use{background:rgba(56,189,248,.2);color:#bae6fd}
+  .skin-lock{background:rgba(148,163,184,.15);color:#94a3b8}
+  /* 랭킹 */
+  .lb-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,.04);margin:5px 0}
+  .lb-row.me{background:rgba(56,189,248,.16);border:1px solid var(--emerald)}
+  .lb-rank{font-weight:900;width:30px;text-align:center;font-size:15px}
+  .lb-name{flex:1;font-weight:700}
+  .lb-coins{color:#fbbf24;font-weight:800}
 </style>
 </head>
 <body>
@@ -114,6 +156,13 @@
       <div class="brand">MANGOI · LEARNING GAMES</div>
       <h1 id="hub-title">영어 <span class="em">학습 게임</span> 🎮</h1>
       <div class="sub" id="hub-sub">재미있는 게임을 통해 오늘 배운 단어·문장을 다시 예복습해요!<br>원하는 게임을 눌러 바로 플레이하세요.</div>
+      <!-- 🪙 코인 지갑 + 룰렛/상점/랭킹 -->
+      <div class="fun-bar" id="fun-bar" style="margin-top:14px">
+        <span class="coin-wallet" id="coin-wallet" title="모은 코인">🪙 <b id="coin-count">0</b></span>
+        <button class="fun-btn" id="btn-spin" onclick="openRoulette()">🎡 룰렛</button>
+        <button class="fun-btn" id="btn-shop" onclick="openShop()">🛍️ 상점</button>
+        <button class="fun-btn" onclick="openLeaderboard()">🏆 랭킹</button>
+      </div>
       <!-- 🌐 언어 선택: 영어 / 중국어 (같은 게임을 선택 언어로 플레이) -->
       <div class="lang-pick" id="lang-pick" style="margin-top:14px">
         <button class="lg" data-lang="en" onclick="setGameLang('en')">🇬🇧 영어</button>
@@ -155,6 +204,11 @@
     <div id="game-area"><!-- 게임 본체 --></div>
   </div>
 
+</div>
+
+<!-- 🎡🛍️🏆 모달 (룰렛/상점/랭킹) -->
+<div class="modal-back" id="modal-back" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modal-body"></div>
 </div>
 
 <script src="/js/game-vocab.js"></script>
@@ -1577,6 +1631,6 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260703200126 -->
+<!-- BUILD:20260704004223 -->
 </body>
 </html>

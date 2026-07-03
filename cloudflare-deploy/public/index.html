@@ -3221,6 +3221,10 @@
   var STATE = { done:false, open:false };
   var PEERS = {};   // userId → username (원격 피어 = 1:1 수업에선 강사)
 
+  // 🧪 테스트 모드 플래그 — true 면 역할(학생/강사/관리자) 무관 전원에게 평가 모달 노출.
+  //   운영에서 학생 전용으로 되돌리려면 아래 한 줄을 false 로 바꾸면 끝.
+  if (typeof window.MANGO_RATING_ALL_ROLES === 'undefined') window.MANGO_RATING_ALL_ROLES = true;
+
   // 원격 피어 이름 수집 — vcCreatePeerAndOffer(userId, username) 래핑
   function hookPeerNames(tries){
     tries = tries || 0;
@@ -3243,6 +3247,7 @@
     try {
       if (!document.body || !document.body.classList.contains('vc-in-call')) return false;
       if (typeof vcIsObserver !== 'undefined' && vcIsObserver) return false;
+      if (window.MANGO_RATING_ALL_ROLES) return true;   // 🧪 테스트 모드: 역할 무관 전원 노출
       var u = (typeof getCurrentUser==='function') ? getCurrentUser() : null;
       var role = (u && u.role) || (function(){ try { return localStorage.getItem('mangoi_user_role'); } catch(e){ return null; } })() || 'student';
       if (role === 'teacher' || role === 'admin') return false;
@@ -3298,6 +3303,8 @@
 
   // 평가 모달 — after: 닫힌 뒤 이어서 할 일(복습퀴즈 안내)
   function showRatingModal(after){
+    if (STATE.open || STATE.done) return;   // 중복 표시 방지(멱등)
+    if (alreadyRated()) { STATE.done = true; try { if (typeof after==='function') after(); } catch(e){} return; }
     STATE.open = true;
     var en = (document.documentElement.lang === 'en');
     var LB = en ? STAR_LABELS_EN : STAR_LABELS_KO;
@@ -3427,6 +3434,64 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ hookPrompt(0); });
   else hookPrompt(0);
+
+  // ── 독립 트리거 A: 종료(✕/나가기)버튼 클릭 직접 가로채기 ──
+  //   복습퀴즈 스크립트(rqvAuto 필요 + 학생 전용)가 발동 안 하는 경우까지 커버.
+  //   학생이면 복습퀴즈 캡처가 먼저 stopImmediatePropagation 하므로 여긴 안 옴(중복X).
+  //   비학생(테스트 전원노출)일 땐 복습퀴즈가 통과시켜 여기서 잡음.
+  function isExitBtnEl(el){
+    if (!el || !el.closest) return false;
+    return !!el.closest('a#vc-exit-btn-v34, a#vc-exit-btn-v33, #vc-exit-btn-v32, button.ctrl-btn.danger, a.ctrl-btn.danger');
+  }
+  ['pointerdown','click'].forEach(function(ev){
+    window.addEventListener(ev, function(e){
+      try {
+        if (!isExitBtnEl(e.target)) return;
+        if (STATE.done) return;                       // 이미 처리됨 → 정상 종료 진행
+        if (alreadyRated() || !isStudentInClass()) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+        if (ev === 'pointerdown') showRatingModal(function(){ fallbackExit(); });
+      } catch(err){}
+    }, true);
+  });
+
+  // ── 독립 트리거 B: 강사(원격 피어) 퇴장 → 혼자 남으면 평가 ──
+  //   복습퀴즈 스크립트의 vcRemovePeer 훅은 학생 전용이라, 전원노출/보강용으로 별도 훅.
+  function remoteCount(){
+    try { return Object.keys(window.vcPeerConnections || {}).length; } catch(e){ return -1; }
+  }
+  function hookPeerLeave(tries){
+    tries = tries || 0;
+    if (typeof window.vcRemovePeer !== 'function') {
+      if (tries < 80) return setTimeout(function(){ hookPeerLeave(tries + 1); }, 150);
+      return;
+    }
+    if (window.__vcRateLeaveHooked) return;
+    window.__vcRateLeaveHooked = true;
+    var orig = window.vcRemovePeer;
+    window.vcRemovePeer = function(){
+      var r = orig.apply(this, arguments);
+      try {
+        setTimeout(function(){
+          if (STATE.done || STATE.open || alreadyRated()) return;
+          if (!isStudentInClass()) return;
+          if (remoteCount() === 0) showRatingModal(function(){ fallbackExit(); });
+        }, 1400);
+      } catch(e){}
+      return r;
+    };
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ hookPeerLeave(0); });
+  else hookPeerLeave(0);
+
+  // ── 수동 트리거: 콘솔/버튼에서 window.mangoShowRating() 로 즉시 미리보기 ──
+  window.mangoShowRating = function(){
+    document.body.classList.add('vc-in-call');
+    STATE.done = false; STATE.open = false;
+    showRatingModal(function(){});
+  };
 })();
 </script>
 <style>
@@ -23304,7 +23369,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260703200126 -->
+<!-- BUILD:20260704004223 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

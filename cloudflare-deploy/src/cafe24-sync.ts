@@ -79,11 +79,14 @@ export async function importCafe24Students(env: SyncEnv, off: number, lim: numbe
      RETURN coalesce(s.student_id, s.user_id) AS user_id, coalesce(s.name, s.student_id) AS korean_name,
             s.grade AS grade, s.school AS school, coalesce(s.status,'active') AS status,
             s.signup_date AS signup_date, s.end_date AS end_date, s.shop_name AS shop_name,
-            s.points AS points
+            s.franchise AS franchise, s.hq_name AS hq_name, s.points AS points
      ORDER BY user_id SKIP $off LIMIT $lim`, { off, lim }, 'READ');
+  // franchise·hq_name 컬럼 보강 (정산 트리 rebuildTree 가 이 3개로 org_nodes 구성)
+  try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN franchise TEXT`); } catch {}
+  try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN hq_name TEXT`); } catch {}
   const ins = env.DB.prepare(
-    `INSERT OR REPLACE INTO students_erp (user_id, student_id, login_id, username, korean_name, grade, school, status, signup_date, end_date, shop_name, points, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    `INSERT OR REPLACE INTO students_erp (user_id, student_id, login_id, username, korean_name, grade, school, status, signup_date, end_date, shop_name, franchise, hq_name, points, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   let imported = 0;
   for (let i = 0; i < values.length; i += 400) {
     const rows = rowsToObjects(fields, values.slice(i, i + 400));
@@ -91,8 +94,8 @@ export async function importCafe24Students(env: SyncEnv, off: number, lim: numbe
       const uid = String(r.user_id ?? '');
       const kname = r.korean_name || uid;
       return ins.bind(uid, uid, uid, kname, kname, r.grade || null, r.school || null, r.status || 'active',
-        r.signup_date || null, r.end_date || null, r.shop_name || null, Number(r.points) || 0,
-        CAFE24_STUDENT_SENTINEL, CAFE24_STUDENT_SENTINEL);
+        r.signup_date || null, r.end_date || null, r.shop_name || null, r.franchise || null, r.hq_name || '망고아이 본사',
+        Number(r.points) || 0, CAFE24_STUDENT_SENTINEL, CAFE24_STUDENT_SENTINEL);
     }));
     imported += Math.min(400, values.length - i);
   }

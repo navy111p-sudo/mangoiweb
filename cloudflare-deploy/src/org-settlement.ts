@@ -373,6 +373,51 @@ export async function settlementRouter(request: Request, env: Env): Promise<Resp
 
     await ensureTree(env);
 
+    // ── GET /branch-summary?period= : 지사(franchise)별 정산 직접 집계 ──
+    //   그래프 트리의 shop_name 문자열 매칭은 실데이터에서 누락이 커서, 대시보드는
+    //   students_erp.franchise ⨝ student_payments 로 지사별 매출을 정확히 직접 집계한다.
+    //   수수료율은 org_nodes(type='branch') 값이 있으면 사용, 없으면 기본 0.15.
+    if (p === 'branch-summary' && method === 'GET') {
+      const period = url.searchParams.get('period') || currentMonth();
+      const { startMs, endMs, label } = monthRange(period);
+      const rows = await safe(async () =>
+        (await env.DB.prepare(`
+          SELECT COALESCE(NULLIF(TRIM(s.franchise),''), '(미지정 지사)') AS franchise_name,
+                 COUNT(*) AS pay_count,
+                 COALESCE(SUM(p.amount_krw),0) AS gross_revenue,
+                 COALESCE(MAX(o.commission_rate), 0.15) AS commission_rate
+          FROM student_payments p
+          JOIN students_erp s ON s.user_id = p.user_id
+          LEFT JOIN org_nodes o ON o.type='branch' AND o.name = TRIM(s.franchise)
+          WHERE p.status='paid' AND p.paid_at >= ? AND p.paid_at < ?
+          GROUP BY franchise_name
+          HAVING gross_revenue > 0
+          ORDER BY gross_revenue DESC
+        `).bind(startMs, endMs).all<any>()).results || [], [] as any[]);
+      const enriched = rows.map((r: any) => {
+        const rate = Number(r.commission_rate) || 0.15;
+        const hq_fee = Math.round(r.gross_revenue * rate);
+        return {
+          franchise_name: r.franchise_name, type: 'branch',
+          gross_revenue: r.gross_revenue, commission_rate: rate,
+          hq_fee, net_settlement: r.gross_revenue - hq_fee,
+          pay_count: r.pay_count, due_date: nextSettlementDate(period), status: 'pending',
+        };
+      });
+      const totals = enriched.reduce((a: any, r: any) => ({
+        gross: a.gross + r.gross_revenue, fee: a.fee + r.hq_fee, net: a.net + r.net_settlement,
+      }), { gross: 0, fee: 0, net: 0 });
+      if (fmt === 'csv') {
+        return csv(`branch-settlement-${period}.csv`, [
+          ['망고아이 지사별 정산 (직접집계)', label], [],
+          ['지사', '총매출', '수수료율', '본사수수료', '정산액', '건수'],
+          ...enriched.map((r: any) => [r.franchise_name, r.gross_revenue, r.commission_rate, r.hq_fee, r.net_settlement, r.pay_count]),
+          ['합계', totals.gross, '', totals.fee, totals.net, ''],
+        ]);
+      }
+      return json({ ok: true, type: 'branch-summary', period, label, scope: scope.label, rows: enriched, totals });
+    }
+
     // ── GET /tree : 조직 그래프 트리 ──
     if (p === 'tree' && method === 'GET') {
       const rows = await safe(async () =>

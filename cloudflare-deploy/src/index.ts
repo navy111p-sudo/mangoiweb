@@ -209,6 +209,14 @@ export default {
     if (path === '/api/games/shadow' && request.method === 'POST') {
       return handleGamesShadow(request, env);
     }
+    // 🪙 코인 적립 — POST /api/games/coins {user_id,nickname,add} → 주간/누적 코인(game_stats), 주간 리더보드용
+    if (path === '/api/games/coins' && request.method === 'POST') {
+      return handleGamesCoins(request, env);
+    }
+    // 🏆 주간 랭킹 — GET /api/games/leaderboard?limit=  → 이번 주 코인 상위 학생(닉네임)
+    if (path === '/api/games/leaderboard' && request.method === 'GET') {
+      return handleGamesLeaderboard(request, env);
+    }
 
     // 📩 알림톡 클릭추적 (공개·학부모용) — 버튼 클릭 시 read_at 기록 후 원래 URL 로 리다이렉트.
     //    이탈위험 그래프의 (학부모)-[:IGNORED]->(알림톡) 판정을 정밀화한다.
@@ -1748,6 +1756,61 @@ async function handleGamesZhVocab(request: Request, env: Env): Promise<Response>
 async function _ensureGameProgressTable(env: Env) {
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS game_progress (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, lang TEXT NOT NULL, item TEXT NOT NULL, ko TEXT, wrong_count INTEGER DEFAULT 0, correct_count INTEGER DEFAULT 0, pron_best INTEGER DEFAULT 0, pron_last INTEGER DEFAULT 0, pron_count INTEGER DEFAULT 0, last_seen INTEGER, updated_at INTEGER, UNIQUE(user_id, lang, item));`);
 }
+/* 🪙🏆 게임 코인 + 주간 랭킹 — game_stats(user_id, nickname, coins_total, coins_week, week_start)
+ *   · POST /api/games/coins {user_id, nickname, add}  → 코인 적립(주 바뀌면 주간 리셋). 리더보드 = 이번 주 적립 코인.
+ *   · GET  /api/games/leaderboard?limit=              → 이번 주 코인 상위(닉네임).
+ *   닉네임은 학생이 정한 게임 핸들(students_erp PII 조회 회피). 스킨 구매는 클라이언트에서 잔액 차감. */
+function _weekStart(now: number): number {
+  // 주 시작(월요일 00:00 UTC 근사) — 주간 리셋 기준
+  const day = 24 * 60 * 60 * 1000;
+  const d = new Date(now);
+  const dow = (d.getUTCDay() + 6) % 7;   // 월=0
+  const midnight = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  return midnight - dow * day;
+}
+async function _ensureGameStatsTable(env: Env) {
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS game_stats (user_id TEXT PRIMARY KEY, nickname TEXT, coins_total INTEGER DEFAULT 0, coins_week INTEGER DEFAULT 0, week_start INTEGER DEFAULT 0, updated_at INTEGER);`);
+}
+async function handleGamesCoins(request: Request, env: Env): Promise<Response> {
+  try {
+    let body: any = {};
+    try { body = await request.json(); } catch {}
+    const userId = String(body?.user_id || '').trim().slice(0, 100);
+    let nickname = String(body?.nickname || '').trim().slice(0, 24).replace(/[<>]/g, '');
+    let add = Math.round(Number(body?.add) || 0);
+    if (add < 0) add = 0; if (add > 5000) add = 5000;   // 1회 상한(어뷰징 방지)
+    if (!userId) return new Response(JSON.stringify({ ok: false, error: 'user_id_required' }), { status: 400, headers: _MS_JSON });
+    await _ensureGameStatsTable(env);
+    const now = Date.now(); const ws = _weekStart(now);
+    const cur: any = await env.DB.prepare(`SELECT coins_total, coins_week, week_start, nickname FROM game_stats WHERE user_id = ?`).bind(userId).first();
+    if (!nickname) nickname = (cur && cur.nickname) || '';
+    let total = (cur?.coins_total || 0) + add;
+    let week = ((cur && cur.week_start === ws) ? (cur.coins_week || 0) : 0) + add;   // 주 바뀌면 주간 리셋
+    await env.DB.prepare(
+      `INSERT INTO game_stats (user_id, nickname, coins_total, coins_week, week_start, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET nickname=excluded.nickname, coins_total=excluded.coins_total, coins_week=excluded.coins_week, week_start=excluded.week_start, updated_at=excluded.updated_at`
+    ).bind(userId, nickname, total, week, ws, now).run();
+    return new Response(JSON.stringify({ ok: true, coins_total: total, coins_week: week }), { status: 200, headers: _MS_JSON });
+  } catch (e: any) {
+    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
+  }
+}
+async function handleGamesLeaderboard(request: Request, env: Env): Promise<Response> {
+  try {
+    const u = new URL(request.url);
+    const limit = Math.min(50, parseInt(u.searchParams.get('limit') || '20', 10) || 20);
+    await _ensureGameStatsTable(env);
+    const ws = _weekStart(Date.now());
+    const rs = await env.DB.prepare(
+      `SELECT nickname, coins_week FROM game_stats WHERE week_start = ? AND coins_week > 0 AND nickname IS NOT NULL AND nickname != '' ORDER BY coins_week DESC LIMIT ?`
+    ).bind(ws, limit).all();
+    const top = ((rs.results as any[]) || []).map((r, i) => ({ rank: i + 1, nickname: r.nickname, coins: r.coins_week || 0 }));
+    return new Response(JSON.stringify({ ok: true, week_start: ws, top }), { status: 200, headers: _MS_JSON });
+  } catch (e: any) {
+    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
+  }
+}
+
 /* 🔤 영어 게임 어휘 은행 — 난이도별 영어 문장+단어(en_vocab). 게임 폴백을 12→풍부하게. */
 async function handleGamesEnVocab(request: Request, env: Env): Promise<Response> {
   try {
