@@ -270,6 +270,10 @@
             <div id="overviewConsent"></div>
           </div>
         </div>
+        <div class="chart-wrap" style="margin-top:12px">
+          <h3 data-ko="🪙 포인트 (카페24)" data-en="🪙 Points (Cafe24)">🪙 포인트 (카페24)</h3>
+          <div id="overviewPoints"></div>
+        </div>
       </div>
 
       <!-- 2. 등록·수강 -->
@@ -882,6 +886,7 @@ function renderAll(){
   renderTextbook();
   renderRecording();
   renderTalkInit();
+  renderPoints();
 }
 
 // ═══════════════════════ 좌측 카드 ═══════════════════════
@@ -1111,6 +1116,22 @@ function renderEngagement(){
     },
     options:{ responsive:true, maintainAspectRatio:false, scales:{y:{beginAtZero:true,max:100,ticks:{color:'#94a3b8'},grid:{color:'#334155'}},x:{ticks:{color:'#94a3b8',maxRotation:60},grid:{color:'#334155'}}}, plugins:{legend:{labels:{color:'#e2e8f0'}}}}
   });
+}
+
+// ═══════════════════════ 🪙 포인트 (카페24 그래프DB) ═══════════════════════
+function renderPoints(){
+  const box = document.getElementById('overviewPoints');
+  if (!box) return;
+  const cs = (_state.full && _state.full.cafe24_scores) || {};
+  const pts = cs.points || [];
+  const bal = Number(cs.points_balance || 0);
+  const en = _lang==='en';
+  if (!pts.length){ box.innerHTML = '<div class="empty">'+(en?'No point history':'포인트 내역 없음')+'</div>'; return; }
+  const num = n => { try { return Number(n).toLocaleString('ko-KR'); } catch(e){ return n; } };
+  let h = '<div style="font-size:22px;font-weight:800;color:#fbbf24;margin-bottom:8px">'+num(bal)+' P <span style="font-size:12px;color:var(--mut);font-weight:500">'+(en?'balance':'현재 잔액')+'</span></div>';
+  h += '<table class="list"><thead><tr><th>'+(en?'Date':'날짜')+'</th><th>'+(en?'Change':'증감')+'</th><th>'+(en?'Reason':'사유')+'</th></tr></thead><tbody>'+
+    pts.map(p=>{ const amt=Number(p.amount||0); const col = amt>=0?'#34d399':'#f87171'; const sign = amt>=0?'+':''; return '<tr><td style="white-space:nowrap">'+esc(p.date||'—')+'</td><td style="color:'+col+';font-weight:700;white-space:nowrap">'+sign+num(amt)+'</td><td>'+esc(p.name||'—')+'</td></tr>'; }).join('')+'</tbody></table>';
+  box.innerHTML = h;
 }
 
 // ═══════════════════════ 6. 평가서 ═══════════════════════

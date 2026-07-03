@@ -188,6 +188,9 @@ export async function runMonthlyReports(env: MangoEnv, period: string, origin?: 
 //   D1 락/과부하 → 미처리 예외 → Cloudflare 503 발생. 이 플래그로 방지.
 let __pointTablesReady = false;
 
+// ⭐ 수업 강사 평가(class_ratings) DDL 도 isolate 당 1회만 실행
+let __classRatingsReady = false;
+
 const today = (ts: number = Date.now()) => {
   const d = new Date(ts);
   // KST 기준 날짜
@@ -2368,6 +2371,123 @@ export async function handleMangoApi(
       } catch (e: any) {
         return json({ ok: false, error: String(e?.message || e) }, 400);
       }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ⭐ 수업 강사 평가 — 학생이 수업 종료 직후 별 7개(1~7점) + 태그 + 건의사항 제출
+    // ═══════════════════════════════════════════════════════════════
+
+    const ensureClassRatingsTable = async () => {
+      if (__classRatingsReady) return;
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_ratings (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT NOT NULL, student_uid TEXT NOT NULL, student_name TEXT, teacher_name TEXT, score INTEGER NOT NULL, tags TEXT, feedback TEXT, rated_date TEXT NOT NULL, created_at INTEGER NOT NULL, UNIQUE(room_id, student_uid, rated_date));`);
+      await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_class_ratings_teacher ON class_ratings(teacher_name, created_at);`);
+      __classRatingsReady = true;
+    };
+
+    // ── POST /api/ratings — 평가 제출 (하루에 같은 방 1회, 제출 시 포인트 적립) ──
+    //   body: { room_id, student_uid, student_name?, teacher_name?, score(1~7), tags?: string[], feedback? }
+    if (method === 'POST' && path === '/api/ratings') {
+      await ensureClassRatingsTable();
+      const body: any = await request.json().catch(() => ({}));
+      const roomId = (body.room_id || '').trim();
+      const studentUid = (body.student_uid || '').trim();
+      const score = parseInt(body.score, 10);
+      if (!roomId || !studentUid) return json({ ok: false, error: 'room_id_and_student_uid_required' }, 400);
+      if (!Number.isInteger(score) || score < 1 || score > 7) return json({ ok: false, error: 'score_must_be_1_to_7' }, 400);
+
+      // 강사 이름: 클라이언트가 못 넘기면 attendance 에서 그 방의 강사 조회
+      let teacherName = (body.teacher_name || '').trim();
+      if (!teacherName) {
+        try {
+          const t: any = await env.DB.prepare(`SELECT username FROM attendance WHERE room_id=? AND role='teacher' AND username IS NOT NULL ORDER BY joined_at DESC LIMIT 1`).bind(roomId).first();
+          if (t?.username) teacherName = String(t.username);
+        } catch { /* attendance 없으면 빈 값 허용 */ }
+      }
+
+      const tags = Array.isArray(body.tags) ? body.tags.map((t: any) => String(t)).slice(0, 12) : [];
+      const feedback = String(body.feedback || '').slice(0, 1000).trim();
+      const ratedDate = today();
+      const now = Date.now();
+      try {
+        await env.DB.prepare(`INSERT INTO class_ratings (room_id, student_uid, student_name, teacher_name, score, tags, feedback, rated_date, created_at) VALUES (?,?,?,?,?,?,?,?,?)`)
+          .bind(roomId, studentUid, body.student_name || null, teacherName || null, score, tags.length ? JSON.stringify(tags) : null, feedback || null, ratedDate, now).run();
+      } catch (e: any) {
+        if (/UNIQUE/i.test(String(e?.message || e))) return json({ ok: true, already_rated: true, points_awarded: 0 });
+        return json({ ok: false, error: String(e?.message || e) }, 500);
+      }
+
+      // 포인트 적립 (규칙 자동 시드: 10P, 하루 5회 한도) — 실패해도 평가 저장은 유지
+      let pointsAwarded = 0;
+      try {
+        await ensurePointTables();
+        await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES ('class_rating','수업 평가 참여',10,0,5,1,'수업 종료 후 강사 평가 제출 시 자동 적립',?) ON CONFLICT(code) DO NOTHING`).bind(now).run();
+        const rule: any = await env.DB.prepare(`SELECT * FROM point_rules WHERE code='class_rating' AND enabled=1`).first();
+        if (rule) {
+          const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
+          const cnt: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE user_id=? AND rule_code='class_rating' AND triggered_at>=?`).bind(studentUid, startOfDay.getTime()).first();
+          if (!rule.daily_cap || (cnt?.c || 0) < rule.daily_cap) {
+            const r = await applyPointTransaction({ userId: studentUid, studentName: body.student_name, type: 'earn', amount: rule.amount, reason: rule.label, ruleCode: 'class_rating', meta: { room_id: roomId, score } });
+            await env.DB.prepare(`INSERT INTO point_rule_log (user_id, rule_code, amount, triggered_at, txn_id, meta) VALUES (?,?,?,?,?,?)`)
+              .bind(studentUid, 'class_rating', rule.amount, now, r.txnId, JSON.stringify({ room_id: roomId })).run();
+            pointsAwarded = rule.amount;
+          }
+        }
+      } catch { /* 포인트 실패 무시 */ }
+
+      return json({ ok: true, teacher_name: teacherName || null, points_awarded: pointsAwarded });
+    }
+
+    // ── GET /api/ratings/check?room_id=&uid= — 오늘 이 방을 이미 평가했는지 ──
+    if (method === 'GET' && path === '/api/ratings/check') {
+      const roomId = (url.searchParams.get('room_id') || '').trim();
+      const uid = (url.searchParams.get('uid') || '').trim();
+      if (!roomId || !uid) return json({ ok: false, error: 'room_id_and_uid_required' }, 400);
+      try {
+        await ensureClassRatingsTable();
+        const row: any = await env.DB.prepare(`SELECT id FROM class_ratings WHERE room_id=? AND student_uid=? AND rated_date=?`).bind(roomId, uid, today()).first();
+        return json({ ok: true, rated: !!row });
+      } catch {
+        return json({ ok: true, rated: false });
+      }
+    }
+
+    // ── GET /api/admin/ratings/summary?days=30 — 강사별 평균/건수/태그 집계 ──
+    if (method === 'GET' && path === '/api/admin/ratings/summary') {
+      await ensureClassRatingsTable();
+      const days = Math.min(365, Math.max(1, parseInt(url.searchParams.get('days') || '30', 10) || 30));
+      const since = Date.now() - days * 86400 * 1000;
+      const rs = await env.DB.prepare(`SELECT teacher_name, score, tags FROM class_ratings WHERE created_at>=?`).bind(since).all();
+      const byTeacher: Record<string, { count: number; sum: number; low: number; tags: Record<string, number> }> = {};
+      for (const row of (rs.results || []) as any[]) {
+        const name = row.teacher_name || '(미확인)';
+        const t = byTeacher[name] || (byTeacher[name] = { count: 0, sum: 0, low: 0, tags: {} });
+        t.count++; t.sum += row.score;
+        if (row.score <= 2) t.low++;
+        if (row.tags) {
+          try { for (const tag of JSON.parse(row.tags)) t.tags[tag] = (t.tags[tag] || 0) + 1; } catch {}
+        }
+      }
+      const rows = Object.entries(byTeacher).map(([teacher_name, t]) => ({
+        teacher_name,
+        count: t.count,
+        avg_score: Math.round((t.sum / t.count) * 100) / 100,
+        low_count: t.low,
+        top_tags: Object.entries(t.tags).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([tag, n]) => ({ tag, count: n })),
+      })).sort((a, b) => b.count - a.count);
+      return json({ ok: true, days, total: (rs.results || []).length, rows });
+    }
+
+    // ── GET /api/admin/ratings/list?teacher_name=&days=30&limit=50 — 개별 평가(건의사항 포함) ──
+    if (method === 'GET' && path === '/api/admin/ratings/list') {
+      await ensureClassRatingsTable();
+      const days = Math.min(365, Math.max(1, parseInt(url.searchParams.get('days') || '30', 10) || 30));
+      const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10) || 50));
+      const teacher = (url.searchParams.get('teacher_name') || '').trim();
+      const since = Date.now() - days * 86400 * 1000;
+      const rs = teacher
+        ? await env.DB.prepare(`SELECT id, room_id, student_name, teacher_name, score, tags, feedback, rated_date, created_at FROM class_ratings WHERE created_at>=? AND teacher_name=? ORDER BY created_at DESC LIMIT ?`).bind(since, teacher, limit).all()
+        : await env.DB.prepare(`SELECT id, room_id, student_name, teacher_name, score, tags, feedback, rated_date, created_at FROM class_ratings WHERE created_at>=? ORDER BY created_at DESC LIMIT ?`).bind(since, limit).all();
+      return json({ ok: true, rows: rs.results || [] });
     }
 
     // ── GET /api/admin/points/rules — 자동 적립 규칙 목록 ──
@@ -9010,7 +9130,7 @@ LIMIT $limit`;
         const _fullErpPII = (_erpRow && !canViewPII(_fullScope)) ? maskRecordPII(_erpRow) : _erpRow;
 
         // 🎓 카페24 성적(그래프DB) — 월별·일별 점수 + 교재퀴즈. Neo4j 미연결 시 조용히 빈배열.
-        let cafe24Scores: any = { monthly: [], daily: [], quiz: [] };
+        let cafe24Scores: any = { monthly: [], daily: [], quiz: [], points: [], points_balance: 0 };
         try {
           const { fields, values } = await runCypher(env, `
             OPTIONAL MATCH (m:MonthlyScore {user_id: $uid})
@@ -9022,9 +9142,13 @@ LIMIT $limit`;
             OPTIONAL MATCH (c:Class {user_id: $uid})
             WITH monthly, daily, collect(DISTINCT c.class_id) AS classIds
             OPTIONAL MATCH (q:QuizResult) WHERE q.class_id IN classIds
-            WITH monthly, daily, q ORDER BY q.date DESC
-            RETURN monthly AS monthly, daily AS daily,
-                   collect(q { quiz_id: q.quiz_id, state: q.state, page: q.page, date: q.date })[0..60] AS quiz
+            WITH monthly, daily, collect(q { quiz_id: q.quiz_id, state: q.state, page: q.page, date: q.date })[0..60] AS quiz
+            OPTIONAL MATCH (pt:PointTx {user_id: $uid})
+            WITH monthly, daily, quiz, pt ORDER BY pt.ts DESC
+            WITH monthly, daily, quiz,
+                 collect(pt { amount: pt.amount, name: pt.name, date: pt.date, ts: pt.ts })[0..100] AS points,
+                 sum(pt.amount) AS points_balance
+            RETURN monthly AS monthly, daily AS daily, quiz AS quiz, points AS points, points_balance AS points_balance
           `, { uid }, 'READ');
           if (values.length) {
             const idx = (n: string) => fields.indexOf(n);
@@ -9032,6 +9156,8 @@ LIMIT $limit`;
               monthly: values[0][idx('monthly')] || [],
               daily: values[0][idx('daily')] || [],
               quiz: values[0][idx('quiz')] || [],
+              points: values[0][idx('points')] || [],
+              points_balance: values[0][idx('points_balance')] || 0,
             };
           }
         } catch (e: any) {
