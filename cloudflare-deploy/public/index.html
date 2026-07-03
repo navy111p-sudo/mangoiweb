@@ -11253,15 +11253,53 @@ var _HEARTS_MAX=3, _hearts=_HEARTS_MAX;
 function _renderHearts(){ var el=document.getElementById('game-hearts'); if(!el) return; var s=''; for(var i=0;i<_HEARTS_MAX;i++) s+=(i<_hearts?'❤️':'🤍'); el.textContent=s; }
 function _loseHeart(){ _hearts=Math.max(0,_hearts-1); _renderHearts(); return _hearts<=0; }
 // ── 정답/오답 공용 ──
+/* 🎉 재미 요소 — 색종이 폭죽 + 🥭 망고 마스코트 반응 (수업중 게임탭도 동일) */
+(function(){
+  if(document.getElementById('_funfx-style')) return;
+  var st=document.createElement('style'); st.id='_funfx-style';
+  st.textContent='@keyframes _confFall{0%{transform:translateY(-10px) rotate(0);opacity:1}100%{transform:translateY(340px) rotate(720deg);opacity:0}}@keyframes _mascotPop{0%{transform:translateY(60px) scale(.4);opacity:0}18%{transform:translateY(-10px) scale(1.12);opacity:1}32%{transform:translateY(0) scale(1)}82%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(30px) scale(.8);opacity:0}}@keyframes _mascotShake{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}@keyframes _bubblePop{0%{transform:scale(.3);opacity:0}30%{transform:scale(1.08);opacity:1}85%{opacity:1}100%{opacity:0}}#_mascot{position:fixed;right:14px;bottom:14px;z-index:60;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:4px}#_mascot .face{font-size:clamp(46px,9vmin,72px);filter:drop-shadow(0 5px 10px rgba(0,0,0,.5))}#_mascot .bubble{background:#fff;color:#0b1b3a;font-weight:800;font-size:clamp(13px,2.4vmin,17px);padding:6px 14px;border-radius:14px;box-shadow:0 4px 14px rgba(0,0,0,.35);white-space:nowrap;order:-1;position:relative}#_mascot .bubble::after{content:"";position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);border:7px solid transparent;border-top-color:#fff;border-bottom:0}';
+  document.head.appendChild(st);
+})();
+function _confettiBurst(n, big){
+  try{ var area=document.getElementById('game-area'); if(!area) return;
+    if(getComputedStyle(area).position==='static') area.style.position='relative';
+    var W=area.clientWidth||360, colors=['#f43f5e','#fbbf24','#34d399','#38bdf8','#a855f7','#f97316','#ec4899'], bits=['🎉','⭐','✨','🎊','💫'];
+    for(var i=0;i<n;i++){ (function(k){ var useEmoji=big&&(k%4===0), el=document.createElement('div'), left=Math.random()*W, dur=1100+Math.random()*900, delay=Math.random()*180;
+      if(useEmoji){ el.textContent=bits[k%bits.length]; el.style.cssText='position:absolute;top:-10px;left:'+left+'px;font-size:'+(16+Math.random()*14)+'px;z-index:50;pointer-events:none'; }
+      else { var sz=7+Math.random()*8; el.style.cssText='position:absolute;top:-10px;left:'+left+'px;width:'+sz+'px;height:'+(sz*0.6)+'px;background:'+colors[k%colors.length]+';border-radius:2px;z-index:50;pointer-events:none'; }
+      el.style.animation='_confFall '+dur+'ms cubic-bezier(.25,.7,.4,1) '+delay+'ms forwards'; area.appendChild(el);
+      setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, dur+delay+120); })(i); }
+  }catch(_){}
+}
+var _MASCOT_MSG={ good:['좋아요! 👍','잘했어! 😄','멋져요! ✨','정답! 🎯'], combo:['콤보 대단해! 🔥','불타오른다! 🔥','연속 정답! ⚡','천재인데? 🌟'], boss:['보스 격파! 👊','이겼다! 🏆','역시 최고! 💪'], win:['다 깼어요! 🎉','완벽해요! 🏅','너무 잘했어! 🎊'], wrong:['괜찮아, 다시! 💪','아쉽다! 힘내요 🙂','거의 다 왔어! 👊'] };
+var _mascotTimer=null;
+function _mascot(kind){
+  try{ var msgs=_MASCOT_MSG[kind]||_MASCOT_MSG.good, msg=msgs[Math.floor(Math.random()*msgs.length)];
+    var old=document.getElementById('_mascot'); if(old&&old.parentNode) old.parentNode.removeChild(old);
+    var box=document.createElement('div'); box.id='_mascot'; var dur=(kind==='win'?2600:kind==='boss'?2200:1600);
+    box.innerHTML='<div class="bubble" style="animation:_bubblePop '+dur+'ms ease forwards">'+msg+'</div><div class="face" style="animation:'+(kind==='wrong'?'_mascotShake .5s ease 2':'_mascotShake .4s ease 3')+'">🥭</div>';
+    box.style.animation='_mascotPop '+dur+'ms ease forwards'; document.body.appendChild(box);
+    if(_mascotTimer) clearTimeout(_mascotTimer); _mascotTimer=setTimeout(function(){ if(box.parentNode) box.parentNode.removeChild(box); }, dur+80);
+  }catch(_){}
+}
+function _celebrate(kind){
+  if(kind==='win'){ _confettiBurst(64,true); _mascot('win'); }
+  else if(kind==='boss'){ _confettiBurst(44,true); _mascot('boss'); }
+  else if(kind==='combo'){ _confettiBurst(22,false); _mascot('combo'); }
+  else if(kind==='wrong'){ _mascot('wrong'); }
+  else { _confettiBurst(10,false); if(Math.random()<0.5) _mascot('good'); }
+}
 function _onCorrect(kind, item, base){
   _recordResult(kind,item,true); var mult=_bumpCombo(), gain=base*mult, boss=false;
   if(_gameState.boss){ boss=true; gain*=2; _gameState.boss=false; }
   _gameState.score+=gain; _gameState.correct++; _renderHearts();
+  _celebrate(boss?'boss':(_combo>=3?'combo':'good'));   // 🎉 축하 연출
   return { gain:gain, mult:mult, boss:boss };
 }
 function _onWrong(kind, item, oncePerRound){
   _recordResult(kind,item,false); _resetCombo(); _gameState.wrong++;
-  if(oncePerRound && _gameState.current){ if(_gameState.current._penalized) return false; _gameState.current._penalized=true; }
+  if(oncePerRound && _gameState.current){ if(_gameState.current._penalized){ try{_celebrate('wrong');}catch(_){} return false; } _gameState.current._penalized=true; }
+  try{ _celebrate('wrong'); }catch(_){}
   var dead=_loseHeart(); if(dead){ setTimeout(_reviveChance,700); return true; } return false;
 }
 // ── 보스 ──
@@ -11399,6 +11437,7 @@ function _gameShowResult() {
   if (_gameState.balloonTimer) { clearInterval(_gameState.balloonTimer); _gameState.balloonTimer = null; }
   try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(_){}
   try{ _flushProgress(false); }catch(_){}   // 🧠 결과 화면에서 학습기록 서버 전송
+  try{ _celebrate('win'); setTimeout(function(){ _confettiBurst(50,true); }, 500); }catch(_){}   // 🎉 클리어 대축하
   const tot = _gameState.correct + _gameState.wrong;
   const acc = tot > 0 ? Math.round(100 * _gameState.correct / tot) : 100;
   const stars = acc >= 90 ? '⭐⭐⭐' : acc >= 70 ? '⭐⭐' : '⭐';
