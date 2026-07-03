@@ -361,9 +361,24 @@ function _onCorrect(kind, item, base){
   _recordResult(kind, item, true);
   var mult=_bumpCombo();
   var gain=base*mult;
+  var boss=false;
+  if(_gameState.boss){ boss=true; gain*=2; _gameState.boss=false; }   // 👹 보스 문제 = 점수 2배
   _gameState.score += gain; _gameState.correct++;
   _renderHearts();
-  return { gain:gain, mult:mult };
+  return { gain:gain, mult:mult, boss:boss };
+}
+// 👹 보스용 — 가장 긴(어려운) 문장 상위 3개 중 무작위
+function _bossVocab(){
+  var pool = _GAME_VOCAB.filter(function(v){ return v.words && v.words.length>=3; });
+  if(!pool.length) pool = _GAME_VOCAB.slice();
+  pool = pool.slice().sort(function(a,b){ return (b.words?b.words.length:0)-(a.words?a.words.length:0); });
+  var top = pool.slice(0, Math.min(3, pool.length));
+  return top[Math.floor(Math.random()*top.length)] || _nextVocab();
+}
+function _bossBannerHtml(){
+  return '<div style="text-align:center;margin-bottom:12px">'
+    + '<span style="display:inline-block;background:linear-gradient(135deg,#dc2626,#7f1d1d);color:#fff;font-weight:800;font-size:clamp(14px,2.2vmin,18px);padding:7px 20px;border-radius:999px;box-shadow:0 0 22px rgba(220,38,38,.7),0 0 0 2px rgba(248,113,113,.5) inset">👹 보스 문제! · 점수 2배 · 집중!</span>'
+    + '</div>';
 }
 // 반환 true = 하트 소진(부활 진입) → 호출측은 다음 문제로 넘어가지 말 것
 // oncePerRound=true 면 같은 문제에서 여러 번 틀려도 하트는 1개만 차감(재시도 허용 게임: 벽돌·빈칸)
@@ -402,6 +417,16 @@ function _celebrateItem(item, kind){
   try{
     if(item && item.en){ window.gameSpeak && gameSpeak(item.en); }
   }catch(_){}
+}
+
+// ── 내용어 vs 기능어 구분(문장 구조 이해) — 뜻 핵심 단어는 밝게, 조사/관사/be동사는 흐리게 ──
+var _ZH_FUNC = ['的','了','吗','是','很','和','对','我','你','他','她','们','在','就','也','都','不','没','个','会','要','把'];
+var _EN_FUNC = ['the','is','are','am','was','were','be','to','on','in','at','of','a','an','and','or','it','he','she','we','they','i','you','my','your','this','that','with','for'];
+function _isContentWord(w){
+  try{
+    if(GAME_LANG==='zh') return _ZH_FUNC.indexOf(w) < 0;
+    var lw=String(w).toLowerCase(); return String(w).length>2 && _EN_FUNC.indexOf(lw) < 0;
+  }catch(_){ return true; }
 }
 
 // ── 선학습(새 항목 미리보기 플래시) ──
@@ -540,6 +565,18 @@ function _gameShowResult(){
   var tot = _gameState.correct + _gameState.wrong;
   var acc = tot > 0 ? Math.round(100 * _gameState.correct / tot) : 100;
   var stars = acc >= 90 ? '⭐⭐⭐' : acc >= 70 ? '⭐⭐' : '⭐';
+  // 🏅 개인 최고기록 — 게임+단계별 최고 점수 저장, 경신 시 "신기록!" 배지
+  var _bestBadge = '';
+  try{
+    var bk = 'mangoi_game_best_' + GAME_LANG + '_' + _gameState.mode + '_' + GAME_STAGE;
+    var prev = parseInt(localStorage.getItem(bk) || '0', 10) || 0;
+    if(_gameState.score > prev){
+      localStorage.setItem(bk, String(_gameState.score));
+      _bestBadge = '<div style="margin-top:8px;font-size:16px;color:#fbbf24;font-weight:800">🎉 신기록 달성! (이전 최고 ' + prev + '점)</div>';
+    } else {
+      _bestBadge = '<div style="margin-top:8px;font-size:13px;color:#94a3b8">🏅 이 단계 최고기록 ' + prev + '점</div>';
+    }
+  }catch(_){}
   var src = window._STUDENT_VOCAB && (_STUDENT_VOCAB.textbook || _STUDENT_VOCAB.level)
     ? '<div style="font-size:13px;color:#94a3b8;margin-top:8px">📚 ' + (_STUDENT_VOCAB.textbook || '') + (_STUDENT_VOCAB.level ? ' · ' + _STUDENT_VOCAB.level : '') + ' 맞춤 문제</div>' : '';
   // 🎢 다음 난이도 도전 버튼 — 최고 단계(7)면 처음부터
@@ -558,6 +595,7 @@ function _gameShowResult(){
         '<div style="background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.35);border-radius:12px;padding:12px 20px"><div style="font-size:12px;color:#94a3b8">정확도</div><div style="font-size:26px;font-weight:800;color:#38bdf8">' + acc + '%</div></div>' +
       '</div>' + src +
       (_comboBest>=3 ? '<div style="margin-top:10px;font-size:15px;color:#fb7185;font-weight:800">🔥 최고 콤보 ' + _comboBest + '연속!</div>' : '') +
+      _bestBadge +
       _reviewPanelHtml() +
       '<div style="display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap">' +
         nextStageBtn +
@@ -789,6 +827,7 @@ function gameInit(){
   _gameState.score = 0; _gameState.correct = 0; _gameState.wrong = 0;
   _hearts = _HEARTS_MAX; _renderHearts();   // 💗 하트 리셋
   _combo = 0; _comboBest = 0; _resetCombo();  // 🔥 콤보 리셋 (미스큐는 세션 유지 = 약점 이어짐)
+  _gameState.boss = false;                    // 👹 보스 상태 리셋
   // 모바일 세로 화면 채움: match/balloon 은 플레이영역이 세로공간 전부, brick/fill 은 가운데 정렬
   var area = document.getElementById('game-area');
   if(area){ area.classList.remove('area-center','area-fill');
@@ -800,11 +839,15 @@ function gameInit(){
 function gameNextRound(){
   var fb = document.getElementById('game-feedback'); if(fb) fb.textContent = '';
   if(_gameState.balloonTimer){ clearInterval(_gameState.balloonTimer); _gameState.balloonTimer = null; }
+  if(_gameState._advTimer){ clearTimeout(_gameState._advTimer); _gameState._advTimer = null; }   // 🎤 섀도잉 대기 타이머 정리
   var mode = _gameState.mode;
   // 다음 항목을 미리 뽑아(약점 우선) → 새 항목이면 선학습 플래시 후 렌더 + 타이머 시작
   if(mode === 'brick' || mode === 'fill'){
-    var s = _nextVocab(); _gameState._queued = s;
-    _preteachThen(s, 'sent', function(){ if(mode==='brick') gameRenderBrick(); else gameRenderFill(); _startRoundTimer(); });
+    // 👹 보스 라운드: 5번째 문제(정답 4개 완료 후)는 가장 긴 문장 + 2배 점수 (선학습 생략 = 도전)
+    var boss = (_gameState.correct === 4 && _gameState.correct < GAME_GOAL);
+    _gameState.boss = boss;
+    var s = boss ? _bossVocab() : _nextVocab(); _gameState._queued = s;
+    _preteachThen(boss ? null : s, 'sent', function(){ if(mode==='brick') gameRenderBrick(); else gameRenderFill(); _startRoundTimer(); });
   } else if(mode === 'balloon'){
     var w = _nextWord(); _gameState._queued = w;
     _preteachThen(w, 'word', function(){ gameRenderBalloon(); _startRoundTimer(); });
@@ -868,6 +911,45 @@ window.gameSpeak = function(text){ try{ if(!text) return;
 window.gameSpeakBuilt = function(){ try{ var pk=(_gameState.current&&_gameState.current.picked)||[]; if(pk.length) gameSpeak(pk.join(GAME_LANG==='zh'?'':' ')); }catch(_){} };   // 중국어는 붙여쓰기로 발음
 window.gameSpeakTarget = function(){ try{ var s=_gameState.current&&_gameState.current.sentence; if(s&&s.en) gameSpeak(s.en); }catch(_){} };   // 🎧 듣기형(번역 없음) 문제의 문장 듣기
 
+/* ── 🎤 따라 말하기(섀도잉): 원어민 발음 재생 → 음성인식으로 따라 말한 것 채점(미지원 브라우저는 재생만) ── */
+function _shadowScore(said, target){
+  try{
+    var norm=function(s){ return String(s).toLowerCase().replace(/[.,!?。，！？]/g,'').trim(); };
+    if(GAME_LANG==='zh'){
+      var ts=norm(target).replace(/\s+/g,''), ss=norm(said).replace(/\s+/g,'');
+      if(!ts) return 0; var hit=0; for(var i=0;i<ts.length;i++){ if(ss.indexOf(ts[i])>=0) hit++; } return hit/ts.length;
+    }
+    var tw=norm(target).split(/\s+/).filter(Boolean), sw=norm(said).split(/\s+/);
+    if(!tw.length) return 0; var h=0; tw.forEach(function(w){ if(sw.indexOf(w)>=0) h++; }); return h/tw.length;
+  }catch(_){ return 0; }
+}
+function gameShadow(enc){
+  var text=decodeURIComponent(enc);
+  var fb=document.getElementById('game-feedback');
+  if(_gameState._advTimer){ clearTimeout(_gameState._advTimer); _gameState._advTimer=null; }   // 자동 넘어감 취소
+  try{ window.gameSpeak && gameSpeak(text); }catch(_){}
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ if(fb) fb.innerHTML='<span style="color:#38bdf8">🔊 잘 듣고 소리내어 따라 말해보세요!</span>'; _gameState._advTimer=setTimeout(gameNextRound,2400); return; }
+  setTimeout(function(){
+    try{
+      var rec=new SR(); rec.lang=(GAME_LANG==='zh'?'zh-CN':'en-US'); rec.interimResults=false; rec.maxAlternatives=3;
+      if(fb) fb.innerHTML='<span style="color:#fbbf24">🎤 따라 말해보세요… (듣는 중)</span>';
+      var done=false;
+      rec.onresult=function(e){ done=true;
+        var said=''; for(var i=0;i<e.results.length;i++) said+=e.results[i][0].transcript+' ';
+        var sc=_shadowScore(said, text);
+        if(fb) fb.innerHTML = sc>=0.6
+          ? '<span style="color:#10b981">👍 발음 좋아요! ('+Math.round(sc*100)+'점)</span>'
+          : '<span style="color:#f59e0b">🔁 거의 됐어요! 🔊 다시 듣고 도전</span>';
+        _gameState._advTimer=setTimeout(gameNextRound,1700);
+      };
+      rec.onerror=function(){ if(!done){ if(fb) fb.innerHTML='<span style="color:#94a3b8">🎤 마이크를 못 썼어요 — 다음 문제로…</span>'; _gameState._advTimer=setTimeout(gameNextRound,1500); } };
+      rec.onend=function(){ if(!done && !_gameState._advTimer) _gameState._advTimer=setTimeout(gameNextRound,1500); };
+      rec.start(); setTimeout(function(){ try{ rec.stop(); }catch(_){} }, 4500);
+    }catch(_){ _gameState._advTimer=setTimeout(gameNextRound,1700); }
+  }, 850);
+}
+
 /* ============================================================
    게임 1: 🧱 문장 벽돌
    ============================================================ */
@@ -883,6 +965,7 @@ function gameRenderBrick(){
     : '<div style="font-size:13px;color:#94a3b8;margin-bottom:6px">🎧 오늘 교재 문장을 듣고 순서대로 만들어 보세요</div>' +
       '<button onclick="gameSpeakTarget()" style="font-size:clamp(18px,2.6vmin,32px);font-weight:700;color:#fbbf24;padding:14px 26px;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,.4);border-radius:12px;cursor:pointer;font-family:inherit">🔊 문장 듣기</button>';
   let html =
+    (_gameState.boss ? _bossBannerHtml() : '') +
     '<div style="text-align:center;margin-bottom:24px">' + promptBlock + '</div>' +
     '<div style="text-align:center;margin-bottom:18px">' +
       '<div style="font-size:13px;color:#94a3b8;margin-bottom:8px">🎯 ' + (GAME_LANG==='zh'?'중국어':'영어') + '로 만들어보세요 (단어 클릭)</div>' +
@@ -892,8 +975,11 @@ function gameRenderBrick(){
     '</div>' +
     '<div id="brick-pool" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:18px">';
   shuffled.forEach((w, i) => {
+    // 🎨 내용어=선명한 파랑 / 기능어=흐린 회색 → 문장에서 어떤 단어가 뜻을 나르는지 보이게
+    var _bg = _isContentWord(w) ? 'linear-gradient(135deg,#3b82f6,#1d4ed8);box-shadow:0 4px 12px rgba(59,130,246,0.4)'
+                                : 'linear-gradient(135deg,#64748b,#475569);box-shadow:0 4px 12px rgba(100,116,139,0.3)';
     html += '<button class="brick-btn" data-word="' + w + '" data-idx="' + i + '" onclick="gameBrickPick(this)" ' +
-      'style="padding:clamp(12px,1.8vmin,22px) clamp(18px,2.6vmin,34px);background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:0;border-radius:10px;font-size:clamp(18px,2.6vmin,34px);font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(59,130,246,0.4);transition:transform 0.15s">' + w + '</button>';
+      'style="padding:clamp(12px,1.8vmin,22px) clamp(18px,2.6vmin,34px);background:' + _bg + ';color:#fff;border:0;border-radius:10px;font-size:clamp(18px,2.6vmin,34px);font-weight:600;cursor:pointer;transition:transform 0.15s">' + w + '</button>';
   });
   html += '</div>' +
     '<div style="text-align:center;display:flex;gap:10px;justify-content:center">' +
@@ -945,11 +1031,14 @@ function gameBrickCheck(){
     _stopRoundTimer();
     const r = _onCorrect('sent', sent, 10);
     try{ window.MangoiStreak && MangoiStreak.complete('brick'); }catch(_){}  // 🔥 오늘 학습 달성
-    fb.innerHTML = '<span style="color:#10b981">✅ 정답! +' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</span>';
+    fb.innerHTML = '<span style="color:#10b981">' + (r.boss?'👹 보스 격파! ':'✅ 정답! ') + '+' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</span>';
     _brickRedrawBuilt(picked.length);   // 전부 초록으로 확정 표시
     try{ window.gameSpeak && gameSpeak(sent.en); }catch(_){}
     _gameUpdateScore();
-    if(!_gameCheckGoal()) setTimeout(gameNextRound, 2200);   // 🎯 10개 정답 → 결과 화면
+    if(!_gameCheckGoal()){
+      fb.innerHTML += ' <button onclick="gameShadow(\'' + encodeURIComponent(sent.en) + '\')" style="margin-left:8px;padding:5px 12px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;border:0;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">🎤 따라 말하기</button>';
+      _gameState._advTimer = setTimeout(gameNextRound, 2800);   // 🎤 따라말하기 누를 시간 확보
+    }
     return;
   }
   // ── 부드러운 오답: 맞은 접두부는 초록으로 남기고, 첫 오답부터 되돌려 그 부분만 다시 ──
@@ -1072,7 +1161,12 @@ function gameRenderFill(){
   const wrongs = _gameShuffle(Array.from(new Set(allWords))).slice(0, 3);
   const options = _gameShuffle([answer, ...wrongs]);
   _gameState.current = { answer, sentence: sent };
-  const masked = sent.words.map((w, i) => i === blankIdx ? '___' : w).join(isZh ? ' ' : ' ');
+  // 🎨 내용어(뜻 핵심)는 밝게, 기능어(조사·관사·be)는 흐리게 → 문장 구조가 눈에 보임
+  const maskedHtml = sent.words.map((w, i) =>
+    i === blankIdx
+      ? '<span style="background:#dc2626;color:#fff;padding:2px 16px;border-radius:6px;letter-spacing:2px;margin:0 4px">___</span>'
+      : '<span style="color:' + (_isContentWord(w) ? '#f8fafc;font-weight:700' : '#64748b;font-weight:400') + '">' + w + '</span>'
+  ).join(' ');
   // 힌트: 한국어 번역 + (있으면) 병음. 번역 없으면 🔊 문장 듣기 버튼.
   const pinLine = sent.pinyin ? '<div class="pinyin" style="font-size:14px;margin-top:5px">' + sent.pinyin + '</div>' : '';
   const fillHint = sent.ko
@@ -1080,12 +1174,14 @@ function gameRenderFill(){
       '<div style="font-size:18px;color:#fbbf24;padding:10px 18px;background:rgba(251,191,36,0.1);border-radius:10px;display:inline-block">' + sent.ko + '</div>' + pinLine
     : '<button onclick="gameSpeakTarget()" style="font-size:16px;font-weight:700;color:#fbbf24;padding:10px 20px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,.4);border-radius:10px;cursor:pointer;font-family:inherit">🔊 문장 듣기 (힌트)</button>';
   let html =
+    (_gameState.boss ? _bossBannerHtml() : '') +
     '<div style="text-align:center;margin-bottom:20px">' + fillHint + '</div>' +
     '<div style="text-align:center;margin-bottom:24px">' +
       '<div style="font-size:13px;color:#94a3b8;margin-bottom:8px">🎯 빈칸에 들어갈 단어를 고르세요</div>' +
       '<div style="font-size:24px;font-weight:700;color:#f1f5f9;padding:18px 24px;background:rgba(15,23,42,0.7);border:2px solid #475569;border-radius:12px;display:inline-block;line-height:1.6">' +
-        masked.replace('___', '<span style="background:#dc2626;color:#fff;padding:2px 16px;border-radius:6px;letter-spacing:2px;margin:0 4px">___</span>') +
+        maskedHtml +
       '</div>' +
+      '<div style="font-size:11px;color:#64748b;margin-top:8px">밝은 단어 = 뜻 핵심 · 흐린 단어 = 문법 기능어</div>' +
     '</div>' +
     '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;max-width:560px;margin:0 auto">';
   options.forEach(opt => {
@@ -1106,10 +1202,13 @@ function gameFillCheck(picked, btn){
     const r = _onCorrect('sent', sent, 8);
     try{ window.MangoiStreak && MangoiStreak.complete('fill'); }catch(_){}  // 🔥 오늘 학습 달성
     const em = _emojiFor(sent, 'sent');
-    fb.innerHTML = '<span style="color:#10b981">' + (em?em+' ':'') + '✅ 정답! +' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</span>';
+    fb.innerHTML = '<span style="color:#10b981">' + (em?em+' ':'') + (r.boss?'👹 보스 격파! ':'✅ 정답! ') + '+' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</span>';
     try{ window.gameSpeak && sent && gameSpeak(sent.en); }catch(_){}
     _gameUpdateScore();
-    if(!_gameCheckGoal()) setTimeout(gameNextRound, 1900);   // 🎯 10개 정답 → 결과 화면
+    if(!_gameCheckGoal()){
+      fb.innerHTML += ' <button onclick="gameShadow(\'' + encodeURIComponent(sent.en) + '\')" style="margin-left:8px;padding:5px 12px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;border:0;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">🎤 따라 말하기</button>';
+      _gameState._advTimer = setTimeout(gameNextRound, 2600);   // 🎤 따라말하기 누를 시간 확보
+    }
   } else {
     btn.style.background = 'linear-gradient(135deg,#dc2626,#991b1b)';
     btn.style.opacity = '0.4';
@@ -1301,6 +1400,6 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260703130820 -->
+<!-- BUILD:20260703184840 -->
 </body>
 </html>

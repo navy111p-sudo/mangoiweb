@@ -1139,7 +1139,8 @@ function renderPoints(){
 function cafe24ScoresHtml(){
   const cs = (_state.full && _state.full.cafe24_scores) || {};
   const monthly = cs.monthly || [], daily = cs.daily || [];
-  if (!monthly.length && !daily.length) return '';
+  const quizAll = (cs.quiz || []).filter(function(q){ return q && q.q_total; });
+  if (!monthly.length && !daily.length && !quizAll.length) return '';
   const en = _lang==='en';
   let h = '<div style="margin-bottom:18px">';
   h += '<h3 style="margin:0 0 10px;font-size:15px;color:#34d399">🎓 '+(en?'Cafe24 Report Cards (real data)':'카페24 성적 (실데이터)')+'</h3>';
@@ -1153,6 +1154,12 @@ function cafe24ScoresHtml(){
     h += '<div style="font-size:12.5px;color:var(--mut);margin:14px 0 4px">📝 '+(en?'Daily Scores (recent 90)':'일별 점수 (최근 90회)')+' ('+daily.length+')</div>';
     h += '<table class="list"><thead><tr><th>'+(en?'Date':'날짜')+'</th><th>'+(en?'Avg':'평균')+'</th><th>S1</th><th>S2</th><th>S3</th><th>S4</th><th>S5</th><th>'+(en?'Comment':'코멘트')+'</th></tr></thead><tbody>'+
       daily.map(function(d){ return '<tr><td style="white-space:nowrap">'+esc(d.date||'—')+'</td><td>'+scoreBadge(avg(d))+'</td><td>'+esc(String(d.s1||0))+'</td><td>'+esc(String(d.s2||0))+'</td><td>'+esc(String(d.s3||0))+'</td><td>'+esc(String(d.s4||0))+'</td><td>'+esc(String(d.s5||0))+'</td><td style="white-space:pre-wrap;max-width:420px">'+esc(d.comment||'—')+'</td></tr>'; }).join('')+'</tbody></table>';
+  }
+  var quiz = (cs.quiz || []).filter(function(q){ return q && q.q_total; });
+  if (quiz.length){
+    h += '<div style="font-size:12.5px;color:var(--mut);margin:14px 0 4px">🧩 '+(en?'Book Quizzes (recent)':'교재 퀴즈 (최근)')+' ('+quiz.length+')</div>';
+    h += '<table class="list"><thead><tr><th>'+(en?'Date':'날짜')+'</th><th>'+(en?'Questions':'문항수')+'</th><th>'+(en?'Correct':'정답')+'</th><th>'+(en?'Score':'정답률')+'</th></tr></thead><tbody>'+
+      quiz.map(function(q){ return '<tr><td style="white-space:nowrap">'+esc(q.date||'—')+'</td><td>'+esc(String(q.q_total||0))+'</td><td>'+esc(String(q.correct||0))+'</td><td>'+scoreBadge(q.score_pct)+'</td></tr>'; }).join('')+'</tbody></table>';
   }
   h += '</div>';
   return h;

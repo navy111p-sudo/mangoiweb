@@ -9142,7 +9142,8 @@ LIMIT $limit`;
             OPTIONAL MATCH (c:Class {user_id: $uid})
             WITH monthly, daily, collect(DISTINCT c.class_id) AS classIds
             OPTIONAL MATCH (q:QuizResult) WHERE q.class_id IN classIds
-            WITH monthly, daily, collect(q { quiz_id: q.quiz_id, state: q.state, page: q.page, date: q.date })[0..60] AS quiz
+            WITH monthly, daily, q ORDER BY q.date DESC
+            WITH monthly, daily, collect(q { quiz_id: q.quiz_id, state: q.state, page: q.page, date: q.date, q_total: q.q_total, correct: q.correct, score_pct: q.score_pct })[0..60] AS quiz
             OPTIONAL MATCH (pt:PointTx {user_id: $uid})
             WITH monthly, daily, quiz, pt ORDER BY pt.ts DESC
             WITH monthly, daily, quiz,
