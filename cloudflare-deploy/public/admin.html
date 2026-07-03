@@ -635,13 +635,18 @@
   /* 컬럼 너비 — ERP 다컬럼: 자동 너비 + 가로 스크롤 (래퍼 overflow-x) */
   #sm-students-table th, #sm-students-table td { min-width: 72px; }
 
-  /* 헤더 강조 */
+  /* 헤더 강조 — 📌 sticky 고정 (세로 스크롤해도 컬럼 제목이 항상 보임) */
   #sm-students-table thead th {
-    background: linear-gradient(180deg, rgba(254,243,199,0.5), rgba(254,215,170,0.3));
+    position: sticky; top: 0; z-index: 5;
+    background: linear-gradient(180deg, #fffbeb, #fef0d9);
     color: #7c2d12; font-weight: 700; font-size: 12px;
     border-bottom: 2px solid rgba(245,158,11,0.35);
+    /* border-collapse 표에서 sticky 시 border가 함께 고정되지 않으므로 그림자로 하단선 보강 */
+    box-shadow: 0 2px 0 rgba(245,158,11,0.35);
     text-transform: uppercase; letter-spacing: 0.4px;
   }
+  /* 표 래퍼 — 세로 스크롤 영역 (헤더 sticky 기준 컨테이너) */
+  #sm-students-wrap { max-height: 62vh; overflow: auto; }
   /* 행 줄무늬 + 호버 강조 */
   #sm-students-table tbody tr:nth-child(even) td { background: rgba(254,243,199,0.18); }
   #sm-students-table tbody tr:hover td { background: rgba(245,158,11,0.12); cursor: default; }
@@ -3226,6 +3231,8 @@
         <div class="sub-body">
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
             <button id="sm-load-students" class="primary" style="padding:5px 12px;font-size:12px;" data-ko="🧮 불러오기" data-en="🧮 Load">🧮 불러오기</button>
+            <input id="sm-student-search" type="search" placeholder="🔍 학생명·아이디 검색 (Name/ID)" autocomplete="off"
+                   style="flex:1;min-width:180px;max-width:320px;padding:6px 12px;font-size:12.5px;border:1px solid rgba(245,158,11,0.4);border-radius:8px;outline:none;background:#fffbeb;color:#1c1917;" />
             <span style="font-size:11px;color:#6b7280;" id="sm-students-count"></span>
           </div>
           <div style="font-size:11px;color:#92400e;background:rgba(254,243,199,0.45);border:1px solid rgba(245,158,11,0.25);border-radius:6px;padding:6px 12px;margin-bottom:6px"
@@ -3233,7 +3240,7 @@
                data-en="💡 Click header to sort / Shift+Click for multi-sort (up to 3)">
             💡 컬럼 헤더 클릭 = 정렬 / Shift+클릭 = 다중 정렬 (최대 3개 동시)
           </div>
-          <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;border:1px solid rgba(245,158,11,0.18)"><table id="sm-students-table" class="sortable-table">
+          <div id="sm-students-wrap" style="overflow:auto;-webkit-overflow-scrolling:touch;border-radius:10px;border:1px solid rgba(245,158,11,0.18)"><table id="sm-students-table" class="sortable-table">
             <thead><tr>
               <th class="sortable" data-sort-key="user_id" data-ko="아이디" data-en="ID">아이디<span class="sort-indicator"></span></th>
               <th class="sortable" data-sort-key="username" data-ko="학생명" data-en="Name">학생명<span class="sort-indicator"></span></th>
@@ -19101,6 +19108,8 @@ document.getElementById('legacy-toggle')?.addEventListener('click', toggleLegacy
 const SM_SORT_MAX = 3;
 let _smStudents = [];                                       // 원본 데이터 캐시
 let _smSort = [{ key: 'last_seen', dir: 'desc' }];          // 정렬 배열 (우선순위 순)
+let _smSearch = '';                                         // 🔍 검색어 (학생명·아이디)
+let _smCountBase = '';                                      // 전체 인원수 라벨 (검색 시 "N명 / 전체" 표시용)
 
 // 🔒 역할별 데이터 범위 판별 — 지사/대리점/교사/학부모/학생은 자기 범위만
 function mangoiGetDataScope(){
@@ -19197,8 +19206,9 @@ async function loadStudentList() {
     session_count: Number(s.sessions || 0),
     _username_lc: String(s.username || s.user_id || '').toLowerCase()
   }));
-  if (cnt) cnt.textContent = (_L ? _smStudents.length + ' students' : _smStudents.length + '명')
+  _smCountBase = (_L ? _smStudents.length + ' students' : _smStudents.length + '명')
     + (_dataSource === 'Neo4j' ? (_L ? ' · 🕸️ Graph DB' : ' · 🕸️ 그래프DB 실데이터') : (_L ? ' · D1' : ' · D1'));
+  if (cnt) cnt.textContent = _smCountBase;
   renderStudentTable();
 }
 
@@ -19309,8 +19319,27 @@ function renderStudentTable() {
   const tb = document.getElementById('sm-students-tbody');
   if (!tb || !_smStudents.length) return;
 
+  // 🔍 검색 필터 — 학생명·아이디 부분일치 (대소문자 무시)
+  const _q = String(_smSearch || '').trim().toLowerCase();
+  const _filtered = _q
+    ? _smStudents.filter(s => s._username_lc.indexOf(_q) >= 0 || String(s.user_id || '').toLowerCase().indexOf(_q) >= 0)
+    : _smStudents;
+
+  // 인원수 라벨 — 검색 중이면 "검색 N명 / 전체" 로 표시
+  const _cntEl = document.getElementById('sm-students-count');
+  if (_cntEl && _smCountBase) {
+    _cntEl.textContent = _q
+      ? (_L ? ('🔍 ' + _filtered.length + ' found / ' + _smCountBase) : ('🔍 검색 ' + _filtered.length + '명 / 전체 ' + _smCountBase))
+      : _smCountBase;
+  }
+
+  if (!_filtered.length) {
+    tb.innerHTML = '<tr><td colspan="19" class="empty">' + (_L ? 'No matching students' : '검색 결과가 없습니다 — “' + _esc(_q) + '”') + '</td></tr>';
+    return;
+  }
+
   // 멀티 정렬 (최대 3개) — _smSort 배열 우선순위 순으로 cascade 비교
-  const arr = _smStudents.slice().sort((a, b) => {
+  const arr = _filtered.slice().sort((a, b) => {
     for (const s of _smSort) {
       const sortKey = s.key === 'username' ? '_username_lc' : s.key;
       const va = a[sortKey] != null ? a[sortKey] : '';
@@ -19435,6 +19464,9 @@ document.addEventListener('click', (ev) => {
 (function bindStudentList(){
   const btn = document.getElementById('sm-load-students');
   if (btn) btn.addEventListener('click', loadStudentList);
+  // 🔍 학생명·아이디 검색 — 입력 즉시 필터링
+  const sr = document.getElementById('sm-student-search');
+  if (sr) sr.addEventListener('input', () => { _smSearch = sr.value; renderStudentTable(); });
   // 학생 목록 sub-item 이 펼쳐질 때 첫 1회 자동 로드 (lazy)
   let loaded = false;
   document.querySelectorAll('details.sub-item').forEach(d => {
@@ -22230,7 +22262,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260703001553 -->
+        <!-- BUILD:20260703121740 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
