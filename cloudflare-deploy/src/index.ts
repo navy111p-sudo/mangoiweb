@@ -623,6 +623,7 @@ export default {
         path === '/api/admin/students/list' ||
         path === '/api/admin/students/unified' ||
         path === '/api/admin/students/graph-list' ||
+        path === '/api/admin/teachers/graph-list' ||
         path === '/api/admin/students/import-cafe24' ||
         path === '/api/admin/org/import-cafe24' ||
         path === '/api/admin/attendance/import-cafe24' ||
@@ -2852,6 +2853,7 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/students/list') return true;
   if (path === '/api/admin/students/unified') return true;
   if (path === '/api/admin/students/graph-list') return true;   // 🕸️ Neo4j 그래프 학생 명부
+  if (path === '/api/admin/teachers/graph-list') return true;   // 👩‍🏫 Neo4j 그래프 강사 명부
   if (path === '/api/admin/students/import-cafe24') return true; // 👨‍🎓 카페24 학생 이관(쓰기) — 반드시 인증 뒤
   if (path === '/api/admin/org/import-cafe24') return true;      // 🏢 카페24 조직 이관(쓰기) — 반드시 인증 뒤
   if (path === '/api/admin/attendance/import-cafe24') return true; // 📅 카페24 출석 이관(쓰기) — 반드시 인증 뒤
