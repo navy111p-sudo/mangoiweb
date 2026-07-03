@@ -599,6 +599,7 @@ export default {
         path === '/api/admin/students/unified' ||
         path === '/api/admin/students/graph-list' ||
         path === '/api/admin/students/import-cafe24' ||
+        path === '/api/admin/org/import-cafe24' ||
         path === '/api/admin/students/erp-list' ||
         path === '/api/admin/students/erp' ||
         path === '/api/admin/students/erp-seed' ||
@@ -2635,6 +2636,7 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/students/unified') return true;
   if (path === '/api/admin/students/graph-list') return true;   // 🕸️ Neo4j 그래프 학생 명부
   if (path === '/api/admin/students/import-cafe24') return true; // 👨‍🎓 카페24 학생 이관(쓰기) — 반드시 인증 뒤
+  if (path === '/api/admin/org/import-cafe24') return true;      // 🏢 카페24 조직 이관(쓰기) — 반드시 인증 뒤
   if (path === '/api/admin/payments/import-cafe24') return true; // 💰 카페24 결제 이관(쓰기) — 반드시 인증 뒤
   if (path === '/api/admin/students/erp-list' || path === '/api/admin/students/erp' || path === '/api/admin/students/erp-seed') return true;
   // 📚 Phase HW — 숙제 관리 (출제/목록/삭제) — 관리자 전용

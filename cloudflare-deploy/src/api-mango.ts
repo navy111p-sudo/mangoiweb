@@ -7992,6 +7992,42 @@ Respond in JSON ONLY:
       return json({ ok: true, items: rs.results || [] });
     }
 
+    // 🏢 카페24 조직 이관 — Neo4j (:Branch)(:Center) → D1 franchises/centers
+    //   GET /api/admin/org/import-cafe24  (관리자 전용). 가맹점·교육센터 관리 메뉴가 실데이터로.
+    //   cafe24 BranchID/CenterID 를 D1 id 로 그대로 사용해 franchise_id 연결 보존.
+    if (method === 'GET' && path === '/api/admin/org/import-cafe24') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS franchises (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT, phone TEXT, owner_name TEXT, opened_at TEXT, active INTEGER DEFAULT 1, notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS centers (id INTEGER PRIMARY KEY AUTOINCREMENT, franchise_id INTEGER, name TEXT NOT NULL, country TEXT, address TEXT, manager TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+        const nowMs = Date.now();
+        // 지사(Branch) → franchises (id = cafe24 BranchID)
+        const br = await runCypher(env,
+          `MATCH (b:Branch) RETURN b.branch_id AS id, b.name AS name, b.address AS address, b.phone AS phone, b.manager AS manager, b.active AS active ORDER BY b.branch_id`, {}, 'READ');
+        const bc: Record<string, number> = Object.fromEntries(br.fields.map((f, i) => [f, i]));
+        const insF = env.DB.prepare(`INSERT OR REPLACE INTO franchises (id, name, address, phone, owner_name, active, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+        for (let i = 0; i < br.values.length; i += 200) {
+          const b = br.values.slice(i, i + 200).map(r => insF.bind(Number(r[bc.id]), r[bc.name] || '(무명지사)', r[bc.address] || null, r[bc.phone] || null, r[bc.manager] || null, Number(r[bc.active]) ? 1 : 0, '[cafe24]', nowMs, nowMs));
+          if (b.length) await env.DB.batch(b);
+        }
+        // 센터(Center) → centers (id = cafe24 CenterID, franchise_id = cafe24 BranchID)
+        const ce = await runCypher(env,
+          `MATCH (c:Center) RETURN c.center_id AS id, c.branch_id AS branch_id, c.name AS name, c.address AS address, c.manager AS manager, c.active AS active ORDER BY c.center_id`, {}, 'READ');
+        const cc: Record<string, number> = Object.fromEntries(ce.fields.map((f, i) => [f, i]));
+        const insC = env.DB.prepare(`INSERT OR REPLACE INTO centers (id, franchise_id, name, address, manager, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+        for (let i = 0; i < ce.values.length; i += 200) {
+          const b = ce.values.slice(i, i + 200).map(r => insC.bind(Number(r[cc.id]), Number(r[cc.branch_id]) || null, r[cc.name] || '(무명센터)', r[cc.address] || null, r[cc.manager] || null, Number(r[cc.active]) ? 1 : 0, nowMs, nowMs));
+          if (b.length) await env.DB.batch(b);
+        }
+        const fCount = await env.DB.prepare(`SELECT COUNT(*) AS c FROM franchises`).first<any>();
+        const cCount = await env.DB.prepare(`SELECT COUNT(*) AS c FROM centers`).first<any>();
+        return json({ ok: true, franchises: br.values.length, centers: ce.values.length, d1_franchises_total: fCount?.c || 0, d1_centers_total: cCount?.c || 0 });
+      } catch (e: any) {
+        if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
+        console.warn('[org/import-cafe24] 실패:', e?.message || e);
+        return json({ ok: false, code: 'IMPORT_FAILED', error: String(e?.message || e) }, 502);
+      }
+    }
+
     // 👨‍🎓 카페24 학생 이관 — Neo4j (:Student) → D1 students_erp 일괄 복사
     //   GET /api/admin/students/import-cafe24?offset=0&limit=5000  (관리자 전용)
     //   결제 이관과 동일한 클라우드↔클라우드 방식(개인정보 로컬 미경유).
