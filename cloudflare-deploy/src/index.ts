@@ -193,6 +193,14 @@ export default {
     if (path === '/api/games/zh-vocab' && request.method === 'GET') {
       return handleGamesZhVocab(request, env);
     }
+    // 🧠 게임 학습기록 — POST /api/games/progress {user_id,lang,events:[{item,ko,correct}]} → 오답/정답 누적(game_progress)
+    if (path === '/api/games/progress' && request.method === 'POST') {
+      return handleGamesProgress(request, env);
+    }
+    // 🧠 약점 단어 — GET /api/games/weak?user_id=&lang=&limit=  → 자주 틀린 단어(교사 대시보드·맞춤 복습용)
+    if (path === '/api/games/weak' && request.method === 'GET') {
+      return handleGamesWeak(request, env);
+    }
 
     // 📩 알림톡 클릭추적 (공개·학부모용) — 버튼 클릭 시 read_at 기록 후 원래 URL 로 리다이렉트.
     //    이탈위험 그래프의 (학부모)-[:IGNORED]->(알림톡) 판정을 정밀화한다.
@@ -1717,6 +1725,71 @@ async function handleGamesZhVocab(request: Request, env: Env): Promise<Response>
       }
     }
     return new Response(JSON.stringify({ ok: true, textbook, level, sentences, words }), { status: 200, headers: _MS_JSON });
+  } catch (e: any) {
+    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ *  🧠 게임 학습기록 — 오답/정답 누적으로 학생별 약점 단어 파악
+ *  · POST /api/games/progress  {user_id, lang, events:[{item, ko, correct}]}
+ *      게임(간격반복 엔진)이 정오답 이벤트를 모아 보내면 game_progress 에 UPSERT 누적.
+ *  · GET  /api/games/weak?user_id=&lang=&limit=  → 약점(자주 틀린) 단어 목록.
+ *      교사 대시보드 + 웜업/복습 맞춤 재출제에 사용.
+ * ════════════════════════════════════════════════════════════════════════ */
+async function _ensureGameProgressTable(env: Env) {
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS game_progress (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, lang TEXT NOT NULL, item TEXT NOT NULL, ko TEXT, wrong_count INTEGER DEFAULT 0, correct_count INTEGER DEFAULT 0, last_seen INTEGER, updated_at INTEGER, UNIQUE(user_id, lang, item));`);
+}
+async function handleGamesProgress(request: Request, env: Env): Promise<Response> {
+  try {
+    let body: any = {};
+    try { body = await request.json(); } catch {}
+    const userId = String(body?.user_id || '').trim().slice(0, 100);
+    const lang = (String(body?.lang || 'en').toLowerCase() === 'zh') ? 'zh' : 'en';
+    const events: any[] = Array.isArray(body?.events) ? body.events.slice(0, 200) : [];
+    if (!userId || !events.length) return new Response(JSON.stringify({ ok: false, error: 'missing' }), { status: 400, headers: _MS_JSON });
+    await _ensureGameProgressTable(env);
+    const now = Date.now();
+    const stmt = env.DB.prepare(
+      `INSERT INTO game_progress (user_id, lang, item, ko, wrong_count, correct_count, last_seen, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(user_id, lang, item) DO UPDATE SET
+         wrong_count = wrong_count + excluded.wrong_count,
+         correct_count = correct_count + excluded.correct_count,
+         ko = COALESCE(NULLIF(excluded.ko,''), ko),
+         last_seen = excluded.last_seen, updated_at = excluded.updated_at`
+    );
+    const batch: any[] = [];
+    for (const e of events) {
+      const item = String(e?.item || '').trim().slice(0, 200); if (!item) continue;
+      const ko = String(e?.ko || '').trim().slice(0, 200);
+      const correct = e?.correct ? 1 : 0;
+      batch.push(stmt.bind(userId, lang, item, ko, correct ? 0 : 1, correct, now, now));
+    }
+    if (batch.length) await env.DB.batch(batch);
+    return new Response(JSON.stringify({ ok: true, saved: batch.length }), { status: 200, headers: _MS_JSON });
+  } catch (e: any) {
+    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
+  }
+}
+async function handleGamesWeak(request: Request, env: Env): Promise<Response> {
+  try {
+    const u = new URL(request.url);
+    const userId = String(u.searchParams.get('user_id') || '').trim();
+    const lang = (String(u.searchParams.get('lang') || 'en').toLowerCase() === 'zh') ? 'zh' : 'en';
+    const limit = Math.min(50, parseInt(u.searchParams.get('limit') || '15', 10) || 15);
+    if (!userId) return new Response(JSON.stringify({ ok: false, error: 'user_id_required' }), { status: 400, headers: _MS_JSON });
+    await _ensureGameProgressTable(env);
+    // 약점 = 오답이 있고 (오답 ≥ 정답) 인 항목, 오답 많은 순
+    const rs = await env.DB.prepare(
+      `SELECT item, ko, wrong_count, correct_count FROM game_progress
+       WHERE user_id = ? AND lang = ? AND wrong_count > 0 AND wrong_count >= correct_count
+       ORDER BY wrong_count DESC, (wrong_count - correct_count) DESC LIMIT ?`
+    ).bind(userId, lang, limit).all();
+    const weak = ((rs.results as any[]) || []).map((r) => ({
+      item: r.item, ko: r.ko || '', wrong: r.wrong_count || 0, correct: r.correct_count || 0
+    }));
+    return new Response(JSON.stringify({ ok: true, lang, weak }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }

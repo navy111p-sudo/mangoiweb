@@ -286,8 +286,54 @@ function _recordResult(kind, item, correct){
       if(!_missQueue.some(function(x){ return x.id===id; })) _missQueue.push({ kind:kind, id:id, item:item });
     }
     m[id]=rec; _saveMastery(m);
+    _queueProgress(id, (item&&item.ko)||'', correct);   // 🧠 서버 학습기록에도 누적(로그인 학생만)
   }catch(_){}
 }
+
+/* ── 🧠 서버 학습기록 전송(배치): 정오답 이벤트를 모아 /api/games/progress 로 UPSERT ──
+   로그인 학생만. 20초 주기 + 결과화면 + 페이지 이탈 시 전송(sendBeacon). ── */
+var _progressQueue = [];
+function _gameUid(){ try{ return (window.MangoiGameVocab && MangoiGameVocab.getUserId()) || ''; }catch(_){ return ''; } }
+function _queueProgress(item, ko, correct){
+  if(!item || !_gameUid()) return;
+  _progressQueue.push({ item:item, ko:ko||'', correct:!!correct });
+  if(_progressQueue.length >= 25) _flushProgress();
+}
+function _flushProgress(useBeacon){
+  try{
+    var uid = _gameUid(); if(!uid || !_progressQueue.length) return;
+    var payload = { user_id: uid, lang: GAME_LANG, events: _progressQueue.splice(0, _progressQueue.length) };
+    var body = JSON.stringify(payload);
+    if(useBeacon && navigator.sendBeacon){
+      navigator.sendBeacon('/api/games/progress', new Blob([body], { type:'application/json' }));
+    } else {
+      fetch('/api/games/progress', { method:'POST', headers:{'Content-Type':'application/json'}, body: body, keepalive:true }).catch(function(){});
+    }
+  }catch(_){}
+}
+setInterval(function(){ if(_progressQueue.length) _flushProgress(false); }, 20000);
+window.addEventListener('pagehide', function(){ _flushProgress(true); });
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='hidden') _flushProgress(true); });
+
+/* ── 🧠 서버 약점 단어로 복습 큐 시딩: 다른 기기에서 틀린 단어도 이어서 복습 ── */
+var _seededMiss = false;
+function _seedMissFromServer(){
+  if(_seededMiss) return; var uid=_gameUid(); if(!uid) return; _seededMiss=true;
+  fetch('/api/games/weak?user_id='+encodeURIComponent(uid)+'&lang='+GAME_LANG+'&limit=20')
+    .then(function(r){ return r.ok?r.json():null; })
+    .then(function(d){
+      if(!d||!d.ok||!d.weak) return;
+      d.weak.forEach(function(w){
+        var id=w.item; if(!id) return;
+        var inW=_GAME_WORDS.find(function(x){ return x.en===id; });
+        var inV=_GAME_VOCAB.find(function(x){ return x.en===id; });
+        if(inW){ if(!_missQueue.some(function(x){ return x.id===id&&x.kind==='word'; })) _missQueue.push({kind:'word',id:id,item:inW}); }
+        else if(inV){ if(!_missQueue.some(function(x){ return x.id===id&&x.kind==='sent'; })) _missQueue.push({kind:'sent',id:id,item:inV}); }
+      });
+    }).catch(function(){});
+}
+// 어휘가 로드된 뒤(교재/약점) 시딩 — 언어별로 1회
+setTimeout(_seedMissFromServer, 1800);
 // 약점 우선 선택: 45% 확률로 미스큐에서, 아니면 스테이지 풀에서 무작위
 function _pickFrom(pool, kind){
   try{
@@ -506,6 +552,7 @@ function _reviewPanelHtml(){
 function _gameOver(){
   _stopRoundTimer();
   if(_gameState.balloonTimer){ clearInterval(_gameState.balloonTimer); _gameState.balloonTimer=null; }
+  try{ _flushProgress(false); }catch(_){}   // 🧠 게임오버 시 학습기록 서버 전송
   _gameState.started=false;
   var tot=_gameState.correct+_gameState.wrong, acc=tot>0?Math.round(100*_gameState.correct/tot):0;
   var area=document.getElementById('game-area'); if(area) area.innerHTML=
@@ -561,6 +608,7 @@ function _gameShowResult(){
   _stopRoundTimer();
   if(_gameState.balloonTimer){ clearInterval(_gameState.balloonTimer); _gameState.balloonTimer = null; }
   try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(_){}
+  try{ _flushProgress(false); }catch(_){}   // 🧠 결과 화면에서 학습기록 서버 전송
   _gameState.started = false;
   var tot = _gameState.correct + _gameState.wrong;
   var acc = tot > 0 ? Math.round(100 * _gameState.correct / tot) : 100;
@@ -636,9 +684,11 @@ function renderLangPicks(){
 }
 function setGameLang(lang){
   lang = (lang === 'zh') ? 'zh' : 'en';
+  var _changed = (lang !== GAME_LANG);
   GAME_LANG = lang;
   try{ localStorage.setItem('mangoi_game_lang', lang); }catch(_){}
   _applyLangVocab();                       // 활성 어휘 교체 + TTS 언어 전환
+  if(_changed){ _flushProgress(false); _missQueue=[]; _seededMiss=false; setTimeout(_seedMissFromServer, 800); }   // 🧠 언어별 학습기록 분리
   renderLangPicks();
   // 헤더 문구 갱신
   var t = document.getElementById('hub-title'), s = document.getElementById('hub-sub');
@@ -1400,6 +1450,6 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260703185447 -->
+<!-- BUILD:20260703190316 -->
 </body>
 </html>
