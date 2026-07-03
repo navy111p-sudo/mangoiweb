@@ -80,7 +80,6 @@
       .then(function(b){ var u=URL.createObjectURL(b); cache[key]=u; return u; });
   }
   function prefetch(text){
-    if(curLang==='zh') return;   // 중국어는 브라우저 음성 사용 → 클라우드 미리받기 불필요
     text=String(text||'').trim(); if(!text || cache[ckey(text)]) return;
     fetchTTS(text).catch(function(){});
   }
@@ -95,21 +94,10 @@
     }catch(_){ if(onend) onend(); }
   }
   // speak(text, rate?, onend?) — onend 는 재생이 끝나면 1회 호출 (말하기 미션 등 흐름 연결용)
+  //   클라우드 우선(en=Deepgram Aura-1, zh=서버가 진짜 만다린 반환) → 실패 시 브라우저 폴백
   function speak(text, rate, onend){
     text=String(text||'').trim(); if(!text){ if(onend) onend(); return; }
     try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(_){}
-    // 🀄 중국어: 클라우드 MeloTTS 발음이 부정확 → 브라우저 원어민 zh-CN 음성을 우선.
-    //   기기에 중국어 음성이 있으면 그걸로(자연스러운 만다린), 없을 때만 클라우드 폴백.
-    if(curLang==='zh'){
-      if(!curVoice) pickVoice();
-      if(curVoice){ synthSpeak(text, rate, onend); return; }
-      var zk = ckey(text);
-      if(cache[zk]){ playUrl(cache[zk], rate, onend); return; }
-      fetchTTS(text).then(function(u){ playUrl(u, rate, onend); })
-        .catch(function(){ synthSpeak(text, rate, onend); });
-      return;
-    }
-    // 영어: 클라우드(Deepgram Aura-1) 우선 → 실패 시 브라우저
     var key = ckey(text);
     if(cache[key]){ playUrl(cache[key], rate, onend); return; }
     fetchTTS(text).then(function(u){ playUrl(u, rate, onend); })

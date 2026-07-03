@@ -5221,17 +5221,19 @@ ${chatSampleText}
           return new Response(gb, { headers: audioHeaders });
         };
 
-        // 중국어 → MeloTTS(zh) 시도 → 빈 오디오면 Google 원어민 만다린으로 폴백.
-        //   ⚠️ Cloudflare @cf/myshell-ai/melotts 는 zh 에서 44바이트 빈 WAV 만 주는 일이 잦아
-        //      실제 음성(≥1KB)인지 크기로 검증한 뒤, 아니면 gtts(zh-CN) 로 대체한다.
+        // 중국어 → 진짜 원어민 만다린. ⚠️ Cloudflare @cf/myshell-ai/melotts(zh) 는 비어있지 않은
+        //   불량 WAV(51KB짜리 "앙캉캉캉" 잡음)를 반환해 크기검사로도 못 거른다. 그래서 zh 는
+        //   Google 번역 TTS(원어민 만다린 MP3)를 1순위로 쓰고, 실패 시에만 MeloTTS 로 폴백한다.
         if (lang.startsWith('zh') || lang === 'cn') {
           try {
-            const bytes = await meloBytes('zh');
-            if (bytes.byteLength >= 1000) return new Response(bytes, { headers: audioHeaders });
-            throw new Error('melotts_zh_empty(' + bytes.byteLength + 'B)');
-          } catch (zhErr: any) {
-            console.warn('[voice/tts] melotts zh unusable, fallback google-tts:', zhErr?.message);
             return await gtts(text, 'zh-CN');
+          } catch (gErr: any) {
+            console.warn('[voice/tts] google zh failed, fallback melotts:', gErr?.message);
+            try {
+              const bytes = await meloBytes('zh');
+              if (bytes.byteLength >= 1000) return new Response(bytes, { headers: audioHeaders });
+            } catch {}
+            return json({ ok: false, error: 'zh_tts_failed' }, 502);
           }
         }
 

@@ -441,14 +441,12 @@
       .then(function(r){ var ct=r.headers.get('content-type')||''; if(!r.ok || ct.indexOf('audio')<0) throw new Error('tts'); return r.blob(); })
       .then(function(b){ var u=URL.createObjectURL(b); ttsCache[text]=u; return u; });
   }
-  function prefetchTTS(text){ if(GLANG==='zh') return; text=(text||'').trim(); if(!text || ttsCache[text]) return; ttsFetch(text).catch(function(){}); }
+  function prefetchTTS(text){ text=(text||'').trim(); if(!text || ttsCache[text]) return; ttsFetch(text).catch(function(){}); }
   function playUrl(u){ try{ if(!ttsAudio) ttsAudio=new Audio(); ttsAudio.src=u; ttsAudio.play().catch(function(){}); }catch(e){} }
   function speak(text, rate){
     text=(text||'').trim(); if(!text) return;
-    // 🀄 중국어: 클라우드 MeloTTS 발음 부정확 → 브라우저 원어민 zh-CN 음성 우선(있으면)
-    if(GLANG==='zh'){ if(!enVoice) pickVoice(); if(enVoice){ synthSpeak(text, rate); return; } }
     if(ttsCache[text]){ playUrl(ttsCache[text]); return; }              // 미리받은 음성 즉시 재생
-    ttsFetch(text).then(playUrl).catch(function(){ synthSpeak(text, rate); }); // 클라우드 우선 → 실패 시 브라우저
+    ttsFetch(text).then(playUrl).catch(function(){ synthSpeak(text, rate); }); // 클라우드 우선(zh=서버가 만다린) → 실패 시 브라우저
   }
   function speakSentence(){ speak(targetWords.join(' ').replace(/[.?!]/g,''), 0.92); }
 
