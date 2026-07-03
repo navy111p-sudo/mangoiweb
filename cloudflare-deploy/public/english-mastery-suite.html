@@ -616,13 +616,14 @@
   if(synth){ pickVoice(); synth.onvoiceschanged = pickVoice; }
   function speak(text, rate, cb){
     if(!SOUND_ON){ if(cb) cb(); return; }   // 🔊 off → TTS 음소거(흐름은 유지)
+    var pr = Math.max(0.5, Math.min(3.2, (rate||0.96) * (typeof spdMult==='function'?spdMult():1)));   // ⚡ 상단 7단계 속도 → 발음 속도
     // 🔊 원어민 발음: 클라우드 TTS(Deepgram Aura-1, game-tts.js) 우선 → 실패 시 브라우저 보이스 폴백
-    if(window.MangoiTTS){ MangoiTTS.speak(text, 1, cb); return; }
+    if(window.MangoiTTS){ MangoiTTS.speak(text, pr, cb); return; }
     if(!synth){ if(cb) cb(); return; }
     try{
       synth.cancel();
       var u = new SpeechSynthesisUtterance(text);
-      u.lang='en-US'; u.rate=rate||0.96; u.pitch=1.02; u.volume=1;   // 약간 자연스러운 속도·피치
+      u.lang='en-US'; u.rate=pr; u.pitch=1.02; u.volume=1;   // 약간 자연스러운 속도·피치
       if(enVoice){ u.voice=enVoice; u.lang=enVoice.lang||'en-US'; }   // 선택된 음성의 언어로 일치
 
       if(cb){ var done=false; u.onend=function(){ if(!done){done=true;cb();} }; setTimeout(function(){ if(!done){done=true;cb();} }, 3500); }
@@ -1535,6 +1536,6 @@
 })();
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
-<!-- BUILD:20260703122642 -->
+<!-- BUILD:20260703123544 -->
 </body>
 </html>

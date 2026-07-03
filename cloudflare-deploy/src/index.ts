@@ -24,6 +24,7 @@ import { marketingRouter } from './marketing-studio';
 import { teacherMatchRouter, runTeacherGraphSync } from './teacher-match';
 import { warmupGraphRouter, runWarmupGraphSync, getWeakSentences } from './warmup-graph';
 import { churnContagionRouter, runContagionGraphSync } from './churn-contagion';
+import { nightlyCafe24Refresh } from './cafe24-sync';  // 🔄 카페24→D1 야간 자동 새로고침
 
 interface Env {
   SIGNALING_ROOM: DurableObjectNamespace;
@@ -600,6 +601,7 @@ export default {
         path === '/api/admin/students/graph-list' ||
         path === '/api/admin/students/import-cafe24' ||
         path === '/api/admin/org/import-cafe24' ||
+        path === '/api/admin/attendance/import-cafe24' ||
         path === '/api/admin/students/erp-list' ||
         path === '/api/admin/students/erp' ||
         path === '/api/admin/students/erp-seed' ||
@@ -1115,6 +1117,16 @@ export default {
           console.log('[retention] purged', JSON.stringify(result));
         } catch (err) {
           console.error('[retention] error', err);
+        }
+
+        // 🔄 카페24 → D1 야간 자동 새로고침 (KST 03:00)
+        //   서버 cron(KST 02:00)이 MySQL→Neo4j 를 갱신한 뒤, 여기서 Neo4j→D1 을 갱신.
+        //   조직·결제 전량 + 학생 전 페이지 + 출석 최근 14일 증분. 실패해도 항목별 격리.
+        try {
+          const syncOut = await nightlyCafe24Refresh(env);
+          console.log('[cafe24-sync] nightly done', JSON.stringify(syncOut));
+        } catch (err) {
+          console.error('[cafe24-sync] nightly error', err);
         }
 
         // 🧹 R2 고아 파일 청소 (KST 03:00) — D1 메타 없는 R2 객체 자동 삭제
@@ -2637,6 +2649,7 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/students/graph-list') return true;   // 🕸️ Neo4j 그래프 학생 명부
   if (path === '/api/admin/students/import-cafe24') return true; // 👨‍🎓 카페24 학생 이관(쓰기) — 반드시 인증 뒤
   if (path === '/api/admin/org/import-cafe24') return true;      // 🏢 카페24 조직 이관(쓰기) — 반드시 인증 뒤
+  if (path === '/api/admin/attendance/import-cafe24') return true; // 📅 카페24 출석 이관(쓰기) — 반드시 인증 뒤
   if (path === '/api/admin/payments/import-cafe24') return true; // 💰 카페24 결제 이관(쓰기) — 반드시 인증 뒤
   if (path === '/api/admin/students/erp-list' || path === '/api/admin/students/erp' || path === '/api/admin/students/erp-seed') return true;
   // 📚 Phase HW — 숙제 관리 (출제/목록/삭제) — 관리자 전용

@@ -442,11 +442,12 @@
       .then(function(b){ var u=URL.createObjectURL(b); ttsCache[text]=u; return u; });
   }
   function prefetchTTS(text){ text=(text||'').trim(); if(!text || ttsCache[text]) return; ttsFetch(text).catch(function(){}); }
-  function playUrl(u){ try{ if(!ttsAudio) ttsAudio=new Audio(); ttsAudio.src=u; ttsAudio.play().catch(function(){}); }catch(e){} }
+  function playUrl(u, rate){ try{ if(!ttsAudio) ttsAudio=new Audio(); ttsAudio.src=u; ttsAudio.playbackRate=rate||1; ttsAudio.play().catch(function(){}); }catch(e){} }  // ⚡ 재생속도=7단계 반영
   function speak(text, rate){
     text=(text||'').trim(); if(!text) return;
-    if(ttsCache[text]){ playUrl(ttsCache[text]); return; }              // 미리받은 음성 즉시 재생
-    ttsFetch(text).then(playUrl).catch(function(){ synthSpeak(text, rate); }); // 클라우드 우선(zh=서버가 만다린) → 실패 시 브라우저
+    var pr = Math.max(0.5, Math.min(3.2, (rate||1) * spdMult()));       // ⚡ 상단 7단계 속도 → 발음 속도
+    if(ttsCache[text]){ playUrl(ttsCache[text], pr); return; }          // 미리받은 음성 즉시 재생
+    ttsFetch(text).then(function(u){ playUrl(u, pr); }).catch(function(){ synthSpeak(text, pr); }); // 클라우드 우선(zh=서버가 만다린) → 실패 시 브라우저
   }
   function speakSentence(){ speak(targetWords.join(' ').replace(/[.?!]/g,''), 0.92); }
 
@@ -761,6 +762,6 @@
 })();
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 -->
-<!-- BUILD:20260703122642 -->
+<!-- BUILD:20260703123544 -->
 </body>
 </html>

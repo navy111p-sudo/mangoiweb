@@ -9,6 +9,7 @@
 
 import { processAiCommand, executeAction, processStudentCommand } from './ai-command';
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프 학생 명부
+import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance } from './cafe24-sync';  // 🔄 카페24→D1 동기화 모듈
 import { scopeFragments, studentScopeWhere, getScope } from './scope';
 import { applyPIIScope, canViewPII, maskRecordPII, isMaskedValue } from './pii-mask';  // 🔒 PII 권한별 마스킹
 import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook, type GiftishowEnv } from './giftishow-client';
@@ -8025,35 +8026,11 @@ Respond in JSON ONLY:
       return json({ ok: true, items: rs.results || [] });
     }
 
-    // 🏢 카페24 조직 이관 — Neo4j (:Branch)(:Center) → D1 franchises/centers
-    //   GET /api/admin/org/import-cafe24  (관리자 전용). 가맹점·교육센터 관리 메뉴가 실데이터로.
-    //   cafe24 BranchID/CenterID 를 D1 id 로 그대로 사용해 franchise_id 연결 보존.
+    // 🏢 카페24 조직 이관 — Neo4j (:Branch)(:Center) → D1 franchises/centers (cafe24-sync.ts)
     if (method === 'GET' && path === '/api/admin/org/import-cafe24') {
       try {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS franchises (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT, phone TEXT, owner_name TEXT, opened_at TEXT, active INTEGER DEFAULT 1, notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS centers (id INTEGER PRIMARY KEY AUTOINCREMENT, franchise_id INTEGER, name TEXT NOT NULL, country TEXT, address TEXT, manager TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
-        const nowMs = Date.now();
-        // 지사(Branch) → franchises (id = cafe24 BranchID)
-        const br = await runCypher(env,
-          `MATCH (b:Branch) RETURN b.branch_id AS id, b.name AS name, b.address AS address, b.phone AS phone, b.manager AS manager, b.active AS active ORDER BY b.branch_id`, {}, 'READ');
-        const bc: Record<string, number> = Object.fromEntries(br.fields.map((f, i) => [f, i]));
-        const insF = env.DB.prepare(`INSERT OR REPLACE INTO franchises (id, name, address, phone, owner_name, active, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-        for (let i = 0; i < br.values.length; i += 200) {
-          const b = br.values.slice(i, i + 200).map(r => insF.bind(Number(r[bc.id]), r[bc.name] || '(무명지사)', r[bc.address] || null, r[bc.phone] || null, r[bc.manager] || null, Number(r[bc.active]) ? 1 : 0, '[cafe24]', nowMs, nowMs));
-          if (b.length) await env.DB.batch(b);
-        }
-        // 센터(Center) → centers (id = cafe24 CenterID, franchise_id = cafe24 BranchID)
-        const ce = await runCypher(env,
-          `MATCH (c:Center) RETURN c.center_id AS id, c.branch_id AS branch_id, c.name AS name, c.address AS address, c.manager AS manager, c.active AS active ORDER BY c.center_id`, {}, 'READ');
-        const cc: Record<string, number> = Object.fromEntries(ce.fields.map((f, i) => [f, i]));
-        const insC = env.DB.prepare(`INSERT OR REPLACE INTO centers (id, franchise_id, name, address, manager, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
-        for (let i = 0; i < ce.values.length; i += 200) {
-          const b = ce.values.slice(i, i + 200).map(r => insC.bind(Number(r[cc.id]), Number(r[cc.branch_id]) || null, r[cc.name] || '(무명센터)', r[cc.address] || null, r[cc.manager] || null, Number(r[cc.active]) ? 1 : 0, nowMs, nowMs));
-          if (b.length) await env.DB.batch(b);
-        }
-        const fCount = await env.DB.prepare(`SELECT COUNT(*) AS c FROM franchises`).first<any>();
-        const cCount = await env.DB.prepare(`SELECT COUNT(*) AS c FROM centers`).first<any>();
-        return json({ ok: true, franchises: br.values.length, centers: ce.values.length, d1_franchises_total: fCount?.c || 0, d1_centers_total: cCount?.c || 0 });
+        const r = await importCafe24Org(env);
+        return json({ ok: true, ...r });
       } catch (e: any) {
         if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
         console.warn('[org/import-cafe24] 실패:', e?.message || e);
@@ -8061,57 +8038,30 @@ Respond in JSON ONLY:
       }
     }
 
-    // 👨‍🎓 카페24 학생 이관 — Neo4j (:Student) → D1 students_erp 일괄 복사
-    //   GET /api/admin/students/import-cafe24?offset=0&limit=5000  (관리자 전용)
-    //   결제 이관과 동일한 클라우드↔클라우드 방식(개인정보 로컬 미경유).
-    //   페이지네이션(offset/limit)으로 대량(2.9만) 분할 적재. 멱등: created_at 센티넬로 재삽입.
-    //   이관되면 students_erp JOIN 하는 미납관리·회계·학생상세가 실데이터로 동작.
-    if (method === 'GET' && path === '/api/admin/students/import-cafe24') {
-      const CAFE24_SENTINEL = 1751500000000;  // 이 배치 식별용 created_at 고정값
+    // 📅 카페24 출석/수업 이관 — Neo4j (:Class 50.5만) → D1 attendance (cafe24-sync.ts)
+    //   GET /api/admin/attendance/import-cafe24?offset=0&limit=3000[&since=YYYY-MM-DD]
+    if (method === 'GET' && path === '/api/admin/attendance/import-cafe24') {
       const off = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10));
-      const lim = Math.max(1, Math.min(5000, parseInt(url.searchParams.get('limit') || '5000', 10)));
+      const lim = Math.max(1, Math.min(5000, parseInt(url.searchParams.get('limit') || '3000', 10)));
+      const since = (url.searchParams.get('since') || '').trim() || undefined;
       try {
-        // 스키마 보장 + 누락 컬럼 보강 (erp-list 와 동일 셋)
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (id INTEGER PRIMARY KEY AUTOINCREMENT, student_id TEXT, username TEXT, login_id TEXT, payment_type TEXT, end_date TEXT, signup_date TEXT, classes_per_week INTEGER, points INTEGER DEFAULT 0, student_phone TEXT, parent_phone TEXT, teacher_phone TEXT, shop_name TEXT, hq_name TEXT, branch1_name TEXT, branch2_name TEXT, franchise TEXT, status TEXT DEFAULT '정상', created_at INTEGER, updated_at INTEGER, korean_name TEXT, english_name TEXT, user_id TEXT, grade TEXT, school TEXT, level TEXT);`);
-        for (const [c, t] of [['korean_name','TEXT'],['user_id','TEXT'],['grade','TEXT'],['school','TEXT'],['status','TEXT'],['signup_date','TEXT'],['end_date','TEXT'],['shop_name','TEXT'],['parent_phone','TEXT']] as [string,string][]) {
-          try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN ${c} ${t}`); } catch {}
-        }
-        // 첫 페이지(offset 0)에서만 이전 cafe24 배치 제거 → 멱등
-        if (off === 0) {
-          await env.DB.prepare(`DELETE FROM students_erp WHERE created_at = ?`).bind(CAFE24_SENTINEL).run();
-        }
-        const { fields, values } = await runCypher(
-          env,
-          `MATCH (s:Student)
-           RETURN coalesce(s.student_id, s.user_id) AS user_id,
-                  coalesce(s.name, s.student_id) AS korean_name,
-                  s.grade AS grade, s.school AS school,
-                  coalesce(s.status,'active') AS status,
-                  s.signup_date AS signup_date, s.end_date AS end_date,
-                  s.shop_name AS shop_name, s.parent_name AS parent_name
-           ORDER BY user_id SKIP $off LIMIT $lim`,
-          { off, lim }, 'READ',
-        );
-        const col: Record<string, number> = Object.fromEntries(fields.map((f, i) => [f, i]));
-        // user_id 가 PK 인 스키마 변형 대비 — OR REPLACE 로 중복(페이지경계·기존행) 멱등 처리
-        const ins = env.DB.prepare(
-          `INSERT OR REPLACE INTO students_erp (user_id, student_id, login_id, username, korean_name, grade, school, status, signup_date, end_date, shop_name, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        );
-        let imported = 0;
-        for (let i = 0; i < values.length; i += 400) {
-          const batch = values.slice(i, i + 400).map(r => {
-            const uid = String(r[col.user_id] ?? '');
-            const kname = r[col.korean_name] || uid;
-            return ins.bind(uid, uid, uid, kname, kname, r[col.grade] || null, r[col.school] || null,
-              r[col.status] || 'active', r[col.signup_date] || null, r[col.end_date] || null,
-              r[col.shop_name] || null, CAFE24_SENTINEL, CAFE24_SENTINEL);
-          });
-          if (batch.length) { await env.DB.batch(batch); imported += batch.length; }
-        }
-        const totalNow = await env.DB.prepare(`SELECT COUNT(*) AS c FROM students_erp WHERE created_at = ?`).bind(CAFE24_SENTINEL).first<any>();
-        const done = values.length < lim;
-        return json({ ok: true, imported_this_page: imported, offset: off, next_offset: done ? null : off + lim, done, d1_cafe24_total: totalNow?.c || 0 });
+        const r = await importCafe24Attendance(env, off, lim, since);
+        return json({ ok: true, offset: off, next_offset: r.done ? null : off + lim, ...r });
+      } catch (e: any) {
+        if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
+        console.warn('[attendance/import-cafe24] 실패:', e?.message || e);
+        return json({ ok: false, code: 'IMPORT_FAILED', error: String(e?.message || e) }, 502);
+      }
+    }
+
+    // 👨‍🎓 카페24 학생 이관 — Neo4j (:Student 2.9만) → D1 students_erp (cafe24-sync.ts)
+    //   GET /api/admin/students/import-cafe24?offset=0&limit=3000 (페이지네이션, 멱등)
+    if (method === 'GET' && path === '/api/admin/students/import-cafe24') {
+      const off = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10));
+      const lim = Math.max(1, Math.min(5000, parseInt(url.searchParams.get('limit') || '3000', 10)));
+      try {
+        const r = await importCafe24Students(env, off, lim);
+        return json({ ok: true, imported_this_page: r.imported, offset: off, next_offset: r.done ? null : off + lim, done: r.done });
       } catch (e: any) {
         if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
         console.warn('[students/import-cafe24] 실패:', e?.message || e);
@@ -8177,55 +8127,16 @@ LIMIT $limit`;
       }
     }
 
-    // 💰 카페24 결제 이관 — Neo4j (:Payment) → D1 student_payments 일괄 복사
-    //   GET /api/admin/payments/import-cafe24  (관리자 전용, 브라우저에서 1회 호출)
-    //   카페24 MySQL → (서버내 ETL) → Neo4j → 이 엔드포인트 → D1. 클라우드간 직행이라
-    //   개인정보가 로컬 PC 를 경유하지 않는다. 멱등: [cafe24] memo 행 삭제 후 재삽입.
-    //   이관되면 수강료/회계/경영요약/KPI 메뉴가 즉시 실데이터로 동작.
+    // 💰 카페24 결제 이관 — Neo4j (:Payment 1.1만) → D1 student_payments (cafe24-sync.ts)
     if (method === 'GET' && path === '/api/admin/payments/import-cafe24') {
       try {
-        const { fields, values } = await runCypher(
-          env,
-          `MATCH (p:Payment)
-           RETURN p.user_id AS user_id, p.paid_at AS paid_at,
-                  p.period_start AS period_start, p.period_end AS period_end,
-                  p.amount_krw AS amount_krw, p.method AS method,
-                  p.memo AS memo, p.status AS status
-           ORDER BY p.pay_id`,
-          {}, 'READ',
-        );
-        const col: Record<string, number> = Object.fromEntries(fields.map((f, i) => [f, i]));
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, period_start TEXT, period_end TEXT, amount_krw INTEGER NOT NULL, method TEXT, memo TEXT, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`);
-        await env.DB.prepare(`DELETE FROM student_payments WHERE memo LIKE '[cafe24]%'`).run();
-        const nowMs = Date.now();
-        const ins = env.DB.prepare(
-          `INSERT INTO student_payments (user_id, paid_at, period_start, period_end, amount_krw, method, memo, status, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        );
-        let imported = 0;
-        for (let i = 0; i < values.length; i += 500) {
-          const batch = values.slice(i, i + 500).map(row => ins.bind(
-            String(row[col.user_id] ?? ''),
-            Number(row[col.paid_at]) || null,
-            row[col.period_start] || null,
-            row[col.period_end] || null,
-            Number(row[col.amount_krw]) || 0,
-            row[col.method] || 'card',
-            row[col.memo] || '[cafe24]',
-            row[col.status] || 'paid',
-            nowMs,
-          ));
-          await env.DB.batch(batch);
-          imported += batch.length;
-        }
+        const r = await importCafe24Payments(env);
         const sum = await env.DB.prepare(
           `SELECT COUNT(*) AS cnt, COALESCE(SUM(amount_krw),0) AS total FROM student_payments WHERE memo LIKE '[cafe24]%' AND status='paid'`,
         ).first<any>();
-        return json({ ok: true, imported, graph_rows: values.length, d1_paid_count: sum?.cnt || 0, d1_paid_total_krw: sum?.total || 0 });
+        return json({ ok: true, imported: r.imported, d1_paid_count: sum?.cnt || 0, d1_paid_total_krw: sum?.total || 0 });
       } catch (e: any) {
-        if (e instanceof Neo4jNotConfiguredError) {
-          return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
-        }
+        if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
         console.warn('[import-cafe24] 실패:', e?.message || e);
         return json({ ok: false, code: 'IMPORT_FAILED', error: String(e?.message || e) }, 502);
       }
