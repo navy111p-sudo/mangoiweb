@@ -11169,8 +11169,40 @@ function _recordResult(kind, item, correct){
     if(correct){ rec.r++; var qi=_missQueue.findIndex(function(x){return x.id===id;}); if(qi>=0) _missQueue.splice(qi,1); }
     else { rec.w++; if(!_missQueue.some(function(x){return x.id===id;})) _missQueue.push({kind:kind,id:id,item:item}); }
     m[id]=rec; _saveMastery(m);
+    _queueProgress(id, (item&&item.ko)||'', correct);   // 🧠 서버 학습기록(교사 약점분석) — 수업중 탭도 동일
   }catch(_){}
 }
+/* ── 🧠 서버 학습기록 전송(수업 중 게임 탭) — 로그인 학생만, 배치+sendBeacon ── */
+var _progressQueue=[];
+function _gameUid(){ try{ return (window.MangoiGameVocab && MangoiGameVocab.getUserId())||''; }catch(_){ return ''; } }
+function _queueProgress(item, ko, correct){ if(!item||!_gameUid()) return; _progressQueue.push({item:item,ko:ko||'',correct:!!correct}); if(_progressQueue.length>=25) _flushProgress(false); }
+function _flushProgress(useBeacon){
+  try{ var uid=_gameUid(); if(!uid||!_progressQueue.length) return;
+    var body=JSON.stringify({ user_id:uid, lang:_glang(), events:_progressQueue.splice(0,_progressQueue.length) });
+    if(useBeacon && navigator.sendBeacon){ navigator.sendBeacon('/api/games/progress', new Blob([body],{type:'application/json'})); }
+    else { fetch('/api/games/progress',{method:'POST',headers:{'Content-Type':'application/json'},body:body,keepalive:true}).catch(function(){}); }
+  }catch(_){}
+}
+function _saveShadowScore(item, ko, score){
+  try{ var uid=_gameUid(); if(!uid||!item) return;
+    fetch('/api/games/shadow',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:uid,lang:_glang(),item:item,ko:ko||'',score:Math.round(score*100)}),keepalive:true}).catch(function(){});
+  }catch(_){}
+}
+setInterval(function(){ if(_progressQueue.length) _flushProgress(false); }, 20000);
+window.addEventListener('pagehide', function(){ _flushProgress(true); });
+var _seededMiss=false;
+function _seedMissFromServer(){
+  if(_seededMiss) return; var uid=_gameUid(); if(!uid) return; _seededMiss=true;
+  fetch('/api/games/weak?user_id='+encodeURIComponent(uid)+'&lang='+_glang()+'&limit=20').then(function(r){return r.ok?r.json():null;}).then(function(d){
+    if(!d||!d.ok||!d.weak) return;
+    d.weak.forEach(function(w){ var id=w.item; if(!id) return;
+      var inW=_GAME_WORDS.find(function(x){return x.en===id;}), inV=_GAME_VOCAB.find(function(x){return x.en===id;});
+      if(inW){ if(!_missQueue.some(function(x){return x.id===id&&x.kind==='word';})) _missQueue.push({kind:'word',id:id,item:inW}); }
+      else if(inV){ if(!_missQueue.some(function(x){return x.id===id&&x.kind==='sent';})) _missQueue.push({kind:'sent',id:id,item:inV}); }
+    });
+  }).catch(function(){});
+}
+setTimeout(_seedMissFromServer, 2000);
 function _pickFrom(pool, kind){
   try{ if(!pool||!pool.length) return null;
     var q=_missQueue.filter(function(x){return x.kind===kind;});
@@ -11303,7 +11335,7 @@ function _reviewPanelHtml(){
   }catch(_){ return ''; }
 }
 function _gameOver(){
-  _safeStopTimer(); if(_gameState.balloonTimer){ clearInterval(_gameState.balloonTimer); _gameState.balloonTimer=null; } _gameState.started=false;
+  _safeStopTimer(); if(_gameState.balloonTimer){ clearInterval(_gameState.balloonTimer); _gameState.balloonTimer=null; } try{ _flushProgress(false); }catch(_){} _gameState.started=false;
   var tot=_gameState.correct+_gameState.wrong, acc=tot>0?Math.round(100*_gameState.correct/tot):0, area=document.getElementById('game-area');
   if(area) area.innerHTML='<div style="text-align:center;max-width:560px;margin:0 auto;padding:20px">'
     +'<div style="font-size:52px;margin-bottom:6px">💪</div><div style="font-size:26px;font-weight:800;color:#fbbf24;margin-bottom:4px">아깝다! 다시 도전해요</div>'
@@ -11329,6 +11361,7 @@ function gameShadow(enc){
       if(fb) fb.innerHTML='<span style="color:#fbbf24">🎤 따라 말해보세요… (듣는 중)</span>'; var done=false;
       rec.onresult=function(e){ done=true; var said=''; for(var i=0;i<e.results.length;i++) said+=e.results[i][0].transcript+' '; var sc=_shadowScore(said,text);
         if(fb) fb.innerHTML=sc>=0.6?'<span style="color:#10b981">👍 발음 좋아요! ('+Math.round(sc*100)+'점)</span>':'<span style="color:#f59e0b">🔁 거의 됐어요! 🔊 다시 듣고 도전</span>';
+        try{ var _s=_gameState.current&&_gameState.current.sentence; _saveShadowScore(text,(_s&&_s.ko)||'',sc); }catch(_){}   // 🎤 발음점수 서버 저장
         _gameState._advTimer=setTimeout(gameNextRound,1700); };
       rec.onerror=function(){ if(!done){ if(fb) fb.innerHTML='<span style="color:#94a3b8">🎤 마이크를 못 썼어요 — 다음 문제로…</span>'; _gameState._advTimer=setTimeout(gameNextRound,1500); } };
       rec.onend=function(){ if(!done&&!_gameState._advTimer) _gameState._advTimer=setTimeout(gameNextRound,1500); };
@@ -11365,6 +11398,7 @@ function _gameCheckGoal() {
 function _gameShowResult() {
   if (_gameState.balloonTimer) { clearInterval(_gameState.balloonTimer); _gameState.balloonTimer = null; }
   try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(_){}
+  try{ _flushProgress(false); }catch(_){}   // 🧠 결과 화면에서 학습기록 서버 전송
   const tot = _gameState.correct + _gameState.wrong;
   const acc = tot > 0 ? Math.round(100 * _gameState.correct / tot) : 100;
   const stars = acc >= 90 ? '⭐⭐⭐' : acc >= 70 ? '⭐⭐' : '⭐';
