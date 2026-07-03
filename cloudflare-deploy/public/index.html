@@ -3221,9 +3221,9 @@
   var STATE = { done:false, open:false };
   var PEERS = {};   // userId → username (원격 피어 = 1:1 수업에선 강사)
 
-  // 🧪 테스트 모드 플래그 — true 면 역할(학생/강사/관리자) 무관 전원에게 평가 모달 노출.
-  //   운영에서 학생 전용으로 되돌리려면 아래 한 줄을 false 로 바꾸면 끝.
-  if (typeof window.MANGO_RATING_ALL_ROLES === 'undefined') window.MANGO_RATING_ALL_ROLES = true;
+  // 🎯 노출 대상 플래그 — false = 운영(학생 전용, 강사·관리자 제외). true = 테스트(전원 노출).
+  //   다시 전원에게 띄워 테스트하려면 아래 값을 true 로.
+  if (typeof window.MANGO_RATING_ALL_ROLES === 'undefined') window.MANGO_RATING_ALL_ROLES = false;
 
   // 원격 피어 이름 수집 — vcCreatePeerAndOffer(userId, username) 래핑
   function hookPeerNames(tries){
@@ -23373,7 +23373,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260704005855 -->
+<!-- BUILD:20260704011058 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
