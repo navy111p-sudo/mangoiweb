@@ -3786,9 +3786,17 @@
       </details>
 
       <!-- 🆕 카페24 회계 실데이터 (장부·급여·지출·세금·예치금) -->
-      <details class="sub-item" id="sub-c24-finance" ontoggle="if(this.open)c24FinLoad('ledger')">
+      <details class="sub-item" id="sub-c24-finance" ontoggle="if(this.open){c24FinLoad('ledger');c24FinSummary();}">
         <summary data-ko="🧾 카페24 회계 실데이터 (장부·급여·지출·세금·예치금)" data-en="🧾 Cafe24 Finance (real data)">🧾 카페24 회계 실데이터 (장부·급여·지출·세금·예치금)</summary>
         <div class="sub-body">
+          <!-- 월별 손익 집계 요약 + 막대 -->
+          <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fcd34d;border-radius:12px;padding:14px 16px;margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+              <b style="font-size:13.5px;color:#92400e" data-ko="📊 월별 손익 (회계장부 기준)" data-en="📊 Monthly P&amp;L">📊 월별 손익 (회계장부 기준)</b>
+              <span id="c24fin-sum-total" style="font-size:12px;color:#78350f"></span>
+            </div>
+            <div id="c24fin-sum-bars" style="display:flex;flex-direction:column;gap:6px"><div style="color:#b45309;font-size:12px">불러오는 중…</div></div>
+          </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="c24fin-tabs">
             <button class="c24fin-tab" data-k="ledger" onclick="c24FinLoad('ledger')" style="padding:6px 12px;font-size:12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700">📒 회계장부</button>
             <button class="c24fin-tab" data-k="payroll" onclick="c24FinLoad('payroll')" style="padding:6px 12px;font-size:12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700">💵 급여명세</button>
@@ -22283,6 +22291,35 @@ window.rebuildGlobalSearchIndex = function() {
   // ──────────────────────────────────────────────────────────
   // 3. 가맹점 정산
   // ──────────────────────────────────────────────────────────
+  // 📊 카페24 회계 월별 손익 집계 + 막대
+  window.c24FinSummary = async function(){
+    const box = document.getElementById('c24fin-sum-bars');
+    const tot = document.getElementById('c24fin-sum-total');
+    if (!box) return;
+    const won = function(n){ try{ return '₩'+Number(n||0).toLocaleString('ko-KR'); }catch(e){ return n; } };
+    try {
+      const d = await (await fetch('/api/admin/finance-cafe24/summary', { credentials:'include' })).json();
+      if (!d.ok) throw new Error(d.error||d.code||'error');
+      const months = (d.months||[]).slice().reverse();  // 오래된→최근
+      const T = d.totals || { income:0, expense:0, net:0 };
+      if (tot) tot.textContent = '수입 '+won(T.income)+' · 지출 '+won(T.expense)+' · 순익 '+won(T.net);
+      const max = Math.max.apply(null, months.map(function(m){ return Math.max(Number(m.income)||0, Number(m.expense)||0); }).concat([1]));
+      box.innerHTML = months.length ? months.map(function(m){
+        var inc = Number(m.income)||0, exp = Number(m.expense)||0, net = Number(m.net)||0;
+        var iw = Math.max(1, Math.round(inc/max*100)), ew = Math.max(1, Math.round(exp/max*100));
+        return '<div style="display:grid;grid-template-columns:64px 1fr 130px;gap:8px;align-items:center;font-size:11px">'
+          + '<span style="color:#78350f;font-weight:600">'+m.ym+'</span>'
+          + '<div style="display:flex;flex-direction:column;gap:2px">'
+          +   '<div style="background:#dbeafe;border-radius:99px;height:9px;overflow:hidden"><div style="width:'+iw+'%;height:100%;background:#3b82f6"></div></div>'
+          +   '<div style="background:#fee2e2;border-radius:99px;height:9px;overflow:hidden"><div style="width:'+ew+'%;height:100%;background:#ef4444"></div></div>'
+          + '</div>'
+          + '<span style="text-align:right;font-weight:700;color:'+(net>=0?'#15803d':'#dc2626')+'">'+won(net)+'</span>'
+          + '</div>';
+      }).join('') + '<div style="margin-top:6px;font-size:10.5px;color:#92400e"><span style="color:#3b82f6">■</span> 수입 &nbsp; <span style="color:#ef4444">■</span> 지출 &nbsp; · 우측=순익</div>'
+        : '<div style="color:#b45309;font-size:12px">데이터 없음</div>';
+    } catch(e){ box.innerHTML = '<div style="color:#dc2626;font-size:12px">집계 실패</div>'; }
+  };
+
   // 🧾 카페24 회계 실데이터 (5종 탭) — Neo4j finance-cafe24
   window.c24FinLoad = async function(kind){
     const en = (window.adminLang==='en');
@@ -22621,7 +22658,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260704034446 -->
+        <!-- BUILD:20260704035244 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

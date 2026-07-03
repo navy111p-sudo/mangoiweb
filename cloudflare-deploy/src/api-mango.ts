@@ -8224,6 +8224,29 @@ Respond in JSON ONLY:
         const kind = finM[1];
         const lim = Math.max(1, Math.min(2000, parseInt(url.searchParams.get('limit') || '500', 10)));
         const month = (url.searchParams.get('month') || '').trim();
+        // 월별 손익 집계 (AccBookType 1=수입, 2=지출) — 최근 24개월
+        if (kind === 'summary') {
+          try {
+            const { fields, values } = await runCypher(env, `
+              MATCH (a:AccBook) WHERE a.date IS NOT NULL AND a.date <> ''
+              WITH substring(a.date,0,7) AS ym, a.type AS t, a.money AS money
+              WHERE ym >= '2019-01'
+              RETURN ym,
+                     sum(CASE WHEN t = 1 THEN money ELSE 0 END) AS income,
+                     sum(CASE WHEN t = 2 THEN money ELSE 0 END) AS expense
+              ORDER BY ym DESC LIMIT 24`, {}, 'READ');
+            const rows = values.map(row => {
+              const o: any = Object.fromEntries(fields.map((f, i) => [f, row[i]]));
+              o.net = (Number(o.income) || 0) - (Number(o.expense) || 0);
+              return o;
+            });
+            const totals = rows.reduce((a: any, r: any) => ({ income: a.income + (Number(r.income) || 0), expense: a.expense + (Number(r.expense) || 0) }), { income: 0, expense: 0 });
+            return json({ ok: true, source: 'neo4j', kind: 'summary', months: rows, totals: { ...totals, net: totals.income - totals.expense } });
+          } catch (e: any) {
+            if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
+            return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
+          }
+        }
         const QMAP: Record<string, string> = {
           ledger: `MATCH (a:AccBook) ${month ? `WHERE a.month = $month OR a.date STARTS WITH $month` : ''} RETURN a.date AS date, a.type AS type, a.acc_type AS acc_type, a.subject AS subject, a.money AS money, a.store AS store, a.memo AS memo, a.month AS month ORDER BY a.date DESC LIMIT $lim`,
           payroll: `MATCH (p:Payroll) ${month ? `WHERE p.month = $month` : ''} RETURN p.user_id AS user_id, p.month AS month, p.base AS base, p.total AS total, p.deduction AS deduction, p.actual AS actual, p.income_tax AS income_tax, p.pension AS pension, p.work_day AS work_day, p.pay_date AS pay_date ORDER BY p.month DESC LIMIT $lim`,
