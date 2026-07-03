@@ -5200,9 +5200,40 @@ ${chatSampleText}
           if (!b64) throw new Error('melotts_empty');
           return new Response(b64ToBytes(b64), { headers: audioHeaders });
         };
+        // MeloTTS 원본 바이트 (크기 검증용 — Workers AI 가 빈 WAV(44B) 반환하는 케이스 감지)
+        const meloBytes = async (meloLang: string) => {
+          const r: any = await ai.run('@cf/myshell-ai/melotts', { prompt: text, lang: meloLang });
+          const b64 = typeof r === 'string' ? r : (r?.audio || '');
+          return b64 ? b64ToBytes(b64) : new Uint8Array(0);
+        };
+        // Google 번역 TTS — 원어민 만다린 폴백 (MeloTTS zh 가 빈 오디오일 때).
+        //   client=tw-ob 엔드포인트는 MP3 스트림 반환. 요청당 ~200자 제한이라 잘라서 전송.
+        const gtts = async (txt: string, tl: string) => {
+          const q = encodeURIComponent(String(txt).slice(0, 190));
+          const gurl = 'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=' + tl + '&q=' + q;
+          const gr = await fetch(gurl, { headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': 'https://translate.google.com/'
+          } });
+          if (!gr.ok) throw new Error('gtts_' + gr.status);
+          const gb = await gr.arrayBuffer();
+          if (!gb || gb.byteLength < 300) throw new Error('gtts_empty');
+          return new Response(gb, { headers: audioHeaders });
+        };
 
-        // 중국어 → MeloTTS(zh)
-        if (lang.startsWith('zh') || lang === 'cn') return await melo('zh');
+        // 중국어 → MeloTTS(zh) 시도 → 빈 오디오면 Google 원어민 만다린으로 폴백.
+        //   ⚠️ Cloudflare @cf/myshell-ai/melotts 는 zh 에서 44바이트 빈 WAV 만 주는 일이 잦아
+        //      실제 음성(≥1KB)인지 크기로 검증한 뒤, 아니면 gtts(zh-CN) 로 대체한다.
+        if (lang.startsWith('zh') || lang === 'cn') {
+          try {
+            const bytes = await meloBytes('zh');
+            if (bytes.byteLength >= 1000) return new Response(bytes, { headers: audioHeaders });
+            throw new Error('melotts_zh_empty(' + bytes.byteLength + 'B)');
+          } catch (zhErr: any) {
+            console.warn('[voice/tts] melotts zh unusable, fallback google-tts:', zhErr?.message);
+            return await gtts(text, 'zh-CN');
+          }
+        }
 
         // 영어 → Deepgram Aura-1 (원어민 수준, MPEG 스트림) → 실패 시 MeloTTS(en) 폴백
         try {
