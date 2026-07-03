@@ -873,6 +873,11 @@ export default {
         // Audit-added: points balance + earn-by-rule
         path === '/api/points/balance' ||
         path === '/api/points/earn-by-rule' ||
+        // ⭐ 수업 강사 평가 (수업 종료 직후 별 7개 + 태그 + 건의사항)
+        path === '/api/ratings' ||
+        path === '/api/ratings/check' ||
+        path === '/api/admin/ratings/summary' ||
+        path === '/api/admin/ratings/list' ||
         // Audit-added: student recordings listing
         path === '/api/student/recordings') {
       // fix (2026-06-01) — 미처리 예외가 Cloudflare 503 으로 새지 않도록 방어:
