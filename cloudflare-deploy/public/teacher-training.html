@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>만고아이 강사 교육 매뉴얼 · Mangoi Teacher Training</title>
+<style>
+  :root{
+    --mango:#F2A900; --mango-deep:#B26A00; --mango-soft:#FFF3D6; --mango-tint:#FFFBF2;
+    --ink:#2b2b2b; --ink-soft:#5a5a5a; --line:#eadfce; --bg:#ffffff;
+    --good:#27AE60; --warn:#E67E22; --bad:#C0392B;
+    --shadow:0 4px 20px rgba(178,106,0,.08); --radius:16px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:'Malgun Gothic','Segoe UI',-apple-system,Roboto,sans-serif;
+    color:var(--ink);background:var(--mango-tint);line-height:1.65;-webkit-font-smoothing:antialiased}
+  /* ---- top bar ---- */
+  header.topbar{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.92);
+    backdrop-filter:blur(10px);border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:12px;padding:12px clamp(16px,4vw,40px)}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.05rem;color:var(--mango-deep)}
+  .brand .logo{font-size:1.6rem}
+  .spacer{flex:1}
+  .lang-toggle{display:inline-flex;background:var(--mango-soft);border-radius:999px;padding:4px;gap:2px}
+  .lang-toggle button{border:0;background:transparent;padding:6px 16px;border-radius:999px;
+    font-weight:700;cursor:pointer;color:var(--mango-deep);font-size:.9rem;transition:.15s}
+  .lang-toggle button.active{background:var(--mango);color:#fff;box-shadow:0 2px 8px rgba(242,169,0,.4)}
+  .btn-print{border:1px solid var(--mango);background:#fff;color:var(--mango-deep);
+    padding:7px 14px;border-radius:999px;font-weight:700;cursor:pointer;font-size:.85rem;white-space:nowrap}
+  .btn-print:hover{background:var(--mango-soft)}
+  /* ---- hero ---- */
+  .hero{text-align:center;padding:clamp(36px,7vw,72px) 20px 28px}
+  .hero .mango{font-size:clamp(48px,10vw,84px);line-height:1}
+  .hero h1{font-size:clamp(1.7rem,4.5vw,2.6rem);color:var(--mango-deep);margin:.3em 0 .15em;font-weight:800}
+  .hero p.sub{color:var(--ink-soft);font-size:clamp(.95rem,2.5vw,1.15rem);max-width:620px;margin:0 auto}
+  .hero .tag{display:inline-block;margin-top:16px;background:var(--mango-soft);color:var(--mango-deep);
+    padding:6px 16px;border-radius:999px;font-size:.82rem;font-weight:700}
+  /* ---- layout ---- */
+  main{max-width:940px;margin:0 auto;padding:0 clamp(16px,4vw,32px) 80px}
+  /* ---- section nav chips ---- */
+  nav.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:8px 0 36px}
+  nav.chips a{text-decoration:none;background:#fff;border:1px solid var(--line);color:var(--ink-soft);
+    padding:7px 14px;border-radius:999px;font-size:.83rem;font-weight:600;transition:.15s}
+  nav.chips a:hover{border-color:var(--mango);color:var(--mango-deep);background:var(--mango-soft)}
+  /* ---- section ---- */
+  section{margin-bottom:44px;scroll-margin-top:80px}
+  .sec-head{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  .sec-head .num{flex-shrink:0;width:38px;height:38px;border-radius:12px;background:var(--mango);
+    color:#fff;font-weight:800;display:grid;place-items:center;font-size:1.05rem;box-shadow:var(--shadow)}
+  .sec-head h2{font-size:clamp(1.3rem,3.2vw,1.7rem);color:var(--mango-deep);font-weight:800}
+  .sec-intro{color:var(--ink-soft);margin:2px 0 20px;font-size:1rem}
+  .quote{border-left:5px solid var(--mango);background:#fff;padding:14px 20px;border-radius:0 12px 12px 0;
+    font-style:italic;color:var(--ink-soft);box-shadow:var(--shadow);margin-top:8px}
+  /* ---- core cards ---- */
+  .cards{display:grid;gap:16px}
+  .card{background:#fff;border-radius:var(--radius);padding:20px 22px;box-shadow:var(--shadow);
+    border:1px solid var(--line);position:relative;overflow:hidden}
+  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--mango)}
+  .card h3{font-size:1.12rem;color:var(--ink);margin-bottom:12px;display:flex;align-items:center;gap:10px}
+  .card h3 .cnum{flex-shrink:0;width:28px;height:28px;border-radius:50%;background:var(--mango-soft);
+    color:var(--mango-deep);font-weight:800;display:grid;place-items:center;font-size:.9rem}
+  .wdd{display:grid;gap:8px}
+  .wdd .row{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start}
+  .wdd .lbl{font-weight:700;font-size:.82rem;padding:2px 10px;border-radius:8px;white-space:nowrap;line-height:1.7}
+  .lbl.why{background:#eef6ff;color:#2a6ac0}
+  .lbl.do{background:#eafaef;color:var(--good)}
+  .lbl.dont{background:#fdeeee;color:var(--bad)}
+  .wdd .txt{font-size:.95rem;color:var(--ink-soft)}
+  /* ---- cycle flow ---- */
+  .flow{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:18px 0 24px}
+  .flow .step{background:#fff;border:1px solid var(--line);border-radius:999px;padding:8px 16px;
+    font-weight:700;font-size:.86rem;color:var(--mango-deep);box-shadow:var(--shadow);display:flex;align-items:center;gap:6px}
+  .flow .arrow{color:var(--mango);align-self:center;font-weight:800}
+  /* ---- tables ---- */
+  .tbl-wrap{overflow-x:auto;border-radius:var(--radius);box-shadow:var(--shadow);background:#fff;border:1px solid var(--line)}
+  table{border-collapse:collapse;width:100%;min-width:480px}
+  thead th{background:var(--mango);color:#fff;font-weight:700;padding:12px 14px;text-align:left;font-size:.9rem}
+  tbody td{padding:11px 14px;border-top:1px solid var(--line);font-size:.92rem;color:var(--ink-soft);vertical-align:top}
+  tbody tr:nth-child(even){background:var(--mango-tint)}
+  tbody td:first-child{font-weight:700;color:var(--ink);white-space:nowrap}
+  /* rubric level headers */
+  .rub th.l1{background:var(--bad)} .rub th.l2{background:var(--warn)} .rub th.l3{background:var(--good)}
+  .rub td{white-space:normal}
+  .note{font-size:.85rem;color:var(--ink-soft);font-style:italic;margin-top:10px}
+  /* ---- roadmap ---- */
+  .road{display:grid;gap:16px}
+  .road .block{background:#fff;border-radius:var(--radius);padding:18px 22px;box-shadow:var(--shadow);border:1px solid var(--line)}
+  .road .block h3{color:var(--mango-deep);font-size:1.08rem;margin-bottom:4px}
+  .road .block .bintro{color:var(--ink-soft);font-size:.9rem;margin-bottom:10px}
+  .road ul{list-style:none;display:grid;gap:8px}
+  .road li{padding-left:26px;position:relative;font-size:.94rem;color:var(--ink-soft)}
+  .road li::before{content:"▸";position:absolute;left:6px;color:var(--mango);font-weight:800}
+  /* ---- checklist ---- */
+  .check-grp{background:#fff;border-radius:var(--radius);padding:18px 22px;box-shadow:var(--shadow);
+    border:1px solid var(--line);margin-bottom:14px}
+  .check-grp h3{color:var(--mango-deep);font-size:1.05rem;margin-bottom:12px}
+  .check-item{display:flex;align-items:flex-start;gap:12px;padding:8px 0;cursor:pointer;font-size:.95rem;color:var(--ink-soft);
+    border-top:1px dashed var(--line)}
+  .check-item:first-of-type{border-top:0}
+  .check-item input{appearance:none;flex-shrink:0;width:22px;height:22px;border:2px solid var(--mango);
+    border-radius:7px;margin-top:1px;cursor:pointer;position:relative;transition:.15s}
+  .check-item input:checked{background:var(--mango)}
+  .check-item input:checked::after{content:"✓";color:#fff;position:absolute;inset:0;display:grid;place-items:center;font-size:.9rem;font-weight:800}
+  .check-item input:checked + span{text-decoration:line-through;color:#b6b6b6}
+  /* ---- footer ---- */
+  footer{text-align:center;color:var(--ink-soft);font-size:.82rem;padding:30px 20px;border-top:1px solid var(--line)}
+  .dl{display:inline-flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:10px}
+  .dl a{text-decoration:none;color:var(--mango-deep);border:1px solid var(--line);background:#fff;
+    padding:6px 14px;border-radius:999px;font-weight:600;font-size:.82rem}
+  .dl a:hover{background:var(--mango-soft)}
+  @media(max-width:560px){
+    .wdd .row{grid-template-columns:1fr}
+    .sec-head .num{width:32px;height:32px}
+  }
+  @media print{
+    header.topbar,nav.chips,.btn-print,.lang-toggle,footer .dl{display:none!important}
+    body{background:#fff}
+    section{page-break-inside:avoid}
+    .card,.road .block,.check-grp,.tbl-wrap{box-shadow:none;border:1px solid #ddd}
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo">🥭</span><span data-i="brandName">만고아이</span></div>
+  <div class="spacer"></div>
+  <div class="lang-toggle" role="group" aria-label="language">
+    <button id="btn-ko" class="active" onclick="setLang('ko')">한국어</button>
+    <button id="btn-en" onclick="setLang('en')">English</button>
+  </div>
+  <button class="btn-print" onclick="window.print()" data-i="printBtn">🖨 인쇄/PDF</button>
+</header>
+
+<div class="hero">
+  <div class="mango">🥭</div>
+  <h1 data-i="title">만고아이 강사 교육 매뉴얼</h1>
+  <p class="sub" data-i="subtitle">어린이·청소년을 몰입시키는 화상영어 티칭 & 트레이닝 가이드</p>
+  <div class="tag" data-i="tag">흥미도 × 성취도를 함께 끌어올리는 실전 지침서</div>
+</div>
+
+<main>
+  <nav class="chips" id="chips"></nav>
+  <div id="content"></div>
+</main>
+
+<footer>
+  <div data-i="footer">Mangoi English · Teacher Success Team · v1.0</div>
+  <div class="dl">
+    <a href="/teacher-training.html" data-i="dlWeb">🌐 웹 매뉴얼</a>
+  </div>
+</footer>
+
+<script>
+/* ================= i18n content ================= */
+const DATA = {
+  ko:{
+    brandName:"만고아이", printBtn:"🖨 인쇄/PDF", dlWeb:"🌐 웹 매뉴얼",
+    title:"만고아이 강사 교육 매뉴얼",
+    subtitle:"어린이·청소년을 몰입시키는 화상영어 티칭 & 트레이닝 가이드",
+    tag:"흥미도 × 성취도를 함께 끌어올리는 실전 지침서",
+    footer:"Mangoi English · Teacher Success Team · v1.0",
+    lblWhy:"왜 중요", lblDo:"이렇게", lblDont:"피할 것",
+    chips:["왜 이 매뉴얼","몰입 5대 핵심","흥미 공식","트레이닝","연령별 팁","체크리스트","평가 루브릭"],
+    s1:{n:"1",t:"이 매뉴얼을 만든 이유", body:[
+      "만고아이 학생의 대부분은 어린이와 청소년입니다. 이 연령대는 “재미없으면 배우지 않는다”가 아니라 “재미없으면 애초에 집중하지 않는다”에 가깝습니다. 특히 화상 환경은 대면보다 감정·에너지 전달이 30~40% 줄어들기 때문에, 강사가 의도적으로 흥미를 설계하지 않으면 아이는 5분 안에 이탈합니다.",
+      "그래서 흥미도(수업이 즐겁다)와 성취도(실력이 는다)는 분리된 목표가 아닙니다. 아이는 “재미있게 → 계속하고 → 계속하니까 → 는다”의 순서로 성장합니다. 이 매뉴얼은 그 선순환을 매 수업 안에서 만들어내도록 돕습니다."
+    ], quote:"“아이에게 영어를 가르치는 것이 아니라, 영어로 노는 시간을 선물한다.” — 만고아이 티칭 철학"},
+    s2:{n:"2",t:"아이 몰입 수업의 5대 핵심", cores:[
+      {name:"에너지와 표정 (화면 너머 전달력)",
+       why:"화상은 감정 전달이 줄어듭니다. 강사가 “보통”으로 하면 아이에게는 “지루함”으로 도착합니다. 과장된 에너지가 화면 너머에서 “적절함”이 됩니다.",
+       do:"엄지척·박수·놀란 표정 같은 비언어 리액션을 습관화하고, 정답에는 “Wow! Amazing!”처럼 즉각 크게 칭찬. 목소리 톤은 한 단계 올립니다.",
+       dont:"무표정·단조로운 톤·키보드만 보는 시선. 강사가 지루하면 아이도 지루해집니다."},
+      {name:"아이 발화 시간 (강사 말 줄이기)",
+       why:"초보 강사의 1위 실수는 “강사가 너무 많이 말하는 것”. 말하는 사람이 배우는 사람입니다.",
+       do:"목표는 아이 발화 60% 이상. 질문하고 → 3초 기다리고 → 아이가 말하게. 설명은 짧게, 시범은 한 번.",
+       dont:"정답을 먼저 말하기, 3초를 못 견디고 끼어들기, 긴 문법 설명."},
+      {name:"작은 성취의 즉각 가시화",
+       why:"아이는 “내가 잘하고 있다”는 신호가 있어야 계속합니다. 눈에 보이는 보상이 격려보다 강력합니다.",
+       do:"별점·배지·색종이 폭죽·망고 마스코트를 적극 활용(“이거 맞히면 망고가 춤춰!”). 매 수업 작은 목표 1개 달성을 함께 확인.",
+       dont:"“잘했어” 한마디로 넘기기, 틀린 것만 지적하기."},
+      {name:"개인화 (이름·관심사·수준)",
+       why:"아이는 “나를 위한 수업”이라고 느낄 때 몰입합니다. 이름을 부르는 것만으로 집중도가 오릅니다.",
+       do:"이름을 자주 부르고, 좋아하는 것(게임·아이돌·축구)을 소재로. 웜업 교재연동 AI·오답 개인화로 자주 틀리는 부분을 미리 파악.",
+       dont:"모두에게 같은 스크립트, 관심사 안 묻기, 지난 오답 무시."},
+      {name:"리듬과 전환 (지루함 차단)",
+       why:"집중 지속은 대략 ‘나이 = 분(分)’ 수준(8세 ≈ 8분). 한 활동이 길면 늘어집니다.",
+       do:"한 활동 5~7분 이내로 전환. ‘교재 → 게임 → 말하기 → 게임’ 리듬. 게임탭(슈팅·3D배틀·어휘)을 사이에 배치.",
+       dont:"한 활동 15분+ 끌기, 지친 신호(딴청·하품) 무시."}
+    ]},
+    s3:{n:"3",t:"만고아이 흥미 공식 (Engagement Cycle)",
+      intro:"기능은 이미 다 있습니다. 핵심은 강사가 그 기능을 ‘재미의 도구’로 엮어 하나의 사이클로 돌리는 것. 아래를 몸에 배게 하면 한 수업이 통째로 몰입 구조가 됩니다.",
+      flow:["웜업","미션","말하기","게임 보상","즉각 피드백","다음 미션"],
+      head:["단계","만고아이 기능","강사가 할 행동"],
+      rows:[
+        ["① 웜업","교재연동 AI 웜업 + 오답 개인화","가벼운 질문으로 입을 풀고 지난 오답을 자연스럽게 복습."],
+        ["② 미션","오늘의 목표 카드","“오늘은 새 단어 3개 완벽!”처럼 작고 명확한 목표 1개 선언."],
+        ["③ 말하기","교재 + 화면공유","설명은 짧게, 아이가 60%+ 말하게(질문→대기→발화)."],
+        ["④ 게임 보상","학생게임 허브(슈팅·3D배틀·어휘·중국어)","활동 사이 게임으로 리듬 + 배운 표현 반복."],
+        ["⑤ 즉각 피드백","별점·배지·confetti·망고 마스코트","성취를 눈에 보이게 축하, 잘한 점을 구체적으로."],
+        ["⑥ 다음 미션","게임 학습분석·교사 리포트","오답·발음 데이터를 다음 수업 개인화로 연결."]
+      ]},
+    s4:{n:"4",t:"강사 트레이닝 로드맵", blocks:[
+      {h:"A. 온보딩 필수 (입사 시)", i:"첫 수업 전 반드시 통과해야 하는 항목.", li:[
+        "데모 수업 시청: 우수 강사 영상 3~5개 시청 후 ‘무엇이 아이를 웃게 했는지’ 3가지 적기.",
+        "모의 수업(롤플레이): 트레이너가 ‘산만한 8세’ 역할, 강사가 리액션·전환·재집중 실습.",
+        "플랫폼 숙련 테스트: 게임탭·3D배틀·별점·화면공유를 버벅임 없이(흥미의 절반은 매끄러운 운영)."]},
+      {h:"B. 지속 트레이닝 (운영 중)", i:"실력은 반복 피드백에서 자랍니다.", li:[
+        "월 1회 피어 리뷰: 수업 영상 공유, 서로 강점 1·개선점 1 코멘트.",
+        "베스트 클립 공유: “이 리액션 좋았다” 순간을 팀 채널에 모아 확산.",
+        "데이터 1:1 코칭: 별점·게임분석·이탈위험을 강사별로 뽑아 구체적 개선점 제시."]},
+      {h:"C. 평가·보상 연결", i:"“잘하면 이득” 구조가 자발적 품질 경쟁을 만듭니다.", li:[
+        "강사 KPI = 학생 별점 + 재등록률 + 게임·수업 참여도.",
+        "상위 강사 인센티브·우수 강사 뱃지로 동기 부여.",
+        "저성과 강사는 처벌이 아니라 코칭 대상(데이터로 원인 진단)."]}
+    ]},
+    s5:{n:"5",t:"연령별 티칭 팁", intro:"같은 ‘재미’라도 연령마다 방식이 다릅니다.",
+      head:["연령","집중 지속","핵심 팁"],
+      rows:[
+        ["5~7세","약 5~7분","노래·율동·인형·과장된 표정. 규칙 단순한 게임. 칭찬은 즉각·크게. 글자보다 소리·그림."],
+        ["8~10세","약 8~10분","미션·보상·배지에 강하게 반응. 짧은 게임 라운드 반복. ‘이기는 재미’(3D배틀·슈팅)."],
+        ["11~13세","약 12~15분","‘왜 배우는지’에 반응 시작. 순위·성취 그래프 효과적. 관심사(게임·아이돌) 연결."],
+        ["14세+","약 15~20분","존중받는 느낌이 중요. 시험·실생활 연결로 동기. 유아적 연출은 역효과, 성취 가시화로 승부."]
+      ]},
+    appA:{n:"A",t:"수업 체크리스트", intro:"강사가 매 수업 스스로 점검. 브라우저에서 체크할 수 있습니다.", grps:[
+      {h:"수업 전 (2분)", li:["아이 이름·지난 오답·관심사 확인","오늘의 작은 목표 1개 정하기","게임탭·교재·화면공유 정상 작동 확인","조명·카메라·표정이 밝게 나오는지 확인"]},
+      {h:"수업 중", li:["첫 30초 안에 아이를 웃게 만들기","아이가 나보다 더 많이 말하기(60%+)","질문 후 3초 기다리기(정답 먼저 말하지 않기)","한 활동 5~7분 안에 전환","아이 이름 여러 번 부르기","성취를 즉각·구체적으로 칭찬 + 별점·마스코트로 가시화"]},
+      {h:"수업 후 (2분)", li:["별점 평가·게임 결과 기록","오답·발음 데이터 다음 수업용으로 남기기","이 아이를 위한 다음 수업 아이디어 1개 메모"]}
+    ]},
+    appB:{n:"B",t:"강사 평가 루브릭", intro:"관리자·트레이너가 수업 관찰·영상 리뷰 시 사용. 항목당 1~3점, 합산 후 코칭 우선순위 결정.",
+      head:["평가 항목","1점 · 개선 필요","2점 · 보통","3점 · 우수"],
+      rows:[
+        ["에너지·표정","무표정·단조, 리액션 거의 없음","적절히 밝지만 기복","에너지가 확실히 전달, 아이가 자주 웃음"],
+        ["아이 발화 유도","강사가 대부분 말함","절반 정도 아이 발화","아이 발화 60%+, 질문→대기→발화 능숙"],
+        ["성취 가시화","칭찬·보상 거의 없음","칭찬은 하나 두루뭉술","별점·배지·마스코트로 구체·즉각 축하"],
+        ["개인화","모두 동일 스크립트","이름 정도는 부름","관심사·오답 반영 맞춤 진행"],
+        ["리듬·전환","한 활동 길게, 늘어짐","전환 있으나 다소 늦음","5~7분 리듬·게임 배치로 끝까지 몰입"],
+        ["플랫폼 활용","기능 거의 못 씀","기본 기능 사용","게임·배틀·평가를 매끄럽게 녹임"]
+      ],
+      note:"* 15~18점: 우수 강사(멘토 후보) / 10~14점: 안정권(부분 코칭) / 9점 이하: 집중 코칭 대상."}
+  },
+  en:{
+    brandName:"Mangoi", printBtn:"🖨 Print/PDF", dlWeb:"🌐 Web Manual",
+    title:"Mangoi Teacher Training Manual",
+    subtitle:"A practical teaching & training guide for engaging kids and teens in online English classes",
+    tag:"Raising Engagement × Achievement together, one class at a time",
+    footer:"Mangoi English · Teacher Success Team · v1.0",
+    lblWhy:"Why", lblDo:"Do", lblDont:"Avoid",
+    chips:["Why This Manual","5 Core Focus","Engagement Cycle","Training","Age Tips","Checklist","Rubric"],
+    s1:{n:"1",t:"Why This Manual Exists", body:[
+      "Most Mangoi students are children and teenagers. For them it is not simply “if it is not fun, they will not learn” — it is closer to “if it is not fun, they will not even pay attention.” Online classes convey 30–40% less emotion and energy than in-person, so unless the teacher deliberately designs for engagement, a child can check out within five minutes.",
+      "That is why engagement (the class is fun) and achievement (the child improves) are not separate goals. Children grow in this order: “it is fun → so they keep going → and because they keep going → they improve.” This manual helps you build that virtuous cycle inside every class."
+    ], quote:"“We are not teaching children English — we are giving them time to play in English.” — Mangoi teaching philosophy"},
+    s2:{n:"2",t:"The Five Core Focus Areas", cores:[
+      {name:"Energy & Facial Expression (Reaching Through the Screen)",
+       why:"Video conveys less emotion. A “normal” performance arrives as “boring.” Exaggerated energy is what registers as “just right” on the other side of the screen.",
+       do:"Make non-verbal reactions a habit — thumbs-up, clapping, surprised faces — and praise correct answers instantly and loudly (“Wow! Amazing!”). Raise your tone one notch.",
+       dont:"A blank face, monotone voice, eyes fixed on the keyboard. If the teacher looks bored, the child becomes bored."},
+      {name:"Student Talk Time (Cut Teacher Talk)",
+       why:"The #1 mistake of new teachers is talking too much. The person doing the talking is the person doing the learning.",
+       do:"Target 60%+ student talk. Ask → wait 3 seconds → let the child speak. Keep explanations short, model once.",
+       dont:"Saying the answer first, jumping in before the 3-second think time, long grammar lectures."},
+      {name:"Making Small Wins Visible — Instantly",
+       why:"Children keep going only with a signal that says “I am doing well.” Visible rewards beat abstract encouragement.",
+       do:"Actively use stars, badges, confetti, and the Mango mascot (“Get this right and Mango will dance!”). Set one small goal each class and confirm it together.",
+       dont:"Glossing over wins with a vague “good job,” pointing out only mistakes."},
+      {name:"Personalization (Name, Interests, Level)",
+       why:"Children engage when it feels like “a class made for me.” Using their name alone raises attention.",
+       do:"Use their name often and bring in what they love (games, K-pop, soccer). Use the textbook-linked AI warm-up and mistake personalization to know their frequent errors beforehand.",
+       dont:"The same script for everyone, never asking interests, ignoring last class’s mistakes."},
+      {name:"Rhythm & Transitions (Blocking Boredom)",
+       why:"Attention span is roughly ‘age = minutes’ (an 8-year-old ≈ 8 minutes). Any activity that runs long will sag.",
+       do:"Switch activities every 5–7 minutes. Rhythm: ‘textbook → game → speaking → game.’ Place game-tab activities (shooter, 3D battle, vocab) in between.",
+       dont:"Dragging one activity past 15 min, ignoring fatigue signs (fidgeting, yawning)."}
+    ]},
+    s3:{n:"3",t:"The Mangoi Engagement Cycle",
+      intro:"The features are already built. The key is to weave them together as ‘tools of fun’ and run them as one cycle. Train this into muscle memory and an entire class becomes an engagement structure.",
+      flow:["Warm-up","Mission","Speaking","Game Reward","Instant Feedback","Next Mission"],
+      head:["Stage","Mangoi Feature","What the Teacher Does"],
+      rows:[
+        ["① Warm-up","Textbook-linked AI warm-up + mistake personalization","Loosen them up with light questions; naturally review last class’s mistakes."],
+        ["② Mission","Goal-of-the-day card","Declare one small, clear goal: “Today, master 3 new words!”"],
+        ["③ Speaking","Textbook + screen share","Keep explanations short; drive 60%+ student talk (ask→wait→speak)."],
+        ["④ Game reward","Student game hub (shooter·3D battle·vocab·Chinese)","Place games between segments for rhythm and to repeat target expressions."],
+        ["⑤ Instant feedback","Stars·badges·confetti·Mango mascot","Celebrate the win visibly; name exactly what was good."],
+        ["⑥ Next mission","Game learning analytics·teacher report","Feed mistake/pronunciation data into the next class’s personalization."]
+      ]},
+    s4:{n:"4",t:"Teacher Training Roadmap", blocks:[
+      {h:"A. Required Onboarding (At Hire)", i:"Items every new teacher must pass before their first real class.", li:[
+        "Watch demo classes: view 3–5 top-teacher recordings, then write 3 things that made the child laugh.",
+        "Mock class (role-play): a trainer plays a ‘distracted 8-year-old’ while the teacher practices reactions, transitions, refocusing.",
+        "Platform proficiency test: run game tab, 3D battle, star ratings, screen share smoothly (half of engagement is smooth operation)."]},
+      {h:"B. Continuous Training (In Operation)", i:"Skill grows from repeated feedback, not onboarding alone.", li:[
+        "Monthly peer review: share recordings, give each other 1 strength + 1 improvement.",
+        "Best-clip sharing: collect “that reaction was great” moments in a team channel.",
+        "Data-driven 1:1 coaching: pull each teacher’s stars, game analytics, churn-risk and give concrete fixes."]},
+      {h:"C. Linking Evaluation & Rewards", i:"A “do well → gain” structure creates voluntary quality competition.", li:[
+        "Teacher KPI = student stars + re-enrollment rate + game/class participation.",
+        "Motivate with incentives for top teachers and ‘excellent teacher’ badges.",
+        "Route low performers to coaching, not punishment (diagnose the cause with data)."]}
+    ]},
+    s5:{n:"5",t:"Age-Specific Teaching Tips", intro:"Even the same ‘fun’ works differently by age.",
+      head:["Age","Attention","Key Tips"],
+      rows:[
+        ["5–7","~5–7 min","Songs, movement, puppets, exaggerated faces. Simple-rule games. Praise instantly, loudly. Sound & pictures over letters."],
+        ["8–10","~8–10 min","Respond strongly to missions, rewards, badges. Repeat short game rounds. Use the ‘joy of winning’ (3D battle, shooter)."],
+        ["11–13","~12–15 min","Start responding to ‘why am I learning this.’ Rankings & progress graphs work. Connect to interests (games, K-pop)."],
+        ["14+","~15–20 min","Feeling respected matters. Motivate via exams & real-life relevance. Childish theatrics backfire — win with visible achievement."]
+      ]},
+    appA:{n:"A",t:"Class Checklist", intro:"For teachers to self-check every class. You can tick these in your browser.", grps:[
+      {h:"Before Class (2 min)", li:["Reviewed name, last class’s mistakes, interests","Set one small goal for today","Pre-tested game tab, textbook, screen share","Checked lighting, camera angle, bright face"]},
+      {h:"During Class", li:["Made the child laugh within 30 seconds","Child is talking more than me (60%+)","Waited 3 seconds after questions","Switched activities within 5–7 minutes","Called the child by name multiple times","Praised wins instantly & specifically + stars/mascot"]},
+      {h:"After Class (2 min)", li:["Recorded star ratings & game results","Saved mistake/pronunciation data for next class","Noted one idea for this child’s next class"]}
+    ]},
+    appB:{n:"B",t:"Teacher Evaluation Rubric", intro:"A 6-item scale for managers/trainers during observation or video review. Score each 1–3, sum, set coaching priority.",
+      head:["Criterion","1 · Needs Work","2 · Adequate","3 · Excellent"],
+      rows:[
+        ["Energy & expression","Blank face, monotone, few reactions","Adequately bright but inconsistent","Energy clearly reaches through; child laughs often"],
+        ["Driving student talk","Teacher does most talking","About half student talk","Student talk 60%+; skilled ask→wait→speak"],
+        ["Making wins visible","Little praise or reward","Praises, but vaguely","Celebrates concretely & instantly with stars/badges/mascot"],
+        ["Personalization","Same script for everyone","Uses at least the name","Adapts to interests & mistakes"],
+        ["Rhythm & transitions","One activity dragged out","Transitions but a bit late","5–7 min rhythm & games keep engagement to the end"],
+        ["Platform use","Barely uses features","Uses basic features","Blends games, battle, ratings smoothly"]
+      ],
+      note:"* Total 15–18: excellent teacher (mentor candidate) / 10–14: solid (partial coaching) / 9 or below: intensive coaching."}
+  }
+};
+
+/* ================= render ================= */
+let LANG = 'ko';
+const esc = s => String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+function secHead(n,t){return `<div class="sec-head"><div class="num">${esc(n)}</div><h2>${esc(t)}</h2></div>`;}
+
+function render(){
+  const D = DATA[LANG];
+  document.documentElement.lang = LANG;
+  document.querySelectorAll('[data-i]').forEach(el=>{ if(D[el.dataset.i]!=null) el.textContent = D[el.dataset.i]; });
+
+  // chips
+  const ids=['s1','s2','s3','s4','s5','appA','appB'];
+  document.getElementById('chips').innerHTML =
+    D.chips.map((c,idx)=>`<a href="#${ids[idx]}">${esc(c)}</a>`).join('');
+
+  let h='';
+  // S1
+  h+=`<section id="s1">${secHead(D.s1.n,D.s1.t)}`+
+     D.s1.body.map(p=>`<p class="sec-intro">${esc(p)}</p>`).join('')+
+     `<div class="quote">${esc(D.s1.quote)}</div></section>`;
+  // S2 cores
+  h+=`<section id="s2">${secHead(D.s2.n,D.s2.t)}<div class="cards">`+
+     D.s2.cores.map((c,i)=>`<div class="card"><h3><span class="cnum">${i+1}</span>${esc(c.name)}</h3>
+       <div class="wdd">
+         <div class="row"><span class="lbl why">${D.lblWhy}</span><span class="txt">${esc(c.why)}</span></div>
+         <div class="row"><span class="lbl do">${D.lblDo}</span><span class="txt">${esc(c.do)}</span></div>
+         <div class="row"><span class="lbl dont">${D.lblDont}</span><span class="txt">${esc(c.dont)}</span></div>
+       </div></div>`).join('')+`</div></section>`;
+  // S3 cycle
+  const flowHtml = D.s3.flow.map((f,i)=>`<span class="step">${esc(f)}</span>`+
+     (i<D.s3.flow.length-1?'<span class="arrow">→</span>':'')).join('');
+  h+=`<section id="s3">${secHead(D.s3.n,D.s3.t)}<p class="sec-intro">${esc(D.s3.intro)}</p>
+     <div class="flow">${flowHtml}</div>${tableHtml(D.s3.head,D.s3.rows)}</section>`;
+  // S4 roadmap
+  h+=`<section id="s4">${secHead(D.s4.n,D.s4.t)}<div class="road">`+
+     D.s4.blocks.map(b=>`<div class="block"><h3>${esc(b.h)}</h3><div class="bintro">${esc(b.i)}</div>
+       <ul>${b.li.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`).join('')+`</div></section>`;
+  // S5 age
+  h+=`<section id="s5">${secHead(D.s5.n,D.s5.t)}<p class="sec-intro">${esc(D.s5.intro)}</p>${tableHtml(D.s5.head,D.s5.rows)}</section>`;
+  // appA checklist
+  h+=`<section id="appA">${secHead(D.appA.n,D.appA.t)}<p class="sec-intro">${esc(D.appA.intro)}</p>`+
+     D.appA.grps.map(g=>`<div class="check-grp"><h3>${esc(g.h)}</h3>`+
+       g.li.map(x=>`<label class="check-item"><input type="checkbox"><span>${esc(x)}</span></label>`).join('')+
+       `</div>`).join('')+`</section>`;
+  // appB rubric
+  h+=`<section id="appB">${secHead(D.appB.n,D.appB.t)}<p class="sec-intro">${esc(D.appB.intro)}</p>
+     <div class="tbl-wrap"><table class="rub"><thead><tr>
+       <th>${esc(D.appB.head[0])}</th><th class="l1">${esc(D.appB.head[1])}</th>
+       <th class="l2">${esc(D.appB.head[2])}</th><th class="l3">${esc(D.appB.head[3])}</th></tr></thead>
+       <tbody>${D.appB.rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+       <p class="note">${esc(D.appB.note)}</p></section>`;
+
+  document.getElementById('content').innerHTML = h;
+}
+function tableHtml(head,rows){
+  return `<div class="tbl-wrap"><table><thead><tr>${head.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function setLang(l){
+  LANG=l;
+  document.getElementById('btn-ko').classList.toggle('active',l==='ko');
+  document.getElementById('btn-en').classList.toggle('active',l==='en');
+  try{localStorage.setItem('mangoi_tt_lang',l);}catch(e){}
+  render();
+}
+try{const saved=localStorage.getItem('mangoi_tt_lang'); if(saved==='en'||saved==='ko')LANG=saved;}catch(e){}
+document.getElementById('btn-ko').classList.toggle('active',LANG==='ko');
+document.getElementById('btn-en').classList.toggle('active',LANG==='en');
+render();
+</script>
+<!-- BUILD:20260704012222 -->
+</body>
+</html>
