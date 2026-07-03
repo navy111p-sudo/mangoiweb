@@ -1114,9 +1114,32 @@ function renderEngagement(){
 }
 
 // ═══════════════════════ 6. 평가서 ═══════════════════════
+// 🎓 카페24 성적(그래프DB) HTML 조각 — 월별 리포트 + 최근 일별 점수
+function cafe24ScoresHtml(){
+  const cs = (_state.full && _state.full.cafe24_scores) || {};
+  const monthly = cs.monthly || [], daily = cs.daily || [];
+  if (!monthly.length && !daily.length) return '';
+  const en = _lang==='en';
+  let h = '<div style="margin-bottom:18px">';
+  h += '<h3 style="margin:0 0 10px;font-size:15px;color:#34d399">🎓 '+(en?'Cafe24 Report Cards (real data)':'카페24 성적 (실데이터)')+'</h3>';
+  if (monthly.length){
+    h += '<div style="font-size:12.5px;color:var(--mut);margin:6px 0 4px">📆 '+(en?'Monthly Reports':'월별 리포트')+' ('+monthly.length+')</div>';
+    h += '<table class="list"><thead><tr><th>'+(en?'Year/Mo':'연/월')+'</th><th>'+(en?'Subject':'과목')+'</th><th>'+(en?'Level':'레벨')+'</th><th>'+(en?'Comment':'코멘트')+'</th></tr></thead><tbody>'+
+      monthly.map(function(m){ return '<tr><td style="white-space:nowrap">'+esc(String(m.year||''))+'-'+String(m.month||'').padStart(2,'0')+'</td><td>'+esc(m.subject||'—')+'</td><td>'+esc(String(m.level||'—'))+'</td><td style="white-space:pre-wrap;max-width:420px">'+esc(m.comment||'—')+'</td></tr>'; }).join('')+'</tbody></table>';
+  }
+  if (daily.length){
+    var avg = function(d){ var a=[d.s1,d.s2,d.s3,d.s4,d.s5].map(Number).filter(function(x){return !isNaN(x)&&x>0;}); return a.length?Math.round(a.reduce(function(p,c){return p+c;},0)/a.length*10)/10:'—'; };
+    h += '<div style="font-size:12.5px;color:var(--mut);margin:14px 0 4px">📝 '+(en?'Daily Scores (recent 90)':'일별 점수 (최근 90회)')+' ('+daily.length+')</div>';
+    h += '<table class="list"><thead><tr><th>'+(en?'Date':'날짜')+'</th><th>'+(en?'Avg':'평균')+'</th><th>S1</th><th>S2</th><th>S3</th><th>S4</th><th>S5</th><th>'+(en?'Comment':'코멘트')+'</th></tr></thead><tbody>'+
+      daily.map(function(d){ return '<tr><td style="white-space:nowrap">'+esc(d.date||'—')+'</td><td>'+scoreBadge(avg(d))+'</td><td>'+esc(String(d.s1||0))+'</td><td>'+esc(String(d.s2||0))+'</td><td>'+esc(String(d.s3||0))+'</td><td>'+esc(String(d.s4||0))+'</td><td>'+esc(String(d.s5||0))+'</td><td style="white-space:pre-wrap;max-width:420px">'+esc(d.comment||'—')+'</td></tr>'; }).join('')+'</tbody></table>';
+  }
+  h += '</div>';
+  return h;
+}
 function renderEvaluation(){
   const items = _state.full.evaluations || [];
-  if (items.length === 0) { $('evalBox').innerHTML = '<div class="empty">'+t('emptyEval')+'</div>'; return; }
+  const c24 = cafe24ScoresHtml();
+  if (items.length === 0) { $('evalBox').innerHTML = c24 || ('<div class="empty">'+t('emptyEval')+'</div>'); return; }
 
   // 🎯 발음연습 카운트 — eval_type='pronunciation' 인 행에 시간순 번호 매김
   //   - 표 헤더 위에 "총 N회" 배지 표시
@@ -1132,7 +1155,7 @@ function renderEvaluation(){
     ? Math.round(pronSorted.reduce((s, x) => s + (Number(x.e.score_total)||0), 0) / totalPron * 10) / 10
     : null;
 
-  $('evalBox').innerHTML = '<table class="list"><thead><tr><th>'+t('thDate')+'</th><th>'+t('thType')+'</th><th>'+t('thLevel')+'</th><th>'+t('thTotal')+'</th><th>'+t('thSpeak')+'</th><th>'+t('thList')+'</th><th>'+t('thGrammar')+'</th><th>'+t('thFocus')+'</th><th>🎯 '+(_lang==='en'?'Pron.':'발음연습')+'</th><th>'+t('thEvaluator')+'</th><th>'+t('thNextGoal')+'</th><th>'+t('thComment')+'</th><th>'+t('thReport')+'</th></tr></thead><tbody>'+
+  $('evalBox').innerHTML = c24 + '<table class="list"><thead><tr><th>'+t('thDate')+'</th><th>'+t('thType')+'</th><th>'+t('thLevel')+'</th><th>'+t('thTotal')+'</th><th>'+t('thSpeak')+'</th><th>'+t('thList')+'</th><th>'+t('thGrammar')+'</th><th>'+t('thFocus')+'</th><th>🎯 '+(_lang==='en'?'Pron.':'발음연습')+'</th><th>'+t('thEvaluator')+'</th><th>'+t('thNextGoal')+'</th><th>'+t('thComment')+'</th><th>'+t('thReport')+'</th></tr></thead><tbody>'+
     items.map(e=>{
       const isPron = e.eval_type === 'pronunciation';
       const pronCell = isPron
@@ -1663,7 +1686,10 @@ function renderDaily(){
   const gazeArr = sessions.map(s=>s.gaze_score).filter(g=>g!=null);
   const avgGaze = gazeArr.length ? gazeArr.reduce((a,b)=>a+b,0)/gazeArr.length : null;
 
-  if (sessions.length===0 && fbs.length===0 && evs.length===0 && cs.length===0 && pys.length===0) {
+  // 🎓 카페24 그날의 일별 점수(그래프DB 실데이터)
+  const c24day = ((f.cafe24_scores && f.cafe24_scores.daily) || []).filter(x => x.date === day);
+
+  if (sessions.length===0 && fbs.length===0 && evs.length===0 && cs.length===0 && pys.length===0 && c24day.length===0) {
     $('dailyBox').innerHTML = '<div class="empty">'+(_lang==='en'?'No activity on ':'활동 기록 없음 — ')+day+'</div>';
     return;
   }
@@ -1695,6 +1721,10 @@ function renderDaily(){
 
   if (recs.length > 0) html += sec(_lang==='en'?'🎬 Recordings':'🎬 녹화', '<ul style="font-size:13px;line-height:1.7">' +
     recs.map(r=>`<li><a href="javascript:void(0)" onclick="window.open('/api/recordings/blob/${r.id}?stream=1','_blank')">${esc(r.filename)}</a> · ${fmtMs(r.duration_ms)}</li>`).join('') + '</ul>');
+
+  if (c24day.length > 0) html += sec(_lang==='en'?'🎓 Cafe24 Daily Score':'🎓 카페24 데일리 점수',
+    '<table class="list"><thead><tr><th>S1</th><th>S2</th><th>S3</th><th>S4</th><th>S5</th><th>'+(_lang==='en'?'Comment':'교사 코멘트')+'</th></tr></thead><tbody>'+
+    c24day.map(d=>`<tr><td>${esc(String(d.s1||0))}</td><td>${esc(String(d.s2||0))}</td><td>${esc(String(d.s3||0))}</td><td>${esc(String(d.s4||0))}</td><td>${esc(String(d.s5||0))}</td><td style="white-space:pre-wrap;max-width:460px">${esc(d.comment||'—')}</td></tr>`).join('')+'</tbody></table>');
 
   $('dailyBox').innerHTML = html;
 }

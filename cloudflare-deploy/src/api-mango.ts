@@ -9008,6 +9008,36 @@ LIMIT $limit`;
         const _fullScope = await getScope(env as any, request);  // 🔒 PII 열람 권한 판정
         const _erpRow: any = pick(0);
         const _fullErpPII = (_erpRow && !canViewPII(_fullScope)) ? maskRecordPII(_erpRow) : _erpRow;
+
+        // 🎓 카페24 성적(그래프DB) — 월별·일별 점수 + 교재퀴즈. Neo4j 미연결 시 조용히 빈배열.
+        let cafe24Scores: any = { monthly: [], daily: [], quiz: [] };
+        try {
+          const { fields, values } = await runCypher(env, `
+            OPTIONAL MATCH (m:MonthlyScore {user_id: $uid})
+            WITH m ORDER BY m.year DESC, m.month DESC
+            WITH collect(m { year: m.year, month: m.month, subject: m.subject, level: m.level, comment: m.comment })[0..24] AS monthly
+            OPTIONAL MATCH (d:DailyScore {user_id: $uid})
+            WITH monthly, d ORDER BY d.date DESC
+            WITH monthly, collect(d { date: d.date, s1: d.s1, s2: d.s2, s3: d.s3, s4: d.s4, s5: d.s5, comment: d.comment })[0..90] AS daily
+            OPTIONAL MATCH (c:Class {user_id: $uid})
+            WITH monthly, daily, collect(DISTINCT c.class_id) AS classIds
+            OPTIONAL MATCH (q:QuizResult) WHERE q.class_id IN classIds
+            WITH monthly, daily, q ORDER BY q.date DESC
+            RETURN monthly AS monthly, daily AS daily,
+                   collect(q { quiz_id: q.quiz_id, state: q.state, page: q.page, date: q.date })[0..60] AS quiz
+          `, { uid }, 'READ');
+          if (values.length) {
+            const idx = (n: string) => fields.indexOf(n);
+            cafe24Scores = {
+              monthly: values[0][idx('monthly')] || [],
+              daily: values[0][idx('daily')] || [],
+              quiz: values[0][idx('quiz')] || [],
+            };
+          }
+        } catch (e: any) {
+          console.warn('[student/full] cafe24 성적 조회 실패:', e?.message || e);
+        }
+
         return json({
           ok: true,
           user_id: uid,
@@ -9027,6 +9057,8 @@ LIMIT $limit`;
           recordings: pickList(11),
           textbooks: pickList(12),
           consent: pick(13),
+          // 🎓 카페24 성적 (월별/일별 점수 + 교재퀴즈) — 그래프DB 실데이터
+          cafe24_scores: cafe24Scores,
         });
       }
     }
