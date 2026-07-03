@@ -11454,6 +11454,18 @@ function _gameShowResult() {
   }catch(_){}
 })();
 
+// 🔤 영어 어휘 은행(en_vocab)으로 기본 어휘 강화 — 학생 교재 데이터 없을 때 폴백을 풍부하게
+(function(){
+  try{
+    fetch('/api/games/en-vocab').then(function(r){ return r.ok?r.json():null; }).then(function(d){
+      if(!d || !d.ok) return;
+      if(window._STUDENT_VOCAB && _STUDENT_VOCAB.sentences && _STUDENT_VOCAB.sentences.length>=3) return;   // 학생 교재 어휘가 있으면 유지
+      (d.sentences||[]).forEach(function(s){ if(s&&s.en&&s.words&&s.words.length>=2 && !_GAME_VOCAB.some(function(v){return v.en===s.en;})) _GAME_VOCAB.push(s); });
+      (d.words||[]).forEach(function(w){ if(w&&w.en&&w.ko && !_GAME_WORDS.some(function(x){return x.en===w.en;})) _GAME_WORDS.push(w); });
+    }).catch(function(){});
+  }catch(_){}
+})();
+
 // 🥭 Phase 48 — 수업 중(2명 이상) 인지 체크 → 게임 차단
 function _gameIsClassActive() {
   const el = document.getElementById('vc-user-count');

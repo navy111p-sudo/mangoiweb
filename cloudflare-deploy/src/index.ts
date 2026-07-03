@@ -193,6 +193,10 @@ export default {
     if (path === '/api/games/zh-vocab' && request.method === 'GET') {
       return handleGamesZhVocab(request, env);
     }
+    // 🔤 영어 게임 어휘 은행 — GET /api/games/en-vocab  → 난이도별 영어 문장+단어(en_vocab, 폴백 강화)
+    if (path === '/api/games/en-vocab' && request.method === 'GET') {
+      return handleGamesEnVocab(request, env);
+    }
     // 🧠 게임 학습기록 — POST /api/games/progress {user_id,lang,events:[{item,ko,correct}]} → 오답/정답 누적(game_progress)
     if (path === '/api/games/progress' && request.method === 'POST') {
       return handleGamesProgress(request, env);
@@ -1744,6 +1748,33 @@ async function handleGamesZhVocab(request: Request, env: Env): Promise<Response>
 async function _ensureGameProgressTable(env: Env) {
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS game_progress (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, lang TEXT NOT NULL, item TEXT NOT NULL, ko TEXT, wrong_count INTEGER DEFAULT 0, correct_count INTEGER DEFAULT 0, pron_best INTEGER DEFAULT 0, pron_last INTEGER DEFAULT 0, pron_count INTEGER DEFAULT 0, last_seen INTEGER, updated_at INTEGER, UNIQUE(user_id, lang, item));`);
 }
+/* 🔤 영어 게임 어휘 은행 — 난이도별 영어 문장+단어(en_vocab). 게임 폴백을 12→풍부하게. */
+async function handleGamesEnVocab(request: Request, env: Env): Promise<Response> {
+  try {
+    let rows: any[] = [];
+    try {
+      const rs = await env.DB.prepare(`SELECT type, en, ko, words FROM en_vocab WHERE active=1 ORDER BY id ASC LIMIT 400`).all();
+      rows = (rs.results as any[]) || [];
+    } catch { rows = []; }
+    const sentences: Array<{ en: string; ko: string; words: string[] }> = [];
+    const words: Array<{ en: string; ko: string }> = [];
+    for (const r of rows) {
+      const en = String(r.en || '').trim(); if (!en) continue;
+      const ko = String(r.ko || '').trim();
+      if (r.type === 'sentence') {
+        let ws: string[] = []; try { ws = JSON.parse(r.words || '[]') || []; } catch {}
+        if (!ws.length) ws = en.replace(/[^A-Za-z' ]/g, ' ').split(/\s+/).filter(Boolean);
+        if (ws.length >= 2) sentences.push({ en, ko, words: ws });
+      } else if (ko) {
+        words.push({ en, ko });
+      }
+    }
+    return new Response(JSON.stringify({ ok: true, sentences, words }), { status: 200, headers: _MS_JSON });
+  } catch (e: any) {
+    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
+  }
+}
+
 async function handleGamesProgress(request: Request, env: Env): Promise<Response> {
   try {
     let body: any = {};

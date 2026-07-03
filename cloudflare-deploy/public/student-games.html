@@ -257,6 +257,25 @@ function loadDarakwonZh(){
     .catch(function(){});
 }
 loadDarakwonZh();
+
+/* 🔤 영어 어휘 은행(en_vocab)으로 기본 영어 어휘 강화 — 폴백을 12→풍부하게.
+   로그인 학생 교재 데이터가 있으면 그게 우선(game-vocab.js), 없으면 이 은행 사용. */
+var _EN_BANK_LOADED = false;
+function loadEnBank(){
+  if(_EN_BANK_LOADED) return; _EN_BANK_LOADED = true;
+  var CK='mangoi_envocab_v1';
+  function apply(d){
+    if(!d || !d.ok) return;
+    (d.sentences||[]).forEach(function(s){ if(s && s.en && s.words && s.words.length>=2 && !_EN_VOCAB.some(function(v){ return v.en===s.en; })) _EN_VOCAB.push(s); });
+    (d.words||[]).forEach(function(w){ if(w && w.en && w.ko && !_EN_WORDS.some(function(x){ return x.en===w.en; })) _EN_WORDS.push(w); });
+    if(GAME_LANG==='en' && !(window._STUDENT_VOCAB && _STUDENT_VOCAB.sentences && _STUDENT_VOCAB.sentences.length>=3)) _applyLangVocab();
+  }
+  try{ var c=JSON.parse(sessionStorage.getItem(CK)||'null'); if(c && (Date.now()-c.at)<1800000){ apply(c.d); return; } }catch(_){}
+  fetch('/api/games/en-vocab').then(function(r){ return r.ok?r.json():null; })
+    .then(function(d){ if(d){ try{ sessionStorage.setItem(CK, JSON.stringify({at:Date.now(),d:d})); }catch(_){} apply(d); } })
+    .catch(function(){});
+}
+loadEnBank();
 const _gameState = { mode: 'brick', score: 0, correct: 0, wrong: 0, current: null, started: false, balloonTimer: null, roundTimer: null, _queued: null };
 
 /* ════════════════════════════════════════════════════════════════════
