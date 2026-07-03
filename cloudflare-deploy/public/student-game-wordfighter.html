@@ -63,6 +63,10 @@
   .ztag.next .w{border-color:var(--accent);color:#2a0606;background:var(--accent)}
   @keyframes rpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
   .ztag.distractor .w{border-color:rgba(239,68,68,.5)}
+  /* 👑 황금 보너스 좀비 — 2배 점수 */
+  .ztag.golden .w{background:linear-gradient(135deg,#fde68a,#f59e0b);color:#3a2e05;border-color:#fff7d6;box-shadow:0 0 18px rgba(251,191,36,.95),0 3px 12px rgba(0,0,0,.6)}
+  .ztag.golden .ring{border-color:rgba(251,191,36,.9)}
+  .ztag.golden::after{content:'👑';position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:15px;z-index:2}
   .ztag.dead{pointer-events:none;animation:zdie .5s forwards}
   @keyframes zdie{0%{transform:translate(-50%,-50%) scale(1)}100%{transform:translate(-50%,-30%) scale(.4) rotate(-12deg);opacity:0}}
   .ztag.wrong .w{animation:wf .4s}
@@ -276,14 +280,16 @@
     lvlPill.textContent='웨이브 '+(level+1);
     hintEl.innerHTML='🧟 다가오는 좀비를 <b>문장 순서대로</b> 처치! 순서 틀리면 감점 ⚠';
     var pool=DISTRACTORS.filter(function(w){ return targetWords.indexOf(w)<0; }); shuffle(pool);
-    var items=targetWords.map(function(w){ return {word:w,isTarget:true}; }).concat(pool.slice(0,2).map(function(w){ return {word:w,isTarget:false}; }));
-    shuffle(items); items.forEach(function(it,i){ spawnZombie(it.word,it.isTarget,i); });
+    var tItems=targetWords.map(function(w){ return {word:w,isTarget:true}; });
+    if(tItems.length && Math.random()<0.45){ tItems[Math.floor(Math.random()*tItems.length)].golden=true; }   // 👑 황금 좀비
+    var items=tItems.concat(pool.slice(0,2).map(function(w){ return {word:w,isTarget:false}; }));
+    shuffle(items); items.forEach(function(it,i){ spawnZombie(it.word,it.isTarget,i,it.golden); });
     renderSentence(); setTimeout(speakSentence,300);
   }
-  function spawnZombie(word,isTarget,i){
-    var el=document.createElement('button'); el.className='ztag'+(isTarget?'':' distractor');
+  function spawnZombie(word,isTarget,i,isGolden){
+    var el=document.createElement('button'); el.className='ztag'+(isTarget?'':' distractor')+(isGolden?' golden':'');
     el.innerHTML='<span class="w">'+word+'</span><span class="ring"></span>';
-    var z={ el:el, word:word, isTarget:isTarget, xPct:rand(14,86), prog:rand(0,0.25)-i*0.06, speed:rand(0.018,0.04) };
+    var z={ el:el, word:word, isTarget:isTarget, golden:!!isGolden, xPct:rand(14,86), prog:rand(0,0.25)-i*0.06, speed:rand(0.018,0.04) };
     el.addEventListener('click', function(){ strike(z); });
     field.appendChild(el); zombies.push(z); placeZombie(z);
   }
@@ -305,10 +311,11 @@
     var f=field.getBoundingClientRect(), r=z.el.getBoundingClientRect(); var x=r.left+r.width/2-f.left, y=r.top+r.height/2-f.top;
     var required=targetWords[currentIndex];
     if(z.word===required){
-      var gain=Math.round(100*(1+combo*0.05)); score+=gain;
+      var gain=Math.round(100*(1+combo*0.05)); if(z.golden) gain*=2;   // 👑 황금 좀비 = 2배
+      score+=gain;
       var now=performance.now(); combo=(now-lastHit<COMBO_WINDOW)?combo+1:1; lastHit=now; currentIndex++; collected.push(z.word);
-      hitSound(); speak(clean(z.word)); slashFX(x,y); bloodFX(x,y); yell('악!','hit',x,y); floatScore('+'+gain,x,y,true);
-      killZombie(z); if(combo>=2) showCombo(combo+' COMBO!'); renderSentence(); updateHUD();
+      hitSound(); speak(clean(z.word)); slashFX(x,y); bloodFX(x,y); yell('악!','hit',x,y); floatScore((z.golden?'👑+':'+')+gain,x,y,true);
+      killZombie(z); if(z.golden) showCombo('✨ 골든 보너스! +'+gain); else if(combo>=2) showCombo(combo+' COMBO!'); renderSentence(); updateHUD();
       if(currentIndex>=targetWords.length) waveComplete();
     } else {
       score=Math.max(0,score-50); combo=0; sndMiss(); yell('어!','miss',x,y);
@@ -385,6 +392,6 @@
   if(!synth){ document.getElementById('voiceWarn').textContent='⚠ 이 브라우저는 음성합성을 지원하지 않습니다.'; }
 })();
 </script>
-<!-- BUILD:20260703190316 -->
+<!-- BUILD:20260703200126 -->
 </body>
 </html>

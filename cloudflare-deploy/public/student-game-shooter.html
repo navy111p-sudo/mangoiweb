@@ -53,6 +53,10 @@
     border:2px solid rgba(255,255,255,.18);border-radius:999px;padding:2px 11px;white-space:nowrap;
     box-shadow:0 4px 12px rgba(0,0,0,.4);text-shadow:0 1px 2px rgba(0,0,0,.6)}
   .monster.distractor .word{border-color:rgba(255,120,120,.35)}
+  /* 👑 황금 보너스 표적 — 2배 점수 */
+  .monster.golden .word{background:linear-gradient(135deg,#fde68a,#f59e0b);color:#3a2e05;border-color:#fff7d6;box-shadow:0 0 18px rgba(251,191,36,.95),0 4px 12px rgba(0,0,0,.4)}
+  .monster.golden .face{filter:drop-shadow(0 0 9px gold)}
+  .monster.golden::after{content:'👑';position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:15px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
   .monster:active{transform:scale(.9)}
   .monster.pop{animation:pop .28s forwards}
   @keyframes pop{to{transform:scale(1.8);opacity:0}}
@@ -543,21 +547,23 @@
     lvlPill.textContent = '⭐' + stageLvl + ' · 문장 ' + (level+1) + ' · ✅ ' + correctWords + '/' + GOAL;
     var pool = DISTRACTORS.filter(function(w){ return targetWords.indexOf(w)<0; });
     shuffle(pool);
-    var items = targetWords.map(function(w){ return {word:w,isTarget:true}; })
-                  .concat(pool.slice(0,2).map(function(w){ return {word:w,isTarget:false}; }));
+    var tItems = targetWords.map(function(w){ return {word:w,isTarget:true}; });
+    // 👑 이 라운드에 45% 확률로 목표 단어 하나를 황금 보너스 표적으로 (2배 점수 + 특수 연출)
+    if(tItems.length && Math.random()<0.45){ tItems[Math.floor(Math.random()*tItems.length)].golden=true; }
+    var items = tItems.concat(pool.slice(0,2).map(function(w){ return {word:w,isTarget:false}; }));
     shuffle(items);
-    items.forEach(function(it){ spawnMonster(it.word, it.isTarget); });
+    items.forEach(function(it){ spawnMonster(it.word, it.isTarget, it.golden); });
     renderSentence();
     setTimeout(speakSentence, 250); // 라운드 시작 시 목표 문장을 원어민 음성으로 들려줌
   }
-  function spawnMonster(word,isTarget){
+  function spawnMonster(word,isTarget,isGolden){
     var el=document.createElement('button');
-    el.className='monster'+(isTarget?'':' distractor');
+    el.className='monster'+(isTarget?'':' distractor')+(isGolden?' golden':'');
     el.innerHTML='<span class="face">'+FACES[Math.floor(Math.random()*FACES.length)]+'</span><span class="word">'+word+'</span>';
     var fw=field.clientWidth, fh=field.clientHeight;
     // ⚡ base 속도(스폰 시 고정) — 루프에서 spdMult() 를 매 프레임 곱함 → 속도 변경 즉시 반영.
     //   세로 낙하 + 좌우 드리프트로 몬스터가 더 활발히 빨리빨리 움직임. 상위 속도일수록 훨씬 빠름.
-    var m={ el:el, word:word, isTarget:isTarget, x:rand(8,Math.max(40,fw-86)), y:rand(6,Math.max(40,fh*0.30)),
+    var m={ el:el, word:word, isTarget:isTarget, golden:!!isGolden, x:rand(8,Math.max(40,fw-86)), y:rand(6,Math.max(40,fh*0.30)),
             vyBase:rand(28,58), vxBase:rand(-48,48) };
     el.style.left=m.x+'px'; el.style.top=m.y+'px';
     el.style.animationDuration=rand(1.4,3).toFixed(2)+'s'; el.style.animationDelay=(-rand(0,2)).toFixed(2)+'s';
@@ -604,13 +610,15 @@
     if(!running || !m.el.isConnected) return;
     var required = targetWords[currentIndex];
     if(m.word === required){
-      score += 100;
+      var pts = m.golden ? 200 : 100;               // 👑 황금 표적 = 2배 점수
+      score += pts;
       var now=performance.now();
       combo = (now-lastHit<COMBO_WINDOW)?combo+1:1; lastHit=now; currentIndex++;
       sndHit();                                      // ★ 표적 명중/폭발음
       speak(m.word.replace(/[.?!]/g,''));            // ★ 맞힌 단어를 원어민 발음으로 재생
-      popMonster(m); floatScore('+100',x,y,true);
-      if(combo>=2) showCombo(combo+' COMBO!');
+      popMonster(m); floatScore((m.golden?'👑+200':'+100'),x,y,true);
+      if(m.golden) showCombo('✨ 골든 보너스! +200');
+      else if(combo>=2) showCombo(combo+' COMBO!');
       correctWords++;
       renderSentence(); updateHUD();
       if(correctWords>=GOAL){ setTimeout(winGame, 700); return; }   // 🎯 10개 정답 → 결과
@@ -762,6 +770,6 @@
 })();
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 -->
-<!-- BUILD:20260703190316 -->
+<!-- BUILD:20260703200126 -->
 </body>
 </html>

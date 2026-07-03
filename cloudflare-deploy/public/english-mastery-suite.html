@@ -116,6 +116,10 @@
     border:2px solid rgba(255,255,255,.18);border-radius:999px;padding:2px 11px;white-space:nowrap;
     box-shadow:0 4px 12px rgba(0,0,0,.4);text-shadow:0 1px 2px rgba(0,0,0,.6)}
   .monster.distractor .word{border-color:rgba(255,120,120,.32)}
+  /* 👑 황금 보너스 표적 — 2배 점수 */
+  .monster.golden .word{background:linear-gradient(135deg,#fde68a,#f59e0b);color:#3a2e05;border-color:#fff7d6;box-shadow:0 0 18px rgba(251,191,36,.95),0 4px 12px rgba(0,0,0,.4)}
+  .monster.golden .face{filter:drop-shadow(0 0 9px gold)}
+  .monster.golden::after{content:'👑';position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:15px}
   .monster:active{transform:scale(.9)}
   .monster.pop{animation:pop .28s forwards}
   @keyframes pop{to{transform:scale(1.8);opacity:0}}
@@ -185,6 +189,10 @@
   .fish .word{font-size:14px;font-weight:800;color:#06223a;background:#fde68a;border:2px solid #fbbf24;
     border-radius:999px;padding:2px 11px;white-space:nowrap;box-shadow:0 0 9px rgba(253,230,138,.55),0 4px 10px rgba(0,0,0,.35)}
   .fish.distractor .word{background:#bfe3ff;border-color:#7fd1ff;box-shadow:0 0 9px rgba(127,209,255,.5),0 4px 10px rgba(0,0,0,.35)}
+  /* 👑 황금 보너스 물고기 — 2배 점수 */
+  .fish.golden .word{background:linear-gradient(135deg,#fde68a,#f59e0b);color:#3a2e05;border-color:#fff7d6;box-shadow:0 0 18px rgba(251,191,36,.95),0 4px 10px rgba(0,0,0,.35)}
+  .fish.golden .face{filter:drop-shadow(0 0 9px gold)}
+  .fish.golden::after{content:'👑';position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:15px}
   .fish.hooked{animation:reelUp .5s cubic-bezier(.5,0,.5,1) forwards;pointer-events:none}
   @keyframes reelUp{to{transform:translate(var(--bx),var(--by)) scale(.55);opacity:.2}}
   .fish.escape{animation:escape .5s ease-in forwards;pointer-events:none}
@@ -911,6 +919,9 @@
     var pool = shuffle(DISTRACTORS.filter(function(w){ return words.map(norm).indexOf(norm(w))<0; })).slice(0,2);
     var items = words.map(function(w,i){ return {word:w,isTarget:true,order:i}; })
                   .concat(pool.map(function(w){ return {word:w,isTarget:false,order:-1}; }));
+    // 👑 45% 확률로 목표 하나를 황금 보너스(2배)로
+    var _tg = items.filter(function(it){ return it.isTarget; });
+    if(_tg.length && Math.random()<0.45) _tg[Math.floor(Math.random()*_tg.length)].golden=true;
     return { words:words, items:shuffle(items) };
   }
   function renderSentenceStrip(scopeSel, words, idx){
@@ -959,11 +970,11 @@
     var fw=SH.field.clientWidth, fh=SH.field.clientHeight;
     r.items.forEach(function(it){
       var el=document.createElement('button');
-      el.className='monster'+(it.isTarget?'':' distractor');
+      el.className='monster'+(it.isTarget?'':' distractor')+(it.golden?' golden':'');
       el.innerHTML='<span class="face">'+ALIENS[Math.floor(Math.random()*ALIENS.length)]+'</span><span class="word">'+it.word+'</span>';
       // ⚡ base 속도(스폰 시 고정) — 루프에서 spdMult() 를 매 프레임 곱해 속도 변경이 즉시 반영됨.
       //   세로 낙하 + 좌우 드리프트(우주인이 더 활발히 빨리빨리 움직임). 상위 속도일수록 훨씬 빠름.
-      var m={ el:el, word:it.word, isTarget:it.isTarget, x:rand(8,Math.max(40,fw-90)), y:rand(6,Math.max(40,fh*0.32)),
+      var m={ el:el, word:it.word, isTarget:it.isTarget, golden:!!it.golden, x:rand(8,Math.max(40,fw-90)), y:rand(6,Math.max(40,fh*0.32)),
               vyBase:rand(26,54), vxBase:rand(-46,46) };
       el.style.left=m.x+'px'; el.style.top=m.y+'px';
       el.style.animationDuration=rand(1.4,3).toFixed(2)+'s'; el.style.animationDelay=(-rand(0,2)).toFixed(2)+'s';
@@ -1000,7 +1011,8 @@
     if(!SH.running || !m.el.isConnected) return;
     var required = SH.words[SH.idx];
     if(norm(m.word) === norm(required)){
-      SH.score += 100; shootScoreVal.textContent=SH.score;
+      var _pts = m.golden ? 200 : 100;                    // 👑 황금 표적 = 2배
+      SH.score += _pts; shootScoreVal.textContent=SH.score;
       var now=performance.now(); SH.combo=(now-SH.lastHit<COMBO_WINDOW)?SH.combo+1:1; SH.lastHit=now; SH.idx++; correctHits++;
       sfxHit();                                           // ★ 명중/폭발음
       speak(m.word.replace(/[.?!]/g,''));
@@ -1009,8 +1021,9 @@
       var f=SH.field.getBoundingClientRect(), r=m.el.getBoundingClientRect();
       burst(SH.field, r.left-f.left+r.width/2, r.top-f.top+r.height/2);
       m.el.classList.add('pop'); setTimeout(function(){ if(m.el.parentNode) m.el.remove(); }, 280);
-      floatScore(SH.field,'+100',x,y,true);
-      if(SH.combo>=2) showCombo(shootCombo, SH.combo+' COMBO!');
+      floatScore(SH.field,(m.golden?'👑+200':'+100'),x,y,true);
+      if(m.golden) showCombo(shootCombo, '✨ 골든 보너스! +200');
+      else if(SH.combo>=2) showCombo(shootCombo, SH.combo+' COMBO!');
       renderSentenceStrip('#shoot', SH.words, SH.idx);
       if(SH.idx>=SH.words.length) shootSequenceDone();
     } else {
@@ -1123,12 +1136,12 @@
     var fw=FI.field.clientWidth, fh=FI.field.clientHeight;
     r.items.forEach(function(it){
       var el=document.createElement('button');
-      el.className='fish'+(it.isTarget?'':' distractor');
+      el.className='fish'+(it.isTarget?'':' distractor')+(it.golden?' golden':'');
       el.innerHTML='<span class="face">'+FISHES[Math.floor(Math.random()*FISHES.length)]+'</span><span class="word">'+it.word+'</span>';
       var dir = Math.random()<0.5?1:-1;
       var sp = fishCfg().speed;
       // ⚡ base 속도(스폰 시 고정) — 루프에서 spdMult() 를 매 프레임 곱함 → 속도 변경 즉시 반영, 상위 속도일수록 빨리빨리 헤엄
-      var f={ el:el, word:it.word, isTarget:it.isTarget,
+      var f={ el:el, word:it.word, isTarget:it.isTarget, golden:!!it.golden,
         x:rand(10,Math.max(50,fw-100)), y:rand(90,Math.max(160,fh-130)),   // 세로 전체로 분산(아래 빈공간 제거)
         vxBase:dir*rand(sp[0],sp[1]), vyBase:rand(-14,14), home:null };
       f.home={x:f.x,y:f.y};
@@ -1189,7 +1202,8 @@
     var cx=r.left-fr.left+r.width/2, cy=r.top-fr.top+r.height/2;
     if(norm(f.word) === norm(required)){
       // 정답 → 낚싯줄로 걸어 배(낚싯대)로 끌어올림
-      FI.score += 100; fishScoreVal.textContent=FI.score;
+      var _fpts = f.golden ? 200 : 100;                        // 👑 황금 물고기 = 2배
+      FI.score += _fpts; fishScoreVal.textContent=FI.score;
       var now=performance.now(); FI.combo=(now-FI.lastHit<COMBO_WINDOW)?FI.combo+1:1; FI.lastHit=now; FI.idx++; correctHits++;
       speak(f.word.replace(/[.?!]/g,''));                       // 🔊 물고기가 영어 단어를 소리냄
       sayWord(cx, cy-34, f.word);                               // 단어 말풍선
@@ -1197,8 +1211,9 @@
       var rt=rodTipPos();
       setLine(cx, cy);                                          // ① 캐스팅: 줄이 물고기까지 뻗어 바늘이 걸림
       rippleAt(cx, cy);                                         // 걸릴 때 물결
-      burst(FI.field, cx, cy); floatScore(FI.field,'+100',cx,cy,true);
-      if(FI.combo>=2) showCombo(fishCombo, FI.combo+' COMBO!');
+      burst(FI.field, cx, cy); floatScore(FI.field,(f.golden?'👑+200':'+100'),cx,cy,true);
+      if(f.golden) showCombo(fishCombo, '✨ 골든 보너스! +200');
+      else if(FI.combo>=2) showCombo(fishCombo, FI.combo+' COMBO!');
       maybeFocus();                                            // 콤보가 난이도 기준 도달 → 집중모드
       setTimeout(function(){                                    // ② 릴 감기: 물고기를 배로 끌어올림
         var bx=rt.x-(r.left-fr.left+r.width/2), by=rt.y-(r.top-fr.top+r.height/2);
@@ -1536,6 +1551,6 @@
 })();
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
-<!-- BUILD:20260703190316 -->
+<!-- BUILD:20260703200126 -->
 </body>
 </html>
