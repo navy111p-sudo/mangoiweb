@@ -8216,6 +8216,34 @@ Respond in JSON ONLY:
       }
     }
 
+    // 💰 카페24 회계 (그래프DB) — 회계장부·급여·지출결의서·세금계산서·예치금
+    //   GET /api/admin/finance-cafe24/{ledger|payroll|expenses|tax|deposits}?limit=&month=
+    {
+      const finM = path.match(/^\/api\/admin\/finance-cafe24\/([a-z]+)$/);
+      if (method === 'GET' && finM) {
+        const kind = finM[1];
+        const lim = Math.max(1, Math.min(2000, parseInt(url.searchParams.get('limit') || '500', 10)));
+        const month = (url.searchParams.get('month') || '').trim();
+        const QMAP: Record<string, string> = {
+          ledger: `MATCH (a:AccBook) ${month ? `WHERE a.month = $month OR a.date STARTS WITH $month` : ''} RETURN a.date AS date, a.type AS type, a.acc_type AS acc_type, a.subject AS subject, a.money AS money, a.store AS store, a.memo AS memo, a.month AS month ORDER BY a.date DESC LIMIT $lim`,
+          payroll: `MATCH (p:Payroll) ${month ? `WHERE p.month = $month` : ''} RETURN p.user_id AS user_id, p.month AS month, p.base AS base, p.total AS total, p.deduction AS deduction, p.actual AS actual, p.income_tax AS income_tax, p.pension AS pension, p.work_day AS work_day, p.pay_date AS pay_date ORDER BY p.month DESC LIMIT $lim`,
+          expenses: `MATCH (d:ExpenseReport) RETURN d.name AS name, d.content AS content, d.pay_date AS pay_date, d.organ AS organ, d.method AS method, d.memo AS memo, d.state AS state, d.reg_date AS reg_date ORDER BY d.reg_date DESC LIMIT $lim`,
+          tax: `MATCH (t:TaxInvoice) RETURN t.date AS date, t.supplier AS supplier, t.receiver AS receiver, t.supply AS supply, t.tax AS tax, t.total AS total, t.tax_type AS tax_type, t.state AS state ORDER BY t.date DESC LIMIT $lim`,
+          deposits: `MATCH (s:SavedMoney) RETURN s.center_id AS center_id, s.amount AS amount, s.method AS method, s.date AS date, s.state AS state ORDER BY s.date DESC LIMIT $lim`,
+        };
+        const cy = QMAP[kind];
+        if (!cy) return json({ ok: false, error: 'unknown finance kind' }, 400);
+        try {
+          const { fields, values } = await runCypher(env, cy, { lim, month }, 'READ');
+          const rows = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
+          return json({ ok: true, source: 'neo4j', kind, count: rows.length, rows });
+        } catch (e: any) {
+          if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
+          return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
+        }
+      }
+    }
+
     // 🧑‍💼 카페24 직원 명부 (그래프DB) — 지사 직원
     if (method === 'GET' && path === '/api/admin/staff/graph-list') {
       const qS = (url.searchParams.get('q') || '').trim().toLowerCase();
