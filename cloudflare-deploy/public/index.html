@@ -23005,7 +23005,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260704175315 -->
+<!-- BUILD:20260704183523 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -24866,6 +24866,24 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 </style>
 <style id="mg-hide-consult-fab-incall">/* 2026-06-27: 수업 중에는 하단 독에 상담 버튼이 있으므로, 겹치던 카카오 상담 말풍선 FAB 숨김 */ body.vc-in-call #ph49-kakao-fab, body.vc-in-call .ph49-kakao-fab { display:none !important; }</style>
 <style id="mg-free-grip-mini">/* 2026-06-27: 자유크기 그립(주황 줄무늬) 휴대폰에서 최대한 작게+상단 모서리로 */ @media (max-width:900px){ body.vc-in-call .vp-free-grip{ width:16px !important; height:16px !important; top:4px !important; right:4px !important; border-radius:4px !important; } body.vc-in-call .vp-free-grip .vp-grip-tip{ display:none !important; } }</style>
+<style id="mg-incall-tap-fix">
+  /* 🥭 (2026-07-04) 실시간 수업 화면 도구 칩 — 모바일 더블탭-줌 오탐 방지.
+     [문제] 뷰포트에 user-scalable 제한이 없어, 교재도구/필기도구/칠판도구 칩 등을
+            빠르게 두 번 터치하면 브라우저가 "더블탭 확대" 제스처로 오인해 두 번째
+            탭의 클릭 이벤트를 삼켜버림 → 열기는 되는데 닫기(재탭)가 안 먹는 것처럼 보임.
+     [해결] .ai-quick-btn 에 이미 적용된 것과 동일하게 touch-action: manipulation 을
+            수업 중 도구 버튼 전반에 적용 — 더블탭-줌 제스처 자체를 비활성화. */
+  body.vc-in-call .tab-bar > button,
+  body.vc-in-call .tab-btn,
+  body.vc-in-call .mango-tool-chip,
+  body.vc-in-call .ph49-tool-toggle,
+  body.vc-in-call .wb-toolbar button,
+  body.vc-in-call .pdf-controls button, body.vc-in-call .pdf-controls label,
+  body.vc-in-call .pdf-anno-bar button,
+  body.vc-in-call .video-size-bar button {
+    touch-action: manipulation !important;
+  }
+</style>
 <style id="mg-landscape-tools-restore">
   /* 🥭 (2026-07-01) 휴대폰 가로 수업 도구 복원
      ─────────────────────────────────────────────────────────────────────────

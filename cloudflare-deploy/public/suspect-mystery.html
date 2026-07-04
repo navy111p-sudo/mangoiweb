@@ -47,18 +47,18 @@
             <div class="bg-yellow-400 text-indigo-900 font-playful text-xl px-4 py-2 rounded-full shadow-lg transform -rotate-2">
                 MANGOI LIVE 🥭
             </div>
-            <span class="hidden sm:inline-block text-indigo-200 text-sm">Interactive Speaking Game</span>
+            <span class="hidden sm:inline-block text-indigo-200 text-base">Interactive Speaking Game</span>
         </div>
 
         <div class="flex items-center gap-6">
             <!-- Score & Badges -->
             <div class="flex items-center gap-2 bg-slate-800/80 backdrop-blur px-4 py-2 rounded-2xl border border-slate-700/50">
-                <span class="text-yellow-400 text-lg">⭐</span>
-                <span id="scoreText" class="font-playful text-lg text-yellow-300">Score: 0</span>
+                <span class="text-yellow-400 text-xl">⭐</span>
+                <span id="scoreText" class="font-playful text-xl text-yellow-300">Score: 0</span>
             </div>
             <!-- Round Indicator -->
             <div class="bg-indigo-600/80 backdrop-blur px-4 py-2 rounded-2xl border border-indigo-500/50">
-                <span id="roundText" class="font-playful text-lg">Round 1/3</span>
+                <span id="roundText" class="font-playful text-xl">Round 1/3</span>
             </div>
         </div>
     </header>
@@ -72,13 +72,13 @@
             <h1 class="text-4xl font-playful mb-3 text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-500">
                 The Suspect Mystery!
             </h1>
-            <p class="text-slate-300 text-base mb-6 leading-relaxed">
+            <p class="text-slate-300 text-lg mb-6 leading-relaxed">
                 망고아이 영어 화상 수업에 오신 것을 환영합니다!<br>
                 선생님의 힌트를 **귀로 잘 듣고(Listening)** 범인을 맞혀주세요.<br>
                 그리고 마이크로 내가 범인이 아닌 이유를 당당하게 **영어로 말해보세요(Speaking)!**
             </p>
 
-            <div class="bg-indigo-950/50 border border-indigo-800 p-4 rounded-2xl text-left mb-6 text-sm text-indigo-200 space-y-2">
+            <div class="bg-indigo-950/50 border border-indigo-800 p-4 rounded-2xl text-left mb-6 text-base text-indigo-200 space-y-2">
                 <p>💡 **게임 방법:**</p>
                 <p>1. 📢 **[Listen]** 선생님(Ms. Emily)이 들려주는 범인의 외모/행동 힌트를 집중해서 듣기!</p>
                 <p>2. 👆 **[Find]** 화면 속 용의자 4명 중 진짜 범인을 찾아 클릭하기!</p>
@@ -110,19 +110,19 @@
                                 👩‍🏫
                             </div>
                         </div>
-                        <h3 class="font-playful text-xl mt-3 text-indigo-300">Ms. Emily</h3>
-                        <p class="text-xs text-indigo-400">Mangoi English Tutor</p>
+                        <h3 class="font-playful text-2xl mt-3 text-indigo-300">Ms. Emily</h3>
+                        <p class="text-sm text-indigo-400">Mangoi English Tutor</p>
                     </div>
 
                     <!-- Speech Bubble for Clues -->
                     <div class="w-full bg-indigo-950/80 border border-indigo-800/80 p-4 rounded-2xl text-center relative">
                         <div class="absolute -top-2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-b-8 border-b-indigo-950/80"></div>
-                        <p id="clueBubble" class="text-yellow-200 font-semibold italic text-lg select-all">
+                        <p id="clueBubble" class="text-yellow-200 font-semibold italic text-xl md:text-2xl leading-snug select-all">
                             "Click the button below to listen to my voice!"
                         </p>
 
                         <!-- Listen Clue Button -->
-                        <button onclick="playTeacherVoice()" class="mt-3 inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm px-4 py-2 rounded-xl transition-colors">
+                        <button onclick="playTeacherVoice()" class="mt-3 inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-base px-5 py-2.5 rounded-xl transition-colors">
                             🔊 다시 듣기 (Listen Again)
                         </button>
                     </div>
@@ -131,8 +131,8 @@
                 <!-- Live Timer & Alert HUD -->
                 <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-4 text-center">
                     <div class="flex justify-between items-center mb-2">
-                        <span class="text-sm text-slate-400">제한 시간 (Time Left)</span>
-                        <span id="timerLabel" class="font-playful text-red-400 text-lg">30s</span>
+                        <span class="text-base text-slate-400">제한 시간 (Time Left)</span>
+                        <span id="timerLabel" class="font-playful text-red-400 text-2xl">30s</span>
                     </div>
                     <!-- Custom Progress Bar -->
                     <div class="w-full bg-slate-950 h-3 rounded-full overflow-hidden">
@@ -146,47 +146,47 @@
 
                 <!-- Main Header Status -->
                 <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-3xl text-center">
-                    <h2 id="phaseInstructions" class="text-xl font-bold text-yellow-400 animate-pulse">
+                    <h2 id="phaseInstructions" class="text-2xl md:text-3xl font-bold text-yellow-400 animate-pulse leading-snug">
                         🕵️‍♂️ STEP 1: Ms. Emily의 목소리를 듣고 범인을 선택하세요!
                     </h2>
                 </div>
 
                 <!-- 4 Suspect Cards Grid -->
-                <div id="suspectsGrid" class="grid grid-cols-2 gap-4 flex-grow items-center">
+                <div id="suspectsGrid" class="grid grid-cols-2 gap-5 flex-grow items-center">
                     <!-- Suspect 1 -->
-                    <div onclick="selectSuspect(1)" id="suspect-1" class="bg-slate-900/50 border-2 border-slate-800 hover:border-indigo-500 hover:bg-slate-800/50 rounded-3xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.02] relative group">
-                        <span class="absolute top-2 right-3 font-playful text-slate-600 text-lg group-hover:text-indigo-400">#01</span>
-                        <div class="text-6xl my-2" id="suspectEmoji-1">👦</div>
+                    <div onclick="selectSuspect(1)" id="suspect-1" class="bg-slate-900/50 border-2 border-slate-800 hover:border-indigo-500 hover:bg-slate-800/50 rounded-3xl p-5 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.02] relative group">
+                        <span class="absolute top-2 right-3 font-playful text-slate-500 text-xl group-hover:text-indigo-400">#01</span>
+                        <div class="w-24 h-24 md:w-28 md:h-28 rounded-full bg-sky-500/15 border-2 border-sky-400/50 flex items-center justify-center text-6xl md:text-7xl my-2" id="suspectEmoji-1">👦</div>
                         <div class="text-center">
-                            <h4 id="suspectName-1" class="font-playful text-lg text-indigo-300">Leo</h4>
-                            <p id="suspectDesc-1" class="text-xs text-slate-400 mt-1">Has glasses & Red hat</p>
+                            <h4 id="suspectName-1" class="font-playful text-2xl md:text-3xl text-indigo-300">Leo</h4>
+                            <p id="suspectDesc-1" class="text-base md:text-lg font-semibold text-slate-300 mt-1">Has glasses & Red hat</p>
                         </div>
                     </div>
                     <!-- Suspect 2 -->
-                    <div onclick="selectSuspect(2)" id="suspect-2" class="bg-slate-900/50 border-2 border-slate-800 hover:border-indigo-500 hover:bg-slate-800/50 rounded-3xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.02] relative group">
-                        <span class="absolute top-2 right-3 font-playful text-slate-600 text-lg group-hover:text-indigo-400">#02</span>
-                        <div class="text-6xl my-2" id="suspectEmoji-2">👧</div>
+                    <div onclick="selectSuspect(2)" id="suspect-2" class="bg-slate-900/50 border-2 border-slate-800 hover:border-indigo-500 hover:bg-slate-800/50 rounded-3xl p-5 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.02] relative group">
+                        <span class="absolute top-2 right-3 font-playful text-slate-500 text-xl group-hover:text-indigo-400">#02</span>
+                        <div class="w-24 h-24 md:w-28 md:h-28 rounded-full bg-pink-500/15 border-2 border-pink-400/50 flex items-center justify-center text-6xl md:text-7xl my-2" id="suspectEmoji-2">👧</div>
                         <div class="text-center">
-                            <h4 id="suspectName-2" class="font-playful text-lg text-indigo-300">Zoe</h4>
-                            <p id="suspectDesc-2" class="text-xs text-slate-400 mt-1">Wearing yellow scarf</p>
+                            <h4 id="suspectName-2" class="font-playful text-2xl md:text-3xl text-indigo-300">Zoe</h4>
+                            <p id="suspectDesc-2" class="text-base md:text-lg font-semibold text-slate-300 mt-1">Wearing yellow scarf</p>
                         </div>
                     </div>
                     <!-- Suspect 3 -->
-                    <div onclick="selectSuspect(3)" id="suspect-3" class="bg-slate-900/50 border-2 border-slate-800 hover:border-indigo-500 hover:bg-slate-800/50 rounded-3xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.02] relative group">
-                        <span class="absolute top-2 right-3 font-playful text-slate-600 text-lg group-hover:text-indigo-400">#03</span>
-                        <div class="text-6xl my-2" id="suspectEmoji-3">👩</div>
+                    <div onclick="selectSuspect(3)" id="suspect-3" class="bg-slate-900/50 border-2 border-slate-800 hover:border-indigo-500 hover:bg-slate-800/50 rounded-3xl p-5 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.02] relative group">
+                        <span class="absolute top-2 right-3 font-playful text-slate-500 text-xl group-hover:text-indigo-400">#03</span>
+                        <div class="w-24 h-24 md:w-28 md:h-28 rounded-full bg-amber-500/15 border-2 border-amber-400/50 flex items-center justify-center text-6xl md:text-7xl my-2" id="suspectEmoji-3">👩‍🦰</div>
                         <div class="text-center">
-                            <h4 id="suspectName-3" class="font-playful text-lg text-indigo-300">Mia</h4>
-                            <p id="suspectDesc-3" class="text-xs text-slate-400 mt-1">Wearing red hat</p>
+                            <h4 id="suspectName-3" class="font-playful text-2xl md:text-3xl text-indigo-300">Mia</h4>
+                            <p id="suspectDesc-3" class="text-base md:text-lg font-semibold text-slate-300 mt-1">Wearing red hat</p>
                         </div>
                     </div>
                     <!-- Suspect 4 -->
-                    <div onclick="selectSuspect(4)" id="suspect-4" class="bg-slate-900/50 border-2 border-slate-800 hover:border-indigo-500 hover:bg-slate-800/50 rounded-3xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.02] relative group">
-                        <span class="absolute top-2 right-3 font-playful text-slate-600 text-lg group-hover:text-indigo-400">#04</span>
-                        <div class="text-6xl my-2" id="suspectEmoji-4">👨</div>
+                    <div onclick="selectSuspect(4)" id="suspect-4" class="bg-slate-900/50 border-2 border-slate-800 hover:border-indigo-500 hover:bg-slate-800/50 rounded-3xl p-5 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.02] relative group">
+                        <span class="absolute top-2 right-3 font-playful text-slate-500 text-xl group-hover:text-indigo-400">#04</span>
+                        <div class="w-24 h-24 md:w-28 md:h-28 rounded-full bg-emerald-500/15 border-2 border-emerald-400/50 flex items-center justify-center text-6xl md:text-7xl my-2" id="suspectEmoji-4">🧔</div>
                         <div class="text-center">
-                            <h4 id="suspectName-4" class="font-playful text-lg text-indigo-300">Max</h4>
-                            <p id="suspectDesc-4" class="text-xs text-slate-400 mt-1">Blue jacket & Glasses</p>
+                            <h4 id="suspectName-4" class="font-playful text-2xl md:text-3xl text-indigo-300">Max</h4>
+                            <p id="suspectDesc-4" class="text-base md:text-lg font-semibold text-slate-300 mt-1">Blue jacket & Glasses</p>
                         </div>
                     </div>
                 </div>
@@ -194,9 +194,9 @@
                 <!-- Live Speaking Arena Panel -->
                 <div id="speakingArena" class="bg-indigo-950/40 border border-indigo-500/30 rounded-3xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 hidden transition-all duration-300">
                     <div class="flex-1 text-center md:text-left">
-                        <span class="text-xs font-bold uppercase tracking-wider text-pink-400">Speaking Mission!</span>
-                        <h3 class="text-lg font-bold text-white mt-0.5">범인을 가리키며 크게 외쳐보세요:</h3>
-                        <p id="targetSentence" class="text-xl md:text-2xl font-playful text-yellow-300 bg-slate-950/60 px-4 py-2 rounded-xl mt-2 inline-block select-all">
+                        <span class="text-sm font-bold uppercase tracking-wider text-pink-400">Speaking Mission!</span>
+                        <h3 class="text-xl font-bold text-white mt-0.5">범인을 가리키며 크게 외쳐보세요:</h3>
+                        <p id="targetSentence" class="text-2xl md:text-3xl font-playful text-yellow-300 bg-slate-950/60 px-4 py-2 rounded-xl mt-2 inline-block select-all">
                             "He is the thief because he has a dog!"
                         </p>
                     </div>
@@ -204,7 +204,7 @@
                     <!-- Voice Interaction Area -->
                     <div class="flex items-center gap-3">
                         <!-- Microphone Interaction Button -->
-                        <button id="micBtn" onclick="toggleMicrophone()" class="w-16 h-16 bg-red-600 hover:bg-red-500 rounded-full flex items-center justify-center text-2xl shadow-lg transform active:scale-95 transition-all outline-none">
+                        <button id="micBtn" onclick="toggleMicrophone()" class="w-20 h-20 bg-red-600 hover:bg-red-500 rounded-full flex items-center justify-center text-3xl shadow-lg transform active:scale-95 transition-all outline-none">
                             🎙️
                         </button>
 
@@ -218,7 +218,7 @@
                         </div>
 
                         <!-- Manual pass option if voice API or mic is blocked -->
-                        <div class="flex flex-col text-xs text-slate-400">
+                        <div class="flex flex-col text-sm text-slate-400">
                             <button onclick="skipVoiceVerify()" class="underline hover:text-slate-200">
                                 음성 테스트 스킵하기 ▶
                             </button>
@@ -227,12 +227,12 @@
                 </div>
 
                 <!-- User Speech Real-time Feedback -->
-                <div id="feedbackPanel" class="bg-slate-900/80 border border-slate-800 p-3 rounded-2xl flex items-center justify-between text-sm hidden">
+                <div id="feedbackPanel" class="bg-slate-900/80 border border-slate-800 p-3 rounded-2xl flex items-center justify-between text-base hidden">
                     <div class="flex items-center gap-2">
                         <span class="text-indigo-400">🎙️ 인식 결과 (My Voice):</span>
                         <span id="speechResultText" class="font-bold text-slate-200 italic">"Speaking..."</span>
                     </div>
-                    <span id="speechMatchBadge" class="bg-slate-800 text-xs px-2.5 py-1 rounded-full text-slate-400">
+                    <span id="speechMatchBadge" class="bg-slate-800 text-sm px-2.5 py-1 rounded-full text-slate-400">
                         준비 중
                     </span>
                 </div>
@@ -248,7 +248,7 @@
                 <h1 class="text-4xl font-playful mb-3 text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-500">
                     Congratulations, Detective!
                 </h1>
-                <p class="text-slate-300 text-base mb-6 leading-relaxed">
+                <p class="text-slate-300 text-lg mb-6 leading-relaxed">
                     모든 범인을 찾고 스피킹 알리바이 미션을 완수했습니다!<br>
                     귀중한 망고아이 우수 형사 배지를 획득하셨어요!
                 </p>
@@ -256,12 +256,12 @@
                 <!-- Final score card -->
                 <div class="bg-indigo-950/60 border border-indigo-800 p-6 rounded-2xl flex justify-around items-center mb-8 max-w-md mx-auto">
                     <div>
-                        <p class="text-xs text-indigo-300 uppercase">최종 획득 점수</p>
+                        <p class="text-sm text-indigo-300 uppercase">최종 획득 점수</p>
                         <p id="finalScore" class="text-4xl font-playful text-yellow-300 mt-1">150 points</p>
                     </div>
                     <div class="h-12 w-px bg-indigo-800"></div>
                     <div>
-                        <p class="text-xs text-indigo-300 uppercase">발음 평가</p>
+                        <p class="text-sm text-indigo-300 uppercase">발음 평가</p>
                         <p class="text-2xl font-playful text-green-400 mt-1">⭐⭐⭐⭐⭐ Excellent</p>
                     </div>
                 </div>
@@ -345,8 +345,8 @@
                 suspects: [
                     { name: "Leo", emoji: "👦 Glasses & Red hat", desc: "Wearing red cap & glasses" },
                     { name: "Zoe", emoji: "👧 Yellow Scarf", desc: "Wearing blue jacket & yellow scarf" },
-                    { name: "Mia", emoji: "👩 Red Hat", desc: "Wearing red cap & yellow scarf (Trap)" },
-                    { name: "Max", emoji: "👨 Glasses & Jacket", desc: "Wearing blue jacket & glasses" }
+                    { name: "Mia", emoji: "👩‍🦰 Red Hat", desc: "Wearing red cap & yellow scarf (Trap)" },
+                    { name: "Max", emoji: "🧔 Glasses & Jacket", desc: "Wearing blue jacket & glasses" }
                 ],
                 targetKeywords: ["zoe", "thief", "scarf", "yellow"]
             },
@@ -358,8 +358,8 @@
                 suspects: [
                     { name: "Leo", emoji: "👦 Drinking juice", desc: "Drinking strawberry juice" },
                     { name: "Zoe", emoji: "👧 Eating burger", desc: "Eating a tasty burger" },
-                    { name: "Mia", emoji: "👩 Drinking juice", desc: "Drinking green juice & laughing" },
-                    { name: "Max", emoji: "👨 Eating pizza", desc: "Eating hot pizza & laughing" }
+                    { name: "Mia", emoji: "👩‍🦰 Drinking juice", desc: "Drinking green juice & laughing" },
+                    { name: "Max", emoji: "🧔 Eating pizza", desc: "Eating hot pizza & laughing" }
                 ],
                 targetKeywords: ["max", "thief", "eating", "pizza"]
             },
@@ -371,8 +371,8 @@
                 suspects: [
                     { name: "Leo", emoji: "👦 With a brown cat", desc: "Has a lovely brown cat" },
                     { name: "Zoe", emoji: "👧 With a black dog", desc: "Walking a playful black dog" },
-                    { name: "Mia", emoji: "👩 With a white dog", desc: "Holding a cute white dog" },
-                    { name: "Max", emoji: "👨 With a parrot", desc: "Has a green speaking parrot" }
+                    { name: "Mia", emoji: "👩‍🦰 With a white dog", desc: "Holding a cute white dog" },
+                    { name: "Max", emoji: "🧔 With a parrot", desc: "Has a green speaking parrot" }
                 ],
                 targetKeywords: ["mia", "thief", "white", "dog"]
             }
@@ -397,7 +397,7 @@
                 document.getElementById('feedbackPanel').classList.remove('hidden');
                 document.getElementById('speechResultText').innerText = " listening...";
                 document.getElementById('speechMatchBadge').innerText = "듣는 중";
-                document.getElementById('speechMatchBadge').className = "bg-yellow-600 text-xs px-2.5 py-1 rounded-full text-yellow-100";
+                document.getElementById('speechMatchBadge').className = "bg-yellow-600 text-sm px-2.5 py-1 rounded-full text-yellow-100";
             };
 
             recognition.onresult = (event) => {
@@ -419,7 +419,7 @@
 
                 if (matches >= 2) {
                     document.getElementById('speechMatchBadge').innerText = "Perfect Match! ⭐";
-                    document.getElementById('speechMatchBadge').className = "bg-green-600 text-xs px-2.5 py-1 rounded-full text-green-100 animate-bounce";
+                    document.getElementById('speechMatchBadge').className = "bg-green-600 text-sm px-2.5 py-1 rounded-full text-green-100 animate-bounce";
                     setTimeout(() => {
                         verifySpeechSuccess(speechToText);
                     }, 1200);
@@ -511,14 +511,14 @@
             document.getElementById('scoreText').innerText = `Score: ${score}`;
             document.getElementById('roundText').innerText = `Round ${roundNum}/${totalRounds}`;
             document.getElementById('phaseInstructions').innerText = "🕵️‍♂️ STEP 1: Ms. Emily의 목소리를 듣고 범인을 선택하세요!";
-            document.getElementById('phaseInstructions').className = "text-xl font-bold text-yellow-400 animate-pulse";
+            document.getElementById('phaseInstructions').className = "text-2xl md:text-3xl font-bold text-yellow-400 animate-pulse leading-snug";
             document.getElementById('clueBubble').innerText = data.clue;
 
             // Build suspects
             for (let i = 1; i <= 4; i++) {
                 const sData = data.suspects[i - 1];
                 const card = document.getElementById(`suspect-${i}`);
-                card.className = "bg-slate-900/50 border-2 border-slate-800 hover:border-indigo-500 hover:bg-slate-800/50 rounded-3xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.02] relative group";
+                card.className = "bg-slate-900/50 border-2 border-slate-800 hover:border-indigo-500 hover:bg-slate-800/50 rounded-3xl p-5 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.02] relative group";
 
                 document.getElementById(`suspectName-${i}`).innerText = sData.name;
                 document.getElementById(`suspectDesc-${i}`).innerText = sData.desc;
@@ -593,7 +593,7 @@
             if (isCorrect) {
                 // Perfect, now trigger Speaking Phase to seal the victory!
                 document.getElementById('phaseInstructions').innerText = "🗣️ STEP 2: 스피킹 미션! 마이크를 켜고 범인을 심문하세요!";
-                document.getElementById('phaseInstructions').className = "text-xl font-bold text-green-400";
+                document.getElementById('phaseInstructions').className = "text-2xl md:text-3xl font-bold text-green-400 leading-snug";
 
                 const card = document.getElementById(`suspect-${selectedSuspectId}`);
                 card.classList.remove('border-indigo-500', 'glow-blue');
@@ -607,7 +607,7 @@
                 const card = document.getElementById(`suspect-${selectedSuspectId}`);
                 card.classList.add('border-red-500', 'glow-red');
                 document.getElementById('phaseInstructions').innerText = "❌ 아쉽습니다! 다른 용의자가 범인인 것 같아요. 다시 찾아보세요!";
-                document.getElementById('phaseInstructions').className = "text-xl font-bold text-red-500";
+                document.getElementById('phaseInstructions').className = "text-2xl md:text-3xl font-bold text-red-500 leading-snug";
 
                 setTimeout(() => {
                     card.classList.remove('border-red-500', 'glow-red');
@@ -633,7 +633,7 @@
             document.getElementById('feedbackPanel').classList.remove('hidden');
             document.getElementById('speechResultText').innerText = `"${roundData[currentRound-1].targetSentence}"`;
             document.getElementById('speechMatchBadge').innerText = "Verified! 👍";
-            document.getElementById('speechMatchBadge').className = "bg-green-600 text-xs px-2.5 py-1 rounded-full text-green-100";
+            document.getElementById('speechMatchBadge').className = "bg-green-600 text-sm px-2.5 py-1 rounded-full text-green-100";
 
             setTimeout(() => {
                 verifySpeechSuccess();
@@ -750,7 +750,7 @@
             }, 6000);
         }
     </script>
-<!-- BUILD:20260704 suspect1 -->
-<!-- BUILD:20260704175315 -->
+<!-- BUILD:20260704 suspect1 bigtext-faces1 -->
+<!-- BUILD:20260704183523 -->
 </body>
 </html>
