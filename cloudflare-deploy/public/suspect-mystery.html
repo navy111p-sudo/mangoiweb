@@ -764,6 +764,7 @@
 
         function nextRound() {
             clearInterval(timer);
+            if ('speechSynthesis' in window) window.speechSynthesis.cancel();   // 라운드 전환 시 이전 힌트 음성 잔여 재생 방지
             if (currentRound < totalRounds) {
                 currentRound++;
                 loadRound(currentRound);
@@ -773,6 +774,7 @@
         }
 
         function triggerVictory() {
+            if ('speechSynthesis' in window) window.speechSynthesis.cancel();   // 이전 라운드 힌트 음성이 남아있으면 승리 화면과 겹쳐 재생되는 것 방지
             document.getElementById('gamePlayScreen').classList.add('hidden');
             document.getElementById('victoryScreen').classList.remove('hidden');
             document.getElementById('finalScore').innerText = `${score} points`;
@@ -782,6 +784,7 @@
         }
 
         function resetGame() {
+            if ('speechSynthesis' in window) window.speechSynthesis.cancel();
             document.getElementById('victoryScreen').classList.add('hidden');
             document.getElementById('welcomeScreen').classList.remove('hidden');
         }
@@ -860,6 +863,6 @@
         }
     </script>
 <!-- BUILD:20260704 suspect1 bigtext-faces1 vocabmatch1 -->
-<!-- BUILD:20260704184313 -->
+<!-- BUILD:20260704185251 -->
 </body>
 </html>

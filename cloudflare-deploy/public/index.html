@@ -23005,7 +23005,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260704184313 -->
+<!-- BUILD:20260704185251 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -25131,7 +25131,8 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   .mg-faq-list{flex:1;overflow-y:auto;padding:8px 20px 16px;-webkit-overflow-scrolling:touch}
   .mg-faq-item{border:1px solid rgba(255,255,255,.09);border-radius:14px;margin-bottom:10px;background:rgba(255,255,255,.035);overflow:hidden;transition:border-color .2s}
   .mg-faq-item.open{border-color:rgba(251,191,36,.45)}
-  .mg-faq-q{display:flex;align-items:center;gap:10px;width:100%;padding:13px 14px;background:none;border:none;color:#f1f5f9;font-size:14.5px;font-weight:600;text-align:left;cursor:pointer;line-height:1.45}
+  .mg-faq-q{display:flex;align-items:center;gap:10px;width:100%;padding:13px 14px;background:none;border:none;color:#f1f5f9;font-size:14.5px;font-weight:600;text-align:left;cursor:pointer;line-height:1.45;touch-action:manipulation}
+  .mg-faq-x, .mg-faq-cat{touch-action:manipulation}
   .mg-faq-q .qb{flex:0 0 auto;width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:rgba(251,191,36,.16);color:#fbbf24;font-weight:800;font-size:13px}
   .mg-faq-q .qc{flex:0 0 auto;font-size:11px;color:#94a3b8;background:rgba(255,255,255,.07);padding:2px 8px;border-radius:999px}
   .mg-faq-q .arr{margin-left:auto;flex:0 0 auto;color:#94a3b8;transition:transform .25s;font-size:12px}
@@ -25364,7 +25365,9 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   }
 
   window.openFaqOverlay=function(){
-    var ov=document.getElementById('mg-faq-ov')||build();
+    var existing=document.getElementById('mg-faq-ov');
+    if(existing && existing.classList.contains('open')){ close(); return; }
+    var ov=existing||build();
     renderAll(ov); // 열 때마다 현재 언어로 갱신
     ov.classList.add('open');
     try{ var s=ov.querySelector('.mg-faq-search'); if(s && window.innerWidth>700) s.focus(); }catch(_){}

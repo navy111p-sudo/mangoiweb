@@ -23074,7 +23074,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260704183523 -->
+        <!-- BUILD:20260704185251 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -28167,6 +28167,136 @@ button.chip:hover,
     <span style="font-size:14px">⬆</span><span data-ko="맨 위로" data-en="Back to top">맨 위로</span>
   </button>
 </aside>
+
+<!-- 🔊 (2026-07-04) 사이드바 음성 안내 — 부모/자식 클릭·터치 시 '무엇인지' + '안에 든 항목'을 한국어 음성으로 설명.
+     · Web Speech API(speechSynthesis) 내장 사용 → 외부 의존성 0, 오프라인 동작.
+     · 기존 inline onclick(event.stopPropagation) 을 방해하지 않도록 document '캡처' 단계에서 청취(읽기 전용, preventDefault 안 함).
+     · 🔊 토글로 켜고 끔(localStorage 'ph85VoiceOn' 기억, 기본 켜짐). -->
+<style id="ph85-voice-css">
+  #ph85-voice-toggle{
+    display:flex;align-items:center;justify-content:center;gap:6px;
+    width:calc(100% - 4px);margin:2px 2px 10px;padding:9px 12px;
+    background:rgba(99,102,241,0.14);border:1px solid rgba(99,102,241,0.32);
+    border-radius:10px;color:#c7d2fe;font-size:13px;font-weight:700;
+    cursor:pointer;font-family:inherit;transition:all .15s;
+  }
+  #ph85-voice-toggle:hover{ background:rgba(99,102,241,0.22); }
+  #ph85-voice-toggle.off{ color:#94a3b8;background:rgba(148,163,184,0.10);border-color:rgba(148,163,184,0.25); }
+</style>
+<script id="ph85-voice-js">
+(function(){
+  if (!('speechSynthesis' in window)) return;
+  var synth = window.speechSynthesis;
+  var LS = 'ph85VoiceOn';
+  function isOn(){ try { return localStorage.getItem(LS) !== '0'; } catch(e){ return true; } }
+  function setOn(v){ try { localStorage.setItem(LS, v ? '1' : '0'); } catch(e){} }
+
+  // 한국어 음성 캐시 (voiceschanged 는 비동기 로드)
+  var koVoice = null;
+  function loadVoice(){
+    try {
+      var vs = synth.getVoices() || [];
+      koVoice = vs.filter(function(v){ return /ko(-|_)?KR/i.test(v.lang); })[0]
+             || vs.filter(function(v){ return /^ko/i.test(v.lang); })[0] || null;
+    } catch(e){}
+  }
+  loadVoice();
+  try { synth.addEventListener('voiceschanged', loadVoice); } catch(e){ try { synth.onvoiceschanged = loadVoice; } catch(_){} }
+
+  function speak(text){
+    if (!text || !isOn()) return;
+    try {
+      synth.cancel();                 // 이전 안내 즉시 중단(연타 대비)
+      var u = new SpeechSynthesisUtterance(text);
+      u.lang = 'ko-KR'; u.rate = 1.05; u.pitch = 1;
+      if (koVoice) u.voice = koVoice;
+      synth.speak(u);
+    } catch(e){}
+  }
+
+  // 이모지/⭐신규 등 제거 → 자연스러운 낭독
+  function clean(t){
+    return (t || '')
+      .replace(/⭐\s*(신규|New)/gi, '')
+      .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}️‍]/gu, '')
+      .replace(/\s*\/\s*/g, ' ')          // "학생 / 학부모" → "학생 학부모" (슬래시 낭독 방지)
+      .replace(/\s+/g, ' ').trim();
+  }
+
+  // 그룹(부모) 한 줄 설명 — 제목 키워드 매칭. 미매칭이면 '안의 항목'만 안내.
+  var DESC = [
+    [/AI/i,          'AI가 학원 운영을 돕는 자동화 기능 모음입니다'],
+    [/평가/,         '학생 평가서와 수업 리포트를 만들고 관리하는 곳입니다'],
+    [/알림/,         '학생과 학부모에게 보내는 알림을 관리하는 곳입니다'],
+    [/강사/,         '강사 정보와 급여, 수업 평가를 관리하는 곳입니다'],
+    [/통계|KPI/i,    '학원 운영 지표와 통계를 보는 곳입니다'],
+    [/회계|포인트/,  '결제와 정산, 포인트를 관리하는 곳입니다'],
+    [/학생|학부모/,  '학생과 학부모 정보를 관리하는 곳입니다'],
+    [/교육|콘텐츠/,  '교재와 학습 콘텐츠를 관리하는 곳입니다'],
+    [/시스템/,       '권한과 출결 등 시스템 설정을 관리하는 곳입니다']
+  ];
+  function descFor(title){
+    for (var i = 0; i < DESC.length; i++){ if (DESC[i][0].test(title)) return DESC[i][1]; }
+    return '';
+  }
+
+  function describeHead(head){
+    var group = head.parentElement;
+    var title = clean((head.querySelector('.ph85-title') || {}).textContent);
+    var subs = [].map.call(group.querySelectorAll('.ph85-sub'), function(s){ return clean(s.textContent); })
+                 .filter(Boolean);
+    var msg = title + ' 메뉴입니다.';
+    var d = descFor(title); if (d) msg += ' ' + d + '.';
+    if (subs.length){
+      msg += ' 이 안에는 ' + subs.slice(0, 6).join(', ')
+           + (subs.length > 6 ? (' 등 총 ' + subs.length + '개 메뉴가') : ' 메뉴가') + ' 있습니다.';
+    }
+    speak(msg);
+  }
+  function describeSub(sub){
+    var title = clean(sub.textContent);
+    var tip = sub.getAttribute('data-tip-ko') || '';
+    speak(title + (tip ? '. ' + tip : ''));
+  }
+
+  // ▶ 캡처 단계 청취 — 기존 onclick 의 stopPropagation 에도 막히지 않고, 원래 동작은 그대로 유지
+  document.addEventListener('click', function(e){
+    if (!isOn()) return;
+    var t = e.target; if (!t || !t.closest) return;
+    if (!t.closest('#ph85-sidebar')) return;
+    if (t.closest('#ph85-voice-toggle')) return;   // 토글 버튼은 제외
+    var sub = t.closest('.ph85-sub');   if (sub){ describeSub(sub); return; }
+    var head = t.closest('.ph85-head'); if (head){ describeHead(head); return; }
+  }, true);
+
+  // 🔊 켜기/끄기 토글 버튼 (검색창/브랜드 아래에 삽입)
+  function insertToggle(){
+    var sb = document.getElementById('ph85-sidebar');
+    if (!sb || document.getElementById('ph85-voice-toggle')) return;
+    var btn = document.createElement('button');
+    btn.type = 'button'; btn.id = 'ph85-voice-toggle';
+    function paint(){
+      var on = isOn();
+      btn.className = on ? '' : 'off';
+      btn.innerHTML = (on ? '🔊' : '🔇') + ' <span>음성 안내 ' + (on ? '켜짐' : '꺼짐') + '</span>';
+    }
+    paint();
+    btn.addEventListener('click', function(ev){
+      ev.stopPropagation();
+      var next = !isOn(); setOn(next); paint();
+      if (next) speak('음성 안내를 켰습니다. 메뉴를 누르면 설명해 드려요.');
+      else { try { synth.cancel(); } catch(_){} }
+    });
+    var anchor = sb.querySelector('.ph85-search-wrap') || sb.querySelector('.ph85-brand');
+    if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(btn, anchor.nextSibling);
+    else sb.insertBefore(btn, sb.firstChild);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', insertToggle);
+  else insertToggle();
+  setTimeout(insertToggle, 800);
+  setTimeout(insertToggle, 2200);   // ph86 사이드바 보강(2000ms) 이후 재삽입 보장
+})();
+</script>
 
 <!-- ⭐ (2026-06-20) 메뉴 중요도·활용도 별점 — 테두리만 노란 '투명 별' ☆ 자동 부여
      · 자식(사이드바 .ph85-sub) + 손자(카드 안 하위 summary) 모두 적용
@@ -40412,6 +40542,10 @@ button.chip:hover,
   .menu-card button, .menu-card label, .menu-card .sub-item {
     word-break: keep-all !important;
     overflow-wrap: break-word !important;
+  }
+  /* 🥭 (2026-07-04) 모바일 더블탭-줌이 아코디언 제목의 두 번째 탭(닫기)을 삼키는 문제 방지 */
+  summary, #ph85-sidebar .ph85-head, .menu-card button, .menu-card .sub-item {
+    touch-action: manipulation !important;
   }
   /* 카드 헤더: 우측 ▶ 화살표와 글자가 겹치지 않게 여백 확보 + 줄간격 정리 */
   details.table-card.menu-card > summary,

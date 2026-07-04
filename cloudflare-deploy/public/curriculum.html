@@ -38,7 +38,7 @@
   .lvl-head{display:grid;grid-template-columns:80px 110px 1fr 30px;gap:8px;padding:8px 12px;font-size:11.5px;font-weight:800;color:#94a3b8;letter-spacing:1px;text-transform:uppercase}
   .lvl-row{background:#0f1f44;border:1px solid rgba(99,102,241,0.18);border-radius:12px;overflow:hidden;transition:all .15s}
   .lvl-row[open]{border-color:rgba(251,191,36,0.4)}
-  .lvl-row summary{display:grid;grid-template-columns:80px 110px 1fr 30px;gap:8px;align-items:center;padding:12px;cursor:pointer;list-style:none}
+  .lvl-row summary{display:grid;grid-template-columns:80px 110px 1fr 30px;gap:8px;align-items:center;padding:12px;cursor:pointer;list-style:none;touch-action:manipulation}
   .lvl-row summary::-webkit-details-marker{display:none}
   .lvl-cat{display:inline-block;text-align:center;padding:4px 8px;border-radius:99px;font-size:11px;font-weight:800;color:#fff;letter-spacing:0.5px}
   .lvl-num{font-size:14px;font-weight:900;color:#fff}
@@ -69,7 +69,7 @@
   .book-list{display:flex;flex-direction:column;gap:10px}
   .book-item{background:#0f1f44;border:1px solid rgba(99,102,241,0.18);border-radius:14px;overflow:hidden}
   .book-item[open]{border-color:rgba(251,191,36,0.4)}
-  .book-item summary{display:grid;grid-template-columns:64px 1fr 30px;gap:14px;align-items:center;padding:14px;cursor:pointer;list-style:none}
+  .book-item summary{display:grid;grid-template-columns:64px 1fr 30px;gap:14px;align-items:center;padding:14px;cursor:pointer;list-style:none;touch-action:manipulation}
   .book-item summary::-webkit-details-marker{display:none}
   .book-cover{width:64px;height:64px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;font-size:18px;letter-spacing:1px;box-shadow:0 6px 14px -4px rgba(0,0,0,0.4)}
   .book-name{font-size:15px;font-weight:900;color:#fff}
@@ -495,6 +495,6 @@
   document.addEventListener('DOMContentLoaded', updateLangBtn);
 </script>
 
-<!-- BUILD:20260704184313 -->
+<!-- BUILD:20260704185251 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
