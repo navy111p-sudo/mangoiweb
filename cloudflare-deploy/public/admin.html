@@ -4393,6 +4393,31 @@
   </div>
 </details>
 
+<!-- 📈 학생 자가평가 추이 (카페24 자가진단 집계) -->
+<details class="table-card menu-card" id="card-selfscore" ontoggle="if(this.open)loadSelfscoreTrend()">
+  <summary><span data-ko="📈 학생 참여도·자가평가 추이" data-en="📈 Student Self-Assessment Trend">📈 학생 참여도·자가평가 추이</span></summary>
+  <div class="menu-body">
+    <div class="sub-menu"><div class="sub-body">
+      <div style="background:linear-gradient(160deg,#0f172a,#1e293b);border:1px solid #334155;border-radius:16px;padding:18px 20px;box-shadow:0 8px 24px rgba(15,23,42,0.18)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+          <div>
+            <div style="font-size:15px;font-weight:800;color:#f1f5f9;letter-spacing:-0.2px" data-ko="📈 학생 자가평가 추이" data-en="📈 Self-Assessment Trend">📈 학생 자가평가 추이</div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:2px" data-ko="수업 직후 학생이 남긴 자가진단 점수 · 월별" data-en="Post-class self-rating · monthly">수업 직후 학생이 남긴 자가진단 점수 · 월별</div>
+          </div>
+          <div style="display:flex;gap:4px;background:#0b1220;border-radius:9px;padding:3px" id="selfscore-range">
+            <button class="ss-rbtn" data-r="12" onclick="loadSelfscoreTrend(12)" style="padding:5px 12px;font-size:11.5px;border:0;border-radius:7px;background:transparent;color:#94a3b8;cursor:pointer;font-weight:700">12개월</button>
+            <button class="ss-rbtn" data-r="24" onclick="loadSelfscoreTrend(24)" style="padding:5px 12px;font-size:11.5px;border:0;border-radius:7px;background:transparent;color:#94a3b8;cursor:pointer;font-weight:700">24개월</button>
+            <button class="ss-rbtn" data-r="60" onclick="loadSelfscoreTrend(60)" style="padding:5px 12px;font-size:11.5px;border:0;border-radius:7px;background:transparent;color:#94a3b8;cursor:pointer;font-weight:700">전체</button>
+          </div>
+        </div>
+        <div id="selfscore-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px"></div>
+        <div id="selfscore-chartwrap" style="position:relative;height:260px;display:none"><canvas id="selfscoreChart"></canvas></div>
+        <div id="selfscore-fallback" style="display:flex;flex-direction:column;gap:5px"></div>
+      </div>
+    </div></div>
+  </div>
+</details>
+
 <!-- 🥭 Phase 34 — 🧑‍🏫 강사관리 (학생관리 바로 아래) -->
 <details class="table-card menu-card" id="card-teacher-mgmt">
   <summary><span data-ko="🧑‍🏫 강사관리" data-en="🧑‍🏫 Teacher Management">🧑‍🏫 강사관리</span></summary>
@@ -11092,7 +11117,6 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       const fmtDt = (ms) => new Date(ms).toLocaleString(isEn?'en-US':'ko-KR', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
       box.innerHTML = `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px">
         <div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:10px">💬 ${esc(teacherName)} — ${isEn?'individual ratings':'개별 평가'} (${d.rows.length})</div>
-        <div id="rating-analysis-admin" style="margin-bottom:12px"></div>
         ${d.rows.map(row => {
           let tags = [];
           try { tags = JSON.parse(row.tags||'[]'); } catch(e){}
@@ -11107,6 +11131,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
             ${row.feedback ? `<div style="margin-top:6px;font-size:12.5px;color:#374151;background:#f9fafb;border-radius:6px;padding:7px 10px;line-height:1.6">💬 <span data-tr="${esc(row.feedback)}">${esc(row.feedback)}</span></div>` : ''}
           </div>`;
         }).join('') || `<div style="color:#9ca3af;font-size:12.5px">${isEn?'No ratings.':'평가가 없습니다.'}</div>`}
+        <div id="rating-analysis-admin" style="margin-top:12px"></div>
       </div>`;
       if (typeof window.applyRatingTr === 'function') window.applyRatingTr(box);
       if (typeof window.renderRatingAnalysis === 'function') window.renderRatingAnalysis(document.getElementById('rating-analysis-admin'), teacherName, false);
@@ -11275,6 +11300,45 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       +'<ul style="margin:0;padding-left:18px;font-size:12px;color:'+sub+';line-height:1.5">'+items+'</ul></div>';
   }
 
+  // ── 📋 성장 플랜 — 수정·보완·발전 (평가표 맨 마지막, 필수 표시) ──
+  function growthPlan(a, EN){
+    var fix=[], supp=[], dev=[];
+    var tagCount={}; (a.top_tags||[]).forEach(function(t){ tagCount[t.tag]=t.count; });
+    if (tagCount['소리가 끊겼어요']) fix.push(EN?'Fix your connection — check Wi-Fi/mic/camera before class, use a wired connection if possible.':'접속 환경부터 고치세요 — 수업 전 와이파이·마이크·카메라를 점검하고, 가능하면 유선(랜선)으로 연결하세요.');
+    if ((tagCount['너무 어려웠어요']||0) >= 2) fix.push(EN?'The pace is too fast for several students — slow down and add more examples.':'여러 학생이 어려워했어요 — 진도를 늦추고 예시를 더 넣어보세요.');
+    else if (tagCount['너무 어려웠어요']) supp.push(EN?'One student found it hard — check their level individually.':'한 학생이 어려워했어요 — 그 학생의 수준을 개별로 확인해보세요.');
+    if ((tagCount['말할 기회가 적었어요']||0) >= 2) fix.push(EN?'Students want more speaking time — cut teacher talk and add speaking activities.':'학생들이 말할 기회를 원해요 — 교사 설명을 줄이고 말하기 활동을 늘리세요.');
+    else if (tagCount['말할 기회가 적었어요']) supp.push(EN?'Give quieter students a bit more speaking time.':'조용한 학생에게 말할 기회를 조금 더 주세요.');
+    if (a.low_count>=2) fix.push(EN?'Multiple low scores (1–2) — review those classes and find the root cause.':'낮은 점수(1~2점)가 여러 건이에요 — 해당 수업들을 되짚어 원인을 찾으세요.');
+    else if (a.low_count===1) supp.push(EN?'One low score — likely a one-off, but worth a quick check.':'낮은 점수가 1건 있어요 — 일시적일 수 있지만 한 번 점검해보세요.');
+    if (a.trend_dir==='down') fix.push(EN?'Ratings have dropped recently — pinpoint what changed and adjust now.':'최근 평가가 하락 중이에요 — 무엇이 달라졌는지 바로 점검하세요.');
+    var posTag=(a.top_tags||[]).filter(function(t){return POS[t.tag];})[0];
+    if (posTag) dev.push((EN?'Build on your strength — ':'강점을 더 살려보세요 — ')+(EN?POS[posTag.tag].en:POS[posTag.tag].ko)+(EN?'; apply it to new activities too.':'을 다른 활동에도 적용해보세요.'));
+    if (a.trend_dir==='up') dev.push(EN?'You’re trending up — keep refining and it’ll become excellent.':'최근 상승세예요 — 지금 방식을 더 다듬으면 최고가 됩니다.');
+    dev.push(EN?'Ask 1–2 students directly what would make class even better.':'학생 1~2명에게 "무엇이 더 있으면 좋을지" 직접 물어보는 것도 좋아요.');
+    if (!fix.length) fix.push(EN?'Nothing urgent to fix right now. 👍':'지금 급하게 고칠 점은 없어요. 👍');
+    if (!supp.length) supp.push(EN?'No particular gaps to fill right now.':'특별히 보완할 부분은 없어요.');
+    return { fix:fix.slice(0,3), supplement:supp.slice(0,3), develop:dev.slice(0,3) };
+  }
+  function growthPlanCard(a, EN, dark){
+    var g = growthPlan(a, EN);
+    var sub = dark ? '#cdd8ee' : '#374151';
+    var border = dark ? 'rgba(255,255,255,0.14)' : '#e5e7eb';
+    function tier(icon, label, color, items){
+      var lis = items.map(function(t){ return '<li style="margin:4px 0">'+esc(t)+'</li>'; }).join('');
+      return '<div style="background:'+color+'1a;border:1px solid '+color+'55;border-radius:9px;padding:9px 11px">'
+        +'<div style="font-size:11.5px;font-weight:900;color:'+color+';margin-bottom:4px">'+icon+' '+label+'</div>'
+        +'<ul style="margin:0;padding-left:16px;font-size:11.5px;color:'+sub+';line-height:1.5">'+lis+'</ul></div>';
+    }
+    return '<div style="margin-top:14px;padding-top:12px;border-top:1px dashed '+border+'">'
+      +'<div style="font-size:12.5px;font-weight:900;color:'+(dark?'#e6ecff':'#111827')+';margin-bottom:8px">📋 '+(EN?'Growth plan — fix, supplement, develop':'성장 플랜 — 수정·보완·발전')+'</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px">'
+        + tier('🔴', EN?'Fix':'수정', '#ef4444', g.fix)
+        + tier('🟡', EN?'Supplement':'보완', '#f59e0b', g.supplement)
+        + tier('🟢', EN?'Develop':'발전', '#10b981', g.develop)
+      +'</div></div>';
+  }
+
   window.renderRatingAnalysis = function(container, teacherName, dark){
     if (!container) return;
     var EN = (window.adminLang === 'en');
@@ -11303,6 +11367,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         + distChart(a.distribution, EN, dark)
         + (a.trend && a.trend.length>=2 ? '<div style="margin-top:8px"><div style="font-size:11px;color:'+txtSub+'">'+(EN?'Daily trend':'일자별 추이')+'</div>'+trendSpark(a.trend)+'</div>' : '')
         + adviceCard(a, EN, dark)
+        + growthPlanCard(a, EN, dark)
         + '</div>';
     }).catch(function(){ container.innerHTML=''; });
   };
@@ -23004,7 +23069,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260704173139 -->
+        <!-- BUILD:20260704173700 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -24722,6 +24787,99 @@ window.rebuildGlobalSearchIndex = function() {
   }
 
   let _absentClasses = [];
+
+  // 📈 학생 자가평가 월별 추이 (카페24 자가진단 집계)
+  window._selfscoreData = null; window._selfscoreChart = null; window._selfscoreRange = 24;
+  window.loadSelfscoreTrend = async function(range){
+    range = range || window._selfscoreRange || 24; window._selfscoreRange = range;
+    const kpiBox = document.getElementById('selfscore-kpis');
+    const cv = document.getElementById('selfscoreChart');
+    const chartWrap = document.getElementById('selfscore-chartwrap');
+    const fbBox = document.getElementById('selfscore-fallback');
+    if (!cv) return;
+    document.querySelectorAll('.ss-rbtn').forEach(function(b){ var on = Number(b.getAttribute('data-r'))===Number(range); b.style.background = on?'#3b82f6':'transparent'; b.style.color = on?'#fff':'#94a3b8'; });
+    const esc = function(s){ return String(s==null?'':s).replace(/[<>&"]/g,function(c){return({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]);}); };
+    try {
+      const fetchLim = (range===60) ? 84 : range;
+      if (!window._selfscoreData || window._selfscoreData._lim < fetchLim) {
+        const d = await (await fetch('/api/admin/selfscore/trend?months='+fetchLim, { credentials:'include' })).json();
+        if (!d.ok) throw new Error(d.error||d.code||'error');
+        d._lim = fetchLim;
+        window._selfscoreData = d;
+      }
+      const all = (window._selfscoreData.months||[]).slice().reverse(); // 오래된→최근
+      const months = (range===60) ? all : all.slice(-range);
+      if (!months.length){ if(kpiBox) kpiBox.innerHTML='<div style="color:#94a3b8;grid-column:1/-1;font-size:12px">데이터 없음</div>'; return; }
+      const withCnt = months.filter(function(m){ return Number(m.cnt)>0; });
+      const overallAvg = withCnt.length ? (withCnt.reduce(function(s,m){return s+Number(m.avg_score);},0)/withCnt.length) : null;
+      const totalResp = months.reduce(function(s,m){return s+(Number(m.cnt)||0);},0);
+      const last = withCnt[withCnt.length-1], prev = withCnt[withCnt.length-2];
+      const trend = (last && prev) ? Math.round((Number(last.avg_score)-Number(prev.avg_score))*100)/100 : null;
+      if (kpiBox){
+        var kcard = function(lab, val, sub, color){ return '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:12px 14px">'
+          + '<div style="font-size:11px;color:#94a3b8">'+lab+'</div>'
+          + '<div style="font-size:19px;font-weight:800;color:'+color+';margin-top:3px;letter-spacing:-0.3px">'+val+'</div>'
+          + (sub?'<div style="font-size:10.5px;color:#64748b;margin-top:2px">'+sub+'</div>':'')+'</div>'; };
+        kpiBox.innerHTML =
+          kcard('평균 자가평가 점수', overallAvg!=null?overallAvg.toFixed(2):'—', range===60?'전체 기간':range+'개월 평균', '#a78bfa')
+          + kcard('총 응답 수', totalResp.toLocaleString()+'건', (range===60?'전체':range+'개월'), '#60a5fa')
+          + kcard('최근월 점수', last?Number(last.avg_score).toFixed(2):'—', last?last.ym:'—', '#34d399')
+          + kcard('전월 대비', trend!=null?((trend>=0?'▲ +':'▼ ')+Math.abs(trend)):'—', '변화 추이', (trend!=null&&trend>=0?'#34d399':'#fb7185'));
+      }
+      const labels = months.map(function(m){ return m.ym.slice(2); });
+      const scores = months.map(function(m){ return Number(m.avg_score)||0; });
+      const counts = months.map(function(m){ return Number(m.cnt)||0; });
+      const renderFallback = function(){
+        if (!fbBox) return;
+        var mx = Math.max.apply(null, scores.concat([1]));
+        fbBox.innerHTML = months.map(function(m){
+          var sc = Number(m.avg_score)||0;
+          return '<div style="display:grid;grid-template-columns:52px 1fr 90px;gap:8px;align-items:center;font-size:10.5px">'
+            + '<span style="color:#94a3b8;font-weight:600">'+m.ym.slice(2)+'</span>'
+            + '<div style="background:rgba(167,139,250,0.15);border-radius:99px;height:9px;overflow:hidden"><div style="width:'+Math.max(1,Math.round(sc/mx*100))+'%;height:100%;background:linear-gradient(90deg,#a78bfa,#7c3aed)"></div></div>'
+            + '<span style="text-align:right;font-weight:700;color:#c4b5fd">'+sc.toFixed(2)+'</span>'
+            + '</div>';
+        }).join('');
+      };
+      if (typeof Chart === 'undefined') {
+        if (chartWrap) chartWrap.style.display = 'none';
+        if (fbBox) fbBox.style.display = 'flex';
+        renderFallback();
+        if (!window._selfscoreLoadingChart) {
+          window._selfscoreLoadingChart = true;
+          const s = document.createElement('script');
+          s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
+          s.onload = function(){ window._selfscoreLoadingChart = false; window.loadSelfscoreTrend(window._selfscoreRange); };
+          s.onerror = function(){ window._selfscoreLoadingChart = false; };
+          document.head.appendChild(s);
+        }
+        return;
+      }
+      if (chartWrap) chartWrap.style.display = 'block';
+      if (fbBox) { fbBox.style.display = 'none'; fbBox.innerHTML = ''; }
+      const ctx = cv.getContext('2d');
+      const gFill = ctx.createLinearGradient(0,0,0,260); gFill.addColorStop(0,'rgba(167,139,250,0.45)'); gFill.addColorStop(1,'rgba(167,139,250,0.02)');
+      if (window._selfscoreChart){ try{ window._selfscoreChart.destroy(); }catch(e){} }
+      window._selfscoreChart = new Chart(ctx, {
+        data: { labels: labels, datasets: [
+          { type:'line', label:'평균 자가평가 점수', data:scores, borderColor:'#a78bfa', backgroundColor:gFill, borderWidth:2.5, pointRadius:2, pointHoverRadius:5, pointBackgroundColor:'#a78bfa', tension:0.35, fill:true, yAxisID:'y' },
+          { type:'bar', label:'응답 수', data:counts, backgroundColor:'rgba(96,165,250,0.35)', borderRadius:4, maxBarThickness:14, yAxisID:'y1' }
+        ]},
+        options: {
+          responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false },
+          plugins:{
+            legend:{ labels:{ color:'#cbd5e1', usePointStyle:true, pointStyle:'rectRounded', padding:14, font:{size:11.5} } },
+            tooltip:{ backgroundColor:'#0b1220', borderColor:'#334155', borderWidth:1, padding:10, titleColor:'#f1f5f9', bodyColor:'#cbd5e1' }
+          },
+          scales:{
+            x:{ grid:{ display:false }, ticks:{ color:'#94a3b8', font:{size:10}, maxRotation:0, autoSkip:true, maxTicksLimit:12 } },
+            y:{ position:'left', grid:{ color:'rgba(148,163,184,0.12)' }, ticks:{ color:'#a78bfa', font:{size:10} }, title:{ display:true, text:'점수', color:'#a78bfa', font:{size:10} } },
+            y1:{ position:'right', grid:{ display:false }, ticks:{ color:'#60a5fa', font:{size:10} }, title:{ display:true, text:'응답수', color:'#60a5fa', font:{size:10} } }
+          }
+        }
+      });
+    } catch(e){ if(kpiBox) kpiBox.innerHTML='<div style="color:#f87171;grid-column:1/-1;font-size:12px">집계 실패: '+esc(String(e&&e.message||e))+'</div>'; }
+  };
 
   // 👩‍🏫 강사 명부 (카페24 실데이터) — Neo4j graph-list
   let _trLoaded = false;

@@ -627,6 +627,7 @@ export default {
         path === '/api/admin/staff/graph-list' ||
         path === '/api/admin/books/graph-list' ||
         path === '/api/admin/leveltest/overview' ||
+        path === '/api/admin/selfscore/trend' ||
         /^\/api\/admin\/finance-cafe24\/[a-z]+$/.test(path) ||
         path === '/api/admin/students/import-cafe24' ||
         path === '/api/admin/org/import-cafe24' ||
@@ -2865,6 +2866,7 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/staff/graph-list') return true;      // 🧑‍💼 Neo4j 그래프 직원 명부
   if (path === '/api/admin/books/graph-list') return true;      // 📚 Neo4j 그래프 교재 명부
   if (path === '/api/admin/leveltest/overview') return true;    // 🏅 Neo4j 레벨테스트 배치 현황
+  if (path === '/api/admin/selfscore/trend') return true;       // 📈 Neo4j 자가평가 월별 추이
   if (/^\/api\/admin\/finance-cafe24\/[a-z]+$/.test(path)) return true;  // 💰 Neo4j 회계(장부·급여·지출·세금·예치금)
   if (path === '/api/admin/students/import-cafe24') return true; // 👨‍🎓 카페24 학생 이관(쓰기) — 반드시 인증 뒤
   if (path === '/api/admin/org/import-cafe24') return true;      // 🏢 카페24 조직 이관(쓰기) — 반드시 인증 뒤

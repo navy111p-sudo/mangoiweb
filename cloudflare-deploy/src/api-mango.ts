@@ -8380,6 +8380,28 @@ Respond in JSON ONLY:
       }
     }
 
+    // 📈 카페24 자가평가 월별 추이 (그래프DB) — 학생 자가진단 점수 추이(참여도·자신감 지표)
+    //   GET /api/admin/selfscore/trend?months=24  → {ok, months:[{ym,cnt,avg_score}], totals}
+    if (method === 'GET' && path === '/api/admin/selfscore/trend') {
+        const lim = Math.max(1, Math.min(84, parseInt(url.searchParams.get('months') || '24', 10)));
+        try {
+          const { fields, values } = await runCypher(env, `
+            MATCH (s:SelfScoreTrend)
+            RETURN s.ym AS ym, s.cnt AS cnt, s.avg_score AS avg_score
+            ORDER BY s.ym DESC LIMIT $lim`, { lim }, 'READ');
+          const months = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
+          const withCount = months.filter((m: any) => Number(m.cnt) > 0);
+          const totals = {
+            total_responses: months.reduce((a: number, m: any) => a + (Number(m.cnt) || 0), 0),
+            avg_overall: withCount.length ? Math.round((withCount.reduce((a: number, m: any) => a + Number(m.avg_score), 0) / withCount.length) * 100) / 100 : null,
+          };
+          return json({ ok: true, source: 'neo4j', months, totals });
+        } catch (e: any) {
+          if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
+          return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
+        }
+    }
+
     // 🏅 카페24 레벨테스트 배치 현황 (그래프DB) — 레벨별 분포·합격률 + 최근 응시
     //   GET /api/admin/leveltest/overview  → {ok, by_level:[{level,total,pass,pass_rate}], recent:[...], totals}
     if (method === 'GET' && path === '/api/admin/leveltest/overview') {

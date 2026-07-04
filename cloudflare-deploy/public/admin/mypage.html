@@ -1395,6 +1395,44 @@
       +'<ul style="margin:0;padding-left:20px;font-size:13px;color:var(--text-secondary);line-height:1.55">'+items+'</ul></div>';
   }
 
+  // ── 📋 성장 플랜 — 수정·보완·발전 (평가표 맨 마지막, 필수 표시) ──
+  function growthPlan(a, en){
+    var fix=[], supp=[], dev=[];
+    var tagCount={}; (a.top_tags||[]).forEach(function(t){ tagCount[t.tag]=t.count; });
+    if (tagCount['소리가 끊겼어요']) fix.push(en?'Fix your connection — check Wi-Fi/mic/camera before class, use a wired connection if possible.':'접속 환경부터 고치세요 — 수업 전 와이파이·마이크·카메라를 점검하고, 가능하면 유선(랜선)으로 연결하세요.');
+    if ((tagCount['너무 어려웠어요']||0) >= 2) fix.push(en?'The pace is too fast for several students — slow down and add more examples.':'여러 학생이 어려워했어요 — 진도를 늦추고 예시를 더 넣어보세요.');
+    else if (tagCount['너무 어려웠어요']) supp.push(en?'One student found it hard — check their level individually.':'한 학생이 어려워했어요 — 그 학생의 수준을 개별로 확인해보세요.');
+    if ((tagCount['말할 기회가 적었어요']||0) >= 2) fix.push(en?'Students want more speaking time — cut teacher talk and add speaking activities.':'학생들이 말할 기회를 원해요 — 교사 설명을 줄이고 말하기 활동을 늘리세요.');
+    else if (tagCount['말할 기회가 적었어요']) supp.push(en?'Give quieter students a bit more speaking time.':'조용한 학생에게 말할 기회를 조금 더 주세요.');
+    if (a.low_count>=2) fix.push(en?'Multiple low scores (1–2) — review those classes and find the root cause.':'낮은 점수(1~2점)가 여러 건이에요 — 해당 수업들을 되짚어 원인을 찾으세요.');
+    else if (a.low_count===1) supp.push(en?'One low score — likely a one-off, but worth a quick check.':'낮은 점수가 1건 있어요 — 일시적일 수 있지만 한 번 점검해보세요.');
+    if (a.trend_dir==='down') fix.push(en?'Ratings have dropped recently — pinpoint what changed and adjust now.':'최근 평가가 하락 중이에요 — 무엇이 달라졌는지 바로 점검하세요.');
+    var posTag=(a.top_tags||[]).filter(function(t){return POS[t.tag];})[0];
+    if (posTag) dev.push((en?'Build on your strength — ':'강점을 더 살려보세요 — ')+(en?POS[posTag.tag].en:POS[posTag.tag].ko)+(en?'; apply it to new activities too.':'을 다른 활동에도 적용해보세요.'));
+    if (a.trend_dir==='up') dev.push(en?'You’re trending up — keep refining and it’ll become excellent.':'최근 상승세예요 — 지금 방식을 더 다듬으면 최고가 됩니다.');
+    dev.push(en?'Ask 1–2 students directly what would make class even better.':'학생 1~2명에게 "무엇이 더 있으면 좋을지" 직접 물어보는 것도 좋아요.');
+    if (!fix.length) fix.push(en?'Nothing urgent to fix right now. 👍':'지금 급하게 고칠 점은 없어요. 👍');
+    if (!supp.length) supp.push(en?'No particular gaps to fill right now.':'특별히 보완할 부분은 없어요.');
+    return { fix:fix.slice(0,3), supplement:supp.slice(0,3), develop:dev.slice(0,3) };
+  }
+  function growthPlanCard(a, en){
+    var g = growthPlan(a, en);
+    function tier(icon, label, color, items){
+      var lis = items.map(function(t){ return '<li style="margin:5px 0">'+esc(t)+'</li>'; }).join('');
+      return '<div style="background:'+color+'1a;border:1px solid '+color+'55;border-radius:12px;padding:12px 14px">'
+        +'<div style="font-size:12.5px;font-weight:900;color:'+color+';margin-bottom:5px">'+icon+' '+label+'</div>'
+        +'<ul style="margin:0;padding-left:18px;font-size:12.5px;color:var(--text-secondary);line-height:1.55">'+lis+'</ul></div>';
+    }
+    return '<div style="margin-top:20px;padding-top:18px;border-top:1px dashed var(--border-strong)">'
+      +'<div style="font-size:15px;font-weight:900;color:var(--text-primary);margin-bottom:3px">📋 '+(en?'Growth plan — fix, supplement, develop':'성장 플랜 — 수정·보완·발전')+'</div>'
+      +'<div style="font-size:11.5px;color:var(--text-muted);margin-bottom:10px">'+(en?'Based on this report, here’s what to work on next.':'이번 평가표를 바탕으로 다음에 신경 쓸 점이에요.')+'</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">'
+        + tier('🔴', en?'Fix':'수정', '#ef4444', g.fix)
+        + tier('🟡', en?'Supplement':'보완', '#f59e0b', g.supplement)
+        + tier('🟢', en?'Develop':'발전', '#10b981', g.develop)
+      +'</div></div>';
+  }
+
   function distChart(dist){
     var maxC=1; dist.forEach(function(d){ if(d.count>maxC)maxC=d.count; });
     var bars = dist.map(function(d){
@@ -1471,7 +1509,7 @@
       var fbSection = '<div style="margin-top:18px"><div style="font-size:14px;font-weight:800;color:var(--text-primary);margin-bottom:2px">💬 '+(en?'Student feedback':'학생 피드백')+' <span style="font-size:12px;color:var(--text-muted);font-weight:600">('+rows.length+')</span></div>'
         +'<div style="font-size:11.5px;color:var(--text-muted);margin-bottom:4px">'+(en?'Anonymous — you can’t see who wrote it, so students are honest.':'무기명이에요 — 누가 썼는지 알 수 없어 학생들이 솔직하게 남깁니다.')+'</div>'
         + fbCards + '</div>';
-      box.innerHTML = hero + insight + chart + adviceCard(a, en) + fbSection;
+      box.innerHTML = hero + insight + chart + adviceCard(a, en) + fbSection + growthPlanCard(a, en);
       // 자유 피드백 번역 (EN 일 때만)
       if (en){
         var fbNodes = Array.prototype.slice.call(box.querySelectorAll('[data-fb]'));
