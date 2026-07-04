@@ -3805,7 +3805,8 @@
             <!-- KPI 카드 4개 -->
             <div id="c24fin-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px"></div>
             <!-- 차트 -->
-            <div style="position:relative;height:300px"><canvas id="c24finChart"></canvas></div>
+            <div id="c24fin-chartwrap" style="position:relative;height:300px;display:none"><canvas id="c24finChart"></canvas></div>
+            <div id="c24fin-fallback" style="display:flex;flex-direction:column;gap:5px"></div>
             <div id="c24fin-sum-total" style="display:none"></div>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="c24fin-tabs">
@@ -22562,16 +22563,9 @@ window.rebuildGlobalSearchIndex = function() {
     range = range || window._c24finRange || 24; window._c24finRange = range;
     const kpiBox = document.getElementById('c24fin-kpis');
     const cv = document.getElementById('c24finChart');
+    const chartWrap = document.getElementById('c24fin-chartwrap');
+    const fbBox = document.getElementById('c24fin-fallback');
     if (!cv) return;
-    // Chart.js 지연 로드 가드 (기존 대시보드와 동일 패턴)
-    if (typeof Chart === 'undefined') {
-      const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
-      s.onload = () => window.c24FinSummary(range);
-      document.head.appendChild(s);
-      if (kpiBox) kpiBox.innerHTML = '<div style="color:#94a3b8;grid-column:1/-1;font-size:12px">차트 로딩 중…</div>';
-      return;
-    }
     // 범위 버튼 활성화 표시
     document.querySelectorAll('.c24fin-rbtn').forEach(function(b){ var on = Number(b.getAttribute('data-r'))===Number(range); b.style.background = on?'#3b82f6':'transparent'; b.style.color = on?'#fff':'#94a3b8'; });
     const won = function(n){ n=Number(n||0); var a=Math.abs(n); var s=n<0?'-':''; if(a>=1e8) return s+'₩'+(a/1e8).toFixed(1)+'억'; if(a>=1e4) return s+'₩'+Math.round(a/1e4).toLocaleString('ko-KR')+'만'; return s+'₩'+a.toLocaleString('ko-KR'); };
@@ -22605,11 +22599,46 @@ window.rebuildGlobalSearchIndex = function() {
           + kcard('순이익', won(sumNet), (sumNet>=0?'▲ 흑자':'▼ 적자'), (sumNet>=0?'#34d399':'#fb7185'))
           + kcard('영업이익률', margin+'%', (momInc!=null?('최근 매출 '+(momInc>=0?'▲':'▼')+Math.abs(momInc)+'% MoM'):'—'), (margin>=0?'#fbbf24':'#fb7185'));
       }
-      // Chart.js 콤보: 매출/지출 막대 + 순익 라인
+      // 데이터 시리즈
       const labels = months.map(function(m){ return m.ym.slice(2); }); // YY-MM
       const inc = months.map(function(m){ return Number(m.income)||0; });
       const exp = months.map(function(m){ return Number(m.expense)||0; });
       const net = months.map(function(m){ return Number(m.net)||0; });
+
+      // ── 폴백 막대 (Chart.js 미로드 시에도 항상 데이터가 보이도록) ──
+      const renderFallback = function(){
+        if (!fbBox) return;
+        var mx = Math.max.apply(null, inc.concat(exp).concat([1]));
+        fbBox.innerHTML = months.map(function(m){
+          var i=Number(m.income)||0, e=Number(m.expense)||0, n=Number(m.net)||0;
+          return '<div style="display:grid;grid-template-columns:52px 1fr 96px;gap:8px;align-items:center;font-size:10.5px">'
+            + '<span style="color:#94a3b8;font-weight:600">'+m.ym.slice(2)+'</span>'
+            + '<div style="display:flex;flex-direction:column;gap:2px">'
+            +   '<div style="background:rgba(96,165,250,0.15);border-radius:99px;height:7px;overflow:hidden"><div style="width:'+Math.max(1,Math.round(i/mx*100))+'%;height:100%;background:#60a5fa"></div></div>'
+            +   '<div style="background:rgba(248,113,113,0.15);border-radius:99px;height:7px;overflow:hidden"><div style="width:'+Math.max(1,Math.round(e/mx*100))+'%;height:100%;background:#f87171"></div></div>'
+            + '</div>'
+            + '<span style="text-align:right;font-weight:700;color:'+(n>=0?'#34d399':'#fb7185')+'">'+won(n)+'</span>'
+            + '</div>';
+        }).join('') + '<div style="margin-top:5px;font-size:10px;color:#64748b"><span style="color:#60a5fa">■</span> 매출 <span style="color:#f87171">■</span> 지출 · 우측=순익</div>';
+      };
+      // Chart.js 미로드 → 폴백 표시 + CDN 로드 시도(성공하면 다시 그림)
+      if (typeof Chart === 'undefined') {
+        if (chartWrap) chartWrap.style.display = 'none';
+        if (fbBox) fbBox.style.display = 'flex';
+        renderFallback();
+        if (!window._c24finLoadingChart) {
+          window._c24finLoadingChart = true;
+          const s = document.createElement('script');
+          s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
+          s.onload = function(){ window._c24finLoadingChart = false; window.c24FinSummary(window._c24finRange); };
+          s.onerror = function(){ window._c24finLoadingChart = false; /* 폴백 유지 */ };
+          document.head.appendChild(s);
+        }
+        return;
+      }
+      // Chart.js 사용 가능 → 예쁜 콤보차트, 폴백 숨김
+      if (chartWrap) chartWrap.style.display = 'block';
+      if (fbBox) { fbBox.style.display = 'none'; fbBox.innerHTML = ''; }
       const ctx = cv.getContext('2d');
       const gInc = ctx.createLinearGradient(0,0,0,300); gInc.addColorStop(0,'rgba(96,165,250,0.95)'); gInc.addColorStop(1,'rgba(96,165,250,0.55)');
       const gExp = ctx.createLinearGradient(0,0,0,300); gExp.addColorStop(0,'rgba(248,113,113,0.9)'); gExp.addColorStop(1,'rgba(248,113,113,0.5)');
@@ -22975,7 +23004,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260704130334 -->
+        <!-- BUILD:20260704171150 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

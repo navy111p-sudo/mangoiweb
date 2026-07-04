@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>말하기 퀴즈 — Mangoi 화상영어</title>
+<!--
+  ============================================================================
+   🗣️ Speaking Quiz (말하기 퀴즈)  — single-file HTML + CSS + Vanilla JS
+   ----------------------------------------------------------------------------
+   로그인 학생의 "배정 교재 · 레벨"에 맞춘 단어/문장을 /api/games/vocab
+   (MangoiGameVocab.load) 로 받아 출제한다. (로그인 안 됨/데이터 없음 → 기본 어휘 폴백)
+   흐름: 단어·문장을 번갈아 → 🔊 원어민 발음 듣기 → 🎤 따라 말하기(음성인식)
+        → confidence>0.70 & 문장일치면 정답 → 목표(기본 10개) 달성 시 결과.
+   마이크 막힘/미지원 시 "통과(스킵)" 로 진행.
+  ============================================================================
+-->
+<style>
+  :root{
+    --deepblue:#0b1b3a; --emerald:#10b981; --gold:#fbbf24;
+    --good:#22c55e; --bad:#ef4444; --blue:#3b82f6;
+    --tx:#e8f0ff; --sub:#9fb3d6; --line:rgba(255,255,255,.12); --panel:rgba(10,18,38,.72);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{font-family:'Noto Sans KR','Segoe UI',sans-serif;color:var(--tx);overflow:hidden;user-select:none;
+    background:radial-gradient(120% 90% at 50% 0%,#1c3566 0%,#081227 70%)}
+  #app{position:relative;width:100%;height:100dvh;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+  .scene{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden}
+  .scene.active{display:flex}
+
+  /* ===== HUD ===== */
+  .hud{position:relative;z-index:20;display:flex;align-items:center;gap:8px;padding:9px 12px;
+    background:linear-gradient(180deg,rgba(8,16,34,.92),rgba(8,16,34,.5));backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .hud .home{background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:9px;color:var(--tx);
+    font-size:16px;padding:5px 9px;cursor:pointer;font-family:inherit}
+  .stat{display:flex;flex-direction:column;line-height:1.1}
+  .stat .lab{font-size:10px;color:var(--sub);font-weight:600}
+  .stat .val{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
+  #scoreVal{color:var(--gold)}
+  .pill{background:rgba(59,130,246,.2);border:1px solid rgba(59,130,246,.5);color:#bcd6ff;
+    font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px;white-space:nowrap}
+  .book-badge{margin-left:auto;font-size:10px;color:var(--sub);background:rgba(8,16,34,.6);border:1px solid var(--line);
+    border-radius:8px;padding:4px 8px;max-width:44%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .iconbtn{background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:9px;color:var(--tx);
+    font-size:15px;line-height:1;padding:6px 8px;cursor:pointer;font-family:inherit}
+  .iconbtn.off{opacity:.38;text-decoration:line-through}
+
+  /* ===== 진행 바 ===== */
+  .progress{position:relative;z-index:20;height:7px;background:rgba(255,255,255,.08)}
+  .progress > i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--emerald),var(--gold));transition:width .4s ease}
+
+  /* ===== 메뉴 ===== */
+  #menu{align-items:center;justify-content:center;padding:18px}
+  .menu-card{width:min(94%,520px);text-align:center}
+  .menu-card .brand{font-size:12px;font-weight:800;letter-spacing:2px;color:var(--gold);margin-bottom:6px}
+  .menu-card h1{font-size:27px;font-weight:900;margin-bottom:8px}
+  .menu-card h1 .em{color:var(--emerald)}
+  .menu-card .sub{font-size:13px;color:var(--sub);margin-bottom:16px;line-height:1.6}
+  .info{display:flex;flex-direction:column;gap:6px;background:rgba(255,255,255,.05);border:1px solid var(--line);
+    border-radius:14px;padding:14px;margin-bottom:16px;text-align:left}
+  .info .row{display:flex;justify-content:space-between;font-size:13px}
+  .info .row .k{color:var(--sub);font-weight:600}
+  .info .row .v{color:var(--tx);font-weight:800}
+  .info .note{font-size:11px;color:var(--sub);margin-top:2px}
+  .modes{display:flex;gap:8px;margin-bottom:16px}
+  .modes button{flex:1;background:rgba(16,185,129,.12);border:1px solid var(--line);color:var(--sub);
+    font-size:13px;font-weight:800;border-radius:10px;padding:10px 6px;cursor:pointer;font-family:inherit;transition:.15s}
+  .modes button.on{background:rgba(16,185,129,.28);border-color:var(--emerald);color:#bbf7d0;box-shadow:0 0 0 1px var(--emerald) inset}
+  .modes button:active{transform:scale(.96)}
+  .startbtn{width:100%;background:linear-gradient(135deg,var(--emerald),#059669);color:#04241a;border:none;
+    border-radius:14px;padding:16px;font-size:18px;font-weight:900;cursor:pointer;font-family:inherit;
+    box-shadow:0 10px 26px rgba(16,185,129,.35)}
+  .startbtn:active{transform:scale(.98)}
+  .warn{font-size:11px;color:#fca5a5;margin-top:12px;min-height:14px}
+
+  /* ===== 플레이 ===== */
+  #play{align-items:center;justify-content:flex-start}
+  .field{flex:1 1 auto;min-height:0;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;padding:16px;text-align:center}
+  .typechip{font-size:12px;font-weight:800;letter-spacing:1px;padding:5px 14px;border-radius:999px;text-transform:uppercase}
+  .typechip.word{background:rgba(59,130,246,.2);color:#bcd6ff;border:1px solid rgba(59,130,246,.5)}
+  .typechip.sentence{background:rgba(168,85,247,.2);color:#e2c4ff;border:1px solid rgba(168,85,247,.5)}
+  .target-card{width:min(96%,620px);background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:20px;
+    padding:22px 20px;box-shadow:0 12px 34px rgba(0,0,0,.4)}
+  .target-en{font-size:clamp(26px,6vmin,52px);font-weight:900;color:#fff;line-height:1.2;word-break:keep-all}
+  .target-ko{font-size:clamp(14px,2.6vmin,22px);color:var(--sub);font-weight:600;margin-top:10px}
+  .listen{margin-top:16px;background:rgba(34,197,94,.18);border:1px solid rgba(34,197,94,.5);color:#86efac;
+    font-size:14px;font-weight:800;padding:9px 18px;border-radius:999px;cursor:pointer;font-family:inherit}
+  .listen:active{transform:scale(.96)}
+  .mic-btn{background:var(--emerald);color:#04241a;border:none;border-radius:18px;padding:17px 30px;font-size:18px;
+    font-weight:900;cursor:pointer;font-family:inherit;box-shadow:0 8px 24px rgba(16,185,129,.4);
+    display:flex;align-items:center;justify-content:center;gap:9px;min-width:min(90%,360px)}
+  .mic-btn:active{transform:scale(.97)}
+  .mic-btn:disabled{opacity:.5;cursor:default}
+  .mic-btn.listening{background:var(--bad);color:#fff;box-shadow:0 8px 24px rgba(239,68,68,.45);animation:micPulse 1s infinite}
+  @keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.5)}50%{box-shadow:0 0 0 14px rgba(239,68,68,0)}}
+  .status{font-size:13.5px;color:var(--sub);min-height:40px;line-height:1.5;max-width:min(96%,620px)}
+  .heard{color:#bcd6ff;font-weight:700}
+  .conf{font-variant-numeric:tabular-nums} .conf.ok{color:var(--good)} .conf.no{color:var(--bad)}
+  .skip{margin-top:2px;font-size:12px;color:var(--sub);opacity:.7;cursor:pointer;background:none;border:none;
+    font-family:inherit;text-decoration:underline dotted}
+  .skip:hover{opacity:1;color:var(--gold)}
+
+  /* ===== 토스트 ===== */
+  #toast{position:absolute;left:50%;bottom:76px;transform:translateX(-50%) translateY(20px);z-index:60;
+    background:rgba(8,16,34,.95);border:1px solid var(--line);border-radius:12px;padding:11px 18px;
+    font-size:14px;font-weight:700;color:var(--tx);box-shadow:0 12px 30px rgba(0,0,0,.5);opacity:0;
+    transition:opacity .25s,transform .25s;pointer-events:none;max-width:88%;text-align:center}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.bad{border-color:var(--bad);color:#fecaca} #toast.good{border-color:var(--good);color:#bbf7d0}
+
+  /* ===== 결과 오버레이 ===== */
+  .overlay{position:absolute;inset:0;z-index:40;display:none;align-items:center;justify-content:center;
+    background:rgba(4,9,22,.9);backdrop-filter:blur(5px);padding:16px}
+  .overlay.show{display:flex}
+  .card{width:min(93%,430px);background:linear-gradient(180deg,#16233f,#0d1730);border:1px solid var(--line);
+    border-radius:18px;padding:24px 20px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.6)}
+  .card h2{font-size:22px;font-weight:900;margin-bottom:6px}
+  .big{font-size:44px;font-weight:900;color:var(--gold);margin:6px 0}
+  .stars{font-size:30px;letter-spacing:4px;margin:2px 0 8px}
+  .card .best{color:#7fd1ff;font-weight:700;margin-bottom:12px;font-size:13px}
+  .rules{text-align:left;font-size:12.5px;color:#c7d3ea;background:rgba(255,255,255,.05);border-radius:11px;
+    padding:11px 13px;margin:8px 0 4px;line-height:1.7}
+  .row{display:flex;gap:8px;margin-top:12px}
+  .btn{flex:1;background:var(--gold);color:#3a2e05;border:none;border-radius:11px;padding:13px 20px;font-size:16px;
+    font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 8px 20px rgba(251,191,36,.35)}
+  .btn:active{transform:scale(.96)}
+  .btn.ghost{background:rgba(255,255,255,.08);color:var(--tx);box-shadow:none;border:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===== 메뉴 ===== -->
+  <section class="scene active" id="menu">
+    <div class="menu-card">
+      <div class="brand">MANGOI · SPEAKING QUIZ</div>
+      <h1>🗣️ 말하기 <span class="em">퀴즈</span></h1>
+      <div class="sub">내 <b>교재·레벨</b>에 맞춘 <b>단어·문장</b>을<br>원어민 발음으로 듣고 <b>따라 말하며</b> 익혀요!</div>
+
+      <div class="info" id="infoBox">
+        <div class="row"><span class="k">📚 교재</span><span class="v" id="infoBook">불러오는 중…</span></div>
+        <div class="row"><span class="k">🎯 레벨</span><span class="v" id="infoLevel">—</span></div>
+        <div class="row"><span class="k">🙋 학생</span><span class="v" id="infoStudent">—</span></div>
+        <div class="note" id="infoNote">로그인하면 배정된 교재/레벨 문장으로 맞춤 출제됩니다.</div>
+      </div>
+
+      <div class="modes" id="modePick">
+        <button data-mode="mix" class="on">🔀 단어+문장</button>
+        <button data-mode="word">🔤 단어만</button>
+        <button data-mode="sentence">💬 문장만</button>
+      </div>
+
+      <button class="startbtn" id="startBtn">시작하기 ▶</button>
+      <div class="warn" id="voiceWarn"></div>
+    </div>
+  </section>
+
+  <!-- ===== 플레이 ===== -->
+  <section class="scene" id="play">
+    <div class="hud">
+      <button class="home" id="homeBtn">🏠</button>
+      <div class="stat"><span class="lab">점수</span><span class="val" id="scoreVal">0</span></div>
+      <span class="pill" id="progPill">0 / 10</span>
+      <button class="iconbtn" id="soundBtn" title="소리 켜기/끄기">🔊</button>
+      <div class="book-badge" id="bookBadge">🔊 음성 준비 중…</div>
+    </div>
+    <div class="progress"><i id="progBar"></i></div>
+    <div class="field" id="field">
+      <span class="typechip word" id="typeChip">단어</span>
+      <div class="target-card">
+        <div class="target-en" id="targetEn">—</div>
+        <div class="target-ko" id="targetKo"></div>
+        <button class="listen" id="listenBtn">🔊 다시 듣기</button>
+      </div>
+      <button class="mic-btn" id="micBtn">🎤 누르고 말하기</button>
+      <div class="status" id="status">먼저 원어민 발음을 잘 들어보세요 🎧</div>
+      <button class="skip" id="skipBtn">통과(스킵) ▶</button>
+    </div>
+  </section>
+
+  <!-- ===== 결과 ===== -->
+  <div class="overlay" id="resultOverlay">
+    <div class="card" id="resultCard"></div>
+  </div>
+
+  <!-- ===== 토스트 ===== -->
+  <div id="toast"></div>
+</div>
+
+<script src="/js/game-vocab.js"></script>
+<script>
+(function(){
+  'use strict';
+
+  /* ── 파라미터(허브가 넘김: goal/glang) ── */
+  var QS = new URLSearchParams(location.search);
+  var GOAL = (function(){ var g=parseInt(QS.get('goal'),10); return (g>=3&&g<=50)?g:10; })();
+  var GLANG = (QS.get('glang')||'en').toLowerCase();
+
+  /* ── 기본 어휘(로그인 안 됨/데이터 없음 폴백) ── */
+  var FALLBACK_WORDS = [
+    {en:'apple',ko:'사과'},{en:'book',ko:'책'},{en:'cat',ko:'고양이'},{en:'dog',ko:'강아지'},
+    {en:'flower',ko:'꽃'},{en:'school',ko:'학교'},{en:'water',ko:'물'},{en:'sun',ko:'태양'},
+    {en:'moon',ko:'달'},{en:'star',ko:'별'},{en:'friend',ko:'친구'},{en:'happy',ko:'행복한'}
+  ];
+  var FALLBACK_SENTENCES = [
+    {en:'I love mango fruit.',ko:'나는 망고를 좋아해요.'},
+    {en:'She is reading a book.',ko:'그녀는 책을 읽고 있어요.'},
+    {en:'We go to school every day.',ko:'우리는 매일 학교에 가요.'},
+    {en:'My dog is very cute.',ko:'내 강아지는 매우 귀여워요.'},
+    {en:'The sun is shining brightly.',ko:'태양이 밝게 빛나고 있어요.'},
+    {en:'They are good friends.',ko:'그들은 좋은 친구예요.'}
+  ];
+
+  var VOCAB = { words: FALLBACK_WORDS.slice(), sentences: FALLBACK_SENTENCES.slice(), textbook:'', level:'', student:'', matched:false };
+
+  var $ = function(s){ return document.querySelector(s); };
+  function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
+
+  /* ── 📚 로그인 학생 교재/레벨 맞춤 어휘 로드 ── */
+  function loadVocab(){
+    try{
+      if(window.MangoiGameVocab && GLANG!=='zh'){
+        return MangoiGameVocab.load().then(function(d){
+          if(d){
+            if(d.words && d.words.length) VOCAB.words = d.words.slice();
+            if(d.sentences && d.sentences.length) VOCAB.sentences = d.sentences.map(function(s){ return {en:s.en, ko:s.ko||''}; });
+            VOCAB.textbook = d.textbook||''; VOCAB.level = d.level||''; VOCAB.student = d.student||'';
+            VOCAB.matched = !!(d.textbook || d.level || (d.words&&d.words.length) || (d.sentences&&d.sentences.length));
+          }
+          return VOCAB;
+        }).catch(function(){ return VOCAB; });
+      }
+    }catch(e){}
+    return Promise.resolve(VOCAB);
+  }
+  function paintInfo(){
+    $('#infoBook').textContent = VOCAB.textbook || (VOCAB.matched?'배정 교재':'기본 어휘(로그인 시 맞춤)');
+    $('#infoLevel').textContent = VOCAB.level || '—';
+    $('#infoStudent').textContent = VOCAB.student || '—';
+    $('#infoNote').textContent = VOCAB.matched
+      ? '✅ 배정된 교재·레벨에 맞춰 출제됩니다.'
+      : '로그인하면 배정된 교재/레벨 단어·문장으로 맞춤 출제됩니다. (지금은 기본 어휘)';
+    var badge = VOCAB.textbook ? ('📚 '+VOCAB.textbook+(VOCAB.level?(' · '+VOCAB.level):'')) : (VOCAB.matched?'📚 맞춤 출제':'📚 기본 어휘');
+    $('#bookBadge').setAttribute('data-book', badge);
+  }
+
+  /* ── 🔊 TTS (원어민 음성) ── */
+  var synth = ('speechSynthesis' in window) ? window.speechSynthesis : null, enVoice=null;
+  function scoreVoice(v){
+    var n=(v.name||'').toLowerCase(), lang=(v.lang||'').toLowerCase(), s=0;
+    if(lang==='en-us') s+=40; else if(lang==='en-gb'||lang==='en-au') s+=28; else if(lang.slice(0,2)==='en') s+=18; else s-=120;
+    if(/natural|neural/.test(n)) s+=70; if(/google/.test(n)) s+=60;
+    if(/\b(aria|jenny|guy|ava|emma|libby|michelle|jane|nova|sara|brian|christopher)\b/.test(n)) s+=48;
+    if(/\b(samantha|alex|allison|ava|tom|siri|nicky|evan|joelle|nathan)\b/.test(n)) s+=46;
+    if(/online/.test(n)) s+=24; if(/premium|enhanced|plus/.test(n)) s+=24; if(v.localService===false) s+=30;
+    if(/zira|david|mark|hazel|george|susan|catherine|linda|richard|sean|heera|ravi/.test(n)) s-=55;
+    if(/desktop|compact|espeak|pico|microsoft server/.test(n)) s-=45;
+    if(/zarvox|albert|bahh|bells|boing|bubbles|cellos|trinoids|whisper|wobble|jester|organ|superstar|bad news|good news|deranged|hysterical|pipe|ralph|fred|junior|kathy/.test(n)) s-=90;
+    return s;
+  }
+  function pickVoice(){
+    if(!synth) return; var vs=synth.getVoices(); if(!vs.length) return;
+    var en=vs.filter(function(v){ return (v.lang||'').slice(0,2).toLowerCase()==='en'; });
+    if(en.length){ var best=null,bs=-1e9; en.forEach(function(v){ var sc=scoreVoice(v); if(sc>bs){bs=sc;best=v;} }); enVoice=best; }
+    else enVoice=null;
+  }
+  if(synth){ pickVoice(); synth.onvoiceschanged=pickVoice; }
+  var SOUND_ON = true;
+  function speak(text, cb){
+    if(!synth || !SOUND_ON){ if(cb) cb(); return; }
+    try{
+      synth.cancel();
+      var u=new SpeechSynthesisUtterance(String(text||'').replace(/[.?!]+$/,''));
+      u.lang='en-US'; u.rate=0.94; u.pitch=1.02; u.volume=1;
+      if(enVoice){ u.voice=enVoice; u.lang=enVoice.lang||'en-US'; }
+      if(cb){ var done=false; u.onend=function(){ if(!done){done=true;cb();} }; setTimeout(function(){ if(!done){done=true;cb();} },3800); }
+      synth.speak(u);
+    }catch(e){ if(cb) cb(); }
+  }
+
+  /* ── 문장 일치 판정(관대) ── */
+  function norm(s){ return (s||'').toLowerCase().replace(/[^a-z0-9' ]/g,'').replace(/\s+/g,' ').trim(); }
+  function _clean(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+  function _lev(a,b){ var m=a.length,n=b.length; if(!m)return n; if(!n)return m; var prev=[],cur=[],i,j;
+    for(j=0;j<=n;j++)prev[j]=j; for(i=1;i<=m;i++){ cur[0]=i; for(j=1;j<=n;j++){ var c=a.charAt(i-1)===b.charAt(j-1)?0:1; cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+c); } var t=prev;prev=cur;cur=t; } return prev[n]; }
+  function simRatio(a,b){ a=_clean(a); b=_clean(b); if(!a||!b)return 0; if(a===b)return 1; var L=Math.max(a.length,b.length); return L?(1-_lev(a,b)/L):0; }
+  function matchSpoken(heard, target){
+    var h=norm(heard), t=norm(target); if(!h||!t) return false;
+    if(h===t) return true;
+    if(h.replace(/ /g,'')===t.replace(/ /g,'')) return true;
+    var ht=h.split(' '), tt=t.split(' '), m=0;
+    tt.forEach(function(w){ var k=ht.indexOf(w); if(k>=0){ ht.splice(k,1); m++; } });
+    // 단어 1개 문제는 유사도로도 통과(발음 인식 관대)
+    if(tt.length<=1) return (m>=1) || simRatio(h,t)>=0.7;
+    return (m/tt.length) >= 0.7;
+  }
+
+  /* ── 음성 인식 ── */
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  var CONF_TH = 0.70;
+  var recog=null, recogActive=false;
+
+  /* ── 게임 상태 ── */
+  var mode='mix';
+  var G = { queue:[], idx:0, score:0, done:0, cur:null, busy:false };
+
+  function buildQueue(){
+    var words = shuffle(VOCAB.words.slice());
+    var sents = shuffle(VOCAB.sentences.slice());
+    var q=[];
+    if(mode==='word'){ words.forEach(function(w){ q.push({type:'word', en:w.en, ko:w.ko}); }); }
+    else if(mode==='sentence'){ sents.forEach(function(s){ q.push({type:'sentence', en:s.en, ko:s.ko}); }); }
+    else {
+      // 번갈아(단어→문장) 섞기
+      var wi=0, si=0;
+      while(wi<words.length || si<sents.length){
+        if(wi<words.length){ q.push({type:'word', en:words[wi].en, ko:words[wi].ko}); wi++; }
+        if(si<sents.length){ q.push({type:'sentence', en:sents[si].en, ko:sents[si].ko}); si++; }
+      }
+    }
+    // 목표 개수만큼(모자라면 반복 채움)
+    if(!q.length) q.push({type:'word', en:'hello', ko:'안녕'});
+    var full=[]; while(full.length<GOAL){ full=full.concat(q); } return full.slice(0,GOAL);
+  }
+
+  /* ── 씬 전환 ── */
+  function show(id){ ['menu','play'].forEach(function(s){ $('#'+s).classList.toggle('active', s===id); });
+    $('#resultOverlay').classList.remove('show'); }
+  function toast(msg,kind){ var t=$('#toast'); t.textContent=msg; t.className='show'+(kind?(' '+kind):'');
+    clearTimeout(toast._t); toast._t=setTimeout(function(){ t.className=t.className.replace('show','').trim(); },1800); }
+
+  function updateHUD(){
+    $('#scoreVal').textContent=G.score;
+    $('#progPill').textContent=G.done+' / '+GOAL;
+    $('#progBar').style.width=Math.round(G.done/GOAL*100)+'%';
+    $('#bookBadge').textContent = $('#bookBadge').getAttribute('data-book') || '';
+  }
+
+  function start(){
+    G.queue=buildQueue(); G.idx=0; G.score=0; G.done=0; G.busy=false;
+    updateHUD(); show('play'); if(synth){ try{ speak(' '); }catch(e){} } nextItem();
+  }
+
+  function nextItem(){
+    if(G.idx>=G.queue.length){ finish(); return; }
+    G.cur=G.queue[G.idx]; G.busy=false;
+    var it=G.cur;
+    $('#typeChip').textContent = it.type==='word' ? '단어' : '문장';
+    $('#typeChip').className = 'typechip '+it.type;
+    $('#targetEn').textContent = it.en;
+    $('#targetKo').textContent = it.ko || '';
+    $('#status').innerHTML = '먼저 원어민 발음을 잘 들어보세요 🎧';
+    var mic=$('#micBtn'); mic.disabled=true; mic.classList.remove('listening'); mic.innerHTML='🔊 듣는 중…';
+    // 자동 1회 재생 → 끝나면 마이크 활성화
+    speak(it.en, function(){
+      mic.disabled=false; mic.innerHTML='🎤 누르고 말하기';
+      $('#status').innerHTML = SR ? '버튼을 누르고 <b>또렷하게</b> 따라 말하세요.' : '⚠ 이 브라우저는 음성인식 미지원 — <b>통과(스킵)</b>로 진행하세요.';
+    });
+  }
+
+  function award(it){
+    var pts = it.type==='sentence' ? 100 : 60;
+    G.score += pts; G.done++; updateHUD();
+    return pts;
+  }
+  function advance(){ G.idx++; setTimeout(nextItem, 650); }
+
+  function handleAttempt(heard, confidence, matchedFlag){
+    if(G.busy) return;
+    var it=G.cur;
+    var matched = (typeof matchedFlag==='boolean') ? matchedFlag : matchSpoken(heard, it.en);
+    var confOk = (confidence===0) || (confidence > CONF_TH);
+    var pass = matched && confOk;
+    var pct = Math.round(simRatio(heard, it.en)*100);
+    var line = '들린 말: <span class="heard">"'+(heard||'…')+'"</span> · 정확도 <span class="conf '+(matched?'ok':'no')+'">'+pct+'%</span>';
+    if(pass){
+      G.busy=true;
+      var pts=award(it);
+      $('#status').innerHTML = line + '<br>🎉 <b>정답! +'+pts+'점</b>';
+      toast('👍 +'+pts+'점!', 'good');
+      var mic=$('#micBtn'); mic.disabled=true; mic.classList.remove('listening'); mic.innerHTML='✅ 통과';
+      advance();
+    } else {
+      $('#status').innerHTML = line + '<br>😅 다시 한 번 또렷하게 말해보세요.';
+      toast('다시 말해보세요!', 'bad');
+    }
+  }
+
+  function setupRecognition(){
+    if(!SR) return null;
+    var r=new SR(); r.lang='en-US'; r.interimResults=false; r.maxAlternatives=3; r.continuous=false;
+    r.onstart=function(){ recogActive=true; var m=$('#micBtn'); m.classList.add('listening'); m.innerHTML='🔴 듣는 중… 말하세요'; };
+    r.onerror=function(ev){ recogActive=false; var m=$('#micBtn'); m.classList.remove('listening'); m.innerHTML='🎤 다시 말하기'; m.disabled=false;
+      if(ev.error==='not-allowed'||ev.error==='service-not-allowed') $('#status').innerHTML='⚠ 마이크 권한이 필요합니다. 브라우저에서 허용하거나 <b>통과(스킵)</b>를 눌러주세요.';
+      else if(ev.error==='no-speech') $('#status').innerHTML='소리가 들리지 않았어요. 다시 시도해 주세요 🎤'; };
+    r.onend=function(){ recogActive=false; var m=$('#micBtn'); m.classList.remove('listening'); if(!G.busy){ m.innerHTML='🎤 다시 말하기'; m.disabled=false; } };
+    r.onresult=function(ev){
+      var res=ev.results[0], best=res[0], anyMatch=false;
+      for(var i=0;i<res.length;i++){ if(res[i].confidence>best.confidence) best=res[i]; if(matchSpoken(res[i].transcript||'', G.cur.en)) anyMatch=true; }
+      var heard=best.transcript||'', conf=(typeof best.confidence==='number'&&best.confidence>0)?best.confidence:0;
+      handleAttempt(heard, conf, anyMatch);
+    };
+    return r;
+  }
+
+  /* ── 결과 ── */
+  function finish(){
+    var maxScore = G.queue.reduce(function(a,it){ return a + (it.type==='sentence'?100:60); },0);
+    var ratio = maxScore ? G.score/maxScore : 0;
+    var stars = ratio>=0.85?'⭐⭐⭐':(ratio>=0.5?'⭐⭐':'⭐');
+    var key='mangoi_speakquiz_best';
+    var best=0; try{ best=+(localStorage.getItem(key)||0); }catch(e){}
+    if(G.score>best){ best=G.score; try{ localStorage.setItem(key,best); }catch(e){} }
+    try{ if(window.parent && window.parent!==window) window.parent.postMessage({type:'mangoi-game-complete', game:'speaking', score:G.score, best:best}, '*'); }catch(e){}
+    $('#resultCard').innerHTML =
+      '<h2>🗣️ 말하기 완료!</h2>'+
+      '<div class="stars">'+stars+'</div>'+
+      '<div class="big">'+G.score+'점</div>'+
+      '<div class="best">🏆 최고 '+best+'점 · '+GOAL+'문제 말하기 완료</div>'+
+      '<div class="rules">'+
+        (VOCAB.textbook?('• 📚 <b>'+VOCAB.textbook+'</b>'+(VOCAB.level?(' · '+VOCAB.level):'')+' 맞춤 출제<br>'):'')+
+        '• 단어·문장을 원어민 발음으로 듣고 따라 말했어요!'+
+      '</div>'+
+      '<div class="row">'+
+        '<button class="btn ghost" id="rMenu">메뉴 🏠</button>'+
+        '<button class="btn" id="rAgain">다시 하기 ↻</button>'+
+      '</div>';
+    $('#resultOverlay').classList.add('show');
+    $('#rMenu').addEventListener('click', function(){ if(synth)synth.cancel(); show('menu'); });
+    $('#rAgain').addEventListener('click', function(){ $('#resultOverlay').classList.remove('show'); start(); });
+  }
+
+  /* ── 이벤트 ── */
+  $('#modePick').addEventListener('click', function(e){
+    var b=e.target.closest('button'); if(!b) return; mode=b.getAttribute('data-mode');
+    [].forEach.call(this.querySelectorAll('button'), function(x){ x.classList.toggle('on', x===b); });
+  });
+  $('#startBtn').addEventListener('click', start);
+  $('#homeBtn').addEventListener('click', function(){ if(synth)synth.cancel(); if(recogActive){try{recog.stop();}catch(e){}} show('menu'); });
+  $('#listenBtn').addEventListener('click', function(){ if(G.cur) speak(G.cur.en); });
+  $('#micBtn').addEventListener('click', function(){
+    if(this.disabled) return;
+    if(!SR){ $('#status').innerHTML='⚠ 이 브라우저는 음성인식을 지원하지 않습니다. <b>통과(스킵)</b>를 사용하세요.'; return; }
+    if(recogActive){ try{ recog.stop(); }catch(e){} return; }
+    if(!recog) recog=setupRecognition();
+    try{ recog.start(); }catch(e){}
+  });
+  $('#skipBtn').addEventListener('click', function(){
+    if(G.busy) return; G.busy=true;
+    if(recogActive){ try{ recog.stop(); }catch(e){} }
+    award(G.cur);
+    $('#status').innerHTML='🧑‍🏫 통과 처리했어요. 다음 문제로!';
+    toast('통과 ▶','good');
+    var mic=$('#micBtn'); mic.disabled=true; mic.classList.remove('listening'); mic.innerHTML='➡ 통과';
+    advance();
+  });
+  $('#soundBtn').addEventListener('click', function(){
+    SOUND_ON=!SOUND_ON; this.classList.toggle('off', !SOUND_ON);
+    if(!SOUND_ON && synth) synth.cancel();
+    toast(SOUND_ON?'🔊 소리 켜짐':'🔇 소리 꺼짐', SOUND_ON?'good':'');
+  });
+
+  /* ── 앱 전환 시 음성 정지 ── */
+  document.addEventListener('visibilitychange', function(){ if(document.hidden){ if(synth)synth.cancel(); if(recogActive){try{recog.stop();}catch(e){}} } });
+
+  /* ── 초기화 ── */
+  var warn=[]; if(!synth) warn.push('음성 합성(TTS)'); if(!SR) warn.push('음성 인식(말하기)');
+  if(warn.length) $('#voiceWarn').textContent='⚠ 이 브라우저는 '+warn.join(' / ')+'을(를) 지원하지 않을 수 있어요. (Chrome 권장 · 말하기는 통과로 진행 가능)';
+
+  loadVocab().then(function(){ paintInfo(); });
+
+})();
+</script>
+<!-- BUILD:20260704 speakquiz1 -->
+<!-- BUILD:20260704171150 -->
+</body>
+</html>
