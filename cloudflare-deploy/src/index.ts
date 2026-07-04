@@ -517,6 +517,52 @@ export default {
       }
     }
 
+    // 🔊 무료 '기계음' 전용 TTS — Google 번역 TTS(무료·무키·크레딧 0). Typecast 절대 안 씀.
+    //    사이드바 음성안내처럼 '클릭마다' 울리는 곳에서 비용 없이, OS 한국어 음성 유무와 무관하게 소리내기 위함.
+    //    Google TTS 는 요청당 ~200자 제한 → 서버에서 문장 단위로 잘라 여러 번 받아 MP3 를 이어붙여 반환한다.
+    if (path === '/api/tts-free' && request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' } });
+    }
+    if (path === '/api/tts-free' && request.method === 'POST') {
+      const freeHeaders = { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' };
+      try {
+        let text = '';
+        try { text = String((JSON.parse((await request.text()) || '{}') || {}).text || ''); } catch { text = ''; }
+        text = text.replace(/\s+/g, ' ').trim().slice(0, 600);
+        if (!text) return new Response('empty', { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } });
+
+        // ≤180자 청크로 분할(마침표/쉼표/공백 경계 우선)
+        const chunks: string[] = [];
+        let rest = text;
+        while (rest.length) {
+          if (rest.length <= 180) { chunks.push(rest); break; }
+          let cut = rest.slice(0, 180);
+          const b = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('。'), cut.lastIndexOf(', '), cut.lastIndexOf(' '));
+          if (b > 60) cut = rest.slice(0, b + 1);
+          chunks.push(cut.trim());
+          rest = rest.slice(cut.length);
+        }
+
+        const parts: Uint8Array[] = [];
+        for (const c of chunks) {
+          if (!c) continue;
+          const g = await fetch(`https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ko&q=${encodeURIComponent(c)}`, {
+            headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://translate.google.com/' },
+          });
+          if (g.ok) { const buf = new Uint8Array(await g.arrayBuffer()); if (buf.byteLength > 200) parts.push(buf); }
+        }
+        if (!parts.length) return new Response('tts_failed', { status: 502, headers: { 'Access-Control-Allow-Origin': '*' } });
+
+        const total = parts.reduce((n, p) => n + p.byteLength, 0);
+        const out = new Uint8Array(total);
+        let off = 0;
+        for (const p of parts) { out.set(p, off); off += p.byteLength; }
+        return new Response(out, { status: 200, headers: freeHeaders });
+      } catch (e: any) {
+        return new Response('tts_free_error: ' + (e?.message || ''), { status: 502, headers: { 'Access-Control-Allow-Origin': '*' } });
+      }
+    }
+
     // R2 녹화 블롭 저장소 (MediaRecorder → POST /api/recordings/blob/upload)
     // Mango DB API(`/api/recordings`)와 공존하도록 `/blob/` 서브경로 사용
     if (path === '/api/recordings/blob/upload' && request.method === 'POST') {
