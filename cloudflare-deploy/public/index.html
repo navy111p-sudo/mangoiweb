@@ -1383,11 +1383,11 @@
         .video-detach-btn:hover { background: rgba(37,99,235,0.85); }
 
         /* 🌟 (2026-07-04) 실시간 칭찬 포인트 — 강사가 학생 화면의 별 버튼을 눌러 즉석 +1P 지급
-           🔧 (2026-07-05 v3) 우상단 배치로 통일 — 이 박스의 우상단 모서리는 비어 있음
-           (좌상단=분리버튼, 좌하단=이름, 우하단=상태표시). 좁은 박스에선 글자를 감춰 아이콘만
-           남는 원형(.vc-star-compact)으로 축소 → 어떤 크기의 얼굴 박스에서도 절대 안 겹침. */
+           🔧 (2026-07-05 v4) 좌상단(왼쪽 위) 배치 — 우상단은 영상 크기조절 손잡이(⤡ 주황 줄무늬)와
+           겹쳐서 왼쪽으로 이동. 이 박스의 분리버튼(원래 좌상단)은 칭찬 UI 있는 박스에선 JS로 숨겨
+           충돌 제거. 좁은 박스에선 글자를 감춰 아이콘만 남는 원형(.vc-star-compact)으로 축소. */
         .vc-star-btn {
-            position: absolute; top: 6px; right: 6px; z-index: 8;
+            position: absolute; top: 6px; left: 8px; z-index: 8;
             min-height: 28px; padding: 4px 10px 4px 8px; border-radius: 999px; border: none;
             background: radial-gradient(circle at 30% 25%, #fff7cc, #fbbf24 60%, #d97706);
             color: #7c2d12; font-size: 12.5px; font-weight: 800; cursor: pointer;
@@ -1406,7 +1406,7 @@
         @keyframes vcStarPop { 0%{transform:scale(1)} 35%{transform:scale(1.35) rotate(-12deg)} 100%{transform:scale(1) rotate(0)} }
         .vc-star-btn.vc-star-pop { animation: vcStarPop 0.45s ease; }
         .vc-star-toast {
-            position: absolute; top: 40px; right: 6px; z-index: 9;
+            position: absolute; top: 40px; left: 8px; right: auto; z-index: 9;
             background: rgba(15,23,42,0.92); color: #fde68a; font-size: 11px; font-weight: 700;
             padding: 4px 9px; border-radius: 999px; white-space: nowrap;
             opacity: 0; transform: translateY(-4px); transition: opacity 0.2s, transform 0.2s;
@@ -1417,7 +1417,7 @@
         /* 🧺 학생 전용 — 이번 수업 받은 포인트 바구니 (본인 화면에만 표시)
            🔧 (2026-07-05 v3) 별 버튼과 같은 우상단 규칙 + 좁은 박스 축소(.vc-star-compact). */
         .vc-point-basket {
-            position: absolute; top: 6px; right: 6px; z-index: 8;
+            position: absolute; top: 6px; left: 8px; z-index: 8;
             display: inline-flex; align-items: center; gap: 4px;
             background: linear-gradient(135deg, rgba(120,53,15,0.9), rgba(180,83,9,0.9));
             border: 1px solid rgba(253,230,138,0.55);
@@ -1431,7 +1431,7 @@
         .vc-point-basket.vpb-bump { animation: vpbBump 0.5s ease; }
         @keyframes vpbBump { 0%{transform:scale(1)} 30%{transform:scale(1.3) rotate(-6deg)} 60%{transform:scale(0.95)} 100%{transform:scale(1)} }
         .vpb-fly {
-            position: absolute; top: 40px; right: 10px; z-index: 9;
+            position: absolute; top: 40px; left: 12px; right: auto; z-index: 9;
             color: #fde68a; font-size: 13px; font-weight: 900; pointer-events: none;
             text-shadow: 0 2px 6px rgba(0,0,0,0.6);
             animation: vpbFly 1s ease-out forwards;
@@ -9876,12 +9876,19 @@ function vcRefreshPraiseUI(){
     } catch(e){}
 }
 // 얼굴 박스가 좁으면(<170px) 별/바구니를 아이콘만 남기는 원형으로 축소해 다른 배지와 안 겹치게.
+// + 칭찬 UI(좌상단)가 있는 박스는 분리버튼(원래 좌상단)을 숨겨 좌상단 충돌을 없앤다.
 function vcApplyPraiseCompact(){
     try {
         document.querySelectorAll('.vc-star-btn, .vc-point-basket').forEach(function(el){
             var box = el.closest('.video-box');
             var w = box ? box.getBoundingClientRect().width : 999;
             el.classList.toggle('vc-star-compact', w > 0 && w < 170);
+        });
+        document.querySelectorAll('.video-box').forEach(function(box){
+            var detach = box.querySelector('.video-detach-btn');
+            if (!detach) return;
+            var hasPraise = box.querySelector('.vc-star-btn, .vc-point-basket');
+            detach.style.display = hasPraise ? 'none' : '';
         });
     } catch(e){}
 }
@@ -23266,7 +23273,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260705044413 -->
+<!-- BUILD:20260705045408 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
