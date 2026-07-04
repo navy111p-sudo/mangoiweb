@@ -557,8 +557,134 @@
       </div>
     </div>
 
+    <!-- 🎯 수업 전 지도법 체크리스트 — 모두 체크해야 수업 입장 가능 -->
+    <div id="class-checklist" style="background:linear-gradient(135deg,var(--bg-card) 0%, var(--bg-card-2) 100%);border:1px solid var(--border);border-radius:18px;padding:20px 22px;margin-bottom:18px;box-shadow:var(--shadow-soft);transition:box-shadow .3s">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:15.5px;font-weight:800;color:var(--text-primary)" data-ko="🎯 수업 전 지도법 체크리스트" data-en="🎯 Pre-class teaching checklist">🎯 수업 전 지도법 체크리스트</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px" data-ko="오늘 이 학생을 어떻게 가르칠지 체크하고 입장하세요 (매일 초기화)" data-en="Check how you'll teach this student today before entering (resets daily)">오늘 이 학생을 어떻게 가르칠지 체크하고 입장하세요 (매일 초기화)</div>
+        </div>
+        <span id="checklist-progress" style="font-size:12.5px;font-weight:800;padding:5px 12px;border-radius:99px;background:rgba(239,68,68,0.15);color:#fca5a5;white-space:nowrap">0 / 4</span>
+      </div>
+      <div id="checklist-items" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+    <script>
+    (function(){
+      "use strict";
+      var CHECKLIST = [
+        { id:'student-talk', icon:'🗣️',
+          ko:'학생이 최대한 많이 말하게 하기', en:'Let the student talk as much as possible',
+          koSub:'교사는 질문을 짧게, 학생은 길게 답하도록 유도해요', enSub:'Ask short questions so the student answers at length' },
+        { id:'delay-correction', icon:'👂',
+          ko:'실수는 끝까지 듣고 나중에 부드럽게 교정하기', en:'Let mistakes go, correct gently afterward',
+          koSub:'말이 끊기지 않도록 문장이 끝난 뒤에 고쳐줘요', enSub:'Let the sentence finish, then correct it gently' },
+        { id:'praise', icon:'🙌',
+          ko:'칭찬과 격려로 자신감 심어주기', en:'Build confidence with praise & encouragement',
+          koSub:'작은 성공도 구체적으로 칭찬해 다음 말을 이어가게 해요', enSub:'Praise small wins specifically to keep them talking' },
+        { id:'apply', icon:'🔁',
+          ko:'배운 표현을 실제 상황에 적용해보게 하기', en:'Have them apply what they learned',
+          koSub:'역할극·예시 문장으로 오늘 배운 표현을 직접 써보게 해요', enSub:"Use role-play or example sentences to practice today's expressions" }
+      ];
+      function en(){ return window.getLang && window.getLang() === 'en'; }
+      function todayKey(){
+        var d = new Date();
+        var p = function(n){ return (n<10?'0':'')+n; };
+        return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+      }
+      var STORE_KEY = 'mangoi_class_checklist_' + todayKey();
+      function loadState(){ try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); } catch(e){ return {}; } }
+      function saveState(state){ try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e){} }
+      function isAllChecked(){
+        var state = loadState();
+        return CHECKLIST.every(function(item){ return !!state[item.id]; });
+      }
+
+      function showToast(msg, isErr){
+        var t = document.getElementById('mangoi-toast');
+        if (!t){ t = document.createElement('div'); t.id = 'mangoi-toast'; t.className = 'toast'; document.body.appendChild(t); }
+        t.textContent = msg;
+        t.className = 'toast show' + (isErr ? ' err' : '');
+        clearTimeout(t._hideTimer);
+        t._hideTimer = setTimeout(function(){ t.classList.remove('show'); }, 2600);
+      }
+
+      function blockClassEntry(){
+        var box = document.getElementById('class-checklist');
+        if (box){
+          box.scrollIntoView({ behavior:'smooth', block:'center' });
+          box.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.65), var(--shadow-soft)';
+          setTimeout(function(){ box.style.boxShadow = 'var(--shadow-soft)'; }, 1500);
+        }
+        showToast(en() ? 'Please check all items before entering class.' : '수업 입장 전에 체크리스트를 모두 확인해주세요.', true);
+      }
+
+      function updateGates(){
+        var complete = isAllChecked();
+        document.querySelectorAll('.js-enter-class-btn').forEach(function(btn){
+          btn.style.opacity = complete ? '1' : '0.55';
+          btn.style.filter = complete ? 'none' : 'grayscale(0.35)';
+          btn.style.cursor = complete ? 'pointer' : 'not-allowed';
+        });
+      }
+
+      function toggle(id){
+        var state = loadState();
+        state[id] = !state[id];
+        saveState(state);
+        renderChecklist();
+      }
+
+      function renderChecklist(){
+        var wrap = document.getElementById('checklist-items');
+        var progress = document.getElementById('checklist-progress');
+        if (!wrap) return;
+        var state = loadState();
+        var doneCount = 0;
+        wrap.innerHTML = '';
+        CHECKLIST.forEach(function(item){
+          var checked = !!state[item.id];
+          if (checked) doneCount++;
+          var row = document.createElement('div');
+          row.setAttribute('role', 'checkbox');
+          row.setAttribute('aria-checked', checked ? 'true' : 'false');
+          row.tabIndex = 0;
+          row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;cursor:pointer;transition:all .18s;' +
+            'border:1px solid ' + (checked ? 'rgba(16,185,129,0.4)' : 'var(--border)') + ';' +
+            'background:' + (checked ? 'rgba(16,185,129,0.10)' : 'rgba(0,0,0,0.15)') + ';';
+          row.innerHTML =
+            '<span style="width:24px;height:24px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;' +
+              'border:2px solid ' + (checked ? 'var(--green-1)' : 'var(--border-strong)') + ';background:' + (checked ? 'var(--green-1)' : 'transparent') + ';color:#fff">' + (checked ? '✓' : '') + '</span>' +
+            '<span style="font-size:18px">' + item.icon + '</span>' +
+            '<span style="flex:1;min-width:0">' +
+              '<span style="display:block;font-size:13.5px;font-weight:700;color:var(--text-primary)">' + (en() ? item.en : item.ko) + '</span>' +
+              '<span style="display:block;font-size:11.5px;color:var(--text-muted);margin-top:2px">' + (en() ? item.enSub : item.koSub) + '</span>' +
+            '</span>';
+          row.addEventListener('click', function(){ toggle(item.id); });
+          row.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggle(item.id); } });
+          wrap.appendChild(row);
+        });
+        if (progress){
+          var allDone = doneCount === CHECKLIST.length;
+          progress.textContent = doneCount + ' / ' + CHECKLIST.length;
+          progress.style.background = allDone ? 'rgba(16,185,129,0.18)' : 'rgba(239,68,68,0.15)';
+          progress.style.color = allDone ? '#6ee7b7' : '#fca5a5';
+        }
+        updateGates();
+      }
+
+      window.mangoiChecklistComplete = isAllChecked;
+      window.mangoiBlockClassEntry = blockClassEntry;
+      window.mangoiGoEnterClass = function(url){
+        if (!isAllChecked()){ blockClassEntry(); return; }
+        location.href = url;
+      };
+      window.addEventListener('mangoi:lang-changed', renderChecklist);
+      renderChecklist();
+    })();
+    </script>
+
     <!-- fix (2026-06-01) — 🎥 교사 수업 입장 카드 -->
-    <a href="javascript:void(0)" id="teacher-enter-class" onclick="enterClassAsTeacher();return false;"
+    <a href="javascript:void(0)" id="teacher-enter-class" class="js-enter-class-btn" onclick="enterClassAsTeacher();return false;"
        style="display:flex;align-items:center;gap:14px;margin:0 0 18px;padding:18px 20px;border-radius:16px;
               background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;text-decoration:none;
               box-shadow:0 10px 24px -8px rgba(37,99,235,0.6);cursor:pointer">
@@ -571,6 +697,10 @@
     </a>
     <script>
       async function enterClassAsTeacher(){
+        if (window.mangoiChecklistComplete && !window.mangoiChecklistComplete()){
+          window.mangoiBlockClassEntry && window.mangoiBlockClassEntry();
+          return;
+        }
         var tname = '교사';
         try {
           var r = await fetch('/api/admin/me', { credentials:'include' });
@@ -646,7 +776,7 @@
           <div id="lesson-next-info" style="font-size:11.5px;color:#dbeafe;margin-top:3px" data-ko="로딩 중…" data-en="Loading…">로딩 중…</div>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button onclick="location.href='/?menu=videocall-lobby'" style="padding:9px 16px;background:#fbbf24;color:#1a1a1a;border:0;border-radius:99px;font-weight:800;font-size:12.5px;cursor:pointer" data-ko="🎬 수업 입장" data-en="🎬 Enter class">🎬 수업 입장</button>
+          <button class="js-enter-class-btn" onclick="window.mangoiGoEnterClass('/?menu=videocall-lobby')" style="padding:9px 16px;background:#fbbf24;color:#1a1a1a;border:0;border-radius:99px;font-weight:800;font-size:12.5px;cursor:pointer" data-ko="🎬 수업 입장" data-en="🎬 Enter class">🎬 수업 입장</button>
           <button onclick="location.href='/lesson-postpone-demo.html'" style="padding:9px 14px;background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:99px;font-weight:700;font-size:12px;cursor:pointer" data-ko="📅 연기/변경" data-en="📅 Postpone/change">📅 연기/변경</button>
         </div>
       </div>
