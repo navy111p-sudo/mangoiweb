@@ -64,6 +64,7 @@
 
   // 칩 클릭 → 해당 도구 토글(열림/닫힘), 다른 하나는 닫힘
   window.mangoToggleToolDock = function (which, el) {
+    try { if (typeof window.vcSetContentCollapsed === 'function') window.vcSetContentCollapsed(false); } catch (_) {}
     try { if (typeof vcSwitchTab === 'function') vcSwitchTab('pdf'); } catch (_) {}
     var willOpen = !openState[which];
     openState.materials = false;

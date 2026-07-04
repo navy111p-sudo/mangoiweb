@@ -7185,11 +7185,11 @@
             <div class="tab-bar">
                 <button class="tab-btn active" onclick="vcToggleWhiteboardTools()" data-ko="🖊 칠판" data-en="🖊 Board">🖊 칠판</button>
                 <!-- 🔧 (2026-06-27) '📄 교재' 탭 버튼 제거 — 중복. PDF는 '📚 교재도구' 칩으로 접근(클릭 시 vcSwitchTab('pdf') 자동 호출). -->
-                <button class="tab-btn" onclick="vcSwitchTab('video')" data-ko="📹 동영상" data-en="📹 Video">📹 동영상</button>
-                <button class="tab-btn" onclick="vcSwitchTab('game')" data-ko="🎮 학생게임" data-en="🎮 Game">🎮 학생게임</button>
-                <button class="tab-btn" onclick="vcSwitchTab('bg')" data-ko="🎨 배경화면" data-en="🎨 Background">🎨 배경화면</button>
-                <button class="tab-btn" onclick="vcSwitchTab('warmup')" data-ko="🗣️ AI 웜업" data-en="🗣️ AI Warm-up" title="수업 전 AI 웜업 — 학생 사이드바와 동일 (영어로 입 풀기)">🗣️ AI 웜업</button>
-                <button class="tab-btn rqv-tab-btn" onclick="vcSwitchTab('review-quiz')" data-ko="🧠 복습퀴즈" data-en="🧠 Review Quiz" title="이 수업 교재·레벨·레슨에 맞는 복습퀴즈 (AI 자동 출제)">🧠 복습퀴즈</button>
+                <button class="tab-btn" onclick="vcToggleContentTab('video')" data-ko="📹 동영상" data-en="📹 Video">📹 동영상</button>
+                <button class="tab-btn" onclick="vcToggleContentTab('game')" data-ko="🎮 학생게임" data-en="🎮 Game">🎮 학생게임</button>
+                <button class="tab-btn" onclick="vcToggleContentTab('bg')" data-ko="🎨 배경화면" data-en="🎨 Background">🎨 배경화면</button>
+                <button class="tab-btn" onclick="vcToggleContentTab('warmup')" data-ko="🗣️ AI 웜업" data-en="🗣️ AI Warm-up" title="수업 전 AI 웜업 — 학생 사이드바와 동일 (영어로 입 풀기)">🗣️ AI 웜업</button>
+                <button class="tab-btn rqv-tab-btn" onclick="vcToggleContentTab('review-quiz')" data-ko="🧠 복습퀴즈" data-en="🧠 Review Quiz" title="이 수업 교재·레벨·레슨에 맞는 복습퀴즈 (AI 자동 출제)">🧠 복습퀴즈</button>
                 <!-- 복습퀴즈 옆: 교재도구 / 필기도구 토글 칩 (클릭 시 아래로 세로 드롭다운, 배경 투명) -->
                 <button class="mango-tool-chip" data-tool="materials" type="button" onclick="mangoToggleToolDock('materials', this)" title="교재도구 펼치기/접기">📚 교재도구 ▾</button>
                 <button class="mango-tool-chip" data-tool="write" type="button" onclick="mangoToggleToolDock('write', this)" title="필기도구 펼치기/접기">✍️ 필기도구 ▾</button>
@@ -10537,9 +10537,22 @@ function vcSwitchTab(tabName, evt) {
 
 // 🥭 (2026-07-04) "칠판" 탭 제목 자체를 도구(펜/지우개/색상 등) 토글로 사용 —
 //   다른 탭에 있다가 누르면 칠판 탭으로 이동 + 도구 펼침, 이미 칠판 탭이면 도구만 접힘/펼침 반복.
+// 🥭 (2026-07-05) 상단 탭바 전체 공통 토글 상태 — "콘텐츠(칠판/동영상/학생게임/배경/웜업/퀴즈) 영역"을
+//   누르면 펼쳐지고, 이미 펼쳐진 같은 탭을 다시 누르면 접히게(카메라 화면 위주로 복귀).
+//   교재도구/필기도구 칩(mango-tools-dock.js)도 이 상태를 같이 사용.
+window.vcIsContentCollapsed = function(){
+    var pane = document.getElementById('vc-content-pane');
+    return !!(pane && pane.classList.contains('vc-content-collapsed'));
+};
+window.vcSetContentCollapsed = function(collapsed){
+    var pane = document.getElementById('vc-content-pane');
+    var row = document.getElementById('vc-main-row');
+    if (pane) pane.classList.toggle('vc-content-collapsed', collapsed);
+    if (row) row.classList.toggle('vc-content-hidden', collapsed);
+};
 window.vcToggleWhiteboardTools = function(){
     var panel = document.getElementById('tab-whiteboard');
-    var alreadyOnBoard = panel && panel.classList.contains('active');
+    var alreadyOnBoard = panel && panel.classList.contains('active') && !vcIsContentCollapsed();
     var bar = document.querySelector('.wb-toolbar');
     function syncToggleBtn(collapsed){
         if (!bar) return;
@@ -10550,11 +10563,23 @@ window.vcToggleWhiteboardTools = function(){
         }
     }
     if (!alreadyOnBoard) {
+        vcSetContentCollapsed(false);
         vcSwitchTab('whiteboard');
         if (bar) { bar.classList.remove('ph49-collapsed'); syncToggleBtn(false); }
     } else if (bar) {
         var nowCollapsed = bar.classList.toggle('ph49-collapsed');
         syncToggleBtn(nowCollapsed);
+    }
+};
+// 동영상/학생게임/배경화면/AI웜업/복습퀴즈 — 다른 탭이면 전환+펼치기, 이미 보이는 같은 탭이면 접기.
+window.vcToggleContentTab = function(tabName){
+    var panel = document.getElementById('tab-' + tabName);
+    var alreadyShowing = panel && panel.classList.contains('active') && !vcIsContentCollapsed();
+    if (alreadyShowing) {
+        vcSetContentCollapsed(true);
+    } else {
+        vcSetContentCollapsed(false);
+        vcSwitchTab(tabName);
     }
 };
 
@@ -23209,7 +23234,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260705000927 -->
+<!-- BUILD:20260705001936 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -25086,6 +25111,15 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   body.vc-in-call .pdf-anno-bar button,
   body.vc-in-call .video-size-bar button {
     touch-action: manipulation !important;
+  }
+</style>
+
+<style id="mg-content-tab-toggle">
+  /* 🥭 (2026-07-05) 탭바(칠판/동영상/학생게임/배경/AI웜업/복습퀴즈) 전체 통일 토글 —
+     이미 보이는 탭을 다시 누르면 콘텐츠 영역을 접고, 그만큼 카메라 화면을 넓게. */
+  body.vc-in-call #vc-content-pane.vc-content-collapsed { display: none !important; }
+  body.vc-in-call #vc-main-row.vc-content-hidden .video-pane {
+    width: 100% !important; max-width: none !important; flex: 1 1 100% !important;
   }
 </style>
 <style id="mg-landscape-tools-restore">
