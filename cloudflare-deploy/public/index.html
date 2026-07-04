@@ -14234,6 +14234,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   window.openInquiryModal = function(opts){
+    if (modal.style.display === 'flex') { closeModal(); return; }
     form.reset();
     result.style.display = 'none';
     form.style.display = 'block';
@@ -16109,6 +16110,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // 포인트 상점 모달 ─────────────────────────────────────────────────
   window.showPointsShop = async function(){
+    var existing = document.getElementById('points-shop-overlay');
+    if (existing && existing.classList.contains('show')) { closePointsShop(); return; }
     var L = (window.getLang?window.getLang():'ko')==='ko';
     var u = getCurrentUser();
     if (!u) {
@@ -16709,6 +16712,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   window.openRemoteSupportModal = function(){
     var ov = document.getElementById('rs-overlay');
+    if (ov && ov.style.display === 'block') { closeRemoteSupportModal(); return; }
     if (!ov) {
       ov = document.createElement('div');
       ov.id = 'rs-overlay';
@@ -16876,6 +16880,12 @@ window.addEventListener('DOMContentLoaded', () => {
   // ════════════════ 🔥 출석 체크 ════════════════
   window.openDailyCheckin = async function(){
     const ov = getModal();
+    if (ov.classList.contains('show') && ov.dataset.feat === 'checkin') { closeFeat(); return; }
+    ov.dataset.feat = 'checkin';
+    await renderDailyCheckin();
+  };
+  async function renderDailyCheckin(){
+    const ov = getModal();
     const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
     const isKo = L();
     if (!u) {
@@ -16968,12 +16978,14 @@ window.addEventListener('DOMContentLoaded', () => {
         alert(L()?'✅ 이미 오늘 출석했어요':'✅ Already checked in today');
       }
     } catch(e) {}
-    openDailyCheckin(); // 다시 그리기
+    renderDailyCheckin(); // 다시 그리기
   };
 
   // ════════════════ 🏆 학원 랭킹 ════════════════
   window.openLeaderboard = async function(){
     const ov = getModal();
+    if (ov.classList.contains('show') && ov.dataset.feat === 'leaderboard') { closeFeat(); return; }
+    ov.dataset.feat = 'leaderboard';
     const isKo = L();
     const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
     ov.innerHTML = `<div class="feat-modal">
@@ -17017,6 +17029,8 @@ window.addEventListener('DOMContentLoaded', () => {
   // ════════════════ 🎯 학습 목표 / 30일 챌린지 ════════════════
   window.openLearningGoals = function(){
     const ov = getModal();
+    if (ov.classList.contains('show') && ov.dataset.feat === 'goals') { closeFeat(); return; }
+    ov.dataset.feat = 'goals';
     const isKo = L();
     const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
     // 메인 로그인 한 번이면 자동 사용 — 비로그인이면 guest 로 작동
@@ -18712,6 +18726,7 @@ window.addEventListener('DOMContentLoaded', () => {
   let mtState = { examId:null, examTitle:'', durationMin:20, questions:[], idx:0, attemptId:null, started:0, timerHandle:null, answers:{} };
 
   window.openMiniToeicModal = function(){
+    if (document.getElementById('mt-overlay')) { closeMtOverlay(); return; }
     const en = isEn();
     if (!uid()) { alert(en?'Please log in first.':'먼저 로그인하세요.'); return; }
     closeMtOverlay();
@@ -18860,6 +18875,7 @@ window.addEventListener('DOMContentLoaded', () => {
   let btlState = { tab:'home', poller:null, gameWords:[], gameIdx:0, gameScore:0, currentBattleId:null, currentBattleType:'word_quiz' };
 
   window.openBattleModal = function(){
+    if (document.getElementById('btl-overlay')) { closeBtlOverlay(); return; }
     const en = isEn();
     if (!uid()) { alert(en?'Please log in first.':'먼저 로그인하세요.'); return; }
     closeBtlOverlay();
@@ -19123,9 +19139,10 @@ window.addEventListener('DOMContentLoaded', () => {
   let vdState = { tab:'record', recorder:null, chunks:[], startMs:0, timer:null, lastBlob:null, lastDiaryId:null };
 
   window.openVoiceDiaryModal = function(){
+    const ov = document.getElementById('vd-overlay'); if (!ov) return;
+    if (ov.classList.contains('open')) { closeVoiceDiaryModal(); return; }
     const en = isEn();
     if (!uid()) { alert(en?'Please log in first.':'먼저 로그인하세요.'); return; }
-    const ov = document.getElementById('vd-overlay'); if (!ov) return;
     ov.classList.add('open');
     vdSwitchTab('record');
   };
@@ -22988,7 +23005,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260704174221 -->
+<!-- BUILD:20260704175315 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -23788,7 +23805,8 @@ document.addEventListener('keydown', function(e){
     var now = Date.now();
     if (now - _allmenuLastTrigger < 600) return;   // 중복 이벤트(터치+클릭) 무시 → 1회만 토글
     _allmenuLastTrigger = now;
-    openAllMenuOverlay();
+    if (document.getElementById('mangoi-allmenu')) closeAllMenuOverlay();
+    else openAllMenuOverlay();
   }
   window.addEventListener('click', allmenuTrigger, true);
   window.addEventListener('touchend', allmenuTrigger, true);

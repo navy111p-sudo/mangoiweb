@@ -29,11 +29,17 @@ export interface AuthEnv {
 function resolveRole(scopeType: string, username: string, name: string): { role: string; roleLabel: string } {
   const u = String(username || '');
   const nm = String(name || '');
+  // ⚠️ 강사 계정 아이디 컨벤션(hq_t_*)은 조직 스코프(hq/branch/agency/franchise)와 무관하게
+  //   항상 강사로 인식해야 한다. 기존엔 스코프를 먼저 체크해서, scope_type='hq'로 세팅된
+  //   강사 계정이 있으면 강사 판정이 아예 실행되지 않아 마이페이지 "내 평가" 탭이 영원히
+  //   숨겨지는 버그가 있었다 (2026-07-04 발견). 아이디 컨벤션은 스코프보다 먼저 확인.
+  if (/^hq_t/i.test(u)) return { role: 'teacher', roleLabel: '교사' };
   if (scopeType === 'franchise') return { role: 'franchise', roleLabel: '프랜차이즈 본사' };
   if (scopeType === 'branch')    return { role: 'branch',    roleLabel: '지사' };
   if (scopeType === 'agency')    return { role: 'agency',    roleLabel: '대리점' };
   if (scopeType === 'hq')        return { role: 'hq',        roleLabel: '본사 · 경영진' };
-  if (/^hq_t/i.test(u) || /교사|강사|선생|teacher/i.test(nm)) return { role: 'teacher', roleLabel: '교사' };
+  // 스코프가 조직형이 아닐 때(scope_type='none' 등)만 이름으로 강사 여부 보조 판정.
+  if (/교사|강사|선생|teacher/i.test(nm)) return { role: 'teacher', roleLabel: '교사' };
   return { role: 'staff', roleLabel: nm || '직원' };
 }
 
