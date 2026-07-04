@@ -3274,6 +3274,56 @@ export async function handleMangoApi(
       return json({ ok: true, map });
     }
 
+    // ── POST /api/translate — 양방향 번역 (평가 글·건의사항 등 실제 콘텐츠) ──
+    //   body: { texts: string[], target: 'en'|'ko' } → { map: { 원문: 번역 } }
+    //   이미 목표 언어면 그대로 통과, 아니면 Workers AI 번역 + KV 캐시(방향별)
+    if (method === 'POST' && path === '/api/translate') {
+      const b: any = await request.json().catch(() => ({}));
+      const target = (b.target === 'ko') ? 'ko' : 'en';
+      let texts: string[] = Array.isArray(b.texts) ? b.texts.map((t: any) => String(t || '')).filter((t: string) => t.trim()) : [];
+      texts = Array.from(new Set(texts)).slice(0, 50);
+      if (!texts.length) return json({ ok: true, map: {} });
+      const hasHangul = (s: string) => /[가-힣ᄀ-ᇿ㄰-㆏]/.test(s);
+      const ai = (env as any).AI;
+      const kv = (env as any).SESSION_STATE;
+      const map: Record<string, string> = {};
+      const need: string[] = [];
+      for (const t of texts) {
+        const isKo = hasHangul(t);
+        // 이미 목표 언어면 번역 불필요
+        if ((target === 'en' && !isKo) || (target === 'ko' && isKo)) { map[t] = t; continue; }
+        let cached: string | null = null;
+        if (kv) { try { cached = await kv.get('tr:' + target + ':' + t); } catch {} }
+        if (cached != null) map[t] = cached; else need.push(t);
+      }
+      if (need.length && ai) {
+        const langName = target === 'en' ? 'English' : 'Korean';
+        for (let i = 0; i < need.length; i += 15) {
+          const chunk = need.slice(i, i + 15);
+          const prompt = 'Translate each string into natural, fluent ' + langName + '. These are short student feedback comments and labels about an English/Korean video class. Keep emojis, numbers and punctuation. Do not add quotes or notes. Return ONLY a JSON array of strings, same length and order as the input.\nInput:\n' + JSON.stringify(chunk);
+          try {
+            const resp: any = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+              messages: [
+                { role: 'system', content: 'You are a precise bilingual Korean-English translator. Output a raw JSON array of strings only.' },
+                { role: 'user', content: prompt }
+              ],
+              max_tokens: 1500,
+            });
+            let txt = typeof resp === 'string' ? resp : (resp && typeof resp.response === 'string' ? resp.response : '');
+            const mm = String(txt || '').match(/\[[\s\S]*\]/);
+            let arr: any[] = [];
+            if (mm) { try { arr = JSON.parse(mm[0]); } catch {} }
+            for (let j = 0; j < chunk.length; j++) {
+              const out = (Array.isArray(arr) && typeof arr[j] === 'string' && arr[j].trim()) ? String(arr[j]) : chunk[j];
+              map[chunk[j]] = out;
+              if (kv && out && out !== chunk[j]) { try { await kv.put('tr:' + target + ':' + chunk[j], out, { expirationTtl: 60 * 60 * 24 * 180 }); } catch {} }
+            }
+          } catch { for (const c of chunk) map[c] = c; }
+        }
+      } else if (need.length) { for (const c of need) map[c] = c; }
+      return json({ ok: true, map });
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // 🧩 Phase RQ — 복습퀴즈 (관리자 출제 → 학생 풀이 + 자동 채점/기록)
     //   관리자: /api/admin/review-quiz/{list,save,toggle,results}, DELETE /api/admin/review-quiz/:id

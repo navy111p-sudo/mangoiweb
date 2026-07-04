@@ -134,9 +134,6 @@
       else { (document.exitFullscreen || document.webkitExitFullscreen).call(document); }
     } catch(e){ console.warn('[vc-dock] fullscreen', e); }
   }
-  function themeLabel(){ try { return (window.MangoTheme && MangoTheme.get()==='light') ? '라이트' : '다크'; } catch(e){ return '—'; } }
-  function langLabel(){ try { return (typeof window.getLang==='function' && window.getLang()==='en') ? 'EN' : '한국어'; } catch(e){ return '—'; } }
-
   function isLight(){ try { return (window.MangoTheme && MangoTheme.get()==='light'); } catch(e){ return false; } }
   function isEn(){ try { return (typeof window.getLang==='function' && window.getLang()==='en'); } catch(e){ return false; } }
   function setTheme(light){
