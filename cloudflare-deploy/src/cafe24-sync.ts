@@ -72,6 +72,10 @@ export async function importCafe24Payments(env: SyncEnv): Promise<{ imported: nu
 /** 👨‍🎓 학생(2.9만) 한 페이지 → D1 students_erp (INSERT OR REPLACE, user_id PK 스키마 대응). */
 export async function importCafe24Students(env: SyncEnv, off: number, lim: number): Promise<{ imported: number; done: boolean }> {
   if (off === 0) {
+    // franchise·hq_name 컬럼 보강 (정산 트리 rebuildTree 가 이 3개로 org_nodes 구성).
+    // 첫 페이지에서만 1회 — 이후 페이지는 컬럼이 이미 존재하므로 불필요.
+    try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN franchise TEXT`); } catch {}
+    try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN hq_name TEXT`); } catch {}
     await env.DB.prepare(`DELETE FROM students_erp WHERE created_at = ?`).bind(CAFE24_STUDENT_SENTINEL).run();
   }
   const { fields, values } = await runCypher(env,
@@ -81,9 +85,6 @@ export async function importCafe24Students(env: SyncEnv, off: number, lim: numbe
             s.signup_date AS signup_date, s.end_date AS end_date, s.shop_name AS shop_name,
             s.franchise AS franchise, s.hq_name AS hq_name, s.points AS points
      ORDER BY user_id SKIP $off LIMIT $lim`, { off, lim }, 'READ');
-  // franchise·hq_name 컬럼 보강 (정산 트리 rebuildTree 가 이 3개로 org_nodes 구성)
-  try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN franchise TEXT`); } catch {}
-  try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN hq_name TEXT`); } catch {}
   const ins = env.DB.prepare(
     `INSERT OR REPLACE INTO students_erp (user_id, student_id, login_id, username, korean_name, grade, school, status, signup_date, end_date, shop_name, franchise, hq_name, points, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
