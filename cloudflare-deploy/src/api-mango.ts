@@ -3297,30 +3297,18 @@ export async function handleMangoApi(
         if (cached != null) map[t] = cached; else need.push(t);
       }
       const dbg: any = { ai: !!ai, need: need.length, raw: null, err: null };
+      // 번역 전용 모델 m2m100 (LLM 프롬프트보다 안정적). 텍스트별 번역.
+      const srcLang = target === 'en' ? 'korean' : 'english';
+      const tgtLang = target === 'en' ? 'english' : 'korean';
       if (need.length && ai) {
-        const langName = target === 'en' ? 'English' : 'Korean';
-        for (let i = 0; i < need.length; i += 15) {
-          const chunk = need.slice(i, i + 15);
-          const prompt = 'Translate each string into natural, fluent ' + langName + '. These are short student feedback comments and labels about an English/Korean video class. Keep emojis, numbers and punctuation. Do not add quotes or notes. Return ONLY a JSON array of strings, same length and order as the input.\nInput:\n' + JSON.stringify(chunk);
+        for (const t of need) {
           try {
-            const resp: any = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
-              messages: [
-                { role: 'system', content: 'You are a precise bilingual Korean-English translator. Output a raw JSON array of strings only.' },
-                { role: 'user', content: prompt }
-              ],
-              max_tokens: 1500,
-            });
-            let txt = typeof resp === 'string' ? resp : (resp && typeof resp.response === 'string' ? resp.response : '');
-            if (i === 0) dbg.raw = String(txt || '').slice(0, 300);
-            const mm = String(txt || '').match(/\[[\s\S]*\]/);
-            let arr: any[] = [];
-            if (mm) { try { arr = JSON.parse(mm[0]); } catch {} }
-            for (let j = 0; j < chunk.length; j++) {
-              const out = (Array.isArray(arr) && typeof arr[j] === 'string' && arr[j].trim()) ? String(arr[j]) : chunk[j];
-              map[chunk[j]] = out;
-              if (kv && out && out !== chunk[j]) { try { await kv.put('tr:' + target + ':' + chunk[j], out, { expirationTtl: 60 * 60 * 24 * 180 }); } catch {} }
-            }
-          } catch (e: any) { dbg.err = String(e?.message || e); for (const c of chunk) map[c] = c; }
+            const resp: any = await ai.run('@cf/meta/m2m100-1.2b', { text: t, source_lang: srcLang, target_lang: tgtLang });
+            if (dbg.raw == null) dbg.raw = JSON.stringify(resp).slice(0, 300);
+            const out = (resp && typeof resp.translated_text === 'string' && resp.translated_text.trim()) ? String(resp.translated_text) : t;
+            map[t] = out;
+            if (kv && out && out !== t) { try { await kv.put('tr:' + target + ':' + t, out, { expirationTtl: 60 * 60 * 24 * 180 }); } catch {} }
+          } catch (e: any) { dbg.err = String(e?.message || e); map[t] = t; }
         }
       } else if (need.length) { for (const c of need) map[c] = c; }
       if (url.searchParams.get('debug') === '1') return json({ ok: true, map, _debug: dbg });
@@ -8212,13 +8200,15 @@ Respond in JSON ONLY:
     }
 
     // 📅 카페24 출석/수업 이관 — Neo4j (:Class 50.5만) → D1 attendance (cafe24-sync.ts)
-    //   GET /api/admin/attendance/import-cafe24?offset=0&limit=3000[&since=YYYY-MM-DD]
+    //   GET /api/admin/attendance/import-cafe24?offset=0&limit=3000[&since=YYYY-MM-DD][&until=YYYY-MM-DD]
+    //   since 만 주고 until 없으면 상한 없이(9999) 삭제·재삽입 — 전체복구 시엔 since 생략(c24-% 전부).
     if (method === 'GET' && path === '/api/admin/attendance/import-cafe24') {
       const off = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10));
       const lim = Math.max(1, Math.min(5000, parseInt(url.searchParams.get('limit') || '3000', 10)));
       const since = (url.searchParams.get('since') || '').trim() || undefined;
+      const until = (url.searchParams.get('until') || '').trim() || undefined;
       try {
-        const r = await importCafe24Attendance(env, off, lim, since);
+        const r = await importCafe24Attendance(env, off, lim, since, until);
         return json({ ok: true, offset: off, next_offset: r.done ? null : off + lim, ...r });
       } catch (e: any) {
         if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);

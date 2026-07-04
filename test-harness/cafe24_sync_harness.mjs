@@ -75,9 +75,11 @@ function importStudents(db, neoRows, off) {
       Number(r.points) || 0, SENTINEL, SENTINEL);
   }
 }
-function importAttendance(db, neoRows, off, sinceDate) {
+// 🔒 버그픽스 반영: 증분 시 DELETE 창 = [since, until] 양쪽 경계 (INSERT 창과 동일).
+//   neoRows 는 이미 [since,until] 로 필터된 것으로 가정(Cypher WHERE c.date>=since AND c.date<=until).
+function importAttendance(db, neoRows, off, sinceDate, untilDate) {
   if (off === 0) {
-    if (sinceDate) db.prepare(`DELETE FROM attendance WHERE room_id LIKE 'c24-%' AND date >= ?`).run(sinceDate);
+    if (sinceDate) db.prepare(`DELETE FROM attendance WHERE room_id LIKE 'c24-%' AND date >= ? AND date <= ?`).run(sinceDate, untilDate || '9999-12-31');
     else db.prepare(`DELETE FROM attendance WHERE room_id LIKE 'c24-%'`).run();
   }
   const ins = db.prepare(`INSERT INTO attendance (room_id, user_id, role, joined_at, left_at, status, date, total_session_ms) VALUES (?, ?, 'student', ?, ?, ?, ?, ?)`);
@@ -87,6 +89,8 @@ function importAttendance(db, neoRows, off, sinceDate) {
     ins.run(`c24-${r.class_id}`, String(r.user_id ?? ''), start || null, end || null, status, r.date || null, end > start ? end - start : 0);
   }
 }
+// Cypher 창 필터 시뮬레이션 (WHERE c.date >= since AND c.date <= until)
+const windowRows = (rows, since, until) => rows.filter(r => (!since || r.date >= since) && (!until || r.date <= (until || '9999-12-31')));
 function importOrg(db, branches, centers) {
   const now = Date.now();
   const insF = db.prepare(`INSERT OR REPLACE INTO franchises (id, name, address, phone, owner_name, active, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
@@ -181,26 +185,35 @@ console.log('\n③④ 출석 상태 매핑(2=present) + 세션시간(end>start)'
   db.close();
 }
 
-// ═══ ⑤ 출석 증분 멱등 (sinceDate 창) ═══
-console.log('\n⑤ 출석 증분 멱등 (전체적재 후 최근창만 갱신, 무중복)');
+// ═══ ⑤ 출석 증분 멱등 — 경계 있는 창 [since, until] (🔒 미래 예약수업 과다삭제 방지) ═══
+console.log('\n⑤ 출석 증분 멱등 (경계창 [since,until] — 미래 예약수업 보존)');
 {
   const db = freshDb();
-  // 전체 적재 (오래된 + 최근)
+  // 전체 적재: 과거 + 최근 + 먼 미래 예약(2030) — 미래가 대량이라는 실제 상황 재현
   const full = [
-    { class_id: 10, user_id: 'a', start_ms: 1, end_ms: 2, date: '2026-05-01', class_state: 2 },
-    { class_id: 11, user_id: 'a', start_ms: 1, end_ms: 2, date: '2026-06-20', class_state: 2 },
+    { class_id: 10, user_id: 'a', start_ms: 1, end_ms: 2, date: '2019-10-29', class_state: 2 }, // 먼 과거
+    { class_id: 11, user_id: 'a', start_ms: 1, end_ms: 2, date: '2026-06-20', class_state: 2 }, // 최근(창 안)
+    { class_id: 12, user_id: 'a', start_ms: 1, end_ms: 2, date: '2027-05-01', class_state: 1 }, // 미래 예약
+    { class_id: 13, user_id: 'a', start_ms: 1, end_ms: 2, date: '2030-02-20', class_state: 1 }, // 먼 미래 예약
   ];
   importAttendance(db, full, 0, undefined);
-  eq('전체 적재 건수', db.prepare(`SELECT COUNT(*) c FROM attendance WHERE room_id LIKE 'c24-%'`).get().c, 2);
-  // 야간 증분: since='2026-06-15' → 6/20 만 삭제·재삽입, 5/01 보존
-  const recent = [{ class_id: 11, user_id: 'a', start_ms: 1, end_ms: 5, date: '2026-06-20', class_state: 2 }];
-  importAttendance(db, recent, 0, '2026-06-15');
+  eq('전체 적재 건수(과거+최근+미래)', db.prepare(`SELECT COUNT(*) c FROM attendance WHERE room_id LIKE 'c24-%'`).get().c, 4);
+  // 야간 증분: 창 [2026-06-15, 2026-09-15] — 6/20 만 갱신, 나머지(과거·미래예약) 전부 보존
+  const since = '2026-06-15', until = '2026-09-15';
+  const neo = windowRows(full.map(r => r.class_id === 11 ? { ...r, end_ms: 5 } : r), since, until);
+  eq('Cypher 창 필터 결과(6/20만)', neo.length, 1);
+  importAttendance(db, neo, 0, since, until);
   const cnt = db.prepare(`SELECT COUNT(*) c FROM attendance WHERE room_id LIKE 'c24-%'`).get();
-  eq('증분 후 총건수(무중복)', cnt.c, 2);
-  const old = db.prepare(`SELECT COUNT(*) c FROM attendance WHERE room_id='c24-10'`).get();
-  eq('오래된 수업(창 밖) 보존', old.c, 1);
-  const upd = db.prepare(`SELECT total_session_ms FROM attendance WHERE room_id='c24-11'`).get();
-  eq('최근 수업 갱신됨(end 5-1=4)', upd.total_session_ms, 4);
+  eq('증분 후 총건수(손실 없음)', cnt.c, 4);   // ← 옛 버그면 3 이하로 손실
+  eq('먼 과거 보존', db.prepare(`SELECT COUNT(*) c FROM attendance WHERE room_id='c24-10'`).get().c, 1);
+  eq('먼 미래 예약(2030) 보존 🔒', db.prepare(`SELECT COUNT(*) c FROM attendance WHERE room_id='c24-13'`).get().c, 1);
+  eq('창 안 수업 갱신됨(end 5-1=4)', db.prepare(`SELECT total_session_ms FROM attendance WHERE room_id='c24-11'`).get().total_session_ms, 4);
+  // 회귀 가드: 상한 없는 옛 삭제(date>=since)면 미래예약(12,13)이 삭제됨을 명시적으로 확인
+  const db2 = freshDb();
+  importAttendance(db2, full, 0, undefined);
+  db2.prepare(`DELETE FROM attendance WHERE room_id LIKE 'c24-%' AND date >= ?`).run(since);  // 옛 버그 재현
+  eq('(버그재현) 상한없는 삭제는 미래예약까지 날림', db2.prepare(`SELECT COUNT(*) c FROM attendance WHERE room_id LIKE 'c24-%'`).get().c, 1);
+  db2.close();
   db.close();
 }
 
@@ -253,6 +266,8 @@ console.log('\n⑧ 소스 드리프트 가드 (cafe24-sync.ts / api-mango.ts / i
   check('sync: 학생 센티넬', sync.includes('CAFE24_STUDENT_SENTINEL') && sync.includes('1751500000000'));
   check('sync: 출석 상태매핑', sync.includes("Number(r.class_state) === 2 ? 'present' : 'scheduled'"));
   check('sync: 출석 음수방지', sync.includes('end > start ? end - start : 0'));
+  check('sync: 출석 삭제 상·하한 경계(과다삭제 방지)🔒', sync.includes('AND date >= ? AND date <= ?') && sync.includes('c.date <= $until'));
+  check('sync: nightly 출석 경계창(until 지정)', sync.includes('180 * 86400000') && /importCafe24Attendance\(env, off, 3000, since, until\)/.test(sync));
   check('sync: nightly 4종 refresh', sync.includes('importCafe24Org') && sync.includes('importCafe24Payments') && sync.includes('importCafe24Students') && sync.includes('importCafe24Attendance'));
   check('api: 회계 summary(type1/2 수입지출)', api.includes('CASE WHEN t = 1') && api.includes('CASE WHEN t = 2') && api.includes('substring(a.date,0,7)'));
   check('api: graph-list 명부(students/teachers/staff/books)', api.includes("path === '/api/admin/students/graph-list'") && api.includes("path === '/api/admin/teachers/graph-list'") && api.includes("path === '/api/admin/staff/graph-list'"));

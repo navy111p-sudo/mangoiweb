@@ -104,22 +104,35 @@ export async function importCafe24Students(env: SyncEnv, off: number, lim: numbe
 }
 
 /** 📅 출석/수업 (:Class) 한 페이지 → D1 attendance (room_id='c24-{class_id}').
- *  sinceDate 지정 시 해당 날짜 이후만(증분). offset 0 이면 대상 구간 기존행 삭제(멱등). */
+ *  🔒 멱등·안전 규칙 (2026-07-04 버그픽스): DELETE 범위와 INSERT(Cypher) 범위를 **정확히 일치**시킨다.
+ *    - 증분: [sinceDate, untilDate] **양쪽 경계**로 창을 닫는다. 이렇게 안 하면
+ *      미래 예약수업(최대 2030년)이 date>=since 에 전부 걸려 삭제되는데, 페이지 상한 때문에
+ *      다시 못 넣어 대량 손실이 난다(실제 505k→184k 사고 발생).
+ *    - 전체: sinceDate 미지정 → c24-% 전부 삭제 후 전부 재삽입(초기적재/복구용).
+ *    창 밖(과거·먼미래) 데이터는 건드리지 않으므로 전체적재분이 보존된다. */
 export async function importCafe24Attendance(
-  env: SyncEnv, off: number, lim: number, sinceDate?: string,
+  env: SyncEnv, off: number, lim: number, sinceDate?: string, untilDate?: string,
 ): Promise<{ imported: number; done: boolean }> {
   try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_attendance_room ON attendance(room_id);`); } catch {}
   if (off === 0) {
-    if (sinceDate) await env.DB.prepare(`DELETE FROM attendance WHERE room_id LIKE 'c24-%' AND date >= ?`).bind(sinceDate).run();
-    else await env.DB.prepare(`DELETE FROM attendance WHERE room_id LIKE 'c24-%'`).run();
+    if (sinceDate) {
+      // DELETE 창 = INSERT 창과 동일 (양쪽 경계). untilDate 없으면 상한 없는 삭제 금지 → until 필수화.
+      const until = untilDate || '9999-12-31';
+      await env.DB.prepare(`DELETE FROM attendance WHERE room_id LIKE 'c24-%' AND date >= ? AND date <= ?`).bind(sinceDate, until).run();
+    } else {
+      await env.DB.prepare(`DELETE FROM attendance WHERE room_id LIKE 'c24-%'`).run();
+    }
   }
-  const where = sinceDate ? `WHERE c.date >= $since` : '';
+  const conds: string[] = [];
+  const params: Record<string, unknown> = { off, lim };
+  if (sinceDate) { conds.push('c.date >= $since'); params.since = sinceDate; params.until = untilDate || '9999-12-31'; conds.push('c.date <= $until'); }
+  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
   const { fields, values } = await runCypher(env,
     `MATCH (c:Class) ${where}
      RETURN c.class_id AS class_id, c.user_id AS user_id, c.start_ms AS start_ms, c.end_ms AS end_ms,
             c.date AS date, c.class_state AS class_state
      ORDER BY c.class_id SKIP $off LIMIT $lim`,
-    sinceDate ? { off, lim, since: sinceDate } : { off, lim }, 'READ');
+    params, 'READ');
   const ins = env.DB.prepare(
     `INSERT INTO attendance (room_id, user_id, role, joined_at, left_at, status, date, total_session_ms)
      VALUES (?, ?, 'student', ?, ?, ?, ?, ?)`);
@@ -155,15 +168,18 @@ export async function nightlyCafe24Refresh(env: SyncEnv): Promise<Record<string,
     out.students = { imported: total };
   } catch (e: any) { out.students = { error: String(e?.message || e) }; }
   try {
-    const since = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
+    // 🔒 경계 있는 창 [60일 전, 180일 후] 만 삭제·재삽입. 창 밖(과거·먼미래 예약)은 보존.
+    //    상한(until) 없이 date>=since 로 삭제하면 미래 예약수업 전체가 날아가므로 반드시 양쪽 경계.
+    const since = new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10);
+    const until = new Date(Date.now() + 180 * 86400000).toISOString().slice(0, 10);
     let off = 0, total = 0;
-    for (let page = 0; page < 10; page++) {           // 최근 14일 수업 — 수천건 예상
-      const r = await importCafe24Attendance(env, off, 3000, since);
+    for (let page = 0; page < 40; page++) {           // 창 내 최대 120k 안전 커버
+      const r = await importCafe24Attendance(env, off, 3000, since, until);
       total += r.imported;
       if (r.done) break;
       off += 3000;
     }
-    out.attendance = { imported: total, since };
+    out.attendance = { imported: total, since, until };
   } catch (e: any) { out.attendance = { error: String(e?.message || e) }; }
   console.log('[cafe24-sync] nightly refresh', JSON.stringify(out));
   return out;
