@@ -2905,6 +2905,14 @@
             /* 5) 칠판/교재 영역 최대한 크게(위로) */
             body.vc-in-call .content-pane { flex: 1 1 auto !important; min-height: 0 !important; }
 
+            /* 🥭 (2026-07-05) fix — 툴줄을 order 로 '맨 아래'에 놓아도 .tab-content 가
+               하단 고정 독(vc-dock)의 자리를 안 비워두면, 뷰포트 계산상으론 맨 아래여도
+               실제로는 독 밑에 깔려 안 보이는 문제. 독 높이만큼 아래 여백을 미리 확보. */
+            body.vc-in-call .tab-content {
+                padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)) !important;
+                box-sizing: border-box !important;
+            }
+
             /* 6) 둘째 툴줄(보기·펜·지우개 등)을 칠판/교재 '맨 아래'로 — flex order 방식
                   (absolute 겹침 X → 항상 보이고 항상 눌림). 캔버스는 위, 툴줄은 아래. */
             body.vc-in-call .wb-canvas-wrap { order: 1 !important; }
@@ -23201,7 +23209,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260705000035 -->
+<!-- BUILD:20260705000927 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
