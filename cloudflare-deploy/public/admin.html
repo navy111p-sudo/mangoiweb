@@ -11243,7 +11243,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     host.innerHTML = '<div style="background:linear-gradient(135deg,#13234a,#0c1733);border:1px solid rgba(251,191,36,0.35);border-radius:16px;padding:18px 20px;color:#e6ecff"><div style="font-size:13px;color:#a3b3d1">'+(EN?'Loading…':'불러오는 중…')+'</div></div>';
     if (!name){ host.querySelector('div>div').textContent = EN?'Could not load ratings — no login info.':'로그인 정보를 찾을 수 없어 평가를 불러오지 못했습니다.'; return; }
     try{
-      var r = await fetch('/api/admin/ratings/list?days=90&limit=100&teacher_name=' + encodeURIComponent(name));
+      var r = await fetch('/api/teacher/my-ratings?days=90&limit=100&teacher_name=' + encodeURIComponent(name));  // 무기명 (학생 이름 미포함)
       var d = await r.json();
       var rows = (d && d.rows) || [];
       var cnt = rows.length;
@@ -11255,6 +11255,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         return '<div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:9px 12px;margin-top:7px">'
           + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:13px">'+stars7(x.score)+'</span>'
           + '<b style="color:'+sc(x.score)+';font-size:12.5px">'+x.score+'/7</b>'
+          + '<span style="font-size:10.5px;color:#8ba0c8;background:rgba(255,255,255,0.06);border-radius:99px;padding:1px 7px">'+(EN?'Anonymous':'익명')+'</span>'
           + '<span style="font-size:11px;color:#8ba0c8;margin-left:auto">'+fmtDt(x.created_at)+'</span></div>'
           + (tags.length?'<div style="margin-top:4px">'+tags.map(function(t){return '<span data-tr-tag="'+esc(t)+'" style="display:inline-block;background:rgba(251,191,36,0.15);color:#fcd34d;border-radius:99px;padding:1px 8px;font-size:10.5px;margin:1px 2px">'+esc(t)+'</span>';}).join('')+'</div>':'')
           + (x.feedback?'<div style="margin-top:5px;font-size:12px;color:#cdd8ee;line-height:1.55">💬 <span data-tr="'+esc(x.feedback)+'">'+esc(x.feedback)+'</span></div>':'')
@@ -22815,7 +22816,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260704121232 -->
+        <!-- BUILD:20260704122105 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

@@ -2544,6 +2544,20 @@ export async function handleMangoApi(
       });
     }
 
+    // ── GET /api/teacher/my-ratings?teacher_name=&days=&limit= — 강사 본인용(무기명) ──
+    //   강사에게는 학생 신원을 절대 노출하지 않음 → SELECT 에서 student_name 아예 제외.
+    //   (솔직한 평가 유도: 강사가 누가 줬는지 알 수 없어야 함). 관리자는 /api/admin/ratings/list 사용(기명).
+    if (method === 'GET' && path === '/api/teacher/my-ratings') {
+      await ensureClassRatingsTable();
+      const days = Math.min(365, Math.max(1, parseInt(url.searchParams.get('days') || '90', 10) || 90));
+      const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') || '100', 10) || 100));
+      const teacher = (url.searchParams.get('teacher_name') || '').trim();
+      if (!teacher) return json({ ok: false, error: 'teacher_name_required' }, 400);
+      const since = Date.now() - days * 86400 * 1000;
+      const rs = await env.DB.prepare(`SELECT id, room_id, score, tags, feedback, rated_date, created_at FROM class_ratings WHERE created_at>=? AND teacher_name=? ORDER BY created_at DESC LIMIT ?`).bind(since, teacher, limit).all();
+      return json({ ok: true, anonymous: true, rows: rs.results || [] });
+    }
+
     // ── GET /api/admin/points/rules — 자동 적립 규칙 목록 ──
     if (method === 'GET' && path === '/api/admin/points/rules') {
       await ensurePointTables();
