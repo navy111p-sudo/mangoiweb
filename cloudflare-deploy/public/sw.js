@@ -1,8 +1,8 @@
 // 🌐 Mangoi Service Worker — PWA 오프라인 캐시 + 빠른 로딩
 // 버전 갱신 시 CACHE_NAME 의 숫자만 바꾸면 모든 사용자에게 즉시 새 버전 전파
 
-const CACHE_NAME = 'mangoi-20260705045408-fresh';
-const RUNTIME_CACHE = 'mangoi-20260705045408-fresh-rt';
+const CACHE_NAME = 'mangoi-20260705050238-fresh';
+const RUNTIME_CACHE = 'mangoi-20260705050238-fresh-rt';
 
 // 첫 설치 때 미리 캐시할 핵심 자산 (필수 only — 너무 많으면 install 실패)
 const PRECACHE_URLS = [
@@ -55,6 +55,15 @@ self.addEventListener('fetch', (event) => {
 
   // WebSocket 업그레이드는 SW 가 가로채지 않음
   if (url.pathname.startsWith('/ws/')) return;
+
+  // 🔊 오디오/미디어 스트리밍 (TTS 등) 은 SW 가 절대 가로채지 않음 — 네트워크로 직접 통과.
+  //   <audio>/<video> 는 Range 요청을 보내는데, networkFirst 의 resp.clone()+cache.put 가
+  //   스트림을 tee 하면서 재생이 영원히 stall(무음) 되는 버그가 있음. 그래서 브라우저가 직접 처리하게 둔다.
+  if (request.destination === 'audio' || request.destination === 'video' ||
+      request.headers.has('range') ||
+      url.pathname === '/api/tts-free' || url.pathname === '/api/ops-tts') {
+    return;
+  }
 
   // API: 네트워크 우선 + 짧은 캐시 fallback
   if (url.pathname.startsWith('/api/')) {
