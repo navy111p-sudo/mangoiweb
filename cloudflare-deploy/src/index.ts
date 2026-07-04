@@ -906,6 +906,7 @@ export default {
         path === '/api/ratings/check' ||
         path === '/api/admin/ratings/summary' ||
         path === '/api/admin/ratings/list' ||
+        path === '/api/admin/ratings/analytics' ||
         // 🌐 양방향 번역 (평가 글·건의사항 영↔한)
         path === '/api/translate' ||
         // Audit-added: student recordings listing

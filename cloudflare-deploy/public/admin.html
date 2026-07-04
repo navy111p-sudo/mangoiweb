@@ -11022,6 +11022,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       const fmtDt = (ms) => new Date(ms).toLocaleString(isEn?'en-US':'ko-KR', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
       box.innerHTML = `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px">
         <div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:10px">💬 ${esc(teacherName)} — ${isEn?'individual ratings':'개별 평가'} (${d.rows.length})</div>
+        <div id="rating-analysis-admin" style="margin-bottom:12px"></div>
         ${d.rows.map(row => {
           let tags = [];
           try { tags = JSON.parse(row.tags||'[]'); } catch(e){}
@@ -11038,6 +11039,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         }).join('') || `<div style="color:#9ca3af;font-size:12.5px">${isEn?'No ratings.':'평가가 없습니다.'}</div>`}
       </div>`;
       if (typeof window.applyRatingTr === 'function') window.applyRatingTr(box);
+      if (typeof window.renderRatingAnalysis === 'function') window.renderRatingAnalysis(document.getElementById('rating-analysis-admin'), teacherName, false);
       box.scrollIntoView({ behavior:'smooth', block:'nearest' });
     } catch(e) {
       box.innerHTML = '<div style="padding:14px;color:#ef4444">불러오기 실패: '+esc(e.message)+'</div>';
@@ -11116,6 +11118,89 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 })();
 </script>
 
+<!-- 📊 평가 분석 + 그래프 (절사평균: 최고·최저 제외) — 강사/관리자 공용, 언어 스위치 대응 -->
+<script id="rating-analysis-engine">
+(function(){
+  var esc = function(s){ return String(s||'').replace(/[&<>"']/g, function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); };
+  var NEG = ['소리가 끊겼어요','너무 어려웠어요','말할 기회가 적었어요'];
+  var GRADE = {
+    excellent:{ ko:'매우 우수', en:'Excellent', color:'#10b981', desc_ko:'학생 만족도가 매우 높습니다. 지금 수업 방식을 유지하세요.', desc_en:'Students are very satisfied. Keep the current approach.' },
+    good:{ ko:'우수', en:'Good', color:'#84cc16', desc_ko:'전반적으로 좋은 평가입니다.', desc_en:'Overall positive ratings.' },
+    fair:{ ko:'보통', en:'Fair', color:'#f59e0b', desc_ko:'보통 수준으로, 개선 여지가 있습니다.', desc_en:'Around average, with room to improve.' },
+    needs_improvement:{ ko:'개선 필요', en:'Needs work', color:'#ef4444', desc_ko:'평가가 낮습니다. 수업 방식 점검이 필요합니다.', desc_en:'Ratings are low. Please review the class approach.' }
+  };
+  var barColor = function(s){ return s<=2?'#ef4444':(s<=4?'#f59e0b':'#10b981'); };
+
+  function distChart(dist, EN, dark){
+    var maxC = 1; dist.forEach(function(d){ if(d.count>maxC) maxC=d.count; });
+    var axis = dark ? '#8ba0c8' : '#94a3b8';
+    var bars = dist.map(function(d){
+      var h = Math.max(2, Math.round(d.count/maxC*84));
+      return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px">'
+        + '<div style="font-size:10px;color:'+axis+'">'+(d.count||'')+'</div>'
+        + '<div title="'+d.score+' : '+d.count+'" style="width:78%;height:'+h+'px;background:'+barColor(d.score)+';border-radius:4px 4px 0 0;opacity:'+(d.count?1:0.25)+'"></div>'
+        + '<div style="font-size:11px;font-weight:700;color:'+axis+'">'+d.score+'</div></div>';
+    }).join('');
+    return '<div style="margin-top:6px"><div style="font-size:11px;color:'+axis+';margin-bottom:4px">'+(EN?'Score distribution (1–7)':'점수 분포 (1~7점)')+'</div>'
+      + '<div style="display:flex;align-items:flex-end;gap:5px;height:108px">'+bars+'</div></div>';
+  }
+
+  function trendSpark(trend){
+    if (!trend || trend.length < 2) return '';
+    var w=260, h=44, pad=4;
+    var xs = trend.map(function(t,i){ return pad + i*(w-2*pad)/(trend.length-1); });
+    var ys = trend.map(function(t){ return h-pad - ((t.avg-1)/6)*(h-2*pad); });
+    var pts = xs.map(function(x,i){ return x.toFixed(1)+','+ys[i].toFixed(1); }).join(' ');
+    var dots = xs.map(function(x,i){ return '<circle cx="'+x.toFixed(1)+'" cy="'+ys[i].toFixed(1)+'" r="2.2" fill="#fbbf24"/>'; }).join('');
+    return '<svg viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none" style="width:100%;height:44px;margin-top:6px;overflow:visible">'
+      + '<polyline points="'+pts+'" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linejoin="round"/>'+dots+'</svg>';
+  }
+
+  function analysisText(a, EN){
+    var g = GRADE[a.grade] || GRADE.fair;
+    var notes = [];
+    if (a.low_count>0) notes.push(EN?(a.low_count+' low score(s) (1–2)'):('저점(1~2점) '+a.low_count+'건'));
+    var negTag = (a.top_tags||[]).filter(function(t){ return NEG.indexOf(t.tag)>=0; })[0];
+    if (negTag) notes.push((EN?'top concern: ':'주요 지적: ')+ (window.mangoTagTr? window.mangoTagTr(negTag.tag):negTag.tag));
+    if (a.trend_dir==='up') notes.push(EN?'trending up recently 📈':'최근 상승세 📈');
+    else if (a.trend_dir==='down') notes.push(EN?'trending down recently 📉':'최근 하락세 📉');
+    var desc = EN?g.desc_en:g.desc_ko;
+    return desc + (notes.length? ' ('+notes.join(' · ')+')' : '');
+  }
+
+  window.renderRatingAnalysis = function(container, teacherName, dark){
+    if (!container) return;
+    var EN = (window.adminLang === 'en');
+    container.style.marginTop = '12px';
+    container.innerHTML = '<div style="font-size:12px;color:'+(dark?'#8ba0c8':'#94a3b8')+'">'+(EN?'Analyzing…':'분석 중…')+'</div>';
+    var q = '/api/admin/ratings/analytics?days=90' + (teacherName?('&teacher_name='+encodeURIComponent(teacherName)):'');
+    fetch(q).then(function(r){return r.json();}).then(function(a){
+      if (!a || !a.ok || !a.count){ container.innerHTML=''; return; }
+      var g = GRADE[a.grade] || GRADE.fair;
+      var txtMain = dark ? '#e6ecff' : '#111827';
+      var txtSub = dark ? '#a3b3d1' : '#6b7280';
+      var cardBg = dark ? 'rgba(255,255,255,0.05)' : '#fff';
+      var cardBd = dark ? 'rgba(255,255,255,0.08)' : '#e5e7eb';
+      container.innerHTML =
+        '<div style="background:'+cardBg+';border:1px solid '+cardBd+';border-radius:12px;padding:14px 16px">'
+        + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">'
+          + '<span style="font-size:13px;font-weight:800;color:'+txtMain+'">📊 '+(EN?'Rating analysis':'평가 분석')+'</span>'
+          + '<span style="background:'+g.color+';color:#fff;font-size:11px;font-weight:800;padding:2px 10px;border-radius:99px">'+(EN?g.en:g.ko)+'</span>'
+        + '</div>'
+        + '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">'
+          + '<div style="font-size:30px;font-weight:900;color:'+g.color+'">'+a.trimmed_avg.toFixed(1)+'<span style="font-size:14px;color:'+txtSub+';font-weight:600">/7</span></div>'
+          + '<div style="font-size:11.5px;color:'+txtSub+'">'+(EN?('Trimmed avg · excl. 1 highest &amp; 1 lowest · '+a.count+' ratings'):('절사평균 · 최고·최저 1개씩 제외 · 평가 '+a.count+'건'))+'</div>'
+        + '</div>'
+        + '<div style="font-size:11px;color:'+txtSub+';margin-top:2px">'+(EN?('Raw avg '+a.raw_avg.toFixed(1)+' · range '+a.min+'–'+a.max):('전체평균 '+a.raw_avg.toFixed(1)+' · 최저 '+a.min+' ~ 최고 '+a.max))+'</div>'
+        + '<div style="font-size:12.5px;color:'+txtMain+';line-height:1.6;margin-top:8px;background:'+(dark?'rgba(251,191,36,0.08)':'#fffbeb')+';border-radius:8px;padding:8px 11px">💡 '+esc(analysisText(a, EN))+'</div>'
+        + distChart(a.distribution, EN, dark)
+        + (a.trend && a.trend.length>=2 ? '<div style="margin-top:8px"><div style="font-size:11px;color:'+txtSub+'">'+(EN?'Daily trend':'일자별 추이')+'</div>'+trendSpark(a.trend)+'</div>' : '')
+        + '</div>';
+    }).catch(function(){ container.innerHTML=''; });
+  };
+})();
+</script>
+
 <!-- ⭐ 로그인 시 최상단 역할별 평가 패널
      · 강사  → "내 수업 평가" (자기 이름으로 필터된 평균/최근/건의사항)
      · 관리자 → "강사 평가 알람" (평가 낮은 강사 경고 + 우수 강사) → 클릭 시 상세 카드
@@ -11188,8 +11273,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               + '<div style="margin-top:10px">'+recent+'</div>'
               + (rows.length>6?'<div style="font-size:11px;color:#8ba0c8;margin-top:8px">'+(EN?('Showing 6 of '+rows.length):('최근 6개만 표시 · 전체 '+rows.length+'개'))+'</div>':'')
             : '<div style="margin-top:12px;font-size:13px;color:#a3b3d1">'+(EN?'No ratings yet. They’ll appear here after your classes. 😊':'아직 받은 평가가 없어요. 수업이 끝나면 학생들이 남긴 평가가 여기에 쌓입니다. 😊')+'</div>')
+        + (cnt ? '<div id="rating-analysis-teacher"></div>' : '')
         + '</div>';
       if (typeof window.applyRatingTr === 'function') window.applyRatingTr(host);
+      if (cnt && typeof window.renderRatingAnalysis === 'function') window.renderRatingAnalysis(document.getElementById('rating-analysis-teacher'), name, true);
     }catch(e){
       host.innerHTML = '<div style="background:#13234a;border-radius:16px;padding:16px 20px;color:#fca5a5">'+(EN?'Failed to load ratings: ':'평가를 불러오지 못했습니다: ')+esc(e.message)+'</div>';
     }
@@ -22728,7 +22815,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260704115813 -->
+        <!-- BUILD:20260704121232 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

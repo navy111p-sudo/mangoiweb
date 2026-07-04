@@ -2490,6 +2490,60 @@ export async function handleMangoApi(
       return json({ ok: true, rows: rs.results || [] });
     }
 
+    // ── GET /api/admin/ratings/analytics?teacher_name=&days= — 절사평균 분석 + 분포/추이 ──
+    //   최고점·최저점 각 1개씩 제외한 절사평균(trimmed mean) + 점수 분포 + 일자별 추이 + 등급
+    if (method === 'GET' && path === '/api/admin/ratings/analytics') {
+      await ensureClassRatingsTable();
+      const days = Math.min(365, Math.max(1, parseInt(url.searchParams.get('days') || '90', 10) || 90));
+      const teacher = (url.searchParams.get('teacher_name') || '').trim();
+      const since = Date.now() - days * 86400 * 1000;
+      const rs = teacher
+        ? await env.DB.prepare(`SELECT score, tags, created_at FROM class_ratings WHERE created_at>=? AND teacher_name=? ORDER BY created_at ASC`).bind(since, teacher).all()
+        : await env.DB.prepare(`SELECT score, tags, created_at FROM class_ratings WHERE created_at>=? ORDER BY created_at ASC`).bind(since).all();
+      const rows = (rs.results || []) as any[];
+      const scores = rows.map(r => r.score as number);
+      const count = scores.length;
+      const round2 = (n: number) => Math.round(n * 100) / 100;
+      const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
+      const rawAvg = count ? sum(scores) / count : 0;
+      // 절사평균: 최저 1개 + 최고 1개 제외 (표본 3개 이상일 때만 의미)
+      let trimmed = rawAvg;
+      let trimmedDropped = 0;
+      if (count >= 3) {
+        const sorted = scores.slice().sort((a, b) => a - b);
+        const inner = sorted.slice(1, sorted.length - 1);
+        trimmed = inner.length ? sum(inner) / inner.length : rawAvg;
+        trimmedDropped = 2;
+      }
+      const distribution = [1, 2, 3, 4, 5, 6, 7].map(s => ({ score: s, count: scores.filter(x => x === s).length }));
+      // 일자별 추이 (KST)
+      const byDay: Record<string, number[]> = {};
+      for (const r of rows) { const d = today(r.created_at as number); (byDay[d] = byDay[d] || []).push(r.score as number); }
+      const trend = Object.keys(byDay).sort().map(d => ({ date: d, avg: round2(sum(byDay[d]) / byDay[d].length), count: byDay[d].length }));
+      // 태그 집계
+      const tagCount: Record<string, number> = {};
+      for (const r of rows) { if (r.tags) { try { for (const t of JSON.parse(r.tags)) tagCount[t] = (tagCount[t] || 0) + 1; } catch {} } }
+      const top_tags = Object.entries(tagCount).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([tag, c]) => ({ tag, count: c }));
+      const low_count = scores.filter(x => x <= 2).length;
+      const high_count = scores.filter(x => x >= 6).length;
+      const grade = trimmed >= 6 ? 'excellent' : trimmed >= 5 ? 'good' : trimmed >= 4 ? 'fair' : 'needs_improvement';
+      // 추이 방향 (전반부 vs 후반부 절사평균 비교)
+      let trendDir = 'flat';
+      if (trend.length >= 4) {
+        const half = Math.floor(trend.length / 2);
+        const firstAvg = sum(trend.slice(0, half).map(t => t.avg)) / half;
+        const secondAvg = sum(trend.slice(half).map(t => t.avg)) / (trend.length - half);
+        if (secondAvg - firstAvg >= 0.4) trendDir = 'up';
+        else if (firstAvg - secondAvg >= 0.4) trendDir = 'down';
+      }
+      return json({
+        ok: true, teacher_name: teacher || null, days, count,
+        raw_avg: round2(rawAvg), trimmed_avg: round2(trimmed), trimmed_dropped: trimmedDropped,
+        min: count ? Math.min(...scores) : 0, max: count ? Math.max(...scores) : 0,
+        low_count, high_count, distribution, trend, top_tags, grade, trend_dir: trendDir,
+      });
+    }
+
     // ── GET /api/admin/points/rules — 자동 적립 규칙 목록 ──
     if (method === 'GET' && path === '/api/admin/points/rules') {
       await ensurePointTables();
