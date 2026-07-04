@@ -1383,51 +1383,55 @@
         .video-detach-btn:hover { background: rgba(37,99,235,0.85); }
 
         /* 🌟 (2026-07-04) 실시간 칭찬 포인트 — 강사가 학생 화면의 별 버튼을 눌러 즉석 +1P 지급
-           🔧 (2026-07-05) 위치 이동: 우상단은 다른 배지와 겹칠 수 있어, 하단 상태표시(.video-status)
-           바로 위 우측으로 옮겨 항상 분리되어 보이게 함(좌상단 분리버튼과도 반대쪽이라 안전). */
-        /* 🔧 (2026-07-05) 알약형 라벨 버튼 — 터치(호버 없음)에서도 뭔지 바로 알 수 있게 "칭찬" 글자 노출 */
+           🔧 (2026-07-05 v3) 우상단 배치로 통일 — 이 박스의 우상단 모서리는 비어 있음
+           (좌상단=분리버튼, 좌하단=이름, 우하단=상태표시). 좁은 박스에선 글자를 감춰 아이콘만
+           남는 원형(.vc-star-compact)으로 축소 → 어떤 크기의 얼굴 박스에서도 절대 안 겹침. */
         .vc-star-btn {
-            position: absolute; bottom: 34px; right: 6px; z-index: 6;
+            position: absolute; top: 6px; right: 6px; z-index: 8;
             min-height: 28px; padding: 4px 10px 4px 8px; border-radius: 999px; border: none;
             background: radial-gradient(circle at 30% 25%, #fff7cc, #fbbf24 60%, #d97706);
             color: #7c2d12; font-size: 12.5px; font-weight: 800; cursor: pointer;
             display: inline-flex; align-items: center; gap: 3px; line-height: 1;
             box-shadow: 0 3px 10px rgba(251,191,36,0.55), 0 0 0 1px rgba(255,255,255,0.25) inset;
             touch-action: manipulation; -webkit-tap-highlight-color: transparent;
-            transition: transform 0.15s ease; white-space: nowrap;
+            transition: transform 0.15s ease; white-space: nowrap; max-width: calc(100% - 12px); overflow: hidden;
         }
         .vc-star-btn .vsb-ic { font-size: 14px; }
+        /* 좁은 박스: 글자 숨기고 아이콘만 (원형) */
+        .vc-star-btn.vc-star-compact { padding: 0; width: 30px; height: 30px; min-height: 0; justify-content: center; }
+        .vc-star-btn.vc-star-compact .vsb-lbl { display: none; }
         .vc-star-btn:hover { transform: scale(1.1); }
         .vc-star-btn:active { transform: scale(0.9); }
         .vc-star-btn.vc-star-cooldown { opacity: 0.45; cursor: default; filter: grayscale(0.6); }
         @keyframes vcStarPop { 0%{transform:scale(1)} 35%{transform:scale(1.35) rotate(-12deg)} 100%{transform:scale(1) rotate(0)} }
         .vc-star-btn.vc-star-pop { animation: vcStarPop 0.45s ease; }
         .vc-star-toast {
-            position: absolute; bottom: 40px; right: 40px; z-index: 7;
+            position: absolute; top: 40px; right: 6px; z-index: 9;
             background: rgba(15,23,42,0.92); color: #fde68a; font-size: 11px; font-weight: 700;
             padding: 4px 9px; border-radius: 999px; white-space: nowrap;
-            opacity: 0; transform: translateY(4px); transition: opacity 0.2s, transform 0.2s;
+            opacity: 0; transform: translateY(-4px); transition: opacity 0.2s, transform 0.2s;
             pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,0.35);
         }
         .vc-star-toast.show { opacity: 1; transform: translateY(0); }
 
         /* 🧺 학생 전용 — 이번 수업 받은 포인트 바구니 (본인 화면에만 표시)
-           🔧 (2026-07-05) 우상단 다른 배지와 겹치던 문제 — 별 버튼과 같은 위치 규칙으로 이동. */
+           🔧 (2026-07-05 v3) 별 버튼과 같은 우상단 규칙 + 좁은 박스 축소(.vc-star-compact). */
         .vc-point-basket {
-            position: absolute; bottom: 34px; right: 6px; z-index: 6;
-            display: flex; align-items: center; gap: 4px;
-            background: linear-gradient(135deg, rgba(120,53,15,0.85), rgba(180,83,9,0.85));
+            position: absolute; top: 6px; right: 6px; z-index: 8;
+            display: inline-flex; align-items: center; gap: 4px;
+            background: linear-gradient(135deg, rgba(120,53,15,0.9), rgba(180,83,9,0.9));
             border: 1px solid rgba(253,230,138,0.55);
             border-radius: 999px; padding: 4px 10px 4px 6px;
-            color: #fde68a; font-size: 12px; font-weight: 800;
+            color: #fde68a; font-size: 12px; font-weight: 800; white-space: nowrap;
             box-shadow: 0 3px 12px rgba(0,0,0,0.35);
-            transition: transform 0.18s ease;
+            transition: transform 0.18s ease; max-width: calc(100% - 12px); overflow: hidden;
         }
         .vc-point-basket .vpb-icon { font-size: 15px; line-height: 1; }
+        .vc-point-basket.vc-star-compact { padding: 3px 7px; }
         .vc-point-basket.vpb-bump { animation: vpbBump 0.5s ease; }
         @keyframes vpbBump { 0%{transform:scale(1)} 30%{transform:scale(1.3) rotate(-6deg)} 60%{transform:scale(0.95)} 100%{transform:scale(1)} }
         .vpb-fly {
-            position: absolute; bottom: 36px; right: 10px; z-index: 8;
+            position: absolute; top: 40px; right: 10px; z-index: 9;
             color: #fde68a; font-size: 13px; font-weight: 900; pointer-events: none;
             text-shadow: 0 2px 6px rgba(0,0,0,0.6);
             animation: vpbFly 1s ease-out forwards;
@@ -9845,6 +9849,7 @@ function vcAddStarButton(box, targetUserId){
     btn.addEventListener('click', (e) => { e.stopPropagation(); vcAwardPoint(targetUserId, btn, toast); });
     box.appendChild(btn);
     box.appendChild(toast);
+    try { vcApplyPraiseCompact(); } catch(e){}
 }
 // 🔁 (2026-07-05) 역할이 늦게 정해지거나 박스가 먼저 생겨도 항상 맞도록 —
 //   강사면: 내 박스의 바구니 제거 + 모든 원격(학생) 박스에 별 버튼. 학생이면: 별 제거 + 내 박스에 바구니.
@@ -9866,6 +9871,18 @@ function vcRefreshPraiseUI(){
             document.querySelectorAll('.vc-star-btn, .vc-star-toast').forEach(function(el){ el.remove(); });
             vcEnsurePointBasket();
         }
+        // 박스 폭에 따라 컴팩트(아이콘만) 여부 결정 — 좁으면 글자 감춰 겹침 방지
+        vcApplyPraiseCompact();
+    } catch(e){}
+}
+// 얼굴 박스가 좁으면(<170px) 별/바구니를 아이콘만 남기는 원형으로 축소해 다른 배지와 안 겹치게.
+function vcApplyPraiseCompact(){
+    try {
+        document.querySelectorAll('.vc-star-btn, .vc-point-basket').forEach(function(el){
+            var box = el.closest('.video-box');
+            var w = box ? box.getBoundingClientRect().width : 999;
+            el.classList.toggle('vc-star-compact', w > 0 && w < 170);
+        });
     } catch(e){}
 }
 // 안전장치: 수업 중일 때 2초마다 칭찬 UI를 상태에 맞게 재정렬(늦은 role/박스 생성 대비)
@@ -9912,6 +9929,7 @@ function vcEnsurePointBasket(){
     basket.setAttribute('aria-label', '내 포인트 바구니');
     basket.innerHTML = '<span class="vpb-icon">🧺</span><span class="vpb-count">0</span>';
     box.appendChild(basket);
+    try { vcApplyPraiseCompact(); } catch(e){}
     return basket;
 }
 function vcSpawnConfetti(box){
@@ -23248,7 +23266,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260705033234 -->
+<!-- BUILD:20260705044132 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
