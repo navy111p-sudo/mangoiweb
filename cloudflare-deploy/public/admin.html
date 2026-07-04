@@ -23076,7 +23076,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260705050718 -->
+        <!-- BUILD:20260705051141 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -28299,8 +28299,10 @@ button.chip:hover,
     speak(title + (tip ? '. ' + tip : ''));
   }
 
-  // ▶ 캡처 단계 청취 — 기존 onclick 의 stopPropagation 에도 막히지 않고, 원래 동작은 그대로 유지
-  document.addEventListener('click', function(e){
+  // ▶ 캡처 단계 청취 — ★window★ 에 붙임(중요): 어떤 스크립트가 window 캡처에서 stopPropagation() 을
+  //   호출해 document 까지 이벤트가 안 내려오는 경우가 있어(그래서 메뉴 클릭이 무반응이었음),
+  //   document 대신 window 캡처에 붙여야 메뉴 클릭을 확실히 잡는다. 원래 동작(펼치기 등)은 그대로 유지.
+  window.addEventListener('click', function(e){
     if (!isOn()) return;
     var t = e.target; if (!t || !t.closest) return;
     if (!t.closest('#ph85-sidebar')) return;

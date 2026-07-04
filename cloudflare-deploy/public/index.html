@@ -1397,8 +1397,12 @@
             transition: transform 0.15s ease; white-space: nowrap; max-width: calc(100% - 12px); overflow: hidden;
         }
         .vc-star-btn .vsb-ic { font-size: 14px; }
-        /* 좁은 박스: 글자 숨기고 아이콘만 (원형) */
-        .vc-star-btn.vc-star-compact { padding: 0; width: 30px; height: 30px; min-height: 0; justify-content: center; }
+        /* 이 학생에게 이번 수업 누적으로 준 개수 배지 (기본 숨김, JS로 표시) */
+        .vc-star-btn .vsb-count { display: none; min-width: 17px; height: 17px; padding: 0 4px; margin-left: 1px;
+            border-radius: 999px; background: #7c2d12; color: #ffe9b0; font-size: 11px; font-weight: 800;
+            align-items: center; justify-content: center; line-height: 1; }
+        /* 좁은 박스: "칭찬" 글자만 숨기고 아이콘 + 누적 배지는 유지 */
+        .vc-star-btn.vc-star-compact { padding: 4px 8px; }
         .vc-star-btn.vc-star-compact .vsb-lbl { display: none; }
         .vc-star-btn:hover { transform: scale(1.1); }
         .vc-star-btn:active { transform: scale(0.9); }
@@ -9383,12 +9387,23 @@ function vcHandleMessage(msg) {
             break;
         case 'point-award-ack':
             try {
-                var _ackToast = window._vcPendingAwards && window._vcPendingAwards[msg.data.awardId];
-                if (_ackToast) {
-                    if (msg.data.ok) vcShowStarToast(_ackToast, '⭐ +1P 전달완료!');
-                    else if (msg.data.error === 'cooldown') vcShowStarToast(_ackToast, '잠깐만요, 쿨다운 중');
-                    else if (msg.data.error === 'daily_cap_reached') vcShowStarToast(_ackToast, '오늘 한도 도달');
-                    else vcShowStarToast(_ackToast, '전달 실패 :(');
+                var _pend = window._vcPendingAwards && window._vcPendingAwards[msg.data.awardId];
+                if (_pend) {
+                    var _t = _pend.toast;
+                    if (msg.data.ok) {
+                        // ✅ 이 학생 누적 개수 +1 → 강사 버튼 배지 갱신(학생별로 몇 개 줬는지 보임)
+                        window._vcAwardCounts = window._vcAwardCounts || {};
+                        window._vcAwardCounts[_pend.targetUserId] = (window._vcAwardCounts[_pend.targetUserId] || 0) + 1;
+                        if (_pend.btn) {
+                            vcSyncStarCount(_pend.btn, _pend.targetUserId);
+                            _pend.btn.classList.add('vc-star-pop');
+                            setTimeout(function(){ _pend.btn.classList.remove('vc-star-pop'); }, 460);
+                        }
+                        vcShowStarToast(_t, '⭐ +1P! (이 학생 누적 ' + window._vcAwardCounts[_pend.targetUserId] + '개)');
+                    }
+                    else if (msg.data.error === 'cooldown') vcShowStarToast(_t, '잠깐만요, 쿨다운 중');
+                    else if (msg.data.error === 'daily_cap_reached') vcShowStarToast(_t, '오늘 한도 도달');
+                    else vcShowStarToast(_t, '전달 실패 :(');
                     delete window._vcPendingAwards[msg.data.awardId];
                 }
             } catch(e){}
@@ -9835,20 +9850,29 @@ function vcIsTeacherRole(){
     } catch(e){}
     return false;
 }
+// 🥭 (2026-07-05) 학생별 이번 수업 누적 지급 개수 (강사 화면 표시용) — targetUserId 별로 셈.
+window._vcAwardCounts = window._vcAwardCounts || {};
+function vcSyncStarCount(btn, uid){
+    if (!btn) return;
+    var c = (window._vcAwardCounts && window._vcAwardCounts[uid]) || 0;
+    var el = btn.querySelector('.vsb-count');
+    if (el){ el.textContent = c > 0 ? c : ''; el.style.display = c > 0 ? 'inline-flex' : 'none'; }
+}
 function vcAddStarButton(box, targetUserId){
     if (!box || !vcIsTeacherRole() || box.querySelector('.vc-star-btn')) return;
     const btn = document.createElement('button');
     btn.className = 'vc-star-btn';
     btn.type = 'button';
-    btn.title = '⭐ 칭찬 포인트 주기 — 학생이 잘했을 때 누르면 +1P';
-    btn.setAttribute('aria-label', '학생에게 칭찬 포인트 주기');
-    btn.innerHTML = '<span class="vsb-ic">⭐</span><span class="vsb-lbl">칭찬</span>';
+    btn.title = '⭐ 칭찬 포인트 주기 — 이 학생이 잘했을 때 누르면 이 학생 바구니에 +1P';
+    btn.setAttribute('aria-label', '이 학생에게 칭찬 포인트 주기');
+    btn.innerHTML = '<span class="vsb-ic">⭐</span><span class="vsb-lbl">칭찬</span><span class="vsb-count"></span>';
     const toast = document.createElement('span');
     toast.className = 'vc-star-toast';
     box.style.position = box.style.position || 'relative';
     btn.addEventListener('click', (e) => { e.stopPropagation(); vcAwardPoint(targetUserId, btn, toast); });
     box.appendChild(btn);
     box.appendChild(toast);
+    vcSyncStarCount(btn, targetUserId);   // 재접속/재렌더 시에도 누적 개수 복원
     try { vcApplyPraiseCompact(); } catch(e){}
 }
 // 🔁 (2026-07-05) 역할이 늦게 정해지거나 박스가 먼저 생겨도 항상 맞도록 —
@@ -9914,11 +9938,11 @@ function vcAwardPoint(targetUserId, btn, toast){
         btn.classList.add('vc-star-pop');
         setTimeout(() => btn.classList.remove('vc-star-pop'), 460);
         btn.classList.add('vc-star-cooldown');
-        setTimeout(() => btn.classList.remove('vc-star-cooldown'), 3200);
+        setTimeout(() => btn.classList.remove('vc-star-cooldown'), 1200); // 1.2초(서버 쿨다운 1초와 맞춤) — 연속 지급 원활
     }
     vcShowStarToast(toast, '⭐ 전송 중…');
     window._vcPendingAwards = window._vcPendingAwards || {};
-    window._vcPendingAwards[awardId] = toast;
+    window._vcPendingAwards[awardId] = { toast: toast, btn: btn, targetUserId: targetUserId };
 }
 
 // 🧺 (2026-07-04) 학생 화면 전용 — 이번 수업에서 받은 포인트 바구니 (본인 로컬 비디오 박스에 표시)
@@ -23273,7 +23297,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260705050718 -->
+<!-- BUILD:20260705051141 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
