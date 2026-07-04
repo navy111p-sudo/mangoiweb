@@ -362,7 +362,7 @@ export async function settlementRouter(request: Request, env: Env): Promise<Resp
 
   try {
     await ensureSchema(env);
-    const scope = await safe(async () => await getScope(env, request), { type: 'hq', value: null, label: '본사 (전체)' } as Scope);
+    const scope = await safe(async () => await getScope(env, request), { type: 'none', value: null, label: '권한 없음' } as Scope);
 
     // ── POST /rebuild : 라벨에서 그래프 트리 (재)구성 (HQ 전용) ──
     if (p === 'rebuild' && method === 'POST') {

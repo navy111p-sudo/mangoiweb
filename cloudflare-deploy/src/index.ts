@@ -136,7 +136,7 @@ export default {
       // 🏪 대리점/지사(비-본사) 제한 뷰 — 본사 전용 콘솔/ API 차단, 자기 대시보드로 유도
       if (sess.ok) {
         const _sc = await getScope(env, request);
-        if (_sc.type === 'agency' || _sc.type === 'branch') {
+        if (_sc.type === 'agency' || _sc.type === 'branch' || _sc.type === 'franchise') {
           // (1) 본사 전용 화면 전면 차단 → 자기 경영 대시보드(/admin/exec)로.
           //     허용 화면(exec·login·logout·mypage·health) 외 모든 /admin 페이지 리다이렉트.
           const _isAdminConsolePage = (path === '/admin' || path === '/admin/' || path === '/admin.html' || path.startsWith('/admin/'));
@@ -2877,6 +2877,10 @@ function isAdminPath(path: string, method: string): boolean {
   if (path.startsWith('/api/admin/homework/')) return true;
   // 🔁 Streak 일괄 정합화 수동 트리거 — HQ 관리자 전용 (agency 허용목록에 없어 403)
   if (path === '/api/admin/streak/reconcile') return true;
+  // 💰 회계 보고서 (accounting-reports) — 관리자 전용 (인증 필수)
+  if (path.startsWith('/api/admin/reports/')) return true;
+  // 🏢 조직 정산 트리 (org-settlement) — 관리자 전용 (인증 필수)
+  if (path.startsWith('/api/admin/settlement/') || path === '/api/admin/settlement') return true;
   // 대시보드·활성 방·방 상태 — 모두 관리자 전용
   if (path === '/api/dashboard') return true;
   if (path === '/api/active-rooms') return true;
@@ -2921,6 +2925,9 @@ function isAgencyAllowedApi(path: string): boolean {
     '/api/admin/me', '/api/admin/profile', '/api/admin/logout',
     '/api/admin/change-password', '/api/admin/login-history', '/api/admin/sessions',
     '/api/admin/health-check', '/api/admin/omnisearch',
+    // 🏢 정산 트리(org-settlement)는 자체 scopedRootId()로 agency/branch를 자기 노드로,
+    //   franchise는 설계상 HQ 진입 후 합산으로 이미 격리하므로 공통 허용목록에 포함.
+    '/api/admin/settlement/',
   ];
   return allow.some(a => path === a || path.startsWith(a));
 }

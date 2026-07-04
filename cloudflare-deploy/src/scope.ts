@@ -84,7 +84,7 @@ async function autoSeedOne(env: ScopeEnv, username: string): Promise<Scope> {
 export async function getScope(env: ScopeEnv, request: Request): Promise<Scope> {
   await ensureScope(env);
   const sess = await s_safe(async () => await checkAdminSession(request, env as any), { ok: false } as any);
-  if (!sess?.ok || !sess.username) return { type: 'hq', value: null, label: scopeLabel('hq', null) };
+  if (!sess?.ok || !sess.username) return { type: 'none', value: null, label: scopeLabel('none', null) };
 
   const row = await s_safe(async () => await env.DB.prepare(`SELECT scope_type, scope_value FROM admin_scope WHERE username=? LIMIT 1`).bind(sess.username).first<{ scope_type: string; scope_value: string | null }>(), null as any);
   const base: Scope = row ? { type: row.scope_type as any, value: row.scope_value, label: scopeLabel(row.scope_type, row.scope_value) }
