@@ -3296,6 +3296,7 @@ export async function handleMangoApi(
         if (kv) { try { cached = await kv.get('tr:' + target + ':' + t); } catch {} }
         if (cached != null) map[t] = cached; else need.push(t);
       }
+      const dbg: any = { ai: !!ai, need: need.length, raw: null, err: null };
       if (need.length && ai) {
         const langName = target === 'en' ? 'English' : 'Korean';
         for (let i = 0; i < need.length; i += 15) {
@@ -3310,6 +3311,7 @@ export async function handleMangoApi(
               max_tokens: 1500,
             });
             let txt = typeof resp === 'string' ? resp : (resp && typeof resp.response === 'string' ? resp.response : '');
+            if (i === 0) dbg.raw = String(txt || '').slice(0, 300);
             const mm = String(txt || '').match(/\[[\s\S]*\]/);
             let arr: any[] = [];
             if (mm) { try { arr = JSON.parse(mm[0]); } catch {} }
@@ -3318,9 +3320,10 @@ export async function handleMangoApi(
               map[chunk[j]] = out;
               if (kv && out && out !== chunk[j]) { try { await kv.put('tr:' + target + ':' + chunk[j], out, { expirationTtl: 60 * 60 * 24 * 180 }); } catch {} }
             }
-          } catch { for (const c of chunk) map[c] = c; }
+          } catch (e: any) { dbg.err = String(e?.message || e); for (const c of chunk) map[c] = c; }
         }
       } else if (need.length) { for (const c of need) map[c] = c; }
+      if (url.searchParams.get('debug') === '1') return json({ ok: true, map, _debug: dbg });
       return json({ ok: true, map });
     }
 
