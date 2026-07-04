@@ -122,7 +122,6 @@
   }
 
   function txt(el) { return (el && el.textContent ? el.textContent : '').trim(); }
-  function visible(el) { return !!(el && el.offsetParent !== null); }
 
   function isInClass() {
     return !!(document.body && document.body.classList.contains('vc-in-call'));
@@ -162,8 +161,10 @@
       var el = readElapsed();
       elElapsed.textContent = el;
       elElapsed.style.display = el ? 'inline' : 'none';
-      /* 녹화 여부: 녹화배지가 DOM에 떠 있으면 녹화 중으로 간주 */
-      if (visible(document.getElementById('mango-rec-badge'))) bar.classList.add('recording');
+      /* 녹화 여부: 녹화배지가 DOM에 존재하면 녹화 중으로 간주.
+         (mg-uni-on 이 배지를 display:none 처리하므로 visible() 은 항상 false → 존재 여부로 판단해야 함.
+          mango-rec.js 는 정지 시 recBadge.remove() 로 DOM 에서 제거하므로 존재=녹화중이 정확) */
+      if (document.getElementById('mango-rec-badge')) bar.classList.add('recording');
       else bar.classList.remove('recording');
     } else {
       document.body.classList.remove('mg-uni-on');

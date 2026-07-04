@@ -198,7 +198,9 @@
         var ws=s.words||[]; if(ws.length<3) return;
         var cand=ws.filter(function(w){ return w.length>2 && STOP.indexOf(w.toLowerCase())<0; });
         var ans=cand.length?cand[Math.floor(Math.random()*cand.length)]:ws[Math.floor(ws.length/2)];
-        var q=s.en.split(ans).join('___');
+        // 단어경계 + 첫 일치만 빈칸(부분문자열 오치환 방지: "cat" 이 "delicate" 안까지 뚫리던 버그)
+        var _reBlank=new RegExp('\\b'+ans.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','i');
+        var q=_reBlank.test(s.en)?s.en.replace(_reBlank,'___'):s.en.split(ans).join('___');
         var wrongs=_shuf(sentWords.filter(function(w){ return w.toLowerCase()!==ans.toLowerCase(); })).slice(0,3);
         while(wrongs.length<3){ wrongs.push(['soccer','pizza','friends','happy'][wrongs.length]); }
         items.push({ type:'문장', q:q, hint:(s.ko?'('+s.ko+')':''), a:ans, ch:_shuf([ans].concat(wrongs)) });
@@ -860,6 +862,6 @@
   })();
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
-<!-- BUILD:20260705005154 -->
+<!-- BUILD:20260705033234 -->
 </body>
 </html>

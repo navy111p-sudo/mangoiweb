@@ -2267,15 +2267,18 @@ export async function handleMangoApi(
       }
       const isCredit = (type === 'earn' || type === 'refund' || type === 'admin_grant');
       const signed = isCredit ? Math.abs(amount) : -Math.abs(amount);
-      const newBalance = (row.balance || 0) + signed;
-      if (newBalance < 0) {
-        throw new Error(`잔액 부족: 현재 ${row.balance}P, 차감 ${Math.abs(signed)}P`);
+      // ⚛ 원자적 잔액 변경: 상대적(+signed) 갱신 + 차감이 잔액을 음수로 만들면 거부(WHERE balance+signed>=0).
+      //   기존엔 SELECT 후 절대값을 덮어써서, 동시 차감 시 둘 다 통과해 초과사용(음수 잔액)이 가능했음.
+      //   D1(SQLite) 은 쓰기를 직렬화하므로 이 조건부 UPDATE 는 동시성에서 정확히 한 쪽만 성공한다.
+      const upd = await env.DB.prepare(
+        `UPDATE student_points SET balance = balance + ?, lifetime_earned = lifetime_earned + ?, lifetime_spent = lifetime_spent + ?, last_earned_at = CASE WHEN ?>0 THEN ? ELSE last_earned_at END, last_spent_at = CASE WHEN ?<0 THEN ? ELSE last_spent_at END, student_name = COALESCE(?, student_name), updated_at = ? WHERE user_id = ? AND balance + ? >= 0`
+      ).bind(signed, signed > 0 ? signed : 0, signed < 0 ? -signed : 0, signed, now, signed, now, studentName || null, now, userId, signed).run();
+      if (!upd?.meta?.changes) {   // 조건 실패 = 잔액 부족(동시 차감 포함)
+        const cur: any = await env.DB.prepare(`SELECT balance FROM student_points WHERE user_id=?`).bind(userId).first();
+        throw new Error(`잔액 부족: 현재 ${cur?.balance ?? (row.balance || 0)}P, 차감 ${Math.abs(signed)}P`);
       }
-      const lifetimeEarned = (row.lifetime_earned || 0) + (signed > 0 ? signed : 0);
-      const lifetimeSpent = (row.lifetime_spent || 0) + (signed < 0 ? -signed : 0);
-      // UPDATE 잔액
-      await env.DB.prepare(`UPDATE student_points SET balance=?, lifetime_earned=?, lifetime_spent=?, last_earned_at=COALESCE(CASE WHEN ?>0 THEN ? END, last_earned_at), last_spent_at=COALESCE(CASE WHEN ?<0 THEN ? END, last_spent_at), student_name=COALESCE(?, student_name), updated_at=? WHERE user_id=?`)
-        .bind(newBalance, lifetimeEarned, lifetimeSpent, signed, now, signed, now, studentName || null, now, userId).run();
+      const afterRow: any = await env.DB.prepare(`SELECT balance FROM student_points WHERE user_id=?`).bind(userId).first();
+      const newBalance = afterRow?.balance ?? ((row.balance || 0) + signed);
       // INSERT 거래내역
       const ins = await env.DB.prepare(`INSERT INTO point_transactions (user_id, student_name, type, amount, balance_after, reason, rule_code, redemption_id, actor_id, actor_name, created_at, meta) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
         .bind(userId, studentName || null, type, signed, newBalance, reason || null, ruleCode || null, redemptionId || null, actorId || null, actorName || null, now, meta ? JSON.stringify(meta) : null).run();
@@ -2358,10 +2361,10 @@ export async function handleMangoApi(
           return json({ ok: false, error: 'cooldown', remaining_sec: Math.ceil((rule.cooldown_sec*1000 - (now - last.triggered_at))/1000) });
         }
       }
-      // 일일 한도 검사
+      // 일일 한도 검사 — 하루 경계는 KST 자정(=UTC 15:00) 기준으로 통일(나머지 코드의 today() 와 일치)
       if (rule.daily_cap) {
-        const startOfDay = new Date(); startOfDay.setHours(0,0,0,0);
-        const todayMs = startOfDay.getTime();
+        const KST_OFF = 9 * 3600 * 1000;
+        const todayMs = Math.floor((Date.now() + KST_OFF) / 86400000) * 86400000 - KST_OFF;
         const cnt: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE user_id=? AND rule_code=? AND triggered_at>=?`).bind(userId, ruleCode, todayMs).first();
         if ((cnt?.c || 0) >= rule.daily_cap) {
           return json({ ok: false, error: 'daily_cap_reached', cap: rule.daily_cap });
@@ -2913,19 +2916,27 @@ export async function handleMangoApi(
         await env.DB.prepare(`UPDATE gift_redemptions SET ${updates.join(',')} WHERE id=?`).bind(...binds, redId).run();
       }
 
-      // 발송 실패 콜백이면 자동 환불
+      // 발송 실패 콜백이면 자동 환불.
+      //  ⚠ 동시 webhook(KT alpha 재시도) 이중환불 방지: 먼저 CAS 로 '환불됨' 상태를 선점한 요청만 실제 환불.
+      //  D1(SQLite) 은 쓰기를 직렬화하므로, 두 요청이 동시에 와도 UPDATE ... WHERE txn_refund_id IS NULL 은
+      //  한 번만 changes=1 이 되어 정확히 한 번만 환불된다.
       if (ev.status === 'failed' && !red.txn_refund_id) {
-        try {
-          const refundTxn = await applyPointTransaction({
-            userId: red.user_id, studentName: red.student_name, type: 'refund',
-            amount: red.point_price, reason: `[자동환불] 발송 실패 (webhook): ${(ev.message||'').slice(0,80)}`,
-            redemptionId: redId, actorId: 'webhook', actorName: 'KT alpha webhook',
-          });
-          await env.DB.prepare(`UPDATE gift_redemptions SET txn_refund_id=?, status='refunded', refunded_at=? WHERE id=?`).bind(refundTxn.txnId, now, redId).run();
-          if (red.catalog_id) {
-            await env.DB.prepare(`UPDATE gift_catalog SET stock=stock+1, updated_at=? WHERE id=? AND stock IS NOT NULL`).bind(now, red.catalog_id).run();
-          }
-        } catch {}
+        const claim = await env.DB.prepare(
+          `UPDATE gift_redemptions SET status='refunded', refunded_at=? WHERE id=? AND txn_refund_id IS NULL AND status!='refunded'`
+        ).bind(now, redId).run();
+        if (claim?.meta?.changes) {   // 이 요청이 환불 슬롯을 차지했을 때만 실제 포인트 환불
+          try {
+            const refundTxn = await applyPointTransaction({
+              userId: red.user_id, studentName: red.student_name, type: 'refund',
+              amount: red.point_price, reason: `[자동환불] 발송 실패 (webhook): ${(ev.message||'').slice(0,80)}`,
+              redemptionId: redId, actorId: 'webhook', actorName: 'KT alpha webhook',
+            });
+            await env.DB.prepare(`UPDATE gift_redemptions SET txn_refund_id=? WHERE id=?`).bind(refundTxn.txnId, redId).run();
+            if (red.catalog_id) {
+              await env.DB.prepare(`UPDATE gift_catalog SET stock=stock+1, updated_at=? WHERE id=? AND stock IS NOT NULL`).bind(now, red.catalog_id).run();
+            }
+          } catch {}
+        }
       }
 
       return json({ ok: true, processed: ev, redemption_id: redId });

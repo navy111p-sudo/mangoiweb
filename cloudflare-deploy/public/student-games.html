@@ -1054,11 +1054,15 @@ function _startRoundTimer(){
     if(tEl) tEl.style.color = secs<=5 ? 'var(--bad)' : '#7fd1ff';
     if(secs<=0){
       _stopRoundTimer();
-      // 현재 문제 항목을 오답으로 기록(약점 재노출) + 콤보/하트 처리
+      // 현재 문제 항목을 오답으로 기록(약점 재노출) + 콤보/하트 처리.
+      // 매칭게임처럼 '문제 문장/단어'가 없는 모드는 undefined 를 오답으로 기록하거나 하트를 깎지 않고 넘어감.
       var _it = _gameState.current && (_gameState.current.sentence || _gameState.current.word);
-      var _kd = (_gameState.mode==='balloon') ? 'word' : 'sent';
-      var dead = _onWrong(_kd, _it);
-      _gameUpdateScore();
+      var dead = false;
+      if (_it) {
+        var _kd = (_gameState.mode==='balloon') ? 'word' : 'sent';
+        dead = _onWrong(_kd, _it);
+        _gameUpdateScore();
+      }
       var fb=document.getElementById('game-feedback');
       if(fb) fb.innerHTML='<span style="color:#ef4444">⏰ 시간 초과!' + (dead?'':' 다음 문제로…') + '</span>';
       if(!dead) setTimeout(gameNextRound, 1500);
@@ -1754,6 +1758,6 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260705005154 -->
+<!-- BUILD:20260705033234 -->
 </body>
 </html>

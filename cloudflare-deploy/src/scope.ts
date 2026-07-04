@@ -50,9 +50,9 @@ export function paymentScopeSql(scope?: Scope): { sql: string; binds: any[] } {
   return { sql: '', binds: [] };
 }
 
-// 비용(지출)은 본사만. 대리점/지사면 false.
+// 비용(지출)은 본사만. 대리점(agency)·지사(branch)·지사본사(franchise)는 볼 수 없음(false).
 export function expenseVisible(scope?: Scope): boolean {
-  return !scope || (scope.type !== 'agency' && scope.type !== 'branch');
+  return !scope || (scope.type !== 'agency' && scope.type !== 'branch' && scope.type !== 'franchise');
 }
 
 async function ensureScope(env: ScopeEnv): Promise<void> {

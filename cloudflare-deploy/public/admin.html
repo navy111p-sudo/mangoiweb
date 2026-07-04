@@ -6299,6 +6299,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       const d = await r.json();
       if (!d.ok) { alert('전체 보기 실패: ' + (d.error||'')); return; }
       const w = window.open('', '_blank', 'width=900,height=700');
+      if (!w) { alert('팝업이 차단되어 리포트를 열 수 없습니다. 브라우저 팝업 차단을 해제한 뒤 다시 시도해 주세요.'); return; }
       w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>AI 학습 리포트 #' + id + '</title></head><body style="font-family:-apple-system,sans-serif;padding:24px;background:#0a1530;color:#e6ecff;line-height:1.7"><h1>🎙 AI 학습 리포트 #' + id + '</h1><h2>📝 전체 STT (' + (d.item.total_words||0) + ' 단어)</h2><pre style="white-space:pre-wrap;background:#14213b;padding:14px;border-radius:10px;color:#cbd5e1">' + (d.item.transcript || '').replace(/[<>]/g,'') + '</pre></body></html>');
       } catch(e) { console.error('alrViewFull broken:', e); }
     };
@@ -8645,7 +8646,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
           </div>
           <div style="display:flex;gap:4px">
             <button class="sup-btn sup-btn-ghost" style="padding:5px 10px;font-size:11px" onclick="document.getElementById('sup-ghost-room').value='${esc(a.room_id)}';supOpenGhost()" data-ko="👁 참관" data-en="👁 Observe">👁 참관</button>
-            <button class="sup-btn" style="padding:5px 10px;font-size:11px" onclick="document.getElementById('sup-note-aid').value=${esc(String(a.id))};" data-ko="📝 노트" data-en="📝 Note">📝 노트</button>
+            <button class="sup-btn" style="padding:5px 10px;font-size:11px" onclick="document.getElementById('sup-note-aid').value='${esc(String(a.id))}';" data-ko="📝 노트" data-en="📝 Note">📝 노트</button>
           </div>
         </div>
       `).join('');
@@ -15631,7 +15632,7 @@ document.addEventListener('click', function(ev) {
   const qEl        = document.getElementById('rec-q');
   const dfEl       = document.getElementById('rec-date-from');
   const dtEl       = document.getElementById('rec-date-to');
-  const statusEl   = document.getElementById('rec-status');
+  const statusEl   = document.getElementById('rec-status-2');   // 녹화 상태 필터(전체/종료/녹화중/중단/삭제) — #rec-status 는 영입본부 폼이라 오작동했음
   const pageSizeEl = document.getElementById('rec-pagesize');
   const applyBtn   = document.getElementById('rec-apply');
   const resetBtn   = document.getElementById('rec-reset');
@@ -23075,7 +23076,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260705005154 -->
+        <!-- BUILD:20260705033234 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

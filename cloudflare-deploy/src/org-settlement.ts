@@ -37,7 +37,7 @@
  *   format=csv 지원(GET 계열).  scope.ts 로 대리점/지사 데이터 격리 적용.
  */
 
-import { getScope, type Scope } from './scope';
+import { getScope, scopeStudentCond, type Scope } from './scope';
 
 interface Env {
   DB: D1Database;
@@ -343,7 +343,9 @@ async function scopedRootId(env: Env, scope: Scope, fallbackHqId: number): Promi
     const r = await safe(async () => await env.DB.prepare(`SELECT id FROM org_nodes WHERE type='branch' AND (match_key LIKE ? OR name LIKE ?) LIMIT 1`).bind(scope.value + '%', scope.value + '%').first<{ id: number }>(), null as any);
     return r?.id ?? null;
   }
-  return fallbackHqId; // franchise(지사본사) 등은 HQ 진입 후 합산(추후 세분화 가능)
+  // franchise(지사본사)는 HQ 트리 전체를 보면 '타 지사 매출'까지 노출되므로 rollup 진입 차단(null).
+  //  자기 소유 지사 매출은 /branch-summary 에서 소유 지사로 필터링해 조회(아래 참조).
+  return null;
 }
 
 async function hqRootId(env: Env): Promise<number> {
@@ -366,7 +368,7 @@ export async function settlementRouter(request: Request, env: Env): Promise<Resp
 
     // ── POST /rebuild : 라벨에서 그래프 트리 (재)구성 (HQ 전용) ──
     if (p === 'rebuild' && method === 'POST') {
-      if (scope.type !== 'hq' && scope.type !== 'none') return err('forbidden: HQ only', 403);
+      if (scope.type !== 'hq') return err('forbidden: HQ only', 403);   // 정산 변경은 본사(hq)만 — 교사·내부직원(none) 포함 차단
       const res = await rebuildTree(env);
       return json({ ok: true, ...res });
     }
@@ -380,6 +382,10 @@ export async function settlementRouter(request: Request, env: Env): Promise<Resp
     if (p === 'branch-summary' && method === 'GET') {
       const period = url.searchParams.get('period') || currentMonth();
       const { startMs, endMs, label } = monthRange(period);
+      // 데이터 격리: 지사본사(franchise)·지사(branch)·대리점(agency)은 자기 소유 매출만.
+      //  hq/none 은 빈 조건(전체). franchise 는 소유 지사 목록으로 필터되어 '타 지사 매출'이 안 보임.
+      const sc = scopeStudentCond(scope, 's');
+      const scWhere = sc.cond ? ` AND ${sc.cond}` : '';
       const rows = await safe(async () =>
         (await env.DB.prepare(`
           SELECT COALESCE(NULLIF(TRIM(s.franchise),''), '(미지정 지사)') AS franchise_name,
@@ -389,11 +395,11 @@ export async function settlementRouter(request: Request, env: Env): Promise<Resp
           FROM student_payments p
           JOIN students_erp s ON s.user_id = p.user_id
           LEFT JOIN org_nodes o ON o.type='branch' AND o.name = TRIM(s.franchise)
-          WHERE p.status='paid' AND p.paid_at >= ? AND p.paid_at < ?
+          WHERE p.status='paid' AND p.paid_at >= ? AND p.paid_at < ?${scWhere}
           GROUP BY franchise_name
           HAVING gross_revenue > 0
           ORDER BY gross_revenue DESC
-        `).bind(startMs, endMs).all<any>()).results || [], [] as any[]);
+        `).bind(startMs, endMs, ...sc.binds).all<any>()).results || [], [] as any[]);
       const enriched = rows.map((r: any) => {
         const rate = Number(r.commission_rate) || 0.15;
         const hq_fee = Math.round(r.gross_revenue * rate);
@@ -434,7 +440,7 @@ export async function settlementRouter(request: Request, env: Env): Promise<Resp
 
     // ── POST /rates {node_id, rate} : 수수료율 설정(0.15~0.18, HQ 전용) ──
     if (p === 'rates' && method === 'POST') {
-      if (scope.type !== 'hq' && scope.type !== 'none') return err('forbidden: HQ only', 403);
+      if (scope.type !== 'hq') return err('forbidden: HQ only', 403);   // 정산 변경은 본사(hq)만 — 교사·내부직원(none) 포함 차단
       const b = await safe(async () => await request.json<any>(), {} as any);
       const nodeId = Number(b?.node_id);
       if (!nodeId) return err('node_id required');
@@ -517,7 +523,7 @@ export async function settlementRouter(request: Request, env: Env): Promise<Resp
 
     // ── POST /close?period= : 정산 마감 → 원장 스냅샷(멱등, HQ 전용) ──
     if (p === 'close' && method === 'POST') {
-      if (scope.type !== 'hq' && scope.type !== 'none') return err('forbidden: HQ only', 403);
+      if (scope.type !== 'hq') return err('forbidden: HQ only', 403);   // 정산 변경은 본사(hq)만 — 교사·내부직원(none) 포함 차단
       const period = url.searchParams.get('period') || currentMonth();
       const { startMs, endMs } = monthRange(period);
       const rootId = await hqRootId(env);
