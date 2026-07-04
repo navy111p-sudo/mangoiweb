@@ -1385,16 +1385,18 @@
         /* 🌟 (2026-07-04) 실시간 칭찬 포인트 — 강사가 학생 화면의 별 버튼을 눌러 즉석 +1P 지급
            🔧 (2026-07-05) 위치 이동: 우상단은 다른 배지와 겹칠 수 있어, 하단 상태표시(.video-status)
            바로 위 우측으로 옮겨 항상 분리되어 보이게 함(좌상단 분리버튼과도 반대쪽이라 안전). */
+        /* 🔧 (2026-07-05) 알약형 라벨 버튼 — 터치(호버 없음)에서도 뭔지 바로 알 수 있게 "칭찬" 글자 노출 */
         .vc-star-btn {
             position: absolute; bottom: 34px; right: 6px; z-index: 6;
-            width: 30px; height: 30px; border-radius: 50%; border: none;
-            background: radial-gradient(circle at 35% 30%, #fff7cc, #fbbf24 55%, #d97706);
-            color: #7c2d12; font-size: 15px; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
+            min-height: 28px; padding: 4px 10px 4px 8px; border-radius: 999px; border: none;
+            background: radial-gradient(circle at 30% 25%, #fff7cc, #fbbf24 60%, #d97706);
+            color: #7c2d12; font-size: 12.5px; font-weight: 800; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 3px; line-height: 1;
             box-shadow: 0 3px 10px rgba(251,191,36,0.55), 0 0 0 1px rgba(255,255,255,0.25) inset;
             touch-action: manipulation; -webkit-tap-highlight-color: transparent;
-            transition: transform 0.15s ease;
+            transition: transform 0.15s ease; white-space: nowrap;
         }
+        .vc-star-btn .vsb-ic { font-size: 14px; }
         .vc-star-btn:hover { transform: scale(1.1); }
         .vc-star-btn:active { transform: scale(0.9); }
         .vc-star-btn.vc-star-cooldown { opacity: 0.45; cursor: default; filter: grayscale(0.6); }
@@ -9836,7 +9838,7 @@ function vcAddStarButton(box, targetUserId){
     btn.type = 'button';
     btn.title = '⭐ 칭찬 포인트 주기 — 학생이 잘했을 때 누르면 +1P';
     btn.setAttribute('aria-label', '학생에게 칭찬 포인트 주기');
-    btn.innerHTML = '⭐';
+    btn.innerHTML = '<span class="vsb-ic">⭐</span><span class="vsb-lbl">칭찬</span>';
     const toast = document.createElement('span');
     toast.className = 'vc-star-toast';
     box.style.position = box.style.position || 'relative';
@@ -23246,7 +23248,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260705004552 -->
+<!-- BUILD:20260705004915 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
