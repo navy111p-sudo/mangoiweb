@@ -18981,7 +18981,8 @@ window.openLiveClass = async function(){
   } catch(_){}
   if (nameEl) nameEl.textContent = tname;
   var displayName = '교사 ' + tname;
-  var src = '/?vc_autojoin=1&vc_room=' + encodeURIComponent('mangoi-class') + '&vc_name=' + encodeURIComponent(displayName);
+  // 🌟 (2026-07-05) vc_role=teacher 명시 — 실시간 칭찬 포인트에서 강사로 확정 인식(별 버튼 노출).
+  var src = '/?vc_autojoin=1&vc_role=teacher&vc_room=' + encodeURIComponent('mangoi-class') + '&vc_name=' + encodeURIComponent(displayName);
   sec.style.display = 'block';
   if (ph) ph.style.display = 'flex';
   if (frame) {
@@ -23074,7 +23075,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260705004256 -->
+        <!-- BUILD:20260705004552 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -28203,26 +28204,18 @@ button.chip:hover,
   loadVoice();
   try { synth.addEventListener('voiceschanged', loadVoice); } catch(e){ try { synth.onvoiceschanged = loadVoice; } catch(_){} }
 
-  // 🔊 서버 한국어 음성(AI 운영비서와 동일한 /api/ops-tts = 아바타 Worker/MeloTTS)을 1순위로 사용.
-  //    브라우저 speechSynthesis 는 OS 에 한국어 음성이 없으면 무음이 되는 치명적 문제가 있어,
-  //    항상 소리가 나도록 서버음성 → (실패 시) 브라우저음성 순으로 폴백한다.
-  var TTS_URL = '/api/ops-tts';
-  var audioEl = null, _seq = 0, _primed = false;
-  function ensureAudio(){
-    if (audioEl) return audioEl;
-    try { audioEl = new Audio(); audioEl.preload = 'auto'; } catch(e){ audioEl = null; }
-    return audioEl;
-  }
-  // 첫 사용자 제스처(클릭)에서 오디오/음성엔진 잠금해제 → 비동기 서버응답 뒤에도 소리가 남(무음 방지)
+  // 🔊 사이드바 음성 안내 — '기계음'(브라우저 내장 speechSynthesis)만 사용.
+  //    · 메뉴 클릭마다 발화하므로, 크레딧이 드는 서버(Typecast) 음성은 쓰지 않는다(비용↓).
+  //    · AI 운영비서만 서버음성(/api/ops-tts) 사용. (참고: OS 에 한국어 음성이 없으면 무음일 수 있음)
+  var _primed = false;
+  // 첫 사용자 제스처(클릭)에서 음성엔진 잠금해제 → 이후에도 소리가 남(무음 방지)
   function prime(){
     if (_primed) return; _primed = true;
-    var a = ensureAudio();
-    try { if (a){ var p = a.play(); if (p && p.then) p.then(function(){ try{ a.pause(); a.currentTime = 0; }catch(_){} }).catch(function(){}); } } catch(e){}
     try { synth.resume(); var w = new SpeechSynthesisUtterance(' '); w.volume = 0; synth.speak(w); } catch(e){}
   }
 
   var _lastU = null;   // 발화 중 GC 로 utterance 가 수거돼 소리가 끊기는 브라우저 버그 방지(참조 유지)
-  function _browserSpeak(text){    // 폴백: 브라우저 내장 음성
+  function _doSpeak(text){
     try {
       var u = new SpeechSynthesisUtterance(text);
       u.lang = 'ko-KR'; u.rate = 1.05; u.pitch = 1;
@@ -28234,21 +28227,14 @@ button.chip:hover,
   }
   function speak(text){
     if (!text || !isOn()) return;
-    var mySeq = ++_seq, served = false;   // 연타 시 이전 안내 무효화
-    try { synth.cancel(); } catch(_){}    // 진행 중이던 브라우저 폴백음성 중단
-    var a = ensureAudio();
-    // 1순위: 서버 한국어 음성(홈페이지·AI 비서와 동일) → OS 한국어 음성 유무와 무관하게 항상 재생
     try {
-      fetch(TTS_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text: text.slice(0,600) }) })
-        .then(function(r){ if(!r.ok) throw new Error('tts '+r.status); return r.blob(); })
-        .then(function(b){ if(mySeq!==_seq) return; if(!b || b.size<200) throw new Error('empty'); served = true;
-          if(!a){ _browserSpeak(text); return; }
-          try { if(a.src && a.src.indexOf('blob:')===0) URL.revokeObjectURL(a.src); } catch(_){}
-          a.src = URL.createObjectURL(b);
-          var p = a.play(); if(p && p.catch) p.catch(function(){ if(mySeq===_seq) _browserSpeak(text); });
-        })
-        .catch(function(){ if(mySeq===_seq && !served) _browserSpeak(text); });   // 서버 실패/오프라인 → 브라우저음성
-    } catch(e){ _browserSpeak(text); }
+      if (synth.speaking || synth.pending){
+        synth.cancel();                              // 연타 시 이전 안내 중단
+        setTimeout(function(){ _doSpeak(text); }, 90); // cancel 직후 speak 이 씹히는 Chrome 버그 회피(약간 지연)
+      } else {
+        _doSpeak(text);                              // 유휴 상태면 클릭 제스처 안에서 즉시 발화(오디오 잠금 해제)
+      }
+    } catch(e){}
   }
 
   // 이모지/⭐신규 등 제거 → 자연스러운 낭독
@@ -28324,7 +28310,7 @@ button.chip:hover,
       prime();                               // 토글 클릭(사용자 제스처)에서 오디오 잠금해제
       var next = !isOn(); setOn(next); paint();
       if (next) speak('음성 안내를 켰습니다. 메뉴를 누르면 설명해 드려요.');
-      else { _seq++; try { synth.cancel(); } catch(_){} try { if(audioEl){ audioEl.pause(); audioEl.currentTime = 0; } } catch(_){} }
+      else { try { synth.cancel(); } catch(_){} }
     });
     var anchor = sb.querySelector('.ph85-search-wrap') || sb.querySelector('.ph85-brand');
     if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(btn, anchor.nextSibling);

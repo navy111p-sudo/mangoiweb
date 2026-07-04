@@ -732,7 +732,8 @@
           var j = await r.json().catch(function(){ return null; });
           if (j && j.ok && j.user) tname = j.user.name || j.user.username || '교사';
         } catch(_){}
-        var url = '/?vc_autojoin=1&vc_room=' + encodeURIComponent('mangoi-class') + '&vc_name=' + encodeURIComponent('교사 ' + tname);
+        // 🌟 (2026-07-05) vc_role=teacher 명시 — 실시간 칭찬 포인트에서 강사로 확정 인식(별 버튼 노출).
+        var url = '/?vc_autojoin=1&vc_role=teacher&vc_room=' + encodeURIComponent('mangoi-class') + '&vc_name=' + encodeURIComponent('교사 ' + tname);
         location.href = url;
       }
     </script>
