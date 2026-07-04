@@ -23076,7 +23076,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260705044132 -->
+        <!-- BUILD:20260705044413 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -28211,11 +28211,10 @@ button.chip:hover,
   var FREE_TTS = '/api/tts-free';
   var audioEl = null, _seq = 0, _primed = false;
   function ensureAudio(){ if (audioEl) return audioEl; try { audioEl = new Audio(); audioEl.preload = 'auto'; } catch(e){ audioEl = null; } return audioEl; }
-  // 첫 사용자 제스처(클릭)에서 오디오/음성엔진 잠금해제 → 비동기 서버응답 뒤에도 소리가 남(무음 방지)
+  // 첫 사용자 제스처에서 (폴백용) 브라우저 음성엔진만 살짝 깨워둠. 서버음성은 speak() 가 제스처 안에서 즉시 재생.
   function prime(){
     if (_primed) return; _primed = true;
-    var a = ensureAudio();
-    try { if (a){ var p = a.play(); if (p && p.then) p.then(function(){ try{ a.pause(); a.currentTime = 0; }catch(_){} }).catch(function(){}); } } catch(e){}
+    ensureAudio();
     try { synth.resume(); var w = new SpeechSynthesisUtterance(' '); w.volume = 0; synth.speak(w); } catch(e){}
   }
 
@@ -28232,21 +28231,21 @@ button.chip:hover,
   }
   function speak(text){
     if (!text || !isOn()) return;
-    var mySeq = ++_seq, served = false;   // 연타 시 이전 안내 무효화
     try { synth.cancel(); } catch(_){}    // 진행 중이던 브라우저 폴백음성 중단
     var a = ensureAudio();
-    // 1순위: 무료 서버 기계음 → OS 한국어 음성 유무와 무관하게 항상 재생
-    try {
-      fetch(FREE_TTS, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text: text.slice(0,600) }) })
-        .then(function(r){ if(!r.ok) throw new Error('tts '+r.status); return r.blob(); })
-        .then(function(b){ if(mySeq!==_seq) return; if(!b || b.size<200) throw new Error('empty'); served = true;
-          if(!a){ _browserSpeak(text); return; }
-          try { if(a.src && a.src.indexOf('blob:')===0) URL.revokeObjectURL(a.src); } catch(_){}
-          a.src = URL.createObjectURL(b);
-          var p = a.play(); if(p && p.catch) p.catch(function(){ if(mySeq===_seq) _browserSpeak(text); });
-        })
-        .catch(function(){ if(mySeq===_seq && !served) _browserSpeak(text); });   // 서버 실패/오프라인 → 브라우저음성
-    } catch(e){ _browserSpeak(text); }
+    // 1순위: 무료 서버 기계음. ★모바일 자동재생 규칙★ — 반드시 클릭(제스처) 안에서 '즉시' 재생해야 소리남.
+    //   그래서 fetch(비동기) 대신 audio.src 에 GET URL 을 바로 물려 동기적으로 play() 한다.
+    if (a) {
+      try {
+        a.pause();
+        a.src = FREE_TTS + '?q=' + encodeURIComponent(text.slice(0, 600));
+        a.load();
+        var p = a.play();
+        if (p && p.catch) p.catch(function(){ _browserSpeak(text); });   // 재생 거부되면 브라우저음성 폴백
+        return;
+      } catch (e){}
+    }
+    _browserSpeak(text);   // 오디오 객체 자체가 없을 때만
   }
 
   // 이모지/⭐신규 등 제거 → 자연스러운 낭독

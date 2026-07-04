@@ -521,13 +521,19 @@ export default {
     //    사이드바 음성안내처럼 '클릭마다' 울리는 곳에서 비용 없이, OS 한국어 음성 유무와 무관하게 소리내기 위함.
     //    Google TTS 는 요청당 ~200자 제한 → 서버에서 문장 단위로 잘라 여러 번 받아 MP3 를 이어붙여 반환한다.
     if (path === '/api/tts-free' && request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' } });
+      return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' } });
     }
-    if (path === '/api/tts-free' && request.method === 'POST') {
-      const freeHeaders = { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' };
+    // GET(?q=) 도 지원 — 모바일 브라우저는 클릭(제스처) 안에서 audio.src=URL 로 '즉시' 재생해야 소리남.
+    //   fetch→blob→play 는 비동기라 제스처가 끊겨 모바일에서 자동재생 차단됨. 그래서 GET 스트리밍 경로 추가.
+    if (path === '/api/tts-free' && (request.method === 'POST' || request.method === 'GET')) {
+      const freeHeaders = { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'public, max-age=86400', 'Access-Control-Allow-Origin': '*' };
       try {
         let text = '';
-        try { text = String((JSON.parse((await request.text()) || '{}') || {}).text || ''); } catch { text = ''; }
+        if (request.method === 'GET') {
+          text = url.searchParams.get('q') || '';
+        } else {
+          try { text = String((JSON.parse((await request.text()) || '{}') || {}).text || ''); } catch { text = ''; }
+        }
         text = text.replace(/\s+/g, ' ').trim().slice(0, 600);
         if (!text) return new Response('empty', { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } });
 
