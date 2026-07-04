@@ -7183,7 +7183,7 @@
         <div class="content-pane" id="vc-content-pane">
             <!-- 탭 메뉴 -->
             <div class="tab-bar">
-                <button class="tab-btn active" onclick="vcToggleWhiteboardTools()" data-ko="🖊 칠판" data-en="🖊 Board">🖊 칠판</button>
+                <button class="tab-btn active" onclick="vcToggleContentTab('whiteboard')" data-ko="🖊 칠판" data-en="🖊 Board">🖊 칠판</button>
                 <!-- 🔧 (2026-06-27) '📄 교재' 탭 버튼 제거 — 중복. PDF는 '📚 교재도구' 칩으로 접근(클릭 시 vcSwitchTab('pdf') 자동 호출). -->
                 <button class="tab-btn" onclick="vcToggleContentTab('video')" data-ko="📹 동영상" data-en="📹 Video">📹 동영상</button>
                 <button class="tab-btn" onclick="vcToggleContentTab('game')" data-ko="🎮 학생게임" data-en="🎮 Game">🎮 학생게임</button>
@@ -10535,11 +10535,11 @@ function vcSwitchTab(tabName, evt) {
     }
 }
 
-// 🥭 (2026-07-04) "칠판" 탭 제목 자체를 도구(펜/지우개/색상 등) 토글로 사용 —
-//   다른 탭에 있다가 누르면 칠판 탭으로 이동 + 도구 펼침, 이미 칠판 탭이면 도구만 접힘/펼침 반복.
 // 🥭 (2026-07-05) 상단 탭바 전체 공통 토글 상태 — "콘텐츠(칠판/동영상/학생게임/배경/웜업/퀴즈) 영역"을
 //   누르면 펼쳐지고, 이미 펼쳐진 같은 탭을 다시 누르면 접히게(카메라 화면 위주로 복귀).
 //   교재도구/필기도구 칩(mango-tools-dock.js)도 이 상태를 같이 사용.
+//   🔧 (2026-07-05) 칠판 전용 도구줄(펜/지우개/색상 등)은 제거 — 필기도구 칩과 중복이라
+//     화면만 좁아짐. 칠판도 다른 탭과 동일하게 "펼침/접힘"만 한다.
 window.vcIsContentCollapsed = function(){
     var pane = document.getElementById('vc-content-pane');
     return !!(pane && pane.classList.contains('vc-content-collapsed'));
@@ -10550,28 +10550,7 @@ window.vcSetContentCollapsed = function(collapsed){
     if (pane) pane.classList.toggle('vc-content-collapsed', collapsed);
     if (row) row.classList.toggle('vc-content-hidden', collapsed);
 };
-window.vcToggleWhiteboardTools = function(){
-    var panel = document.getElementById('tab-whiteboard');
-    var alreadyOnBoard = panel && panel.classList.contains('active') && !vcIsContentCollapsed();
-    var bar = document.querySelector('.wb-toolbar');
-    function syncToggleBtn(collapsed){
-        if (!bar) return;
-        var tbtn = bar.querySelector('.ph49-tool-toggle');
-        if (tbtn) {
-            tbtn.textContent = '칠판도구' + (collapsed ? ' ▾' : ' ▴');
-            tbtn.classList.toggle('active', !collapsed);
-        }
-    }
-    if (!alreadyOnBoard) {
-        vcSetContentCollapsed(false);
-        vcSwitchTab('whiteboard');
-        if (bar) { bar.classList.remove('ph49-collapsed'); syncToggleBtn(false); }
-    } else if (bar) {
-        var nowCollapsed = bar.classList.toggle('ph49-collapsed');
-        syncToggleBtn(nowCollapsed);
-    }
-};
-// 동영상/학생게임/배경화면/AI웜업/복습퀴즈 — 다른 탭이면 전환+펼치기, 이미 보이는 같은 탭이면 접기.
+// 칠판/동영상/학생게임/배경화면/AI웜업/복습퀴즈 — 다른 탭이면 전환+펼치기, 이미 보이는 같은 탭이면 접기.
 window.vcToggleContentTab = function(tabName){
     var panel = document.getElementById('tab-' + tabName);
     var alreadyShowing = panel && panel.classList.contains('active') && !vcIsContentCollapsed();
@@ -22407,27 +22386,8 @@ window.addEventListener('DOMContentLoaded', () => {
       bar.dataset.ph49Init = '1';
       bar.classList.add('ph49-collapsed');   // 최초 1회만 기본 접힘
     });
-    // 칠판 도구바(.wb-toolbar)는 기존처럼 인라인 토글 유지(이름: 칠판도구).
-    document.querySelectorAll('.wb-toolbar').forEach(function(bar){
-      if (bar.querySelector('.ph49-tool-toggle')) return;
-      var name = '칠판도구';
-      var btn = document.createElement('button');
-      btn.className = 'ph49-tool-toggle active';
-      btn.type = 'button';
-      btn.title = name + ' 펼치기/접기';
-      function sync(){
-        var collapsed = bar.classList.contains('ph49-collapsed');
-        btn.textContent = name + (collapsed ? ' ▾' : ' ▴');
-        btn.classList.toggle('active', !collapsed);
-      }
-      btn.addEventListener('click', function(e){
-        e.preventDefault(); e.stopPropagation();
-        bar.classList.toggle('ph49-collapsed');
-        sync();
-      });
-      bar.insertBefore(btn, bar.firstChild);
-      sync();
-    });
+    // 🔧 (2026-07-05) 칠판 전용 도구바(.wb-toolbar) 인라인 토글 제거 — 필기도구 칩과
+    //   내용이 중복돼 화면만 좁아진다는 피드백. .wb-toolbar 자체를 CSS 로 숨김(mg-hide-wb-toolbar).
   }
 
   function ph49AddFaceToggle(){
@@ -23234,7 +23194,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260705001936 -->
+<!-- BUILD:20260705002531 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -25121,6 +25081,11 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   body.vc-in-call #vc-main-row.vc-content-hidden .video-pane {
     width: 100% !important; max-width: none !important; flex: 1 1 100% !important;
   }
+</style>
+<style id="mg-hide-wb-toolbar">
+  /* 🥭 (2026-07-05) 칠판 전용 펜/지우개/색상 도구줄 — 필기도구 칩과 내용이 겹쳐서
+     화면만 좁아진다는 피드백으로 완전히 숨김. 캔버스는 남은 공간을 그대로 채움. */
+  body.vc-in-call .wb-toolbar { display: none !important; }
 </style>
 <style id="mg-landscape-tools-restore">
   /* 🥭 (2026-07-01) 휴대폰 가로 수업 도구 복원
