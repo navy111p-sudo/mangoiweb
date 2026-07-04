@@ -23074,7 +23074,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260704190029 -->
+        <!-- BUILD:20260704200005 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -28203,14 +28203,26 @@ button.chip:hover,
   loadVoice();
   try { synth.addEventListener('voiceschanged', loadVoice); } catch(e){ try { synth.onvoiceschanged = loadVoice; } catch(_){} }
 
-  function speak(text){
-    if (!text || !isOn()) return;
+  var _lastU = null;   // 발화 중 GC 로 utterance 가 수거돼 소리가 끊기는 브라우저 버그 방지(참조 유지)
+  function _doSpeak(text){
     try {
-      synth.cancel();                 // 이전 안내 즉시 중단(연타 대비)
       var u = new SpeechSynthesisUtterance(text);
       u.lang = 'ko-KR'; u.rate = 1.05; u.pitch = 1;
       if (koVoice) u.voice = koVoice;
+      _lastU = u;
+      try { synth.resume(); } catch(_){}   // Chrome: 유휴/일시정지 상태에서 speak 무시되는 버그 복구
       synth.speak(u);
+    } catch(e){}
+  }
+  function speak(text){
+    if (!text || !isOn()) return;
+    try {
+      if (synth.speaking || synth.pending){
+        synth.cancel();                              // 연타 시 이전 안내 중단
+        setTimeout(function(){ _doSpeak(text); }, 90); // cancel 직후 speak 이 씹히는 Chrome 버그 회피(약간 지연)
+      } else {
+        _doSpeak(text);                              // 유휴 상태면 클릭 제스처 안에서 즉시 발화(오디오 잠금 해제)
+      }
     } catch(e){}
   }
 
