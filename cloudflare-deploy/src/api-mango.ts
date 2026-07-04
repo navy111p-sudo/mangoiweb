@@ -8347,7 +8347,7 @@ Respond in JSON ONLY:
               RETURN ym,
                      sum(CASE WHEN t = 1 THEN money ELSE 0 END) AS income,
                      sum(CASE WHEN t = 2 THEN money ELSE 0 END) AS expense
-              ORDER BY ym DESC LIMIT 24`, {}, 'READ');
+              ORDER BY ym DESC LIMIT 36`, {}, 'READ');
             const rows = values.map(row => {
               const o: any = Object.fromEntries(fields.map((f, i) => [f, row[i]]));
               o.net = (Number(o.income) || 0) - (Number(o.expense) || 0);

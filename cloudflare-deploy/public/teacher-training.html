@@ -1,402 +1,956 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>만고아이 강사 교육 매뉴얼 · Mangoi Teacher Training</title>
-<style>
-  :root{
-    --mango:#F2A900; --mango-deep:#B26A00; --mango-soft:#FFF3D6; --mango-tint:#FFFBF2;
-    --ink:#2b2b2b; --ink-soft:#5a5a5a; --line:#eadfce; --bg:#ffffff;
-    --good:#27AE60; --warn:#E67E22; --bad:#C0392B;
-    --shadow:0 4px 20px rgba(178,106,0,.08); --radius:16px;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  html{scroll-behavior:smooth}
-  body{font-family:'Malgun Gothic','Segoe UI',-apple-system,Roboto,sans-serif;
-    color:var(--ink);background:var(--mango-tint);line-height:1.65;-webkit-font-smoothing:antialiased}
-  /* ---- top bar ---- */
-  header.topbar{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.92);
-    backdrop-filter:blur(10px);border-bottom:1px solid var(--line);
-    display:flex;align-items:center;gap:12px;padding:12px clamp(16px,4vw,40px)}
-  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.05rem;color:var(--mango-deep)}
-  .brand .logo{font-size:1.6rem}
-  .spacer{flex:1}
-  .lang-toggle{display:inline-flex;background:var(--mango-soft);border-radius:999px;padding:4px;gap:2px}
-  .lang-toggle button{border:0;background:transparent;padding:6px 16px;border-radius:999px;
-    font-weight:700;cursor:pointer;color:var(--mango-deep);font-size:.9rem;transition:.15s}
-  .lang-toggle button.active{background:var(--mango);color:#fff;box-shadow:0 2px 8px rgba(242,169,0,.4)}
-  .btn-print{border:1px solid var(--mango);background:#fff;color:var(--mango-deep);
-    padding:7px 14px;border-radius:999px;font-weight:700;cursor:pointer;font-size:.85rem;white-space:nowrap}
-  .btn-print:hover{background:var(--mango-soft)}
-  /* ---- hero ---- */
-  .hero{text-align:center;padding:clamp(36px,7vw,72px) 20px 28px}
-  .hero .mango{font-size:clamp(48px,10vw,84px);line-height:1}
-  .hero h1{font-size:clamp(1.7rem,4.5vw,2.6rem);color:var(--mango-deep);margin:.3em 0 .15em;font-weight:800}
-  .hero p.sub{color:var(--ink-soft);font-size:clamp(.95rem,2.5vw,1.15rem);max-width:620px;margin:0 auto}
-  .hero .tag{display:inline-block;margin-top:16px;background:var(--mango-soft);color:var(--mango-deep);
-    padding:6px 16px;border-radius:999px;font-size:.82rem;font-weight:700}
-  /* ---- layout ---- */
-  main{max-width:940px;margin:0 auto;padding:0 clamp(16px,4vw,32px) 80px}
-  /* ---- section nav chips ---- */
-  nav.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:8px 0 36px}
-  nav.chips a{text-decoration:none;background:#fff;border:1px solid var(--line);color:var(--ink-soft);
-    padding:7px 14px;border-radius:999px;font-size:.83rem;font-weight:600;transition:.15s}
-  nav.chips a:hover{border-color:var(--mango);color:var(--mango-deep);background:var(--mango-soft)}
-  /* ---- section ---- */
-  section{margin-bottom:44px;scroll-margin-top:80px}
-  .sec-head{display:flex;align-items:center;gap:12px;margin-bottom:8px}
-  .sec-head .num{flex-shrink:0;width:38px;height:38px;border-radius:12px;background:var(--mango);
-    color:#fff;font-weight:800;display:grid;place-items:center;font-size:1.05rem;box-shadow:var(--shadow)}
-  .sec-head h2{font-size:clamp(1.3rem,3.2vw,1.7rem);color:var(--mango-deep);font-weight:800}
-  .sec-intro{color:var(--ink-soft);margin:2px 0 20px;font-size:1rem}
-  .quote{border-left:5px solid var(--mango);background:#fff;padding:14px 20px;border-radius:0 12px 12px 0;
-    font-style:italic;color:var(--ink-soft);box-shadow:var(--shadow);margin-top:8px}
-  /* ---- core cards ---- */
-  .cards{display:grid;gap:16px}
-  .card{background:#fff;border-radius:var(--radius);padding:20px 22px;box-shadow:var(--shadow);
-    border:1px solid var(--line);position:relative;overflow:hidden}
-  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--mango)}
-  .card h3{font-size:1.12rem;color:var(--ink);margin-bottom:12px;display:flex;align-items:center;gap:10px}
-  .card h3 .cnum{flex-shrink:0;width:28px;height:28px;border-radius:50%;background:var(--mango-soft);
-    color:var(--mango-deep);font-weight:800;display:grid;place-items:center;font-size:.9rem}
-  .wdd{display:grid;gap:8px}
-  .wdd .row{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start}
-  .wdd .lbl{font-weight:700;font-size:.82rem;padding:2px 10px;border-radius:8px;white-space:nowrap;line-height:1.7}
-  .lbl.why{background:#eef6ff;color:#2a6ac0}
-  .lbl.do{background:#eafaef;color:var(--good)}
-  .lbl.dont{background:#fdeeee;color:var(--bad)}
-  .wdd .txt{font-size:.95rem;color:var(--ink-soft)}
-  /* ---- cycle flow ---- */
-  .flow{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:18px 0 24px}
-  .flow .step{background:#fff;border:1px solid var(--line);border-radius:999px;padding:8px 16px;
-    font-weight:700;font-size:.86rem;color:var(--mango-deep);box-shadow:var(--shadow);display:flex;align-items:center;gap:6px}
-  .flow .arrow{color:var(--mango);align-self:center;font-weight:800}
-  /* ---- tables ---- */
-  .tbl-wrap{overflow-x:auto;border-radius:var(--radius);box-shadow:var(--shadow);background:#fff;border:1px solid var(--line)}
-  table{border-collapse:collapse;width:100%;min-width:480px}
-  thead th{background:var(--mango);color:#fff;font-weight:700;padding:12px 14px;text-align:left;font-size:.9rem}
-  tbody td{padding:11px 14px;border-top:1px solid var(--line);font-size:.92rem;color:var(--ink-soft);vertical-align:top}
-  tbody tr:nth-child(even){background:var(--mango-tint)}
-  tbody td:first-child{font-weight:700;color:var(--ink);white-space:nowrap}
-  /* rubric level headers */
-  .rub th.l1{background:var(--bad)} .rub th.l2{background:var(--warn)} .rub th.l3{background:var(--good)}
-  .rub td{white-space:normal}
-  .note{font-size:.85rem;color:var(--ink-soft);font-style:italic;margin-top:10px}
-  /* ---- roadmap ---- */
-  .road{display:grid;gap:16px}
-  .road .block{background:#fff;border-radius:var(--radius);padding:18px 22px;box-shadow:var(--shadow);border:1px solid var(--line)}
-  .road .block h3{color:var(--mango-deep);font-size:1.08rem;margin-bottom:4px}
-  .road .block .bintro{color:var(--ink-soft);font-size:.9rem;margin-bottom:10px}
-  .road ul{list-style:none;display:grid;gap:8px}
-  .road li{padding-left:26px;position:relative;font-size:.94rem;color:var(--ink-soft)}
-  .road li::before{content:"▸";position:absolute;left:6px;color:var(--mango);font-weight:800}
-  /* ---- checklist ---- */
-  .check-grp{background:#fff;border-radius:var(--radius);padding:18px 22px;box-shadow:var(--shadow);
-    border:1px solid var(--line);margin-bottom:14px}
-  .check-grp h3{color:var(--mango-deep);font-size:1.05rem;margin-bottom:12px}
-  .check-item{display:flex;align-items:flex-start;gap:12px;padding:8px 0;cursor:pointer;font-size:.95rem;color:var(--ink-soft);
-    border-top:1px dashed var(--line)}
-  .check-item:first-of-type{border-top:0}
-  .check-item input{appearance:none;flex-shrink:0;width:22px;height:22px;border:2px solid var(--mango);
-    border-radius:7px;margin-top:1px;cursor:pointer;position:relative;transition:.15s}
-  .check-item input:checked{background:var(--mango)}
-  .check-item input:checked::after{content:"✓";color:#fff;position:absolute;inset:0;display:grid;place-items:center;font-size:.9rem;font-weight:800}
-  .check-item input:checked + span{text-decoration:line-through;color:#b6b6b6}
-  /* ---- footer ---- */
-  footer{text-align:center;color:var(--ink-soft);font-size:.82rem;padding:30px 20px;border-top:1px solid var(--line)}
-  .dl{display:inline-flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:10px}
-  .dl a{text-decoration:none;color:var(--mango-deep);border:1px solid var(--line);background:#fff;
-    padding:6px 14px;border-radius:999px;font-weight:600;font-size:.82rem}
-  .dl a:hover{background:var(--mango-soft)}
-  @media(max-width:560px){
-    .wdd .row{grid-template-columns:1fr}
-    .sec-head .num{width:32px;height:32px}
-  }
-  @media print{
-    header.topbar,nav.chips,.btn-print,.lang-toggle,footer .dl{display:none!important}
-    body{background:#fff}
-    section{page-break-inside:avoid}
-    .card,.road .block,.check-grp,.tbl-wrap{box-shadow:none;border:1px solid #ddd}
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>만고아이 강사 교육 매뉴얼 - 글로벌 오피스 킷</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+        body {
+            font-family: 'Noto Sans KR', 'Inter', sans-serif;
+        }
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .print-area {
+                display: block !important;
+                background: white !important;
+                color: black !important;
+                padding: 0 !important;
+                box-shadow: none !important;
+                width: 100% !important;
+            }
+            .page-break {
+                page-break-before: always;
+            }
+        }
+    </style>
 </head>
-<body>
-<header class="topbar">
-  <div class="brand"><span class="logo">🥭</span><span data-i="brandName">만고아이</span></div>
-  <div class="spacer"></div>
-  <div class="lang-toggle" role="group" aria-label="language">
-    <button id="btn-ko" class="active" onclick="setLang('ko')">한국어</button>
-    <button id="btn-en" onclick="setLang('en')">English</button>
-  </div>
-  <button class="btn-print" onclick="window.print()" data-i="printBtn">🖨 인쇄/PDF</button>
-</header>
+<body class="bg-slate-50 min-h-screen text-slate-800">
 
-<div class="hero">
-  <div class="mango">🥭</div>
-  <h1 data-i="title">만고아이 강사 교육 매뉴얼</h1>
-  <p class="sub" data-i="subtitle">어린이·청소년을 몰입시키는 화상영어 티칭 & 트레이닝 가이드</p>
-  <div class="tag" data-i="tag">흥미도 × 성취도를 함께 끌어올리는 실전 지침서</div>
-</div>
+    <!-- TOP HEADER (no-print) -->
+    <header class="no-print bg-white border-b border-slate-200 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <span class="text-3xl">🥭</span>
+                <div>
+                    <h1 class="font-bold text-lg text-slate-900 leading-tight" id="nav-title">만고아이 강사 교육 매뉴얼</h1>
+                    <p class="text-xs text-orange-500 font-medium">Teacher Success Hub v2.0</p>
+                </div>
+            </div>
 
-<main>
-  <nav class="chips" id="chips"></nav>
-  <div id="content"></div>
-</main>
+            <div class="flex items-center space-x-4">
+                <!-- LANGUAGE TOGGLE SWITCH -->
+                <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+                    <button onclick="setLanguage('ko')" id="lang-ko" class="px-3 py-1.5 text-xs font-bold rounded-lg transition-all bg-white text-orange-600 shadow-sm">
+                        한글 (KO)
+                    </button>
+                    <button onclick="setLanguage('en')" id="lang-en" class="px-3 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-500 hover:text-slate-900">
+                        English (EN)
+                    </button>
+                </div>
 
-<footer>
-  <div data-i="footer">Mangoi English · Teacher Success Team · v1.0</div>
-  <div class="dl">
-    <a href="/teacher-training.html" data-i="dlWeb">🌐 웹 매뉴얼</a>
-  </div>
-</footer>
+                <!-- MAIN TABS -->
+                <div class="flex bg-slate-100 p-1 rounded-xl">
+                    <button onclick="switchMainTab('excel')" id="btn-tab-excel" class="px-4 py-2 rounded-lg text-sm font-semibold flex items-center space-x-2 transition-all bg-white text-orange-600 shadow-sm">
+                        <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                        <span id="tab-excel-txt">📊 실전 엑셀 시트</span>
+                    </button>
+                    <button onclick="switchMainTab('pdf')" id="btn-tab-pdf" class="px-4 py-2 rounded-lg text-sm font-semibold flex items-center space-x-2 transition-all text-slate-600 hover:text-slate-900">
+                        <i data-lucide="file-text" class="w-4 h-4"></i>
+                        <span id="tab-pdf-txt">📄 공식 PDF 리포트</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
 
-<script>
-/* ================= i18n content ================= */
-const DATA = {
-  ko:{
-    brandName:"만고아이", printBtn:"🖨 인쇄/PDF", dlWeb:"🌐 웹 매뉴얼",
-    title:"만고아이 강사 교육 매뉴얼",
-    subtitle:"어린이·청소년을 몰입시키는 화상영어 티칭 & 트레이닝 가이드",
-    tag:"흥미도 × 성취도를 함께 끌어올리는 실전 지침서",
-    footer:"Mangoi English · Teacher Success Team · v1.0",
-    lblWhy:"왜 중요", lblDo:"이렇게", lblDont:"피할 것",
-    chips:["왜 이 매뉴얼","몰입 5대 핵심","흥미 공식","트레이닝","연령별 팁","체크리스트","평가 루브릭"],
-    s1:{n:"1",t:"이 매뉴얼을 만든 이유", body:[
-      "만고아이 학생의 대부분은 어린이와 청소년입니다. 이 연령대는 “재미없으면 배우지 않는다”가 아니라 “재미없으면 애초에 집중하지 않는다”에 가깝습니다. 특히 화상 환경은 대면보다 감정·에너지 전달이 30~40% 줄어들기 때문에, 강사가 의도적으로 흥미를 설계하지 않으면 아이는 5분 안에 이탈합니다.",
-      "그래서 흥미도(수업이 즐겁다)와 성취도(실력이 는다)는 분리된 목표가 아닙니다. 아이는 “재미있게 → 계속하고 → 계속하니까 → 는다”의 순서로 성장합니다. 이 매뉴얼은 그 선순환을 매 수업 안에서 만들어내도록 돕습니다."
-    ], quote:"“아이에게 영어를 가르치는 것이 아니라, 영어로 노는 시간을 선물한다.” — 만고아이 티칭 철학"},
-    s2:{n:"2",t:"아이 몰입 수업의 5대 핵심", cores:[
-      {name:"에너지와 표정 (화면 너머 전달력)",
-       why:"화상은 감정 전달이 줄어듭니다. 강사가 “보통”으로 하면 아이에게는 “지루함”으로 도착합니다. 과장된 에너지가 화면 너머에서 “적절함”이 됩니다.",
-       do:"엄지척·박수·놀란 표정 같은 비언어 리액션을 습관화하고, 정답에는 “Wow! Amazing!”처럼 즉각 크게 칭찬. 목소리 톤은 한 단계 올립니다.",
-       dont:"무표정·단조로운 톤·키보드만 보는 시선. 강사가 지루하면 아이도 지루해집니다."},
-      {name:"아이 발화 시간 (강사 말 줄이기)",
-       why:"초보 강사의 1위 실수는 “강사가 너무 많이 말하는 것”. 말하는 사람이 배우는 사람입니다.",
-       do:"목표는 아이 발화 60% 이상. 질문하고 → 3초 기다리고 → 아이가 말하게. 설명은 짧게, 시범은 한 번.",
-       dont:"정답을 먼저 말하기, 3초를 못 견디고 끼어들기, 긴 문법 설명."},
-      {name:"작은 성취의 즉각 가시화",
-       why:"아이는 “내가 잘하고 있다”는 신호가 있어야 계속합니다. 눈에 보이는 보상이 격려보다 강력합니다.",
-       do:"별점·배지·색종이 폭죽·망고 마스코트를 적극 활용(“이거 맞히면 망고가 춤춰!”). 매 수업 작은 목표 1개 달성을 함께 확인.",
-       dont:"“잘했어” 한마디로 넘기기, 틀린 것만 지적하기."},
-      {name:"개인화 (이름·관심사·수준)",
-       why:"아이는 “나를 위한 수업”이라고 느낄 때 몰입합니다. 이름을 부르는 것만으로 집중도가 오릅니다.",
-       do:"이름을 자주 부르고, 좋아하는 것(게임·아이돌·축구)을 소재로. 웜업 교재연동 AI·오답 개인화로 자주 틀리는 부분을 미리 파악.",
-       dont:"모두에게 같은 스크립트, 관심사 안 묻기, 지난 오답 무시."},
-      {name:"리듬과 전환 (지루함 차단)",
-       why:"집중 지속은 대략 ‘나이 = 분(分)’ 수준(8세 ≈ 8분). 한 활동이 길면 늘어집니다.",
-       do:"한 활동 5~7분 이내로 전환. ‘교재 → 게임 → 말하기 → 게임’ 리듬. 게임탭(슈팅·3D배틀·어휘)을 사이에 배치.",
-       dont:"한 활동 15분+ 끌기, 지친 신호(딴청·하품) 무시."}
-    ]},
-    s3:{n:"3",t:"만고아이 흥미 공식 (Engagement Cycle)",
-      intro:"기능은 이미 다 있습니다. 핵심은 강사가 그 기능을 ‘재미의 도구’로 엮어 하나의 사이클로 돌리는 것. 아래를 몸에 배게 하면 한 수업이 통째로 몰입 구조가 됩니다.",
-      flow:["웜업","미션","말하기","게임 보상","즉각 피드백","다음 미션"],
-      head:["단계","만고아이 기능","강사가 할 행동"],
-      rows:[
-        ["① 웜업","교재연동 AI 웜업 + 오답 개인화","가벼운 질문으로 입을 풀고 지난 오답을 자연스럽게 복습."],
-        ["② 미션","오늘의 목표 카드","“오늘은 새 단어 3개 완벽!”처럼 작고 명확한 목표 1개 선언."],
-        ["③ 말하기","교재 + 화면공유","설명은 짧게, 아이가 60%+ 말하게(질문→대기→발화)."],
-        ["④ 게임 보상","학생게임 허브(슈팅·3D배틀·어휘·중국어)","활동 사이 게임으로 리듬 + 배운 표현 반복."],
-        ["⑤ 즉각 피드백","별점·배지·confetti·망고 마스코트","성취를 눈에 보이게 축하, 잘한 점을 구체적으로."],
-        ["⑥ 다음 미션","게임 학습분석·교사 리포트","오답·발음 데이터를 다음 수업 개인화로 연결."]
-      ]},
-    s4:{n:"4",t:"강사 트레이닝 로드맵", blocks:[
-      {h:"A. 온보딩 필수 (입사 시)", i:"첫 수업 전 반드시 통과해야 하는 항목.", li:[
-        "데모 수업 시청: 우수 강사 영상 3~5개 시청 후 ‘무엇이 아이를 웃게 했는지’ 3가지 적기.",
-        "모의 수업(롤플레이): 트레이너가 ‘산만한 8세’ 역할, 강사가 리액션·전환·재집중 실습.",
-        "플랫폼 숙련 테스트: 게임탭·3D배틀·별점·화면공유를 버벅임 없이(흥미의 절반은 매끄러운 운영)."]},
-      {h:"B. 지속 트레이닝 (운영 중)", i:"실력은 반복 피드백에서 자랍니다.", li:[
-        "월 1회 피어 리뷰: 수업 영상 공유, 서로 강점 1·개선점 1 코멘트.",
-        "베스트 클립 공유: “이 리액션 좋았다” 순간을 팀 채널에 모아 확산.",
-        "데이터 1:1 코칭: 별점·게임분석·이탈위험을 강사별로 뽑아 구체적 개선점 제시."]},
-      {h:"C. 평가·보상 연결", i:"“잘하면 이득” 구조가 자발적 품질 경쟁을 만듭니다.", li:[
-        "강사 KPI = 학생 별점 + 재등록률 + 게임·수업 참여도.",
-        "상위 강사 인센티브·우수 강사 뱃지로 동기 부여.",
-        "저성과 강사는 처벌이 아니라 코칭 대상(데이터로 원인 진단)."]}
-    ]},
-    s5:{n:"5",t:"연령별 티칭 팁", intro:"같은 ‘재미’라도 연령마다 방식이 다릅니다.",
-      head:["연령","집중 지속","핵심 팁"],
-      rows:[
-        ["5~7세","약 5~7분","노래·율동·인형·과장된 표정. 규칙 단순한 게임. 칭찬은 즉각·크게. 글자보다 소리·그림."],
-        ["8~10세","약 8~10분","미션·보상·배지에 강하게 반응. 짧은 게임 라운드 반복. ‘이기는 재미’(3D배틀·슈팅)."],
-        ["11~13세","약 12~15분","‘왜 배우는지’에 반응 시작. 순위·성취 그래프 효과적. 관심사(게임·아이돌) 연결."],
-        ["14세+","약 15~20분","존중받는 느낌이 중요. 시험·실생활 연결로 동기. 유아적 연출은 역효과, 성취 가시화로 승부."]
-      ]},
-    appA:{n:"A",t:"수업 체크리스트", intro:"강사가 매 수업 스스로 점검. 브라우저에서 체크할 수 있습니다.", grps:[
-      {h:"수업 전 (2분)", li:["아이 이름·지난 오답·관심사 확인","오늘의 작은 목표 1개 정하기","게임탭·교재·화면공유 정상 작동 확인","조명·카메라·표정이 밝게 나오는지 확인"]},
-      {h:"수업 중", li:["첫 30초 안에 아이를 웃게 만들기","아이가 나보다 더 많이 말하기(60%+)","질문 후 3초 기다리기(정답 먼저 말하지 않기)","한 활동 5~7분 안에 전환","아이 이름 여러 번 부르기","성취를 즉각·구체적으로 칭찬 + 별점·마스코트로 가시화"]},
-      {h:"수업 후 (2분)", li:["별점 평가·게임 결과 기록","오답·발음 데이터 다음 수업용으로 남기기","이 아이를 위한 다음 수업 아이디어 1개 메모"]}
-    ]},
-    appB:{n:"B",t:"강사 평가 루브릭", intro:"관리자·트레이너가 수업 관찰·영상 리뷰 시 사용. 항목당 1~3점, 합산 후 코칭 우선순위 결정.",
-      head:["평가 항목","1점 · 개선 필요","2점 · 보통","3점 · 우수"],
-      rows:[
-        ["에너지·표정","무표정·단조, 리액션 거의 없음","적절히 밝지만 기복","에너지가 확실히 전달, 아이가 자주 웃음"],
-        ["아이 발화 유도","강사가 대부분 말함","절반 정도 아이 발화","아이 발화 60%+, 질문→대기→발화 능숙"],
-        ["성취 가시화","칭찬·보상 거의 없음","칭찬은 하나 두루뭉술","별점·배지·마스코트로 구체·즉각 축하"],
-        ["개인화","모두 동일 스크립트","이름 정도는 부름","관심사·오답 반영 맞춤 진행"],
-        ["리듬·전환","한 활동 길게, 늘어짐","전환 있으나 다소 늦음","5~7분 리듬·게임 배치로 끝까지 몰입"],
-        ["플랫폼 활용","기능 거의 못 씀","기본 기능 사용","게임·배틀·평가를 매끄럽게 녹임"]
-      ],
-      note:"* 15~18점: 우수 강사(멘토 후보) / 10~14점: 안정권(부분 코칭) / 9점 이하: 집중 코칭 대상."}
-  },
-  en:{
-    brandName:"Mangoi", printBtn:"🖨 Print/PDF", dlWeb:"🌐 Web Manual",
-    title:"Mangoi Teacher Training Manual",
-    subtitle:"A practical teaching & training guide for engaging kids and teens in online English classes",
-    tag:"Raising Engagement × Achievement together, one class at a time",
-    footer:"Mangoi English · Teacher Success Team · v1.0",
-    lblWhy:"Why", lblDo:"Do", lblDont:"Avoid",
-    chips:["Why This Manual","5 Core Focus","Engagement Cycle","Training","Age Tips","Checklist","Rubric"],
-    s1:{n:"1",t:"Why This Manual Exists", body:[
-      "Most Mangoi students are children and teenagers. For them it is not simply “if it is not fun, they will not learn” — it is closer to “if it is not fun, they will not even pay attention.” Online classes convey 30–40% less emotion and energy than in-person, so unless the teacher deliberately designs for engagement, a child can check out within five minutes.",
-      "That is why engagement (the class is fun) and achievement (the child improves) are not separate goals. Children grow in this order: “it is fun → so they keep going → and because they keep going → they improve.” This manual helps you build that virtuous cycle inside every class."
-    ], quote:"“We are not teaching children English — we are giving them time to play in English.” — Mangoi teaching philosophy"},
-    s2:{n:"2",t:"The Five Core Focus Areas", cores:[
-      {name:"Energy & Facial Expression (Reaching Through the Screen)",
-       why:"Video conveys less emotion. A “normal” performance arrives as “boring.” Exaggerated energy is what registers as “just right” on the other side of the screen.",
-       do:"Make non-verbal reactions a habit — thumbs-up, clapping, surprised faces — and praise correct answers instantly and loudly (“Wow! Amazing!”). Raise your tone one notch.",
-       dont:"A blank face, monotone voice, eyes fixed on the keyboard. If the teacher looks bored, the child becomes bored."},
-      {name:"Student Talk Time (Cut Teacher Talk)",
-       why:"The #1 mistake of new teachers is talking too much. The person doing the talking is the person doing the learning.",
-       do:"Target 60%+ student talk. Ask → wait 3 seconds → let the child speak. Keep explanations short, model once.",
-       dont:"Saying the answer first, jumping in before the 3-second think time, long grammar lectures."},
-      {name:"Making Small Wins Visible — Instantly",
-       why:"Children keep going only with a signal that says “I am doing well.” Visible rewards beat abstract encouragement.",
-       do:"Actively use stars, badges, confetti, and the Mango mascot (“Get this right and Mango will dance!”). Set one small goal each class and confirm it together.",
-       dont:"Glossing over wins with a vague “good job,” pointing out only mistakes."},
-      {name:"Personalization (Name, Interests, Level)",
-       why:"Children engage when it feels like “a class made for me.” Using their name alone raises attention.",
-       do:"Use their name often and bring in what they love (games, K-pop, soccer). Use the textbook-linked AI warm-up and mistake personalization to know their frequent errors beforehand.",
-       dont:"The same script for everyone, never asking interests, ignoring last class’s mistakes."},
-      {name:"Rhythm & Transitions (Blocking Boredom)",
-       why:"Attention span is roughly ‘age = minutes’ (an 8-year-old ≈ 8 minutes). Any activity that runs long will sag.",
-       do:"Switch activities every 5–7 minutes. Rhythm: ‘textbook → game → speaking → game.’ Place game-tab activities (shooter, 3D battle, vocab) in between.",
-       dont:"Dragging one activity past 15 min, ignoring fatigue signs (fidgeting, yawning)."}
-    ]},
-    s3:{n:"3",t:"The Mangoi Engagement Cycle",
-      intro:"The features are already built. The key is to weave them together as ‘tools of fun’ and run them as one cycle. Train this into muscle memory and an entire class becomes an engagement structure.",
-      flow:["Warm-up","Mission","Speaking","Game Reward","Instant Feedback","Next Mission"],
-      head:["Stage","Mangoi Feature","What the Teacher Does"],
-      rows:[
-        ["① Warm-up","Textbook-linked AI warm-up + mistake personalization","Loosen them up with light questions; naturally review last class’s mistakes."],
-        ["② Mission","Goal-of-the-day card","Declare one small, clear goal: “Today, master 3 new words!”"],
-        ["③ Speaking","Textbook + screen share","Keep explanations short; drive 60%+ student talk (ask→wait→speak)."],
-        ["④ Game reward","Student game hub (shooter·3D battle·vocab·Chinese)","Place games between segments for rhythm and to repeat target expressions."],
-        ["⑤ Instant feedback","Stars·badges·confetti·Mango mascot","Celebrate the win visibly; name exactly what was good."],
-        ["⑥ Next mission","Game learning analytics·teacher report","Feed mistake/pronunciation data into the next class’s personalization."]
-      ]},
-    s4:{n:"4",t:"Teacher Training Roadmap", blocks:[
-      {h:"A. Required Onboarding (At Hire)", i:"Items every new teacher must pass before their first real class.", li:[
-        "Watch demo classes: view 3–5 top-teacher recordings, then write 3 things that made the child laugh.",
-        "Mock class (role-play): a trainer plays a ‘distracted 8-year-old’ while the teacher practices reactions, transitions, refocusing.",
-        "Platform proficiency test: run game tab, 3D battle, star ratings, screen share smoothly (half of engagement is smooth operation)."]},
-      {h:"B. Continuous Training (In Operation)", i:"Skill grows from repeated feedback, not onboarding alone.", li:[
-        "Monthly peer review: share recordings, give each other 1 strength + 1 improvement.",
-        "Best-clip sharing: collect “that reaction was great” moments in a team channel.",
-        "Data-driven 1:1 coaching: pull each teacher’s stars, game analytics, churn-risk and give concrete fixes."]},
-      {h:"C. Linking Evaluation & Rewards", i:"A “do well → gain” structure creates voluntary quality competition.", li:[
-        "Teacher KPI = student stars + re-enrollment rate + game/class participation.",
-        "Motivate with incentives for top teachers and ‘excellent teacher’ badges.",
-        "Route low performers to coaching, not punishment (diagnose the cause with data)."]}
-    ]},
-    s5:{n:"5",t:"Age-Specific Teaching Tips", intro:"Even the same ‘fun’ works differently by age.",
-      head:["Age","Attention","Key Tips"],
-      rows:[
-        ["5–7","~5–7 min","Songs, movement, puppets, exaggerated faces. Simple-rule games. Praise instantly, loudly. Sound & pictures over letters."],
-        ["8–10","~8–10 min","Respond strongly to missions, rewards, badges. Repeat short game rounds. Use the ‘joy of winning’ (3D battle, shooter)."],
-        ["11–13","~12–15 min","Start responding to ‘why am I learning this.’ Rankings & progress graphs work. Connect to interests (games, K-pop)."],
-        ["14+","~15–20 min","Feeling respected matters. Motivate via exams & real-life relevance. Childish theatrics backfire — win with visible achievement."]
-      ]},
-    appA:{n:"A",t:"Class Checklist", intro:"For teachers to self-check every class. You can tick these in your browser.", grps:[
-      {h:"Before Class (2 min)", li:["Reviewed name, last class’s mistakes, interests","Set one small goal for today","Pre-tested game tab, textbook, screen share","Checked lighting, camera angle, bright face"]},
-      {h:"During Class", li:["Made the child laugh within 30 seconds","Child is talking more than me (60%+)","Waited 3 seconds after questions","Switched activities within 5–7 minutes","Called the child by name multiple times","Praised wins instantly & specifically + stars/mascot"]},
-      {h:"After Class (2 min)", li:["Recorded star ratings & game results","Saved mistake/pronunciation data for next class","Noted one idea for this child’s next class"]}
-    ]},
-    appB:{n:"B",t:"Teacher Evaluation Rubric", intro:"A 6-item scale for managers/trainers during observation or video review. Score each 1–3, sum, set coaching priority.",
-      head:["Criterion","1 · Needs Work","2 · Adequate","3 · Excellent"],
-      rows:[
-        ["Energy & expression","Blank face, monotone, few reactions","Adequately bright but inconsistent","Energy clearly reaches through; child laughs often"],
-        ["Driving student talk","Teacher does most talking","About half student talk","Student talk 60%+; skilled ask→wait→speak"],
-        ["Making wins visible","Little praise or reward","Praises, but vaguely","Celebrates concretely & instantly with stars/badges/mascot"],
-        ["Personalization","Same script for everyone","Uses at least the name","Adapts to interests & mistakes"],
-        ["Rhythm & transitions","One activity dragged out","Transitions but a bit late","5–7 min rhythm & games keep engagement to the end"],
-        ["Platform use","Barely uses features","Uses basic features","Blends games, battle, ratings smoothly"]
-      ],
-      note:"* Total 15–18: excellent teacher (mentor candidate) / 10–14: solid (partial coaching) / 9 or below: intensive coaching."}
-  }
-};
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-/* ================= render ================= */
-let LANG = 'ko';
-const esc = s => String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+        <!-- ================= EXCEL SECTION (no-print) ================= -->
+        <section id="section-excel" class="no-print space-y-6">
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                <div class="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-slate-100 mb-6 gap-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+                            <span class="p-1.5 bg-green-50 text-green-600 rounded-lg"><i data-lucide="sheet" class="w-5 h-5"></i></span>
+                            <span id="excel-title">만고아이 인터랙티브 엑셀 워크북</span>
+                        </h2>
+                        <p class="text-sm text-slate-500 mt-1" id="excel-subtitle">현업에서 실제로 사용 가능한 핵심 기능과 계산 루브릭이 포함된 인터랙티브 시트입니다.</p>
+                    </div>
+                    <!-- Excel Export Button -->
+                    <button onclick="exportCurrentSheet()" class="inline-flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-sm">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        <span id="btn-export-txt">현재 시트 Excel(.csv) 다운로드</span>
+                    </button>
+                </div>
 
-function secHead(n,t){return `<div class="sec-head"><div class="num">${esc(n)}</div><h2>${esc(t)}</h2></div>`;}
+                <!-- Excel Tabs -->
+                <div class="flex flex-wrap gap-2 mb-6 border-b border-slate-100 pb-4" id="excel-sub-tabs">
+                    <!-- Loaded via JavaScript -->
+                </div>
 
-function render(){
-  const D = DATA[LANG];
-  document.documentElement.lang = LANG;
-  document.querySelectorAll('[data-i]').forEach(el=>{ if(D[el.dataset.i]!=null) el.textContent = D[el.dataset.i]; });
+                <!-- EXCEL SHEETS CONTENT -->
+                <!-- Sheet 0: 5 Core Focus -->
+                <div id="sheet-0" class="excel-sheet overflow-x-auto">
+                    <!-- Loaded dynamically in JavaScript (RenderExcelSheet0) -->
+                </div>
 
-  // chips
-  const ids=['s1','s2','s3','s4','s5','appA','appB'];
-  document.getElementById('chips').innerHTML =
-    D.chips.map((c,idx)=>`<a href="#${ids[idx]}">${esc(c)}</a>`).join('');
+                <!-- Sheet 1: Engagement Cycle -->
+                <div id="sheet-1" class="excel-sheet hidden overflow-x-auto">
+                    <!-- Loaded dynamically in JavaScript (RenderExcelSheet1) -->
+                </div>
 
-  let h='';
-  // S1
-  h+=`<section id="s1">${secHead(D.s1.n,D.s1.t)}`+
-     D.s1.body.map(p=>`<p class="sec-intro">${esc(p)}</p>`).join('')+
-     `<div class="quote">${esc(D.s1.quote)}</div></section>`;
-  // S2 cores
-  h+=`<section id="s2">${secHead(D.s2.n,D.s2.t)}<div class="cards">`+
-     D.s2.cores.map((c,i)=>`<div class="card"><h3><span class="cnum">${i+1}</span>${esc(c.name)}</h3>
-       <div class="wdd">
-         <div class="row"><span class="lbl why">${D.lblWhy}</span><span class="txt">${esc(c.why)}</span></div>
-         <div class="row"><span class="lbl do">${D.lblDo}</span><span class="txt">${esc(c.do)}</span></div>
-         <div class="row"><span class="lbl dont">${D.lblDont}</span><span class="txt">${esc(c.dont)}</span></div>
-       </div></div>`).join('')+`</div></section>`;
-  // S3 cycle
-  const flowHtml = D.s3.flow.map((f,i)=>`<span class="step">${esc(f)}</span>`+
-     (i<D.s3.flow.length-1?'<span class="arrow">→</span>':'')).join('');
-  h+=`<section id="s3">${secHead(D.s3.n,D.s3.t)}<p class="sec-intro">${esc(D.s3.intro)}</p>
-     <div class="flow">${flowHtml}</div>${tableHtml(D.s3.head,D.s3.rows)}</section>`;
-  // S4 roadmap
-  h+=`<section id="s4">${secHead(D.s4.n,D.s4.t)}<div class="road">`+
-     D.s4.blocks.map(b=>`<div class="block"><h3>${esc(b.h)}</h3><div class="bintro">${esc(b.i)}</div>
-       <ul>${b.li.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`).join('')+`</div></section>`;
-  // S5 age
-  h+=`<section id="s5">${secHead(D.s5.n,D.s5.t)}<p class="sec-intro">${esc(D.s5.intro)}</p>${tableHtml(D.s5.head,D.s5.rows)}</section>`;
-  // appA checklist
-  h+=`<section id="appA">${secHead(D.appA.n,D.appA.t)}<p class="sec-intro">${esc(D.appA.intro)}</p>`+
-     D.appA.grps.map(g=>`<div class="check-grp"><h3>${esc(g.h)}</h3>`+
-       g.li.map(x=>`<label class="check-item"><input type="checkbox"><span>${esc(x)}</span></label>`).join('')+
-       `</div>`).join('')+`</section>`;
-  // appB rubric
-  h+=`<section id="appB">${secHead(D.appB.n,D.appB.t)}<p class="sec-intro">${esc(D.appB.intro)}</p>
-     <div class="tbl-wrap"><table class="rub"><thead><tr>
-       <th>${esc(D.appB.head[0])}</th><th class="l1">${esc(D.appB.head[1])}</th>
-       <th class="l2">${esc(D.appB.head[2])}</th><th class="l3">${esc(D.appB.head[3])}</th></tr></thead>
-       <tbody>${D.appB.rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
-       <p class="note">${esc(D.appB.note)}</p></section>`;
+                <!-- Sheet 2: Checklist -->
+                <div id="sheet-2" class="excel-sheet hidden">
+                    <!-- Loaded dynamically in JavaScript (RenderExcelSheet2) -->
+                </div>
 
-  document.getElementById('content').innerHTML = h;
-}
-function tableHtml(head,rows){
-  return `<div class="tbl-wrap"><table><thead><tr>${head.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead>
-    <tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
-}
-function setLang(l){
-  LANG=l;
-  document.getElementById('btn-ko').classList.toggle('active',l==='ko');
-  document.getElementById('btn-en').classList.toggle('active',l==='en');
-  try{localStorage.setItem('mangoi_tt_lang',l);}catch(e){}
-  render();
-}
-try{const saved=localStorage.getItem('mangoi_tt_lang'); if(saved==='en'||saved==='ko')LANG=saved;}catch(e){}
-document.getElementById('btn-ko').classList.toggle('active',LANG==='ko');
-document.getElementById('btn-en').classList.toggle('active',LANG==='en');
-render();
-</script>
-<!-- BUILD:20260704123632 -->
+                <!-- Sheet 3: Rubric Calculator -->
+                <div id="sheet-3" class="excel-sheet hidden">
+                    <!-- Loaded dynamically in JavaScript (RenderExcelSheet3) -->
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ================= PDF PRINT AREA ================= -->
+        <section id="section-pdf" class="hidden print-area bg-white rounded-2xl p-8 sm:p-12 shadow-sm border border-slate-200 max-w-5xl mx-auto">
+
+            <!-- Floating Print Controller for Web View (no-print) -->
+            <div class="no-print flex items-center justify-between pb-6 border-b border-slate-100 mb-8">
+                <div>
+                    <span class="text-xs font-semibold text-orange-500 uppercase tracking-widest" id="pdf-ready-tag">PDF Export Ready</span>
+                    <h2 class="text-xl font-black text-slate-900 mt-0.5" id="pdf-guide-title">인쇄 및 PDF 다운로드 가이드</h2>
+                    <p class="text-sm text-slate-500 mt-1" id="pdf-guide-subtitle">인쇄 레이아웃 및 여백이 깔끔하게 정의된 교육 공식 인쇄용 자료입니다.</p>
+                </div>
+                <button onclick="window.print()" class="inline-flex items-center justify-center space-x-2 bg-orange-600 hover:bg-orange-700 text-white px-5 py-3 rounded-xl font-bold text-sm transition-all shadow-md hover:scale-[1.02] active:scale-95">
+                    <i data-lucide="printer" class="w-4 h-4"></i>
+                    <span id="btn-print-txt">PDF 또는 실물 인쇄하기</span>
+                </button>
+            </div>
+
+            <!-- PDF Real Layout Begin (Loaded Dynamically) -->
+            <div id="pdf-dynamic-content" class="print-content text-slate-900">
+                <!-- Loaded dynamically in JavaScript (RenderPDFLayout) -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- IN-MEMORY APPLICATION LOGIC (no-print) -->
+    <script class="no-print">
+        // Global variables for translation and state tracking
+        let currentLang = 'ko'; // 'ko' or 'en'
+        let currentActiveExcelSheet = 0;
+
+        // Multilingual Dictionary Dataset
+        const i18n = {
+            ko: {
+                navTitle: "만고아이 강사 교육 매뉴얼",
+                tabExcel: "📊 실전 엑셀 시트",
+                tabPdf: "📄 공식 PDF 리포트",
+                excelTitle: "만고아이 인터랙티브 엑셀 워크북",
+                excelSubtitle: "현업에서 실제로 사용 가능한 핵심 기능과 계산 루브릭이 포함된 인터랙티브 시트입니다.",
+                btnExport: "현재 시트 Excel(.csv) 다운로드",
+                pdfReadyTag: "PDF Export Ready",
+                pdfGuideTitle: "인쇄 및 PDF 다운로드 가이드",
+                pdfGuideSubtitle: "인쇄 레이아웃 및 여백이 깔끔하게 정의된 교육 공식 인쇄용 자료입니다.",
+                btnPrint: "PDF 또는 실물 인쇄하기",
+
+                subTabs: [
+                    "🟢 5대 핵심 가이드",
+                    "🟠 흥미 공식 사이클",
+                    "🔵 자가 체크리스트",
+                    "🎯 실시간 강사 루브릭 계산기"
+                ],
+
+                sheet0Headers: ["No", "몰입 영역", "핵심 가치 (Why it matters)", "🟢 권장 행동 (DO)", "🔴 주의 행동 (AVOID)"],
+                sheet0Rows: [
+                    [
+                        "1", "에너지 & 표정",
+                        "화상은 감정 전달이 30~40% 줄어듦. 강사의 과장된 에너지가 아이에게 딱 맞게 느껴집니다.",
+                        "엄지척, 박수, 깜짝 놀란 표정 등 비언어 리액션 습관화. 목소리 톤을 평소보다 솔(Sol) 톤으로 업!",
+                        "무표정으로 일관하거나 단조로운 책 읽는 목소리, 시선이 키보드나 교재 하단에만 가 있는 태도."
+                    ],
+                    [
+                        "2", "학생 발화 (STT)",
+                        "말하는 사람이 가장 많이 배웁니다. 아이가 입을 열어야 참여도와 흥미도가 치솟습니다.",
+                        "아이 발화 비율 60% 이상 목표. 질문한 후 무조건 '3초 대기'하며 차분하게 답변을 기다려주기.",
+                        "성급하게 먼저 정답 말해버리기, 아이가 생각하는 찰나에 끼어들기, 장황하게 문법 설명하기."
+                    ],
+                    [
+                        "3", "성취 가시화",
+                        "아이는 자신이 수업을 잘해내고 있다는 확실한 실물 피드백을 받아야 계속해서 달립니다.",
+                        "별점 제공, 캐릭터 배지, 콘페티 폭죽 효과 적용. 마스코트 '망고'를 활용한 리액션 시각화.",
+                        "\"Good job\" 같은 영혼 없는 피드백 남발, 단점이나 오답만 지나치게 세세하게 지적하기."
+                    ],
+                    [
+                        "4", "개인화 디자인",
+                        "아이는 \"오직 나만을 위해 준비된 특별한 시간\"이라고 느낄 때 온전히 마음을 엽니다.",
+                        "아이 이름 수시로 불러주기. 축구, 아이돌, 게임 등 맞춤 관심사를 대화의 브릿지로 백분 활용하기.",
+                        "누구에게나 똑같은 로봇 같은 스크립트, 지난 시간 오답이나 피드백을 아예 숙지하지 않고 들어옴."
+                    ],
+                    [
+                        "5", "리듬과 스위칭",
+                        "아이들의 집중 한계 시간은 대략 나이와 비례(8세=8분). 한 가지 활동이 늘어지면 무조건 지루해합니다.",
+                        "매 5~7분 단위로 미션을 기획해 템포감 주기. 교재 학습과 재미있는 인게임 보상을 리드미컬하게 교차.",
+                        "설명 하나를 15분 이상 끌고 가기, 아이가 하품을 하거나 시선이 분산되는데도 진도 빼기에만 급급함."
+                    ]
+                ],
+
+                sheet1Headers: ["순서", "수업 단계", "사용하는 만고아이 기능", "강사 실전 가이드라인 (Action Item)", "지향하는 핵심 목표"],
+                sheet1Rows: [
+                    ["Step 1", "웜업 (Warm-up)", "교재 연동 AI 웜업 & 맞춤 오답 확인", "지난 수업에서 유독 헷갈렸던 문법/어휘를 질문 속에 살짝 섞어 자연스럽게 리마인드 시켜줍니다.", "부담 없는 첫 대화로 심리적 장벽 낮추기"],
+                    ["Step 2", "미션 제시", "오늘의 목표(Goal Card)", "오늘 단어 3개만 마스터하면 보너스 게임이야! 처럼 아주 쉽고 명확한 일일 도전을 시작할 때 선언합니다.", "게임을 시작하는 듯한 긴장감과 의욕 고취"],
+                    ["Step 3", "말하기 활동", "교재 학습 & 화면 공유", "문장 구조나 패턴 설명을 최소화하고 질문-대답 유도 과정을 통해 아이가 스스로 생각하며 발화하게 만듭니다.", "아이가 스스로 이끄는 활기찬 액션 러닝"],
+                    ["Step 4", "게임 보상", "게임 허브 (3D 배틀/슈터 등)", "아이의 에너지가 살짝 꺾일 때쯤인 10분 전후에 준비한 게임을 활성화하여 다시금 엄청난 도파민을 유도합니다.", "주의력 리프레시 및 재미 요소의 극대화"],
+                    ["Step 5", "실시간 보상", "별점, 배지, 마스코트 피드백", "우와, 망고가 춤추고 난리 났어! 리액션과 함께 축하 이펙트를 뿌려 작은 성취감을 머릿속에 도장 찍어줍니다.", "성취의 정량화를 통한 다음 도전 열의 향상"],
+                    ["Step 6", "피드백 누적", "학습 데이터 분석 & 강사 리포트", "오늘 유독 미흡했던 발음이나 문장 규칙을 즉시 리포트에 체크해 두어 다음 수업 웜업으로 바통 터치합니다.", "데이터에 기반한 끈끈한 개인화 고리 유지"]
+                ],
+
+                checklistProgressTxt: "자가 진단 체크리스트 수행률:",
+                checklistHeaders: ["확인", "구분", "체크 항목 (Checklist Item)", "설명 & 자가 점검 요령"],
+                checklistRows: [
+                    ["수업 시작 전", "이름, 지난주 피드백, 특별 취미 확인 완료", "아이가 좋아하는 게임이나 캐릭터를 기억해 두었다가 오프닝 단서로 삼으세요."],
+                    ["수업 시작 전", "오늘의 마이크로 골(Micro-Goal) 설정", "부담 없고 성취하기 쉬운 '단어 3개 맞히기' 수준의 아주 가벼운 미션을 세웁니다."],
+                    ["수업 시작 전", "카메라 각도 및 조명 세팅 최종 점검", "강사의 어두운 표정은 지루함의 원인입니다. 조명이 얼굴을 정면으로 환하게 비추나요?"],
+                    ["수업 진행 중", "오프닝 30초 내에 아이를 밝게 웃기기", "과감한 제스처, 반가운 이름 부르기로 극적인 아이스브레이킹을 성공시킵니다."],
+                    ["수업 진행 중", "발화 시간(STT)을 전체 대비 60% 이상 확보", "설명을 압축적으로 정리하고 질문의 주도권을 완전히 아이에게 전달해야 몰입합니다."],
+                    ["수업 진행 중", "질문 후 진득하게 3초 기다림 지키기", "아이가 머릿속으로 번역하고 문장을 조립할 소중한 침묵을 어색해하지 말고 믿어줍니다."],
+                    ["수업 진행 중", "지루해할 틈 없이 5~7분 주기로 기어 시프팅", "아이가 몸을 꼬거나 하품을 하기 직전, 다음 흥미 시트나 미니 게임으로 리듬을 바꿉니다."],
+                    ["수업 종료 후", "오늘의 별점 점수 및 리포트 데이터 즉시 입력", "기억이 아주 선명하게 남아 있는 즉시 틀린 횟수, 취약 발음을 기록합니다."]
+                ],
+
+                rubricTitle: "평가 항목별 점수 기입 (1점 ~ 3점)",
+                rubricGuidelineTitle: "총점 기준 가이드",
+                rubricItems: [
+                    { title: "1. 에너지 & 표정 반응력", desc: "화면 너머로 과장된 미소와 풍부한 피드백이 닿아 재미를 유도하는가?" },
+                    { title: "2. 주도적인 학생 발화 비율", desc: "강사의 개입을 줄이고 아이에게 60% 이상의 발화 시간을 주는가?" },
+                    { title: "3. 즉각적인 성취도 가시화", desc: "별점, 배지, 마스코트 댄스 연출을 적극 사용하여 아이를 짜릿하게 만드는가?" },
+                    { title: "4. 취향 맞춤 개인화 시도", desc: "이름을 자주 다정하게 부르고 아이의 선호 관심사를 밀착 융합하는가?" },
+                    { title: "5. 리듬감 넘치는 단계 전환", desc: "5~7분 마다 활동을 신속하게 바꾸어 집중력을 흐트러지지 않게 유인하는가?" },
+                    { title: "6. 완벽한 플랫폼 도구 응용", desc: "게임 탭 오픈, 이펙트 사운드 재생, 연동 게임을 딜레이 없이 능숙히 다루는가?" }
+                ],
+                rubricFeedbackExcellent: "모든 평가 기준에서 독보적인 만점을 달성하셨습니다! 당신은 수업 환경의 에너지를 완벽히 조율하고 있으며 만고아이의 대표 교육 멘토나 우수 숏폼 클립 제공자로 선정되기 충분합니다.",
+                rubricFeedbackGood: "안정적이고 검증된 강의 패턴을 수행하고 있습니다. 다만 보다 완벽한 학생들의 폭발적 몰입 유도를 위해 부분적으로 에너지 분출 및 기어 전환 간격 줄이기를 코칭받는다면 탑티어 강사로 도약할 수 있습니다.",
+                rubricFeedbackNeedsWork: "지루함 차단 영역과 강사 설명 시간(STT) 통제 부분에서 다소 높은 주의 조치가 필요합니다. 원인 분석을 위해 담당 Lead 코치와 1대1 데모 모의수업 피드백을 신속히 예약하세요.",
+                rubricBadges: ["🏆 탑티어 멘토 마스터 강사", "🥈 현장 안정권 우수 강사", "🚨 인텐시브 밀착 코칭 요망"],
+
+                pdfDoc: {
+                    mainTitle: "만고아이 강사 교육 매뉴얼 (v2.0)",
+                    subtitle: "어린이 및 청소년을 깊게 몰입시키는 최고의 온라인 영어 수업을 가르치고 학습 동기를 이끌어내는 최고급 강사 트레이닝 실전 바이블",
+                    metaDept: "발행 부서",
+                    metaDeptVal: "Teacher Success Team",
+                    metaDate: "작성일",
+                    metaDateVal: "2026. 07. 04",
+                    metaClass: "분류",
+                    metaClassVal: "내부 대외비 (Confidential)",
+
+                    sec1Title: "01. 이 매뉴얼을 만든 이유 (Introduction)",
+                    sec1P1: "대부분의 만고아이 수강생들은 변화무쌍하고 에너지가 넘치는 **어린이와 청소년**입니다. 이 시기 학습자들에게는 \"재미가 없으면 배우기 싫다\"는 태도를 넘어, **\"첫 5분 동안 재미가 체감되지 않는다면 영혼 없이 로그아웃해 버린다\"**는 핵심 특징을 지니고 있습니다.",
+                    sec1P2: "온라인 화상 수업 환경은 우리가 눈을 직접 마주하는 대면 상황보다 교사와 학습자 간의 **에너지와 인간적 교감이 최대 30%~40%까지 필터링**되어 전달됩니다. 강사가 일반 학교 교실처럼 차분하고 건조하게 설명하면 컴퓨터 모니터 맞은편 아이는 즉각 휴대폰을 보거나 다른 창을 켜는 상황이 벌어집니다.",
+                    sec1Quote: "\"우리는 지루한 영어 문법 지식을 강제로 주입하는 주입식 교사가 아닙니다. 우리는 아이들에게 영어라는 즐거운 놀이터에서 한 판 신나게 뛰어놀 수 있는 최고의 시간과 기회를 선물하는 페이스메이커입니다.\"",
+
+                    sec2Title: "02. 아이들의 마음을 흔드는 5대 핵심 가이드",
+                    sec2Subtitle: "모든 뛰어난 만고아이 강사님들이 가슴 깊이 새기고 즉각적으로 실천해야 할 5가지 행동 지침입니다.",
+                    sec2Items: [
+                        { h: "1. 에너지 & 표정 (화면을 뚫고 전달되는 따뜻함)", p: "화면상의 연출과 리액션은 평소 본인의 1.5배 이상 높아야 상대방에겐 겨우 '친근하고 다정하다' 정도로 전달됩니다. 하이톤의 목소리 톤과 큰 박수, 다양한 눈 맞춤으로 첫 시선을 확 끌어당겨야 합니다." },
+                        { h: "2. 강사의 설명 시간 극소화 (Student Talk Time 60%+)", p: "초보 선생님들이 빠지기 가장 쉬운 늪은 혼자서 수십 분 동안 문장 성분이나 어휘를 설명하는 것입니다. 수업의 주인은 아이입니다. 발화를 가로채지 마시고 무조건 '질문 후 3초 침묵 대기 규칙'을 이행하세요." },
+                        { h: "3. 성취를 시각화하여 직접 건네기 (Micro-Reward)", p: " '참 잘했어'라는 영혼 없는 입말보다 마우스를 딸깍해 별이 반짝이고 캐릭터가 춤을 추는 등 실시간으로 화면 전체에 터져 나오는 오감 만족 보상이 어마어마한 자신감을 심어줍니다." },
+                        { h: "4. 완벽한 타깃 개인화 (My Special Class)", p: "단순히 아이의 이름을 한두 번 불러주는 수준을 넘어 지난 수업 때의 실수 패턴, 반려견의 이름이나 요새 푹 빠져 있는 취미 게임을 학습 예시문 속에 깜짝 융합하여 감동을 안겨줍니다." },
+                        { h: "5. 템포 조절과 잦은 액티비티 전환 (Rhythm & Flow)", p: "아이들의 심리적인 집중 주기를 감안하여 한 가지 활동을 질질 끌지 않고, 5~7분 마다 '학습-게임-대화-미니 미션'의 기어를 가뿐하게 스위칭하여 지루함을 원천 철벽 차단합니다." }
+                    ],
+
+                    sec3Title: "03. 연령별 타깃 맞춤형 전문 티칭 전술",
+                    sec3Subtitle: "아이들은 나이에 따라 흥미를 느끼고 마음을 열어주는 문법과 리액션 코드가 완전히 달라집니다.",
+                    sec3ThAge: "대상 연령",
+                    sec3ThSpan: "집중 지속 타임라인",
+                    sec3ThGuide: "현장 맞춤 필살기 가이드",
+                    sec3Rows: [
+                        ["5 ~ 7세 (유아)", "평균 5분 ~ 7분 내외", "글자보단 통통 튀는 소리와 역동적 이미지가 필수입니다. 장난감 인형, 풍부한 몸짓 제스처, 신나는 율동 노래를 가미하고 아주 단조롭고 쉬운 게임 룰을 채용하세요."],
+                        ["8 ~ 10세 (저학년)", "평균 8분 ~ 10분 내외", "무조건 '승부욕'과 '미션 수행 본능'을 저격해야 합니다. 매 판이 짧게 이어지는 슈팅 게임이나 3D 대결 탭을 적극 이용해 보상 배지 컬렉션을 모으는 즐거움을 주세요."],
+                        ["11 ~ 13세 (고학년)", "평균 12분 ~ 15분 내외", " '이걸 내가 왜 알아야 하지?'라는 가벼운 의미 부여에 설득당하기 시작합니다. 본인이 좋아하는 아이돌 팬덤 뉴스나 또래 경쟁 그래프를 슬쩍 보여줄 때 크게 집중합니다."],
+                        ["14세+ (청소년)", "평균 15분 ~ 20분 내외", "지나친 유아적 목소리나 아기자기한 오버 액션은 불쾌감이나 반감을 살 수 있어 절대 금물입니다. 어른 대 어른으로서의 인격적 존중과 더불어 시험 연계 등 유용한 효능감으로 승부합니다."]
+                    ],
+
+                    sec4Title: "04. 강사 역량 인증 및 서명",
+                    sec4Subtitle: "본 검증 매뉴얼에 명시된 모든 수업 원칙을 완전히 준수하였음을 교육 기관장과 수료 강사가 함께 서약하는 단계입니다.",
+                    sec4P1: "\"본인은 만고아이 화상 영어 교육 센터가 공식 보증하고 규정하는 '몰입 선순환 성장 매뉴얼 v2.0'의 모든 학습 원칙과 기술 응용 노하우를 완전히 마스터하였음을 서약합니다. 앞으로 모든 유아 및 청소년 학생들에게 지루함 없는 고품격 맞춤 놀이터 수업을 선사할 것을 다짐합니다.\"",
+                    sec4SignAdmin: "만고아이 교육 관리자",
+                    sec4SignTeacher: "매뉴얼 수료 수강 강사",
+                    sec4SignPh: "[ 서 명 ]"
+                }
+            },
+            en: {
+                navTitle: "Mangoi Teacher Training Manual",
+                tabExcel: "📊 Practice Excel Sheets",
+                tabPdf: "📄 Official PDF Report",
+                excelTitle: "Mangoi Interactive Excel Workbook",
+                excelSubtitle: "An interactive workspace containing core guidelines, real-time checklist tracking, and evaluation rubrics.",
+                btnExport: "Download Current Excel Sheet (.csv)",
+                pdfReadyTag: "PDF Export Ready",
+                pdfGuideTitle: "Print & PDF Download Guide",
+                pdfGuideSubtitle: "Official training report formatted with optimal margins and layouts for paper or digital PDF storage.",
+                btnPrint: "Print or Export to PDF",
+
+                subTabs: [
+                    "🟢 5 Core Focus Areas",
+                    "🟠 Engagement Cycle",
+                    "🔵 Self-Checklist",
+                    "🎯 Live Rubric Calculator"
+                ],
+
+                sheet0Headers: ["No", "Engagement Area", "Why It Matters", "🟢 Do (Recommended)", "🔴 Avoid (Watch out!)"],
+                sheet0Rows: [
+                    [
+                        "1", "Energy & Expression",
+                        "Video reduces emotional output by 30-40%. Exaggerated expressions feel 'just right' to the child.",
+                        "Habituate non-verbal actions (thumbs-up, clapping, surprise). Sol-tone (high tone) vocal delivery.",
+                        "Monotone reading, keeping eyes down on keyboard/notes, unexpressive facial blankness."
+                    ],
+                    [
+                        "2", "Student Talk Time (STT)",
+                        "The speaker learns the most. STT must soar to activate true participation and enjoyment.",
+                        "Aim for 60%+ student talk time. Ask question -> Wait at least 3 seconds -> Patiently listen.",
+                        "Jumping in immediately, speaking over thinking silences, giving long grammar-heavy lectures."
+                    ],
+                    [
+                        "3", "Visible Small Wins",
+                        "Kids stay driven when they see concrete indicators that they are succeeding.",
+                        "Utilize stars, badges, confetti, and Mango mascot animations to make accomplishment look sensory.",
+                        "Generic 'Good job' comments, ignoring good moments while focusing heavily on micro-errors."
+                    ],
+                    [
+                        "4", "Personalization",
+                        "Kids completely melt when they feel the session is custom-tailored for them.",
+                        "Call names frequently. Infuse soccer, K-pop, or favorite video games directly into lesson sentences.",
+                        "Rigid robotic scripting, ignoring individual hobbies, failing to study previous feedback."
+                    ],
+                    [
+                        "5", "Rhythm & Pacing",
+                        "Attention span correlates to age (8 years = 8 minutes). Stagnant activities breed instant boredom.",
+                        "Change activities every 5-7 mins. Alternate seamlessly between book learning and active games.",
+                        "Stretching one task past 15 mins, forcing textbook progression when child exhibits yawning."
+                    ]
+                ],
+
+                sheet1Headers: ["Step", "Session Phase", "Mangoi Feature Tool", "Teacher Practical Guidelines (Action Items)", "Strategic Learning Goal"],
+                sheet1Rows: [
+                    ["Step 1", "Warm-up", "AI Warm-up & Mistake Analytics", "Weave previous errors naturally into casual opening conversational prompts.", "Break down walls & build verbal momentum"],
+                    ["Step 2", "Set a Mission", "Daily Goal-of-the-day Card", "Proclaim one easily reachable target, e.g., 'Master 3 vocabulary words today!'", "Instill target-driven active play psychology"],
+                    ["Step 3", "Speaking Focus", "Textbook & Screen Sharing", "Minimize teacher lecturing. Prompt student-led sentence output.", "Maximize student-led autonomous speech"],
+                    ["Step 4", "Game Reward", "Interactive Game Hub (Battles/Shooters)", "Activate quick integrated games at the 10-minute mark to spark dopamine.", "Refresh mental fatigue and maintain pace"],
+                    ["Step 5", "Real-Time Reward", "Stars, Badges, Mascot Effects", "Say 'Look! Mango mascot is dancing!' with celebratory overlay graphics.", "Solidify achievement with visual feedback"],
+                    ["Step 6", "Data Continuity", "Learning Analytics Report", "Instantly input today's difficult pronunciation and error data to pass to next class.", "Maintain personalized connection loop"]
+                ],
+
+                checklistProgressTxt: "Self-Checklist Completion Rate:",
+                checklistHeaders: ["Check", "Phase", "Checklist Item", "Execution Tip & Focus"],
+                checklistRows: [
+                    ["Pre-Class", "Confirm Name, Previous Errors & Hobbies", "Memorize favorite characters to drop during the icebreaking opening."],
+                    ["Pre-Class", "Set Today's Custom Micro-Goal", "Design a low-pressure, achievable milestone to ensure a positive win."],
+                    ["Pre-Class", "Verify Camera Angle & Lighting Setup", "Ensure face is fully illuminated with no distracting overhead shadows."],
+                    ["In-Class", "Make Student Laugh Within First 30 Secs", "Exaggerated friendly gestures to secure a joyous conversational tone."],
+                    ["In-Class", "Secure 60%+ Student Talk Time (STT)", "Consciously summarize your speech and transfer the floor to the child."],
+                    ["In-Class", "Wait 3 Full Seconds After Any Question", "Build comfortable silence for internal sentence construction."],
+                    ["In-Class", "Shift Gear/Activity Every 5-7 Minutes", "Transition immediately when child shows subtle signs of attention drift."],
+                    ["Post-Class", "Log Scores & Learning Reports Instantly", "Complete analytics in the 2-minute golden window when memory is fresh."]
+                ],
+
+                rubricTitle: "Score Per Performance Criteria (1 - 3 points)",
+                rubricGuidelineTitle: "Score Guideline Reference",
+                rubricItems: [
+                    { title: "1. Energy & Expressions", desc: "Does the teacher project high energy, warm smiles, and lively reactions?" },
+                    { title: "2. Student Talk Time Ratio", desc: "Is teacher talk minimized to allow student speaking time to hit 60% or more?" },
+                    { title: "3. Achievement Visualization", desc: "Are star ratings, digital badges, and mascots used actively for milestones?" },
+                    { title: "4. Custom Personalization", desc: "Are personal interests and previous errors actively woven into instruction?" },
+                    { title: "5. Pacing & Transition Rhythm", desc: "Are activities smoothly rotated every 5-7 minutes to intercept fatigue?" },
+                    { title: "6. Platform Tool Mastery", desc: "Are game integration, audio cues, and screen shares operated without delay?" }
+                ],
+                rubricFeedbackExcellent: "You achieved a perfect score across all criteria! You masterfully control class energy and are highly eligible to be a mentor teacher or exemplary short clip provider.",
+                rubricFeedbackGood: "Solid performance. To leap into top-tier status, seek minor coaching on magnifying energy spikes and optimizing transition timings.",
+                rubricFeedbackNeedsWork: "Critical improvements needed in controlling talk ratio and intercepting boredom. Schedule a 1:1 dummy mock class with your lead coach soon.",
+                rubricBadges: ["🏆 Top-Tier Master Mentor Teacher", "🥈 Reliable Quality Class Teacher", "🚨 Intensive Lead Coaching Required"],
+
+                pdfDoc: {
+                    mainTitle: "Mangoi Teacher Training Manual (v2.0)",
+                    subtitle: "An authoritative practical training blueprint designed to maximize online engagement and achievement for kids and teenage learners.",
+                    metaDept: "Issued by",
+                    metaDeptVal: "Teacher Success Team",
+                    metaDate: "Date",
+                    metaDateVal: "July 4, 2026",
+                    metaClass: "Classification",
+                    metaClassVal: "Confidential (Internal Only)",
+
+                    sec1Title: "01. Why This Manual Exists (Introduction)",
+                    sec1P1: "Most Mangoi students are vibrant, fast-evolving **children and teenagers**. For this demographic, learning is tied directly to engagement: **'If they do not experience fun within the first 5 minutes, they log out mentally.'**",
+                    sec1P2: "Online portals filter and diminish **emotional output and human warmth by up to 30%-40%**. If a teacher teaches with 'classroom-level' calmness, the screen converts it into dry boredom, causing immediate distraction.",
+                    sec1Quote: "\"We are not robotic grammar dispatchers. We are energetic pacesetters gifting students an exciting English-speaking playground to run, play, and grow in.\"",
+
+                    sec2Title: "02. The 5 Core Focus Areas to Drive Kid Engagement",
+                    sec2Subtitle: "Actionable foundational behaviors that define the world-class teaching squad at Mangoi English.",
+                    sec2Items: [
+                        { h: "1. Energy & Expression (Reaching Through Screen)", p: "Exaggerated reaction (1.5x of baseline) is required to register as 'natural warmth' on the student screen. Sol-tone delivery and wide-eyed smiles work magic." },
+                        { h: "2. Minimize Teacher Talking Time (STT 60%+)", p: "Avoid lectures. The talker is the learner. Apply the absolute '3-second wait rule' after proposing questions to let their brains assemble English words." },
+                        { h: "3. Visualizing Achievements (Micro-Rewards)", p: "Abstract 'Good job' remarks fade instantly. Sensory visual rewards like flashing stars, badges, and dancing Mangoes embed long-term drive." },
+                        { h: "4. Total Tailored Personalization (My Special Class)", p: "Embed personal pets, favorite gaming, or specific past spelling errors directly inside target phrases for instant emotional buy-in." },
+                        { h: "5. Pacing Pushes & Activity Swapping (Rhythm)", p: "Attention cycles drop rapidly. Avoid pushing single tasks beyond 7 minutes. Swap dynamically between text, game hub, dialogue, and checks." }
+                    ],
+
+                    sec3Title: "03. Age-Specific Framework Strategies",
+                    sec3Subtitle: "Students respond to completely different styles of rewards and language rhythms based on their development.",
+                    sec3ThAge: "Target Age Group",
+                    sec3ThSpan: "Attention Span Limit",
+                    sec3ThGuide: "Custom Strategic Pointers",
+                    sec3Rows: [
+                        ["Ages 5 ~ 7 (Early)", "Average 5 - 7 Minutes", "Leverage physical toys, puppets, massive smiles, short songs, and ultra-simple game parameters. Audio/visual cues are superior to reading text."],
+                        ["Ages 8 ~ 10 (Lower Elem)", "Average 8 - 10 Minutes", "Highly motivated by badges, scoreboard competition, shooters, and short modular rounds of 3D virtual battles."],
+                        ["Ages 11 ~ 13 (Upper Elem)", "Average 12 - 15 Minutes", "Seek purpose in learning. Utilize progress graphs, ranking tables, and connect assignments to pop culture/gaming platforms."],
+                        ["Ages 14+ (Teenagers)", "Average 15 - 20 Minutes", "Treat with peer-to-peer adult respect. Childish games backfire. Focus instead on test targets, useful speech utility, and real accomplishments."]
+                    ],
+
+                    sec4Title: "04. Teacher Certification & Sign-off",
+                    sec4Subtitle: "Mutual training seal of confirmation signaling complete integration of Mangoi's pedagogical directives.",
+                    sec4P1: "\"I hereby pledge that I have completely mastered all the online teaching principles, engagement cycles, and platform operation techniques defined in the Mangoi success manual v2.0. I commit to providing a vibrant, fun, and high-quality learning playground for every student.\"",
+                    sec4SignAdmin: "Mangoi Training Lead",
+                    sec4SignTeacher: "Certified Professional Teacher",
+                    sec4SignPh: "[ SIGNATURE ]"
+                }
+            }
+        };
+
+        // Switch Main Tabs (Excel / PDF)
+        function switchMainTab(target) {
+            const excelTabBtn = document.getElementById('btn-tab-excel');
+            const pdfTabBtn = document.getElementById('btn-tab-pdf');
+            const excelSec = document.getElementById('section-excel');
+            const pdfSec = document.getElementById('section-pdf');
+
+            if (target === 'excel') {
+                excelTabBtn.className = "px-4 py-2 rounded-lg text-sm font-semibold flex items-center space-x-2 transition-all bg-white text-orange-600 shadow-sm";
+                pdfTabBtn.className = "px-4 py-2 rounded-lg text-sm font-semibold flex items-center space-x-2 transition-all text-slate-600 hover:text-slate-900";
+                excelSec.classList.remove('hidden');
+                pdfSec.classList.add('hidden');
+            } else {
+                pdfTabBtn.className = "px-4 py-2 rounded-lg text-sm font-semibold flex items-center space-x-2 transition-all bg-white text-orange-600 shadow-sm";
+                excelTabBtn.className = "px-4 py-2 rounded-lg text-sm font-semibold flex items-center space-x-2 transition-all text-slate-600 hover:text-slate-900";
+                pdfSec.classList.remove('hidden');
+                excelSec.classList.add('hidden');
+            }
+        }
+
+        // Active Excel sheet sub-tab tracking
+        function switchExcelTab(sheetIndex) {
+            currentActiveExcelSheet = sheetIndex;
+            const tabs = document.querySelectorAll('.excel-sub-tab-btn');
+            const sheets = document.querySelectorAll('.excel-sheet');
+
+            tabs.forEach((tab, index) => {
+                if (index === sheetIndex) {
+                    tab.className = "excel-sub-tab-btn px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider border-2 border-emerald-600 bg-emerald-50 text-emerald-800 transition-all";
+                } else {
+                    tab.className = "excel-sub-tab-btn px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider border border-slate-200 hover:bg-slate-50 text-slate-600 transition-all";
+                }
+            });
+
+            sheets.forEach((sheet, index) => {
+                if (index === sheetIndex) {
+                    sheet.classList.remove('hidden');
+                } else {
+                    sheet.classList.add('hidden');
+                }
+            });
+        }
+
+        // Language Configurator
+        function setLanguage(lang) {
+            currentLang = lang;
+
+            // Toggle Language Buttons UI
+            const btnKo = document.getElementById('lang-ko');
+            const btnEn = document.getElementById('lang-en');
+            if (lang === 'ko') {
+                btnKo.className = "px-3 py-1.5 text-xs font-bold rounded-lg transition-all bg-white text-orange-600 shadow-sm";
+                btnEn.className = "px-3 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-500 hover:text-slate-900";
+            } else {
+                btnEn.className = "px-3 py-1.5 text-xs font-bold rounded-lg transition-all bg-white text-orange-600 shadow-sm";
+                btnKo.className = "px-3 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-500 hover:text-slate-900";
+            }
+
+            renderAllLocalizedContent();
+        }
+
+        // Dynamic DOM Localizer
+        function renderAllLocalizedContent() {
+            const dataset = i18n[currentLang];
+
+            // Upper Headers & Static Nav Texts
+            document.getElementById('nav-title').textContent = dataset.navTitle;
+            document.getElementById('tab-excel-txt').textContent = dataset.tabExcel;
+            document.getElementById('tab-pdf-txt').textContent = dataset.tabPdf;
+            document.getElementById('excel-title').textContent = dataset.excelTitle;
+            document.getElementById('excel-subtitle').textContent = dataset.excelSubtitle;
+            document.getElementById('btn-export-txt').textContent = dataset.btnExport;
+            document.getElementById('pdf-ready-tag').textContent = dataset.pdfReadyTag;
+            document.getElementById('pdf-guide-title').textContent = dataset.pdfGuideTitle;
+            document.getElementById('pdf-guide-subtitle').textContent = dataset.pdfGuideSubtitle;
+            document.getElementById('btn-print-txt').textContent = dataset.btnPrint;
+
+            // Render Excel Sub Tabs Header
+            renderExcelTabsHeader(dataset.subTabs);
+
+            // Render Sheet 0 (5 Core Focus)
+            renderExcelSheet0(dataset.sheet0Headers, dataset.sheet0Rows);
+
+            // Render Sheet 1 (Engagement Cycle)
+            renderExcelSheet1(dataset.sheet1Headers, dataset.sheet1Rows);
+
+            // Render Sheet 2 (Checklist)
+            renderExcelSheet2(dataset.checklistProgressTxt, dataset.checklistHeaders, dataset.checklistRows);
+
+            // Render Sheet 3 (Rubric)
+            renderExcelSheet3(dataset.rubricTitle, dataset.rubricGuidelineTitle, dataset.rubricItems);
+
+            // Render PDF Document
+            renderPDFLayout(dataset.pdfDoc);
+
+            // Recalculate indicators
+            updateChecklist();
+            calculateRubric();
+
+            // Re-bind SVG icons via Lucide
+            lucide.createIcons();
+        }
+
+        function renderExcelTabsHeader(tabsArray) {
+            const container = document.getElementById('excel-sub-tabs');
+            container.innerHTML = '';
+            tabsArray.forEach((tabName, index) => {
+                const btn = document.createElement('button');
+                btn.className = "excel-sub-tab-btn px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all";
+                if (index === currentActiveExcelSheet) {
+                    btn.className += " border-2 border-emerald-600 bg-emerald-50 text-emerald-800";
+                } else {
+                    btn.className += " border border-slate-200 hover:bg-slate-50 text-slate-600";
+                }
+                btn.setAttribute('onclick', `switchExcelTab(${index})`);
+                btn.textContent = tabName;
+                container.appendChild(btn);
+            });
+        }
+
+        // Table Render Helpers
+        function renderExcelSheet0(headers, rows) {
+            const sheet = document.getElementById('sheet-0');
+            sheet.innerHTML = `
+                <table class="w-full text-left border-collapse border border-slate-200 rounded-lg overflow-hidden min-w-[800px]">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-700 text-xs font-bold border-b border-slate-200">
+                            <th class="p-3 border-r border-slate-200 w-12 text-center">${headers[0]}</th>
+                            <th class="p-3 border-r border-slate-200 w-48">${headers[1]}</th>
+                            <th class="p-3 border-r border-slate-200 w-64">${headers[2]}</th>
+                            <th class="p-3 border-r border-slate-200 text-emerald-700 bg-emerald-50">${headers[3]}</th>
+                            <th class="p-3 text-rose-700 bg-rose-50">${headers[4]}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm divide-y divide-slate-200">
+                        ${rows.map(row => `
+                            <tr>
+                                <td class="p-3 border-r text-center font-medium">${row[0]}</td>
+                                <td class="p-3 border-r font-semibold">${row[1]}</td>
+                                <td class="p-3 border-r text-slate-500">${row[2]}</td>
+                                <td class="p-3 bg-emerald-50/50 text-slate-700 font-medium border-r">${row[3]}</td>
+                                <td class="p-3 bg-rose-50/50 text-slate-700">${row[4]}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function renderExcelSheet1(headers, rows) {
+            const sheet = document.getElementById('sheet-1');
+            sheet.innerHTML = `
+                <table class="w-full text-left border-collapse border border-slate-200 rounded-lg overflow-hidden min-w-[800px]">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-700 text-xs font-bold border-b border-slate-200">
+                            <th class="p-3 border-r border-slate-200 w-16 text-center">${headers[0]}</th>
+                            <th class="p-3 border-r border-slate-200 w-32">${headers[1]}</th>
+                            <th class="p-3 border-r border-slate-200 w-48">${headers[2]}</th>
+                            <th class="p-3 border-r border-slate-200">${headers[3]}</th>
+                            <th class="p-3 text-slate-600">${headers[4]}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm divide-y divide-slate-200">
+                        ${rows.map(row => `
+                            <tr>
+                                <td class="p-3 border-r text-center font-semibold text-orange-600">${row[0]}</td>
+                                <td class="p-3 border-r font-semibold bg-orange-50/20">${row[1]}</td>
+                                <td class="p-3 border-r font-medium">${row[2]}</td>
+                                <td class="p-3 border-r text-slate-700">${row[3]}</td>
+                                <td class="p-3 text-slate-500 font-medium">${row[4]}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function renderExcelSheet2(progressTxt, headers, rows) {
+            const sheet = document.getElementById('sheet-2');
+            sheet.innerHTML = `
+                <div class="mb-4 flex items-center justify-between">
+                    <span class="text-sm font-semibold text-slate-600">${progressTxt}</span>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-48 bg-slate-100 rounded-full h-3">
+                            <div id="checklist-progress" class="bg-blue-500 h-3 rounded-full transition-all" style="width: 0%"></div>
+                        </div>
+                        <span id="checklist-percent" class="text-sm font-bold text-blue-600">0%</span>
+                    </div>
+                </div>
+                <table class="w-full text-left border-collapse border border-slate-200 rounded-lg overflow-hidden">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-700 text-xs font-bold border-b border-slate-200">
+                            <th class="p-3 border-r border-slate-200 w-16 text-center">${headers[0]}</th>
+                            <th class="p-3 border-r border-slate-200 w-32">${headers[1]}</th>
+                            <th class="p-3 border-r border-slate-200">${headers[2]}</th>
+                            <th class="p-3 text-slate-600">${headers[3]}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm divide-y divide-slate-200">
+                        ${rows.map((row, idx) => `
+                            <tr class="hover:bg-slate-50/55 transition-colors">
+                                <td class="p-3 border-r text-center">
+                                    <input type="checkbox" id="chk-${idx}" onchange="updateChecklist()" class="checklist-box w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                                </td>
+                                <td class="p-3 border-r font-semibold ${idx < 3 ? 'text-blue-600 bg-blue-50/20' : idx < 7 ? 'text-amber-600 bg-amber-50/10' : 'text-emerald-600 bg-emerald-50/10'}">${row[0]}</td>
+                                <td class="p-3 border-r font-medium text-slate-800">${row[1]}</td>
+                                <td class="p-3 text-slate-500">${row[2]}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function renderExcelSheet3(rubricTitle, rubricGuidelineTitle, items) {
+            const sheet = document.getElementById('sheet-3');
+
+            const dropdownOptions = currentLang === 'ko' ? `
+                <option value="1">1점 (미흡)</option>
+                <option value="2">2점 (보통)</option>
+                <option value="3" selected>3점 (우수)</option>
+            ` : `
+                <option value="1">1 pt (Needs Work)</option>
+                <option value="2">2 pt (Adequate)</option>
+                <option value="3" selected>3 pt (Excellent)</option>
+            `;
+
+            const rankInfo = currentLang === 'ko' ? `
+                <li class="flex justify-between"><span>🥇 15 - 18점</span> <span class="font-semibold text-amber-400">우수 멘토 후보</span></li>
+                <li class="flex justify-between"><span>🥈 10 - 14점</span> <span class="font-semibold text-blue-400">양호 (부분 코칭 대상)</span></li>
+                <li class="flex justify-between"><span>🚨 9점 이하</span> <span class="font-semibold text-rose-400">집중 인텐시브 교육 필요</span></li>
+            ` : `
+                <li class="flex justify-between"><span>🥇 15 - 18 pts</span> <span class="font-semibold text-amber-400">Master Candidate</span></li>
+                <li class="flex justify-between"><span>🥈 10 - 14 pts</span> <span class="font-semibold text-blue-400">Good (Coaching Opt)</span></li>
+                <li class="flex justify-between"><span>🚨 Under 9 pts</span> <span class="font-semibold text-rose-400">Intensive Training Required</span></li>
+            `;
+
+            sheet.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2">
+                        <h3 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-1.5">
+                            <i data-lucide="edit-3" class="w-4 h-4 text-emerald-600"></i>
+                            ${rubricTitle}
+                        </h3>
+                        <div class="space-y-4">
+                            ${items.map((item, idx) => `
+                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                                    <div>
+                                        <h4 class="font-bold text-sm text-slate-800">${item.title}</h4>
+                                        <p class="text-xs text-slate-500 mt-0.5">${item.desc}</p>
+                                    </div>
+                                    <select id="rubric-opt-${idx}" onchange="calculateRubric()" class="rubric-score rounded-lg border-slate-300 text-sm focus:ring-emerald-500 focus:border-emerald-500 font-semibold p-2 bg-white shadow-sm w-36">
+                                        ${dropdownOptions}
+                                    </select>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Rubric Result Sidebar -->
+                    <div class="bg-slate-900 text-white p-6 rounded-2xl flex flex-col justify-between shadow-lg h-fit">
+                        <div>
+                            <h3 class="text-xs font-bold text-slate-400 tracking-wider uppercase mb-1">Total Evaluation Score</h3>
+                            <div class="flex items-baseline space-x-2">
+                                <span id="rubric-total" class="text-6xl font-black text-amber-400">18</span>
+                                <span class="text-slate-400 text-lg">/ 18</span>
+                            </div>
+                            <div id="rubric-badge" class="mt-4 inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-400 text-slate-950">
+                                🏆 탑티어 멘토 마스터 강사
+                            </div>
+                            <p id="rubric-feedback" class="text-sm text-slate-300 mt-4 leading-relaxed">
+                                Loading feedback...
+                            </p>
+                        </div>
+
+                        <div class="mt-8 pt-6 border-t border-slate-800">
+                            <h4 class="text-xs font-semibold text-slate-400 mb-2">${rubricGuidelineTitle}</h4>
+                            <ul class="text-xs space-y-1 text-slate-300">
+                                ${rankInfo}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Dynamic PDF Section Generator
+        function renderPDFLayout(doc) {
+            const pdfContainer = document.getElementById('pdf-dynamic-content');
+            pdfContainer.innerHTML = `
+                <!-- Cover Section -->
+                <div class="text-center py-16 border-b-4 border-orange-500">
+                    <span class="text-7xl">🥭</span>
+                    <h1 class="text-4xl font-extrabold text-slate-900 tracking-tight mt-6">${doc.mainTitle}</h1>
+                    <p class="text-lg text-slate-500 mt-3 max-w-2xl mx-auto leading-relaxed">${doc.subtitle}</p>
+                    <div class="mt-12 flex justify-center space-x-8 text-sm font-semibold text-slate-600">
+                        <div>
+                            <span class="block text-xs text-slate-400">${doc.metaDept}</span>
+                            <span class="mt-1 block">${doc.metaDeptVal}</span>
+                        </div>
+                        <div class="w-px bg-slate-200"></div>
+                        <div>
+                            <span class="block text-xs text-slate-400">${doc.metaDate}</span>
+                            <span class="mt-1 block">${doc.metaDateVal}</span>
+                        </div>
+                        <div class="w-px bg-slate-200"></div>
+                        <div>
+                            <span class="block text-xs text-slate-400">${doc.metaClass}</span>
+                            <span class="mt-1 block text-orange-600">${doc.metaClassVal}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 1 -->
+                <div class="py-10">
+                    <h2 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                        <span class="text-orange-500">01.</span> ${doc.sec1Title}
+                    </h2>
+                    <p class="mt-4 text-slate-700 leading-relaxed">${doc.sec1P1}</p>
+                    <p class="mt-3 text-slate-700 leading-relaxed">${doc.sec1P2}</p>
+                    <div class="mt-6 bg-slate-50 rounded-2xl p-5 border border-slate-100 flex items-center space-x-4">
+                        <div class="text-4xl text-orange-500 font-black">"</div>
+                        <p class="text-slate-800 font-bold leading-relaxed italic">${doc.sec1Quote}</p>
+                    </div>
+                </div>
+
+                <div class="page-break"></div>
+
+                <!-- Section 2 -->
+                <div class="py-10">
+                    <h2 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                        <span class="text-orange-500">02.</span> ${doc.sec2Title}
+                    </h2>
+                    <p class="text-sm text-slate-500 mt-1">${doc.sec2Subtitle}</p>
+
+                    <div class="mt-8 space-y-6">
+                        ${doc.sec2Items.map(item => `
+                            <div class="border-l-4 border-orange-500 pl-4 py-1">
+                                <h3 class="text-lg font-bold text-slate-900">${item.h}</h3>
+                                <p class="text-slate-700 mt-1 text-sm leading-relaxed">${item.p}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div class="page-break"></div>
+
+                <!-- Section 3 -->
+                <div class="py-10">
+                    <h2 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                        <span class="text-orange-500">03.</span> ${doc.sec3Title}
+                    </h2>
+                    <p class="text-sm text-slate-500 mt-1">${doc.sec3Subtitle}</p>
+
+                    <div class="mt-6 border border-slate-200 rounded-xl overflow-hidden">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 text-slate-800 text-xs font-bold border-b border-slate-200 uppercase">
+                                    <th class="p-3 border-r w-36">${doc.sec3ThAge}</th>
+                                    <th class="p-3 border-r w-44">${doc.sec3ThSpan}</th>
+                                    <th class="p-3">${doc.sec3ThGuide}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-sm divide-y divide-slate-100 text-slate-700">
+                                ${doc.sec3Rows.map(row => `
+                                    <tr>
+                                        <td class="p-4 border-r font-bold text-slate-900 bg-orange-50/10">${row[0]}</td>
+                                        <td class="p-4 border-r text-slate-500 font-medium">${row[1]}</td>
+                                        <td class="p-4 leading-relaxed">${row[2]}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="page-break"></div>
+
+                <!-- Section 4 -->
+                <div class="py-10">
+                    <h2 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                        <span class="text-orange-500">04.</span> ${doc.sec4Title}
+                    </h2>
+                    <p class="text-sm text-slate-500 mt-1">${doc.sec4Subtitle}</p>
+
+                    <div class="mt-8 border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center space-y-6">
+                        <p class="text-sm text-slate-600 leading-relaxed max-w-xl mx-auto">${doc.sec4P1}</p>
+
+                        <div class="grid grid-cols-2 gap-8 pt-10 text-slate-800 text-sm">
+                            <div class="text-center">
+                                <span class="text-xs text-slate-400 block mb-1">${doc.sec4SignAdmin}</span>
+                                <div class="h-12 border-b border-slate-300 w-3/4 mx-auto mb-2 flex items-center justify-center">
+                                    <span class="font-bold text-slate-400 text-xs italic">${doc.sec4SignPh}</span>
+                                </div>
+                                <span class="font-bold">Teacher Success Lead</span>
+                            </div>
+                            <div class="text-center">
+                                <span class="text-xs text-slate-400 block mb-1">${doc.sec4SignTeacher}</span>
+                                <div class="h-12 border-b border-slate-300 w-3/4 mx-auto mb-2 flex items-center justify-center">
+                                    <span class="font-bold text-slate-400 text-xs italic">${doc.sec4SignPh}</span>
+                                </div>
+                                <span class="font-bold">Professional Teacher</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-12 text-center text-xs text-slate-400">
+                        © Mangoi English | Teacher Success Team. All Rights Reserved.
+                    </div>
+                </div>
+            `;
+        }
+
+        // Live interactive checklist progress monitor
+        function updateChecklist() {
+            const checkboxes = document.querySelectorAll('.checklist-box');
+            let checkedCount = 0;
+            checkboxes.forEach(box => {
+                if (box.checked) checkedCount++;
+            });
+
+            const percent = checkboxes.length ? Math.round((checkedCount / checkboxes.length) * 100) : 0;
+            const progressEl = document.getElementById('checklist-progress');
+            const percentEl = document.getElementById('checklist-percent');
+
+            if (progressEl && percentEl) {
+                progressEl.style.width = percent + '%';
+                percentEl.textContent = percent + '%';
+            }
+        }
+
+        // Live interactive evaluation rubric calculator
+        function calculateRubric() {
+            const selects = document.querySelectorAll('.rubric-score');
+            if (selects.length === 0) return;
+
+            let sum = 0;
+            selects.forEach(select => {
+                sum += parseInt(select.value, 10);
+            });
+
+            const totalEl = document.getElementById('rubric-total');
+            const badgeEl = document.getElementById('rubric-badge');
+            const feedbackEl = document.getElementById('rubric-feedback');
+
+            if (!totalEl || !badgeEl || !feedbackEl) return;
+
+            totalEl.textContent = sum;
+            const textGroup = i18n[currentLang];
+
+            if (sum >= 15) {
+                badgeEl.textContent = textGroup.rubricBadges[0];
+                badgeEl.className = "mt-4 inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-400 text-slate-950";
+                feedbackEl.textContent = textGroup.rubricFeedbackExcellent;
+            } else if (sum >= 10) {
+                badgeEl.textContent = textGroup.rubricBadges[1];
+                badgeEl.className = "mt-4 inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-500 text-white";
+                feedbackEl.textContent = textGroup.rubricFeedbackGood;
+            } else {
+                badgeEl.textContent = textGroup.rubricBadges[2];
+                badgeEl.className = "mt-4 inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-rose-600 text-white";
+                feedbackEl.textContent = textGroup.rubricFeedbackNeedsWork;
+            }
+        }
+
+        // CSV Multi-language downloader
+        function exportCurrentSheet() {
+            let csvContent = "﻿"; // UTF-8 BOM key to prevent Korean/foreign characters from breaking in Excel
+            let fileName = "mangoi_sheet.csv";
+            const ds = i18n[currentLang];
+
+            if (currentActiveExcelSheet === 0) {
+                fileName = currentLang === 'ko' ? "만고아이_5대_핵심_가이드.csv" : "mangoi_5_core_focus.csv";
+                csvContent += ds.sheet0Headers.join(",") + "\n";
+                ds.sheet0Rows.forEach(row => {
+                    // Escape double quotes and commas for clean CSV
+                    const sanitized = row.map(v => `"${v.replace(/"/g, '""')}"`);
+                    csvContent += sanitized.join(",") + "\n";
+                });
+            } else if (currentActiveExcelSheet === 1) {
+                fileName = currentLang === 'ko' ? "만고아이_흥미_공식_사이클.csv" : "mangoi_engagement_cycle.csv";
+                csvContent += ds.sheet1Headers.join(",") + "\n";
+                ds.sheet1Rows.forEach(row => {
+                    const sanitized = row.map(v => `"${v.replace(/"/g, '""')}"`);
+                    csvContent += sanitized.join(",") + "\n";
+                });
+            } else if (currentActiveExcelSheet === 2) {
+                fileName = currentLang === 'ko' ? "만고아이_자가_체크리스트.csv" : "mangoi_checklist.csv";
+                csvContent += ds.checklistHeaders.slice(1).join(",") + "\n"; // omit checkbox col
+                ds.checklistRows.forEach(row => {
+                    const sanitized = row.map(v => `"${v.replace(/"/g, '""')}"`);
+                    csvContent += sanitized.join(",") + "\n";
+                });
+            } else {
+                fileName = currentLang === 'ko' ? "만고아이_강사_평가_결과.csv" : "mangoi_rubric_scores.csv";
+                const selects = document.querySelectorAll('.rubric-score');
+                const colHeader = currentLang === 'ko' ? "평가 항목,부여된 점수\n" : "Evaluation Criteria,Awarded Points\n";
+                csvContent += colHeader;
+
+                ds.rubricItems.forEach((item, idx) => {
+                    const score = selects[idx] ? selects[idx].value : "3";
+                    csvContent += `"${item.title.replace(/"/g, '""')}",${score}\n`;
+                });
+
+                const totalText = currentLang === 'ko' ? "총점" : "Total Score";
+                csvContent += `${totalText},${document.getElementById('rubric-total').textContent} / 18\n`;
+            }
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", fileName);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+
+        // Initialize elements on load
+        window.onload = function() {
+            setLanguage('ko'); // default to Korean representation
+        }
+    </script>
+<!-- BUILD:20260704130334 -->
 </body>
 </html>

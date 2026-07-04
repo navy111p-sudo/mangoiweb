@@ -1229,6 +1229,42 @@
   }
   function fmtDate(ms){ try{ return new Date(Number(ms)).toLocaleDateString(EN()?'en-US':'ko-KR',{month:'short',day:'numeric'}); }catch(e){ return ''; } }
 
+  // 지적 태그 → 구체적 실행 액션
+  var ACTION = {
+    '소리가 끊겼어요':   { ko:'수업 전 인터넷·마이크·카메라를 점검하고 가능하면 유선(랜선)으로 연결하세요.', en:'Check your internet, mic and camera before class; use a wired connection if possible.' },
+    '너무 어려웠어요':   { ko:'난이도를 한 단계 낮추고, 예시를 더 들며 천천히 진행해 보세요.', en:'Lower the difficulty a notch and go slower with more examples.' },
+    '말할 기회가 적었어요': { ko:'교사 설명을 줄이고 학생이 말하는 시간을 늘리세요. 열린 질문을 더 던지세요.', en:'Talk less and let students speak more — ask more open-ended questions.' }
+  };
+  var POS = {
+    '재미있었어요':      { ko:'수업을 재미있게 이끄는 강점', en:'making classes fun' },
+    '설명이 쉬웠어요':    { ko:'쉽고 명확한 설명', en:'clear, easy explanations' },
+    '칭찬을 많이 해줬어요': { ko:'칭찬으로 학생을 북돋는 점', en:'encouraging students with praise' }
+  };
+  // 평가 결과 → 결론 + 실행 액션 목록
+  function buildAdvice(a, en){
+    var actions=[];
+    (a.top_tags||[]).forEach(function(t){ if(ACTION[t.tag] && actions.length<2) actions.push(en?ACTION[t.tag].en:ACTION[t.tag].ko); });
+    if(a.low_count>=2) actions.push(en?'Look closely at the low-score feedback and follow up.':'낮은 점수를 준 학생들의 피드백을 특히 살펴보고 보완하세요.');
+    if(a.trend_dir==='down') actions.push(en?'Ratings dipped recently — review your latest classes.':'최근 평가가 낮아지고 있어요. 최근 수업 방식을 점검해 보세요.');
+    var posTag=(a.top_tags||[]).filter(function(t){return POS[t.tag];})[0];
+    if(posTag && actions.length<3) actions.push((en?'Keep your strength — ':'강점 유지 — ')+(en?POS[posTag.tag].en:POS[posTag.tag].ko)+(en?'.':'을 계속하세요.'));
+    if(!actions.length) actions.push(en?'Keep doing what you’re doing — students are happy.':'지금처럼 유지하세요 — 학생들이 만족하고 있어요.');
+    var c;
+    if(a.grade==='excellent') c=en?'You’re doing great — keep it up!':'아주 잘하고 있어요 — 지금처럼만 하세요!';
+    else if(a.grade==='good') c=en?'Solid work. One small tweak will make it excellent.':'좋아요! 한 가지만 보완하면 최고가 됩니다.';
+    else if(a.grade==='fair') c=en?'A few improvements will lift student satisfaction.':'몇 가지만 개선하면 학생 만족도가 올라가요.';
+    else c=en?'Improvement needed — start with the steps below.':'개선이 필요해요. 아래부터 하나씩 바꿔 보세요.';
+    return { conclusion:c, actions:actions };
+  }
+  function adviceCard(a, en){
+    var adv = buildAdvice(a, en);
+    var items = adv.actions.map(function(t){ return '<li style="margin:6px 0;padding-left:4px">'+esc(t)+'</li>'; }).join('');
+    return '<div style="background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(16,185,129,0.04));border:1px solid rgba(16,185,129,0.4);border-radius:16px;padding:16px 18px;margin-top:16px">'
+      +'<div style="font-size:14px;font-weight:900;color:#34d399;margin-bottom:4px">🎯 '+(en?'Conclusion — what to do next':'결론 — 이렇게 해보세요')+'</div>'
+      +'<div style="font-size:13.5px;font-weight:800;color:var(--text-primary);margin-bottom:8px">'+esc(adv.conclusion)+'</div>'
+      +'<ul style="margin:0;padding-left:20px;font-size:13px;color:var(--text-secondary);line-height:1.55">'+items+'</ul></div>';
+  }
+
   function distChart(dist){
     var maxC=1; dist.forEach(function(d){ if(d.count>maxC)maxC=d.count; });
     var bars = dist.map(function(d){
@@ -1305,7 +1341,7 @@
       var fbSection = '<div style="margin-top:18px"><div style="font-size:14px;font-weight:800;color:var(--text-primary);margin-bottom:2px">💬 '+(en?'Student feedback':'학생 피드백')+' <span style="font-size:12px;color:var(--text-muted);font-weight:600">('+rows.length+')</span></div>'
         +'<div style="font-size:11.5px;color:var(--text-muted);margin-bottom:4px">'+(en?'Anonymous — you can’t see who wrote it, so students are honest.':'무기명이에요 — 누가 썼는지 알 수 없어 학생들이 솔직하게 남깁니다.')+'</div>'
         + fbCards + '</div>';
-      box.innerHTML = hero + insight + chart + fbSection;
+      box.innerHTML = hero + insight + chart + adviceCard(a, en) + fbSection;
       // 자유 피드백 번역 (EN 일 때만)
       if (en){
         var fbNodes = Array.prototype.slice.call(box.querySelectorAll('[data-fb]'));

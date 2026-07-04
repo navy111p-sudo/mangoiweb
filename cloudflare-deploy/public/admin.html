@@ -3789,13 +3789,24 @@
       <details class="sub-item" id="sub-c24-finance" ontoggle="if(this.open){c24FinLoad('ledger');c24FinSummary();}">
         <summary data-ko="🧾 카페24 회계 실데이터 (장부·급여·지출·세금·예치금)" data-en="🧾 Cafe24 Finance (real data)">🧾 카페24 회계 실데이터 (장부·급여·지출·세금·예치금)</summary>
         <div class="sub-body">
-          <!-- 월별 손익 집계 요약 + 막대 -->
-          <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fcd34d;border-radius:12px;padding:14px 16px;margin-bottom:14px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-              <b style="font-size:13.5px;color:#92400e" data-ko="📊 월별 손익 (회계장부 기준)" data-en="📊 Monthly P&amp;L">📊 월별 손익 (회계장부 기준)</b>
-              <span id="c24fin-sum-total" style="font-size:12px;color:#78350f"></span>
+          <!-- 📊 매출·손익 추이 대시보드 (Chart.js) -->
+          <div style="background:linear-gradient(160deg,#0f172a,#1e293b);border:1px solid #334155;border-radius:16px;padding:18px 20px;margin-bottom:16px;box-shadow:0 8px 24px rgba(15,23,42,0.18)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+              <div>
+                <div style="font-size:15px;font-weight:800;color:#f1f5f9;letter-spacing:-0.2px" data-ko="📊 매출·손익 추이" data-en="📊 Revenue &amp; Profit Trend">📊 매출·손익 추이</div>
+                <div style="font-size:11px;color:#94a3b8;margin-top:2px" data-ko="회계장부 기준 · 월별" data-en="Ledger-based · monthly">회계장부 기준 · 월별</div>
+              </div>
+              <div style="display:flex;gap:4px;background:#0b1220;border-radius:9px;padding:3px" id="c24fin-range">
+                <button class="c24fin-rbtn" data-r="12" onclick="c24FinSummary(12)" style="padding:5px 12px;font-size:11.5px;border:0;border-radius:7px;background:transparent;color:#94a3b8;cursor:pointer;font-weight:700">12개월</button>
+                <button class="c24fin-rbtn" data-r="24" onclick="c24FinSummary(24)" style="padding:5px 12px;font-size:11.5px;border:0;border-radius:7px;background:transparent;color:#94a3b8;cursor:pointer;font-weight:700">24개월</button>
+                <button class="c24fin-rbtn" data-r="36" onclick="c24FinSummary(36)" style="padding:5px 12px;font-size:11.5px;border:0;border-radius:7px;background:transparent;color:#94a3b8;cursor:pointer;font-weight:700">36개월</button>
+              </div>
             </div>
-            <div id="c24fin-sum-bars" style="display:flex;flex-direction:column;gap:6px"><div style="color:#b45309;font-size:12px">불러오는 중…</div></div>
+            <!-- KPI 카드 4개 -->
+            <div id="c24fin-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px"></div>
+            <!-- 차트 -->
+            <div style="position:relative;height:300px"><canvas id="c24finChart"></canvas></div>
+            <div id="c24fin-sum-total" style="display:none"></div>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="c24fin-tabs">
             <button class="c24fin-tab" data-k="ledger" onclick="c24FinLoad('ledger')" style="padding:6px 12px;font-size:12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700">📒 회계장부</button>
@@ -11226,6 +11237,43 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     return desc + (notes.length? ' ('+notes.join(' · ')+')' : '');
   }
 
+  // 지적 태그 → 실행 액션 / 강점
+  var ACTION = {
+    '소리가 끊겼어요':   { ko:'수업 전 인터넷·마이크·카메라를 점검하고 가능하면 유선(랜선)으로 연결하세요.', en:'Check internet, mic and camera before class; use a wired connection if possible.' },
+    '너무 어려웠어요':   { ko:'난이도를 한 단계 낮추고, 예시를 더 들며 천천히 진행하세요.', en:'Lower the difficulty a notch and go slower with more examples.' },
+    '말할 기회가 적었어요': { ko:'교사 설명을 줄이고 학생이 말하는 시간을 늘리세요. 열린 질문을 더 던지세요.', en:'Talk less, let students speak more, and ask more open-ended questions.' }
+  };
+  var POS = {
+    '재미있었어요':      { ko:'수업을 재미있게 이끄는 강점', en:'making classes fun' },
+    '설명이 쉬웠어요':    { ko:'쉽고 명확한 설명', en:'clear, easy explanations' },
+    '칭찬을 많이 해줬어요': { ko:'칭찬으로 학생을 북돋는 점', en:'encouraging students with praise' }
+  };
+  function buildAdvice(a, EN){
+    var actions=[];
+    (a.top_tags||[]).forEach(function(t){ if(ACTION[t.tag] && actions.length<2) actions.push(EN?ACTION[t.tag].en:ACTION[t.tag].ko); });
+    if(a.low_count>=2) actions.push(EN?'Look closely at the low-score feedback and follow up.':'낮은 점수를 준 학생들의 피드백을 특히 살펴보고 보완하세요.');
+    if(a.trend_dir==='down') actions.push(EN?'Ratings dipped recently — review your latest classes.':'최근 평가가 낮아지고 있어요. 최근 수업 방식을 점검하세요.');
+    var posTag=(a.top_tags||[]).filter(function(t){return POS[t.tag];})[0];
+    if(posTag && actions.length<3) actions.push((EN?'Keep your strength — ':'강점 유지 — ')+(EN?POS[posTag.tag].en:POS[posTag.tag].ko)+(EN?'.':'을 계속하세요.'));
+    if(!actions.length) actions.push(EN?'Keep it up — students are happy.':'지금처럼 유지하세요 — 학생들이 만족하고 있어요.');
+    var c;
+    if(a.grade==='excellent') c=EN?'Doing great — keep it up!':'아주 잘하고 있어요 — 지금처럼만 하세요!';
+    else if(a.grade==='good') c=EN?'Solid. One small tweak makes it excellent.':'좋아요! 한 가지만 보완하면 최고가 됩니다.';
+    else if(a.grade==='fair') c=EN?'A few improvements will lift satisfaction.':'몇 가지만 개선하면 만족도가 올라가요.';
+    else c=EN?'Improvement needed — start below.':'개선이 필요해요. 아래부터 하나씩 바꿔 보세요.';
+    return { conclusion:c, actions:actions };
+  }
+  function adviceCard(a, EN, dark){
+    var adv = buildAdvice(a, EN);
+    var txt = dark ? '#e6ecff' : '#111827';
+    var sub = dark ? '#cdd8ee' : '#374151';
+    var items = adv.actions.map(function(t){ return '<li style="margin:5px 0">'+esc(t)+'</li>'; }).join('');
+    return '<div style="background:'+(dark?'rgba(16,185,129,0.10)':'#ecfdf5')+';border:1px solid rgba(16,185,129,0.4);border-radius:10px;padding:11px 14px;margin-top:10px">'
+      +'<div style="font-size:12.5px;font-weight:900;color:#10b981;margin-bottom:3px">🎯 '+(EN?'Conclusion — what to do next':'결론 — 이렇게 해보세요')+'</div>'
+      +'<div style="font-size:12.5px;font-weight:800;color:'+txt+';margin-bottom:5px">'+esc(adv.conclusion)+'</div>'
+      +'<ul style="margin:0;padding-left:18px;font-size:12px;color:'+sub+';line-height:1.5">'+items+'</ul></div>';
+  }
+
   window.renderRatingAnalysis = function(container, teacherName, dark){
     if (!container) return;
     var EN = (window.adminLang === 'en');
@@ -11253,6 +11301,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         + '<div style="font-size:12.5px;color:'+txtMain+';line-height:1.6;margin-top:8px;background:'+(dark?'rgba(251,191,36,0.08)':'#fffbeb')+';border-radius:8px;padding:8px 11px">💡 '+esc(analysisText(a, EN))+'</div>'
         + distChart(a.distribution, EN, dark)
         + (a.trend && a.trend.length>=2 ? '<div style="margin-top:8px"><div style="font-size:11px;color:'+txtSub+'">'+(EN?'Daily trend':'일자별 추이')+'</div>'+trendSpark(a.trend)+'</div>' : '')
+        + adviceCard(a, EN, dark)
         + '</div>';
     }).catch(function(){ container.innerHTML=''; });
   };
@@ -22507,33 +22556,85 @@ window.rebuildGlobalSearchIndex = function() {
   // ──────────────────────────────────────────────────────────
   // 3. 가맹점 정산
   // ──────────────────────────────────────────────────────────
-  // 📊 카페24 회계 월별 손익 집계 + 막대
-  window.c24FinSummary = async function(){
-    const box = document.getElementById('c24fin-sum-bars');
-    const tot = document.getElementById('c24fin-sum-total');
-    if (!box) return;
-    const won = function(n){ try{ return '₩'+Number(n||0).toLocaleString('ko-KR'); }catch(e){ return n; } };
+  // 📊 카페24 매출·손익 추이 대시보드 (Chart.js 콤보차트 + KPI)
+  window._c24finData = null; window._c24finChart = null;
+  window.c24FinSummary = async function(range){
+    range = range || window._c24finRange || 24; window._c24finRange = range;
+    const kpiBox = document.getElementById('c24fin-kpis');
+    const cv = document.getElementById('c24finChart');
+    if (!cv) return;
+    // Chart.js 지연 로드 가드 (기존 대시보드와 동일 패턴)
+    if (typeof Chart === 'undefined') {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
+      s.onload = () => window.c24FinSummary(range);
+      document.head.appendChild(s);
+      if (kpiBox) kpiBox.innerHTML = '<div style="color:#94a3b8;grid-column:1/-1;font-size:12px">차트 로딩 중…</div>';
+      return;
+    }
+    // 범위 버튼 활성화 표시
+    document.querySelectorAll('.c24fin-rbtn').forEach(function(b){ var on = Number(b.getAttribute('data-r'))===Number(range); b.style.background = on?'#3b82f6':'transparent'; b.style.color = on?'#fff':'#94a3b8'; });
+    const won = function(n){ n=Number(n||0); var a=Math.abs(n); var s=n<0?'-':''; if(a>=1e8) return s+'₩'+(a/1e8).toFixed(1)+'억'; if(a>=1e4) return s+'₩'+Math.round(a/1e4).toLocaleString('ko-KR')+'만'; return s+'₩'+a.toLocaleString('ko-KR'); };
+    const wonFull = function(n){ try{ return '₩'+Number(n||0).toLocaleString('ko-KR'); }catch(e){ return n; } };
     try {
-      const d = await (await fetch('/api/admin/finance-cafe24/summary', { credentials:'include' })).json();
-      if (!d.ok) throw new Error(d.error||d.code||'error');
-      const months = (d.months||[]).slice().reverse();  // 오래된→최근
-      const T = d.totals || { income:0, expense:0, net:0 };
-      if (tot) tot.textContent = '수입 '+won(T.income)+' · 지출 '+won(T.expense)+' · 순익 '+won(T.net);
-      const max = Math.max.apply(null, months.map(function(m){ return Math.max(Number(m.income)||0, Number(m.expense)||0); }).concat([1]));
-      box.innerHTML = months.length ? months.map(function(m){
-        var inc = Number(m.income)||0, exp = Number(m.expense)||0, net = Number(m.net)||0;
-        var iw = Math.max(1, Math.round(inc/max*100)), ew = Math.max(1, Math.round(exp/max*100));
-        return '<div style="display:grid;grid-template-columns:64px 1fr 130px;gap:8px;align-items:center;font-size:11px">'
-          + '<span style="color:#78350f;font-weight:600">'+m.ym+'</span>'
-          + '<div style="display:flex;flex-direction:column;gap:2px">'
-          +   '<div style="background:#dbeafe;border-radius:99px;height:9px;overflow:hidden"><div style="width:'+iw+'%;height:100%;background:#3b82f6"></div></div>'
-          +   '<div style="background:#fee2e2;border-radius:99px;height:9px;overflow:hidden"><div style="width:'+ew+'%;height:100%;background:#ef4444"></div></div>'
-          + '</div>'
-          + '<span style="text-align:right;font-weight:700;color:'+(net>=0?'#15803d':'#dc2626')+'">'+won(net)+'</span>'
-          + '</div>';
-      }).join('') + '<div style="margin-top:6px;font-size:10.5px;color:#92400e"><span style="color:#3b82f6">■</span> 수입 &nbsp; <span style="color:#ef4444">■</span> 지출 &nbsp; · 우측=순익</div>'
-        : '<div style="color:#b45309;font-size:12px">데이터 없음</div>';
-    } catch(e){ box.innerHTML = '<div style="color:#dc2626;font-size:12px">집계 실패</div>'; }
+      if (!window._c24finData){
+        const d = await (await fetch('/api/admin/finance-cafe24/summary', { credentials:'include' })).json();
+        if (!d.ok) throw new Error(d.error||d.code||'error');
+        window._c24finData = d;
+      }
+      const all = (window._c24finData.months||[]).slice().reverse(); // 오래된→최근
+      const months = all.slice(-range);
+      if (!months.length){ if(kpiBox) kpiBox.innerHTML='<div style="color:#94a3b8;grid-column:1/-1">데이터 없음</div>'; return; }
+      // 구간 합계 + 마진율
+      const sumInc = months.reduce(function(s,m){return s+(Number(m.income)||0);},0);
+      const sumExp = months.reduce(function(s,m){return s+(Number(m.expense)||0);},0);
+      const sumNet = sumInc - sumExp;
+      const margin = sumInc>0 ? Math.round(sumNet/sumInc*1000)/10 : 0;
+      // 최근 달 전월 대비
+      const last = months[months.length-1], prev = months[months.length-2];
+      const momInc = (prev && prev.income>0) ? Math.round(((last.income-prev.income)/prev.income)*1000)/10 : null;
+      // KPI 카드
+      if (kpiBox){
+        var kcard = function(lab, val, sub, color){ return '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:12px 14px">'
+          + '<div style="font-size:11px;color:#94a3b8">'+lab+'</div>'
+          + '<div style="font-size:19px;font-weight:800;color:'+color+';margin-top:3px;letter-spacing:-0.3px">'+val+'</div>'
+          + (sub?'<div style="font-size:10.5px;color:#64748b;margin-top:2px">'+sub+'</div>':'')+'</div>'; };
+        kpiBox.innerHTML =
+          kcard('총 매출', won(sumInc), range+'개월 합계', '#60a5fa')
+          + kcard('총 지출', won(sumExp), range+'개월 합계', '#f87171')
+          + kcard('순이익', won(sumNet), (sumNet>=0?'▲ 흑자':'▼ 적자'), (sumNet>=0?'#34d399':'#fb7185'))
+          + kcard('영업이익률', margin+'%', (momInc!=null?('최근 매출 '+(momInc>=0?'▲':'▼')+Math.abs(momInc)+'% MoM'):'—'), (margin>=0?'#fbbf24':'#fb7185'));
+      }
+      // Chart.js 콤보: 매출/지출 막대 + 순익 라인
+      const labels = months.map(function(m){ return m.ym.slice(2); }); // YY-MM
+      const inc = months.map(function(m){ return Number(m.income)||0; });
+      const exp = months.map(function(m){ return Number(m.expense)||0; });
+      const net = months.map(function(m){ return Number(m.net)||0; });
+      const ctx = cv.getContext('2d');
+      const gInc = ctx.createLinearGradient(0,0,0,300); gInc.addColorStop(0,'rgba(96,165,250,0.95)'); gInc.addColorStop(1,'rgba(96,165,250,0.55)');
+      const gExp = ctx.createLinearGradient(0,0,0,300); gExp.addColorStop(0,'rgba(248,113,113,0.9)'); gExp.addColorStop(1,'rgba(248,113,113,0.5)');
+      if (window._c24finChart){ try{ window._c24finChart.destroy(); }catch(e){} }
+      window._c24finChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: labels, datasets: [
+          { type:'bar', label:'매출', data:inc, backgroundColor:gInc, borderRadius:5, borderSkipped:false, maxBarThickness:22, order:3 },
+          { type:'bar', label:'지출', data:exp, backgroundColor:gExp, borderRadius:5, borderSkipped:false, maxBarThickness:22, order:2 },
+          { type:'line', label:'순이익', data:net, borderColor:'#34d399', backgroundColor:'#34d399', borderWidth:2.5, pointRadius:2.5, pointHoverRadius:5, pointBackgroundColor:'#34d399', tension:0.35, fill:false, order:1 }
+        ]},
+        options: {
+          responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false },
+          plugins:{
+            legend:{ labels:{ color:'#cbd5e1', usePointStyle:true, pointStyle:'rectRounded', padding:14, font:{size:11.5} } },
+            tooltip:{ backgroundColor:'#0b1220', borderColor:'#334155', borderWidth:1, padding:10, titleColor:'#f1f5f9', bodyColor:'#cbd5e1',
+              callbacks:{ label:function(c){ return '  '+c.dataset.label+': '+wonFull(c.raw); } } }
+          },
+          scales:{
+            x:{ grid:{ display:false }, ticks:{ color:'#94a3b8', font:{size:10}, maxRotation:0, autoSkip:true, maxTicksLimit:12 } },
+            y:{ grid:{ color:'rgba(148,163,184,0.12)' }, ticks:{ color:'#94a3b8', font:{size:10}, callback:function(v){ return won(v); } } }
+          }
+        }
+      });
+    } catch(e){ if(kpiBox) kpiBox.innerHTML='<div style="color:#f87171;grid-column:1/-1;font-size:12px">집계 실패: '+String(e&&e.message||e)+'</div>'; }
   };
 
   // 🧾 카페24 회계 실데이터 (5종 탭) — Neo4j finance-cafe24
@@ -22874,7 +22975,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260704123632 -->
+        <!-- BUILD:20260704130334 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
