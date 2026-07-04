@@ -3073,12 +3073,6 @@
     } catch(e){ return false; }
   }
 
-  function remotePeerCount(){
-    try { return Object.keys(vcPeerConnections || {}).length; } catch(e){}
-    try { return Object.keys(window.vcPeerConnections || {}).length; } catch(e){}
-    return -1;
-  }
-
   // 실제 종료(홈 이동) — 기존 강제 종료 경로 재사용
   function reallyExit(){
     STATE.done = true;
@@ -3156,51 +3150,9 @@
     if (no)  no.addEventListener('click', function(){ if(window._vcRqKillVid)window._vcRqKillVid(); closeModal(); reallyExit(); });
     return true;
   };
-
-  // ── 트리거 1: ✕/나가기 버튼 클릭 가로채기 ──
-  function isExitBtn(el){
-    if (!el || !el.closest) return false;
-    return !!el.closest('a#vc-exit-btn-v34, a#vc-exit-btn-v33, #vc-exit-btn-v32, button.ctrl-btn.danger, a.ctrl-btn.danger');
-  }
-  ['pointerdown','mousedown','touchend','click'].forEach(function(ev){
-    window.addEventListener(ev, function(e){
-      try {
-        if (!isExitBtn(e.target)) return;
-        if (STATE.done) return;                 // 이미 결정됨 → 기존 종료 진행
-        if (!isStudentInClass()) return;         // 학생/통화중 아니면 기존 동작 유지
-        if (typeof rqvAuto !== 'function') return;
-        e.preventDefault();
-        e.stopPropagation();
-        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-        if (ev === 'pointerdown' || ev === 'click') window.vcReviewQuizPrompt();
-      } catch(err){}
-    }, true);
-  });
-
-  // ── 트리거 2: 상대(강사) 퇴장 자동 감지 ──
-  function hookAutoEnd(tries){
-    tries = tries || 0;
-    if (typeof window.vcRemovePeer !== 'function') {
-      if (tries < 80) return setTimeout(function(){ hookAutoEnd(tries + 1); }, 150);
-      return;
-    }
-    if (window.__vcRemovePeerHooked) return;
-    window.__vcRemovePeerHooked = true;
-    var orig = window.vcRemovePeer;
-    window.vcRemovePeer = function(){
-      var r = orig.apply(this, arguments);
-      try {
-        setTimeout(function(){
-          if (STATE.done || STATE.open) return;
-          if (!isStudentInClass()) return;
-          if (remotePeerCount() === 0) window.vcReviewQuizPrompt();   // 혼자 남음 = 수업 종료
-        }, 1200);
-      } catch(e){}
-      return r;
-    };
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ hookAutoEnd(0); });
-  else hookAutoEnd(0);
+  // ⚠️ 종료 트리거(버튼 클릭·원격 피어 퇴장)는 아래 vc-teacher-rating-on-end 스크립트가
+  //    단일 지점에서 통합 관리한다(이중 후킹으로 인한 경쟁조건 방지). 이 스크립트는
+  //    window.vcReviewQuizPrompt 함수 정의만 제공하고, 그 함수를 언제 부를지는 관여하지 않는다.
 })();
 </script>
 <!-- ============================================================
@@ -3409,55 +3361,51 @@
     });
   }
 
-  // ── vcReviewQuizPrompt 래핑: 평가 모달 먼저 → 이후 복습퀴즈 안내 ──
-  function hookPrompt(tries){
-    tries = tries || 0;
-    if (typeof window.vcReviewQuizPrompt !== 'function') {
-      if (tries < 80) return setTimeout(function(){ hookPrompt(tries + 1); }, 150);
-      return;
+  // ══════════════════════════════════════════════════════════════════
+  // ⭐ 통합 종료 트리거 (2026-07-04 리팩터링 — 단일 지점)
+  //   기존엔 이 스크립트와 vc-review-quiz-on-end 스크립트가 각자 독립적으로
+  //   클릭·원격피어퇴장을 가로채서, 경쟁조건(둘 다 안 뜨거나 복습퀴즈 단계가
+  //   조용히 스킵되는 경우)이 있었음. 지금은 여기 한 곳에서만 감지하고,
+  //   평가 → (항상) window.vcReviewQuizPrompt() 시도 → 순서를 보장한다.
+  // ══════════════════════════════════════════════════════════════════
+  function endOfClassFlow(){
+    // ⚠️ STATE.triggered(재진입 방지)와 STATE.done(모달 흐름 자체 완료)은 반드시 분리해야 함 —
+    //    여기서 STATE.done을 먼저 true로 만들면 showRatingModal 내부의 "이미 완료됨" 가드에
+    //    걸려 평가 모달도, 그 다음 퀴즈 호출도 전부 건너뛰는 회귀가 생긴다(2026-07-04 발견).
+    if (STATE.triggered) return;       // 이미 처리 중/완료 — 중복 방지
+    if (!isStudentInClass()) return;   // 학생 전용 — 강사/관리자는 기존 종료 동작 그대로
+    STATE.triggered = true;
+    function afterRating(){
+      var handled = false;
+      try { handled = (typeof window.vcReviewQuizPrompt === 'function') ? window.vcReviewQuizPrompt() : false; } catch(e){}
+      if (!handled) fallbackExit();     // 복습퀴즈 조건(교재 미매칭 등) 미달 → 정상 종료
     }
-    if (window.__vcRatePromptHooked) return;
-    window.__vcRatePromptHooked = true;
-    var orig = window.vcReviewQuizPrompt;
-    window.vcReviewQuizPrompt = function(){
-      if (STATE.open) return true;                              // 평가 모달 표시 중 → 중복 호출 무시
-      if (STATE.done || alreadyRated() || !isStudentInClass()) return orig.apply(this, arguments);
-      var self = this, args = arguments;
-      showRatingModal(function(){
-        var handled = false;
-        try { handled = orig.apply(self, args); } catch(e){}
-        if (!handled) fallbackExit();                           // 복습퀴즈 조건 미달 → 정상 종료
-      });
-      return true;
-    };
+    if (alreadyRated()) { afterRating(); return; }
+    showRatingModal(afterRating);
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ hookPrompt(0); });
-  else hookPrompt(0);
 
-  // ── 독립 트리거 A: 종료(✕/나가기)버튼 클릭 직접 가로채기 ──
-  //   복습퀴즈 스크립트(rqvAuto 필요 + 학생 전용)가 발동 안 하는 경우까지 커버.
-  //   학생이면 복습퀴즈 캡처가 먼저 stopImmediatePropagation 하므로 여긴 안 옴(중복X).
-  //   비학생(테스트 전원노출)일 땐 복습퀴즈가 통과시켜 여기서 잡음.
+  // ── 트리거 A: ✕/나가기 버튼 — 터치(모바일)·클릭(PC) 모두 첫 이벤트에서 확실히 가로챔 ──
   function isExitBtnEl(el){
     if (!el || !el.closest) return false;
     return !!el.closest('a#vc-exit-btn-v34, a#vc-exit-btn-v33, #vc-exit-btn-v32, button.ctrl-btn.danger, a.ctrl-btn.danger');
   }
-  ['pointerdown','click'].forEach(function(ev){
+  ['pointerdown','touchstart','mousedown','click'].forEach(function(ev){
     window.addEventListener(ev, function(e){
       try {
         if (!isExitBtnEl(e.target)) return;
-        if (STATE.done) return;                       // 이미 처리됨 → 정상 종료 진행
-        if (alreadyRated() || !isStudentInClass()) return;
+        if (STATE.triggered) return;                  // 같은 탭 제스처의 후속 이벤트 — 중복 방지
+        if (!isStudentInClass()) return;               // 강사/관리자는 기존 나가기 그대로 진행
         e.preventDefault();
         e.stopPropagation();
         if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-        if (ev === 'pointerdown') showRatingModal(function(){ fallbackExit(); });
+        endOfClassFlow();
       } catch(err){}
     }, true);
   });
 
-  // ── 독립 트리거 B: 강사(원격 피어) 퇴장 → 혼자 남으면 평가 ──
-  //   복습퀴즈 스크립트의 vcRemovePeer 훅은 학생 전용이라, 전원노출/보강용으로 별도 훅.
+  // ── 트리거 B: 강사(원격 피어) 퇴장 자동 감지 + 모바일 대비 주기적 안전망 폴링 ──
+  //   vcRemovePeer 후킹이 (백그라운드 탭 등으로) 호출 안 되는 기기·상황을 대비해
+  //   통화 중(vc-in-call)에는 5초마다 원격 피어 수를 직접 확인하는 안전망을 함께 둔다.
   function remoteCount(){
     try { return Object.keys(window.vcPeerConnections || {}).length; } catch(e){ return -1; }
   }
@@ -3474,9 +3422,9 @@
       var r = orig.apply(this, arguments);
       try {
         setTimeout(function(){
-          if (STATE.done || STATE.open || alreadyRated()) return;
+          if (STATE.triggered) return;
           if (!isStudentInClass()) return;
-          if (remoteCount() === 0) showRatingModal(function(){ fallbackExit(); });
+          if (remoteCount() === 0) endOfClassFlow();
         }, 1400);
       } catch(e){}
       return r;
@@ -3485,10 +3433,27 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ hookPeerLeave(0); });
   else hookPeerLeave(0);
 
+  (function startPeerPoll(){
+    var zeroStreak = 0;
+    var iv = setInterval(function(){
+      try {
+        if (STATE.triggered) { clearInterval(iv); return; }
+        if (!document.body || !document.body.classList.contains('vc-in-call')) { zeroStreak = 0; return; }
+        if (!isStudentInClass()) return;
+        if (remoteCount() === 0) {
+          zeroStreak++;
+          if (zeroStreak >= 2) { clearInterval(iv); endOfClassFlow(); }   // 약 10초 연속 0명 = 수업 종료
+        } else {
+          zeroStreak = 0;
+        }
+      } catch(e){}
+    }, 5000);
+  })();
+
   // ── 수동 트리거: 콘솔/버튼에서 window.mangoShowRating() 로 즉시 미리보기 ──
   window.mangoShowRating = function(){
     document.body.classList.add('vc-in-call');
-    STATE.done = false; STATE.open = false;
+    STATE.done = false; STATE.open = false; STATE.triggered = false;
     showRatingModal(function(){});
   };
 })();
@@ -23005,7 +22970,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260704185251 -->
+<!-- BUILD:20260704190029 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

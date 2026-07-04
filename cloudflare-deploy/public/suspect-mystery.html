@@ -339,6 +339,9 @@
         let timer = null;
         let timeLeft = 30;
         let isRecording = false;
+        // 라운드가 이미 (정답/시간초과로) 끝났는지 — 스피킹 미션 중 남은 카운트다운이 뒤늦게 handleTimeOut()을
+        // 또 발동시켜 "틀렸다" 버저 소리 + 중복 라운드 진행이 겹치는 것을 막는 안전장치
+        let roundResolved = false;
 
         // Custom Game Clues (Focusing on Speaking and Listening)
         // 로그인 안 됨/맞춤 자료 부족 시 폴백으로 쓰이는 고정 시나리오 (기존 그대로 유지)
@@ -614,6 +617,7 @@
 
         function loadRound(roundNum) {
             selectedSuspectId = null;
+            roundResolved = false;
             const data = roundData[roundNum - 1];
 
             // Set HUD Info
@@ -700,6 +704,10 @@
 
         function revealSelectionState(isCorrect) {
             if (isCorrect) {
+                // 정답 확정 — 스피킹 미션 동안 남은 카운트다운이 뒤에서 계속 흐르다 handleTimeOut()을
+                // 또 발동시키지 않도록 타이머를 여기서 확실히 멈춘다 (이상한 "틀렸다" 버저 소리의 원인이었음)
+                clearInterval(timer);
+                roundResolved = true;
                 // Perfect, now trigger Speaking Phase to seal the victory!
                 document.getElementById('phaseInstructions').innerText = "🗣️ STEP 2: 스피킹 미션! 마이크를 켜고 범인을 심문하세요!";
                 document.getElementById('phaseInstructions').className = "text-2xl md:text-3xl font-bold text-green-400 leading-snug";
@@ -750,6 +758,8 @@
         }
 
         function handleTimeOut() {
+            if (roundResolved) return;   // 이미 정답 처리된 라운드면 무시(중복 진행/버저 방지)
+            roundResolved = true;
             playSound('wrong');
             // Highlight actual suspect in red, and auto advance
             const correctThief = roundData[currentRound - 1].answer;
@@ -863,6 +873,6 @@
         }
     </script>
 <!-- BUILD:20260704 suspect1 bigtext-faces1 vocabmatch1 -->
-<!-- BUILD:20260704185251 -->
+<!-- BUILD:20260704190029 -->
 </body>
 </html>
