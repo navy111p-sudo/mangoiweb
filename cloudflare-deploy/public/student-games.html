@@ -1079,7 +1079,9 @@ const HUB_GAMES = [
   { mode:'brick',   kind:'inline', ico:'🧱', ttl:'문장 벽돌',     dsc:'단어 브릭을 순서대로 쌓아 문장 완성!', bg:'#3b82f6', badge:'문장' },
   { mode:'match',   kind:'inline', ico:'🧩', ttl:'단어 매칭',     dsc:'한국어와 영어 카드 짝을 찾아요!',      bg:'#a855f7', badge:'단어' },
   { mode:'fill',    kind:'inline', ico:'🔤', ttl:'빈칸 채우기',   dsc:'문장 빈칸에 알맞은 단어를 골라요!',    bg:'#8b5cf6', badge:'문장' },
-  { mode:'balloon', kind:'inline', ico:'🎈', ttl:'풍선 터뜨리기', dsc:'뜻에 맞는 영어 풍선을 터뜨려요!',      bg:'#f59e0b', badge:'단어' }
+  { mode:'balloon', kind:'inline', ico:'🎈', ttl:'풍선 터뜨리기', dsc:'뜻에 맞는 영어 풍선을 터뜨려요!',      bg:'#f59e0b', badge:'단어' },
+  { mode:'suspect', kind:'iframe', ico:'🕵️', ttl:'용의자 추리',   dsc:'선생님 힌트를 듣고 범인을 찾아 영어로 말해요!', bg:'#6366f1', badge:'듣기·말하기',
+    src:function(){ return '/suspect-mystery.html'; } }
 ];
 
 /* ============================================================
@@ -1750,6 +1752,6 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260704122928 -->
+<!-- BUILD:20260704123617 -->
 </body>
 </html>

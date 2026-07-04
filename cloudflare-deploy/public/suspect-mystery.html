@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mangoi Live - The Suspect Mystery</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Font (Inter) & Playful Font (Fredoka One) -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle, #1e1b4b 0%, #0f172a 100%);
+        }
+        .font-playful {
+            font-family: 'Fredoka One', cursive;
+        }
+        .glow-green {
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.6);
+        }
+        .glow-red {
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+        }
+        .glow-blue {
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+        }
+        /* Custom Wave Animation for Speaking */
+        @keyframes wave {
+            0%, 100% { height: 8px; }
+            50% { height: 32px; }
+        }
+        .wave-bar {
+            animation: wave 1.2s ease-in-out infinite;
+        }
+        .wave-bar:nth-child(2) { animation-delay: 0.2s; }
+        .wave-bar:nth-child(3) { animation-delay: 0.4s; }
+        .wave-bar:nth-child(4) { animation-delay: 0.6s; }
+        .wave-bar:nth-child(5) { animation-delay: 0.8s; }
+    </style>
+</head>
+<body class="min-h-screen text-white overflow-x-hidden flex flex-col justify-between">
+
+    <!-- Top HUD Bar -->
+    <header class="w-full max-w-7xl mx-auto px-4 py-4 flex justify-between items-center z-10">
+        <div class="flex items-center gap-3">
+            <div class="bg-yellow-400 text-indigo-900 font-playful text-xl px-4 py-2 rounded-full shadow-lg transform -rotate-2">
+                MANGOI LIVE 🥭
+            </div>
+            <span class="hidden sm:inline-block text-indigo-200 text-sm">Interactive Speaking Game</span>
+        </div>
+
+        <div class="flex items-center gap-6">
+            <!-- Score & Badges -->
+            <div class="flex items-center gap-2 bg-slate-800/80 backdrop-blur px-4 py-2 rounded-2xl border border-slate-700/50">
+                <span class="text-yellow-400 text-lg">⭐</span>
+                <span id="scoreText" class="font-playful text-lg text-yellow-300">Score: 0</span>
+            </div>
+            <!-- Round Indicator -->
+            <div class="bg-indigo-600/80 backdrop-blur px-4 py-2 rounded-2xl border border-indigo-500/50">
+                <span id="roundText" class="font-playful text-lg">Round 1/3</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Interactive Container -->
+    <main class="flex-grow w-full max-w-7xl mx-auto px-4 py-2 flex flex-col justify-center items-center gap-6 z-10">
+
+        <!-- Welcome Screen (Initial Overlay) -->
+        <div id="welcomeScreen" class="w-full max-w-2xl bg-slate-900/90 border border-indigo-500/30 rounded-3xl p-8 text-center backdrop-blur-md shadow-2xl transition-all duration-500">
+            <div class="text-6xl mb-4">🕵️‍♂️🔎</div>
+            <h1 class="text-4xl font-playful mb-3 text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-500">
+                The Suspect Mystery!
+            </h1>
+            <p class="text-slate-300 text-base mb-6 leading-relaxed">
+                망고아이 영어 화상 수업에 오신 것을 환영합니다!<br>
+                선생님의 힌트를 **귀로 잘 듣고(Listening)** 범인을 맞혀주세요.<br>
+                그리고 마이크로 내가 범인이 아닌 이유를 당당하게 **영어로 말해보세요(Speaking)!**
+            </p>
+
+            <div class="bg-indigo-950/50 border border-indigo-800 p-4 rounded-2xl text-left mb-6 text-sm text-indigo-200 space-y-2">
+                <p>💡 **게임 방법:**</p>
+                <p>1. 📢 **[Listen]** 선생님(Ms. Emily)이 들려주는 범인의 외모/행동 힌트를 집중해서 듣기!</p>
+                <p>2. 👆 **[Find]** 화면 속 용의자 4명 중 진짜 범인을 찾아 클릭하기!</p>
+                <p>3. 🎙️ **[Speak]** 마이크 버튼을 누르고 화면에 보이는 영어 변명(Alibi)을 영어로 유창하게 외치기!</p>
+            </div>
+
+            <button onclick="startGame()" class="bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-slate-900 font-bold font-playful text-xl px-10 py-4 rounded-2xl shadow-lg hover:scale-105 transition-all">
+                수업 시작하기 (Start Class) 🚀
+            </button>
+        </div>
+
+        <!-- Live Classroom Screen (Hidden initially) -->
+        <div id="gamePlayScreen" class="w-full hidden grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+
+            <!-- Left Side: Teacher Camera & Instruction Info (4 Columns) -->
+            <div class="lg:col-span-4 flex flex-col gap-4">
+                <!-- Teacher Webcam Frame -->
+                <div class="bg-slate-900/80 border-2 border-indigo-500/50 rounded-3xl p-4 flex flex-col items-center justify-between shadow-xl relative overflow-hidden">
+                    <div class="absolute top-3 left-3 bg-red-600 px-3 py-1 rounded-full flex items-center gap-1.5 text-xs font-semibold animate-pulse">
+                        <span class="w-2 h-2 rounded-full bg-white"></span> LIVE
+                    </div>
+
+                    <!-- Teacher Avatar Animation -->
+                    <div class="my-6 text-center">
+                        <div class="relative inline-block">
+                            <!-- Animated halo or talk pulse -->
+                            <div id="teacherPulse" class="absolute inset-0 bg-indigo-500/20 rounded-full scale-110 animate-ping hidden"></div>
+                            <div class="w-32 h-32 bg-indigo-950 rounded-full border-4 border-indigo-400 flex items-center justify-center text-6xl shadow-inner relative z-10">
+                                👩‍🏫
+                            </div>
+                        </div>
+                        <h3 class="font-playful text-xl mt-3 text-indigo-300">Ms. Emily</h3>
+                        <p class="text-xs text-indigo-400">Mangoi English Tutor</p>
+                    </div>
+
+                    <!-- Speech Bubble for Clues -->
+                    <div class="w-full bg-indigo-950/80 border border-indigo-800/80 p-4 rounded-2xl text-center relative">
+                        <div class="absolute -top-2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-b-8 border-b-indigo-950/80"></div>
+                        <p id="clueBubble" class="text-yellow-200 font-semibold italic text-lg select-all">
+                            "Click the button below to listen to my voice!"
+                        </p>
+
+                        <!-- Listen Clue Button -->
+                        <button onclick="playTeacherVoice()" class="mt-3 inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm px-4 py-2 rounded-xl transition-colors">
+                            🔊 다시 듣기 (Listen Again)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Live Timer & Alert HUD -->
+                <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-4 text-center">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm text-slate-400">제한 시간 (Time Left)</span>
+                        <span id="timerLabel" class="font-playful text-red-400 text-lg">30s</span>
+                    </div>
+                    <!-- Custom Progress Bar -->
+                    <div class="w-full bg-slate-950 h-3 rounded-full overflow-hidden">
+                        <div id="timerProgress" class="bg-gradient-to-r from-green-500 to-red-500 h-full w-full transition-all duration-100"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side: Suspect Grid Lineup (8 Columns) -->
+            <div class="lg:col-span-8 flex flex-col justify-between gap-4">
+
+                <!-- Main Header Status -->
+                <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-3xl text-center">
+                    <h2 id="phaseInstructions" class="text-xl font-bold text-yellow-400 animate-pulse">
+                        🕵️‍♂️ STEP 1: Ms. Emily의 목소리를 듣고 범인을 선택하세요!
+                    </h2>
+                </div>
+
+                <!-- 4 Suspect Cards Grid -->
+                <div id="suspectsGrid" class="grid grid-cols-2 gap-4 flex-grow items-center">
+                    <!-- Suspect 1 -->
+                    <div onclick="selectSuspect(1)" id="suspect-1" class="bg-slate-900/50 border-2 border-slate-800 hover:border-indigo-500 hover:bg-slate-800/50 rounded-3xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.02] relative group">
+                        <span class="absolute top-2 right-3 font-playful text-slate-600 text-lg group-hover:text-indigo-400">#01</span>
+                        <div class="text-6xl my-2" id="suspectEmoji-1">👦</div>
+                        <div class="text-center">
+                            <h4 id="suspectName-1" class="font-playful text-lg text-indigo-300">Leo</h4>
+                            <p id="suspectDesc-1" class="text-xs text-slate-400 mt-1">Has glasses & Red hat</p>
+                        </div>
+                    </div>
+                    <!-- Suspect 2 -->
+                    <div onclick="selectSuspect(2)" id="suspect-2" class="bg-slate-900/50 border-2 border-slate-800 hover:border-indigo-500 hover:bg-slate-800/50 rounded-3xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.02] relative group">
+                        <span class="absolute top-2 right-3 font-playful text-slate-600 text-lg group-hover:text-indigo-400">#02</span>
+                        <div class="text-6xl my-2" id="suspectEmoji-2">👧</div>
+                        <div class="text-center">
+                            <h4 id="suspectName-2" class="font-playful text-lg text-indigo-300">Zoe</h4>
+                            <p id="suspectDesc-2" class="text-xs text-slate-400 mt-1">Wearing yellow scarf</p>
+                        </div>
+                    </div>
+                    <!-- Suspect 3 -->
+                    <div onclick="selectSuspect(3)" id="suspect-3" class="bg-slate-900/50 border-2 border-slate-800 hover:border-indigo-500 hover:bg-slate-800/50 rounded-3xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.02] relative group">
+                        <span class="absolute top-2 right-3 font-playful text-slate-600 text-lg group-hover:text-indigo-400">#03</span>
+                        <div class="text-6xl my-2" id="suspectEmoji-3">👩</div>
+                        <div class="text-center">
+                            <h4 id="suspectName-3" class="font-playful text-lg text-indigo-300">Mia</h4>
+                            <p id="suspectDesc-3" class="text-xs text-slate-400 mt-1">Wearing red hat</p>
+                        </div>
+                    </div>
+                    <!-- Suspect 4 -->
+                    <div onclick="selectSuspect(4)" id="suspect-4" class="bg-slate-900/50 border-2 border-slate-800 hover:border-indigo-500 hover:bg-slate-800/50 rounded-3xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.02] relative group">
+                        <span class="absolute top-2 right-3 font-playful text-slate-600 text-lg group-hover:text-indigo-400">#04</span>
+                        <div class="text-6xl my-2" id="suspectEmoji-4">👨</div>
+                        <div class="text-center">
+                            <h4 id="suspectName-4" class="font-playful text-lg text-indigo-300">Max</h4>
+                            <p id="suspectDesc-4" class="text-xs text-slate-400 mt-1">Blue jacket & Glasses</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Speaking Arena Panel -->
+                <div id="speakingArena" class="bg-indigo-950/40 border border-indigo-500/30 rounded-3xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 hidden transition-all duration-300">
+                    <div class="flex-1 text-center md:text-left">
+                        <span class="text-xs font-bold uppercase tracking-wider text-pink-400">Speaking Mission!</span>
+                        <h3 class="text-lg font-bold text-white mt-0.5">범인을 가리키며 크게 외쳐보세요:</h3>
+                        <p id="targetSentence" class="text-xl md:text-2xl font-playful text-yellow-300 bg-slate-950/60 px-4 py-2 rounded-xl mt-2 inline-block select-all">
+                            "He is the thief because he has a dog!"
+                        </p>
+                    </div>
+
+                    <!-- Voice Interaction Area -->
+                    <div class="flex items-center gap-3">
+                        <!-- Microphone Interaction Button -->
+                        <button id="micBtn" onclick="toggleMicrophone()" class="w-16 h-16 bg-red-600 hover:bg-red-500 rounded-full flex items-center justify-center text-2xl shadow-lg transform active:scale-95 transition-all outline-none">
+                            🎙️
+                        </button>
+
+                        <!-- Audio Wave Visualizer when recording -->
+                        <div id="waveVisualizer" class="flex gap-1 items-end h-8 w-16 justify-center hidden">
+                            <span class="wave-bar w-1 bg-red-500 rounded-full"></span>
+                            <span class="wave-bar w-1 bg-red-500 rounded-full"></span>
+                            <span class="wave-bar w-1 bg-red-500 rounded-full"></span>
+                            <span class="wave-bar w-1 bg-red-500 rounded-full"></span>
+                            <span class="wave-bar w-1 bg-red-500 rounded-full"></span>
+                        </div>
+
+                        <!-- Manual pass option if voice API or mic is blocked -->
+                        <div class="flex flex-col text-xs text-slate-400">
+                            <button onclick="skipVoiceVerify()" class="underline hover:text-slate-200">
+                                음성 테스트 스킵하기 ▶
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- User Speech Real-time Feedback -->
+                <div id="feedbackPanel" class="bg-slate-900/80 border border-slate-800 p-3 rounded-2xl flex items-center justify-between text-sm hidden">
+                    <div class="flex items-center gap-2">
+                        <span class="text-indigo-400">🎙️ 인식 결과 (My Voice):</span>
+                        <span id="speechResultText" class="font-bold text-slate-200 italic">"Speaking..."</span>
+                    </div>
+                    <span id="speechMatchBadge" class="bg-slate-800 text-xs px-2.5 py-1 rounded-full text-slate-400">
+                        준비 중
+                    </span>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Live Scoreboard / Victory Modal (Hidden initially) -->
+        <div id="victoryScreen" class="w-full max-w-2xl bg-slate-900/90 border-2 border-yellow-400/50 rounded-3xl p-8 text-center backdrop-blur-md shadow-2xl transition-all duration-500 hidden relative">
+            <canvas id="fireworks" class="absolute inset-0 pointer-events-none rounded-3xl w-full h-full"></canvas>
+            <div class="relative z-10">
+                <div class="text-7xl mb-4 animate-bounce">🏆</div>
+                <h1 class="text-4xl font-playful mb-3 text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-500">
+                    Congratulations, Detective!
+                </h1>
+                <p class="text-slate-300 text-base mb-6 leading-relaxed">
+                    모든 범인을 찾고 스피킹 알리바이 미션을 완수했습니다!<br>
+                    귀중한 망고아이 우수 형사 배지를 획득하셨어요!
+                </p>
+
+                <!-- Final score card -->
+                <div class="bg-indigo-950/60 border border-indigo-800 p-6 rounded-2xl flex justify-around items-center mb-8 max-w-md mx-auto">
+                    <div>
+                        <p class="text-xs text-indigo-300 uppercase">최종 획득 점수</p>
+                        <p id="finalScore" class="text-4xl font-playful text-yellow-300 mt-1">150 points</p>
+                    </div>
+                    <div class="h-12 w-px bg-indigo-800"></div>
+                    <div>
+                        <p class="text-xs text-indigo-300 uppercase">발음 평가</p>
+                        <p class="text-2xl font-playful text-green-400 mt-1">⭐⭐⭐⭐⭐ Excellent</p>
+                    </div>
+                </div>
+
+                <button onclick="resetGame()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold font-playful text-lg px-8 py-3 rounded-xl shadow-lg transition-all">
+                    한 번 더 도전하기 (Play Again) 🔄
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Custom Audio Feedback Synthesizer -->
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(type) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'correct') {
+                // Happy major chord sound
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+                osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.15); // E5
+                osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.3); // G5
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.5);
+            } else if (type === 'wrong') {
+                // Dark failure sound
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.4);
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.4);
+            } else if (type === 'tick') {
+                // Short percussion clock tick
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1000, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.05);
+            } else if (type === 'micOn') {
+                // Notification pop
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(900, audioCtx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.2);
+            }
+        }
+    </script>
+
+    <script>
+        // Game variables
+        let score = 0;
+        let currentRound = 1;
+        const totalRounds = 3;
+        let selectedSuspectId = null;
+        let currentAnswer = null;
+        let timer = null;
+        let timeLeft = 30;
+        let isRecording = false;
+
+        // Custom Game Clues (Focusing on Speaking and Listening)
+        const roundData = [
+            {
+                clue: "Oh, look! The thief is wearing a blue jacket and a yellow scarf!",
+                teacherSpoken: "The thief is wearing a blue jacket and a yellow scarf!",
+                targetSentence: "I think Zoe is the thief because she has a yellow scarf!",
+                answer: 2, // Zoe
+                suspects: [
+                    { name: "Leo", emoji: "👦 Glasses & Red hat", desc: "Wearing red cap & glasses" },
+                    { name: "Zoe", emoji: "👧 Yellow Scarf", desc: "Wearing blue jacket & yellow scarf" },
+                    { name: "Mia", emoji: "👩 Red Hat", desc: "Wearing red cap & yellow scarf (Trap)" },
+                    { name: "Max", emoji: "👨 Glasses & Jacket", desc: "Wearing blue jacket & glasses" }
+                ],
+                targetKeywords: ["zoe", "thief", "scarf", "yellow"]
+            },
+            {
+                clue: "Attention! The suspect is laughing and eating a big delicious pizza!",
+                teacherSpoken: "The suspect is laughing and eating a big delicious pizza!",
+                targetSentence: "Stop! Max is the thief because he is eating pizza!",
+                answer: 4, // Max
+                suspects: [
+                    { name: "Leo", emoji: "👦 Drinking juice", desc: "Drinking strawberry juice" },
+                    { name: "Zoe", emoji: "👧 Eating burger", desc: "Eating a tasty burger" },
+                    { name: "Mia", emoji: "👩 Drinking juice", desc: "Drinking green juice & laughing" },
+                    { name: "Max", emoji: "👨 Eating pizza", desc: "Eating hot pizza & laughing" }
+                ],
+                targetKeywords: ["max", "thief", "eating", "pizza"]
+            },
+            {
+                clue: "Listen closely! The sneaky culprit has a cute white dog!",
+                teacherSpoken: "The sneaky culprit has a cute white dog!",
+                targetSentence: "Wait! Mia is the thief because she has a white dog!",
+                answer: 3, // Mia
+                suspects: [
+                    { name: "Leo", emoji: "👦 With a brown cat", desc: "Has a lovely brown cat" },
+                    { name: "Zoe", emoji: "👧 With a black dog", desc: "Walking a playful black dog" },
+                    { name: "Mia", emoji: "👩 With a white dog", desc: "Holding a cute white dog" },
+                    { name: "Max", emoji: "👨 With a parrot", desc: "Has a green speaking parrot" }
+                ],
+                targetKeywords: ["mia", "thief", "white", "dog"]
+            }
+        ];
+
+        // Speech Recognition Setup
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.lang = 'en-US';
+            recognition.interimResults = true;
+
+            recognition.onstart = () => {
+                isRecording = true;
+                playSound('micOn');
+                document.getElementById('micBtn').classList.remove('bg-red-600', 'hover:bg-red-500');
+                document.getElementById('micBtn').classList.add('bg-green-500', 'hover:bg-green-400', 'animate-pulse');
+                document.getElementById('waveVisualizer').classList.remove('hidden');
+                document.getElementById('feedbackPanel').classList.remove('hidden');
+                document.getElementById('speechResultText').innerText = " listening...";
+                document.getElementById('speechMatchBadge').innerText = "듣는 중";
+                document.getElementById('speechMatchBadge').className = "bg-yellow-600 text-xs px-2.5 py-1 rounded-full text-yellow-100";
+            };
+
+            recognition.onresult = (event) => {
+                const speechToText = Array.from(event.results)
+                    .map(result => result[0])
+                    .map(result => result.transcript)
+                    .join('');
+
+                document.getElementById('speechResultText').innerText = `"${speechToText}"`;
+
+                // Real-time keyword alignment check
+                const currentData = roundData[currentRound - 1];
+                let matches = 0;
+                currentData.targetKeywords.forEach(keyword => {
+                    if (speechToText.toLowerCase().includes(keyword.toLowerCase())) {
+                        matches++;
+                    }
+                });
+
+                if (matches >= 2) {
+                    document.getElementById('speechMatchBadge').innerText = "Perfect Match! ⭐";
+                    document.getElementById('speechMatchBadge').className = "bg-green-600 text-xs px-2.5 py-1 rounded-full text-green-100 animate-bounce";
+                    setTimeout(() => {
+                        verifySpeechSuccess(speechToText);
+                    }, 1200);
+                }
+            };
+
+            recognition.onerror = (e) => {
+                console.error("Speech Recognition Error: ", e);
+                stopSpeechRecognition();
+            };
+
+            recognition.onend = () => {
+                stopSpeechRecognition();
+            };
+        }
+
+        function stopSpeechRecognition() {
+            isRecording = false;
+            document.getElementById('micBtn').classList.remove('bg-green-500', 'hover:bg-green-400', 'animate-pulse');
+            document.getElementById('micBtn').classList.add('bg-red-600', 'hover:bg-red-500');
+            document.getElementById('waveVisualizer').classList.add('hidden');
+        }
+
+        function toggleMicrophone() {
+            if (!recognition) {
+                alert("이 브라우저는 음성인식을 기본적으로 지원하지 않거나 설정에 제한이 있습니다. '스킵하기' 버튼을 누르면 다음 단계로 넘어갈 수 있습니다!");
+                return;
+            }
+            if (isRecording) {
+                recognition.stop();
+            } else {
+                audioCtx.resume().then(() => {
+                    try {
+                        recognition.start();
+                    } catch (e) {
+                        recognition.stop();
+                    }
+                });
+            }
+        }
+
+        // Native Speech Synthesis (Teacher Voice)
+        function playTeacherVoice() {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); // Stop active voices
+                const currentData = roundData[currentRound - 1];
+                const utterance = new SpeechSynthesisUtterance(currentData.teacherSpoken);
+                utterance.lang = 'en-US';
+
+                // Look for an English voice (prefer natural sounding ones)
+                const voices = window.speechSynthesis.getVoices();
+                const engVoice = voices.find(v => v.lang.startsWith('en-US') && (v.name.includes('Natural') || v.name.includes('Google')))
+                                || voices.find(v => v.lang.startsWith('en'));
+                if (engVoice) {
+                    utterance.voice = engVoice;
+                }
+
+                utterance.rate = 0.85; // slightly slower for children's clear understanding
+                utterance.pitch = 1.1; // Friendly higher pitch
+
+                // Visual bounce effect on the teacher avatar while speaking
+                const tPulse = document.getElementById('teacherPulse');
+                utterance.onstart = () => {
+                    tPulse.classList.remove('hidden');
+                };
+                utterance.onend = () => {
+                    tPulse.classList.add('hidden');
+                };
+
+                window.speechSynthesis.speak(utterance);
+            } else {
+                console.log("Speech Synthesis not supported by browser.");
+            }
+        }
+
+        function startGame() {
+            document.getElementById('welcomeScreen').classList.add('hidden');
+            document.getElementById('gamePlayScreen').classList.remove('hidden');
+            score = 0;
+            currentRound = 1;
+            loadRound(currentRound);
+        }
+
+        function loadRound(roundNum) {
+            selectedSuspectId = null;
+            const data = roundData[roundNum - 1];
+
+            // Set HUD Info
+            document.getElementById('scoreText').innerText = `Score: ${score}`;
+            document.getElementById('roundText').innerText = `Round ${roundNum}/${totalRounds}`;
+            document.getElementById('phaseInstructions').innerText = "🕵️‍♂️ STEP 1: Ms. Emily의 목소리를 듣고 범인을 선택하세요!";
+            document.getElementById('phaseInstructions').className = "text-xl font-bold text-yellow-400 animate-pulse";
+            document.getElementById('clueBubble').innerText = data.clue;
+
+            // Build suspects
+            for (let i = 1; i <= 4; i++) {
+                const sData = data.suspects[i - 1];
+                const card = document.getElementById(`suspect-${i}`);
+                card.className = "bg-slate-900/50 border-2 border-slate-800 hover:border-indigo-500 hover:bg-slate-800/50 rounded-3xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.02] relative group";
+
+                document.getElementById(`suspectName-${i}`).innerText = sData.name;
+                document.getElementById(`suspectDesc-${i}`).innerText = sData.desc;
+
+                // Extract emoji
+                const emoji = sData.emoji.split(' ')[0];
+                document.getElementById(`suspectEmoji-${i}`).innerText = emoji;
+            }
+
+            // Reset UI States
+            document.getElementById('speakingArena').classList.add('hidden');
+            document.getElementById('feedbackPanel').classList.add('hidden');
+
+            // Play Teacher Clue
+            setTimeout(() => {
+                playTeacherVoice();
+            }, 600);
+
+            // Timer management
+            timeLeft = 30;
+            updateTimerUI();
+            clearInterval(timer);
+            timer = setInterval(() => {
+                timeLeft--;
+                updateTimerUI();
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    handleTimeOut();
+                }
+            }, 1000);
+        }
+
+        function updateTimerUI() {
+            document.getElementById('timerLabel').innerText = `${timeLeft}s`;
+            const percentage = (timeLeft / 30) * 100;
+            document.getElementById('timerProgress').style.width = `${percentage}%`;
+            if (timeLeft <= 10) {
+                playSound('tick');
+                document.getElementById('timerLabel').classList.add('animate-ping');
+            } else {
+                document.getElementById('timerLabel').classList.remove('animate-ping');
+            }
+        }
+
+        function selectSuspect(id) {
+            // Can only select suspect if speaking arena is not yet unlocked
+            if (document.getElementById('speakingArena').classList.contains('hidden')) {
+                const currentData = roundData[currentRound - 1];
+                selectedSuspectId = id;
+
+                // Clear active card states
+                for (let i = 1; i <= 4; i++) {
+                    document.getElementById(`suspect-${i}`).classList.remove('border-indigo-500', 'bg-indigo-950/20', 'glow-blue');
+                }
+
+                const card = document.getElementById(`suspect-${id}`);
+                card.classList.add('border-indigo-500', 'bg-indigo-950/20', 'glow-blue');
+
+                // Check correctness immediately or wait for speech?
+                // Traditional mystery: Unlock Speaking target!
+                if (id === currentData.answer) {
+                    playSound('correct');
+                    revealSelectionState(true);
+                } else {
+                    playSound('wrong');
+                    revealSelectionState(false);
+                }
+            }
+        }
+
+        function revealSelectionState(isCorrect) {
+            if (isCorrect) {
+                // Perfect, now trigger Speaking Phase to seal the victory!
+                document.getElementById('phaseInstructions').innerText = "🗣️ STEP 2: 스피킹 미션! 마이크를 켜고 범인을 심문하세요!";
+                document.getElementById('phaseInstructions').className = "text-xl font-bold text-green-400";
+
+                const card = document.getElementById(`suspect-${selectedSuspectId}`);
+                card.classList.remove('border-indigo-500', 'glow-blue');
+                card.classList.add('border-green-500', 'glow-green');
+
+                const currentData = roundData[currentRound - 1];
+                document.getElementById('targetSentence').innerText = `"${currentData.targetSentence}"`;
+                document.getElementById('speakingArena').classList.remove('hidden');
+            } else {
+                // Wrong pick
+                const card = document.getElementById(`suspect-${selectedSuspectId}`);
+                card.classList.add('border-red-500', 'glow-red');
+                document.getElementById('phaseInstructions').innerText = "❌ 아쉽습니다! 다른 용의자가 범인인 것 같아요. 다시 찾아보세요!";
+                document.getElementById('phaseInstructions').className = "text-xl font-bold text-red-500";
+
+                setTimeout(() => {
+                    card.classList.remove('border-red-500', 'glow-red');
+                }, 1500);
+            }
+        }
+
+        function verifySpeechSuccess(spokenText) {
+            if (recognition) recognition.stop();
+            score += 50; // Award marks
+
+            // Congratulatory effect on teacher side
+            document.getElementById('clueBubble').innerText = "Amazing Speaking! You solved the mystery!";
+
+            setTimeout(() => {
+                nextRound();
+            }, 2500);
+        }
+
+        function skipVoiceVerify() {
+            if (recognition) recognition.stop();
+            // Just simulate perfect speaking
+            document.getElementById('feedbackPanel').classList.remove('hidden');
+            document.getElementById('speechResultText').innerText = `"${roundData[currentRound-1].targetSentence}"`;
+            document.getElementById('speechMatchBadge').innerText = "Verified! 👍";
+            document.getElementById('speechMatchBadge').className = "bg-green-600 text-xs px-2.5 py-1 rounded-full text-green-100";
+
+            setTimeout(() => {
+                verifySpeechSuccess();
+            }, 1500);
+        }
+
+        function handleTimeOut() {
+            playSound('wrong');
+            // Highlight actual suspect in red, and auto advance
+            const correctThief = roundData[currentRound - 1].answer;
+            const card = document.getElementById(`suspect-${correctThief}`);
+            card.classList.add('border-red-500', 'glow-red');
+            document.getElementById('phaseInstructions').innerText = "⏰ 시간 초과! Ms. Emily가 단서를 재정리합니다.";
+
+            setTimeout(() => {
+                nextRound();
+            }, 3000);
+        }
+
+        function nextRound() {
+            clearInterval(timer);
+            if (currentRound < totalRounds) {
+                currentRound++;
+                loadRound(currentRound);
+            } else {
+                triggerVictory();
+            }
+        }
+
+        function triggerVictory() {
+            document.getElementById('gamePlayScreen').classList.add('hidden');
+            document.getElementById('victoryScreen').classList.remove('hidden');
+            document.getElementById('finalScore').innerText = `${score} points`;
+            startFireworks();
+            // 수업 패널(허브)에 점수 보고 (다른 iframe 게임과 동일 규약)
+            try { if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'mangoi-game-complete', game: 'suspect', score: score }, '*'); } catch (e) {}
+        }
+
+        function resetGame() {
+            document.getElementById('victoryScreen').classList.add('hidden');
+            document.getElementById('welcomeScreen').classList.remove('hidden');
+        }
+
+        // Particle canvas effects for victory
+        function startFireworks() {
+            const canvas = document.getElementById('fireworks');
+            const ctx = canvas.getContext('2d');
+            let animationFrameId;
+
+            // Fit to container
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+
+            const particles = [];
+            const colors = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6'];
+
+            class Particle {
+                constructor() {
+                    this.x = canvas.width / 2;
+                    this.y = canvas.height / 2 + 100;
+                    this.angle = Math.random() * Math.PI * 2;
+                    this.speed = Math.random() * 8 + 4;
+                    this.radius = Math.random() * 4 + 2;
+                    this.color = colors[Math.floor(Math.random() * colors.length)];
+                    this.alpha = 1;
+                    this.decay = Math.random() * 0.015 + 0.01;
+                }
+
+                update() {
+                    this.x += Math.cos(this.angle) * this.speed;
+                    this.y += Math.sin(this.angle) * this.speed;
+                    this.speed *= 0.98; // friction
+                    this.alpha -= this.decay;
+                }
+
+                draw() {
+                    ctx.save();
+                    ctx.globalAlpha = this.alpha;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color;
+                    ctx.fill();
+                    ctx.restore();
+                }
+            }
+
+            function loop() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                if (particles.length < 100 && Math.random() < 0.3) {
+                    for (let i = 0; i < 20; i++) {
+                        particles.push(new Particle());
+                    }
+                }
+
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const p = particles[i];
+                    p.update();
+                    p.draw();
+                    if (p.alpha <= 0) {
+                        particles.splice(i, 1);
+                    }
+                }
+
+                animationFrameId = requestAnimationFrame(loop);
+            }
+
+            loop();
+
+            // Cancel animation after 6 seconds to save system resource
+            setTimeout(() => {
+                cancelAnimationFrame(animationFrameId);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }, 6000);
+        }
+    </script>
+<!-- BUILD:20260704 suspect1 -->
+<!-- BUILD:20260704123617 -->
+</body>
+</html>

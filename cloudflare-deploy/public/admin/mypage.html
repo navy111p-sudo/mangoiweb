@@ -591,6 +591,7 @@
     <!-- 탭 -->
     <nav class="tabs" role="tablist">
       <button class="tab active" data-tab="profile" data-ko="👤 프로필" data-en="👤 Profile">👤 프로필</button>
+      <button class="tab" id="tab-myratings" data-tab="myratings" data-ko="⭐ 내 평가" data-en="⭐ My Ratings" style="display:none">⭐ 내 평가</button>
       <button class="tab" data-tab="lessons" data-ko="📚 내 수업" data-en="📚 My Classes">📚 내 수업</button>
       <button class="tab" data-tab="salary" data-ko="💰 급여" data-en="💰 Salary">💰 급여</button>
       <button class="tab" id="tab-capitown" data-tab="capitown" data-ko="🏢 캐피타운 정산" data-en="🏢 Capitown Settlement" style="display:none">🏢 캐피타운 정산</button>
@@ -621,6 +622,14 @@
         </div>
       </div>
       <button class="btn-primary" id="profSaveBtn" data-ko="💾 변경사항 저장" data-en="💾 Save changes">💾 변경사항 저장</button>
+    </section>
+
+    <!-- ───── ⭐ 내 수업 평가 (학생 무기명 평가 · 직관형) ───── -->
+    <section class="panel" data-panel="myratings">
+      <div class="info-box" style="background:linear-gradient(135deg,rgba(251,191,36,0.14),rgba(245,158,11,0.06));border:1px solid rgba(251,191,36,0.4);color:#fde68a">
+        ⭐ <b data-ko="학생들이 남긴 수업 평가" data-en="Ratings from your students">학생들이 남긴 수업 평가</b><span data-ko=" — 누가 남겼는지는 표시되지 않아요(무기명). 최고·최저 점수를 뺀 공정 평균으로 보여드립니다." data-en=" — Names are hidden (anonymous). Shown as a fair average excluding the highest & lowest score."> — 누가 남겼는지는 표시되지 않아요(무기명). 최고·최저 점수를 뺀 공정 평균으로 보여드립니다.</span>
+      </div>
+      <div id="myrat-body"><div style="padding:30px;text-align:center;color:var(--text-muted)" data-ko="불러오는 중…" data-en="Loading…">불러오는 중…</div></div>
     </section>
 
     <!-- ───── 내 수업 (ph210) ───── -->
@@ -976,6 +985,7 @@
     var teCard = el('teacher-enter-class'); if (teCard) teCard.style.display = isTeacher ? 'flex' : 'none';
     var tLessons = qsTab('lessons'); if (tLessons) tLessons.style.display = isTeacher ? '' : 'none';
     var tSalary  = qsTab('salary');  if (tSalary)  tSalary.style.display  = isTeacher ? '' : 'none';
+    var tMyRat   = qsTab('myratings'); if (tMyRat)  tMyRat.style.display   = isTeacher ? '' : 'none';
 
     // 정산: 본사·프랜차이즈·지사만. 라벨을 역할에 맞게.
     var tCap = el('tab-capitown');
@@ -1012,6 +1022,8 @@
         if (el('profPhone'))    el('profPhone').value = u.phone || '';
         applyRole(j.role, j.roleLabel || (EN()?'User':'사용자'), j.scope);
         window.__myRole = j.role; window.__myRoleLabel = j.roleLabel; window.__myScope = j.scope;
+        window.__myName = name;
+        if (j.role === 'teacher' && typeof window.loadMyRatings === 'function') window.loadMyRatings(name);
       })
       .catch(function(){});
   }
@@ -1178,6 +1190,139 @@
     try { v.pause(); } catch(e){}
     pop.style.display = 'none';
   });
+})();
+</script>
+<!-- ⭐ 내 수업 평가 (직관형) — 무기명 · 절사평균 · 분포 그래프 · 학생 피드백 -->
+<script id="myratings-view">
+(function(){
+  function EN(){ try { return (window.getLang && window.getLang()==='en') || document.documentElement.lang==='en'; } catch(e){ return false; } }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]); }); }
+  var TAGS_KO = ['재미있었어요','설명이 쉬웠어요','칭찬을 많이 해줬어요','소리가 끊겼어요','너무 어려웠어요','말할 기회가 적었어요'];
+  var TAGS_EN = ['It was fun','Easy to understand','Lots of praise','Audio kept cutting out','Too difficult','Not enough time to speak'];
+  var K2E={}, E2K={}; for (var i=0;i<TAGS_KO.length;i++){ K2E[TAGS_KO[i]]=TAGS_EN[i]; E2K[TAGS_EN[i]]=TAGS_KO[i]; }
+  var NEG = ['소리가 끊겼어요','너무 어려웠어요','말할 기회가 적었어요'];
+  function tagTr(t){ return EN()? (K2E[t]||t) : (E2K[t]||t); }
+  var trCache = { en:{}, ko:{} };
+  function hasHangul(s){ return /[가-힣]/.test(String(s||'')); }
+  function translate(texts){
+    var target = EN()?'en':'ko';
+    var uniq = Array.from(new Set((texts||[]).filter(Boolean)));
+    var need=[], map={};
+    uniq.forEach(function(t){ var ko=hasHangul(t); if((target==='en'&&!ko)||(target==='ko'&&ko)){map[t]=t;return;} if(trCache[target][t]!=null)map[t]=trCache[target][t]; else need.push(t); });
+    if(!need.length) return Promise.resolve(map);
+    return fetch('/api/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({texts:need,target:target})})
+      .then(function(r){return r.json();}).then(function(d){ var m=(d&&d.map)||{}; need.forEach(function(t){var o=(m[t]!=null?m[t]:t);trCache[target][t]=o;map[t]=o;}); return map; })
+      .catch(function(){ need.forEach(function(t){map[t]=t;}); return map; });
+  }
+
+  var GRADE = {
+    excellent:{ ko:'매우 우수', en:'Excellent', color:'#10b981', dk:'학생 만족도가 매우 높아요. 지금 방식을 유지하세요!', de:'Students love your classes. Keep it up!' },
+    good:{ ko:'우수', en:'Good', color:'#84cc16', dk:'전반적으로 좋은 평가예요.', de:'Overall positive ratings.' },
+    fair:{ ko:'보통', en:'Fair', color:'#f59e0b', dk:'보통 수준이에요. 조금만 더 신경 쓰면 좋아져요.', de:'Around average — a little more care will help.' },
+    needs_improvement:{ ko:'개선 필요', en:'Needs work', color:'#ef4444', dk:'평가가 낮은 편이에요. 수업 방식을 점검해 보세요.', de:'Ratings are low — please review your approach.' }
+  };
+  var barColor = function(s){ return s<=2?'#ef4444':(s<=4?'#f59e0b':'#10b981'); };
+  function stars(score, size){
+    size = size || 15; var f=Math.round(score||0), h='';
+    for(var i=1;i<=7;i++) h+='<span style="color:'+(i<=f?'#fbbf24':'#3a4460')+';font-size:'+size+'px">★</span>';
+    return h;
+  }
+  function fmtDate(ms){ try{ return new Date(Number(ms)).toLocaleDateString(EN()?'en-US':'ko-KR',{month:'short',day:'numeric'}); }catch(e){ return ''; } }
+
+  function distChart(dist){
+    var maxC=1; dist.forEach(function(d){ if(d.count>maxC)maxC=d.count; });
+    var bars = dist.map(function(d){
+      var hh=Math.max(3, Math.round(d.count/maxC*96));
+      return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px">'
+        +'<div style="font-size:11px;color:var(--text-muted);font-weight:700">'+(d.count||'')+'</div>'
+        +'<div style="width:74%;height:'+hh+'px;background:'+barColor(d.score)+';border-radius:5px 5px 0 0;opacity:'+(d.count?1:0.22)+';transition:height .3s"></div>'
+        +'<div style="font-size:12px;font-weight:800;color:var(--text-secondary)">'+d.score+'</div></div>';
+    }).join('');
+    return '<div style="display:flex;align-items:flex-end;gap:6px;height:130px;padding:6px 2px 0">'+bars+'</div>';
+  }
+
+  window.loadMyRatings = function(name){
+    var box = document.getElementById('myrat-body');
+    if (!box || !name) return;
+    box.__name = name;
+    var en = EN();
+    box.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-muted)">'+(en?'Loading…':'불러오는 중…')+'</div>';
+    Promise.all([
+      fetch('/api/teacher/my-ratings?days=180&limit=200&teacher_name='+encodeURIComponent(name)).then(function(r){return r.json();}).catch(function(){return{};}),
+      fetch('/api/admin/ratings/analytics?days=180&teacher_name='+encodeURIComponent(name)).then(function(r){return r.json();}).catch(function(){return{};})
+    ]).then(function(res){
+      var rows = (res[0]&&res[0].rows)||[];
+      var a = res[1]||{};
+      if (!a.count){
+        box.innerHTML = '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:40px 24px;text-align:center">'
+          +'<div style="font-size:40px;margin-bottom:8px">🌱</div>'
+          +'<div style="font-size:15px;font-weight:800;color:var(--text-primary)">'+(en?'No ratings yet':'아직 받은 평가가 없어요')+'</div>'
+          +'<div style="font-size:13px;color:var(--text-muted);margin-top:6px">'+(en?'Ratings will appear here after your classes.':'수업이 끝나면 학생들이 남긴 평가가 여기에 모여요.')+'</div></div>';
+        return;
+      }
+      var g = GRADE[a.grade]||GRADE.fair;
+      var trendTxt = a.trend_dir==='up' ? (en?'📈 Trending up':'📈 상승세') : a.trend_dir==='down' ? (en?'📉 Trending down':'📉 하락세') : (en?'➡️ Steady':'➡️ 유지');
+      // ── 히어로 점수 카드 ──
+      var hero = '<div style="background:linear-gradient(135deg,var(--bg-card-2),var(--bg-card));border:1px solid '+g.color+'55;border-radius:20px;padding:22px 24px;box-shadow:var(--shadow-soft)">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">'
+          +'<div>'
+            +'<div style="display:inline-flex;align-items:center;gap:8px;margin-bottom:8px"><span style="background:'+g.color+';color:#0a0e1a;font-size:12px;font-weight:900;padding:3px 12px;border-radius:99px">'+(en?g.en:g.ko)+'</span>'
+              +'<span style="font-size:12px;color:var(--text-muted)">'+trendTxt+'</span></div>'
+            +'<div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:52px;font-weight:900;color:'+g.color+';line-height:1">'+a.trimmed_avg.toFixed(1)+'</span><span style="font-size:20px;color:var(--text-muted);font-weight:700">/7</span></div>'
+            +'<div style="margin-top:6px">'+stars(a.trimmed_avg,20)+'</div>'
+            +'<div style="font-size:12px;color:var(--text-muted);margin-top:6px">'+(en?'Fair average · excludes 1 highest & 1 lowest':'절사평균 · 최고·최저 1개씩 제외')+'</div>'
+          +'</div>'
+          +'<div style="display:flex;flex-direction:column;gap:8px;min-width:150px">'
+            + statChip(en?'Responses':'받은 평가', a.count+(en?'':'개'), '#60a5fa')
+            + statChip(en?'Raw average':'전체 평균', a.raw_avg.toFixed(1)+'/7', '#a78bfa')
+            + statChip(en?'Range':'점수 범위', a.min+' ~ '+a.max, '#34d399')
+          +'</div>'
+        +'</div></div>';
+      // ── 인사이트 ──
+      var notes=[];
+      if(a.low_count>0) notes.push(en?(a.low_count+' low (1–2)'):('저점(1~2점) '+a.low_count+'건'));
+      var negTag=(a.top_tags||[]).filter(function(t){return NEG.indexOf(t.tag)>=0;})[0];
+      if(negTag) notes.push((en?'top concern: ':'주요 지적: ')+tagTr(negTag.tag));
+      var insight = '<div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.3);border-radius:14px;padding:14px 16px;margin-top:14px;font-size:13.5px;color:var(--text-secondary);line-height:1.6">💡 <b style="color:var(--amber-3)">'+(en?g.de:g.dk)+'</b>'+(notes.length?' <span style="color:var(--text-muted)">('+esc(notes.join(' · '))+')</span>':'')+'</div>';
+      // ── 분포 그래프 ──
+      var chart = '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:16px 18px;margin-top:14px">'
+        +'<div style="font-size:13px;font-weight:800;color:var(--text-primary);margin-bottom:2px">📊 '+(en?'Score distribution':'점수 분포')+'</div>'
+        +'<div style="font-size:11.5px;color:var(--text-muted)">'+(en?'How many students gave each score (1–7)':'점수별로 몇 명이 줬는지 (1~7점)')+'</div>'
+        + distChart(a.distribution) + '</div>';
+      // ── 피드백 리스트 (무기명) ──
+      var fbCards = rows.map(function(x){
+        var tags=[]; try{tags=JSON.parse(x.tags||'[]');}catch(e){}
+        return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-top:9px">'
+          +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+stars(x.score,14)
+          +'<b style="color:'+barColor(x.score)+';font-size:13px">'+x.score+'/7</b>'
+          +'<span style="font-size:10.5px;color:var(--text-muted);background:rgba(148,163,184,0.14);border-radius:99px;padding:2px 9px">'+(en?'Anonymous':'익명')+'</span>'
+          +'<span style="font-size:11px;color:var(--text-muted);margin-left:auto">'+fmtDate(x.created_at)+'</span></div>'
+          +(tags.length?'<div style="margin-top:6px">'+tags.map(function(t){return '<span data-tag="'+esc(t)+'" style="display:inline-block;background:rgba(251,191,36,0.14);color:var(--amber-3);border-radius:99px;padding:2px 10px;font-size:11px;margin:2px 3px 0 0">'+esc(tagTr(t))+'</span>';}).join('')+'</div>':'')
+          +(x.feedback?'<div style="margin-top:8px;font-size:13px;color:var(--text-secondary);line-height:1.6;background:var(--bg-input);border-radius:9px;padding:9px 12px">💬 <span data-fb="'+esc(x.feedback)+'">'+esc(x.feedback)+'</span></div>':'')
+          +'</div>';
+      }).join('');
+      var fbCount = rows.filter(function(x){return x.feedback;}).length;
+      var fbSection = '<div style="margin-top:18px"><div style="font-size:14px;font-weight:800;color:var(--text-primary);margin-bottom:2px">💬 '+(en?'Student feedback':'학생 피드백')+' <span style="font-size:12px;color:var(--text-muted);font-weight:600">('+rows.length+')</span></div>'
+        +'<div style="font-size:11.5px;color:var(--text-muted);margin-bottom:4px">'+(en?'Anonymous — you can’t see who wrote it, so students are honest.':'무기명이에요 — 누가 썼는지 알 수 없어 학생들이 솔직하게 남깁니다.')+'</div>'
+        + fbCards + '</div>';
+      box.innerHTML = hero + insight + chart + fbSection;
+      // 자유 피드백 번역 (EN 일 때만)
+      if (en){
+        var fbNodes = Array.prototype.slice.call(box.querySelectorAll('[data-fb]'));
+        if (fbNodes.length){ translate(fbNodes.map(function(n){return n.getAttribute('data-fb');})).then(function(m){ fbNodes.forEach(function(n){var s=n.getAttribute('data-fb'); n.textContent=(m[s]!=null?m[s]:s);}); }); }
+      }
+    });
+  };
+  function statChip(label, val, color){
+    return '<div style="background:var(--bg-input);border:1px solid var(--border);border-radius:12px;padding:9px 13px;display:flex;align-items:center;justify-content:space-between;gap:10px">'
+      +'<span style="font-size:11.5px;color:var(--text-muted)">'+label+'</span>'
+      +'<b style="font-size:15px;color:'+color+'">'+val+'</b></div>';
+  }
+
+  // 언어 전환 시 재렌더 (documentElement lang 변화 감지 + 커스텀 이벤트)
+  var mo = new MutationObserver(function(){ var b=document.getElementById('myrat-body'); if(b&&b.__name) window.loadMyRatings(b.__name); });
+  try { mo.observe(document.documentElement, { attributes:true, attributeFilter:['lang'] }); } catch(e){}
+  document.addEventListener('mangoi:lang-changed', function(){ var b=document.getElementById('myrat-body'); if(b&&b.__name) window.loadMyRatings(b.__name); });
 })();
 </script>
 <script defer src="/js/back-nav.js"></script>

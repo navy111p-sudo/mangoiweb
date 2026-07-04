@@ -8316,7 +8316,9 @@ Respond in JSON ONLY:
                  t.start_hour AS start_hour, t.end_hour AS end_hour, t.pay_per_time AS pay_per_time,
                  t.video_type AS video_type, t.status AS status, t.reg_date AS reg_date,
                  coalesce(t.work_days,0) AS work_days, coalesce(t.total_hours,0.0) AS total_hours, t.last_work AS last_work,
-                 coalesce(t.class_count,0) AS class_count, coalesce(t.student_count,0) AS student_count
+                 coalesce(t.class_count,0) AS class_count, coalesce(t.student_count,0) AS student_count,
+                 t.review_avg AS review_avg, coalesce(t.review_count,0) AS review_count,
+                 t.score_avg AS score_avg, coalesce(t.score_count,0) AS score_count
           ORDER BY coalesce(t.class_count,0) DESC, t.name`, { q: qT }, 'READ');
         const teachers = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
         return json({ ok: true, source: 'neo4j', count: teachers.length, teachers });
@@ -8375,6 +8377,33 @@ Respond in JSON ONLY:
           if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
           return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
         }
+      }
+    }
+
+    // 🏅 카페24 레벨테스트 배치 현황 (그래프DB) — 레벨별 분포·합격률 + 최근 응시
+    //   GET /api/admin/leveltest/overview  → {ok, by_level:[{level,total,pass,pass_rate}], recent:[...], totals}
+    if (method === 'GET' && path === '/api/admin/leveltest/overview') {
+      try {
+        const agg = await runCypher(env, `
+          MATCH (l:LevelTest) WHERE l.level IS NOT NULL AND l.level <> ''
+          WITH l.level AS level, count(*) AS total, sum(CASE WHEN l.pass = 1 THEN 1 ELSE 0 END) AS pass
+          RETURN level, total, pass ORDER BY total DESC`, {}, 'READ');
+        const byLevel = agg.values.map(row => {
+          const o: any = Object.fromEntries(agg.fields.map((f, i) => [f, row[i]]));
+          o.pass_rate = o.total > 0 ? Math.round((Number(o.pass) / Number(o.total)) * 1000) / 10 : 0;
+          return o;
+        });
+        const rec = await runCypher(env, `
+          MATCH (l:LevelTest) WHERE l.year IS NOT NULL
+          RETURN l.user_id AS user_id, l.year AS year, l.month AS month, l.day AS day, l.level AS level, l.pass AS pass,
+                 (coalesce(l.s1,0)+coalesce(l.s2,0)+coalesce(l.s3,0)+coalesce(l.s4,0)+coalesce(l.s5,0)) AS score_sum
+          ORDER BY l.year DESC, l.month DESC, l.day DESC LIMIT 200`, {}, 'READ');
+        const recent = rec.values.map(row => Object.fromEntries(rec.fields.map((f, i) => [f, row[i]])));
+        const totals = byLevel.reduce((a: any, r: any) => ({ total: a.total + Number(r.total), pass: a.pass + Number(r.pass) }), { total: 0, pass: 0 });
+        return json({ ok: true, source: 'neo4j', by_level: byLevel, recent, totals: { ...totals, pass_rate: totals.total > 0 ? Math.round((totals.pass / totals.total) * 1000) / 10 : 0 } });
+      } catch (e: any) {
+        if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
+        return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
       }
     }
 

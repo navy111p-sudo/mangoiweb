@@ -4356,6 +4356,31 @@
 
 <!-- 🌱 테스트 데이터 시드 메뉴 제거됨 -->
 
+<!-- 🏅 레벨테스트 배치 현황 (카페24 레벨테스트 집계) -->
+<details class="table-card menu-card" id="card-leveltest" ontoggle="if(this.open)loadLeveltestOverview()">
+  <summary><span data-ko="🏅 레벨테스트 배치 현황" data-en="🏅 Level Test Placement">🏅 레벨테스트 배치 현황</span></summary>
+  <div class="menu-body">
+    <div class="sub-menu"><div class="sub-body">
+      <div id="lt-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px"></div>
+      <div style="font-size:12.5px;color:#6b7280;margin-bottom:6px" data-ko="📊 레벨별 분포 · 합격률" data-en="📊 By level · pass rate">📊 레벨별 분포 · 합격률</div>
+      <div id="lt-bars" style="display:flex;flex-direction:column;gap:7px;margin-bottom:16px"><div style="color:#94a3b8;font-size:12px">불러오는 중…</div></div>
+      <div style="font-size:12.5px;color:#6b7280;margin-bottom:6px" data-ko="🕑 최근 응시 (200건)" data-en="🕑 Recent tests">🕑 최근 응시 (최근 200건)</div>
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:auto;max-height:480px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:520px">
+          <thead style="background:#f9fafb;position:sticky;top:0"><tr>
+            <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb">일자</th>
+            <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb">학생</th>
+            <th style="padding:9px 10px;text-align:center;border-bottom:2px solid #e5e7eb">레벨</th>
+            <th style="padding:9px 10px;text-align:center;border-bottom:2px solid #e5e7eb">합격</th>
+            <th style="padding:9px 10px;text-align:right;border-bottom:2px solid #e5e7eb">점수합</th>
+          </tr></thead>
+          <tbody id="lt-rows"><tr><td colspan="5" style="padding:24px;text-align:center;color:#9ca3af">불러오는 중…</td></tr></tbody>
+        </table>
+      </div>
+    </div></div>
+  </div>
+</details>
+
 <!-- 🥭 Phase 34 — 🧑‍🏫 강사관리 (학생관리 바로 아래) -->
 <details class="table-card menu-card" id="card-teacher-mgmt">
   <summary><span data-ko="🧑‍🏫 강사관리" data-en="🧑‍🏫 Teacher Management">🧑‍🏫 강사관리</span></summary>
@@ -4363,6 +4388,39 @@
     <div class="sub-menu">
 
       <!-- 👩‍🏫 강사 명부 (카페24 실데이터) -->
+      <!-- ⭐ 강사 평가·품질 대시보드 (카페24 학생평가·후기 집계) -->
+      <details class="sub-item" id="sub-teacher-quality" ontoggle="if(this.open)loadTeacherQuality()">
+        <summary data-ko="⭐ 강사 평가·품질 (학생평가·후기)" data-en="⭐ Teacher Quality (ratings & reviews)">⭐ 강사 평가·품질 (학생평가·후기)</summary>
+        <div class="sub-body">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+            <label style="font-size:12px;color:#6b7280">정렬</label>
+            <select id="tq-sort" onchange="loadTeacherQuality()" style="padding:6px 10px;font-size:12.5px;border-radius:8px;border:1px solid #d1d5db">
+              <option value="review_avg">후기 별점 높은순</option>
+              <option value="score_avg">학생평가 높은순</option>
+              <option value="review_count">후기 많은순</option>
+              <option value="class_count">수업 많은순</option>
+            </select>
+            <span id="tq-summary" style="font-size:12px;color:#6b7280"></span>
+          </div>
+          <div id="tq-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:14px"></div>
+          <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:auto;max-height:520px">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:720px">
+              <thead style="background:#f9fafb;position:sticky;top:0"><tr>
+                <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb">#</th>
+                <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb">강사</th>
+                <th style="padding:9px 10px;text-align:center;border-bottom:2px solid #e5e7eb">후기 별점</th>
+                <th style="padding:9px 10px;text-align:right;border-bottom:2px solid #e5e7eb">후기수</th>
+                <th style="padding:9px 10px;text-align:center;border-bottom:2px solid #e5e7eb">학생평가</th>
+                <th style="padding:9px 10px;text-align:right;border-bottom:2px solid #e5e7eb">평가수</th>
+                <th style="padding:9px 10px;text-align:right;border-bottom:2px solid #e5e7eb">담당수업</th>
+                <th style="padding:9px 10px;text-align:right;border-bottom:2px solid #e5e7eb">담당학생</th>
+              </tr></thead>
+              <tbody id="tq-rows"><tr><td colspan="8" style="padding:24px;text-align:center;color:#9ca3af">불러오는 중…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
       <details class="sub-item" id="sub-teacher-roster" open ontoggle="if(this.open)loadTeacherRoster()">
         <summary data-ko="👩‍🏫 강사 명부 (실데이터)" data-en="👩‍🏫 Teacher Roster (real data)">👩‍🏫 강사 명부 (실데이터)</summary>
         <div class="sub-body">
@@ -22816,7 +22874,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260704122928 -->
+        <!-- BUILD:20260704123617 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -24538,6 +24596,88 @@ window.rebuildGlobalSearchIndex = function() {
   // 👩‍🏫 강사 명부 (카페24 실데이터) — Neo4j graph-list
   let _trLoaded = false;
   // 🧑‍💼 직원 명부 (카페24 실데이터)
+  // 🏅 레벨테스트 배치 현황 (카페24 레벨테스트 집계)
+  window.loadLeveltestOverview = async function(){
+    const kpi = document.getElementById('lt-kpis'), bars = document.getElementById('lt-bars'), rowsEl = document.getElementById('lt-rows');
+    if (!rowsEl) return;
+    const esc = function(s){ return String(s==null?'':s).replace(/[<>&"]/g,function(c){return({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]);}); };
+    rowsEl.innerHTML = '<tr><td colspan="5" style="padding:24px;text-align:center;color:#9ca3af">불러오는 중…</td></tr>';
+    try {
+      const d = await (await fetch('/api/admin/leveltest/overview', { credentials:'include' })).json();
+      if (!d.ok) throw new Error(d.error||d.code||'error');
+      const T = d.totals || { total:0, pass:0, pass_rate:0 };
+      if (kpi){
+        var card = function(lab,val,col){ return '<div style="padding:12px 14px;background:#fff;border:1px solid #e5e7eb;border-radius:10px"><div style="font-size:11px;color:#6b7280">'+lab+'</div><div style="font-size:18px;font-weight:800;color:'+col+';margin-top:2px">'+val+'</div></div>'; };
+        kpi.innerHTML = card('총 응시', T.total.toLocaleString()+'건', '#3b82f6') + card('합격', T.pass.toLocaleString()+'건', '#10b981') + card('합격률', T.pass_rate+'%', '#f59e0b') + card('레벨 종류', (d.by_level||[]).length+'개', '#7c3aed');
+      }
+      if (bars){
+        var lv = d.by_level||[]; var max = Math.max.apply(null, lv.map(function(x){return Number(x.total)||0;}).concat([1]));
+        bars.innerHTML = lv.length ? lv.map(function(x){
+          var pct = Math.max(2, Math.round((Number(x.total)/max)*100));
+          return '<div style="display:grid;grid-template-columns:70px 1fr 150px;gap:8px;align-items:center;font-size:12px">'
+            + '<span style="font-weight:700;color:#334155">Lv '+esc(x.level)+'</span>'
+            + '<div style="background:#e2e8f0;border-radius:99px;height:14px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:linear-gradient(90deg,#6366f1,#4f46e5)"></div></div>'
+            + '<span style="text-align:right;color:#475569">'+Number(x.total).toLocaleString()+'건 · 합격 '+Number(x.pass).toLocaleString()+' (<b style="color:'+(x.pass_rate>=70?'#15803d':x.pass_rate>=40?'#b45309':'#dc2626')+'">'+x.pass_rate+'%</b>)</span>'
+            + '</div>';
+        }).join('') : '<div style="color:#94a3b8;font-size:12px">데이터 없음</div>';
+      }
+      var rec = d.recent||[];
+      rowsEl.innerHTML = rec.length ? rec.map(function(r){
+        var dt = esc(String(r.year||''))+'-'+String(r.month||'').padStart(2,'0')+'-'+String(r.day||'').padStart(2,'0');
+        var pass = Number(r.pass)? '<span style="color:#15803d;font-weight:700">합격</span>':'<span style="color:#dc2626">재응시</span>';
+        return '<tr style="border-bottom:1px solid #f1f5f9"><td style="padding:7px 10px;white-space:nowrap">'+dt+'</td><td style="padding:7px 10px"><code>'+esc(r.user_id)+'</code></td><td style="padding:7px 10px;text-align:center">Lv '+esc(String(r.level||'—'))+'</td><td style="padding:7px 10px;text-align:center">'+pass+'</td><td style="padding:7px 10px;text-align:right">'+esc(String(r.score_sum||0))+'</td></tr>';
+      }).join('') : '<tr><td colspan="5" style="padding:24px;text-align:center;color:#9ca3af">응시 기록 없음</td></tr>';
+    } catch(e){ rowsEl.innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:#dc2626">불러오기 실패: '+esc(String(e&&e.message||e))+'</td></tr>'; if(bars) bars.innerHTML=''; }
+  };
+
+  // ⭐ 강사 평가·품질 대시보드 (카페24 학생평가·후기 집계)
+  window.loadTeacherQuality = async function(){
+    const rowsEl = document.getElementById('tq-rows');
+    const cardsEl = document.getElementById('tq-cards');
+    const sumEl = document.getElementById('tq-summary');
+    if (!rowsEl) return;
+    const esc = function(s){ return String(s==null?'':s).replace(/[<>&"]/g,function(c){return({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]);}); };
+    const sortKey = (document.getElementById('tq-sort')||{}).value || 'review_avg';
+    const stars = function(v){ if(v==null) return '<span style="color:#cbd5e1">—</span>'; var full=Math.round(Number(v)); return '<span style="color:#fbbf24">'+'★'.repeat(full)+'</span><span style="color:#e5e7eb">'+'★'.repeat(Math.max(0,5-full))+'</span> <b>'+Number(v).toFixed(1)+'</b>'; };
+    const scoreBadge = function(v){ if(v==null) return '<span style="color:#cbd5e1">—</span>'; var n=Number(v); var col=n>=8?'#15803d':n>=6?'#b45309':'#dc2626'; return '<b style="color:'+col+'">'+n.toFixed(1)+'</b>'; };
+    rowsEl.innerHTML = '<tr><td colspan="8" style="padding:24px;text-align:center;color:#9ca3af">불러오는 중…</td></tr>';
+    try {
+      const d = await (await fetch('/api/admin/teachers/graph-list', { credentials:'include' })).json();
+      if (!d.ok) throw new Error(d.error||d.code||'error');
+      // 평가/후기가 있는 강사만
+      let rows = (d.teachers||[]).filter(function(t){ return (t.review_count>0) || (t.score_count>0); });
+      rows.sort(function(a,b){ return (Number(b[sortKey])||0) - (Number(a[sortKey])||0); });
+      // 상단 요약 카드 (전체 평균)
+      if (sumEl) sumEl.textContent = '평가·후기 보유 강사 '+rows.length+'명';
+      if (cardsEl){
+        var revd = rows.filter(function(t){return t.review_avg!=null;});
+        var avgRev = revd.length ? (revd.reduce(function(s,t){return s+Number(t.review_avg);},0)/revd.length) : null;
+        var totRev = rows.reduce(function(s,t){return s+(Number(t.review_count)||0);},0);
+        var scod = rows.filter(function(t){return t.score_avg!=null;});
+        var avgSco = scod.length ? (scod.reduce(function(s,t){return s+Number(t.score_avg);},0)/scod.length) : null;
+        var top = revd.slice().sort(function(a,b){return Number(b.review_avg)-Number(a.review_avg);})[0];
+        var card = function(lab,val,col){ return '<div style="padding:12px 14px;background:#fff;border:1px solid #e5e7eb;border-radius:10px"><div style="font-size:11px;color:#6b7280">'+lab+'</div><div style="font-size:18px;font-weight:800;color:'+col+';margin-top:2px">'+val+'</div></div>'; };
+        cardsEl.innerHTML = card('평균 후기 별점', avgRev!=null?avgRev.toFixed(2)+' ★':'—', '#f59e0b')
+          + card('총 후기수', totRev.toLocaleString()+'건', '#3b82f6')
+          + card('평균 학생평가', avgSco!=null?avgSco.toFixed(1):'—', '#10b981')
+          + card('🏆 최고 강사', top?esc(top.name.trim())+' ('+Number(top.review_avg).toFixed(1)+'★)':'—', '#7c3aed');
+      }
+      rowsEl.innerHTML = rows.length ? rows.map(function(t,i){
+        var rank = i<3 ? ['🥇','🥈','🥉'][i] : (i+1);
+        return '<tr style="border-bottom:1px solid #f1f5f9">'
+          + '<td style="padding:8px 10px;font-weight:700">'+rank+'</td>'
+          + '<td style="padding:8px 10px"><b>'+esc(String(t.name).trim())+'</b>'+(t.group_name?' <span style="color:#94a3b8;font-size:11px">'+esc(t.group_name)+'</span>':'')+'</td>'
+          + '<td style="padding:8px 10px;text-align:center">'+stars(t.review_avg)+'</td>'
+          + '<td style="padding:8px 10px;text-align:right">'+(Number(t.review_count)||0)+'</td>'
+          + '<td style="padding:8px 10px;text-align:center">'+scoreBadge(t.score_avg)+'</td>'
+          + '<td style="padding:8px 10px;text-align:right">'+(Number(t.score_count)||0)+'</td>'
+          + '<td style="padding:8px 10px;text-align:right">'+(Number(t.class_count)||0).toLocaleString()+'</td>'
+          + '<td style="padding:8px 10px;text-align:right">'+(Number(t.student_count)||0).toLocaleString()+'</td>'
+          + '</tr>';
+      }).join('') : '<tr><td colspan="8" style="padding:24px;text-align:center;color:#9ca3af">평가·후기 데이터가 있는 강사가 없습니다</td></tr>';
+    } catch(e){ rowsEl.innerHTML = '<tr><td colspan="8" style="padding:20px;text-align:center;color:#dc2626">불러오기 실패: '+esc(String(e&&e.message||e))+'</td></tr>'; }
+  };
+
   window.loadStaffRoster = async function(){
     const tb = document.getElementById('sr-rows'); const cnt = document.getElementById('sr-count');
     if (!tb) return;
