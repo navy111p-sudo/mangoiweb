@@ -85,8 +85,10 @@
                 <p>3. 🎙️ **[Speak]** 마이크 버튼을 누르고 화면에 보이는 영어 변명(Alibi)을 영어로 유창하게 외치기!</p>
             </div>
 
-            <button onclick="startGame()" class="bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-slate-900 font-bold font-playful text-xl px-10 py-4 rounded-2xl shadow-lg hover:scale-105 transition-all">
-                수업 시작하기 (Start Class) 🚀
+            <div id="vocabBadge" class="hidden text-sm font-semibold text-emerald-300 bg-emerald-900/30 border border-emerald-700/50 rounded-xl px-4 py-2 mb-4"></div>
+
+            <button id="startBtn" onclick="startGame()" disabled class="bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 disabled:opacity-60 disabled:cursor-wait text-slate-900 font-bold font-playful text-xl px-10 py-4 rounded-2xl shadow-lg hover:scale-105 transition-all">
+                <span id="startBtnLabel">학생 맞춤 문제 준비 중… ⏳</span>
             </button>
         </div>
 
@@ -274,6 +276,9 @@
 
     </main>
 
+    <!-- 📚 로그인 학생의 배정 교재·레벨(레슨) 맞춤 어휘 로더 (다른 게임들과 동일 소스) -->
+    <script src="/js/game-vocab.js"></script>
+
     <!-- Custom Audio Feedback Synthesizer -->
     <script>
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -336,7 +341,8 @@
         let isRecording = false;
 
         // Custom Game Clues (Focusing on Speaking and Listening)
-        const roundData = [
+        // 로그인 안 됨/맞춤 자료 부족 시 폴백으로 쓰이는 고정 시나리오 (기존 그대로 유지)
+        const DEFAULT_ROUNDS = [
             {
                 clue: "Oh, look! The thief is wearing a blue jacket and a yellow scarf!",
                 teacherSpoken: "The thief is wearing a blue jacket and a yellow scarf!",
@@ -377,6 +383,81 @@
                 targetKeywords: ["mia", "thief", "white", "dog"]
             }
         ];
+        // 실제 사용되는 라운드 데이터(재할당 가능) — 학생 맞춤 자료가 있으면 buildRoundsFromVocab() 결과로 교체됨
+        let roundData = DEFAULT_ROUNDS;
+
+        /* ============================================================
+           📚 로그인 학생의 배정 교재·레벨(레슨) 맞춤 미스터리 생성
+           /api/games/vocab (MangoiGameVocab.load) 에서 받은 학생의 단어/문장으로
+           "비밀 단어/문장"을 만들어 3라운드를 새로 구성한다. (용의자 이름·얼굴은 고정 유지)
+           자료가 부족하면 null 을 반환해 DEFAULT_ROUNDS(고정 시나리오)를 그대로 쓴다.
+           ============================================================ */
+        const SUSPECT_NAMES = ["Leo", "Zoe", "Mia", "Max"];
+        const SUSPECT_FACE = { Leo: "👦", Zoe: "👧", Mia: "👩‍🦰", Max: "🧔" };
+        const SUSPECT_PRONOUN = { Leo: "he", Zoe: "she", Mia: "she", Max: "he" };
+        const GENERIC_DECOYS = [
+            "Wearing a red hat", "Eating a sandwich", "Drinking some juice",
+            "Playing with a ball", "Reading a book", "Holding a pencil",
+            "Wearing glasses", "Carrying a backpack"
+        ];
+
+        function _shuffleArr(arr) {
+            const a = arr.slice();
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+        }
+
+        function _pickDecoyLabels(pool, usedItem, need) {
+            const rest = _shuffleArr(pool.filter((p) => p.text !== usedItem.text));
+            const out = [];
+            for (let i = 0; i < need && i < rest.length; i++) {
+                out.push(rest[i].type === "word" ? `Secret word: "${rest[i].text}"` : `Secret sentence: "${rest[i].text}"`);
+            }
+            let gi = 0;
+            while (out.length < need) { out.push(GENERIC_DECOYS[gi % GENERIC_DECOYS.length]); gi++; }
+            return out;
+        }
+
+        function _buildMysteryRound(item, roundIdx, pool) {
+            const answerIdx = roundIdx % 4;
+            const answerName = SUSPECT_NAMES[answerIdx];
+            const answerLabel = item.type === "word" ? `Secret word: "${item.text}"` : `Secret sentence: "${item.text}"`;
+            const decoys = _pickDecoyLabels(pool, item, 3);
+            let di = 0;
+            const suspects = SUSPECT_NAMES.map((name, i) => ({
+                name,
+                emoji: SUSPECT_FACE[name],
+                desc: i === answerIdx ? answerLabel : decoys[di++]
+            }));
+            const pronoun = SUSPECT_PRONOUN[answerName];
+            const clueLine = item.type === "word"
+                ? `Shh... listen carefully! The thief secretly said the word "${item.text}"!`
+                : `Shh... listen carefully! The thief secretly said: "${item.text}"`;
+            const targetSentence = `I think ${answerName} is the thief because ${pronoun} said "${item.text}"!`;
+            const keywords = [answerName.toLowerCase(), "thief"].concat(
+                String(item.text).toLowerCase().replace(/[^a-z0-9' ]/g, "").split(/\s+/).filter(Boolean).slice(0, 4)
+            );
+            return { clue: clueLine, teacherSpoken: clueLine, targetSentence, answer: answerIdx + 1, suspects, targetKeywords: keywords };
+        }
+
+        function buildRoundsFromVocab(d) {
+            if (!d) return null;
+            const words = (d.words || []).filter((w) => w.en && /^[A-Za-z][A-Za-z '-]{1,20}$/.test(w.en));
+            const sentences = (d.sentences || []).filter((s) => s.en && s.en.length <= 60);
+            const pool = [];
+            sentences.forEach((s) => pool.push({ type: "sentence", text: s.en }));
+            words.forEach((w) => pool.push({ type: "word", text: w.en }));
+            if (pool.length < 3) return null;   // 개인화할 자료가 부족하면 기본 시나리오 유지
+            const shuffled = _shuffleArr(pool);
+            const rounds = [];
+            for (let i = 0; i < totalRounds; i++) {
+                rounds.push(_buildMysteryRound(shuffled[i % shuffled.length], i, shuffled));
+            }
+            return rounds;
+        }
 
         // Speech Recognition Setup
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -500,8 +581,36 @@
             document.getElementById('gamePlayScreen').classList.remove('hidden');
             score = 0;
             currentRound = 1;
+            if (_studentVocab) {
+                const built = buildRoundsFromVocab(_studentVocab);
+                roundData = built || DEFAULT_ROUNDS;
+            }
             loadRound(currentRound);
         }
+
+        /* ── 📚 로그인 학생의 교재/레벨 어휘 미리 로드 (시작 버튼은 로드 완료/타임아웃 전까지 비활성) ── */
+        let _studentVocab = null;
+        function _markVocabReady() {
+            const btn = document.getElementById('startBtn');
+            const label = document.getElementById('startBtnLabel');
+            if (btn) btn.disabled = false;
+            if (label) label.innerText = '수업 시작하기 (Start Class) 🚀';
+            const badge = document.getElementById('vocabBadge');
+            if (badge && _studentVocab && (_studentVocab.textbook || _studentVocab.level)) {
+                badge.textContent = '📚 ' + (_studentVocab.textbook || '') + (_studentVocab.level ? ' · ' + _studentVocab.level : '') + ' 맞춤 출제 중';
+                badge.classList.remove('hidden');
+            }
+        }
+        (function () {
+            let settled = false;
+            const finish = () => { if (!settled) { settled = true; _markVocabReady(); } };
+            if (window.MangoiGameVocab) {
+                MangoiGameVocab.load().then((d) => { _studentVocab = d; finish(); }).catch(finish);
+            } else {
+                finish();
+            }
+            setTimeout(finish, 2500);   // 네트워크가 느려도 2.5초 후엔 시작 가능(그 시점 자료로 진행)
+        })();
 
         function loadRound(roundNum) {
             selectedSuspectId = null;
@@ -750,7 +859,7 @@
             }, 6000);
         }
     </script>
-<!-- BUILD:20260704 suspect1 bigtext-faces1 -->
-<!-- BUILD:20260704183523 -->
+<!-- BUILD:20260704 suspect1 bigtext-faces1 vocabmatch1 -->
+<!-- BUILD:20260704184313 -->
 </body>
 </html>

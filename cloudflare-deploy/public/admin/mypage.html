@@ -1417,11 +1417,16 @@
   }
   function adviceCard(a, en){
     var adv = buildAdvice(a, en);
-    var items = adv.actions.map(function(t){ return '<li style="margin:7px 0;padding-left:4px">'+esc(t)+'</li>'; }).join('');
-    return '<div style="background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(16,185,129,0.04));border:1px solid rgba(16,185,129,0.4);border-radius:16px;padding:16px 18px;margin-top:16px">'
-      +'<div style="font-size:16px;font-weight:900;color:#34d399;margin-bottom:5px">🎯 '+(en?'Conclusion — what to do next':'결론 — 이렇게 해보세요')+'</div>'
-      +'<div style="font-size:15.5px;font-weight:800;color:var(--text-primary);margin-bottom:9px">'+esc(adv.conclusion)+'</div>'
-      +'<ul style="margin:0;padding-left:20px;font-size:15px;color:var(--text-secondary);line-height:1.6">'+items+'</ul></div>';
+    var items = adv.actions.map(function(t){
+      return '<div style="display:flex;align-items:flex-start;gap:9px;margin-top:9px">'
+        +'<span style="flex:none;width:20px;height:20px;border-radius:50%;background:#10b981;color:#031b12;font-size:12.5px;font-weight:900;display:flex;align-items:center;justify-content:center;line-height:1">✓</span>'
+        +'<span style="font-size:16px;font-weight:700;color:#ffffff;line-height:1.55">'+esc(t)+'</span>'
+        +'</div>';
+    }).join('');
+    return '<div style="background:linear-gradient(135deg,rgba(16,185,129,0.22),rgba(16,185,129,0.08));border:2px solid #10b981;border-radius:16px;padding:18px 20px;margin-top:16px;box-shadow:0 0 0 1px rgba(16,185,129,0.15)">'
+      +'<div style="font-size:17px;font-weight:900;color:#34d399;letter-spacing:-0.2px;margin-bottom:7px">🎯 '+(en?'Conclusion — what to do next':'결론 — 이렇게 해보세요')+'</div>'
+      +'<div style="font-size:19px;font-weight:900;color:#ffffff;line-height:1.4;margin-bottom:11px;text-shadow:0 1px 2px rgba(0,0,0,0.35)">'+esc(adv.conclusion)+'</div>'
+      +items+'</div>';
   }
 
   // ── 📋 성장 플랜 — 수정·보완·발전 (평가표 맨 마지막, 필수 표시) ──
@@ -1538,7 +1543,7 @@
       var fbSection = '<div style="margin-top:18px"><div style="font-size:16px;font-weight:800;color:var(--text-primary);margin-bottom:2px">💬 '+(en?'Student feedback':'학생 피드백')+' <span style="font-size:13.5px;color:var(--text-muted);font-weight:600">('+rows.length+')</span></div>'
         +'<div style="font-size:13px;color:var(--text-muted);margin-bottom:5px">'+(en?'Anonymous — you can’t see who wrote it, so students are honest.':'무기명이에요 — 누가 썼는지 알 수 없어 학생들이 솔직하게 남깁니다.')+'</div>'
         + fbCards + '</div>';
-      box.innerHTML = hero + insight + chart + adviceCard(a, en) + fbSection + growthPlanCard(a, en);
+      box.innerHTML = hero + insight + adviceCard(a, en) + chart + fbSection + growthPlanCard(a, en);
       // 자유 피드백 번역 (EN 일 때만)
       if (en){
         var fbNodes = Array.prototype.slice.call(box.querySelectorAll('[data-fb]'));

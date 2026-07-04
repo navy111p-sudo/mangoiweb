@@ -11291,13 +11291,18 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   }
   function adviceCard(a, EN, dark){
     var adv = buildAdvice(a, EN);
-    var txt = dark ? '#e6ecff' : '#111827';
-    var sub = dark ? '#cdd8ee' : '#374151';
-    var items = adv.actions.map(function(t){ return '<li style="margin:5px 0">'+esc(t)+'</li>'; }).join('');
-    return '<div style="background:'+(dark?'rgba(16,185,129,0.10)':'#ecfdf5')+';border:1px solid rgba(16,185,129,0.4);border-radius:10px;padding:11px 14px;margin-top:10px">'
-      +'<div style="font-size:12.5px;font-weight:900;color:#10b981;margin-bottom:3px">🎯 '+(EN?'Conclusion — what to do next':'결론 — 이렇게 해보세요')+'</div>'
-      +'<div style="font-size:12.5px;font-weight:800;color:'+txt+';margin-bottom:5px">'+esc(adv.conclusion)+'</div>'
-      +'<ul style="margin:0;padding-left:18px;font-size:12px;color:'+sub+';line-height:1.5">'+items+'</ul></div>';
+    var conclusionColor = dark ? '#ffffff' : '#052e21';
+    var itemColor = dark ? '#ffffff' : '#052e21';
+    var items = adv.actions.map(function(t){
+      return '<div style="display:flex;align-items:flex-start;gap:8px;margin-top:8px">'
+        +'<span style="flex:none;width:17px;height:17px;border-radius:50%;background:#10b981;color:'+(dark?'#031b12':'#ffffff')+';font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;line-height:1">✓</span>'
+        +'<span style="font-size:13.5px;font-weight:700;color:'+itemColor+';line-height:1.5">'+esc(t)+'</span>'
+        +'</div>';
+    }).join('');
+    return '<div style="background:'+(dark?'linear-gradient(135deg,rgba(16,185,129,0.22),rgba(16,185,129,0.08))':'linear-gradient(135deg,#d1fae5,#a7f3d0)')+';border:2px solid #10b981;border-radius:12px;padding:13px 15px;margin-top:10px">'
+      +'<div style="font-size:13.5px;font-weight:900;color:'+(dark?'#34d399':'#065f46')+';letter-spacing:-0.1px;margin-bottom:5px">🎯 '+(EN?'Conclusion — what to do next':'결론 — 이렇게 해보세요')+'</div>'
+      +'<div style="font-size:15px;font-weight:900;color:'+conclusionColor+';line-height:1.4;margin-bottom:8px">'+esc(adv.conclusion)+'</div>'
+      +items+'</div>';
   }
 
   // ── 📋 성장 플랜 — 수정·보완·발전 (평가표 맨 마지막, 필수 표시) ──
@@ -11364,9 +11369,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         + '</div>'
         + '<div style="font-size:11px;color:'+txtSub+';margin-top:2px">'+(EN?('Raw avg '+a.raw_avg.toFixed(1)+' · range '+a.min+'–'+a.max):('전체평균 '+a.raw_avg.toFixed(1)+' · 최저 '+a.min+' ~ 최고 '+a.max))+'</div>'
         + '<div style="font-size:12.5px;color:'+txtMain+';line-height:1.6;margin-top:8px;background:'+(dark?'rgba(251,191,36,0.08)':'#fffbeb')+';border-radius:8px;padding:8px 11px">💡 '+esc(analysisText(a, EN))+'</div>'
+        + adviceCard(a, EN, dark)
         + distChart(a.distribution, EN, dark)
         + (a.trend && a.trend.length>=2 ? '<div style="margin-top:8px"><div style="font-size:11px;color:'+txtSub+'">'+(EN?'Daily trend':'일자별 추이')+'</div>'+trendSpark(a.trend)+'</div>' : '')
-        + adviceCard(a, EN, dark)
         + growthPlanCard(a, EN, dark)
         + '</div>';
     }).catch(function(){ container.innerHTML=''; });
@@ -27887,7 +27892,7 @@ button.chip:hover,
     cursor: pointer; transition: filter .18s, transform .18s;
   }
   .ph85-classroom:hover { filter: brightness(1.08); transform: translateY(-1px); }
-  .ph85-classroom .ph85-title { flex: 1; color: #fff; font-weight: 800; font-size: 16px; }
+  .ph85-classroom .ph85-title { flex: 1; color: #fff; font-weight: 800; font-size: 18px; }
   .ph85-classroom .ph85-live {
     font-size: 9px; font-weight: 900; letter-spacing: 0.5px;
     background: #ef4444; color: #fff; padding: 2px 7px; border-radius: 99px;
@@ -27912,13 +27917,13 @@ button.chip:hover,
   }
   .ph85-head:hover { background: rgba(99,102,241,0.10); }
   .ph85-ico {
-    width: 34px; height: 34px;
+    width: 38px; height: 38px; flex-shrink: 0;
     border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 17px; color: #fff;
+    font-size: 19px; color: #fff;
   }
-  .ph85-title { flex: 1; font-size: 15px; font-weight: 700; }
-  .ph85-arrow { color: #94a3b8; font-size: 14px; transition: transform 0.4s; }
+  .ph85-title { flex: 1; font-size: 18px; font-weight: 800; }
+  .ph85-arrow { color: #94a3b8; font-size: 16px; transition: transform 0.4s; }
   .ph85-group.open .ph85-arrow { transform: rotate(90deg); color: #fbbf24; }
   .ph85-subs {
     max-height: 0;
@@ -27928,8 +27933,8 @@ button.chip:hover,
   }
   .ph85-group.open .ph85-subs { max-height: 760px; }
   .ph85-sub {
-    padding: 11px 14px 11px 56px;
-    cursor: pointer; color: #e2e8f0; font-size: 15.5px; font-weight: 700;
+    padding: 12px 14px 12px 60px;
+    cursor: pointer; color: #e2e8f0; font-size: 16.5px; font-weight: 700;
     letter-spacing: -0.2px;
     border-top: 1px solid rgba(255,255,255,0.04);
     display: flex; align-items: center;
