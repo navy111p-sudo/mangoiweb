@@ -1,10 +1,9 @@
 // 메인 페이지 - 수업 연기/변경 (학생/학부모 본인 수업)
+// ⚠️ window.openLessonChangeModal / window.tryLessonAction 의 최초 정의는 index.html의
+//    <script id="lesson-change-unify">(2026-06-08, 겹치던 옛 모달 대신 단일 페이지로 일원화)가
+//    항상 재정의하므로 여기서는 제거됨 — 아래는 그 일원화된 흐름이 실제로 호출하는
+//    시간/강사 선택 위저드(openLessonPickerModal 이하)만 남긴다.
 (function(){
-  var demoClasses = [
-    { id:'cls01', type:'1on1', teacher:'박지윤', students:[{name:'정우영',uid:'navy111p'}], dateOffset:1, hour:14, durationMin:60 },
-    { id:'cls02', type:'group', teacher:'이서연', students:[{name:'정우영',uid:'navy111p'},{name:'김민수',uid:'st02'}], dateOffset:2, hour:16, durationMin:40 },
-    { id:'cls03', type:'1on1', teacher:'Maria Santos', students:[{name:'정우영',uid:'navy111p'}], hourOffset:0.5, durationMin:60 }
-  ];
   function pad(n){return String(n).padStart(2,'0');}
   function getClassDateTime(c){
     // 1순위: 연기 후 저장된 절대 lessonDate + lessonHour
@@ -29,66 +28,6 @@
     return d.getFullYear()+'.'+pad(d.getMonth()+1)+'.'+pad(d.getDate())+
       ' ('+dow[d.getDay()]+') '+pad(d.getHours())+':'+pad(d.getMinutes());
   }
-  function minutesUntil(d){return (d - new Date())/60000;}
-  function escHtml(s){return String(s||'').replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});}
-
-  window.openLessonChangeModal = function(){
-    var L = (window.getLang?window.getLang():'ko')==='ko';
-    var overlay = document.getElementById('lc-overlay');
-    var items = demoClasses.map(function(c){
-      var dt = getClassDateTime(c);
-      var diffMin = minutesUntil(dt);
-      var typeLbl = c.type==='1on1' ? (L?'1대1':'1-on-1') : (L?'그룹':'Group');
-      var typeCls = c.type==='1on1' ? 't1on1' : 'group';
-      var students = c.students.map(function(s){return s.name;}).join(', ');
-      var timeLeft;
-      if(diffMin<0) timeLeft = L?'이미 시작/종료':'Past';
-      else if(diffMin<60) timeLeft = Math.round(diffMin)+(L?'분 남음':' min');
-      else if(diffMin<1440) timeLeft = Math.round(diffMin/60)+(L?'시간 남음':' h');
-      else timeLeft = Math.round(diffMin/1440)+(L?'일 남음':' d');
-      return '<div class="lc-item">'+
-        '<div class="lc-item-head">'+
-          '<div class="lc-item-title">'+(c.type==='1on1'?'🟣':'💗')+' '+escHtml(c.teacher)+'</div>'+
-          '<span class="lc-item-type '+typeCls+'">'+typeLbl+'</span>'+
-        '</div>'+
-        '<div class="lc-item-meta">'+
-          '📅 <b>'+fmtDateTime(dt)+'</b><br>'+
-          '⏰ '+timeLeft+' · '+c.durationMin+(L?'분':'min')+' / 👤 '+escHtml(students)+
-        '</div>'+
-        '<div class="lc-actions">'+
-          '<button class="lc-btn postpone" onclick="tryLessonAction(&quot;'+c.id+'&quot;,&quot;postpone&quot;)">📅 '+(L?'연기':'Postpone')+'</button>'+
-          '<button class="lc-btn change" onclick="tryLessonAction(&quot;'+c.id+'&quot;,&quot;change&quot;)">🔄 '+(L?'변경':'Change')+'</button>'+
-        '</div>'+
-      '</div>';
-    }).join('');
-    // 권한 우회 가능 여부 표시 (본사/강사 운영자 안내)
-    var bypassPostpone = (typeof hasUnlimitedLessonPermission==='function') && hasUnlimitedLessonPermission('postpone');
-    var bypassChange = (typeof hasUnlimitedLessonPermission==='function') && hasUnlimitedLessonPermission('change');
-    var roleNote = '';
-    if (bypassPostpone || bypassChange) {
-      var roleLbl = ((typeof getCurrentUser==='function')?(getCurrentUser()||{}):{}).role || localStorage.getItem('mangoi_user_role') || 'admin';
-      roleNote = '<div style="background:linear-gradient(135deg,rgba(16,185,129,.15),rgba(5,150,105,.10));border:1px solid rgba(16,185,129,.5);border-radius:8px;padding:8px 12px;margin-top:8px;font-size:11.5px;color:#a7f3d0">'+
-        '🔓 <b>'+(L?'관리자 권한 활성':'Admin Override Active')+'</b> ('+roleLbl+') — '+
-        (bypassPostpone&&bypassChange ? (L?'연기·변경 시간 제한 모두 우회':'Both rules bypassed')
-          : bypassPostpone ? (L?'연기 시간 제한 우회':'Postpone rule bypassed')
-          : (L?'변경 시간 제한 우회':'Change rule bypassed'))+
-      '</div>';
-    }
-    var html = '<div class="lc-modal" onclick="event.stopPropagation()">'+
-      '<div class="lc-head"><h2>📅 '+(L?'수업 연기 / 변경':'Postpone / Change')+'</h2>'+
-      '<button class="lc-close" onclick="closeLessonChangeModal()">✕</button></div>'+
-      '<div class="lc-body">'+
-        '<div class="lc-info">💡 <b>'+(L?'규정 안내':'Policy')+'</b><br>'+
-          '· '+(L?'<b>연기</b>: 수업 시작 <b>30분 전</b>까지 가능':'<b>Postpone</b>: up to 30 min before')+'<br>'+
-          '· '+(L?'<b>변경</b>: 수업 시작 <b>24시간 전</b>까지 가능':'<b>Change</b>: up to 24 h before')+
-          roleNote+
-        '</div>'+
-        '<div class="lc-list">'+(items||'<div class="lc-empty">'+(L?'예정된 수업이 없습니다.':'No upcoming classes.')+'</div>')+'</div>'+
-      '</div></div>';
-    overlay.innerHTML = html;
-    overlay.classList.add('show');
-
-  };
   window.closeLessonChangeModal = function(){
     var o=document.getElementById('lc-overlay');
     o.classList.remove('show');
@@ -112,47 +51,6 @@
       // hq_exec, hq_mgr, hq_teacher 에 대해 '✅' 면 우회
       return perm[role] === '✅';
     } catch(e) { console.warn('[perm] 권한 확인 실패:', e); return false; }
-  };
-
-  window.tryLessonAction = function(clsId, mode){
-    var L = (window.getLang?window.getLang():'ko')==='ko';
-    var c = demoClasses.find(function(x){return x.id===clsId;});
-    if(!c) return;
-    var dt = getClassDateTime(c);
-    var diffMin = minutesUntil(dt);
-    var minRequired = mode==='postpone' ? 30 : 1440;
-    // 🆕 본사/강사 등 권한 보유자는 시간 제한 우회 (단, 이미 시작된 수업은 제외)
-    var bypassByPerm = hasUnlimitedLessonPermission(mode);
-    if (bypassByPerm && diffMin > 0) {
-      // 권한 우회 — 시간 검사 건너뜀, 토스트로 안내
-      var roleLabel = ((typeof getCurrentUser==='function')?(getCurrentUser()||{}):{}).role || localStorage.getItem('mangoi_user_role') || 'admin';
-      console.log('[perm] 시간 제한 우회 — 역할:', roleLabel, '모드:', mode);
-      if (typeof showLcToast2 === 'function') {
-        showLcToast2('🔓 ' + (L?'관리자 권한 — 시간 제한 우회됨 ('+roleLabel+')':'Admin override — time limit bypassed ('+roleLabel+')'));
-      }
-      // 시간 검사 통과시켜 아래 정상 흐름 진행 (diffMin >= minRequired 처럼)
-      diffMin = minRequired;
-    }
-    if(diffMin < minRequired){
-      var title = mode==='postpone' ? (L?'연기할 수 없습니다':'Cannot Postpone') : (L?'변경할 수 없습니다':'Cannot Change');
-      var msg = mode==='postpone'
-        ? (L?'죄송합니다. 수업전 30분이 지나 연기할 수 없습니다.':'Sorry. Postponing is only allowed up to 30 minutes before class.')
-        : (L?'죄송합니다. 수업 전 24시간이 지나 변경하실 수 없습니다.':'Sorry. Changes are only allowed up to 24 hours before class.');
-      var detail = '📅 <b>'+fmtDateTime(dt)+'</b><br>'+
-        '⏰ '+(diffMin<0?(L?'이미 시작/종료된 수업':'Already started'):(Math.round(diffMin)+(L?'분 남음':' min left')))+'<br>'+
-        (L?'급한 경우 학원에 직접 연락 부탁드립니다.':'Please contact the center directly.');
-      var html = '<div class="lc-reject" onclick="event.stopPropagation()">'+
-        '<div class="lc-rej-ico">😔</div>'+
-        '<h3>'+title+'</h3>'+
-        '<p>'+msg+'</p>'+
-        '<div class="lc-rej-detail">'+detail+'</div>'+
-        '<button onclick="closeLessonChangeModal()">'+(L?'확인':'OK')+'</button>'+
-      '</div>';
-      document.getElementById('lc-overlay').innerHTML = html;
-      return;
-    }
-    // 통과 → 새 시간/강사 선택 위저드 열기
-    openLessonPickerModal(c, mode);
   };
 
   // ═══ 새 시간/강사 선택 위저드 ═══

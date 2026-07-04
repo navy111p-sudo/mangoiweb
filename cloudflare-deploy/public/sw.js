@@ -1,8 +1,8 @@
 // 🌐 Mangoi Service Worker — PWA 오프라인 캐시 + 빠른 로딩
 // 버전 갱신 시 CACHE_NAME 의 숫자만 바꾸면 모든 사용자에게 즉시 새 버전 전파
 
-const CACHE_NAME = 'mangoi-20260704211056-fresh';
-const RUNTIME_CACHE = 'mangoi-20260704211056-fresh-rt';
+const CACHE_NAME = 'mangoi-20260705000035-fresh';
+const RUNTIME_CACHE = 'mangoi-20260705000035-fresh-rt';
 
 // 첫 설치 때 미리 캐시할 핵심 자산 (필수 only — 너무 많으면 install 실패)
 const PRECACHE_URLS = [
@@ -42,7 +42,7 @@ self.addEventListener('activate', (event) => {
 //   - API 호출 (/api/*) : 네트워크 우선 (오프라인 시 캐시 fallback)
 //   - 화상수업 WebSocket (/ws/*) : 캐시 안 함
 //   - HTML 페이지 : 네트워크 우선 (오프라인 시 캐시된 / 반환)
-//   - 정적 자산 (이미지/JS/CSS) : 캐시 우선
+//   - 정적 자산 (이미지/JS/CSS) : 네트워크 우선 (배포 즉시 반영, 오프라인 시 캐시 fallback)
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -138,43 +138,6 @@ async function networkFirst(request, cacheName, timeoutMs) {
       status: 503,
       headers: { 'Content-Type': 'application/json' }
     });
-  }
-}
-
-// 캐시 우선 (없으면 네트워크 → 캐시 저장)
-async function cacheFirst(request, cacheName) {
-  const cache = await caches.open(cacheName);
-  const cached = await cache.match(request);
-  if (cached) {
-    // 백그라운드로 최신 fetch (stale-while-revalidate)
-    fetch(request).then(resp => {
-      if (resp && resp.ok) cache.put(request, resp.clone()).catch(()=>{});
-    }).catch(()=>{});
-    return cached;
-  }
-  try {
-    const resp = await fetch(request);
-    if (resp && resp.ok) cache.put(request, resp.clone()).catch(()=>{});
-    return resp;
-  } catch (e) {
-    // 네트워크 실패 — destination 에 맞는 빈 응답 (콘솔 빨간 에러 방지)
-    const dest = request.destination;
-    if (dest === 'image') {
-      // 1x1 투명 PNG
-      const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='), c => c.charCodeAt(0));
-      return new Response(png, { status: 200, headers: { 'Content-Type': 'image/png', 'Cache-Control': 'no-store' } });
-    }
-    if (dest === 'style') {
-      return new Response('/* sw offline */', { status: 200, headers: { 'Content-Type': 'text/css', 'Cache-Control': 'no-store' } });
-    }
-    if (dest === 'script') {
-      return new Response('/* sw offline */', { status: 200, headers: { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-store' } });
-    }
-    if (dest === 'font') {
-      return new Response('', { status: 200, headers: { 'Content-Type': 'font/woff2', 'Cache-Control': 'no-store' } });
-    }
-    // 그 외 — 빈 200 (콘솔 깔끔)
-    return new Response('', { status: 200, headers: { 'Cache-Control': 'no-store' } });
   }
 }
 

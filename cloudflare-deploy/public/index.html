@@ -1382,6 +1382,66 @@
         }
         .video-detach-btn:hover { background: rgba(37,99,235,0.85); }
 
+        /* 🌟 (2026-07-04) 실시간 칭찬 포인트 — 강사가 학생 화면 우상단 별 버튼을 눌러 즉석 +1P 지급 */
+        .vc-star-btn {
+            position: absolute; top: 6px; right: 6px; z-index: 6;
+            width: 30px; height: 30px; border-radius: 50%; border: none;
+            background: radial-gradient(circle at 35% 30%, #fff7cc, #fbbf24 55%, #d97706);
+            color: #7c2d12; font-size: 15px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 3px 10px rgba(251,191,36,0.55), 0 0 0 1px rgba(255,255,255,0.25) inset;
+            touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+            transition: transform 0.15s ease;
+        }
+        .vc-star-btn:hover { transform: scale(1.1); }
+        .vc-star-btn:active { transform: scale(0.9); }
+        .vc-star-btn.vc-star-cooldown { opacity: 0.45; cursor: default; filter: grayscale(0.6); }
+        @keyframes vcStarPop { 0%{transform:scale(1)} 35%{transform:scale(1.35) rotate(-12deg)} 100%{transform:scale(1) rotate(0)} }
+        .vc-star-btn.vc-star-pop { animation: vcStarPop 0.45s ease; }
+        .vc-star-toast {
+            position: absolute; top: -6px; right: 40px; z-index: 7;
+            background: rgba(15,23,42,0.92); color: #fde68a; font-size: 11px; font-weight: 700;
+            padding: 4px 9px; border-radius: 999px; white-space: nowrap;
+            opacity: 0; transform: translateY(4px); transition: opacity 0.2s, transform 0.2s;
+            pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+        }
+        .vc-star-toast.show { opacity: 1; transform: translateY(0); }
+
+        /* 🧺 학생 전용 — 이번 수업 받은 포인트 바구니 (본인 화면에만 표시) */
+        .vc-point-basket {
+            position: absolute; top: 6px; right: 6px; z-index: 6;
+            display: flex; align-items: center; gap: 4px;
+            background: linear-gradient(135deg, rgba(120,53,15,0.85), rgba(180,83,9,0.85));
+            border: 1px solid rgba(253,230,138,0.55);
+            border-radius: 999px; padding: 4px 10px 4px 6px;
+            color: #fde68a; font-size: 12px; font-weight: 800;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.35);
+            transition: transform 0.18s ease;
+        }
+        .vc-point-basket .vpb-icon { font-size: 15px; line-height: 1; }
+        .vc-point-basket.vpb-bump { animation: vpbBump 0.5s ease; }
+        @keyframes vpbBump { 0%{transform:scale(1)} 30%{transform:scale(1.3) rotate(-6deg)} 60%{transform:scale(0.95)} 100%{transform:scale(1)} }
+        .vpb-fly {
+            position: absolute; top: 4px; right: 10px; z-index: 8;
+            color: #fde68a; font-size: 13px; font-weight: 900; pointer-events: none;
+            text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+            animation: vpbFly 1s ease-out forwards;
+        }
+        @keyframes vpbFly {
+            0%   { opacity: 0; transform: translateY(6px) scale(0.7); }
+            20%  { opacity: 1; transform: translateY(-6px) scale(1.15); }
+            100% { opacity: 0; transform: translateY(-38px) scale(1); }
+        }
+        .vc-confetti-piece {
+            position: fixed; top: -12px; z-index: 99990; pointer-events: none;
+            font-size: 16px; will-change: transform, opacity;
+            animation: vcConfettiFall linear forwards;
+        }
+        @keyframes vcConfettiFall {
+            0%   { transform: translateY(0) translateX(0) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(112vh) translateX(var(--vc-confetti-drift, 0px)) rotate(540deg); opacity: 0; }
+        }
+
         /* 분리(팝아웃)된 비디오 — 화면 어디든 드래그 가능한 독립 창 */
         .video-box.detached {
             position: fixed;
@@ -8910,6 +8970,7 @@ async function vcJoinRoom(skipUI) {
         document.getElementById('vc-local-label').textContent = vcUsername + (currentLang==='ko'?' (나)':' (Me)');
         attachStreamMonitor(document.getElementById('vc-local-box'), vcLocalStream);
         vcAddDetachButton(document.getElementById('vc-local-box'));
+        try { vcEnsurePointBasket(); } catch(e){}
         vcUpdateGridCount();
         const vCount = vcLocalStream.getVideoTracks().length;
         const aCount = vcLocalStream.getAudioTracks().length;
@@ -8932,6 +8993,7 @@ async function vcJoinRoom(skipUI) {
             document.getElementById('vc-local-label').textContent = vcUsername + (currentLang==='ko'?' (나)':' (Me)');
             attachStreamMonitor(document.getElementById('vc-local-box'), vcLocalStream);
             vcAddDetachButton(document.getElementById('vc-local-box'));
+            try { vcEnsurePointBasket(); } catch(e){}
             vcUpdateGridCount();
             console.log('[vc] 오디오만 접근 성공');
             vcShowLocalPlaceholder('camera-fail', msg);
@@ -9287,6 +9349,25 @@ function vcHandleMessage(msg) {
         // 채팅
         case 'chat-message':
             vcReceiveChat(msg.data);
+            break;
+
+        // 🌟 실시간 칭찬 포인트 — 브로드캐스트 후 대상 학생 본인만 반응
+        case 'point-award':
+            if (msg.data && msg.data.targetUserId === vcUserId) {
+                vcCelebratePoint(msg.data.awardId, msg.data.fromName);
+            }
+            break;
+        case 'point-award-ack':
+            try {
+                var _ackToast = window._vcPendingAwards && window._vcPendingAwards[msg.data.awardId];
+                if (_ackToast) {
+                    if (msg.data.ok) vcShowStarToast(_ackToast, '⭐ +1P 전달완료!');
+                    else if (msg.data.error === 'cooldown') vcShowStarToast(_ackToast, '잠깐만요, 쿨다운 중');
+                    else if (msg.data.error === 'daily_cap_reached') vcShowStarToast(_ackToast, '오늘 한도 도달');
+                    else vcShowStarToast(_ackToast, '전달 실패 :(');
+                    delete window._vcPendingAwards[msg.data.awardId];
+                }
+            } catch(e){}
             break;
 
         // 칠판
@@ -9709,6 +9790,131 @@ function vcAddRemoteVideo(userId, username, stream) {
     });
     attachStreamMonitor(box, stream);
     vcAddDetachButton(box);
+    try { vcAddStarButton(box, userId); } catch(e){}
+}
+
+// 🌟 (2026-07-04) 실시간 칭찬 포인트 — 강사 화면에서만, 학생(원격) 비디오 박스마다 별 버튼을 붙임
+function vcIsTeacherRole(){
+    try { var r = pdfMyIdentity().role; return r === 'teacher' || r === 'admin'; } catch(e){ return false; }
+}
+function vcAddStarButton(box, targetUserId){
+    if (!box || !vcIsTeacherRole() || box.querySelector('.vc-star-btn')) return;
+    const btn = document.createElement('button');
+    btn.className = 'vc-star-btn';
+    btn.type = 'button';
+    btn.title = '잘했어요! 포인트 주기';
+    btn.innerHTML = '⭐';
+    const toast = document.createElement('span');
+    toast.className = 'vc-star-toast';
+    box.style.position = box.style.position || 'relative';
+    btn.addEventListener('click', (e) => { e.stopPropagation(); vcAwardPoint(targetUserId, btn, toast); });
+    box.appendChild(btn);
+    box.appendChild(toast);
+}
+function vcShowStarToast(toast, text){
+    if (!toast) return;
+    toast.textContent = text;
+    toast.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => toast.classList.remove('show'), 1600);
+}
+// 강사가 별 버튼 클릭 → 대상 학생에게만 실시간 신호 전송(브로드캐스트 + targetUserId 필터링).
+//   실제 포인트 적립은 "받는 쪽(학생 본인 브라우저)"이 자기 uid로 직접 호출 — 강사 쪽에서
+//   학생 계정 uid 를 알 필요가 없어 통화 시그널링 구조를 안 건드리고 안전하게 구현.
+function vcAwardPoint(targetUserId, btn, toast){
+    if (btn && btn.classList.contains('vc-star-cooldown')) return;
+    const awardId = 'pt_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7);
+    try { vcConn && vcConn.send({ type: 'point-award', data: { targetUserId, awardId, fromName: vcUsername || '선생님' } }); } catch(e){}
+    if (btn){
+        btn.classList.add('vc-star-pop');
+        setTimeout(() => btn.classList.remove('vc-star-pop'), 460);
+        btn.classList.add('vc-star-cooldown');
+        setTimeout(() => btn.classList.remove('vc-star-cooldown'), 3200);
+    }
+    vcShowStarToast(toast, '⭐ 전송 중…');
+    window._vcPendingAwards = window._vcPendingAwards || {};
+    window._vcPendingAwards[awardId] = toast;
+}
+
+// 🧺 (2026-07-04) 학생 화면 전용 — 이번 수업에서 받은 포인트 바구니 (본인 로컬 비디오 박스에 표시)
+window._vcSessionPoints = window._vcSessionPoints || 0;
+function vcEnsurePointBasket(){
+    if (vcIsTeacherRole()) return null; // 선생님 화면엔 표시 안 함
+    const box = document.getElementById('vc-local-box');
+    if (!box) return null;
+    let basket = box.querySelector('.vc-point-basket');
+    if (basket) return basket;
+    box.style.position = box.style.position || 'relative';
+    basket = document.createElement('div');
+    basket.className = 'vc-point-basket';
+    basket.title = '이번 수업에서 받은 포인트';
+    basket.innerHTML = '<span class="vpb-icon">🧺</span><span class="vpb-count">0</span>';
+    box.appendChild(basket);
+    return basket;
+}
+function vcSpawnConfetti(box){
+    if (!box) return;
+    const colors = ['#fbbf24','#f472b6','#60a5fa','#34d399','#a78bfa'];
+    const rect = box.getBoundingClientRect();
+    for (let i = 0; i < 14; i++){
+        const piece = document.createElement('span');
+        piece.className = 'vc-confetti-piece';
+        piece.textContent = ['⭐','🎉','✨'][i % 3];
+        piece.style.left = (rect.left + rect.width * Math.random()) + 'px';
+        piece.style.color = colors[i % colors.length];
+        piece.style.setProperty('--vc-confetti-drift', (Math.random()*80-40) + 'px');
+        piece.style.animationDuration = (0.9 + Math.random()*0.6) + 's';
+        document.body.appendChild(piece);
+        setTimeout(() => piece.remove(), 1700);
+    }
+}
+// 코인 획득 같은 경쾌한 2음 상승 차임(비프보다 화사하게)
+function vcPlayPointChime(){
+    try {
+        const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+        const ac = new AC();
+        [880, 1318.5].forEach((freq, i) => {
+            const o = ac.createOscillator(), g = ac.createGain();
+            o.type = 'sine'; o.frequency.value = freq;
+            o.connect(g); g.connect(ac.destination);
+            const t0 = ac.currentTime + i * 0.09;
+            g.gain.setValueAtTime(0.0001, t0);
+            g.gain.exponentialRampToValueAtTime(0.28, t0 + 0.02);
+            g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.32);
+            o.start(t0); o.stop(t0 + 0.34);
+        });
+    } catch(e){}
+}
+// 학생 본인 화면에서: 신호 수신 → 자기 계정 uid로 포인트 적립 API 직접 호출 + 축하 연출
+function vcCelebratePoint(awardId, fromName){
+    const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+    const basket = vcEnsurePointBasket();
+    vcPlayPointChime();
+    const localBox = document.getElementById('vc-local-box');
+    vcSpawnConfetti(localBox);
+    if (basket){
+        basket.classList.add('vpb-bump');
+        setTimeout(() => basket.classList.remove('vpb-bump'), 520);
+        const fly = document.createElement('span');
+        fly.className = 'vpb-fly';
+        fly.textContent = '+1';
+        localBox.appendChild(fly);
+        setTimeout(() => fly.remove(), 1050);
+    }
+    if (!u || !u.uid) { console.warn('[point-award] 로그인 정보 없음 — 로컬 연출만 표시'); return; }
+    fetch('/api/points/earn-by-rule', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: u.uid, student_name: u.name || vcUsername, rule_code: 'teacher_praise_point', meta: { room: vcRoomId, awardId, from: fromName } })
+    }).then(r => r.json()).then(d => {
+        if (d.ok) {
+            window._vcSessionPoints = (window._vcSessionPoints || 0) + (d.rule?.amount || 1);
+            if (basket) { const c = basket.querySelector('.vpb-count'); if (c) c.textContent = String(window._vcSessionPoints); }
+        }
+        try { vcConn && vcConn.send({ type: 'point-award-ack', data: { awardId, ok: !!d.ok, error: d.error } }); } catch(e){}
+        if (typeof refreshPointsChip === 'function') refreshPointsChip(true);
+    }).catch(() => {
+        try { vcConn && vcConn.send({ type: 'point-award-ack', data: { awardId, ok: false, error: 'network' } }); } catch(e){}
+    });
 }
 
 /** 비디오 박스에 '분리/복귀' 버튼 + 드래그 기능 부여 */
@@ -22995,7 +23201,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260704211056 -->
+<!-- BUILD:20260705000035 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -25289,7 +25495,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   DATA.forEach(function(d){ if(cats.indexOf(d.c)<0) cats.push(d.c); CE[d.c]=d.ce; });
   var curCat='*', curQ='';
 
-  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
   function catLabel(c){ return c==='*' ? T().all : (lang()==='en' ? (CE[c]||c) : c); }
 
   function build(){

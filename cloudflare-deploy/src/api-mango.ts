@@ -11,6 +11,7 @@ import { processAiCommand, executeAction, processStudentCommand } from './ai-com
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프 학생 명부
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance } from './cafe24-sync';  // 🔄 카페24→D1 동기화 모듈
 import { scopeFragments, studentScopeWhere, getScope } from './scope';
+import { checkAdminSession } from './auth-admin';
 import { applyPIIScope, canViewPII, maskRecordPII, isMaskedValue } from './pii-mask';  // 🔒 PII 권한별 마스킹
 import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook, type GiftishowEnv } from './giftishow-client';
 import {
@@ -1765,8 +1766,10 @@ export async function handleMangoApi(
       const name = body?.name || '';
       const args = body?.args || {};
       if (!name) return json({ ok: false, error: 'name_required' }, 400);
-      // adminUserId 는 세션쿠키 미들웨어에서 헤더로 주입되거나 미상이면 null
-      const adminUserId = request.headers.get('x-admin-user-id') || null;
+      // 🔒 adminUserId 는 감사로그(created_by/by) 귀속용 — 클라이언트가 임의로 보낼 수 있는
+      //   x-admin-user-id 헤더 대신, 세션쿠키에서 검증된 실제 로그인 사용자로 고정한다.
+      const _aiSess = await checkAdminSession(request, env as any);
+      const adminUserId = _aiSess.ok ? (_aiSess.username || null) : null;
       const result = await executeAction(env, name, args, adminUserId);
       return json(result, result.ok === false ? 400 : 200);
     }
@@ -2340,6 +2343,11 @@ export async function handleMangoApi(
       const userId = (body.user_id || '').trim();
       const ruleCode = (body.rule_code || '').trim();
       if (!userId || !ruleCode) return json({ ok: false, error: 'user_id_and_rule_required' }, 400);
+      // 🌟 실시간 수업 중 강사가 즉석으로 칭찬 포인트를 주는 기능 — 규칙 자동 시드(없을 때만).
+      //   1점 · 학생당 3초 쿨다운(연타 방지) · 하루 40회 한도.
+      if (ruleCode === 'teacher_praise_point') {
+        await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES ('teacher_praise_point','선생님 칭찬 포인트',1,3,40,1,'실시간 수업 중 선생님이 잘한 답변에 즉석 지급',?) ON CONFLICT(code) DO NOTHING`).bind(Date.now()).run();
+      }
       const rule: any = await env.DB.prepare(`SELECT * FROM point_rules WHERE code=? AND enabled=1`).bind(ruleCode).first();
       if (!rule) return json({ ok: false, error: 'rule_not_found_or_disabled', code: ruleCode }, 404);
       // 쿨다운 검사
