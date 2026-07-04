@@ -481,16 +481,37 @@ export default {
       return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' } });
     }
     if (path === '/api/ops-tts' && request.method === 'POST') {
+      const ttsHeaders = { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' };
       try {
         const reqBody = await request.text();
-        const up = await fetch('https://mangoi-ai-avatar-cf.navy111p.workers.dev/api/tts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: reqBody,
-        });
-        if (!up.ok || !up.body) return new Response('tts_upstream_' + up.status, { status: 502 });
-        const ct = up.headers.get('Content-Type') || 'audio/mpeg';
-        return new Response(up.body, { status: 200, headers: { 'Content-Type': ct, 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
+        let ttsText = '';
+        try { ttsText = String((JSON.parse(reqBody || '{}') || {}).text || ''); } catch { ttsText = ''; }
+
+        // 1순위: 아바타 Worker(Typecast) 한국어 음성 — 크레딧 소진/장애 시 아래 폴백으로 넘어감
+        try {
+          const up = await fetch('https://mangoi-ai-avatar-cf.navy111p.workers.dev/api/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: reqBody,
+          });
+          if (up.ok && up.body) {
+            const ct = up.headers.get('Content-Type') || 'audio/mpeg';
+            return new Response(up.body, { status: 200, headers: { ...ttsHeaders, 'Content-Type': ct } });
+          }
+        } catch (_) { /* 폴백으로 진행 */ }
+
+        // 2순위(폴백): Google 번역 TTS — 무료·무키. Typecast 크레딧이 없어도 항상 소리가 나도록 보장.
+        //   (요청당 ~200자 제한이 있어 안내문 길면 잘릴 수 있으나, '무음'보다 낫다)
+        if (ttsText) {
+          const q = encodeURIComponent(ttsText.slice(0, 200));
+          const g = await fetch(`https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ko&q=${q}`, {
+            headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://translate.google.com/' },
+          });
+          if (g.ok && g.body) {
+            return new Response(g.body, { status: 200, headers: ttsHeaders });
+          }
+        }
+        return new Response('tts_all_failed', { status: 502 });
       } catch (e: any) {
         return new Response('tts_proxy_error: ' + (e?.message || ''), { status: 502 });
       }

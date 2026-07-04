@@ -8415,6 +8415,13 @@ if (typeof _origShowView_vc === 'function') {
       if (sp.get('vc_autojoin') !== '1') return;
       var room = sp.get('vc_room') || 'mangoi-class';
       var name = sp.get('vc_name') || '교사';
+      // 🌟 (2026-07-05) 역할 명시 — 관리자 임베드 URL 에 &vc_role=teacher 를 붙이면 확정적으로 강사로 입장.
+      //   (없으면 vcIsTeacherRole 의 이름 휴리스틱이 백업으로 동작)
+      var role = (sp.get('vc_role') || '').trim().toLowerCase();
+      if (role === 'teacher' || role === 'admin' || role === 'student') {
+        window.vcMyRole = role;
+        try { localStorage.setItem('mangoi_user_role', role); } catch(e){}
+      }
       (function tryJoin(attempt){
         if (typeof showView !== 'function') { if (attempt < 40) return setTimeout(function(){ tryJoin(attempt+1); }, 150); return; }
         try { showView('view-videocall-lobby'); } catch(_){}
@@ -8981,7 +8988,7 @@ async function vcJoinRoom(skipUI) {
         document.getElementById('vc-local-label').textContent = vcUsername + (currentLang==='ko'?' (나)':' (Me)');
         attachStreamMonitor(document.getElementById('vc-local-box'), vcLocalStream);
         vcAddDetachButton(document.getElementById('vc-local-box'));
-        try { vcEnsurePointBasket(); } catch(e){}
+        try { vcRefreshPraiseUI(); } catch(e){}
         vcUpdateGridCount();
         const vCount = vcLocalStream.getVideoTracks().length;
         const aCount = vcLocalStream.getAudioTracks().length;
@@ -9004,7 +9011,7 @@ async function vcJoinRoom(skipUI) {
             document.getElementById('vc-local-label').textContent = vcUsername + (currentLang==='ko'?' (나)':' (Me)');
             attachStreamMonitor(document.getElementById('vc-local-box'), vcLocalStream);
             vcAddDetachButton(document.getElementById('vc-local-box'));
-            try { vcEnsurePointBasket(); } catch(e){}
+            try { vcRefreshPraiseUI(); } catch(e){}
             vcUpdateGridCount();
             console.log('[vc] 오디오만 접근 성공');
             vcShowLocalPlaceholder('camera-fail', msg);
@@ -9805,15 +9812,30 @@ function vcAddRemoteVideo(userId, username, stream) {
 }
 
 // 🌟 (2026-07-04) 실시간 칭찬 포인트 — 강사 화면에서만, 학생(원격) 비디오 박스마다 별 버튼을 붙임
+// 🔧 (2026-07-05) 강사 판별 강화 — 로그인 role 뿐 아니라 URL 파라미터(vc_role), localStorage,
+//   MangoV3, 그리고 자동입장처럼 로그인이 없을 때를 대비해 '이름 휴리스틱(교사/강사/선생님/teacher)'
+//   까지 함께 본다. 하나라도 강사로 판단되면 강사 UI(별 버튼)를 보여준다.
 function vcIsTeacherRole(){
-    try { var r = pdfMyIdentity().role; return r === 'teacher' || r === 'admin'; } catch(e){ return false; }
+    try {
+        var r = '';
+        try { var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null; if (u && u.role) r = u.role; } catch(e){}
+        if (!r) { try { r = localStorage.getItem('mangoi_user_role') || ''; } catch(e){} }
+        if (!r) { try { if (window.MangoV3 && window.MangoV3.user && window.MangoV3.user.role) r = window.MangoV3.user.role; } catch(e){} }
+        if (!r) r = window.vcMyRole || '';
+        if (r === 'teacher' || r === 'admin') return true;
+        // 로그인 없이 자동입장한 경우: 이름에 교사/강사/선생님/teacher 등이 있으면 강사로 간주
+        var name = ((typeof vcUsername !== 'undefined' && vcUsername) || '') + '';
+        if (/교사|강사|선생님|teacher|tutor/i.test(name)) return true;
+    } catch(e){}
+    return false;
 }
 function vcAddStarButton(box, targetUserId){
     if (!box || !vcIsTeacherRole() || box.querySelector('.vc-star-btn')) return;
     const btn = document.createElement('button');
     btn.className = 'vc-star-btn';
     btn.type = 'button';
-    btn.title = '잘했어요! 포인트 주기';
+    btn.title = '⭐ 칭찬 포인트 주기 — 학생이 잘했을 때 누르면 +1P';
+    btn.setAttribute('aria-label', '학생에게 칭찬 포인트 주기');
     btn.innerHTML = '⭐';
     const toast = document.createElement('span');
     toast.className = 'vc-star-toast';
@@ -9822,6 +9844,32 @@ function vcAddStarButton(box, targetUserId){
     box.appendChild(btn);
     box.appendChild(toast);
 }
+// 🔁 (2026-07-05) 역할이 늦게 정해지거나 박스가 먼저 생겨도 항상 맞도록 —
+//   강사면: 내 박스의 바구니 제거 + 모든 원격(학생) 박스에 별 버튼. 학생이면: 별 제거 + 내 박스에 바구니.
+function vcRefreshPraiseUI(){
+    try {
+        var teacher = vcIsTeacherRole();
+        var localBox = document.getElementById('vc-local-box');
+        if (teacher) {
+            // 강사 본인 화면엔 바구니 X
+            if (localBox) { var lb = localBox.querySelector('.vc-point-basket'); if (lb) lb.remove(); }
+            // 학생(원격) 박스마다 별 버튼
+            document.querySelectorAll('#vc-video-grid .video-box').forEach(function(box){
+                if (box.id === 'vc-local-box') return;
+                var uid = (box.id || '').replace('vc-video-', '');
+                if (uid) vcAddStarButton(box, uid);
+            });
+        } else {
+            // 학생: 별 버튼 제거 + 내 박스에 바구니
+            document.querySelectorAll('.vc-star-btn, .vc-star-toast').forEach(function(el){ el.remove(); });
+            vcEnsurePointBasket();
+        }
+    } catch(e){}
+}
+// 안전장치: 수업 중일 때 2초마다 칭찬 UI를 상태에 맞게 재정렬(늦은 role/박스 생성 대비)
+setInterval(function(){
+    try { if (document.body && document.body.classList.contains('vc-in-call')) vcRefreshPraiseUI(); } catch(e){}
+}, 2000);
 function vcShowStarToast(toast, text){
     if (!toast) return;
     toast.textContent = text;
@@ -9858,7 +9906,8 @@ function vcEnsurePointBasket(){
     box.style.position = box.style.position || 'relative';
     basket = document.createElement('div');
     basket.className = 'vc-point-basket';
-    basket.title = '이번 수업에서 받은 포인트';
+    basket.title = '🧺 내 포인트 바구니 — 이번 수업에서 선생님께 받은 칭찬 포인트';
+    basket.setAttribute('aria-label', '내 포인트 바구니');
     basket.innerHTML = '<span class="vpb-icon">🧺</span><span class="vpb-count">0</span>';
     box.appendChild(basket);
     return basket;
@@ -23197,7 +23246,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260705003406 -->
+<!-- BUILD:20260705004211 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
