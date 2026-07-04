@@ -1969,6 +1969,7 @@
     }
 
     // 3) 카드 렌더 (날짜순 desc — 백엔드에서 이미 정렬됨)
+    const safe = (s) => String(s || '').replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[ch]));
     body.innerHTML = rows.map((r, idx) => `
       <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(251,191,36,0.2);border-radius:12px;padding:12px;margin-bottom:8px;display:grid;grid-template-columns:60px 1fr auto;gap:12px;align-items:center;cursor:${r.playable?'pointer':'default'};transition:transform .15s,box-shadow .15s"
            ${r.playable ? `onclick="window.playRecording${idx}&&window.playRecording${idx}()"` : ''}
@@ -1976,9 +1977,9 @@
            onmouseout="this.style.transform='';this.style.boxShadow=''">
         <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:8px;height:54px;display:flex;align-items:center;justify-content:center;font-size:24px">${r.playable?'▶️':'⏳'}</div>
         <div>
-          <div style="color:#fbbf24;font-size:11px;font-weight:700">${r.date}${r.time_range ? ' <span style=\"color:#fcd34d;font-weight:600\">' + r.time_range + '</span>' : ''} · ${r.duration}</div>
-          <div style="color:#fff;font-size:13px;font-weight:700;margin:2px 0">${r.topic}</div>
-          <div style="color:#94a3b8;font-size:11px">강사: ${r.teacher} · ${r.size}${r.playable ? ' · <span style=\"color:#10b981\">● 재생 가능</span>' : ' · <span style=\"color:#f59e0b\">⏳ 업로드 진행 중</span>'}</div>
+          <div style="color:#fbbf24;font-size:11px;font-weight:700">${safe(r.date)}${r.time_range ? ' <span style=\"color:#fcd34d;font-weight:600\">' + safe(r.time_range) + '</span>' : ''} · ${safe(r.duration)}</div>
+          <div style="color:#fff;font-size:13px;font-weight:700;margin:2px 0">${safe(r.topic)}</div>
+          <div style="color:#94a3b8;font-size:11px">강사: ${safe(r.teacher)} · ${safe(r.size)}${r.playable ? ' · <span style=\"color:#10b981\">● 재생 가능</span>' : ' · <span style=\"color:#f59e0b\">⏳ 업로드 진행 중</span>'}</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;pointer-events:none">
           <span style="padding:7px 12px;background:linear-gradient(135deg,${r.playable?'#fbbf24,#f59e0b':'#475569,#334155'});border-radius:6px;color:${r.playable?'#1a0f08':'#94a3b8'};font-size:11px;font-weight:800;text-align:center">▶ 시청</span>

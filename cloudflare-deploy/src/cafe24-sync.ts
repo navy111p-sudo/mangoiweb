@@ -134,18 +134,36 @@ export async function importCafe24Attendance(
      ORDER BY c.class_id SKIP $off LIMIT $lim`,
     params, 'READ');
   const ins = env.DB.prepare(
-    `INSERT INTO attendance (room_id, user_id, role, joined_at, left_at, status, date, total_session_ms)
-     VALUES (?, ?, 'student', ?, ?, ?, ?, ?)`);
+    `INSERT INTO attendance (room_id, user_id, username, role, joined_at, left_at, status, date, total_session_ms)
+     VALUES (?, ?, ?, 'student', ?, ?, ?, ?, ?)`);
+  // 🔒 username 조회용 캐시 — nightlyCafe24Refresh 순서상 students_erp 는 attendance 보다 먼저 동기화된다.
+  const nameCache = new Map<string, string | null>();
+  async function nameFor(uid: string): Promise<string | null> {
+    if (nameCache.has(uid)) return nameCache.get(uid)!;
+    let name: string | null = null;
+    try {
+      const row = await env.DB.prepare(
+        `SELECT korean_name FROM students_erp WHERE user_id = ? LIMIT 1`
+      ).bind(uid).first<{ korean_name: string }>();
+      name = row?.korean_name || null;
+    } catch { /* students_erp 미존재 시 username=null 로 계속 진행 */ }
+    nameCache.set(uid, name);
+    return name;
+  }
   let imported = 0;
   for (let i = 0; i < values.length; i += 400) {
     const rows = rowsToObjects(fields, values.slice(i, i + 400));
-    await env.DB.batch(rows.map(r => {
+    const stmts = [];
+    for (const r of rows) {
       const start = Number(r.start_ms) || 0;
       const end = Number(r.end_ms) || 0;
       // ClassState 2 = 수업 완료(출석) / 1 = 예정·미실시
       const status = Number(r.class_state) === 2 ? 'present' : 'scheduled';
-      return ins.bind(`c24-${r.class_id}`, String(r.user_id ?? ''), start || null, end || null, status, r.date || null, end > start ? end - start : 0);
-    }));
+      const uid = String(r.user_id ?? '');
+      const username = await nameFor(uid);
+      stmts.push(ins.bind(`c24-${r.class_id}`, uid, username, start || null, end || null, status, r.date || null, end > start ? end - start : 0));
+    }
+    await env.DB.batch(stmts);
     imported += Math.min(400, values.length - i);
   }
   return { imported, done: values.length < lim };

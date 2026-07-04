@@ -994,6 +994,15 @@ export async function executeAction(
       if (c.time) { where.push('start_time = ?'); binds.push(c.time); }
       if (c.date_from) { where.push('(scheduled_date IS NULL OR scheduled_date >= ?)'); binds.push(c.date_from); }
       if (c.date_to) { where.push('(scheduled_date IS NULL OR scheduled_date <= ?)'); binds.push(c.date_to); }
+      if (c.teacher_name) {
+        // teacher_name 으로 teacher_id 찾고 그것으로 필터 (누락 시 다른 강사 수업까지 일괄 변경되는 사고 방지)
+        const tName = String(c.teacher_name).trim().replace(/(선생님?|쌤)$/, '').trim();
+        const teacher = await env.DB.prepare(
+          `SELECT id FROM teachers WHERE name = ? OR name LIKE ? LIMIT 1`
+        ).bind(tName, '%'+tName+'%').first<any>();
+        if (!teacher?.id) return { ok: false, error: 'teacher_not_found', teacher_name: c.teacher_name };
+        where.push('teacher_id = ?'); binds.push(String(teacher.id));
+      }
 
       const sel = await env.DB.prepare(
         `SELECT id, user_id, student_name, day_of_week, scheduled_date, start_time, class_type FROM class_schedules WHERE ${where.join(' AND ')} LIMIT 200`

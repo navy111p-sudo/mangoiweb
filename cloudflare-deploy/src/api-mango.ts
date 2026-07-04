@@ -2710,15 +2710,16 @@ export async function handleMangoApi(
         }
       }
 
+      // finalStatus==='failed' 는 발송도 환불도 실패한 최악의 경우(포인트 소진 + 선물 미발송) — ok:false 로 명확히 알림
       return json({
-        ok: true,
+        ok: finalStatus !== 'failed',
         redemption_id: redemptionId,
         status: finalStatus,
         balance_after: spendTxn.newBalance,
         message: responseMessage,
         send_mode: mode,
         gift: { brand: item.brand, name: item.name, face_value: item.face_value, point_price: item.point_price },
-      });
+      }, finalStatus === 'failed' ? 502 : 200);
     }
 
     // ── GET /api/gifts/redemptions?uid=xxx — 학생 본인 교환 내역 ──
@@ -4682,7 +4683,30 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         try { await env.DB.exec(`ALTER TABLE inquiries ADD COLUMN ${colDef}`); } catch {}
       }
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_inq_status ON inquiries(status, created_at DESC)`); } catch {}
+      try { await env.DB.exec(`ALTER TABLE inquiries ADD COLUMN email TEXT`); } catch {}
+      try { await env.DB.exec(`ALTER TABLE inquiries ADD COLUMN program TEXT`); } catch {}
     };
+
+    // ── POST /api/student/inquiry — 홈 화면 "신규상담" 모달의 공개 제출 엔드포인트 ──
+    //   body: { name, contact, email?, program?, message } → inquiries 테이블(관리자 /api/admin/inquiry/* 가 이미 조회)
+    if (method === 'POST' && path === '/api/student/inquiry') {
+      await ensureInquiryColumns();
+      const body: any = await request.json().catch(() => ({}));
+      const name = String(body?.name || '').trim().slice(0, 60);
+      const contact = String(body?.contact || '').trim().slice(0, 40);
+      const email = String(body?.email || '').trim().slice(0, 120);
+      const program = String(body?.program || '').trim().slice(0, 60);
+      const message = String(body?.message || '').trim().slice(0, 2000);
+      if (!name || !contact || !message) {
+        return json({ ok: false, error: 'name, contact, message 는 필수입니다.' }, 400);
+      }
+      const now = Date.now();
+      const ins = await env.DB.prepare(
+        `INSERT INTO inquiries (name, phone, email, program, message, status, source, created_at) VALUES (?, ?, ?, ?, ?, 'new', 'index.html', ?)`
+      ).bind(name, contact, email || null, program || null, message, now).run();
+      const inquiryId = ins.meta?.last_row_id;
+      return json({ ok: true, inquiry_id: inquiryId });
+    }
 
     // ── GET /api/admin/inquiry/list?status=&limit= — 상담 목록 ──
     if (method === 'GET' && path === '/api/admin/inquiry/list') {
