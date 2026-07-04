@@ -1382,9 +1382,11 @@
         }
         .video-detach-btn:hover { background: rgba(37,99,235,0.85); }
 
-        /* 🌟 (2026-07-04) 실시간 칭찬 포인트 — 강사가 학생 화면 우상단 별 버튼을 눌러 즉석 +1P 지급 */
+        /* 🌟 (2026-07-04) 실시간 칭찬 포인트 — 강사가 학생 화면의 별 버튼을 눌러 즉석 +1P 지급
+           🔧 (2026-07-05) 위치 이동: 우상단은 다른 배지와 겹칠 수 있어, 하단 상태표시(.video-status)
+           바로 위 우측으로 옮겨 항상 분리되어 보이게 함(좌상단 분리버튼과도 반대쪽이라 안전). */
         .vc-star-btn {
-            position: absolute; top: 6px; right: 6px; z-index: 6;
+            position: absolute; bottom: 34px; right: 6px; z-index: 6;
             width: 30px; height: 30px; border-radius: 50%; border: none;
             background: radial-gradient(circle at 35% 30%, #fff7cc, #fbbf24 55%, #d97706);
             color: #7c2d12; font-size: 15px; cursor: pointer;
@@ -1399,7 +1401,7 @@
         @keyframes vcStarPop { 0%{transform:scale(1)} 35%{transform:scale(1.35) rotate(-12deg)} 100%{transform:scale(1) rotate(0)} }
         .vc-star-btn.vc-star-pop { animation: vcStarPop 0.45s ease; }
         .vc-star-toast {
-            position: absolute; top: -6px; right: 40px; z-index: 7;
+            position: absolute; bottom: 40px; right: 40px; z-index: 7;
             background: rgba(15,23,42,0.92); color: #fde68a; font-size: 11px; font-weight: 700;
             padding: 4px 9px; border-radius: 999px; white-space: nowrap;
             opacity: 0; transform: translateY(4px); transition: opacity 0.2s, transform 0.2s;
@@ -1407,9 +1409,10 @@
         }
         .vc-star-toast.show { opacity: 1; transform: translateY(0); }
 
-        /* 🧺 학생 전용 — 이번 수업 받은 포인트 바구니 (본인 화면에만 표시) */
+        /* 🧺 학생 전용 — 이번 수업 받은 포인트 바구니 (본인 화면에만 표시)
+           🔧 (2026-07-05) 우상단 다른 배지와 겹치던 문제 — 별 버튼과 같은 위치 규칙으로 이동. */
         .vc-point-basket {
-            position: absolute; top: 6px; right: 6px; z-index: 6;
+            position: absolute; bottom: 34px; right: 6px; z-index: 6;
             display: flex; align-items: center; gap: 4px;
             background: linear-gradient(135deg, rgba(120,53,15,0.85), rgba(180,83,9,0.85));
             border: 1px solid rgba(253,230,138,0.55);
@@ -1422,7 +1425,7 @@
         .vc-point-basket.vpb-bump { animation: vpbBump 0.5s ease; }
         @keyframes vpbBump { 0%{transform:scale(1)} 30%{transform:scale(1.3) rotate(-6deg)} 60%{transform:scale(0.95)} 100%{transform:scale(1)} }
         .vpb-fly {
-            position: absolute; top: 4px; right: 10px; z-index: 8;
+            position: absolute; bottom: 36px; right: 10px; z-index: 8;
             color: #fde68a; font-size: 13px; font-weight: 900; pointer-events: none;
             text-shadow: 0 2px 6px rgba(0,0,0,0.6);
             animation: vpbFly 1s ease-out forwards;
@@ -23194,7 +23197,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260705002531 -->
+<!-- BUILD:20260705003406 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
