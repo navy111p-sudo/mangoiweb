@@ -112,6 +112,8 @@ export class VideoCallRoom {
         case 'whiteboard-text':
         case 'whiteboard-shape':
         case 'whiteboard-stroke':
+        case 'point-award':          // 🌟 실시간 칭찬 포인트 — 강사→학생 전달
+        case 'point-award-ack':      //    학생→강사 결과 확인 응답
           if (this.isJoined(userId)) this.broadcast(userId, { type: msg.type, data: msg.data });
           break;
         case 'offer':           this.handleOffer(userId, msg.data as any); break;

@@ -1163,6 +1163,13 @@
             border-radius: 8px;
             font-size: 0.8rem;
         }
+        /* 참가자 입장 직후, 영상 도착 전 "연결 중" 안내 (영상 오면 JS가 제거) */
+        .vc-connecting-hint {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+            background: rgba(15,23,42,0.72); color: #cbd5e1; font-size: 13px; font-weight: 600;
+            padding: 8px 14px; border-radius: 999px; white-space: nowrap; z-index: 4;
+            -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+        }
         .video-placeholder {
             color: #475569;
             font-size: 0.9rem;
@@ -9426,6 +9433,7 @@ function vcHandleMessage(msg) {
             console.log('[vc] existing-users:', msg.data.users.length, '명');
             msg.data.users.forEach((user, idx) => {
                 try { (window.vcPeerRoles = window.vcPeerRoles || {})[user.userId] = user.role || 'student'; } catch(e){}
+                try { vcEnsureParticipantBox(user.userId, user.username); } catch(e){}   // 영상 전이라도 박스 미리 생성
                 // 각 사용자에 대해 약간의 지연을 주어 동시 offer 폭주 방지
                 setTimeout(() => vcCreatePeerAndOffer(user.userId, user.username), idx * 300);
             });
@@ -9457,6 +9465,7 @@ function vcHandleMessage(msg) {
         case 'user-joined':
             console.log('[vc] user-joined:', msg.data.userId, msg.data.username);
             try { (window.vcPeerRoles = window.vcPeerRoles || {})[msg.data.userId] = msg.data.role || 'student'; window.vcApplySpotlight && window.vcApplySpotlight(); } catch(e){}
+            try { vcEnsureParticipantBox(msg.data.userId, msg.data.username); } catch(e){}   // 영상 전이라도 박스 미리 생성
             updateUserCount(msg.data.userCount);
             vcAddChatSystem(`${msg.data.username} 님이 입장했습니다.`);
             // 새 사용자가 offer를 보내오면 vcHandleOffer에서 PC 생성됨
@@ -9899,8 +9908,34 @@ async function vcHandleIce(data) {
 }
 
 /** 원격 참가자의 비디오를 화면에 추가 */
+// 🥭 (2026-07-05) 참가자가 방에 들어오면 '영상이 오기 전이라도' 이름표가 있는 박스를 미리 만든다.
+//   → 학생이 카메라를 못 켜거나 P2P가 늦어도, 강사 화면에 학생이 보이고 칭찬 버튼/바구니가 즉시 뜬다.
+//   실제 영상은 나중에 vcAddRemoteVideo(ontrack)가 이 박스의 <video>에 srcObject 만 채운다.
+function vcEnsureParticipantBox(userId, username){
+    if (!userId || userId === vcUserId) return null;
+    var existing = document.getElementById('vc-video-' + userId);
+    if (existing) {
+        var lbl0 = existing.querySelector('.video-label'); if (lbl0 && username) lbl0.textContent = username;
+        try { existing.dataset.role = (window.vcPeerRoles && window.vcPeerRoles[userId]) || existing.dataset.role || 'student'; } catch(e){}
+        return existing;
+    }
+    var grid = document.getElementById('vc-video-grid'); if (!grid) return null;
+    var box = document.createElement('div');
+    box.className = 'video-box';
+    box.id = 'vc-video-' + userId;
+    try { box.dataset.role = (window.vcPeerRoles && window.vcPeerRoles[userId]) || 'student'; } catch(e){}
+    box.innerHTML = '<video autoplay playsinline muted></video>' +
+        '<span class="video-label">' + escHtml(username || '참가자') + '</span>' +
+        '<div class="vc-connecting-hint">📷 연결 중…</div>';
+    if (window.vcSoloMode) box.style.display = 'none';
+    grid.appendChild(box);
+    try { vcUpdateGridCount(); } catch(e){}
+    try { window.vcApplySpotlight && window.vcApplySpotlight(); } catch(e){}
+    try { vcRefreshPraiseUI(); } catch(e){}   // 별 버튼/로스터 즉시 반영
+    return box;
+}
 function vcAddRemoteVideo(userId, username, stream) {
-    // 이미 존재하는 비디오가 있으면 스트림만 교체
+    // 이미 존재하는 비디오가 있으면 스트림만 교체 (미리 만든 placeholder 박스 포함)
     const existing = document.getElementById(`vc-video-${userId}`);
     if (existing) {
         const existingVid = existing.querySelector('video');
@@ -9909,6 +9944,9 @@ function vcAddRemoteVideo(userId, username, stream) {
             if (existingVid.srcObject !== stream) existingVid.srcObject = stream;
             existingVid.play().catch(e => console.warn('[vc] 기존 비디오 play 실패:', e && e.name));
         }
+        var hint0 = existing.querySelector('.vc-connecting-hint'); if (hint0) hint0.remove();   // 영상 도착 → "연결 중" 제거
+        try { attachStreamMonitor(existing, stream); } catch(e){}
+        try { vcRefreshPraiseUI(); } catch(e){}
         return;
     }
     const grid = document.getElementById('vc-video-grid');
@@ -23566,7 +23604,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260705184936 -->
+<!-- BUILD:20260705191234 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
