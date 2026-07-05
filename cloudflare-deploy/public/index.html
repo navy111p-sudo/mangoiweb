@@ -3270,9 +3270,13 @@
   }
 
   // 모달 표시 — 표시했으면 true, 조건 안 맞아 패스하면 false
-  window.vcReviewQuizPrompt = function(){
+  //   opts.trusted=true: 수업 종료 흐름(endOfClassFlow)이 이미 학생·재실 확인을 마친 뒤의
+  //   신뢰 호출. 이 시점엔 방 정리(vcLeaveRoom)로 body.vc-in-call 이 이미 떨어졌을 수 있어
+  //   실시간 재실 게이트(isStudentInClass)를 다시 보면 퀴즈가 통째로 스킵되는 회귀가 난다
+  //   (2026-07-05 실사용 신고: 평가는 뜨는데 평가 후 복습퀴즈가 안 뜸 → 이 게이트가 원인).
+  window.vcReviewQuizPrompt = function(opts){
     if (STATE.done || STATE.open) return true;
-    if (!isStudentInClass()) return false;
+    if (!(opts && opts.trusted)) { if (!isStudentInClass()) return false; }
     if (typeof rqvAuto !== 'function') return false;
     STATE.open = true;
     var en = (document.documentElement.lang === 'en');
@@ -3543,7 +3547,7 @@
     STATE.triggered = true;
     function afterRating(){
       var handled = false;
-      try { handled = (typeof window.vcReviewQuizPrompt === 'function') ? window.vcReviewQuizPrompt() : false; } catch(e){}
+      try { handled = (typeof window.vcReviewQuizPrompt === 'function') ? window.vcReviewQuizPrompt({ trusted:true }) : false; } catch(e){}
       if (!handled) fallbackExit();     // 복습퀴즈 조건(교재 미매칭 등) 미달 → 정상 종료
     }
     if (alreadyRated()) { afterRating(); return; }
@@ -3559,7 +3563,16 @@
     window.addEventListener(ev, function(e){
       try {
         if (!isExitBtnEl(e.target)) return;
-        if (STATE.triggered) return;                  // 같은 탭 제스처의 후속 이벤트 — 중복 방지
+        if (STATE.triggered) {
+          // 이미 종료 흐름 진행 중(학생). 같은 제스처의 후속 이벤트(특히 trailing click)가
+          // 나가기 버튼의 인라인 onclick·다른 종료 핸들러(v34/v154)를 실행해 방을 정리
+          // (body.vc-in-call 제거)하거나 홈으로 이동시키면, 평가 후 복습퀴즈 단계가
+          // 스킵되는 회귀가 난다 → 후속 이벤트도 확실히 삼켜서 흐름을 우리가 소유한다.
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return;
+        }
         if (!isStudentInClass()) return;               // 강사/관리자는 기존 나가기 그대로 진행
         e.preventDefault();
         e.stopPropagation();
@@ -23889,7 +23902,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260705215617 -->
+<!-- BUILD:20260705225639 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
