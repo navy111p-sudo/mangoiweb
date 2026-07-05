@@ -112,7 +112,52 @@
   @media(max-width:520px){.consult-fab{right:12px;bottom:14px;padding:8px 13px 8px 9px;font-size:12px}
     .consult-fab .ico{width:21px;height:21px}.consult-fab .ico svg{width:12px;height:12px}}
   @media(prefers-reduced-motion:reduce){.consult-fab,.consult-fab .ico{animation:none}}
+
+  /* ════════════════════════════════════════════════════════════
+     ☀️ 라이트 테마 — 오후 6시 이전 자동 + 수동 토글 (글자 또렷 + 연회색 배경)
+  ════════════════════════════════════════════════════════════ */
+  html[data-theme="light"]{
+    --bg:#dbe2f0; --bg2:#eef2fa; --panel:#ffffff; --panel2:#eef2fa;
+    --fg:#16233b; --mut:#45566f; --dim:#556783; --bd:#c6d0e2;
+    --shadow:0 10px 28px -8px rgba(30,41,59,.20);
+  }
+  html[data-theme="light"] header.top{background:rgba(255,255,255,.86)}
+  html[data-theme="light"] header.top .backbtn{background:rgba(251,191,36,.16);border-color:rgba(180,83,9,.45);color:#b45309}
+  html[data-theme="light"] header.top .backbtn:hover{background:rgba(251,191,36,.3)}
+  html[data-theme="light"] .seg button.active{background:#fff7e6;color:#b45309}
+  html[data-theme="light"] .pill.date{color:#b45309}
+  html[data-theme="light"] .pill.scope{color:#1d4ed8}
+  html[data-theme="light"] .up{color:#059669}
+  html[data-theme="light"] .down{color:#dc2626}
+  html[data-theme="light"] .flat{color:#475569}
+  html[data-theme="light"] .badge-pct{color:#059669}
+  html[data-theme="light"] .bar{background:#dbe2ef}
+  html[data-theme="light"] .rank{color:#475569}
+  html[data-theme="light"] .rank.r1{color:#b45309}
+  html[data-theme="light"] .rank.r2{color:#475569}
+  html[data-theme="light"] .rank.r3{color:#b45309}
+  html[data-theme="light"] table.list tr:hover td{background:rgba(15,23,42,.04)}
+  /* KPI 큰 숫자 등 인라인 색상 — 밝은 배경에서 또렷하도록 진하게 */
+  html[data-theme="light"] [style*="color:#34d399"]{color:#059669 !important}
+  html[data-theme="light"] [style*="color:#60a5fa"]{color:#2563eb !important}
+  html[data-theme="light"] [style*="color:#fbbf24"]{color:#b45309 !important}
+  html[data-theme="light"] [style*="color:#f87171"]{color:#dc2626 !important}
+  html[data-theme="light"] [style*="color:#fcd34d"]{color:#b45309 !important}
+  html[data-theme="light"] [style*="color:#fde68a"]{color:#b45309 !important}
+
+  /* 테마 토글 버튼 (헤더 .btn 스타일 재사용, 아이콘만) */
+  #themeToggleBtn{font-size:14px;line-height:1;padding:7px 11px}
 </style>
+<script>
+  /* ☀️/🌙 테마 초기 결정 — 저장값 우선, 없으면 오후 6시(18:00) 기준 자동 (렌더 전 실행) */
+  (function(){
+    try{
+      var saved=localStorage.getItem('mangoi_admin_theme');
+      var theme=(saved==='light'||saved==='dark')?saved:(new Date().getHours()<18?'light':'dark');
+      document.documentElement.setAttribute('data-theme',theme);
+    }catch(e){ document.documentElement.setAttribute('data-theme','dark'); }
+  })();
+</script>
 <link rel="stylesheet" href="/css/admin-readability.css"><!-- 가독성 보강 -->
 </head>
 <body>
@@ -123,11 +168,34 @@
   <span class="pill scope" id="scopeBadge">—</span>
   <select id="scopeSel" style="display:none"></select>
   <span class="grow"></span>
+  <button class="btn" id="themeToggleBtn" type="button" onclick="toggleTheme()" title="밝게/어둡게 전환"><span id="themeToggleIcon">🌙</span> <span id="themeToggleLabel">어둡게</span></button>
   <a class="btn" href="/admin/finance-realtime">💸 실시간 재무</a>
   <a class="btn" href="/admin/mypage">👤 마이페이지</a>
   <button class="btn" id="refreshBtn">↻ 새로고침</button>
   <button class="btn" id="logoutBtn" type="button" title="로그아웃">⏻ 로그아웃</button>
 </header>
+
+<script>
+  /* ☀️/🌙 테마 토글 — 버튼은 "전환될 모드"를 안내. 차트(canvas) 축 색을 다시 그리려 새로고침 */
+  (function(){
+    function cur(){ return document.documentElement.getAttribute('data-theme')==='light'?'light':'dark'; }
+    function updateBtn(){
+      var i=document.getElementById('themeToggleIcon'), l=document.getElementById('themeToggleLabel');
+      if(!i||!l) return;
+      if(cur()==='dark'){ i.textContent='☀️'; l.textContent='밝게'; }
+      else { i.textContent='🌙'; l.textContent='어둡게'; }
+    }
+    window.toggleTheme=function(){
+      var next=cur()==='dark'?'light':'dark';
+      try{ localStorage.setItem('mangoi_admin_theme',next); }catch(e){}
+      document.documentElement.setAttribute('data-theme',next);
+      updateBtn();
+      location.reload();  /* 차트 축·격자 색을 새 테마로 다시 렌더 */
+    };
+    if(document.readyState!=='loading') updateBtn();
+    else document.addEventListener('DOMContentLoaded',updateBtn);
+  })();
+</script>
 
 <main>
   <p class="as-of" id="asOf"><span class="spin"></span> 불러오는 중…</p>
@@ -273,7 +341,9 @@ async function loadSummary(){
     <div class="card kpi-card" style="--accent:rgba(59,130,246,.16)">${s.cost_hq_only?`<h3>🧮 이번달 정산액</h3><div class="big" style="color:#60a5fa">${manwon(s.this_month.settle)}</div><div class="sub">매출-수수료</div>`:`<h3>📈 이번달 순익</h3><div class="big" style="color:${s.this_month.net>=0?'#60a5fa':'#f87171'}">${manwon(s.this_month.net)}</div><div class="sub">전월 대비 ${trendTag(s.this_month.net_trend)}</div>`}</div>`;
 }
 
-const gridC='rgba(148,163,184,.12)', tickC='#9fb0c8';
+const _isLightTheme = document.documentElement.getAttribute('data-theme')==='light';
+const gridC = _isLightTheme ? 'rgba(30,41,59,.14)' : 'rgba(148,163,184,.12)';
+const tickC = _isLightTheme ? '#334155' : '#9fb0c8';
 const baseOpts = () => ({
   responsive:true, maintainAspectRatio:false,
   interaction:{mode:'index',intersect:false},

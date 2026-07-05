@@ -519,6 +519,27 @@
   .checklist-row .cl-text b { font-weight: 800; color: #fff; }
   .checklist-row .cl-text .cl-sub { color: var(--text-secondary); font-weight: 500; margin-left: 8px; }
 
+  /* ── 🔎 글자 크게 (가독성 향상) — 데스크톱 기준, 모바일은 아래 미디어쿼리가 우선 ── */
+  main { max-width: 1160px; }
+  .profile-info .greet { font-size: 13px; }
+  .profile-info h1 { font-size: 30px; }
+  .profile-info .user-id { font-size: 14.5px; }
+  .stat-chip { min-width: 100px; padding: 12px 18px; }
+  .stat-chip .stat-label { font-size: 12px; }
+  .stat-chip .stat-value { font-size: 21px; }
+  .stat-chip .stat-value#statLast { font-size: 14.5px; }
+  .page-meta h2 { font-size: 24px; }
+  .page-meta p { font-size: 15px; }
+  .tab { font-size: 15px; padding: 11px 20px; }
+  .field label { font-size: 14px; }
+  .field input[type="text"], .field input[type="email"], .field input[type="tel"], .field input[type="password"] { font-size: 16.5px; padding: 13px 15px; }
+  .field .hint { font-size: 13px; }
+  .btn-primary { font-size: 15.5px; padding: 13px 28px; }
+  .info-box { font-size: 13.5px; }
+  table.list { font-size: 14.5px; }
+  table.list thead th { font-size: 12.5px; }
+  header.top .crumb { font-size: 14px; }
+
   /* ── 모바일 반응형 ── */
   @media (max-width: 720px) {
     header.top { padding: 0 16px; height: 56px; }
@@ -548,26 +569,26 @@
      (글자가 잘 보이도록 진한 텍스트/앰버 색으로 재정의)
   ════════════════════════════════════════════════════════════ */
   html[data-theme="light"] {
-    --bg-base: #f4f6fb;
+    --bg-base: #dbe2f0;                 /* 흰 카드가 도드라지도록 배경을 살짝 톤다운 */
     --bg-card: #ffffff;
-    --bg-card-2: #eef2f9;
+    --bg-card-2: #eef2fa;
     --bg-input: #ffffff;
-    --border: #e2e8f0;
-    --border-strong: #cbd5e1;
-    --text-primary: #1e293b;
-    --text-secondary: #334155;
-    --text-muted: #64748b;
+    --border: #c6d0e2;                  /* 카드 경계가 보이도록 진하게 */
+    --border-strong: #a9b5cc;
+    --text-primary: #16233b;
+    --text-secondary: #2c3a52;
+    --text-muted: #55647f;
     --amber-3: #b45309;                 /* 밝은 배경에서 또렷한 진한 앰버 */
     --green-soft: rgba(16,185,129,0.14);
     --red-soft: rgba(239,68,68,0.12);
     --blue-soft: rgba(96,165,250,0.14);
-    --shadow-soft: 0 8px 24px -10px rgba(15,23,42,0.16);
-    --shadow-strong: 0 20px 50px -14px rgba(15,23,42,0.20);
+    --shadow-soft: 0 10px 28px -8px rgba(30,41,59,0.22);
+    --shadow-strong: 0 22px 55px -12px rgba(30,41,59,0.30);
   }
   html[data-theme="light"] body {
     background:
-      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(251,191,36,0.10), transparent 60%),
-      radial-gradient(ellipse 60% 40% at 100% 100%, rgba(96,165,250,0.08), transparent 60%),
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(251,191,36,0.18), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 100% 100%, rgba(96,165,250,0.16), transparent 60%),
       var(--bg-base);
   }
   html[data-theme="light"] header.top { background: rgba(255,255,255,0.88); }
@@ -606,7 +627,7 @@
      (본문 렌더 전에 실행해 깜빡임 방지) */
   (function(){
     try {
-      var saved = localStorage.getItem('mangoi_mypage_theme');
+      var saved = localStorage.getItem('mangoi_admin_theme');
       var theme = (saved === 'light' || saved === 'dark')
         ? saved
         : (new Date().getHours() < 18 ? 'light' : 'dark');
@@ -629,6 +650,7 @@
               style="padding:8px 14px;border-radius:99px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer;border:0;display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,var(--amber-1),var(--amber-2));color:#1a1a1a;box-shadow:0 4px 14px -2px rgba(245,158,11,0.45)">🌐 <span class="lang-label-sync">EN</span></button>
       <a class="btn-back" href="/" title="학생 홈페이지로 이동"><span data-ko="🏠 홈페이지" data-en="🏠 Home">🏠 홈페이지</span></a>
       <a href="/admin.html" id="goDashboardBtn" class="btn-back" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);border-color:transparent;color:#fff;font-weight:800;box-shadow:0 4px 14px -2px rgba(37,99,235,0.5)" title="관리자 대시보드로 이동"><span data-ko="📊 관리자 대시보드" data-en="📊 Admin Dashboard">📊 관리자 대시보드</span></a>
+      <a href="/admin.html" id="goDetailAdminBtn" class="btn-back" style="display:none;background:linear-gradient(135deg,#7c3aed,#6d28d9);border-color:transparent;color:#fff;font-weight:800;box-shadow:0 4px 14px -2px rgba(124,58,237,0.5)" title="상세 관리자 페이지(본사 콘솔)로 이동"><span data-ko="📋 상세 관리자 페이지" data-en="📋 Full Admin">📋 상세 관리자 페이지</span></a>
       <a class="btn-logout" id="logoutBtn" href="#"><span data-ko="로그아웃" data-en="Logout">로그아웃</span></a>
     </div>
   </header>
@@ -650,7 +672,7 @@
       window.toggleTheme = function(){
         var next = currentTheme() === 'dark' ? 'light' : 'dark';
         document.documentElement.setAttribute('data-theme', next);
-        try { localStorage.setItem('mangoi_mypage_theme', next); } catch(e){}
+        try { localStorage.setItem('mangoi_admin_theme', next); } catch(e){}
         updateThemeBtn();
       };
       window.addEventListener('mangoi:lang-changed', updateThemeBtn);
@@ -1243,10 +1265,17 @@
     // 📊 [관리자 대시보드] 버튼 목적지 — 역할에 맞는 대시보드로.
     //   대리점·지사·프랜차이즈: 본사 콘솔(/admin.html) 접근 불가라 자기 경영 대시보드(/admin/exec)로.
     //   교사·본사·직원: 기존 관리자 콘솔(/admin.html).
+    var isBizRole = (role === 'agency' || role === 'branch' || role === 'franchise');
     var goDash = el('goDashboardBtn');
     if (goDash){
-      goDash.setAttribute('href', (role === 'agency' || role === 'branch' || role === 'franchise') ? '/admin/exec' : '/admin.html');
+      goDash.setAttribute('href', isBizRole ? '/admin/exec' : '/admin.html');
     }
+
+    // 📋 [상세 관리자 페이지] — 대리점·지사·프랜차이즈는 약식(경영) 대시보드 외에
+    //   원래 본사 콘솔(/admin.html)로도 들어갈 수 있게 별도 버튼 노출.
+    //   본사·교사·직원은 위 '관리자 대시보드' 버튼이 이미 /admin.html 이라 중복이므로 숨김.
+    var goDetail = el('goDetailAdminBtn');
+    if (goDetail){ goDetail.style.display = isBizRole ? '' : 'none'; }
 
     // 교사 전용: 수업 입장 카드 · 내 수업 · 내 급여 · 수업 전 지도법 체크리스트
     //   🎯 지사·대리점·본사에는 '교사가 명심할 체크포인트'가 필요 없으므로 숨긴다(교사만 노출).
