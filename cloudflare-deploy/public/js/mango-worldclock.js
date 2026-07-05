@@ -77,9 +77,11 @@
 
     // ── 위치 복원 + 화면 안으로 보정 ──
     function clamp() {
+      var vw = window.innerWidth, vh = window.innerHeight;
+      if (!vw || !vh) return;                 // 뷰포트가 아직 0(레이아웃 전)이면 건드리지 않음
       var r = box.getBoundingClientRect();
-      var maxX = window.innerWidth - r.width - 4;
-      var maxY = window.innerHeight - r.height - 4;
+      var maxX = vw - r.width - 4;
+      var maxY = vh - r.height - 4;
       var x = Math.min(Math.max(4, r.left), Math.max(4, maxX));
       var y = Math.min(Math.max(4, r.top), Math.max(4, maxY));
       setPos(x, y);
@@ -99,44 +101,54 @@
     window.addEventListener('resize', clamp);
 
     // ── 드래그 (마우스+터치 공용) / 탭 구분 ──
-    var dragging = false, moved = false, sx = 0, sy = 0, ox = 0, oy = 0;
-    var DRAG_THRESHOLD = 6; // px 이상 움직이면 드래그(=클릭 아님)
+    var dragging = false, moved = false, sx = 0, sy = 0, ox = 0, oy = 0, pid = null;
+    var DRAG_THRESHOLD = 5; // px 이상 움직이면 드래그(=클릭 아님)
 
     function down(e) {
-      var p = e.touches ? e.touches[0] : e;
-      dragging = true; moved = false;
+      dragging = true; moved = false; pid = e.pointerId;
       var r = box.getBoundingClientRect();
-      ox = r.left; oy = r.top; sx = p.clientX; sy = p.clientY;
+      ox = r.left; oy = r.top; sx = e.clientX; sy = e.clientY;
       box.classList.add('dragging');
+      // 포인터를 위젯에 고정 → 손가락/마우스가 위젯 밖으로 나가도 계속 따라옴
+      try { box.setPointerCapture(e.pointerId); } catch (x) {}
       if (e.cancelable) e.preventDefault();
     }
     function move(e) {
-      if (!dragging) return;
-      var p = e.touches ? e.touches[0] : e;
-      var dx = p.clientX - sx, dy = p.clientY - sy;
+      if (!dragging || (pid !== null && e.pointerId !== pid)) return;
+      var dx = e.clientX - sx, dy = e.clientY - sy;
       if (Math.abs(dx) + Math.abs(dy) > DRAG_THRESHOLD) moved = true;
       setPos(ox + dx, oy + dy);
       if (e.cancelable) e.preventDefault();
     }
-    function up() {
+    function up(e) {
       if (!dragging) return;
-      dragging = false;
+      dragging = false; pid = null;
       box.classList.remove('dragging');
+      try { box.releasePointerCapture(e.pointerId); } catch (x) {}
       clamp();
       if (moved) {
         var r = box.getBoundingClientRect();
-        try { localStorage.setItem(LS_KEY, JSON.stringify({ x: r.left, y: r.top })); } catch (e) {}
+        try { localStorage.setItem(LS_KEY, JSON.stringify({ x: r.left, y: r.top })); } catch (x) {}
       } else {
         // 안 움직였으면 = 탭/클릭 → 이동
         if (GO_URL) location.href = GO_URL;
       }
     }
 
-    box.addEventListener('mousedown', down);
-    window.addEventListener('mousemove', move);
-    window.addEventListener('mouseup', up);
-    box.addEventListener('touchstart', down, { passive: false });
-    window.addEventListener('touchmove', move, { passive: false });
-    window.addEventListener('touchend', up);
+    if (window.PointerEvent) {
+      box.addEventListener('pointerdown', down);
+      box.addEventListener('pointermove', move);
+      box.addEventListener('pointerup', up);
+      box.addEventListener('pointercancel', up);
+    } else {
+      // 아주 오래된 브라우저 폴백 (마우스+터치)
+      var wrap = function (fn) { return function (e) { var p = e.touches ? e.touches[0] : e; if (p) { e.clientX = p.clientX; e.clientY = p.clientY; } e.pointerId = 1; fn(e); }; };
+      box.addEventListener('mousedown', wrap(down));
+      window.addEventListener('mousemove', wrap(move));
+      window.addEventListener('mouseup', wrap(up));
+      box.addEventListener('touchstart', wrap(down), { passive: false });
+      window.addEventListener('touchmove', wrap(move), { passive: false });
+      window.addEventListener('touchend', wrap(up));
+    }
   });
 })();
