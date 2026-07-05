@@ -2205,8 +2205,12 @@ export async function handleMangoApi(
       const limit = Math.min(parseInt(url.searchParams.get('limit') || '100', 10), 500);
       let rows: any = { results: [] };
       try {
-        rows = await env.DB.prepare(`SELECT id, room_id, schedule_id, missing_role, missing_uid, student_name, teacher_name, lesson_title, waited_min, notified_push, notified_kakao, created_at FROM class_no_show ORDER BY created_at DESC LIMIT ?`).bind(limit).all<any>();
-      } catch (e: any) { console.warn('[no-shows] query skipped:', e?.message); }
+        // 예약(schedule_id)→학생 연락처 조인: '즉시 연락' tel 링크용 (안 온 사람이 강사여도 학생/학부모 연락처 노출)
+        rows = await env.DB.prepare(`SELECT ns.id, ns.room_id, ns.schedule_id, ns.missing_role, ns.missing_uid, ns.student_name, ns.teacher_name, ns.lesson_title, ns.waited_min, ns.notified_push, ns.notified_kakao, ns.created_at, se.phone AS student_phone, se.parent_phone AS parent_phone FROM class_no_show ns LEFT JOIN class_schedules cs ON cs.id = ns.schedule_id LEFT JOIN students_erp se ON se.user_id = cs.user_id ORDER BY ns.created_at DESC LIMIT ?`).bind(limit).all<any>();
+      } catch (e: any) {
+        console.warn('[no-shows] join query failed, fallback no-join:', e?.message);
+        try { rows = await env.DB.prepare(`SELECT id, room_id, schedule_id, missing_role, missing_uid, student_name, teacher_name, lesson_title, waited_min, notified_push, notified_kakao, created_at FROM class_no_show ORDER BY created_at DESC LIMIT ?`).bind(limit).all<any>(); } catch {}
+      }
       const items = rows.results || [];
       const now = Date.now();
       const weekAgo = now - 7 * 86400 * 1000;
@@ -2218,6 +2222,29 @@ export async function handleMangoApi(
         if (r.missing_role === 'teacher') teacherMiss++; else studentMiss++;
       }
       return json({ ok: true, count: items.length, today, this_week: week, by_missing: { teacher: teacherMiss, student: studentMiss }, no_shows: items });
+    }
+
+    // 🥭 Phase RM — POST /api/admin/no-shows/contact — 노쇼 대상에게 재알림(웹푸시) + 접촉 기록
+    //   body: { id } (class_no_show 행). 안 온 사람 uid 로 웹푸시 재발송(구독 없으면 스킵) + (SOLAPI_TEMPLATE_NO_SHOW 설정시 알림톡).
+    if (method === 'POST' && path === '/api/admin/no-shows/contact') {
+      const b: any = await request.json().catch(() => ({}));
+      const id = Number(b.id);
+      if (!id) return json({ ok: false, error: 'id_required' }, 400);
+      let row: any = null;
+      try { row = await env.DB.prepare(`SELECT * FROM class_no_show WHERE id = ? LIMIT 1`).bind(id).first<any>(); } catch {}
+      if (!row) return json({ ok: false, error: 'not_found' }, 404);
+      const roomUrl = `${new URL(request.url).origin}/?go=videocall`;
+      const missing = row.missing_role === 'teacher' ? 'teacher' : 'student';
+      const title = missing === 'teacher' ? '⏰ [재알림] 학생이 기다렸어요' : '⏰ [재알림] 수업에 입장해 주세요';
+      const bodyMsg = missing === 'teacher'
+        ? `${row.student_name || '학생'} 학생의 '${row.lesson_title || '영어 수업'}' 수업 미입장 건입니다. 확인 부탁드려요.`
+        : `'${row.lesson_title || '영어 수업'}' 수업에 입장하지 않으셨어요. 재예약이 필요하면 안내드릴게요.`;
+      let push: any = { skipped: true };
+      if (row.missing_uid) push = await sendPushToUser(row.missing_uid, title, bodyMsg, roomUrl, `no-show-recontact-${id}`);
+      // 접촉 시각 기록 (컬럼 없으면 추가)
+      try { await env.DB.exec(`ALTER TABLE class_no_show ADD COLUMN contacted_at INTEGER`); } catch {}
+      try { await env.DB.prepare(`UPDATE class_no_show SET contacted_at = ? WHERE id = ?`).bind(Date.now(), id).run(); } catch {}
+      return json({ ok: true, push, missing_role: missing });
     }
 
     // 🥭 Phase 6g — POST /api/admin/students/merge-duplicates

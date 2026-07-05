@@ -7175,11 +7175,31 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
               + '<div style="flex:1;min-width:150px;font-size:12px;color:#cbd5e1">'+who+' · <span style="color:#94a3b8">'+_esc(row.lesson_title||'영어 수업')+'</span></div>'
               + '<div style="font-size:11.5px;color:#94a3b8">🕒 '+fmtDate(row.created_at)+' · '+(row.waited_min||5)+'분 대기</div>'
               + '<div style="font-size:11px;color:#a3b3d1">'+push+' · '+kakao+'</div>'
+              + '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:auto">'
+              +   (row.student_phone ? '<a href="tel:'+_esc(row.student_phone)+'" style="font-size:11.5px;color:#7dd3fc;text-decoration:none;background:rgba(125,211,252,.12);padding:5px 9px;border-radius:8px">📞 학생 '+_esc(row.student_phone)+'</a>' : '')
+              +   (row.parent_phone ? '<a href="tel:'+_esc(row.parent_phone)+'" style="font-size:11.5px;color:#86efac;text-decoration:none;background:rgba(134,239,172,.12);padding:5px 9px;border-radius:8px">📞 학부모 '+_esc(row.parent_phone)+'</a>' : '')
+              +   ((!row.student_phone && !row.parent_phone) ? '<span style="font-size:11px;color:#64748b">번호 없음</span>' : '')
+              +   '<button onclick="noShowContact('+row.id+')" style="font-size:11.5px;background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.35);color:#fbbf24;border-radius:8px;padding:5px 10px;cursor:pointer;font-weight:700">📲 다시 알림</button>'
+              + '</div>'
               + '</div>';
           }).join('');
     } catch(e) {
       out.innerHTML = '<div style="color:#f87171">❌ '+_esc(e.message)+'</div>';
     }
+  };
+
+  // 📲 Phase RM — 노쇼 대상에게 재알림(웹푸시) 발송 + 위 전화번호로 직접 연락 유도
+  window.noShowContact = async function(id){
+    if (!confirm('안 온 상대에게 다시 입장 알림(웹푸시)을 보낼까요?')) return;
+    try {
+      const r = await fetch('/api/admin/no-shows/contact', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify({ id: id }) });
+      const d = await r.json();
+      if (d.ok) {
+        const sent = d.push && d.push.ok;
+        alert(sent ? '📲 재알림(웹푸시)을 보냈어요.' : '기록했어요. 상대가 푸시 미구독이면 알림이 안 갈 수 있으니, 위 전화번호로 직접 연락을 권장해요.');
+        if (typeof noShowsLoad === 'function') noShowsLoad();
+      } else { alert('❌ ' + (d.error || '실패')); }
+    } catch(e){ alert('❌ ' + e.message); }
   };
 
   // 🎁 케어 액션 — 단일 학생
@@ -23131,7 +23151,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260705215012 -->
+        <!-- BUILD:20260705215617 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
