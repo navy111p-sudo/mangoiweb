@@ -34,6 +34,15 @@ function resolveRole(scopeType: string, username: string, name: string): { role:
   //   강사 계정이 있으면 강사 판정이 아예 실행되지 않아 마이페이지 "내 평가" 탭이 영원히
   //   숨겨지는 버그가 있었다 (2026-07-04 발견). 아이디 컨벤션은 스코프보다 먼저 확인.
   if (/^hq_t/i.test(u)) return { role: 'teacher', roleLabel: '교사' };
+  // ⚠️ 이름 기반 강사 판정을 스코프 체크보다 먼저 한다(2026-07-05 추가).
+  //   버그: 강사 계정 'jeong'(이름 '정우영(교사)')이 admin_scope.scope_type='hq'로 세팅돼 있어,
+  //   아래 scopeType==='hq' 분기에서 '본사·경영진'으로 잘못 판정 → 마이페이지가 교사가 아닌
+  //   관리자로 표시되고 '내 평가' 탭이 숨겨졌다. hq_t_* 접두사가 없는 강사 계정도 이름으로 구제.
+  //   조직 계정(지사/대리점/프랜차이즈)은 이름에 '교사'가 들어가도 강사로 오인하지 않도록,
+  //   내부 계정(scope hq · none)에 한해서만 이름 기반 강사 판정을 적용한다.
+  if ((scopeType === 'hq' || scopeType === 'none') && /교사|강사|선생|teacher/i.test(nm)) {
+    return { role: 'teacher', roleLabel: '교사' };
+  }
   if (scopeType === 'franchise') return { role: 'franchise', roleLabel: '프랜차이즈 본사' };
   if (scopeType === 'branch')    return { role: 'branch',    roleLabel: '지사' };
   if (scopeType === 'agency')    return { role: 'agency',    roleLabel: '대리점' };
@@ -286,8 +295,27 @@ export async function handleAdminAuthApi(
       ).bind(token, username, ip, ua, now, now + ttl, now).run();
       await recordLogin(env, username, ip, ua, true, null);
 
+      // 🪪 로그인 성공 시 서버가 권위 있는 역할을 판정해 응답에 실어 보낸다(2026-07-05).
+      //   기존엔 login.html 이 아이디 접두사(hq_t_*)만으로 역할을 '추측'해서, 접두사가 없는
+      //   강사 계정(예: 'jeong')이 관리자로 잘못 표시됐다. 여기서 이름+스코프 기반으로 정확히
+      //   판정하고, 클라이언트가 쓰기 쉬운 role(hq_teacher 등)로 변환해 내려준다.
+      let acctName = '';
+      let scopeType = 'none';
+      try {
+        const acc = await env.DB.prepare(`SELECT name FROM admin_account WHERE username = ? LIMIT 1`).bind(username).first<{ name: string }>();
+        acctName = acc?.name || '';
+        const sc = await env.DB.prepare(`SELECT scope_type FROM admin_scope WHERE username = ? LIMIT 1`).bind(username).first<{ scope_type: string }>();
+        if (sc?.scope_type) scopeType = sc.scope_type;
+      } catch (e) { console.warn('[auth-admin] login role resolve:', (e as any)?.message); }
+      const rr = resolveRole(scopeType, username, acctName);
+      const isTeacher = rr.role === 'teacher';
+
       return json(
-        { ok: true, username, expires_at: now + ttl, redirect: '/admin.html' },
+        {
+          ok: true, username, expires_at: now + ttl, redirect: '/admin.html',
+          name: acctName || username,
+          server_role: rr.role, role_label: rr.roleLabel, is_teacher: isTeacher,
+        },
         200,
         { 'Set-Cookie': setSessionCookieHeader(token, Math.floor(ttl / 1000)) }
       );

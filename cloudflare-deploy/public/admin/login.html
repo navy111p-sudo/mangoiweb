@@ -215,6 +215,14 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
             if (data.user.branch_id) branch_id = data.user.branch_id;
             if (data.user.agency_id) agency_id = data.user.agency_id;
           }
+          // 🪪 (2026-07-05) 서버가 판정한 권위 역할 우선 적용.
+          //   아이디 접두사(hq_t_*)만으로 역할을 추측하던 탓에, 접두사 없는 강사 계정
+          //   (예: 'jeong' = 정우영(교사), scope=hq)이 '관리자'로 잘못 표시되고
+          //   교사 화면 대신 관리자 화면이 떠서 "다시 로그인" 하게 되던 문제 해결.
+          if (data.is_teacher) {
+            role = 'hq_teacher';
+            if (data.name) name = data.name;
+          }
           var session = {
             uid: uid, name: name, role: role,
             branch: branch, branch_id: branch_id, agency_id: agency_id,
