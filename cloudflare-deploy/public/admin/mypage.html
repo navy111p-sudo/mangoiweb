@@ -553,7 +553,7 @@
       <button type="button" onclick="toggleLang()" title="언어 전환 / Switch language"
               style="padding:8px 14px;border-radius:99px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer;border:0;display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,var(--amber-1),var(--amber-2));color:#1a1a1a;box-shadow:0 4px 14px -2px rgba(245,158,11,0.45)">🌐 <span class="lang-label-sync">EN</span></button>
       <a class="btn-back" href="/" title="학생 홈페이지로 이동"><span data-ko="🏠 홈페이지" data-en="🏠 Home">🏠 홈페이지</span></a>
-      <a href="/admin.html" class="btn-back" style="background:rgba(255,255,255,0.06);border-color:var(--border);color:var(--text-secondary)" title="관리자 대시보드"><span data-ko="📊 대시보드" data-en="📊 Dashboard">📊 대시보드</span></a>
+      <a href="/admin.html" id="goDashboardBtn" class="btn-back" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);border-color:transparent;color:#fff;font-weight:800;box-shadow:0 4px 14px -2px rgba(37,99,235,0.5)" title="관리자 대시보드로 이동"><span data-ko="📊 관리자 대시보드" data-en="📊 Admin Dashboard">📊 관리자 대시보드</span></a>
       <a class="btn-logout" id="logoutBtn" href="#"><span data-ko="로그아웃" data-en="Logout">로그아웃</span></a>
     </div>
   </header>
@@ -1136,6 +1136,14 @@
 
     var isTeacher = role === 'teacher';
     var canSettle = (role === 'franchise' || role === 'branch' || role === 'hq');
+
+    // 📊 [관리자 대시보드] 버튼 목적지 — 역할에 맞는 대시보드로.
+    //   대리점·지사·프랜차이즈: 본사 콘솔(/admin.html) 접근 불가라 자기 경영 대시보드(/admin/exec)로.
+    //   교사·본사·직원: 기존 관리자 콘솔(/admin.html).
+    var goDash = el('goDashboardBtn');
+    if (goDash){
+      goDash.setAttribute('href', (role === 'agency' || role === 'branch' || role === 'franchise') ? '/admin/exec' : '/admin.html');
+    }
 
     // 교사 전용: 수업 입장 카드 · 내 수업 · 내 급여
     var teCard = el('teacher-enter-class'); if (teCard) teCard.style.display = isTeacher ? 'flex' : 'none';

@@ -235,6 +235,12 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
         if ((uid === 'capitown' || uid.indexOf('capi') === 0) && (!clean || clean === '/admin.html')) {
           clean = '/admin/capitown-settlement.html';
         }
+        // 🪪 (2026-07-05) 교사·지사·대리점은 로그인하면 '마이페이지'가 가장 먼저 뜨게 한다.
+        //   거기서 [📊 관리자 대시보드] 버튼으로 이동. (특정 next 딥링크가 있으면 그대로 존중)
+        if ((!clean || clean === '/admin.html')
+            && (String(role).indexOf('teacher') >= 0 || role === 'branch' || role === 'agency')) {
+          clean = '/admin/mypage';
+        }
         setTimeout(function(){ location.href = clean || '/admin.html'; }, 400);
       } else {
         var msg = (data && (data.error || data.message)) || '아이디 또는 비밀번호가 올바르지 않습니다.';
