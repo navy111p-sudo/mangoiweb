@@ -93,6 +93,12 @@
         <p data-ko="📚 수업에서 배운 내용을 퀴즈로 복습해요. 풀고 나면 점수와 해설이 바로 나와요!" data-en="📚 Review what you learned in class. Get your score & explanations instantly!">📚 수업에서 배운 내용을 퀴즈로 복습해요. 풀고 나면 <b>점수와 해설</b>이 바로 나와요!</p>
       </div>
       <div id="quizList"><div class="empty-box" data-ko="⏳ 퀴즈를 불러오는 중…" data-en="⏳ Loading quizzes…">⏳ 퀴즈를 불러오는 중…</div></div>
+
+      <!-- 🚀 퀴즈를 안 풀고도 바로 다른 곳으로 이동 (수업입장·AI 웜업·학생게임·녹화·나가기) -->
+      <div style="text-align:center;margin-top:22px">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:10px" data-ko="다른 활동으로 이동할까요?" data-en="Move to another activity?">다른 활동으로 이동할까요?</div>
+        <button onclick="window.MangoFlow&&MangoFlow.open('quiz')" style="display:inline-flex;align-items:center;gap:8px;padding:14px 30px;background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px -4px rgba(56,189,248,.5);font-family:inherit" data-ko="🚀 다음으로 이동 (수업·웜업·게임·나가기)" data-en="🚀 Go next (Class·Warm-up·Games·Exit)">🚀 다음으로 이동 (수업·웜업·게임·나가기)</button>
+      </div>
     </div>
     <div id="playView" style="display:none"></div>
     <div id="resultView" style="display:none"></div>
@@ -324,7 +330,7 @@
 
     loadList();
   </script>
-<!-- BUILD:20260706030021 -->
+<!-- BUILD:20260706030244 -->
 <!-- ━━━ 복습퀴즈 선생님 영상 메시지 팝업 (1회만 표시) ━━━ -->
 <div id="rq-video-pop" style="display:none;position:fixed;top:64px;right:14px;z-index:99998;width:220px;background:rgba(13,20,40,0.97);border:1px solid rgba(251,191,36,0.45);border-radius:18px;box-shadow:0 14px 40px -6px rgba(0,0,0,0.6);overflow:hidden;font-family:'Noto Sans KR',-apple-system,sans-serif;backdrop-filter:blur(8px)">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px 6px;border-bottom:1px solid rgba(255,255,255,0.08)">
