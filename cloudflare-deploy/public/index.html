@@ -10221,12 +10221,30 @@ function vcSpawnConfetti(box){
         setTimeout(() => piece.remove(), 1700);
     }
 }
+// 🔓 앱 전역 공유 AudioContext 확보 + 첫 사용자 상호작용 때 미리 unlock.
+//   (fix 2026-07-05) 예전엔 vcPlayPointChime 이 매번 new AudioContext() 를 만들어,
+//   브라우저 자동재생 정책상 두 번째 호출부터 suspended 로 생성돼 소리가 안 났다
+//   ("처음 한 번만 남"). 공유 컨텍스트 1개를 재사용하고, 아래 unlock 리스너로
+//   미리 running 상태로 만들어 두면 원격 신호로 트리거돼도 매번 재생된다.
+function vcGetSharedAC(){
+    var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
+    try {
+        if (!window._gameAC) window._gameAC = new AC();
+        if (window._gameAC.state === 'suspended') { try { window._gameAC.resume(); } catch(_){} }
+        return window._gameAC;
+    } catch(_) { return null; }
+}
+(function _vcInstallAudioUnlock(){
+    if (window._vcAudioUnlockBound) return; window._vcAudioUnlockBound = true;
+    function unlock(){ try { vcGetSharedAC(); } catch(_){} }
+    ['pointerdown','touchstart','keydown','click'].forEach(function(ev){
+        try { document.addEventListener(ev, unlock, { passive: true, capture: true }); } catch(_){}
+    });
+})();
 // 🔔 "딩동댕" — 밝고 경쾌한 3음 상승 차임 + 반짝이는 배음(학생 동기부여용, 크게).
 function vcPlayPointChime(){
     try {
-        const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-        const ac = new AC();
-        try { if (ac.state === 'suspended') ac.resume(); } catch(_){}
+        const ac = vcGetSharedAC(); if (!ac) return;
         const master = ac.createGain();
         master.gain.value = 0.9;                    // 전체를 크게
         master.connect(ac.destination);
@@ -23604,7 +23622,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260705192126 -->
+<!-- BUILD:20260705193822 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
