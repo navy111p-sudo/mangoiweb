@@ -315,14 +315,16 @@
         review +
         '<div class="nav-btns" style="margin-top:16px">' +
         '<button class="nav-btn" onclick="backToList()">📋 ' + (isEn()?'Quiz list':'퀴즈 목록') + '</button>' +
-        '<button class="nav-btn primary" onclick="startQuiz(' + qz.id + ')">🔄 ' + (isEn()?'Try again':'다시 도전') + '</button>' +
-        '</div></div>';
+        '<button class="nav-btn" onclick="startQuiz(' + qz.id + ')">🔄 ' + (isEn()?'Try again':'다시 도전') + '</button>' +
+        '</div>' +
+        '<button class="nav-btn primary" style="width:100%;margin-top:10px" onclick="window.MangoFlow&&MangoFlow.open(\'quiz\')">🚀 ' + (isEn()?'Choose next activity':'다음 활동 고르기') + '</button>' +
+        '</div>';
       window.scrollTo(0,0);
     }
 
     loadList();
   </script>
-<!-- BUILD:20260705225705 -->
+<!-- BUILD:20260705233608 -->
 <!-- ━━━ 복습퀴즈 선생님 영상 메시지 팝업 (1회만 표시) ━━━ -->
 <div id="rq-video-pop" style="display:none;position:fixed;top:64px;right:14px;z-index:99998;width:220px;background:rgba(13,20,40,0.97);border:1px solid rgba(251,191,36,0.45);border-radius:18px;box-shadow:0 14px 40px -6px rgba(0,0,0,0.6);overflow:hidden;font-family:'Noto Sans KR',-apple-system,sans-serif;backdrop-filter:blur(8px)">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px 6px;border-bottom:1px solid rgba(255,255,255,0.08)">
@@ -372,5 +374,6 @@
 </script>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
+<script defer src="/js/flow.js"></script>
 </body>
 </html>

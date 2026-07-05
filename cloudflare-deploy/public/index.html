@@ -10913,6 +10913,11 @@ async function vcLeaveRoom() {
     // 1차 — SPA view 전환 시도
     try { showView('view-home'); } catch(e){ console.warn('[vcLeaveRoom] showView fail:', e); }
 
+    // 🚀 수업 종료 → 다음 활동(복습퀴즈 추천) 메뉴 — 홈 전환이 정착된 뒤 표시
+    if (!/[?&](room|r)=/.test(location.search)) {
+        setTimeout(function(){ try { window.MangoFlow && MangoFlow.open('class'); } catch(_){} }, 700);
+    }
+
     // 2차 — 0.4초 뒤에도 홈 화면이 안 보이면 강제로 홈 URL 로 이동
     setTimeout(() => {
         try {
@@ -23902,7 +23907,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260705225705 -->
+<!-- BUILD:20260705233608 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -27054,5 +27059,6 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      · (참고) 영상 드래그·크기조절 실제 동작은 위쪽 .video-size-bar / #vc-video-pane 로직에서 처리됨.
      ============================================================ -->
 <script src="/js/mango-worldclock.js?v=2" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 학생 홈+수업입장 화면 공용. 빼면 즉시 원복 -->
+<script defer src="/js/flow.js"></script><!-- 🚀 학습 흐름 연결(웜업·게임·수업·복습·게임 → 다음 활동 메뉴). 빼면 즉시 원복 -->
 </body>
 </html>

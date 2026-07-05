@@ -127,6 +127,12 @@
     </div>
     <div class="hint">💡 🎤 를 눌러 <b>영어로 말하면</b> AI가 듣고 <b>음성으로 답</b>해줘요. 텍스트 입력도 가능합니다.</div>
 
+    <!-- 🚀 웜업을 충분히 했으면 다음 활동으로 -->
+    <button type="button" onclick="window.MangoFlow&&MangoFlow.open('warmup')"
+      style="width:100%;margin-top:12px;padding:14px;background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(56,189,248,.4)">
+      🚀 웜업 끝내고 다음으로 이동
+    </button>
+
     <details class="settings">
       <summary>⚙️ 웜업 서버 설정 (선택)</summary>
       <div style="margin-top:6px">기본은 <b>같은 오리진</b>(Cloudflare 워커의 <code>/api/warmup/chat</code>)이라 설정 없이 바로 대화됩니다.<br>
@@ -430,6 +436,7 @@ async function sendMsg(){
 </script>
 <!-- BUILD:warmup3-bigtext-ratebar -->
 <script defer src="/js/back-nav.js"></script>
-<!-- BUILD:20260705225705 -->
+<script defer src="/js/flow.js"></script>
+<!-- BUILD:20260705233608 -->
 </body>
 </html>

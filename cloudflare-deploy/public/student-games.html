@@ -827,7 +827,9 @@ function _gameOver(){
     +'<div style="display:flex;gap:12px;justify-content:center;margin-top:18px;flex-wrap:wrap">'
     +'<button onclick="gameInit()" style="padding:14px 28px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:12px;font-size:17px;font-weight:800;cursor:pointer">🔄 다시 도전</button>'
     +'<button onclick="hubBackToMenu()" style="padding:14px 28px;background:rgba(148,163,184,.2);color:#e2e8f0;border:0;border-radius:12px;font-size:17px;font-weight:700;cursor:pointer">🎮 게임 목록</button>'
-    +'</div></div>';
+    +'</div>'
+    +'<button onclick="window.MangoFlow&&MangoFlow.open(\'game\')" style="margin-top:12px;padding:14px 28px;background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:12px;font-size:17px;font-weight:800;cursor:pointer">🚀 다음 활동 고르기</button>'
+    +'</div>';
   var tw=document.getElementById('game-timer-wrap'); if(tw) tw.style.display='none';
 }
 
@@ -914,6 +916,7 @@ function _gameShowResult(){
         '<button onclick="gameInit()" style="padding:14px 28px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:12px;font-size:17px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(16,185,129,.4)">🔄 같은 단계 다시</button>' +
         '<button onclick="hubBackToMenu()" style="padding:14px 28px;background:rgba(148,163,184,.2);color:#e2e8f0;border:0;border-radius:12px;font-size:17px;font-weight:700;cursor:pointer">🎮 게임 목록</button>' +
       '</div>' +
+      '<button onclick="window.MangoFlow&&MangoFlow.open(\'game\')" style="margin-top:12px;padding:14px 34px;background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:12px;font-size:17px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(56,189,248,.45)">🚀 다음 활동 고르기</button>' +
     '</div>';
   var fb = document.getElementById('game-feedback'); if(fb) fb.innerHTML = '<span style="color:#fbbf24">🏆 ⭐' + GAME_STAGE + ' 단계 달성!</span>';
   var tw = document.getElementById('game-timer-wrap'); if(tw) tw.style.display = 'none';
@@ -1758,6 +1761,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260705225705 -->
+<!-- BUILD:20260705233608 -->
+<script defer src="/js/flow.js"></script>
 </body>
 </html>
