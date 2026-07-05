@@ -1482,6 +1482,57 @@
             100% { transform: translateY(112vh) translateX(var(--vc-confetti-drift, 0px)) rotate(540deg); opacity: 0; }
         }
 
+        /* ✨🔔 (2026-07-05) 포인트 획득 대형 광채 연출 — 학생 동기부여용 */
+        /* 1) 바구니에서 퍼지는 금빛 폭발 링 */
+        .vc-burst-ring {
+            position: absolute; z-index: 12; pointer-events: none; border-radius: 50%;
+            width: 90px; height: 90px;
+            background: radial-gradient(circle, rgba(255,244,190,0.95) 0%, rgba(251,191,36,0.55) 38%, rgba(251,191,36,0) 70%);
+            animation: vcBurstRing 0.75s cubic-bezier(.2,.8,.2,1) forwards;
+        }
+        @keyframes vcBurstRing {
+            0%   { transform: translate(-50%,-50%) scale(0.2); opacity: 0.95; }
+            100% { transform: translate(-50%,-50%) scale(3.4); opacity: 0; }
+        }
+        /* 2) 영상 박스 전체가 잠깐 금빛으로 번쩍 */
+        .vc-glow-flash {
+            position: absolute; inset: 0; z-index: 11; pointer-events: none; border-radius: inherit;
+            background: radial-gradient(circle at 22% 16%, rgba(255,238,160,0.8), rgba(251,191,36,0.28) 45%, transparent 72%);
+            animation: vcGlowFlash 0.85s ease-out forwards;
+        }
+        @keyframes vcGlowFlash { 0%{opacity:0} 22%{opacity:0.9} 100%{opacity:0} }
+        /* 3) 바구니 자체가 금빛으로 빛나며 두근 */
+        .vc-point-basket.vpb-glow { animation: vpbGlow 0.95s ease-out; }
+        @keyframes vpbGlow {
+            0%   { box-shadow: 0 0 0 0 rgba(251,191,36,0.9), 0 3px 12px rgba(0,0,0,0.35); }
+            40%  { box-shadow: 0 0 28px 12px rgba(251,191,36,0.9), 0 0 64px 22px rgba(255,214,90,0.55), 0 3px 12px rgba(0,0,0,0.35); }
+            100% { box-shadow: 0 0 0 0 rgba(251,191,36,0), 0 3px 12px rgba(0,0,0,0.35); }
+        }
+        /* 4) 사방으로 튀는 별가루 */
+        .vc-sparkle {
+            position: absolute; z-index: 13; pointer-events: none; font-size: 24px;
+            filter: drop-shadow(0 0 7px rgba(255,222,120,0.95));
+            animation: vcSparkleFly 0.95s ease-out forwards;
+        }
+        @keyframes vcSparkleFly {
+            0%   { opacity: 0; transform: translate(0,0) scale(0.3) rotate(0deg); }
+            18%  { opacity: 1; }
+            100% { opacity: 0; transform: translate(var(--dx,0px), var(--dy,0px)) scale(1.35) rotate(var(--dr,180deg)); }
+        }
+        /* 5) 큼직하게 튀어오르는 +1 */
+        .vpb-fly-big {
+            position: absolute; z-index: 14; pointer-events: none; font-weight: 900;
+            color: #fff7cc; font-size: 40px; letter-spacing: -1px;
+            text-shadow: 0 0 10px rgba(251,191,36,0.95), 0 0 22px rgba(255,214,90,0.7), 0 3px 8px rgba(0,0,0,0.6);
+            animation: vpbFlyBig 1.05s cubic-bezier(.2,.8,.2,1) forwards;
+        }
+        @keyframes vpbFlyBig {
+            0%   { opacity: 0; transform: translateY(10px) scale(0.5); }
+            22%  { opacity: 1; transform: translateY(-8px) scale(1.35); }
+            60%  { opacity: 1; transform: translateY(-30px) scale(1.05); }
+            100% { opacity: 0; transform: translateY(-64px) scale(1); }
+        }
+
         /* 분리(팝아웃)된 비디오 — 화면 어디든 드래그 가능한 독립 창 */
         .video-box.detached {
             position: fixed;
@@ -10096,22 +10147,95 @@ function vcSpawnConfetti(box){
         setTimeout(() => piece.remove(), 1700);
     }
 }
-// 코인 획득 같은 경쾌한 2음 상승 차임(비프보다 화사하게)
+// 🔔 "딩동댕" — 밝고 경쾌한 3음 상승 차임 + 반짝이는 배음(학생 동기부여용, 크게).
 function vcPlayPointChime(){
     try {
         const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
         const ac = new AC();
-        [880, 1318.5].forEach((freq, i) => {
+        try { if (ac.state === 'suspended') ac.resume(); } catch(_){}
+        const master = ac.createGain();
+        master.gain.value = 0.9;                    // 전체를 크게
+        master.connect(ac.destination);
+        // 딩(도)–동(미)–댕(솔↑) 상승 3화음, 각 음에 옥타브 반짝임 배음
+        const notes = [ 659.25, 830.61, 1046.50 ];  // E5 · G#5 · C6 (밝은 장3화음 상승)
+        notes.forEach((freq, i) => {
+            const t0 = ac.currentTime + i * 0.13;
+            // 본음 (삼각파 = 따뜻하고 통통 튐)
             const o = ac.createOscillator(), g = ac.createGain();
-            o.type = 'sine'; o.frequency.value = freq;
-            o.connect(g); g.connect(ac.destination);
-            const t0 = ac.currentTime + i * 0.09;
+            o.type = 'triangle'; o.frequency.value = freq;
+            o.connect(g); g.connect(master);
             g.gain.setValueAtTime(0.0001, t0);
-            g.gain.exponentialRampToValueAtTime(0.28, t0 + 0.02);
-            g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.32);
-            o.start(t0); o.stop(t0 + 0.34);
+            g.gain.exponentialRampToValueAtTime(0.55, t0 + 0.015);
+            g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.42);
+            o.start(t0); o.stop(t0 + 0.45);
+            // 반짝임 배음 (한 옥타브 위, 사인파, 살짝 작게)
+            const o2 = ac.createOscillator(), g2 = ac.createGain();
+            o2.type = 'sine'; o2.frequency.value = freq * 2;
+            o2.connect(g2); g2.connect(master);
+            g2.gain.setValueAtTime(0.0001, t0);
+            g2.gain.exponentialRampToValueAtTime(0.18, t0 + 0.012);
+            g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.3);
+            o2.start(t0); o2.stop(t0 + 0.32);
         });
+        // 마지막 "댕"에 반짝 셔틀 글리산도(짧게 위로 스윽)
+        const tS = ac.currentTime + notes.length * 0.13;
+        const sp = ac.createOscillator(), sg = ac.createGain();
+        sp.type = 'sine'; sp.connect(sg); sg.connect(master);
+        sp.frequency.setValueAtTime(1046, tS);
+        sp.frequency.exponentialRampToValueAtTime(2093, tS + 0.18);
+        sg.gain.setValueAtTime(0.0001, tS);
+        sg.gain.exponentialRampToValueAtTime(0.22, tS + 0.02);
+        sg.gain.exponentialRampToValueAtTime(0.0001, tS + 0.3);
+        sp.start(tS); sp.stop(tS + 0.32);
     } catch(e){}
+}
+// ✨ 바구니 기준으로 큰 광채 연출 — 폭발 링 + 박스 번쩍 + 별가루 방사 + 바구니 빛남 + 큰 +1
+function vcBigSparkleBurst(box, basket){
+    if (!box) return;
+    box.style.position = box.style.position || 'relative';
+    var br = box.getBoundingClientRect();
+    // 바구니 중심(박스 상대 좌표). 바구니 없으면 좌상단 근처.
+    var cx = 46, cy = 30;
+    if (basket){ var kr = basket.getBoundingClientRect(); cx = (kr.left - br.left) + kr.width/2; cy = (kr.top - br.top) + kr.height/2; }
+    // 1) 박스 전체 금빛 번쩍
+    var flash = document.createElement('div'); flash.className = 'vc-glow-flash';
+    box.appendChild(flash); setTimeout(function(){ flash.remove(); }, 900);
+    // 2) 폭발 링(2겹)
+    for (var r = 0; r < 2; r++){
+        (function(delay){
+            setTimeout(function(){
+                var ring = document.createElement('div'); ring.className = 'vc-burst-ring';
+                ring.style.left = cx + 'px'; ring.style.top = cy + 'px';
+                box.appendChild(ring); setTimeout(function(){ ring.remove(); }, 780);
+            }, delay);
+        })(r * 120);
+    }
+    // 3) 별가루 방사 (사방)
+    var glyphs = ['✨','⭐','🌟','💫'];
+    for (var i = 0; i < 14; i++){
+        var sp = document.createElement('span'); sp.className = 'vc-sparkle';
+        sp.textContent = glyphs[i % glyphs.length];
+        var ang = (Math.PI * 2 * i / 14) + Math.random()*0.5;
+        var dist = 60 + Math.random()*70;
+        sp.style.left = cx + 'px'; sp.style.top = cy + 'px';
+        sp.style.setProperty('--dx', Math.cos(ang)*dist + 'px');
+        sp.style.setProperty('--dy', Math.sin(ang)*dist + 'px');
+        sp.style.setProperty('--dr', (Math.random()*360-180) + 'deg');
+        sp.style.fontSize = (18 + Math.random()*16) + 'px';
+        box.appendChild(sp);
+        (function(el){ setTimeout(function(){ el.remove(); }, 1000); })(sp);
+    }
+    // 4) 바구니 빛남 + 두근
+    if (basket){
+        basket.classList.remove('vpb-glow','vpb-bump');
+        void basket.offsetWidth;                 // 리플로우로 애니메이션 재시작 보장
+        basket.classList.add('vpb-glow','vpb-bump');
+        setTimeout(function(){ basket.classList.remove('vpb-glow','vpb-bump'); }, 980);
+    }
+    // 5) 큰 +1 튀어오름 (바구니 위)
+    var fly = document.createElement('span'); fly.className = 'vpb-fly-big'; fly.textContent = '+1';
+    fly.style.left = Math.max(6, cx - 14) + 'px'; fly.style.top = (cy - 10) + 'px';
+    box.appendChild(fly); setTimeout(function(){ fly.remove(); }, 1100);
 }
 // 학생 본인 화면에서: 신호 수신 → 자기 계정 uid로 포인트 적립 API 직접 호출 + 축하 연출
 function vcCelebratePoint(awardId, fromName){
@@ -10119,16 +10243,8 @@ function vcCelebratePoint(awardId, fromName){
     const basket = vcEnsurePointBasket();
     vcPlayPointChime();
     const localBox = document.getElementById('vc-local-box');
-    vcSpawnConfetti(localBox);
-    if (basket){
-        basket.classList.add('vpb-bump');
-        setTimeout(() => basket.classList.remove('vpb-bump'), 520);
-        const fly = document.createElement('span');
-        fly.className = 'vpb-fly';
-        fly.textContent = '+1';
-        localBox.appendChild(fly);
-        setTimeout(() => fly.remove(), 1050);
-    }
+    vcSpawnConfetti(localBox);                 // 화면 위에서 쏟아지는 색종이
+    try { vcBigSparkleBurst(localBox, basket); } catch(e){}   // 🌟 바구니 대형 광채 + 별가루 + 큰 +1
     if (!u || !u.uid) { console.warn('[point-award] 로그인 정보 없음 — 로컬 연출만 표시'); return; }
     fetch('/api/points/earn-by-rule', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -23414,7 +23530,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260705140614 -->
+<!-- BUILD:20260705180915 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
