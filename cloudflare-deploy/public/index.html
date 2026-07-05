@@ -1446,6 +1446,32 @@
             20%  { opacity: 1; transform: translateY(-6px) scale(1.15); }
             100% { opacity: 0; transform: translateY(-38px) scale(1); }
         }
+        /* 🌟 (2026-07-05) 강사 전용 "칭찬 주기" 바 — 영상 레이아웃(스포트라이트/PIP/솔로)과 무관하게
+           항상 보이는 학생별 지급 버튼. 영상 영역 상단(사이즈바 아래)에 떠 있음. */
+        #vc-praise-roster {
+            position: absolute; top: 48px; left: 8px; z-index: 14; display: none;
+            flex-wrap: wrap; gap: 8px; max-width: calc(100% - 16px); align-items: center;
+        }
+        #vc-praise-roster .vpr-title {
+            display: inline-flex; align-items: center; gap: 5px; color: #fde68a; font-size: 14px; font-weight: 800;
+            background: rgba(11,15,20,0.72); padding: 6px 11px; border-radius: 999px; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+        }
+        .vc-roster-chip {
+            display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer;
+            border-radius: 999px; padding: 7px 13px 7px 11px;
+            background: radial-gradient(circle at 30% 25%, #fff7cc, #fbbf24 60%, #d97706);
+            color: #7c2d12; font-size: 16px; font-weight: 800; line-height: 1;
+            box-shadow: 0 3px 10px rgba(251,191,36,0.55), 0 0 0 1px rgba(255,255,255,0.25) inset;
+            touch-action: manipulation; -webkit-tap-highlight-color: transparent; transition: transform 0.12s ease;
+        }
+        .vc-roster-chip .vrc-star { font-size: 18px; }
+        .vc-roster-chip .vrc-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .vc-roster-chip .vrc-count { display: none; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 999px;
+            background: #7c2d12; color: #ffe9b0; font-size: 14px; font-weight: 800; align-items: center; justify-content: center; }
+        .vc-roster-chip:hover { transform: scale(1.05); }
+        .vc-roster-chip:active { transform: scale(0.94); }
+        .vc-roster-chip.vc-star-cooldown { opacity: 0.5; cursor: default; filter: grayscale(0.5); }
+        .vc-roster-chip.vc-star-pop { animation: vcStarPop 0.45s ease; }
         .vc-confetti-piece {
             position: fixed; top: -12px; z-index: 99990; pointer-events: none;
             font-size: 16px; will-change: transform, opacity;
@@ -9392,11 +9418,11 @@ function vcHandleMessage(msg) {
                 if (_pend) {
                     var _t = _pend.toast;
                     if (msg.data.ok) {
-                        // ✅ 이 학생 누적 개수 +1 → 강사 버튼 배지 갱신(학생별로 몇 개 줬는지 보임)
+                        // ✅ 이 학생 누적 개수 +1 → 얼굴 버튼 + 로스터 칩 배지 양쪽 갱신
                         window._vcAwardCounts = window._vcAwardCounts || {};
                         window._vcAwardCounts[_pend.targetUserId] = (window._vcAwardCounts[_pend.targetUserId] || 0) + 1;
+                        vcSyncAwardUI(_pend.targetUserId);
                         if (_pend.btn) {
-                            vcSyncStarCount(_pend.btn, _pend.targetUserId);
                             _pend.btn.classList.add('vc-star-pop');
                             setTimeout(function(){ _pend.btn.classList.remove('vc-star-pop'); }, 460);
                         }
@@ -9859,6 +9885,76 @@ function vcSyncStarCount(btn, uid){
     var el = btn.querySelector('.vsb-count');
     if (el){ el.textContent = c > 0 ? c : ''; el.style.display = c > 0 ? 'inline-flex' : 'none'; }
 }
+// uid 한 명의 누적 개수를 얼굴 버튼 배지 + 로스터 칩 배지 양쪽에 반영.
+function vcSyncAwardUI(uid){
+    var c = (window._vcAwardCounts && window._vcAwardCounts[uid]) || 0;
+    var fb = document.querySelector('#vc-video-' + uid + ' .vc-star-btn .vsb-count');
+    if (fb){ fb.textContent = c > 0 ? c : ''; fb.style.display = c > 0 ? 'inline-flex' : 'none'; }
+    document.querySelectorAll('.vc-roster-chip').forEach(function(ch){
+        if (ch.dataset && ch.dataset.uid === uid){
+            var rc = ch.querySelector('.vrc-count');
+            if (rc){ rc.textContent = c > 0 ? c : ''; rc.style.display = c > 0 ? 'inline-flex' : 'none'; }
+        }
+    });
+}
+// 🌟 강사 전용 "칭찬 주기" 바 — 영상 레이아웃과 무관하게 학생별 지급 버튼을 항상 노출.
+function vcUpdatePraiseRoster(){
+    try {
+        var pane = document.getElementById('vc-video-pane');
+        var roster = document.getElementById('vc-praise-roster');
+        if (!vcIsTeacherRole() || !pane){ if (roster) roster.style.display = 'none'; return; }
+        if (!roster){
+            roster = document.createElement('div'); roster.id = 'vc-praise-roster';
+            roster.innerHTML = '<span class="vpr-title">⭐ 칭찬 주기</span>';
+            // 로스터 칩 공용 안내 말풍선
+            var rt = document.createElement('span'); rt.className = 'vc-star-toast'; rt.id = 'vc-roster-toast';
+            rt.style.top = '92px'; rt.style.left = '8px';
+            pane.appendChild(roster); pane.appendChild(rt);
+        }
+        // 현재 학생(원격) 박스 목록 수집
+        var boxes = Array.prototype.slice.call(document.querySelectorAll('#vc-video-grid .video-box'))
+            .filter(function(b){ return b.id && b.id !== 'vc-local-box'; });
+        if (!boxes.length){ roster.style.display = 'none'; return; }
+        roster.style.display = 'flex';
+        // 사이즈바(1/4·1/2·3/4…) 아래로 위치 — 겹침 방지. 사이즈바 숨김 레이아웃이면 기본 8px.
+        var sb = pane.querySelector('.video-size-bar');
+        var topPx = 8;
+        try {
+            if (sb && sb.offsetParent !== null){ var pr = pane.getBoundingClientRect(), sbr = sb.getBoundingClientRect(); topPx = Math.round(sbr.bottom - pr.top) + 6; }
+        } catch(e){}
+        roster.style.top = topPx + 'px';
+        var rt2 = document.getElementById('vc-roster-toast'); if (rt2){ rt2.style.top = (topPx + 44) + 'px'; }
+        var wanted = {};
+        boxes.forEach(function(box){
+            var uid = box.id.replace('vc-video-', '');
+            var lbl = box.querySelector('.video-label');
+            var nm = (lbl && lbl.textContent ? lbl.textContent : uid).replace(/\s*\(.*\)\s*$/, '').trim() || uid;
+            wanted[uid] = nm;
+        });
+        // 나간 학생 칩 제거
+        Array.prototype.slice.call(roster.querySelectorAll('.vc-roster-chip')).forEach(function(ch){
+            if (!wanted[ch.dataset.uid]) ch.remove();
+        });
+        // 추가/갱신
+        Object.keys(wanted).forEach(function(uid){
+            var chip = null;
+            roster.querySelectorAll('.vc-roster-chip').forEach(function(c){ if (c.dataset.uid === uid) chip = c; });
+            if (!chip){
+                chip = document.createElement('button'); chip.type = 'button'; chip.className = 'vc-roster-chip'; chip.dataset.uid = uid;
+                chip.innerHTML = '<span class="vrc-star">⭐</span><span class="vrc-name"></span><span class="vrc-count"></span>';
+                chip.title = '이 학생에게 칭찬 포인트 +1';
+                chip.addEventListener('click', function(e){
+                    e.stopPropagation();
+                    var rt = document.getElementById('vc-roster-toast');
+                    vcAwardPoint(uid, chip, rt);
+                });
+                roster.appendChild(chip);
+            }
+            chip.querySelector('.vrc-name').textContent = wanted[uid];
+            vcSyncAwardUI(uid);
+        });
+    } catch(e){}
+}
 function vcAddStarButton(box, targetUserId){
     if (!box || !vcIsTeacherRole() || box.querySelector('.vc-star-btn')) return;
     const btn = document.createElement('button');
@@ -9894,10 +9990,13 @@ function vcRefreshPraiseUI(){
         } else {
             // 학생: 별 버튼 제거 + 내 박스에 바구니
             document.querySelectorAll('.vc-star-btn, .vc-star-toast').forEach(function(el){ el.remove(); });
+            var rr = document.getElementById('vc-praise-roster'); if (rr) rr.style.display = 'none';
             vcEnsurePointBasket();
         }
         // 박스 폭에 따라 컴팩트(아이콘만) 여부 결정 — 좁으면 글자 감춰 겹침 방지
         vcApplyPraiseCompact();
+        // 강사 전용 "칭찬 주기" 바 갱신 (영상 레이아웃 무관하게 항상 지급 가능)
+        vcUpdatePraiseRoster();
     } catch(e){}
 }
 // 얼굴 박스가 좁으면(<170px) 별/바구니를 아이콘만 남기는 원형으로 축소해 다른 배지와 안 겹치게.
@@ -23298,7 +23397,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260705105652 -->
+<!-- BUILD:20260705110953 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
