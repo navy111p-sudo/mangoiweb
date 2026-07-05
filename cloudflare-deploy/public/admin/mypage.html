@@ -548,6 +548,7 @@
 <body>
   <header class="top">
     <a href="/" target="_blank" rel="noopener" class="brand" title="학생 홈페이지로 이동">🥭 망고아이</a>
+    <button type="button" class="btn-back" onclick="if(history.length>1){history.back()}else{location.href='/admin/exec'}" title="이전 페이지로 돌아가기" style="cursor:pointer;font-family:inherit"><span data-ko="← 뒤로" data-en="← Back">← 뒤로</span></button>
     <span class="crumb" data-ko="관리자 · 마이페이지" data-en="Admin · My Page">관리자 · 마이페이지</span>
     <div class="right">
       <button type="button" onclick="toggleLang()" title="언어 전환 / Switch language"
@@ -586,8 +587,8 @@
       </div>
     </div>
 
-    <!-- 🎯 수업 전 지도법 체크리스트 — 모두 체크해야 수업 입장 가능 -->
-    <div id="class-checklist" style="background:linear-gradient(135deg,var(--bg-card) 0%, var(--bg-card-2) 100%);border:1px solid var(--border);border-radius:18px;padding:20px 22px;margin-bottom:18px;box-shadow:var(--shadow-soft);transition:box-shadow .3s">
+    <!-- 🎯 수업 전 지도법 체크리스트 — 교사 전용(지사·대리점은 숨김). 기본 숨김 → applyRole()이 교사에게만 표시 -->
+    <div id="class-checklist" style="display:none;background:linear-gradient(135deg,var(--bg-card) 0%, var(--bg-card-2) 100%);border:1px solid var(--border);border-radius:18px;padding:20px 22px;margin-bottom:18px;box-shadow:var(--shadow-soft);transition:box-shadow .3s">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
         <div>
           <div style="font-size:15.5px;font-weight:800;color:var(--text-primary)" data-ko="🎯 수업 전 지도법 체크리스트" data-en="🎯 Pre-class teaching checklist">🎯 수업 전 지도법 체크리스트</div>
@@ -1131,7 +1132,8 @@
       badge.style.background = 'rgba(148,163,184,0.12)';
       badge.style.color = c;
       badge.style.border = '1px solid ' + c + '55';
-      badge.textContent = (ico[role]||'👤') + ' ' + roleLabel + detail;
+      // 🟢 로그인 상태 명시 — 어느 지사/대리점으로 로그인했는지 한눈에.
+      badge.textContent = (ico[role]||'👤') + ' ' + roleLabel + detail + (en ? ' · Signed in' : ' · 로그인됨');
     }
 
     var isTeacher = role === 'teacher';
@@ -1145,8 +1147,10 @@
       goDash.setAttribute('href', (role === 'agency' || role === 'branch' || role === 'franchise') ? '/admin/exec' : '/admin.html');
     }
 
-    // 교사 전용: 수업 입장 카드 · 내 수업 · 내 급여
+    // 교사 전용: 수업 입장 카드 · 내 수업 · 내 급여 · 수업 전 지도법 체크리스트
+    //   🎯 지사·대리점·본사에는 '교사가 명심할 체크포인트'가 필요 없으므로 숨긴다(교사만 노출).
     var teCard = el('teacher-enter-class'); if (teCard) teCard.style.display = isTeacher ? 'flex' : 'none';
+    var teChecklist = el('class-checklist'); if (teChecklist) teChecklist.style.display = isTeacher ? '' : 'none';
     var tLessons = qsTab('lessons'); if (tLessons) tLessons.style.display = isTeacher ? '' : 'none';
     var tSalary  = qsTab('salary');  if (tSalary)  tSalary.style.display  = isTeacher ? '' : 'none';
     var tMyRat   = qsTab('myratings'); if (tMyRat)  tMyRat.style.display   = isTeacher ? '' : 'none';

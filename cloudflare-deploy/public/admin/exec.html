@@ -117,15 +117,16 @@
 </head>
 <body>
 <header class="top">
-  <button class="backbtn" type="button" title="홈으로" aria-label="홈페이지로 이동" onclick="location.href='/'">←</button>
+  <button class="backbtn" type="button" title="이전 페이지로 돌아가기" aria-label="이전 페이지로" onclick="if(history.length>1){history.back()}else{location.href='/admin/mypage'}">←</button>
   <h1>📊 경영진 대시보드</h1>
   <span class="pill date" id="brandDate">—</span>
   <span class="pill scope" id="scopeBadge">—</span>
   <select id="scopeSel" style="display:none"></select>
   <span class="grow"></span>
   <a class="btn" href="/admin/finance-realtime">💸 실시간 재무</a>
-  <a class="btn" href="/admin.html">🏠 관리자</a>
+  <a class="btn" href="/admin/mypage">👤 마이페이지</a>
   <button class="btn" id="refreshBtn">↻ 새로고침</button>
+  <button class="btn" id="logoutBtn" type="button" title="로그아웃">⏻ 로그아웃</button>
 </header>
 
 <main>
@@ -251,7 +252,7 @@ async function loadSummary(){
   const s = await jget(withAs('/api/admin/exec/summary'));
   const today = new Date(s.as_of);
   $('#brandDate').textContent = '📅 ' + s.today.date;
-  if (s.scope) $('#scopeBadge').textContent = s.scope.label;
+  if (s.scope) $('#scopeBadge').textContent = '🟢 ' + s.scope.label + ' 로그인됨';
   if (window.__agencyGreet) window.__agencyGreet.apply(s.scope ? s.scope.type : null);
   if (window.__branchGreet) window.__branchGreet.apply(s.scope ? s.scope.type : null);
   $('#asOf').textContent = '최종 갱신 ' + today.toLocaleString('ko-KR',{hour12:false});
@@ -395,6 +396,12 @@ function closeDetail(){ $('#scrim').classList.remove('on'); $('#drawer').classLi
 $('#dClose').onclick = closeDetail;
 $('#scrim').onclick = closeDetail;
 $('#refreshBtn').onclick = ()=>boot();
+// ⏻ 로그아웃 — 세션 종료 후 로그인 화면으로
+$('#logoutBtn').onclick = ()=>{
+  fetch('/api/admin/logout',{method:'POST',credentials:'include'})
+    .then(()=>{ location.href='/admin/login.html'; })
+    .catch(()=>{ location.href='/admin/login.html'; });
+};
 $('#rangeSeg').addEventListener('click', e=>{
   const b=e.target.closest('button'); if(!b) return;
   [...$('#rangeSeg').children].forEach(x=>x.classList.remove('active')); b.classList.add('active');

@@ -90,6 +90,7 @@
 </head>
 <body>
 <header class="top">
+  <button class="btn" type="button" title="이전 페이지로 돌아가기" onclick="if(history.length>1){history.back()}else{location.href='/admin/exec'}">← 뒤로</button>
   <span class="brand">🥭 망고아이</span>
   <span class="crumb">／ 실시간 재무</span>
   <span class="crumb" id="scopeCrumb" style="color:#93c5fd;font-weight:700"></span>
@@ -97,7 +98,8 @@
     <a class="btn" href="/admin/learning-insights">🎓 학습</a>
     <a class="btn" href="/admin/marketing-studio">📣 마케팅</a>
     <button class="btn" id="refreshBtn">↻ 새로고침</button>
-    <a class="btn" href="/admin">← 관리자</a>
+    <a class="btn" href="/admin/mypage">👤 마이페이지</a>
+    <button class="btn" id="logoutBtn" type="button" title="로그아웃">⏻ 로그아웃</button>
   </div>
 </header>
 
@@ -387,6 +389,12 @@ $('#expBody').addEventListener('click', e=>{ const b = e.target.closest('.del');
 $('#addBtn').addEventListener('click', addExpense);
 $('#snapBtn').addEventListener('click', makeSnapshot);
 $('#refreshBtn').addEventListener('click', ()=>{ loadAll(); toast('새로고침 완료'); });
+// ⏻ 로그아웃 — 세션 종료 후 로그인 화면으로
+$('#logoutBtn').addEventListener('click', ()=>{
+  fetch('/api/admin/logout',{method:'POST',credentials:'include'})
+    .then(()=>{ location.href='/admin/login.html'; })
+    .catch(()=>{ location.href='/admin/login.html'; });
+});
 
 async function loadBreakdown(){
   try{
