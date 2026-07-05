@@ -3,6 +3,22 @@
  * 핵심 수정: onnegotiationneeded를 addTrack 전에 설정 (레이스 컨디션 방지)
  */
 const peerConnections = new Map();
+// fix (2026-07-05) — remoteDescription 설정 전에 도착한 ICE 후보 버퍼(피어별).
+//   기존: 후보를 즉시 addIceCandidate → offer/answer 보다 먼저 오면 예외로 유실 → 간헐 연결 실패.
+//   수정: remoteDescription 이 없으면 여기 담아뒀다가 setRemoteDescription 직후 flush.
+const pendingCandidates = new Map();
+
+// remoteDescription 이 준비된 뒤 버퍼링된 ICE 후보를 일괄 투입
+function flushPendingCandidates(userId, pc) {
+  const queue = pendingCandidates.get(userId);
+  if (!queue || !queue.length) return;
+  console.log('[webrtc] 버퍼된 ICE 후보 flush:', userId, queue.length + '개');
+  queue.forEach((c) => {
+    pc.addIceCandidate(c).catch((e) => console.warn('[webrtc] flush ICE 실패:', e && e.name));
+  });
+  pendingCandidates.delete(userId);
+}
+
 const ICE_SERVERS = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
@@ -42,8 +58,9 @@ function handleOfferMessage(data) {
   console.log('[webrtc] offer 수신 from:', from);
   if (!from || !offer) { console.warn('[webrtc] Invalid offer', data); return; }
   const pc = peerConnections.get(from) || createPeerConnection(from, name, false);
-  pc.setRemoteDescription(new RTCSessionDescription(offer)).then(() => {
+  pc.setRemoteDescription(offer).then(() => {
     console.log('[webrtc] remoteDesc 설정 → answer 생성');
+    flushPendingCandidates(from, pc); // 먼저 도착해 버퍼된 ICE 후보 투입
     return pc.createAnswer();
   }).then((answer) => {
     return pc.setLocalDescription(answer).then(() => answer);
@@ -60,8 +77,11 @@ function handleAnswerMessage(data) {
   if (!from || !answer) { console.warn('[webrtc] Invalid answer', data); return; }
   const pc = peerConnections.get(from);
   if (pc) {
-    pc.setRemoteDescription(new RTCSessionDescription(answer))
-      .then(() => console.log('[webrtc] answer 적용 완료'))
+    pc.setRemoteDescription(answer)
+      .then(() => {
+        console.log('[webrtc] answer 적용 완료');
+        flushPendingCandidates(from, pc); // 먼저 도착해 버퍼된 ICE 후보 투입
+      })
       .catch(e => console.error('[webrtc] Answer error:', e));
   } else {
     console.warn('[webrtc] answer 수신 but PC 없음:', from);
@@ -72,10 +92,15 @@ function handleIceCandidateMessage(data) {
   const from = data.fromUserId || data.from;
   const candidate = data.candidate;
   const pc = peerConnections.get(from);
-  if (pc && candidate) {
-    try { pc.addIceCandidate(new RTCIceCandidate(candidate)); }
-    catch (e) { console.warn('[webrtc] ICE candidate error:', e); }
+  if (!pc || !candidate) return;
+  // remoteDescription 이 아직 없으면 즉시 추가하면 예외로 유실 → 버퍼에 담아뒀다 flush
+  if (!pc.remoteDescription || !pc.remoteDescription.type) {
+    const queue = pendingCandidates.get(from) || [];
+    queue.push(candidate);
+    pendingCandidates.set(from, queue);
+    return;
   }
+  pc.addIceCandidate(candidate).catch((e) => console.warn('[webrtc] ICE candidate error:', e && e.name));
 }
 
 // ── 송신 비트레이트 상한 (버벅임/대역폭 절감) ──

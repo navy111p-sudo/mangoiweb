@@ -2155,6 +2155,48 @@ export async function handleMangoApi(
       return json({ ok: true, now, today: todayStr, role: isTeacher ? 'teacher' : 'student', sessions, current });
     }
 
+    // 🥭 Phase RM 3단계 — GET /api/class/verify-room
+    //   예약제 방(class-{id}-{YYYYMMDD})에 '남의 방'으로 잘못 입장하는 것을 서버가 검증.
+    //   ▸ 정상 예약자(학생)·담당 교사·관리자는 통과. 예약을 못 찾거나 신원 불명이면 fail-open(통과)로 정상수업 방해 금지.
+    //   ▸ authorized === false 일 때만 클라이언트가 차단. (class-* 패턴이 아닌 임의 방은 게이트 안 함)
+    //   query: ?room_id=class-123-20260705&user_id=X&student_name=Y&role=student|teacher
+    if (method === 'GET' && path === '/api/class/verify-room') {
+      const url = new URL(request.url);
+      const roomId = (url.searchParams.get('room_id') || '').trim();
+      const userId = (url.searchParams.get('user_id') || '').trim();
+      const nameParam = (url.searchParams.get('student_name') || '').trim();
+      const role = (url.searchParams.get('role') || 'student').trim().toLowerCase();
+      const m = /^class-(\d+)-\d{8}$/.exec(roomId);
+      if (!m) return json({ ok: true, authorized: true, reason: 'not_managed_room' }); // 예약제 방이 아니면 게이트 안 함
+      if (role === 'admin' || role === 'observer') return json({ ok: true, authorized: true, reason: 'privileged' });
+      if (!userId && !nameParam) return json({ ok: true, authorized: 'unknown', reason: 'no_identity' }); // 신원 불명 → 통과
+      const schedId = Number(m[1]);
+      let row: any = null;
+      try {
+        row = await env.DB.prepare(`SELECT cs.id, cs.user_id, cs.student_name, cs.teacher_id, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE cs.id = ? LIMIT 1`).bind(schedId).first<any>();
+      } catch {
+        try { row = await env.DB.prepare(`SELECT id, user_id, student_name, teacher_id FROM class_schedules WHERE id = ? LIMIT 1`).bind(schedId).first<any>(); } catch {}
+      }
+      if (!row) return json({ ok: true, authorized: 'unknown', reason: 'schedule_not_found' }); // 예약 없음 → 통과(fail-open)
+      let ok = false;
+      if (userId) {
+        if (String(row.user_id) === userId) ok = true;                    // 학생 uid 일치
+        if (!ok && String(row.teacher_id || '') === userId) ok = true;    // 교사 uid == teacher_id
+        if (!ok) {
+          // 이름 기반 학생 uid 병합(동명/키 다양성 대비)
+          try {
+            const rs = await env.DB.prepare(`SELECT COALESCE(user_id, login_id, ('stu_' || id)) AS uid FROM students_erp WHERE korean_name = ? OR username = ?`).bind(row.student_name || '', row.student_name || '').all<any>();
+            for (const x of (rs.results || [])) { if (String(x.uid) === userId) { ok = true; break; } }
+          } catch {}
+        }
+      }
+      if (!ok && nameParam) {
+        if (row.student_name && row.student_name === nameParam) ok = true;          // 학생 이름 일치
+        if (!ok && row.teacher_name && row.teacher_name === nameParam) ok = true;   // 교사 이름 일치
+      }
+      return json({ ok: true, authorized: ok, owner_name: row.student_name || null, reason: ok ? 'match' : 'mismatch' });
+    }
+
     // 🥭 Phase 6g — POST /api/admin/students/merge-duplicates
     //   동명 학생들을 자동 통합 (가장 오래된 row 가 canonical, 나머지의 schedule 이전 후 비활성화)
     if (method === 'POST' && path === '/api/admin/students/merge-duplicates') {

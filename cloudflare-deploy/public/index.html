@@ -4086,7 +4086,7 @@
 <div id="mango-intro-overlay" role="dialog" aria-label="인트로 영상" hidden>
   <!-- muted 속성: 모든 브라우저에서 autoplay 허용. JS 가 직후에 unmute 시도. -->
   <video id="mango-intro-video" muted playsinline preload="auto" autoplay>
-    <source src="/intro.mp4" type="video/mp4">
+    <source src="/intro.mp4?v=20260705b" type="video/mp4"><!-- ?v 갱신: 인사말 제거·감속 새 영상 강제 로드(캐시 무효화) -->
   </video>
   <button id="mango-intro-mute" type="button" aria-label="음소거 켜기/끄기" aria-pressed="true">🔇</button>
   <button id="mango-intro-skip" type="button" aria-label="인트로 건너뛰기">건너뛰기 ›</button>
@@ -4159,18 +4159,18 @@
   // 🆕 EN/KO 자막 시스템 — 음성에 싱크. 영상 음성(1.4배속·끝 20% 트림) 타임라인 기준.
   var ccEl   = document.getElementById('mango-intro-cc');
   var langBtn= document.getElementById('mango-intro-lang');
-  // ⏱️ (2026-07-05) 인트로 재편집 — 맨 앞 인사말 제거 + 전체 10% 감속(1.4→약1.26배속).
-  //   타이밍 = (기존시간 - 2.0) / 0.90 로 재계산. 인사말(안녕하세요…) 항목은 삭제됨.
+  // ⏱️ (2026-07-05) 인트로 재편집 — 맨 앞 인사말("안녕하세요…학부모님!") 제거 + 전체 10% 감속.
+  //   컷 지점 2.13s('우주에서' 발성 시작). 타이밍 = (기존시간 - 2.13) / 0.90 로 재계산.
   var INTRO_CC = [
-    { t0:0.0, t1:2.17, ko:'우주에서 가장 신나는 공부 모험,', en:'The most exciting study adventure in the universe—' },
-    { t0:2.17, t1:5.07, ko:'망고아이에 오신 것을 진심으로 환영합니다!', en:'a heartfelt welcome to MangoI!' },
-    { t0:5.07, t1:7.40, ko:'망고아이에서는 매일매일이 즐겁습니다.', en:'At MangoI, every single day is fun.' },
-    { t0:7.40, t1:10.46, ko:'똑똑한 AI 친구와 함께 재미있는 게임을 즐기고,', en:'Enjoy fun games with your smart AI friend,' },
-    { t0:10.46, t1:15.10, ko:'팡팡 터지는 퀴즈를 풀다 보면 우리 아이 실력이 마법처럼 쑥쑥 자라납니다.', en:'and as the quizzes pop, your child\'s skills grow like magic.' },
-    { t0:15.10, t1:20.21, ko:'친절한 외국인 선생님과 직접 만나 생생하게 대화하는 화상 수업까지 준비되어 있습니다.', en:'There are even live video lessons to meet friendly foreign teachers and chat face to face.' },
-    { t0:20.21, t1:23.21, ko:'이제 모두 함께 망고 우주선에 탑승해 볼까요?', en:'Now, shall we all board the Mango spaceship together?' },
-    { t0:23.21, t1:25.81, ko:'지금 바로 화면에 수업 입장 버튼을 꾹 누르시고,', en:'Tap the \'Enter Class\' button on your screen right now,' },
-    { t0:25.81, t1:29.5, ko:'설레는 우주 탐험을 시작해 보세요. 자, 출발합니다!', en:'and begin your thrilling space adventure. Ready — let\'s blast off!' }
+    { t0:0.0, t1:2.02, ko:'우주에서 가장 신나는 공부 모험,', en:'The most exciting study adventure in the universe—' },
+    { t0:2.02, t1:4.92, ko:'망고아이에 오신 것을 진심으로 환영합니다!', en:'a heartfelt welcome to MangoI!' },
+    { t0:4.92, t1:7.26, ko:'망고아이에서는 매일매일이 즐겁습니다.', en:'At MangoI, every single day is fun.' },
+    { t0:7.26, t1:10.31, ko:'똑똑한 AI 친구와 함께 재미있는 게임을 즐기고,', en:'Enjoy fun games with your smart AI friend,' },
+    { t0:10.31, t1:14.96, ko:'팡팡 터지는 퀴즈를 풀다 보면 우리 아이 실력이 마법처럼 쑥쑥 자라납니다.', en:'and as the quizzes pop, your child\'s skills grow like magic.' },
+    { t0:14.96, t1:20.07, ko:'친절한 외국인 선생님과 직접 만나 생생하게 대화하는 화상 수업까지 준비되어 있습니다.', en:'There are even live video lessons to meet friendly foreign teachers and chat face to face.' },
+    { t0:20.07, t1:23.07, ko:'이제 모두 함께 망고 우주선에 탑승해 볼까요?', en:'Now, shall we all board the Mango spaceship together?' },
+    { t0:23.07, t1:25.67, ko:'지금 바로 화면에 수업 입장 버튼을 꾹 누르시고,', en:'Tap the \'Enter Class\' button on your screen right now,' },
+    { t0:25.67, t1:29.42, ko:'설레는 우주 탐험을 시작해 보세요. 자, 출발합니다!', en:'and begin your thrilling space adventure. Ready — let\'s blast off!' }
   ];
   var capLang = 'ko';
   try { var _cl = localStorage.getItem('mango_intro_caplang'); if (_cl==='en'||_cl==='ko') capLang=_cl; } catch(e){}
@@ -8084,6 +8084,7 @@ window.vcStopPdfPoll = function(){
 
 let vcLocalStream = null;       // 내 미디어 스트림
 let vcPeerConnections = {};     // { userId: RTCPeerConnection } 맵
+let vcPendingCandidates = {};   // fix (2026-07-05) { userId: [candidate...] } — remoteDescription 전에 온 ICE 후보 버퍼(유실 방지)
 let vcRemoteStreams = {};       // fix (2026-06-01) { userId: MediaStream } — 트랙별 ontrack 누적용 (원격 영상 검게 나오던 문제)
 let vcRoomId = '';
 let vcUsername = '';
@@ -8628,6 +8629,7 @@ function vcEnterResolvedRoom(session, name, role) {
     if (ri) ri.value = session.room_id;          // ← 예약에서 계산된 방 = 반드시 상대와 동일
     window.vcCurrentSession = session;           // 대기실/알림(Phase2)용 메타
     if (typeof vcJoinRoom === 'function') vcJoinRoom();
+    try { vcStartWaitingMonitor(session, role); } catch (e) {}
 }
 
 /** ⏰ 입장 시간 게이트 — 시작 10분 전이 되기 전엔 대기, 열리면 자동 입장 */
@@ -8682,6 +8684,96 @@ function vcShowSessionPicker(sessions, name, role) {
     var c = ov.querySelector('#vc-pick-close'); if (c) c.onclick = function () { ov.remove(); };
 }
 
+// ═══════════════════════════════════════════════════════════════
+// ⏳ Phase RM 2단계 — 방 안 '상대 입장 대기' 표시 + 5분 노쇼 알림
+//   Phase RM 로 입장(vcEnterResolvedRoom)한 세션에서만 동작. window.vcPeerRoles 를 폴링해
+//   상대(내가 학생/관찰=선생님 대기, 내가 선생님=학생 대기) 입장 여부를 판단(기존 핸들러 미변경).
+// ═══════════════════════════════════════════════════════════════
+var vcWaitTimer = null;
+function vcStopWaitingMonitor() {
+    try { if (vcWaitTimer) { clearInterval(vcWaitTimer); vcWaitTimer = null; } } catch (e) {}
+    var c = document.getElementById('vc-wait-card'); if (c) c.remove();
+}
+function vcStartWaitingMonitor(session, myRole) {
+    vcStopWaitingMonitor();
+    if (!session) return;
+    myRole = myRole || window.vcMyRole || 'student';
+    if (myRole === 'observer') return;
+    var waitingFor = (myRole === 'teacher' || myRole === 'admin') ? 'student' : 'teacher';
+    var waitingLabel = waitingFor === 'teacher' ? '선생님' : '학생';
+    var startedAt = Date.now();
+    var NOSHOW_MS = 5 * 60 * 1000;
+    var noShowSent = false;
+
+    if (!document.getElementById('vc-wait-kf')) { var st = document.createElement('style'); st.id = 'vc-wait-kf'; st.textContent = '@keyframes vcPulse{0%,100%{opacity:1}50%{opacity:.35}}'; document.head.appendChild(st); }
+    var card = document.getElementById('vc-wait-card');
+    if (!card) {
+        card = document.createElement('div');
+        card.id = 'vc-wait-card';
+        card.style.cssText = 'position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:9800;background:rgba(15,23,42,.92);border:1px solid rgba(148,163,184,.3);border-radius:16px;padding:12px 18px;color:#e2e8f0;font-family:"Noto Sans KR",sans-serif;box-shadow:0 16px 40px -12px rgba(0,0,0,.6);display:flex;align-items:center;gap:12px;max-width:92vw';
+        document.body.appendChild(card);
+    }
+    function counterpartPresent() {
+        try {
+            var roles = window.vcPeerRoles || {};
+            for (var id in roles) {
+                var r = roles[id];
+                if (waitingFor === 'teacher' && (r === 'teacher' || r === 'admin')) return true;
+                if (waitingFor === 'student' && r === 'student') return true;
+            }
+            var boxes = document.querySelectorAll('[id^="vc-video-"]');
+            for (var i = 0; i < boxes.length; i++) {
+                if (boxes[i].id === 'vc-local-box') continue;
+                var rr = boxes[i].dataset ? boxes[i].dataset.role : '';
+                if (waitingFor === 'teacher' && (rr === 'teacher' || rr === 'admin')) return true;
+                if (waitingFor === 'student' && rr === 'student') return true;
+            }
+        } catch (e) {}
+        return false;
+    }
+    function elapsed() { var s = Math.floor((Date.now() - startedAt) / 1000), m = Math.floor(s / 60); s = s % 60; return m + '분 ' + String(s).padStart(2, '0') + '초'; }
+    function paint(state) {
+        if (!card) return;
+        if (state === 'met') {
+            card.innerHTML = '<span style="font-size:20px">🎉</span><span style="font-size:14px;font-weight:700">' + waitingLabel + '이 입장했어요! 수업을 시작하세요.</span>';
+            setTimeout(vcStopWaitingMonitor, 3500);
+            return;
+        }
+        var sent = noShowSent ? '<div style="font-size:11px;color:#fbbf24;margin-top:2px">📣 상대에게 입장 알림을 보냈어요</div>' : '';
+        card.innerHTML = '<span style="width:10px;height:10px;border-radius:50%;background:#fbbf24;box-shadow:0 0 0 4px rgba(251,191,36,.2);animation:vcPulse 1.4s infinite;flex:0 0 auto"></span>'
+            + '<div><div style="font-size:14px;font-weight:700">' + waitingLabel + '을 기다리는 중… <span style="color:#94a3b8;font-weight:500">(' + elapsed() + ')</span></div>'
+            + '<div style="font-size:11px;color:#94a3b8">입장하면 자동으로 사라져요</div>' + sent + '</div>'
+            + '<button onclick="vcStopWaitingMonitor()" style="background:rgba(148,163,184,.15);border:0;color:#cbd5e1;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;flex:0 0 auto">닫기</button>';
+    }
+    paint('waiting');
+    vcWaitTimer = setInterval(function () {
+        if (!document.body.classList.contains('vc-in-call')) { vcStopWaitingMonitor(); return; }
+        if (counterpartPresent()) { paint('met'); clearInterval(vcWaitTimer); vcWaitTimer = null; return; }
+        if (!noShowSent && (Date.now() - startedAt) >= NOSHOW_MS) { noShowSent = true; vcSendNoShow(session, waitingFor); }
+        paint('waiting');
+    }, 2000);
+}
+function vcSendNoShow(session, waitingFor) {
+    try {
+        var s = (typeof demoStudents !== 'undefined' && session.student_uid) ? demoStudents[session.student_uid] : null;
+        fetch('/api/notify/no-show', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                room_id: session.room_id,
+                schedule_id: session.schedule_id,
+                waiting_for: waitingFor,
+                student_name: session.student_name,
+                teacher_name: session.teacher_name,
+                lesson_title: (s && s.lesson_title) || '영어 수업',
+                student_uid: session.student_uid,
+                teacher_uid: session.teacher_id,
+                student_phone: s && s.phone, parent_phone: s && s.parent_phone, teacher_phone: s && s.teacher_phone,
+                waited_minutes: 5,
+            })
+        }).catch(function () {});
+    } catch (e) { console.warn('[vcSendNoShow]', e); }
+}
+
 /** 다자간 통화 방 입장 */
 async function vcJoinRoom(skipUI) {
     vcIsObserver = false; // 일반 입장 모드 확인
@@ -8696,6 +8788,24 @@ async function vcJoinRoom(skipUI) {
     const roomCodeEl = document.getElementById('vc-roomcode-input');
     const VC_DEFAULT_ROOM = 'mangoi-class';
     vcRoomId = (roomCodeEl ? roomCodeEl.value.trim() : '') || VC_DEFAULT_ROOM;
+
+    // 🔒 Phase RM 3단계 — 예약제 방(class-*)에 '남의 방'으로 잘못 들어가는 것 차단.
+    //   정상 예약자·담당 교사·관리자는 통과, 예약 없음/신원 불명이면 통과(fail-open) → 정상수업 방해 금지.
+    if (/^class-\d+-\d{8}$/.test(vcRoomId)) {
+      try {
+        var _vu = (window.getCurrentUser ? window.getCurrentUser() : null);
+        var _vrole = (window.vcMyRole || (_vu && _vu.role) || 'student');
+        var _vq = 'room_id=' + encodeURIComponent(vcRoomId) + '&role=' + encodeURIComponent(_vrole);
+        if (_vu && _vu.uid) _vq += '&user_id=' + encodeURIComponent(_vu.uid);
+        if (vcUsername) _vq += '&student_name=' + encodeURIComponent(vcUsername);
+        var _vres = await fetch('/api/class/verify-room?' + _vq, { credentials: 'include' }).then(function (x) { return x.json(); }).catch(function () { return null; });
+        if (_vres && _vres.authorized === false) {
+          alert('⚠️ 이 방은 ' + (_vres.owner_name || '다른 학생') + '님의 예약 수업이에요.\n회원님 수업은 "🎓 오늘 내 수업 바로 입장" 버튼으로 들어가 주세요.');
+          return;
+        }
+      } catch (e) { /* 검증 실패 시 통과(정상 수업 방해 금지) */ }
+    }
+
 
     // 🔒 자동저장 처리 — 체크 상태에 따라 저장/제거
     try {
@@ -9847,6 +9957,7 @@ function vcCreatePeer(userId, username) {
         console.log('[vc-webrtc] 기존 PC 정리:', userId);
         try { vcPeerConnections[userId].close(); } catch(_) {}
         delete vcPeerConnections[userId];
+        delete vcPendingCandidates[userId];   // fix (2026-07-05) 재생성 시 오래된 후보 버퍼 폐기
     }
 
     console.log('[vc-webrtc] createPeer:', userId, username, 'ICE서버:', ICE_SERVERS.iceServers.length, '개');
@@ -9964,6 +10075,7 @@ async function vcHandleOffer(data) {
                 // 내 ID가 작으면: 내 offer를 취소하고, 상대 offer에 answer
                 console.log('[vc-webrtc] 글레어 감지! 내 offer 취소, 상대 offer 수락:', fromId);
                 await existingPc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                vcFlushPendingIce(fromId, existingPc);
                 const answer = await existingPc.createAnswer();
                 await existingPc.setLocalDescription(answer);
                 vcConn.send({ type: 'answer', data: { targetUserId: fromId, sdp: existingPc.localDescription } });
@@ -9978,6 +10090,7 @@ async function vcHandleOffer(data) {
         // 기존 PC가 있으면 정리
         const pc = vcCreatePeer(fromId, fromName);
         await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        vcFlushPendingIce(fromId, pc);
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         console.log('[vc-webrtc] answer 전송 →', fromId, 'SDP type:', answer.type);
@@ -9998,6 +10111,7 @@ async function vcHandleAnswer(data) {
                 return;
             }
             await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+            vcFlushPendingIce(data.fromUserId, pc);
             console.log('[vc-webrtc] ✅ answer 적용 완료:', data.fromUserId);
         } else {
             console.warn('[vc-webrtc] answer 수신 but PC 없음:', data.fromUserId);
@@ -10007,17 +10121,32 @@ async function vcHandleAnswer(data) {
     }
 }
 
+/** remoteDescription 준비 후 버퍼된 ICE 후보 일괄 투입 */
+function vcFlushPendingIce(userId, pc) {
+    const q = vcPendingCandidates[userId];
+    if (!q || !q.length) return;
+    console.log('[vc-webrtc] 버퍼된 ICE 후보 flush:', userId, q.length + '개');
+    q.forEach((c) => { pc.addIceCandidate(c).catch((e) => console.warn('[vc-webrtc] flush ICE 실패:', e && e.name)); });
+    delete vcPendingCandidates[userId];
+}
+
 /** ICE Candidate 수신 처리 */
 async function vcHandleIce(data) {
     const pc = vcPeerConnections[data.fromUserId];
-    if (pc && data.candidate) {
-        try {
-            await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-        } catch(e) {
-            console.warn('[vc-webrtc] ICE candidate 추가 실패:', data.fromUserId, e.message);
-        }
-    } else if (!pc) {
-        console.warn('[vc-webrtc] ICE candidate 수신 but PC 없음:', data.fromUserId);
+    if (!pc || !data.candidate) {
+        if (!pc) console.warn('[vc-webrtc] ICE candidate 수신 but PC 없음:', data.fromUserId);
+        return;
+    }
+    // fix (2026-07-05) — remoteDescription 이 아직 없으면 즉시 addIceCandidate 하면 예외로 유실됨.
+    //   버퍼에 담아뒀다가 offer/answer 적용 직후 vcFlushPendingIce 로 투입 → 간헐 연결 실패 방지.
+    if (!pc.remoteDescription || !pc.remoteDescription.type) {
+        (vcPendingCandidates[data.fromUserId] = vcPendingCandidates[data.fromUserId] || []).push(data.candidate);
+        return;
+    }
+    try {
+        await pc.addIceCandidate(data.candidate);
+    } catch(e) {
+        console.warn('[vc-webrtc] ICE candidate 추가 실패:', data.fromUserId, e.message);
     }
 }
 
@@ -10702,6 +10831,7 @@ function attachStreamMonitor(box, stream) {
 function vcRemovePeer(userId) {
     const pc = vcPeerConnections[userId];
     if (pc) { pc.close(); delete vcPeerConnections[userId]; }
+    try { delete vcPendingCandidates[userId]; } catch(_){}  // fix (2026-07-05) 버퍼된 ICE 후보 정리
     try { delete vcRemoteStreams[userId]; } catch(_){}   // fix (2026-06-01) 원격 스트림도 정리
     const box = document.getElementById(`vc-video-${userId}`);
     if (box) box.remove();
@@ -23759,7 +23889,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260705210939 -->
+<!-- BUILD:20260705213109 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

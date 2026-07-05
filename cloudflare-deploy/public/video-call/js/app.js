@@ -24,6 +24,20 @@ $joinBtn.addEventListener('click', joinRoom);
 $usernameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') joinRoom(); });
 $roomInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') joinRoom(); });
 
+// fix (2026-07-05) — 결정론적 딥링크 지원: URL 의 roomId/room/vc_room·name 을 입력칸에 미리 채움.
+//   예약 기반(Phase RM)에서 계산된 방으로 이 레거시 로비에 들어와도 교사·학생이 같은 방으로 연결됨.
+//   빈칸 기본값(mangoi-class) 폴백은 그대로 유지 → 기존 동작 불변.
+(function prefillFromUrl() {
+  try {
+    const sp = new URLSearchParams(location.search);
+    const room = sp.get('roomId') || sp.get('room') || sp.get('vc_room');
+    const name = sp.get('name') || sp.get('vc_name');
+    if (room && $roomInput) $roomInput.value = room;
+    if (name && $usernameInput) $usernameInput.value = name;
+    if (room && sp.get('autojoin') === '1') setTimeout(joinRoom, 300);
+  } catch (_) {}
+})();
+
 /**
  * 견고한 getUserMedia — 마이크/카메라 모두 시도하고
  * 실패 시 단독 모드로 폴백 (데스크탑에서 마이크 안 잡히는 문제 해결)
@@ -275,7 +289,13 @@ function handleUserLeft({ userId }) {
   userCount = Math.max(1, userCount - 1);
   updateUserCount();
   const pc = peerConnections.get(userId);
-  if (pc) { pc.close(); peerConnections.delete(userId); }
+  if (pc) {
+    // 핸들러 해제 후 close → 잔여 콜백/메모리 누수 방지
+    pc.onicecandidate = pc.ontrack = pc.oniceconnectionstatechange = pc.onconnectionstatechange = pc.onnegotiationneeded = null;
+    try { pc.close(); } catch (_) {}
+    peerConnections.delete(userId);
+  }
+  if (typeof pendingCandidates !== 'undefined') pendingCandidates.delete(userId);
   const el = document.getElementById('video-' + userId);
   if (el) el.remove();
   if (typeof removeFloatingVideo === 'function') removeFloatingVideo(userId);
