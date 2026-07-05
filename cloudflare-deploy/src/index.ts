@@ -2990,6 +2990,9 @@ function isAdminPath(path: string, method: string): boolean {
 // 🏪 비-본사(대리점·지사) 계정이 사용할 수 있는 API 허용 목록(그 외 /api/admin/* 는 403)
 // 🏪 비-본사(대리점·지사) 계정이 접근 가능한 화면(그 외 모든 /admin 페이지는 /admin/exec 로 리다이렉트)
 function isAgencyAllowedPage(path: string): boolean {
+  // 🏬 상세 관리자 콘솔(화상수업 대시보드) — 대리점·지사도 '대리점 모드'로 진입 허용.
+  //   데이터는 여전히 isAgencyAllowedApi + getScope 로 자기 소속만 보이게 격리됨(본인 학생반 접근 권한).
+  if (path === '/admin' || path === '/admin/' || path === '/admin.html') return true;
   if (path === '/admin/exec' || path === '/admin/exec/' || path === '/admin/exec.html') return true;
   if (path === '/admin/login' || path === '/admin/login/' || path === '/admin/login.html') return true;
   if (path === '/admin/logout') return true;

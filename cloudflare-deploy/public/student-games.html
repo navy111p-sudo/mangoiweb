@@ -178,6 +178,14 @@
         font-size:13px;font-weight:700;width:fit-content"></div>
     </div>
     <div class="game-grid" id="game-grid"><!-- JS 렌더 --></div>
+
+    <!-- 🚀 게임을 안 하고도 바로 다른 곳으로 이동 (수업입장·AI 웜업·복습퀴즈·녹화·나가기) -->
+    <div style="text-align:center;margin-top:22px">
+      <div style="font-size:13px;color:#94a3b8;margin-bottom:10px">다른 활동으로 이동할까요?</div>
+      <button onclick="window.MangoFlow&&MangoFlow.open('game')" style="display:inline-flex;align-items:center;gap:8px;padding:14px 30px;background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px -4px rgba(56,189,248,.5);font-family:inherit">
+        🚀 다음으로 이동 (수업·웜업·복습·나가기)
+      </button>
+    </div>
   </div>
 
   <!-- ===== 게임 화면 ===== -->
@@ -1761,7 +1769,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260706013937 -->
+<!-- BUILD:20260706025633 -->
 <script defer src="/js/flow.js"></script>
 </body>
 </html>

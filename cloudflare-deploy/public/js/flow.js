@@ -13,20 +13,21 @@
 (function (w, d) {
   if (w.MangoFlow) return;
 
-  // 고정 메뉴 (순서·번호 고정). own = 이 항목이 '현재 기능'일 때 "다시"로 표시할 키
+  // 고정 메뉴 (순서·번호 고정). again = 이 항목이 '현재 기능'일 때 "다시"로 표시할 라벨
   var MENU = [
-    { key: 'class', emoji: '🎥', label: '수업 입장',    again: '수업 다시 입장' },
-    { key: 'quiz',  emoji: '🧠', label: '복습퀴즈',      again: '복습퀴즈 다시' },
-    { key: 'game',  emoji: '🎮', label: '학생게임',      again: '학생게임 다시' },
-    { key: 'rec',   emoji: '📼', label: '녹화 다시보기', again: '녹화 다시보기' },
-    { key: 'exit',  emoji: '🚪', label: '나가기',        again: '나가기' }
+    { key: 'class',  emoji: '🎥', label: '수업 입장',    again: '수업 다시 입장' },
+    { key: 'warmup', emoji: '🗣️', label: 'AI 웜업',      again: 'AI 웜업 다시' },
+    { key: 'quiz',   emoji: '🧠', label: '복습퀴즈',      again: '복습퀴즈 다시' },
+    { key: 'game',   emoji: '🎮', label: '학생게임',      again: '학생게임 다시' },
+    { key: 'rec',    emoji: '📼', label: '녹화 다시보기', again: '녹화 다시보기' },
+    { key: 'exit',   emoji: '🚪', label: '나가기',        again: '나가기' }
   ];
 
   // 방금 끝낸 기능 → 추천 항목 (부드러운 순환: 웜업→게임→수업→복습→게임…)
   var REC = { warmup: 'game', game: 'class', class: 'quiz', quiz: 'game' };
 
   // 방금 끝낸 기능 → 메뉴에서 '나 자신'에 해당하는 항목(있으면 "다시"로 표기)
-  var SELF = { game: 'game', quiz: 'quiz' };
+  var SELF = { warmup: 'warmup', class: 'class', game: 'game', quiz: 'quiz' };
 
   var FROM_LABEL = { warmup: 'AI 웜업', game: '학생게임', class: '화상수업', quiz: '복습퀴즈' };
 
@@ -51,6 +52,7 @@
             nav('/?go=class');
           }
           break;
+        case 'warmup': nav('/warmup.html'); break;
         case 'quiz': nav('/review-quiz.html'); break;
         case 'game': nav('/student-games.html'); break;
         case 'rec':  nav('/parent.html'); break;   // 마이페이지 = 수업 녹화 보기
