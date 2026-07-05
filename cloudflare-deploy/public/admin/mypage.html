@@ -650,7 +650,7 @@
               style="padding:8px 14px;border-radius:99px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer;border:0;display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,var(--amber-1),var(--amber-2));color:#1a1a1a;box-shadow:0 4px 14px -2px rgba(245,158,11,0.45)">🌐 <span class="lang-label-sync">EN</span></button>
       <a class="btn-back" href="/" title="학생 홈페이지로 이동"><span data-ko="🏠 홈페이지" data-en="🏠 Home">🏠 홈페이지</span></a>
       <a href="/admin.html" id="goDashboardBtn" class="btn-back" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);border-color:transparent;color:#fff;font-weight:800;box-shadow:0 4px 14px -2px rgba(37,99,235,0.5)" title="관리자 대시보드로 이동"><span data-ko="📊 관리자 대시보드" data-en="📊 Admin Dashboard">📊 관리자 대시보드</span></a>
-      <a href="/admin.html" id="goDetailAdminBtn" class="btn-back" style="display:none;background:linear-gradient(135deg,#7c3aed,#6d28d9);border-color:transparent;color:#fff;font-weight:800;box-shadow:0 4px 14px -2px rgba(124,58,237,0.5)" title="상세 관리자 페이지(본사 콘솔)로 이동"><span data-ko="📋 상세 관리자 페이지" data-en="📋 Full Admin">📋 상세 관리자 페이지</span></a>
+      <a href="/admin.html" id="goDetailAdminBtn" onclick="return goDetailAdmin(event)" class="btn-back" style="display:none;background:linear-gradient(135deg,#7c3aed,#6d28d9);border-color:transparent;color:#fff;font-weight:800;box-shadow:0 4px 14px -2px rgba(124,58,237,0.5)" title="상세 관리자 페이지(화상수업 대시보드)로 바로 이동"><span data-ko="📋 상세 관리자 페이지" data-en="📋 Full Admin">📋 상세 관리자 페이지</span></a>
       <a class="btn-logout" id="logoutBtn" href="#"><span data-ko="로그아웃" data-en="Logout">로그아웃</span></a>
     </div>
   </header>
@@ -679,6 +679,42 @@
       if (document.readyState !== 'loading') updateThemeBtn();
       else document.addEventListener('DOMContentLoaded', updateThemeBtn);
     })();
+  </script>
+
+  <script>
+    /* 📋 [상세 관리자 페이지] — 재로그인 없이 바로 화상수업 대시보드(/admin.html)로.
+       admin.html 은 localStorage 'mangoi_admin_session' 이 있어야 통과(없으면 로그인으로 튕김).
+       마이페이지는 쿠키 세션이라 이 키가 없을 수 있으므로, 현재 쿠키 세션(/api/admin/me)으로
+       동일 구조의 세션을 만들어 채운 뒤 이동한다. (로그인 페이지가 저장하는 구조와 동일) */
+    async function goDetailAdmin(ev){
+      if (ev && ev.preventDefault) ev.preventDefault();
+      try { sessionStorage.removeItem('_admin_login_redirected'); } catch(_){}
+      try {
+        var valid = false;
+        try { var cur = JSON.parse(localStorage.getItem('mangoi_admin_session') || 'null'); valid = !!(cur && cur.role); } catch(_){}
+        if (!valid){
+          var r = await fetch('/api/admin/me', { credentials:'include' });
+          if (r.status === 401){ location.href = '/admin/login.html?next=%2Fadmin.html'; return false; }
+          var j = await r.json().catch(function(){ return null; });
+          if (j && j.ok){
+            var u = j.user || {};
+            var uid = u.username || '';
+            var role = j.role || u.role || '';
+            var agency_id = u.agency_id || '', branch = u.branch || '', branch_id = u.branch_id || '';
+            if (!agency_id && uid.indexOf('agency_') === 0) agency_id = uid.replace(/^agency_/, '');
+            if (!branch_id && uid.indexOf('branch_') === 0){ branch_id = uid.replace(/^branch_/, ''); branch = branch || branch_id; }
+            var session = { uid: uid, name: (u.name || u.username || ''), role: role,
+                            branch: branch, branch_id: branch_id, agency_id: agency_id, login_at: Date.now() };
+            try { localStorage.setItem('mangoi_admin_session', JSON.stringify(session)); } catch(_){}
+          } else {
+            location.href = '/admin/login.html?next=%2Fadmin.html'; return false;
+          }
+        }
+      } catch(_){}
+      location.href = '/admin.html';
+      return false;
+    }
+    window.goDetailAdmin = goDetailAdmin;
   </script>
 
   <main>
