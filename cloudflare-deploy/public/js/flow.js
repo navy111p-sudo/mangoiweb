@@ -55,7 +55,7 @@
         case 'warmup': nav('/warmup.html'); break;
         case 'quiz': nav('/review-quiz.html'); break;
         case 'game': nav('/student-games.html'); break;
-        case 'rec':  nav('/parent.html'); break;   // 마이페이지 = 수업 녹화 보기
+        case 'rec':  openLatestRecording(); break;   // 직전 수업 녹화 바로 재생
         case 'exit':
           if (typeof t.showView === 'function' && t.document.getElementById('view-home')) t.showView('view-home');
           else nav('/');
@@ -161,5 +161,111 @@
   if (d.readyState === 'loading') d.addEventListener('DOMContentLoaded', handleGoParam);
   else handleGoParam();
 
-  w.MangoFlow = { open: open, close: close };
+  // ─────────────────────────────────────────────────────────
+  // 📼 녹화 다시 보기 — 로그인 학생의 '가장 최근 수업 녹화'를 바로 재생
+  // ─────────────────────────────────────────────────────────
+  function studentUid() {
+    var keys = ['mangoi_logged_user', 'mango_user', 'mangoi_user'];
+    for (var i = 0; i < keys.length; i++) {
+      try {
+        var o = JSON.parse(w.localStorage.getItem(keys[i]) || 'null');
+        if (o && (o.uid || o.id || o.user_id)) return { uid: String(o.uid || o.id || o.user_id), name: String(o.name || '') };
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  function recDoc() { return topWin().document; }
+  function recClose() {
+    var doc = recDoc(), el = doc.getElementById('mango-rec-overlay');
+    if (el) { try { var v = el.querySelector('video'); if (v) v.pause(); } catch (_) {} el.parentNode && el.parentNode.removeChild(el); }
+  }
+  function recShell(inner) {
+    var doc = recDoc();
+    recClose();
+    var ov = doc.createElement('div');
+    ov.id = 'mango-rec-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483001;background:rgba(2,6,23,.93);' +
+      'display:flex;align-items:center;justify-content:center;padding:16px;' +
+      'font-family:"Noto Sans KR",-apple-system,sans-serif;animation:mgFlowFade .2s ease-out';
+    ov.addEventListener('click', function (e) { if (e.target === ov) recClose(); });
+    ov.innerHTML = inner;
+    doc.body.appendChild(ov);
+    return ov;
+  }
+  function recMsgBox(html) {
+    return '<div style="width:100%;max-width:380px;background:#0b1220;border:1px solid #1e293b;' +
+      'border-radius:18px;padding:26px 22px;text-align:center;color:#e2e8f0">' + html + '</div>';
+  }
+
+  function openLatestRecording() {
+    var who = studentUid();
+    if (!who) {
+      recShell(recMsgBox(
+        '<div style="font-size:40px;margin-bottom:8px">🔒</div>' +
+        '<div style="font-size:16px;font-weight:800;margin-bottom:6px;color:#f8fafc">로그인이 필요해요</div>' +
+        '<div style="font-size:13px;color:#94a3b8;margin-bottom:16px">로그인하면 지난 수업 녹화를 볼 수 있어요.</div>' +
+        '<button data-rec-close style="background:#334155;color:#e2e8f0;border:0;border-radius:10px;padding:11px 22px;font-size:14px;font-weight:700;cursor:pointer">닫기</button>'
+      ));
+      bindRecButtons();
+      return;
+    }
+    recShell(recMsgBox(
+      '<div style="font-size:38px;margin-bottom:10px">📼</div>' +
+      '<div style="font-size:15px;font-weight:700;color:#e2e8f0">최근 수업 녹화를 불러오는 중…</div>'
+    ));
+    var tried = {};
+    function query(q) {
+      tried[q] = 1;
+      return fetch('/api/student/recordings?limit=1&uid=' + encodeURIComponent(q))
+        .then(function (r) { return r.json(); })
+        .then(function (d2) { return (d2 && (d2.rows || d2.recordings)) || []; })
+        .catch(function () { return []; });
+    }
+    query(who.uid).then(function (rows) {
+      if ((!rows || !rows.length) && who.name && !tried[who.name]) return query(who.name);
+      return rows;
+    }).then(function (rows) {
+      var rec = (rows && rows.length) ? rows[0] : null;
+      if (!rec || !rec.url) { recShowEmpty(); return; }
+      recShowPlayer(rec);
+    }).catch(function () { recShowEmpty(); });
+  }
+
+  function recShowEmpty() {
+    recShell(recMsgBox(
+      '<div style="font-size:40px;margin-bottom:8px">🎬</div>' +
+      '<div style="font-size:16px;font-weight:800;margin-bottom:6px;color:#f8fafc">아직 녹화된 수업이 없어요</div>' +
+      '<div style="font-size:13px;color:#94a3b8;margin-bottom:16px">선생님과 화상수업을 하면 여기서 다시 볼 수 있어요.</div>' +
+      '<button data-rec-close style="background:#334155;color:#e2e8f0;border:0;border-radius:10px;padding:11px 22px;font-size:14px;font-weight:700;cursor:pointer">닫기</button>'
+    ));
+    bindRecButtons();
+  }
+
+  function recShowPlayer(rec) {
+    var meta = [rec.date, rec.teacher].filter(function (x) { return x && x !== '-'; }).join(' · ');
+    recShell(
+      '<div style="width:100%;max-width:920px;background:#0b1220;border:1px solid #1e293b;border-radius:18px;padding:14px;box-shadow:0 30px 80px -12px rgba(0,0,0,.75)">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">' +
+          '<div style="color:#f8fafc;font-weight:800;font-size:16px;min-width:0">📼 최근 수업 녹화' +
+            (meta ? ' <span style="color:#94a3b8;font-weight:600;font-size:13px">· ' + meta + '</span>' : '') + '</div>' +
+          '<button data-rec-close style="flex:0 0 auto;background:rgba(255,255,255,.1);color:#e2e8f0;border:0;width:34px;height:34px;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;line-height:1">✕</button>' +
+        '</div>' +
+        '<video src="' + String(rec.url).replace(/"/g, '&quot;') + '" controls autoplay playsinline ' +
+          'style="width:100%;max-height:74vh;border-radius:12px;background:#000;display:block"></video>' +
+        '<div style="text-align:center;margin-top:10px"><a href="/parent.html" style="color:#38bdf8;font-size:13px;text-decoration:none;font-weight:700">📚 전체 녹화 목록 보기 →</a></div>' +
+      '</div>'
+    );
+    bindRecButtons();
+  }
+
+  function bindRecButtons() {
+    var doc = recDoc(), ov = doc.getElementById('mango-rec-overlay');
+    if (!ov) return;
+    [].forEach.call(ov.querySelectorAll('[data-rec-close]'), function (b) {
+      b.addEventListener('click', recClose);
+    });
+  }
+
+  w.MangoFlow = { open: open, close: close, playRecording: openLatestRecording, closeRec: recClose };
 })(window, document);
