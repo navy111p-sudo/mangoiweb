@@ -427,7 +427,8 @@
       '<div class="row">'+
         '<button class="btn ghost" id="rMenu">메뉴 🏠</button>'+
         '<button class="btn" id="rAgain">다시 하기 ↻</button>'+
-      '</div>';
+      '</div>'+
+      '<button class="btn" onclick="window.MangoFlow&&MangoFlow.open(\'quiz\')" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;margin-top:10px;width:100%">🚀 다음 활동 고르기</button>';
     $('#resultOverlay').classList.add('show');
     $('#rMenu').addEventListener('click', function(){ if(synth)synth.cancel(); show('menu'); });
     $('#rAgain').addEventListener('click', function(){ $('#resultOverlay').classList.remove('show'); start(); });
@@ -475,6 +476,7 @@
 })();
 </script>
 <!-- BUILD:20260704 speakquiz1 -->
-<!-- BUILD:20260705234412 -->
+<script defer src="/js/flow.js"></script>
+<!-- BUILD:20260705235355 -->
 </body>
 </html>

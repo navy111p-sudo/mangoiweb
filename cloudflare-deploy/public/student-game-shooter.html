@@ -692,7 +692,8 @@
   function endGame(){
     running=false; clearInterval(timerId); cancelAnimationFrame(rafId); clearMonsters(); if(synth) synth.cancel();
     var best=+(localStorage.getItem('ess_best')||0); if(score>best){ best=score; localStorage.setItem('ess_best',best); }
-    card.innerHTML='<h1>⏰ 시간 종료!</h1><div class="big">'+score+'점</div><div class="best">🏆 최고 '+best+'점</div><button class="btn" id="restartBtn">다시 시작 ↻</button>';
+    card.innerHTML='<h1>⏰ 시간 종료!</h1><div class="big">'+score+'점</div><div class="best">🏆 최고 '+best+'점</div><button class="btn" id="restartBtn">다시 시작 ↻</button>'
+      +'<button class="btn" onclick="window.MangoFlow&&MangoFlow.open(\'game\')" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;margin-top:8px">🚀 다음 활동 고르기</button>';
     overlay.style.display='flex'; document.getElementById('restartBtn').addEventListener('click', startGame);
   }
   // 🎯 정답 단어 10개 명중 달성 → 결과 화면(난이도 단계 클리어) + 허브에 점수 전달
@@ -706,7 +707,8 @@
     card.innerHTML='<h1>🏆 난이도 ⭐'+stageLvl+' 클리어!</h1><div class="big">'+score+'점</div>'
       +'<div class="best">✅ 정답 '+correctWords+'개 · 🏆 최고 '+best+'점</div>'
       +nextBtn
-      +'<button class="btn" id="restartBtn" style="margin-top:8px">같은 단계 다시 ↻</button>';
+      +'<button class="btn" id="restartBtn" style="margin-top:8px">같은 단계 다시 ↻</button>'
+      +'<button class="btn" onclick="window.MangoFlow&&MangoFlow.open(\'game\')" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;margin-top:8px">🚀 다음 활동 고르기</button>';
     overlay.style.display='flex';
     document.getElementById('restartBtn').addEventListener('click', startGame);
     document.getElementById('nextStageBtn').addEventListener('click', function(){
@@ -770,6 +772,7 @@
 })();
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 -->
-<!-- BUILD:20260705234412 -->
+<script defer src="/js/flow.js"></script>
+<!-- BUILD:20260705235355 -->
 </body>
 </html>

@@ -383,7 +383,8 @@
     clearInterval(timerId); timerId=setInterval(tick,1000); cancelAnimationFrame(rafId); rafId=requestAnimationFrame(loop); }
   function endGame(){ running=false; clearInterval(timerId); cancelAnimationFrame(rafId); clearZombies(); if(synth) synth.cancel(); review1.classList.remove('on'); review2.classList.remove('on'); review3.classList.remove('on');
     var best=+(LSget('wf_best')||0); if(score>best){ best=score; LSset('wf_best',best); } var stars=score>=900?'⭐⭐⭐':(score>=500?'⭐⭐':'⭐');
-    card.innerHTML='<div class="tag">⚡ 전투 종료 ⚡</div><h1>⏰ 시간 종료!</h1><div class="stars">'+stars+'</div><div class="big">'+score+'점</div><div class="best">🏆 최고 '+best+'점</div><button class="btn red" id="restartBtn">다시 도전 ↻</button>';
+    card.innerHTML='<div class="tag">⚡ 전투 종료 ⚡</div><h1>⏰ 시간 종료!</h1><div class="stars">'+stars+'</div><div class="big">'+score+'점</div><div class="best">🏆 최고 '+best+'점</div><button class="btn red" id="restartBtn">다시 도전 ↻</button>'
+      +'<button class="btn" onclick="window.MangoFlow&&MangoFlow.open(\'game\')" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;margin-top:8px">🚀 다음 활동 고르기</button>';
     overlay.style.display='flex'; document.getElementById('restartBtn').addEventListener('click', startGame); }
 
   function safeStart(e){ if(e){ try{ e.preventDefault(); }catch(_){} } if(getComputedStyle(overlay).display==='none') return; try{ startGame(); }catch(err){ var w=document.getElementById('voiceWarn'); if(w) w.textContent='⚠ 시작 오류: '+(err&&err.message||err); } }
@@ -392,6 +393,7 @@
   if(!synth){ document.getElementById('voiceWarn').textContent='⚠ 이 브라우저는 음성합성을 지원하지 않습니다.'; }
 })();
 </script>
-<!-- BUILD:20260705234412 -->
+<script defer src="/js/flow.js"></script>
+<!-- BUILD:20260705235355 -->
 </body>
 </html>

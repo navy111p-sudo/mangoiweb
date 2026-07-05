@@ -1367,7 +1367,8 @@
         (goalDone ? '<button class="btn" id="rsNext" style="background:linear-gradient(135deg,#f43f5e,#be123c);color:#fff">'+(stageLvl<STAGE_MAX?('🔥 다음 난이도 ⭐'+(stageLvl+1)):'👑 ⭐1부터 다시')+'</button>' : '')+
         '<button class="btn ghost" id="rsMenu">메뉴 🏠</button>'+
         '<button class="btn" id="rsAgain">다시 하기 ↻</button>'+
-      '</div>';
+      '</div>'+
+      '<button class="btn" onclick="window.MangoFlow&&MangoFlow.open(\'game\')" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;margin-top:10px;width:100%">🚀 다음 활동 고르기</button>';
     openOverlay('#resultOverlay');
     $('#rsMenu').addEventListener('click', function(){ closeOverlay('#resultOverlay'); goMenu(); });
     $('#rsAgain').addEventListener('click', function(){
@@ -1551,6 +1552,7 @@
 })();
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
-<!-- BUILD:20260705234412 -->
+<script defer src="/js/flow.js"></script>
+<!-- BUILD:20260705235355 -->
 </body>
 </html>

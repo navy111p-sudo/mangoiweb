@@ -30,29 +30,36 @@
 
   var FROM_LABEL = { warmup: 'AI 웜업', game: '학생게임', class: '화상수업', quiz: '복습퀴즈' };
 
-  // 항목 클릭 시 이동 동작
+  // 최상위 창(아이프레임 안에서 실행 시 상위창을 대상으로 이동) — 교차출처면 자기 자신
+  function topWin() {
+    try { return (w.top && w.top !== w.self) ? w.top : w; } catch (_) { return w; }
+  }
+  function nav(url) { var t = topWin(); try { t.location.href = url; } catch (_) { w.location.href = url; } }
+
+  // 항목 클릭 시 이동 동작 (아이프레임/일반 페이지 모두 대응)
   function goTo(key) {
     close();
+    var t = topWin();
     try {
       switch (key) {
         case 'class':
-          // index.html 안이면 SPA 전환, 아니면 홈으로 이동하며 로비 요청
-          if (typeof w.showView === 'function' && d.getElementById('view-videocall-lobby')) {
-            w.showView('view-videocall-lobby');
-            try { w.scrollTo(0, 0); } catch (_) {}
+          // index.html(또는 상위창)이면 SPA 전환, 아니면 홈으로 이동하며 로비 요청
+          if (typeof t.showView === 'function' && t.document.getElementById('view-videocall-lobby')) {
+            t.showView('view-videocall-lobby');
+            try { t.scrollTo(0, 0); } catch (_) {}
           } else {
-            w.location.href = '/?go=class';
+            nav('/?go=class');
           }
           break;
-        case 'quiz': w.location.href = '/review-quiz.html'; break;
-        case 'game': w.location.href = '/student-games.html'; break;
-        case 'rec':  w.location.href = '/parent.html'; break;   // 마이페이지 = 수업 녹화 보기
+        case 'quiz': nav('/review-quiz.html'); break;
+        case 'game': nav('/student-games.html'); break;
+        case 'rec':  nav('/parent.html'); break;   // 마이페이지 = 수업 녹화 보기
         case 'exit':
-          if (typeof w.showView === 'function' && d.getElementById('view-home')) w.showView('view-home');
-          else w.location.href = '/';
+          if (typeof t.showView === 'function' && t.document.getElementById('view-home')) t.showView('view-home');
+          else nav('/');
           break;
       }
-    } catch (e) { try { w.location.href = '/'; } catch (_) {} }
+    } catch (e) { try { nav('/'); } catch (_) {} }
   }
 
   function close() {
@@ -68,6 +75,13 @@
   }
 
   function open(fromKey) {
+    // 같은 출처 아이프레임 안이고 상위창에도 MangoFlow가 있으면, 전체화면 중앙에 뜨도록 상위창에 위임
+    try {
+      if (w.top && w.top !== w.self && w.top.MangoFlow && w.top.MangoFlow.open && w.top.MangoFlow !== w.MangoFlow) {
+        w.top.MangoFlow.open(fromKey);
+        return;
+      }
+    } catch (_) { /* 교차출처 → 아래에서 자기 창에 렌더 */ }
     close();
     var recKey = REC[fromKey] || null;
     var selfKey = SELF[fromKey] || null;
