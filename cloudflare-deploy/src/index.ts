@@ -976,6 +976,9 @@ export default {
         // Audit-added: points balance + earn-by-rule
         path === '/api/points/balance' ||
         path === '/api/points/earn-by-rule' ||
+        // 🌟 실시간 칭찬 포인트 — 학생 입장 등록 + 선생님 서버측 적립(학생 전체 포인트 확실 반영)
+        path === '/api/vc/roster' ||
+        path === '/api/points/award-praise' ||
         // ⭐ 수업 강사 평가 (수업 종료 직후 별 7개 + 태그 + 건의사항)
         path === '/api/ratings' ||
         path === '/api/ratings/check' ||

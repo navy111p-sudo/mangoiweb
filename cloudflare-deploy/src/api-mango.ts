@@ -2245,6 +2245,13 @@ export async function handleMangoApi(
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS gift_catalog (id INTEGER PRIMARY KEY AUTOINCREMENT, external_id TEXT, brand TEXT, name TEXT NOT NULL, category TEXT, face_value INTEGER NOT NULL, point_price INTEGER NOT NULL, thumbnail_url TEXT, stock INTEGER, enabled INTEGER DEFAULT 1, sort_order INTEGER DEFAULT 0, description TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS gift_redemptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, catalog_id INTEGER NOT NULL, gift_name TEXT, gift_brand TEXT, face_value INTEGER NOT NULL, point_price INTEGER NOT NULL, recipient_phone TEXT, recipient_name TEXT, status TEXT NOT NULL DEFAULT 'pending', external_order_id TEXT, external_coupon_code TEXT, error_message TEXT, requested_at INTEGER NOT NULL, sent_at INTEGER, delivered_at INTEGER, failed_at INTEGER, refunded_at INTEGER, txn_spend_id INTEGER, txn_refund_id INTEGER, meta TEXT);`);
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS point_rule_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, rule_code TEXT NOT NULL, amount INTEGER NOT NULL, triggered_at INTEGER NOT NULL, txn_id INTEGER, meta TEXT);`);
+      // 🌟 (2026-07-05) 화상수업 실시간 칭찬 포인트를 "가장 확실하게" 학생 전체 포인트로 적립하기 위한 두 테이블.
+      //   vc_roster       : 학생이 수업 입장 시 (방·피어ID → 자기 계정 uid) 를 등록 → 선생님이 별을 누르면
+      //                     서버가 대상 학생의 진짜 계정을 찾아 직접 적립(학생 브라우저 상태와 무관).
+      //   point_awards    : awardId 멱등키 — 학생-자기적립 경로와 서버-선생님적립 경로가 동시에 돌아도
+      //                     한 번의 별 = 정확히 1점만 적립되게 보장(중복 방지).
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS vc_roster (room_id TEXT NOT NULL, peer_id TEXT NOT NULL, account_uid TEXT NOT NULL, name TEXT, role TEXT, updated_at INTEGER NOT NULL, PRIMARY KEY (room_id, peer_id));`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS point_awards (award_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, room_id TEXT, credited_at INTEGER NOT NULL);`);
       __pointTablesReady = true;
     };
 
@@ -2283,6 +2290,47 @@ export async function handleMangoApi(
       const ins = await env.DB.prepare(`INSERT INTO point_transactions (user_id, student_name, type, amount, balance_after, reason, rule_code, redemption_id, actor_id, actor_name, created_at, meta) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
         .bind(userId, studentName || null, type, signed, newBalance, reason || null, ruleCode || null, redemptionId || null, actorId || null, actorName || null, now, meta ? JSON.stringify(meta) : null).run();
       return { txnId: ins?.meta?.last_row_id, newBalance, signed };
+    };
+
+    // 🌟 헬퍼: 실시간 수업 칭찬 포인트 적립(멱등) — 학생 전체 포인트(student_points.balance)에 1점 적립.
+    //   awardId 를 주면 point_awards 로 "한 별 = 정확히 1점" 보장. 학생-자기적립/서버-선생님적립 두 경로가
+    //   같은 awardId 로 동시에 들어와도 먼저 claim 한 쪽만 실제 적립하고, 다른 쪽은 already 로 무해하게 통과.
+    const creditPraisePoint = async (opts: {
+      accountUid: string; studentName?: string | null; awardId?: string | null;
+      room?: string | null; fromName?: string | null;
+    }) => {
+      const accountUid = (opts.accountUid || '').trim();
+      if (!accountUid) return { ok: false, error: 'no_account' };
+      await ensurePointTables();
+      const now = Date.now();
+      // 규칙 자동 시드/갱신 (1점 · 학생당 1초 쿨다운 · 하루 100회)
+      await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES ('teacher_praise_point','선생님 칭찬 포인트',1,1,100,1,'실시간 수업 중 선생님이 잘한 답변에 즉석 지급',?) ON CONFLICT(code) DO UPDATE SET cooldown_sec=1, daily_cap=100, enabled=1`).bind(now).run();
+      const rule: any = await env.DB.prepare(`SELECT * FROM point_rules WHERE code='teacher_praise_point' AND enabled=1`).first();
+      const amount = rule?.amount || 1;
+      // ⚛ 멱등 claim — awardId 있을 때만. 이미 적립됐으면 그대로 성공 반환(중복 적립 안 함).
+      if (opts.awardId) {
+        const claim = await env.DB.prepare(`INSERT OR IGNORE INTO point_awards (award_id, user_id, room_id, credited_at) VALUES (?,?,?,?)`)
+          .bind(opts.awardId, accountUid, opts.room || null, now).run();
+        if (!claim?.meta?.changes) {
+          const b: any = await env.DB.prepare(`SELECT balance FROM student_points WHERE user_id=?`).bind(accountUid).first();
+          return { ok: true, already: true, amount, newBalance: b?.balance ?? null };
+        }
+      }
+      // 일일 한도 (KST 자정 기준)
+      if (rule?.daily_cap) {
+        const KST_OFF = 9 * 3600 * 1000;
+        const todayMs = Math.floor((now + KST_OFF) / 86400000) * 86400000 - KST_OFF;
+        const cnt: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE user_id=? AND rule_code='teacher_praise_point' AND triggered_at>=?`).bind(accountUid, todayMs).first();
+        if ((cnt?.c || 0) >= rule.daily_cap) return { ok: false, error: 'daily_cap_reached', cap: rule.daily_cap };
+      }
+      const r = await applyPointTransaction({
+        userId: accountUid, studentName: opts.studentName || undefined, type: 'earn',
+        amount, reason: rule?.label || '선생님 칭찬 포인트', ruleCode: 'teacher_praise_point',
+        meta: { room: opts.room, awardId: opts.awardId, from: opts.fromName },
+      });
+      await env.DB.prepare(`INSERT INTO point_rule_log (user_id, rule_code, amount, triggered_at, txn_id, meta) VALUES (?,?,?,?,?,?)`)
+        .bind(accountUid, 'teacher_praise_point', amount, now, r.txnId, JSON.stringify({ room: opts.room, awardId: opts.awardId })).run();
+      return { ok: true, ...r, amount, rule: { code: 'teacher_praise_point', label: rule?.label, amount } };
     };
 
     // ── GET /api/points/balance?uid=xxx — 학생 본인 포인트 잔액 + 최근 거래 ──
@@ -2346,11 +2394,14 @@ export async function handleMangoApi(
       const userId = (body.user_id || '').trim();
       const ruleCode = (body.rule_code || '').trim();
       if (!userId || !ruleCode) return json({ ok: false, error: 'user_id_and_rule_required' }, 400);
-      // 🌟 실시간 수업 중 강사가 즉석으로 칭찬 포인트를 주는 기능 — 규칙 자동 시드/갱신.
-      //   1점 · 학생당 1초 쿨다운(오작동 방지, 연속 지급 원활) · 하루 100회 한도.
-      //   기존 시드(3초/40회)를 DO UPDATE 로 덮어써 즉시 최신값 반영.
+      // 🌟 실시간 수업 칭찬 포인트 — 학생 본인 브라우저가 자기 계정으로 적립하는 경로.
+      //   awardId(멱등키)를 함께 넘겨, 서버-선생님적립 경로(/api/points/award-praise)와 겹쳐도 1점만 적립.
       if (ruleCode === 'teacher_praise_point') {
-        await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES ('teacher_praise_point','선생님 칭찬 포인트',1,1,100,1,'실시간 수업 중 선생님이 잘한 답변에 즉석 지급',?) ON CONFLICT(code) DO UPDATE SET cooldown_sec=1, daily_cap=100, enabled=1`).bind(Date.now()).run();
+        const res: any = await creditPraisePoint({
+          accountUid: userId, studentName: body.student_name,
+          awardId: body.meta?.awardId || null, room: body.meta?.room || null, fromName: body.meta?.from || null,
+        });
+        return json(res.ok ? { ...res, rule: res.rule || { code: 'teacher_praise_point', amount: res.amount || 1 } } : res, res.ok ? 200 : 200);
       }
       const rule: any = await env.DB.prepare(`SELECT * FROM point_rules WHERE code=? AND enabled=1`).bind(ruleCode).first();
       if (!rule) return json({ ok: false, error: 'rule_not_found_or_disabled', code: ruleCode }, 404);
@@ -2382,6 +2433,50 @@ export async function handleMangoApi(
         return json({ ok: true, ...r, rule: { code: rule.code, label: rule.label, amount: rule.amount } });
       } catch (e: any) {
         return json({ ok: false, error: String(e?.message || e) }, 400);
+      }
+    }
+
+    // ── POST /api/vc/roster — 학생이 수업 입장 시 (방·피어ID → 자기 계정 uid) 등록 ──
+    //   body: { room, peer_id, account_uid, name?, role? }
+    //   이 매핑이 있어야 선생님이 별을 눌렀을 때 서버가 대상 학생의 진짜 계정을 찾아 적립할 수 있다.
+    if (method === 'POST' && path === '/api/vc/roster') {
+      try {
+        await ensurePointTables();
+        const body: any = await request.json().catch(() => ({}));
+        const room = (body.room || '').trim();
+        const peerId = String(body.peer_id || '').trim();
+        const accountUid = (body.account_uid || '').trim();
+        const name = (body.name || '').trim();
+        const role = (body.role || 'student').trim();
+        if (!room || !peerId || !accountUid) return json({ ok: false, error: 'room_peer_account_required' }, 400);
+        await env.DB.prepare(`INSERT INTO vc_roster (room_id, peer_id, account_uid, name, role, updated_at) VALUES (?,?,?,?,?,?) ON CONFLICT(room_id, peer_id) DO UPDATE SET account_uid=excluded.account_uid, name=excluded.name, role=excluded.role, updated_at=excluded.updated_at`)
+          .bind(room, peerId, accountUid, name || null, role, Date.now()).run();
+        return json({ ok: true });
+      } catch (e: any) {
+        return json({ ok: false, error: String(e?.message || e) }, 200);
+      }
+    }
+
+    // ── POST /api/points/award-praise — 선생님이 별을 누르면 서버가 대상 학생 계정에 직접 적립 ──
+    //   body: { room, target_peer_id, award_id, from_name? }
+    //   학생 브라우저의 로그인/신호수신/네트워크 상태와 무관하게, 입장 때 등록된 계정으로 적립(멱등).
+    //   학생이 로그인 안 하고 게스트로 들어와 vc_roster 에 없으면 account_not_registered 반환(적립 불가).
+    if (method === 'POST' && path === '/api/points/award-praise') {
+      try {
+        await ensurePointTables();
+        const body: any = await request.json().catch(() => ({}));
+        const room = (body.room || '').trim();
+        const targetPeerId = String(body.target_peer_id || '').trim();
+        const awardId = (body.award_id || '').trim() || null;
+        const fromName = (body.from_name || '선생님').trim();
+        if (!room || !targetPeerId) return json({ ok: false, error: 'room_and_target_required' }, 400);
+        const rr: any = await env.DB.prepare(`SELECT account_uid, name, role FROM vc_roster WHERE room_id=? AND peer_id=? LIMIT 1`).bind(room, targetPeerId).first();
+        if (!rr?.account_uid) return json({ ok: false, error: 'account_not_registered' }, 200);
+        if (rr.role && rr.role !== 'student') return json({ ok: false, error: 'target_not_student' }, 200);
+        const res: any = await creditPraisePoint({ accountUid: rr.account_uid, studentName: rr.name, awardId, room, fromName });
+        return json(res);
+      } catch (e: any) {
+        return json({ ok: false, error: String(e?.message || e) }, 200);
       }
     }
 
