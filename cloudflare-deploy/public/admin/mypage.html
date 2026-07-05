@@ -693,8 +693,8 @@
         var valid = false;
         try { var cur = JSON.parse(localStorage.getItem('mangoi_admin_session') || 'null'); valid = !!(cur && cur.role); } catch(_){}
         if (!valid){
+          // 현재 쿠키 세션으로 admin.html 이 요구하는 localStorage 세션을 채운다 (best-effort)
           var r = await fetch('/api/admin/me', { credentials:'include' });
-          if (r.status === 401){ location.href = '/admin/login.html?next=%2Fadmin.html'; return false; }
           var j = await r.json().catch(function(){ return null; });
           if (j && j.ok){
             var u = j.user || {};
@@ -706,11 +706,10 @@
             var session = { uid: uid, name: (u.name || u.username || ''), role: role,
                             branch: branch, branch_id: branch_id, agency_id: agency_id, login_at: Date.now() };
             try { localStorage.setItem('mangoi_admin_session', JSON.stringify(session)); } catch(_){}
-          } else {
-            location.href = '/admin/login.html?next=%2Fadmin.html'; return false;
           }
         }
       } catch(_){}
+      // 성공/실패와 무관하게 항상 상세 콘솔로 이동. (미인증이면 서버가 로그인으로 안내)
       location.href = '/admin.html';
       return false;
     }
@@ -1357,6 +1356,22 @@
         applyRole(j.role, j.roleLabel || (EN()?'User':'사용자'), j.scope);
         window.__myRole = j.role; window.__myRoleLabel = j.roleLabel; window.__myScope = j.scope;
         window.__myName = name;
+        // 🔑 admin.html(상세 콘솔)은 localStorage 'mangoi_admin_session' 을 요구한다.
+        //   마이페이지가 열릴 때 현재 쿠키 세션으로 미리 심어두면 [상세 관리자 페이지]가 항상 바로 열린다.
+        try {
+          var _uid = u.username || '';
+          var _role = j.role || u.role || '';
+          var _aid = u.agency_id || '', _br = u.branch || '', _brid = u.branch_id || '';
+          if (!_aid && _uid.indexOf('agency_') === 0) _aid = _uid.replace(/^agency_/, '');
+          if (!_brid && _uid.indexOf('branch_') === 0){ _brid = _uid.replace(/^branch_/, ''); _br = _br || _brid; }
+          var _cur = null; try { _cur = JSON.parse(localStorage.getItem('mangoi_admin_session') || 'null'); } catch(_e){}
+          if (!(_cur && _cur.role)){
+            localStorage.setItem('mangoi_admin_session', JSON.stringify({
+              uid:_uid, name:(u.name || u.username || ''), role:_role,
+              branch:_br, branch_id:_brid, agency_id:_aid, login_at: Date.now()
+            }));
+          }
+        } catch(_e){}
         // 🎯 강사는 마이페이지를 열면 곧바로 "내 평가"가 보이도록 강제 — 탭 클릭 불필요.
         if (j.role === 'teacher') {
           if (typeof activateTab === 'function') activateTab('myratings');
