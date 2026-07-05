@@ -4159,17 +4159,18 @@
   // 🆕 EN/KO 자막 시스템 — 음성에 싱크. 영상 음성(1.4배속·끝 20% 트림) 타임라인 기준.
   var ccEl   = document.getElementById('mango-intro-cc');
   var langBtn= document.getElementById('mango-intro-lang');
+  // ⏱️ (2026-07-05) 인트로 재편집 — 맨 앞 인사말 제거 + 전체 10% 감속(1.4→약1.26배속).
+  //   타이밍 = (기존시간 - 2.0) / 0.90 로 재계산. 인사말(안녕하세요…) 항목은 삭제됨.
   var INTRO_CC = [
-    { t0:0.0, t1:2.04, ko:'안녕하세요, 친구들 그리고 학부모님!', en:'Hello, kids and parents!' },
-    { t0:2.04, t1:3.95, ko:'우주에서 가장 신나는 공부 모험,', en:'The most exciting study adventure in the universe—' },
-    { t0:3.95, t1:6.56, ko:'망고아이에 오신 것을 진심으로 환영합니다!', en:'a heartfelt welcome to MangoI!' },
-    { t0:6.56, t1:8.66, ko:'망고아이에서는 매일매일이 즐겁습니다.', en:'At MangoI, every single day is fun.' },
-    { t0:8.66, t1:11.41, ko:'똑똑한 AI 친구와 함께 재미있는 게임을 즐기고,', en:'Enjoy fun games with your smart AI friend,' },
-    { t0:11.41, t1:15.59, ko:'팡팡 터지는 퀴즈를 풀다 보면 우리 아이 실력이 마법처럼 쑥쑥 자라납니다.', en:'and as the quizzes pop, your child\'s skills grow like magic.' },
-    { t0:15.59, t1:20.19, ko:'친절한 외국인 선생님과 직접 만나 생생하게 대화하는 화상 수업까지 준비되어 있습니다.', en:'There are even live video lessons to meet friendly foreign teachers and chat face to face.' },
-    { t0:20.19, t1:22.89, ko:'이제 모두 함께 망고 우주선에 탑승해 볼까요?', en:'Now, shall we all board the Mango spaceship together?' },
-    { t0:22.89, t1:25.23, ko:'지금 바로 화면에 수업 입장 버튼을 꾹 누르시고,', en:'Tap the \'Enter Class\' button on your screen right now,' },
-    { t0:25.23, t1:28.5, ko:'설레는 우주 탐험을 시작해 보세요. 자, 출발합니다!', en:'and begin your thrilling space adventure. Ready — let\'s blast off!' }
+    { t0:0.0, t1:2.17, ko:'우주에서 가장 신나는 공부 모험,', en:'The most exciting study adventure in the universe—' },
+    { t0:2.17, t1:5.07, ko:'망고아이에 오신 것을 진심으로 환영합니다!', en:'a heartfelt welcome to MangoI!' },
+    { t0:5.07, t1:7.40, ko:'망고아이에서는 매일매일이 즐겁습니다.', en:'At MangoI, every single day is fun.' },
+    { t0:7.40, t1:10.46, ko:'똑똑한 AI 친구와 함께 재미있는 게임을 즐기고,', en:'Enjoy fun games with your smart AI friend,' },
+    { t0:10.46, t1:15.10, ko:'팡팡 터지는 퀴즈를 풀다 보면 우리 아이 실력이 마법처럼 쑥쑥 자라납니다.', en:'and as the quizzes pop, your child\'s skills grow like magic.' },
+    { t0:15.10, t1:20.21, ko:'친절한 외국인 선생님과 직접 만나 생생하게 대화하는 화상 수업까지 준비되어 있습니다.', en:'There are even live video lessons to meet friendly foreign teachers and chat face to face.' },
+    { t0:20.21, t1:23.21, ko:'이제 모두 함께 망고 우주선에 탑승해 볼까요?', en:'Now, shall we all board the Mango spaceship together?' },
+    { t0:23.21, t1:25.81, ko:'지금 바로 화면에 수업 입장 버튼을 꾹 누르시고,', en:'Tap the \'Enter Class\' button on your screen right now,' },
+    { t0:25.81, t1:29.5, ko:'설레는 우주 탐험을 시작해 보세요. 자, 출발합니다!', en:'and begin your thrilling space adventure. Ready — let\'s blast off!' }
   ];
   var capLang = 'ko';
   try { var _cl = localStorage.getItem('mango_intro_caplang'); if (_cl==='en'||_cl==='ko') capLang=_cl; } catch(e){}
@@ -4196,6 +4197,7 @@
   video.addEventListener('timeupdate', renderCap);
   syncLangBtn(); renderCap();
   var dismissed = false;
+  var soundLocked = false;   // 🔒 (2026-07-05) 소리 재생이 한 번 확정되면 true — 재생 도중 muted 토글로 인한 미디어 재시작(중간에 껐다 처음부터 다시)을 원천 차단
 
   // explicitlyMuted: 사용자가 🔇 명시적 음소거 누른 적 있으면 true
   var explicitlyMuted = false;
@@ -4210,29 +4212,21 @@
     mute.setAttribute('aria-pressed', video.muted ? 'true' : 'false');
     mute.setAttribute('aria-label', video.muted ? '소리 켜기' : '소리 끄기');
   }
-  function tryUnmute(){
-    video.muted = false;
-    var pp = video.play();
-    if (pp && typeof pp.catch === 'function') {
-      pp.catch(function(){
-        video.muted = true; syncMuteIcon();
-      });
-    }
-    syncMuteIcon();
-  }
+  // 🔊 음소거 토글 — 재생 중인 영상은 play() 재호출 없이 muted 속성만 바꿔 '재시작' 방지.
   if (mute) {
     mute.addEventListener('click', function(ev){
       ev.stopPropagation();
       if (video.muted) {
-        tryUnmute();
+        video.muted = false;                 // 재생 위치 그대로 소리만 켬(재시작 X)
+        if (video.paused) { var q = video.play(); if (q && q.catch) q.catch(function(){}); }
         try { localStorage.removeItem(UNMUTED_KEY); } catch(e){}
-        explicitlyMuted = false;
+        explicitlyMuted = false; soundLocked = true;
       } else {
         video.muted = true;
         try { localStorage.setItem(UNMUTED_KEY, '0'); } catch(e){}
         explicitlyMuted = true;
-        syncMuteIcon();
       }
+      syncMuteIcon();
     });
   }
 
@@ -4249,25 +4243,11 @@
     setTimeout(function(){ overlay.parentNode && overlay.parentNode.removeChild(overlay); }, 480);
   }
 
-  // 스마트 클릭: 영상이 한 번도 재생 안 됐으면 첫 클릭은 재생, 이미 재생 중이면 진입(dismiss)
-  var hasStarted = false;
-  video.addEventListener('playing', function(){ hasStarted = true; });
-  video.addEventListener('timeupdate', function(){ if (video.currentTime > 0.05) hasStarted = true; });
+  // 스마트 클릭: 아직 '소리로' 재생된 적 없으면 첫 클릭은 소리 켜고 처음부터 1회(닫지 않음),
+  //   이미 소리로 재생 중이면 클릭 = 입장(dismiss).
   overlay.addEventListener('click', function(){
-    if (!hasStarted && video.paused) {
-      // 사용자 제스처 — 소리 켜고 재생 시도
-      video.muted = false;
-      try { localStorage.removeItem(UNMUTED_KEY); } catch(e){}
-      explicitlyMuted = false;
-      syncMuteIcon();
-      var pp = video.play();
-      if (pp && typeof pp.catch === 'function') {
-        pp.catch(function(){
-          video.muted = true; syncMuteIcon();
-          var pp2 = video.play();
-          if (pp2 && typeof pp2.catch === 'function') pp2.catch(function(){ dismiss(); });
-        });
-      }
+    if (!soundLocked && !explicitlyMuted) {
+      playFromStartWithSound();   // 소리 확정 → 재시작은 이 한 번뿐, 이후 잠금
       return;
     }
     dismiss();
@@ -4289,43 +4269,62 @@
     }
   });
 
-  // 첫 사용자 제스처(mousemove·휠·키·터치·스크롤) → muted 폴백된 영상 자동 unmute
-  function autoUnmuteOnce(){
-    if (dismissed || explicitlyMuted || !video.muted) return;
-    video.muted = false;
-    syncMuteIcon();
-    var pp = video.play();
-    if (pp && typeof pp.catch === 'function') pp.catch(function(){ video.muted = true; syncMuteIcon(); });
-  }
-  ['pointerdown','mousemove','wheel','keydown','touchstart','scroll'].forEach(function(ev){
-    window.addEventListener(ev, autoUnmuteOnce, { once: true, passive: true, capture: true });
-  });
-
   syncMuteIcon();
 
-  // 자동 재생 (muted 로 시작 → 첫 프레임 그린 직후 unmute 시도)
-  var p = video.play && video.play();
-  if (p && typeof p.then === 'function') {
-    p.then(function(){
-      console.log('[mango-intro] muted autoplay started');
-      if (explicitlyMuted) return;
-      // 200ms 뒤 unmute 시도 (브라우저가 첫 프레임 표시 + autoplay 정책 통과 확인 후)
-      setTimeout(function(){
-        if (dismissed || explicitlyMuted) return;
-        video.muted = false;
-        syncMuteIcon();
-        var pp = video.play();
-        if (pp && typeof pp.catch === 'function') {
-          pp.catch(function(){
-            video.muted = true; syncMuteIcon();
-            console.log('[mango-intro] unmute blocked — waiting for user gesture');
-          });
-        }
-      }, 200);
-    }).catch(function(err){
-      console.warn('[mango-intro] autoplay failed:', err && err.message);
-      hint && (hint.textContent = '▶ 화면을 클릭해 영상 재생');
-    });
+  // ─────────────────────────────────────────────────────────────
+  // 🎬 재생 제어 (2026-07-05 재작성): "한 번, 매끄럽게"
+  //   · 음소거 여부를 '재생 시작 전에' 확정 → 재생 도중 muted 토글로 인한
+  //     미디어 재시작(중간에 껐다 처음부터 다시)을 원천 차단.
+  //   · 1) 소리 켜고 자동재생 시도 → 되면 그대로 한 번에 재생(재시작 없음)
+  //     2) 막히면 무음으로 재생 + 첫 사용자 동작에서 '0초부터' 소리로 딱 한 번, 이후 잠금.
+  //   (기존: muted 자동재생 → 200ms 뒤 unmute+play() 재호출 = 모바일에서 처음부터 재로드 → '중간에 껐다 다시' 버그)
+  // ─────────────────────────────────────────────────────────────
+  function playFromStartWithSound(){
+    if (soundLocked || dismissed) return;
+    soundLocked = true;
+    try { video.currentTime = 0; } catch(e){}
+    video.muted = false;
+    try { localStorage.removeItem(UNMUTED_KEY); } catch(e){}
+    explicitlyMuted = false;
+    syncMuteIcon();
+    var pp = video.play();
+    if (pp && typeof pp.catch === 'function') {
+      pp.catch(function(){ video.muted = true; soundLocked = false; syncMuteIcon(); });
+    }
+  }
+  // 첫 제스처(키보드·스크롤·휠) 대기 → 소리로 재생. (탭/클릭은 위 overlay click 이 처리하므로 중복 없음)
+  function armFirstGesture(){
+    var evs = ['keydown','wheel','scroll'];
+    function on(){ off(); if (!soundLocked && !dismissed) playFromStartWithSound(); }
+    function off(){ evs.forEach(function(ev){ window.removeEventListener(ev, on, true); }); }
+    evs.forEach(function(ev){ window.addEventListener(ev, on, { passive:true, capture:true }); });
+  }
+
+  if (explicitlyMuted) {
+    // 사용자가 예전에 명시적 음소거 → 무음으로 한 번만 재생(소리 시도 안 함)
+    video.muted = true; syncMuteIcon();
+    var pm = video.play();
+    if (pm && pm.catch) pm.catch(function(){ hint && (hint.textContent = '▶ 화면을 클릭해 영상 재생'); });
+  } else {
+    // 소리 켜고 바로 시도 (사이트와 상호작용 후면 대개 허용됨)
+    video.muted = false; syncMuteIcon();
+    var pu = video.play();
+    if (pu && typeof pu.then === 'function') {
+      pu.then(function(){
+        soundLocked = true;            // 소리로 한 번에 성공 → 잠금(다시는 재시작 안 함)
+        console.log('[mango-intro] sound autoplay OK');
+      }).catch(function(){
+        // 막힘 → 무음으로 재생하고 첫 사용자 동작 대기
+        video.muted = true; syncMuteIcon();
+        var pv = video.play(); if (pv && pv.catch) pv.catch(function(){});
+        hint && (hint.textContent = '🔊 화면을 누르면 소리와 함께 시작합니다');
+        armFirstGesture();
+        console.log('[mango-intro] sound blocked — muted play, waiting for gesture');
+      });
+    } else {
+      // play() 가 Promise 를 안 주는 구형 브라우저 — 무음 폴백 + 제스처 대기
+      armFirstGesture();
+    }
   }
 })();
 </script>
@@ -7033,7 +7032,10 @@
           </label>
         </div>
 
-        <button class="btn-primary" onclick="vcJoinRoom()" data-ko="로그인" data-en="Login">로그인</button>
+        <!-- 🎓 예약 기반 원클릭 입장 — 선생님·학생이 같은 예약을 참조해 '항상 같은 방'으로 연결(엇갈림 차단) + 시작 10분 전부터만 입장 -->
+        <button class="btn-primary" id="vc-join-myclass" onclick="vcJoinMyClass()" style="background:linear-gradient(135deg,#22c55e,#16a34a);margin-bottom:8px"
+                data-ko="🎓 오늘 내 수업 바로 입장" data-en="🎓 Enter My Class Now">🎓 오늘 내 수업 바로 입장</button>
+        <button class="btn-primary" onclick="vcJoinRoom()" data-ko="로그인 (수동 입장)" data-en="Login (manual)">로그인 (수동 입장)</button>
         <button class="btn-back" onclick="showView('view-home')" data-ko="← 메인으로" data-en="← Home">← 메인으로</button>
     </div>
 </div>
@@ -8570,6 +8572,116 @@ document.addEventListener('visibilitychange', () => {
     if (document.hidden) lobbyStopWelcome();
 });
 
+// ═══════════════════════════════════════════════════════════════
+// 🎓 Phase RM — 예약 기반 '항상 같은 방' 입장 (엇갈림 차단 + 시간 게이트)
+//   서버 /api/class/sessions/today 가 예약(schedule.id)에서 결정론적 room_id 를 계산.
+//   선생님·학생이 같은 예약을 참조하면 room_id 가 반드시 동일 → 서로 다른 방에 들어갈 수 없음.
+//   시작 10분 전 이전이면 대기(카운트다운) 후 입장창이 열리면 자동 연결 → 너무 일찍/늦게 방지.
+// ═══════════════════════════════════════════════════════════════
+async function vcJoinMyClass() {
+    var u = (window.getCurrentUser ? window.getCurrentUser() : null);
+    var uid = u && u.uid;
+    var typed = ((document.getElementById('vc-name-input') || {}).value || '').trim();
+    var name = (u && u.name) || typed || '학생';
+    var role = (u && u.role) || ((typeof vcIsTeacherRole === 'function' && vcIsTeacherRole()) ? 'teacher' : 'student');
+    if (!uid && !typed) { alert('아이디를 입력하거나 로그인 후 이용하세요.'); return; }
+
+    var btn = document.getElementById('vc-join-myclass');
+    if (btn) { btn.disabled = true; btn.dataset._t = btn.textContent; btn.textContent = '수업 찾는 중…'; }
+    try {
+        var qs = 'role=' + encodeURIComponent(role);
+        if (uid) qs += '&user_id=' + encodeURIComponent(uid);
+        if (typed) qs += '&student_name=' + encodeURIComponent(typed);
+        var r = await fetch('/api/class/sessions/today?' + qs, { credentials: 'include' });
+        var d = await r.json();
+        var sessions = (d && d.sessions) || [];
+        var current = d && d.current;
+        if (!sessions.length) {
+            alert('오늘 예약된 수업이 없어요. 🗓️\n예약이 있는데도 안 보이면 아래 "방 코드 직접 입력"으로 입장해 주세요.');
+            return;
+        }
+        // 교사가 오늘 여러 수업이고 지금 바로 들어갈 것이 애매하면 → 목록에서 선택
+        if ((role === 'teacher' || role === 'admin') && sessions.length > 1 && !current) {
+            vcShowSessionPicker(sessions, name, role); return;
+        }
+        var target = current || sessions[0];
+        if (target.status === 'early') { vcShowClassGate(target, name, role); return; }
+        if (target.status === 'ended') { alert('오늘 수업은 이미 종료되었어요.'); return; }
+        vcEnterResolvedRoom(target, name, role);
+    } catch (e) {
+        console.warn('[vcJoinMyClass] err', e);
+        alert('수업 정보를 불러오지 못했어요. 아래 "방 코드 직접 입력"으로 입장해 주세요.');
+    } finally {
+        if (btn) { btn.disabled = false; if (btn.dataset._t) btn.textContent = btn.dataset._t; }
+    }
+}
+
+/** 결정론적 room_id 로 실제 입장 (기존 vcJoinRoom 흐름 재사용) */
+function vcEnterResolvedRoom(session, name, role) {
+    if (role === 'teacher' || role === 'admin' || role === 'student') {
+        window.vcMyRole = role;
+        try { localStorage.setItem('mangoi_user_role', role); } catch (e) {}
+    }
+    var ni = document.getElementById('vc-name-input');
+    var ri = document.getElementById('vc-roomcode-input');
+    if (ni && name) ni.value = name;
+    if (ri) ri.value = session.room_id;          // ← 예약에서 계산된 방 = 반드시 상대와 동일
+    window.vcCurrentSession = session;           // 대기실/알림(Phase2)용 메타
+    if (typeof vcJoinRoom === 'function') vcJoinRoom();
+}
+
+/** ⏰ 입장 시간 게이트 — 시작 10분 전이 되기 전엔 대기, 열리면 자동 입장 */
+function vcShowClassGate(session, name, role) {
+    var ov = document.getElementById('vc-class-gate');
+    if (!ov) {
+        ov = document.createElement('div');
+        ov.id = 'vc-class-gate';
+        ov.style.cssText = 'position:fixed;inset:0;z-index:11000;display:flex;align-items:center;justify-content:center;background:rgba(8,12,24,.86);backdrop-filter:blur(6px);font-family:"Noto Sans KR",sans-serif';
+        document.body.appendChild(ov);
+    }
+    function fmt(ms) { ms = Math.max(0, ms); var s = Math.floor(ms / 1000), m = Math.floor(s / 60), h = Math.floor(m / 60); s = s % 60; m = m % 60; return (h > 0 ? h + '시간 ' : '') + m + '분 ' + String(s).padStart(2, '0') + '초'; }
+    var startLabel = new Date(session.start_ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    function render() {
+        var now = Date.now();
+        var toOpen = session.open_at_ts - now;
+        if (toOpen <= 0) { clearInterval(ov.__t); ov.remove(); vcEnterResolvedRoom(session, name, role); return; }
+        ov.innerHTML = '<div style="max-width:420px;width:90%;background:linear-gradient(160deg,#1e293b,#0f172a);border:1px solid rgba(148,163,184,.25);border-radius:24px;padding:34px 28px;text-align:center;color:#e2e8f0;box-shadow:0 30px 80px -20px rgba(0,0,0,.7)">'
+            + '<div style="font-size:44px;margin-bottom:6px">⏰</div>'
+            + '<div style="font-size:19px;font-weight:800;margin-bottom:6px">아직 입장 시간이 아니에요</div>'
+            + '<div style="font-size:14px;color:#94a3b8;margin-bottom:18px">수업 시작 <b style="color:#fbbf24">' + startLabel + '</b> · 시작 10분 전부터 입장할 수 있어요</div>'
+            + '<div style="font-size:13px;color:#cbd5e1;margin-bottom:4px">입장 가능까지</div>'
+            + '<div style="font-size:30px;font-weight:900;letter-spacing:-1px;color:#7dd3fc;margin-bottom:22px">' + fmt(toOpen) + '</div>'
+            + '<div style="font-size:13px;color:#64748b;margin-bottom:18px">🎓 ' + (session.student_name || '') + ' · 강사 ' + (session.teacher_name || '미배정') + '</div>'
+            + '<button id="vc-gate-close" style="background:rgba(148,163,184,.15);color:#e2e8f0;border:none;border-radius:12px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer">닫기</button>'
+            + '<div style="font-size:11px;color:#475569;margin-top:14px">입장 시간이 되면 자동으로 연결됩니다</div></div>';
+        var c = document.getElementById('vc-gate-close'); if (c) c.onclick = function () { clearInterval(ov.__t); ov.remove(); };
+    }
+    render(); ov.__t = setInterval(render, 1000);
+}
+
+/** 👩‍🏫 교사용 — 오늘 여러 수업 중 선택 (선택 → 학생과 같은 방으로 연결) */
+function vcShowSessionPicker(sessions, name, role) {
+    var ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:11000;display:flex;align-items:center;justify-content:center;background:rgba(8,12,24,.86);backdrop-filter:blur(6px);font-family:"Noto Sans KR",sans-serif';
+    var items = sessions.map(function (s) {
+        var t = new Date(s.start_ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+        var badge = s.status === 'live' ? '<span style="color:#34d399">● 진행중</span>' : s.status === 'open' ? '<span style="color:#7dd3fc">입장 가능</span>' : s.status === 'ended' ? '<span style="color:#64748b">종료</span>' : '<span style="color:#fbbf24">' + t + ' 예정</span>';
+        var dis = s.status === 'ended';
+        return '<button class="vc-pick" data-room="' + s.room_id + '" ' + (dis ? 'disabled' : '') + ' style="display:flex;justify-content:space-between;align-items:center;width:100%;background:rgba(148,163,184,.1);border:1px solid rgba(148,163,184,.2);border-radius:14px;padding:14px 16px;margin-bottom:10px;color:#e2e8f0;cursor:' + (dis ? 'not-allowed' : 'pointer') + ';opacity:' + (dis ? '.5' : '1') + '"><span style="font-weight:700">' + t + ' · ' + (s.student_name || '학생') + '</span><span style="font-size:12px">' + badge + '</span></button>';
+    }).join('');
+    ov.innerHTML = '<div style="max-width:440px;width:92%;background:linear-gradient(160deg,#1e293b,#0f172a);border:1px solid rgba(148,163,184,.25);border-radius:24px;padding:28px 24px;color:#e2e8f0;box-shadow:0 30px 80px -20px rgba(0,0,0,.7)"><div style="font-size:18px;font-weight:800;margin-bottom:4px">오늘 수업 선택</div><div style="font-size:13px;color:#94a3b8;margin-bottom:18px">입장할 수업을 선택하면 학생과 같은 방으로 연결됩니다</div>' + items + '<button id="vc-pick-close" style="width:100%;background:transparent;color:#64748b;border:none;padding:10px;font-size:13px;cursor:pointer;margin-top:4px">닫기</button></div>';
+    document.body.appendChild(ov);
+    ov.querySelectorAll('.vc-pick').forEach(function (b) {
+        b.onclick = function () {
+            var room = b.getAttribute('data-room');
+            var s = sessions.find(function (x) { return x.room_id === room; });
+            ov.remove();
+            if (s) { if (s.status === 'early') vcShowClassGate(s, name, role); else vcEnterResolvedRoom(s, name, role); }
+        };
+    });
+    var c = ov.querySelector('#vc-pick-close'); if (c) c.onclick = function () { ov.remove(); };
+}
+
 /** 다자간 통화 방 입장 */
 async function vcJoinRoom(skipUI) {
     vcIsObserver = false; // 일반 입장 모드 확인
@@ -9307,7 +9419,7 @@ async function vcAutoEarnAttendance() {
         const now = Date.now();
         const r = await fetch('/api/admin/class-schedules?user_id=' + encodeURIComponent(u.uid), { credentials: 'include' });
         const d = await r.json();
-        const rows = (d && d.rows) || [];
+        const rows = (d && (d.items || d.rows)) || [];
         // 오늘 날짜
         const today = new Date(now);
         const todayY = today.getFullYear(), todayM = today.getMonth(), todayD = today.getDate();
@@ -23647,7 +23759,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260705203023 -->
+<!-- BUILD:20260705205508 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -26798,5 +26910,6 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      · 인라인 !important 로 적용 → 어떤 화면크기/레이아웃 CSS 보다 우선 (확실히 동작)
      · (참고) 영상 드래그·크기조절 실제 동작은 위쪽 .video-size-bar / #vc-video-pane 로직에서 처리됨.
      ============================================================ -->
+<script src="/js/mango-worldclock.js?v=1" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 학생 홈+수업입장 화면 공용. 빼면 즉시 원복 -->
 </body>
 </html>

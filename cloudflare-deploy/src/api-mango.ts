@@ -2051,6 +2051,110 @@ export async function handleMangoApi(
       }
     }
 
+    // 🥭 Phase RM (Room-Match) — GET /api/class/sessions/today
+    //   예약(class_schedules)에서 "오늘의 수업 세션"을 계산해 결정론적 room_id + 입장 시간창을 반환.
+    //   ▸ 왜? 지금까지는 교사·학생이 방 코드를 손으로 입력 → 오타/기본값으로 서로 다른 방에 들어가 못 만났음.
+    //     이제 둘 다 같은 예약(schedule.id)을 참조 → room_id = `class-{scheduleId}-{YYYYMMDD}` 로 항상 동일 → 엇갈림 원천 차단.
+    //   ▸ 입장 시간창(join_open)도 서버(신뢰 시계)가 계산 → "너무 일찍/늦게" 입장 방지.
+    //   query: ?user_id=X | ?student_name=Y (학생) · ?role=teacher&user_id=teacherUid | &student_name=강사명 (교사)
+    if (method === 'GET' && path === '/api/class/sessions/today') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`);
+      } catch {}
+      const url = new URL(request.url);
+      const userId = (url.searchParams.get('user_id') || '').trim();
+      const nameParam = (url.searchParams.get('student_name') || '').trim();
+      const role = (url.searchParams.get('role') || 'student').trim().toLowerCase();
+      const isTeacher = role === 'teacher' || role === 'admin';
+
+      // ── 대상 예약 수집 조건 (신원: uid 우선, 없으면 이름으로 보강) ──
+      const conds: string[] = [];
+      const binds: any[] = [];
+      if (isTeacher) {
+        if (userId) { conds.push('cs.teacher_id = ?'); binds.push(userId); }
+        if (nameParam) {
+          try {
+            const rs = await env.DB.prepare(`SELECT CAST(id AS TEXT) AS tid FROM teachers WHERE name = ?`).bind(nameParam).all<any>();
+            for (const x of (rs.results || [])) { if (x.tid) { conds.push('cs.teacher_id = ?'); binds.push(x.tid); } }
+          } catch {}
+        }
+      } else {
+        if (userId) { conds.push('cs.user_id = ?'); binds.push(userId); }
+        if (nameParam) {
+          conds.push('cs.student_name = ?'); binds.push(nameParam);
+          try {
+            const rs = await env.DB.prepare(`SELECT COALESCE(user_id, login_id, ('stu_' || id)) AS uid FROM students_erp WHERE korean_name = ? OR username = ?`).bind(nameParam, nameParam).all<any>();
+            for (const x of (rs.results || [])) { if (x.uid) { conds.push('cs.user_id = ?'); binds.push(x.uid); } }
+          } catch {}
+        }
+      }
+      if (!conds.length) return json({ ok: false, error: 'identity_required', sessions: [], current: null }, 400);
+
+      // ── KST(UTC+9) 기준 오늘 날짜/요일 계산 (Workers 는 UTC 라 명시 변환) ──
+      const now = Date.now();
+      const KST = 9 * 3600 * 1000;
+      const k = new Date(now + KST);
+      const kY = k.getUTCFullYear(), kMo = k.getUTCMonth(), kD = k.getUTCDate();
+      const kDow = k.getUTCDay(); // 0=일 ~ 6=토 (KST 기준)
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const ymd = `${kY}${pad(kMo + 1)}${pad(kD)}`;
+      const todayStr = `${kY}-${pad(kMo + 1)}-${pad(kD)}`;
+
+      const OPEN_BEFORE = 10 * 60 * 1000; // 시작 10분 전부터 입장 허용
+      const LATE_AFTER = 15 * 60 * 1000;  // 종료 15분 후까지 지각 입장 허용
+
+      const whereSql = `cs.status != 'cancelled' AND (${conds.join(' OR ')})`;
+      const sqlJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${whereSql}`;
+      const sqlNoJoin = `SELECT id, user_id, student_name, schedule_kind, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status FROM class_schedules cs WHERE ${whereSql}`;
+      let rows: any;
+      try { rows = await env.DB.prepare(sqlJoin).bind(...binds).all<any>(); }
+      catch { rows = await env.DB.prepare(sqlNoJoin).bind(...binds).all<any>(); }
+
+      const seen = new Set<number>();
+      const sessions: any[] = [];
+      for (const s of (rows.results || [])) {
+        if (seen.has(s.id)) continue;
+        // 오늘 발생하는 수업인가? (일회성=날짜 일치 / 반복=요일 일치)
+        let occurs = false;
+        if (s.scheduled_date) occurs = (s.scheduled_date === todayStr);
+        else if (s.day_of_week != null && s.day_of_week !== '') occurs = (Number(s.day_of_week) === kDow);
+        if (!occurs) continue;
+        seen.add(s.id);
+        const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
+        const start_ts = Date.UTC(kY, kMo, kD, hh, mm, 0) - KST; // KST 벽시계 → UTC ms
+        const dur = Number(s.duration_min) || 30;
+        const end_ts = start_ts + dur * 60000;
+        const open_at_ts = start_ts - OPEN_BEFORE;
+        const close_at_ts = end_ts + LATE_AFTER;
+        let status: string;
+        if (now < open_at_ts) status = 'early';
+        else if (now < start_ts) status = 'open';
+        else if (now <= close_at_ts) status = 'live';
+        else status = 'ended';
+        const join_open = now >= open_at_ts && now <= close_at_ts;
+        sessions.push({
+          schedule_id: s.id,
+          room_id: `class-${s.id}-${ymd}`, // ← 결정론적: 같은 예약 → 항상 같은 방
+          student_uid: s.user_id,
+          student_name: s.student_name || null,
+          teacher_id: s.teacher_id || null,
+          teacher_name: s.teacher_name || null,
+          start_ts, end_ts, open_at_ts, close_at_ts,
+          duration_min: dur, status, join_open,
+          starts_in_ms: start_ts - now,
+        });
+      }
+      sessions.sort((a, b) => a.start_ts - b.start_ts);
+
+      // 자동 입장 대상(current): 지금 입장 가능한 것 우선(진행중/열림), 없으면 가장 가까운 예정 수업
+      let current: any = null;
+      const joinable = sessions.filter(x => x.join_open);
+      if (joinable.length) current = joinable.sort((a, b) => Math.abs(a.start_ts - now) - Math.abs(b.start_ts - now))[0];
+      else { const up = sessions.filter(x => x.status === 'early'); if (up.length) current = up[0]; }
+
+      return json({ ok: true, now, today: todayStr, role: isTeacher ? 'teacher' : 'student', sessions, current });
+    }
+
     // 🥭 Phase 6g — POST /api/admin/students/merge-duplicates
     //   동명 학생들을 자동 통합 (가장 오래된 row 가 canonical, 나머지의 schedule 이전 후 비활성화)
     if (method === 'POST' && path === '/api/admin/students/merge-duplicates') {
