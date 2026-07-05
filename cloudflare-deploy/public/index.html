@@ -7905,33 +7905,64 @@ async function acquireLocalMedia({ video = true, audio = true } = {}) {
         frameRate: { ideal: 24, max: 30 }
     }) : false;
 
-    // 1차: 고급 제약
+    const _sleep = (ms) => new Promise(r => setTimeout(r, ms));
+    // getUserMedia 재시도 헬퍼 — 카메라가 '사용 중(NotReadableError)'이면 잠깐 뒤 몇 번 더.
+    //   (다른 앱/탭이 카메라를 놓는 중이거나, PC 카메라가 켜지는 데 시간이 걸리는 경우 대응)
+    async function _gum(constraints, retries) {
+        for (let i = 0; ; i++) {
+            try { return await navigator.mediaDevices.getUserMedia(constraints); }
+            catch (e) {
+                var busy = (e && (e.name === 'NotReadableError' || e.name === 'TrackStartError' || e.name === 'AbortError'));
+                if (i < (retries || 0) && busy) { console.warn('[media] 장치 사용중, ' + (i+1) + '차 재시도:', e.name); await _sleep(600); continue; }
+                throw e;
+            }
+        }
+    }
+
+    // 1차: 통합 획득(고급 제약) — 카메라 사용중이면 최대 2회 재시도
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: videoConstraints,
-            audio: audioConstraints
-        });
+        const stream = await _gum({ video: videoConstraints, audio: audioConstraints }, 2);
         // 오디오 트랙이 0개인데 요청은 했다면 최소 제약으로 재시도
         if (audio && stream.getAudioTracks().length === 0) {
             console.warn('[media] 고급 제약으로는 오디오 트랙 0 → 최소 제약 재시도');
             try { stream.getTracks().forEach(t => t.stop()); } catch(_) {}
-            return await navigator.mediaDevices.getUserMedia({ video, audio: true });
+            try { return await _gum({ video, audio: true }, 1); } catch(_) {}
         }
-        return stream;
+        // 비디오를 요청했는데 트랙이 없으면 아래 '분리 획득'으로 내려감
+        if (!(video && stream.getVideoTracks().length === 0)) return stream;
+        console.warn('[media] 통합 획득에 비디오 트랙 없음 → 분리 획득 시도');
+        try { stream.getTracks().forEach(t => t.stop()); } catch(_) {}
     } catch (e1) {
-        // OverconstrainedError 등: 2차 최소 제약
-        console.warn('[media] 고급 제약 실패, 최소 제약으로 재시도:', e1 && e1.name);
+        console.warn('[media] 통합(고급) 실패:', e1 && e1.name);
+        // 2차: 통합(최소 제약)
         try {
-            return await navigator.mediaDevices.getUserMedia({ video, audio });
+            const s2 = await _gum({ video: video ? true : false, audio: audio ? true : false }, 1);
+            if (!(video && s2.getVideoTracks().length === 0)) return s2;
+            try { s2.getTracks().forEach(t => t.stop()); } catch(_) {}
         } catch (e2) {
-            // 3차: 오디오 전용 fallback (요청이 video+audio였을 때만)
-            if (video && audio) {
-                console.warn('[media] 전체 실패 → 오디오만 시도:', e2 && e2.name);
-                return await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
-            }
-            throw e2;
+            console.warn('[media] 통합(최소) 실패:', e2 && e2.name);
         }
     }
+
+    // 3차: 🔑 비디오/오디오 '분리 획득' — 한쪽 장치가 막혀 있어도 다른 쪽은 확보.
+    //   (예: 마이크가 다른 앱에 잡혀 있어 통합 요청이 통째로 실패해도, 카메라는 따로 살림)
+    let _vStream = null, _aStream = null, _lastErr = null;
+    if (video) {
+        try { _vStream = await _gum({ video: videoConstraints }, 2); }
+        catch (ev) { _lastErr = ev; try { _vStream = await _gum({ video: true }, 2); } catch (ev2) { _lastErr = ev2; console.warn('[media] 비디오 단독 실패:', ev2 && ev2.name); } }
+    }
+    if (audio) {
+        try { _aStream = await _gum({ audio: audioConstraints }, 1); }
+        catch (ea) { try { _aStream = await _gum({ audio: true }, 1); } catch (ea2) { console.warn('[media] 오디오 단독 실패:', ea2 && ea2.name); } }
+    }
+    if (_vStream || _aStream) {
+        const merged = new MediaStream();
+        if (_vStream) _vStream.getVideoTracks().forEach(t => merged.addTrack(t));
+        if (_aStream) _aStream.getAudioTracks().forEach(t => merged.addTrack(t));
+        if (merged.getTracks().length) return merged;
+    }
+    // 4차: 완전 실패 — 마지막 오류를 그대로 던져 상위에서 안내/오디오전용 폴백
+    throw (_lastErr || new Error('미디어 장치 접근 실패'));
 }
 
 
@@ -9081,8 +9112,11 @@ async function vcJoinRoom(skipUI) {
         const vCount = vcLocalStream.getVideoTracks().length;
         const aCount = vcLocalStream.getAudioTracks().length;
         console.log('[vc] 미디어 접근 성공: video:', vCount, 'audio:', aCount);
-        // 트랙별 누락 표시
-        if (vCount === 0) vcShowLocalPlaceholder('camera-off', '카메라 트랙 없음 — 카메라가 꺼져 있거나 권한이 거부됨');
+        // 트랙별 누락 표시 + 자동 재시도(카메라가 잠깐 사용중이었던 경우 스스로 복구)
+        if (vCount === 0) {
+            vcShowLocalPlaceholder('camera-off', '카메라 연결 중… 잠시만요');
+            setTimeout(function(){ try { if (typeof vcRetryCamera === 'function') vcRetryCamera(); } catch(e){} }, 1800);
+        }
         if (aCount === 0) {
             alert('⚠️ 마이크가 감지되지 않았습니다.\n\n• 우측 하단 [🛠] 진단 버튼을 눌러 자동 복구를 시도해 주세요.\n• 브라우저 주소창의 🎤 아이콘을 확인하세요.\n• OS 사운드 설정 → 입력 장치를 확인하세요.\n• 다른 앱(Zoom, Teams 등)이 마이크를 점유 중이면 종료하세요.');
         } else {
@@ -9103,6 +9137,8 @@ async function vcJoinRoom(skipUI) {
             vcUpdateGridCount();
             console.log('[vc] 오디오만 접근 성공');
             vcShowLocalPlaceholder('camera-fail', msg);
+            // 자동 재시도(카메라가 잠깐 다른 앱/탭에 잡혀 있던 경우 스스로 복구)
+            setTimeout(function(){ try { if (typeof vcRetryCamera === 'function') vcRetryCamera(); } catch(e){} }, 2000);
         } catch(e2) {
             vcLocalStream = new MediaStream();
             console.warn('[vc] 미디어 완전 실패, 빈 스트림 사용');
@@ -23530,7 +23566,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260705180915 -->
+<!-- BUILD:20260705184936 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
