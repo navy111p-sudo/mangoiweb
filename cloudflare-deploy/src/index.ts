@@ -663,6 +663,8 @@ export default {
         path === '/api/admin/kakao/status' ||
         path === '/api/admin/kakao/test-send' ||
         path.startsWith('/api/notify/') ||
+        // 🎓 Phase RM — 예약기반 '항상 같은 방' 라우팅 (sessions/today, verify-room)
+        path.startsWith('/api/class/') ||
         // 🪟 팝업/미디어 (관리자 + 공개)
         path === '/api/admin/popups' ||
         /^\/api\/admin\/popups\/\d+$/.test(path) ||

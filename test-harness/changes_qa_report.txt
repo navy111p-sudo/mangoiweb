@@ -1,10 +1,10 @@
-# Change-set QA report (2026-07-05T12:28:23.286Z)
+# Change-set QA report (2026-07-05T12:31:12.895Z)
 
-PASS=77 FAIL=1
+PASS=76 FAIL=2
 
-FAIL  integrity:cloudflare-deploy/public/index.html delta  — HEAD=26914 WORK=27026 delta=112 (expect 0)
+FAIL  integrity:cloudflare-deploy/public/index.html delta  — HEAD=26914 WORK=27044 delta=130 (expect 0)
 PASS  integrity:cloudflare-deploy/public/index.html tail  — tail="</html>"
-PASS  integrity:cloudflare-deploy/src/api-mango.ts delta  — HEAD=12889 WORK=12889 delta=0 (expect 0)
+FAIL  integrity:cloudflare-deploy/src/api-mango.ts delta  — HEAD=12889 WORK=12931 delta=42 (expect 0)
 PASS  integrity:cloudflare-deploy/src/api-mango.ts tail  — tail="}"
 PASS  integrity:cloudflare-deploy/src/api-mango.ts brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
 PASS  integrity:cloudflare-deploy/src/index.ts delta  — HEAD=3028 WORK=3028 delta=0 (expect 0)
