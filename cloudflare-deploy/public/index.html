@@ -9877,6 +9877,18 @@ function vcIsTeacherRole(){
     } catch(e){}
     return false;
 }
+// 🔍 (2026-07-05) 이 원격 박스가 '학생'인지 판별 — 다른 선생님/강사/관찰자는 칭찬 대상에서 제외.
+//   역할(dataset.role / vcPeerRoles) + 이름 휴리스틱(교사/강사/선생님/teacher) 둘 다로 거른다.
+function vcBoxIsStudent(box){
+    if (!box || !box.id || box.id === 'vc-local-box') return false;
+    var uid = box.id.replace('vc-video-', '');
+    var role = box.dataset.role || (window.vcPeerRoles && window.vcPeerRoles[uid]) || 'student';
+    if (role === 'teacher' || role === 'admin' || role === 'observer') return false;
+    var lbl = box.querySelector('.video-label');
+    var nm = (lbl && lbl.textContent) ? lbl.textContent : '';
+    if (/교사|강사|선생님|teacher|tutor/i.test(nm)) return false;
+    return true;
+}
 // 🥭 (2026-07-05) 학생별 이번 수업 누적 지급 개수 (강사 화면 표시용) — targetUserId 별로 셈.
 window._vcAwardCounts = window._vcAwardCounts || {};
 function vcSyncStarCount(btn, uid){
@@ -9911,9 +9923,9 @@ function vcUpdatePraiseRoster(){
             rt.style.top = '92px'; rt.style.left = '8px';
             pane.appendChild(roster); pane.appendChild(rt);
         }
-        // 현재 학생(원격) 박스 목록 수집
+        // 현재 학생(원격) 박스 목록 수집 — 다른 선생님/관찰자는 제외(학생만)
         var boxes = Array.prototype.slice.call(document.querySelectorAll('#vc-video-grid .video-box'))
-            .filter(function(b){ return b.id && b.id !== 'vc-local-box'; });
+            .filter(function(b){ return b.id && b.id !== 'vc-local-box' && vcBoxIsStudent(b); });
         if (!boxes.length){ roster.style.display = 'none'; return; }
         roster.style.display = 'flex';
         // 사이즈바(1/4·1/2·3/4…) 아래로 위치 — 겹침 방지. 사이즈바 숨김 레이아웃이면 기본 8px.
@@ -9981,11 +9993,16 @@ function vcRefreshPraiseUI(){
         if (teacher) {
             // 강사 본인 화면엔 바구니 X
             if (localBox) { var lb = localBox.querySelector('.vc-point-basket'); if (lb) lb.remove(); }
-            // 학생(원격) 박스마다 별 버튼
+            // 학생(원격) 박스마다 별 버튼 — 다른 선생님/관찰자 박스에는 붙이지 않고, 잘못 붙었으면 제거.
             document.querySelectorAll('#vc-video-grid .video-box').forEach(function(box){
                 if (box.id === 'vc-local-box') return;
                 var uid = (box.id || '').replace('vc-video-', '');
-                if (uid) vcAddStarButton(box, uid);
+                if (uid && vcBoxIsStudent(box)) {
+                    vcAddStarButton(box, uid);
+                } else {
+                    var s = box.querySelector('.vc-star-btn'); if (s) s.remove();
+                    var t = box.querySelector('.vc-star-toast'); if (t) t.remove();
+                }
             });
         } else {
             // 학생: 별 버튼 제거 + 내 박스에 바구니
@@ -23397,7 +23414,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260705110953 -->
+<!-- BUILD:20260705140614 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
