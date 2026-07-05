@@ -766,6 +766,8 @@ export default {
         path === '/api/eval/bulk-create' ||
         // 🤖 Phase AEd AI 평가서 자동 작성
         path === '/api/eval/ai-draft' ||
+        // 📵 Phase RM — 노쇼(수업 미입장) 리포트
+        path === '/api/admin/no-shows' ||
         // 🚨 Phase ARR 이탈 위험 감지
         path === '/api/admin/retention/risk' ||
         // 🎁 Phase ARR-2 위험 학생 자동 케어 액션

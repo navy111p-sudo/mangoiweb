@@ -2766,7 +2766,7 @@
     </button>
 
     <!-- 📊 통계/KPI -->
-    <button class="hub-btn" onclick="hubJump('stats', ['card-kpi-dashboard','card-daily-charts','card-rankings','card-retention','card-retention-risk','card-active-rooms','card-settlement-stats'])" data-hub="stats">
+    <button class="hub-btn" onclick="hubJump('stats', ['card-kpi-dashboard','card-daily-charts','card-rankings','card-retention','card-retention-risk','card-no-shows','card-active-rooms','card-settlement-stats'])" data-hub="stats">
       <div class="hub-icon" style="background:linear-gradient(135deg,#6366f1,#4338ca)">📊</div>
       <div>
         <div class="hub-title" data-ko="통계/KPI" data-en="Stats/KPI">통계/KPI</div>
@@ -6496,6 +6496,21 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   </div>
 </details>
 
+<!-- 📵 Phase RM — 노쇼(수업 미입장) 리포트 -->
+<details class="table-card menu-card" id="card-no-shows">
+  <summary><span data-ko="📵 노쇼(수업 미입장) 리포트" data-en="📵 No-Show Report">📵 노쇼(수업 미입장) 리포트</span></summary>
+  <div class="menu-body">
+    <div style="background:linear-gradient(135deg,rgba(239,68,68,0.10),rgba(245,158,11,0.06));border:1px solid rgba(239,68,68,0.30);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:12.5px;color:#fecaca;line-height:1.65"
+         data-ko="📵 예약 수업에 상대가 안 와서 대기한 기록입니다. 방에 먼저 온 사람이 5분 기다려도 상대(학생/강사)가 입장하지 않으면 자동으로 여기 쌓입니다. '누가 안 왔는지'와 웹푸시/알림톡 발송 여부를 확인하세요."
+         data-en="📵 Records where one side waited 5 minutes but the counterpart never joined. Shows who was missing and whether push/alimtalk was sent.">
+      📵 <b>예약 수업 노쇼 기록</b> — 방에 먼저 온 사람이 5분 대기해도 상대가 안 오면 자동 기록됩니다.<br>
+      <span style="color:#fda4af;font-size:11.5px">표시:</span> 안 온 사람(학생/강사) · 대기 시간 · 웹푸시/알림톡 발송 여부
+    </div>
+    <button onclick="noShowsLoad()" class="primary" style="padding:9px 18px;font-weight:800" data-ko="🔄 노쇼 리포트 불러오기" data-en="🔄 Load No-Show Report">🔄 노쇼 리포트 불러오기</button>
+    <div id="no-shows-result" style="margin-top:14px"></div>
+  </div>
+</details>
+
 <!-- 🧠 Phase MBTI — 강사 MBTI 등록 (관리자) -->
 <details class="table-card menu-card" id="card-mbti-mgmt">
   <summary><span data-ko="🧠 강사 MBTI 등록 (매칭용)" data-en="🧠 Teacher MBTI Setup">🧠 강사 MBTI 등록 (매칭용)</span></summary>
@@ -7125,6 +7140,46 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       // 카드 인덱스 -> user_id 매핑 저장 (벌크 액션용)
       window._arrAtRisk = d.at_risk;
     } catch(e) { out.innerHTML = '<div style="color:#f87171">❌ '+esc(e.message)+'</div>'; }
+  };
+
+  // 📵 Phase RM — 노쇼(수업 미입장) 리포트 로드
+  window.noShowsLoad = async function(){
+    const out = document.getElementById('no-shows-result');
+    if (!out) return;
+    out.innerHTML = '<div style="color:#a3b3d1">불러오는 중…</div>';
+    const _esc = window.esc || function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]; }); };
+    try {
+      const r = await fetch('/api/admin/no-shows', { credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'load_failed');
+      if (!d.count) {
+        out.innerHTML = '<div style="padding:24px;text-align:center;color:#86efac;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:10px">✅ 노쇼 기록이 없습니다!</div>';
+        return;
+      }
+      const chip = function(label, val, col){ return '<div style="background:rgba('+col+',0.15);border:1px solid rgba('+col+',0.35);border-radius:9px;padding:8px 14px;font-size:12.5px;color:#fff"><span style="opacity:.8">'+label+'</span> <b style="font-size:15px">'+val+'</b></div>'; };
+      const fmtDate = function(ms){ try { return new Date(ms).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}); } catch(e){ return ''; } };
+      out.innerHTML =
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'
+        + chip('오늘', d.today||0, '239,68,68')
+        + chip('이번 주', d.this_week||0, '245,158,11')
+        + chip('전체', d.count||0, '99,102,241')
+        + chip('학생 노쇼', (d.by_missing&&d.by_missing.student)||0, '239,68,68')
+        + chip('강사 노쇼', (d.by_missing&&d.by_missing.teacher)||0, '168,85,247')
+        + '</div>'
+        + d.no_shows.map(function(row){
+            var who = row.missing_role === 'teacher' ? '<span style="color:#c4b5fd;font-weight:800">강사 미입장</span>' : '<span style="color:#fca5a5;font-weight:800">학생 미입장</span>';
+            var push = row.notified_push ? '📲 푸시✓' : '📲 푸시—';
+            var kakao = row.notified_kakao ? '💬 알림톡✓' : '💬 알림톡—';
+            return '<div style="border:1px solid rgba(239,68,68,0.35);background:rgba(239,68,68,0.06);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;flex-wrap:wrap;align-items:center;gap:10px">'
+              + '<div style="min-width:130px"><b>'+_esc(row.student_name||'학생')+'</b> <span style="color:#94a3b8;font-size:11px">/ '+_esc(row.teacher_name||'강사미배정')+'</span></div>'
+              + '<div style="flex:1;min-width:150px;font-size:12px;color:#cbd5e1">'+who+' · <span style="color:#94a3b8">'+_esc(row.lesson_title||'영어 수업')+'</span></div>'
+              + '<div style="font-size:11.5px;color:#94a3b8">🕒 '+fmtDate(row.created_at)+' · '+(row.waited_min||5)+'분 대기</div>'
+              + '<div style="font-size:11px;color:#a3b3d1">'+push+' · '+kakao+'</div>'
+              + '</div>';
+          }).join('');
+    } catch(e) {
+      out.innerHTML = '<div style="color:#f87171">❌ '+_esc(e.message)+'</div>';
+    }
   };
 
   // 🎁 케어 액션 — 단일 학생
@@ -23076,7 +23131,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260705213403 -->
+        <!-- BUILD:20260705214657 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

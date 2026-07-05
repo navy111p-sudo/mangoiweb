@@ -2197,6 +2197,29 @@ export async function handleMangoApi(
       return json({ ok: true, authorized: ok, owner_name: row.student_name || null, reason: ok ? 'match' : 'mismatch' });
     }
 
+    // 🥭 Phase RM — GET /api/admin/no-shows — 노쇼(수업 미입장) 리포트
+    //   class_no_show(2단계 노쇼 감지 기록) 조회 + 요약. 관리자 전용(index.ts isAdminPath 미들웨어 자동 인증).
+    if (method === 'GET' && path === '/api/admin/no-shows') {
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_no_show (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT, schedule_id INTEGER, missing_role TEXT, missing_uid TEXT, student_name TEXT, teacher_name TEXT, lesson_title TEXT, waited_min INTEGER, notified_push INTEGER DEFAULT 0, notified_kakao INTEGER DEFAULT 0, created_at INTEGER NOT NULL)`); } catch {}
+      const url = new URL(request.url);
+      const limit = Math.min(parseInt(url.searchParams.get('limit') || '100', 10), 500);
+      let rows: any = { results: [] };
+      try {
+        rows = await env.DB.prepare(`SELECT id, room_id, schedule_id, missing_role, missing_uid, student_name, teacher_name, lesson_title, waited_min, notified_push, notified_kakao, created_at FROM class_no_show ORDER BY created_at DESC LIMIT ?`).bind(limit).all<any>();
+      } catch (e: any) { console.warn('[no-shows] query skipped:', e?.message); }
+      const items = rows.results || [];
+      const now = Date.now();
+      const weekAgo = now - 7 * 86400 * 1000;
+      const dayAgo = now - 86400 * 1000;
+      let week = 0, today = 0, teacherMiss = 0, studentMiss = 0;
+      for (const r of items) {
+        if (r.created_at >= weekAgo) week++;
+        if (r.created_at >= dayAgo) today++;
+        if (r.missing_role === 'teacher') teacherMiss++; else studentMiss++;
+      }
+      return json({ ok: true, count: items.length, today, this_week: week, by_missing: { teacher: teacherMiss, student: studentMiss }, no_shows: items });
+    }
+
     // 🥭 Phase 6g — POST /api/admin/students/merge-duplicates
     //   동명 학생들을 자동 통합 (가장 오래된 row 가 canonical, 나머지의 schedule 이전 후 비활성화)
     if (method === 'POST' && path === '/api/admin/students/merge-duplicates') {
