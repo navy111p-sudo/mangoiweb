@@ -542,7 +542,78 @@
     .checklist-row .cl-text { white-space: normal; font-size: 14.5px; }
     .checklist-row .cl-text .cl-sub { display: block; margin-left: 0; margin-top: 3px; font-size: 12.5px; }
   }
+
+  /* ════════════════════════════════════════════════════════════
+     ☀️ 라이트 테마 — 오후 6시 이전 자동 적용 + 수동 토글 버튼
+     (글자가 잘 보이도록 진한 텍스트/앰버 색으로 재정의)
+  ════════════════════════════════════════════════════════════ */
+  html[data-theme="light"] {
+    --bg-base: #f4f6fb;
+    --bg-card: #ffffff;
+    --bg-card-2: #eef2f9;
+    --bg-input: #ffffff;
+    --border: #e2e8f0;
+    --border-strong: #cbd5e1;
+    --text-primary: #1e293b;
+    --text-secondary: #334155;
+    --text-muted: #64748b;
+    --amber-3: #b45309;                 /* 밝은 배경에서 또렷한 진한 앰버 */
+    --green-soft: rgba(16,185,129,0.14);
+    --red-soft: rgba(239,68,68,0.12);
+    --blue-soft: rgba(96,165,250,0.14);
+    --shadow-soft: 0 8px 24px -10px rgba(15,23,42,0.16);
+    --shadow-strong: 0 20px 50px -14px rgba(15,23,42,0.20);
+  }
+  html[data-theme="light"] body {
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(251,191,36,0.10), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 100% 100%, rgba(96,165,250,0.08), transparent 60%),
+      var(--bg-base);
+  }
+  html[data-theme="light"] header.top { background: rgba(255,255,255,0.88); }
+  html[data-theme="light"] header.top .brand {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 60%, #92400e 100%);
+    -webkit-background-clip: text; background-clip: text;
+  }
+  html[data-theme="light"] .stat-chip { background: #f8fafc; }
+  html[data-theme="light"] table.list thead th { background: #f1f5f9; }
+  html[data-theme="light"] table.list tbody tr:hover td { background: rgba(251,191,36,0.08); }
+  html[data-theme="light"] .empty { background: #f8fafc; }
+  html[data-theme="light"] .checklist-row { background: #f8fafc; }
+  html[data-theme="light"] .checklist-row:hover { background: #f1f5f9; }
+  html[data-theme="light"] .checklist-row .cl-text b { color: #0f172a; }
+  html[data-theme="light"] .tab:hover { background: rgba(15,23,42,0.05); }
+  html[data-theme="light"] .field input:focus { background: #fffdf5; }
+  html[data-theme="light"] .field input::placeholder { color: #94a3b8; }
+  html[data-theme="light"] .info-box { color: #1e40af; }
+  html[data-theme="light"] .info-box b { color: #1e3a8a; }
+  html[data-theme="light"] .ok-badge.s { color: #047857; }
+  html[data-theme="light"] .ok-badge.f { color: #b91c1c; }
+  html[data-theme="light"] .btn-danger { color: #b91c1c; }
+  html[data-theme="light"] .toast { background: #ffffff; color: var(--text-primary); }
+
+  /* 테마 토글 버튼 */
+  #themeToggleBtn {
+    padding: 8px 13px; border-radius: 99px; font-size: 13px; font-weight: 800;
+    font-family: inherit; cursor: pointer; border: 1px solid var(--border-strong);
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--bg-card-2); color: var(--text-primary); transition: all 0.2s;
+  }
+  #themeToggleBtn:hover { border-color: var(--amber-1); transform: translateY(-1px); }
 </style>
+<script>
+  /* ☀️/🌙 테마 초기 결정 — 저장값 우선, 없으면 오후 6시(18:00) 기준 자동
+     (본문 렌더 전에 실행해 깜빡임 방지) */
+  (function(){
+    try {
+      var saved = localStorage.getItem('mangoi_mypage_theme');
+      var theme = (saved === 'light' || saved === 'dark')
+        ? saved
+        : (new Date().getHours() < 18 ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-theme', theme);
+    } catch(e){ document.documentElement.setAttribute('data-theme', 'dark'); }
+  })();
+</script>
 <link rel="stylesheet" href="/css/admin-readability.css"><!-- 가독성 보강 -->
 </head>
 <body>
@@ -551,6 +622,9 @@
     <button type="button" class="btn-back" onclick="if(history.length>1){history.back()}else{location.href='/admin/exec'}" title="이전 페이지로 돌아가기" style="cursor:pointer;font-family:inherit"><span data-ko="← 뒤로" data-en="← Back">← 뒤로</span></button>
     <span class="crumb" data-ko="관리자 · 마이페이지" data-en="Admin · My Page">관리자 · 마이페이지</span>
     <div class="right">
+      <button type="button" id="themeToggleBtn" onclick="toggleTheme()" title="밝게/어둡게 전환 / Toggle light-dark">
+        <span id="themeToggleIcon">🌙</span><span id="themeToggleLabel">어둡게</span>
+      </button>
       <button type="button" onclick="toggleLang()" title="언어 전환 / Switch language"
               style="padding:8px 14px;border-radius:99px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer;border:0;display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,var(--amber-1),var(--amber-2));color:#1a1a1a;box-shadow:0 4px 14px -2px rgba(245,158,11,0.45)">🌐 <span class="lang-label-sync">EN</span></button>
       <a class="btn-back" href="/" title="학생 홈페이지로 이동"><span data-ko="🏠 홈페이지" data-en="🏠 Home">🏠 홈페이지</span></a>
@@ -558,6 +632,32 @@
       <a class="btn-logout" id="logoutBtn" href="#"><span data-ko="로그아웃" data-en="Logout">로그아웃</span></a>
     </div>
   </header>
+
+  <script>
+    /* ☀️/🌙 테마 토글 — 버튼은 "전환될 모드"를 안내(어두우면 ☀️밝게, 밝으면 🌙어둡게) */
+    (function(){
+      function isEn(){ return window.getLang && window.getLang() === 'en'; }
+      function currentTheme(){
+        return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+      }
+      function updateThemeBtn(){
+        var icon = document.getElementById('themeToggleIcon');
+        var label = document.getElementById('themeToggleLabel');
+        if (!icon || !label) return;
+        if (currentTheme() === 'dark'){ icon.textContent = '☀️'; label.textContent = isEn() ? 'Light' : '밝게'; }
+        else { icon.textContent = '🌙'; label.textContent = isEn() ? 'Dark' : '어둡게'; }
+      }
+      window.toggleTheme = function(){
+        var next = currentTheme() === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        try { localStorage.setItem('mangoi_mypage_theme', next); } catch(e){}
+        updateThemeBtn();
+      };
+      window.addEventListener('mangoi:lang-changed', updateThemeBtn);
+      if (document.readyState !== 'loading') updateThemeBtn();
+      else document.addEventListener('DOMContentLoaded', updateThemeBtn);
+    })();
+  </script>
 
   <main>
     <!-- 사용자 헤더 카드 -->
@@ -679,12 +779,13 @@
           row.setAttribute('role', 'checkbox');
           row.setAttribute('aria-checked', checked ? 'true' : 'false');
           row.tabIndex = 0;
+          // 🔲 체크칸은 글을 다 읽고 나서 누르도록 '오른쪽 맨 끝'에 배치 (cl-text가 flex:1 이라 자동으로 우측 정렬됨)
           row.innerHTML =
-            '<span class="cl-box">' + (checked ? '✓' : '') + '</span>' +
             '<span class="cl-icon">' + item.icon + '</span>' +
             '<span class="cl-text"><b>' + (en() ? item.en : item.ko) + '</b>' +
               '<span class="cl-sub">' + (en() ? item.enSub : item.koSub) + '</span>' +
-            '</span>';
+            '</span>' +
+            '<span class="cl-box">' + (checked ? '✓' : '') + '</span>';
           row.addEventListener('click', function(){ toggle(item.id); });
           row.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggle(item.id); } });
           wrap.appendChild(row);
