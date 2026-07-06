@@ -24,8 +24,19 @@
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%}
   body{font-family:'Noto Sans KR','Segoe UI',sans-serif;color:var(--tx);overflow:hidden;user-select:none;
-    background:radial-gradient(120% 90% at 50% 0%,#1c3566 0%,#081227 70%)}
+    background:radial-gradient(130% 100% at 50% -6%,#22b892 0%,#0e9e86 40%,#0a7080 74%,#0a5266 100%)}
   #app{position:relative;width:100%;height:100dvh;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+  /* 🎨 주니어 컬러풀 배경 FX — 말하기/음성 테마 */
+  .bgfx{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+  .bgfx .aurora{position:absolute;inset:0;mix-blend-mode:screen;opacity:.5;
+    background:radial-gradient(44% 36% at 14% 16%,rgba(56,189,248,.5),transparent 70%),
+      radial-gradient(42% 34% at 86% 22%,rgba(251,191,36,.42),transparent 70%),
+      radial-gradient(50% 42% at 50% 106%,rgba(52,211,153,.5),transparent 70%);
+    animation:mgAurora 16s ease-in-out infinite alternate}
+  @keyframes mgAurora{0%{transform:translate(0,0) scale(1)}50%{transform:translate(3%,2%) scale(1.13)}100%{transform:translate(-2%,-1%) scale(1.05)}}
+  .bgfx b{position:absolute;bottom:-8%;font-style:normal;font-weight:400;line-height:1;
+    filter:drop-shadow(0 2px 5px rgba(0,0,0,.3));will-change:transform;animation:mgFloatUp linear infinite}
+  @keyframes mgFloatUp{0%{transform:translateY(0) rotate(0);opacity:0}12%{opacity:.72}88%{opacity:.72}100%{transform:translateY(-114vh) rotate(40deg);opacity:0}}
   .scene{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden}
   .scene.active{display:flex}
 
@@ -131,6 +142,19 @@
 </head>
 <body>
 <div id="app">
+
+  <!-- 🎨 컬러풀 배경 장식 (말하기 테마) -->
+  <div class="bgfx" aria-hidden="true">
+    <div class="aurora"></div>
+    <b style="left:9%;font-size:28px;animation-duration:21s;animation-delay:-2s">🗣️</b>
+    <b style="left:23%;font-size:20px;animation-duration:16s;animation-delay:-9s">🎵</b>
+    <b style="left:38%;font-size:26px;animation-duration:24s;animation-delay:-5s">🎤</b>
+    <b style="left:53%;font-size:18px;animation-duration:14s;animation-delay:-13s">✨</b>
+    <b style="left:67%;font-size:24px;animation-duration:22s;animation-delay:-1s">💬</b>
+    <b style="left:81%;font-size:22px;animation-duration:18s;animation-delay:-7s">🎶</b>
+    <b style="left:92%;font-size:20px;animation-duration:25s;animation-delay:-15s">🔊</b>
+    <b style="left:16%;font-size:16px;animation-duration:13s;animation-delay:-6s">✨</b>
+  </div>
 
   <!-- ===== 메뉴 ===== -->
   <section class="scene active" id="menu">
@@ -477,6 +501,6 @@
 </script>
 <!-- BUILD:20260704 speakquiz1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260706210603 -->
+<!-- BUILD:20260706215400 -->
 </body>
 </html>

@@ -2474,6 +2474,32 @@ function editSlotPrompt(teacherName,dateISO,hour){
 window.editSlotPrompt=editSlotPrompt;
 
 
+// ── 🔎 AI 비서 딥링크: ?q= / ?teacher= / ?search= 로 진입하면 검색어 자동 채우고 필터 ──
+//    예: /admin/weekly-schedule.html?q=chaine  → chaine 선생님 스케줄만 강조
+(function applyDeepLinkSearch(){
+  try {
+    var p = new URLSearchParams(location.search);
+    var q = (p.get('q') || p.get('teacher') || p.get('search') || '').trim();
+    if (!q) return;
+    searchQuery = q;
+    var box = document.getElementById('search-input');
+    if (box) box.value = q;
+    // 렌더가 끝난 뒤 결과로 스크롤 + 검색창 하이라이트
+    setTimeout(function(){
+      try {
+        render();
+        if (box) {
+          box.style.transition='box-shadow .5s';
+          box.style.boxShadow='0 0 0 3px rgba(251,191,36,.55)';
+          setTimeout(function(){ box.style.boxShadow=''; }, 2400);
+        }
+        var firstCard = document.querySelector('.teacher-card');
+        if (firstCard) firstCard.scrollIntoView({behavior:'smooth',block:'start'});
+      } catch(_){}
+    }, 700);
+  } catch(_){}
+})();
+
 reloadAndRender();
 
 

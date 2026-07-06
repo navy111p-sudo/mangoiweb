@@ -32,7 +32,7 @@ Schema (one of these exactly):
 {"intent":"schedule_plan","items":[{"action":"register_recurring|schedule_one_off|change_schedule|postpone_class","student_name":"<name>","teacher_name":"<optional teacher>","days":["mon","tue",...],"date":"YYYY-MM-DD","time":"HH:MM","type":"regular|level_test|trial","label":"<short label in USER_LANG>"},...],"answer":"<confirmation in USER_LANG>","confirm_text":"<confirm in USER_LANG>"}
 {"intent":"bulk_modify","operation":"postpone|cancel|reschedule","criteria":{"student_name":"<optional>","days":["mon",...],"time":"HH:MM","date_from":"YYYY-MM-DD","date_to":"YYYY-MM-DD"},"new_time":"HH:MM","shift_minutes":60,"answer":"<USER_LANG>","confirm_text":"<USER_LANG>"}
 
-Allowed navigate URLs (same-tab): /admin.html, /admin/students.html, /admin/student.html?uid=ID, /admin/health.html, /admin/mypage.html, /admin/all-schedules.html
+Allowed navigate URLs (same-tab): /admin.html, /admin/students.html, /admin/student.html?uid=ID, /admin/health.html, /admin/mypage.html, /admin/weekly-schedule.html (전체/주간/강사 스케줄·시간표 — 강사명 있으면 /admin/weekly-schedule.html?q=이름), /admin/all-schedules.html
 
 Allowed external_url (new tab): https://mangoi-speech.pages.dev/practice (발음교정·발음 연습)
 
@@ -65,6 +65,10 @@ Allowed menu_id (scroll to card on /admin.html). Match Korean OR English keyword
 - card-payments-b2c    (결제관리·수강료·학원비·납부 | payment, tuition, fee)
 - card-recurring-billing(정기결제 자동화·자동결제·구독 | recurring billing, subscription)
 - card-timetable       (통합 시간표·수업 연기·수업 변경·일정 변경 메뉴 | timetable, postpone/reschedule menu)
+- card-auto-schedule   (AI 자동 시간표·자동 스케줄링·자동 배정 | AI auto-scheduling, auto timetable, auto assignment)
+- card-retention-risk  (이탈위험·리텐션 | retention risk, churn)
+- card-ai-insights     (AI 인사이트·AI가 찾은 경고 | AI insights)
+- card-permissions     (권한 설정·권한 관리 | permissions)
 - card-accounting-mgmt (회계관리 | accounting)
 - card-class-attendance(출석현황·출결 | attendance status)
 - card-homework        (숙제 관리 | homework)
@@ -95,15 +99,17 @@ LANGUAGE RULE (critical):
 - intent classification, url/menu_id/tool/args values stay the SAME regardless of language — only the human-readable text fields are localized.
 
 Hard rules:
+- ★ TOP RULE — NAVIGATE, DON'T EXPLAIN: whenever the user NAMES any admin screen/menu/feature (스케줄, 시간표, 자동 스케줄링, 강사관리, 결제, 미납, 평가서, 랭킹, 출석 등) with any wish to see/reach/handle it (가게/가줘/열어/보여줘/보고싶어/확인/어디/어떻게/관리하고싶어 …), you MUST return navigate to that screen. NEVER answer with an explanation or step list. Only use "answer" for a pure definition question ("~가 뭐야?", "what is ~?", 뜻/차이) that names NO reachable screen, or greetings.
 - If the user wants to OPEN/GO TO a page (열어줘, 가줘, 이동, 페이지 | open, go to, show me ... page, where is, take me to, navigate) → navigate
 - If the user asks for DATA/NUMBERS (매출, 출석, 학생수, 결석률, 방, 녹화, 통계, 어때, 보여줘 + data noun) → query
 - If the user wants to DO/SEND/ISSUE something (보내줘, 발급해줘, 기록해줘) → action
 - If the user wants to REGISTER/CHANGE/POSTPONE class schedules or LEVEL TEST (수업 등록, 수업 변경, 수업 연기, 수업 잡아, 레벨테스트, 등록해줘 + 학생/요일/시간) → schedule_plan
 - If the user wants to BULK MODIFY existing schedules (~의 모든 수업, 다음주 수업 모두, 월요일 수업 전체 + 미뤄/취소/이동) → bulk_modify
-- Otherwise (definition, explanation, what is) → answer
+- Otherwise, ONLY a pure definition/what-is question with no reachable screen → answer. If any screen is named, prefer navigate over answer.
 - 전체 학생 스케줄 / 전체학생 스케줄 / 전교생 스케줄 / 모든 학생 스케줄 / 전체 스케줄 / 전체 일정 / 학원 전체 일정 (열어줘·보여줘·open·show) → navigate url /admin/all-schedules.html
 - NEVER reply to an OPEN/SHOW/GO-TO request (열어줘, 열어, 보여줘, 가줘, 이동, open, show, go to, take me to) with step-by-step manual instructions such as "1. 로그인 2. 메뉴 선택 3. 클릭". Such requests are ALWAYS navigate (or query). Keep every "answer" to ONE short sentence and never invent UI steps, button names, or menu paths.
-- If the user mentions a TEACHER (강사/선생님/쌤 + 이름 or asks a teacher's schedule/info) WITHOUT registering a new class → navigate menu_id card-teacher-mgmt (e.g. "chaine 선생님 스케줄 어때?")
+- If the user asks a TEACHER's SCHEDULE/TIMETABLE (강사/선생님/쌤 + 스케줄/시간표/일정) WITHOUT registering a class → navigate url /admin/weekly-schedule.html (강사명 있으면 ?q=이름). If they ask teacher INFO/관리 (not schedule) → navigate menu_id card-teacher-mgmt
+- If the user wants AUTO-SCHEDULING (자동 스케줄링, 자동 시간표, AI 시간표, 자동 배정) → navigate menu_id card-auto-schedule. NEVER explain the steps — just navigate.
 - If the user wants to PAY / asks about tuition menu (결제, 결제관리, 수강료, 학원비, 납부) → navigate menu_id card-payments-b2c (정기결제·자동결제·구독이면 card-recurring-billing)
 - If the user expresses INTENT to postpone/change a class but gives NO student name+date (e.g. "수업 연기하고 싶어", "일정 변경할래") → navigate menu_id card-timetable. Only use schedule_plan when a student name AND day/time/date are present.
 
@@ -286,8 +292,20 @@ Output: {"intent":"navigate","menu_id":"card-level-tests","answer":"Opening the 
 User: "show the full schedule"
 Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"Opening the academy-wide schedule page."}
 
+User: "자동 스케줄링 메뉴로 가게 해줘"
+Output: {"intent":"navigate","menu_id":"card-auto-schedule","answer":"AI 자동 시간표(자동 스케줄링) 카드로 이동합니다."}
+
+User: "AI 자동 시간표 열어줘"
+Output: {"intent":"navigate","menu_id":"card-auto-schedule","answer":"AI 자동 시간표 카드로 이동합니다."}
+
 User: "chaine 선생님 혹시 스케줄 어때?"
-Output: {"intent":"navigate","menu_id":"card-teacher-mgmt","answer":"강사관리에서 chaine 선생님 정보를 확인하실 수 있어요."}
+Output: {"intent":"navigate","url":"/admin/weekly-schedule.html?q=chaine","answer":"주간 스케줄에서 chaine 선생님 일정을 보여드릴게요."}
+
+User: "김선생님 스케줄 보여줘"
+Output: {"intent":"navigate","url":"/admin/weekly-schedule.html?q=김","answer":"주간 스케줄에서 김 선생님 일정을 보여드릴게요."}
+
+User: "강사 시간표 보여줘"
+Output: {"intent":"navigate","url":"/admin/weekly-schedule.html","answer":"주간 전체 스케줄(모든 강사)로 이동합니다."}
 
 User: "김선생님 정보 보여줘"
 Output: {"intent":"navigate","menu_id":"card-teacher-mgmt","answer":"강사관리 카드로 이동합니다."}
@@ -338,6 +356,155 @@ User: "홍길동 학생"
 Output: {"intent":"query","tool":"find_student","args":{"q":"홍길동"},"answer":"홍길동 학생을 검색합니다."}
 
 Output rule: Only one valid JSON object. No "Output:" prefix, no markdown fences, no commentary.`;
+
+// ══════════════════════════════════════════════════════════════════════
+// 🧭 결정론적 내비게이션 라우터 (Phase 23)
+//   문제: Llama 가 "○○ 메뉴로 가게 해줘" 같은 이동 명령을 자주 "설명(prose)"
+//         으로만 답하고 실제로 이동시키지 못함. (예: 자동 스케줄링 메뉴)
+//   해결: 이동 의도가 분명하면 LLM 을 거치지 않고 즉시 navigate 로 응답하고,
+//         LLM 이 answer(설명)로 잘못 답해도 이 라우터가 교정한다.
+//   ⚠️ 여기의 menu_id / url 은 admin.html 의 실제 요소와 1:1 로 검증되어야 함.
+// ══════════════════════════════════════════════════════════════════════
+
+// "이동하고 싶다"는 의도가 담긴 동사/어구
+const NAV_VERB_RE = /(열어|열기|열어봐|띄워|보여줘|보여 줘|보여줄|보기|보러|가게|가 게|가줘|가 줘|가자|가고|로\s*가|으로\s*가|이동|들어가|바로가기|바로 가기|메뉴로|화면으로|페이지로|open|go to|goto|show|take me|navigate|where is|jump)/i;
+
+// 이건 단순 이동이 아님 — 등록/변경/발송 등 실제 작업이라 LLM(schedule/action)에 맡긴다.
+//  ⚠️ 메뉴 이름에 들어가는 단어(예약='상담 예약', 배정='자동 배정', 만들어='팝업 만들래')는
+//     넣지 않는다. 넣으면 그 화면으로 못 가고 설명으로 새어버림.
+const NAV_BLOCK_RE = /(등록|잡아|변경|연기|미뤄|앞당|옮겨|취소|삭제|발급|발송|보내|기록해|register|enroll|reschedul|postpone|cancel|delete|issue|send)/i;
+
+// 순수 '정의/뜻' 질문만 설명(answer) 허용. 그 외 화면 지목은 무조건 이동.
+//  · "발음연습이 뭐야?" → 설명 OK  /  "발음연습 열어줘"·"발음연습 어디야" → 이동
+//  · 단, 이동 동사(NAV_VERB)가 함께 있으면 정의질문이라도 이동을 우선한다.
+const DEFINITION_RE = /(뭐야|뭔가요|무엇|뭐예요|뭐에요|뭐죠|뜻이|뜻은|뜻이야|의미가|의미는|정의|차이|what\s*is|what'?s|difference)/i;
+
+type NavTarget = { menu_id?: string; url?: string; external_url?: string; ko: string; en: string; confidence?: 'high' | 'normal' };
+
+// 키워드 → 카드/페이지 라우트 (순서 중요: 구체적인 것을 위에 둔다)
+const CARD_ROUTES: Array<{ re: RegExp; menu_id?: string; url?: string; external_url?: string; ko: string; en: string }> = [
+  // ※ 스케줄/시간표/자동스케줄은 resolveNav() 상단에서 먼저 처리(주간 스케줄 페이지·자동시간표 카드)
+  // ── 평가/리포트 (AI 초안 → 리포트 → 일반 평가서 순) ──
+  { re: /(ai\s*평가서|평가서\s*초안|학습\s*리포트\s*초안|ai\s*(evaluation|report)\s*draft)/i, menu_id: 'card-ai-eval-draft', ko: 'AI 평가서 초안 카드로 이동합니다.', en: 'Opening the AI evaluation draft card.' },
+  { re: /(ai\s*수업\s*리포트|수업\s*리포트|ai\s*lesson\s*report)/i, menu_id: 'card-ai-lesson-report', ko: 'AI 수업 리포트 카드로 이동합니다.', en: 'Opening the AI lesson report card.' },
+  { re: /(평가서|성적표|성적\s*관리|평가\s*관리|report\s*card|evaluation|grades?)/i, menu_id: 'card-eval-mgmt', ko: '학생 평가서(성적표) 카드로 이동합니다.', en: 'Opening the student evaluations card.' },
+  // ── 결제/정산/회계 (정기결제·미납 → 일반결제 순) ──
+  { re: /(정기결제|자동결제|자동\s*결제|구독|recurring|subscription)/i, menu_id: 'card-recurring-billing', ko: '정기결제 자동화 카드로 이동합니다.', en: 'Opening the recurring billing card.' },
+  { re: /(미납|독촉|미수금|dunning|overdue)/i, menu_id: 'card-auto-dunning', ko: '미납 자동 알림(독촉) 카드로 이동합니다.', en: 'Opening the overdue payment auto-alert card.' },
+  { re: /(결제\s*관리|결제관리|수강료|학원비|납부|tuition|payment|\bfee\b)/i, menu_id: 'card-payments-b2c', ko: '결제관리 카드로 이동합니다.', en: 'Opening the payments card.' },
+  { re: /(강사\s*급여|급여|payroll|salary)/i, menu_id: 'card-payroll', ko: '강사 급여 카드로 이동합니다.', en: 'Opening the teacher payroll card.' },
+  { re: /(지점\s*정산|지사\s*정산|대리점\s*정산|본사\s*정산|정산\s*통계|정산|settlement)/i, menu_id: 'card-settlement-stats', ko: '지점 정산 카드로 이동합니다.', en: 'Opening the settlement stats card.' },
+  { re: /(회계\s*관리|회계관리|accounting)/i, menu_id: 'card-accounting-mgmt', ko: '회계관리 카드로 이동합니다.', en: 'Opening the accounting card.' },
+  // ── 강사/학생 관리 ──
+  { re: /(강사\s*관리|교사\s*관리|선생님?\s*관리|강사\s*목록|teacher\s*(management|list))/i, menu_id: 'card-teacher-mgmt', ko: '강사관리 카드로 이동합니다.', en: 'Opening the teacher management card.' },
+  { re: /(학생\s*관리|학생관리|student\s*management)/i, url: '/admin/students.html', ko: '학생관리 페이지로 이동합니다.', en: 'Opening the student management page.' },
+  // ── 출결/숙제/일지 ──
+  { re: /(출석\s*현황|출결\s*현황|출결\s*관리|출석부|attendance)/i, menu_id: 'card-class-attendance', ko: '출석현황 카드로 이동합니다.', en: 'Opening the attendance card.' },
+  { re: /(숙제|homework)/i, menu_id: 'card-homework', ko: '숙제 관리 카드로 이동합니다.', en: 'Opening the homework card.' },
+  { re: /(수업\s*일지|수업일지|lesson\s*log)/i, menu_id: 'card-lesson-log', ko: '수업 일지 카드로 이동합니다.', en: 'Opening the lesson log card.' },
+  // ── 차트/랭킹/인사이트 ──
+  { re: /(일자별|일별\s*차트|매출\s*차트|성장\s*차트|daily\s*chart)/i, menu_id: 'card-daily-charts', ko: '일자별 차트 카드로 이동합니다.', en: 'Opening the daily charts card.' },
+  { re: /(랭킹|순위|ranking)/i, menu_id: 'card-rankings', ko: '학생 랭킹 카드로 이동합니다.', en: 'Opening the student ranking card.' },
+  { re: /(이탈\s*위험|이탈위험|리텐션|retention\s*risk|churn)/i, menu_id: 'card-retention-risk', ko: '이탈위험 카드로 이동합니다.', en: 'Opening the retention-risk card.' },
+  { re: /(ai\s*인사이트|ai\s*insight)/i, menu_id: 'card-ai-insights', ko: 'AI 인사이트 카드로 이동합니다.', en: 'Opening the AI insights card.' },
+  // ── 모니터링/알림 ──
+  { re: /(이상감지|이상\s*감지|이상\s*알림|이상\s*징후|실시간\s*알림|anomaly|monitoring)/i, menu_id: 'card-admin-alerts', ko: '실시간 이상감지 카드로 이동합니다.', en: 'Opening the real-time anomaly alerts card.' },
+  { re: /(고스트|참관|라이브\s*참관|ghost|live\s*observation)/i, menu_id: 'card-admin-ghost', ko: '라이브 참관(고스트뷰) 카드로 이동합니다.', en: 'Opening the live observation card.' },
+  { re: /(카카오|알림톡|카톡\s*관리|kakao|alimtalk)/i, menu_id: 'card-kakao-mgmt', ko: '카카오 알림톡 관리 카드로 이동합니다.', en: 'Opening the Kakao alimtalk card.' },
+  { re: /(팝업|popup)/i, menu_id: 'card-popups-mgmt', ko: '공지/팝업 관리 카드로 이동합니다.', en: 'Opening the popup management card.' },
+  { re: /(공지사항|공지\s*게시판|notice\s*board)/i, menu_id: 'card-notice-board', ko: '공지사항 게시판 카드로 이동합니다.', en: 'Opening the notice board card.' },
+  { re: /(알림\s*큐|푸시\s*알림|알림\s*설정|notification|push)/i, menu_id: 'card-notifications', ko: '알림 큐 카드로 이동합니다.', en: 'Opening the notification queue card.' },
+  // ── 학습/콘텐츠 ──
+  { re: /(레벨\s*테스트|레벨테스트|level\s*test)/i, menu_id: 'card-level-tests', ko: '레벨 테스트 카드로 이동합니다.', en: 'Opening the level test card.' },
+  { re: /(복습\s*퀴즈|퀴즈|review\s*quiz|ai\s*quiz)/i, menu_id: 'card-review-quiz', ko: '복습퀴즈 카드로 이동합니다.', en: 'Opening the review quiz card.' },
+  { re: /(교재\s*콘텐츠|교재|textbook)/i, menu_id: 'card-textbooks', ko: '교재 콘텐츠 카드로 이동합니다.', en: 'Opening the textbook content card.' },
+  { re: /(발음\s*교정|발음\s*연습|pronunciation)/i, external_url: 'https://mangoi-speech.pages.dev/practice', ko: '발음 교정 도구를 새 탭에서 엽니다.', en: 'Opening the pronunciation practice tool in a new tab.' },
+  // ── 조직/상담/기타 ──
+  { re: /(가맹점|프랜차이즈|franchise|branch)/i, menu_id: 'card-franchises', ko: '가맹점 관리 카드로 이동합니다.', en: 'Opening the franchises card.' },
+  { re: /(교육\s*센터|학습\s*센터|센터\s*관리|education\s*center)/i, menu_id: 'card-centers', ko: '교육센터 카드로 이동합니다.', en: 'Opening the education centers card.' },
+  { re: /(수강\s*신청|수강신청|enrollment|course\s*application)/i, menu_id: 'card-enrollments', ko: '수강신청 관리 카드로 이동합니다.', en: 'Opening the enrollments card.' },
+  { re: /(신규\s*상담|문의\s*관리|상담\s*접수|inquiry|consultation\s*intake)/i, menu_id: 'card-inquiry-mgmt', ko: '신규상담 카드로 이동합니다.', en: 'Opening the new inquiry card.' },
+  { re: /(상담\s*예약|counseling\s*booking)/i, menu_id: 'card-counseling-booking', ko: '상담 예약 카드로 이동합니다.', en: 'Opening the counseling booking card.' },
+  { re: /(커뮤니티|community)/i, menu_id: 'card-community', ko: '커뮤니티 카드로 이동합니다.', en: 'Opening the community card.' },
+  { re: /(포인트\s*관리|포인트|\bpoints?\b)/i, menu_id: 'card-points-mgmt', ko: '포인트 관리 카드로 이동합니다.', en: 'Opening the points card.' },
+  { re: /(뱃지|배지|badge)/i, menu_id: 'card-badges-mgmt', ko: '뱃지 관리 카드로 이동합니다.', en: 'Opening the badge management card.' },
+  { re: /(캘린더|달력|공휴일|휴가|calendar|holiday)/i, menu_id: 'card-calendar', ko: '캘린더 카드로 이동합니다.', en: 'Opening the calendar card.' },
+  { re: /(녹화\s*관리|녹화\s*저장|recording\s*(management|storage))/i, menu_id: 'card-recording-storage', ko: '녹화 관리 카드로 이동합니다.', en: 'Opening the recording management card.' },
+  { re: /(권한\s*설정|권한\s*관리|권한|permission)/i, menu_id: 'card-permissions', ko: '권한 설정 카드로 이동합니다.', en: 'Opening the permissions card.' },
+];
+
+const SCHEDULE_WORD_RE = /(스케줄|스케쥴|시간표|일정|타임테이블|schedule|timetable|time\s*table)/i;
+const TEACHER_WORD_RE = /(강사|선생님|선생|쌤|teacher)/i;
+
+// 강사명 추출: "chaine 선생님", "김선생님", "강사 chaine" 등에서 이름만
+function extractTeacherName(cmd: string): string {
+  const bad = /^(스케줄|스케쥴|시간표|일정|관리|정보|수업|급여|목록|현황|배정|매칭|대체|결석)$/;
+  let m = cmd.match(/([A-Za-z][A-Za-z.]{1,19}|[가-힣]{2,4})\s*(?:선생님|선생|쌤|강사님)/);
+  if (m && !bad.test(m[1])) return m[1].trim();
+  m = cmd.match(/(?:강사|선생님|teacher)\s*[:\-]?\s*([A-Za-z][A-Za-z.]{1,19}|[가-힣]{2,4})/i);
+  if (m && !bad.test(m[1])) return m[1].trim();
+  return '';
+}
+
+// 자연어 → 이동 대상 결정 (없으면 null)
+function resolveNav(cmd: string): NavTarget | null {
+  // 0) AI 자동 시간표(자동 스케줄링) — '시간표' 일반 규칙보다 먼저 잡아야 함.
+  if (/(자동\s*스케줄|자동\s*시간표|ai\s*시간표|시간표\s*자동|자동\s*배정|자동\s*편성|auto[-\s]?schedul)/i.test(cmd)) {
+    return { menu_id: 'card-auto-schedule', ko: 'AI 자동 시간표(자동 스케줄링) 카드로 이동합니다.', en: 'Opening the AI auto-scheduling card.', confidence: 'high' };
+  }
+  // 1) 강사/선생님 + 스케줄/시간표 → 주간 전체 스케줄(강사명 있으면 필터). 고신뢰.
+  if (TEACHER_WORD_RE.test(cmd) && SCHEDULE_WORD_RE.test(cmd)) {
+    const name = extractTeacherName(cmd);
+    // URL 쿼리에 넣을 이름은 안전 문자만 허용
+    const safe = name && /^[A-Za-z0-9가-힣 .]{1,20}$/.test(name) ? name : '';
+    const qs = safe ? ('?q=' + encodeURIComponent(safe)) : '';
+    return {
+      url: '/admin/weekly-schedule.html' + qs,
+      ko: safe ? `주간 스케줄에서 ${safe} 강사 일정을 보여드릴게요.` : '주간 전체 스케줄(모든 강사)로 이동합니다.',
+      en: safe ? `Showing ${safe}'s schedule in the weekly view.` : 'Opening the weekly schedule (all teachers).',
+      confidence: 'high'
+    };
+  }
+  // 2) 그 외 스케줄/시간표/일정 조회 → 주간 전체 스케줄 페이지(실제 시간표 화면). 고신뢰.
+  //    (수업 연기·변경 메뉴는 NAV_BLOCK 에 걸려 여기까지 안 오고 LLM 이 card-timetable 로 처리)
+  if (SCHEDULE_WORD_RE.test(cmd)) {
+    return { url: '/admin/weekly-schedule.html', ko: '주간 전체 스케줄 페이지로 이동합니다.', en: 'Opening the weekly schedule page.', confidence: 'high' };
+  }
+  // 3) 홈·마이페이지·시스템 상태
+  if (/(관리자\s*홈|대시보드|메인\s*화면|admin\s*home|dashboard)/i.test(cmd)) {
+    return { url: '/admin.html', ko: '관리자 홈으로 이동합니다.', en: 'Going to the admin home.', confidence: 'normal' };
+  }
+  if (/(마이\s*페이지|내\s*정보|my\s*page|profile)/i.test(cmd)) {
+    return { url: '/admin/mypage.html', ko: '마이페이지로 이동합니다.', en: 'Opening my page.', confidence: 'normal' };
+  }
+  if (/(시스템\s*상태|서버\s*상태|헬스\s*체크|system\s*(health|status)|health\s*check)/i.test(cmd)) {
+    return { url: '/admin/health.html', ko: '시스템 상태 페이지로 이동합니다.', en: 'Opening the system health page.', confidence: 'normal' };
+  }
+  // 4) 키워드 카드 테이블
+  for (const r of CARD_ROUTES) {
+    if (r.re.test(cmd)) {
+      return { menu_id: r.menu_id, url: r.url, external_url: r.external_url, ko: r.ko, en: r.en, confidence: 'normal' };
+    }
+  }
+  return null;
+}
+
+// ── 이동 판정 단일 진입점 (프리라우터·교정에서 공통 사용, 테스트에서도 import) ──
+//    작업어(NAV_BLOCK) 또는 이동동사 없는 순수 정의질문이면 이동하지 않는다(→ LLM).
+export function routeNavigation(cmd: string): NavTarget | null {
+  if (NAV_BLOCK_RE.test(cmd)) return null;
+  if (DEFINITION_RE.test(cmd) && !NAV_VERB_RE.test(cmd)) return null;
+  return resolveNav(cmd);
+}
+
+// NavTarget → API 응답
+function buildNavResponse(nav: NavTarget, en: boolean): any {
+  const out: any = { ok: true, intent: 'navigate', answer: en ? nav.en : nav.ko, resolved_by: 'router' };
+  if (nav.external_url) out.external_url = nav.external_url;
+  else if (nav.menu_id) out.menu_id = nav.menu_id;
+  else if (nav.url) out.url = nav.url;
+  return out;
+}
 
 // ──────────────────────────────────────────────────────────
 // LLM 호출 — Workers AI Llama 3.3 70B
@@ -520,6 +687,14 @@ export async function processAiCommand(
 
   const en = lang === 'en';  // 폴백 텍스트 언어 선택
 
+  // 🧭 Phase 23 — 프리 라우터: 화면/메뉴를 지목하면 LLM 을 거치지 않고 "반드시 그 화면으로 이동".
+  //   이동하지 않는 경우는 routeNavigation() 안에서 딱 둘뿐:
+  //     (a) 등록/변경/발송 등 실제 작업(NAV_BLOCK)  (b) 이동동사 없는 순수 '뭐야/뜻' 정의질문
+  const preNav = routeNavigation(cmd);
+  if (preNav) {
+    return buildNavResponse(preNav, en);
+  }
+
   let aiResponse: any;
   try {
     aiResponse = await callLLM(env, cmd, lang);
@@ -528,6 +703,13 @@ export async function processAiCommand(
   }
 
   const intent = aiResponse?.intent;
+
+  // 🧭 Phase 23 — 교정: LLM 이 이동 명령을 설명(answer)으로 잘못 답하면 강제로 이동시킨다.
+  //   (예: "자동 스케줄링 메뉴로 가게 해줘" → 단계별 설명 X, 즉시 해당 화면으로)
+  if (intent === 'answer') {
+    const nav = routeNavigation(cmd);
+    if (nav) return buildNavResponse(nav, en);
+  }
 
   // Level 1 — answer
   if (intent === 'answer') {
@@ -540,6 +722,12 @@ export async function processAiCommand(
 
   // Level 2 — navigate (Phase 21h: url / external_url / menu_id 모두 지원)
   if (intent === 'navigate') {
+    // 🧭 Phase 23 — 강사 스케줄 교정: LLM 이 강사관리 카드로 보냈지만 사용자가 '스케줄/시간표'를
+    //   원했다면(등록/변경 아님) 실제 주간 스케줄 화면으로 돌려보낸다.
+    if (!NAV_BLOCK_RE.test(cmd) && TEACHER_WORD_RE.test(cmd) && SCHEDULE_WORD_RE.test(cmd)) {
+      const nav = resolveNav(cmd);
+      if (nav && nav.url) return buildNavResponse(nav, en);
+    }
     const out: any = {
       ok: true,
       intent: 'navigate',

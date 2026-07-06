@@ -192,6 +192,9 @@ let __pointTablesReady = false;
 // ⭐ 수업 강사 평가(class_ratings) DDL 도 isolate 당 1회만 실행
 let __classRatingsReady = false;
 
+// 🤖 교사 수업 AI 피드백(teacher_class_feedback) DDL 도 isolate 당 1회만 실행
+let __teacherFeedbackReady = false;
+
 const today = (ts: number = Date.now()) => {
   const d = new Date(ts);
   // KST 기준 날짜
@@ -2691,6 +2694,14 @@ export async function handleMangoApi(
       __classRatingsReady = true;
     };
 
+    // 🤖 교사 수업 AI 피드백(teacher_class_feedback) DDL — isolate 당 1회
+    const ensureTeacherFeedbackTable = async () => {
+      if (__teacherFeedbackReady) return;
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_class_feedback (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT NOT NULL, teacher_uid TEXT, teacher_name TEXT, student_name TEXT, duration_min INTEGER, metrics_json TEXT, feedback_ko TEXT, feedback_en TEXT, source TEXT, created_at INTEGER NOT NULL, UNIQUE(room_id));`);
+      await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_tcf_teacher ON teacher_class_feedback(teacher_uid, created_at);`);
+      __teacherFeedbackReady = true;
+    };
+
     // ── POST /api/ratings — 평가 제출 (하루에 같은 방 1회, 제출 시 포인트 적립) ──
     //   body: { room_id, student_uid, student_name?, teacher_name?, score(1~7), tags?: string[], feedback? }
     if (method === 'POST' && path === '/api/ratings') {
@@ -2742,6 +2753,174 @@ export async function handleMangoApi(
       } catch { /* 포인트 실패 무시 */ }
 
       return json({ ok: true, teacher_name: teacherName || null, points_awarded: pointsAwarded });
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // 🤖 교사 수업 AI 피드백 — 수업 종료 직후 강사에게 잘한점/개선점(한·영) 전달
+    // ══════════════════════════════════════════════════════════════
+
+    // ── POST /api/ai-feedback/generate — 한 수업의 코칭 피드백 생성(한/영 동시) ──
+    //   body: { room_id(필수), teacher_uid?, teacher_name?, student_name?,
+    //           transcript?(수업 전사 일부), signals?:{ talk_ratio, praise_count, engagement, duration_min } }
+    if (method === 'POST' && path === '/api/ai-feedback/generate') {
+      await ensureTeacherFeedbackTable();
+      const b: any = await request.json().catch(() => ({}));
+      const roomId = String(b.room_id || '').trim();
+      if (!roomId) return json({ ok: false, error: 'room_id_required' }, 400);
+
+      const sig = (b.signals && typeof b.signals === 'object') ? b.signals : {};
+      let teacherUid = String(b.teacher_uid || '').trim();
+      let teacherName = String(b.teacher_name || '').trim();
+      let studentName = String(b.student_name || '').trim();
+      const transcript = String(b.transcript || '').slice(0, 6000).trim();
+
+      // ── DB 로 신호 보강(best-effort) — 값이 없을 때만 채움 ──
+      let durationMin = Number(sig.duration_min) || 0;
+      let praiseCount: number | null = Number.isFinite(+sig.praise_count) ? +sig.praise_count : null;
+      let talkRatio: number | null = Number.isFinite(+sig.talk_ratio) ? Math.round(+sig.talk_ratio) : null;
+      let engagement = String(sig.engagement || '').trim(); // good|fair|low
+      let studentScore: number | null = null;
+      let studentNote = '';
+      try {
+        const t: any = await env.DB.prepare(`SELECT username, user_id, total_session_ms, joined_at, left_at FROM attendance WHERE room_id=? AND role='teacher' ORDER BY joined_at DESC LIMIT 1`).bind(roomId).first();
+        if (t) {
+          if (!teacherName && t.username) teacherName = String(t.username);
+          if (!teacherUid && t.user_id) teacherUid = String(t.user_id);
+          if (!durationMin) {
+            const ms = Number(t.total_session_ms) || (t.left_at && t.joined_at ? (t.left_at - t.joined_at) : 0);
+            if (ms > 0) durationMin = Math.max(1, Math.round(ms / 60000));
+          }
+        }
+        if (!studentName) {
+          const s: any = await env.DB.prepare(`SELECT username FROM attendance WHERE room_id=? AND role='student' AND username IS NOT NULL ORDER BY joined_at DESC LIMIT 1`).bind(roomId).first();
+          if (s?.username) studentName = String(s.username);
+        }
+        if (praiseCount === null) {
+          const p: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE rule_code='teacher_praise_point' AND meta LIKE ?`).bind('%"room_id":"' + roomId + '"%').first();
+          praiseCount = Number(p?.c) || 0;
+        }
+        const r: any = await env.DB.prepare(`SELECT score, feedback FROM class_ratings WHERE room_id=? ORDER BY created_at DESC LIMIT 1`).bind(roomId).first();
+        if (r) { studentScore = Number(r.score) || null; studentNote = String(r.feedback || '').slice(0, 400); }
+      } catch { /* 신호 없으면 있는 것만으로 생성 */ }
+
+      // ── 신호 요약(프롬프트 주입용) ──
+      const signalLines = [
+        `Class duration: ${durationMin || '?'} min`,
+        talkRatio !== null ? `Teacher talk ratio: ${talkRatio}%` : `Teacher talk ratio: (not measured)`,
+        praiseCount !== null ? `Praise given by teacher: ${praiseCount} times` : '',
+        engagement ? `Observed student engagement: ${engagement}` : '',
+        studentScore ? `Student's own rating: ${studentScore}/7` : '',
+        studentNote ? `Student's note: "${studentNote}"` : '',
+        transcript ? `Transcript excerpt (may include [mm:ss] marks):\n${transcript}` : 'Transcript: (not provided — base feedback on the metrics above, do NOT invent quotes)'
+      ].filter(Boolean).join('\n');
+
+      // ── 강사 코칭 루브릭(만고아이 강사 매뉴얼 요약) ──
+      const rubric = [
+        '1. Teacher talk ratio — the child should do most of the talking; teacher over ~60% is a flag.',
+        '2. Student engagement — did the child stay active and respond?',
+        '3. Praise & encouragement — timely, specific praise builds confidence.',
+        '4. Question quality — open questions ("Why do you think so?") beat yes/no questions.',
+        '5. Wait time — pausing 3-5s lets the child produce language themselves.'
+      ].join('\n');
+
+      // ── LLM: 한/영 동시 생성 ──
+      let ko: any = null, en: any = null, source = 'ai';
+      const ai = (env as any).AI;
+      if (ai) {
+        try {
+          const prompt = `You are a warm, specific coaching assistant for an online English tutor who just finished a 1:1 lesson with a Korean child. Using the RUBRIC and SIGNALS, write encouraging, actionable coaching. Be concrete; cite [mm:ss] timestamps ONLY if they appear in the transcript. Never invent facts not supported by the signals.
+
+RUBRIC:
+${rubric}
+
+SIGNALS:
+${signalLines}
+
+Return STRICT JSON only, in BOTH Korean and English, with 2-3 strengths, exactly 1 improvement, and exactly 1 concrete thing to try next class:
+{
+  "metrics": { "engagement": "good|fair|low", "talk_ratio": <number or null>, "praise_count": <number or null> },
+  "ko": { "good": ["...", "..."], "improve": "...", "action": "..." },
+  "en": { "good": ["...", "..."], "improve": "...", "action": "..." }
+}`;
+          const resp: any = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+            messages: [
+              { role: 'system', content: 'You are a supportive teacher-coaching assistant. Reply in strict JSON only, no prose outside JSON.' },
+              { role: 'user', content: prompt }
+            ],
+            max_tokens: 900,
+          });
+          let text = typeof resp === 'string' ? resp : (typeof resp?.response === 'string' ? resp.response : JSON.stringify(resp?.response || ''));
+          const m = String(text || '').match(/\{[\s\S]*\}/);
+          if (m) {
+            const j = JSON.parse(m[0]);
+            ko = j.ko || null; en = j.en || null;
+            if (j.metrics) {
+              if (!engagement && j.metrics.engagement) engagement = String(j.metrics.engagement);
+              if (talkRatio === null && Number.isFinite(+j.metrics.talk_ratio)) talkRatio = Math.round(+j.metrics.talk_ratio);
+              if (praiseCount === null && Number.isFinite(+j.metrics.praise_count)) praiseCount = +j.metrics.praise_count;
+            }
+          }
+        } catch (e: any) { console.warn('[ai-feedback] AI fail:', e?.message); }
+      }
+
+      // ── 폴백(양쪽 언어) — AI 실패/미바인딩이어도 카드는 항상 채워짐 ──
+      if (!ko || !Array.isArray(ko.good)) {
+        source = ai ? 'fallback' : 'no_ai';
+        const many = talkRatio !== null && talkRatio > 60;
+        ko = {
+          good: ['아이가 끝까지 수업에 참여할 수 있도록 편안한 분위기를 만들어 주셨어요.', (praiseCount ? `수업 중 칭찬을 ${praiseCount}회 해 주신 점이 좋았어요.` : '차분한 진행으로 아이가 집중했어요.')],
+          improve: many ? `교사 발화가 ${talkRatio}%로 다소 많았어요. 아이가 말할 틈을 조금 더 만들어 주세요.` : '아이가 스스로 문장을 만들 기회를 조금 더 주면 좋아요.',
+          action: '질문 후 5초간 기다려 아이가 먼저 답하게 해보기'
+        };
+        en = {
+          good: ['You kept a comfortable atmosphere so the child stayed engaged the whole lesson.', (praiseCount ? `You praised the student ${praiseCount} times — great encouragement.` : 'Your calm pace helped the child focus.')],
+          improve: many ? `Your talk time was a bit high at ${talkRatio}%. Give the child a little more room to speak.` : 'Give the child a few more chances to produce full sentences on their own.',
+          action: 'After asking a question, wait 5 seconds so the child answers first.'
+        };
+      }
+      if (!en || !Array.isArray(en.good)) en = ko;
+
+      const metrics = { engagement: engagement || 'good', talk_ratio: talkRatio, praise_count: praiseCount };
+      const now = Date.now();
+      try {
+        await env.DB.prepare(`INSERT INTO teacher_class_feedback (room_id, teacher_uid, teacher_name, student_name, duration_min, metrics_json, feedback_ko, feedback_en, source, created_at) VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(room_id) DO UPDATE SET teacher_uid=excluded.teacher_uid, teacher_name=excluded.teacher_name, student_name=excluded.student_name, duration_min=excluded.duration_min, metrics_json=excluded.metrics_json, feedback_ko=excluded.feedback_ko, feedback_en=excluded.feedback_en, source=excluded.source, created_at=excluded.created_at`)
+          .bind(roomId, teacherUid || null, teacherName || null, studentName || null, durationMin || null, JSON.stringify(metrics), JSON.stringify(ko), JSON.stringify(en), source, now).run();
+      } catch (e: any) {
+        return json({ ok: false, error: String(e?.message || e) }, 500);
+      }
+
+      return json({ ok: true, room_id: roomId, teacher_uid: teacherUid || null, teacher_name: teacherName || null, student_name: studentName || null, duration_min: durationMin || null, metrics, feedback_ko: ko, feedback_en: en, source, generated_at: now });
+    }
+
+    // ── GET /api/ai-feedback?room_id=  또는  ?teacher_uid=&limit= — 피드백 조회 ──
+    if (method === 'GET' && path === '/api/ai-feedback') {
+      await ensureTeacherFeedbackTable();
+      const pj = (s: any, dflt: any) => { try { return s ? JSON.parse(s) : dflt; } catch { return dflt; } };
+      const roomId = (url.searchParams.get('room_id') || '').trim();
+      const teacherUid = (url.searchParams.get('teacher_uid') || '').trim();
+      const teacherName = (url.searchParams.get('teacher_name') || '').trim();
+      const parseRow = (r: any) => ({
+        room_id: r.room_id, teacher_uid: r.teacher_uid, teacher_name: r.teacher_name, student_name: r.student_name,
+        duration_min: r.duration_min, metrics: pj(r.metrics_json, {}),
+        feedback_ko: pj(r.feedback_ko, null), feedback_en: pj(r.feedback_en, null),
+        source: r.source, generated_at: r.created_at
+      });
+      try {
+        if (roomId) {
+          const r: any = await env.DB.prepare(`SELECT * FROM teacher_class_feedback WHERE room_id=? LIMIT 1`).bind(roomId).first();
+          return json({ ok: true, feedback: r ? parseRow(r) : null });
+        }
+        if (teacherUid || teacherName) {
+          const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get('limit') || '20', 10) || 20));
+          const rs = teacherUid
+            ? await env.DB.prepare(`SELECT * FROM teacher_class_feedback WHERE teacher_uid=? ORDER BY created_at DESC LIMIT ?`).bind(teacherUid, limit).all()
+            : await env.DB.prepare(`SELECT * FROM teacher_class_feedback WHERE teacher_name=? ORDER BY created_at DESC LIMIT ?`).bind(teacherName, limit).all();
+          return json({ ok: true, count: rs.results?.length || 0, rows: (rs.results || []).map(parseRow) });
+        }
+        return json({ ok: false, error: 'room_id_or_teacher_required' }, 400);
+      } catch (e: any) {
+        return json({ ok: false, error: String(e?.message || e) }, 500);
+      }
     }
 
     // ── GET /api/ratings/check?room_id=&uid= — 오늘 이 방을 이미 평가했는지 ──

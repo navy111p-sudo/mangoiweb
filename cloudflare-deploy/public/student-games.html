@@ -30,8 +30,21 @@
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%}
   body{font-family:'Noto Sans KR','Segoe UI',sans-serif;color:var(--tx);min-height:100dvh;
-    background:radial-gradient(120% 90% at 50% 0%,#1c3566 0%,#081227 70%)}
+    background:radial-gradient(135% 105% at 50% -8%,#4b83e6 0%,#2a5fbd 38%,#173f8c 100%)}
   #app{position:relative;width:100%;min-height:100dvh;display:flex;flex-direction:column}
+  /* 🌤️ 주니어 친화 허브 배경 장식 — 떠다니는 뭉게구름 + 반짝이는 별 (UI 뒤 은은하게) */
+  #app::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background-repeat:no-repeat;
+    background-image:
+      radial-gradient(ellipse 130px 46px at 12% 10%,rgba(255,255,255,.28),transparent),
+      radial-gradient(ellipse 170px 54px at 86% 16%,rgba(255,255,255,.22),transparent),
+      radial-gradient(ellipse 110px 40px at 62% 6%,rgba(255,255,255,.18),transparent),
+      radial-gradient(circle,rgba(255,255,255,.7) 0 2px,transparent 3px),
+      radial-gradient(circle,rgba(253,224,71,.8) 0 2.5px,transparent 3px),
+      radial-gradient(circle,rgba(255,255,255,.6) 0 2px,transparent 3px),
+      radial-gradient(circle,rgba(255,255,255,.55) 0 1.5px,transparent 2.5px);
+    background-position:0 0,0 0,0 0,22% 34%,72% 44%,44% 58%,88% 70%;
+    animation:gbFloat 7s ease-in-out infinite}
+  #app > *{position:relative;z-index:1}
 
   /* ===== 헤더 ===== */
   .hub-head{text-align:center;padding:26px 16px 10px}
@@ -95,6 +108,89 @@
   }
   /* brick/fill: 내용 세로 가운데 정렬 (위/아래 빈공간 균형) · match/balloon: 자식이 flex:1 로 채움 */
   #game-area.area-center{justify-content:center}
+
+  /* ============================================================
+     🎨 주니어 친화 게임별 배경 테마
+     · 각 게임 성격에 맞는 밝고 알록달록한 컬러 배경 + 캐릭터별 장식 레이어
+     · innerHTML 로 내용이 갈아끼워져도 #game-area 자체 배경/::before 는 유지됨
+     · 채도 있는(너무 밝지 않은) 컬러라 기존 흰/회색 글자 가독성도 유지
+     ============================================================ */
+  #game-area{position:relative;transition:background .45s ease}
+  #game-area::before{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;
+    background-repeat:no-repeat;opacity:0;transition:opacity .45s ease}
+  #game-area.themed::before{opacity:1}
+  #game-area > *{position:relative;z-index:1}
+  @keyframes gbFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-13px)}}
+  @keyframes gbTwinkle{0%,100%{transform:scale(1);filter:brightness(1)}50%{transform:scale(1.16);filter:brightness(1.35)}}
+  @keyframes gbScroll{from{background-position-y:0}to{background-position-y:-41px}}
+  @keyframes gbDriftX{0%{transform:translateX(-14px)}100%{transform:translateX(22px)}}
+  @keyframes gbAurora{0%{transform:translate(0,0) scale(1)}50%{transform:translate(3%,2%) scale(1.13)}100%{transform:translate(-2%,-1%) scale(1.05)}}
+  /* 🌈 움직이는 컬러 라이트(모든 인라인 게임 공통) — 은은하게 색이 흐름 */
+  #game-area.themed::after{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;mix-blend-mode:screen;opacity:.45;
+    background:radial-gradient(42% 34% at 12% 14%,rgba(255,255,255,.55),transparent 70%),
+      radial-gradient(46% 38% at 88% 20%,rgba(255,240,180,.4),transparent 70%),
+      radial-gradient(50% 42% at 52% 106%,rgba(180,240,255,.42),transparent 70%);
+    animation:gbAurora 16s ease-in-out infinite alternate}
+
+  /* 🧱 문장 벽돌 — 알록달록 장난감 블록 놀이터 (파랑→보라 + 떠다니는 블록) */
+  #game-area.theme-brick{background:linear-gradient(165deg,#3b82f6 0%,#6366f1 55%,#8b5cf6 100%)}
+  #game-area.theme-brick::before{
+    background-image:
+      linear-gradient(0deg,rgba(251,191,36,.30),rgba(251,191,36,.30)),
+      linear-gradient(0deg,rgba(244,63,94,.28),rgba(244,63,94,.28)),
+      linear-gradient(0deg,rgba(16,185,129,.30),rgba(16,185,129,.30)),
+      linear-gradient(0deg,rgba(56,189,248,.30),rgba(56,189,248,.30)),
+      linear-gradient(0deg,rgba(255,255,255,.16),rgba(255,255,255,.16));
+    background-size:64px 42px,52px 34px,74px 48px,46px 30px,40px 26px;
+    background-position:7% 16%,88% 12%,82% 86%,13% 84%,50% 6%;
+    border-radius:14px;animation:gbFloat 5s ease-in-out infinite}
+
+  /* 🧩 단어 매칭 — 반짝이는 마법/사탕 나라 (핑크→보라 + 별 반짝임) */
+  #game-area.theme-match{background:linear-gradient(160deg,#ec4899 0%,#a855f7 55%,#7c3aed 100%)}
+  #game-area.theme-match::before{
+    background-image:
+      radial-gradient(circle,rgba(255,255,255,.9) 0 4px,transparent 5px),
+      radial-gradient(circle,rgba(253,224,71,.9) 0 5px,transparent 6px),
+      radial-gradient(circle,rgba(255,255,255,.85) 0 3px,transparent 4px),
+      radial-gradient(circle,rgba(253,224,71,.85) 0 4px,transparent 5px),
+      radial-gradient(circle,rgba(255,255,255,.8) 0 3px,transparent 4px),
+      radial-gradient(circle,rgba(255,255,255,.8) 0 4px,transparent 5px);
+    background-position:12% 20%,84% 16%,70% 78%,22% 82%,48% 10%,90% 60%;
+    animation:gbTwinkle 2.6s ease-in-out infinite}
+
+  /* 🔤 빈칸 채우기 — 상큼한 공책/칠판 (초록 + 가로 노트 줄) */
+  #game-area.theme-fill{background:linear-gradient(160deg,#10b981 0%,#0d9488 55%,#0e7490 100%)}
+  #game-area.theme-fill::before{
+    background-image:repeating-linear-gradient(0deg,transparent 0 39px,rgba(255,255,255,.10) 39px 41px);
+    animation:gbScroll 7s linear infinite}
+
+  /* 🎈 풍선 터뜨리기 — 파란 하늘 (구름은 아래 balloon-sky 스테이지에서) */
+  #game-area.theme-balloon{background:linear-gradient(180deg,#2563eb 0%,#3b82f6 60%,#60a5fa 100%)}
+  #game-area.theme-balloon::before{
+    background-image:
+      radial-gradient(ellipse 60px 26px at 14% 16%,rgba(255,255,255,.55),transparent),
+      radial-gradient(ellipse 80px 30px at 84% 12%,rgba(255,255,255,.5),transparent),
+      radial-gradient(ellipse 50px 22px at 60% 24%,rgba(255,255,255,.45),transparent);
+    animation:gbDriftX 22s ease-in-out infinite alternate}
+
+  /* iframe 게임 로딩 배경(대부분 iframe 이 덮지만 로딩 순간·레터박스 컬러) */
+  #game-area.theme-fish{background:linear-gradient(180deg,#0891b2,#0e7490)}
+  #game-area.theme-shoot{background:linear-gradient(160deg,#4f46e5,#7c3aed)}
+  #game-area.theme-shooter{background:linear-gradient(160deg,#ef4444,#b91c1c)}
+  #game-area.theme-battle3d{background:linear-gradient(160deg,#be123c,#7f1d1d)}
+  #game-area.theme-suspect{background:linear-gradient(160deg,#4338ca,#312e81)}
+  #game-area.theme-speaking{background:linear-gradient(160deg,#059669,#047857)}
+
+  /* 🎈 풍선 스테이지 — 밤하늘 → 밝은 낮 하늘 + 뭉게구름 */
+  .balloon-sky::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;
+    background-repeat:no-repeat;
+    background-image:
+      radial-gradient(ellipse 90px 34px at 18% 20%,rgba(255,255,255,.85),transparent),
+      radial-gradient(ellipse 120px 40px at 78% 30%,rgba(255,255,255,.8),transparent),
+      radial-gradient(ellipse 70px 28px at 50% 14%,rgba(255,255,255,.75),transparent),
+      radial-gradient(ellipse 100px 36px at 40% 62%,rgba(255,255,255,.6),transparent);
+    animation:gbDriftX 26s ease-in-out infinite alternate-reverse}
+  .balloon-sky .balloon{z-index:2}
   /* ===== 🌐 언어 선택(영어/중국어) ===== */
   .lang-pick{display:flex;gap:8px;align-items:center;justify-content:center}
   .lang-pick .lg{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--sub);
@@ -1119,12 +1215,27 @@ function hubRenderMenu(){
 
 function _hubGame(mode){ return HUB_GAMES.find(function(g){ return g.mode===mode; }); }
 
+/* 🎨 게임별 배경 테마 적용 — 각 게임 성격에 맞는 컬러/장식(위 CSS)을 #game-area 에 얹는다.
+   인라인 게임(brick/match/fill/balloon)만 장식(::before)까지 켜고, iframe 게임은 로딩 배경색만. */
+var _GAME_THEME = { brick:'theme-brick', match:'theme-match', fill:'theme-fill', balloon:'theme-balloon',
+  fish:'theme-fish', shoot:'theme-shoot', shooter:'theme-shooter', battle3d:'theme-battle3d',
+  suspect:'theme-suspect', speaking:'theme-speaking' };
+function _applyGameTheme(mode){
+  var area = document.getElementById('game-area'); if(!area) return;
+  Object.keys(_GAME_THEME).forEach(function(m){ area.classList.remove(_GAME_THEME[m]); });
+  area.classList.remove('themed');
+  var cls = _GAME_THEME[mode]; if(!cls) return;
+  area.classList.add(cls);
+  if(mode==='brick'||mode==='match'||mode==='fill'||mode==='balloon') area.classList.add('themed');
+}
+
 function hubOpenGame(mode){
   var g = _hubGame(mode); if(!g) return;
   _gameState.mode = mode;
   document.getElementById('hub-menu').style.display = 'none';
   document.getElementById('hub-game').classList.add('active');
   document.getElementById('hub-gname').textContent = g.ico+' '+g.ttl;
+  _applyGameTheme(mode);   // 🎨 이 게임 성격에 맞는 배경 테마
   var hubGameEl = document.getElementById('hub-game');
 
   if(g.kind === 'iframe'){
@@ -1149,6 +1260,7 @@ function hubBackToMenu(){
   _stopRoundTimer();
   try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(_){}
   document.getElementById('game-area').innerHTML = '';
+  _applyGameTheme(null);   // 🎨 배경 테마 초기화
   document.getElementById('hub-game').classList.remove('active');
   document.getElementById('hub-menu').style.display = 'flex';
 }
@@ -1608,7 +1720,7 @@ function gameRenderBalloon(){
       '<div style="font-size:13px;color:#94a3b8">🎈 한국어 뜻에 맞는 ' + (GAME_LANG==='zh'?'중국어':'영어') + ' 풍선을 클릭!</div>' +
       '<div style="font-size:34px;font-weight:700;color:#fbbf24;padding:14px 24px;background:rgba(251,191,36,0.12);border-radius:12px;display:inline-block;margin-top:10px">' + (_em?_em+' ':'') + word.ko + '</div>' +
     '</div>' +
-    '<div id="balloon-stage" style="position:relative;flex:1;min-height:200px;background:linear-gradient(180deg,#0c4a6e 0%,#0f172a 100%);border-radius:14px;overflow:hidden;border:2px solid #475569">';
+    '<div id="balloon-stage" class="balloon-sky" style="position:relative;flex:1;min-height:200px;background:linear-gradient(180deg,#7dd3fc 0%,#38bdf8 48%,#bae6fd 100%);border-radius:14px;overflow:hidden;border:2px solid #bae6fd">';
   // 🛍️ 선택한 풍선 스킨 색상 적용
   const _pal = _balloonPal();
   const colors = _pal.map(function(hex){ return {bg:'linear-gradient(135deg,'+hex+','+hex+')', shadow:hex+'99', solid:hex}; });
@@ -1769,7 +1881,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260706210603 -->
+<!-- BUILD:20260706215400 -->
 <script defer src="/js/flow.js"></script>
 </body>
 </html>

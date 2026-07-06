@@ -23307,7 +23307,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260706210603 -->
+        <!-- BUILD:20260706215400 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -28490,15 +28490,19 @@ button.chip:hover,
   function isOn(){ try { return localStorage.getItem(LS) !== '0'; } catch(e){ return true; } }
   function setOn(v){ try { localStorage.setItem(LS, v ? '1' : '0'); } catch(e){} }
 
-  // 한국어 음성 캐시 (voiceschanged 는 비동기 로드)
-  var koVoice = null;
+  // 음성 캐시 (voiceschanged 는 비동기 로드) — 한국어/영어 둘 다
+  var koVoice = null, enVoice = null;
   function loadVoice(){
     try {
       var vs = synth.getVoices() || [];
       koVoice = vs.filter(function(v){ return /ko(-|_)?KR/i.test(v.lang); })[0]
              || vs.filter(function(v){ return /^ko/i.test(v.lang); })[0] || null;
+      enVoice = vs.filter(function(v){ return /en(-|_)?US/i.test(v.lang); })[0]
+             || vs.filter(function(v){ return /^en/i.test(v.lang); })[0] || null;
     } catch(e){}
   }
+  // 🌐 현재 관리자 UI 언어(EN 토글 시 'en') — 영어면 음성·안내문을 영어로 낸다.
+  function isEnUI(){ try { return window.adminLang === 'en'; } catch(e){ return false; } }
   loadVoice();
   try { synth.addEventListener('voiceschanged', loadVoice); } catch(e){ try { synth.onvoiceschanged = loadVoice; } catch(_){} }
 
@@ -28519,11 +28523,12 @@ button.chip:hover,
   }
 
   var _lastU = null;   // 발화 중 GC 로 utterance 가 수거돼 소리가 끊기는 브라우저 버그 방지(참조 유지)
-  function _browserSpeak(text){    // 폴백: 브라우저 내장 음성(OS 한국어 음성 있을 때만 소리남)
+  function _browserSpeak(text){    // 폴백: 브라우저 내장 음성(OS 에 해당 언어 음성 있을 때만 소리남)
     try {
       var u = new SpeechSynthesisUtterance(text);
-      u.lang = 'ko-KR'; u.rate = 1.05; u.pitch = 1;
-      if (koVoice) u.voice = koVoice;
+      if (isEnUI()){ u.lang = 'en-US'; if (enVoice) u.voice = enVoice; }
+      else { u.lang = 'ko-KR'; if (koVoice) u.voice = koVoice; }
+      u.rate = 1.05; u.pitch = 1;
       _lastU = u;
       try { synth.resume(); } catch(_){}
       synth.speak(u);
@@ -28539,7 +28544,7 @@ button.chip:hover,
     //   ※ audio.src 에 URL 직접 스트리밍은 SW/Range 상호작용으로 일부 환경서 재생이 stall(무음) 됨.
     //     blob(URL.createObjectURL)로 재생하면 그 문제를 완전히 회피 → 확실히 소리남. 실브라우저 검증완료.
     try {
-      fetch(FREE_TTS + '?q=' + encodeURIComponent(text.slice(0, 600)))
+      fetch(FREE_TTS + '?q=' + encodeURIComponent(text.slice(0, 600)) + '&lang=' + (isEnUI() ? 'en' : 'ko'))
         .then(function(r){ if(!r.ok) throw new Error('tts '+r.status); return r.blob(); })
         .then(function(b){ if(mySeq!==_seq) return; if(!b || b.size<200) throw new Error('empty'); served = true;
           if(!a){ _browserSpeak(text); return; }
@@ -28572,8 +28577,21 @@ button.chip:hover,
     [/교육|콘텐츠/,  '교재와 학습 콘텐츠를 관리하는 곳입니다'],
     [/시스템/,       '권한과 출결 등 시스템 설정을 관리하는 곳입니다']
   ];
+  // 영어 UI(EN 토글) 일 때 그룹 설명 — 영어로 번역된 제목 키워드로 매칭. (값은 마침표 포함 완성문장)
+  var DESC_EN = [
+    [/AI/i,                      'This is a set of automation features where AI helps run the academy.'],
+    [/eval/i,                    'This is where you create and manage student report cards and lesson reports.'],
+    [/notif|alert/i,             'This is where you manage the alerts sent to students and parents.'],
+    [/teacher/i,                 'This is where you manage teacher info, payroll, and lesson evaluations.'],
+    [/stat|kpi/i,                'This is where you view the academy operating metrics and statistics.'],
+    [/account|point|payment/i,   'This is where you manage payments, settlement, and points.'],
+    [/student|parent/i,          'This is where you manage student and parent information.'],
+    [/education|content/i,       'This is where you manage textbooks and learning content.'],
+    [/system/i,                  'This is where you manage system settings like permissions and attendance.']
+  ];
   function descFor(title){
-    for (var i = 0; i < DESC.length; i++){ if (DESC[i][0].test(title)) return DESC[i][1]; }
+    var list = isEnUI() ? DESC_EN : DESC;
+    for (var i = 0; i < list.length; i++){ if (list[i][0].test(title)) return list[i][1]; }
     return '';
   }
 
@@ -28582,17 +28600,34 @@ button.chip:hover,
     var title = clean((head.querySelector('.ph85-title') || {}).textContent);
     var subs = [].map.call(group.querySelectorAll('.ph85-sub'), function(s){ return clean(s.textContent); })
                  .filter(Boolean);
-    var msg = title + ' 메뉴입니다.';
-    var d = descFor(title); if (d) msg += ' ' + d + '.';
-    if (subs.length){
-      msg += ' 이 안에는 ' + subs.slice(0, 6).join(', ')
-           + (subs.length > 6 ? (' 등 총 ' + subs.length + '개 메뉴가') : ' 메뉴가') + ' 있습니다.';
+    var d = descFor(title);
+    var msg;
+    if (isEnUI()){
+      msg = 'The ' + title + ' menu.';
+      if (d) msg += ' ' + d;   // DESC_EN 값은 마침표 포함
+      if (subs.length){
+        msg += ' It contains ' + subs.slice(0, 6).join(', ')
+             + (subs.length > 6 ? (', and ' + subs.length + ' menus in total.') : '.');
+      }
+    } else {
+      msg = title + ' 메뉴입니다.';
+      if (d) msg += ' ' + d + '.';
+      if (subs.length){
+        msg += ' 이 안에는 ' + subs.slice(0, 6).join(', ')
+             + (subs.length > 6 ? (' 등 총 ' + subs.length + '개 메뉴가') : ' 메뉴가') + ' 있습니다.';
+      }
     }
     speak(msg);
   }
   function describeSub(sub){
     var title = clean(sub.textContent);
-    var tip = sub.getAttribute('data-tip-ko') || '';
+    var tip;
+    if (isEnUI()){
+      // 영어 도움말 — 카드 id 로 TIP_EN 사전 조회(admin-tip-i18n.js)
+      try { tip = (window.TIP_EN && window.TIP_EN[sub.getAttribute('data-card')]) || ''; } catch(e){ tip = ''; }
+    } else {
+      tip = sub.getAttribute('data-tip-ko') || '';
+    }
     speak(title + (tip ? '. ' + tip : ''));
   }
 
@@ -28616,18 +28651,21 @@ button.chip:hover,
     var btn = document.createElement('button');
     btn.type = 'button'; btn.id = 'ph85-voice-toggle';
     function paint(){
-      var on = isOn();
+      var on = isOn(), en = isEnUI();
       btn.className = on ? '' : 'off';
-      btn.innerHTML = (on ? '🔊' : '🔇') + ' <span>음성 안내 ' + (on ? '켜짐' : '꺼짐') + '</span>';
+      var label = en ? ('Voice guide ' + (on ? 'ON' : 'OFF')) : ('음성 안내 ' + (on ? '켜짐' : '꺼짐'));
+      btn.innerHTML = (on ? '🔊' : '🔇') + ' <span>' + label + '</span>';
     }
     paint();
     btn.addEventListener('click', function(ev){
       ev.stopPropagation();
       prime();                               // 토글 클릭(사용자 제스처)에서 오디오 잠금해제
       var next = !isOn(); setOn(next); paint();
-      if (next) speak('음성 안내를 켰습니다. 메뉴를 누르면 설명해 드려요.');
+      if (next) speak(isEnUI() ? 'Voice guidance is on. Tap any menu and I will explain it.' : '음성 안내를 켰습니다. 메뉴를 누르면 설명해 드려요.');
       else { _seq++; try { synth.cancel(); } catch(_){} try { if(audioEl){ audioEl.pause(); audioEl.currentTime = 0; } } catch(_){} }
     });
+    // 🌐 언어 토글(문서 lang 속성 변경) 시 버튼 라벨을 즉시 영어/한국어로 다시 그림
+    try { new MutationObserver(paint).observe(document.documentElement, { attributes:true, attributeFilter:['lang'] }); } catch(e){}
     var anchor = sb.querySelector('.ph85-search-wrap') || sb.querySelector('.ph85-brand');
     if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(btn, anchor.nextSibling);
     else sb.insertBefore(btn, sb.firstChild);
@@ -31122,16 +31160,16 @@ button.chip:hover,
   }
   @media (max-width: 900px) { .pm-kpi-row { grid-template-columns: repeat(2, 1fr); } }
   .pm-kpi {
-    background: linear-gradient(135deg, #EAF2FF, #DCEAFF) !important;
-    border: 1px solid #B9D4FF !important;
+    background: linear-gradient(135deg, rgba(30,58,138,0.55), rgba(15,23,42,0.75)) !important;
+    border: 1px solid rgba(59,130,246,0.4) !important;
     border-radius: 12px !important;
     padding: 14px 16px !important;
-    color: #0F2A5C !important;
-    box-shadow: 0 4px 14px rgba(37,99,235,0.12) !important;
+    color: #F8FAFC !important;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35) !important;
   }
-  .pm-kpi-label { font-size: 11.5px !important; color: #1D4ED8 !important; font-weight: 800 !important; margin-bottom: 6px !important; }
-  .pm-kpi-value { font-size: 22px !important; font-weight: 900 !important; color: #0B2350 !important; }
-  .pm-kpi-trend { font-size: 11px !important; color: #1E40AF !important; font-weight: 700 !important; margin-top: 4px !important; }
+  .pm-kpi-label { font-size: 11.5px !important; color: #93C5FD !important; font-weight: 800 !important; margin-bottom: 6px !important; }
+  .pm-kpi-value { font-size: 22px !important; font-weight: 900 !important; color: #FFFFFF !important; }
+  .pm-kpi-trend { font-size: 11px !important; color: #86EFAC !important; font-weight: 700 !important; margin-top: 4px !important; }
 
   /* === 필터 행 === */
   .pm-filter-row {
@@ -40500,9 +40538,14 @@ button.chip:hover,
     var text=stripText(html); if(!text) return; lastSpoken=text;
     if(!voiceOn) return;
     var mySeq=++speakSeq, served=false;
-    // 1순위: 한국어 서버음성(홈페이지와 동일). 실패/지연/CORS 차단 시 브라우저 음성.
+    var isKo = /[가-힣]/.test(text);
+    // 언어별 서버음성: 한국어=아바타 Typecast 여성(/api/ops-tts), 영어=Google 무료 영어음성(/api/tts-free?lang=en).
+    //   → 영어 답변을 한국어 엔진으로 읽어 뭉개지던 문제 해결. 실패/지연/CORS 차단 시 브라우저 음성 폴백.
+    var req = isKo
+      ? fetch(TTS_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text.slice(0,600)})})
+      : fetch('/api/tts-free?lang=en&q='+encodeURIComponent(text.slice(0,600)));
     try{
-      fetch(TTS_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text.slice(0,600)})})
+      req
         .then(function(r){ if(!r.ok) throw new Error('tts '+r.status); return r.blob(); })
         .then(function(b){ if(mySeq!==speakSeq) return; if(!b||b.size<200) throw new Error('empty'); served=true;
           try{ if(audioEl.src&&audioEl.src.indexOf('blob:')===0){ URL.revokeObjectURL(audioEl.src); } }catch(e){}

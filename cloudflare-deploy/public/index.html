@@ -193,28 +193,28 @@
             padding: 2rem;
             position: relative;
             overflow: hidden;
-            background: #050714;
+            background: #171247;   /* 🌈 주니어 친화: 칠흑 → 화사한 남보라 우주 */
         }
-        /* 배경 이미지 레이어: 살짝 블러 + 어둡게 — 시선 분산을 줄여 중앙을 강조 */
+        /* 배경 이미지 레이어: 살짝 블러 + 밝고 선명하게 — 우주 테마는 유지하되 화사하게 */
         #view-home::before {
             content: '';
             position: absolute; inset: 0;
             z-index: 0;
             pointer-events: none;
             background: url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/space.jpg') center center / cover no-repeat;
-            filter: blur(4px) brightness(0.62) saturate(0.92);
+            filter: blur(3px) brightness(0.88) saturate(1.22);
             transform: scale(1.08);
         }
-        /* 중앙 스포트라이트 비네트: 가운데는 맑게, 주변은 차분히 어둡게(구글식 집중) */
+        /* 중앙 스포트라이트 비네트: 가운데는 맑게, 주변은 은은한 남보라(어둡지 않게) */
         #view-home::after {
             content: '';
             position: absolute; inset: 0;
             z-index: 0;
             pointer-events: none;
-            background: radial-gradient(ellipse 66% 56% at 50% 44%,
-                rgba(5,8,18,0) 0%,
-                rgba(5,8,18,0.34) 52%,
-                rgba(3,5,14,0.76) 100%);
+            background: radial-gradient(ellipse 70% 60% at 50% 44%,
+                rgba(30,22,80,0) 0%,
+                rgba(26,20,74,0.18) 52%,
+                rgba(20,16,64,0.5) 100%);
         }
         /* 우주 데코 - 떠다니는 행성/은하 (홈 화면 전용, 클릭 차단 없음) */
         .deco-galaxy, .lobby-deco-galaxy { display: none !important; }
@@ -758,13 +758,13 @@
             padding: 2rem;
             position: relative;
             overflow: hidden;
-            /* 학생 홈페이지와 동일한 우주 배경 (space.jpg 못 찾으면 그라데이션 폴백) */
+            /* 학생 홈페이지와 동일한 우주 배경 (space.jpg 못 찾으면 그라데이션 폴백) — 🌈 주니어 친화 톤업 */
             background:
-              radial-gradient(ellipse at center, rgba(11,15,30,0.35) 0%, rgba(8,11,24,0.92) 100%),
+              radial-gradient(ellipse at center, rgba(30,22,80,0.12) 0%, rgba(23,18,71,0.5) 100%),
               url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/space.jpg') center center / cover no-repeat,
-              radial-gradient(ellipse at 20% 30%, rgba(124,58,237,0.18), transparent 55%),
-              radial-gradient(ellipse at 80% 70%, rgba(56,189,248,0.16), transparent 55%),
-              #050714;
+              radial-gradient(ellipse at 20% 30%, rgba(167,139,250,0.28), transparent 55%),
+              radial-gradient(ellipse at 80% 70%, rgba(56,189,248,0.24), transparent 55%),
+              #171247;
             background-attachment: scroll, fixed, scroll, scroll, scroll;
         }
         /* 로비 전용 별/은하 데코 (홈과 분리해서 독립적으로 작동) */
@@ -3639,6 +3639,81 @@
   };
 })();
 </script>
+<!-- ============================================================
+     🚪 수업 나가기 = "수업만" 나가기 (앱 밖으로 새로고침 금지)  [v35]
+     · 문제: 기존 종료 패치들(v28/v29/v31/v32/v34 + 버튼 인라인 onclick)이
+       전부 location.replace('/') / location.reload() 로 전체 페이지를
+       새로고침 → 로그인/랜딩까지 튕겨나감("아예 밖으로 나가짐").
+     · 해결: vcLeaveRoom() 은 이미 앱 내부에서 홈 화면으로 SPA 전환한다.
+       나가기를 눌렀을 때 그 SPA 경로만 타고, room 파라미터는 새로고침
+       없이 history.replaceState 로 정리한다.
+     · 이 캡처 핸들러는 문서상 뒤쪽(v29~v34)보다 먼저 등록되므로
+       stopImmediatePropagation 으로 reload 패치들을 확실히 가로챈다.
+     · 학생은 앞의 평가/복습퀴즈 흐름(vc-teacher-rating-on-end)이 이미
+       더 먼저 소유(propagation 차단)하므로 여기 도달하지 않는다.
+       그 흐름의 최종 종료(__v34_FORCE_HOME/__forceExit_v32)도 맨 끝
+       v35 override 에서 SPA 로 바꾼다. → 학생/강사 모두 앱 안에 머문다.
+     · 빼면 즉시 원복: 이 블록만 삭제하면 기존 reload 동작 그대로.
+     ============================================================ -->
+<script id="v35-leave-class-spa">
+(function(){
+  'use strict';
+
+  // 수업만 앱 안에서 종료 — 전체 새로고침 없이 홈 화면으로 SPA 전환
+  window.__mangoLeaveClassSPA = function(){
+    // 1) 룸 정리(피어/스트림/WS 종료 + showView('view-home')) — 기존 정본 재사용
+    try { if (typeof window.vcLeaveRoom === 'function') window.vcLeaveRoom(); } catch(e){ console.warn('[v35] vcLeaveRoom:', e); }
+    // 2) room 파라미터는 새로고침 없이 URL 에서 제거(재진입/재조인 방지).
+    //    ⚠️ vcLeaveRoom 의 400ms 안전망이 room 파라미터가 남아 있으면
+    //    location.href='/' 로 강제 이동하므로, 여기서 미리 지워 둔다.
+    try {
+      if (/[?&](room|r|vc_room|vc_autojoin|vc_name|vc_role|_e|_exit)=/.test(location.search)) {
+        history.replaceState(null, '', location.pathname);
+      }
+    } catch(e){}
+    // 3) 혹시 vcLeaveRoom 이 없거나 throw 되어도 홈은 보이게 (벨트+멜빵)
+    try { if (typeof showView === 'function') showView('view-home'); } catch(e){}
+  };
+
+  function isExitBtnEl(el){
+    if (!el || !el.closest) return false;
+    return !!el.closest('a#vc-exit-btn-v34, a#vc-exit-btn-v33, #vc-exit-btn-v32, button.ctrl-btn.danger, a.ctrl-btn.danger');
+  }
+  function isStudentInClass(){
+    try {
+      if (!document.body || !document.body.classList.contains('vc-in-call')) return false;
+      if (typeof vcIsObserver !== 'undefined' && vcIsObserver) return false;   // 관찰자 = 학생 아님(SPA 종료)
+      var u = (typeof getCurrentUser==='function') ? getCurrentUser() : null;
+      var role = (u && u.role) || (function(){ try { return localStorage.getItem('mangoi_user_role'); } catch(e){ return null; } })() || 'student';
+      if (role === 'teacher' || role === 'admin') return false;
+      return true;
+    } catch(e){ return false; }
+  }
+
+  var lastLeave = 0;
+  ['pointerdown','mousedown','touchend','click'].forEach(function(ev){
+    window.addEventListener(ev, function(e){
+      try {
+        if (!isExitBtnEl(e.target)) return;
+        // 통화 중이 아니면(로비 등) 관여하지 않음 — 기존 동작 유지
+        if (!document.body || !document.body.classList.contains('vc-in-call')) return;
+        // 학생은 평가/복습퀴즈 흐름이 소유(이미 앞 핸들러가 가로챔). 도달 시 양보.
+        if (isStudentInClass()) return;
+        // 강사/관찰자/관리자: 앱 밖 새로고침 금지 → 뒤의 reload 패치들 삼키고 SPA 종료
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+        var now = Date.now();
+        if (now - lastLeave < 1500) return;   // 같은 제스처의 후속 이벤트 중복 실행 방지
+        lastLeave = now;
+        window.__mangoLeaveClassSPA();
+      } catch(err){}
+    }, true);
+  });
+
+  console.log('[v35] 수업 나가기 = 앱 내 SPA 종료 (강사/관찰자 경로) 활성');
+})();
+</script>
 <style>
 /* 교사 영상: 모바일에선 칩 2줄(로그인+EN, top 3rem) 아래로 내림 */
 @media (max-width:640px){
@@ -4294,6 +4369,8 @@
   // ─────────────────────────────────────────────────────────────
   function playFromStartWithSound(){
     if (soundLocked || dismissed) return;
+    // 🛡️ 이미 소리로 재생 중이면(음소거 아님·재생 중·0초 지남) 되감지 않는다 → 음성 반복 방지
+    if (!video.muted && !video.paused && video.currentTime > 0.1) { soundLocked = true; return; }
     soundLocked = true;
     try { video.currentTime = 0; } catch(e){}
     video.muted = false;
@@ -4321,13 +4398,18 @@
   } else {
     // 소리 켜고 바로 시도 (사이트와 상호작용 후면 대개 허용됨)
     video.muted = false; syncMuteIcon();
+    // 🔒 (2026-07-06 FIX) 낙관적 '동기' 잠금 — 소리 자동재생이 되는 경우, .then()이
+    //   비동기로 늦게 잠그는 찰나에 사용자가 탭하면 playFromStartWithSound()가 currentTime=0으로
+    //   되감아 오프닝("우주에서…")이 소리와 함께 두 번 재생되는 '음성 반복' 버그를 원천 차단.
+    //   → 재생 시작과 '동시에' 잠그고, 자동재생이 막힌 경우에만(.catch) 다시 풀어 제스처를 기다린다.
+    soundLocked = true;
     var pu = video.play();
     if (pu && typeof pu.then === 'function') {
       pu.then(function(){
-        soundLocked = true;            // 소리로 한 번에 성공 → 잠금(다시는 재시작 안 함)
-        console.log('[mango-intro] sound autoplay OK');
+        console.log('[mango-intro] sound autoplay OK');   // 소리로 성공 → 잠금 유지(탭=입장)
       }).catch(function(){
-        // 막힘 → 무음으로 재생하고 첫 사용자 동작 대기
+        // 막힘 → 잠금 해제하고 무음으로 재생 + 첫 사용자 동작에서 소리로 딱 한 번
+        soundLocked = false;
         video.muted = true; syncMuteIcon();
         var pv = video.play(); if (pv && pv.catch) pv.catch(function(){});
         hint && (hint.textContent = '🔊 화면을 누르면 소리와 함께 시작합니다');
@@ -4336,6 +4418,7 @@
       });
     } else {
       // play() 가 Promise 를 안 주는 구형 브라우저 — 무음 폴백 + 제스처 대기
+      soundLocked = false;
       armFirstGesture();
     }
   }
@@ -7455,7 +7538,67 @@
           </div>
 
           <!-- 게임 본체 -->
-          <div id="game-area" style="flex:1;min-height:0;overflow:auto;background:linear-gradient(135deg,#0f172a,#1e293b);padding:24px;color:#f1f5f9">
+          <style>
+          /* 🎨 주니어 친화 게임별 배경 테마 (student-games.html 와 동기화) */
+          #game-area{position:relative;background:linear-gradient(135deg,#0f172a,#1e293b);transition:background .45s ease}
+          #game-area::before{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;
+            background-repeat:no-repeat;opacity:0;transition:opacity .45s ease}
+          #game-area.themed::before{opacity:1}
+          #game-area > *{position:relative;z-index:1}
+          @keyframes gbFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-13px)}}
+          @keyframes gbTwinkle{0%,100%{transform:scale(1);filter:brightness(1)}50%{transform:scale(1.16);filter:brightness(1.35)}}
+          @keyframes gbScroll{from{background-position-y:0}to{background-position-y:-41px}}
+          @keyframes gbDriftX{0%{transform:translateX(-14px)}100%{transform:translateX(22px)}}
+          @keyframes gbAurora{0%{transform:translate(0,0) scale(1)}50%{transform:translate(3%,2%) scale(1.13)}100%{transform:translate(-2%,-1%) scale(1.05)}}
+          #game-area.themed::after{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;mix-blend-mode:screen;opacity:.45;
+            background:radial-gradient(42% 34% at 12% 14%,rgba(255,255,255,.55),transparent 70%),
+              radial-gradient(46% 38% at 88% 20%,rgba(255,240,180,.4),transparent 70%),
+              radial-gradient(50% 42% at 52% 106%,rgba(180,240,255,.42),transparent 70%);
+            animation:gbAurora 16s ease-in-out infinite alternate}
+          /* 🧱 문장 벽돌 */
+          #game-area.theme-brick{background:linear-gradient(165deg,#3b82f6 0%,#6366f1 55%,#8b5cf6 100%)}
+          #game-area.theme-brick::before{
+            background-image:
+              linear-gradient(0deg,rgba(251,191,36,.30),rgba(251,191,36,.30)),
+              linear-gradient(0deg,rgba(244,63,94,.28),rgba(244,63,94,.28)),
+              linear-gradient(0deg,rgba(16,185,129,.30),rgba(16,185,129,.30)),
+              linear-gradient(0deg,rgba(56,189,248,.30),rgba(56,189,248,.30)),
+              linear-gradient(0deg,rgba(255,255,255,.16),rgba(255,255,255,.16));
+            background-size:64px 42px,52px 34px,74px 48px,46px 30px,40px 26px;
+            background-position:7% 16%,88% 12%,82% 86%,13% 84%,50% 6%;
+            border-radius:14px;animation:gbFloat 5s ease-in-out infinite}
+          /* 🧩 단어 매칭 */
+          #game-area.theme-match{background:linear-gradient(160deg,#ec4899 0%,#a855f7 55%,#7c3aed 100%)}
+          #game-area.theme-match::before{
+            background-image:
+              radial-gradient(circle,rgba(255,255,255,.9) 0 4px,transparent 5px),
+              radial-gradient(circle,rgba(253,224,71,.9) 0 5px,transparent 6px),
+              radial-gradient(circle,rgba(255,255,255,.85) 0 3px,transparent 4px),
+              radial-gradient(circle,rgba(253,224,71,.85) 0 4px,transparent 5px),
+              radial-gradient(circle,rgba(255,255,255,.8) 0 3px,transparent 4px),
+              radial-gradient(circle,rgba(255,255,255,.8) 0 4px,transparent 5px);
+            background-position:12% 20%,84% 16%,70% 78%,22% 82%,48% 10%,90% 60%;
+            animation:gbTwinkle 2.6s ease-in-out infinite}
+          /* 🔤 빈칸 채우기 */
+          #game-area.theme-fill{background:linear-gradient(160deg,#10b981 0%,#0d9488 55%,#0e7490 100%)}
+          #game-area.theme-fill::before{
+            background-image:repeating-linear-gradient(0deg,transparent 0 39px,rgba(255,255,255,.10) 39px 41px);
+            animation:gbScroll 7s linear infinite}
+          /* 🎈 풍선 터뜨리기 */
+          #game-area.theme-balloon{background:linear-gradient(180deg,#2563eb 0%,#3b82f6 60%,#60a5fa 100%)}
+          #game-area.theme-balloon::before{
+            background-image:
+              radial-gradient(ellipse 60px 26px at 14% 16%,rgba(255,255,255,.55),transparent),
+              radial-gradient(ellipse 80px 30px at 84% 12%,rgba(255,255,255,.5),transparent),
+              radial-gradient(ellipse 50px 22px at 60% 24%,rgba(255,255,255,.45),transparent);
+            animation:gbDriftX 22s ease-in-out infinite alternate}
+          /* iframe 게임 로딩 배경 */
+          #game-area.theme-fish{background:linear-gradient(180deg,#0891b2,#0e7490)}
+          #game-area.theme-shoot{background:linear-gradient(160deg,#4f46e5,#7c3aed)}
+          #game-area.theme-shooter{background:linear-gradient(160deg,#ef4444,#b91c1c)}
+          #game-area.theme-battle3d{background:linear-gradient(160deg,#be123c,#7f1d1d)}
+          </style>
+          <div id="game-area" style="flex:1;min-height:0;overflow:auto;padding:24px;color:#f1f5f9">
             <!-- JS 가 동적 렌더 -->
           </div>
 
@@ -12168,6 +12311,18 @@ function gameSwitchMode(mode) {
   gameNextRound();
 }
 
+// 🎨 게임 모드별 컬러풀 배경 테마 적용 (student-games.html 와 동기화)
+var _GAME_THEME_MAP = { brick:'theme-brick', match:'theme-match', fill:'theme-fill', balloon:'theme-balloon',
+  shoot:'theme-shoot', fish:'theme-fish', shooter:'theme-shooter', battle3d:'theme-battle3d' };
+function _gameApplyTheme(area, mode){
+  if(!area) return;
+  Object.keys(_GAME_THEME_MAP).forEach(function(m){ area.classList.remove(_GAME_THEME_MAP[m]); });
+  area.classList.remove('themed');
+  var cls = _GAME_THEME_MAP[mode]; if(cls) area.classList.add(cls);
+  // 카드형(브릭/매칭/빈칸/풍선)만 떠다니는 장식 레이어 표시 — iframe 게임은 아이프레임이 덮음
+  if(mode==='brick'||mode==='match'||mode==='fill'||mode==='balloon') area.classList.add('themed');
+}
+
 function gameNextRound() {
   // 🥭 Phase 48 — 수업 중이면 차단
   if (_gameIsClassActive()) { _gameRenderBlocked(); return; }
@@ -12176,6 +12331,7 @@ function gameNextRound() {
   // 슈팅/낚시(iframe)는 패딩 0, 카드형 모드는 기본 패딩 복원
   const _ga = document.getElementById('game-area');
   if (_ga) _ga.style.padding = (_gameState.mode === 'shoot' || _gameState.mode === 'fish' || _gameState.mode === 'shooter' || _gameState.mode === 'battle3d') ? '0' : '24px';
+  _gameApplyTheme(_ga, _gameState.mode);
   var _mode = _gameState.mode;
   // 🧠 약점 우선 선뽑기 + 새 항목 선학습 + 👹 보스(문장게임 5번째)
   if (_mode === 'brick' || _mode === 'fill') {
@@ -12579,7 +12735,7 @@ function gameRenderBalloon() {
       '<div style="font-size:13px;color:#94a3b8">🎈 한국어 뜻에 맞는 영어 풍선을 클릭!</div>' +
       '<div style="font-size:34px;font-weight:700;color:#fbbf24;padding:14px 24px;background:rgba(251,191,36,0.12);border-radius:12px;display:inline-block;margin-top:10px">' + (_em?_em+' ':'') + word.ko + '</div>' +
     '</div>' +
-    '<div id="balloon-stage" style="position:relative;height:380px;background:linear-gradient(180deg,#0c4a6e 0%,#0f172a 100%);border-radius:14px;overflow:hidden;border:2px solid #475569">';
+    '<div id="balloon-stage" style="position:relative;height:380px;background:linear-gradient(180deg,#7dd3fc 0%,#38bdf8 48%,#bae6fd 100%);border-radius:14px;overflow:hidden;border:2px solid #bae6fd">';
   // 4개 풍선 — 가로 위치 분산, 시작 top 랜덤
   const colors = [
     {bg:'linear-gradient(135deg,#ef4444,#b91c1c)', shadow:'rgba(239,68,68,0.6)', solid:'#ef4444'},
@@ -23907,7 +24063,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260706210603 -->
+<!-- BUILD:20260706215400 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -25133,6 +25289,30 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   else rebindExit();
 
   console.log('[v34] ✕ FINAL exit handler 활성 — click/mousedown/pointerdown/touchend 4중 캡처 + location.replace 강제');
+})();
+</script>
+
+<!-- ============================================================
+     v35 (2026-07-06) — 수업 나가기 = 앱 내 SPA 종료로 통일 (전체 새로고침 제거)
+     · 학생 종료 경로(평가→복습퀴즈 후 reallyExit/fallbackExit)는
+       window.__v34_FORCE_HOME / window.__forceExit_v32 를 호출한다.
+       이 둘을 위 v35-leave-class-spa 의 SPA 종료로 바꿔치워, 학생도
+       location.replace('/') 로 앱 밖으로 튕기지 않고 홈 화면에 머문다.
+     · v32/v34 의 setInterval rebind 가 나가기 버튼 onclick 을 이 전역
+       함수 호출로 재주입하므로, 버튼 인라인 onclick 도 자동으로 SPA 가 된다.
+     · 강사/관찰자 경로는 v35-leave-class-spa 캡처 핸들러가 이미 담당.
+     · 빼면 즉시 원복: 이 블록만 삭제하면 기존 새로고침 종료 동작 그대로.
+     ============================================================ -->
+<script id="v35-spa-leave-override">
+(function(){
+  'use strict';
+  if (typeof window.__mangoLeaveClassSPA === 'function') {
+    window.__v34_FORCE_HOME = window.__mangoLeaveClassSPA;
+    window.__forceExit_v32  = window.__mangoLeaveClassSPA;
+    console.log('[v35] __v34_FORCE_HOME/__forceExit_v32 → 앱 내 SPA 종료로 교체 완료');
+  } else {
+    console.warn('[v35] __mangoLeaveClassSPA 미정의 — override 건너뜀');
+  }
 })();
 </script>
 

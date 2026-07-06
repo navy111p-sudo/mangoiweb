@@ -529,11 +529,17 @@ export default {
       const freeHeaders = { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'public, max-age=86400', 'Access-Control-Allow-Origin': '*' };
       try {
         let text = '';
+        let lang = 'ko';
         if (request.method === 'GET') {
           text = url.searchParams.get('q') || '';
+          lang = (url.searchParams.get('lang') || 'ko').toLowerCase();
         } else {
-          try { text = String((JSON.parse((await request.text()) || '{}') || {}).text || ''); } catch { text = ''; }
+          try { const j = JSON.parse((await request.text()) || '{}') || {}; text = String(j.text || ''); lang = String(j.lang || 'ko').toLowerCase(); } catch { text = ''; }
         }
+        // Google TTS 언어 코드(tl): 한국어(기본)·영어·중국어 지원 — 외국인 사용자용
+        const tl = (lang === 'en' || lang === 'en-us') ? 'en'
+                 : (lang === 'zh' || lang === 'zh-cn' || lang === 'cn') ? 'zh-CN'
+                 : 'ko';
         text = text.replace(/\s+/g, ' ').trim().slice(0, 600);
         if (!text) return new Response('empty', { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } });
 
@@ -552,7 +558,7 @@ export default {
         const parts: Uint8Array[] = [];
         for (const c of chunks) {
           if (!c) continue;
-          const g = await fetch(`https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ko&q=${encodeURIComponent(c)}`, {
+          const g = await fetch(`https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${tl}&q=${encodeURIComponent(c)}`, {
             headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://translate.google.com/' },
           });
           if (g.ok) { const buf = new Uint8Array(await g.arrayBuffer()); if (buf.byteLength > 200) parts.push(buf); }
@@ -993,6 +999,9 @@ export default {
         path === '/api/admin/ratings/list' ||
         path === '/api/admin/ratings/analytics' ||
         path === '/api/teacher/my-ratings' ||
+        // 🤖 교사 수업 AI 피드백 (수업 종료 직후 잘한점/개선점 한·영 생성·조회)
+        path === '/api/ai-feedback/generate' ||
+        path === '/api/ai-feedback' ||
         // 🌐 양방향 번역 (평가 글·건의사항 영↔한)
         path === '/api/translate' ||
         // Audit-added: student recordings listing

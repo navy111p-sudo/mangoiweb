@@ -7,8 +7,8 @@
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%}
-  body{background:#070b16;font-family:'Noto Sans KR','Segoe UI',sans-serif;color:#eaf2ff;overflow:hidden}
-  #mango-battle-3d{position:relative;width:100%;height:100vh;height:100dvh;overflow:hidden;background:#070b16;display:flex;flex-direction:column}
+  body{background:#2b2570;font-family:'Noto Sans KR','Segoe UI',sans-serif;color:#eaf2ff;overflow:hidden}
+  #mango-battle-3d{position:relative;width:100%;height:100vh;height:100dvh;overflow:hidden;background:linear-gradient(180deg,#4b2f8f 0%,#a84bb8 55%,#1c1550 100%);display:flex;flex-direction:column}
   #battleCanvas{display:block;width:100%;flex:1 1 auto;min-height:0}
   /* 퀴즈 바는 flex 흐름의 맨 아래에 컴팩트하게(내용 높이만), 나머지 세로 공간은 전부 3D 캔버스가 차지 → 빈 검은 공간 0 */
   #mango-battle-3d.quiz-open .voicebadge{display:none}
@@ -236,7 +236,15 @@
     /* ===== Three.js 기본 ===== */
     var canvas=document.getElementById('battleCanvas'), wrap=document.getElementById('mango-battle-3d');
     var W=canvas.clientWidth, H=canvas.clientHeight||wrap.clientHeight;
-    var scene=new THREE.Scene(); scene.background=new THREE.Color(0x070b16); scene.fog=new THREE.Fog(0x070b16,20,60);
+    var scene=new THREE.Scene();
+    // 🌈 주니어 친화 컬러풀 하늘 — 보라→핑크→블루 트와일라잇 그라데이션(단색 대신)
+    (function(){ var c=document.createElement('canvas'); c.width=16; c.height=256; var x=c.getContext('2d');
+      var g=x.createLinearGradient(0,0,0,256);
+      g.addColorStop(0,'#4b2f8f'); g.addColorStop(0.34,'#7a3fb0'); g.addColorStop(0.58,'#a84bb8'); g.addColorStop(0.8,'#3f2c86'); g.addColorStop(1,'#1c1550');
+      x.fillStyle=g; x.fillRect(0,0,16,256);
+      var t=new THREE.CanvasTexture(c); if(THREE.SRGBColorSpace!==undefined) t.colorSpace=THREE.SRGBColorSpace;
+      scene.background=t; })();
+    scene.fog=new THREE.Fog(0x4a3390,24,66);   // 🌌 밝은 남보라 트와일라잇
     var camera=new THREE.PerspectiveCamera(56,W/H,0.1,200); camera.position.set(0,4.7,17); camera.lookAt(0,2.82,0); scene.add(camera); // 세로 화면용: 줌아웃+시선 상향으로 캐릭터 전체가 HUD 아래·패널 위에 들어오게
     var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true}); renderer.setPixelRatio(Math.min(window.devicePixelRatio,2)); renderer.setSize(W,H,false); renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
     renderer.outputEncoding=THREE.sRGBEncoding; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.16;
@@ -902,6 +910,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260706210603 -->
+<!-- BUILD:20260706215400 -->
 </body>
 </html>

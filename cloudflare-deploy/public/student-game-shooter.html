@@ -12,9 +12,28 @@
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%}
   body{font-family:'Noto Sans KR','Segoe UI',sans-serif;color:var(--tx);
-    background:radial-gradient(120% 80% at 50% 0%,#16294d 0%,#0a1428 70%);overflow:hidden;user-select:none}
+    background:radial-gradient(125% 95% at 50% -6%,#6d5ce0 0%,#4338ca 34%,#241a63 72%,#170f45 100%);overflow:hidden;user-select:none}
   /* 패널에 임베드되도록 컨테이너가 100% 채움 */
   #game{position:relative;width:100%;height:100dvh;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+  /* 🌌 주니어 친화 우주 배경 — 반짝이는 별 (플레이 필드 뒤 은은하게) */
+  #field::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;opacity:.7;
+    background:radial-gradient(1.4px 1.4px at 20% 30%,#fff,transparent),radial-gradient(1.2px 1.2px at 70% 50%,#fff,transparent),
+      radial-gradient(1px 1px at 40% 80%,#fff,transparent),radial-gradient(1.6px 1.6px at 85% 20%,#fff,transparent),
+      radial-gradient(1.2px 1.2px at 55% 15%,#d7e6ff,transparent),radial-gradient(1px 1px at 12% 68%,#d7e6ff,transparent),
+      radial-gradient(1.3px 1.3px at 30% 55%,#ffe9a8,transparent),radial-gradient(1.1px 1.1px at 92% 72%,#ffe9a8,transparent)}
+  /* 🎨 주니어 컬러풀 오로라 — 은은하게 색이 흐르는 우주 */
+  #field::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;opacity:.5;mix-blend-mode:screen;
+    background:radial-gradient(46% 36% at 14% 18%,rgba(56,189,248,.6),transparent 70%),
+      radial-gradient(42% 34% at 86% 24%,rgba(236,72,153,.5),transparent 70%),
+      radial-gradient(52% 42% at 50% 108%,rgba(52,211,153,.45),transparent 70%);
+    animation:mgAurora 15s ease-in-out infinite alternate}
+  @keyframes mgAurora{0%{transform:translate(0,0) scale(1)}50%{transform:translate(3%,2%) scale(1.14)}100%{transform:translate(-2%,-1%) scale(1.06)}}
+  /* 🚀 떠다니는 우주 장식 */
+  .bgfx{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+  .bgfx b{position:absolute;bottom:-10%;font-style:normal;font-weight:400;line-height:1;
+    filter:drop-shadow(0 2px 5px rgba(0,0,0,.35));will-change:transform;animation:mgFloatUp linear infinite}
+  @keyframes mgFloatUp{0%{transform:translateY(0) rotate(0);opacity:0}
+    12%{opacity:.85}88%{opacity:.85}100%{transform:translateY(-118vh) rotate(48deg);opacity:0}}
   #game.shake{animation:shake .4s}
   @keyframes shake{0%,100%{transform:translate(0,0)}25%{transform:translate(-7px,4px)}50%{transform:translate(6px,-5px)}75%{transform:translate(-5px,5px)}}
 
@@ -203,6 +222,18 @@
   </div>
 
   <div id="field">
+    <div class="bgfx" aria-hidden="true">
+      <b style="left:8%;font-size:30px;animation-duration:19s;animation-delay:-2s">🪐</b>
+      <b style="left:22%;font-size:20px;animation-duration:15s;animation-delay:-9s">⭐</b>
+      <b style="left:37%;font-size:26px;animation-duration:23s;animation-delay:-5s">🚀</b>
+      <b style="left:52%;font-size:18px;animation-duration:14s;animation-delay:-12s">✨</b>
+      <b style="left:66%;font-size:28px;animation-duration:21s;animation-delay:-1s">🛸</b>
+      <b style="left:79%;font-size:22px;animation-duration:17s;animation-delay:-7s">☄️</b>
+      <b style="left:90%;font-size:24px;animation-duration:25s;animation-delay:-14s">🌟</b>
+      <b style="left:15%;font-size:16px;animation-duration:13s;animation-delay:-6s">✨</b>
+      <b style="left:45%;font-size:20px;animation-duration:18s;animation-delay:-16s">⭐</b>
+      <b style="left:72%;font-size:16px;animation-duration:12s;animation-delay:-3s">✨</b>
+    </div>
     <div id="combo"></div>
     <div class="voicebadge" id="voiceBadge">🔊 음성 준비 중…</div>
     <div class="crosshair" id="crosshair"></div>
@@ -773,6 +804,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260706210603 -->
+<!-- BUILD:20260706215400 -->
 </body>
 </html>

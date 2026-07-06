@@ -30,7 +30,7 @@
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%}
   body{font-family:'Noto Sans KR','Segoe UI',sans-serif;color:var(--tx);overflow:hidden;user-select:none;
-    background:radial-gradient(120% 90% at 50% 0%,#1c3566 0%,#081227 70%)}
+    background:radial-gradient(135% 105% at 50% -8%,#4b83e6 0%,#2a5fbd 38%,#173f8c 100%)}
   #app{position:relative;width:100%;height:100dvh;height:100vh;overflow:hidden}
   .scene{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden}
   .scene.active{display:flex}
@@ -103,11 +103,24 @@
   .field{position:relative;flex:1 1 auto;min-height:0;overflow:hidden}
 
   /* ===================== Game A : Shooting ===================== */
-  #shoot .field{background:radial-gradient(130% 90% at 50% -10%,#16294d 0%,#070d1c 75%)}
+  #shoot .field{background:radial-gradient(130% 100% at 50% -10%,#5b4fd6 0%,#3730a3 40%,#1e1b6b 78%,#141048 100%)}
   #shoot .field::before{content:'';position:absolute;inset:0;pointer-events:none;opacity:.5;
     background:radial-gradient(1px 1px at 20% 30%,#fff,transparent),radial-gradient(1px 1px at 70% 50%,#fff,transparent),
       radial-gradient(1px 1px at 40% 80%,#fff,transparent),radial-gradient(1.5px 1.5px at 85% 20%,#fff,transparent),
       radial-gradient(1px 1px at 55% 15%,#cfe,transparent),radial-gradient(1px 1px at 10% 70%,#cfe,transparent)}
+  /* 🎨 주니어 컬러풀 오로라 (슈팅=우주) */
+  #shoot .field::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;opacity:.5;mix-blend-mode:screen;
+    background:radial-gradient(46% 36% at 14% 18%,rgba(56,189,248,.6),transparent 70%),
+      radial-gradient(42% 34% at 86% 24%,rgba(236,72,153,.5),transparent 70%),
+      radial-gradient(52% 42% at 50% 108%,rgba(52,211,153,.45),transparent 70%);
+    animation:mgAurora 15s ease-in-out infinite alternate}
+  @keyframes mgAurora{0%{transform:translate(0,0) scale(1)}50%{transform:translate(3%,2%) scale(1.14)}100%{transform:translate(-2%,-1%) scale(1.06)}}
+  /* 🎈 공용 떠다니는 장식 레이어 */
+  .bgfx{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+  .bgfx b{position:absolute;bottom:-10%;font-style:normal;font-weight:400;line-height:1;
+    filter:drop-shadow(0 2px 5px rgba(0,0,0,.3));will-change:transform;animation:mgFloatUp linear infinite}
+  @keyframes mgFloatUp{0%{transform:translateY(0) rotate(0);opacity:0}
+    12%{opacity:.8}88%{opacity:.8}100%{transform:translateY(-118vh) rotate(46deg);opacity:0}}
   .monster{position:absolute;display:flex;flex-direction:column;align-items:center;gap:1px;border:none;background:none;
     cursor:pointer;font-family:inherit;will-change:transform;animation:sway 2s ease-in-out infinite alternate;padding:2px;z-index:5}
   @keyframes sway{from{transform:translateX(-7px) rotate(-4deg)}to{transform:translateX(7px) rotate(4deg)}}
@@ -155,7 +168,7 @@
     border-radius:50%;opacity:0;transition:opacity .2s;pointer-events:none;z-index:7;box-shadow:0 0 8px rgba(251,191,36,.45)}
 
   /* ===================== Game B : Fishing ===================== */
-  #fish .field{background:linear-gradient(180deg,#1782a8 0%,#0e5d80 22%,#0a3a58 52%,#062236 80%,#03131f 100%)}
+  #fish .field{background:linear-gradient(180deg,#4fd1e8 0%,#22aed4 24%,#1287b0 52%,#0c6389 78%,#0a4a6b 100%)}
   #fish .field::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:1;
     background:radial-gradient(72% 48% at 50% -10%,rgba(190,240,255,.42),rgba(190,240,255,.06) 55%,transparent 73%)}
   /* 햇살(god rays) */
@@ -395,6 +408,15 @@
       <div class="sentence" data-sentence style="display:contents"></div>
     </div>
     <div class="field" id="shootField">
+      <div class="bgfx" aria-hidden="true">
+        <b style="left:9%;font-size:28px;animation-duration:19s;animation-delay:-2s">🪐</b>
+        <b style="left:24%;font-size:19px;animation-duration:15s;animation-delay:-9s">⭐</b>
+        <b style="left:40%;font-size:24px;animation-duration:23s;animation-delay:-5s">🚀</b>
+        <b style="left:55%;font-size:17px;animation-duration:14s;animation-delay:-12s">✨</b>
+        <b style="left:69%;font-size:26px;animation-duration:21s;animation-delay:-1s">🛸</b>
+        <b style="left:83%;font-size:20px;animation-duration:17s;animation-delay:-7s">☄️</b>
+        <b style="left:92%;font-size:22px;animation-duration:25s;animation-delay:-14s">🌟</b>
+      </div>
       <div class="combo" id="shootCombo"></div>
       <div class="crosshair" id="crosshair"></div>
       <div id="turret">
@@ -421,6 +443,15 @@
       <div class="sentence" data-sentence style="display:contents"></div>
     </div>
     <div class="field" id="fishField">
+      <div class="bgfx" aria-hidden="true">
+        <b style="left:10%;font-size:26px;animation-duration:20s;animation-delay:-3s">🫧</b>
+        <b style="left:26%;font-size:18px;animation-duration:16s;animation-delay:-10s">🐚</b>
+        <b style="left:42%;font-size:24px;animation-duration:24s;animation-delay:-6s">🐠</b>
+        <b style="left:58%;font-size:16px;animation-duration:13s;animation-delay:-1s">🫧</b>
+        <b style="left:72%;font-size:22px;animation-duration:22s;animation-delay:-8s">🐡</b>
+        <b style="left:86%;font-size:20px;animation-duration:18s;animation-delay:-14s">⭐</b>
+        <b style="left:94%;font-size:15px;animation-duration:12s;animation-delay:-4s">🫧</b>
+      </div>
       <div class="combo" id="fishCombo"></div>
       <div class="rays"></div>
       <span class="weed" style="left:5%;font-size:42px">🪸</span>
@@ -1553,6 +1584,6 @@
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260706210603 -->
+<!-- BUILD:20260706215400 -->
 </body>
 </html>
