@@ -4147,14 +4147,15 @@
         <summary data-ko="👥 역할별 권한 매트릭스" data-en="👥 Role Permission Matrix">👥 역할별 권한 매트릭스</summary>
         <div class="sub-body">
           <style>
-            /* 🎨 권한 매트릭스 디자인 토큰 (2026-05-07) */
-            .perm-table { background:#fff; border-radius:10px; overflow:hidden }
-            .perm-table thead th { font-weight:800; letter-spacing:0.3px; user-select:none }
+            /* 🎨 권한 매트릭스 디자인 토큰 (2026-05-07 · 2026-07-06 가독성 개선) */
+            .perm-table { background:#fff; border-radius:10px; overflow:hidden; font-size:13.5px }
+            .perm-table thead th { font-weight:800; letter-spacing:0.2px; user-select:none }
             .perm-table tbody tr:hover td { background:#fffbeb !important; transition:background .15s }
-            .perm-table tbody tr td:first-child { font-weight:600 }
+            /* 기능명 셀 — 크게, 진하게, 또렷하게 */
+            .perm-table tbody tr td:first-child { font-weight:700; font-size:13.5px; color:#1f2937 }
             .perm-table .perm-cell {
-              width:42px; height:30px; border:1px solid #e5e7eb; background:#fff; border-radius:7px;
-              cursor:pointer; font-size:14px; line-height:1; transition:all .15s;
+              width:46px; height:34px; border:1px solid #e5e7eb; background:#fff; border-radius:8px;
+              cursor:pointer; font-size:16px; line-height:1; transition:all .15s;
               display:inline-flex; align-items:center; justify-content:center
             }
             .perm-table .perm-cell:hover { transform:scale(1.12); box-shadow:0 3px 10px -2px rgba(0,0,0,0.12); border-color:#fbbf24 }
@@ -4163,15 +4164,19 @@
             .perm-table .perm-cell[data-state="❌"] { background:linear-gradient(135deg,#fee2e2,#fecaca); border-color:#fca5a5; color:#b91c1c }
             .perm-table tbody td.col-hq      { background:rgba(239,68,68,0.025) }
             .perm-table tbody td.col-hq.col-divider { border-right:2px dashed #fecaca }
-            /* 그룹 행 — 더 눈에 띄게 */
+            /* 그룹 행 — 더 크고 눈에 띄게 */
             .perm-table tbody tr.group-row td {
               background:linear-gradient(90deg,#fef3c7 0%,#fde68a 100%) !important;
-              color:#78350f !important; font-weight:900; font-size:11.5px;
-              border-top:2px solid #f59e0b !important; padding:9px 12px !important;
-              letter-spacing:0.4px;
+              color:#78350f !important; font-weight:900; font-size:13.5px;
+              border-top:2px solid #f59e0b !important; padding:11px 12px !important;
+              letter-spacing:0.3px;
             }
+            /* 글자 또렷하게 — 다크(기본)=밝은 글자, 아이보리=진한 글자 */
+            .perm-table tbody tr td:first-child { color:#f9fafb }
+            html[data-admin-theme="ivory"] .perm-table tbody tr td:first-child { color:#1f2937 !important }
+            html[data-admin-theme="ivory"] .perm-table tbody tr.group-row td { color:#78350f !important }
           </style>
-          <p style="margin:0 0 10px;font-size:12.5px;color:#374151">6개 역할 (본사 3개 직급 + 지사본사 + 지사 + 대리점) — 각 메뉴/기능의 접근 권한을 설정합니다. 셀을 클릭하면 ✅ → 👁️ → ❌ 순환·즉시 저장됩니다.</p>
+          <p style="margin:0 0 10px;font-size:13.5px;line-height:1.65;color:#374151">6개 역할 <b>(본사 3개 직급 · 지사본사 · 지사 · 대리점)</b> × 관리자 사이드바의 <b>전체 메뉴</b>를 한 곳에서 제어합니다. 셀을 클릭하면 ✅ → 👁️ → ❌ 순환·즉시 저장되고, 해당 역할 사용자에게 바로 반영됩니다.</p>
           <!-- 🆕 내 역할 시뮬레이션 — 학생용 페이지에서 수업 연기/변경 시간 제한이 어떻게 적용되는지 테스트 -->
           <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;line-height:1.6;color:#78350f">
             <b>🎭 내 역할 시뮬레이션</b> — 학생용 홈페이지에서 사용할 역할을 선택. 「📅 수업 연기/변경」 시 위 권한 설정 따라 시간 제한이 자동 적용됩니다.
@@ -4224,19 +4229,19 @@
             <span style="color:#6b7280;font-size:11px" data-ko="💡 변경 즉시 저장 + 다음 로그인부터 적용" data-en="💡 Saved instantly · effective next login">💡 변경 즉시 저장 + 다음 로그인부터 적용</span>
           </div>
           <div style="overflow-x:auto;background:#fff;border:1px solid #e5e7eb;border-radius:10px">
-            <table id="role-perm-table" class="perm-table" style="width:100%;border-collapse:collapse;font-size:12px;min-width:640px">
+            <table id="role-perm-table" class="perm-table" style="width:100%;border-collapse:collapse;font-size:13.5px;min-width:720px">
               <thead style="background:linear-gradient(135deg,#fef3c7,#fde68a)">
                 <tr>
                   <th rowspan="2" style="padding:10px 12px;text-align:left;border-bottom:2px solid #f59e0b;width:230px;color:#78350f;vertical-align:bottom">기능 / 메뉴</th>
                   <th colspan="3" style="padding:8px 8px;text-align:center;border-bottom:1px solid #f59e0b;color:#78350f;background:rgba(239,68,68,0.10)">🏢 본사 <span style="font-size:10px;font-weight:400">(HQ — 직급별)</span></th>
-                  <th rowspan="2" style="padding:10px 8px;text-align:center;border-bottom:2px solid #f59e0b;color:#78350f;vertical-align:bottom;background:rgba(245,158,11,0.08)">🏢 지사본사<br/><span style="font-size:10px;font-weight:400">Franchise</span></th>
-                  <th rowspan="2" style="padding:10px 8px;text-align:center;border-bottom:2px solid #f59e0b;color:#78350f;vertical-align:bottom">🏬 지사<br/><span style="font-size:10px;font-weight:400">Branch</span></th>
-                  <th rowspan="2" style="padding:10px 8px;text-align:center;border-bottom:2px solid #f59e0b;color:#78350f;vertical-align:bottom">🤝 대리점<br/><span style="font-size:10px;font-weight:400">Agency</span></th>
+                  <th rowspan="2" style="padding:10px 8px;text-align:center;border-bottom:2px solid #f59e0b;color:#78350f;vertical-align:bottom;background:rgba(245,158,11,0.08)">🏢 지사본사<br/><span style="font-size:11px;font-weight:400">Franchise</span></th>
+                  <th rowspan="2" style="padding:10px 8px;text-align:center;border-bottom:2px solid #f59e0b;color:#78350f;vertical-align:bottom">🏬 지사<br/><span style="font-size:11px;font-weight:400">Branch</span></th>
+                  <th rowspan="2" style="padding:10px 8px;text-align:center;border-bottom:2px solid #f59e0b;color:#78350f;vertical-align:bottom">🤝 대리점<br/><span style="font-size:11px;font-weight:400">Agency</span></th>
                 </tr>
                 <tr>
-                  <th style="padding:6px 6px;text-align:center;border-bottom:2px solid #f59e0b;color:#7f1d1d;background:rgba(239,68,68,0.06);font-size:11px">👑 경영진<br/><span style="font-size:9.5px;font-weight:400">Executive</span></th>
-                  <th style="padding:6px 6px;text-align:center;border-bottom:2px solid #f59e0b;color:#7f1d1d;background:rgba(239,68,68,0.06);font-size:11px">🛠️ 관리자<br/><span style="font-size:9.5px;font-weight:400">Manager</span></th>
-                  <th style="padding:6px 6px;text-align:center;border-bottom:2px solid #f59e0b;color:#7f1d1d;background:rgba(239,68,68,0.06);font-size:11px">👨‍🏫 교사<br/><span style="font-size:9.5px;font-weight:400">Teacher</span></th>
+                  <th style="padding:6px 6px;text-align:center;border-bottom:2px solid #f59e0b;color:#7f1d1d;background:rgba(239,68,68,0.06);font-size:12.5px">👑 경영진<br/><span style="font-size:10.5px;font-weight:400">Executive</span></th>
+                  <th style="padding:6px 6px;text-align:center;border-bottom:2px solid #f59e0b;color:#7f1d1d;background:rgba(239,68,68,0.06);font-size:12.5px">🛠️ 관리자<br/><span style="font-size:10.5px;font-weight:400">Manager</span></th>
+                  <th style="padding:6px 6px;text-align:center;border-bottom:2px solid #f59e0b;color:#7f1d1d;background:rgba(239,68,68,0.06);font-size:12.5px">👨‍🏫 교사<br/><span style="font-size:10.5px;font-weight:400">Teacher</span></th>
                 </tr>
               </thead>
               <tbody id="role-perm-rows"></tbody>
@@ -23151,7 +23156,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260706172550 -->
+        <!-- BUILD:20260706175859 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -23433,49 +23438,93 @@ window.rebuildGlobalSearchIndex = function() {
   // ━━━━━━━━━━ 🔐 권한 설정 (역할별 매트릭스) ━━━━━━━━━━
   const ROLE_KEYS = ['hq_exec','hq_mgr','hq_teacher','franchise','branch','agency'];
   // 기능 그룹 → 각 행
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  //  🔐 통합 권한 매트릭스 — 관리자 사이드바의 "모든" 메뉴(73개)를 역할별로 제어.
+  //     • id 가 'card-…' 인 행은 실제 사이드바 카드(id)에 1:1 로 자동 반영됩니다.
+  //     • 시맨틱 id(dashboard, students_list …)는 여러 카드를 묶어서 제어(MATRIX_CARD_MAP).
+  //     • franchise(지사본사) 기본값은 미지정 시 지사(branch)를 상속(하단 backfill).
+  //  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const PERM_FEATURES = [
-    { group_ko: '🏠 대시보드', group_en: '🏠 Dashboard', items: [
-      { id: 'dashboard',     name_ko: '메인 대시보드',     name_en: 'Main Dashboard',          def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'✅', parent:'✅', student:'✅' } },
-      { id: 'realtime_class', name_ko: '실시간 수업 현황',  name_en: 'Live Class Status',       def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'👁️', parent:'❌', student:'❌' } },
-      { id: 'finance_realtime', name_ko: '실시간 재무 (수입·지출·손익)', name_en: 'Realtime Finance', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
-      { id: 'learning_insights', name_ko: '학습 인사이트 (위험도·세그먼트)', name_en: 'Learning Insights', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
-      { id: 'kpi_dashboard', name_ko: '운영 대시보드 KPI (8대 지표)', name_en: 'Operations KPI Dashboard', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
-      { id: 'ai_insights_hub', name_ko: 'AI 인사이트 대시보드', name_en: 'AI Insights Dashboard', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
-      { id: 'today_kpi', name_ko: '오늘의 핵심 지표 (매출·출석·결석·신규)', name_en: "Today KPIs", def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'👁️', parent:'❌', student:'❌' } },
+    { group_ko: '🏠 대시보드 · 통계', group_en: '🏠 Dashboard · Analytics', items: [
+      { id: 'dashboard',        name_ko: '메인 대시보드',                 name_en: 'Main Dashboard',            def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'✅', parent:'✅', student:'✅' } },
+      { id: 'today_kpi',        name_ko: '오늘의 핵심 지표 (매출·출석·결석·신규)', name_en: 'Today KPIs',       def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'👁️', parent:'❌', student:'❌' } },
+      { id: 'kpi_dashboard',    name_ko: '운영 대시보드 KPI (8대 지표)',   name_en: 'Operations KPI Dashboard',  def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'realtime_class',   name_ko: '실시간 수업 현황',              name_en: 'Live Class Status',         def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'👁️', parent:'❌', student:'❌' } },
+      { id: 'finance_realtime', name_ko: '실시간 재무 (수입·지출·손익)',   name_en: 'Realtime Finance',          def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'learning_insights',name_ko: '학습 인사이트 (위험도·세그먼트)', name_en: 'Learning Insights',        def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'ai_insights_hub',  name_ko: 'AI 인사이트 대시보드',           name_en: 'AI Insights Dashboard',     def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
     ]},
-    { group_ko: '👨‍🎓 학생 관리', group_en: '👨‍🎓 Student Management', items: [
-      { id: 'students_list',   name_ko: '학생 목록·상세보기', name_en: 'Student List · Details',  def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'👁️', parent:'❌', student:'❌' } },
-      { id: 'students_self',   name_ko: '내 학습 정보 조회',  name_en: 'My Learning Info',          def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'❌', parent:'✅', student:'✅' } },
-      { id: 'students_eval',   name_ko: '평가서 작성·수정',   name_en: 'Evaluation Create · Edit',  def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'❌', parent:'❌', student:'❌' } },
-      { id: 'enrollment',      name_ko: '수강신청 관리',      name_en: 'Enrollment Management',     def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'✅', agency:'✅', parent:'👁️', student:'👁️' } },
-      { id: 'students_unified', name_ko: '통합 학생관리', name_en: 'Unified Student Mgmt', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'👁️', parent:'❌', student:'❌' } },
-      { id: 'ai_student_analysis', name_ko: 'AI 학습 분석 (Llama 3.3)', name_en: 'AI Learning Analysis', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+    { group_ko: '👨‍🎓 학생 · 학부모 관리', group_en: '👨‍🎓 Student · Parent', items: [
+      { id: 'students_list',    name_ko: '학생 목록·상세보기',            name_en: 'Student List · Details',    def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'👁️', parent:'❌', student:'❌' } },
+      { id: 'students_unified', name_ko: '통합 학생관리',                 name_en: 'Unified Student Mgmt',      def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'👁️', parent:'❌', student:'❌' } },
+      { id: 'students_self',    name_ko: '내 학습 정보 조회',             name_en: 'My Learning Info',          def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'❌', parent:'✅', student:'✅' } },
+      { id: 'ai_student_analysis', name_ko: 'AI 학습 분석 (Llama 3.3)',   name_en: 'AI Learning Analysis',      def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'enrollment',       name_ko: '수강신청 관리',                 name_en: 'Enrollment Management',     def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'✅', agency:'✅', parent:'👁️', student:'👁️' } },
+      { id: 'card-family-mgmt', name_ko: '가족·형제 계정 관리',           name_en: 'Family / Sibling Accounts', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'❌', agency:'✅', parent:'✅', student:'❌' } },
+      { id: 'card-counseling-booking', name_ko: '상담 예약 관리',         name_en: 'Counseling Booking',        def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'✅', parent:'✅', student:'❌' } },
+      { id: 'card-referral',    name_ko: '친구추천·리퍼럴',               name_en: 'Referral',                  def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'❌', agency:'✅', parent:'✅', student:'❌' } },
+      { id: 'card-parent-digest', name_ko: '학부모 주간 다이제스트',      name_en: 'Parent Weekly Digest',      def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'✅', student:'❌' } },
+      { id: 'card-parent-faq-bot', name_ko: '학부모 FAQ 봇',             name_en: 'Parent FAQ Bot',            def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'✅', student:'❌' } },
+      { id: 'card-alumni',      name_ko: '졸업생·동문 관리',              name_en: 'Alumni',                    def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'✅' } },
     ]},
     { group_ko: '🧑‍🏫 강사 관리', group_en: '🧑‍🏫 Teacher Management', items: [
-      { id: 'teachers_list',   name_ko: '강사 목록·평가',     name_en: 'Teacher List · Evaluation', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'✅', agency:'❌', parent:'❌', student:'❌' } },
-      { id: 'teacher_payroll', name_ko: '강사 급여·정산 (교사=본인만)', name_en: 'Teacher Payroll · Settle (teacher=own only)',  def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'teachers_list',    name_ko: '강사 목록·평가',                name_en: 'Teacher List · Evaluation', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'✅', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'teacher_payroll',  name_ko: '강사 급여·정산 (교사=본인만)',   name_en: 'Teacher Payroll · Settle',  def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'card-mbti-mgmt',   name_ko: '강사 MBTI·성향 매칭',           name_en: 'Teacher MBTI / Fit',        def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'card-supervisor',  name_ko: '수업 감독·품질 모니터링',        name_en: 'Class Supervision / QA',    def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'card-report-forms',name_ko: '리포트 양식 관리',              name_en: 'Report Form Templates',     def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'✅', parent:'❌', student:'❌' } },
     ]},
-    { group_ko: '💰 회계 관리', group_en: '💰 Accounting', items: [
-      { id: 'student_payments', name_ko: '학생 결제 내역',     name_en: 'Student Payment History',   def: { hq_exec:'✅', hq_mgr:'👁️', hq_teacher:'❌', branch:'✅', agency:'👁️', parent:'❌', student:'❌' } },
-      { id: 'corpcard',         name_ko: '법인카드 사용내역', name_en: 'Corporate Card Usage',      def: { hq_exec:'✅', hq_mgr:'❌', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
-      { id: 'financials',       name_ko: '손익·재무제표',     name_en: 'P&L · Financial Stmt',      def: { hq_exec:'✅', hq_mgr:'❌', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
-      { id: 'refunds',          name_ko: '환불·취소 처리',    name_en: 'Refund · Cancel',           def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'✅', agency:'❌', parent:'❌', student:'❌' } },
-      { id: 'accounting_reports', name_ko: '회계 리포트 다운로드', name_en: 'Accounting Report Download', def: { hq_exec:'✅', hq_mgr:'👁️', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
-      { id: 'recurring_billing', name_ko: '정기결제 자동화', name_en: 'Recurring Billing', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
-      { id: 'auto_dunning', name_ko: '미납 자동 추적 (D-1/7/14)', name_en: 'Auto Dunning', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
-      { id: 'points_gift', name_ko: '포인트·기프트콘 관리', name_en: 'Points · Gifticon', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'✅', agency:'👁️', parent:'❌', student:'❌' } },
+    { group_ko: '📝 평가 · 리포트', group_en: '📝 Evaluation · Reports', items: [
+      { id: 'students_eval',    name_ko: '평가서 작성·수정',              name_en: 'Evaluation Create · Edit',  def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'card-ai-eval-draft', name_ko: 'AI 평가서 초안 생성',         name_en: 'AI Evaluation Draft',       def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'card-ai-lesson-report', name_ko: 'AI 수업 리포트',           name_en: 'AI Lesson Report',          def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'👁️', student:'👁️' } },
+      { id: 'card-monthly-report', name_ko: '월간 학습 리포트',           name_en: 'Monthly Learning Report',   def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'✅', parent:'✅', student:'✅' } },
+      { id: 'card-comparison-report', name_ko: '또래 비교 리포트',        name_en: 'Peer Comparison Report',    def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'✅', student:'❌' } },
+      { id: 'card-lesson-log',  name_ko: '수업 일지 기록',                name_en: 'Lesson Log',                def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'✅', student:'✅' } },
     ]},
-    { group_ko: '🎬 콘텐츠·녹화', group_en: '🎬 Content · Recording', items: [
-      { id: 'recordings_view', name_ko: '수업 녹화본 조회',   name_en: 'Class Recordings View',     def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'👁️', parent:'✅', student:'✅' } },
-      { id: 'textbooks',       name_ko: '교재 콘텐츠 관리',   name_en: 'Textbook Content Mgmt',     def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'❌', parent:'👁️', student:'👁️' } },
-      { id: 'voice_coaching', name_ko: '음성 코칭 진도 (AI 발음)', name_en: 'Voice Coaching Progress', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'👁️', agency:'❌', parent:'👁️', student:'👁️' } },
+    { group_ko: '💰 회계 · 정산 · 포인트', group_en: '💰 Accounting · Settlement', items: [
+      { id: 'student_payments', name_ko: '학생 결제 내역',                name_en: 'Student Payment History',   def: { hq_exec:'✅', hq_mgr:'👁️', hq_teacher:'❌', branch:'✅', agency:'👁️', parent:'❌', student:'❌' } },
+      { id: 'refunds',          name_ko: '환불·취소 처리',                name_en: 'Refund · Cancel',           def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'✅', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'recurring_billing',name_ko: '정기결제 자동화',               name_en: 'Recurring Billing',         def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'auto_dunning',     name_ko: '미납 자동 추적 (D-1/7/14)',      name_en: 'Auto Dunning',              def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'accounting_reports', name_ko: '회계 리포트 다운로드',         name_en: 'Accounting Report Download',def: { hq_exec:'✅', hq_mgr:'👁️', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'corpcard',         name_ko: '법인카드 사용내역',             name_en: 'Corporate Card Usage',      def: { hq_exec:'✅', hq_mgr:'❌', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'financials',       name_ko: '손익·재무제표',                 name_en: 'P&L · Financial Stmt',      def: { hq_exec:'✅', hq_mgr:'❌', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'points_gift',      name_ko: '포인트·기프트콘 관리',           name_en: 'Points · Gifticon',         def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'✅', agency:'👁️', parent:'❌', student:'❌' } },
     ]},
-    { group_ko: '📢 운영', group_en: '📢 Operations', items: [
-      { id: 'community',       name_ko: '학원 게시판 (소식·FAQ) 작성', name_en: 'Notice Board (News·FAQ) — write',        def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'✅', agency:'❌', parent:'👁️', student:'👁️' } },
-      { id: 'inquiries',       name_ko: '신규상담 처리',       name_en: 'New Inquiries',             def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'✅', agency:'✅', parent:'❌', student:'❌' } },
-      { id: 'kakao_blast',     name_ko: '카톡 공지 발송',      name_en: 'KakaoTalk Broadcast',       def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'✅', agency:'❌', parent:'❌', student:'❌' } },
-      { id: 'nps_survey', name_ko: '월간 NPS 설문', name_en: 'Monthly NPS Survey', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
-      { id: 'marketing_studio', name_ko: '마케팅 스튜디오 (AI 카피·세그먼트)', name_en: 'Marketing Studio', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
+    { group_ko: '🎬 교육 콘텐츠 · 학습', group_en: '🎬 Content · Learning', items: [
+      { id: 'recordings_view',  name_ko: '수업 녹화본 조회',              name_en: 'Class Recordings View',     def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'👁️', parent:'✅', student:'✅' } },
+      { id: 'textbooks',        name_ko: '교재 콘텐츠 관리',              name_en: 'Textbook Content Mgmt',     def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'❌', parent:'👁️', student:'👁️' } },
+      { id: 'voice_coaching',   name_ko: '음성 코칭 진도 (AI 발음)',       name_en: 'Voice Coaching Progress',   def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'👁️', agency:'❌', parent:'👁️', student:'👁️' } },
+      { id: 'card-pronunciation', name_ko: 'AI 발음 클리닉',              name_en: 'Pronunciation Clinic',      def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'❌', student:'✅' } },
+      { id: 'card-microlearn',  name_ko: '마이크로러닝 (5분 학습)',        name_en: 'Micro-learning',            def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'❌', student:'✅' } },
+      { id: 'card-mini-toeic',  name_ko: '미니 토익·레벨 퀴즈',           name_en: 'Mini TOEIC / Quiz',         def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'❌', student:'✅' } },
+      { id: 'card-video-dict',  name_ko: '영상 받아쓰기',                 name_en: 'Video Dictation',           def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'❌', student:'✅' } },
+      { id: 'card-voice-diary', name_ko: '음성 일기',                    name_en: 'Voice Diary',               def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'👁️', student:'✅' } },
+      { id: 'card-level-tests', name_ko: '레벨 테스트 관리',              name_en: 'Level Tests',               def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'❌', student:'✅' } },
+      { id: 'card-homework',    name_ko: '숙제 관리',                    name_en: 'Homework',                  def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'✅', student:'✅' } },
+      { id: 'card-battle-mgmt', name_ko: '영어 배틀 (3D 보스전)',         name_en: 'English Battle (3D)',       def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'❌', student:'✅' } },
+      { id: 'card-badges-mgmt', name_ko: '배지·업적 관리',                name_en: 'Badges · Achievements',     def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'❌', student:'✅' } },
+      { id: 'card-gallery',     name_ko: '학습 갤러리·전시',              name_en: 'Learning Gallery',          def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'✅', parent:'✅', student:'✅' } },
+    ]},
+    { group_ko: '🗓️ 수업 운영 · 출결', group_en: '🗓️ Class Ops · Attendance', items: [
+      { id: 'card-timetable',   name_ko: '시간표·수업 일정',              name_en: 'Timetable',                 def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'✅', parent:'✅', student:'✅' } },
+      { id: 'card-room-invite', name_ko: '화상방 초대·입장 링크',          name_en: 'Room Invite Link',          def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'✅', parent:'❌', student:'❌' } },
+      { id: 'card-praise-stats',name_ko: '칭찬 포인트 통계',              name_en: 'Praise Points Stats',       def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'✅', parent:'👁️', student:'❌' } },
+      { id: 'card-attendance-status', name_ko: '실시간 출결 현황',        name_en: 'Attendance Status',         def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'✅', parent:'✅', student:'✅' } },
+      { id: 'card-auto-attendance', name_ko: '자동 출석 체크',            name_en: 'Auto Attendance',           def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'✅', parent:'❌', student:'❌' } },
+      { id: 'card-class-attendance', name_ko: '수업별 출석부',            name_en: 'Class Attendance Sheet',    def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'✅', parent:'❌', student:'❌' } },
+    ]},
+    { group_ko: '📢 알림 · 커뮤니티 · 마케팅', group_en: '📢 Notify · Community · Marketing', items: [
+      { id: 'community',        name_ko: '학원 게시판 (소식·FAQ) 작성',    name_en: 'Notice Board — write',      def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'✅', agency:'❌', parent:'👁️', student:'👁️' } },
+      { id: 'card-community',   name_ko: '학부모·학생 커뮤니티',           name_en: 'Parent · Student Community',def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'✅', student:'✅' } },
+      { id: 'card-notifications', name_ko: '인앱 알림 센터',              name_en: 'In-app Notifications',      def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'✅', parent:'👁️', student:'👁️' } },
+      { id: 'card-webpush-mgmt',name_ko: '웹푸시 발송 관리',              name_en: 'Web Push Management',       def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'card-popups-mgmt', name_ko: '팝업 공지 관리',                name_en: 'Popup Notices',             def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'kakao_blast',      name_ko: '카톡 공지 발송',                name_en: 'KakaoTalk Broadcast',       def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'✅', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'inquiries',        name_ko: '신규상담 처리',                 name_en: 'New Inquiries',             def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'✅', agency:'✅', parent:'❌', student:'❌' } },
+      { id: 'nps_survey',       name_ko: '월간 NPS 설문',                 name_en: 'Monthly NPS Survey',        def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'marketing_studio', name_ko: '마케팅 스튜디오 (AI 카피·세그먼트)', name_en: 'Marketing Studio',      def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
     ]},
     // 🆕 수업 연기/변경 시간 제한 우회 권한 — 본사/강사는 언제든지 가능, 지사/대리점/학생은 24h/30분 룰 준수
     { group_ko: '📅 수업 변경 권한', group_en: '📅 Lesson Change Permissions', items: [
@@ -23486,10 +23535,14 @@ window.rebuildGlobalSearchIndex = function() {
         name_en: 'Change Anytime (bypass 24-hour rule)',
         def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
     ]},
-    { group_ko: '🔐 시스템', group_en: '🔐 System', items: [
-      { id: 'permissions',     name_ko: '권한 설정',           name_en: 'Permission Settings',       def: { hq_exec:'✅', hq_mgr:'❌', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
-      { id: 'audit_log',       name_ko: '감사 로그 조회',      name_en: 'Audit Log View',            def: { hq_exec:'✅', hq_mgr:'👁️', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
-      { id: 'franchise_mgmt',  name_ko: '가맹점·지사 관리',    name_en: 'Franchise · Branch Mgmt',   def: { hq_exec:'✅', hq_mgr:'❌', hq_teacher:'❌', franchise:'👁️', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
+    { group_ko: '🔐 시스템 · 관리', group_en: '🔐 System · Admin', items: [
+      { id: 'permissions',      name_ko: '권한 설정',                    name_en: 'Permission Settings',       def: { hq_exec:'✅', hq_mgr:'❌', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'audit_log',        name_ko: '감사 로그 조회',                name_en: 'Audit Log View',            def: { hq_exec:'✅', hq_mgr:'👁️', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'franchise_mgmt',   name_ko: '가맹점·지사 관리',              name_en: 'Franchise · Branch Mgmt',   def: { hq_exec:'✅', hq_mgr:'❌', hq_teacher:'❌', franchise:'👁️', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'card-data-export', name_ko: '데이터 내보내기 (CSV·백업)',     name_en: 'Data Export',               def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'card-admin-alerts',name_ko: '관리자 경보·이상탐지',           name_en: 'Admin Alerts',              def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'card-admin-ghost', name_ko: '고스트뷰 (사용자 화면 미러링)',   name_en: 'Ghost View',                def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'card-admin-whisper', name_ko: '수업 위스퍼 (강사 실시간 코칭)', name_en: 'Class Whisper',            def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
     ]},
   ];
 
@@ -34872,6 +34925,7 @@ button.chip:hover,
       var savedMx = JSON.parse(localStorage.getItem('mangoi_perm_matrix') || 'null');
       if (savedMx) {
         var mkey = MATRIX_ROLE_KEY[role] || 'hq_exec';
+        // (a) 시맨틱 id → 여러 카드 묶음 적용
         Object.keys(MATRIX_CARD_MAP).forEach(function(fid){
           var rowVal = savedMx[fid] && savedMx[fid][mkey];
           if (!rowVal) return;
@@ -34880,6 +34934,15 @@ button.chip:hover,
             if (card) ph118ApplyState(card, rowVal, true);
             document.querySelectorAll('#ph85-sidebar .ph85-sub[data-card="'+cardId+'"]').forEach(function(sub){ ph118ApplyState(sub, rowVal, false); });
           });
+        });
+        // (b) 🆕 'card-…' id 행 → 해당 카드에 1:1 자동 적용 (표 확장분 전부 반영)
+        Object.keys(savedMx).forEach(function(fid){
+          if (fid.indexOf('card-') !== 0) return;
+          var rowVal = savedMx[fid] && savedMx[fid][mkey];
+          if (!rowVal) return;
+          var card = document.getElementById(fid);
+          if (card) ph118ApplyState(card, rowVal, true);
+          document.querySelectorAll('#ph85-sidebar .ph85-sub[data-card="'+fid+'"]').forEach(function(sub){ ph118ApplyState(sub, rowVal, false); });
         });
       }
     } catch(e){}

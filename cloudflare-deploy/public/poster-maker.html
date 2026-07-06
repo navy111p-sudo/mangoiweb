@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎨 포스터 만들기 · 망고아이</title>
+<style>
+  :root{
+    --bg:#0f1220; --panel:#181c2e; --panel2:#20263f; --line:#2c3352;
+    --txt:#e8ecff; --muted:#8b93b8; --accent:#ec4899; --accent2:#8b5cf6;
+    --ok:#22c55e; --radius:14px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{font-family:'Pretendard','Malgun Gothic',system-ui,sans-serif; background:var(--bg); color:var(--txt); -webkit-font-smoothing:antialiased}
+  .wrap{display:grid; grid-template-columns:340px 1fr; min-height:100vh}
+  @media(max-width:900px){ .wrap{grid-template-columns:1fr} .stage{order:-1} }
+
+  /* ===== 왼쪽 편집 패널 ===== */
+  .panel{background:var(--panel); border-right:1px solid var(--line); padding:18px 16px 60px; overflow-y:auto; max-height:100vh}
+  .brand{display:flex; align-items:center; gap:9px; margin-bottom:6px}
+  .brand .logo{width:34px; height:34px; border-radius:9px; background:linear-gradient(135deg,var(--accent),var(--accent2)); display:flex; align-items:center; justify-content:center; font-size:19px}
+  .brand h1{font-size:16px; font-weight:800; letter-spacing:-.3px}
+  .brand small{display:block; color:var(--muted); font-size:11px; font-weight:500}
+
+  .sec{margin-top:18px; border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; background:var(--panel2)}
+  .sec > summary{list-style:none; cursor:pointer; padding:12px 14px; font-weight:700; font-size:13.5px; display:flex; align-items:center; gap:8px; user-select:none}
+  .sec > summary::-webkit-details-marker{display:none}
+  .sec > summary::after{content:'⌄'; margin-left:auto; color:var(--muted); transition:.2s}
+  .sec[open] > summary::after{transform:rotate(180deg)}
+  .sec .body{padding:4px 14px 16px}
+
+  label.f{display:block; font-size:11.5px; color:var(--muted); margin:12px 0 5px; font-weight:600}
+  input[type=text],input[type=number],textarea,select{
+    width:100%; background:#12162a; border:1px solid var(--line); color:var(--txt);
+    border-radius:9px; padding:9px 10px; font-size:13px; font-family:inherit; outline:none}
+  input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+  textarea{resize:vertical; min-height:58px; line-height:1.5}
+  .row{display:flex; gap:8px}
+  .row > *{flex:1}
+
+  .presets{display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-top:6px}
+  .preset{background:#12162a; border:1px solid var(--line); border-radius:9px; padding:9px 8px; cursor:pointer; text-align:left; color:var(--txt); font-size:12px; transition:.15s}
+  .preset:hover{border-color:var(--accent2)}
+  .preset.on{border-color:var(--accent); background:rgba(236,72,153,.12)}
+  .preset b{display:block; font-size:12.5px; font-weight:700}
+  .preset span{color:var(--muted); font-size:10.5px}
+
+  .swatches{display:flex; flex-wrap:wrap; gap:7px; margin-top:6px}
+  .sw{width:30px; height:30px; border-radius:8px; cursor:pointer; border:2px solid transparent}
+  .sw.on{border-color:#fff}
+  input[type=color]{width:40px; height:34px; padding:2px; border-radius:8px; background:#12162a; border:1px solid var(--line); cursor:pointer}
+  input[type=range]{width:100%; accent-color:var(--accent)}
+  .rangeval{font-size:11px; color:var(--muted); float:right}
+
+  .btn{display:inline-flex; align-items:center; justify-content:center; gap:6px; width:100%; border:none; cursor:pointer;
+    background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; font-weight:700; font-size:14px;
+    padding:13px; border-radius:11px; margin-top:10px; font-family:inherit}
+  .btn.ghost{background:#12162a; border:1px solid var(--line); color:var(--txt)}
+  .btn:active{transform:translateY(1px)}
+  .hint{font-size:11px; color:var(--muted); margin-top:7px; line-height:1.5}
+  .file-btn{display:block; text-align:center; background:#12162a; border:1px dashed var(--line); border-radius:9px; padding:11px; cursor:pointer; font-size:12.5px; color:var(--muted); margin-top:6px}
+  .file-btn:hover{border-color:var(--accent2); color:var(--txt)}
+  input[type=file]{display:none}
+
+  /* ===== 오른쪽 미리보기 무대 ===== */
+  .stage{display:flex; flex-direction:column; align-items:center; padding:22px 16px; background:radial-gradient(circle at 50% 0%,#1b2140,#0f1220 60%); min-height:100vh}
+  .stage-bar{display:flex; align-items:center; gap:8px; margin-bottom:18px; flex-wrap:wrap; justify-content:center}
+  .devbtn{background:var(--panel2); border:1px solid var(--line); color:var(--muted); border-radius:9px; padding:8px 13px; font-size:12.5px; cursor:pointer; font-weight:600}
+  .devbtn.on{color:#fff; border-color:var(--accent); background:rgba(236,72,153,.15)}
+  .zoomlabel{color:var(--muted); font-size:12px; margin-left:4px}
+
+  .frame{background:#000; border-radius:20px; padding:10px; box-shadow:0 30px 80px rgba(0,0,0,.6); transition:max-width .25s, padding .25s; position:relative; width:100%; min-width:0}
+  .frame.phone{max-width:390px; border-radius:34px; padding:12px}
+  .frame.tablet{max-width:680px}
+  .frame.pc{max-width:900px; border-radius:14px; padding:8px}
+  .frame .notch{display:none}
+  .frame.phone .notch{display:block; width:130px; height:22px; background:#000; border-radius:0 0 14px 14px; position:absolute; top:12px; left:50%; transform:translateX(-50%); z-index:5}
+
+  .scroller{background:#fff; border-radius:12px; overflow:auto; max-height:76vh}
+  .frame.phone .scroller{border-radius:24px}
+
+  /* ===== 실제 포스터 ===== */
+  #poster{position:relative; width:100%; overflow:hidden; color:#fff; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:8% 8%; background-size:cover; background-position:center}
+  #poster .p-badge{display:inline-block; background:rgba(255,255,255,.22); backdrop-filter:blur(4px); padding:6px 15px; border-radius:999px; font-size:.85em; font-weight:700; letter-spacing:1px; margin-bottom:.7em}
+  #poster .p-title{font-weight:900; line-height:1.12; letter-spacing:-.5px; margin-bottom:.35em; text-shadow:0 2px 18px rgba(0,0,0,.35); white-space:pre-wrap}
+  #poster .p-sub{font-weight:600; opacity:.96; line-height:1.4; margin-bottom:1em; white-space:pre-wrap; text-shadow:0 1px 10px rgba(0,0,0,.3)}
+  #poster .p-media{width:100%; max-width:82%; margin:0 auto 1em; border-radius:14px; overflow:hidden; box-shadow:0 10px 40px rgba(0,0,0,.4)}
+  #poster .p-media img,#poster .p-media video,#poster .p-media iframe{display:block; width:100%; aspect-ratio:16/9; object-fit:cover; border:none}
+  #poster .p-cta{display:inline-block; background:#fff; color:#111; font-weight:800; padding:.7em 1.6em; border-radius:999px; font-size:.95em; box-shadow:0 8px 24px rgba(0,0,0,.3)}
+  #poster .p-foot{margin-top:1.1em; font-size:.72em; opacity:.8; font-weight:600}
+  #poster .p-scrim{position:absolute; inset:0; background:linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,0,0,.35)); pointer-events:none; z-index:0}
+  #poster > *{position:relative; z-index:1}
+
+  .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(30px); background:var(--ok); color:#fff; padding:12px 22px; border-radius:12px; font-weight:700; font-size:13.5px; opacity:0; transition:.3s; z-index:99; box-shadow:0 10px 30px rgba(0,0,0,.4)}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ================= 편집 패널 ================= -->
+  <aside class="panel">
+    <div class="brand">
+      <div class="logo">🎨</div>
+      <div><h1>포스터 만들기</h1><small>공지 · 안내 · 이벤트 포스터 · 샘플</small></div>
+    </div>
+
+    <details class="sec" open>
+      <summary>📐 크기 · 비율</summary>
+      <div class="body">
+        <div class="presets" id="presets"></div>
+        <label class="f">직접 조절 — 가로 <span class="rangeval" id="wLbl">1080px</span></label>
+        <input type="range" id="wRange" min="320" max="1600" step="20" value="1080">
+        <label class="f">세로 <span class="rangeval" id="hLbl">1080px</span></label>
+        <input type="range" id="hRange" min="320" max="2000" step="20" value="1080">
+        <p class="hint">프리셋을 고르거나 슬라이더로 세밀하게 맞추세요. 인스타·스토리·배너·A4 등.</p>
+      </div>
+    </details>
+
+    <details class="sec" open>
+      <summary>✍️ 문구</summary>
+      <div class="body">
+        <label class="f">뱃지 (상단 라벨)</label>
+        <input type="text" id="fBadge" value="📢 공지사항" placeholder="예: 이벤트 · 휴원 안내">
+        <label class="f">제목</label>
+        <textarea id="fTitle">여름방학 특강 오픈!</textarea>
+        <label class="f">부제 · 본문</label>
+        <textarea id="fSub">7월 21일 ~ 8월 15일
+원어민 화상영어 집중 4주 과정</textarea>
+        <label class="f">버튼 문구 (CTA)</label>
+        <input type="text" id="fCta" value="지금 신청하기">
+        <label class="f">하단 문구</label>
+        <input type="text" id="fFoot" value="망고아이 화상영어 · mangoi.co.kr">
+      </div>
+    </details>
+
+    <details class="sec" open>
+      <summary>🎥 미디어 (이미지 · 동영상)</summary>
+      <div class="body">
+        <label class="f">유형</label>
+        <select id="mType">
+          <option value="none">없음</option>
+          <option value="image">이미지</option>
+          <option value="youtube" selected>유튜브 동영상</option>
+          <option value="video">동영상 파일(mp4)</option>
+        </select>
+        <div id="mYoutube">
+          <label class="f">유튜브 주소 또는 ID</label>
+          <input type="text" id="mYtUrl" value="https://youtu.be/dQw4w9WgXcQ" placeholder="https://youtu.be/...">
+        </div>
+        <div id="mImage" style="display:none">
+          <label class="file-btn">🖼️ 이미지 업로드<input type="file" id="mImgFile" accept="image/*"></label>
+        </div>
+        <div id="mVideo" style="display:none">
+          <label class="file-btn">🎬 mp4 업로드<input type="file" id="mVidFile" accept="video/*"></label>
+        </div>
+        <p class="hint">동영상은 화면(웹·모바일)에서 실제 재생됩니다. PNG로 저장하면 미디어 영역은 첫 화면으로 캡처돼요.</p>
+      </div>
+    </details>
+
+    <details class="sec" open>
+      <summary>🎨 배경 · 색상</summary>
+      <div class="body">
+        <label class="f">테마 프리셋</label>
+        <div class="swatches" id="themes"></div>
+        <div class="row" style="margin-top:12px">
+          <div><label class="f">색상 A</label><input type="color" id="cA" value="#ec4899"></div>
+          <div><label class="f">색상 B</label><input type="color" id="cB" value="#8b5cf6"></div>
+          <div><label class="f">글자색</label><input type="color" id="cT" value="#ffffff"></div>
+        </div>
+        <label class="f">배경 이미지 (선택)</label>
+        <label class="file-btn">🌄 배경 이미지 업로드<input type="file" id="bgFile" accept="image/*"></label>
+        <button class="btn ghost" id="bgClear" style="margin-top:7px">배경 이미지 제거</button>
+      </div>
+    </details>
+
+    <button class="btn" id="dlPng">⬇️ PNG 이미지로 저장</button>
+    <button class="btn ghost" id="dlHtml">🔗 웹 포스터(HTML)로 저장</button>
+    <p class="hint">※ 이 화면은 <b>샘플</b>입니다. 관리자에 붙일 위치는 아래 안내 참고 — 📢 알림 센터 그룹에 <b>🎨 포스터 만들기</b> 서브메뉴로 추가 권장.</p>
+  </aside>
+
+  <!-- ================= 미리보기 무대 ================= -->
+  <main class="stage">
+    <div class="stage-bar">
+      <button class="devbtn" data-dev="phone">📱 폰</button>
+      <button class="devbtn" data-dev="tablet">📲 모바일</button>
+      <button class="devbtn on" data-dev="pc">💻 PC</button>
+      <span class="zoomlabel" id="dim">1080 × 1080</span>
+    </div>
+    <div class="frame pc" id="frame">
+      <div class="notch"></div>
+      <div class="scroller">
+        <div id="poster">
+          <div class="p-scrim"></div>
+          <span class="p-badge"></span>
+          <div class="p-title"></div>
+          <div class="p-media"></div>
+          <div class="p-sub"></div>
+          <span class="p-cta"></span>
+          <div class="p-foot"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const poster=$('#poster');
+const state={ w:1080, h:1080, cA:'#ec4899', cB:'#8b5cf6', cT:'#ffffff', bgImg:'' };
+
+/* ---------- 크기 프리셋 ---------- */
+const PRESETS=[
+  {n:'인스타 정사각',d:'1080×1080',w:1080,h:1080},
+  {n:'인스타 스토리',d:'1080×1920',w:1080,h:1920},
+  {n:'가로 배너',d:'1200×628',w:1200,h:628},
+  {n:'카톡 공지',d:'800×800',w:800,h:800},
+  {n:'A4 세로',d:'794×1123',w:794,h:1123},
+  {n:'와이드 TV',d:'1280×720',w:1280,h:720},
+];
+$('#presets').innerHTML=PRESETS.map((p,i)=>
+  `<button class="preset" data-i="${i}"><b>${p.n}</b><span>${p.d}</span></button>`).join('');
+$$('.preset').forEach(b=>b.onclick=()=>{
+  const p=PRESETS[b.dataset.i]; state.w=p.w; state.h=p.h;
+  $('#wRange').value=p.w; $('#hRange').value=p.h;
+  $$('.preset').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  render();
+});
+$('#presets').firstElementChild.classList.add('on');
+
+$('#wRange').oninput=e=>{ state.w=+e.target.value; $$('.preset').forEach(x=>x.classList.remove('on')); render(); };
+$('#hRange').oninput=e=>{ state.h=+e.target.value; $$('.preset').forEach(x=>x.classList.remove('on')); render(); };
+
+/* ---------- 테마 프리셋 ---------- */
+const THEMES=[
+  ['#ec4899','#8b5cf6','#fff'],['#f97316','#ef4444','#fff'],
+  ['#06b6d4','#3b82f6','#fff'],['#22c55e','#16a34a','#fff'],
+  ['#facc15','#f97316','#3b1300'],['#0f172a','#334155','#fff'],
+  ['#ff6a88','#ff99ac','#4a0d2b'],['#a855f7','#ec4899','#fff'],
+];
+$('#themes').innerHTML=THEMES.map((t,i)=>
+  `<div class="sw" data-i="${i}" style="background:linear-gradient(135deg,${t[0]},${t[1]})"></div>`).join('');
+$$('.sw').forEach(s=>s.onclick=()=>{
+  const t=THEMES[s.dataset.i]; state.cA=t[0]; state.cB=t[1]; state.cT=t[2];
+  $('#cA').value=t[0]; $('#cB').value=t[1]; $('#cT').value=t[2];
+  $$('.sw').forEach(x=>x.classList.remove('on')); s.classList.add('on');
+  render();
+});
+['cA','cB','cT'].forEach(k=>$('#'+k).oninput=e=>{ state[k]=e.target.value; render(); });
+
+/* ---------- 배경 이미지 ---------- */
+$('#bgFile').onchange=e=>readImg(e.target.files[0],d=>{state.bgImg=d; render();});
+$('#bgClear').onclick=()=>{ state.bgImg=''; render(); };
+
+/* ---------- 미디어 ---------- */
+const mediaState={type:'youtube', yt:'dQw4w9WgXcQ', img:'', vid:''};
+$('#mType').onchange=e=>{
+  mediaState.type=e.target.value;
+  $('#mYoutube').style.display=e.target.value==='youtube'?'':'none';
+  $('#mImage').style.display  =e.target.value==='image'?'':'none';
+  $('#mVideo').style.display  =e.target.value==='video'?'':'none';
+  render();
+};
+$('#mYtUrl').oninput=e=>{ mediaState.yt=parseYt(e.target.value); render(); };
+$('#mImgFile').onchange=e=>readImg(e.target.files[0],d=>{mediaState.img=d; render();});
+$('#mVidFile').onchange=e=>{const f=e.target.files[0]; if(f){mediaState.vid=URL.createObjectURL(f); render();}};
+function parseYt(u){ const m=u.match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([\w-]{6,})/); return m?m[1]:u.trim(); }
+
+/* ---------- 문구 ---------- */
+['fBadge','fTitle','fSub','fCta','fFoot'].forEach(id=>$('#'+id).oninput=render);
+
+/* ---------- 기기 미리보기 ---------- */
+$$('.devbtn').forEach(b=>b.onclick=()=>{
+  $$('.devbtn').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  $('#frame').className='frame '+b.dataset.dev; render();
+});
+
+/* ---------- 렌더 ---------- */
+function render(){
+  const scrollerW=$('.scroller').clientWidth||800;
+  const scale=scrollerW/state.w;
+  poster.style.height=(state.h*scale)+'px';
+  const base=Math.min(state.w,state.h);
+  poster.style.fontSize=(base*scale/26)+'px';
+
+  poster.style.background=state.bgImg
+    ? `url(${state.bgImg}) center/cover`
+    : `linear-gradient(135deg,${state.cA},${state.cB})`;
+  poster.style.color=state.cT;
+  $('.p-scrim').style.display=state.bgImg?'block':'none';
+
+  $('.p-badge').textContent=$('#fBadge').value;
+  $('.p-badge').style.display=$('#fBadge').value?'inline-block':'none';
+  $('.p-title').textContent=$('#fTitle').value;
+  $('.p-sub').textContent=$('#fSub').value;
+  $('.p-cta').textContent=$('#fCta').value;
+  $('.p-cta').style.display=$('#fCta').value?'inline-block':'none';
+  $('.p-foot').textContent=$('#fFoot').value;
+  $('.p-title').style.fontSize=(base*scale/11)+'px';
+
+  renderMedia();
+  $('#dim').textContent=`${state.w} × ${state.h}`;
+  $('#wLbl').textContent=state.w+'px'; $('#hLbl').textContent=state.h+'px';
+}
+function renderMedia(){
+  const box=$('.p-media'); const t=mediaState.type;
+  if(t==='none'){ box.style.display='none'; box.innerHTML=''; return; }
+  box.style.display='block';
+  if(t==='youtube') box.innerHTML=`<iframe src="https://www.youtube.com/embed/${mediaState.yt}" allowfullscreen></iframe>`;
+  else if(t==='image') box.innerHTML=mediaState.img?`<img src="${mediaState.img}">`:placeholder('이미지 업로드');
+  else if(t==='video') box.innerHTML=mediaState.vid?`<video src="${mediaState.vid}" controls muted playsinline></video>`:placeholder('mp4 업로드');
+}
+const placeholder=txt=>`<div style="aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.15);font-size:.8em;font-weight:700">${txt}</div>`;
+
+function readImg(file,cb){ if(!file)return; const r=new FileReader(); r.onload=()=>cb(r.result); r.readAsDataURL(file); }
+
+/* ---------- 저장 ---------- */
+$('#dlPng').onclick=exportPng;
+function exportPng(){
+  // SVG foreignObject 방식 (CDN 불필요). 유튜브 iframe은 캡처 불가 → 자리표시.
+  const node=poster.cloneNode(true);
+  const ifr=node.querySelector('iframe');
+  if(ifr){ const d=document.createElement('div'); d.textContent='▶ 동영상'; d.style.cssText='aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);border-radius:14px;font-weight:800'; ifr.replaceWith(d); }
+  node.style.width=state.w+'px'; node.style.height=state.h+'px'; node.style.fontSize=(Math.min(state.w,state.h)/26)+'px';
+  node.querySelector('.p-title').style.fontSize=(Math.min(state.w,state.h)/11)+'px';
+  const html=`<div xmlns="http://www.w3.org/1999/xhtml" style="font-family:'Malgun Gothic',sans-serif">${node.outerHTML}</div>`;
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${state.w}" height="${state.h}"><foreignObject width="100%" height="100%">${html}</foreignObject></svg>`;
+  const img=new Image();
+  img.onload=()=>{
+    const c=document.createElement('canvas'); c.width=state.w; c.height=state.h;
+    c.getContext('2d').drawImage(img,0,0);
+    try{ const a=document.createElement('a'); a.download='mangoi-poster.png'; a.href=c.toDataURL('image/png'); a.click(); toast('PNG로 저장했습니다 ✅'); }
+    catch(e){ toast('업로드 이미지가 있으면 브라우저 보안상 PNG 저장이 제한될 수 있어요'); }
+  };
+  img.onerror=()=>toast('PNG 변환 실패 — HTML 저장을 이용하세요');
+  img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+}
+$('#dlHtml').onclick=()=>{
+  const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${$('#fTitle').value}</title><style>body{margin:0;background:#111;display:flex;justify-content:center;align-items:center;min-height:100vh}#poster{max-width:${state.w}px;width:100%}</style></head><body>${poster.outerHTML.replace('style="height','style="aspect-ratio:'+state.w+'/'+state.h+';height')}<!-- BUILD:20260706175859 -->
+</body></html>`;
+  const blob=new Blob([html],{type:'text/html'}); const a=document.createElement('a');
+  a.download='mangoi-poster.html'; a.href=URL.createObjectURL(blob); a.click(); toast('웹 포스터(HTML)로 저장했습니다 ✅');
+};
+let toastT; function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2600); }
+
+window.addEventListener('resize',render);
+window.addEventListener('load',render);
+render();
+requestAnimationFrame(render);
+</script>
+<!-- BUILD:20260706175859 -->
+</body>
+</html>

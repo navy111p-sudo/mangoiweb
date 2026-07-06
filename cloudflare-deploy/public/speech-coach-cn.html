@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B1224">
 <title>🇨🇳 중국어 발음 교정 — 다락원 중국어 마스터 + Lv 1~20</title>
-<!-- BUILD:20260706172550 -->
+<!-- BUILD:20260706175859 -->
 <style>
 :root {
   --bg: #0B1224;
@@ -114,6 +114,8 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
 .btn-warn.playing{background:linear-gradient(135deg,var(--ok),#059669)}
 .btn-step{background:linear-gradient(135deg,var(--ok),#059669);color:#fff}
 .sentence-select{flex:1;min-width:140px;max-width:280px;padding:10px 12px;background:var(--bg-card);color:var(--text,#fff);border:1px solid var(--border);border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer}
+.sentence-progress{max-width:320px;margin:6px auto 2px;height:7px;background:rgba(148,163,184,0.2);border-radius:99px;overflow:hidden}
+.sentence-progress-fill{height:100%;width:0;background:linear-gradient(90deg,var(--ok),#059669);border-radius:99px;transition:width .45s cubic-bezier(.3,1,.4,1)}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.5)}50%{box-shadow:0 0 0 14px rgba(16,185,129,0)}}
 
 /* 반복 듣기 컨트롤 */
@@ -221,6 +223,7 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
     <button class="btn btn-step" onclick="goSentence(1)"><span data-ko="다음 문장" data-en="Next">다음 문장</span> ▶</button>
   </div>
   <div id="sentence-count" style="text-align:center;font-size:12px;color:var(--text-mute);font-weight:700;margin-top:6px">1 / 1</div>
+  <div class="sentence-progress"><div class="sentence-progress-fill" id="sentence-bar"></div></div>
 
   <!-- fix (2026-06-01) — 반복 듣기 (1~무한) -->
   <div class="repeat-row" id="repeat-row">
@@ -1001,7 +1004,31 @@ function loadDoneCn(){ try { return new Set(JSON.parse(localStorage.getItem(LS_C
 var doneCn = loadDoneCn();
 function saveDoneCn(){ try { localStorage.setItem(LS_CN_DONE, JSON.stringify(Array.from(doneCn))); } catch(e){} }
 function savePosCn(){ try { localStorage.setItem(LS_CN_POS, JSON.stringify({ group: state.group, book: state.darakwonBook, lesson: state.lessonIdx, lv: state.lv, sIdx: state.sIdx })); } catch(e){} }
-function markSentenceDone(){ var pool = getPool(); var it = pool[state.sIdx]; if (it && !doneCn.has(it.c)) { doneCn.add(it.c); saveDoneCn(); updateSentenceNav(pool); } }
+function markSentenceDone(){
+  var pool = getPool(); var it = pool[state.sIdx];
+  if (it && !doneCn.has(it.c)) {
+    doneCn.add(it.c); saveDoneCn(); updateSentenceNav(pool);
+    if (pool.length && pool.every(function(x){ return doneCn.has(x.c); })) celebrate('🎉 이 세트 완료! 대단해요!');  // 세트 완주 축하
+  }
+}
+/* 세트 완주 축하 — 배지 + 컨페티 (외부 라이브러리 없음) */
+function celebrate(msg){
+  var badge = document.createElement('div');
+  badge.textContent = msg || '🎉 완료!';
+  badge.style.cssText = 'position:fixed;left:50%;top:38%;transform:translate(-50%,-50%) scale(0.6);z-index:100001;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-weight:900;font-size:19px;padding:16px 26px;border-radius:16px;box-shadow:0 16px 44px -8px rgba(0,0,0,0.55);opacity:0;transition:transform .4s cubic-bezier(.2,1.5,.4,1),opacity .4s;pointer-events:none;text-align:center';
+  document.body.appendChild(badge);
+  requestAnimationFrame(function(){ badge.style.opacity='1'; badge.style.transform='translate(-50%,-50%) scale(1)'; });
+  var colors = ['#fbbf24','#34d399','#38bdf8','#a78bfa','#f472b6','#f87171'];
+  for (var i=0;i<40;i++){ (function(i){
+    var p = document.createElement('div'), size = 6 + Math.random()*9;
+    p.style.cssText = 'position:fixed;top:-24px;left:'+(Math.random()*100)+'vw;width:'+size+'px;height:'+size+'px;background:'+colors[i%colors.length]+';z-index:100000;border-radius:'+(Math.random()<0.5?'50%':'2px')+';pointer-events:none';
+    document.body.appendChild(p);
+    var dur = 1500 + Math.random()*1300, drift = (Math.random()*2-1)*140, rot = Math.random()*720;
+    try { p.animate([{transform:'translate(0,0) rotate(0deg)',opacity:1},{transform:'translate('+drift+'px,'+(window.innerHeight+60)+'px) rotate('+rot+'deg)',opacity:0.9}],{duration:dur,easing:'cubic-bezier(.2,.6,.5,1)'}); } catch(e){}
+    setTimeout(function(){ p.remove(); }, dur);
+  })(i); }
+  setTimeout(function(){ badge.style.opacity='0'; badge.style.transform='translate(-50%,-50%) scale(0.8)'; setTimeout(function(){ badge.remove(); }, 400); }, 2300);
+}
 
 /* ── 문장 선택 (순차 이동 + 선택 + 랜덤) ── */
 function getPool(){
@@ -1039,11 +1066,11 @@ function updateSentenceNav(pool){
     }).join('');
     sel.value = String(state.sIdx);
   }
+  var doneN = pool.filter(function(it){ return doneCn.has(it.c); }).length;
   const cnt = document.getElementById('sentence-count');
-  if (cnt) {
-    var doneN = pool.filter(function(it){ return doneCn.has(it.c); }).length;
-    cnt.textContent = (state.sIdx + 1) + ' / ' + pool.length + (doneN ? ' · ✓ ' + doneN : '');
-  }
+  if (cnt) cnt.textContent = (state.sIdx + 1) + ' / ' + pool.length + (doneN ? ' · ✓ ' + doneN : '');
+  const bar = document.getElementById('sentence-bar');
+  if (bar) bar.style.width = (pool.length ? Math.round(doneN / pool.length * 100) : 0) + '%';   // 완료율 진행바
 }
 function goSentence(delta){ stopSpeak(); state.sIdx += delta; showSentence(); }
 function selectSentence(v){ stopSpeak(); state.sIdx = parseInt(v, 10) || 0; showSentence(); }

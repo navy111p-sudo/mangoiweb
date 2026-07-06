@@ -600,6 +600,13 @@
   html[data-theme="light"] table.list thead th { background: #f1f5f9; }
   html[data-theme="light"] table.list tbody tr:hover td { background: rgba(251,191,36,0.08); }
   html[data-theme="light"] .empty { background: #f8fafc; }
+  /* 로그인 이력 · 세션 행 배경(테마 대응) */
+  .logrow { background: rgba(15,23,42,0.5); }
+  html[data-theme="light"] .logrow { background: #f1f5f9; }
+  .logbadge-ok  { color:#86efac; }
+  .logbadge-bad { color:#fca5a5; }
+  html[data-theme="light"] .logbadge-ok  { color:#047857; }
+  html[data-theme="light"] .logbadge-bad { color:#b91c1c; }
   html[data-theme="light"] .checklist-row { background: #f8fafc; }
   html[data-theme="light"] .checklist-row:hover { background: #f1f5f9; }
   html[data-theme="light"] .checklist-row .cl-text b { color: #0f172a; }
@@ -1401,10 +1408,10 @@
     if (!items || !items.length){ hBox.innerHTML = '<div class="empty">' + (en?'No history yet.':'아직 이력이 없습니다.') + '</div>'; return; }
     hBox.innerHTML = items.map(function(x, i){
       var okBadge = x.success
-        ? '<span style="color:#86efac;font-size:10.5px;font-weight:700">' + (en?'Success':'성공') + '</span>'
-        : '<span style="color:#fca5a5;font-size:10.5px;font-weight:700">' + (en?'Failed':'실패') + (x.reason?(' ('+esc(x.reason)+')'):'') + '</span>';
+        ? '<span class="logbadge-ok" style="font-size:10.5px;font-weight:700">' + (en?'Success':'성공') + '</span>'
+        : '<span class="logbadge-bad" style="font-size:10.5px;font-weight:700">' + (en?'Failed':'실패') + (x.reason?(' ('+esc(x.reason)+')'):'') + '</span>';
       var dot = i === 0 && x.success ? '🟢 ' : (x.success ? '· ' : '⚠️ ');
-      return '<div style="padding:10px 14px;background:rgba(15,23,42,0.5);border-radius:10px;margin-bottom:6px;font-size:12.5px;display:flex;justify-content:space-between;align-items:center;gap:10px">'
+      return '<div class="logrow" style="padding:10px 14px;border-radius:10px;margin-bottom:6px;font-size:12.5px;display:flex;justify-content:space-between;align-items:center;gap:10px">'
            + '<span>' + dot + esc(deviceOf(x.user_agent)) + ' · ' + esc(x.ip||'-') + ' · ' + fmtTime(x.login_at) + '</span>' + okBadge + '</div>';
     }).join('');
   }
@@ -1428,10 +1435,10 @@
     sBox.innerHTML = items.map(function(x){
       var left = '<span>' + (x.is_current ? '🟢 <b>' + (en?'In use now':'현재 사용 중') + '</b> · ' : '') + esc(deviceOf(x.user_agent)) + ' · ' + esc(x.ip||'-') + ' · ' + fmtTime(x.last_seen_at) + '</span>';
       var right = x.is_current
-        ? '<span style="color:#86efac;font-size:10.5px;font-weight:700">' + (en?'Active':'활성') + '</span>'
+        ? '<span class="logbadge-ok" style="font-size:10.5px;font-weight:700">' + (en?'Active':'활성') + '</span>'
         : '<button data-revoke="' + esc(x.token_full) + '" style="padding:4px 10px;background:#ef4444;color:#fff;border:0;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">' + (en?'End':'종료') + '</button>';
-      var bg = x.is_current ? 'rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.35)' : 'rgba(15,23,42,0.5)';
-      return '<div style="padding:10px 14px;background:' + bg + ';border-radius:10px;margin-bottom:6px;font-size:12.5px;display:flex;justify-content:space-between;align-items:center;gap:10px">' + left + right + '</div>';
+      var curStyle = x.is_current ? 'background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.35);' : '';
+      return '<div class="' + (x.is_current ? '' : 'logrow') + '" style="' + curStyle + 'padding:10px 14px;border-radius:10px;margin-bottom:6px;font-size:12.5px;display:flex;justify-content:space-between;align-items:center;gap:10px">' + left + right + '</div>';
     }).join('');
     sBox.querySelectorAll('[data-revoke]').forEach(function(btn){
       btn.addEventListener('click', function(){

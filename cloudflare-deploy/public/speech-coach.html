@@ -64,6 +64,8 @@
   .step-btn.primary { background: linear-gradient(135deg,#34d399,#059669); color:#fff; border:0; }
   .step-select { flex: 1; min-width: 150px; max-width: 340px; padding: 9px 12px; background: rgba(20,41,80,0.9); color: #fff; border: 1px solid rgba(148,163,184,0.4); border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; }
   .step-count { font-size: 12px; color: #94a3b8; font-weight: 700; }
+  .step-progress { max-width: 340px; margin: 6px auto 2px; height: 7px; background: rgba(148,163,184,0.2); border-radius: 99px; overflow: hidden; }
+  .step-progress-fill { height: 100%; width: 0; background: linear-gradient(90deg,#34d399,#059669); border-radius: 99px; transition: width .45s cubic-bezier(.3,1,.4,1); }
 
   .home-btn { position: fixed; top: 14px; right: 14px; z-index: 999; padding: 9px 18px; background: linear-gradient(135deg,#fbbf24,#f59e0b); color: #1a1a1a; text-decoration: none; font-weight: 800; border-radius: 99px; font-size: 13px; }
   .lang-btn { position: fixed; top: 14px; right: 148px; z-index: 999; padding: 9px 14px; background: rgba(255,255,255,0.9); color: #1a1a1a; border: 1px solid rgba(245,158,11,0.4); border-radius: 99px; font-size: 12px; font-weight: 800; cursor: pointer; }
@@ -142,7 +144,8 @@
     <select id="step-select" class="step-select" onchange="selectStep(this.value)" aria-label="단계 선택"></select>
     <button class="step-btn primary" onclick="goStep(1)"><span data-ko="다음 단계" data-en="Next">다음 단계</span> ▶</button>
   </div>
-  <div class="step-count" style="text-align:center;margin-bottom:6px"><span id="step-count-txt">1 / 5</span></div>
+  <div class="step-count" style="text-align:center;margin-bottom:2px"><span id="step-count-txt">1 / 5</span></div>
+  <div class="step-progress"><div class="step-progress-fill" id="step-bar"></div></div>
 
   <div class="preset">
     <button onclick="setTarget('Hello! Nice to meet you.')">Hello!</button>
@@ -214,7 +217,12 @@ function loadDone(){ try { return new Set(JSON.parse(localStorage.getItem(LS_DON
 var doneSet = loadDone();
 function saveDone(){ try { localStorage.setItem(LS_DONE, JSON.stringify(Array.from(doneSet))); } catch(e){} }
 function saveStep(){ try { localStorage.setItem(LS_STEP, String(currentStep)); } catch(e){} }
-function markStepDone(i){ if (STEPS[i] && !doneSet.has(STEPS[i])) { doneSet.add(STEPS[i]); saveDone(); renderStepSelect(); updateStepUI(); } }
+function markStepDone(i){
+  if (STEPS[i] && !doneSet.has(STEPS[i])) {
+    doneSet.add(STEPS[i]); saveDone(); renderStepSelect(); updateStepUI();
+    if (STEPS.every(function(s){ return doneSet.has(s); })) celebrate('🎉 모든 단계 완료! 정말 잘했어요!');  // 세트 완주 축하
+  }
+}
 function shortLabel(s){ return s.length > 30 ? s.slice(0, 30) + '…' : s; }
 function renderStepSelect(){
   var sel = document.getElementById('step-select');
@@ -228,11 +236,29 @@ function renderStepSelect(){
 function updateStepUI(){
   var sel = document.getElementById('step-select');
   if (sel) sel.value = String(currentStep);
+  var done = STEPS.filter(function(s){ return doneSet.has(s); }).length;
   var cnt = document.getElementById('step-count-txt');
-  if (cnt) {
-    var done = STEPS.filter(function(s){ return doneSet.has(s); }).length;
-    cnt.textContent = (currentStep + 1) + ' / ' + STEPS.length + (done ? ' · ✓ ' + done : '');
-  }
+  if (cnt) cnt.textContent = (currentStep + 1) + ' / ' + STEPS.length + (done ? ' · ✓ ' + done : '');
+  var bar = document.getElementById('step-bar');
+  if (bar) bar.style.width = Math.round(done / STEPS.length * 100) + '%';   // 완료율 진행바
+}
+/* 세트 완주 축하 — 배지 + 컨페티 (외부 라이브러리 없음) */
+function celebrate(msg){
+  var badge = document.createElement('div');
+  badge.textContent = msg || '🎉 완료!';
+  badge.style.cssText = 'position:fixed;left:50%;top:38%;transform:translate(-50%,-50%) scale(0.6);z-index:100001;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-weight:900;font-size:19px;padding:16px 26px;border-radius:16px;box-shadow:0 16px 44px -8px rgba(0,0,0,0.55);opacity:0;transition:transform .4s cubic-bezier(.2,1.5,.4,1),opacity .4s;pointer-events:none;text-align:center';
+  document.body.appendChild(badge);
+  requestAnimationFrame(function(){ badge.style.opacity='1'; badge.style.transform='translate(-50%,-50%) scale(1)'; });
+  var colors = ['#fbbf24','#34d399','#38bdf8','#a78bfa','#f472b6','#f87171'];
+  for (var i=0;i<40;i++){ (function(i){
+    var p = document.createElement('div'), size = 6 + Math.random()*9;
+    p.style.cssText = 'position:fixed;top:-24px;left:'+(Math.random()*100)+'vw;width:'+size+'px;height:'+size+'px;background:'+colors[i%colors.length]+';z-index:100000;border-radius:'+(Math.random()<0.5?'50%':'2px')+';pointer-events:none';
+    document.body.appendChild(p);
+    var dur = 1500 + Math.random()*1300, drift = (Math.random()*2-1)*140, rot = Math.random()*720;
+    try { p.animate([{transform:'translate(0,0) rotate(0deg)',opacity:1},{transform:'translate('+drift+'px,'+(window.innerHeight+60)+'px) rotate('+rot+'deg)',opacity:0.9}],{duration:dur,easing:'cubic-bezier(.2,.6,.5,1)'}); } catch(e){}
+    setTimeout(function(){ p.remove(); }, dur);
+  })(i); }
+  setTimeout(function(){ badge.style.opacity='0'; badge.style.transform='translate(-50%,-50%) scale(0.8)'; setTimeout(function(){ badge.remove(); }, 400); }, 2300);
 }
 function loadStep(i, speak){
   currentStep = ((i % STEPS.length) + STEPS.length) % STEPS.length;   // 순환(끝→처음)
@@ -376,7 +402,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260706172550 -->
+<!-- BUILD:20260706175859 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>
