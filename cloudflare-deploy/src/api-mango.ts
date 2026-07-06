@@ -2929,6 +2929,14 @@ Return STRICT JSON only, in BOTH Korean and English, with 2-3 strengths, exactly
         source: r.source, generated_at: r.created_at
       });
       try {
+        // 관리자 검수용: 최근 N건(전체 강사) — ?recent=1&days=&limit=
+        if (url.searchParams.get('recent')) {
+          const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10) || 50));
+          const days = Math.min(365, Math.max(0, parseInt(url.searchParams.get('days') || '30', 10) || 0));
+          const since = days ? Date.now() - days * 86400 * 1000 : 0;
+          const rs = await env.DB.prepare(`SELECT * FROM teacher_class_feedback WHERE created_at>=? ORDER BY created_at DESC LIMIT ?`).bind(since, limit).all();
+          return json({ ok: true, count: rs.results?.length || 0, rows: (rs.results || []).map(parseRow) });
+        }
         if (roomId) {
           const r: any = await env.DB.prepare(`SELECT * FROM teacher_class_feedback WHERE room_id=? LIMIT 1`).bind(roomId).first();
           return json({ ok: true, feedback: r ? parseRow(r) : null });

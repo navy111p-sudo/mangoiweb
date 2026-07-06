@@ -23353,7 +23353,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260706232946 -->
+        <!-- BUILD:20260706233541 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -31221,10 +31221,17 @@ button.chip:hover,
   /* 강사 평가 입력 모달 (흰 배경) → 카테고리 라벨·요약 라벨을 어둡게 */
   .eval-modal .eval-row label { color: #1f2937 !important; }
   #eval-weighted-box span { color: #1e293b !important; }
+  .eval-modal h3 { color: #0f172a !important; }
   /* 관리자 로그인 모달 (흰 배경) → 제목·입력 라벨·안내문을 어둡게 */
   #admin-login-overlay h2, #admin-login-overlay h2 span { color: #0f172a !important; }
   #admin-login-overlay label, #admin-login-overlay label > span { color: #374151 !important; }
   #admin-login-overlay p { color: #64748b !important; }
+  #admin-login-overlay details > div div { color: #374151 !important; }
+  /* 새 숙제 출제 모달 (파란 헤더=흰글자 유지, 흰 본문 라벨만 어둡게) */
+  #hw-modal label { color: #334155 !important; }
+  /* 팝업 만들기 에디터 (앰버 헤더=어두운글자 복구 + 흰 본문 라벨 어둡게) */
+  #pop-editor-modal h2 { color: #1f2937 !important; }
+  #pop-editor-overlay label { color: #334155 !important; }
 
   /* === 필터 행 === */
   .pm-filter-row {
@@ -42287,7 +42294,18 @@ button.chip:hover,
       '<span id="rc-co-stats" style="font-size:12px;color:#9ca3af"></span>' +
       '</div>' +
       '<div id="rc-co-note" style="display:none;padding:10px 12px;border-radius:8px;font-size:12.5px;margin-bottom:10px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);color:#fcd34d"></div>' +
-      '<div id="rc-co-body"></div>';
+      '<div id="rc-co-body"></div>' +
+      // 🤖 수업별 AI 코칭 피드백(교사에게 자동으로 뜬 것) — 품질 검수용
+      '<div style="border-top:1px solid rgba(148,163,184,.2);margin:18px 0 12px"></div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">' +
+      '<b style="font-size:13px;color:#e9d5ff">🤖 ' + L('수업별 AI 코칭 (최근)', 'Per-class AI coaching (recent)') + '</b>' +
+      '<button id="rc-aifb-refresh" style="padding:5px 12px;font-size:12px;border-radius:8px;cursor:pointer">↻ ' + L('새로고침', 'Refresh') + '</button>' +
+      '<span id="rc-aifb-stats" style="font-size:12px;color:#9ca3af"></span>' +
+      '</div>' +
+      '<div style="font-size:11.5px;color:#9ca3af;margin-bottom:8px;line-height:1.6">' +
+      L('수업이 끝나면 강사에게 자동으로 뜬 AI 코칭입니다. AI가 제대로 짚는지 여기서 검수하세요.',
+        'AI coaching shown to teachers right after class. Review here whether the AI is on point.') + '</div>' +
+      '<div id="rc-aifb-body"></div>';
   }
 
   function coachApi(qs){
@@ -42393,12 +42411,82 @@ button.chip:hover,
     });
   }
 
+  // ── 🤖 수업별 AI 코칭 피드백 검수 ──────────────────────────────────────────
+  function aifbApi(qs){
+    return fetch('/api/ai-feedback' + qs, { cache: 'no-store', credentials: 'include' })
+      .then(function(r){ return r.json().then(function(j){ return { status: r.status, body: j }; }); });
+  }
+  function fbChip(txt, col){
+    return '<span style="display:inline-block;margin:0 4px 0 0;padding:1px 8px;border-radius:6px;font-size:10.5px;' +
+      'background:rgba(148,163,184,.12);color:' + col + ';border:1px solid rgba(148,163,184,.25)">' + txt + '</span>';
+  }
+  function fbMetricChips(m){
+    if (!m) return '';
+    var out = '';
+    if (m.talk_ratio != null) out += fbChip(L('발화','Talk') + ' ' + Math.round(m.talk_ratio) + '%', (m.talk_ratio > 60 ? '#fbbf24' : '#34d399'));
+    if (m.praise_count != null) out += fbChip(L('칭찬','Praise') + ' ' + m.praise_count, '#93c5fd');
+    if (m.engagement) out += fbChip(L('참여','Eng') + ' ' + esc(m.engagement), (m.engagement === 'low' ? '#f87171' : (m.engagement === 'fair' ? '#fbbf24' : '#34d399')));
+    return out;
+  }
+  function fbFmtDate(ts){
+    if (!ts) return '';
+    var d = new Date(ts); var p = function(n){ return ('0' + n).slice(-2); };
+    return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  function renderAiFeedback(rows){
+    var body = document.getElementById('rc-aifb-body'); if (!body) return;
+    if (!rows.length){
+      body.innerHTML = '<div style="padding:14px;text-align:center;color:#9ca3af;font-size:12.5px">' +
+        L('아직 생성된 AI 코칭이 없습니다. 강사가 수업을 마치면 여기에 쌓입니다.',
+          'No AI coaching yet. It accumulates as teachers finish classes.') + '</div>';
+      return;
+    }
+    var en = isEn();
+    body.innerHTML = rows.map(function(r){
+      var fb = (en ? r.feedback_en : r.feedback_ko) || r.feedback_en || r.feedback_ko || {};
+      var good = (fb.good || []).map(function(g){ return '<div style="color:#d1d5db;margin:1px 0">· ' + esc(g) + '</div>'; }).join('');
+      var srcBadge = (r.source && r.source !== 'ai') ? '<span style="font-size:10px;color:#fca5a5;margin-left:4px">(' + esc(r.source) + ')</span>' : '';
+      return '<div style="border:1px solid rgba(148,163,184,.18);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:rgba(30,41,59,.35)">' +
+        '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px">' +
+          '<b style="color:#e9d5ff;font-size:12.5px">' + esc(r.teacher_name || r.teacher_uid || '(unknown)') + '</b>' +
+          '<span style="color:#9ca3af;font-size:11px">· ' + esc(r.student_name || '') +
+            (r.duration_min ? (' · ' + r.duration_min + L('분','m')) : '') + ' · ' + esc(fbFmtDate(r.generated_at)) + '</span>' + srcBadge +
+          '<span style="margin-left:auto">' + fbMetricChips(r.metrics) + '</span>' +
+        '</div>' +
+        '<div style="font-size:11.5px">' +
+          '<div style="color:#34d399;font-weight:700;margin-bottom:2px">👍 ' + L('잘한 점','Good') + '</div>' + good +
+          '<div style="color:#fbbf24;font-weight:700;margin:5px 0 2px">💡 ' + L('개선','Improve') + '</div>' +
+          '<div style="color:#d1d5db">' + esc(fb.improve || '') + '</div>' +
+          '<div style="color:#7dd3fc;font-weight:700;margin:5px 0 2px">🎯 ' + L('실천','Action') + '</div>' +
+          '<div style="color:#e0f2fe">' + esc(fb.action || '') + '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+  function loadAiFeedback(){
+    var body = document.getElementById('rc-aifb-body'); if (!body) return;
+    body.innerHTML = '<div style="padding:12px;text-align:center;color:#9ca3af;font-size:12.5px">' + L('AI 코칭 불러오는 중…','Loading AI coaching…') + '</div>';
+    aifbApi('?recent=1&days=' + coachDays + '&limit=50').then(function(res){
+      if (res.status !== 200 || !res.body.ok){
+        body.innerHTML = '<div style="padding:12px;color:#f87171;font-size:12px">' + esc((res.body && res.body.error) || ('HTTP ' + res.status)) + '</div>';
+        return;
+      }
+      var rows = res.body.rows || [];
+      var st = document.getElementById('rc-aifb-stats');
+      if (st) st.innerHTML = L('최근','Recent') + ' <b>' + rows.length + '</b>' + L('건','');
+      renderAiFeedback(rows);
+    }).catch(function(e){
+      body.innerHTML = '<div style="padding:12px;color:#f87171;font-size:12px">' + esc((e && e.message) || e) + '</div>';
+    });
+  }
+
   function loadCoaching(){
     var body = document.getElementById('rc-co-body');
     var sel = document.getElementById('rc-co-days');
     if (sel) coachDays = Number(sel.value) || 30;
     if (body) body.innerHTML = '<div style="padding:18px;text-align:center;color:#9ca3af;font-size:13px">' + L('강사 평가 집계 중…','Aggregating ratings…') + '</div>';
     coNote('');
+    loadAiFeedback();   // 🤖 수업별 AI 코칭 검수 섹션도 함께 로드
     coachApi('summary?days=' + coachDays).then(function(res){
       panels.__coaching.dataset.loaded = '1';
       if (res.status !== 200 || !res.body.ok) {
@@ -42429,6 +42517,8 @@ button.chip:hover,
     if (refresh) refresh.addEventListener('click', function(ev){ ev.stopPropagation(); loadCoaching(); });
     var sel = document.getElementById('rc-co-days');
     if (sel) sel.addEventListener('change', function(ev){ ev.stopPropagation(); coachDays = Number(sel.value) || 30; loadCoaching(); });
+    var aiRefresh = document.getElementById('rc-aifb-refresh');
+    if (aiRefresh) aiRefresh.addEventListener('click', function(ev){ ev.stopPropagation(); loadAiFeedback(); });
   })();
 
   // ── 기존 내비게이션(사이드바·검색·AI 점프)과 호환 ─────────────────────────
