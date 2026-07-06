@@ -10688,6 +10688,147 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </details>
 
+<!-- 🎨 포스터 만들기 — 공지·안내 포스터 서버 저장/재사용 -->
+<details class="table-card menu-card" id="card-poster-maker">
+  <summary><span data-ko="🎨 포스터 만들기" data-en="🎨 Poster Maker">🎨 포스터 만들기</span></summary>
+  <div class="menu-body">
+    <div class="sub-menu">
+      <details class="sub-item" open>
+        <summary data-ko="🖼 내 포스터 (저장 목록)" data-en="🖼 Saved Posters">🖼 내 포스터 (저장 목록)</summary>
+        <div class="sub-body">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+            <button onclick="posterOpenEditor()" style="padding:7px 14px;font-size:12.5px;font-weight:700;background:#ec4899;color:#fff;border:0;border-radius:6px;cursor:pointer"
+                    data-ko="＋ 새 포스터 만들기" data-en="＋ New Poster">＋ 새 포스터 만들기</button>
+            <button class="primary" onclick="posterLoadList()" style="padding:7px 14px;font-size:12.5px;font-weight:700"
+                    data-ko="🔄 새로고침" data-en="🔄 Reload">🔄 새로고침</button>
+            <div id="poster-stats-line" style="font-size:11.5px;color:#6b7280;margin-left:auto"></div>
+          </div>
+          <div id="poster-list" style="overflow-x:auto"></div>
+        </div>
+      </details>
+      <details class="sub-item" id="sub-poster-guide">
+        <summary data-ko="📖 사용 안내" data-en="📖 Guide">📖 사용 안내</summary>
+        <div class="sub-body">
+          <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;font-size:12.5px;line-height:1.7;color:#374151">
+            <b>휴대폰·모바일·PC</b> 어디서나 잘 보이는 공지/안내/이벤트 포스터를 만듭니다.
+            <ul style="margin:8px 0 0 18px;padding:0">
+              <li><b>크기 조절</b> — 인스타·스토리·배너·A4 프리셋 + 가로/세로 직접 조절</li>
+              <li><b>동영상</b> — 유튜브 임베드 · 이미지 · 배경이미지 삽입</li>
+              <li><b>서버 저장</b> — 만든 날짜·수정 날짜로 관리하고, 언제든 다시 불러 재사용</li>
+              <li>완성본은 <b>PNG 이미지</b> 또는 <b>웹 포스터(HTML)</b>로도 내려받을 수 있어요</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+    </div>
+  </div>
+</details>
+
+<!-- 🎨 포스터 에디터 모달 (poster-maker.html 임베드) -->
+<div id="poster-editor-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:11600;padding:14px" onclick="if(event.target===this)posterCloseEditor()">
+  <div style="max-width:1200px;height:calc(100vh - 28px);margin:0 auto;background:#0f1220;border-radius:14px;box-shadow:0 30px 80px -10px rgba(0,0,0,0.7);overflow:hidden;display:flex;flex-direction:column">
+    <div style="background:linear-gradient(135deg,#ec4899,#8b5cf6);color:#fff;padding:12px 18px;display:flex;align-items:center;gap:10px">
+      <h2 style="margin:0;flex:1;font-size:16px;font-weight:800" id="poster-editor-title">🎨 포스터 만들기</h2>
+      <button onclick="posterCloseEditor()" style="background:rgba(0,0,0,0.2);border:0;color:#fff;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer">✕</button>
+    </div>
+    <iframe id="poster-editor-frame" style="flex:1;width:100%;border:0;background:#0f1220" title="포스터 에디터"></iframe>
+  </div>
+</div>
+
+<!-- 🎨 포스터 관리 — 목록/저장/불러오기 로직 -->
+<script>
+(function(){
+  if(window.__posterAdminInit) return; window.__posterAdminInit=true;
+  var API='/api/admin/posters';
+  var cache=[], pendingLoad=null;
+  function $(id){return document.getElementById(id);}
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function pad(n){return String(n).padStart(2,'0');}
+  function fmt(ts){if(!ts)return'-';var d=new Date(Number(ts));return d.getFullYear()+'.'+pad(d.getMonth()+1)+'.'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes());}
+
+  async function loadList(){
+    var box=$('poster-list'); if(!box)return;
+    box.innerHTML='<div style="padding:18px;color:#6b7280;font-size:13px">불러오는 중…</div>';
+    try{
+      var r=await fetch(API,{credentials:'include'}); var d=await r.json();
+      cache=(d&&d.rows)||[]; renderList();
+    }catch(e){ box.innerHTML='<div style="padding:18px;color:#ef4444">목록을 불러오지 못했어요: '+esc(e&&e.message||e)+'</div>'; }
+  }
+  window.posterLoadList=loadList;
+
+  function thumb(cfg){
+    var bg = cfg.bgImg ? 'url('+cfg.bgImg+') center/cover' : 'linear-gradient(135deg,'+(cfg.cA||'#ec4899')+','+(cfg.cB||'#8b5cf6')+')';
+    var h=Math.max(28,Math.min(72,Math.round(48*((cfg.h||1080)/(cfg.w||1080)))));
+    return '<div style="width:48px;height:'+h+'px;border-radius:6px;background:'+bg+';color:'+(cfg.cT||'#fff')+';font-size:6px;line-height:1.1;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;padding:2px;box-shadow:0 1px 3px rgba(0,0,0,.2)">'+esc((cfg.title||'').slice(0,14))+'</div>';
+  }
+  function renderList(){
+    var box=$('poster-list'); if(!box)return;
+    var line=$('poster-stats-line'); if(line)line.textContent='전체 '+cache.length+'개';
+    if(!cache.length){ box.innerHTML='<div style="padding:26px;text-align:center;color:#9ca3af;font-size:13px">아직 저장한 포스터가 없어요.<br><b style="color:#ec4899">＋ 새 포스터 만들기</b>로 시작해 보세요.</div>'; return; }
+    var bs='padding:5px 9px;font-size:11.5px;font-weight:700;border:0;border-radius:6px;cursor:pointer;margin-right:4px';
+    var h='<table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:660px"><thead><tr style="background:#f3f4f6;text-align:left;color:#374151">'
+      +'<th style="padding:9px 10px">미리보기</th><th style="padding:9px 10px">이름</th><th style="padding:9px 10px">크기</th><th style="padding:9px 10px">만든 날짜</th><th style="padding:9px 10px">수정 날짜</th><th style="padding:9px 10px">관리</th></tr></thead><tbody>';
+    cache.forEach(function(p){
+      var cfg={}; try{cfg=JSON.parse(p.config||'{}');}catch(e){}
+      h+='<tr style="border-bottom:1px solid #eee">'
+        +'<td style="padding:8px 10px">'+thumb(cfg)+'</td>'
+        +'<td style="padding:8px 10px;font-weight:700;color:#111">'+esc(p.title)+'</td>'
+        +'<td style="padding:8px 10px;color:#6b7280">'+(p.width||'?')+'×'+(p.height||'?')+'</td>'
+        +'<td style="padding:8px 10px;color:#6b7280">'+fmt(p.created_at)+'</td>'
+        +'<td style="padding:8px 10px;color:#6b7280">'+fmt(p.updated_at)+'</td>'
+        +'<td style="padding:8px 10px;white-space:nowrap">'
+          +'<button style="'+bs+'background:#6366f1;color:#fff" onclick="posterEdit('+p.id+')">✏ 불러와 편집</button>'
+          +'<button style="'+bs+'background:#ef4444;color:#fff" onclick="posterDelete('+p.id+')">🗑 삭제</button>'
+        +'</td></tr>';
+    });
+    h+='</tbody></table>';
+    box.innerHTML=h;
+  }
+
+  function openEditor(id){
+    var ov=$('poster-editor-overlay'), fr=$('poster-editor-frame'), tt=$('poster-editor-title');
+    pendingLoad = id!=null ? (cache.filter(function(x){return x.id===id;})[0]||null) : null;
+    if(tt) tt.textContent = pendingLoad ? '🎨 포스터 편집 — '+pendingLoad.title : '🎨 새 포스터 만들기';
+    fr.src='/poster-maker.html?embed=1&_t='+Date.now();
+    ov.style.display='block';
+  }
+  window.posterOpenEditor=function(){openEditor(null);};
+  window.posterEdit=function(id){openEditor(id);};
+  window.posterCloseEditor=function(){var ov=$('poster-editor-overlay');ov.style.display='none';$('poster-editor-frame').src='about:blank';pendingLoad=null;};
+  window.posterDelete=async function(id){
+    if(!confirm('이 포스터를 삭제할까요?'))return;
+    try{ await fetch(API+'/'+id,{method:'DELETE',credentials:'include'}); loadList(); }catch(e){ alert('삭제 실패: '+(e&&e.message||e)); }
+  };
+
+  window.addEventListener('message', async function(e){
+    var m=e.data||{}; if(!m||!m.type)return;
+    var fr=$('poster-editor-frame'); if(!fr)return;
+    if(m.type==='poster-ready'){
+      if(pendingLoad && fr.contentWindow){
+        var cfg={}; try{cfg=JSON.parse(pendingLoad.config||'{}');}catch(_){}
+        fr.contentWindow.postMessage({type:'poster-load',config:cfg,title:pendingLoad.title,id:pendingLoad.id},'*');
+      }
+    } else if(m.type==='poster-save'){
+      try{
+        var editId = pendingLoad ? pendingLoad.id : null;
+        var url = editId ? (API+'/'+editId) : API;
+        var r=await fetch(url,{method: editId?'PUT':'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({title:m.title, width:m.width, height:m.height, config:JSON.stringify(m.config)})});
+        var d=await r.json();
+        if(!d||d.ok===false){ alert('저장 실패: '+((d&&d.error)||r.status)); return; }
+        var newId = editId || d.id;
+        pendingLoad = { id:newId, title:m.title, config:JSON.stringify(m.config), width:m.width, height:m.height };
+        if(fr.contentWindow) fr.contentWindow.postMessage({type:'poster-saved',id:newId},'*');
+        loadList();
+      }catch(err){ alert('저장 실패: '+(err&&err.message||err)); }
+    }
+  });
+
+  var card=document.getElementById('card-poster-maker');
+  if(card){ card.addEventListener('toggle',function(){ if(card.open && !cache.length) loadList(); }); }
+})();
+</script>
+
 <!-- 📢 팝업 에디터 모달 -->
 <div id="pop-editor-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:11500;padding:20px;overflow-y:auto" onclick="if(event.target===this)popCloseEditor()">
   <div id="pop-editor-modal" style="max-width:780px;margin:20px auto;background:#fff;border-radius:14px;box-shadow:0 30px 80px -10px rgba(0,0,0,0.6);overflow:hidden">
@@ -21047,6 +21188,7 @@ const SB_ID_MAP = {
   'card-kakao-mgmt':       'notify',
   'card-webpush-mgmt':     'notify',
   'card-popups-mgmt':      'notify',
+  'card-poster-maker':     'notify',
   'card-notifications':    'notify',
 
   'card-textbooks':        'edu',
@@ -23156,7 +23298,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260706180239 -->
+        <!-- BUILD:20260706180952 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -23521,6 +23663,7 @@ window.rebuildGlobalSearchIndex = function() {
       { id: 'card-notifications', name_ko: '인앱 알림 센터',              name_en: 'In-app Notifications',      def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'✅', parent:'👁️', student:'👁️' } },
       { id: 'card-webpush-mgmt',name_ko: '웹푸시 발송 관리',              name_en: 'Web Push Management',       def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
       { id: 'card-popups-mgmt', name_ko: '팝업 공지 관리',                name_en: 'Popup Notices',             def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'card-poster-maker',name_ko: '포스터 만들기',                name_en: 'Poster Maker',              def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
       { id: 'kakao_blast',      name_ko: '카톡 공지 발송',                name_en: 'KakaoTalk Broadcast',       def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'✅', agency:'❌', parent:'❌', student:'❌' } },
       { id: 'inquiries',        name_ko: '신규상담 처리',                 name_en: 'New Inquiries',             def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', branch:'✅', agency:'✅', parent:'❌', student:'❌' } },
       { id: 'nps_survey',       name_ko: '월간 NPS 설문',                 name_en: 'Monthly NPS Survey',        def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
@@ -28146,7 +28289,7 @@ button.chip:hover,
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-webpush-mgmt,card-kakao-mgmt,card-popups-mgmt,card-notifications,card-notice-board">
+  <div class="ph85-group" data-cards="card-webpush-mgmt,card-kakao-mgmt,card-popups-mgmt,card-poster-maker,card-notifications,card-notice-board">
     <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#ec4899,#be185d)">📢</div>
       <div class="ph85-title">알림 센터</div>
@@ -28156,6 +28299,7 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-webpush-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-webpush-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-webpush-mgmt');}">웹 푸시</div>
       <div class="ph85-sub" data-card="card-kakao-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-kakao-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-kakao-mgmt');}">카카오 알림</div>
       <div class="ph85-sub" data-card="card-popups-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-popups-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-popups-mgmt');}">팝업 관리</div>
+      <div class="ph85-sub" data-card="card-poster-maker" onclick="event.stopPropagation();var c=document.getElementById('card-poster-maker');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(236,72,153,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-poster-maker');}">🎨 포스터 만들기</div>
       <div class="ph85-sub" data-card="card-notifications" onclick="event.stopPropagation();var c=document.getElementById('card-notifications');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-notifications');}">이벤트 알림</div>
       <div class="ph85-sub" data-card="card-notice-board" onclick="event.stopPropagation();var c=document.getElementById('card-notice-board');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-notice-board');}">📌 공지사항 ⭐신규</div>
     </div>
@@ -28264,6 +28408,21 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-battle-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-battle-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-battle-mgmt');}">⚔ 영어 배틀</div>
       <div class="ph85-sub" data-card="card-recording-storage" onclick="event.stopPropagation();var c=document.getElementById('card-recording-storage');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-recording-storage');}">💾 녹화 보관</div>
       <div class="ph85-sub" data-card="card-homework" onclick="event.stopPropagation();var c=document.getElementById('card-homework');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-homework');}">📚 숙제 관리 ⭐신규</div>
+    </div>
+  </div>
+
+  <!-- 📚 자료실 — 대상별 방(각 방 비번 게이트). 파일은 /library/{admin,teacher,branch,student}/ -->
+  <div class="ph85-group" data-cards="card-lib-admin,card-lib-teacher,card-lib-branch,card-lib-student">
+    <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
+      <div class="ph85-ico" style="background:linear-gradient(135deg,#f59e0b,#d97706)">📚</div>
+      <div class="ph85-title">자료실</div>
+      <div class="ph85-arrow">›</div>
+    </div>
+    <div class="ph85-subs">
+      <div class="ph85-sub" data-card="card-lib-admin" onclick="event.stopPropagation();var c=document.getElementById('card-lib-admin');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-lib-admin');}">📕 관리자 자료실</div>
+      <div class="ph85-sub" data-card="card-lib-teacher" onclick="event.stopPropagation();var c=document.getElementById('card-lib-teacher');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-lib-teacher');}">👨‍🏫 강사 자료실</div>
+      <div class="ph85-sub" data-card="card-lib-branch" onclick="event.stopPropagation();var c=document.getElementById('card-lib-branch');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-lib-branch');}">🏢 대리점·지사 자료실</div>
+      <div class="ph85-sub" data-card="card-lib-student" onclick="event.stopPropagation();var c=document.getElementById('card-lib-student');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-lib-student');}">🎒 학생·학부모 자료실</div>
     </div>
   </div>
 
@@ -34719,6 +34878,7 @@ button.chip:hover,
     'card-webpush-mgmt':           {exec:'V', mgr:'V'},
     'card-kakao-mgmt':             {exec:'V', mgr:'V'},
     'card-popups-mgmt':            {exec:'V', mgr:'V', branch:'R'},
+    'card-poster-maker':           {exec:'V', mgr:'V', branch:'R'},
     'card-notifications':          {exec:'V', mgr:'V', teacher:'V', branch:'V', agency:'V', parent:'R', student:'R'},
     'card-notice-board':           {exec:'V', mgr:'V', teacher:'R', branch:'R', agency:'R', parent:'R', student:'R'},
 
@@ -36489,6 +36649,7 @@ button.chip:hover,
     // 알림 센터
     'card-webpush-mgmt':           '🔔 브라우저 푸시 알림 (무료, VAPID)',
     'card-kakao-mgmt':             '💬 카카오 알림톡 발송 (SOLAPI)',
+    'card-poster-maker':           '🎨 공지·안내 포스터 만들기 (크기조절·동영상·서버저장/재사용)',
     'card-popups-mgmt':            '🪧 사이트 팝업 광고/공지 관리',
     'card-notifications':          '📢 이벤트/행사 알림 발송',
     'card-notice-board':           '📌 학원 공식 공지 게시판',

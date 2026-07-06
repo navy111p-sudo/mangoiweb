@@ -2599,6 +2599,10 @@ export async function handleMangoApi(
         });
         return json(res.ok ? { ...res, rule: res.rule || { code: 'teacher_praise_point', amount: res.amount || 1 } } : res, res.ok ? 200 : 200);
       }
+      // 🎙 발음 코칭 세트 완주 — 규칙 자동 시드(없으면 생성). 20점 · 쿨다운 없음 · 하루 5회
+      if (ruleCode === 'speech_master') {
+        await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES ('speech_master','발음 세트 완주',20,0,5,1,'AI 음성 코칭 한 세트(레벨/단원)를 모두 완주 시 지급',?) ON CONFLICT(code) DO NOTHING`).bind(Date.now()).run();
+      }
       const rule: any = await env.DB.prepare(`SELECT * FROM point_rules WHERE code=? AND enabled=1`).bind(ruleCode).first();
       if (!rule) return json({ ok: false, error: 'rule_not_found_or_disabled', code: ruleCode }, 404);
       // 쿨다운 검사
@@ -3419,6 +3423,72 @@ export async function handleMangoApi(
       await env.DB.prepare(`DELETE FROM popup_announcements WHERE id=?`).bind(id).run();
       await env.DB.prepare(`DELETE FROM popup_views WHERE popup_id=?`).bind(id).run();
       await env.DB.prepare(`DELETE FROM popup_dismissals WHERE popup_id=?`).bind(id).run();
+      return json({ ok: true, id, deleted: true });
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // 🎨 포스터 만들기 — 서버 저장/재사용 (관리자)
+    //   saved_posters: 만든 날짜(created_at)·수정 날짜(updated_at)로 관리
+    // ══════════════════════════════════════════════════════════════
+    const ensurePosterTable = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS saved_posters (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, config TEXT NOT NULL, width INTEGER DEFAULT 1080, height INTEGER DEFAULT 1080, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+    };
+
+    // ── GET /api/admin/posters — 저장된 포스터 목록 (최근 수정순) ──
+    if (method === 'GET' && path === '/api/admin/posters') {
+      await ensurePosterTable();
+      const rs = await env.DB.prepare(
+        `SELECT id, title, config, width, height, created_at, updated_at FROM saved_posters ORDER BY updated_at DESC LIMIT 200`
+      ).all();
+      return json({ ok: true, count: (rs.results || []).length, rows: rs.results || [] });
+    }
+
+    // ── GET /api/admin/posters/:id — 단일 포스터 (불러오기) ──
+    if (method === 'GET' && /^\/api\/admin\/posters\/\d+$/.test(path)) {
+      await ensurePosterTable();
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      const row: any = await env.DB.prepare(`SELECT * FROM saved_posters WHERE id=?`).bind(id).first();
+      if (!row) return json({ ok: false, error: 'not_found' }, 404);
+      return json({ ok: true, row });
+    }
+
+    // ── POST /api/admin/posters — 새 포스터 저장 ──
+    if (method === 'POST' && path === '/api/admin/posters') {
+      await ensurePosterTable();
+      const body: any = await request.json().catch(() => ({}));
+      const title = String(body.title || '').trim() || '무제 포스터';
+      const config = typeof body.config === 'string' ? body.config : JSON.stringify(body.config || {});
+      if (config.length > 4_000_000) return json({ ok: false, error: 'config_too_large' }, 413);
+      const now = Date.now();
+      const ins = await env.DB.prepare(
+        `INSERT INTO saved_posters (title, config, width, height, created_at, updated_at) VALUES (?,?,?,?,?,?)`
+      ).bind(title, config, parseInt(body.width, 10) || 1080, parseInt(body.height, 10) || 1080, now, now).run();
+      return json({ ok: true, id: ins?.meta?.last_row_id, created: true });
+    }
+
+    // ── PUT /api/admin/posters/:id — 포스터 수정 ──
+    if (method === 'PUT' && /^\/api\/admin\/posters\/\d+$/.test(path)) {
+      await ensurePosterTable();
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      const body: any = await request.json().catch(() => ({}));
+      const config = body.config == null ? null : (typeof body.config === 'string' ? body.config : JSON.stringify(body.config));
+      if (config && config.length > 4_000_000) return json({ ok: false, error: 'config_too_large' }, 413);
+      await env.DB.prepare(
+        `UPDATE saved_posters SET title=COALESCE(?,title), config=COALESCE(?,config), width=COALESCE(?,width), height=COALESCE(?,height), updated_at=? WHERE id=?`
+      ).bind(
+        body.title ?? null, config,
+        body.width != null ? parseInt(body.width, 10) : null,
+        body.height != null ? parseInt(body.height, 10) : null,
+        Date.now(), id
+      ).run();
+      return json({ ok: true, id, updated: true });
+    }
+
+    // ── DELETE /api/admin/posters/:id — 포스터 삭제 ──
+    if (method === 'DELETE' && /^\/api\/admin\/posters\/\d+$/.test(path)) {
+      await ensurePosterTable();
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      await env.DB.prepare(`DELETE FROM saved_posters WHERE id=?`).bind(id).run();
       return json({ ok: true, id, deleted: true });
     }
 

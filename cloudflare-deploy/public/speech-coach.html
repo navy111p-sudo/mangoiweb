@@ -220,8 +220,29 @@ function saveStep(){ try { localStorage.setItem(LS_STEP, String(currentStep)); }
 function markStepDone(i){
   if (STEPS[i] && !doneSet.has(STEPS[i])) {
     doneSet.add(STEPS[i]); saveDone(); renderStepSelect(); updateStepUI();
-    if (STEPS.every(function(s){ return doneSet.has(s); })) celebrate('🎉 모든 단계 완료! 정말 잘했어요!');  // 세트 완주 축하
+    if (STEPS.every(function(s){ return doneSet.has(s); })) {
+      celebrate('🎉 모든 단계 완료! 정말 잘했어요!');       // 세트 완주 축하
+      awardSpeechPoints('en:voice-coach', '🏅 영어 발음 마스터');  // 배지 + 포인트 적립
+    }
   }
+}
+/* 세트 완주 보상 — 로컬 배지 저장 + 서버 포인트 적립(로그인 시) */
+function awardSpeechPoints(setId, badgeLabel){
+  try {
+    var b = JSON.parse(localStorage.getItem('mangoi_speech_badges') || '[]');
+    if (b.indexOf(setId) < 0) { b.push(setId); localStorage.setItem('mangoi_speech_badges', JSON.stringify(b)); }
+  } catch(e){}
+  try {
+    var uid = localStorage.getItem('mango_user_id');   // mango.js 와 동일 키
+    if (uid) {
+      fetch('/api/points/earn-by-rule', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: uid, rule_code: 'speech_master', meta: { set: setId, badge: badgeLabel } })
+      }).then(function(r){ return r.json(); }).then(function(d){
+        if (d && d.ok) { var rs = document.getElementById('rec-status'); if (rs) rs.textContent = '🏅 ' + badgeLabel + ' · +' + (d.rule ? d.rule.amount : 20) + 'P 적립!'; }
+      }).catch(function(){});
+    }
+  } catch(e){}
 }
 function shortLabel(s){ return s.length > 30 ? s.slice(0, 30) + '…' : s; }
 function renderStepSelect(){
@@ -242,8 +263,27 @@ function updateStepUI(){
   var bar = document.getElementById('step-bar');
   if (bar) bar.style.width = Math.round(done / STEPS.length * 100) + '%';   // 완료율 진행바
 }
-/* 세트 완주 축하 — 배지 + 컨페티 (외부 라이브러리 없음) */
+/* 완주 사운드 — Web Audio 상승 아르페지오 (외부 파일 없음) */
+function playChime(){
+  try {
+    var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    var ctx = playChime._ctx || (playChime._ctx = new AC());
+    if (ctx.state === 'suspended') { try { ctx.resume(); } catch(e){} }
+    var now = ctx.currentTime;
+    [523.25, 659.25, 783.99, 1046.5].forEach(function(f, i){
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'triangle'; o.frequency.value = f;
+      var t = now + i * 0.12;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.2, t + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+      o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t + 0.55);
+    });
+  } catch(e){}
+}
+/* 세트 완주 축하 — 사운드 + 배지 + 컨페티 (외부 라이브러리 없음) */
 function celebrate(msg){
+  playChime();
   var badge = document.createElement('div');
   badge.textContent = msg || '🎉 완료!';
   badge.style.cssText = 'position:fixed;left:50%;top:38%;transform:translate(-50%,-50%) scale(0.6);z-index:100001;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-weight:900;font-size:19px;padding:16px 26px;border-radius:16px;box-shadow:0 16px 44px -8px rgba(0,0,0,0.55);opacity:0;transition:transform .4s cubic-bezier(.2,1.5,.4,1),opacity .4s;pointer-events:none;text-align:center';
@@ -402,7 +442,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260706180239 -->
+<!-- BUILD:20260706180952 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>

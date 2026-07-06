@@ -674,6 +674,9 @@ export default {
         path === '/api/popups' ||
         path === '/api/popups/active' ||
         /^\/api\/popups\/\d+\/(view|click|dismiss)$/.test(path) ||
+        // 🎨 포스터 만들기 (관리자 — 저장/재사용)
+        path === '/api/admin/posters' ||
+        /^\/api\/admin\/posters\/\d+$/.test(path) ||
         // 📅 Phase CAL — 캘린더(교사 휴가 + 한국/필리핀 공휴일)
         path === '/api/calendar/events' ||
         path === '/api/admin/calendar/events' ||
