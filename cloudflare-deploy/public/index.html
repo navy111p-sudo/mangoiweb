@@ -20335,7 +20335,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const duration = Math.round((Date.now() - vdState.startMs)/1000);
       const r = await fetch('/api/diary/upload', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ user_id: uid(), audio_base64: b64, mime: 'audio/webm', duration_sec: duration, date: new Date().toISOString().slice(0,10) })
+        body: JSON.stringify({ user_id: uid(), audio_base64: b64, mime: 'audio/webm', duration_seconds: duration, date: new Date().toISOString().slice(0,10) })
       }).then(x=>x.json()).catch(()=>({ok:false,error:'network'}));
       if (!r.ok) throw new Error(r.error || 'upload failed');
       vdState.lastDiaryId = r.diary_id || r.id;
@@ -20373,7 +20373,7 @@ window.addEventListener('DOMContentLoaded', () => {
         </div>
         <div class="vd-card" style="border-color:#86efac">
           <div style="font-size:11.5px;color:#15803d;font-weight:700;margin-bottom:4px">🌟 ${en?'Encouragement':'한국어 격려'}</div>
-          <div style="font-size:13px;line-height:1.6;white-space:pre-wrap">${esc(r.encouragement || '-')}</div>
+          <div style="font-size:13px;line-height:1.6;white-space:pre-wrap">${esc(r.encouragement_ko || r.encouragement || '-')}</div>
         </div>
         <div style="display:flex;justify-content:space-around;margin-top:10px;padding:10px;background:#fff;border:1px solid #c7d2fe;border-radius:10px">
           <span style="font-size:13px"><b>${en?'Score':'점수'}:</b> <span style="color:#16a34a;font-size:18px;font-weight:800">${r.score!=null?r.score:'-'}</span></span>
@@ -20413,11 +20413,11 @@ window.addEventListener('DOMContentLoaded', () => {
     const month = (document.getElementById('vd-cal-month')||{}).value || '';
     list.innerHTML = `<div style="color:#475569;padding:14px;text-align:center">⏳ ${en?'Loading…':'불러오는 중…'}</div>`;
     try {
-      const qs = new URLSearchParams({ uid: uid() });
+      const qs = new URLSearchParams({ user_id: uid() });
       if (month) qs.set('month', month);
       const r = await fetch('/api/diary/list?'+qs.toString()).then(x=>x.json()).catch(()=>({ok:false}));
       if (!r.ok) throw new Error(r.error || 'failed');
-      const items = r.list || [];
+      const items = r.entries || r.list || [];
       if (!items.length) { list.innerHTML = `<div style="color:#94a3b8;padding:20px;text-align:center">📭 ${en?'No entries this month':'이 달 일기가 없습니다'}</div>`; return; }
       list.innerHTML = items.map(x => `
         <div style="background:#fff;border:1px solid #c7d2fe;border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center">
@@ -20425,7 +20425,7 @@ window.addEventListener('DOMContentLoaded', () => {
             <span style="background:#14b8a6;color:#fff;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700">${esc((x.date||'').slice(5))}</span>
             <span style="margin-left:6px;color:#0f172a;font-size:12.5px"><b>${en?'Score':'점수'}:</b> <span style="color:#16a34a;font-weight:700">${x.score!=null?x.score:'-'}</span></span>
           </div>
-          <span style="color:#475569;font-size:11px">${Math.round(x.duration_sec||0)}s</span>
+          <span style="color:#475569;font-size:11px">${Math.round(x.duration_seconds||0)}s</span>
         </div>
       `).join('');
     } catch(e){ list.innerHTML = `<div style="color:#dc2626">❌ ${esc(e.message)}</div>`; }
@@ -24083,7 +24083,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260706222815 -->
+<!-- BUILD:20260706223053 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
