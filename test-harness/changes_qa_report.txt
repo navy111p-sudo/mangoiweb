@@ -1,24 +1,24 @@
-# Change-set QA report (2026-07-05T12:31:12.895Z)
+# Change-set QA report (2026-07-06T19:41:42.633Z)
 
-PASS=76 FAIL=2
+PASS=78 FAIL=0
 
-FAIL  integrity:cloudflare-deploy/public/index.html delta  — HEAD=26914 WORK=27044 delta=130 (expect 0)
+PASS  integrity:cloudflare-deploy/public/index.html delta  — HEAD=27413 WORK=27413 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/index.html tail  — tail="</html>"
-FAIL  integrity:cloudflare-deploy/src/api-mango.ts delta  — HEAD=12889 WORK=12931 delta=42 (expect 0)
+PASS  integrity:cloudflare-deploy/src/api-mango.ts delta  — HEAD=13299 WORK=13299 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/src/api-mango.ts tail  — tail="}"
 PASS  integrity:cloudflare-deploy/src/api-mango.ts brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  integrity:cloudflare-deploy/src/index.ts delta  — HEAD=3028 WORK=3028 delta=0 (expect 0)
+PASS  integrity:cloudflare-deploy/src/index.ts delta  — HEAD=3049 WORK=3049 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/src/index.ts tail  — tail="}"
 PASS  integrity:cloudflare-deploy/src/index.ts brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html delta  — HEAD=1750 WORK=1750 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  integrity:cloudflare-deploy/public/admin.html delta  — HEAD=41868 WORK=41868 delta=0 (expect 0)
+PASS  integrity:cloudflare-deploy/public/admin.html delta  — HEAD=42586 WORK=42586 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/admin.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/public/admin.html brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  syntax:cloudflare-deploy/public/index.html  — 63 inline scripts, 0 errors
+PASS  syntax:cloudflare-deploy/public/index.html  — 65 inline scripts, 0 errors
 PASS  syntax:cloudflare-deploy/public/lesson-postpone-demo.html  — 1 inline scripts, 0 errors
-PASS  syntax:cloudflare-deploy/public/admin.html  — 103 inline scripts, 0 errors
+PASS  syntax:cloudflare-deploy/public/admin.html  — 105 inline scripts, 0 errors
 PASS  syntax:mangoi-speech-patch/mangoi_Speech/practice.html  — 8 inline scripts, 0 errors
 PASS  wiring:gate registered in index.ts
 PASS  wiring:handler present in api-mango.ts
