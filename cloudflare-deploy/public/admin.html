@@ -23353,7 +23353,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260706233541 -->
+        <!-- BUILD:20260706233859 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -31232,6 +31232,10 @@ button.chip:hover,
   /* 팝업 만들기 에디터 (앰버 헤더=어두운글자 복구 + 흰 본문 라벨 어둡게) */
   #pop-editor-modal h2 { color: #1f2937 !important; }
   #pop-editor-overlay label { color: #334155 !important; }
+  /* 그라데이션(버튼형) 링크: 다크화가 연한 파랑으로 바꿔 파란 버튼 위에서 안 보이던 것 → 흰색 복구
+     (다크화 규칙 details.table-card.menu-card a 보다 높은 우선순위 필요) */
+  details.table-card.menu-card a[style*="background:linear-gradient"],
+  details.menu-card a[style*="background:linear-gradient"] { color: #ffffff !important; }
 
   /* === 필터 행 === */
   .pm-filter-row {

@@ -18590,9 +18590,8 @@ window.addEventListener('DOMContentLoaded', () => {
     background: #fff;
     color: #1f2937;
     border-radius: 14px;
-    box-shadow: 0 24px 80px -10px rgba(0,0,0,0.65),
-                0 0 0 1px rgba(255,255,255,0.08),
-                0 0 60px rgba(251,191,36,0.15);
+    box-shadow: 0 16px 48px -14px rgba(0,0,0,0.55),
+                0 0 0 1px rgba(0,0,0,0.06);
     overflow: hidden;
     display: flex; flex-direction: column;
     pointer-events: auto;
@@ -18632,7 +18631,7 @@ window.addEventListener('DOMContentLoaded', () => {
   .pa-head .pa-close:hover { background: rgba(0,0,0,0.35); }
   .pa-body {
     flex: 1; overflow: auto;
-    padding: 16px;
+    padding: 8px;
     line-height: 1.6;
     font-size: 14px;
   }
@@ -18769,6 +18768,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const dOpts = (p.dismiss_options || 'today,7days').split(',').map(s=>s.trim()).filter(Boolean);
     const dButtons = dOpts.map(opt => {
       const label = opt === 'today' ? '오늘 하루 안보기' :
+                    opt === '3days' ? '3일간 안보기' :
                     opt === '7days' ? '7일간 안보기' :
                     opt === '30days' ? '30일간 안보기' : opt;
       return `<button onclick="paDismiss(${p.id},'${opt}','${escAttr(uid)}')">${label}</button>`;
@@ -18810,6 +18810,7 @@ window.addEventListener('DOMContentLoaded', () => {
       try {
         const key = 'mangoi_popup_dismiss_' + popupId;
         const until = period === 'today' ? new Date(new Date().setHours(23,59,59,999)).getTime()
+                    : period === '3days' ? Date.now() + 3*86400*1000
                     : period === '7days' ? Date.now() + 7*86400*1000
                     : Date.now() + 30*86400*1000;
         localStorage.setItem(key, String(until));
@@ -24106,7 +24107,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260706233541 -->
+<!-- BUILD:20260706233859 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

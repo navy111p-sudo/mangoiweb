@@ -253,11 +253,12 @@
     // 🌈 주니어 친화 컬러풀 하늘 — 보라→핑크→블루 트와일라잇 그라데이션(단색 대신)
     (function(){ var c=document.createElement('canvas'); c.width=16; c.height=256; var x=c.getContext('2d');
       var g=x.createLinearGradient(0,0,0,256);
-      g.addColorStop(0,'#4b2f8f'); g.addColorStop(0.34,'#7a3fb0'); g.addColorStop(0.58,'#a84bb8'); g.addColorStop(0.8,'#3f2c86'); g.addColorStop(1,'#1c1550');
+      // 🌌 어두운 밤하늘 — 배경이 튀지 않게 딥 네이비/다크바이올렛(로버트가 도드라지도록)
+      g.addColorStop(0,'#0a0c1e'); g.addColorStop(0.34,'#12102e'); g.addColorStop(0.58,'#171436'); g.addColorStop(0.8,'#0d0b22'); g.addColorStop(1,'#05040e');
       x.fillStyle=g; x.fillRect(0,0,16,256);
       var t=new THREE.CanvasTexture(c); if(THREE.SRGBColorSpace!==undefined) t.colorSpace=THREE.SRGBColorSpace;
       scene.background=t; })();
-    scene.fog=new THREE.Fog(0x4a3390,24,66);   // 🌌 밝은 남보라 트와일라잇
+    scene.fog=new THREE.Fog(0x0a0c1e,22,64);   // 🌌 어두운 네이비 안개
     var camera=new THREE.PerspectiveCamera(56,W/H,0.1,200); camera.position.set(0,4.7,17); camera.lookAt(0,2.82,0); scene.add(camera); // 세로 화면용: 줌아웃+시선 상향으로 캐릭터 전체가 HUD 아래·패널 위에 들어오게
     var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true}); renderer.setPixelRatio(Math.min(window.devicePixelRatio,2)); renderer.setSize(W,H,false); renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
     renderer.outputEncoding=THREE.sRGBEncoding; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.16;
@@ -570,7 +571,7 @@
       });
       var H=5.7, W=H*(720/406);   // robert-knight.mp4 실제 종횡비 — 크게 키워 화면을 꽉 채움
       var mesh=new THREE.Mesh(new THREE.PlaneGeometry(W,H),mat);
-      mesh.position.set(0, H*0.5-0.9, 0);   // 발이 바닥(y≈0)에 닿도록 앵커
+      mesh.position.set(0, H*0.5-0.1, 0);   // 위로 올려 발이 화면에 확실히 보이게(하단 HUD에 안 가리게)
       mesh.castShadow=false; mesh.frustumCulled=false; mesh.renderOrder=2;
       if(faceDir<0) mesh.scale.x=-1;
       G.traverse(function(o){ if(o.isMesh) o.visible=false; });   // 절차적 기사 메시 숨김
@@ -1014,6 +1015,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260706233541 -->
+<!-- BUILD:20260706233859 -->
 </body>
 </html>

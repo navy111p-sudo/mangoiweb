@@ -3551,7 +3551,8 @@ Return STRICT JSON only, in BOTH Korean and English, with 2-3 strengths, exactly
       if (period === 'today') {
         const d = new Date(); d.setHours(23, 59, 59, 999);
         until = d.getTime();
-      } else if (period === '7days') until = now + 7 * 86400 * 1000;
+      } else if (period === '3days') until = now + 3 * 86400 * 1000;
+      else if (period === '7days') until = now + 7 * 86400 * 1000;
       else if (period === '30days') until = now + 30 * 86400 * 1000;
       await env.DB.prepare(`INSERT INTO popup_dismissals (popup_id, user_id, dismissed_at, dismissed_until) VALUES (?,?,?,?) ON CONFLICT(popup_id, user_id) DO UPDATE SET dismissed_at=excluded.dismissed_at, dismissed_until=excluded.dismissed_until`)
         .bind(id, uid, now, until).run();
