@@ -250,7 +250,7 @@ $$('.sw').forEach(s=>s.onclick=()=>{
 ['cA','cB','cT'].forEach(k=>$('#'+k).oninput=e=>{ state[k]=e.target.value; render(); });
 
 /* ---------- 배경 이미지 ---------- */
-$('#bgFile').onchange=e=>readImg(e.target.files[0],d=>{state.bgImg=d; render();});
+$('#bgFile').onchange=e=>uploadImage(e.target.files[0],d=>{state.bgImg=d; render();});
 $('#bgClear').onclick=()=>{ state.bgImg=''; render(); };
 
 /* ---------- 미디어 ---------- */
@@ -263,7 +263,7 @@ $('#mType').onchange=e=>{
   render();
 };
 $('#mYtUrl').oninput=e=>{ mediaState.yt=parseYt(e.target.value); render(); };
-$('#mImgFile').onchange=e=>readImg(e.target.files[0],d=>{mediaState.img=d; render();});
+$('#mImgFile').onchange=e=>uploadImage(e.target.files[0],d=>{mediaState.img=d; render();});
 $('#mVidFile').onchange=e=>{const f=e.target.files[0]; if(f){mediaState.vid=URL.createObjectURL(f); render();}};
 function parseYt(u){ const m=u.match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([\w-]{6,})/); return m?m[1]:u.trim(); }
 
@@ -314,6 +314,15 @@ function renderMedia(){
 const placeholder=txt=>`<div style="aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.15);font-size:.8em;font-weight:700">${txt}</div>`;
 
 function readImg(file,cb){ if(!file)return; const r=new FileReader(); r.onload=()=>cb(r.result); r.readAsDataURL(file); }
+// 임베드(관리자) 모드: 이미지를 R2에 업로드해 영구 URL 저장. 아니면 data URL(오프라인).
+function uploadImage(file,cb){
+  if(!file) return;
+  if(!new URLSearchParams(location.search).has('embed')) return readImg(file,cb);
+  const fd=new FormData(); fd.append('file',file); toast('이미지 업로드 중…');
+  fetch('/api/admin/popups/upload-media',{method:'POST',credentials:'include',body:fd})
+    .then(r=>r.json()).then(d=>{ if(d&&d.ok&&d.url){ cb(d.url); toast('이미지 업로드 완료 ✅'); } else { readImg(file,cb); toast('업로드 실패 — 임시 첨부'); } })
+    .catch(()=>{ readImg(file,cb); toast('업로드 실패 — 임시 첨부'); });
+}
 
 /* ---------- 저장 ---------- */
 $('#dlPng').onclick=exportPng;
@@ -337,7 +346,7 @@ function exportPng(){
   img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
 }
 $('#dlHtml').onclick=()=>{
-  const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${$('#fTitle').value}</title><style>body{margin:0;background:#111;display:flex;justify-content:center;align-items:center;min-height:100vh}#poster{max-width:${state.w}px;width:100%}</style></head><body>${poster.outerHTML.replace('style="height','style="aspect-ratio:'+state.w+'/'+state.h+';height')}<!-- BUILD:20260706180952 -->
+  const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${$('#fTitle').value}</title><style>body{margin:0;background:#111;display:flex;justify-content:center;align-items:center;min-height:100vh}#poster{max-width:${state.w}px;width:100%}</style></head><body>${poster.outerHTML.replace('style="height','style="aspect-ratio:'+state.w+'/'+state.h+';height')}<!-- BUILD:20260706182452 -->
 </body></html>`;
   const blob=new Blob([html],{type:'text/html'}); const a=document.createElement('a');
   a.download='mangoi-poster.html'; a.href=URL.createObjectURL(blob); a.click(); toast('웹 포스터(HTML)로 저장했습니다 ✅');
@@ -372,6 +381,26 @@ function applyConfig(c){
   $$('.preset').forEach(x=>x.classList.remove('on'));
   render();
 }
+// 학생 앱 팝업(body_html)용 자체완결 HTML — 인라인 스타일(외부 CSS 의존 X). 유튜브 iframe 그대로 재생.
+function escH(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function getPublishHtml(){
+  var W=Math.min(state.w,460), H=Math.round(W*state.h/state.w), base=Math.min(W,H);
+  var badge=$('#fBadge').value, title=$('#fTitle').value, sub=$('#fSub').value, cta=$('#fCta').value, foot=$('#fFoot').value;
+  var bg = state.bgImg ? ("url('"+state.bgImg+"') center/cover") : ("linear-gradient(135deg,"+state.cA+","+state.cB+")");
+  var media='';
+  if(mediaState.type==='youtube' && mediaState.yt) media='<div style="width:82%;margin:0 auto 12px;border-radius:10px;overflow:hidden"><iframe src="https://www.youtube.com/embed/'+encodeURIComponent(mediaState.yt)+'" style="width:100%;aspect-ratio:16/9;border:0;display:block" allowfullscreen></iframe></div>';
+  else if(mediaState.type==='image' && mediaState.img) media='<div style="width:82%;margin:0 auto 12px;border-radius:10px;overflow:hidden"><img src="'+escH(mediaState.img)+'" style="width:100%;display:block"></div>';
+  var scrim = state.bgImg ? '<div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,0,0,.4))"></div>' : '';
+  return '<div style="position:relative;width:100%;min-height:'+H+'px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:8%;background:'+bg+';color:'+state.cT+';border-radius:10px;overflow:hidden;font-family:sans-serif">'
+    +scrim+'<div style="position:relative;width:100%">'
+    +(badge?'<div style="display:inline-block;background:rgba(255,255,255,.22);padding:5px 14px;border-radius:999px;font-size:'+Math.round(base*0.034)+'px;font-weight:700;letter-spacing:.5px;margin-bottom:10px">'+escH(badge)+'</div>':'')
+    +'<div style="font-weight:900;line-height:1.12;font-size:'+Math.round(base*0.092)+'px;margin-bottom:8px;text-shadow:0 2px 12px rgba(0,0,0,.35);white-space:pre-wrap">'+escH(title)+'</div>'
+    +media
+    +(sub?'<div style="font-weight:600;font-size:'+Math.round(base*0.042)+'px;line-height:1.4;opacity:.96;margin-bottom:12px;white-space:pre-wrap">'+escH(sub)+'</div>':'')
+    +(cta?'<div style="display:inline-block;background:#fff;color:#111;font-weight:800;padding:8px 20px;border-radius:999px;font-size:'+Math.round(base*0.04)+'px">'+escH(cta)+'</div>':'')
+    +(foot?'<div style="margin-top:12px;font-size:'+Math.round(base*0.03)+'px;opacity:.8">'+escH(foot)+'</div>':'')
+    +'</div></div>';
+}
 if(new URLSearchParams(location.search).has('embed')){
   document.body.classList.add('embed');
   var sNote=$('#sampleNote'); if(sNote)sNote.style.display='none';
@@ -381,7 +410,8 @@ if(new URLSearchParams(location.search).has('embed')){
     +'<label class="f" style="margin-top:0">포스터 이름 (관리·검색용)</label>'
     +'<input type="text" id="pName" placeholder="예: 여름방학 특강 포스터">'
     +'<button class="btn" id="svServer" style="margin-top:10px">💾 서버에 저장하기</button>'
-    +'<p class="hint">저장하면 관리자 목록에 <b>만든 날짜/수정 날짜</b>와 함께 남고, 언제든 다시 불러 재사용할 수 있어요.</p></div>';
+    +'<button class="btn ghost" id="pubPopup" style="margin-top:8px">📢 학생 앱에 팝업으로 게시</button>'
+    +'<p class="hint">저장하면 관리자 목록에 <b>만든 날짜/수정 날짜</b>와 함께 남고, 언제든 다시 불러 재사용할 수 있어요. <b>팝업 게시</b>는 지금 이 포스터를 학생 앱 팝업으로 바로 띄웁니다(노출 기간·중단은 팝업 관리에서 조절).</p></div>';
   var panel=document.querySelector('.panel'); panel.insertBefore(bar, panel.children[1]);
   $('#svServer').onclick=function(){
     var cfg=getConfig(); var size=JSON.stringify(cfg).length;
@@ -390,10 +420,18 @@ if(new URLSearchParams(location.search).has('embed')){
     parent.postMessage({type:'poster-save', title:title, width:state.w, height:state.h, config:cfg}, '*');
     $('#svServer').textContent='저장 중…';
   };
+  $('#pubPopup').onclick=function(){
+    if(mediaState.type==='video'){ toast('업로드 영상은 팝업 게시에 담기지 않아요. 유튜브를 쓰세요'); return; }
+    var W=Math.min(state.w,460), H=Math.round(W*state.h/state.w);
+    var title=($('#pName').value||$('#fTitle').value||'공지').trim();
+    parent.postMessage({type:'poster-publish', title:title, width:W, height:H, html:getPublishHtml()}, '*');
+    $('#pubPopup').textContent='게시 중…';
+  };
   window.addEventListener('message',function(e){
     var m=e.data||{}; if(!m||!m.type)return;
     if(m.type==='poster-load'){ applyConfig(m.config); if(m.title)$('#pName').value=m.title; }
     else if(m.type==='poster-saved'){ $('#svServer').textContent='💾 서버에 저장하기'; toast('관리자에 저장했습니다 ✅'); }
+    else if(m.type==='poster-published'){ $('#pubPopup').textContent='📢 학생 앱에 팝업으로 게시'; toast(m.ok?'학생 앱에 팝업으로 게시했습니다 ✅':'게시 실패 — 다시 시도해 주세요'); }
   });
   try{ parent.postMessage({type:'poster-ready'},'*'); }catch(e){}
 }
@@ -403,6 +441,6 @@ window.addEventListener('load',render);
 render();
 requestAnimationFrame(render);
 </script>
-<!-- BUILD:20260706180952 -->
+<!-- BUILD:20260706182452 -->
 </body>
 </html>

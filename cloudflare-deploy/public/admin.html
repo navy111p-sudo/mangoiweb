@@ -10821,6 +10821,15 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         if(fr.contentWindow) fr.contentWindow.postMessage({type:'poster-saved',id:newId},'*');
         loadList();
       }catch(err){ alert('저장 실패: '+(err&&err.message||err)); }
+    } else if(m.type==='poster-publish'){
+      try{
+        var r=await fetch('/api/admin/popups',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({title:m.title, content_type:'html', body_html:m.html, width:m.width, height:m.height, position:'center', priority:0, enabled:true})});
+        var d=await r.json();
+        var ok=!(!d||d.ok===false);
+        if(fr.contentWindow) fr.contentWindow.postMessage({type:'poster-published',ok:ok},'*');
+        if(ok && typeof window.popLoadList==='function'){ try{ window.popLoadList(); }catch(_){} }
+      }catch(err){ if(fr.contentWindow) fr.contentWindow.postMessage({type:'poster-published',ok:false},'*'); }
     }
   });
 
@@ -23298,7 +23307,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260706180952 -->
+        <!-- BUILD:20260706182452 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -32649,6 +32658,203 @@ button.chip:hover,
   </div>
 </details>
 
+<!-- ===================== 📚 자료실 (대상별 방 · 각 방 비번 게이트) ===================== -->
+<style>
+  /* 다크 대시보드 테마와 조화 — 배경은 alpha<0.5 라 ph103 자동 다크화가 건드리지 않음, 글자는 밝게 */
+  .lib-gate{max-width:360px;margin:14px auto 8px;text-align:center;padding:22px 18px;border:1px dashed rgba(148,163,184,.4);border-radius:14px;background:rgba(30,41,59,.45)}
+  .lib-lock{font-size:13px;color:#cbd5e1;margin-bottom:12px}
+  .lib-lock b{color:#fbbf24}
+  .lib-pw{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #cbd5e1;border-radius:9px;font-size:14px;text-align:center;margin-bottom:8px}
+  .lib-pw:focus{outline:none;border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.2)}
+  .lib-btn{width:100%;padding:10px;border:none;border-radius:9px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-weight:800;font-size:13.5px;cursor:pointer}
+  .lib-btn:hover{filter:brightness(1.05)}
+  .lib-err{height:16px;font-size:12px;color:#f87171;margin-top:6px}
+  .lib-doc{border:1px solid rgba(148,163,184,.25);border-radius:12px;padding:12px 14px;margin-bottom:10px;background:rgba(30,41,59,.4)}
+  .lib-doc-t{font-size:13.5px;font-weight:800;color:#f1f5f9;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+  .lib-lang{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:5px 0}
+  .lib-lang-lb{font-size:11.5px;font-weight:800;color:#94a3b8;min-width:52px}
+  details.menu-card .lib-files a.lib-chip{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;font-size:12px;font-weight:700;text-decoration:none !important;border-radius:99px;border:1px solid rgba(148,163,184,.4);color:#e2e8f0 !important;background:rgba(255,255,255,.06)}
+  details.menu-card .lib-files a.lib-chip:hover{border-color:#f59e0b;color:#fde68a !important;background:rgba(245,158,11,.16)}
+  .lib-note{font-size:11px;color:#94a3b8;margin-top:6px;display:flex;align-items:center;gap:5px}
+</style>
+
+<details class="table-card menu-card" id="card-lib-admin">
+  <summary><span>📕 관리자 자료실</span></summary>
+  <div class="menu-body">
+    <div class="lib-gate" id="lib-gate-admin">
+      <div class="lib-lock">🔒 이 자료실은 <b>비밀번호</b>가 필요합니다.</div>
+      <input type="password" class="lib-pw" id="lib-pw-admin" placeholder="비밀번호 입력" autocomplete="off" onkeydown="if(event.key==='Enter')libUnlock('admin')">
+      <button class="lib-btn" onclick="libUnlock('admin')">🔓 잠금 해제</button>
+      <div class="lib-err" id="lib-err-admin"></div>
+    </div>
+    <div class="lib-files" id="lib-files-admin" style="display:none">
+      <div class="lib-doc">
+        <div class="lib-doc-t">📘 관리자용 사용설명서</div>
+        <div class="lib-lang"><span class="lib-lang-lb">한글</span>
+          <a class="lib-chip" href="/library/admin/admin-kr.pdf" download="망고아이_관리자용_사용설명서.pdf">📄 PDF</a>
+          <a class="lib-chip" href="/library/admin/admin-kr.pptx" download="망고아이_관리자용_사용설명서.pptx">📊 PPT</a>
+          <a class="lib-chip" href="/library/admin/admin-kr.xlsx" download="망고아이_관리자용_사용설명서.xlsx">📗 Excel</a>
+        </div>
+        <div class="lib-lang"><span class="lib-lang-lb">English</span>
+          <a class="lib-chip" href="/library/admin/admin-en.pdf" download="Mangoi_Admin_User_Guide.pdf">📄 PDF</a>
+          <a class="lib-chip" href="/library/admin/admin-en.pptx" download="Mangoi_Admin_User_Guide.pptx">📊 PPT</a>
+          <a class="lib-chip" href="/library/admin/admin-en.xlsx" download="Mangoi_Admin_User_Guide.xlsx">📗 Excel</a>
+        </div>
+      </div>
+      <div class="lib-note">ℹ️ 자료를 클릭하면 다운로드됩니다.</div>
+    </div>
+  </div>
+</details>
+
+<details class="table-card menu-card" id="card-lib-teacher">
+  <summary><span>👨‍🏫 강사 자료실</span></summary>
+  <div class="menu-body">
+    <div class="lib-gate" id="lib-gate-teacher">
+      <div class="lib-lock">🔒 이 자료실은 <b>비밀번호</b>가 필요합니다.</div>
+      <input type="password" class="lib-pw" id="lib-pw-teacher" placeholder="비밀번호 입력" autocomplete="off" onkeydown="if(event.key==='Enter')libUnlock('teacher')">
+      <button class="lib-btn" onclick="libUnlock('teacher')">🔓 잠금 해제</button>
+      <div class="lib-err" id="lib-err-teacher"></div>
+    </div>
+    <div class="lib-files" id="lib-files-teacher" style="display:none">
+      <div class="lib-doc">
+        <div class="lib-doc-t">📘 교사용 사용설명서</div>
+        <div class="lib-lang"><span class="lib-lang-lb">한글</span>
+          <a class="lib-chip" href="/library/teacher/teacher-kr.pdf" download="망고아이_교사용_사용설명서.pdf">📄 PDF</a>
+          <a class="lib-chip" href="/library/teacher/teacher-kr.pptx" download="망고아이_교사용_사용설명서.pptx">📊 PPT</a>
+          <a class="lib-chip" href="/library/teacher/teacher-kr.xlsx" download="망고아이_교사용_사용설명서.xlsx">📗 Excel</a>
+        </div>
+        <div class="lib-lang"><span class="lib-lang-lb">English</span>
+          <a class="lib-chip" href="/library/teacher/teacher-en.pdf" download="Mangoi_Teacher_User_Guide.pdf">📄 PDF</a>
+          <a class="lib-chip" href="/library/teacher/teacher-en.pptx" download="Mangoi_Teacher_User_Guide.pptx">📊 PPT</a>
+          <a class="lib-chip" href="/library/teacher/teacher-en.xlsx" download="Mangoi_Teacher_User_Guide.xlsx">📗 Excel</a>
+        </div>
+      </div>
+      <div class="lib-doc">
+        <div class="lib-doc-t">🎓 강사 수업 매뉴얼 (트레이닝)</div>
+        <div class="lib-lang"><span class="lib-lang-lb">한글</span>
+          <a class="lib-chip" href="/library/teacher/train-kr.pdf" download="만고아이_강사교육매뉴얼_KR.pdf">📄 PDF</a>
+          <a class="lib-chip" href="/library/teacher/train-kr.docx" download="만고아이_강사교육매뉴얼_KR.docx">📝 Word</a>
+          <a class="lib-chip" href="/library/teacher/train-kr.pptx" download="만고아이_강사교육매뉴얼_KR.pptx">📊 PPT</a>
+          <a class="lib-chip" href="/library/teacher/train-kr-workbook.xlsx" download="만고아이_강사매뉴얼_워크북_KR.xlsx">📗 워크북</a>
+        </div>
+        <div class="lib-lang"><span class="lib-lang-lb">English</span>
+          <a class="lib-chip" href="/library/teacher/train-en.pdf" download="Mangoi_Teacher_Training_Manual_EN.pdf">📄 PDF</a>
+          <a class="lib-chip" href="/library/teacher/train-en.docx" download="Mangoi_Teacher_Training_Manual_EN.docx">📝 Word</a>
+          <a class="lib-chip" href="/library/teacher/train-en.pptx" download="Mangoi_Teacher_Training_Manual_EN.pptx">📊 PPT</a>
+          <a class="lib-chip" href="/library/teacher/train-en-workbook.xlsx" download="Mangoi_Teacher_Manual_Workbook_EN.xlsx">📗 워크북</a>
+        </div>
+      </div>
+      <div class="lib-note">ℹ️ 자료를 클릭하면 다운로드됩니다.</div>
+    </div>
+  </div>
+</details>
+
+<details class="table-card menu-card" id="card-lib-branch">
+  <summary><span>🏢 대리점·지사 자료실</span></summary>
+  <div class="menu-body">
+    <div class="lib-gate" id="lib-gate-branch">
+      <div class="lib-lock">🔒 이 자료실은 <b>비밀번호</b>가 필요합니다.</div>
+      <input type="password" class="lib-pw" id="lib-pw-branch" placeholder="비밀번호 입력" autocomplete="off" onkeydown="if(event.key==='Enter')libUnlock('branch')">
+      <button class="lib-btn" onclick="libUnlock('branch')">🔓 잠금 해제</button>
+      <div class="lib-err" id="lib-err-branch"></div>
+    </div>
+    <div class="lib-files" id="lib-files-branch" style="display:none">
+      <div class="lib-doc">
+        <div class="lib-doc-t">🏬 대리점용 사용설명서</div>
+        <div class="lib-lang"><span class="lib-lang-lb">한글</span>
+          <a class="lib-chip" href="/library/branch/agency-kr.pdf" download="망고아이_대리점용_사용설명서.pdf">📄 PDF</a>
+          <a class="lib-chip" href="/library/branch/agency-kr.docx" download="망고아이_대리점용_사용설명서.docx">📝 Word</a>
+          <a class="lib-chip" href="/library/branch/agency-kr.pptx" download="망고아이_대리점용_사용설명서.pptx">📊 PPT</a>
+          <a class="lib-chip" href="/library/branch/agency-kr.xlsx" download="망고아이_대리점용_사용설명서.xlsx">📗 Excel</a>
+        </div>
+        <div class="lib-lang"><span class="lib-lang-lb">English</span>
+          <a class="lib-chip" href="/library/branch/agency-en.pdf" download="Mangoi_Agency_User_Guide.pdf">📄 PDF</a>
+          <a class="lib-chip" href="/library/branch/agency-en.docx" download="Mangoi_Agency_User_Guide.docx">📝 Word</a>
+          <a class="lib-chip" href="/library/branch/agency-en.pptx" download="Mangoi_Agency_User_Guide.pptx">📊 PPT</a>
+          <a class="lib-chip" href="/library/branch/agency-en.xlsx" download="Mangoi_Agency_User_Guide.xlsx">📗 Excel</a>
+        </div>
+      </div>
+      <div class="lib-doc">
+        <div class="lib-doc-t">🏢 지사용 사용설명서</div>
+        <div class="lib-lang"><span class="lib-lang-lb">한글</span>
+          <a class="lib-chip" href="/library/branch/hq-kr.pdf" download="망고아이_지사용_사용설명서.pdf">📄 PDF</a>
+          <a class="lib-chip" href="/library/branch/hq-kr.docx" download="망고아이_지사용_사용설명서.docx">📝 Word</a>
+          <a class="lib-chip" href="/library/branch/hq-kr.pptx" download="망고아이_지사용_사용설명서.pptx">📊 PPT</a>
+          <a class="lib-chip" href="/library/branch/hq-kr.xlsx" download="망고아이_지사용_사용설명서.xlsx">📗 Excel</a>
+        </div>
+        <div class="lib-lang"><span class="lib-lang-lb">English</span>
+          <a class="lib-chip" href="/library/branch/hq-en.pdf" download="Mangoi_Branch_User_Guide.pdf">📄 PDF</a>
+          <a class="lib-chip" href="/library/branch/hq-en.docx" download="Mangoi_Branch_User_Guide.docx">📝 Word</a>
+          <a class="lib-chip" href="/library/branch/hq-en.pptx" download="Mangoi_Branch_User_Guide.pptx">📊 PPT</a>
+          <a class="lib-chip" href="/library/branch/hq-en.xlsx" download="Mangoi_Branch_User_Guide.xlsx">📗 Excel</a>
+        </div>
+      </div>
+      <div class="lib-note">ℹ️ 자료를 클릭하면 다운로드됩니다.</div>
+    </div>
+  </div>
+</details>
+
+<details class="table-card menu-card" id="card-lib-student">
+  <summary><span>🎒 학생·학부모 자료실</span></summary>
+  <div class="menu-body">
+    <div class="lib-gate" id="lib-gate-student">
+      <div class="lib-lock">🔒 이 자료실은 <b>비밀번호</b>가 필요합니다.</div>
+      <input type="password" class="lib-pw" id="lib-pw-student" placeholder="비밀번호 입력" autocomplete="off" onkeydown="if(event.key==='Enter')libUnlock('student')">
+      <button class="lib-btn" onclick="libUnlock('student')">🔓 잠금 해제</button>
+      <div class="lib-err" id="lib-err-student"></div>
+    </div>
+    <div class="lib-files" id="lib-files-student" style="display:none">
+      <div class="lib-doc">
+        <div class="lib-doc-t">📘 학생용 사용설명서</div>
+        <div class="lib-lang"><span class="lib-lang-lb">한글</span>
+          <a class="lib-chip" href="/library/student/student-kr.pdf" download="망고아이_학생용_사용설명서.pdf">📄 PDF</a>
+          <a class="lib-chip" href="/library/student/student-kr.pptx" download="망고아이_학생용_사용설명서.pptx">📊 PPT</a>
+          <a class="lib-chip" href="/library/student/student-kr.xlsx" download="망고아이_학생용_사용설명서.xlsx">📗 Excel</a>
+        </div>
+        <div class="lib-lang"><span class="lib-lang-lb">English</span>
+          <a class="lib-chip" href="/library/student/student-en.pdf" download="Mangoi_Student_User_Guide.pdf">📄 PDF</a>
+          <a class="lib-chip" href="/library/student/student-en.pptx" download="Mangoi_Student_User_Guide.pptx">📊 PPT</a>
+          <a class="lib-chip" href="/library/student/student-en.xlsx" download="Mangoi_Student_User_Guide.xlsx">📗 Excel</a>
+        </div>
+      </div>
+      <div class="lib-note">ℹ️ 자료를 클릭하면 다운로드됩니다.</div>
+    </div>
+  </div>
+</details>
+
+<script>
+/* 📚 자료실 비번 게이트 — 클라이언트 체크.
+   ▼▼▼ 비밀번호는 아래 LIB_PW 한 줄에서 방마다 바꾸세요 ▼▼▼ */
+(function(){
+  var LIB_PW = { admin:'mangoi-admin-2026', teacher:'mangoi-teacher-2026', branch:'mangoi-branch-2026', student:'mangoi-student-2026' };
+  window.libUnlock = function(room){
+    var inp = document.getElementById('lib-pw-'+room);
+    var v = (inp && inp.value || '').trim();
+    if(v === LIB_PW[room]){
+      var g = document.getElementById('lib-gate-'+room), f = document.getElementById('lib-files-'+room);
+      if(g) g.style.display='none';
+      if(f) f.style.display='';
+      try{ sessionStorage.setItem('lib_ok_'+room,'1'); }catch(e){}
+    } else {
+      var er = document.getElementById('lib-err-'+room);
+      if(er) er.textContent='비밀번호가 올바르지 않습니다.';
+      if(inp){ inp.value=''; inp.focus(); }
+    }
+  };
+  /* 같은 세션 동안엔 재입력 생략 */
+  try{
+    ['admin','teacher','branch','student'].forEach(function(r){
+      if(sessionStorage.getItem('lib_ok_'+r)==='1'){
+        var g=document.getElementById('lib-gate-'+r), f=document.getElementById('lib-files-'+r);
+        if(g) g.style.display='none';
+        if(f) f.style.display='';
+      }
+    });
+  }catch(e){}
+})();
+</script>
+<!-- ===================== /📚 자료실 ===================== -->
+
 <!-- 📚 Phase HW — 새 숙제 출제 모달 (학원 → 학생 단계 선택) -->
 <div id="hw-modal" style="display:none;position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.62);align-items:flex-start;justify-content:center;overflow:auto;padding:24px 12px;">
   <div style="background:#fff;color:#1e293b;width:100%;max-width:560px;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.4);overflow:hidden;">
@@ -35972,6 +36178,7 @@ button.chip:hover,
     'card-webpush-mgmt':        ['VAPID 키 관리','구독자 목록','푸시 발송','발송 이력'],
     'card-kakao-mgmt':          ['SOLAPI 설정','템플릿 등록','발송 이력','발송 통계'],
     'card-popups-mgmt':         ['신규 팝업','노출 일정','대상 선택','클릭률'],
+    'card-poster-maker':        ['새 포스터','크기·동영상','저장 목록','다시 사용'],
     'card-notifications':       ['이벤트 등록','수신자 그룹','발송 예약','수신 확인'],
     'card-notice-board':        ['공지 작성','대상 선택','상단 고정','댓글 관리'],
 
@@ -36303,6 +36510,7 @@ button.chip:hover,
     'card-webpush-mgmt':        ['VAPID 키 관리','구독자 목록','푸시 발송','발송 이력'],
     'card-kakao-mgmt':          ['SOLAPI 설정','템플릿 등록','발송 이력','발송 통계'],
     'card-popups-mgmt':         ['신규 팝업','노출 일정','대상 선택','클릭률'],
+    'card-poster-maker':        ['새 포스터','크기·동영상','저장 목록','다시 사용'],
     'card-notifications':       ['이벤트 등록','수신자 그룹','발송 예약','수신 확인'],
     'card-notice-board':        ['공지 작성','대상 선택','상단 고정','댓글 관리'],
     'card-teacher-mgmt':        ['강사 정보 등록','강사 목록','평가·평점','수업 배정'],

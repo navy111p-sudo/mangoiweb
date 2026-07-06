@@ -607,6 +607,31 @@
   .logbadge-bad { color:#fca5a5; }
   html[data-theme="light"] .logbadge-ok  { color:#047857; }
   html[data-theme="light"] .logbadge-bad { color:#b91c1c; }
+  /* 교사 전용 탭(📚 내 수업 · 💰 급여) 데모 카드 라이트 테마 대응
+     — 진한 배경/밝은 글자만 골라 밝게. 고정 그라데이션 히어로·컬러 버튼은 흰색 유지 */
+  html[data-theme="light"] :is(.panel[data-panel="lessons"],.panel[data-panel="salary"]) [style*="background:#1A2548"]{ background:#eef2fa !important; border-color:#dbe2f0 !important; }
+  html[data-theme="light"] :is(.panel[data-panel="lessons"],.panel[data-panel="salary"]) [style*="background:rgba(15,23,42,0.5)"]{ background:#f1f5f9 !important; }
+  html[data-theme="light"] :is(.panel[data-panel="lessons"],.panel[data-panel="salary"]) [style*="background:rgba(15,23,42,0.4)"]{ background:#f1f5f9 !important; }
+  html[data-theme="light"] :is(.panel[data-panel="lessons"],.panel[data-panel="salary"]) [style*="background:rgba(15,23,42,0.6)"]{ background:#e2e8f0 !important; }
+  /* 흰 숫자(KPI 타일·진한 카드 안) → 진하게. 그라데이션 배경 요소(아바타 등)는 제외해 흰색 유지 */
+  html[data-theme="light"] :is(.panel[data-panel="lessons"],.panel[data-panel="salary"]) [style*="background:#1A2548"] [style*="color:#fff"]:not([style*="linear-gradient"]),
+  html[data-theme="light"] :is(.panel[data-panel="lessons"],.panel[data-panel="salary"]) [style*="background:rgba(56,189,248,0.10)"] [style*="color:#fff"],
+  html[data-theme="light"] :is(.panel[data-panel="lessons"],.panel[data-panel="salary"]) [style*="background:rgba(16,185,129,0.10)"] [style*="color:#fff"],
+  html[data-theme="light"] :is(.panel[data-panel="lessons"],.panel[data-panel="salary"]) [style*="background:rgba(251,191,36,0.10)"] [style*="color:#fff"],
+  html[data-theme="light"] :is(.panel[data-panel="lessons"],.panel[data-panel="salary"]) [style*="background:rgba(167,139,250,0.10)"] [style*="color:#fff"],
+  html[data-theme="light"] :is(.panel[data-panel="lessons"],.panel[data-panel="salary"]) [style*="background:rgba(239,68,68,0.10)"] [style*="color:#fff"]{ color:#16233b !important; }
+  /* 카드 안 밝은 강조색 글자 → 라이트 테마용 진한 대비색 (히어로 전용 #bfdbfe·#dbeafe는 제외해 유지) */
+  html[data-theme="light"] :is(.panel[data-panel="lessons"],.panel[data-panel="salary"]) [style*="color:#94a3b8"]{ color:#55647f !important; }
+  html[data-theme="light"] :is(.panel[data-panel="lessons"],.panel[data-panel="salary"]) [style*="color:#cbd5e1"]{ color:#334155 !important; }
+  html[data-theme="light"] :is(.panel[data-panel="lessons"],.panel[data-panel="salary"]) [style*="color:#fbbf24"],
+  html[data-theme="light"] :is(.panel[data-panel="lessons"],.panel[data-panel="salary"]) [style*="color:#fcd34d"],
+  html[data-theme="light"] :is(.panel[data-panel="lessons"],.panel[data-panel="salary"]) [style*="color:#fde68a"]{ color:#b45309 !important; }
+  html[data-theme="light"] :is(.panel[data-panel="lessons"],.panel[data-panel="salary"]) [style*="color:#7dd3fc"],
+  html[data-theme="light"] :is(.panel[data-panel="lessons"],.panel[data-panel="salary"]) [style*="color:#bae6fd"]{ color:#0369a1 !important; }
+  html[data-theme="light"] :is(.panel[data-panel="lessons"],.panel[data-panel="salary"]) [style*="color:#86efac"],
+  html[data-theme="light"] :is(.panel[data-panel="lessons"],.panel[data-panel="salary"]) [style*="color:#6ee7b7"]{ color:#047857 !important; }
+  html[data-theme="light"] :is(.panel[data-panel="lessons"],.panel[data-panel="salary"]) [style*="color:#c4b5fd"]{ color:#6d28d9 !important; }
+  html[data-theme="light"] :is(.panel[data-panel="lessons"],.panel[data-panel="salary"]) [style*="color:#fca5a5"]{ color:#b91c1c !important; }
   html[data-theme="light"] .checklist-row { background: #f8fafc; }
   html[data-theme="light"] .checklist-row:hover { background: #f1f5f9; }
   html[data-theme="light"] .checklist-row .cl-text b { color: #0f172a; }
