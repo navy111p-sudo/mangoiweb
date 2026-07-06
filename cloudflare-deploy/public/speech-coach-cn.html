@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B1224">
 <title>🇨🇳 중국어 발음 교정 — 다락원 중국어 마스터 + Lv 1~20</title>
-<!-- BUILD:20260706150144 -->
+<!-- BUILD:20260706171726 -->
 <style>
 :root {
   --bg: #0B1224;
@@ -989,6 +989,14 @@ function renderLv(){
   }
 }
 
+/* 진행 저장(이어서 하기) + 완료 체크 — localStorage (문장은 한자 텍스트로 식별) */
+var LS_CN_DONE = 'mangoi_speech_cn_done', LS_CN_POS = 'mangoi_speech_cn_pos';
+function loadDoneCn(){ try { return new Set(JSON.parse(localStorage.getItem(LS_CN_DONE) || '[]')); } catch(e){ return new Set(); } }
+var doneCn = loadDoneCn();
+function saveDoneCn(){ try { localStorage.setItem(LS_CN_DONE, JSON.stringify(Array.from(doneCn))); } catch(e){} }
+function savePosCn(){ try { localStorage.setItem(LS_CN_POS, JSON.stringify({ group: state.group, book: state.darakwonBook, lesson: state.lessonIdx, lv: state.lv, sIdx: state.sIdx })); } catch(e){} }
+function markSentenceDone(){ var pool = getPool(); var it = pool[state.sIdx]; if (it && !doneCn.has(it.c)) { doneCn.add(it.c); saveDoneCn(); updateSentenceNav(pool); } }
+
 /* ── 문장 선택 (순차 이동 + 선택 + 랜덤) ── */
 function getPool(){
   if (state.group === 'darakwon') {
@@ -1011,20 +1019,25 @@ function showSentence(){
   document.getElementById('progress').textContent = '시도 ' + state.attempt + '/3 · 버튼을 눌러 녹음을 시작하세요';
   document.getElementById('result').classList.remove('show');
   updateSentenceNav(pool);
+  savePosCn();   // 위치 저장 → 다음에 이어서
 }
-/* 이전/다음/선택 UI 동기화 */
+/* 이전/다음/선택 UI 동기화 (완료 문장은 ✓ 표시) */
 function updateSentenceNav(pool){
   pool = pool || getPool();
   const sel = document.getElementById('sentence-select');
   if (sel) {
     sel.innerHTML = pool.map(function(it, i){
+      var mark = doneCn.has(it.c) ? '✓ ' : '';
       var lbl = it.c.length > 16 ? it.c.slice(0, 16) + '…' : it.c;
-      return '<option value="' + i + '">' + (i + 1) + '. ' + lbl + '</option>';
+      return '<option value="' + i + '">' + mark + (i + 1) + '. ' + lbl + '</option>';
     }).join('');
     sel.value = String(state.sIdx);
   }
   const cnt = document.getElementById('sentence-count');
-  if (cnt) cnt.textContent = (state.sIdx + 1) + ' / ' + pool.length;
+  if (cnt) {
+    var doneN = pool.filter(function(it){ return doneCn.has(it.c); }).length;
+    cnt.textContent = (state.sIdx + 1) + ' / ' + pool.length + (doneN ? ' · ✓ ' + doneN : '');
+  }
 }
 function goSentence(delta){ stopSpeak(); state.sIdx += delta; showSentence(); }
 function selectSentence(v){ stopSpeak(); state.sIdx = parseInt(v, 10) || 0; showSentence(); }
@@ -1155,6 +1168,7 @@ function stopRecord(){
 function showResult(score, said){
   const r = document.getElementById('result');
   r.classList.add('show');
+  try { markSentenceDone(); } catch(e){}   // 채점 완료 → 이 문장 완료 체크
   document.getElementById('score').textContent = score + '점';
   let fb = '';
   if (score >= 85) fb = '✅ 정말 잘했어요! 원어민처럼 정확해요.\n인식: "' + said + '"';
@@ -1220,11 +1234,28 @@ document.getElementById('speed-range').oninput = function(){
   document.getElementById('speed-val').textContent = state.speed.toFixed(2) + 'x';
 };
 
-/* ── 초기 렌더 ── */
-renderDarakwon();
-renderLessons();
-renderLv();
-pickRandom();
+/* ── 초기 렌더 (저장된 위치로 이어서 시작) ── */
+(function restoreCn(){
+  var p = null;
+  try { p = JSON.parse(localStorage.getItem(LS_CN_POS) || 'null'); } catch(e){}
+  if (p && typeof p === 'object') {
+    state.group = p.group || 'darakwon';
+    state.darakwonBook = p.book || 3;
+    state.lessonIdx = p.lesson || 0;
+    state.lv = p.lv || 1;
+    state.sIdx = p.sIdx || 0;
+    // 그룹 탭/영역 표시 동기화
+    document.querySelectorAll('.group-tab').forEach(function(x){ x.classList.toggle('active', x.dataset.group === state.group); });
+    var gd = document.getElementById('grp-darakwon'), gl = document.getElementById('grp-lv');
+    if (gd) gd.style.display = state.group === 'darakwon' ? '' : 'none';
+    if (gl) gl.style.display = state.group === 'lv' ? '' : 'none';
+  }
+  renderDarakwon();
+  renderLessons();
+  renderLv();
+  if (p) showSentence();   // 저장된 문장으로 이어서
+  else pickRandom();       // 처음이면 랜덤
+})();
 
 if ('speechSynthesis' in window) speechSynthesis.getVoices();
 

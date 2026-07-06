@@ -430,37 +430,22 @@
     // attachModel 의 load 콜백에서 호출 → 캐릭터가 (재)생성될 때마다 항상 재적용됨.
     function brightenHeroModel(root){
       if(!root) return;
-      // ===== 황금 기사(골드 메탈) 도장 =====
-      // 겉면을 살짝 반짝이는 황금 메탈로 통일: 골드 base color + 높은 metalness + 낮은 roughness(광택),
-      // 그리고 따뜻한 골드 emissive 바닥값으로 그림자 영역도 검게 죽지 않게 유지.
+      // ===== 황금 기사: 깔끔한 메탈 골드 (외곽선 없음) =====
+      // 밝고 선명한 골드 albedo + 중간 metalness/roughness → 창백하지도, 탁하지도 않게.
+      // 이전의 인버티드-헐 외곽선은 머리/몸에 검은 덩어리가 삐져나와 제거함.
       root.traverse(function(o){
-        if(o.userData.__isOutline) return;                    // 외곽선 자신은 건너뜀(무한 중첩 방지)
         if(!o.isMesh||!o.material) return;
         o.castShadow=true; o.frustumCulled=false;
         var mm=Array.isArray(o.material)?o.material:[o.material];
         mm.forEach(function(m){
           if(!m) return;
-          // (1) 텍스처 맵 제거 → 골드 색이 원래 텍스처 색에 얼룩지지 않고 균일한 금색으로
-          if('map' in m) m.map=null;
-          // (2) 더 진한(딥) 골드 base color — 채도 높은 금빛
-          if(m.color){ m.color.setRGB(0.66,0.45,0.12); }
-          // (3) emissive 바닥값을 크게 낮춤 → 암부(그림자)가 살아나 얼굴 등 형태가 입체적으로 읽힘
-          if(m.emissive!==undefined){ if('emissiveMap' in m) m.emissiveMap=null; m.emissive=new THREE.Color(0.09,0.06,0.015); m.emissiveIntensity=0.12; }
-          // (4) 메탈감은 유지하되 metalness 낮추고 roughness 올려 diffuse 음영이 형태(굴곡)를 드러내게
-          if(m.metalness!=null) m.metalness=0.5;
-          if(m.roughness!=null) m.roughness=0.5;
+          if('map' in m) m.map=null;                          // 균일한 금색
+          if(m.color){ m.color.setRGB(0.92,0.68,0.26); }      // 밝고 선명한 골드
+          if(m.emissive!==undefined){ if('emissiveMap' in m) m.emissiveMap=null; m.emissive=new THREE.Color(0.16,0.11,0.03); m.emissiveIntensity=0.28; }
+          if(m.metalness!=null) m.metalness=0.6;               // 메탈감 유지(창백 wash 방지)
+          if(m.roughness!=null) m.roughness=0.38;              // 살짝 반짝이는 광택
           m.toneMapped=true; m.needsUpdate=true;
         });
-        // (5) 외곽선(선): 인버티드 헐 — 지오메트리를 살짝 키운 BackSide 어두운 메시를 덧대 실루엣을 진하게
-        if(!o.userData.__outlined){
-          try{
-            var omat=new THREE.MeshBasicMaterial({color:0x201200,side:THREE.BackSide,fog:false});
-            var out=o.isSkinnedMesh ? new THREE.SkinnedMesh(o.geometry,omat) : new THREE.Mesh(o.geometry,omat);
-            if(o.isSkinnedMesh){ out.bind(o.skeleton,o.bindMatrix); }
-            out.scale.setScalar(1.045); out.frustumCulled=false; out.castShadow=false;
-            out.userData.__isOutline=true; o.add(out); o.userData.__outlined=true;
-          }catch(e){}
-        }
       });
     }
     function attachModel(G, conf, faceDir){
@@ -917,6 +902,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260706150144 -->
+<!-- BUILD:20260706171726 -->
 </body>
 </html>

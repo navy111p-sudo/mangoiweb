@@ -202,29 +202,48 @@ var STEPS = [
   'Thank you very much for your help.'
 ];
 var currentStep = 0;
+/* 진행 저장(이어서 하기) + 완료 체크 — localStorage */
+var LS_STEP = 'mangoi_speech_en_step', LS_DONE = 'mangoi_speech_en_done';
+function loadDone(){ try { return new Set(JSON.parse(localStorage.getItem(LS_DONE) || '[]')); } catch(e){ return new Set(); } }
+var doneSet = loadDone();
+function saveDone(){ try { localStorage.setItem(LS_DONE, JSON.stringify(Array.from(doneSet))); } catch(e){} }
+function saveStep(){ try { localStorage.setItem(LS_STEP, String(currentStep)); } catch(e){} }
+function markStepDone(i){ if (STEPS[i] && !doneSet.has(STEPS[i])) { doneSet.add(STEPS[i]); saveDone(); renderStepSelect(); updateStepUI(); } }
 function shortLabel(s){ return s.length > 30 ? s.slice(0, 30) + '…' : s; }
 function renderStepSelect(){
   var sel = document.getElementById('step-select');
   if (!sel) return;
   sel.innerHTML = STEPS.map(function(s, i){
-    return '<option value="' + i + '">' + (i + 1) + '. ' + shortLabel(s) + '</option>';
+    var mark = doneSet.has(s) ? '✓ ' : '';           // 완료한 단계는 체크 표시
+    return '<option value="' + i + '">' + mark + (i + 1) + '. ' + shortLabel(s) + '</option>';
   }).join('');
+  sel.value = String(currentStep);
 }
 function updateStepUI(){
   var sel = document.getElementById('step-select');
   if (sel) sel.value = String(currentStep);
   var cnt = document.getElementById('step-count-txt');
-  if (cnt) cnt.textContent = (currentStep + 1) + ' / ' + STEPS.length;
+  if (cnt) {
+    var done = STEPS.filter(function(s){ return doneSet.has(s); }).length;
+    cnt.textContent = (currentStep + 1) + ' / ' + STEPS.length + (done ? ' · ✓ ' + done : '');
+  }
 }
 function loadStep(i, speak){
   currentStep = ((i % STEPS.length) + STEPS.length) % STEPS.length;   // 순환(끝→처음)
   setTarget(STEPS[currentStep]);   // setTarget 내부에서 updateStepUI 동기화
   updateStepUI();
+  saveStep();
   if (speak) speakTarget();
 }
 function goStep(delta){ loadStep(currentStep + delta, false); }
 function selectStep(v){ loadStep(parseInt(v, 10), false); }
-try { renderStepSelect(); updateStepUI(); } catch(e){}
+/* 초기화: 저장된 단계로 이어서 시작 */
+try {
+  renderStepSelect();
+  var _saved = parseInt(localStorage.getItem(LS_STEP), 10);
+  if (!isNaN(_saved) && _saved >= 0 && _saved < STEPS.length) { loadStep(_saved, false); }
+  else { updateStepUI(); }
+} catch(e){ updateStepUI(); }
 
 let ttsAudio = null;
 const ttsCache = {};
@@ -335,6 +354,7 @@ async function processAudio(blob) {
     document.getElementById('feedback-text').textContent = '💡 ' + cD.feedback;
     document.getElementById('suggestion-text').textContent = '🎯 ' + cD.suggestion;
     document.getElementById('result').style.display = 'block';
+    try { markStepDone(currentStep); } catch(e){}   // 채점 완료 → 이 단계 완료 체크
     document.getElementById('rec-status').textContent = '✅ 완료! 다시 녹음하려면 마이크 누르세요';
 
     // 결과 영역으로 스크롤
@@ -350,7 +370,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260706150144 -->
+<!-- BUILD:20260706171726 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>
