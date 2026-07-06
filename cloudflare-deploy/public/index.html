@@ -11029,15 +11029,35 @@ function vcUpdateGridCount() {
 /** 다자간 통화 방 나가기 */
 async function vcLeaveRoom() {
     // ── 자동 녹화 중이면 먼저 중지하고 R2 업로드 완료까지 대기 ──
+    let vcRecResult = null;
     try {
         if (window.MangoV3 && typeof window.MangoV3.stopRecording === 'function') {
             console.log('[vcLeaveRoom] 녹화 중지 시도 (업로드 완료까지 대기)...');
-            const result = await window.MangoV3.stopRecording();
-            console.log('[vcLeaveRoom] 녹화 중지 결과:', result);
+            vcRecResult = await window.MangoV3.stopRecording();
+            console.log('[vcLeaveRoom] 녹화 중지 결과:', vcRecResult);
         }
     } catch (e) {
         console.warn('[vcLeaveRoom] 녹화 중지/업로드 예외:', e);
     }
+
+    // ⭐ 교사 전용 — 수업 종료 직후 AI 코칭 카드(잘한점/개선점 한·영). 학생에겐 안 뜸.
+    try {
+        var _isTeacher = (typeof vcIsTeacherRole === 'function') ? vcIsTeacherRole()
+            : (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin');
+        if (_isTeacher && window.MangoTeacherFeedback && vcRoomId) {
+            var _recId = (typeof recordingId !== 'undefined' && recordingId) ? recordingId
+                : (vcRecResult && vcRecResult.recording_id) || null;
+            var _tUid = '';
+            try { var _u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null; if (_u) _tUid = _u.uid || _u.id || ''; } catch(_){}
+            window.MangoTeacherFeedback.show({
+                room_id: vcRoomId,
+                teacher_name: (typeof vcUsername !== 'undefined' ? vcUsername : ''),
+                teacher_uid: _tUid,
+                recording_id: _recId,
+                lang: 'en'
+            });
+        }
+    } catch (e) { console.warn('[teacher-feedback] hook:', e); }
 
     Object.keys(vcPeerConnections).forEach(id => {
         vcPeerConnections[id].close();
@@ -11077,7 +11097,10 @@ async function vcLeaveRoom() {
     try { showView('view-home'); } catch(e){ console.warn('[vcLeaveRoom] showView fail:', e); }
 
     // 🚀 수업 종료 → 다음 활동(복습퀴즈 추천) 메뉴 — 홈 전환이 정착된 뒤 표시
-    if (!/[?&](room|r)=/.test(location.search)) {
+    //   (교사는 위 AI 코칭 카드가 뜨므로 학생용 흐름 메뉴는 생략)
+    var _flowIsTeacher = (typeof vcIsTeacherRole === 'function') ? vcIsTeacherRole()
+        : (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin');
+    if (!/[?&](room|r)=/.test(location.search) && !_flowIsTeacher) {
         setTimeout(function(){ try { window.MangoFlow && MangoFlow.open('class'); } catch(_){} }, 700);
     }
 
@@ -24083,7 +24106,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260706231755 -->
+<!-- BUILD:20260706232607 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -27274,5 +27297,6 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      ============================================================ -->
 <script src="/js/mango-worldclock.js?v=3" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 학생 홈+수업입장 화면 공용. 빼면 즉시 원복 -->
 <script defer src="/js/flow.js"></script><!-- 🚀 학습 흐름 연결(웜업·게임·수업·복습·게임 → 다음 활동 메뉴). 빼면 즉시 원복 -->
+<script defer src="/js/teacher-feedback.js?v=1"></script><!-- 🤖 교사 수업 종료 AI 코칭 카드(잘한점/개선점 한·영). 빼면 즉시 원복 -->
 </body>
 </html>

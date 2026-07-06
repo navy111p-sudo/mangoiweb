@@ -184,7 +184,8 @@
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         room_id: opts.room_id, teacher_uid: opts.teacher_uid, teacher_name: opts.teacher_name,
-        student_name: opts.student_name, signals: opts.signals, transcript: opts.transcript
+        student_name: opts.student_name, signals: opts.signals, transcript: opts.transcript,
+        recording_id: opts.recording_id, recording_url: opts.recording_url
       })
     }).then(function (r) { return r.json(); }).then(function (res) {
       if (!res || !res.ok) { errorBox(lang); return; }

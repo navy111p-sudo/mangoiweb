@@ -2772,7 +2772,7 @@ export async function handleMangoApi(
       let teacherUid = String(b.teacher_uid || '').trim();
       let teacherName = String(b.teacher_name || '').trim();
       let studentName = String(b.student_name || '').trim();
-      const transcript = String(b.transcript || '').slice(0, 6000).trim();
+      let transcript = String(b.transcript || '').slice(0, 6000).trim();
 
       // ── DB 로 신호 보강(best-effort) — 값이 없을 때만 채움 ──
       let durationMin = Number(sig.duration_min) || 0;
@@ -2782,7 +2782,7 @@ export async function handleMangoApi(
       let studentScore: number | null = null;
       let studentNote = '';
       try {
-        const t: any = await env.DB.prepare(`SELECT username, user_id, total_session_ms, joined_at, left_at FROM attendance WHERE room_id=? AND role='teacher' ORDER BY joined_at DESC LIMIT 1`).bind(roomId).first();
+        const t: any = await env.DB.prepare(`SELECT username, user_id, total_session_ms, total_active_ms, joined_at, left_at FROM attendance WHERE room_id=? AND role='teacher' ORDER BY joined_at DESC LIMIT 1`).bind(roomId).first();
         if (t) {
           if (!teacherName && t.username) teacherName = String(t.username);
           if (!teacherUid && t.user_id) teacherUid = String(t.user_id);
@@ -2791,9 +2791,13 @@ export async function handleMangoApi(
             if (ms > 0) durationMin = Math.max(1, Math.round(ms / 60000));
           }
         }
-        if (!studentName) {
-          const s: any = await env.DB.prepare(`SELECT username FROM attendance WHERE room_id=? AND role='student' AND username IS NOT NULL ORDER BY joined_at DESC LIMIT 1`).bind(roomId).first();
-          if (s?.username) studentName = String(s.username);
+        const s: any = await env.DB.prepare(`SELECT username, total_active_ms FROM attendance WHERE room_id=? AND role='student' AND username IS NOT NULL ORDER BY joined_at DESC LIMIT 1`).bind(roomId).first();
+        if (s?.username && !studentName) studentName = String(s.username);
+        // 발화비율(교사) = 교사 말한시간 / (교사+학생 말한시간). speaking-time(=total_active_ms) 이 쌓였을 때만.
+        if (talkRatio === null) {
+          const tActive = Number(t?.total_active_ms) || 0;
+          const sActive = Number(s?.total_active_ms) || 0;
+          if (tActive + sActive > 0) talkRatio = Math.round((tActive / (tActive + sActive)) * 100);
         }
         if (praiseCount === null) {
           const p: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE rule_code='teacher_praise_point' AND meta LIKE ?`).bind('%"room_id":"' + roomId + '"%').first();
@@ -2802,6 +2806,25 @@ export async function handleMangoApi(
         const r: any = await env.DB.prepare(`SELECT score, feedback FROM class_ratings WHERE room_id=? ORDER BY created_at DESC LIMIT 1`).bind(roomId).first();
         if (r) { studentScore = Number(r.score) || null; studentNote = String(r.feedback || '').slice(0, 400); }
       } catch { /* 신호 없으면 있는 것만으로 생성 */ }
+
+      // ── 전사 확보(선택): 클라이언트가 안 넘겼고 녹화가 있으면 Whisper 로 STT(실패해도 지표로 진행) ──
+      if (!transcript && (b.recording_id || b.recording_url)) {
+        try {
+          const ai0 = (env as any).AI;
+          let audioBuf: ArrayBuffer | null = null;
+          if (b.recording_id && (env as any).RECORDINGS) {
+            const obj: any = await (env as any).RECORDINGS.get(String(b.recording_id));
+            if (obj) audioBuf = await obj.arrayBuffer();
+          } else if (b.recording_url) {
+            const rr = await fetch(String(b.recording_url));
+            if (rr.ok) audioBuf = await rr.arrayBuffer();
+          }
+          if (ai0 && audioBuf && audioBuf.byteLength >= 1000 && audioBuf.byteLength <= 25 * 1024 * 1024) {
+            const stt: any = await ai0.run('@cf/openai/whisper', { audio: [...new Uint8Array(audioBuf)] });
+            transcript = String(stt?.text || '').slice(0, 6000).trim();
+          }
+        } catch (e: any) { console.warn('[ai-feedback] STT skip:', e?.message); }
+      }
 
       // ── 신호 요약(프롬프트 주입용) ──
       const signalLines = [
