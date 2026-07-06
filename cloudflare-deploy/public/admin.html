@@ -2748,7 +2748,7 @@
     </button>
 
     <!-- 📢 알림 센터 -->
-    <button class="hub-btn" onclick="hubJump('notify', ['card-webpush-mgmt','card-kakao-mgmt','card-popups-mgmt','card-notifications'])" data-hub="notify">
+    <button class="hub-btn" onclick="hubJump('notify', ['card-webpush-mgmt','card-kakao-mgmt','card-poster-maker','card-notifications'])" data-hub="notify">
       <div class="hub-icon" style="background:linear-gradient(135deg,#ec4899,#be185d)">📢</div>
       <div>
         <div class="hub-title" data-ko="알림 센터" data-en="Notification Hub">알림 센터</div>
@@ -10620,11 +10620,42 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 })();
 </script>
 
-<!-- 📢 Phase POP — 공지/팝업 관리 (포인트 카드 다음) -->
-<details class="table-card menu-card" id="card-popups-mgmt">
-  <summary><span data-ko="📢 공지/팝업 관리" data-en="📢 Announcements &amp; Popups">📢 공지/팝업 관리</span></summary>
+<!-- 📢 공지 스튜디오 — 포스터 제작(①) + 팝업 게시(②)를 한 카드·2탭으로 통합. (2026-07-06 병합)
+     · 컨테이너 = id card-poster-maker (기존 참조 유지, ①만들기 탭)
+     · ②게시 패널 = id card-popups-mgmt (기존 참조·기존 팝업 로직 그대로)
+     · 만들기→게시: 포스터 에디터의 '📢 팝업으로 게시' → /api/admin/popups 발행 → ②탭 표시
+     · DOM은 게시 패널이 먼저지만 기본 활성 탭은 ①만들기 (탭이 표시 패널을 제어) -->
+<style id="ns-studio-style">
+  #card-poster-maker .ns-hero{background:linear-gradient(135deg,rgba(236,72,153,.16),rgba(139,92,246,.16));border:1px solid rgba(236,72,153,.35);border-radius:12px;padding:12px 16px;margin:0 0 14px;font-size:13px;line-height:1.7;color:#e8e6f5}
+  #card-poster-maker .ns-hero b{color:#fbcfe8}
+  #card-poster-maker .ns-tabs{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
+  #card-poster-maker .ns-tab{flex:1 1 150px;min-width:150px;padding:12px 14px;font-size:13.5px;font-weight:800;border:1px solid rgba(148,163,184,.35);border-radius:12px;background:rgba(30,41,59,.55);color:#cbd5e1;cursor:pointer;transition:all .15s;text-align:center}
+  #card-poster-maker .ns-tab:hover{background:rgba(51,65,85,.72);color:#fff}
+  #card-poster-maker .ns-tab.is-active[data-nstab="make"]{background:linear-gradient(135deg,#ec4899,#8b5cf6);color:#fff;border-color:transparent;box-shadow:0 6px 18px -6px rgba(236,72,153,.7)}
+  #card-poster-maker .ns-tab.is-active[data-nstab="publish"]{background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;border-color:transparent;box-shadow:0 6px 18px -6px rgba(245,158,11,.7)}
+  #card-poster-maker .ns-panel#card-popups-mgmt{background:transparent!important;border:0!important;padding:0!important;margin:0!important}
+  html[data-admin-theme="ivory"] #card-poster-maker .ns-hero{color:#4a2a3a}
+  html[data-admin-theme="ivory"] #card-poster-maker .ns-hero b{color:#be185d}
+  html[data-admin-theme="ivory"] #card-poster-maker .ns-tab{color:#7c2d5a;background:rgba(0,0,0,.04)}
+</style>
+<details class="table-card menu-card" id="card-poster-maker">
+  <summary><span data-ko="📢 공지 스튜디오" data-en="📢 Notice Studio">📢 공지 스튜디오</span></summary>
   <div class="menu-body">
-    <div class="sub-menu">
+    <div class="ns-hero"
+         data-ko-html="<b>① 포스터를 만들고 → ② 바로 팝업으로 게시</b>합니다. 한 곳에서 공지·이벤트 포스터를 디자인하고 학생 앱 팝업으로 띄우세요. (게시 후 노출 기간·중단은 <b>②게시·팝업</b> 탭에서 조절)"
+         data-en-html="<b>① Design a poster → ② publish it as a popup</b>, all in one place. Create notice/event posters and show them in the student app. (Set display period/stop in the <b>② Publish</b> tab.)">
+      <b>① 포스터를 만들고 → ② 바로 팝업으로 게시</b>합니다. 한 곳에서 공지·이벤트 포스터를 디자인하고 학생 앱 팝업으로 띄우세요. (게시 후 노출 기간·중단은 <b>②게시·팝업</b> 탭에서 조절)
+    </div>
+    <div class="ns-tabs" role="tablist">
+      <button type="button" class="ns-tab is-active" data-nstab="make" onclick="noticeStudioTab('make')"
+              data-ko="🎨 ① 포스터 만들기" data-en="🎨 ① Make Poster">🎨 ① 포스터 만들기</button>
+      <button type="button" class="ns-tab" data-nstab="publish" onclick="noticeStudioTab('publish')"
+              data-ko="📢 ② 게시 · 팝업" data-en="📢 ② Publish · Popups">📢 ② 게시 · 팝업</button>
+    </div>
+
+    <!-- ② 게시 · 팝업 (id=card-popups-mgmt 유지 · 기본 숨김, 탭으로 표시) -->
+    <div class="ns-panel" id="card-popups-mgmt" data-nspanel="publish" style="display:none">
+      <div class="sub-menu">
 
       <!-- 1. 활성 팝업 목록 + 통계 -->
       <details class="sub-item" id="sub-popup-list" open>
@@ -10684,15 +10715,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         </div>
       </details>
 
+      </div>
     </div>
-  </div>
-</details>
 
-<!-- 🎨 포스터 만들기 — 공지·안내 포스터 서버 저장/재사용 -->
-<details class="table-card menu-card" id="card-poster-maker">
-  <summary><span data-ko="🎨 포스터 만들기" data-en="🎨 Poster Maker">🎨 포스터 만들기</span></summary>
-  <div class="menu-body">
-    <div class="sub-menu">
+    <!-- ① 포스터 만들기 패널 (기본 활성) -->
+    <div class="ns-panel is-active" data-nspanel="make">
+      <div class="sub-menu">
       <details class="sub-item" open>
         <summary data-ko="🖼 내 포스터 (저장 목록)" data-en="🖼 Saved Posters">🖼 내 포스터 (저장 목록)</summary>
         <div class="sub-body">
@@ -10720,9 +10748,25 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           </div>
         </div>
       </details>
+      </div>
     </div>
   </div>
 </details>
+<script>
+/* 📢 공지 스튜디오 — 탭 전환(①만들기 / ②게시·팝업) + 진입 시 해당 목록 로드. 전역 noticeStudioTab 노출 */
+(function(){
+  if(window.noticeStudioTab) return;
+  window.noticeStudioTab=function(which){
+    var card=document.getElementById('card-poster-maker'); if(!card) return;
+    try{ if(card.tagName==='DETAILS' && !card.open) card.open=true; }catch(e){}
+    which=(which==='publish')?'publish':'make';
+    Array.prototype.forEach.call(card.querySelectorAll('.ns-tab'),function(t){ t.classList.toggle('is-active', t.getAttribute('data-nstab')===which); });
+    Array.prototype.forEach.call(card.querySelectorAll('.ns-panel'),function(p){ var on=p.getAttribute('data-nspanel')===which; p.style.display=on?'block':'none'; p.classList.toggle('is-active',on); });
+    try{ if(which==='make' && typeof window.posterLoadList==='function') window.posterLoadList(); }catch(e){}
+    try{ if(which==='publish' && typeof window.popLoadList==='function') window.popLoadList(); }catch(e){}
+  };
+})();
+</script>
 
 <!-- 🎨 포스터 에디터 모달 (poster-maker.html 임베드) -->
 <div id="poster-editor-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:11600;padding:14px" onclick="if(event.target===this)posterCloseEditor()">
@@ -10828,7 +10872,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         var d=await r.json();
         var ok=!(!d||d.ok===false);
         if(fr.contentWindow) fr.contentWindow.postMessage({type:'poster-published',ok:ok},'*');
-        if(ok && typeof window.popLoadList==='function'){ try{ window.popLoadList(); }catch(_){} }
+        if(ok){ try{ if(window.noticeStudioTab) window.noticeStudioTab('publish'); }catch(_){} try{ if(window.popLoadList) window.popLoadList(); }catch(_){} }
       }catch(err){ if(fr.contentWindow) fr.contentWindow.postMessage({type:'poster-published',ok:false},'*'); }
     }
   });
@@ -21401,6 +21445,8 @@ function jumpToMenu(id, opts) {
   let _anc = el.parentElement;
   while (_anc) { if (_anc.tagName === 'DETAILS') _anc.open = true; _anc = _anc.parentElement; }
   el.open = true;
+  // 📢 공지 스튜디오: 대상이 게시(팝업)/만들기 패널이면 해당 탭으로 전환 후 스크롤
+  try{ if((id==='card-popups-mgmt'||id==='card-poster-maker') && typeof window.noticeStudioTab==='function') window.noticeStudioTab(id==='card-popups-mgmt'?'publish':'make'); }catch(e){}
   el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   // 시각적 강조 — 렌더 안정 후(rAF x2) 배경 틴트+링 글로우 펄스 (2026-06-12)
   requestAnimationFrame(() => { requestAnimationFrame(() => {
@@ -23307,7 +23353,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260706231105 -->
+        <!-- BUILD:20260706231738 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -28307,8 +28353,8 @@ button.chip:hover,
     <div class="ph85-subs">
       <div class="ph85-sub" data-card="card-webpush-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-webpush-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-webpush-mgmt');}">웹 푸시</div>
       <div class="ph85-sub" data-card="card-kakao-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-kakao-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-kakao-mgmt');}">카카오 알림</div>
-      <div class="ph85-sub" data-card="card-popups-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-popups-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-popups-mgmt');}">팝업 관리</div>
-      <div class="ph85-sub" data-card="card-poster-maker" onclick="event.stopPropagation();var c=document.getElementById('card-poster-maker');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(236,72,153,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-poster-maker');}">🎨 포스터 만들기</div>
+      <div class="ph85-sub" data-card="card-poster-maker" onclick="event.stopPropagation();if(typeof jumpToMenu==='function'){jumpToMenu('card-poster-maker');}">📢 공지 스튜디오</div>
+      <div class="ph85-sub" data-card="card-popups-mgmt" onclick="event.stopPropagation();if(typeof jumpToMenu==='function'){jumpToMenu('card-popups-mgmt');}">📢 팝업 게시</div>
       <div class="ph85-sub" data-card="card-notifications" onclick="event.stopPropagation();var c=document.getElementById('card-notifications');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-notifications');}">이벤트 알림</div>
       <div class="ph85-sub" data-card="card-notice-board" onclick="event.stopPropagation();var c=document.getElementById('card-notice-board');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-notice-board');}">📌 공지사항 ⭐신규</div>
     </div>
@@ -41578,6 +41624,8 @@ button.chip:hover,
   function miOpsNavigate(targetId){
     var el=document.getElementById(targetId);
     if(!el) return false;
+    // 📢 공지 스튜디오: 게시/만들기 패널 대상이면 해당 탭 전환
+    try{ if((targetId==='card-popups-mgmt'||targetId==='card-poster-maker') && typeof window.noticeStudioTab==='function') window.noticeStudioTab(targetId==='card-popups-mgmt'?'publish':'make'); }catch(e){}
     var node=el;
     while(node){ if(node.tagName==='DETAILS'){ node.open=true; } node=node.parentElement; }
     setTimeout(function(){
