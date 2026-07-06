@@ -441,7 +441,7 @@
     var SOLDIER='https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/models/gltf/Soldier.glb';
     var ROBOT='https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
     var MODELS = {
-      hero: { url:SOLDIER, sprite:'hero-atlas.png', video:'robert-knight.mp4', scale:'auto', idle:'Idle', attack:'Run', brighten:true },
+      hero: { url:SOLDIER, sprite:'hero-atlas.png?v=3', video:'robert-knight.mp4', scale:'auto', idle:'Idle', attack:'Run', brighten:true },   // ?v = 캐시 강제 갱신(파일명 동일해 옛 이미지 붙잡히는 것 방지)
       boss: { url:'',      scale:'auto', idle:'Idle', attack:'Punch', tint:0x7a1414 }
     };
     var _mixers=[];
@@ -1058,6 +1058,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260707015252 -->
+<!-- BUILD:20260707020012 -->
 </body>
 </html>
