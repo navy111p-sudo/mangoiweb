@@ -134,13 +134,13 @@
     }).join('');
 
     ov.innerHTML =
-      '<div style="width:100%;max-width:400px;max-height:86vh;overflow-y:auto;background:#0b1220;border:1px solid #1e293b;border-radius:22px;' +
+      '<div class="mg-flow-card" style="width:100%;max-width:400px;max-height:86vh;overflow-y:auto;background:#0b1220;border:1px solid #1e293b;border-radius:22px;' +
       'padding:22px 18px;box-shadow:0 30px 80px -12px rgba(0,0,0,.75)">' +
         '<div style="text-align:center;margin-bottom:16px">' +
-          (fromTxt ? '<div style="font-size:13px;color:#94a3b8;font-weight:700;margin-bottom:5px">✅ ' + fromTxt + ' 완료</div>' : '') +
-          '<div style="font-size:20px;font-weight:800;color:#f8fafc">🚀 다음은 어디로 이동할까요?</div>' +
+          (fromTxt ? '<div class="mg-flow-sub" style="font-size:13px;color:#94a3b8;font-weight:700;margin-bottom:5px">✅ ' + fromTxt + ' 완료</div>' : '') +
+          '<div class="mg-flow-title" style="font-size:20px;font-weight:800;color:#f8fafc">🚀 다음은 어디로 이동할까요?</div>' +
         '</div>' +
-        '<div style="display:flex;flex-direction:column;gap:9px">' + rows + '</div>' +
+        '<div class="mg-flow-list" style="display:flex;flex-direction:column;gap:9px">' + rows + '</div>' +
       '</div>';
 
     d.body.appendChild(ov);
@@ -156,7 +156,19 @@
     var st = d.createElement('style');
     st.id = 'mango-flow-style';
     st.textContent = '@keyframes mgFlowFade{from{opacity:0}to{opacity:1}}' +
-      '.mg-flow-row:active{transform:scale(.98)}';
+      '.mg-flow-row:active{transform:scale(.98)}' +
+      /* 🖥️ PC(넓은 화면) — 이동 메뉴 약 30% 확대 */
+      '@media (min-width:820px){' +
+        '.mg-flow-card{max-width:530px!important;padding:30px 26px!important;border-radius:26px!important}' +
+        '.mg-flow-title{font-size:26px!important}' +
+        '.mg-flow-sub{font-size:16px!important}' +
+        '.mg-flow-list{gap:12px!important}' +
+        '.mg-flow-row{padding:19px 22px!important;border-radius:18px!important;gap:16px!important}' +
+        '.mg-flow-row>span:nth-child(1){font-size:19px!important;width:28px!important;flex-basis:28px!important}' +
+        '.mg-flow-row>span:nth-child(2){font-size:29px!important;flex-basis:34px!important}' +
+        '.mg-flow-row>span:nth-child(3){font-size:21px!important}' +
+        '.mg-flow-row>span:nth-child(4){font-size:15px!important;padding:5px 15px!important}' +
+      '}';
     d.head.appendChild(st);
   }
 
