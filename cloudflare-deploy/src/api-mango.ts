@@ -2896,24 +2896,32 @@ Return STRICT JSON only, in BOTH Korean and English:
         } catch (e: any) { console.warn('[ai-feedback] AI fail:', e?.message); }
       }
 
+      // ── 상세 총평(폴백/보강용) — 지표를 실제로 반영한 3~4문장 ──
+      const manyTalk = talkRatio !== null && talkRatio > 60;
+      const sumKo = `이번 수업은${durationMin ? ` 약 ${durationMin}분 동안 진행됐고,` : ''} ${talkRatio !== null ? `교사 발화 비율이 ${talkRatio}%였어요.` : '전반적으로 무난하게 진행됐어요.'} ${manyTalk ? `교사 발화가 ${talkRatio}%로 높아, 아이가 스스로 영어 문장을 만들어 말할 기회가 많이 부족했습니다. 영어 회화 수업의 핵심은 아이의 발화량이라, 이 부분이 가장 큰 개선 포인트예요.` : '아이가 말할 기회가 비교적 잘 확보되어 회화 연습이 이뤄졌어요.'} ${praiseCount ? `수업 중 칭찬을 ${praiseCount}회 해 주신 점은 아이의 자신감과 흥미 유지에 도움이 됩니다.` : '칭찬이 거의 없었는데, 작은 칭찬만 자주 해줘도 아이가 훨씬 편하게 입을 엽니다.'} ${engagement === 'low' ? '아이의 참여도가 낮게 관찰된 만큼, 흥미를 끌 질문과 리액션을 늘려보세요.' : ''} 다음 수업엔 열린 질문(“Why do you think so?”)과 3~5초 기다리는 시간을 늘려 아이의 발화를 끌어내는 데 집중해 보세요.`;
+      const sumEn = `This lesson${durationMin ? ` ran about ${durationMin} min, and` : ''} ${talkRatio !== null ? `your talk ratio was ${talkRatio}%.` : 'went smoothly overall.'} ${manyTalk ? `At ${talkRatio}%, the teacher spoke for most of the lesson, so the child had very few chances to produce English on their own. Since a speaking class lives or dies by how much the student talks, this is the single biggest area to improve.` : 'The child had good room to speak, so real conversation practice happened.'} ${praiseCount ? `Your ${praiseCount} moments of praise helped keep the child's confidence and interest up.` : 'There was little praise — even small, frequent praise gets a child talking far more comfortably.'} ${engagement === 'low' ? 'Engagement looked low, so add more interest-grabbing questions and reactions.' : ''} Next class, focus on open questions ("Why do you think so?") and a 3-5 second wait time to draw out the child's speaking.`;
+
       // ── 폴백(양쪽 언어) — AI 실패/미바인딩이어도 카드는 항상 채워짐 ──
       if (!ko || !Array.isArray(ko.good)) {
         source = ai ? 'fallback' : 'no_ai';
-        const many = talkRatio !== null && talkRatio > 60;
         ko = {
           good: ['아이가 끝까지 수업에 참여할 수 있도록 편안한 분위기를 만들어 주셨어요.', (praiseCount ? `수업 중 칭찬을 ${praiseCount}회 해 주신 점이 좋았어요.` : '차분한 진행으로 아이가 집중했어요.')],
-          improve: many ? `교사 발화가 ${talkRatio}%로 다소 많았어요. 아이가 말할 틈을 조금 더 만들어 주세요.` : '아이가 스스로 문장을 만들 기회를 조금 더 주면 좋아요.',
+          improve: manyTalk ? `교사 발화가 ${talkRatio}%로 다소 많았어요. 아이가 말할 틈을 조금 더 만들어 주세요.` : '아이가 스스로 문장을 만들 기회를 조금 더 주면 좋아요.',
           action: '질문 후 5초간 기다려 아이가 먼저 답하게 해보기',
-          summary: `이번 수업은${durationMin ? ` 약 ${durationMin}분 동안 진행되었고,` : ''} ${talkRatio !== null ? `교사 발화 비율이 ${talkRatio}%였어요.` : '전반적으로 무난하게 진행됐어요.'} ${many ? '교사가 말하는 시간이 많은 편이라 아이가 스스로 영어 문장을 만들 기회가 다소 적었습니다.' : '아이가 말할 기회가 비교적 잘 확보됐어요.'} ${praiseCount ? `칭찬을 ${praiseCount}회 해 주신 점은 아이의 자신감에 도움이 됩니다.` : '칭찬이 조금 더 있었다면 아이가 더 편하게 말했을 거예요.'} 다음 수업엔 열린 질문과 기다리는 시간을 늘려 아이의 발화를 끌어내 보세요.`
+          summary: sumKo
         };
         en = {
           good: ['You kept a comfortable atmosphere so the child stayed engaged the whole lesson.', (praiseCount ? `You praised the student ${praiseCount} times — great encouragement.` : 'Your calm pace helped the child focus.')],
-          improve: many ? `Your talk time was a bit high at ${talkRatio}%. Give the child a little more room to speak.` : 'Give the child a few more chances to produce full sentences on their own.',
+          improve: manyTalk ? `Your talk time was a bit high at ${talkRatio}%. Give the child a little more room to speak.` : 'Give the child a few more chances to produce full sentences on their own.',
           action: 'After asking a question, wait 5 seconds so the child answers first.',
-          summary: `This lesson${durationMin ? ` ran about ${durationMin} min, and` : ''} ${talkRatio !== null ? `your talk ratio was ${talkRatio}%.` : 'went smoothly overall.'} ${many ? 'Since the teacher spoke for much of the time, the child had fewer chances to produce English sentences on their own.' : 'The child had good room to speak.'} ${praiseCount ? `Your ${praiseCount} moments of praise helped build the child's confidence.` : 'A little more praise would have helped the child speak more comfortably.'} Next time, use more open questions and longer wait time to draw out the child's speaking.`
+          summary: sumEn
         };
       }
       if (!en || !Array.isArray(en.good)) en = ko;
+
+      // ── AI 총평이 부실(너무 짧음)하면 상세 폴백 총평으로 교체 → 항상 자세한 설명 보장 ──
+      if (!ko.summary || String(ko.summary).replace(/[^가-힣A-Za-z]/g, '').length < 25) ko.summary = sumKo;
+      if (!en.summary || String(en.summary).replace(/[^A-Za-z]/g, '').length < 40) en.summary = sumEn;
 
       // ── 점수 미제공 시 지표로 계산 (0~100) ──
       if (score === null) {
