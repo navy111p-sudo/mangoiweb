@@ -23907,7 +23907,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260706171726 -->
+<!-- BUILD:20260706172550 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -25886,6 +25886,20 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     body.vc-in-call .vc-main-row:not(.video-full):not(.video-solo):not(.video-free):not(.video-pip):not(.content-full) .video-pane #vc-video-grid video{
       height:100% !important; width:100% !important; object-fit:cover !important;
     }
+    /* 8) 🔧 화면 분할(1/4·1/2·3/4) 버그 수정 (2026-07-06)
+       위 6)의 고정 132px 사이드컬럼이 quarter/half/threequarter 를 :not() 에서
+       제외하지 않아, 이 세 비율은 눌러도 폭이 안 바뀌던 문제. 세로 컬럼(칠판 안 가림)은
+       그대로 유지하되, 각 비율만큼 영상 컬럼 폭을 실제로 넓힌다. 6)과 동일한 :not() 체인
+       + 모드 클래스로 특이도를 한 단계 높여(0,9,1) 132px 규칙(0,8,1)을 확실히 이긴다. */
+    body.vc-in-call .vc-main-row.video-quarter:not(.video-full):not(.video-solo):not(.video-free):not(.video-pip):not(.content-full) .video-pane{
+      width:22% !important; min-width:90px !important; max-width:none !important; flex:0 0 22% !important;
+    }
+    body.vc-in-call .vc-main-row.video-half:not(.video-full):not(.video-solo):not(.video-free):not(.video-pip):not(.content-full) .video-pane{
+      width:36% !important; min-width:120px !important; max-width:none !important; flex:0 0 36% !important;
+    }
+    body.vc-in-call .vc-main-row.video-threequarter:not(.video-full):not(.video-solo):not(.video-free):not(.video-pip):not(.content-full) .video-pane{
+      width:52% !important; min-width:160px !important; max-width:none !important; flex:0 0 52% !important;
+    }
   }
 </style>
 <style id="mg-theme-toggle-topright">
@@ -27058,7 +27072,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      · 인라인 !important 로 적용 → 어떤 화면크기/레이아웃 CSS 보다 우선 (확실히 동작)
      · (참고) 영상 드래그·크기조절 실제 동작은 위쪽 .video-size-bar / #vc-video-pane 로직에서 처리됨.
      ============================================================ -->
-<script src="/js/mango-worldclock.js?v=2" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 학생 홈+수업입장 화면 공용. 빼면 즉시 원복 -->
+<script src="/js/mango-worldclock.js?v=3" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 학생 홈+수업입장 화면 공용. 빼면 즉시 원복 -->
 <script defer src="/js/flow.js"></script><!-- 🚀 학습 흐름 연결(웜업·게임·수업·복습·게임 → 다음 활동 메뉴). 빼면 즉시 원복 -->
 </body>
 </html>

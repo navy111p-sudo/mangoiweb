@@ -103,7 +103,7 @@
   .lang-pick .lg:active{transform:scale(.95)}
   /* 병음(pinyin) 표시 */
   .pinyin{color:#7dd3fc;font-weight:600;letter-spacing:.3px}
-  /* ===== 🪙 코인/룰렛/상점/랭킹 ===== */
+  /* ===== 💰 코인/룰렛/상점/랭킹 ===== */
   .fun-bar{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}
   .coin-wallet{background:rgba(251,191,36,.16);border:1px solid rgba(251,191,36,.5);color:#fde68a;
     border-radius:999px;padding:6px 14px;font-size:14px;font-weight:800}
@@ -156,9 +156,9 @@
       <div class="brand">MANGOI · LEARNING GAMES</div>
       <h1 id="hub-title">영어 <span class="em">학습 게임</span> 🎮</h1>
       <div class="sub" id="hub-sub">재미있는 게임을 통해 오늘 배운 단어·문장을 다시 예복습해요!<br>원하는 게임을 눌러 바로 플레이하세요.</div>
-      <!-- 🪙 코인 지갑 + 룰렛/상점/랭킹 -->
+      <!-- 💰 코인 지갑 + 룰렛/상점/랭킹 -->
       <div class="fun-bar" id="fun-bar" style="margin-top:14px">
-        <span class="coin-wallet" id="coin-wallet" title="모은 코인">🪙 <b id="coin-count">0</b></span>
+        <span class="coin-wallet" id="coin-wallet" title="모은 코인">💰 <b id="coin-count">0</b></span>
         <button class="fun-btn" id="btn-spin" onclick="openRoulette()">🎡 룰렛</button>
         <button class="fun-btn" id="btn-shop" onclick="openShop()">🛍️ 상점</button>
         <button class="fun-btn" onclick="openLeaderboard()">🏆 랭킹</button>
@@ -551,7 +551,7 @@ function _celebrate(kind){
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   🪙 코인 지갑 · 🎡 룰렛 · 🛍️ 상점(스킨) · 🏆 주간 랭킹
+   💰 코인 지갑 · 🎡 룰렛 · 🛍️ 상점(스킨) · 🏆 주간 랭킹
    ════════════════════════════════════════════════════════════════════ */
 function _lsGet(k,d){ try{ var v=localStorage.getItem(k); return v===null?d:v; }catch(_){ return d; } }
 function _lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(_){} }
@@ -578,7 +578,7 @@ function _addCoins(n, x, y){
 function _spendCoins(n){ if(_coinBal()<n) return false; _lsSet('mangoi_coins_spent', String(_coinsSpent()+n)); _renderCoins(); return true; }
 function _coinFly(n, x, y){
   try{ var wal=document.getElementById('coin-wallet'); var r=wal?wal.getBoundingClientRect():{left:innerWidth-60,top:70};
-    var el=document.createElement('div'); el.id='coin-fly'; el.textContent='+'+n+' 🪙';
+    var el=document.createElement('div'); el.id='coin-fly'; el.textContent='+'+n+' 💰';
     var sx=(x!=null?x:innerWidth/2), sy=(y!=null?y:innerHeight/2);
     el.style.left=sx+'px'; el.style.top=sy+'px'; el.style.transition='transform .8s cubic-bezier(.3,.7,.3,1),opacity .8s'; document.body.appendChild(el);
     requestAnimationFrame(function(){ el.style.transform='translate('+((r.left+10)-sx)+'px,'+((r.top+4)-sy)+'px) scale(.7)'; el.style.opacity='0.2'; });
@@ -639,15 +639,15 @@ function openShop(){
       var owned=_owned(cat).indexOf(s.id)>=0, sel=_selSkin(cat)===s.id;
       var btn = sel ? '<button class="skin-sel" disabled>✔ 사용 중</button>'
         : owned ? '<button class="skin-use" onclick="useSkin(\''+cat+'\',\''+s.id+'\')">사용하기</button>'
-        : '<button class="skin-buy" onclick="buySkin(\''+cat+'\',\''+s.id+'\','+s.price+')">🪙 '+s.price+'</button>';
+        : '<button class="skin-buy" onclick="buySkin(\''+cat+'\',\''+s.id+'\','+s.price+')">💰 '+s.price+'</button>';
       return '<div class="skin-card'+(sel?' sel':'')+'"><div class="prev">'+s.prev+'</div><div class="nm">'+s.nm+'</div>'+btn+'</div>';
     }).join('')+'</div>';
   }
-  _openModal('<h2>🛍️ 스킨 상점</h2><div class="msub">코인으로 풍선·벽돌 스킨을 잠금해제! (지금 코인 🪙 '+_coinBal()+')</div>'
+  _openModal('<h2>🛍️ 스킨 상점</h2><div class="msub">코인으로 풍선·벽돌 스킨을 잠금해제! (지금 코인 💰 '+_coinBal()+')</div>'
     + grid('balloon','🎈 풍선 색') + grid('brick','🧱 벽돌 테마') + '<button class="mclose" onclick="closeModal()">닫기</button>');
 }
 function buySkin(cat,id,price){
-  if(!_spendCoins(price)){ alert('코인이 부족해요! 게임을 더 해서 코인을 모아요 🪙'); return; }
+  if(!_spendCoins(price)){ alert('코인이 부족해요! 게임을 더 해서 코인을 모아요 💰'); return; }
   var o=_owned(cat); if(o.indexOf(id)<0){ o.push(id); _lsSet('mangoi_owned_'+cat, JSON.stringify(o)); }
   _lsSet('mangoi_skin_'+cat, id); try{ _confettiBurst(20,false); }catch(_){} openShop();
 }
@@ -664,7 +664,7 @@ function openLeaderboard(){
       if(!d||!d.ok||!d.top||!d.top.length){ el.innerHTML='<div style="text-align:center;color:#94a3b8;padding:20px">아직 랭킹이 없어요.<br>게임을 하고 코인을 모으면 1등이 될 수 있어요! 🥇</div>'; return; }
       var me=_nick(), medal=['🥇','🥈','🥉'];
       el.innerHTML=d.top.map(function(t){ var isMe=(t.nickname===me);
-        return '<div class="lb-row'+(isMe?' me':'')+'"><span class="lb-rank">'+(medal[t.rank-1]||t.rank)+'</span><span class="lb-name">'+String(t.nickname).replace(/[<>]/g,'')+(isMe?' (나)':'')+'</span><span class="lb-coins">🪙 '+t.coins+'</span></div>'; }).join('');
+        return '<div class="lb-row'+(isMe?' me':'')+'"><span class="lb-rank">'+(medal[t.rank-1]||t.rank)+'</span><span class="lb-name">'+String(t.nickname).replace(/[<>]/g,'')+(isMe?' (나)':'')+'</span><span class="lb-coins">💰 '+t.coins+'</span></div>'; }).join('');
     }).catch(function(){ var el=document.getElementById('lb-list'); if(el) el.innerHTML='<div style="text-align:center;color:#94a3b8;padding:20px">연결 오류</div>'; });
   }, 500);
 }
@@ -680,7 +680,7 @@ function _onCorrect(kind, item, base){
   _gameState.score += gain; _gameState.correct++;
   _renderHearts();
   _celebrate(boss ? 'boss' : (_combo>=3 ? 'combo' : 'good'));   // 🎉 축하 연출
-  _addCoins((boss?15:3) + (mult>1?(mult*2):0));                 // 🪙 코인 적립(콤보·보스 보너스)
+  _addCoins((boss?15:3) + (mult>1?(mult*2):0));                 // 💰 코인 적립(콤보·보스 보너스)
   return { gain:gain, mult:mult, boss:boss };
 }
 // 👹 보스용 — 가장 긴(어려운) 문장 상위 3개 중 무작위
@@ -1769,7 +1769,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260706171726 -->
+<!-- BUILD:20260706172550 -->
 <script defer src="/js/flow.js"></script>
 </body>
 </html>

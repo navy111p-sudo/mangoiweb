@@ -72,8 +72,23 @@
       elKR.textContent = fmt('Asia/Seoul');
       elPH.textContent = fmt('Asia/Manila');
     }
-    tick();
-    setInterval(tick, 1000);
+
+    // ── 시계 구동: 모바일 WebView가 백그라운드에서 setInterval을 멈춰도
+    //    화면 복귀 시 즉시 다시 살아나도록 이중으로 보강 ──
+    var timer = null;
+    function startClock() {
+      tick();                                  // 즉시 1회 갱신(멈춤 방지)
+      if (timer) clearInterval(timer);
+      timer = setInterval(tick, 1000);
+    }
+    startClock();
+
+    // 탭 복귀 / 앱 포그라운드 / 뒤로가기 복원 시 재동기화 + 인터벌 재가동
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) startClock();
+    });
+    window.addEventListener('focus', startClock);
+    window.addEventListener('pageshow', startClock);   // bfcache 복원(모바일 뒤로가기)
 
     // ── 위치 복원 + 화면 안으로 보정 ──
     function clamp() {

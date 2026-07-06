@@ -158,6 +158,12 @@
     <div class="rec-status" id="rec-status" data-ko="마이크 버튼을 눌러 녹음 시작" data-en="Tap mic to start recording">마이크 버튼을 눌러 녹음 시작</div>
   </div>
 
+  <!-- 다음으로 이동 (항상 표시) -->
+  <div style="text-align:center;margin-top:16px">
+    <div style="color:#94a3b8;font-size:13px;margin-bottom:8px" data-ko="다른 활동으로 이동할까요?" data-en="Move to another activity?">다른 활동으로 이동할까요?</div>
+    <button onclick="window.MangoFlow&&MangoFlow.open('speech')" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:12px;padding:12px 24px;font-size:16px;font-weight:800;cursor:pointer" data-ko="🚀 다음으로 이동 (수업·웜업·복습·나가기)" data-en="🚀 Move to next (Class · Warmup · Review · Exit)">🚀 다음으로 이동 (수업·웜업·복습·나가기)</button>
+  </div>
+
   <!-- 결과 -->
   <div id="result" class="result">
     <div class="scores">
@@ -370,7 +376,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260706171726 -->
+<!-- BUILD:20260706172550 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>
