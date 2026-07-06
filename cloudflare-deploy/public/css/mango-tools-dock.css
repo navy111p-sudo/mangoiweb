@@ -94,6 +94,43 @@ body.vc-in-call #tab-pdf .pdf-anno-bar > span {
 }
 
 /* ============================================================
+ * 🔧 (2026-07-06) 칠판 필기도구 — 칠판 탭에서 "✍️ 필기도구" 칩을 누르면
+ *   칠판 전용 도구바(.wb-toolbar)가 칩 아래로 세로 드롭다운(배경 투명)으로 펼쳐짐.
+ *   평소엔 #mg-hide-wb-toolbar 가 .wb-toolbar 를 숨기지만(display:none), 이 규칙은
+ *   .wb-toolbar.mango-wb-dock-open 로 특이도가 더 높아 열렸을 때만 이긴다.
+ *   → 칠판은 그대로 남고, 펜/지우개/선/도형/색상 등을 칠판 위에서 바로 사용.
+ * ============================================================ */
+body.vc-in-call #tab-whiteboard .wb-toolbar.mango-wb-dock-open {
+  display: flex !important;
+  position: absolute !important;
+  top: 46px !important;            /* JS 가 칩 아래로 재배치(미실행 시 기본값) */
+  right: 12px !important;
+  left: auto !important;
+  z-index: 47 !important;
+  flex-direction: column !important;   /* ⬇ 세로(아래로) */
+  align-items: flex-start !important;
+  gap: 6px !important;
+  width: auto !important;
+  max-width: 300px !important;
+  max-height: calc(100% - 54px) !important;
+  overflow-y: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;  /* 🫥 드롭다운 바탕 투명 */
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  flex-wrap: nowrap !important;
+}
+body.vc-in-call #tab-whiteboard .wb-toolbar.mango-wb-dock-open > * {
+  width: auto !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  flex: 0 0 auto !important;
+}
+
+/* ============================================================
  * "시간 정보 없음" 배지 ↔ REC 녹화 배지 크기 동일하게 (데스크탑)
  *  - 모바일(REC 원형)은 건드리지 않도록 데스크탑 폭에서만 적용
  * ============================================================ */
