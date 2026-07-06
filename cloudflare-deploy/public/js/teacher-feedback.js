@@ -16,7 +16,7 @@
   if (w.MangoTeacherFeedback) return;
 
   var DEFAULT_LANG = 'en'; // 교사 대상 → 기본 영어(원어민). opts.lang 로 덮어씀
-  var current = { lang: DEFAULT_LANG, data: null, reportUrl: '/teacher.html' };
+  var current = { lang: DEFAULT_LANG, data: null, reportUrl: '/teacher-report.html' };
 
   // 카드 기본 글자크기(1em) = clamp(14px..26px) → 모바일 약 1.08배, 데스크탑 약 2배.
   // 아래 모든 치수는 이 1em 기준의 em 값. E(px) = 기존 px 값을 그대로 em 으로 환산(기준 13px).
@@ -156,7 +156,16 @@
         if (lg) { current.lang = lg; render(lg); return; }
         var act = btn.getAttribute('data-act');
         if (act === 'close') close();
-        else if (act === 'report') { try { topWin().location.href = current.reportUrl; } catch (_) { close(); } }
+        else if (act === 'report') {
+          var dq = current.data || {};
+          var q = [];
+          if (dq.room_id) q.push('room_id=' + encodeURIComponent(dq.room_id));
+          if (dq.teacher_uid) q.push('teacher_uid=' + encodeURIComponent(dq.teacher_uid));
+          if (dq.teacher_name) q.push('teacher_name=' + encodeURIComponent(dq.teacher_name));
+          q.push('lang=' + current.lang);
+          var url = current.reportUrl + (current.reportUrl.indexOf('?') > -1 ? '&' : '?') + q.join('&');
+          try { topWin().location.href = url; } catch (_) { close(); }
+        }
       });
     });
   }
@@ -175,7 +184,7 @@
     opts = opts || {};
     var lang = (opts.lang === 'ko' || opts.lang === 'en') ? opts.lang : DEFAULT_LANG;
     current.lang = lang;
-    current.reportUrl = opts.reportUrl || '/teacher.html';
+    current.reportUrl = opts.reportUrl || '/teacher-report.html';
     if (!opts.room_id) { console.warn('[MangoTeacherFeedback] room_id required'); return; }
     loading(lang);
     fetch('/api/ai-feedback/generate', {
@@ -194,7 +203,7 @@
 
   // 네트워크 없이 샘플 렌더 — 붙이기 전 눈으로 확인용
   function demo(lang) {
-    current.reportUrl = '/teacher.html';
+    current.reportUrl = '/teacher-report.html';
     current.lang = (lang === 'ko') ? 'ko' : DEFAULT_LANG;
     current.data = {
       student_name: '민준', duration_min: 25,

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI 코칭 리포트 · 만고아이</title>
+<style>
+  :root{ --s: clamp(15px, 2.1vw, 24px); }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:#020617; color:#e2e8f0; min-height:100vh;
+    font-family:"Noto Sans KR",-apple-system,BlinkMacSystemFont,sans-serif;
+    font-size:var(--s); line-height:1.6;
+    padding: env(safe-area-inset-top) 0 0 0;
+  }
+  .wrap{ width:min(94vw, 820px); margin:0 auto; padding:1.4em 0 3em; }
+  .topbar{ display:flex; align-items:center; gap:.5em; margin-bottom:1.1em; flex-wrap:wrap; }
+  .btn{ border:0; border-radius:.6em; padding:.5em 1em; font-size:.66em; font-weight:800;
+    font-family:inherit; cursor:pointer; }
+  .btn-ghost{ background:rgba(30,41,59,.8); color:#e2e8f0; border:1px solid #334155; }
+  .btn-cyan{ background:#38bdf8; color:#08213a; }
+  .seg{ display:inline-flex; background:rgba(30,41,59,.6); border-radius:.55em; padding:.18em; margin-left:auto; }
+  .seg button{ border:0; border-radius:.42em; padding:.4em .8em; font-size:.62em; font-weight:800;
+    font-family:inherit; cursor:pointer; background:transparent; color:#94a3b8; }
+  .seg button.on{ background:#38bdf8; color:#08213a; }
+  h1{ font-size:1.15em; font-weight:800; color:#f8fafc; margin:.1em 0 .1em; }
+  .sub{ font-size:.72em; color:#94a3b8; font-weight:700; }
+  .sec-title{ font-size:.82em; font-weight:800; color:#e9d5ff; margin:1.5em 0 .6em; display:flex; align-items:center; gap:.4em; }
+  .card{ background:#0b1220; border:1px solid #1e293b; border-radius:1em; padding:1em 1.1em; margin-bottom:.8em; box-shadow:0 20px 60px -20px rgba(0,0,0,.6); }
+  .meta{ display:flex; flex-wrap:wrap; gap:.4em; align-items:center; margin-bottom:.7em; font-size:.72em; }
+  .meta b{ color:#e9d5ff; font-size:1.05em; }
+  .meta .mut{ color:#94a3b8; }
+  .chips{ display:flex; gap:.4em; margin:.2em 0 .9em; flex-wrap:wrap; }
+  .chip{ padding:.28em .7em; border-radius:.55em; font-size:.66em; font-weight:800; border:1px solid; }
+  .chip.g{ background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.4); color:#bbf7d0; }
+  .chip.w{ background:rgba(234,179,8,.15); border-color:rgba(234,179,8,.45); color:#fef08a; }
+  .chip.b{ background:rgba(239,68,68,.15); border-color:rgba(239,68,68,.45); color:#fecaca; }
+  .chip.n{ background:rgba(147,197,253,.12); border-color:rgba(147,197,253,.35); color:#bfdbfe; }
+  .box{ background:rgba(30,41,59,.5); border-radius:.75em; padding:.7em .8em; margin-bottom:.55em; }
+  .box.act{ background:linear-gradient(135deg,rgba(56,189,248,.14),rgba(37,99,235,.18)); border:1px solid rgba(56,189,248,.4); }
+  .h-good{ color:#4ade80; } .h-imp{ color:#fbbf24; } .h-act{ color:#7dd3fc; }
+  .box .hd{ font-size:.72em; font-weight:800; margin-bottom:.35em; }
+  .box .ln{ font-size:.72em; color:#cbd5e1; line-height:1.6; margin:.12em 0; }
+  .box.act .ln{ color:#e0f2fe; }
+  .empty{ text-align:center; color:#94a3b8; font-size:.78em; padding:2em 1em; }
+  .spin{ text-align:center; color:#94a3b8; font-size:.78em; padding:2em 1em; }
+  .src{ font-size:.6em; color:#fca5a5; }
+  a.linkline{ color:#7dd3fc; text-decoration:none; font-size:.72em; font-weight:700; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <button class="btn btn-ghost" onclick="goBack()">← <span data-t="home">홈</span></button>
+      <div class="seg">
+        <button id="seg-ko" onclick="setLang('ko')">🇰🇷 한국어</button>
+        <button id="seg-en" onclick="setLang('en')">🇺🇸 English</button>
+      </div>
+    </div>
+
+    <h1 id="pg-title">🤖 AI 코칭 리포트</h1>
+    <div class="sub" id="pg-sub"></div>
+
+    <div class="sec-title" id="t-this">📌 이번 수업</div>
+    <div id="this-class"><div class="spin" id="this-spin">불러오는 중…</div></div>
+
+    <div class="sec-title" id="t-hist">📈 최근 코칭 이력</div>
+    <div id="history"><div class="spin" id="hist-spin">불러오는 중…</div></div>
+  </div>
+
+<script>
+(function(){
+  var qs = new URLSearchParams(location.search);
+  var roomId = qs.get('room_id') || '';
+  var teacherUid = qs.get('teacher_uid') || '';
+  var teacherName = qs.get('teacher_name') || '';
+  var lang = (qs.get('lang') === 'ko') ? 'ko' : 'en';
+
+  var T = {
+    ko: { home:'홈', title:'🤖 AI 코칭 리포트', sub:function(n){ return (n?('강사: '+n+' · '):'') + '수업이 끝날 때마다 자동 생성된 코칭'; },
+      tthis:'📌 이번 수업', thist:'📈 최근 코칭 이력',
+      good:'👍 잘하신 점', imp:'💡 다음엔 이렇게', act:'🎯 다음 수업 실천 1가지',
+      eng:{good:'좋음',fair:'보통',low:'낮음'}, talk:'발화', praise:'칭찬', engl:'참여',
+      noThis:'이번 수업의 코칭이 아직 준비되지 않았어요. 잠시 후 새로고침 해보세요.',
+      noHist:'아직 누적된 코칭이 없어요. 수업을 마치면 여기에 하나씩 쌓입니다.',
+      min:'분', spin:'불러오는 중…', errd:'불러오지 못했어요.' },
+    en: { home:'Home', title:'🤖 AI coaching report', sub:function(n){ return (n?('Teacher: '+n+' · '):'') + 'Coaching auto-generated after every class'; },
+      tthis:'📌 This class', thist:'📈 Recent coaching',
+      good:'👍 What went well', imp:'💡 Try next time', act:'🎯 One thing to try next class',
+      eng:{good:'Good',fair:'Fair',low:'Low'}, talk:'Talk', praise:'Praise', engl:'Eng',
+      noThis:'Coaching for this class is not ready yet. Please refresh in a moment.',
+      noHist:'No coaching accumulated yet. It will build up here after each class.',
+      min:'min', spin:'Loading…', errd:'Could not load.' }
+  };
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function el(id){ return document.getElementById(id); }
+  window.goBack = function(){ try{ if(history.length>1){ history.back(); return; } }catch(e){} location.href='/'; };
+
+  function fmtDate(ts){ if(!ts) return ''; var d=new Date(ts), p=function(n){return ('0'+n).slice(-2);};
+    return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
+
+  function chips(m){
+    if(!m) return '';
+    var t=T[lang], out='';
+    if(m.talk_ratio!=null) out+='<span class="chip '+(m.talk_ratio>60?'w':'g')+'">🎙️ '+t.talk+' '+Math.round(m.talk_ratio)+'%</span>';
+    if(m.praise_count!=null) out+='<span class="chip n">❤️ '+t.praise+' '+m.praise_count+'</span>';
+    if(m.engagement) out+='<span class="chip '+(m.engagement==='low'?'b':(m.engagement==='fair'?'w':'g'))+'">😊 '+t.engl+' '+(t.eng[m.engagement]||m.engagement)+'</span>';
+    return out;
+  }
+
+  function detailCard(r, showMeta){
+    var t=T[lang];
+    var fb = (lang==='ko'? r.feedback_ko : r.feedback_en) || r.feedback_en || r.feedback_ko || {good:[],improve:'',action:''};
+    var good = (fb.good||[]).map(function(g){ return '<div class="ln">· '+esc(g)+'</div>'; }).join('');
+    var src = (r.source && r.source!=='ai') ? ' <span class="src">('+esc(r.source)+')</span>' : '';
+    var meta = showMeta ? ('<div class="meta"><b>'+esc(r.student_name||'')+'</b>'+
+        '<span class="mut">'+(r.duration_min?(r.duration_min+t.min+' · '):'')+esc(fmtDate(r.generated_at))+'</span>'+src+'</div>') : '';
+    return '<div class="card">'+ meta +
+      '<div class="chips">'+chips(r.metrics)+'</div>'+
+      '<div class="box"><div class="hd h-good">'+t.good+'</div>'+ (good||'<div class="ln">—</div>') +'</div>'+
+      '<div class="box"><div class="hd h-imp">'+t.imp+'</div><div class="ln">'+esc(fb.improve||'')+'</div></div>'+
+      '<div class="box act"><div class="hd h-act">'+t.act+'</div><div class="ln">'+esc(fb.action||'')+'</div></div>'+
+    '</div>';
+  }
+
+  function api(qsStr){ return fetch('/api/ai-feedback'+qsStr,{cache:'no-store',credentials:'include'}).then(function(r){return r.json();}); }
+
+  function applyStatic(){
+    var t=T[lang];
+    el('seg-ko').className = lang==='ko'?'on':''; el('seg-en').className = lang==='en'?'on':'';
+    document.documentElement.lang = lang;
+    [].forEach.call(document.querySelectorAll('[data-t="home"]'), function(x){ x.textContent=t.home; });
+    el('pg-title').textContent = t.title;
+    el('pg-sub').textContent = t.sub(teacherName);
+    el('t-this').textContent = t.tthis;
+    el('t-hist').textContent = t.thist;
+  }
+
+  var cache = { thisRow:null, rows:null };
+
+  function renderThis(){
+    var host=el('this-class'), t=T[lang];
+    if(cache.thisRow===undefined){ host.innerHTML='<div class="spin">'+t.spin+'</div>'; return; }
+    if(!roomId){ host.innerHTML='<div class="empty">'+t.noThis+'</div>'; return; }
+    if(!cache.thisRow){ host.innerHTML='<div class="empty">'+t.noThis+'</div>'; return; }
+    host.innerHTML = detailCard(cache.thisRow, true);
+  }
+  function renderHist(){
+    var host=el('history'), t=T[lang];
+    if(cache.rows===undefined){ host.innerHTML='<div class="spin">'+t.spin+'</div>'; return; }
+    var rows = cache.rows || [];
+    if(roomId) rows = rows.filter(function(r){ return r.room_id!==roomId; }); // 이번 수업은 위에 이미 표시
+    if(!rows.length){ host.innerHTML='<div class="empty">'+t.noHist+'</div>'; return; }
+    host.innerHTML = rows.map(function(r){ return detailCard(r, true); }).join('');
+  }
+
+  window.setLang = function(l){ lang = (l==='ko')?'ko':'en'; applyStatic(); renderThis(); renderHist();
+    try{ var u=new URL(location.href); u.searchParams.set('lang',lang); history.replaceState(null,'',u); }catch(e){} };
+
+  // ── 로드 ──
+  applyStatic();
+  if(roomId){
+    api('?room_id='+encodeURIComponent(roomId)).then(function(d){ cache.thisRow = (d&&d.ok)? (d.feedback||null) : null; renderThis(); })
+      .catch(function(){ cache.thisRow=null; el('this-class').innerHTML='<div class="empty">'+T[lang].errd+'</div>'; });
+  } else { el('t-this').style.display='none'; el('this-class').style.display='none'; }
+
+  var histQ = teacherUid ? ('?teacher_uid='+encodeURIComponent(teacherUid)+'&limit=30')
+            : teacherName ? ('?teacher_name='+encodeURIComponent(teacherName)+'&limit=30')
+            : (roomId ? null : '?recent=1&days=90&limit=30');
+  if(histQ){
+    api(histQ).then(function(d){ cache.rows = (d&&d.ok)? (d.rows||[]) : []; renderHist(); })
+      .catch(function(){ cache.rows=[]; el('history').innerHTML='<div class="empty">'+T[lang].errd+'</div>'; });
+  } else {
+    // teacher 식별자가 전혀 없으면 이력 섹션 숨김
+    el('t-hist').style.display='none'; el('history').style.display='none';
+  }
+})();
+</script>
+<!-- BUILD:20260707011739 -->
+</body>
+</html>
