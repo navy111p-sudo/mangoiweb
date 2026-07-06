@@ -24107,7 +24107,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260707020012 -->
+<!-- BUILD:20260707023529 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -26993,10 +26993,29 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
         "event":         function(){ if(window.mgGo) window.mgGo("event"); },
         "trial":         function(){ if(window.mgGo) window.mgGo("trial"); },
         "reviews":       function(){ if(window.mgGo) window.mgGo("reviews"); },
-        "recordings":    function(){ if(window.mgGo) window.mgGo("recordings"); }
+        "recordings":    function(){ if(window.mgGo) window.mgGo("recordings"); },
+        // 🥭 (2026-07-07) 나머지 전 메뉴 커버 — 전용 페이지가 있으면 직접, 없으면 관련 카드/기능으로.
+        "admin":         function(){ if(window.mgGo) window.mgGo("admin"); },
+        "mbti-test":     function(){ location.href="/mbti.html"; },
+        "monthly-report":function(){ location.href="/monthly-report.html"; },
+        "parent-dashboard": function(){ location.href="/parent.html"; },
+        "enroll":        function(){ if(window.mgGo) window.mgGo("enroll"); },
+        "videolesson":   function(){ if(window.openVideoLessons) window.openVideoLessons(); else if(window.mgGo) window.mgGo("videolesson"); },
+        "franchise":     function(){ if(window.mgGo) window.mgGo("franchise"); },
+        "callcenter":    function(){ if(window.mgGo) window.mgGo("contact"); },
+        "remote":        function(){ if(window.mgGo) window.mgGo("contact"); },
+        "goals":         function(){ location.href="/parent.html"; },
+        "leaderboard":   function(){ location.href="/streak.html"; },
+        "focus":         function(){ if(window.openAllMenuOverlay) window.openAllMenuOverlay(); },
+        "installguide":  function(){ try{ if(window.mgDrawerClose) window.mgDrawerClose(); }catch(e){} if(window.openFaqOverlay) window.openFaqOverlay(); }
       };
       var fn=map[go];
-      if(!fn && go && window.mgGo) fn=function(){ window.mgGo(go); };   // 매핑에 없는 타깃도 mgGo 로 열기 폴백
+      if(!fn && go){
+        // data-go 카드가 있으면 그 카드를 클릭, 없으면 전체메뉴 오버레이로 — '빈 클릭'(아무 반응 없음) 방지.
+        var card=document.querySelector('.ai-quick-btn[data-go="'+go+'"]')||document.querySelector('.gm-card[data-go="'+go+'"]');
+        if(card && window.mgGo) fn=function(){ window.mgGo(go); };
+        else if(window.openAllMenuOverlay) fn=function(){ window.openAllMenuOverlay(); };
+      }
       if(!fn) return;
       setOpen(false);
       setTimeout(function(){ try{ fn(); }catch(e){} }, 150);

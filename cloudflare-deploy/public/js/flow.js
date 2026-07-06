@@ -268,14 +268,14 @@
   function recShowPlayer(rec) {
     var meta = [rec.date, rec.teacher].filter(function (x) { return x && x !== '-'; }).join(' · ');
     recShell(
-      '<div style="width:100%;max-width:920px;background:#0b1220;border:1px solid #1e293b;border-radius:18px;padding:14px;box-shadow:0 30px 80px -12px rgba(0,0,0,.75)">' +
+      '<div style="width:100%;max-width:1400px;background:#0b1220;border:1px solid #1e293b;border-radius:18px;padding:18px;box-shadow:0 30px 80px -12px rgba(0,0,0,.75)">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">' +
           '<div style="color:#f8fafc;font-weight:800;font-size:16px;min-width:0">📼 최근 수업 녹화' +
             (meta ? ' <span style="color:#94a3b8;font-weight:600;font-size:13px">· ' + meta + '</span>' : '') + '</div>' +
           '<button data-rec-close style="flex:0 0 auto;background:rgba(255,255,255,.1);color:#e2e8f0;border:0;width:34px;height:34px;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;line-height:1">✕</button>' +
         '</div>' +
         '<video src="' + String(rec.url).replace(/"/g, '&quot;') + '" controls autoplay playsinline ' +
-          'style="width:100%;max-height:74vh;border-radius:12px;background:#000;display:block"></video>' +
+          'style="width:100%;max-height:86vh;border-radius:12px;background:#000;display:block"></video>' +
         '<div style="text-align:center;margin-top:10px"><a href="/parent.html" style="color:#38bdf8;font-size:13px;text-decoration:none;font-weight:700">📚 전체 녹화 목록 보기 →</a></div>' +
       '</div>'
     );
