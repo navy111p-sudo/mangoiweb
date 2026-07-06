@@ -510,6 +510,33 @@
         new THREE.MeshBasicMaterial({map:t,transparent:true,depthWrite:false}));
       m.rotation.x=-Math.PI/2; m.position.y=0.03; m.renderOrder=1; return m;
     }
+    // ===== 히어로 전용 무대(백드롭) =====
+    // 납작한 영상 빌보드 '뒤'로 장면 배경(보라 하늘·격자)이 그대로 비쳐 컷아웃처럼 보이는 걸 막는다.
+    // 로버트 바로 뒤에 어두운 방사형 백드롭 + 은은한 스포트라이트 글로우를 세워 배경을 가리고
+    // 캐릭터를 입체적으로 돋보이게 함(카메라를 향하도록 배치, 씬에 고정).
+    function makeHeroStage(cam){
+      var grp=new THREE.Group();
+      var c=document.createElement('canvas'); c.width=c.height=256; var x=c.getContext('2d');
+      var g=x.createRadialGradient(128,116,18,128,128,148);
+      g.addColorStop(0,'rgba(9,13,30,0.99)'); g.addColorStop(0.5,'rgba(9,13,30,0.95)');
+      g.addColorStop(0.78,'rgba(9,13,30,0.6)'); g.addColorStop(1,'rgba(9,13,30,0)');
+      x.fillStyle=g; x.fillRect(0,0,256,256);
+      var backTex=new THREE.CanvasTexture(c);
+      var back=new THREE.Mesh(new THREE.PlaneGeometry(10.5,12),
+        new THREE.MeshBasicMaterial({map:backTex,transparent:true,depthWrite:false}));
+      back.renderOrder=0; grp.add(back);
+      // 스포트라이트 글로우(가산 혼합) — 뒤광으로 실루엣이 살아나 입체감↑
+      var c2=document.createElement('canvas'); c2.width=c2.height=256; var x2=c2.getContext('2d');
+      var g2=x2.createRadialGradient(128,138,8,128,138,120);
+      g2.addColorStop(0,'rgba(150,185,255,0.5)'); g2.addColorStop(0.5,'rgba(96,128,224,0.16)'); g2.addColorStop(1,'rgba(96,128,224,0)');
+      x2.fillStyle=g2; x2.fillRect(0,0,256,256);
+      var glow=new THREE.Mesh(new THREE.PlaneGeometry(8.5,10),
+        new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c2),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
+      glow.position.z=0.06; glow.renderOrder=1; grp.add(glow);
+      grp.traverse(function(o){ if(o.material) o.material.fog=false; });   // 안개 영향 제거(선명한 무대)
+      if(cam) grp.lookAt(cam.position);
+      return grp;
+    }
     function attachVideoBillboard(G, url, faceDir){
       var video=document.createElement('video');
       video.src=url; video.loop=true; video.muted=true; video.defaultMuted=true;
@@ -541,9 +568,9 @@
           '}'
         ].join('\n')
       });
-      var H=4.9, W=H*(720/406);   // robert-knight.mp4 실제 종횡비
+      var H=5.7, W=H*(720/406);   // robert-knight.mp4 실제 종횡비 — 크게 키워 화면을 꽉 채움
       var mesh=new THREE.Mesh(new THREE.PlaneGeometry(W,H),mat);
-      mesh.position.set(0, H*0.5-0.62, 0);   // 발이 바닥(y≈0)에 닿도록 앵커
+      mesh.position.set(0, H*0.5-0.9, 0);   // 발이 바닥(y≈0)에 닿도록 앵커
       mesh.castShadow=false; mesh.frustumCulled=false; mesh.renderOrder=2;
       if(faceDir<0) mesh.scale.x=-1;
       G.traverse(function(o){ if(o.isMesh) o.visible=false; });   // 절차적 기사 메시 숨김
@@ -566,6 +593,8 @@
     var hero=buildCharacter({skin:0xf1c27d,armor:0x3b6bdb,trim:0xfbbf24,eye:0x113355,face:+1,weapon:'sword'});
     hero.position.set(-GAP,0,0); hero.rotation.y=0.18; hero.userData.home.set(-GAP,0,0); scene.add(hero);
     if(MODELS.hero.video){ attachVideoBillboard(hero, MODELS.hero.video, +1); } else { attachModel(hero, MODELS.hero, +1); }
+    // 로버트 뒤에 무대(백드롭) — 씬에 고정, 히어로 홈 뒤쪽(-z)에 세워 배경 가림
+    if(MODELS.hero.video){ var heroStage=makeHeroStage(camera); heroStage.position.set(-GAP,3.5,-2.6); scene.add(heroStage); }
     var boss=null;
     // ===== 절차적 파충류(비늘) 텍스처: canvas 로 비늘/도트 패턴 → map + bumpMap (1회 생성 후 캐시) =====
     var _reptileTex=null;
@@ -985,6 +1014,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260706232607 -->
+<!-- BUILD:20260706232946 -->
 </body>
 </html>

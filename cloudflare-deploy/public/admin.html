@@ -3235,7 +3235,7 @@
                    style="flex:1;min-width:180px;max-width:320px;padding:6px 12px;font-size:12.5px;border:1px solid rgba(245,158,11,0.4);border-radius:8px;outline:none;background:#fffbeb;color:#1c1917;" />
             <span style="font-size:11px;color:#6b7280;" id="sm-students-count"></span>
           </div>
-          <div style="font-size:11px;color:#92400e;background:rgba(254,243,199,0.45);border:1px solid rgba(245,158,11,0.25);border-radius:6px;padding:6px 12px;margin-bottom:6px"
+          <div style="font-size:11px;color:#92400e;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);border-radius:6px;padding:6px 12px;margin-bottom:6px"
                data-ko="💡 컬럼 헤더 클릭 = 정렬 / Shift+클릭 = 다중 정렬 (최대 3개 동시)"
                data-en="💡 Click header to sort / Shift+Click for multi-sort (up to 3)">
             💡 컬럼 헤더 클릭 = 정렬 / Shift+클릭 = 다중 정렬 (최대 3개 동시)
@@ -3493,8 +3493,8 @@
               border: 1px solid rgba(99,102,241,0.25) !important;
               box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
             }
-            #ov-config-row label { color: #1e3a8a !important; font-weight: 800 !important; }
-            #ov-config-row span:not([style*="color:#cbd5e1"]) { color: #475569 !important; }
+            #ov-config-row label { color: #dbeafe !important; font-weight: 800 !important; }
+            #ov-config-row span:not([style*="color:#cbd5e1"]) { color: #cbd5e1 !important; }
             #ov-config-row input {
               background: #fff !important; color: #0f172a !important;
               border: 1px solid #cbd5e1 !important; border-radius: 6px !important;
@@ -3502,15 +3502,15 @@
             }
             /* 미납 목록 영역 */
             #ov-list {
-              background: linear-gradient(180deg, #f8fafc, #eef2ff) !important;
+              background: rgba(15,23,42,0.35) !important;
               border: 1px solid rgba(99,102,241,0.25) !important;
               border-radius: 10px !important;
               padding: 12px !important;
               min-height: 60px;
               margin-top: 10px;
-              color: #1e293b !important;
+              color: #e2e8f0 !important;
             }
-            #ov-list * { color: #1e293b !important; }
+            #ov-list * { color: #e2e8f0 !important; }
             #ov-summary { color: #cbd5e1 !important; }
             /* "발송 이력" 버튼 — 다크 외부에 어울리는 톤 */
             #sub-overdue button[onclick="ovLoadLog()"] {
@@ -13844,7 +13844,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <textarea id="ev-tch-strengths"    placeholder="강점 / 성취" data-ko-placeholder="강점 / 성취"   data-en-placeholder="Strengths / Achievements" rows="2" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;margin-bottom:6px;"></textarea>
     <textarea id="ev-tch-improvements" placeholder="개선 영역" data-ko-placeholder="개선 영역"     data-en-placeholder="Areas for Improvement"     rows="2" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;"></textarea>
 
-    <div style="margin-top:14px;padding:10px;background:#f0f9ff;border:1px solid #93c5fd;border-radius:6px;font-size:13px;">
+    <div id="eval-weighted-box" style="margin-top:14px;padding:10px;background:#f0f9ff;border:1px solid #93c5fd;border-radius:6px;font-size:13px;">
       <span data-ko="가중 합계:" data-en="Weighted total:">가중 합계:</span> <strong id="ev-weighted-preview" style="color:#1e40af;">—</strong>
       &nbsp;&nbsp;<span data-ko="예상 등급:" data-en="Expected grade:">예상 등급:</span> <strong id="ev-grade-preview" style="color:#1e40af;">—</strong>
     </div>
@@ -23353,7 +23353,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260706232607 -->
+        <!-- BUILD:20260706232946 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -31216,6 +31216,15 @@ button.chip:hover,
   .pm-kpi-label { font-size: 11.5px !important; color: #93C5FD !important; font-weight: 800 !important; margin-bottom: 6px !important; }
   .pm-kpi-value { font-size: 22px !important; font-weight: 900 !important; color: #FFFFFF !important; }
   .pm-kpi-trend { font-size: 11px !important; color: #86EFAC !important; font-weight: 700 !important; margin-top: 4px !important; }
+
+  /* === 가독성 보정: 밝은(흰) 배경 모달에서 다크화가 글자를 밝게 만들어 안 보이던 것 복구 === */
+  /* 강사 평가 입력 모달 (흰 배경) → 카테고리 라벨·요약 라벨을 어둡게 */
+  .eval-modal .eval-row label { color: #1f2937 !important; }
+  #eval-weighted-box span { color: #1e293b !important; }
+  /* 관리자 로그인 모달 (흰 배경) → 제목·입력 라벨·안내문을 어둡게 */
+  #admin-login-overlay h2, #admin-login-overlay h2 span { color: #0f172a !important; }
+  #admin-login-overlay label, #admin-login-overlay label > span { color: #374151 !important; }
+  #admin-login-overlay p { color: #64748b !important; }
 
   /* === 필터 행 === */
   .pm-filter-row {
