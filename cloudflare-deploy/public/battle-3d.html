@@ -277,14 +277,14 @@
 
     // 별가루 배경 (안개 영향 X) + 반짝임(twinkle): 별마다 위상/속도 랜덤으로 밝기를 사인파로 부드럽게 깜빡임
     var _twinkle=null;
-    (function(){ var N=520,pos=new Float32Array(N*3),col=new Float32Array(N*3),seed=1234.5; function rnd(){seed=(seed*9301+49297)%233280;return seed/233280;}
+    (function(){ var N=820,pos=new Float32Array(N*3),col=new Float32Array(N*3),seed=1234.5; function rnd(){seed=(seed*9301+49297)%233280;return seed/233280;}
       var hr=new Float32Array(N),hg=new Float32Array(N),hb=new Float32Array(N),base=new Float32Array(N),phase=new Float32Array(N),speed=new Float32Array(N);
       for(var i=0;i<N;i++){ var r=26+rnd()*34,th=rnd()*Math.PI*2,ph=(rnd()-0.5)*Math.PI; pos[i*3]=Math.cos(th)*Math.cos(ph)*r; pos[i*3+1]=Math.abs(Math.sin(ph))*r*0.7+4; pos[i*3+2]=Math.sin(th)*Math.cos(ph)*r-8;
         var warm=rnd(); hr[i]=0.6+warm*0.4; hg[i]=0.72+warm*0.22; hb[i]=1.0;                 // 흰~옅은 청/금색 별
         base[i]=0.6+rnd()*0.4; phase[i]=rnd()*Math.PI*2; speed[i]=1.1+rnd()*2.4;             // 반짝임 위상/속도
         var f=base[i]; col[i*3]=hr[i]*f; col[i*3+1]=hg[i]*f; col[i*3+2]=hb[i]*f; }
       var g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('color',new THREE.BufferAttribute(col,3));
-      scene.add(new THREE.Points(g,new THREE.PointsMaterial({size:0.42,sizeAttenuation:true,vertexColors:true,transparent:true,opacity:0.92,fog:false})));
+      scene.add(new THREE.Points(g,new THREE.PointsMaterial({size:0.5,sizeAttenuation:true,vertexColors:true,transparent:true,opacity:0.96,fog:false})));
       _twinkle={N:N,cAttr:g.getAttribute('color'),hr:hr,hg:hg,hb:hb,base:base,phase:phase,speed:speed}; })();
 
     // ===== 배경 토성(Saturn): 실사형 — 난류 구름 밴드 행성 + 카시니 간극 다층 고리 (좌상단 먼 배경, 천천히 자전) =====
@@ -523,8 +523,9 @@
       g.addColorStop(0.78,'rgba(9,13,30,0.6)'); g.addColorStop(1,'rgba(9,13,30,0)');
       x.fillStyle=g; x.fillRect(0,0,256,256);
       var backTex=new THREE.CanvasTexture(c);
-      var back=new THREE.Mesh(new THREE.PlaneGeometry(10.5,12),
-        new THREE.MeshBasicMaterial({map:backTex,transparent:true,depthWrite:false}));
+      // 아주 은은한 어두운 비네트(별은 대부분 비치게 낮은 불투명) — 로버트가 별밭에 묻히지 않게만
+      var back=new THREE.Mesh(new THREE.PlaneGeometry(8,10),
+        new THREE.MeshBasicMaterial({map:backTex,transparent:true,depthWrite:false,opacity:0.4}));
       back.renderOrder=0; grp.add(back);
       // 스포트라이트 글로우(가산 혼합) — 뒤광으로 실루엣이 살아나 입체감↑
       var c2=document.createElement('canvas'); c2.width=c2.height=256; var x2=c2.getContext('2d');
@@ -569,9 +570,9 @@
           '}'
         ].join('\n')
       });
-      var H=5.7, W=H*(720/406);   // robert-knight.mp4 실제 종횡비 — 크게 키워 화면을 꽉 채움
+      var H=5.3, W=H*(176/245);   // 골드 기사 걷기 영상(세로형) 실제 종횡비
       var mesh=new THREE.Mesh(new THREE.PlaneGeometry(W,H),mat);
-      mesh.position.set(0, H*0.5-0.1, 0);   // 위로 올려 발이 화면에 확실히 보이게(하단 HUD에 안 가리게)
+      mesh.position.set(0, H*0.5-0.05, 0);   // 발이 바닥에 닿고 화면에 보이게
       mesh.castShadow=false; mesh.frustumCulled=false; mesh.renderOrder=2;
       if(faceDir<0) mesh.scale.x=-1;
       G.traverse(function(o){ if(o.isMesh) o.visible=false; });   // 절차적 기사 메시 숨김
@@ -994,7 +995,7 @@
       if(boss&&boss.userData.tentacles){ var te=boss.userData.tentacles,et=clock.elapsedTime; for(var ti=0;ti<te.length;ti++){ var TT=te[ti],am=TT.am||1; TT.grp.rotation.y=Math.sin(et*TT.sa+TT.ph)*0.30*am; TT.grp.rotation.x=Math.sin(et*TT.sb+TT.ph*1.7)*0.22*am; TT.grp.rotation.z=Math.sin(et*1.5+TT.ph*0.6)*0.13*am; } }   // 촉수 idle 웨이브: 항상 자동, 다리마다 위상·진폭 다르게 크게(글러브도 자식이라 같이 흔들림)
       for(var i=anims.length-1;i>=0;i--){ if(anims[i](dt)) anims.splice(i,1); }
       if(shakeT<shakeDur){ shakeT+=dt; var k=(1-shakeT/shakeDur)*shakeMag; camera.position.set(camBase.x+(Math.random()-0.5)*k,camBase.y+(Math.random()-0.5)*k,camBase.z); } else camera.position.copy(camBase);
-      if(_twinkle){ var tw=_twinkle,tt=clock.elapsedTime; for(var s=0;s<tw.N;s++){ var tf=tw.base[s]*(0.6+0.4*Math.sin(tt*tw.speed[s]+tw.phase[s])); tw.cAttr.setXYZ(s,tw.hr[s]*tf,tw.hg[s]*tf,tw.hb[s]*tf); } tw.cAttr.needsUpdate=true; }   // 별 반짝임
+      if(_twinkle){ var tw=_twinkle,tt=clock.elapsedTime; for(var s=0;s<tw.N;s++){ var sn=Math.sin(tt*tw.speed[s]+tw.phase[s]); var tf=tw.base[s]*(0.42+0.58*sn*sn); tw.cAttr.setXYZ(s,tw.hr[s]*tf,tw.hg[s]*tf,tw.hb[s]*tf); } tw.cAttr.needsUpdate=true; }   // 별 반짝임(더 또렷하게 깜빡)
       if(saturnSpin) saturnSpin.rotation.y+=dt*0.12;   // 토성 천천히 자전
       renderer.render(scene,camera);
     }
@@ -1015,6 +1016,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260706234225 -->
+<!-- BUILD:20260707000605 -->
 </body>
 </html>
