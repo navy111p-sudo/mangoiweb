@@ -518,14 +518,14 @@
     function makeHeroStage(cam){
       var grp=new THREE.Group();
       var c=document.createElement('canvas'); c.width=c.height=256; var x=c.getContext('2d');
-      var g=x.createRadialGradient(128,116,18,128,128,148);
-      g.addColorStop(0,'rgba(9,13,30,0.99)'); g.addColorStop(0.5,'rgba(9,13,30,0.95)');
-      g.addColorStop(0.78,'rgba(9,13,30,0.6)'); g.addColorStop(1,'rgba(9,13,30,0)');
+      var g=x.createRadialGradient(128,124,12,128,128,150);
+      g.addColorStop(0,'rgba(8,11,26,1)'); g.addColorStop(0.6,'rgba(8,11,26,1)');
+      g.addColorStop(0.85,'rgba(8,11,26,0.82)'); g.addColorStop(1,'rgba(8,11,26,0)');
       x.fillStyle=g; x.fillRect(0,0,256,256);
       var backTex=new THREE.CanvasTexture(c);
-      // 아주 은은한 어두운 비네트(별은 대부분 비치게 낮은 불투명) — 로버트가 별밭에 묻히지 않게만
-      var back=new THREE.Mesh(new THREE.PlaneGeometry(8,10),
-        new THREE.MeshBasicMaterial({map:backTex,transparent:true,depthWrite:false,opacity:0.4}));
+      // 어두운 무대(백드롭) — 히어로 뒤 별·행성·격자 배경을 가려 캐릭터가 도드라지게 (진하게·크게)
+      var back=new THREE.Mesh(new THREE.PlaneGeometry(11,13),
+        new THREE.MeshBasicMaterial({map:backTex,transparent:true,depthWrite:false,opacity:0.92}));
       back.renderOrder=0; grp.add(back);
       // 스포트라이트 글로우(가산 혼합) — 뒤광으로 실루엣이 살아나 입체감↑
       var c2=document.createElement('canvas'); c2.width=c2.height=256; var x2=c2.getContext('2d');
@@ -1060,6 +1060,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260707011739 -->
+<!-- BUILD:20260707012108 -->
 </body>
 </html>
