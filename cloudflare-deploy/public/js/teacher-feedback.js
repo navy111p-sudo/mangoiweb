@@ -1,27 +1,27 @@
 /* ============================================================
    teacher-feedback.js — 교사 수업 종료 직후 AI 코칭 카드 (한/영 토글)
    학생용 flow.js 오버레이와 같은 톤(다크 네이비 + 시안).
+   · 크기는 CSS(clamp+vw)로만 결정 → 데스크탑 약 2배 / 모바일 화면 94% 폭 + 글자 확대.
+     (JS innerWidth 측정에 의존하지 않아 어떤 환경에서도 안정)
 
    사용:
-     // 수업 종료 지점(강사 나가기)에서 호출 — /api/ai-feedback/generate 를 불러 카드 표시
      MangoTeacherFeedback.show({
-       room_id: 'r_...',            // 필수
-       teacher_uid: 't_...',        // 있으면 전달(없으면 서버가 attendance 로 보강)
-       teacher_name: 'Emily',       // 선택
-       student_name: '민준',         // 선택
-       lang: 'en',                  // 카드 기본 언어(en|ko) — 원어민이면 'en' 권장
-       signals: { talk_ratio: 68, praise_count: 7, engagement: 'good', duration_min: 25 }, // 선택
-       transcript: '...',           // 선택(수업 전사 일부, [mm:ss] 포함 가능)
-       reportUrl: '/teacher.html'   // '전체 리포트' 버튼 이동 경로(선택)
+       room_id, teacher_uid, teacher_name, student_name,
+       lang:'en'|'ko', signals:{talk_ratio,praise_count,engagement,duration_min},
+       transcript, recording_id, recording_url, reportUrl
      });
-
-     MangoTeacherFeedback.demo();   // 네트워크 없이 샘플 데이터로 카드 렌더(붙이기 전 확인용)
+     MangoTeacherFeedback.demo('en'|'ko');   // 네트워크 없이 샘플 렌더(확인용)
    ============================================================ */
 (function (w, d) {
   if (w.MangoTeacherFeedback) return;
 
   var DEFAULT_LANG = 'en'; // 교사 대상 → 기본 영어(원어민). opts.lang 로 덮어씀
   var current = { lang: DEFAULT_LANG, data: null, reportUrl: '/teacher.html' };
+
+  // 카드 기본 글자크기(1em) = clamp(14px..26px) → 모바일 약 1.08배, 데스크탑 약 2배.
+  // 아래 모든 치수는 이 1em 기준의 em 값. E(px) = 기존 px 값을 그대로 em 으로 환산(기준 13px).
+  var BASE_FONT = 'clamp(15.5px, 2.3vw, 26px)';
+  function E(px) { return (Math.round(px / 13 * 1000) / 1000) + 'em'; }
 
   var L = {
     ko: {
@@ -64,30 +64,34 @@
     ov.id = 'mango-tf-overlay';
     ov.style.cssText = 'position:fixed;inset:0;z-index:2147483200;background:rgba(2,6,23,.82);' +
       'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;' +
-      'padding:20px;font-family:"Noto Sans KR",-apple-system,sans-serif;animation:mgTfFade .25s ease-out';
+      'padding:clamp(8px,2vw,24px);font-family:"Noto Sans KR",-apple-system,sans-serif;animation:mgTfFade .25s ease-out';
     ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
     ov.innerHTML = inner;
     dd.body.appendChild(ov);
     if (!dd.getElementById('mango-tf-style')) {
       var st = dd.createElement('style'); st.id = 'mango-tf-style';
-      st.textContent = '@keyframes mgTfFade{from{opacity:0}to{opacity:1}}.mg-tf-btn:active{transform:scale(.98)}';
+      st.textContent = '@keyframes mgTfFade{from{opacity:0}to{opacity:1}}.mg-tf-btn:active{transform:scale(.98)}' +
+        '#mango-tf-overlay ::-webkit-scrollbar{width:8px}#mango-tf-overlay ::-webkit-scrollbar-thumb{background:#334155;border-radius:8px}';
       dd.head.appendChild(st);
     }
     return ov;
   }
 
+  // 카드: 폭 = min(94vw, 760px) → 모바일 화면 94% / 데스크탑 최대 760px(약 2배). 글자 1em = BASE_FONT.
+  //   flex-shrink:0 로 flex 컨테이너(오버레이) 안에서 찌부러지지 않게 고정.
   function card(html) {
-    return '<div style="width:100%;max-width:400px;background:#0b1220;border:1px solid #1e293b;border-radius:22px;' +
-      'padding:18px 18px 20px;box-shadow:0 30px 80px -12px rgba(0,0,0,.75)">' + html + '</div>';
+    return '<div style="width:min(94vw,760px);flex:0 0 auto;box-sizing:border-box;max-height:94vh;overflow-y:auto;font-size:' + BASE_FONT + ';' +
+      'background:#0b1220;border:1px solid #1e293b;border-radius:' + E(22) + ';padding:' + E(18) + ' ' + E(18) + ' ' + E(20) + ';' +
+      'box-shadow:0 30px 80px -12px rgba(0,0,0,.75)">' + html + '</div>';
   }
 
   function loading(lang) {
     shell(card(
-      '<div style="text-align:center;padding:26px 8px;color:#e2e8f0">' +
-      '<div style="font-size:34px;margin-bottom:12px">🤖</div>' +
-      '<div style="font-size:15px;font-weight:700">' + esc(L[lang].loading) + '</div>' +
-      '<div style="margin-top:14px;height:4px;border-radius:4px;background:#1e293b;overflow:hidden">' +
-      '<div style="width:40%;height:100%;background:#38bdf8;border-radius:4px;animation:mgTfFade 1s infinite alternate"></div></div>' +
+      '<div style="text-align:center;padding:' + E(26) + ' ' + E(8) + ';color:#e2e8f0">' +
+      '<div style="font-size:' + E(34) + ';margin-bottom:' + E(12) + '">🤖</div>' +
+      '<div style="font-size:' + E(15) + ';font-weight:700">' + esc(L[lang].loading) + '</div>' +
+      '<div style="margin-top:' + E(14) + ';height:' + E(4) + ';border-radius:' + E(4) + ';background:#1e293b;overflow:hidden">' +
+      '<div style="width:40%;height:100%;background:#38bdf8;border-radius:' + E(4) + ';animation:mgTfFade 1s infinite alternate"></div></div>' +
       '</div>'
     ));
   }
@@ -98,9 +102,9 @@
       : tone === 'bad'
       ? { bg: 'rgba(239,68,68,.15)', bd: 'rgba(239,68,68,.45)', l: '#fca5a5', v: '#fecaca' }
       : { bg: 'rgba(34,197,94,.14)', bd: 'rgba(34,197,94,.4)', l: '#86efac', v: '#bbf7d0' };
-    return '<div style="flex:1;text-align:center;background:' + c.bg + ';border:1px solid ' + c.bd + ';border-radius:12px;padding:9px 4px">' +
-      '<div style="font-size:11.5px;color:' + c.l + ';font-weight:700">' + esc(label) + '</div>' +
-      '<div style="font-size:13px;color:' + c.v + ';font-weight:800;margin-top:2px">' + esc(value) + '</div></div>';
+    return '<div style="flex:1;text-align:center;background:' + c.bg + ';border:1px solid ' + c.bd + ';border-radius:' + E(12) + ';padding:' + E(9) + ' ' + E(4) + '">' +
+      '<div style="font-size:' + E(11.5) + ';color:' + c.l + ';font-weight:700">' + esc(label) + '</div>' +
+      '<div style="font-size:' + E(13) + ';color:' + c.v + ';font-weight:800;margin-top:' + E(2) + '">' + esc(value) + '</div></div>';
   }
 
   function render(lang) {
@@ -113,43 +117,37 @@
     if (mt.praise_count != null) chips += metricChip(t.m3, t.praise(mt.praise_count), 'ok');
 
     var goodLines = (fb.good || []).map(function (g) {
-      return '<div style="font-size:12.5px;color:#cbd5e1;line-height:1.65;margin-bottom:5px">· ' + esc(g) + '</div>';
+      return '<div style="font-size:' + E(12.5) + ';color:#cbd5e1;line-height:1.65;margin-bottom:' + E(5) + '">· ' + esc(g) + '</div>';
     }).join('');
 
     var tabOn = 'background:#38bdf8;color:#08213a;', tabOff = 'background:transparent;color:#94a3b8;';
+    var tabBase = 'flex:1;border:0;border-radius:' + E(9) + ';padding:' + E(7) + ';font-size:' + E(12.5) + ';font-weight:800;font-family:inherit;cursor:pointer;';
     var html =
-      // 언어 토글
-      '<div style="display:flex;gap:0;margin-bottom:14px;background:rgba(30,41,59,.6);border-radius:11px;padding:3px">' +
-        '<button class="mg-tf-btn" data-lang="ko" style="flex:1;border:0;border-radius:9px;padding:7px;font-size:12.5px;font-weight:800;font-family:inherit;cursor:pointer;' + (lang === 'ko' ? tabOn : tabOff) + '">🇰🇷 한국어</button>' +
-        '<button class="mg-tf-btn" data-lang="en" style="flex:1;border:0;border-radius:9px;padding:7px;font-size:12.5px;font-weight:800;font-family:inherit;cursor:pointer;' + (lang === 'en' ? tabOn : tabOff) + '">🇺🇸 English</button>' +
+      '<div style="display:flex;gap:0;margin-bottom:' + E(14) + ';background:rgba(30,41,59,.6);border-radius:' + E(11) + ';padding:' + E(3) + '">' +
+        '<button class="mg-tf-btn" data-lang="ko" style="' + tabBase + (lang === 'ko' ? tabOn : tabOff) + '">🇰🇷 한국어</button>' +
+        '<button class="mg-tf-btn" data-lang="en" style="' + tabBase + (lang === 'en' ? tabOn : tabOff) + '">🇺🇸 English</button>' +
       '</div>' +
-      // 헤더
-      '<div style="text-align:center;margin-bottom:14px">' +
-        '<div style="font-size:12.5px;color:#94a3b8;font-weight:700;margin-bottom:5px">' + esc(t.sub(data.student_name, data.duration_min)) + '</div>' +
-        '<div style="font-size:19px;font-weight:800;color:#f8fafc">' + esc(t.title) + '</div>' +
+      '<div style="text-align:center;margin-bottom:' + E(14) + '">' +
+        '<div style="font-size:' + E(12.5) + ';color:#94a3b8;font-weight:700;margin-bottom:' + E(5) + '">' + esc(t.sub(data.student_name, data.duration_min)) + '</div>' +
+        '<div style="font-size:' + E(19) + ';font-weight:800;color:#f8fafc">' + esc(t.title) + '</div>' +
       '</div>' +
-      // 지표 칩
-      '<div style="display:flex;gap:7px;margin-bottom:14px">' + chips + '</div>' +
-      // 잘한 점
-      '<div style="background:rgba(30,41,59,.55);border-radius:14px;padding:13px 14px;margin-bottom:10px">' +
-        '<div style="font-size:13px;font-weight:800;color:#4ade80;margin-bottom:7px">' + esc(t.goodh) + '</div>' + goodLines +
+      '<div style="display:flex;gap:' + E(7) + ';margin-bottom:' + E(14) + '">' + chips + '</div>' +
+      '<div style="background:rgba(30,41,59,.55);border-radius:' + E(14) + ';padding:' + E(13) + ' ' + E(14) + ';margin-bottom:' + E(10) + '">' +
+        '<div style="font-size:' + E(13) + ';font-weight:800;color:#4ade80;margin-bottom:' + E(7) + '">' + esc(t.goodh) + '</div>' + goodLines +
       '</div>' +
-      // 개선점
-      '<div style="background:rgba(30,41,59,.55);border-radius:14px;padding:13px 14px;margin-bottom:10px">' +
-        '<div style="font-size:13px;font-weight:800;color:#fbbf24;margin-bottom:7px">' + esc(t.imph) + '</div>' +
-        '<div style="font-size:12.5px;color:#cbd5e1;line-height:1.65">' + esc(fb.improve) + '</div>' +
+      '<div style="background:rgba(30,41,59,.55);border-radius:' + E(14) + ';padding:' + E(13) + ' ' + E(14) + ';margin-bottom:' + E(10) + '">' +
+        '<div style="font-size:' + E(13) + ';font-weight:800;color:#fbbf24;margin-bottom:' + E(7) + '">' + esc(t.imph) + '</div>' +
+        '<div style="font-size:' + E(12.5) + ';color:#cbd5e1;line-height:1.65">' + esc(fb.improve) + '</div>' +
       '</div>' +
-      // 실천 1가지
-      '<div style="background:linear-gradient(135deg,rgba(56,189,248,.14),rgba(37,99,235,.18));border:1px solid rgba(56,189,248,.4);border-radius:14px;padding:12px 14px;margin-bottom:16px">' +
-        '<div style="font-size:12.5px;color:#7dd3fc;font-weight:800;margin-bottom:4px">' + esc(t.acth) + '</div>' +
-        '<div style="font-size:12.5px;color:#e0f2fe;line-height:1.6">' + esc(fb.action) + '</div>' +
+      '<div style="background:linear-gradient(135deg,rgba(56,189,248,.14),rgba(37,99,235,.18));border:1px solid rgba(56,189,248,.4);border-radius:' + E(14) + ';padding:' + E(12) + ' ' + E(14) + ';margin-bottom:' + E(16) + '">' +
+        '<div style="font-size:' + E(12.5) + ';color:#7dd3fc;font-weight:800;margin-bottom:' + E(4) + '">' + esc(t.acth) + '</div>' +
+        '<div style="font-size:' + E(12.5) + ';color:#e0f2fe;line-height:1.6">' + esc(fb.action) + '</div>' +
       '</div>' +
-      // 버튼
-      '<div style="display:flex;gap:9px">' +
-        '<button class="mg-tf-btn" data-act="report" style="flex:1;background:rgba(30,41,59,.8);color:#e2e8f0;border:1px solid #334155;border-radius:13px;padding:13px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer">' + esc(t.b1) + '</button>' +
-        '<button class="mg-tf-btn" data-act="close" style="flex:1;background:#38bdf8;color:#08213a;border:0;border-radius:13px;padding:13px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer">' + esc(t.b2) + '</button>' +
+      '<div style="display:flex;gap:' + E(9) + '">' +
+        '<button class="mg-tf-btn" data-act="report" style="flex:1;background:rgba(30,41,59,.8);color:#e2e8f0;border:1px solid #334155;border-radius:' + E(13) + ';padding:' + E(13) + ';font-size:' + E(14) + ';font-weight:700;font-family:inherit;cursor:pointer">' + esc(t.b1) + '</button>' +
+        '<button class="mg-tf-btn" data-act="close" style="flex:1;background:#38bdf8;color:#08213a;border:0;border-radius:' + E(13) + ';padding:' + E(13) + ';font-size:' + E(14) + ';font-weight:800;font-family:inherit;cursor:pointer">' + esc(t.b2) + '</button>' +
       '</div>' +
-      '<div style="text-align:center;margin-top:12px;font-size:11px;color:#64748b">' + esc(t.foot) + '</div>';
+      '<div style="text-align:center;margin-top:' + E(12) + ';font-size:' + E(11) + ';color:#64748b">' + esc(t.foot) + '</div>';
 
     var ov = shell(card(html));
     [].forEach.call(ov.querySelectorAll('.mg-tf-btn'), function (btn) {
@@ -165,10 +163,10 @@
 
   function errorBox(lang) {
     shell(card(
-      '<div style="text-align:center;padding:22px 10px;color:#e2e8f0">' +
-      '<div style="font-size:34px;margin-bottom:10px">😥</div>' +
-      '<div style="font-size:14px;color:#cbd5e1;margin-bottom:16px">' + esc(L[lang].err) + '</div>' +
-      '<button class="mg-tf-btn" onclick="MangoTeacherFeedback.close()" style="background:#334155;color:#e2e8f0;border:0;border-radius:11px;padding:11px 22px;font-size:14px;font-weight:700;cursor:pointer">닫기 / Close</button>' +
+      '<div style="text-align:center;padding:' + E(22) + ' ' + E(10) + ';color:#e2e8f0">' +
+      '<div style="font-size:' + E(34) + ';margin-bottom:' + E(10) + '">😥</div>' +
+      '<div style="font-size:' + E(14) + ';color:#cbd5e1;margin-bottom:' + E(16) + '">' + esc(L[lang].err) + '</div>' +
+      '<button class="mg-tf-btn" onclick="MangoTeacherFeedback.close()" style="background:#334155;color:#e2e8f0;border:0;border-radius:' + E(11) + ';padding:' + E(11) + ' ' + E(22) + ';font-size:' + E(14) + ';font-weight:700;cursor:pointer">닫기 / Close</button>' +
       '</div>'
     ));
   }
