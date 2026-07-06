@@ -21,6 +21,10 @@
     { key: 'game',   emoji: '🎮', label: '학생게임',      again: '학생게임 다시' },
     { key: 'rec',    emoji: '📼', label: '녹화 다시보기', again: '녹화 다시보기' },
     { key: 'speech', emoji: '🎤', label: '단계별 발음',   again: '단계별 발음 다시' },
+    { key: 'vocab',  emoji: '📖', label: '단어장',        again: '단어장 다시' },
+    { key: 'aifriend', emoji: '🤖', label: 'AI 친구',     again: 'AI 친구 다시' },
+    { key: 'aiwrite', emoji: '✍️', label: 'AI 글쓰기',    again: 'AI 글쓰기 다시' },
+    { key: 'miniquiz', emoji: '⚡', label: '미니퀴즈',     again: '미니퀴즈 다시' },
     { key: 'exit',   emoji: '🚪', label: '나가기',        again: '나가기' }
   ];
 
@@ -58,6 +62,10 @@
         case 'quiz': nav('/review-quiz.html'); break;
         case 'game': nav('/student-games.html'); break;
         case 'speech': nav('/speech-coach.html'); break;   // 🎤 단계별 발음
+        case 'vocab': nav('/vocab.html'); break;           // 📖 단어장
+        case 'aifriend': nav('/ai-friend.html'); break;    // 🤖 AI 친구 대화
+        case 'aiwrite': nav('/ai-write.html'); break;      // ✍️ AI 글쓰기
+        case 'miniquiz': nav('/micro-quiz.html'); break;   // ⚡ 미니퀴즈
         case 'rec':  openLatestRecording(); break;   // 직전 수업 녹화 바로 재생
         case 'exit':
           if (typeof t.showView === 'function' && t.document.getElementById('view-home')) t.showView('view-home');
@@ -126,7 +134,7 @@
     }).join('');
 
     ov.innerHTML =
-      '<div style="width:100%;max-width:400px;background:#0b1220;border:1px solid #1e293b;border-radius:22px;' +
+      '<div style="width:100%;max-width:400px;max-height:86vh;overflow-y:auto;background:#0b1220;border:1px solid #1e293b;border-radius:22px;' +
       'padding:22px 18px;box-shadow:0 30px 80px -12px rgba(0,0,0,.75)">' +
         '<div style="text-align:center;margin-bottom:16px">' +
           (fromTxt ? '<div style="font-size:13px;color:#94a3b8;font-weight:700;margin-bottom:5px">✅ ' + fromTxt + ' 완료</div>' : '') +

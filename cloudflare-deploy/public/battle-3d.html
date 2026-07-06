@@ -427,7 +427,7 @@
     var SOLDIER='https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/models/gltf/Soldier.glb';
     var ROBOT='https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
     var MODELS = {
-      hero: { url:SOLDIER, scale:'auto', idle:'Idle', attack:'Run', brighten:true },
+      hero: { url:SOLDIER, video:'robert-knight.mp4', scale:'auto', idle:'Idle', attack:'Run', brighten:true },
       boss: { url:'',      scale:'auto', idle:'Idle', attack:'Punch', tint:0x7a1414 }
     };
     var _mixers=[];
@@ -482,6 +482,60 @@
       var act=a[n]; act.reset(); act.setLoop(THREE.LoopOnce,1); act.clampWhenFinished=true; if(idle) idle.crossFadeTo(act,0.1,false); act.play();
       function onEnd(e){ if(e.action===act){ mx.removeEventListener('finished',onEnd); if(idle){ act.crossFadeTo(idle,0.2,false); idle.play(); } } } mx.addEventListener('finished',onEnd); }
 
+    /* ===== 실사 영상 기사(로버트) 빌보드 =====
+       사용자가 보내준 mp4(은빛 금속 갑옷 기사)를 배경 제거해 3D 장면에 세운다.
+       배경이 거의 검정이라 셰이더에서 '루미넌스 키'로 어두운 픽셀을 투명 처리 → 기사만 남김.
+       실제 3D 메시가 아니라 항상 카메라를 향하는 평면(빌보드)이지만, 그룹(hero) 전체가
+       공격 돌진·피격 기울기·KO 넘어짐 애니메이션을 그대로 받으므로 전투 연출이 유지된다. */
+    function makeContactShadow(radius){
+      var c=document.createElement('canvas'); c.width=c.height=128; var x=c.getContext('2d');
+      var g=x.createRadialGradient(64,64,3,64,64,64);
+      g.addColorStop(0,'rgba(0,0,0,0.5)'); g.addColorStop(0.55,'rgba(0,0,0,0.22)'); g.addColorStop(1,'rgba(0,0,0,0)');
+      x.fillStyle=g; x.fillRect(0,0,128,128);
+      var t=new THREE.CanvasTexture(c);
+      var m=new THREE.Mesh(new THREE.PlaneGeometry(radius*2,radius*2),
+        new THREE.MeshBasicMaterial({map:t,transparent:true,depthWrite:false}));
+      m.rotation.x=-Math.PI/2; m.position.y=0.03; m.renderOrder=1; return m;
+    }
+    function attachVideoBillboard(G, url, faceDir){
+      var video=document.createElement('video');
+      video.src=url; video.loop=true; video.muted=true; video.defaultMuted=true;
+      video.playsInline=true; video.setAttribute('playsinline',''); video.setAttribute('webkit-playsinline','');
+      video.setAttribute('muted',''); video.preload='auto'; video.crossOrigin='anonymous';
+      var _p=video.play(); if(_p&&_p.catch) _p.catch(function(){});
+      // 첫 사용자 입력에서 재생 재시도(모바일 자동재생 차단 대비)
+      var kick=function(){ var q=video.play(); if(q&&q.catch) q.catch(function(){}); };
+      window.addEventListener('pointerdown',kick,{once:true});
+      window.addEventListener('touchstart',kick,{once:true});
+      var tex=new THREE.VideoTexture(video);
+      tex.minFilter=THREE.LinearFilter; tex.magFilter=THREE.LinearFilter; tex.generateMipmaps=false;
+      var mat=new THREE.ShaderMaterial({
+        transparent:true, depthWrite:false, side:THREE.DoubleSide,
+        uniforms:{ map:{value:tex}, keyLo:{value:0.085}, keyHi:{value:0.20}, boost:{value:1.14} },
+        vertexShader:'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+        fragmentShader:[
+          'uniform sampler2D map; uniform float keyLo; uniform float keyHi; uniform float boost; varying vec2 vUv;',
+          'void main(){',
+          '  vec4 c=texture2D(map,vUv);',
+          '  float lum=dot(c.rgb,vec3(0.299,0.587,0.114));',
+          '  float a=smoothstep(keyLo,keyHi,lum);',   // 어두운 배경 → 투명, 밝은 금속 → 불투명
+          '  if(a<=0.004) discard;',
+          '  vec3 rgb=clamp(c.rgb*boost,0.0,1.0);',    // 은빛을 살짝 더 밝고 선명하게
+          '  gl_FragColor=vec4(rgb,a);',
+          '}'
+        ].join('\n')
+      });
+      var H=4.9, W=H*(1280/720);
+      var mesh=new THREE.Mesh(new THREE.PlaneGeometry(W,H),mat);
+      mesh.position.set(0, H*0.5-0.62, 0);   // 발이 바닥(y≈0)에 닿도록 앵커
+      mesh.castShadow=false; mesh.frustumCulled=false; mesh.renderOrder=2;
+      if(faceDir<0) mesh.scale.x=-1;
+      G.traverse(function(o){ if(o.isMesh) o.visible=false; });   // 절차적 기사 메시 숨김
+      G.add(makeContactShadow(1.35));
+      G.add(mesh);
+      G.userData.videoTex=tex; G.userData.video=video; G.userData.billboard=mesh;
+    }
+
     var GAP=4.6;
     // 보스 전용 입체 조명(키 + 음산한 보라 림 + 언더글로) — 우주 괴물 느낌
     var bossKey=new THREE.SpotLight(0xffffff,1.7,34,Math.PI*0.42,0.5,1.2); bossKey.position.set(GAP+5,10,7.5); bossKey.target.position.set(GAP,2.3,0); scene.add(bossKey); scene.add(bossKey.target);
@@ -494,7 +548,8 @@
     var heroFillLow=new THREE.PointLight(0xfff2dc,1.6,7.0); heroFillLow.position.set(-GAP,0.55,3.2); scene.add(heroFillLow);
     var heroFillBack=new THREE.PointLight(0xbcd2ff,0.7,7.0); heroFillBack.position.set(-GAP+0.4,1.6,-2.6); scene.add(heroFillBack);
     var hero=buildCharacter({skin:0xf1c27d,armor:0x3b6bdb,trim:0xfbbf24,eye:0x113355,face:+1,weapon:'sword'});
-    hero.position.set(-GAP,0,0); hero.rotation.y=0.18; hero.userData.home.set(-GAP,0,0); scene.add(hero); attachModel(hero, MODELS.hero, +1);
+    hero.position.set(-GAP,0,0); hero.rotation.y=0.18; hero.userData.home.set(-GAP,0,0); scene.add(hero);
+    if(MODELS.hero.video){ attachVideoBillboard(hero, MODELS.hero.video, +1); } else { attachModel(hero, MODELS.hero, +1); }
     var boss=null;
     // ===== 절차적 파충류(비늘) 텍스처: canvas 로 비늘/도트 패턴 → map + bumpMap (1회 생성 후 캐시) =====
     var _reptileTex=null;
@@ -886,6 +941,7 @@
     var clock=new THREE.Clock();
     function tick(){ requestAnimationFrame(tick); var dt=Math.min(0.05,clock.getDelta());
       for(var _m=0;_m<_mixers.length;_m++){ _mixers[_m].update(dt); }   // glTF 애니메이션
+      if(hero&&hero.userData.videoTex&&hero.userData.video&&hero.userData.video.readyState>=2){ hero.userData.videoTex.needsUpdate=true; }   // 실사 영상 기사 프레임 갱신
       badge.rotation.y+=dt*1.7; badge.rotation.x=Math.sin(clock.elapsedTime*0.8)*0.18; badgeGroup.position.y=2.3+Math.sin(clock.elapsedTime*1.6)*0.13;
       [hero,boss].forEach(function(c){ if(!c)return; if(Math.abs(c.position.x-c.userData.home.x)<0.001){ c.position.y=Math.abs(Math.sin(clock.elapsedTime*1.8+c.userData.dir))*0.04; } if(c.userData.cape) waveCape(c.userData.cape,clock.elapsedTime,c.userData.dir); });
       if(boss) boss.userData.eyeMat.emissiveIntensity=1.2+Math.sin(clock.elapsedTime*4)*0.4;
@@ -910,6 +966,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260706215641 -->
+<!-- BUILD:20260706220223 -->
 </body>
 </html>
