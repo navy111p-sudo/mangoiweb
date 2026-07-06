@@ -10868,7 +10868,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     } else if(m.type==='poster-publish'){
       try{
         var r=await fetch('/api/admin/popups',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({title:m.title, content_type:'html', body_html:m.html, width:m.width, height:m.height, position:'center', priority:0, enabled:true})});
+          body:JSON.stringify({title:m.title, content_type:'html', body_html:m.html, width:Math.round((m.width||360)*1.7), height:Math.round((m.height||480)*1.7), position:'tl', priority:0, enabled:true, dismiss_options:'today,3days,7days'})});
         var d=await r.json();
         var ok=!(!d||d.ok===false);
         if(fr.contentWindow) fr.contentWindow.postMessage({type:'poster-published',ok:ok},'*');
@@ -10964,7 +10964,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   }
   var INP='width:100%;padding:9px 11px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box';
   function formHtml(p){
-    var dis=(p.dismiss_options||'today,7days').split(',');
+    var dis=(p.dismiss_options||'today,3days,7days').split(',');
     function chk(v){ return dis.indexOf(v)>=0?' checked':''; }
     function posOpt(v){ return '<option value="'+v+'"'+(p.position===v?' selected':'')+'>'+POSLABEL[v]+'</option>'; }
     return ''
@@ -10995,6 +10995,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       +   '<div style="width:100px">'+field('우선순위', '<input id="pop-f-prio" type="number" style="'+INP+'" value="'+(p.priority||0)+'">')+'</div>'
       + '</div>'
       + field('"안 보기" 옵션', '<label style="margin-right:14px;font-size:12.5px"><input type="checkbox" class="pop-f-dismiss" value="today"'+chk('today')+'> 오늘 하루</label>'
+          +'<label style="margin-right:14px;font-size:12.5px"><input type="checkbox" class="pop-f-dismiss" value="3days"'+chk('3days')+'> 3일간</label>'
           +'<label style="margin-right:14px;font-size:12.5px"><input type="checkbox" class="pop-f-dismiss" value="7days"'+chk('7days')+'> 7일간</label>'
           +'<label style="font-size:12.5px"><input type="checkbox" class="pop-f-dismiss" value="30days"'+chk('30days')+'> 30일간</label>')
       + '<div style="margin-top:6px"><label style="font-size:13.5px;font-weight:700;color:#059669"><input type="checkbox" id="pop-f-enabled"'+(p.enabled===0?'':' checked')+'> 지금 바로 노출(활성화)</label></div>';
@@ -11041,14 +11042,14 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       start_at: localToTs($('pop-f-start').value),
       end_at: localToTs($('pop-f-end').value),
       priority: parseInt($('pop-f-prio').value,10)||0,
-      dismiss_options: dis.join(',')||'today,7days',
+      dismiss_options: dis.join(',')||'today,3days,7days',
       enabled: $('pop-f-enabled').checked
     };
   }
 
   function openEditor(id){
     editingId = id||null;
-    var p = id ? (cache.filter(function(x){return x.id===id;})[0]||{}) : {position:'tl',width:320,height:420,enabled:1,dismiss_options:'today,7days'};
+    var p = id ? (cache.filter(function(x){return x.id===id;})[0]||{}) : {position:'tl',width:320,height:420,enabled:1,dismiss_options:'today,3days,7days'};
     $('pop-editor-title').textContent = id?'📢 팝업 수정':'📢 새 팝업 만들기';
     $('pop-editor-body').innerHTML = formHtml(p);
     wireForm();
@@ -23353,7 +23354,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260706233912 -->
+        <!-- BUILD:20260706234225 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
