@@ -2911,6 +2911,8 @@ function isAdminPath(path: string, method: string): boolean {
   // 📣 알림 큐 (Phase 5) — 관리자 전용
   if (path === '/api/admin/notifications' || path === '/api/admin/notifications/test') return true;
   if (/^\/api\/admin\/notifications\/\d+$/.test(path)) return true;
+  // 🎨 포스터 만들기 (관리자 전용 — 저장/수정/삭제)
+  if (path === '/api/admin/posters' || /^\/api\/admin\/posters\/\d+$/.test(path)) return true;
   // 📥 CSV 내보내기 (Phase 6) — 관리자 전용
   if (path.startsWith('/api/admin/export/')) return true;
   // 💰 저장소·비용 통계 (Phase 7) — 관리자 전용
