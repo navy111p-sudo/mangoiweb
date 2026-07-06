@@ -24107,7 +24107,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260707013931 -->
+<!-- BUILD:20260707014600 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -26965,7 +26965,35 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
         "teachers":      function(){ if(window.gridActions&&window.gridActions.teachers) window.gridActions.teachers(); },
         "review-quiz":   function(){ location.href="/review-quiz.html"; },
         "refund":        function(){ try{ if(window.mgDrawerClose) window.mgDrawerClose(); }catch(e){} location.href="/refund.html"; },
-        "all-menu":      function(){ if(window.openAllMenuOverlay) window.openAllMenuOverlay(); }
+        "all-menu":      function(){ if(window.openAllMenuOverlay) window.openAllMenuOverlay(); },
+        // 🥭 (2026-07-07) 상담직원 라우팅 확장 — 사이드바 직접링크 메뉴(게임·웜업·AI친구 등)는
+        //  data-go 카드가 아니라 location.href 라 mgGo 폴백으로 안 열림 → 여기에 명시적으로 등록.
+        "games":         function(){ location.href="/student-games.html"; },
+        "warmup":        function(){ location.href="/warmup.html"; },
+        "ai-friend":     function(){ location.href="/ai-friend.html"; },
+        "ai-write":      function(){ location.href="/ai-write.html"; },
+        "write":         function(){ location.href="/ai-write.html"; },
+        "vocab":         function(){ location.href="/vocab.html"; },
+        "microquiz":     function(){ location.href="/micro-quiz.html"; },
+        "streak":        function(){ location.href="/streak.html"; },
+        "checkin":       function(){ location.href="/streak.html"; },
+        "mbti":          function(){ location.href="/mbti.html"; },
+        "speech-coach":  function(){ location.href="/speech-coach.html"; },
+        "speech":        function(){ if(window.mgGo) window.mgGo("speech"); else location.href="/speech-coach.html"; },
+        "teacher-praise":function(){ location.href="/teacher-praise.html"; },
+        "curriculum":    function(){ if(window.mgGo) window.mgGo("curriculum"); else location.href="/curriculum.html"; },
+        "faq":           function(){ try{ if(window.mgDrawerClose) window.mgDrawerClose(); }catch(e){} if(window.openFaqOverlay) window.openFaqOverlay(); else if(window.mgGo) window.mgGo("faq"); },
+        "about":         function(){ if(window.openAboutMangoi) window.openAboutMangoi(); else if(window.mgGo) window.mgGo("about"); },
+        "points-shop":   function(){ if(window.showPointsShop) window.showPointsShop(); else if(window.mgGo) window.mgGo("points-shop"); },
+        "mypoints":      function(){ if(window.showPointsShop) window.showPointsShop(); else if(window.mgGo) window.mgGo("points-shop"); },
+        "contact":       function(){ if(window.mgGo) window.mgGo("contact"); },
+        "inquiry":       function(){ if(window.mgGo) window.mgGo("inquiry"); },
+        "diagnosis":     function(){ if(window.mgGo) window.mgGo("diagnosis"); },
+        "notice":        function(){ if(window.mgGo) window.mgGo("notice"); },
+        "event":         function(){ if(window.mgGo) window.mgGo("event"); },
+        "trial":         function(){ if(window.mgGo) window.mgGo("trial"); },
+        "reviews":       function(){ if(window.mgGo) window.mgGo("reviews"); },
+        "recordings":    function(){ if(window.mgGo) window.mgGo("recordings"); }
       };
       var fn=map[go];
       if(!fn && go && window.mgGo) fn=function(){ window.mgGo(go); };   // 매핑에 없는 타깃도 mgGo 로 열기 폴백
