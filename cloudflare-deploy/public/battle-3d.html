@@ -265,23 +265,59 @@
       scene.add(new THREE.Points(g,new THREE.PointsMaterial({size:0.42,sizeAttenuation:true,vertexColors:true,transparent:true,opacity:0.92,fog:false})));
       _twinkle={N:N,cAttr:g.getAttribute('color'),hr:hr,hg:hg,hb:hb,base:base,phase:phase,speed:speed}; })();
 
-    // ===== 배경 토성(Saturn): 행성(베이지) + 기울어진 고리 — 전투 영역 뒤(depth 멀리) 좌상단에 떠서 천천히 자전 =====
+    // ===== 배경 토성(Saturn): 실사형 — 난류 구름 밴드 행성 + 카시니 간극 다층 고리 (좌상단 먼 배경, 천천히 자전) =====
     var saturnSpin=null;
     (function(){
-      // 토성다운 가로 띠(밴드) 텍스처 + 약한 경도 얼룩(자전 가시화)
-      var CS=128,cc=document.createElement('canvas'); cc.width=cc.height=CS; var cx=cc.getContext('2d');
-      // 진한 황갈/burnt-amber 톤: 밝은 띠=amber, 어두운 띠=갈색 (전반적으로 어둡고 진하게)
-      for(var y=0;y<CS;y++){ var v=y/CS, band=0.5+0.5*Math.sin(v*Math.PI*9+Math.sin(v*7)), rr=150+band*52, gg=84+band*42, bb=34+band*24;
-        for(var xx=0;xx<CS;xx++){ var u=xx/CS, mott=0.88+0.12*Math.sin(u*Math.PI*6+v*5); cx.fillStyle='rgb('+(rr*mott|0)+','+(gg*mott|0)+','+(bb*mott|0)+')'; cx.fillRect(xx,y,1,1); } }
-      var ptex=new THREE.CanvasTexture(cc); ptex.anisotropy=4;
-      var g=new THREE.Group(); g.position.set(-9.5,13.5,-34); g.rotation.set(-0.42,0,0.34);   // 좌상단·먼 배경, 고리 기울임
+      function lerp(a,b,t){ return a+(b-a)*t; }
+      // --- (1) 행성 텍스처: 버터스카치 가스행성 밴드 + 가로 난류(swirl) + 극지 감광 (equirect) ---
+      var PW=512,PH=256,pc=document.createElement('canvas'); pc.width=PW; pc.height=PH; var px=pc.getContext('2d');
+      var pim=px.createImageData(PW,PH), pd=pim.data;
+      for(var y=0;y<PH;y++){
+        var v=y/PH, polar=1-0.42*Math.pow(Math.abs(v-0.5)*2,2.4);                 // 극으로 갈수록 어둡게
+        for(var x=0;x<PW;x++){
+          var u=x/PW;
+          // 가로 난류: 구름 밴드가 물결·소용돌이치게 (다중 옥타브)
+          var turb=0.42*Math.sin(u*Math.PI*6+v*38)+0.20*Math.sin(u*Math.PI*14-v*21)+0.10*Math.sin(u*Math.PI*26+v*9);
+          var band=Math.sin(v*Math.PI*17+1.3*Math.sin(v*Math.PI*5)+turb);
+          var t=0.5+0.5*band;                                                      // 0=진한 벨트, 1=밝은 존
+          var h=Math.sin(x*12.9898+y*78.233)*43758.5453; h-=Math.floor(h);         // 결정적 미세 얼룩
+          var mott=0.94+0.12*h;
+          var r=lerp(150,236,t), gg=lerp(98,214,t), bb=lerp(50,150,t);
+          r=lerp(r, r*1.05+12, (1-t)*0.5);                                         // 벨트에 살짝 주황 가미
+          var i=(y*PW+x)*4;
+          pd[i]=Math.min(255,r*polar*mott); pd[i+1]=Math.min(255,gg*polar*mott); pd[i+2]=Math.min(255,bb*polar*mott); pd[i+3]=255;
+        }
+      }
+      px.putImageData(pim,0,0);
+      var ptex=new THREE.CanvasTexture(pc); ptex.anisotropy=4;
+      // --- (2) 고리 텍스처: RingGeometry UV(정면투영)에 맞춘 동심 밴드 + 카시니 간극 + 알파 ---
+      var RS=256,rc=document.createElement('canvas'); rc.width=rc.height=RS; var rx=rc.getContext('2d');
+      var rimg=rx.createImageData(RS,RS), rdat=rimg.data, ccx=RS/2, innerF=(3.1/4.7);  // 텍스처 반경 1.0 = 고리 외경
+      for(var ry=0;ry<RS;ry++){ for(var rxx=0;rxx<RS;rxx++){
+        var dx=(rxx-ccx)/ccx, dy=(ry-ccx)/ccx, d=Math.sqrt(dx*dx+dy*dy), i2=(ry*RS+rxx)*4;
+        rdat[i2]=rdat[i2+1]=rdat[i2+2]=rdat[i2+3]=0;
+        if(d<innerF||d>1.0) continue;
+        var p=(d-innerF)/(1.0-innerF), a,cr,cg,cb;                                 // 고리 안 0..1
+        if(p<0.16){ a=0.22; cr=150;cg=138;cb=112; }                               // C 고리(희미)
+        else if(p<0.50){ a=0.88; cr=212;cg=194;cb=158; }                          // B 고리(밝음)
+        else if(p<0.58){ a=0.05; cr=120;cg=110;cb=92; }                           // 카시니 간극
+        else if(p<0.96){ a=0.58; cr=188;cg=170;cb=140; }                          // A 고리
+        else { a=0.0; cr=170;cg=156;cb=130; }
+        a*=0.82+0.18*Math.sin(p*140);                                             // 미세 동심 줄무늬
+        var edge=Math.min(1,p/0.05)*Math.min(1,(1-p)/0.06); a*=Math.max(0,edge);  // 안팎 가장자리 페이드
+        rdat[i2]=cr; rdat[i2+1]=cg; rdat[i2+2]=cb; rdat[i2+3]=Math.max(0,Math.min(255,a*255))|0;
+      }}
+      rx.putImageData(rimg,0,0);
+      var rtex=new THREE.CanvasTexture(rc); rtex.anisotropy=4;
+      // --- (3) 조립 (위치/기울기/자전은 기존과 동일하게 유지 → 배경 화면 일치) ---
+      var g=new THREE.Group(); g.position.set(-9.5,13.5,-34); g.rotation.set(-0.42,0,0.34);
       var spin=new THREE.Group(); g.add(spin);
-      var planet=new THREE.Mesh(new THREE.SphereGeometry(2.5,40,32),
-        new THREE.MeshStandardMaterial({map:ptex,color:0xcf8a3a,roughness:0.95,metalness:0.0,emissive:new THREE.Color(0x281603),emissiveIntensity:0.42,fog:false}));
+      var planet=new THREE.Mesh(new THREE.SphereGeometry(2.5,64,48),
+        new THREE.MeshStandardMaterial({map:ptex,roughness:0.98,metalness:0.0,emissive:new THREE.Color(0x1c1204),emissiveIntensity:0.26,fog:false}));
       spin.add(planet);
-      var ring=new THREE.Mesh(new THREE.RingGeometry(3.1,4.7,72,1),
-        new THREE.MeshStandardMaterial({color:0xae7a36,roughness:0.9,metalness:0.0,emissive:new THREE.Color(0x231507),emissiveIntensity:0.4,side:THREE.DoubleSide,transparent:true,opacity:0.8,fog:false}));
-      ring.rotation.x=Math.PI/2; spin.add(ring);                                              // 링을 적도면(수평) → 그룹 기울기로 타원처럼 보임
+      var ring=new THREE.Mesh(new THREE.RingGeometry(3.1,4.7,120,1),
+        new THREE.MeshStandardMaterial({map:rtex,roughness:0.95,metalness:0.0,emissive:new THREE.Color(0x120d05),emissiveIntensity:0.18,side:THREE.DoubleSide,transparent:true,depthWrite:false,fog:false}));
+      ring.rotation.x=Math.PI/2; spin.add(ring);                                   // 링을 적도면 → 그룹 기울기로 타원처럼 보임
       scene.add(g); saturnSpin=spin;
     })();
 
@@ -394,19 +430,24 @@
     // attachModel 의 load 콜백에서 호출 → 캐릭터가 (재)생성될 때마다 항상 재적용됨.
     function brightenHeroModel(root){
       if(!root) return;
+      // ===== 황금 기사(골드 메탈) 도장 =====
+      // 겉면을 살짝 반짝이는 황금 메탈로 통일: 골드 base color + 높은 metalness + 낮은 roughness(광택),
+      // 그리고 따뜻한 골드 emissive 바닥값으로 그림자 영역도 검게 죽지 않게 유지.
       root.traverse(function(o){
         if(!o.isMesh||!o.material) return;
         o.castShadow=true; o.frustumCulled=false;
         var mm=Array.isArray(o.material)?o.material:[o.material];
         mm.forEach(function(m){
           if(!m) return;
-          // (1) base color 채널 바닥값(맵 없는 머티리얼이 검게 보이는 것 방지 + 맵 있는 곳은 밝은 틴트)
-          if(m.color){ m.color.r=Math.max(m.color.r,0.58); m.color.g=Math.max(m.color.g,0.58); m.color.b=Math.max(m.color.b,0.62); }
-          // (2) 플랫 emissive 바닥값: emissiveMap 제거 후 상수 emissive → 텍스처가 새까매도 최소 밝기 보장
-          if(m.emissive!==undefined){ if('emissiveMap' in m) m.emissiveMap=null; m.emissive=new THREE.Color(0.46,0.48,0.56); m.emissiveIntensity=0.4; }
-          // (3) 금속 반사로 인한 암부 죽음 방지 + 적당한 거칠기
-          if(m.metalness!=null) m.metalness=Math.min(m.metalness,0.15);
-          if(m.roughness!=null) m.roughness=Math.max(0.6,Math.min(0.8,m.roughness||0.7));
+          // (1) 텍스처 맵 제거 → 골드 색이 원래 텍스처 색에 얼룩지지 않고 균일한 금색으로
+          if('map' in m) m.map=null;
+          // (2) 골드 base color (금속은 이 색이 반사광 색 = 금빛 하이라이트)
+          if(m.color){ m.color.setRGB(1.0,0.80,0.34); }
+          // (3) 플랫 골드 emissive 바닥값: emissiveMap 제거 후 상수 emissive → 암부도 금빛으로 최소 밝기 보장
+          if(m.emissive!==undefined){ if('emissiveMap' in m) m.emissiveMap=null; m.emissive=new THREE.Color(0.30,0.21,0.05); m.emissiveIntensity=0.35; }
+          // (4) 진짜 메탈 느낌 + '좀만 반짝'하는 광택(거울 아님)
+          if(m.metalness!=null) m.metalness=0.9;
+          if(m.roughness!=null) m.roughness=0.32;
           m.toneMapped=true; m.needsUpdate=true;
         });
       });
@@ -865,6 +906,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260706031349 -->
+<!-- BUILD:20260706134841 -->
 </body>
 </html>
