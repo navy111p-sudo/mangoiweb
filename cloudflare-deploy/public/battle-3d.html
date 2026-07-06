@@ -292,7 +292,7 @@
       var ptex=new THREE.CanvasTexture(pc); ptex.anisotropy=4;
       // --- (2) 고리 텍스처: RingGeometry UV(정면투영)에 맞춘 동심 밴드 + 카시니 간극 + 알파 ---
       var RS=256,rc=document.createElement('canvas'); rc.width=rc.height=RS; var rx=rc.getContext('2d');
-      var rimg=rx.createImageData(RS,RS), rdat=rimg.data, ccx=RS/2, innerF=(3.1/4.7);  // 텍스처 반경 1.0 = 고리 외경
+      var rimg=rx.createImageData(RS,RS), rdat=rimg.data, ccx=RS/2, innerF=(2.85/4.9);  // 텍스처 반경 1.0 = 고리 외경
       for(var ry=0;ry<RS;ry++){ for(var rxx=0;rxx<RS;rxx++){
         var dx=(rxx-ccx)/ccx, dy=(ry-ccx)/ccx, d=Math.sqrt(dx*dx+dy*dy), i2=(ry*RS+rxx)*4;
         rdat[i2]=rdat[i2+1]=rdat[i2+2]=rdat[i2+3]=0;
@@ -310,12 +310,12 @@
       rx.putImageData(rimg,0,0);
       var rtex=new THREE.CanvasTexture(rc); rtex.anisotropy=4;
       // --- (3) 조립 (위치/기울기/자전은 기존과 동일하게 유지 → 배경 화면 일치) ---
-      var g=new THREE.Group(); g.position.set(-9.5,13.5,-34); g.rotation.set(-0.42,0,0.34);
+      var g=new THREE.Group(); g.position.set(-9.5,13.5,-34); g.rotation.set(-0.72,0,0.30);  // 고리를 더 열어(정면쪽) 행성을 감싸게
       var spin=new THREE.Group(); g.add(spin);
-      var planet=new THREE.Mesh(new THREE.SphereGeometry(2.5,64,48),
+      var planet=new THREE.Mesh(new THREE.SphereGeometry(2.7,64,48),
         new THREE.MeshStandardMaterial({map:ptex,roughness:0.98,metalness:0.0,emissive:new THREE.Color(0x1c1204),emissiveIntensity:0.26,fog:false}));
       spin.add(planet);
-      var ring=new THREE.Mesh(new THREE.RingGeometry(3.1,4.7,120,1),
+      var ring=new THREE.Mesh(new THREE.RingGeometry(2.85,4.9,120,1),
         new THREE.MeshStandardMaterial({map:rtex,roughness:0.95,metalness:0.0,emissive:new THREE.Color(0x120d05),emissiveIntensity:0.18,side:THREE.DoubleSide,transparent:true,depthWrite:false,fog:false}));
       ring.rotation.x=Math.PI/2; spin.add(ring);                                   // 링을 적도면 → 그룹 기울기로 타원처럼 보임
       scene.add(g); saturnSpin=spin;
@@ -441,13 +441,13 @@
           if(!m) return;
           // (1) 텍스처 맵 제거 → 골드 색이 원래 텍스처 색에 얼룩지지 않고 균일한 금색으로
           if('map' in m) m.map=null;
-          // (2) 골드 base color (금속은 이 색이 반사광 색 = 금빛 하이라이트)
-          if(m.color){ m.color.setRGB(1.0,0.80,0.34); }
-          // (3) 플랫 골드 emissive 바닥값: emissiveMap 제거 후 상수 emissive → 암부도 금빛으로 최소 밝기 보장
-          if(m.emissive!==undefined){ if('emissiveMap' in m) m.emissiveMap=null; m.emissive=new THREE.Color(0.30,0.21,0.05); m.emissiveIntensity=0.35; }
-          // (4) 진짜 메탈 느낌 + '좀만 반짝'하는 광택(거울 아님)
-          if(m.metalness!=null) m.metalness=0.9;
-          if(m.roughness!=null) m.roughness=0.32;
+          // (2) 더 진한(딥) 골드 base color — 채도 높은 금빛
+          if(m.color){ m.color.setRGB(0.72,0.50,0.15); }
+          // (3) emissive 바닥값을 크게 낮춤 → 암부(그림자)가 살아나 얼굴 등 형태가 입체적으로 읽힘
+          if(m.emissive!==undefined){ if('emissiveMap' in m) m.emissiveMap=null; m.emissive=new THREE.Color(0.12,0.08,0.02); m.emissiveIntensity=0.14; }
+          // (4) 메탈감은 유지하되 metalness 낮추고 roughness 올려 diffuse 음영이 형태(굴곡)를 드러내게
+          if(m.metalness!=null) m.metalness=0.55;
+          if(m.roughness!=null) m.roughness=0.46;
           m.toneMapped=true; m.needsUpdate=true;
         });
       });
@@ -906,6 +906,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260706134841 -->
+<!-- BUILD:20260706144641 -->
 </body>
 </html>

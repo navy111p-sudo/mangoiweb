@@ -20,16 +20,18 @@
     { key: 'quiz',   emoji: '🧠', label: '복습퀴즈',      again: '복습퀴즈 다시' },
     { key: 'game',   emoji: '🎮', label: '학생게임',      again: '학생게임 다시' },
     { key: 'rec',    emoji: '📼', label: '녹화 다시보기', again: '녹화 다시보기' },
+    { key: 'speech', emoji: '🎤', label: '단계별 발음',   again: '단계별 발음 다시' },
     { key: 'exit',   emoji: '🚪', label: '나가기',        again: '나가기' }
   ];
 
-  // 방금 끝낸 기능 → 추천 항목 (부드러운 순환: 웜업→게임→수업→복습→게임…)
-  var REC = { warmup: 'game', game: 'class', class: 'quiz', quiz: 'game' };
+  // 방금 끝낸 기능 → 추천 항목
+  //   웜업→게임→수업→복습→발음→게임 …  (복습 뒤 발음, 발음 뒤 게임 = 이해→발화→강화 흐름)
+  var REC = { warmup: 'game', game: 'class', class: 'quiz', quiz: 'speech', speech: 'game' };
 
   // 방금 끝낸 기능 → 메뉴에서 '나 자신'에 해당하는 항목(있으면 "다시"로 표기)
-  var SELF = { warmup: 'warmup', class: 'class', game: 'game', quiz: 'quiz' };
+  var SELF = { warmup: 'warmup', class: 'class', game: 'game', quiz: 'quiz', speech: 'speech' };
 
-  var FROM_LABEL = { warmup: 'AI 웜업', game: '학생게임', class: '화상수업', quiz: '복습퀴즈' };
+  var FROM_LABEL = { warmup: 'AI 웜업', game: '학생게임', class: '화상수업', quiz: '복습퀴즈', speech: '단계별 발음' };
 
   // 최상위 창(아이프레임 안에서 실행 시 상위창을 대상으로 이동) — 교차출처면 자기 자신
   function topWin() {
@@ -55,6 +57,7 @@
         case 'warmup': nav('/warmup.html'); break;
         case 'quiz': nav('/review-quiz.html'); break;
         case 'game': nav('/student-games.html'); break;
+        case 'speech': nav('/speech-coach.html'); break;   // 🎤 단계별 발음
         case 'rec':  openLatestRecording(); break;   // 직전 수업 녹화 바로 재생
         case 'exit':
           if (typeof t.showView === 'function' && t.document.getElementById('view-home')) t.showView('view-home');
