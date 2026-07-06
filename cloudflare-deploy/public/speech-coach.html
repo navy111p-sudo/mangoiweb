@@ -57,6 +57,14 @@
   .play-btn { padding: 10px 18px; background: rgba(139,92,246,0.2); color: #c4b5fd; border: 1px solid rgba(139,92,246,0.4); border-radius: 8px; cursor: pointer; font-weight: 700; }
   .next-btn { padding: 10px 24px; background: linear-gradient(135deg, #34d399, #059669); color: #fff; border: 0; border-radius: 8px; font-weight: 800; cursor: pointer; margin-left: 8px; }
 
+  /* 단계 진행 네비게이션 (이전/다음 + 단계 선택) */
+  .step-nav { display: flex; align-items: center; gap: 8px; justify-content: center; margin: 12px 0 4px; flex-wrap: wrap; }
+  .step-btn { padding: 9px 16px; background: rgba(139,92,246,0.22); color: #ddd6fe; border: 1px solid rgba(139,92,246,0.45); border-radius: 10px; font-weight: 800; cursor: pointer; font-size: 13px; }
+  .step-btn:hover { background: rgba(139,92,246,0.34); }
+  .step-btn.primary { background: linear-gradient(135deg,#34d399,#059669); color:#fff; border:0; }
+  .step-select { flex: 1; min-width: 150px; max-width: 340px; padding: 9px 12px; background: rgba(20,41,80,0.9); color: #fff; border: 1px solid rgba(148,163,184,0.4); border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; }
+  .step-count { font-size: 12px; color: #94a3b8; font-weight: 700; }
+
   .home-btn { position: fixed; top: 14px; right: 14px; z-index: 999; padding: 9px 18px; background: linear-gradient(135deg,#fbbf24,#f59e0b); color: #1a1a1a; text-decoration: none; font-weight: 800; border-radius: 99px; font-size: 13px; }
   .lang-btn { position: fixed; top: 14px; right: 148px; z-index: 999; padding: 9px 14px; background: rgba(255,255,255,0.9); color: #1a1a1a; border: 1px solid rgba(245,158,11,0.4); border-radius: 99px; font-size: 12px; font-weight: 800; cursor: pointer; }
 
@@ -128,6 +136,14 @@
     <button onclick="speakTarget()" class="play-btn" style="margin-top:10px">🔊 <span data-ko="모범 음성 듣기" data-en="Listen to Sample">모범 음성 듣기</span></button>
   </div>
 
+  <!-- 단계 진행: 이전 / 단계 선택 / 다음 -->
+  <div class="step-nav">
+    <button class="step-btn" onclick="goStep(-1)">◀ <span data-ko="이전" data-en="Prev">이전</span></button>
+    <select id="step-select" class="step-select" onchange="selectStep(this.value)" aria-label="단계 선택"></select>
+    <button class="step-btn primary" onclick="goStep(1)"><span data-ko="다음 단계" data-en="Next">다음 단계</span> ▶</button>
+  </div>
+  <div class="step-count" style="text-align:center;margin-bottom:6px"><span id="step-count-txt">1 / 5</span></div>
+
   <div class="preset">
     <button onclick="setTarget('Hello! Nice to meet you.')">Hello!</button>
     <button onclick="setTarget('What is your name?')">What is your name?</button>
@@ -155,7 +171,8 @@
     <div class="suggestion" id="suggestion-text">-</div>
     <div style="text-align:center;margin-top:14px">
       <button onclick="resetUI()" class="play-btn" data-ko="🔄 다시 녹음" data-en="🔄 Try Again">🔄 다시 녹음</button>
-      <button onclick="speakTarget()" class="next-btn" data-ko="🔊 모범 다시 듣기" data-en="🔊 Listen Again">🔊 모범 다시 듣기</button>
+      <button onclick="speakTarget()" class="play-btn" style="margin-left:8px" data-ko="🔊 모범 다시 듣기" data-en="🔊 Listen Again">🔊 모범 다시 듣기</button>
+      <button onclick="goStep(1)" class="next-btn" data-ko="다음 단계 ▶" data-en="Next Step ▶">다음 단계 ▶</button>
     </div>
     <div style="text-align:center;margin-top:10px">
       <button onclick="window.MangoFlow&&MangoFlow.open('speech')" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:12px;padding:12px 24px;font-size:16px;font-weight:800;cursor:pointer" data-ko="🚀 다음 활동 고르기" data-en="🚀 Choose next activity">🚀 다음 활동 고르기</button>
@@ -171,8 +188,43 @@ let isRecording = false;
 function setTarget(t) {
   document.getElementById('target-display').textContent = t;
   document.getElementById('target-input').value = t;
+  var idx = STEPS.indexOf(t);            // 프리셋/직접선택도 단계와 동기화
+  if (idx >= 0) { currentStep = idx; updateStepUI(); }
   resetUI();
 }
+
+/* ===== 단계 진행(이전/다음 + 선택) ===== */
+var STEPS = [
+  'Hello! Nice to meet you.',
+  'What is your name?',
+  'I love studying English with Mangoi.',
+  'Can you say that again, please?',
+  'Thank you very much for your help.'
+];
+var currentStep = 0;
+function shortLabel(s){ return s.length > 30 ? s.slice(0, 30) + '…' : s; }
+function renderStepSelect(){
+  var sel = document.getElementById('step-select');
+  if (!sel) return;
+  sel.innerHTML = STEPS.map(function(s, i){
+    return '<option value="' + i + '">' + (i + 1) + '. ' + shortLabel(s) + '</option>';
+  }).join('');
+}
+function updateStepUI(){
+  var sel = document.getElementById('step-select');
+  if (sel) sel.value = String(currentStep);
+  var cnt = document.getElementById('step-count-txt');
+  if (cnt) cnt.textContent = (currentStep + 1) + ' / ' + STEPS.length;
+}
+function loadStep(i, speak){
+  currentStep = ((i % STEPS.length) + STEPS.length) % STEPS.length;   // 순환(끝→처음)
+  setTarget(STEPS[currentStep]);   // setTarget 내부에서 updateStepUI 동기화
+  updateStepUI();
+  if (speak) speakTarget();
+}
+function goStep(delta){ loadStep(currentStep + delta, false); }
+function selectStep(v){ loadStep(parseInt(v, 10), false); }
+try { renderStepSelect(); updateStepUI(); } catch(e){}
 
 let ttsAudio = null;
 const ttsCache = {};
@@ -298,7 +350,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260706144641 -->
+<!-- BUILD:20260706150144 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>

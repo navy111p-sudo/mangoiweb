@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B1224">
 <title>🇨🇳 중국어 발음 교정 — 다락원 중국어 마스터 + Lv 1~20</title>
-<!-- BUILD:20260706144641 -->
+<!-- BUILD:20260706150144 -->
 <style>
 :root {
   --bg: #0B1224;
@@ -112,6 +112,8 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
 .btn-record{background:linear-gradient(135deg,var(--bad),#B91C1C);color:#fff;padding:13px 24px;font-size:14.5px}
 .btn-record.recording{background:linear-gradient(135deg,var(--ok),#059669);animation:pulse 1.2s infinite}
 .btn-warn.playing{background:linear-gradient(135deg,var(--ok),#059669)}
+.btn-step{background:linear-gradient(135deg,var(--ok),#059669);color:#fff}
+.sentence-select{flex:1;min-width:140px;max-width:280px;padding:10px 12px;background:var(--bg-card);color:var(--text,#fff);border:1px solid var(--border);border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.5)}50%{box-shadow:0 0 0 14px rgba(16,185,129,0)}}
 
 /* 반복 듣기 컨트롤 */
@@ -209,8 +211,16 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
 
   <div class="controls">
     <button class="btn btn-warn" id="btn-tts">🔊 원어민 발음 듣기</button>
-    <button class="btn btn-ghost" id="btn-next">↪ 다른 문장</button>
+    <button class="btn btn-ghost" id="btn-next">↪ <span data-ko="다른 문장" data-en="Random">다른 문장</span></button>
   </div>
+
+  <!-- 단계 진행: 이전 / 문장 선택 / 다음 -->
+  <div class="controls sentence-nav" style="margin-top:10px;flex-wrap:wrap;gap:8px">
+    <button class="btn btn-ghost" onclick="goSentence(-1)">◀ <span data-ko="이전" data-en="Prev">이전</span></button>
+    <select id="sentence-select" class="sentence-select" onchange="selectSentence(this.value)" aria-label="문장 선택"></select>
+    <button class="btn btn-step" onclick="goSentence(1)"><span data-ko="다음 문장" data-en="Next">다음 문장</span> ▶</button>
+  </div>
+  <div id="sentence-count" style="text-align:center;font-size:12px;color:var(--text-mute);font-weight:700;margin-top:6px">1 / 1</div>
 
   <!-- fix (2026-06-01) — 반복 듣기 (1~무한) -->
   <div class="repeat-row" id="repeat-row">
@@ -238,7 +248,8 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
   <div class="result-card" id="result">
     <div class="score" id="score">—</div>
     <div class="feedback" id="feedback"></div>
-    <div style="text-align:center;margin-top:12px">
+    <div style="text-align:center;margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button onclick="goSentence(1)" class="btn btn-step" style="padding:11px 22px;font-size:15px"><span data-ko="다음 문장" data-en="Next">다음 문장</span> ▶</button>
       <button onclick="window.MangoFlow&&MangoFlow.open('speech')" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:12px;padding:11px 22px;font-size:15px;font-weight:800;cursor:pointer">🚀 다음 활동 고르기</button>
     </div>
   </div>
@@ -932,6 +943,7 @@ let state = {
   attempt: 1,
   speed: 0.85,
   recording: false,
+  sIdx: 0,             // 현재 문장 인덱스 (순차 이동/선택)
   repeat: 1,           // 반복 횟수 (숫자 또는 Infinity)
 };
 const REP_STEPS = [1, 2, 3, 5, 10];
@@ -977,24 +989,51 @@ function renderLv(){
   }
 }
 
-/* ── 문장 선택 ── */
-function pickRandom(){
-  let pool = [];
+/* ── 문장 선택 (순차 이동 + 선택 + 랜덤) ── */
+function getPool(){
   if (state.group === 'darakwon') {
     const book = DARAKWON[state.darakwonBook];
     const lesson = book && book.lessons[state.lessonIdx];
-    pool = (lesson && lesson.s) || [];
-  } else {
-    pool = LV_SENTENCES[state.lv] || [];
+    return (lesson && lesson.s) || [];
   }
+  return LV_SENTENCES[state.lv] || [];
+}
+/* 현재 인덱스(state.sIdx) 문장을 화면에 표시 */
+function showSentence(){
+  const pool = getPool();
   if (!pool.length) return;
-  const item = pool[Math.floor(Math.random() * pool.length)];
+  state.sIdx = ((state.sIdx % pool.length) + pool.length) % pool.length;   // 순환(끝→처음)
+  const item = pool[state.sIdx];
   document.getElementById('cn-text').textContent = item.c;
   document.getElementById('cn-pinyin').textContent = item.p;
   document.getElementById('cn-korean').textContent = item.k;
   state.attempt = 1;
   document.getElementById('progress').textContent = '시도 ' + state.attempt + '/3 · 버튼을 눌러 녹음을 시작하세요';
   document.getElementById('result').classList.remove('show');
+  updateSentenceNav(pool);
+}
+/* 이전/다음/선택 UI 동기화 */
+function updateSentenceNav(pool){
+  pool = pool || getPool();
+  const sel = document.getElementById('sentence-select');
+  if (sel) {
+    sel.innerHTML = pool.map(function(it, i){
+      var lbl = it.c.length > 16 ? it.c.slice(0, 16) + '…' : it.c;
+      return '<option value="' + i + '">' + (i + 1) + '. ' + lbl + '</option>';
+    }).join('');
+    sel.value = String(state.sIdx);
+  }
+  const cnt = document.getElementById('sentence-count');
+  if (cnt) cnt.textContent = (state.sIdx + 1) + ' / ' + pool.length;
+}
+function goSentence(delta){ stopSpeak(); state.sIdx += delta; showSentence(); }
+function selectSentence(v){ stopSpeak(); state.sIdx = parseInt(v, 10) || 0; showSentence(); }
+/* "↪ 다른 문장" = 랜덤 (인덱스도 동기화) */
+function pickRandom(){
+  const pool = getPool();
+  if (!pool.length) return;
+  state.sIdx = Math.floor(Math.random() * pool.length);
+  showSentence();
 }
 
 /* ── TTS + 반복 듣기 (1~무한) ── */
