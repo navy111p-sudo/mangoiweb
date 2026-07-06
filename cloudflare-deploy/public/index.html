@@ -8868,6 +8868,8 @@ function vcShowSessionPicker(sessions, name, role) {
 var vcWaitTimer = null;
 function vcStopWaitingMonitor() {
     try { if (vcWaitTimer) { clearInterval(vcWaitTimer); vcWaitTimer = null; } } catch (e) {}
+    try { if (window.__vcDemoTeacherTimer) { clearTimeout(window.__vcDemoTeacherTimer); window.__vcDemoTeacherTimer = null; } } catch (e) {}
+    try { vcRemoveDemoTeacher(); } catch (e) {}
     var c = document.getElementById('vc-wait-card'); if (c) c.remove();
 }
 function vcStartWaitingMonitor(session, myRole) {
@@ -8880,6 +8882,9 @@ function vcStartWaitingMonitor(session, myRole) {
     var startedAt = Date.now();
     var NOSHOW_MS = 5 * 60 * 1000;
     var noShowSent = false;
+    var calledTeacher = false;   // 🆕 학생 입장 즉시 담당 선생님 1회 호출
+    var isDemo = false;          // 🆕 데모 계정 → 실제 강사 미입장 시 시연용 선생님 자동 등장
+    try { isDemo = !!(typeof demoStudents !== 'undefined' && session.student_uid && demoStudents[session.student_uid]) || /[?&]demoteacher=1/.test(location.search) || (localStorage.getItem('mangoi_demo_teacher') === '1'); } catch (e) {}
 
     if (!document.getElementById('vc-wait-kf')) { var st = document.createElement('style'); st.id = 'vc-wait-kf'; st.textContent = '@keyframes vcPulse{0%,100%{opacity:1}50%{opacity:.35}}'; document.head.appendChild(st); }
     var card = document.getElementById('vc-wait-card');
@@ -8915,13 +8920,30 @@ function vcStartWaitingMonitor(session, myRole) {
             setTimeout(vcStopWaitingMonitor, 3500);
             return;
         }
-        var sent = noShowSent ? '<div style="font-size:11px;color:#fbbf24;margin-top:2px">📣 상대에게 입장 알림을 보냈어요</div>' : '';
+        var callLabel = (calledTeacher && waitingFor === 'teacher') ? '선생님을 부르는 중…' : (waitingLabel + '을 기다리는 중…');
+        var sent = (calledTeacher && waitingFor === 'teacher') ? '<div style="font-size:11px;color:#34d399;margin-top:2px">📣 선생님을 호출했어요 — 곧 입장하십니다</div>'
+                 : (noShowSent ? '<div style="font-size:11px;color:#fbbf24;margin-top:2px">📣 상대에게 입장 알림을 보냈어요</div>' : '');
         card.innerHTML = '<span style="width:10px;height:10px;border-radius:50%;background:#fbbf24;box-shadow:0 0 0 4px rgba(251,191,36,.2);animation:vcPulse 1.4s infinite;flex:0 0 auto"></span>'
-            + '<div><div style="font-size:14px;font-weight:700">' + waitingLabel + '을 기다리는 중… <span style="color:#94a3b8;font-weight:500">(' + elapsed() + ')</span></div>'
+            + '<div><div style="font-size:14px;font-weight:700">' + callLabel + ' <span style="color:#94a3b8;font-weight:500">(' + elapsed() + ')</span></div>'
             + '<div style="font-size:11px;color:#94a3b8">입장하면 자동으로 사라져요</div>' + sent + '</div>'
             + '<button onclick="vcStopWaitingMonitor()" style="background:rgba(148,163,184,.15);border:0;color:#cbd5e1;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;flex:0 0 auto">닫기</button>';
     }
     paint('waiting');
+    // 🆕 (A) 학생이 들어오면 담당 선생님 즉시 호출(1회) — 이미 선생님이 있으면 생략
+    if (waitingFor === 'teacher' && !calledTeacher && !counterpartPresent()) {
+        calledTeacher = true;
+        try { vcCallTeacherNow(session); } catch (e) {}
+        paint('waiting');
+    }
+    // 🆕 (C) 데모: 실제 선생님이 안 들어오면 시연용 선생님 자동 등장 (실제 수업엔 영향 없음)
+    if (waitingFor === 'teacher' && isDemo) {
+        try { if (window.__vcDemoTeacherTimer) clearTimeout(window.__vcDemoTeacherTimer); } catch (e) {}
+        window.__vcDemoTeacherTimer = setTimeout(function () {
+            if (!document.body.classList.contains('vc-in-call')) return;
+            if (counterpartPresent()) return;   // 진짜 선생님이 이미 입장했으면 시연 생략
+            try { vcInjectDemoTeacher(session); } catch (e) {}
+        }, 5200);
+    }
     vcWaitTimer = setInterval(function () {
         if (!document.body.classList.contains('vc-in-call')) { vcStopWaitingMonitor(); return; }
         if (counterpartPresent()) { paint('met'); clearInterval(vcWaitTimer); vcWaitTimer = null; return; }
@@ -8948,6 +8970,46 @@ function vcSendNoShow(session, waitingFor) {
             })
         }).catch(function () {});
     } catch (e) { console.warn('[vcSendNoShow]', e); }
+}
+
+// 🆕 학생 입장 즉시 담당 선생님 호출(푸시/카톡) — no-show 엔드포인트 재사용, 대기 0분(즉시)
+function vcCallTeacherNow(session){
+    try {
+        var s = (typeof demoStudents !== 'undefined' && session.student_uid) ? demoStudents[session.student_uid] : null;
+        fetch('/api/notify/no-show', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                room_id: session.room_id, schedule_id: session.schedule_id,
+                waiting_for: 'teacher', student_name: session.student_name, teacher_name: session.teacher_name,
+                lesson_title: (s && s.lesson_title) || '영어 수업',
+                student_uid: session.student_uid, teacher_uid: session.teacher_id,
+                student_phone: s && s.phone, parent_phone: s && s.parent_phone, teacher_phone: s && s.teacher_phone,
+                waited_minutes: 0, reason: 'student_entered'
+            })
+        }).catch(function(){});
+    } catch (e) { console.warn('[vcCallTeacherNow]', e); }
+}
+// 🆕 시연용 선생님 타일 (실제 강사 미입장 시 데모용). dataset.role='teacher' 라 대기카드가 자동으로 '입장' 처리
+function vcInjectDemoTeacher(session){
+    if (document.getElementById('vc-video-demoteacher')) return;
+    var grid = document.getElementById('vc-video-grid'); if (!grid) return;
+    var tname = (session && session.teacher_name) || '원어민 선생님';
+    var box = document.createElement('div');
+    box.className = 'video-box'; box.id = 'vc-video-demoteacher';
+    box.dataset.role = 'teacher'; box.dataset.demo = '1';
+    box.innerHTML = '<video autoplay playsinline loop muted></video><span class="video-label">' + escHtml(tname) + ' (시연)</span>';
+    var vid = box.querySelector('video');
+    vid.src = '/video/callcenter-teacher.mp4';
+    vid.play().then(function(){ setTimeout(function(){ try { vid.muted = false; } catch(e){} }, 600); }).catch(function(){});
+    grid.appendChild(box);
+    try { vcUpdateGridCount(); } catch (e) {}
+    try { window.vcApplySpotlight && window.vcApplySpotlight(); } catch (e) {}
+    try { vcRefreshPraiseUI(); } catch (e) {}
+    try { vcAddChatSystem('🎉 ' + tname + '이(가) 입장했어요'); } catch (e) {}
+}
+function vcRemoveDemoTeacher(){
+    var b = document.getElementById('vc-video-demoteacher');
+    if (b) { b.remove(); try { vcUpdateGridCount(); } catch (e) {} }
 }
 
 /** 다자간 통화 방 입장 */
@@ -10332,6 +10394,7 @@ async function vcHandleIce(data) {
 //   실제 영상은 나중에 vcAddRemoteVideo(ontrack)가 이 박스의 <video>에 srcObject 만 채운다.
 function vcEnsureParticipantBox(userId, username){
     if (!userId || userId === vcUserId) return null;
+    if (userId !== 'demoteacher') { try { vcRemoveDemoTeacher(); } catch (e) {} }   // 🆕 진짜 참가자 입장 → 시연 선생님 제거
     var existing = document.getElementById('vc-video-' + userId);
     if (existing) {
         var lbl0 = existing.querySelector('.video-label'); if (lbl0 && username) lbl0.textContent = username;
@@ -10354,6 +10417,7 @@ function vcEnsureParticipantBox(userId, username){
     return box;
 }
 function vcAddRemoteVideo(userId, username, stream) {
+    if (userId !== 'demoteacher') { try { vcRemoveDemoTeacher(); } catch (e) {} }   // 🆕 진짜 원격영상 도착 → 시연 선생님 제거
     // 이미 존재하는 비디오가 있으면 스트림만 교체 (미리 만든 placeholder 박스 포함)
     const existing = document.getElementById(`vc-video-${userId}`);
     if (existing) {
@@ -24107,7 +24171,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260707042357 -->
+<!-- BUILD:20260707043825 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
