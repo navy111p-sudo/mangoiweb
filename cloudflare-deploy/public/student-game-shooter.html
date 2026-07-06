@@ -203,6 +203,17 @@
   .target .hint{display:none}          /* 안내문 숨겨 게임영역 확대(판정/조준 로직 그대로) */
   .monster .face{font-size:clamp(40px,6.2vmin,80px)}   /* 화면 크기에 따라 커짐(가로/태블릿/PC) */
   .monster .word{font-size:clamp(15px,2.3vmin,28px);padding:3px 13px}
+
+  /* ===== 🖥️ PC(넓은 화면) — 중앙 글자·요소 약 30% 확대 (PC에서 작게 보이던 문제 개선) ===== */
+  @media (min-width:820px){
+    .monster .face{font-size:clamp(54px,8.2vmin,110px)}
+    .monster .word{font-size:clamp(20px,3.1vmin,38px);padding:4px 17px;border-width:2.5px}
+    .chip{font-size:21px;padding:7px 16px;border-radius:11px}
+    .listen{font-size:15px;padding:8px 16px}
+    .stat .val{font-size:23px}
+    .lvlpill{font-size:14px;padding:6px 13px}
+    #combo{font-size:52px}
+  }
 </style>
 </head>
 <body>
@@ -804,6 +815,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260706220403 -->
+<!-- BUILD:20260706221352 -->
 </body>
 </html>

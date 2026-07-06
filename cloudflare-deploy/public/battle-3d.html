@@ -70,6 +70,19 @@
   .stars{font-size:34px;letter-spacing:4px;margin:8px 0}
   .voicebadge{position:absolute;left:8px;bottom:8px;z-index:7;font-size:10px;color:#9fb3d6;background:rgba(8,14,30,.6);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:3px 7px;pointer-events:none;max-width:52%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #loadErr{position:absolute;inset:0;z-index:40;display:none;align-items:center;justify-content:center;text-align:center;padding:24px;color:#fca5a5}
+
+  /* ===== 🖥️ PC(넓은 화면) — 중앙 퀴즈 글자·요소 약 30% 확대 (PC에서 작게 보이던 문제 개선) ===== */
+  @media (min-width:820px){
+    #quiz .q{font-size:21px}
+    #quiz .qtype{font-size:14px;padding:3px 12px}
+    #quiz .qhint{font-size:14px}
+    #quiz .choices{max-width:680px;gap:9px}
+    #quiz .ch{font-size:19px;padding:12px 14px;border-radius:13px}
+    #quiz .listen{font-size:15px;padding:7px 18px}
+    .nameplate{min-width:132px}
+    .nameplate .nm{font-size:13px}
+    .nameplate .hp{height:8px}
+  }
 </style>
 </head>
 <body>
@@ -502,6 +515,9 @@
       video.src=url; video.loop=true; video.muted=true; video.defaultMuted=true;
       video.playsInline=true; video.setAttribute('playsinline',''); video.setAttribute('webkit-playsinline','');
       video.setAttribute('muted',''); video.preload='auto'; video.crossOrigin='anonymous';
+      // 화면 밖(숨김)으로 DOM 에 부착 — 일부 브라우저의 디코딩/자동재생 정책 안정화용
+      video.style.cssText='position:absolute;width:2px;height:2px;opacity:0;pointer-events:none;left:-9999px;top:0';
+      video.id='heroKnightVideo'; document.body.appendChild(video);
       var _p=video.play(); if(_p&&_p.catch) _p.catch(function(){});
       // 첫 사용자 입력에서 재생 재시도(모바일 자동재생 차단 대비)
       var kick=function(){ var q=video.play(); if(q&&q.catch) q.catch(function(){}); };
@@ -525,7 +541,7 @@
           '}'
         ].join('\n')
       });
-      var H=4.9, W=H*(1280/720);
+      var H=4.9, W=H*(720/406);   // robert-knight.mp4 실제 종횡비
       var mesh=new THREE.Mesh(new THREE.PlaneGeometry(W,H),mat);
       mesh.position.set(0, H*0.5-0.62, 0);   // 발이 바닥(y≈0)에 닿도록 앵커
       mesh.castShadow=false; mesh.frustumCulled=false; mesh.renderOrder=2;
@@ -953,7 +969,10 @@
       renderer.render(scene,camera);
     }
     tick();
-    function fitRenderer(){ W=canvas.clientWidth||wrap.clientWidth; H=canvas.clientHeight||wrap.clientHeight; if(H<1)H=1; camera.aspect=W/H; camera.updateProjectionMatrix(); renderer.setSize(W,H,false); camBase=camera.position.clone(); }
+    function fitRenderer(){ W=canvas.clientWidth||wrap.clientWidth; H=canvas.clientHeight||wrap.clientHeight; if(H<1)H=1; camera.aspect=W/H; camera.updateProjectionMatrix(); renderer.setSize(W,H,false);
+      camera.position.z = (W/H>=1.2) ? 13.5 : 17;   // 🖥️ 넓은 PC 화면: 카메라를 당겨 캐릭터를 약 30% 크게(세로 화면은 기존 17 유지·상하 여백 충분해 잘림 없음)
+      camBase=camera.position.clone(); }
+    fitRenderer();
     window.addEventListener('resize',fitRenderer);
     // 퀴즈 표시/숨김(display 변화)을 감지해 캔버스(상단)와 퀴즈 바(하단)를 분할하고 렌더러를 다시 맞춤
     (function(){ var qz=document.getElementById('quiz'); if(!qz) return;
@@ -966,6 +985,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260706220403 -->
+<!-- BUILD:20260706221352 -->
 </body>
 </html>

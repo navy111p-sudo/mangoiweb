@@ -138,6 +138,17 @@
     font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 8px 20px rgba(251,191,36,.35)}
   .btn:active{transform:scale(.96)}
   .btn.ghost{background:rgba(255,255,255,.08);color:var(--tx);box-shadow:none;border:1px solid var(--line)}
+
+  /* ===== 🖥️ PC(넓은 화면) — 중앙 글자·요소 약 30% 확대 (PC에서 작게 보이던 문제 개선) ===== */
+  @media (min-width:820px){
+    .target-en{font-size:clamp(36px,7.6vmin,66px)}
+    .target-ko{font-size:clamp(18px,3.2vmin,28px)}
+    .typechip{font-size:15px;padding:6px 18px}
+    .listen{font-size:17px}
+    .mic-btn{font-size:23px;padding:21px 38px;border-radius:22px}
+    .status{font-size:17px}
+    .stat .val{font-size:23px}
+  }
 </style>
 </head>
 <body>
@@ -501,6 +512,6 @@
 </script>
 <!-- BUILD:20260704 speakquiz1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260706220403 -->
+<!-- BUILD:20260706221352 -->
 </body>
 </html>

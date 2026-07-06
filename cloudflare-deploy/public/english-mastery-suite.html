@@ -348,6 +348,17 @@
   .rules{text-align:left;font-size:12.5px;color:#c7d3ea;background:rgba(255,255,255,.05);border-radius:11px;
     padding:11px 13px;margin:10px 0 4px;line-height:1.7}
   .rules b{color:var(--gold)}
+
+  /* ===== 🖥️ PC(넓은 화면) — 중앙 글자·요소 약 30% 확대 (PC에서 작게 보이던 문제 개선) ===== */
+  @media (min-width:820px){
+    #shoot .monster .face,#fish .fish .face{font-size:clamp(54px,8.2vmin,110px)}
+    #shoot .monster .word,#fish .fish .word{font-size:clamp(20px,3.1vmin,38px);padding:4px 17px}
+    .chip{font-size:21px;padding:7px 16px;border-radius:11px}
+    .saybubble{font-size:19px;padding:6px 16px}
+    .stat .val{font-size:23px}
+    .lvlpill,.pill{font-size:14px}
+    #shoot .combo,#fish .combo{font-size:52px}
+  }
 </style>
 </head>
 <body>
@@ -1584,6 +1595,6 @@
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260706220403 -->
+<!-- BUILD:20260706221352 -->
 </body>
 </html>

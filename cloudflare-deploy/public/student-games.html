@@ -191,6 +191,16 @@
       radial-gradient(ellipse 100px 36px at 40% 62%,rgba(255,255,255,.6),transparent);
     animation:gbDriftX 26s ease-in-out infinite alternate-reverse}
   .balloon-sky .balloon{z-index:2}
+  /* ===== 🖥️ PC(넓은 화면) — 인라인 게임 중앙 글자·카드 약 30% 확대 (PC에서 작게 보이던 문제 개선) ===== */
+  @media (min-width:820px){
+    #game-area .brick-btn{font-size:clamp(24px,3.5vmin,46px)!important;padding:clamp(16px,2.4vmin,28px) clamp(24px,3.4vmin,44px)!important}
+    #game-area .match-card{font-size:clamp(26px,4.4vmin,52px)!important}
+    #game-area .match-card > span{font-size:clamp(42px,6.6vmin,78px)!important}
+    #game-area .match-card div span{font-size:clamp(24px,4vmin,48px)!important}
+    #game-area .balloon{font-size:clamp(24px,3.4vmin,40px)!important}
+    #game-area .fill-sentence{font-size:32px!important;padding:22px 30px!important}
+    #game-area [onclick^="gameFillCheck"]{font-size:24px!important;padding:22px 16px!important}
+  }
   /* ===== 🌐 언어 선택(영어/중국어) ===== */
   .lang-pick{display:flex;gap:8px;align-items:center;justify-content:center}
   .lang-pick .lg{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--sub);
@@ -1662,7 +1672,7 @@ function gameRenderFill(){
     '<div style="text-align:center;margin-bottom:20px">' + fillHint + '</div>' +
     '<div style="text-align:center;margin-bottom:24px">' +
       '<div style="font-size:13px;color:#94a3b8;margin-bottom:8px">🎯 빈칸에 들어갈 단어를 고르세요</div>' +
-      '<div style="font-size:24px;font-weight:700;color:#f1f5f9;padding:18px 24px;background:rgba(15,23,42,0.7);border:2px solid #475569;border-radius:12px;display:inline-block;line-height:1.6">' +
+      '<div class="fill-sentence" style="font-size:24px;font-weight:700;color:#f1f5f9;padding:18px 24px;background:rgba(15,23,42,0.7);border:2px solid #475569;border-radius:12px;display:inline-block;line-height:1.6">' +
         maskedHtml +
       '</div>' +
       '<div style="font-size:11px;color:#64748b;margin-top:8px">밝은 단어 = 뜻 핵심 · 흐린 단어 = 문법 기능어</div>' +
@@ -1881,7 +1891,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260706220403 -->
+<!-- BUILD:20260706221352 -->
 <script defer src="/js/flow.js"></script>
 </body>
 </html>

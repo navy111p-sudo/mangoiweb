@@ -48,6 +48,14 @@
         .wave-bar:nth-child(3) { animation-delay: 0.4s; }
         .wave-bar:nth-child(4) { animation-delay: 0.6s; }
         .wave-bar:nth-child(5) { animation-delay: 0.8s; }
+        /* ===== 🖥️ PC(넓은 화면) — 중앙 글자·요소 약 30% 확대 (PC에서 작게 보이던 문제 개선) ===== */
+        @media (min-width:820px){
+            #clueBubble{font-size:1.9rem !important;line-height:1.35 !important}
+            #targetSentence{font-size:2.4rem !important}
+            [id^="suspectEmoji-"]{font-size:5.4rem !important}
+            [id^="suspectName-"]{font-size:2.4rem !important}
+            [id^="suspectDesc-"]{font-size:1.5rem !important}
+        }
     </style>
 </head>
 <body class="min-h-screen text-white overflow-x-hidden flex flex-col justify-between">
@@ -902,6 +910,6 @@
     </script>
 <!-- BUILD:20260704 suspect1 bigtext-faces1 vocabmatch1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260706220403 -->
+<!-- BUILD:20260706221352 -->
 </body>
 </html>
