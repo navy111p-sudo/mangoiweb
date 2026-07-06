@@ -2846,12 +2846,13 @@ export async function handleMangoApi(
         '5. Wait time — pausing 3-5s lets the child produce language themselves.'
       ].join('\n');
 
-      // ── LLM: 한/영 동시 생성 ──
+      // ── LLM: 한/영 동시 생성 (점수 + 상세 총평 포함) ──
       let ko: any = null, en: any = null, source = 'ai';
+      let score: number | null = null;
       const ai = (env as any).AI;
       if (ai) {
         try {
-          const prompt = `You are a warm, specific coaching assistant for an online English tutor who just finished a 1:1 lesson with a Korean child. Using the RUBRIC and SIGNALS, write encouraging, actionable coaching. Be concrete; cite [mm:ss] timestamps ONLY if they appear in the transcript. Never invent facts not supported by the signals.
+          const prompt = `You are a warm but honest coaching assistant for an online English tutor who just finished a 1:1 lesson with a Korean child. Using the RUBRIC and SIGNALS, write a DETAILED, encouraging yet candid evaluation. Be concrete; cite [mm:ss] timestamps ONLY if they appear in the transcript. Never invent facts not supported by the signals.
 
 RUBRIC:
 ${rubric}
@@ -2859,24 +2860,33 @@ ${rubric}
 SIGNALS:
 ${signalLines}
 
-Return STRICT JSON only, in BOTH Korean and English, with 2-3 strengths, exactly 1 improvement, and exactly 1 concrete thing to try next class:
+Grade the overall lesson quality honestly on 0-100 based on the RUBRIC (discriminate clearly — a lesson where the teacher talks almost the entire time, gives no praise, and shows low student engagement should score LOW, e.g. 30-45; a balanced, encouraging, interactive lesson scores 80+).
+
+Return STRICT JSON only, in BOTH Korean and English:
+- "score": integer 0-100 overall lesson quality.
+- "good": 2-4 specific strengths.
+- "improve": exactly 1 improvement (specific).
+- "action": exactly 1 concrete thing to try next class.
+- "summary": a DETAILED 3-4 sentence overview that explains WHY this score, referencing the actual metrics (talk ratio, praise count, engagement) and their impact on the child's speaking practice. Make it genuinely helpful, not generic.
 {
+  "score": <0-100>,
   "metrics": { "engagement": "good|fair|low", "talk_ratio": <number or null>, "praise_count": <number or null> },
-  "ko": { "good": ["...", "..."], "improve": "...", "action": "..." },
-  "en": { "good": ["...", "..."], "improve": "...", "action": "..." }
+  "ko": { "good": ["...", "..."], "improve": "...", "action": "...", "summary": "..." },
+  "en": { "good": ["...", "..."], "improve": "...", "action": "...", "summary": "..." }
 }`;
           const resp: any = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
             messages: [
-              { role: 'system', content: 'You are a supportive teacher-coaching assistant. Reply in strict JSON only, no prose outside JSON.' },
+              { role: 'system', content: 'You are a supportive but honest teacher-coaching assistant. Reply in strict JSON only, no prose outside JSON.' },
               { role: 'user', content: prompt }
             ],
-            max_tokens: 900,
+            max_tokens: 1300,
           });
           let text = typeof resp === 'string' ? resp : (typeof resp?.response === 'string' ? resp.response : JSON.stringify(resp?.response || ''));
           const m = String(text || '').match(/\{[\s\S]*\}/);
           if (m) {
             const j = JSON.parse(m[0]);
             ko = j.ko || null; en = j.en || null;
+            if (Number.isFinite(+j.score)) score = Math.max(0, Math.min(100, Math.round(+j.score)));
             if (j.metrics) {
               if (!engagement && j.metrics.engagement) engagement = String(j.metrics.engagement);
               if (talkRatio === null && Number.isFinite(+j.metrics.talk_ratio)) talkRatio = Math.round(+j.metrics.talk_ratio);
@@ -2893,17 +2903,28 @@ Return STRICT JSON only, in BOTH Korean and English, with 2-3 strengths, exactly
         ko = {
           good: ['아이가 끝까지 수업에 참여할 수 있도록 편안한 분위기를 만들어 주셨어요.', (praiseCount ? `수업 중 칭찬을 ${praiseCount}회 해 주신 점이 좋았어요.` : '차분한 진행으로 아이가 집중했어요.')],
           improve: many ? `교사 발화가 ${talkRatio}%로 다소 많았어요. 아이가 말할 틈을 조금 더 만들어 주세요.` : '아이가 스스로 문장을 만들 기회를 조금 더 주면 좋아요.',
-          action: '질문 후 5초간 기다려 아이가 먼저 답하게 해보기'
+          action: '질문 후 5초간 기다려 아이가 먼저 답하게 해보기',
+          summary: `이번 수업은${durationMin ? ` 약 ${durationMin}분 동안 진행되었고,` : ''} ${talkRatio !== null ? `교사 발화 비율이 ${talkRatio}%였어요.` : '전반적으로 무난하게 진행됐어요.'} ${many ? '교사가 말하는 시간이 많은 편이라 아이가 스스로 영어 문장을 만들 기회가 다소 적었습니다.' : '아이가 말할 기회가 비교적 잘 확보됐어요.'} ${praiseCount ? `칭찬을 ${praiseCount}회 해 주신 점은 아이의 자신감에 도움이 됩니다.` : '칭찬이 조금 더 있었다면 아이가 더 편하게 말했을 거예요.'} 다음 수업엔 열린 질문과 기다리는 시간을 늘려 아이의 발화를 끌어내 보세요.`
         };
         en = {
           good: ['You kept a comfortable atmosphere so the child stayed engaged the whole lesson.', (praiseCount ? `You praised the student ${praiseCount} times — great encouragement.` : 'Your calm pace helped the child focus.')],
           improve: many ? `Your talk time was a bit high at ${talkRatio}%. Give the child a little more room to speak.` : 'Give the child a few more chances to produce full sentences on their own.',
-          action: 'After asking a question, wait 5 seconds so the child answers first.'
+          action: 'After asking a question, wait 5 seconds so the child answers first.',
+          summary: `This lesson${durationMin ? ` ran about ${durationMin} min, and` : ''} ${talkRatio !== null ? `your talk ratio was ${talkRatio}%.` : 'went smoothly overall.'} ${many ? 'Since the teacher spoke for much of the time, the child had fewer chances to produce English sentences on their own.' : 'The child had good room to speak.'} ${praiseCount ? `Your ${praiseCount} moments of praise helped build the child's confidence.` : 'A little more praise would have helped the child speak more comfortably.'} Next time, use more open questions and longer wait time to draw out the child's speaking.`
         };
       }
       if (!en || !Array.isArray(en.good)) en = ko;
 
-      const metrics = { engagement: engagement || 'good', talk_ratio: talkRatio, praise_count: praiseCount };
+      // ── 점수 미제공 시 지표로 계산 (0~100) ──
+      if (score === null) {
+        let sc = 72;
+        if (talkRatio !== null) { sc += (talkRatio > 60) ? -Math.min(30, Math.round((talkRatio - 60) * 0.6)) : 6; }
+        if (praiseCount !== null) sc += Math.min(12, praiseCount * 2);
+        if (engagement === 'good') sc += 8; else if (engagement === 'low') sc -= 18;
+        score = Math.max(20, Math.min(98, sc));
+      }
+
+      const metrics = { engagement: engagement || 'good', talk_ratio: talkRatio, praise_count: praiseCount, score };
       const now = Date.now();
       try {
         await env.DB.prepare(`INSERT INTO teacher_class_feedback (room_id, teacher_uid, teacher_name, student_name, duration_min, metrics_json, feedback_ko, feedback_en, source, created_at) VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(room_id) DO UPDATE SET teacher_uid=excluded.teacher_uid, teacher_name=excluded.teacher_name, student_name=excluded.student_name, duration_min=excluded.duration_min, metrics_json=excluded.metrics_json, feedback_ko=excluded.feedback_ko, feedback_en=excluded.feedback_en, source=excluded.source, created_at=excluded.created_at`)

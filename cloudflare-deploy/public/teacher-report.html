@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>AI 코칭 리포트 · 만고아이</title>
 <style>
-  :root{ --s: clamp(15px, 2.1vw, 24px); }
+  :root{ --s: clamp(17px, 2.6vw, 30px); }
   *{ box-sizing:border-box; }
   html,body{ margin:0; padding:0; }
   body{
@@ -14,7 +14,7 @@
     font-size:var(--s); line-height:1.6;
     padding: env(safe-area-inset-top) 0 0 0;
   }
-  .wrap{ width:min(94vw, 820px); margin:0 auto; padding:1.4em 0 3em; }
+  .wrap{ width:min(95vw, 900px); margin:0 auto; padding:1.4em 0 3em; }
   .topbar{ display:flex; align-items:center; gap:.5em; margin-bottom:1.1em; flex-wrap:wrap; }
   .btn{ border:0; border-radius:.6em; padding:.5em 1em; font-size:.66em; font-weight:800;
     font-family:inherit; cursor:pointer; }
@@ -47,6 +47,21 @@
   .spin{ text-align:center; color:#94a3b8; font-size:.78em; padding:2em 1em; }
   .src{ font-size:.6em; color:#fca5a5; }
   a.linkline{ color:#7dd3fc; text-decoration:none; font-size:.72em; font-weight:700; }
+  /* 점수 배지 (오른쪽) */
+  .meta-row{ display:flex; justify-content:space-between; align-items:flex-start; gap:.8em; margin-bottom:.5em; }
+  .score{ flex:0 0 auto; text-align:center; border-radius:.8em; padding:.5em .8em; min-width:3.4em;
+    border:1px solid; background:rgba(148,163,184,.06); }
+  .score.g{ border-color:rgba(34,197,94,.5); background:rgba(34,197,94,.08); }
+  .score.w{ border-color:rgba(234,179,8,.5); background:rgba(234,179,8,.08); }
+  .score.b{ border-color:rgba(239,68,68,.5); background:rgba(239,68,68,.08); }
+  .score-num{ font-size:1.7em; font-weight:800; line-height:1; }
+  .score-den{ font-size:.42em; font-weight:700; color:#94a3b8; }
+  .score-lbl{ font-size:.5em; font-weight:800; color:#cbd5e1; margin-top:.35em; letter-spacing:.02em; }
+  .score-band{ font-size:.5em; font-weight:800; margin-top:.15em; }
+  /* 총평 박스 */
+  .box.sum{ background:rgba(139,92,246,.10); border:1px solid rgba(139,92,246,.3); }
+  .h-sum{ color:#c4b5fd; }
+  .box.sum .ln{ color:#ddd6fe; font-size:.76em; line-height:1.75; }
 </style>
 </head>
 <body>
@@ -84,6 +99,7 @@
       eng:{good:'좋음',fair:'보통',low:'낮음'}, talk:'발화', praise:'칭찬', engl:'참여',
       noThis:'이번 수업의 코칭이 아직 준비되지 않았어요. 잠시 후 새로고침 해보세요.',
       noHist:'아직 누적된 코칭이 없어요. 수업을 마치면 여기에 하나씩 쌓입니다.',
+      quality:'수업 퀄리티', overview:'📝 총평 (자세히)', band:{hi:'우수',mid:'양호',lo:'개선 필요'},
       min:'분', spin:'불러오는 중…', errd:'불러오지 못했어요.' },
     en: { home:'Home', title:'🤖 AI coaching report', sub:function(n){ return (n?('Teacher: '+n+' · '):'') + 'Coaching auto-generated after every class'; },
       tthis:'📌 This class', thist:'📈 Recent coaching',
@@ -91,6 +107,7 @@
       eng:{good:'Good',fair:'Fair',low:'Low'}, talk:'Talk', praise:'Praise', engl:'Eng',
       noThis:'Coaching for this class is not ready yet. Please refresh in a moment.',
       noHist:'No coaching accumulated yet. It will build up here after each class.',
+      quality:'Lesson quality', overview:'📝 Overview (detailed)', band:{hi:'Excellent',mid:'Good',lo:'Needs work'},
       min:'min', spin:'Loading…', errd:'Could not load.' }
   };
 
@@ -110,18 +127,41 @@
     return out;
   }
 
-  function detailCard(r, showMeta){
+  function scoreBadge(sc){
+    if(sc==null || isNaN(sc)) return '';
     var t=T[lang];
-    var fb = (lang==='ko'? r.feedback_ko : r.feedback_en) || r.feedback_en || r.feedback_ko || {good:[],improve:'',action:''};
+    var band = sc>=80?'g':(sc>=60?'w':'b');
+    var col  = sc>=80?'#4ade80':(sc>=60?'#fbbf24':'#f87171');
+    var name = sc>=80?t.band.hi:(sc>=60?t.band.mid:t.band.lo);
+    return '<div class="score '+band+'">'+
+      '<div class="score-num" style="color:'+col+'">'+Math.round(sc)+'<span class="score-den">/100</span></div>'+
+      '<div class="score-lbl">'+t.quality+'</div>'+
+      '<div class="score-band" style="color:'+col+'">'+name+'</div>'+
+    '</div>';
+  }
+
+  function detailCard(r, full){
+    var t=T[lang];
+    var fb = (lang==='ko'? r.feedback_ko : r.feedback_en) || r.feedback_en || r.feedback_ko || {good:[],improve:'',action:'',summary:''};
+    var m = r.metrics || {};
     var good = (fb.good||[]).map(function(g){ return '<div class="ln">· '+esc(g)+'</div>'; }).join('');
     var src = (r.source && r.source!=='ai') ? ' <span class="src">('+esc(r.source)+')</span>' : '';
-    var meta = showMeta ? ('<div class="meta"><b>'+esc(r.student_name||'')+'</b>'+
-        '<span class="mut">'+(r.duration_min?(r.duration_min+t.min+' · '):'')+esc(fmtDate(r.generated_at))+'</span>'+src+'</div>') : '';
-    return '<div class="card">'+ meta +
-      '<div class="chips">'+chips(r.metrics)+'</div>'+
-      '<div class="box"><div class="hd h-good">'+t.good+'</div>'+ (good||'<div class="ln">—</div>') +'</div>'+
-      '<div class="box"><div class="hd h-imp">'+t.imp+'</div><div class="ln">'+esc(fb.improve||'')+'</div></div>'+
-      '<div class="box act"><div class="hd h-act">'+t.act+'</div><div class="ln">'+esc(fb.action||'')+'</div></div>'+
+    var metaLeft = '<div class="meta"><b>'+esc(r.student_name||'')+'</b>'+
+        '<span class="mut">'+(r.duration_min?(r.duration_min+t.min+' · '):'')+esc(fmtDate(r.generated_at))+'</span>'+src+'</div>';
+    var head = '<div class="meta-row">'+metaLeft+scoreBadge(m.score)+'</div>';
+    var summary = (full && fb.summary) ? ('<div class="box sum"><div class="hd h-sum">'+t.overview+'</div><div class="ln">'+esc(fb.summary)+'</div></div>') : '';
+    var body;
+    if(full){
+      body = summary +
+        '<div class="box"><div class="hd h-good">'+t.good+'</div>'+ (good||'<div class="ln">—</div>') +'</div>'+
+        '<div class="box"><div class="hd h-imp">'+t.imp+'</div><div class="ln">'+esc(fb.improve||'')+'</div></div>'+
+        '<div class="box act"><div class="hd h-act">'+t.act+'</div><div class="ln">'+esc(fb.action||'')+'</div></div>';
+    } else {
+      // 이력: 간결하게 (점수 + 지표 + 개선점 1줄)
+      body = '<div class="box"><div class="hd h-imp">'+t.imp+'</div><div class="ln">'+esc(fb.improve||'')+'</div></div>';
+    }
+    return '<div class="card">'+ head +
+      '<div class="chips">'+chips(m)+'</div>'+ body +
     '</div>';
   }
 
@@ -153,7 +193,7 @@
     var rows = cache.rows || [];
     if(roomId) rows = rows.filter(function(r){ return r.room_id!==roomId; }); // 이번 수업은 위에 이미 표시
     if(!rows.length){ host.innerHTML='<div class="empty">'+t.noHist+'</div>'; return; }
-    host.innerHTML = rows.map(function(r){ return detailCard(r, true); }).join('');
+    host.innerHTML = rows.map(function(r){ return detailCard(r, false); }).join('');
   }
 
   window.setLang = function(l){ lang = (l==='ko')?'ko':'en'; applyStatic(); renderThis(); renderHist();
@@ -178,6 +218,6 @@
   }
 })();
 </script>
-<!-- BUILD:20260707012108 -->
+<!-- BUILD:20260707013359 -->
 </body>
 </html>

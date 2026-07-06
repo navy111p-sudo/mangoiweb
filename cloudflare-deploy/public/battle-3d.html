@@ -635,8 +635,7 @@
     if(MODELS.hero.sprite){ attachSpriteBillboard(hero, MODELS.hero.sprite, -1); }
     else if(MODELS.hero.video){ attachVideoBillboard(hero, MODELS.hero.video, -1); }
     else { attachModel(hero, MODELS.hero, -1); }
-    // 히어로 뒤 무대(백드롭) — 오른쪽(+GAP) 히어로 뒤(-z)에 세워 배경 가림
-    if(MODELS.hero.sprite||MODELS.hero.video){ var heroStage=makeHeroStage(camera); heroStage.position.set(GAP,3.5,-2.6); scene.add(heroStage); }
+    // 백드롭 무대 제거 — 사용자 요청: 뒤에는 별 있는 우주와 바닥만 보이고 로버트 자체만 보이게(어두운 판/사각형 없음)
     var boss=null;
     // ===== 절차적 파충류(비늘) 텍스처: canvas 로 비늘/도트 패턴 → map + bumpMap (1회 생성 후 캐시) =====
     var _reptileTex=null;
@@ -1060,6 +1059,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260707012108 -->
+<!-- BUILD:20260707013359 -->
 </body>
 </html>
