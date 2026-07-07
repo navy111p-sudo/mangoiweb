@@ -891,6 +891,19 @@
       fetch(TTS_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text,lang:'en'})}).then(function(r){var ct=r.headers.get('content-type')||''; if(!r.ok||ct.indexOf('audio')<0)throw 0; return r.blob();}).then(function(b){var u=URL.createObjectURL(b); ttsCache[text]=u; play(u);}).catch(function(){ if(synth){try{synth.cancel();var u=new SpeechSynthesisUtterance(text); u.lang='en-US'; u.rate=0.92; if(enVoice)u.voice=enVoice; synth.speak(u);}catch(e){}} }); }
     function play(u){ try{ if(!ttsA)ttsA=new Audio(); ttsA.src=u; ttsA.play().catch(function(){}); }catch(e){} }
 
+    /* ===== 오디오 언락 (중요) — iframe 임베드/모바일에서 AudioContext 가 suspended 로 남아 소리가 안 나는 문제 =====
+       레슨 시작 클릭 1회만으로는 부족한 경우가 많아, '모든' 사용자 제스처에서 AC.resume() + speechSynthesis 프라임을
+       확실히 재시도한다. audioInit() 은 AC 존재 시 조기 return 하므로 resume 을 여기서 별도로 호출. */
+    var _spPrimed=false,_firstUnlock=true;
+    function unlockAudio(){
+      audioInit();
+      if(AC && AC.state==='suspended'){ try{ AC.resume(); }catch(e){} }
+      if(!_spPrimed && synth){ try{ var u=new SpeechSynthesisUtterance(' '); u.volume=0; synth.speak(u); _spPrimed=true; }catch(e){} }
+      // 듣기 문제인데 첫 자동재생이 정책상 막혔을 수 있으니, 최초 상호작용 시 현재 단어를 한 번 재생
+      if(_firstUnlock){ _firstUnlock=false; try{ if(el&&el.quiz&&el.quiz.style.display!=='none'&&state.current) setTimeout(speakCurrent,60); }catch(e){} }
+    }
+    ['pointerdown','mousedown','touchstart','keydown','click'].forEach(function(ev){ window.addEventListener(ev, unlockAudio, true); });
+
     /* ===== ⚡ 게임 속도(난이도) 7단계 — 답변 제한시간 =====
        우선순위: ?speed=1..7 (허브 전달) > localStorage('mangoi_game_speed') > 보통(3) */
     var SPEED_LEVELS=[
@@ -1068,6 +1081,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260707200938 -->
+<!-- BUILD:20260707203704 -->
 </body>
 </html>
