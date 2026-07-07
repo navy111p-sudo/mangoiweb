@@ -460,8 +460,8 @@
     };
     /* 🚀 우주인 선택 — 두 캐릭터(우주 소년 / 우주 강아지) 스프라이트 아틀라스. 시작 화면에서 고르면 즉시 교체·저장 */
     var HERO_SKINS={
-      boy: { sprite:'astro-atlas.png?v=3', ico:'🧑‍🚀', name:'우주 소년', desc:'클래식 파이터' },
-      dog: { sprite:'dog-atlas.png?v=1',   ico:'🐶',        name:'우주 강아지', desc:'망고아이 마스코트' }
+      boy: { sprite:'astro-atlas.png?v=3', ico:'🧑‍🚀', name:'우주 소년', desc:'클래식 파이터', tint:[1.12,1.12,1.16] },
+      dog: { sprite:'dog-atlas.png?v=2',   ico:'🐶',        name:'우주 강아지', desc:'망고아이 마스코트', tint:[0.98,1.02,1.12] }   // 메탈 스틸: 밝힘 낮추고 청록빛(하얀 느낌 제거)
     };
     var heroSkin=(function(){ try{ var v=localStorage.getItem('mangoi_battle_hero'); return (v==='dog'||v==='boy')?v:'boy'; }catch(e){ return 'boy'; } })();
     var _mixers=[];
@@ -605,12 +605,13 @@
        5x5 아틀라스(cell 540x500)를 UV 오프셋으로 프레임 전환. 그린스크린 키잉으로 배경 투명. 오른쪽(보스) 향함.
        프레임: 0~1 준비(가드) · 2 주먹(런지) · 3~6 옆차기(챔버/뻗기/피크/회수) · 7~11 날아차기(크라우치/런치/뻗기/하강/착지)
                12~13 피격(플린치/헤드스냅) · 14 소멸(스태거) · 15~17 대시인 · 18~20 승리(만세/브이/가슴) · 21 하이가드. */
-    function attachSpriteBillboard(G, url, faceDir){
+    function attachSpriteBillboard(G, url, faceDir, tint){
       var COLS=5, ROWS=5, CW=540, CH=500, IDLE=[0,1];   // 준비 가드 잔잔한 흔들
+      var tc=tint||[1.12,1.12,1.16];   // 캐릭터별 색조(우주 강아지=메탈 청록빛, 우주 소년=기본 밝힘)
       var tex=new THREE.TextureLoader().load(url);
       tex.magFilter=THREE.LinearFilter; tex.minFilter=THREE.LinearFilter; tex.generateMipmaps=false;
       tex.wrapS=tex.wrapT=THREE.ClampToEdgeWrapping; tex.repeat.set(1/COLS,1/ROWS);
-      var mat=new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false,side:THREE.DoubleSide,toneMapped:false,alphaTest:0.28,color:new THREE.Color(1.12,1.12,1.16)});   // 어두운 우주 무대에서 살짝 밝힘
+      var mat=new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false,side:THREE.DoubleSide,toneMapped:false,alphaTest:0.28,color:new THREE.Color(tc[0],tc[1],tc[2])});   // 어두운 우주 무대에서 살짝 밝힘
       var H=6.4, W=H*(CW/CH);
       var mesh=new THREE.Mesh(new THREE.PlaneGeometry(W,H),mat);
       mesh.position.set(0,H*0.5-0.18,0); mesh.castShadow=false; mesh.frustumCulled=false; mesh.renderOrder=2;   // 발끝=바닥 접지(날아차기는 아틀라스에서 띄워 구움)
@@ -649,7 +650,7 @@
     }
 
     /* 🚀 캐릭터(우주인) 즉시 교체: 기존 빌보드(그림자+메시) 제거 후 새 아틀라스로 재부착 */
-    function setHeroSprite(url){
+    function setHeroSprite(url, tint){
       for(var i=hero.children.length-1;i>=0;i--){ var ch=hero.children[i];
         if(ch.userData&&ch.userData._bb){
           if(ch.material){ if(ch.material.map)ch.material.map.dispose(); ch.material.dispose(); }
@@ -657,7 +658,7 @@
           hero.remove(ch);
         }
       }
-      attachSpriteBillboard(hero, url, +1);
+      attachSpriteBillboard(hero, url, +1, tint);
       if(hero.userData.sprite) hero.userData.sprite.reset();
     }
 
@@ -673,7 +674,7 @@
     var heroFillBack=new THREE.PointLight(0xbcd2ff,0.7,7.0); heroFillBack.position.set(-GAP+0.4,1.6,-2.6); scene.add(heroFillBack);
     var hero=buildCharacter({skin:0xf1c27d,armor:0x3b6bdb,trim:0xfbbf24,eye:0x113355,face:+1,weapon:'sword'});
     hero.position.set(-GAP,0,0); hero.rotation.y=0.18; hero.userData.home.set(-GAP,0,0); scene.add(hero);   // 히어로=왼쪽, 오른쪽 보스를 향함
-    if(MODELS.hero.sprite){ attachSpriteBillboard(hero, HERO_SKINS[heroSkin].sprite, +1); }   // 🚀 저장된 선택(우주 소년/강아지)으로 시작
+    if(MODELS.hero.sprite){ attachSpriteBillboard(hero, HERO_SKINS[heroSkin].sprite, +1, HERO_SKINS[heroSkin].tint); }   // 🚀 저장된 선택(우주 소년/강아지)으로 시작
     else if(MODELS.hero.video){ attachVideoBillboard(hero, MODELS.hero.video, +1); }
     else { attachModel(hero, MODELS.hero, +1); }
     // 백드롭 무대 제거 — 사용자 요청: 뒤에는 별 있는 우주와 바닥만 보이고 로버트 자체만 보이게(어두운 판/사각형 없음)
@@ -1073,7 +1074,7 @@
         var s=HERO_SKINS[key];
         var b=document.createElement('button'); b.setAttribute('data-skin',key);
         b.innerHTML='<span class="hi">'+s.ico+'</span><span class="hn">'+s.name+'</span><span class="hd">'+s.desc+'</span>';
-        b.onclick=function(){ var changed=(heroSkin!==key); heroSkin=key; try{ localStorage.setItem('mangoi_battle_hero',key); }catch(e){} paint(); audioInit(); sfx.select(); if(changed) setHeroSprite(s.sprite); };
+        b.onclick=function(){ var changed=(heroSkin!==key); heroSkin=key; try{ localStorage.setItem('mangoi_battle_hero',key); }catch(e){} paint(); audioInit(); sfx.select(); if(changed) setHeroSprite(s.sprite, s.tint); };
         row.appendChild(b);
       });
       paint();
@@ -1130,6 +1131,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260707224749 -->
+<!-- BUILD:20260707232904 -->
 </body>
 </html>
