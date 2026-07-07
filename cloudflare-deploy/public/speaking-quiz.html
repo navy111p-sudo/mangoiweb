@@ -103,6 +103,9 @@
     padding:22px 20px;box-shadow:0 12px 34px rgba(0,0,0,.4)}
   .target-en{font-size:clamp(26px,6vmin,52px);font-weight:900;color:#fff;line-height:1.2;word-break:keep-all}
   .target-ko{font-size:clamp(14px,2.6vmin,22px);color:var(--sub);font-weight:600;margin-top:10px}
+  /* 🀄 중국어: 한자는 keep-all 이면 안 나뉘어 카드 밖으로 넘침 → 줄바꿈 허용 + 글자 규격 일정(카드 안에 담김) */
+  .zh .target-en{font-size:clamp(23px,4.8vmin,38px);line-height:1.36;word-break:break-word;overflow-wrap:anywhere;letter-spacing:.5px}
+  .zh .target-card{max-width:min(94%,660px)}
   .listen{margin-top:16px;background:rgba(34,197,94,.18);border:1px solid rgba(34,197,94,.5);color:#86efac;
     font-size:14px;font-weight:800;padding:9px 18px;border-radius:999px;cursor:pointer;font-family:inherit}
   .listen:active{transform:scale(.96)}
@@ -262,6 +265,7 @@
 
   /* ── 🇨🇳 중국어(다락원 중국어 마스터) 내장 어휘 — en=한자, pinyin=병음, ko=뜻 (API 실패 시 폴백) ── */
   var IS_ZH = (GLANG==='zh');
+  try{ if(IS_ZH) document.documentElement.classList.add('zh'); }catch(e){}   // 중국어 글자 규격/줄바꿈 CSS 활성
   var ZH_FALLBACK_WORDS = [
     {en:'苹果',pinyin:'píngguǒ',ko:'사과'},{en:'书',pinyin:'shū',ko:'책'},{en:'猫',pinyin:'māo',ko:'고양이'},
     {en:'狗',pinyin:'gǒu',ko:'강아지'},{en:'花',pinyin:'huā',ko:'꽃'},{en:'你好',pinyin:'nǐ hǎo',ko:'안녕'},
@@ -377,9 +381,40 @@
     }
     return out.length ? out.join('') : '💬';
   }
+  /* ── 🀄 중국어(한자) → 이모지 매칭: 그림을 보고 문장을 연상하도록 ── */
+  var ZH_EMOJI = {
+    // 음식·음료
+    '肯德基':'🍗','午饭':'🍱','早饭':'🍳','晚饭':'🍽️','快餐':'🍔','苹果':'🍎','香蕉':'🍌','面包':'🍞','米饭':'🍚',
+    '牛奶':'🥛','鸡蛋':'🥚','蛋糕':'🍰','咖啡':'☕','水果':'🍓','饺子':'🥟','面条':'🍜','米':'🍚','饭':'🍚','菜':'🥗',
+    '肉':'🍖','鱼':'🐟','茶':'🍵','水':'💧','吃':'🍽️','喝':'🥤','好吃':'😋',
+    // 동물·자연
+    '太阳':'☀️','月亮':'🌙','星星':'⭐','天气':'🌤️','海边':'🏖️','花':'🌸','猫':'🐱','狗':'🐶','鸟':'🐦','山':'⛰️','雨':'🌧️','雪':'❄️',
+    // 사람·가족
+    '朋友':'👫','家人':'👨‍👩‍👧','学生':'🧑‍🎓','老师':'👩‍🏫','医生':'👨‍⚕️','妈妈':'👩','爸爸':'👨','孩子':'🧒','们':'👥','我':'🙋','你':'🙂','他':'👦','她':'👧',
+    // 학교·공부
+    '学校':'🏫','学习':'📚','汉语':'🀄','考试':'📝','书':'📖','大学':'🎓','课':'📓',
+    // 장소·교통
+    '医院':'🏥','商店':'🏬','邮局':'📮','家':'🏠','飞机':'✈️','火车':'🚆','汽车':'🚗','车':'🚗','公司':'🏢',
+    // 우편·쇼핑·돈
+    '邮费':'📮','包裹':'📦','物品':'📦','价格':'💰','重量':'⚖️','计算':'🧮','钱':'💰','买':'🛒','卖':'🏷️','衣服':'👕','鞋':'👟','信':'✉️',
+    // 운동·여가
+    '旅行':'✈️','假期':'🏖️','游戏':'🎮','运动':'🏃','跑步':'🏃','打球':'🏀','球':'⚽','玩':'🎮','打':'🏓','唱歌':'🎤',
+    // 통신·시간
+    '电话':'📞','手机':'📱','今天':'📅','昨天':'📅','明天':'📅','时间':'⏰',
+    // 감정·형용사·기타
+    '漂亮':'💃','喜欢':'😊','高兴':'😄','重要':'⭐','爱':'❤️','好':'👍','大':'🐘','小':'🐭','病':'🤒','药':'💊','友好':'🤝','一起':'👫'
+  };
+  var ZH_EMOJI_KEYS = Object.keys(ZH_EMOJI).sort(function(a,b){ return b.length - a.length; });   // 긴 단어 먼저 매칭(学校 before 学)
+  function emojiForZh(hanzi){
+    var work=String(hanzi||''), out=[], seen={};
+    for(var i=0;i<ZH_EMOJI_KEYS.length && out.length<4;i++){ var k=ZH_EMOJI_KEYS[i];
+      if(work.indexOf(k)>=0){ var e=ZH_EMOJI[k]; if(!seen[e]){ out.push(e); seen[e]=1; } work=work.split(k).join(' '); } }
+    return out.length ? out.join('') : '💬';
+  }
   function setIllus(it){
     var el=$('#illus'); if(!el) return;
-    el.textContent = it.type==='sentence' ? emojiForSentence(it.en) : emojiForWord(it.en);
+    el.textContent = IS_ZH ? emojiForZh(it.en)
+      : (it.type==='sentence' ? emojiForSentence(it.en) : emojiForWord(it.en));
     el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
   }
 
@@ -730,6 +765,6 @@
 </script>
 <!-- BUILD:20260704 speakquiz1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260707234103 -->
+<!-- BUILD:20260707235253 -->
 </body>
 </html>

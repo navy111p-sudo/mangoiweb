@@ -456,7 +456,7 @@
     var ROBOT='https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
     var MODELS = {
       hero: { url:SOLDIER, sprite:'astro-atlas.png?v=3', video:'robert-knight.mp4', scale:'auto', idle:'Idle', attack:'Run', brighten:true },   // 망고아이 우주인 파이터(카툰 그린스크린 5시트: 주먹·옆차기·날아차기·피격·소멸·승리). ?v = 캐시 강제 갱신
-      boss: { url:'',      scale:'auto', idle:'Idle', attack:'Punch', tint:0x7a1414 }
+      boss: { url:'',      scale:'auto', idle:'Idle', attack:'Punch', tint:0x7a1414, sprite:'boss-atlas.png?v=1' }   // 🐙 문어 보스=클레이 스프라이트(그린스크린 20프레임 시트). 빈문자 url이라 절차적 폴백은 숨겨짐
     };
     /* 🚀 우주인 선택 — 두 캐릭터(우주 소년 / 우주 강아지) 스프라이트 아틀라스. 시작 화면에서 고르면 즉시 교체·저장 */
     var HERO_SKINS={
@@ -662,6 +662,44 @@
       if(hero.userData.sprite) hero.userData.sprite.reset();
     }
 
+    /* ===== 🐙 문어 보스 '스프라이트' (클레이 그린스크린 20프레임 → boss-atlas.png 5x3) =====
+       절차적 문어 메시를 숨기고 빌보드로 대체. 왼쪽 히어로를 바라봄(문어는 정면 대칭이라 flip 불필요).
+       프레임: 0~2 idle · 3 준비 · 4 양팔올림(윈드업) · 5 앞으로 뻗기(타격) · 6 양팔크게 · 7 회수 · 8~9 피격 · 10~13 소멸(팔올림→몸말기→공) */
+    function attachBossSprite(G, url){
+      var COLS=5, ROWS=3, CW=560, CH=540, IDLE=[0,1,2];
+      var tex=new THREE.TextureLoader().load(url);
+      tex.magFilter=THREE.LinearFilter; tex.minFilter=THREE.LinearFilter; tex.generateMipmaps=false;
+      tex.wrapS=tex.wrapT=THREE.ClampToEdgeWrapping; tex.repeat.set(1/COLS,1/ROWS);
+      var mat=new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false,side:THREE.DoubleSide,toneMapped:false,alphaTest:0.30,color:new THREE.Color(1.05,1.08,1.02)});   // 초록 자연색 유지 + 살짝 밝힘
+      var H=7.4, W=H*(CW/CH);   // 문어=넓고 큼(그룹 ×1.32 스케일인 후 히어로보다 큼)
+      var mesh=new THREE.Mesh(new THREE.PlaneGeometry(W,H),mat);
+      mesh.position.set(0,H*0.5-0.18,0); mesh.castShadow=false; mesh.frustumCulled=false; mesh.renderOrder=2;
+      function setFrame(i){ var c=i%COLS, r=Math.floor(i/COLS); tex.offset.set(c/COLS, 1-(r+1)/ROWS); }
+      setFrame(IDLE[0]);
+      var _shadow=makeContactShadow(2.1);
+      _shadow.userData._bb=true; mesh.userData._bb=true;   // 캐릭터 교체/재스폰 시 제거용 태그
+      G.traverse(function(o){ if(o.isMesh) o.visible=false; });   // 절차적 문어 메시 전부 숨김
+      G.add(_shadow); G.add(mesh);
+      var IDLE_FPS=1.7;
+      var ATTACK=[{f:3,d:0.14},{f:4,d:0.16},{f:6,d:0.10},{f:5,d:0.22},{f:7,d:0.12}];   // 준비→양팔올림→크게→앞으로 슬램→회수
+      var HITSEQ=[{f:8,d:0.12},{f:9,d:0.14}], HIT_TOTAL=0.26;                            // 움찔→뒤로젖힘
+      var DEATHSEQ=[{f:10,d:0.24},{f:11,d:0.26},{f:12,d:0.24},{f:13,d:0.5}], DEATH_TOTAL=1.24;  // 팔올림→몸말기→공→페이드
+      var S={ state:'idle', t:0, seq:null, mat:mat };
+      S.attack=function(){ if(S.state==='death')return; S.state='attack'; S.t=0; S.seq=ATTACK; setFrame(ATTACK[0].f); };
+      S.hit=function(){ if(S.state==='death'||S.state==='attack')return; S.state='hit'; S.t=0; S.seq=HITSEQ; setFrame(HITSEQ[0].f); };
+      S.die=function(){ if(S.state==='death')return; S.state='death'; S.t=0; S.seq=DEATHSEQ; mat.opacity=1; setFrame(DEATHSEQ[0].f); };
+      S.reset=function(){ S.state='idle'; S.t=0; mat.opacity=1; setFrame(IDLE[0]); };
+      S.update=function(dt){
+        S.t+=dt;
+        if(S.state==='idle'){ setFrame(IDLE[Math.floor(S.t*IDLE_FPS)%IDLE.length]); return; }
+        var acc=0,shown=false;
+        for(var k=0;k<S.seq.length;k++){ acc+=S.seq[k].d; if(S.t<acc){ setFrame(S.seq[k].f); shown=true; break; } }
+        if(S.state==='attack'||S.state==='hit'){ if(!shown){ S.state='idle'; S.t=0; } }
+        else if(S.state==='death'){ if(!shown){ setFrame(DEATHSEQ[DEATHSEQ.length-1].f); mat.opacity=Math.max(0,1-(S.t-DEATH_TOTAL)/0.5); } }
+      };
+      G.userData.sprite=S;
+    }
+
     var GAP=4.6;
     // 보스 전용 입체 조명(키 + 음산한 보라 림 + 언더글로) — 우주 괴물 느낌
     // 보스=오른쪽(+GAP), 히어로=왼쪽(-GAP)  (원위치)
@@ -785,6 +823,7 @@
       boss=buildCharacter({skin:cfg.color,armor:cfg.color,trim:cfg.color2,eye:0xfff04a,face:-1,weapon:'claw',isBoss:true});
       enhanceBossMonster(boss, cfg);
       boss.position.set(GAP,0,0); boss.rotation.y=-0.18; boss.userData.home.set(GAP,0,0); scene.add(boss); attachModel(boss, (cfg.model||MODELS.boss), -1);   // 보스=오른쪽, 왼쪽 히어로를 향함
+      if(MODELS.boss.sprite){ attachBossSprite(boss, MODELS.boss.sprite); }   // 🐙 클레이 문어 스프라이트로 대체(절차적 메시 숨김)
       boss.scale.setScalar(0.01); var t=0;
       addAnim(function(dt){ t+=dt; var p=Math.min(1,t/0.6); boss.scale.setScalar(1.32*easeOutBack(p)); spot.intensity=2.4*(1-Math.abs(0.5-p)*2); if(p>=1){ boss.scale.setScalar(1.32); spot.intensity=0; return true; } return false; });
       cameraShake(0.4,0.4); sfx.roar();
@@ -831,6 +870,11 @@
         hero.userData.sprite.die();                                                   // 스프라이트 히어로: 헤드스냅→스태거→페이드 소멸
       } else if(!ko && target===hero && hero.userData.sprite){
         hero.userData.sprite.hit();                                                   // 스프라이트 히어로: 맞았지만 안 쓰러짐 → 피격 리액션(플린치)
+      } else if(ko && target===boss && boss.userData.sprite){
+        boss.userData.sprite.die();                                                   // 🐙 문어 보스: 팔올림→몸말기→공 소멸(이어서 victory→explodeBoss 폭발)
+      } else if(!ko && target===boss && boss.userData.sprite){
+        boss.userData.sprite.hit();                                                   // 🐙 문어 보스: 움찔 피격 리액션 + 살짝 젖힘
+        var sb=0,sbd=0.5,pkb=dir*0.4; addAnim(function(dt){ sb+=dt; var p=Math.min(1,sb/sbd); target.rotation.z=pkb*Math.sin(p*Math.PI); if(p>=1){ target.rotation.z=0; return true; } return false; });
       } else if(ko){
         var k3=0,kd=0.55, fz=target.rotation.z, tz=dir*(target===boss?0.5:0.72),     // 큰 보스는 덜 기울여 화면 밖 방지
             bSY=target.scale.y, tSY=bSY*0.58,                                         // 슬럼프(세로 수축)로 '쓰러져 눕는' 느낌
@@ -1104,6 +1148,7 @@
       for(var _m=0;_m<_mixers.length;_m++){ _mixers[_m].update(dt); }   // glTF 애니메이션
       if(hero&&hero.userData.videoTex&&hero.userData.video&&hero.userData.video.readyState>=2){ hero.userData.videoTex.needsUpdate=true; }   // 실사 영상 기사 프레임 갱신
       if(hero&&hero.userData.sprite){ hero.userData.sprite.update(dt); }   // 스프라이트 히어로(걷기/펀치·킥/소멸) 프레임 갱신
+      if(boss&&boss.userData.sprite){ boss.userData.sprite.update(dt); }   // 🐙 스프라이트 문어 보스(idle/공격/피격/소멸) 프레임 갱신
       badge.rotation.y+=dt*1.7; badge.rotation.x=Math.sin(clock.elapsedTime*0.8)*0.18; badgeGroup.position.y=2.3+Math.sin(clock.elapsedTime*1.6)*0.13;
       [hero,boss].forEach(function(c){ if(!c)return; if(Math.abs(c.position.x-c.userData.home.x)<0.001){ c.position.y=Math.abs(Math.sin(clock.elapsedTime*1.8+c.userData.dir))*0.04; } if(c.userData.cape) waveCape(c.userData.cape,clock.elapsedTime,c.userData.dir); });
       if(boss) boss.userData.eyeMat.emissiveIntensity=1.2+Math.sin(clock.elapsedTime*4)*0.4;
@@ -1131,6 +1176,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260707234103 -->
+<!-- BUILD:20260707235253 -->
 </body>
 </html>

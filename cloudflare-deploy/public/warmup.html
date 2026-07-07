@@ -46,6 +46,8 @@
   .msg.sys{align-self:center;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.35);
     color:#fcd34d;font-size:17px;text-align:center;max-width:92%}
   .msg .who{display:block;font-size:15px;opacity:.7;margin-bottom:4px;font-weight:700}
+  .msg .who-ava{width:26px;height:26px;border-radius:50%;object-fit:cover;vertical-align:middle;
+    margin-right:6px;background:linear-gradient(135deg,#fbbf24,#f59e0b)}
   .typing{align-self:flex-start;color:var(--text2);font-size:18px;padding:6px 12px}
   .inbar{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border);background:rgba(20,33,59,.9)}
   .inbar input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;
@@ -181,8 +183,10 @@ var log = document.getElementById('log');
 function addMsg(text, who){
   var d = document.createElement('div');
   d.className = 'msg ' + who;
-  var label = who==='ai' ? 'AI 친구' : who==='me' ? '나' : '';
-  d.innerHTML = (label ? '<span class="who">'+label+'</span>' : '') + escapeHtml(text);
+  var whoHtml = who==='ai'
+      ? '<span class="who"><img class="who-ava" src="/img/mango-char.png" alt="Mango">Mango</span>'
+      : who==='me' ? '<span class="who">나</span>' : '';
+  d.innerHTML = whoHtml + escapeHtml(text);
   if(who==='ai'){
     // 각 AI 메시지에 🔊 다시 듣기 버튼
     var rb = document.createElement('button');
@@ -437,6 +441,6 @@ async function sendMsg(){
 <!-- BUILD:warmup3-bigtext-ratebar -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260707234103 -->
+<!-- BUILD:20260707235253 -->
 </body>
 </html>
