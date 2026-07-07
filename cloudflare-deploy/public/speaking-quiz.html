@@ -528,6 +528,10 @@
   function matchSpoken(heard, target){
     var h=norm(heard), t=norm(target); if(!h||!t) return false;
     if(h===t) return true;
+    if(IS_ZH){   // 🀄 한자 비교(관대) — STT 가 한두 글자 틀려도 통과
+      var zsim=simRatio(h,t);
+      return t.length<=2 ? zsim>=0.5 : zsim>=0.6;
+    }
     if(h.replace(/ /g,'')===t.replace(/ /g,'')) return true;
     var ht=h.split(' '), tt=t.split(' '), m=0;
     tt.forEach(function(w){ var k=ht.indexOf(w); if(k>=0){ ht.splice(k,1); m++; } });
@@ -726,6 +730,6 @@
 </script>
 <!-- BUILD:20260704 speakquiz1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260707233903 -->
+<!-- BUILD:20260707234103 -->
 </body>
 </html>
