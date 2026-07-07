@@ -104,7 +104,9 @@
   .target-en{font-size:clamp(26px,6vmin,52px);font-weight:900;color:#fff;line-height:1.2;word-break:keep-all}
   .target-ko{font-size:clamp(14px,2.6vmin,22px);color:var(--sub);font-weight:600;margin-top:10px}
   /* 🀄 중국어: 한자는 keep-all 이면 안 나뉘어 카드 밖으로 넘침 → 줄바꿈 허용 + 글자 규격 일정(카드 안에 담김) */
-  .zh .target-en{font-size:clamp(23px,4.8vmin,38px);line-height:1.36;word-break:break-word;overflow-wrap:anywhere;letter-spacing:.5px}
+  .zh .target-en{font-size:clamp(23px,4.8vmin,38px);line-height:1.42;word-break:break-word;overflow-wrap:anywhere;letter-spacing:1.5px;
+    /* 한자를 한 가지 중국어 글꼴로 통일(폴백 섞임=굵기 들쭉날쭉 방지) + 폴백이 무시않는 굵기 700 */
+    font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei','Hiragino Sans GB','Heiti SC','SimHei','Noto Sans KR',sans-serif;font-weight:700}
   .zh .target-card{max-width:min(94%,660px)}
   .listen{margin-top:16px;background:rgba(34,197,94,.18);border:1px solid rgba(34,197,94,.5);color:#86efac;
     font-size:14px;font-weight:800;padding:9px 18px;border-radius:999px;cursor:pointer;font-family:inherit}
@@ -247,6 +249,9 @@
   var QS = new URLSearchParams(location.search);
   var GOAL = (function(){ var g=parseInt(QS.get('goal'),10); return (g>=3&&g<=50)?g:10; })();
   var GLANG = (QS.get('glang')||'en').toLowerCase();
+  /* ⚡ 7단계 속도(허브가 ?speed=1..7 전달) → 발음(TTS) 속도에 연동. 거북이=느리게, 극한=빠르게 */
+  var SPEED_LVL = (function(){ var s=parseInt(QS.get('speed'),10); return (s>=1&&s<=7)?s:3; })();
+  var SPEED_MULT = ([0.5,0.75,1,1.4,1.9,2.5,3.2])[SPEED_LVL-1] || 1;
 
   /* ── 기본 어휘(로그인 안 됨/데이터 없음 폴백) ── */
   var FALLBACK_WORDS = [
@@ -405,15 +410,36 @@
     '漂亮':'💃','喜欢':'😊','高兴':'😄','重要':'⭐','爱':'❤️','好':'👍','大':'🐘','小':'🐭','病':'🤒','药':'💊','友好':'🤝','一起':'👫'
   };
   var ZH_EMOJI_KEYS = Object.keys(ZH_EMOJI).sort(function(a,b){ return b.length - a.length; });   // 긴 단어 먼저 매칭(学校 before 学)
-  function emojiForZh(hanzi){
-    var work=String(hanzi||''), out=[], seen={};
-    for(var i=0;i<ZH_EMOJI_KEYS.length && out.length<4;i++){ var k=ZH_EMOJI_KEYS[i];
-      if(work.indexOf(k)>=0){ var e=ZH_EMOJI[k]; if(!seen[e]){ out.push(e); seen[e]=1; } work=work.split(k).join(' '); } }
-    return out.length ? out.join('') : '💬';
+  /* 🇰🇷 한국어 뜻 → 이모지 (한자 매칭 실패 시 폴백 — 뜻은 모든 어휘에 있어 커버리지 대폭↑) */
+  var KO_EMOJI = {
+    '아이스크림':'🍦','햄버거':'🍔','초콜릿':'🍫','바닷가':'🏖️','해변':'🏖️','우편요금':'📮','휴대폰':'📱','핸드폰':'📱','컴퓨터':'💻','자동차':'🚗','자전거':'🚲','오토바이':'🏍️','지하철':'🚇','할머니':'👵','할아버지':'👴','이상형':'😍','간호사':'👩‍⚕️','도서관':'📚','백화점':'🏬','우체국':'📮','비행기':'✈️',
+    '사과':'🍎','바나나':'🍌','포도':'🍇','딸기':'🍓','수박':'🍉','오렌지':'🍊','복숭아':'🍑','토마토':'🍅','당근':'🥕','케이크':'🍰','과자':'🍪','사탕':'🍬','피자':'🍕','만두':'🥟','국수':'🍜','계란':'🥚','달걀':'🥚','우유':'🥛','치즈':'🧀','고기':'🍖','생선':'🐟','채소':'🥗','야채':'🥗','과일':'🍓','커피':'☕','주스':'🧃','맥주':'🍺','아침밥':'🍳','점심':'🍱','저녁':'🍽️','식사':'🍽️','음식':'🍽️','맛있':'😋',
+    '고양이':'🐱','강아지':'🐶','토끼':'🐰','물고기':'🐟','사자':'🦁','호랑이':'🐯','판다':'🐼','코끼리':'🐘','원숭이':'🐵','돼지':'🐷','거북':'🐢','나비':'🦋',
+    '태양':'☀️','하늘':'🌤️','날씨':'🌤️','구름':'☁️','바다':'🌊','풍경':'🏞️','경치':'🏞️','나무':'🌳','자연':'🌳','여름':'☀️','가을':'🍂','겨울':'⛄',
+    '친구':'👫','가족':'👨‍👩‍👧','학생':'🧑‍🎓','선생':'👩‍🏫','의사':'👨‍⚕️','어머니':'👩','엄마':'👩','아버지':'👨','아빠':'👨','동생':'🧒','손님':'🙋','사장':'💼','사람':'🧍',
+    '학교':'🏫','공부':'📚','시험':'📝','대학':'🎓','숙제':'📓','수업':'📓','중국어':'🀄','한자':'🈶','한국어':'🇰🇷','연필':'✏️','교실':'🏫',
+    '병원':'🏥','상점':'🏬','가게':'🏬','시장':'🛒','식당':'🍽️','호텔':'🏨','공항':'🛫','은행':'🏦','회사':'🏢',
+    '기차':'🚆','버스':'🚌','택시':'🚕','노선':'🗺️','지도':'🗺️',
+    '우편':'📮','우표':'📮','소포':'📦','물품':'📦','상품':'📦','가격':'💰','무게':'⚖️','계산':'🧮','지갑':'👛','쇼핑':'🛍️','신발':'👟','모자':'🧢','가방':'🎒','편지':'✉️','선물':'🎁',
+    '운동':'🏃','달리':'🏃','축구':'⚽','농구':'🏀','야구':'⚾','수영':'🏊','게임':'🎮','노래':'🎤','음악':'🎵','영화':'🎬','여행':'✈️','방학':'🏖️','휴가':'🏖️','사진':'📷','생일':'🎂','파티':'🎉',
+    '전화':'📞','인터넷':'🌐','오늘':'📅','어제':'📅','내일':'📅','시간':'⏰','아침':'🌅','주말':'📅','시계':'⏰',
+    '예쁜':'💖','예쁘':'😍','아름':'🌸','사랑':'❤️','좋아':'😊','행복':'😄','기쁘':'😄','슬프':'😢','중요':'⭐','아프':'🤒','약':'💊','친절':'🤝','똑똑':'💡','건강':'💪','생각':'💭','마음':'❤️','책':'📖','꽃':'🌸','달':'🌙','별':'⭐','물':'💧','비':'🌧️','산':'⛰️','집':'🏠','돈':'💰','옷':'👕','손':'✋','눈':'👁️','밤':'🌙','키':'📏','병':'🤒'
+  };
+  var KO_EMOJI_KEYS = Object.keys(KO_EMOJI).sort(function(a,b){ return b.length - a.length; });
+  function _scanEmoji(str, map, keys, out, seen, cap){
+    var work=String(str||'');
+    for(var i=0;i<keys.length && out.length<cap;i++){ var k=keys[i];
+      if(work.indexOf(k)>=0){ var e=map[k]; if(!seen[e]){ out.push(e); seen[e]=1; } work=work.split(k).join(' '); } }
+  }
+  function emojiForZh(hanzi, ko){
+    var out=[], seen={};
+    _scanEmoji(hanzi, ZH_EMOJI, ZH_EMOJI_KEYS, out, seen, 4);
+    if(out.length<1) _scanEmoji(ko, KO_EMOJI, KO_EMOJI_KEYS, out, seen, 3);   // 한자로 못 찾으면 한국어 뜻으로
+    return out.length ? out.join('') : '✨';
   }
   function setIllus(it){
     var el=$('#illus'); if(!el) return;
-    el.textContent = IS_ZH ? emojiForZh(it.en)
+    el.textContent = IS_ZH ? emojiForZh(it.en, it.ko)
       : (it.type==='sentence' ? emojiForSentence(it.en) : emojiForWord(it.en));
     el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
   }
@@ -497,8 +523,9 @@
     try{
       synth.cancel();
       var u=new SpeechSynthesisUtterance(String(text||'').replace(/[.?!。？！]+$/,''));
-      if(IS_ZH){ u.lang='zh-CN'; u.rate=0.85; u.pitch=1.0; if(zhVoice){ u.voice=zhVoice; u.lang=zhVoice.lang||'zh-CN'; } }
-      else { u.lang='en-US'; u.rate=0.94; u.pitch=1.02; if(enVoice){ u.voice=enVoice; u.lang=enVoice.lang||'en-US'; } }
+      var _clamp=function(r){ return Math.max(0.4, Math.min(3, r)); };
+      if(IS_ZH){ u.lang='zh-CN'; u.rate=_clamp(0.92*SPEED_MULT); u.pitch=1.0; if(zhVoice){ u.voice=zhVoice; u.lang=zhVoice.lang||'zh-CN'; } }   // ⚡ 속도 연동
+      else { u.lang='en-US'; u.rate=_clamp(0.96*SPEED_MULT); u.pitch=1.02; if(enVoice){ u.voice=enVoice; u.lang=enVoice.lang||'en-US'; } }
       u.volume=1;
       if(cb){ var done=false; u.onend=function(){ if(!done){done=true;cb();} }; setTimeout(function(){ if(!done){done=true;cb();} },3800); }
       synth.speak(u);
@@ -765,6 +792,6 @@
 </script>
 <!-- BUILD:20260704 speakquiz1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260707235941 -->
+<!-- BUILD:20260708000739 -->
 </body>
 </html>
