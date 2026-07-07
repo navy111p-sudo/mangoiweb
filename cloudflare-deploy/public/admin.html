@@ -23394,7 +23394,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260708025640 -->
+        <!-- BUILD:20260708030042 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -30138,9 +30138,11 @@ button.chip:hover,
   /* 🎨 아이보리(밝게) 테마에서만 파스텔. 다크 테마에서는 기본 다크 카드 헤더(어두운 바탕+밝은 글자) 유지. */
   html[data-admin-theme="ivory"] #card-retention > summary,
   html[data-admin-theme="ivory"] #card-active-rooms > summary {
-    background: linear-gradient(135deg, #e6ecff 0%, #f0eaff 100%) !important;
-    color: #1e293b !important;
-    border: 1px solid rgba(99,102,241,0.30) !important;
+    /* 다른 카드들과 동일한 표준 연보라로 통일 */
+    background: linear-gradient(135deg, #eaeeff 0%, #f5f0ff 100%) !important;
+    color: #2f2a40 !important;
+    border: 0 !important;
+    border-bottom: 1px solid rgba(150,120,70,0.16) !important;
   }
   html[data-admin-theme="ivory"] #card-retention > summary > span,
   html[data-admin-theme="ivory"] #card-active-rooms > summary > span {

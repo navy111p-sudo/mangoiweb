@@ -569,9 +569,9 @@
         url:'boss-atlas.png?v=2', cols:5, rows:5, cw:680, ch:600, flip:false, H:8.2, color:[1.06,1.09,1.03], shadow:2.3,
         anim:{ idle:{f:[0,9,13,14,15,16,11,2,10,1,12,3],d:0.26,loop:true}, attack:{f:[9,13,15,8,5,0],d:[0.14,0.14,0.11,0.20,0.13,0.12],loop:false}, hit:{f:[11,2],d:[0.12,0.15],loop:false}, death:{f:[17,18,19,20],d:[0.24,0.26,0.26,0.5],loop:false} } },
       trex: { ico:'🦖', name:'티라노 공룡', desc:'돌진·물기 육식공룡',
-        url:'trex-atlas.png?v=3', cols:5, rows:4, cw:820, ch:580, flip:true, H:7.4, color:[0.95,0.96,0.92], shadow:2.7, crossfade:false, calmIdle:true,   // 디스크리트(잔상 방지)+제자리 준비자세(좌우 안 움직임)+진한색
+        url:'trex-atlas.png?v=4', cols:5, rows:4, cw:820, ch:600, flip:true, H:9.6, color:[0.95,0.96,0.92], shadow:3.1, crossfade:false, calmIdle:true,   // 크게(H↑)+디스크리트(잔상 방지)+제자리 준비자세+진한색
         anim:{ idle:{f:[0,1],d:0.6,loop:true},                                    // 🦖 왼쪽 히어로 향해 '싸울 준비' 제자리 자세(좌우 이동 없이 은은한 무게중심 숨쉬기)
-               attack:{f:[5,7,9,11,2],d:[0.12,0.12,0.15,0.18,0.14],loop:false},   // 달림→달림→도약→물기→복귀 (실제 공격 때만 앞으로 돌진)
+               attack:{f:[9,10,11,2],d:[0.13,0.13,0.18,0.14],loop:false},         // 도약→도약→물기→복귀 (달리기 프레임은 상단 잔선 있어 도약/물기로 대체, 공격 때만 앞으로 돌진)
                hit:{f:[12,1],d:[0.12,0.14],loop:false},                           // 일어섬(움찔)
                death:{f:[12,13,14],d:[0.22,0.24,0.6],loop:false} } }              // 비틀→웅크림→무릎꺾여 쓰러짐(이후 explodeBoss 폭발)
     };
@@ -1329,6 +1329,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260708025640 -->
+<!-- BUILD:20260708030042 -->
 </body>
 </html>
