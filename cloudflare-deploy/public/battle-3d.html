@@ -568,12 +568,8 @@
       octopus: { ico:'🐙', name:'문어 괴물', desc:'클레이 촉수 보스',
         url:'boss-atlas.png?v=2', cols:5, rows:5, cw:680, ch:600, flip:false, H:8.2, color:[1.06,1.09,1.03], shadow:2.3,
         anim:{ idle:{f:[0,9,13,14,15,16,11,2,10,1,12,3],d:0.26,loop:true}, attack:{f:[9,13,15,8,5,0],d:[0.14,0.14,0.11,0.20,0.13,0.12],loop:false}, hit:{f:[11,2],d:[0.12,0.15],loop:false}, death:{f:[17,18,19,20],d:[0.24,0.26,0.26,0.5],loop:false} } },
-      trex: { ico:'🦖', name:'티라노 공룡', desc:'돌진·물기 육식공룡',
-        url:'trex-atlas.png?v=4', cols:5, rows:4, cw:820, ch:600, flip:true, H:9.6, color:[0.95,0.96,0.92], shadow:3.1, crossfade:false, calmIdle:true,   // 크게(H↑)+디스크리트(잔상 방지)+제자리 준비자세+진한색
-        anim:{ idle:{f:[0,1],d:0.6,loop:true},                                    // 🦖 왼쪽 히어로 향해 '싸울 준비' 제자리 자세(좌우 이동 없이 은은한 무게중심 숨쉬기)
-               attack:{f:[9,10,11,2],d:[0.13,0.13,0.18,0.14],loop:false},         // 도약→도약→물기→복귀 (달리기 프레임은 상단 잔선 있어 도약/물기로 대체, 공격 때만 앞으로 돌진)
-               hit:{f:[12,1],d:[0.12,0.14],loop:false},                           // 일어섬(움찔)
-               death:{f:[12,13,14],d:[0.22,0.24,0.6],loop:false} } }              // 비틀→웅크림→무릎꺾여 쓰러짐(이후 explodeBoss 폭발)
+      trex: { ico:'🦖', name:'티라노 공룡', desc:'진짜 걷는 실사 공룡',
+        video:'trex-walk.mp4?v=1', vw:660, vh:302, flip:false, H:7.2, footY:0.15, color:[1.03,1.0,0.95], shadow:3.4 }   // 🎬 실사 그린스크린 걷기 영상(왼쪽 히어로 향함, 셰이더 그린키). 공격=그룹 돌진, 사망=페이드+폭발
     };
     var bossSkin=(function(){ try{ var v=localStorage.getItem('mangoi_battle_boss'); return (v==='trex'||v==='octopus')?v:'octopus'; }catch(e){ return 'octopus'; } })();
     var _mixers=[];
@@ -832,6 +828,54 @@
       G.userData.sprite=S;
     }
 
+    /* ===== 🎬 보스 '실사 영상' 빌보드 (티라노 그린스크린 mp4) — 진짜 걷기 영상을 그린 키(셰이더)로 투명 처리 =====
+       영상은 계속 걷기 재생(제자리, 왼쪽 히어로 향함). 공격=그룹 돌진(attackAnim)·피격=플래시·사망=페이드+explodeBoss 로 처리(영상 프레임 교체 불필요). */
+    function attachBossVideo(G, cfg){
+      // 이전 보스 영상 DOM 정리(재스폰마다 새로 생성되니 누적 방지)
+      try{ var olds=document.querySelectorAll('video.bossvid'); for(var oi=0;oi<olds.length;oi++){ olds[oi].pause&&olds[oi].pause(); olds[oi].remove(); } }catch(e){}
+      var video=document.createElement('video');
+      video.src=cfg.video; video.loop=true; video.muted=true; video.defaultMuted=true;
+      video.playsInline=true; video.setAttribute('playsinline',''); video.setAttribute('webkit-playsinline',''); video.setAttribute('muted',''); video.preload='auto';
+      video.className='bossvid'; video.style.cssText='position:absolute;width:2px;height:2px;opacity:0;pointer-events:none;left:-9999px;top:0'; document.body.appendChild(video);
+      var _p=video.play(); if(_p&&_p.catch) _p.catch(function(){});
+      var kick=function(){ var q=video.play(); if(q&&q.catch) q.catch(function(){}); };
+      window.addEventListener('pointerdown',kick,{once:true}); window.addEventListener('touchstart',kick,{once:true});
+      var tex=new THREE.VideoTexture(video); tex.minFilter=THREE.LinearFilter; tex.magFilter=THREE.LinearFilter; tex.generateMipmaps=false;
+      var tc=cfg.color||[1.0,1.0,1.0];
+      var mat=new THREE.ShaderMaterial({
+        transparent:true, depthWrite:false, side:THREE.DoubleSide,
+        uniforms:{ map:{value:tex}, keyLo:{value:0.10}, keyHi:{value:0.34}, fade:{value:1.0}, tint:{value:new THREE.Color(tc[0],tc[1],tc[2])} },
+        vertexShader:'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+        fragmentShader:[
+          'uniform sampler2D map; uniform float keyLo; uniform float keyHi; uniform float fade; uniform vec3 tint; varying vec2 vUv;',
+          'void main(){',
+          '  vec4 c=texture2D(map,vUv);',
+          '  float ex=c.g-max(c.r,c.b);',                 // 초록 스크린: G가 R,B보다 크다
+          '  float a=1.0-smoothstep(keyLo,keyHi,ex);',    // 초록이 강하면 투명, 공룡(갈색)은 불투명
+          '  if(a<=0.02) discard;',
+          '  float g2=min(c.g, max(c.r,c.b)+0.06);',       // despill: 가장자리 초록기 제거
+          '  vec3 rgb=vec3(c.r,g2,c.b)*tint;',
+          '  gl_FragColor=vec4(rgb, a*fade);',
+          '}'
+        ].join('\n')
+      });
+      var H=cfg.H||6.5, W=H*(cfg.vw/cfg.vh), BY=H*0.5-(cfg.footY||0.2), FLIP=cfg.flip?-1:1;
+      var mesh=new THREE.Mesh(new THREE.PlaneGeometry(W,H),mat);
+      mesh.position.set(0,BY,0); mesh.castShadow=false; mesh.frustumCulled=false; mesh.renderOrder=2; mesh.scale.x=FLIP;
+      var holder=new THREE.Group(); holder.add(mesh);
+      var _shadow=makeContactShadow(cfg.shadow||3.0);
+      _shadow.userData._bb=true; holder.userData._bb=true;
+      G.traverse(function(o){ if(o.isMesh) o.visible=false; });   // 절차적 보스 메시 숨김
+      G.add(_shadow); G.add(holder);
+      var S={ state:'idle', t:0 };
+      S.attack=function(){};                                       // 그룹 돌진(attackAnim)이 공격 연출
+      S.hit=function(){};                                          // impact 플래시/넉백로 충분
+      S.die=function(){ if(S.state==='death')return; S.state='death'; S.t=0; };
+      S.reset=function(){ S.state='idle'; S.t=0; mat.uniforms.fade.value=1; };
+      S.update=function(dt){ if(video.readyState>=2) tex.needsUpdate=true; if(S.state==='death'){ S.t+=dt; mat.uniforms.fade.value=Math.max(0,1-S.t/0.6); } };
+      G.userData.sprite=S;
+    }
+
     var GAP=4.6;
     // 보스 전용 입체 조명(키 + 음산한 보라 림 + 언더글로) — 우주 괴물 느낌
     // 보스=오른쪽(+GAP), 히어로=왼쪽(-GAP)  (원위치)
@@ -955,7 +999,9 @@
       boss=buildCharacter({skin:cfg.color,armor:cfg.color,trim:cfg.color2,eye:0xfff04a,face:-1,weapon:'claw',isBoss:true});
       enhanceBossMonster(boss, cfg);
       boss.position.set(GAP,0,0); boss.rotation.y=-0.18; boss.userData.home.set(GAP,0,0); scene.add(boss); attachModel(boss, (cfg.model||MODELS.boss), -1);   // 보스=오른쪽, 왼쪽 히어로를 향함
-      if(BOSS_SKINS[bossSkin]){ attachBossSprite(boss, BOSS_SKINS[bossSkin]); }   // 👾 선택된 보스(문어/티라노) 스프라이트로 대체(절차적 메시 숨김)
+      var _bcfg=BOSS_SKINS[bossSkin];
+      if(_bcfg&&_bcfg.video){ attachBossVideo(boss, _bcfg); }        // 🎬 실사 영상 보스(티라노 걷기 mp4)
+      else if(_bcfg){ attachBossSprite(boss, _bcfg); }               // 👾 스프라이트 보스(문어)
       boss.scale.setScalar(0.01); var t=0;
       addAnim(function(dt){ t+=dt; var p=Math.min(1,t/0.6); boss.scale.setScalar(1.32*easeOutBack(p)); spot.intensity=2.4*(1-Math.abs(0.5-p)*2); if(p>=1){ boss.scale.setScalar(1.32); spot.intensity=0; return true; } return false; });
       cameraShake(0.4,0.4); sfx.roar();
@@ -1329,6 +1375,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260708030042 -->
+<!-- BUILD:20260708031811 -->
 </body>
 </html>

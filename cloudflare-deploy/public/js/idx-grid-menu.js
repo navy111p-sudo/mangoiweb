@@ -43,6 +43,8 @@
 
   // ──── 모달 ────
   function showModal(html) {
+    // 매 모달마다 기본 폭으로 초기화 (성적표 등에서 넓혔던 폭이 다른 모달에 새지 않게)
+    try { modalBox.style.maxWidth = '600px'; } catch(e){}
     modalContent.innerHTML = html;
     modal.style.display = 'flex';
     modalBox.scrollTop = 0;
@@ -1434,6 +1436,7 @@
   async function renderReportFor(sess) {
     const safeName = String(sess.name || sess.uid || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
     showModal(`
+      <div id="rp-root">
       <h2 style="color:#fbbf24;margin-bottom:4px"><img src="/img/mango-char.png" alt="" style="height:1.1em;width:auto;vertical-align:-0.2em;margin-right:.1em">${safeName} — 종합 평가서</h2>
       <p id="rp-meta" style="color:#94a3b8;font-size:12px;margin:0 0 14px">불러오는 중…</p>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
@@ -1469,7 +1472,17 @@
         ※ 평가표는 매 수업 종료 후 강사가 작성합니다. AI 분석은 발화량·시선 추적·집중도가 자동 포함됩니다.<br/>
         ※ 인쇄·PDF 저장 후 학부모님께 공유할 수 있습니다.
       </p>
+      </div>
     `);
+    // 💻 PC 데스크톱에서는 성적표를 더 넓게 + 글자를 더 크게 (모바일은 기존 그대로)
+    try {
+      if (window.matchMedia && window.matchMedia('(min-width:820px)').matches) {
+        const box = document.getElementById('info-modal-box');
+        const root = document.getElementById('rp-root');
+        if (box) box.style.maxWidth = '960px';
+        if (root) { root.style.zoom = '1.18'; root.style.WebkitTextSizeAdjust = '100%'; }
+      }
+    } catch(e){}
     reloadStudentReport();
   }
 

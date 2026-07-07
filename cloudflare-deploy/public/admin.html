@@ -726,43 +726,16 @@
   }
   .sortable-table th.sortable:not(.sort-asc):not(.sort-desc) .sort-rank { display: none; }
 
-  /* 🌙 (2026-07-08) 학생 목록 표 — 다크 테마 보정
-     · 위 스타일은 라이트(#fffbeb 등) 고정이라 '어둡게' 모드에서 표만 새하얗게 떠 보였음.
-     · ivory(밝게)는 위 스타일 그대로 두고, dark(=기본)일 때만 어두운 팔레트로 덮어씀. */
-  html:not([data-admin-theme="ivory"]) #sm-students-wrap {
-    border-color: rgba(245,158,11,0.22) !important;
-    background: rgba(20,16,10,0.35);
-  }
-  html:not([data-admin-theme="ivory"]) #sm-students-table { color: #e6ddcf; }
-  html:not([data-admin-theme="ivory"]) #sm-students-table th,
-  html:not([data-admin-theme="ivory"]) #sm-students-table td {
-    border-bottom: 1px solid rgba(245,158,11,0.12);
-  }
-  html:not([data-admin-theme="ivory"]) #sm-students-table thead th {
-    background: linear-gradient(180deg, #3a2c15, #2b2010) !important;
-    color: #fcd34d !important;
-    border-bottom: 2px solid rgba(245,158,11,0.4) !important;
-    box-shadow: 0 2px 0 rgba(245,158,11,0.4);
-  }
-  html:not([data-admin-theme="ivory"]) #sm-students-table tbody tr:nth-child(even) td {
-    background: rgba(245,158,11,0.05);
-  }
-  html:not([data-admin-theme="ivory"]) #sm-students-table tbody tr:hover td {
-    background: rgba(245,158,11,0.14);
-  }
-  html:not([data-admin-theme="ivory"]) #sm-students-table td:nth-child(1) code { color: #c9a97a; }
-  html:not([data-admin-theme="ivory"]) #sm-students-table td:nth-child(2) b { color: #f5efe4; }
-  html:not([data-admin-theme="ivory"]) #sm-students-table td:nth-child(2) .role-badge {
-    background: rgba(245,158,11,0.2); color: #fcd34d;
-  }
-  html:not([data-admin-theme="ivory"]) #sm-students-table td .date-line .date-d { color: #cbb998; }
-  html:not([data-admin-theme="ivory"]) #sm-students-table td .date-line .date-t { color: #8a7b63; }
-  /* 검색 입력창 — 인라인 라이트 스타일(#fffbeb)을 다크로 보정 (!important 로 인라인 우선) */
+  /* 🌙 (2026-07-08) 학생 목록 — 다크 테마 보정
+     · 표(#sm-students-table) 자체는 다른 카드 표와 동일한 공용 다크 규칙
+       (details.menu-card th → var(--bg-header) 네이비 헤더)을 그대로 쓰도록 커스텀 색을 두지 않음.
+       (예전엔 표에 라이트색이 박혀 '어둡게'에서 새하얗게 떴음 → 공용 규칙에 위임해 주변과 통일)
+     · 검색창만 소스 인라인(background:#fffbeb)이라 공용 규칙이 못 잡으므로 여기서 !important 로 보정. */
   html:not([data-admin-theme="ivory"]) #sm-student-search {
-    background: rgba(20,16,10,0.6) !important; color: #f5efe4 !important;
-    border-color: rgba(245,158,11,0.4) !important;
+    background: rgba(15,23,42,0.6) !important; color: #e6ecff !important;
+    border-color: rgba(59,130,246,0.4) !important;
   }
-  html:not([data-admin-theme="ivory"]) #sm-student-search::placeholder { color: #a8987e !important; }
+  html:not([data-admin-theme="ivory"]) #sm-student-search::placeholder { color: #93a3be !important; }
 
   /* ════════════════════════════════════════════════════════════
      🥭 Phase 14 — 히어로 랜딩 (망고 캐릭터 + 거대 검색창)
@@ -12267,9 +12240,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      🎨 Phase UNI — 잔여 라이트 카드들 명도 반전 일괄 적용
-</style>
-     (이미 #card-points-mgmt 등 명시 unified 카드들은 자체 inline <style> 가
+     (이미 #card-points-mgmt 등 명시 unified 카드들은 자체 인라인 스타일이
       더 specific 하므로 영향 안 받음.)
+     ⚠️ 예전엔 이 주석 안에 리터럴 종료/시작 태그가 들어가 HTML 파서가 스타일
+        블록을 조기 종료·재시작 → 본문에 주석 텍스트가 새어나오던 버그가 있었음.
      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
   #card-students-mgmt,
   #card-attendance-status,
@@ -23394,7 +23368,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260708030042 -->
+        <!-- BUILD:20260708031811 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -31176,7 +31150,29 @@ button.chip:hover,
   }
   var EXCLUDE = 'button,a,.badge,.ph85-head,.ph85-classroom,.ph86-action-btn,[class*="btn"],[class*="chip"],[class*="pill"],[class*="tag"],[class*="bar"],[class*="fill"],[class*="badge"],.hub-icon,.hub-card,.kpi-tile,.kpi-tile *,.kpi-icon,svg,svg *,img,input,textarea,select,option';
   function ivoryLighten(){
-    if (document.documentElement.getAttribute('data-admin-theme') !== 'ivory') return;
+    if (document.documentElement.getAttribute('data-admin-theme') !== 'ivory') {
+      /* 🌙 (2026-07-08) 다크로 돌아왔을 때 정리:
+         ivory 페인터가 칠했던 인라인 스타일(밝은 그라데이션·글자·테두리)을 제거해
+         CSS 다크 규칙이 다시 살아나게 한다. 이 정리가 없으면 ivory→dark 전환 시
+         표 헤더 등이 새하얗게 '박혀' 남는다(학생 목록 표가 밝게 뜨던 원인).
+         ※ applyAdminColor 가 __ivLit 플래그를 먼저 지우므로, 플래그가 아니라
+           페인터가 남긴 '서명 값'(밝은 그라데이션 251,248,241 / 글자 58,53,44)으로 판별. */
+      document.querySelectorAll('[id^="card-"] *').forEach(function(el){
+        var st = el.style; if (!st || !st.length) return;
+        var bg = ((st.getPropertyValue('background') || st.getPropertyValue('background-image')) + '').replace(/\s+/g, '');
+        var col = (st.getPropertyValue('color') + '').replace(/\s+/g, '');
+        var painted =
+          bg.indexOf('251,248,241') >= 0 || bg.indexOf('fbf8f1') >= 0 ||          /* 헤더/박스 페인트 */
+          (col === 'rgb(58,53,44)' && (bg.indexOf('rgb(255,255,255)') >= 0 || bg.indexOf('#ffffff') >= 0)); /* 입력창 페인트 */
+        if (painted || el.__ivLit || el.__ivLitIn) {
+          st.removeProperty('background');
+          st.removeProperty('color');
+          st.removeProperty('border-color');
+          el.__ivLit = false; el.__ivLitIn = false;
+        }
+      });
+      return;
+    }
     document.querySelectorAll('[id^="card-"]').forEach(function(card){
       card.querySelectorAll('*').forEach(function(el){
         if (el.__ivLit) return;
@@ -31230,6 +31226,9 @@ button.chip:hover,
     if (theme === 'ivory') {
       if (window.__ivoryLighten) window.__ivoryLighten();
     } else {
+      /* __ivoryLighten() 을 다크에서 호출하면 즉시-정리 브랜치가 돌아
+         ivory 페인터 잔여 인라인을 바로 제거(전환 즉시 표 헤더 등 다크 복귀) */
+      if (window.__ivoryLighten) window.__ivoryLighten();
       if (window.__ph103Run) window.__ph103Run();
       if (window.__ph105Run) window.__ph105Run();
     }
