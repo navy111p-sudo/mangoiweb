@@ -1371,6 +1371,30 @@
     if (act && act.style.display === 'none') activateTab('profile');
   }
 
+  // ── admin.html '역할 선택' 데모 전환 감지 ──
+  //   admin.html(ph117) 은 서버를 거치지 않고 localStorage 'admin_session' 에만
+  //   {uid, name} 을 심는다. 이 데모 전환이 켜져 있으면 마이페이지도 그 역할로 표시한다.
+  //   실제 쿠키 신분(realUsername)과 다른 데모 uid일 때만 override 를 반환.
+  function demoRoleOverride(realUsername){
+    var d = null;
+    try { d = JSON.parse(localStorage.getItem('admin_session') || 'null'); } catch(e){ return null; }
+    if (!d || !d.uid) return null;
+    var uid = String(d.uid);
+    var en = EN();
+    var role, label, labelEn;
+    if      (uid === 'hq_exec')           { role='hq';      label='경영진';   labelEn='Executive'; }
+    else if (uid === 'hq_mgr')            { role='hq';      label='관리자';   labelEn='Manager';   }
+    else if (uid.indexOf('hq_t_')  === 0) { role='teacher'; label='강사';     labelEn='Teacher';   }
+    else if (uid.indexOf('branch_')=== 0) { role='branch';  label='지사장';   labelEn='Branch';    }
+    else if (uid.indexOf('agency_')=== 0) { role='agency';  label='대리점장'; labelEn='Agency';    }
+    else return null;  // 학부모·학생 등은 관리자 마이페이지 대상이 아님
+    return {
+      uid: uid, name: d.name || '', email: d.email || '', phone: d.phone || '',
+      role: role, roleLabel: en ? labelEn : label,
+      isDemo: (uid !== realUsername)
+    };
+  }
+
   // ── 본인 정보 로드 ──
   function loadMe(){
     fetch('/api/admin/me', { credentials:'include' })
@@ -1379,14 +1403,25 @@
         if (!j || !j.ok) return;
         var u = j.user || {};
         var name = u.name || u.username || (EN()?'User':'사용자');
+        // 🎭 (2026-07-07 fix) admin.html '역할 선택(강사 모드 등)' 은 서버 쿠키가 아니라
+        //   localStorage 'admin_session' 에만 저장되는 프론트엔드 데모 전환이다.
+        //   그래서 마이페이지가 /api/admin/me(쿠키=실제 admin) 만 보면 강사로 전환해도
+        //   계속 '정우영 경영진' 이 떴다. → 데모 전환이 켜져 있으면 그 역할로 표시를 덮어쓴다.
+        var ov = demoRoleOverride(u.username || '');
+        var role      = ov ? ov.role      : j.role;
+        var roleLabel = ov ? ov.roleLabel : (j.roleLabel || (EN()?'User':'사용자'));
+        var scope     = ov ? null         : j.scope;
+        var uid       = ov ? ov.uid       : (u.username || 'user');
+        if (ov && ov.name) name = ov.name;
+        window.__demoRole = ov;  // 프로필 저장 가드에서 사용
         if (el('heroName'))   el('heroName').textContent = name;
-        if (el('heroUserId')) el('heroUserId').textContent = '@' + (u.username || 'user');
-        if (el('profUsername')) el('profUsername').value = u.username || '';
-        if (el('profName'))     el('profName').value = u.name || '';
-        if (el('profEmail'))    el('profEmail').value = u.email || '';
-        if (el('profPhone'))    el('profPhone').value = u.phone || '';
-        applyRole(j.role, j.roleLabel || (EN()?'User':'사용자'), j.scope);
-        window.__myRole = j.role; window.__myRoleLabel = j.roleLabel; window.__myScope = j.scope;
+        if (el('heroUserId')) el('heroUserId').textContent = '@' + uid;
+        if (el('profUsername')) el('profUsername').value = uid;
+        if (el('profName'))     el('profName').value = (ov && ov.name) ? ov.name : (u.name || '');
+        if (el('profEmail'))    el('profEmail').value = (ov && ov.email) ? ov.email : (u.email || '');
+        if (el('profPhone'))    el('profPhone').value = (ov && ov.phone) ? ov.phone : (u.phone || '');
+        applyRole(role, roleLabel, scope);
+        window.__myRole = role; window.__myRoleLabel = roleLabel; window.__myScope = scope;
         window.__myName = name;
         // 🔑 admin.html(상세 콘솔)은 localStorage 'mangoi_admin_session' 을 요구한다.
         //   마이페이지가 열릴 때 현재 쿠키 세션으로 미리 심어두면 [상세 관리자 페이지]가 항상 바로 열린다.
@@ -1405,7 +1440,7 @@
           }
         } catch(_e){}
         // 🎯 강사는 마이페이지를 열면 곧바로 "내 평가"가 보이도록 강제 — 탭 클릭 불필요.
-        if (j.role === 'teacher') {
+        if (role === 'teacher') {
           if (typeof activateTab === 'function') activateTab('myratings');
           if (typeof window.loadMyRatings === 'function') window.loadMyRatings(name);
         }
@@ -1478,6 +1513,12 @@
   // ── 프로필 저장 ──
   if (el('profSaveBtn')) el('profSaveBtn').addEventListener('click', function(){
     var en = EN();
+    // 🎭 데모 역할 미리보기 상태에서는 실제 admin 계정 프로필을 덮어쓰지 않도록 저장 차단.
+    if (window.__demoRole && window.__demoRole.isDemo){
+      alert(en ? '⚠️ Role-preview mode — profile changes are disabled. Return to Admin first.'
+               : '⚠️ 역할 미리보기(데모 전환) 상태에서는 프로필을 저장할 수 없어요. 관리자로 복귀 후 저장해 주세요.');
+      return;
+    }
     var body = { name: (el('profName')&&el('profName').value)||'', email: (el('profEmail')&&el('profEmail').value)||'', phone: (el('profPhone')&&el('profPhone').value)||'' };
     el('profSaveBtn').disabled = true;
     fetch('/api/admin/profile', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })

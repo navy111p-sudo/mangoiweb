@@ -48,6 +48,9 @@
   .msg .who{display:block;font-size:15px;opacity:.7;margin-bottom:4px;font-weight:700}
   .msg .who-ava{width:26px;height:26px;border-radius:50%;object-fit:cover;vertical-align:middle;
     margin-right:6px;background:linear-gradient(135deg,#fbbf24,#f59e0b)}
+  /* 🥭 → 우리 망고 캐릭터 인라인 아이콘 (이모지 대신 브랜드 캐릭터 노출) */
+  .mango-inline{height:1.3em;width:auto;vertical-align:-0.32em;margin:0 .06em;
+    filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))}
   .typing{align-self:flex-start;color:var(--text2);font-size:18px;padding:6px 12px}
   .inbar{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border);background:rgba(20,33,59,.9)}
   .inbar input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;
@@ -186,7 +189,7 @@ function addMsg(text, who){
   var whoHtml = who==='ai'
       ? '<span class="who"><img class="who-ava" src="/img/mango-char.png" alt="Mango">Mango</span>'
       : who==='me' ? '<span class="who">나</span>' : '';
-  d.innerHTML = whoHtml + escapeHtml(text);
+  d.innerHTML = whoHtml + renderMsg(text);
   if(who==='ai'){
     // 각 AI 메시지에 🔊 다시 듣기 버튼
     var rb = document.createElement('button');
@@ -201,6 +204,12 @@ function addMsg(text, who){
   return d;
 }
 function escapeHtml(s){ return String(s).replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); }
+// 🥭 이모지(빨간/주황 망고 그림)를 우리 망고아이 캐릭터 이미지로 치환 —
+// 하드코딩 인사말은 물론 AI 응답 텍스트에 망고가 나와도 자동으로 브랜드 캐릭터로 렌더된다.
+function renderMsg(s){
+  return escapeHtml(s).replace(/🥭/g,
+    '<img class="mango-inline" src="/img/mango-char.png" alt="Mango 캐릭터" />');
+}
 
 /* ══════════════════════════════════════════════════════════════════
    🔊 듣기(TTS) — 브라우저 speechSynthesis 로 AI 답변을 원어민 음성 낭독
@@ -441,6 +450,6 @@ async function sendMsg(){
 <!-- BUILD:warmup3-bigtext-ratebar -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260707235332 -->
+<!-- BUILD:20260707235822 -->
 </body>
 </html>
