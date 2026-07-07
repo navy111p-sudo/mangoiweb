@@ -33,6 +33,18 @@
     border:1px solid rgba(255,255,255,.16);border-radius:9px;padding:8px 3px;cursor:pointer;line-height:1.35}
   .speedrow button.on{background:rgba(251,191,36,.18);border-color:#fbbf24;color:#fbbf24}
   .speedrow button:active{transform:scale(.96)}
+  /* 🚀 우주인(캐릭터) 선택 */
+  .heropick{display:flex;gap:8px;margin:0 0 14px}
+  .heropick button{flex:1;font-family:inherit;font-weight:800;color:#cdd9f0;background:rgba(255,255,255,.06);
+    border:1.5px solid rgba(255,255,255,.16);border-radius:12px;padding:9px 6px;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:3px;transition:transform .1s,border-color .12s,background .12s}
+  .heropick button .hi{font-size:26px;line-height:1}
+  .heropick button .hn{font-size:12.5px}
+  .heropick button .hd{font-size:9.5px;font-weight:700;color:#8fa0c0}
+  .heropick button:hover{border-color:#fbbf24;background:rgba(251,191,36,.1)}
+  .heropick button.on{background:rgba(251,191,36,.18);border-color:#fbbf24;color:#fbbf24;box-shadow:0 0 0 2px rgba(251,191,36,.22)}
+  .heropick button.on .hd{color:#e7bf6a}
+  .heropick button:active{transform:scale(.96)}
   /* ⏱ 퀴즈 답변 제한시간 표시 */
   .qtimer{font-size:10.5px;font-weight:800;color:#06223a;background:#7fd1ff;border-radius:999px;padding:2px 9px;display:none}
   .qtimer.low{background:#ef4444;color:#fff;animation:qshake .35s}
@@ -114,6 +126,8 @@
         <h1>워드 <span class="em">배틀</span> 마스터</h1>
         <p>레슨을 골라 <b>보스(왕)</b>와 대결! 단어·문장 퀴즈를 맞히면 기사가 공격하고, 틀리면 보스가 반격합니다. 보스를 쓰러뜨리면 <b>3D 배지</b>를 획득해요. 🔊 소리를 켜고 즐기세요!</p>
         <div id="badgeCollection" style="margin:0 0 12px;font-size:13px;font-weight:800;color:#c7d3ea"></div>
+        <div style="font-size:11px;font-weight:800;color:#9fb3d6;text-align:left;margin:0 0 6px">🚀 우주인 선택 (내 캐릭터로 배틀!)</div>
+        <div class="heropick" id="heroPick"></div>
         <div style="font-size:11px;font-weight:800;color:#9fb3d6;text-align:left;margin:0 0 6px">⚡ 게임 속도 (답변 제한시간 · 5단계)</div>
         <div class="speedrow" id="speedRow"></div>
         <div class="lessonpick" id="lessonPick"></div>
@@ -444,6 +458,12 @@
       hero: { url:SOLDIER, sprite:'astro-atlas.png?v=3', video:'robert-knight.mp4', scale:'auto', idle:'Idle', attack:'Run', brighten:true },   // 망고아이 우주인 파이터(카툰 그린스크린 5시트: 주먹·옆차기·날아차기·피격·소멸·승리). ?v = 캐시 강제 갱신
       boss: { url:'',      scale:'auto', idle:'Idle', attack:'Punch', tint:0x7a1414 }
     };
+    /* 🚀 우주인 선택 — 두 캐릭터(우주 소년 / 우주 강아지) 스프라이트 아틀라스. 시작 화면에서 고르면 즉시 교체·저장 */
+    var HERO_SKINS={
+      boy: { sprite:'astro-atlas.png?v=3', ico:'🧑‍🚀', name:'우주 소년', desc:'클래식 파이터' },
+      dog: { sprite:'dog-atlas.png?v=1',   ico:'🐶',        name:'우주 강아지', desc:'망고아이 마스코트' }
+    };
+    var heroSkin=(function(){ try{ var v=localStorage.getItem('mangoi_battle_hero'); return (v==='dog'||v==='boy')?v:'boy'; }catch(e){ return 'boy'; } })();
     var _mixers=[];
     // ===== 영웅(GLB) 암부 영구 제거 =====
     // 임계값 없이 강제 적용: 모든 mesh material을 순회하며 (1) color 각 채널 바닥값,
@@ -597,8 +617,10 @@
       if(faceDir<0) mesh.scale.x=-1;
       function setFrame(i){ var c=i%COLS, r=Math.floor(i/COLS); tex.offset.set(c/COLS, 1-(r+1)/ROWS); }
       setFrame(IDLE[0]);
+      var _shadow=makeContactShadow(1.6);
+      _shadow.userData._bb=true; mesh.userData._bb=true;   // 캐릭터 교체 시 제거할 수 있게 태그
       G.traverse(function(o){ if(o.isMesh) o.visible=false; });
-      G.add(makeContactShadow(1.6)); G.add(mesh);
+      G.add(_shadow); G.add(mesh);
       var COMBOS=[
         [{f:0,d:0.08},{f:2,d:0.22},{f:0,d:0.10}],                              // 주먹: 가드→런지 펀치→복귀
         [{f:3,d:0.10},{f:4,d:0.18},{f:5,d:0.14},{f:6,d:0.12}],                 // 옆차기: 챔버→뻗기→피크→회수
@@ -626,6 +648,19 @@
       G.userData.sprite=S;
     }
 
+    /* 🚀 캐릭터(우주인) 즉시 교체: 기존 빌보드(그림자+메시) 제거 후 새 아틀라스로 재부착 */
+    function setHeroSprite(url){
+      for(var i=hero.children.length-1;i>=0;i--){ var ch=hero.children[i];
+        if(ch.userData&&ch.userData._bb){
+          if(ch.material){ if(ch.material.map)ch.material.map.dispose(); ch.material.dispose(); }
+          if(ch.geometry) ch.geometry.dispose();
+          hero.remove(ch);
+        }
+      }
+      attachSpriteBillboard(hero, url, +1);
+      if(hero.userData.sprite) hero.userData.sprite.reset();
+    }
+
     var GAP=4.6;
     // 보스 전용 입체 조명(키 + 음산한 보라 림 + 언더글로) — 우주 괴물 느낌
     // 보스=오른쪽(+GAP), 히어로=왼쪽(-GAP)  (원위치)
@@ -638,7 +673,7 @@
     var heroFillBack=new THREE.PointLight(0xbcd2ff,0.7,7.0); heroFillBack.position.set(-GAP+0.4,1.6,-2.6); scene.add(heroFillBack);
     var hero=buildCharacter({skin:0xf1c27d,armor:0x3b6bdb,trim:0xfbbf24,eye:0x113355,face:+1,weapon:'sword'});
     hero.position.set(-GAP,0,0); hero.rotation.y=0.18; hero.userData.home.set(-GAP,0,0); scene.add(hero);   // 히어로=왼쪽, 오른쪽 보스를 향함
-    if(MODELS.hero.sprite){ attachSpriteBillboard(hero, MODELS.hero.sprite, +1); }
+    if(MODELS.hero.sprite){ attachSpriteBillboard(hero, HERO_SKINS[heroSkin].sprite, +1); }   // 🚀 저장된 선택(우주 소년/강아지)으로 시작
     else if(MODELS.hero.video){ attachVideoBillboard(hero, MODELS.hero.video, +1); }
     else { attachModel(hero, MODELS.hero, +1); }
     // 백드롭 무대 제거 — 사용자 요청: 뒤에는 별 있는 우주와 바닥만 보이고 로버트 자체만 보이게(어두운 판/사각형 없음)
@@ -861,6 +896,7 @@
       hurt:function(){ if(!AC||muted)return; var t=AC.currentTime; noiseB(sfxG,t,0.2,0.75,'lowpass',900); tone(sfxG,'square',90,t,0.25,0.6,40); },
       roar:function(){ if(!AC||muted)return; var t=AC.currentTime; tone(sfxG,'sawtooth',70,t,0.8,0.85,36); noiseB(sfxG,t,0.65,0.55,'lowpass',480); },
       correct:function(){ if(!AC||muted)return; var t=AC.currentTime; [523,659,784].forEach(function(f,i){ tone(sfxG,'triangle',f,t+i*0.06,0.2,0.5); }); },
+      select:function(){ if(!AC||muted)return; var t=AC.currentTime; tone(sfxG,'sine',660,t,0.12,0.4,990); tone(sfxG,'triangle',990,t+0.05,0.16,0.32,1320); noiseB(sfxG,t,0.06,0.2,'highpass',2600); },   // 우주인 선택 "핑↗" 확인음
       win:function(){ if(!AC||muted)return; var t=AC.currentTime; [523,659,784,1047,1319].forEach(function(f,i){ tone(sfxG,'triangle',f,t+i*0.12,0.4,0.55); }); },
       badge:function(){ if(!AC||muted)return; var t=AC.currentTime; [1047,1319,1568,2093].forEach(function(f,i){ tone(sfxG,'sine',f,t+i*0.08,0.5,0.4); }); },
       // "펑!" 훨씬 큰 폭발음 — 강하게 구동 + 리미터(컴프레서)로 클리핑 막고 메이크업 게인으로 체감 음량 대폭 ↑
@@ -1029,6 +1065,19 @@
       });
       paint();
     })();
+    /* 🚀 우주인(캐릭터) 선택 — 고르면 즉시 무대 위 캐릭터 교체 + 저장 + 확인음 */
+    (function(){
+      var row=document.getElementById('heroPick'); if(!row) return;
+      function paint(){ [].forEach.call(row.children,function(b){ b.classList.toggle('on', b.getAttribute('data-skin')===heroSkin); }); }
+      Object.keys(HERO_SKINS).forEach(function(key){
+        var s=HERO_SKINS[key];
+        var b=document.createElement('button'); b.setAttribute('data-skin',key);
+        b.innerHTML='<span class="hi">'+s.ico+'</span><span class="hn">'+s.name+'</span><span class="hd">'+s.desc+'</span>';
+        b.onclick=function(){ var changed=(heroSkin!==key); heroSkin=key; try{ localStorage.setItem('mangoi_battle_hero',key); }catch(e){} paint(); audioInit(); sfx.select(); if(changed) setHeroSprite(s.sprite); };
+        row.appendChild(b);
+      });
+      paint();
+    })();
     /* ← 뒤로가기: 허브(iframe) 안이면 부모에 알리고, 단독 실행이면 게임 목록으로 */
     document.getElementById('backBtn').onclick=function(){
       try{
@@ -1081,6 +1130,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260707222504 -->
+<!-- BUILD:20260707224749 -->
 </body>
 </html>

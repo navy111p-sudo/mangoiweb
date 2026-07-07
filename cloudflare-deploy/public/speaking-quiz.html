@@ -92,6 +92,13 @@
   .typechip{font-size:12px;font-weight:800;letter-spacing:1px;padding:5px 14px;border-radius:999px;text-transform:uppercase}
   .typechip.word{background:rgba(59,130,246,.2);color:#bcd6ff;border:1px solid rgba(59,130,246,.5)}
   .typechip.sentence{background:rgba(168,85,247,.2);color:#e2c4ff;border:1px solid rgba(168,85,247,.5)}
+  /* 🖼️ 단어/문장 그림(이모지 일러스트) — 단어=한 개, 문장=여러 개 조합 장면 */
+  .illus{font-size:clamp(52px,14vmin,116px);line-height:1;margin:-2px 0 -4px;min-height:1.05em;
+    display:flex;align-items:center;justify-content:center;gap:.06em;flex-wrap:nowrap;
+    filter:drop-shadow(0 6px 15px rgba(0,0,0,.34))}
+  .illus:empty{display:none}
+  .illus.pop{animation:illusPop .5s cubic-bezier(.2,1.5,.4,1)}
+  @keyframes illusPop{0%{transform:scale(.35) rotate(-9deg);opacity:0}62%{transform:scale(1.14) rotate(3deg);opacity:1}100%{transform:scale(1) rotate(0)}}
   .target-card{width:min(96%,620px);background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:20px;
     padding:22px 20px;box-shadow:0 12px 34px rgba(0,0,0,.4)}
   .target-en{font-size:clamp(26px,6vmin,52px);font-weight:900;color:#fff;line-height:1.2;word-break:keep-all}
@@ -148,6 +155,7 @@
     .mic-btn{font-size:23px;padding:21px 38px;border-radius:22px}
     .status{font-size:17px}
     .stat .val{font-size:23px}
+    .illus{font-size:clamp(76px,16vmin,148px)}
   }
 </style>
 </head>
@@ -199,11 +207,13 @@
       <div class="stat"><span class="lab">점수</span><span class="val" id="scoreVal">0</span></div>
       <span class="pill" id="progPill">0 / 10</span>
       <button class="iconbtn" id="soundBtn" title="소리 켜기/끄기">🔊</button>
+      <button class="iconbtn" id="musicBtn" title="배경음악 켜기/끄기">🎵</button>
       <div class="book-badge" id="bookBadge">🔊 음성 준비 중…</div>
     </div>
     <div class="progress"><i id="progBar"></i></div>
     <div class="field" id="field">
       <span class="typechip word" id="typeChip">단어</span>
+      <div class="illus" id="illus" aria-hidden="true"></div>
       <div class="target-card">
         <div class="target-en" id="targetEn">—</div>
         <div class="target-ko" id="targetKo"></div>
@@ -250,6 +260,102 @@
   ];
 
   var VOCAB = { words: FALLBACK_WORDS.slice(), sentences: FALLBACK_SENTENCES.slice(), textbook:'', level:'', student:'', matched:false };
+
+  /* ── 🖼️ 이모지 일러스트 사전 (단어 → 그림) ──
+     초등 영어에서 자주 쓰는 명사/동사/형용사를 폭넓게 매핑. 없으면 기본 아이콘 폴백. */
+  var WORD_EMOJI = {
+    // 과일·음식
+    apple:'🍎',banana:'🍌',mango:'🥭',orange:'🍊',grape:'🍇',grapes:'🍇',strawberry:'🍓',watermelon:'🍉',
+    peach:'🍑',pear:'🍐',lemon:'🍋',cherry:'🍒',pineapple:'🍍',tomato:'🍅',carrot:'🥕',corn:'🌽',
+    bread:'🍞',rice:'🍚',egg:'🥚',milk:'🥛',juice:'🧃',cheese:'🧀',cake:'🍰',pizza:'🍕',hamburger:'🍔',
+    burger:'🍔',chicken:'🍗',meat:'🍖',candy:'🍬',chocolate:'🍫',cookie:'🍪',cookies:'🍪',soup:'🍲',
+    noodle:'🍜',noodles:'🍜',sandwich:'🥪',hotdog:'🌭',fries:'🍟',donut:'🍩',honey:'🍯',salad:'🥗',
+    potato:'🥔',onion:'🧅',mushroom:'🍄',breakfast:'🍳',lunch:'🍱',dinner:'🍽️',food:'🍽️',tea:'🍵',
+    coffee:'☕',icecream:'🍦',popcorn:'🍿',butter:'🧈',jam:'🍓',
+    // 동물
+    cat:'🐱',dog:'🐶',puppy:'🐶',kitten:'🐱',rabbit:'🐰',bird:'🐦',fish:'🐟',lion:'🦁',tiger:'🐯',
+    bear:'🐻',panda:'🐼',monkey:'🐵',elephant:'🐘',giraffe:'🦒',zebra:'🦓',horse:'🐴',cow:'🐮',pig:'🐷',
+    sheep:'🐑',goat:'🐐',duck:'🦆',hen:'🐔',rooster:'🐓',frog:'🐸',turtle:'🐢',snake:'🐍',fox:'🦊',
+    wolf:'🐺',deer:'🦌',mouse:'🐭',hamster:'🐹',owl:'🦉',penguin:'🐧',dolphin:'🐬',whale:'🐳',shark:'🦈',
+    octopus:'🐙',crab:'🦀',butterfly:'🦋',bee:'🐝',ant:'🐜',spider:'🕷️',ladybug:'🐞',dinosaur:'🦕',
+    dragon:'🐲',unicorn:'🦄',snail:'🐌',bat:'🦇',
+    // 자연
+    sun:'☀️',moon:'🌙',star:'⭐',cloud:'☁️',rain:'🌧️',snow:'❄️',rainbow:'🌈',flower:'🌸',flowers:'🌸',
+    tree:'🌳',trees:'🌳',leaf:'🍃',grass:'🌿',mountain:'⛰️',mountains:'⛰️',sea:'🌊',ocean:'🌊',
+    river:'🏞️',beach:'🏖️',fire:'🔥',wind:'🌬️',sky:'🌤️',earth:'🌍',world:'🌍',rose:'🌹',
+    sunflower:'🌻',forest:'🌲',island:'🏝️',volcano:'🌋',lightning:'⚡',thunder:'⛈️',storm:'⛈️',
+    // 몸·사람
+    eye:'👁️',eyes:'👀',ear:'👂',nose:'👃',mouth:'👄',hand:'✋',hands:'🙌',foot:'🦶',leg:'🦵',
+    hair:'💇',face:'😊',baby:'👶',boy:'👦',girl:'👧',man:'👨',woman:'👩',mom:'👩',mother:'👩',
+    dad:'👨',father:'👨',family:'👨‍👩‍👧‍👦',friend:'🧑‍🤝‍🧑',friends:'🧑‍🤝‍🧑',teacher:'👩‍🏫',doctor:'👩‍⚕️',
+    nurse:'👩‍⚕️',police:'👮',farmer:'👨‍🌾',chef:'👨‍🍳',king:'👑',queen:'👸',prince:'🤴',princess:'👸',
+    // 집·물건
+    house:'🏠',home:'🏠',school:'🏫',book:'📖',books:'📚',pen:'🖊️',pencil:'✏️',bag:'🎒',desk:'🪑',
+    chair:'🪑',table:'🪑',bed:'🛏️',door:'🚪',window:'🪟',clock:'🕐',phone:'📱',computer:'💻',tv:'📺',
+    television:'📺',key:'🔑',cup:'☕',box:'📦',ball:'⚽',toy:'🧸',doll:'🧸',gift:'🎁',present:'🎁',
+    balloon:'🎈',umbrella:'☂️',glasses:'👓',hat:'🎩',cap:'🧢',shoe:'👟',shoes:'👟',shirt:'👕',
+    dress:'👗',socks:'🧦',clothes:'👚',watch:'⌚',money:'💰',camera:'📷',letter:'✉️',map:'🗺️',
+    ruler:'📏',scissors:'✂️',crayon:'🖍️',paint:'🎨',music:'🎵',song:'🎵',guitar:'🎸',piano:'🎹',
+    drum:'🥁',bell:'🔔',candle:'🕯️',soap:'🧼',mirror:'🪞',spoon:'🥄',fork:'🍴',plate:'🍽️',
+    // 탈것
+    car:'🚗',bus:'🚌',train:'🚆',airplane:'✈️',plane:'✈️',boat:'⛵',ship:'🚢',bike:'🚲',bicycle:'🚲',
+    truck:'🚚',taxi:'🚕',rocket:'🚀',helicopter:'🚁',ambulance:'🚑',
+    // 장소
+    park:'🏞️',zoo:'🦁',hospital:'🏥',store:'🏪',shop:'🏪',market:'🏪',library:'📚',church:'⛪',
+    bank:'🏦',farm:'🚜',city:'🏙️',playground:'🛝',restaurant:'🍴',
+    // 동작(동사)
+    eat:'🍽️',drink:'🥤',run:'🏃',walk:'🚶',jump:'🤸',swim:'🏊',sleep:'😴',read:'📖',write:'✍️',
+    sing:'🎤',dance:'💃',play:'⚽',study:'📚',draw:'🎨',cook:'🍳',laugh:'😄',cry:'😢',smile:'😊',
+    love:'❤️',like:'👍',look:'👀',see:'👀',listen:'👂',speak:'🗣️',talk:'💬',go:'🚶',sit:'🪑',
+    stand:'🧍',fly:'🕊️',ride:'🚴',wash:'🧼',brush:'🪥',open:'🔓',close:'🔒',buy:'🛒',help:'🤝',
+    clean:'🧹',win:'🏆',think:'💭',want:'🙏',give:'🎁',make:'🔨',throw:'🏐',catch:'🧤',kick:'⚽',
+    climb:'🧗',hug:'🤗',kiss:'😘',
+    // 감정·형용사
+    happy:'😊',sad:'😢',angry:'😠',tired:'😴',hungry:'😋',scared:'😨',surprised:'😮',sleepy:'😴',
+    sick:'🤒',hot:'🥵',cold:'🥶',big:'🐘',small:'🐁',fast:'⚡',slow:'🐢',new:'✨',old:'👴',
+    good:'👍',bad:'👎',beautiful:'🌸',pretty:'🌸',cute:'🥰',funny:'😄',strong:'💪',brave:'🦁',kind:'💗',
+    // 시간·기타
+    day:'🌞',night:'🌙',morning:'🌅',afternoon:'🌇',evening:'🌆',birthday:'🎂',party:'🎉',
+    holiday:'🎉',winter:'⛄',summer:'🏖️',spring:'🌷',autumn:'🍂',fall:'🍂',weekend:'🎉',
+    heart:'❤️',color:'🎨',number:'🔢',water:'💧'
+  };
+  var SENT_SCENE = { breakfast:'🌅',morning:'🌅',lunch:'🌞',noon:'🌞',dinner:'🌆',evening:'🌆',
+    night:'🌙',bedtime:'🌙' };
+  var STOP_WORDS = {a:1,an:1,the:1,is:1,am:1,are:1,was:1,were:1,be:1,to:1,of:1,in:1,on:1,at:1,and:1,
+    or:1,but:1,it:1,its:1,this:1,that:1,my:1,your:1,his:1,her:1,our:1,their:1,i:1,you:1,he:1,she:1,
+    we:1,they:1,me:1,him:1,them:1,us:1,very:1,so:1,too:1,not:1,do:1,does:1,did:1,will:1,can:1,with:1,
+    for:1,up:1,out:1,down:1,every:1,all:1,some:1,here:1,there:1,now:1,then:1 };
+  // 단어 하나 → 이모지 (변화형 어미 제거해서 재시도)
+  function lookupWord(raw){
+    var w = String(raw||'').toLowerCase().replace(/[^a-z]/g,''); if(!w) return '';
+    if(WORD_EMOJI[w]) return WORD_EMOJI[w];
+    var cand=[];
+    if(/ies$/.test(w)) cand.push(w.slice(0,-3)+'y');
+    if(/(ch|sh|s|x|z)es$/.test(w)) cand.push(w.slice(0,-2));
+    if(/s$/.test(w)) cand.push(w.slice(0,-1));
+    if(/ing$/.test(w)){ var b=w.slice(0,-3); cand.push(b); cand.push(b+'e'); if(/([a-z])\1$/.test(b)) cand.push(b.slice(0,-1)); } // running→run
+    if(/ed$/.test(w)){ var d=w.slice(0,-2); cand.push(d); cand.push(w.slice(0,-1)); if(/([a-z])\1$/.test(d)) cand.push(d.slice(0,-1)); } // stopped→stop
+    for(var i=0;i<cand.length;i++){ if(WORD_EMOJI[cand[i]]) return WORD_EMOJI[cand[i]]; }
+    return '';
+  }
+  function emojiForWord(en){ return lookupWord(en) || '🔤'; }
+  // 문장 → 여러 이모지 조합 장면(최대 3개) + 시간대 힌트
+  function emojiForSentence(en){
+    var toks = String(en||'').toLowerCase().replace(/[^a-z' ]/g,' ').split(/\s+/).filter(Boolean);
+    var out=[], seen={}, scene='';
+    toks.forEach(function(t){ if(!scene && SENT_SCENE[t.replace(/[^a-z]/g,'')]) scene=SENT_SCENE[t.replace(/[^a-z]/g,'')]; });
+    if(scene){ out.push(scene); seen[scene]=1; }
+    for(var i=0;i<toks.length && out.length<3;i++){
+      var t=toks[i].replace(/[^a-z]/g,''); if(!t||STOP_WORDS[t]) continue;
+      var e=lookupWord(t); if(e && !seen[e]){ out.push(e); seen[e]=1; }
+    }
+    return out.length ? out.join('') : '💬';
+  }
+  function setIllus(it){
+    var el=$('#illus'); if(!el) return;
+    el.textContent = it.type==='sentence' ? emojiForSentence(it.en) : emojiForWord(it.en);
+    el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+  }
 
   var $ = function(s){ return document.querySelector(s); };
   function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
@@ -316,6 +422,55 @@
     }catch(e){ if(cb) cb(); }
   }
 
+  /* ── 🎵 디지털 배경음악 (Web Audio 실시간 생성 · 파일 없음) ──
+     부드러운 pad + 통통 튀는 pluck 멜로디 + 저음 bass 를 I–vi–IV–V 진행으로 루프. */
+  var MangoMusic = (function(){
+    var AC = window.AudioContext || window.webkitAudioContext;
+    var ctx=null, master=null, timer=null, step=0, on=false;
+    var STEP=0.34; // 8분음표 길이(초)
+    var prog = [ [0,4,7], [-3,0,4], [-7,-3,0], [-5,-1,2] ];          // C · Am · F · G
+    var melody = [12,7,4,7, 9,4,0,4, 5,0,-3,0, 7,2,-1,2];             // 4마디 통통 멜로디
+    function hz(semi){ return 261.63*Math.pow(2, semi/12); }
+    function pad(freqs,t,dur){ freqs.forEach(function(f){
+      var o=ctx.createOscillator(),g=ctx.createGain(),lp=ctx.createBiquadFilter();
+      o.type='triangle'; o.frequency.value=f/2; lp.type='lowpass'; lp.frequency.value=1100;
+      g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.05,t+0.5);
+      g.gain.linearRampToValueAtTime(0.0001,t+dur);
+      o.connect(lp); lp.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.05);
+    }); }
+    function pluck(f,t){ var o=ctx.createOscillator(),g=ctx.createGain();
+      o.type='square'; o.frequency.value=f;
+      g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(0.055,t+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+0.30);
+      o.connect(g); g.connect(master); o.start(t); o.stop(t+0.32);
+    }
+    function bass(f,t,dur){ var o=ctx.createOscillator(),g=ctx.createGain();
+      o.type='sine'; o.frequency.value=f/4;
+      g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(0.085,t+0.05);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+      o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.05);
+    }
+    function tick(){
+      if(!on || !ctx) return;
+      var t=ctx.currentTime+0.06, bar=Math.floor(step/4)%4;
+      if(step%4===0){ pad(prog[bar].map(hz),t,STEP*4); bass(hz(prog[bar][0]),t,STEP*4); }
+      pluck(hz(melody[step%16]), t);
+      step=(step+1)%16;
+      timer=setTimeout(tick, STEP*1000);
+    }
+    function start(){
+      if(on) return;
+      try{
+        if(!ctx){ if(!AC) return; ctx=new AC(); master=ctx.createGain(); master.gain.value=0.5; master.connect(ctx.destination); }
+        if(ctx.state==='suspended') ctx.resume();
+        on=true; tick();
+      }catch(e){}
+    }
+    function stop(){ on=false; clearTimeout(timer); }
+    return { start:start, stop:stop, isOn:function(){ return on; } };
+  })();
+  var MUSIC_ON = true;
+
   /* ── 문장 일치 판정(관대) ── */
   function norm(s){ return (s||'').toLowerCase().replace(/[^a-z0-9' ]/g,'').replace(/\s+/g,' ').trim(); }
   function _clean(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
@@ -376,7 +531,8 @@
 
   function start(){
     G.queue=buildQueue(); G.idx=0; G.score=0; G.done=0; G.busy=false;
-    updateHUD(); show('play'); if(synth){ try{ speak(' '); }catch(e){} } nextItem();
+    updateHUD(); show('play'); if(MUSIC_ON) MangoMusic.start();
+    if(synth){ try{ speak(' '); }catch(e){} } nextItem();
   }
 
   function nextItem(){
@@ -387,6 +543,7 @@
     $('#typeChip').className = 'typechip '+it.type;
     $('#targetEn').textContent = it.en;
     $('#targetKo').textContent = it.ko || '';
+    setIllus(it);
     $('#status').innerHTML = '먼저 원어민 발음을 잘 들어보세요 🎧';
     var mic=$('#micBtn'); mic.disabled=true; mic.classList.remove('listening'); mic.innerHTML='🔊 듣는 중…';
     // 자동 1회 재생 → 끝나면 마이크 활성화
@@ -465,7 +622,7 @@
       '</div>'+
       '<button class="btn" onclick="window.MangoFlow&&MangoFlow.open(\'quiz\')" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;margin-top:10px;width:100%">🚀 다음 활동 고르기</button>';
     $('#resultOverlay').classList.add('show');
-    $('#rMenu').addEventListener('click', function(){ if(synth)synth.cancel(); show('menu'); });
+    $('#rMenu').addEventListener('click', function(){ if(synth)synth.cancel(); MangoMusic.stop(); show('menu'); });
     $('#rAgain').addEventListener('click', function(){ $('#resultOverlay').classList.remove('show'); start(); });
   }
 
@@ -475,7 +632,7 @@
     [].forEach.call(this.querySelectorAll('button'), function(x){ x.classList.toggle('on', x===b); });
   });
   $('#startBtn').addEventListener('click', start);
-  $('#homeBtn').addEventListener('click', function(){ if(synth)synth.cancel(); if(recogActive){try{recog.stop();}catch(e){}} show('menu'); });
+  $('#homeBtn').addEventListener('click', function(){ if(synth)synth.cancel(); if(recogActive){try{recog.stop();}catch(e){}} MangoMusic.stop(); show('menu'); });
   $('#listenBtn').addEventListener('click', function(){ if(G.cur) speak(G.cur.en); });
   $('#micBtn').addEventListener('click', function(){
     if(this.disabled) return;
@@ -498,9 +655,17 @@
     if(!SOUND_ON && synth) synth.cancel();
     toast(SOUND_ON?'🔊 소리 켜짐':'🔇 소리 꺼짐', SOUND_ON?'good':'');
   });
+  $('#musicBtn').addEventListener('click', function(){
+    MUSIC_ON=!MUSIC_ON; this.classList.toggle('off', !MUSIC_ON);
+    if(MUSIC_ON) MangoMusic.start(); else MangoMusic.stop();
+    toast(MUSIC_ON?'🎵 배경음악 켜짐':'🔇 배경음악 꺼짐', MUSIC_ON?'good':'');
+  });
 
-  /* ── 앱 전환 시 음성 정지 ── */
-  document.addEventListener('visibilitychange', function(){ if(document.hidden){ if(synth)synth.cancel(); if(recogActive){try{recog.stop();}catch(e){}} } });
+  /* ── 앱 전환 시 음성/음악 정지, 복귀 시 음악 재개 ── */
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden){ if(synth)synth.cancel(); if(recogActive){try{recog.stop();}catch(e){}} MangoMusic.stop(); }
+    else if(MUSIC_ON && $('#play').classList.contains('active')){ MangoMusic.start(); }
+  });
 
   /* ── 초기화 ── */
   var warn=[]; if(!synth) warn.push('음성 합성(TTS)'); if(!SR) warn.push('음성 인식(말하기)');
@@ -512,6 +677,6 @@
 </script>
 <!-- BUILD:20260704 speakquiz1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260707222504 -->
+<!-- BUILD:20260707224749 -->
 </body>
 </html>
