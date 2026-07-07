@@ -216,6 +216,7 @@
       <div class="illus" id="illus" aria-hidden="true"></div>
       <div class="target-card">
         <div class="target-en" id="targetEn">—</div>
+        <div class="target-py" id="targetPy" style="display:none;color:#bdf3e4;font-size:19px;font-weight:600;margin:1px 0 3px;letter-spacing:.3px"></div>
         <div class="target-ko" id="targetKo"></div>
         <button class="listen" id="listenBtn">🔊 다시 듣기</button>
       </div>
@@ -259,7 +260,32 @@
     {en:'They are good friends.',ko:'그들은 좋은 친구예요.'}
   ];
 
-  var VOCAB = { words: FALLBACK_WORDS.slice(), sentences: FALLBACK_SENTENCES.slice(), textbook:'', level:'', student:'', matched:false };
+  /* ── 🇨🇳 중국어(다락원 중국어 마스터) 내장 어휘 — en=한자, pinyin=병음, ko=뜻 (API 실패 시 폴백) ── */
+  var IS_ZH = (GLANG==='zh');
+  var ZH_FALLBACK_WORDS = [
+    {en:'苹果',pinyin:'píngguǒ',ko:'사과'},{en:'书',pinyin:'shū',ko:'책'},{en:'猫',pinyin:'māo',ko:'고양이'},
+    {en:'狗',pinyin:'gǒu',ko:'강아지'},{en:'花',pinyin:'huā',ko:'꽃'},{en:'你好',pinyin:'nǐ hǎo',ko:'안녕'},
+    {en:'学校',pinyin:'xuéxiào',ko:'학교'},{en:'水',pinyin:'shuǐ',ko:'물'},{en:'太阳',pinyin:'tàiyáng',ko:'태양'},
+    {en:'月亮',pinyin:'yuèliang',ko:'달'},{en:'星星',pinyin:'xīngxing',ko:'별'},{en:'爱',pinyin:'ài',ko:'사랑'},
+    {en:'漂亮',pinyin:'piàoliang',ko:'예쁜'},{en:'好吃',pinyin:'hǎochī',ko:'맛있는'},{en:'重要',pinyin:'zhòngyào',ko:'중요한'},
+    {en:'一起',pinyin:'yìqǐ',ko:'함께'},{en:'旅行',pinyin:'lǚxíng',ko:'여행'},{en:'假期',pinyin:'jiàqī',ko:'방학'}
+  ];
+  var ZH_FALLBACK_SENTENCES = [
+    {en:'我爱你。',pinyin:'Wǒ ài nǐ.',ko:'나는 너를 사랑해.'},
+    {en:'你好吗？',pinyin:'Nǐ hǎo ma?',ko:'잘 지내니?'},
+    {en:'我是学生。',pinyin:'Wǒ shì xuésheng.',ko:'나는 학생이에요.'},
+    {en:'今天天气很好。',pinyin:'Jīntiān tiānqì hěn hǎo.',ko:'오늘 날씨가 좋아요.'},
+    {en:'我喜欢吃苹果。',pinyin:'Wǒ xǐhuan chī píngguǒ.',ko:'나는 사과 먹는 걸 좋아해요.'},
+    {en:'这是我的朋友。',pinyin:'Zhè shì wǒ de péngyou.',ko:'이 사람은 내 친구예요.'},
+    {en:'我想喝水。',pinyin:'Wǒ xiǎng hē shuǐ.',ko:'나는 물을 마시고 싶어요.'},
+    {en:'昨天我和家人去了海边。',pinyin:'Zuótiān wǒ hé jiārén qùle hǎibiān.',ko:'어제 나는 가족과 바닷가에 갔어요.'},
+    {en:'她将来想当医生。',pinyin:'Tā jiānglái xiǎng dāng yīshēng.',ko:'그녀는 장래에 의사가 되고 싶어해요.'},
+    {en:'我们应该对朋友友好。',pinyin:'Wǒmen yīnggāi duì péngyou yǒuhǎo.',ko:'우리는 친구에게 친절해야 해요.'}
+  ];
+
+  var VOCAB = IS_ZH
+    ? { words: ZH_FALLBACK_WORDS.slice(), sentences: ZH_FALLBACK_SENTENCES.slice(), textbook:'다락원 중국어 마스터', level:'Lv 3', student:'', matched:true }
+    : { words: FALLBACK_WORDS.slice(), sentences: FALLBACK_SENTENCES.slice(), textbook:'', level:'', student:'', matched:false };
 
   /* ── 🖼️ 이모지 일러스트 사전 (단어 → 그림) ──
      초등 영어에서 자주 쓰는 명사/동사/형용사를 폭넓게 매핑. 없으면 기본 아이콘 폴백. */
@@ -362,6 +388,20 @@
 
   /* ── 📚 로그인 학생 교재/레벨 맞춤 어휘 로드 ── */
   function loadVocab(){
+    if(IS_ZH){   // 🀄 다락원 중국어 마스터 실제 어휘 로드(레벨 맞춤), 실패 시 내장 폴백
+      return fetch('/api/games/zh-vocab?textbook='+encodeURIComponent('다락원')+'&level='+encodeURIComponent('Lv 3'))
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(d){
+          if(d && d.ok){
+            var sents=(d.sentences||[]).filter(function(s){return s&&s.en;});
+            var wds=(d.words||[]).filter(function(w){return w&&w.en&&w.ko;});
+            if(sents.length>=3) VOCAB.sentences = sents.map(function(s){return {en:s.en, pinyin:s.pinyin||'', ko:s.ko||''};});
+            if(wds.length>=6) VOCAB.words = wds.map(function(w){return {en:w.en, pinyin:w.pinyin||'', ko:w.ko||''};});
+            if(d.textbook) VOCAB.textbook=d.textbook; if(d.level) VOCAB.level=d.level;
+          }
+          return VOCAB;
+        }).catch(function(){ return VOCAB; });
+    }
     try{
       if(window.MangoiGameVocab && GLANG!=='zh'){
         return MangoiGameVocab.load().then(function(d){
@@ -389,7 +429,7 @@
   }
 
   /* ── 🔊 TTS (원어민 음성) ── */
-  var synth = ('speechSynthesis' in window) ? window.speechSynthesis : null, enVoice=null;
+  var synth = ('speechSynthesis' in window) ? window.speechSynthesis : null, enVoice=null, zhVoice=null;
   function scoreVoice(v){
     var n=(v.name||'').toLowerCase(), lang=(v.lang||'').toLowerCase(), s=0;
     if(lang==='en-us') s+=40; else if(lang==='en-gb'||lang==='en-au') s+=28; else if(lang.slice(0,2)==='en') s+=18; else s-=120;
@@ -407,6 +447,13 @@
     var en=vs.filter(function(v){ return (v.lang||'').slice(0,2).toLowerCase()==='en'; });
     if(en.length){ var best=null,bs=-1e9; en.forEach(function(v){ var sc=scoreVoice(v); if(sc>bs){bs=sc;best=v;} }); enVoice=best; }
     else enVoice=null;
+    // 🇨🇳 중국어 원어민 목소리(zh-CN 우선, Google/Natural 가점)
+    var zh=vs.filter(function(v){ return (v.lang||'').slice(0,2).toLowerCase()==='zh'; });
+    if(zh.length){ var zb=null,zs=-1e9; zh.forEach(function(v){ var n=(v.name||'').toLowerCase(),l=(v.lang||'').toLowerCase(),s=0;
+      if(/^zh[-_]?cn/.test(l))s+=40; else if(/^zh/.test(l))s+=10;
+      if(/google|natural|neural|online/.test(n))s+=60; if(/xiaoxiao|yunyang|huihui|kangkang|yaoyao|tingting/.test(n))s+=30;
+      if(v.localService===false)s+=20; if(/espeak|compact/.test(n))s-=40; if(s>zs){zs=s;zb=v;} }); zhVoice=zb; }
+    else zhVoice=null;
   }
   if(synth){ pickVoice(); synth.onvoiceschanged=pickVoice; }
   var SOUND_ON = true;
@@ -414,9 +461,10 @@
     if(!synth || !SOUND_ON){ if(cb) cb(); return; }
     try{
       synth.cancel();
-      var u=new SpeechSynthesisUtterance(String(text||'').replace(/[.?!]+$/,''));
-      u.lang='en-US'; u.rate=0.94; u.pitch=1.02; u.volume=1;
-      if(enVoice){ u.voice=enVoice; u.lang=enVoice.lang||'en-US'; }
+      var u=new SpeechSynthesisUtterance(String(text||'').replace(/[.?!。？！]+$/,''));
+      if(IS_ZH){ u.lang='zh-CN'; u.rate=0.85; u.pitch=1.0; if(zhVoice){ u.voice=zhVoice; u.lang=zhVoice.lang||'zh-CN'; } }
+      else { u.lang='en-US'; u.rate=0.94; u.pitch=1.02; if(enVoice){ u.voice=enVoice; u.lang=enVoice.lang||'en-US'; } }
+      u.volume=1;
       if(cb){ var done=false; u.onend=function(){ if(!done){done=true;cb();} }; setTimeout(function(){ if(!done){done=true;cb();} },3800); }
       synth.speak(u);
     }catch(e){ if(cb) cb(); }
@@ -472,8 +520,8 @@
   var MUSIC_ON = true;
 
   /* ── 문장 일치 판정(관대) ── */
-  function norm(s){ return (s||'').toLowerCase().replace(/[^a-z0-9' ]/g,'').replace(/\s+/g,' ').trim(); }
-  function _clean(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+  function norm(s){ if(IS_ZH) return (s||'').replace(/[^一-鿿]/g,''); return (s||'').toLowerCase().replace(/[^a-z0-9' ]/g,'').replace(/\s+/g,' ').trim(); }
+  function _clean(s){ if(IS_ZH) return (s||'').replace(/[^一-鿿]/g,''); return (s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
   function _lev(a,b){ var m=a.length,n=b.length; if(!m)return n; if(!n)return m; var prev=[],cur=[],i,j;
     for(j=0;j<=n;j++)prev[j]=j; for(i=1;i<=m;i++){ cur[0]=i; for(j=1;j<=n;j++){ var c=a.charAt(i-1)===b.charAt(j-1)?0:1; cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+c); } var t=prev;prev=cur;cur=t; } return prev[n]; }
   function simRatio(a,b){ a=_clean(a); b=_clean(b); if(!a||!b)return 0; if(a===b)return 1; var L=Math.max(a.length,b.length); return L?(1-_lev(a,b)/L):0; }
@@ -501,14 +549,14 @@
     var words = shuffle(VOCAB.words.slice());
     var sents = shuffle(VOCAB.sentences.slice());
     var q=[];
-    if(mode==='word'){ words.forEach(function(w){ q.push({type:'word', en:w.en, ko:w.ko}); }); }
-    else if(mode==='sentence'){ sents.forEach(function(s){ q.push({type:'sentence', en:s.en, ko:s.ko}); }); }
+    if(mode==='word'){ words.forEach(function(w){ q.push({type:'word', en:w.en, ko:w.ko, py:w.pinyin||''}); }); }
+    else if(mode==='sentence'){ sents.forEach(function(s){ q.push({type:'sentence', en:s.en, ko:s.ko, py:s.pinyin||''}); }); }
     else {
       // 번갈아(단어→문장) 섞기
       var wi=0, si=0;
       while(wi<words.length || si<sents.length){
-        if(wi<words.length){ q.push({type:'word', en:words[wi].en, ko:words[wi].ko}); wi++; }
-        if(si<sents.length){ q.push({type:'sentence', en:sents[si].en, ko:sents[si].ko}); si++; }
+        if(wi<words.length){ q.push({type:'word', en:words[wi].en, ko:words[wi].ko, py:words[wi].pinyin||''}); wi++; }
+        if(si<sents.length){ q.push({type:'sentence', en:sents[si].en, ko:sents[si].ko, py:sents[si].pinyin||''}); si++; }
       }
     }
     // 목표 개수만큼(모자라면 반복 채움)
@@ -542,6 +590,7 @@
     $('#typeChip').textContent = it.type==='word' ? '단어' : '문장';
     $('#typeChip').className = 'typechip '+it.type;
     $('#targetEn').textContent = it.en;
+    var pyEl=$('#targetPy'); if(it.py){ pyEl.textContent=it.py; pyEl.style.display='block'; } else { pyEl.style.display='none'; }   // 병음(중국어)
     $('#targetKo').textContent = it.ko || '';
     setIllus(it);
     $('#status').innerHTML = '먼저 원어민 발음을 잘 들어보세요 🎧';
@@ -583,7 +632,7 @@
 
   function setupRecognition(){
     if(!SR) return null;
-    var r=new SR(); r.lang='en-US'; r.interimResults=false; r.maxAlternatives=3; r.continuous=false;
+    var r=new SR(); r.lang=IS_ZH?'zh-CN':'en-US'; r.interimResults=false; r.maxAlternatives=3; r.continuous=false;
     r.onstart=function(){ recogActive=true; var m=$('#micBtn'); m.classList.add('listening'); m.innerHTML='🔴 듣는 중… 말하세요'; };
     r.onerror=function(ev){ recogActive=false; var m=$('#micBtn'); m.classList.remove('listening'); m.innerHTML='🎤 다시 말하기'; m.disabled=false;
       if(ev.error==='not-allowed'||ev.error==='service-not-allowed') $('#status').innerHTML='⚠ 마이크 권한이 필요합니다. 브라우저에서 허용하거나 <b>통과(스킵)</b>를 눌러주세요.';
@@ -677,6 +726,6 @@
 </script>
 <!-- BUILD:20260704 speakquiz1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260707232904 -->
+<!-- BUILD:20260707233903 -->
 </body>
 </html>

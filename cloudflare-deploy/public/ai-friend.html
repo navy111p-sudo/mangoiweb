@@ -30,7 +30,9 @@
     .top a { color: var(--text); text-decoration: none; font-weight: 700; font-size: 14px; }
     .top .mango-icon { width: 36px; height: 36px; border-radius: 50%;
       background: linear-gradient(135deg, #fbbf24, #f59e0b);
-      display: flex; align-items: center; justify-content: center; font-size: 20px; }
+      display: flex; align-items: center; justify-content: center; font-size: 20px;
+      overflow: hidden; }
+    .top .mango-icon img { width: 100%; height: 100%; object-fit: cover; }
     .top .info { flex: 1; }
     .top .name { font-size: 14px; font-weight: 800; }
     .top .status { font-size: 11px; color: var(--green); }
@@ -54,7 +56,9 @@
     .ai-row { display: flex; gap: 8px; align-items: flex-end; }
     .ai-avatar { width: 28px; height: 28px; border-radius: 50%;
       background: linear-gradient(135deg, #fbbf24, #f59e0b);
-      display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+      display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0;
+      overflow: hidden; }
+    .ai-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .typing { display: inline-flex; gap: 4px; padding: 14px 18px; }
     .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--gold);
       animation: bounce 1.4s infinite; }
@@ -86,7 +90,7 @@
 <body>
   <div class="top">
     <a href="/">←</a>
-    <div class="mango-icon">🥭</div>
+    <div class="mango-icon"><img src="/img/mango-char.png" alt="Mango" /></div>
     <div class="info">
       <div class="name">Mango</div>
       <div class="status">● <span data-ko="온라인 (24시간)" data-en="online (24/7)">온라인 (24시간)</span></div>
@@ -145,7 +149,7 @@
       } else {
         const row = document.createElement('div');
         row.className = 'ai-row';
-        row.innerHTML = `<div class="ai-avatar">🥭</div><div class="msg ai">${escapeHtml(content).replace(/\n/g, '<br>')}</div>`;
+        row.innerHTML = `<div class="ai-avatar"><img src="/img/mango-char.png" alt="Mango" /></div><div class="msg ai">${escapeHtml(content).replace(/\n/g, '<br>')}</div>`;
         chat.appendChild(row);
       }
       chat.scrollTop = chat.scrollHeight;
@@ -154,7 +158,7 @@
       const chat = document.getElementById('chat');
       const row = document.createElement('div');
       row.id = 'typingRow'; row.className = 'ai-row';
-      row.innerHTML = '<div class="ai-avatar">🥭</div><div class="msg ai typing"><span></span><span></span><span></span></div>';
+      row.innerHTML = '<div class="ai-avatar"><img src="/img/mango-char.png" alt="Mango" /></div><div class="msg ai typing"><span></span><span></span><span></span></div>';
       chat.appendChild(row);
       chat.scrollTop = chat.scrollHeight;
     }
@@ -243,7 +247,7 @@
     }
     loadHistory();
   </script>
-<!-- BUILD:20260707232904 -->
+<!-- BUILD:20260707233903 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>
