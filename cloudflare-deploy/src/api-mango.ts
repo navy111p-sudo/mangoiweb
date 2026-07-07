@@ -6123,12 +6123,31 @@ ${chatSampleText}
           for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
           return u8;
         };
+        // 🔁 R2 캐시: 같은 단어/문장은 1회만 생성 → 이후엔 뉴런 소모 없이 즉시 제공.
+        //   무료 뉴런 소진(429) 후에도 캐시본이 있으면 계속 소리가 난다.
+        const r2: any = (env as any).RECORDINGS;
+        let cacheKey = '';
+        try {
+          const enc = new TextEncoder().encode('v1|' + lang + '|' + String(b.speaker || 'asteria') + '|' + text);
+          const dig = await crypto.subtle.digest('SHA-256', enc);
+          cacheKey = 'tts/' + [...new Uint8Array(dig)].map((x) => x.toString(16).padStart(2, '0')).join('') + '.mp3';
+        } catch {}
+        if (cacheKey && r2) {
+          try { const hit = await r2.get(cacheKey); if (hit) return new Response(hit.body, { headers: audioHeaders }); } catch {}
+        }
+        const putCache = async (bytes: ArrayBuffer | Uint8Array) => {
+          if (!cacheKey || !r2) return;
+          try { await r2.put(cacheKey, bytes, { httpMetadata: { contentType: 'audio/mpeg' } }); } catch {}
+        };
+        const isQuota = (m: any) => /429|neuron|allocation|free allocation|capacity/i.test(String(m || ''));
         // MeloTTS — base64 MP3 반환 (en/zh 지원)
         const melo = async (meloLang: string) => {
           const r: any = await ai.run('@cf/myshell-ai/melotts', { prompt: text, lang: meloLang });
           const b64 = typeof r === 'string' ? r : (r?.audio || '');
           if (!b64) throw new Error('melotts_empty');
-          return new Response(b64ToBytes(b64), { headers: audioHeaders });
+          const bytes = b64ToBytes(b64);
+          await putCache(bytes);
+          return new Response(bytes, { headers: audioHeaders });
         };
         // MeloTTS 원본 바이트 (크기 검증용 — Workers AI 가 빈 WAV(44B) 반환하는 케이스 감지)
         const meloBytes = async (meloLang: string) => {
@@ -6148,6 +6167,7 @@ ${chatSampleText}
           if (!gr.ok) throw new Error('gtts_' + gr.status);
           const gb = await gr.arrayBuffer();
           if (!gb || gb.byteLength < 300) throw new Error('gtts_empty');
+          await putCache(gb);
           return new Response(gb, { headers: audioHeaders });
         };
 
@@ -6168,19 +6188,35 @@ ${chatSampleText}
         }
 
         // 영어 → Deepgram Aura-1 (원어민 수준, MPEG 스트림) → 실패 시 MeloTTS(en) 폴백
+        //   ⚠️ 무료 뉴런 소진 시 Workers AI 는 200 이 아닌 429 에러 Response(JSON) 를 준다.
+        //   예전 코드는 그 JSON 바디(~487B)를 audio/mpeg 로 그대로 브라우저에 내보내서
+        //   "소리가 안 나는" 원인이 됐다. raw.ok + content-type=audio 로 진짜 음성만 통과시킨다.
+        let quota = false;
         try {
           const speaker = String(b.speaker || 'asteria');
           const raw: any = await ai.run('@cf/deepgram/aura-1', { text, speaker }, { returnRawResponse: true });
           let buf: ArrayBuffer | null = null;
-          if (raw instanceof Response) buf = await raw.arrayBuffer();
+          if (raw instanceof Response) {
+            const rct = raw.headers.get('content-type') || '';
+            if (raw.ok && /audio/i.test(rct)) buf = await raw.arrayBuffer();
+            else { if (raw.status === 429) quota = true; throw new Error('aura_http_' + raw.status); }
+          }
           else if (raw instanceof ArrayBuffer) buf = raw;
           else if (raw && raw.body) buf = await new Response(raw.body).arrayBuffer();
-          else if (raw && raw.audio) return new Response(b64ToBytes(String(raw.audio)), { headers: audioHeaders });
+          else if (raw && raw.audio) { const bytes = b64ToBytes(String(raw.audio)); await putCache(bytes); return new Response(bytes, { headers: audioHeaders }); }
           if (!buf || buf.byteLength < 200) throw new Error('aura_empty');
+          await putCache(buf);
           return new Response(buf, { headers: audioHeaders });
         } catch (auraErr: any) {
+          if (isQuota(auraErr?.message)) quota = true;
           console.warn('[voice/tts] aura-1 failed, fallback melotts:', auraErr?.message);
-          return await melo('en');
+          try {
+            return await melo('en');
+          } catch (meloErr: any) {
+            if (isQuota(meloErr?.message)) quota = true;
+            // 서버 TTS 전부 실패 → JSON 에러로 명확히 알린다(브라우저가 기기 음성으로 폴백하게).
+            return json({ ok: false, error: quota ? 'ai_quota_exceeded' : 'tts_failed', quota }, quota ? 503 : 502);
+          }
         }
       } catch (e: any) {
         console.warn('[voice/tts] error:', e?.message);
