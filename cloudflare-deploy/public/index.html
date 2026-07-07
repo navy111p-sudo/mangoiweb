@@ -9621,7 +9621,9 @@ async function vcJoinRoom(skipUI) {
         vcHandleMessage,
         (ws) => {
             setStatusDot('vc-status-dot', 'connected');
-            ws.send(JSON.stringify({ type: 'join-room', data: { username: vcUsername, role: (window.vcMyRole || 'student') } }));
+            // clientId = 이 브라우저 탭의 안정 식별자. 재연결/새로고침/모바일 끊김에도 동일 →
+            //   서버가 같은 clientId의 옛 좀비 소켓을 닫아 "교사 화면 중복(유령 타일)"을 막는다.
+            ws.send(JSON.stringify({ type: 'join-room', data: { username: vcUsername, role: (window.vcMyRole || 'student'), clientId: vcClientId() } }));
         },
         () => setStatusDot('vc-status-dot', 'disconnected')
     );
@@ -10658,6 +10660,21 @@ function vcShowStarToast(toast, text){
 // 🌟 (2026-07-05) 학생 입장 시 — (방·피어ID → 내 계정 uid) 서버 등록.
 //   선생님이 별을 누르면 서버가 이 매핑으로 대상 학생의 진짜 계정을 찾아 적립하므로,
 //   학생 브라우저가 신호를 놓치거나 순간적으로 로그인 정보를 못 읽어도 "전체 포인트"에 확실히 쌓인다.
+// 🪪 이 브라우저 탭의 안정 식별자 (재연결/새로고침/모바일 끊김에도 동일).
+//   로그인 계정 uid 우선(가장 안정) → 없으면 탭 단위 sessionStorage 랜덤(같은 탭이면 유지).
+//   서버 dedup 의 키. 진짜 다른 참가자/다른 기기/다른 탭은 서로 다른 값이라 절대 안 닫힌다.
+function vcClientId(){
+    try {
+        var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+        if (u && u.uid) return 'acct:' + u.uid;
+    } catch(e){}
+    try {
+        var k = sessionStorage.getItem('mangoi_vc_client_id');
+        if (!k) { k = 'tab:' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); sessionStorage.setItem('mangoi_vc_client_id', k); }
+        return k;
+    } catch(e){}
+    return null;
+}
 function vcRegisterRosterIdentity(){
     try {
         if (vcIsTeacherRole()) return;                 // 학생만 등록(선생님 X)
@@ -24171,7 +24188,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260708001030 -->
+<!-- BUILD:20260708002221 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

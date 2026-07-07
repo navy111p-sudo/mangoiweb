@@ -20,6 +20,7 @@ interface VcAttachment {
   username?: string;
   role?: string;
   joined?: boolean;
+  clientId?: string;   // 브라우저 탭 안정 식별자 — 재연결 좀비 소켓 dedup 키
 }
 
 export class VideoCallRoom {
@@ -140,10 +141,25 @@ export class VideoCallRoom {
 
   // ── 비즈니스 로직 ──
   private handleJoinRoom(ws: WebSocket, userId: string, data: any): void {
-    const { username, role } = data || {};
+    const { username, role, clientId } = data || {};
     if (!username) {
       this.send(userId, { type: 'error-msg', data: { message: 'username required' } });
       return;
+    }
+
+    // 🧹 유령 타일 방지 — 같은 브라우저(clientId)가 재연결/새로고침으로 새 소켓을 열면,
+    //   서버는 접속마다 새 랜덤 userId 를 발급하므로 옛 소켓이 로스터에 좀비로 남아 중복 타일이 된다.
+    //   → 같은 clientId 의 이전 소켓을 먼저 닫아준다. close() 는 webSocketClose 를 확실히 발화시켜
+    //     handleLeaveRoom 이 user-left 를 브로드캐스트 → 모든 클라이언트에서 옛 타일 제거.
+    //   (clientId 가 있을 때만 동작 = 진짜 다른 참가자/다른 기기/다른 탭은 절대 닫지 않음, fail-safe)
+    if (clientId) {
+      for (const other of this.state.getWebSockets()) {
+        if (other === ws) continue;
+        const oa = this.attOf(other);
+        if (oa && oa.clientId && oa.clientId === clientId) {
+          try { other.close(1000, 'superseded-by-reconnect'); } catch {}
+        }
+      }
     }
 
     if (this.joinedUsers().length >= MAX_USERS) {
@@ -154,7 +170,7 @@ export class VideoCallRoom {
 
     // attachment 에 사용자명/joined 기록 (재기동에도 유지)
     const att = this.attOf(ws) || { userId, roomId: this.roomId };
-    ws.serializeAttachment({ ...att, userId, roomId: this.roomId, username, role: role || 'student', joined: true } as VcAttachment);
+    ws.serializeAttachment({ ...att, userId, roomId: this.roomId, username, role: role || 'student', joined: true, clientId: clientId || att.clientId } as VcAttachment);
 
     const userCount = this.joinedUsers().length;
 
@@ -277,6 +293,7 @@ export class VideoCallRoom {
     const out: { userId: string; username: string; role?: string }[] = [];
     for (const ws of this.state.getWebSockets()) {
       if (ws === exclude) continue;
+      if (ws.readyState !== WebSocket.OPEN) continue;   // 닫히는 중/닫힌 소켓(재연결 좀비 등)은 로스터에서 제외
       const att = this.attOf(ws);
       if (att && att.joined && att.username) out.push({ userId: att.userId, username: att.username, role: att.role });
     }
