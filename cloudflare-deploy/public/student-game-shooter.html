@@ -110,6 +110,8 @@
     background:50% 50%/100% 100% no-repeat;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55))}
   .barrel.recoil{animation:recoil .18s}
   @keyframes recoil{0%{transform:translateY(0)}35%{transform:translateY(6px)}100%{transform:translateY(0)}}
+  /* 🔥 화염방사기 불줄기 파티클 (총구→표적 연속 분사) */
+  .flamep{position:absolute;margin:-7px 0 0 -7px;border-radius:50%;pointer-events:none;z-index:9;mix-blend-mode:screen;filter:blur(1px);will-change:transform,opacity}
   .muzzle{position:absolute;top:-10px;left:50%;transform:translateX(-50%);width:22px;height:22px;opacity:0;pointer-events:none;
     background:radial-gradient(circle,#fff 0%,#fde68a 32%,rgba(251,191,36,.55) 58%,transparent 72%)}
   .muzzle.flash{animation:flash .16s}
@@ -629,6 +631,33 @@
     deg=Math.max(-80,Math.min(80,deg));                 // 과회전 제한 → 정밀 조준감
     barrelRot.style.transform='translateX(-50%) rotate('+deg+'deg)';
   }
+  // 🔥 화염방사기: 총구(sx,sy)→표적(ex,ey) 로 불줄기가 쭉 이어져 나가게 다수 파티클을 시차 분사
+  function flameStream(sx,sy,ex,ey){
+    var dx=ex-sx, dy=ey-sy, dist=Math.hypot(dx,dy)||1, ux=dx/dist, uy=dy/dist, px=-uy, py=ux;
+    var N=30, HUES=['#fff7cc','#fde047','#fbbf24','#fb923c','#f97316','#ea580c'];
+    for(var i=0;i<N;i++){ (function(k){
+      setTimeout(function(){
+        if(!running) return;
+        var lean=(Math.random()-0.5)*12;                       // 총구 근처 약간 퍼짐
+        var startX=sx+px*lean, startY=sy+py*lean;
+        var p=document.createElement('div'); p.className='flamep';
+        var sz=9+Math.random()*12; p.style.width=sz+'px'; p.style.height=sz+'px';
+        p.style.left=startX+'px'; p.style.top=startY+'px';
+        var hue=HUES[k%HUES.length];
+        p.style.background='radial-gradient(circle at 45% 38%,#fff,'+hue+' 52%,rgba(234,88,12,0) 80%)';
+        field.appendChild(p);
+        var frac=0.78+Math.random()*0.5;                       // 일부는 표적 너머로 넘실
+        var jit=(Math.random()-0.5)*40;                        // 끝으로 갈수록 넓게 흩날림
+        var tx=sx+dx*frac+px*jit, ty=sy+dy*frac+py*jit;
+        p.animate([
+          {transform:'translate(0,0) scale(.45)',opacity:.95},
+          {transform:'translate('+(tx-startX)*0.5+'px,'+(ty-startY)*0.5+'px) scale(1.55)',opacity:1,offset:.5},
+          {transform:'translate('+(tx-startX)+'px,'+(ty-startY)+'px) scale(2.6)',opacity:0}
+        ],{duration:280+Math.random()*200,easing:'cubic-bezier(.25,.6,.4,1)'});
+        setTimeout(function(){ if(p.parentNode) p.remove(); }, 520);
+      }, k*10);                                                // 10ms 간격 = 끊김 없는 불줄기(약 0.3초 지속)
+    })(i); }
+  }
   var fireCooldown=false;
   function fireAt(m){
     if(!running || !m.el.isConnected || fireCooldown) return;
@@ -643,9 +672,14 @@
       muzzle.classList.remove('flash'); void muzzle.offsetWidth; muzzle.classList.add('flash');  // 머즐 플래시
       barrel.classList.remove('recoil'); void barrel.offsetWidth; barrel.classList.add('recoil'); // 반동
       fireSound();                                  // ★ 총마다 다른 발사음
-      var b=document.createElement('div'); b.className='bullet'; b.style.left=sx+'px'; b.style.top=sy+'px'; field.appendChild(b);
-      requestAnimationFrame(function(){ b.style.left=ex+'px'; b.style.top=ey+'px'; });
-      setTimeout(function(){ if(b.parentNode) b.remove(); resolve(m,ex,ey); }, 150);
+      if(curGun==='flame'){                         // 🔥 화염방사기 = 불줄기 연속 분사
+        flameStream(sx,sy,ex,ey);
+        setTimeout(function(){ resolve(m,ex,ey); }, 220);
+      } else {
+        var b=document.createElement('div'); b.className='bullet'; b.style.left=sx+'px'; b.style.top=sy+'px'; field.appendChild(b);
+        requestAnimationFrame(function(){ b.style.left=ex+'px'; b.style.top=ey+'px'; });
+        setTimeout(function(){ if(b.parentNode) b.remove(); resolve(m,ex,ey); }, 150);
+      }
     }, 105);
   }
 
@@ -819,6 +853,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260707220654 -->
+<!-- BUILD:20260707221222 -->
 </body>
 </html>

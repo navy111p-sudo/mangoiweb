@@ -153,6 +153,8 @@
   .barrel{position:relative;width:28px;height:52px;background:50% 50%/100% 100% no-repeat;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55))}
   .barrel.recoil{animation:recoil .18s}
   @keyframes recoil{0%{transform:translateY(0)}35%{transform:translateY(6px)}100%{transform:translateY(0)}}
+  /* 🔥 화염방사기 불줄기 파티클 */
+  .flamep{position:absolute;margin:-7px 0 0 -7px;border-radius:50%;pointer-events:none;z-index:9;mix-blend-mode:screen;filter:blur(1px);will-change:transform,opacity}
   #shoot.gun-tank .bullet,#shoot.gun-grenade .bullet{width:16px;height:16px}
   #shoot.gun-railgun .bullet{width:9px;height:20px;background:radial-gradient(circle at 40% 35%,#fff,#22d3ee 60%,#0e7490);box-shadow:0 0 16px 5px rgba(34,211,238,.9)}
   #shoot.gun-minigun .bullet{width:9px;height:9px}
@@ -1087,6 +1089,31 @@
   function pivot(){ var f=SH.field.getBoundingClientRect(), b=barrelRot.getBoundingClientRect(); return { x:b.left+b.width/2-f.left, y:b.bottom-f.top }; }
   function aimAt(tx,ty){ var p=pivot(), deg=Math.atan2(tx-p.x, -(ty-p.y))*180/Math.PI; deg=Math.max(-80,Math.min(80,deg)); barrelRot.style.transform='translateX(-50%) rotate('+deg+'deg)'; }
 
+  // 🔥 화염방사기: 총구→표적 불줄기가 쭉 이어져 나가게 다수 파티클 시차 분사
+  function flameStream(sx,sy,ex,ey){
+    var dx=ex-sx, dy=ey-sy, dist=Math.hypot(dx,dy)||1, ux=dx/dist, uy=dy/dist, px=-uy, py=ux;
+    var N=30, HUES=['#fff7cc','#fde047','#fbbf24','#fb923c','#f97316','#ea580c'];
+    for(var i=0;i<N;i++){ (function(k){
+      setTimeout(function(){
+        if(!SH.running) return;
+        var lean=(Math.random()-0.5)*12, startX=sx+px*lean, startY=sy+py*lean;
+        var p=document.createElement('div'); p.className='flamep';
+        var sz=9+Math.random()*12; p.style.width=sz+'px'; p.style.height=sz+'px';
+        p.style.left=startX+'px'; p.style.top=startY+'px';
+        var hue=HUES[k%HUES.length];
+        p.style.background='radial-gradient(circle at 45% 38%,#fff,'+hue+' 52%,rgba(234,88,12,0) 80%)';
+        SH.field.appendChild(p);
+        var frac=0.78+Math.random()*0.5, jit=(Math.random()-0.5)*40;
+        var tx=sx+dx*frac+px*jit, ty=sy+dy*frac+py*jit;
+        p.animate([
+          {transform:'translate(0,0) scale(.45)',opacity:.95},
+          {transform:'translate('+(tx-startX)*0.5+'px,'+(ty-startY)*0.5+'px) scale(1.55)',opacity:1,offset:.5},
+          {transform:'translate('+(tx-startX)+'px,'+(ty-startY)+'px) scale(2.6)',opacity:0}
+        ],{duration:280+Math.random()*200,easing:'cubic-bezier(.25,.6,.4,1)'});
+        setTimeout(function(){ if(p.parentNode) p.remove(); }, 520);
+      }, k*10);
+    })(i); }
+  }
   function shootFire(m){
     if(!SH.running || !m.el.isConnected || SH.fireCD) return;
     SH.fireCD=true; setTimeout(function(){ SH.fireCD=false; }, 110);
@@ -1100,9 +1127,14 @@
       muzzle.classList.remove('flash'); void muzzle.offsetWidth; muzzle.classList.add('flash');
       barrel.classList.remove('recoil'); void barrel.offsetWidth; barrel.classList.add('recoil');
       sfxFire();                                          // ★ 발사음
-      var b=document.createElement('div'); b.className='bullet'; b.style.left=sx+'px'; b.style.top=sy+'px'; SH.field.appendChild(b);
-      requestAnimationFrame(function(){ b.style.left=ex+'px'; b.style.top=ey+'px'; });
-      setTimeout(function(){ if(b.parentNode) b.remove(); shootResolve(m,ex,ey); }, 150);
+      if(emGun==='flame'){                                // 🔥 화염방사기 = 불줄기 연속 분사
+        flameStream(sx,sy,ex,ey);
+        setTimeout(function(){ shootResolve(m,ex,ey); }, 220);
+      } else {
+        var b=document.createElement('div'); b.className='bullet'; b.style.left=sx+'px'; b.style.top=sy+'px'; SH.field.appendChild(b);
+        requestAnimationFrame(function(){ b.style.left=ex+'px'; b.style.top=ey+'px'; });
+        setTimeout(function(){ if(b.parentNode) b.remove(); shootResolve(m,ex,ey); }, 150);
+      }
     }, 105);
   }
   function shootResolve(m,x,y){
@@ -1651,6 +1683,6 @@
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260707220654 -->
+<!-- BUILD:20260707221222 -->
 </body>
 </html>
