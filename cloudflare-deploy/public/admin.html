@@ -726,6 +726,44 @@
   }
   .sortable-table th.sortable:not(.sort-asc):not(.sort-desc) .sort-rank { display: none; }
 
+  /* 🌙 (2026-07-08) 학생 목록 표 — 다크 테마 보정
+     · 위 스타일은 라이트(#fffbeb 등) 고정이라 '어둡게' 모드에서 표만 새하얗게 떠 보였음.
+     · ivory(밝게)는 위 스타일 그대로 두고, dark(=기본)일 때만 어두운 팔레트로 덮어씀. */
+  html:not([data-admin-theme="ivory"]) #sm-students-wrap {
+    border-color: rgba(245,158,11,0.22) !important;
+    background: rgba(20,16,10,0.35);
+  }
+  html:not([data-admin-theme="ivory"]) #sm-students-table { color: #e6ddcf; }
+  html:not([data-admin-theme="ivory"]) #sm-students-table th,
+  html:not([data-admin-theme="ivory"]) #sm-students-table td {
+    border-bottom: 1px solid rgba(245,158,11,0.12);
+  }
+  html:not([data-admin-theme="ivory"]) #sm-students-table thead th {
+    background: linear-gradient(180deg, #3a2c15, #2b2010) !important;
+    color: #fcd34d !important;
+    border-bottom: 2px solid rgba(245,158,11,0.4) !important;
+    box-shadow: 0 2px 0 rgba(245,158,11,0.4);
+  }
+  html:not([data-admin-theme="ivory"]) #sm-students-table tbody tr:nth-child(even) td {
+    background: rgba(245,158,11,0.05);
+  }
+  html:not([data-admin-theme="ivory"]) #sm-students-table tbody tr:hover td {
+    background: rgba(245,158,11,0.14);
+  }
+  html:not([data-admin-theme="ivory"]) #sm-students-table td:nth-child(1) code { color: #c9a97a; }
+  html:not([data-admin-theme="ivory"]) #sm-students-table td:nth-child(2) b { color: #f5efe4; }
+  html:not([data-admin-theme="ivory"]) #sm-students-table td:nth-child(2) .role-badge {
+    background: rgba(245,158,11,0.2); color: #fcd34d;
+  }
+  html:not([data-admin-theme="ivory"]) #sm-students-table td .date-line .date-d { color: #cbb998; }
+  html:not([data-admin-theme="ivory"]) #sm-students-table td .date-line .date-t { color: #8a7b63; }
+  /* 검색 입력창 — 인라인 라이트 스타일(#fffbeb)을 다크로 보정 (!important 로 인라인 우선) */
+  html:not([data-admin-theme="ivory"]) #sm-student-search {
+    background: rgba(20,16,10,0.6) !important; color: #f5efe4 !important;
+    border-color: rgba(245,158,11,0.4) !important;
+  }
+  html:not([data-admin-theme="ivory"]) #sm-student-search::placeholder { color: #a8987e !important; }
+
   /* ════════════════════════════════════════════════════════════
      🥭 Phase 14 — 히어로 랜딩 (망고 캐릭터 + 거대 검색창)
      - 좌측 사이드바 + 통합 검색만으로 모든 메뉴 접근
@@ -9684,9 +9722,11 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
         border: 1px solid #e5e7eb !important;
       }
       html[data-admin-theme="ivory"] body #card-inquiry-mgmt > summary {
-        background: #ffffff !important;
-        color: #1f2937 !important;
-        border: 1px solid #e5e7eb !important;
+        /* 다른 카드들과 동일한 연보라 헤더로 통일 (기존: 혼자만 흰색이라 튀었음) */
+        background: linear-gradient(135deg, #eaeeff 0%, #f5f0ff 100%) !important;
+        color: #2f2a40 !important;
+        border: 0 !important;
+        border-bottom: 1px solid rgba(150,120,70,0.16) !important;
       }
       html[data-admin-theme="ivory"] body #card-inquiry-mgmt > summary > span { color: #1f2937 !important; }
       html[data-admin-theme="ivory"] body #card-inquiry-mgmt > summary::after { color: #334155 !important; }
@@ -23354,7 +23394,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260708024858 -->
+        <!-- BUILD:20260708025640 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
