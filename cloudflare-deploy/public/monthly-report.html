@@ -64,7 +64,7 @@
 </head>
 <body>
   <div class="topbar">
-    <span class="logo">🥭 <span data-ko="망고아이 학습 레포트" data-en="Mangoi Learning Report">망고아이 학습 레포트</span></span>
+    <span class="logo"><img src="/img/mango-char.png" alt="" style="height:1.4em;width:auto;vertical-align:-0.35em;margin-right:.15em"><span data-ko="망고아이 학습 레포트" data-en="Mangoi Learning Report">망고아이 학습 레포트</span></span>
     <span class="sp"></span>
     <button class="lang-btn" id="langBtn" onclick="toggleLang()">EN</button>
   </div>
@@ -146,7 +146,7 @@
     var goals = items.map(function(r){return r.next_goals;}).filter(Boolean).slice(-3);
     var aiText = d.ai_text || (hasData ? t('이번 달 학습 요약입니다.','Monthly learning summary.') : '');
 
-    var html = '<div class="dash"><div class="hero"><div class="mango">🥭</div>'+
+    var html = '<div class="dash"><div class="hero"><div class="mango"><img src="/img/mango-char.png" alt="망고아이" style="width:52px;height:52px;object-fit:contain"></div>'+
       '<span class="badge">'+esc(d.year_month||period)+'</span>'+
       '<h2>'+esc(nm)+' '+t('학생 학습 레포트','Report')+'</h2>'+
       '<div class="who">'+(s.parent_name?(t('학부모: ','Parent: ')+esc(s.parent_name)):t('망고아이 영어','Mangoi English'))+'</div></div>'+
@@ -210,7 +210,7 @@
   if(uid && period){ loadReport(); } else { renderForm(); }
 })();
 </script>
-<!-- BUILD:20260708004436 -->
+<!-- BUILD:20260708005757 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>

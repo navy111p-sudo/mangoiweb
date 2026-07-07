@@ -5376,7 +5376,7 @@
       <div id="ai-home-suggest" class="ai-suggest" style="display:none"></div>
       <div class="ai-quick">
         <!-- 🔤 가나다 순 (관 → 마 → 발 → 수 → 신 → 홈) -->
-        <button class="ai-quick-btn" data-go="about" data-ko="🥭 망고아이란?" data-en="🥭 About Mangoi" onclick="event.preventDefault();openAboutMangoi();return false;">🥭 망고아이란?</button>
+        <button class="ai-quick-btn" data-go="about" onclick="event.preventDefault();openAboutMangoi();return false;"><img src="/img/mango-char.png" alt="" style="height:1.1em;width:auto;vertical-align:-0.2em;margin-right:.1em"><span data-ko="망고아이란?" data-en="About Mangoi">망고아이란?</span></button>
         <button class="ai-quick-btn" data-go="admin" data-ko="📊 관리자" data-en="📊 Admin">📊 관리자</button>
         <button class="ai-quick-btn" data-go="mypage" data-ko="👤 마이페이지" data-en="👤 My Page">👤 마이페이지</button>
         <button class="ai-quick-btn" data-go="points-shop" data-ko="🎁 포인트상점" data-en="🎁 Point Shop" onclick="event.preventDefault();showPointsShop();">🎁 포인트상점</button>
@@ -5623,7 +5623,7 @@
   <div class="grid-menu-inner">
     <div class="grid-menu-head">
       <span class="grid-menu-title">
-        <span data-ko="🥭 망고아이 신규 고객 안내" data-en="🥭 Mangoi New Customer Guide">🥭 망고아이 신규 고객 안내</span>
+        <img src="/img/mango-char.png" alt="" style="height:1.1em;width:auto;vertical-align:-0.2em;margin-right:.1em"><span data-ko="망고아이 신규 고객 안내" data-en="Mangoi New Customer Guide">망고아이 신규 고객 안내</span>
         <span id="gm-sort-badge" style="margin-left:8px;padding:3px 9px;background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.35);border-radius:6px;color:#fde68a;font-size:10.5px;font-weight:700;letter-spacing:0.3px" data-ko="🔤 가나다순 · A→Z" data-en="🔤 A → Z">🔤 가나다순 · A→Z</span>
         <button id="gm-lang-toggle" type="button" style="margin-left:8px;padding:4px 10px;background:rgba(78,201,255,0.12);border:1px solid rgba(78,201,255,0.35);border-radius:6px;color:#9ee5ff;font-size:10.5px;font-weight:800;cursor:pointer">🌐 EN</button>
       </span>
@@ -12129,7 +12129,7 @@ function _loseHeart(){ _hearts=Math.max(0,_hearts-1); _renderHearts(); return _h
 (function(){
   if(document.getElementById('_funfx-style')) return;
   var st=document.createElement('style'); st.id='_funfx-style';
-  st.textContent='@keyframes _confFall{0%{transform:translateY(-10px) rotate(0);opacity:1}100%{transform:translateY(340px) rotate(720deg);opacity:0}}@keyframes _mascotPop{0%{transform:translateY(60px) scale(.4);opacity:0}18%{transform:translateY(-10px) scale(1.12);opacity:1}32%{transform:translateY(0) scale(1)}82%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(30px) scale(.8);opacity:0}}@keyframes _mascotShake{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}@keyframes _bubblePop{0%{transform:scale(.3);opacity:0}30%{transform:scale(1.08);opacity:1}85%{opacity:1}100%{opacity:0}}#_mascot{position:fixed;right:14px;bottom:14px;z-index:60;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:4px}#_mascot .face{font-size:clamp(46px,9vmin,72px);filter:drop-shadow(0 5px 10px rgba(0,0,0,.5))}#_mascot .bubble{background:#fff;color:#0b1b3a;font-weight:800;font-size:clamp(13px,2.4vmin,17px);padding:6px 14px;border-radius:14px;box-shadow:0 4px 14px rgba(0,0,0,.35);white-space:nowrap;order:-1;position:relative}#_mascot .bubble::after{content:"";position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);border:7px solid transparent;border-top-color:#fff;border-bottom:0}';
+  st.textContent='@keyframes _confFall{0%{transform:translateY(-10px) rotate(0);opacity:1}100%{transform:translateY(340px) rotate(720deg);opacity:0}}@keyframes _mascotPop{0%{transform:translateY(60px) scale(.4);opacity:0}18%{transform:translateY(-10px) scale(1.12);opacity:1}32%{transform:translateY(0) scale(1)}82%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(30px) scale(.8);opacity:0}}@keyframes _mascotShake{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}@keyframes _bubblePop{0%{transform:scale(.3);opacity:0}30%{transform:scale(1.08);opacity:1}85%{opacity:1}100%{opacity:0}}#_mascot{position:fixed;right:14px;bottom:14px;z-index:60;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:4px}#_mascot .face{filter:drop-shadow(0 5px 10px rgba(0,0,0,.5))}#_mascot .face img{width:clamp(64px,13vmin,104px);height:auto;display:block}#_mascot .bubble{background:#fff;color:#0b1b3a;font-weight:800;font-size:clamp(13px,2.4vmin,17px);padding:6px 14px;border-radius:14px;box-shadow:0 4px 14px rgba(0,0,0,.35);white-space:nowrap;order:-1;position:relative}#_mascot .bubble::after{content:"";position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);border:7px solid transparent;border-top-color:#fff;border-bottom:0}';
   document.head.appendChild(st);
 })();
 function _confettiBurst(n, big){
@@ -12149,7 +12149,7 @@ function _mascot(kind){
   try{ var msgs=_MASCOT_MSG[kind]||_MASCOT_MSG.good, msg=msgs[Math.floor(Math.random()*msgs.length)];
     var old=document.getElementById('_mascot'); if(old&&old.parentNode) old.parentNode.removeChild(old);
     var box=document.createElement('div'); box.id='_mascot'; var dur=(kind==='win'?2600:kind==='boss'?2200:1600);
-    box.innerHTML='<div class="bubble" style="animation:_bubblePop '+dur+'ms ease forwards">'+msg+'</div><div class="face" style="animation:'+(kind==='wrong'?'_mascotShake .5s ease 2':'_mascotShake .4s ease 3')+'">🥭</div>';
+    box.innerHTML='<div class="bubble" style="animation:_bubblePop '+dur+'ms ease forwards">'+msg+'</div><div class="face" style="animation:'+(kind==='wrong'?'_mascotShake .5s ease 2':'_mascotShake .4s ease 3')+'"><img src="/img/mango-char.png" alt="망고아이"></div>';
     box.style.animation='_mascotPop '+dur+'ms ease forwards'; document.body.appendChild(box);
     if(_mascotTimer) clearTimeout(_mascotTimer); _mascotTimer=setTimeout(function(){ if(box.parentNode) box.parentNode.removeChild(box); }, dur+80);
   }catch(_){}
@@ -24188,7 +24188,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260708004436 -->
+<!-- BUILD:20260708005757 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -26517,12 +26517,12 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   var L={
     ko:{ title:'❓ 자주 묻는 질문', sub:'망고아이 화상영어 FAQ — 궁금한 점을 빠르게 확인하세요',
          ph:'🔍 궁금한 내용을 검색해 보세요 (예: 환불, 연기, 레벨테스트)', all:'전체',
-         empty:'검색 결과가 없습니다. 다른 키워드로 검색해 보세요. 🥭',
+         empty:'검색 결과가 없습니다. 다른 키워드로 검색해 보세요.',
          foot1:'💬 <b>카카오상담</b> — 화면 오른쪽 아래 상담 버튼', foot2:'운영 10:00~20:00 (주말·공휴일 휴무)', foot3:'수업 14:00~23:00',
          close:'닫기', dialog:'자주 묻는 질문', search:'FAQ 검색' },
     en:{ title:'❓ FAQ', sub:'Mangoi Video English FAQ — find answers fast',
          ph:'🔍 Search the FAQ (e.g., refund, postpone, level test)', all:'All',
-         empty:'No results found. Try a different keyword. 🥭',
+         empty:'No results found. Try a different keyword.',
          foot1:'💬 <b>KakaoTalk chat</b> — button at bottom right', foot2:'Support 10:00–20:00 (closed weekends/holidays)', foot3:'Classes 14:00–23:00',
          close:'Close', dialog:'Frequently Asked Questions', search:'Search FAQ' }
   };
@@ -26585,7 +26585,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       if(q && (d.q+d.a+d.qe+d.ae).toLowerCase().indexOf(q)<0) return false;
       return true;
     });
-    if(!shown.length){ list.innerHTML='<div class="mg-faq-empty">'+esc(t.empty)+'</div>'; return; }
+    if(!shown.length){ list.innerHTML='<div class="mg-faq-empty"><img src="/img/mango-char.png" alt="" style="height:2.2em;width:auto;vertical-align:middle;margin-right:.3em">'+esc(t.empty)+'</div>'; return; }
     shown.forEach(function(d){
       var it=document.createElement('div'); it.className='mg-faq-item';
       it.innerHTML='<button type="button" class="mg-faq-q"><span class="qb">Q</span><span class="qc">'+esc(en?(CE[d.c]||d.c):d.c)+'</span><span>'+esc(en?d.qe:d.q)+'</span><span class="arr">▼</span></button>'+

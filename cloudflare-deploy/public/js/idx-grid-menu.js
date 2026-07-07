@@ -998,7 +998,7 @@
       </p>
 
       <p class="emo-turn">
-        🥭 <b>이제, 망고아이가 그 짐을 함께 나누겠습니다.</b>
+        <img src="/img/mango-char.png" alt="" style="height:1.2em;width:auto;vertical-align:-0.25em;margin-right:.1em"> <b>이제, 망고아이가 그 짐을 함께 나누겠습니다.</b>
       </p>
       <ul class="emo-list">
         <li>✅ <b>친절하고 재밌고</b>, 열정적이며 부지런합니다</li>
@@ -1434,7 +1434,7 @@
   async function renderReportFor(sess) {
     const safeName = String(sess.name || sess.uid || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
     showModal(`
-      <h2 style="color:#fbbf24;margin-bottom:4px">🥭 ${safeName} — 종합 평가서</h2>
+      <h2 style="color:#fbbf24;margin-bottom:4px"><img src="/img/mango-char.png" alt="" style="height:1.1em;width:auto;vertical-align:-0.2em;margin-right:.1em">${safeName} — 종합 평가서</h2>
       <p id="rp-meta" style="color:#94a3b8;font-size:12px;margin:0 0 14px">불러오는 중…</p>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
         <select id="rp-days" onchange="reloadStudentReport()" style="padding:6px 10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:12px">

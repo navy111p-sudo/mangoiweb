@@ -132,6 +132,8 @@
         <div id="badgeCollection" style="margin:0 0 12px;font-size:13px;font-weight:800;color:#c7d3ea"></div>
         <div style="font-size:11px;font-weight:800;color:#9fb3d6;text-align:left;margin:0 0 6px">🚀 우주인 선택 (내 캐릭터로 배틀!)</div>
         <div class="heropick" id="heroPick"></div>
+        <div style="font-size:11px;font-weight:800;color:#9fb3d6;text-align:left;margin:0 0 6px">👾 보스 선택 (누구랑 싸울까?)</div>
+        <div class="heropick" id="bossPick"></div>
         <div style="font-size:11px;font-weight:800;color:#9fb3d6;text-align:left;margin:0 0 6px">⚡ 게임 속도 (답변 제한시간 · 5단계)</div>
         <div class="speedrow" id="speedRow"></div>
         <div class="lessonpick" id="lessonPick"></div>
@@ -561,6 +563,19 @@
       dog: { sprite:'dog-atlas.png?v=2',   ico:'🐶',        name:'우주 강아지', desc:'망고아이 마스코트', tint:[0.98,1.02,1.12] }   // 메탈 스틸: 밝힘 낮추고 청록빛(하얀 느낌 제거)
     };
     var heroSkin=(function(){ try{ var v=localStorage.getItem('mangoi_battle_hero'); return (v==='dog'||v==='boy')?v:'boy'; }catch(e){ return 'boy'; } })();
+    /* 👾 보스 선택 — 문어 괴물 / 티라노 공룡. 시작 화면에서 고르면 저장되고 다음 스폰부터 적용. attachBossSprite(cfg) 용 전체 설정 포함 */
+    var BOSS_SKINS={
+      octopus: { ico:'🐙', name:'문어 괴물', desc:'클레이 촉수 보스',
+        url:'boss-atlas.png?v=2', cols:5, rows:5, cw:680, ch:600, flip:false, H:8.2, color:[1.06,1.09,1.03], shadow:2.3,
+        anim:{ idle:{f:[0,9,13,14,15,16,11,2,10,1,12,3],d:0.26,loop:true}, attack:{f:[9,13,15,8,5,0],d:[0.14,0.14,0.11,0.20,0.13,0.12],loop:false}, hit:{f:[11,2],d:[0.12,0.15],loop:false}, death:{f:[17,18,19,20],d:[0.24,0.26,0.26,0.5],loop:false} } },
+      trex: { ico:'🦖', name:'티라노 공룡', desc:'돌진·물기 육식공룡',
+        url:'trex-atlas.png?v=1', cols:5, rows:4, cw:820, ch:560, flip:true, H:7.4, color:[1.05,1.06,1.0], shadow:2.7,
+        anim:{ idle:{f:[0,1,2,3,4],d:0.2,loop:true},                              // 걷기 사이클(제자리 스토킹)
+               attack:{f:[5,7,9,11,2],d:[0.12,0.12,0.15,0.18,0.14],loop:false},   // 달림→달림→도약→물기→복귀
+               hit:{f:[12,1],d:[0.12,0.14],loop:false},                           // 일어섬(움찔)
+               death:{f:[12,13,14],d:[0.22,0.24,0.6],loop:false} } }              // 비틀→웅크림→무릎꺾여 쓰러짐(이후 explodeBoss 폭발)
+    };
+    var bossSkin=(function(){ try{ var v=localStorage.getItem('mangoi_battle_boss'); return (v==='trex'||v==='octopus')?v:'octopus'; }catch(e){ return 'octopus'; } })();
     var _mixers=[];
     // ===== 영웅(GLB) 암부 영구 제거 =====
     // 임계값 없이 강제 적용: 모든 mesh material을 순회하며 (1) color 각 채널 바닥값,
@@ -759,35 +774,27 @@
       if(hero.userData.sprite) hero.userData.sprite.reset();
     }
 
-    /* ===== 🐙 문어 보스 '스프라이트' (클레이 그린스크린 21프레임 전부 사용 → boss-atlas.png 5x5) =====
-       절차적 문어 메시를 숨기고 빌보드로 대체. 문어는 정면 대칭이라 flip 불필요.
-       프레임: 0~4 정면 idle · 5~8 스텝/한팔 뻗기(다리 스텝) · 9~12 넓은 스탠스(다리 벌림) · 13~16 양팔 위로(팔 흔들) · 17~20 소멸(팔올림→몸말기→공)
-       ⚡ idle 을 '팔 흔들+다리 벌림/모으기'로 크게 움직이게 + 빌보드 자체 바운스/스웨이/스쿼시로 생동감. */
-    function attachBossSprite(G, url){
-      var COLS=5, ROWS=5, CW=680, CH=600;
-      // 🌊 부드러운 움직임: '베이스(불투명, 현재프레임)+오버레이(페이드인, 다음프레임)' 2겹 크로스페이드로 프레임 사이를 뭉개듯 보간 → 촉수가 흐르듯. (반투명 깜빡임 없음)
-      var ANIM={
-        idle:  { f:[0,9,13,14,15,16,11,2,10,1,12,3], d:0.26, loop:true },                 // 균일지속 — 낮은 fps라도 크로스페이드로 부드럽게
-        attack:{ f:[9,13,15,8,5,0],  d:[0.14,0.14,0.11,0.20,0.13,0.12], loop:false },     // 다리벌림→양팔올림→앞 슬램→회수
-        hit:   { f:[11,2],           d:[0.12,0.15], loop:false },
-        death: { f:[17,18,19,20],    d:[0.24,0.26,0.26,0.5], loop:false }
-      };
+    /* ===== 보스 '스프라이트' 빌보드 (🐙문어 / 🦖티라노 공용) — cfg 로 아틀라스·애니메이션·방향 지정 =====
+       절차적 보스 메시를 숨기고 빌보드로 대체. cfg.flip=true 면 좌우반전(티라노 원본=오른쪽향 → 왼쪽 히어로 보게).
+       🌊 부드러운 움직임: '베이스(불투명, 현재프레임)+오버레이(페이드인, 다음프레임)' 2겹 크로스페이드로 프레임 사이를 뭉개듯 보간(반투명 깜빡임 없음). */
+    function attachBossSprite(G, cfg){
+      var COLS=cfg.cols, ROWS=cfg.rows, CW=cfg.cw, CH=cfg.ch, url=cfg.url, ANIM=cfg.anim;
       function durs(a){ return Array.isArray(a.d) ? a.d : a.f.map(function(){ return a.d; }); }
       function total(a){ var s=0,dd=durs(a); for(var i=0;i<dd.length;i++)s+=dd[i]; return s; }
       function mkTex(){ var t=new THREE.TextureLoader().load(url); t.magFilter=THREE.LinearFilter; t.minFilter=THREE.LinearFilter; t.generateMipmaps=false; t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; t.repeat.set(1/COLS,1/ROWS); return t; }
-      var texBase=mkTex(), texOver=mkTex(), col=new THREE.Color(1.06,1.09,1.03);
+      var texBase=mkTex(), texOver=mkTex(), tc=cfg.color||[1.06,1.09,1.03], col=new THREE.Color(tc[0],tc[1],tc[2]);
       var matBase=new THREE.MeshBasicMaterial({map:texBase,transparent:true,depthWrite:false,side:THREE.DoubleSide,toneMapped:false,alphaTest:0.16,color:col,opacity:1});
       var matOver=new THREE.MeshBasicMaterial({map:texOver,transparent:true,depthWrite:false,side:THREE.DoubleSide,toneMapped:false,alphaTest:0.02,color:col,opacity:0});
-      var H=8.2, W=H*(CW/CH), BY=H*0.5-0.18;   // 문어=넓고 큼(그룹 ×1.32 후 히어로보다 큼)
+      var H=cfg.H, W=H*(CW/CH), BY=H*0.5-0.18, FLIP=cfg.flip?-1:1;   // 큰 보스(그룹 ×1.32 후 히어로보다 큼)
       var geo=new THREE.PlaneGeometry(W,H);
-      var meshBase=new THREE.Mesh(geo,matBase); meshBase.frustumCulled=false; meshBase.renderOrder=2;
-      var meshOver=new THREE.Mesh(geo,matOver); meshOver.frustumCulled=false; meshOver.renderOrder=3; meshOver.position.z=0.02;
-      var holder=new THREE.Group(); holder.position.set(0,BY,0); holder.add(meshBase); holder.add(meshOver);
+      var meshBase=new THREE.Mesh(geo,matBase); meshBase.frustumCulled=false; meshBase.renderOrder=2; meshBase.scale.x=FLIP;
+      var meshOver=new THREE.Mesh(geo,matOver); meshOver.frustumCulled=false; meshOver.renderOrder=3; meshOver.position.z=0.02; meshOver.scale.x=FLIP;
+      var holder=new THREE.Group(); holder.position.set(0,BY,0); holder.add(meshBase); holder.add(meshOver);   // flip 은 메시에, squash/sway 는 holder 에(둘이 곱해져 flip 유지)
       function setF(tex,i){ var c=i%COLS, r=Math.floor(i/COLS); tex.offset.set(c/COLS, 1-(r+1)/ROWS); }
       setF(texBase, ANIM.idle.f[0]); setF(texOver, ANIM.idle.f[1]);
-      var _shadow=makeContactShadow(2.3);
+      var _shadow=makeContactShadow(cfg.shadow||2.3);
       _shadow.userData._bb=true; holder.userData._bb=true;   // 재스폰 시 제거용 태그
-      G.traverse(function(o){ if(o.isMesh) o.visible=false; });   // 절차적 문어 메시 전부 숨김
+      G.traverse(function(o){ if(o.isMesh) o.visible=false; });   // 절차적 보스 메시 전부 숨김
       G.add(_shadow); G.add(holder);
       function smooth(x){ return x*x*(3-2*x); }
       function restHolder(){ holder.rotation.z=0; holder.scale.set(1,1,1); holder.position.set(0,BY,0); }
@@ -943,7 +950,7 @@
       boss=buildCharacter({skin:cfg.color,armor:cfg.color,trim:cfg.color2,eye:0xfff04a,face:-1,weapon:'claw',isBoss:true});
       enhanceBossMonster(boss, cfg);
       boss.position.set(GAP,0,0); boss.rotation.y=-0.18; boss.userData.home.set(GAP,0,0); scene.add(boss); attachModel(boss, (cfg.model||MODELS.boss), -1);   // 보스=오른쪽, 왼쪽 히어로를 향함
-      if(MODELS.boss.sprite){ attachBossSprite(boss, MODELS.boss.sprite); }   // 🐙 클레이 문어 스프라이트로 대체(절차적 메시 숨김)
+      if(BOSS_SKINS[bossSkin]){ attachBossSprite(boss, BOSS_SKINS[bossSkin]); }   // 👾 선택된 보스(문어/티라노) 스프라이트로 대체(절차적 메시 숨김)
       boss.scale.setScalar(0.01); var t=0;
       addAnim(function(dt){ t+=dt; var p=Math.min(1,t/0.6); boss.scale.setScalar(1.32*easeOutBack(p)); spot.intensity=2.4*(1-Math.abs(0.5-p)*2); if(p>=1){ boss.scale.setScalar(1.32); spot.intensity=0; return true; } return false; });
       cameraShake(0.4,0.4); sfx.roar();
@@ -1251,6 +1258,19 @@
       });
       paint();
     })();
+    /* 👾 보스 선택 — 고르면 저장+확인음. 무대엔 아직 보스가 없으니(레슨 시작 시 spawnBoss) 저장만; 다음 스폰부터 적용 */
+    (function(){
+      var row=document.getElementById('bossPick'); if(!row) return;
+      function paint(){ [].forEach.call(row.children,function(b){ b.classList.toggle('on', b.getAttribute('data-skin')===bossSkin); }); }
+      Object.keys(BOSS_SKINS).forEach(function(key){
+        var s=BOSS_SKINS[key];
+        var b=document.createElement('button'); b.setAttribute('data-skin',key);
+        b.innerHTML='<span class="hi">'+s.ico+'</span><span class="hn">'+s.name+'</span><span class="hd">'+s.desc+'</span>';
+        b.onclick=function(){ bossSkin=key; try{ localStorage.setItem('mangoi_battle_boss',key); }catch(e){} paint(); audioInit(); sfx.select(); };
+        row.appendChild(b);
+      });
+      paint();
+    })();
     /* ← 뒤로가기: 허브(iframe) 안이면 부모에 알리고, 단독 실행이면 게임 목록으로 */
     document.getElementById('backBtn').onclick=function(){
       try{
@@ -1304,6 +1324,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260708004436 -->
+<!-- BUILD:20260708005757 -->
 </body>
 </html>
