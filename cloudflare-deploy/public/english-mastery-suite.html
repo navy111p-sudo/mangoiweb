@@ -760,7 +760,11 @@
     m.querySelector('.cls').addEventListener('click',function(){ m.classList.remove('on'); });
     m.addEventListener('click',function(e){ if(e.target===m) m.classList.remove('on'); });
   }
-  (function(){ emBuildGunModal(); var btn=document.getElementById('shootGun'); if(btn){ btn.title='무기 선택 (12종 · 총마다 모양·발사음 다름)'; btn.addEventListener('click',function(){ _ac(); var m=document.getElementById('emGunModal'); if(m) m.classList.add('on'); }); } emSetGun(emGun); })();
+  function emOpenGunModal(){ var m=document.getElementById('emGunModal'); if(m){ try{_ac();}catch(e){} m.classList.add('on'); } }
+  (function(){ emBuildGunModal(); var btn=document.getElementById('shootGun'); if(btn){ btn.title='무기 선택 (12종 · 총마다 모양·발사음 다름)'; btn.addEventListener('click',function(){ _ac(); emOpenGunModal(); }); } emSetGun(emGun);
+    // 슈팅 게임 진입 시 무기 선택 그리드를 한 번 자동으로 띄워 upfront 로 고르게 (영어슈팅 시작화면처럼)
+    try{ if(/[?&]game=shoot/.test(location.search)){ var _a=0,_t=setInterval(function(){ _a++; if(document.getElementById('shootField')&&document.getElementById('emGunModal')){ clearInterval(_t); emOpenGunModal(); } else if(_a>20){ clearInterval(_t); } },250); } }catch(e){}
+  })();
   function sfxHit(){ try{ _ac(); if(!actx)return; var t=actx.currentTime; var n=_noise(0.4),f=actx.createBiquadFilter(),g=actx.createGain(); f.type='lowpass'; f.frequency.setValueAtTime(1500,t); f.frequency.exponentialRampToValueAtTime(120,t+0.35); n.connect(f); f.connect(g); g.connect(_master); g.gain.setValueAtTime(0.55,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.4); n.start(t); n.stop(t+0.42); _tp(t,0.5,150,40,0.35); }catch(e){} }   // 명중/폭발음
   function buzz(){ try{ _ac(); if(!actx)return; var o=actx.createOscillator(), g=actx.createGain(); o.type='sawtooth'; o.frequency.value=150; o.connect(g); g.connect(_master); var t=actx.currentTime; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.16,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+0.25); o.start(t); o.stop(t+0.27); }catch(e){} }
 
@@ -1647,6 +1651,6 @@
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260707215519 -->
+<!-- BUILD:20260707220046 -->
 </body>
 </html>
