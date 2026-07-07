@@ -441,7 +441,7 @@
     var SOLDIER='https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/models/gltf/Soldier.glb';
     var ROBOT='https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
     var MODELS = {
-      hero: { url:SOLDIER, sprite:'hero-atlas.png?v=3', video:'robert-knight.mp4', scale:'auto', idle:'Idle', attack:'Run', brighten:true },   // ?v = 캐시 강제 갱신(파일명 동일해 옛 이미지 붙잡히는 것 방지)
+      hero: { url:SOLDIER, sprite:'astro-atlas.png?v=3', video:'robert-knight.mp4', scale:'auto', idle:'Idle', attack:'Run', brighten:true },   // 망고아이 우주인 파이터(카툰 그린스크린 5시트: 주먹·옆차기·날아차기·피격·소멸·승리). ?v = 캐시 강제 갱신
       boss: { url:'',      scale:'auto', idle:'Idle', attack:'Punch', tint:0x7a1414 }
     };
     var _mixers=[];
@@ -581,39 +581,46 @@
       G.userData.videoTex=tex; G.userData.video=video; G.userData.billboard=mesh;
     }
 
-    /* ===== 실사 은색 파이터 '스프라이트' 히어로 (Gemini 은색 시트 → hero-atlas.png) =====
-       4x4 아틀라스(cell 340x480)를 UV 오프셋으로 프레임 전환. 배경은 이미 투명 알파로 구움.
-       상태: idle=걷기 루프(0~7) / attack=펀치+킥 콤보(8,9=펀치, 10=킥) / death=무릎→복셀→흩어짐(11,12,13)→페이드. */
+    /* ===== 망고아이 우주인 파이터 '스프라이트' 히어로 (카툰 스타일 5개 그린스크린 시트 → astro-atlas.png) =====
+       5x5 아틀라스(cell 540x500)를 UV 오프셋으로 프레임 전환. 그린스크린 키잉으로 배경 투명. 오른쪽(보스) 향함.
+       프레임: 0~1 준비(가드) · 2 주먹(런지) · 3~6 옆차기(챔버/뻗기/피크/회수) · 7~11 날아차기(크라우치/런치/뻗기/하강/착지)
+               12~13 피격(플린치/헤드스냅) · 14 소멸(스태거) · 15~17 대시인 · 18~20 승리(만세/브이/가슴) · 21 하이가드. */
     function attachSpriteBillboard(G, url, faceDir){
-      var COLS=4, ROWS=4, CW=340, CH=480, WALK=[0,1,2,3,4,5,6,7];
+      var COLS=5, ROWS=5, CW=540, CH=500, IDLE=[0,1];   // 준비 가드 잔잔한 흔들
       var tex=new THREE.TextureLoader().load(url);
       tex.magFilter=THREE.LinearFilter; tex.minFilter=THREE.LinearFilter; tex.generateMipmaps=false;
       tex.wrapS=tex.wrapT=THREE.ClampToEdgeWrapping; tex.repeat.set(1/COLS,1/ROWS);
-      var mat=new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false,side:THREE.DoubleSide,toneMapped:false,alphaTest:0.02,color:new THREE.Color(0.92,0.95,1.02)});   // 메탈 꽉 채운 밝은 은빛 (몸통·다리 완전 불투명 실루엣과 함께)
-      var H=5.6, W=H*(CW/CH);
+      var mat=new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false,side:THREE.DoubleSide,toneMapped:false,alphaTest:0.28,color:new THREE.Color(1.12,1.12,1.16)});   // 어두운 우주 무대에서 살짝 밝힘
+      var H=6.4, W=H*(CW/CH);
       var mesh=new THREE.Mesh(new THREE.PlaneGeometry(W,H),mat);
-      mesh.position.set(0,H*0.5-0.05,0); mesh.castShadow=false; mesh.frustumCulled=false; mesh.renderOrder=2;
+      mesh.position.set(0,H*0.5-0.18,0); mesh.castShadow=false; mesh.frustumCulled=false; mesh.renderOrder=2;   // 발끝=바닥 접지(날아차기는 아틀라스에서 띄워 구움)
       if(faceDir<0) mesh.scale.x=-1;
       function setFrame(i){ var c=i%COLS, r=Math.floor(i/COLS); tex.offset.set(c/COLS, 1-(r+1)/ROWS); }
-      setFrame(WALK[0]);
+      setFrame(IDLE[0]);
       G.traverse(function(o){ if(o.isMesh) o.visible=false; });
-      G.add(makeContactShadow(1.35)); G.add(mesh);
+      G.add(makeContactShadow(1.6)); G.add(mesh);
       var COMBOS=[
-        [{f:9,d:0.20},{f:10,d:0.24}],                 // 크로스 펀치 → 킥
-        [{f:10,d:0.22},{f:8,d:0.20}],                 // 킥 → 잽
-        [{f:8,d:0.16},{f:9,d:0.18},{f:10,d:0.22}]     // 잽 → 크로스 → 킥
+        [{f:0,d:0.08},{f:2,d:0.22},{f:0,d:0.10}],                              // 주먹: 가드→런지 펀치→복귀
+        [{f:3,d:0.10},{f:4,d:0.18},{f:5,d:0.14},{f:6,d:0.12}],                 // 옆차기: 챔버→뻗기→피크→회수
+        [{f:7,d:0.10},{f:8,d:0.12},{f:9,d:0.20},{f:10,d:0.12},{f:11,d:0.10}],  // 날아차기: 크라우치→런치→뻗기→하강→착지
+        [{f:15,d:0.07},{f:16,d:0.07},{f:2,d:0.20},{f:0,d:0.10}]                // 대시 인 → 런지 펀치
       ];
-      var DEATHSEQ=[{f:11,d:0.36},{f:12,d:0.44},{f:13,d:0.52}], DEATH_TOTAL=1.32;
+      var DEATHSEQ=[{f:13,d:0.34},{f:14,d:0.52}], DEATH_TOTAL=0.86;            // 헤드스냅→스태거→페이드
+      var HITSEQ=[{f:12,d:0.13},{f:13,d:0.15}], HIT_TOTAL=0.28;                // 피격: 플린치→헤드스냅(안 쓰러질 때)
+      var VICTORY=[{f:18,d:0.34},{f:19,d:0.40},{f:20,d:0.36}], VIC_TOTAL=1.10; // 만세→브이→가슴치기 무한 반복
       var S={ state:'idle', t:0, seq:null, atk:0, mat:mat };
-      S.attack=function(){ if(S.state==='death')return; S.state='attack'; S.t=0; S.seq=COMBOS[S.atk%COMBOS.length]; S.atk++; setFrame(S.seq[0].f); };
+      S.attack=function(){ if(S.state==='death'||S.state==='victory')return; S.state='attack'; S.t=0; S.seq=COMBOS[S.atk%COMBOS.length]; S.atk++; setFrame(S.seq[0].f); };
+      S.hit=function(){ if(S.state==='death'||S.state==='victory'||S.state==='attack')return; S.state='hit'; S.t=0; S.seq=HITSEQ; setFrame(HITSEQ[0].f); };   // 맞았지만 안 쓰러질 때
       S.die=function(){ if(S.state==='death')return; S.state='death'; S.t=0; S.seq=DEATHSEQ; setFrame(DEATHSEQ[0].f); };
-      S.reset=function(){ S.state='idle'; S.t=0; mat.opacity=1; setFrame(WALK[0]); };
+      S.win=function(){ if(S.state==='death')return; S.state='victory'; S.t=0; mat.opacity=1; setFrame(VICTORY[0].f); };   // 보스 처치 시 세리머니
+      S.reset=function(){ S.state='idle'; S.t=0; mat.opacity=1; setFrame(IDLE[0]); };
       S.update=function(dt){
         S.t+=dt;
-        if(S.state==='idle'){ setFrame(WALK[Math.floor(S.t*9)%WALK.length]); return; }
+        if(S.state==='idle'){ setFrame(IDLE[Math.floor(S.t*3)%IDLE.length]); return; }   // 준비 가드 3fps 흔들
+        if(S.state==='victory'){ var vt=S.t%VIC_TOTAL,va=0; for(var v=0;v<VICTORY.length;v++){ va+=VICTORY[v].d; if(vt<va){ setFrame(VICTORY[v].f); break; } } return; }   // 승리 세리머니 루프
         var acc=0,shown=false;
         for(var k=0;k<S.seq.length;k++){ acc+=S.seq[k].d; if(S.t<acc){ setFrame(S.seq[k].f); shown=true; break; } }
-        if(S.state==='attack'){ if(!shown){ S.state='idle'; S.t=0; } }
+        if(S.state==='attack'||S.state==='hit'){ if(!shown){ S.state='idle'; S.t=0; } }
         else if(S.state==='death'){ if(!shown){ setFrame(DEATHSEQ[DEATHSEQ.length-1].f); mat.opacity=Math.max(0,1-(S.t-DEATH_TOTAL)/0.5); } }
       };
       G.userData.sprite=S;
@@ -785,7 +792,9 @@
       var t2=0; addAnim(function(dt){ t2+=dt; var p=Math.min(1,t2/0.34); if(!ko) target.position.x=home.x+(-dir)*Math.sin(p*Math.PI)*0.9; return p>=1; });
       // 휘청/쓰러짐: 상대 반대쪽으로 기울기(rotation.z) — 발(그룹 원점)을 축으로 회전
       if(ko && target===hero && hero.userData.sprite){
-        hero.userData.sprite.die();                                                   // 스프라이트 히어로: 산산이 흩어져 소멸(디졸브)
+        hero.userData.sprite.die();                                                   // 스프라이트 히어로: 헤드스냅→스태거→페이드 소멸
+      } else if(!ko && target===hero && hero.userData.sprite){
+        hero.userData.sprite.hit();                                                   // 스프라이트 히어로: 맞았지만 안 쓰러짐 → 피격 리액션(플린치)
       } else if(ko){
         var k3=0,kd=0.55, fz=target.rotation.z, tz=dir*(target===boss?0.5:0.72),     // 큰 보스는 덜 기울여 화면 밖 방지
             bSY=target.scale.y, tSY=bSY*0.58,                                         // 슬럼프(세로 수축)로 '쓰러져 눕는' 느낌
@@ -969,6 +978,7 @@
       }
     }
     function victory(){ stopQTimer(); el.quiz.style.display='none'; bgmStop(); explodeBoss(); sfx.win();
+      if(hero&&hero.userData.sprite) hero.userData.sprite.win();   // 우주인 히어로: 승리 세리머니(만세→브이→가슴치기)
       var L=LESSONS[state.lesson]; setBadge(L.badge); rewardPop(); confetti(); setTimeout(function(){ sfx.badge(); },450);
       var _earned=0; try{ var _b=JSON.parse(localStorage.getItem('wf_badges')||'[]'); if(_b.indexOf(state.lesson)<0) _b.push(state.lesson); localStorage.setItem('wf_badges',JSON.stringify(_b)); _earned=_b.length; }catch(e){}
       var stars=state.heroHP>=80?'⭐⭐⭐':(state.heroHP>=40?'⭐⭐':'⭐'); document.getElementById('winStars').textContent=stars;
@@ -1058,6 +1068,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260707051612 -->
+<!-- BUILD:20260707194149 -->
 </body>
 </html>
