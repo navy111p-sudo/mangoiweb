@@ -569,7 +569,7 @@
         url:'boss-atlas.png?v=2', cols:5, rows:5, cw:680, ch:600, flip:false, H:8.2, color:[1.06,1.09,1.03], shadow:2.3,
         anim:{ idle:{f:[0,9,13,14,15,16,11,2,10,1,12,3],d:0.26,loop:true}, attack:{f:[9,13,15,8,5,0],d:[0.14,0.14,0.11,0.20,0.13,0.12],loop:false}, hit:{f:[11,2],d:[0.12,0.15],loop:false}, death:{f:[17,18,19,20],d:[0.24,0.26,0.26,0.5],loop:false} } },
       trex: { ico:'🦖', name:'티라노 공룡', desc:'진짜 걷는 실사 공룡',
-        video:'trex-walk.mp4?v=1', vw:660, vh:302, flip:false, H:7.2, footY:0.15, color:[1.03,1.0,0.95], shadow:3.4 }   // 🎬 실사 그린스크린 걷기 영상(왼쪽 히어로 향함, 셰이더 그린키). 공격=그룹 돌진, 사망=페이드+폭발
+        video:'trex-walk.mp4?v=2', vw:706, vh:340, flip:false, H:7.6, feetFrac:0.98, dx:1.6, color:[1.03,1.0,0.95], shadow:3.6 }   // 🎬 실사 그린스크린 걷기(왼쪽 향함). 머리~꼬리~발 안 잘리게 크롭, 크게(H7.6), 오른쪽 살짝 밀어 히어로 안 가림
     };
     var bossSkin=(function(){ try{ var v=localStorage.getItem('mangoi_battle_boss'); return (v==='trex'||v==='octopus')?v:'octopus'; }catch(e){ return 'octopus'; } })();
     var _mixers=[];
@@ -859,14 +859,15 @@
           '}'
         ].join('\n')
       });
-      var H=cfg.H||6.5, W=H*(cfg.vw/cfg.vh), BY=H*0.5-(cfg.footY||0.2), FLIP=cfg.flip?-1:1;
+      var H=cfg.H||7.0, W=H*(cfg.vw/cfg.vh), BY=H*((cfg.feetFrac||0.98)-0.5), FLIP=cfg.flip?-1:1;   // BY: 영상 속 발 위치(feetFrac)를 바닥(y=0)에 맞춤 → 그룹 ×1.32 스케일해도 발 접지 유지
       var mesh=new THREE.Mesh(new THREE.PlaneGeometry(W,H),mat);
       mesh.position.set(0,BY,0); mesh.castShadow=false; mesh.frustumCulled=false; mesh.renderOrder=2; mesh.scale.x=FLIP;
-      var holder=new THREE.Group(); holder.add(mesh);
+      var holder=new THREE.Group(); holder.position.x=cfg.dx||0;   // dx: 긴 옆모습 공룡을 오른쪽으로 살짝 밀어 히어로(왼쪽) 안 가리게
+      holder.add(mesh);
       var _shadow=makeContactShadow(cfg.shadow||3.0);
       _shadow.userData._bb=true; holder.userData._bb=true;
       G.traverse(function(o){ if(o.isMesh) o.visible=false; });   // 절차적 보스 메시 숨김
-      G.add(_shadow); G.add(holder);
+      holder.add(_shadow); G.add(holder);   // 그림자도 holder 안에(dx 이동 시 발밑 따라감)
       var S={ state:'idle', t:0 };
       S.attack=function(){};                                       // 그룹 돌진(attackAnim)이 공격 연출
       S.hit=function(){};                                          // impact 플래시/넉백로 충분
@@ -1375,6 +1376,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260708032340 -->
+<!-- BUILD:20260708032840 -->
 </body>
 </html>
