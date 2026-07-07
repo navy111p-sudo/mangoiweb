@@ -1238,10 +1238,10 @@ const HUB_GAMES = [
    허브 네비게이션
    ============================================================ */
 // 🌐 언어별 카드 제목: '영어 슈팅' 은 중국어 모드에서 '중국어 슈팅' 으로 (나머지는 그대로)
-function _gameTitle(g){ if(g.mode==='shooter') return (GAME_LANG==='zh') ? '중국어 슈팅' : '영어 슈팅'; return g.ttl; }
+function _gameTitle(g){ if(g.mode==='shooter') return (GAME_LANG==='zh') ? '중국어 슈팅' : '영어 슈팅'; if(g.mode==='battle3d') return (GAME_LANG==='zh') ? '중국어 배틀' : '3D 배틀'; return g.ttl; }
 function hubRenderMenu(){
-  // 중국어 모드: 영어 전용 콘텐츠(3D 배틀 — 자체 영어 퀴즈)는 숨김
-  var list = HUB_GAMES.filter(function(g){ return !(GAME_LANG==='zh' && g.mode==='battle3d'); });
+  // 3D 배틀은 영어/중국어 모두 지원(glang 전달) — 전체 노출
+  var list = HUB_GAMES.slice();
   document.getElementById('game-grid').innerHTML = list.map(function(g){
     return '<div class="game-card" style="--cardbg:'+g.bg+'" onclick="hubOpenGame(\''+g.mode+'\')">'
       + '<span class="badge">'+g.badge+'</span>'
@@ -1920,7 +1920,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260708002526 -->
+<!-- BUILD:20260708004114 -->
 <script defer src="/js/flow.js"></script>
 </body>
 </html>

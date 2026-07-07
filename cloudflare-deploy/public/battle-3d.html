@@ -63,6 +63,10 @@
   #quiz .ch:active{transform:scale(.97)}
   #quiz .ch.right{background:#22c55e;border-color:#22c55e;color:#04220f}
   #quiz .ch.wrong{background:#ef4444;border-color:#ef4444;color:#fff;animation:qshake .35s}
+  #quiz .ch .hz{display:block;font-size:21px;line-height:1.1;letter-spacing:1px}
+  #quiz .ch .py{display:block;font-size:11.5px;font-weight:700;color:#a9c7ff;margin-top:2px}
+  #quiz .ch.right .py{color:#0b3a1c}
+  #quiz .ch.wrong .py{color:#ffe0e0}
   @keyframes qshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
   #quiz .listen{display:block;margin:5px auto 0;background:rgba(34,197,94,.2);border:1px solid rgba(34,197,94,.5);color:#bdf3cf;font-size:12px;font-weight:800;padding:5px 14px;border-radius:999px;cursor:pointer;font-family:inherit}
 
@@ -167,6 +171,16 @@
     'use strict';
     if(!window.THREE){ document.getElementById('loadErr').style.display='flex'; return; }
 
+    /* ===== 🌐 언어 모드: ?glang=zh (또는 localStorage) → 중국어 배틀 ===== */
+    var GLANG=(function(){ try{ var u=new URLSearchParams(location.search); var g=u.get('glang'); if(!g){ g=localStorage.getItem('mangoi_game_lang'); } return g==='zh'?'zh':'en'; }catch(_){ return 'en'; } })();
+    var IS_ZH=(GLANG==='zh');
+    var PY={};   // 한자→병음 사전 (선택지/문제에 병음 표기용)
+    function pyReg(hz,py){ if(hz&&py&&!PY[hz]) PY[hz]=py; }
+    if(IS_ZH){ try{
+      var _tag=document.querySelector('#startOverlay .tag'); if(_tag) _tag.textContent='⚔️ 3D 중국어 배틀 · 레슨 보스전 ⚔️';
+      document.title='중국어 배틀';
+    }catch(e){} }
+
     /* ===== 레슨 데이터 (각 레슨 = 보스전) ===== */
     /* ★ 망고아이 앱의 실제 교재 데이터(index.html 의 _GAME_WORDS / _GAME_VOCAB)에서 가져옴.
          교재가 바뀌면 아래 배열만 동일 형식으로 교체하면 됩니다. */
@@ -209,6 +223,55 @@
         ]}
     ];
 
+    /* ===== 🇨🇳 중국어 배틀 레슨 (한자 정답 + 병음, 다락원 중국어 마스터 수준) =====
+       q(단어)=한국어 뜻(듣기문제라 화면엔 안 보임), a=한자 정답, ch=한자 보기.
+       문장은 q 안에 '___' 를 직접 넣어 빈칸 처리(중국어는 띄어쓰기가 없음). */
+    var ZH_LESSONS = [
+      { name:'레슨 1 · 단어 왕', boss:'👹 单词王 (Word King)', color:0xef4444, color2:0x7a1010, badge:'star',
+        items:[
+          {type:'단어', q:'사과',   a:'苹果', ch:['苹果','书','水','星星']},
+          {type:'단어', q:'책',     a:'书',   ch:['书','猫','花','太阳']},
+          {type:'단어', q:'고양이', a:'猫',   ch:['猫','狗','月亮','苹果']},
+          {type:'단어', q:'강아지', a:'狗',   ch:['狗','猫','星星','书']},
+          {type:'단어', q:'꽃',     a:'花',   ch:['花','水','月亮','你好']},
+          {type:'단어', q:'안녕',   a:'你好', ch:['你好','爱','学校','太阳']}
+        ]},
+      { name:'레슨 2 · 별빛 왕', boss:'✨ 星星王 (Star King)', color:0x6366f1, color2:0x2a2a7a, badge:'gem',
+        items:[
+          {type:'단어', q:'학교', a:'学校', ch:['学校','水','书','星星']},
+          {type:'단어', q:'물',   a:'水',   ch:['水','苹果','太阳','爱']},
+          {type:'단어', q:'태양', a:'太阳', ch:['太阳','月亮','星星','花']},
+          {type:'단어', q:'달',   a:'月亮', ch:['月亮','太阳','星星','猫']},
+          {type:'단어', q:'별',   a:'星星', ch:['星星','太阳','月亮','狗']},
+          {type:'단어', q:'사랑', a:'爱',   ch:['爱','你好','花','水']}
+        ]},
+      { name:'레슨 3 · 문장 왕', boss:'📜 句子王 (Sentence King)', color:0xa855f7, color2:0x4a2a7a, badge:'trophy',
+        items:[
+          {type:'문장', q:'我喜欢吃___。',   hint:'(사과)',   a:'苹果', ch:['苹果','书','水','猫']},
+          {type:'문장', q:'她在读一本___。', hint:'(책)',     a:'书',   ch:['书','猫','狗','太阳']},
+          {type:'문장', q:'我每天去___。',   hint:'(학교)',   a:'学校', ch:['学校','水','月亮','星星']},
+          {type:'문장', q:'我的___很可爱。', hint:'(강아지)', a:'狗',   ch:['狗','猫','花','太阳']},
+          {type:'문장', q:'我想喝___。',     hint:'(물)',     a:'水',   ch:['水','苹果','书','花']},
+          {type:'문장', q:'我很___你。',     hint:'(사랑)',   a:'爱',   ch:['爱','花','猫','水']}
+        ]},
+      { name:'레슨 4 · 혼합 복습 왕', boss:'👑 高手王 (Master King)', color:0x14b8a6, color2:0x0f5e57, badge:'trophy',
+        items:[
+          {type:'단어', q:'별',   a:'星星', ch:['星星','太阳','月亮','书']},
+          {type:'문장', q:'___照得很亮。',   hint:'(태양)',   a:'太阳', ch:['太阳','月亮','星星','水']},
+          {type:'단어', q:'사랑', a:'爱',   ch:['爱','你好','花','猫']},
+          {type:'문장', q:'这个苹果很___。', hint:'(맛있다)', a:'好吃', ch:['好吃','漂亮','重要','一起']},
+          {type:'단어', q:'학교', a:'学校', ch:['学校','水','月亮','苹果']},
+          {type:'문장', q:'我的___很可爱。', hint:'(강아지)', a:'狗',   ch:['狗','猫','太阳','书']}
+        ]}
+    ];
+    (function(){   // 병음 사전 등록(선택지 병음 표기)
+      var PYS={ '苹果':'píngguǒ','书':'shū','水':'shuǐ','猫':'māo','狗':'gǒu','太阳':'tàiyáng','月亮':'yuèliang',
+        '星星':'xīngxing','学校':'xuéxiào','花':'huā','爱':'ài','你好':'nǐ hǎo','好吃':'hǎochī','漂亮':'piàoliang',
+        '重要':'zhòngyào','一起':'yìqǐ' };
+      for(var k in PYS) pyReg(k, PYS[k]);
+    })();
+    if(IS_ZH) LESSONS = ZH_LESSONS;   // 중국어 모드면 레슨 세트 교체
+
     /* ===== 📚 로그인 학생의 교재/레벨 맞춤 보스전 (10문제 = 정답 10개로 보스 처치) =====
        game-vocab.js 가 학생 단어장(en/ko)·교재 문장을 주면 '오늘의 교재 배틀' 레슨을
        만들어 맨 앞에 추가한다. 보스 데미지는 문제 수에 비례하므로 10문제면 10개 정답 시 승리. */
@@ -241,24 +304,58 @@
       return { name:name, boss:'👑 교재 왕 (Textbook King)', color:0x10b981, color2:0x065f46, badge:'trophy',
                items:items.slice(0,10) };
     }
-    try{
-      if(window.MangoiGameVocab){
-        MangoiGameVocab.load().then(function(d){
-          if(!d) return;
-          var L=buildStudentLesson(d); if(!L) return;
-          LESSONS.push(L);                          // 기존 레슨 버튼들의 인덱스 유지를 위해 뒤에 추가
-          var li=LESSONS.length-1;
-          // 레슨 선택 버튼은 맨 앞에 노출 (메뉴가 이미 그려진 뒤 도착하므로 직접 삽입)
-          try{
-            var p=document.getElementById('lessonPick');
-            if(p){ var b=document.createElement('button');
-              b.innerHTML='<span>'+L.name+'</span><span class="b">'+L.boss+'</span>';
-              b.onclick=function(){ startLesson(li); };
-              p.insertBefore(b, p.firstChild); }
-          }catch(e){}
-        });
-      }
-    }catch(e){}
+    /* 🀄 중국어(한자) 교재 배틀 — /api/games/zh-vocab (다락원) 실어휘로 10문제 레슨 구성 */
+    function buildStudentLessonZh(d){
+      if(!d) return null;
+      var items=[];
+      var words=(d.words||[]).filter(function(w){ return w && w.en && w.ko; });   // en=한자
+      var allHz=words.map(function(w){ return w.en; });
+      words.forEach(function(w){ pyReg(w.en, w.pinyin);
+        var wrongs=_shuf(allHz.filter(function(e){ return e!==w.en; })).slice(0,3);
+        while(wrongs.length<3){ wrongs.push(['书','水','猫','太阳','花','月亮'][wrongs.length]); }
+        items.push({ type:'단어', q:w.ko, a:w.en, ch:_shuf([w.en].concat(wrongs)) });
+      });
+      var pool=[];
+      (d.sentences||[]).forEach(function(s){ (s.words||[]).forEach(function(w){ if(w&&w.length>=1) pool.push(w); }); });
+      (d.sentences||[]).forEach(function(s){
+        var ws=(s.words||[]).filter(function(w){ return w && w.length>=1; }); if(ws.length<2) return;
+        var ans=ws[Math.floor(ws.length/2)];            // 가운데 한자 단어를 빈칸으로 (중국어는 띄어쓰기 없음)
+        var q=s.en.indexOf(ans)>=0 ? s.en.replace(ans,'___') : s.en+'___';
+        var wrongs=_shuf(pool.filter(function(w){ return w!==ans; })).slice(0,3);
+        while(wrongs.length<3){ wrongs.push(['书','水','猫','花'][wrongs.length]); }
+        items.push({ type:'문장', q:q, hint:(s.ko?'('+s.ko+')':''), a:ans, ch:_shuf([ans].concat(wrongs)) });
+      });
+      if(items.length<5) return null;
+      items=_shuf(items);
+      while(items.length<10) items=items.concat(_shuf(items));
+      return { name:'📚 오늘의 다락원 배틀', boss:'👑 教材王 (교재 왕)', color:0x10b981, color2:0x065f46, badge:'trophy',
+               items:items.slice(0,10) };
+    }
+    // 교재 맞춤 레슨을 뒤에 추가 + 선택 버튼을 맨 앞에 삽입(인덱스 보존)
+    function _addStudentLesson(L){
+      if(!L) return;
+      LESSONS.push(L); var li=LESSONS.length-1;
+      try{
+        var p=document.getElementById('lessonPick');
+        if(p){ var b=document.createElement('button');
+          b.innerHTML='<span>'+L.name+'</span><span class="b">'+L.boss+'</span>';
+          b.onclick=function(){ startLesson(li); };
+          p.insertBefore(b, p.firstChild); }
+      }catch(e){}
+    }
+    if(IS_ZH){
+      // 🀄 다락원 zh_vocab 실교재 어휘 → 오늘의 교재 배틀
+      fetch('/api/games/zh-vocab?textbook='+encodeURIComponent('다락원')+'&level='+encodeURIComponent('Lv 3'))
+        .then(function(r){ return r.ok?r.json():null; })
+        .then(function(d){ if(d) _addStudentLesson(buildStudentLessonZh(d)); })
+        .catch(function(){});
+    } else {
+      try{
+        if(window.MangoiGameVocab){
+          MangoiGameVocab.load().then(function(d){ if(d) _addStudentLesson(buildStudentLesson(d)); });
+        }
+      }catch(e){}
+    }
 
     /* ===== Three.js 기본 ===== */
     var canvas=document.getElementById('battleCanvas'), wrap=document.getElementById('mango-battle-3d');
@@ -986,13 +1083,18 @@
 
     /* ===== 원어민 발음 (클라우드 TTS → 기기 자연 음성) ===== */
     var synth=('speechSynthesis' in window)?window.speechSynthesis:null,enVoice=null,voiceBadge=document.getElementById('voiceBadge');
-    function pickVoice(){ if(!synth)return; var vs=synth.getVoices(); if(!vs.length)return; var en=vs.filter(function(v){return /^en/i.test(v.lang||'')||/English/i.test(v.name||'');}); if(!en.length){enVoice=null;return;}
+    function pickVoice(){ if(!synth)return; var vs=synth.getVoices(); if(!vs.length)return;
+      if(IS_ZH){   // 🇨🇳 중국어 원어민(zh-CN) 보이스 우선
+        var zh=vs.filter(function(v){return /^zh/i.test(v.lang||'')||/Chinese|中文|普通话|Mandarin/i.test(v.name||'');}); if(!zh.length){enVoice=null;return;}
+        function zc(v){var n=v.name||'',l=v.lang||'',s=0; if(/zh[-_]CN/i.test(l))s+=4; if(/Google|Natural|Online|Xiaoxiao|Yunyang|Huihui/i.test(n))s+=7; if(v.localService===false)s+=2; return s;}
+        zh.sort(function(a,b){return zc(b)-zc(a);}); enVoice=zh[0]; voiceBadge.textContent='🔊 '+(enVoice?enVoice.name:'중국어 음성'); return; }
+      var en=vs.filter(function(v){return /^en/i.test(v.lang||'')||/English/i.test(v.name||'');}); if(!en.length){enVoice=null;return;}
       function sc(v){var n=v.name||'',l=v.lang||'',s=0; if(/en[-_]US/i.test(l))s+=3; if(/Google|Natural|Online/i.test(n))s+=7; if(/Aria|Jenny|Guy|Samantha|Daniel/i.test(n))s+=3; if(v.localService===false)s+=2; if(/Zira|David|eSpeak|compact/i.test(n))s-=5; return s;}
       en.sort(function(a,b){return sc(b)-sc(a);}); enVoice=en[0]; voiceBadge.textContent='🔊 '+(enVoice?enVoice.name:'영어 음성'); }
     if(synth){ pickVoice(); synth.onvoiceschanged=pickVoice; }
     var TTS_URL='/api/voice/tts',ttsCache={},ttsA=null;
     function speak(text){ text=(text||'').trim(); if(!text)return; if(ttsCache[text]){ play(ttsCache[text]); return; }
-      fetch(TTS_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text,lang:'en'})}).then(function(r){var ct=r.headers.get('content-type')||''; if(!r.ok||ct.indexOf('audio')<0)throw 0; return r.blob();}).then(function(b){var u=URL.createObjectURL(b); ttsCache[text]=u; play(u);}).catch(function(){ if(synth){try{synth.cancel();var u=new SpeechSynthesisUtterance(text); u.lang='en-US'; u.rate=0.92; if(enVoice)u.voice=enVoice; synth.speak(u);}catch(e){}} }); }
+      fetch(TTS_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text,lang:GLANG})}).then(function(r){var ct=r.headers.get('content-type')||''; if(!r.ok||ct.indexOf('audio')<0)throw 0; return r.blob();}).then(function(b){var u=URL.createObjectURL(b); ttsCache[text]=u; play(u);}).catch(function(){ if(synth){try{synth.cancel();var u=new SpeechSynthesisUtterance(text); u.lang=IS_ZH?'zh-CN':'en-US'; u.rate=IS_ZH?0.86:0.92; if(enVoice)u.voice=enVoice; synth.speak(u);}catch(e){}} }); }
     function play(u){ try{ if(!ttsA)ttsA=new Audio(); ttsA.src=u; ttsA.play().catch(function(){}); }catch(e){} }
 
     /* ===== 오디오 언락 (중요) — iframe 임베드/모바일에서 AudioContext 가 suspended 로 남아 소리가 안 나는 문제 =====
@@ -1067,7 +1169,7 @@
       if(state.busy) return; state.busy=true;
       var it=state.current; if(!it){ state.busy=false; return; }
       sfx.wrong(); toast('⏰ 시간 초과!','#ff8a8a');
-      [].forEach.call(el.choices.children,function(b){ if(b.textContent===it.a) b.classList.add('right'); });
+      [].forEach.call(el.choices.children,function(b){ if(b.getAttribute('data-val')===it.a) b.classList.add('right'); });
       state.combo=0;
       setTimeout(function(){ attackAnim(boss,hero); sfx.hurt(); state.heroHP=Math.max(0,state.heroHP-20); updateHUD();
         setTimeout(function(){ if(state.heroHP<=0){ defeat(); return; } el.quiz.style.display='none'; state.busy=false; setTimeout(nextQuestion,300); },720); },500);
@@ -1078,7 +1180,10 @@
       // 듣기 평가: 한국어 뜻/힌트 숨김 — 단어=스피커 아이콘만, 문장=영어 문장(빈칸)만 표시
       el.qText.innerHTML = it.type==='문장' ? it.q.replace('___','<span class="bl">_____</span>') : '<span style="font-size:34px;line-height:1.15">🔊</span>';
       el.qHint.textContent = it.type==='문장' ? '잘 듣고 빈칸에 알맞은 단어를 고르세요' : '잘 듣고 알맞은 단어를 고르세요';
-      el.choices.innerHTML=''; shuffle(it.ch.slice()).forEach(function(c){ var b=document.createElement('button'); b.className='ch'; b.textContent=c; b.onclick=function(){ answer(b,c,it); }; el.choices.appendChild(b); });
+      el.choices.innerHTML=''; shuffle(it.ch.slice()).forEach(function(c){ var b=document.createElement('button'); b.className='ch'; b.setAttribute('data-val',c);
+        if(IS_ZH){ var py=PY[c]||''; b.innerHTML='<span class="hz">'+c+'</span>'+(py?'<span class="py">'+py+'</span>':''); }
+        else { b.textContent=c; }
+        b.onclick=function(){ answer(b,c,it); }; el.choices.appendChild(b); });
       speakCurrent();   // 문제 표시 시 정답 발음 자동 1회 재생(듣기 문제)
       startQTimer();    // ⚡ 속도(난이도)에 따른 답변 제한시간 시작
     }
@@ -1089,7 +1194,7 @@
         attackAnim(hero,boss); var dmg=Math.ceil(100/LESSONS[state.lesson].items.length); state.bossHP=Math.max(0,state.bossHP-dmg); updateHUD(); state.idx++;
         setTimeout(function(){ if(state.bossHP<=0){ victory(); return; } el.quiz.style.display='none'; state.busy=false; setTimeout(nextQuestion,300); },800);
       } else {
-        btn.classList.add('wrong'); sfx.wrong(); [].forEach.call(el.choices.children,function(b){ if(b.textContent===it.a) b.classList.add('right'); }); state.combo=0;
+        btn.classList.add('wrong'); sfx.wrong(); [].forEach.call(el.choices.children,function(b){ if(b.getAttribute('data-val')===it.a) b.classList.add('right'); }); state.combo=0;
         setTimeout(function(){ attackAnim(boss,hero); sfx.hurt(); state.heroHP=Math.max(0,state.heroHP-20); updateHUD();
           setTimeout(function(){ if(state.heroHP<=0){ defeat(); return; } el.quiz.style.display='none'; state.busy=false; setTimeout(nextQuestion,300); },720); },500);
       }
@@ -1199,6 +1304,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260708002526 -->
+<!-- BUILD:20260708004114 -->
 </body>
 </html>
