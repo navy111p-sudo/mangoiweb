@@ -5208,7 +5208,7 @@
     <div class="home-hero-stack" style="display:flex;flex-direction:column;align-items:center;margin-bottom:1.4rem;position:relative;z-index:2;">
       <div class="mascot-bubble" aria-hidden="false">
         <img src="/img/Mangoi_Character.png" alt="Mangoi"
-             onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#fbbf24,#f59e0b)';this.style.padding='40px';this.style.fontSize='120px';this.alt='🥭';"
+             onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#fbbf24,#f59e0b)';this.style.padding='40px';this.style.fontSize='120px';this.alt='망고아이';"
              class="mascot-img" />
         <span class="mascot-shine"></span>
         <span class="mascot-rim"></span>
@@ -19832,6 +19832,7 @@ window.addEventListener('DOMContentLoaded', () => {
     document.body.appendChild(overlay);
   };
   // ─── SNS 성취 카드 생성 (Canvas 1080x1080) ───
+  var _cardLogo = new Image(); try{ _cardLogo.src = '/img/mango-char.png'; }catch(_){}
   window.generateAchievementCard = function(type, data){
     type = type || 'streak';
     data = data || {};
@@ -19861,11 +19862,12 @@ window.addEventListener('DOMContentLoaded', () => {
     // 어두운 카드 본체
     ctx.fillStyle = 'rgba(15,23,42,0.92)';
     ctx.roundRect ? (ctx.beginPath(), ctx.roundRect(80, 80, 920, 920, 40), ctx.fill()) : ctx.fillRect(80, 80, 920, 920);
-    // 로고
+    // 로고 — 망고아이 캐릭터 + 워드마크
+    ctx.textAlign = 'left';
+    try{ if(_cardLogo && _cardLogo.complete && _cardLogo.naturalWidth){ ctx.drawImage(_cardLogo, 140, 128, 92, 92); } }catch(_){}
     ctx.fillStyle = '#fbbf24';
     ctx.font = 'bold 56px system-ui, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('🥭 Mangoi', 140, 200);
+    ctx.fillText('Mangoi', 248, 200);
     // 학생 이름
     ctx.fillStyle = '#e2e8f0';
     ctx.font = 'bold 48px system-ui, sans-serif';
@@ -24188,7 +24190,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260708005757 -->
+<!-- BUILD:20260708014430 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

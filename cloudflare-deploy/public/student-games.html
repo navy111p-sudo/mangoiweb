@@ -627,7 +627,7 @@ function _loseHeart(){ _hearts=Math.max(0,_hearts-1); _renderHearts(); return _h
    +'@keyframes _mascotShake{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}'
    +'@keyframes _bubblePop{0%{transform:scale(.3);opacity:0}30%{transform:scale(1.08);opacity:1}85%{opacity:1}100%{opacity:0}}'
    +'#_mascot{position:fixed;right:14px;bottom:14px;z-index:60;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:4px}'
-   +'#_mascot .face{font-size:clamp(46px,9vmin,72px);filter:drop-shadow(0 5px 10px rgba(0,0,0,.5))}'
+   +'#_mascot .face{filter:drop-shadow(0 5px 10px rgba(0,0,0,.5))}#_mascot .face img{width:clamp(64px,13vmin,104px);height:auto;display:block}'
    +'#_mascot .bubble{background:#fff;color:#0b1b3a;font-weight:800;font-size:clamp(13px,2.4vmin,17px);padding:6px 14px;border-radius:14px;box-shadow:0 4px 14px rgba(0,0,0,.35);white-space:nowrap;order:-1}'
    +'#_mascot .bubble::after{content:"";position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);border:7px solid transparent;border-top-color:#fff;border-bottom:0}';
   document.head.appendChild(st);
@@ -661,12 +661,12 @@ var _mascotTimer=null;
 function _mascot(kind){
   try{
     var msgs=_MASCOT_MSG[kind]||_MASCOT_MSG.good, msg=msgs[Math.floor(Math.random()*msgs.length)];
-    var face = kind==='wrong' ? '🥭' : (kind==='boss'||kind==='win' ? '🥭' : '🥭');
+    var face = '<img src="/img/mango-char.png" alt="망고아이">';
     var old=document.getElementById('_mascot'); if(old && old.parentNode) old.parentNode.removeChild(old);
     var box=document.createElement('div'); box.id='_mascot';
     var dur = (kind==='win'?2600:kind==='boss'?2200:1600);
     box.innerHTML='<div class="bubble" style="animation:_bubblePop '+dur+'ms ease forwards;position:relative">'+msg+'</div>'
-      +'<div class="face" style="animation:'+(kind==='wrong'?'_mascotShake .5s ease 2':'_mascotShake .4s ease 3')+'">🥭</div>';
+      +'<div class="face" style="animation:'+(kind==='wrong'?'_mascotShake .5s ease 2':'_mascotShake .4s ease 3')+'">'+face+'</div>';
     box.style.animation='_mascotPop '+dur+'ms ease forwards';
     document.body.appendChild(box);
     if(_mascotTimer) clearTimeout(_mascotTimer);
@@ -1920,7 +1920,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260708005757 -->
+<!-- BUILD:20260708014430 -->
 <script defer src="/js/flow.js"></script>
 </body>
 </html>
