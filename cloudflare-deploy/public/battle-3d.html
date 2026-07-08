@@ -574,9 +574,9 @@
         url:'boss-atlas.png?v=2', cols:5, rows:5, cw:680, ch:600, H:8.2,
         anim:{ idle:{f:[0,9,13,14,15,16,11,2,10,1,12,3],d:0.26,loop:true}, attack:{f:[9,13,15,8,5,0],d:[0.14,0.14,0.11,0.20,0.13,0.12],loop:false}, hit:{f:[11,2],d:[0.12,0.15],loop:false}, death:{f:[17,18,19,20],d:[0.24,0.26,0.26,0.5],loop:false} } },
       trex: { ico:'🦖', name:'티라노 공룡', desc:'진짜 걷는 실사 공룡',
-        video:'trex-walk.mp4?v=3', vw:1260, vh:470, flip:false,
-        H0:5.9, feetFrac:0.962, dinoWFrac:0.913, dinoHFrac:0.798, preferX:4.0,
-        color:[1.06,1.02,0.96], shadow:3.4 }   // 🎬 새 실사 그린스크린(선명·머리~꼬리 풀바디, 제자리걷기 핑퐁루프). H0=구클립과 비슷한 크기. attachBossVideo가 화면폭 맞춰 반응형 축소/위치(머리·꼬리·발 절대 안잘림, 세로폰 포함). preferX=월드중심(보스=우측, 히어로 안가림)
+        video:'trex-walk.mp4?v=4', vw:1260, vh:470, flip:false,
+        H0:5.9, feetFrac:0.962, dinoWFrac:0.913, dinoHFrac:0.838, preferX:4.0,
+        color:[1.06,1.02,0.96], shadow:3.4 }   // 🎬 실사 그린스크린 다동작 루프(걷기→포효→걷기, 프레임별 폭정규화로 제자리). build-trex-video.py: WIN_WALK 224~240 + WIN_ROAR 106~118 크로스페이드 전진루프. attachBossVideo가 화면폭 맞춰 반응형 축소/위치(머리·꼬리·발 절대 안잘림, 세로폰 포함). preferX=월드중심(보스=우측, 히어로 안가림)
     };
     var bossSkin=(function(){ try{ var v=localStorage.getItem('mangoi_battle_boss'); return (v==='trex'||v==='octopus')?v:'octopus'; }catch(e){ return 'octopus'; } })();
     var _mixers=[];
@@ -1406,6 +1406,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260708201911 -->
+<!-- BUILD:20260708202744 -->
 </body>
 </html>
