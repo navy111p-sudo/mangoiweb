@@ -574,9 +574,10 @@
         url:'boss-atlas.png?v=2', cols:5, rows:5, cw:680, ch:600, H:8.2,
         anim:{ idle:{f:[0,9,13,14,15,16,11,2,10,1,12,3],d:0.26,loop:true}, attack:{f:[9,13,15,8,5,0],d:[0.14,0.14,0.11,0.20,0.13,0.12],loop:false}, hit:{f:[11,2],d:[0.12,0.15],loop:false}, death:{f:[17,18,19,20],d:[0.24,0.26,0.26,0.5],loop:false} } },
       trex: { ico:'🦖', name:'티라노 공룡', desc:'진짜 걷는 실사 공룡',
-        video:'trex-walk.mp4?v=7', vw:1260, vh:470, flip:false,
+        video:'trex-walk.mp4?v=8', vw:1260, vh:470, flip:false,
+        roarSound:'trex-roar.mp3?v=1', roarAt:1.095,   // 🔊 원본 녹화서 추출한 진짜 포효(라우드니스 정규화). roarAt=영상 내 포효 시작 시각(초), 매 루프 동기 재생(게임 muted 따름)
         H0:5.9, feetFrac:0.962, dinoWFrac:0.912, dinoHFrac:0.862, preferX:4.0, sizeFactor:0.7,
-        color:[1.06,1.02,0.96], shadow:3.4 }   // 🎬 실사 그린스크린 다동작(걷기↔포효 하드컷). ✅매트 키 32~58(실측: 배경초록 ex63~88 vs 공룡 그늘다리 ex<=27의 갭 한가운데) + 디스필+12(게임 keyLo ex25.5 미만) → 그늘진 안쪽다리·턱·배 반투명 갉힘 완전 제거(30프레임 전수검사 통과). attachBossVideo 투영fit=머리·꼬리·발 절대 안잘림(세로폰 포함). sizeFactor 0.7=30%작게
+        color:[1.06,1.02,0.96], shadow:3.4 }   // 🎬 v8: 걷기↔포효 + 포효 세그먼트 크기매칭 x0.74(컷서 몸크기 연속 → '머리 들 때 덩치 훅' 부자연 제거, IoU 최대 스케일 탐색) + 42fps 세그먼트별 보간. ✅매트 키 32~58+디스필12(그늘다리 안 갉힘, 전수검사). 투영fit=머리·꼬리·발 절대 안잘림. sizeFactor 0.7=30%작게
     };
     var bossSkin=(function(){ try{ var v=localStorage.getItem('mangoi_battle_boss'); return (v==='trex'||v==='octopus')?v:'octopus'; }catch(e){ return 'octopus'; } })();
     var _mixers=[];
@@ -848,6 +849,19 @@
       var _p=video.play(); if(_p&&_p.catch) _p.catch(function(){});
       var kick=function(){ var q=video.play(); if(q&&q.catch) q.catch(function(){}); };
       window.addEventListener('pointerdown',kick,{once:true}); window.addEventListener('touchstart',kick,{once:true});
+      // 🔊 진짜 포효 사운드 동기화: 영상 루프가 포효 구간(cfg.roarAt)에 들어갈 때마다 원본서 추출한 mp3 재생.
+      //    비디오 자체는 muted(자동재생 정책) → 사운드는 별도 Audio, 게임 음소거(muted 플래그) 따름. timeupdate ~4Hz라 창 0.5s+스로틀 1s.
+      if(cfg.roarSound){
+        var roarA=new Audio(cfg.roarSound); roarA.preload='auto'; roarA.volume=0.8; var _lastRoar=0;
+        video.addEventListener('timeupdate',function(){
+          if(typeof muted!=='undefined'&&muted) return;
+          var t=video.currentTime;
+          if(cfg.roarAt!==undefined && t>=cfg.roarAt && t<cfg.roarAt+0.5){
+            var now=Date.now();
+            if(now-_lastRoar>1000){ _lastRoar=now; try{ roarA.currentTime=0; var rp=roarA.play(); if(rp&&rp.catch) rp.catch(function(){}); }catch(e){} }
+          }
+        });
+      }
       var tex=new THREE.VideoTexture(video); tex.minFilter=THREE.LinearFilter; tex.magFilter=THREE.LinearFilter; tex.generateMipmaps=false;
       var tc=cfg.color||[1.0,1.0,1.0];
       var mat=new THREE.ShaderMaterial({
@@ -1422,6 +1436,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260709013944 -->
+<!-- BUILD:20260709014319 -->
 </body>
 </html>

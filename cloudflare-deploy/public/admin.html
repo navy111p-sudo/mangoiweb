@@ -1972,18 +1972,24 @@
 (function(){
   "use strict";
   var KEY = 'mangoi_admin_theme';        /* 적용된 색상 저장 */
-  var OVR = 'mangoi_admin_theme_manual'; /* 수동으로 바꾼 '날짜' 저장(수동 우선) */
-  var SWITCH_HOUR = 18;                  /* 저녁 6시 — 이 시각 전=밝게, 이후=어둡게 */
+  var OVR = 'mangoi_admin_theme_manual'; /* 수동으로 바꾼 '시간대' 저장(수동 우선) */
+  var DARK_HOUR = 18, LIGHT_HOUR = 6;    /* 낮(06~18시)=밝게 · 밤(18~익일 06시)=어둡게 */
 
   function saved(){ try { var s = localStorage.getItem(KEY); return (s === 'ivory' || s === 'dark') ? s : null; } catch(e){ return null; } }
-  /* 수동 선택 유지 범위 = '같은 시간대(period)' 까지만 — 날짜+am/pm(18시 기준) 키.
-     (기존엔 하루 종일 유지라, 낮에 한 번 만지면 저녁에도 밝게 그대로인 문제 → 18시 경계를 넘으면
-      자동 규칙(18시 전 밝게/후 어둡게)이 다시 우선하도록 변경, 2026-07-09) */
-  function dayKey(){ var d = new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()+'|'+(d.getHours() < SWITCH_HOUR ? 'am' : 'pm'); }
-  /* 지금 시간대에 사용자가 버튼으로 직접 바꿨는가? (그 시간대 동안만 자동 전환 멈춤) */
+  function isDayTime(){ var h = new Date().getHours(); return h >= LIGHT_HOUR && h < DARK_HOUR; }
+  /* 수동 선택 유지 범위 = '같은 시간대(낮/밤)' 까지만.
+     (기존 규칙 두 가지 문제 수정, 2026-07-09: ①하루 종일 수동 유지라 낮에 만지면 저녁에도 밝게 그대로
+      ②'18시 이전=밝게'가 자정~새벽까지 밝게로 계산 → 밤인데 밝게 나오던 버그. 밤 시간대(18~06시)는
+      자정을 넘겨도 같은 밤으로 취급되도록 앵커 날짜를 6시간 당겨 계산) */
+  function dayKey(){
+    var d = new Date(), day = isDayTime();
+    var a = new Date(d); if (!day && d.getHours() < LIGHT_HOUR) a.setDate(a.getDate() - 1); /* 새벽=전날 밤 */
+    return a.getFullYear()+'-'+(a.getMonth()+1)+'-'+a.getDate()+'|'+(day ? 'day' : 'night');
+  }
+  /* 지금 시간대(낮/밤)에 사용자가 버튼으로 직접 바꿨는가? (그 시간대 동안만 자동 전환 멈춤) */
   function manualToday(){ try { return localStorage.getItem(OVR) === dayKey(); } catch(e){ return false; } }
-  /* 시간 기준 자동 색상: 18시 이전=밝게(ivory), 이후=어둡게(dark) */
-  function autoTheme(){ return (new Date().getHours() < SWITCH_HOUR) ? 'ivory' : 'dark'; }
+  /* 시간 기준 자동 색상: 낮(06~18시)=밝게(ivory), 밤=어둡게(dark) */
+  function autoTheme(){ return isDayTime() ? 'ivory' : 'dark'; }
   /* 지금 적용할 색상 결정 */
   function cur(){ return manualToday() ? (saved() || autoTheme()) : autoTheme(); }
 
@@ -23372,7 +23378,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260709013944 -->
+        <!-- BUILD:20260709014319 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

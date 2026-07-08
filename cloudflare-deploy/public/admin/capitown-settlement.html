@@ -769,14 +769,19 @@ function applyI18n(){
 function capToggleLang(){LANG=LANG==='ko'?'en':'ko';try{localStorage.setItem('mangoi_lang',LANG);}catch(e){}applyI18n();render();}
 
 /* 🎨 시간대 자동 테마 — admin.html 과 동일 규칙(2026-07-09):
-   · 18시(오후 6시) 전 = 밝게(ivory), 이후 = 어둡게(dark)
-   · 🎨 버튼으로 직접 바꾸면 '지금 시간대(am/pm)' 동안만 그 선택 유지, 경계(18시/자정) 넘으면 자동 복귀
+   · 낮(06~18시) = 밝게(ivory), 밤(18시~익일 06시) = 어둡게(dark) — 자정~새벽도 어둡게(밤)
+   · 🎨 버튼으로 직접 바꾸면 '지금 시간대(낮/밤)' 동안만 그 선택 유지, 경계(06시/18시) 넘으면 자동 복귀
    · 저장키(mangoi_admin_theme / _manual)를 admin.html 과 공유 → 콘솔↔정산 화면 색이 항상 일치 */
-const THEME_KEY='mangoi_admin_theme', THEME_OVR='mangoi_admin_theme_manual', SWITCH_HOUR=18;
+const THEME_KEY='mangoi_admin_theme', THEME_OVR='mangoi_admin_theme_manual', DARK_HOUR=18, LIGHT_HOUR=6;
 function savedTheme(){try{const s=localStorage.getItem(THEME_KEY);return (s==='ivory'||s==='dark')?s:null;}catch(e){return null;}}
-function themePeriodKey(){const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()+'|'+(d.getHours()<SWITCH_HOUR?'am':'pm');}
+function isDayTime(){const h=new Date().getHours();return h>=LIGHT_HOUR&&h<DARK_HOUR;}
+function themePeriodKey(){
+  const d=new Date(), day=isDayTime();
+  const a=new Date(d); if(!day&&d.getHours()<LIGHT_HOUR)a.setDate(a.getDate()-1); /* 새벽=전날 밤과 같은 시간대 */
+  return a.getFullYear()+'-'+(a.getMonth()+1)+'-'+a.getDate()+'|'+(day?'day':'night');
+}
 function themeManualNow(){try{return localStorage.getItem(THEME_OVR)===themePeriodKey();}catch(e){return false;}}
-function autoTheme(){return (new Date().getHours()<SWITCH_HOUR)?'ivory':'dark';}
+function autoTheme(){return isDayTime()?'ivory':'dark';}
 function curTheme(){return themeManualNow()?(savedTheme()||autoTheme()):autoTheme();}
 function applyTheme(t){
   document.documentElement.setAttribute('data-admin-theme',t);

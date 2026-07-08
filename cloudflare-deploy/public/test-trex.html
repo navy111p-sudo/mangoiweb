@@ -7,7 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script></head>
 <body><div id="wrap"><canvas id="c"></canvas></div><div id="edge"></div><div id="hud">loading…</div>
 <script>
-var cfg={ video:'trex-walk.mp4?v=7', vw:1260, vh:470, H0:5.9, feetFrac:0.962, dinoWFrac:0.912, dinoHFrac:0.862, preferX:4.0, sizeFactor:0.7, color:[1.06,1.02,0.96] };
+var cfg={ video:'trex-walk.mp4?v=8', vw:1260, vh:470, H0:5.9, feetFrac:0.962, dinoWFrac:0.912, dinoHFrac:0.862, preferX:4.0, sizeFactor:0.7, color:[1.06,1.02,0.96] };
 var canvas=document.getElementById('c'), wrap=document.getElementById('wrap');
 var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true,alpha:false,preserveDrawingBuffer:true});
 var scene=new THREE.Scene(); scene.background=new THREE.Color(0x2a2450);
@@ -60,5 +60,5 @@ function loop(){ if(video.readyState>=2)tex.needsUpdate=true; renderer.render(sc
 loop();
 // 브라우저 자동재생 허용 위해 상호작용 시 재생
 ['click','touchstart','keydown'].forEach(function(e){window.addEventListener(e,function(){var p=video.play();if(p&&p.catch)p.catch(function(){});},{once:true});});
-</script><!-- BUILD:20260709013944 -->
+</script><!-- BUILD:20260709014319 -->
 </body></html>
