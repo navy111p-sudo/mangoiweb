@@ -42735,5 +42735,42 @@ button.chip:hover,
 })();
 </script>
 <script src="/js/mango-worldclock.js?v=3" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 빼면 즉시 원복 -->
+<!-- 📱 (2026-07-09) 모바일 마감 보정 — 좁은 화면에서 차트카드 삐져나감·표 잘림 방지(표는 가로 스크롤로 전환). 빼면 즉시 원복 -->
+<style id="mb-tidy-2026-07-09">
+@media (max-width: 640px){
+  .charts{ grid-template-columns: 1fr !important; }
+  .chart-card{ max-width: 100%; min-width: 0; overflow-x: hidden; }
+  .chart-card canvas{ max-width: 100% !important; height: auto !important; }
+  /* details.table-card.menu-card table 의 overflow:hidden !important 보다 뒤+동급 특이도로 이겨야 함 */
+  .menu-body table, .sub-body table,
+  details.menu-card table, details.table-card.menu-card table,
+  #card-report-forms .rf-table, #legacy-cards .pm-table, #legacy-cards .rf-table{
+    display: block !important; width: 100% !important; max-width: 100% !important;
+    overflow-x: auto !important; overflow-y: hidden !important; -webkit-overflow-scrolling: touch;
+  }
+  /* 인라인 style 로 다열 grid 를 박아둔 카드 내부(회계 차트·강사 프로필 폼 등) → 모바일은 1열 */
+  #legacy-cards div[style*="grid-template-columns"], .menu-body div[style*="grid-template-columns"], .sub-body div[style*="grid-template-columns"]{ grid-template-columns: 1fr !important; }
+  /* Chart.js 등 고정폭 캔버스가 카드 밖으로 삐져나가지 않게 */
+  #legacy-cards canvas, .menu-body canvas, .sub-body canvas{ max-width: 100% !important; height: auto !important; }
+  /* 인라인 flex 행(버튼·날짜 선택 등, div/span 모두)은 줄바꿈 허용 */
+  .menu-body [style*="display:flex"], .sub-body [style*="display:flex"]{ flex-wrap: wrap !important; }
+  /* 수강 일괄등록 카드 — 템플릿 3버튼 그리드 1열 + 카드 폭 고정 해제 */
+  .enroll-tmpl-grid{ grid-template-columns: 1fr !important; }
+  .enroll-bulk-card{ min-width: 0 !important; max-width: 100% !important; padding: 12px !important; }
+  /* 결제(B2B/B2C) KPI 타일·필터 — 900px 룰(2열)보다 더 좁은 화면은 1열 */
+  .pm-kpi-row{ grid-template-columns: 1fr !important; }
+  .pm-filter-row{ grid-template-columns: 1fr !important; }
+  .pm-kpi{ min-width: 0 !important; max-width: 100% !important; }
+  /* 카드 안 입력폼이 컬럼 최소폭(minmax 220px)보다 좁은 화면에서 넘치지 않게 */
+  #legacy-cards input, #legacy-cards select, #legacy-cards textarea{ max-width: 100% !important; min-width: 0 !important; box-sizing: border-box; }
+  /* 인라인 grid 컨테이너가 부모보다 넓어지지 않게 + 그 안 셀 최소폭 해제 */
+  #legacy-cards div[style*="grid-template-columns"]{ width: 100% !important; max-width: 100% !important; min-width: 0 !important; box-sizing: border-box; }
+  #legacy-cards div[style*="grid-template-columns"] > div{ min-width: 0 !important; max-width: 100% !important; }
+  /* 중첩 아코디언(카드>메뉴>서브) 들여쓰기 패딩을 모바일에서 절반으로 — 콘텐츠 가용폭 확보 */
+  #legacy-cards .menu-body{ padding-left: 10px !important; padding-right: 10px !important; }
+  #legacy-cards .sub-menu, #legacy-cards .sub-item{ padding-left: 6px !important; padding-right: 6px !important; }
+  #legacy-cards .sub-body{ padding-left: 8px !important; padding-right: 8px !important; }
+}
+</style>
 </body>
 </html>
