@@ -15759,26 +15759,27 @@ function renderRecordingsTable() {
     let consent = [];
     try { consent = JSON.parse(r.consented_user_ids || '[]'); } catch(_){}
 
-    // 상태 배지
+    // 상태 배지 — 파스텔 대신 진한 단색 필 + 흰 글씨로 한눈에 보이게
+    const badgeBase = 'display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;line-height:1.4;white-space:nowrap;';
     let statusBadge;
-    if (r.status === 'completed')      statusBadge = '<span class="badge ok">'+(adminLang==='en'?'Done':'완료')+'</span>';
-    else if (r.status === 'recording') statusBadge = '<span class="badge warn">'+(adminLang==='en'?'Recording':'녹화중')+'</span>';
-    else if (r.status === 'deleted')   statusBadge = '<span class="badge" style="background:#fee;color:#dc2626;">'+(adminLang==='en'?'Deleted':'삭제됨')+'</span>';
-    else if (r.status === 'orphan')    statusBadge = '<span class="badge" style="background:#fff7ed;color:#c2410c;">'+(adminLang==='en'?'Orphan':'고아')+'</span>';
+    if (r.status === 'completed')      statusBadge = '<span style="'+badgeBase+'background:#16a34a;color:#fff;">'+(adminLang==='en'?'Done':'완료')+'</span>';
+    else if (r.status === 'recording') statusBadge = '<span style="'+badgeBase+'background:#f59e0b;color:#fff;">'+(adminLang==='en'?'● Recording':'● 녹화중')+'</span>';
+    else if (r.status === 'deleted')   statusBadge = '<span style="'+badgeBase+'background:#ef4444;color:#fff;">'+(adminLang==='en'?'Deleted':'삭제됨')+'</span>';
+    else if (r.status === 'orphan')    statusBadge = '<span style="'+badgeBase+'background:#ea580c;color:#fff;">'+(adminLang==='en'?'Orphan':'고아')+'</span>';
     else                                statusBadge = r.status || '-';
 
-    // 스토리지 배지 (D1=메타데이터 DB, R2=파일 저장소)
+    // 스토리지 배지 (D1=메타데이터 DB, R2=파일 저장소) — 진한 단색 필로 판독성 확보
     let storageBadge;
-    if (r.source === 'both')         storageBadge = '<span class="badge ok" title="영상 파일과 기록 모두 정상">✅ 정상</span>';
-    else if (r.source === 'd1only')  storageBadge = '<span class="badge warn" title="기록은 있는데 영상 파일이 없습니다 (업로드 실패 또는 진행 중)">'+(adminLang==='en'?'⚠️ Video missing':'⚠️ 영상 없음')+'</span>';
-    else                              storageBadge = '<span class="badge" style="background:#fef2f2;color:#991b1b;border:1px solid #fecaca;" title="영상은 있는데 어떤 수업인지 기록이 없습니다 (정리 필요)">'+(adminLang==='en'?'⚠️ Record missing':'⚠️ 기록 없음')+'</span>';
+    if (r.source === 'both')         storageBadge = '<span style="'+badgeBase+'background:#16a34a;color:#fff;" title="영상 파일과 기록 모두 정상">'+(adminLang==='en'?'✔ Healthy':'✔ 정상')+'</span>';
+    else if (r.source === 'd1only')  storageBadge = '<span style="'+badgeBase+'background:#f59e0b;color:#fff;" title="기록은 있는데 영상 파일이 없습니다 (업로드 실패 또는 진행 중)">'+(adminLang==='en'?'⚠ Video missing':'⚠ 영상 없음')+'</span>';
+    else                              storageBadge = '<span style="'+badgeBase+'background:#dc2626;color:#fff;" title="영상은 있는데 어떤 수업인지 기록이 없습니다 (정리 필요)">'+(adminLang==='en'?'⚠ Record missing':'⚠ 기록 없음')+'</span>';
 
     // 재생/액션 버튼
     let playBtn;
     if (r.blobKey) {
       const playUrl = '/api/recordings/blob/' + encodeURIComponent(r.blobKey);
       const titleText = '방 ' + (r.room_id || '-') + ' - ' + String(r.teacher || '').replace(/'/g,"");
-      playBtn = '<button onclick="playRecording(\''+playUrl+'\', \''+titleText.replace(/'/g,"\\'")+'\')" style="background:#3b82f6;color:#fff;padding:3px 10px;border-radius:6px;font-size:11px;cursor:pointer;border:none;">▶ '+(adminLang==='en'?'Play':'재생')+'</button>';
+      playBtn = '<button onclick="playRecording(\''+playUrl+'\', \''+titleText.replace(/'/g,"\\'")+'\')" style="background:#2563eb;color:#fff;padding:5px 14px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;border:none;box-shadow:0 2px 5px rgba(37,99,235,0.40);">▶ '+(adminLang==='en'?'Play':'재생')+'</button>';
     } else if (r.status === 'recording') {
       playBtn = '<span style="color:#94a3b8;font-size:11px;">'+(adminLang==='en'?'In progress':'녹화중')+'</span>';
     } else {
@@ -15789,9 +15790,9 @@ function renderRecordingsTable() {
     let actionBtn = '';
     if (r.id) {
       if (r.status === 'deleted') {
-        actionBtn = '<button onclick="setRecordingStatus(' + r.id + ', \'ended\')" title="' + (adminLang==='en'?'Restore this recording':'삭제된 녹화를 복원합니다') + '" style="background:#10b981;color:#fff;padding:3px 10px;border-radius:6px;font-size:11px;cursor:pointer;border:none;margin-left:4px;">↩ ' + (adminLang==='en'?'Restore':'복원') + '</button>';
+        actionBtn = '<button onclick="setRecordingStatus(' + r.id + ', \'ended\')" title="' + (adminLang==='en'?'Restore this recording':'삭제된 녹화를 복원합니다') + '" style="background:#10b981;color:#fff;padding:5px 12px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:none;margin-left:6px;">↩ ' + (adminLang==='en'?'Restore':'복원') + '</button>';
       } else if (r.status !== 'recording') {
-        actionBtn = '<button onclick="setRecordingStatus(' + r.id + ', \'deleted\')" title="' + (adminLang==='en'?'Soft-delete this recording (reversible)':'녹화를 삭제 처리합니다 (복원 가능)') + '" style="background:#dc2626;color:#fff;padding:3px 10px;border-radius:6px;font-size:11px;cursor:pointer;border:none;margin-left:4px;">🗑 ' + (adminLang==='en'?'Delete':'삭제') + '</button>';
+        actionBtn = '<button onclick="setRecordingStatus(' + r.id + ', \'deleted\')" title="' + (adminLang==='en'?'Soft-delete this recording (reversible)':'녹화를 삭제 처리합니다 (복원 가능)') + '" style="background:#fff;color:#dc2626;padding:5px 11px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #f5a3a3;margin-left:6px;">🗑 ' + (adminLang==='en'?'Delete':'삭제') + '</button>';
       }
     }
     playBtn = playBtn + actionBtn;
@@ -23368,7 +23369,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260708171621 -->
+        <!-- BUILD:20260708183947 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -35395,16 +35396,31 @@ button.chip:hover,
     'student_001':   'student'
   };
 
+  // === 로그인 세션의 role 문자열 → PERMS 역할 키 정규화 ===
+  //   (mangoi_admin_session.role 이 hq_exec·franchise·capitown 등 다양하게 저장되므로 표준 키로 매핑)
+  var ROLE_NORM = {
+    'exec':'exec', 'hq_exec':'exec', 'admin':'exec',
+    'mgr':'mgr', 'hq_mgr':'mgr', 'manager':'mgr',
+    'teacher':'teacher', 'hq_teacher':'teacher',
+    'branch':'branch', 'franchise':'branch',
+    'agency':'agency',
+    'parent':'parent', 'student':'student',
+    'capitown':'capitown'   // 캐피타운은 별도 게이트 사용 — 표준 회계권한은 미부여(현행 유지)
+  };
+
   function getCurrentRole(){
     try {
-      // 🎭 역할 시뮬레이션이 설정돼 있으면 그 역할로 권한 적용 (테스트용)
-      var sim = localStorage.getItem('mangoi_user_role');
-      if (sim) {
-        var SIM_MAP = { hq_exec:'exec', hq_mgr:'mgr', hq_teacher:'teacher', branch:'branch', agency:'agency', parent:'parent', student:'student' };
-        return SIM_MAP[sim] || sim;
-      }
-      var u = JSON.parse(localStorage.getItem('admin_session') || 'null');
+      // ⚠️ 학생용 페이지 미리보기 역할 시뮬레이션(mangoi_user_role)은
+      //   관리자 콘솔 사이드바 권한에는 적용하지 않는다 — '실제 로그인 역할'만 따른다.
+      //   (예전엔 이 시뮬 값이 여기까지 새어들어와, 경영자 본인이 시뮬을 켜 두면
+      //    회계/포인트 등 자기 메뉴가 통째로 사라지는 버그가 있었음. 2026-07-08 근본수정)
+      var u = null;
+      try { u = JSON.parse(localStorage.getItem('mangoi_admin_session') || 'null'); } catch(e){}
+      if (!u || !u.uid) { try { u = JSON.parse(localStorage.getItem('admin_session') || 'null'); } catch(e){} }
       if (!u) return 'exec'; // 비로그인은 일단 전체 허용 (테스트)
+      // 1) 세션에 명시된 role 을 표준 키로 정규화 → 2) uid 매핑 → 3) 기본 exec
+      var norm = ROLE_NORM[String(u.role || '').toLowerCase()];
+      if (norm) return norm;
       return UID_TO_ROLE[u.uid] || 'exec';
     } catch(e){ return 'exec'; }
   }
