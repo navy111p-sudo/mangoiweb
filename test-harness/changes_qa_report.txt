@@ -1,4 +1,4 @@
-# Change-set QA report (2026-07-08T17:26:34.406Z)
+# Change-set QA report (2026-07-08T17:47:26.237Z)
 
 PASS=78 FAIL=0
 
@@ -13,7 +13,7 @@ PASS  integrity:cloudflare-deploy/src/index.ts brace-balance preserved  — work
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html delta  — HEAD=1750 WORK=1750 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  integrity:cloudflare-deploy/public/admin.html delta  — HEAD=42736 WORK=42736 delta=0 (expect 0)
+PASS  integrity:cloudflare-deploy/public/admin.html delta  — HEAD=42739 WORK=42739 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/admin.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/public/admin.html brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
 PASS  syntax:cloudflare-deploy/public/index.html  — 65 inline scripts, 0 errors
