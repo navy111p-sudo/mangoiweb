@@ -63,10 +63,17 @@
   #quiz .ch:active{transform:scale(.97)}
   #quiz .ch.right{background:#22c55e;border-color:#22c55e;color:#04220f}
   #quiz .ch.wrong{background:#ef4444;border-color:#ef4444;color:#fff;animation:qshake .35s}
-  #quiz .ch .hz{display:block;font-size:21px;line-height:1.1;letter-spacing:1px}
+  /* 🈶 한자 폰트 통일: 기본 폰트(한글용)가 일부 한자만 갖고 있어 글자마다 굵기/모양이 제각각(fallback 섞임) →
+     중국어 전용 폰트(YaHei/PingFang/Noto CJK SC)를 먼저 지정해 모든 한자를 같은 폰트·같은 굵기로. 한글은 뒤의 Malgun으로 fallback */
+  #quiz .ch .hz, #quiz .q{font-family:'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Noto Sans SC','Malgun Gothic',sans-serif}
+  #quiz .ch .hz{display:block;font-size:21px;line-height:1.1;letter-spacing:1px;font-weight:700}
   #quiz .ch .py{display:block;font-size:11.5px;font-weight:700;color:#a9c7ff;margin-top:2px}
   #quiz .ch.right .py{color:#0b3a1c}
   #quiz .ch.wrong .py{color:#ffe0e0}
+  /* 🇰🇷 정답 선택 후 각 카드에 드러나는 한글 뜻 */
+  #quiz .ch .ko{display:block;font-size:11.5px;font-weight:800;color:#ffd34d;margin-top:2px}
+  #quiz .ch.right .ko{color:#06301a}
+  #quiz .ch.wrong .ko{color:#fff3f3}
   @keyframes qshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
   #quiz .listen{display:block;margin:5px auto 0;background:rgba(34,197,94,.2);border:1px solid rgba(34,197,94,.5);color:#bdf3cf;font-size:12px;font-weight:800;padding:5px 14px;border-radius:999px;cursor:pointer;font-family:inherit}
 
@@ -272,6 +279,17 @@
         '重要':'zhòngyào','一起':'yìqǐ' };
       for(var k in PYS) pyReg(k, PYS[k]);
     })();
+    /* 🇰🇷 단어→한글 뜻 사전: 답을 고르면 각 카드에 뜻 공개(학습 피드백). 내장 어휘 + 교재 어휘(w.ko)로 채움 */
+    var KO={};
+    function koReg(w,ko){ if(w&&ko&&!KO[w]) KO[w]=ko; }
+    (function(){
+      var M={ '苹果':'사과','书':'책','水':'물','猫':'고양이','狗':'강아지','太阳':'태양','月亮':'달','星星':'별',
+        '学校':'학교','花':'꽃','爱':'사랑','你好':'안녕','好吃':'맛있다','漂亮':'예쁘다','重要':'중요하다','一起':'함께',
+        apple:'사과',book:'책',water:'물',star:'별',cat:'고양이',dog:'강아지',flower:'꽃',sun:'태양',moon:'달',
+        hello:'안녕',love:'사랑',school:'학교',mango:'망고',soccer:'축구',tennis:'테니스',music:'음악',games:'게임',
+        pizza:'피자',bread:'빵',rice:'밥',friends:'친구들',books:'책들',dogs:'강아지들',cats:'고양이들',happy:'행복한' };
+      for(var k in M) koReg(k,M[k]);
+    })();
     if(IS_ZH) LESSONS = ZH_LESSONS;   // 중국어 모드면 레슨 세트 교체
 
     /* ===== 📚 로그인 학생의 교재/레벨 맞춤 보스전 (10문제 = 정답 10개로 보스 처치) =====
@@ -282,6 +300,7 @@
       var items=[], STOP=['the','is','are','am','was','were','a','an','to','on','in','at','of','and','it','he','she','we','they','you','i'];
       var allEn=(d.words||[]).map(function(w){ return w.en; });
       (d.words||[]).forEach(function(w){
+        koReg(w.en, w.ko);   // 카드 뜻 공개용 사전 등록
         var wrongs=_shuf(allEn.filter(function(e){ return e!==w.en; })).slice(0,3);
         while(wrongs.length<3){ wrongs.push(['book','water','star','cat','sun','moon'][wrongs.length]); }
         items.push({ type:'단어', q:w.ko, a:w.en, ch:_shuf([w.en].concat(wrongs)) });
@@ -312,7 +331,7 @@
       var items=[];
       var words=(d.words||[]).filter(function(w){ return w && w.en && w.ko; });   // en=한자
       var allHz=words.map(function(w){ return w.en; });
-      words.forEach(function(w){ pyReg(w.en, w.pinyin);
+      words.forEach(function(w){ pyReg(w.en, w.pinyin); koReg(w.en, w.ko);
         var wrongs=_shuf(allHz.filter(function(e){ return e!==w.en; })).slice(0,3);
         while(wrongs.length<3){ wrongs.push(['书','水','猫','太阳','花','月亮'][wrongs.length]); }
         items.push({ type:'단어', q:w.ko, a:w.en, ch:_shuf([w.en].concat(wrongs)) });
@@ -852,7 +871,7 @@
       // 🔊 진짜 포효 사운드 동기화: 영상 루프가 포효 구간(cfg.roarAt)에 들어갈 때마다 원본서 추출한 mp3 재생.
       //    비디오 자체는 muted(자동재생 정책) → 사운드는 별도 Audio, 게임 음소거(muted 플래그) 따름. timeupdate ~4Hz라 창 0.5s+스로틀 1s.
       if(cfg.roarSound){
-        var roarA=new Audio(cfg.roarSound); roarA.preload='auto'; roarA.volume=0.4; var _lastRoar=0;   // 볼륨: 사용자 요청으로 0.85→0.4 (스폰 함성 sfx.roar도 이 엘리먼트 공유라 같이 줄어듦)
+        var roarA=new Audio(cfg.roarSound); roarA.preload='auto'; roarA.volume=0.25; var _lastRoar=0;   // 볼륨: 사용자 요청으로 0.85→0.4→0.25 (스폰 함성 sfx.roar도 이 엘리먼트 공유라 같이 줄어듦)
         window.__trexRoarA=roarA;   // 스폰 함성(sfx.roar)도 이 진짜 포효를 쓰게 공유. 스폰마다 spawnBoss가 null로 리셋 후 여기서 재설정
         window.__roarDebug=function(){ try{ roarA.currentTime=0; return roarA.play(); }catch(e){ return 'ERR '+e.message; } };   // 진단용
         video.addEventListener('timeupdate',function(){
@@ -1290,6 +1309,7 @@
       if(state.busy) return; state.busy=true;
       var it=state.current; if(!it){ state.busy=false; return; }
       sfx.wrong(); toast('⏰ 시간 초과!','#ff8a8a');
+      revealKo(it);   // 시간초과에도 카드 한글 뜻 공개
       [].forEach.call(el.choices.children,function(b){ if(b.getAttribute('data-val')===it.a) b.classList.add('right'); });
       state.combo=0;
       setTimeout(function(){ attackAnim(boss,hero); sfx.hurt(); state.heroHP=Math.max(0,state.heroHP-20); updateHUD();
@@ -1308,7 +1328,15 @@
       speakCurrent();   // 문제 표시 시 정답 발음 자동 1회 재생(듣기 문제)
       startQTimer();    // ⚡ 속도(난이도)에 따른 답변 제한시간 시작
     }
+    function revealKo(it){ // 🇰🇷 답 선택 직후 각 카드에 한글 뜻 공개(단어형은 정답 뜻=q 자동 등록, 오답 카드도 사전에 있으면 표시)
+      if(it.type==='단어') koReg(it.a, it.q);
+      [].forEach.call(el.choices.children,function(b){
+        var m=KO[b.getAttribute('data-val')];
+        if(m && !b.querySelector('.ko')){ var s=document.createElement('span'); s.className='ko'; s.textContent=m; b.appendChild(s); }
+      });
+    }
     function answer(btn,choice,it){ if(state.busy)return; state.busy=true; stopQTimer();
+      revealKo(it);
       if(choice===it.a){
         btn.classList.add('right'); sfx.correct(); speak(it.type==='문장'? it.q.replace('___',it.a):it.a);
         state.combo++; state.score+=Math.round(100*(1+state.combo*0.1)); if(state.combo>=2) toast(state.combo+' COMBO!','#ffd34d');
@@ -1439,6 +1467,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260709022354 -->
+<!-- BUILD:20260709023222 -->
 </body>
 </html>
