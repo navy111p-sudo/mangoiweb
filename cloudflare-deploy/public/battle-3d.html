@@ -565,13 +565,18 @@
     var heroSkin=(function(){ try{ var v=localStorage.getItem('mangoi_battle_hero'); return (v==='dog'||v==='boy')?v:'boy'; }catch(e){ return 'boy'; } })();
     /* 👾 보스 선택 — 문어 괴물 / 티라노 공룡. 시작 화면에서 고르면 저장되고 다음 스폰부터 적용. attachBossSprite(cfg) 용 전체 설정 포함 */
     var BOSS_SKINS={
-      octopus: { ico:'🐙', name:'문어 괴물', desc:'클레이 촉수 보스',
-        url:'boss-atlas.png?v=2', cols:5, rows:5, cw:680, ch:600, flip:false, H:8.2, color:[1.06,1.09,1.03], shadow:2.3,
+      octopus: { ico:'🐙', name:'문어 괴물', desc:'실사 클레이 복싱 보스',
+        // 🎬 실사 그린스크린 클레이 문어(빨간 복싱글러브·제자리 복싱). build-octopus-video.py 로 매 프레임 머리·발 고정(좌우 배회 제거)해 원본 클레이 모션 그대로 살린 8.7s 루프. attachBossVideo 가 화면폭 맞춰 반응형 축소/위치(머리·팔·발 절대 안잘림, 세로폰 포함). vw/vh=캔버스, dinoWFrac(좌442·우538 펀치 포함 가로980/1120)·dinoHFrac(발~머리 695/740)=안잘림 가드.
+        video:'octopus-boss.mp4?v=1', vw:1120, vh:740, flip:false,
+        H0:9.0, feetFrac:0.962, dinoWFrac:0.875, dinoHFrac:0.94, preferX:4.0,
+        color:[1.06,1.02,0.98], shadow:3.0,
+        // ↓ 폴백(video 필드 지우면 클레이 스프라이트로 복귀):
+        url:'boss-atlas.png?v=2', cols:5, rows:5, cw:680, ch:600, H:8.2,
         anim:{ idle:{f:[0,9,13,14,15,16,11,2,10,1,12,3],d:0.26,loop:true}, attack:{f:[9,13,15,8,5,0],d:[0.14,0.14,0.11,0.20,0.13,0.12],loop:false}, hit:{f:[11,2],d:[0.12,0.15],loop:false}, death:{f:[17,18,19,20],d:[0.24,0.26,0.26,0.5],loop:false} } },
       trex: { ico:'🦖', name:'티라노 공룡', desc:'진짜 걷는 실사 공룡',
         video:'trex-walk.mp4?v=3', vw:1260, vh:470, flip:false,
-        H0:8.0, feetFrac:0.962, dinoWFrac:0.913, dinoHFrac:0.798, preferX:1.8,
-        color:[1.06,1.02,0.96], shadow:3.4 }   // 🎬 새 실사 그린스크린(선명·머리~꼬리 풀바디, 제자리걷기 핑퐁루프). 폭 넓어짐→attachBossVideo가 화면폭 맞춰 반응형 축소/중앙(세로폰서도 전체 몸 안잘림)
+        H0:5.9, feetFrac:0.962, dinoWFrac:0.913, dinoHFrac:0.798, preferX:4.0,
+        color:[1.06,1.02,0.96], shadow:3.4 }   // 🎬 새 실사 그린스크린(선명·머리~꼬리 풀바디, 제자리걷기 핑퐁루프). H0=구클립과 비슷한 크기. attachBossVideo가 화면폭 맞춰 반응형 축소/위치(머리·꼬리·발 절대 안잘림, 세로폰 포함). preferX=월드중심(보스=우측, 히어로 안가림)
     };
     var bossSkin=(function(){ try{ var v=localStorage.getItem('mangoi_battle_boss'); return (v==='trex'||v==='octopus')?v:'octopus'; }catch(e){ return 'octopus'; } })();
     var _mixers=[];
@@ -874,14 +879,22 @@
       // 📱 반응형 맞춤: 화면 폭에 맞춰 공룡 전체(머리~꼬리)가 절대 안 잘리게 축소+위치. 세로폰=작게·가운데, 넓은화면=크게·우측(히어로 안 가림). fitRenderer 에서 매 리사이즈마다 재호출.
       var dinoW0=H0*AR*DWF;   // 스케일1일 때 공룡 실제 월드 폭(머리~꼬리)
       function fitBossVideo(){
+        // ⚠ holder 는 보스그룹 G 의 자식 → G 는 스폰연출로 scale 1.32(+위치 GAP)로 확대됨.
+        //    아래 s·worldCX 는 모두 '월드' 기준으로 계산하므로, 마지막에 부모 스케일 ps 로 나눠 로컬로 되돌려야
+        //    실제 화면크기=dinoW0*s(부모배율 상쇄)가 된다. 예전 버그: ps 를 무시해 공룡이 1.32배 커져 머리·꼬리가 잘림.
+        var ps=(G.scale&&G.scale.x)?G.scale.x:1;
         var vExt=Math.tan(camera.fov*Math.PI/360)*Math.abs(camera.position.z-G.position.z);
-        var hw=vExt*camera.aspect;                 // 보스 평면에서의 가시 반폭
-        var s=Math.min(1, (2*hw*0.90)/dinoW0);     // 폭 90%에 맞춰 축소(업스케일 안함)
+        var hw=vExt*camera.aspect;                 // 카메라 x=0 기준 가시 반폭(월드). 가시 x범위=[-hw,hw]
+        if(hw<0.5||!isFinite(hw)) return;           // 레이아웃 전 0크기 캔버스면 스킵(다음 리사이즈/스폰끝에서 재계산)
+        var m=0.35;                                 // 가장자리 여유(월드)
+        var s=Math.min(1, (2*hw-2*m)*0.98/dinoW0);  // 공룡 전체폭(월드)이 가시폭 안에 들도록 축소(업스케일 안함)
         if(s*H0*DHF>2*vExt*0.86) s=(2*vExt*0.86)/(H0*DHF);   // 높이 가드(드물게 작동)
-        holder.scale.setScalar(s);
-        var half=(dinoW0*s)/2;
-        var cx=Math.min(cfg.preferX!==undefined?cfg.preferX:1.8, hw-half-0.3);   // 우측 선호(꼬리 안 잘림)
-        holder.position.x=Math.max(cx, -hw+half+0.3);                            // 머리도 안 잘림
+        s=Math.max(0.05,s);
+        holder.scale.setScalar(s/ps);               // 부모 ps 상쇄 → 실제 월드 크기 = dinoW0*s
+        var half=(dinoW0*s)/2;                       // 월드 반폭
+        var worldCX=Math.min(cfg.preferX!==undefined?cfg.preferX:4.0, hw-half-m);   // 우측(보스쪽) 선호, 꼬리 안 잘리게 상한
+        worldCX=Math.max(worldCX, -hw+half+m);                                       // 머리(코끝)도 안 잘리게 하한
+        holder.position.x = (worldCX - G.position.x)/ps;   // 월드중심 → 보스로컬(-GAP 후 부모배율 상쇄)
       }
       fitBossVideo(); _bossVideoFit=fitBossVideo;
       var S={ state:'idle', t:0 };
@@ -1017,10 +1030,10 @@
       enhanceBossMonster(boss, cfg);
       boss.position.set(GAP,0,0); boss.rotation.y=-0.18; boss.userData.home.set(GAP,0,0); scene.add(boss); attachModel(boss, (cfg.model||MODELS.boss), -1);   // 보스=오른쪽, 왼쪽 히어로를 향함
       var _bcfg=BOSS_SKINS[bossSkin]; _bossVideoFit=null;   // 새 스폰마다 초기화(문어면 null 유지)
-      if(_bcfg&&_bcfg.video){ attachBossVideo(boss, _bcfg); }        // 🎬 실사 영상 보스(티라노 걷기 mp4) — 내부에서 _bossVideoFit 세팅
+      if(_bcfg&&_bcfg.video){ boss.scale.setScalar(1.32); attachBossVideo(boss, _bcfg); }   // 🎬 실사 영상 보스(티라노). 먼저 최종스케일(1.32) 지정 후 어태치 → 초기 fit이 부모배율 반영해 팝인 중 스냅 없이 부드럽게 확대(아래서 다시 0.01→1.32 팝인)
       else if(_bcfg){ attachBossSprite(boss, _bcfg); }               // 👾 스프라이트 보스(문어)
       boss.scale.setScalar(0.01); var t=0;
-      addAnim(function(dt){ t+=dt; var p=Math.min(1,t/0.6); boss.scale.setScalar(1.32*easeOutBack(p)); spot.intensity=2.4*(1-Math.abs(0.5-p)*2); if(p>=1){ boss.scale.setScalar(1.32); spot.intensity=0; return true; } return false; });
+      addAnim(function(dt){ t+=dt; var p=Math.min(1,t/0.6); boss.scale.setScalar(1.32*easeOutBack(p)); spot.intensity=2.4*(1-Math.abs(0.5-p)*2); if(p>=1){ boss.scale.setScalar(1.32); spot.intensity=0; if(_bossVideoFit)_bossVideoFit(); return true; } return false; });   // 🎬 팝인 끝나 보스 scale=1.32 확정된 뒤 영상 크기 재계산(부모배율 상쇄) → 머리·꼬리 안 잘림
       cameraShake(0.4,0.4); sfx.roar();
     }
 
@@ -1393,6 +1406,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260708191948 -->
+<!-- BUILD:20260708201911 -->
 </body>
 </html>

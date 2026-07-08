@@ -816,9 +816,15 @@ function deriveRole(uid){
     const j=await r.json().catch(()=>null);
     if(j&&j.ok&&j.user){serverOk=true;uid=j.user.username||uid;if(!name)name=j.user.name||uid;}
   }catch(e){}
-  if(!serverOk){location.replace('/admin/login.html?next='+encodeURIComponent(location.pathname));return;}
+  // 역할 확정: 서버 세션 우선, 없으면 localStorage(mangoi_admin_session)로 폴백
+  //   — 관리자 콘솔(admin.html)이 localStorage로 인증하므로 동일 신뢰수준으로 맞춘다.
+  //   (예전엔 서버 쿠키가 없으면 무조건 로그인으로 튕겨, 콘솔에서 캐피타운 메뉴를 눌러도 안 열리는 버그가 있었음. 2026-07-08 수정)
   if(!role) role=deriveRole(uid);
   const allowed=['capitown','hq_exec'];
+  // 서버 세션도 없고 localStorage 역할도 권한이 아니면 → 로그인 필요(직접 URL 접근한 익명 차단)
+  if(!serverOk && !allowed.includes(role)){
+    location.replace('/admin/login.html?next='+encodeURIComponent(location.pathname));return;
+  }
   if(!allowed.includes(role)){
     applyI18n();
     document.getElementById('denyGate').style.display='grid';
