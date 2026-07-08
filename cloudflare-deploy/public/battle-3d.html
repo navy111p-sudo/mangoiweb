@@ -852,7 +852,7 @@
       // 🔊 진짜 포효 사운드 동기화: 영상 루프가 포효 구간(cfg.roarAt)에 들어갈 때마다 원본서 추출한 mp3 재생.
       //    비디오 자체는 muted(자동재생 정책) → 사운드는 별도 Audio, 게임 음소거(muted 플래그) 따름. timeupdate ~4Hz라 창 0.5s+스로틀 1s.
       if(cfg.roarSound){
-        var roarA=new Audio(cfg.roarSound); roarA.preload='auto'; roarA.volume=0.85; var _lastRoar=0;
+        var roarA=new Audio(cfg.roarSound); roarA.preload='auto'; roarA.volume=0.4; var _lastRoar=0;   // 볼륨: 사용자 요청으로 0.85→0.4 (스폰 함성 sfx.roar도 이 엘리먼트 공유라 같이 줄어듦)
         window.__trexRoarA=roarA;   // 스폰 함성(sfx.roar)도 이 진짜 포효를 쓰게 공유. 스폰마다 spawnBoss가 null로 리셋 후 여기서 재설정
         window.__roarDebug=function(){ try{ roarA.currentTime=0; return roarA.play(); }catch(e){ return 'ERR '+e.message; } };   // 진단용
         video.addEventListener('timeupdate',function(){
@@ -1439,6 +1439,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260709020704 -->
+<!-- BUILD:20260709022354 -->
 </body>
 </html>
