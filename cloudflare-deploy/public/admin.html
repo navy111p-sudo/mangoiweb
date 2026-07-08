@@ -23369,7 +23369,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260709004537 -->
+        <!-- BUILD:20260709004842 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -28433,8 +28433,24 @@ button.chip:hover,
       <div class="ph85-sub" id="ph85-capitown" data-ko="🏢 캐피타운 정산 ⭐신규" data-en="🏢 Capitown Settlement ⭐New" data-tip-ko="캐피타운 프랜차이즈 지점들의 정산을 한곳에서 관리해요." data-tip-en="Manage settlement for Capitown franchise branches in one place." style="display:none" onclick="event.stopPropagation();location.href='/admin/capitown-settlement.html';">🏢 캐피타운 정산 ⭐신규</div>
     </div>
   </div>
-  <!-- 🏢 캐피타운 정산 메뉴 노출 게이트 — 본사 경영진·캐피타운 본사만 -->
-  <script>(function(){try{var role='',uid='';try{var s=JSON.parse(localStorage.getItem('mangoi_admin_session')||'{}');role=s.role||'';uid=s.uid||'';}catch(e){}if(!role){uid=String(uid||'');if(uid==='capitown'||uid.indexOf('capi')===0)role='capitown';else if(uid==='admin'||uid==='hq_exec'||uid==='exec')role='hq_exec';}if(role==='capitown'||role==='hq_exec'){var it=document.getElementById('ph85-capitown');if(it)it.style.display='';}}catch(e){}})();</script>
+  <!-- 🏢 캐피타운 정산 메뉴 노출 게이트 — 본사 경영진(hq·hq_exec·exec·admin)·캐피타운 본사(capitown·franchise) -->
+  <!-- 역할 어휘 불일치(서버 hq/franchise ↔ login.html hq_exec/capitown) 근본수정 2026-07-09: 두 어휘 모두 인정 + 서버(/api/admin/me) 재확인 -->
+  <script>(function(){
+    function capAllowed(role,uid){var r=String(role||'').toLowerCase(),u=String(uid||'').toLowerCase();
+      if(r==='capitown'||r==='franchise'||u==='capitown'||u.indexOf('capi')===0)return true;
+      if(r==='hq_exec'||r==='hq'||r==='exec'||r==='admin'||u==='admin'||u==='hq_exec'||u==='exec')return true;
+      return false;}
+    function show(){var it=document.getElementById('ph85-capitown');if(it)it.style.display='';}
+    try{
+      var role='',uid='';
+      try{var s=JSON.parse(localStorage.getItem('mangoi_admin_session')||'{}');role=s.role||'';uid=s.uid||'';}catch(e){}
+      if(capAllowed(role,uid)){show();return;}
+      // localStorage 만으로 판정 불가(서버역할 세션 등) → 서버에 물어본다
+      fetch('/api/admin/me',{credentials:'include'}).then(function(r){return r.json();}).then(function(j){
+        if(j&&j.ok){var u=j.user||{};if(capAllowed(j.role||u.role||'',u.username||uid))show();}
+      }).catch(function(){});
+    }catch(e){}
+  })();</script>
 
   <div class="ph85-group" data-cards="card-students-mgmt,card-school-attendance-stats,card-family-mgmt,card-inquiry-mgmt,card-enrollments,card-badges-mgmt,card-community,card-counseling-booking,card-parent-digest,card-parent-faq-bot,card-referral,card-alumni,card-gallery">
     <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
