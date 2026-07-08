@@ -1976,8 +1976,11 @@
   var SWITCH_HOUR = 18;                  /* 저녁 6시 — 이 시각 전=밝게, 이후=어둡게 */
 
   function saved(){ try { var s = localStorage.getItem(KEY); return (s === 'ivory' || s === 'dark') ? s : null; } catch(e){ return null; } }
-  function dayKey(){ var d = new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
-  /* 오늘 사용자가 버튼으로 직접 바꿨는가? (그러면 그날은 자동 전환 멈춤) */
+  /* 수동 선택 유지 범위 = '같은 시간대(period)' 까지만 — 날짜+am/pm(18시 기준) 키.
+     (기존엔 하루 종일 유지라, 낮에 한 번 만지면 저녁에도 밝게 그대로인 문제 → 18시 경계를 넘으면
+      자동 규칙(18시 전 밝게/후 어둡게)이 다시 우선하도록 변경, 2026-07-09) */
+  function dayKey(){ var d = new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()+'|'+(d.getHours() < SWITCH_HOUR ? 'am' : 'pm'); }
+  /* 지금 시간대에 사용자가 버튼으로 직접 바꿨는가? (그 시간대 동안만 자동 전환 멈춤) */
   function manualToday(){ try { return localStorage.getItem(OVR) === dayKey(); } catch(e){ return false; } }
   /* 시간 기준 자동 색상: 18시 이전=밝게(ivory), 이후=어둡게(dark) */
   function autoTheme(){ return (new Date().getHours() < SWITCH_HOUR) ? 'ivory' : 'dark'; }
@@ -23369,7 +23372,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260709012811 -->
+        <!-- BUILD:20260709013944 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

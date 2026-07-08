@@ -768,19 +768,42 @@ function applyI18n(){
 }
 function capToggleLang(){LANG=LANG==='ko'?'en':'ko';try{localStorage.setItem('mangoi_lang',LANG);}catch(e){}applyI18n();render();}
 
-function curTheme(){try{const s=localStorage.getItem('mangoi_admin_theme');return s==='ivory'?'ivory':'dark';}catch(e){return 'dark';}}
+/* 🎨 시간대 자동 테마 — admin.html 과 동일 규칙(2026-07-09):
+   · 18시(오후 6시) 전 = 밝게(ivory), 이후 = 어둡게(dark)
+   · 🎨 버튼으로 직접 바꾸면 '지금 시간대(am/pm)' 동안만 그 선택 유지, 경계(18시/자정) 넘으면 자동 복귀
+   · 저장키(mangoi_admin_theme / _manual)를 admin.html 과 공유 → 콘솔↔정산 화면 색이 항상 일치 */
+const THEME_KEY='mangoi_admin_theme', THEME_OVR='mangoi_admin_theme_manual', SWITCH_HOUR=18;
+function savedTheme(){try{const s=localStorage.getItem(THEME_KEY);return (s==='ivory'||s==='dark')?s:null;}catch(e){return null;}}
+function themePeriodKey(){const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()+'|'+(d.getHours()<SWITCH_HOUR?'am':'pm');}
+function themeManualNow(){try{return localStorage.getItem(THEME_OVR)===themePeriodKey();}catch(e){return false;}}
+function autoTheme(){return (new Date().getHours()<SWITCH_HOUR)?'ivory':'dark';}
+function curTheme(){return themeManualNow()?(savedTheme()||autoTheme()):autoTheme();}
 function applyTheme(t){
   document.documentElement.setAttribute('data-admin-theme',t);
   const el=document.getElementById('themeLbl');if(el)el.textContent=tt(t==='ivory'?'theme_light':'theme_dark');
-  try{localStorage.setItem('mangoi_admin_theme',t);}catch(e){}
+  try{localStorage.setItem(THEME_KEY,t);}catch(e){}
 }
-function capToggleTheme(){const n=curTheme()==='ivory'?'dark':'ivory';applyTheme(n);render();}
+function capToggleTheme(){
+  const n=(savedTheme()||autoTheme())==='ivory'?'dark':'ivory';
+  try{localStorage.setItem(THEME_OVR,themePeriodKey());}catch(e){}  // 이번 시간대 동안 수동 선택 유지
+  applyTheme(n);render();
+}
 window.applyAdminColor=function(t){applyTheme(t);render();};
 window.capToggleLang=capToggleLang;window.capToggleTheme=capToggleTheme;
 window.addEventListener('storage',e=>{
   if(e.key==='mangoi_admin_theme'){applyTheme(curTheme());render();}
   if(e.key==='mangoi_lang'){LANG=(localStorage.getItem('mangoi_lang')==='en')?'en':'ko';applyI18n();render();}
 });
+/* 18시 경계·자정을 새로고침 없이 자동 반영(1분마다 점검) — 본문이 떠 있을 때만 render */
+setInterval(function(){
+  if(themeManualNow())return;
+  const want=autoTheme();
+  if(savedTheme()!==want){
+    applyTheme(want);
+    const w=document.getElementById('appWrap');
+    if(w&&w.style.display==='flex')render();
+  }
+},60*1000);
 
 let _role='',_name='';
 function setWho(){const who=document.getElementById('admWho');if(!who||!_role)return;const rl=tt('role_'+_role)||tt('who_default');who.innerHTML='<span class="who-txt">'+rl+(_name?(' · '+_name):'')+'</span>';}
