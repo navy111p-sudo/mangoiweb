@@ -18747,7 +18747,8 @@ window.addEventListener('DOMContentLoaded', () => {
   .pa-foot {
     border-top: 1px solid #e5e7eb;
     padding: 9px 14px;
-    display: flex; align-items: center; gap: 14px;
+    display: flex; align-items: center; gap: 8px;
+    flex-wrap: nowrap;
     font-size: 12px; color: #6b7280;
     background: #f9fafb;
     flex-shrink: 0;
@@ -18757,8 +18758,9 @@ window.addEventListener('DOMContentLoaded', () => {
   .pa-foot .pa-spacer { flex: 1; }
   .pa-foot button {
     background: #e5e7eb; border: 0;
-    padding: 5px 12px; border-radius: 6px; cursor: pointer;
+    padding: 5px 10px; border-radius: 6px; cursor: pointer;
     font-size: 11.5px; font-weight: 700; color: #374151;
+    white-space: nowrap; flex-shrink: 0;
   }
   .pa-foot button:hover { background: #d1d5db; }
   /* 모바일 — 위치 강제 중앙 + 폭 92vw */
@@ -18773,6 +18775,8 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     .pa-head .pa-title { font-size: 14px; }
     .pa-body { padding: 12px; font-size: 13px; }
+    .pa-foot { gap: 5px; padding: 8px 10px; }
+    .pa-foot button { font-size: 10px; padding: 5px 7px; }
   }
 </style>
 <script>
@@ -24202,7 +24206,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260709010752 -->
+<!-- BUILD:20260709012230 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
