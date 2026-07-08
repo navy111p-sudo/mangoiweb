@@ -67,19 +67,98 @@
 function esc(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
 function getQuery(k){ try { return new URLSearchParams(location.search).get(k); } catch(e){ return null; } }
 
-const uid = getQuery('uid');
+// 로그인된 학생 자동 감지 (index.html 로그인 시 저장되는 키들)
+function getLoggedUid(){
+  try {
+    var lu = JSON.parse(localStorage.getItem('mangoi_logged_user') || localStorage.getItem('mango_user') || 'null');
+    if (lu && (lu.uid || lu.user_id)) return lu.uid || lu.user_id;
+  } catch(e){}
+  try { var u = localStorage.getItem('mangoi_uid'); if (u) return u; } catch(e){}
+  return null;
+}
+
+const uid = getQuery('uid') || getLoggedUid();
 const ym = getQuery('ym') || (new Date()).toISOString().slice(0, 7);  // YYYY-MM
 
 if (!uid) {
-  document.getElementById('content').innerHTML = `
-    <div class="card" style="text-align:center;padding:40px">
-      <p style="color:#fbbf24;font-size:16px;margin-bottom:12px">학생 ID 가 필요해요</p>
-      <p style="color:#a3b3d1;font-size:12.5px">URL 에 ?uid=학생ID 를 붙여 다시 접속하세요</p>
-      <p style="color:#a3b3d1;font-size:12.5px;margin-top:10px">예: <code>/report.html?uid=hong_gd&ym=2026-05</code></p>
-    </div>`;
+  showLogin();
 } else {
   load();
 }
+
+// 🔑 학생 ID/비밀번호 로그인 폼 (index.html 과 동일한 /api/student/login 사용)
+function showLogin() {
+  document.getElementById('content').innerHTML = `
+    <div class="card" style="max-width:380px;margin:20px auto;padding:28px 24px">
+      <h3 style="font-size:17px;color:#fff;text-align:center;margin-bottom:6px">🔑 학생 로그인</h3>
+      <p style="color:#a3b3d1;font-size:12.5px;text-align:center;margin-bottom:20px">보고서를 보려면 로그인하세요</p>
+      <div style="margin-bottom:12px">
+        <label style="display:block;font-size:11.5px;color:#a3b3d1;margin-bottom:6px">학생 ID</label>
+        <input id="lg-uid" type="text" autocomplete="username" placeholder="예: hong_gd"
+          style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(99,102,241,0.35);background:#0e1e40;color:#fff;font-size:14px;outline:none">
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:11.5px;color:#a3b3d1;margin-bottom:6px">비밀번호</label>
+        <input id="lg-pw" type="password" autocomplete="current-password" placeholder="비밀번호"
+          style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(99,102,241,0.35);background:#0e1e40;color:#fff;font-size:14px;outline:none">
+      </div>
+      <p id="lg-err" style="display:none;color:#fca5a5;font-size:12.5px;margin-bottom:12px;text-align:center"></p>
+      <button id="lg-btn" onclick="doStudentLogin()"
+        style="width:100%;padding:13px;font-size:15px;font-weight:800;border:none;border-radius:10px;cursor:pointer;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a">
+        로그인
+      </button>
+    </div>`;
+  // 엔터로 로그인
+  const pw = document.getElementById('lg-pw');
+  const idf = document.getElementById('lg-uid');
+  function onEnter(e){ if (e.key === 'Enter') doStudentLogin(); }
+  if (pw) pw.addEventListener('keydown', onEnter);
+  if (idf) idf.addEventListener('keydown', onEnter);
+  if (idf) idf.focus();
+}
+
+async function doStudentLogin() {
+  const idf = document.getElementById('lg-uid');
+  const pwf = document.getElementById('lg-pw');
+  const err = document.getElementById('lg-err');
+  const btn = document.getElementById('lg-btn');
+  const loginId = (idf && idf.value || '').trim();
+  const pw = (pwf && pwf.value || '').trim();
+  if (!loginId) { if (err){ err.style.display='block'; err.textContent='학생 ID를 입력하세요'; } return; }
+  if (btn) { btn.disabled = true; btn.textContent = '로그인 중…'; }
+  try {
+    const r = await fetch('/api/student/login', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ user_id: loginId, password: pw })
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      if (err){ err.style.display='block'; err.textContent='❌ ' + (d.message || d.error || '로그인 실패'); }
+      if (btn){ btn.disabled = false; btn.textContent = '로그인'; }
+      return;
+    }
+    // index.html 과 동일한 키로 세션 저장
+    try {
+      const _lu = {
+        user_id: d.user.user_id, uid: d.user.user_id,
+        name: d.user.user_name, user_name: d.user.user_name,
+        role: d.user.role || 'student'
+      };
+      localStorage.setItem('mango_user', JSON.stringify(_lu));
+      localStorage.setItem('mangoi_logged_user', JSON.stringify(_lu));
+      localStorage.setItem('mangoi_uid', d.user.user_id);
+    } catch(e){}
+    // uid 를 붙여 보고서 재진입
+    const p = new URLSearchParams(location.search);
+    p.set('uid', d.user.user_id);
+    if (!p.get('ym')) p.set('ym', ym);
+    location.search = p.toString();
+  } catch(e) {
+    if (err){ err.style.display='block'; err.textContent='❌ ' + e.message; }
+    if (btn){ btn.disabled = false; btn.textContent = '로그인'; }
+  }
+}
+window.doStudentLogin = doStudentLogin;
 
 async function load() {
   const url = `/api/report/monthly/${encodeURIComponent(uid)}/${ym}`;
@@ -149,7 +228,7 @@ function render(d) {
   document.getElementById('content').innerHTML = html;
 }
 </script>
-<!-- BUILD:20260709004842 -->
+<!-- BUILD:20260709010508 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>

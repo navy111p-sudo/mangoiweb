@@ -7,7 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script></head>
 <body><div id="wrap"><canvas id="c"></canvas></div><div id="edge"></div><div id="hud">loading…</div>
 <script>
-var cfg={ video:'trex-walk.mp4?v=5', vw:1260, vh:470, H0:5.9, feetFrac:0.962, dinoWFrac:0.913, dinoHFrac:0.838, preferX:4.0, color:[1.06,1.02,0.96] };
+var cfg={ video:'trex-walk.mp4?v=6', vw:1260, vh:470, H0:5.9, feetFrac:0.962, dinoWFrac:0.912, dinoHFrac:0.86, preferX:4.0, sizeFactor:0.7, color:[1.06,1.02,0.96] };
 var canvas=document.getElementById('c'), wrap=document.getElementById('wrap');
 var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true,alpha:false,preserveDrawingBuffer:true});
 var scene=new THREE.Scene(); scene.background=new THREE.Color(0x2a2450);
@@ -47,7 +47,7 @@ function fitBossVideo(){
   for(var it=0;it<32;it++){
     var b0=bnd(S,0),b1=bnd(S,1);var slope=((b1.xmn+b1.xmx)-(b0.xmn+b0.xmx))/2;if(Math.abs(slope)<1e-4)slope=(slope<0?-1e-4:1e-4);
     var Xc=-((b0.xmn+b0.xmx)/2)/slope;var bc=bnd(S,Xc);var wHalf=(bc.xmx-bc.xmn)/2;
-    if(wHalf<=lim&&bc.ymx<=lim&&bc.ymn>=-lim){var lo=Xc,hi=prefX;for(var k=0;k<26;k++){var mid=(lo+hi)/2,bb=bnd(S,mid);if(bb.xmx<=lim&&bb.xmn>=-lim)lo=mid;else hi=mid;}holder.scale.setScalar(S/ps);holder.position.x=(lo-G.position.x)/ps;return;}
+    if(wHalf<=lim&&bc.ymx<=lim&&bc.ymn>=-lim){var lo=Xc,hi=prefX;for(var k=0;k<26;k++){var mid=(lo+hi)/2,bb=bnd(S,mid);if(bb.xmx<=lim&&bb.xmn>=-lim)lo=mid;else hi=mid;}holder.scale.setScalar(S*(cfg.sizeFactor||1)/ps);holder.position.x=(lo-G.position.x)/ps;return;}
     S*=0.93;if(S<0.04){holder.scale.setScalar(0.04/ps);holder.position.x=(Xc-G.position.x)/ps;return;}
   }
 }
@@ -60,5 +60,5 @@ function loop(){ if(video.readyState>=2)tex.needsUpdate=true; renderer.render(sc
 loop();
 // 브라우저 자동재생 허용 위해 상호작용 시 재생
 ['click','touchstart','keydown'].forEach(function(e){window.addEventListener(e,function(){var p=video.play();if(p&&p.catch)p.catch(function(){});},{once:true});});
-</script><!-- BUILD:20260709004842 -->
+</script><!-- BUILD:20260709010508 -->
 </body></html>
