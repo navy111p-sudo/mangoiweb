@@ -569,10 +569,13 @@
         url:'boss-atlas.png?v=2', cols:5, rows:5, cw:680, ch:600, flip:false, H:8.2, color:[1.06,1.09,1.03], shadow:2.3,
         anim:{ idle:{f:[0,9,13,14,15,16,11,2,10,1,12,3],d:0.26,loop:true}, attack:{f:[9,13,15,8,5,0],d:[0.14,0.14,0.11,0.20,0.13,0.12],loop:false}, hit:{f:[11,2],d:[0.12,0.15],loop:false}, death:{f:[17,18,19,20],d:[0.24,0.26,0.26,0.5],loop:false} } },
       trex: { ico:'🦖', name:'티라노 공룡', desc:'진짜 걷는 실사 공룡',
-        video:'trex-walk.mp4?v=2', vw:706, vh:340, flip:false, H:7.6, feetFrac:0.98, dx:1.6, color:[1.03,1.0,0.95], shadow:3.6 }   // 🎬 실사 그린스크린 걷기(왼쪽 향함). 머리~꼬리~발 안 잘리게 크롭, 크게(H7.6), 오른쪽 살짝 밀어 히어로 안 가림
+        video:'trex-walk.mp4?v=3', vw:1260, vh:470, flip:false,
+        H0:8.0, feetFrac:0.962, dinoWFrac:0.913, dinoHFrac:0.798, preferX:1.8,
+        color:[1.06,1.02,0.96], shadow:3.4 }   // 🎬 새 실사 그린스크린(선명·머리~꼬리 풀바디, 제자리걷기 핑퐁루프). 폭 넓어짐→attachBossVideo가 화면폭 맞춰 반응형 축소/중앙(세로폰서도 전체 몸 안잘림)
     };
     var bossSkin=(function(){ try{ var v=localStorage.getItem('mangoi_battle_boss'); return (v==='trex'||v==='octopus')?v:'octopus'; }catch(e){ return 'octopus'; } })();
     var _mixers=[];
+    var _bossVideoFit=null;   // 🎬 실사 영상 보스(티라노)의 반응형 맞춤 함수. 영상보스 스폰시 세팅, 문어/미스폰시 null. fitRenderer가 매 리사이즈 호출
     // ===== 영웅(GLB) 암부 영구 제거 =====
     // 임계값 없이 강제 적용: 모든 mesh material을 순회하며 (1) color 각 채널 바닥값,
     // (2) 텍스처 맵과 무관한 '플랫 emissive 바닥값'으로 검은 픽셀까지 self-illuminate,
@@ -859,15 +862,28 @@
           '}'
         ].join('\n')
       });
-      var H=cfg.H||7.0, W=H*(cfg.vw/cfg.vh), BY=H*((cfg.feetFrac||0.98)-0.5), FLIP=cfg.flip?-1:1;   // BY: 영상 속 발 위치(feetFrac)를 바닥(y=0)에 맞춤 → 그룹 ×1.32 스케일해도 발 접지 유지
-      var mesh=new THREE.Mesh(new THREE.PlaneGeometry(W,H),mat);
-      mesh.position.set(0,BY,0); mesh.castShadow=false; mesh.frustumCulled=false; mesh.renderOrder=2; mesh.scale.x=FLIP;
-      var holder=new THREE.Group(); holder.position.x=cfg.dx||0;   // dx: 긴 옆모습 공룡을 오른쪽으로 살짝 밀어 히어로(왼쪽) 안 가리게
-      holder.add(mesh);
+      var AR=cfg.vw/cfg.vh, DWF=cfg.dinoWFrac||0.9, DHF=cfg.dinoHFrac||0.8;   // 플레인 종횡비 + 공룡이 플레인에서 차지하는 폭/높이 비율
+      var H0=cfg.H0||cfg.H||7.0, BY0=H0*((cfg.feetFrac||0.98)-0.5), FLIP=cfg.flip?-1:1;   // BY0: 발을 바닥(y=0)에. holder 원점기준 등비스케일이면 발 접지 유지
+      var mesh=new THREE.Mesh(new THREE.PlaneGeometry(H0*AR,H0),mat);
+      mesh.position.set(0,BY0,0); mesh.castShadow=false; mesh.frustumCulled=false; mesh.renderOrder=2; mesh.scale.x=FLIP;
+      var holder=new THREE.Group(); holder.add(mesh);
       var _shadow=makeContactShadow(cfg.shadow||3.0);
       _shadow.userData._bb=true; holder.userData._bb=true;
       G.traverse(function(o){ if(o.isMesh) o.visible=false; });   // 절차적 보스 메시 숨김
-      holder.add(_shadow); G.add(holder);   // 그림자도 holder 안에(dx 이동 시 발밑 따라감)
+      holder.add(_shadow); G.add(holder);
+      // 📱 반응형 맞춤: 화면 폭에 맞춰 공룡 전체(머리~꼬리)가 절대 안 잘리게 축소+위치. 세로폰=작게·가운데, 넓은화면=크게·우측(히어로 안 가림). fitRenderer 에서 매 리사이즈마다 재호출.
+      var dinoW0=H0*AR*DWF;   // 스케일1일 때 공룡 실제 월드 폭(머리~꼬리)
+      function fitBossVideo(){
+        var vExt=Math.tan(camera.fov*Math.PI/360)*Math.abs(camera.position.z-G.position.z);
+        var hw=vExt*camera.aspect;                 // 보스 평면에서의 가시 반폭
+        var s=Math.min(1, (2*hw*0.90)/dinoW0);     // 폭 90%에 맞춰 축소(업스케일 안함)
+        if(s*H0*DHF>2*vExt*0.86) s=(2*vExt*0.86)/(H0*DHF);   // 높이 가드(드물게 작동)
+        holder.scale.setScalar(s);
+        var half=(dinoW0*s)/2;
+        var cx=Math.min(cfg.preferX!==undefined?cfg.preferX:1.8, hw-half-0.3);   // 우측 선호(꼬리 안 잘림)
+        holder.position.x=Math.max(cx, -hw+half+0.3);                            // 머리도 안 잘림
+      }
+      fitBossVideo(); _bossVideoFit=fitBossVideo;
       var S={ state:'idle', t:0 };
       S.attack=function(){};                                       // 그룹 돌진(attackAnim)이 공격 연출
       S.hit=function(){};                                          // impact 플래시/넉백로 충분
@@ -1000,8 +1016,8 @@
       boss=buildCharacter({skin:cfg.color,armor:cfg.color,trim:cfg.color2,eye:0xfff04a,face:-1,weapon:'claw',isBoss:true});
       enhanceBossMonster(boss, cfg);
       boss.position.set(GAP,0,0); boss.rotation.y=-0.18; boss.userData.home.set(GAP,0,0); scene.add(boss); attachModel(boss, (cfg.model||MODELS.boss), -1);   // 보스=오른쪽, 왼쪽 히어로를 향함
-      var _bcfg=BOSS_SKINS[bossSkin];
-      if(_bcfg&&_bcfg.video){ attachBossVideo(boss, _bcfg); }        // 🎬 실사 영상 보스(티라노 걷기 mp4)
+      var _bcfg=BOSS_SKINS[bossSkin]; _bossVideoFit=null;   // 새 스폰마다 초기화(문어면 null 유지)
+      if(_bcfg&&_bcfg.video){ attachBossVideo(boss, _bcfg); }        // 🎬 실사 영상 보스(티라노 걷기 mp4) — 내부에서 _bossVideoFit 세팅
       else if(_bcfg){ attachBossSprite(boss, _bcfg); }               // 👾 스프라이트 보스(문어)
       boss.scale.setScalar(0.01); var t=0;
       addAnim(function(dt){ t+=dt; var p=Math.min(1,t/0.6); boss.scale.setScalar(1.32*easeOutBack(p)); spot.intensity=2.4*(1-Math.abs(0.5-p)*2); if(p>=1){ boss.scale.setScalar(1.32); spot.intensity=0; return true; } return false; });
@@ -1362,7 +1378,8 @@
     tick();
     function fitRenderer(){ W=canvas.clientWidth||wrap.clientWidth; H=canvas.clientHeight||wrap.clientHeight; if(H<1)H=1; camera.aspect=W/H; camera.updateProjectionMatrix(); renderer.setSize(W,H,false);
       camera.position.z = (W/H>=1.2) ? 13.5 : 17;   // 🖥️ 넓은 PC 화면: 카메라를 당겨 캐릭터를 약 30% 크게(세로 화면은 기존 17 유지·상하 여백 충분해 잘림 없음)
-      camBase=camera.position.clone(); }
+      camBase=camera.position.clone();
+      if(_bossVideoFit) _bossVideoFit(); }   // 🎬📱 카메라/종횡비 바뀔 때마다 티라노 전체 몸이 화면폭에 맞게 재조정(휴대폰서도 안 잘림)
     fitRenderer();
     window.addEventListener('resize',fitRenderer);
     // 퀴즈 표시/숨김(display 변화)을 감지해 캔버스(상단)와 퀴즈 바(하단)를 분할하고 렌더러를 다시 맞춤
@@ -1376,6 +1393,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260708183947 -->
+<!-- BUILD:20260708191948 -->
 </body>
 </html>
