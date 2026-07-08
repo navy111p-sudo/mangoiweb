@@ -823,32 +823,65 @@ function capKind(role,uid){
   if(r==='capitown'||r==='franchise'||u==='capitown'||u.indexOf('capi')===0) return 'capitown';
   return 'hq_exec';
 }
-(async function authGuard(){
-  let role='',uid='',name='',serverRole='';
-  try{const s=JSON.parse(localStorage.getItem('mangoi_admin_session')||'{}');role=s.role||'';uid=s.uid||'';name=s.name||'';}catch(e){}
-  let serverOk=false;
+// 🧹 자가치유(빌드당 1회): 옛 서비스워커·캐시가 옛 코드를 계속 서빙하는 것을 이 페이지가 스스로 제거.
+//   HTML 은 network-first 라 이 새 코드는 도착하므로, 여기서 정리하면 다음 로드부터 항상 최신.
+(function selfHeal(){
   try{
-    const r=await fetch('/api/admin/me',{credentials:'include'});
-    const j=await r.json().catch(()=>null);
-    if(j&&j.ok){serverOk=true;const u=j.user||{};uid=u.username||uid;if(!name)name=u.name||uid;serverRole=j.role||u.role||'';}
+    var mark=(document.documentElement.innerHTML.match(/BUILD:(\d+)/)||[])[1]||'0';
+    var key='capitown_selfheal_'+mark;
+    if(localStorage.getItem(key)) return;
+    localStorage.setItem(key,'1');
+    if(navigator.serviceWorker&&navigator.serviceWorker.getRegistrations){
+      navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister();});}).catch(function(){});
+    }
+    if(window.caches&&caches.keys){caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k);});}).catch(function(){});}
   }catch(e){}
-  if(!role) role=deriveRole(uid);
-  // 권한 판정: 서버 역할·localStorage 역할·아이디 어느 어휘로든 인정(단어 불일치로 막히던 문제 해결)
-  const ok = capAllowed(serverRole,uid) || capAllowed(role,uid);
-  // 서버 세션도 없고(익명) 권한도 아니면 → 로그인 필요(직접 URL 접근한 익명 차단)
+})();
+
+// 인증 판정을 화면에 반영 — authGuard 본문과 워치독이 공유(이중 실행은 __capDecided 로 1회 보장)
+function capDecide(serverOk,serverRole,role,uid,name){
+  if(window.__capDecided) return; window.__capDecided=true;
+  var ok = capAllowed(serverRole,uid) || capAllowed(role,uid);
+  // 서버 세션도 없고(익명) 권한도 아니면 → 로그인 필요(익명 직접 URL 접근 차단)
   if(!serverOk && !ok){
     location.replace('/admin/login.html?next='+encodeURIComponent(location.pathname));return;
   }
   if(!ok){
     applyI18n();
     document.getElementById('denyGate').style.display='grid';
-    document.querySelector('.adm-top .who').style.display='none';
+    var w=document.querySelector('.adm-top .who');if(w)w.style.display='none';
     return;
   }
   _role=capKind(serverRole||role,uid);_name=name;
   document.getElementById('appWrap').style.display='flex';
   initSettlement();
   applyI18n();
+}
+
+(async function authGuard(){
+  let role='',uid='',name='',serverRole='';
+  try{const s=JSON.parse(localStorage.getItem('mangoi_admin_session')||'{}');role=s.role||'';uid=s.uid||'';name=s.name||'';}catch(e){}
+  if(!role) role=deriveRole(uid);
+
+  // ⏱️ 워치독(빈 화면 원천 봉쇄): 서버 확인이 어떤 이유로든(요청 정지·옛 SW·JS 예외) 3초 안에
+  //   결론을 못 내면 localStorage 역할만으로 즉시 판정해 반드시 화면을 띄운다. (2026-07-09)
+  const localRole=role, localUid=uid, localName=name;
+  setTimeout(function(){ try{ capDecide(false,'',localRole,localUid,localName); }catch(e){} },3000);
+
+  let serverOk=false;
+  try{
+    // ⏱️ /api/admin/me 4초 타임아웃 — 응답이 물려 있어도 authGuard 가 영원히 기다리지 않게
+    const ac=(typeof AbortController!=='undefined')?new AbortController():null;
+    if(ac)setTimeout(function(){try{ac.abort();}catch(e){}},4000);
+    const r=await fetch('/api/admin/me',{credentials:'include',signal:ac?ac.signal:undefined});
+    const j=await r.json().catch(()=>null);
+    if(j&&j.ok){serverOk=true;const u=j.user||{};uid=u.username||uid;if(!name)name=u.name||uid;serverRole=j.role||u.role||'';}
+  }catch(e){}
+  try{ capDecide(serverOk,serverRole,role,uid,name); }
+  catch(e){
+    // 판정 코드 자체가 예외여도 빈 화면 금지 — 최소한 본문 강제 표시(권한자는 대부분 여기 못 옴)
+    try{ if(capAllowed(role,uid)||capAllowed(serverRole,uid)){document.getElementById('appWrap').style.display='flex';initSettlement();} }catch(_){}
+  }
 })();
 
 document.getElementById('admLogout').addEventListener('click',async function(e){

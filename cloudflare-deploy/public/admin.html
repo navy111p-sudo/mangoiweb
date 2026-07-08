@@ -23369,7 +23369,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260709012310 -->
+        <!-- BUILD:20260709012811 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -28444,11 +28444,24 @@ button.chip:hover,
     try{
       var role='',uid='';
       try{var s=JSON.parse(localStorage.getItem('mangoi_admin_session')||'{}');role=s.role||'';uid=s.uid||'';}catch(e){}
-      if(capAllowed(role,uid)){show();return;}
-      // localStorage 만으로 판정 불가(서버역할 세션 등) → 서버에 물어본다
-      fetch('/api/admin/me',{credentials:'include'}).then(function(r){return r.json();}).then(function(j){
-        if(j&&j.ok){var u=j.user||{};if(capAllowed(j.role||u.role||'',u.username||uid))show();}
-      }).catch(function(){});
+      if(capAllowed(role,uid)){show();}
+      else{
+        // localStorage 만으로 판정 불가(서버역할 세션 등) → 서버에 물어본다
+        fetch('/api/admin/me',{credentials:'include'}).then(function(r){return r.json();}).then(function(j){
+          if(j&&j.ok){var u=j.user||{};if(capAllowed(j.role||u.role||'',u.username||uid))show();}
+        }).catch(function(){});
+      }
+      // 🖱️ 클릭 보장(캡처 단계): 다른 사이드바 스크립트(아코디언·nav 프레임워크·터치 핸들러)가
+      //   클릭을 가로채거나 삼켜도 캐피타운 정산 항목은 반드시 이동. (클릭해도 아무 일 없던 증상 봉쇄, 2026-07-09)
+      ['click','pointerup','touchend'].forEach(function(ev){
+        document.addEventListener(ev,function(e){
+          var t=e.target&&e.target.closest?e.target.closest('#ph85-capitown'):null;
+          if(!t)return;
+          if(window.__capNavigating)return; window.__capNavigating=true;
+          e.preventDefault();e.stopPropagation();
+          location.href='/admin/capitown-settlement.html';
+        },true);
+      });
     }catch(e){}
   })();</script>
 
