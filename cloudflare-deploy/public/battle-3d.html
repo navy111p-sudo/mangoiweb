@@ -878,23 +878,39 @@
       holder.add(_shadow); G.add(holder);
       // 📱 반응형 맞춤: 화면 폭에 맞춰 공룡 전체(머리~꼬리)가 절대 안 잘리게 축소+위치. 세로폰=작게·가운데, 넓은화면=크게·우측(히어로 안 가림). fitRenderer 에서 매 리사이즈마다 재호출.
       var dinoW0=H0*AR*DWF;   // 스케일1일 때 공룡 실제 월드 폭(머리~꼬리)
+      // 🎯 투영기반 맞춤: 근사 hw 공식(카메라 틸트/원근 무시→꼬리 잘림)을 버리고, 공룡 실측 사각형의
+      //    4모서리를 '실제 카메라'로 화면(NDC)에 투영해 [-1,1] 안에 확실히 들어올 때까지 축소+위치.
+      //    영상별 실측비율은 cfg(dinoWFrac 폭·dinoHFrac 높이·feetFrac 발위치)에서 도출 → 티라노/문어 공용.
+      var _pv=new THREE.Vector3();
       function fitBossVideo(){
-        // ⚠ holder 는 보스그룹 G 의 자식 → G 는 스폰연출로 scale 1.32(+위치 GAP)로 확대됨.
-        //    아래 s·worldCX 는 모두 '월드' 기준으로 계산하므로, 마지막에 부모 스케일 ps 로 나눠 로컬로 되돌려야
-        //    실제 화면크기=dinoW0*s(부모배율 상쇄)가 된다. 예전 버그: ps 를 무시해 공룡이 1.32배 커져 머리·꼬리가 잘림.
         var ps=(G.scale&&G.scale.x)?G.scale.x:1;
-        var vExt=Math.tan(camera.fov*Math.PI/360)*Math.abs(camera.position.z-G.position.z);
-        var hw=vExt*camera.aspect;                 // 카메라 x=0 기준 가시 반폭(월드). 가시 x범위=[-hw,hw]
-        if(hw<0.5||!isFinite(hw)) return;           // 레이아웃 전 0크기 캔버스면 스킵(다음 리사이즈/스폰끝에서 재계산)
-        var m=0.35;                                 // 가장자리 여유(월드)
-        var s=Math.min(1, (2*hw-2*m)*0.98/dinoW0);  // 공룡 전체폭(월드)이 가시폭 안에 들도록 축소(업스케일 안함)
-        if(s*H0*DHF>2*vExt*0.86) s=(2*vExt*0.86)/(H0*DHF);   // 높이 가드(드물게 작동)
-        s=Math.max(0.05,s);
-        holder.scale.setScalar(s/ps);               // 부모 ps 상쇄 → 실제 월드 크기 = dinoW0*s
-        var half=(dinoW0*s)/2;                       // 월드 반폭
-        var worldCX=Math.min(cfg.preferX!==undefined?cfg.preferX:4.0, hw-half-m);   // 우측(보스쪽) 선호, 꼬리 안 잘리게 상한
-        worldCX=Math.max(worldCX, -hw+half+m);                                       // 머리(코끝)도 안 잘리게 하한
-        holder.position.x = (worldCX - G.position.x)/ps;   // 월드중심 → 보스로컬(-GAP 후 부모배율 상쇄)
+        if(!camera.aspect||!isFinite(camera.aspect)||camera.aspect<0.05) return;   // 레이아웃 전 스킵
+        camera.updateMatrixWorld();
+        var Wp=H0*AR, FEET=(cfg.feetFrac||0.98);
+        var uL=(1-DWF)/2, uR=1-(1-DWF)/2, vT=FEET-DHF, vB=FEET;   // 공룡이 플레인서 차지하는 사각형(0..1)
+        var cLocalX=((uL+uR)/2-0.5)*Wp;                            // 사각형 가로중심(≈0)
+        var rel=[[uL,vT],[uR,vT],[uL,vB],[uR,vB]].map(function(c){
+          return { x:(c[0]-0.5)*Wp - cLocalX, y: mesh.position.y + H0/2 - c[1]*H0 }; });  // 발 접지(y=0)·중심기준
+        function bnd(S,X){ var a=9,b=-9,cc=9,d=-9;
+          for(var i=0;i<rel.length;i++){ _pv.set(X+S*rel[i].x, S*rel[i].y, 0).project(camera);
+            if(_pv.x<a)a=_pv.x; if(_pv.x>b)b=_pv.x; if(_pv.y<cc)cc=_pv.y; if(_pv.y>d)d=_pv.y; }
+          return {xmn:a,xmx:b,ymn:cc,ymx:d}; }
+        var m=0.13, lim=1-m, prefX=(cfg.preferX!==undefined?cfg.preferX:4.0), S=1;   // 화면 가장자리 13% 여유(cfg 실측비율 오차까지 흡수해 절대 안 닿게)
+        for(var it=0; it<32; it++){
+          var b0=bnd(S,0), b1=bnd(S,1);
+          var slope=((b1.xmn+b1.xmx)-(b0.xmn+b0.xmx))/2; if(Math.abs(slope)<1e-4) slope=(slope<0?-1e-4:1e-4);
+          var Xc=-((b0.xmn+b0.xmx)/2)/slope;                       // 화면 가로중앙 배치 X
+          var bc=bnd(S,Xc); var wHalf=(bc.xmx-bc.xmn)/2;
+          if(wHalf<=lim && bc.ymx<=lim && bc.ymn>=-lim){           // 폭·상(머리)·하(발) 모두 화면 안(중앙배치서) → 확정
+            // Xc(중앙,적합)↔prefX(원함) 사이에서 '실제 투영으로 안 잘리는' 가장 prefX쪽 X를 이분탐색(선형근사 오버슛 방지)
+            var lo=Xc, hi=prefX;
+            for(var k=0;k<26;k++){ var mid=(lo+hi)/2, bb=bnd(S,mid);
+              if(bb.xmx<=lim && bb.xmn>=-lim) lo=mid; else hi=mid; }
+            holder.scale.setScalar(S/ps); holder.position.x=(lo-G.position.x)/ps; return;
+          }
+          S*=0.93;                                                 // 안 들어오면 축소 후 재시도
+          if(S<0.04){ holder.scale.setScalar(0.04/ps); holder.position.x=(Xc-G.position.x)/ps; return; }
+        }
       }
       fitBossVideo(); _bossVideoFit=fitBossVideo;
       var S={ state:'idle', t:0 };
@@ -1406,6 +1422,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260708204358 -->
+<!-- BUILD:20260709002605 -->
 </body>
 </html>
