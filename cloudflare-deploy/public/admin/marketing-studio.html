@@ -184,9 +184,14 @@ const $ = s => document.querySelector(s);
 let segData = [];
 
 function toast(m,e){const t=$('#toast');t.textContent=m;t.className='toast show'+(e?' err':'');setTimeout(()=>t.className='toast'+(e?' err':''),2400);}
+// 콘솔(localStorage 'mangoi_admin_session') 로그인 상태면 401이어도 로그인으로 튕기지 않는다(하위페이지 인증 미스매치 방지)
+function hasLocalAdminSession(){ try{ const s=JSON.parse(localStorage.getItem('mangoi_admin_session')||'{}'); return !!(s && (s.role||s.uid)); }catch(e){ return false; } }
 async function api(path, opts){
-  const r = await fetch(path, Object.assign({headers:{'Content-Type':'application/json'}}, opts));
-  if(r.status===401){location.href='/admin/login?next='+encodeURIComponent(location.pathname);throw new Error('auth');}
+  const r = await fetch(path, Object.assign({headers:{'Content-Type':'application/json'}, credentials:'include'}, opts));
+  if(r.status===401){
+    if(!hasLocalAdminSession()) location.href='/admin/login?next='+encodeURIComponent(location.pathname);
+    throw new Error('세션 만료 — 다시 로그인해 주세요');
+  }
   const j = await r.json().catch(()=>({ok:false,error:'bad json'}));
   if(j.ok===false) throw new Error(j.error||'error');
   return j;

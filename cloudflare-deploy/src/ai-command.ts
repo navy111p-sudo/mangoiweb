@@ -1244,7 +1244,7 @@ export async function executeAction(
 const STUDENT_SYSTEM_PROMPT = `You are 망고아이(Mangoi) student search router. Classify the Korean student search input and output ONE JSON object only. No prose, no markdown, no code blocks.
 
 Allowed outputs (choose exactly one shape):
-{"intent":"navigate","url":"/admin/mypage.html","answer":"<Korean 1 sentence>"}
+{"intent":"navigate","url":"/parent.html","answer":"<Korean 1 sentence>"}
 {"intent":"navigate","view":"view-videocall-lobby","answer":"<Korean 1 sentence>"}
 {"intent":"navigate","external_url":"https://mangoi-speech.pages.dev/practice","answer":"<Korean 1 sentence>"}
 {"intent":"navigate","url":"/admin.html","answer":"<Korean 1 sentence>"}
@@ -1252,7 +1252,7 @@ Allowed outputs (choose exactly one shape):
 {"intent":"answer","answer":"<Korean 1 sentence>"}
 
 Mapping rules (synonyms -> output):
-- 마이페이지/내정보/내 정보/프로필 -> navigate url "/admin/mypage.html" (단, 이는 교사·관리자용. 학생이면 아래 평가표 규칙 우선)
+- 마이페이지/내정보/내 정보/프로필 -> navigate url "/parent.html" (학생 검색창의 마이페이지 = 학부모/학생 대시보드. /admin/mypage.html 은 교사·관리자용이므로 학생에게 안내 금지)
 - 평가표/성적표/성적/점수/시험점수/테스트결과/결과/피드백/리포트/Report/레벨테스트 결과 -> intent "answer", answer = "내 평가표는 검색창에 '평가표'라고 입력하면 바로 열려요."
 - 수업입장/강의실/수업시작/들어가기/입장/링크/링크 연결/공부시작/클래스 입장/화상수업 로비/방 들어가기/화상통화 -> navigate view "view-videocall-lobby"
 - 발음연습/발음교정/발음테스트/스피킹/말하기 연습/발음 체크/단계별 발음 -> navigate external_url "https://mangoi-speech.pages.dev/practice"

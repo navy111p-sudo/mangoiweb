@@ -2092,8 +2092,9 @@
         <a href="/admin/finance-realtime" data-ko="💸 실시간 재무" data-en="💸 Live Finance">💸 실시간 재무</a>
         <a href="/admin/learning-insights" data-ko="🎓 학습 인사이트" data-en="🎓 Learning Insights">🎓 학습 인사이트</a>
         <a href="/admin/marketing-studio" data-ko="📣 마케팅 스튜디오" data-en="📣 Marketing Studio">📣 마케팅 스튜디오</a>
+        <a href="/admin/teacher-match" data-ko="🤝 강사 매칭" data-en="🤝 Teacher Match">🤝 강사 매칭</a>
         <div class="th-user-popup-divider"></div>
-        <a href="/docs/" target="_blank">📘 <span data-ko="사용 안내서" data-en="User Manuals">사용 안내서</span></a>
+        <a href="#" onclick="event.preventDefault();var c=document.getElementById('card-lib-admin');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});}">📘 <span data-ko="사용 안내서(자료실)" data-en="User Manuals (Library)">사용 안내서(자료실)</span></a>
         <div class="th-user-popup-divider"></div>
         <button id="topLogoutBtn" type="button" class="th-user-popup-logout">🚪 로그아웃</button>
       </div>
@@ -41838,6 +41839,8 @@ button.chip:hover,
       }catch(e){}
       return;
     }
+    // 환불규정 → 관리자에는 해당 카드가 없어 공개 환불규정 페이지를 새 탭으로 연다
+    if(d.go==='refund'){ closeAv(); try{ window.open('/refund.html','_blank'); }catch(e){} return; }
     // 회계 alias → 카드 id 로 변환
     var tid = (d.go==='accounting') ? 'card-accounting-mgmt' : d.go;
     // 그 외 모든 메뉴: 대상 id 로 펼치고 이동(손자 메뉴면 상위 카드까지 자동 펼침)

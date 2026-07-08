@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>망고아이 AI 상담직원</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { height:100%; }
+  body { font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif; background:transparent; }
+  #avatar-window { position:fixed; inset:0; width:100%; height:100%;
+    background:rgba(20,20,25,0.96); border-radius:18px; overflow:hidden;
+    display:flex; flex-direction:column; }
+  #avatar-window.hidden { display:none; }
+  #toolbar { display:flex; align-items:center; justify-content:space-between; padding:10px 12px;
+    background:rgba(255,204,0,0.12); border-bottom:1px solid rgba(255,204,0,0.35); flex:0 0 auto; }
+  #toolbar .title { color:#ffcc00; font-weight:700; font-size:15px; }
+  #toolbar .controls button { background:transparent; border:none; cursor:pointer; font-size:17px;
+    margin-left:6px; padding:2px 6px; border-radius:6px; }
+  #toolbar .controls button:hover { background:rgba(255,255,255,0.12); }
+  /* 하트 프레임 영상 아바타 */
+  #avatar-area { position:relative; width:100%; height:250px; flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center; overflow:hidden;
+    background:radial-gradient(circle at 50% 40%, #2a2f3a 0%, #14141a 100%); }
+  #avatar-video { width:250px; height:250px; object-fit:cover; object-position:center 22%; display:block;
+    -webkit-clip-path:url(#heartClip); clip-path:url(#heartClip);
+    filter:drop-shadow(0 6px 16px rgba(0,0,0,0.45)); background:#000; }
+  #speaking-dot { position:absolute; top:10px; left:12px; background:rgba(0,0,0,0.55); color:#ffcc00;
+    font-size:12px; padding:5px 10px; border-radius:12px; z-index:2; }
+  #speaking-dot.hidden { display:none; }
+  #subtitle { color:#fff; font-size:15px; line-height:1.6; padding:14px 16px; min-height:60px;
+    flex:1 1 auto; overflow-y:auto; background:rgba(0,0,0,0.30); }
+  #chat-area { display:flex; gap:8px; padding:12px; background:rgba(0,0,0,0.25); flex:0 0 auto;
+    /* 우하단에 떠 있는 상담직원 얼굴 런처가 🎤마이크를 가리지 않도록 입력바를 위로 올림 */
+    padding-bottom:calc(12px + 92px + env(safe-area-inset-bottom)); }
+  #input-wrap { flex:1; position:relative; display:flex; }
+  #chat-input { flex:1; width:100%; border:1px solid rgba(255,204,0,0.5); border-radius:12px;
+    padding:12px 52px 12px 14px; font-size:16px; background:rgba(255,255,255,0.95); outline:none; }
+  #send-btn { position:absolute; right:6px; top:50%; transform:translateY(-50%);
+    width:36px; height:36px; background:#ffcc00; color:#1a1a1a; border:none;
+    border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; }
+  #send-btn svg { width:20px; height:20px; display:block; }
+  #send-btn:hover { background:#ffd633; }
+  #send-btn:disabled { opacity:0.5; cursor:not-allowed; }
+  #mic-btn { width:44px; height:44px; flex:0 0 auto; border:none; border-radius:50%;
+    background:rgba(255,255,255,0.92); color:#1a1a1a; font-size:18px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; padding:0; }
+  #mic-btn.listening { background:#e53935; color:#fff; animation:micPulse 1s infinite; }
+  @keyframes micPulse { 0%{ box-shadow:0 0 0 0 rgba(229,57,53,0.6); } 70%{ box-shadow:0 0 0 10px rgba(229,57,53,0); } 100%{ box-shadow:0 0 0 0 rgba(229,57,53,0); } }
+  /* 🎤 마이크 안내 말풍선 — 마이크를 누르는 동안(빨간불)만 표시, 꼬리가 마이크를 가리킴 */
+  #mic-tip { position:absolute; right:12px; bottom:166px; max-width:250px;
+    background:rgba(38,42,52,0.94); color:#f3f5fa; font-size:13px; line-height:1.55;
+    padding:11px 14px; border-radius:14px; border:1px solid rgba(255,255,255,0.12);
+    box-shadow:0 8px 22px rgba(0,0,0,0.5); z-index:60; pointer-events:none;
+    opacity:0; transform:translateY(6px) scale(0.96); transform-origin:bottom right;
+    transition:opacity .18s ease, transform .18s ease; }
+  #mic-tip.show { opacity:1; transform:translateY(0) scale(1); }
+  #mic-tip .hot { color:#ff6b6b; font-weight:800; }
+  #mic-tip b { color:#ffd24a; }
+  #mic-tip::after { content:""; position:absolute; right:24px; bottom:-9px;
+    border-width:10px 9px 0 9px; border-style:solid;
+    border-color:rgba(38,42,52,0.94) transparent transparent transparent; }
+</style>
+</head>
+<body>
+  <!-- 하트 모양 클립(영상 프레임용) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <clipPath id="heartClip" clipPathUnits="objectBoundingBox">
+      <path d="M0.5,0.30 C0.5,0.18 0.36,0.04 0.20,0.09 C0.04,0.14 0.01,0.34 0.10,0.50 C0.18,0.66 0.37,0.81 0.5,0.96 C0.63,0.81 0.82,0.66 0.90,0.50 C0.99,0.34 0.96,0.14 0.80,0.09 C0.64,0.04 0.5,0.18 0.5,0.30 Z"/>
+    </clipPath>
+  </defs></svg>
+
+  <div id="avatar-window">
+    <div id="toolbar">
+      <span class="title" id="hdr-title">💁‍♀️ 망고아이 상담직원</span>
+      <span class="controls">
+        <button id="replay-btn" title="음성 다시듣기">🔁</button>
+        <button id="close-btn" title="닫기">❌</button>
+      </span>
+    </div>
+    <div id="avatar-area">
+      <video id="avatar-video"
+        src="https://webrtc-unified-platform.navy111p.workers.dev/video/postpone-guide.mp4"
+        muted loop playsinline preload="auto"></video>
+      <div id="speaking-dot" class="hidden">🔊 말하는 중...</div>
+    </div>
+    <div id="subtitle">무엇을 도와 드릴까요? 😊</div>
+    <div id="chat-area">
+      <div id="input-wrap">
+        <input id="chat-input" type="text" placeholder="궁금한 점을 물어보세요!" autocomplete="off" />
+        <button id="send-btn" type="button" aria-label="전송" title="전송">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M12 19V5M12 5L6 11M12 5L18 11" stroke="currentColor" stroke-width="2.4"
+              stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+      <button id="mic-btn" type="button" aria-label="음성으로 질문하기" title="음성으로 질문하기">🎤</button>
+    </div>
+    <div id="mic-tip">🎤 <b>마이크</b>를 누르고 <span class="hot">빨간불</span>일 때 질문하세요. 다시 누르면 상담사가 답변합니다.</div>
+  </div>
+
+<script>
+  var subtitle=document.getElementById("subtitle");
+  var input=document.getElementById("chat-input");
+  var sendBtn=document.getElementById("send-btn");
+  var replayBtn=document.getElementById("replay-btn");
+  var closeBtn=document.getElementById("close-btn");
+  var win=document.getElementById("avatar-window");
+  var speakingDot=document.getElementById("speaking-dot");
+  var video=document.getElementById("avatar-video");
+
+  // 평소엔 입 닫힘(정지). 말할 때만 영상 재생 → 입 움직임.
+  try{ video.pause(); video.currentTime=0; }catch(e){}
+  video.addEventListener("loadeddata", function(){ try{ video.pause(); video.currentTime=0; }catch(e){} });
+  // 영상 로드 실패 시 깔끔히 숨김(배경 그라데이션 유지)
+  video.addEventListener("error", function(){ video.style.opacity="0"; });
+
+  var lastAnswer="";
+  var lastBlobUrl=null;
+  var uiLang="ko";
+  function startMouth(){
+    speakingDot.classList.remove("hidden");
+    if(ensureLipGraph()){
+      try{ if(actx && actx.state==="suspended") actx.resume(); }catch(e){}
+      if(!lipRAF) lipRAF=requestAnimationFrame(lipLoop);
+    } else {
+      try{ video.play(); }catch(e){}                 // WebAudio 미지원/실패 → 기존 동작 폴백
+    }
+  }
+  function stopMouth(){
+    speakingDot.classList.add("hidden");
+    if(lipRAF){ try{ cancelAnimationFrame(lipRAF); }catch(e){} lipRAF=0; }
+    try{ video.pause(); }catch(e){}
+  }
+  // 브라우저 내장 음성(영어/폴백)용 입모양: 오디오 분석 없이 영상 루프 재생
+  function startMouthPlain(){ speakingDot.classList.remove("hidden"); try{ video.play(); }catch(e){} }
+
+  // === 음성: 1순위 타입캐스트(서버), 실패 시 브라우저 음성 ===
+  var audioEl = new Audio();
+  // 모바일(안드로이드 Chrome) 자동재생 정책 우회: 첫 사용자 제스처에서 오디오/영상 잠금 해제
+  var __mu=false;function __unlock(){if(__mu)return;__mu=true;try{if(actx&&actx.state==="suspended")actx.resume();}catch(e){}try{var p=audioEl.play();if(p&&p.then)p.then(function(){audioEl.pause();audioEl.currentTime=0;}).catch(function(){});}catch(e){}try{var pv=video.play();if(pv&&pv.then)pv.then(function(){video.pause();video.currentTime=0;}).catch(function(){});}catch(e){}}
+  ["touchstart","pointerdown","mousedown","click","keydown"].forEach(function(ev){document.addEventListener(ev,__unlock,{passive:true});});
+  audioEl.addEventListener("playing", startMouth);
+  audioEl.addEventListener("ended", stopMouth);
+  audioEl.addEventListener("pause", stopMouth);
+  audioEl.addEventListener("error", stopMouth);
+
+  // === 음량 기반 립싱크 (Web Audio) — 음소 모양은 못 바꾸지만 음량으로 입 움직임 강약 ===
+  var actx=null, srcNode=null, analyser=null, lipData=null, lipRAF=0, lipReady=false, lipFailed=false;
+  function ensureLipGraph(){            // 엘리먼트당 createMediaElementSource는 1회 → 지연 1회 생성
+    if(lipReady) return true;
+    if(lipFailed) return false;
+    try{
+      var AC=window.AudioContext||window.webkitAudioContext;
+      if(!AC) throw new Error("no WebAudio");
+      actx=new AC();
+      srcNode=actx.createMediaElementSource(audioEl);
+      srcNode.connect(actx.destination);             // 1) 소리 경로 먼저 보장(필수 — 안 하면 무음)
+      analyser=actx.createAnalyser(); analyser.fftSize=512;
+      srcNode.connect(analyser);                      // 2) 분석용 탭(destination 연결 불필요)
+      lipData=new Uint8Array(analyser.fftSize);
+      lipReady=true;
+      return true;
+    }catch(e){
+      lipFailed=true;                                 // 실패 → 재시도 안 함, video.play() 폴백
+      try{ if(actx) actx.close(); }catch(_){}
+      actx=null; srcNode=null; analyser=null;
+      return false;
+    }
+  }
+  function lipLoop(){
+    if(!lipReady){ lipRAF=0; return; }
+    analyser.getByteTimeDomainData(lipData);
+    var sum=0;
+    for(var i=0;i<lipData.length;i++){ var v=(lipData[i]-128)/128; sum+=v*v; }
+    var level=Math.sqrt(sum/lipData.length);          // RMS 0~1
+    if(level>0.06){
+      try{ if(video.paused) video.play(); video.playbackRate=0.7+level*1.1; }catch(e){}
+    } else {
+      try{ if(!video.paused) video.pause(); }catch(e){}
+    }
+    lipRAF=requestAnimationFrame(lipLoop);
+  }
+
+  // 자연스러운 브라우저 음성 선택: Google/Natural/Online 신경망 음성 우선(로봇음 완화).
+  var koVoice=null, enVoice=null;
+  function _bestVoice(vs, langRe, prefs){
+    var cand=vs.filter(function(v){ return langRe.test(v.lang||""); });
+    for(var i=0;i<prefs.length;i++){
+      for(var j=0;j<cand.length;j++){
+        var nm=((cand[j].name||"")+" "+(cand[j].lang||"")).toLowerCase();
+        if(nm.indexOf(prefs[i])>=0) return cand[j];
+      }
+    }
+    return cand[0]||null;
+  }
+  function pickVoice(){ var vs=window.speechSynthesis?speechSynthesis.getVoices():[];
+    koVoice=_bestVoice(vs, /ko/i, ["google","natural","online","heami","sun-hi","yuna","seoyeon","ko-kr"]);
+    enVoice=_bestVoice(vs, /^en/i, ["google us","google uk","natural","online","aria","jenny","guy","en-us"]);
+  }
+  if(window.speechSynthesis){ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice; }
+  function speakBrowser(text){
+    if(!window.speechSynthesis){ startMouthPlain(); setTimeout(stopMouth, Math.min(12000, Math.max(1500, text.length*90))); return; }
+    speechSynthesis.cancel();
+    var u=new SpeechSynthesisUtterance(text);
+    // 약간 느린 속도 + 살짝 높은 톤이 한국어를 더 따뜻하고 사람스럽게 들리게 함
+    if(/[가-힣]/.test(text)){ u.lang="ko-KR"; if(koVoice) u.voice=koVoice; u.rate=0.96; u.pitch=1.06; }
+    else { u.lang="en-US"; if(enVoice) u.voice=enVoice; u.rate=0.98; u.pitch=1.02; }
+    u.volume=1.0;
+    u.onstart=startMouthPlain; u.onend=stopMouth; u.onerror=stopMouth;
+    speechSynthesis.speak(u);
+  }
+
+  // === 음성 정지: 진행 중 TTS fetch 취소 + 재생/입모양 중단 ===
+  var ttsAbort=null, speakSeq=0;
+  function stopSpeaking(){
+    speakSeq++;                                 // 진행 중 시퀀스 무효화(늦게 온 TTS 폐기)
+    try{ if(ttsAbort) ttsAbort.abort(); }catch(e){}
+    ttsAbort=null;
+    try{ speechSynthesis.cancel(); }catch(e){}
+    try{ audioEl.pause(); audioEl.currentTime=0; }catch(e){}
+    stopMouth();
+  }
+
+  // 답변 읽어주기: Typecast(성우) 미사용 — 크레딧이 너무 빨리 소진돼 배제. 브라우저 음성(다듬은 톤)으로 읽는다.
+  function speak(text){
+    lastAnswer=text;
+    stopListening();                            // 답변 재생 시작 → 듣기 중이면 정지(에코 방지)
+    stopSpeaking();                             // 이전 음성/입모양 정지 + 토큰 증가
+    speakBrowser(text);
+  }
+
+  // === 정지 트리거: 부모(mangoi-stop) / 탭 숨김 / 페이지 이탈 ===
+  window.addEventListener("message", function(ev){
+    var d=ev.data;
+    if(d==="mangoi-stop" || (d && d.type==="mangoi-stop")) stopSpeaking();
+    if(d && d.type==="mangoi-lang" && d.lang) applyLang(d.lang);
+    if(d==="mangoi-greet" || (d && d.type==="mangoi-greet")) greetOnOpen();   // 위젯 열릴 때 인사말 먼저 음성으로
+    if(d==="mangoi-reset" || (d && d.type==="mangoi-reset")) resetWidget();   // 닫을 때 → 다시 열면 처음부터 깨끗하게
+  });
+  // === 위젯 초기화: 닫을 때 호출 → 대화/상태 비우고 깨끗한 인사 화면으로 ===
+  function resetWidget(){
+    pendingGo=null;
+    try{ stopSpeaking(); }catch(e){}
+    if(input) input.value="";
+    __typedNotified=false;          // 타이핑 알림 재무장(다음에 다시 홍보영상 페이드 등 동작)
+    _greetGuard=0;                  // 다음 열 때 인사 음성 다시 나오게
+    var t=I18N[uiLang]||I18N.ko;
+    if(subtitle) subtitle.textContent=t.greet;   // 깨끗한 인사 화면으로 복귀
+  }
+  // === 인사말 음성 미리 받아두기(클릭/열림 즉시 재생되도록 프리패치) ===
+  var _greetAudio={};          // spoken 텍스트 -> blob URL (네트워크 왕복 미리 끝내둠)
+  function _greetSpoken(lang){
+    var t=I18N[lang]||I18N.ko;
+    return t.greet.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}]/gu,"")
+                  .replace(/\s{2,}/g," ").trim();
+  }
+  function prefetchGreet(lang){
+    // Typecast(성우) 미사용 → 인사 음성 프리패치 안 함. 인사말도 브라우저 음성으로 speakGreet→speak 처리.
+    return;
+  }
+  // 프리패치된 인사 음성이 있으면 fetch 없이 즉시 재생, 없으면 기존 speak 폴백
+  function speakGreet(spoken){
+    var url=_greetAudio[spoken];
+    if(!url){ speak(spoken); return; }
+    lastAnswer=spoken;
+    try{ stopListening(); }catch(e){}
+    stopSpeaking();                              // 토큰 증가 후 mySeq 확보
+    var mySeq=speakSeq;
+    try{
+      audioEl.src=url;                           // 캐시 blob은 revoke하지 않고 재사용
+      var p=audioEl.play();
+      if(p && p.then){ p.then(function(){ if(mySeq===speakSeq) startMouth(); })
+                        .catch(function(){ speak(spoken); }); }
+      else { if(mySeq===speakSeq) startMouth(); }
+    }catch(e){ speak(spoken); }
+  }
+  // === 위젯 열림 시 인사말 자동 음성(부모가 mangoi-greet 보낼 때) ===
+  var _greetGuard=0;
+  function greetOnOpen(){
+    var now=Date.now();
+    if(now-_greetGuard < 1200) return;                 // 중복 호출 방지(여러 ping 대비)
+    _greetGuard=now;
+    var t=I18N[uiLang]||I18N.ko;
+    if(subtitle) subtitle.textContent=t.greet;          // 자막은 이모지 포함 그대로(즉시 표시)
+    speakGreet(_greetSpoken(uiLang));                   // 음성은 프리패치분 즉시 재생
+  }
+  document.addEventListener("visibilitychange", function(){ if(document.hidden) stopSpeaking(); });
+  window.addEventListener("pagehide", stopSpeaking);
+
+  // === 위젯이 화면에 보이는 순간 자동 인사(부모가 mangoi-greet 를 보내지 않아도 동작) ===
+  // 학생용 홈페이지가 'AI 상담직원' 버튼으로 iframe 을 표시(display:none→block)하면
+  // iframe 내부 크기가 0→실제값으로 바뀌며 resize 가 발생한다. '숨김→표시' 전환에서만 인사해
+  // 모바일 키보드 등으로 인한 재호출은 무시한다. (allow="autoplay" 로 자동재생 허용됨)
+  function _isShown(){ return (window.innerWidth>1 && window.innerHeight>1); }
+  var _wasShown=_isShown();
+  function _visGreetCheck(){
+    var now=_isShown();
+    if(now && !_wasShown) greetOnOpen();   // 숨김→표시 전환에서만
+    _wasShown=now;
+  }
+  window.addEventListener("resize", _visGreetCheck);
+  // 로드 시 인사 음성을 미리 받아둠(클릭 즉시 재생되도록). I18N 정의 이후 실행되게 0ms 지연.
+  setTimeout(function(){ try{ prefetchGreet(uiLang); }catch(e){} }, 0);
+  // 로드 시 이미 표시 상태(위젯 단독 페이지/처음부터 열린 경우)면 한 번 인사(지연 최소화)
+  if(_wasShown){ setTimeout(greetOnOpen, 60); }
+
+  // === 다국어(EN/KO): 부모 사이트 언어에 맞춰 UI 문구·인식·음성 전환 ===
+  var I18N={
+    ko:{ hdr:"💁‍♀️ 망고아이 상담직원", ph:"궁금한 점을 물어보세요!", send:"전송", mic:"음성으로 질문하기",
+         greet:"무엇을 도와 드릴까요? 😊" },
+    en:{ hdr:"💁‍♀️ Mango AI Consultant", ph:"Ask me anything!", send:"Send", mic:"Ask by voice",
+         greet:"How can I help you? 😊" }
+  };
+  var DEFAULT_GREETS=[I18N.ko.greet, I18N.en.greet];
+  function applyLang(l){
+    if(l!=="en" && l!=="ko") return;
+    var changed=(l!==uiLang);
+    uiLang=l;
+    if(changed){ try{ stopSpeaking(); }catch(e){} try{ stopListening(); }catch(e){} }  // 실제 전환 시에만 음성/인식 정지
+    var t=I18N[uiLang];
+    // 매번 전체 UI를 현재 언어로 강제 정렬(패널 열기/iframe load/토글 어느 시점이든 일치 보장)
+    var hdr=document.getElementById("hdr-title"); if(hdr) hdr.textContent=t.hdr;
+    if(input) input.placeholder=t.ph;
+    if(typeof sendBtn!=="undefined" && sendBtn){ sendBtn.setAttribute("aria-label", t.send); sendBtn.setAttribute("title", t.send); }
+    if(typeof micBtn!=="undefined" && micBtn) micBtn.setAttribute("aria-label", t.mic);
+    if(subtitle && DEFAULT_GREETS.indexOf((subtitle.textContent||"").trim())>=0){ subtitle.textContent=t.greet; }
+    try{ prefetchGreet(uiLang); }catch(e){}   // 전환된 언어 인사 음성도 미리 받아둠
+  }
+  // === 페이지 바로 열기 (아바타가 제안 → 사용자가 '네' 하면 홈페이지 메뉴 열기) ===
+  var pendingGo=null;
+  var GO_LABELS={ "lesson-enter":"수업 입장", "lesson-change":"연기/변경", "leveltest":"레벨테스트",
+    "booking":"수업 신청", "precheck":"수업 진단", "library":"자료실(교재)", "report":"평가표",
+    "mypage":"마이페이지", "parent-dashboard":"학부모 대시보드", "payment":"수강료", "teachers":"교사 소개",
+    "review-quiz":"복습퀴즈", "microquiz":"미니퀴즈", "all-menu":"전체메뉴",
+    "admin":"관리자 페이지", "notice":"공지사항", "faq":"자주 묻는 질문", "event":"이벤트",
+    "points-shop":"포인트상점", "mypoints":"내 포인트", "vocab":"단어장", "recordings":"녹화본",
+    "curriculum":"커리큘럼", "trial":"무료체험", "enroll":"수강 등록", "contact":"고객센터",
+    "inquiry":"신규상담", "reviews":"수강 후기", "streak":"연속출석", "checkin":"출석체크",
+    "mbti":"MBTI 검사", "about":"망고아이란?", "goals":"학습 목표", "leaderboard":"리더보드",
+    "speech":"단계별 발음", "speech-coach":"발음 코치", "write":"AI 작문", "remote":"원격 지원",
+    "installguide":"설치 가이드", "franchise":"가맹 문의", "callcenter":"콜센터",
+    "videolesson":"화상수업", "focus":"집중도 측정", "teacher-praise":"칭찬 스티커", "diagnosis":"자가진단",
+    "refund":"환불규정" };
+  // 코드 → 한국어 라벨/동의어 (모델이 태그를 빠뜨리고 본문에 흘렸을 때 추정)
+  var CODE_LABELS_KO={ "report":["평가표","성적표"], "lesson-enter":["수업 입장","로비"], "lesson-change":["수업 연기","연기/변경","수업 변경"],
+    "leveltest":["레벨테스트","레벨 테스트"], "library":["자료실","교재"], "mypage":["마이페이지","마이 페이지","학생정보","학생 정보","내 정보","자녀 정보","자녀 학습","학습 현황","출결 현황"], "payment":["결제","수강권"],
+    "booking":["수업 신청","예약"], "precheck":["수업 진단","수업진단","사전점검","수업 전 점검"], "teachers":["교사 소개","선생님 소개","강사"], "review-quiz":["복습퀴즈","복습 퀴즈","복습","퀴즈"], "all-menu":["전체메뉴","전체 메뉴","메뉴"], "refund":["환불규정","환불 규정","환불","환급","돌려받"] };
+  var HYPHEN_CODES=["lesson-enter","lesson-change","review-quiz","all-menu","leveltest","mypage","precheck"];
+  function parseGo(raw){
+    var go=null, m=raw.match(/\[\[\s*GO\s*:\s*([a-zA-Z_\-]+)\s*\]\]/i);
+    if(m){ var c=m[1].toLowerCase().replace(/_/g,"-"); if(GO_LABELS[c]) go=c; }
+    raw=raw.replace(/\[\[\s*GO\s*:[^\]]*\]\]/ig,"").replace(/\[\[\s*GO[^\]]*\]?\]?/ig,"").trim();
+    // 폴백①: 본문에 흘린 코드 토큰(괄호로 감싼 코드 또는 하이픈 코드) 감지 + 제거
+    if(!go){
+      var all=Object.keys(GO_LABELS);
+      for(var i=0;i<all.length;i++){
+        var code=all[i];
+        var reWrap=new RegExp("[\\(\\[]\\s*"+code+"\\s*[\\)\\]]","i");
+        var reTok=new RegExp("(^|[^a-zA-Z])"+code+"([^a-zA-Z]|$)","i");
+        if(reWrap.test(raw) || (HYPHEN_CODES.indexOf(code)>=0 && reTok.test(raw))){
+          go=code;
+          raw=raw.replace(new RegExp("[\\(\\[]\\s*"+code+"\\s*[\\)\\]]","ig"),"")
+                 .replace(new RegExp("(^|[^a-zA-Z])"+code+"([^a-zA-Z]|$)","ig"),"$1$2");
+          break;
+        }
+      }
+      raw=raw.replace(/\s{2,}/g," ").replace(/\s+([.,!?])/g,"$1").trim();
+    }
+    // 폴백②: 한국어 라벨로 추정(자연스러운 한국어라 텍스트는 그대로 유지)
+    if(!go){
+      for(var code2 in CODE_LABELS_KO){ var ls=CODE_LABELS_KO[code2];
+        for(var j=0;j<ls.length;j++){ if(raw.indexOf(ls[j])>=0){ go=code2; break; } }
+        if(go) break; }
+    }
+    return { text:raw, go:go };
+  }
+  function hasOpenVerb(s){ return /(열어|보여|가줘|가게|가고|가기|바로가|이동|open|show|go to|take me)/i.test(s||""); }
+  // '학생 정보 알고 싶다' / '마이페이지 가게 해줘' 류 → 마이페이지로 바로 이동
+  function wantsMyPage(s){
+    if(!s) return false;
+    var t=(s||"").toLowerCase().replace(/\s+/g,"");
+    if(/마이페이지|mypage|mypage/.test(t)) return true;
+    var info=/(학생정보|내정보|자녀(의)?(학습|정보|출석|출결|성적|기록)|학습현황|출결현황|출석현황|내학습)/.test(t);
+    var intent=/(알고싶|알려|보고싶|보여|확인|조회|가게|바로가|가고|이동|열어|볼래|궁금)/.test(t);
+    return info && intent;
+  }
+  function detectGoText(s){            // 텍스트에서 타깃 코드 추정(라벨/코드)
+    if(!s) return null;
+    for(var code in CODE_LABELS_KO){ var ls=CODE_LABELS_KO[code]; for(var i=0;i<ls.length;i++){ if(s.indexOf(ls[i])>=0) return code; } }
+    var low=s.toLowerCase(), all=Object.keys(GO_LABELS);
+    for(var j=0;j<all.length;j++){ var re=new RegExp("(^|[^a-z])"+all[j]+"([^a-z]|$)","i"); if(re.test(low)) return all[j]; }
+    return null;
+  }
+  function openGoNow(go){
+    var lb=GO_LABELS[go]||""; input.value="";
+    if(uiLang==="en"){ subtitle.textContent="Opening the page for you. 😊"; speak("Opening the page for you."); }
+    else { subtitle.textContent="네, "+lb+" 페이지를 열어드릴게요! 😊"; speak("네, "+lb+" 페이지를 열어드릴게요!"); }
+    openParentPage(go); pendingGo=null; input.focus();
+  }
+  function norm(s){ return (s||"").toLowerCase().replace(/[^a-z0-9가-힣ㄱ-ㅎ]/g,""); }  // 소문자+공백/문장부호/이모지 제거
+  function isNo(s){ var n=norm(s); if(!n) return false;
+    return /^(아니|아뇨|싫|괜찮|됐|나중|노|no|nope|ㄴ)/.test(n); }
+  // 짧고 모호한 토큰은 정확일치만, 그 외는 포함매칭으로 "응 그래/네 열어줘/그래그래" 등 흡수
+  var YES_EXACT=["어","네","예","go","k","ok","y","ㅇ","음"];
+  var YES_LIST=["응","응응","네네","어어","넵","예스","옙","그래","그래요","그래그래","그러자","좋아","좋아요","좋아여",
+    "오케이","오키","오케","콜","맞아","맞아요","부탁","해줘","해주세요","열어","열어줘","열어주세요","열어줄래",
+    "가자","가줘","이동","보여줘","보여주세요","고마","고맙","감사","ㅇㅇ","ㅇㅋ","ㄱㄱ",
+    "okay","okey","yes","yeah","yep","yup","sure","please","openit"];
+  function isYes(s){
+    var n=norm(s); if(!n) return false;
+    if(isNo(s)) return false;                         // 부정 먼저
+    if(/^(안|못|말고)/.test(n)) return false;          // "안 열어/못 열어" 등
+    if(YES_EXACT.indexOf(n)>=0) return true;           // 짧은 모호 토큰 정확일치
+    for(var i=0;i<YES_LIST.length;i++){ if(n.indexOf(YES_LIST[i])>=0) return true; }  // 포함매칭
+    return false;
+  }
+  function openParentPage(go){ if(window.parent!==window){ window.parent.postMessage({type:"mangoi-open", go:go}, "*"); } }
+
+  function deliver(ans, go){
+    var p=parseGo(ans||"");
+    pendingGo = go || p.go;  // 서버가 준 go(검증됨) 우선, 없으면 텍스트에서 추출
+    subtitle.textContent=p.text; speak(p.text);
+  }
+
+  // === 환불 기준표 렌더 ===
+  function escHtml(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function refundTableHTML(lang){
+    var en = (lang==="en");
+    var head = en ? ["Time of Request","Refund","e.g. ₩100,000"]
+                  : ["환불 요구 시기","환불 금액","예) 100,000원"];
+    var rows = en ? [
+      ["Before classes begin","100%","₩100,000",false],
+      ["Before 1/3 of classes","70%","₩70,000",false],
+      ["Before 1/2 of classes","50%","₩50,000",false],
+      ["After 1/2 of classes","0%","No refund",true]
+    ] : [
+      ["수업 시작 전","100%","100,000원",false],
+      ["총 수업시간 1/3 이전","70%","70,000원",false],
+      ["총 수업시간 1/2 이전","50%","50,000원",false],
+      ["총 수업시간 1/2 이후","0%","환불 안 됨",true]
+    ];
+    var th='border-bottom:1px solid rgba(255,204,0,0.4);background:rgba(255,204,0,0.16);color:#ffe08a;font-weight:700;padding:7px 6px;text-align:center;';
+    var html='<div style="overflow-x:auto;border:1px solid rgba(255,204,0,0.25);border-radius:10px;margin:8px 0;">'
+      +'<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:280px;">'
+      +'<thead><tr>'
+      +'<th style="'+th+'text-align:left;">'+head[0]+'</th>'
+      +'<th style="'+th+'">'+head[1]+'</th>'
+      +'<th style="'+th+'">'+head[2]+'</th>'
+      +'</tr></thead><tbody>';
+    for(var i=0;i<rows.length;i++){
+      var r=rows[i];
+      var td='padding:7px 6px;border-bottom:1px solid rgba(255,255,255,0.12);text-align:center;';
+      var pctColor = r[3] ? '#ff7a7a' : '#ffcc00';
+      html+='<tr>'
+        +'<td style="'+td+'text-align:left;color:#fff;font-weight:600;">'+escHtml(r[0])+'</td>'
+        +'<td style="'+td+'color:'+pctColor+';font-weight:800;">'+escHtml(r[1])+'</td>'
+        +'<td style="'+td+'color:#cfd4e0;">'+escHtml(r[2])+'</td>'
+        +'</tr>';
+    }
+    html+='</tbody></table></div>';
+    return html;
+  }
+  function deliverRefund(d){
+    var lang = (d && d.lang) || (hasHangul(d&&d.answer)?"ko":uiLang);
+    var intro = (d && d.answer) || "";
+    var question = (lang==="en") ? "Would you like me to open the Refund Policy page?" : "환불규정 메뉴로 연결해 드릴까요?";
+    subtitle.innerHTML =
+      '<div style="margin-bottom:6px;">'+escHtml(intro)+'</div>'
+      + refundTableHTML(lang)
+      + '<div style="margin-top:6px;">'+escHtml(question)+'</div>';
+    pendingGo = "refund";                 // '네' 하면 환불규정 메뉴로 연결
+    speak(intro + " " + question);        // 표는 읽지 않고 안내문 + 질문만 음성으로
+  }
+  function hasHangul(s){ return /[가-힣]/.test(s||""); }
+
+  function send(){
+    var msg=input.value.trim(); if(!msg) return;
+    // '학생 정보 알고 싶다' / '마이페이지 가게 해줘' → 되묻지 않고 마이페이지로 바로 이동
+    if(wantsMyPage(msg)){ openGoNow("mypage"); return; }
+    // "X 열어줘"처럼 열기동사+명확한 타깃을 한 번에 말하면 되묻지 않고 즉시 열기
+    if(hasOpenVerb(msg)){ var gNow=detectGoText(msg); if(gNow){ openGoNow(gNow); return; } }
+    // 페이지 열기 제안에 대한 응답 먼저 처리
+    if(pendingGo){
+      if(isYes(msg)){
+        var go=pendingGo; pendingGo=null; input.value="";
+        var label=GO_LABELS[go]||"요청하신";
+        subtitle.textContent="네, "+label+" 페이지를 열어드릴게요! 😊";
+        speak("네, "+label+" 페이지를 열어드릴게요!");
+        openParentPage(go); input.focus(); return;
+      }
+      if(isNo(msg)){
+        pendingGo=null; input.value="";
+        deliver("네, 알겠어요! 다른 궁금한 점이 있으면 언제든 물어봐 주세요. 😊");
+        input.focus(); return;
+      }
+      pendingGo=null; // 그 외 → 새 질문으로 처리
+    }
+    input.value=""; sendBtn.disabled=true; subtitle.textContent="답변을 준비하고 있어요...";
+    fetch("/api/chat",{ method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({message:msg, lang:uiLang, mode:"student"}) })
+      .then(function(r){ return r.json(); })
+      .then(function(d){ if(d && d.refund){ deliverRefund(d); } else { deliver(d.answer||"음, 다시 한 번 말씀해 주시겠어요?", d && d.go); } })
+      .catch(function(){ deliver("연결이 잠깐 끊겼어요. 다시 시도해 주세요."); })
+      .then(function(){ sendBtn.disabled=false; input.focus(); });
+  }
+
+  sendBtn.addEventListener("click",send);
+  input.addEventListener("keydown",function(e){ if(e.key==="Enter") send(); });
+  // 질문 입력(포커스/타이핑) 시 부모 홈페이지 홍보영상 페이드아웃 트리거
+  var __typedNotified=false;
+  function notifyTyping(){ if(__typedNotified) return; __typedNotified=true;
+    if(window.parent!==window){ try{ window.parent.postMessage({type:"mangoi-typing"},"*"); }catch(e){} } }
+  input.addEventListener("focus", notifyTyping);
+  input.addEventListener("input", notifyTyping);
+  replayBtn.addEventListener("click",function(){ if(lastAnswer) speak(lastAnswer); });
+  closeBtn.addEventListener("click",function(){
+    stopSpeaking();
+    resetWidget();   // 닫는 즉시 초기화 — 다시 열면 처음부터 깨끗하게
+    if(window.parent!==window){ window.parent.postMessage("mangoi-avatar-close","*"); }
+    else { win.classList.add("hidden"); }
+  });
+
+  // === 음성 입력(마이크) — 녹음 후 서버(Whisper)로 인식 ===
+  // 이유: 위젯은 메인 사이트에 '교차 출처(cross-origin) iframe' 으로 박혀 있어
+  // 브라우저 음성인식(Web Speech API)이 Chrome 에서 차단된다(권한은 받아도 start() 가 실패).
+  // 화상수업 마이크가 되는 이유는 getUserMedia/WebRTC 를 쓰기 때문 — iframe 에서도 동작함.
+  // 그래서 getUserMedia 로 직접 '녹음' 한 뒤 서버 /api/stt(Workers AI Whisper)로 보내 텍스트로 변환한다.
+  // iOS Safari 도 MediaRecorder 를 지원하므로 이제 음성 입력이 가능하다.
+  // 녹음은 Web Audio 로 raw PCM 을 직접 캡처해 16kHz mono WAV 로 인코딩한다.
+  // MediaRecorder(webm/opus)는 Cloudflare Whisper 가 디코딩을 자주 실패해 빈 결과가 나온다 —
+  // Whisper 가 가장 확실히 인식하는 포맷이 16kHz mono WAV(PCM) 라서 인식률이 크게 좋아진다.
+  var micBtn=document.getElementById("mic-btn");
+  var listening=false, recStream=null, recTimer=null, recAborted=false;
+  var audioCtx=null, srcNode=null, procNode=null, silentGain=null, pcmChunks=[], pcmLen=0, inRate=44100;
+  function setListening(on){ listening=on; if(micBtn) micBtn.classList.toggle("listening", on);
+    var tip=document.getElementById("mic-tip");
+    if(tip){
+      if(on){ tip.innerHTML = (uiLang==="en")
+          ? '🎤 Press the <b>mic</b> and ask while the light is <span class="hot">red</span>. Press again and the consultant replies.'
+          : '🎤 <b>마이크</b>를 누르고 <span class="hot">빨간불</span>일 때 질문하세요. 다시 누르면 상담사가 답변합니다.'; }
+      tip.classList.toggle("show", on);   // 마이크 누르면(녹음 시작) 표시, 다시 누르면(종료) 사라짐
+    }
+  }
+  function stopListening(){ if(listening){ recAborted=true; finishRecording(); } } // 외부에서 취소(언어 전환 등)
+  function transcribe(blob){
+    subtitle.textContent="음성을 인식하고 있어요…";
+    fetch("/api/stt?lang="+encodeURIComponent(uiLang),{ method:"POST", headers:{"Content-Type": blob.type||"audio/wav"}, body:blob })
+      .then(function(r){ return r.json().then(function(d){ return { ok:r.ok, d:d||{} }; }); })
+      .then(function(res){
+        var txt=(res.d.text||"").trim();
+        if(res.ok && txt){ input.value=txt; notifyTyping(); send(); return; }   // 인식 성공 → 자동 전송
+        // 서버/쿼터 오류(HTTP 실패 or error 필드): 발음 탓으로 오해시키지 말 것
+        if(!res.ok || res.d.error){ subtitle.textContent="지금 음성 인식 서버가 원활하지 않아요. 잠시 후 다시 시도하거나 아래 칸에 직접 입력해 주세요."; return; }
+        subtitle.textContent="잘 못 들었어요. 다시 한 번 또렷하게 말씀해 주세요.";   // 200 + 빈 텍스트일 때만 = 진짜 못 알아들음
+      })
+      .catch(function(){ subtitle.textContent="음성 인식에 실패했어요. 잠시 후 다시 시도하거나 아래 칸에 직접 입력해 주세요."; });
+  }
+  // Float32 PCM 을 16kHz 로 다운샘플(구간 평균)
+  function downsampleTo16k(buf, rate){
+    var outRate=16000; if(rate===outRate) return buf;
+    var ratio=rate/outRate, outLen=Math.round(buf.length/ratio), out=new Float32Array(outLen);
+    var oi=0, ib=0;
+    while(oi<outLen){
+      var next=Math.round((oi+1)*ratio), sum=0, cnt=0;
+      for(var i=ib;i<next && i<buf.length;i++){ sum+=buf[i]; cnt++; }
+      out[oi++]=cnt?sum/cnt:0; ib=next;
+    }
+    return out;
+  }
+  // 16-bit PCM WAV Blob 생성
+  function encodeWav(samples, rate){
+    var buf=new ArrayBuffer(44+samples.length*2), view=new DataView(buf);
+    function ws(off,s){ for(var i=0;i<s.length;i++) view.setUint8(off+i, s.charCodeAt(i)); }
+    ws(0,"RIFF"); view.setUint32(4,36+samples.length*2,true); ws(8,"WAVE");
+    ws(12,"fmt "); view.setUint32(16,16,true); view.setUint16(20,1,true); view.setUint16(22,1,true);
+    view.setUint32(24,rate,true); view.setUint32(28,rate*2,true); view.setUint16(32,2,true); view.setUint16(34,16,true);
+    ws(36,"data"); view.setUint32(40,samples.length*2,true);
+    var off=44;
+    for(var i=0;i<samples.length;i++){ var s=Math.max(-1,Math.min(1,samples[i])); view.setInt16(off, s<0?s*0x8000:s*0x7FFF, true); off+=2; }
+    return new Blob([view], {type:"audio/wav"});
+  }
+  function finishRecording(){
+    if(!procNode && !recStream) return;   // 이미 종료됨(재진입 방지). audioCtx 는 재사용 위해 닫지 않음.
+    try{ if(procNode){ procNode.onaudioprocess=null; procNode.disconnect(); } }catch(e){}
+    try{ if(silentGain) silentGain.disconnect(); }catch(e){}
+    try{ if(srcNode) srcNode.disconnect(); }catch(e){}
+    if(recTimer){ clearTimeout(recTimer); recTimer=null; }
+    if(recStream){ try{ recStream.getTracks().forEach(function(t){ t.stop(); }); }catch(e){} recStream=null; }
+    var rate=inRate, aborted=recAborted, chunks=pcmChunks, total=pcmLen;
+    srcNode=null; procNode=null; silentGain=null; pcmChunks=[]; pcmLen=0;
+    setListening(false);
+    if(aborted || !total) return;
+    if(total/rate < 0.4){ subtitle.textContent="너무 짧아요. 🎤 를 누르고 조금 더 길게 말씀해 주세요."; return; }
+    var merged=new Float32Array(total), off=0;
+    for(var i=0;i<chunks.length;i++){ merged.set(chunks[i], off); off+=chunks[i].length; }
+    transcribe(encodeWav(downsampleTo16k(merged, rate), 16000));
+  }
+  function ensureAudioCtx(){   // 사용자 제스처(클릭) 안에서 생성/재개해야 iOS Safari 에서 onaudioprocess 가 돈다
+    var AC=window.AudioContext||window.webkitAudioContext;
+    if(!AC) return null;
+    if(!audioCtx || audioCtx.state==="closed"){ audioCtx=new AC(); }
+    if(audioCtx.state==="suspended"){ try{ audioCtx.resume(); }catch(e){} }
+    return audioCtx;
+  }
+  function startRecording(){
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !audioCtx){
+      subtitle.textContent="이 브라우저는 녹음을 지원하지 않아요. 최신 브라우저에서 시도해 주세요."; return;
+    }
+    stopSpeaking();                    // 에코 방지: 말하는 중이면 정지
+    recAborted=false;
+    navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}}).then(function(stream){
+      if(recAborted){ try{ stream.getTracks().forEach(function(t){ t.stop(); }); }catch(e){} return; }  // 권한 대기 중 취소됨
+      recStream=stream; pcmChunks=[]; pcmLen=0;
+      if(audioCtx.state==="suspended"){ try{ audioCtx.resume(); }catch(e){} }   // iOS Safari
+      inRate=audioCtx.sampleRate||44100;
+      srcNode=audioCtx.createMediaStreamSource(stream);
+      procNode=audioCtx.createScriptProcessor(4096,1,1);
+      procNode.onaudioprocess=function(ev){
+        if(recAborted) return;
+        var ch=ev.inputBuffer.getChannelData(0);
+        pcmChunks.push(new Float32Array(ch)); pcmLen+=ch.length;
+      };
+      silentGain=audioCtx.createGain(); silentGain.gain.value=0;   // 무음 경로: onaudioprocess 발화용(스피커 피드백 방지)
+      srcNode.connect(procNode); procNode.connect(silentGain); silentGain.connect(audioCtx.destination);
+      setListening(true);
+      subtitle.textContent="듣고 있어요… 다 말한 뒤 🎤 를 한 번 더 누르세요.";
+      recTimer=setTimeout(function(){ if(listening) finishRecording(); }, 15000); // 안전장치: 최대 15초
+    }).catch(function(err){
+      setListening(false);
+      subtitle.textContent = (err && (err.name==="NotAllowedError"||err.name==="SecurityError"))
+        ? "마이크 권한이 꺼져 있어요. 주소창의 🔒(자물쇠) → 마이크 → '허용'으로 바꾼 뒤 다시 눌러주세요."
+        : "마이크를 사용할 수 없어요. 다른 앱이 마이크를 쓰고 있지 않은지 확인 후 다시 시도해 주세요.";
+    });
+  }
+  if(micBtn){
+    micBtn.addEventListener("click", function(){
+      if(listening){ finishRecording(); return; }  // 두 번째 클릭 → 종료 후 전송
+      ensureAudioCtx();     // 클릭(제스처) 안에서 오디오 컨텍스트 준비 — iOS 필수
+      startRecording();
+    });
+  }
+</script>
+</body>
+</html>

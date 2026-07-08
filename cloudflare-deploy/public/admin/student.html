@@ -211,6 +211,8 @@
     </select>
     <button class="btn" id="refreshBtn" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
     <a class="btn" href="/admin/students" data-ko="👨‍🎓 학생 목록" data-en="👨‍🎓 Students">👨‍🎓 학생 목록</a>
+    <a class="btn" href="#" data-ko="🧠 게임 리포트" data-en="🧠 Game Report"
+       onclick="event.preventDefault();var u=new URLSearchParams(location.search).get('uid')||'';window.open('/game-report.html'+(u?'?uid='+encodeURIComponent(u):''),'_blank');">🧠 게임 리포트</a>
     <a class="btn" href="/admin.html" data-ko="📊 대시보드" data-en="📊 Dashboard">📊 대시보드</a>
     <button class="btn" id="langBtn" title="Toggle language"
             style="display:flex;align-items:center;gap:4px">
@@ -857,7 +859,12 @@ async function loadFull() {
       document.querySelector('main').innerHTML = '<div class="empty">'+t('notFound')+' — '+(j.user_id||uid)+'</div>';
       return;
     }
-    if (r.status === 401) { location.replace('/admin/login?next='+encodeURIComponent(location.pathname+location.search)); return; }
+    if (r.status === 401) {
+      // 콘솔(localStorage) 로그인 상태면 튕기지 않는다(하위페이지 인증 미스매치 방지)
+      let hasLocal=false; try{ const s=JSON.parse(localStorage.getItem('mangoi_admin_session')||'{}'); hasLocal=!!(s&&(s.role||s.uid)); }catch(e){}
+      if (!hasLocal) { location.replace('/admin/login?next='+encodeURIComponent(location.pathname+location.search)); return; }
+      throw new Error('세션 만료 — 다시 로그인해 주세요');
+    }
     const j = await r.json();
     if (!j.ok) throw new Error(j.error||r.status);
     _state.full = j;

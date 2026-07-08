@@ -1,0 +1,17 @@
+name = "mangoi-ai-avatar-cf"
+main = "src/index.js"
+compatibility_date = "2026-04-07"
+# 계정 자동조회 실패 방지 위해 account_id 명시(메인 워커와 동일 계정)
+account_id = "7ae16a3c4bcc84743c70828a5156ebb3"
+
+# Workers AI (Llama 3.3 상담 + Whisper STT)
+[ai]
+binding = "AI"
+
+# 정적 자산: student.html (상담직원 위젯 UI). html_handling 은 기본값 유지(/student.html → /student).
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# 시크릿(대시보드/CLI로 이미 등록되어 배포 간 유지됨 — 여기에 값 넣지 말 것):
+#   TYPECAST_API_KEY, TYPECAST_VOICE_ID, TYPECAST_VOICE_ID_STUDENT

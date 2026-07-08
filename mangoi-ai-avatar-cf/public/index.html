@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>망고아이 AI 운영 비서</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { height:100%; }
+  body { font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif; background:transparent; }
+  #avatar-window { position:fixed; inset:0; width:100%; height:100%;
+    background:#0e1422; border-radius:18px; overflow:hidden;
+    display:flex; flex-direction:column; }
+  #avatar-window.hidden { display:none; }
+
+  /* === 헤더 === */
+  #toolbar { display:flex; align-items:center; gap:10px; padding:12px 14px;
+    background:#121a2c; border-bottom:1px solid rgba(255,255,255,0.08); flex:0 0 auto; }
+  #hdr-avatar { width:88px; height:88px; border-radius:50%; object-fit:cover; object-position:center 22%;
+    background:#1c2740; flex:0 0 auto; border:2px solid rgba(255,206,74,0.7); box-shadow:0 0 0 1px rgba(0,0,0,0.3); }
+  /* PC(데스크톱)에서 강사 얼굴 30% 더 크게 (부모가 ?dev=pc 로 전달) */
+  body.mi-pc #hdr-avatar { width:114px; height:114px; }
+  #hdr-meta { display:flex; flex-direction:column; line-height:1.2; flex:1 1 auto; min-width:0; }
+  #hdr-title { color:#fff; font-weight:800; font-size:16px; }
+  #hdr-status { display:flex; align-items:center; gap:5px; color:#7fe3a0; font-size:12px; margin-top:2px; }
+  #hdr-status .dot { width:7px; height:7px; border-radius:50%; background:#39d36a; display:inline-block; }
+  #toolbar .controls { display:flex; align-items:center; gap:4px; flex:0 0 auto; }
+  #toolbar .controls button { width:34px; height:34px; background:#1b2540; border:none; cursor:pointer;
+    font-size:15px; border-radius:50%; color:#cfd6e6; display:flex; align-items:center; justify-content:center; padding:0; }
+  #toolbar .controls button:hover { background:#26345a; }
+
+  /* === 대화 영역 === */
+  #subtitle { color:#e8ecf5; font-size:15px; line-height:1.65; padding:16px 14px 6px;
+    flex:1 1 auto; overflow-y:auto; }
+  .bubble { background:#1a2238; border:1px solid rgba(255,255,255,0.06); border-radius:16px;
+    padding:14px 15px; margin-bottom:12px; max-width:92%; }
+  .bubble.me { background:#2b6fff; color:#fff; margin-left:auto; border:none; }
+  .menu-item { display:flex; align-items:center; gap:8px; width:100%; text-align:left;
+    background:#222c46; border:1px solid rgba(255,255,255,0.06); color:#eef1f8;
+    border-radius:12px; padding:11px 12px; margin-top:8px; font-size:14px; cursor:pointer; font-weight:600; }
+  .menu-item:hover { background:#2c3a5e; }
+  .menu-item .num { color:#ffce4a; font-weight:800; }
+  .menu-item .arr { margin-left:auto; color:#9fb0d6; }
+  #speaking-dot { display:inline-flex; align-items:center; gap:5px; color:#ffce4a; font-size:12px;
+    padding:4px 0 8px 2px; }
+  #speaking-dot.hidden { display:none; }
+
+  /* === 하단 입력 === */
+  #chat-area { display:flex; gap:8px; padding:12px; background:#121a2c;
+    border-top:1px solid rgba(255,255,255,0.08); flex:0 0 auto; }
+  #input-wrap { flex:1; position:relative; display:flex; }
+  #chat-input { flex:1; width:100%; border:1px solid rgba(255,255,255,0.14); border-radius:22px;
+    padding:12px 50px 12px 16px; font-size:16px; background:#1b2440; color:#fff; outline:none; }
+  #chat-input::placeholder { color:#8b97b5; }
+  #chat-input:focus { border-color:#2b6fff; }
+  #send-btn { position:absolute; right:5px; top:50%; transform:translateY(-50%);
+    width:38px; height:38px; background:#2b6fff; color:#fff; border:none;
+    border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; }
+  #send-btn svg { width:20px; height:20px; display:block; }
+  #send-btn:hover { background:#3d7dff; }
+  #send-btn:disabled { opacity:0.45; cursor:not-allowed; }
+  #mic-btn { width:46px; height:46px; flex:0 0 auto; border:none; border-radius:50%;
+    background:#1b2440; color:#cfd6e6; font-size:19px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; padding:0; border:1px solid rgba(255,255,255,0.14); }
+  #mic-btn:hover { background:#26345a; }
+  #mic-btn.listening { background:#e53935; color:#fff; border-color:#e53935; animation:micPulse 1s infinite; }
+  @keyframes micPulse { 0%{ box-shadow:0 0 0 0 rgba(229,57,53,0.6); } 70%{ box-shadow:0 0 0 10px rgba(229,57,53,0); } 100%{ box-shadow:0 0 0 0 rgba(229,57,53,0); } }
+  /* 🎤 마이크 안내 말풍선 — 마이크를 누르는 동안(빨간불)만 표시, 꼬리가 마이크를 가리킴 */
+  #mic-tip { position:absolute; right:12px; bottom:74px; max-width:250px;
+    background:rgba(38,42,52,0.94); color:#f3f5fa; font-size:13px; line-height:1.55;
+    padding:11px 14px; border-radius:14px; border:1px solid rgba(255,255,255,0.12);
+    box-shadow:0 8px 22px rgba(0,0,0,0.5); z-index:60; pointer-events:none;
+    opacity:0; transform:translateY(6px) scale(0.96); transform-origin:bottom right;
+    transition:opacity .18s ease, transform .18s ease; }
+  #mic-tip.show { opacity:1; transform:translateY(0) scale(1); }
+  #mic-tip .hot { color:#ff6b6b; font-weight:800; }
+  #mic-tip b { color:#ffd24a; }
+  #mic-tip::after { content:""; position:absolute; right:24px; bottom:-9px;
+    border-width:10px 9px 0 9px; border-style:solid;
+    border-color:rgba(38,42,52,0.94) transparent transparent transparent; }
+</style>
+</head>
+<body>
+  <div id="avatar-window">
+    <div id="toolbar">
+      <!-- 인사 영상/아바타(원형). 인사 시 영상+음성 그대로 재생 -->
+      <video id="hdr-avatar" src="./ops-greeting.mp4" playsinline preload="auto"></video>
+      <div id="hdr-meta">
+        <span id="hdr-title">AI 운영 비서</span>
+        <span id="hdr-status"><span class="dot"></span><span id="hdr-status-txt">온라인</span></span>
+      </div>
+      <span class="controls">
+        <button id="replay-btn" title="음성 다시듣기">🔊</button>
+        <button id="refresh-btn" title="처음으로">🔄</button>
+        <button id="close-btn" title="닫기">✕</button>
+      </span>
+    </div>
+
+    <div id="subtitle"><!-- 인사말 + 메뉴 / 대화 내용이 여기에 표시됩니다 --></div>
+
+    <div id="chat-area">
+      <div id="input-wrap">
+        <input id="chat-input" type="text" placeholder="무엇이든 입력하거나 🎤로 말해보세요" autocomplete="off" />
+        <button id="send-btn" type="button" aria-label="전송" title="전송">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M12 19V5M12 5L6 11M12 5L18 11" stroke="currentColor" stroke-width="2.4"
+              stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+      <button id="mic-btn" type="button" aria-label="음성으로 질문하기" title="음성으로 질문하기">🎤</button>
+    </div>
+    <div id="mic-tip">🎤 <b>마이크</b>를 누르고 <span class="hot">빨간불</span>일 때 질문하세요. 다시 누르면 비서가 답변합니다.</div>
+  </div>
+
+<script>
+  var subtitle=document.getElementById("subtitle");
+  var input=document.getElementById("chat-input");
+  var sendBtn=document.getElementById("send-btn");
+  var replayBtn=document.getElementById("replay-btn");
+  var refreshBtn=document.getElementById("refresh-btn");
+  var closeBtn=document.getElementById("close-btn");
+  var win=document.getElementById("avatar-window");
+  var video=document.getElementById("hdr-avatar");
+  var speakingDot=null; // 인라인 생성됨
+
+  // 평소엔 정지(첫 프레임). 말할 때만 재생.
+  video.loop=true; video.muted=true;
+  try{ video.pause(); video.currentTime=0; }catch(e){}
+  video.addEventListener("loadeddata", function(){ if(!greeting){ try{ video.pause(); video.currentTime=0; }catch(e){} } });
+  // 영상 로드 실패 → 아바타 자리 그라데이션만(인사는 음성으로 폴백)
+  video.addEventListener("error", function(){ video.style.opacity="0.25"; });
+
+  var lastAnswer="";
+  var lastBlobUrl=null;
+  var uiLang="ko";
+  var greeting=false;   // 인사 영상(음성 포함) 재생 중 여부
+
+  function startMouth(){
+    if(speakingDot) speakingDot.classList.remove("hidden");
+    if(ensureLipGraph()){
+      try{ if(actx && actx.state==="suspended") actx.resume(); }catch(e){}
+      if(!lipRAF) lipRAF=requestAnimationFrame(lipLoop);
+    } else {
+      try{ video.muted=true; video.play(); }catch(e){}
+    }
+  }
+  function stopMouth(){
+    if(speakingDot) speakingDot.classList.add("hidden");
+    if(lipRAF){ try{ cancelAnimationFrame(lipRAF); }catch(e){} lipRAF=0; }
+    try{ video.pause(); }catch(e){}
+  }
+  function startMouthPlain(){ if(speakingDot) speakingDot.classList.remove("hidden"); try{ video.muted=true; video.play(); }catch(e){} }
+
+  // === 음성: 1순위 Typecast(서버), 실패 시 브라우저 음성 ===
+  var audioEl = new Audio();
+  var __mu=false;function __unlock(){if(__mu)return;__mu=true;try{if(actx&&actx.state==="suspended")actx.resume();}catch(e){}try{var p=audioEl.play();if(p&&p.then)p.then(function(){audioEl.pause();audioEl.currentTime=0;}).catch(function(){});}catch(e){}}
+  ["touchstart","pointerdown","mousedown","click","keydown"].forEach(function(ev){document.addEventListener(ev,__unlock,{passive:true});});
+  audioEl.addEventListener("playing", startMouth);
+  audioEl.addEventListener("ended", stopMouth);
+  audioEl.addEventListener("pause", stopMouth);
+  audioEl.addEventListener("error", stopMouth);
+
+  // === 음량 기반 립싱크 (Web Audio) ===
+  var actx=null, srcNode=null, analyser=null, lipData=null, lipRAF=0, lipReady=false, lipFailed=false;
+  function ensureLipGraph(){
+    if(lipReady) return true;
+    if(lipFailed) return false;
+    try{
+      var AC=window.AudioContext||window.webkitAudioContext;
+      if(!AC) throw new Error("no WebAudio");
+      actx=new AC();
+      srcNode=actx.createMediaElementSource(audioEl);
+      srcNode.connect(actx.destination);
+      analyser=actx.createAnalyser(); analyser.fftSize=512;
+      srcNode.connect(analyser);
+      lipData=new Uint8Array(analyser.fftSize);
+      lipReady=true;
+      return true;
+    }catch(e){
+      lipFailed=true;
+      try{ if(actx) actx.close(); }catch(_){}
+      actx=null; srcNode=null; analyser=null;
+      return false;
+    }
+  }
+  function lipLoop(){
+    if(!lipReady){ lipRAF=0; return; }
+    analyser.getByteTimeDomainData(lipData);
+    var sum=0;
+    for(var i=0;i<lipData.length;i++){ var v=(lipData[i]-128)/128; sum+=v*v; }
+    var level=Math.sqrt(sum/lipData.length);
+    if(level>0.06){
+      try{ video.muted=true; if(video.paused) video.play(); video.playbackRate=0.7+level*1.1; }catch(e){}
+    } else {
+      try{ if(!video.paused) video.pause(); }catch(e){}
+    }
+    lipRAF=requestAnimationFrame(lipLoop);
+  }
+
+  // 자연스러운 브라우저 음성 선택: Google/Natural/Online 신경망 음성 우선(로봇음 완화).
+  // Chrome은 'Google 한국의', Edge/윈도우는 'Microsoft ...Online (Natural)' 계열이 사람 목소리에 가장 가깝다.
+  var koVoice=null, enVoice=null;
+  function _bestVoice(vs, langRe, prefs){
+    var cand=vs.filter(function(v){ return langRe.test(v.lang||""); });
+    for(var i=0;i<prefs.length;i++){
+      for(var j=0;j<cand.length;j++){
+        var nm=((cand[j].name||"")+" "+(cand[j].lang||"")).toLowerCase();
+        if(nm.indexOf(prefs[i])>=0) return cand[j];
+      }
+    }
+    return cand[0]||null;
+  }
+  function pickVoice(){ var vs=window.speechSynthesis?speechSynthesis.getVoices():[];
+    koVoice=_bestVoice(vs, /ko/i, ["google","natural","online","heami","sun-hi","yuna","seoyeon","ko-kr"]);
+    enVoice=_bestVoice(vs, /^en/i, ["google us","google uk","natural","online","aria","jenny","guy","en-us"]);
+  }
+  if(window.speechSynthesis){ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice; }
+  function speakBrowser(text){
+    if(!window.speechSynthesis){ startMouthPlain(); setTimeout(stopMouth, Math.min(12000, Math.max(1500, text.length*90))); return; }
+    speechSynthesis.cancel();
+    var u=new SpeechSynthesisUtterance(text);
+    // 약간 느린 속도 + 살짝 높은 톤이 한국어를 더 따뜻하고 사람스럽게 들리게 함
+    if(/[가-힣]/.test(text)){ u.lang="ko-KR"; if(koVoice) u.voice=koVoice; u.rate=0.96; u.pitch=1.06; }
+    else { u.lang="en-US"; if(enVoice) u.voice=enVoice; u.rate=0.98; u.pitch=1.02; }
+    u.volume=1.0;
+    u.onstart=startMouthPlain; u.onend=stopMouth; u.onerror=stopMouth;
+    speechSynthesis.speak(u);
+  }
+
+  // === 음성 정지 ===
+  var ttsAbort=null, speakSeq=0;
+  function stopSpeaking(){
+    speakSeq++;
+    try{ if(ttsAbort) ttsAbort.abort(); }catch(e){}
+    ttsAbort=null;
+    try{ speechSynthesis.cancel(); }catch(e){}
+    try{ audioEl.pause(); audioEl.currentTime=0; }catch(e){}
+    stopGreetVideo();
+    stopMouth();
+  }
+
+  // 답변 읽어주기: Typecast(성우) 미사용 — 크레딧이 너무 빨리 소진돼 배제.
+  // 첫 인사말만 녹화된 원어민 음성(ops-greeting.mp4)으로 하고, 이후 답변은 브라우저 음성(다듬은 톤)으로 읽는다.
+  function speak(text){
+    lastAnswer=text;
+    stopListening();
+    stopSpeaking();
+    speakBrowser(text);
+  }
+
+  // === 정지 트리거 ===
+  window.addEventListener("message", function(ev){
+    var d=ev.data;
+    if(d==="mangoi-stop" || (d && d.type==="mangoi-stop")) stopSpeaking();
+    if(d && d.type==="mangoi-lang" && d.lang) applyLang(d.lang);
+    if(d==="mangoi-greet" || (d && d.type==="mangoi-greet")) greetOnOpen();
+  });
+  document.addEventListener("visibilitychange", function(){ if(document.hidden) stopSpeaking(); });
+  window.addEventListener("pagehide", stopSpeaking);
+
+  // === 다국어 ===
+  var I18N={
+    ko:{ hdr:"AI 운영 비서", status:"온라인", ph:"무엇이든 입력하거나 🎤로 말해보세요", send:"전송", mic:"음성으로 질문하기",
+         greetLead:"안녕하세요 관리자님! 저는 망고아이 <b>AI 운영 비서</b>예요 👩‍💼",
+         greetSub:"평가서 작성·실시간 이상감지 대응·정산·알림까지 도와드릴게요.<br>아래 항목을 누르면 바로 도와드릴게요 👇",
+         greetSpeak:"안녕하세요 관리자님! 저는 망고아이 AI 운영 비서예요. 평가서 작성, 실시간 이상감지 대응, 정산과 알림까지 도와드릴게요." },
+    en:{ hdr:"AI Operations Assistant", status:"Online", ph:"Type anything or tap 🎤 to speak", send:"Send", mic:"Ask by voice",
+         greetLead:"Hello, admin! I'm Mangoi's <b>AI Operations Assistant</b> 👩‍💼",
+         greetSub:"I can help with evaluations, real-time anomaly response, settlements and alerts.<br>Tap an item below to get started 👇",
+         greetSpeak:"Hello, admin! I'm Mangoi's AI Operations Assistant. I can help with evaluations, real-time anomaly response, settlements and alerts." }
+  };
+  // 운영비서 메뉴(클릭 → 프리셋 질문 전송)
+  var MENUS={
+    ko:[
+      ["🧾","AI 평가서·학습 리포트 초안","평가서와 학습 리포트 초안 작성을 도와줘"],
+      ["🚨","실시간 이상감지 대응","실시간 이상감지 현황과 대응 방법을 알려줘"],
+      ["💸","미납 알림·지점/강사 정산","미납 알림과 지점·강사 정산을 도와줘"],
+      ["💰","회계 관리 바로가기","","accounting"]
+    ],
+    en:[
+      ["🧾","AI evaluation & learning report draft","Help me draft evaluations and learning reports"],
+      ["🚨","Real-time anomaly response","Show real-time anomaly status and how to respond"],
+      ["💸","Overdue alerts & branch/teacher settlement","Help with overdue alerts and branch/teacher settlement"],
+      ["💰","Open Accounting management","","accounting"]
+    ]
+  };
+
+  function escHtml(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+  // 환불 기준표 (공식 refund.html 수치와 일치: 시작 전 100% / 1·3 이전 70% / 1·2 이전 50% / 1·2 이후 0%)
+  function refundTableHTML(lang){
+    var en=(lang==="en");
+    var head=en?["Time of refund request","Refund"]:["환불 요구 시기","환불 금액"];
+    var rows=en
+      ?[["Before classes begin","100%"],["Before 1/3 of total hours","70%"],["Before 1/2 of total hours","50%"],["After 1/2 of total hours","0%"]]
+      :[["수업 시작 전","100%"],["총 수업시간의 1/3 이전","70%"],["총 수업시간의 1/2 이전","50%"],["총 수업시간의 1/2 이후","0%"]];
+    var th="border:1px solid rgba(255,255,255,0.15);padding:7px 9px;font-weight:700;background:#222c46;";
+    var td="border:1px solid rgba(255,255,255,0.12);padding:7px 9px;";
+    var h='<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:13px;color:#e8ecf5;">'
+      +'<thead><tr><th style="'+th+'text-align:left;">'+head[0]+'</th><th style="'+th+'text-align:right;">'+head[1]+'</th></tr></thead><tbody>';
+    for(var i=0;i<rows.length;i++){
+      var last=(i===rows.length-1);
+      h+='<tr><td style="'+td+'">'+rows[i][0]+'</td>'
+        +'<td style="'+td+'text-align:right;font-weight:800;color:'+(last?"#ff8a80":"#7fe3a0")+';">'+rows[i][1]+'</td></tr>';
+    }
+    h+='</tbody></table>'
+      +'<div style="font-size:11px;color:#9fb0d6;margin-top:6px;">'
+      +(en?"* Based on the lessons enrolled; reference date = the day the refund is requested."
+          :"* ‘총 수업시간’은 신청한 전체 수업 횟수 기준이며, 기준일은 환불 신청일이에요.")
+      +'</div>';
+    return h;
+  }
+
+  function greetingHTML(){
+    var t=I18N[uiLang]||I18N.ko;
+    var menus=MENUS[uiLang]||MENUS.ko;
+    var html='<div class="bubble"><div id="speaking-dot" class="hidden">🔊 '
+      + (uiLang==="en"?"speaking…":"말하는 중…") + '</div>'
+      + '<div style="margin-bottom:6px;">'+t.greetLead+'</div>'
+      + '<div style="color:#c4ccdd;font-size:14px;margin-bottom:4px;">'+t.greetSub+'</div>';
+    for(var i=0;i<menus.length;i++){
+      var m=menus[i];
+      html+='<button type="button" class="menu-item" data-q="'+escHtml(m[2])+'" data-go="'+escHtml(m[3]||"")+'">'
+        +'<span class="num">'+(i+1)+'.</span><span>'+m[0]+' '+escHtml(m[1])+'</span><span class="arr">↗</span></button>';
+    }
+    html+='</div>';
+    return html;
+  }
+  function renderGreeting(){
+    subtitle.innerHTML=greetingHTML();
+    speakingDot=document.getElementById("speaking-dot");
+    // 메뉴 클릭 → 프리셋 질문 전송
+    var btns=subtitle.querySelectorAll(".menu-item");
+    for(var i=0;i<btns.length;i++){
+      btns[i].addEventListener("click", function(){
+        var go=this.getAttribute("data-go")||"";
+        if(go){ openParentGo(go); return; }
+        var q=this.getAttribute("data-q")||"";
+        if(q){ input.value=q; notifyTyping(); send(); }
+      });
+    }
+  }
+  // 메뉴(인사 버블) 제거 — 질문하거나 메뉴 누르면 자동으로 사라짐
+  function clearMenus(){
+    var mi=subtitle.querySelector(".menu-item");
+    if(mi){ var bub=mi.closest(".bubble"); if(bub) bub.parentNode.removeChild(bub); }
+  }
+  // 부모(관리자 페이지)로 메뉴 열기 신호 전송. q = 학생 검색어 등 부가 정보(선택)
+  function postParentOpen(go, q){
+    stopGreetVideo();
+    if(window.parent!==window){ try{ window.parent.postMessage({type:"mangoi-open", go:go, q:(q||"")}, "*"); }catch(e){} }
+  }
+  // "열어줘/열어/보여줘/이동/가줘/띄워줘" 등 직접 열기 의도 감지(영문 open/show/go to 포함)
+  function wantsOpen(msg){
+    var s=String(msg||"").toLowerCase();
+    if(/열어|열기|띄워|보여|이동|가줘|가자|들어가|바로\s*가|open|show|go to|take me/.test(s)) return true;
+    return false;
+  }
+  // === '○○ 페이지를 열어드릴까요?' 확인 후 열기(예/아니오 되묻기) ===
+  var pendingGo=null, pendingGoLabel="", pendingGoQ="";
+  function _norm(s){ return (s||"").toLowerCase().replace(/[^a-z0-9가-힣ㄱ-ㅎ]/g,""); }
+  function isNo(s){ var n=_norm(s); if(!n) return false; return /^(아니|아뇨|싫|괜찮|됐|나중|노|no|nope|ㄴ)/.test(n); }
+  var YES_EXACT=["어","네","예","go","k","ok","y","ㅇ","음"];
+  var YES_LIST=["응","응응","네네","어어","넵","예스","옙","그래","그래요","그래그래","그러자","좋아","좋아요",
+    "오케이","오키","오케","콜","맞아","맞아요","부탁","해줘","해주세요","열어","열어줘","열어주세요","열어줄래",
+    "가자","가줘","이동","보여줘","보여주세요","ㅇㅇ","ㅇㅋ","ㄱㄱ","okay","okey","yes","yeah","yep","yup","sure","please","openit"];
+  function isYes(s){ var n=_norm(s); if(!n) return false; if(isNo(s)) return false; if(/^(안|못|말고)/.test(n)) return false;
+    if(YES_EXACT.indexOf(n)>=0) return true; for(var i=0;i<YES_LIST.length;i++){ if(n.indexOf(YES_LIST[i])>=0) return true; } return false; }
+
+  // 메뉴 버튼 → 부모에 해당 메뉴 열기 요청(예: 회계 관리)
+  function openParentGo(go){
+    postParentOpen(go, "");
+    clearMenus();
+    appendBot(uiLang==="en"?"Opening the Accounting management menu…":"회계 관리 메뉴로 이동할게요. 😊");
+  }
+
+  function applyLang(l){
+    if(l!=="en" && l!=="ko") return;
+    var changed=(l!==uiLang);
+    uiLang=l;
+    if(changed){ try{ stopSpeaking(); }catch(e){} try{ stopListening(); }catch(e){} }
+    var t=I18N[uiLang];
+    var hdr=document.getElementById("hdr-title"); if(hdr) hdr.textContent=t.hdr;
+    var st=document.getElementById("hdr-status-txt"); if(st) st.textContent=t.status;
+    if(input) input.placeholder=t.ph;
+    if(sendBtn){ sendBtn.setAttribute("aria-label", t.send); sendBtn.setAttribute("title", t.send); }
+    if(micBtn) micBtn.setAttribute("aria-label", t.mic);
+    // 인사 화면이 떠 있으면 새 언어로 다시 렌더
+    if(subtitle.querySelector(".menu-item")) renderGreeting();
+  }
+
+  // === 인사: mp4 영상+음성 그대로 재생 (실패 시 TTS 폴백) ===
+  function stopGreetVideo(){
+    if(!greeting) return;
+    greeting=false;
+    try{ video.pause(); video.muted=true; video.currentTime=0; video.loop=true; }catch(e){}
+    if(speakingDot) speakingDot.classList.add("hidden");
+  }
+  var _greetGuard=0;
+  function greetOnOpen(){
+    var now=Date.now();
+    if(now-_greetGuard < 1200) return;
+    _greetGuard=now;
+    renderGreeting();
+    stopSpeaking();
+    // 영상+음성 그대로 인사
+    greeting=true;
+    if(speakingDot) speakingDot.classList.remove("hidden");
+    try{
+      video.loop=false; video.muted=false; video.currentTime=0;
+      var pr=video.play();
+      if(pr && pr.catch){ pr.catch(function(){ greetFallback(); }); }
+    }catch(e){ greetFallback(); }
+  }
+  function greetFallback(){
+    // 자동재생(소리) 차단된 환경 → 인사말을 Typecast/브라우저 음성으로
+    greeting=false;
+    try{ video.muted=true; video.loop=true; }catch(e){}
+    var t=I18N[uiLang]||I18N.ko;
+    speak(t.greetSpeak);
+  }
+  // 인사 영상 끝나면 원상복귀
+  video.addEventListener("ended", function(){
+    if(greeting){ greeting=false; try{ video.muted=true; video.loop=true; video.pause(); video.currentTime=0; }catch(e){}
+      if(speakingDot) speakingDot.classList.add("hidden"); }
+  });
+
+  // 위젯이 화면에 보이는 순간 자동 인사
+  function _isShown(){ return (window.innerWidth>1 && window.innerHeight>1); }
+  var _wasShown=_isShown();
+  function _visGreetCheck(){ var now=_isShown(); if(now && !_wasShown) greetOnOpen(); _wasShown=now; }
+  window.addEventListener("resize", _visGreetCheck);
+
+  // === 대화 표시 ===
+  function appendUser(text){
+    var d=document.createElement("div");
+    d.className="bubble me"; d.textContent=text;
+    subtitle.appendChild(d); subtitle.scrollTop=subtitle.scrollHeight;
+  }
+  function appendBot(html){
+    var d=document.createElement("div");
+    d.className="bubble"; d.innerHTML=html;
+    subtitle.appendChild(d); subtitle.scrollTop=subtitle.scrollHeight;
+    return d;
+  }
+  // 답변 아래 '○○ 메뉴 열기' 버튼 — 클릭하면 부모(관리자 페이지)의 해당 메뉴로 이동
+  function appendOpenButton(label, go, q){
+    var b=document.createElement("button");
+    b.type="button"; b.className="menu-item";
+    b.innerHTML='<span>📂 '+escHtml(label)+(uiLang==="en"?" — open":" 메뉴 열기")+'</span><span class="arr">↗</span>';
+    b.addEventListener("click", function(){
+      postParentOpen(go, q||"");
+      b.disabled=true; b.style.opacity="0.6";
+      appendBot(uiLang==="en"?"Opening the menu… 😊":"메뉴를 열게요. 😊");
+    });
+    subtitle.appendChild(b); subtitle.scrollTop=subtitle.scrollHeight;
+  }
+
+  function send(){
+    var msg=input.value.trim(); if(!msg) return;
+    // 직전에 '○○ 페이지를 열어드릴까요?' 물었으면, 이번 답을 예/아니오로 처리
+    if(pendingGo){
+      var pg=pendingGo, pl=pendingGoLabel, pq=pendingGoQ;
+      if(isYes(msg)){
+        pendingGo=null; pendingGoLabel=""; pendingGoQ=""; input.value="";
+        stopGreetVideo(); clearMenus(); appendUser(msg);
+        postParentOpen(pg, pq);
+        var m1=(uiLang==="en")?("Opening "+(pl||"the page")+". 😊"):("네, "+(pl||"요청하신")+" 페이지를 열게요. 😊");
+        appendBot(escHtml(m1)); speak(m1); sendBtn.disabled=false; input.focus(); return;
+      }
+      if(isNo(msg)){
+        pendingGo=null; pendingGoLabel=""; pendingGoQ=""; input.value="";
+        clearMenus(); appendUser(msg);
+        var m2=(uiLang==="en")?"Okay! Ask me anything else. 😊":"네, 알겠습니다! 다른 도와드릴 일이 있으면 말씀해 주세요. 😊";
+        appendBot(escHtml(m2)); speak(m2); sendBtn.disabled=false; input.focus(); return;
+      }
+      pendingGo=null; pendingGoLabel=""; pendingGoQ="";   // 그 외 → 새 질문으로 처리
+    }
+    stopGreetVideo();
+    clearMenus();          // 질문하면 1·2·3·4 메뉴(인사 버블) 자동 제거
+    appendUser(msg);
+    input.value=""; sendBtn.disabled=true;
+    var thinking=appendBot(uiLang==="en"?"…thinking":"답변을 준비하고 있어요…");
+    fetch("/api/chat",{ method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({message:msg, lang:uiLang, mode:"ops"}) })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var ans=(d && d.answer) || (uiLang==="en"?"Sorry, could you say that again?":"음, 다시 한 번 말씀해 주시겠어요?");
+        if(thinking){
+          var body=escHtml(ans).replace(/\n/g,"<br>");
+          if(d && d.refund){ body+=refundTableHTML(uiLang); }   // 환불 질문이면 기준표를 함께 표시
+          thinking.innerHTML=body;
+        }
+        subtitle.scrollTop=subtitle.scrollHeight;
+        speak(ans);
+        // 답변에 이동 신호(go)가 있으면 '○○ 메뉴 열기' 버튼을 띄운다(클릭 시 부모 관리자 메뉴로 이동, 질문 원문=학생 검색어)
+        if(d && d.go){
+          appendOpenButton(d.goLabel||(uiLang==="en"?"this menu":"메뉴"), d.go, msg);
+          // "열어줘/보여줘" 등 직접 열기 의도면 즉시 열고, 아니면 '열어드릴까요?'에 '네' 하면 열도록 확인 대기
+          if(wantsOpen(msg)){ postParentOpen(d.go, msg); }
+          else { pendingGo=d.go; pendingGoLabel=(d.goLabel||""); pendingGoQ=msg; }
+        }
+      })
+      .catch(function(){
+        var ans=(uiLang==="en")?"The connection dropped. Please try again.":"연결이 잠깐 끊겼어요. 다시 시도해 주세요.";
+        if(thinking){ thinking.innerHTML=escHtml(ans); } speak(ans);
+      })
+      .then(function(){ sendBtn.disabled=false; input.focus(); });
+  }
+
+  sendBtn.addEventListener("click",send);
+  input.addEventListener("keydown",function(e){ if(e.key==="Enter") send(); });
+  var __typedNotified=false;
+  function notifyTyping(){ if(__typedNotified) return; __typedNotified=true;
+    if(window.parent!==window){ try{ window.parent.postMessage({type:"mangoi-typing"},"*"); }catch(e){} } }
+  input.addEventListener("focus", notifyTyping);
+  input.addEventListener("input", notifyTyping);
+  replayBtn.addEventListener("click",function(){ if(lastAnswer) speak(lastAnswer); else greetOnOpen(); });
+  refreshBtn.addEventListener("click",function(){ stopSpeaking(); greetOnOpen(); input.value=""; });
+  closeBtn.addEventListener("click",function(){
+    stopSpeaking();
+    if(window.parent!==window){ window.parent.postMessage("mangoi-avatar-close","*"); }
+    else { win.classList.add("hidden"); }
+  });
+
+  // === 음성 입력(마이크) — 녹음 후 서버(Whisper)로 인식 ===
+  var micBtn=document.getElementById("mic-btn");
+  var listening=false, mediaRec=null, recStream=null, recChunks=[], recTimer=null, recAborted=false;
+  function setListening(on){ listening=on; if(micBtn) micBtn.classList.toggle("listening", on);
+    var tip=document.getElementById("mic-tip");
+    if(tip){
+      if(on){ tip.innerHTML = (uiLang==="en")
+          ? '🎤 Press the <b>mic</b> and ask while the light is <span class="hot">red</span>. Press again and the assistant replies.'
+          : '🎤 <b>마이크</b>를 누르고 <span class="hot">빨간불</span>일 때 질문하세요. 다시 누르면 비서가 답변합니다.'; }
+      tip.classList.toggle("show", on);   // 마이크 누르면(녹음 시작) 표시, 다시 누르면(종료) 사라짐
+    }
+  }
+  function stopListening(){ if(mediaRec && listening){ recAborted=true; try{ mediaRec.stop(); }catch(e){} } }
+  function transcribe(blob){
+    var note=appendBot(uiLang==="en"?"transcribing…":"음성을 인식하고 있어요…");
+    fetch("/api/stt",{ method:"POST", headers:{"Content-Type": blob.type||"audio/webm"}, body:blob })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var txt=(d && d.text || "").trim();
+        if(note && note.parentNode){ note.parentNode.removeChild(note); }
+        if(txt){ input.value=txt; notifyTyping(); send(); }
+        else { appendBot(uiLang==="en"?"I didn't catch that. Please try again clearly.":"잘 못 들었어요. 다시 한 번 또렷하게 말씀해 주세요."); }
+      })
+      .catch(function(){ if(note){ note.innerHTML=(uiLang==="en"?"Voice recognition failed. Please try again.":"음성 인식에 실패했어요. 잠시 후 다시 시도해 주세요."); } });
+  }
+  function startRecording(){
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder==="undefined"){
+      appendBot(uiLang==="en"?"This browser doesn't support recording.":"이 브라우저는 녹음을 지원하지 않아요. 최신 브라우저에서 시도해 주세요."); return;
+    }
+    stopSpeaking();
+    navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
+      recStream=stream; recChunks=[]; recAborted=false;
+      var mime = (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported("audio/webm")) ? "audio/webm" : "";
+      try{ mediaRec = mime ? new MediaRecorder(stream,{mimeType:mime}) : new MediaRecorder(stream); }
+      catch(e){ mediaRec = new MediaRecorder(stream); }
+      mediaRec.ondataavailable=function(ev){ if(ev.data && ev.data.size>0) recChunks.push(ev.data); };
+      mediaRec.onstop=function(){
+        setListening(false);
+        if(recTimer){ clearTimeout(recTimer); recTimer=null; }
+        if(recStream){ try{ recStream.getTracks().forEach(function(t){ t.stop(); }); }catch(e){} recStream=null; }
+        var aborted=recAborted, chunks=recChunks; recChunks=[];
+        if(aborted || !chunks.length) return;
+        transcribe(new Blob(chunks, { type:(mediaRec&&mediaRec.mimeType)||"audio/webm" }));
+      };
+      mediaRec.start();
+      setListening(true);
+      recTimer=setTimeout(function(){ if(mediaRec && listening){ try{ mediaRec.stop(); }catch(e){} } }, 12000);
+    }).catch(function(err){
+      setListening(false);
+      appendBot((err && (err.name==="NotAllowedError"||err.name==="SecurityError"))
+        ? (uiLang==="en"?"Microphone permission is off. Allow it from the lock icon in the address bar and try again."
+                        :"마이크 권한이 꺼져 있어요. 주소창의 🔒(자물쇠) → 마이크 → '허용'으로 바꾼 뒤 다시 눌러주세요.")
+        : (uiLang==="en"?"Microphone unavailable. Make sure no other app is using it.":"마이크를 사용할 수 없어요. 다른 앱이 마이크를 쓰고 있지 않은지 확인 후 다시 시도해 주세요."));
+    });
+  }
+  if(micBtn){
+    micBtn.addEventListener("click", function(){
+      if(listening){ try{ mediaRec && mediaRec.stop(); }catch(e){} return; }
+      startRecording();
+    });
+  }
+
+  // 부모가 ?dev=pc 로 열면 PC로 간주 → 얼굴 30% 확대
+  try{ if(new URLSearchParams(location.search).get("dev")==="pc"){ document.body.classList.add("mi-pc"); } }catch(e){}
+  // 초기 인사 렌더 + (단독 표시 시) 자동 인사
+  renderGreeting();
+  if(_wasShown){ setTimeout(greetOnOpen, 400); }
+</script>
+</body>
+</html>

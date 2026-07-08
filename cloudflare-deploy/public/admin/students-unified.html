@@ -145,10 +145,15 @@ function toast(m){const t=$('#toast');t.textContent=m;t.className='toast show';s
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function gradeCat(g){ g=g||''; if(g.indexOf('초')>=0)return'elem'; if(g.indexOf('중')>=0)return'mid'; if(g.indexOf('고')>=0)return'high'; return'etc'; }
 
+// 콘솔(localStorage 'mangoi_admin_session') 로그인 상태면 401이어도 로그인으로 튕기지 않는다(하위페이지 인증 미스매치 방지)
+function hasLocalAdminSession(){ try{ const s=JSON.parse(localStorage.getItem('mangoi_admin_session')||'{}'); return !!(s && (s.role||s.uid)); }catch(e){ return false; } }
 async function load(){
   try{
     const r = await fetch('/api/admin/students/unified', { credentials:'include', cache:'no-store' });
-    if(r.status===401){ location.href='/admin/login?next='+encodeURIComponent(location.pathname); return; }
+    if(r.status===401){
+      if(!hasLocalAdminSession()){ location.href='/admin/login?next='+encodeURIComponent(location.pathname); return; }
+      throw new Error('세션 만료 — 다시 로그인해 주세요');
+    }
     const d = await r.json();
     ALL = (d.students||[]);
     renderKpi();
