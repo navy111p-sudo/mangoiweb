@@ -60,12 +60,14 @@ def matte(rgb):
     a=ndi.gaussian_filter(a,0.6)
     return a,solid
 
-def compose(path):
-    """한 프레임: 몸폭 TARGET_W 정규화 + 코끝·발 고정 + 초록스필 제거(디스필) → 균일 그린 캔버스."""
+def compose(path, tw=None):
+    """한 프레임: 몸폭 tw(기본 TARGET_W) 정규화 + 코끝·발 고정 + 초록스필 제거(디스필) → 균일 그린 캔버스.
+    tw 인자: 포효 세그먼트를 걷기와 '몸 크기'가 이어지게 축소할 때 사용(컷에서 덩치 점프 제거)."""
+    if tw is None: tw=TARGET_W
     rgb=np.asarray(Image.open(path).convert('RGB')).astype(np.float32)
     a,solid=matte(rgb); ys,xs=np.where(solid)
     x0,x1,y0,y1=int(xs.min()),int(xs.max()),int(ys.min()),int(ys.max())
-    sc=min(TARGET_W/float(x1-x0), TARGET_H/float(y1-y0))   # 폭·높이 둘 다 안 넘게(포효 머리 안 잘림)
+    sc=min(tw/float(x1-x0), TARGET_H/float(y1-y0))   # 폭·높이 둘 다 안 넘게(포효 머리 안 잘림)
     R,G,B=rgb[...,0],rgb[...,1],rgb[...,2]
     Gd=np.minimum(G,np.maximum(R,B)+12.0)          # 디스필: 공룡 초록끼 제거. +12 → 최종 ex<=12(게임 keyLo ex≈25.5 미만)라 게임 셰이더가 절대 못 깎음(그늘다리 반투명 방지)
     rgbd=np.dstack([R,Gd,B])
@@ -88,41 +90,92 @@ def iou(a,b):
     i=(a&b).sum(); u=(a|b).sum()
     return i/float(u) if u else 0.0
 
+def interp42(tmp,name,frames,fps=14):
+    """프레임 리스트 → 42fps 모션보간 mp4(무손실 중간본). 세그먼트 내부만 보간."""
+    d=os.path.join(tmp,name); os.makedirs(d,exist_ok=True)
+    for i,fr in enumerate(frames):
+        Image.fromarray(np.clip(fr,0,255).astype(np.uint8)).save(os.path.join(d,'p_%03d.png'%i))
+    raw=os.path.join(tmp,name+'_raw.mp4'); out=os.path.join(tmp,name+'_42.mp4')
+    subprocess.run(['ffmpeg','-y','-framerate',str(fps),'-i',os.path.join(d,'p_%03d.png'),
+                    '-c:v','libx264','-qp','0','-pix_fmt','yuv444p',raw],check=True)
+    subprocess.run(['ffmpeg','-y','-i',raw,'-vf',"minterpolate=fps=42:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1",
+                    '-c:v','libx264','-qp','0','-pix_fmt','yuv444p',out],check=True)
+    return out
+
+def dur(p):
+    r=subprocess.run(['ffprobe','-v','error','-show_entries','format=duration','-of','csv=p=0',p],capture_output=True,text=True)
+    s=r.stdout.strip()
+    if s and s!='N/A':
+        try: return float(s)
+        except: pass
+    # 일부 무손실 중간본은 duration=N/A → 프레임 수/42 로 계산
+    r=subprocess.run(['ffprobe','-v','error','-count_frames','-select_streams','v:0','-show_entries','stream=nb_read_frames','-of','csv=p=0',p],capture_output=True,text=True)
+    return int(r.stdout.strip())/42.0
+
 def main():
-    tmp=tempfile.mkdtemp(); src=os.path.join(tmp,'src'); dst=os.path.join(tmp,'out'); os.makedirs(src);os.makedirs(dst)
+    tmp=tempfile.mkdtemp(); src=os.path.join(tmp,'src'); os.makedirs(src)
     subprocess.run(['ffmpeg','-y','-i',SRCVIDEO,os.path.join(src,'f_%03d.png')],check=True)
     fs=sorted(glob.glob(src+'/*.png'))
-    walk=[compose(fs[i]) for i in WIN_WALK]; roar=[compose(fs[i]) for i in WIN_ROAR]
-    # 🎞️ 부드러운 컷 = 포즈 매칭: 걷기→포효 / 포효→걷기 전환을 '다리 실루엣이 가장 비슷한' 프레임에서 자름
-    #    (둘 다 걷는 중이라 보폭 위상이 맞는 지점이 존재 → 컷이 자연스러운 연속 걸음+입만 여닫는 것처럼 보임)
-    wm=[solidmask(f) for f in walk]; rm=[solidmask(f) for f in roar]
-    wi=max(range(max(0,len(walk)-6),len(walk)), key=lambda i:iou(wm[i],rm[0]))     # 걷기 끝쪽 6프레임 중 포효 첫프레임과 최유사
-    rj=max(range(max(0,len(roar)-6),len(roar)), key=lambda j:iou(rm[j],wm[0]))     # 포효 끝쪽 6프레임 중 걷기 첫프레임과 최유사
+    walk=[compose(fs[i]) for i in WIN_WALK]
+    wm=[solidmask(f) for f in walk]
+    # 🎚️ 크기 매칭: 포효 구간은 원본서 공룡이 멀리(작게) 찍혀 폭정규화하면 걷기보다 덩치가 커짐 →
+    #    컷에서 몸이 훅 커지며 '머리 들 때 부자연' 유발. 포효 스케일 s를 걷기 끝프레임과 실루엣 IoU 최대로 탐색.
+    best=(0,1.0,len(walk)-1)
+    for s in [0.70,0.74,0.78,0.82,0.86,0.90,0.94,0.98,1.02]:
+        r0=solidmask(compose(fs[WIN_ROAR[0]],TARGET_W*s))
+        for i in range(max(0,len(walk)-6),len(walk)):
+            v=iou(wm[i],r0)
+            if v>best[0]: best=(v,s,i)
+    bestIoU,S_ROAR,wi=best
+    roar=[compose(fs[i],TARGET_W*S_ROAR) for i in WIN_ROAR]
+    rm=[solidmask(f) for f in roar]
+    rj=max(range(max(0,len(roar)-6),len(roar)), key=lambda j:iou(rm[j],wm[0]))
     walk=walk[:wi+1]; roar=roar[:rj+1]
-    print('pose-matched cut: walk %d frames(IoU %.2f), roar %d frames(IoU %.2f)'%(len(walk),iou(wm[wi],rm[0]),len(roar),iou(rm[rj],wm[0])))
-    # 🧈 모션 보간(minterpolate) — ⚠️세그먼트별로 따로 보간 후 이어붙임!
-    #    전체를 한 번에 보간하면 컷(걷기↔포효) 지점을 가로질러 입 벌린/다문 포즈가 섞인 반투명 고스트 프레임이 생김(전수검사로 확인).
-    #    따로 보간하면 각 동작 내부만 3배 부드럽고 컷은 42fps서 1프레임(24ms) 순간 전환이라 안 거슬림.
-    hmax=0; parts=[]
-    for name,seg in [('walk',walk),('roar',roar)]:
-        d=os.path.join(tmp,name); os.makedirs(d)
-        for i,fr in enumerate(seg):
-            img=np.clip(fr,0,255).astype(np.uint8)
-            ex=img[...,1].astype(int)-np.maximum(img[...,0],img[...,2]).astype(int)
-            yy=np.where((ex<20).any(axis=1))[0]
-            if len(yy): hmax=max(hmax,yy.max()-yy.min())
-            Image.fromarray(img).save(os.path.join(d,'p_%03d.png'%i))
-        raw=os.path.join(tmp,name+'_raw.mp4'); smooth=os.path.join(tmp,name+'_42.mp4')
-        subprocess.run(['ffmpeg','-y','-framerate','14','-i',os.path.join(d,'p_%03d.png'),
-                        '-c:v','libx264','-qp','0','-pix_fmt','yuv444p',raw],check=True)
-        subprocess.run(['ffmpeg','-y','-i',raw,'-vf',"minterpolate=fps=42:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1",
-                        '-c:v','libx264','-qp','0','-pix_fmt','yuv444p',smooth],check=True)
-        parts.append(smooth)
+    print('scale-matched: roar x%.2f  cut walk@%d(IoU %.2f) roar@%d(IoU %.2f)'%(S_ROAR,wi,bestIoU,rj,iou(rm[rj],wm[0])))
+    # 🌉 모프 브릿지: A끝2+B첫2 '문맥 4프레임'을 14fps로 보간해 가운데 구간(1/14~2/14s) 프레임만 추출 = ~50ms 고속 전환.
+    #    ⚠️2프레임만 입력하면 minterpolate가 빈 영상을 뱉음(concat서 조용히 빠져 v8 초기버그). 문맥 4프레임이 정답.
+    #    브릿지 프레임은 내부 반투명(고스트) 검사 통과 시에만 포함 — 실패하면 자동으로 하드컷 유지.
+    def bridge(name,A2,A1,B1,B2):
+        p=interp42(tmp,name,[A2,A1,B1,B2])
+        d=os.path.join(tmp,name+'_x'); os.makedirs(d,exist_ok=True)
+        subprocess.run(['ffmpeg','-y','-i',p,os.path.join(d,'b_%03d.png')],check=True)
+        bfs=sorted(glob.glob(d+'/b_*.png'))
+        out=[]
+        for k in range(4,6):                          # t=4/42,5/42 = A1(3/42)~B1(6/42) 사이 보간 프레임 2장
+            if k>=len(bfs): break
+            fr=np.asarray(Image.open(bfs[k]).convert('RGB')).astype(np.float32)
+            m=solidmask(fr); core=ndi.binary_erosion(m,iterations=4)
+            ex=(fr[...,1]-np.maximum(fr[...,0],fr[...,2]))/255.0
+            t=np.clip((ex-0.10)/(0.34-0.10),0,1); alpha=1-(t*t*(3-2*t))
+            if int((core&(alpha<0.9)).sum())>80:      # 고스트 → 브릿지 포기
+                print('  bridge %s frame%d ghost -> skip bridge'%(name,k)); return []
+            out.append(fr)
+        print('  bridge %s: %d frames ok'%(name,len(out)))
+        return out
+    bA=bridge('bA',walk[-2],walk[-1],roar[0],roar[1])
+    bB=bridge('bB',roar[-2],roar[-1],walk[0],walk[1])
+    segs=[('walk',walk)]+([('bA',bA)] if bA else [])+[('roar',roar)]+([('bB',bB)] if bB else [])
+    parts=[]
+    for name,seg in segs:
+        parts.append(interp42(tmp,name+'_seg',seg) if name in ('walk','roar') else None)
+        if parts[-1] is None:   # 브릿지: 이미 42fps 프레임이라 보간 없이 무손실 인코딩만
+            d=os.path.join(tmp,name+'_enc'); os.makedirs(d,exist_ok=True)
+            for i,fr in enumerate(seg): Image.fromarray(np.clip(fr,0,255).astype(np.uint8)).save(os.path.join(d,'p_%03d.png'%i))
+            pv=os.path.join(tmp,name+'_42.mp4')
+            subprocess.run(['ffmpeg','-y','-framerate','42','-i',os.path.join(d,'p_%03d.png'),'-c:v','libx264','-qp','0','-pix_fmt','yuv444p',pv],check=True)
+            parts[-1]=pv
     lst=os.path.join(tmp,'concat.txt')
     open(lst,'w').write(''.join("file '%s'\n"%p.replace('\\','/') for p in parts))
     subprocess.run(['ffmpeg','-y','-f','concat','-safe','0','-i',lst,
                     '-c:v','libx264','-pix_fmt','yuv420p','-movflags','+faststart',OUT],check=True)
-    print('wrote',OUT,'walk+roar segments interpolated to 42fps separately  dinoHFrac~=%.3f'%(hmax/float(CH)))
+    roarAt=dur(parts[0])+(len(bA)/42.0 if bA else 0.0)   # 게임 cfg.roarAt: 포효 세그먼트 시작 시각(초)
+    hmax=0
+    for fr in walk+roar:
+        img=np.clip(fr,0,255).astype(np.uint8)
+        ex=img[...,1].astype(int)-np.maximum(img[...,0],img[...,2]).astype(int)
+        yy=np.where((ex<20).any(axis=1))[0]
+        if len(yy): hmax=max(hmax,yy.max()-yy.min())
+    print('wrote',OUT,' roarAt=%.3fs total=%.2fs dinoHFrac~=%.3f'%(roarAt,dur(OUT),hmax/float(CH)))
 
 if __name__=='__main__':
     main()
