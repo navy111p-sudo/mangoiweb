@@ -1391,7 +1391,7 @@ function _gamePickVoice(){
 try{ if(window.speechSynthesis){ _gamePickVoice(); window.speechSynthesis.onvoiceschanged=_gamePickVoice; } }catch(_){}
 // 🔊 원어민 발음: 클라우드 TTS(Deepgram Aura-1, game-tts.js) 우선 → 실패 시 브라우저 보이스 폴백
 window.gameSpeak = function(text){ try{ if(!text) return;
-  var _rate = (typeof _speedMult==='function') ? _speedMult() : 1;   // ⚡ 상단 7단계 속도 → 발음 속도 반영
+  var _rate = 1;   // 🔊 발음(말)은 난이도와 무관하게 항상 평상시 속도 — 난이도는 풍선 낙하 속도만 조절
   if(window.MangoiTTS){ MangoiTTS.speak(text, _rate); return; }
   if(!_gameEnVoice) _gamePickVoice(); var u=new SpeechSynthesisUtterance(String(text)); u.lang=(_gameEnVoice&&_gameEnVoice.lang)||'en-US'; u.rate=Math.max(0.5,Math.min(3,0.95*_rate)); u.pitch=1.02; if(_gameEnVoice) u.voice=_gameEnVoice; window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);}catch(_){} };
 window.gameSpeakBuilt = function(){ try{ var pk=(_gameState.current&&_gameState.current.picked)||[]; if(pk.length) gameSpeak(pk.join(GAME_LANG==='zh'?'':' ')); }catch(_){} };   // 중국어는 붙여쓰기로 발음
@@ -1928,7 +1928,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260708162229 -->
+<!-- BUILD:20260708163516 -->
 <script defer src="/js/flow.js"></script>
 </body>
 </html>
