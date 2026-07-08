@@ -15447,7 +15447,9 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   window.openInquiryModal = function(opts){
-    if (modal.style.display === 'flex') { closeModal(); return; }
+    // 주의: 토글(열려있으면 닫기)로 하면 안 됨 — QUICK_MAP 핸들러와 ph166 안전망 위임 핸들러가
+    // 같은 클릭에 둘 다 실행되어 열자마자 닫히는 버그가 됨. 이미 열려있으면 그대로 유지.
+    if (modal.style.display === 'flex') return;
     form.reset();
     result.style.display = 'none';
     form.style.display = 'block';
@@ -24206,7 +24208,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260709014344 -->
+<!-- BUILD:20260709020426 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

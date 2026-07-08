@@ -552,10 +552,13 @@
 
   // ========== 빠른 진입 버튼 ==========
   document.querySelectorAll('.ai-quick-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
       const target = btn.dataset.go;
       const fn = QUICK_MAP[target];
-      if (fn) fn();
+      if (fn) {
+        e._ph166Handled = true; // ph166 안전망 위임 핸들러가 같은 클릭을 중복 처리(모달 이중 호출)하지 않도록
+        fn();
+      }
     });
   });
 

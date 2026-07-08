@@ -575,7 +575,7 @@
         anim:{ idle:{f:[0,9,13,14,15,16,11,2,10,1,12,3],d:0.26,loop:true}, attack:{f:[9,13,15,8,5,0],d:[0.14,0.14,0.11,0.20,0.13,0.12],loop:false}, hit:{f:[11,2],d:[0.12,0.15],loop:false}, death:{f:[17,18,19,20],d:[0.24,0.26,0.26,0.5],loop:false} } },
       trex: { ico:'🦖', name:'티라노 공룡', desc:'진짜 걷는 실사 공룡',
         video:'trex-walk.mp4?v=8', vw:1260, vh:470, flip:false,
-        roarSound:'trex-roar.mp3?v=1', roarAt:1.095,   // 🔊 원본 녹화서 추출한 진짜 포효(라우드니스 정규화). roarAt=영상 내 포효 시작 시각(초), 매 루프 동기 재생(게임 muted 따름)
+        roarSound:'trex-roar.mp3?v=2', roarAt:1.095,   // 🔊 진짜 포효. ⚠️v=1은 무음이었음(ffmpeg -ss를 -i 뒤에 둬 페이드아웃이 전 구간에 적용된 추출버그 — 반드시 -ss를 -i 앞에). roarAt=포효 시작 시각(초), 매 루프 동기 재생(게임 muted 따름)
         H0:5.9, feetFrac:0.962, dinoWFrac:0.912, dinoHFrac:0.862, preferX:4.0, sizeFactor:0.7,
         color:[1.06,1.02,0.96], shadow:3.4 }   // 🎬 v8: 걷기↔포효 + 포효 세그먼트 크기매칭 x0.74(컷서 몸크기 연속 → '머리 들 때 덩치 훅' 부자연 제거, IoU 최대 스케일 탐색) + 42fps 세그먼트별 보간. ✅매트 키 32~58+디스필12(그늘다리 안 갉힘, 전수검사). 투영fit=머리·꼬리·발 절대 안잘림. sizeFactor 0.7=30%작게
     };
@@ -852,7 +852,9 @@
       // 🔊 진짜 포효 사운드 동기화: 영상 루프가 포효 구간(cfg.roarAt)에 들어갈 때마다 원본서 추출한 mp3 재생.
       //    비디오 자체는 muted(자동재생 정책) → 사운드는 별도 Audio, 게임 음소거(muted 플래그) 따름. timeupdate ~4Hz라 창 0.5s+스로틀 1s.
       if(cfg.roarSound){
-        var roarA=new Audio(cfg.roarSound); roarA.preload='auto'; roarA.volume=0.8; var _lastRoar=0;
+        var roarA=new Audio(cfg.roarSound); roarA.preload='auto'; roarA.volume=0.85; var _lastRoar=0;
+        window.__trexRoarA=roarA;   // 스폰 함성(sfx.roar)도 이 진짜 포효를 쓰게 공유. 스폰마다 spawnBoss가 null로 리셋 후 여기서 재설정
+        window.__roarDebug=function(){ try{ roarA.currentTime=0; return roarA.play(); }catch(e){ return 'ERR '+e.message; } };   // 진단용
         video.addEventListener('timeupdate',function(){
           if(typeof muted!=='undefined'&&muted) return;
           var t=video.currentTime;
@@ -1059,7 +1061,7 @@
       boss=buildCharacter({skin:cfg.color,armor:cfg.color,trim:cfg.color2,eye:0xfff04a,face:-1,weapon:'claw',isBoss:true});
       enhanceBossMonster(boss, cfg);
       boss.position.set(GAP,0,0); boss.rotation.y=-0.18; boss.userData.home.set(GAP,0,0); scene.add(boss); attachModel(boss, (cfg.model||MODELS.boss), -1);   // 보스=오른쪽, 왼쪽 히어로를 향함
-      var _bcfg=BOSS_SKINS[bossSkin]; _bossVideoFit=null;   // 새 스폰마다 초기화(문어면 null 유지)
+      var _bcfg=BOSS_SKINS[bossSkin]; _bossVideoFit=null; window.__trexRoarA=null;   // 새 스폰마다 초기화(문어/미스폰이면 null 유지 → sfx.roar는 합성음 폴백)
       if(_bcfg&&_bcfg.video){ boss.scale.setScalar(1.32); attachBossVideo(boss, _bcfg); }   // 🎬 실사 영상 보스(티라노). 먼저 최종스케일(1.32) 지정 후 어태치 → 초기 fit이 부모배율 반영해 팝인 중 스냅 없이 부드럽게 확대(아래서 다시 0.01→1.32 팝인)
       else if(_bcfg){ attachBossSprite(boss, _bcfg); }               // 👾 스프라이트 보스(문어)
       boss.scale.setScalar(0.01); var t=0;
@@ -1177,7 +1179,8 @@
       hit:function(){ if(!AC||muted)return; var t=AC.currentTime; noiseB(sfxG,t,0.16,0.95,'lowpass',1800); tone(sfxG,'sine',180,t,0.22,0.95,42); tone(sfxG,'square',120,t,0.1,0.45,60); },
       wrong:function(){ if(!AC||muted)return; var t=AC.currentTime; tone(sfxG,'sawtooth',200,t,0.35,0.6,70); tone(sfxG,'sawtooth',150,t+0.04,0.35,0.5,55); },
       hurt:function(){ if(!AC||muted)return; var t=AC.currentTime; noiseB(sfxG,t,0.2,0.75,'lowpass',900); tone(sfxG,'square',90,t,0.25,0.6,40); },
-      roar:function(){ if(!AC||muted)return; var t=AC.currentTime; tone(sfxG,'sawtooth',70,t,0.8,0.85,36); noiseB(sfxG,t,0.65,0.55,'lowpass',480); },
+      roar:function(){ if(muted)return; var ra=window.__trexRoarA; if(ra){ try{ ra.currentTime=0; var p=ra.play(); if(p&&p.catch)p.catch(function(){}); }catch(e){} return; }   // 🦖 실사 보스면 진짜 포효(원본 녹화 추출)
+        if(!AC)return; var t=AC.currentTime; tone(sfxG,'sawtooth',70,t,0.8,0.85,36); noiseB(sfxG,t,0.65,0.55,'lowpass',480); },
       correct:function(){ if(!AC||muted)return; var t=AC.currentTime; [523,659,784].forEach(function(f,i){ tone(sfxG,'triangle',f,t+i*0.06,0.2,0.5); }); },
       select:function(){ if(!AC||muted)return; var t=AC.currentTime; tone(sfxG,'sine',660,t,0.12,0.4,990); tone(sfxG,'triangle',990,t+0.05,0.16,0.32,1320); noiseB(sfxG,t,0.06,0.2,'highpass',2600); },   // 우주인 선택 "핑↗" 확인음
       win:function(){ if(!AC||muted)return; var t=AC.currentTime; [523,659,784,1047,1319].forEach(function(f,i){ tone(sfxG,'triangle',f,t+i*0.12,0.4,0.55); }); },
@@ -1436,6 +1439,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260709014344 -->
+<!-- BUILD:20260709020426 -->
 </body>
 </html>
