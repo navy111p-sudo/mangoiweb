@@ -195,6 +195,8 @@
       radial-gradient(ellipse 100px 36px at 40% 62%,rgba(255,255,255,.6),transparent);
     animation:gbDriftX 26s ease-in-out infinite alternate-reverse}
   .balloon-sky .balloon{z-index:2}
+  /* 🎈 각 풍선 좌우 흔들림(제각각 폭·주기) — 따로따로 랜덤 낙하 느낌 */
+  @keyframes balloonSway{from{transform:translateX(calc(var(--sway,1px) * -1))}to{transform:translateX(var(--sway,1px))}}
   /* ===== 🖥️ PC(넓은 화면) — 인라인 게임 중앙 글자·카드 약 30% 확대 (PC에서 작게 보이던 문제 개선) ===== */
   @media (min-width:820px){
     #game-area .brick-btn{font-size:clamp(24px,3.5vmin,46px)!important;padding:clamp(16px,2.4vmin,28px) clamp(24px,3.4vmin,44px)!important}
@@ -1764,12 +1766,16 @@ function gameRenderBalloon(){
   const _pal = _balloonPal();
   const colors = _pal.map(function(hex){ return {bg:'linear-gradient(135deg,'+hex+','+hex+')', shadow:hex+'99', solid:hex}; });
   balloons.forEach((b, i) => {
-    const left = 5 + i * 22;
-    const startTop = -80 - (i * 60);
+    // 🎈 따로따로 랜덤 낙하: 시작 높이·속도·좌우 흔들림을 풍선마다 다르게
+    const left = 4 + i * 22 + (Math.random() * 8 - 4);          // 열은 유지(겹침 방지) + 소폭 랜덤 지터
+    const startTop = -80 - Math.random() * 320;                  // 각자 다른 높이에서 등장(대각선 X)
+    const spd = 0.55 + Math.random() * 0.9;                      // 낙하 속도 배율 제각각 (0.55~1.45)
+    const sway = (Math.random() * 2.2 + 0.8).toFixed(2);        // 좌우 흔들림 폭(px)
+    const swayT = (Math.random() * 1.6 + 1.4).toFixed(2);      // 흔들림 주기(초)
     const c = colors[i];
     var _bpin = b.pinyin ? '<div class="pinyin" style="font-size:clamp(11px,1.6vmin,15px);color:#e0f2fe;margin-top:2px">' + b.pinyin + '</div>' : '';
-    html += '<div class="balloon" data-en="' + b.en + '" data-color="' + c.solid + '" onclick="gameBalloonPop(this)" ' +
-      'style="position:absolute;top:' + startTop + 'px;left:' + left + '%;width:clamp(96px,15vmin,168px);height:clamp(116px,18vmin,200px);' +
+    html += '<div class="balloon" data-en="' + b.en + '" data-color="' + c.solid + '" data-spd="' + spd.toFixed(3) + '" onclick="gameBalloonPop(this)" ' +
+      'style="position:absolute;top:' + startTop + 'px;left:' + left + '%;--sway:' + sway + 'px;animation:balloonSway ' + swayT + 's ease-in-out infinite alternate;width:clamp(96px,15vmin,168px);height:clamp(116px,18vmin,200px);' +
       'background:' + c.bg + ';border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;' +
       'box-shadow:0 8px 30px ' + c.shadow + ', inset -10px -10px 30px rgba(0,0,0,0.2);' +
       'display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:clamp(18px,2.6vmin,30px);cursor:pointer;' +
@@ -1795,7 +1801,8 @@ function gameRenderBalloon(){
     const bottomY = Math.max(220, stage.clientHeight - 120);   // 바닥선: 늘어난 스테이지 높이에 맞춤(낙하속도·점수 로직은 그대로)
     balloons.forEach(bl => {
       const top = parseFloat(bl.style.top);
-      const newTop = top + SPEED;
+      const spd = parseFloat(bl.dataset.spd) || 1;      // 🎈 풍선마다 다른 속도로 따로따로 낙하
+      const newTop = top + SPEED * spd;
       bl.style.top = newTop + 'px';
       if (newTop > bottomY) allFell = true;
     });
@@ -1864,6 +1871,7 @@ function gameBalloonPop(bl){
   setTimeout(function(){ try{ window.gameSpeak && gameSpeak(en); }catch(_){} }, 320);
   const correct = en === _gameState.current.answer;
   try{ var _bst=document.getElementById('balloon-stage'); if(_bst){ var _cx=bl.offsetLeft+bl.offsetWidth/2, _cy=bl.offsetTop+bl.offsetHeight/2; gameBalloonBurst(_bst,_cx,_cy,bl.dataset.color||'#ef4444'); } }catch(_){}  // 산산조각 파편
+  bl.style.animation = 'none';   // 흔들림 애니메이션 해제 → 아래 scale 팝이 적용되도록
   bl.style.transform = 'scale(1.3)';
   bl.style.opacity = '0';
   if (_gameState.balloonTimer) clearInterval(_gameState.balloonTimer);
@@ -1920,7 +1928,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260708034043 -->
+<!-- BUILD:20260708162229 -->
 <script defer src="/js/flow.js"></script>
 </body>
 </html>
