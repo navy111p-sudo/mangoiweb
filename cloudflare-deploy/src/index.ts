@@ -827,6 +827,7 @@ export default {
         path === '/api/ai/chat-friend' ||
         path === '/api/ai/chat-history' ||
         path === '/api/ai/chat-clear' ||
+        path === '/api/ai/chat-guest-token' ||
         // 📅 Phase WD 부모 위클리 다이제스트
         path === '/api/parent/digest/preview' ||
         path === '/api/parent/digest/send-one' ||

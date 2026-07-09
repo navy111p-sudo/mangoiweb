@@ -119,13 +119,51 @@
   </div>
 
   <script>
-    // 전체 사이트 로그인된 사용자(mango_user) 자동 사용
-    function getUid() {
+    // 전체 사이트 로그인된 사용자(mango_user) + 서명 토큰 자동 사용
+    // 서버가 uid 를 그대로 믿지 않으므로(타인 대화 열람/삭제 방지 = IDOR 차단)
+    // 항상 { uid, token } 쌍으로 요청한다. 게스트는 서버 발급 랜덤 uid + 세션 스코프 토큰.
+    let authCache = null;
+    function tokenUid(tok) {
+      try { return JSON.parse(atob(String(tok).split('.')[0].replace(/-/g,'+').replace(/_/g,'/'))).uid || null; } catch(e){ return null; }
+    }
+    async function getAuth() {
+      if (authCache) return authCache;
+      let u = null;
+      try { u = JSON.parse(localStorage.getItem('mango_user') || 'null'); } catch(e){}
+      if (u && u.user_id) {
+        let tok = null;
+        try { tok = localStorage.getItem('mango_token'); } catch(e){}
+        if (tok && tokenUid(tok) === u.user_id) {
+          authCache = { uid: u.user_id, token: tok };
+          return authCache;
+        }
+        // 토큰이 없거나 다른 계정 것 → 비밀번호 미설정 계정은 조용히 재발급 (로그인과 동일 보안수준)
+        try {
+          const r = await fetch('/api/student/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: u.user_id }) });
+          const d = await r.json();
+          if (d.ok && d.token) {
+            try { localStorage.setItem('mango_token', d.token); } catch(e){}
+            authCache = { uid: u.user_id, token: d.token };
+            return authCache;
+          }
+        } catch(e){}
+        // 비밀번호 계정인데 토큰 없음(예: 이전 버전에서 로그인) → 재로그인 전까지 게스트로 폴백
+      }
+      // 게스트 — 세션 스코프(sessionStorage) 랜덤 uid + 서버 발급 토큰
       try {
-        const u = JSON.parse(localStorage.getItem('mango_user') || 'null');
-        if (u && u.user_id) return u.user_id;
+        const g = JSON.parse(sessionStorage.getItem('mango_guest_chat') || 'null');
+        if (g && g.uid && g.token) { authCache = g; return authCache; }
       } catch(e){}
-      return 'guest_' + (Math.random().toString(36).slice(2, 8));
+      try {
+        const r = await fetch('/api/ai/chat-guest-token', { method:'POST' });
+        const d = await r.json();
+        if (d.ok && d.uid && d.token) {
+          try { sessionStorage.setItem('mango_guest_chat', JSON.stringify({ uid: d.uid, token: d.token })); } catch(e){}
+          authCache = { uid: d.uid, token: d.token };
+          return authCache;
+        }
+      } catch(e){}
+      return null;
     }
     let currentLevel = 'B1';
     let currentPersona = 'friendly';
@@ -185,7 +223,8 @@
       const input = document.getElementById('msgInput');
       const msg = (input.value || '').trim();
       if (!msg) return;
-      const uid = getUid();
+      const auth = await getAuth();
+      if (!auth) { appendMsg('ai', '⚠️ 인증에 실패했어요. 새로고침 후 다시 시도해주세요.'); return; }
 
       // 빈 상태면 클리어
       const empty = document.querySelector('.empty-state');
@@ -197,8 +236,8 @@
       appendTyping();
       try {
         const r = await fetch('/api/ai/chat-friend', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uid, msg, level: currentLevel, persona: currentPersona })
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
+          body: JSON.stringify({ uid: auth.uid, msg, level: currentLevel, persona: currentPersona })
         });
         let d;
         try { d = await r.json(); } catch(je){ d = { ok:false, error: 'invalid_json_response', status: r.status }; }
@@ -224,10 +263,12 @@
       sendMsg();
     }
     async function loadHistory() {
-      const uid = getUid();
-      if (!uid) { renderEmpty(); return; }
+      const auth = await getAuth();
+      if (!auth) { renderEmpty(); return; }
       try {
-        const r = await fetch('/api/ai/chat-history?uid=' + encodeURIComponent(uid));
+        const r = await fetch('/api/ai/chat-history?uid=' + encodeURIComponent(auth.uid), {
+          headers: { 'Authorization': 'Bearer ' + auth.token }
+        });
         const d = await r.json();
         if (d.ok && d.items && d.items.length) {
           d.items.forEach(it => appendMsg(it.role === 'assistant' ? 'ai' : 'user', it.content));
@@ -238,9 +279,9 @@
     }
     async function clearChat() {
       if (!confirm('대화 내용을 모두 지울까요?')) return;
-      const uid = getUid();
-      if (uid) {
-        try { await fetch('/api/ai/chat-clear', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uid }) }); } catch(e){}
+      const auth = await getAuth();
+      if (auth) {
+        try { await fetch('/api/ai/chat-clear', { method:'POST', headers:{'Content-Type':'application/json', 'Authorization': 'Bearer ' + auth.token}, body: JSON.stringify({ uid: auth.uid }) }); } catch(e){}
       }
       document.getElementById('chat').innerHTML = '';
       renderEmpty();

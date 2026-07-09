@@ -17225,6 +17225,8 @@ window.addEventListener('DOMContentLoaded', () => {
       localStorage.removeItem('mangoi_logged_user');
       try { localStorage.removeItem('mango_user'); } catch(e){}
       try { localStorage.removeItem('mangoi_uid'); } catch(e){}
+      // 🔐 uid 서명 토큰도 함께 폐기 — 로그아웃 후 이전 계정 대화 접근 방지
+      try { localStorage.removeItem('mango_token'); } catch(e){}
     }
     updateLoginUI();
   }
@@ -17677,6 +17679,8 @@ window.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('mangoi_logged_user', JSON.stringify(_lu));
         // 화상수업 입장 이름도 새 사용자로 갱신
         localStorage.setItem('mangoi_vc_uid', _lu.name || _lu.uid);
+        // 🔐 uid 서명 토큰 — AI 친구 대화 등 uid 기반 개인 데이터 API 인증용
+        if (d.token) localStorage.setItem('mango_token', d.token);
       } catch(e){}
       closeLoginModal();
       showLcToast2('✅ ' + d.user.user_name + '님 환영합니다!');

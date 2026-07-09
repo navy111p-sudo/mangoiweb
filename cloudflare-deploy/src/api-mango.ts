@@ -7613,6 +7613,50 @@ Respond in JSON ONLY:
 
 
     // ═══════════════════════════════════════════════════════════════
+    // 🔐 학생 UID 서명 토큰 — 클라이언트가 보낸 uid 를 그대로 믿지 않기 위한 공용 유틸
+    //   IDOR 방지: uid 기반 개인 데이터 API(/api/ai/chat-* 등)는 이 토큰의 uid 와
+    //   요청 uid 가 일치해야만 통과. 토큰은 로그인 성공 시(또는 게스트 발급 API) 서버가 발급.
+    //   시크릿은 방 JWT 와 동일한 ROOM_JWT_SECRET 재사용 (없으면 개발용 폴백).
+    // ═══════════════════════════════════════════════════════════════
+    const uidTokenSecret = (): string =>
+      (env as any).ROOM_JWT_SECRET || ('mangoi-fallback-' + ((env as any).BUILD_STAMP || 'dev'));
+    const b64uFromBytes = (bytes: Uint8Array): string => {
+      let s = '';
+      for (const b of bytes) s += String.fromCharCode(b);
+      return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    };
+    const b64uToBytes = (s: string): Uint8Array =>
+      Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+    const signUidToken = async (uid: string, ttlMs = 30 * 86400 * 1000): Promise<string> => {
+      const enc = new TextEncoder();
+      const payload = b64uFromBytes(enc.encode(JSON.stringify({ uid, exp: Date.now() + ttlMs })));
+      const key = await crypto.subtle.importKey('raw', enc.encode(uidTokenSecret()), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+      const sig = await crypto.subtle.sign('HMAC', key, enc.encode(payload));
+      return payload + '.' + b64uFromBytes(new Uint8Array(sig));
+    };
+    const verifyUidToken = async (token: string): Promise<string | null> => {
+      try {
+        const [payload, sig] = String(token || '').split('.');
+        if (!payload || !sig) return null;
+        const enc = new TextEncoder();
+        const key = await crypto.subtle.importKey('raw', enc.encode(uidTokenSecret()), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
+        const ok = await crypto.subtle.verify('HMAC', key, b64uToBytes(sig), enc.encode(payload));
+        if (!ok) return null;
+        const p = JSON.parse(new TextDecoder().decode(b64uToBytes(payload)));
+        if (!p.uid || (p.exp && p.exp < Date.now())) return null;
+        return String(p.uid);
+      } catch { return null; }
+    };
+    // 요청에서 인증 uid 추출: Authorization: Bearer > body.token > ?token=
+    const authUidFromRequest = async (body?: any): Promise<string | null> => {
+      const h = request.headers.get('Authorization') || '';
+      const bearer = h.startsWith('Bearer ') ? h.slice(7).trim() : '';
+      const tok = bearer || String(body?.token || url.searchParams.get('token') || '').trim();
+      if (!tok) return null;
+      return verifyUidToken(tok);
+    };
+
+    // ═══════════════════════════════════════════════════════════════
     // 🔐 Phase LOGIN — 통합 학생/학부모 로그인
     // ═══════════════════════════════════════════════════════════════
     const ensureLoginTable = async () => {
@@ -7654,6 +7698,8 @@ Respond in JSON ONLY:
 
       return json({
         ok: true,
+        // 🔐 uid 서명 토큰 — uid 기반 개인 데이터 API(/api/ai/chat-* 등) 호출 시 필요
+        token: await signUidToken(uid),
         user: {
           user_id: stu.user_id,
           user_name: stu.student_name || stu.user_id,
@@ -11008,6 +11054,16 @@ Student text: """${text}"""`;
       await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_chat_uid ON ai_friend_chats(student_uid, created_at);`);
     };
 
+    // ── POST /api/ai/chat-guest-token — 비로그인 게스트용 세션 스코프 uid + 서명 토큰 발급 ──
+    //   클라이언트가 임의 uid 를 만들어 보내는 것을 금지 (IDOR 방지). 게스트 uid 는
+    //   서버가 발급한 추측 불가 랜덤값 + 단기 토큰만 허용, sessionStorage 에만 보관.
+    if (method === 'POST' && path === '/api/ai/chat-guest-token') {
+      const bytes = new Uint8Array(12);
+      crypto.getRandomValues(bytes);
+      const guestUid = 'guest_' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+      return json({ ok: true, uid: guestUid, token: await signUidToken(guestUid, 7 * 86400 * 1000) });
+    }
+
     if (method === 'POST' && path === '/api/ai/chat-friend') {
       await ensureChatSchema();
       const b: any = await request.json().catch(() => ({}));
@@ -11017,6 +11073,10 @@ Student text: """${text}"""`;
       const persona = String(b.persona || 'friendly').trim(); // friendly | playful | serious | tutor
       if (!uid || !msg) return json({ ok: false, error: 'uid_and_msg_required' }, 400);
       if (msg.length > 500) return json({ ok: false, error: 'msg_too_long' }, 400);
+      // 🔐 IDOR 방지 — 서명 토큰의 uid 와 요청 uid 일치 필수
+      const authUid = await authUidFromRequest(b);
+      if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
+      if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
 
       // 최근 10개 메시지 컨텍스트
       const recent: any = await env.DB.prepare(
@@ -11102,6 +11162,10 @@ Rules:
       await ensureChatSchema();
       const uid = String(url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      // 🔐 IDOR 방지 — 서명 토큰의 uid 와 요청 uid 일치 필수 (타인 대화 열람 차단)
+      const authUid = await authUidFromRequest();
+      if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
+      if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
       const rs = await env.DB.prepare(
         `SELECT id, role, content, created_at FROM ai_friend_chats WHERE student_uid = ? ORDER BY id ASC LIMIT 200`
       ).bind(uid).all();
@@ -11113,6 +11177,10 @@ Rules:
       const b: any = await request.json().catch(() => ({}));
       const uid = String(b.uid || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      // 🔐 IDOR 방지 — 서명 토큰의 uid 와 요청 uid 일치 필수 (타인 대화 삭제 차단)
+      const authUid = await authUidFromRequest(b);
+      if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
+      if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
       await env.DB.prepare(`DELETE FROM ai_friend_chats WHERE student_uid = ?`).bind(uid).run();
       return json({ ok: true });
     }

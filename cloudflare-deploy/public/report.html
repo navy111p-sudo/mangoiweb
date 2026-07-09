@@ -147,6 +147,8 @@ async function doStudentLogin() {
       localStorage.setItem('mango_user', JSON.stringify(_lu));
       localStorage.setItem('mangoi_logged_user', JSON.stringify(_lu));
       localStorage.setItem('mangoi_uid', d.user.user_id);
+      // 🔐 uid 서명 토큰 — AI 친구 대화 등 uid 기반 개인 데이터 API 인증용
+      if (d.token) localStorage.setItem('mango_token', d.token);
     } catch(e){}
     // uid 를 붙여 보고서 재진입
     const p = new URLSearchParams(location.search);
