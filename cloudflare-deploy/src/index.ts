@@ -2998,6 +2998,14 @@ function isAdminPath(path: string, method: string): boolean {
   if (path.startsWith('/api/admin/reports/')) return true;
   // 🏢 조직 정산 트리 (org-settlement) — 관리자 전용 (인증 필수)
   if (path.startsWith('/api/admin/settlement/') || path === '/api/admin/settlement') return true;
+  // 🔒 [PII 감사 2026-07-10] 대량 개인정보 덤프 엔드포인트 — 관리자 전용으로 잠금.
+  //   (감사에서 무인증 전체명단 유출 확인 + 학생/강사 프론트가 호출 안 함 → 안전하게 게이트)
+  //   나머지 per-user IDOR 은 프론트 토큰 연동이 필요해 별도 계획(docs/보안_PII_감사.md)으로 진행.
+  if (path === '/api/kakao-id/teachers') return true;              // 전 강사 kakao_id·전화 덤프
+  if (path.startsWith('/api/parent/digest/')) return true;         // 전 학부모 전화+메시지·일괄발송
+  if (path === '/api/eval/ai-lesson-report/list') return true;     // 전 학생 수업 리포트(전사 포함) 목록
+  if (path === '/api/alumni/list') return true;                    // 전 동문 프로필(지역 등) 덤프
+  if (path === '/api/recordings/check') return true;               // R2 녹화 객체 열거(재생키 유출 보조)
   // 대시보드·활성 방·방 상태 — 모두 관리자 전용
   if (path === '/api/dashboard') return true;
   if (path === '/api/active-rooms') return true;
