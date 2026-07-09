@@ -141,6 +141,10 @@
       } catch(e){}
       return 'guest_' + (Math.random().toString(36).slice(2, 8));
     }
+    // 🔐 로그인 시 발급된 서명 토큰 — 개인 이력 조회(write-history) 인증에 사용
+    function getToken() {
+      try { return localStorage.getItem('mango_token') || ''; } catch(e){ return ''; }
+    }
     let currentLevel = 'B1';
     document.querySelectorAll('.level-btn').forEach(btn => {
       btn.onclick = () => {
@@ -246,9 +250,10 @@
       const uid = getUid();
       if (!uid) return;
       try {
-        const r = await fetch('/api/ai/write-history?uid=' + encodeURIComponent(uid));
+        const _tok = getToken();
+        const r = await fetch('/api/ai/write-history?uid=' + encodeURIComponent(uid) + (_tok ? '&token=' + encodeURIComponent(_tok) : ''));
         const d = await r.json();
-        if (d.ok && d.items.length) {
+        if (d.ok && d.items && d.items.length) {
           _allHistory = d.items;
           renderHistory();
         }

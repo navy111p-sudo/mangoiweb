@@ -990,6 +990,7 @@ export default {
         // Audit-added: points balance + earn-by-rule
         path === '/api/points/balance' ||
         path === '/api/points/earn-by-rule' ||
+        path === '/api/points/leaderboard' ||   // 🏆 학원 랭킹(공개, admin/points/list 대체)
         // 🌟 실시간 칭찬 포인트 — 학생 입장 등록 + 선생님 서버측 적립(학생 전체 포인트 확실 반영)
         path === '/api/vc/roster' ||
         path === '/api/points/award-praise' ||
@@ -3052,15 +3053,16 @@ function isAgencyAllowedApi(path: string): boolean {
  *      (참고: /api/admin/class-schedules 는 현재 이미 401 로 차단돼 있어 예외에 넣지 않는다.
  *             공개로 열면 ?user_id= 로 남의 수업일정을 조회하는 새 IDOR 가 생기므로 그대로 차단 유지.)
  *
- *   TODO(보안 후속): 아래 3개도 전용/인증 엔드포인트로 대체하고 목록에서 제거.
- *     - /api/admin/points/list       → 전체 학생 이름+포인트 노출. /api/points/leaderboard(top-N, 최소필드)로 대체.
- *     - /api/admin/gifts/seed-catalog(POST) → 최초 1회 시드용. 관리자 시드/부팅으로 옮기고 학생 자동호출 제거.
- *     - /api/admin/ai-analyze/student(POST) → 학부모 화면(parent.html)이 사용. 지금은 학부모 인증이 없어
- *       열어두지만, student_uid 만 알면 누구나 조회되는 상태 → 학부모 토큰 인증 도입 후 잠글 것.
+ *   ✅ 2026-07-10 정리: points/list, gifts/seed-catalog 예외는 제거됨(전용 공개 엔드포인트로 대체).
+ *      - 학원 랭킹 → /api/points/leaderboard (top-N, 최소필드) 신설, index.html 이 이걸 호출.
+ *      - 기프트 시드 → 공개 /api/gifts/catalog 가 비면 서버가 자동 시드. admin/gifts/seed-catalog 는 이제 인증 필요.
+ *
+ *   ⚠️ 남은 1개(학부모 인증 체계 도입 후 잠글 것):
+ *     - /api/admin/ai-analyze/student(POST) → 학부모 화면(parent.html)이 사용. parent.html 에는 로그인/토큰이
+ *       아예 없어서 지금 잠그면 학부모가 못 봄. student_uid 만 알면 누구나 조회되는 상태이므로,
+ *       학부모 토큰 인증(로그인)을 먼저 붙인 뒤 이 예외를 제거해야 함.
  */
 function isAdminPublicApi(path: string, _method: string): boolean {
-  if (path === '/api/admin/points/list') return true;        // 학원 랭킹(리더보드) — index.html 재사용(현재 공개)
-  if (path === '/api/admin/gifts/seed-catalog') return true; // 기프트 카탈로그 최초 자동 시드(현재 공개 POST)
   if (path === '/api/admin/ai-analyze/student') return true; // 학부모 성장분석(parent.html) — 학부모인증 도입 전까지 공개 유지
   return false;
 }

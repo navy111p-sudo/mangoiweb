@@ -17403,14 +17403,10 @@ window.addEventListener('DOMContentLoaded', () => {
     var pane = document.getElementById('ps-pane-catalog'); if (!pane) return;
     var L = (window.getLang?window.getLang():'ko')==='ko';
     try {
+      // 공개 /api/gifts/catalog 가 비어있으면 서버가 자동 시드 후 반환하므로
+      // 예전처럼 관리자 시드 API 를 학생 화면에서 호출할 필요가 없다.
       var r = await fetch('/api/gifts/catalog');
       var d = await r.json();
-      if (!d.ok || !d.rows || !d.rows.length) {
-        // 카탈로그 비어있으면 자동 시드 시도
-        await fetch('/api/admin/gifts/seed-catalog', { method:'POST' });
-        r = await fetch('/api/gifts/catalog');
-        d = await r.json();
-      }
       var rows = d.rows || [];
       if (!rows.length) { pane.innerHTML = '<div class="ps-empty">'+(L?'상품이 없습니다.':'No gifts available.')+'</div>'; return; }
       var cards = rows.map(function(g){
@@ -18217,9 +18213,9 @@ window.addEventListener('DOMContentLoaded', () => {
     </div>`;
     ov.classList.add('show');
 
-    // 학생 잔액 목록 fetch (관리자 API 재사용 - 공개되어 있음)
+    // 학원 랭킹 fetch (전용 공개 엔드포인트 — top-N + 이름·누적포인트만)
     try {
-      const r = await fetch('/api/admin/points/list');
+      const r = await fetch('/api/points/leaderboard?limit=10');
       const d = await r.json();
       const all = (d.rows || []).slice().sort((a,b) => (b.lifetime_earned||0) - (a.lifetime_earned||0)).slice(0, 10);
       const meIdx = u ? all.findIndex(x => x.user_id === u.uid) : -1;

@@ -620,6 +620,34 @@ async function enqueueNotification(
   }
 }
 
+/**
+ * 🎁 기프트 카탈로그 기본 상품 시드 (멱등 — 이미 있으면 건너뜀).
+ *   공개 읽기(/api/gifts/catalog)에서 비어있을 때 자동 호출 + 관리자 시드 API 에서도 재사용.
+ *   반환: 새로 넣은 상품 수.
+ */
+export async function seedGiftCatalog(env: { DB: D1Database }): Promise<number> {
+  const now = Date.now();
+  const seeds: Array<[string, string, string, number, number, number, string, string]> = [
+    ['🥭 망고아이','수업료 전환 (5,000원)','tuition',5000,5000,5,'모은 포인트로 다음 수업료 즉시 차감','/img/Mangoi_Character.png'],
+    ['메가커피','아메리카노 (ICE)','cafe',1500,1500,10,'가성비 1위, 시원한 한 잔','/img/gifts/megacoffee.svg'],
+    ['배스킨라빈스','파인트 (1개)','cafe',9800,9800,20,'취향대로 골라먹는 31','/img/gifts/baskinrobbins.svg'],
+    ['배달의민족','e쿠폰 5,000원','food',5000,5000,25,'배달 음식 주문 시 즉시 차감','/img/gifts/baemin.svg'],
+    ['CGV','영화 1매 (전 지점)','movie',14000,14000,40,'평일 일반관 1회 사용','/img/gifts/cgv.svg'],
+    ['교보문고','도서상품권 5,000원','book',5000,5000,50,'온/오프라인 사용 가능','/img/gifts/kyobo.svg'],
+    ['컬쳐랜드','문화상품권 5,000원','voucher',5000,5000,55,'쿠팡·게임·도서·OTT 등 어디든','/img/gifts/cultureland.svg'],
+    ['GS25','편의점 금액권 5,000원','voucher',5000,5000,60,'전국 GS25에서 사용','/img/gifts/gs25.svg'],
+  ];
+  let n = 0;
+  for (const [brand, name, cat, fv, pp, sort, desc, thumb] of seeds) {
+    const exists = await env.DB.prepare(`SELECT id FROM gift_catalog WHERE brand=? AND name=?`).bind(brand, name).first();
+    if (exists) continue;
+    await env.DB.prepare(`INSERT INTO gift_catalog (brand,name,category,face_value,point_price,enabled,sort_order,description,thumbnail_url,created_at,updated_at) VALUES (?,?,?,?,?,1,?,?,?,?,?)`)
+      .bind(brand, name, cat, fv, pp, sort, desc, thumb, now, now).run();
+    n++;
+  }
+  return n;
+}
+
 export async function handleMangoApi(
   request: Request,
   url: URL,
@@ -3106,7 +3134,27 @@ Return STRICT JSON only, in BOTH Korean and English:
     // ── GET /api/gifts/catalog — 학생용 기프티콘 카탈로그 (활성화된 것만) ──
     if (method === 'GET' && path === '/api/gifts/catalog') {
       await ensurePointTables();
+      // 🎁 카탈로그가 비어있으면 서버가 최초 1회 자동 시드(멱등).
+      //   예전엔 학생 화면(index.html)이 관리자 API /api/admin/gifts/seed-catalog 를
+      //   직접 호출해서 채웠는데(그래서 그 admin API 를 공개로 열어둬야 했음),
+      //   이제 공개 읽기 시 서버가 알아서 시드하므로 그 공개 예외가 필요 없어졌다.
+      const cnt: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM gift_catalog WHERE enabled=1`).first();
+      if (!cnt || (cnt.c || 0) === 0) { try { await seedGiftCatalog(env); } catch {} }
       const rs = await env.DB.prepare(`SELECT id, brand, name, category, face_value, point_price, thumbnail_url, stock, description FROM gift_catalog WHERE enabled=1 ORDER BY sort_order ASC, point_price ASC`).all();
+      return json({ ok: true, rows: rs.results || [] });
+    }
+
+    // ── GET /api/points/leaderboard — 학원 랭킹(공개, 최소필드) ──
+    //   예전엔 index.html 이 관리자 API /api/admin/points/list(전체 학생 balance 상세)를
+    //   그대로 불러 리더보드를 그렸다 → 학생 전원의 상세 포인트가 무인증 노출.
+    //   이제 top-N + (이름·포인트)만 주는 전용 공개 엔드포인트로 분리해 노출을 최소화한다.
+    if (method === 'GET' && path === '/api/points/leaderboard') {
+      await ensurePointTables();
+      const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '10', 10) || 10, 1), 50);
+      const rs = await env.DB.prepare(
+        `SELECT user_id, student_name, lifetime_earned FROM student_points ORDER BY lifetime_earned DESC, updated_at DESC LIMIT ?`
+      ).bind(limit).all();
+      // user_id 는 본인 하이라이트용으로만 필요 → 그대로 두되 balance 등 민감 필드는 제외.
       return json({ ok: true, rows: rs.results || [] });
     }
 
@@ -3332,25 +3380,7 @@ Return STRICT JSON only, in BOTH Korean and English:
     // ── POST /api/admin/gifts/seed-catalog — 데모 카탈로그 시드 ──
     if (method === 'POST' && path === '/api/admin/gifts/seed-catalog') {
       await ensurePointTables();
-      const now = Date.now();
-      const seeds = [
-        ['🥭 망고아이','수업료 전환 (5,000원)','tuition',5000,5000,5,'모은 포인트로 다음 수업료 즉시 차감','/img/Mangoi_Character.png'],
-        ['메가커피','아메리카노 (ICE)','cafe',1500,1500,10,'가성비 1위, 시원한 한 잔','/img/gifts/megacoffee.svg'],
-        ['배스킨라빈스','파인트 (1개)','cafe',9800,9800,20,'취향대로 골라먹는 31','/img/gifts/baskinrobbins.svg'],
-        ['배달의민족','e쿠폰 5,000원','food',5000,5000,25,'배달 음식 주문 시 즉시 차감','/img/gifts/baemin.svg'],
-        ['CGV','영화 1매 (전 지점)','movie',14000,14000,40,'평일 일반관 1회 사용','/img/gifts/cgv.svg'],
-        ['교보문고','도서상품권 5,000원','book',5000,5000,50,'온/오프라인 사용 가능','/img/gifts/kyobo.svg'],
-        ['컬쳐랜드','문화상품권 5,000원','voucher',5000,5000,55,'쿠팡·게임·도서·OTT 등 어디든','/img/gifts/cultureland.svg'],
-        ['GS25','편의점 금액권 5,000원','voucher',5000,5000,60,'전국 GS25에서 사용','/img/gifts/gs25.svg'],
-      ];
-      let n = 0;
-      for (const [brand,name,cat,fv,pp,sort,desc,thumb] of seeds) {
-        const exists = await env.DB.prepare(`SELECT id FROM gift_catalog WHERE brand=? AND name=?`).bind(brand,name).first();
-        if (exists) continue;
-        await env.DB.prepare(`INSERT INTO gift_catalog (brand,name,category,face_value,point_price,enabled,sort_order,description,thumbnail_url,created_at,updated_at) VALUES (?,?,?,?,?,1,?,?,?,?,?)`)
-          .bind(brand,name,cat,fv,pp,sort,desc,thumb,now,now).run();
-        n++;
-      }
+      const n = await seedGiftCatalog(env);   // 🎁 공용 시드 헬퍼 재사용(공개 읽기와 동일 로직)
       return json({ ok: true, seeded: n });
     }
     // ═══════════════════════════════════════════════════════════════
@@ -11015,6 +11045,12 @@ Student text: """${text}"""`;
       await ensureWriteSchema();
       const uid = String(url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      // 🔐 IDOR 방지 — 서명 토큰(mango_token)의 uid 와 요청 uid 가 일치해야만 조회.
+      //   (예전엔 uid 만 알면 남의 첨삭 이력을 볼 수 있었음 → uid-token-auth 관례 적용)
+      const authUid = await authUidFromRequest();
+      if (!authUid || authUid !== uid) {
+        return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
+      }
       const rs = await env.DB.prepare(
         `SELECT id, original_text, corrected_text, feedback, level, score, created_at FROM ai_writing_corrections WHERE student_uid = ? ORDER BY created_at DESC LIMIT 30`
       ).bind(uid).all();
