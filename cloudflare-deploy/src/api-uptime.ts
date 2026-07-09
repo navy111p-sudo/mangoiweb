@@ -23,15 +23,16 @@ export async function runSiteWatchdog(
   opts?: { simulate?: 'up' | 'down' }
 ): Promise<{ prev: string; cur: string; changed: boolean; smsSent: boolean; detail?: string }> {
   const kv: any = (env as any).SESSION_STATE;
-  const checkUrl = String((env as any).WATCHDOG_URL || 'https://test.mangoi.co.kr/api/health');
 
+  // 핵심 의존성(D1 데이터베이스)이 살아있는지 직접 확인.
+  //   ⚠️ Worker 가 자기 자신의 URL 을 fetch 하면 CF 가 막아(무한루프 방지) 오탐이 남 →
+  //      HTTP self-fetch 대신 D1 쿼리로 백엔드 생존을 판단한다(오탐 0, HTTP 감시는 UptimeRobot 담당).
   const checkOnce = async (): Promise<boolean> => {
     try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 12000);
-      const resp = await fetch(checkUrl, { method: 'GET', signal: ctrl.signal, cf: { cacheTtl: 0 } } as any);
-      clearTimeout(t);
-      return resp.ok; // 2xx = 정상
+      const db: any = (env as any).DB;
+      if (!db) return true; // DB 미바인딩이면 판단 불가 → 오탐 방지 위해 정상 취급
+      const row: any = await db.prepare('SELECT 1 AS ok').first();
+      return !!(row && (row.ok === 1 || row.ok === '1'));
     } catch { return false; }
   };
 
