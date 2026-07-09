@@ -112,7 +112,9 @@ Cloudflare Worker: webrtc-unified-platform(-prod)   ← cloudflare-deploy/
 | 항목 | 내용 | 위험도 |
 |---|---|---|
 | ✅ admin API 무인증 노출 | isAdminPath allowlist 누락으로 수십개 공개됐던 것 → **default-deny로 근본수정(커밋됨, 배포 필요)**. 상세: [크몽 진단 검증](docs/크몽_진단_검증.md) | ~~높음~~ 수정됨 |
-| `ROOM_JWT_SECRET` 미설정 | 코드는 참조하지만 시크릿이 안 심어져 있음 | 중 |
+| ✅ write-history IDOR | uid만 알면 남의 첨삭이력 조회되던 것 → mango_token 인증 요구(커밋됨, 배포 필요) | ~~중~~ 수정됨 |
+| ⏳ `ROOM_JWT_SECRET` 미설정 | 폴백(공개유추 가능) 사용 중. **사장님이 `wrangler secret put`로 기본+prod 설정 필요** | 중 |
+| ⏳ ai-analyze/student 공개 | parent.html에 학부모 인증 부재 → 학부모 로그인 도입 후 잠글 것 | 중 |
 | `write-history` API | uid 토큰 인증 미적용 잔여분 | 중 |
 | admin ivory(밝은) 테마 | 밝은 글자 위 밝은 배경 약 670곳 — 가독성 미완 | 낮음 |
 | `mangoi-reports-cron`의 `API_BASE` | placeholder 값 그대로 | 중 |

@@ -79,6 +79,8 @@ idx-*.js 방식 그대로: IIFE 블록 단위로 파일로 뽑고 `<script src>`
 | 2026-07-09 | 0 | 계획 수립, 문서화 3종 완료 | ✅ |
 | 2026-07-09 | 1 | 공용 헬퍼 `api-util.ts` 분리 (json, parseJsonBody) | ✅ tsc·드라이런 통과 |
 | 2026-07-09 | 1 | AI 음성일기 5라우트 → `api-diary.ts` 분리 (첫 도메인, -171줄) | ✅ tsc·드라이런 통과, 배포 후 일기 화면 확인 필요 |
+| 2026-07-10 | 보안 | `isAdminPath` allowlist → **default-deny** (admin API 무인증 노출 근본수정) | ✅ 커밋 ad5e17a2, 배포 대기 |
+| 2026-07-10 | 보안 | 공개예외 3→1 (leaderboard 신설/카탈로그 자동시드) + write-history 토큰인증 | ✅ 커밋 19e7dc56, 배포 대기 |
 | | | | |
 
 ### 분리 작업 표준 절차 (1단계에서 확립된 패턴)
