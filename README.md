@@ -1,5 +1,9 @@
 # WebRTC 통합 플랫폼
 
+> **⚠️ 유지보수하려면 먼저 [MAINTENANCE.md](MAINTENANCE.md)를 읽으세요.**
+> 이 README는 초기 통합 당시(레거시 Node 서버 기준) 문서이며, **현재 실서비스는 `cloudflare-deploy/` 폴더**(Cloudflare Workers, mango-i.com)입니다.
+> 환경변수·시크릿: [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) · 장애 대응: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+
 화상통화 관련 4개 프로젝트를 하나의 서비스로 통합한 플랫폼입니다.
 
 ## 통합된 프로젝트
