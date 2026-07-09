@@ -17,6 +17,7 @@
 | §4.5.5 등 | 관리자 API 다수가 실제로 무인증 200 노출 중이었음(평가·감사로그·미납독촉·매출예측·카톡수신함 등) | ✅ 라이브 확인 후 전부 차단. 학생/학부모가 쓰던 것만 전용/공개 엔드포인트로 분리 |
 | — | 학원 랭킹이 관리자 API(`/api/admin/points/list`) 재사용 = 전 학생 상세 노출 | ✅ 전용 공개 `/api/points/leaderboard`(top-N, 최소필드) 신설·전환 (커밋 19e7dc56) |
 | — | `/api/ai/write-history` — uid만 알면 남의 첨삭 이력 조회(IDOR) | ✅ `mango_token` 서명 인증 요구로 차단 |
+| §2.6, §7.4 | `ROOM_JWT_SECRET` 미설정(폴백=BUILD_STAMP 기반, 공개 유추 가능) | ✅ 강한 랜덤 시크릿을 기본+prod에 설정 완료(2026-07-10) |
 | §8.3 | "api-mango.ts = 최대 모듈(단일 거대 파일)" | 🟡 **도메인 분리 착수.** `api-diary.ts`·`api-util.ts` 추출 시작. 계획: [REFACTOR_PLAN.md](REFACTOR_PLAN.md) |
 
 **검증 방법(미팅 중 즉석 시연 가능):** 로그아웃 상태에서
@@ -63,8 +64,8 @@
 
 | P | 항목 | 내용·대응 |
 |---|---|---|
-| **P1** | **Neo4j 8880 전세계 개방 + 평문 HTTP** (v1.1 §7.4) | 학생 PII가 암호화 없이 열린 포트로 접근 가능. **재개발이 아니라** Cloudflare Tunnel / nginx TLS / iptables(CF IP 대역 제한)로 잠그면 됨. |
-| P1 | `ROOM_JWT_SECRET` 미설정 | 공개 유추 가능한 폴백 사용 중. `wrangler secret put`로 기본+prod 설정 필요(값은 관리자가 지정). |
+| **P1** | **Neo4j 8880 전세계 개방 + 평문 HTTP** (v1.1 §7.4) | 학생 PII가 암호화 없이 열린 포트로 접근 가능. **재개발이 아니라** Cloudflare Tunnel / nginx TLS / iptables(CF IP 대역 제한)로 잠그면 됨. **← 남은 최우선 항목** |
+| ~~P1~~ ✅ | ~~`ROOM_JWT_SECRET` 미설정~~ | **해결(2026-07-10):** 강한 랜덤 시크릿을 기본+prod 두 워커에 설정 완료. 공개 유추 가능한 폴백 제거됨. |
 | P2 | 데모 계정 시드 미포함 | wondang/student가 DB 리셋 시 소실 → 시드 스크립트에 영구화. |
 | P2 | admin ivory 테마 가독성(~670곳) | 밝은 배경-밝은 글자. 다크 테마는 완료. |
 

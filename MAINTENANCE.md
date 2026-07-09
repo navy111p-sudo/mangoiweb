@@ -113,7 +113,8 @@ Cloudflare Worker: webrtc-unified-platform(-prod)   ← cloudflare-deploy/
 |---|---|---|
 | ✅ admin API 무인증 노출 | isAdminPath allowlist 누락으로 수십개 공개됐던 것 → **default-deny로 근본수정(커밋됨, 배포 필요)**. 상세: [크몽 진단 검증](docs/크몽_진단_검증.md) | ~~높음~~ 수정됨 |
 | ✅ write-history IDOR | uid만 알면 남의 첨삭이력 조회되던 것 → mango_token 인증 요구(커밋됨, 배포 필요) | ~~중~~ 수정됨 |
-| ⏳ `ROOM_JWT_SECRET` 미설정 | 폴백(공개유추 가능) 사용 중. **사장님이 `wrangler secret put`로 기본+prod 설정 필요** | 중 |
+| ✅ `ROOM_JWT_SECRET` 설정 | 강한 랜덤값을 기본+prod 두 워커에 설정 완료(2026-07-10). 폴백 제거됨 | ~~중~~ 완료 |
+| ⏳ Neo4j 8880 포트 개방 | 학생 PII가 평문 HTTP로 열린 포트 노출(SRS §7.4 P1). Cloudflare Tunnel/iptables로 잠글 것 | **높음** |
 | ⏳ ai-analyze/student 공개 | parent.html에 학부모 인증 부재 → 학부모 로그인 도입 후 잠글 것 | 중 |
 | `write-history` API | uid 토큰 인증 미적용 잔여분 | 중 |
 | admin ivory(밝은) 테마 | 밝은 글자 위 밝은 배경 약 670곳 — 가독성 미완 | 낮음 |
