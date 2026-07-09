@@ -7,6 +7,7 @@ import { SignalingRoom } from './signaling-room';
 import { VideoCallRoom } from './video-call-room';
 import { HealthResponse, TurnConfigResponse, PdfUploadResponse } from './types';
 import { handleMangoApi, runMonthlyReports, reconcileAllStreaks } from './api-mango';
+import { runSiteWatchdog } from './api-uptime';   // 🐕 사이트 자체 감시견(cron */15)
 import { purgeExpired } from './retention';
 import { purgeOrphanedRecordings } from './recordings-cleanup';
 import { handleLivekit, ensureLivekitSchema } from './livekit-bridge';
@@ -1244,6 +1245,15 @@ export default {
     const kstDay = new Date(event.scheduledTime + 9 * 3600 * 1000).getUTCDay();
 
     ctx.waitUntil((async () => {
+      // 🐕 사이트 자체 감시견 — 매 cron(특히 */15분)마다 사이트 확인, 죽으면 관리자 문자.
+      //   실패해도 다른 cron 작업에 영향 없게 격리.
+      try {
+        const w = await runSiteWatchdog(env as any);
+        if (w.changed) console.log('[watchdog] state change', JSON.stringify(w));
+      } catch (err) {
+        console.error('[watchdog] error', err);
+      }
+
       // ── UTC 18:00 — retention purge
       if (hour === 18) {
         try {

@@ -9,6 +9,63 @@ import { json, parseJsonBody } from './api-util';
 import { sendPlainSms } from './solapi-client';
 import type { MangoEnv } from './api-mango';
 
+// ═══════════════════════════════════════════════════════════════════════
+// 🐕 자체 감시견 (self-watchdog) — cron(*/15)에서 호출.
+//   우리 Worker 가 스스로 사이트(health)를 확인하다가, 응답이 없으면 관리자에게 문자.
+//   UptimeRobot 유료 웹훅 없이도 문자 자동알림이 되게 하는 무료 경로.
+//   ⚠️ 한계: Worker/CF 가 완전히 죽으면 cron 도 안 돌아 이 감시견은 못 잡음
+//      → 그 경우는 UptimeRobot 앱 푸시(외부 감시)가 커버. 둘이 이중 안전망.
+//   상태변화(정상↔장애) 시에만 1회 문자 → 15분마다 스팸 방지(KV 상태 저장).
+//   transient 오탐 방지: 실패 감지 시 2초 후 1회 재확인, 둘 다 실패해야 '장애'.
+// ═══════════════════════════════════════════════════════════════════════
+export async function runSiteWatchdog(
+  env: MangoEnv,
+  opts?: { simulate?: 'up' | 'down' }
+): Promise<{ prev: string; cur: string; changed: boolean; smsSent: boolean; detail?: string }> {
+  const kv: any = (env as any).SESSION_STATE;
+  const checkUrl = String((env as any).WATCHDOG_URL || 'https://test.mangoi.co.kr/api/health');
+
+  const checkOnce = async (): Promise<boolean> => {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 12000);
+      const resp = await fetch(checkUrl, { method: 'GET', signal: ctrl.signal, cf: { cacheTtl: 0 } } as any);
+      clearTimeout(t);
+      return resp.ok; // 2xx = 정상
+    } catch { return false; }
+  };
+
+  let isUp: boolean;
+  if (opts?.simulate) {
+    isUp = opts.simulate === 'up';       // 테스트용 강제 상태
+  } else {
+    isUp = await checkOnce();
+    if (!isUp) {                          // 실패면 잠깐 뒤 1회 재확인(순간 blip 무시)
+      await new Promise(r => setTimeout(r, 2000));
+      isUp = await checkOnce();
+    }
+  }
+
+  const prev = (kv ? (await kv.get('watchdog:state').catch(() => null)) : null) || 'up';
+  const cur = isUp ? 'up' : 'down';
+  let smsSent = false;
+  let detail: string | undefined;
+
+  if (cur !== prev) {
+    const phone = String((env as any).OWNER_ALERT_PHONE || '').trim();
+    if (phone) {
+      const text = isUp
+        ? '[망고아이] ✅ 사이트가 정상 복구되었습니다.'
+        : '[망고아이] ⚠️ 사이트 응답 없음 감지. 접속 확인이 필요합니다.';
+      const r = await sendPlainSms(env, phone, text);
+      smsSent = r.ok;
+      detail = r.message || r.error;
+    }
+    if (kv) { try { await kv.put('watchdog:state', cur); } catch {} }
+  }
+  return { prev, cur, changed: cur !== prev, smsSent, detail };
+}
+
 export async function handleUptimeApi(
   request: Request,
   url: URL,
@@ -21,6 +78,14 @@ export async function handleUptimeApi(
   const given = String(url.searchParams.get('key') || '').trim();
   if (!expected || given !== expected) {
     return json({ ok: false, error: 'forbidden' }, 403);
+  }
+
+  // 1b) 🐕 자체 감시견 수동 실행/테스트 — ?run=watchdog (&simulate=down|up 으로 상태 강제)
+  //     cron 을 15분 기다리지 않고 지금 즉시 동작 확인용.
+  if (url.searchParams.get('run') === 'watchdog') {
+    const sim = url.searchParams.get('simulate');
+    const res = await runSiteWatchdog(env, sim === 'down' || sim === 'up' ? { simulate: sim } : undefined);
+    return json({ ok: true, watchdog: res });
   }
 
   // 2) up/down 판별 — UptimeRobot 이 query 또는 body 로 alertType(1=down,2=up) 전달.

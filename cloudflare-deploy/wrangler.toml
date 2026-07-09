@@ -66,7 +66,9 @@ html_handling = "none"
 #   - KST 10:00 (UTC 01:00) : 매월 1일 NPS 발송 (Phase NPS)
 #   - KST 19:00 (UTC 10:00) : 학생 streak/일일 참여 푸시 + (금) 학부모 다이제스트
 [triggers]
-crons = ["0 18 * * *", "0 0 * * *", "0 1 * * *", "0 10 * * *"]
+#   마지막 "*/15 * * * *" = 🐕 사이트 자체 감시견(15분마다 health 확인 → 죽으면 관리자 문자).
+#   계정 cron 한도 5개 — 현재 5개(딱 한도). 더 추가하려면 하나 줄일 것.
+crons = ["0 18 * * *", "0 0 * * *", "0 1 * * *", "0 10 * * *", "*/15 * * * *"]
 
 # ===== Production environment (Wrangler 4: bindings NOT inherited - must redeclare) =====
 [env.production]
