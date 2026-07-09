@@ -911,6 +911,7 @@
       _shadow.userData._bb=true; holder.userData._bb=true;
       G.traverse(function(o){ if(o.isMesh) o.visible=false; });   // 절차적 보스 메시 숨김
       holder.add(_shadow); G.add(holder);
+      holder.visible=false;   // ⬛ 스폰 직후 '검은 사각형+미리 뜨는 발밑 그림자' 방지: 영상 첫 프레임 도착 전엔 VideoTexture가 전부 검정(크로마키가 못 뚫음) → 첫 프레임 준비되면 S.update에서 표시
       // 📱 반응형 맞춤: 화면 폭에 맞춰 공룡 전체(머리~꼬리)가 절대 안 잘리게 축소+위치. 세로폰=작게·가운데, 넓은화면=크게·우측(히어로 안 가림). fitRenderer 에서 매 리사이즈마다 재호출.
       var dinoW0=H0*AR*DWF;   // 스케일1일 때 공룡 실제 월드 폭(머리~꼬리)
       // 🎯 투영기반 맞춤: 근사 hw 공식(카메라 틸트/원근 무시→꼬리 잘림)을 버리고, 공룡 실측 사각형의
@@ -953,7 +954,10 @@
       S.hit=function(){};                                          // impact 플래시/넉백로 충분
       S.die=function(){ if(S.state==='death')return; S.state='death'; S.t=0; };
       S.reset=function(){ S.state='idle'; S.t=0; mat.uniforms.fade.value=1; };
-      S.update=function(dt){ if(video.readyState>=2) tex.needsUpdate=true; if(S.state==='death'){ S.t+=dt; mat.uniforms.fade.value=Math.max(0,1-S.t/0.6); } };
+      var _readyTicks=0;
+      S.update=function(dt){
+        if(video.readyState>=2){ tex.needsUpdate=true; if(!holder.visible && ++_readyTicks>=2) holder.visible=true; }   // 첫 프레임이 텍스처에 실린 뒤(2틱 여유) 공룡+그림자 동시 등장 → 검은 판/선그림자 안 보임
+        if(S.state==='death'){ S.t+=dt; mat.uniforms.fade.value=Math.max(0,1-S.t/0.6); } };
       G.userData.sprite=S;
     }
 
@@ -1467,6 +1471,6 @@
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260709032254 -->
+<!-- BUILD:20260709134154 -->
 </body>
 </html>
