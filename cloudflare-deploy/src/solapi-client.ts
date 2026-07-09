@@ -96,6 +96,56 @@ async function generateSignature(
 }
 
 // ─────────────────────────────────────────────────────────────
+//  일반 SMS/LMS 발송 (템플릿 불필요) — 운영자 장애 알림 등 내부용
+//    카카오 알림톡(ATA)은 사전 승인 템플릿이 필요하지만, 문자(SMS/LMS)는 불필요.
+//    UptimeRobot 장애 웹훅 → 이 함수로 관리자 폰에 즉시 문자.
+// ─────────────────────────────────────────────────────────────
+export async function sendPlainSms(
+  env: SolapiEnv, toPhone: string, text: string
+): Promise<{ ok: boolean; mode: SolapiMode; messageId?: string; error?: string; message?: string }> {
+  const mode = getSolapiMode(env);
+  const phone = normalizePhone(toPhone);
+  const from = normalizePhone(env.SOLAPI_FROM_PHONE || '');
+  const bodyText = String(text || '').slice(0, 1000);
+
+  if (mode === 'disabled') return { ok: false, mode, message: 'SOLAPI_API_KEY 미설정' };
+  if (!phone || phone.length < 10) return { ok: false, mode, error: 'invalid_phone' };
+  if (!from || from.length < 8) return { ok: false, mode, error: 'invalid_from' };
+  if (!bodyText) return { ok: false, mode, error: 'empty_text' };
+
+  if (mode === 'mock') {
+    console.log('[solapi SMS MOCK]', { to: phone, text: bodyText });
+    return { ok: true, mode, messageId: 'mock_' + Date.now().toString(36), message: '[TEST MODE] 실제 발송 안 함' };
+  }
+
+  const dateISO = new Date().toISOString();
+  const salt = Math.random().toString(36).slice(2);
+  const auth = await generateSignature(env.SOLAPI_API_KEY!, env.SOLAPI_API_SECRET!, dateISO, salt);
+  // 90바이트 초과 시 LMS(장문), 아니면 SMS(단문). SOLAPI 는 type 명시를 권장.
+  const byteLen = new TextEncoder().encode(bodyText).length;
+  const type = byteLen > 88 ? 'LMS' : 'SMS';
+  const message: any = { to: phone, from, type, text: bodyText };
+  if (type === 'LMS') message.subject = '망고아이 알림';
+
+  try {
+    const resp = await fetch('https://api.solapi.com/messages/v4/send', {
+      method: 'POST',
+      headers: { 'Authorization': auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+    });
+    const raw = await resp.text();
+    let parsed: any = null;
+    try { parsed = JSON.parse(raw); } catch { parsed = { raw }; }
+    if (resp.status >= 200 && resp.status < 300 && parsed?.statusCode === '2000') {
+      return { ok: true, mode, messageId: parsed?.messageId, message: parsed?.statusMessage || 'OK' };
+    }
+    return { ok: false, mode, error: parsed?.errorCode || ('http_' + resp.status), message: parsed?.errorMessage || parsed?.statusMessage || raw.slice(0, 200) };
+  } catch (e: any) {
+    return { ok: false, mode, error: 'network_error', message: String(e?.message || e) };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 //  카카오 알림톡 발송
 // ─────────────────────────────────────────────────────────────
 export async function sendKakaoAlimtalk(
