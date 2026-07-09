@@ -77,4 +77,13 @@ idx-*.js 방식 그대로: IIFE 블록 단위로 파일로 뽑고 `<script src>`
 | 날짜 | 단계 | 내용 | 결과 |
 |---|---|---|---|
 | 2026-07-09 | 0 | 계획 수립, 문서화 3종 완료 | ✅ |
+| 2026-07-09 | 1 | 공용 헬퍼 `api-util.ts` 분리 (json, parseJsonBody) | ✅ tsc·드라이런 통과 |
+| 2026-07-09 | 1 | AI 음성일기 5라우트 → `api-diary.ts` 분리 (첫 도메인, -171줄) | ✅ tsc·드라이런 통과, 배포 후 일기 화면 확인 필요 |
 | | | | |
+
+### 분리 작업 표준 절차 (1단계에서 확립된 패턴)
+1. 도메인 라우트 블록을 `src/api-도메인.ts`의 `handle도메인Api(request, url, env): Promise<Response|null>`로 **그대로** 이동 (로직 무변경)
+2. 공용 헬퍼는 `api-util.ts`에서 import (api-mango 역참조는 `import type`만 허용)
+3. handleMangoApi의 원래 위치에 `if (path.startsWith('/api/도메인/')) { const r = await handle도메인Api(...); if (r) return r; }` 위임 삽입 — null 반환 시 기존 라우팅 계속이라 동작 동일
+4. 검증: `npx tsc --noEmit` (기존 에러 1건 제외 새 에러 0) + `npx wrangler deploy --dry-run --outdir .wrangler-drycheck`
+5. 커밋 → 다음 배포 때 실화면 확인
