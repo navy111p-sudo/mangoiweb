@@ -2879,7 +2879,17 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/admin' || path === '/admin/' || path === '/admin.html') return true;
   // 🩺 /admin/health 셀프 진단 페이지 + 그 전용 API (관리자만 접근)
   if (path === '/admin/health' || path === '/admin/health/' || path === '/admin/health.html') return true;
-  if (path === '/api/admin/health-check') return true;
+
+  // 🔒🔒 [보안 근본수정 2026-07-09] /api/admin/* 는 기본 전부 인증 필요 (DEFAULT-DENY).
+  //   과거엔 아래처럼 경로를 하나씩 allowlist 로 나열했는데, 새 admin API 를 추가하면서
+  //   여기 등록을 빠뜨리면 그 API 가 '무인증 공개'로 뚫렸다(감사로그·미납독촉·평가·매출예측·
+  //   카톡수신함 등 대량 노출 실제 확인). 이제는 /api/admin/ 로 시작하면 무조건 인증을 요구하고,
+  //   학생 화면이 재사용하는 소수 예외만 isAdminPublicApi() 로 명시 공개한다.
+  //   → login/logout 은 isAuthPublicPath() 로 미들웨어에서 별도 우회되므로 여기서 true 여도 무방.
+  if (path.startsWith('/api/admin/')) {
+    if (isAdminPublicApi(path, method)) return false;  // 학생용 공개 예외 → 인증 불필요
+    return true;                                        // 그 외 모든 admin API → 인증 필수
+  }
   // 🎓 /admin/student 드릴다운 페이지 + 그 전용 API (관리자만 접근)
   if (path === '/admin/student' || path === '/admin/student/' || path === '/admin/student.html') return true;
   if (path.startsWith('/api/admin/student/')) return true;
@@ -3028,6 +3038,31 @@ function isAgencyAllowedApi(path: string): boolean {
     '/api/admin/settlement/',
   ];
   return allow.some(a => path === a || path.startsWith(a));
+}
+
+/**
+ * 🔒 /api/admin/* 중 '무인증 공개'로 남겨둘 소수 예외.
+ *   - 역사적으로 학생/홈 화면(index.html)이 관리자 API 를 그대로 재사용해 만든 것들.
+ *   - 원칙적으로는 전용 학생 엔드포인트로 옮겨야 할 기술부채(아래 TODO).
+ *     그 전까지 default-deny 를 깨지 않으면서 학생 기능이 안 죽게 최소만 열어둔다.
+ *   ⚠️ 여기에 항목을 추가하는 것은 '공개'를 뜻한다 — 개인정보/경영데이터 엔드포인트는 절대 넣지 말 것.
+ *
+ *   ⚙️ 선정 기준: '현재(수정 전) prod 에서 이미 무인증 공개(200)라서, 막으면 학생 기능이 깨지는 것'만 예외로 둔다.
+ *      → 회귀(기능 깨짐) 0 을 보장하면서, 진짜 새던 관리자 API(감사로그·미납독촉·평가 등)는 전부 닫는다.
+ *      (참고: /api/admin/class-schedules 는 현재 이미 401 로 차단돼 있어 예외에 넣지 않는다.
+ *             공개로 열면 ?user_id= 로 남의 수업일정을 조회하는 새 IDOR 가 생기므로 그대로 차단 유지.)
+ *
+ *   TODO(보안 후속): 아래 3개도 전용/인증 엔드포인트로 대체하고 목록에서 제거.
+ *     - /api/admin/points/list       → 전체 학생 이름+포인트 노출. /api/points/leaderboard(top-N, 최소필드)로 대체.
+ *     - /api/admin/gifts/seed-catalog(POST) → 최초 1회 시드용. 관리자 시드/부팅으로 옮기고 학생 자동호출 제거.
+ *     - /api/admin/ai-analyze/student(POST) → 학부모 화면(parent.html)이 사용. 지금은 학부모 인증이 없어
+ *       열어두지만, student_uid 만 알면 누구나 조회되는 상태 → 학부모 토큰 인증 도입 후 잠글 것.
+ */
+function isAdminPublicApi(path: string, _method: string): boolean {
+  if (path === '/api/admin/points/list') return true;        // 학원 랭킹(리더보드) — index.html 재사용(현재 공개)
+  if (path === '/api/admin/gifts/seed-catalog') return true; // 기프트 카탈로그 최초 자동 시드(현재 공개 POST)
+  if (path === '/api/admin/ai-analyze/student') return true; // 학부모 성장분석(parent.html) — 학부모인증 도입 전까지 공개 유지
+  return false;
 }
 
 function isAuthPublicPath(path: string): boolean {

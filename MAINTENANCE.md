@@ -111,6 +111,7 @@ Cloudflare Worker: webrtc-unified-platform(-prod)   ← cloudflare-deploy/
 
 | 항목 | 내용 | 위험도 |
 |---|---|---|
+| ✅ admin API 무인증 노출 | isAdminPath allowlist 누락으로 수십개 공개됐던 것 → **default-deny로 근본수정(커밋됨, 배포 필요)**. 상세: [크몽 진단 검증](docs/크몽_진단_검증.md) | ~~높음~~ 수정됨 |
 | `ROOM_JWT_SECRET` 미설정 | 코드는 참조하지만 시크릿이 안 심어져 있음 | 중 |
 | `write-history` API | uid 토큰 인증 미적용 잔여분 | 중 |
 | admin ivory(밝은) 테마 | 밝은 글자 위 밝은 배경 약 670곳 — 가독성 미완 | 낮음 |
