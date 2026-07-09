@@ -61,7 +61,8 @@ export async function handleUptimeApi(
     : `[망고아이] ⚠️ 사이트 응답 없음 감지 (${site}). 접속 확인이 필요합니다.`;
 
   const r = await sendPlainSms(env, phone, text);
-  if (kv) { try { await kv.put(throttleKey, String(Date.now()), { expirationTtl: 300 }); } catch {} }
+  // 중복방지 타이머는 '발송 성공' 시에만 건다 — 실패 시엔 재시도를 막지 않도록.
+  if (kv && r.ok) { try { await kv.put(throttleKey, String(Date.now()), { expirationTtl: 300 }); } catch {} }
 
   return json({ ok: r.ok, sent: r.ok, state: isUp ? 'up' : 'down', error: r.error, detail: r.message });
 }
