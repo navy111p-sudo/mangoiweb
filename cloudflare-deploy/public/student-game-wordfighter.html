@@ -318,48 +318,90 @@
   };
   // 🌐 게임 언어(허브 전달 ?glang= 또는 localStorage) — 중국어면 문장/발음/인식을 중국어로
   var GLANG = (function(){ try{ var g=(new URLSearchParams(location.search).get('glang')||'').toLowerCase(); if(g==='zh'||g==='en') return g; var l=localStorage.getItem('mangoi_game_lang'); return (l==='zh')?'zh':'en'; }catch(e){ return 'en'; } })();
-  if(GLANG==='zh'){
-    SENTENCES = [
-      "我 爱 你","你 好 吗","我 是 学生","今天 天气 很 好","我 喜欢 吃 苹果",
-      "他 每天 去 学校","这 是 我的 朋友","我 想 喝 水","我们 一起 学习 汉语",
-      "昨天 我 和 家人 去了 海边","她 将来 想 当 医生","我 有 两 只 小狗"
-    ];
-    SENT_KO = {
-      "我 爱 你":"사랑해요","你 好 吗":"잘 지내요?","我 是 学生":"나는 학생이에요",
-      "今天 天气 很 好":"오늘 날씨가 좋아요","我 喜欢 吃 苹果":"나는 사과 먹는 걸 좋아해요",
-      "他 每天 去 学校":"그는 매일 학교에 가요","这 是 我的 朋友":"이 사람은 내 친구예요",
-      "我 想 喝 水":"물을 마시고 싶어요","我们 一起 学习 汉语":"우리 함께 중국어를 공부해요",
-      "昨天 我 和 家人 去了 海边":"어제 가족과 바닷가에 갔어요","她 将来 想 当 医生":"그녀는 커서 의사가 되고 싶어해요",
-      "我 有 两 只 小狗":"나는 강아지 두 마리가 있어요"
-    };
-    WORD_KO = {
-      "我":"나","爱":"사랑하다","你":"너","好":"좋다","吗":"~입니까?","是":"~이다","学生":"학생",
-      "今天":"오늘","天气":"날씨","很":"아주","喜欢":"좋아하다","吃":"먹다","苹果":"사과",
-      "他":"그","每天":"매일","去":"가다","学校":"학교","这":"이것","我的":"나의","朋友":"친구",
-      "想":"~하고 싶다","喝":"마시다","水":"물","我们":"우리","一起":"함께","学习":"공부하다","汉语":"중국어",
-      "昨天":"어제","和":"~와","家人":"가족","去了":"갔다","海边":"바닷가","她":"그녀","将来":"장래에",
-      "当":"~이 되다","医生":"의사","有":"있다","两":"둘","只":"마리(단위)","小狗":"강아지"
-    };
+  // 언어별 세트 분리 — 게임 중에도 전환 가능하게 활성 변수(SENTENCES 등)에 복사해 쓴다
+  var EN_SENTENCES=SENTENCES, EN_SENT_KO=SENT_KO, EN_WORD_KO=WORD_KO;
+  var EN_DISTRACTORS=["cat","run","blue","apple","green","quickly","does","happy","jump","red","water","table","want","under","they","big","milk","slow","seven","cloud"];
+  // 🀄 내장 중국어 세트(다락원 로드 실패 시 폴백) — 짧은 문장→긴 문장 순(웨이브 난이도 상승)
+  var ZH_SENTENCES=[
+    "我 爱 你","你 好 吗","我 是 学生","我 想 喝 水","今天 天气 很 好","我 喜欢 吃 苹果",
+    "他 每天 去 学校","这 是 我的 朋友","我们 一起 学习 汉语","我 有 两 只 小狗",
+    "她 将来 想 当 医生","昨天 我 和 家人 去了 海边"
+  ];
+  var ZH_SENT_KO={
+    "我 爱 你":"사랑해요","你 好 吗":"잘 지내요?","我 是 学生":"나는 학생이에요",
+    "我 想 喝 水":"물을 마시고 싶어요","今天 天气 很 好":"오늘 날씨가 좋아요","我 喜欢 吃 苹果":"나는 사과 먹는 걸 좋아해요",
+    "他 每天 去 学校":"그는 매일 학교에 가요","这 是 我的 朋友":"이 사람은 내 친구예요",
+    "我们 一起 学习 汉语":"우리 함께 중국어를 공부해요","我 有 两 只 小狗":"나는 강아지 두 마리가 있어요",
+    "她 将来 想 当 医生":"그녀는 커서 의사가 되고 싶어해요","昨天 我 和 家人 去了 海边":"어제 가족과 바닷가에 갔어요"
+  };
+  var ZH_SENT_PY={
+    "我 爱 你":"Wǒ ài nǐ","你 好 吗":"Nǐ hǎo ma","我 是 学生":"Wǒ shì xuésheng",
+    "我 想 喝 水":"Wǒ xiǎng hē shuǐ","今天 天气 很 好":"Jīntiān tiānqì hěn hǎo","我 喜欢 吃 苹果":"Wǒ xǐhuan chī píngguǒ",
+    "他 每天 去 学校":"Tā měitiān qù xuéxiào","这 是 我的 朋友":"Zhè shì wǒ de péngyou",
+    "我们 一起 学习 汉语":"Wǒmen yìqǐ xuéxí Hànyǔ","我 有 两 只 小狗":"Wǒ yǒu liǎng zhī xiǎogǒu",
+    "她 将来 想 当 医生":"Tā jiānglái xiǎng dāng yīshēng","昨天 我 和 家人 去了 海边":"Zuótiān wǒ hé jiārén qùle hǎibiān"
+  };
+  var ZH_WORD_KO={
+    "我":"나","爱":"사랑하다","你":"너","好":"좋다","吗":"~입니까?","是":"~이다","学生":"학생",
+    "今天":"오늘","天气":"날씨","很":"아주","喜欢":"좋아하다","吃":"먹다","苹果":"사과",
+    "他":"그","每天":"매일","去":"가다","学校":"학교","这":"이것","我的":"나의","朋友":"친구",
+    "想":"~하고 싶다","喝":"마시다","水":"물","我们":"우리","一起":"함께","学习":"공부하다","汉语":"중국어",
+    "昨天":"어제","和":"~와","家人":"가족","去了":"갔다","海边":"바닷가","她":"그녀","将来":"장래에",
+    "当":"~이 되다","医生":"의사","有":"있다","两":"둘","只":"마리(단위)","小狗":"강아지"
+  };
+  var ZH_DISTRACTORS=["猫","跑","蓝","绿","快","做","高兴","跳","红","桌子","下面","他们","大","牛奶","慢","七","云","书","花","月亮"];
+  var _inj=''; try{ _inj=(new URLSearchParams(location.search).get('sentence')||'').trim(); }catch(e){}
+  var SENT_PY={}, DISTRACTORS=EN_DISTRACTORS, enBadge='', zhBadge='';
+  function applyBadge(){ var bb=document.getElementById('bookBadge'), t=(GLANG==='zh')?zhBadge:enBadge;
+    if(t){ bb.textContent=t; bb.style.display='inline-block'; } else bb.style.display='none'; }
+  // 현재 언어의 세트를 활성 변수로 적용 (허브가 ?sentence= 로 넘긴 문장은 맨 앞에)
+  function applyLangData(){
+    if(GLANG==='zh'){ SENTENCES=ZH_SENTENCES.slice(); SENT_KO=ZH_SENT_KO; WORD_KO=ZH_WORD_KO; SENT_PY=ZH_SENT_PY; DISTRACTORS=ZH_DISTRACTORS; }
+    else { SENTENCES=EN_SENTENCES.slice(); SENT_KO=EN_SENT_KO; WORD_KO=EN_WORD_KO; SENT_PY={}; DISTRACTORS=EN_DISTRACTORS; }
+    if(_inj) SENTENCES=[_inj].concat(SENTENCES.filter(function(s){ return s!==_inj; }));
+    applyBadge();
   }
-  try{ var _qp=new URLSearchParams(location.search), _inj=(_qp.get('sentence')||'').trim();
-    if(_inj){ SENTENCES=[_inj].concat(SENTENCES.filter(function(s){return s!==_inj;})); } }catch(e){}
-  // 📚 로그인 학생의 교재/레벨 맞춤 문장으로 교체 (미로그인·서버 실패 → 기본 문장 폴백 · 중국어 모드는 유지)
+  applyLangData();
+  // 📚 로그인 학생의 교재/레벨 맞춤 영어 문장 (미로그인·서버 실패 → 기본 문장 폴백)
   try{
-    if(window.MangoiGameVocab && GLANG!=='zh'){
+    if(window.MangoiGameVocab){
       MangoiGameVocab.load().then(function(d){
         if(d && d.sentences && d.sentences.length>=3){
-          var head=(typeof _inj==='string' && _inj)?[_inj]:[];
-          SENTENCES=head.concat(d.sentences.map(function(s){ return s.en; }).filter(function(s){ return head.indexOf(s)<0; }));
-          d.sentences.forEach(function(s){ if(s.ko) SENT_KO[s.en]=s.ko; });
+          EN_SENTENCES=d.sentences.map(function(s){ return s.en; });
+          d.sentences.forEach(function(s){ if(s.ko) EN_SENT_KO[s.en]=s.ko; });
           var tb=[d.textbook,d.level].filter(Boolean).join(' · ');
-          if(tb){ var bb=document.getElementById('bookBadge'); bb.textContent='📚 '+tb; bb.style.display='inline-block'; }
+          if(tb) enBadge='📚 '+tb;
+          if(GLANG==='en') applyLangData();
         }
       });
     }
   }catch(e){}
-  var DISTRACTORS=(GLANG==='zh')
-    ? ["猫","跑","蓝","苹果","绿","快","做","高兴","跳","红","水","桌子","想","下面","他们","大","牛奶","慢","七","云"]
-    : ["cat","run","blue","apple","green","quickly","does","happy","jump","red","water","table","want","under","they","big","milk","slow","seven","cloud"];
+  // 🀄 다락원 교재 중국어 어휘(레벨 맞춤) — 허브(student-games)와 같은 캐시 공유, 성공 시 내장 세트 교체
+  function loadZhVocab(){
+    var CK='mangoi_zhvocab_darakwon_v1';
+    function apply(d){
+      if(!d || !d.ok) return;
+      var sents=(d.sentences||[]).filter(function(s){ return s && s.en && s.words && s.words.length>=2 && s.words.length<=9; });
+      if(sents.length>=3){
+        sents.sort(function(a,b){ return a.words.length-b.words.length; });   // 짧은 문장부터 → 레벨 진행
+        ZH_SENTENCES=[]; ZH_SENT_KO={}; ZH_SENT_PY={};
+        sents.slice(0,40).forEach(function(s){
+          var key=s.words.map(function(w){ return String(w).replace(/[.?!,。？！，、]/g,''); }).filter(Boolean).join(' ');
+          if(!key || ZH_SENT_KO[key]!==undefined) return;
+          ZH_SENTENCES.push(key); ZH_SENT_KO[key]=String(s.ko||''); if(s.pinyin) ZH_SENT_PY[key]=s.pinyin;
+        });
+        zhBadge='📚 다락원 중국어';
+      }
+      (d.words||[]).forEach(function(w){ if(w && w.en && w.ko) ZH_WORD_KO[String(w.en).trim()]=(w.pinyin?w.pinyin+' · ':'')+w.ko; });
+      if(GLANG==='zh') applyLangData();
+    }
+    try{ var c=JSON.parse(sessionStorage.getItem(CK)||'null'); if(c && (Date.now()-c.at)<600000){ apply(c.d); return; } }catch(e){}
+    fetch('/api/games/zh-vocab?textbook='+encodeURIComponent('다락원')+'&level='+encodeURIComponent('Lv 3'))
+      .then(function(r){ return r.ok?r.json():null; })
+      .then(function(d){ if(d){ try{ sessionStorage.setItem(CK,JSON.stringify({at:Date.now(),d:d})); }catch(e){} apply(d); } })
+      .catch(function(){});
+  }
+  loadZhVocab();
   var COMBO_WINDOW=2500;
   // 🧟 좀비 도감 — 종류별 속도·크기·좌우 흔들림(지그재그 %)이 다르다
   var ZTYPES=[
@@ -397,9 +439,12 @@
 
   function rand(a,b){ return a+Math.random()*(b-a); }
   function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
-  function clean(w){ return (w||'').replace(/[.?!,]/g,''); }
+  function clean(w){ return (w||'').replace(/[.?!,。？！，、]/g,''); }
   function curSentence(){ return SENTENCES[level%SENTENCES.length]; }
   function curKo(){ return SENT_KO[curSentence()]||''; }
+  function curPy(){ return (GLANG==='zh')?(SENT_PY[curSentence()]||''):''; }
+  // 중국어는 한자 사이 공백 없이 이어 발음 (표시용은 공백 분절 유지)
+  function joinW(a){ return a.join(GLANG==='zh'?'':' '); }
 
   // ===== 원어민 음성 (클라우드 TTS 우선 → 기기 자연 음성 폴백) =====
   var synth=('speechSynthesis' in window)?window.speechSynthesis:null, enVoice=null;
@@ -409,10 +454,11 @@
       : vs.filter(function(v){ return /^en[-_]?/i.test(v.lang||'')||/English/i.test(v.name||''); });
     if(!en.length){ enVoice=null; return; }
     function sc(v){ var n=(v.name||''),l=(v.lang||''),s=0;
-      if(/en[-_]US/i.test(l)) s+=3; else if(/^en/i.test(l)) s+=1;
+      if(/en[-_]US/i.test(l)||/zh[-_]CN/i.test(l)) s+=3; else if(/^(en|zh)/i.test(l)) s+=1;
       if(/Google/i.test(n)) s+=7; if(/Natural|Online/i.test(n)) s+=7;
       if(/Aria|Jenny|Guy|Ava|Emma|Michelle|Andrew|Brian|Libby|Sonia/i.test(n)) s+=4;
       if(/Samantha|Karen|Daniel|Moira|Allison|Tom|Serena/i.test(n)) s+=3;
+      if(/Xiaoxiao|Yunxi|Yunyang|Xiaoyi|Huihui|Kangkang|Tingting/i.test(n)) s+=4;
       if(v.localService===false) s+=2; if(/Desktop|eSpeak|Zira|David|Mark|compact|robot/i.test(n)) s-=5; return s; }
     en.sort(function(a,b){ return sc(b)-sc(a); }); enVoice=en[0];
     voiceBadge.textContent=enVoice?('🔊 '+enVoice.name):('🔊 '+(GLANG==='zh'?'중국어':'영어')+' 음성 없음'); }
@@ -425,7 +471,7 @@
   function prefetchTTS(text){ text=(text||'').trim(); if(!text||ttsCache[text]) return; ttsFetch(text).catch(function(){}); }
   function playUrl(u){ try{ if(!ttsAudio) ttsAudio=new Audio(); ttsAudio.src=u; ttsAudio.play().catch(function(){}); }catch(e){} }
   function speak(text,rate){ text=(text||'').trim(); if(!text) return; if(ttsCache[text]){ playUrl(ttsCache[text]); return; } ttsFetch(text).then(playUrl).catch(function(){ synthSpeak(text,rate); }); }
-  function speakSentence(){ speak(targetWords.join(' ').replace(/[.?!]/g,''),0.9); }
+  function speakSentence(){ speak(joinW(targetWords).replace(/[.?!。？！]/g,''),0.9); }
 
   // ===== 효과음 =====
   var actx=null,master=null;
@@ -465,11 +511,12 @@
     phase='battle'; setPhaseUI('battle'); review1.classList.remove('on'); review2.classList.remove('on'); review3.classList.remove('on');
     clearZombies(); timeLeft=45; updateTimer();
     targetWords=curSentence().split(' '); currentIndex=0; collected=[];
-    targetWords.forEach(function(w){ prefetchTTS(clean(w)); }); prefetchTTS(targetWords.join(' ').replace(/[.?!]/g,''));
+    targetWords.forEach(function(w){ prefetchTTS(clean(w)); }); prefetchTTS(joinW(targetWords).replace(/[.?!。？！]/g,''));
     lvlPill.textContent='웨이브 '+(level+1);
-    hintEl.innerHTML= level===0
+    hintEl.innerHTML=( level===0
       ? '🧟 노란 문장의 <b>첫 단어</b> 좀비를 눌러 처치! 순서 틀리면 감점 ⚠'
-      : '🧟 <b>문장 순서대로</b> 처치! 머뭇거리면 힌트가 빛나요 ✨';
+      : '🧟 <b>문장 순서대로</b> 처치! 머뭇거리면 힌트가 빛나요 ✨' )
+      + (curPy()?' <span class="pinyin">'+curPy()+'</span>':'');
     var pool=DISTRACTORS.filter(function(w){ return targetWords.indexOf(w)<0; }); shuffle(pool);
     var nDis=Math.min(2+level,6);
     var tItems=targetWords.map(function(w){ return {word:w,isTarget:true}; });
@@ -563,7 +610,7 @@
   // ===== 복습 1 =====
   var r1slot=document.getElementById('r1slot'), r1pool=document.getElementById('r1pool'), r1ko=document.getElementById('r1ko');
   function startReview1(){ phase='r1'; setPhaseUI('r1'); bgmStop(); review1.classList.add('on'); clearZombies(); r1slot.innerHTML=''; r1pool.innerHTML='';
-    r1ko.textContent=curKo()?('💡 뜻: '+curKo()):'';
+    r1ko.textContent=(curKo()?('💡 뜻: '+curKo()):'')+(curPy()?('  ·  🀄 '+curPy()):'');
     shuffle(targetWords.slice()).forEach(function(w){ var b=document.createElement('button'); b.className='wbtn'; b.textContent=w; b.addEventListener('click', function(){ r1place(b,w); }); r1pool.appendChild(b); }); }
   function r1place(btn,w){ if(btn.classList.contains('placed')) return; var idx=r1slot.children.length;
     if(w===targetWords[idx]){ btn.classList.add('placed'); var s=document.createElement('button'); s.className='wbtn'; s.textContent=w; r1slot.appendChild(s); speak(clean(w));
@@ -574,7 +621,7 @@
   // ===== 복습 2 =====
   var r2line=document.getElementById('r2line'), r2heard=document.getElementById('r2heard'), r2next=document.getElementById('r2next'), r2ko=document.getElementById('r2ko');
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition||null;
-  function startReview2(){ phase='r2'; setPhaseUI('r2'); review1.classList.remove('on'); review2.classList.add('on'); r2line.innerHTML='“<span class="hl">'+targetWords.join(' ')+'</span>”'; r2ko.textContent=curKo(); r2heard.innerHTML=''; r2next.style.display='none'; setTimeout(speakSentence,250); }
+  function startReview2(){ phase='r2'; setPhaseUI('r2'); review1.classList.remove('on'); review2.classList.add('on'); r2line.innerHTML='“<span class="hl">'+targetWords.join(' ')+'</span>”'+(curPy()?'<div class="pinyin" style="font-size:16px;margin-top:4px">'+curPy()+'</div>':''); r2ko.textContent=curKo(); r2heard.innerHTML=''; r2next.style.display='none'; setTimeout(speakSentence,250); }
   document.getElementById('r2listen').addEventListener('click', speakSentence);
   document.getElementById('r2speak').addEventListener('click', function(){
     if(!SR){ r2heard.innerHTML='🎤 큰 소리로 따라 말했나요? <b>좋아요!</b>'; score+=40; updateHUD(); r2next.style.display='inline-block'; return; }
@@ -592,7 +639,7 @@
 
   // ===== 복습 3 =====
   var r3line=document.getElementById('r3line'), repCount=0, r3start=0; var rdEls=[document.getElementById('rd1'),document.getElementById('rd2'),document.getElementById('rd3')];
-  function startReview3(){ phase='r3'; setPhaseUI('r3'); review2.classList.remove('on'); review3.classList.add('on'); r3line.innerHTML='“<span class="hl">'+targetWords.join(' ')+'</span>”'; repCount=0; rdEls.forEach(function(d){ d.classList.remove('on'); }); r3start=performance.now(); setTimeout(speakSentence,250); }
+  function startReview3(){ phase='r3'; setPhaseUI('r3'); review2.classList.remove('on'); review3.classList.add('on'); r3line.innerHTML='“<span class="hl">'+targetWords.join(' ')+'</span>”'+(curPy()?'<div class="pinyin" style="font-size:16px;margin-top:4px">'+curPy()+'</div>':''); repCount=0; rdEls.forEach(function(d){ d.classList.remove('on'); }); r3start=performance.now(); setTimeout(speakSentence,250); }
   document.getElementById('r3rep').addEventListener('click', function(){ if(repCount>=3) return; speakSentence(); rdEls[repCount].classList.add('on'); repCount++; score+=20; updateHUD();
     if(repCount>=3){ var elapsed=(performance.now()-r3start)/1000, speedBonus=elapsed<6?80:(elapsed<10?40:15); score+=speedBonus; updateHUD(); sndWin();
       try{ if(window.parent&&window.parent!==window) window.parent.postMessage({type:'mangoi-game-complete',score:200},'*'); }catch(e){}
@@ -645,6 +692,19 @@
   [].forEach.call(document.querySelectorAll('.spd'),function(b){ b.addEventListener('click', function(){ for(var i=0;i<SPEEDS.length;i++){ if(SPEEDS[i].k===b.getAttribute('data-k')){ setSpeed(i,false); break; } } }); });
   applySpeedUI();
 
+  // 🌐 언어 전환 — 시작화면 선택 + 게임 중 HUD 버튼(전환 시 현재 웨이브를 새 언어로 재시작, 점수 유지)
+  var langBtn=document.getElementById('langBtn');
+  function applyLangUI(){ langBtn.textContent=(GLANG==='zh')?'🇨🇳 중국어':'🇺🇸 영어';
+    [].forEach.call(document.querySelectorAll('.lng'),function(b){ b.classList.toggle('sel', b.getAttribute('data-l')===GLANG); });
+    var tg=document.querySelector('#card .tag'); if(tg) tg.textContent=(GLANG==='zh')?'⚡ 실사 좀비 서바이벌 · 중국어 문장 학습 ⚡':'⚡ 실사 좀비 서바이벌 · 영어 문장 학습 ⚡'; }
+  function setLang(l,announce){ if(GLANG===l){ applyLangUI(); return; }
+    GLANG=l; LSset('mangoi_game_lang',l); applyLangData(); applyLangUI();
+    if(synth){ enVoice=null; pickVoice(); }
+    if(running){ if(synth) synth.cancel(); startRound(); if(announce) showCombo(l==='zh'?'🀄 중국어 모드!':'🔤 영어 모드!'); } }
+  langBtn.addEventListener('click', function(){ setLang(GLANG==='zh'?'en':'zh',true); });
+  [].forEach.call(document.querySelectorAll('.lng'),function(b){ b.addEventListener('click', function(){ setLang(b.getAttribute('data-l'),false); }); });
+  applyLangUI();
+
   // 🥁 BGM 토글
   function applyBgmUI(){ bgmBtn.textContent=bgmOn?'🥁 ON':'🔇 OFF'; }
   bgmBtn.addEventListener('click', function(){ bgmOn=!bgmOn; LSset('wf_bgm',bgmOn?'1':'0'); applyBgmUI(); if(!bgmOn) bgmStop(); else if(running&&phase==='battle') bgmStart(); });
@@ -653,6 +713,6 @@
 })();
 </script>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711005636 -->
+<!-- BUILD:20260711005844 -->
 </body>
 </html>
