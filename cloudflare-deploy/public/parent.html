@@ -557,7 +557,7 @@ function pdRender(d){
   // 🆕 배지 자동 검사 + 진열장 로드
   fetch('/api/badges/check', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uid: _currentUid }) })
     .catch(()=>{})
-    .finally(() => fetch('/api/badges/list?uid=' + encodeURIComponent(_currentUid)).then(r => r.json()).then(bdata => {
+    .finally(() => fetch('/api/badges/list?uid=' + encodeURIComponent(_currentUid) + '&token=' + encodeURIComponent(_token||'')).then(r => r.json()).then(bdata => {
     const el = document.getElementById('pd-badges');
     if (!el) return;
     if (!bdata.ok) return;
