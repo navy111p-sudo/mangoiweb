@@ -1470,7 +1470,15 @@
   })();
   </script>
 <!-- BUILD:20260702 listenquiz1 speed5 back1 -->
+<style id="mb-tidy-2026-07-10">
+/* 모바일 보정: 속도 버튼 한글 중간 줄바꿈 방지 + 7버튼 4열 그리드로 탭 영역 확보 */
+.speedrow button{word-break:keep-all}
+@media (max-width:640px){
+  .speedrow{display:grid;grid-template-columns:repeat(4,1fr)}
+  .speedrow button{padding:8px 2px}
+}
+</style>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260710223524 -->
+<!-- BUILD:20260710224936 -->
 </body>
 </html>

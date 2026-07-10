@@ -5624,6 +5624,11 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         if (f.room_id && !fbByRoom[f.room_id]) fbByRoom[f.room_id] = dkey;
         if (f.teacher_name) fbByTeacherDay[`${f.teacher_name}|${dkey}`] = true;
       }
+      // 📝 Phase FD — AI 초안을 강사가 '승인'한 것도 당일 피드백으로 인정 (승인 시각 기준)
+      const fds: any = await env.DB.prepare(`SELECT room_id, approved_at FROM feedback_drafts WHERE status = 'approved' AND approved_at >= ? AND approved_at < ?`).bind(mStart, mEnd).all().catch(() => ({ results: [] }));
+      for (const f of (fds.results || [])) {
+        if (f.room_id && !fbByRoom[f.room_id]) fbByRoom[f.room_id] = kstDay(f.approved_at);
+      }
 
       // 학생 이름 맵 (students_erp 컬럼 구성이 배포본마다 달라 순차 폴백)
       //   운영 class_schedules 에는 student_name 이 행에 직접 있어 이 맵은 폴백용.
@@ -5944,6 +5949,167 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       await env.DB.prepare(`UPDATE schedule_change_requests SET status = ?, decided_by = ?, decided_at = ?, decide_memo = ? WHERE id = ?`)
         .bind(action, (body.decided_by || '관리자').trim(), now, (body.memo || '').trim() || null, id).run();
       return json({ ok: true, id, status: action, applied, decided_at: now });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 📝 Phase FD — AI 학부모 피드백 초안 + 강사 원클릭 승인
+    //   수업이 끝나면 AI가 실제 수업 신호(출석·발화비율·칭찬·학생평가)만 근거로
+    //   학부모용 피드백 초안(한/영)을 만들고, 강사는 읽고 [승인]만 하면 된다.
+    //   승인 → teacher_feedbacks(학생 상세화면 소비)로 기록 + 공제 엔진의 '당일 피드백'으로 인정.
+    //   강사가 고치면 edited=1 로 남겨 AI 품질(수정률)을 추적한다.
+    // ═══════════════════════════════════════════════════════════════
+
+    const ensureFeedbackDrafts = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS feedback_drafts (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT UNIQUE, schedule_id INTEGER, lesson_date TEXT, start_time TEXT, teacher_id TEXT, teacher_name TEXT, student_uid TEXT, student_name TEXT, draft_ko TEXT, draft_en TEXT, final_ko TEXT, final_en TEXT, has_signals INTEGER DEFAULT 0, edited INTEGER DEFAULT 0, status TEXT DEFAULT 'draft', created_at INTEGER NOT NULL, approved_at INTEGER)`);
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_fbd_teacher ON feedback_drafts(teacher_name, lesson_date)`); } catch {}
+    };
+
+    // ── POST /api/admin/feedback-drafts/generate — 오늘(또는 지정일) 완료 수업의 AI 초안 생성 ──
+    //   body: { teacher_name, date? }  — 이미 초안이 있는 수업은 건너뜀. 한 번에 최대 5건(LLM 시간 제한).
+    if (method === 'POST' && path === '/api/admin/feedback-drafts/generate') {
+      await ensureFeedbackDrafts();
+      const body: any = await request.json().catch(() => ({}));
+      const teacherName = String(body.teacher_name || '').trim();
+      if (!teacherName) return json({ ok: false, error: 'teacher_name_required' }, 400);
+      const dateStr = String(body.date || '').trim() || new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+      const [gy, gm] = [parseInt(dateStr.slice(0, 4), 10), parseInt(dateStr.slice(5, 7), 10)];
+
+      // 그날 완료된 이 강사의 수업(반복 전개 포함) — 정산 엔진 재사용으로 계산과 100% 일치
+      const data = await computeLessonFeeMonth(gy, gm);
+      const prof = (data.teachers || []).find((t: any) => t.korean_name === teacherName || t.english_name === teacherName);
+      const done = data.lessons.filter((l: any) =>
+        l.date === dateStr && l.status === 'finish' &&
+        ((prof && String(l.teacher_id) === String(prof.id)) || l.teacher_name === teacherName));
+
+      // 이미 초안 있는 방 제외
+      const roomIds = done.map((l: any) => l.room_id);
+      const existing: any = roomIds.length
+        ? await env.DB.prepare(`SELECT room_id FROM feedback_drafts WHERE room_id IN (${roomIds.map(() => '?').join(',')})`).bind(...roomIds).all().catch(() => ({ results: [] }))
+        : { results: [] };
+      const have = new Set((existing.results || []).map((r: any) => r.room_id));
+      const targets = done.filter((l: any) => !have.has(l.room_id));
+
+      const CAP = 5;
+      const batch = targets.slice(0, CAP);
+      const ai = (env as any).AI;
+      const now = Date.now();
+      let generated = 0;
+
+      for (const l of batch) {
+        // ── 실수업 신호 수집(있는 것만) — room_id 기준, ai-feedback 과 동일 소스 ──
+        let talkRatio: number | null = null, praiseCount: number | null = null;
+        let studentScore: number | null = null, studentNote = '', durMin = l.duration_minutes || 0;
+        try {
+          const t: any = await env.DB.prepare(`SELECT total_session_ms, total_active_ms, joined_at, left_at FROM attendance WHERE room_id=? AND role='teacher' ORDER BY joined_at DESC LIMIT 1`).bind(l.room_id).first();
+          const s: any = await env.DB.prepare(`SELECT total_active_ms FROM attendance WHERE room_id=? AND role='student' ORDER BY joined_at DESC LIMIT 1`).bind(l.room_id).first();
+          const tA = Number(t?.total_active_ms) || 0, sA = Number(s?.total_active_ms) || 0;
+          if (tA + sA > 0) talkRatio = Math.round((sA / (tA + sA)) * 100); // 학부모용은 '아이 발화 비율'
+          const p: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE rule_code='teacher_praise_point' AND meta LIKE ?`).bind('%"room_id":"' + l.room_id + '"%').first();
+          praiseCount = Number(p?.c) || 0;
+          const r: any = await env.DB.prepare(`SELECT score, feedback FROM class_ratings WHERE room_id=? ORDER BY created_at DESC LIMIT 1`).bind(l.room_id).first();
+          if (r) { studentScore = Number(r.score) || null; studentNote = String(r.feedback || '').slice(0, 300); }
+        } catch {}
+        const hasSignals = talkRatio !== null || (praiseCount || 0) > 0 || studentScore !== null;
+
+        // ── AI 초안 (신호에 있는 사실만, 지어내기 금지) ──
+        let ko = '', en = '';
+        if (ai) {
+          try {
+            const signalLines = [
+              `Student: ${l.student_name || 'the student'}`,
+              `Lesson: ${dateStr} ${l.start_time || ''}, ${durMin} minutes, 1:1 online English`,
+              talkRatio !== null ? `Student speaking share: ${talkRatio}% of total talk time` : '',
+              (praiseCount || 0) > 0 ? `Teacher praised the student ${praiseCount} time(s) during class` : '',
+              studentScore ? `Student rated the class ${studentScore}/7 afterwards` : '',
+              studentNote ? `Student's own note: "${studentNote}"` : '',
+              hasSignals ? '' : 'NOTE: No detailed metrics were captured for this class — keep the report brief and factual (completed lesson, duration), do NOT invent specifics.',
+            ].filter(Boolean).join('\n');
+            const prompt = `Write a short after-class report for the KOREAN PARENT of a child who just finished a 1:1 online English lesson.
+
+FACTS (use ONLY these — never invent skills, topics, or quotes that are not listed):
+${signalLines}
+
+Style: warm, specific, 3-4 short sentences. No scores or grades. End with one gentle suggestion for practice at home. Write from the teacher's voice ("Today we…").
+Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
+            const resp: any = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+              messages: [
+                { role: 'system', content: 'You write concise, honest after-class reports for parents. Reply in strict JSON only.' },
+                { role: 'user', content: prompt },
+              ],
+              max_tokens: 700,
+            });
+            const text = typeof resp === 'string' ? resp : (typeof resp?.response === 'string' ? resp.response : JSON.stringify(resp?.response || ''));
+            const m = String(text || '').match(/\{[\s\S]*\}/);
+            if (m) { const j = JSON.parse(m[0]); ko = String(j.ko || '').trim(); en = String(j.en || '').trim(); }
+          } catch (e: any) { console.warn('[feedback-drafts] AI fail:', e?.message); }
+        }
+        // AI 실패/무신호 폴백 — 사실만 담은 안전 템플릿 (강사가 수정해 살 붙이는 용도)
+        if (!ko || !en) {
+          const stu = l.student_name || '학생';
+          ko = `오늘 ${dateStr} ${l.start_time || ''} ${durMin}분 1:1 영어 수업을 잘 마쳤습니다. ${stu} 학생이 끝까지 성실하게 참여했습니다. 가정에서 오늘 배운 표현을 한 번 더 소리 내어 읽어보면 큰 도움이 됩니다.`;
+          en = `We completed today's ${durMin}-minute 1:1 English lesson (${dateStr} ${l.start_time || ''}). ${l.student_name || 'The student'} participated sincerely until the end. Reading today's expressions aloud once more at home would help a lot.`;
+        }
+        try {
+          await env.DB.prepare(
+            `INSERT OR IGNORE INTO feedback_drafts (room_id, schedule_id, lesson_date, start_time, teacher_id, teacher_name, student_uid, student_name, draft_ko, draft_en, has_signals, status, created_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,'draft',?)`
+          ).bind(l.room_id, l.schedule_id, dateStr, l.start_time || null, String(l.teacher_id ?? ''), teacherName,
+                 l.user_id || null, l.student_name || null, ko, en, hasSignals ? 1 : 0, now).run();
+          generated++;
+        } catch (e: any) { console.warn('[feedback-drafts] insert err:', e?.message); }
+      }
+
+      const rows: any = await env.DB.prepare(
+        `SELECT * FROM feedback_drafts WHERE teacher_name = ? AND lesson_date = ? ORDER BY start_time`
+      ).bind(teacherName, dateStr).all().catch(() => ({ results: [] }));
+      return json({ ok: true, date: dateStr, generated, remaining: Math.max(0, targets.length - batch.length), rows: rows.results || [] });
+    }
+
+    // ── GET /api/admin/feedback-drafts?teacher_name=&days=3 — 최근 초안 목록 ──
+    if (method === 'GET' && path === '/api/admin/feedback-drafts') {
+      await ensureFeedbackDrafts();
+      const teacherName = (url.searchParams.get('teacher_name') || '').trim();
+      if (!teacherName) return json({ ok: false, error: 'teacher_name_required' }, 400);
+      const days = Math.min(31, Math.max(1, parseInt(url.searchParams.get('days') || '3', 10) || 3));
+      const cutoff = new Date(Date.now() + 9 * 3600 * 1000 - (days - 1) * 86400000).toISOString().slice(0, 10);
+      const rs: any = await env.DB.prepare(
+        `SELECT * FROM feedback_drafts WHERE teacher_name = ? AND lesson_date >= ? ORDER BY lesson_date DESC, start_time DESC LIMIT 100`
+      ).bind(teacherName, cutoff).all().catch(() => ({ results: [] }));
+      return json({ ok: true, rows: rs.results || [] });
+    }
+
+    // ── POST /api/admin/feedback-drafts/approve — 승인(그대로/수정) 또는 건너뜀 ──
+    //   body: { id, action:'approve'|'skip', final_ko?, final_en? }
+    //   승인 시 teacher_feedbacks 에 기록(학생 상세화면에서 보임) + 공제 엔진의 당일 피드백으로 인정됨.
+    if (method === 'POST' && path === '/api/admin/feedback-drafts/approve') {
+      await ensureFeedbackDrafts();
+      const body: any = await request.json().catch(() => ({}));
+      const id = parseInt(body.id, 10);
+      const action = body.action === 'skip' ? 'skipped' : 'approved';
+      if (!id) return json({ ok: false, error: 'id_required' }, 400);
+      const row: any = await env.DB.prepare(`SELECT * FROM feedback_drafts WHERE id = ? LIMIT 1`).bind(id).first().catch(() => null);
+      if (!row) return json({ ok: false, error: 'draft_not_found' }, 404);
+      if (row.status !== 'draft') return json({ ok: false, error: 'already_decided', status: row.status }, 409);
+
+      const now = Date.now();
+      const finalKo = String(body.final_ko ?? row.draft_ko ?? '').trim() || row.draft_ko;
+      const finalEn = String(body.final_en ?? row.draft_en ?? '').trim() || row.draft_en;
+      const edited = (finalKo !== row.draft_ko || finalEn !== row.draft_en) ? 1 : 0;
+
+      if (action === 'approved') {
+        try {
+          await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_feedbacks (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, room_id TEXT, attendance_id INTEGER, teacher_name TEXT, class_at INTEGER NOT NULL, rating INTEGER, summary TEXT, content TEXT, action_items TEXT, created_at INTEGER NOT NULL);`);
+          const classAt = Date.parse(`${row.lesson_date}T${row.start_time || '00:00'}:00+09:00`) || now;
+          await env.DB.prepare(
+            `INSERT INTO teacher_feedbacks (user_id, room_id, teacher_name, class_at, summary, content, created_at) VALUES (?,?,?,?,?,?,?)`
+          ).bind(row.student_uid || row.student_name || 'unknown', row.room_id, row.teacher_name, classAt,
+                 String(finalKo).slice(0, 80), finalKo + (finalEn ? '\n\n[EN] ' + finalEn : ''), now).run();
+        } catch (e: any) { console.warn('[feedback-drafts] teacher_feedbacks insert err:', e?.message); }
+      }
+      await env.DB.prepare(
+        `UPDATE feedback_drafts SET status = ?, final_ko = ?, final_en = ?, edited = ?, approved_at = ? WHERE id = ?`
+      ).bind(action, finalKo, finalEn, edited, now, id).run();
+      return json({ ok: true, id, status: action, edited: !!edited, approved_at: now });
     }
 
     // ── POST /api/admin/payroll/deduction-rules — 공제 규칙 저장 ──

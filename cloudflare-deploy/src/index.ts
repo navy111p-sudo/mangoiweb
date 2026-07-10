@@ -645,6 +645,8 @@ export default {
         path.startsWith('/api/admin/payroll/') ||
         // 📅 Phase SR — 수업 연기·변경 요청 (강사 제출 + 관리자 승인/거절)
         path.startsWith('/api/admin/schedule-requests') ||
+        // 📝 Phase FD — AI 학부모 피드백 초안 + 강사 원클릭 승인
+        path.startsWith('/api/admin/feedback-drafts') ||
         path === '/api/admin/payroll/all' ||
         path === '/api/admin/payroll/rates' ||
         path === '/api/admin/payroll/finalize' ||

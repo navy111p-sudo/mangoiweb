@@ -1014,6 +1014,127 @@
       <!-- ⚠️ 오늘 당일 피드백 미작성 경고 — 공제(−₱) 예방용 실데이터 배너 -->
       <div id="tw-fb-warning" style="display:none;background:linear-gradient(135deg,rgba(239,68,68,0.16),rgba(220,38,38,0.06));border:1.5px solid rgba(239,68,68,0.55);border-radius:12px;padding:12px 16px;margin-bottom:14px;color:#fecaca;font-size:13px;line-height:1.7"></div>
 
+      <!-- 📝 Phase FD — 오늘 수업 피드백 AI 초안 + 원클릭 승인 -->
+      <div id="fd-box" style="display:none;background:#1A2548;border-radius:12px;padding:14px 16px;margin-bottom:14px;border:1.5px solid rgba(52,211,153,0.45)">
+        <div style="font-weight:800;font-size:13.5px;color:#34d399;margin-bottom:4px" data-ko="📝 수업 피드백 — AI 초안 승인" data-en="📝 Class feedback — approve AI drafts">📝 수업 피드백 — AI 초안 승인</div>
+        <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;line-height:1.6" data-ko="AI가 실제 수업 기록(참여 시간·발화 비율·학생 평가)만 근거로 학부모용 피드백 초안을 써 뒀어요. 읽고 [✅ 승인]만 하면 학부모 기록으로 저장되고, 당일 피드백으로 인정돼 공제가 사라져요. 필요하면 [✏️ 수정] 후 승인하세요." data-en="AI drafted parent reports from real class data (attendance, talk share, student rating) only. Review and ✅ Approve — it is saved as the parent report and counts as same-day feedback (no deduction). Use ✏️ Edit to adjust first.">AI가 실제 수업 기록(참여 시간·발화 비율·학생 평가)만 근거로 학부모용 피드백 초안을 써 뒀어요. 읽고 [✅ 승인]만 하면 학부모 기록으로 저장되고, 당일 피드백으로 인정돼 공제가 사라져요. 필요하면 [✏️ 수정] 후 승인하세요.</div>
+        <div id="fd-list"><div style="font-size:12px;color:#64748b" data-ko="불러오는 중…" data-en="Loading…">불러오는 중…</div></div>
+      </div>
+      <script>
+      (function(){
+        "use strict";
+        var EN = function(){ return window.getLang && window.getLang() === 'en'; };
+        function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]); }); }
+        var fdRows = [], fdRemaining = 0, fdStarted = false;
+
+        function chip(st){
+          var en = EN();
+          if (st === 'approved') return '<span style="padding:2px 9px;border-radius:99px;font-size:10.5px;font-weight:800;background:rgba(16,185,129,0.18);color:#6ee7b7">' + (en?'✅ Approved':'✅ 승인됨') + '</span>';
+          if (st === 'skipped')  return '<span style="padding:2px 9px;border-radius:99px;font-size:10.5px;font-weight:800;background:rgba(148,163,184,0.18);color:#cbd5e1">' + (en?'⏭ Skipped':'⏭ 건너뜀') + '</span>';
+          return '<span style="padding:2px 9px;border-radius:99px;font-size:10.5px;font-weight:800;background:rgba(251,191,36,0.2);color:#fcd34d">' + (en?'⏳ Needs review':'⏳ 승인 대기') + '</span>';
+        }
+
+        function render(){
+          var box = document.getElementById('fd-box');
+          var list = document.getElementById('fd-list');
+          if (!box || !list) return;
+          var en = EN();
+          if (!fdRows.length && !fdRemaining){ box.style.display = 'none'; return; }
+          box.style.display = '';
+          var pendingFirst = fdRows.slice().sort(function(a,b){
+            var pa = a.status === 'draft' ? 0 : 1, pb = b.status === 'draft' ? 0 : 1;
+            return pa - pb || String(b.lesson_date + b.start_time).localeCompare(a.lesson_date + a.start_time);
+          });
+          var html = pendingFirst.map(function(r){
+            var text = en ? (r.final_en || r.draft_en || '') : (r.final_ko || r.draft_ko || '');
+            var head = '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">'
+              + '<b style="color:#fff;font-size:12.5px">' + esc(r.lesson_date) + ' ' + esc(r.start_time||'') + ' · ' + esc(r.student_name || r.student_uid || '-') + '</b>' + chip(r.status) + '</div>';
+            var body = '<div style="font-size:12.5px;color:#e2e8f0;line-height:1.7;background:rgba(15,23,42,0.5);border-radius:8px;padding:10px 12px">' + esc(text) + '</div>';
+            var btns = '';
+            if (r.status === 'draft'){
+              btns = '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">'
+                + '<button onclick="fdApprove(' + r.id + ')" style="padding:7px 14px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer">' + (en?'✅ Approve as-is':'✅ 그대로 승인') + '</button>'
+                + '<button onclick="fdEdit(' + r.id + ')" style="padding:7px 14px;background:rgba(56,189,248,0.15);color:#7dd3fc;border:1px solid rgba(56,189,248,0.4);border-radius:8px;font-weight:700;font-size:12px;cursor:pointer">' + (en?'✏️ Edit':'✏️ 수정') + '</button>'
+                + '<button onclick="fdSkip(' + r.id + ')" style="padding:7px 12px;background:transparent;color:#64748b;border:1px solid rgba(148,163,184,0.3);border-radius:8px;font-size:12px;cursor:pointer">' + (en?'Skip':'건너뛰기') + '</button>'
+                + '</div>'
+                + '<div id="fd-edit-' + r.id + '" style="display:none;margin-top:8px">'
+                + '<label style="font-size:11px;color:#7dd3fc;font-weight:700">KO</label>'
+                + '<textarea id="fd-ko-' + r.id + '" rows="3" style="width:100%;padding:8px 10px;font-size:12.5px;background:rgba(15,23,42,0.6);color:#fff;border:1px solid rgba(148,163,184,0.35);border-radius:8px;margin-bottom:6px">' + esc(r.draft_ko||'') + '</textarea>'
+                + '<label style="font-size:11px;color:#7dd3fc;font-weight:700">EN</label>'
+                + '<textarea id="fd-en-' + r.id + '" rows="3" style="width:100%;padding:8px 10px;font-size:12.5px;background:rgba(15,23,42,0.6);color:#fff;border:1px solid rgba(148,163,184,0.35);border-radius:8px;margin-bottom:6px">' + esc(r.draft_en||'') + '</textarea>'
+                + '<button onclick="fdApprove(' + r.id + ', true)" style="padding:7px 14px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer">' + (en?'✅ Approve edited':'✅ 수정한 내용으로 승인') + '</button>'
+                + '</div>';
+            } else if (r.edited){
+              btns = '<div style="font-size:11px;color:#64748b;margin-top:4px">' + (en?'(edited by you)':'(직접 수정함)') + '</div>';
+            }
+            return '<div style="padding:10px 12px;background:rgba(15,23,42,0.35);border-radius:10px;margin-bottom:8px;border-left:3px solid ' + (r.status==='draft'?'#fbbf24':'#10b981') + '">' + head + body + btns + '</div>';
+          }).join('');
+          if (fdRemaining > 0){
+            html += '<button onclick="fdGenerate()" style="width:100%;padding:10px;background:rgba(52,211,153,0.14);color:#6ee7b7;border:1px dashed rgba(52,211,153,0.5);border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer">'
+              + (EN() ? ('🤖 Generate ' + fdRemaining + ' more draft(s)') : ('🤖 남은 수업 ' + fdRemaining + '건 초안 더 만들기')) + '</button>';
+          }
+          list.innerHTML = html;
+        }
+
+        window.fdGenerate = function(){
+          var name = window.__myName || '';
+          if (!name) return;
+          var list = document.getElementById('fd-list');
+          if (list && !fdRows.length) list.innerHTML = '<div style="font-size:12px;color:#64748b">' + (EN()?'🤖 AI is drafting…':'🤖 AI가 초안을 쓰는 중…') + '</div>';
+          fetch('/api/admin/feedback-drafts/generate', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ teacher_name: name }) })
+            .then(function(r){ return r.json(); })
+            .then(function(j){
+              if (j && j.ok){ fdRemaining = j.remaining || 0; }
+              // 어제·그제 미승인분까지 함께 표시
+              return fetch('/api/admin/feedback-drafts?teacher_name=' + encodeURIComponent(name) + '&days=3', { credentials:'include' }).then(function(r){ return r.json(); });
+            })
+            .then(function(j){ if (j && j.ok){ fdRows = j.rows || []; } render(); })
+            .catch(function(){ render(); });
+        };
+
+        window.fdEdit = function(id){
+          var e = document.getElementById('fd-edit-' + id);
+          if (e) e.style.display = (e.style.display === 'none') ? '' : 'none';
+        };
+
+        window.fdApprove = function(id, useEdited){
+          var body = { id: id, action: 'approve' };
+          if (useEdited){
+            body.final_ko = (document.getElementById('fd-ko-' + id)||{}).value || '';
+            body.final_en = (document.getElementById('fd-en-' + id)||{}).value || '';
+          }
+          fetch('/api/admin/feedback-drafts/approve', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
+            .then(function(r){ return r.json(); })
+            .then(function(j){
+              if (j && j.ok){
+                var i = fdRows.findIndex(function(x){ return x.id === id; });
+                if (i >= 0){ fdRows[i].status = 'approved'; fdRows[i].edited = j.edited ? 1 : 0; if (body.final_ko) fdRows[i].final_ko = body.final_ko; if (body.final_en) fdRows[i].final_en = body.final_en; }
+                render();
+                // ✅ 승인 → 당일 피드백 인정 → 경고 배너·KPI 새로고침
+                if (typeof window.loadScheduleRequests === 'function') window.loadScheduleRequests();
+              } else alert('⚠️ ' + ((j&&j.error)||'failed'));
+            })
+            .catch(function(){ alert(EN()?'⚠️ Network error.':'⚠️ 네트워크 오류.'); });
+        };
+
+        window.fdSkip = function(id){
+          if (!confirm(EN()?'Skip this feedback? It will still count as missing for deductions.':'이 피드백을 건너뛸까요? 공제 계산에는 미작성으로 남아요.')) return;
+          fetch('/api/admin/feedback-drafts/approve', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id: id, action: 'skip' }) })
+            .then(function(r){ return r.json(); })
+            .then(function(j){
+              if (j && j.ok){ var i = fdRows.findIndex(function(x){ return x.id === id; }); if (i >= 0) fdRows[i].status = 'skipped'; render(); }
+            }).catch(function(){});
+        };
+
+        // 강사 수업 데이터가 준비되면 1회 자동 생성+로드
+        document.addEventListener('teacher-lessons-loaded', function(){
+          if (fdStarted) return; fdStarted = true;
+          window.fdGenerate();
+        });
+        window.addEventListener('mangoi:lang-changed', render);
+      })();
+      </script>
+
       <!-- 📅 수업 연기·변경 요청 (실제 저장 — Phase SR) -->
       <div style="background:#1A2548;border-radius:12px;padding:14px 16px;margin-bottom:14px;border:1.5px solid rgba(251,191,36,0.35)">
         <div style="font-weight:800;font-size:13.5px;color:#fbbf24;margin-bottom:4px" data-ko="📅 수업 연기·변경 요청" data-en="📅 Request postpone / reschedule">📅 수업 연기·변경 요청</div>
