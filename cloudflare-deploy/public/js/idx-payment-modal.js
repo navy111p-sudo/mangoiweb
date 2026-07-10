@@ -318,29 +318,65 @@
     tosspayments_client_key: 'test_ck_DpexMgkW36zL0v8jPzgr3GbR5ozO', // 토스페이먼츠 테스트키
   };
 
-  // 카드 결제 (토스페이먼츠) — 즉시 카드결제창
+  // 카드 결제 (토스페이먼츠) — 서버 주문 생성 → 결제창 (금액은 서버가 결정 = 위변조 방지)
   async function executeCardPayment(amount, payer, orderId, programLabel) {
-    if (!window.TossPayments) {
-      // SDK 로드
-      await new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = 'https://js.tosspayments.com/v1/payment';
-        s.onload = resolve; s.onerror = reject;
-        document.head.appendChild(s);
+    // 1) 서버에 주문 생성 — 서버 가격표로 금액을 확정하고 주문번호를 받는다.
+    let order;
+    try {
+      var _u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+      var student = (document.getElementById('pay-student') || {}).value || '';
+      const res = await fetch('/api/pay/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          program: selectedProgram,
+          payer: payer,
+          student: student,
+          method: 'card',
+          uid: (_u && _u.uid) ? _u.uid : null
+        })
       });
+      order = await res.json().catch(function(){ return null; });
+      if (!order || !order.ok) {
+        alert('주문을 만들 수 없습니다: ' + ((order && order.message) || '상품을 다시 선택해 주세요.'));
+        return;
+      }
+    } catch (e) {
+      alert('주문 생성 중 오류가 발생했습니다: ' + (e.message || e) + '\n잠시 후 다시 시도해 주세요.');
+      return;
     }
+
+    // 2) 토스 SDK 로드
+    if (!window.TossPayments) {
+      try {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://js.tosspayments.com/v1/payment';
+          s.onload = resolve; s.onerror = reject;
+          document.head.appendChild(s);
+        });
+      } catch (e) {
+        alert('결제 모듈을 불러오지 못했습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.');
+        return;
+      }
+    }
+
+    // 3) 결제창 — 서버가 준 orderId/amount 사용. 성공/실패 시 토스가 파라미터를 붙여 리다이렉트.
     try {
       const tp = window.TossPayments(PAY_INFO.tosspayments_client_key);
       await tp.requestPayment('카드', {
-        amount: amount,
-        orderId: orderId,
-        orderName: programLabel || '망고아이 수강료',
+        amount: order.amount,
+        orderId: order.orderId,
+        orderName: order.orderName || programLabel || '망고아이 수강료',
         customerName: payer,
-        successUrl: location.origin + '/payment-success.html?order=' + orderId,
-        failUrl: location.origin + '/payment-fail.html?order=' + orderId,
+        successUrl: location.origin + '/payment-success.html',
+        failUrl: location.origin + '/payment-fail.html',
       });
     } catch (e) {
-      alert('카드 결제창을 열 수 없습니다: ' + (e.message || 'unknown') + '\n잠시 후 다시 시도해 주세요.');
+      // 사용자가 결제창을 닫은 경우 등 — 조용히 무시하거나 안내
+      if (e && e.code !== 'USER_CANCEL') {
+        alert('카드 결제창을 열 수 없습니다: ' + (e.message || 'unknown') + '\n잠시 후 다시 시도해 주세요.');
+      }
     }
   }
 
