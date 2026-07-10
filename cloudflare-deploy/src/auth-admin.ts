@@ -189,6 +189,9 @@ export async function ensureAuthSchema(env: AuthEnv): Promise<void> {
       ['agency_gn001', 'gn001', '강남 대리점'],
       ['agency_sc002', 'sc002', '서초 대리점'],
       ['hq_t_001', 'teacher', '교사'],
+      // 📅 (2026-07-10) 실강사 시연 계정 — 이름이 teacher_profiles.korean_name("Teacher Len")과
+      //   정확히 일치해야 마이페이지 수업목록·수업료정산·내평가가 실데이터로 매칭된다.
+      ['hq_t_len', 'mango1234', 'Teacher Len'],
       ['capitown', 'capi2026!', '캐피타운 본사'],   // 프랜차이즈 본사 정산 전용 계정
     ];
     const nowD = Date.now();

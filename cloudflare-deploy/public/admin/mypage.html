@@ -653,6 +653,16 @@
     background: var(--bg-card-2); color: var(--text-primary); transition: all 0.2s;
   }
   #themeToggleBtn:hover { border-color: var(--amber-1); transform: translateY(-1px); }
+
+  /* ── 🖥️ PC 가독성 확대 ──
+     인라인 style 로 11~13px 고정 글씨가 수백 곳이라 개별 수정 대신
+     데스크톱에서만 페이지 전체를 zoom 으로 일괄 확대한다. (모바일 영향 없음) */
+  @media (min-width: 1024px) {
+    body { zoom: 1.2; }
+  }
+  @media (min-width: 1440px) {
+    body { zoom: 1.32; }
+  }
 </style>
 <script>
   /* ☀️/🌙 테마 초기 결정 — 저장값 우선, 없으면 오후 6시(18:00) 기준 자동
