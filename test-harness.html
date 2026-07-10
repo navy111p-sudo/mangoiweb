@@ -64,7 +64,13 @@ const summaryEl=document.getElementById('summary');
 const sizeLbl=document.getElementById('sizeLbl');
 
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-const raf=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+// 백그라운드/숨김 탭에서는 requestAnimationFrame이 멈추므로(자동화 시 document.hidden)
+// rAF와 타이머 폴백을 경쟁시켜 절대 멈추지 않게 한다.
+const raf=()=>new Promise(r=>{
+  let done=false; const fin=()=>{ if(!done){done=true;r();} };
+  requestAnimationFrame(()=>requestAnimationFrame(fin));
+  setTimeout(fin,60);
+});
 const doc=()=>frame.contentDocument;
 const win=()=>frame.contentWindow;
 
@@ -160,21 +166,28 @@ function row(name,ok,msg){
   resultsEl.appendChild(tr);
 }
 
-async function runAll(){
-  resultsEl.innerHTML=''; pill.className='pill'; pill.textContent='실행 중…';
-  // 깨끗한 상태로 시작
-  await reload();
-  let pass=0;
-  for(const t of TESTS){
-    let ok=false,msg='';
-    try{ const [o,m]=await t.run(); ok=o; msg=m; }
-    catch(e){ ok=false; msg='오류: '+e.message; }
-    row(t.name,ok,msg); if(ok)pass++;
-  }
-  await orient('portrait');
-  const all=pass===TESTS.length;
-  pill.className='pill '+(all?'ok':'no');
-  pill.textContent=pass+' / '+TESTS.length+' 통과';
+// 전체 테스트 1회 실행 — 실행 버튼과 자동화 훅(__runTests)이 공유하는 단일 코어.
+// 동시 호출 시 iframe.onload/src 경쟁으로 교착되므로 재진입을 막는다.
+let running=false;
+async function runCore(){
+  if(running) return null;
+  running=true;
+  try{
+    resultsEl.innerHTML=''; pill.className='pill'; pill.textContent='실행 중…';
+    await reload();                       // 깨끗한 상태로 시작
+    const out=[];
+    for(const t of TESTS){
+      let ok=false,msg='';
+      try{ const [o,m]=await t.run(); ok=o; msg=m; }
+      catch(e){ ok=false; msg='오류: '+e.message; }
+      row(t.name,ok,msg); out.push({name:t.name,ok,msg});
+    }
+    await orient('portrait');
+    const pass=out.filter(x=>x.ok).length;
+    pill.className='pill '+(pass===TESTS.length?'ok':'no');
+    pill.textContent=pass+' / '+TESTS.length+' 통과';
+    return {pass,total:TESTS.length,results:out};
+  } finally { running=false; }
 }
 
 function reload(){
@@ -185,24 +198,10 @@ function reload(){
   });
 }
 
-// 프리뷰/자동화에서 호출 — 결과를 구조화해 반환
-window.__runTests=async function(){
-  resultsEl.innerHTML=''; pill.className='pill'; pill.textContent='실행 중…';
-  await reload();
-  const out=[];
-  for(const t of TESTS){
-    let ok=false,msg='';
-    try{const [o,m]=await t.run();ok=o;msg=m;}catch(e){ok=false;msg='오류: '+e.message;}
-    row(t.name,ok,msg); out.push({name:t.name,ok,msg});
-  }
-  await orient('portrait');
-  const pass=out.filter(x=>x.ok).length;
-  pill.className='pill '+(pass===TESTS.length?'ok':'no');
-  pill.textContent=pass+' / '+TESTS.length+' 통과';
-  return {pass,total:TESTS.length,results:out};
-};
+// 프리뷰/자동화에서 호출 — 결과를 구조화해 반환(runCore와 동일 코어)
+window.__runTests=runCore;
 
-document.getElementById('runBtn').onclick=()=>runAll().catch(e=>{
+document.getElementById('runBtn').onclick=()=>runCore().catch(e=>{
   pill.className='pill no';
   pill.textContent='접근 차단';
   summaryEl.insertAdjacentHTML('beforeend',

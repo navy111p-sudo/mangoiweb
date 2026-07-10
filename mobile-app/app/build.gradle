@@ -10,8 +10,12 @@ android {
         applicationId "kr.co.mangoi.app"
         minSdk 24
         targetSdk 34
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.1"
+    }
+
+    buildFeatures {
+        buildConfig true   // BuildConfig.VERSION_CODE 사용(자동 업데이트 버전 비교)
     }
 
     signingConfigs {

@@ -54,11 +54,27 @@ jobs:
           if [ "${{ steps.build.outcome }}" = "success" ]; then
             cp mobile-app/app/build/outputs/apk/release/app-release.apk dist/mangoi-test-signed.apk
             echo "APK committed to dist/mangoi-test-signed.apk" >> ci-build.log
+
+            # === 앱 자동 업데이트용: APK 를 웹사이트에 배치 + 버전 매니페스트 생성 ===
+            # (build.gradle 의 versionCode/Name 을 단일 출처로 사용)
+            VC=$(grep -oE 'versionCode[[:space:]]+[0-9]+' mobile-app/app/build.gradle | grep -oE '[0-9]+' | head -1)
+            VN=$(grep -oE 'versionName[[:space:]]+"[^"]+"' mobile-app/app/build.gradle | sed -E 's/.*"([^"]+)".*/\1/' | head -1)
+            mkdir -p cloudflare-deploy/public/downloads
+            cp mobile-app/app/build/outputs/apk/release/app-release.apk cloudflare-deploy/public/downloads/mangoi.apk
+            {
+              printf '{\n'
+              printf '  "versionCode": %s,\n' "${VC:-1}"
+              printf '  "versionName": "%s",\n' "${VN:-1.0}"
+              printf '  "url": "https://test.mangoi.co.kr/downloads/mangoi.apk",\n'
+              printf '  "notes": "%s"\n' "최신 버전이 배포되었습니다. 업데이트하면 새 기능과 개선이 적용됩니다."
+              printf '}\n'
+            } > cloudflare-deploy/public/app-version.json
+            echo "app-version.json 생성: versionCode=$VC versionName=$VN" >> ci-build.log
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ci-build.log dist 2>/dev/null || true
-          git commit -m "ci: publish build results [skip ci]" || echo "nothing to commit"
+          git add ci-build.log dist cloudflare-deploy/public/app-version.json cloudflare-deploy/public/downloads 2>/dev/null || true
+          git commit -m "ci: publish build results + APK auto-update manifest [skip ci]" || echo "nothing to commit"
           git push origin HEAD:main
 
       - name: Upload APK artifact

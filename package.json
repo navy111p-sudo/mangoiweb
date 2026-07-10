@@ -11,17 +11,26 @@
     "turn:deploy": "cd modules/turn-relay && npx wrangler deploy"
   },
   "dependencies": {
-    "express": "^5.2.1",
-    "socket.io": "^4.8.3",
-    "multer": "^1.4.5-lts.1",
-    "uuid": "^9.0.0",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7",
+    "express": "^5.2.1",
+    "multer": "^1.4.5-lts.1",
+    "socket.io": "^4.8.3",
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
+    "@react-native-community/cli": "^20.2.0",
     "nodemon": "^3.1.9"
   },
-  "keywords": ["webrtc", "video-call", "signaling", "turn-relay", "whiteboard", "chat", "pdf-sharing"],
+  "keywords": [
+    "webrtc",
+    "video-call",
+    "signaling",
+    "turn-relay",
+    "whiteboard",
+    "chat",
+    "pdf-sharing"
+  ],
   "author": "navy111p-sudo",
   "license": "MIT"
 }

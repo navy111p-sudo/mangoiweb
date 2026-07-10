@@ -2,11 +2,18 @@ package kr.co.mangoi.app;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.DownloadManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.Settings;
 import android.view.KeyEvent;
 import android.view.View;
 import android.webkit.GeolocationPermissions;
@@ -24,16 +31,28 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
+
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 public class MainActivity extends AppCompatActivity {
 
     // 테스트 대상 망고아이 웹앱 URL
     private static final String START_URL = "https://test.mangoi.co.kr/";
+    // 앱 자동 업데이트 버전 매니페스트 (웹과 같은 도메인 — 사이트 배포 시 함께 갱신)
+    private static final String VERSION_URL = "https://test.mangoi.co.kr/app-version.json";
 
     private static final int REQ_PERMISSIONS = 1001;
 
     private WebView webView;
     private PermissionRequest pendingWebPermissionRequest;
+    private BroadcastReceiver downloadReceiver;
 
     private ValueCallback<Uri[]> filePathCallback;
     private final ActivityResultLauncher<Intent> fileChooserLauncher =
@@ -137,6 +156,129 @@ public class MainActivity extends AppCompatActivity {
         } else {
             webView.restoreState(savedInstanceState);
         }
+
+        // 앱(APK) 자체 자동 업데이트 확인 — 더 높은 버전이 있으면 안내 후 설치
+        checkForUpdate();
+    }
+
+    // ====================== 앱 자동 업데이트 ======================
+
+    /** 서버의 app-version.json 을 읽어 현재 설치 버전보다 높으면 업데이트 안내 */
+    private void checkForUpdate() {
+        new Thread(() -> {
+            try {
+                URL u = new URL(VERSION_URL + "?t=" + System.currentTimeMillis());
+                HttpURLConnection c = (HttpURLConnection) u.openConnection();
+                c.setConnectTimeout(6000);
+                c.setReadTimeout(6000);
+                c.setRequestProperty("Cache-Control", "no-cache");
+                if (c.getResponseCode() != 200) return;
+                StringBuilder sb = new StringBuilder();
+                BufferedReader br = new BufferedReader(new InputStreamReader(c.getInputStream(), "UTF-8"));
+                String line;
+                while ((line = br.readLine()) != null) sb.append(line);
+                br.close();
+                c.disconnect();
+
+                JSONObject j = new JSONObject(sb.toString());
+                int remoteCode = j.optInt("versionCode", 0);
+                final String url = j.optString("url", "");
+                final String notes = j.optString("notes", "");
+                final String vname = j.optString("versionName", "");
+                int current = BuildConfig.VERSION_CODE;
+
+                if (remoteCode > current && url != null && !url.isEmpty()) {
+                    runOnUiThread(() -> promptUpdate(url, notes, vname));
+                }
+            } catch (Exception ignored) {
+                // 네트워크 실패 등은 조용히 무시 (수업 진행에 영향 없음)
+            }
+        }).start();
+    }
+
+    private void promptUpdate(final String url, String notes, String vname) {
+        if (isFinishing()) return;
+        String msg = (notes == null || notes.isEmpty()) ? "새 버전이 있습니다." : notes;
+        new AlertDialog.Builder(this)
+                .setTitle("업데이트" + (vname == null || vname.isEmpty() ? "" : " " + vname))
+                .setMessage(msg + "\n\n지금 업데이트할까요?")
+                .setPositiveButton("업데이트", (d, w) -> startDownload(url))
+                .setNegativeButton("나중에", null)
+                .setCancelable(true)
+                .show();
+    }
+
+    private void startDownload(final String url) {
+        // Android 8.0+ : '알 수 없는 앱 설치' 권한 확인 → 없으면 설정으로 유도
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                && !getPackageManager().canRequestPackageInstalls()) {
+            try {
+                startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:" + getPackageName())));
+            } catch (Exception ignored) {}
+            // 권한 허용 후 다시 시도하도록 안내만 하고 종료
+            try {
+                new AlertDialog.Builder(this)
+                        .setMessage("이 앱의 '설치 허용'을 켠 뒤 다시 '업데이트'를 눌러주세요.")
+                        .setPositiveButton("확인", null).show();
+            } catch (Exception ignored) {}
+            return;
+        }
+        try {
+            final String fileName = "mangoi-update.apk";
+            // 이전 받은 파일 정리
+            File old = new File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName);
+            if (old.exists()) old.delete();
+
+            DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+            DownloadManager.Request req = new DownloadManager.Request(Uri.parse(url));
+            req.setTitle("망고아이 업데이트");
+            req.setDescription("새 버전을 내려받는 중…");
+            req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            req.setDestinationInExternalFilesDir(this, Environment.DIRECTORY_DOWNLOADS, fileName);
+            req.setMimeType("application/vnd.android.package-archive");
+            final long id = dm.enqueue(req);
+
+            // 이전 다운로드가 완료되지 않은 채 다시 눌린 경우 — 리시버 중복 등록 방지
+            unregisterDownloadReceiver();
+
+            downloadReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context ctx, Intent it) {
+                    long got = it.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
+                    if (got != id) return;
+                    unregisterDownloadReceiver();
+                    File apk = new File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName);
+                    installApk(apk);
+                }
+            };
+            IntentFilter filter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+            if (Build.VERSION.SDK_INT >= 33) {
+                registerReceiver(downloadReceiver, filter, Context.RECEIVER_EXPORTED);
+            } else {
+                registerReceiver(downloadReceiver, filter);
+            }
+        } catch (Exception e) {
+            // 폴백: 브라우저로 APK 링크 열기
+            try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) {}
+        }
+    }
+
+    private void unregisterDownloadReceiver() {
+        if (downloadReceiver == null) return;
+        try { unregisterReceiver(downloadReceiver); } catch (Exception ignored) {}
+        downloadReceiver = null;
+    }
+
+    private void installApk(File apk) {
+        if (apk == null || !apk.exists()) return;
+        try {
+            Uri apkUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", apk);
+            Intent i = new Intent(Intent.ACTION_VIEW);
+            i.setDataAndType(apkUri, "application/vnd.android.package-archive");
+            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(i);
+        } catch (Exception ignored) {}
     }
 
     private void requestRuntimePermissions() {
@@ -192,6 +334,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        unregisterDownloadReceiver();
         if (webView != null) {
             webView.destroy();
             webView = null;
