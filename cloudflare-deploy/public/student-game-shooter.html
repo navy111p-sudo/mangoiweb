@@ -98,6 +98,7 @@
   /* ===== 🪖 실사 사수(상반신) + 회전 총 — 화면 아래에서 상체만 내밀고 총을 조작 ===== */
   #turret{position:absolute;left:50%;bottom:0;transform:translateX(-50%);z-index:10;width:160px;height:150px;pointer-events:none}
   .turret-soldier{position:absolute;left:50%;bottom:0;transform:translateX(-50%);height:100%;z-index:9;
+    transform-origin:50% 88%;transition:transform .18s ease-out;   /* 조준 시 몸통이 허리를 축으로 부드럽게 비틀림 */
     filter:drop-shadow(0 6px 12px rgba(0,0,0,.5));animation:soldierBob 3.4s ease-in-out infinite alternate}
   @keyframes soldierBob{from{transform:translateX(-50%) translateY(0)}to{transform:translateX(-50%) translateY(3px)}}
   .turret-soldier.flinch{animation:soldierFlinch .22s}   /* 발사 반동 — 사수가 살짝 움찔 */
@@ -886,15 +887,24 @@
   function pivot(){ var f=field.getBoundingClientRect(), b=barrelRot.getBoundingClientRect();
     return { x:b.left+b.width/2-f.left, y:b.bottom-f.top }; }
   var _aimBack=null;
+  var soldierEl=document.querySelector('.turret-soldier');
   function aimAt(tx,ty){
     var p=pivot(), deg=Math.atan2(tx-p.x, -(ty-p.y))*180/Math.PI;
-    // 총은 항상 세워 잡은 모습 유지 — 조준은 살짝 기우는 제스처만(최대 ±15°), 명중 판정·총알 궤적은 표적 좌표로 별도 처리
-    deg=Math.max(-15,Math.min(15,deg*0.25));
+    // 총이 표적을 실제로 따라간다 — 좌우 합쳐 180°(±90°)까지 꺾임.
+    // 총은 사수 몸 뒤(z 8 < 몸 9)에 그려지므로 옆으로 꺾여도 항상 '팔 밑'으로 나가고 절대 팔·머리 위를 덮지 않는다.
+    deg=Math.max(-90,Math.min(90,deg));
     barrelRot.style.transform='translateX(-50%) rotate('+deg+'deg)';
-    // 쏜 뒤 잠시 후 기본 견착 자세(6deg)로 복귀 — 총이 옆으로 누운 채 멈춰있지 않게
+    // 🪖 실제 사수처럼: 몸은 살짝만 비틀고(최대 ±16°) 총 쏘는 쪽으로 체중을 옮기는 느낌(좌우 이동 몇 px)
+    //    총은 몸 뒤(z 8 < 몸 9)라 크게 꺾여도 항상 팔 밑으로 나간다.
+    if(soldierEl){ var bodyDeg=Math.max(-16,Math.min(16,deg*0.22)), lean=(deg*0.10).toFixed(1);
+      soldierEl.style.animation='none';
+      soldierEl.style.transform='translateX(calc(-50% + '+lean+'px)) rotate('+bodyDeg+'deg)'; }
+    // 쏜 뒤 잠시 후 기본 견착 자세로 복귀 — 총이 옆으로 누운 채 멈춰있지 않게 (몸도 함께 복귀)
     clearTimeout(_aimBack);
     _aimBack=setTimeout(function(){ barrelRot.style.transition='transform .35s ease-out'; barrelRot.style.transform='translateX(-50%) rotate(4deg)';
-      setTimeout(function(){ barrelRot.style.transition=''; },380); },650);
+      if(soldierEl){ soldierEl.style.transition='transform .35s ease-out'; soldierEl.style.transform='translateX(-50%)'; }
+      setTimeout(function(){ barrelRot.style.transition='';
+        if(soldierEl){ soldierEl.style.transition=''; soldierEl.style.transform=''; soldierEl.style.animation=''; } },380); },650);
   }
   // 🔥 화염방사기: 총구(sx,sy)→표적(ex,ey) 로 불줄기가 쭉 이어져 나가게 다수 파티클을 시차 분사
   function flameStream(sx,sy,ex,ey){
@@ -1169,6 +1179,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711032122 -->
+<!-- BUILD:20260711033113 -->
 </body>
 </html>

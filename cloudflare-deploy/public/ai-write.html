@@ -28,91 +28,91 @@
       backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
     .top a { color: var(--text); text-decoration: none; font-weight: 700; font-size: 15px; }
     .top h1 { margin: 0; font-size: 19px; font-weight: 800; flex: 1; }
-    .wrap { max-width: 980px; margin: 0 auto; padding: 24px 20px 60px; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 22px 70px; }
     /* 🥭 히어로 — 크게, 캐릭터와 함께 */
-    .hero { display: flex; align-items: center; gap: 18px;
+    .hero { display: flex; align-items: center; gap: 22px;
       background: linear-gradient(135deg, rgba(251,191,36,0.16), rgba(245,158,11,0.06));
       border: 1px solid rgba(251,191,36,0.35);
-      border-radius: 18px; padding: 20px 24px; margin-bottom: 20px;
+      border-radius: 20px; padding: 26px 30px; margin-bottom: 24px;
       box-shadow: 0 8px 28px -10px rgba(0,0,0,0.45); }
-    .hero img { width: 84px; height: 84px; object-fit: contain; flex-shrink: 0;
+    .hero img { width: 116px; height: 116px; object-fit: contain; flex-shrink: 0;
       filter: drop-shadow(0 6px 12px rgba(0,0,0,0.35)); }
-    .hero-title { font-size: 24px; font-weight: 900; color: var(--gold); margin: 0 0 6px 0; line-height: 1.3; }
-    .hero-sub { font-size: 15.5px; color: #fde68a; line-height: 1.6; margin: 0; }
-    .level-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
-    .level-btn { padding: 12px 20px; background: var(--card); border: 1.5px solid var(--border);
-      color: var(--text); border-radius: 12px; cursor: pointer; font-weight: 800;
-      font-size: 15px; transition: transform .12s; }
+    .hero-title { font-size: 30px; font-weight: 900; color: var(--gold); margin: 0 0 8px 0; line-height: 1.3; }
+    .hero-sub { font-size: 17px; color: #fde68a; line-height: 1.65; margin: 0; }
+    .level-row { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+    .level-btn { padding: 14px 24px; background: var(--card); border: 1.5px solid var(--border);
+      color: var(--text); border-radius: 13px; cursor: pointer; font-weight: 800;
+      font-size: 17px; transition: transform .12s; }
     .level-btn:hover { transform: translateY(-2px); }
     .level-btn.active { background: linear-gradient(135deg, var(--gold), #f59e0b); color: #1a1a1a; border-color: var(--gold);
       box-shadow: 0 4px 14px -4px rgba(251,191,36,0.6); }
     /* 🎲 글감 추천 칩 */
-    .topic-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
-    .topic-chip { padding: 9px 16px; background: rgba(59,130,246,0.14); border: 1px solid rgba(59,130,246,0.4);
-      color: #bfdbfe; border-radius: 99px; cursor: pointer; font-size: 14px; font-weight: 700;
+    .topic-row { display: flex; gap: 9px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+    .topic-chip { padding: 11px 19px; background: rgba(59,130,246,0.14); border: 1px solid rgba(59,130,246,0.4);
+      color: #bfdbfe; border-radius: 99px; cursor: pointer; font-size: 15.5px; font-weight: 700;
       transition: transform .12s; }
     .topic-chip:hover { transform: translateY(-2px); background: rgba(59,130,246,0.25); }
-    textarea { width: 100%; padding: 18px 20px; background: var(--card); color: var(--text);
-      border: 1.5px solid var(--border); border-radius: 16px; font-size: 17px;
-      font-family: inherit; min-height: 220px; line-height: 1.7; resize: vertical; }
-    textarea::placeholder { font-size: 16px; color: #64748b; }
+    textarea { width: 100%; padding: 20px 22px; background: var(--card); color: var(--text);
+      border: 1.5px solid var(--border); border-radius: 18px; font-size: 19px;
+      font-family: inherit; min-height: 280px; line-height: 1.75; resize: vertical; }
+    textarea::placeholder { font-size: 17.5px; color: #64748b; }
     textarea:focus { outline: 0; border-color: var(--gold); box-shadow: 0 0 0 4px rgba(251,191,36,0.18); }
-    .char-count { text-align: right; font-size: 13px; color: var(--text2); margin-top: 6px; }
-    .submit-btn { display: block; width: 100%; padding: 20px; margin: 14px 0;
+    .char-count { text-align: right; font-size: 14px; color: var(--text2); margin-top: 7px; }
+    .submit-btn { display: block; width: 100%; padding: 24px; margin: 16px 0;
       background: linear-gradient(135deg, #10b981, #059669); color: #fff;
-      border: 0; border-radius: 16px; font-size: 19px; font-weight: 900; cursor: pointer;
+      border: 0; border-radius: 18px; font-size: 22px; font-weight: 900; cursor: pointer;
       box-shadow: 0 6px 20px -4px rgba(16,185,129,0.5); transition: transform .12s; }
     .submit-btn:hover:not(:disabled) { transform: translateY(-2px); }
     .submit-btn:disabled { background: #475569; cursor: not-allowed; box-shadow: none; }
     .result { background: var(--card); border: 1px solid var(--border);
-      border-radius: 16px; padding: 22px; margin-bottom: 16px; }
-    .result-head { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
-    .score-circle { width: 84px; height: 84px; border-radius: 50%;
+      border-radius: 18px; padding: 26px; margin-bottom: 18px; }
+    .result-head { display: flex; align-items: center; gap: 18px; margin-bottom: 18px; }
+    .score-circle { width: 98px; height: 98px; border-radius: 50%;
       background: conic-gradient(var(--green) var(--p), #1e293b 0);
       display: flex; align-items: center; justify-content: center;
-      font-size: 24px; font-weight: 900; color: #fff;
+      font-size: 29px; font-weight: 900; color: #fff;
       position: relative; flex-shrink: 0; }
-    .score-circle::before { content: ''; position: absolute; inset: 7px;
+    .score-circle::before { content: ''; position: absolute; inset: 8px;
       background: var(--card); border-radius: 50%; }
     .score-circle > span { position: relative; z-index: 1; }
     .corrected { background: rgba(16,185,129,0.10); border-left: 4px solid var(--green);
-      padding: 14px 16px; border-radius: 10px; margin-bottom: 14px;
-      font-size: 16.5px; line-height: 1.7; color: #d1fae5; }
-    .issues { margin-bottom: 14px; }
+      padding: 16px 18px; border-radius: 11px; margin-bottom: 15px;
+      font-size: 18px; line-height: 1.75; color: #d1fae5; }
+    .issues { margin-bottom: 15px; }
     .issue { background: rgba(239,68,68,0.08); border-left: 4px solid var(--red);
-      padding: 12px 14px; border-radius: 8px; margin-bottom: 8px; font-size: 15px; }
+      padding: 13px 15px; border-radius: 9px; margin-bottom: 9px; font-size: 16.5px; }
     .issue-orig { color: #fca5a5; text-decoration: line-through; }
     .issue-sug { color: #86efac; font-weight: 700; }
-    .issue-reason { color: var(--text2); font-size: 13.5px; margin-top: 5px; }
+    .issue-reason { color: var(--text2); font-size: 14.5px; margin-top: 5px; }
     .tip { background: rgba(59,130,246,0.10); border-left: 4px solid var(--blue);
-      padding: 14px 16px; border-radius: 10px; font-size: 15px; color: #dbeafe; }
-    .history { margin-top: 32px; }
-    .history h3 { font-size: 17px; color: var(--gold); margin: 0 0 12px 0; }
+      padding: 15px 17px; border-radius: 11px; font-size: 16.5px; color: #dbeafe; }
+    .history { margin-top: 36px; }
+    .history h3 { font-size: 19px; color: var(--gold); margin: 0 0 13px 0; }
     .hist-item { background: var(--card); border: 1px solid var(--border);
-      border-radius: 12px; padding: 12px 16px; margin-bottom: 8px;
+      border-radius: 13px; padding: 13px 17px; margin-bottom: 9px;
       display: flex; justify-content: space-between; align-items: center;
-      font-size: 14px; cursor: pointer; }
+      font-size: 15px; cursor: pointer; }
     .hist-item:hover { background: rgba(251,191,36,0.08); }
     .hist-score { font-weight: 800; color: var(--gold); }
     /* 🔥 히어로 통계 칩 (스트릭·총편수·평균점) */
-    .hero-stats { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-    .hstat { padding: 6px 13px; border-radius: 99px; font-size: 13.5px; font-weight: 800;
+    .hero-stats { display: flex; gap: 9px; margin-top: 12px; flex-wrap: wrap; }
+    .hstat { padding: 8px 15px; border-radius: 99px; font-size: 15px; font-weight: 800;
       background: rgba(15,23,42,0.5); border: 1px solid rgba(251,191,36,0.3); color: var(--gold); }
     .hstat.fire { background: rgba(239,68,68,0.16); border-color: rgba(251,146,60,0.5); color: #fdba74; }
     /* 📚 미션 단어 카드 */
     .mission { background: rgba(139,92,246,0.12); border: 1px solid rgba(167,139,250,0.4);
-      border-radius: 14px; padding: 14px 18px; margin-bottom: 14px; }
-    .mission-head { font-size: 15px; font-weight: 800; color: #c4b5fd; margin-bottom: 8px; }
-    .mission-words { display: flex; gap: 8px; flex-wrap: wrap; }
-    .mword { padding: 8px 16px; border-radius: 99px; font-size: 15px; font-weight: 800;
+      border-radius: 16px; padding: 17px 21px; margin-bottom: 16px; }
+    .mission-head { font-size: 17px; font-weight: 800; color: #c4b5fd; margin-bottom: 10px; }
+    .mission-words { display: flex; gap: 9px; flex-wrap: wrap; }
+    .mword { padding: 10px 20px; border-radius: 99px; font-size: 17px; font-weight: 800;
       background: rgba(139,92,246,0.2); border: 1.5px solid rgba(167,139,250,0.5); color: #ddd6fe; }
     .mword.used { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #1a1a1a; border-color: var(--gold); }
     /* 💬 망고 답장 말풍선 */
-    .reply-bubble { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px;
+    .reply-bubble { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 15px;
       background: rgba(251,191,36,0.10); border: 1px solid rgba(251,191,36,0.35);
-      border-radius: 14px; padding: 14px 16px; }
-    .reply-bubble img { width: 46px; height: 46px; object-fit: contain; flex-shrink: 0; }
-    .reply-text { font-size: 16px; line-height: 1.65; color: #fde68a; font-weight: 600; }
+      border-radius: 16px; padding: 16px 18px; }
+    .reply-bubble img { width: 56px; height: 56px; object-fit: contain; flex-shrink: 0; }
+    .reply-text { font-size: 17.5px; line-height: 1.7; color: #fde68a; font-weight: 600; }
     /* 🎁 포인트/배지 토스트 */
     .toast-wrap { position: fixed; top: 70px; right: 16px; z-index: 99500; display: flex;
       flex-direction: column; gap: 8px; pointer-events: none; }
@@ -128,31 +128,34 @@
       animation: confFall linear forwards; }
     @keyframes confFall { to { transform: translateY(110vh) rotate(720deg); opacity: 0.6; } }
     /* 📈 성장 그래프 카드 */
-    .stats-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-      padding: 18px 20px; margin-top: 28px; }
-    .stats-card h3 { font-size: 17px; color: var(--gold); margin: 0 0 6px 0; }
-    .stats-msg { font-size: 14.5px; color: #a7f3d0; font-weight: 700; margin-bottom: 10px; }
+    .stats-card { background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+      padding: 21px 23px; margin-top: 30px; }
+    .stats-card h3 { font-size: 19px; color: var(--gold); margin: 0 0 7px 0; }
+    .stats-msg { font-size: 16px; color: #a7f3d0; font-weight: 700; margin-bottom: 11px; }
     .stats-card svg { width: 100%; height: auto; display: block; }
     /* 🏆 주간 영작왕 */
-    .lb-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-      padding: 18px 20px; margin-top: 20px; }
-    .lb-card h3 { font-size: 17px; color: var(--gold); margin: 0 0 10px 0; }
-    .lb-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px;
-      font-size: 14.5px; margin-bottom: 4px; background: rgba(15,23,42,0.4); }
+    .lb-card { background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+      padding: 21px 23px; margin-top: 22px; }
+    .lb-card h3 { font-size: 19px; color: var(--gold); margin: 0 0 11px 0; }
+    .lb-row { display: flex; align-items: center; gap: 11px; padding: 11px 14px; border-radius: 11px;
+      font-size: 16px; margin-bottom: 5px; background: rgba(15,23,42,0.4); }
     .lb-row.top1 { background: rgba(251,191,36,0.14); border: 1px solid rgba(251,191,36,0.35); }
-    .lb-rank { width: 34px; text-align: center; font-weight: 900; font-size: 16px; flex-shrink: 0; }
+    .lb-rank { width: 38px; text-align: center; font-weight: 900; font-size: 18px; flex-shrink: 0; }
     .lb-name { flex: 1; font-weight: 700; }
     .lb-count { color: var(--gold); font-weight: 800; }
-    .lb-me { margin-top: 10px; padding: 10px 14px; border-radius: 10px; font-size: 14px; font-weight: 800;
+    .lb-me { margin-top: 11px; padding: 12px 16px; border-radius: 11px; font-size: 15.5px; font-weight: 800;
       background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.4); color: #a7f3d0; }
     @media (max-width: 640px) {
-      .hero { padding: 16px; gap: 12px; }
-      .hero img { width: 64px; height: 64px; }
-      .hero-title { font-size: 19px; }
-      .hero-sub { font-size: 13.5px; }
-      .level-btn { padding: 10px 14px; font-size: 13.5px; }
-      textarea { font-size: 16px; min-height: 180px; }
-      .submit-btn { font-size: 17px; padding: 17px; }
+      .hero { padding: 17px; gap: 13px; }
+      .hero img { width: 76px; height: 76px; }
+      .hero-title { font-size: 22px; }
+      .hero-sub { font-size: 14.5px; }
+      .hstat { font-size: 13.5px; padding: 6px 12px; }
+      .level-btn { padding: 11px 15px; font-size: 14.5px; }
+      .mword { font-size: 15px; padding: 8px 16px; }
+      .mission-head { font-size: 15px; }
+      textarea { font-size: 17px; min-height: 210px; }
+      .submit-btn { font-size: 18.5px; padding: 19px; }
       .toast-wrap { right: 8px; left: 8px; align-items: stretch; }
     }
   </style>
@@ -770,7 +773,7 @@
     loadStats();
     loadLeaderboard();
   </script>
-<!-- BUILD:20260711032122 -->
+<!-- BUILD:20260711033113 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>
