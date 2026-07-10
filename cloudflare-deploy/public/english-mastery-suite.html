@@ -205,10 +205,14 @@
   .droplet{position:absolute;width:5px;height:5px;border-radius:50%;background:rgba(205,242,255,.95);z-index:9;pointer-events:none;box-shadow:0 0 5px rgba(190,235,255,.8)}
   .ripple{position:absolute;z-index:8;border:2px solid rgba(200,240,255,.7);border-radius:50%;pointer-events:none;animation:rippleE .6s ease-out forwards}
   @keyframes rippleE{0%{opacity:.85;width:6px;height:6px;margin:-3px 0 0 -3px}100%{opacity:0;width:64px;height:64px;margin:-32px 0 0 -32px}}
-  /* 물고기가 단어를 '말하는' 말풍선 */
-  .saybubble{position:absolute;z-index:14;background:#fff;color:#06223a;font-weight:800;font-size:15px;padding:4px 13px;border-radius:999px;
-    border:2px solid #fbbf24;box-shadow:0 4px 14px rgba(0,0,0,.4);pointer-events:none;white-space:nowrap;animation:sayPop 1s ease-out forwards}
+  /* 물고기가 단어를 '말하는' 말풍선 — 한국어 뜻 줄이 추가되어 조금 길게 떠 있음 */
+  .saybubble{position:absolute;z-index:14;background:#fff;color:#06223a;font-weight:800;font-size:15px;padding:4px 13px;border-radius:14px;
+    border:2px solid #fbbf24;box-shadow:0 4px 14px rgba(0,0,0,.4);pointer-events:none;white-space:nowrap;text-align:center;animation:sayPop 1.8s ease-out forwards}
   .saybubble::after{content:'';position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#fbbf24}
+  .saybubble .komean{display:block;font-size:12.5px;font-weight:800;color:#0e7a46;margin-top:1px}
+  /* 🐟 물속 단어 탭 → 한국어 뜻만 보여주는 말풍선 */
+  .saybubble.komean-only{background:#dcfce7;border-color:#22c55e;color:#065f2e}
+  .saybubble.komean-only::after{border-top-color:#22c55e}
   @keyframes sayPop{0%{opacity:0;transform:translate(-50%,6px) scale(.6)}22%{opacity:1;transform:translate(-50%,0) scale(1.05)}38%{transform:translate(-50%,0) scale(1)}82%{opacity:1}100%{opacity:0;transform:translate(-50%,-34px) scale(1)}}
   .bubble{position:absolute;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.6),rgba(180,235,255,.08));
     border:1px solid rgba(255,255,255,.2);pointer-events:none;z-index:2;animation:rise linear infinite}
@@ -389,6 +393,13 @@
   .listen-again{background:rgba(34,197,94,.16);border:1.5px solid rgba(34,197,94,.55);color:#86efac;
     font-size:17px;font-weight:800;padding:10px 24px;border-radius:999px;cursor:pointer;font-family:inherit;margin:2px 0 8px}
   .listen-again:active{transform:scale(.95)}
+  /* 🐢 발음 속도 조절 — 다시 듣기 옆 3단계(느리게/보통/빠르게), 게임 속도와 무관 */
+  .listen-row{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin:2px 0 8px}
+  .listen-row .listen-again{margin:0}
+  .listen-spd{display:inline-flex;gap:3px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:3px}
+  .listen-spd button{background:none;border:none;border-radius:999px;padding:6px 11px;font-size:13.5px;font-weight:800;color:var(--sub);cursor:pointer;font-family:inherit;line-height:1.2;white-space:nowrap}
+  .listen-spd button.on{background:rgba(34,197,94,.28);color:#86efac}
+  .listen-spd button:active{transform:scale(.92)}
   /* 🎤 말하기 미션 카드 확대 — 카드·글자가 작아 잘 안 보이는 문제 개선 */
   #speakOverlay .card{width:min(96%,600px);padding:28px 26px}
   #speakOverlay .card h2{font-size:27px;margin-bottom:10px}
@@ -548,7 +559,10 @@
     <div class="card">
       <h2>🎤 말하기 미션 <span class="em">3회</span></h2>
       <div class="say" id="speakText">—<span class="ko" id="speakKo"></span><span class="kohint">👆 문장을 누르면 한국어 뜻이 보여요</span></div>
-      <button class="listen-again" id="listenAgain" title="원어민 발음 다시 듣기">🔊 다시 듣기</button>
+      <div class="listen-row">
+        <button class="listen-again" id="listenAgain" title="원어민 발음 다시 듣기">🔊 다시 듣기</button>
+        <div class="listen-spd" id="listenSpd" title="발음 속도 조절"></div>
+      </div>
       <div class="stars" id="stars"><span class="s">★</span><span class="s">★</span><span class="s">★</span></div>
       <div class="mission-status" id="missionStatus">아래 버튼을 누르고 또렷하게 문장을 말하세요.</div>
       <button class="mic-btn" id="micBtn">🎤 누르고 말하기</button>
@@ -768,9 +782,10 @@
     $('#shootVoice').textContent = label; $('#fishVoice').textContent = label;
   }
   if(synth){ pickVoice(); synth.onvoiceschanged = pickVoice; }
-  function speak(text, rate, cb){
+  function speak(text, rate, cb, fixed){
     if(!SOUND_ON){ if(cb) cb(); return; }   // 🔊 off → TTS 음소거(흐름은 유지)
-    var pr = Math.max(0.5, Math.min(3.2, (rate||0.96) * (typeof spdMult==='function'?spdMult():1)));   // ⚡ 상단 7단계 속도 → 발음 속도
+    // fixed=true → 게임 속도(7단계) 배수를 안 곱함(말하기 미션 듣기 등 절대 속도 재생)
+    var pr = Math.max(0.5, Math.min(3.2, (rate||0.96) * (fixed?1:(typeof spdMult==='function'?spdMult():1))));   // ⚡ 상단 7단계 속도 → 발음 속도
     // 🔊 원어민 발음: 클라우드 TTS(Deepgram Aura-1, game-tts.js) 우선 → 실패 시 브라우저 보이스 폴백
     if(window.MangoiTTS){ MangoiTTS.speak(text, pr, cb); return; }
     if(!synth){ if(cb) cb(); return; }
@@ -785,6 +800,15 @@
     }catch(e){ if(cb) cb(); }
   }
   function speakSentence(cb){ speak(targetSentence.replace(/[.?!]/g,''), 0.95, cb); }   // 문장은 또렷하되 자연스럽게
+
+  // 🐢 말하기 미션 발음 속도 — 게임 속도와 무관하게 카드에서 직접 선택(느리게/보통/빠르게), 게임 간 공유
+  var LISTEN_SPEEDS = [
+    { ico:'🐢', lab:'느리게', mult:0.65 },
+    { ico:'🙂', lab:'보통',   mult:1    },
+    { ico:'🏃', lab:'빠르게', mult:1.3  }
+  ];
+  var listenIdx = (function(){ try{ var v=parseInt(localStorage.getItem('mangoi_listen_speed'),10); return (v>=0&&v<LISTEN_SPEEDS.length)?v:1; }catch(e){ return 1; } })();
+  function speakMission(cb){ speak(targetSentence.replace(/[.?!]/g,''), 0.95*LISTEN_SPEEDS[listenIdx].mult, cb, true); }
 
   // 효과음 (WebAudio 합성) — 발사음 / 명중·폭발음 / 오답 버저
   var actx=null, _master=null;
@@ -1003,8 +1027,8 @@
     micBtn.innerHTML = '🔊 듣는 중…';
     missionStatus.innerHTML = '먼저 원어민 발음을 잘 들어보세요 🎧';
     openOverlay('#speakOverlay');
-    // ▼ Audio Prerequisite: 말하기 활성화 전에 목표 오디오 1회 재생
-    speakSentence(function(){
+    // ▼ Audio Prerequisite: 말하기 활성화 전에 목표 오디오 1회 재생 (미션 발음 속도 적용)
+    speakMission(function(){
       audioPlayed = true;
       micBtn.disabled = false;
       micBtn.innerHTML = '🎤 누르고 말하기';
@@ -1102,8 +1126,26 @@
   // 🔊 다시 듣기 — 원어민 발음을 몇 번이든 다시 들을 수 있게 (듣는 중이던 마이크는 끄고 재생)
   $('#listenAgain').addEventListener('click', function(){
     if(recogActive){ try{ recog.stop(); }catch(e){} }
-    speakSentence();
+    speakMission();
   });
+
+  // 🐢 발음 속도 버튼(느리게/보통/빠르게) — 누르면 저장 + 바뀐 속도로 즉시 다시 들려줌
+  (function(){
+    var box=$('#listenSpd'); if(!box) return;
+    function paint(){ $$('button', box).forEach(function(b,i){ b.classList.toggle('on', i===listenIdx); }); }
+    LISTEN_SPEEDS.forEach(function(s,i){
+      var b=document.createElement('button'); b.type='button';
+      b.textContent=s.ico+' '+s.lab; b.title='발음 속도 '+s.lab+' (x'+s.mult+')';
+      b.addEventListener('click', function(){
+        listenIdx=i; try{ localStorage.setItem('mangoi_listen_speed', String(i)); }catch(e){}
+        paint();
+        if(recogActive){ try{ recog.stop(); }catch(e){} }
+        speakMission();
+      });
+      box.appendChild(b);
+    });
+    paint();
+  })();
 
   // 👆 문장 탭 → 한국어 뜻 토글. 뜻을 모르는 문장은 서버 번역(/api/translate) 폴백 후 캐시
   speakTextEl.addEventListener('click', function(){
@@ -1166,12 +1208,25 @@
     requestAnimationFrame(function(){ d.classList.add('on'); });
     setTimeout(function(){ if(!d.parentNode) return; d.classList.remove('on'); setTimeout(function(){ if(d.parentNode) d.remove(); }, 250); }, 2400);
   }
+  // 단어 → 한국어 뜻 (사전 우선, 없으면 서버 번역 폴백 후 캐시) — 문장 스트립·물고기 말풍선 공용
+  function getWordKo(word, cb){
+    var key = word.replace(/[.?!,;:]/g,'');
+    var ko = WORD_KO[word] || WORD_KO[key];
+    if(ko){ cb(ko); return; }
+    fetch('/api/translate', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ texts:[key], target:'ko' }) })
+      .then(function(r){ return r.json(); })
+      .then(function(d){ var t = d && d.map && d.map[key];
+        if(t && t !== key){ WORD_KO[key]=t; cb(t); } })
+      .catch(function(){});
+  }
   $$('[data-sentence]').forEach(function(strip){
     strip.addEventListener('click', function(ev){
       var chip = ev.target && ev.target.closest ? ev.target.closest('.chip') : null;
       if(!chip) return;
       var w = (chip.textContent||'').trim(); if(!w) return;
       var key = w.replace(/[.?!,;:]/g,'');
+      try{ speak(key); }catch(e){}   // 🔊 맨 위 문장 단어 탭 → 원어민 발음도 함께 재생
       var ko = WORD_KO[w] || WORD_KO[key];
       if(ko){ wordPop(chip, w, WORD_PY[w]||WORD_PY[key]||'', ko); return; }
       wordPop(chip, w, '', '…');
@@ -1504,11 +1559,21 @@
     var rp=document.createElement('div'); rp.className='ripple'; rp.style.left=x+'px'; rp.style.top=y+'px'; FI.field.appendChild(rp);
     setTimeout(function(){ if(rp.parentNode) rp.remove(); }, 620);
   }
-  // 물고기가 영어 단어를 '말하는' 말풍선 (TTS와 함께)
+  // 물고기가 영어 단어를 '말하는' 말풍선 (TTS와 함께) — 한국어 뜻이 있으면 아랫줄에 함께 표시
   function sayWord(x,y,word){
     var d=document.createElement('div'); d.className='saybubble'; d.textContent='🔊 '+word.replace(/[.?!]/g,'');
     d.style.left=x+'px'; d.style.top=y+'px'; FI.field.appendChild(d);
-    setTimeout(function(){ if(d.parentNode) d.remove(); }, 1000);
+    getWordKo(word, function(ko){ if(!d.parentNode) return;
+      var k=document.createElement('span'); k.className='komean'; k.textContent=ko; d.appendChild(k); });
+    setTimeout(function(){ if(d.parentNode) d.remove(); }, 1800);
+  }
+  // 🐟 물속 물고기 탭 → 한국어 뜻만 말풍선 (순서가 틀린 물고기·방해 물고기도 뜻은 배우게)
+  function sayKo(x,y,word){
+    getWordKo(word, function(ko){
+      var d=document.createElement('div'); d.className='saybubble komean-only'; d.textContent=ko;
+      d.style.left=x+'px'; d.style.top=y+'px'; FI.field.appendChild(d);
+      setTimeout(function(){ if(d.parentNode) d.remove(); }, 1800);
+    });
   }
   // 물 위로 끌어올릴 때 물보라 + 물방울 + 물결 + 첨벙 소리
   function splashAt(x,y){
@@ -1562,6 +1627,7 @@
       // Fail State: 순서 틀림 → 물고기가 도망쳐 시작 위치로 리셋
       FI.score=Math.max(0,FI.score-50); fishScoreVal.textContent=FI.score; FI.combo=0; buzz();
       floatScore(FI.field,'-50',cx,cy,false); shakeScene('fish');
+      sayKo(cx, cy-34, f.word);   // 👆 틀린 물고기도 탭하면 그 단어의 한국어 뜻은 보여줌
       f.el.classList.remove('escape'); void f.el.offsetWidth; f.el.classList.add('escape');
       setTimeout(function(){
         if(!f.el.isConnected) return;
@@ -1893,6 +1959,6 @@
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711062509 -->
+<!-- BUILD:20260711064204 -->
 </body>
 </html>
