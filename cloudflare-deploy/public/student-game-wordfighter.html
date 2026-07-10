@@ -160,8 +160,10 @@
   .warn{font-size:12px;color:#fca5a5;margin-top:8px}
   .speedrow{display:flex;gap:7px;justify-content:center;align-items:center;margin:2px 0 12px;flex-wrap:wrap}
   .sr-lab{font-size:13px;color:var(--sub);font-weight:800}
-  .spd{background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--tx);font-size:14px;font-weight:800;padding:8px 14px;border-radius:999px;cursor:pointer;font-family:inherit;transition:.15s}
-  .spd.sel{background:var(--accent);color:#2a0606;border-color:var(--accent);box-shadow:0 0 12px rgba(251,191,36,.5)}
+  .spd,.lng{background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--tx);font-size:14px;font-weight:800;padding:8px 14px;border-radius:999px;cursor:pointer;font-family:inherit;transition:.15s}
+  .spd.sel,.lng.sel{background:var(--accent);color:#2a0606;border-color:var(--accent);box-shadow:0 0 12px rgba(251,191,36,.5)}
+  /* 🀄 중국어 병음 */
+  .pinyin{color:#7dd3fc;font-weight:700;letter-spacing:.3px}
   .stars{font-size:30px;letter-spacing:4px;margin:6px 0}
   .voicebadge{position:absolute;left:8px;top:8px;z-index:22;font-size:10px;color:var(--sub);background:rgba(4,6,12,.65);border:1px solid var(--line);border-radius:8px;padding:3px 7px;pointer-events:none;max-width:55%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .confetti{position:absolute;width:9px;height:14px;z-index:55;pointer-events:none;border-radius:2px}
@@ -191,6 +193,7 @@
     <div class="stat"><span class="lab">점수</span><span class="val" id="scoreVal">0</span></div>
     <div class="stat"><span class="lab">생명</span><span class="lives" id="livesBox"></span></div>
     <span class="lvlpill" id="lvlPill">웨이브 1</span>
+    <button class="hudbtn" id="langBtn" title="게임 언어(영어/중국어) 전환">🇺🇸 영어</button>
     <button class="hudbtn" id="spdBtn" title="좀비 속도 조절">⚔️ 보통</button>
     <button class="hudbtn" id="bgmBtn" title="전투 음악 켜기/끄기">🥁 ON</button>
     <div class="stat timer" id="timerBox"><span class="lab">남은 시간</span><span class="val" id="timerVal">45</span></div>
@@ -254,6 +257,7 @@
         • 한 문장 완성 → <b>복습1 조합 · 복습2 말하기 · 복습3 반복</b>으로 마스터 🔁<br>
         • <b>속도 선택</b> 가능 — 🔥 광속은 점수 <b>1.3배</b>, 🐢 느긋은 0.8배 ⚖
       </div>
+      <div class="speedrow"><span class="sr-lab">🌐 언어</span><button class="lng" data-l="en">🇺🇸 영어</button><button class="lng" data-l="zh">🇨🇳 중국어</button></div>
       <div class="speedrow"><span class="sr-lab">⚙ 속도</span><button class="spd" data-k="relax">🐢 느긋</button><button class="spd sel" data-k="normal">⚔️ 보통</button><button class="spd" data-k="turbo">🔥 광속</button></div>
       <button class="btn red" id="startBtn">전투 시작 ▶</button>
       <div class="warn" id="voiceWarn"></div>
@@ -312,11 +316,36 @@
     chocolate:"초콜릿", cake:"케이크", visit:"방문하다", zoo:"동물원", saturday:"토요일",
     little:"작은", bird:"새", sang:"노래했다", sweet:"달콤한"
   };
+  // 🌐 게임 언어(허브 전달 ?glang= 또는 localStorage) — 중국어면 문장/발음/인식을 중국어로
+  var GLANG = (function(){ try{ var g=(new URLSearchParams(location.search).get('glang')||'').toLowerCase(); if(g==='zh'||g==='en') return g; var l=localStorage.getItem('mangoi_game_lang'); return (l==='zh')?'zh':'en'; }catch(e){ return 'en'; } })();
+  if(GLANG==='zh'){
+    SENTENCES = [
+      "我 爱 你","你 好 吗","我 是 学生","今天 天气 很 好","我 喜欢 吃 苹果",
+      "他 每天 去 学校","这 是 我的 朋友","我 想 喝 水","我们 一起 学习 汉语",
+      "昨天 我 和 家人 去了 海边","她 将来 想 当 医生","我 有 两 只 小狗"
+    ];
+    SENT_KO = {
+      "我 爱 你":"사랑해요","你 好 吗":"잘 지내요?","我 是 学生":"나는 학생이에요",
+      "今天 天气 很 好":"오늘 날씨가 좋아요","我 喜欢 吃 苹果":"나는 사과 먹는 걸 좋아해요",
+      "他 每天 去 学校":"그는 매일 학교에 가요","这 是 我的 朋友":"이 사람은 내 친구예요",
+      "我 想 喝 水":"물을 마시고 싶어요","我们 一起 学习 汉语":"우리 함께 중국어를 공부해요",
+      "昨天 我 和 家人 去了 海边":"어제 가족과 바닷가에 갔어요","她 将来 想 当 医生":"그녀는 커서 의사가 되고 싶어해요",
+      "我 有 两 只 小狗":"나는 강아지 두 마리가 있어요"
+    };
+    WORD_KO = {
+      "我":"나","爱":"사랑하다","你":"너","好":"좋다","吗":"~입니까?","是":"~이다","学生":"학생",
+      "今天":"오늘","天气":"날씨","很":"아주","喜欢":"좋아하다","吃":"먹다","苹果":"사과",
+      "他":"그","每天":"매일","去":"가다","学校":"학교","这":"이것","我的":"나의","朋友":"친구",
+      "想":"~하고 싶다","喝":"마시다","水":"물","我们":"우리","一起":"함께","学习":"공부하다","汉语":"중국어",
+      "昨天":"어제","和":"~와","家人":"가족","去了":"갔다","海边":"바닷가","她":"그녀","将来":"장래에",
+      "当":"~이 되다","医生":"의사","有":"있다","两":"둘","只":"마리(단위)","小狗":"강아지"
+    };
+  }
   try{ var _qp=new URLSearchParams(location.search), _inj=(_qp.get('sentence')||'').trim();
     if(_inj){ SENTENCES=[_inj].concat(SENTENCES.filter(function(s){return s!==_inj;})); } }catch(e){}
-  // 📚 로그인 학생의 교재/레벨 맞춤 문장으로 교체 (미로그인·서버 실패 → 기본 문장 폴백)
+  // 📚 로그인 학생의 교재/레벨 맞춤 문장으로 교체 (미로그인·서버 실패 → 기본 문장 폴백 · 중국어 모드는 유지)
   try{
-    if(window.MangoiGameVocab){
+    if(window.MangoiGameVocab && GLANG!=='zh'){
       MangoiGameVocab.load().then(function(d){
         if(d && d.sentences && d.sentences.length>=3){
           var head=(typeof _inj==='string' && _inj)?[_inj]:[];
@@ -328,7 +357,9 @@
       });
     }
   }catch(e){}
-  var DISTRACTORS=["cat","run","blue","apple","green","quickly","does","happy","jump","red","water","table","want","under","they","big","milk","slow","seven","cloud"];
+  var DISTRACTORS=(GLANG==='zh')
+    ? ["猫","跑","蓝","苹果","绿","快","做","高兴","跳","红","水","桌子","想","下面","他们","大","牛奶","慢","七","云"]
+    : ["cat","run","blue","apple","green","quickly","does","happy","jump","red","water","table","want","under","they","big","milk","slow","seven","cloud"];
   var COMBO_WINDOW=2500;
   // 🧟 좀비 도감 — 종류별 속도·크기·좌우 흔들림(지그재그 %)이 다르다
   var ZTYPES=[
@@ -373,7 +404,10 @@
   // ===== 원어민 음성 (클라우드 TTS 우선 → 기기 자연 음성 폴백) =====
   var synth=('speechSynthesis' in window)?window.speechSynthesis:null, enVoice=null;
   function pickVoice(){ if(!synth) return; var vs=synth.getVoices(); if(!vs.length) return;
-    var en=vs.filter(function(v){ return /^en[-_]?/i.test(v.lang||'')||/English/i.test(v.name||''); }); if(!en.length){ enVoice=null; return; }
+    var en=(GLANG==='zh')
+      ? vs.filter(function(v){ return /^zh/i.test(v.lang||'')||/Chinese|Mandarin|中文|普通话/i.test(v.name||''); })
+      : vs.filter(function(v){ return /^en[-_]?/i.test(v.lang||'')||/English/i.test(v.name||''); });
+    if(!en.length){ enVoice=null; return; }
     function sc(v){ var n=(v.name||''),l=(v.lang||''),s=0;
       if(/en[-_]US/i.test(l)) s+=3; else if(/^en/i.test(l)) s+=1;
       if(/Google/i.test(n)) s+=7; if(/Natural|Online/i.test(n)) s+=7;
@@ -381,11 +415,11 @@
       if(/Samantha|Karen|Daniel|Moira|Allison|Tom|Serena/i.test(n)) s+=3;
       if(v.localService===false) s+=2; if(/Desktop|eSpeak|Zira|David|Mark|compact|robot/i.test(n)) s-=5; return s; }
     en.sort(function(a,b){ return sc(b)-sc(a); }); enVoice=en[0];
-    voiceBadge.textContent=enVoice?('🔊 '+enVoice.name):'🔊 영어 음성 없음'; }
+    voiceBadge.textContent=enVoice?('🔊 '+enVoice.name):('🔊 '+(GLANG==='zh'?'중국어':'영어')+' 음성 없음'); }
   if(synth){ pickVoice(); synth.onvoiceschanged=pickVoice; }
-  function synthSpeak(text,rate){ if(!synth) return; try{ synth.cancel(); var u=new SpeechSynthesisUtterance(text); u.lang='en-US'; u.rate=rate||0.9; u.pitch=1.05; if(enVoice) u.voice=enVoice; synth.speak(u); }catch(e){} }
+  function synthSpeak(text,rate){ if(!synth) return; try{ synth.cancel(); var u=new SpeechSynthesisUtterance(text); u.lang=(enVoice&&enVoice.lang)||(GLANG==='zh'?'zh-CN':'en-US'); u.rate=rate||0.9; u.pitch=1.05; if(enVoice) u.voice=enVoice; synth.speak(u); }catch(e){} }
   var TTS_URL='/api/voice/tts', ttsCache={}, ttsAudio=null;
-  function ttsFetch(text){ return fetch(TTS_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text,lang:'en'})})
+  function ttsFetch(text){ return fetch(TTS_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text,lang:GLANG})})
     .then(function(r){ var ct=r.headers.get('content-type')||''; if(!r.ok||ct.indexOf('audio')<0) throw new Error('tts'); return r.blob(); })
     .then(function(b){ var u=URL.createObjectURL(b); ttsCache[text]=u; return u; }); }
   function prefetchTTS(text){ text=(text||'').trim(); if(!text||ttsCache[text]) return; ttsFetch(text).catch(function(){}); }
@@ -544,12 +578,17 @@
   document.getElementById('r2listen').addEventListener('click', speakSentence);
   document.getElementById('r2speak').addEventListener('click', function(){
     if(!SR){ r2heard.innerHTML='🎤 큰 소리로 따라 말했나요? <b>좋아요!</b>'; score+=40; updateHUD(); r2next.style.display='inline-block'; return; }
-    try{ var rec=new SR(); rec.lang='en-US'; rec.interimResults=false; r2heard.textContent='🎙️ 듣는 중…';
-      rec.onresult=function(e){ var said=(e.results[0][0].transcript||'').trim(); var goal=targetWords.join(' ').replace(/[.?!,]/g,'').toLowerCase(), norm=said.replace(/[.?!,]/g,'').toLowerCase(); var ok=norm===goal||sim(norm,goal)>=0.7; r2heard.innerHTML='들린 말: <b>'+said+'</b> '+(ok?'✅':'🔁 다시!'); if(ok){ score+=60; updateHUD(); sndWin(); r2next.style.display='inline-block'; } };
+    try{ var rec=new SR(); rec.lang=(GLANG==='zh'?'zh-CN':'en-US'); rec.interimResults=false; r2heard.textContent='🎙️ 듣는 중…';   // 🌐 중국어 모드는 중국어 인식
+      rec.onresult=function(e){ var said=(e.results[0][0].transcript||'').trim(); var goal=targetWords.join(' ').replace(/[.?!,。？！，]/g,'').toLowerCase(), norm=said.replace(/[.?!,。？！，]/g,'').toLowerCase();
+        var ok = (GLANG==='zh')
+          ? (norm.replace(/\s+/g,'')===goal.replace(/\s+/g,'') || simCh(norm,goal)>=0.7)   // 한자: 붙여쓰기 비교 + 글자 겹침
+          : (norm===goal || sim(norm,goal)>=0.7);
+        r2heard.innerHTML='들린 말: <b>'+said+'</b> '+(ok?'✅':'🔁 다시!'); if(ok){ score+=60; updateHUD(); sndWin(); r2next.style.display='inline-block'; } };
       rec.onerror=function(){ r2heard.innerHTML='🎤 큰 소리로 말했다면 <b>통과!</b>'; r2next.style.display='inline-block'; }; rec.start();
     }catch(e){ r2next.style.display='inline-block'; } });
   r2next.addEventListener('click', startReview3);
   function sim(a,b){ var wa=a.split(/\s+/),wb=b.split(/\s+/),set={},hit=0; wb.forEach(function(w){ set[w]=(set[w]||0)+1; }); wa.forEach(function(w){ if(set[w]>0){ hit++; set[w]--; } }); return wb.length?hit/wb.length:0; }
+  function simCh(a,b){ a=a.replace(/\s+/g,''); b=b.replace(/\s+/g,''); if(!a||!b) return 0; var set={},hit=0; b.split('').forEach(function(c){ set[c]=(set[c]||0)+1; }); a.split('').forEach(function(c){ if(set[c]>0){ hit++; set[c]--; } }); return b.length?hit/b.length:0; }   // 한자 글자 단위 겹침율
 
   // ===== 복습 3 =====
   var r3line=document.getElementById('r3line'), repCount=0, r3start=0; var rdEls=[document.getElementById('rd1'),document.getElementById('rd2'),document.getElementById('rd3')];
@@ -614,6 +653,6 @@
 })();
 </script>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711004907 -->
+<!-- BUILD:20260711005636 -->
 </body>
 </html>

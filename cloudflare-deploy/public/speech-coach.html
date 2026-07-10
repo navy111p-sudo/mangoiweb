@@ -442,7 +442,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260711004907 -->
+<!-- BUILD:20260711005636 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>
@@ -474,27 +474,16 @@ if (typeof window.speechSynthesis !== 'undefined') {
   };
   updateMute();
   (function placeBtn(){
-    var home = document.querySelector('.home-btn, #global-home-fab, #global-home, .home');
-    if (!home) { btn.style.position='fixed'; btn.style.top=(window.innerWidth<=380?'52px':'14px'); btn.style.right=(window.innerWidth<=380?'10px':'70px'); btn.style.zIndex='100000'; document.body.appendChild(btn); return; } /* ≤380px: 고정 홈/EN 바 아래로 내려 겹침 방지 */
-    var cs = getComputedStyle(home);
-    if (cs.position === 'fixed') {
-      var r = home.getBoundingClientRect();
-      btn.style.position = 'fixed';
-      if (window.innerWidth <= 380) { /* 초좁은 화면: 홈 왼쪽으로 붙이면 공용 홈/EN 바와 겹침 → 그 아래 줄로 */
-        btn.style.top = '52px'; btn.style.right = '10px';
-      } else {
-        btn.style.top = Math.max(8, r.top + (r.height - 34) / 2) + 'px';
-        btn.style.right = (window.innerWidth - r.left + 8) + 'px';
-      }
-      btn.style.zIndex = String((parseInt(cs.zIndex, 10) || 999) + 1);
-      btn.style.marginRight = '0';
-      document.body.appendChild(btn);
-    } else {
-      home.parentNode.insertBefore(btn, home);
-    }
+    /* 우상단은 mango-i18n 공용 홈/EN 바 자리 → 🔊는 모든 화면에서 그 아랫줄 고정 (겹침 방지) */
+    btn.style.position='fixed'; btn.style.top='52px'; btn.style.right='10px'; btn.style.zIndex='100000'; btn.style.marginRight='0';
+    document.body.appendChild(btn);
   })();
 })();
 </script>
+<style id="mb-tidy2-2026-07-11">
+/* 자체 홈 버튼은 공용 홈/EN 바(mango-i18n 주입)와 같은 자리에 포개지므로 숨김 — 홈 기능은 공용 바가 제공 */
+.home-btn{display:none}
+</style>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 <script defer src="/js/flow.js"></script>
