@@ -5548,15 +5548,74 @@
         ov.style.display='flex';
       };
       </script>
-      <!-- 결제하기 + 수업입장 한 줄 (같은 골드 스타일) -->
+      <script>
+      /* 🤖 AI와 친구하기 — AI 자기주도학습 모음 오버레이 (첫 화면 CTA)
+         결제하기를 첫 화면에서 빼고 그 자리에 넣음. 결제는 사이드바/마이페이지에 있음. */
+      window.openAiFriendsOverlay = function(){
+        var ID='ai-friends-ov';
+        var ov=document.getElementById(ID);
+        if(ov){ ov.style.display='flex'; return; }
+        var ITEMS=[
+          {ic:'🗣️', ko:'AI 웜업',           en:'AI Warm-up',        dko:'수업 전 입 풀기 준비운동',   den:'Pre-class speaking warm-up',  url:'/warmup.html'},
+          {ic:'🎤', ko:'AI 음성코치',         en:'AI Voice Coach',    dko:'단계별 발음 교정 연습',       den:'Step-by-step pronunciation',  url:'/speech-coach.html'},
+          {ic:'🤖', ko:'AI 친구 (망고아이)',  en:'AI Friend (Mangoi)',dko:'망고아이와 영어로 수다',      den:'Chat in English with Mangoi', url:'/ai-friend.html'},
+          {ic:'✍️', ko:'AI 영작',            en:'AI Writing',        dko:'영어 글쓰기 자동 첨삭',       den:'Auto English-writing feedback', url:'/ai-write.html'},
+          {ic:'⚡', ko:'미니퀴즈',           en:'Mini Quiz',         dko:'짧게 푸는 복습 퀴즈',        den:'Quick review quiz',           url:'/micro-quiz.html'}
+        ];
+        if(!document.getElementById('ai-friends-style')){
+          var st=document.createElement('style'); st.id='ai-friends-style';
+          st.textContent=
+            '#ai-friends-ov{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(4,9,20,.96);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}'
+           +'.aif-card{position:relative;width:100%;max-width:640px;max-height:88vh;overflow-y:auto;background:linear-gradient(160deg,#131c33,#0c1326);border:1px solid rgba(251,191,36,.3);border-radius:24px;box-shadow:0 30px 80px -20px rgba(0,0,0,.7);padding:30px 24px 26px;animation:aifIn .28s cubic-bezier(.34,1.56,.64,1)}'
+           +'@keyframes aifIn{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}'
+           +'.aif-close{position:absolute;top:14px;right:14px;width:34px;height:34px;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#e8d9a8;font-size:16px;cursor:pointer}'
+           +'.aif-close:hover{background:rgba(255,255,255,.2)}'
+           +'.aif-head{text-align:center;margin-bottom:20px}'
+           +'.aif-logo{font-size:42px;line-height:1;margin-bottom:6px}'
+           +'.aif-title{margin:0;font-size:24px;font-weight:900;color:#fdf6e3;letter-spacing:-.5px}'
+           +'.aif-sub{margin:8px 0 0;font-size:13px;font-weight:700;color:#fbbf24}'
+           +'.aif-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}'
+           +'.aif-item{display:flex;align-items:center;gap:13px;background:rgba(255,255,255,.05);border:1px solid rgba(251,191,36,.22);border-radius:16px;padding:15px 16px;cursor:pointer;text-align:left;width:100%;font-family:inherit;transition:transform .15s,box-shadow .15s,background .15s}'
+           +'.aif-item:hover{transform:translateY(-2px);background:rgba(251,191,36,.12);box-shadow:0 10px 22px -8px rgba(245,158,11,.5)}'
+           +'.aif-ic{font-size:24px;flex-shrink:0;width:46px;height:46px;display:flex;align-items:center;justify-content:center;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.25);border-radius:14px}'
+           +'.aif-tx{flex:1;min-width:0}'
+           +'.aif-tx b{display:block;font-size:15px;font-weight:800;color:#fdf6e3;line-height:1.3}'
+           +'.aif-tx>span{display:block;font-size:11.5px;color:#c9b892;margin-top:3px;line-height:1.4}'
+           +'@media(max-width:560px){.aif-grid{grid-template-columns:1fr}.aif-card{padding:24px 16px 20px}.aif-title{font-size:21px}}';
+          document.head.appendChild(st);
+        }
+        ov=document.createElement('div'); ov.id=ID;
+        var cards=ITEMS.map(function(it){
+          return '<button class="aif-item" onclick="location.href=\''+it.url+'\'">'
+            +'<span class="aif-ic">'+it.ic+'</span>'
+            +'<span class="aif-tx"><b data-ko="'+it.ko+'" data-en="'+it.en+'">'+it.ko+'</b>'
+            +'<span data-ko="'+it.dko+'" data-en="'+it.den+'">'+it.dko+'</span></span>'
+            +'</button>';
+        }).join('');
+        ov.innerHTML=
+          '<div class="aif-card">'
+         +'<button class="aif-close" aria-label="닫기" data-ko-aria="닫기" data-en-aria="Close">✕</button>'
+         +'<div class="aif-head"><div class="aif-logo">🤖</div>'
+         +'<h2 class="aif-title" data-ko="AI와 친구하기" data-en="Play with AI">AI와 친구하기</h2>'
+         +'<p class="aif-sub" data-ko="AI로 스스로 공부해요 · 자기주도 학습" data-en="Self-directed learning with AI">AI로 스스로 공부해요 · 자기주도 학습</p></div>'
+         +'<div class="aif-grid">'+cards+'</div>'
+         +'</div>';
+        ov.addEventListener('click', function(e){ if(e.target===ov) ov.style.display='none'; });
+        ov.querySelector('.aif-close').addEventListener('click', function(){ ov.style.display='none'; });
+        document.body.appendChild(ov);
+        try{ if(window.applyLang) window.applyLang(); else if(window.mangoApplyI18n) window.mangoApplyI18n(); }catch(e){}
+        ov.style.display='flex';
+      };
+      </script>
+      <!-- 수업입장 + AI와 친구하기 한 줄 (같은 골드 스타일) — 결제하기는 사이드바/마이페이지로 이동 -->
       <div class="ai-cta-row">
-        <button class="cta-pay" data-go="payment" onclick="if(window.gridActions&&window.gridActions.payment)window.gridActions.payment();">
-          <span style="font-size:22px">💳</span>
-          <span data-ko="결제하기" data-en="Payment">결제하기</span>
-        </button>
         <button class="cta-enter" onclick="showView('view-videocall-lobby')">
           <svg class="btn-enter-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><circle cx="12" cy="9" r="2.5" fill="#1a1a1a"/><path d="M7 14c.5-2 2.5-3 5-3s4.5 1 5 3"/></svg>
           <span data-ko="수업 입장" data-en="Enter Class">수업 입장</span>
+        </button>
+        <button class="cta-pay" onclick="if(window.openAiFriendsOverlay)window.openAiFriendsOverlay();">
+          <span style="font-size:22px">🤖</span>
+          <span data-ko="AI와 친구하기" data-en="Play with AI">AI와 친구하기</span>
         </button>
       </div>
       <!-- 안내문구 (수업입장 정보) -->
@@ -24229,7 +24288,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260710155835 -->
+<!-- BUILD:20260710162003 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
