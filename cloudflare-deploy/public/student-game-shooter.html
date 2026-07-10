@@ -95,16 +95,14 @@
   @keyframes comboPop{0%{opacity:0;transform:translate(-50%,-50%) scale(.4) rotate(-8deg)}
     35%{opacity:1;transform:translate(-50%,-50%) scale(1.2) rotate(4deg)}
     70%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-85%)}}
-  /* ===== 정교한 회전 포탑 — 총을 크게 그려 무기별 실루엣이 한눈에 보이게 ===== */
-  #turret{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);z-index:10;width:120px;height:104px;pointer-events:none}
-  .turret-base{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:96px;height:38px;
-    background:linear-gradient(180deg,#3b475e,#141c2a);border:1px solid #5b6b86;border-radius:48px 48px 9px 9px;
-    box-shadow:inset 0 2px 4px rgba(255,255,255,.12),0 7px 16px rgba(0,0,0,.5)}
-  .turret-hub{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);width:30px;height:30px;border-radius:50%;
-    background:radial-gradient(circle at 38% 32%,#b6c4d6,#475569 65%,#1c2535);border:1px solid #6b7d96;z-index:12;
-    box-shadow:0 1px 3px rgba(0,0,0,.5)}
-  .barrel-rot{position:absolute;left:50%;bottom:34px;transform-origin:50% 100%;transform:translateX(-50%) rotate(0deg);
+  /* ===== 🪖 실사 사수 + 회전 총 — 받침대 대신 진짜 사람(디지털 위장복 사수)이 총을 조작 ===== */
+  #turret{position:absolute;left:50%;bottom:0;transform:translateX(-50%);z-index:10;width:170px;height:185px;pointer-events:none}
+  .turret-soldier{position:absolute;left:50%;bottom:0;transform:translateX(-50%);height:100%;z-index:9;
+    filter:drop-shadow(0 6px 12px rgba(0,0,0,.5));animation:soldierBob 3.4s ease-in-out infinite alternate}
+  @keyframes soldierBob{from{transform:translateX(-50%) translateY(0)}to{transform:translateX(-50%) translateY(3px)}}
+  .barrel-rot{position:absolute;left:50%;bottom:54%;transform-origin:50% 100%;transform:translateX(-50%) rotate(0deg);
     transition:transform .1s ease-out;z-index:11}
+  @media (min-width:820px){ #turret{width:214px;height:232px} }   /* PC 는 사수도 더 크게 */
   /* 총 실루엣은 JS(GUN_SVG)의 SVG 를 barrel 배경으로 그림 — 무기마다 실제 총 모양 (크기는 setGun 에서 GUN_DIM×배율) */
   .barrel{position:relative;width:28px;height:52px;
     background:50% 50%/100% 100% no-repeat;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55))}
@@ -265,9 +263,8 @@
     <div class="voicebadge" id="voiceBadge">🔊 음성 준비 중…</div>
     <div class="crosshair" id="crosshair"></div>
     <div id="turret">
-      <div class="turret-base"></div>
+      <img class="turret-soldier" src="/img/shooter-soldier.png" alt="사수">
       <div class="barrel-rot" id="barrelRot"><div class="barrel" id="barrel"><div class="muzzle" id="muzzle"></div></div></div>
-      <div class="turret-hub"></div>
     </div>
   </div>
 
@@ -1154,6 +1151,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711002434 -->
+<!-- BUILD:20260711003151 -->
 </body>
 </html>
