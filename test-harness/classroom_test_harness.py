@@ -9,6 +9,13 @@
 실행 : python classroom_test_harness.py
 """
 
+import sys
+# Windows 콘솔(cp949)에서 이모지 출력 크래시 방지
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+except Exception:
+    pass
+
 from dataclasses import dataclass, field
 from typing import List, Dict, Any
 

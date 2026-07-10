@@ -8419,8 +8419,8 @@ Respond in JSON ONLY:
       for (const b of bytes) s += String.fromCharCode(b);
       return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     };
-    const b64uToBytes = (s: string): Uint8Array =>
-      Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+    const b64uToBytes = (s: string): Uint8Array<ArrayBuffer> =>
+      Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)) as Uint8Array<ArrayBuffer>;
     const signUidToken = async (uid: string, ttlMs = 30 * 86400 * 1000): Promise<string> => {
       const enc = new TextEncoder();
       const payload = b64uFromBytes(enc.encode(JSON.stringify({ uid, exp: Date.now() + ttlMs })));

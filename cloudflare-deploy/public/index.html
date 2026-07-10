@@ -5833,7 +5833,7 @@
       }
     </style>
 
-    <!-- 🪟 카테고리 카드 모달 (클릭 시 표시 + 배경 blur) -->
+    <!-- 🖥️ 카테고리 카드 모달 (클릭 시 표시 + 배경 blur) -->
     <div id="gm-cat-modal" class="gm-cat-modal" onclick="if(event.target===this){var m=document.getElementById('gm-cat-modal');if(m)m.classList.remove('show');document.body.style.overflow='';}">
       <div class="gm-cat-modal-box">
         <div class="gm-cat-modal-head">
@@ -6161,7 +6161,7 @@
     const hint = document.getElementById('gm-empty-hint');
     if (hint) hint.style.display = 'none';
 
-    // 🪟 모달 오픈 (배경 흐리게 + 카드들을 모달 안에 표시)
+    // 🖥️ 모달 오픈 (배경 흐리게 + 카드들을 모달 안에 표시)
     openCatModal(cat, btn);
   };
 
@@ -7342,7 +7342,7 @@
         <span data-ko="학습도구" data-en="Learn">학습도구</span>
       </button>
       <button onclick="vcFolderOpen('screen')" title="화면 분할">
-        <span class="icon">🪟</span>
+        <span class="icon">🖥️</span>
         <span data-ko="화면" data-en="View">화면</span>
       </button>
       <button class="danger" onclick="vcLeaveRoom && vcLeaveRoom()" title="종료">
@@ -9613,7 +9613,7 @@ async function vcJoinRoom(skipUI) {
       // 채팅·음성 폴더 삭제 — 동일 기능이 상단 헤더에 있어 중복
 
       screen: {
-        title: '🪟 화면 분할',
+        title: '🖥️ 화면 분할',
         items: [
           { icon:'🟦', label:'1/4 화면', onclick:`vcScreenSet('quarter')` },
           { icon:'🟦', label:'1/2 화면', onclick:`vcScreenSet('half')` },
@@ -9701,7 +9701,7 @@ async function vcJoinRoom(skipUI) {
       const labels = { quarter:'1/4', half:'1/2', threequarter:'3/4', full:'전체 영상', pip:'PIP', solo:'영상 끔(솔로)' };
       try {
         const t = document.createElement('div');
-        t.textContent = '🪟 화면 모드: ' + (labels[mode] || mode);
+        t.textContent = '🖥️ 화면 모드: ' + (labels[mode] || mode);
         t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,0.92);color:#fff;padding:8px 16px;border-radius:20px;z-index:9999;font-size:13px;border:1px solid rgba(99,102,241,0.5);';
         document.body.appendChild(t);
         setTimeout(() => t.remove(), 1800);
@@ -18133,7 +18133,7 @@ window.addEventListener('DOMContentLoaded', () => {
         rank: '🥇 '+(isKo?'가장 추천':'TOP PICK'),
         title: 'Microsoft Quick Assist',
         sub: isKo ? 'Windows 내장 · 설치 불필요' : 'Built into Windows · No install',
-        icon: '🪟',
+        icon: '🖥️',
         accent: '#10b981',
         secure: 5, easy: 5,
         steps: isKo
@@ -24421,7 +24421,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260711054602 -->
+<!-- BUILD:20260711055443 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -25121,7 +25121,7 @@ document.addEventListener('keydown', function(e){
     }
     sf += '</div>';
 
-    // 🪟 투명 글래스 모달 박스
+    // 🖥️ 투명 글래스 모달 박스
     var h = sf;
     h += '<div id="mgam-bg" style="position:absolute;inset:-40px;z-index:0;background:url(\'/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/space.jpg\') center center / cover no-repeat;filter:blur(13px) brightness(0.5) saturate(1.1);transform:scale(1.06)"></div>';
     h += '<div id="mgam-box" style="position:relative;z-index:2;width:100%;max-width:680px;min-height:74vh;max-height:92vh;display:flex;flex-direction:column;background:rgba(255,255,255,0.05);backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);border:1px solid rgba(255,255,255,0.16);border-radius:22px;box-shadow:0 24px 70px -20px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.14);overflow:hidden;animation:mgAmRise .32s cubic-bezier(.2,.8,.2,1)">';
@@ -26278,7 +26278,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   }
 </style>
 <style id="scifi-title-override">
-  /* 🪟 투명 유리 제목 — 글자 안(채움)·겉(배경) 모두 투명, 가는 외곽선 + SF 글로우 */
+  /* 🖥️ 투명 유리 제목 — 글자 안(채움)·겉(배경) 모두 투명, 가는 외곽선 + SF 글로우 */
   .home-title { background: transparent !important; gap: 0 !important; font-size: clamp(40px, 7.6vw, 80px) !important; }
   .home-title-img { display: none !important; }
   .ht-glass {
