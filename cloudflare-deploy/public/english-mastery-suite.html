@@ -269,10 +269,21 @@
   #fish .boat .hull{font-size:58px}
   #fish .boat .fisher{font-size:31px;left:46px;bottom:24px}
   #fish .boat .rod{left:70px;bottom:38px;width:74px}
-  #fish .boat.real{top:18px}
-  #fish .boat.real .fishercv{width:110px}
+  #fish .boat.real{top:37px}
+  #fish .boat.real .fishercv{width:130px}   /* 🧸 실사 배 — 모바일도 한 단계 크게 */
   #fish .weed{filter:drop-shadow(0 0 7px rgba(0,0,0,.5))}
   #fish .hook{font-size:20px}
+  /* 🖥️ PC — 배(실사 낚시꾼) 2배 확대. overflow:hidden 이라 위로 안 잘리게 배를 아래로 내리고 수면선도 배 위치에 맞춤 */
+  @media (min-width:820px){
+    #fish .boat.real{top:0;height:204px}
+    #fish .boat.real .fishercv{width:220px}
+    #fish .surface{top:131px}
+    #fish .boat{width:300px;height:148px}
+    #fish .boat .hull{font-size:116px}
+    #fish .boat .fisher{font-size:62px;left:92px;bottom:48px}
+    #fish .boat .rod{left:140px;bottom:76px;width:148px}
+    #fish .hook{font-size:30px}
+  }
   /* HUD 아이콘 토글 버튼 (🔊 전체 소리 / 🎵 배경음악) */
   .iconbtn{background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:9px;color:var(--tx);
     font-size:15px;line-height:1;padding:6px 8px;cursor:pointer;font-family:inherit}
@@ -508,7 +519,8 @@
       </div>
       <video id="fisherVid" src="fisher-boat.mp4" muted playsinline preload="auto" style="display:none"></video>
       <div class="fline" id="fishLine"></div>
-      <div class="hook" id="hook">🪝</div>
+      <!-- 바늘: 🪝 이모지는 구형 Windows 에 글리프가 없어 ☒ 로 깨짐 → 인라인 SVG 로 교체 -->
+      <div class="hook" id="hook"><svg viewBox="0 0 26 24" width="1.3em" height="1.2em" style="display:block" fill="none" stroke="#eef4ff" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="3.2" r="1.6" fill="#eef4ff" stroke="none"/><path d="M12 4.5v9a5.5 5.5 0 0 0 11 0v-2.2"/><path d="M23 11.3l-2.2 1.5"/></svg></div>
       <div class="catch-cnt" id="catchCnt">0 / 0</div>
       <div class="pause-veil" id="fishPause">⏸ 일시정지<small>화면으로 돌아오면 이어서 진행돼요</small></div>
     </div>
@@ -1304,7 +1316,9 @@
     fishLine.style.width=len+'px'; fishLine.style.transform='rotate('+ang+'deg)';
     hookEl.style.left=toX+'px'; hookEl.style.top=toY+'px';
   }
-  function resetLine(){ var rt=rodTipPos(); setLine(rt.x, rt.y+118); }   // 평소: 바늘이 물속에 드리워짐
+  function resetLine(){ var rt=rodTipPos();   // 평소: 바늘이 물속에 드리워짐 — 실사 배는 배 크기에 비례해 줄 길이 조절
+    var drop = boatEl.classList.contains('real') ? fisherCv.getBoundingClientRect().height*1.15 : 118;
+    setLine(rt.x, rt.y+drop); }
 
   function fishStart(){
     var cfg=fishCfg();
@@ -1754,6 +1768,6 @@
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711053823 -->
+<!-- BUILD:20260711054602 -->
 </body>
 </html>
