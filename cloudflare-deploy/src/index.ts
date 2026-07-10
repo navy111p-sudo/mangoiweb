@@ -643,6 +643,8 @@ export default {
         path === '/api/admin/teacher-classes' ||
         path === '/api/admin/teacher-evaluation' ||
         path.startsWith('/api/admin/payroll/') ||
+        // 📅 Phase SR — 수업 연기·변경 요청 (강사 제출 + 관리자 승인/거절)
+        path.startsWith('/api/admin/schedule-requests') ||
         path === '/api/admin/payroll/all' ||
         path === '/api/admin/payroll/rates' ||
         path === '/api/admin/payroll/finalize' ||

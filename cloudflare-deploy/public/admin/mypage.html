@@ -999,6 +999,186 @@
         </div>
       </div>
 
+      <!-- 📅 수업 연기·변경 요청 (실제 저장 — Phase SR) -->
+      <div style="background:#1A2548;border-radius:12px;padding:14px 16px;margin-bottom:14px;border:1.5px solid rgba(251,191,36,0.35)">
+        <div style="font-weight:800;font-size:13.5px;color:#fbbf24;margin-bottom:4px" data-ko="📅 수업 연기·변경 요청" data-en="📅 Request postpone / reschedule">📅 수업 연기·변경 요청</div>
+        <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;line-height:1.6" data-ko="요청하면 매니저·관리자에게 기록이 남고, 승인되면 일정에 자동 반영돼요. 아래에서 내 요청 처리 상태도 볼 수 있어요." data-en="Your request is recorded for managers. Once approved, the schedule updates automatically. You can track the status below.">요청하면 매니저·관리자에게 기록이 남고, 승인되면 일정에 자동 반영돼요. 아래에서 내 요청 처리 상태도 볼 수 있어요.</div>
+
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div>
+            <label style="font-size:11.5px;font-weight:700;color:#7dd3fc;display:block;margin-bottom:4px" data-ko="① 어떤 수업인가요?" data-en="① Which class?">① 어떤 수업인가요?</label>
+            <select id="sr-lesson" style="width:100%;padding:10px 12px;font-size:13.5px;background:rgba(15,23,42,0.6);color:#fff;border:1px solid rgba(148,163,184,0.35);border-radius:8px">
+              <option value="" data-ko="불러오는 중…" data-en="Loading…">불러오는 중…</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11.5px;font-weight:700;color:#7dd3fc;display:block;margin-bottom:4px" data-ko="② 어떻게 할까요?" data-en="② What do you need?">② 어떻게 할까요?</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <label style="flex:1;min-width:140px;display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.35);border-radius:8px;cursor:pointer;font-size:13px;color:#e2e8f0">
+                <input type="radio" name="sr-type" value="postpone" checked style="accent-color:#fbbf24;width:16px;height:16px">
+                <span data-ko="⏸ 연기 (나중에 다시 잡기)" data-en="⏸ Postpone (decide later)">⏸ 연기 (나중에 다시 잡기)</span>
+              </label>
+              <label style="flex:1;min-width:140px;display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.35);border-radius:8px;cursor:pointer;font-size:13px;color:#e2e8f0">
+                <input type="radio" name="sr-type" value="change" style="accent-color:#fbbf24;width:16px;height:16px">
+                <span data-ko="🔀 다른 날짜·시간으로 변경" data-en="🔀 Move to a new date & time">🔀 다른 날짜·시간으로 변경</span>
+              </label>
+            </div>
+          </div>
+          <div id="sr-newtime" style="display:none;gap:8px;flex-wrap:wrap">
+            <div style="flex:1;min-width:140px">
+              <label style="font-size:11.5px;font-weight:700;color:#7dd3fc;display:block;margin-bottom:4px" data-ko="희망 날짜" data-en="New date">희망 날짜</label>
+              <input type="date" id="sr-new-date" style="width:100%;padding:9px 12px;font-size:13.5px;background:rgba(15,23,42,0.6);color:#fff;border:1px solid rgba(148,163,184,0.35);border-radius:8px">
+            </div>
+            <div style="flex:1;min-width:140px">
+              <label style="font-size:11.5px;font-weight:700;color:#7dd3fc;display:block;margin-bottom:4px" data-ko="희망 시간" data-en="New time">희망 시간</label>
+              <input type="time" id="sr-new-time" step="600" style="width:100%;padding:9px 12px;font-size:13.5px;background:rgba(15,23,42,0.6);color:#fff;border:1px solid rgba(148,163,184,0.35);border-radius:8px">
+            </div>
+          </div>
+          <div>
+            <label style="font-size:11.5px;font-weight:700;color:#7dd3fc;display:block;margin-bottom:4px" data-ko="③ 사유 (매니저에게 전달돼요)" data-en="③ Reason (sent to your manager)">③ 사유 (매니저에게 전달돼요)</label>
+            <textarea id="sr-reason" rows="2" style="width:100%;padding:10px 12px;font-size:13.5px;background:rgba(15,23,42,0.6);color:#fff;border:1px solid rgba(148,163,184,0.35);border-radius:8px;resize:vertical" placeholder="예: 병원 진료가 있어요" data-ko-ph="예: 병원 진료가 있어요" data-en-ph="e.g. I have a doctor's appointment"></textarea>
+          </div>
+          <button id="sr-submit" class="btn-primary" style="align-self:flex-start" data-ko="📨 요청 보내기" data-en="📨 Send request">📨 요청 보내기</button>
+        </div>
+
+        <div style="margin-top:14px;border-top:1px solid rgba(148,163,184,0.15);padding-top:12px">
+          <div style="font-weight:800;font-size:12.5px;color:#fbbf24;margin-bottom:8px" data-ko="🗂 내 요청 처리 상태" data-en="🗂 My request status">🗂 내 요청 처리 상태</div>
+          <div id="sr-mylist" style="display:flex;flex-direction:column;gap:6px"><div style="font-size:12px;color:#64748b" data-ko="불러오는 중…" data-en="Loading…">불러오는 중…</div></div>
+        </div>
+      </div>
+      <script>
+      (function(){
+        "use strict";
+        var EN = function(){ return window.getLang && window.getLang() === 'en'; };
+        var loaded = false;
+        function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]); }); }
+        function dayName(dateStr){
+          try {
+            var d = new Date(dateStr + 'T00:00:00');
+            return (EN() ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'])[d.getDay()];
+          } catch(e){ return ''; }
+        }
+        function fmtTs(ms){
+          if (!ms) return '';
+          var d = new Date(Number(ms));
+          var p = function(n){ return (n<10?'0':'')+n; };
+          return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+        }
+
+        // ── 연기/변경 라디오 → 희망 일시 입력 토글 ──
+        document.querySelectorAll('input[name="sr-type"]').forEach(function(r){
+          r.addEventListener('change', function(){
+            var box = document.getElementById('sr-newtime');
+            if (box) box.style.display = (r.value === 'change' && r.checked) ? 'flex' : 'none';
+          });
+        });
+
+        // ── ① 다가오는 내 수업 목록 (이번 달 + 다음 달, payroll/lessons 재사용) ──
+        function loadUpcoming(){
+          var name = window.__myName || '';
+          var sel = document.getElementById('sr-lesson');
+          if (!sel || !name) return;
+          var now = new Date();
+          var months = [[now.getFullYear(), now.getMonth()+1]];
+          months.push(now.getMonth() === 11 ? [now.getFullYear()+1, 1] : [now.getFullYear(), now.getMonth()+2]);
+          Promise.all(months.map(function(m){
+            return fetch('/api/admin/payroll/lessons?year='+m[0]+'&month='+m[1]+'&teacher_name='+encodeURIComponent(name), { credentials:'include' })
+              .then(function(r){ return r.json(); }).catch(function(){ return null; });
+          })).then(function(results){
+            var ups = [], seen = {};
+            results.forEach(function(j){
+              if (j && j.ok) (j.lessons||[]).forEach(function(l){
+                if (l.status === 'upcoming' && !seen[l.schedule_id]){ seen[l.schedule_id] = 1; ups.push(l); }
+              });
+            });
+            sel.innerHTML = '';
+            if (!ups.length){
+              sel.appendChild(new Option(EN()?'No upcoming classes':'다가오는 수업이 없어요', ''));
+              return;
+            }
+            ups.forEach(function(l){
+              var label = l.date + ' (' + dayName(l.date) + ') ' + (l.start_time||'') + ' · ' + (l.student_name || l.user_id || (EN()?'student':'학생'));
+              var o = new Option(label, String(l.schedule_id));
+              o.setAttribute('data-student', l.student_name || l.user_id || '');
+              sel.appendChild(o);
+            });
+          });
+        }
+
+        // ── 🗂 내 요청 목록 ──
+        function loadMine(){
+          var name = window.__myName || '';
+          var box = document.getElementById('sr-mylist');
+          if (!box || !name) return;
+          fetch('/api/admin/schedule-requests?teacher_name='+encodeURIComponent(name)+'&limit=20', { credentials:'include' })
+            .then(function(r){ return r.json(); })
+            .then(function(j){
+              var rows = (j && j.rows) || [];
+              var en = EN();
+              if (!rows.length){ box.innerHTML = '<div style="font-size:12px;color:#64748b">'+(en?'No requests yet.':'아직 요청이 없어요.')+'</div>'; return; }
+              box.innerHTML = rows.map(function(r){
+                var st = r.status === 'approved'
+                  ? '<span style="padding:2px 9px;border-radius:99px;font-size:10.5px;font-weight:800;background:rgba(16,185,129,0.18);color:#6ee7b7">'+(en?'✅ Approved':'✅ 승인')+'</span>'
+                  : r.status === 'rejected'
+                  ? '<span style="padding:2px 9px;border-radius:99px;font-size:10.5px;font-weight:800;background:rgba(239,68,68,0.18);color:#fca5a5">'+(en?'❌ Rejected':'❌ 거절')+'</span>'
+                  : '<span style="padding:2px 9px;border-radius:99px;font-size:10.5px;font-weight:800;background:rgba(251,191,36,0.18);color:#fcd34d">'+(en?'⏳ Waiting':'⏳ 대기 중')+'</span>';
+                var typ = r.request_type === 'change' ? (en?'🔀 Move':'🔀 변경') : (en?'⏸ Postpone':'⏸ 연기');
+                var when = '<b style="color:#fff">'+esc(r.orig_date||'')+' '+esc(r.orig_time||'')+'</b>'
+                         + (r.new_date ? ' → <b style="color:#fbbf24">'+esc(r.new_date)+' '+esc(r.new_time||'')+'</b>' : '');
+                var meta = (en?'Requested ':'요청 ')+fmtTs(r.created_at)
+                         + (r.decided_at ? ' · '+(en?'Decided ':'처리 ')+fmtTs(r.decided_at)+(r.decided_by?' ('+esc(r.decided_by)+')':'') : '');
+                return '<div style="padding:9px 12px;background:rgba(15,23,42,0.5);border-radius:8px;font-size:12px;color:#cbd5e1;display:flex;flex-direction:column;gap:3px">'
+                  + '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><span>'+typ+' · '+esc(r.student_name||'')+' · '+when+'</span>'+st+'</div>'
+                  + (r.reason ? '<div style="color:#94a3b8">💬 '+esc(r.reason)+'</div>' : '')
+                  + '<div style="color:#64748b;font-size:11px">'+meta+'</div>'
+                  + '</div>';
+              }).join('');
+            })
+            .catch(function(){ box.innerHTML = '<div style="font-size:12px;color:#64748b">'+(EN()?'Failed to load.':'목록을 불러오지 못했어요.')+'</div>'; });
+        }
+
+        // ── 📨 제출 ──
+        var btn = document.getElementById('sr-submit');
+        if (btn) btn.addEventListener('click', function(){
+          var en = EN();
+          var name = window.__myName || '';
+          var sel = document.getElementById('sr-lesson');
+          var sid = sel ? sel.value : '';
+          if (!sid){ alert(en?'⚠️ Please pick a class first.':'⚠️ 먼저 수업을 선택해 주세요.'); return; }
+          var type = (document.querySelector('input[name="sr-type"]:checked')||{}).value || 'postpone';
+          var nd = (document.getElementById('sr-new-date')||{}).value || '';
+          var nt = (document.getElementById('sr-new-time')||{}).value || '';
+          if (type === 'change' && (!nd || !nt)){ alert(en?'⚠️ Please choose the new date and time.':'⚠️ 희망 날짜와 시간을 골라 주세요.'); return; }
+          var body = {
+            schedule_id: parseInt(sid, 10), request_type: type,
+            requester_name: name, teacher_name: name,
+            student_name: sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].getAttribute('data-student') : '',
+            new_date: type === 'change' ? nd : null, new_time: type === 'change' ? nt : null,
+            reason: (document.getElementById('sr-reason')||{}).value || ''
+          };
+          btn.disabled = true;
+          fetch('/api/admin/schedule-requests', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
+            .then(function(r){ return r.json(); })
+            .then(function(j){
+              if (j && j.ok){
+                alert(en?'📨 Request sent. Your manager will review it.':'📨 요청을 보냈어요. 매니저가 확인 후 처리합니다.');
+                var ta = document.getElementById('sr-reason'); if (ta) ta.value = '';
+                loadMine();
+              } else alert('⚠️ ' + ((j&&j.error)||(en?'Failed':'실패')));
+            })
+            .catch(function(){ alert(en?'⚠️ Network error.':'⚠️ 네트워크 오류.'); })
+            .finally(function(){ btn.disabled = false; });
+        });
+
+        function loadAll(){ if (loaded) return; loaded = true; loadUpcoming(); loadMine(); }
+        window.loadScheduleRequests = function(){ loaded = false; loadAll(); };
+        // 내 수업 탭을 열 때 로드 (강사 이름은 loadMe 후 window.__myName 준비됨)
+        var tab = document.querySelector('.tab[data-tab="lessons"]');
+        if (tab) tab.addEventListener('click', function(){ setTimeout(loadAll, 50); });
+        window.addEventListener('mangoi:lang-changed', function(){ if (loaded){ loaded = false; loadAll(); } });
+      })();
+      </script>
+
       <!-- KPI 4개 -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:14px">
         <div style="padding:12px 14px;background:rgba(56,189,248,0.10);border:1px solid rgba(56,189,248,0.35);border-radius:10px">

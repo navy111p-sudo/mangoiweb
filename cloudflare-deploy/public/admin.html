@@ -2778,7 +2778,7 @@
     </button>
 
     <!-- 👨‍🏫 강사 통합 -->
-    <button class="hub-btn" onclick="hubJump('teacher', ['card-teacher-mgmt','card-payroll-auto','card-class-ratings','card-payroll','card-mbti-mgmt','card-praise-stats'])" data-hub="teacher">
+    <button class="hub-btn" onclick="hubJump('teacher', ['card-teacher-mgmt','card-payroll-auto','card-schedule-requests','card-class-ratings','card-payroll','card-mbti-mgmt','card-praise-stats'])" data-hub="teacher">
       <div class="hub-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">👨‍🏫</div>
       <div>
         <div class="hub-title" data-ko="강사 통합" data-en="Teacher Hub">강사 통합</div>
@@ -11523,6 +11523,158 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   document.addEventListener('mangoi:lang-changed', function(){
     const parent = document.getElementById('card-payroll-auto');
     if (parent && parent.open && (_prRows && _prRows.length)) prCalculate();
+  });
+})();
+</script>
+
+<!-- 📅 Phase SR — 수업 연기·변경 요청 (강사 제출 → 관리자 승인/거절, 시간 기록 보존) -->
+<details class="table-card menu-card" id="card-schedule-requests">
+  <summary><span data-ko="📅 수업 연기·변경 요청" data-en="📅 Postpone / Reschedule Requests">📅 수업 연기·변경 요청</span> <span id="srq-badge" style="display:none;margin-left:6px;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;background:#fee2e2;color:#991b1b"></span></summary>
+  <div class="menu-body">
+    <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;color:#78350f;line-height:1.7"
+         data-ko="💡 강사가 마이페이지에서 보낸 수업 연기·변경 요청이 여기에 시간과 함께 기록됩니다. 「✅ 승인」하면 일정에 자동 반영(변경=새 일시로 이동, 연기=일정 보류)되고, 모든 기록(누가·언제 요청·누가·언제 처리)은 영구 보존됩니다."
+         data-en="💡 Teachers' postpone/reschedule requests from My Page are recorded here with timestamps. ✅ Approve applies the change automatically (move = new date/time, postpone = put on hold). Every record (who asked when, who decided when) is kept permanently.">
+      💡 강사가 마이페이지에서 보낸 수업 연기·변경 요청이 여기에 <b>시간과 함께 기록</b>됩니다. 「✅ 승인」하면 일정에 자동 반영(변경=새 일시로 이동, 연기=일정 보류)되고, 모든 기록(누가·언제 요청 → 누가·언제 처리)은 영구 보존됩니다.
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px">
+      <label style="font-size:12px;font-weight:700;color:#374151" data-ko="보기" data-en="View">보기</label>
+      <select id="srq-filter" onchange="srqLoad()" style="padding:6px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px">
+        <option value="pending" data-ko="⏳ 대기 중만" data-en="⏳ Pending only">⏳ 대기 중만</option>
+        <option value="all" data-ko="전체 (처리 완료 포함)" data-en="All (incl. decided)">전체 (처리 완료 포함)</option>
+      </select>
+      <button class="primary" onclick="srqLoad()" style="padding:7px 14px;font-size:12.5px;font-weight:800;background:linear-gradient(135deg,#3b82f6,#1e40af);color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+      <span id="srq-summary" style="margin-left:auto;font-size:11.5px;color:#6b7280"></span>
+    </div>
+    <div id="srq-table" style="overflow-x:auto"></div>
+  </div>
+</details>
+<script>
+(function(){
+  const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+  const fmtTs = (ms) => {
+    if (!ms) return '-';
+    const d = new Date(Number(ms));
+    const p = (n) => (n<10?'0':'')+n;
+    return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+  };
+  const myName = () => {
+    try { const s = JSON.parse(localStorage.getItem('mangoi_admin_session')||'null'); return (s && s.name) || '관리자'; } catch(e){ return '관리자'; }
+  };
+
+  window.srqLoad = async function(){
+    const isEn = (window.adminLang === 'en');
+    const status = (document.getElementById('srq-filter')||{}).value || 'pending';
+    const box = document.getElementById('srq-table');
+    box.innerHTML = `<div style="padding:20px;color:#6b7280;text-align:center">${isEn?'Loading…':'불러오는 중…'}</div>`;
+    try {
+      const r = await fetch(`/api/admin/schedule-requests?status=${status}&limit=200`, { credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error||'load failed');
+      const rows = d.rows || [];
+      const badge = document.getElementById('srq-badge');
+      if (badge){
+        if (d.pending_count > 0){ badge.style.display=''; badge.textContent = (isEn?'Pending ':'대기 ')+d.pending_count; }
+        else badge.style.display='none';
+      }
+      document.getElementById('srq-summary').innerHTML = isEn
+        ? `Pending <b style="color:#dc2626">${d.pending_count}</b> · Showing ${rows.length}`
+        : `대기 중 <b style="color:#dc2626">${d.pending_count}</b>건 · 표시 ${rows.length}건`;
+      if (!rows.length){
+        box.innerHTML = `<div style="padding:30px;text-align:center;color:#6b7280;background:#f9fafb;border-radius:10px">${isEn?'No requests. 🎉':'요청이 없습니다. 🎉'}</div>`;
+        return;
+      }
+      const H = isEn
+        ? { at:'Requested at', teacher:'Teacher', type:'Type', student:'Student', orig:'Original class', want:'Requested change', reason:'Reason', status:'Status', act:'Actions', approve:'✅ Approve', reject:'❌ Reject', postpone:'⏸ Postpone', change:'🔀 Move', pending:'⏳ Pending', approved:'✅ Approved', rejected:'❌ Rejected', hold:'(hold — pick later)' }
+        : { at:'요청 시각', teacher:'강사', type:'유형', student:'학생', orig:'원래 수업 일시', want:'희망 변경 일시', reason:'사유', status:'상태', act:'처리', approve:'✅ 승인', reject:'❌ 거절', postpone:'⏸ 연기', change:'🔀 변경', pending:'⏳ 대기', approved:'✅ 승인됨', rejected:'❌ 거절됨', hold:'(보류 — 추후 협의)' };
+      box.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border-radius:8px;overflow:hidden">
+        <thead style="background:linear-gradient(135deg,#fef3c7,#fde68a)"><tr>
+          <th style="text-align:left;padding:10px 12px;color:#78350f">${H.at}</th>
+          <th style="text-align:left;padding:10px 12px;color:#78350f">${H.teacher}</th>
+          <th style="text-align:center;padding:10px 12px;color:#78350f">${H.type}</th>
+          <th style="text-align:left;padding:10px 12px;color:#78350f">${H.student}</th>
+          <th style="text-align:left;padding:10px 12px;color:#78350f">${H.orig}</th>
+          <th style="text-align:left;padding:10px 12px;color:#78350f">${H.want}</th>
+          <th style="text-align:left;padding:10px 12px;color:#78350f">${H.reason}</th>
+          <th style="text-align:center;padding:10px 12px;color:#78350f">${H.status}</th>
+          <th style="text-align:center;padding:10px 12px;color:#78350f">${H.act}</th>
+        </tr></thead>
+        <tbody>${rows.map(r => {
+          const typ = r.request_type === 'change'
+            ? `<span style="padding:3px 9px;border-radius:99px;font-size:11px;font-weight:800;background:#dbeafe;color:#1e40af">${H.change}</span>`
+            : `<span style="padding:3px 9px;border-radius:99px;font-size:11px;font-weight:800;background:#fef9c3;color:#854d0e">${H.postpone}</span>`;
+          const st = r.status === 'approved'
+            ? `<span style="color:#10b981;font-weight:700">${H.approved}</span><br><span style="font-size:10px;color:#9ca3af">${fmtTs(r.decided_at)}<br>${esc(r.decided_by||'')}</span>`
+            : r.status === 'rejected'
+            ? `<span style="color:#ef4444;font-weight:700">${H.rejected}</span><br><span style="font-size:10px;color:#9ca3af">${fmtTs(r.decided_at)}<br>${esc(r.decided_by||'')}</span>`
+            : `<span style="color:#d97706;font-weight:800">${H.pending}</span>`;
+          const want = r.new_date
+            ? `<b style="color:#1e40af">${esc(r.new_date)} ${esc(r.new_time||'')}</b>`
+            : `<span style="color:#9ca3af">${H.hold}</span>`;
+          const act = r.status === 'pending'
+            ? `<button onclick="srqDecide(${r.id},'approve')" style="padding:5px 10px;font-size:11px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:5px;cursor:pointer;font-weight:700">${H.approve}</button>
+               <button onclick="srqDecide(${r.id},'reject')" style="padding:5px 10px;font-size:11px;background:#ef4444;color:#fff;border:0;border-radius:5px;cursor:pointer;font-weight:700;margin-left:4px">${H.reject}</button>`
+            : (r.decide_memo ? `<span style="font-size:11px;color:#6b7280">💬 ${esc(r.decide_memo)}</span>` : '<span style="color:#d1d5db">—</span>');
+          return `<tr style="border-bottom:1px solid #e5e7eb;${r.status==='pending'?'background:#fffbeb':''}">
+            <td style="padding:9px 12px;white-space:nowrap;color:#374151">${fmtTs(r.created_at)}</td>
+            <td style="padding:9px 12px;font-weight:700">${esc(r.teacher_name||'-')}</td>
+            <td style="padding:9px 12px;text-align:center">${typ}</td>
+            <td style="padding:9px 12px">${esc(r.student_name||'-')}</td>
+            <td style="padding:9px 12px;white-space:nowrap"><b>${esc(r.orig_date||'-')}</b> ${esc(r.orig_time||'')}</td>
+            <td style="padding:9px 12px;white-space:nowrap">${want}</td>
+            <td style="padding:9px 12px;max-width:200px;color:#4b5563">${esc(r.reason||'-')}</td>
+            <td style="padding:9px 12px;text-align:center">${st}</td>
+            <td style="padding:8px 10px;text-align:center;white-space:nowrap">${act}</td>
+          </tr>`;}).join('')}</tbody>
+      </table>`;
+    } catch(e) {
+      box.innerHTML = `<div style="padding:20px;color:#ef4444">${isEn?'Failed: ':'로드 실패: '}${esc(e.message)}</div>`;
+    }
+  };
+
+  window.srqDecide = async function(id, action){
+    const isEn = (window.adminLang === 'en');
+    const approving = action === 'approve';
+    const memo = prompt(approving
+      ? (isEn?'Memo for approval (optional):':'승인 메모 (선택):')
+      : (isEn?'Reason for rejection (shown to the teacher):':'거절 사유 (강사에게 표시돼요):'), '');
+    if (memo === null) return;
+    try {
+      const r = await fetch('/api/admin/schedule-requests/decide', {
+        method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ id, action, memo, decided_by: myName() })
+      });
+      const d = await r.json();
+      if (d.ok){
+        alert(approving
+          ? (d.applied === 'moved'
+              ? (isEn?'✅ Approved — the class was moved to the new date/time.':'✅ 승인 완료 — 수업이 새 일시로 이동됐어요.')
+              : d.applied === 'postponed'
+              ? (isEn?'✅ Approved — the class is now on hold (postponed).':'✅ 승인 완료 — 수업이 연기(보류) 처리됐어요.')
+              : (isEn?'✅ Approved.':'✅ 승인 완료.'))
+          : (isEn?'❌ Rejected.':'❌ 거절 처리했어요.'));
+        srqLoad();
+      } else alert('⚠️ ' + (d.error||(isEn?'failed':'실패')));
+    } catch(e){ alert('⚠️ '+e.message); }
+  };
+
+  function bind(){
+    const card = document.getElementById('card-schedule-requests');
+    if (card && !card.__srqBound){
+      card.__srqBound = true;
+      card.addEventListener('toggle', () => { if (card.open) srqLoad(); });
+    }
+    // 대기 건수 배지는 카드를 안 열어도 보이게 1회 미리 로드
+    fetch('/api/admin/schedule-requests?status=pending&limit=1', { credentials:'include' })
+      .then(r=>r.json()).then(d=>{
+        const badge = document.getElementById('srq-badge');
+        if (badge && d && d.ok && d.pending_count > 0){ badge.style.display=''; badge.textContent = (window.adminLang==='en'?'Pending ':'대기 ')+d.pending_count; }
+      }).catch(()=>{});
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+  document.addEventListener('mangoi:lang-changed', function(){
+    const card = document.getElementById('card-schedule-requests');
+    if (card && card.open) srqLoad();
   });
 })();
 </script>
@@ -23583,7 +23735,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260710201617 -->
+        <!-- BUILD:20260710203946 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -23901,6 +24053,7 @@ window.rebuildGlobalSearchIndex = function() {
       { id: 'card-supervisor',  name_ko: '수업 감독·품질 모니터링',        name_en: 'Class Supervision / QA',    def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
       { id: 'card-report-forms',name_ko: '리포트 양식 관리',              name_en: 'Report Form Templates',     def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'✅', parent:'❌', student:'❌' } },
       { id: 'card-class-ratings', name_ko: '⭐ 학생 수업 평가 (별점 리포트) 🆕', name_en: 'Student Class Ratings', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', franchise:'👁️', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'card-schedule-requests', name_ko: '📅 수업 연기·변경 요청 🆕', name_en: 'Postpone/Reschedule Requests', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', franchise:'👁️', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
     ]},
     { group_ko: '📝 평가 · 리포트', group_en: '📝 Evaluation · Reports', items: [
       { id: 'students_eval',    name_ko: '평가서 작성·수정',              name_en: 'Evaluation Create · Edit',  def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'❌', parent:'❌', student:'❌' } },
@@ -28602,7 +28755,7 @@ button.chip:hover,
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-teacher-mgmt,card-payroll-auto,card-class-ratings,card-payroll,card-mbti-mgmt,card-praise-stats,card-supervisor,card-room-invite,card-timetable,card-lesson-log,card-report-forms">
+  <div class="ph85-group" data-cards="card-teacher-mgmt,card-payroll-auto,card-schedule-requests,card-class-ratings,card-payroll,card-mbti-mgmt,card-praise-stats,card-supervisor,card-room-invite,card-timetable,card-lesson-log,card-report-forms">
     <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">👨‍🏫</div>
       <div class="ph85-title">강사 통합</div>
@@ -28611,6 +28764,7 @@ button.chip:hover,
     <div class="ph85-subs">
       <div class="ph85-sub" data-card="card-teacher-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-teacher-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-teacher-mgmt');}">강사 관리</div>
       <div class="ph85-sub" data-card="card-payroll-auto" onclick="event.stopPropagation();if(typeof jumpToMenu==='function'){jumpToMenu('card-payroll-auto');}">자동 급여</div>
+      <div class="ph85-sub" data-card="card-schedule-requests" onclick="event.stopPropagation();var c=document.getElementById('card-schedule-requests');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-schedule-requests');}">📅 연기·변경 요청 ⭐신규</div>
       <div class="ph85-sub" data-card="card-class-ratings" onclick="event.stopPropagation();var c=document.getElementById('card-class-ratings');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-class-ratings');}">⭐ 학생 수업 평가</div>
       <div class="ph85-sub" data-card="card-payroll" onclick="event.stopPropagation();if(typeof jumpToMenu==='function'){jumpToMenu('card-payroll');}">급여 관리</div>
       <div class="ph85-sub" data-card="card-mbti-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-mbti-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-mbti-mgmt');}">MBTI</div>

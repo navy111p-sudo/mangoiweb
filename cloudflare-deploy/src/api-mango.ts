@@ -5803,6 +5803,110 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       return json({ ok: true, rules: rs.results || [] });
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    // 📅 Phase SR — 수업 연기·변경 요청 (강사 → 매니저/관리자)
+    //   그동안 연기/변경은 학생용 데모 화면뿐이라 기록이 어디에도 안 남았음.
+    //   이제 강사가 마이페이지에서 요청을 남기면 schedule_change_requests 에 저장되고,
+    //   관리자가 admin.html 카드에서 시간 포함 전체 기록을 보고 승인/거절한다.
+    //   승인 시 class_schedules 에 실제 반영(새 일시로 이동 or status='postponed').
+    //   요청 row 자체가 변경 이력(기존 일시 → 새 일시, 누가, 언제)을 보존한다.
+    // ═══════════════════════════════════════════════════════════════
+
+    const ensureScheduleRequestTable = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS schedule_change_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, schedule_id INTEGER, request_type TEXT DEFAULT 'postpone', requester_role TEXT DEFAULT 'teacher', requester_name TEXT, teacher_name TEXT, student_name TEXT, orig_date TEXT, orig_time TEXT, new_date TEXT, new_time TEXT, reason TEXT, status TEXT DEFAULT 'pending', decided_by TEXT, decided_at INTEGER, decide_memo TEXT, created_at INTEGER NOT NULL)`);
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_scr_status ON schedule_change_requests(status, created_at)`); } catch {}
+    };
+
+    // ── POST /api/admin/schedule-requests — 연기/변경 요청 제출 (강사 마이페이지) ──
+    //   body: { schedule_id?, request_type:'postpone'|'change', requester_name, teacher_name,
+    //           student_name?, orig_date?, orig_time?, new_date?, new_time?, reason? }
+    //   schedule_id 가 있으면 기존 일시·학생은 서버가 class_schedules 에서 읽어 권위값으로 채움.
+    if (method === 'POST' && path === '/api/admin/schedule-requests') {
+      await ensureScheduleRequestTable();
+      const body: any = await request.json().catch(() => ({}));
+      const reqType = body.request_type === 'change' ? 'change' : 'postpone';
+      const teacherName = (body.teacher_name || body.requester_name || '').trim();
+      if (!teacherName) return json({ ok: false, error: 'teacher_name_required' }, 400);
+
+      let origDate = (body.orig_date || '').trim() || null;
+      let origTime = (body.orig_time || '').trim() || null;
+      let studentName = (body.student_name || '').trim() || null;
+      const scheduleId = parseInt(body.schedule_id, 10) || null;
+      if (scheduleId) {
+        const cs: any = await env.DB.prepare(`SELECT scheduled_date, start_time, user_id, student_name FROM class_schedules WHERE id = ? LIMIT 1`).bind(scheduleId).first().catch(() => null);
+        if (cs) {
+          origDate = String(cs.scheduled_date || origDate || '').replace(/\//g, '-').slice(0, 10) || origDate;
+          origTime = cs.start_time || origTime;
+          if (!studentName) studentName = cs.student_name || cs.user_id || null;
+        }
+      }
+      const newDate = (body.new_date || '').trim() || null;
+      const newTime = (body.new_time || '').trim() || null;
+      if (reqType === 'change' && (!newDate || !newTime)) return json({ ok: false, error: 'new_date_time_required_for_change' }, 400);
+
+      const now = Date.now();
+      const r: any = await env.DB.prepare(
+        `INSERT INTO schedule_change_requests (schedule_id, request_type, requester_role, requester_name, teacher_name, student_name, orig_date, orig_time, new_date, new_time, reason, status, created_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,'pending',?)`
+      ).bind(
+        scheduleId, reqType, body.requester_role === 'student' ? 'student' : 'teacher',
+        (body.requester_name || teacherName).trim(), teacherName, studentName,
+        origDate, origTime, newDate, newTime, (body.reason || '').trim() || null, now
+      ).run();
+      return json({ ok: true, id: r?.meta?.last_row_id || null, status: 'pending', created_at: now });
+    }
+
+    // ── GET /api/admin/schedule-requests?status=&teacher_name=&limit= — 요청 목록 ──
+    //   관리자 카드(전체) + 강사 마이페이지(본인 것만 teacher_name 필터) 공용.
+    if (method === 'GET' && path === '/api/admin/schedule-requests') {
+      await ensureScheduleRequestTable();
+      const status = (url.searchParams.get('status') || '').trim();
+      const teacher = (url.searchParams.get('teacher_name') || '').trim();
+      const limit = Math.min(300, Math.max(1, parseInt(url.searchParams.get('limit') || '100', 10) || 100));
+      const conds: string[] = []; const binds: any[] = [];
+      if (status && status !== 'all') { conds.push('status = ?'); binds.push(status); }
+      if (teacher) { conds.push('teacher_name = ?'); binds.push(teacher); }
+      const where = conds.length ? ('WHERE ' + conds.join(' AND ')) : '';
+      const rs: any = await env.DB.prepare(
+        `SELECT * FROM schedule_change_requests ${where} ORDER BY (status='pending') DESC, created_at DESC LIMIT ?`
+      ).bind(...binds, limit).all().catch(() => ({ results: [] }));
+      const pending: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM schedule_change_requests WHERE status='pending'`).first().catch(() => null);
+      return json({ ok: true, pending_count: pending?.c || 0, rows: rs.results || [] });
+    }
+
+    // ── POST /api/admin/schedule-requests/decide — 승인/거절 (관리자) ──
+    //   body: { id, action:'approve'|'reject', memo?, decided_by? }
+    //   승인: 새 일시가 있으면 class_schedules 를 그 일시로 이동, 없으면(단순 연기) status='postponed'.
+    if (method === 'POST' && path === '/api/admin/schedule-requests/decide') {
+      await ensureScheduleRequestTable();
+      const body: any = await request.json().catch(() => ({}));
+      const id = parseInt(body.id, 10);
+      const action = body.action === 'approve' ? 'approved' : body.action === 'reject' ? 'rejected' : null;
+      if (!id || !action) return json({ ok: false, error: 'id_and_action_required' }, 400);
+      const row: any = await env.DB.prepare(`SELECT * FROM schedule_change_requests WHERE id = ? LIMIT 1`).bind(id).first().catch(() => null);
+      if (!row) return json({ ok: false, error: 'request_not_found' }, 404);
+      if (row.status !== 'pending') return json({ ok: false, error: 'already_decided', status: row.status }, 409);
+
+      const now = Date.now();
+      let applied: string | null = null;
+      if (action === 'approved' && row.schedule_id) {
+        try {
+          if (row.new_date && row.new_time) {
+            await env.DB.prepare(`UPDATE class_schedules SET scheduled_date = ?, start_time = ?, updated_at = ? WHERE id = ?`)
+              .bind(row.new_date, row.new_time, now, row.schedule_id).run();
+            applied = 'moved';
+          } else {
+            await env.DB.prepare(`UPDATE class_schedules SET status = 'postponed', updated_at = ? WHERE id = ?`)
+              .bind(now, row.schedule_id).run();
+            applied = 'postponed';
+          }
+        } catch (e: any) { console.warn('[schedule-requests] apply err:', e?.message); }
+      }
+      await env.DB.prepare(`UPDATE schedule_change_requests SET status = ?, decided_by = ?, decided_at = ?, decide_memo = ? WHERE id = ?`)
+        .bind(action, (body.decided_by || '관리자').trim(), now, (body.memo || '').trim() || null, id).run();
+      return json({ ok: true, id, status: action, applied, decided_at: now });
+    }
+
     // ── POST /api/admin/payroll/deduction-rules — 공제 규칙 저장 ──
     //   body: { rules: [{ code, amount, enabled }] } — 금액·켜기/끄기만 수정(라벨은 시드 유지)
     if (method === 'POST' && path === '/api/admin/payroll/deduction-rules') {
