@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>결제 링크 문자 보내기 · 망고아이 관리자</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:'Malgun Gothic','맑은 고딕',sans-serif; background:#0f172a; color:#e2e8f0; min-height:100vh; display:flex; align-items:flex-start; justify-content:center; padding:26px 16px; }
+  .card { background:#1e293b; border:1px solid rgba(148,163,184,0.2); border-radius:18px; padding:26px; max-width:460px; width:100%; }
+  h1 { font-size:19px; margin:0 0 4px; }
+  .desc { color:#94a3b8; font-size:13px; margin-bottom:20px; line-height:1.6; }
+  label { display:block; font-size:13px; font-weight:700; margin:14px 0 6px; }
+  input, select { width:100%; padding:12px 14px; background:#0f172a; border:1px solid rgba(148,163,184,0.3); border-radius:10px; color:#fff; font-size:15px; font-family:inherit; }
+  .btn { width:100%; margin-top:20px; padding:15px; border:0; border-radius:12px; font-size:16px; font-weight:800; cursor:pointer; background:linear-gradient(135deg,#22c55e,#16a34a); color:#052e16; }
+  .btn:disabled { opacity:0.6; cursor:default; }
+  .msg { margin-top:16px; padding:12px 14px; border-radius:10px; font-size:13.5px; line-height:1.6; display:none; }
+  .msg.ok { background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.4); color:#86efac; }
+  .msg.err { background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.4); color:#fca5a5; }
+  .preview { margin-top:14px; font-size:12px; color:#64748b; word-break:break-all; }
+  a.back { color:#60a5fa; font-size:13px; text-decoration:none; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <a class="back" href="/admin.html">← 관리자로</a>
+    <h1 style="margin-top:10px">📱 결제 링크 문자 보내기</h1>
+    <div class="desc">학부모 전화번호와 상품을 고르면, 카드·카카오페이로 결제할 수 있는 <b>간편 링크를 문자로</b> 보냅니다.</div>
+
+    <label>학부모/학생 이름 (선택)</label>
+    <input id="name" type="text" placeholder="예: 홍길동" autocomplete="off">
+
+    <label>받는 사람 휴대폰 번호 <span style="color:#f87171">*</span></label>
+    <input id="phone" type="tel" inputmode="numeric" placeholder="010-1234-5678" autocomplete="off">
+
+    <label>상품 <span style="color:#f87171">*</span></label>
+    <select id="program">
+      <option value="">— 상품 선택 —</option>
+      <option value="1on1-4">1:1 4회권 · 60,000원</option>
+      <option value="1on1-8">1:1 8회권 · 120,000원</option>
+      <option value="1on1-12">1:1 12회권 · 180,000원</option>
+      <option value="1on1-24">1:1 24회권 · 360,000원</option>
+      <option value="group-12">그룹 12회권 · 120,000원</option>
+      <option value="business">비즈니스 영어 · 70,000원</option>
+      <option value="kids">키즈 영어 · 50,000원</option>
+      <option value="exam">시험 영어 · 80,000원</option>
+      <option value="fixed_teacher">강사 고정 · 30,000원</option>
+      <option value="prime_time">시간대 우선권 · 20,000원</option>
+      <option value="writing_review">1:1 영작 첨삭 · 40,000원</option>
+      <option value="manager">학습 매니저 · 50,000원</option>
+      <option value="group_class">원어민 그룹 클래스 · 60,000원</option>
+      <option value="pron_ai">AI 발음 코치 · 15,000원</option>
+    </select>
+
+    <button class="btn" id="send">📨 결제 링크 문자 보내기</button>
+    <div class="msg" id="msg"></div>
+  </div>
+
+<script>
+(function(){
+  var g = function(id){ return document.getElementById(id); };
+  g('send').addEventListener('click', function(){
+    var name = g('name').value.trim();
+    var phone = g('phone').value.replace(/[^0-9]/g,'');
+    var program = g('program').value;
+    var msg = g('msg');
+    msg.style.display='none';
+    if (phone.length < 10) { show('err','⚠️ 전화번호를 정확히 입력해 주세요.'); return; }
+    if (!program) { show('err','⚠️ 상품을 선택해 주세요.'); return; }
+    var btn = g('send'); btn.disabled = true; btn.textContent = '📨 보내는 중…';
+    fetch('/api/pay/send-link', {
+      method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
+      body: JSON.stringify({ name: name, phone: phone, program: program })
+    })
+    .then(function(r){ return r.json().catch(function(){return {};}); })
+    .then(function(d){
+      btn.disabled=false; btn.textContent='📨 결제 링크 문자 보내기';
+      if (d && d.ok) {
+        show('ok','✅ 결제 링크 문자를 보냈습니다!' + (d.link ? '<div class="preview">'+d.link+'</div>' : ''));
+      } else {
+        show('err','❌ ' + ((d && d.message) || '발송 실패') + (d && d.error==='auth_required' ? ' (관리자 로그인이 필요해요)' : ''));
+      }
+    })
+    .catch(function(){ btn.disabled=false; btn.textContent='📨 결제 링크 문자 보내기'; show('err','❌ 네트워크 오류'); });
+    function show(cls, html){ msg.className='msg '+cls; msg.innerHTML=html; msg.style.display='block'; }
+  });
+  function show(cls, html){ var msg=g('msg'); msg.className='msg '+cls; msg.innerHTML=html; msg.style.display='block'; }
+})();
+</script>
+</body>
+</html>

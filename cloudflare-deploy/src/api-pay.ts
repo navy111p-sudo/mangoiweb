@@ -13,8 +13,13 @@
  *  실전 전환: 시크릿을 live_sk_* 로 바꾸고 프론트 클라이언트키도 live_ck_* 로 교체.
  */
 import { json, parseJsonBody } from './api-util';
+import { checkAdminSession } from './auth-admin';
+import { sendPlainSms } from './solapi-client';
 
 const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
+// 토스 클라이언트 키(공개). 실전 전환 시 env.TOSS_CLIENT_KEY 를 live_ck_* 로 설정하면 코드수정 없이 교체됨.
+//   ⚠️ idx-payment-modal.js 의 PAY_INFO.tosspayments_client_key 와 값이 일치해야 함(둘 다 교체).
+const TOSS_CLIENT_KEY_DEFAULT = 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
 
 // ── 서버 가격표(정본). 프론트 PROG_INFO 와 동기화. 여기 없는 상품은 결제 불가(상담 유도) ──
 const PRICES: Record<string, { name: string; amount: number }> = {
@@ -180,6 +185,35 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     ).bind(orderId).first();
     if (!order) return json({ ok: false, error: 'order_not_found' }, 404);
     return json({ ok: true, order });
+  }
+
+  // ── 4) 상품 시세 조회 (간편 결제링크 페이지에서 금액 표시용, 공개) ──
+  if (path === '/api/pay/quote' && method === 'GET') {
+    const program = url.searchParams.get('program') || '';
+    const p = PRICES[program];
+    if (!p) return json({ ok: false, error: 'unknown_program' }, 404);
+    return json({ ok: true, program, name: p.name, amount: p.amount, clientKey: env.TOSS_CLIENT_KEY || TOSS_CLIENT_KEY_DEFAULT });
+  }
+
+  // ── 5) 결제 링크 문자 발송 (관리자 전용) — 학부모 폰으로 간편결제 링크 SMS ──
+  if (path === '/api/pay/send-link' && method === 'POST') {
+    const sess = await checkAdminSession(request, env);
+    if (!sess.ok) return json({ ok: false, error: 'auth_required' }, 401);
+    const body = await parseJsonBody(request) || {};
+    const program = String(body.program || '').trim();
+    const phone = String(body.phone || '').replace(/[^0-9]/g, '');
+    const name = String(body.name || '').slice(0, 30).trim();
+    const p = PRICES[program];
+    if (!p) return json({ ok: false, error: 'unknown_program', message: '상품을 선택해 주세요.' }, 400);
+    if (phone.length < 10) return json({ ok: false, error: 'invalid_phone', message: '전화번호를 확인해 주세요.' }, 400);
+
+    const origin = new URL(request.url).origin;
+    const link = `${origin}/pay-link.html?program=${encodeURIComponent(program)}` + (name ? `&name=${encodeURIComponent(name)}` : '');
+    const won = p.amount.toLocaleString('ko-KR');
+    const text = `[망고아이] ${name ? name + '님, ' : ''}${p.name} ${won}원 결제 안내입니다.\n아래 링크에서 카드·카카오페이로 간편하게 결제해 주세요 👇\n${link}`;
+    const r = await sendPlainSms(env, phone, text);
+    if (r.ok) return json({ ok: true, sent: true, link, detail: r.message });
+    return json({ ok: false, error: r.error || 'sms_failed', message: r.message || '문자 발송에 실패했습니다.' }, 502);
   }
 
   return null;

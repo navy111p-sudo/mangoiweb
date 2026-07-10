@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>워드 파이터: 문장 마스터 — 실사 좀비 격투 영어</title>
+<title>워드 파이터: 문장 마스터 — 실사 좀비 격투 영어·중국어</title>
 <style>
   :root{ --accent:#fbbf24; --good:#22c55e; --bad:#ef4444; --blood:#b91c1c; --tx:#eaf2ff; --sub:#c9d4ea; --line:rgba(255,255,255,.16); }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -255,10 +255,10 @@
         • 좀비가 도달하면 <b>❤️ 생명 -1</b> — 3개 다 잃으면 게임 오버 💀<br>
         • 연속 처치 <b>5콤보 = 🔥 피버</b>(점수 2배) · 👑 황금 좀비 2배 · 👹 <b>보스 웨이브</b><br>
         • 한 문장 완성 → <b>복습1 조합 · 복습2 말하기 · 복습3 반복</b>으로 마스터 🔁<br>
-        • <b>속도 선택</b> 가능 — 🔥 광속은 점수 <b>1.3배</b>, 🐢 느긋은 0.8배 ⚖
+        • <b>속도 4단계</b> — 🐌 아주 천천히 → 🔥 광속. 빠를수록 점수 배율 ↑ (광속 <b>1.3배</b>) ⚖
       </div>
       <div class="speedrow"><span class="sr-lab">🌐 언어</span><button class="lng" data-l="en">🇺🇸 영어</button><button class="lng" data-l="zh">🇨🇳 중국어</button></div>
-      <div class="speedrow"><span class="sr-lab">⚙ 속도</span><button class="spd" data-k="relax">🐢 느긋</button><button class="spd sel" data-k="normal">⚔️ 보통</button><button class="spd" data-k="turbo">🔥 광속</button></div>
+      <div class="speedrow"><span class="sr-lab">⚙ 속도</span><button class="spd" data-k="snail">🐌 아주 천천히</button><button class="spd" data-k="relax">🐢 느긋</button><button class="spd sel" data-k="normal">⚔️ 보통</button><button class="spd" data-k="turbo">🔥 광속</button></div>
       <button class="btn red" id="startBtn">전투 시작 ▶</button>
       <div class="warn" id="voiceWarn"></div>
     </div>
@@ -415,13 +415,14 @@
     {e:'🦇',  spd:1.5,  size:0.8,  wob:4.0}
   ];
   var BOSSFACES=['🧟‍♂️','👹','🤡'];
-  // ⚙ 속도 조절 — 광속은 점수 보너스, 느긋은 약간 감점 배율
+  // ⚙ 속도 조절 — 아주 천천히부터 빠르게 4단계. 빠를수록 점수 배율 ↑
   var SPEEDS=[
-    {k:'relax', label:'🐢 느긋', mul:0.25, score:0.8},
-    {k:'normal',label:'⚔️ 보통', mul:0.75, score:1.0},
-    {k:'turbo', label:'🔥 광속', mul:1.3,  score:1.3}
+    {k:'snail', label:'🐌 아주 천천히', mul:0.1,  score:0.7},
+    {k:'relax', label:'🐢 느긋', mul:0.2,  score:0.85},
+    {k:'normal',label:'⚔️ 보통', mul:0.42, score:1.0},
+    {k:'turbo', label:'🔥 광속', mul:0.85, score:1.3}
   ];
-  var speedIdx=(function(){ var k=LSget('wf_speed'); for(var i=0;i<SPEEDS.length;i++){ if(SPEEDS[i].k===k) return i; } return 1; })();
+  var speedIdx=(function(){ var k=LSget('wf_speed'); for(var i=0;i<SPEEDS.length;i++){ if(SPEEDS[i].k===k) return i; } return 2; })();
 
   var score=0,timeLeft=45,combo=0,level=0,currentIndex=0,collected=[],lives=3,fever=false;
   var targetWords=[],zombies=[],running=false,phase='battle',lastHit=0,lastTs=0,rafId=null,timerId=null,lastProgressTs=0;
@@ -535,7 +536,7 @@
     var el=document.createElement('button'); el.className='ztag'+(it.isTarget?'':' distractor')+(it.golden?' golden':'')+(it.boss?' boss':'')+(ty.ghost&&!it.boss?' ghosty':'');
     var face=it.boss?BOSSFACES[Math.floor(Math.random()*BOSSFACES.length)]:ty.e;
     el.innerHTML='<span class="w">'+it.word+(it.boss?'<span class="bhp">💥2</span>':'')+'</span><span class="zbody"><span class="zface">'+face+'</span></span>';
-    var spdMul=(1+Math.min(level*0.12,0.9))*(it.boss?0.45:ty.spd);   // 웨이브·종류별 속도, 보스는 느림
+    var spdMul=(0.6+Math.min(level*0.12,1.1))*(it.boss?0.45:ty.spd);   // 웨이브 1은 아주 느리게 시작 → 갈수록 빨라짐, 보스는 느림
     var z={ el:el, word:it.word, isTarget:it.isTarget, golden:!!it.golden, boss:!!it.boss, hp:it.boss?2:1,
       body:null, wEl:null, xPct:rand(14,86), prog:rand(0,0.25)-i*0.06, speed:rand(0.018,0.04)*spdMul,
       sizeMul:it.boss?1.9:ty.size, wobA:it.boss?0.5:ty.wob, wobF:rand(0.0012,0.0024), phase:rand(0,6.28) };
@@ -713,6 +714,6 @@
 })();
 </script>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711005844 -->
+<!-- BUILD:20260711011620 -->
 </body>
 </html>

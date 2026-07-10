@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>결제하기 · 망고아이</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:'Malgun Gothic','맑은 고딕',sans-serif; background:linear-gradient(160deg,#0f172a,#1e293b); color:#e2e8f0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .card { background:rgba(30,41,59,0.9); border:1px solid rgba(148,163,184,0.2); border-radius:22px; padding:30px 26px; max-width:400px; width:100%; box-shadow:0 20px 60px -20px rgba(0,0,0,0.6); }
+  .logo { text-align:center; font-size:15px; font-weight:800; color:#fbbf24; margin-bottom:4px; }
+  .hi { text-align:center; font-size:15px; color:#cbd5e1; margin-bottom:20px; }
+  .box { background:rgba(0,0,0,0.28); border-radius:14px; padding:18px; text-align:center; margin-bottom:8px; }
+  .prog { font-size:17px; font-weight:800; margin-bottom:6px; }
+  .amt { font-size:32px; font-weight:900; color:#fbbf24; }
+  .methods { font-size:12px; color:#94a3b8; text-align:center; margin:14px 0 18px; }
+  .btn { display:block; width:100%; padding:16px; border-radius:14px; border:0; font-size:16px; font-weight:800; cursor:pointer; }
+  .btn-pay { background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:#fff; }
+  .btn-pay:disabled { opacity:0.6; cursor:default; }
+  .safe { text-align:center; font-size:11.5px; color:#64748b; margin-top:14px; line-height:1.7; }
+  .err { color:#fca5a5; text-align:center; margin-top:14px; font-size:13px; }
+  .spinner { width:40px; height:40px; border:5px solid rgba(148,163,184,0.25); border-top-color:#3b82f6; border-radius:50%; animation:spin .8s linear infinite; margin:30px auto; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="spinner"></div>
+    <div style="text-align:center;color:#94a3b8;font-size:14px">결제 정보를 불러오는 중…</div>
+  </div>
+
+<script src="https://js.tosspayments.com/v1/payment"></script>
+<script>
+(function(){
+  var p = new URLSearchParams(location.search);
+  var program = p.get('program') || '';
+  var name = p.get('name') || '';
+  var uid = p.get('uid') || '';
+  var card = document.getElementById('card');
+  var CLIENT_KEY = null, AMOUNT = 0, ORDER_NAME = '';
+
+  function won(n){ return '₩ ' + Number(n||0).toLocaleString('ko-KR'); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  function renderError(msg){
+    card.innerHTML = '<div style="text-align:center"><div style="font-size:44px">😅</div>'
+      + '<div style="font-size:16px;font-weight:800;margin:8px 0">결제 정보를 열 수 없어요</div>'
+      + '<div class="err">'+esc(msg)+'</div>'
+      + '<div class="safe">링크가 오래되었거나 잘못되었을 수 있어요. 보내주신 분께 문의해 주세요.</div></div>';
+  }
+
+  function renderPay(){
+    card.innerHTML =
+      '<div class="logo">🥭 망고아이</div>'
+      + '<div class="hi">'+(name ? esc(name)+'님, 결제를 진행합니다' : '결제를 진행합니다')+'</div>'
+      + '<div class="box"><div class="prog">'+esc(ORDER_NAME)+'</div><div class="amt">'+won(AMOUNT)+'</div></div>'
+      + '<div class="methods">💳 카드 · 카카오페이 · 계좌이체 모두 가능</div>'
+      + '<button class="btn btn-pay" id="btnPay">결제하기</button>'
+      + '<div class="safe">🔒 토스페이먼츠 안전결제 · 영수증 자동 발급<br>결제 완료 시 수강이 자동 활성화됩니다</div>';
+    document.getElementById('btnPay').addEventListener('click', startPay);
+  }
+
+  async function startPay(){
+    var btn = document.getElementById('btnPay');
+    btn.disabled = true; btn.textContent = '🔄 결제창 여는 중…';
+    // 1) 서버 주문 생성 (금액은 서버가 결정)
+    var order;
+    try {
+      var res = await fetch('/api/pay/create-order', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ program: program, payer: name, student: name, method:'card', uid: uid || null })
+      });
+      order = await res.json();
+      if (!order || !order.ok) { renderError((order && order.message) || '주문 생성 실패'); return; }
+    } catch(e){ btn.disabled=false; btn.textContent='결제하기'; alert('네트워크 오류. 다시 시도해 주세요.'); return; }
+    // 2) 토스 결제창
+    try {
+      var tp = window.TossPayments(CLIENT_KEY);
+      await tp.requestPayment('카드', {
+        amount: order.amount,
+        orderId: order.orderId,
+        orderName: order.orderName || ORDER_NAME,
+        customerName: name || '고객',
+        successUrl: location.origin + '/payment-success.html',
+        failUrl: location.origin + '/payment-fail.html',
+      });
+    } catch(e){
+      btn.disabled=false; btn.textContent='결제하기';
+      if (e && e.code !== 'USER_CANCEL') alert('결제창을 열 수 없습니다: ' + (e.message||''));
+    }
+  }
+
+  if (!program) { renderError('상품 정보가 없습니다.'); return; }
+  // 시세 조회 → 화면 구성
+  fetch('/api/pay/quote?program=' + encodeURIComponent(program))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d || !d.ok) { renderError('결제 가능한 상품이 아닙니다.'); return; }
+      AMOUNT = d.amount; ORDER_NAME = d.name; CLIENT_KEY = d.clientKey;
+      if (!window.TossPayments || !CLIENT_KEY) { renderError('결제 모듈을 불러오지 못했습니다.'); return; }
+      renderPay();
+    })
+    .catch(function(){ renderError('네트워크 오류'); });
+})();
+</script>
+<!-- BUILD:20260711011620 -->
+</body>
+</html>
