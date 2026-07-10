@@ -26,7 +26,9 @@
 
 | 경로 | 위험 | 처리방법 |
 |---|---|---|
-| ~~`POST /api/student/set-password`~~ ✅ | ~~계정 탈취~~ → 관리자 전용 잠금 완료(07-10) | |
+| `POST /api/student/set-password` | 계정 claim(학부모 잠그기 흐름에 사용) — 비번없으면 최초설정, 있으면 옛비번 검증 | 유지(claim) |
+| ~~`GET /api/parent/dashboard`~~ ✅ | 자녀 전체정보+결제 | **비밀번호 로그인 토큰 인증 완료(07-10, 라이브 검증)**. 발견: parent_phone/name 전원 0개→전화인증 불가라 비번방식 채택 |
+| ~~kakao-id/*, consents/*, parent/link-child, parent/my-children~~ ✅ | 전화·IP·자녀연결 | 관리자 전용 잠금 완료(07-10) |
 | `GET /api/parent/dashboard?child_uid=` | 자녀 전체정보 + **학부모 전화 + 결제내역** | 학부모 토큰 인증 |
 | `GET /api/report/monthly/{uid}/{ym}` | 월간 리포트 + **결제 총액** (uid가 URL에) | 토큰/공유토큰 인증 |
 | `GET /api/kakao-id/{userId}` · `POST /api/kakao-id` | 임의 유저 전화·kakao_id 조회/덮어쓰기 | 토큰/관리자 인증 |
