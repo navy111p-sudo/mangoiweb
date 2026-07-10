@@ -235,7 +235,7 @@
   /* 🧸 실사(그린스크린) 배 낚시꾼 영상 — 캔버스에서 실시간 크로마키, 영상 로드 실패 시 이모지 폴백 */
   .boat .fishercv{display:none;position:absolute;left:50%;bottom:-4px;transform:translateX(-50%);width:96px;z-index:2;
     pointer-events:none;filter:drop-shadow(0 5px 8px rgba(0,0,0,.45))}
-  .boat.real{top:10px}
+  .boat.real{top:16px}
   .boat.real .fisher,.boat.real .hull,.boat.real .rod{visibility:hidden}
   .boat.real .fishercv{display:block}
   .boat.tug{animation:tug .35s}
@@ -269,7 +269,7 @@
   #fish .boat .hull{font-size:58px}
   #fish .boat .fisher{font-size:31px;left:46px;bottom:24px}
   #fish .boat .rod{left:70px;bottom:38px;width:74px}
-  #fish .boat.real{top:12px}
+  #fish .boat.real{top:18px}
   #fish .boat.real .fishercv{width:110px}
   #fish .weed{filter:drop-shadow(0 0 7px rgba(0,0,0,.5))}
   #fish .hook{font-size:20px}
@@ -1280,8 +1280,8 @@
       var im=ctx.getImageData(0,0,w,h), d=im.data;
       for(var i=0;i<d.length;i+=4){
         var r=d[i],g=d[i+1],b=d[i+2],ex=g-(r>b?r:b);
-        if(ex>34) d[i+3]=0;                                                        // 초록 배경 제거
-        else if(ex>10){ d[i+3]=(255-(ex-10)*10.6)|0; d[i+1]=(r>b?r:b)+6; }          // 가장자리 반투명+초록기 빼기
+        if(ex>58) d[i+3]=0;                                                        // 초록 배경 제거(배경 ex≈85~93)
+        else if(ex>40){ d[i+3]=(255-(ex-40)*14.2)|0; d[i+1]=(r>b?r:b)+10; }         // 가장자리 반투명+초록기 빼기(곰 스웨터 ex≤35 보존)
       }
       ctx.putImageData(im,0,0);
       if(!fisherOn){ fisherOn=true; boatEl.classList.add('real'); }
@@ -1754,6 +1754,6 @@
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711052842 -->
+<!-- BUILD:20260711053823 -->
 </body>
 </html>
