@@ -124,6 +124,19 @@
     .wn-ex { color:var(--text2); font-size:12px; margin-top:3px; font-style:italic; }
     .confetti-pc { position:fixed; top:-20px; font-size:20px; pointer-events:none; z-index:99998; animation:confFall linear forwards; }
     @keyframes confFall { to { transform:translateY(105vh) rotate(360deg); opacity:.2; } }
+
+    /* ── 유형 배지 / 진행 점 / 랭크 / 듣기·영어단어 프롬프트 ── */
+    .q-type { text-align:center; font-size:11.5px; font-weight:800; color:#93c5fd; letter-spacing:.4px; margin-bottom:10px; }
+    .qdots { display:flex; gap:6px; justify-content:center; margin-bottom:12px; flex-wrap:wrap; }
+    .qdot { width:9px; height:9px; border-radius:50%; background:rgba(255,255,255,0.16); transition:transform .15s,background .15s; }
+    .qdot.cur { background:#fbbf24; transform:scale(1.35); box-shadow:0 0 8px rgba(251,191,36,0.6); }
+    .qdot.ok { background:#10b981; }
+    .qdot.no { background:#ef4444; }
+    .ch-rank { color:#c4b5fd; font-size:12.5px; font-weight:800; }
+    .listen-ic { font-size:66px; line-height:1; animation:listenPulse 1.4s ease-in-out infinite; }
+    @keyframes listenPulse { 0%,100%{transform:scale(1);opacity:.85} 50%{transform:scale(1.12);opacity:1} }
+    .kid-ko { font-size:40px; font-weight:900; color:#fbbf24; text-align:center; letter-spacing:-.5px; }
+    .opts-ch .opt { transition:all .12s; }
   </style>
 </head>
 <body>
@@ -274,6 +287,51 @@
     function bounceMascot(){ var m=document.getElementById('kidMascot'); if(m){ m.classList.remove('bounce'); void m.offsetWidth; m.classList.add('bounce'); } }
     function popStar(){ try{ var s=document.createElement('div'); s.className='star-pop'; s.textContent='⭐'; s.style.left=(window.innerWidth/2-15)+'px'; s.style.top=(window.innerHeight*0.42)+'px'; document.body.appendChild(s); setTimeout(function(){ s.remove(); },1000); }catch(e){} }
     function confetti(){ try{ var em=['🎉','⭐','✨','🎊','🏆']; for(var i=0;i<16;i++){ (function(i){ var c=document.createElement('div'); c.className='confetti-pc'; c.textContent=em[i%em.length]; c.style.left=Math.round(Math.random()*100)+'vw'; c.style.animationDuration=(1.4+Math.random()*1.2)+'s'; c.style.animationDelay=(Math.random()*0.3)+'s'; document.body.appendChild(c); setTimeout(function(){ c.remove(); }, 3200); })(i); } }catch(e){} }
+
+    /* ── 진행 점 · 랭크 · 자동넘김 상태 ── */
+    let dotResults = [], autoAdvTimer = null, _advancing = false;
+    function renderDots(){
+      var s='<div class="qdots">';
+      for(var i=0;i<quizzes.length;i++){
+        var cls='qdot';
+        if(i===curIdx) cls+=' cur';
+        else if(dotResults[i]===true) cls+=' ok';
+        else if(dotResults[i]===false) cls+=' no';
+        s+='<span class="'+cls+'"></span>';
+      }
+      return s+'</div>';
+    }
+    function rankLabel(){ return xp>=80 ? '🥇 Gold' : xp>=30 ? '🥈 Silver' : '🥉 Bronze'; }
+
+    /* ── 문제 유형 다양화 (프론트에서 배치 데이터로 재구성 · 서버 변경 없음) ──
+       meaning: 단어→뜻 · listen: 듣고→뜻(단어 숨김) · word: 뜻→영어단어 */
+    const COMMON_EN = ['book','water','friend','house','music','apple','happy','school','family','money','time','food','color','animal','number','morning','night','summer','winter','story','teacher','student','flower','river','world'];
+    function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+    function prepareQuizzes(serverQuizzes){
+      var allWords = serverQuizzes.map(function(q){ return q.source_word; }).filter(Boolean);
+      var rot = (curMode==='kids') ? ['meaning','listen'] : ['meaning','word','listen'];
+      return serverQuizzes.map(function(q, k){
+        var meaning = q.options[q.correct_index];
+        var type = rot[k % rot.length];
+        var base = { serverId:q.id, serverCorrect:q.correct_index, word:q.source_word, meaning:meaning, example:q.hint || '', type:type };
+        if (type==='word' && allWords.filter(function(w){ return w && w!==q.source_word; }).length < 1) type='meaning', base.type='meaning';
+        if (base.type==='word'){
+          var pool = shuffle(allWords.filter(function(w){ return w && w!==q.source_word; }).slice()).slice(0,3);
+          var extra = shuffle(COMMON_EN.filter(function(w){ return w!==q.source_word && pool.indexOf(w)<0; }));
+          while(pool.length<3 && extra.length){ pool.push(extra.shift()); }
+          var opts = shuffle([q.source_word].concat(pool));
+          base.options=opts; base.correctIndex=opts.indexOf(q.source_word);
+          base.questionText='"'+meaning+'" 는 영어로?'; base.showEmoji=false; base.audioOnLoad=false;
+        } else if (base.type==='listen'){
+          base.options=q.options.slice(); base.correctIndex=q.correct_index;
+          base.questionText='잘 듣고 뜻을 고르세요'; base.showEmoji=false; base.audioOnLoad=true;
+        } else {
+          base.options=q.options.slice(); base.correctIndex=q.correct_index;
+          base.questionText='이 단어의 뜻은?'; base.showEmoji=true; base.audioOnLoad=true;
+        }
+        return base;
+      });
+    }
     function pickTopic(btn, topic) {
       document.querySelectorAll('.topic-pick').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
@@ -328,8 +386,8 @@
           btn.disabled = false; btn.innerHTML = '🚀 퀴즈 시작';
           return;
         }
-        quizzes = d.quizzes;
-        curIdx = 0; answers = []; combo = 0; bestCombo = 0; xp = 0; stars = 0;
+        quizzes = prepareQuizzes(d.quizzes);
+        curIdx = 0; answers = []; dotResults = []; combo = 0; bestCombo = 0; xp = 0; stars = 0;
         document.getElementById('introBox').style.display = 'none';
         document.getElementById('emptyBox').style.display = 'none';
         document.getElementById('quizArea').style.display = '';
@@ -342,32 +400,51 @@
 
     function renderQuiz() {
       clearTimer();
-      const q = quizzes[curIdx];
-      if (!q) return showResult();
+      const Q = quizzes[curIdx];
+      if (!Q) return showResult();
       const total = quizzes.length;
       const pct = ((curIdx)/total)*100;
       const area = document.getElementById('quizArea');
       const isKids = curMode === 'kids';
-      const emo = wordEmoji(q.source_word);
 
       const head = isKids
         ? `<div class="kid-head"><img class="kid-mascot" id="kidMascot" src="/img/mango-char.png" alt="Mango" /><div class="kid-stars" id="kidStars">${renderStars()}</div></div>`
-        : `<div class="ch-stats"><span class="ch-combo" id="chCombo">🔥 ${combo}</span><span class="ch-xp" id="chXp">XP ${xp}</span></div>`;
-      const visual = isKids
-        ? `<div class="kid-word"><div class="kid-emoji">${emo||'🔤'}</div><button class="say-btn" id="sayBtn">🔊 <span data-ko="다시 듣기" data-en="Play">다시 듣기</span></button></div>`
-        : `<div class="ch-word"><span class="ch-word-txt">${escHtml(q.source_word||'')}</span><button class="say-btn sm" id="sayBtn">🔊</button></div>`;
+        : `<div class="ch-stats"><span class="ch-combo" id="chCombo">🔥 ${combo}</span><span class="ch-rank">${rankLabel()}</span><span class="ch-xp" id="chXp">XP ${xp}</span></div>`;
+
+      // 유형 배지
+      const typeBadge = `<div class="q-type">${
+        Q.type==='listen' ? (isKids?'👂 듣고 맞히기':'👂 Listening') :
+        Q.type==='word'   ? (isKids?'🔤 영어로 말하기':'🔤 Say it in English') :
+                            (isKids?'📖 뜻 맞히기':'📖 Meaning')
+      }</div>`;
+
+      // 프롬프트(그림/단어/듣기)
+      let prompt;
+      if (Q.type==='listen') {
+        prompt = `<div class="${isKids?'kid-word':'ch-word'}"><div class="listen-ic">👂</div><button class="say-btn" id="sayBtn">🔊 <span data-ko="다시 듣기" data-en="Play again">다시 듣기</span></button></div>`;
+      } else if (Q.type==='word') {
+        prompt = isKids
+          ? `<div class="kid-word"><div class="kid-ko">${escHtml(Q.meaning)}</div></div>`
+          : `<div class="ch-word"><span class="ch-word-txt" style="color:#fbbf24">${escHtml(Q.meaning)}</span></div>`;
+      } else {
+        prompt = isKids
+          ? `<div class="kid-word"><div class="kid-emoji">${wordEmoji(Q.word)||'🔤'}</div><button class="say-btn" id="sayBtn">🔊 <span data-ko="다시 듣기" data-en="Play">다시 듣기</span></button></div>`
+          : `<div class="ch-word"><span class="ch-word-txt">${escHtml(Q.word||'')}</span><button class="say-btn sm" id="sayBtn">🔊</button></div>`;
+      }
       const timer = isKids ? '' : `<div class="timer-wrap"><div class="timer-bar" id="timerBar"></div></div>`;
 
       area.innerHTML = `
+        <div id="qdotsWrap">${renderDots()}</div>
         <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
         ${head}
         <div class="quiz-card ${isKids?'kids':'challenge'}">
           <div class="q-num">${isKids ? ('문제 '+(curIdx+1)+' / '+total) : ('Q'+(curIdx+1)+' / '+total)}</div>
+          ${typeBadge}
           ${timer}
-          ${visual}
-          <div class="q-text">${escHtml(q.question)}</div>
+          ${prompt}
+          <div class="q-text">${escHtml(Q.questionText)}</div>
           <div id="opts" class="${isKids?'opts-kids':'opts-ch'}">
-            ${q.options.map((o, i) => `<button class="opt" data-i="${i}" onclick="pickAnswer(${i})">${isKids?'':('<span class="opt-prefix">'+String.fromCharCode(65+i)+'</span>')}${escHtml(o)}</button>`).join('')}
+            ${Q.options.map((o, i) => `<button class="opt" data-i="${i}" onclick="pickAnswer(${i})">${isKids?'':('<span class="opt-prefix">'+String.fromCharCode(65+i)+'</span>')}${escHtml(o)}</button>`).join('')}
           </div>
           <div id="feedback" class="fb" style="display:none"></div>
           <div id="nextRow" class="nav-btns" style="display:none">
@@ -375,54 +452,47 @@
           </div>
         </div>
       `;
-      var sb = document.getElementById('sayBtn'); if (sb) sb.onclick = function(){ speakWord(q.source_word); };
-      setTimeout(function(){ speakWord(q.source_word); }, 250);   // 단어 원어민 발음 자동 재생
+      var sb = document.getElementById('sayBtn'); if (sb) sb.onclick = function(){ speakWord(Q.word); };
+      if (Q.audioOnLoad) setTimeout(function(){ speakWord(Q.word); }, 260);   // 단어 발음 자동 재생(듣기/뜻 유형)
       if (!isKids) startTimer();
       try{ if(window.applyLang) applyLang(); else if(window.mangoApplyI18n) mangoApplyI18n(); }catch(e){}
     }
 
-    async function pickAnswer(i) {
+    function recordProgress(Q, isCorrect) {
+      // 서버 숙련도 기록: 정답이면 서버 정답 index, 오답이면 다른 index 로 번역 제출(유형 무관 일관 기록)
+      var serverAns = isCorrect ? Q.serverCorrect : (Q.serverCorrect === 0 ? 1 : 0);
+      try { fetch('/api/vocab/quiz-submit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ quiz_id: Q.serverId, answer: serverAns }) }); } catch(e) {}
+    }
+    function pickAnswer(i) {
       var first = document.querySelector('#opts .opt');
       if (first && first.disabled) return;   // 중복 클릭 방지
       clearTimer();
-      const q = quizzes[curIdx];
+      const Q = quizzes[curIdx];
       document.querySelectorAll('.opt').forEach(b => b.disabled = true);
-      let correctIndex = q.correct_index;
-      try {
-        const r = await fetch('/api/vocab/quiz-submit', {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ quiz_id: q.id, answer: i })
-        });
-        const d = await r.json();
-        if (d && d.correct_index != null) correctIndex = d.correct_index;
-      } catch(e) {}
-      revealAnswer(i, false, correctIndex);
+      revealAnswer(i, false);
     }
-
-    async function onTimeout() {
+    function onTimeout() {
       if (document.querySelector('.opt.correct') || document.querySelector('.opt.wrong')) return;
-      const q = quizzes[curIdx];
       document.querySelectorAll('.opt').forEach(b => b.disabled = true);
-      let correctIndex = q.correct_index;
-      try {
-        const r = await fetch('/api/vocab/quiz-submit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ quiz_id: q.id, answer: -1 }) });
-        const d = await r.json(); if (d && d.correct_index != null) correctIndex = d.correct_index;
-      } catch(e) {}
-      revealAnswer(-1, true, correctIndex);
+      revealAnswer(-1, true);
     }
 
-    function revealAnswer(i, timedOut, correctIndex) {
-      const q = quizzes[curIdx];
-      if (correctIndex == null) correctIndex = q.correct_index;
+    function revealAnswer(i, timedOut) {
+      const Q = quizzes[curIdx];
+      const correctIndex = Q.correctIndex;
       const isCorrect = !timedOut && i === correctIndex;
       const isKids = curMode === 'kids';
-      answers.push({ word: q.source_word, meaning: q.options[correctIndex], example: q.hint, correct: isCorrect });
+      recordProgress(Q, isCorrect);
+      dotResults[curIdx] = isCorrect;
+      answers.push({ word: Q.word, meaning: Q.meaning, example: Q.example, correct: isCorrect });
 
       document.querySelectorAll('.opt').forEach(b => {
         const bi = parseInt(b.dataset.i);
         if (bi === correctIndex) b.classList.add('correct');
         else if (bi === i && !isCorrect) b.classList.add('wrong');
       });
+      var dz = document.getElementById('qdotsWrap'); if (dz) dz.innerHTML = renderDots();
+      speakWord(Q.word);   // 답한 뒤 단어 발음(특히 '영어로 말하기' 유형에서 정답 확인)
       const fb = document.getElementById('feedback');
       fb.style.display = 'block';
 
@@ -443,11 +513,14 @@
           fb.innerHTML = '✅ Nice!' + (combo>=2 ? (' 🔥 x'+combo) : '') + ' <span class="xp-plus">+'+gained+' XP</span>' + (speed>0 ? (' <span class="spd">⚡ speed +'+speed+'</span>') : '');
           var cc = document.getElementById('chCombo'); if (cc) cc.textContent = '🔥 '+combo;
           var cx = document.getElementById('chXp'); if (cx) cx.textContent = 'XP '+xp;
+          var cr = document.querySelector('.ch-rank'); if (cr) cr.textContent = rankLabel();
         }
+        if (autoAdvTimer) clearTimeout(autoAdvTimer);
+        autoAdvTimer = setTimeout(function(){ nextQuiz(); }, 1200);   // 정답이면 자연스럽게 자동 진행
       } else {
         combo = 0;
         sfx('wrong'); vibrate([15,40,15]);
-        var ans = escHtml(q.options[correctIndex]);
+        var ans = escHtml(Q.options[correctIndex]);
         if (isKids) {
           fb.className = 'fb no';
           fb.innerHTML = (timedOut ? '⏰ 시간이 다 됐어요! ' : '괜찮아, 다음엔 맞힐 수 있어! 😊 ') + '정답: <b>'+ans+'</b>';
@@ -461,9 +534,14 @@
     }
 
     function nextQuiz() {
+      if (_advancing) return;
+      _advancing = true;
+      if (autoAdvTimer) { clearTimeout(autoAdvTimer); autoAdvTimer = null; }
+      clearTimer();
       curIdx++;
       if (curIdx >= quizzes.length) showResult();
       else renderQuiz();
+      setTimeout(function(){ _advancing = false; }, 60);
     }
 
     function showResult() {
@@ -505,8 +583,26 @@
     }
 
     setMode(curMode, false);   // 초기: body[data-mode] + 토글 활성화 반영
+
+    /* ⌨️ 키보드 응답: 1~4 또는 A~D 로 보기 선택, Enter/Space 로 다음 (집중·속도↑) */
+    document.addEventListener('keydown', function(e){
+      var optsEl = document.getElementById('opts');
+      if (optsEl) {
+        var opts = optsEl.querySelectorAll('.opt');
+        if (opts.length && !opts[0].disabled) {
+          var idx = -1;
+          if (e.key >= '1' && e.key <= '9') idx = (+e.key) - 1;
+          else { var L = (e.key||'').toLowerCase(); if (L>='a' && L<='j') idx = L.charCodeAt(0) - 97; }
+          if (idx >= 0 && idx < opts.length) { e.preventDefault(); pickAnswer(idx); return; }
+        }
+      }
+      if (e.key === 'Enter' || e.key === ' ') {
+        var nr = document.getElementById('nextRow');
+        if (nr && nr.style.display !== 'none') { e.preventDefault(); nextQuiz(); }
+      }
+    });
   </script>
-<!-- BUILD:20260710173613 -->
+<!-- BUILD:20260710174155 -->
 <script defer src="/js/game-tts.js"></script><!-- 🔊 원어민 TTS(서버 Deepgram Aura-1 → MeloTTS → 브라우저 폴백) -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
