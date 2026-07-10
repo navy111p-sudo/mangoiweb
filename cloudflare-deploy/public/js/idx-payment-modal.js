@@ -584,7 +584,13 @@
       var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
       if (!u) { try { u = JSON.parse(localStorage.getItem('mangoi_logged_user') || localStorage.getItem('mango_user') || 'null'); } catch(_){} }
       var realUid = u && (u.uid || u.id || u.user_id);
-      if (!realUid) return;                               // 비로그인 → 기존 수동 입력 경로 유지
+      // 👪 학부모 편의(2026-07-10): 로그인 세션이 없으면 결제 딥링크의 uid(=자녀 ID)로 자동채움.
+      //   parent.html 의 '결제하기'가 /?pay=1&uid=<자녀ID> 로 넘겨줌 → 학부모가 ID 재입력 불필요.
+      //   (로그인 학생은 위 세션 uid 를 그대로 쓰므로 영향 없음)
+      if (!realUid) {
+        try { realUid = new URLSearchParams(location.search).get('uid') || window._payPrefillUid || ''; } catch(_){}
+      }
+      if (!realUid) return;                               // 비로그인·uid없음 → 기존 수동 입력 경로 유지
       var uidEl = document.getElementById('ext-uid');
       var authEl = document.getElementById('ext-auth');
       if (uidEl) uidEl.value = realUid;                   // 학생 ID 자동채움

@@ -359,7 +359,7 @@ function showKakaoShareDialog(url) {
       <div class="card">
         <h3>💳 <span data-ko="최근 결제" data-en="Recent Payments">최근 결제</span></h3>
         <div id="pd-pays" style="font-size:12.5px"></div>
-        <a href="/?pay=1" style="display:block;margin-top:12px;padding:12px;text-align:center;background:linear-gradient(135deg,#fbbf24,#d97706);color:#1a1a1a;text-decoration:none;border-radius:10px;font-weight:800;font-size:14px;box-shadow:0 6px 16px -4px rgba(245,158,11,0.5)" data-ko="💳 결제하기 / 수강권 연장" data-en="💳 Pay / Extend Package">💳 결제하기 / 수강권 연장</a>
+        <a href="/?pay=1" onclick="location.href='/?pay=1&uid='+encodeURIComponent(_currentUid||'');return false;" style="display:block;margin-top:12px;padding:12px;text-align:center;background:linear-gradient(135deg,#fbbf24,#d97706);color:#1a1a1a;text-decoration:none;border-radius:10px;font-weight:800;font-size:14px;box-shadow:0 6px 16px -4px rgba(245,158,11,0.5)" data-ko="💳 결제하기 / 수강권 연장" data-en="💳 Pay / Extend Package">💳 결제하기 / 수강권 연장</a>
       </div>
 
     </div>
