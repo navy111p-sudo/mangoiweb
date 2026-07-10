@@ -102,9 +102,9 @@
   @keyframes soldierBob{from{transform:translateX(-50%) translateY(0)}to{transform:translateX(-50%) translateY(3px)}}
   .turret-soldier.flinch{animation:soldierFlinch .22s}   /* 발사 반동 — 사수가 살짝 움찔 */
   @keyframes soldierFlinch{0%{transform:translateX(-50%) translateY(0)}40%{transform:translateX(-50%) translateY(4px)}100%{transform:translateX(-50%) translateY(0)}}
-  /* 총 회전축 = 사수 허리(등 아래) + 오른어깨 쪽으로 비킴 → 두 손에 잡혀 어깨 너머로 조준(머리 안 가림) */
-  .barrel-rot{position:absolute;left:63%;bottom:12%;transform-origin:50% 100%;transform:translateX(-50%) rotate(6deg);
-    transition:transform .1s ease-out;z-index:11}
+  /* 총은 사수 몸 뒤(z 8 < 사수 z 9)에 그려 몸이 총 몸통을 가리고, 긴 총열만 어깨 위로 보인다(앞에서 잡은 모습) */
+  .barrel-rot{position:absolute;left:52%;bottom:12%;transform-origin:50% 100%;transform:translateX(-50%) rotate(4deg);
+    transition:transform .1s ease-out;z-index:8}
   @media (min-width:820px){ #turret{width:204px;height:190px} }   /* PC 는 사수도 더 크게 */
   /* 총 실루엣은 JS(GUN_SVG)의 SVG 를 barrel 배경으로 그림 — 무기마다 실제 총 모양 (크기는 setGun 에서 GUN_DIM×배율) */
   .barrel{position:relative;width:28px;height:52px;
@@ -888,11 +888,12 @@
   var _aimBack=null;
   function aimAt(tx,ty){
     var p=pivot(), deg=Math.atan2(tx-p.x, -(ty-p.y))*180/Math.PI;
-    deg=Math.max(-60,Math.min(60,deg));                 // 과회전 제한 → 총이 눕지 않게 (기존 ±80)
+    // 총은 항상 세워 잡은 모습 유지 — 조준은 살짝 기우는 제스처만(최대 ±15°), 명중 판정·총알 궤적은 표적 좌표로 별도 처리
+    deg=Math.max(-15,Math.min(15,deg*0.25));
     barrelRot.style.transform='translateX(-50%) rotate('+deg+'deg)';
     // 쏜 뒤 잠시 후 기본 견착 자세(6deg)로 복귀 — 총이 옆으로 누운 채 멈춰있지 않게
     clearTimeout(_aimBack);
-    _aimBack=setTimeout(function(){ barrelRot.style.transition='transform .35s ease-out'; barrelRot.style.transform='translateX(-50%) rotate(6deg)';
+    _aimBack=setTimeout(function(){ barrelRot.style.transition='transform .35s ease-out'; barrelRot.style.transform='translateX(-50%) rotate(4deg)';
       setTimeout(function(){ barrelRot.style.transition=''; },380); },650);
   }
   // 🔥 화염방사기: 총구(sx,sy)→표적(ex,ey) 로 불줄기가 쭉 이어져 나가게 다수 파티클을 시차 분사
@@ -1074,7 +1075,7 @@
 
   // ===== 무기 전환 =====
   function gunScale(){ return (window.innerWidth>=820) ? 2.6 : 2.0; }   // 총 크게 — PC 는 더 크게
-  var GUN_LEN = 1.3;   // 총 길이 배율 — 총부리가 어깨 위로 확실히 보이게 세로로 더 길게
+  var GUN_LEN = 1.5;   // 총 길이 배율 — 몸 뒤에서 총열이 어깨 위로 길게 나오게 (총 아랫부분은 몸에 가려짐)
   function setGun(id, noFx){
     if(!GUNS.some(function(g){return g.id===id;})) id=GUNS[0].id;
     var changed = (id!==curGun);
@@ -1168,6 +1169,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711031317 -->
+<!-- BUILD:20260711032054 -->
 </body>
 </html>

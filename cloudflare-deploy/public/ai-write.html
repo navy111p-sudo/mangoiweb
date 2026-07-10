@@ -94,6 +94,57 @@
       font-size: 14px; cursor: pointer; }
     .hist-item:hover { background: rgba(251,191,36,0.08); }
     .hist-score { font-weight: 800; color: var(--gold); }
+    /* 🔥 히어로 통계 칩 (스트릭·총편수·평균점) */
+    .hero-stats { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .hstat { padding: 6px 13px; border-radius: 99px; font-size: 13.5px; font-weight: 800;
+      background: rgba(15,23,42,0.5); border: 1px solid rgba(251,191,36,0.3); color: var(--gold); }
+    .hstat.fire { background: rgba(239,68,68,0.16); border-color: rgba(251,146,60,0.5); color: #fdba74; }
+    /* 📚 미션 단어 카드 */
+    .mission { background: rgba(139,92,246,0.12); border: 1px solid rgba(167,139,250,0.4);
+      border-radius: 14px; padding: 14px 18px; margin-bottom: 14px; }
+    .mission-head { font-size: 15px; font-weight: 800; color: #c4b5fd; margin-bottom: 8px; }
+    .mission-words { display: flex; gap: 8px; flex-wrap: wrap; }
+    .mword { padding: 8px 16px; border-radius: 99px; font-size: 15px; font-weight: 800;
+      background: rgba(139,92,246,0.2); border: 1.5px solid rgba(167,139,250,0.5); color: #ddd6fe; }
+    .mword.used { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #1a1a1a; border-color: var(--gold); }
+    /* 💬 망고 답장 말풍선 */
+    .reply-bubble { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px;
+      background: rgba(251,191,36,0.10); border: 1px solid rgba(251,191,36,0.35);
+      border-radius: 14px; padding: 14px 16px; }
+    .reply-bubble img { width: 46px; height: 46px; object-fit: contain; flex-shrink: 0; }
+    .reply-text { font-size: 16px; line-height: 1.65; color: #fde68a; font-weight: 600; }
+    /* 🎁 포인트/배지 토스트 */
+    .toast-wrap { position: fixed; top: 70px; right: 16px; z-index: 99500; display: flex;
+      flex-direction: column; gap: 8px; pointer-events: none; }
+    .toast { background: linear-gradient(135deg, #10b981, #059669); color: #fff;
+      padding: 13px 20px; border-radius: 12px; font-size: 15px; font-weight: 800;
+      box-shadow: 0 8px 24px -6px rgba(0,0,0,0.5); animation: toastIn .35s ease-out;
+      max-width: 320px; }
+    .toast.badge { background: linear-gradient(135deg, #8b5cf6, #6d28d9); }
+    .toast.gold { background: linear-gradient(135deg, #fbbf24, #d97706); color: #1a1a1a; }
+    @keyframes toastIn { from { transform: translateX(60px); opacity: 0; } to { transform: none; opacity: 1; } }
+    /* 🎉 컨페티 */
+    .confetti { position: fixed; top: -20px; z-index: 99400; font-size: 22px; pointer-events: none;
+      animation: confFall linear forwards; }
+    @keyframes confFall { to { transform: translateY(110vh) rotate(720deg); opacity: 0.6; } }
+    /* 📈 성장 그래프 카드 */
+    .stats-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+      padding: 18px 20px; margin-top: 28px; }
+    .stats-card h3 { font-size: 17px; color: var(--gold); margin: 0 0 6px 0; }
+    .stats-msg { font-size: 14.5px; color: #a7f3d0; font-weight: 700; margin-bottom: 10px; }
+    .stats-card svg { width: 100%; height: auto; display: block; }
+    /* 🏆 주간 영작왕 */
+    .lb-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+      padding: 18px 20px; margin-top: 20px; }
+    .lb-card h3 { font-size: 17px; color: var(--gold); margin: 0 0 10px 0; }
+    .lb-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px;
+      font-size: 14.5px; margin-bottom: 4px; background: rgba(15,23,42,0.4); }
+    .lb-row.top1 { background: rgba(251,191,36,0.14); border: 1px solid rgba(251,191,36,0.35); }
+    .lb-rank { width: 34px; text-align: center; font-weight: 900; font-size: 16px; flex-shrink: 0; }
+    .lb-name { flex: 1; font-weight: 700; }
+    .lb-count { color: var(--gold); font-weight: 800; }
+    .lb-me { margin-top: 10px; padding: 10px 14px; border-radius: 10px; font-size: 14px; font-weight: 800;
+      background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.4); color: #a7f3d0; }
     @media (max-width: 640px) {
       .hero { padding: 16px; gap: 12px; }
       .hero img { width: 64px; height: 64px; }
@@ -102,6 +153,7 @@
       .level-btn { padding: 10px 14px; font-size: 13.5px; }
       textarea { font-size: 16px; min-height: 180px; }
       .submit-btn { font-size: 17px; padding: 17px; }
+      .toast-wrap { right: 8px; left: 8px; align-items: stretch; }
     }
   </style>
 </head>
@@ -119,6 +171,7 @@
           영어로 자유롭게 써보세요! 망고 선생님이 문법·표현을 고쳐주고 점수와 이유를 알려드려요.
           (예: "Yesterday I go to school…" → "Yesterday I went to school…")
         </p>
+        <div class="hero-stats" id="heroStats" style="display:none"></div>
       </div>
     </div>
 
@@ -128,6 +181,12 @@
       <button class="level-btn active" data-level="B1">B1 중급</button>
       <button class="level-btn" data-level="B2">B2 중상급</button>
       <button class="level-btn" data-level="C1">C1 고급</button>
+    </div>
+
+    <!-- 📚 오늘의 미션 단어 — 교재/레벨 맞춤 (사용하면 ⭐ + 보너스 포인트) -->
+    <div class="mission" id="missionCard" style="display:none">
+      <div class="mission-head">📚 <span data-ko="오늘의 미션 단어 — 3개 모두 쓰면 보너스 +15P!" data-en="Today's mission words — use all 3 for +15P bonus!">오늘의 미션 단어 — 3개 모두 쓰면 보너스 +15P!</span></div>
+      <div class="mission-words" id="missionWords"></div>
     </div>
 
     <!-- 🎲 오늘의 글감 -->
@@ -147,6 +206,20 @@
     </div>
 
     <div id="resultBox" style="display:none"></div>
+
+    <!-- 📈 나의 성장 그래프 (로그인 + 기록 2일 이상일 때 표시) -->
+    <div class="stats-card" id="statsBox" style="display:none">
+      <h3>📈 <span data-ko="나의 성장 그래프 (최근 30일)" data-en="My Growth (last 30 days)">나의 성장 그래프 (최근 30일)</span></h3>
+      <div class="stats-msg" id="statsMsg"></div>
+      <div id="statsChart"></div>
+    </div>
+
+    <!-- 🏆 이번 주 영작왕 (많이 쓴 순 — 이름 마스킹) -->
+    <div class="lb-card" id="lbBox" style="display:none">
+      <h3>🏆 <span data-ko="이번 주 영작왕 (많이 쓴 순)" data-en="Writers of the Week (most writings)">이번 주 영작왕 (많이 쓴 순)</span></h3>
+      <div id="lbList"></div>
+      <div class="lb-me" id="lbMe" style="display:none"></div>
+    </div>
 
     <!-- 📜 복습 영역 -->
     <div class="history">
@@ -231,6 +304,85 @@
     }
     shuffleTopics();
 
+    // ═══ 📚 오늘의 미션 단어 — 교재/레벨 맞춤(/api/games/vocab), 없으면 레벨별 내장 폴백 ═══
+    const FALLBACK_MISSION = {
+      A1: ['apple', 'happy', 'school', 'friend', 'like', 'play', 'family', 'today'],
+      A2: ['weekend', 'favorite', 'because', 'always', 'delicious', 'weather', 'together', 'exciting'],
+      B1: ['experience', 'decide', 'however', 'interesting', 'usually', 'promise', 'nervous', 'proud'],
+      B2: ['although', 'realize', 'opportunity', 'improve', 'consider', 'achieve', 'describe', 'various'],
+      C1: ['perspective', 'significant', 'circumstance', 'inevitably', 'appreciate', 'demonstrate', 'perceive', 'profound'],
+    };
+    let _missionWords = [];
+    // 날짜 기반 결정적 선택 — "오늘의" 미션이 하루 동안 고정되도록
+    function pickDaily(arr, n) {
+      const day = Math.floor((Date.now() + 9*3600*1000) / 86400000);
+      const out = [], pool = arr.slice();
+      let seed = day;
+      while (out.length < n && pool.length) {
+        seed = (seed * 9301 + 49297) % 233280;
+        out.push(pool.splice(seed % pool.length, 1)[0]);
+      }
+      return out;
+    }
+    async function loadMission() {
+      let words = [];
+      try {
+        const uid = getUid();
+        if (uid && !uid.startsWith('guest_')) {
+          const r = await fetch('/api/games/vocab?user_id=' + encodeURIComponent(uid));
+          const d = await r.json();
+          if (d.ok && d.words && d.words.length >= 3) {
+            words = pickDaily(d.words.map(w => w.en).filter(w => /^[a-zA-Z' -]{2,30}$/.test(w)), 3);
+          }
+        }
+      } catch(e){}
+      if (words.length < 3) {
+        words = pickDaily(FALLBACK_MISSION[currentLevel] || FALLBACK_MISSION.B1, 3);
+      }
+      _missionWords = words;
+      renderMission();
+    }
+    function renderMission(usedList) {
+      const used = new Set((usedList || []).map(w => w.toLowerCase()));
+      document.getElementById('missionWords').innerHTML = _missionWords.map(w =>
+        `<span class="mword${used.has(w.toLowerCase()) ? ' used' : ''}">${used.has(w.toLowerCase()) ? '⭐ ' : ''}${escapeHtml(w)}</span>`
+      ).join('');
+      document.getElementById('missionCard').style.display = _missionWords.length ? '' : 'none';
+    }
+
+    // ═══ 🎁 토스트 + 🎉 컨페티 ═══
+    function showToast(msg, kind) {
+      let wrap = document.querySelector('.toast-wrap');
+      if (!wrap) { wrap = document.createElement('div'); wrap.className = 'toast-wrap'; document.body.appendChild(wrap); }
+      const t = document.createElement('div');
+      t.className = 'toast' + (kind ? ' ' + kind : '');
+      t.textContent = msg;
+      wrap.appendChild(t);
+      setTimeout(() => { t.style.transition = 'opacity .4s'; t.style.opacity = '0'; setTimeout(() => t.remove(), 450); }, 3200);
+    }
+    function fireConfetti() {
+      const emojis = ['🎉','⭐','🥭','✨','🎊','💛'];
+      for (let i = 0; i < 26; i++) {
+        const c = document.createElement('div');
+        c.className = 'confetti';
+        c.textContent = emojis[i % emojis.length];
+        c.style.left = Math.random() * 100 + 'vw';
+        c.style.animationDuration = (1.6 + Math.random() * 1.6) + 's';
+        c.style.animationDelay = (Math.random() * 0.5) + 's';
+        document.body.appendChild(c);
+        setTimeout(() => c.remove(), 4000);
+      }
+    }
+    // 🔊 망고 답장 낭독 — 기기 내장 음성 (무료·즉시)
+    window.speakReply = function(encoded) {
+      try {
+        const u = new SpeechSynthesisUtterance(decodeURIComponent(encoded));
+        u.lang = 'en-US'; u.rate = 0.92;
+        speechSynthesis.cancel();
+        speechSynthesis.speak(u);
+      } catch(e){}
+    };
+
     let currentLevel = 'B1';
     document.querySelectorAll('.level-btn').forEach(btn => {
       btn.onclick = () => {
@@ -271,7 +423,8 @@
       try {
         r = await fetch('/api/ai/write-correct', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, level: currentLevel, uid: getUid() })
+          // token: 로그인 사용자면 포인트/배지 적립, mission_words: 서버가 실사용 검증
+          body: JSON.stringify({ text, level: currentLevel, uid: getUid(), token: getToken(), mission_words: _missionWords })
         });
         try {
           d = await r.json();
@@ -305,6 +458,16 @@
           <span class="issue-orig">${escapeHtml(i.original)}</span> → <span class="issue-sug">${escapeHtml(i.suggested)}</span>
           <div class="issue-reason">💡 ${escapeHtml(i.reason)}</div>
         </div>`).join('');
+      // 💬 망고 선생님의 답장 (내용에 대한 펜팔 답장 + 🔊 낭독)
+      const replyHtml = d.reply ? `
+        <div class="reply-bubble">
+          <img src="/img/mango-char.png" alt="망고">
+          <div style="flex:1">
+            <div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:4px">💬 망고 선생님의 답장</div>
+            <div class="reply-text">${escapeHtml(d.reply)}</div>
+          </div>
+          <button onclick="speakReply('${encodeURIComponent(d.reply)}')" title="들어보기" style="background:rgba(251,191,36,0.2);border:1px solid rgba(251,191,36,0.45);color:var(--gold);width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:17px;flex-shrink:0">🔊</button>
+        </div>` : '';
       document.getElementById('resultBox').style.display = '';
       document.getElementById('resultBox').innerHTML = `
         <div class="result">
@@ -317,6 +480,7 @@
               <div style="font-size:14px;font-weight:800;color:${color}">${sc>=85?'훌륭해요! 🎉':sc>=70?'좋아요 💪':'더 연습해보세요 🌱'}</div>
             </div>
           </div>
+          ${replyHtml}
           <div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:6px">✅ 수정된 문장</div>
           <div class="corrected">${escapeHtml(d.corrected)}</div>
           ${issuesHtml ? '<div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:6px">⚠️ 발견된 점</div><div class="issues">' + issuesHtml + '</div>' : ''}
@@ -326,8 +490,15 @@
             <button onclick="document.getElementById('histList').scrollIntoView({behavior:'smooth'})" style="padding:12px 18px;background:rgba(255,255,255,0.08);color:var(--text);border:1px solid rgba(255,255,255,0.18);border-radius:10px;font-weight:700;cursor:pointer;font-size:13px;font-family:inherit">📜 <span data-ko="기록 보기" data-en="History">기록 보기</span></button>
           </div>
         </div>`;
-      // 결과 표시 후 history 자동 갱신 (방금 저장된 항목 포함)
-      setTimeout(() => loadHistory(), 500);
+      // 📚 미션 단어 사용 표시 (서버 판정 결과)
+      if (d.mission_used) renderMission(d.mission_used);
+      // 🎁 포인트/보너스/배지 축하
+      if (d.points && d.points.amount) showToast(`+${d.points.amount}P ${d.points.label} (잔액 ${d.points.newBalance}P)`);
+      if (d.mission_bonus && d.mission_bonus.amount) showToast(`🌟 +${d.mission_bonus.amount}P 미션 단어 달성!`, 'gold');
+      (d.earned_badges || []).forEach((b, i) => setTimeout(() => showToast(`${b.icon} 새 배지: ${b.name}!`, 'badge'), 600 + i * 700));
+      if (sc >= 90 || (d.earned_badges || []).length) fireConfetti();
+      // 결과 표시 후 history/통계/랭킹 자동 갱신 (방금 저장된 항목 포함)
+      setTimeout(() => { loadHistory(); loadStats(); loadLeaderboard(); }, 500);
     }
     let _allHistory = [];
     let _viewMode = 'date'; // 'date' or 'list'
@@ -450,6 +621,7 @@
       try { feedback = JSON.parse(item.feedback || '{}'); } catch(e){}
       const issues = feedback.issues || [];
       const tip = feedback.tip || '';
+      const reply = feedback.reply || '';
       const sc = item.score || 0;
       const cc = sc >= 85 ? '#10b981' : sc >= 70 ? '#fbbf24' : '#fca5a5';
       const dt = new Date(item.created_at).toLocaleString('ko-KR');
@@ -508,9 +680,95 @@
     // ESC 키로 모달 닫기
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeReview(); });
 
+    // ═══ 📈 성장 리포트 — 히어로 칩(🔥스트릭·편수·평균) + 30일 점수 그래프 ═══
+    async function loadStats() {
+      const uid = getUid(), tok = getToken();
+      if (!uid || uid.startsWith('guest_') || !tok) return;   // 게스트/비로그인은 통계 없음
+      try {
+        const r = await fetch('/api/ai/write-stats?uid=' + encodeURIComponent(uid) + '&token=' + encodeURIComponent(tok));
+        const d = await r.json();
+        if (!d.ok) return;
+        // 히어로 통계 칩
+        const hs = document.getElementById('heroStats');
+        hs.innerHTML = [
+          d.streak > 0 ? `<span class="hstat fire">🔥 ${d.streak}일 연속 영작${d.wrote_today ? '' : ' (오늘 쓰면 이어져요!)'}</span>` : `<span class="hstat fire">🔥 오늘 첫 글을 쓰면 스트릭 시작!</span>`,
+          d.total > 0 ? `<span class="hstat">📝 총 ${d.total}편</span>` : '',
+          d.avg_score > 0 ? `<span class="hstat">📊 평균 ${d.avg_score}점</span>` : '',
+          d.best_score > 0 ? `<span class="hstat">🏅 최고 ${d.best_score}점</span>` : '',
+        ].filter(Boolean).join('');
+        hs.style.display = '';
+        // 성장 그래프 — 날짜별 평균점 SVG (기록 2일 이상일 때)
+        const s = d.series || [];
+        if (s.length >= 2) {
+          const W = 640, H = 170, PX = 34, PY = 16;
+          const xs = i => PX + i * (W - PX - 10) / Math.max(1, s.length - 1);
+          const ys = v => PY + (100 - v) * (H - PY - 26) / 100;
+          const pts = s.map((p, i) => `${xs(i).toFixed(1)},${ys(p.avg_score).toFixed(1)}`).join(' ');
+          const dots = s.map((p, i) =>
+            `<circle cx="${xs(i).toFixed(1)}" cy="${ys(p.avg_score).toFixed(1)}" r="4" fill="#fbbf24"><title>${p.date} · ${p.avg_score}점 (${p.count}편)</title></circle>`).join('');
+          const grid = [25, 50, 75].map(v =>
+            `<line x1="${PX}" y1="${ys(v)}" x2="${W-10}" y2="${ys(v)}" stroke="rgba(148,163,184,0.18)" stroke-dasharray="4 4"/><text x="4" y="${ys(v)+4}" font-size="11" fill="#a3b3d1">${v}</text>`).join('');
+          document.getElementById('statsChart').innerHTML =
+            `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+              ${grid}
+              <polyline points="${pts}" fill="none" stroke="#fbbf24" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+              ${dots}
+              <text x="${PX}" y="${H-4}" font-size="11" fill="#a3b3d1">${s[0].date.slice(5)}</text>
+              <text x="${W-10}" y="${H-4}" font-size="11" fill="#a3b3d1" text-anchor="end">${s[s.length-1].date.slice(5)}</text>
+            </svg>`;
+          // 이번주 vs 지난주 한 줄 메시지
+          let msg = `이번 주 ${d.this_week.count}편 작성`;
+          if (d.this_week.avg_score && d.last_week.avg_score) {
+            const diff = d.this_week.avg_score - d.last_week.avg_score;
+            msg += diff > 0 ? ` · 지난주보다 평균 +${diff}점 상승! 🚀` : diff < 0 ? ` · 지난주보다 평균 ${diff}점 (다시 힘내요 💪)` : ' · 지난주와 같은 평균 점수예요';
+          } else if (d.this_week.avg_score) {
+            msg += ` · 평균 ${d.this_week.avg_score}점`;
+          }
+          document.getElementById('statsMsg').textContent = msg;
+          document.getElementById('statsBox').style.display = '';
+        }
+      } catch(e){}
+    }
+
+    // ═══ 🏆 이번 주 영작왕 — 많이 쓴 순, 이름 마스킹 ═══
+    async function loadLeaderboard() {
+      try {
+        const uid = getUid(), tok = getToken();
+        const q = (!uid.startsWith('guest_') && tok) ? ('?uid=' + encodeURIComponent(uid) + '&token=' + encodeURIComponent(tok)) : '';
+        const r = await fetch('/api/ai/write-leaderboard' + q);
+        const d = await r.json();
+        if (!d.ok || !d.items || !d.items.length) return;
+        const medal = ['🥇','🥈','🥉'];
+        document.getElementById('lbList').innerHTML = d.items.slice(0, 5).map((it, i) =>
+          `<div class="lb-row${i===0 ? ' top1' : ''}">
+            <span class="lb-rank">${medal[i] || (i+1)}</span>
+            <span class="lb-name">${escapeHtml(it.name)}</span>
+            <span class="lb-count">${it.count}편</span>
+            <span style="color:var(--text2);font-size:12.5px">평균 ${it.avg_score}점</span>
+          </div>`).join('');
+        const meEl = document.getElementById('lbMe');
+        if (d.me && d.me.count > 0) {
+          meEl.textContent = `나: 이번 주 ${d.me.count}편 · ${d.me.rank}위` + (d.me.rank <= 3 ? ' 🏆' : ' — 조금만 더!');
+          meEl.style.display = '';
+        } else if (d.me) {
+          meEl.textContent = '이번 주 아직 0편 — 지금 한 편 쓰면 순위에 올라가요!';
+          meEl.style.display = '';
+        }
+        document.getElementById('lbBox').style.display = '';
+      } catch(e){}
+    }
+
+    // 레벨 변경 시 미션 단어도 레벨에 맞게 갱신 (교재 단어가 있으면 그대로 유지됨)
+    document.querySelectorAll('.level-btn').forEach(btn => {
+      btn.addEventListener('click', () => loadMission());
+    });
+
     loadHistory();
+    loadMission();
+    loadStats();
+    loadLeaderboard();
   </script>
-<!-- BUILD:20260711031317 -->
+<!-- BUILD:20260711032054 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>

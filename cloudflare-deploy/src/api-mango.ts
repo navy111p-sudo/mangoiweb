@@ -7161,6 +7161,11 @@ Respond in JSON ONLY:
       { code: 'eval_perfect',      icon: '⭐', name: '평가서 만점',        name_en: 'Perfect Score',        desc: '평가서 종합 10점',             rule: 'eval_10' },
       { code: 'voice_practice_10', icon: '🎙', name: '음성 코칭 10회',     name_en: '10 Voice Sessions',    desc: 'AI 음성 코칭 10회 완료',       rule: 'voice_10' },
       { code: 'voice_score_90',    icon: '🌟', name: '발음 마스터',        name_en: 'Pronunciation Master', desc: 'AI 음성 코칭 90점 이상',       rule: 'voice_90' },
+      { code: 'writing_first',     icon: '✍️', name: '첫 영작',            name_en: 'First Writing',        desc: 'AI 영작 첨삭 첫 도전',         rule: 'writing_1' },
+      { code: 'writing_10',        icon: '📝', name: '영작 10편',          name_en: '10 Writings',          desc: 'AI 영작 첨삭 10편 완성',       rule: 'writing_10' },
+      { code: 'writing_30',        icon: '📖', name: '영작 작가',          name_en: 'Young Author',         desc: 'AI 영작 첨삭 30편 완성',       rule: 'writing_30' },
+      { code: 'writing_90',        icon: '🏅', name: '영작 90점',          name_en: 'Writing Ace',          desc: 'AI 영작 첨삭 90점 이상',       rule: 'writing_90' },
+      { code: 'writing_streak_7',  icon: '🖋️', name: '7일 연속 영작',      name_en: '7-Day Writer',         desc: '일주일 매일 영작하기',         rule: 'writing_streak_7' },
       { code: 'points_1000',       icon: '💎', name: '포인트 1,000',       name_en: '1K Points',            desc: '누적 1,000 포인트',            rule: 'points_1000' },
       { code: 'points_5000',       icon: '👑', name: '포인트 5,000',       name_en: '5K Points',            desc: '누적 5,000 포인트',            rule: 'points_5000' },
       { code: 'monthly_top',       icon: '🏆', name: '월간 TOP',           name_en: 'Monthly TOP',          desc: '월간 학원 랭킹 TOP 3 진입',    rule: 'monthly_top' },
@@ -7222,6 +7227,30 @@ Respond in JSON ONLY:
         const p: any = await env.DB.prepare(`SELECT lifetime_earned FROM student_points WHERE user_id = ?`).bind(userId).first();
         if ((p?.lifetime_earned || 0) >= 1000) await award('points_1000');
         if ((p?.lifetime_earned || 0) >= 5000) await award('points_5000');
+      } catch {}
+
+      // ✍️ AI 영작 첨삭 — 편수/최고점/연속일 (KST 날짜 기준)
+      try {
+        const w: any = await env.DB.prepare(`SELECT COUNT(*) AS n, MAX(score) AS m FROM ai_writing_corrections WHERE student_uid = ?`).bind(userId).first();
+        if ((w?.n || 0) >= 1) await award('writing_first');
+        if ((w?.n || 0) >= 10) await award('writing_10');
+        if ((w?.n || 0) >= 30) await award('writing_30');
+        if ((w?.m || 0) >= 90) await award('writing_90');
+        // 연속 영작일 — KST 일수(day number) DISTINCT 를 최신순으로 뽑아 오늘/어제부터 역방향으로 센다
+        if (!have.has('writing_streak_7') && (w?.n || 0) >= 7) {
+          const KST_OFF = 32400000; // +9h
+          const days: any = await env.DB.prepare(
+            `SELECT DISTINCT CAST((created_at + ${KST_OFF}) / 86400000 AS INTEGER) AS d FROM ai_writing_corrections WHERE student_uid = ? ORDER BY d DESC LIMIT 60`
+          ).bind(userId).all();
+          const ds = ((days.results || []) as any[]).map(r => Number(r.d));
+          const todayD = Math.floor((now + KST_OFF) / 86400000);
+          let streak = 0;
+          if (ds.length && (ds[0] === todayD || ds[0] === todayD - 1)) {
+            streak = 1;
+            for (let i = 1; i < ds.length && ds[i] === ds[i - 1] - 1; i++) streak++;
+          }
+          if (streak >= 7) await award('writing_streak_7');
+        }
       } catch {}
 
       return earned;
@@ -11563,18 +11592,20 @@ LIMIT $limit`;
       if (!text || text.length < 3) return json({ ok: false, error: 'text_too_short' }, 400);
       if (text.length > 2000) return json({ ok: false, error: 'text_too_long' }, 400);
 
-      const prompt = `You are an English writing tutor for a Korean student at CEFR level ${level}. The student wrote the following text. Your job:
+      const prompt = `You are Mango, a friendly English writing tutor for a Korean student at CEFR level ${level}. The student wrote the following text. Your job:
 1. Provide a corrected version (preserve student's meaning).
 2. Provide a numeric score 0-100 for overall quality.
 3. List 2-5 specific issues found, each with: original phrase, suggested phrase, brief reason (in Korean).
 4. Provide one encouraging tip in Korean (1-2 sentences).
+5. Reply to the CONTENT of the student's writing like a pen-pal friend, in English appropriate for ${level} level (1-2 short sentences, warm, may end with a small question).
 
 Respond in this strict JSON format only, no markdown:
 {
   "corrected": "...",
   "score": 85,
   "issues": [{"original":"...","suggested":"...","reason":"..."}],
-  "tip": "..."
+  "tip": "...",
+  "reply": "..."
 }
 
 Student text: """${text}"""`;
@@ -11623,6 +11654,16 @@ Student text: """${text}"""`;
       const score = Math.max(0, Math.min(100, Number(parsed.score || 75)));
       const issues = Array.isArray(parsed.issues) ? parsed.issues.slice(0, 8) : [];
       const tip = String(parsed.tip || '꾸준히 영작 연습을 이어가세요! 매일 한 문장씩만 써도 한 달이면 30문장입니다.');
+      // 💬 망고 선생님의 답장 — 첨삭을 '검사'가 아니라 '대화'로 만드는 펜팔 답장
+      const reply = String(parsed.reply || '').trim().slice(0, 400);
+
+      // 📚 미션 단어 검증 — 클라이언트가 보낸 미션 단어 중 실제 글에 쓰인 단어를 서버가 판정
+      //   (보너스 포인트 지급 근거이므로 클라이언트 자가신고를 믿지 않고 서버가 단어경계로 확인)
+      const missionWords: string[] = Array.isArray(b.mission_words)
+        ? b.mission_words.slice(0, 5).map((w: any) => String(w || '').trim()).filter((w: string) => /^[a-zA-Z' -]{1,30}$/.test(w))
+        : [];
+      const missionUsed = missionWords.filter(w =>
+        new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(text));
 
       // raw 가 있긴 한데 JSON 파싱 실패 → AI 응답 텍스트를 tip 에 일부 포함
       const meta = raw && !Object.keys(parsed).length
@@ -11633,16 +11674,63 @@ Student text: """${text}"""`;
         const now = Date.now();
         await env.DB.prepare(
           `INSERT INTO ai_writing_corrections (student_uid, original_text, corrected_text, feedback, level, score, created_at) VALUES (?,?,?,?,?,?,?)`
-        ).bind(uid || null, text, corrected, JSON.stringify({ issues, tip, meta }), level, score, now).run();
+        ).bind(uid || null, text, corrected, JSON.stringify({ issues, tip, reply, mission_words: missionWords, mission_used: missionUsed, meta }), level, score, now).run();
       } catch (e: any) {
         console.error('[write-correct] DB insert failed:', e?.message || e);
+      }
+
+      // 🎁 포인트 적립 + 배지 검사 — 서명 토큰의 uid 와 요청 uid 가 일치하는 로그인 사용자만.
+      //   (토큰 없이 uid 만 넣어 호출하는 무인증 요청은 첨삭은 되지만 포인트는 안 쌓임 → 파밍 방지)
+      let pointsEarned: any = null;
+      let missionBonus: any = null;
+      let earnedBadges: any[] = [];
+      const awAuthUid = await authUidFromRequest(b);
+      if (awAuthUid && awAuthUid === uid && !uid.startsWith('guest_')) {
+        // 규칙 기반 적립 인라인 헬퍼 — 쿨다운/일일한도는 point_rule_log 기준(KST 자정 경계)
+        const earnWritingRule = async (code: string, label: string, amount: number, dailyCap: number, description: string) => {
+          try {
+            await ensurePointTables();
+            const now = Date.now();
+            await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES (?,?,?,0,?,1,?,?) ON CONFLICT(code) DO NOTHING`)
+              .bind(code, label, amount, dailyCap, description, now).run();
+            const rule: any = await env.DB.prepare(`SELECT * FROM point_rules WHERE code=? AND enabled=1`).bind(code).first();
+            if (!rule) return null;
+            if (rule.daily_cap) {
+              const KST_OFF = 9 * 3600 * 1000;
+              const todayMs = Math.floor((now + KST_OFF) / 86400000) * 86400000 - KST_OFF;
+              const cnt: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE user_id=? AND rule_code=? AND triggered_at>=?`).bind(uid, code, todayMs).first();
+              if ((cnt?.c || 0) >= rule.daily_cap) return { capped: true, cap: rule.daily_cap };
+            }
+            const r = await applyPointTransaction({ userId: uid, type: 'earn', amount: rule.amount, reason: rule.label, ruleCode: code, meta: { score, level } });
+            await env.DB.prepare(`INSERT INTO point_rule_log (user_id, rule_code, amount, triggered_at, txn_id, meta) VALUES (?,?,?,?,?,?)`)
+              .bind(uid, code, rule.amount, now, r.txnId, JSON.stringify({ score, level })).run();
+            return { amount: rule.amount, label: rule.label, newBalance: r.newBalance };
+          } catch (e: any) {
+            console.error(`[write-correct] earn ${code} failed:`, e?.message || e);
+            return null;
+          }
+        };
+        pointsEarned = await earnWritingRule('ai_writing', 'AI 영작 첨삭 완료', 10, 5, 'AI 영작 첨삭을 받을 때마다 지급 (하루 5회)');
+        if (missionWords.length >= 3 && missionUsed.length >= 3) {
+          missionBonus = await earnWritingRule('ai_writing_mission', '영작 미션 단어 달성', 15, 2, '미션 단어 3개 이상을 글에 사용하면 보너스 (하루 2회)');
+        }
+        try {
+          const earned = await checkAndAwardBadges(uid);
+          earnedBadges = earned
+            .map(code => BADGE_CATALOG.find(c => c.code === code))
+            .filter(Boolean);
+        } catch (e: any) {
+          console.error('[write-correct] badge check failed:', e?.message || e);
+        }
       }
 
       // raw 도 lastErr 도 없을 일이 거의 없지만, 어느쪽이든 결과는 반환 (ok: true)
       // 단 진짜로 AI 가 완전히 안 됐으면 errCode 도 표시
       return json({
         ok: true,
-        corrected, score, issues, tip, level,
+        corrected, score, issues, tip, reply, level,
+        mission_words: missionWords, mission_used: missionUsed,
+        points: pointsEarned, mission_bonus: missionBonus, earned_badges: earnedBadges,
         ...(raw ? {} : { ai_unavailable: true, fallback: true }),
       });
     }
@@ -11661,6 +11749,127 @@ Student text: """${text}"""`;
         `SELECT id, original_text, corrected_text, feedback, level, score, created_at FROM ai_writing_corrections WHERE student_uid = ? ORDER BY created_at DESC LIMIT 30`
       ).bind(uid).all();
       return json({ ok: true, items: rs.results || [] });
+    }
+
+    // ── GET /api/ai/write-stats?uid=&token= — 영작 성장 리포트 (스트릭·통계·30일 추이) ──
+    if (method === 'GET' && path === '/api/ai/write-stats') {
+      await ensureWriteSchema();
+      const uid = String(url.searchParams.get('uid') || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      // 🔐 본인 통계만 — write-history 와 동일한 서명 토큰 인증
+      const authUid = await authUidFromRequest();
+      if (!authUid || authUid !== uid) {
+        return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
+      }
+      const KST_OFF = 32400000;
+      const now = Date.now();
+      const todayD = Math.floor((now + KST_OFF) / 86400000);
+      // 전체 통계
+      const tot: any = await env.DB.prepare(
+        `SELECT COUNT(*) AS n, ROUND(AVG(score)) AS avg_score, MAX(score) AS best_score FROM ai_writing_corrections WHERE student_uid = ?`
+      ).bind(uid).first();
+      // 최근 30일 일별 시리즈 (성장 그래프용)
+      const sinceMs = (todayD - 29) * 86400000 - KST_OFF;
+      const daily = await env.DB.prepare(
+        `SELECT CAST((created_at + ${KST_OFF}) / 86400000 AS INTEGER) AS d, COUNT(*) AS n, ROUND(AVG(score)) AS avg_score, MAX(score) AS best_score
+         FROM ai_writing_corrections WHERE student_uid = ? AND created_at >= ? GROUP BY d ORDER BY d ASC`
+      ).bind(uid, sinceMs).all();
+      const series = ((daily.results || []) as any[]).map(r => ({
+        date: new Date(Number(r.d) * 86400000).toISOString().slice(0, 10),
+        count: r.n || 0, avg_score: r.avg_score || 0, best_score: r.best_score || 0,
+      }));
+      // 연속 영작일 (오늘 또는 어제부터 역방향)
+      const days: any = await env.DB.prepare(
+        `SELECT DISTINCT CAST((created_at + ${KST_OFF}) / 86400000 AS INTEGER) AS d FROM ai_writing_corrections WHERE student_uid = ? ORDER BY d DESC LIMIT 120`
+      ).bind(uid).all();
+      const ds = ((days.results || []) as any[]).map(r => Number(r.d));
+      let streak = 0;
+      if (ds.length && (ds[0] === todayD || ds[0] === todayD - 1)) {
+        streak = 1;
+        for (let i = 1; i < ds.length && ds[i] === ds[i - 1] - 1; i++) streak++;
+      }
+      const wroteToday = ds.length > 0 && ds[0] === todayD;
+      // 이번주 vs 지난주 평균점 (성장 한 줄 메시지용) — 주 경계는 KST 월요일
+      const dow = (todayD + 4) % 7;               // 1970-01-01(목)=day0 → 월=0 이 되도록 +4
+      const weekStartD = todayD - dow;
+      const weekStartMs = weekStartD * 86400000 - KST_OFF;
+      const prevWeekStartMs = (weekStartD - 7) * 86400000 - KST_OFF;
+      const thisW: any = await env.DB.prepare(
+        `SELECT COUNT(*) AS n, ROUND(AVG(score)) AS avg_score FROM ai_writing_corrections WHERE student_uid = ? AND created_at >= ?`
+      ).bind(uid, weekStartMs).first();
+      const lastW: any = await env.DB.prepare(
+        `SELECT COUNT(*) AS n, ROUND(AVG(score)) AS avg_score FROM ai_writing_corrections WHERE student_uid = ? AND created_at >= ? AND created_at < ?`
+      ).bind(uid, prevWeekStartMs, weekStartMs).first();
+      return json({
+        ok: true,
+        total: tot?.n || 0, avg_score: tot?.avg_score || 0, best_score: tot?.best_score || 0,
+        streak, wrote_today: wroteToday,
+        series,
+        this_week: { count: thisW?.n || 0, avg_score: thisW?.avg_score || 0 },
+        last_week: { count: lastW?.n || 0, avg_score: lastW?.avg_score || 0 },
+      });
+    }
+
+    // ── GET /api/ai/write-leaderboard?uid=&token= — 🏆 이번 주 영작왕 (작성 편수 기준) ──
+    //   점수 경쟁은 저학년에 역효과 → "많이 쓴 사람" 기준. 이름은 마스킹해 PII 비노출,
+    //   uid+token 이 오면 내 순위(me)도 함께 반환. uid 없이 호출해도 목록은 조회 가능.
+    if (method === 'GET' && path === '/api/ai/write-leaderboard') {
+      await ensureWriteSchema();
+      const KST_OFF = 32400000;
+      const todayD = Math.floor((Date.now() + KST_OFF) / 86400000);
+      const weekStartMs = (todayD - ((todayD + 4) % 7)) * 86400000 - KST_OFF;
+      const rs = await env.DB.prepare(
+        `SELECT student_uid, COUNT(*) AS n, ROUND(AVG(score)) AS avg_score FROM ai_writing_corrections
+         WHERE created_at >= ? AND student_uid IS NOT NULL AND student_uid != '' AND student_uid NOT LIKE 'guest_%'
+         GROUP BY student_uid ORDER BY n DESC, avg_score DESC LIMIT 10`
+      ).bind(weekStartMs).all();
+      const rows = ((rs.results || []) as any[]);
+      // 이름 조회(students_erp) 후 마스킹 — "김민준" → "김✱✱", "Amy" → "A✱✱"
+      const maskName = (s: string) => {
+        const t = String(s || '').trim();
+        if (!t) return '익명';
+        return t.charAt(0) + '✱✱';
+      };
+      const nameMap = new Map<string, string>();
+      if (rows.length) {
+        try {
+          const qs = rows.map(() => '?').join(',');
+          const ns = await env.DB.prepare(
+            `SELECT user_id, korean_name, english_name FROM students_erp WHERE user_id IN (${qs})`
+          ).bind(...rows.map(r => r.student_uid)).all();
+          for (const r of ((ns.results || []) as any[])) {
+            nameMap.set(r.user_id, String(r.korean_name || r.english_name || '').trim());
+          }
+        } catch {}
+      }
+      const items = rows.map((r, i) => ({
+        rank: i + 1,
+        name: maskName(nameMap.get(r.student_uid) || r.student_uid),
+        count: r.n || 0, avg_score: r.avg_score || 0,
+      }));
+      // 내 순위 — 토큰 인증된 본인만
+      let me: any = null;
+      const lbUid = String(url.searchParams.get('uid') || '').trim();
+      if (lbUid) {
+        const authUid = await authUidFromRequest();
+        if (authUid && authUid === lbUid) {
+          const mine: any = await env.DB.prepare(
+            `SELECT COUNT(*) AS n FROM ai_writing_corrections WHERE student_uid = ? AND created_at >= ?`
+          ).bind(lbUid, weekStartMs).first();
+          const myN = mine?.n || 0;
+          if (myN > 0) {
+            const above: any = await env.DB.prepare(
+              `SELECT COUNT(*) AS c FROM (SELECT student_uid FROM ai_writing_corrections
+               WHERE created_at >= ? AND student_uid IS NOT NULL AND student_uid != '' AND student_uid NOT LIKE 'guest_%'
+               GROUP BY student_uid HAVING COUNT(*) > ?)`
+            ).bind(weekStartMs, myN).first();
+            me = { rank: (above?.c || 0) + 1, count: myN };
+          } else {
+            me = { rank: null, count: 0 };
+          }
+        }
+      }
+      return json({ ok: true, week_start: new Date(weekStartMs).toISOString().slice(0, 10), items, me });
     }
     // ═══════════════════════════════════════════════════════════════
     // ✍️ Phase AW 끝

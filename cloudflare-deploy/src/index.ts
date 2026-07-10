@@ -830,6 +830,8 @@ export default {
         // ✍️ Phase AW AI 영작 첨삭
         path === '/api/ai/write-correct' ||
         path === '/api/ai/write-history' ||
+        path === '/api/ai/write-stats' ||
+        path === '/api/ai/write-leaderboard' ||
         // 💬 Phase CF AI 영어 친구 챗봇
         path === '/api/ai/chat-friend' ||
         path === '/api/ai/chat-history' ||
