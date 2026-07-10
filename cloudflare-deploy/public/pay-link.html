@@ -51,7 +51,7 @@
 
   function renderPay(){
     card.innerHTML =
-      '<div class="logo">🥭 망고아이</div>'
+      '<div class="logo"><img src="/img/mango-char.png" alt="망고아이" style="height:78px;display:block;margin:0 auto 2px"><div style="color:#fbbf24;font-size:16px;font-weight:800">망고아이</div></div>'
       + '<div class="hi">'+(name ? esc(name)+'님, 결제를 진행합니다' : '결제를 진행합니다')+'</div>'
       + '<div class="box"><div class="prog">'+esc(ORDER_NAME)+'</div><div class="amt">'+won(AMOUNT)+'</div></div>'
       + '<div class="methods">💳 카드 · 카카오페이 · 계좌이체 모두 가능</div>'
@@ -103,6 +103,6 @@
     .catch(function(){ renderError('네트워크 오류'); });
 })();
 </script>
-<!-- BUILD:20260711011654 -->
+<!-- BUILD:20260711012732 -->
 </body>
 </html>

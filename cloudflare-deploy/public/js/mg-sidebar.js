@@ -58,13 +58,14 @@
 
   // ---- CSS (index.html 인라인과 동일 + hover 확대 효과) ----
   var css = ''
-    + '#mg-drawer{position:fixed;top:0;left:0;height:100%;width:250px;max-width:80vw;background:rgba(11,16,32,0.22);-webkit-backdrop-filter:blur(10px) saturate(130%);backdrop-filter:blur(10px) saturate(130%);box-shadow:6px 0 24px rgba(0,0,0,.3);transform:translateX(-100%);transition:transform .32s cubic-bezier(.4,0,.2,1);z-index:100000;display:flex;flex-direction:column;font-family:\'Noto Sans KR\',-apple-system,BlinkMacSystemFont,sans-serif;border-right:1px solid rgba(251,191,36,.25)}'
+    + '#mg-drawer{position:fixed;top:0;left:0;height:100%;width:250px;max-width:80vw;background:rgba(11,16,32,0.22);-webkit-backdrop-filter:blur(10px) saturate(130%);backdrop-filter:blur(10px) saturate(130%);box-shadow:6px 0 24px rgba(0,0,0,.3);transform:translateX(-100%);transition:transform .3s ease-in-out;z-index:100000;display:flex;flex-direction:column;font-family:\'Noto Sans KR\',-apple-system,BlinkMacSystemFont,sans-serif;border-right:1px solid rgba(251,191,36,.25)}'
     + '#mg-drawer.open{transform:translateX(0)}'
     + '#mg-drawer-overlay{position:fixed;inset:0;background:rgba(2,6,18,.55);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);opacity:0;visibility:hidden;transition:opacity .3s;z-index:99999}'
     + '#mg-drawer-overlay.open{opacity:1;visibility:visible}'
     + '.mg-drawer-head{display:flex;align-items:center;justify-content:space-between;padding:18px 16px 12px;border-bottom:1px solid rgba(255,255,255,.08)}'
     + '.mg-drawer-logo{font-size:18px;font-weight:800;color:#fbbf24;letter-spacing:.3px}'
-    + '.mg-drawer-x{background:rgba(255,255,255,.08);border:0;color:#cbd5e1;width:30px;height:30px;border-radius:8px;font-size:15px;cursor:pointer}'
+    + '.mg-drawer-x{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#e2e8f0;width:34px;height:34px;border-radius:50%;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .25s ease,background .2s ease,color .2s ease,border-color .2s ease}'
+    + '.mg-drawer-x:hover{background:rgba(251,191,36,.18);color:#fbbf24;border-color:rgba(251,191,36,.55);transform:rotate(90deg)}'
     + '.mg-drawer-nav{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:6px}'
     + '.mg-drawer-nav button{text-align:left;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);color:#e2e8f0;padding:12px 14px;border-radius:11px;font-size:14px;font-weight:600;cursor:pointer;transform-origin:left center;transition:background .18s ease,transform .18s ease,box-shadow .18s ease,border-color .18s ease}'
     + '.mg-drawer-nav button:hover{background:rgba(251,191,36,.13);border-color:rgba(251,191,36,.45);transform:scale(1.045);box-shadow:0 4px 14px rgba(251,191,36,.18)}'
@@ -74,8 +75,17 @@
     + '.mg-drawer-nav button.mg-s1::after{content:\'\\2605\'}'
     + '.mg-drawer-nav button.mg-s2::after{content:\'\\2605\\2605\'}'
     + '.mg-drawer-nav button.mg-s3::after{content:\'\\2605\\2605\\2605\'}'
-    + '#mg-drawer-tab{position:absolute;right:-46px;top:50%;transform:translateY(-50%);width:44px;height:78px;border:1.5px solid rgba(245,158,11,0.7);border-left:0;border-radius:0 14px 14px 0;background:rgba(18,12,2,0.42);color:#fbbf24;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 0 10px rgba(245,158,11,.45);display:flex;align-items:center;justify-content:center;padding:0;-webkit-tap-highlight-color:transparent}'
-    + '#mg-drawer-tab #mg-tab-label{writing-mode:vertical-rl;text-orientation:upright;font-size:14px;font-weight:800;letter-spacing:1px;line-height:1.15}'
+    + '#mg-drawer-tab{position:absolute;right:-46px;top:50%;transform:translateY(-50%);width:44px;height:76px;border:1.5px solid rgba(245,158,11,0.7);border-left:0;border-radius:0 16px 16px 0;background:rgba(18,12,2,0.55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:#fbbf24;cursor:pointer;box-shadow:0 0 10px rgba(245,158,11,.45);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:0;-webkit-tap-highlight-color:transparent;transition:background .2s ease}'
+    + '#mg-drawer-tab:hover{background:rgba(35,23,4,0.72)}'
+    + '.mg-burger{position:relative;width:20px;height:15px;display:block;flex-shrink:0}'
+    + '.mg-burger span{position:absolute;left:0;width:100%;height:2.2px;border-radius:2px;background:linear-gradient(90deg,#fde68a,#fbbf24);box-shadow:0 0 6px rgba(251,191,36,.7);transition:transform .3s ease-in-out,opacity .2s ease,top .3s ease-in-out}'
+    + '.mg-burger span:nth-child(1){top:0}'
+    + '.mg-burger span:nth-child(2){top:6.25px}'
+    + '.mg-burger span:nth-child(3){top:12.5px}'
+    + '#mg-drawer-tab.mg-open .mg-burger span:nth-child(1){top:6.25px;transform:rotate(45deg)}'
+    + '#mg-drawer-tab.mg-open .mg-burger span:nth-child(2){opacity:0;transform:scaleX(.2)}'
+    + '#mg-drawer-tab.mg-open .mg-burger span:nth-child(3){top:6.25px;transform:rotate(-45deg)}'
+    + '.mg-tab-cap{font-size:9px;font-weight:800;letter-spacing:1px;color:rgba(253,230,138,.95);text-shadow:0 1px 3px rgba(0,0,0,.5);line-height:1}'
     + '@keyframes mgTabFadeIn{from{opacity:0}to{opacity:1}}'
     + '@keyframes mgTabGlow{0%,100%{box-shadow:0 0 12px rgba(251,191,36,.75),0 0 26px rgba(245,158,11,.45);border-color:rgba(251,191,36,.85)}50%{box-shadow:0 0 26px rgba(255,214,90,1),0 0 52px rgba(251,191,36,.9),0 0 72px rgba(251,191,36,.5);border-color:#ffe07a}}'
     + '#mg-drawer-tab{opacity:0;animation:mgTabFadeIn .9s ease-out 1.2s forwards, mgTabGlow 2.8s ease-in-out 2.1s infinite}'
@@ -118,7 +128,10 @@
       +   '<button class="mg-drawer-x" onclick="mgDrawerClose()" aria-label="닫기" data-ko-aria="닫기" data-en-aria="Close">✕</button>'
       + '</div>'
       + '<nav class="mg-drawer-nav">' + buildNav() + '</nav>'
-      + '<button id="mg-drawer-tab" onclick="mgDrawerToggle()" aria-label="메뉴 열기/닫기" data-ko-aria="메뉴 열기/닫기" data-en-aria="Open/close menu"><span id="mg-tab-label" data-ko="열림" data-en="Open">열림</span></button>';
+      + '<button id="mg-drawer-tab" onclick="mgDrawerToggle()" aria-label="메뉴 열기" data-ko-aria="메뉴 열기" data-en-aria="Open menu" aria-expanded="false" aria-controls="mg-drawer">'
+      +   '<span class="mg-burger" aria-hidden="true"><span></span><span></span><span></span></span>'
+      +   '<span class="mg-tab-cap" data-ko="메뉴" data-en="MENU">메뉴</span>'
+      + '</button>';
 
     document.body.appendChild(overlay);
     document.body.appendChild(aside);
@@ -143,12 +156,20 @@
 
   // ---- 동작 함수 (index.html 과 동일 시그니처) ----
   function mgSetLabel(open){
-    var l=document.getElementById('mg-tab-label'); if(!l)return;
-    var ko=open?'닫힘':'열림', en=open?'Close':'Open';
-    l.setAttribute('data-ko',ko); l.setAttribute('data-en',en);
+    var t=document.getElementById('mg-drawer-tab'); if(!t)return;
+    t.classList.toggle('mg-open',!!open);
+    t.setAttribute('aria-expanded',open?'true':'false');
     var lg='ko';
     try{ lg=window.getLang?window.getLang():(localStorage.getItem('mangoi_lang')||'ko'); }catch(e){}
-    l.textContent=(lg==='ko')?ko:en;
+    var ko=open?'메뉴 닫기':'메뉴 열기', en=open?'Close menu':'Open menu';
+    t.setAttribute('data-ko-aria',ko); t.setAttribute('data-en-aria',en);
+    t.setAttribute('aria-label',(lg==='ko')?ko:en);
+    var c=t.querySelector('.mg-tab-cap');
+    if(c){
+      var cko=open?'닫기':'메뉴', cen=open?'CLOSE':'MENU';
+      c.setAttribute('data-ko',cko); c.setAttribute('data-en',cen);
+      c.textContent=(lg==='ko')?cko:cen;
+    }
   }
   window.mgDrawerToggle = function(){
     var d=document.getElementById('mg-drawer'), o=document.getElementById('mg-drawer-overlay');

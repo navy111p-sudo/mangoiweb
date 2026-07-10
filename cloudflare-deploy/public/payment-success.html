@@ -42,9 +42,10 @@
 
   function showSuccess(d){
     card.innerHTML =
-      '<div class="icon">✅</div>'
+      '<img src="/img/mango-char.png" alt="망고아이" style="height:88px;margin-bottom:2px">'
+      + '<div class="icon" style="font-size:34px;margin-bottom:2px">✅</div>'
       + '<h1>결제가 완료되었습니다!</h1>'
-      + '<div class="sub">수강이 활성화되었어요. 감사합니다 🥭</div>'
+      + '<div class="sub">수강이 활성화되었어요. 감사합니다!</div>'
       + '<div class="box">'
         + '<div class="row"><span>주문번호</span><span>'+esc(orderId)+'</span></div>'
         + '<div class="row"><span>결제 금액</span><b>'+won(d.amount||amount)+'</b></div>'
@@ -86,6 +87,6 @@
   });
 })();
 </script>
-<!-- BUILD:20260711011654 -->
+<!-- BUILD:20260711012732 -->
 </body>
 </html>
