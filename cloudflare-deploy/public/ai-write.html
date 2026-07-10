@@ -652,6 +652,8 @@
 
         ${issuesHtml ? `<div style="margin-bottom:14px"><div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:6px">⚠️ 발견된 점 (${issues.length}건)</div>${issuesHtml}</div>` : ''}
 
+        ${reply ? `<div class="reply-bubble" style="margin-bottom:14px"><img src="/img/mango-char.png" alt="망고"><div style="flex:1"><div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:4px">💬 망고 선생님의 답장</div><div class="reply-text">${escapeHtml(reply)}</div></div></div>` : ''}
+
         ${tip ? `<div style="padding:12px 14px;background:rgba(59,130,246,0.10);border-left:4px solid var(--blue);border-radius:8px;font-size:13px;color:#dbeafe">💬 ${escapeHtml(tip)}</div>` : ''}
 
         <div style="display:flex;gap:8px;margin-top:18px">
@@ -768,7 +770,7 @@
     loadStats();
     loadLeaderboard();
   </script>
-<!-- BUILD:20260711032054 -->
+<!-- BUILD:20260711032122 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>
