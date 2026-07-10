@@ -17,6 +17,7 @@ import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook, type Giftisho
 import { json, parseJsonBody } from './api-util';  // 🧰 공용 헬퍼 (REFACTOR_PLAN 1단계 분리)
 import { handleDiaryApi } from './api-diary';       // 🎙️ AI 음성일기 라우트 (분리됨)
 import { handleUptimeApi } from './api-uptime';     // 📟 UptimeRobot 장애 웹훅 → 관리자 문자
+import { authUidFromRequest as authUidGlobal } from './auth-token';  // 🔐 모듈레벨 소유자 검증(IDOR 방지)
 import {
   sendLessonStartAlert, sendLessonEndAlert, sendChatSummaryAlert, sendMentionAlert,
   sendPaymentOverdueAlert,
@@ -3197,6 +3198,12 @@ Return STRICT JSON only, in BOTH Korean and English:
       const phone = (body.recipient_phone || '').replace(/[^0-9]/g, '');
       if (!userId || !catalogId || !phone) return json({ ok: false, error: 'missing_required', need: 'user_id, catalog_id, recipient_phone' }, 400);
       if (phone.length < 10) return json({ ok: false, error: 'invalid_phone' }, 400);
+      // 🔐 [PII] 소유자 검증 — 남의 포인트로 기프티콘 탈취(IDOR) 차단.
+      //   로그인 시 발급된 mango_token 의 uid 와 결제 대상 user_id 가 일치해야 함.
+      const gAuthUid = await authUidGlobal(request, url, env, body);
+      if (!gAuthUid || gAuthUid !== userId) {
+        return json({ ok: false, error: 'auth_required', message: '로그인 후 본인만 교환할 수 있습니다.' }, 401);
+      }
       const item: any = await env.DB.prepare(`SELECT * FROM gift_catalog WHERE id=? AND enabled=1`).bind(catalogId).first();
       if (!item) return json({ ok: false, error: 'gift_not_found_or_disabled' }, 404);
       if (item.stock != null && item.stock <= 0) return json({ ok: false, error: 'out_of_stock' }, 409);

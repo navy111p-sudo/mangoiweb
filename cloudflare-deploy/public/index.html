@@ -17504,6 +17504,7 @@ window.addEventListener('DOMContentLoaded', () => {
           catalog_id: catalogId,
           recipient_phone: phone,
           recipient_name: u.name,
+          token: (function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })(),  // 🔐 소유자 인증
         })
       });
       var d = await r.json();

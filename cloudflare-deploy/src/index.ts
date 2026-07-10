@@ -3006,6 +3006,9 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/eval/ai-lesson-report/list') return true;     // 전 학생 수업 리포트(전사 포함) 목록
   if (path === '/api/alumni/list') return true;                    // 전 동문 프로필(지역 등) 덤프
   if (path === '/api/recordings/check') return true;               // R2 녹화 객체 열거(재생키 유출 보조)
+  // 🔒 [PII 2차 2026-07-10] 계정탈취/무단구독 — 프론트 미사용 확인 후 관리자 전용 잠금.
+  if (path === '/api/student/set-password') return true;           // 비번없는 계정 아무나 탈취 방지
+  if (path === '/api/subscription/create') return true;            // 임의 유저 구독 무단생성 방지
   // 대시보드·활성 방·방 상태 — 모두 관리자 전용
   if (path === '/api/dashboard') return true;
   if (path === '/api/active-rooms') return true;
