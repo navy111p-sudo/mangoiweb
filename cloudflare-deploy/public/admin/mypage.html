@@ -993,7 +993,7 @@
     <!-- ───── 내 수업 (ph210) ───── -->
     <section class="panel" data-panel="lessons">
       <div class="info-box" style="background:linear-gradient(135deg,rgba(56,189,248,0.12),rgba(37,99,235,0.06));border:1px solid rgba(56,189,248,0.35);color:#bae6fd">
-        📚 <b data-ko="내 수업 한눈에 보기" data-en="My classes at a glance">내 수업 한눈에 보기</b><span data-ko=" — 정기 일정·다음 수업·진도·교사 정보를 모아 둡니다." data-en=" — Your schedule, next class, progress and teacher info in one place."> — 정기 일정·다음 수업·진도·교사 정보를 모아 둡니다.</span>
+        📚 <b data-ko="내 수업 한눈에 보기" data-en="My classes at a glance">내 수업 한눈에 보기</b><span data-ko=" — 다음 수업, 이번 주 시간표, 이번 달 수업 현황을 실제 배정 데이터로 보여드려요." data-en=" — Your next class, weekly timetable and this month's stats, from your real schedule."> — 다음 수업, 이번 주 시간표, 이번 달 수업 현황을 실제 배정 데이터로 보여드려요.</span>
       </div>
 
       <!-- 다음 수업 카운트다운 -->
@@ -1005,7 +1005,7 @@
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="js-enter-class-btn" onclick="window.mangoiGoEnterClass('/?menu=videocall-lobby')" style="padding:9px 16px;background:#fbbf24;color:#1a1a1a;border:0;border-radius:99px;font-weight:800;font-size:12.5px;cursor:pointer" data-ko="🎬 수업 입장" data-en="🎬 Enter class">🎬 수업 입장</button>
-          <button onclick="location.href='/lesson-postpone-demo.html'" style="padding:9px 14px;background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:99px;font-weight:700;font-size:12px;cursor:pointer" data-ko="📅 연기/변경" data-en="📅 Postpone/change">📅 연기/변경</button>
+          <button onclick="var b=document.getElementById('sr-lesson');if(b){b.scrollIntoView({behavior:'smooth',block:'center'});b.focus();}" style="padding:9px 14px;background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:99px;font-weight:700;font-size:12px;cursor:pointer" data-ko="📅 연기/변경 요청" data-en="📅 Request postpone">📅 연기/변경 요청</button>
         </div>
       </div>
 
@@ -1095,6 +1095,8 @@
             return fetch('/api/admin/payroll/lessons?year='+m[0]+'&month='+m[1]+'&teacher_name='+encodeURIComponent(name), { credentials:'include' })
               .then(function(r){ return r.json(); }).catch(function(){ return null; });
           })).then(function(results){
+            // 📊 아래 '내 수업 현황' 위젯(카운트다운·KPI·주간 시간표)이 같은 데이터를 재사용
+            try { window.__tlessons = results; document.dispatchEvent(new CustomEvent('teacher-lessons-loaded')); } catch(_e){}
             // 반복(매주) 스케줄은 같은 schedule_id 가 여러 날짜로 전개되므로 id+날짜로 중복 제거
             var ups = [], seen = {};
             results.forEach(function(j){
