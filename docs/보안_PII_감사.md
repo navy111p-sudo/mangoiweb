@@ -36,8 +36,9 @@
 | `GET /api/consents/{userId}` | **전화·IP·기기정보** | 토큰/관리자 인증 |
 | `GET /api/eval/list` · `/api/eval/{id}` · `DELETE /api/eval/{id}` | 남의 평가 조회·삭제 | 토큰/관리자 인증 |
 | `GET /api/eval/ai-lesson-report/{id}` | **수업 전사 전문** + 신원 (정수 id) | 토큰/관리자 인증 |
-| `GET /api/chat/messages?room_id=` | 수업 채팅 전문 | 방 토큰 인증 |
-| `GET /api/recordings/stream/{id}` · `/blob/{key}` · `/student/recordings` | **미성년자 수업 영상** 재생/목록 | 방 소유·토큰 인증(현재 blob은 설계상 공개) |
+| `GET /api/chat/messages?room_id=` 🟡 | 수업 채팅 전문 | **남음**(방 참여자 검증 필요, index.html 수업중 사용) |
+| `recordings/stream/{id}`✅ · `student/recordings`✅ · `blob/{key}`🟡 | **미성년자 수업 영상** | stream=관리자잠금, student/recordings=토큰인증 완료(07-10). blob은 설계상 공개나 열거벡터(list-recent) 잠금으로 키획득 어려워짐. 잔여=서명URL |
+| ~~eval/ai-lesson-report/{id}, recordings/list-recent~~ ✅ | 전사·전체녹화덤프 | 관리자 잠금 완료(07-10) |
 | `GET /api/voice/history?uid=` `GET /api/voice/stats?uid=` | 발화연습 전사·점수 | 토큰 인증 |
 | `POST /api/parent/link-child` | 아무 학생을 공격자 학부모에 연결 | 토큰/관리자 인증 |
 | `POST /api/livekit/token` · `POST /api/rooms/{id}/join`(allow_open) | 아무 방 실시간 A/V 접근 | 방 소유 검증 강화 |
