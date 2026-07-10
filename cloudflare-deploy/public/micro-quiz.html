@@ -202,14 +202,78 @@
     }
     function escHtml(s) { return String(s||'').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
     let quizzes = [], curIdx = 0, answers = [];
+    let combo = 0, bestCombo = 0, xp = 0, stars = 0;
+    let timerId = null, timeLeft = 0;
 
     let curLevel = 'A1';
     let curTopic = '';
+
+    /* ── 🧒/🧑‍🎓 연령 모드 (A1·A2=키즈 자동 / 상단 토글로 수동) ── */
+    let modeManual = false;
+    let curMode = (function(){ try{ var m=localStorage.getItem('mangoi_quiz_mode'); if(m==='kids'||m==='challenge') return m; }catch(e){} return 'kids'; })();
+    function setMode(m, manual){
+      curMode = (m==='challenge') ? 'challenge' : 'kids';
+      if (manual){ modeManual = true; try{ localStorage.setItem('mangoi_quiz_mode', curMode); }catch(e){} }
+      try{ document.body.setAttribute('data-mode', curMode); }catch(e){}
+      document.querySelectorAll('.mode-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.mode===curMode); });
+      var opt = document.querySelector('#opts .opt');
+      if (opt && !opt.disabled) renderQuiz();   // 아직 안 푼 문제면 새 모드로 다시 그림
+    }
+
     function pickLv(btn) {
       document.querySelectorAll('.lv-pick').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       curLevel = btn.dataset.lv;
+      if (!modeManual) setMode((curLevel==='A1'||curLevel==='A2') ? 'kids' : 'challenge', false);
     }
+
+    /* ── 단어 → 그림(이모지) 매핑 (키즈 모드 시각화) ── */
+    const WORD_EMOJI = {
+      apple:'🍎',banana:'🍌',orange:'🍊',grape:'🍇',strawberry:'🍓',watermelon:'🍉',lemon:'🍋',peach:'🍑',cherry:'🍒',bread:'🍞',rice:'🍚',egg:'🥚',milk:'🥛',water:'💧',juice:'🧃',coffee:'☕',tea:'🍵',cake:'🍰',cookie:'🍪',pizza:'🍕',hamburger:'🍔',hotdog:'🌭',chicken:'🍗',fish:'🐟',meat:'🥩',cheese:'🧀',icecream:'🍦',candy:'🍬',chocolate:'🍫',soup:'🍲',salad:'🥗',noodle:'🍜',noodles:'🍜',carrot:'🥕',potato:'🥔',tomato:'🍅',corn:'🌽',onion:'🧅',mushroom:'🍄',honey:'🍯',
+      dog:'🐶',cat:'🐱',rabbit:'🐰',bear:'🐻',lion:'🦁',tiger:'🐯',elephant:'🐘',monkey:'🐵',horse:'🐴',cow:'🐮',pig:'🐷',bird:'🐦',duck:'🦆',frog:'🐸',snake:'🐍',fox:'🦊',wolf:'🐺',panda:'🐼',penguin:'🐧',owl:'🦉',bee:'🐝',butterfly:'🦋',ant:'🐜',turtle:'🐢',dolphin:'🐬',whale:'🐳',shark:'🦈',sheep:'🐑',goat:'🐐',mouse:'🐭',deer:'🦌',giraffe:'🦒',zebra:'🦓',
+      school:'🏫',book:'📖',pen:'🖊️',pencil:'✏️',notebook:'📓',bag:'🎒',backpack:'🎒',desk:'🪑',chair:'🪑',teacher:'👩‍🏫',student:'🧑‍🎓',ruler:'📏',scissors:'✂️',clock:'🕐',computer:'💻',paper:'📄',crayon:'🖍️',eraser:'🧽',map:'🗺️',globe:'🌐',homework:'📚',
+      family:'👨‍👩‍👧‍👦',mother:'👩',father:'👨',mom:'👩',dad:'👨',baby:'👶',brother:'👦',sister:'👧',grandmother:'👵',grandfather:'👴',boy:'👦',girl:'👧',friend:'🧑‍🤝‍🧑',people:'👥',man:'👨',woman:'👩',
+      airplane:'✈️',plane:'✈️',car:'🚗',bus:'🚌',train:'🚆',ship:'🚢',boat:'⛵',bike:'🚲',bicycle:'🚲',taxi:'🚕',rocket:'🚀',hotel:'🏨',beach:'🏖️',mountain:'⛰️',camera:'📷',ticket:'🎫',world:'🌍',road:'🛣️',bridge:'🌉',park:'🏞️',city:'🏙️',
+      sun:'☀️',rain:'🌧️',snow:'❄️',cloud:'☁️',wind:'🌬️',rainbow:'🌈',storm:'⛈️',hot:'🔥',cold:'🧊',umbrella:'☂️',star:'⭐',moon:'🌙',sky:'🌌',lightning:'⚡',
+      hand:'✋',eye:'👁️',ear:'👂',nose:'👃',mouth:'👄',foot:'🦶',heart:'❤️',hair:'💇',tooth:'🦷',face:'😊',
+      red:'🔴',blue:'🔵',green:'🟢',yellow:'🟡',black:'⚫',white:'⚪',purple:'🟣',pink:'🌸',brown:'🟤',
+      tree:'🌳',flower:'🌸',house:'🏠',home:'🏠',fire:'🔥',money:'💰',phone:'📱',key:'🔑',door:'🚪',window:'🪟',gift:'🎁',balloon:'🎈',ball:'⚽',music:'🎵',game:'🎮',love:'❤️',time:'⏰',light:'💡',king:'👑',queen:'👸',robot:'🤖',
+      run:'🏃',walk:'🚶',sleep:'😴',eat:'🍽️',drink:'🥤',read:'📖',write:'✍️',sing:'🎤',dance:'💃',jump:'🤸',swim:'🏊',play:'🎮',cook:'👨‍🍳',study:'📚',laugh:'😂',cry:'😢',smile:'😊',
+      soccer:'⚽',basketball:'🏀',baseball:'⚾',tennis:'🎾'
+    };
+    function wordEmoji(w){ var k=String(w||'').toLowerCase().trim().replace(/[.!?,]+$/,''); return WORD_EMOJI[k] || ''; }
+    function speakWord(w){ try{ if(window.MangoiTTS){ MangoiTTS.setLang('en'); MangoiTTS.speak(String(w||'').trim(), 1); } }catch(e){} }
+
+    /* ── 효과음 (WebAudio, 별도 파일 없이 즉시 재생) ── */
+    let _actx = null;
+    function sfx(kind){
+      try{
+        if(!_actx) _actx = new (window.AudioContext||window.webkitAudioContext)();
+        var t=_actx.currentTime, o=_actx.createOscillator(), g=_actx.createGain(); o.connect(g); g.connect(_actx.destination);
+        if(kind==='correct'){ o.type='sine'; o.frequency.setValueAtTime(660,t); o.frequency.setValueAtTime(990,t+0.1); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.22,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+0.3); o.start(t); o.stop(t+0.32); }
+        else if(kind==='star'){ o.type='triangle'; o.frequency.setValueAtTime(880,t); o.frequency.setValueAtTime(1175,t+0.08); o.frequency.setValueAtTime(1568,t+0.16); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.2,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+0.34); o.start(t); o.stop(t+0.36); }
+        else { o.type='sine'; o.frequency.setValueAtTime(320,t); o.frequency.exponentialRampToValueAtTime(170,t+0.25); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.16,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+0.3); o.start(t); o.stop(t+0.32); }
+      }catch(e){}
+    }
+    function vibrate(p){ try{ navigator.vibrate && navigator.vibrate(p); }catch(e){} }
+
+    /* ── 타이머 (챌린지 모드: 10초, 초과해도 감점 없고 속도 보너스만) ── */
+    function clearTimer(){ if(timerId){ clearInterval(timerId); timerId=null; } }
+    function startTimer(){
+      clearTimer(); timeLeft=10;
+      var bar=document.getElementById('timerBar'), start=Date.now();
+      timerId=setInterval(function(){
+        var el=(Date.now()-start)/1000; timeLeft=Math.max(0,10-el);
+        if(bar) bar.style.width=(timeLeft/10*100)+'%';
+        if(timeLeft<=0){ clearTimer(); onTimeout(); }
+      }, 100);
+    }
+
+    /* ── 키즈: 별/마스코트/컨페티 효과 ── */
+    function renderStars(){ var s=''; for(var i=0;i<quizzes.length;i++){ s += (i<stars?'⭐':'☆'); } return s; }
+    function bounceMascot(){ var m=document.getElementById('kidMascot'); if(m){ m.classList.remove('bounce'); void m.offsetWidth; m.classList.add('bounce'); } }
+    function popStar(){ try{ var s=document.createElement('div'); s.className='star-pop'; s.textContent='⭐'; s.style.left=(window.innerWidth/2-15)+'px'; s.style.top=(window.innerHeight*0.42)+'px'; document.body.appendChild(s); setTimeout(function(){ s.remove(); },1000); }catch(e){} }
+    function confetti(){ try{ var em=['🎉','⭐','✨','🎊','🏆']; for(var i=0;i<16;i++){ (function(i){ var c=document.createElement('div'); c.className='confetti-pc'; c.textContent=em[i%em.length]; c.style.left=Math.round(Math.random()*100)+'vw'; c.style.animationDuration=(1.4+Math.random()*1.2)+'s'; c.style.animationDelay=(Math.random()*0.3)+'s'; document.body.appendChild(c); setTimeout(function(){ c.remove(); }, 3200); })(i); } }catch(e){} }
     function pickTopic(btn, topic) {
       document.querySelectorAll('.topic-pick').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
@@ -265,7 +329,7 @@
           return;
         }
         quizzes = d.quizzes;
-        curIdx = 0; answers = [];
+        curIdx = 0; answers = []; combo = 0; bestCombo = 0; xp = 0; stars = 0;
         document.getElementById('introBox').style.display = 'none';
         document.getElementById('emptyBox').style.display = 'none';
         document.getElementById('quizArea').style.display = '';
@@ -277,57 +341,123 @@
     }
 
     function renderQuiz() {
+      clearTimer();
       const q = quizzes[curIdx];
       if (!q) return showResult();
       const total = quizzes.length;
       const pct = ((curIdx)/total)*100;
       const area = document.getElementById('quizArea');
+      const isKids = curMode === 'kids';
+      const emo = wordEmoji(q.source_word);
+
+      const head = isKids
+        ? `<div class="kid-head"><img class="kid-mascot" id="kidMascot" src="/img/mango-char.png" alt="Mango" /><div class="kid-stars" id="kidStars">${renderStars()}</div></div>`
+        : `<div class="ch-stats"><span class="ch-combo" id="chCombo">🔥 ${combo}</span><span class="ch-xp" id="chXp">XP ${xp}</span></div>`;
+      const visual = isKids
+        ? `<div class="kid-word"><div class="kid-emoji">${emo||'🔤'}</div><button class="say-btn" id="sayBtn">🔊 <span data-ko="다시 듣기" data-en="Play">다시 듣기</span></button></div>`
+        : `<div class="ch-word"><span class="ch-word-txt">${escHtml(q.source_word||'')}</span><button class="say-btn sm" id="sayBtn">🔊</button></div>`;
+      const timer = isKids ? '' : `<div class="timer-wrap"><div class="timer-bar" id="timerBar"></div></div>`;
+
       area.innerHTML = `
         <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
-        <div class="quiz-card">
-          <div class="q-num">문제 ${curIdx+1} / ${total}</div>
+        ${head}
+        <div class="quiz-card ${isKids?'kids':'challenge'}">
+          <div class="q-num">${isKids ? ('문제 '+(curIdx+1)+' / '+total) : ('Q'+(curIdx+1)+' / '+total)}</div>
+          ${timer}
+          ${visual}
           <div class="q-text">${escHtml(q.question)}</div>
-          ${q.hint ? `<div class="q-hint">💡 힌트: ${escHtml(q.hint)}</div>` : ''}
-          <div id="opts">
-            ${q.options.map((o, i) => `<button class="opt" data-i="${i}" onclick="pickAnswer(${i})"><span class="opt-prefix">${String.fromCharCode(65+i)}</span>${escHtml(o)}</button>`).join('')}
+          <div id="opts" class="${isKids?'opts-kids':'opts-ch'}">
+            ${q.options.map((o, i) => `<button class="opt" data-i="${i}" onclick="pickAnswer(${i})">${isKids?'':('<span class="opt-prefix">'+String.fromCharCode(65+i)+'</span>')}${escHtml(o)}</button>`).join('')}
           </div>
-          <div id="feedback" style="display:none;margin-top:14px;padding:12px 14px;border-radius:10px;font-size:13.5px;font-weight:600;line-height:1.55"></div>
+          <div id="feedback" class="fb" style="display:none"></div>
           <div id="nextRow" class="nav-btns" style="display:none">
-            <button class="nav-btn primary" onclick="nextQuiz()">${curIdx === total-1 ? '🎯 결과 보기' : '다음 문제 →'}</button>
+            <button class="nav-btn primary" onclick="nextQuiz()">${curIdx === total-1 ? (isKids?'🎉 결과 보기':'🎯 See Result') : (isKids?'다음 →':'Next →')}</button>
           </div>
         </div>
       `;
+      var sb = document.getElementById('sayBtn'); if (sb) sb.onclick = function(){ speakWord(q.source_word); };
+      setTimeout(function(){ speakWord(q.source_word); }, 250);   // 단어 원어민 발음 자동 재생
+      if (!isKids) startTimer();
+      try{ if(window.applyLang) applyLang(); else if(window.mangoApplyI18n) mangoApplyI18n(); }catch(e){}
     }
 
     async function pickAnswer(i) {
+      var first = document.querySelector('#opts .opt');
+      if (first && first.disabled) return;   // 중복 클릭 방지
+      clearTimer();
       const q = quizzes[curIdx];
       document.querySelectorAll('.opt').forEach(b => b.disabled = true);
+      let correctIndex = q.correct_index;
       try {
         const r = await fetch('/api/vocab/quiz-submit', {
           method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ quiz_id: q.id, answer: i })
         });
         const d = await r.json();
-        const correctIndex = d.correct_index != null ? d.correct_index : q.correct_index;
-        const isCorrect = i === correctIndex;
-        answers.push({ q: q.question, answer: i, correct: isCorrect });
+        if (d && d.correct_index != null) correctIndex = d.correct_index;
+      } catch(e) {}
+      revealAnswer(i, false, correctIndex);
+    }
 
-        document.querySelectorAll('.opt').forEach(b => {
-          const bi = parseInt(b.dataset.i);
-          if (bi === correctIndex) b.classList.add('correct');
-          else if (bi === i && !isCorrect) b.classList.add('wrong');
-        });
-        const fb = document.getElementById('feedback');
-        fb.style.display = 'block';
-        if (isCorrect) {
-          fb.style.background = 'rgba(16,185,129,0.18)'; fb.style.color = '#86efac';
-          fb.innerHTML = '✅ 정답이에요! 잘했어요 🎉';
+    async function onTimeout() {
+      if (document.querySelector('.opt.correct') || document.querySelector('.opt.wrong')) return;
+      const q = quizzes[curIdx];
+      document.querySelectorAll('.opt').forEach(b => b.disabled = true);
+      let correctIndex = q.correct_index;
+      try {
+        const r = await fetch('/api/vocab/quiz-submit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ quiz_id: q.id, answer: -1 }) });
+        const d = await r.json(); if (d && d.correct_index != null) correctIndex = d.correct_index;
+      } catch(e) {}
+      revealAnswer(-1, true, correctIndex);
+    }
+
+    function revealAnswer(i, timedOut, correctIndex) {
+      const q = quizzes[curIdx];
+      if (correctIndex == null) correctIndex = q.correct_index;
+      const isCorrect = !timedOut && i === correctIndex;
+      const isKids = curMode === 'kids';
+      answers.push({ word: q.source_word, meaning: q.options[correctIndex], example: q.hint, correct: isCorrect });
+
+      document.querySelectorAll('.opt').forEach(b => {
+        const bi = parseInt(b.dataset.i);
+        if (bi === correctIndex) b.classList.add('correct');
+        else if (bi === i && !isCorrect) b.classList.add('wrong');
+      });
+      const fb = document.getElementById('feedback');
+      fb.style.display = 'block';
+
+      if (isCorrect) {
+        combo++; bestCombo = Math.max(bestCombo, combo);
+        sfx('correct'); vibrate(30);
+        if (isKids) {
+          stars++; sfx('star'); bounceMascot(); popStar();
+          var st = document.getElementById('kidStars'); if (st) st.innerHTML = renderStars();
+          var praise = ['잘했어! 🎉','최고야! 🌟','우와 정답! 👏','대단해! 💯'];
+          fb.className = 'fb ok';
+          fb.innerHTML = (combo>=3 ? ('🔥 '+combo+'개 연속! ') : '') + praise[combo % praise.length];
         } else {
-          fb.style.background = 'rgba(239,68,68,0.18)'; fb.style.color = '#fca5a5';
-          fb.innerHTML = '❌ 다음엔 맞힐 수 있어요! 정답: <b>' + escHtml(q.options[correctIndex]) + '</b>';
+          var speed = Math.max(0, Math.round(timeLeft));
+          var gained = 10 + speed + (combo>=2 ? combo*2 : 0);
+          xp += gained;
+          fb.className = 'fb ok';
+          fb.innerHTML = '✅ Nice!' + (combo>=2 ? (' 🔥 x'+combo) : '') + ' <span class="xp-plus">+'+gained+' XP</span>' + (speed>0 ? (' <span class="spd">⚡ speed +'+speed+'</span>') : '');
+          var cc = document.getElementById('chCombo'); if (cc) cc.textContent = '🔥 '+combo;
+          var cx = document.getElementById('chXp'); if (cx) cx.textContent = 'XP '+xp;
         }
-        document.getElementById('nextRow').style.display = '';
-      } catch(e) { alert('전송 실패 — 다시 시도해주세요'); }
+      } else {
+        combo = 0;
+        sfx('wrong'); vibrate([15,40,15]);
+        var ans = escHtml(q.options[correctIndex]);
+        if (isKids) {
+          fb.className = 'fb no';
+          fb.innerHTML = (timedOut ? '⏰ 시간이 다 됐어요! ' : '괜찮아, 다음엔 맞힐 수 있어! 😊 ') + '정답: <b>'+ans+'</b>';
+        } else {
+          fb.className = 'fb no';
+          fb.innerHTML = (timedOut ? '⏰ Time up — ' : '❌ Not quite — ') + 'it\'s <b>'+ans+'</b>';
+          var cc2 = document.getElementById('chCombo'); if (cc2) cc2.textContent = '🔥 0';
+        }
+      }
+      document.getElementById('nextRow').style.display = '';
     }
 
     function nextQuiz() {
@@ -337,28 +467,47 @@
     }
 
     function showResult() {
+      clearTimer();
       const correct = answers.filter(a => a.correct).length;
-      const total = answers.length;
+      const total = answers.length || 1;
       const pct = Math.round((correct/total)*100);
-      const msg = pct === 100 ? '🏆 완벽해요! 모든 단어를 정확히 알고 있어요.'
-              : pct >= 80 ? '✨ 훌륭해요! 거의 다 맞혔어요.'
-              : pct >= 60 ? '💪 잘했어요! 틀린 단어는 단어장에서 한 번 더 확인해보세요.'
-              : '🌱 좋은 시작이에요! 단어장에서 복습한 다음 다시 도전해보세요.';
+      const isKids = curMode === 'kids';
+      const wrong = answers.filter(a => !a.correct);
+
+      const head = isKids
+        ? `<div class="result-emoji">${pct===100?'🏆':pct>=60?'🌟':'🌱'}</div><div class="result-score" style="color:${pct>=80?'#10b981':pct>=60?'#fbbf24':'#ef4444'}">⭐ ${correct} / ${total}</div><div class="result-label">별 ${correct}개 획득!</div>`
+        : `<div class="result-score" style="color:${pct>=80?'#10b981':pct>=60?'#fbbf24':'#ef4444'}">${correct} / ${total}</div><div class="result-label">정답률 ${pct}% · XP +${xp} · 🔥 best x${bestCombo}</div>`;
+      const msg = isKids
+        ? (pct===100 ? '완벽해요! 모든 단어를 알고 있어요 🎉' : pct>=60 ? '잘했어요! 조금만 더 하면 완벽해요 💪' : '좋은 시작이에요! 다시 해볼까요? 🌱')
+        : (pct===100 ? '🏆 Perfect! Flawless run.' : pct>=80 ? '✨ Great job — almost perfect.' : pct>=60 ? '💪 Solid. Review the misses and retry.' : '🌱 Keep going — review and beat your score.');
+
+      let note = '';
+      if (wrong.length) {
+        note = `<div class="wrong-note"><div class="wn-title">📒 ${isKids?'다시 볼 단어':'Review these'}</div>` +
+          wrong.map(w => `<div class="wn-item"><button class="say-btn xs wn-say" data-w="${escHtml(w.word||'')}">🔊</button><b>${escHtml(w.word||'')}</b> — ${escHtml(w.meaning||'')}${w.example?`<div class="wn-ex">${escHtml(w.example)}</div>`:''}</div>`).join('') +
+          `</div>`;
+      }
+
       document.getElementById('quizArea').innerHTML = `
         <div class="quiz-card result-card">
-          <div class="result-score" style="color:${pct>=80?'#10b981':pct>=60?'#fbbf24':'#ef4444'}">${correct} / ${total}</div>
-          <div class="result-label">정답률 ${pct}%</div>
+          ${head}
           <div class="result-msg">${msg}</div>
+          ${note}
           <div class="nav-btns" style="margin-top:18px">
-            <button class="nav-btn" onclick="location.reload()">🔁 다시 풀기</button>
-            <button class="nav-btn" onclick="location.href='/vocab.html'">📚 단어장 가기</button>
+            <button class="nav-btn" onclick="location.reload()">🔁 ${isKids?'다시 풀기':'Retry'}</button>
+            <button class="nav-btn" onclick="location.href='/vocab.html'">📚 ${isKids?'단어장':'Vocab'}</button>
           </div>
-          <button class="nav-btn primary" style="width:100%;margin-top:10px" onclick="window.MangoFlow&&MangoFlow.open('quiz')">🚀 다음 활동 고르기</button>
+          <button class="nav-btn primary" style="width:100%;margin-top:10px" onclick="window.MangoFlow&&MangoFlow.open('quiz')">🚀 ${isKids?'다음 활동':'Next activity'}</button>
         </div>
       `;
+      document.querySelectorAll('.wn-say').forEach(b => b.onclick = function(){ speakWord(b.dataset.w); });
+      if (pct >= 80) confetti();
     }
+
+    setMode(curMode, false);   // 초기: body[data-mode] + 토글 활성화 반영
   </script>
-<!-- BUILD:20260710172656 -->
+<!-- BUILD:20260710173053 -->
+<script defer src="/js/game-tts.js"></script><!-- 🔊 원어민 TTS(서버 Deepgram Aura-1 → MeloTTS → 브라우저 폴백) -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 <script defer src="/js/flow.js"></script>
