@@ -352,6 +352,19 @@
   .admin-pass{margin-top:14px;font-size:11px;color:var(--sub);opacity:.55;cursor:pointer;background:none;border:none;
     font-family:inherit;text-decoration:underline dotted}
   .admin-pass:hover{opacity:1;color:var(--gold)}
+  /* 🔊 다시 듣기 — 원어민 발음을 몇 번이든 반복 청취 */
+  .listen-again{background:rgba(34,197,94,.16);border:1.5px solid rgba(34,197,94,.55);color:#86efac;
+    font-size:17px;font-weight:800;padding:10px 24px;border-radius:999px;cursor:pointer;font-family:inherit;margin:2px 0 8px}
+  .listen-again:active{transform:scale(.95)}
+  /* 🎤 말하기 미션 카드 확대 — 카드·글자가 작아 잘 안 보이는 문제 개선 */
+  #speakOverlay .card{width:min(96%,600px);padding:28px 26px}
+  #speakOverlay .card h2{font-size:27px;margin-bottom:10px}
+  #speakOverlay .card .say{font-size:clamp(24px,3.6vmin,34px);padding:18px 16px;line-height:1.55}
+  #speakOverlay .card .say .ko{font-size:16px;margin-top:8px}
+  #speakOverlay .stars{font-size:40px;letter-spacing:6px;margin:8px 0 6px}
+  #speakOverlay .mission-status{font-size:17px;min-height:46px;margin:6px 0 12px}
+  #speakOverlay .mic-btn{font-size:21px;padding:18px 26px;border-radius:16px}
+  #speakOverlay .admin-pass{font-size:13px}
   .big{font-size:42px;font-weight:900;color:var(--gold);margin:4px 0}
   .best{color:#7fd1ff;font-weight:700;margin-bottom:14px}
   .rules{text-align:left;font-size:12.5px;color:#c7d3ea;background:rgba(255,255,255,.05);border-radius:11px;
@@ -496,6 +509,7 @@
     <div class="card">
       <h2>🎤 말하기 미션 <span class="em">3회</span></h2>
       <div class="say" id="speakText">—<span class="ko" id="speakKo"></span></div>
+      <button class="listen-again" id="listenAgain" title="원어민 발음 다시 듣기">🔊 다시 듣기</button>
       <div class="stars" id="stars"><span class="s">★</span><span class="s">★</span><span class="s">★</span></div>
       <div class="mission-status" id="missionStatus">아래 버튼을 누르고 또렷하게 문장을 말하세요.</div>
       <button class="mic-btn" id="micBtn">🎤 누르고 말하기</button>
@@ -1001,6 +1015,12 @@
     if(recogActive){ try{ recog.stop(); }catch(e){} return; }
     if(!recog) recog = setupRecognition();
     try{ recog.start(); }catch(e){ /* already started */ }
+  });
+
+  // 🔊 다시 듣기 — 원어민 발음을 몇 번이든 다시 들을 수 있게 (듣는 중이던 마이크는 끄고 재생)
+  $('#listenAgain').addEventListener('click', function(){
+    if(recogActive){ try{ recog.stop(); }catch(e){} }
+    speakSentence();
   });
 
   // Teacher-in-the-Loop: 수동 통과 (악센트/마이크 이슈 대응)
@@ -1683,6 +1703,6 @@
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711043827 -->
+<!-- BUILD:20260711050751 -->
 </body>
 </html>

@@ -151,6 +151,22 @@
   .btn:active{transform:scale(.96)}
   .btn.ghost{background:rgba(255,255,255,.08);color:var(--tx);box-shadow:none;border:1px solid var(--line)}
 
+  /* ===== 🖥️ PC(넓은 화면) — 시작 메뉴 2배 확대 (작게 보인다는 요청) ===== */
+  @media (min-width:700px){
+    #menu{overflow-y:auto;justify-content:flex-start}
+    .menu-card{width:min(94%,1040px);margin:auto}
+    .menu-card .brand{font-size:24px;letter-spacing:4px;margin-bottom:12px}
+    .menu-card h1{font-size:54px;margin-bottom:16px}
+    .menu-card .sub{font-size:26px;margin-bottom:32px}
+    .info{gap:12px;border-radius:28px;padding:28px;margin-bottom:32px}
+    .info .row{font-size:26px}
+    .info .note{font-size:22px;margin-top:4px}
+    .modes{gap:16px;margin-bottom:32px}
+    .modes button{font-size:26px;border-radius:20px;padding:20px 12px}
+    .startbtn{border-radius:28px;padding:32px;font-size:36px}
+    .warn{font-size:22px;margin-top:24px;min-height:28px}
+  }
+
   /* ===== 🖥️ PC(넓은 화면) — 중앙 글자·요소 약 30% 확대 (PC에서 작게 보이던 문제 개선) ===== */
   @media (min-width:820px){
     .target-en{font-size:clamp(36px,7.6vmin,66px)}
@@ -825,6 +841,6 @@
 </script>
 <!-- BUILD:20260704 speakquiz1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711043827 -->
+<!-- BUILD:20260711050751 -->
 </body>
 </html>
