@@ -601,7 +601,8 @@ export default {
         path === '/api/admin/change-password' ||
         path === '/api/admin/login-history' ||
         path === '/api/admin/sessions' ||
-        path === '/api/admin/sessions/revoke') {
+        path === '/api/admin/sessions/revoke' ||
+        path.startsWith('/api/admin/2fa/')) {
       const authRes = await handleAdminAuthApi(request, url, env);
       if (authRes) return authRes;
     }

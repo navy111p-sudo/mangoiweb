@@ -7592,10 +7592,8 @@
             <div style="margin-left:auto;display:inline-flex;border:1px solid #475569;border-radius:6px;overflow:hidden;flex-wrap:wrap">
               <button id="game-mode-fish" type="button" onclick="gameSwitchMode('fish')"
                       style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;cursor:pointer;font-size:12px;font-weight:600">🎣 <span data-ko="낚시+말하기" data-en="Fishing">낚시+말하기</span></button>
-              <button id="game-mode-shoot" type="button" onclick="gameSwitchMode('shoot')"
-                      style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🚀 <span data-ko="슈팅+말하기" data-en="Shooter">슈팅+말하기</span></button>
               <button id="game-mode-shooter" type="button" onclick="gameSwitchMode('shooter')"
-                      style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🔫 <span data-ko="영어 슈팅" data-en="Word Shooter">영어 슈팅</span></button>
+                      style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🚀 <span data-ko="슈팅+말하기" data-en="Shoot &amp; Speak">슈팅+말하기</span></button>
               <button id="game-mode-battle3d" type="button" onclick="gameSwitchMode('battle3d')"
                       style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">⚔️ <span data-ko="3D 배틀" data-en="3D Battle">3D 배틀</span></button>
               <button id="game-mode-brick" type="button" onclick="gameSwitchMode('brick')"
@@ -12494,7 +12492,7 @@ function gameSwitchMode(mode) {
   // 풍선 게임 정지 (전환 시 타이머 클리어)
   if (_gameState.balloonTimer) { clearInterval(_gameState.balloonTimer); _gameState.balloonTimer = null; }
   // 모드 토글 활성화 표시
-  ['brick','match','fill','balloon','shoot','fish','shooter','battle3d'].forEach(m => {
+  ['brick','match','fill','balloon','fish','shooter','battle3d'].forEach(m => {   // 'shoot'는 'shooter'(슈팅+말하기 통합)로 흡수
     const btn = document.getElementById('game-mode-' + m);
     if (!btn) return;
     btn.style.background = mode === m ? '#10b981' : 'transparent';
@@ -12588,7 +12586,8 @@ function _gameRenderBattle3d() {
   if (fb) fb.innerHTML = '<span style="color:#94a3b8">⚔️ 레슨 보스와 퀴즈 대결 → 3D 공격 + 배지 보상</span>';
 }
 
-// 🔫 영어 슈팅 — student-game-shooter.html 임베드. 오늘 교재 문장 주입 + 원어민 음성 + 총별 효과음.
+// 🚀 슈팅+말하기(통합) — student-game-shooter.html 임베드. 오늘 교재 문장 주입 + 원어민 음성 + 총별 효과음
+//    + 문장 완성 후 🎤 3회 말하기 미션 (구 english-mastery-suite shoot 의 말하기 엔진 이식·융합).
 function _gameRenderShooter() {
   const v = (_gameState.current && _gameState.current.sentence)
             || _GAME_VOCAB[Math.floor(Math.random() * _GAME_VOCAB.length)];
@@ -12604,8 +12603,8 @@ function _gameRenderShooter() {
     'style="width:100%;height:100%;min-height:440px;border:0;display:block;background:#081227"></iframe>';
   const fb = document.getElementById('game-feedback');
   if (fb) fb.innerHTML = (lang === 'en')
-    ? '<span style="color:#94a3b8">🔫 Shoot the words in order to build the sentence!</span>'
-    : '<span style="color:#94a3b8">🔫 단어를 순서대로 쏴서 문장 완성! (총·소리 선택 가능)</span>';
+    ? '<span style="color:#94a3b8">🚀 Shoot the words in order → listen → speak 3×!</span>'
+    : '<span style="color:#94a3b8">🚀 단어를 순서대로 쏘고 → 원어민 듣고 → 🎤 3번 말하기! (총·소리 선택 가능)</span>';
 }
 
 // iframe(영어 마스터리 게임) → 부모: 미션 완료 시 공유 점수 반영
@@ -24290,7 +24289,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260710224936 -->
+<!-- BUILD:20260710225729 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

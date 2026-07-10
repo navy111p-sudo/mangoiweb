@@ -1765,6 +1765,46 @@
         </div>
       </div>
       <button class="btn-primary" id="pwSaveBtn" data-ko="🔐 비밀번호 변경" data-en="🔐 Change password">🔐 비밀번호 변경</button>
+
+      <!-- ───── 2단계 인증 (2FA) ───── -->
+      <div class="info-box" style="margin-top:26px">
+        🔐 <b data-ko="2단계 인증 (강력 추천)" data-en="Two-factor auth (recommended)">2단계 인증 (강력 추천)</b><span data-ko=" — 비밀번호가 유출돼도, 인증 앱의 6자리 코드가 없으면 로그인할 수 없습니다. 관리자 계정을 지키는 가장 강력한 방법이에요." data-en=" — Even if your password leaks, no one can sign in without the 6-digit code from your authenticator app."> — 비밀번호가 유출돼도, 인증 앱의 6자리 코드가 없으면 로그인할 수 없습니다. 관리자 계정을 지키는 가장 강력한 방법이에요.</span>
+      </div>
+
+      <div id="twofaBox" style="border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-top:12px;background:var(--bg-card-2)">
+        <div id="twofaStatusRow" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div style="font-weight:800;font-size:15px">
+            <span data-ko="현재 상태" data-en="Status">현재 상태</span>:
+            <span id="twofaState" style="padding:3px 12px;border-radius:99px;font-size:13px;margin-left:4px">…</span>
+          </div>
+          <div>
+            <button type="button" class="btn-primary" id="twofaEnableBtn" style="display:none">📱 <span data-ko="2단계 인증 켜기" data-en="Enable 2FA">2단계 인증 켜기</span></button>
+            <button type="button" id="twofaDisableBtn" style="display:none;padding:9px 16px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-weight:700">🔓 <span data-ko="끄기" data-en="Turn off">끄기</span></button>
+          </div>
+        </div>
+
+        <!-- 켜기 마법사 -->
+        <div id="twofaSetup" style="display:none;margin-top:16px;border-top:1px dashed var(--border);padding-top:16px">
+          <ol style="padding-left:20px;line-height:1.9;font-size:14px;margin:0 0 12px">
+            <li data-ko="휴대폰에 <b>Google Authenticator</b>(또는 MS Authenticator) 앱을 설치하세요." data-en="Install <b>Google Authenticator</b> (or MS Authenticator) on your phone.">휴대폰에 <b>Google Authenticator</b>(또는 MS Authenticator) 앱을 설치하세요.</li>
+            <li data-ko="앱에서 <b>+ → 설정 키 직접 입력</b>을 고르고, 아래 키를 입력하세요:" data-en="In the app choose <b>+ → Enter a setup key</b> and type the key below:">앱에서 <b>+ → 설정 키 직접 입력</b>을 고르고, 아래 키를 입력하세요:</li>
+          </ol>
+          <div style="text-align:center;margin:10px 0">
+            <div id="twofaSecret" style="font-family:monospace;font-size:20px;font-weight:800;letter-spacing:3px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:12px;word-break:break-all">…</div>
+            <button type="button" id="twofaCopyBtn" style="margin-top:8px;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:13px">📋 <span data-ko="키 복사" data-en="Copy key">키 복사</span></button>
+            <div style="margin-top:8px;font-size:12.5px;color:var(--text-muted)">
+              <a id="twofaLink" href="#" style="color:#60a5fa" data-ko="📱 휴대폰에서 이 페이지를 보고 있다면 여기를 눌러 앱에 자동 등록" data-en="📱 On your phone? Tap here to add automatically">📱 휴대폰에서 이 페이지를 보고 있다면 여기를 눌러 앱에 자동 등록</a>
+            </div>
+          </div>
+          <div class="field" style="margin-top:14px">
+            <label><span data-ko="앱에 표시된 6자리 코드를 입력해 확인" data-en="Enter the 6-digit code from the app to confirm">앱에 표시된 6자리 코드를 입력해 확인</span> <span class="req">*</span></label>
+            <input id="twofaCode" type="text" inputmode="numeric" maxlength="6" placeholder="000000" style="letter-spacing:8px;text-align:center;font-size:24px">
+          </div>
+          <button type="button" class="btn-primary" id="twofaConfirmBtn">✅ <span data-ko="확인하고 켜기" data-en="Confirm & enable">확인하고 켜기</span></button>
+          <div id="twofaMsg" style="margin-top:10px;font-size:13.5px"></div>
+          <div style="margin-top:12px;font-size:12px;color:var(--text-muted)" data-ko="⚠️ 인증 앱(휴대폰)을 잃어버리면 로그인이 막힙니다. 그럴 땐 관리자(Claude/개발자)에게 요청하면 해제해 드립니다." data-en="⚠️ If you lose your phone you'll be locked out — ask your admin to reset it.">⚠️ 인증 앱(휴대폰)을 잃어버리면 로그인이 막힙니다. 그럴 땐 관리자(Claude/개발자)에게 요청하면 해제해 드립니다.</div>
+        </div>
+      </div>
     </section>
 
     <!-- ───── 로그인 이력 ───── -->
@@ -2375,6 +2415,88 @@
   var mo = new MutationObserver(function(){ var b=document.getElementById('myrat-body'); if(b&&b.__name) window.loadMyRatings(b.__name); });
   try { mo.observe(document.documentElement, { attributes:true, attributeFilter:['lang'] }); } catch(e){}
   document.addEventListener('mangoi:lang-changed', function(){ var b=document.getElementById('myrat-body'); if(b&&b.__name) window.loadMyRatings(b.__name); });
+})();
+</script>
+<script>
+/* 🔐 2단계 인증(2FA) 설정 카드 로직 — 독립 실행 */
+(function(){
+  "use strict";
+  var g = function(id){ return document.getElementById(id); };
+  function api(path, opts){
+    opts = opts || {}; opts.credentials = 'include';
+    return fetch(path, opts).then(function(r){ return r.json().catch(function(){return {};}); });
+  }
+  function setState(enabled){
+    var s = g('twofaState');
+    if (!s) return;
+    if (enabled){
+      s.textContent = '켜짐 ✅'; s.style.background = 'rgba(34,197,94,0.15)'; s.style.color = '#22c55e';
+      g('twofaEnableBtn').style.display = 'none';
+      g('twofaDisableBtn').style.display = 'inline-block';
+      g('twofaSetup').style.display = 'none';
+    } else {
+      s.textContent = '꺼짐'; s.style.background = 'rgba(148,163,184,0.15)'; s.style.color = 'var(--text-muted)';
+      g('twofaEnableBtn').style.display = 'inline-block';
+      g('twofaDisableBtn').style.display = 'none';
+    }
+  }
+  function refresh(){
+    api('/api/admin/2fa/status').then(function(d){ setState(!!(d && d.enabled)); })
+      .catch(function(){ var s=g('twofaState'); if(s){ s.textContent='확인 실패'; } });
+  }
+  function fmtKey(k){ return (k||'').replace(/(.{4})/g, '$1 ').trim(); }
+
+  // 켜기 시작 → 비밀키 생성
+  var enableBtn = g('twofaEnableBtn');
+  if (enableBtn) enableBtn.addEventListener('click', function(){
+    enableBtn.disabled = true;
+    api('/api/admin/2fa/setup', { method:'POST' }).then(function(d){
+      enableBtn.disabled = false;
+      if (!d || !d.ok){ alert('설정 시작 실패'); return; }
+      g('twofaSecret').textContent = fmtKey(d.secret);
+      g('twofaSecret').dataset.raw = d.secret;
+      var link = g('twofaLink'); if (link) link.href = d.otpauth_uri;
+      g('twofaSetup').style.display = 'block';
+      g('twofaCode').focus();
+    }).catch(function(){ enableBtn.disabled = false; alert('네트워크 오류'); });
+  });
+
+  // 키 복사
+  var copyBtn = g('twofaCopyBtn');
+  if (copyBtn) copyBtn.addEventListener('click', function(){
+    var raw = g('twofaSecret').dataset.raw || '';
+    try { navigator.clipboard.writeText(raw); copyBtn.textContent = '✅ 복사됨'; setTimeout(function(){ copyBtn.textContent='📋 키 복사'; }, 1500); } catch(e){}
+  });
+
+  // 확인하고 켜기
+  var confirmBtn = g('twofaConfirmBtn');
+  if (confirmBtn) confirmBtn.addEventListener('click', function(){
+    var code = (g('twofaCode').value || '').replace(/\D/g, '');
+    var msg = g('twofaMsg');
+    if (code.length !== 6){ msg.style.color = '#f87171'; msg.textContent = '6자리 숫자를 입력해 주세요.'; return; }
+    confirmBtn.disabled = true;
+    api('/api/admin/2fa/enable', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code: code }) }).then(function(d){
+      confirmBtn.disabled = false;
+      if (d && d.ok){ msg.style.color = '#22c55e'; msg.textContent = '✅ 2단계 인증이 켜졌습니다! 다음 로그인부터 코드가 필요합니다.'; refresh(); }
+      else { msg.style.color = '#f87171'; msg.textContent = '❌ ' + ((d && d.message) || '코드가 올바르지 않습니다.'); }
+    }).catch(function(){ confirmBtn.disabled = false; msg.style.color='#f87171'; msg.textContent='네트워크 오류'; });
+  });
+
+  // 끄기 (비밀번호 확인)
+  var disableBtn = g('twofaDisableBtn');
+  if (disableBtn) disableBtn.addEventListener('click', function(){
+    var pw = prompt('2단계 인증을 끄려면 현재 비밀번호를 입력하세요.');
+    if (pw === null) return;
+    disableBtn.disabled = true;
+    api('/api/admin/2fa/disable', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: pw }) }).then(function(d){
+      disableBtn.disabled = false;
+      if (d && d.ok){ alert('2단계 인증이 꺼졌습니다.'); refresh(); }
+      else { alert('❌ ' + ((d && d.message) || '비밀번호가 올바르지 않습니다.')); }
+    }).catch(function(){ disableBtn.disabled = false; alert('네트워크 오류'); });
+  });
+
+  // 초기 상태
+  if (g('twofaState')) refresh();
 })();
 </script>
 <script defer src="/js/back-nav.js"></script>

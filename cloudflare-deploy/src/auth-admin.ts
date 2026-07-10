@@ -17,6 +17,7 @@
  */
 
 import { getScope } from './scope';
+import { generateSecret, otpauthURI, verifyTOTP } from './totp';
 
 export interface AuthEnv {
   DB: D1Database;
@@ -151,6 +152,15 @@ export async function ensureAuthSchema(env: AuthEnv): Promise<void> {
      )`,
     `CREATE INDEX IF NOT EXISTS idx_admin_login_history_user ON admin_login_history(username, login_at)`,
     `CREATE INDEX IF NOT EXISTS idx_admin_login_history_ip ON admin_login_history(ip, login_at)`,
+    // 🔐 2단계 인증(2FA/TOTP) — 계정별 비밀키. enabled=1 이어야 로그인 시 코드 요구.
+    //   secret 은 '설정 중(대기)' 상태(enabled=0)로 먼저 저장되고, 사용자가 코드 1회 확인하면 enabled=1.
+    `CREATE TABLE IF NOT EXISTS admin_2fa (
+       username TEXT PRIMARY KEY,
+       secret TEXT NOT NULL,
+       enabled INTEGER NOT NULL DEFAULT 0,
+       created_at INTEGER NOT NULL,
+       enabled_at INTEGER
+     )`,
   ];
   for (const sql of stmts) {
     try { await env.DB.prepare(sql).run(); }
@@ -313,6 +323,24 @@ export async function handleAdminAuthApi(
         return json({ ok: false, error: 'invalid_credentials' }, 401);
       }
 
+      // 🔐 2단계 인증(2FA): 이 계정이 2FA 를 켰다면 비번 통과만으로는 로그인 불가.
+      //   비번은 맞았지만 코드가 없으면 need_2fa 로 '코드 입력 단계'를 요청(실패로 기록 안 함).
+      //   코드가 틀리면 실패로 기록(브루트포스 카운트에 포함) 후 401.
+      const twofa = await env.DB.prepare(
+        `SELECT secret, enabled FROM admin_2fa WHERE username = ? LIMIT 1`
+      ).bind(username).first<{ secret: string; enabled: number }>();
+      if (twofa && twofa.enabled) {
+        const code = String(body?.code || body?.otp || '').trim();
+        if (!code) {
+          return json({ ok: false, need_2fa: true, message: '인증 앱의 6자리 코드를 입력해 주세요.' }, 200);
+        }
+        const codeOk = await verifyTOTP(twofa.secret, code, Date.now());
+        if (!codeOk) {
+          await recordLogin(env, username, ip, ua, false, 'wrong_2fa');
+          return json({ ok: false, error: 'invalid_2fa', message: '인증 코드가 올바르지 않습니다.' }, 401);
+        }
+      }
+
       const now = Date.now();
       const ttl = remember ? SESSION_REMEMBER_MS : SESSION_DEFAULT_MS;
       const token = randomToken(32);
@@ -425,6 +453,58 @@ export async function handleAdminAuthApi(
       ).bind(me, sess.token!).run().catch(() => {});
 
       return json({ ok: true });
+    }
+
+    // ── 2단계 인증(2FA) 상태 조회 ──
+    if (path === '/api/admin/2fa/status' && method === 'GET') {
+      const row = await env.DB.prepare(
+        `SELECT enabled FROM admin_2fa WHERE username = ? LIMIT 1`
+      ).bind(me).first<{ enabled: number }>();
+      return json({ ok: true, enabled: !!(row && row.enabled) });
+    }
+
+    // ── 2FA 설정 시작: 새 비밀키 생성(대기 상태) + 인증앱 등록용 URI 반환 ──
+    if (path === '/api/admin/2fa/setup' && method === 'POST') {
+      const secret = generateSecret();
+      const now = Date.now();
+      // 기존 대기/사용 중 항목을 새 비밀키로 교체(아직 enabled=0 — 코드 확인 전엔 로그인에 영향 없음)
+      await env.DB.prepare(
+        `INSERT INTO admin_2fa (username, secret, enabled, created_at, enabled_at)
+         VALUES (?, ?, 0, ?, NULL)
+         ON CONFLICT(username) DO UPDATE SET secret = excluded.secret, enabled = 0, created_at = excluded.created_at, enabled_at = NULL`
+      ).bind(me, secret, now).run();
+      return json({ ok: true, secret, otpauth_uri: otpauthURI(secret, me) });
+    }
+
+    // ── 2FA 활성화 확정: 사용자가 입력한 코드가 맞으면 enabled=1 ──
+    if (path === '/api/admin/2fa/enable' && method === 'POST') {
+      let body: any; try { body = await request.json(); } catch { body = null; }
+      const code = String(body?.code || '').trim();
+      const row = await env.DB.prepare(
+        `SELECT secret FROM admin_2fa WHERE username = ? LIMIT 1`
+      ).bind(me).first<{ secret: string }>();
+      if (!row) return json({ ok: false, error: 'no_setup' }, 400);
+      const ok = await verifyTOTP(row.secret, code, Date.now());
+      if (!ok) return json({ ok: false, error: 'invalid_code', message: '코드가 올바르지 않습니다. 앱의 6자리를 다시 확인해 주세요.' }, 400);
+      await env.DB.prepare(
+        `UPDATE admin_2fa SET enabled = 1, enabled_at = ? WHERE username = ?`
+      ).bind(Date.now(), me).run();
+      return json({ ok: true, enabled: true });
+    }
+
+    // ── 2FA 해제: 본인 비밀번호 확인 후 제거 ──
+    if (path === '/api/admin/2fa/disable' && method === 'POST') {
+      let body: any; try { body = await request.json(); } catch { body = null; }
+      const pw = String(body?.password || '');
+      const acc = await env.DB.prepare(
+        `SELECT password_hash FROM admin_account WHERE username = ? LIMIT 1`
+      ).bind(me).first<{ password_hash: string }>();
+      if (!acc) return json({ ok: false, error: 'user_missing' }, 500);
+      if (!(await verifyPassword(pw, acc.password_hash))) {
+        return json({ ok: false, error: 'wrong_password', message: '비밀번호가 올바르지 않습니다.' }, 401);
+      }
+      await env.DB.prepare(`DELETE FROM admin_2fa WHERE username = ?`).bind(me).run();
+      return json({ ok: true, enabled: false });
     }
 
     // ── 로그인 이력 (최근 10건) ──

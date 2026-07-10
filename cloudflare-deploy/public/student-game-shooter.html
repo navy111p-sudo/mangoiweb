@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>학생게임 — 영어 문장 슈팅 (원어민 음성)</title>
+<title>학생게임 — 슈팅+말하기 (원어민 음성·말하기 미션)</title>
 <style>
   :root{
     --accent:#fbbf24; --good:#22c55e; --bad:#ef4444; --blue:#3b82f6;
@@ -173,6 +173,29 @@
   .btn:active{transform:scale(.96)}
   .warn{font-size:11px;color:#fca5a5;margin-top:10px}
 
+  /* ===== 🎤 말하기 미션 (Mastery Loop — 슈팅+말하기 융합) ===== */
+  .say{font-size:20px;font-weight:800;color:#fff;background:rgba(255,255,255,.06);border:1px solid var(--line);
+    border-radius:12px;padding:14px;margin:6px 0 12px;line-height:1.5}
+  .say .ko{display:block;font-size:12px;color:var(--sub);font-weight:600;margin-top:6px}
+  .stars{font-size:30px;letter-spacing:4px;margin:6px 0 4px}
+  .stars .s{opacity:.25;transition:.2s;display:inline-block}
+  .stars .s.on{opacity:1;animation:starPop .35s}
+  @keyframes starPop{0%{transform:scale(.3)}60%{transform:scale(1.35)}100%{transform:scale(1)}}
+  .mission-status{font-size:13px;color:var(--sub);min-height:34px;margin:4px 0 10px;line-height:1.5}
+  .heard{color:#bcd6ff;font-weight:700}
+  .conf{font-variant-numeric:tabular-nums}
+  .conf.ok{color:var(--good)} .conf.no{color:var(--bad)}
+  .mic-btn{background:#10b981;color:#04241a;border:none;border-radius:14px;padding:15px 26px;font-size:17px;
+    font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 8px 22px rgba(16,185,129,.35);width:100%;
+    display:flex;align-items:center;justify-content:center;gap:8px}
+  .mic-btn:active{transform:scale(.97)}
+  .mic-btn:disabled{opacity:.5;cursor:default}
+  .mic-btn.listening{background:var(--bad);color:#fff;box-shadow:0 8px 22px rgba(239,68,68,.4);animation:micPulse 1s infinite}
+  @keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.5)}50%{box-shadow:0 0 0 12px rgba(239,68,68,0)}}
+  .admin-pass{margin-top:14px;font-size:11px;color:var(--sub);opacity:.55;cursor:pointer;background:none;border:none;
+    font-family:inherit;text-decoration:underline dotted}
+  .admin-pass:hover{opacity:1;color:var(--accent)}
+
   /* ===== 모바일 세로 화면 최대 확대 — #field 가 남는 세로공간 전부, 몬스터 크게, 상단바 슬림 ===== */
   .hud{padding:7px 11px;gap:7px}
   .target{padding:7px 11px}
@@ -231,14 +254,27 @@
     </div>
   </div>
 
+  <!-- 🎤 말하기 미션 오버레이 (문장 완성 → 원어민 1회 듣기 → 3회 말하기) — 슈팅+말하기 융합 -->
+  <div class="overlay" id="speakOverlay" style="display:none">
+    <div class="card">
+      <h1>🎤 말하기 미션 <span class="em">3회</span></h1>
+      <div class="say" id="speakText">—<span class="ko" id="speakKo"></span></div>
+      <div class="stars" id="stars"><span class="s">★</span><span class="s">★</span><span class="s">★</span></div>
+      <div class="mission-status" id="missionStatus">아래 버튼을 누르고 또렷하게 문장을 말하세요.</div>
+      <button class="mic-btn" id="micBtn">🎤 누르고 말하기</button>
+      <button class="admin-pass" id="adminPass">Admin Pass (교사 수동 통과)</button>
+    </div>
+  </div>
+
   <div class="overlay" id="overlay">
     <div class="card" id="card">
-      <h1>영어 문장 <span class="em">슈팅</span> 🔫</h1>
+      <h1>문장 슈팅 <span class="em">+ 말하기</span> 🔫🎤</h1>
       <div class="rules">
         • 위 <b>목표 문장</b>을 보고 단어를 <b>순서대로</b> 쏩니다.<br>
         • 정답 → <b>+100점</b> & 💥 + <b>원어민 발음 재생</b> 🔊<br>
         • 오답(순서 틀림) → <b>−50점</b> & 안 터짐<br>
-        • 빠른 연속 정답 → <b>콤보!</b> · 제한시간 <b>60초</b>
+        • 문장 완성 → 원어민 듣고 <b>🎤 3번 말하기</b> (성공마다 <b>+100점</b>)<br>
+        • 빠른 연속 정답 → <b>콤보!</b> · 제한시간 <b>60초</b> (말하기 중엔 멈춤)
       </div>
       <div class="gunlabel">⚡ 게임 속도 (5단계 난이도)</div>
       <div class="gunpick" id="speedPicker"></div>
@@ -304,6 +340,23 @@
     var _injZ=(new URLSearchParams(location.search).get('sentence')||'').trim();
     if(_injZ){ SENTENCES=[_injZ].concat(SENTENCES.filter(function(s){return s!==_injZ;})); }
   }
+  // 🈶 말하기 미션 카드에 보여줄 한국어 뜻 (아는 문장만 표시 — 교재 문장은 로드 시 자동 추가)
+  var KO = (GLANG==='zh') ? {
+    "我 爱 你":"사랑해요", "你 好 吗":"잘 지내요?", "我 是 学生":"나는 학생이에요",
+    "今天 天气 很 好":"오늘 날씨가 좋아요", "我 喜欢 吃 苹果":"나는 사과 먹는 걸 좋아해요",
+    "他 每天 去 学校":"그는 매일 학교에 가요", "这 是 我的 朋友":"이 사람은 내 친구예요",
+    "我 想 喝 水":"물을 마시고 싶어요", "我们 一起 学习 汉语":"우리 함께 중국어를 공부해요",
+    "昨天 我 和 家人 去了 海边":"어제 가족과 바닷가에 갔어요", "她 将来 想 当 医生":"그녀는 커서 의사가 되고 싶어해요",
+    "我 有 两 只 小狗":"나는 강아지 두 마리가 있어요"
+  } : {
+    "He plays soccer on Sundays.":"그는 일요일마다 축구를 해요.",
+    "She is reading a book now.":"그녀는 지금 책을 읽고 있어요.",
+    "We go to school by bus.":"우리는 버스로 학교에 가요.",
+    "I have two cute dogs.":"나는 귀여운 강아지 두 마리가 있어요.",
+    "They like to eat pizza.":"그들은 피자 먹는 걸 좋아해요.",
+    "My family went to the beach last summer.":"우리 가족은 지난여름 해변에 갔어요.",
+    "She wants to be a famous scientist someday.":"그녀는 언젠가 유명한 과학자가 되고 싶어해요."
+  };
   // 📚 로그인 학생의 교재/레벨 맞춤 문장으로 교체 (영어 모드에서만 — 중국어는 허브가 넘긴 중국어 문장 사용)
   try{
     if(window.MangoiGameVocab && GLANG!=='zh'){
@@ -311,6 +364,7 @@
         if(d && d.sentences && d.sentences.length >= 3){
           var head = (typeof _inj==='string' && _inj) ? [_inj] : [];
           SENTENCES = head.concat(d.sentences.map(function(s){ return s.en; }).filter(function(s){ return head.indexOf(s)<0; }));
+          d.sentences.forEach(function(s){ if(s.ko) KO[s.en]=s.ko; });   // 🎤 말하기 미션 카드 한국어 뜻
         }
       });
     }
@@ -471,16 +525,17 @@
     voiceBadge.textContent = enVoice ? ('🔊 ' + enVoice.name) : '🔊 영어 음성 없음';
   }
   if(synth){ pickVoice(); synth.onvoiceschanged = pickVoice; }
-  // 브라우저 TTS (폴백용)
-  function synthSpeak(text, rate){
-    if(!synth) return;
+  // 브라우저 TTS (폴백용) — cb: 재생이 끝나면 호출(말하기 미션의 '듣기 전제'용)
+  function synthSpeak(text, rate, cb){
+    if(!synth){ if(cb) cb(); return; }
     try{
       synth.cancel();
       var u = new SpeechSynthesisUtterance(text);
       u.lang=(enVoice&&enVoice.lang)||(GLANG==='zh'?'zh-CN':'en-US'); u.rate=rate||0.9; u.pitch=1.0; u.volume=1;
       if(enVoice) u.voice=enVoice;
+      if(cb){ var done=false, fin=function(){ if(!done){ done=true; cb(); } }; u.onend=fin; setTimeout(fin, 4000); }
       synth.speak(u);
-    }catch(e){}
+    }catch(e){ if(cb) cb(); }
   }
   // ★ 클라우드 TTS (원어민급 Deepgram Aura-1) — 사이트의 /api/voice/tts 사용.
   //   기기에 상관없이 동일한 고품질 발음. 실패(오프라인/standalone)하면 브라우저 TTS 폴백.
@@ -491,14 +546,14 @@
       .then(function(b){ var u=URL.createObjectURL(b); ttsCache[text]=u; return u; });
   }
   function prefetchTTS(text){ text=(text||'').trim(); if(!text || ttsCache[text]) return; ttsFetch(text).catch(function(){}); }
-  function playUrl(u, rate){ try{ if(!ttsAudio) ttsAudio=new Audio(); ttsAudio.src=u; ttsAudio.playbackRate=rate||1; ttsAudio.play().catch(function(){}); }catch(e){} }  // ⚡ 재생속도=7단계 반영
-  function speak(text, rate){
-    text=(text||'').trim(); if(!text) return;
+  function playUrl(u, rate, cb){ try{ if(!ttsAudio) ttsAudio=new Audio(); ttsAudio.onended=cb||null; ttsAudio.src=u; ttsAudio.playbackRate=rate||1; ttsAudio.play().catch(function(){ if(cb) cb(); }); }catch(e){ if(cb) cb(); } }  // ⚡ 재생속도=7단계 반영 · cb=재생 완료 콜백
+  function speak(text, rate, cb){
+    text=(text||'').trim(); if(!text){ if(cb) cb(); return; }
     var pr = Math.max(0.5, Math.min(3.2, (rate||1) * spdMult()));       // ⚡ 상단 7단계 속도 → 발음 속도
-    if(ttsCache[text]){ playUrl(ttsCache[text], pr); return; }          // 미리받은 음성 즉시 재생
-    ttsFetch(text).then(function(u){ playUrl(u, pr); }).catch(function(){ synthSpeak(text, pr); }); // 클라우드 우선(zh=서버가 만다린) → 실패 시 브라우저
+    if(ttsCache[text]){ playUrl(ttsCache[text], pr, cb); return; }      // 미리받은 음성 즉시 재생
+    ttsFetch(text).then(function(u){ playUrl(u, pr, cb); }).catch(function(){ synthSpeak(text, pr, cb); }); // 클라우드 우선(zh=서버가 만다린) → 실패 시 브라우저
   }
-  function speakSentence(){ speak(targetWords.join(' ').replace(/[.?!]/g,''), 0.92); }
+  function speakSentence(cb){ speak(targetWords.join(' ').replace(/[.?!]/g,''), 0.92, cb); }
 
   // 오답음만 비음성(짧은 버저) — 정답/문장은 전부 원어민 음성
   // 총 발사음 / 명중·폭발음 (WebAudio 합성, 외부 파일 없음) — 총마다 다른 소리
@@ -580,6 +635,112 @@
     o.frequency.setValueAtTime(170,t); o.frequency.exponentialRampToValueAtTime(80,t+0.2);
     o.connect(g); g.connect(master||actx.destination); g.gain.setValueAtTime(0.15,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.22); o.start(t); o.stop(t+0.24);
   }catch(e){} }
+
+  // ===================================================================
+  //  🎤 말하기 미션 (Mastery Loop) — english-mastery-suite(슈팅+말하기) 이식
+  //  문장 완성 → 원어민 발음 1회 듣기(전제) → 3회 말하기(성공마다 +100점)
+  //  · confidence>0.70 또는 confidence=0(미제공 기기)이면 문장 일치로만 판정
+  //  · 중국어 모드: zh-CN 인식 + 한자 붙여쓰기 비교 · Admin Pass(교사 수동 통과)
+  // ===================================================================
+  var SPEAK_TARGET=3, SPEAK_POINTS=100, CONFIDENCE_THRESHOLD=0.70;
+  var SR_CLS = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  var recog=null, recogActive=false, speakCount=0, speakAwarded=0, onMissionDone=null, _onSpeakScore=null, audioPlayed=false;
+  var speakOverlay=document.getElementById('speakOverlay'), micBtn=document.getElementById('micBtn'),
+      starsEl=document.getElementById('stars'), missionStatus=document.getElementById('missionStatus'),
+      speakTextEl=document.getElementById('speakText'), speakKoEl=document.getElementById('speakKo');
+
+  // 비교용 정규화 — 영문+숫자+한자(CJK)만 남김 (중국어 문장도 판정 가능)
+  function _mclean(s){ return (s||'').toLowerCase().replace(/[^a-z0-9㐀-鿿]/g,''); }
+  function _lev(a,b){ var m=a.length,n=b.length; if(!m)return n; if(!n)return m;
+    var prev=[],cur=[],i,j; for(j=0;j<=n;j++)prev[j]=j;
+    for(i=1;i<=m;i++){ cur[0]=i; for(j=1;j<=n;j++){ var c=a.charAt(i-1)===b.charAt(j-1)?0:1; cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+c); } var t=prev;prev=cur;cur=t; }
+    return prev[n]; }
+  function simRatio(a,b){ a=_mclean(a); b=_mclean(b); if(!a||!b)return 0; if(a===b)return 1; var L=Math.max(a.length,b.length); return L?(1-_lev(a,b)/L):0; }
+  // 관대한 일치 — 공백/구두점/대소문자 무시('every day'='everyday'), 단어 8할 이상이면 통과
+  function matchSpoken(heard, target){
+    var h=_mclean(heard), t=_mclean(target);
+    if(!h||!t) return false;
+    if(h===t) return true;
+    if(GLANG==='zh'){ return h.indexOf(t)>=0 || t.indexOf(h)>=0 || simRatio(heard,target)>=0.8; }
+    var hw=(heard||'').toLowerCase().replace(/[^a-z0-9' ]/g,' ').split(/\s+/).filter(Boolean);
+    var tw=(target||'').toLowerCase().replace(/[^a-z0-9' ]/g,' ').split(/\s+/).filter(Boolean);
+    var m2=0; tw.forEach(function(w){ var k=hw.indexOf(w); if(k>=0){ hw.splice(k,1); m2++; } });
+    return tw.length>0 && (m2/tw.length)>=0.8;
+  }
+  function renderStars(){ [].forEach.call(starsEl.children, function(s,i){ s.classList.toggle('on', i<speakCount); }); }
+  function missionSentence(){ return targetWords.join(' '); }
+  function awardSpeak(){ if(_onSpeakScore) _onSpeakScore(SPEAK_POINTS); speakAwarded++; }
+  function startMission(done, onScore){
+    onMissionDone=done; _onSpeakScore=onScore||null; speakCount=0; speakAwarded=0; audioPlayed=false;
+    var s=missionSentence();
+    speakTextEl.firstChild.nodeValue=s;
+    speakKoEl.textContent=KO[s]||'';
+    renderStars();
+    micBtn.disabled=true; micBtn.classList.remove('listening'); micBtn.innerHTML='🔊 듣는 중…';
+    missionStatus.innerHTML='먼저 원어민 발음을 잘 들어보세요 🎧';
+    speakOverlay.style.display='flex';
+    // ▼ Audio Prerequisite: 목표 문장을 1회 들려준 뒤에만 마이크 활성화 (+6초 보험 해제)
+    var armed=false; function arm(){ if(armed) return; armed=true; audioPlayed=true;
+      micBtn.disabled=false; micBtn.innerHTML='🎤 누르고 말하기';
+      missionStatus.innerHTML='버튼을 누르고 <b>또렷하게</b> 문장을 말하세요. ('+SPEAK_TARGET+'회 성공 필요)'; }
+    speakSentence(arm); setTimeout(arm, 6000);
+  }
+  function setupRecognition(){
+    if(!SR_CLS) return null;
+    var r=new SR_CLS();
+    r.lang=(GLANG==='zh'?'zh-CN':'en-US'); r.interimResults=false; r.maxAlternatives=3; r.continuous=false;   // 🌐 중국어 모드는 중국어 인식
+    r.onstart=function(){ recogActive=true; micBtn.classList.add('listening'); micBtn.innerHTML='🔴 듣는 중… 말하세요'; };
+    r.onerror=function(ev){
+      recogActive=false; micBtn.classList.remove('listening'); micBtn.innerHTML='🎤 누르고 말하기'; micBtn.disabled=false;
+      if(ev.error==='not-allowed'||ev.error==='service-not-allowed') missionStatus.innerHTML='⚠ 마이크 권한이 필요합니다. 브라우저에서 허용해 주세요.';
+      else if(ev.error==='no-speech') missionStatus.innerHTML='소리가 들리지 않았어요. 다시 시도해 주세요 🎤';
+    };
+    r.onend=function(){ recogActive=false; micBtn.classList.remove('listening'); if(speakCount<SPEAK_TARGET){ micBtn.innerHTML='🎤 다시 말하기'; micBtn.disabled=false; } };
+    r.onresult=function(ev){
+      var res=ev.results[0], best=res[0], anyMatch=false, tgt=missionSentence();
+      for(var i=0;i<res.length;i++){ if(res[i].confidence>best.confidence) best=res[i]; if(matchSpoken(res[i].transcript||'', tgt)) anyMatch=true; }
+      handleAttempt(best.transcript||'', (typeof best.confidence==='number'&&best.confidence>0)?best.confidence:0, anyMatch);
+    };
+    return r;
+  }
+  function handleAttempt(heard, confidence, matched){
+    // 일부 기기(모바일/Edge)는 confidence=0 → 신뢰도 필터를 건너뛰고 문장 일치로만 판정
+    var confOk=(confidence===0)||(confidence>CONFIDENCE_THRESHOLD);
+    var pass=matched&&confOk;
+    var pct=Math.round(simRatio(heard, missionSentence())*100);
+    var line='들린 말: <span class="heard">"'+(heard||'…')+'"</span><br>정확도 <span class="conf '+(matched?'ok':'no')+'">'+pct+'%</span>';
+    if(pass){
+      speakCount++; renderStars(); awardSpeak();          // ★ 말할 때마다 +100(라이브 반영)
+      if(speakCount>=SPEAK_TARGET){
+        missionStatus.innerHTML=line+'<br>🎉 <b>완벽해요!</b> '+SPEAK_TARGET+'회 모두 성공! <b>+'+SPEAK_POINTS+'점</b>';
+        micBtn.disabled=true; micBtn.classList.remove('listening'); micBtn.innerHTML='✅ 미션 완료';
+        setTimeout(finishMission, 900);
+      } else {
+        missionStatus.innerHTML=line+'<br>👍 <b>성공! +'+SPEAK_POINTS+'점</b> ('+speakCount+'/'+SPEAK_TARGET+') 다시 한 번!';
+      }
+    } else {
+      missionStatus.innerHTML=line+'<br>😅 Keep trying! Speak clearly.';
+    }
+  }
+  function finishMission(){
+    while(speakAwarded<SPEAK_TARGET){ awardSpeak(); }     // Admin Pass 등으로 덜 반영된 점수 보정
+    speakOverlay.style.display='none';
+    var cb=onMissionDone; onMissionDone=null; _onSpeakScore=null;
+    if(cb) cb();
+  }
+  micBtn.addEventListener('click', function(){
+    if(!audioPlayed) return;
+    if(!SR_CLS){ missionStatus.innerHTML='⚠ 이 브라우저는 음성 인식을 지원하지 않습니다. <b>Admin Pass</b>를 사용하세요.'; return; }
+    if(recogActive){ try{ recog.stop(); }catch(e){} return; }
+    if(!recog) recog=setupRecognition();
+    try{ recog.start(); }catch(e){ /* already started */ }
+  });
+  // Teacher-in-the-Loop: 수동 통과 (악센트/마이크 이슈 대응)
+  document.getElementById('adminPass').addEventListener('click', function(){
+    if(recogActive){ try{ recog.stop(); }catch(e){} }
+    speakCount=SPEAK_TARGET; renderStars();
+    setTimeout(finishMission, 400);
+  });
 
   // ===== 라운드 =====
   function startRound(){
@@ -698,7 +859,7 @@
       else if(combo>=2) showCombo(combo+' COMBO!');
       correctWords++;
       renderSentence(); updateHUD();
-      if(correctWords>=GOAL){ setTimeout(winGame, 700); return; }   // 🎯 10개 정답 → 결과
+      // 🎯 목표(GOAL) 달성 판정은 문장 완성 → 🎤 말하기 미션 뒤에 (roundComplete 에서)
       if(currentIndex>=targetWords.length) roundComplete();
     } else {
       score=Math.max(0,score-50); combo=0; sndMiss();
@@ -709,10 +870,18 @@
   function roundComplete(){
     var bonus=50+combo*10; score+=bonus; updateHUD();
     showCombo('문장 완성! +'+bonus);
-    setTimeout(speakSentence, 200);                  // ★ 완성된 전체 문장을 원어민 음성으로
     try{ if(window.parent && window.parent!==window) window.parent.postMessage({type:'mangoi-game-complete', score:100+bonus}, '*'); }catch(e){} // 학생게임 탭 점수 반영
-    level++;
-    setTimeout(function(){ if(running) startRound(); }, 1600);
+    // 🎤 말하기 미션(슈팅+말하기 융합): 게임·제한시간 일시정지 → 원어민 1회 듣기 → 3회 말하기(+100/회)
+    running=false; clearInterval(timerId); cancelAnimationFrame(rafId); clearMonsters();
+    setTimeout(function(){
+      startMission(function(){
+        if(correctWords>=GOAL){ winGame(); return; }             // 🎯 정답 10개 달성 → 결과 화면
+        level++;
+        running=true; lastTs=0; startRound();                    // 점수·남은 시간 유지한 채 다음 문장
+        clearInterval(timerId); timerId=setInterval(tick,1000);
+        cancelAnimationFrame(rafId); rafId=requestAnimationFrame(loop);
+      }, function(pts){ score+=pts; updateHUD(); });             // 말할 때마다 +100 라이브 반영
+    }, 900);
   }
 
   function popMonster(m){
@@ -761,6 +930,9 @@
     ensureCtx();
     if(synth) pickVoice();
     if(synth){ try{ speak(' '); }catch(e){} }     // 모바일 음성 잠금 해제(사용자 제스처)
+    // 🎤 말하기 미션 상태 정리(재시작 안전)
+    speakOverlay.style.display='none'; onMissionDone=null; _onSpeakScore=null;
+    if(recogActive){ try{ recog.stop(); }catch(e){} }
     score=0; timeLeft=60; combo=0; level=0; lastHit=0; lastTs=0; correctWords=0; running=true;
     overlay.style.display='none'; updateHUD(); updateTimer(); startRound();
     clearInterval(timerId); timerId=setInterval(tick,1000);
@@ -782,7 +954,7 @@
       ? '<button class="btn" id="nextStageBtn" style="background:linear-gradient(135deg,#f43f5e,#be123c);color:#fff">🔥 다음 난이도 ⭐'+(stageLvl+1)+' 도전!</button>'
       : '<button class="btn" id="nextStageBtn" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff">👑 전 단계 클리어! ⭐1부터</button>';
     card.innerHTML='<h1>🏆 난이도 ⭐'+stageLvl+' 클리어!</h1><div class="big">'+score+'점</div>'
-      +'<div class="best">✅ 정답 '+correctWords+'개 · 🏆 최고 '+best+'점</div>'
+      +'<div class="best">✅ 정답 '+correctWords+'개 · 🎤 말하기 마스터 · 🏆 최고 '+best+'점</div>'
       +nextBtn
       +'<button class="btn" id="restartBtn" style="margin-top:8px">같은 단계 다시 ↻</button>'
       +'<button class="btn" onclick="window.MangoFlow&&MangoFlow.open(\'game\')" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;margin-top:8px">🚀 다음 활동 고르기</button>';
@@ -836,7 +1008,12 @@
 
   document.getElementById('startBtn').addEventListener('click', startGame);
   document.getElementById('listenBtn').addEventListener('click', function(){ if(running) speakSentence(); });
-  if(!synth){ document.getElementById('voiceWarn').textContent='⚠ 이 브라우저는 음성합성을 지원하지 않습니다.'; }
+  (function(){
+    var _w=[];
+    if(!synth) _w.push('음성 합성(TTS)');
+    if(!SR_CLS) _w.push('음성 인식(말하기 미션)');
+    if(_w.length) document.getElementById('voiceWarn').textContent='⚠ 이 브라우저는 '+_w.join(' / ')+'을(를) 지원하지 않을 수 있어요. (Chrome 권장 · 말하기는 Admin Pass로 통과 가능)';
+  })();
   // 포인터(마우스/터치) 추적 조준 + 조준선
   function trackAim(e){
     var f=field.getBoundingClientRect();
@@ -851,8 +1028,8 @@
   window.addEventListener('resize', function(){ var w=field.clientWidth; monsters.forEach(function(m){ if(m.x>w-66){ m.x=Math.max(8,w-86); m.el.style.left=m.x+'px'; } }); });
 })();
 </script>
-<!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 -->
+<!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260710224936 -->
+<!-- BUILD:20260710225729 -->
 </body>
 </html>

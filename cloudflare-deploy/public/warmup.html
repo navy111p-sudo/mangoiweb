@@ -448,8 +448,21 @@ async function sendMsg(){
 }
 </script>
 <!-- BUILD:warmup3-bigtext-ratebar -->
+<style id="mb-tidy-2026-07-10">
+/* 모바일(≤640px) 보정: 듣기속도 바·입력줄 가로 넘침 */
+.inbar input{min-width:0}
+@media (max-width:640px){
+  .rate-bar{flex-wrap:wrap;row-gap:6px;gap:8px;padding:8px 10px}
+  .rate-bar input[type=range]{min-width:60px}
+  .rate-bar .rate-val{min-width:56px;font-size:13px}
+  .inbar{padding:10px 10px;gap:6px}
+  .inbar input{font-size:16px;padding:12px 12px}
+  .inbar button{padding:0 14px;font-size:16px}
+  .inbar .mic-btn{padding:0 12px}
+}
+</style>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260710224936 -->
+<!-- BUILD:20260710225729 -->
 </body>
 </html>

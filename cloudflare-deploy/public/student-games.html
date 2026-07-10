@@ -11,8 +11,9 @@
    수업 입장 화면(index.html)의 🎮 학생게임 탭에 있는 7가지 게임을 한 페이지에
    카드로 모아 누르면 바로 플레이하게 한다.
      1) 🎣 낚시+말하기    → english-mastery-suite.html?game=fish  (iframe)
-     2) 🚀 슈팅+말하기    → english-mastery-suite.html?game=shoot (iframe)
-     3) 🔫 영어 슈팅      → student-game-shooter.html             (iframe)
+     2) 🚀 슈팅+말하기    → student-game-shooter.html             (iframe)
+        · 구 '슈팅+말하기'(suite shoot)와 구 '영어 슈팅'을 융합: 총 12종+발사음
+          +난이도/스테이지 + 문장 완성 후 🎤 3회 말하기 미션 (영/중 지원)
      4) 🧱 문장 벽돌      → 인라인 렌더 (gameRenderBrick)
      5) 🧩 단어 매칭      → 인라인 렌더 (gameRenderMatch)
      6) 🔤 빈칸 채우기    → 인라인 렌더 (gameRenderFill)
@@ -1222,9 +1223,7 @@ const HUB_GAMES = [
     src:function(){ return '/battle-3d.html'; } },
   { mode:'fish',    kind:'iframe', ico:'🎣', ttl:'낚시+말하기',   dsc:'문장 단어를 순서대로 낚아 발음까지!', bg:'#0ea5e9', badge:'말하기',
     src:s=>'/english-mastery-suite.html?game=fish&sentence='+encodeURIComponent(s)+'&lang=ko' },
-  { mode:'shoot',   kind:'iframe', ico:'🚀', ttl:'슈팅+말하기',   dsc:'우주에서 단어를 순서대로 쏘고 말하기!', bg:'#6366f1', badge:'말하기',
-    src:s=>'/english-mastery-suite.html?game=shoot&sentence='+encodeURIComponent(s)+'&lang=ko' },
-  { mode:'shooter', kind:'iframe', ico:'🔫', ttl:'영어 슈팅',     dsc:'총·효과음 골라 단어를 쏴서 문장 완성!', bg:'#ef4444', badge:'슈팅',
+  { mode:'shooter', kind:'iframe', ico:'🚀', ttl:'슈팅+말하기',   dsc:'총·효과음 골라 단어를 순서대로 쏘고, 원어민 듣고 3번 말하기!', bg:'#6366f1', badge:'슈팅·말하기',
     src:s=>'/student-game-shooter.html?sentence='+encodeURIComponent(s)+'&lang=ko' },
   { mode:'brick',   kind:'inline', ico:'🧱', ttl:'문장 벽돌',     dsc:'단어 브릭을 순서대로 쌓아 문장 완성!', bg:'#3b82f6', badge:'문장' },
   { mode:'match',   kind:'inline', ico:'🧩', ttl:'단어 매칭',     dsc:'한국어와 영어 카드 짝을 찾아요!',      bg:'#a855f7', badge:'단어' },
@@ -1241,8 +1240,8 @@ const HUB_GAMES = [
 /* ============================================================
    허브 네비게이션
    ============================================================ */
-// 🌐 언어별 카드 제목: '영어 슈팅' 은 중국어 모드에서 '중국어 슈팅' 으로 (나머지는 그대로)
-function _gameTitle(g){ if(g.mode==='shooter') return (GAME_LANG==='zh') ? '중국어 슈팅' : '영어 슈팅'; if(g.mode==='battle3d') return (GAME_LANG==='zh') ? '중국어 배틀' : '3D 배틀'; return g.ttl; }
+// 🌐 언어별 카드 제목: '슈팅+말하기' 는 중국어 모드에서 '중국어 슈팅+말하기' 로 (나머지는 그대로)
+function _gameTitle(g){ if(g.mode==='shooter') return (GAME_LANG==='zh') ? '중국어 슈팅+말하기' : '슈팅+말하기'; if(g.mode==='battle3d') return (GAME_LANG==='zh') ? '중국어 배틀' : '3D 배틀'; return g.ttl; }
 function hubRenderMenu(){
   // 3D 배틀은 영어/중국어 모두 지원(glang 전달) — 전체 노출
   var list = HUB_GAMES.slice();
@@ -1261,7 +1260,7 @@ function _hubGame(mode){ return HUB_GAMES.find(function(g){ return g.mode===mode
 /* 🎨 게임별 배경 테마 적용 — 각 게임 성격에 맞는 컬러/장식(위 CSS)을 #game-area 에 얹는다.
    인라인 게임(brick/match/fill/balloon)만 장식(::before)까지 켜고, iframe 게임은 로딩 배경색만. */
 var _GAME_THEME = { brick:'theme-brick', match:'theme-match', fill:'theme-fill', balloon:'theme-balloon',
-  fish:'theme-fish', shoot:'theme-shoot', shooter:'theme-shooter', battle3d:'theme-battle3d',
+  fish:'theme-fish', shooter:'theme-shoot', battle3d:'theme-battle3d',   // 통합 슈팅+말하기 = 우주(인디고) 테마
   suspect:'theme-suspect', speaking:'theme-speaking' };
 function _applyGameTheme(mode){
   var area = document.getElementById('game-area'); if(!area) return;
@@ -1930,7 +1929,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260710224936 -->
+<!-- BUILD:20260710225729 -->
 <script defer src="/js/flow.js"></script>
 </body>
 </html>

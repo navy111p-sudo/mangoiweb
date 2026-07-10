@@ -96,6 +96,11 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
           <a href="#" class="pw-forgot" id="pwForgot">🔧 비밀번호 찾기</a>
         </div>
       </div>
+      <div class="field" id="otpField" style="display:none">
+        <label>📱 인증 앱 6자리 코드</label>
+        <input type="text" id="otpCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" style="letter-spacing:8px;text-align:center;font-size:26px">
+        <div style="font-size:14px;color:rgba(255,255,255,0.6);margin-top:6px">구글/MS 인증 앱에 표시된 6자리 숫자를 입력하세요.</div>
+      </div>
       <button type="submit" class="login-btn" id="loginBtn">✅ 로그인</button>
       <div class="err" id="errMsg"></div>
     </form>
@@ -170,13 +175,27 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
     btn.disabled = true;
     btn.textContent = '🔄 로그인 중...';
     try {
+      var otpEl = document.getElementById('otpCode');
+      var otpVal = (otpEl && otpEl.value || '').replace(/\D/g,'');
+      var payload = { username: uid, password: pw, remember: true };
+      if (otpVal) payload.code = otpVal;
       var res = await fetch('/api/admin/login', {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ username: uid, password: pw, remember: true }),
+        body: JSON.stringify(payload),
         credentials:'include'
       });
       var data = await res.json().catch(function(){ return {}; });
+      // 🔐 2단계 인증: 비번은 맞고 코드가 필요한 상태 → 6자리 입력란 표시
+      if (data && data.need_2fa) {
+        document.getElementById('otpField').style.display = 'block';
+        setTimeout(function(){ otpEl && otpEl.focus(); }, 50);
+        err.textContent = '📱 인증 앱의 6자리 코드를 입력해 주세요.';
+        err.classList.add('show');
+        btn.disabled = false;
+        btn.textContent = '🔓 인증하고 로그인';
+        return;
+      }
       if (res.ok && data.ok) {
         btn.textContent = '✅ 로그인 성공!';
         // 아이디 자동 저장 처리
