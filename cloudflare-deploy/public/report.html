@@ -163,7 +163,8 @@ async function doStudentLogin() {
 window.doStudentLogin = doStudentLogin;
 
 async function load() {
-  const url = `/api/report/monthly/${encodeURIComponent(uid)}/${ym}`;
+  let _t = ''; try { _t = localStorage.getItem('mango_token') || ''; } catch(e){}
+  const url = `/api/report/monthly/${encodeURIComponent(uid)}/${ym}` + (_t ? '?token=' + encodeURIComponent(_t) : '');  // 🔐 본인 인증
   try {
     const r = await fetch(url);
     const d = await r.json();

@@ -195,9 +195,10 @@
   function loadReport(){
     document.getElementById('root').innerHTML = '<div class="spin">'+t('레포트 불러오는 중…','Loading…')+'</div>';
     // 토큰이 있으면 저장된 레포트를 토큰 검증으로 열람(학부모 링크), 없으면 실시간 생성 미리보기(관리자/교사)
+    var _mt = ''; try { _mt = localStorage.getItem('mango_token') || ''; } catch(e){}
     var api = token
       ? '/api/report/monthly-view?uid='+encodeURIComponent(uid)+'&period='+encodeURIComponent(period)+'&t='+encodeURIComponent(token)
-      : '/api/report/monthly/'+encodeURIComponent(uid)+'/'+encodeURIComponent(period)+'?ai=1';
+      : '/api/report/monthly/'+encodeURIComponent(uid)+'/'+encodeURIComponent(period)+'?ai=1'+(_mt?'&token='+encodeURIComponent(_mt):'');  // 🔐 관리자는 쿠키, 그 외는 토큰
     fetch(api, {cache:'no-store'})
       .then(function(r){ return r.ok?r.json():null; })
       .then(function(d){

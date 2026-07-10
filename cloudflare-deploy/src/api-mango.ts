@@ -7309,6 +7309,14 @@ Respond in JSON ONLY:
       const start = new Date(year, month, 1).getTime();
       const end = new Date(year, month + 1, 1).getTime();
 
+      // 🔐 [PII] 본인(학생/학부모 토큰) 또는 관리자만 — 월간 리포트(결제 총액·평가 포함) IDOR 차단.
+      //   공유 링크로 보려면 별도 /api/report/monthly-view?t= (토큰 검증) 경로 사용.
+      const rmAuth = await authUidGlobal(request, url, env);
+      const rmAdmin = await checkAdminSession(request, env as any);
+      if (!rmAdmin.ok && (!rmAuth || rmAuth !== uid)) {
+        return json({ ok: false, error: 'auth_required', message: '로그인 후 본인 리포트만 조회할 수 있습니다.' }, 401);
+      }
+
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT);`);
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, joined_at INTEGER, date TEXT);`);
