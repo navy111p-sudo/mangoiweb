@@ -5564,16 +5564,44 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       for (const t of (teachers.results || [])) { tMap[t.id] = t; if (t.korean_name) tByName[t.korean_name] = t; if (t.english_name) tByName[t.english_name] = t; }
 
       // 이 달 수업 (취소 제외)
+      //   ⚠️ 실제 운영 class_schedules 스키마는 코드 DDL과 다르다(2026-07-10 확인):
+      //   duration_min(≠duration_minutes), teacher_name 컬럼 없음, teacher_id 는 TEXT("28"),
+      //   그리고 전 행이 schedule_kind='recurring'(요일 반복, scheduled_date=NULL).
+      //   → SELECT * 로 어떤 스키마든 읽고, 반복 스케줄은 해당 월의 날짜 인스턴스로 전개한다.
       const ymPrefix = `${year}-${String(month).padStart(2, '0')}`;
-      const ymSlash = `${year}/${String(month).padStart(2, '0')}`;
       const ls: any = await env.DB.prepare(
-        `SELECT id, user_id, teacher_id, teacher_name, scheduled_date, start_time, duration_minutes, status
-           FROM class_schedules
-          WHERE (scheduled_date LIKE ? OR scheduled_date LIKE ?)
-            AND COALESCE(status,'active') != 'cancelled'
-            AND teacher_id IS NOT NULL
-          ORDER BY scheduled_date, start_time`
-      ).bind(ymPrefix + '%', ymSlash + '%').all().catch(() => ({ results: [] }));
+        `SELECT * FROM class_schedules WHERE COALESCE(status,'active') != 'cancelled' AND teacher_id IS NOT NULL`
+      ).all().catch(() => ({ results: [] }));
+
+      const DOW: any = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6 };
+      const dowOf = (v: any): number | null => {
+        if (v == null || v === '') return null;
+        if (typeof v === 'number') return (v >= 0 && v <= 6) ? v : null;
+        const s = String(v).trim().toLowerCase();
+        if (/^\d+$/.test(s)) { const n = parseInt(s, 10); return (n >= 0 && n <= 6) ? n : null; }
+        const a = DOW[s.slice(0, 3)]; if (a !== undefined) return a;
+        const b = DOW[s.slice(0, 1)]; return b !== undefined ? b : null;
+      };
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const instances: any[] = [];
+      for (const row of (ls.results || [])) {
+        const mins = row.duration_min ?? row.duration_minutes ?? 30;
+        const dated = String(row.scheduled_date || '').replace(/\//g, '-').slice(0, 10);
+        if (dated) {
+          // 날짜 지정 수업 — 이 달 것만
+          if (dated.startsWith(ymPrefix)) instances.push({ ...row, _date: dated, _mins: mins });
+          continue;
+        }
+        // 반복 수업 — 이 달의 해당 요일 날짜들로 전개
+        const dw = dowOf(row.day_of_week);
+        if (dw == null) continue;
+        for (let d = 1; d <= daysInMonth; d++) {
+          if (new Date(Date.UTC(year, month - 1, d)).getUTCDay() === dw) {
+            instances.push({ ...row, _date: `${ymPrefix}-${String(d).padStart(2, '0')}`, _mins: mins });
+          }
+        }
+      }
+      instances.sort((a, b) => (a._date + (a.start_time || '')).localeCompare(b._date + (b.start_time || '')));
 
       // 이 달 노쇼·피드백 (KST 기준 월 범위 ms)
       const mStart = Date.parse(`${ymPrefix}-01T00:00:00+09:00`);
@@ -5598,7 +5626,8 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       }
 
       // 학생 이름 맵 (students_erp 컬럼 구성이 배포본마다 달라 순차 폴백)
-      const uids: any[] = [...new Set((ls.results || []).map((l: any) => l.user_id).filter(Boolean))];
+      //   운영 class_schedules 에는 student_name 이 행에 직접 있어 이 맵은 폴백용.
+      const uids: any[] = [...new Set(instances.filter((l: any) => !l.student_name).map((l: any) => l.user_id).filter(Boolean))];
       const stuName: any = {};
       if (uids.length && uids.length <= 500) {
         const ph = uids.map(() => '?').join(',');
@@ -5619,12 +5648,13 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
 
       const lessons: any[] = [];
       const perTeacher: any = {};
-      for (const l of (ls.results || [])) {
-        const dateStr = String(l.scheduled_date || '').replace(/\//g, '-').slice(0, 10);
+      for (const l of instances) {
+        const dateStr = l._date;
         const roomId = `class-${l.id}-${dateStr.replace(/-/g, '')}`;
         const prof = tMap[l.teacher_id] || tByName[l.teacher_name || ''] || null;
         const fee = (prof && prof.fee_per_10min) || 0;
-        const mins = l.duration_minutes || 30;
+        const mins = l._mins;
+        const teacherName = l.teacher_name || (prof ? prof.korean_name : null);
 
         const upcoming = dateStr > todayKey || (dateStr === todayKey && String(l.start_time || '00:00') > nowHm);
         const ns = nsByRoom[roomId] || nsBySched[`${l.id}|${dateStr}`] || null;
@@ -5641,7 +5671,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         // 당일 피드백 여부 — 완료 수업만 판정. room_id 정확 매칭 → (구 데이터 폴백) 강사명+같은 날
         let fbOk: boolean | null = null;
         if (st === 'finish') {
-          fbOk = fbByRoom[roomId] === dateStr || !!fbByTeacherDay[`${l.teacher_name}|${dateStr}`];
+          fbOk = fbByRoom[roomId] === dateStr || !!fbByTeacherDay[`${teacherName}|${dateStr}`];
         }
 
         const dedus: any[] = [];
@@ -5651,8 +5681,9 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
 
         lessons.push({
           schedule_id: l.id, room_id: roomId, date: dateStr, start_time: l.start_time || '',
-          duration_minutes: mins, user_id: l.user_id || null, student_name: stuName[l.user_id] || null,
-          teacher_id: l.teacher_id, teacher_name: l.teacher_name || (prof ? prof.korean_name : null),
+          duration_minutes: mins, user_id: l.user_id || null,
+          student_name: l.student_name || stuName[l.user_id] || null,
+          teacher_id: l.teacher_id, teacher_name: teacherName,
           status: st, fee_per_10min: fee, base_amount: base, amount,
           feedback_ok: fbOk, deductions: dedus, deduction_total: dSum,
         });
@@ -5767,8 +5798,9 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         teacher = (data.teachers || []).find((t: any) => t.korean_name === tname || t.english_name === tname) || null;
         if (teacher) tid = teacher.id;
       }
+      // 운영 DB teacher_id 는 TEXT("28") — 숫자/문자 혼용에 안전하게 문자열 비교
       const lessons = data.lessons.filter((l: any) =>
-        (tid && l.teacher_id === tid) || (!tid && tname && l.teacher_name === tname));
+        (tid && String(l.teacher_id) === String(tid)) || (!tid && tname && l.teacher_name === tname));
 
       // 필터된 수업으로 요약 재계산 (이름만 일치하는 프로필 없는 강사도 지원)
       const sum: any = { lesson_count: 0, upcoming_count: 0, finish_count: 0, absent_count: 0, teacher_no_show_count: 0, no_feedback_count: 0, total_minutes: 0, base_amount: 0, pay_amount: 0, deduction_total: 0, final_amount: 0 };
@@ -5891,14 +5923,21 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       let applied: string | null = null;
       if (action === 'approved' && row.schedule_id) {
         try {
-          if (row.new_date && row.new_time) {
+          // ⚠️ 운영 스케줄은 대부분 반복(매주, scheduled_date=NULL) — 반복 row 를 덮어쓰면
+          //   그 주만이 아니라 모든 주가 바뀌므로, 날짜 지정 수업일 때만 자동 반영한다.
+          //   반복 수업은 요청 기록만 영구 보존(applied='recorded') → 시간표에서 수동 조정.
+          const cs: any = await env.DB.prepare(`SELECT scheduled_date FROM class_schedules WHERE id = ? LIMIT 1`).bind(row.schedule_id).first().catch(() => null);
+          const isDated = !!(cs && cs.scheduled_date);
+          if (isDated && row.new_date && row.new_time) {
             await env.DB.prepare(`UPDATE class_schedules SET scheduled_date = ?, start_time = ?, updated_at = ? WHERE id = ?`)
               .bind(row.new_date, row.new_time, now, row.schedule_id).run();
             applied = 'moved';
-          } else {
+          } else if (isDated) {
             await env.DB.prepare(`UPDATE class_schedules SET status = 'postponed', updated_at = ? WHERE id = ?`)
               .bind(now, row.schedule_id).run();
             applied = 'postponed';
+          } else {
+            applied = 'recorded';
           }
         } catch (e: any) { console.warn('[schedule-requests] apply err:', e?.message); }
       }

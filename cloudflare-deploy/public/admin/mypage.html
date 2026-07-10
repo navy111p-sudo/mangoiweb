@@ -1085,10 +1085,12 @@
             return fetch('/api/admin/payroll/lessons?year='+m[0]+'&month='+m[1]+'&teacher_name='+encodeURIComponent(name), { credentials:'include' })
               .then(function(r){ return r.json(); }).catch(function(){ return null; });
           })).then(function(results){
+            // 반복(매주) 스케줄은 같은 schedule_id 가 여러 날짜로 전개되므로 id+날짜로 중복 제거
             var ups = [], seen = {};
             results.forEach(function(j){
               if (j && j.ok) (j.lessons||[]).forEach(function(l){
-                if (l.status === 'upcoming' && !seen[l.schedule_id]){ seen[l.schedule_id] = 1; ups.push(l); }
+                var k = l.schedule_id + '|' + l.date;
+                if (l.status === 'upcoming' && !seen[k]){ seen[k] = 1; ups.push(l); }
               });
             });
             sel.innerHTML = '';
@@ -1096,10 +1098,12 @@
               sel.appendChild(new Option(EN()?'No upcoming classes':'다가오는 수업이 없어요', ''));
               return;
             }
-            ups.forEach(function(l){
+            ups.slice(0, 60).forEach(function(l){
               var label = l.date + ' (' + dayName(l.date) + ') ' + (l.start_time||'') + ' · ' + (l.student_name || l.user_id || (EN()?'student':'학생'));
               var o = new Option(label, String(l.schedule_id));
               o.setAttribute('data-student', l.student_name || l.user_id || '');
+              o.setAttribute('data-date', l.date || '');
+              o.setAttribute('data-time', l.start_time || '');
               sel.appendChild(o);
             });
           });
@@ -1149,10 +1153,14 @@
           var nd = (document.getElementById('sr-new-date')||{}).value || '';
           var nt = (document.getElementById('sr-new-time')||{}).value || '';
           if (type === 'change' && (!nd || !nt)){ alert(en?'⚠️ Please choose the new date and time.':'⚠️ 희망 날짜와 시간을 골라 주세요.'); return; }
+          var opt = sel.options[sel.selectedIndex];
           var body = {
             schedule_id: parseInt(sid, 10), request_type: type,
             requester_name: name, teacher_name: name,
-            student_name: sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].getAttribute('data-student') : '',
+            student_name: opt ? opt.getAttribute('data-student') : '',
+            // 반복(매주) 스케줄은 DB에 날짜가 없으므로 강사가 고른 해당 주 날짜를 함께 보낸다
+            orig_date: opt ? opt.getAttribute('data-date') : '',
+            orig_time: opt ? opt.getAttribute('data-time') : '',
             new_date: type === 'change' ? nd : null, new_time: type === 'change' ? nt : null,
             reason: (document.getElementById('sr-reason')||{}).value || ''
           };
