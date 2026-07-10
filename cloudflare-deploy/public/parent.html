@@ -244,10 +244,15 @@ function showKakaoShareDialog(url) {
     <!-- 📋 ID 입력 박스 -->
     <div style="background:rgba(20,41,80,0.6);border:1px solid rgba(99,102,241,0.3);border-radius:16px;padding:24px 20px;max-width:480px;margin:20px auto;text-align:center;backdrop-filter:blur(8px)">
       <label style="display:block;font-size:13px;color:#fbbf24;font-weight:700;margin-bottom:10px" data-ko="👤 자녀의 학생 ID" data-en="👤 Your Child's Student ID">👤 자녀의 학생 ID</label>
-      <input id="uid-input" class="uid-input" type="text" placeholder="예: hong_gd" data-ko-placeholder="예: hong_gd" data-en-placeholder="e.g. hong_gd" onkeypress="if(event.key==='Enter')document.getElementById('phone-input').focus()" style="margin:0 auto 12px;display:block" />
-      <label style="display:block;font-size:13px;color:#fbbf24;font-weight:700;margin-bottom:10px" data-ko="📱 등록된 학부모 휴대폰" data-en="📱 Registered Parent Phone">📱 등록된 학부모 휴대폰</label>
-      <input id="phone-input" class="uid-input" type="tel" inputmode="numeric" placeholder="예: 01012345678" data-ko-placeholder="예: 01012345678" data-en-placeholder="e.g. 01012345678" onkeypress="if(event.key==='Enter')pdGo()" style="margin:0 auto 12px;display:block" />
-      <button class="uid-go" onclick="pdGo()" data-ko="📊 조회하기" data-en="📊 View Dashboard">📊 조회하기</button>
+      <input id="uid-input" class="uid-input" type="text" placeholder="예: hong_gd" data-ko-placeholder="예: hong_gd" data-en-placeholder="e.g. hong_gd" onkeypress="if(event.key==='Enter')pdGo()" style="margin:0 auto 12px;display:block" />
+      <button id="uid-go-btn" class="uid-go" onclick="pdGo()" data-ko="📊 조회하기" data-en="📊 View Dashboard">📊 조회하기</button>
+      <!-- 🔐 2단계: 비밀번호 입력/설정 (ID 확인 후 나타남) -->
+      <div id="pw-step" style="display:none;margin-top:16px;border-top:1px solid rgba(139,92,246,0.2);padding-top:16px">
+        <label id="pw-label" style="display:block;font-size:13px;color:#fbbf24;font-weight:700;margin-bottom:10px">🔑 비밀번호</label>
+        <input id="pw-input" class="uid-input" type="password" placeholder="••••••" onkeypress="if(event.key==='Enter')pdPwGo()" style="margin:0 auto 8px;display:block" />
+        <div id="pw-hint" style="display:none;font-size:11.5px;color:#fde68a;line-height:1.55;margin:0 auto 10px;max-width:400px">💡 이 비밀번호를 아는 사람만 자녀 정보를 볼 수 있어요. 꼭 기억해두세요! (분실 시 학원에 초기화 요청)</div>
+        <button id="pw-go-btn" class="uid-go" onclick="pdPwGo()">🔓 확인</button>
+      </div>
       <div style="margin-top:14px;font-size:11.5px;color:#6b7a99;line-height:1.6" data-ko="💡 학생 ID 를 모르시면 강사 또는 학원에 문의해주세요. 한 번 조회하면 자동 저장됩니다." data-en="💡 Don't know the ID? Ask your teacher. The ID is saved after first lookup.">💡 학생 ID 를 모르시면 강사 또는 학원에 문의해주세요. 한 번 조회하면 자동 저장됩니다.</div>
     </div>
 
@@ -312,7 +317,7 @@ function showKakaoShareDialog(url) {
 
     <!-- 🔒 개인정보 보호 안내 -->
     <div style="max-width:680px;margin:14px auto 0;padding:12px 18px;background:rgba(99,102,241,0.06);border-left:3px solid #6366f1;border-radius:8px;font-size:11.5px;color:#a3b3d1;line-height:1.6">
-      🔒 <b style="color:#c4b5fd" data-ko="개인정보 보호" data-en="Privacy">개인정보 보호</b> — <span data-ko="학생 ID + 학원에 등록된 학부모 휴대폰 번호가 일치해야만 조회됩니다. 본인 확인을 통과한 학부모만 자녀 정보를 볼 수 있어요." data-en="Access requires both the student ID and the parent phone number registered with the academy. Only verified parents can view their child's info.">학생 ID + 학원에 등록된 학부모 휴대폰 번호가 일치해야만 조회됩니다. 본인 확인을 통과한 학부모만 자녀 정보를 볼 수 있어요.</span>
+      🔒 <b style="color:#c4b5fd" data-ko="개인정보 보호" data-en="Privacy">개인정보 보호</b> — <span data-ko="자녀 정보는 비밀번호로 보호됩니다. 처음이면 비밀번호를 설정해 잠그고, 다음부터는 비밀번호를 아는 학부모만 볼 수 있어요." data-en="Your child's info is protected by a password. Set one on first visit to lock it; afterwards only those who know the password can view it.">자녀 정보는 비밀번호로 보호됩니다. 처음이면 비밀번호를 설정해 잠그고, 다음부터는 비밀번호를 아는 학부모만 볼 수 있어요.</span>
     </div>
   </div>
 
@@ -398,41 +403,97 @@ const fmt = (n) => (Number(n)||0).toLocaleString('ko-KR');
 const fmtDate = (ms) => ms ? new Date(ms).toLocaleDateString('ko-KR', { month:'short', day:'numeric' }) : '-';
 
 let _currentUid = null;
-let _currentPhone = null;  // 🔐 등록된 학부모 전화(본인 확인용)
+let _token = null;        // 🔐 로그인 토큰(비밀번호 인증 후 발급)
+let _pwMode = null;       // 'set'(최초 잠그기) | 'enter'(비번 입력)
 
 function getQueryParam(k){ try { return new URLSearchParams(location.search).get(k); } catch(e){ return null; } }
 
+// 1단계: ID 입력 → 계정에 비밀번호가 있는지 확인 → 설정/입력 안내
 window.pdGo = async function(){
   const uid = document.getElementById('uid-input').value.trim();
-  const phone = (document.getElementById('phone-input') ? document.getElementById('phone-input').value : '').replace(/[^0-9]/g,'');
-  if (!uid) { alert('자녀의 user_id 를 입력하세요'); return; }
+  if (!uid) { alert('자녀의 학생 ID를 입력하세요'); return; }
   _currentUid = uid;
-  _currentPhone = phone;
-  try { localStorage.setItem('mangoi_parent_uid', uid); localStorage.setItem('mangoi_parent_phone', phone); } catch(e){}
-  await pdLoad();
+  let r, d;
+  try {
+    // 비번 없이 로그인 시도 → 계정 상태 파악 (토큰은 여기서 쓰지 않음)
+    r = await fetch('/api/student/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: uid }) });
+    d = await r.json();
+  } catch(e){ alert('❌ 네트워크 오류. 다시 시도해주세요.'); return; }
+  if (r.status === 404 || d.error === 'user_not_found') { alert('❌ 학생 ID를 찾을 수 없습니다. 학원에 문의해주세요.'); return; }
+  if (d.error === 'password_required') {
+    pdShowPwStep(false);   // 비번 있음 → 입력
+  } else if (d.ok && d.user && d.user.has_password === false) {
+    pdShowPwStep(true);    // 비번 없음 → 최초 설정(잠그기)
+  } else {
+    pdShowPwStep(true);    // 방어적: 설정 유도
+  }
 };
+
+function pdShowPwStep(isSet){
+  _pwMode = isSet ? 'set' : 'enter';
+  const uidInp = document.getElementById('uid-input'); if (uidInp) uidInp.disabled = true;
+  const uidBtn = document.getElementById('uid-go-btn'); if (uidBtn) uidBtn.style.display = 'none';
+  document.getElementById('pw-step').style.display = '';
+  document.getElementById('pw-label').textContent = isSet
+    ? '🔒 비밀번호 설정 — 자녀 정보를 잠그세요 (4자 이상)'
+    : '🔑 비밀번호 입력';
+  document.getElementById('pw-hint').style.display = isSet ? '' : 'none';
+  document.getElementById('pw-go-btn').textContent = isSet ? '🔒 설정하고 열기' : '🔓 확인';
+  const p = document.getElementById('pw-input'); if (p) { p.value=''; p.focus(); }
+}
+
+// 2단계: 비밀번호 설정(claim) 또는 입력 → 로그인 토큰 발급 → 대시보드
+window.pdPwGo = async function(){
+  const pw = document.getElementById('pw-input').value.trim();
+  if (pw.length < 4) { alert('비밀번호는 4자 이상 입력해주세요'); return; }
+  if (_pwMode === 'set') {
+    try {
+      const r = await fetch('/api/student/set-password', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: _currentUid, new_password: pw }) });
+      const d = await r.json();
+      if (!d.ok) { alert('❌ ' + (d.message || d.error || '설정 실패')); return; }
+    } catch(e){ alert('❌ 네트워크 오류'); return; }
+  }
+  await pdLogin(pw);
+};
+
+async function pdLogin(pw){
+  try {
+    const r = await fetch('/api/student/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: _currentUid, password: pw }) });
+    const d = await r.json();
+    if (!d.ok || !d.token) { alert('❌ ' + (d.message || '비밀번호가 일치하지 않습니다.')); return; }
+    _token = d.token;
+    try { localStorage.setItem('mangoi_parent_uid', _currentUid); localStorage.setItem('mangoi_parent_token', _token); } catch(e){}
+    await pdLoad();
+  } catch(e){ alert('❌ 네트워크 오류'); }
+}
 
 window.pdLogout = function(){
-  _currentUid = null; _currentPhone = null;
-  try { localStorage.removeItem('mangoi_parent_uid'); localStorage.removeItem('mangoi_parent_phone'); } catch(e){}
-  document.getElementById('entry').style.display = '';
-  document.getElementById('dashboard').style.display = 'none';
+  _currentUid = null; _token = null;
+  try { localStorage.removeItem('mangoi_parent_uid'); localStorage.removeItem('mangoi_parent_token'); } catch(e){}
+  location.reload();
 };
 
-window.pdRefresh = function(){ if (_currentUid) pdLoad(); };
+window.pdRefresh = function(){ if (_currentUid && _token) pdLoad(); };
+
+function pdBackToEntry(msg){
+  _token = null; try { localStorage.removeItem('mangoi_parent_token'); } catch(e){}
+  const uidInp = document.getElementById('uid-input'); if (uidInp) uidInp.disabled = false;
+  const uidBtn = document.getElementById('uid-go-btn'); if (uidBtn) uidBtn.style.display = '';
+  const pwStep = document.getElementById('pw-step'); if (pwStep) pwStep.style.display = 'none';
+  document.getElementById('entry').style.display = '';
+  document.getElementById('dashboard').style.display = 'none';
+  if (msg) alert(msg);
+}
 
 async function pdLoad(){
   document.getElementById('entry').style.display = 'none';
   document.getElementById('dashboard').style.display = '';
   try {
-    const r = await fetch('/api/parent/dashboard?child_uid=' + encodeURIComponent(_currentUid) + '&phone=' + encodeURIComponent(_currentPhone || ''));
+    const r = await fetch('/api/parent/dashboard?child_uid=' + encodeURIComponent(_currentUid) + '&token=' + encodeURIComponent(_token || ''));
     const d = await r.json();
     if (!d.ok) {
-      // 🔐 본인 확인 실패 → 입력 화면으로 되돌려 전화번호 재입력 유도
-      if (d.error === 'phone_required') {
-        document.getElementById('entry').style.display = '';
-        document.getElementById('dashboard').style.display = 'none';
-        alert('🔒 등록된 학부모 휴대폰 번호를 정확히 입력해주세요.\n(학원에 등록된 번호와 일치해야 조회됩니다.)');
+      if (d.error === 'auth_required' || d.error === 'password_not_set') {
+        pdBackToEntry('🔒 다시 로그인해주세요. (자녀 ID 입력 후 비밀번호 확인)');
         return;
       }
       throw new Error(d.error || 'load_fail');
@@ -649,18 +710,14 @@ function pdRender(d){
   let saved = null;
   try { saved = localStorage.getItem('mangoi_parent_uid'); } catch(e){}
   const uid = fromUrl || saved || loggedInUid();
-  let savedPhone = ''; try { savedPhone = localStorage.getItem('mangoi_parent_phone') || ''; } catch(e){}
+  let savedToken = ''; try { savedToken = localStorage.getItem('mangoi_parent_token') || ''; } catch(e){}
   if (uid) {
     _currentUid = uid;
-    _currentPhone = savedPhone;
-    // 다음 방문에도 자동으로 뜨도록 저장
-    try { localStorage.setItem('mangoi_parent_uid', uid); } catch(e){}
     const inp = document.getElementById('uid-input');
     if (inp) inp.value = uid;
-    const pinp = document.getElementById('phone-input');
-    if (pinp) pinp.value = savedPhone;
-    // 저장된 전화가 있으면 자동조회, 없으면 입력화면 유지(전화 입력 유도)
-    if (savedPhone) pdLoad();
+    // 저장된 로그인 토큰이 있으면 자동 조회(만료·무효면 pdLoad 가 입력화면으로 되돌림).
+    // 토큰이 없으면 입력화면 유지 → 학부모가 '조회하기' 눌러 비밀번호 단계로.
+    if (savedToken) { _token = savedToken; pdLoad(); }
   }
 })();
 </script>

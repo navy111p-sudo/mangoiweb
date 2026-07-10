@@ -6062,20 +6062,22 @@ ${chatSampleText}
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_evaluations (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, student_name TEXT, teacher_name TEXT, lesson_date TEXT, score_overall INTEGER, score_speaking INTEGER, score_listening INTEGER, score_grammar INTEGER, score_vocab INTEGER, score_attitude INTEGER, strengths TEXT, weaknesses TEXT, next_goal TEXT, teacher_comment TEXT, created_at INTEGER NOT NULL);`);
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS point_rule_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, rule_code TEXT NOT NULL, amount INTEGER, source TEXT, occurred_at INTEGER NOT NULL);`);
 
-      // 자녀 기본정보
-      const student = await env.DB.prepare(`SELECT user_id, student_name, parent_name, parent_phone, program, status, created_at FROM students_erp WHERE user_id = ?`).bind(childUid).first<any>();
+      // 자녀 기본정보 (password_hash 포함 — 본인확인용, 응답에는 제외)
+      const student = await env.DB.prepare(`SELECT user_id, student_name, parent_name, parent_phone, program, status, created_at, password_hash FROM students_erp WHERE user_id = ?`).bind(childUid).first<any>();
       if (!student) return json({ ok: false, error: 'user_not_found', message: '학생 정보를 찾을 수 없습니다.' }, 404);
 
-      // 🔐 [PII] 학부모 본인 확인 — uid 만으로 남의 자녀 정보(전화·결제 포함) 열람 차단.
-      //   등록된 학부모 전화가 있으면 그 번호와 일치해야 함(digits 비교).
-      //   전화 미등록 레코드는 검증 수단이 없어 기존대로 허용(전화 있는 다수는 보호).
-      const _regPhone = String(student.parent_phone || '').replace(/[^0-9]/g, '');
-      if (_regPhone) {
-        const _reqPhone = String(url.searchParams.get('phone') || '').replace(/[^0-9]/g, '');
-        if (_reqPhone.length < 8 || _reqPhone !== _regPhone) {
-          return json({ ok: false, error: 'phone_required', message: '등록된 학부모 휴대폰 번호로 본인 확인이 필요합니다.' }, 401);
-        }
+      // 🔐 [PII] 학부모 본인 확인 — 자녀 계정 '비밀번호 로그인 토큰'이 있어야 열람 가능.
+      //   ① 토큰(mango_token)의 uid 가 자녀 uid 와 일치해야 함(남의 자녀 차단)
+      //   ② 비밀번호 미설정 계정은 차단 → parent.html 이 "비밀번호 설정(잠그기)"을 유도.
+      //   (전화·이름 데이터가 D1 에 없어 비밀번호가 유일한 본인확인 수단)
+      const _authUid = await authUidGlobal(request, url, env);
+      if (!_authUid || _authUid !== childUid) {
+        return json({ ok: false, error: 'auth_required', message: '자녀 계정으로 로그인해주세요.' }, 401);
       }
+      if (!student.password_hash) {
+        return json({ ok: false, error: 'password_not_set', message: '자녀 정보를 보호하려면 비밀번호를 먼저 설정하세요.' }, 401);
+      }
+      delete (student as any).password_hash;  // 해시는 응답에 절대 포함하지 않음
 
       // 포인트 잔액
       const pts = await env.DB.prepare(`SELECT balance, lifetime_earned, lifetime_spent FROM student_points WHERE user_id = ?`).bind(childUid).first<any>();

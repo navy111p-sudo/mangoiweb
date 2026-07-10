@@ -3006,8 +3006,9 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/eval/ai-lesson-report/list') return true;     // 전 학생 수업 리포트(전사 포함) 목록
   if (path === '/api/alumni/list') return true;                    // 전 동문 프로필(지역 등) 덤프
   if (path === '/api/recordings/check') return true;               // R2 녹화 객체 열거(재생키 유출 보조)
-  // 🔒 [PII 2차 2026-07-10] 계정탈취/무단구독 — 프론트 미사용 확인 후 관리자 전용 잠금.
-  if (path === '/api/student/set-password') return true;           // 비번없는 계정 아무나 탈취 방지
+  // 🔒 [PII 2차 2026-07-10] 무단구독 — 프론트 미사용 확인 후 관리자 전용 잠금.
+  //   (set-password 는 학부모 '내 자녀 계정 잠그기(claim)' 흐름에 필요해 공개 유지.
+  //    비번 없는 계정=최초 설정(claim), 비번 있는 계정=옛 비번 검증 필수 → 탈취 방지는 claim 순서로 담보)
   if (path === '/api/subscription/create') return true;            // 임의 유저 구독 무단생성 방지
   // 🔒 [PII 3차 2026-07-10] 학부모/전화 — 관리자 진단페이지만 사용(admin/health) 또는 호출없음 → 잠금.
   if (path === '/api/kakao-id' || path.startsWith('/api/kakao-id/')) return true;  // 임의유저 전화·kakao_id 조회/덮어쓰기
