@@ -100,6 +100,8 @@
   .turret-soldier{position:absolute;left:50%;bottom:0;transform:translateX(-50%);height:100%;z-index:9;
     filter:drop-shadow(0 6px 12px rgba(0,0,0,.5));animation:soldierBob 3.4s ease-in-out infinite alternate}
   @keyframes soldierBob{from{transform:translateX(-50%) translateY(0)}to{transform:translateX(-50%) translateY(3px)}}
+  .turret-soldier.flinch{animation:soldierFlinch .22s}   /* 발사 반동 — 사수가 살짝 움찔 */
+  @keyframes soldierFlinch{0%{transform:translateX(-50%) translateY(0)}40%{transform:translateX(-50%) translateY(4px)}100%{transform:translateX(-50%) translateY(0)}}
   .barrel-rot{position:absolute;left:50%;bottom:54%;transform-origin:50% 100%;transform:translateX(-50%) rotate(0deg);
     transition:transform .1s ease-out;z-index:11}
   @media (min-width:820px){ #turret{width:214px;height:232px} }   /* PC 는 사수도 더 크게 */
@@ -273,6 +275,7 @@
     <div class="card">
       <h1>🎤 말하기 미션 <span class="em">3회</span></h1>
       <div class="say" id="speakText">—<span class="ko" id="speakKo"></span></div>
+      <button class="listen" id="listenAgain" title="원어민 발음 다시 듣기">🔊 다시 듣기</button>
       <div class="stars" id="stars"><span class="s">★</span><span class="s">★</span><span class="s">★</span></div>
       <div class="mission-status" id="missionStatus">아래 버튼을 누르고 또렷하게 문장을 말하세요.</div>
       <button class="mic-btn" id="micBtn">🎤 누르고 말하기</button>
@@ -830,6 +833,11 @@
     speakCount=SPEAK_TARGET; renderStars();
     setTimeout(finishMission, 400);
   });
+  // 🔊 다시 듣기 — 원어민 발음을 몇 번이든 다시 들을 수 있게 (듣는 중이던 마이크는 끄고 재생)
+  document.getElementById('listenAgain').addEventListener('click', function(){
+    if(recogActive){ try{ recog.stop(); }catch(e){} }
+    speakSentence();
+  });
 
   // ===== 라운드 =====
   function startRound(){
@@ -921,6 +929,8 @@
       var ex=r2.left+r2.width/2-f2.left, ey=r2.top+r2.height/2-f2.top;
       muzzle.classList.remove('flash'); void muzzle.offsetWidth; muzzle.classList.add('flash');  // 머즐 플래시
       barrel.classList.remove('recoil'); void barrel.offsetWidth; barrel.classList.add('recoil'); // 반동
+      var _sold=document.querySelector('.turret-soldier');                                        // 🪖 사수도 반동에 움찔
+      if(_sold){ _sold.classList.remove('flinch'); void _sold.offsetWidth; _sold.classList.add('flinch'); }
       fireSound();                                  // ★ 총마다 다른 발사음
       if(curGun==='flame'){                         // 🔥 화염방사기 = 불줄기 연속 분사
         flameStream(sx,sy,ex,ey);
@@ -1151,6 +1161,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711003151 -->
+<!-- BUILD:20260711003746 -->
 </body>
 </html>
