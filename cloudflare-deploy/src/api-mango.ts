@@ -11835,7 +11835,7 @@ Student text: """${text}"""`;
       }
       const wroteToday = ds.length > 0 && ds[0] === todayD;
       // 이번주 vs 지난주 평균점 (성장 한 줄 메시지용) — 주 경계는 KST 월요일
-      const dow = (todayD + 4) % 7;               // 1970-01-01(목)=day0 → 월=0 이 되도록 +4
+      const dow = (todayD + 3) % 7;               // 1970-01-01(목)=day0, 목→3 이므로 +3 하면 월=0
       const weekStartD = todayD - dow;
       const weekStartMs = weekStartD * 86400000 - KST_OFF;
       const prevWeekStartMs = (weekStartD - 7) * 86400000 - KST_OFF;
@@ -11862,7 +11862,7 @@ Student text: """${text}"""`;
       await ensureWriteSchema();
       const KST_OFF = 32400000;
       const todayD = Math.floor((Date.now() + KST_OFF) / 86400000);
-      const weekStartMs = (todayD - ((todayD + 4) % 7)) * 86400000 - KST_OFF;
+      const weekStartMs = (todayD - ((todayD + 3) % 7)) * 86400000 - KST_OFF;
       const rs = await env.DB.prepare(
         `SELECT student_uid, COUNT(*) AS n, ROUND(AVG(score)) AS avg_score FROM ai_writing_corrections
          WHERE created_at >= ? AND student_uid IS NOT NULL AND student_uid != '' AND student_uid NOT LIKE 'guest_%'
@@ -11914,7 +11914,7 @@ Student text: """${text}"""`;
           }
         }
       }
-      return json({ ok: true, week_start: new Date(weekStartMs).toISOString().slice(0, 10), items, me });
+      return json({ ok: true, week_start: new Date(weekStartMs + KST_OFF).toISOString().slice(0, 10), items, me });
     }
     // ═══════════════════════════════════════════════════════════════
     // ✍️ Phase AW 끝
