@@ -150,6 +150,7 @@ export async function ensureAuthSchema(env: AuthEnv): Promise<void> {
        login_at INTEGER NOT NULL
      )`,
     `CREATE INDEX IF NOT EXISTS idx_admin_login_history_user ON admin_login_history(username, login_at)`,
+    `CREATE INDEX IF NOT EXISTS idx_admin_login_history_ip ON admin_login_history(ip, login_at)`,
   ];
   for (const sql of stmts) {
     try { await env.DB.prepare(sql).run(); }
@@ -272,6 +273,29 @@ export async function handleAdminAuthApi(
       if (!username || !password) {
         return json({ ok: false, error: 'missing_credentials' }, 400);
       }
+
+      // 🛡️ 브루트포스 차단 (2026-07-10): 같은 IP에서 최근 15분간 로그인 실패가
+      //   임계치 이상이면 잠시 차단한다. IP 기준이라 정상 관리자(다른 IP)는 잠기지 않고
+      //   비밀번호를 마구 찍어보는 공격자 IP만 막힌다. fail2ban(SSH)과 별개로 '웹 로그인'을 보호.
+      //   카운트 조회가 실패하면(가용성 우선) 차단하지 않고 로그인 흐름을 계속 진행한다.
+      const LOCK_WINDOW_MS = 15 * 60 * 1000;   // 15분 관찰창
+      const LOCK_THRESHOLD = 8;                 // 15분 내 실패 8회 → 차단
+      if (ip) {
+        try {
+          const since = Date.now() - LOCK_WINDOW_MS;
+          const cnt = await env.DB.prepare(
+            `SELECT COUNT(*) AS n FROM admin_login_history WHERE ip = ? AND success = 0 AND login_at > ?`
+          ).bind(ip, since).first<{ n: number }>();
+          if ((cnt?.n || 0) >= LOCK_THRESHOLD) {
+            await recordLogin(env, username, ip, ua, false, 'locked_bruteforce');
+            return json(
+              { ok: false, error: 'too_many_attempts', message: '로그인 시도가 너무 많습니다. 15분 후 다시 시도해 주세요.' },
+              429
+            );
+          }
+        } catch (e) { console.warn('[auth-admin] bruteforce check:', (e as any)?.message); }
+      }
+
       const row = await env.DB.prepare(
         `SELECT username, password_hash FROM admin_account WHERE username = ? LIMIT 1`
       ).bind(username).first<{ username: string; password_hash: string }>();

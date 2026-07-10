@@ -23737,7 +23737,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260710205545 -->
+        <!-- BUILD:20260710213246 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -33351,7 +33351,7 @@ button.chip:hover,
   <summary><span>📕 관리자 자료실</span></summary>
   <div class="menu-body">
     <div class="lib-gate" id="lib-gate-admin">
-      <div class="lib-lock">🔒 이 자료실은 <b>비밀번호</b>가 필요합니다.</div>
+      <div class="lib-lock" data-ko-html="🔒 이 자료실은 <b>비밀번호</b>가 필요합니다." data-en-html="🔒 This library requires a <b>password</b>.">🔒 이 자료실은 <b>비밀번호</b>가 필요합니다.</div>
       <input type="password" class="lib-pw" id="lib-pw-admin" placeholder="비밀번호 입력" autocomplete="off" onkeydown="if(event.key==='Enter')libUnlock('admin')">
       <button class="lib-btn" onclick="libUnlock('admin')">🔓 잠금 해제</button>
       <div class="lib-err" id="lib-err-admin"></div>
@@ -33390,7 +33390,7 @@ button.chip:hover,
   <summary><span>👨‍🏫 강사 자료실</span></summary>
   <div class="menu-body">
     <div class="lib-gate" id="lib-gate-teacher">
-      <div class="lib-lock">🔒 이 자료실은 <b>비밀번호</b>가 필요합니다.</div>
+      <div class="lib-lock" data-ko-html="🔒 이 자료실은 <b>비밀번호</b>가 필요합니다." data-en-html="🔒 This library requires a <b>password</b>.">🔒 이 자료실은 <b>비밀번호</b>가 필요합니다.</div>
       <input type="password" class="lib-pw" id="lib-pw-teacher" placeholder="비밀번호 입력" autocomplete="off" onkeydown="if(event.key==='Enter')libUnlock('teacher')">
       <button class="lib-btn" onclick="libUnlock('teacher')">🔓 잠금 해제</button>
       <div class="lib-err" id="lib-err-teacher"></div>
@@ -33444,7 +33444,7 @@ button.chip:hover,
   <summary><span>🏢 지사 자료실</span></summary>
   <div class="menu-body">
     <div class="lib-gate" id="lib-gate-branch">
-      <div class="lib-lock">🔒 이 자료실은 <b>비밀번호</b>가 필요합니다.</div>
+      <div class="lib-lock" data-ko-html="🔒 이 자료실은 <b>비밀번호</b>가 필요합니다." data-en-html="🔒 This library requires a <b>password</b>.">🔒 이 자료실은 <b>비밀번호</b>가 필요합니다.</div>
       <input type="password" class="lib-pw" id="lib-pw-branch" placeholder="비밀번호 입력" autocomplete="off" onkeydown="if(event.key==='Enter')libUnlock('branch')">
       <button class="lib-btn" onclick="libUnlock('branch')">🔓 잠금 해제</button>
       <div class="lib-err" id="lib-err-branch"></div>
@@ -33485,7 +33485,7 @@ button.chip:hover,
   <summary><span>🏬 대리점 자료실</span></summary>
   <div class="menu-body">
     <div class="lib-gate" id="lib-gate-agency">
-      <div class="lib-lock">🔒 이 자료실은 <b>비밀번호</b>가 필요합니다.</div>
+      <div class="lib-lock" data-ko-html="🔒 이 자료실은 <b>비밀번호</b>가 필요합니다." data-en-html="🔒 This library requires a <b>password</b>.">🔒 이 자료실은 <b>비밀번호</b>가 필요합니다.</div>
       <input type="password" class="lib-pw" id="lib-pw-agency" placeholder="비밀번호 입력" autocomplete="off" onkeydown="if(event.key==='Enter')libUnlock('agency')">
       <button class="lib-btn" onclick="libUnlock('agency')">🔓 잠금 해제</button>
       <div class="lib-err" id="lib-err-agency"></div>
@@ -33526,7 +33526,7 @@ button.chip:hover,
   <summary><span>🎒 학생·학부모 자료실</span></summary>
   <div class="menu-body">
     <div class="lib-gate" id="lib-gate-student">
-      <div class="lib-lock">🔒 이 자료실은 <b>비밀번호</b>가 필요합니다.</div>
+      <div class="lib-lock" data-ko-html="🔒 이 자료실은 <b>비밀번호</b>가 필요합니다." data-en-html="🔒 This library requires a <b>password</b>.">🔒 이 자료실은 <b>비밀번호</b>가 필요합니다.</div>
       <input type="password" class="lib-pw" id="lib-pw-student" placeholder="비밀번호 입력" autocomplete="off" onkeydown="if(event.key==='Enter')libUnlock('student')">
       <button class="lib-btn" onclick="libUnlock('student')">🔓 잠금 해제</button>
       <div class="lib-err" id="lib-err-student"></div>
@@ -37956,6 +37956,7 @@ button.chip:hover,
     '강사 관리': 'Teacher Management',
     '자동 급여': 'Auto Payroll',
     '📅 연기·변경 요청 ⭐신규': '📅 Reschedule Requests ⭐NEW',
+    '⭐ 학생 수업 평가': '⭐ Student Class Ratings',
     '급여 관리': 'Payroll',
     'MBTI': 'MBTI',
     '칭찬 통계': 'Praise Stats',
@@ -38024,6 +38025,40 @@ button.chip:hover,
     '📋 출결 상태': '📋 Attendance Status',
     '📷 QR 출결': '📷 QR Attendance',
     '📝 수업 출결': '📝 Class Attendance',
+
+    // === 📚 자료실 / 📢 공지 스튜디오 (2026-07-10 누락 보강) ===
+    '자료실': 'Library',
+    '📕 관리자 자료실': '📕 Admin Library',
+    '👨‍🏫 강사 자료실': '👨‍🏫 Teacher Library',
+    '🏢 지사 자료실': '🏢 Branch Library',
+    '🏬 대리점 자료실': '🏬 Agency Library',
+    '🎒 학생·학부모 자료실': '🎒 Student·Parent Library',
+    '📢 공지 스튜디오': '📢 Notice Studio',
+    '📢 팝업 게시': '📢 Popup Posting',
+    '📅 캘린더 관리': '📅 Calendar Management',
+    '📅 학원 전체 스케줄': '📅 Academy Full Schedule',
+
+    // === ph125 손자 메뉴 누락 보강 (2026-07-10) ===
+    'QR 생성': 'Generate QR',
+    '스캔 이력': 'Scan History',
+    '오늘 출결': 'Today’s Attendance',
+    '부정 출결': 'Attendance Fraud',
+    '출결 자동': 'Auto Attendance',
+    '강사 체크인': 'Teacher Check-in',
+    '지각·결석': 'Late · Absent',
+    '학부모 알림': 'Parent Alerts',
+    '학생 알림': 'Student Alerts',
+    '강사 알림': 'Teacher Alerts',
+    '자동 알림': 'Auto Alerts',
+    '월별 통계': 'Monthly Stats',
+    '학생별 이력': 'History by Student',
+    '귓속말 발송': 'Send Whisper',
+    '새 포스터': 'New Poster',
+    '크기·동영상': 'Size · Video',
+    '저장 목록': 'Saved List',
+    '다시 사용': 'Reuse',
+    'AI 상담': 'AI Consult',
+    '카톡상담': 'Kakao Consult',
 
     // === 사이드바 액션 버튼 ===
     '↧ 모두 펼치기': '↧ Expand All',
@@ -38248,48 +38283,51 @@ button.chip:hover,
   }
 
   // === EN 모드일 때 자동 번역 ===
+  // ph129Marks: 실제로 바꾼 노드 기록 [{n:노드, a:'nv'(텍스트노드)|'tc'(textContent), o:원문}]
+  // (기존 코드는 '.__ph129' 라는 존재하지 않는 CSS 클래스 선택자로 복원/리셋을 시도해 KO 복원이 전혀 동작하지 않았음 — 2026-07-10 근본수정)
+  var ph129Marks = [];
+  var ph129Flagged = [];
+  function ph129Flag(el){ el.__ph129 = true; ph129Flagged.push(el); }
+
   function ph129ApplyEN(){
     if (window.adminLang !== 'en') return;
     // ph85 사이드바 — 그룹 타이틀
     document.querySelectorAll('#ph85-sidebar .ph85-title').forEach(function(el){
       if (el.__ph129) return;
-      el.__ph129orig = el.textContent;
-      el.textContent = translateText(el.textContent);
-      el.__ph129 = true;
+      var t = translateText(el.textContent);
+      if (t !== el.textContent) { ph129Marks.push({ n: el, a: 'tc', o: el.textContent }); el.textContent = t; }
+      ph129Flag(el);
     });
-    // 사이드바 sub 라벨
+    // 사이드바 sub 라벨 — 첫 텍스트 노드만 (토글 화살표/툴팁 제외)
     document.querySelectorAll('#ph85-sidebar .ph85-sub').forEach(function(el){
       if (el.__ph129) return;
-      // 첫 텍스트 노드만 (토글 화살표/툴팁 제외)
-      var firstText = '';
       for (var i = 0; i < el.childNodes.length; i++){
-        if (el.childNodes[i].nodeType === 3) {
-          firstText = el.childNodes[i].nodeValue.trim();
-          if (firstText) {
-            var translated = translateText(firstText);
-            if (translated !== firstText) {
-              el.__ph129orig = firstText;
-              el.childNodes[i].nodeValue = translated;
-            }
-            break;
+        var nd = el.childNodes[i];
+        if (nd.nodeType === 3 && nd.nodeValue.trim()) {
+          var firstText = nd.nodeValue.trim();
+          var translated = translateText(firstText);
+          if (translated !== firstText) {
+            ph129Marks.push({ n: nd, a: 'nv', o: nd.nodeValue });
+            nd.nodeValue = translated;
           }
+          break;
         }
       }
-      el.__ph129 = true;
+      ph129Flag(el);
     });
     // ph85 액션 버튼
     document.querySelectorAll('#ph85-sidebar .ph86-action-btn').forEach(function(el){
       if (el.__ph129) return;
-      el.__ph129orig = el.textContent;
-      el.textContent = translateText(el.textContent);
-      el.__ph129 = true;
+      var t = translateText(el.textContent);
+      if (t !== el.textContent) { ph129Marks.push({ n: el, a: 'tc', o: el.textContent }); el.textContent = t; }
+      ph129Flag(el);
     });
     // 손자 메뉴 (ph125 인라인 아코디언)
     document.querySelectorAll('#ph85-sidebar .ph125-gc .ph125-text').forEach(function(el){
       if (el.__ph129) return;
-      el.__ph129orig = el.textContent;
-      el.textContent = translateText(el.textContent);
-      el.__ph129 = true;
+      var t = translateText(el.textContent);
+      if (t !== el.textContent) { ph129Marks.push({ n: el, a: 'tc', o: el.textContent }); el.textContent = t; }
+      ph129Flag(el);
     });
     // 신규 ph 카드 summary 들 (data-ko 없는 것들)
     document.querySelectorAll('details.menu-card > summary').forEach(function(el){
@@ -38297,28 +38335,32 @@ button.chip:hover,
       var orig = el.textContent.trim();
       var translated = translateText(orig);
       if (translated !== orig) {
-        el.__ph129orig = orig;
         // span 안에 텍스트만 교체
         var span = el.querySelector('span');
-        if (span) span.textContent = translated;
-        else el.textContent = translated;
+        var target = span || el;
+        ph129Marks.push({ n: target, a: 'tc', o: target.textContent });
+        target.textContent = translated;
       }
-      el.__ph129 = true;
+      ph129Flag(el);
     });
     // ph114 사용자 모달 등
     document.querySelectorAll('[data-ph129-i18n]').forEach(function(el){
-      el.textContent = translateText(el.textContent);
+      var t = translateText(el.textContent);
+      if (t !== el.textContent) { ph129Marks.push({ n: el, a: 'tc', o: el.textContent }); el.textContent = t; }
     });
   }
 
-  // KO 모드로 돌아갈 때 복구
+  // KO 모드로 돌아갈 때 복구 — 기록해 둔 노드를 역순으로 원문 복원
   function ph129RestoreKO(){
     if (window.adminLang === 'en') return;
-    document.querySelectorAll('[data-ph129orig], .__ph129orig').forEach(function(el){
-      if (el.__ph129orig) {
-        el.textContent = el.__ph129orig;
-      }
-    });
+    for (var i = ph129Marks.length - 1; i >= 0; i--){
+      var m = ph129Marks[i];
+      try {
+        if (m.a === 'nv') m.n.nodeValue = m.o;
+        else m.n.textContent = m.o;
+      } catch(e){}
+    }
+    ph129Marks = [];
   }
 
   // === toggleAdminLang() 호출 후 자동 재실행 ===
@@ -38326,7 +38368,8 @@ button.chip:hover,
   window.toggleAdminLang = function(){
     if (typeof origToggle === 'function') origToggle.apply(this, arguments);
     // 모든 ph129 적용 element 의 flag 리셋 후 재적용
-    document.querySelectorAll('.__ph129, [data-ph129]').forEach(function(el){ el.__ph129 = false; });
+    ph129Flagged.forEach(function(el){ el.__ph129 = false; });
+    ph129Flagged = [];
     setTimeout(function(){
       if (window.adminLang === 'en') ph129ApplyEN();
       else ph129RestoreKO();
@@ -42238,7 +42281,7 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #card-school-attendance-stats .sa-kpi-sub { color: #E0F2FE !important; }
 </style>
 
-<script defer src="/js/i18n-sweep.js?v=3"></script>
+<script defer src="/js/i18n-sweep.js?v=4"></script>
 
 <!-- 🤖 AI 운영비서 = 학생용 홈페이지와 '동일한 아바타 시스템'(아바타 Worker iframe). 말·글·얼굴·음성·마이크 모두 그 안에서 동작 → 음성 확실히 작동. 기존 커스텀 슬라이드 패널은 사용 안 함(miAsstOpen 교체). (2026-06-16) -->
 <div id="mi-ops-av-back" style="display:none;position:fixed;inset:0;z-index:2147483000;background:rgba(2,6,23,.55);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)"></div>
