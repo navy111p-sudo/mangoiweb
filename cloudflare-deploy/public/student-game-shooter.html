@@ -421,6 +421,36 @@
   // 허브/수업패널이 ?ko= 로 함께 넘긴 한국어 뜻 등록 (말하기 카드 탭 토글에서 사용)
   try{ var _koQp=new URLSearchParams(location.search), _koV=(_koQp.get('ko')||'').trim(), _koS=(_koQp.get('sentence')||'').trim();
     if(_koS && _koV) KO[_koS]=_koV; }catch(e){}
+
+  /* ── 🈶 단어 뜻 사전 — 상단 문장 스트립의 단어를 탭하면 한국어 뜻 말풍선 ──
+        중국어: 내장 사전+다락원 zh_vocab(한자+병음+뜻) / 영어: 교재 단어은행 / 없으면 /api/translate 폴백 */
+  var WORD_KO = {}, WORD_PY = {};
+  var ZH_WORD_KO = {
+    "我":"나", "爱":"사랑하다", "你":"너", "好":"좋다", "吗":"~니? (의문)", "是":"~이다", "学生":"학생",
+    "今天":"오늘", "天气":"날씨", "很":"아주", "喜欢":"좋아하다", "吃":"먹다", "苹果":"사과", "他":"그", "每天":"매일",
+    "去":"가다", "学校":"학교", "这":"이것", "我的":"나의", "朋友":"친구", "想":"~하고 싶다", "喝":"마시다", "水":"물",
+    "我们":"우리", "一起":"함께", "学习":"공부하다", "汉语":"중국어",
+    "昨天":"어제", "和":"~와/과", "家人":"가족", "去了":"갔다", "海边":"바닷가", "她":"그녀", "将来":"장래에",
+    "当":"~이 되다", "医生":"의사", "有":"있다", "两":"둘", "只":"마리 (양사)", "小狗":"강아지",
+    "猫":"고양이", "跑":"달리다", "蓝":"파랗다", "绿":"초록", "快":"빠르다", "做":"하다·만들다", "高兴":"기쁘다",
+    "跳":"뛰다", "红":"빨갛다", "桌子":"책상", "下面":"아래", "他们":"그들", "大":"크다", "牛奶":"우유"
+  };
+  if(GLANG==='zh'){
+    for(var _wk in ZH_WORD_KO){ WORD_KO[_wk] = ZH_WORD_KO[_wk]; }
+    (function(){
+      function absorb(d){
+        (d && d.words || []).forEach(function(w){ if(w.en && w.ko){ WORD_KO[w.en]=w.ko; if(w.pinyin) WORD_PY[w.en]=w.pinyin; } });
+        (d && d.sentences || []).forEach(function(s){ if(s.ko && s.words && s.words.length>=2) KO[s.words.join(' ')]=s.ko; });
+      }
+      try{ var c=JSON.parse(sessionStorage.getItem('mangoi_zh_wordko_v1')||'null');
+        if(c && (Date.now()-c.at) < 600000){ absorb(c); return; } }catch(e){}
+      fetch('/api/games/zh-vocab?textbook='+encodeURIComponent('다락원')+'&level='+encodeURIComponent('Lv 3'))
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(d){ if(d && d.ok){ absorb(d);
+          try{ sessionStorage.setItem('mangoi_zh_wordko_v1', JSON.stringify({at:Date.now(), words:d.words||[], sentences:d.sentences||[]})); }catch(e){} } })
+        .catch(function(){});
+    })();
+  }
   // 📚 로그인 학생의 교재/레벨 맞춤 문장으로 교체 (영어 모드에서만 — 중국어는 허브가 넘긴 중국어 문장 사용)
   try{
     if(window.MangoiGameVocab && GLANG!=='zh'){
@@ -429,6 +459,7 @@
           var head = (typeof _inj==='string' && _inj) ? [_inj] : [];
           SENTENCES = head.concat(d.sentences.map(function(s){ return s.en; }).filter(function(s){ return head.indexOf(s)<0; }));
           d.sentences.forEach(function(s){ if(s.ko) KO[s.en]=s.ko; });   // 🎤 말하기 미션 카드 한국어 뜻
+          (d.words||[]).forEach(function(w){ if(w.en && w.ko) WORD_KO[w.en]=w.ko; });   // 단어 탭 뜻 사전
         }
       });
     }
@@ -960,6 +991,38 @@
       return '<span class="chip '+cls+'">'+w+'</span>';
     }).join('');
   }
+  // 👆 단어 탭 → 한국어 뜻 말풍선 (병음 있으면 함께). 모르는 단어는 서버 번역 폴백 후 캐시
+  function wordPop(anchor, word, py, mean){
+    var old=document.querySelector('.wordpop'); if(old) old.remove();
+    var d=document.createElement('div'); d.className='wordpop';
+    d.innerHTML = '<b></b><span class="py"></span><span class="mean"></span>';
+    d.children[0].textContent = word;
+    d.children[1].textContent = py||''; if(!py) d.children[1].style.display='none';
+    d.children[2].textContent = mean;
+    document.body.appendChild(d);
+    var r=anchor.getBoundingClientRect();
+    d.style.left = Math.max(8, Math.min(window.innerWidth-8-d.offsetWidth, r.left+r.width/2-d.offsetWidth/2)) + 'px';
+    d.style.top = (r.bottom+8) + 'px';
+    requestAnimationFrame(function(){ d.classList.add('on'); });
+    setTimeout(function(){ if(!d.parentNode) return; d.classList.remove('on'); setTimeout(function(){ if(d.parentNode) d.remove(); }, 250); }, 2400);
+  }
+  sentenceEl.addEventListener('click', function(ev){
+    var chip = ev.target && ev.target.closest ? ev.target.closest('.chip') : null;
+    if(!chip) return;
+    var w = (chip.textContent||'').trim(); if(!w) return;
+    var key = w.replace(/[.?!,;:]/g,'');
+    var ko = WORD_KO[w] || WORD_KO[key];
+    if(ko){ wordPop(chip, w, WORD_PY[w]||WORD_PY[key]||'', ko); return; }
+    wordPop(chip, w, '', '…');
+    fetch('/api/translate', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ texts:[key], target:'ko' }) })
+      .then(function(r){ return r.json(); })
+      .then(function(d){ var t = d && d.map && d.map[key];
+        if(t && t !== key){ WORD_KO[key]=t; wordPop(chip, w, '', t); }
+        else wordPop(chip, w, '', '(뜻을 찾지 못했어요)');
+      })
+      .catch(function(){ wordPop(chip, w, '', '(뜻을 찾지 못했어요)'); });
+  });
 
   // 회전축(허브) 위치 = barrel-rot 의 회전 원점(밑변 중앙)
   function pivot(){ var f=field.getBoundingClientRect(), b=barrelRot.getBoundingClientRect();
@@ -1306,6 +1369,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711062145 -->
+<!-- BUILD:20260711062509 -->
 </body>
 </html>
