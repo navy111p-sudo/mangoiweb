@@ -126,8 +126,8 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
       return json({ ok: false, error: 'missing_params', message: '결제 정보가 올바르지 않습니다.' }, 400);
     }
 
-    const order = await env.DB.prepare(
-      `SELECT order_id, amount, status FROM payment_orders WHERE order_id = ? LIMIT 1`
+    const order: any = await env.DB.prepare(
+      `SELECT order_id, amount, status, program, uid, student_name, payer_name FROM payment_orders WHERE order_id = ? LIMIT 1`
     ).bind(orderId).first();
     if (!order) {
       return json({ ok: false, error: 'order_not_found', message: '주문을 찾을 수 없습니다.' }, 404);
@@ -157,9 +157,23 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     }
 
     if (tossRes.ok && (tossJson?.status === 'DONE' || tossJson?.status === 'PAID')) {
+      const now2 = Date.now();
       await env.DB.prepare(
         `UPDATE payment_orders SET status='paid', payment_key=?, paid_at=?, raw=? WHERE order_id=?`
-      ).bind(paymentKey, Date.now(), JSON.stringify(tossJson).slice(0, 4000), orderId).run();
+      ).bind(paymentKey, now2, JSON.stringify(tossJson).slice(0, 4000), orderId).run();
+
+      // 💳→📚 수강 자동 활성화: enrollments 에 active 등록 생성(최초 확정 시 1회 — 이미 paid면 위에서 already 반환됨).
+      //   실패해도 결제 성공 응답은 유지(수강 연결은 후속 보정 가능). 로그만 남김.
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS enrollments (id INTEGER PRIMARY KEY AUTOINCREMENT, student_user_id TEXT, student_name TEXT NOT NULL, package TEXT, started_at INTEGER, ended_at INTEGER, monthly_fee_krw INTEGER, status TEXT DEFAULT 'pending', notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+        const sName = String(order.student_name || order.payer_name || '결제고객');
+        const pkg = (PRICES[String(order.program)] && PRICES[String(order.program)].name) || String(order.program || '');
+        await env.DB.prepare(
+          `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at)
+           VALUES (?, ?, ?, ?, NULL, ?, 'active', ?, ?, ?)`
+        ).bind(order.uid || null, sName, pkg, now2, amount, `토스 결제 자동활성화 · ${orderId}`, now2, now2).run();
+      } catch (e) { console.warn('[pay] enrollment activate:', (e as any)?.message); }
+
       return json({
         ok: true, orderId, amount,
         method: tossJson?.method || null,
@@ -173,6 +187,18 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     const code = tossJson?.code || ('http_' + tossRes.status);
     const msg = tossJson?.message || '결제 승인에 실패했습니다.';
     await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=? WHERE order_id=?`).bind(String(code).slice(0, 100), orderId).run();
+
+    // 🔔 결제 실패 시 사장님 폰 문자 알림 (실패해도 응답엔 영향 없음). 학부모 후속 연락용.
+    try {
+      const toPhone = (env as any).OWNER_ALERT_PHONE;
+      if (toPhone) {
+        const kst = new Date(Date.now() + 9 * 3600 * 1000).toISOString().replace('T', ' ').slice(0, 16);
+        const who = String(order.student_name || order.payer_name || '');
+        const txt = `[망고아이] ⚠️ 결제 실패 알림\n${who ? who + ' · ' : ''}${amount.toLocaleString('ko-KR')}원\n사유: ${msg}\n주문: ${orderId}\n시각: ${kst} (KST)`;
+        await sendPlainSms(env, toPhone, txt);
+      }
+    } catch (e) { console.warn('[pay] fail alert:', (e as any)?.message); }
+
     return json({ ok: false, error: code, message: msg }, 400);
   }
 
