@@ -1786,6 +1786,14 @@
         //   그래서 마이페이지가 /api/admin/me(쿠키=실제 admin) 만 보면 강사로 전환해도
         //   계속 '정우영 경영진' 이 떴다. → 데모 전환이 켜져 있으면 그 역할로 표시를 덮어쓴다.
         var ov = demoRoleOverride(u.username || '');
+        // 🐛 (2026-07-10) 실제 로그인이 강사 본인 계정(hq_t_len 등)인데, admin.html '역할 선택'이
+        //   이전에 남겨둔 localStorage 데모 신원(hq_mgr '정우영' 등)이 그걸 덮어써
+        //   "Teacher Len 으로 로그인했는데 매니저 정우영이 나오는" 누수 수정.
+        //   역할 미리보기는 관리자용 도구 — 서버 세션이 진짜 강사면 무조건 실신원을 쓰고 잔재를 지운다.
+        if (ov && j.role === 'teacher' && ov.uid !== (u.username || '')) {
+          ov = null;
+          try { localStorage.removeItem('admin_session'); } catch(_e){}
+        }
         var role      = ov ? ov.role      : j.role;
         var roleLabel = ov ? ov.roleLabel : (j.roleLabel || (EN()?'User':'사용자'));
         var scope     = ov ? null         : j.scope;
@@ -1810,7 +1818,10 @@
           if (!_aid && _uid.indexOf('agency_') === 0) _aid = _uid.replace(/^agency_/, '');
           if (!_brid && _uid.indexOf('branch_') === 0){ _brid = _uid.replace(/^branch_/, ''); _br = _br || _brid; }
           var _cur = null; try { _cur = JSON.parse(localStorage.getItem('mangoi_admin_session') || 'null'); } catch(_e){}
-          if (!(_cur && _cur.role)){
+          // 🐛 (2026-07-10) 강사 실계정 로그인인데 이전 세션의 다른 신원(hq_mgr 등)이 남아있으면
+          //   admin.html 콘솔이 그 신원으로 떴다 → 실계정과 uid 가 다르면 실신원으로 덮어쓴다.
+          var _stale = _cur && _cur.role && _cur.uid !== _uid && _role === 'teacher';
+          if (!(_cur && _cur.role) || _stale){
             localStorage.setItem('mangoi_admin_session', JSON.stringify({
               uid:_uid, name:(u.name || u.username || ''), role:_role,
               branch:_br, branch_id:_brid, agency_id:_aid, login_at: Date.now()
