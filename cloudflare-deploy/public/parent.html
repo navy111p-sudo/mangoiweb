@@ -581,7 +581,7 @@ function pdRender(d){
     try {
       const r = await fetch('/api/admin/ai-analyze/student', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ student_uid: _currentUid, student_name: _currentUid })
+        body: JSON.stringify({ student_uid: _currentUid, student_name: _currentUid, token: (_token||'') })
       });
       const d = await r.json();
       if (!d.ok) throw new Error(d.error);
@@ -604,7 +604,7 @@ function pdRender(d){
   };
 
   // 🆕 음성 코칭 통계 로드 (비동기)
-  fetch('/api/voice/stats?uid=' + encodeURIComponent(_currentUid) + '&days=30').then(r => r.json()).then(stats => {
+  fetch('/api/voice/stats?uid=' + encodeURIComponent(_currentUid) + '&days=30&token=' + encodeURIComponent(_token||'')).then(r => r.json()).then(stats => {
     const el = document.getElementById('pd-voice-stats');
     if (!el) return;
     if (!stats.ok || stats.total_sessions === 0) {

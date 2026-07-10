@@ -5707,6 +5707,12 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       const body: any = await request.json().catch(() => ({}));
       const uid = (body.student_uid || '').trim();
       if (!uid) return json({ ok: false, error: 'student_uid_required' }, 400);
+      // 🔐 [PII] 관리자(세션) 또는 본인/학부모(토큰 uid 일치) 만 자녀 AI 분석 조회
+      const aaAuth = await authUidGlobal(request, url, env, body);
+      const aaAdmin = await checkAdminSession(request, env as any);
+      if (!aaAdmin.ok && (!aaAuth || aaAuth !== uid)) {
+        return json({ ok: false, error: 'auth_required', message: '자녀 계정으로 로그인해주세요.' }, 401);
+      }
 
       // 1) 캐시 확인 (12시간)
       if (!body.force_refresh) {
@@ -6409,6 +6415,9 @@ Respond in JSON ONLY:
     if (method === 'GET' && path === '/api/voice/stats') {
       await ensureVoiceTable();
       const uid = (url.searchParams.get('uid') || 'guest').trim();
+      // 🔐 [PII] 본인(학생/학부모 토큰) 만 발음 통계 조회 — IDOR 차단
+      const vsAuth = await authUidGlobal(request, url, env);
+      if (!vsAuth || vsAuth !== uid) return json({ ok: false, error: 'auth_required' }, 401);
       const days = Math.min(parseInt(url.searchParams.get('days') || '30', 10), 90);
       const sinceMs = Date.now() - days * 86400000;
       const rs = await env.DB.prepare(
