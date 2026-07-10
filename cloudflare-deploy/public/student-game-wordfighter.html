@@ -33,6 +33,7 @@
   .lives{display:flex;gap:2px;font-size:19px;filter:drop-shadow(0 1px 2px #000)}
   .lives .lost{filter:grayscale(1);opacity:.35}
   .lvlpill{background:rgba(185,28,28,.32);border:1px solid rgba(239,68,68,.6);color:#ffd9d4;font-size:13px;font-weight:800;padding:5px 12px;border-radius:999px;text-shadow:0 1px 2px #000}
+  .bookpill{background:rgba(59,130,246,.25);border:1px solid rgba(59,130,246,.55);color:#cfe4ff;font-size:12px;font-weight:800;padding:4px 11px;border-radius:999px;text-shadow:0 1px 2px #000;max-width:46vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .timer{margin-left:auto}
   #timerVal{color:#7fd1ff}
   .timer.low #timerVal{color:var(--bad);animation:blink .8s infinite}
@@ -171,6 +172,7 @@
 
   <div class="hud">
     <span class="title">🧟 워드 파이터</span>
+    <span class="bookpill" id="bookBadge" style="display:none"></span>
     <div class="stat"><span class="lab">점수</span><span class="val" id="scoreVal">0</span></div>
     <div class="stat"><span class="lab">생명</span><span class="lives" id="livesBox"></span></div>
     <span class="lvlpill" id="lvlPill">웨이브 1</span>
@@ -240,6 +242,7 @@
   </div>
 </div>
 
+<script src="/js/game-vocab.js"></script>
 <script>
 (function(){
   'use strict';
@@ -292,6 +295,20 @@
   };
   try{ var _qp=new URLSearchParams(location.search), _inj=(_qp.get('sentence')||'').trim();
     if(_inj){ SENTENCES=[_inj].concat(SENTENCES.filter(function(s){return s!==_inj;})); } }catch(e){}
+  // 📚 로그인 학생의 교재/레벨 맞춤 문장으로 교체 (미로그인·서버 실패 → 기본 문장 폴백)
+  try{
+    if(window.MangoiGameVocab){
+      MangoiGameVocab.load().then(function(d){
+        if(d && d.sentences && d.sentences.length>=3){
+          var head=(typeof _inj==='string' && _inj)?[_inj]:[];
+          SENTENCES=head.concat(d.sentences.map(function(s){ return s.en; }).filter(function(s){ return head.indexOf(s)<0; }));
+          d.sentences.forEach(function(s){ if(s.ko) SENT_KO[s.en]=s.ko; });
+          var tb=[d.textbook,d.level].filter(Boolean).join(' · ');
+          if(tb){ var bb=document.getElementById('bookBadge'); bb.textContent='📚 '+tb; bb.style.display='inline-block'; }
+        }
+      });
+    }
+  }catch(e){}
   var DISTRACTORS=["cat","run","blue","apple","green","quickly","does","happy","jump","red","water","table","want","under","they","big","milk","slow","seven","cloud"];
   var COMBO_WINDOW=2500, ZFACES=['🧟','🧟‍♂️','🧟‍♀️'];
 
@@ -515,6 +532,6 @@
 })();
 </script>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260710225729 -->
+<!-- BUILD:20260710230533 -->
 </body>
 </html>

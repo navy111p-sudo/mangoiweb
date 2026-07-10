@@ -18,6 +18,7 @@
 
 import { getScope } from './scope';
 import { generateSecret, otpauthURI, verifyTOTP } from './totp';
+import { sendPlainSms } from './solapi-client';
 
 export interface AuthEnv {
   DB: D1Database;
@@ -348,6 +349,25 @@ export async function handleAdminAuthApi(
         `INSERT INTO admin_sessions (token, username, ip, user_agent, created_at, expires_at, last_seen_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`
       ).bind(token, username, ip, ua, now, now + ttl, now).run();
+
+      // 🔔 로그인 알림(2026-07-10): 이 계정+IP 조합의 '이전 성공 로그인'이 하나도 없으면
+      //   = 낯선 기기/장소에서의 첫 로그인 → 사장님 폰(OWNER_ALERT_PHONE)으로 문자.
+      //   recordLogin(성공) 전에 검사해야 현재 로그인이 카운트에 안 섞인다. 실패해도 로그인은 계속.
+      try {
+        const prior = await env.DB.prepare(
+          `SELECT COUNT(*) AS n FROM admin_login_history WHERE username = ? AND ip = ? AND success = 1`
+        ).bind(username, ip).first<{ n: number }>();
+        if ((prior?.n || 0) === 0) {
+          const anyEnv = env as any;
+          const toPhone = anyEnv.OWNER_ALERT_PHONE;
+          if (toPhone) {
+            const kst = new Date(now + 9 * 3600 * 1000).toISOString().replace('T', ' ').slice(0, 16);
+            const text = `[망고아이] 관리자 로그인 알림\n계정: ${username}\n시간: ${kst} (KST)\nIP: ${ip || '알수없음'}\n본인이 아니면 즉시 비밀번호를 변경하세요.`;
+            await sendPlainSms(anyEnv, toPhone, text);
+          }
+        }
+      } catch (e) { console.warn('[auth-admin] login alert:', (e as any)?.message); }
+
       await recordLogin(env, username, ip, ua, true, null);
 
       // 🪪 로그인 성공 시 서버가 권위 있는 역할을 판정해 응답에 실어 보낸다(2026-07-05).
