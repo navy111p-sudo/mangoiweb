@@ -66,8 +66,40 @@ interface Env {
 
 export { SignalingRoom, VideoCallRoom };
 
-export default {
+// 🔒 보안 헤더 — 모든 응답에 일괄 부착(클릭재킹·MIME스니핑·리퍼러 유출 방어).
+//   이미 설정된 값은 존중하고(중복 방지), nosniff 만 항상 강제. 응답 헤더가 불변인
+//   redirect/asset/스트림 응답도 안전하게 재구성한다(Location·Content-Range 등 보존).
+function applySecurityHeaders(resp: Response): Response {
+  try {
+    const h = new Headers(resp.headers);
+    h.set('X-Content-Type-Options', 'nosniff');
+    if (!h.has('X-Frame-Options')) h.set('X-Frame-Options', 'SAMEORIGIN');
+    if (!h.has('Referrer-Policy')) h.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    if (!h.has('Strict-Transport-Security')) h.set('Strict-Transport-Security', 'max-age=15552000');
+    if (!h.has('X-Permitted-Cross-Domain-Policies')) h.set('X-Permitted-Cross-Domain-Policies', 'none');
+    return new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers: h });
+  } catch {
+    return resp; // 어떤 이유로든 재구성 실패 시 원본 응답 유지(가용성 우선)
+  }
+}
+
+const worker = {
+  // 얇은 래퍼: 실제 처리는 handle()이 하고, 여기서 보안 헤더만 씌운다.
+  //   this 바인딩에 의존하지 않도록 worker.handle 로 명시 참조(진입점 안정성).
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    let resp: Response;
+    try {
+      resp = await worker.handle(request, env, ctx);
+    } catch (e: any) {
+      console.error('[fetch] unhandled:', e?.message || e);
+      resp = new Response(JSON.stringify({ ok: false, error: 'internal_error' }), {
+        status: 500, headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return applySecurityHeaders(resp);
+  },
+
+  async handle(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
 
@@ -1501,6 +1533,8 @@ export default {
     })());
   }
 };
+
+export default worker;
 
 // 📅 Phase WD — 매주 금요일 KST 19:00 학부모 위클리 다이제스트 일괄 발송
 async function sendWeeklyParentDigest(env: any): Promise<void> {

@@ -9,6 +9,8 @@
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%}
   body{font-family:'Noto Sans KR','Segoe UI',sans-serif;color:var(--tx);background:#04060c;overflow:hidden;user-select:none}
+  /* 🀄 중국어 모드 — 한자를 전부 하나의 중국어 폰트로 통일 (한국어 폰트가 한자를 일부만 갖고 있어 글자마다 폰트·굵기가 제각각 섞이는 문제 방지) */
+  html.zh-font body{font-family:'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Noto Sans SC','Malgun Gothic',sans-serif}
   #game{position:relative;width:100%;height:100dvh;height:100vh;display:flex;flex-direction:column;overflow:hidden}
   #game.shake{animation:shake .4s}
   @keyframes shake{0%,100%{transform:translate(0,0)}20%{transform:translate(-7px,4px)}45%{transform:translate(6px,-5px)}70%{transform:translate(-5px,5px)}}
@@ -696,6 +698,7 @@
   // 🌐 언어 전환 — 시작화면 선택 + 게임 중 HUD 버튼(전환 시 현재 웨이브를 새 언어로 재시작, 점수 유지)
   var langBtn=document.getElementById('langBtn');
   function applyLangUI(){ langBtn.textContent=(GLANG==='zh')?'🇨🇳 중국어':'🇺🇸 영어';
+    try{ document.documentElement.classList.toggle('zh-font', GLANG==='zh'); }catch(e){}   // 🀄 모든 한자를 같은 중국어 폰트로 (글자별 폰트 섞임 방지)
     [].forEach.call(document.querySelectorAll('.lng'),function(b){ b.classList.toggle('sel', b.getAttribute('data-l')===GLANG); });
     var tg=document.querySelector('#card .tag'); if(tg) tg.textContent=(GLANG==='zh')?'⚡ 실사 좀비 서바이벌 · 중국어 문장 학습 ⚡':'⚡ 실사 좀비 서바이벌 · 영어 문장 학습 ⚡'; }
   function setLang(l,announce){ if(GLANG===l){ applyLangUI(); return; }
@@ -714,6 +717,6 @@
 })();
 </script>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711060914 -->
+<!-- BUILD:20260711062145 -->
 </body>
 </html>

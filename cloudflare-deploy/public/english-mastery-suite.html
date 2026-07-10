@@ -31,6 +31,8 @@
   html,body{height:100%}
   body{font-family:'Noto Sans KR','Segoe UI',sans-serif;color:var(--tx);overflow:hidden;user-select:none;
     background:radial-gradient(135% 105% at 50% -8%,#4b83e6 0%,#2a5fbd 38%,#173f8c 100%)}
+  /* 🀄 중국어 모드 — 한자를 전부 하나의 중국어 폰트로 통일 (한국어 폰트가 한자를 일부만 갖고 있어 글자마다 폰트·굵기가 제각각 섞이는 문제 방지) */
+  html.zh-font body{font-family:'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Noto Sans SC','Malgun Gothic',sans-serif}
   #app{position:relative;width:100%;height:100dvh;height:100vh;overflow:hidden}
   .scene{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden}
   .scene.active{display:flex}
@@ -93,7 +95,14 @@
   .listen{background:rgba(34,197,94,.18);border:1px solid rgba(34,197,94,.5);color:#86efac;
     font-size:12px;font-weight:700;padding:5px 11px;border-radius:999px;cursor:pointer;font-family:inherit}
   .listen:active{transform:scale(.95)}
-  .chip{font-size:16px;font-weight:700;padding:5px 12px;border-radius:9px;border:1px solid transparent;transition:.15s;position:relative}
+  .chip{font-size:16px;font-weight:700;padding:5px 12px;border-radius:9px;border:1px solid transparent;transition:.15s;position:relative;cursor:pointer}
+  /* 👆 단어 탭 → 한국어 뜻 말풍선 */
+  .wordpop{position:fixed;z-index:60;background:#0f1c33;border:1.5px solid var(--gold);color:#fff;border-radius:12px;
+    padding:9px 15px;font-size:16px;font-weight:800;box-shadow:0 10px 26px rgba(0,0,0,.5);opacity:0;transform:translateY(-4px);
+    transition:opacity .2s,transform .2s;pointer-events:none;text-align:center;max-width:78vw}
+  .wordpop.on{opacity:1;transform:translateY(0)}
+  .wordpop .py{display:block;font-size:12px;color:#8fd3ff;font-weight:700;margin-top:1px}
+  .wordpop .mean{display:block;font-size:15px;color:#fde68a;font-weight:800;margin-top:3px}
   .chip.done{background:rgba(34,197,94,.18);color:#86efac;border-color:rgba(34,197,94,.4)}
   .chip.done::after{content:'✓';position:absolute;top:-7px;right:-5px;font-size:10px;color:var(--good)}
   .chip.next{background:var(--gold);color:#3a2e05;animation:pulse 1.1s infinite}
@@ -591,6 +600,7 @@
   // 🌐 게임 언어(허브 전달 ?glang= 또는 localStorage) — 중국어면 문장/보기/발음을 중국어로
   var GLANG = (function(){ try{ var g=(new URLSearchParams(location.search).get('glang')||'').toLowerCase(); if(g==='zh'||g==='en') return g; var l=localStorage.getItem('mangoi_game_lang'); return (l==='zh')?'zh':'en'; }catch(e){ return 'en'; } })();
   try{ if(window.MangoiTTS) MangoiTTS.setLang(GLANG); }catch(e){}
+  if(GLANG==='zh'){ try{ document.documentElement.classList.add('zh-font'); }catch(e){} }   // 🀄 모든 한자를 같은 중국어 폰트로 (글자별 폰트 섞임 방지)
   var DISTRACTORS = (GLANG==='zh')
     ? ["猫","跑","蓝","苹果","绿","快","做","高兴","跳","红","水","桌子","想","下面","他们","大","牛奶"]
     : ["cat","run","blue","apple","green","quickly","does","happy","jump","red","water","table","want","under","they","big","milk"];
@@ -609,6 +619,38 @@
     "我 想 喝 水":"물을 마시고 싶어요", "我们 一起 学习 汉语":"우리 함께 중국어를 공부해요"
   };
   for(var _zk in ZH_KO){ KO[_zk] = ZH_KO[_zk]; }
+
+  /* ── 🈶 단어 뜻 사전 — 문장 스트립의 단어를 탭하면 한국어 뜻 말풍선 ──
+        중국어: 다락원 zh_vocab(한자+병음+뜻) 로드 / 영어: 교재 단어은행 / 없으면 /api/translate 폴백 */
+  var WORD_KO = {}, WORD_PY = {};
+  // 내장 기본 단어 뜻(중국어 프리셋·방해단어) — 서버 사전이 없어도 정확히 일치하게
+  var ZH_WORD_KO = {
+    "我":"나", "爱":"사랑하다", "你":"너", "好":"좋다", "吗":"~니? (의문)", "是":"~이다", "学生":"학생",
+    "今天":"오늘", "天气":"날씨", "很":"아주", "喜欢":"좋아하다", "吃":"먹다", "苹果":"사과", "他":"그", "每天":"매일",
+    "去":"가다", "学校":"학교", "这":"이것", "我的":"나의", "朋友":"친구", "想":"~하고 싶다", "喝":"마시다", "水":"물",
+    "我们":"우리", "一起":"함께", "学习":"공부하다", "汉语":"중국어",
+    "昨天":"어제", "和":"~와/과", "家人":"가족", "去了":"갔다", "海边":"바닷가", "她":"그녀", "将来":"장래에",
+    "当":"~이 되다", "医生":"의사", "有":"있다", "两":"둘", "只":"마리 (양사)", "小狗":"강아지",
+    "猫":"고양이", "跑":"달리다", "蓝":"파랗다", "绿":"초록", "快":"빠르다", "做":"하다·만들다", "高兴":"기쁘다",
+    "跳":"뛰다", "红":"빨갛다", "桌子":"책상", "下面":"아래", "他们":"그들", "大":"크다", "牛奶":"우유"
+  };
+  if(GLANG==='zh'){
+    for(var _wk in ZH_WORD_KO){ WORD_KO[_wk] = ZH_WORD_KO[_wk]; }
+    (function(){
+      function absorb(d){
+        (d && d.words || []).forEach(function(w){ if(w.en && w.ko){ WORD_KO[w.en]=w.ko; if(w.pinyin) WORD_PY[w.en]=w.pinyin; } });
+        // 교재 문장 뜻도 흡수 — 말하기 카드 '문장 탭 → 한국어 뜻'이 &ko= 없이도 맞도록 (키=단어 공백조인)
+        (d && d.sentences || []).forEach(function(s){ if(s.ko && s.words && s.words.length>=2) KO[s.words.join(' ')]=s.ko; });
+      }
+      try{ var c=JSON.parse(sessionStorage.getItem('mangoi_zh_wordko_v1')||'null');
+        if(c && (Date.now()-c.at) < 600000){ absorb(c); return; } }catch(e){}
+      fetch('/api/games/zh-vocab?textbook='+encodeURIComponent('다락원')+'&level='+encodeURIComponent('Lv 3'))
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(d){ if(d && d.ok){ absorb(d);
+          try{ sessionStorage.setItem('mangoi_zh_wordko_v1', JSON.stringify({at:Date.now(), words:d.words||[], sentences:d.sentences||[]})); }catch(e){} } })
+        .catch(function(){});
+    })();
+  }
 
   /* ── 🎯 목표: 정답 단어 10개 → 결과 화면 (문장을 이어가며 채움) ── */
   var GOAL = (function(){ try{ var g=parseInt(new URLSearchParams(location.search).get('goal'),10); return (g>=3&&g<=50)?g:10; }catch(e){ return 10; } })();
@@ -647,6 +689,7 @@
         if(d && d.sentences && d.sentences.length >= 2){
           STUDENT_SENTENCES = d.sentences.map(function(s){ return s.en; });
           d.sentences.forEach(function(s){ if(s.ko) KO[s.en]=s.ko; });
+          (d.words||[]).forEach(function(w){ if(w.en && w.ko) WORD_KO[w.en]=w.ko; });   // 단어 탭 뜻 사전
           // 메뉴 프리셋 버튼도 교재 문장으로 교체
           try{
             var pe = document.getElementById('presets'), si = document.getElementById('sentenceInput');
@@ -1108,6 +1151,40 @@
       return '<span class="chip '+cls+'">'+w+'</span>';
     }).join('');
   }
+  // 👆 단어 탭 → 한국어 뜻 말풍선 (병음 있으면 함께). 모르는 단어는 서버 번역 폴백 후 캐시
+  function wordPop(anchor, word, py, mean){
+    var old=document.querySelector('.wordpop'); if(old) old.remove();
+    var d=document.createElement('div'); d.className='wordpop';
+    d.innerHTML = '<b></b><span class="py"></span><span class="mean"></span>';
+    d.children[0].textContent = word;
+    d.children[1].textContent = py||''; if(!py) d.children[1].style.display='none';
+    d.children[2].textContent = mean;
+    document.body.appendChild(d);
+    var r=anchor.getBoundingClientRect();
+    d.style.left = Math.max(8, Math.min(window.innerWidth-8-d.offsetWidth, r.left+r.width/2-d.offsetWidth/2)) + 'px';
+    d.style.top = (r.bottom+8) + 'px';
+    requestAnimationFrame(function(){ d.classList.add('on'); });
+    setTimeout(function(){ if(!d.parentNode) return; d.classList.remove('on'); setTimeout(function(){ if(d.parentNode) d.remove(); }, 250); }, 2400);
+  }
+  $$('[data-sentence]').forEach(function(strip){
+    strip.addEventListener('click', function(ev){
+      var chip = ev.target && ev.target.closest ? ev.target.closest('.chip') : null;
+      if(!chip) return;
+      var w = (chip.textContent||'').trim(); if(!w) return;
+      var key = w.replace(/[.?!,;:]/g,'');
+      var ko = WORD_KO[w] || WORD_KO[key];
+      if(ko){ wordPop(chip, w, WORD_PY[w]||WORD_PY[key]||'', ko); return; }
+      wordPop(chip, w, '', '…');
+      fetch('/api/translate', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ texts:[key], target:'ko' }) })
+        .then(function(r){ return r.json(); })
+        .then(function(d){ var t = d && d.map && d.map[key];
+          if(t && t !== key){ WORD_KO[key]=t; wordPop(chip, w, '', t); }
+          else wordPop(chip, w, '', '(뜻을 찾지 못했어요)');
+        })
+        .catch(function(){ wordPop(chip, w, '', '(뜻을 찾지 못했어요)'); });
+    });
+  });
   function floatScore(field, txt, x, y, plus){
     var d=document.createElement('div'); d.className='floatscore '+(plus?'plus':'minus'); d.textContent=txt;
     d.style.left=(x-16)+'px'; d.style.top=(y-10)+'px'; field.appendChild(d);
@@ -1816,6 +1893,6 @@
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711060914 -->
+<!-- BUILD:20260711062145 -->
 </body>
 </html>

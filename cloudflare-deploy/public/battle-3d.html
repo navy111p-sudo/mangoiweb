@@ -66,6 +66,8 @@
   /* 🈶 한자 폰트 통일: 기본 폰트(한글용)가 일부 한자만 갖고 있어 글자마다 굵기/모양이 제각각(fallback 섞임) →
      중국어 전용 폰트(YaHei/PingFang/Noto CJK SC)를 먼저 지정해 모든 한자를 같은 폰트·같은 굵기로. 한글은 뒤의 Malgun으로 fallback */
   #quiz .ch .hz, #quiz .q{font-family:'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Noto Sans SC','Malgun Gothic',sans-serif}
+  /* 🀄 중국어 모드에선 화면 전체(퀴즈 밖 한자 포함)에 같은 중국어 폰트 적용 */
+  html.zh-font body{font-family:'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Noto Sans SC','Malgun Gothic',sans-serif}
   #quiz .ch .hz{display:block;font-size:21px;line-height:1.1;letter-spacing:1px;font-weight:700}
   #quiz .ch .py{display:block;font-size:11.5px;font-weight:700;color:#a9c7ff;margin-top:2px}
   #quiz .ch.right .py{color:#0b3a1c}
@@ -183,6 +185,7 @@
     /* ===== 🌐 언어 모드: ?glang=zh (또는 localStorage) → 중국어 배틀 ===== */
     var GLANG=(function(){ try{ var u=new URLSearchParams(location.search); var g=u.get('glang'); if(!g){ g=localStorage.getItem('mangoi_game_lang'); } return g==='zh'?'zh':'en'; }catch(_){ return 'en'; } })();
     var IS_ZH=(GLANG==='zh');
+    if(IS_ZH){ try{ document.documentElement.classList.add('zh-font'); }catch(_){} }   // 🀄 모든 한자를 같은 중국어 폰트로 (글자별 폰트 섞임 방지)
     var PY={};   // 한자→병음 사전 (선택지/문제에 병음 표기용)
     function pyReg(hz,py){ if(hz&&py&&!PY[hz]) PY[hz]=py; }
     if(IS_ZH){ try{
@@ -1479,6 +1482,6 @@
 }
 </style>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711060914 -->
+<!-- BUILD:20260711062145 -->
 </body>
 </html>
