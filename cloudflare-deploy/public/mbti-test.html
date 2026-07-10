@@ -236,7 +236,7 @@ async function loadTeacherMatches(mbti){
 
 render();
 </script>
-<!-- BUILD:20260711000613 -->
+<!-- BUILD:20260711001532 -->
 <!-- 🔊 MBTI 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="mbti-voice" src="/audio/mbti-test.mp3" preload="auto"></audio>
 <script>
@@ -269,7 +269,7 @@ render();
   updateMute();
   (function placeBtn(){
     var home = document.querySelector('.home-btn, #global-home-fab, #global-home, .home');
-    if (!home) { btn.style.position='fixed'; btn.style.top='14px'; btn.style.right='70px'; btn.style.zIndex='100000'; document.body.appendChild(btn); return; }
+    if (!home) { btn.style.position='fixed'; btn.style.top=(window.innerWidth<=380?'52px':'14px'); btn.style.right=(window.innerWidth<=380?'10px':'70px'); btn.style.zIndex='100000'; document.body.appendChild(btn); return; } /* ≤380px: 고정 홈/EN 바 아래로 내려 겹침 방지 */
     var cs = getComputedStyle(home);
     if (cs.position === 'fixed') {
       var r = home.getBoundingClientRect();

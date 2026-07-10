@@ -412,7 +412,21 @@
     }
     loadHistory();
   </script>
-<!-- BUILD:20260711000613 -->
+<!-- BUILD:20260711001532 -->
+<style id="mb-tidy-2026-07-11">
+/* 폴드 커버 등 초좁은 화면 보정: 입력줄이 전송 버튼을 밀어내던 문제 */
+.input-bar input{min-width:0}
+/* 옵션 라벨(레벨:/스타일:/속도:)이 세로로 찌그러지지 않게 */
+.opts>span{white-space:nowrap;flex-shrink:0}
+@media (max-width:380px){
+  .input-bar{padding:10px 10px}
+  .input-bar form{gap:6px}
+  .input-bar input{padding:12px 12px}
+  .input-bar button{padding:10px 13px}
+  /* 우상단 고정 홈/EN 바가 🔊·대화초기화 버튼을 덮지 않게 헤더를 그 아래로 */
+  .top{padding-top:48px}
+}
+</style>
 <script defer src="/js/game-tts.js"></script><!-- 🔊 원어민 TTS(서버 Deepgram Aura-1 → MeloTTS → 브라우저 폴백) 공용 모듈 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>

@@ -95,24 +95,27 @@
   @keyframes comboPop{0%{opacity:0;transform:translate(-50%,-50%) scale(.4) rotate(-8deg)}
     35%{opacity:1;transform:translate(-50%,-50%) scale(1.2) rotate(4deg)}
     70%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-85%)}}
-  /* ===== 정교한 회전 포탑 ===== */
-  #turret{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);z-index:10;width:70px;height:62px;pointer-events:none}
-  .turret-base{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:60px;height:26px;
-    background:linear-gradient(180deg,#3b475e,#141c2a);border:1px solid #5b6b86;border-radius:30px 30px 7px 7px;
+  /* ===== 정교한 회전 포탑 — 총을 크게 그려 무기별 실루엣이 한눈에 보이게 ===== */
+  #turret{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);z-index:10;width:120px;height:104px;pointer-events:none}
+  .turret-base{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:96px;height:38px;
+    background:linear-gradient(180deg,#3b475e,#141c2a);border:1px solid #5b6b86;border-radius:48px 48px 9px 9px;
     box-shadow:inset 0 2px 4px rgba(255,255,255,.12),0 7px 16px rgba(0,0,0,.5)}
-  .turret-hub{position:absolute;left:50%;bottom:17px;transform:translateX(-50%);width:20px;height:20px;border-radius:50%;
+  .turret-hub{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);width:30px;height:30px;border-radius:50%;
     background:radial-gradient(circle at 38% 32%,#b6c4d6,#475569 65%,#1c2535);border:1px solid #6b7d96;z-index:12;
     box-shadow:0 1px 3px rgba(0,0,0,.5)}
-  .barrel-rot{position:absolute;left:50%;bottom:22px;transform-origin:50% 100%;transform:translateX(-50%) rotate(0deg);
+  .barrel-rot{position:absolute;left:50%;bottom:34px;transform-origin:50% 100%;transform:translateX(-50%) rotate(0deg);
     transition:transform .1s ease-out;z-index:11}
-  /* 총 실루엣은 JS(GUN_SVG)의 SVG 를 barrel 배경으로 그림 — 무기마다 실제 총 모양 */
+  /* 총 실루엣은 JS(GUN_SVG)의 SVG 를 barrel 배경으로 그림 — 무기마다 실제 총 모양 (크기는 setGun 에서 GUN_DIM×배율) */
   .barrel{position:relative;width:28px;height:52px;
     background:50% 50%/100% 100% no-repeat;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55))}
   .barrel.recoil{animation:recoil .18s}
   @keyframes recoil{0%{transform:translateY(0)}35%{transform:translateY(6px)}100%{transform:translateY(0)}}
+  /* 무기 교체 연출 — 새 총이 '뿅' 하고 커지며 등장 */
+  .barrel.swap{animation:gunSwap .38s cubic-bezier(.3,1.4,.5,1)}
+  @keyframes gunSwap{0%{transform:scale(.4);opacity:.15}60%{transform:scale(1.14);opacity:1}100%{transform:scale(1)}}
   /* 🔥 화염방사기 불줄기 파티클 (총구→표적 연속 분사) */
   .flamep{position:absolute;margin:-7px 0 0 -7px;border-radius:50%;pointer-events:none;z-index:9;mix-blend-mode:screen;filter:blur(1px);will-change:transform,opacity}
-  .muzzle{position:absolute;top:-10px;left:50%;transform:translateX(-50%);width:22px;height:22px;opacity:0;pointer-events:none;
+  .muzzle{position:absolute;top:-13px;left:50%;transform:translateX(-50%);width:32px;height:32px;opacity:0;pointer-events:none;
     background:radial-gradient(circle,#fff 0%,#fde68a 32%,rgba(251,191,36,.55) 58%,transparent 72%)}
   .muzzle.flash{animation:flash .16s}
   @keyframes flash{0%{opacity:0;transform:translateX(-50%) scale(.3)}30%{opacity:1;transform:translateX(-50%) scale(1.3)}100%{opacity:0;transform:translateX(-50%) scale(1)}}
@@ -126,10 +129,10 @@
   /* ===== 무기별 총알·머즐 색 (총 실루엣은 JS 의 GUN_SVG 로 그림) — #game 에 gun-XXX 클래스 ===== */
   #game.gun-pistol .bullet{width:11px;height:11px}
   #game.gun-mg .bullet{width:10px;height:10px;background:radial-gradient(circle at 40% 35%,#fff,#f59e0b 60%,#b45309);box-shadow:0 0 10px 3px rgba(245,158,11,.7)}
-  #game.gun-sniper .muzzle{width:26px;height:26px}
-  #game.gun-tank .muzzle{width:30px;height:30px}
+  #game.gun-sniper .muzzle{width:38px;height:38px}
+  #game.gun-tank .muzzle{width:46px;height:46px}
   #game.gun-tank .bullet{width:16px;height:16px;background:radial-gradient(circle at 40% 35%,#fff,#f59e0b 55%,#92400e);box-shadow:0 0 16px 5px rgba(245,158,11,.8)}
-  #game.gun-minigun .muzzle{width:24px;height:24px}
+  #game.gun-minigun .muzzle{width:36px;height:36px}
   #game.gun-minigun .bullet{width:9px;height:9px;background:radial-gradient(circle at 40% 35%,#fff,#fbbf24 60%,#b45309);box-shadow:0 0 10px 3px rgba(251,191,36,.7)}
   #game.gun-railgun .muzzle{background:radial-gradient(circle,#fff,#67e8f9 35%,rgba(34,211,238,.55) 60%,transparent 72%)}
   #game.gun-railgun .bullet{width:9px;height:20px;background:radial-gradient(circle at 40% 35%,#fff,#22d3ee 60%,#0e7490);box-shadow:0 0 16px 5px rgba(34,211,238,.9)}
@@ -1057,14 +1060,17 @@
   }
 
   // ===== 무기 전환 =====
-  function setGun(id){
+  function gunScale(){ return (window.innerWidth>=820) ? 2.1 : 1.6; }   // 총 크게 — PC 는 더 크게
+  function setGun(id, noFx){
     if(!GUNS.some(function(g){return g.id===id;})) id=GUNS[0].id;
+    var changed = (id!==curGun);
     curGun=id; try{ localStorage.setItem('ess_gun',id); }catch(e){}
     GUNS.forEach(function(g){ gameEl.classList.remove('gun-'+g.id); });
     gameEl.classList.add('gun-'+id);
     // 총 실루엣 그리기: 무기별 SVG 를 barrel 배경으로 + 크기 지정(총구=상단중앙=총알 발사점 유지)
-    var dim=GUN_DIM[id]||GUN_DIM.pistol;
-    barrel.style.width=dim[0]+'px'; barrel.style.height=dim[1]+'px'; barrel.style.backgroundImage=gunDataUri(id);
+    var dim=GUN_DIM[id]||GUN_DIM.pistol, sc=gunScale();
+    barrel.style.width=Math.round(dim[0]*sc)+'px'; barrel.style.height=Math.round(dim[1]*sc)+'px'; barrel.style.backgroundImage=gunDataUri(id);
+    if(changed && !noFx){ barrel.classList.remove('swap'); void barrel.offsetWidth; barrel.classList.add('swap'); }   // 교체 '뿅' 연출
     var picker=document.getElementById('gunPicker');
     if(picker) [].forEach.call(picker.children, function(b){ b.classList.toggle('sel', b.getAttribute('data-gun')===id); });
     var gm=document.getElementById('gunModal');
@@ -1143,11 +1149,11 @@
   field.addEventListener('pointermove', trackAim);
   field.addEventListener('pointerdown', trackAim);
   field.addEventListener('pointerleave', function(){ crosshair.style.opacity='0'; });
-  window.addEventListener('resize', function(){ var w=field.clientWidth; monsters.forEach(function(m){ if(m.x>w-66){ m.x=Math.max(8,w-86); m.el.style.left=m.x+'px'; } }); });
+  window.addEventListener('resize', function(){ var w=field.clientWidth; monsters.forEach(function(m){ if(m.x>w-66){ m.x=Math.max(8,w-86); m.el.style.left=m.x+'px'; } }); setGun(curGun, true); });   // 총 크기 배율(모바일↔PC) 재적용
 })();
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711000613 -->
+<!-- BUILD:20260711001532 -->
 </body>
 </html>
