@@ -232,6 +232,12 @@
   .boat .rod{position:absolute;left:62px;bottom:33px;width:66px;height:3px;border-radius:3px;z-index:11;
     background:linear-gradient(90deg,#7c4a21,#caa05a);transform-origin:0 50%;transform:rotate(-44deg);box-shadow:0 1px 2px rgba(0,0,0,.5)}
   .boat .rod #rodTip{position:absolute;right:-1px;top:0;width:2px;height:3px}
+  /* 🧸 실사(그린스크린) 배 낚시꾼 영상 — 캔버스에서 실시간 크로마키, 영상 로드 실패 시 이모지 폴백 */
+  .boat .fishercv{display:none;position:absolute;left:50%;bottom:-4px;transform:translateX(-50%);width:96px;z-index:2;
+    pointer-events:none;filter:drop-shadow(0 5px 8px rgba(0,0,0,.45))}
+  .boat.real{top:10px}
+  .boat.real .fisher,.boat.real .hull,.boat.real .rod{visibility:hidden}
+  .boat.real .fishercv{display:block}
   .boat.tug{animation:tug .35s}
   @keyframes tug{0%,100%{transform:translateX(-50%) translateY(2px) rotate(0)}50%{transform:translateX(-50%) translateY(-5px) rotate(-2deg)}}
   .fline{position:absolute;left:0;top:0;height:2px;width:0;z-index:8;pointer-events:none;transform-origin:0 50%;
@@ -263,6 +269,8 @@
   #fish .boat .hull{font-size:58px}
   #fish .boat .fisher{font-size:31px;left:46px;bottom:24px}
   #fish .boat .rod{left:70px;bottom:38px;width:74px}
+  #fish .boat.real{top:12px}
+  #fish .boat.real .fishercv{width:110px}
   #fish .weed{filter:drop-shadow(0 0 7px rgba(0,0,0,.5))}
   #fish .hook{font-size:20px}
   /* HUD 아이콘 토글 버튼 (🔊 전체 소리 / 🎵 배경음악) */
@@ -496,7 +504,9 @@
         <span class="fisher">🧑</span>
         <span class="hull">🛶</span>
         <div class="rod"><span id="rodTip"></span></div>
+        <canvas class="fishercv" id="fisherCv" width="310" height="292"></canvas>
       </div>
+      <video id="fisherVid" src="fisher-boat.mp4" muted playsinline preload="auto" style="display:none"></video>
       <div class="fline" id="fishLine"></div>
       <div class="hook" id="hook">🪝</div>
       <div class="catch-cnt" id="catchCnt">0 / 0</div>
@@ -1244,9 +1254,49 @@
     fishTimerEl.classList.toggle('low', s<=15);
   }
 
-  // 낚싯대 끝(릴 기준점) 위치 — 회전된 막대 끝 #rodTip 의 실제 화면 좌표
-  function rodTipPos(){ var fr=FI.field.getBoundingClientRect(), t=$('#rodTip').getBoundingClientRect();
+  // 낚싯대 끝(릴 기준점) 위치 — 실사 낚시꾼 영상이면 캔버스 속 낚싯대 끝 지점, 아니면 회전 막대 끝 #rodTip
+  function rodTipPos(){ var fr=FI.field.getBoundingClientRect();
+    if(boatEl.classList.contains('real')){ var c=$('#fisherCv').getBoundingClientRect();
+      return { x:c.left+c.width*0.252-fr.left, y:c.top+c.height*0.209-fr.top }; }
+    var t=$('#rodTip').getBoundingClientRect();
     return { x:t.left+t.width/2-fr.left, y:t.top+t.height/2-fr.top }; }
+
+  /* 🧸 실사 배 낚시꾼(그린스크린 영상, fisher-boat.mp4) — 캔버스 실시간 크로마키.
+     구성: 0~3.5s 대기 핑퐁루프(잔잔히 낚시) / 3.5s~끝 포획 연출(알록달록 물고기 들어올림).
+     정답 물고기를 낚을 때 fisherCatch() 가 포획 구간을 1회 재생하고 대기루프로 복귀.
+     영상 로드 실패·재생 불가 시 boat 에 real 클래스가 안 붙어 기존 이모지 낚시꾼 폴백. */
+  var fisherVid=$('#fisherVid'), fisherCv=$('#fisherCv'), fisherOn=false, fisherCatching=false;
+  (function(){
+    if(!fisherVid||!fisherCv) return;
+    var ctx=fisherCv.getContext('2d',{willReadFrequently:true});
+    var IDLE_END=3.46, lastT=-1;
+    function draw(){
+      requestAnimationFrame(draw);
+      if(fisherVid.readyState<2 || fisherVid.currentTime===lastT) return;
+      lastT=fisherVid.currentTime;
+      if(!fisherCatching && lastT>=IDLE_END){ fisherVid.currentTime=0; return; }   // 대기 루프 되감기
+      var w=fisherCv.width,h=fisherCv.height;
+      ctx.drawImage(fisherVid,0,0,w,h);
+      var im=ctx.getImageData(0,0,w,h), d=im.data;
+      for(var i=0;i<d.length;i+=4){
+        var r=d[i],g=d[i+1],b=d[i+2],ex=g-(r>b?r:b);
+        if(ex>34) d[i+3]=0;                                                        // 초록 배경 제거
+        else if(ex>10){ d[i+3]=(255-(ex-10)*10.6)|0; d[i+1]=(r>b?r:b)+6; }          // 가장자리 반투명+초록기 빼기
+      }
+      ctx.putImageData(im,0,0);
+      if(!fisherOn){ fisherOn=true; boatEl.classList.add('real'); }
+    }
+    function tryPlay(){ var p=fisherVid.play(); if(p&&p.catch)p.catch(function(){}); }
+    fisherVid.addEventListener('canplay', tryPlay);
+    fisherVid.addEventListener('ended', function(){ fisherCatching=false; fisherVid.currentTime=0; tryPlay(); });
+    fisherVid.addEventListener('error', function(){ fisherOn=false; boatEl.classList.remove('real'); });
+    requestAnimationFrame(draw);
+  })();
+  function fisherCatch(){                       // 낚아올릴 때: 물고기 든 실사 연출(1.25초) 재생
+    if(!fisherOn) return;
+    fisherCatching=true;
+    try{ fisherVid.currentTime=3.52; var p=fisherVid.play(); if(p&&p.catch)p.catch(function(){}); }catch(e){}
+  }
   // 낚싯줄을 (toX,toY) 까지 그리고 바늘을 그 끝에 둠
   function setLine(toX,toY){
     var rt=rodTipPos(), dx=toX-rt.x, dy=toY-rt.y, len=Math.hypot(dx,dy), ang=Math.atan2(dy,dx)*180/Math.PI;
@@ -1365,6 +1415,7 @@
       if(f.golden) showCombo(fishCombo, '✨ 골든 보너스! +200');
       else if(FI.combo>=2) showCombo(fishCombo, FI.combo+' COMBO!');
       maybeFocus();                                            // 콤보가 난이도 기준 도달 → 집중모드
+      fisherCatch();                                            // 🧸 실사 낚시꾼: 낚싯대 당겨 물고기 들어올리는 연출
       setTimeout(function(){                                    // ② 릴 감기: 물고기를 배로 끌어올림
         var bx=rt.x-(r.left-fr.left+r.width/2), by=rt.y-(r.top-fr.top+r.height/2);
         f.el.style.setProperty('--bx', bx+'px'); f.el.style.setProperty('--by', by+'px');
@@ -1703,6 +1754,6 @@
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711050751 -->
+<!-- BUILD:20260711052842 -->
 </body>
 </html>

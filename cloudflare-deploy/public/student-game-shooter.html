@@ -238,6 +238,28 @@
     .lvlpill{font-size:14px;padding:6px 13px}
     #combo{font-size:52px}
   }
+
+  /* ===== 📢 카드(시작/말하기/결과) 2배 확대 — 작아서 안 보인다는 피드백 반영. clamp 로 모바일은 화면에 맞게 ===== */
+  .card{width:min(94%,800px);padding:clamp(24px,3.4vw,42px) clamp(20px,3vw,38px);border-radius:24px}
+  .card h1{font-size:clamp(28px,4.6vw,44px);margin-bottom:10px}
+  .card .big{font-size:clamp(56px,8vw,84px)}
+  .card .best{font-size:clamp(16px,2.2vw,24px)}
+  .rules{font-size:clamp(16px,2.2vw,25px);padding:clamp(14px,2vw,24px) clamp(15px,2.2vw,28px);border-radius:15px}
+  .gunlabel{font-size:clamp(15px,2vw,24px);margin:6px 0 8px}
+  .gunpick{gap:clamp(8px,1.2vw,14px);margin-bottom:20px}
+  .gunpick .gp{min-width:clamp(72px,9vw,116px);padding:clamp(9px,1.3vw,15px) clamp(9px,1.3vw,16px);border-radius:15px}
+  .gunpick .gp .ic{font-size:clamp(28px,4vw,44px)}
+  .gunpick .gp .nm{font-size:clamp(13px,1.7vw,21px)}
+  .btn{font-size:clamp(20px,2.6vw,32px);padding:clamp(14px,2vw,24px) clamp(30px,4vw,52px);border-radius:15px}
+  .warn{font-size:clamp(13px,1.7vw,20px)}
+  /* 🎤 말하기 미션 카드도 동일하게 확대 */
+  .say{font-size:clamp(24px,3.6vw,34px);padding:18px 16px;line-height:1.55}
+  .say .ko{font-size:clamp(14px,1.9vw,18px);margin-top:8px}
+  .card .listen{font-size:clamp(16px,2vw,21px);padding:10px 24px}
+  .stars{font-size:clamp(36px,4.6vw,44px);letter-spacing:6px;margin:8px 0 6px}
+  .mission-status{font-size:clamp(15px,2vw,19px);min-height:46px;margin:6px 0 12px}
+  .mic-btn{font-size:clamp(19px,2.4vw,23px);padding:18px 26px;border-radius:16px}
+  .admin-pass{font-size:13px}
 </style>
 </head>
 <body>
@@ -1248,6 +1270,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711050751 -->
+<!-- BUILD:20260711052842 -->
 </body>
 </html>
