@@ -177,6 +177,33 @@
     /* ✨ 히어로 플로팅 데코 */
     .hero { position: relative; overflow: hidden; }
     .fx { position: absolute; font-size: 20px; opacity: 0.5; pointer-events: none; animation: bob 3.4s ease-in-out infinite; }
+    /* 📕 동화책 오버레이 (팝업 차단·웹뷰에서도 안전) */
+    #bookModal { display: none; position: fixed; inset: 0; z-index: 99600; background: #f7f2e8; overflow-y: auto; }
+    body.book-open { overflow: hidden; }
+    .book-tools { position: sticky; top: 0; z-index: 5; display: flex; gap: 8px; justify-content: flex-end;
+      padding: 12px 16px; background: rgba(247,242,232,0.96); box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+    .book-tools button { padding: 12px 22px; font-size: 15.5px; font-weight: 900; border: 0; border-radius: 11px;
+      cursor: pointer; font-family: inherit; }
+    .bk-print { background: #059669; color: #fff; }
+    .bk-close { background: #e7e5e4; color: #44403c; }
+    .book-cover { min-height: 92vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; background: linear-gradient(160deg, #fde68a, #fbbf24 60%, #f59e0b); page-break-after: always; }
+    .book-cover img { width: 170px; margin-bottom: 22px; }
+    .book-cover h1 { font-size: 40px; margin: 0 0 10px; color: #78350f; }
+    .book-cover .sub { font-size: 19px; color: #92400e; font-weight: 700; }
+    .book-cover .deco { font-size: 32px; margin-top: 18px; letter-spacing: 10px; }
+    .book-pg { min-height: 86vh; padding: 56px 8vw; page-break-after: always; position: relative;
+      background: #fffdf5; border-bottom: 6px dotted #fcd34d; }
+    .book-pg .pg-no { position: absolute; bottom: 24px; right: 36px; font-size: 15px; color: #b45309; font-weight: 800; }
+    .book-pg .pg-date { font-size: 16px; color: #b45309; font-weight: 800; margin-bottom: 20px; }
+    .book-pg .pg-en { font-size: 25px; line-height: 1.9; color: #1c1917; font-weight: 600; margin-bottom: 30px; }
+    .book-pg .pg-orig { font-size: 14px; color: #a8a29e; line-height: 1.7; border-top: 1px dashed #e7e5e4; padding-top: 13px; }
+    @media print {
+      body.book-open > *:not(#bookModal) { display: none !important; }
+      #bookModal { position: static; overflow: visible; }
+      .book-tools { display: none; }
+      .book-cover { min-height: 96vh; }
+    }
     /* 📈 성장 그래프 카드 */
     .stats-card { background: var(--card); border: 1px solid var(--border); border-radius: 18px;
       padding: 21px 23px; margin-top: 30px; }
@@ -302,6 +329,9 @@
       <div id="histList"><div style="color:var(--text2);font-size:13px;padding:12px;text-align:center">아직 첨삭 기록이 없어요. 위에서 첫 영작을 시작해보세요!</div></div>
     </div>
   </div>
+
+  <!-- 📕 동화책 오버레이 -->
+  <div id="bookModal"></div>
 
   <!-- 복습 모달 (저장된 첨삭 클릭 시) -->
   <div id="reviewModal" style="display:none;position:fixed;inset:0;background:rgba(5,7,18,0.85);backdrop-filter:blur(8px);z-index:99000;padding:30px 14px;overflow-y:auto" onclick="if(event.target===this)closeReview()">
@@ -455,6 +485,169 @@
       } catch(e){}
     };
 
+    // ═══ 📸 오늘의 그림 글감 — 이모지 씬을 보고 영어로 묘사하기 ═══
+    const PIC_SCENES = [
+      { bg:'linear-gradient(180deg,#60a5fa,#bfdbfe)', items:[['🦖',6,32,80],['🏫',60,20,74],['🎒',46,64,40],['☁️',30,4,36],['🌳',85,54,48]], ko:'공룡이 학교에 왔어요! 무슨 일이 벌어질까?', starter:'One day, a dinosaur came to my school. ' },
+      { bg:'linear-gradient(180deg,#1e3a8a,#312e81)', items:[['🚀',40,18,72],['🌕',75,8,58],['⭐',15,15,30],['🪐',85,50,48],['👩‍🚀',18,55,56],['⭐',60,65,24]], ko:'우주로 떠나는 여행! 무엇이 보일까?', starter:'I am flying to space in my rocket. ' },
+      { bg:'linear-gradient(180deg,#38bdf8,#a5f3fc)', items:[['🏖️',10,58,64],['🦀',55,70,44],['⛱️',70,40,60],['🌊',30,75,50],['☀️',82,6,50]], ko:'신나는 바닷가! 오늘 뭐 하고 놀까?', starter:'I went to the beach with my family. ' },
+      { bg:'linear-gradient(180deg,#166534,#4ade80)', items:[['🦁',12,50,68],['🐘',60,45,72],['🦒',80,25,64],['🌴',35,15,52],['🦜',48,60,38]], ko:'정글 탐험! 어떤 동물을 만났을까?', starter:'In the jungle, I saw many animals. ' },
+      { bg:'linear-gradient(180deg,#7c3aed,#c4b5fd)', items:[['🏰',40,18,80],['🐉',10,45,64],['🧙',70,58,52],['✨',60,10,30],['🗡️',25,70,36]], ko:'마법의 성! 용과 마법사가 있어요.', starter:'Once upon a time, there was a magic castle. ' },
+      { bg:'linear-gradient(180deg,#f97316,#fed7aa)', items:[['🍕',15,30,64],['👨‍🍳',55,42,66],['🍰',78,25,48],['🥤',35,65,40],['🍔',70,68,44]], ko:'맛있는 레스토랑! 무엇을 주문할까?', starter:'I am at my favorite restaurant. ' },
+      { bg:'linear-gradient(180deg,#0c4a6e,#38bdf8)', items:[['🐠',20,30,50],['🐙',60,50,64],['🦈',80,20,58],['🐢',35,65,48],['🫧',50,10,32]], ko:'바닷속 세상! 물고기 친구들을 만나요.', starter:'Under the sea, I can see many fish. ' },
+      { bg:'linear-gradient(180deg,#374151,#9ca3af)', items:[['🤖',30,40,72],['⚙️',60,20,40],['💡',75,45,42],['🔧',15,68,36],['🖥️',68,65,46]], ko:'로봇 공장! 나만의 로봇을 만들어요.', starter:'I am building my own robot. ' },
+      { bg:'linear-gradient(180deg,#facc15,#fef9c3)', items:[['🎪',38,20,78],['🤡',15,55,56],['🎠',68,50,58],['🎈',85,15,40],['🍿',55,70,38]], ko:'서커스에 왔어요! 제일 재미있는 건 뭘까?', starter:'The circus came to town today. ' },
+      { bg:'linear-gradient(180deg,#0f766e,#5eead4)', items:[['⚽',20,55,54],['🥅',70,35,66],['🏆',85,10,44],['👟',40,72,36],['📣',10,20,40]], ko:'축구 경기! 우리 팀이 이길 수 있을까?', starter:'Today is the big soccer game. ' },
+      { bg:'linear-gradient(180deg,#be185d,#fbcfe8)', items:[['🎂',40,35,70],['🎁',15,60,54],['🎈',70,15,46],['🎉',80,55,44],['🕯️',55,60,32]], ko:'생일 파티! 소원을 빌어볼까?', starter:'It is my birthday party today. ' },
+      { bg:'linear-gradient(180deg,#4c1d95,#a78bfa)', items:[['🧟',15,45,58],['🏚️',55,25,72],['🌙',80,8,44],['🦇',35,12,34],['🕸️',75,55,40]], ko:'으스스한 유령의 집! 용감하게 들어가 볼까?', starter:'I walked into the spooky haunted house. ' },
+    ];
+    let _picIdx = -1;
+    function renderPic(idx) {
+      const sc = PIC_SCENES[idx];
+      _picIdx = idx;
+      const scene = document.getElementById('picScene');
+      scene.style.background = sc.bg;
+      scene.innerHTML = sc.items.map((it, i) =>
+        `<span class="pe" style="left:${it[1]}%;top:${it[2]}%;font-size:${it[3]}px;--rr:${(i%2? -6:6)}deg;animation-delay:${i*0.35}s">${it[0]}</span>`).join('');
+      document.getElementById('picCapTxt').textContent = '🖼 ' + sc.ko;
+    }
+    window.shufflePic = function(){
+      let n; do { n = Math.floor(Math.random() * PIC_SCENES.length); } while (n === _picIdx && PIC_SCENES.length > 1);
+      renderPic(n);
+    };
+    window.usePicPrompt = function(){
+      const sc = PIC_SCENES[_picIdx];
+      const ta = document.getElementById('text');
+      if (!ta.value.trim()) { ta.value = sc.starter; updateCharCount(); }
+      ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+      ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+    // 오늘의 그림은 하루 동안 고정 (KST 날짜 기반)
+    renderPic(Math.floor((Date.now() + 9*3600*1000) / 86400000) % PIC_SCENES.length);
+
+    // ═══ 🎤 말로 쓰기 — 브라우저 내장 음성인식 (영어) ═══
+    let _rec = null, _recOn = false;
+    window.toggleDictation = function(){
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const btn = document.getElementById('micBtn');
+      if (!SR) { alert('이 브라우저는 음성 입력을 지원하지 않아요. 크롬(Chrome)에서 사용해주세요!'); return; }
+      if (_recOn) { try { _rec.stop(); } catch(e){} return; }
+      _rec = new SR();
+      _rec.lang = 'en-US'; _rec.continuous = true; _rec.interimResults = false;
+      _rec.onresult = ev => {
+        let txt = '';
+        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+          if (ev.results[i].isFinal) txt += ev.results[i][0].transcript;
+        }
+        if (txt) {
+          const ta = document.getElementById('text');
+          ta.value = (ta.value ? ta.value.replace(/\s+$/, '') + ' ' : '') + txt.trim();
+          updateCharCount();
+        }
+      };
+      _rec.onend = () => { _recOn = false; btn.classList.remove('rec'); btn.innerHTML = '🎤 <span data-ko="말로 쓰기" data-en="Speak to write">말로 쓰기</span>'; };
+      _rec.onerror = () => { _recOn = false; btn.classList.remove('rec'); };
+      try {
+        _rec.start();
+        _recOn = true;
+        btn.classList.add('rec');
+        btn.innerHTML = '⏹ 말하는 중… (누르면 멈춤)';
+      } catch(e){}
+    };
+
+    // ═══ 🏅 작가 레벨 — 누적 편수로 승급 ═══
+    const WRITER_LEVELS = [
+      { min: 0,  icon: '🌱', name: '새싹 작가' },
+      { min: 5,  icon: '✏️', name: '꼬마 작가' },
+      { min: 15, icon: '📖', name: '이야기꾼' },
+      { min: 30, icon: '🏅', name: '소설가' },
+      { min: 60, icon: '👑', name: '베스트셀러 작가' },
+    ];
+    function renderWriterLevel(total) {
+      let cur = WRITER_LEVELS[0], next = null;
+      for (let i = 0; i < WRITER_LEVELS.length; i++) {
+        if (total >= WRITER_LEVELS[i].min) { cur = WRITER_LEVELS[i]; next = WRITER_LEVELS[i+1] || null; }
+      }
+      const el = document.getElementById('writerLevel');
+      let pct = 100, nextTxt = '최고 등급 달성! 👑';
+      if (next) {
+        const span = next.min - cur.min;
+        pct = Math.min(100, Math.round((total - cur.min) / span * 100));
+        nextTxt = `${next.icon} ${next.name}까지 ${next.min - total}편!`;
+      }
+      el.innerHTML = `
+        <div class="wlevel-head"><span style="font-size:22px">${cur.icon}</span> ${cur.name}
+          <span class="wlevel-next">${nextTxt}</span></div>
+        <div class="wlevel-bar"><div class="wlevel-fill" style="width:${pct}%"></div></div>`;
+      el.style.display = '';
+    }
+
+    // ═══ ✏️ 고쳐쓰기 미션 — 교정문을 직접 따라 쓰면 +5P ═══
+    let _lastCorrected = '';
+    const _norm = s => String(s || '').toLowerCase().replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, ' ').trim();
+    window.checkRewrite = async function(){
+      const inp = document.getElementById('rewriteInput');
+      const out = document.getElementById('rewriteResult');
+      if (!inp || !_lastCorrected) return;
+      if (_norm(inp.value) === _norm(_lastCorrected)) {
+        out.innerHTML = '<span class="rewrite-ok">🎉 완벽해요! 손으로 직접 쓰면 기억에 오래 남아요.</span>';
+        inp.disabled = true;
+        document.getElementById('rewriteCheckBtn').disabled = true;
+        fireConfetti();
+        // 로그인 사용자 +5P (하루 5회)
+        const uid = getUid();
+        if (uid && !uid.startsWith('guest_') && getToken()) {
+          try {
+            const r = await fetch('/api/points/earn-by-rule', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ user_id: uid, rule_code: 'ai_writing_rewrite', meta: { via: 'ai-write' } })
+            });
+            const d = await r.json();
+            if (d.ok && d.rule) showToast(`+${d.rule.amount}P 고쳐쓰기 완료!`);
+          } catch(e){}
+        }
+      } else {
+        out.innerHTML = '<span class="rewrite-diff">🤏 조금 달라요! 초록 문장을 잘 보고 다시 써보세요.</span>';
+      }
+    };
+
+    // ═══ 📕 내 동화책 만들기 — 전체화면 오버레이 + 인쇄/PDF (팝업 차단·앱 웹뷰에서도 안전) ═══
+    window.makeBook = function(){
+      if (!_allHistory.length) { alert('아직 글이 없어요! 첫 영작을 쓰고 나만의 동화책을 만들어보세요 📕'); return; }
+      let userName = '나';
+      try { const u = JSON.parse(localStorage.getItem('mango_user') || 'null'); if (u && (u.name || u.user_id)) userName = u.name || u.user_id; } catch(e){}
+      const items = _allHistory.slice(0, 30).slice().reverse();   // 오래된 글부터 1장씩
+      const ymd = new Date().toLocaleDateString('ko-KR');
+      const stars = sc => sc >= 90 ? '⭐⭐⭐⭐⭐' : sc >= 80 ? '⭐⭐⭐⭐' : sc >= 70 ? '⭐⭐⭐' : sc >= 60 ? '⭐⭐' : '⭐';
+      const pages = items.map((it, i) => {
+        const dt = new Date(it.created_at).toLocaleDateString('ko-KR');
+        return `<div class="book-pg">
+          <div class="pg-no">${i+1}</div>
+          <div class="pg-date">📅 ${dt} &nbsp; ${stars(it.score||0)}</div>
+          <div class="pg-en">${escapeHtml(it.corrected_text || it.original_text)}</div>
+          <div class="pg-orig"><b>내가 처음 쓴 글:</b> ${escapeHtml(it.original_text)}</div>
+        </div>`;
+      }).join('');
+      document.getElementById('bookModal').innerHTML = `
+        <div class="book-tools">
+          <button class="bk-print" onclick="window.print()">🖨 인쇄 / PDF 저장</button>
+          <button class="bk-close" onclick="closeBook()">✕ 닫기</button>
+        </div>
+        <div class="book-cover">
+          <img src="/img/mango-char.png" alt="망고">
+          <h1>📕 ${escapeHtml(userName)}의 영어 동화책</h1>
+          <div class="sub">My English Storybook · ${items.length}편 수록 · ${ymd}</div>
+          <div class="deco">✨🥭📝⭐🎉</div>
+        </div>
+        ${pages}`;
+      document.getElementById('bookModal').style.display = 'block';
+      document.body.classList.add('book-open');
+      document.getElementById('bookModal').scrollTop = 0;
+    };
+    window.closeBook = function(){
+      document.getElementById('bookModal').style.display = 'none';
+      document.body.classList.remove('book-open');
+    };
+
     let currentLevel = 'B1';
     document.querySelectorAll('.level-btn').forEach(btn => {
       btn.onclick = () => {
@@ -556,17 +749,30 @@
           <div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:6px">✅ 수정된 문장</div>
           <div class="corrected">${escapeHtml(d.corrected)}</div>
           ${issuesHtml ? '<div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:6px">⚠️ 발견된 점</div><div class="issues">' + issuesHtml + '</div>' : ''}
+          <div class="rewrite-box">
+            <div class="rewrite-head">✏️ 고쳐쓰기 미션 <span style="font-size:13px;color:var(--text2)">(+5P)</span></div>
+            <div class="rewrite-sub">위의 초록색 문장을 보고 그대로 따라 써보세요 — 직접 써야 진짜 내 실력이 돼요!</div>
+            <textarea id="rewriteInput" placeholder="여기에 수정된 문장을 따라 써보세요..."></textarea>
+            <div class="rewrite-actions">
+              <button class="rewrite-check" id="rewriteCheckBtn" onclick="checkRewrite()">✅ 다 썼어요!</button>
+              <span id="rewriteResult"></span>
+            </div>
+          </div>
           <div class="tip">💬 ${escapeHtml(d.tip || '')}</div>
           <div style="display:flex;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid rgba(148,163,184,0.18)">
             <button onclick="resetForm()" style="flex:1;padding:12px;background:linear-gradient(135deg,var(--gold),#f59e0b);color:#1a1a1a;border:0;border-radius:10px;font-weight:800;cursor:pointer;font-size:14px;font-family:inherit">🔄 <span data-ko="새 글 작성하기" data-en="Write New">새 글 작성하기</span></button>
             <button onclick="document.getElementById('histList').scrollIntoView({behavior:'smooth'})" style="padding:12px 18px;background:rgba(255,255,255,0.08);color:var(--text);border:1px solid rgba(255,255,255,0.18);border-radius:10px;font-weight:700;cursor:pointer;font-size:13px;font-family:inherit">📜 <span data-ko="기록 보기" data-en="History">기록 보기</span></button>
           </div>
         </div>`;
+      // ✏️ 고쳐쓰기 미션 대상 문장 기억
+      _lastCorrected = d.corrected || '';
       // 📚 미션 단어 사용 표시 (서버 판정 결과)
       if (d.mission_used) renderMission(d.mission_used);
       // 🎁 포인트/보너스/배지 축하
       if (d.points && d.points.amount) showToast(`+${d.points.amount}P ${d.points.label} (잔액 ${d.points.newBalance}P)`);
       if (d.mission_bonus && d.mission_bonus.amount) showToast(`🌟 +${d.mission_bonus.amount}P 미션 단어 달성!`, 'gold');
+      if (d.streak_bonus && d.streak_bonus.amount) showToast(`🔥 +${d.streak_bonus.amount}P ${d.streak_bonus.streak || 7}일 연속 영작 보너스!`, 'gold');
+      if (d.vocab_saved && d.vocab_saved.length) showToast(`📗 배운 표현 ${d.vocab_saved.length}개를 단어장에 저장했어요!`);
       (d.earned_badges || []).forEach((b, i) => setTimeout(() => showToast(`${b.icon} 새 배지: ${b.name}!`, 'badge'), 600 + i * 700));
       if (sc >= 90 || (d.earned_badges || []).length) fireConfetti();
       // 결과 표시 후 history/통계/랭킹 자동 갱신 (방금 저장된 항목 포함)
@@ -771,6 +977,8 @@
           d.best_score > 0 ? `<span class="hstat">🏅 최고 ${d.best_score}점</span>` : '',
         ].filter(Boolean).join('');
         hs.style.display = '';
+        // 🏅 작가 레벨 승급 바
+        renderWriterLevel(d.total || 0);
         // 성장 그래프 — 날짜별 평균점 SVG (기록 2일 이상일 때)
         const s = d.series || [];
         if (s.length >= 2) {
@@ -842,7 +1050,7 @@
     loadStats();
     loadLeaderboard();
   </script>
-<!-- BUILD:20260711033606 -->
+<!-- BUILD:20260711043605 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>
