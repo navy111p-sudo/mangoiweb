@@ -196,6 +196,20 @@
     font-family:inherit;text-decoration:underline dotted}
   .admin-pass:hover{opacity:1;color:var(--accent)}
 
+  /* ===== 🔫 게임 중 무기 선택 모달 (상단 🔫 버튼 → 12종 그리드에서 바로 선택) ===== */
+  #gunModal{position:absolute;inset:0;z-index:50;display:none;align-items:center;justify-content:center;background:rgba(6,10,20,.74)}
+  #gunModal.on{display:flex}
+  #gunModal .box{background:#0f172a;border:1px solid #33415a;border-radius:16px;padding:15px;max-width:340px;width:90%;box-shadow:0 18px 50px rgba(0,0,0,.6)}
+  #gunModal .box h3{margin:0 0 10px;color:#ffd34d;font-size:15px;text-align:center}
+  #gunModal .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+  #gunModal .gp2{background:rgba(255,255,255,.05);border:1.5px solid #2b3648;border-radius:11px;padding:7px 3px;cursor:pointer;font-family:inherit;color:#cfe0ff;display:flex;flex-direction:column;align-items:center;gap:4px}
+  #gunModal .gp2.sel{border-color:#ffd34d;background:rgba(251,191,36,.16)}
+  #gunModal .gp2:active{transform:scale(.94)}
+  #gunModal .gp2 .ic{width:34px;height:46px;background:50% 50%/contain no-repeat;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+  #gunModal .gp2 .nm{font-size:10.5px;font-weight:700}
+  #gunModal .pausenote{margin-top:8px;font-size:10.5px;color:var(--sub);text-align:center}
+  #gunModal .cls{margin-top:8px;width:100%;background:#ffd34d;color:#3a2e05;border:0;border-radius:10px;padding:9px;font-weight:800;font-family:inherit;cursor:pointer}
+
   /* ===== 모바일 세로 화면 최대 확대 — #field 가 남는 세로공간 전부, 몬스터 크게, 상단바 슬림 ===== */
   .hud{padding:7px 11px;gap:7px}
   .target{padding:7px 11px}
@@ -221,7 +235,7 @@
     <button class="gunbtn" id="backBtn" title="뒤로 가기">←</button>
     <div class="stat"><span class="lab">점수</span><span class="val" id="scoreVal">0</span></div>
     <span class="lvlpill" id="lvlPill">문장 1</span>
-    <button class="gunbtn" id="gunBtn" title="무기 바꾸기">🔫</button>
+    <button class="gunbtn" id="gunBtn" title="무기 선택 (12종 · 게임 중에도 변경 가능)">🔫</button>
     <div class="stat timer" id="timerBox"><span class="lab">남은 시간</span><span class="val" id="timerVal">60</span></div>
   </div>
 
@@ -441,7 +455,7 @@
     grenade:_svg('0 0 32 58', _GG+_GD, '<polygon points="10,44 22,44 18,58 14,58" fill="url(#d)"/><circle cx="16" cy="36" r="10.5" fill="url(#g)"/><circle cx="16" cy="36" r="10.5" fill="none" stroke="#2a3418" stroke-width="1"/><circle cx="16" cy="36" r="4.6" fill="#26331a"/><circle cx="16" cy="30" r="1.9" fill="#0e141c"/><circle cx="22" cy="36" r="1.9" fill="#0e141c"/><circle cx="16" cy="42" r="1.9" fill="#0e141c"/><circle cx="10" cy="36" r="1.9" fill="#0e141c"/><ellipse cx="12.5" cy="32" rx="3" ry="4" fill="#9bbf55" opacity=".4"/><rect x="10.8" y="4" width="10.4" height="24" rx="3.2" fill="url(#g)"/><rect x="11.8" y="5" width="1.8" height="22" rx=".8" fill="#cfe39a" opacity=".45"/><rect x="9.3" y="2" width="13.4" height="7" rx="3" fill="#2f3f1e"/><rect x="15" y="2.4" width="2" height="2.2" fill="#0a0d12"/><circle cx="16" cy="5" r="3.1" fill="#0a0d12"/><path d="M14 44 q3 0 3 5" fill="none" stroke="#0c1017" stroke-width="2.2"/>'),
     flame:_svg('0 0 30 66', _GM+_GO, '<path d="M20 40 q6 4 4 12" fill="none" stroke="#2c3644" stroke-width="2.2"/><polygon points="9,52 21,52 17,66 13,66" fill="#242e3b"/><rect x="7" y="33" width="16" height="25" rx="8" fill="url(#o)"/><rect x="8.5" y="35" width="3.4" height="20" rx="1.7" fill="#ffd0a0" opacity=".5"/><rect x="7.5" y="35.5" width="15" height="3" rx="1.5" fill="#7c2d12"/><rect x="7.5" y="46" width="15" height="3" rx="1.5" fill="#7c2d12"/><rect x="12.4" y="8" width="5.2" height="28" rx="2.2" fill="url(#m)"/><rect x="13.1" y="9" width="1.3" height="26" rx=".6" fill="#eef4fb" opacity=".4"/><rect x="10.3" y="30" width="9.4" height="5" rx="2" fill="#2c3644"/><rect x="17.6" y="11" width="2.4" height="6" rx="1" fill="#3b4452"/><circle cx="18.8" cy="10" r="1.4" fill="#fdba74"/><path d="M15 0 q4 6 1 11 q3 -1 1.4 -5.5 q3 4.5 -.6 9 q-4.8 -1 -3 -6.5 q-2.6 3.4 .2 6.4 q-4 -3.4 1 -14Z" fill="#fb923c"/><path d="M15 3 q2.6 4 .8 8 q-2.8 -2.2 -.8 -8Z" fill="#fde68a"/>')
   };
-  function gunDataUri(id){ var s=GUN_SVG[id]||GUN_SVG.pistol; return 'url("data:image/svg+xml;utf8,'+encodeURIComponent(s)+'")'; }
+  function gunDataUri(id){ var s=GUN_SVG[id]||GUN_SVG.pistol; return "url('data:image/svg+xml;utf8,"+encodeURIComponent(s)+"')"; }   // 작은따옴표 — HTML style 속성 안에서도 안전
 
   // ⚡ 게임 속도(난이도) 5단계 — ?speed=1..5 (허브 전달) > localStorage > 보통(3)
   var SPEED_LEVELS = [
@@ -1053,6 +1067,8 @@
     barrel.style.width=dim[0]+'px'; barrel.style.height=dim[1]+'px'; barrel.style.backgroundImage=gunDataUri(id);
     var picker=document.getElementById('gunPicker');
     if(picker) [].forEach.call(picker.children, function(b){ b.classList.toggle('sel', b.getAttribute('data-gun')===id); });
+    var gm=document.getElementById('gunModal');
+    if(gm) [].forEach.call(gm.querySelectorAll('.gp2'), function(b){ b.classList.toggle('sel', b.getAttribute('data-gun')===id); });
     var g=GUNS.find(function(x){ return x.id===id; });
     if(gunBtn) gunBtn.innerHTML = g.icon + '<span class="gl">'+g.name+'</span>';
   }
@@ -1066,10 +1082,37 @@
       picker.appendChild(b);
     });
   }
-  gunBtn.addEventListener('click', function(){
-    var i=GUNS.findIndex(function(g){ return g.id===curGun; });
-    setGun(GUNS[(i+1)%GUNS.length].id);
-  });
+  // ── 🔫 게임 중 무기 선택 모달 — 12종 그리드에서 바로 고름 (여는 동안 시간·몬스터 일시정지) ──
+  var _gunPausedByModal=false;
+  function buildGunModal(){
+    if(document.getElementById('gunModal')) return;
+    var m=document.createElement('div'); m.id='gunModal';
+    var html='<div class="box"><h3>🔫 무기 선택</h3><div class="grid">';
+    GUNS.forEach(function(g){
+      html+='<button class="gp2" data-gun="'+g.id+'"><span class="ic" style="background-image:'+gunDataUri(g.id)+'"></span><span class="nm">'+g.name+'</span></button>';
+    });
+    html+='</div><div class="pausenote">⏸ 고르는 동안 시간과 몬스터가 멈춰요</div><button class="cls">닫기 ✓</button></div>';
+    m.innerHTML=html; gameEl.appendChild(m);
+    [].forEach.call(m.querySelectorAll('.gp2'), function(b){
+      b.addEventListener('click', function(){ ensureCtx(); setGun(b.getAttribute('data-gun')); closeGunModal(); });
+    });
+    m.querySelector('.cls').addEventListener('click', closeGunModal);
+    m.addEventListener('click', function(e){ if(e.target===m) closeGunModal(); });
+  }
+  function openGunModal(){
+    buildGunModal();
+    var m=document.getElementById('gunModal'); if(!m) return;
+    [].forEach.call(m.querySelectorAll('.gp2'), function(b){ b.classList.toggle('sel', b.getAttribute('data-gun')===curGun); });
+    if(running){ _gunPausedByModal=true; running=false; clearInterval(timerId); cancelAnimationFrame(rafId); }   // ⏸ 시간·몬스터 정지
+    m.classList.add('on');
+  }
+  function closeGunModal(){
+    var m=document.getElementById('gunModal'); if(m) m.classList.remove('on');
+    if(_gunPausedByModal){ _gunPausedByModal=false; running=true; lastTs=0;                                       // ▶ 이어서 진행
+      clearInterval(timerId); timerId=setInterval(tick,1000);
+      cancelAnimationFrame(rafId); rafId=requestAnimationFrame(loop); }
+  }
+  gunBtn.addEventListener('click', function(){ ensureCtx(); openGunModal(); });
   buildGunPicker(); setGun(curGun);
   buildSpeedPicker(); setSpeed(speedLvl);
 
@@ -1105,6 +1148,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260710233504 -->
+<!-- BUILD:20260711000613 -->
 </body>
 </html>
