@@ -809,6 +809,9 @@ export default {
         path === '/api/vocab/list' ||
         path === '/api/vocab/due' ||
         path === '/api/vocab/review' ||
+        path === '/api/vocab/reward' ||
+        path === '/api/vocab/stats' ||
+        path === '/api/vocab/leaderboard' ||
         /^\/api\/vocab\/\d+$/.test(path) ||
         // 📄 Phase MR 월별 보고서 (HTML/PDF 페이지)
         /^\/api\/report\/monthly\/[^\/]+\/\d{4}-\d{2}$/.test(path) ||

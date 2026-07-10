@@ -7170,6 +7170,11 @@ Respond in JSON ONLY:
       { code: 'writing_30',        icon: '📖', name: '영작 작가',          name_en: 'Young Author',         desc: 'AI 영작 첨삭 30편 완성',       rule: 'writing_30' },
       { code: 'writing_90',        icon: '🏅', name: '영작 90점',          name_en: 'Writing Ace',          desc: 'AI 영작 첨삭 90점 이상',       rule: 'writing_90' },
       { code: 'writing_streak_7',  icon: '🖋️', name: '7일 연속 영작',      name_en: '7-Day Writer',         desc: '일주일 매일 영작하기',         rule: 'writing_streak_7' },
+      { code: 'vocab_first',       icon: '🌱', name: '첫 단어',            name_en: 'First Word',           desc: '나의 단어장에 첫 단어 추가',   rule: 'vocab_1' },
+      { code: 'vocab_50',          icon: '📚', name: '단어 수집가',        name_en: 'Word Collector',       desc: '단어 50개 수집',               rule: 'vocab_50' },
+      { code: 'vocab_review_100',  icon: '🧠', name: '복습 챔피언',        name_en: 'Review Champion',      desc: '단어 복습 100회 달성',         rule: 'vocab_review_100' },
+      { code: 'vocab_master_10',   icon: '🥇', name: '골드 카드 10장',     name_en: '10 Gold Cards',        desc: '단어 10개 마스터 (Lv5 이상)',  rule: 'vocab_master_10' },
+      { code: 'vocab_streak_7',    icon: '🔥', name: '7일 연속 복습',      name_en: '7-Day Reviewer',       desc: '일주일 매일 단어 복습',        rule: 'vocab_streak_7' },
       { code: 'points_1000',       icon: '💎', name: '포인트 1,000',       name_en: '1K Points',            desc: '누적 1,000 포인트',            rule: 'points_1000' },
       { code: 'points_5000',       icon: '👑', name: '포인트 5,000',       name_en: '5K Points',            desc: '누적 5,000 포인트',            rule: 'points_5000' },
       { code: 'monthly_top',       icon: '🏆', name: '월간 TOP',           name_en: 'Monthly TOP',          desc: '월간 학원 랭킹 TOP 3 진입',    rule: 'monthly_top' },
@@ -7231,6 +7236,30 @@ Respond in JSON ONLY:
         const p: any = await env.DB.prepare(`SELECT lifetime_earned FROM student_points WHERE user_id = ?`).bind(userId).first();
         if ((p?.lifetime_earned || 0) >= 1000) await award('points_1000');
         if ((p?.lifetime_earned || 0) >= 5000) await award('points_5000');
+      } catch {}
+
+      // 📚 나의 단어장 — 수집/마스터/복습 횟수/연속 복습일
+      try {
+        const vc: any = await env.DB.prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(CASE WHEN level >= 5 THEN 1 ELSE 0 END),0) AS m FROM vocabulary WHERE user_id = ?`).bind(userId).first();
+        if ((vc?.n || 0) >= 1) await award('vocab_first');
+        if ((vc?.n || 0) >= 50) await award('vocab_50');
+        if ((vc?.m || 0) >= 10) await award('vocab_master_10');
+        const vr: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM vocab_review_log WHERE user_id = ?`).bind(userId).first();
+        if ((vr?.n || 0) >= 100) await award('vocab_review_100');
+        if (!have.has('vocab_streak_7') && (vr?.n || 0) >= 7) {
+          const KST_OFF = 32400000;
+          const days: any = await env.DB.prepare(
+            `SELECT DISTINCT CAST((reviewed_at + ${KST_OFF}) / 86400000 AS INTEGER) AS d FROM vocab_review_log WHERE user_id = ? ORDER BY d DESC LIMIT 60`
+          ).bind(userId).all();
+          const ds = ((days.results || []) as any[]).map(r => Number(r.d));
+          const todayD = Math.floor((now + KST_OFF) / 86400000);
+          let streak = 0;
+          if (ds.length && (ds[0] === todayD || ds[0] === todayD - 1)) {
+            streak = 1;
+            for (let i = 1; i < ds.length && ds[i] === ds[i - 1] - 1; i++) streak++;
+          }
+          if (streak >= 7) await award('vocab_streak_7');
+        }
       } catch {}
 
       // ✍️ AI 영작 첨삭 — 편수/최고점/연속일 (KST 날짜 기준)
@@ -7791,7 +7820,13 @@ Respond in JSON ONLY:
     const ensureVocab = async () => {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS vocabulary (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, word TEXT NOT NULL, korean TEXT, example TEXT, level INTEGER DEFAULT 0, next_review_at INTEGER NOT NULL, last_reviewed_at INTEGER, correct_count INTEGER DEFAULT 0, wrong_count INTEGER DEFAULT 0, created_at INTEGER NOT NULL);`);
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_vocab_user_review ON vocabulary(user_id, next_review_at ASC)`); } catch {}
+      // 게이미피케이션: 복습 이력(스트릭/미션/랭킹 계산용) + 포인트 지급 멱등 기록
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS vocab_review_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, vocab_id INTEGER, correct INTEGER NOT NULL, reviewed_at INTEGER NOT NULL);`);
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_vocab_log_user ON vocab_review_log(user_id, reviewed_at DESC)`); } catch {}
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS vocab_rewards (award_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, kind TEXT, amount INTEGER NOT NULL, created_at INTEGER NOT NULL);`);
     };
+    // KST 기준 일수 (스트릭/일일미션 경계)
+    const vocabKstDay = (t: number) => Math.floor((t + 32400000) / 86400000);
 
     // ── POST /api/vocab/add — 단어 추가 (AI 가 자동으로 한국어/예문 생성) ──
     if (method === 'POST' && path === '/api/vocab/add') {
@@ -7853,7 +7888,7 @@ Respond in JSON ONLY:
       const id = parseInt(b.id, 10);
       const correct = !!b.correct;
       if (!id) return json({ ok: false, error: 'id_required' }, 400);
-      const row: any = await env.DB.prepare(`SELECT level, correct_count, wrong_count FROM vocabulary WHERE id = ?`).bind(id).first();
+      const row: any = await env.DB.prepare(`SELECT user_id, level, correct_count, wrong_count FROM vocabulary WHERE id = ?`).bind(id).first();
       if (!row) return json({ ok: false, error: 'not_found' }, 404);
       // 간격 반복: 정답 시 level+1, 오답 시 level=0 으로 리셋
       const newLevel = correct ? Math.min((row.level || 0) + 1, 7) : 0;
@@ -7864,7 +7899,117 @@ Respond in JSON ONLY:
       const next = now + nextDays * 86400000;
       await env.DB.prepare(`UPDATE vocabulary SET level = ?, next_review_at = ?, last_reviewed_at = ?, correct_count = correct_count + ?, wrong_count = wrong_count + ? WHERE id = ?`)
         .bind(newLevel, next, now, correct ? 1 : 0, correct ? 0 : 1, id).run();
+      // 스트릭/미션/랭킹 계산용 이력 (실패해도 복습 자체는 성공)
+      try {
+        await env.DB.prepare(`INSERT INTO vocab_review_log (user_id, vocab_id, correct, reviewed_at) VALUES (?,?,?,?)`)
+          .bind(row.user_id, id, correct ? 1 : 0, now).run();
+      } catch {}
       return json({ ok: true, new_level: newLevel, next_review_in_days: nextDays });
+    }
+
+    // ── POST /api/vocab/reward — 복습 포인트 적립 (멱등, 서버가 금액 계산/상한) ──
+    //   body: { user_id, student_name?, kind: 'session'|'mission'|'speak', correct_count?, bonus?, session_id? }
+    //   session: 정답당 10P + 콤보보너스(상한), mission: 하루 10단어 복습 시 50P (1일 1회), speak: 따라말하기 성공 20P
+    if (method === 'POST' && path === '/api/vocab/reward') {
+      await ensureVocab();
+      const b: any = await request.json().catch(() => ({}));
+      const uid = String(b.user_id || '').trim();
+      const kind = String(b.kind || '').trim();
+      if (!uid || !['session', 'mission', 'speak'].includes(kind)) return json({ ok: false, error: 'user_id_and_valid_kind_required' }, 400);
+      const now = Date.now();
+      const today = vocabKstDay(now);
+      const dayStart = today * 86400000 - 32400000;
+
+      let amount = 0;
+      let awardId = '';
+      if (kind === 'mission') {
+        // 오늘 실제로 10단어 이상 복습했는지 서버에서 검증
+        const c: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM vocab_review_log WHERE user_id = ? AND reviewed_at >= ?`).bind(uid, dayStart).first();
+        if ((c?.n || 0) < 10) return json({ ok: false, error: 'mission_not_complete', reviewed: c?.n || 0 }, 400);
+        amount = 50;
+        awardId = `vocab:mission:${uid}:${today}`;
+      } else if (kind === 'speak') {
+        amount = 20;
+        awardId = `vocab:speak:${uid}:${String(b.session_id || now)}`;
+      } else {
+        const correct = Math.max(0, Math.min(parseInt(b.correct_count, 10) || 0, 20));
+        const bonus = Math.max(0, Math.min(parseInt(b.bonus, 10) || 0, correct * 5)); // 콤보보너스 ≤ 정답×5P
+        amount = correct * 10 + bonus;
+        if (amount <= 0) return json({ ok: true, awarded: 0 });
+        awardId = `vocab:session:${uid}:${String(b.session_id || now)}`;
+      }
+      // 일일 상한 400P (미션 50P 별도) — 무한 파밍 방지
+      if (kind !== 'mission') {
+        const s: any = await env.DB.prepare(`SELECT COALESCE(SUM(amount),0) AS t FROM vocab_rewards WHERE user_id = ? AND created_at >= ? AND kind != 'mission'`).bind(uid, dayStart).first();
+        const remain = Math.max(0, 400 - (s?.t || 0));
+        amount = Math.min(amount, remain);
+        if (amount <= 0) return json({ ok: true, awarded: 0, daily_cap: true });
+      }
+      // 멱등: 같은 award_id 는 1회만
+      const ins = await env.DB.prepare(`INSERT OR IGNORE INTO vocab_rewards (award_id, user_id, kind, amount, created_at) VALUES (?,?,?,?,?)`)
+        .bind(awardId, uid, kind, amount, now).run();
+      if (!ins.meta || (ins.meta as any).changes === 0) return json({ ok: true, awarded: 0, duplicate: true });
+      // 학생 전체 포인트(student_points → 기프트콘 경제)에 적립
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_points (user_id TEXT PRIMARY KEY, student_name TEXT, balance INTEGER DEFAULT 0, lifetime_earned INTEGER DEFAULT 0, lifetime_spent INTEGER DEFAULT 0, last_earned_at INTEGER, last_spent_at INTEGER, updated_at INTEGER);`);
+      const sname = String(b.student_name || '').trim() || uid;
+      await env.DB.prepare(`INSERT INTO student_points (user_id, student_name, balance, lifetime_earned, last_earned_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET balance = balance + ?, lifetime_earned = lifetime_earned + ?, last_earned_at = ?, updated_at = ?`)
+        .bind(uid, sname, amount, amount, now, now, amount, amount, now, now).run();
+      const bal: any = await env.DB.prepare(`SELECT balance FROM student_points WHERE user_id = ?`).bind(uid).first();
+      return json({ ok: true, awarded: amount, kind, balance: bal?.balance || amount });
+    }
+
+    // ── GET /api/vocab/stats?uid=X — 게임 대시보드 (스트릭/미션/성장/오늘포인트) ──
+    if (method === 'GET' && path === '/api/vocab/stats') {
+      await ensureVocab();
+      const uid = (url.searchParams.get('uid') || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      const now = Date.now();
+      const today = vocabKstDay(now);
+      const dayStart = today * 86400000 - 32400000;
+      const tot: any = await env.DB.prepare(`SELECT COUNT(*) AS total, COALESCE(SUM(CASE WHEN level >= 5 THEN 1 ELSE 0 END),0) AS mastered, COALESCE(SUM(correct_count),0) AS lifetime_correct FROM vocabulary WHERE user_id = ?`).bind(uid).first();
+      const td: any = await env.DB.prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(correct),0) AS c FROM vocab_review_log WHERE user_id = ? AND reviewed_at >= ?`).bind(uid, dayStart).first();
+      const pt: any = await env.DB.prepare(`SELECT COALESCE(SUM(amount),0) AS t FROM vocab_rewards WHERE user_id = ? AND created_at >= ?`).bind(uid, dayStart).first();
+      const mi: any = await env.DB.prepare(`SELECT award_id FROM vocab_rewards WHERE award_id = ?`).bind(`vocab:mission:${uid}:${today}`).first();
+      // 연속 복습일: KST 일수 DISTINCT 역방향 (오늘 또는 어제부터 이어진 만큼)
+      let streak = 0;
+      try {
+        const days: any = await env.DB.prepare(`SELECT DISTINCT CAST((reviewed_at + 32400000) / 86400000 AS INTEGER) AS d FROM vocab_review_log WHERE user_id = ? ORDER BY d DESC LIMIT 90`).bind(uid).all();
+        const ds = ((days.results || []) as any[]).map(r => Number(r.d));
+        if (ds.length && (ds[0] === today || ds[0] === today - 1)) {
+          streak = 1;
+          for (let i = 1; i < ds.length && ds[i] === ds[i - 1] - 1; i++) streak++;
+        }
+      } catch {}
+      return json({
+        ok: true,
+        total_words: tot?.total || 0,
+        mastered: tot?.mastered || 0,
+        lifetime_correct: tot?.lifetime_correct || 0,
+        today_reviewed: td?.n || 0,
+        today_correct: td?.c || 0,
+        points_today: pt?.t || 0,
+        mission_done: !!mi,
+        streak_days: streak,
+      });
+    }
+
+    // ── GET /api/vocab/leaderboard?uid=X — 주간 단어왕 (최근 7일 정답 수 TOP 10 + 내 순위) ──
+    if (method === 'GET' && path === '/api/vocab/leaderboard') {
+      await ensureVocab();
+      const uid = (url.searchParams.get('uid') || '').trim();
+      const since = Date.now() - 7 * 86400000;
+      const rs = await env.DB.prepare(
+        `SELECT l.user_id, COALESCE(sp.student_name, l.user_id) AS name, SUM(l.correct) AS correct_count, COUNT(*) AS review_count
+         FROM vocab_review_log l LEFT JOIN student_points sp ON sp.user_id = l.user_id
+         WHERE l.reviewed_at >= ? GROUP BY l.user_id HAVING SUM(l.correct) > 0
+         ORDER BY correct_count DESC, review_count DESC LIMIT 50`
+      ).bind(since).all();
+      const rows = (rs.results || []) as any[];
+      const top = rows.slice(0, 10).map((r, i) => ({ rank: i + 1, user_id: r.user_id, name: r.name, correct: r.correct_count, reviews: r.review_count, me: r.user_id === uid }));
+      let myRank = null, myCorrect = 0;
+      const idx = rows.findIndex(r => r.user_id === uid);
+      if (idx >= 0) { myRank = idx + 1; myCorrect = rows[idx].correct_count; }
+      return json({ ok: true, top, my_rank: myRank, my_correct: myCorrect, total_players: rows.length });
     }
 
     // ── DELETE /api/vocab/:id — 단어 삭제 ──
