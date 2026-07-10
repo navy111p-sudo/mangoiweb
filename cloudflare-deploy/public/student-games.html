@@ -1178,6 +1178,7 @@ function _hubIframeSrc(g){
   var sentence = (GAME_LANG==='zh' && pick.words && pick.words.length) ? pick.words.join(' ') : pick.en;
   var src = g.src(sentence);
   src += (src.indexOf('?')>=0?'&':'?') + 'speed=' + _speedLvl + '&goal=10&stage=' + GAME_STAGE + '&glang=' + GAME_LANG;
+  if(pick.ko) src += '&ko=' + encodeURIComponent(pick.ko);   // 말하기 미션 카드 '문장 탭 → 한국어 뜻'용
   try{ var uid = window.MangoiGameVocab && MangoiGameVocab.getUserId(); if(uid) src += '&uid=' + encodeURIComponent(uid); }catch(_){}
   return src;
 }
@@ -1929,7 +1930,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260711060039 -->
+<!-- BUILD:20260711060914 -->
 <script defer src="/js/flow.js"></script>
 </body>
 </html>

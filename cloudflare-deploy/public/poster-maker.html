@@ -305,11 +305,14 @@ function render(){
 }
 function renderMedia(){
   const box=$('.p-media'); const t=mediaState.type;
-  if(t==='none'){ box.style.display='none'; box.innerHTML=''; return; }
+  // innerHTML= 는 i18n 스크립트가 로드 직후 자식 노드를 옮기면 NotFoundError 를 던짐(레이스)
+  // → replaceChildren(안전 비우기) + insertAdjacentHTML 로 교체
+  const setHTML=(html)=>{ try{ box.replaceChildren(); }catch(e){} if(html) box.insertAdjacentHTML('beforeend', html); };
+  if(t==='none'){ box.style.display='none'; setHTML(''); return; }
   box.style.display='block';
-  if(t==='youtube') box.innerHTML=`<iframe src="https://www.youtube.com/embed/${mediaState.yt}" allowfullscreen></iframe>`;
-  else if(t==='image') box.innerHTML=mediaState.img?`<img src="${mediaState.img}">`:placeholder('이미지 업로드');
-  else if(t==='video') box.innerHTML=mediaState.vid?`<video src="${mediaState.vid}" controls muted playsinline></video>`:placeholder('mp4 업로드');
+  if(t==='youtube') setHTML(`<iframe src="https://www.youtube.com/embed/${mediaState.yt}" allowfullscreen></iframe>`);
+  else if(t==='image') setHTML(mediaState.img?`<img src="${mediaState.img}">`:placeholder('이미지 업로드'));
+  else if(t==='video') setHTML(mediaState.vid?`<video src="${mediaState.vid}" controls muted playsinline></video>`:placeholder('mp4 업로드'));
 }
 const placeholder=txt=>`<div style="aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.15);font-size:.8em;font-weight:700">${txt}</div>`;
 
@@ -346,7 +349,7 @@ function exportPng(){
   img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
 }
 $('#dlHtml').onclick=()=>{
-  const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${$('#fTitle').value}</title><style>body{margin:0;background:#111;display:flex;justify-content:center;align-items:center;min-height:100vh}#poster{max-width:${state.w}px;width:100%}</style></head><body>${poster.outerHTML.replace('style="height','style="aspect-ratio:'+state.w+'/'+state.h+';height')}<!-- BUILD:20260711060039 -->
+  const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${$('#fTitle').value}</title><style>body{margin:0;background:#111;display:flex;justify-content:center;align-items:center;min-height:100vh}#poster{max-width:${state.w}px;width:100%}</style></head><body>${poster.outerHTML.replace('style="height','style="aspect-ratio:'+state.w+'/'+state.h+';height')}<!-- BUILD:20260711060914 -->
 </body></html>`;
   const blob=new Blob([html],{type:'text/html'}); const a=document.createElement('a');
   a.download='mangoi-poster.html'; a.href=URL.createObjectURL(blob); a.click(); toast('웹 포스터(HTML)로 저장했습니다 ✅');
@@ -441,6 +444,6 @@ window.addEventListener('load',render);
 render();
 requestAnimationFrame(render);
 </script>
-<!-- BUILD:20260711060039 -->
+<!-- BUILD:20260711060914 -->
 </body>
 </html>

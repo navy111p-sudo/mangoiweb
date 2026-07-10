@@ -186,8 +186,12 @@
 
   /* ===== 🎤 말하기 미션 (Mastery Loop — 슈팅+말하기 융합) ===== */
   .say{font-size:20px;font-weight:800;color:#fff;background:rgba(255,255,255,.06);border:1px solid var(--line);
-    border-radius:12px;padding:14px;margin:6px 0 12px;line-height:1.5}
-  .say .ko{display:block;font-size:12px;color:var(--sub);font-weight:600;margin-top:6px}
+    border-radius:12px;padding:14px;margin:6px 0 12px;line-height:1.5;cursor:pointer;-webkit-tap-highlight-color:rgba(255,255,255,.08)}
+  /* 한국어 뜻: 평소엔 숨기고 문장을 누르면 표시 (👆 탭 토글) */
+  .say .ko{display:none;font-size:12px;color:#8fd3ff;font-weight:700;margin-top:8px}
+  .say.show-ko .ko{display:block}
+  .say .kohint{display:block;font-size:11.5px;color:var(--sub);opacity:.7;font-weight:600;margin-top:8px}
+  .say.show-ko .kohint{display:none}
   .stars{font-size:30px;letter-spacing:4px;margin:6px 0 4px}
   .stars .s{opacity:.25;transition:.2s;display:inline-block}
   .stars .s.on{opacity:1;animation:starPop .35s}
@@ -304,7 +308,7 @@
   <div class="overlay" id="speakOverlay" style="display:none">
     <div class="card">
       <h1>🎤 말하기 미션 <span class="em">3회</span></h1>
-      <div class="say" id="speakText">—<span class="ko" id="speakKo"></span></div>
+      <div class="say" id="speakText">—<span class="ko" id="speakKo"></span><span class="kohint">👆 문장을 누르면 한국어 뜻이 보여요</span></div>
       <button class="listen" id="listenAgain" title="원어민 발음 다시 듣기">🔊 다시 듣기</button>
       <div class="stars" id="stars"><span class="s">★</span><span class="s">★</span><span class="s">★</span></div>
       <div class="mission-status" id="missionStatus">아래 버튼을 누르고 또렷하게 문장을 말하세요.</div>
@@ -404,6 +408,9 @@
     "My family went to the beach last summer.":"우리 가족은 지난여름 해변에 갔어요.",
     "She wants to be a famous scientist someday.":"그녀는 언젠가 유명한 과학자가 되고 싶어해요."
   };
+  // 허브/수업패널이 ?ko= 로 함께 넘긴 한국어 뜻 등록 (말하기 카드 탭 토글에서 사용)
+  try{ var _koQp=new URLSearchParams(location.search), _koV=(_koQp.get('ko')||'').trim(), _koS=(_koQp.get('sentence')||'').trim();
+    if(_koS && _koV) KO[_koS]=_koV; }catch(e){}
   // 📚 로그인 학생의 교재/레벨 맞춤 문장으로 교체 (영어 모드에서만 — 중국어는 허브가 넘긴 중국어 문장 사용)
   try{
     if(window.MangoiGameVocab && GLANG!=='zh'){
@@ -811,6 +818,7 @@
     var s=missionSentence();
     speakTextEl.firstChild.nodeValue=s;
     speakKoEl.textContent=KO[s]||'';
+    speakTextEl.classList.remove('show-ko');   // 새 문장은 다시 원문만 (탭하면 한국어 뜻)
     renderStars();
     micBtn.disabled=true; micBtn.classList.remove('listening'); micBtn.innerHTML='🔊 듣는 중…';
     missionStatus.innerHTML='먼저 원어민 발음을 잘 들어보세요 🎧';
@@ -881,6 +889,24 @@
   document.getElementById('listenAgain').addEventListener('click', function(){
     if(recogActive){ try{ recog.stop(); }catch(e){} }
     speakSentence();
+  });
+  // 👆 문장 탭 → 한국어 뜻 토글. 뜻을 모르는 문장은 서버 번역(/api/translate) 폴백 후 캐시
+  speakTextEl.addEventListener('click', function(){
+    if(speakTextEl.classList.contains('show-ko')){ speakTextEl.classList.remove('show-ko'); return; }
+    speakTextEl.classList.add('show-ko');
+    if(!speakKoEl.textContent){
+      var s = missionSentence();
+      speakKoEl.textContent = '…';
+      fetch('/api/translate', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ texts:[s], target:'ko' }) })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          var t = d && d.map && d.map[s];
+          if(t && t !== s){ KO[s] = t; if(missionSentence() === s) speakKoEl.textContent = t; }
+          else if(missionSentence() === s){ speakKoEl.textContent = '(번역을 불러오지 못했어요)'; }
+        })
+        .catch(function(){ if(missionSentence() === s) speakKoEl.textContent = '(번역을 불러오지 못했어요)'; });
+    }
   });
 
   // ===== 라운드 =====
@@ -1270,6 +1296,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711060039 -->
+<!-- BUILD:20260711060914 -->
 </body>
 </html>

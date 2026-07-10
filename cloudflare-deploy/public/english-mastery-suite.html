@@ -346,7 +346,12 @@
   .card h2 .em{color:var(--gold)}
   .card .say{font-size:20px;font-weight:800;color:#fff;background:rgba(255,255,255,.06);border:1px solid var(--line);
     border-radius:12px;padding:14px;margin:6px 0 12px;line-height:1.5}
-  .card .say .ko{display:block;font-size:12px;color:var(--sub);font-weight:600;margin-top:6px}
+  /* 한국어 뜻: 평소엔 숨기고 문장을 누르면 표시 (👆 탭 토글) */
+  .card .say{cursor:pointer;-webkit-tap-highlight-color:rgba(255,255,255,.08)}
+  .card .say .ko{display:none;font-size:12px;color:#8fd3ff;font-weight:700;margin-top:8px}
+  .card .say.show-ko .ko{display:block}
+  .card .say .kohint{display:block;font-size:11.5px;color:var(--sub);opacity:.7;font-weight:600;margin-top:8px}
+  .card .say.show-ko .kohint{display:none}
   .stars{font-size:30px;letter-spacing:4px;margin:6px 0 4px}
   .stars .s{opacity:.25;transition:.2s}
   .stars .s.on{opacity:1;animation:starPop .35s}
@@ -379,7 +384,8 @@
   #speakOverlay .card{width:min(96%,600px);padding:28px 26px}
   #speakOverlay .card h2{font-size:27px;margin-bottom:10px}
   #speakOverlay .card .say{font-size:clamp(24px,3.6vmin,34px);padding:18px 16px;line-height:1.55}
-  #speakOverlay .card .say .ko{font-size:16px;margin-top:8px}
+  #speakOverlay .card .say .ko{font-size:18px;margin-top:10px}
+  #speakOverlay .card .say .kohint{font-size:14px}
   #speakOverlay .stars{font-size:40px;letter-spacing:6px;margin:8px 0 6px}
   #speakOverlay .mission-status{font-size:17px;min-height:46px;margin:6px 0 12px}
   #speakOverlay .mic-btn{font-size:21px;padding:18px 26px;border-radius:16px}
@@ -532,7 +538,7 @@
   <div class="overlay" id="speakOverlay">
     <div class="card">
       <h2>🎤 말하기 미션 <span class="em">3회</span></h2>
-      <div class="say" id="speakText">—<span class="ko" id="speakKo"></span></div>
+      <div class="say" id="speakText">—<span class="ko" id="speakKo"></span><span class="kohint">👆 문장을 누르면 한국어 뜻이 보여요</span></div>
       <button class="listen-again" id="listenAgain" title="원어민 발음 다시 듣기">🔊 다시 듣기</button>
       <div class="stars" id="stars"><span class="s">★</span><span class="s">★</span><span class="s">★</span></div>
       <div class="mission-status" id="missionStatus">아래 버튼을 누르고 또렷하게 문장을 말하세요.</div>
@@ -595,6 +601,14 @@
     "我 爱 你", "你 好 吗", "我 是 学生", "今天 天气 很 好", "我 喜欢 吃 苹果",
     "他 每天 去 学校", "这 是 我的 朋友", "我 想 喝 水", "我们 一起 学习 汉语"
   ];
+  // 🈶 중국어 프리셋 한국어 뜻 — 말하기 미션 카드에서 문장을 누르면 표시
+  var ZH_KO = {
+    "我 爱 你":"사랑해요", "你 好 吗":"잘 지내요?", "我 是 学生":"나는 학생이에요",
+    "今天 天气 很 好":"오늘 날씨가 참 좋아요", "我 喜欢 吃 苹果":"나는 사과 먹는 걸 좋아해요",
+    "他 每天 去 学校":"그는 매일 학교에 가요", "这 是 我的 朋友":"이 사람은 내 친구예요",
+    "我 想 喝 水":"물을 마시고 싶어요", "我们 一起 学习 汉语":"우리 함께 중국어를 공부해요"
+  };
+  for(var _zk in ZH_KO){ KO[_zk] = ZH_KO[_zk]; }
 
   /* ── 🎯 목표: 정답 단어 10개 → 결과 화면 (문장을 이어가며 채움) ── */
   var GOAL = (function(){ try{ var g=parseInt(new URLSearchParams(location.search).get('goal'),10); return (g>=3&&g<=50)?g:10; }catch(e){ return 10; } })();
@@ -939,6 +953,7 @@
     onMissionDone = done; onSpeakSuccess = onScore || null; speakCount=0; speakAwarded=0; audioPlayed=false;
     speakTextEl.firstChild.nodeValue = targetSentence;
     speakKoEl.textContent = KO[targetSentence] || '';
+    speakTextEl.classList.remove('show-ko');   // 새 문장은 다시 중국어/영어만 (탭하면 한국어 뜻)
     renderStars();
     micBtn.disabled = true;
     micBtn.classList.remove('listening');
@@ -1045,6 +1060,25 @@
   $('#listenAgain').addEventListener('click', function(){
     if(recogActive){ try{ recog.stop(); }catch(e){} }
     speakSentence();
+  });
+
+  // 👆 문장 탭 → 한국어 뜻 토글. 뜻을 모르는 문장은 서버 번역(/api/translate) 폴백 후 캐시
+  speakTextEl.addEventListener('click', function(){
+    if(speakTextEl.classList.contains('show-ko')){ speakTextEl.classList.remove('show-ko'); return; }
+    speakTextEl.classList.add('show-ko');
+    if(!speakKoEl.textContent){
+      var s = targetSentence;
+      speakKoEl.textContent = '…';
+      fetch('/api/translate', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ texts:[s], target:'ko' }) })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          var t = d && d.map && d.map[s];
+          if(t && t !== s){ KO[s] = t; if(targetSentence === s) speakKoEl.textContent = t; }
+          else if(targetSentence === s){ speakKoEl.textContent = '(번역을 불러오지 못했어요)'; }
+        })
+        .catch(function(){ if(targetSentence === s) speakKoEl.textContent = '(번역을 불러오지 못했어요)'; });
+    }
   });
 
   // Teacher-in-the-Loop: 수동 통과 (악센트/마이크 이슈 대응)
@@ -1744,6 +1778,8 @@
     var qs = new URLSearchParams(location.search);
     var qS = qs.get('sentence') || qs.get('s');
     if(qS) applySentence(qS);                 // URLSearchParams 가 이미 디코드함
+    var qKo = (qs.get('ko')||'').trim();      // 허브/수업패널이 함께 넘긴 한국어 뜻 → 탭 토글에서 사용
+    if(qS && qKo) KO[qS.trim().replace(/\s+/g,' ')] = qKo;
     var qGame = qs.get('game');
     if(qGame==='shoot' || qGame==='fish'){    // 임베드 딥링크 → 바로 진입
       setTimeout(function(){ launchGame(qGame); }, 0);
@@ -1780,6 +1816,6 @@
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711060039 -->
+<!-- BUILD:20260711060914 -->
 </body>
 </html>

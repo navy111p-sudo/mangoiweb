@@ -4021,12 +4021,13 @@ Return STRICT JSON only, in BOTH Korean and English:
       }
       const dbg: any = { ai: !!ai, need: need.length, raw: null, err: null };
       // 번역 전용 모델 m2m100 (LLM 프롬프트보다 안정적). 텍스트별 번역.
-      const srcLang = target === 'en' ? 'korean' : 'english';
+      // 원문 언어 감지: 한자(중국어 게임 문장)면 chinese — english 고정이면 중→한 번역이 깨짐
+      const srcOf = (s: string) => /[一-鿿]/.test(s) ? 'chinese' : (target === 'en' ? 'korean' : 'english');
       const tgtLang = target === 'en' ? 'english' : 'korean';
       if (need.length && ai) {
         for (const t of need) {
           try {
-            const resp: any = await ai.run('@cf/meta/m2m100-1.2b', { text: t, source_lang: srcLang, target_lang: tgtLang });
+            const resp: any = await ai.run('@cf/meta/m2m100-1.2b', { text: t, source_lang: srcOf(t), target_lang: tgtLang });
             if (dbg.raw == null) dbg.raw = JSON.stringify(resp).slice(0, 300);
             const out = (resp && typeof resp.translated_text === 'string' && resp.translated_text.trim()) ? String(resp.translated_text) : t;
             map[t] = out;

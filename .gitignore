@@ -21,3 +21,8 @@ _trash_*/
 
 # 서빙 자산 폴더에 백업(.bak) 재유입 방지 (2026-06)
 cloudflare-deploy/public/**/*.bak*
+
+# 검사·테스트 생성 산출물 (2026-07-11 정리)
+cloudflare-deploy/.wrangler-drycheck/
+test_report.html
+qs.student.result.json
