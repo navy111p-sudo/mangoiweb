@@ -1199,146 +1199,145 @@
       })();
       </script>
 
-      <!-- KPI 4개 -->
+      <!-- 📊 이번 달 내 수업 KPI (실데이터 — computeLessonFeeMonth 재사용) -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:14px">
         <div style="padding:12px 14px;background:rgba(56,189,248,0.10);border:1px solid rgba(56,189,248,0.35);border-radius:10px">
           <div style="font-size:10.5px;color:#7dd3fc;font-weight:700" data-ko="📅 이번 주 수업" data-en="📅 This week">📅 이번 주 수업</div>
-          <div style="font-size:18px;font-weight:900;color:#fff;margin-top:2px" data-ko="3 / 3회" data-en="3 / 3">3 / 3회</div>
+          <div id="tw-kpi-week" style="font-size:18px;font-weight:900;color:#fff;margin-top:2px">—</div>
         </div>
         <div style="padding:12px 14px;background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.35);border-radius:10px">
-          <div style="font-size:10.5px;color:#86efac;font-weight:700" data-ko="✅ 출석률" data-en="✅ Attendance">✅ 출석률</div>
-          <div style="font-size:18px;font-weight:900;color:#fff;margin-top:2px">96%</div>
+          <div style="font-size:10.5px;color:#86efac;font-weight:700" data-ko="✅ 이번 달 완료" data-en="✅ Done this month">✅ 이번 달 완료</div>
+          <div id="tw-kpi-done" style="font-size:18px;font-weight:900;color:#fff;margin-top:2px">—</div>
         </div>
-        <div style="padding:12px 14px;background:rgba(251,191,36,0.10);border:1px solid rgba(251,191,36,0.35);border-radius:10px">
-          <div style="font-size:10.5px;color:#fcd34d;font-weight:700" data-ko="📊 누적 수업" data-en="📊 Total classes">📊 누적 수업</div>
-          <div style="font-size:18px;font-weight:900;color:#fff;margin-top:2px" data-ko="48회" data-en="48">48회</div>
+        <div style="padding:12px 14px;background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.35);border-radius:10px">
+          <div style="font-size:10.5px;color:#fca5a5;font-weight:700" data-ko="🙅 학생 결석" data-en="🙅 Student absent">🙅 학생 결석</div>
+          <div id="tw-kpi-absent" style="font-size:18px;font-weight:900;color:#fff;margin-top:2px">—</div>
         </div>
         <div style="padding:12px 14px;background:rgba(167,139,250,0.10);border:1px solid rgba(167,139,250,0.35);border-radius:10px">
-          <div style="font-size:10.5px;color:#c4b5fd;font-weight:700" data-ko="🎫 남은 회차" data-en="🎫 Remaining">🎫 남은 회차</div>
-          <div style="font-size:18px;font-weight:900;color:#fff;margin-top:2px" data-ko="12회" data-en="12">12회</div>
+          <div style="font-size:10.5px;color:#c4b5fd;font-weight:700" data-ko="⏳ 남은 예정 수업" data-en="⏳ Upcoming">⏳ 남은 예정 수업</div>
+          <div id="tw-kpi-upcoming" style="font-size:18px;font-weight:900;color:#fff;margin-top:2px">—</div>
         </div>
       </div>
 
-      <!-- 정기 수업 일정 -->
+      <!-- 🗓 내 주간 시간표 (실데이터 — 요일별 배정 수업) -->
       <div style="background:#1A2548;border-radius:12px;padding:14px 16px;margin-bottom:14px;border:1px solid rgba(96,165,250,0.18)">
-        <div style="font-weight:800;font-size:13px;color:#fbbf24;margin-bottom:10px" data-ko="🗓 정기 수업 일정" data-en="🗓 Regular schedule">🗓 정기 수업 일정</div>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(15,23,42,0.5);border-radius:10px;border-left:3px solid #38BDF8">
-            <div>
-              <div style="font-weight:700;font-size:13px;color:#fff" data-ko="월요일 · 19:00 ~ 19:40" data-en="Mon · 19:00 ~ 19:40">월요일 · 19:00 ~ 19:40</div>
-              <div style="font-size:11px;color:#94a3b8;margin-top:2px" data-ko="🇺🇸 박지윤 선생님 · 1:1 마스터" data-en="🇺🇸 Ms. Park · 1:1 Master">🇺🇸 박지윤 선생님 · 1:1 마스터</div>
-            </div>
-            <span style="padding:3px 9px;background:rgba(16,185,129,0.18);color:#86efac;border-radius:99px;font-size:10.5px;font-weight:700" data-ko="진행 중" data-en="Ongoing">진행 중</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(15,23,42,0.5);border-radius:10px;border-left:3px solid #38BDF8">
-            <div>
-              <div style="font-weight:700;font-size:13px;color:#fff" data-ko="수요일 · 19:00 ~ 19:40" data-en="Wed · 19:00 ~ 19:40">수요일 · 19:00 ~ 19:40</div>
-              <div style="font-size:11px;color:#94a3b8;margin-top:2px" data-ko="🇺🇸 박지윤 선생님 · 1:1 마스터" data-en="🇺🇸 Ms. Park · 1:1 Master">🇺🇸 박지윤 선생님 · 1:1 마스터</div>
-            </div>
-            <span style="padding:3px 9px;background:rgba(16,185,129,0.18);color:#86efac;border-radius:99px;font-size:10.5px;font-weight:700" data-ko="진행 중" data-en="Ongoing">진행 중</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(15,23,42,0.5);border-radius:10px;border-left:3px solid #f59e0b">
-            <div>
-              <div style="font-weight:700;font-size:13px;color:#fff" data-ko="금요일 · 20:00 ~ 20:40" data-en="Fri · 20:00 ~ 20:40">금요일 · 20:00 ~ 20:40</div>
-              <div style="font-size:11px;color:#94a3b8;margin-top:2px" data-ko="🇬🇧 Emma 선생님 · 그룹 토론 (3명)" data-en="🇬🇧 Ms. Emma · Group discussion (3)">🇬🇧 Emma 선생님 · 그룹 토론 (3명)</div>
-            </div>
-            <span style="padding:3px 9px;background:rgba(251,191,36,0.18);color:#fcd34d;border-radius:99px;font-size:10.5px;font-weight:700" data-ko="신규 추가" data-en="New">신규 추가</span>
-          </div>
+        <div style="font-weight:800;font-size:13px;color:#fbbf24;margin-bottom:10px" data-ko="🗓 내 주간 시간표" data-en="🗓 My weekly timetable">🗓 내 주간 시간표</div>
+        <div id="tw-weekly" style="display:flex;flex-direction:column;gap:8px">
+          <div style="font-size:12px;color:#94a3b8" data-ko="불러오는 중…" data-en="Loading…">불러오는 중…</div>
         </div>
       </div>
 
-      <!-- 현재 진도 + 교재 -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
-        <div style="background:#1A2548;border-radius:12px;padding:14px;border:1px solid rgba(96,165,250,0.18)">
-          <div style="font-weight:800;font-size:12.5px;color:#fbbf24;margin-bottom:8px" data-ko="📖 현재 교재" data-en="📖 Current textbook">📖 현재 교재</div>
-          <div style="font-size:13px;color:#fff;font-weight:700">Master 3 — Lesson 4</div>
-          <div style="font-size:11px;color:#94a3b8;margin-top:3px" data-ko="다락원 중국어 마스터 시리즈" data-en="Darakwon Chinese Master Series">다락원 중국어 마스터 시리즈</div>
-          <div style="height:8px;background:rgba(15,23,42,0.6);border-radius:99px;margin-top:10px;overflow:hidden">
-            <div style="width:35%;height:100%;background:linear-gradient(90deg,#3B82F6,#60A5FA);border-radius:99px"></div>
-          </div>
-          <div style="font-size:10.5px;color:#94a3b8;margin-top:5px" data-ko="진도율 35% (Lesson 4/12)" data-en="Progress 35% (Lesson 4/12)">진도율 35% (Lesson 4/12)</div>
-        </div>
-        <div style="background:#1A2548;border-radius:12px;padding:14px;border:1px solid rgba(96,165,250,0.18)">
-          <div style="font-weight:800;font-size:12.5px;color:#fbbf24;margin-bottom:8px" data-ko="⭐ 학습 점수" data-en="⭐ Scores">⭐ 학습 점수</div>
-          <div style="font-size:13px;color:#fff;font-weight:700" data-ko="발음 92 · 회화 88 · 청해 85" data-en="Pron. 92 · Speaking 88 · Listening 85">발음 92 · 회화 88 · 청해 85</div>
-          <div style="font-size:11px;color:#94a3b8;margin-top:3px" data-ko="최근 4주 평균" data-en="4-week average">최근 4주 평균</div>
-          <div style="height:8px;background:rgba(15,23,42,0.6);border-radius:99px;margin-top:10px;overflow:hidden">
-            <div style="width:88%;height:100%;background:linear-gradient(90deg,#10b981,#34d399);border-radius:99px"></div>
-          </div>
-          <div style="font-size:10.5px;color:#94a3b8;margin-top:5px" data-ko="종합 88점 (상위 12%)" data-en="Overall 88 (top 12%)">종합 88점 (상위 12%)</div>
-        </div>
-      </div>
-
-      <!-- 담당 교사 카드 -->
-      <div style="background:#1A2548;border-radius:12px;padding:14px 16px;border:1px solid rgba(96,165,250,0.18)">
-        <div style="font-weight:800;font-size:12.5px;color:#fbbf24;margin-bottom:10px" data-ko="👨‍🏫 담당 교사" data-en="👨‍🏫 Your teacher">👨‍🏫 담당 교사</div>
-        <div style="display:flex;gap:12px;align-items:center;padding:10px;background:rgba(15,23,42,0.4);border-radius:10px">
-          <div style="width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,#3B82F6,#2563EB);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;flex-shrink:0">박</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:800;font-size:14px;color:#fff" data-ko="박지윤 선생님" data-en="Ms. Park Jiyoon">박지윤 선생님</div>
-            <div style="font-size:11.5px;color:#94a3b8;margin-top:2px" data-ko="🇺🇸 미국 · TESOL · 경력 7년 · ⭐ 4.9 (학생 47명)" data-en="🇺🇸 USA · TESOL · 7 yrs · ⭐ 4.9 (47 students)">🇺🇸 미국 · TESOL · 경력 7년 · ⭐ 4.9 (학생 47명)</div>
-            <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-              <button onclick="alert(window.getLang&&window.getLang()==='en'?'Start a 1:1 KakaoTalk chat with Ms. Park':'카톡으로 박지윤 선생님과 1:1 채팅 시작')" style="padding:5px 11px;background:#fee500;color:#3c1e1e;border:0;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer" data-ko="💬 카톡" data-en="💬 KakaoTalk">💬 카톡</button>
-              <button onclick="alert(window.getLang&&window.getLang()==='en'?'View Ms. Park profile':'박지윤 선생님 프로필 보기')" style="padding:5px 11px;background:rgba(96,165,250,0.18);color:#60a5fa;border:1px solid rgba(96,165,250,0.35);border-radius:99px;font-size:11px;font-weight:700;cursor:pointer" data-ko="👤 프로필" data-en="👤 Profile">👤 프로필</button>
-              <button onclick="alert(window.getLang&&window.getLang()==='en'?'Change teacher request — enter a reason, a counselor will be assigned':'선생님 변경 요청 — 사유 입력 후 상담사 배정')" style="padding:5px 11px;background:rgba(167,139,250,0.18);color:#a78bfa;border:1px solid rgba(167,139,250,0.35);border-radius:99px;font-size:11px;font-weight:700;cursor:pointer" data-ko="🔄 선생님 변경" data-en="🔄 Change teacher">🔄 선생님 변경</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 빠른 액션 행 -->
+      <!-- 빠른 이동 (강사용) -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:14px">
-        <button onclick="location.href='/lesson-booking-demo.html'" style="padding:12px;background:linear-gradient(135deg,#3B82F6,#2563EB);color:#fff;border:0;border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer" data-ko="📝 수업 추가 신청" data-en="📝 Book more classes">📝 수업 추가 신청</button>
-        <button onclick="location.href='/?menu=payment'" style="padding:12px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;border:0;border-radius:10px;font-weight:800;font-size:12.5px;cursor:pointer" data-ko="💳 회차 추가 결제" data-en="💳 Buy more sessions">💳 회차 추가 결제</button>
-        <button onclick="location.href='/report.html'" style="padding:12px;background:rgba(15,23,42,0.6);color:#cbd5e1;border:1px solid rgba(96,165,250,0.25);border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer" data-ko="📊 학습 리포트" data-en="📊 Learning report">📊 학습 리포트</button>
+        <button onclick="var t=document.getElementById('tab-lessonfee');if(t)t.click();" style="padding:12px;background:linear-gradient(135deg,#10b981,#047857);color:#fff;border:0;border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer" data-ko="🧾 이번 달 수업료 보기" data-en="🧾 View lesson fees">🧾 이번 달 수업료 보기</button>
+        <button onclick="var t=document.getElementById('tab-myratings');if(t)t.click();" style="padding:12px;background:rgba(15,23,42,0.6);color:#fde68a;border:1px solid rgba(251,191,36,0.35);border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer" data-ko="⭐ 내 평가 보기" data-en="⭐ View my ratings">⭐ 내 평가 보기</button>
       </div>
 
       <script>
       (function(){
+        "use strict";
         function EN(){ return window.getLang && window.getLang() === 'en'; }
-        // 다음 수업 카운트다운 (월/수/금 19:00 또는 20:00)
-        var SCHEDULE = [
-          { day: 1, hour: 19, min: 0, ko: '월요일 19:00 박지윤 선생님', en: 'Mon 19:00 Ms. Park' },
-          { day: 3, hour: 19, min: 0, ko: '수요일 19:00 박지윤 선생님', en: 'Wed 19:00 Ms. Park' },
-          { day: 5, hour: 20, min: 0, ko: '금요일 20:00 Emma 선생님',   en: 'Fri 20:00 Ms. Emma' }
-        ];
-        function tick() {
-          var now = new Date();
-          var soonest = null;
-          var soonestItem = null;
-          for (var add = 0; add < 8; add++) {
-            for (var i = 0; i < SCHEDULE.length; i++) {
-              var s = SCHEDULE[i];
-              var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + add, s.hour, s.min, 0);
-              var diff = d.getTime() - now.getTime();
-              if (diff > 0 && d.getDay() === s.day && (!soonest || diff < soonest)) {
-                soonest = diff;
-                soonestItem = s;
-              }
-            }
-            if (soonest) break;
-          }
+        function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]); }); }
+        var DAY_KO = ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
+        var DAY_EN = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+        var nextTarget = null;   // { ts, label }
+
+        function allLessons(){
+          var out = [];
+          (window.__tlessons || []).forEach(function(j){ if (j && j.ok) out = out.concat(j.lessons || []); });
+          return out;
+        }
+
+        // ⏰ 다음 수업 카운트다운 — 실제 배정 수업 기준
+        function tick(){
           var el = document.getElementById('lesson-countdown');
           var info = document.getElementById('lesson-next-info');
           if (!el || !info) return;
-          if (!soonest) {
+          if (!nextTarget){
             el.textContent = EN() ? 'None scheduled' : '예정 없음';
-            info.textContent = EN() ? 'Regular classes have ended. Please book next term.' : '정기 수업이 끝났어요. 다음 학기 신청해주세요.';
+            info.textContent = EN() ? 'No upcoming classes on your schedule.' : '배정된 예정 수업이 없어요.';
             return;
           }
-          var h = Math.floor(soonest / 3600000);
-          var m = Math.floor((soonest % 3600000) / 60000);
+          var diff = nextTarget.ts - Date.now();
+          if (diff <= 0){ el.textContent = EN() ? 'Starting now!' : '지금 시작!'; info.textContent = nextTarget.label; return; }
+          var h = Math.floor(diff / 3600000);
+          var m = Math.floor((diff % 3600000) / 60000);
           var d = Math.floor(h / 24);
-          if (EN()) {
-            el.textContent = (d > 0 ? d + 'd ' + (h % 24) + 'h ' + m + 'm' : h + 'h ' + m + 'm');
-          } else {
-            el.textContent = (d > 0 ? d + '일 ' + (h % 24) + '시간 ' + m + '분' : h + '시간 ' + m + '분');
-          }
-          info.textContent = '🎓 ' + (EN() ? soonestItem.en : soonestItem.ko);
+          el.textContent = EN()
+            ? (d > 0 ? d + 'd ' + (h % 24) + 'h ' + m + 'm' : h + 'h ' + m + 'm')
+            : (d > 0 ? d + '일 ' + (h % 24) + '시간 ' + m + '분' : h + '시간 ' + m + '분');
+          info.textContent = '🎓 ' + nextTarget.label;
         }
-        tick();
-        setInterval(tick, 30000); // 30초마다 갱신
-        window.addEventListener('mangoi:lang-changed', tick);
+
+        function render(){
+          var lessons = allLessons();
+          if (!lessons.length) return;
+          var en = EN();
+
+          // 다음 수업 = 가장 이른 upcoming
+          var ups = lessons.filter(function(l){ return l.status === 'upcoming'; })
+            .sort(function(a,b){ return (a.date + a.start_time).localeCompare(b.date + b.start_time); });
+          if (ups.length){
+            var n = ups[0];
+            var dt = new Date(n.date + 'T' + (n.start_time || '00:00') + ':00');
+            var day = (en ? DAY_EN : DAY_KO)[dt.getDay()];
+            nextTarget = { ts: dt.getTime(), label: n.date + ' (' + day + ') ' + (n.start_time||'') + ' · ' + (n.student_name || n.user_id || (en?'class':'수업')) };
+          } else nextTarget = null;
+          tick();
+
+          // KPI — 이번 주(월~일) 수업 수 + 이번 달 완료/결석/예정
+          var now = new Date();
+          var mon = new Date(now); mon.setDate(now.getDate() - ((now.getDay() + 6) % 7)); mon.setHours(0,0,0,0);
+          var sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+          var p = function(x){ return (x<10?'0':'')+x; };
+          var monKey = mon.getFullYear()+'-'+p(mon.getMonth()+1)+'-'+p(mon.getDate());
+          var sunKey = sun.getFullYear()+'-'+p(sun.getMonth()+1)+'-'+p(sun.getDate());
+          var weekCnt = 0, seenW = {};
+          lessons.forEach(function(l){
+            var k = l.schedule_id + '|' + l.date;
+            if (l.date >= monKey && l.date <= sunKey && !seenW[k]){ seenW[k] = 1; weekCnt++; }
+          });
+          var s0 = (window.__tlessons && window.__tlessons[0] && window.__tlessons[0].summary) || {};
+          var set = function(id, v){ var e = document.getElementById(id); if (e) e.textContent = v; };
+          set('tw-kpi-week', weekCnt + (en?'':'회'));
+          set('tw-kpi-done', (s0.finish_count || 0) + (en?'':'회'));
+          set('tw-kpi-absent', (s0.absent_count || 0) + (en?'':'회'));
+          set('tw-kpi-upcoming', (s0.upcoming_count || 0) + (en?'':'회'));
+
+          // 주간 시간표 — 이번 달 수업을 요일별 시간 슬롯으로
+          var byDow = {};
+          var month0 = (window.__tlessons && window.__tlessons[0] && window.__tlessons[0].lessons) || [];
+          month0.forEach(function(l){
+            var d = new Date(l.date + 'T00:00:00');
+            var dow = d.getDay();
+            (byDow[dow] = byDow[dow] || {})[l.start_time || '?'] = (byDow[dow][l.start_time || '?'] || 0) + 1;
+          });
+          var box = document.getElementById('tw-weekly');
+          if (box){
+            var rows = [];
+            [1,2,3,4,5,6,0].forEach(function(dow){
+              var slots = byDow[dow];
+              if (!slots) return;
+              var times = Object.keys(slots).sort();
+              // 반복 수업은 매주 같은 슬롯이므로 "그 요일에 몇 타임" 인지가 핵심 정보
+              var chips = times.map(function(t){
+                return '<span style="display:inline-block;padding:3px 9px;background:rgba(56,189,248,0.14);color:#7dd3fc;border-radius:99px;font-size:11px;font-weight:700;margin:2px 3px 0 0">' + esc(t) + '</span>';
+              }).join('');
+              rows.push('<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:rgba(15,23,42,0.5);border-radius:10px;border-left:3px solid #38BDF8">'
+                + '<div style="min-width:64px;font-weight:800;font-size:13px;color:#fff;padding-top:3px">' + (en ? DAY_EN[dow].slice(0,3) : DAY_KO[dow]) + '</div>'
+                + '<div style="flex:1">' + chips + '</div>'
+                + '<div style="font-size:11.5px;color:#94a3b8;white-space:nowrap;padding-top:4px">' + times.length + (en ? ' slots' : '타임') + '</div>'
+                + '</div>');
+            });
+            box.innerHTML = rows.length ? rows.join('')
+              : '<div style="font-size:12px;color:#94a3b8">' + (en ? 'No classes assigned this month.' : '이번 달 배정된 수업이 없어요.') + '</div>';
+          }
+        }
+
+        document.addEventListener('teacher-lessons-loaded', render);
+        if (window.__tlessons) render();
+        setInterval(tick, 30000);
+        window.addEventListener('mangoi:lang-changed', render);
       })();
       </script>
     </section>
