@@ -3009,6 +3009,11 @@ function isAdminPath(path: string, method: string): boolean {
   // 🔒 [PII 2차 2026-07-10] 계정탈취/무단구독 — 프론트 미사용 확인 후 관리자 전용 잠금.
   if (path === '/api/student/set-password') return true;           // 비번없는 계정 아무나 탈취 방지
   if (path === '/api/subscription/create') return true;            // 임의 유저 구독 무단생성 방지
+  // 🔒 [PII 3차 2026-07-10] 학부모/전화 — 관리자 진단페이지만 사용(admin/health) 또는 호출없음 → 잠금.
+  if (path === '/api/kakao-id' || path.startsWith('/api/kakao-id/')) return true;  // 임의유저 전화·kakao_id 조회/덮어쓰기
+  if (path === '/api/consents' || path.startsWith('/api/consents/')) return true;  // 동의서 전화·IP·기기정보 조회/위조
+  if (path === '/api/parent/link-child') return true;              // 아무 학생을 공격자 학부모에 연결
+  if (path === '/api/parent/my-children') return true;             // 학부모 자녀명단 조회
   // 대시보드·활성 방·방 상태 — 모두 관리자 전용
   if (path === '/api/dashboard') return true;
   if (path === '/api/active-rooms') return true;

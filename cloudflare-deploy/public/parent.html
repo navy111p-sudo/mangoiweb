@@ -244,7 +244,9 @@ function showKakaoShareDialog(url) {
     <!-- 📋 ID 입력 박스 -->
     <div style="background:rgba(20,41,80,0.6);border:1px solid rgba(99,102,241,0.3);border-radius:16px;padding:24px 20px;max-width:480px;margin:20px auto;text-align:center;backdrop-filter:blur(8px)">
       <label style="display:block;font-size:13px;color:#fbbf24;font-weight:700;margin-bottom:10px" data-ko="👤 자녀의 학생 ID" data-en="👤 Your Child's Student ID">👤 자녀의 학생 ID</label>
-      <input id="uid-input" class="uid-input" type="text" placeholder="예: hong_gd" data-ko-placeholder="예: hong_gd" data-en-placeholder="e.g. hong_gd" onkeypress="if(event.key==='Enter')pdGo()" style="margin:0 auto 12px;display:block" />
+      <input id="uid-input" class="uid-input" type="text" placeholder="예: hong_gd" data-ko-placeholder="예: hong_gd" data-en-placeholder="e.g. hong_gd" onkeypress="if(event.key==='Enter')document.getElementById('phone-input').focus()" style="margin:0 auto 12px;display:block" />
+      <label style="display:block;font-size:13px;color:#fbbf24;font-weight:700;margin-bottom:10px" data-ko="📱 등록된 학부모 휴대폰" data-en="📱 Registered Parent Phone">📱 등록된 학부모 휴대폰</label>
+      <input id="phone-input" class="uid-input" type="tel" inputmode="numeric" placeholder="예: 01012345678" data-ko-placeholder="예: 01012345678" data-en-placeholder="e.g. 01012345678" onkeypress="if(event.key==='Enter')pdGo()" style="margin:0 auto 12px;display:block" />
       <button class="uid-go" onclick="pdGo()" data-ko="📊 조회하기" data-en="📊 View Dashboard">📊 조회하기</button>
       <div style="margin-top:14px;font-size:11.5px;color:#6b7a99;line-height:1.6" data-ko="💡 학생 ID 를 모르시면 강사 또는 학원에 문의해주세요. 한 번 조회하면 자동 저장됩니다." data-en="💡 Don't know the ID? Ask your teacher. The ID is saved after first lookup.">💡 학생 ID 를 모르시면 강사 또는 학원에 문의해주세요. 한 번 조회하면 자동 저장됩니다.</div>
     </div>
@@ -310,7 +312,7 @@ function showKakaoShareDialog(url) {
 
     <!-- 🔒 개인정보 보호 안내 -->
     <div style="max-width:680px;margin:14px auto 0;padding:12px 18px;background:rgba(99,102,241,0.06);border-left:3px solid #6366f1;border-radius:8px;font-size:11.5px;color:#a3b3d1;line-height:1.6">
-      🔒 <b style="color:#c4b5fd" data-ko="개인정보 보호" data-en="Privacy">개인정보 보호</b> — <span data-ko="이 화면은 학생 ID 만 알면 누구나 볼 수 있어요. ID 를 비밀번호처럼 관리하세요. 정식 학부모 로그인은 곧 추가됩니다." data-en="Anyone with the student ID can view this page. Treat the ID like a password. Full parent login coming soon.">이 화면은 학생 ID 만 알면 누구나 볼 수 있어요. ID 를 비밀번호처럼 관리하세요. 정식 학부모 로그인은 곧 추가됩니다.</span>
+      🔒 <b style="color:#c4b5fd" data-ko="개인정보 보호" data-en="Privacy">개인정보 보호</b> — <span data-ko="학생 ID + 학원에 등록된 학부모 휴대폰 번호가 일치해야만 조회됩니다. 본인 확인을 통과한 학부모만 자녀 정보를 볼 수 있어요." data-en="Access requires both the student ID and the parent phone number registered with the academy. Only verified parents can view their child's info.">학생 ID + 학원에 등록된 학부모 휴대폰 번호가 일치해야만 조회됩니다. 본인 확인을 통과한 학부모만 자녀 정보를 볼 수 있어요.</span>
     </div>
   </div>
 
@@ -395,20 +397,23 @@ const fmt = (n) => (Number(n)||0).toLocaleString('ko-KR');
 const fmtDate = (ms) => ms ? new Date(ms).toLocaleDateString('ko-KR', { month:'short', day:'numeric' }) : '-';
 
 let _currentUid = null;
+let _currentPhone = null;  // 🔐 등록된 학부모 전화(본인 확인용)
 
 function getQueryParam(k){ try { return new URLSearchParams(location.search).get(k); } catch(e){ return null; } }
 
 window.pdGo = async function(){
   const uid = document.getElementById('uid-input').value.trim();
+  const phone = (document.getElementById('phone-input') ? document.getElementById('phone-input').value : '').replace(/[^0-9]/g,'');
   if (!uid) { alert('자녀의 user_id 를 입력하세요'); return; }
   _currentUid = uid;
-  try { localStorage.setItem('mangoi_parent_uid', uid); } catch(e){}
+  _currentPhone = phone;
+  try { localStorage.setItem('mangoi_parent_uid', uid); localStorage.setItem('mangoi_parent_phone', phone); } catch(e){}
   await pdLoad();
 };
 
 window.pdLogout = function(){
-  _currentUid = null;
-  try { localStorage.removeItem('mangoi_parent_uid'); } catch(e){}
+  _currentUid = null; _currentPhone = null;
+  try { localStorage.removeItem('mangoi_parent_uid'); localStorage.removeItem('mangoi_parent_phone'); } catch(e){}
   document.getElementById('entry').style.display = '';
   document.getElementById('dashboard').style.display = 'none';
 };
@@ -419,9 +424,18 @@ async function pdLoad(){
   document.getElementById('entry').style.display = 'none';
   document.getElementById('dashboard').style.display = '';
   try {
-    const r = await fetch('/api/parent/dashboard?child_uid=' + encodeURIComponent(_currentUid));
+    const r = await fetch('/api/parent/dashboard?child_uid=' + encodeURIComponent(_currentUid) + '&phone=' + encodeURIComponent(_currentPhone || ''));
     const d = await r.json();
-    if (!d.ok) throw new Error(d.error || 'load_fail');
+    if (!d.ok) {
+      // 🔐 본인 확인 실패 → 입력 화면으로 되돌려 전화번호 재입력 유도
+      if (d.error === 'phone_required') {
+        document.getElementById('entry').style.display = '';
+        document.getElementById('dashboard').style.display = 'none';
+        alert('🔒 등록된 학부모 휴대폰 번호를 정확히 입력해주세요.\n(학원에 등록된 번호와 일치해야 조회됩니다.)');
+        return;
+      }
+      throw new Error(d.error || 'load_fail');
+    }
     pdRender(d);
   } catch(e) {
     alert('❌ ' + e.message);
@@ -634,13 +648,18 @@ function pdRender(d){
   let saved = null;
   try { saved = localStorage.getItem('mangoi_parent_uid'); } catch(e){}
   const uid = fromUrl || saved || loggedInUid();
+  let savedPhone = ''; try { savedPhone = localStorage.getItem('mangoi_parent_phone') || ''; } catch(e){}
   if (uid) {
     _currentUid = uid;
+    _currentPhone = savedPhone;
     // 다음 방문에도 자동으로 뜨도록 저장
     try { localStorage.setItem('mangoi_parent_uid', uid); } catch(e){}
     const inp = document.getElementById('uid-input');
     if (inp) inp.value = uid;
-    pdLoad();
+    const pinp = document.getElementById('phone-input');
+    if (pinp) pinp.value = savedPhone;
+    // 저장된 전화가 있으면 자동조회, 없으면 입력화면 유지(전화 입력 유도)
+    if (savedPhone) pdLoad();
   }
 })();
 </script>
