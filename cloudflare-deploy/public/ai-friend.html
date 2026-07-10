@@ -136,6 +136,11 @@
     <button class="opt" data-persona="playful">장난스러운</button>
     <button class="opt" data-persona="serious">진지한</button>
     <button class="opt" data-persona="tutor">튜터</button>
+    <span style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px">🔊 <span data-ko="속도:" data-en="Speed:">속도:</span></span>
+    <button class="opt" data-rate="0.6" data-ko="🐢 아주 느리게" data-en="🐢 Very slow">🐢 아주 느리게</button>
+    <button class="opt" data-rate="0.8" data-ko="느리게" data-en="Slow">느리게</button>
+    <button class="opt active" data-rate="1" data-ko="보통" data-en="Normal">보통</button>
+    <button class="opt" data-rate="1.2" data-ko="🐇 빠르게" data-en="🐇 Fast">🐇 빠르게</button>
   </div>
   <div class="chat" id="chat"></div>
   <div class="input-bar">
@@ -195,12 +200,25 @@
     }
     let currentLevel = 'B1';
     let currentPersona = 'friendly';
+    // 🔊 원어민 음성 재생 속도 (localStorage 로 유지, 기본 1 = 보통)
+    let currentRate = (function(){
+      try { const r = parseFloat(localStorage.getItem('mangoi_aifriend_tts_rate')); return (r >= 0.5 && r <= 1.5) ? r : 1; } catch(e){ return 1; }
+    })();
 
     document.querySelectorAll('.opt[data-level]').forEach(b => {
       b.onclick = () => { document.querySelectorAll('.opt[data-level]').forEach(x=>x.classList.remove('active')); b.classList.add('active'); currentLevel = b.dataset.level; };
     });
     document.querySelectorAll('.opt[data-persona]').forEach(b => {
       b.onclick = () => { document.querySelectorAll('.opt[data-persona]').forEach(x=>x.classList.remove('active')); b.classList.add('active'); currentPersona = b.dataset.persona; };
+    });
+    document.querySelectorAll('.opt[data-rate]').forEach(b => {
+      if (parseFloat(b.dataset.rate) === currentRate) { document.querySelectorAll('.opt[data-rate]').forEach(x=>x.classList.remove('active')); b.classList.add('active'); }
+      b.onclick = () => {
+        document.querySelectorAll('.opt[data-rate]').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active');
+        currentRate = parseFloat(b.dataset.rate) || 1;
+        try { localStorage.setItem('mangoi_aifriend_tts_rate', String(currentRate)); } catch(e){}
+      };
     });
     function escapeHtml(s) {
       return String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -250,7 +268,7 @@
       document.querySelectorAll('.replay-btn.playing').forEach(x => x.classList.remove('playing'));
       if (btn) btn.classList.add('playing');
       try {
-        MangoiTTS.speak(clean, 1, function(){ if (btn) btn.classList.remove('playing'); });
+        MangoiTTS.speak(clean, currentRate, function(){ if (btn) btn.classList.remove('playing'); });
       } catch(e){ if (btn) btn.classList.remove('playing'); }
     }
 
@@ -394,7 +412,7 @@
     }
     loadHistory();
   </script>
-<!-- BUILD:20260710171505 -->
+<!-- BUILD:20260710172656 -->
 <script defer src="/js/game-tts.js"></script><!-- 🔊 원어민 TTS(서버 Deepgram Aura-1 → MeloTTS → 브라우저 폴백) 공용 모듈 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>

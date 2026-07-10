@@ -73,12 +73,67 @@
     .lv-pick:hover, .topic-pick:hover { background:rgba(251,191,36,0.15); color:#fcd34d; border-color:rgba(251,191,36,0.5); }
     .lv-pick.active { background:linear-gradient(135deg,#10b981,#059669); color:#fff; border-color:#10b981; box-shadow:0 3px 8px rgba(16,185,129,0.4); }
     .topic-pick.active { background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:#fff; border-color:#3b82f6; box-shadow:0 3px 8px rgba(59,130,246,0.4); }
+
+    /* ── 🧒/🧑‍🎓 연령 모드 토글 ── */
+    .mode-toggle { display:flex; gap:4px; background:rgba(15,23,42,0.6); border:1px solid var(--border); border-radius:99px; padding:3px; }
+    .mode-btn { border:0; background:transparent; font-size:16px; width:36px; height:30px; border-radius:99px; cursor:pointer; line-height:1; }
+    .mode-btn.active { background:linear-gradient(135deg,#fbbf24,#f59e0b); box-shadow:0 2px 6px rgba(245,158,11,0.4); }
+
+    /* ── 공통: 발음 버튼 / 피드백 ── */
+    .say-btn { background:rgba(251,191,36,0.14); color:var(--gold); border:1px solid rgba(251,191,36,0.4);
+      border-radius:99px; padding:7px 14px; font-weight:800; cursor:pointer; font-size:13px; font-family:inherit; }
+    .say-btn:hover { background:rgba(251,191,36,0.24); }
+    .say-btn.sm { padding:4px 10px; font-size:12px; }
+    .say-btn.xs { padding:2px 8px; font-size:11px; margin-right:6px; }
+    .fb { margin-top:14px; padding:12px 15px; border-radius:10px; font-size:14px; font-weight:700; line-height:1.5; }
+    .fb.ok { background:rgba(16,185,129,0.18); color:#86efac; }
+    .fb.no { background:rgba(239,68,68,0.16); color:#fca5a5; }
+    .fb .xp-plus { color:#fbbf24; font-weight:900; margin-left:4px; }
+    .fb .spd { color:#7dd3fc; margin-left:4px; }
+
+    /* ── 🧒 키즈 모드 ── */
+    .kid-head { display:flex; align-items:center; gap:10px; justify-content:center; margin-bottom:10px; }
+    .kid-mascot { width:42px; height:42px; border-radius:50%; object-fit:cover; box-shadow:0 3px 10px -2px rgba(245,158,11,0.5); }
+    .kid-mascot.bounce { animation:mBounce .55s; }
+    @keyframes mBounce { 0%,100%{transform:translateY(0) rotate(0)} 30%{transform:translateY(-13px) rotate(-9deg)} 60%{transform:translateY(0) rotate(7deg)} }
+    .kid-stars { font-size:22px; letter-spacing:3px; }
+    .kid-word { text-align:center; display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:8px; }
+    .kid-emoji { font-size:78px; line-height:1; animation:floaty 3s ease-in-out infinite; }
+    @keyframes floaty { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+    .quiz-card.kids .q-text { font-size:20px; text-align:center; }
+    .opts-kids .opt { font-size:17px; padding:16px 18px; border-radius:14px; font-weight:700; }
+    .opts-kids .opt:hover { transform:scale(1.02); }
+    .star-pop { position:fixed; font-size:30px; pointer-events:none; z-index:99999; animation:starUp 1s ease-out forwards; }
+    @keyframes starUp { 0%{opacity:1;transform:translateY(0) scale(.6)} 100%{opacity:0;transform:translateY(-95px) scale(1.5)} }
+    .result-emoji { font-size:58px; line-height:1; margin-bottom:6px; }
+
+    /* ── 🧑‍🎓 챌린지 모드 ── */
+    .ch-stats { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-weight:800; font-size:14px; }
+    .ch-combo { color:#fb923c; }
+    .ch-xp { color:#fbbf24; }
+    .ch-word { text-align:center; display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:10px; }
+    .ch-word-txt { font-size:30px; font-weight:900; color:#fff; letter-spacing:.5px; }
+    .timer-wrap { height:7px; background:rgba(255,255,255,0.08); border-radius:99px; overflow:hidden; margin-bottom:14px; }
+    .timer-bar { height:100%; width:100%; background:linear-gradient(90deg,#ef4444,#f59e0b,#10b981); transition:width .1s linear; border-radius:99px; }
+
+    /* ── 오답 노트 ── */
+    .wrong-note { margin-top:16px; text-align:left; background:rgba(15,23,42,0.5); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+    .wn-title { font-weight:800; color:var(--gold); margin-bottom:8px; font-size:13.5px; }
+    .wn-item { padding:9px 0; border-bottom:1px solid rgba(148,163,184,0.12); font-size:13.5px; }
+    .wn-item:last-child { border-bottom:0; }
+    .wn-ex { color:var(--text2); font-size:12px; margin-top:3px; font-style:italic; }
+    .confetti-pc { position:fixed; top:-20px; font-size:20px; pointer-events:none; z-index:99998; animation:confFall linear forwards; }
+    @keyframes confFall { to { transform:translateY(105vh) rotate(360deg); opacity:.2; } }
   </style>
 </head>
 <body>
   <div class="top">
     <a href="/">← <span data-ko="홈" data-en="Home">홈</span></a>
-    <h1>🧠 <span data-ko="1분 단어 퀴즈" data-en="1-min Vocab Quiz">1분 단어 퀴즈</span></h1>
+    <h1>🧠 <span data-ko="AI 단어 퀴즈" data-en="AI Vocab Quiz">AI 단어 퀴즈</span></h1>
+    <div class="mode-toggle" title="연령 모드">
+      <button class="mode-btn" data-mode="kids" onclick="setMode('kids',true)" aria-label="어린이 모드" data-ko-aria="어린이 모드" data-en-aria="Kids mode">🧒</button>
+      <button class="mode-btn" data-mode="challenge" onclick="setMode('challenge',true)" aria-label="청소년 모드" data-ko-aria="청소년 모드" data-en-aria="Teen mode">🧑‍🎓</button>
+    </div>
   </div>
   <div class="wrap">
     <div id="introBox" class="intro">
@@ -303,7 +358,7 @@
       `;
     }
   </script>
-<!-- BUILD:20260710171505 -->
+<!-- BUILD:20260710172656 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 <script defer src="/js/flow.js"></script>
