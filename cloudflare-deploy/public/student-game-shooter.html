@@ -606,19 +606,94 @@
     o.frequency.setValueAtTime(f0,t); o.frequency.exponentialRampToValueAtTime(f1,t+dur);
     o.connect(g); g.connect(master); g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.001,t+dur); o.start(t); o.stop(t+dur+0.02);
   }
-  var FIRE = {  // 각 발사음 = 전이음(고역 크랙)+본체+저음 펀치 → 리버브로 공간감. 총마다 다름
-    pistol:  function(t){ crack(t,0.45,2400,0.02); crack(t,0.5,1000,0.10); thump(t,0.35,200,65,0.09); },   // 날카로운 '탕'
-    rifle:   function(t){ crack(t,0.5,2600,0.02); crack(t,0.62,650,0.17); thump(t,0.48,160,50,0.15); },    // 묵직한 '쾅'
-    mg:      function(t){ for(var i=0;i<3;i++){ crack(t+i*0.05,0.5,2200,0.02); crack(t+i*0.05,0.4,1100,0.05); thump(t+i*0.05,0.25,230,90,0.05);} }, // 따다당 연사
-    shotgun: function(t){ crack(t,0.45,1800,0.02); crack(t,0.66,360,0.22); thump(t,0.52,120,42,0.18); },   // 두툼한 '펑'
-    sniper:  function(t){ crack(t,0.6,3000,0.02); crack(t,0.7,520,0.33); thump(t,0.5,150,46,0.13); },      // 쨍+긴 에코
-    tank:    function(t){ crack(t,0.4,1200,0.03); crack(t,0.62,160,0.5); thump(t,0.78,90,26,0.55); },      // 거대한 포성
-    revolver:function(t){ crack(t,0.5,2500,0.02); crack(t,0.6,580,0.14); thump(t,0.5,190,52,0.11); },      // 리볼버
-    ar:      function(t){ for(var i=0;i<2;i++){ crack(t+i*0.06,0.5,2400,0.02); crack(t+i*0.06,0.42,950,0.07); thump(t+i*0.06,0.3,200,68,0.07);} }, // 돌격소총 점사
-    minigun: function(t){ for(var i=0;i<5;i++){ crack(t+i*0.035,0.42,2300,0.018); crack(t+i*0.035,0.3,1200,0.04); thump(t+i*0.035,0.2,240,100,0.04);} }, // 미니건 난사
-    railgun: function(t){ var o=actx.createOscillator(); o.type='sawtooth'; o.frequency.setValueAtTime(1900,t); o.frequency.exponentialRampToValueAtTime(120,t+0.28); var g=actx.createGain(); o.connect(g); g.connect(master); if(revBus)g.connect(revBus); g.gain.setValueAtTime(0.4,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.3); o.start(t); o.stop(t+0.32); crack(t,0.45,600,0.28); thump(t,0.5,120,38,0.3); }, // 사이파이 차징 발사
-    grenade: function(t){ crack(t,0.35,800,0.04); thump(t,0.82,80,24,0.6); crack(t,0.6,180,0.5); },  // 둔탁한 '퐁' + 폭발
-    flame:   function(t){ var n=noise(0.45), f=actx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=700; f.Q.value=0.6; var g=actx.createGain(); n.connect(f); f.connect(g); g.connect(master); if(revBus)g.connect(revBus); g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(0.5,t+0.05); g.gain.exponentialRampToValueAtTime(0.001,t+0.45); n.start(t); n.stop(t+0.47); } // 화염 '화아악'
+  // ── 발사음 확장 빌딩블록 — 총마다 '캐릭터'가 다르게 들리도록 재료를 늘림 ──
+  function tone(t,type,f0,f1,vol,dur){ // 주파수 스윕 오실레이터 (차징/모터/휘파람/럼블)
+    var o=actx.createOscillator(), g=actx.createGain(); o.type=type;
+    o.frequency.setValueAtTime(Math.max(1,f0),t);
+    if(f1&&f1!==f0) o.frequency.exponentialRampToValueAtTime(Math.max(1,f1),t+dur);
+    o.connect(g); g.connect(master); if(revBus) g.connect(revBus);
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.001,t+dur); o.start(t); o.stop(t+dur+0.02);
+  }
+  function bandNoise(t,vol,f0,f1,Q,dur){ // 밴드패스 노이즈 스윕 (산탄 흩뿌림/화염/방전)
+    var n=noise(dur), f=actx.createBiquadFilter(), g=actx.createGain();
+    f.type='bandpass'; f.frequency.setValueAtTime(f0,t);
+    if(f1&&f1!==f0) f.frequency.exponentialRampToValueAtTime(Math.max(1,f1),t+dur);
+    f.Q.value=Q||1;
+    n.connect(f); f.connect(g); g.connect(master); if(revBus) g.connect(revBus);
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.001,t+dur); n.start(t); n.stop(t+dur+0.02);
+  }
+  function click(t,vol,fq){ // 금속 '딸깍' (노리쇠/펌프/실린더 — 잔향 없이 바싹 마른 소리)
+    var o=actx.createOscillator(), g=actx.createGain(); o.type='square'; o.frequency.value=fq||2600;
+    o.connect(g); g.connect(master);
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.03); o.start(t); o.stop(t+0.04);
+  }
+  function ping(t,vol,fq,dur){ // 금속 공명 '핑~' (탄피/레일 울림 — 비정수배 배음 2개)
+    var o=actx.createOscillator(), o2=actx.createOscillator(), g=actx.createGain();
+    o.type='triangle'; o2.type='triangle'; o.frequency.value=fq; o2.frequency.value=fq*1.5+7;
+    o.connect(g); o2.connect(g); g.connect(master); if(revBus) g.connect(revBus);
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+    o.start(t); o.stop(t+dur+0.02); o2.start(t); o2.stop(t+dur+0.02);
+  }
+  // ── 무기 12종 발사음 — 총마다 뚜렷이 다른 캐릭터 (기계음 연출까지 포함한 짧은 '사운드 장면') ──
+  var FIRE = {
+    // 권총: 마른 '탕!' — 짧고 높게 끊김 + 슬라이드 철컥 (매번 살짝 다른 피치)
+    pistol:  function(t){ var d=rand(0.92,1.08);
+      crack(t,0.5,3000*d,0.015); crack(t,0.45,1300*d,0.07); thump(t,0.3,260,90,0.06);
+      click(t+0.09,0.12,3200*d); },
+    // 장총: 묵직한 '쿠웅' + 산울림 메아리 2번 + 볼트액션 철컥철컥
+    rifle:   function(t){
+      crack(t,0.55,2400,0.02); crack(t,0.6,500,0.22); thump(t,0.55,140,44,0.2);
+      crack(t+0.16,0.18,700,0.14); crack(t+0.34,0.09,600,0.16);
+      click(t+0.5,0.1,2200); click(t+0.58,0.1,1800); },
+    // 기관총: '따다다당' 4연사 — 발마다 금속 챙챙거림이 섞임
+    mg:      function(t){ for(var i=0;i<4;i++){ var k=t+i*0.055;
+      crack(k,0.42,2200,0.015); ping(k,0.1,1900+i*60,0.05); thump(k,0.26,240,95,0.045); } },
+    // 산탄총: 두툼한 '퍼벙' 산탄 흩뿌림(노이즈 스윕) + 펌프 '철커-덕' 2단
+    shotgun: function(t){
+      crack(t,0.5,1400,0.03); bandNoise(t,0.6,900,240,0.7,0.3); thump(t,0.65,110,36,0.24);
+      click(t+0.3,0.16,1500); click(t+0.4,0.16,1100); },
+    // 저격총: '쩌엉' 초음속 크랙 + 총알 휘파람(고음 하강) + 아주 긴 계곡 메아리
+    sniper:  function(t){
+      crack(t,0.7,3400,0.015); crack(t,0.6,600,0.3);
+      tone(t+0.03,'sine',2600,600,0.12,0.35);
+      thump(t,0.45,150,42,0.14);
+      crack(t+0.28,0.16,500,0.2); crack(t+0.55,0.07,420,0.24); },
+    // 전차포: 초저음 '쿠구궁' — 이중 서브베이스 + 잔진동 럼블이 오래 남음
+    tank:    function(t){
+      crack(t,0.35,900,0.05); bandNoise(t,0.5,300,90,0.8,0.6);
+      thump(t,0.9,70,22,0.75); thump(t+0.1,0.4,52,18,0.6);
+      tone(t+0.05,'sine',36,24,0.35,0.7); },
+    // 리볼버: '따앙' + 실린더 '드르르륵' 회전 틱 5연발 (서부극 느낌)
+    revolver:function(t){
+      crack(t,0.55,2700,0.018); crack(t,0.5,700,0.12); thump(t,0.45,200,55,0.1);
+      for(var i=0;i<5;i++) click(t+0.16+i*0.045,0.09,2100+i*150); },
+    // 돌격소총: '투툭' 절도있는 2점사 + 탄피 떨어지는 '팅~' 여운
+    ar:      function(t){ for(var i=0;i<2;i++){ var k=t+i*0.07;
+      crack(k,0.5,2500,0.015); crack(k,0.4,1000,0.06); thump(k,0.32,220,75,0.06); }
+      ping(t+0.2,0.12,3800,0.25); },
+    // 미니건: '위이잉' 총열 스핀업 모터음 → 초고속 8연사 난사
+    minigun: function(t){
+      tone(t,'sawtooth',80,340,0.1,0.4);
+      for(var i=0;i<8;i++){ var k=t+0.1+i*0.032;
+        crack(k,0.3,2400,0.012); thump(k,0.16,260,110,0.03); } },
+    // 레일건: '우우웅↗' 차징 → '쫘잒' 전기 방전 + 레일 금속 공명
+    railgun: function(t){
+      tone(t,'sine',180,1500,0.22,0.22);
+      var z=t+0.2;
+      tone(z,'sawtooth',2400,90,0.4,0.3); tone(z,'square',3100,140,0.18,0.22);
+      bandNoise(z,0.3,3200,500,2.5,0.25);
+      ping(z+0.05,0.14,2600,0.4); thump(z,0.4,130,36,0.28); },
+    // 유탄: '퐁'(발사관) → 0.35초 뒤 '콰앙' 폭발 + 파편 후두둑
+    grenade: function(t){
+      tone(t,'sine',300,90,0.4,0.12); bandNoise(t,0.2,500,200,1,0.1);
+      var b=t+0.35;
+      thump(b,0.85,85,22,0.55); crack(b,0.55,200,0.45); bandNoise(b,0.4,700,150,0.6,0.45);
+      for(var i=0;i<6;i++) crack(b+0.12+i*0.05,0.08,1200+Math.random()*800,0.03); },
+    // 화염방사: 점화 '칙' → 낮게 으르렁대는 화염 롤 + 불똥 탁탁
+    flame:   function(t){
+      click(t,0.1,3400); bandNoise(t+0.02,0.5,600,300,0.5,0.5);
+      tone(t+0.02,'sawtooth',60,45,0.14,0.5);
+      for(var i=0;i<4;i++) crack(t+0.1+i*0.09,0.07,2000+Math.random()*1200,0.02); }
   };
   function fireSound(){ try{ ensureCtx(); if(playSample(curGun)) return; if(actx && FIRE[curGun]) FIRE[curGun](actx.currentTime); }catch(e){} }
   function sndHit(){ try{ // 표적 명중/폭발음
@@ -1030,6 +1105,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260710230533 -->
+<!-- BUILD:20260710233504 -->
 </body>
 </html>
