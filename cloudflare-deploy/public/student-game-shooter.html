@@ -95,16 +95,17 @@
   @keyframes comboPop{0%{opacity:0;transform:translate(-50%,-50%) scale(.4) rotate(-8deg)}
     35%{opacity:1;transform:translate(-50%,-50%) scale(1.2) rotate(4deg)}
     70%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-85%)}}
-  /* ===== 🪖 실사 사수 + 회전 총 — 받침대 대신 진짜 사람(디지털 위장복 사수)이 총을 조작 ===== */
-  #turret{position:absolute;left:50%;bottom:0;transform:translateX(-50%);z-index:10;width:170px;height:185px;pointer-events:none}
+  /* ===== 🪖 실사 사수(상반신) + 회전 총 — 화면 아래에서 상체만 내밀고 총을 조작 ===== */
+  #turret{position:absolute;left:50%;bottom:0;transform:translateX(-50%);z-index:10;width:160px;height:150px;pointer-events:none}
   .turret-soldier{position:absolute;left:50%;bottom:0;transform:translateX(-50%);height:100%;z-index:9;
     filter:drop-shadow(0 6px 12px rgba(0,0,0,.5));animation:soldierBob 3.4s ease-in-out infinite alternate}
   @keyframes soldierBob{from{transform:translateX(-50%) translateY(0)}to{transform:translateX(-50%) translateY(3px)}}
   .turret-soldier.flinch{animation:soldierFlinch .22s}   /* 발사 반동 — 사수가 살짝 움찔 */
   @keyframes soldierFlinch{0%{transform:translateX(-50%) translateY(0)}40%{transform:translateX(-50%) translateY(4px)}100%{transform:translateX(-50%) translateY(0)}}
-  .barrel-rot{position:absolute;left:50%;bottom:54%;transform-origin:50% 100%;transform:translateX(-50%) rotate(0deg);
+  /* 총 회전축 = 사수 가슴/양손 사이 높이 → 두 손 사이에 총이 자연스럽게 잡혀서 회전 */
+  .barrel-rot{position:absolute;left:50%;bottom:64%;transform-origin:50% 100%;transform:translateX(-50%) rotate(0deg);
     transition:transform .1s ease-out;z-index:11}
-  @media (min-width:820px){ #turret{width:214px;height:232px} }   /* PC 는 사수도 더 크게 */
+  @media (min-width:820px){ #turret{width:204px;height:190px} }   /* PC 는 사수도 더 크게 */
   /* 총 실루엣은 JS(GUN_SVG)의 SVG 를 barrel 배경으로 그림 — 무기마다 실제 총 모양 (크기는 setGun 에서 GUN_DIM×배율) */
   .barrel{position:relative;width:28px;height:52px;
     background:50% 50%/100% 100% no-repeat;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55))}
@@ -1161,6 +1162,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711003746 -->
+<!-- BUILD:20260711004646 -->
 </body>
 </html>

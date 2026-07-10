@@ -315,7 +315,7 @@
     biz_name: '망고아이',
     kakaopay_url: 'https://qr.kakaopay.com/Ej86dkamx',  // 카카오페이 송금 코드 (실제 코드로 교체)
     toss_id: 'mangoi',                                    // toss.me/<id> (실제 ID로 교체)
-    tosspayments_client_key: 'test_ck_DpexMgkW36zL0v8jPzgr3GbR5ozO', // 토스페이먼츠 테스트키
+    tosspayments_client_key: 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq', // 토스페이먼츠 공식 테스트 클라이언트키 (실전 전환 시 live_ck_ 로 교체)
   };
 
   // 카드 결제 (토스페이먼츠) — 서버 주문 생성 → 결제창 (금액은 서버가 결정 = 위변조 방지)
