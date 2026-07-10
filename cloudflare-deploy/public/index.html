@@ -3913,6 +3913,7 @@
     <button class="mg-hl mg-s2" onclick="mgGo('leveltest')" data-ko="🎯 레벨테스트" data-en="🎯 Level Test">🎯 레벨테스트</button>
     <button class="mg-s1" onclick="mgGo('admin')" data-ko="📊 관리자" data-en="📊 Admin">📊 관리자</button>
     <button onclick="mgGo('mypage')" data-ko="👤 마이페이지" data-en="👤 My Page">👤 마이페이지</button>
+    <button class="mg-hl mg-s2" onclick="mgDrawerClose();if(window.gridActions&&window.gridActions.payment)window.gridActions.payment();else if(window.openPaymentModal)window.openPaymentModal();" data-ko="💳 결제하기" data-en="💳 Payment">💳 결제하기</button>
     <button class="mg-s1" onclick="mgGo('report')" data-ko="📋 평가표(성적표)" data-en="📋 Report Card">📋 평가표(성적표)</button>
     <button onclick="mgGo('points-shop')" data-ko="🎁 포인트상점" data-en="🎁 Point Shop">🎁 포인트상점</button>
     <button onclick="mgGo('speech')" data-ko="🎤 단계별 발음" data-en="🎤 Curriculum Pronunciation">🎤 단계별 발음</button>
@@ -4014,6 +4015,7 @@
     '레벨테스트':'내 영어 실력 진단 테스트',
     '관리자':'관리자·ERP 대시보드',
     '마이페이지':'내 학습 현황과 정보',
+    '결제하기':'수강권 결제·연장',
     '평가표':'수업 평가·성적표 확인',
     '포인트상점':'포인트로 상품 교환',
     '단계별 발음':'커리큘럼별 발음 연습',
@@ -4229,8 +4231,11 @@
     if (localStorage.getItem(KEY) === '1') alreadySeen = true;
     if (sessionStorage.getItem('mango_intro_shown_session') === '1') alreadySeen = true;
   } catch(e){}
+  // 💳 결제 딥링크(/?pay=1)로 들어온 경우 인트로 없이 바로 결제 모달로
+  var payDeepLink = false;
+  try { payDeepLink = new URLSearchParams(location.search).has('pay'); } catch(e){}
 
-  if (alreadySeen && !forceShow) {
+  if ((alreadySeen || payDeepLink) && !forceShow) {
     // 이미 봤음 — 인트로 skip
     overlay.hidden = true;
     overlay.style.display = 'none';
@@ -17130,6 +17135,21 @@ window.addEventListener('DOMContentLoaded', () => {
 </style>
 
 <script src="/js/idx-payment-modal.js?v=1"></script><!-- 분할추출:payment-modal (원복: 이 파일을 이 위치에 인라인) -->
+<script>
+/* 💳 결제 딥링크: /?pay=1 → 결제 모달 자동 오픈 (사이드바·마이페이지에서 진입) */
+(function(){
+  var sp; try { sp = new URLSearchParams(location.search); } catch(e){ return; }
+  if (!sp.has('pay')) return;
+  sp.delete('pay');
+  var rest = sp.toString();
+  try { history.replaceState(null, '', location.pathname + (rest ? '?' + rest : '') + location.hash); } catch(e){}
+  var tries = 0;
+  (function open(){
+    if (typeof window.openPaymentModal === 'function') { window.openPaymentModal(); return; }
+    if (++tries < 100) setTimeout(open, 150);
+  })();
+})();
+</script>
 
 <!-- 📅 수업 연기/변경 모달 -->
 <div class="lc-overlay" id="lc-overlay" onclick="if(event.target===this)closeLessonChangeModal()"></div>
@@ -24209,7 +24229,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260710153255 -->
+<!-- BUILD:20260710154631 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
