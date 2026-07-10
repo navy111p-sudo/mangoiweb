@@ -6,6 +6,7 @@
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
 import { json, parseJsonBody } from './api-util';
+import { authUidFromRequest } from './auth-token';   // 🔐 본인(소유자) 검증 — IDOR 방지
 import type { MangoEnv } from './api-mango';
 
 export async function handleDiaryApi(
@@ -20,6 +21,9 @@ export async function handleDiaryApi(
     try {
       const body = await parseJsonBody(request);
       if (!body || !body.user_id || !body.audio_base64 || !body.date) return json({ ok: false, error: 'missing_fields' }, 400);
+      // 🔐 본인만 자기 일기 업로드 — 토큰 uid 일치 요구
+      const upAuth = await authUidFromRequest(request, url, env, body);
+      if (!upAuth || upAuth !== String(body.user_id)) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS voice_diary (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, date TEXT, audio_url TEXT, transcript_en TEXT, ai_correction TEXT, ai_encouragement_ko TEXT, score INTEGER, duration_seconds INTEGER, created_at INTEGER);`);
 
       let audioBytes: Uint8Array | null = null;
@@ -81,6 +85,9 @@ export async function handleDiaryApi(
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS voice_diary (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, date TEXT, audio_url TEXT, transcript_en TEXT, ai_correction TEXT, ai_encouragement_ko TEXT, score INTEGER, duration_seconds INTEGER, created_at INTEGER);`);
       const row: any = await env.DB.prepare('SELECT * FROM voice_diary WHERE id = ?').bind(Number(body.diary_id)).first();
       if (!row) return json({ ok: false, error: 'not_found' }, 404);
+      // 🔐 본인 일기만 첨삭 — 토큰 uid 가 일기 소유자와 일치해야 함
+      const cAuth = await authUidFromRequest(request, url, env, body);
+      if (!cAuth || cAuth !== String(row.user_id)) return json({ ok: false, error: 'auth_required' }, 401);
       const transcript = String(row.transcript_en || '').trim();
       if (!transcript) return json({ ok: false, error: 'empty_transcript' }, 400);
 
@@ -138,6 +145,9 @@ export async function handleDiaryApi(
       const userId = url.searchParams.get('user_id');
       const month = url.searchParams.get('month');
       if (!userId) return json({ ok: false, error: 'missing_user_id' }, 400);
+      // 🔐 본인 일기 목록만 — 토큰 uid 일치 요구
+      const lAuth = await authUidFromRequest(request, url, env);
+      if (!lAuth || lAuth !== String(userId)) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
       let sql = 'SELECT id, user_id, date, audio_url, transcript_en, score, duration_seconds, created_at FROM voice_diary WHERE user_id = ?';
       const params: any[] = [userId];
       if (month && /^\d{4}-\d{2}$/.test(month)) {
@@ -157,8 +167,11 @@ export async function handleDiaryApi(
     if (mDiary && method === 'GET') {
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS voice_diary (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, date TEXT, audio_url TEXT, transcript_en TEXT, ai_correction TEXT, ai_encouragement_ko TEXT, score INTEGER, duration_seconds INTEGER, created_at INTEGER);`);
-        const row = await env.DB.prepare('SELECT * FROM voice_diary WHERE id = ?').bind(Number(mDiary[1])).first();
+        const row: any = await env.DB.prepare('SELECT * FROM voice_diary WHERE id = ?').bind(Number(mDiary[1])).first();
         if (!row) return json({ ok: false, error: 'not_found' }, 404);
+        // 🔐 본인 일기 단건만 — 토큰 uid 가 소유자와 일치해야 함
+        const gAuth = await authUidFromRequest(request, url, env);
+        if (!gAuth || gAuth !== String(row.user_id)) return json({ ok: false, error: 'auth_required' }, 401);
         return json({ ok: true, entry: row });
       } catch (e: any) {
         return json({ ok: false, error: e?.message || 'diary_get_failed' }, 500);

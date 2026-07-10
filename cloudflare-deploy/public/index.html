@@ -20541,7 +20541,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const duration = Math.round((Date.now() - vdState.startMs)/1000);
       const r = await fetch('/api/diary/upload', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ user_id: uid(), audio_base64: b64, mime: 'audio/webm', duration_seconds: duration, date: new Date().toISOString().slice(0,10) })
+        body: JSON.stringify({ user_id: uid(), token: (localStorage.getItem('mango_token')||''), audio_base64: b64, mime: 'audio/webm', duration_seconds: duration, date: new Date().toISOString().slice(0,10) })
       }).then(x=>x.json()).catch(()=>({ok:false,error:'network'}));
       if (!r.ok) throw new Error(r.error || 'upload failed');
       vdState.lastDiaryId = r.diary_id || r.id;
@@ -20569,7 +20569,7 @@ window.addEventListener('DOMContentLoaded', () => {
     try {
       const r = await fetch('/api/diary/correct', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ diary_id: vdState.lastDiaryId })
+        body: JSON.stringify({ diary_id: vdState.lastDiaryId, token: (localStorage.getItem('mango_token')||'') })
       }).then(x=>x.json()).catch(()=>({ok:false,error:'network'}));
       if (!r.ok) throw new Error(r.error || 'correction failed');
       out.innerHTML = `
@@ -20621,6 +20621,7 @@ window.addEventListener('DOMContentLoaded', () => {
     try {
       const qs = new URLSearchParams({ user_id: uid() });
       if (month) qs.set('month', month);
+      try { const _t = localStorage.getItem('mango_token'); if (_t) qs.set('token', _t); } catch(e){}  // 🔐 본인 인증
       const r = await fetch('/api/diary/list?'+qs.toString()).then(x=>x.json()).catch(()=>({ok:false}));
       if (!r.ok) throw new Error(r.error || 'failed');
       const items = r.entries || r.list || [];
