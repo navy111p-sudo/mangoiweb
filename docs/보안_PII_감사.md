@@ -19,17 +19,18 @@
 | 관리자 API default-deny | `/api/admin/*` 전부 인증 필요로 전환(수십 개 무인증 노출 차단) |
 | write-history 토큰 인증 | 남의 첨삭이력 조회 차단 |
 | 학원랭킹/기프트시드 | 전용 공개 엔드포인트로 대체(전 학생 상세 노출 제거) |
-| **대량 덤프 5종 잠금(오늘)** | `kakao-id/teachers`(전강사 전화), `parent/digest/*`(전학부모 전화·메시지), `eval/ai-lesson-report/list`(전학생 리포트), `alumni/list`, `recordings/check` → 관리자 전용. **라이브 401 확인** |
+| **대량 덤프 5종 잠금(07-10)** | `kakao-id/teachers`(전강사 전화), `parent/digest/*`(전학부모 전화·메시지), `eval/ai-lesson-report/list`(전학생 리포트), `alumni/list`, `recordings/check` → 관리자 전용. **라이브 401 확인** |
+| **돈/계정 도메인(07-10 2차)** | `gifts/redeem` → mango_token 소유자검증(남의 포인트로 기프티콘 탈취 차단, 정상 학생 회귀 없음 검증), `set-password`(계정탈취)·`subscription/create`(무단구독) → 관리자 전용. **라이브 401 + 정상통과 확인**. 표준도구 `auth-token.ts` 신설 |
 
 ## 3. 🔴 남은 HIGH — 민감 PII (전화·결제·영상·계정탈취) — 우선 처리
 
 | 경로 | 위험 | 처리방법 |
 |---|---|---|
-| `POST /api/student/set-password` | **계정 탈취** — 비번 없는 계정에 아무나 비번 설정 | 로그인 토큰 요구 또는 현재비번/관리자 필요 |
+| ~~`POST /api/student/set-password`~~ ✅ | ~~계정 탈취~~ → 관리자 전용 잠금 완료(07-10) | |
 | `GET /api/parent/dashboard?child_uid=` | 자녀 전체정보 + **학부모 전화 + 결제내역** | 학부모 토큰 인증 |
 | `GET /api/report/monthly/{uid}/{ym}` | 월간 리포트 + **결제 총액** (uid가 URL에) | 토큰/공유토큰 인증 |
 | `GET /api/kakao-id/{userId}` · `POST /api/kakao-id` | 임의 유저 전화·kakao_id 조회/덮어쓰기 | 토큰/관리자 인증 |
-| `POST /api/gifts/redeem` · `GET /api/gifts/redemptions?uid=` | 포인트 도난 + 기프티콘 탈취 + 교환내역 전화 | 토큰 인증 |
+| `POST /api/gifts/redeem` ✅ · `GET /api/gifts/redemptions?uid=` | ~~기프티콘 탈취~~(redeem 완료 07-10) + 교환내역 전화(redemptions 남음) | redeem=토큰검증 완료 / redemptions=토큰 필요 |
 | `GET /api/consents/{userId}` | **전화·IP·기기정보** | 토큰/관리자 인증 |
 | `GET /api/eval/list` · `/api/eval/{id}` · `DELETE /api/eval/{id}` | 남의 평가 조회·삭제 | 토큰/관리자 인증 |
 | `GET /api/eval/ai-lesson-report/{id}` | **수업 전사 전문** + 신원 (정수 id) | 토큰/관리자 인증 |
