@@ -941,6 +941,7 @@
       <button class="tab" id="tab-myratings" data-tab="myratings" data-ko="⭐ 내 평가" data-en="⭐ My Ratings" style="display:none">⭐ 내 평가</button>
       <button class="tab" data-tab="lessons" data-ko="📚 내 수업" data-en="📚 My Classes">📚 내 수업</button>
       <button class="tab" data-tab="salary" data-ko="💰 급여" data-en="💰 Salary">💰 급여</button>
+      <button class="tab" id="tab-lessonfee" data-tab="lessonfee" style="display:none" data-ko="🧾 수업료 정산" data-en="🧾 Lesson Fees">🧾 수업료 정산</button>
       <button class="tab" id="tab-capitown" data-tab="capitown" data-ko="🏢 캐피타운 정산" data-en="🏢 Capitown Settlement" style="display:none">🏢 캐피타운 정산</button>
       <button class="tab" data-tab="password" data-ko="🔑 비밀번호" data-en="🔑 Password">🔑 비밀번호</button>
       <button class="tab" data-tab="history" data-ko="📋 로그인 이력" data-en="📋 Login History">📋 로그인 이력</button>
@@ -1196,6 +1197,183 @@
       </div>
     </section>
 
+    <!-- ───── 🧾 수업료 정산 (Lesson Fee Summary · 강사 전용) ─────
+         마이마이 요청(2026-07): 강사가 수업 수를 수기로 세지 않도록,
+         이 달 수업 한 건 한 건(시간·학생·상태·단가·금액)과 공제·실지급액을 자동 표시.
+         데이터: /api/admin/payroll/lessons (본인 이름으로 조회, admin 세션 쿠키 인증) -->
+    <section class="panel" data-panel="lessonfee">
+      <div class="info-box" style="background:linear-gradient(135deg,rgba(52,211,153,0.12),rgba(16,185,129,0.05));border:1px solid rgba(52,211,153,0.4);color:#a7f3d0;font-size:14.5px;line-height:1.6">
+        🧾 <b data-ko="이번 달 수업료, 자동으로 계산해 드려요" data-en="Your lesson fees, calculated automatically">이번 달 수업료, 자동으로 계산해 드려요</b><span data-ko=" — 수업 1회 금액은 [수업 시간 ÷ 10분 × 10분 단가]입니다. 더 이상 수업 횟수를 직접 세지 않아도 돼요." data-en=" — Each lesson pays [minutes ÷ 10 × your rate per 10 min]. No more counting classes by hand."> — 수업 1회 금액은 <b>수업 시간 ÷ 10분 × 10분 단가</b>입니다. 더 이상 수업 횟수를 직접 세지 않아도 돼요.</span>
+      </div>
+
+      <!-- 월 이동 -->
+      <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin:14px 0">
+        <button id="lf-prev" style="width:38px;height:38px;border-radius:50%;border:1px solid rgba(148,163,184,0.4);background:rgba(30,41,59,0.9);color:#e2e8f0;font-size:16px;cursor:pointer">◀</button>
+        <div id="lf-month-label" style="font-size:18px;font-weight:900;color:#fff;min-width:150px;text-align:center">—</div>
+        <button id="lf-next" style="width:38px;height:38px;border-radius:50%;border:1px solid rgba(148,163,184,0.4);background:rgba(30,41,59,0.9);color:#e2e8f0;font-size:16px;cursor:pointer">▶</button>
+      </div>
+
+      <div id="lf-body"><div style="padding:30px;text-align:center;color:var(--text-muted)" data-ko="불러오는 중…" data-en="Loading…">불러오는 중…</div></div>
+    </section>
+    <script>
+    (function(){
+      "use strict";
+      var EN = function(){ return window.getLang && window.getLang() === 'en'; };
+      var now = new Date();
+      var lfY = now.getFullYear(), lfM = now.getMonth() + 1;
+      var lfLoaded = false, lfLastData = null;
+      function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]); }); }
+      function fmt(n){ return (Number(n)||0).toLocaleString('ko-KR'); }
+      function fmtP(n){ return '₱ ' + fmt(n); }
+
+      function monthLabel(){
+        var lbl = document.getElementById('lf-month-label');
+        if (lbl) lbl.textContent = EN() ? (lfY + '. ' + String(lfM).padStart(2,'0')) : (lfY + '년 ' + lfM + '월');
+      }
+
+      // 상태 배지 — 컴퓨터를 잘 몰라도 색과 글자로 바로 알 수 있게
+      function stBadge(st){
+        var en = EN();
+        var M = {
+          finish:          [en?'✅ Finished':'✅ 수업 완료',  'rgba(16,185,129,0.18)', '#6ee7b7'],
+          student_absent:  [en?'🙅 Student absent':'🙅 학생 결석', 'rgba(239,68,68,0.18)', '#fca5a5'],
+          teacher_no_show: [en?'⚠️ No-show':'⚠️ 미입장',     'rgba(245,158,11,0.20)', '#fcd34d'],
+          upcoming:        [en?'⏳ Upcoming':'⏳ 예정',       'rgba(148,163,184,0.18)', '#cbd5e1'],
+        };
+        var m = M[st] || M.finish;
+        return '<span style="display:inline-block;padding:3px 10px;border-radius:99px;font-size:11.5px;font-weight:800;background:' + m[1] + ';color:' + m[2] + ';white-space:nowrap">' + m[0] + '</span>';
+      }
+
+      function tile(label, value, borderColor, labelColor){
+        return '<div style="padding:12px 14px;background:rgba(15,23,42,0.5);border:1px solid ' + borderColor + ';border-radius:10px">'
+          + '<div style="font-size:11px;color:' + labelColor + ';font-weight:700">' + label + '</div>'
+          + '<div style="font-size:18px;font-weight:900;color:#fff;margin-top:2px">' + value + '</div></div>';
+      }
+
+      function render(d){
+        var en = EN();
+        var box = document.getElementById('lf-body');
+        if (!box) return;
+        if (!d || !d.ok){
+          box.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-muted)">' + (en?'Could not load data. Please try again.':'데이터를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.') + '</div>';
+          return;
+        }
+        var s = d.summary || {};
+        var lessons = d.lessons || [];
+        var past = lessons.filter(function(l){ return l.status !== 'upcoming'; });
+        var upcoming = lessons.filter(function(l){ return l.status === 'upcoming'; });
+        var fee = (d.teacher && d.teacher.fee_per_10min) || 0;
+
+        if (!lessons.length){
+          box.innerHTML = '<div style="padding:36px;text-align:center;color:var(--text-muted);background:#1A2548;border-radius:12px;font-size:14px">📭 '
+            + (en ? 'No classes found for this month.' : '이 달에는 등록된 수업이 없어요.')
+            + '<br><span style="font-size:12px">' + (en ? 'Use ◀ ▶ above to see another month.' : '위의 ◀ ▶ 버튼으로 다른 달을 볼 수 있어요.') + '</span></div>';
+          return;
+        }
+
+        // ① 실지급 예상액 히어로
+        var hero = '<div style="background:linear-gradient(135deg,#065f46,#047857);border-radius:16px;padding:20px 22px;margin-bottom:14px;color:#fff;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">'
+          + '<div>'
+          + '<div style="font-size:12px;color:#a7f3d0;font-weight:700">💰 ' + (en ? 'Estimated pay this month' : '이번 달 받으실 예상 금액') + '</div>'
+          + '<div style="font-size:32px;font-weight:900;margin-top:4px">' + fmtP(s.final_amount) + '</div>'
+          + '<div style="font-size:12px;color:#d1fae5;margin-top:4px">'
+          + (en ? ('Lesson fees ' + fmtP(s.pay_amount) + ' − deductions ' + fmtP(s.deduction_total))
+                : ('수업료 ' + fmtP(s.pay_amount) + ' − 공제 ' + fmtP(s.deduction_total)))
+          + '</div></div>'
+          + '<div style="text-align:right;font-size:12px;color:#a7f3d0">'
+          + (en ? 'My rate' : '내 10분 단가') + '<br><b style="font-size:18px;color:#fff">' + (fee ? fmtP(fee) : (en?'not set':'미설정')) + '</b>'
+          + (fee ? '' : '<br><span style="color:#fde68a">' + (en?'Ask your manager to set it.':'관리자에게 단가 등록을 요청해 주세요.') + '</span>')
+          + '</div></div>';
+
+        // ② 한눈 요약 타일
+        var tiles = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:14px">'
+          + tile('📚 ' + (en?'Classes done':'완료한 수업'), fmt(s.finish_count) + (en?'':'회'), 'rgba(56,189,248,0.35)', '#7dd3fc')
+          + tile('🙅 ' + (en?'Student absent':'학생 결석'), fmt(s.absent_count) + (en?'':'회'), 'rgba(239,68,68,0.35)', '#fca5a5')
+          + tile('📝 ' + (en?'Feedback missing':'피드백 미작성'), fmt(s.no_feedback_count) + (en?'':'회'), 'rgba(251,191,36,0.35)', '#fcd34d')
+          + tile('➖ ' + (en?'Deductions':'공제 합계'), '− ' + fmtP(s.deduction_total), 'rgba(239,68,68,0.35)', '#fca5a5')
+          + '</div>';
+
+        // ③ 적용 중인 공제 규칙 안내 (강사가 왜 깎였는지 이해할 수 있게)
+        var activeRules = (d.rules || []).filter(function(r){ return r.enabled && r.rule_type === 'per_lesson' && Number(r.amount) > 0; });
+        var ruleInfo = activeRules.length
+          ? '<div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.3);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#fde68a;line-height:1.7">📌 '
+            + (en ? '<b>Deduction rules in effect:</b> ' : '<b>지금 적용 중인 공제 규칙:</b> ')
+            + activeRules.map(function(r){ return esc(en?(r.label_en||r.label_ko):(r.label_ko)) + ' <b>− ' + fmtP(r.amount) + '</b>'; }).join(' · ')
+            + '</div>'
+          : '';
+
+        // ④ 수업 한 건 한 건 목록
+        var rows = past.map(function(l){
+          var fbCell = l.status === 'finish'
+            ? (l.feedback_ok
+                ? '<span style="color:#6ee7b7;font-weight:700">' + (en?'✅ Done':'✅ 작성') + '</span>'
+                : '<span style="color:#fca5a5;font-weight:700">' + (en?'❌ Missing':'❌ 미작성') + '</span>')
+            : '<span style="color:#64748b">—</span>';
+          var dedCell = l.deduction_total > 0
+            ? '<b style="color:#fca5a5">− ' + fmtP(l.deduction_total) + '</b>'
+            : '<span style="color:#64748b">—</span>';
+          return '<tr style="border-bottom:1px solid rgba(148,163,184,0.12)">'
+            + '<td style="padding:10px 12px;white-space:nowrap"><b style="color:#fff">' + esc(l.date) + '</b> <span style="color:#94a3b8">' + esc(l.start_time||'') + '</span></td>'
+            + '<td style="padding:10px 12px;color:#e2e8f0">' + esc(l.student_name || l.user_id || '-') + '</td>'
+            + '<td style="padding:10px 12px;text-align:center">' + stBadge(l.status) + '</td>'
+            + '<td style="padding:10px 12px;text-align:right;color:#94a3b8">' + fmt(l.duration_minutes) + (en?' min':'분') + '</td>'
+            + '<td style="padding:10px 12px;text-align:right;font-weight:800;color:' + (l.amount > 0 ? '#fbbf24' : '#64748b') + '">' + fmtP(l.amount) + '</td>'
+            + '<td style="padding:10px 12px;text-align:center">' + fbCell + '</td>'
+            + '<td style="padding:10px 12px;text-align:right">' + dedCell + '</td>'
+            + '</tr>';
+        }).join('');
+
+        var table = '<div style="background:#1A2548;border-radius:12px;border:1px solid rgba(96,165,250,0.18);overflow:hidden">'
+          + '<div style="font-weight:800;font-size:13px;color:#fbbf24;padding:12px 16px 0">🗓 ' + (en?'Every lesson this month':'이 달 수업 한 건 한 건') + '</div>'
+          + (upcoming.length ? '<div style="font-size:11.5px;color:#94a3b8;padding:4px 16px 0">⏳ ' + (en ? (upcoming.length + ' upcoming lessons are not counted yet.') : ('아직 하지 않은 예정 수업 ' + upcoming.length + '회는 계산에 포함되지 않아요.')) + '</div>' : '')
+          + '<div style="overflow-x:auto;padding:8px 4px 4px"><table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:560px">'
+          + '<thead><tr style="color:#94a3b8;font-size:11.5px">'
+          + '<th style="text-align:left;padding:8px 12px">' + (en?'Lesson Time':'수업 시간') + '</th>'
+          + '<th style="text-align:left;padding:8px 12px">' + (en?'Student':'학생') + '</th>'
+          + '<th style="text-align:center;padding:8px 12px">' + (en?'Status':'상태') + '</th>'
+          + '<th style="text-align:right;padding:8px 12px">' + (en?'Min':'시간') + '</th>'
+          + '<th style="text-align:right;padding:8px 12px">' + (en?'Fee':'금액') + '</th>'
+          + '<th style="text-align:center;padding:8px 12px">' + (en?'Feedback':'당일 피드백') + '</th>'
+          + '<th style="text-align:right;padding:8px 12px">' + (en?'Deduction':'공제') + '</th>'
+          + '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+
+        box.innerHTML = hero + tiles + ruleInfo + table;
+      }
+
+      function load(){
+        var name = window.__myName || '';
+        var box = document.getElementById('lf-body');
+        monthLabel();
+        if (!name){
+          if (box) box.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-muted)">' + (EN()?'Loading profile…':'프로필 확인 중…') + '</div>';
+          return;
+        }
+        if (box) box.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-muted)">' + (EN()?'Calculating…':'계산 중…') + '</div>';
+        fetch('/api/admin/payroll/lessons?year=' + lfY + '&month=' + lfM + '&teacher_name=' + encodeURIComponent(name), { credentials:'include' })
+          .then(function(r){ return r.json(); })
+          .then(function(j){ lfLoaded = true; lfLastData = j; render(j); })
+          .catch(function(){ render(null); });
+      }
+      window.loadLessonFee = load;
+
+      var prev = document.getElementById('lf-prev');
+      var next = document.getElementById('lf-next');
+      if (prev) prev.addEventListener('click', function(){ lfM--; if (lfM < 1){ lfM = 12; lfY--; } load(); });
+      if (next) next.addEventListener('click', function(){ lfM++; if (lfM > 12){ lfM = 1; lfY++; } load(); });
+
+      // 탭을 처음 누를 때 로드 (강사 이름은 loadMe 이후 window.__myName 에 준비됨)
+      var tabBtn = document.getElementById('tab-lessonfee');
+      if (tabBtn) tabBtn.addEventListener('click', function(){ if (!lfLoaded) load(); });
+
+      // 언어 전환 시 다시 그림
+      window.addEventListener('mangoi:lang-changed', function(){
+        monthLabel();
+        if (lfLoaded && lfLastData) render(lfLastData);
+      });
+      monthLabel();
+    })();
+    </script>
+
     <!-- ───── 캐피타운 프랜차이즈 정산 (캐피타운 본사·본사 경영진 전용) ───── -->
     <section class="panel" data-panel="capitown">
       <div class="info-box">
@@ -1351,6 +1529,8 @@
     var tLessons = qsTab('lessons'); if (tLessons) tLessons.style.display = isTeacher ? '' : 'none';
     var tSalary  = qsTab('salary');  if (tSalary)  tSalary.style.display  = isTeacher ? '' : 'none';
     var tMyRat   = qsTab('myratings'); if (tMyRat)  tMyRat.style.display   = isTeacher ? '' : 'none';
+    // 🧾 수업료 정산 (Lesson Fee Summary) — 강사 전용
+    var tFee = el('tab-lessonfee'); if (tFee) tFee.style.display = isTeacher ? '' : 'none';
 
     // 정산: 본사·프랜차이즈·지사만. 라벨을 역할에 맞게.
     var tCap = el('tab-capitown');

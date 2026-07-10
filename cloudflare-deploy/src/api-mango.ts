@@ -5512,39 +5512,183 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
     const ensurePayrollTable = async () => {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_payroll (id INTEGER PRIMARY KEY AUTOINCREMENT, teacher_id INTEGER NOT NULL, teacher_name TEXT, year INTEGER NOT NULL, month INTEGER NOT NULL, lesson_count INTEGER DEFAULT 0, total_minutes INTEGER DEFAULT 0, fee_per_10min INTEGER DEFAULT 0, calculated_amount INTEGER DEFAULT 0, adjusted_amount INTEGER, paid_amount INTEGER, status TEXT DEFAULT 'pending', paid_at INTEGER, memo TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, UNIQUE(teacher_id, year, month));`);
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_payroll_period ON teacher_payroll(year, month)`); } catch {}
+      // 💼 G3 — 공제(deduction) 반영 정산: 공제합계·실지급액 컬럼 추가(기존 배포 DB 호환 ALTER)
+      try { await env.DB.exec(`ALTER TABLE teacher_payroll ADD COLUMN deduction_total INTEGER DEFAULT 0`); } catch {}
+      try { await env.DB.exec(`ALTER TABLE teacher_payroll ADD COLUMN final_amount INTEGER`); } catch {}
     };
 
-    // ── GET /api/admin/payroll/calculate?year=&month= — 월별 강사 급여 자동 계산 ──
-    //   class_schedules 에서 강사별 완료 수업 수 집계 → teacher_profiles.fee_per_10min 곱하여 계산
-    //   결과는 메모리에서만 반환 (DB 저장은 별도 POST /save)
-    if (method === 'GET' && path === '/api/admin/payroll/calculate') {
+    // ── 💼 G3 — 공제(Deduction) 규칙 테이블 ──
+    //   마이마이 요청(2026-07): "당일 피드백 미작성 -50 PHP" 같은 공제를 관리자가
+    //   금액·켜기/끄기로 조절. rule_type: per_lesson(수업 1건당 차감) | policy_percent(지급률 정책)
+    const ensureDeductionRules = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS payroll_deduction_rules (code TEXT PRIMARY KEY, label_ko TEXT, label_en TEXT, rule_type TEXT DEFAULT 'per_lesson', amount REAL DEFAULT 0, enabled INTEGER DEFAULT 1, sort_order INTEGER DEFAULT 0, updated_at INTEGER)`);
+      const cnt: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM payroll_deduction_rules`).first().catch(() => null);
+      if (!cnt || !(cnt.c > 0)) {
+        const now = Date.now();
+        const seed: any[] = [
+          ['no_feedback_day',    '당일 피드백 미작성 (수업 1건당 차감)', 'No feedback within the day (per lesson)', 'per_lesson',     50, 1, 1],
+          ['teacher_no_show',    '강사 미입장·노쇼 (수업 1건당 차감)',   'Teacher no-show (per lesson)',            'per_lesson',      0, 0, 2],
+          ['absent_pay_percent', '학생 결석 시 지급률(%)',               'Pay rate when student is absent (%)',     'policy_percent',  0, 1, 3],
+        ];
+        for (const s of seed) {
+          try { await env.DB.prepare(`INSERT OR IGNORE INTO payroll_deduction_rules (code,label_ko,label_en,rule_type,amount,enabled,sort_order,updated_at) VALUES (?,?,?,?,?,?,?,?)`).bind(s[0], s[1], s[2], s[3], s[4], s[5], s[6], now).run(); } catch {}
+        }
+      }
+    };
+
+    // ── 💼 G3 — 월별 수업 한 건씩(Lesson Fee Summary) + 공제 자동 계산 ──
+    //   class_schedules(수업) + class_no_show(결석/노쇼) + teacher_class_feedback(당일 피드백)을
+    //   JS에서 매칭(스케줄 날짜 포맷이 '2026-07-01'/'2026/07/01' 혼재라 SQL 조인 대신 안전한 JS 매칭).
+    //   수업↔피드백 정확 연결: 예약기반 결정론 room_id = `class-{scheduleId}-{YYYYMMDD}` (Phase RM 규칙 재사용)
+    const computeLessonFeeMonth = async (year: number, month: number) => {
       await ensurePayrollTable();
+      await ensureDeductionRules();
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, korean_name TEXT NOT NULL, english_name TEXT, fee_per_10min INTEGER, status TEXT DEFAULT '활동중', email TEXT, phone TEXT);`); } catch {}
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, teacher_id INTEGER, teacher_name TEXT, scheduled_date TEXT, day_of_week INTEGER, start_time TEXT, duration_minutes INTEGER, status TEXT);`); } catch {}
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_no_show (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT, schedule_id INTEGER, missing_role TEXT, missing_uid TEXT, student_name TEXT, teacher_name TEXT, lesson_title TEXT, waited_min INTEGER, notified_push INTEGER DEFAULT 0, notified_kakao INTEGER DEFAULT 0, created_at INTEGER NOT NULL)`); } catch {}
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_class_feedback (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT NOT NULL, teacher_uid TEXT, teacher_name TEXT, student_name TEXT, duration_min INTEGER, metrics_json TEXT, feedback_ko TEXT, feedback_en TEXT, source TEXT, created_at INTEGER NOT NULL, UNIQUE(room_id));`); } catch {}
 
-      const now = new Date();
-      const year = parseInt(url.searchParams.get('year') || String(now.getFullYear()), 10);
-      const month = parseInt(url.searchParams.get('month') || String(now.getMonth() + 1), 10);
-      const defaultMinutes = parseInt(url.searchParams.get('default_minutes') || '30', 10);  // 수업 1회 기본 30분
+      // 공제 규칙 로드
+      const ruleRows: any = await env.DB.prepare(`SELECT * FROM payroll_deduction_rules ORDER BY sort_order, code`).all().catch(() => ({ results: [] }));
+      const rules: any = {};
+      (ruleRows.results || []).forEach((r: any) => { rules[r.code] = r; });
+      const absentPct = (rules.absent_pay_percent && rules.absent_pay_percent.enabled) ? Math.max(0, Math.min(100, Number(rules.absent_pay_percent.amount) || 0)) : 0;
+      const feeNoFb = (rules.no_feedback_day && rules.no_feedback_day.enabled) ? Math.max(0, Number(rules.no_feedback_day.amount) || 0) : 0;
+      const feeTNoShow = (rules.teacher_no_show && rules.teacher_no_show.enabled) ? Math.max(0, Number(rules.teacher_no_show.amount) || 0) : 0;
 
       // 강사 목록 + 단가
       const teachers: any = await env.DB.prepare(
         `SELECT id, korean_name, english_name, fee_per_10min FROM teacher_profiles WHERE status = '활동중' OR status IS NULL ORDER BY korean_name`
       ).all().catch(() => ({ results: [] }));
+      const tMap: any = {}; const tByName: any = {};
+      for (const t of (teachers.results || [])) { tMap[t.id] = t; if (t.korean_name) tByName[t.korean_name] = t; if (t.english_name) tByName[t.english_name] = t; }
 
-      // 해당 월에 완료된 수업 (status: 'active' 또는 'completed', 'attended' 등 — 'cancelled' 제외)
-      const ymPrefix = `${year}-${String(month).padStart(2,'0')}`;
-      const lessons: any = await env.DB.prepare(
-        `SELECT teacher_id, teacher_name, COUNT(*) AS lesson_count, SUM(COALESCE(duration_minutes, ${defaultMinutes})) AS total_min
+      // 이 달 수업 (취소 제외)
+      const ymPrefix = `${year}-${String(month).padStart(2, '0')}`;
+      const ymSlash = `${year}/${String(month).padStart(2, '0')}`;
+      const ls: any = await env.DB.prepare(
+        `SELECT id, user_id, teacher_id, teacher_name, scheduled_date, start_time, duration_minutes, status
            FROM class_schedules
           WHERE (scheduled_date LIKE ? OR scheduled_date LIKE ?)
             AND COALESCE(status,'active') != 'cancelled'
             AND teacher_id IS NOT NULL
-          GROUP BY teacher_id`
-      ).bind(ymPrefix + '%', ymPrefix + '/%').all().catch(() => ({ results: [] }));
+          ORDER BY scheduled_date, start_time`
+      ).bind(ymPrefix + '%', ymSlash + '%').all().catch(() => ({ results: [] }));
 
-      const lessonMap: any = {};
-      (lessons.results || []).forEach((l: any) => { lessonMap[l.teacher_id] = l; });
+      // 이 달 노쇼·피드백 (KST 기준 월 범위 ms)
+      const mStart = Date.parse(`${ymPrefix}-01T00:00:00+09:00`);
+      const mEnd = month === 12
+        ? Date.parse(`${year + 1}-01-01T00:00:00+09:00`)
+        : Date.parse(`${year}-${String(month + 1).padStart(2, '0')}-01T00:00:00+09:00`);
+      const kstDay = (ms: number) => new Date(ms + 9 * 3600 * 1000).toISOString().slice(0, 10);
+
+      const noShows: any = await env.DB.prepare(`SELECT room_id, schedule_id, missing_role, created_at FROM class_no_show WHERE created_at >= ? AND created_at < ?`).bind(mStart, mEnd).all().catch(() => ({ results: [] }));
+      const nsByRoom: any = {}; const nsBySched: any = {};
+      for (const n of (noShows.results || [])) {
+        if (n.room_id) nsByRoom[n.room_id] = n;
+        if (n.schedule_id != null) nsBySched[`${n.schedule_id}|${kstDay(n.created_at)}`] = n;
+      }
+
+      const fbs: any = await env.DB.prepare(`SELECT room_id, teacher_name, created_at FROM teacher_class_feedback WHERE created_at >= ? AND created_at < ?`).bind(mStart, mEnd).all().catch(() => ({ results: [] }));
+      const fbByRoom: any = {}; const fbByTeacherDay: any = {};
+      for (const f of (fbs.results || [])) {
+        const dkey = kstDay(f.created_at);
+        if (f.room_id && !fbByRoom[f.room_id]) fbByRoom[f.room_id] = dkey;
+        if (f.teacher_name) fbByTeacherDay[`${f.teacher_name}|${dkey}`] = true;
+      }
+
+      // 학생 이름 맵 (students_erp 컬럼 구성이 배포본마다 달라 순차 폴백)
+      const uids: any[] = [...new Set((ls.results || []).map((l: any) => l.user_id).filter(Boolean))];
+      const stuName: any = {};
+      if (uids.length && uids.length <= 500) {
+        const ph = uids.map(() => '?').join(',');
+        for (const col of ['student_name', 'korean_name', 'name']) {
+          try {
+            const rs: any = await env.DB.prepare(`SELECT user_id, ${col} AS nm FROM students_erp WHERE user_id IN (${ph})`).bind(...uids).all();
+            let hit = false;
+            for (const r of (rs.results || [])) { if (r.nm) { stuName[r.user_id] = r.nm; hit = true; } }
+            if (hit) break;
+          } catch {}
+        }
+      }
+
+      // 오늘(KST) — 아직 시작 전인 예정 수업은 지급 계산에서 제외(status: upcoming)
+      const nowKstIso = new Date(Date.now() + 9 * 3600 * 1000).toISOString();
+      const todayKey = nowKstIso.slice(0, 10);
+      const nowHm = nowKstIso.slice(11, 16);
+
+      const lessons: any[] = [];
+      const perTeacher: any = {};
+      for (const l of (ls.results || [])) {
+        const dateStr = String(l.scheduled_date || '').replace(/\//g, '-').slice(0, 10);
+        const roomId = `class-${l.id}-${dateStr.replace(/-/g, '')}`;
+        const prof = tMap[l.teacher_id] || tByName[l.teacher_name || ''] || null;
+        const fee = (prof && prof.fee_per_10min) || 0;
+        const mins = l.duration_minutes || 30;
+
+        const upcoming = dateStr > todayKey || (dateStr === todayKey && String(l.start_time || '00:00') > nowHm);
+        const ns = nsByRoom[roomId] || nsBySched[`${l.id}|${dateStr}`] || null;
+        let st = 'finish';
+        if (upcoming) st = 'upcoming';
+        else if (ns && ns.missing_role === 'student') st = 'student_absent';
+        else if (ns && ns.missing_role === 'teacher') st = 'teacher_no_show';
+
+        const base = Math.round((mins / 10) * fee);
+        let amount = 0;
+        if (st === 'finish') amount = base;
+        else if (st === 'student_absent') amount = Math.round(base * absentPct / 100);
+
+        // 당일 피드백 여부 — 완료 수업만 판정. room_id 정확 매칭 → (구 데이터 폴백) 강사명+같은 날
+        let fbOk: boolean | null = null;
+        if (st === 'finish') {
+          fbOk = fbByRoom[roomId] === dateStr || !!fbByTeacherDay[`${l.teacher_name}|${dateStr}`];
+        }
+
+        const dedus: any[] = [];
+        if (st === 'finish' && fbOk === false && feeNoFb > 0) dedus.push({ code: 'no_feedback_day', amount: feeNoFb });
+        if (st === 'teacher_no_show' && feeTNoShow > 0) dedus.push({ code: 'teacher_no_show', amount: feeTNoShow });
+        const dSum = dedus.reduce((a, b) => a + (b.amount || 0), 0);
+
+        lessons.push({
+          schedule_id: l.id, room_id: roomId, date: dateStr, start_time: l.start_time || '',
+          duration_minutes: mins, user_id: l.user_id || null, student_name: stuName[l.user_id] || null,
+          teacher_id: l.teacher_id, teacher_name: l.teacher_name || (prof ? prof.korean_name : null),
+          status: st, fee_per_10min: fee, base_amount: base, amount,
+          feedback_ok: fbOk, deductions: dedus, deduction_total: dSum,
+        });
+
+        const agg = perTeacher[l.teacher_id] || (perTeacher[l.teacher_id] = {
+          teacher_id: l.teacher_id, lesson_count: 0, upcoming_count: 0, finish_count: 0,
+          absent_count: 0, teacher_no_show_count: 0, no_feedback_count: 0,
+          total_minutes: 0, base_amount: 0, pay_amount: 0, deduction_total: 0, final_amount: 0,
+        });
+        if (st === 'upcoming') { agg.upcoming_count++; continue; }
+        agg.lesson_count++;
+        agg.total_minutes += mins;
+        if (st === 'finish') agg.finish_count++;
+        if (st === 'student_absent') agg.absent_count++;
+        if (st === 'teacher_no_show') agg.teacher_no_show_count++;
+        if (fbOk === false) agg.no_feedback_count++;
+        agg.base_amount += base;
+        agg.pay_amount += amount;
+        agg.deduction_total += dSum;
+        agg.final_amount = agg.pay_amount - agg.deduction_total;
+      }
+
+      return { rules: ruleRows.results || [], absent_pay_percent: absentPct, lessons, perTeacher, teachers: teachers.results || [] };
+    };
+
+    // ── GET /api/admin/payroll/calculate?year=&month= — 월별 강사 급여 자동 계산 ──
+    //   💼 G3 업그레이드: 수업 한 건씩 계산(computeLessonFeeMonth)을 합산 —
+    //   학생 결석(지급률 정책)·강사 노쇼·당일 피드백 미작성 공제가 자동 반영되고,
+    //   아직 시작 전인 예정 수업(upcoming)은 금액에서 제외된다.
+    //   결과는 메모리에서만 반환 (DB 저장은 별도 POST /save)
+    if (method === 'GET' && path === '/api/admin/payroll/calculate') {
+      const now = new Date();
+      const year = parseInt(url.searchParams.get('year') || String(now.getFullYear()), 10);
+      const month = parseInt(url.searchParams.get('month') || String(now.getMonth() + 1), 10);
+
+      const data = await computeLessonFeeMonth(year, month);
 
       // 기존 저장된 정산 (지급 상태 확인용)
       const saved: any = await env.DB.prepare(
@@ -5554,23 +5698,32 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       (saved.results || []).forEach((s: any) => { savedMap[s.teacher_id] = s; });
 
       const rows: any[] = [];
-      let totalAmount = 0, totalLessons = 0, paidCount = 0;
-      for (const t of (teachers.results || [])) {
-        const l = lessonMap[t.id] || { lesson_count: 0, total_min: 0 };
+      let totalAmount = 0, totalLessons = 0, totalDeduction = 0, totalFinal = 0, paidCount = 0;
+      for (const t of (data.teachers || [])) {
+        const a = data.perTeacher[t.id] || { lesson_count: 0, upcoming_count: 0, finish_count: 0, absent_count: 0, teacher_no_show_count: 0, no_feedback_count: 0, total_minutes: 0, base_amount: 0, pay_amount: 0, deduction_total: 0, final_amount: 0 };
         const fee = t.fee_per_10min || 0;
-        const calculated = Math.round((l.total_min / 10) * fee);
         const s = savedMap[t.id];
-        totalAmount += calculated;
-        totalLessons += l.lesson_count || 0;
+        totalAmount += a.pay_amount;
+        totalLessons += a.lesson_count;
+        totalDeduction += a.deduction_total;
+        totalFinal += a.final_amount;
         if (s && s.status === 'paid') paidCount++;
         rows.push({
           teacher_id: t.id,
           korean_name: t.korean_name,
           english_name: t.english_name,
           fee_per_10min: fee,
-          lesson_count: l.lesson_count || 0,
-          total_minutes: l.total_min || 0,
-          calculated_amount: calculated,
+          lesson_count: a.lesson_count,
+          total_minutes: a.total_minutes,
+          calculated_amount: a.pay_amount,
+          // 💼 G3 — 공제 반영 필드
+          deduction_total: a.deduction_total,
+          final_amount: a.final_amount,
+          finish_count: a.finish_count,
+          absent_count: a.absent_count,
+          teacher_no_show_count: a.teacher_no_show_count,
+          no_feedback_count: a.no_feedback_count,
+          upcoming_count: a.upcoming_count,
           // 저장된 정산이 있으면 그 값 우선
           adjusted_amount: s?.adjusted_amount ?? null,
           paid_amount: s?.paid_amount ?? null,
@@ -5586,11 +5739,87 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
           teacher_count: rows.length,
           total_lessons: totalLessons,
           total_amount: totalAmount,
+          total_deduction: totalDeduction,
+          total_final: totalFinal,
           paid_count: paidCount,
           unpaid_count: rows.length - paidCount,
         },
         rows,
       });
+    }
+
+    // ── GET /api/admin/payroll/lessons?year=&month=&teacher_id=|teacher_name= ──
+    //   💼 G3 — 강사 1명의 수업별 상세(Lesson Fee Summary): 날짜·시간·학생·상태·단가·금액·피드백·공제.
+    //   관리자 카드 「📋 상세」와 강사 마이페이지 '🧾 수업료 정산' 탭이 함께 사용
+    //   (admin 세션 쿠키 필수 — index.ts default-deny 미들웨어가 인증 강제).
+    if (method === 'GET' && path === '/api/admin/payroll/lessons') {
+      const now = new Date();
+      const year = parseInt(url.searchParams.get('year') || String(now.getFullYear()), 10);
+      const month = parseInt(url.searchParams.get('month') || String(now.getMonth() + 1), 10);
+      let tid = parseInt(url.searchParams.get('teacher_id') || '', 10) || 0;
+      const tname = (url.searchParams.get('teacher_name') || '').trim();
+      if (!tid && !tname) return json({ ok: false, error: 'teacher_id_or_teacher_name_required' }, 400);
+
+      const data = await computeLessonFeeMonth(year, month);
+      let teacher: any = null;
+      if (tid) teacher = (data.teachers || []).find((t: any) => t.id === tid) || null;
+      else {
+        teacher = (data.teachers || []).find((t: any) => t.korean_name === tname || t.english_name === tname) || null;
+        if (teacher) tid = teacher.id;
+      }
+      const lessons = data.lessons.filter((l: any) =>
+        (tid && l.teacher_id === tid) || (!tid && tname && l.teacher_name === tname));
+
+      // 필터된 수업으로 요약 재계산 (이름만 일치하는 프로필 없는 강사도 지원)
+      const sum: any = { lesson_count: 0, upcoming_count: 0, finish_count: 0, absent_count: 0, teacher_no_show_count: 0, no_feedback_count: 0, total_minutes: 0, base_amount: 0, pay_amount: 0, deduction_total: 0, final_amount: 0 };
+      for (const l of lessons) {
+        if (l.status === 'upcoming') { sum.upcoming_count++; continue; }
+        sum.lesson_count++;
+        sum.total_minutes += l.duration_minutes;
+        if (l.status === 'finish') sum.finish_count++;
+        if (l.status === 'student_absent') sum.absent_count++;
+        if (l.status === 'teacher_no_show') sum.teacher_no_show_count++;
+        if (l.feedback_ok === false) sum.no_feedback_count++;
+        sum.base_amount += l.base_amount;
+        sum.pay_amount += l.amount;
+        sum.deduction_total += l.deduction_total;
+      }
+      sum.final_amount = sum.pay_amount - sum.deduction_total;
+
+      return json({
+        ok: true, year, month,
+        teacher: teacher ? { id: teacher.id, korean_name: teacher.korean_name, english_name: teacher.english_name, fee_per_10min: teacher.fee_per_10min || 0 } : { id: tid || null, korean_name: tname || null },
+        summary: sum,
+        rules: (data.rules || []).map((r: any) => ({ code: r.code, label_ko: r.label_ko, label_en: r.label_en, rule_type: r.rule_type, amount: r.amount, enabled: r.enabled })),
+        absent_pay_percent: data.absent_pay_percent,
+        lessons,
+      });
+    }
+
+    // ── GET /api/admin/payroll/deduction-rules — 공제 규칙 목록 ──
+    if (method === 'GET' && path === '/api/admin/payroll/deduction-rules') {
+      await ensureDeductionRules();
+      const rs: any = await env.DB.prepare(`SELECT * FROM payroll_deduction_rules ORDER BY sort_order, code`).all().catch(() => ({ results: [] }));
+      return json({ ok: true, rules: rs.results || [] });
+    }
+
+    // ── POST /api/admin/payroll/deduction-rules — 공제 규칙 저장 ──
+    //   body: { rules: [{ code, amount, enabled }] } — 금액·켜기/끄기만 수정(라벨은 시드 유지)
+    if (method === 'POST' && path === '/api/admin/payroll/deduction-rules') {
+      await ensureDeductionRules();
+      const body: any = await request.json().catch(() => ({}));
+      if (!Array.isArray(body.rules)) return json({ ok: false, error: 'rules_array_required' }, 400);
+      const now = Date.now();
+      let updated = 0;
+      for (const r of body.rules) {
+        if (!r || !r.code) continue;
+        try {
+          await env.DB.prepare(`UPDATE payroll_deduction_rules SET amount = ?, enabled = ?, updated_at = ? WHERE code = ?`)
+            .bind(Math.max(0, Number(r.amount) || 0), r.enabled ? 1 : 0, now, String(r.code)).run();
+          updated++;
+        } catch {}
+      }
+      return json({ ok: true, updated });
     }
 
     // ── POST /api/admin/payroll/save — 정산 결과 D1에 저장/업데이트 ──
@@ -5606,21 +5835,25 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       for (const r of body.rows) {
         try {
           await env.DB.prepare(
-            `INSERT INTO teacher_payroll (teacher_id, teacher_name, year, month, lesson_count, total_minutes, fee_per_10min, calculated_amount, adjusted_amount, memo, status, created_at, updated_at)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+            `INSERT INTO teacher_payroll (teacher_id, teacher_name, year, month, lesson_count, total_minutes, fee_per_10min, calculated_amount, deduction_total, final_amount, adjusted_amount, memo, status, created_at, updated_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
              ON CONFLICT(teacher_id, year, month) DO UPDATE SET
                teacher_name = excluded.teacher_name,
                lesson_count = excluded.lesson_count,
                total_minutes = excluded.total_minutes,
                fee_per_10min = excluded.fee_per_10min,
                calculated_amount = excluded.calculated_amount,
+               deduction_total = excluded.deduction_total,
+               final_amount = excluded.final_amount,
                adjusted_amount = excluded.adjusted_amount,
                memo = excluded.memo,
                updated_at = excluded.updated_at`
           ).bind(
             r.teacher_id, r.teacher_name || null, year, month,
             r.lesson_count || 0, r.total_minutes || 0, r.fee_per_10min || 0,
-            r.calculated_amount || 0, r.adjusted_amount ?? null,
+            r.calculated_amount || 0, r.deduction_total || 0,
+            r.final_amount ?? ((r.calculated_amount || 0) - (r.deduction_total || 0)),
+            r.adjusted_amount ?? null,
             r.memo || null, 'pending', now, now
           ).run();
           saved++;
@@ -5661,7 +5894,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         `SELECT * FROM teacher_payroll WHERE year = ? AND month = ? ORDER BY teacher_name`
       ).bind(year, month).all().catch(() => ({ results: [] }));
       const rows = rs.results || [];
-      const header = '강사ID,강사명,년월,수업횟수,총수업분,단가(10분),계산금액,조정금액,지급금액,상태,지급일,메모';
+      const header = '강사ID,강사명,년월,수업횟수,총수업분,단가(10분),수업료,공제,실지급액,조정금액,지급금액,상태,지급일,메모';
       const csv = [header].concat(
         rows.map((r: any) => [
           r.teacher_id,
@@ -5671,6 +5904,8 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
           r.total_minutes || 0,
           r.fee_per_10min || 0,
           r.calculated_amount || 0,
+          r.deduction_total || 0,
+          r.final_amount ?? ((r.calculated_amount || 0) - (r.deduction_total || 0)),
           r.adjusted_amount ?? '',
           r.paid_amount ?? '',
           r.status || 'pending',
