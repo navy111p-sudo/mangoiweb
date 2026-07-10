@@ -3006,6 +3006,10 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/eval/ai-lesson-report/list') return true;     // 전 학생 수업 리포트(전사 포함) 목록
   if (path === '/api/alumni/list') return true;                    // 전 동문 프로필(지역 등) 덤프
   if (path === '/api/recordings/check') return true;               // R2 녹화 객체 열거(재생키 유출 보조)
+  // 🔒 [PII 4차 2026-07-10] 영상/전사 — 미성년자 수업영상 키 열거·전사 유출 통로 차단(프론트 미사용/우아한 실패).
+  if (path.startsWith('/api/recordings/stream/')) return true;     // 영상 id 스트리밍(프론트 미사용)
+  if (path === '/api/recordings/list-recent') return true;         // 전체 녹화 메타+blob키 덤프(열거 벡터)
+  if (/^\/api\/eval\/ai-lesson-report\/\d+$/.test(path)) return true; // 수업 전사 전문 단건(정수 id, 프론트 미사용)
   // 🔒 [PII 2차 2026-07-10] 무단구독 — 프론트 미사용 확인 후 관리자 전용 잠금.
   //   (set-password 는 학부모 '내 자녀 계정 잠그기(claim)' 흐름에 필요해 공개 유지.
   //    비번 없는 계정=최초 설정(claim), 비번 있는 계정=옛 비번 검증 필수 → 탈취 방지는 claim 순서로 담보)
