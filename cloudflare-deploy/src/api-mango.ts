@@ -8328,21 +8328,23 @@ Respond in JSON ONLY:
 
     // ── GET /api/teachers/list-public — 강사 목록 (이름만, 칭찬용) ──
     if (method === 'GET' && path === '/api/teachers/list-public') {
+      // 라이브 teacher_profiles 는 관리자 강사프로필 스키마(id/korean_name/english_name/status='활동중')이며
+      // teacher_uid 컬럼이 없다 — 과거 이 핸들러가 teacher_uid 를 SELECT 해 D1_ERROR 500 이 났음.
+      let teachers: any[] = [];
+      // 1) teacher_profiles 우선 (uid 는 'tp-<id>' 로 합성 — 칭찬 저장 시 teacher_name 도 함께 저장되므로 표시엔 지장 없음)
       try {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, teacher_uid TEXT UNIQUE, korean_name TEXT, english_name TEXT, status TEXT);`);
+        const rs: any = await env.DB.prepare(`SELECT id, korean_name, english_name FROM teacher_profiles WHERE status IS NULL OR status = '' OR status IN ('활동중','재직') ORDER BY korean_name LIMIT 100`).all();
+        teachers = ((rs.results || []) as any[]).map(t => ({ teacher_uid: 'tp-' + t.id, name: t.korean_name || t.english_name || ('강사 ' + t.id), english_name: t.english_name || null }));
       } catch {}
-      // 1) teacher_profiles 우선
-      let rs: any = await env.DB.prepare(`SELECT teacher_uid, korean_name AS name, english_name FROM teacher_profiles WHERE status = '재직' OR status IS NULL OR status = '' LIMIT 100`).all();
-      let teachers = (rs.results || []) as any[];
-      // 2) teacher_mbti 에서도 추가
+      // 2) teacher_mbti 폴백
       if (!teachers.length) {
         try {
           await ensureMbtiTable();
-          rs = await env.DB.prepare(`SELECT teacher_uid, teacher_name AS name FROM teacher_mbti LIMIT 100`).all();
-          teachers = (rs.results || []) as any[];
+          const rs: any = await env.DB.prepare(`SELECT teacher_uid, teacher_name AS name FROM teacher_mbti LIMIT 100`).all();
+          teachers = ((rs.results || []) as any[]).map(t => ({ teacher_uid: t.teacher_uid, name: t.name || t.teacher_uid, english_name: null }));
         } catch {}
       }
-      return json({ ok: true, count: teachers.length, teachers: teachers.map(t => ({ teacher_uid: t.teacher_uid, name: t.name || t.korean_name || t.teacher_uid, english_name: t.english_name || null })) });
+      return json({ ok: true, count: teachers.length, teachers });
     }
 
     // ── POST /api/teacher/praise — 익명 칭찬 제출 ──

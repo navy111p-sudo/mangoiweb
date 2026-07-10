@@ -406,7 +406,9 @@
 <div id="app">
 
   <!-- ===================== 메뉴 ===================== -->
-  <section class="scene active" id="menu">
+  <!-- 🗑️ 시작 메뉴 화면 폐지(사용자 요청 26-07-11): 화면에 절대 표시하지 않음.
+       마크업은 JS(sentenceInput·diffPick·speedBtns 등)가 값 저장소로 읽으므로 hidden 으로만 유지. -->
+  <section class="scene" id="menu" hidden>
     <button class="home" id="backHub" style="position:absolute;top:10px;left:10px;z-index:5;font-size:13px;font-weight:700;padding:7px 13px">← 뒤로</button>
     <div class="menu-card">
       <div class="brand">MANGOI · ENGLISH MASTERY</div>
@@ -1583,12 +1585,12 @@
       '</div>'+
       '<div class="row">'+
         (goalDone ? '<button class="btn" id="rsNext" style="background:linear-gradient(135deg,#f43f5e,#be123c);color:#fff">'+(stageLvl<STAGE_MAX?('🔥 다음 난이도 ⭐'+(stageLvl+1)):'👑 ⭐1부터 다시')+'</button>' : '')+
-        '<button class="btn ghost" id="rsMenu">메뉴 🏠</button>'+
+        (window.parent===window ? '<button class="btn ghost" id="rsMenu">게임 목록 🏠</button>' : '')+   // 내부 메뉴 폐지 → 단독 접속일 때만 허브로
         '<button class="btn" id="rsAgain">다시 하기 ↻</button>'+
       '</div>'+
       '<button class="btn" onclick="window.MangoFlow&&MangoFlow.open(\'game\')" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;margin-top:10px;width:100%">🚀 다음 활동 고르기</button>';
     openOverlay('#resultOverlay');
-    $('#rsMenu').addEventListener('click', function(){ closeOverlay('#resultOverlay'); goMenu(); });
+    var rsMenu=$('#rsMenu'); if(rsMenu) rsMenu.addEventListener('click', function(){ closeOverlay('#resultOverlay'); goMenu(); });
     $('#rsAgain').addEventListener('click', function(){
       closeOverlay('#resultOverlay');
       if(game==='shoot') shootStart(); else fishStart();
@@ -1634,9 +1636,11 @@
     commitSentence();
     showScene(g); if(g==='fish') fishStart(); else shootStart();
   }
+  // 🗑️ 내부 메뉴 폐지: '뒤로/메뉴'는 단독 접속이면 학생게임 허브로 나가고, iframe 임베드면 정지만(닫기는 부모 UI 몫)
   function goMenu(){ SH.running=false; FI.running=false; FI.paused=false; cancelAnimationFrame(SH.raf); cancelAnimationFrame(FI.raf);
     clearSharks(); bgmStop(); FI.field.classList.remove('focus'); fishPauseEl.classList.remove('show');
-    if(synth) synth.cancel(); showScene('menu'); }
+    if(synth) synth.cancel();
+    if(window.parent===window){ location.href='/student-games.html'; } }
 
   $$('.game-btn').forEach(function(btn){
     btn.addEventListener('click', function(){ launchGame(btn.getAttribute('data-game')); });
@@ -1743,8 +1747,13 @@
     var qGame = qs.get('game');
     if(qGame==='shoot' || qGame==='fish'){    // 임베드 딥링크 → 바로 진입
       setTimeout(function(){ launchGame(qGame); }, 0);
+    } else if(window.parent===window){
+      // 🗑️ 내부 메뉴 폐지: game 지정 없이 단독 접속하면 학생게임 허브로 (iframe 은 postMessage 주입 규약 유지)
+      location.replace('/student-games.html');
     }
   }catch(e){}
+  // 임베드 시 게임 HUD 의 '← 뒤로' 숨김 — 닫기/이동은 부모(허브·수업패널) UI 가 담당
+  try{ if(window.parent!==window){ $$('[data-home]').forEach(function(b){ b.style.display='none'; }); } }catch(e){}
 
   // ② postMessage (로드 후 실시간 주입도 허용)
   window.addEventListener('message', function(ev){
@@ -1771,6 +1780,6 @@
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711055443 -->
+<!-- BUILD:20260711060039 -->
 </body>
 </html>

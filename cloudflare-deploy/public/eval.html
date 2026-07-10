@@ -157,11 +157,13 @@
       // v24: ID 없이 접속 시 학생의 최근 평가서 목록 표시 (데모)
       var userId = localStorage.getItem('user_id') || 'hong_gd';
       var userName = localStorage.getItem('user_name') || '홍길동';
-      // API 시도 → 실패하면 데모 목록
-      fetch('/api/eval/list?student=' + encodeURIComponent(userId))
+      // API 시도 → 실패하면 데모 목록 (API 는 ?uid= + Bearer 토큰 요구, 응답 키는 rows)
+      var evTok = localStorage.getItem('mango_token') || '';
+      fetch('/api/eval/list?uid=' + encodeURIComponent(userId), evTok ? { headers: { 'Authorization': 'Bearer ' + evTok } } : {})
         .then(function(r){ return r.json(); })
         .then(function(d){
-          if (d.ok && d.items && d.items.length) renderEvalList(d.items, userName);
+          var items = (d && d.ok && (d.rows || d.items)) || [];
+          if (items.length) renderEvalList(items, userName);
           else renderEvalDemo(userName);
         })
         .catch(function(){ renderEvalDemo(userName); });
@@ -279,7 +281,7 @@
   load();
 })();
 </script>
-<!-- BUILD:20260711055443 -->
+<!-- BUILD:20260711060039 -->
 <style id="mb-tidy-2026-07-11">
 /* mango-i18n 공용 홈/EN 바가 같은 자리에 주입되므로 자체 홈 버튼은 숨김(기능 중복·겹침 방지) */
 .global-home{display:none}

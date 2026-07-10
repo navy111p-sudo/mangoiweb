@@ -60,7 +60,7 @@
 <body>
 
 <a class="home-btn" href="/">🏠 <span data-ko="홈" data-en="Home">홈</span></a>
-<button class="lang-btn" onclick="if(window.toggleLang)window.toggleLang()" id="langBtn">🌐 EN</button>
+<button class="lang-btn" onclick="if(window.toggleLang)window.toggleLang()" id="langBtn" data-mangoi-lang-toggle>🌐 EN</button><!-- data-mangoi-lang-toggle: 공용 홈/EN 바 중복 주입 방지(자체 홈+EN 보유) -->
 
 <div class="wrap">
 
@@ -155,7 +155,7 @@
   document.addEventListener('DOMContentLoaded', updateLangBtn);
 </script>
 
-<!-- BUILD:20260711055443 -->
+<!-- BUILD:20260711060039 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>
