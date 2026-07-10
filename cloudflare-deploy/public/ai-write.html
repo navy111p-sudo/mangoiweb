@@ -127,6 +127,56 @@
     .confetti { position: fixed; top: -20px; z-index: 99400; font-size: 22px; pointer-events: none;
       animation: confFall linear forwards; }
     @keyframes confFall { to { transform: translateY(110vh) rotate(720deg); opacity: 0.6; } }
+    /* 🏅 작가 레벨 승급 바 */
+    .wlevel { margin-top: 12px; background: rgba(15,23,42,0.55); border: 1px solid rgba(251,191,36,0.3);
+      border-radius: 14px; padding: 12px 16px; }
+    .wlevel-head { display: flex; align-items: center; gap: 8px; font-size: 16.5px; font-weight: 900; color: var(--gold); }
+    .wlevel-next { margin-left: auto; font-size: 13px; color: var(--text2); font-weight: 700; }
+    .wlevel-bar { height: 14px; background: rgba(30,41,59,0.9); border-radius: 99px; margin-top: 8px; overflow: hidden; position: relative; }
+    .wlevel-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #fbbf24, #f97316);
+      transition: width .8s cubic-bezier(.22,1,.36,1); position: relative; overflow: hidden; }
+    .wlevel-fill::after { content: ''; position: absolute; inset: 0;
+      background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%);
+      animation: shine 2.2s infinite; }
+    @keyframes shine { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+    /* 📸 그림 보고 쓰기 씬 카드 */
+    .pic-card { border-radius: 18px; overflow: hidden; margin-bottom: 16px;
+      border: 1.5px solid rgba(125,211,252,0.45); box-shadow: 0 8px 24px -10px rgba(0,0,0,0.4); }
+    .pic-scene { position: relative; height: 190px; overflow: hidden; user-select: none; }
+    .pic-scene .pe { position: absolute; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.25)); line-height: 1; }
+    .pic-cap { display: flex; align-items: center; gap: 12px; padding: 13px 18px;
+      background: rgba(12,74,110,0.55); backdrop-filter: blur(4px); flex-wrap: wrap; }
+    .pic-cap-txt { flex: 1; min-width: 200px; font-size: 16.5px; font-weight: 800; color: #e0f2fe; }
+    .pic-btn { padding: 10px 18px; border-radius: 11px; border: 0; cursor: pointer; font-weight: 800;
+      font-size: 14.5px; font-family: inherit; }
+    .pic-btn.go { background: linear-gradient(135deg, #38bdf8, #2563eb); color: #fff; }
+    .pic-btn.shuffle { background: rgba(255,255,255,0.14); color: #e0f2fe; border: 1px solid rgba(255,255,255,0.25); }
+    @keyframes bob { 0%,100% { transform: translateY(0) rotate(var(--rr,0deg)); } 50% { transform: translateY(-10px) rotate(var(--rr,0deg)); } }
+    /* 🎤 말로 쓰기 */
+    .mic-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+    .mic-btn { display: flex; align-items: center; gap: 8px; padding: 11px 20px; border-radius: 99px;
+      border: 1.5px solid rgba(248,113,113,0.5); background: rgba(239,68,68,0.14); color: #fecaca;
+      font-size: 15.5px; font-weight: 800; cursor: pointer; font-family: inherit; }
+    .mic-btn.rec { background: linear-gradient(135deg, #ef4444, #b91c1c); color: #fff; animation: micPulse 1.1s infinite; }
+    @keyframes micPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.55); } 50% { box-shadow: 0 0 0 12px rgba(239,68,68,0); } }
+    /* ✏️ 고쳐쓰기 미션 */
+    .rewrite-box { margin: 15px 0; padding: 16px 18px; border-radius: 14px;
+      background: rgba(251,191,36,0.08); border: 1.5px dashed rgba(251,191,36,0.5); }
+    .rewrite-head { font-size: 16px; font-weight: 900; color: var(--gold); margin-bottom: 8px; }
+    .rewrite-sub { font-size: 13.5px; color: var(--text2); margin-bottom: 10px; }
+    .rewrite-box textarea { min-height: 80px; font-size: 17px; border-radius: 12px; }
+    .rewrite-actions { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+    .rewrite-check { padding: 12px 22px; border: 0; border-radius: 11px; cursor: pointer; font-family: inherit;
+      background: linear-gradient(135deg, var(--gold), #f59e0b); color: #1a1a1a; font-weight: 900; font-size: 15.5px; }
+    .rewrite-ok { font-size: 15px; font-weight: 800; color: #86efac; }
+    .rewrite-diff { font-size: 14px; font-weight: 700; color: #fca5a5; }
+    /* 📕 동화책 버튼 */
+    .book-btn { padding: 10px 18px; background: linear-gradient(135deg, #f472b6, #db2777);
+      color: #fff; border: 0; border-radius: 11px; cursor: pointer; font-weight: 900;
+      font-size: 14.5px; font-family: inherit; box-shadow: 0 4px 14px -4px rgba(219,39,119,0.55); }
+    /* ✨ 히어로 플로팅 데코 */
+    .hero { position: relative; overflow: hidden; }
+    .fx { position: absolute; font-size: 20px; opacity: 0.5; pointer-events: none; animation: bob 3.4s ease-in-out infinite; }
     /* 📈 성장 그래프 카드 */
     .stats-card { background: var(--card); border: 1px solid var(--border); border-radius: 18px;
       padding: 21px 23px; margin-top: 30px; }
@@ -167,14 +217,18 @@
   </div>
   <div class="wrap">
     <div class="hero">
+      <span class="fx" style="top:10px;right:26px;--rr:12deg">✨</span>
+      <span class="fx" style="bottom:14px;right:90px;--rr:-8deg;animation-delay:.7s">📝</span>
+      <span class="fx" style="top:22px;right:170px;--rr:6deg;animation-delay:1.3s;font-size:16px">⭐</span>
       <img src="/img/mango-char.png" alt="망고">
-      <div>
+      <div style="flex:1">
         <div class="hero-title" data-ko="✍️ AI 영작 첨삭" data-en="✍️ AI Writing Coach">✍️ AI 영작 첨삭</div>
         <p class="hero-sub" data-ko="영어로 자유롭게 써보세요! 망고 선생님이 문법·표현을 고쳐주고 점수와 이유를 알려드려요. (예: &quot;Yesterday I go to school…&quot; → &quot;Yesterday I went to school…&quot;)" data-en="Write freely in English! Coach Mango corrects your grammar, gives you a score, and explains why. (e.g. &quot;Yesterday I go to school…&quot; → &quot;Yesterday I went to school…&quot;)">
           영어로 자유롭게 써보세요! 망고 선생님이 문법·표현을 고쳐주고 점수와 이유를 알려드려요.
           (예: "Yesterday I go to school…" → "Yesterday I went to school…")
         </p>
         <div class="hero-stats" id="heroStats" style="display:none"></div>
+        <div class="wlevel" id="writerLevel" style="display:none"></div>
       </div>
     </div>
 
@@ -192,6 +246,16 @@
       <div class="mission-words" id="missionWords"></div>
     </div>
 
+    <!-- 📸 오늘의 그림 글감 — 그림(이모지 씬)을 보고 영어로 묘사하기 -->
+    <div class="pic-card" id="picCard">
+      <div class="pic-scene" id="picScene"></div>
+      <div class="pic-cap">
+        <span class="pic-cap-txt" id="picCapTxt">—</span>
+        <button class="pic-btn go" onclick="usePicPrompt()">🖼 <span data-ko="이 장면으로 쓰기" data-en="Write this scene">이 장면으로 쓰기</span></button>
+        <button class="pic-btn shuffle" onclick="shufflePic()">🔀 <span data-ko="다른 그림" data-en="Another picture">다른 그림</span></button>
+      </div>
+    </div>
+
     <!-- 🎲 오늘의 글감 -->
     <div class="topic-row" id="topicRow">
       <span style="font-size:14px;font-weight:800;color:var(--text2)" data-ko="🎲 오늘의 글감:" data-en="🎲 Today's topics:">🎲 오늘의 글감:</span>
@@ -200,7 +264,11 @@
     </div>
 
     <textarea id="text" placeholder="여기에 영어로 입력하세요 (3 ~ 2000자)..." oninput="updateCharCount()"></textarea>
-    <div class="char-count" id="charCount">0 / 2000</div>
+    <div class="mic-row">
+      <button class="mic-btn" id="micBtn" onclick="toggleDictation()">🎤 <span data-ko="말로 쓰기" data-en="Speak to write">말로 쓰기</span></button>
+      <span style="font-size:13px;color:var(--text2)" data-ko="영어로 말하면 글자로 바꿔줘요 (타자가 느려도 OK!)" data-en="Speak English and it types for you!">영어로 말하면 글자로 바꿔줘요 (타자가 느려도 OK!)</span>
+      <span class="char-count" id="charCount" style="margin-left:auto;margin-top:0">0 / 2000</span>
+    </div>
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="submit-btn" id="submitBtn" onclick="submitText()" style="flex:1">
         ✨ <span data-ko="AI 첨삭 받기" data-en="Get AI Correction">AI 첨삭 받기</span>
@@ -228,6 +296,7 @@
     <div class="history">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
         <h3 style="margin:0;flex:1">📜 <span data-ko="나의 영작 일기 (날짜별 복습)" data-en="My Writing Diary (Daily Review)">나의 영작 일기 (날짜별 복습)</span></h3>
+        <button class="book-btn" onclick="makeBook()">📕 <span data-ko="내 동화책 만들기" data-en="Make My Storybook">내 동화책 만들기</span></button>
         <button onclick="toggleViewMode()" id="viewModeBtn" style="padding:6px 12px;background:rgba(251,191,36,0.18);color:var(--gold);border:1px solid rgba(251,191,36,0.40);border-radius:8px;cursor:pointer;font-size:11.5px;font-weight:700;font-family:inherit">📅 <span data-ko="날짜별" data-en="By Date">날짜별</span></button>
       </div>
       <div id="histList"><div style="color:var(--text2);font-size:13px;padding:12px;text-align:center">아직 첨삭 기록이 없어요. 위에서 첫 영작을 시작해보세요!</div></div>
@@ -773,7 +842,7 @@
     loadStats();
     loadLeaderboard();
   </script>
-<!-- BUILD:20260711033113 -->
+<!-- BUILD:20260711033606 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>

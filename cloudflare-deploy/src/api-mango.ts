@@ -2627,6 +2627,10 @@ export async function handleMangoApi(
       if (ruleCode === 'speech_master') {
         await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES ('speech_master','발음 세트 완주',20,0,5,1,'AI 음성 코칭 한 세트(레벨/단원)를 모두 완주 시 지급',?) ON CONFLICT(code) DO NOTHING`).bind(Date.now()).run();
       }
+      // ✏️ 영작 고쳐쓰기 — 첨삭받은 문장을 직접 따라 써서 익히면 지급. 5점 · 하루 5회
+      if (ruleCode === 'ai_writing_rewrite') {
+        await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES ('ai_writing_rewrite','영작 고쳐쓰기 완료',5,0,5,1,'첨삭받은 문장을 직접 따라 써서 익히면 지급',?) ON CONFLICT(code) DO NOTHING`).bind(Date.now()).run();
+      }
       const rule: any = await env.DB.prepare(`SELECT * FROM point_rules WHERE code=? AND enabled=1`).bind(ruleCode).first();
       if (!rule) return json({ ok: false, error: 'rule_not_found_or_disabled', code: ruleCode }, 404);
       // 쿨다운 검사
@@ -11683,18 +11687,24 @@ Student text: """${text}"""`;
       //   (토큰 없이 uid 만 넣어 호출하는 무인증 요청은 첨삭은 되지만 포인트는 안 쌓임 → 파밍 방지)
       let pointsEarned: any = null;
       let missionBonus: any = null;
+      let streakBonus: any = null;
       let earnedBadges: any[] = [];
+      const vocabSaved: string[] = [];
       const awAuthUid = await authUidFromRequest(b);
       if (awAuthUid && awAuthUid === uid && !uid.startsWith('guest_')) {
         // 규칙 기반 적립 인라인 헬퍼 — 쿨다운/일일한도는 point_rule_log 기준(KST 자정 경계)
-        const earnWritingRule = async (code: string, label: string, amount: number, dailyCap: number, description: string) => {
+        const earnWritingRule = async (code: string, label: string, amount: number, dailyCap: number, description: string, cooldownSec = 0) => {
           try {
             await ensurePointTables();
             const now = Date.now();
-            await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES (?,?,?,0,?,1,?,?) ON CONFLICT(code) DO NOTHING`)
-              .bind(code, label, amount, dailyCap, description, now).run();
+            await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES (?,?,?,?,?,1,?,?) ON CONFLICT(code) DO NOTHING`)
+              .bind(code, label, amount, cooldownSec, dailyCap, description, now).run();
             const rule: any = await env.DB.prepare(`SELECT * FROM point_rules WHERE code=? AND enabled=1`).bind(code).first();
             if (!rule) return null;
+            if ((rule.cooldown_sec || 0) > 0) {
+              const last: any = await env.DB.prepare(`SELECT triggered_at FROM point_rule_log WHERE user_id=? AND rule_code=? ORDER BY triggered_at DESC LIMIT 1`).bind(uid, code).first();
+              if (last && (now - last.triggered_at) < rule.cooldown_sec * 1000) return { cooldown: true };
+            }
             if (rule.daily_cap) {
               const KST_OFF = 9 * 3600 * 1000;
               const todayMs = Math.floor((now + KST_OFF) / 86400000) * 86400000 - KST_OFF;
@@ -11714,6 +11724,40 @@ Student text: """${text}"""`;
         if (missionWords.length >= 3 && missionUsed.length >= 3) {
           missionBonus = await earnWritingRule('ai_writing_mission', '영작 미션 단어 달성', 15, 2, '미션 단어 3개 이상을 글에 사용하면 보너스 (하루 2회)');
         }
+        // 🔥 연속 영작 마디 보상 — 7·14·21…일마다 +50P (쿨다운 6일로 같은 마디 중복 방지)
+        try {
+          const KST_OFF = 32400000;
+          const days: any = await env.DB.prepare(
+            `SELECT DISTINCT CAST((created_at + ${KST_OFF}) / 86400000 AS INTEGER) AS d FROM ai_writing_corrections WHERE student_uid = ? ORDER BY d DESC LIMIT 120`
+          ).bind(uid).all();
+          const ds = ((days.results || []) as any[]).map(r => Number(r.d));
+          const todayD = Math.floor((Date.now() + KST_OFF) / 86400000);
+          let wStreak = 0;
+          if (ds.length && ds[0] === todayD) {
+            wStreak = 1;
+            for (let i = 1; i < ds.length && ds[i] === ds[i - 1] - 1; i++) wStreak++;
+          }
+          if (wStreak >= 7 && wStreak % 7 === 0) {
+            streakBonus = await earnWritingRule('ai_writing_streak', '연속 영작 7일 달성', 50, 1, '7일 연속 영작할 때마다 지급', 6 * 86400);
+            if (streakBonus && streakBonus.amount) (streakBonus as any).streak = wStreak;
+          }
+        } catch (e: any) { console.error('[write-correct] streak bonus failed:', e?.message || e); }
+        // 📗 첨삭 표현 → 단어장 자동 저장 (짧은 교정 표현만, 사용자별 중복 방지, 회당 최대 3개)
+        try {
+          await env.DB.exec(`CREATE TABLE IF NOT EXISTS vocabulary (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, word TEXT NOT NULL, korean TEXT, example TEXT, level INTEGER DEFAULT 0, next_review_at INTEGER NOT NULL, last_reviewed_at INTEGER, correct_count INTEGER DEFAULT 0, wrong_count INTEGER DEFAULT 0, created_at INTEGER NOT NULL);`);
+          const nowV = Date.now();
+          for (const iss of issues.slice(0, 6)) {
+            if (vocabSaved.length >= 3) break;
+            const sug = String(iss?.suggested || '').trim();
+            const reason = String(iss?.reason || '').trim().slice(0, 80);
+            if (!sug || sug.length > 40 || !/[a-zA-Z]/.test(sug)) continue;
+            const dup: any = await env.DB.prepare(`SELECT id FROM vocabulary WHERE user_id=? AND LOWER(word)=LOWER(?) LIMIT 1`).bind(uid, sug).first();
+            if (dup) continue;
+            await env.DB.prepare(`INSERT INTO vocabulary (user_id, word, korean, example, level, next_review_at, created_at) VALUES (?,?,?,?,0,?,?)`)
+              .bind(uid, sug, reason || '영작 첨삭에서 배운 표현', corrected.slice(0, 120), nowV, nowV).run();
+            vocabSaved.push(sug);
+          }
+        } catch (e: any) { console.error('[write-correct] vocab save failed:', e?.message || e); }
         try {
           const earned = await checkAndAwardBadges(uid);
           earnedBadges = earned
@@ -11730,7 +11774,8 @@ Student text: """${text}"""`;
         ok: true,
         corrected, score, issues, tip, reply, level,
         mission_words: missionWords, mission_used: missionUsed,
-        points: pointsEarned, mission_bonus: missionBonus, earned_badges: earnedBadges,
+        points: pointsEarned, mission_bonus: missionBonus, streak_bonus: streakBonus,
+        earned_badges: earnedBadges, vocab_saved: vocabSaved,
         ...(raw ? {} : { ai_unavailable: true, fallback: true }),
       });
     }

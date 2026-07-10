@@ -117,6 +117,12 @@
   @keyframes gunSwap{0%{transform:scale(.4);opacity:.15}60%{transform:scale(1.14);opacity:1}100%{transform:scale(1)}}
   /* 🔥 화염방사기 불줄기 파티클 (총구→표적 연속 분사) */
   .flamep{position:absolute;margin:-7px 0 0 -7px;border-radius:50%;pointer-events:none;z-index:9;mix-blend-mode:screen;filter:blur(1px);will-change:transform,opacity}
+  /* 🤾 수류탄 투척체 + 착탄 대형 화염 */
+  .nadeproj{position:absolute;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;pointer-events:none;z-index:9;
+    background:radial-gradient(circle at 35% 32%,#8aa457,#4a5d2a 55%,#26331a);box-shadow:0 2px 5px rgba(0,0,0,.6);will-change:transform}
+  .nadeproj::after{content:'';position:absolute;top:-4px;left:6px;width:6px;height:5px;border-radius:2px;background:#2c3644}
+  .fireball{position:absolute;border-radius:50%;pointer-events:none;z-index:13;mix-blend-mode:screen;will-change:transform,opacity;
+    background:radial-gradient(circle,#fff 0%,#fde68a 16%,#fb923c 42%,rgba(234,88,12,.65) 62%,rgba(120,30,8,0) 76%)}
   .muzzle{position:absolute;top:-13px;left:50%;transform:translateX(-50%);width:32px;height:32px;opacity:0;pointer-events:none;
     background:radial-gradient(circle,#fff 0%,#fde68a 32%,rgba(251,191,36,.55) 58%,transparent 72%)}
   .muzzle.flash{animation:flash .16s}
@@ -431,14 +437,15 @@
     {id:'minigun', name:'미니건', icon:'🌀'},
     {id:'railgun', name:'레일건', icon:'⚡'},
     {id:'grenade', name:'유탄',   icon:'🧨'},
-    {id:'flame',   name:'화염방사',icon:'🔥'}
+    {id:'flame',   name:'화염방사',icon:'🔥'},
+    {id:'handnade',name:'수류탄', icon:'🤾'}
   ];
   var curGun = localStorage.getItem('ess_gun') || 'pistol';
 
   /* ===== 무기별 실제 총 실루엣 (위로 향함, 총구=상단 중앙 = 총알 발사점) =====
      각 SVG 는 [폭,길이] 픽셀 크기로 barrel 에 배경으로 채워짐. 총열 구멍(bore)은 항상 가로 중앙. */
   var GUN_DIM = { pistol:[30,52], rifle:[26,80], mg:[30,70], shotgun:[30,58], sniper:[26,92],
-    tank:[36,80], revolver:[30,50], ar:[28,74], minigun:[42,78], railgun:[26,88], grenade:[32,58], flame:[30,66] };
+    tank:[36,80], revolver:[30,50], ar:[28,74], minigun:[42,78], railgun:[26,88], grenade:[32,58], flame:[30,66], handnade:[26,52] };
   var _GM='<linearGradient id="m" x2="1" y2="0"><stop offset="0" stop-color="#0e131a"/><stop offset=".3" stop-color="#495463"/><stop offset=".5" stop-color="#c6d1de"/><stop offset=".7" stop-color="#3a4452"/><stop offset="1" stop-color="#0c1017"/></linearGradient>';
   var _GD='<linearGradient id="d" x2="1" y2="0"><stop offset="0" stop-color="#080c11"/><stop offset=".5" stop-color="#343f4d"/><stop offset="1" stop-color="#070a0f"/></linearGradient>';
   var _GW='<linearGradient id="w" x2="1" y2="0"><stop offset="0" stop-color="#38270f"/><stop offset=".42" stop-color="#8a6640"/><stop offset=".56" stop-color="#ab8150"/><stop offset="1" stop-color="#402a14"/></linearGradient>';
@@ -458,7 +465,8 @@
     minigun:_svg('0 0 42 78', _GM+_GD, '<rect x="9.5" y="8" width="3.6" height="34" rx="1.6" fill="#3c4657"/><rect x="28.9" y="8" width="3.6" height="34" rx="1.6" fill="#3c4657"/><rect x="14" y="4" width="3.8" height="38" rx="1.6" fill="url(#m)"/><rect x="24.2" y="4" width="3.8" height="38" rx="1.6" fill="url(#m)"/><rect x="18.9" y="2" width="4" height="40" rx="1.6" fill="url(#m)"/><rect x="19.6" y="3" width="1.2" height="38" fill="#eef4fb" opacity=".4"/><circle cx="11.3" cy="9" r="1.1" fill="#0a0e15"/><circle cx="15.9" cy="5" r="1.1" fill="#0a0e15"/><circle cx="20.9" cy="3" r="1.2" fill="#0a0e15"/><circle cx="26.1" cy="5" r="1.1" fill="#0a0e15"/><circle cx="30.7" cy="9" r="1.1" fill="#0a0e15"/><ellipse cx="21" cy="42" rx="15.5" ry="5.5" fill="#2c3644"/><ellipse cx="21" cy="41" rx="15.5" ry="4" fill="#3f4b5b"/><ellipse cx="21" cy="40" rx="15.5" ry="1.6" fill="#5a6676" opacity=".6"/><rect x="7.5" y="42" width="27" height="21" rx="6" fill="url(#d)"/><ellipse cx="21" cy="42" rx="6.5" ry="2.6" fill="#556070"/><circle cx="21" cy="42" r="2" fill="#0e141c"/><rect x="27" y="48" width="11" height="8" rx="2" fill="#2c3644"/><rect x="13" y="60" width="16" height="9" rx="3" fill="url(#d)"/><rect x="16" y="62.5" width="10" height="1.6" fill="#0b0f16"/>'),
     railgun:_svg('0 0 26 88', _GC+_GD, '<polygon points="7,68 19,68 16,86 10,86" fill="url(#d)"/><rect x="6" y="52" width="14" height="18" rx="3" fill="#0b1f2b"/><rect x="4.4" y="56" width="2.6" height="8" rx="1.2" fill="#0e7490"/><rect x="19" y="56" width="2.6" height="8" rx="1.2" fill="#0e7490"/><rect x="7.5" y="4" width="4" height="52" rx="1.6" fill="#24303e"/><rect x="14.5" y="4" width="4" height="52" rx="1.6" fill="#24303e"/><rect x="11" y="6" width="4" height="50" fill="url(#c)"/><rect x="12.2" y="6" width="1.4" height="50" fill="#d8fbff" opacity=".6"/><rect x="8.5" y="12" width="9" height="3" rx="1.5" fill="#22d3ee"/><rect x="8.5" y="21" width="9" height="3" rx="1.5" fill="#22d3ee"/><rect x="8.5" y="30" width="9" height="3" rx="1.5" fill="#22d3ee"/><rect x="8.5" y="39" width="9" height="3" rx="1.5" fill="#22d3ee"/><rect x="8.5" y="48" width="9" height="3" rx="1.5" fill="#22d3ee"/><rect x="7.5" y="56" width="11" height="4.5" rx="2" fill="#5eead4"/><circle cx="13" cy="6" r="8.5" fill="url(#cg)"/><circle cx="13" cy="5" r="3.4" fill="#eafbff"/>'),
     grenade:_svg('0 0 32 58', _GG+_GD, '<polygon points="10,44 22,44 18,58 14,58" fill="url(#d)"/><circle cx="16" cy="36" r="10.5" fill="url(#g)"/><circle cx="16" cy="36" r="10.5" fill="none" stroke="#2a3418" stroke-width="1"/><circle cx="16" cy="36" r="4.6" fill="#26331a"/><circle cx="16" cy="30" r="1.9" fill="#0e141c"/><circle cx="22" cy="36" r="1.9" fill="#0e141c"/><circle cx="16" cy="42" r="1.9" fill="#0e141c"/><circle cx="10" cy="36" r="1.9" fill="#0e141c"/><ellipse cx="12.5" cy="32" rx="3" ry="4" fill="#9bbf55" opacity=".4"/><rect x="10.8" y="4" width="10.4" height="24" rx="3.2" fill="url(#g)"/><rect x="11.8" y="5" width="1.8" height="22" rx=".8" fill="#cfe39a" opacity=".45"/><rect x="9.3" y="2" width="13.4" height="7" rx="3" fill="#2f3f1e"/><rect x="15" y="2.4" width="2" height="2.2" fill="#0a0d12"/><circle cx="16" cy="5" r="3.1" fill="#0a0d12"/><path d="M14 44 q3 0 3 5" fill="none" stroke="#0c1017" stroke-width="2.2"/>'),
-    flame:_svg('0 0 30 66', _GM+_GO, '<path d="M20 40 q6 4 4 12" fill="none" stroke="#2c3644" stroke-width="2.2"/><polygon points="9,52 21,52 17,66 13,66" fill="#242e3b"/><rect x="7" y="33" width="16" height="25" rx="8" fill="url(#o)"/><rect x="8.5" y="35" width="3.4" height="20" rx="1.7" fill="#ffd0a0" opacity=".5"/><rect x="7.5" y="35.5" width="15" height="3" rx="1.5" fill="#7c2d12"/><rect x="7.5" y="46" width="15" height="3" rx="1.5" fill="#7c2d12"/><rect x="12.4" y="8" width="5.2" height="28" rx="2.2" fill="url(#m)"/><rect x="13.1" y="9" width="1.3" height="26" rx=".6" fill="#eef4fb" opacity=".4"/><rect x="10.3" y="30" width="9.4" height="5" rx="2" fill="#2c3644"/><rect x="17.6" y="11" width="2.4" height="6" rx="1" fill="#3b4452"/><circle cx="18.8" cy="10" r="1.4" fill="#fdba74"/><path d="M15 0 q4 6 1 11 q3 -1 1.4 -5.5 q3 4.5 -.6 9 q-4.8 -1 -3 -6.5 q-2.6 3.4 .2 6.4 q-4 -3.4 1 -14Z" fill="#fb923c"/><path d="M15 3 q2.6 4 .8 8 q-2.8 -2.2 -.8 -8Z" fill="#fde68a"/>')
+    flame:_svg('0 0 30 66', _GM+_GO, '<path d="M20 40 q6 4 4 12" fill="none" stroke="#2c3644" stroke-width="2.2"/><polygon points="9,52 21,52 17,66 13,66" fill="#242e3b"/><rect x="7" y="33" width="16" height="25" rx="8" fill="url(#o)"/><rect x="8.5" y="35" width="3.4" height="20" rx="1.7" fill="#ffd0a0" opacity=".5"/><rect x="7.5" y="35.5" width="15" height="3" rx="1.5" fill="#7c2d12"/><rect x="7.5" y="46" width="15" height="3" rx="1.5" fill="#7c2d12"/><rect x="12.4" y="8" width="5.2" height="28" rx="2.2" fill="url(#m)"/><rect x="13.1" y="9" width="1.3" height="26" rx=".6" fill="#eef4fb" opacity=".4"/><rect x="10.3" y="30" width="9.4" height="5" rx="2" fill="#2c3644"/><rect x="17.6" y="11" width="2.4" height="6" rx="1" fill="#3b4452"/><circle cx="18.8" cy="10" r="1.4" fill="#fdba74"/><path d="M15 0 q4 6 1 11 q3 -1 1.4 -5.5 q3 4.5 -.6 9 q-4.8 -1 -3 -6.5 q-2.6 3.4 .2 6.4 q-4 -3.4 1 -14Z" fill="#fb923c"/><path d="M15 3 q2.6 4 .8 8 q-2.8 -2.2 -.8 -8Z" fill="#fde68a"/>'),
+    handnade:_svg('0 0 26 52', _GG+_GD, '<polygon points="10,25 16,25 15,52 11,52" fill="url(#d)"/><circle cx="13" cy="15" r="10.5" fill="url(#g)"/><circle cx="13" cy="15" r="10.5" fill="none" stroke="#2a3418" stroke-width="1"/><line x1="3" y1="15" x2="23" y2="15" stroke="#26331a" stroke-width="1.4"/><line x1="13" y1="4.5" x2="13" y2="25.5" stroke="#26331a" stroke-width="1.4"/><circle cx="8" cy="10.5" r="1.7" fill="#0e141c"/><circle cx="18" cy="10.5" r="1.7" fill="#0e141c"/><circle cx="8" cy="19.5" r="1.7" fill="#0e141c"/><circle cx="18" cy="19.5" r="1.7" fill="#0e141c"/><ellipse cx="9.5" cy="10" rx="2.6" ry="3.6" fill="#9bbf55" opacity=".4"/><rect x="9.8" y="1" width="6.4" height="5" rx="1.6" fill="#2c3644"/><path d="M16 2.5 q7.5 2.5 6 13" fill="none" stroke="#9aa6b6" stroke-width="2"/><circle cx="6.5" cy="3" r="2.6" fill="none" stroke="#c6d1de" stroke-width="1.3"/>')
   };
   function gunDataUri(id){ var s=GUN_SVG[id]||GUN_SVG.pistol; return "url('data:image/svg+xml;utf8,"+encodeURIComponent(s)+"')"; }   // 작은따옴표 — HTML style 속성 안에서도 안전
 
@@ -712,8 +720,20 @@
     flame:   function(t){
       click(t,0.1,3400); bandNoise(t+0.02,0.5,600,300,0.5,0.5);
       tone(t+0.02,'sawtooth',60,45,0.14,0.5);
-      for(var i=0;i<4;i++) crack(t+0.1+i*0.09,0.07,2000+Math.random()*1200,0.02); }
+      for(var i=0;i<4;i++) crack(t+0.1+i*0.09,0.07,2000+Math.random()*1200,0.02); },
+    // 수류탄: 핀 '틱' 뽑고 → 던지는 휙~ 바람소리 (폭발음은 착탄 시 nadeBoomSound 에서 '꽝')
+    handnade:function(t){
+      click(t,0.14,2600); click(t+0.06,0.1,1900);
+      bandNoise(t+0.1,0.22,1100,500,1.2,0.3);
+      tone(t+0.1,'sine',480,160,0.12,0.3); }
   };
+  // 💥 수류탄 착탄 '꽝' — 전 무기 중 가장 큰 폭발음 (이중 서브베이스 + 파열 크랙 + 파편 후두둑)
+  function nadeBoomSound(){ try{ ensureCtx(); if(!actx) return; var t=actx.currentTime;
+    crack(t,0.6,1500,0.04); crack(t,0.85,220,0.5);
+    thump(t,1.0,80,20,0.7); thump(t+0.07,0.6,52,16,0.65);
+    bandNoise(t,0.6,650,180,0.7,0.6); tone(t+0.03,'sine',36,22,0.42,0.8);
+    for(var i=0;i<7;i++) crack(t+0.15+i*0.05,0.09,1100+Math.random()*900,0.03);
+  }catch(e){} }
   function fireSound(){ try{ ensureCtx(); if(playSample(curGun)) return; if(actx && FIRE[curGun]) FIRE[curGun](actx.currentTime); }catch(e){} }
   function sndHit(){ try{ // 표적 명중/폭발음
     ensureCtx(); if(playSample('hit')) return; if(!actx) return; var t=actx.currentTime;
@@ -933,6 +953,47 @@
       }, k*10);                                                // 10ms 간격 = 끊김 없는 불줄기(약 0.3초 지속)
     })(i); }
   }
+  // 🤾 수류탄 포물선 던지기 — 빙글빙글 돌며 아치를 그리고 착탄하면 콜백
+  function throwNade(sx,sy,ex,ey,onLand){
+    var p=document.createElement('div'); p.className='nadeproj'; p.style.left=sx+'px'; p.style.top=sy+'px'; field.appendChild(p);
+    var arc=Math.max(90,Math.abs(ex-sx)*0.35+70);   // 멀수록 높이 던짐
+    var N=22, frames=[];
+    for(var i=0;i<=N;i++){ var u=i/N;
+      var x=(ex-sx)*u, y=(ey-sy)*u - arc*4*u*(1-u);   // 2차 포물선
+      frames.push({transform:'translate('+x+'px,'+y+'px) rotate('+(u*720)+'deg)'});
+    }
+    p.animate(frames,{duration:620,easing:'linear'});
+    setTimeout(function(){ if(p.parentNode) p.remove(); if(onLand) onLand(); },620);
+  }
+  // 💥 수류탄 대폭발 — 커지는 화염구 + 사방 불꽃 튀김 + 화면 흔들림
+  function nadeFX(x,y){
+    var fb=document.createElement('div'); fb.className='fireball';
+    var S=150; fb.style.width=S+'px'; fb.style.height=S+'px'; fb.style.left=(x-S/2)+'px'; fb.style.top=(y-S/2)+'px';
+    field.appendChild(fb);
+    fb.animate([
+      {transform:'scale(.25)',opacity:1},
+      {transform:'scale(1.15)',opacity:1,offset:.45},
+      {transform:'scale(1.75)',opacity:0}
+    ],{duration:560,easing:'cubic-bezier(.2,.8,.4,1)'});
+    setTimeout(function(){ if(fb.parentNode) fb.remove(); },580);
+    // 큰 불꽃 혀 16갈래 — 화염방사 파티클 재사용, 사방으로 퍼짐
+    var HUES=['#fff7cc','#fde047','#fbbf24','#fb923c','#f97316','#ea580c'];
+    for(var i=0;i<16;i++){ (function(k){
+      var fl=document.createElement('div'); fl.className='flamep';
+      var sz=16+Math.random()*20; fl.style.width=sz+'px'; fl.style.height=sz+'px';
+      fl.style.left=x+'px'; fl.style.top=y+'px'; fl.style.zIndex=14;
+      fl.style.background='radial-gradient(circle at 45% 38%,#fff,'+HUES[k%HUES.length]+' 52%,rgba(234,88,12,0) 80%)';
+      field.appendChild(fl);
+      var ang=(k/16)*Math.PI*2+Math.random()*0.5, dist=45+Math.random()*85;
+      fl.animate([
+        {transform:'translate(0,0) scale(.5)',opacity:1},
+        {transform:'translate('+Math.cos(ang)*dist*0.6+'px,'+(Math.sin(ang)*dist*0.6-12)+'px) scale(1.6)',opacity:1,offset:.5},
+        {transform:'translate('+Math.cos(ang)*dist+'px,'+(Math.sin(ang)*dist-30)+'px) scale(2.4)',opacity:0}
+      ],{duration:520+Math.random()*260,easing:'cubic-bezier(.25,.6,.4,1)'});
+      setTimeout(function(){ if(fl.parentNode) fl.remove(); },820);
+    })(i); }
+    burst(x,y); shake();
+  }
   var fireCooldown=false;
   function fireAt(m){
     if(!running || !m.el.isConnected || fireCooldown) return;
@@ -944,12 +1005,20 @@
       var f2=field.getBoundingClientRect(), mu=muzzle.getBoundingClientRect(), r2=m.el.getBoundingClientRect();
       var sx=mu.left+mu.width/2-f2.left, sy=mu.top+mu.height/2-f2.top;   // 총알은 총구에서 출발
       var ex=r2.left+r2.width/2-f2.left, ey=r2.top+r2.height/2-f2.top;
-      muzzle.classList.remove('flash'); void muzzle.offsetWidth; muzzle.classList.add('flash');  // 머즐 플래시
-      barrel.classList.remove('recoil'); void barrel.offsetWidth; barrel.classList.add('recoil'); // 반동
+      if(curGun!=='handnade'){                       // 수류탄은 총구 화염 없음(던지기)
+        muzzle.classList.remove('flash'); void muzzle.offsetWidth; muzzle.classList.add('flash');  // 머즐 플래시
+        barrel.classList.remove('recoil'); void barrel.offsetWidth; barrel.classList.add('recoil'); // 반동
+      }
       var _sold=document.querySelector('.turret-soldier');                                        // 🪖 사수도 반동에 움찔
       if(_sold){ _sold.classList.remove('flinch'); void _sold.offsetWidth; _sold.classList.add('flinch'); }
       fireSound();                                  // ★ 총마다 다른 발사음
-      if(curGun==='flame'){                         // 🔥 화염방사기 = 불줄기 연속 분사
+      if(curGun==='handnade'){                      // 🤾 수류탄 = 포물선 투척 → '꽝' + 대형 화염
+        throwNade(sx,sy,ex,ey,function(){
+          if(!running) return;
+          nadeBoomSound(); nadeFX(ex,ey);
+          if(m.el.isConnected) resolve(m,ex,ey);
+        });
+      } else if(curGun==='flame'){                  // 🔥 화염방사기 = 불줄기 연속 분사
         flameStream(sx,sy,ex,ey);
         setTimeout(function(){ resolve(m,ex,ey); }, 220);
       } else {
@@ -1179,6 +1248,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711033113 -->
+<!-- BUILD:20260711033606 -->
 </body>
 </html>
