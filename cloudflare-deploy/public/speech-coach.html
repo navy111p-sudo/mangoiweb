@@ -442,7 +442,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260711001532 -->
+<!-- BUILD:20260711001945 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>
@@ -480,8 +480,12 @@ if (typeof window.speechSynthesis !== 'undefined') {
     if (cs.position === 'fixed') {
       var r = home.getBoundingClientRect();
       btn.style.position = 'fixed';
-      btn.style.top = Math.max(8, r.top + (r.height - 34) / 2) + 'px';
-      btn.style.right = (window.innerWidth - r.left + 8) + 'px';
+      if (window.innerWidth <= 380) { /* 초좁은 화면: 홈 왼쪽으로 붙이면 공용 홈/EN 바와 겹침 → 그 아래 줄로 */
+        btn.style.top = '52px'; btn.style.right = '10px';
+      } else {
+        btn.style.top = Math.max(8, r.top + (r.height - 34) / 2) + 'px';
+        btn.style.right = (window.innerWidth - r.left + 8) + 'px';
+      }
       btn.style.zIndex = String((parseInt(cs.zIndex, 10) || 999) + 1);
       btn.style.marginRight = '0';
       document.body.appendChild(btn);

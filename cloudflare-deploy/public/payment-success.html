@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>결제 확인 중 · 망고아이</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:'Malgun Gothic','맑은 고딕',sans-serif; background:linear-gradient(160deg,#0f172a,#1e293b); color:#e2e8f0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .card { background:rgba(30,41,59,0.85); border:1px solid rgba(148,163,184,0.2); border-radius:20px; padding:36px 30px; max-width:420px; width:100%; text-align:center; box-shadow:0 20px 60px -20px rgba(0,0,0,0.6); }
+  .icon { font-size:60px; margin-bottom:10px; }
+  h1 { font-size:22px; margin:6px 0 4px; }
+  .sub { color:#94a3b8; font-size:14px; margin-bottom:22px; line-height:1.6; }
+  .row { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid rgba(148,163,184,0.15); font-size:14px; }
+  .row b { color:#fbbf24; }
+  .box { background:rgba(0,0,0,0.25); border-radius:12px; padding:6px 16px; margin:18px 0; text-align:left; }
+  .btn { display:block; width:100%; padding:14px; border-radius:12px; border:0; font-size:15px; font-weight:800; cursor:pointer; text-decoration:none; margin-top:10px; }
+  .btn-primary { background:linear-gradient(135deg,#22c55e,#16a34a); color:#052e16; }
+  .btn-ghost { background:transparent; border:1px solid rgba(148,163,184,0.35); color:#cbd5e1; }
+  .spinner { width:46px; height:46px; border:5px solid rgba(148,163,184,0.25); border-top-color:#22c55e; border-radius:50%; animation:spin 0.8s linear infinite; margin:10px auto 20px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  a.link { color:#60a5fa; font-size:13px; }
+</style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="spinner"></div>
+    <h1>결제 확인 중…</h1>
+    <div class="sub">결제 승인을 안전하게 확정하고 있습니다.<br>잠시만 기다려 주세요 (창을 닫지 마세요).</div>
+  </div>
+
+<script>
+(function(){
+  var p = new URLSearchParams(location.search);
+  var paymentKey = p.get('paymentKey');
+  var orderId = p.get('orderId') || p.get('order');
+  var amount = p.get('amount');
+  var card = document.getElementById('card');
+
+  function won(n){ return '₩ ' + Number(n||0).toLocaleString('ko-KR'); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  function showSuccess(d){
+    card.innerHTML =
+      '<div class="icon">✅</div>'
+      + '<h1>결제가 완료되었습니다!</h1>'
+      + '<div class="sub">수강이 활성화되었어요. 감사합니다 🥭</div>'
+      + '<div class="box">'
+        + '<div class="row"><span>주문번호</span><span>'+esc(orderId)+'</span></div>'
+        + '<div class="row"><span>결제 금액</span><b>'+won(d.amount||amount)+'</b></div>'
+        + (d.method ? '<div class="row"><span>결제 수단</span><span>'+esc(d.method)+'</span></div>' : '')
+      + '</div>'
+      + (d.receipt ? '<a class="link" href="'+esc(d.receipt)+'" target="_blank">🧾 영수증 보기</a><br>' : '')
+      + '<a class="btn btn-primary" href="/">홈으로 돌아가기</a>';
+  }
+
+  function showError(msg, code){
+    card.innerHTML =
+      '<div class="icon">⚠️</div>'
+      + '<h1>결제 확정에 문제가 있어요</h1>'
+      + '<div class="sub">'+esc(msg||'결제 확인 중 오류가 발생했습니다.')
+        + (code ? '<br><span style="font-size:12px;color:#64748b">('+esc(code)+')</span>' : '')
+        + '<br><br>카드에서 금액이 빠져나갔다면 <b>자동 취소</b>되니 안심하세요. 문제가 계속되면 아래로 문의해 주세요.</div>'
+      + '<a class="btn btn-primary" href="/?pay=1">다시 시도하기</a>'
+      + '<a class="btn btn-ghost" href="mailto:navy111p@gmail.com">문의하기</a>';
+  }
+
+  if (!paymentKey || !orderId || !amount) {
+    showError('결제 정보가 확인되지 않았습니다. 결제가 정상적으로 시작되지 않았을 수 있어요.', 'missing_params');
+    return;
+  }
+
+  // 🔒 서버 확정 호출 — 실제 승인은 여기서 완료된다.
+  fetch('/api/pay/confirm', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify({ paymentKey: paymentKey, orderId: orderId, amount: Number(amount) })
+  })
+  .then(function(r){ return r.json().catch(function(){ return {}; }); })
+  .then(function(d){
+    if (d && d.ok) showSuccess(d);
+    else showError((d && d.message) || '결제 승인에 실패했습니다.', d && d.error);
+  })
+  .catch(function(e){
+    showError('네트워크 오류로 결제 확인에 실패했습니다. 잠시 후 다시 시도해 주세요.', 'network');
+  });
+})();
+</script>
+<!-- BUILD:20260711001945 -->
+</body>
+</html>

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>결제 실패 · 망고아이</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:'Malgun Gothic','맑은 고딕',sans-serif; background:linear-gradient(160deg,#0f172a,#1e293b); color:#e2e8f0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .card { background:rgba(30,41,59,0.85); border:1px solid rgba(148,163,184,0.2); border-radius:20px; padding:36px 30px; max-width:420px; width:100%; text-align:center; box-shadow:0 20px 60px -20px rgba(0,0,0,0.6); }
+  .icon { font-size:60px; margin-bottom:6px; }
+  h1 { font-size:22px; margin:6px 0 4px; }
+  .sub { color:#94a3b8; font-size:14px; margin-bottom:18px; line-height:1.7; }
+  .reason { background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.35); color:#fecaca; border-radius:12px; padding:12px 16px; font-size:13.5px; margin-bottom:20px; line-height:1.6; }
+  .btn { display:block; width:100%; padding:14px; border-radius:12px; border:0; font-size:15px; font-weight:800; cursor:pointer; text-decoration:none; margin-top:10px; }
+  .btn-primary { background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:#fff; }
+  .btn-ghost { background:transparent; border:1px solid rgba(148,163,184,0.35); color:#cbd5e1; }
+  .tips { text-align:left; font-size:12.5px; color:#94a3b8; margin:14px 4px 0; line-height:1.8; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">😅</div>
+    <h1>결제가 완료되지 않았어요</h1>
+    <div class="sub">걱정 마세요 — <b>돈은 빠져나가지 않았습니다.</b><br>아래 이유를 확인하고 다시 시도해 주세요.</div>
+    <div class="reason" id="reason">결제가 취소되었거나 승인되지 않았습니다.</div>
+    <a class="btn btn-primary" href="/?pay=1">🔄 다시 결제하기</a>
+    <a class="btn btn-ghost" href="/">홈으로</a>
+    <div class="tips">
+      💡 <b>자주 있는 원인</b><br>
+      · 카드 한도 초과 또는 잔액 부족<br>
+      · 카드사 승인 거절 (해외결제 차단 등)<br>
+      · 결제창을 중간에 닫음<br>
+      계속 안 되면 <a href="mailto:navy111p@gmail.com" style="color:#60a5fa">문의하기</a> 또는 다른 카드로 시도해 주세요.
+    </div>
+  </div>
+<script>
+(function(){
+  var p = new URLSearchParams(location.search);
+  var code = p.get('code');
+  var message = p.get('message');
+  if (message) {
+    document.getElementById('reason').textContent =
+      decodeURIComponent(message) + (code ? ' (' + code + ')' : '');
+  }
+})();
+</script>
+<!-- BUILD:20260711001945 -->
+</body>
+</html>

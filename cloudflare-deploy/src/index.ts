@@ -7,6 +7,7 @@ import { SignalingRoom } from './signaling-room';
 import { VideoCallRoom } from './video-call-room';
 import { HealthResponse, TurnConfigResponse, PdfUploadResponse } from './types';
 import { handleMangoApi, runMonthlyReports, reconcileAllStreaks } from './api-mango';
+import { handlePayApi } from './api-pay';
 import { runSiteWatchdog } from './api-uptime';   // 🐕 사이트 자체 감시견(cron */15)
 import { purgeExpired } from './retention';
 import { purgeOrphanedRecordings } from './recordings-cleanup';
@@ -1019,6 +1020,20 @@ export default {
       //   어떤 경우에도 JSON 응답을 보장 (콘솔 503 도배 방지).
       try {
         const res = await handleMangoApi(request, url, env);
+        if (res) return res;
+      } catch (e: any) {
+        return new Response(
+          JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
+          { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' } }
+        );
+      }
+    }
+
+    // 💳 결제 API (토스페이먼츠 안전결제) — 공개(학부모/학생 결제), /api/pay/*
+    //   서버 확정(confirm)·금액검증·멱등은 api-pay.ts 가 담당. 관리자 인증 불필요.
+    if (path.startsWith('/api/pay/')) {
+      try {
+        const res = await handlePayApi(request, url, env as any);
         if (res) return res;
       } catch (e: any) {
         return new Response(
