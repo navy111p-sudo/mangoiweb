@@ -23379,7 +23379,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260710042643 -->
+        <!-- BUILD:20260710150626 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -32863,6 +32863,17 @@ button.chip:hover,
   details.menu-card .lib-files a.lib-chip{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;font-size:12px;font-weight:700;text-decoration:none !important;border-radius:99px;border:1px solid rgba(148,163,184,.4);color:#e2e8f0 !important;background:rgba(255,255,255,.06)}
   details.menu-card .lib-files a.lib-chip:hover{border-color:#f59e0b;color:#fde68a !important;background:rgba(245,158,11,.16)}
   .lib-note{font-size:11px;color:#94a3b8;margin-top:6px;display:flex;align-items:center;gap:5px}
+  /* 🎨 밝은(ivory) 테마 — 위 다크 네이티브 색을 밝은 배경용으로 반전 (ph103은 ivory에서 중지되므로 안전) */
+  html[data-admin-theme="ivory"] .lib-gate{background:#fffbeb;border-color:rgba(245,158,11,.45)}
+  html[data-admin-theme="ivory"] .lib-lock{color:#475569}
+  html[data-admin-theme="ivory"] .lib-lock b{color:#b45309}
+  html[data-admin-theme="ivory"] .lib-doc{background:#ffffff;border-color:#e2e8f0}
+  html[data-admin-theme="ivory"] .lib-doc-t{color:#1f2937 !important}
+  html[data-admin-theme="ivory"] .lib-doc-t span{color:#2563eb !important}
+  html[data-admin-theme="ivory"] .lib-lang-lb{color:#64748b !important}
+  html[data-admin-theme="ivory"] details.menu-card .lib-files a.lib-chip{color:#334155 !important;background:#f8fafc;border-color:#cbd5e1}
+  html[data-admin-theme="ivory"] details.menu-card .lib-files a.lib-chip:hover{color:#92400e !important;background:#fef3c7;border-color:#f59e0b}
+  html[data-admin-theme="ivory"] .lib-note{color:#64748b !important}
 </style>
 
 <details class="table-card menu-card" id="card-lib-admin">
