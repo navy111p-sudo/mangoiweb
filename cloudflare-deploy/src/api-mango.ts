@@ -6395,6 +6395,9 @@ Respond in JSON ONLY:
     if (method === 'GET' && path === '/api/voice/history') {
       await ensureVoiceTable();
       const uid = (url.searchParams.get('uid') || 'guest').trim();
+      // 🔐 [PII] 본인 발화연습 이력만 — 토큰 uid 일치 요구(남의 전사·발음점수 조회 차단)
+      const vhAuth = await authUidGlobal(request, url, env);
+      if (!vhAuth || vhAuth !== uid) return json({ ok: false, error: 'auth_required' }, 401);
       const rs = await env.DB.prepare(
         `SELECT id, target_text, transcribed_text, accuracy_score, pronunciation_score, fluency_score, ai_feedback, suggestion, created_at FROM voice_coaching WHERE student_uid = ? ORDER BY created_at DESC LIMIT 30`
       ).bind(uid).all();
