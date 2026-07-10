@@ -745,6 +745,11 @@ export async function handleMangoApi(
       const uid = (url.searchParams.get('uid') || '').trim();
       const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10)));
       if (!uid) return json({ ok: true, rows: [], count: 0 });
+      // 🔐 [PII] 본인 녹화만 — 토큰 uid 일치 요구(남의 수업영상 목록·재생키 열람 차단, IDOR)
+      const recAuthUid = await authUidGlobal(request, url, env);
+      if (!recAuthUid || recAuthUid !== uid) {
+        return json({ ok: false, error: 'auth_required', message: '로그인 후 본인 녹화만 조회할 수 있습니다.' }, 401);
+      }
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS recordings (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT, teacher_id TEXT, teacher_name TEXT, filename TEXT, file_url TEXT, size_bytes INTEGER, duration_ms INTEGER, participant_ids TEXT, participant_names TEXT, consented_user_ids TEXT, started_at INTEGER, ended_at INTEGER, status TEXT, storage TEXT, expires_at INTEGER);`);
         const likePattern = '%' + JSON.stringify(uid).slice(1, -1) + '%';
@@ -4931,6 +4936,12 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       const uid = (url.searchParams.get('uid') || '').trim();
       const role = (url.searchParams.get('role') || 'student').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      // 🔐 [PII] 본인 평가만 — 토큰 uid 일치 요구(남의 평가서 목록 열람 차단, IDOR).
+      //   학부모는 password 보호된 /api/parent/dashboard 로 평가를 봄(이 경로는 본인 토큰 필요).
+      const evAuthUid = await authUidGlobal(request, url, env);
+      if (!evAuthUid || evAuthUid !== uid) {
+        return json({ ok: false, error: 'auth_required', message: '로그인 후 본인 평가만 조회할 수 있습니다.' }, 401);
+      }
       const col = role === 'teacher' ? 'teacher_uid' : 'student_uid';
       const rs = await env.DB.prepare(
         `SELECT id, student_name, teacher_name, lesson_title, lesson_date, score_overall, created_at, parent_notified, viewed_by_parent

@@ -238,9 +238,10 @@
       '<div style="font-size:15px;font-weight:700;color:#e2e8f0">최근 수업 녹화를 불러오는 중…</div>'
     ));
     var tried = {};
+    var _tok = ''; try { _tok = localStorage.getItem('mango_token') || ''; } catch (e) {}
     function query(q) {
       tried[q] = 1;
-      return fetch('/api/student/recordings?limit=1&uid=' + encodeURIComponent(q))
+      return fetch('/api/student/recordings?limit=1&uid=' + encodeURIComponent(q) + (_tok ? '&token=' + encodeURIComponent(_tok) : ''))  // 🔐 본인 인증
         .then(function (r) { return r.json(); })
         .then(function (d2) { return (d2 && (d2.rows || d2.recordings)) || []; })
         .catch(function () { return []; });
