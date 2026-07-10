@@ -26,56 +26,83 @@
     .top { display: flex; align-items: center; gap: 12px; padding: 14px 18px;
       background: rgba(20, 33, 59, 0.95); position: sticky; top: 0; z-index: 50;
       backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
-    .top a { color: var(--text); text-decoration: none; font-weight: 700; font-size: 14px; }
-    .top h1 { margin: 0; font-size: 16px; font-weight: 800; flex: 1; }
-    .wrap { max-width: 820px; margin: 0 auto; padding: 18px; }
-    .intro { background: rgba(245,158,11,0.10); border: 1px dashed rgba(245,158,11,0.4);
-      border-radius: 10px; padding: 12px 16px; margin-bottom: 14px;
-      font-size: 13px; color: #fde68a; line-height: 1.55; }
-    .level-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-    .level-btn { padding: 8px 14px; background: var(--card); border: 1px solid var(--border);
-      color: var(--text); border-radius: 8px; cursor: pointer; font-weight: 700;
-      font-size: 12.5px; }
-    .level-btn.active { background: linear-gradient(135deg, var(--gold), #f59e0b); color: #1a1a1a; border-color: var(--gold); }
-    textarea { width: 100%; padding: 14px; background: var(--card); color: var(--text);
-      border: 1px solid var(--border); border-radius: 12px; font-size: 14px;
-      font-family: inherit; min-height: 140px; line-height: 1.55; resize: vertical; }
-    textarea:focus { outline: 0; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(251,191,36,0.15); }
-    .submit-btn { display: block; width: 100%; padding: 16px; margin: 14px 0;
+    .top a { color: var(--text); text-decoration: none; font-weight: 700; font-size: 15px; }
+    .top h1 { margin: 0; font-size: 19px; font-weight: 800; flex: 1; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 24px 20px 60px; }
+    /* 🥭 히어로 — 크게, 캐릭터와 함께 */
+    .hero { display: flex; align-items: center; gap: 18px;
+      background: linear-gradient(135deg, rgba(251,191,36,0.16), rgba(245,158,11,0.06));
+      border: 1px solid rgba(251,191,36,0.35);
+      border-radius: 18px; padding: 20px 24px; margin-bottom: 20px;
+      box-shadow: 0 8px 28px -10px rgba(0,0,0,0.45); }
+    .hero img { width: 84px; height: 84px; object-fit: contain; flex-shrink: 0;
+      filter: drop-shadow(0 6px 12px rgba(0,0,0,0.35)); }
+    .hero-title { font-size: 24px; font-weight: 900; color: var(--gold); margin: 0 0 6px 0; line-height: 1.3; }
+    .hero-sub { font-size: 15.5px; color: #fde68a; line-height: 1.6; margin: 0; }
+    .level-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .level-btn { padding: 12px 20px; background: var(--card); border: 1.5px solid var(--border);
+      color: var(--text); border-radius: 12px; cursor: pointer; font-weight: 800;
+      font-size: 15px; transition: transform .12s; }
+    .level-btn:hover { transform: translateY(-2px); }
+    .level-btn.active { background: linear-gradient(135deg, var(--gold), #f59e0b); color: #1a1a1a; border-color: var(--gold);
+      box-shadow: 0 4px 14px -4px rgba(251,191,36,0.6); }
+    /* 🎲 글감 추천 칩 */
+    .topic-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+    .topic-chip { padding: 9px 16px; background: rgba(59,130,246,0.14); border: 1px solid rgba(59,130,246,0.4);
+      color: #bfdbfe; border-radius: 99px; cursor: pointer; font-size: 14px; font-weight: 700;
+      transition: transform .12s; }
+    .topic-chip:hover { transform: translateY(-2px); background: rgba(59,130,246,0.25); }
+    textarea { width: 100%; padding: 18px 20px; background: var(--card); color: var(--text);
+      border: 1.5px solid var(--border); border-radius: 16px; font-size: 17px;
+      font-family: inherit; min-height: 220px; line-height: 1.7; resize: vertical; }
+    textarea::placeholder { font-size: 16px; color: #64748b; }
+    textarea:focus { outline: 0; border-color: var(--gold); box-shadow: 0 0 0 4px rgba(251,191,36,0.18); }
+    .char-count { text-align: right; font-size: 13px; color: var(--text2); margin-top: 6px; }
+    .submit-btn { display: block; width: 100%; padding: 20px; margin: 14px 0;
       background: linear-gradient(135deg, #10b981, #059669); color: #fff;
-      border: 0; border-radius: 12px; font-size: 15px; font-weight: 800; cursor: pointer;
-      box-shadow: 0 4px 14px -2px rgba(16,185,129,0.4); }
+      border: 0; border-radius: 16px; font-size: 19px; font-weight: 900; cursor: pointer;
+      box-shadow: 0 6px 20px -4px rgba(16,185,129,0.5); transition: transform .12s; }
+    .submit-btn:hover:not(:disabled) { transform: translateY(-2px); }
     .submit-btn:disabled { background: #475569; cursor: not-allowed; box-shadow: none; }
     .result { background: var(--card); border: 1px solid var(--border);
-      border-radius: 14px; padding: 18px; margin-bottom: 14px; }
-    .result-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-    .score-circle { width: 64px; height: 64px; border-radius: 50%;
+      border-radius: 16px; padding: 22px; margin-bottom: 16px; }
+    .result-head { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+    .score-circle { width: 84px; height: 84px; border-radius: 50%;
       background: conic-gradient(var(--green) var(--p), #1e293b 0);
       display: flex; align-items: center; justify-content: center;
-      font-size: 18px; font-weight: 900; color: #fff;
-      position: relative; }
-    .score-circle::before { content: ''; position: absolute; inset: 6px;
+      font-size: 24px; font-weight: 900; color: #fff;
+      position: relative; flex-shrink: 0; }
+    .score-circle::before { content: ''; position: absolute; inset: 7px;
       background: var(--card); border-radius: 50%; }
     .score-circle > span { position: relative; z-index: 1; }
     .corrected { background: rgba(16,185,129,0.10); border-left: 4px solid var(--green);
-      padding: 12px 14px; border-radius: 8px; margin-bottom: 12px;
-      font-size: 14px; line-height: 1.65; color: #d1fae5; }
-    .issues { margin-bottom: 12px; }
+      padding: 14px 16px; border-radius: 10px; margin-bottom: 14px;
+      font-size: 16.5px; line-height: 1.7; color: #d1fae5; }
+    .issues { margin-bottom: 14px; }
     .issue { background: rgba(239,68,68,0.08); border-left: 4px solid var(--red);
-      padding: 10px 12px; border-radius: 6px; margin-bottom: 6px; font-size: 13px; }
+      padding: 12px 14px; border-radius: 8px; margin-bottom: 8px; font-size: 15px; }
     .issue-orig { color: #fca5a5; text-decoration: line-through; }
     .issue-sug { color: #86efac; font-weight: 700; }
-    .issue-reason { color: var(--text2); font-size: 12.5px; margin-top: 4px; }
+    .issue-reason { color: var(--text2); font-size: 13.5px; margin-top: 5px; }
     .tip { background: rgba(59,130,246,0.10); border-left: 4px solid var(--blue);
-      padding: 12px 14px; border-radius: 8px; font-size: 13px; color: #dbeafe; }
-    .history { margin-top: 24px; }
-    .history h3 { font-size: 14px; color: var(--gold); margin: 0 0 10px 0; }
+      padding: 14px 16px; border-radius: 10px; font-size: 15px; color: #dbeafe; }
+    .history { margin-top: 32px; }
+    .history h3 { font-size: 17px; color: var(--gold); margin: 0 0 12px 0; }
     .hist-item { background: var(--card); border: 1px solid var(--border);
-      border-radius: 10px; padding: 10px 14px; margin-bottom: 6px;
+      border-radius: 12px; padding: 12px 16px; margin-bottom: 8px;
       display: flex; justify-content: space-between; align-items: center;
-      font-size: 13px; cursor: pointer; }
+      font-size: 14px; cursor: pointer; }
     .hist-item:hover { background: rgba(251,191,36,0.08); }
     .hist-score { font-weight: 800; color: var(--gold); }
+    @media (max-width: 640px) {
+      .hero { padding: 16px; gap: 12px; }
+      .hero img { width: 64px; height: 64px; }
+      .hero-title { font-size: 19px; }
+      .hero-sub { font-size: 13.5px; }
+      .level-btn { padding: 10px 14px; font-size: 13.5px; }
+      textarea { font-size: 16px; min-height: 180px; }
+      .submit-btn { font-size: 17px; padding: 17px; }
+    }
   </style>
 </head>
 <body>
@@ -84,9 +111,15 @@
     <h1 data-ko="✍️ AI 영작 첨삭" data-en="✍️ AI Writing Coach">✍️ AI 영작 첨삭</h1>
   </div>
   <div class="wrap">
-    <div class="intro">
-      💡 영어로 자유롭게 써보세요. AI가 문법·표현을 교정하고 점수와 이유를 알려드려요.
-      (예: "Yesterday I go to school..." → "Yesterday I went to school...")
+    <div class="hero">
+      <img src="/img/mango-char.png" alt="망고">
+      <div>
+        <div class="hero-title" data-ko="✍️ AI 영작 첨삭" data-en="✍️ AI Writing Coach">✍️ AI 영작 첨삭</div>
+        <p class="hero-sub" data-ko="영어로 자유롭게 써보세요! 망고 선생님이 문법·표현을 고쳐주고 점수와 이유를 알려드려요. (예: &quot;Yesterday I go to school…&quot; → &quot;Yesterday I went to school…&quot;)" data-en="Write freely in English! Coach Mango corrects your grammar, gives you a score, and explains why. (e.g. &quot;Yesterday I go to school…&quot; → &quot;Yesterday I went to school…&quot;)">
+          영어로 자유롭게 써보세요! 망고 선생님이 문법·표현을 고쳐주고 점수와 이유를 알려드려요.
+          (예: "Yesterday I go to school…" → "Yesterday I went to school…")
+        </p>
+      </div>
     </div>
 
     <div class="level-row" id="levelRow">
@@ -97,7 +130,15 @@
       <button class="level-btn" data-level="C1">C1 고급</button>
     </div>
 
-    <textarea id="text" placeholder="여기에 영어로 입력하세요 (3 ~ 2000자)..."></textarea>
+    <!-- 🎲 오늘의 글감 -->
+    <div class="topic-row" id="topicRow">
+      <span style="font-size:14px;font-weight:800;color:var(--text2)" data-ko="🎲 오늘의 글감:" data-en="🎲 Today's topics:">🎲 오늘의 글감:</span>
+      <!-- 칩은 JS가 채움 -->
+      <button class="topic-chip" onclick="shuffleTopics()" style="background:rgba(251,191,36,0.14);border-color:rgba(251,191,36,0.4);color:var(--gold)" data-ko="🔀 다른 주제" data-en="🔀 Shuffle">🔀 다른 주제</button>
+    </div>
+
+    <textarea id="text" placeholder="여기에 영어로 입력하세요 (3 ~ 2000자)..." oninput="updateCharCount()"></textarea>
+    <div class="char-count" id="charCount">0 / 2000</div>
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="submit-btn" id="submitBtn" onclick="submitText()" style="flex:1">
         ✨ <span data-ko="AI 첨삭 받기" data-en="Get AI Correction">AI 첨삭 받기</span>
@@ -145,6 +186,51 @@
     function getToken() {
       try { return localStorage.getItem('mango_token') || ''; } catch(e){ return ''; }
     }
+    // 🎲 오늘의 글감 — 클릭하면 문장 시작을 넣어줌
+    const TOPICS = [
+      { ko: '🍕 내가 좋아하는 음식', starter: 'My favorite food is ' },
+      { ko: '🌤️ 오늘 하루', starter: 'Today I ' },
+      { ko: '👨‍👩‍👧 우리 가족', starter: 'My family ' },
+      { ko: '🐶 내가 키우고 싶은 동물', starter: 'I want to have a ' },
+      { ko: '✈️ 가고 싶은 나라', starter: 'I want to visit ' },
+      { ko: '🎮 좋아하는 게임', starter: 'My favorite game is ' },
+      { ko: '📚 학교에서 있었던 일', starter: 'At school, ' },
+      { ko: '🌙 어젯밤 꿈', starter: 'Last night, I dreamed ' },
+      { ko: '⚽ 좋아하는 운동', starter: 'I like playing ' },
+      { ko: '🎂 최고의 생일', starter: 'My best birthday was ' },
+      { ko: '🦸 내가 슈퍼히어로라면', starter: 'If I were a superhero, ' },
+      { ko: '🍦 여름에 하고 싶은 것', starter: 'This summer, I want to ' },
+      { ko: '🎬 재미있게 본 영화', starter: 'I watched a movie called ' },
+      { ko: '💛 나의 친한 친구', starter: 'My best friend is ' },
+      { ko: '🚀 미래의 나', starter: 'In the future, I will ' },
+    ];
+    function shuffleTopics() {
+      const row = document.getElementById('topicRow');
+      row.querySelectorAll('.topic-chip[data-topic]').forEach(c => c.remove());
+      const picks = TOPICS.slice().sort(() => Math.random() - 0.5).slice(0, 3);
+      const shuffleBtn = row.querySelector('.topic-chip:not([data-topic])');
+      picks.forEach(t => {
+        const chip = document.createElement('button');
+        chip.className = 'topic-chip';
+        chip.dataset.topic = '1';
+        chip.textContent = t.ko;
+        chip.onclick = () => {
+          const ta = document.getElementById('text');
+          if (!ta.value.trim()) { ta.value = t.starter; updateCharCount(); }
+          ta.focus();
+          ta.setSelectionRange(ta.value.length, ta.value.length);
+        };
+        row.insertBefore(chip, shuffleBtn);
+      });
+    }
+    function updateCharCount() {
+      const n = (document.getElementById('text').value || '').length;
+      const el = document.getElementById('charCount');
+      el.textContent = n + ' / 2000';
+      el.style.color = n > 2000 ? 'var(--red)' : 'var(--text2)';
+    }
+    shuffleTopics();
+
     let currentLevel = 'B1';
     document.querySelectorAll('.level-btn').forEach(btn => {
       btn.onclick = () => {
@@ -348,6 +434,7 @@
     // 🔄 리셋 — 새로 작성
     window.resetForm = function(){
       document.getElementById('text').value = '';
+      updateCharCount();
       document.getElementById('resultBox').style.display = 'none';
       document.getElementById('resultBox').innerHTML = '';
       document.getElementById('text').focus();
@@ -423,7 +510,7 @@
 
     loadHistory();
   </script>
-<!-- BUILD:20260711014037 -->
+<!-- BUILD:20260711031036 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>
