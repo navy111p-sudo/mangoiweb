@@ -1771,7 +1771,7 @@
       dateOptions += '<option value="' + _v + '">' + (_d.getMonth()+1) + '월 ' + _d.getDate() + '일 (' + _WK[_d.getDay()] + ')</option>';
     }
     var timeOptions = '';
-    ['16:00','17:00','18:00','19:00','20:00','21:00'].forEach(function(t){ timeOptions += '<option value="' + t + '">' + t + '</option>'; });
+    ['14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00'].forEach(function(t){ timeOptions += '<option value="' + t + '">' + t + '</option>'; });
     showModal(`
       <h2>📊 레벨테스트 안내</h2>
       <p>망고아이의 8단계 심층 레벨 시스템에 맞춰 본인의 영어 실력을 정확히 진단해 드립니다.</p>
@@ -1827,54 +1827,90 @@
       <h3 style="color:#fbbf24;margin-top:18px">🆕 회원가입 + 레벨테스트 신청</h3>
       <p style="color:#94a3b8;font-size:12px;margin:6px 0 12px">아이디·비밀번호를 만들어 두시면 마이페이지에서 결과 확인 + 다음 신청이 1초로 끝나요.</p>
 
-      <div style="background:linear-gradient(135deg,rgba(251,191,36,0.07),rgba(245,158,11,0.03));border:1px solid rgba(251,191,36,0.25);border-radius:14px;padding:18px 20px">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin-bottom:10px">
-          <div>
-            <label style="display:block;color:#cbd5e1;font-size:12px;font-weight:700;margin-bottom:5px">🆔 아이디 <span style="color:#ef4444">*</span></label>
-            <input id="lt-uid" type="text" autocomplete="username" placeholder="영문/숫자 4~20자" maxlength="20" style="width:100%;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box" />
+      <div id="lt-signup">
+        <style>
+          #lt-signup .ltf-card{background:linear-gradient(160deg,rgba(251,191,36,0.10),rgba(245,158,11,0.03) 55%,rgba(2,6,23,0.25));border:1px solid rgba(251,191,36,0.28);border-radius:16px;padding:18px 18px 16px;box-shadow:0 12px 34px -20px rgba(245,158,11,0.55)}
+          #lt-signup .ltf-sec{font-size:10.5px;font-weight:800;letter-spacing:0.07em;color:#fbbf24;text-transform:uppercase;margin:4px 0 10px;display:flex;align-items:center;gap:8px}
+          #lt-signup .ltf-sec:not(:first-child){margin-top:16px}
+          #lt-signup .ltf-sec::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,rgba(251,191,36,0.35),transparent)}
+          #lt-signup .ltf-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px 12px}
+          #lt-signup .ltf-f{display:flex;flex-direction:column;gap:5px;min-width:0}
+          #lt-signup .ltf-f label{font-size:11.5px;font-weight:700;color:#cbd5e1;display:flex;align-items:center;gap:4px}
+          #lt-signup .ltf-req{color:#fb7185;font-weight:800}
+          #lt-signup .ltf-opt{color:#64748b;font-weight:600;font-size:10.5px}
+          #lt-signup .ltf-f input,#lt-signup .ltf-f select{width:100%;height:44px;padding:0 13px;background:rgba(2,6,23,0.55);border:1px solid rgba(148,163,184,0.22);border-radius:11px;color:#f1f5f9;font-size:13.5px;outline:none;box-sizing:border-box;appearance:none;-webkit-appearance:none;transition:border-color .15s,box-shadow .15s,background .15s}
+          #lt-signup .ltf-f input::placeholder{color:#5b6b86}
+          #lt-signup .ltf-f input:focus,#lt-signup .ltf-f select:focus{border-color:#fbbf24;background:rgba(2,6,23,0.78);box-shadow:0 0 0 3px rgba(251,191,36,0.16)}
+          #lt-signup .ltf-f select{cursor:pointer;padding-right:34px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23fbbf24' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center}
+          #lt-signup .ltf-f select option{background:#0b1120;color:#f1f5f9}
+          #lt-signup .ltf-note{display:flex;gap:9px;align-items:flex-start;background:rgba(99,102,241,0.10);border:1px solid rgba(99,102,241,0.30);border-radius:12px;padding:11px 13px;margin:15px 0 13px;font-size:11.8px;line-height:1.55;color:#c7d2fe}
+          #lt-signup .ltf-note b{color:#e0e7ff}
+          #lt-signup .ltf-agree{display:flex;align-items:flex-start;gap:9px;color:#94a3b8;font-size:11.8px;line-height:1.5;cursor:pointer;margin-bottom:14px}
+          #lt-signup .ltf-agree input{width:17px;height:17px;accent-color:#fbbf24;margin-top:1px;cursor:pointer;flex-shrink:0}
+          #lt-signup .ltf-agree a{color:#93c5fd;text-decoration:underline;cursor:pointer}
+          #lt-signup .ltf-err{display:none;padding:9px 12px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);border-radius:10px;color:#fca5a5;font-size:12px;margin-bottom:11px}
+          #lt-signup .ltf-submit{width:100%;height:50px;background:linear-gradient(135deg,#fbbf24,#f59e0b);border:0;border-radius:13px;color:#1a0f08;font-size:15px;font-weight:900;cursor:pointer;box-shadow:0 10px 24px -8px rgba(245,158,11,0.7);transition:transform .12s ease,box-shadow .2s ease}
+          #lt-signup .ltf-submit:hover{transform:translateY(-1px);box-shadow:0 14px 30px -8px rgba(245,158,11,0.85)}
+          #lt-signup .ltf-submit:active{transform:translateY(0)}
+          #lt-signup .ltf-ghost{width:100%;height:42px;margin-top:9px;background:transparent;border:1px solid rgba(251,191,36,0.45);border-radius:12px;color:#fde68a;font-size:12.5px;font-weight:700;cursor:pointer;transition:background .15s}
+          #lt-signup .ltf-ghost:hover{background:rgba(251,191,36,0.10)}
+          @media(max-width:480px){#lt-signup .ltf-grid{grid-template-columns:1fr}}
+        </style>
+        <div class="ltf-card">
+          <div class="ltf-sec">🔐 계정 만들기</div>
+          <div class="ltf-grid">
+            <div class="ltf-f">
+              <label>🆔 아이디 <span class="ltf-req">*</span></label>
+              <input id="lt-uid" type="text" autocomplete="username" placeholder="영문/숫자 4~20자" maxlength="20" />
+            </div>
+            <div class="ltf-f">
+              <label>🔑 비밀번호 <span class="ltf-req">*</span></label>
+              <input id="lt-pw" type="password" autocomplete="new-password" placeholder="6자 이상" minlength="6" />
+            </div>
           </div>
-          <div>
-            <label style="display:block;color:#cbd5e1;font-size:12px;font-weight:700;margin-bottom:5px">🔑 비밀번호 <span style="color:#ef4444">*</span></label>
-            <input id="lt-pw" type="password" autocomplete="new-password" placeholder="6자 이상" minlength="6" style="width:100%;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box" />
+
+          <div class="ltf-sec">🧑‍🎓 학생 정보</div>
+          <div class="ltf-grid">
+            <div class="ltf-f">
+              <label>👤 학생 이름 <span class="ltf-req">*</span></label>
+              <input id="lt-name" type="text" placeholder="실명" maxlength="40" />
+            </div>
+            <div class="ltf-f">
+              <label>📱 연락처 <span class="ltf-req">*</span></label>
+              <input id="lt-phone" type="tel" placeholder="010-1234-5678" maxlength="20" />
+            </div>
+            <div class="ltf-f">
+              <label>📧 이메일 <span class="ltf-opt">(선택)</span></label>
+              <input id="lt-email" type="email" placeholder="example@mail.com" maxlength="100" />
+            </div>
+            <div class="ltf-f">
+              <label>🎂 학년/연령 <span class="ltf-opt">(선택)</span></label>
+              <input id="lt-age" type="text" placeholder="예: 중2 / 30대" maxlength="20" />
+            </div>
           </div>
-          <div>
-            <label style="display:block;color:#cbd5e1;font-size:12px;font-weight:700;margin-bottom:5px">👤 학생 이름 <span style="color:#ef4444">*</span></label>
-            <input id="lt-name" type="text" placeholder="실명" maxlength="40" style="width:100%;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box" />
+
+          <div class="ltf-sec">📅 예약 희망 (오후 2시~밤 11시)</div>
+          <div class="ltf-grid">
+            <div class="ltf-f">
+              <label>📅 희망 날짜 <span class="ltf-req">*</span></label>
+              <select id="lt-date">${dateOptions}</select>
+            </div>
+            <div class="ltf-f">
+              <label>⏰ 희망 시간 <span class="ltf-req">*</span></label>
+              <select id="lt-time">${timeOptions}</select>
+            </div>
           </div>
-          <div>
-            <label style="display:block;color:#cbd5e1;font-size:12px;font-weight:700;margin-bottom:5px">📱 연락처 <span style="color:#ef4444">*</span></label>
-            <input id="lt-phone" type="tel" placeholder="010-1234-5678" maxlength="20" style="width:100%;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box" />
-          </div>
-          <div>
-            <label style="display:block;color:#cbd5e1;font-size:12px;font-weight:700;margin-bottom:5px">📧 이메일 (선택)</label>
-            <input id="lt-email" type="email" placeholder="example@mail.com" maxlength="100" style="width:100%;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box" />
-          </div>
-          <div>
-            <label style="display:block;color:#cbd5e1;font-size:12px;font-weight:700;margin-bottom:5px">🎂 학년/연령 (선택)</label>
-            <input id="lt-age" type="text" placeholder="예: 중2 / 30대" maxlength="20" style="width:100%;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box" />
-          </div>
-          <div>
-            <label style="display:block;color:#cbd5e1;font-size:12px;font-weight:700;margin-bottom:5px">📅 희망 날짜 <span style="color:#ef4444">*</span></label>
-            <select id="lt-date" style="width:100%;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box">${dateOptions}</select>
-          </div>
-          <div>
-            <label style="display:block;color:#cbd5e1;font-size:12px;font-weight:700;margin-bottom:5px">⏰ 희망 시간 <span style="color:#ef4444">*</span></label>
-            <select id="lt-time" style="width:100%;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box">${timeOptions}</select>
-          </div>
+
+          <div class="ltf-note"><span style="font-size:15px;line-height:1">🧑‍🏫</span><span>신청하시면 <b>그 시간에 가능한 선생님</b>이 자동으로 배정돼요.<br>선생님은 학원에서 배정하며, 학생이 직접 고르지 않아요.</span></div>
+
+          <label class="ltf-agree">
+            <input id="lt-agree" type="checkbox" />
+            <span>개인정보 수집·이용에 동의합니다 (레벨테스트 안내·결과 발송 목적, <a onclick="closeInfoModal();window.gridActions&&window.gridActions.contact()">고객센터 문의</a>)</span>
+          </label>
+          <div id="lt-form-msg" class="ltf-err"></div>
+          <button type="button" onclick="submitLevelTestSignup()" id="lt-submit" class="ltf-submit">✅ 회원가입 완료 + 레벨테스트 신청</button>
+          <button type="button" onclick="window.openLevelTestResults && window.openLevelTestResults()" class="ltf-ghost">📊 이미 신청하셨나요? 레벨테스트 결과보기</button>
         </div>
-        <p style="color:#94a3b8;font-size:11.5px;margin:0 0 10px;line-height:1.55">🧑‍🏫 신청하시면 <b style="color:#fde68a">그 시간에 가능한 선생님</b>이 자동 배정돼요. (선생님은 학원에서 배정 — 학생이 고르지 않아요)</p>
-        <label style="display:flex;align-items:center;gap:8px;color:#cbd5e1;font-size:12px;cursor:pointer;margin-bottom:12px">
-          <input id="lt-agree" type="checkbox" style="width:16px;height:16px;cursor:pointer" />
-          <span>개인정보 수집·이용 동의 (레벨테스트 안내·결과 발송 목적, <a onclick="closeInfoModal();window.gridActions&&window.gridActions.contact()" style="color:#9ee5ff;cursor:pointer;text-decoration:underline">고객센터 문의</a>)</span>
-        </label>
-        <div id="lt-form-msg" style="display:none;padding:8px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#fca5a5;font-size:12px;margin-bottom:10px"></div>
-        <button type="button" onclick="submitLevelTestSignup()" id="lt-submit" style="width:100%;padding:13px;background:linear-gradient(135deg,#fbbf24,#f59e0b);border:0;border-radius:10px;color:#1a0f08;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 6px 16px -4px rgba(245,158,11,0.5)">
-          ✅ 회원가입 완료 + 레벨테스트 신청
-        </button>
-        <!-- 📊 결과보기 보조 버튼 (이미 신청한 경우) -->
-        <button type="button" onclick="window.openLevelTestResults && window.openLevelTestResults()" style="width:100%;margin-top:8px;padding:10px;background:transparent;border:1px solid rgba(251,191,36,0.5);border-radius:10px;color:#fde68a;font-size:12.5px;font-weight:600;cursor:pointer;transition:all .15s" onmouseover="this.style.background='rgba(251,191,36,0.08)'" onmouseout="this.style.background='transparent'">
-          📊 이미 신청하셨나요? 레벨테스트 결과보기
-        </button>
       </div>
 
       <p style="margin:14px 0 6px;color:#94a3b8;font-size:12px;text-align:center">또는</p>
