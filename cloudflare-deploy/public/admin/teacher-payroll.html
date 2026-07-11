@@ -6,41 +6,79 @@
 <title>강사 급여 자동 · 망고아이</title>
 <style>
   * { box-sizing: border-box; }
-  body { margin:0; font-family:'Malgun Gothic','맑은 고딕','Segoe UI',sans-serif; background:linear-gradient(160deg,#0f172a,#1e293b); color:#e2e8f0; min-height:100vh; padding:20px; }
-  .wrap { max-width:1000px; margin:0 auto; }
-  .head { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
-  .head img { height:46px; }
-  h1 { font-size:24px; margin:0; }
-  .sub { color:#9fb0c6; font-size:15px; margin:2px 0 18px; line-height:1.5; }
-  .langbtn { margin-left:auto; align-self:flex-start; cursor:pointer; font-weight:800; font-size:14px; border-radius:999px; padding:8px 15px; border:1px solid rgba(148,163,184,0.4); background:transparent; color:#e2e8f0; }
-  .card { background:rgba(30,41,59,0.9); border:1px solid rgba(148,163,184,0.2); border-radius:18px; padding:22px; margin-bottom:18px; }
-  .controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
-  select, button, input { font-size:16px; border-radius:10px; padding:11px 14px; border:1px solid rgba(148,163,184,0.35); }
-  select, input { background:#0f172a; color:#e2e8f0; }
+  body { margin:0; font-family:'Malgun Gothic','맑은 고딕','Segoe UI',sans-serif; background:linear-gradient(160deg,#0f172a,#1e293b); color:#e6edf6; min-height:100vh; padding:22px; font-size:17px; }
+  .wrap { max-width:1100px; margin:0 auto; }
+  .head { display:flex; align-items:center; gap:14px; margin-bottom:6px; }
+  .head img { height:54px; }
+  h1 { font-size:30px; margin:0; font-weight:900; }
+  .sub { color:#a9b7ca; font-size:16.5px; margin:4px 0 20px; line-height:1.55; }
+  .langbtn { margin-left:auto; align-self:flex-start; cursor:pointer; font-weight:800; font-size:15px; border-radius:999px; padding:10px 18px; border:1px solid rgba(148,163,184,0.45); background:transparent; color:#e6edf6; }
+  .card { background:rgba(30,41,59,0.92); border:1px solid rgba(148,163,184,0.22); border-radius:20px; padding:24px; margin-bottom:20px; }
+  .controls { display:flex; flex-wrap:wrap; gap:11px; align-items:center; }
+  select, button, input { font-size:17px; border-radius:12px; padding:13px 16px; border:1px solid rgba(148,163,184,0.4); }
+  select, input { background:#0f172a; color:#e6edf6; }
   .btn { cursor:pointer; font-weight:800; border:0; }
   .btn-primary { background:linear-gradient(135deg,#22c55e,#16a34a); color:#052e16; }
   .btn-ai { background:linear-gradient(135deg,#8b5cf6,#6d28d9); color:#fff; }
-  .btn-ghost { background:transparent; color:#e2e8f0; border:1px solid rgba(148,163,184,0.4); }
+  .btn-ghost { background:transparent; color:#e6edf6; border:1px solid rgba(148,163,184,0.45); }
   .btn:disabled { opacity:0.55; cursor:default; }
-  .rate { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:12px; padding-top:12px; border-top:1px dashed rgba(148,163,184,0.25); }
-  .rate input { width:88px; }
-  .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:16px 0 4px; }
-  .stat { background:rgba(15,23,42,0.6); border:1px solid rgba(148,163,184,0.2); border-radius:14px; padding:16px; text-align:center; }
-  .stat .n { font-size:24px; font-weight:900; color:#fcd34d; }
-  .stat .n2 { font-size:17px; font-weight:800; color:#86efac; margin-top:2px; }
-  .stat .l { font-size:13.5px; color:#9fb0c6; margin-top:4px; }
-  table { width:100%; border-collapse:collapse; margin-top:8px; font-size:15px; }
-  th, td { padding:11px 9px; text-align:left; border-bottom:1px solid rgba(148,163,184,0.15); }
-  th { color:#9fb0c6; font-size:13px; font-weight:700; }
-  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
-  .php { color:#fcd34d; font-weight:800; }
-  .krw { color:#86efac; font-weight:700; }
-  .low { color:#f87171; font-size:13px; }
-  .ai { background:rgba(139,92,246,0.1); border:1px solid rgba(139,92,246,0.4); border-radius:14px; padding:16px 18px; color:#ddd6fe; line-height:1.7; white-space:pre-wrap; margin-top:12px; }
-  .empty { text-align:center; color:#9fb0c6; padding:26px 10px; line-height:1.7; }
-  .muted { color:#64748b; font-size:13.5px; }
-  .ok { color:#4ade80; font-size:13.5px; }
-  @media (max-width:640px){ .stats{grid-template-columns:1fr;} table{font-size:13.5px;} th,td{padding:9px 5px;} }
+  .rate { display:flex; flex-wrap:wrap; gap:9px; align-items:center; margin-top:14px; padding-top:14px; border-top:1px dashed rgba(148,163,184,0.28); font-size:16px; }
+  .rate input { width:92px; }
+  .filter { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:14px; }
+  .filter input { flex:1; min-width:180px; }
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:13px; margin:6px 0 4px; }
+  .stat { background:rgba(15,23,42,0.65); border:1px solid rgba(148,163,184,0.22); border-radius:16px; padding:18px; text-align:center; }
+  .stat .n { font-size:27px; font-weight:900; color:#fcd34d; }
+  .stat .n2 { font-size:19px; font-weight:800; color:#86efac; margin-top:3px; }
+  .stat .l { font-size:14.5px; color:#a9b7ca; margin-top:6px; }
+  .charts { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .chart-box h3 { font-size:17px; margin:0 0 10px; color:#cbd5e1; }
+  table { width:100%; border-collapse:collapse; margin-top:6px; font-size:17px; }
+  th, td { padding:15px 12px; text-align:left; border-bottom:1px solid rgba(148,163,184,0.16); }
+  th { color:#a9b7ca; font-size:14.5px; font-weight:700; cursor:pointer; user-select:none; white-space:nowrap; }
+  th.num, td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  tbody tr:nth-child(even) { background:rgba(148,163,184,0.06); }
+  tbody tr:hover { background:rgba(59,130,246,0.10); }
+  .rank { font-weight:900; color:#94a3b8; font-size:18px; width:40px; }
+  .tname { font-weight:800; font-size:18px; }
+  .php { color:#fcd34d; font-weight:900; font-size:18px; }
+  .krw { color:#86efac; font-weight:800; }
+  .low { color:#f87171; font-size:14px; font-weight:700; }
+  .slipbtn { cursor:pointer; background:rgba(59,130,246,0.16); color:#93c5fd; border:1px solid rgba(59,130,246,0.4); border-radius:9px; padding:8px 12px; font-size:14.5px; font-weight:700; }
+  .paidchk { width:22px; height:22px; cursor:pointer; }
+  .ai { background:rgba(139,92,246,0.12); border:1px solid rgba(139,92,246,0.42); border-radius:16px; padding:18px 20px; color:#ddd6fe; line-height:1.75; white-space:pre-wrap; margin-top:14px; font-size:16.5px; }
+  .empty { text-align:center; color:#a9b7ca; padding:30px 12px; line-height:1.7; font-size:17px; }
+  .muted { color:#7c8ba1; font-size:14.5px; }
+  .ok { color:#4ade80; font-size:14.5px; font-weight:700; }
+  /* 명세서 모달 */
+  #slipModal { display:none; position:fixed; inset:0; z-index:50; }
+  #slipModal .backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.6); }
+  .slip-wrap { position:relative; max-width:520px; margin:5vh auto; padding:0 16px; }
+  .slip { background:#fff; color:#1e293b; border-radius:16px; padding:30px 32px; box-shadow:0 25px 70px rgba(0,0,0,0.5); }
+  .slip .logo { text-align:center; margin-bottom:8px; }
+  .slip .logo img { height:60px; }
+  .slip h2 { text-align:center; font-size:23px; margin:4px 0 2px; color:#1E2761; }
+  .slip .period { text-align:center; color:#64748b; font-size:15px; margin-bottom:18px; }
+  .slip .who { font-size:22px; font-weight:900; text-align:center; margin-bottom:16px; }
+  .slip .line { display:flex; justify-content:space-between; padding:12px 4px; border-bottom:1px solid #e2e8f0; font-size:17px; }
+  .slip .line b { color:#0f172a; }
+  .slip .big { font-size:22px; font-weight:900; }
+  .slip .php2 { color:#b45309; }
+  .slip .krw2 { color:#15803d; }
+  .slip .foot { text-align:center; color:#94a3b8; font-size:13px; margin-top:16px; }
+  .slip-actions { display:flex; gap:10px; margin-top:16px; }
+  .slip-actions button { flex:1; padding:14px; border-radius:12px; font-size:16px; font-weight:800; cursor:pointer; border:0; }
+  .b-print { background:#1E2761; color:#fff; }
+  .b-close { background:#e2e8f0; color:#334155; }
+  @media (max-width:720px){ .stats{grid-template-columns:1fr 1fr;} .charts{grid-template-columns:1fr;} table{font-size:15.5px;} th,td{padding:12px 7px;} h1{font-size:25px;} }
+  @media print {
+    body { background:#fff !important; padding:0; }
+    .wrap { display:none !important; }
+    #slipModal { display:block !important; position:static; }
+    #slipModal .backdrop, .slip-actions { display:none !important; }
+    .slip-wrap { margin:0; max-width:100%; }
+    .slip { box-shadow:none; border-radius:0; }
+  }
 </style>
 </head>
 <body>
@@ -68,20 +106,45 @@
       <button class="btn btn-ghost" id="rateSave"></button>
       <span class="ok" id="rateMsg"></span>
     </div>
+    <div class="filter">
+      <input id="search" type="text">
+      <select id="sort"></select>
+    </div>
     <div class="stats" id="stats" style="display:none">
       <div class="stat"><div class="n" id="s_teachers">–</div><div class="l" id="t_l_teachers"></div></div>
       <div class="stat"><div class="n" id="s_completed">–</div><div class="l" id="t_l_completed"></div></div>
       <div class="stat"><div class="n php" id="s_pay">–</div><div class="n2" id="s_pay_krw">–</div><div class="l" id="t_l_pay"></div></div>
+      <div class="stat"><div class="n" id="s_paid" style="color:#4ade80">–</div><div class="l" id="t_l_paid"></div></div>
     </div>
-    <div id="ai" class="ai" style="display:none"></div>
-    <div id="body"></div>
+  </div>
+
+  <div class="card" id="chartCard" style="display:none">
+    <div class="charts">
+      <div class="chart-box"><h3 id="t_chart_trend"></h3><div id="chartTrend"></div></div>
+      <div class="chart-box"><h3 id="t_chart_top"></h3><div id="chartTop"></div></div>
+    </div>
+  </div>
+
+  <div id="ai" class="ai" style="display:none"></div>
+  <div class="card"><div id="body"></div></div>
+</div>
+
+<!-- 명세서 -->
+<div id="slipModal">
+  <div class="backdrop" id="slipBackdrop"></div>
+  <div class="slip-wrap">
+    <div class="slip" id="slipContent"></div>
+    <div class="slip-actions">
+      <button class="b-print" id="slipPrint"></button>
+      <button class="b-close" id="slipClose"></button>
+    </div>
   </div>
 </div>
 
 <script>
 (function(){
   var g = function(id){ return document.getElementById(id); };
-  var cur = { rows: [], year: 0, month: 0, summary:{}, php_krw:24 };
+  var cur = { rows: [], year: 0, month: 0, summary:{}, php_krw:24, trend:[] };
 
   var I18N = {
     ko: {
@@ -89,28 +152,34 @@
       sub:'카페24 실제 수업 기록에서 <b>강사별 완료 수업 수</b>와 <b>급여</b>를 자동 계산합니다. 페소(₱)와 원화(₩)로 함께 표시돼요.',
       load:'📊 불러오기', ai:'🤖 AI 요약', aiing:'🤖 생성 중…', csv:'⬇️ CSV 저장',
       rateLabel:'환율', rateSave:'💾 환율 저장', rateSaved:'저장됨 ✓',
-      l_teachers:'강사 수', l_completed:'완료 수업', l_pay:'총 지급액',
-      updated:'갱신: ', th_teacher:'강사', th_completed:'완료 수업', th_rate:'예정 대비', th_php:'급여 (₱)', th_krw:'급여 (₩)',
-      low:'⚠️낮음', loading:'불러오는 중…', fail:'불러오기 실패', neterr:'네트워크 오류',
+      searchPh:'강사 이름 검색…', sortPay:'급여 높은순', sortCompleted:'수업 많은순', sortCompletion:'완료율순', sortName:'이름순',
+      l_teachers:'강사 수', l_completed:'완료 수업', l_pay:'총 지급액', l_paid:'지급 완료',
+      updated:'갱신: ', chartTrend:'📈 월별 급여 추이', chartTop:'🏆 강사별 급여 TOP 10',
+      th_rank:'순위', th_teacher:'강사', th_completed:'완료', th_rate:'완료율', th_php:'급여 (₱)', th_krw:'급여 (₩)', th_slip:'명세서', th_paid:'지급',
+      low:'⚠️낮음', slip:'📄 보기', loading:'불러오는 중…', fail:'불러오기 실패', neterr:'네트워크 오류',
       aifail:'AI 요약을 생성하지 못했어요(잠시 후 다시).', aiing2:'AI가 요약하는 중…',
-      needData:'아직 이 달의 자동 집계 데이터가 없어요.', needData2:'카페24 서버의 급여 집계 스크립트가 아직 이 달 데이터를 보내지 않았습니다.<br>서버에서 <b>bash /root/teacher-payroll-sync.sh</b> 를 한 번 실행하면 즉시 채워집니다.',
-      needLogin:'관리자 로그인이 필요합니다.', loginLink:'로그인하기',
-      csvNeed:'먼저 데이터를 불러오세요.', csvHead:'강사ID,강사명,완료수업,예정수업,급여(PHP),급여(KRW),년월', csvName:'강사급여',
-      ymFmt:function(y,m){ return y+'년 '+m+'월'; }
+      needData:'아직 이 달의 자동 집계 데이터가 없어요.', needData2:'서버에서 <b>bash /root/teacher-payroll-sync.sh</b> 를 한 번 실행하면 즉시 채워집니다.',
+      needLogin:'관리자 로그인이 필요합니다.', loginLink:'로그인하기', noMatch:'검색 결과가 없어요.',
+      csvNeed:'먼저 데이터를 불러오세요.', csvHead:'순위,강사ID,강사명,완료수업,예정수업,완료율(%),급여(PHP),급여(KRW),지급여부,년월', csvName:'강사급여', csvPaid:'지급완료', csvUnpaid:'미지급',
+      ymFmt:function(y,m){ return y+'년 '+m+'월'; }, mShort:function(m){ return m+'월'; },
+      slipTitle:'급여 명세서', slipPeriod:'정산 기간', slipClasses:'완료 수업', slipRate:'수업당 단가', slipPayPhp:'급여 (페소)', slipPayKrw:'급여 (원화)', slipFoot:'망고아이 화상영어 · 자동 생성', slipPrint:'🖨️ 인쇄 / PDF', slipClose:'닫기'
     },
     en: {
       title:'🧾 Teacher Payroll (Auto)', langLabel:'🇰🇷 한국어', htmlLang:'en',
       sub:'Automatically calculates each teacher\'s <b>completed classes</b> and <b>pay</b> from real Cafe24 records. Shown in Peso (₱) and Won (₩).',
       load:'📊 Load', ai:'🤖 AI Summary', aiing:'🤖 Generating…', csv:'⬇️ Download CSV',
       rateLabel:'Exchange rate', rateSave:'💾 Save rate', rateSaved:'Saved ✓',
-      l_teachers:'Teachers', l_completed:'Completed classes', l_pay:'Total payout',
-      updated:'Updated: ', th_teacher:'Teacher', th_completed:'Completed', th_rate:'Completion', th_php:'Pay (₱)', th_krw:'Pay (₩)',
-      low:'⚠️Low', loading:'Loading…', fail:'Failed to load', neterr:'Network error',
+      searchPh:'Search teacher…', sortPay:'Highest pay', sortCompleted:'Most classes', sortCompletion:'Completion %', sortName:'Name',
+      l_teachers:'Teachers', l_completed:'Completed classes', l_pay:'Total payout', l_paid:'Paid',
+      updated:'Updated: ', chartTrend:'📈 Monthly payout trend', chartTop:'🏆 Top 10 teachers by pay',
+      th_rank:'#', th_teacher:'Teacher', th_completed:'Completed', th_rate:'Completion', th_php:'Pay (₱)', th_krw:'Pay (₩)', th_slip:'Slip', th_paid:'Paid',
+      low:'⚠️Low', slip:'📄 View', loading:'Loading…', fail:'Failed to load', neterr:'Network error',
       aifail:'Could not generate AI summary (try again shortly).', aiing2:'AI is summarizing…',
-      needData:'No auto-computed data for this month yet.', needData2:'The Cafe24 payroll sync script hasn\'t pushed this month\'s data yet.<br>Run <b>bash /root/teacher-payroll-sync.sh</b> on the server once to fill it in.',
-      needLogin:'Admin login required.', loginLink:'Go to login',
-      csvNeed:'Load data first.', csvHead:'TeacherID,TeacherName,Completed,Scheduled,Pay(PHP),Pay(KRW),YearMonth', csvName:'TeacherPayroll',
-      ymFmt:function(y,m){ var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return M[m-1]+' '+y; }
+      needData:'No auto-computed data for this month yet.', needData2:'Run <b>bash /root/teacher-payroll-sync.sh</b> on the server once to fill it in.',
+      needLogin:'Admin login required.', loginLink:'Go to login', noMatch:'No matching teacher.',
+      csvNeed:'Load data first.', csvHead:'Rank,TeacherID,TeacherName,Completed,Scheduled,Completion(%),Pay(PHP),Pay(KRW),Paid,YearMonth', csvName:'TeacherPayroll', csvPaid:'PAID', csvUnpaid:'unpaid',
+      ymFmt:function(y,m){ var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return M[m-1]+' '+y; }, mShort:function(m){ var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return M[m-1]; },
+      slipTitle:'PAYSLIP', slipPeriod:'Pay period', slipClasses:'Completed classes', slipRate:'Rate per class', slipPayPhp:'Pay (PHP)', slipPayKrw:'Pay (KRW)', slipFoot:'Mangoi Online English · Auto-generated', slipPrint:'🖨️ Print / PDF', slipClose:'Close'
     }
   };
   var lang = localStorage.getItem('mangoi_payroll_lang') || 'en';
@@ -119,19 +188,16 @@
   function applyLang(){
     var d = t();
     document.documentElement.lang = d.htmlLang;
-    g('t_title').textContent = d.title;
-    g('lang').textContent = d.langLabel;
-    g('t_sub').innerHTML = d.sub;
-    g('load').textContent = d.load;
-    g('aiBtn').textContent = d.ai;
-    g('csv').textContent = d.csv;
-    g('t_rate_label').textContent = d.rateLabel;
-    g('rateSave').textContent = d.rateSave;
-    g('t_l_teachers').textContent = d.l_teachers;
-    g('t_l_completed').textContent = d.l_completed;
-    g('t_l_pay').textContent = d.l_pay;
+    g('t_title').textContent = d.title; g('lang').textContent = d.langLabel; g('t_sub').innerHTML = d.sub;
+    g('load').textContent = d.load; g('aiBtn').textContent = d.ai; g('csv').textContent = d.csv;
+    g('t_rate_label').textContent = d.rateLabel; g('rateSave').textContent = d.rateSave;
+    g('search').placeholder = d.searchPh;
+    g('sort').innerHTML = '<option value="pay">'+d.sortPay+'</option><option value="completed">'+d.sortCompleted+'</option><option value="completion">'+d.sortCompletion+'</option><option value="name">'+d.sortName+'</option>';
+    g('t_l_teachers').textContent = d.l_teachers; g('t_l_completed').textContent = d.l_completed; g('t_l_pay').textContent = d.l_pay; g('t_l_paid').textContent = d.l_paid;
+    g('t_chart_trend').textContent = d.chartTrend; g('t_chart_top').textContent = d.chartTop;
+    g('slipPrint').textContent = d.slipPrint; g('slipClose').textContent = d.slipClose;
     fillYm();
-    if (cur.year) render(cur);
+    if (cur.year) renderAll();
   }
 
   function fillYm(){
@@ -139,9 +205,7 @@
     for (var i=0;i<15;i++){
       var dt = new Date(now.getFullYear(), now.getMonth()-i, 1);
       var y = dt.getFullYear(), m = dt.getMonth()+1;
-      var o = document.createElement('option');
-      o.value = y+'-'+m; o.textContent = t().ymFmt(y,m);
-      sel.appendChild(o);
+      var o = document.createElement('option'); o.value = y+'-'+m; o.textContent = t().ymFmt(y,m); sel.appendChild(o);
     }
     if (keep) sel.value = keep;
   }
@@ -150,48 +214,125 @@
   function krw(n){ return '₩'+Number(n||0).toLocaleString('en-US'); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 
-  function render(d){
-    var dd = t();
-    cur = { rows:d.rows||[], year:d.year, month:d.month, summary:d.summary||{}, php_krw:d.php_krw||cur.php_krw };
-    var s = cur.summary;
-    g('rate').value = cur.php_krw;
-    g('stats').style.display='grid';
-    g('s_teachers').textContent = (s.teachers||0);
-    g('s_completed').textContent = (s.total_completed||0).toLocaleString('en-US');
-    g('s_pay').textContent = php(s.total_pay_php||0);
-    g('s_pay_krw').textContent = krw(s.total_pay_krw||0);
-    g('updated').textContent = s.updated_at ? (dd.updated + new Date(s.updated_at).toLocaleString()) : '';
-
-    if (!cur.rows.length){
-      g('body').innerHTML = '<div class="empty">'+dd.needData+'<br><span class="muted">'+dd.needData2+'</span></div>';
-      return;
-    }
-    var h = '<table><thead><tr><th>'+dd.th_teacher+'</th><th class="num">'+dd.th_completed+'</th><th class="num">'+dd.th_rate+'</th><th class="num">'+dd.th_php+'</th><th class="num">'+dd.th_krw+'</th></tr></thead><tbody>';
-    cur.rows.forEach(function(r){
-      var rate = r.total_classes ? Math.round(r.completed_classes/r.total_classes*100) : null;
-      var low = (r.total_classes>=20 && rate!=null && rate<50);
-      h += '<tr><td>'+esc(r.teacher_name||('#'+r.teacher_id))+'</td>'
-        + '<td class="num">'+(r.completed_classes||0)+'</td>'
-        + '<td class="num">'+(rate!=null? rate+'%':'–')+ (low?' <span class="low">'+dd.low+'</span>':'') +'</td>'
-        + '<td class="num php">'+php(r.pay_php||0)+'</td>'
-        + '<td class="num krw">'+krw(r.pay_krw||0)+'</td></tr>';
+  // ── SVG 차트 ──
+  function drawTrend(data){
+    if(!data||!data.length){ g('chartTrend').innerHTML='<div class="muted">–</div>'; return; }
+    var W=560,H=210, pad=34, bw=(W-pad*2)/data.length*0.6, gap=(W-pad*2)/data.length;
+    var max=Math.max.apply(null,data.map(function(d){return d.pay_php;}))||1;
+    var s='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto">';
+    data.forEach(function(d,i){
+      var h=Math.round((d.pay_php/max)*(H-70));
+      var x=pad+gap*i+(gap-bw)/2, y=H-40-h;
+      s+='<rect x="'+x+'" y="'+y+'" width="'+bw+'" height="'+h+'" rx="6" fill="#fcd34d"/>';
+      s+='<text x="'+(x+bw/2)+'" y="'+(y-7)+'" fill="#fcd34d" font-size="13" font-weight="700" text-anchor="middle">₱'+(d.pay_php>=1000?Math.round(d.pay_php/1000)+'k':d.pay_php)+'</text>';
+      s+='<text x="'+(x+bw/2)+'" y="'+(H-18)+'" fill="#a9b7ca" font-size="13" text-anchor="middle">'+t().mShort(d.month)+'</text>';
     });
-    h += '</tbody></table>';
-    g('body').innerHTML = h;
+    s+='</svg>'; g('chartTrend').innerHTML=s;
+  }
+  function drawTop(rows){
+    var top=rows.slice(0,10);
+    if(!top.length){ g('chartTop').innerHTML='<div class="muted">–</div>'; return; }
+    var W=560, rh=30, H=top.length*rh+16, max=Math.max.apply(null,top.map(function(r){return r.pay_php;}))||1, labelW=120;
+    var s='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto">';
+    top.forEach(function(r,i){
+      var y=i*rh+6, bw=Math.max(2,Math.round((r.pay_php/max)*(W-labelW-70)));
+      s+='<text x="0" y="'+(y+19)+'" fill="#e6edf6" font-size="14">'+esc((r.teacher_name||('#'+r.teacher_id)).slice(0,14))+'</text>';
+      s+='<rect x="'+labelW+'" y="'+(y+5)+'" width="'+bw+'" height="18" rx="5" fill="'+(i<3?'#22c55e':'#38bdf8')+'"/>';
+      s+='<text x="'+(labelW+bw+6)+'" y="'+(y+19)+'" fill="#fcd34d" font-size="13" font-weight="700">₱'+r.pay_php.toLocaleString('en-US')+'</text>';
+    });
+    s+='</svg>'; g('chartTop').innerHTML=s;
+  }
+
+  function medal(i){ return i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1); }
+
+  function visibleRows(){
+    var q=(g('search').value||'').trim().toLowerCase();
+    var rows=cur.rows.filter(function(r){ return !q || String(r.teacher_name||'').toLowerCase().indexOf(q)>=0; });
+    var sort=g('sort').value;
+    rows.sort(function(a,b){
+      if(sort==='completed') return b.completed_classes-a.completed_classes;
+      if(sort==='name') return String(a.teacher_name||'').localeCompare(String(b.teacher_name||''));
+      if(sort==='completion'){ var ra=a.total_classes?a.completed_classes/a.total_classes:0, rb=b.total_classes?b.completed_classes/b.total_classes:0; return rb-ra; }
+      return b.pay_php-a.pay_php;
+    });
+    return rows;
+  }
+
+  function renderTable(){
+    var dd=t(); var rows=visibleRows();
+    if(!cur.rows.length){ g('body').innerHTML='<div class="empty">'+dd.needData+'<br><span class="muted">'+dd.needData2+'</span></div>'; return; }
+    if(!rows.length){ g('body').innerHTML='<div class="empty">'+dd.noMatch+'</div>'; return; }
+    var h='<table><thead><tr><th class="num">'+dd.th_rank+'</th><th>'+dd.th_teacher+'</th><th class="num">'+dd.th_completed+'</th><th class="num">'+dd.th_rate+'</th><th class="num">'+dd.th_php+'</th><th class="num">'+dd.th_krw+'</th><th style="text-align:center">'+dd.th_slip+'</th><th style="text-align:center">'+dd.th_paid+'</th></tr></thead><tbody>';
+    rows.forEach(function(r,i){
+      var rate=r.total_classes?Math.round(r.completed_classes/r.total_classes*100):null;
+      var low=(r.total_classes>=20&&rate!=null&&rate<50);
+      h+='<tr><td class="num rank">'+medal(i)+'</td>'
+        +'<td class="tname">'+esc(r.teacher_name||('#'+r.teacher_id))+'</td>'
+        +'<td class="num">'+(r.completed_classes||0)+'</td>'
+        +'<td class="num">'+(rate!=null?rate+'%':'–')+(low?' <span class="low">'+dd.low+'</span>':'')+'</td>'
+        +'<td class="num php">'+php(r.pay_php||0)+'</td>'
+        +'<td class="num krw">'+krw(r.pay_krw||0)+'</td>'
+        +'<td style="text-align:center"><button class="slipbtn" data-tid="'+r.teacher_id+'">'+dd.slip+'</button></td>'
+        +'<td style="text-align:center"><input class="paidchk" type="checkbox" data-tid="'+r.teacher_id+'" '+(r.paid?'checked':'')+'></td></tr>';
+    });
+    h+='</tbody></table>'; g('body').innerHTML=h;
+    Array.prototype.forEach.call(document.querySelectorAll('.slipbtn'), function(b){ b.addEventListener('click', function(){ openSlip(Number(b.getAttribute('data-tid'))); }); });
+    Array.prototype.forEach.call(document.querySelectorAll('.paidchk'), function(c){ c.addEventListener('change', function(){ togglePaid(Number(c.getAttribute('data-tid')), c.checked); }); });
+  }
+
+  function renderStats(){
+    var dd=t(), s=cur.summary;
+    g('stats').style.display='grid';
+    g('s_teachers').textContent=(s.teachers||0);
+    g('s_completed').textContent=(s.total_completed||0).toLocaleString('en-US');
+    g('s_pay').textContent=php(s.total_pay_php||0);
+    g('s_pay_krw').textContent=krw(s.total_pay_krw||0);
+    g('s_paid').textContent=(s.paid_count||0)+' / '+(s.teachers||0);
+    g('rate').value=cur.php_krw;
+    g('updated').textContent=s.updated_at?(dd.updated+new Date(s.updated_at).toLocaleString()):'';
+  }
+
+  function renderAll(){
+    renderStats();
+    if(cur.rows.length){ g('chartCard').style.display='block'; drawTrend(cur.trend); drawTop(cur.rows.slice().sort(function(a,b){return b.pay_php-a.pay_php;})); }
+    else g('chartCard').style.display='none';
+    renderTable();
+  }
+
+  function openSlip(tid){
+    var dd=t(); var r=cur.rows.filter(function(x){return x.teacher_id===tid;})[0]; if(!r) return;
+    var rateEach=r.completed_classes?Math.round((r.pay_php/r.completed_classes)*100)/100:0;
+    g('slipContent').innerHTML=
+      '<div class="logo"><img src="/img/mango-char.png" alt="Mangoi"></div>'
+      +'<h2>'+dd.slipTitle+'</h2>'
+      +'<div class="period">'+dd.slipPeriod+': '+t().ymFmt(cur.year,cur.month)+'</div>'
+      +'<div class="who">'+esc(r.teacher_name||('#'+r.teacher_id))+'</div>'
+      +'<div class="line"><span>'+dd.slipClasses+'</span><b>'+(r.completed_classes||0)+'</b></div>'
+      +'<div class="line"><span>'+dd.slipRate+'</span><b>₱'+rateEach+'</b></div>'
+      +'<div class="line"><span>'+dd.slipPayPhp+'</span><b class="big php2">'+php(r.pay_php||0)+'</b></div>'
+      +'<div class="line"><span>'+dd.slipPayKrw+'</span><b class="big krw2">'+krw(r.pay_krw||0)+'</b></div>'
+      +'<div class="foot">'+dd.slipFoot+' · '+new Date().toLocaleDateString()+'</div>';
+    g('slipModal').style.display='block';
+  }
+  function closeSlip(){ g('slipModal').style.display='none'; }
+
+  function togglePaid(tid, paid){
+    var r=cur.rows.filter(function(x){return x.teacher_id===tid;})[0]; if(r){ r.paid=paid?1:0; }
+    cur.summary.paid_count=cur.rows.filter(function(x){return x.paid;}).length; renderStats();
+    fetch('/api/admin/payroll/mark-paid',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({teacher_id:tid,year:cur.year,month:cur.month,paid:paid})}).catch(function(){});
   }
 
   function load(withAi){
-    var dd = t();
-    var v = g('ym').value.split('-');
-    var url = '/api/admin/payroll/auto?year='+v[0]+'&month='+v[1]+'&lang='+lang+(withAi?'&ai=1':'');
-    g('body').innerHTML = '<div class="empty">'+dd.loading+'</div>';
-    g('ai').style.display='none';
-    fetch(url, { credentials:'same-origin' })
-      .then(function(r){ if(r.status===401){ throw new Error('auth'); } return r.json(); })
+    var dd=t(); var v=g('ym').value.split('-');
+    var url='/api/admin/payroll/auto?year='+v[0]+'&month='+v[1]+'&lang='+lang+(withAi?'&ai=1':'');
+    g('body').innerHTML='<div class="empty">'+dd.loading+'</div>'; g('ai').style.display='none';
+    fetch(url,{credentials:'same-origin'})
+      .then(function(r){ if(r.status===401){throw new Error('auth');} return r.json(); })
       .then(function(d){
         if(!d||!d.ok){ g('body').innerHTML='<div class="empty">'+dd.fail+'</div>'; return; }
-        render(d);
-        if (withAi){ g('ai').style.display='block'; g('ai').textContent = d.ai || dd.aifail; }
+        cur={ rows:d.rows||[], year:d.year, month:d.month, summary:d.summary||{}, php_krw:d.php_krw||cur.php_krw, trend:d.trend||[] };
+        renderAll();
+        if(withAi){ g('ai').style.display='block'; g('ai').textContent=d.ai||dd.aifail; }
       })
       .catch(function(e){
         if(e.message==='auth'){ g('body').innerHTML='<div class="empty">'+dd.needLogin+'<br><a href="/admin/login.html" style="color:#7dd3fc">'+dd.loginLink+'</a></div>'; }
@@ -199,33 +340,29 @@
       });
   }
 
-  g('lang').addEventListener('click', function(){ lang = (lang==='ko'?'en':'ko'); localStorage.setItem('mangoi_payroll_lang', lang); applyLang(); });
+  g('lang').addEventListener('click', function(){ lang=(lang==='ko'?'en':'ko'); localStorage.setItem('mangoi_payroll_lang',lang); applyLang(); });
   g('load').addEventListener('click', function(){ load(false); });
-  g('aiBtn').addEventListener('click', function(){ var b=g('aiBtn'); var dd=t(); b.disabled=true; b.textContent=dd.aiing; g('ai').style.display='block'; g('ai').textContent=dd.aiing2; load(true); setTimeout(function(){ b.disabled=false; b.textContent=dd.ai; }, 4500); });
-
+  g('aiBtn').addEventListener('click', function(){ var b=g('aiBtn'); var dd=t(); b.disabled=true; b.textContent=dd.aiing; g('ai').style.display='block'; g('ai').textContent=dd.aiing2; load(true); setTimeout(function(){ b.disabled=false; b.textContent=dd.ai; },4500); });
+  g('search').addEventListener('input', renderTable);
+  g('sort').addEventListener('change', renderTable);
   g('rateSave').addEventListener('click', function(){
-    var dd = t(); var rate = parseFloat(g('rate').value);
-    if(!(rate>0)){ alert('₩'); return; }
-    fetch('/api/admin/payroll/rate', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ rate: rate }) })
-      .then(function(r){ return r.json(); })
-      .then(function(d){ if(d&&d.ok){ g('rateMsg').textContent = dd.rateSaved; setTimeout(function(){ g('rateMsg').textContent=''; }, 2500); load(false); } })
-      .catch(function(){});
+    var dd=t(); var rate=parseFloat(g('rate').value); if(!(rate>0)){ return; }
+    fetch('/api/admin/payroll/rate',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({rate:rate})})
+      .then(function(r){return r.json();}).then(function(d){ if(d&&d.ok){ g('rateMsg').textContent=dd.rateSaved; setTimeout(function(){ g('rateMsg').textContent=''; },2500); load(false); } }).catch(function(){});
   });
-
   g('csv').addEventListener('click', function(){
-    var dd = t();
-    if(!cur.rows.length){ alert(dd.csvNeed); return; }
-    var lines = [dd.csvHead];
-    cur.rows.forEach(function(r){
-      lines.push([r.teacher_id, '"'+String(r.teacher_name||'').replace(/"/g,'""')+'"', r.completed_classes||0, r.total_classes||0, r.pay_php||0, r.pay_krw||0, cur.year+'-'+cur.month].join(','));
-    });
-    var blob = new Blob(['﻿'+lines.join('\r\n')], {type:'text/csv;charset=utf-8'});
-    var a = document.createElement('a'); a.href=URL.createObjectURL(blob);
-    a.download = dd.csvName+'_'+cur.year+'-'+cur.month+'.csv'; a.click();
+    var dd=t(); if(!cur.rows.length){ alert(dd.csvNeed); return; }
+    var rows=visibleRows(); var lines=[dd.csvHead];
+    rows.forEach(function(r,i){ var rate=r.total_classes?Math.round(r.completed_classes/r.total_classes*100):0;
+      lines.push([i+1, r.teacher_id, '"'+String(r.teacher_name||'').replace(/"/g,'""')+'"', r.completed_classes||0, r.total_classes||0, rate, r.pay_php||0, r.pay_krw||0, r.paid?dd.csvPaid:dd.csvUnpaid, cur.year+'-'+cur.month].join(',')); });
+    var blob=new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=dd.csvName+'_'+cur.year+'-'+cur.month+'.csv'; a.click();
   });
+  g('slipPrint').addEventListener('click', function(){ window.print(); });
+  g('slipClose').addEventListener('click', closeSlip);
+  g('slipBackdrop').addEventListener('click', closeSlip);
 
-  applyLang();
-  load(false);
+  applyLang(); load(false);
 })();
 </script>
 </body>

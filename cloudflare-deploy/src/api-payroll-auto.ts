@@ -32,6 +32,17 @@ async function ensureTable(env: any): Promise<void> {
   await env.DB.prepare(
     `CREATE TABLE IF NOT EXISTS payroll_settings (id INTEGER PRIMARY KEY CHECK(id=1), php_krw REAL DEFAULT 24, updated_at INTEGER)`
   ).run();
+  // 지급완료 추적 칸 (기존 배포 테이블에 없으면 추가)
+  try { await env.DB.prepare(`ALTER TABLE teacher_payroll_auto ADD COLUMN paid INTEGER DEFAULT 0`).run(); } catch (_) {}
+  try { await env.DB.prepare(`ALTER TABLE teacher_payroll_auto ADD COLUMN paid_at INTEGER`).run(); } catch (_) {}
+}
+
+/** 지급완료 토글 (관리자) */
+export async function markPayrollPaid(env: any, teacherId: number, year: number, month: number, paid: boolean): Promise<void> {
+  await ensureTable(env);
+  await env.DB.prepare(
+    `UPDATE teacher_payroll_auto SET paid=?, paid_at=? WHERE teacher_id=? AND year=? AND month=?`
+  ).bind(paid ? 1 : 0, paid ? Date.now() : null, teacherId, year, month).run();
 }
 
 const DEFAULT_PHP_KRW = 24; // 1페소 ≈ 24원 (기본값, 화면에서 조정 가능)
@@ -101,7 +112,7 @@ export async function handlePayrollIngest(request: Request, url: URL, env: any):
 export async function getPayrollAuto(env: any, year: number, month: number): Promise<any> {
   await ensureTable(env);
   const q = await env.DB.prepare(
-    `SELECT teacher_id, teacher_name, completed_classes, total_classes, pay_php, updated_at
+    `SELECT teacher_id, teacher_name, completed_classes, total_classes, pay_php, paid, paid_at, updated_at
      FROM teacher_payroll_auto WHERE year=? AND month=? ORDER BY pay_php DESC, completed_classes DESC`
   ).bind(year, month).all();
   const list: any[] = q.results || [];
@@ -111,16 +122,27 @@ export async function getPayrollAuto(env: any, year: number, month: number): Pro
   const total_pay_php = list.reduce((a, b: any) => a + (b.pay_php || 0), 0);
   const total_pay_krw = Math.round(total_pay_php * php_krw);
   const total_completed = list.reduce((a, b: any) => a + (b.completed_classes || 0), 0);
+  const paid_count = list.filter((r: any) => r.paid).length;
   const updated_at = list.reduce((a, b: any) => Math.max(a, b.updated_at || 0), 0);
   // 어느 달이 데이터 있는지 (화면 월 선택용)
   const months = await env.DB.prepare(
     `SELECT DISTINCT year, month FROM teacher_payroll_auto ORDER BY year DESC, month DESC LIMIT 24`
   ).all().catch(() => ({ results: [] }));
+  // 📈 월별 추이(최근 6개월 합계) — 그래프용
+  const trendQ = await env.DB.prepare(
+    `SELECT year, month, SUM(pay_php) AS pay_php, SUM(completed_classes) AS completed
+     FROM teacher_payroll_auto GROUP BY year, month
+     HAVING SUM(completed_classes) > 0 ORDER BY year DESC, month DESC LIMIT 6`
+  ).all().catch(() => ({ results: [] }));
+  const trend = ((trendQ.results as any[]) || []).map((r: any) => ({
+    year: r.year, month: r.month, pay_php: r.pay_php || 0, pay_krw: Math.round((r.pay_php || 0) * php_krw), completed: r.completed || 0,
+  })).reverse(); // 오래된→최근 (차트 왼→오른)
   return {
     rows: list,
     php_krw,
-    summary: { teachers: list.length, total_completed, total_pay_php, total_pay_krw, updated_at },
+    summary: { teachers: list.length, total_completed, total_pay_php, total_pay_krw, paid_count, updated_at },
     available_months: months.results || [],
+    trend,
   };
 }
 
