@@ -56,22 +56,22 @@
 
   /* ===== 메뉴(카드 그리드) ===== */
   #hub-menu{flex:1;display:flex;flex-direction:column;align-items:center;padding:14px 16px 40px}
-  .game-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:16px;
-    width:min(960px,100%);margin-top:10px}
-  @media(max-width:430px){.game-grid{grid-template-columns:1fr 1fr;gap:12px}}
+  .game-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:22px;
+    width:min(1100px,100%);margin-top:10px}
+  @media(max-width:640px){.game-grid{grid-template-columns:1fr 1fr;gap:14px}}
   .game-card{position:relative;cursor:pointer;border:1px solid var(--line);border-radius:18px;
-    padding:20px 16px;text-align:center;color:var(--tx);background:rgba(255,255,255,.05);
+    padding:30px 22px;text-align:center;color:var(--tx);background:rgba(255,255,255,.05);
     transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;overflow:hidden;
-    display:flex;flex-direction:column;align-items:center;gap:8px;min-height:168px;justify-content:center}
+    display:flex;flex-direction:column;align-items:center;gap:12px;min-height:250px;justify-content:center}
   .game-card::before{content:'';position:absolute;inset:0;background:var(--cardbg);opacity:.16;pointer-events:none}
   .game-card:hover{transform:translateY(-4px) scale(1.02);border-color:var(--gold);
     box-shadow:0 12px 30px rgba(0,0,0,.45)}
   .game-card:active{transform:scale(.98)}
-  .game-card .ico{font-size:46px;line-height:1;filter:drop-shadow(0 3px 8px rgba(0,0,0,.45));position:relative}
-  .game-card .ttl{font-size:16px;font-weight:800;position:relative}
-  .game-card .dsc{font-size:11.5px;color:var(--sub);line-height:1.45;position:relative}
-  .game-card .badge{position:absolute;top:10px;right:10px;font-size:9.5px;font-weight:800;letter-spacing:.5px;
-    padding:3px 8px;border-radius:999px;background:rgba(16,185,129,.2);color:#6ee7b7;border:1px solid rgba(16,185,129,.4)}
+  .game-card .ico{font-size:66px;line-height:1;filter:drop-shadow(0 3px 8px rgba(0,0,0,.45));position:relative}
+  .game-card .ttl{font-size:30px;font-weight:800;position:relative}
+  .game-card .dsc{font-size:22px;color:var(--sub);line-height:1.45;position:relative}
+  .game-card .badge{position:absolute;top:12px;right:12px;font-size:16px;font-weight:800;letter-spacing:.5px;
+    padding:4px 12px;border-radius:999px;background:rgba(16,185,129,.2);color:#6ee7b7;border:1px solid rgba(16,185,129,.4)}
 
   /* ===== 게임 화면 ===== */
   #hub-game{display:none;flex:1;flex-direction:column;min-height:100dvh}
@@ -1941,7 +1941,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260711150009 -->
+<!-- BUILD:20260711150452 -->
 <script defer src="/js/flow.js"></script>
 </body>
 </html>

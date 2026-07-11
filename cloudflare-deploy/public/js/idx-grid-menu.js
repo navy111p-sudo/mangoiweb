@@ -1842,22 +1842,19 @@
         });
       } catch (e) { /* 서버 미연결이어도 시연 진행 */ }
 
-      // 🔗 학생 홈피 → 관리자 대시보드 결과 자동 연동 (localStorage 공유 키)
+      // 🔗 학생 홈피 결과 조회용 로컬 기록 (레벨/점수는 실제 AI 진단·선생님 평가 전까지 비움 — 가짜점수 금지)
       try {
         const arr = JSON.parse(localStorage.getItem('mangoi_level_test_results') || '[]');
-        // 데모 점수 — 추후 실 평가 결과로 교체
-        const demoLevel = ['A1','A2','B1','B2','C1'][Math.floor(Math.random()*5)];
-        const demoScore = Math.round((50 + Math.random()*45)*10)/10;
         arr.unshift({
           student_name: name,
           student_user_id: uid,
           phone: phone,
           email: email,
           age: age,
-          level: demoLevel,
-          score: demoScore,
+          level: null,        // 실제 진단 전까지 비움
+          score: null,        // 실제 진단 전까지 비움
           tested_at: Date.now(),
-          status: 'pending',  // pending = 신청 접수, scored = 채점 완료
+          status: 'pending',  // pending = 신청 접수(채점 대기), scored = 채점 완료
         });
         // 최근 200건만 유지
         localStorage.setItem('mangoi_level_test_results', JSON.stringify(arr.slice(0, 200)));

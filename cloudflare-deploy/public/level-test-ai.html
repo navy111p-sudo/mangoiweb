@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI 자동 진단 — 망고아이 레벨테스트</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Noto Sans KR','Apple SD Gothic Neo',-apple-system,BlinkMacSystemFont,sans-serif;
+    color:#e6ecff;min-height:100vh;background-color:#171247;
+    background-image:radial-gradient(ellipse at 50% -10%,rgba(96,120,230,.55),rgba(23,18,71,0) 62%);}
+  .wrap{max-width:640px;margin:0 auto;padding:22px 16px 60px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  .back{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);
+    color:#cbd5e1;text-decoration:none;padding:8px 14px;border-radius:99px;font-size:13px;font-weight:700}
+  .brand{font-size:15px;font-weight:800;color:#fbbf24}
+  .hero{text-align:center;margin:10px 0 20px}
+  .hero h1{font-size:24px;font-weight:900;margin-bottom:8px;
+    background:linear-gradient(90deg,#a5b4fc,#818cf8);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{color:#a8b3cf;font-size:13.5px;line-height:1.6}
+  .card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.13);border-radius:18px;
+    padding:22px;margin-bottom:16px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+  label{display:block;font-size:13px;font-weight:700;color:#a5b4fc;margin:0 0 7px}
+  input{width:100%;background:rgba(255,255,255,.95);border:1px solid rgba(129,140,248,.45);
+    border-radius:11px;padding:12px 13px;font-size:15px;color:#1a1a1a;outline:none}
+  .btn{width:100%;margin-top:18px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;
+    border:0;border-radius:13px;padding:15px;font-size:16px;font-weight:900;cursor:pointer;box-shadow:0 8px 22px rgba(79,70,229,.4)}
+  .btn:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+  .steps{font-size:12.5px;color:#a8b3cf;line-height:1.9;margin-top:12px}
+  .steps b{color:#c7d2fe}
+  /* 진행 */
+  .progwrap{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+  .progbar{flex:1;height:8px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden}
+  .progfill{height:100%;width:0;background:linear-gradient(90deg,#818cf8,#6366f1);transition:width .3s}
+  .progtxt{font-size:12px;font-weight:800;color:#a5b4fc;white-space:nowrap}
+  .qcefr{display:inline-block;font-size:10.5px;font-weight:800;color:#a5b4fc;background:rgba(129,140,248,.16);
+    border:1px solid rgba(129,140,248,.4);padding:2px 9px;border-radius:99px;margin-bottom:12px}
+  .qtext{font-size:18px;font-weight:800;color:#fff;line-height:1.5;margin-bottom:18px;min-height:54px}
+  .choice{display:block;width:100%;text-align:left;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);
+    color:#e6ecff;border-radius:12px;padding:14px 16px;font-size:15px;font-weight:600;cursor:pointer;margin-bottom:10px;transition:.15s}
+  .choice:hover{border-color:rgba(129,140,248,.7);background:rgba(129,140,248,.12)}
+  .choice .k{display:inline-block;width:22px;font-weight:900;color:#a5b4fc}
+  /* 결과 */
+  .lvbadge{text-align:center;margin:6px 0 4px}
+  .lvbadge .lv{font-size:52px;font-weight:900;line-height:1;
+    background:linear-gradient(90deg,#34d399,#10b981);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lvbadge .lb{font-size:13px;color:#a7f3d0;font-weight:700;margin-top:6px}
+  .scorebox{display:flex;gap:10px;margin:16px 0}
+  .scorebox .sb{flex:1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.13);border-radius:12px;padding:12px;text-align:center}
+  .scorebox .sb .n{font-size:22px;font-weight:900;color:#fde68a}
+  .scorebox .sb .t{font-size:11px;color:#a8b3cf;margin-top:3px}
+  .bkrow{display:flex;align-items:center;gap:8px;margin:7px 0;font-size:12.5px}
+  .bkrow .bl{width:34px;font-weight:800;color:#c7d2fe}
+  .bkbar{flex:1;height:9px;background:rgba(255,255,255,.09);border-radius:99px;overflow:hidden}
+  .bkfill{height:100%;background:linear-gradient(90deg,#818cf8,#6366f1)}
+  .bkn{width:34px;text-align:right;color:#a8b3cf;font-weight:700}
+  .cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+  .cta a{flex:1 1 46%;text-align:center;text-decoration:none;border-radius:12px;padding:14px 10px;font-weight:800;font-size:14px}
+  .cta .voice{background:linear-gradient(135deg,#f59e0b,#d97706);color:#1a1a1a}
+  .cta .home{background:rgba(255,255,255,.08);color:#e6ecff;border:1px solid rgba(255,255,255,.2)}
+  .note{font-size:12px;color:#7c88a8;text-align:center;margin-top:16px;line-height:1.6}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <a class="back" href="/level-test.html">← 레벨테스트</a>
+    <span class="brand"><img src="/img/mango-char.png" alt="망고아이" style="height:1.15em;width:auto;vertical-align:-0.2em;margin-right:.1em">망고아이</span>
+  </div>
+
+  <div class="hero">
+    <h1>🧠 AI 자동 진단</h1>
+    <p>국제 표준 <b style="color:#c7d2fe">CEFR</b> 기준 24문항으로<br>지금 바로 내 영어 레벨을 객관적으로 진단해요. (약 5분)</p>
+  </div>
+
+  <!-- 시작 -->
+  <div class="card" id="start-card">
+    <label for="ai-name">이름 (또는 학생 ID)</label>
+    <input id="ai-name" type="text" placeholder="예: 김망고 / mango123" autocomplete="off" />
+    <div class="steps">
+      • <b>단어·문법·문장</b> 이해력을 레벨별로 측정해요.<br>
+      • 채점은 <b>서버에서 객관적으로</b> 이뤄져 공정해요.<br>
+      • 결과는 <b>레벨테스트 신청</b>에 자동으로 연결됩니다.
+    </div>
+    <button class="btn" id="ai-start">진단 시작하기</button>
+  </div>
+
+  <!-- 진행 -->
+  <div class="card hidden" id="quiz-card">
+    <div class="progwrap">
+      <div class="progbar"><div class="progfill" id="ai-progfill"></div></div>
+      <div class="progtxt" id="ai-progtxt">1 / 24</div>
+    </div>
+    <div class="qcefr" id="ai-qcefr">Level A1</div>
+    <div class="qtext" id="ai-qtext">…</div>
+    <div id="ai-choices"></div>
+  </div>
+
+  <!-- 채점 중 -->
+  <div class="card hidden" id="grading-card" style="text-align:center">
+    <div style="font-size:34px">⏳</div>
+    <div style="font-size:15px;font-weight:800;margin-top:8px;color:#c7d2fe">채점 중이에요…</div>
+  </div>
+
+  <!-- 결과 -->
+  <div class="card hidden" id="result-card">
+    <div class="lvbadge">
+      <div class="lv" id="ai-lv">B1</div>
+      <div class="lb" id="ai-lb">추정 레벨 (AI 자동 진단)</div>
+    </div>
+    <div class="scorebox">
+      <div class="sb"><div class="n" id="ai-score">0</div><div class="t">AI 점수 (100점 만점)</div></div>
+      <div class="sb"><div class="n" id="ai-correct">0/24</div><div class="t">맞힌 문항</div></div>
+    </div>
+    <div id="ai-breakdown"></div>
+    <p style="text-align:center;font-size:13px;color:#cbd5e1;line-height:1.6;margin-top:14px">
+      이 결과는 <b style="color:#a5b4fc">참고용 자동 진단</b>이에요.<br>
+      <b style="color:#fde68a">선생님 1:1 평가</b>와 <b style="color:#fcd34d">발음 평가</b>까지 합쳐 최종 레벨이 확정됩니다.</p>
+    <div class="cta">
+      <a class="voice" href="/speech-coach.html">🎤 발음 평가 하러가기</a>
+      <a class="home" href="/level-test.html">← 레벨테스트로</a>
+    </div>
+  </div>
+
+  <p class="note" id="bottom-note">CEFR(A1~C2)은 유럽공통 언어능력 기준이에요 · 문의: 화면 하단 '카톡 상담'</p>
+</div>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var questions = [], answers = {}, idx = 0;
+
+  // 이름 프리필 — 레벨테스트 신청 기록에서
+  try {
+    var bk = JSON.parse(localStorage.getItem('mangoi_leveltest_booking') || 'null');
+    if (bk && bk.name) $('ai-name').value = bk.name;
+  } catch(e){}
+
+  function detectUid(){
+    var uid = null;
+    try {
+      ['mangoi_uid','mango_uid','student_uid','uid'].some(function(k){ var v=localStorage.getItem(k); if(v){ uid=v; return true; } return false; });
+      if(!uid){ var s=JSON.parse(localStorage.getItem('mangoi_student')||'null'); if(s&&s.uid) uid=s.uid; }
+    } catch(e){}
+    return uid;
+  }
+
+  $('ai-start').addEventListener('click', function(){
+    var name = ($('ai-name').value||'').trim();
+    if (!name) { $('ai-name').focus(); $('ai-name').style.borderColor = '#ef4444'; return; }
+    startQuiz();
+  });
+
+  function startQuiz(){
+    $('ai-start').disabled = true;
+    fetch('/api/leveltest/questions', {cache:'no-store'})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        questions = (d && d.questions) || [];
+        if (!questions.length) { alert('문항을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'); $('ai-start').disabled=false; return; }
+        $('start-card').classList.add('hidden');
+        $('quiz-card').classList.remove('hidden');
+        idx = 0; answers = {};
+        render();
+      })
+      .catch(function(){ alert('네트워크 오류예요. 다시 시도해 주세요.'); $('ai-start').disabled=false; });
+  }
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  function render(){
+    var q = questions[idx];
+    var pct = Math.round((idx) / questions.length * 100);
+    $('ai-progfill').style.width = pct + '%';
+    $('ai-progtxt').textContent = (idx+1) + ' / ' + questions.length;
+    $('ai-qcefr').textContent = 'Level ' + q.cefr;
+    $('ai-qtext').textContent = q.q;
+    var KEYS = ['A','B','C','D'];
+    var box = $('ai-choices');
+    box.innerHTML = '';
+    q.choices.forEach(function(c, i){
+      var b = document.createElement('button');
+      b.className = 'choice';
+      b.innerHTML = '<span class="k">'+KEYS[i]+'</span>' + esc(c);
+      b.addEventListener('click', function(){
+        answers[q.id] = i;
+        if (idx < questions.length - 1) { idx++; render(); }
+        else finish();
+      });
+      box.appendChild(b);
+    });
+  }
+
+  function finish(){
+    $('quiz-card').classList.add('hidden');
+    $('grading-card').classList.remove('hidden');
+    fetch('/api/leveltest/diagnose', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ student_name: ($('ai-name').value||'').trim(), student_uid: detectUid(), answers: answers })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ showResult(d || {}); })
+    .catch(function(){
+      // 서버 오류여도 최소 결과는 로컬 표기 없이 안내
+      $('grading-card').classList.add('hidden');
+      $('start-card').classList.remove('hidden');
+      $('ai-start').disabled = false;
+      alert('채점 중 오류가 났어요. 다시 시도해 주세요.');
+    });
+  }
+
+  function showResult(d){
+    $('grading-card').classList.add('hidden');
+    $('result-card').classList.remove('hidden');
+    var level = d.level || '—';
+    $('ai-lv').textContent = level;
+    if (level === 'Starter') { $('ai-lv').textContent = '입문'; }
+    $('ai-score').textContent = (d.ai_score != null ? d.ai_score : '—');
+    $('ai-correct').textContent = (d.correct != null ? d.correct : '?') + '/' + (d.total != null ? d.total : questions.length);
+    var bk = d.breakdown || [];
+    $('ai-breakdown').innerHTML = bk.map(function(r){
+      var pct = r.total ? Math.round(r.correct/r.total*100) : 0;
+      return '<div class="bkrow"><span class="bl">'+esc(r.cefr)+'</span>'
+        + '<span class="bkbar"><span class="bkfill" style="width:'+pct+'%"></span></span>'
+        + '<span class="bkn">'+r.correct+'/'+r.total+'</span></div>';
+    }).join('');
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+})();
+</script>
+<script defer src="/js/mg-sidebar.js"></script>
+<!-- BUILD:20260711150452 -->
+</body>
+</html>

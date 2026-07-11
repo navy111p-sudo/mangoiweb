@@ -1045,6 +1045,9 @@ const worker = {
         // 🎯 레벨테스트 신청 (학생 제출 저장 + 관리자·강사 목록/상태변경)
         path === '/api/leveltest/apply' ||
         path === '/api/admin/leveltest/applications' ||
+        // 🧠 AI 자동 진단 (CEFR 배치테스트 문항 + 서버채점)
+        path === '/api/leveltest/questions' ||
+        path === '/api/leveltest/diagnose' ||
         path === '/api/admin/ratings/summary' ||
         path === '/api/admin/ratings/list' ||
         path === '/api/admin/ratings/analytics' ||

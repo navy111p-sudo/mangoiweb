@@ -12678,23 +12678,53 @@ Variety: mix of nouns, verbs, adjectives.`;
     }
 
     // ── POST /api/vocab/gen-quiz — 학생 단어장 기반 자동 퀴즈 5문항 ──
+    //   source: 'mywords'(기본, 약한 단어 가중 출제) | 'textbook'(en_vocab 어휘은행, 학생 레벨 밴드 매칭)
     if (method === 'POST' && path === '/api/vocab/gen-quiz') {
       await ensureMicroLearnSchema();
       const b: any = await request.json().catch(() => ({}));
       const userId = String(b.user_id || b.uid || '').trim();
       const count = Math.min(20, Math.max(1, Number(b.count) || 5));
+      const source = String(b.source || 'mywords').trim();
       if (!userId) return json({ ok: false, error: 'uid_required' }, 400);
 
-      const rs: any = await env.DB.prepare(
-        `SELECT id, word, korean, example FROM vocabulary WHERE user_id = ? ORDER BY RANDOM() LIMIT ?`
-      ).bind(userId, count).all();
-      const words = (rs.results || []) as any[];
-      if (!words.length) return json({ ok: false, error: 'no_words', message: '단어장이 비어있어요. 단어를 먼저 추가해주세요!' });
+      let words: any[] = [];
+      let band = '';
+      if (source === 'textbook') {
+        // 학생 배정 레벨(students_erp) → 어휘은행 난이도 밴드 매핑
+        let lv = '';
+        try {
+          const s: any = await env.DB.prepare(`SELECT level, textbook FROM students_erp WHERE user_id = ? LIMIT 1`).bind(userId).first();
+          lv = String(s?.level || s?.textbook || '').toLowerCase();
+        } catch {}
+        band = /c1|c2|b2|고급|상급|adv|[56]/.test(lv) ? 'hard' : /b1|중급|inter|[34]/.test(lv) ? 'mid' : 'easy';
+        const rs: any = await env.DB.prepare(
+          `SELECT id, en AS word, ko AS korean, NULL AS example FROM en_vocab WHERE active=1 AND type='word' AND band=? AND ko IS NOT NULL AND ko != '' ORDER BY RANDOM() LIMIT ?`
+        ).bind(band, count).all();
+        words = (rs.results || []) as any[];
+        if (words.length < count) {
+          const more: any = await env.DB.prepare(
+            `SELECT id, en AS word, ko AS korean, NULL AS example FROM en_vocab WHERE active=1 AND type='word' AND band != ? AND ko IS NOT NULL AND ko != '' ORDER BY RANDOM() LIMIT ?`
+          ).bind(band, count - words.length).all();
+          words = words.concat((more.results || []) as any[]);
+        }
+        if (!words.length) return json({ ok: false, error: 'no_bank', message: '어휘은행이 비어있어요.' });
+      } else {
+        // 약한 단어 가중 출제: 오답 많을수록·정답 적을수록·미복습 단어 우선 (+무작위 지터로 매번 조금씩 변화)
+        const rs: any = await env.DB.prepare(
+          `SELECT id, word, korean, example FROM vocabulary WHERE user_id = ?
+           ORDER BY (COALESCE(wrong_count,0)*3 - COALESCE(correct_count,0)
+                     + CASE WHEN last_reviewed_at IS NULL THEN 1 ELSE 0 END
+                     + (ABS(RANDOM()) % 6)) DESC
+           LIMIT ?`
+        ).bind(userId, count).all();
+        words = (rs.results || []) as any[];
+        if (!words.length) return json({ ok: false, error: 'no_words', message: '단어장이 비어있어요. 단어를 먼저 추가해주세요!' });
+      }
 
-      // 오답 선택지 풀 (전체 학생 단어 중 무작위)
-      const distRs: any = await env.DB.prepare(
-        `SELECT korean FROM vocabulary WHERE user_id != ? AND korean IS NOT NULL AND korean != '' ORDER BY RANDOM() LIMIT 60`
-      ).bind(userId).all();
+      // 오답 선택지 풀 (은행 출제면 은행에서, 내 단어장이면 전체 학생 단어에서)
+      const distRs: any = source === 'textbook'
+        ? await env.DB.prepare(`SELECT ko AS korean FROM en_vocab WHERE active=1 AND type='word' AND ko IS NOT NULL AND ko != '' ORDER BY RANDOM() LIMIT 60`).all()
+        : await env.DB.prepare(`SELECT korean FROM vocabulary WHERE user_id != ? AND korean IS NOT NULL AND korean != '' ORDER BY RANDOM() LIMIT 60`).bind(userId).all();
       const distractors = (distRs.results || []).map((x: any) => x.korean).filter(Boolean);
       const myDistractors = words.map(w => w.korean).filter(Boolean);
 
@@ -12724,7 +12754,7 @@ Variety: mix of nouns, verbs, adjectives.`;
         });
       }
 
-      return json({ ok: true, quizzes, total: quizzes.length });
+      return json({ ok: true, quizzes, total: quizzes.length, source, band });
     }
 
     // ── POST /api/vocab/quiz-submit — 퀴즈 답 제출 + 채점 ──

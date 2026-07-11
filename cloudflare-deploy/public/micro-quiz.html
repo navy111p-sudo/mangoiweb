@@ -155,6 +155,28 @@
       background:linear-gradient(135deg,#f97316,#ea580c); color:#fff; font-size:14.5px; font-weight:800; font-family:inherit;
       box-shadow:0 5px 16px -2px rgba(249,115,22,0.45); transition:transform .12s,filter .12s; }
     .retry-wrong:hover { transform:translateY(-1px); filter:brightness(1.06); }
+
+    /* ── 📖/📚 출제 범위 토글 ── */
+    .src-row { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin:12px 0 2px 0; }
+    .src-label { font-size:11.5px; color:var(--text2); font-weight:700; margin-right:2px; }
+    .src-pick { padding:7px 13px; background:rgba(15,23,42,0.7); color:var(--text2);
+      border:1px solid rgba(148,163,184,0.25); border-radius:99px; font-size:12.5px; font-weight:700;
+      cursor:pointer; font-family:inherit; transition:all .15s; }
+    .src-pick:hover { background:rgba(251,191,36,0.15); color:#fcd34d; border-color:rgba(251,191,36,0.5); }
+    .src-pick.active { background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a1a; border-color:#fbbf24; box-shadow:0 3px 8px rgba(245,158,11,0.4); }
+
+    /* ── 🎤 말하기 문제 ── */
+    .speak-mic { display:block; width:100%; margin-top:6px; padding:17px; border:0; border-radius:14px; cursor:pointer;
+      background:linear-gradient(135deg,#8b5cf6,#6d28d9); color:#fff; font-size:16px; font-weight:800; font-family:inherit;
+      box-shadow:0 6px 18px -2px rgba(139,92,246,0.5); transition:transform .12s,filter .12s; }
+    .speak-mic:hover { transform:translateY(-1px); filter:brightness(1.08); }
+    .speak-mic:disabled { background:#475569; cursor:not-allowed; box-shadow:none; }
+    .speak-mic.rec { animation:recPulse 1s ease-in-out infinite; background:linear-gradient(135deg,#ef4444,#b91c1c); }
+    @keyframes recPulse { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.5)} 50%{box-shadow:0 0 0 12px rgba(239,68,68,0)} }
+    .speak-skip { display:block; width:100%; margin-top:8px; padding:10px; background:transparent; color:var(--text2);
+      border:1px dashed rgba(148,163,184,0.35); border-radius:10px; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; }
+    .speak-skip:hover { color:#fcd34d; border-color:rgba(251,191,36,0.5); }
+    .speak-word-big { font-size:34px; font-weight:900; color:#fff; letter-spacing:.5px; }
     .listen-ic { font-size:66px; line-height:1; animation:listenPulse 1.4s ease-in-out infinite; }
     @keyframes listenPulse { 0%,100%{transform:scale(1);opacity:.85} 50%{transform:scale(1.12);opacity:1} }
     .kid-ko { font-size:40px; font-weight:900; color:#fbbf24; text-align:center; letter-spacing:-.5px; }
@@ -177,6 +199,11 @@
       <p data-ko="📚 내 단어장에서 무작위 5개 단어를 골라 객관식 퀴즈를 만들어줍니다." data-en="📚 5 random words from your vocab list become a multiple-choice quiz.">📚 내 단어장에서 <b>무작위 5개 단어</b>를 골라 객관식 퀴즈를 만들어줍니다.</p>
       <p data-ko="⏱ 등하교·출퇴근 자투리 시간에 가볍게 복습하세요." data-en="⏱ Review during commute or short breaks.">⏱ 등하교·출퇴근 자투리 시간에 가볍게 복습하세요.</p>
       <p data-ko="🎁 정답 맞히면 숙련도가 오르고 포인트(정답당 10P)도 쌓여요!" data-en="🎁 Correct answers boost mastery and earn points (10P each)!">🎁 정답 맞히면 숙련도가 오르고 포인트(정답당 10P)도 쌓여요!</p>
+      <div class="src-row">
+        <span class="src-label" data-ko="출제 범위" data-en="Word source">출제 범위</span>
+        <button class="src-pick active" data-src="mywords" onclick="pickSource('mywords')">📖 <span data-ko="내 단어장" data-en="My words">내 단어장</span></button>
+        <button class="src-pick" data-src="textbook" onclick="pickSource('textbook')">📚 <span data-ko="내 레벨 단어은행" data-en="Level word bank">내 레벨 단어은행</span></button>
+      </div>
       <button class="start-btn" id="startBtn" onclick="startQuiz()">🚀 <span data-ko="퀴즈 시작" data-en="Start">퀴즈 시작</span></button>
       <div id="introMsg" style="margin-top:10px;font-size:12px;color:var(--text2);text-align:center"></div>
     </div>
@@ -254,6 +281,14 @@
 
     let curLevel = 'A1';
     let curTopic = '';
+
+    /* ── 📖/📚 출제 범위 (내 단어장 / 레벨 단어은행) ── */
+    let curSource = (function(){ try{ var s=localStorage.getItem('mangoi_quiz_source'); if(s==='textbook') return s; }catch(e){} return 'mywords'; })();
+    function pickSource(s){
+      curSource = (s==='textbook') ? 'textbook' : 'mywords';
+      try{ localStorage.setItem('mangoi_quiz_source', curSource); }catch(e){}
+      document.querySelectorAll('.src-pick').forEach(function(b){ b.classList.toggle('active', b.dataset.src===curSource); });
+    }
 
     /* ── 🧒/🧑‍🎓 연령 모드 (A1·A2=키즈 자동 / 상단 토글로 수동) ── */
     let modeManual = false;
@@ -344,7 +379,7 @@
     function prepareQuizzes(serverQuizzes){
       var allWords = serverQuizzes.map(function(q){ return q.source_word; }).filter(Boolean);
       var rot = (curMode==='kids') ? ['meaning','listen'] : ['meaning','word','listen'];
-      return serverQuizzes.map(function(q, k){
+      var arr = serverQuizzes.map(function(q, k){
         var meaning = q.options[q.correct_index];
         var type = rot[k % rot.length];
         var base = { serverId:q.id, serverCorrect:q.correct_index, word:q.source_word, meaning:meaning, example:q.hint || '', type:type };
@@ -406,7 +441,7 @@
       try {
         const r = await fetch('/api/vocab/gen-quiz', {
           method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ uid: getUid(), count: 5 })
+          body: JSON.stringify({ uid: getUid(), count: 5, source: curSource })
         });
         const d = await r.json();
         if (!d.ok) {
@@ -691,7 +726,7 @@
       }
     });
   </script>
-<!-- BUILD:20260711150009 -->
+<!-- BUILD:20260711150452 -->
 <style id="mb-tidy-2026-07-11">
 /* ≤480px(폰): 우상단 고정 홈/EN 바가 연령모드(🧒/🧑‍🎓) 버튼을 덮지 않게 헤더를 그 아래로 */
 @media (max-width:480px){
