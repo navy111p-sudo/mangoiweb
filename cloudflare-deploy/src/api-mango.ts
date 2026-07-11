@@ -21,16 +21,21 @@ import { authUidFromRequest as authUidGlobal } from './auth-token';  // 🔐 모
 import {
   sendLessonStartAlert, sendLessonEndAlert, sendChatSummaryAlert, sendMentionAlert,
   sendPaymentOverdueAlert,
-  checkSolapiBalance, getSolapiMode, sendKakaoAlimtalk, type SolapiEnv,
+  checkSolapiBalance, getSolapiMode, sendKakaoAlimtalk, sendPlainSms, type SolapiEnv,
 } from './solapi-client';
+import { sendEmail, emailLayout, type EmailEnv } from './email';   // 📧 이메일(Resend) — 레벨테스트 관리자/교사 알림
 import {
   sendWebPushWakeup, broadcastWebPush, generateVapidKeyPair, getWebPushMode,
   type WebPushEnv,
 } from './web-push';
 
-export interface MangoEnv extends GiftishowEnv, SolapiEnv {
+export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
   SESSION_STATE: KVNamespace;
+  // 📧 이메일(Resend) — 레벨테스트 신규신청 관리자 알림 + 교사 배정 알림
+  //   RESEND_API_KEY, RESEND_FROM, LEVELTEST_ADMIN_EMAIL (email.ts / EmailEnv)
+  // 🎯 레벨테스트 신청자 확정 알림톡 템플릿(선택) — 미설정 시 문자(SMS) 폴백
+  SOLAPI_TEMPLATE_LEVELTEST?: string;
   // 🕸️ Neo4j 그래프 DB (teacher-match.ts runCypher 공용 시크릿)
   NEO4J_QUERY_URL?: string;
   NEO4J_USER?: string;
@@ -2564,6 +2569,12 @@ export async function handleMangoApi(
     if (method === 'GET' && path === '/api/points/balance') {
       const uid = (url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      // 🔐 [PII/IDOR] 본인(토큰) 또는 관리자(쿠키세션)만 조회 — 남의 잔액·이름·거래내역 노출 차단 (2026-07-11)
+      const pbAdmin = await checkAdminSession(request, env as any);
+      const pbAuth = await authUidGlobal(request, url, env);
+      if (!pbAdmin.ok && (!pbAuth || pbAuth !== uid)) {
+        return json({ ok: false, error: 'auth_required', message: '로그인 후 본인 포인트만 조회할 수 있습니다.' }, 401);
+      }
       // fix (2026-06-01) — DB 에러가 나도 절대 503/500 던지지 않고 잔액 0 으로 graceful 응답.
       //   (DDL 폭주/락으로 인한 503 콘솔 도배 방지)
       try {

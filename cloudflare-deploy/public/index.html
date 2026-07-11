@@ -17508,7 +17508,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (window._pointsChipInflight) return;                          // 진행 중이면 재사용
     window._pointsChipInflight = (async function(){
       try {
-        var r = await fetch('/api/points/balance?uid=' + encodeURIComponent(u.uid), { cache: 'no-store' });
+        var r = await fetch('/api/points/balance?uid=' + encodeURIComponent(u.uid) + '&token=' + encodeURIComponent((function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })()), { cache: 'no-store' });
         var d = await r.json();
         var bal = (d && typeof d.balance === 'number') ? d.balance : 0;
         lbl.textContent = bal.toLocaleString('ko-KR') + ' P';
@@ -17617,7 +17617,7 @@ window.addEventListener('DOMContentLoaded', () => {
     var u = getCurrentUser(); if (!u) return;
     var el = document.getElementById('ps-balance'); if (!el) return;
     try {
-      var r = await fetch('/api/points/balance?uid='+encodeURIComponent(u.uid));
+      var r = await fetch('/api/points/balance?uid='+encodeURIComponent(u.uid)+'&token='+encodeURIComponent((function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })()));
       var d = await r.json();
       var bal = (d&&d.ok)?(d.balance||0):0;
       var L = (window.getLang?window.getLang():'ko')==='ko';
@@ -24495,7 +24495,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260711222900 -->
+<!-- BUILD:20260711223733 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -25198,20 +25198,20 @@ document.addEventListener('keydown', function(e){
     // 🖥️ 투명 글래스 모달 박스
     var h = sf;
     h += '<div id="mgam-bg" style="position:absolute;inset:-40px;z-index:0;background:url(\'/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/space.jpg\') center center / cover no-repeat;filter:blur(13px) brightness(0.5) saturate(1.1);transform:scale(1.06)"></div>';
-    h += '<div id="mgam-box" style="position:relative;z-index:2;width:100%;max-width:680px;min-height:74vh;max-height:92vh;display:flex;flex-direction:column;background:rgba(255,255,255,0.05);backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);border:1px solid rgba(255,255,255,0.16);border-radius:22px;box-shadow:0 24px 70px -20px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.14);overflow:hidden;animation:mgAmRise .32s cubic-bezier(.2,.8,.2,1)">';
+    h += '<div id="mgam-box" style="position:relative;z-index:2;width:100%;max-width:820px;min-height:74vh;max-height:92vh;display:flex;flex-direction:column;background:rgba(255,255,255,0.05);backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);border:1px solid rgba(255,255,255,0.16);border-radius:22px;box-shadow:0 24px 70px -20px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.14);overflow:hidden;animation:mgAmRise .32s cubic-bezier(.2,.8,.2,1)">';
 
     // 헤더
     h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:20px 22px;border-bottom:1px solid rgba(255,255,255,0.1);flex:0 0 auto">'
-      + '<h2 style="margin:0;color:#fff;font-size:19px;font-weight:800;letter-spacing:.3px;text-shadow:0 1px 8px rgba(0,0,0,0.4)">📋 전체 메뉴</h2>'
+      + '<h2 style="margin:0;color:#fff;font-size:26px;font-weight:800;letter-spacing:.3px;text-shadow:0 1px 8px rgba(0,0,0,0.4)">📋 전체 메뉴</h2>'
       + '<button type="button" id="mangoi-allmenu-x" aria-label="닫기" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.22);color:#fff;font-size:16px;font-weight:800;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;transition:background .15s">✕</button>'
       + '</div>';
 
     // 카드 그리드 (스크롤 영역)
     h += '<div style="overflow-y:auto;-webkit-overflow-scrolling:touch;padding:22px;flex:1 1 auto">';
-    h += '<div id="mgam-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:13px">';
+    h += '<div id="mgam-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(157px,1fr));gap:18px">';
     ALLMENU_ITEMS.forEach(function(m){
-      h += '<a href="' + m.url + '" class="mgam-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:18px 8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.13);border-radius:16px;color:#F1F5F9;text-decoration:none;min-height:104px;text-align:center;font-size:13px;font-weight:600;line-height:1.3;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);transition:transform .15s,background .15s,border-color .15s;-webkit-tap-highlight-color:rgba(96,165,250,0.3)">'
-        + '<span style="font-size:30px;line-height:1;filter:drop-shadow(0 2px 5px rgba(0,0,0,0.45))">' + m.emoji + '</span><span>' + m.name + '</span></a>';
+      h += '<a href="' + m.url + '" class="mgam-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:25px 11px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.13);border-radius:18px;color:#F1F5F9;text-decoration:none;min-height:146px;text-align:center;font-size:18px;font-weight:600;line-height:1.3;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);transition:transform .15s,background .15s,border-color .15s;-webkit-tap-highlight-color:rgba(96,165,250,0.3)">'
+        + '<span style="font-size:42px;line-height:1;filter:drop-shadow(0 2px 5px rgba(0,0,0,0.45))">' + m.emoji + '</span><span>' + m.name + '</span></a>';
     });
     h += '</div></div>';
     h += '</div>';

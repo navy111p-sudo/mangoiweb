@@ -138,6 +138,24 @@
       border:2px dashed; animation:stampIn .5s cubic-bezier(.2,1.5,.4,1); }
     @keyframes stampIn { 0%{opacity:0; transform:scale(2) rotate(-12deg)} 100%{opacity:1; transform:scale(1) rotate(-5deg)} }
 
+    /* ━━━ 🖥️ PC(넓은 화면) 전용: 밝은 배경 + 전체 확대 (모바일은 그대로) ━━━ */
+    /* .wrap 은 max-width 680 로 폭이 제한돼 있어 zoom 해도 가로 스크롤 없음.
+       .top 은 화면 전체폭이라 zoom 하면 안 됨 → 글자 크기만 키움. */
+    @media (min-width:900px) {
+      html, body { background:radial-gradient(125% 100% at 50% -6%,#bcd6ff 0%,#8fb2f2 46%,#7aa0ea 100%); }
+      .top h1 { font-size:26px; }
+      .top a  { font-size:20px; }
+      .wrap { zoom:1.25; }
+    }
+    @media (min-width:1200px) {
+      .top h1 { font-size:32px; }
+      .top a  { font-size:22px; }
+      .wrap { zoom:1.6; }
+    }
+    @media (min-width:1500px) {
+      .wrap { zoom:1.9; }   /* 넓은 PC: 약 두 배 */
+    }
+
     @media (max-width:480px) {
       .wrap { padding:14px 12px; }
       .quiz-card { padding:18px 16px; }
@@ -596,7 +614,7 @@
 
     loadList();
   </script>
-<!-- BUILD:20260711222900 -->
+<!-- BUILD:20260711223733 -->
 <!-- ━━━ 복습퀴즈 선생님 영상 메시지 팝업 (1회만 표시) ━━━ -->
 <div id="rq-video-pop" style="display:none;position:fixed;top:64px;right:14px;z-index:99998;width:220px;background:rgba(13,20,40,0.97);border:1px solid rgba(251,191,36,0.45);border-radius:18px;box-shadow:0 14px 40px -6px rgba(0,0,0,0.6);overflow:hidden;font-family:'Noto Sans KR',-apple-system,sans-serif;backdrop-filter:blur(8px)">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px 6px;border-bottom:1px solid rgba(255,255,255,0.08)">
