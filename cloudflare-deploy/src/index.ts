@@ -188,11 +188,12 @@ const worker = {
         }
 
         // 🔐 강사(teacher) 제한 — 회사 전체 재무·경영 API 전면 차단 (2026-07-12)
-        //   강사 스코프는 'none'(내부직원과 동일)이라 위 대리점/지사 차단에 안 걸린다.
-        //   회계 보고서·경영 요약·실시간 지표·통계는 전 강사 급여 총액과 개별 명세를 담고 있어
+        //   회계 보고서·경영 요약·실시간 지표·정산은 전 강사 급여 총액과 개별 명세를 담고 있어
         //   강사가 URL 로 직접 호출하면 남의 급여가 노출된다 → 이 네임스페이스는 강사 전면 차단.
+        //   ⚠️ 스코프로 거르지 않는다: 일부 강사 계정은 scope_type='hq'로 잘못 세팅돼 있어(auth-admin
+        //      resolveRole 주석 참고) 스코프 기준이면 새어나간다. 항상 role 기준(getAdminActor)으로 판정.
         //   (개별 급여·평가 API 의 '본인만' 필터는 각 핸들러에 이중으로 적용됨)
-        if (_sc.type === 'none' && path.startsWith('/api/admin/')) {
+        {
           const _teacherBlocked =
             path.startsWith('/api/admin/reports/') ||
             path.startsWith('/api/admin/exec/') ||
