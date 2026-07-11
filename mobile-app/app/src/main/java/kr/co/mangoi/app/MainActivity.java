@@ -9,10 +9,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Message;
 import android.provider.Settings;
 import android.view.KeyEvent;
 import android.view.View;
@@ -87,6 +89,8 @@ public class MainActivity extends AppCompatActivity {
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
         s.setJavaScriptCanOpenWindowsAutomatically(true);
+        // target="_blank" / window.open() 링크를 외부 크롬으로 넘기지 않고 앱 안에서 처리하기 위해 필요
+        s.setSupportMultipleWindows(true);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             s.setSafeBrowsingEnabled(false);
@@ -130,6 +134,37 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
                 callback.invoke(origin, true, false);
+            }
+
+            // target="_blank" / window.open() 새 창 요청을 가로채서
+            // 외부 크롬(방문 기록 화면)으로 튕기지 않고 앱 WebView 안에서 열도록 처리
+            @Override
+            public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
+                final WebView tempView = new WebView(view.getContext());
+                tempView.getSettings().setJavaScriptEnabled(true);
+                final boolean[] handled = {false};
+                tempView.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest request) {
+                        if (!handled[0]) {
+                            routeNewWindowUrl(request.getUrl(), handled);
+                            destroyTemp(v);
+                        }
+                        return true;
+                    }
+                    // window.open(url) 은 첫 로딩이 shouldOverride 를 안 거치는 경우가 있어 보강
+                    @Override
+                    public void onPageStarted(WebView v, String url, Bitmap favicon) {
+                        if (!handled[0] && url != null && !"about:blank".equals(url)) {
+                            routeNewWindowUrl(Uri.parse(url), handled);
+                            destroyTemp(v);
+                        }
+                    }
+                });
+                WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
+                transport.setWebView(tempView);
+                resultMsg.sendToTarget();
+                return true;
             }
 
             // 파일 업로드(첨부) 지원
@@ -279,6 +314,30 @@ public class MainActivity extends AppCompatActivity {
             i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(i);
         } catch (Exception ignored) {}
+    }
+
+    /**
+     * 새 창(target="_blank"/window.open) 으로 요청된 URL 을 처리한다.
+     * http/https 는 메인 WebView 에서 그대로 열어 앱 안에 머물게 하고,
+     * tel·mailto·intent·kakao 등 특수 스킴만 외부 앱으로 넘긴다.
+     * handled 플래그로 shouldOverride/onPageStarted 중복 실행을 막는다.
+     */
+    private void routeNewWindowUrl(Uri url, boolean[] handled) {
+        if (url == null || handled[0]) return;
+        handled[0] = true;
+        String scheme = url.getScheme();
+        if (scheme != null && (scheme.equals("http") || scheme.equals("https"))) {
+            if (webView != null) webView.loadUrl(url.toString());
+        } else {
+            try { startActivity(new Intent(Intent.ACTION_VIEW, url)); } catch (Exception ignored) {}
+        }
+    }
+
+    /** 새 창 처리용 임시 WebView 를 안전하게 정리(메모리 누수 방지) */
+    private void destroyTemp(final WebView v) {
+        if (v == null) return;
+        try { v.stopLoading(); } catch (Exception ignored) {}
+        v.post(() -> { try { v.destroy(); } catch (Exception ignored) {} });
     }
 
     private void requestRuntimePermissions() {

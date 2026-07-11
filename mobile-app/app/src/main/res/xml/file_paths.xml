@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) 위치 (앱 전용, 권한 불필요) -->
+    <external-files-path name="downloads" path="Download/" />
+    <external-files-path name="downloads_lower" path="download/" />
+    <cache-path name="cache" path="." />
+</paths>
