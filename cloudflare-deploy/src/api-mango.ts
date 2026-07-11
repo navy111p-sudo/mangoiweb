@@ -10218,6 +10218,10 @@ LIMIT $limit`;
     //   ※ 발음점수(pron_score)는 voice_coaching, AI점수(ai_score)는 향후 진단엔진에서 채움(③ 단계)
     const ensureLtApps = async () => {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS leveltest_applications (id INTEGER PRIMARY KEY AUTOINCREMENT, student_name TEXT NOT NULL, student_uid TEXT, desired_date TEXT, desired_time TEXT, status TEXT DEFAULT 'pending', ai_score REAL, pron_score REAL, teacher_score REAL, final_level TEXT, assigned_teacher TEXT, source TEXT, note TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      // 선생님 1:1 평가(3번째 축) 컬럼 — 기존 테이블에도 idempotent 보강
+      for (const [col, type] of [['teacher_rubric', 'TEXT'], ['evaluated_by', 'TEXT'], ['evaluated_at', 'INTEGER']] as [string, string][]) {
+        try { await env.DB.exec(`ALTER TABLE leveltest_applications ADD COLUMN ${col} ${type}`); } catch {}
+      }
     };
     if (method === 'POST' && path === '/api/leveltest/apply') {
       await ensureLtApps();
@@ -10275,6 +10279,11 @@ LIMIT $limit`;
       if (b.assigned_teacher != null) { fields.push('assigned_teacher = ?'); binds.push(String(b.assigned_teacher)); }
       if (b.note != null)             { fields.push('note = ?');             binds.push(String(b.note)); }
       if (b.final_level != null)      { fields.push('final_level = ?');      binds.push(String(b.final_level)); }
+      // 🧑‍🏫 선생님 1:1 평가(3번째 축) — 루브릭 점수 + 평가자 + 확정 시 완료 처리
+      if (b.teacher_score != null)    { fields.push('teacher_score = ?');    binds.push(Number(b.teacher_score)); }
+      if (b.teacher_rubric != null)   { fields.push('teacher_rubric = ?');   binds.push(typeof b.teacher_rubric === 'string' ? b.teacher_rubric : JSON.stringify(b.teacher_rubric)); }
+      if (b.evaluated_by != null)     { fields.push('evaluated_by = ?');     binds.push(String(b.evaluated_by)); }
+      if (b.teacher_score != null || b.teacher_rubric != null) { fields.push('evaluated_at = ?'); binds.push(Date.now()); }
       if (!fields.length) return invalidBody(['status']);
       fields.push('updated_at = ?'); binds.push(Date.now());
       binds.push(Number(b.id));
