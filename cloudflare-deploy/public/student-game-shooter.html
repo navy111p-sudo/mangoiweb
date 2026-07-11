@@ -601,6 +601,8 @@
 
   function rand(a,b){ return a+Math.random()*(b-a); }
   function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
+  // 몬스터가 겹치지 않게 스폰 x를 균등 레인으로 나누고, 인접 인덱스는 절반 레인만큼 떨어뜨림(반씩 교차)
+  function laneXs(n,lo,hi){ if(n<=1) return [(lo+hi)/2]; var span=hi-lo,step=span/n,c=[]; for(var k=0;k<n;k++){ c.push(lo+step*(k+0.5)+rand(-step*0.14,step*0.14)); } var order=[],half=Math.ceil(n/2); for(var i=0;i<half;i++){ order.push(i); if(i+half<n) order.push(i+half); } var out=[]; for(var j=0;j<n;j++) out.push(c[order[j]]); return out; }
 
   // ===================================================================
   //  🔊 원어민 음성 (Web Speech API / speechSynthesis) — 외부 파일 없음
@@ -1004,18 +1006,24 @@
     if(tItems.length && Math.random()<0.45){ tItems[Math.floor(Math.random()*tItems.length)].golden=true; }
     var items = tItems.concat(pool.slice(0,2).map(function(w){ return {word:w,isTarget:false}; }));
     shuffle(items);
-    items.forEach(function(it){ spawnMonster(it.word, it.isTarget, it.golden); });
+    var _lanes=laneXs(items.length, 8, Math.max(40, field.clientWidth-86));
+    items.forEach(function(it,i){ spawnMonster(it.word, it.isTarget, it.golden, i, items.length, _lanes[i]); });
     renderSentence();
     setTimeout(speakSentence, 250); // 라운드 시작 시 목표 문장을 원어민 음성으로 들려줌
   }
-  function spawnMonster(word,isTarget,isGolden){
+  function spawnMonster(word,isTarget,isGolden,i,n,laneX){
+    n=n||1; i=i||0;
     var el=document.createElement('button');
     el.className='monster'+(isTarget?'':' distractor')+(isGolden?' golden':'');
     el.innerHTML='<span class="face">'+FACES[Math.floor(Math.random()*FACES.length)]+'</span><span class="word">'+word+'</span>';
     var fw=field.clientWidth, fh=field.clientHeight;
     // ⚡ base 속도(스폰 시 고정) — 루프에서 spdMult() 를 매 프레임 곱함 → 속도 변경 즉시 반영.
     //   세로 낙하 + 좌우 드리프트로 몬스터가 더 활발히 빨리빨리 움직임. 상위 속도일수록 훨씬 빠름.
-    var m={ el:el, word:word, isTarget:isTarget, golden:!!isGolden, x:rand(8,Math.max(40,fw-86)), y:rand(6,Math.max(40,fh*0.30)),
+    // 스폰 위치: 레인(x) + 화면 위쪽(음수 y)부터 계단식으로 내려옴 → 서로 안 겹치고, 아래로 너무 가까이 스폰 안 됨
+    var _yTop=-fh*0.22, _ySpan=fh*0.52;
+    var m={ el:el, word:word, isTarget:isTarget, golden:!!isGolden,
+            x:(laneX!=null?laneX:rand(8,Math.max(40,fw-86))),
+            y:_yTop+_ySpan*(i/Math.max(1,n))+rand(-fh*0.012,fh*0.012),
             vyBase:rand(28,58), vxBase:rand(-48,48) };
     el.style.left=m.x+'px'; el.style.top=m.y+'px';
     el.style.animationDuration=rand(1.4,3).toFixed(2)+'s'; el.style.animationDelay=(-rand(0,2)).toFixed(2)+'s';
@@ -1408,6 +1416,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711195721 -->
+<!-- BUILD:20260711200558 -->
 </body>
 </html>
