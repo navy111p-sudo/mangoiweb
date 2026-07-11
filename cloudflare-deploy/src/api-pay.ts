@@ -221,6 +221,23 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     return json({ ok: true, program, name: p.name, amount: p.amount, clientKey: env.TOSS_CLIENT_KEY || TOSS_CLIENT_KEY_DEFAULT });
   }
 
+  // ── 6) 결제 내역 조회 (관리자 전용) — 결제 센터에서 들어온 결제를 한눈에 ──
+  if (path === '/api/pay/admin/orders' && method === 'GET') {
+    const sess = await checkAdminSession(request, env);
+    if (!sess.ok) return json({ ok: false, error: 'auth_required' }, 401);
+    const limit = Math.min(200, Math.max(1, Number(url.searchParams.get('limit') || 50)));
+    const rows = await env.DB.prepare(
+      `SELECT order_id, program, amount, status, method, payer_name, student_name, created_at, paid_at, fail_reason
+       FROM payment_orders ORDER BY created_at DESC LIMIT ?`
+    ).bind(limit).all();
+    // 오늘 결제완료 합계·건수 요약
+    const since = Date.now() - 24 * 3600 * 1000;
+    const sum: any = await env.DB.prepare(
+      `SELECT COUNT(*) AS cnt, IFNULL(SUM(amount),0) AS total FROM payment_orders WHERE status='paid' AND paid_at > ?`
+    ).bind(since).first();
+    return json({ ok: true, orders: rows.results || [], today: { count: sum?.cnt || 0, total: sum?.total || 0 } });
+  }
+
   // ── 5) 결제 링크 문자 발송 (관리자 전용) — 학부모 폰으로 간편결제 링크 SMS ──
   if (path === '/api/pay/send-link' && method === 'POST') {
     const sess = await checkAdminSession(request, env);
