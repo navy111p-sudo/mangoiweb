@@ -11,7 +11,7 @@ import { processAiCommand, executeAction, processStudentCommand } from './ai-com
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프 학생 명부
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance } from './cafe24-sync';  // 🔄 카페24→D1 동기화 모듈
 import { scopeFragments, studentScopeWhere, getScope } from './scope';
-import { checkAdminSession } from './auth-admin';
+import { checkAdminSession, getAdminActor, sameTeacherName } from './auth-admin';
 import { applyPIIScope, canViewPII, maskRecordPII, isMaskedValue } from './pii-mask';  // 🔒 PII 권한별 마스킹
 import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook, type GiftishowEnv } from './giftishow-client';
 import { json, parseJsonBody } from './api-util';  // 🧰 공용 헬퍼 (REFACTOR_PLAN 1단계 분리)
@@ -5558,14 +5558,28 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         '- 단체·학원 단위 수강: 카카오 채널 또는 상담 신청으로 문의 유도.',
       ];
       const KNOWLEDGE = KNOWLEDGE_ARR.join('\n');
-      // 🔎 질문 키워드로 관련 사실을 앞으로 끌어오는 간단 검색 — 모델이 정확한 수치/규정을 놓치지 않게
-      const qWords: string[] = userMsg.match(/[가-힣A-Za-z0-9]{2,}/g) || [];
-      const relevant = KNOWLEDGE_ARR
-        .map((line) => ({ line, s: qWords.reduce((a, w) => a + (line.indexOf(w) >= 0 ? 1 : 0), 0) }))
-        .filter((x) => x.s > 0)
-        .sort((a, b) => b.s - a.s)
-        .slice(0, 4)
-        .map((x) => x.line);
+      // 🔎 명시적 주제 키워드 → 관련 사실만 정확히 앞으로 (흔한 단어 노이즈 방지).
+      //    KNOWLEDGE_ARR 순서: 0회사 1대상 2시간 3레벨테스트 4수업길이 5장비 6수강절차 7연기 8시간/강사변경 9결석 10녹화·복습 11포인트 12환불 13요금 14상담 15단체
+      const TOPICS: Array<{ kw: string[]; idx: number[] }> = [
+        { kw: ['연기', '미루', '미뤄', '연기신청'], idx: [7] },
+        { kw: ['변경', '바꾸', '교체', '옮기'], idx: [8] },
+        { kw: ['환불', '반환', '취소', '해지'], idx: [12] },
+        { kw: ['장비', '준비물', '헤드셋', '웹캠', '카메라', '마이크', '컴퓨터', '필요한'], idx: [5] },
+        { kw: ['요금', '가격', '비용', '수강료', '얼마', '금액', '학비'], idx: [13] },
+        { kw: ['시간', '몇시', '요일', '운영', '언제', '오전', '주말'], idx: [2] },
+        { kw: ['레벨테스트', '레벨', '테스트', '진단', '평가받'], idx: [3] },
+        { kw: ['몇분', '수업시간', '20분', '40분', '길이'], idx: [4] },
+        { kw: ['수강', '등록', '신청', '절차', '결제', '가입', '수업신청'], idx: [6] },
+        { kw: ['강사', '선생님', '쌤', '원어민', '교사'], idx: [0, 8] },
+        { kw: ['결석', '빠지', '안가', '못가'], idx: [9] },
+        { kw: ['녹화', '영상', '다시보기', '복습', '퀴즈', '평가서'], idx: [10] },
+        { kw: ['포인트', '상점', '적립'], idx: [11] },
+        { kw: ['단체', '학원', '기관'], idx: [15] },
+        { kw: ['상담', '전화', '문의', '카톡', '카카오'], idx: [14] },
+      ];
+      const hitIdx = new Set<number>();
+      for (const t of TOPICS) if (t.kw.some((k) => userMsg.indexOf(k) >= 0)) t.idx.forEach((i) => hitIdx.add(i));
+      const relevant = Array.from(hitIdx).sort((a, b) => a - b).map((i) => KNOWLEDGE_ARR[i]).filter(Boolean);
       const SYSTEM = [
         "당신은 '망고아이(Mangoi)' 화상영어의 친절한 AI 상담 도우미입니다. 아래 정보를 근거로, 한국어로 짧고 따뜻하게 답하세요.",
         '규칙:',
@@ -5928,6 +5942,10 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       const year = parseInt(url.searchParams.get('year') || String(now.getFullYear()), 10);
       const month = parseInt(url.searchParams.get('month') || String(now.getMonth() + 1), 10);
 
+      // 🔐 강사(teacher) 로그인 시 본인 급여만 — 서버에서 강제(클라 필터는 우회 가능)
+      const _prActor = await getAdminActor(request, env as any);
+      const _prOwn = _prActor.isTeacher ? _prActor.name : '';
+
       const data = await computeLessonFeeMonth(year, month);
 
       // 기존 저장된 정산 (지급 상태 확인용)
@@ -5940,6 +5958,8 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       const rows: any[] = [];
       let totalAmount = 0, totalLessons = 0, totalDeduction = 0, totalFinal = 0, paidCount = 0;
       for (const t of (data.teachers || [])) {
+        // 강사 본인 뷰: 자신의 행만 계산·노출
+        if (_prOwn && !sameTeacherName(_prOwn, t.korean_name) && !sameTeacherName(_prOwn, t.english_name)) continue;
         const a = data.perTeacher[t.id] || { lesson_count: 0, upcoming_count: 0, finish_count: 0, absent_count: 0, teacher_no_show_count: 0, no_feedback_count: 0, total_minutes: 0, base_amount: 0, pay_amount: 0, deduction_total: 0, final_amount: 0 };
         const fee = t.fee_per_10min || 0;
         const s = savedMap[t.id];
@@ -5997,7 +6017,15 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       const year = parseInt(url.searchParams.get('year') || String(now.getFullYear()), 10);
       const month = parseInt(url.searchParams.get('month') || String(now.getMonth() + 1), 10);
       let tid = parseInt(url.searchParams.get('teacher_id') || '', 10) || 0;
-      const tname = (url.searchParams.get('teacher_name') || '').trim();
+      let tname = (url.searchParams.get('teacher_name') || '').trim();
+      // 🔐 강사(teacher) 로그인 시엔 요청한 teacher_id/teacher_name 을 무시하고 항상 본인 것만.
+      //   (강사가 남의 teacher_id 를 넣어 타인의 수업별 단가·공제를 조회하는 것을 서버에서 차단)
+      const _lsActor = await getAdminActor(request, env as any);
+      if (_lsActor.isTeacher) {
+        if (!_lsActor.name) return json({ ok: false, error: 'teacher_identity_missing' }, 403);
+        tid = 0;
+        tname = _lsActor.name;
+      }
       if (!tid && !tname) return json({ ok: false, error: 'teacher_id_or_teacher_name_required' }, 400);
 
       const data = await computeLessonFeeMonth(year, month);
@@ -6319,6 +6347,8 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     // ── POST /api/admin/payroll/deduction-rules — 공제 규칙 저장 ──
     //   body: { rules: [{ code, amount, enabled }] } — 금액·켜기/끄기만 수정(라벨은 시드 유지)
     if (method === 'POST' && path === '/api/admin/payroll/deduction-rules') {
+      const _drActor = await getAdminActor(request, env as any);
+      if (_drActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 공제 규칙을 변경할 수 없습니다.' }, 403);
       await ensureDeductionRules();
       const body: any = await request.json().catch(() => ({}));
       if (!Array.isArray(body.rules)) return json({ ok: false, error: 'rules_array_required' }, 400);
@@ -6338,6 +6368,8 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     // ── POST /api/admin/payroll/save — 정산 결과 D1에 저장/업데이트 ──
     //   body: { year, month, rows: [{ teacher_id, lesson_count, total_minutes, fee_per_10min, calculated_amount, adjusted_amount?, memo? }] }
     if (method === 'POST' && path === '/api/admin/payroll/save') {
+      const _svActor = await getAdminActor(request, env as any);
+      if (_svActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 급여 정산을 저장할 수 없습니다.' }, 403);
       await ensurePayrollTable();
       const body: any = await request.json().catch(() => ({}));
       const year = parseInt(body.year, 10);
@@ -6380,6 +6412,8 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     // ── POST /api/admin/payroll/mark-paid — 지급 완료 처리 ──
     //   body: { payroll_id?, teacher_id?, year?, month?, paid_amount?, memo? }
     if (method === 'POST' && path === '/api/admin/payroll/mark-paid') {
+      const _mpActor = await getAdminActor(request, env as any);
+      if (_mpActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 지급 상태를 변경할 수 없습니다.' }, 403);
       await ensurePayrollTable();
       const body: any = await request.json().catch(() => ({}));
       const now = Date.now();
@@ -6403,9 +6437,16 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       await ensurePayrollTable();
       const year = parseInt(url.searchParams.get('year') || String(new Date().getFullYear()), 10);
       const month = parseInt(url.searchParams.get('month') || String(new Date().getMonth() + 1), 10);
-      const rs: any = await env.DB.prepare(
-        `SELECT * FROM teacher_payroll WHERE year = ? AND month = ? ORDER BY teacher_name`
-      ).bind(year, month).all().catch(() => ({ results: [] }));
+      // 🔐 강사(teacher) 로그인 시엔 본인 행만 CSV 로 내려준다(전체 강사 급여 export 차단)
+      const _csvActor = await getAdminActor(request, env as any);
+      const _csvOwn = _csvActor.isTeacher ? _csvActor.name : '';
+      const rs: any = _csvOwn
+        ? await env.DB.prepare(
+            `SELECT * FROM teacher_payroll WHERE year = ? AND month = ? AND LOWER(TRIM(teacher_name)) = LOWER(TRIM(?)) ORDER BY teacher_name`
+          ).bind(year, month, _csvOwn).all().catch(() => ({ results: [] }))
+        : await env.DB.prepare(
+            `SELECT * FROM teacher_payroll WHERE year = ? AND month = ? ORDER BY teacher_name`
+          ).bind(year, month).all().catch(() => ({ results: [] }));
       const rows = rs.results || [];
       const header = '강사ID,강사명,년월,수업횟수,총수업분,단가(10분),수업료,공제,실지급액,조정금액,지급금액,상태,지급일,메모';
       const csv = [header].concat(

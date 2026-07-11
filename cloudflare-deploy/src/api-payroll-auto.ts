@@ -108,13 +108,19 @@ export async function handlePayrollIngest(request: Request, url: URL, env: any):
   return json({ ok: true, upserted, received: rows.length });
 }
 
-/** 관리자 조회용 — 해당 월의 강사별 급여 + 합계 */
-export async function getPayrollAuto(env: any, year: number, month: number): Promise<any> {
+/** 관리자 조회용 — 해당 월의 강사별 급여 + 합계
+ *   opts.teacherName 이 주어지면(강사 본인 로그인) 그 강사 행만 반환하고
+ *   합계·추이·가용월도 그 강사 기준으로만 계산한다(타 강사 총액·순위 노출 방지). */
+export async function getPayrollAuto(
+  env: any, year: number, month: number, opts?: { teacherName?: string }
+): Promise<any> {
   await ensureTable(env);
+  const own = String(opts?.teacherName || '').trim();
+  const ownCond = own ? ` AND LOWER(TRIM(teacher_name)) = LOWER(TRIM(?))` : '';
   const q = await env.DB.prepare(
     `SELECT teacher_id, teacher_name, completed_classes, total_classes, pay_php, paid, paid_at, updated_at
-     FROM teacher_payroll_auto WHERE year=? AND month=? ORDER BY pay_php DESC, completed_classes DESC`
-  ).bind(year, month).all();
+     FROM teacher_payroll_auto WHERE year=? AND month=?${ownCond} ORDER BY pay_php DESC, completed_classes DESC`
+  ).bind(...(own ? [year, month, own] : [year, month])).all();
   const list: any[] = q.results || [];
   const php_krw = await getPhpKrwRate(env);
   // 각 강사 행에 원화 환산 추가 (페소 먼저, 원화 다음)
@@ -124,16 +130,16 @@ export async function getPayrollAuto(env: any, year: number, month: number): Pro
   const total_completed = list.reduce((a, b: any) => a + (b.completed_classes || 0), 0);
   const paid_count = list.filter((r: any) => r.paid).length;
   const updated_at = list.reduce((a, b: any) => Math.max(a, b.updated_at || 0), 0);
-  // 어느 달이 데이터 있는지 (화면 월 선택용)
+  // 어느 달이 데이터 있는지 (화면 월 선택용) — 강사 본인이면 본인 데이터가 있는 달만
   const months = await env.DB.prepare(
-    `SELECT DISTINCT year, month FROM teacher_payroll_auto ORDER BY year DESC, month DESC LIMIT 24`
-  ).all().catch(() => ({ results: [] }));
-  // 📈 월별 추이(최근 6개월 합계) — 그래프용
+    `SELECT DISTINCT year, month FROM teacher_payroll_auto WHERE 1=1${ownCond} ORDER BY year DESC, month DESC LIMIT 24`
+  ).bind(...(own ? [own] : [])).all().catch(() => ({ results: [] }));
+  // 📈 월별 추이(최근 6개월 합계) — 그래프용 (강사 본인이면 본인 추이만)
   const trendQ = await env.DB.prepare(
     `SELECT year, month, SUM(pay_php) AS pay_php, SUM(completed_classes) AS completed
-     FROM teacher_payroll_auto GROUP BY year, month
+     FROM teacher_payroll_auto WHERE 1=1${ownCond} GROUP BY year, month
      HAVING SUM(completed_classes) > 0 ORDER BY year DESC, month DESC LIMIT 6`
-  ).all().catch(() => ({ results: [] }));
+  ).bind(...(own ? [own] : [])).all().catch(() => ({ results: [] }));
   const trend = ((trendQ.results as any[]) || []).map((r: any) => ({
     year: r.year, month: r.month, pay_php: r.pay_php || 0, pay_krw: Math.round((r.pay_php || 0) * php_krw), completed: r.completed || 0,
   })).reverse(); // 오래된→최근 (차트 왼→오른)

@@ -16,7 +16,7 @@ import { purgeExpired } from './retention';
 import { purgeOrphanedRecordings } from './recordings-cleanup';
 import { handleLivekit, ensureLivekitSchema } from './livekit-bridge';
 import { handleRecordingUpload as handleR2MultipartUpload } from './recordings-r2';
-import { handleAdminAuthApi, checkAdminSession } from './auth-admin';
+import { handleAdminAuthApi, checkAdminSession, getAdminActor } from './auth-admin';
 import { reportsRouter } from './accounting-reports';
 import { settlementRouter } from './org-settlement';
 import { realtimeRouter, runFinanceSnapshot } from './accounting-realtime';
@@ -1182,15 +1182,19 @@ const worker = {
 
     // 🧾 강사 급여 자동 조회 (관리자 전용 — 위 default-deny 미들웨어가 인증 보장)
     //   /api/admin/payroll/auto?year=&month=&ai=1  → 강사별 완료수업·급여(₱)+합계(+AI요약)
+    //   🔐 강사(teacher) 로그인 시엔 서버가 본인 급여 행만 내려준다(타 강사 총액·순위 노출 방지).
     if (path === '/api/admin/payroll/auto') {
       try {
         const now = new Date();
         const year = parseInt(url.searchParams.get('year') || String(now.getFullYear()), 10);
         const month = parseInt(url.searchParams.get('month') || String(now.getMonth() + 1), 10);
-        const data = await getPayrollAuto(env as any, year, month);
+        const actor = await getAdminActor(request, env as any);
+        const ownName = actor.isTeacher ? actor.name : '';
+        const data = await getPayrollAuto(env as any, year, month, ownName ? { teacherName: ownName } : undefined);
+        // 강사 본인 뷰에서는 전체 급여를 요약하는 AI 문장을 생성하지 않는다(타인 정보 노출 방지)
         let ai = '';
-        if (url.searchParams.get('ai') === '1') ai = await payrollAiSummary(env as any, year, month, data, url.searchParams.get('lang') || 'ko');
-        return new Response(JSON.stringify({ ok: true, year, month, ...data, ai }),
+        if (!actor.isTeacher && url.searchParams.get('ai') === '1') ai = await payrollAiSummary(env as any, year, month, data, url.searchParams.get('lang') || 'ko');
+        return new Response(JSON.stringify({ ok: true, year, month, ...data, ai, own_only: !!ownName }),
           { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
       } catch (e: any) {
         return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
@@ -1198,9 +1202,15 @@ const worker = {
       }
     }
 
-    // 🧾 강사 급여 페소→원화 환율 저장 (관리자 전용). POST { rate }
+    // 🧾 강사 급여 페소→원화 환율 저장 (관리자 전용, 쓰기). POST { rate }
+    //   🔐 강사는 환율(급여 정책)을 바꿀 수 없다 — 관리자·경영진만.
     if (path === '/api/admin/payroll/rate' && request.method === 'POST') {
       try {
+        const actor = await getAdminActor(request, env as any);
+        if (actor.isTeacher) {
+          return new Response(JSON.stringify({ ok: false, error: 'forbidden_teacher', message: '강사는 급여 환율을 변경할 수 없습니다.' }),
+            { status: 403, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+        }
         const b: any = await request.json().catch(() => ({}));
         const v = await setPhpKrwRate(env as any, Number(b?.rate));
         return new Response(JSON.stringify({ ok: true, php_krw: v }),
@@ -1211,9 +1221,15 @@ const worker = {
       }
     }
 
-    // 🧾 강사 급여 지급완료 토글 (관리자 전용). POST { teacher_id, year, month, paid }
+    // 🧾 강사 급여 지급완료 토글 (관리자 전용, 쓰기). POST { teacher_id, year, month, paid }
+    //   🔐 강사는 지급 상태를 바꿀 수 없다(본인 것 포함) — 관리자·경영진만.
     if (path === '/api/admin/payroll/mark-paid' && request.method === 'POST') {
       try {
+        const actor = await getAdminActor(request, env as any);
+        if (actor.isTeacher) {
+          return new Response(JSON.stringify({ ok: false, error: 'forbidden_teacher', message: '강사는 지급 상태를 변경할 수 없습니다.' }),
+            { status: 403, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+        }
         const b: any = await request.json().catch(() => ({}));
         await markPayrollPaid(env as any, Number(b?.teacher_id), Number(b?.year), Number(b?.month), !!b?.paid);
         return new Response(JSON.stringify({ ok: true }),
