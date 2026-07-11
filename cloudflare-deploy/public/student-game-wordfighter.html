@@ -131,6 +131,7 @@
   .review h2{font-size:21px;font-weight:900}.review h2 .em{color:var(--accent)}
   .review .sub{font-size:14px;color:var(--sub);max-width:340px;line-height:1.55}
   .review .ko{font-size:15px;color:#9fe8ff;font-weight:700;max-width:92%;line-height:1.5}
+  #review2 .ko{font-size:30px}
   .slot{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;min-height:52px;align-items:center;background:rgba(255,255,255,.06);border:2px dashed var(--line);border-radius:14px;padding:10px 12px;min-width:min(92%,430px)}
   .slot:empty::after{content:'여기에 단어를 순서대로 놓으세요';color:var(--sub);font-size:13px}
   .pool{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:min(94%,460px)}
@@ -144,7 +145,7 @@
   .btn.ghost{background:rgba(255,255,255,.12);color:var(--tx);box-shadow:none;border:1px solid var(--line)}
   .btn.green{background:var(--good);color:#04220f;box-shadow:0 8px 20px rgba(34,197,94,.35)}
   .btn.red{background:var(--blood);color:#fff;box-shadow:0 8px 20px rgba(185,28,28,.4)}
-  .bigline{font-size:26px;font-weight:900;color:#fff;line-height:1.4;max-width:92%;text-shadow:0 2px 6px #000}
+  .bigline{font-size:52px;font-weight:900;color:#fff;line-height:1.4;max-width:92%;text-shadow:0 2px 6px #000}
   .bigline .hl{color:var(--accent)}
   .repdots{display:flex;gap:11px;justify-content:center;margin:4px 0}
   .repdots .d{width:36px;height:36px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-size:16px;font-weight:900;color:var(--sub);background:rgba(255,255,255,.06);transition:.2s}
@@ -176,7 +177,7 @@
     .ztag .w{font-size:21px;padding:4px 14px}
     .zbody{font-size:52px}
     #waveTitle .wt-main{font-size:38px}
-    .bigline{font-size:21px}
+    .bigline{font-size:42px}
   }
 </style>
 </head>
@@ -624,7 +625,7 @@
   // ===== 복습 2 =====
   var r2line=document.getElementById('r2line'), r2heard=document.getElementById('r2heard'), r2next=document.getElementById('r2next'), r2ko=document.getElementById('r2ko');
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition||null;
-  function startReview2(){ phase='r2'; setPhaseUI('r2'); review1.classList.remove('on'); review2.classList.add('on'); r2line.innerHTML='“<span class="hl">'+targetWords.join(' ')+'</span>”'+(curPy()?'<div class="pinyin" style="font-size:16px;margin-top:4px">'+curPy()+'</div>':''); r2ko.textContent=curKo(); r2heard.innerHTML=''; r2next.style.display='none'; setTimeout(speakSentence,250); }
+  function startReview2(){ phase='r2'; setPhaseUI('r2'); review1.classList.remove('on'); review2.classList.add('on'); r2line.innerHTML='“<span class="hl">'+targetWords.join(' ')+'</span>”'+(curPy()?'<div class="pinyin" style="font-size:32px;margin-top:4px">'+curPy()+'</div>':''); r2ko.textContent=curKo(); r2heard.innerHTML=''; r2next.style.display='none'; setTimeout(speakSentence,250); }
   document.getElementById('r2listen').addEventListener('click', speakSentence);
   document.getElementById('r2speak').addEventListener('click', function(){
     if(!SR){ r2heard.innerHTML='🎤 큰 소리로 따라 말했나요? <b>좋아요!</b>'; score+=40; updateHUD(); r2next.style.display='inline-block'; return; }
@@ -642,7 +643,7 @@
 
   // ===== 복습 3 =====
   var r3line=document.getElementById('r3line'), repCount=0, r3start=0; var rdEls=[document.getElementById('rd1'),document.getElementById('rd2'),document.getElementById('rd3')];
-  function startReview3(){ phase='r3'; setPhaseUI('r3'); review2.classList.remove('on'); review3.classList.add('on'); r3line.innerHTML='“<span class="hl">'+targetWords.join(' ')+'</span>”'+(curPy()?'<div class="pinyin" style="font-size:16px;margin-top:4px">'+curPy()+'</div>':''); repCount=0; rdEls.forEach(function(d){ d.classList.remove('on'); }); r3start=performance.now(); setTimeout(speakSentence,250); }
+  function startReview3(){ phase='r3'; setPhaseUI('r3'); review2.classList.remove('on'); review3.classList.add('on'); r3line.innerHTML='“<span class="hl">'+targetWords.join(' ')+'</span>”'+(curPy()?'<div class="pinyin" style="font-size:32px;margin-top:4px">'+curPy()+'</div>':''); repCount=0; rdEls.forEach(function(d){ d.classList.remove('on'); }); r3start=performance.now(); setTimeout(speakSentence,250); }
   document.getElementById('r3rep').addEventListener('click', function(){ if(repCount>=3) return; speakSentence(); rdEls[repCount].classList.add('on'); repCount++; score+=20; updateHUD();
     if(repCount>=3){ var elapsed=(performance.now()-r3start)/1000, speedBonus=elapsed<6?80:(elapsed<10?40:15); score+=speedBonus; updateHUD(); sndWin();
       try{ if(window.parent&&window.parent!==window) window.parent.postMessage({type:'mangoi-game-complete',score:200},'*'); }catch(e){}
@@ -717,6 +718,6 @@
 })();
 </script>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711135615 -->
+<!-- BUILD:20260711141902 -->
 </body>
 </html>

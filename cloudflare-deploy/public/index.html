@@ -5631,34 +5631,46 @@
         var ID='ai-friends-ov';
         var ov=document.getElementById(ID);
         if(ov){ ov.style.display='flex'; return; }
+        /* 골드 라인 SVG 아이콘 (이모지 대체 — OS별 깨짐 없음, 세련된 톤 통일) */
+        function aifSvg(inner){
+          return '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#fbbf24" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+inner+'</svg>';
+        }
         var ITEMS=[
-          {ic:'🗣️', ko:'AI 웜업',           en:'AI Warm-up',        dko:'수업 전 입 풀기 준비운동',   den:'Pre-class speaking warm-up',  url:'/warmup.html'},
-          {ic:'🎤', ko:'AI 음성코치',         en:'AI Voice Coach',    dko:'단계별 발음 교정 연습',       den:'Step-by-step pronunciation',  url:'/speech-coach.html'},
-          {ic:'🤖', ko:'AI 친구 (망고아이)',  en:'AI Friend (Mangoi)',dko:'망고아이와 영어로 수다',      den:'Chat in English with Mangoi', url:'/ai-friend.html'},
-          {ic:'✍️', ko:'AI 영작',            en:'AI Writing',        dko:'영어 글쓰기 자동 첨삭',       den:'Auto English-writing feedback', url:'/ai-write.html'},
-          {ic:'🔤', ko:'AI 단어 퀴즈',        en:'AI Vocab Quiz',     dko:'AI가 내 레벨 단어로 출제',    den:'AI-made vocab quiz at your level', url:'/micro-quiz.html'},
-          {ic:'🧠', ko:'복습 퀴즈',           en:'Review Quiz',       dko:'배운 내용 복습 문제',         den:'Review what you learned',     url:'/review-quiz.html'}
+          {ic:aifSvg('<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/><circle cx="8.5" cy="11.5" r=".9" fill="#fbbf24" stroke="none"/><circle cx="12.5" cy="11.5" r=".9" fill="#fbbf24" stroke="none"/><circle cx="16.5" cy="11.5" r=".9" fill="#fbbf24" stroke="none"/>'),
+           ko:'AI 웜업', en:'AI Warm-up', dko:'수업 전 입 풀기 준비운동', den:'Pre-class speaking warm-up', url:'/warmup.html'},
+          {ic:aifSvg('<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1"/><line x1="12" y1="18" x2="12" y2="21"/><line x1="8.5" y1="21" x2="15.5" y2="21"/>'),
+           ko:'AI 음성코치', en:'AI Voice Coach', dko:'단계별 발음 교정 연습', den:'Step-by-step pronunciation', url:'/speech-coach.html'},
+          {ic:'<img src="/img/mango-char.png" alt="" class="aif-icimg">',
+           ko:'AI 친구 (망고아이)', en:'AI Friend (Mangoi)', dko:'망고아이와 영어로 수다', den:'Chat in English with Mangoi', url:'/ai-friend.html'},
+          {ic:aifSvg('<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>'),
+           ko:'AI 영작', en:'AI Writing', dko:'영어 글쓰기 자동 첨삭', den:'Auto English-writing feedback', url:'/ai-write.html'},
+          {ic:aifSvg('<polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/>'),
+           ko:'AI 단어 퀴즈', en:'AI Vocab Quiz', dko:'AI가 내 레벨 단어로 출제', den:'AI-made vocab quiz at your level', url:'/micro-quiz.html'},
+          {ic:aifSvg('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M1 14l4.64 5.36A9 9 0 0 0 20.49 15"/>'),
+           ko:'복습 퀴즈', en:'Review Quiz', dko:'배운 내용 복습 문제', den:'Review what you learned', url:'/review-quiz.html'}
         ];
         if(!document.getElementById('ai-friends-style')){
           var st=document.createElement('style'); st.id='ai-friends-style';
           st.textContent=
             '#ai-friends-ov{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(4,9,20,.96);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}'
-           +'.aif-card{position:relative;width:100%;max-width:640px;max-height:88vh;overflow-y:auto;background:linear-gradient(160deg,#131c33,#0c1326);border:1px solid rgba(251,191,36,.3);border-radius:24px;box-shadow:0 30px 80px -20px rgba(0,0,0,.7);padding:30px 24px 26px;animation:aifIn .28s cubic-bezier(.34,1.56,.64,1)}'
+           +'.aif-card{position:relative;width:100%;max-width:800px;max-height:90vh;overflow-y:auto;background:linear-gradient(160deg,#131c33,#0c1326);border:1px solid rgba(251,191,36,.3);border-radius:28px;box-shadow:0 30px 80px -20px rgba(0,0,0,.7);padding:38px 32px 32px;animation:aifIn .28s cubic-bezier(.34,1.56,.64,1)}'
            +'@keyframes aifIn{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}'
-           +'.aif-close{position:absolute;top:14px;right:14px;width:34px;height:34px;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#e8d9a8;font-size:16px;cursor:pointer}'
+           +'.aif-close{position:absolute;top:16px;right:16px;width:42px;height:42px;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#e8d9a8;font-size:19px;cursor:pointer}'
            +'.aif-close:hover{background:rgba(255,255,255,.2)}'
-           +'.aif-head{text-align:center;margin-bottom:20px}'
-           +'.aif-logo{font-size:42px;line-height:1;margin-bottom:6px}'
-           +'.aif-title{margin:0;font-size:24px;font-weight:900;color:#fdf6e3;letter-spacing:-.5px}'
-           +'.aif-sub{margin:8px 0 0;font-size:13px;font-weight:700;color:#fbbf24}'
-           +'.aif-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}'
-           +'.aif-item{display:flex;align-items:center;gap:13px;background:rgba(255,255,255,.05);border:1px solid rgba(251,191,36,.22);border-radius:16px;padding:15px 16px;cursor:pointer;text-align:left;width:100%;font-family:inherit;transition:transform .15s,box-shadow .15s,background .15s}'
+           +'.aif-head{text-align:center;margin-bottom:26px}'
+           +'.aif-logo{line-height:1;margin-bottom:8px}'
+           +'.aif-logo img{width:84px;height:84px;object-fit:contain;filter:drop-shadow(0 6px 16px rgba(245,158,11,.35))}'
+           +'.aif-title{margin:0;font-size:32px;font-weight:900;color:#fdf6e3;letter-spacing:-.5px}'
+           +'.aif-sub{margin:10px 0 0;font-size:16px;font-weight:700;color:#fbbf24}'
+           +'.aif-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}'
+           +'.aif-item{display:flex;align-items:center;gap:16px;background:rgba(255,255,255,.05);border:1px solid rgba(251,191,36,.22);border-radius:18px;padding:19px 19px;cursor:pointer;text-align:left;width:100%;font-family:inherit;transition:transform .15s,box-shadow .15s,background .15s}'
            +'.aif-item:hover{transform:translateY(-2px);background:rgba(251,191,36,.12);box-shadow:0 10px 22px -8px rgba(245,158,11,.5)}'
-           +'.aif-ic{font-size:24px;flex-shrink:0;width:46px;height:46px;display:flex;align-items:center;justify-content:center;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.25);border-radius:14px}'
+           +'.aif-ic{flex-shrink:0;width:60px;height:60px;display:flex;align-items:center;justify-content:center;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.25);border-radius:16px}'
+           +'.aif-icimg{width:42px;height:42px;object-fit:contain}'
            +'.aif-tx{flex:1;min-width:0}'
-           +'.aif-tx b{display:block;font-size:15px;font-weight:800;color:#fdf6e3;line-height:1.3}'
-           +'.aif-tx>span{display:block;font-size:11.5px;color:#c9b892;margin-top:3px;line-height:1.4}'
-           +'@media(max-width:560px){.aif-grid{grid-template-columns:1fr}.aif-card{padding:24px 16px 20px}.aif-title{font-size:21px}}';
+           +'.aif-tx b{display:block;font-size:18.5px;font-weight:800;color:#fdf6e3;line-height:1.3}'
+           +'.aif-tx>span{display:block;font-size:14px;color:#d7c9a6;margin-top:4px;line-height:1.4}'
+           +'@media(max-width:560px){.aif-grid{grid-template-columns:1fr}.aif-card{padding:28px 18px 22px}.aif-title{font-size:24px}.aif-sub{font-size:14px}.aif-logo img{width:68px;height:68px}.aif-ic{width:52px;height:52px}.aif-icimg{width:36px;height:36px}.aif-tx b{font-size:16.5px}.aif-tx>span{font-size:13px}}';
           document.head.appendChild(st);
         }
         ov=document.createElement('div'); ov.id=ID;
@@ -5672,7 +5684,7 @@
         ov.innerHTML=
           '<div class="aif-card">'
          +'<button class="aif-close" aria-label="닫기" data-ko-aria="닫기" data-en-aria="Close">✕</button>'
-         +'<div class="aif-head"><div class="aif-logo">🤖</div>'
+         +'<div class="aif-head"><div class="aif-logo"><img src="/img/mango-char.png" alt="망고아이"></div>'
          +'<h2 class="aif-title" data-ko="AI와 친구하기" data-en="Play with AI">AI와 친구하기</h2>'
          +'<p class="aif-sub" data-ko="AI로 스스로 공부해요 · 자기주도 학습" data-en="Self-directed learning with AI">AI로 스스로 공부해요 · 자기주도 학습</p></div>'
          +'<div class="aif-grid">'+cards+'</div>'
@@ -24422,7 +24434,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260711135615 -->
+<!-- BUILD:20260711141902 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

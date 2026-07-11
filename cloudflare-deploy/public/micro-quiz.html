@@ -24,6 +24,11 @@
       background:rgba(20,33,59,0.95); position:sticky; top:0; z-index:50;
       backdrop-filter:blur(12px); border-bottom:1px solid var(--border); }
     .top a { color:var(--text); text-decoration:none; font-weight:700; font-size:14px; }
+    .top-nav-btn { display:flex; align-items:center; justify-content:center; width:34px; height:34px;
+      background:rgba(255,255,255,0.06); color:var(--text); border:1px solid var(--border);
+      border-radius:10px; font-size:16px; font-weight:800; cursor:pointer; line-height:1;
+      text-decoration:none; transition:background .15s; -webkit-tap-highlight-color:transparent; }
+    .top-nav-btn:hover { background:rgba(251,191,36,0.15); }
     .top h1 { margin:0; font-size:16px; font-weight:800; flex:1; }
     .wrap { max-width:680px; margin:0 auto; padding:18px; }
     .intro { background:linear-gradient(135deg,rgba(251,191,36,0.12),rgba(245,158,11,0.06));
@@ -141,7 +146,8 @@
 </head>
 <body>
   <div class="top">
-    <a href="/">← <span data-ko="홈" data-en="Home">홈</span></a>
+    <button type="button" class="top-nav-btn" onclick="if(history.length>1){history.back()}else{location.href='/'}" title="뒤로 가기" aria-label="뒤로 가기 (이전 페이지)">←</button>
+    <a href="/" class="top-nav-btn" title="홈으로" aria-label="홈으로">🏠</a>
     <h1>🧠 <span data-ko="AI 단어 퀴즈" data-en="AI Vocab Quiz">AI 단어 퀴즈</span></h1>
     <div class="mode-toggle" title="연령 모드">
       <button class="mode-btn" data-mode="kids" onclick="setMode('kids',true)" aria-label="어린이 모드" data-ko-aria="어린이 모드" data-en-aria="Kids mode">🧒</button>
@@ -602,7 +608,7 @@
       }
     });
   </script>
-<!-- BUILD:20260711135615 -->
+<!-- BUILD:20260711141902 -->
 <style id="mb-tidy-2026-07-11">
 /* ≤480px(폰): 우상단 고정 홈/EN 바가 연령모드(🧒/🧑‍🎓) 버튼을 덮지 않게 헤더를 그 아래로 */
 @media (max-width:480px){
