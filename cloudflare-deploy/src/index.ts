@@ -9,6 +9,7 @@ import { HealthResponse, TurnConfigResponse, PdfUploadResponse } from './types';
 import { handleMangoApi, runMonthlyReports, reconcileAllStreaks } from './api-mango';
 import { handlePayApi, runPaymentAudit } from './api-pay';
 import { handlePayrollIngest, getPayrollAuto, payrollAiSummary, setPhpKrwRate, markPayrollPaid } from './api-payroll-auto';
+import { handleRetentionIngest, getRetention, markRetentionContacted } from './api-retention';
 import { runSiteWatchdog } from './api-uptime';   // 🐕 사이트 자체 감시견(cron */15)
 import { purgeExpired } from './retention';
 import { purgeOrphanedRecordings } from './recordings-cleanup';
@@ -1097,6 +1098,48 @@ const worker = {
         return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
           { status: 500, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
       }
+    }
+
+    // 🔁 수강권 만료·재활성 인제스트 (카페24 서버 → 워커, 공유키 보호)
+    if (path === '/api/retention-ingest') {
+      try {
+        const res = await handleRetentionIngest(request, url, env as any);
+        if (res) return res;
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
+          { status: 500, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      }
+    }
+
+    // 🔁 수강권 만료·재활성 조회 (관리자 전용). ?type=expiring|expired|inactive
+    if (path === '/api/admin/retention') {
+      try {
+        const data = await getRetention(env as any, url.searchParams.get('type') || 'expiring');
+        return new Response(JSON.stringify({ ok: true, ...data }),
+          { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
+          { status: 500, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      }
+    }
+
+    // 🔁 수강권 '연락함' 토글 (관리자 전용). POST { user_id, contacted }
+    if (path === '/api/admin/retention/contacted' && request.method === 'POST') {
+      try {
+        const b: any = await request.json().catch(() => ({}));
+        await markRetentionContacted(env as any, String(b?.user_id || ''), !!b?.contacted);
+        return new Response(JSON.stringify({ ok: true }),
+          { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
+          { status: 500, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      }
+    }
+
+    // 🔁 /admin/retention — 수강권 만료·재활성 대시보드 (관리자 전용)
+    if (path === '/admin/retention' || path === '/admin/retention/') {
+      const r = new Request(new URL('/admin/retention.html' + url.search, request.url).toString(), request);
+      return env.ASSETS.fetch(r);
     }
 
     // 🧾 강사 급여 자동 조회 (관리자 전용 — 위 default-deny 미들웨어가 인증 보장)
@@ -3066,6 +3109,9 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/payroll/auto') return true;
   if (path === '/api/admin/payroll/rate') return true;
   if (path === '/api/admin/payroll/mark-paid') return true;
+  // 🔁 수강권 만료·재활성 대시보드 + API (2026-07-11) — 관리자 전용
+  if (path === '/admin/retention' || path === '/admin/retention/' || path === '/admin/retention.html') return true;
+  if (path === '/api/admin/retention' || path === '/api/admin/retention/contacted') return true;
   // 🎓 학습 인사이트 대시보드 + API (2026-06-03) — 관리자 전용
   if (path === '/admin/learning-insights' || path === '/admin/learning-insights/' || path === '/admin/learning-insights.html') return true;
   if (path.startsWith('/api/admin/learning/')) return true;

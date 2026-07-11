@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>수강권 만료·재활성 · 망고아이</title>
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:'Malgun Gothic','맑은 고딕','Segoe UI',sans-serif; background:linear-gradient(160deg,#0f172a,#1e293b); color:#e6edf6; min-height:100vh; padding:22px; font-size:17px; }
+  .wrap { max-width:1040px; margin:0 auto; }
+  .head { display:flex; align-items:center; gap:14px; margin-bottom:6px; }
+  .head img { height:52px; }
+  h1 { font-size:29px; margin:0; font-weight:900; }
+  .sub { color:#a9b7ca; font-size:16.5px; margin:4px 0 20px; line-height:1.55; }
+  .langbtn { margin-left:auto; align-self:flex-start; cursor:pointer; font-weight:800; font-size:15px; border-radius:999px; padding:10px 18px; border:1px solid rgba(148,163,184,0.45); background:transparent; color:#e6edf6; }
+  .card { background:rgba(30,41,59,0.92); border:1px solid rgba(148,163,184,0.22); border-radius:20px; padding:22px; margin-bottom:18px; }
+  .tabs { display:flex; flex-wrap:wrap; gap:10px; }
+  .tab { cursor:pointer; font-size:17px; font-weight:800; border-radius:14px; padding:15px 20px; border:1px solid rgba(148,163,184,0.3); background:rgba(15,23,42,0.6); color:#cbd5e1; text-align:center; flex:1; min-width:150px; }
+  .tab .cnt { display:block; font-size:26px; font-weight:900; margin-top:4px; }
+  .tab.active { border-color:transparent; }
+  .tab.expiring.active { background:linear-gradient(135deg,#f59e0b,#d97706); color:#1a1204; }
+  .tab.expired.active { background:linear-gradient(135deg,#ef4444,#b91c1c); color:#fff; }
+  .tab.inactive.active { background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:#fff; }
+  .toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:14px; }
+  input, button { font-size:16px; border-radius:11px; padding:12px 15px; border:1px solid rgba(148,163,184,0.4); }
+  input { background:#0f172a; color:#e6edf6; flex:1; min-width:180px; }
+  .btn { cursor:pointer; font-weight:800; border:0; background:transparent; color:#e6edf6; border:1px solid rgba(148,163,184,0.45); }
+  table { width:100%; border-collapse:collapse; margin-top:6px; font-size:16.5px; }
+  th, td { padding:14px 11px; text-align:left; border-bottom:1px solid rgba(148,163,184,0.16); }
+  th { color:#a9b7ca; font-size:14px; font-weight:700; white-space:nowrap; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  tbody tr:nth-child(even) { background:rgba(148,163,184,0.06); }
+  .name { font-weight:800; font-size:18px; }
+  .badge { font-size:14px; font-weight:800; padding:5px 12px; border-radius:999px; white-space:nowrap; }
+  .b-warn { background:rgba(245,158,11,0.18); color:#fbbf24; }
+  .b-danger { background:rgba(239,68,68,0.18); color:#fca5a5; }
+  .b-info { background:rgba(59,130,246,0.18); color:#93c5fd; }
+  .detail { color:#7dd3fc; text-decoration:none; font-weight:700; }
+  .chk { width:22px; height:22px; cursor:pointer; }
+  .empty { text-align:center; color:#a9b7ca; padding:32px 12px; line-height:1.7; }
+  .muted { color:#7c8ba1; font-size:14.5px; }
+  @media (max-width:720px){ table{font-size:14.5px;} th,td{padding:11px 7px;} h1{font-size:24px;} .tab .cnt{font-size:22px;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <img src="/img/mango-char.png" alt="Mangoi">
+    <h1 id="t_title">🔁 수강권 관리</h1>
+    <button class="langbtn" id="lang">🇺🇸 English</button>
+  </div>
+  <div class="sub" id="t_sub"></div>
+
+  <div class="card">
+    <div class="tabs">
+      <div class="tab expiring" data-cat="expiring"><span id="t_tab_expiring"></span><span class="cnt" id="c_expiring">–</span></div>
+      <div class="tab expired" data-cat="expired"><span id="t_tab_expired"></span><span class="cnt" id="c_expired">–</span></div>
+      <div class="tab inactive" data-cat="inactive"><span id="t_tab_inactive"></span><span class="cnt" id="c_inactive">–</span></div>
+    </div>
+    <div class="toolbar">
+      <input id="search" type="text">
+      <button class="btn" id="csv"></button>
+      <span class="muted" id="updated"></span>
+    </div>
+  </div>
+
+  <div class="card"><div id="body"></div></div>
+</div>
+
+<script>
+(function(){
+  var g=function(id){return document.getElementById(id);};
+  var cur={ rows:[], counts:{}, cat:'expiring' };
+
+  var I18N={
+    ko:{ title:'🔁 수강권 만료·재활성 관리', langLabel:'🇺🇸 English', htmlLang:'ko',
+      sub:'이 시스템은 <b>기간제 정기수업</b>이에요. <b>만료 임박</b>(갱신 유도)·<b>최근 만료</b>(재등록)·<b>휴면</b>(이탈 위험) 학생을 자동으로 찾아드려요.',
+      tab_expiring:'⏰ 만료 임박 (30일 내)', tab_expired:'🔴 최근 만료 (60일 내)', tab_inactive:'💤 휴면 (수업 끊김)',
+      searchPh:'학생 이름/아이디 검색…', csv:'⬇️ CSV', updated:'갱신: ',
+      th_student:'학생', th_last:'마지막 수업', th_expiry:'만료일', th_status:'상태', th_detail:'상세', th_done:'연락함',
+      dLeft:function(n){return n+'일 남음';}, dAgo:function(n){return n+'일 전';}, dOver:function(n){return n+'일 지남';},
+      noClass:'수업 기록 없음', detail:'보기 ›', loading:'불러오는 중…', empty:'해당 학생이 없어요. 👍', neterr:'네트워크 오류', needLogin:'관리자 로그인이 필요합니다.', loginLink:'로그인하기', noMatch:'검색 결과 없음',
+      csvHead:'아이디,이름,카테고리,마지막수업,만료일,만료까지(일),휴면(일),연락함', csvName:'수강권관리', y:'예', n:'아니오' },
+    en:{ title:'🔁 Enrollment Retention', langLabel:'🇰🇷 한국어', htmlLang:'en',
+      sub:'This is a <b>period-based subscription</b> model. It automatically finds students who are <b>expiring soon</b> (renew), <b>recently expired</b> (re-enroll), or <b>inactive</b> (churn risk).',
+      tab_expiring:'⏰ Expiring (30 days)', tab_expired:'🔴 Recently expired (60d)', tab_inactive:'💤 Inactive (no class)',
+      searchPh:'Search name / ID…', csv:'⬇️ CSV', updated:'Updated: ',
+      th_student:'Student', th_last:'Last class', th_expiry:'Expiry', th_status:'Status', th_detail:'Detail', th_done:'Contacted',
+      dLeft:function(n){return n+'d left';}, dAgo:function(n){return n+'d ago';}, dOver:function(n){return n+'d overdue';},
+      noClass:'No class record', detail:'View ›', loading:'Loading…', empty:'No students here. 👍', neterr:'Network error', needLogin:'Admin login required.', loginLink:'Go to login', noMatch:'No match',
+      csvHead:'ID,Name,Category,LastClass,Expiry,DaysToExpiry,DaysInactive,Contacted', csvName:'Retention', y:'yes', n:'no' }
+  };
+  var lang=localStorage.getItem('mangoi_payroll_lang')||'en';
+  function t(){return I18N[lang];}
+
+  function applyLang(){
+    var d=t(); document.documentElement.lang=d.htmlLang;
+    g('t_title').textContent=d.title; g('lang').textContent=d.langLabel; g('t_sub').innerHTML=d.sub;
+    g('t_tab_expiring').textContent=d.tab_expiring; g('t_tab_expired').textContent=d.tab_expired; g('t_tab_inactive').textContent=d.tab_inactive;
+    g('search').placeholder=d.searchPh; g('csv').textContent=d.csv;
+    render();
+  }
+
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+
+  function setActiveTab(){
+    Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(tb){ tb.classList.toggle('active', tb.getAttribute('data-cat')===cur.cat); });
+  }
+
+  function render(){
+    var d=t();
+    g('c_expiring').textContent=cur.counts.expiring||0;
+    g('c_expired').textContent=cur.counts.expired||0;
+    g('c_inactive').textContent=cur.counts.inactive||0;
+    setActiveTab();
+    var q=(g('search').value||'').trim().toLowerCase();
+    var rows=cur.rows.filter(function(r){ return !q || String(r.name||'').toLowerCase().indexOf(q)>=0 || String(r.user_id||'').toLowerCase().indexOf(q)>=0; });
+    if(!cur.rows.length){ g('body').innerHTML='<div class="empty">'+d.empty+'</div>'; return; }
+    if(!rows.length){ g('body').innerHTML='<div class="empty">'+d.noMatch+'</div>'; return; }
+    var h='<table><thead><tr><th>'+d.th_student+'</th><th>'+d.th_last+'</th><th>'+d.th_expiry+'</th><th>'+d.th_detail+'</th><th style="text-align:center">'+d.th_done+'</th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      var last = r.last_class ? (r.last_class+' <span class="muted">('+d.dAgo(r.days_inactive)+')</span>') : '<span class="muted">'+d.noClass+'</span>';
+      var exp;
+      if(r.end_date){
+        var tag = r.days_to_expiry==null? '' : (r.days_to_expiry>=0? '<span class="badge b-warn">'+d.dLeft(r.days_to_expiry)+'</span>' : '<span class="badge b-danger">'+d.dOver(-r.days_to_expiry)+'</span>');
+        exp = r.end_date+' '+tag;
+      } else exp='<span class="muted">–</span>';
+      h+='<tr><td class="name">'+esc(r.name||r.user_id)+'<div class="muted">'+esc(r.user_id)+'</div></td>'
+        +'<td>'+last+'</td><td>'+exp+'</td>'
+        +'<td><a class="detail" href="/admin/student?uid='+encodeURIComponent(r.user_id)+'" target="_blank">'+d.detail+'</a></td>'
+        +'<td style="text-align:center"><input class="chk" type="checkbox" data-uid="'+esc(r.user_id)+'" '+(r.contacted?'checked':'')+'></td></tr>';
+    });
+    h+='</tbody></table>'; g('body').innerHTML=h;
+    Array.prototype.forEach.call(document.querySelectorAll('.chk'), function(c){ c.addEventListener('change', function(){ toggleContacted(c.getAttribute('data-uid'), c.checked); }); });
+  }
+
+  function toggleContacted(uid, done){
+    var r=cur.rows.filter(function(x){return x.user_id===uid;})[0]; if(r) r.contacted=done?1:0;
+    fetch('/api/admin/retention/contacted',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:uid,contacted:done})}).catch(function(){});
+  }
+
+  function load(){
+    var d=t();
+    g('body').innerHTML='<div class="empty">'+d.loading+'</div>';
+    fetch('/api/admin/retention?type='+cur.cat,{credentials:'same-origin'})
+      .then(function(r){ if(r.status===401){throw new Error('auth');} return r.json(); })
+      .then(function(data){
+        if(!data||!data.ok){ g('body').innerHTML='<div class="empty">'+d.neterr+'</div>'; return; }
+        cur.rows=data.rows||[]; cur.counts=data.counts||{};
+        g('updated').textContent=data.updated_at?(d.updated+new Date(data.updated_at).toLocaleString()):'';
+        render();
+      })
+      .catch(function(e){
+        if(e.message==='auth'){ g('body').innerHTML='<div class="empty">'+d.needLogin+'<br><a href="/admin/login.html" style="color:#7dd3fc">'+d.loginLink+'</a></div>'; }
+        else g('body').innerHTML='<div class="empty">'+d.neterr+'</div>';
+      });
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(tb){ tb.addEventListener('click', function(){ cur.cat=tb.getAttribute('data-cat'); g('search').value=''; load(); }); });
+  g('lang').addEventListener('click', function(){ lang=(lang==='ko'?'en':'ko'); localStorage.setItem('mangoi_payroll_lang',lang); applyLang(); });
+  g('search').addEventListener('input', render);
+  g('csv').addEventListener('click', function(){
+    var d=t(); if(!cur.rows.length){ return; }
+    var lines=[d.csvHead];
+    cur.rows.forEach(function(r){ lines.push([r.user_id,'"'+String(r.name||'').replace(/"/g,'""')+'"',r.category,r.last_class||'',r.end_date||'',r.days_to_expiry==null?'':r.days_to_expiry,r.days_inactive==null?'':r.days_inactive,r.contacted?d.y:d.n].join(',')); });
+    var blob=new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=d.csvName+'_'+cur.cat+'.csv'; a.click();
+  });
+
+  applyLang(); load();
+})();
+</script>
+</body>
+</html>
