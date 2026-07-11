@@ -1241,43 +1241,124 @@ export async function executeAction(
 //   index.html 학생 검색창의 폴백 호출 /api/student/ai-command 를 처리한다.
 //   클라이언트가 소비하는 응답 형태로만 출력: navigate(url|view|external_url) / action(inquiry) / answer
 // ════════════════════════════════════════════════════════════════════════
-const STUDENT_SYSTEM_PROMPT = `You are 망고아이(Mangoi) student search router. Classify the Korean student search input and output ONE JSON object only. No prose, no markdown, no code blocks.
+// ── 학생 메뉴 라우트 표 (키워드 → 목적지). index.html 검색창 RULES 와 1:1 미러.
+//    url: 실제 페이지(옛 브라우저 캐시에서도 즉시 이동됨) / view: SPA 뷰 / run: 클라 화이트리스트 함수 / action: inquiry 모달
+//    ⚠️ 순서 중요 = 더 구체적인 항목을 위로. resolveStudentNav 는 첫 매칭을 반환.
+type StudentRoute = { kws: string[]; url?: string; view?: string; run?: string; action?: string; label: string };
+export const STUDENT_ROUTES: StudentRoute[] = [
+  // 🎮 학생게임 (게임류 최우선)
+  { kws: ['학생게임', '학생 게임', '학생용게임', '미니게임', '미니 게임', '학습게임', '학습 게임', '영어게임', '영어 게임', '게임하기', '게임 하기', '게임하러', '게임 열어', '게임열어', '게임 페이지', '게임하고', '게임할래', '게임 시작', '게임', '오락', '놀이', 'game', 'games', 'play game'], url: '/student-games.html', label: '🎮 학생게임' },
+  // 📊 성적/평가/리포트
+  { kws: ['성적표', '평가표', '성적', '점수', '시험점수', '테스트결과', '테스트 결과', '평가결과', '평가 결과', '내 성적', '내성적', '일별평가', '일별 평가', '수업평가', '피드백', '리포트', '학습리포트', '학습 리포트', '분석리포트', 'report', '레벨테스트 결과'], url: '/report.html', label: '📊 성적표·리포트' },
+  { kws: ['월말평가', '월간평가', '월말 평가', '평가서', 'evaluation'], url: '/eval.html', label: '📝 월말 평가서' },
+  { kws: ['월간리포트', '월간 리포트', 'monthly report'], url: '/monthly-report.html', label: '📈 월간 리포트' },
+  // 📖 학습 기능
+  { kws: ['단어장', '단어 장', '내 단어장', '어휘장', '어휘', '단어', 'vocab', 'vocabulary', 'word list'], url: '/vocab.html', label: '📖 단어장' },
+  { kws: ['복습퀴즈', '복습 퀴즈', '선생님 퀴즈', '리뷰 퀴즈', '복습', 'review quiz'], url: '/review-quiz.html', label: '🧠 복습퀴즈' },
+  { kws: ['미니퀴즈', '미니 퀴즈', '단어퀴즈', '단어 퀴즈', '쪽지시험', '퀴즈', 'quiz'], url: '/micro-quiz.html', label: '🎯 미니 퀴즈' },
+  { kws: ['연속출석', '연속 출석', '출석체크', '출석 체크', '스트릭', '데일리 출석', '출석', 'streak', 'attendance'], url: '/streak.html', label: '🔥 연속 출석' },
+  { kws: ['칭찬스티커', '칭찬 스티커', '칭찬', '스티커', '선생님 칭찬', 'praise', 'sticker'], url: '/teacher-praise.html', label: '🌟 칭찬 스티커' },
+  { kws: ['수업자료', '수업 자료', '학습자료', '학습 자료', '강의자료', '수업교재', '수업 교재', '수업노트', 'materials'], url: '/lessons.html', label: '📖 수업 자료' },
+  { kws: ['교재업로더', '교재 업로더', '교재폴더', '교재 폴더', '교과서', '교재', 'textbook', 'classify'], url: '/textbook-uploader.html', label: '📚 교재 업로더' },
+  // 🤖 AI 기능
+  { kws: ['ai친구', 'ai 친구', '인공지능 친구', '영어친구', '영어 친구', '대화연습', '대화 연습', '챗봇', 'ai friend', 'chatbot'], url: '/ai-friend.html', label: '🤖 AI 친구' },
+  { kws: ['ai작문', 'ai 작문', '영작문', '영작', '작문첨삭', '작문 첨삭', '글쓰기', 'ai write', 'writing'], url: '/ai-write.html', label: '✍ AI 작문' },
+  // 🗣 발음
+  { kws: ['중국어발음', '중국어 발음', '중국어발음코치', '중국어', 'chinese', 'mandarin', '병음', 'pinyin', '다락원'], url: '/speech-coach-cn.html', label: '🇨🇳 중국어 발음 코치' },
+  { kws: ['발음연습', '발음 연습', '발음코치', '발음 코치', '발음교정', '발음 교정', '발음테스트', '발음 체크', '영어발음', '발음', '스피킹', '말하기연습', '말하기 연습', 'pronunciation', 'speaking'], url: '/speech-coach.html', label: '🗣 영어 발음 코치' },
+  // 🧠 MBTI
+  { kws: ['mbti매칭', 'mbti 매칭', '엠비티아이 매칭', '강사매칭', '강사 매칭', '성향매칭', '성향 매칭', 'mbti match'], url: '/mbti.html', label: '🧠 MBTI 매칭' },
+  { kws: ['mbti테스트', 'mbti 테스트', '엠비티아이 테스트', '성향테스트', '성격테스트', '성격 테스트', 'mbti test', 'mbti'], url: '/mbti-test.html', label: '🧪 MBTI 테스트' },
+  // 📅 스케줄 / 수업신청
+  { kws: ['주간스케줄', '주간 스케줄', '내스케줄', '내 스케줄', '스케줄', '시간표', '주간시간표', '수업일정', '수업 일정', '일정표', 'schedule', 'timetable'], url: '/admin/weekly-schedule.html?role=student', label: '📅 내 주간 스케줄' },
+  { kws: ['수업신청', '수업 신청', '수강신청', '수강 신청', '예약하기', '시간선택', '교사선택', 'book', 'booking'], url: '/lesson-booking-demo.html', label: '📝 수업 신청' },
+  // 🎥 수업입장 (SPA view)
+  { kws: ['수업입장', '수업 입장', '수업시작', '수업 시작', '강의실', '들어가기', '입장', '공부시작', '공부 시작', '화상수업', '화상통화', '화상 통화', '클래스', '방 들어가기', 'class'], view: 'view-videocall-lobby', label: '🎥 수업 입장' },
+  // 👤 마이페이지 / 학부모
+  { kws: ['마이페이지', '내정보', '내 정보', '프로필', '학부모', '자녀보기', '자녀 보기', 'mypage', 'my page', 'profile'], url: '/parent.html', label: '👤 마이페이지' },
+  // 💳 결제 (모달 함수)
+  { kws: ['결제', '결제하기', '강의료', '수강료', '학원비', '등록금', '학비', '수업료', '월회비', '레슨비', '교육비', '납부', 'payment', 'pay', 'tuition'], run: 'grid:payment', label: '💳 수강료 결제' },
+  // 🎁 포인트 상점 (모달 함수)
+  { kws: ['포인트상점', '포인트 상점', '포인트샵', '포인트몰', '기프티콘', '기프트', '선물', '상점', '쇼핑', '리워드', '적립', '포인트', 'point', 'gift', 'shop', 'reward'], run: 'showPointsShop', label: '🎁 포인트 상점' },
+  // 📅 연기/변경 (모달 함수)
+  { kws: ['수업연기', '수업 연기', '연기', '일정변경', '일정 변경', '날짜변경', '날짜 변경', '시간변경', '시간 변경', '미루기', '수업취소', '수업 취소'], run: 'openLessonChangeModal', label: '📅 수업 연기·변경' },
+  // 💬 신규상담 (inquiry 모달 — 옛 클라이언트도 지원)
+  { kws: ['신규상담', '신규 상담', '상담신청', '상담 신청', '문의하기', '문의', '가입문의', '가입 문의', '첫방문', '무료체험', '무료 체험', '체험수업', 'inquiry', 'consult'], action: 'inquiry', label: '💬 신규상담·체험' },
+  // 🏠 전체 메뉴 (모달 함수)
+  { kws: ['전체메뉴', '전체 메뉴', '모든메뉴', '모든 메뉴', '메뉴', '홈페이지', '메인화면', '히트맵', '바로가기'], run: 'openAllMenuOverlay', label: '🥭 전체 메뉴' },
+  // 📊 관리자
+  { kws: ['관리자', '대시보드', '원장페이지', '원장 페이지', '관리자 로그인', 'admin', 'dashboard'], url: '/admin.html', label: '📊 관리자' },
+];
 
-Allowed outputs (choose exactly one shape):
-{"intent":"navigate","url":"/parent.html","answer":"<Korean 1 sentence>"}
+// 공백/대소문자 정규화 후 부분일치. 첫 매칭 route 반환(없으면 null).
+export function resolveStudentNav(command: string): StudentRoute | null {
+  const t = (command || '').toString().toLowerCase().replace(/\s+/g, ' ').trim();
+  if (!t) return null;
+  const tSquash = t.replace(/\s+/g, ''); // 공백 무시 매칭도 병행 ("학생 게임"=="학생게임")
+  for (const r of STUDENT_ROUTES) {
+    for (const k of r.kws) {
+      const kk = k.toLowerCase();
+      if (t.includes(kk) || tSquash.includes(kk.replace(/\s+/g, ''))) return r;
+    }
+  }
+  return null;
+}
+
+function routeToResponse(r: StudentRoute): any {
+  if (r.action === 'inquiry') return { intent: 'action', name: 'inquiry', answer: `${r.label} 신청 폼을 열어드릴게요.` };
+  const out: any = { intent: 'navigate', answer: `${r.label} (으)로 이동합니다.` };
+  if (r.url) out.url = r.url;
+  else if (r.view) out.view = r.view;
+  else if (r.run) out.run = r.run;
+  return out;
+}
+
+// LLM 폴백용: 알려진 목적지 화이트리스트(할루시네이션 URL 차단)
+const STUDENT_URL_WHITELIST = new Set(STUDENT_ROUTES.filter(r => r.url).map(r => r.url as string));
+const STUDENT_RUN_WHITELIST = new Set(STUDENT_ROUTES.filter(r => r.run).map(r => r.run as string));
+
+const STUDENT_MENU_LINES = STUDENT_ROUTES.map(r => {
+  const dest = r.url ? `url ${r.url}` : r.view ? `view ${r.view}` : r.run ? `run ${r.run}` : 'action inquiry';
+  return `- ${r.label}: ${r.kws.slice(0, 6).join(', ')} → ${dest}`;
+}).join('\n');
+
+const STUDENT_SYSTEM_PROMPT = `You are 망고아이(Mangoi) student assistant for an English academy. The user typed in a search box. Decide if they want to GO somewhere (navigate) or ASK something (answer). Output ONE JSON object only — no prose, no markdown, no code fences.
+
+MENU (keyword hints → destination):
+${STUDENT_MENU_LINES}
+
+Output shapes (pick exactly one):
+{"intent":"navigate","url":"/vocab.html","answer":"<Korean 1 sentence>"}
 {"intent":"navigate","view":"view-videocall-lobby","answer":"<Korean 1 sentence>"}
-{"intent":"navigate","external_url":"https://mangoi-speech.pages.dev/practice","answer":"<Korean 1 sentence>"}
-{"intent":"navigate","url":"/admin.html","answer":"<Korean 1 sentence>"}
+{"intent":"navigate","run":"grid:payment","answer":"<Korean 1 sentence>"}
 {"intent":"action","name":"inquiry","answer":"<Korean 1 sentence>"}
-{"intent":"answer","answer":"<Korean 1 sentence>"}
+{"intent":"answer","answer":"<Korean 1~3 sentences>"}
 
-Mapping rules (synonyms -> output):
-- 마이페이지/내정보/내 정보/프로필 -> navigate url "/parent.html" (학생 검색창의 마이페이지 = 학부모/학생 대시보드. /admin/mypage.html 은 교사·관리자용이므로 학생에게 안내 금지)
-- 평가표/성적표/성적/점수/시험점수/테스트결과/결과/피드백/리포트/Report/레벨테스트 결과 -> intent "answer", answer = "내 평가표는 검색창에 '평가표'라고 입력하면 바로 열려요."
-- 수업입장/강의실/수업시작/들어가기/입장/링크/링크 연결/공부시작/클래스 입장/화상수업 로비/방 들어가기/화상통화 -> navigate view "view-videocall-lobby"
-- 발음연습/발음교정/발음테스트/스피킹/말하기 연습/발음 체크/단계별 발음 -> navigate external_url "https://mangoi-speech.pages.dev/practice"
-- 관리자/원장 페이지/관리자 로그인/시스템 관리 -> navigate url "/admin.html"
-- 신규상담/상담신청/문의/고객센터/전화상담/첫 방문/가입 문의/레벨테스트 신청/수업신청/수강신청/등록 -> action name "inquiry"
-- 연기/변경/스케줄 변경/수업 연기/날짜 변경/시간 변경/시간 바꿈/미루기/일정 변경/오늘 수업 패스/수업 취소 -> intent "answer", answer = "수업 연기·변경은 메뉴의 '연기/변경'에서 하실 수 있어요."
-- 결제/결제하기/강의료/수강료/학원비/돈/금액/얼마/가격/비용/카드/충전 -> intent "answer", answer = "결제는 메인 화면 아래의 \"결제하기\" 버튼을 눌러주세요."
-- 학생/강사/학원 이름 검색 -> intent "answer", answer = "이름 검색은 관리자 기능이에요. 학생은 메뉴 키워드로 검색해 주세요."
-- 그 외 알 수 없으면 -> intent "answer", answer = "명령을 이해하지 못했어요. 수업입장·발음연습·마이페이지·신규상담 등으로 시도해 보세요."
-
-The "answer" field is ALWAYS one short Korean sentence. Output JSON only.`;
+RULES:
+1. If the input names or hints at ANY menu above (even loosely, even with typos or partial words), ALWAYS return navigate/action to the CLOSEST matching destination. Prefer navigating over answering — when in doubt, navigate.
+2. Only "url"/"view"/"run" values that appear in the MENU above are allowed. Never invent a URL.
+3. If it is a genuine question (뭐야/어떻게/왜/얼마/언제/추천/차이 등) that no menu answers, use intent "answer" and give a warm, helpful Korean answer (1~3 sentences). You may also suggest the closest menu keyword.
+4. "answer" is always Korean. Output JSON only.`;
 
 export async function processStudentCommand(env: { AI?: any }, command: string): Promise<any> {
   const cmd = (command || '').toString().trim();
   if (!cmd) return { intent: 'answer', answer: '검색어를 입력해주세요.' };
   if (cmd.length > 300) return { intent: 'answer', answer: '검색어가 너무 길어요. 짧게 입력해 주세요.' };
-  if (!env.AI) return { intent: 'answer', answer: '명령을 이해하지 못했어요. 수업입장·발음연습·마이페이지·신규상담 등으로 시도해 보세요.' };
+
+  // 1) 결정론적 라우터 — 메뉴 키워드가 하나라도 걸리면 무조건 즉시 이동 (LLM·크레딧 스킵, 100% 확실)
+  const hit = resolveStudentNav(cmd);
+  if (hit) return routeToResponse(hit);
+
+  // 2) 메뉴에 없으면 LLM — 가장 가까운 메뉴로 안내하거나 질문에 답변
+  if (!env.AI) return { intent: 'answer', answer: '무엇을 도와드릴까요? 게임·단어장·성적표·복습퀴즈·발음연습·수업입장 등으로 말씀해 보세요.' };
   try {
     const result = await env.AI.run(MODEL, {
       messages: [
         { role: 'system', content: STUDENT_SYSTEM_PROMPT },
         { role: 'user', content: cmd },
       ],
-      max_tokens: 300,
-      temperature: 0.1,
+      max_tokens: 320,
+      temperature: 0.2,
       response_format: { type: 'json_object' },
     });
     const raw = (result?.response || result?.result?.response || '').trim();
@@ -1286,6 +1367,20 @@ export async function processStudentCommand(env: { AI?: any }, command: string):
     catch { const m = raw.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : null; }
     if (!parsed || !parsed.intent) throw new Error('no intent');
     if (!['navigate', 'action', 'answer'].includes(parsed.intent)) parsed.intent = 'answer';
+
+    // 할루시네이션 방어: LLM이 목적지를 지어내면 화이트리스트로만 허용, 아니면 answer 로 강등
+    if (parsed.intent === 'navigate') {
+      const okUrl = parsed.url && STUDENT_URL_WHITELIST.has(parsed.url);
+      const okRun = parsed.run && STUDENT_RUN_WHITELIST.has(parsed.run);
+      const okView = parsed.view === 'view-videocall-lobby';
+      if (!okUrl && !okRun && !okView) {
+        parsed = { intent: 'answer', answer: parsed.answer || '원하시는 메뉴를 못 찾았어요. 게임·단어장·성적표·복습퀴즈·발음연습 등으로 말씀해 보세요.' };
+      } else {
+        if (!okUrl) delete parsed.url;
+        if (!okRun) delete parsed.run;
+        if (!okView) delete parsed.view;
+      }
+    }
     if (parsed.intent === 'action' && parsed.name !== 'inquiry') {
       parsed.intent = 'answer';
       parsed.answer = parsed.answer || '아래 버튼을 이용해 주세요.';
@@ -1293,6 +1388,6 @@ export async function processStudentCommand(env: { AI?: any }, command: string):
     if (!parsed.answer) parsed.answer = '이동합니다.';
     return parsed;
   } catch {
-    return { intent: 'answer', answer: '명령을 이해하지 못했어요. 수업입장·발음연습·마이페이지·신규상담 등으로 시도해 보세요.' };
+    return { intent: 'answer', answer: '무엇을 도와드릴까요? 게임·단어장·성적표·복습퀴즈·발음연습·수업입장 등으로 말씀해 보세요.' };
   }
 }

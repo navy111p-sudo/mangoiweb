@@ -98,6 +98,25 @@
     'payment':       () => { if (window.gridActions && typeof window.gridActions.payment === 'function') window.gridActions.payment(); else alert('결제 기능을 불러올 수 없습니다.'); },
   };
 
+  // 서버 응답 d.run → 화이트리스트 함수만 실행 (임의 코드 실행 방지)
+  function runWhitelisted(name) {
+    try {
+      if (!name) return;
+      if (name.indexOf('grid:') === 0) {
+        var k = name.slice(5);
+        if (window.gridActions && typeof window.gridActions[k] === 'function') return window.gridActions[k]();
+        return;
+      }
+      var MAP = {
+        showPointsShop:        function(){ if (typeof window.showPointsShop === 'function') window.showPointsShop(); },
+        openAllMenuOverlay:    function(){ if (typeof window.openAllMenuOverlay === 'function') window.openAllMenuOverlay(); },
+        openInquiryModal:      function(){ if (typeof window.openInquiryModal === 'function') window.openInquiryModal(); },
+        openLessonChangeModal: function(){ if (typeof window.openLessonChangeModal === 'function') window.openLessonChangeModal(); }
+      };
+      if (MAP[name]) return MAP[name]();
+    } catch (e) { console.warn('[ai-home] runWhitelisted err:', name, e); }
+  }
+
   function findRule(text) {
     const t = text.toLowerCase().trim();
     if (!t) return null;
@@ -159,7 +178,8 @@
       if (d.intent === 'navigate') {
         showSuggest(`<b>${d.answer || '이동합니다'}</b>`, true);
         setTimeout(() => {
-          if (d.url) location.href = d.url;
+          if (d.run) runWhitelisted(d.run);        // 서버가 지정한 모달/그리드 함수 실행 (결제·포인트상점·전체메뉴 등)
+          else if (d.url) location.href = d.url;
           else if (d.external_url) window.open(d.external_url, '_blank');
           else if (d.view) showView(d.view);
         }, 400);
