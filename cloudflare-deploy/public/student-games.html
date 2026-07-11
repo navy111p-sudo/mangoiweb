@@ -122,13 +122,26 @@
     #game-area{padding:10px}
     /* iframe 게임(워드파이터·슈팅 등)은 게임 페이지가 자체 HUD를 꽉 채우므로
        허브 상단바를 최대한 얇게: 장식용 연속배지 숨김 + 속도 세그먼트 축소 → 게임 화면 확대 */
-    .game-iframewrap .game-topbar{padding:4px 10px;gap:6px}
     .game-iframewrap .game-topbar .back{padding:5px 11px;font-size:11.5px}
-    .game-iframewrap #streak-badge-game{display:none}
     .game-iframewrap .game-topbar .gname{font-size:13px}
-    .game-iframewrap .speed-pick .sp{width:28px;height:28px;font-size:14px}
-    .game-iframewrap .speed-pick{gap:4px}
   }
+  /* ===== iframe 게임: 허브 상단바를 딱 한 줄로 최소화 =====
+     · 속도 이모지 7개 세그먼트가 폰에서 둘째 줄로 감싸며 게임 화면(연습 문장)을 가리던 문제
+     · 속도 선택은 ⋮ 메뉴 버튼 속 드롭다운으로 이동(기능 동일), 연속배지는 숨김 */
+  .game-topbar{position:relative}
+  .game-topbar .kebab{display:none;margin-left:auto;flex-shrink:0;background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--tx);
+    width:36px;height:30px;border-radius:10px;font-size:18px;font-weight:900;cursor:pointer;line-height:1;font-family:inherit;
+    align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
+  .game-topbar .kebab:hover{background:rgba(251,191,36,.16);border-color:var(--gold)}
+  .game-iframewrap .game-topbar{flex-wrap:nowrap;padding:3px 8px;gap:6px}
+  .game-iframewrap .game-topbar .gname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .game-iframewrap #streak-badge-game{display:none}
+  .game-iframewrap .game-topbar .kebab{display:inline-flex}
+  .game-iframewrap #speed-pick-game{display:none;position:absolute;top:calc(100% + 6px);right:8px;z-index:80;
+    flex-direction:column;align-items:flex-end;gap:7px;background:rgba(10,18,38,.97);border:1px solid var(--line);
+    border-radius:14px;padding:10px 12px;box-shadow:0 14px 34px rgba(0,0,0,.55)}
+  .game-iframewrap .game-topbar.menu-open #speed-pick-game{display:flex}
+  .game-iframewrap #speed-pick-game .slab{display:inline-flex !important}
   /* brick/fill: 내용 세로 가운데 정렬 (위/아래 빈공간 균형) · match/balloon: 자식이 flex:1 로 채움 */
   #game-area.area-center{justify-content:center}
 
@@ -365,6 +378,8 @@
       <span id="streak-badge-game" style="margin-left:8px"></span>
       <!-- ⚡ 게임 중 속도(난이도) 변경 — 인라인 게임은 다음 라운드부터, iframe 게임은 재시작 적용 -->
       <span class="speed-pick" id="speed-pick-game" style="margin-left:8px"></span>
+      <!-- iframe 게임 전용: 속도 드롭다운 여닫는 ⋮ 메뉴 (상단바 한 줄 유지) -->
+      <button class="kebab" id="hub-kebab" title="게임 속도 설정" onclick="hubToggleTopMenu(event)">⋮</button>
       <button class="next" id="hub-next" onclick="gameNextRound()">🔄 다음 문제</button>
     </div>
     <div class="game-scorebar" id="hub-scorebar">
@@ -491,7 +506,7 @@ function loadDarakwonZh(){
     if(wds.length >= 6){ _ZH_WORDS.length=0; wds.forEach(function(w){ _ZH_WORDS.push(w); }); }
     if(GAME_LANG==='zh'){ _applyLangVocab();   // 중국어 모드면 활성 어휘 즉시 교체
       var el=document.getElementById('vocab-src-badge');
-      if(el){ el.textContent='📚 다락원 중국어 마스터 3 교재 어휘'; el.style.display='block'; } }
+      if(el){ el.textContent='📚 중국어 마스터 3 교재 어휘'; el.style.display='block'; } }
   }
   try{ var c=JSON.parse(sessionStorage.getItem(CK)||'null'); if(c && (Date.now()-c.at)<600000){ apply(c.d); return; } }catch(_){}
   fetch('/api/games/zh-vocab?textbook=' + encodeURIComponent('다락원') + '&level=' + encodeURIComponent('Lv 3'))
@@ -1150,7 +1165,7 @@ function setGameLang(lang){
   var t = document.getElementById('hub-title'), s = document.getElementById('hub-sub');
   if(t) t.innerHTML = (lang==='zh' ? '중국어 <span class="em">학습 게임</span> 🀄' : '영어 <span class="em">학습 게임</span> 🎮');
   if(s) s.innerHTML = (lang==='zh'
-    ? '재미있는 게임으로 중국어 단어·문장을 익혀요! (다락원 중국어 마스터 어휘)<br>원하는 게임을 눌러 바로 플레이하세요.'
+    ? '재미있는 게임으로 중국어 단어·문장을 익혀요! (중국어 마스터 어휘)<br>원하는 게임을 눌러 바로 플레이하세요.'
     : '재미있는 게임을 통해 오늘 배운 단어·문장을 다시 예복습해요!<br>원하는 게임을 눌러 바로 플레이하세요.');
   hubRenderMenu();   // 언어에 따라 카드 목록 갱신(중국어는 3D배틀 숨김)
   // 게임 진행 중이면 새 언어 어휘로 다시 시작(iframe 은 재로딩)
@@ -1194,10 +1209,26 @@ function renderSpeedPicks(){
       return '<button class="sp'+(s.lvl===_speedLvl?' on':'')+'" onclick="setGameSpeed('+s.lvl+')" title="'+s.name+'">'
         + s.ico + '</button>';
     }).join('');
-    el.innerHTML = (compact?'':'<span class="slab">⚡ 속도<b>'+cur.name+'</b></span>')
+    // 게임 상단바용도 라벨 포함 — 인라인 게임 폰에선 media query 가 숨기고, iframe ⋮ 드롭다운에선 표시
+    el.innerHTML = (compact?'<span class="slab">⚡ 속도 <b>'+cur.name+'</b></span>':'<span class="slab">⚡ 속도<b>'+cur.name+'</b></span>')
       + '<span class="seg">' + segs + '</span>';
   });
 }
+/* ⋮ 메뉴(속도 드롭다운) 토글 — iframe 게임에서 상단바를 한 줄로 유지하기 위한 것 */
+function hubToggleTopMenu(e){
+  if(e) e.stopPropagation();
+  var tb = document.querySelector('#hub-game .game-topbar');
+  if(tb) tb.classList.toggle('menu-open');
+}
+function hubCloseTopMenu(){
+  var tb = document.querySelector('#hub-game .game-topbar');
+  if(tb) tb.classList.remove('menu-open');
+}
+// 드롭다운 밖을 누르면 닫기 (드롭다운 안 클릭은 stopPropagation 없이도 topbar 내부라 유지)
+document.addEventListener('click', function(e){
+  var tb = document.querySelector('#hub-game .game-topbar');
+  if(tb && tb.classList.contains('menu-open') && !tb.contains(e.target)) tb.classList.remove('menu-open');
+});
 function setGameSpeed(lvl){
   if(!(lvl>=1&&lvl<=7)) lvl=3;
   _speedLvl = lvl;
@@ -1207,6 +1238,7 @@ function setGameSpeed(lvl){
   try{ localStorage.setItem('mangoi_game_stage', String(lvl)); }catch(_){}
   var _sg = document.getElementById('game-stage'); if(_sg) _sg.textContent = lvl;
   renderSpeedPicks();
+  hubCloseTopMenu();   // ⋮ 드롭다운에서 고른 뒤 자동 닫기 (iframe 은 어차피 재시작)
   // 게임 중이면 즉시 반영: iframe 게임은 새 속도로 재시작, 인라인은 새 라운드부터
   var gameOpen = document.getElementById('hub-game').classList.contains('active');
   if(!gameOpen) return;
@@ -1326,6 +1358,7 @@ function hubOpenGame(mode){
   document.getElementById('hub-game').classList.add('active');
   document.getElementById('hub-gname').textContent = g.ico+' '+_gameTitle(g);
   _applyGameTheme(mode);   // 🎨 이 게임 성격에 맞는 배경 테마
+  hubCloseTopMenu();
   var hubGameEl = document.getElementById('hub-game');
 
   if(g.kind === 'iframe'){
@@ -1980,7 +2013,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260712044924 -->
+<!-- BUILD:20260712045442 -->
 <script defer src="/js/flow.js"></script>
 </body>
 </html>

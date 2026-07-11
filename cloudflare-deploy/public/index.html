@@ -2252,12 +2252,14 @@
             .chat-panel.open { transform: translateY(0); }
             /* 모바일에선 말풍선 글씨를 한 단계 키워 읽기 쉽게 */
             .chat-panel .msg-bubble { font-size: 1rem; }
+            /* 캐시삭제 FAB(z 99999)가 채팅 입력창을 가림 → 채팅 열려있는 동안 숨김 */
+            body:has(#vc-chat-panel.open) #ph52-cache-fab { display: none !important; }
             /* 가로(랜드스케이프): 우측 패널, 폭 1/3 — 하단 독과 겹치는 만큼만 비움 */
             @media (orientation: landscape) {
                 .chat-panel {
                     top: 0; bottom: auto; height: 100vh; min-height: 0; max-height: none;
                     width: 33vw; min-width: 240px;
-                    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 54px);
+                    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 66px);
                     border-top: 0; border-left: 1px solid rgba(148,163,184,0.25);
                     border-radius: 0;
                     transform: translateX(100%);
@@ -11258,8 +11260,50 @@ window.vcRetryCamera = async function() {
 };
 
 /** 비디오 박스에 소리·화면 상태 아이콘 + 음량 미터 부착 */
+/* 🩹 fix (2026-07-12) — 모바일 얼굴 잘림 방지 스마트핏.
+   휴대폰 세로 카메라(세로 영상)가 가로 타일에 object-fit:cover 로 들어가면
+   위아래가 크게 잘려 얼굴 대신 벽/천장만 보임 (가상배경 캔버스도 카메라 비율이라 동일).
+   → 영상과 타일의 방향이 다르거나 비율차가 크면 contain 으로 전환해 얼굴 전체 표시.
+   (letterbox 여백은 가상배경 CSS 프레임/타일 배경이 채워줌) */
+function vcSmartFitVideo(v){
+  try {
+    if (!v || !v.videoWidth || !v.videoHeight) return;
+    var box = v.closest('.video-box'); if (!box) return;
+    var bw = box.clientWidth, bh = box.clientHeight; if (!bw || !bh) return;
+    var vr = v.videoWidth / v.videoHeight, br = bw / bh;
+    var mismatch = ((vr < 1) !== (br < 1)) || (Math.max(vr, br) / Math.min(vr, br) > 1.6);
+    // inline !important 라야 ph49 의 stylesheet !important(cover 강제)를 이김
+    v.style.setProperty('object-fit', mismatch ? 'contain' : 'cover', 'important');
+  } catch(e){}
+}
+function vcInstallSmartFit(v){
+  if (!v) return;
+  if (!v.__smartFit) {
+    v.__smartFit = true;
+    v.addEventListener('loadedmetadata', function(){ vcSmartFitVideo(v); });
+    v.addEventListener('resize', function(){ vcSmartFitVideo(v); }); // 영상 해상도 변경 시
+    // 타일 크기 변경(1/2·전체·PIP 버튼 등)에도 재계산
+    try {
+      var box = v.closest('.video-box');
+      if (box && !box.__smartFitRO && window.ResizeObserver) {
+        box.__smartFitRO = new ResizeObserver(function(){ vcSmartFitVideo(v); });
+        box.__smartFitRO.observe(box);
+      }
+    } catch(e){}
+  }
+  vcSmartFitVideo(v);
+}
+function vcSmartFitAll(){
+  try {
+    document.querySelectorAll('.video-box video').forEach(function(v){ vcInstallSmartFit(v); });
+  } catch(e){}
+}
+window.addEventListener('resize', function(){ setTimeout(vcSmartFitAll, 150); });
+window.addEventListener('orientationchange', function(){ setTimeout(vcSmartFitAll, 350); });
+
 function attachStreamMonitor(box, stream) {
     if (!box || !stream) return;
+    try { vcInstallSmartFit(box.querySelector('video')); } catch(e){}
     let status = box.querySelector('.video-status');
     if (!status) {
         status = document.createElement('div');
@@ -11341,6 +11385,43 @@ function vcUpdateGridCount() {
     const n = grid.querySelectorAll(':scope > .video-box').length;
     grid.setAttribute('data-count', String(Math.min(n, 9)));
 }
+
+/* fix (2026-07-12) — 📱 세로 카메라 얼굴 잘림 방지:
+ * 휴대폰(세로)이 보내는 portrait 영상이 가로/정사각 박스에 object-fit:cover 로
+ * 크롭되어 얼굴 위아래가 잘리던 문제. 각 <video>의 실제 해상도(videoWidth/Height)를
+ * 보고 세로 영상이면 박스에 .vid-portrait 를 달아 CSS(<style id="vid-portrait-fix">)가
+ * contain(얼굴 전체 표시)으로 전환하게 한다.
+ * 휴대폰을 가로로 돌리면 트랙 해상도가 가로로 바뀌며 'resize' 이벤트로 자동 복귀. */
+function vcWatchVideoAspect(v){
+    if (!v || v.__aspectWatch) return;
+    v.__aspectWatch = true;
+    var upd = function(){
+        var box = v.closest ? v.closest('.video-box') : null;
+        if (!box || !v.videoWidth || !v.videoHeight) return;
+        box.classList.toggle('vid-portrait', v.videoHeight > v.videoWidth);
+    };
+    v.addEventListener('loadedmetadata', upd);
+    v.addEventListener('resize', upd);   // 트랙 교체·회전 시 해상도 변경 감지
+    upd();
+}
+(function(){
+    var sweep = function(){
+        try {
+            document.querySelectorAll('#vc-video-grid video, .video-pane video, .vc-pip-body video, .video-box video')
+                .forEach(vcWatchVideoAspect);
+        } catch(e){}
+    };
+    var arm = function(){
+        sweep();
+        var grid = document.getElementById('vc-video-grid');
+        if (grid && !grid.__aspectMO) {
+            grid.__aspectMO = new MutationObserver(sweep);
+            grid.__aspectMO.observe(grid, { childList: true, subtree: true });
+        }
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm);
+    else arm();
+})();
 
 /** 다자간 통화 방 나가기 */
 async function vcLeaveRoom() {
@@ -12118,6 +12199,7 @@ window.vcSetBackground = async function(mode){
       v.style.borderRadius = '';
       v.style.boxShadow = '';
       v.style.filter = '';
+      try { vcInstallSmartFit(v); } catch(_){}
     }
     const box = document.getElementById('vc-local-box');
     if (box) {
@@ -12135,9 +12217,11 @@ window.vcSetBackground = async function(mode){
   //   먼저 비디오 컨테이너에 CSS background 적용 → 사용자가 즉시 시각적 변화 확인
   //   AI 처리는 그 위에 best-effort 로 시도 → 실패해도 CSS 프레임이 보임
   const vcLocalBox = document.getElementById('vc-local-box');
+  // fix (2026-07-12) — 모바일 타일은 작아서 12px 프레임이 얼굴 영역을 잡아먹음 → 6px
+  const _bgFramePad = vcIsMobileDevice() ? '6px' : '12px';
   if (vcLocalBox && mode !== 'blur' && VC_BG_IMAGES[mode]) {
     vcLocalBox.style.background = "url('" + VC_BG_IMAGES[mode] + "') center/cover";
-    vcLocalBox.style.padding = '12px';
+    vcLocalBox.style.padding = _bgFramePad;
     vcLocalBox.style.borderRadius = '14px';
     // 비디오 자체에 살짝 그림자 + 둥근 테두리로 자연스럽게
     const innerV = document.getElementById('vc-local-video');
@@ -12147,7 +12231,7 @@ window.vcSetBackground = async function(mode){
     }
   } else if (vcLocalBox && mode === 'blur') {
     vcLocalBox.style.background = '#1e293b';
-    vcLocalBox.style.padding = '12px';
+    vcLocalBox.style.padding = _bgFramePad;
     vcLocalBox.style.borderRadius = '14px';
     const innerV = document.getElementById('vc-local-video');
     if (innerV) innerV.style.filter = 'blur(0)';
@@ -12197,6 +12281,7 @@ window.vcSetBackground = async function(mode){
     // 모바일 자동재생 정책: srcObject 교체 후 play() 필수 (안 하면 정지 프레임)
     v.muted = true; v.setAttribute('playsinline','');
     try { const _p=v.play(); if(_p&&_p.catch) _p.catch(()=>{}); } catch(_){}
+    try { vcInstallSmartFit(v); } catch(_){}
   }
   const newVideoTrack = vcBg.processedStream.getVideoTracks()[0];
   if (newVideoTrack) vcSwapVideoTrack(newVideoTrack);
@@ -22487,6 +22572,36 @@ window.addEventListener('DOMContentLoaded', () => {
     background: transparent !important;
   }
 
+  /* 🩹 fix (2026-07-12) — 모바일 작은 타일에서 📷🎤+음량바 상태표시가
+     얼굴을 덮던 문제: 크기 축소 + 우하단 구석으로 밀착 + 반투명 */
+  @media (max-width: 900px) {
+    .video-status {
+      bottom: 2px !important;
+      right: 3px !important;
+      gap: 3px !important;
+      padding: 1px 5px !important;
+      font-size: 0.58rem !important;
+      background: rgba(0,0,0,0.4) !important;
+      border-radius: 5px !important;
+    }
+    .video-status .vol-meter { height: 9px !important; gap: 1px !important; }
+    .video-status .vol-meter span { width: 2px !important; }
+    .video-status .vol-meter span:nth-child(1) { height: 2px !important; }
+    .video-status .vol-meter span:nth-child(2) { height: 3px !important; }
+    .video-status .vol-meter span:nth-child(3) { height: 4.5px !important; }
+    .video-status .vol-meter span:nth-child(4) { height: 6px !important; }
+    .video-status .vol-meter span:nth-child(5) { height: 7.5px !important; }
+    .video-status .vol-meter span:nth-child(6) { height: 9px !important; }
+    /* 이름표(김민수 (나))도 좌하단 구석에 작게 */
+    #vc-video-grid .video-label {
+      bottom: 2px !important;
+      left: 3px !important;
+      padding: 1px 6px !important;
+      font-size: 9px !important;
+      opacity: 0.85;
+    }
+  }
+
   body.vc-in-call .wb-toolbar.ph49-collapsed > *:not(.ph49-tool-toggle),
   body.vc-in-call .pdf-controls.ph49-collapsed > *:not(.ph49-tool-toggle),
   body.vc-in-call .pdf-anno-bar.ph49-collapsed > *:not(.ph49-tool-toggle) {
@@ -24620,7 +24735,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260712044924 -->
+<!-- BUILD:20260712045442 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -26636,6 +26751,37 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     }
     body.vc-in-call .vc-main-row.video-threequarter:not(.video-full):not(.video-solo):not(.video-free):not(.video-pip):not(.content-full) .video-pane{
       width:52% !important; min-width:160px !important; max-width:none !important; flex:0 0 52% !important;
+    }
+  }
+</style>
+<style id="vid-portrait-fix">
+  /* 📱 세로 카메라 얼굴 잘림 방지 (2026-07-12)
+     휴대폰(세로)이 보내는 세로(portrait) 영상이 가로/정사각 박스에 object-fit:cover 로
+     강제 크롭되어 얼굴 위아래가 잘리던 문제. JS(vcWatchVideoAspect)가 각 <video>의 실제
+     스트림 비율을 감지해 세로 영상이면 박스에 .vid-portrait 를 달고, 여기서 contain
+     (얼굴 전체 표시)으로 전환한다. ID 2회 반복(#vc-video-grid#vc-video-grid)으로 기존의
+     어떤 object-fit:cover !important 규칙보다 특이도를 높여 확실히 이긴다.
+     휴대폰을 가로로 돌리면 트랙이 가로가 되어 클래스가 자동 해제 → 원래 cover 복귀. */
+  #vc-video-grid#vc-video-grid .video-box.vid-portrait video,
+  body.vc-in-call #vc-video-grid#vc-video-grid .video-box.vid-portrait video,
+  body.vc-in-call .video-pane .video-box.vid-portrait.vid-portrait video,
+  .vc-pip-body .video-box.vid-portrait.vid-portrait video,
+  .video-box.vid-portrait.vid-portrait.detached video {
+    object-fit: contain !important;
+    background: #0a1530 !important;
+  }
+  /* 세로 휴대폰에서 내가 혼자(1명)일 때: 가로 16:9 대신 영상과 같은 3:4 박스를
+     가운데 배치 → 여백(레터박스) 없이 얼굴이 꽉 차게 크게 보인다. */
+  @media (max-width: 900px) and (orientation: portrait) {
+    #vc-video-grid#vc-video-grid[data-count="1"] .video-box.vid-portrait,
+    #vc-video-grid#vc-video-grid .video-box.vid-portrait:only-child {
+      aspect-ratio: 3 / 4 !important;
+      width: auto !important;
+      max-width: 62vw !important;
+      height: 26vh !important;
+      max-height: 26vh !important;
+      justify-self: center !important;
+      margin: 0 auto !important;
     }
   }
 </style>

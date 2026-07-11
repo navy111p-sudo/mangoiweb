@@ -309,7 +309,7 @@
   ];
 
   var VOCAB = IS_ZH
-    ? { words: ZH_FALLBACK_WORDS.slice(), sentences: ZH_FALLBACK_SENTENCES.slice(), textbook:'다락원 중국어 마스터', level:'Lv 3', student:'', matched:true }
+    ? { words: ZH_FALLBACK_WORDS.slice(), sentences: ZH_FALLBACK_SENTENCES.slice(), textbook:'중국어 마스터', level:'Lv 3', student:'', matched:true }
     : { words: FALLBACK_WORDS.slice(), sentences: FALLBACK_SENTENCES.slice(), textbook:'', level:'', student:'', matched:false };
 
   /* ── 🖼️ 이모지 일러스트 사전 (단어 → 그림) ──
@@ -507,7 +507,7 @@
             var wds=(d.words||[]).filter(function(w){return w&&w.en&&w.ko;});
             if(sents.length>=3) VOCAB.sentences = sents.map(function(s){return {en:s.en, pinyin:s.pinyin||'', ko:s.ko||''};});
             if(wds.length>=6) VOCAB.words = wds.map(function(w){return {en:w.en, pinyin:w.pinyin||'', ko:w.ko||''};});
-            if(d.textbook) VOCAB.textbook=d.textbook; if(d.level) VOCAB.level=d.level;
+            if(d.textbook){ var _tb=String(d.textbook).replace(/다락원\s*/g,'').trim(); VOCAB.textbook=_tb||'중국어 마스터'; } if(d.level) VOCAB.level=d.level;
           }
           return VOCAB;
         }).catch(function(){ return VOCAB; });
@@ -841,6 +841,6 @@
 </script>
 <!-- BUILD:20260704 speakquiz1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260712044924 -->
+<!-- BUILD:20260712045442 -->
 </body>
 </html>
