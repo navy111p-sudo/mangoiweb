@@ -11386,17 +11386,52 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       const d = await r.json();
       if (!d.ok) throw new Error(d.error || (isEn?'Calculation failed':'계산 실패'));
       _prRows = d.rows || [];
+      // 🎭🔐 유효 역할(실제 로그인 또는 미리보기) 반영 — 강사=본인 급여만, 지사/대리점/학부모/학생=차단.
+      //   서버도 강사 로그인 시 본인 행만 내려주지만(2중 방어), 관리자의 '강사 모드 미리보기'에선
+      //   서버 쿠키가 관리자라 전체가 오므로 여기서 유효 역할 기준으로 정직하게 걸러준다.
+      const _prEffRole = (typeof window._effectiveRole === 'function') ? window._effectiveRole() : null;
+      const _prPreview = (typeof window._isRolePreview === 'function') && window._isRolePreview();
+      const _prSaveBtn0 = document.getElementById('pr-save-btn');
+      if (_prEffRole === 'branch' || _prEffRole === 'agency' || _prEffRole === 'parent' || _prEffRole === 'student') {
+        document.getElementById('pr-summary').innerHTML = isEn ? 'Payroll is visible only to HQ managers/executives and each teacher (own payslip).' : '급여는 본사 관리자·경영진(전체)과 교사 본인(본인 급여)만 볼 수 있습니다.';
+        if (_prSaveBtn0){ _prSaveBtn0.disabled = true; _prSaveBtn0.style.opacity = '.5'; }
+        tbody.innerHTML = `<div style="padding:30px;text-align:center;color:#6b7280;background:#f9fafb;border-radius:10px">${isEn?'Access restricted.':'열람 권한이 없습니다.'}</div>`;
+        _prRows = [];
+        return;
+      }
+      const _prTeacherView = _prEffRole === 'hq_teacher';
+      if (_prTeacherView) {
+        const _prOwnNm = (typeof window._effectiveOwnName === 'function') ? window._effectiveOwnName() : '';
+        _prRows = _prRows.filter(r => window._payrollIsOwnRow(r, { name: _prOwnNm }));
+      }
       const s = d.summary;
       const sFinal = s.total_final ?? s.total_amount;
-      const summaryHtml = isEn
+      let summaryHtml = isEn
         ? `${year}-${String(month).padStart(2,'0')} · Teachers <b>${fmt(s.teacher_count)}</b> · Classes <b>${fmt(s.total_lessons)}</b> · Deductions <b style="color:#dc2626">− ${fmtP(s.total_deduction||0)}</b> · Final <b style="color:#d97706">${fmtP(sFinal)}</b> · Paid ${fmt(s.paid_count)}/${fmt(s.teacher_count)}`
         : `${year}년 ${month}월 · 강사 <b>${fmt(s.teacher_count)}</b>명 · 총 수업 <b>${fmt(s.total_lessons)}</b>회 · 공제 <b style="color:#dc2626">− ${fmtP(s.total_deduction||0)}</b> · 실지급 <b style="color:#d97706">${fmtP(sFinal)}</b> · 지급 ${fmt(s.paid_count)}/${fmt(s.teacher_count)}`;
+      if (_prTeacherView) {
+        // 강사 본인 뷰: 합계도 본인 것만 (전체 강사 수/총액 노출 방지)
+        const _tf = _prRows.reduce((a,r)=>a+((r.final_amount ?? r.calculated_amount)||0),0);
+        const _td = _prRows.reduce((a,r)=>a+((r.deduction_total||0)),0);
+        const _tl = _prRows.reduce((a,r)=>a+((r.lesson_count||0)),0);
+        summaryHtml = (isEn
+          ? `👨‍🏫 Teacher Mode — your payslip only · ${year}-${String(month).padStart(2,'0')} · Classes <b>${fmt(_tl)}</b> · Deduction <b style="color:#dc2626">− ${fmtP(_td)}</b> · Final <b style="color:#d97706">${fmtP(_tf)}</b>`
+          : `👨‍🏫 강사 모드 — 본인 급여만 · ${year}년 ${month}월 · 수업 <b>${fmt(_tl)}</b>회 · 공제 <b style="color:#dc2626">− ${fmtP(_td)}</b> · 실지급 <b style="color:#d97706">${fmtP(_tf)}</b>`);
+      }
       document.getElementById('pr-summary').innerHTML = summaryHtml;
       const saveBtn = document.getElementById('pr-save-btn');
-      saveBtn.disabled = (_prRows.length === 0);
-      saveBtn.style.opacity = (_prRows.length === 0) ? '.5' : '1';
+      // 강사는 저장(정산 확정) 불가 — 미리보기·실제 모두
+      const _saveDisabled = (_prRows.length === 0) || _prTeacherView;
+      saveBtn.disabled = _saveDisabled;
+      saveBtn.style.opacity = _saveDisabled ? '.5' : '1';
       if (!_prRows.length) {
-        tbody.innerHTML = `<div style="padding:30px;text-align:center;color:#6b7280;background:#f9fafb;border-radius:10px">${isEn?'No teachers, or no classes this month.':'강사가 없거나 해당 월에 수업이 없습니다.'}</div>`;
+        const _emptyNote = _prTeacherView
+          ? (_prPreview
+              ? (isEn ? '👨‍🏫 Teacher Mode preview: a teacher sees ONLY their own payslip — other teachers are hidden.'
+                      : '👨‍🏫 강사 모드 미리보기: 강사는 <b>본인 급여만</b> 보이고 다른 강사 급여는 가려집니다.')
+              : (isEn ? 'No payslip found for your account this month.' : '이번 달 본인 급여명세서를 찾을 수 없습니다.'))
+          : (isEn ? 'No teachers, or no classes this month.' : '강사가 없거나 해당 월에 수업이 없습니다.');
+        tbody.innerHTML = `<div style="padding:30px;text-align:center;color:#6b7280;background:#f9fafb;border-radius:10px;line-height:1.7">${_emptyNote}</div>`;
         return;
       }
       // 컬럼 헤더 + 셀 라벨 i18n
@@ -23814,7 +23849,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260712032635 -->
+        <!-- BUILD:20260712032942 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
